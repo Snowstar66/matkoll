@@ -15,7 +15,7 @@ context:
 
 ## Intent
 
-**Problem:** Appen har ingen inloggning. Adressen blir publik och AI:n på Pontus Mac får bara nås av honom, så varje sida och serverfunktion måste kräva en session för en tillåten e-postadress.
+**Problem:** Appen har ingen inloggning. Adressen blir publik och AI:n på Pontus Mac får bara nås av hen, så varje sida och serverfunktion måste kräva en session för en tillåten e-postadress.
 
 **Approach:** Lokal Supabase via CLI med avstängd registrering, engångslänk med `token_hash` som verifieras i `/auth/confirm`, sessionsförnyelse i `src/proxy.ts` och en auktoritativ `requireUser()` som också kontrollerar `ALLOWED_EMAILS` (AD-3). Användare skapas bara av skriptet `pnpm users:sync`.
 

@@ -165,46 +165,46 @@ iPhone Safari är huvudmålet. Innehållet håller sig innanför säkerhetsmargi
 ### Flöde 1 – Spara ett recept (UJ-1, Pontus på soffan med mobilen)
 
 1. Pontus hittar ett recept på koket.se, kopierar länken och öppnar Matkoll.
-2. Han trycker på "+" i Recept-rubriken. Arket öppnas på fliken Länk med länken ifylld.
+2. Hen trycker på "+" i Recept-rubriken. Arket öppnas på fliken Länk med länken ifylld.
 3. "Läser receptet …" i några sekunder.
 4. Förhandsgranskningen visar receptet i Matkolls format. Raden "1 lök, hackad" har ljusblå ring och "Kontrollera".
-5. Han trycker på raden och byter katalogingrediens till "gul lök".
-6. **Klimax:** han trycker "Spara recept" och hamnar i receptvyn med etiketten "Saknar 3 varor". Receptet ser ut som alla andra.
+5. Hen trycker på raden och byter katalogingrediens till "gul lök".
+6. **Klimax:** hen trycker "Spara recept" och hamnar i receptvyn med etiketten "Saknar 3 varor". Receptet ser ut som alla andra.
 
 ### Flöde 2 – Planera veckan och handla (UJ-2, söndag kväll och måndag i butiken)
 
 1. Pontus öppnar Matsedel och trycker "Lägg till rätt".
-2. Arket visar Favoriter överst. Han trycker på Krämig kycklinggryta, och rätten ligger på matsedeln efter två tryck. Han gör likadant med en favorit till.
-3. Han söker fram ett nytt recept, lägger till det och ändrar portionerna till 6 med +.
+2. Arket visar Favoriter överst. Hen trycker på Krämig kycklinggryta, och rätten ligger på matsedeln efter två tryck. Hen gör likadant med en favorit till.
+3. Hen söker fram ett nytt recept, lägger till det och ändrar portionerna till 6 med +.
 4. Under Lista ligger inköpslistan grupperad per butiksavdelning, med det som finns hemma redan avdraget.
-5. Han trycker "Lägg till egen vara" och skriver "diskmedel".
-6. Han trycker "Skicka till ICA". Exporten kopieras, och han klistrar in den i Claude i Chrome på ICA Handla.
-7. Alternativt handlar han i butiken och bockar av med tummen, avdelning för avdelning.
-8. **Klimax:** hemma trycker han "Lägg i lagret". "Lagt 8 varor i lagret." Listan är tom och recepten byter till "Kan lagas nu".
+5. Hen trycker "Lägg till egen vara" och skriver "diskmedel".
+6. Hen trycker "Skicka till ICA". Exporten kopieras, och hen klistrar in den i Claude i Chrome på ICA Handla.
+7. Alternativt handlar hen i butiken och bockar av med tummen, avdelning för avdelning.
+8. **Klimax:** hemma trycker hen "Lägg i lagret". "Lagt 8 varor i lagret." Listan är tom och recepten byter till "Kan lagas nu".
 
 ### Flöde 3 – Uppdatera lagret med kameran (UJ-3, Pontus framför öppen kyl)
 
 1. Pontus öppnar Hemma och väljer kortet Kyl.
-2. Han trycker "Fotografera kylen" och tar en bild.
+2. Hen trycker "Fotografera kylen" och tar en bild.
 3. "Tittar på bilden …"
-4. Sex lagerförslag visas. Han bekräftar fyra, rättar "grädde" till "matlagningsgrädde 2 dl" och avvisar ett.
+4. Sex lagerförslag visas. Hen bekräftar fyra, rättar "grädde" till "matlagningsgrädde 2 dl" och avvisar ett.
 5. **Klimax:** kortet Kyl visar "16 varor", och Smör och Salt står kvar som "Finns hemma"-etiketter.
 
 ### Flöde 4 – Laga mat (UJ-4, Pontus i köket med mobilen lutad mot väggen)
 
 1. Pontus öppnar Krämig kycklinggryta och väljer 4 portioner.
-2. Han trycker "Laga nu".
+2. Hen trycker "Laga nu".
 3. Stegläget visar steg 1 av 6 i stor text.
-4. Han trycker Nästa med en ren knoge.
+4. Hen trycker Nästa med en ren knoge.
 5. **Klimax:** skärmen är fortfarande tänd vid steg 5, tjugo minuter senare.
 
 ### Flöde 5 – Vad ska jag laga? (UJ-5, Pontus en tisdag utan plan)
 
 1. Pontus väljer filtret "Kan lagas nu".
 2. Recepten visas efter hur lite som saknas. Inget lockar.
-3. Längst ned trycker han "Föreslå rätter med AI".
+3. Längst ned trycker hen "Föreslå rätter med AI".
 4. Tre förslag visas, alla märkta "AI-förslag".
-5. **Klimax:** han trycker "Spara" på ett förslag, granskar det i förhandsgranskningen och det läggs i biblioteket med etiketten "Kan lagas nu".
+5. **Klimax:** hen trycker "Spara" på ett förslag, granskar det i förhandsgranskningen och det läggs i biblioteket med etiketten "Kan lagas nu".
 
 ## Settings
 
