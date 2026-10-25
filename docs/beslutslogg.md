@@ -2,6 +2,19 @@
 
 Beslut som fattats under bygget: vad, varför och vilka alternativ som fanns. Nyaste överst.
 
+## 2026-10-25 – PRD: tolkningar av briefen
+
+PRD: `_bmad-output/planning-artifacts/prds/prd-Matkoll-2026-10-25/prd.md`. Beslut som inte står uttryckligen i briefen:
+
+- **Tillåtelselista för e-post** utöver engångslänk (FR-1). Varför: adressen är publik och det finns bara en användare. Alternativ: öppen registrering med RLS (vem som helst kan skapa konto och använda AI:n).
+- **Vaga mängder** ("efter smak", "en nypa") blir en "finns hemma?"-post i listan, bara om varan saknas i lagret (FR-15). Varför: briefens risktabell; undviker brus för salt och peppar.
+- **Olika enheter räknas inte om**; listposten visar båda sida vid sida (FR-15). Från briefens risktabell. Alternativ: omräkning via vikt per dl/st (skjuts upp).
+- **Listan räknas om när matsedeln ändras** men behåller avbockningar och egna varor (FR-18). Varför: annars tappas arbete i butiken.
+- **Förvalda portioner** på matsedeln = receptets originalportioner (FR-13).
+- **Tänd skärm** via Screen Wake Lock, med en notis när webbläsaren saknar stöd (FR-21).
+- **"Skicka till ICA"** kopierar en varukorgsexport till urklipp; appen gör aldrig något i butiken själv (FR-26). Steg 3 (inbyggd agent) ingår inte.
+- **Nät krävs i butiken** i v1 (öppen fråga om offline).
+
 ## 2026-10-25 – GitHub-repot är publikt
 
 - **Beslut:** `Snowstar66/matkoll` får vara publikt, trots att `autonomi.md` säger privat. Beslutat av Pontus.
