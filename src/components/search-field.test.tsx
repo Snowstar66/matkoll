@@ -1,6 +1,7 @@
 import { act, fireEvent, render, screen } from "@testing-library/react";
+import { createRef } from "react";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
-import { SearchField } from "./search-field";
+import { SearchField, type SearchFieldHandle } from "./search-field";
 
 describe("SearchField", () => {
   beforeEach(() => {
@@ -53,6 +54,27 @@ describe("SearchField", () => {
     expect(onSearch).toHaveBeenCalledWith("");
     act(() => vi.advanceTimersByTime(500));
     expect(onSearch).toHaveBeenCalledTimes(1);
+  });
+
+  it("can be cleared from outside, at once, with focus back in the field", () => {
+    const onSearch = vi.fn();
+    const handle = createRef<SearchFieldHandle>();
+    render(<SearchField ref={handle} label="Sök recept" onSearch={onSearch} />);
+    const field = screen.getByRole("searchbox");
+    fireEvent.change(field, { target: { value: "xyz" } });
+    act(() => handle.current?.clear());
+    expect(field).toHaveValue("");
+    expect(field).toHaveFocus();
+    expect(onSearch).toHaveBeenCalledTimes(1);
+    expect(onSearch).toHaveBeenCalledWith("");
+    // The pending search for "xyz" never comes.
+    act(() => vi.advanceTimersByTime(500));
+    expect(onSearch).toHaveBeenCalledTimes(1);
+  });
+
+  it("passes maxLength on to the input", () => {
+    render(<SearchField label="Sök recept" onSearch={() => {}} maxLength={100} />);
+    expect(screen.getByRole("searchbox")).toHaveAttribute("maxlength", "100");
   });
 
   it("uses at least 16 px text so iPhone Safari does not zoom", () => {

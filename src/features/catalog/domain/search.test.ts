@@ -1,26 +1,10 @@
 import { describe, expect, it } from "vitest";
-import { containsPattern, maxSearchHits, rankSearchHits, searchText } from "./search";
+import { maxSearchHits, rankSearchHits, searchText } from "./search";
 
 describe("searchText", () => {
   it("is lower case, composed and has single spaces", () => {
     expect(searchText("  Gul   LÖK ")).toBe("gul lök");
     expect(searchText("Lök")).toBe("lök");
-  });
-});
-
-describe("containsPattern", () => {
-  it("finds the text anywhere", () => {
-    expect(containsPattern("lök")).toBe("%lök%");
-  });
-
-  it("escapes LIKE wildcards and drops PostgREST's *", () => {
-    expect(containsPattern("50%_a\\b")).toBe("%50\\%\\_a\\\\b%");
-    expect(containsPattern("lö*k")).toBe("%lök%");
-  });
-
-  it("gives nothing for empty text", () => {
-    expect(containsPattern("")).toBe("");
-    expect(containsPattern("**")).toBe("");
   });
 });
 

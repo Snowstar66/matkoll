@@ -17,15 +17,6 @@ export function searchText(query: string): string {
   return query.normalize("NFC").replace(/\s+/g, " ").trim().toLocaleLowerCase("sv-SE");
 }
 
-/**
- * An ILIKE pattern that finds `text` anywhere. `%`, `_` and `\` are escaped,
- * and `*` (a wildcard in PostgREST filters) is dropped. Empty text gives "".
- */
-export function containsPattern(text: string): string {
-  const escaped = text.replace(/\*/g, "").replace(/[\\%_]/g, (char) => `\\${char}`);
-  return escaped.trim() ? `%${escaped}%` : "";
-}
-
 /** A candidate: an ingredient, and the normalised texts (name, synonyms) it was found by. */
 export type SearchCandidate = { id: string; name: string; matchedTexts: readonly string[] };
 

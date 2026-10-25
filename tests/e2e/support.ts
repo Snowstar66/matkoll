@@ -4,12 +4,27 @@ import { localSupabaseUrl } from "../local-supabase";
 
 // Shared by global-setup and the specs. The service role is allowed in tests (AD-4).
 
-/** The only address in ALLOWED_EMAILS for the E2E server (see playwright.config.ts). */
+/**
+ * The E2E user whose library stays empty: the specs that expect "Inga recept
+ * än." (auth, shell, import) use it, and nothing saves a recipe for it.
+ */
 export const e2eEmail = "e2e@matkoll.test";
+/**
+ * The E2E user that saves recipes (recipe.spec.ts, saving in import.spec.ts),
+ * in parallel: its catalog grows during a run, so those specs never assume an
+ * ingredient is new (see recipe.spec.ts).
+ */
+export const recipesEmail = "e2e-recept@matkoll.test";
+/** The E2E user of library.spec.ts alone, so its list holds only what it saves. */
+export const libraryEmail = "e2e-bibliotek@matkoll.test";
+/** Every address in ALLOWED_EMAILS for the E2E server (see playwright.config.ts). */
+export const e2eEmails = [e2eEmail, recipesEmail, libraryEmail] as const;
 /** A real Supabase user whose address is not in ALLOWED_EMAILS. */
 export const outsiderEmail = "utanfor@matkoll.test";
 
 export const userStorageState = "tests/e2e/.auth/user.json";
+export const recipesStorageState = "tests/e2e/.auth/recipes.json";
+export const libraryStorageState = "tests/e2e/.auth/library.json";
 export const outsiderStorageState = "tests/e2e/.auth/outsider.json";
 
 export const mailpitUrl = "http://127.0.0.1:54324";
@@ -27,21 +42,31 @@ export function adminClient(): SupabaseClient {
 }
 
 /**
- * Deletes the E2E user, if there is one, so each run starts with no recipes,
- * steps, lines, synonyms or catalog ingredients for it: they all go with the
- * user (on delete cascade). The service role may not delete catalog
+ * Deletes the E2E users, if there are any, so each run starts with no recipes,
+ * steps, lines, synonyms or catalog ingredients for them: they all go with
+ * the user (on delete cascade). The service role may not delete catalog
  * ingredients on its own (AD-20), so removing the user is the way to empty
- * the catalog. Only against local Supabase; global-setup creates the user
+ * the catalog. Only against local Supabase; global-setup creates the users
  * again with users:sync.
  */
-export async function deleteE2eUser(): Promise<void> {
+export async function deleteE2eUsers(): Promise<void> {
   localSupabaseUrl();
   const { data, error } = await adminClient().auth.admin.listUsers({ perPage: 1000 });
   if (error) throw error;
-  const user = data.users.find((candidate) => candidate.email === e2eEmail);
-  if (!user) return;
-  const deleted = await adminClient().auth.admin.deleteUser(user.id);
-  if (deleted.error) throw deleted.error;
+  const emails = new Set<string>(e2eEmails);
+  for (const user of data.users.filter((candidate) => candidate.email && emails.has(candidate.email))) {
+    const deleted = await adminClient().auth.admin.deleteUser(user.id);
+    if (deleted.error) throw deleted.error;
+  }
+}
+
+/** The id of an E2E user; global-setup has created it. */
+export async function e2eUserId(email: string): Promise<string> {
+  const { data, error } = await adminClient().auth.admin.listUsers({ perPage: 1000 });
+  if (error) throw error;
+  const user = data.users.find((candidate) => candidate.email === email);
+  if (!user) throw new Error(`${email} is missing; global-setup creates it`);
+  return user.id;
 }
 
 /**

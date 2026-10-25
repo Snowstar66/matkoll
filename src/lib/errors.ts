@@ -13,6 +13,8 @@ export const errorMessages = {
   import_no_recipe: "Det gick inte att hitta något recept i texten.",
   catalog_unavailable: "Det gick inte att läsa ingredienskatalogen. Försök igen.",
   recipe_save_failed: "Det gick inte att spara receptet. Försök igen.",
+  recipe_search_failed: "Det gick inte att söka bland recepten. Försök igen.",
+  recipe_favorite_failed: "Det gick inte att spara favoriten.",
   settings_unavailable: "Det gick inte att läsa inställningarna. Försök igen.",
   // Fetching a recipe page (AD-11). The sentence with the site's name, from
   // `fields.domain`, is built by fetchErrorMessage below.

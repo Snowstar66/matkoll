@@ -1,1 +1,1 @@
-Shared helpers: `supabase/` (server and proxy clients, generated types), `errors.ts`, `revalidate.ts`, `ai-client.ts` and `images.ts` (photo limits and type from the first bytes, AD-15); no feature logic.
+Shared helpers: `supabase/` (server and proxy clients, generated types), `errors.ts`, `revalidate.ts`, `like-pattern.ts` (ILIKE patterns for searching), `ai-client.ts` and `images.ts` (photo limits and type from the first bytes, AD-15); no feature logic.

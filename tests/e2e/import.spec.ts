@@ -1,6 +1,6 @@
 import { readFileSync } from "node:fs";
 import { expect, type Locator, type Page, test } from "@playwright/test";
-import { adminClient, e2eEmail, outsiderStorageState, userStorageState } from "./support";
+import { adminClient, e2eEmail, outsiderStorageState, recipesStorageState, userStorageState } from "./support";
 
 // Story 1.6, 1.8 and 1.9: importing a recipe from pasted text, a link or a photo, with
 // AI_PROVIDER=mock. In CI this runs against the built server (`pnpm build &&
@@ -705,20 +705,22 @@ test.describe("import from a photo", () => {
     expect(errors).toEqual([]);
   });
 
-  test("the saved recipe has the photo as its source and no image", async ({ page }) => {
-    await openImport(page, "Länk");
-    await choosePhoto(page, photoPath);
-    await expect(sheet(page).getByLabel("Titel")).toHaveValue("Ugnspannkaka med bacon");
-    await sheet(page).getByRole("button", { name: "Spara recept" }).click();
-    await expect(page).toHaveURL(/\/recept\/[0-9a-f-]{36}$/);
-    const id = page.url().split("/").pop();
-    const { data, error } = await adminClient().from("recipe").select("source_kind, source_url, image_url").eq("id", id).single();
-    if (error) throw error;
-    expect(data).toEqual({ source_kind: "photo", source_url: null, image_url: null });
-    await expect(page.getByText("Foto av kokbok")).toBeVisible();
-    // Leave the library empty for the other tests.
-    const deleted = await adminClient().from("recipe").delete().eq("id", id);
-    if (deleted.error) throw deleted.error;
+  test.describe("saved", () => {
+    // Saved as the E2E user for saving recipes: the main E2E user's library stays empty.
+    test.use({ storageState: recipesStorageState });
+
+    test("the saved recipe has the photo as its source and no image", async ({ page }) => {
+      await openImport(page, "Länk");
+      await choosePhoto(page, photoPath);
+      await expect(sheet(page).getByLabel("Titel")).toHaveValue("Ugnspannkaka med bacon");
+      await sheet(page).getByRole("button", { name: "Spara recept" }).click();
+      await expect(page).toHaveURL(/\/recept\/[0-9a-f-]{36}$/);
+      const id = page.url().split("/").pop();
+      const { data, error } = await adminClient().from("recipe").select("source_kind, source_url, image_url").eq("id", id).single();
+      if (error) throw error;
+      expect(data).toEqual({ source_kind: "photo", source_url: null, image_url: null });
+      await expect(page.getByText("Foto av kokbok")).toBeVisible();
+    });
   });
 
   test("a large camera photo is sent as a JPEG of at most 1600 px and 1.5 MB, turned the right way", async ({ page }) => {

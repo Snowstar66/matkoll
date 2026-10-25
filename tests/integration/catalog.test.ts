@@ -1,7 +1,7 @@
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
 import { matchIngredientsIn } from "@/features/catalog/actions/match-ingredients";
 import { commitIngredients } from "@/features/catalog/data/commit";
-import { loadIngredientNames, searchCatalog } from "@/features/catalog/data/queries";
+import { findIngredientIdsIn, loadIngredientNames, searchCatalog } from "@/features/catalog/data/queries";
 import { LOCATIONS, SECTIONS, UNITS, type IngredientChoice, type IngredientProposal } from "@/features/catalog";
 import { localSupabaseUrl } from "../local-supabase";
 import {
@@ -423,6 +423,42 @@ describe("searchIngredients", () => {
     await addNamed(other.db, "Gul lök extra");
     await addSynonym(other.db, "gul", await addNamed(other.db, "Saffran"));
     expect(await searchCatalog(user.db, "gul")).toEqual([{ id: gulLok, name: "Gul lök" }]);
+  });
+
+  it("finds ingredient ids by name and synonym for searching recipes, only the user's own", async () => {
+    const other = await createTestUser("find-ids-other");
+    await addNamed(other.db, "Purjolök");
+    expect((await findIngredientIdsIn(user.db, "lök")).toSorted()).toEqual([gulLok, rodlok, vitlok].toSorted());
+    expect(await findIngredientIdsIn(user.db, "schalott")).toEqual([rodlok]);
+    expect(await findIngredientIdsIn(user.db, "%")).toHaveLength(1);
+    expect(await findIngredientIdsIn(user.db, "_")).toEqual([]);
+    expect(await findIngredientIdsIn(user.db, "")).toEqual([]);
+    expect(await findIngredientIdsIn(other.db, "gul")).toEqual([]);
+  });
+
+  it("finds at most 1000 ingredient ids, each once, without dropping synonym hits", async () => {
+    const many = await createTestUser("find-ids-many");
+    const rows = Array.from({ length: 1005 }, (_, index) => ({
+      name: `Ost ${index}`,
+      normalized_name: `ost ${index}`,
+      section: "Mejeri",
+      location: "Kyl",
+    }));
+    const { data, error } = await many.db.from("ingredient").insert(rows).select("id");
+    if (error) throw error;
+    // An ingredient found only through its synonym, and a synonym of a name hit.
+    const { data: brie, error: brieError } = await many.db
+      .from("ingredient")
+      .insert({ name: "Brie", normalized_name: "brie", section: "Mejeri", location: "Kyl" })
+      .select("id")
+      .single();
+    if (brieError) throw brieError;
+    await addSynonym(many.db, "mjukost", brie.id);
+    await addSynonym(many.db, "ostbit", data[0].id);
+    const ids = await findIngredientIdsIn(many.db, "ost");
+    expect(ids).toHaveLength(1000);
+    expect(new Set(ids).size).toBe(1000);
+    expect(ids).toContain(brie.id);
   });
 
   it("names ingredients by id, only the user's own", async () => {

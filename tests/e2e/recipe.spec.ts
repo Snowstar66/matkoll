@@ -1,12 +1,21 @@
 import { readFileSync } from "node:fs";
 import { expect, type Page, test } from "@playwright/test";
-import { adminClient, userStorageState } from "./support";
+import { adminClient, recipesStorageState } from "./support";
 
 // Story 1.7: "Spara recept" in the preview saves the recipe and opens the
-// recipe view, with AI_PROVIDER=mock. global-setup empties the E2E user's data
-// before each run. Within a run the spec files share that user and run at the
-// same time, so this spec saves fiskgratäng: saving linssoppa would add its
-// carrots to the catalog while import.spec.ts expects them to be new ("Ny").
+// recipe view, with AI_PROVIDER=mock. The spec saves as the E2E user for
+// saving recipes (e2e-recept), so the main E2E user's library stays empty for
+// the specs that expect "Inga recept än."; global-setup empties both before
+// each run.
+//
+// Saving adds to that user's catalog, and two specs save as e2e-recept at the
+// same time: this one saves fiskgratäng (torskfilé, räkor, purjolök, dill …)
+// and import.spec.ts saves ugnspannkaka from the photo (ägg, mjölk, bacon …).
+// Both have salt and smör. Neither may assume that any catalog ingredient is
+// new ("Ny") or that the catalog is empty: the other spec's save may already
+// have created it. A spec
+// that needs "Ny" (import.spec.ts with linssoppa's carrots) runs as the main
+// E2E user, whose catalog only global-setup and import.spec.ts's seed fill.
 
 const fiskgratang = readFileSync("tests/fixtures/ai/fiskgratang.txt", "utf8");
 const fixtureTitle = "Fiskgratäng med räkor";
@@ -45,7 +54,7 @@ async function previewRecipe(page: Page, title: string) {
 
 const uniqueTitle = (base: string) => `${base} ${Date.now()}`;
 
-test.use({ storageState: userStorageState, viewport: mobile });
+test.use({ storageState: recipesStorageState, viewport: mobile });
 
 test("Spara recept saves the recipe and opens the recipe view", async ({ page }) => {
   const errors = watchErrors(page);

@@ -4,16 +4,21 @@ import { chromium, type FullConfig } from "@playwright/test";
 import { localSupabaseUrl } from "../local-supabase";
 import {
   adminClient,
-  deleteE2eUser,
+  deleteE2eUsers,
   e2eEmail,
+  e2eEmails,
+  libraryEmail,
+  libraryStorageState,
   magicLinkPath,
   outsiderEmail,
   outsiderStorageState,
+  recipesEmail,
+  recipesStorageState,
   sessionCookiesFor,
   userStorageState,
 } from "./support";
 
-// Creates the test users and saves a session for each (AD-3). The E2E user signs
+// Creates the test users and saves a session for each (AD-3). The E2E users sign
 // in through the app's real /auth/confirm with a token from auth.admin.generateLink.
 export default async function globalSetup(config: FullConfig) {
   // Users are created and deleted below: only ever against local Supabase.
@@ -21,13 +26,13 @@ export default async function globalSetup(config: FullConfig) {
   const baseURL = config.projects[0].use.baseURL;
   if (!baseURL) throw new Error("playwright.config.ts must set use.baseURL");
 
-  // Every run starts with an empty E2E user: earlier runs' recipes and catalog
+  // Every run starts with empty E2E users: earlier runs' recipes and catalog
   // would otherwise make the specs depend on each other.
-  await deleteE2eUser();
+  await deleteE2eUsers();
 
-  // The E2E user comes from users:sync, like Pontus does.
+  // The E2E users come from users:sync, like Pontus does.
   execFileSync(process.execPath, ["scripts/users-sync.mjs"], {
-    env: { ...process.env, ALLOWED_EMAILS: e2eEmail },
+    env: { ...process.env, ALLOWED_EMAILS: e2eEmails.join(",") },
     stdio: ["ignore", "ignore", "inherit"],
   });
 
@@ -38,12 +43,18 @@ export default async function globalSetup(config: FullConfig) {
   mkdirSync("tests/e2e/.auth", { recursive: true });
   const browser = await chromium.launch();
   try {
-    const user = await browser.newContext({ baseURL });
-    const page = await user.newPage();
-    await page.goto(await magicLinkPath(e2eEmail, "/recept"));
-    await page.waitForURL(/\/recept$/);
-    await user.storageState({ path: userStorageState });
-    await user.close();
+    for (const [email, path] of [
+      [e2eEmail, userStorageState],
+      [recipesEmail, recipesStorageState],
+      [libraryEmail, libraryStorageState],
+    ] as const) {
+      const user = await browser.newContext({ baseURL });
+      const page = await user.newPage();
+      await page.goto(await magicLinkPath(email, "/recept"));
+      await page.waitForURL(/\/recept$/);
+      await user.storageState({ path });
+      await user.close();
+    }
 
     // /auth/confirm refuses to keep a session for the outsider, so it is made
     // outside the app, as if the address had been removed from ALLOWED_EMAILS

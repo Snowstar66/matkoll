@@ -2,7 +2,8 @@ import "server-only";
 import { createClient } from "@/lib/supabase/server";
 import { matchIngredientsIn } from "./actions/match-ingredients";
 import { commitIngredients as commitIngredientsIn } from "./data/commit";
-import { loadIngredientNames } from "./data/queries";
+import { findIngredientIdsIn, loadIngredientNames } from "./data/queries";
+import { searchText } from "./domain/search";
 
 /** What the catalog functions throw when Supabase fails; `code` says why, never user data. */
 export { CatalogDataError } from "./data/client";
@@ -30,6 +31,18 @@ export async function commitIngredients(choices: readonly IngredientChoice[]): P
 /** The names of the ingredients among `ids` in the user's catalog, by id. Ids not found are left out. */
 export async function getIngredientNames(ids: readonly string[]): Promise<Record<string, string>> {
   return loadIngredientNames(await createClient(), ids);
+}
+
+/**
+ * The ids of the user's ingredients whose name or synonym contains `query`
+ * (normalised like searchIngredients: lower case, single spaces), at most
+ * 1000, name and synonym hits taken in turns. Lets the recipe library search by ingredient without reading the
+ * catalog's tables (AD-1). Empty text gives none. Throws CatalogDataError.
+ */
+export async function findIngredientIds(query: string): Promise<string[]> {
+  const text = searchText(query);
+  if (!text) return [];
+  return findIngredientIdsIn(await createClient(), text);
 }
 
 /**

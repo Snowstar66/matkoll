@@ -1,7 +1,7 @@
 import "server-only";
+import { containsPattern } from "@/lib/like-pattern";
 import type { CatalogSnapshot } from "../domain/match";
 import {
-  containsPattern,
   maxSearchHits,
   rankSearchHits,
   type IngredientSearchHit,
@@ -107,4 +107,43 @@ export async function searchCatalog(db: CatalogDb, text: string): Promise<Ingred
     if (name) candidates.push({ id: row.ingredient_id, name, matchedTexts: [row.normalized] });
   }
   return rankSearchHits(text, candidates);
+}
+
+/** At most this many ids from findIngredientIdsIn (also the API's row limit per query). */
+export const maxFoundIngredientIds = 1000;
+
+/**
+ * The ids of the ingredients whose normalised name, or one of whose synonyms,
+ * contains `text` (already normalised, see searchText), for searching recipes
+ * by ingredient. Name and synonym hits are merged in turns before the cap, so
+ * neither kind crowds out the other; each id comes once, at most
+ * `maxFoundIngredientIds`. Empty text gives none.
+ */
+export async function findIngredientIdsIn(db: CatalogDb, text: string): Promise<string[]> {
+  const pattern = containsPattern(text);
+  if (!pattern) return [];
+  const [names, aliases] = await Promise.all([
+    db
+      .from("ingredient")
+      .select("id")
+      .ilike("normalized_name", pattern)
+      .order("normalized_name")
+      .limit(maxFoundIngredientIds),
+    db
+      .from("ingredient_synonym")
+      .select("ingredient_id")
+      .ilike("normalized", pattern)
+      .order("normalized")
+      .limit(maxFoundIngredientIds),
+  ]);
+  if (names.error) throw new CatalogDataError("query_failed", names.error.code);
+  if (aliases.error) throw new CatalogDataError("query_failed", aliases.error.code);
+  const byName = names.data.map((row) => row.id);
+  const bySynonym = aliases.data.map((row) => row.ingredient_id);
+  const ids = new Set<string>();
+  for (let index = 0; index < Math.max(byName.length, bySynonym.length); index++) {
+    if (index < byName.length) ids.add(byName[index]);
+    if (index < bySynonym.length) ids.add(bySynonym[index]);
+  }
+  return [...ids].slice(0, maxFoundIngredientIds);
 }

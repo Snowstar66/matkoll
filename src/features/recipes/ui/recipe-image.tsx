@@ -7,6 +7,8 @@ import { RecipesIcon } from "@/components/icons";
 export type RecipeImageProps = {
   /** The recipe's image address, or null when it has none. */
   src: string | null;
+  /** The placeholder icon's size: 48 for the recipe view, smaller for a 72 px thumbnail. */
+  iconSize?: number;
   className?: string;
 };
 
@@ -15,7 +17,7 @@ export type RecipeImageProps = {
  * recipe site without a referrer, and never stored. Without an address, or
  * when the image cannot be loaded, a quiet placeholder takes its place.
  */
-export function RecipeImage({ src, className }: RecipeImageProps) {
+export function RecipeImage({ src, iconSize = 48, className }: RecipeImageProps) {
   const [failedSrc, setFailedSrc] = useState<string | null>(null);
   const imageRef = useRef<HTMLImageElement>(null);
 
@@ -41,7 +43,7 @@ export function RecipeImage({ src, className }: RecipeImageProps) {
         />
       ) : (
         <div data-testid="recipe-image-placeholder" className="flex size-full items-center justify-center text-mint-ink">
-          <RecipesIcon size={48} />
+          <RecipesIcon size={iconSize} />
         </div>
       )}
     </div>

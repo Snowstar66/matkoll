@@ -1,18 +1,15 @@
 import Link from "next/link";
 import { ChevronLeftIcon } from "@/components/icons";
 import { formatQuantity, normalizeIngredientText } from "@/features/catalog";
+import { recipeMetaText } from "../domain/recipe-list";
 import type { SavedRecipe, SavedRecipeLine } from "../domain/saved-recipe";
 import { sourceLabel } from "../domain/source-label";
+import { FavoriteButton } from "./favorite-button";
 import { RecipeImage } from "./recipe-image";
 
-// Receptvy (FR-20, the base): the same look whatever the source. The portion
-// selector, "X av Y hemma", the heart and the buttons arrive in later stories.
-
-/** "35 min · 4 portioner", without the time when the recipe has none (or 0). */
-function metaText(recipe: SavedRecipe): string {
-  const servings = `${recipe.servings} ${recipe.servings === 1 ? "portion" : "portioner"}`;
-  return recipe.totalMinutes ? `${recipe.totalMinutes} min · ${servings}` : servings;
-}
+// Receptvy (FR-20, the base): the same look whatever the source, with the
+// heart (FR-9) beside the title. The portion selector, "X av Y hemma" and the
+// buttons arrive in later stories.
 
 export function RecipeView({ recipe }: { recipe: SavedRecipe }) {
   const source = sourceLabel(recipe.sourceKind, recipe.sourceUrl);
@@ -32,8 +29,11 @@ export function RecipeView({ recipe }: { recipe: SavedRecipe }) {
       </div>
 
       <header className="flex flex-col gap-1.5">
-        <h1 className="text-recipe-title text-ink">{recipe.title}</h1>
-        <p className="text-meta text-ink-2">{metaText(recipe)}</p>
+        <div className="flex items-start justify-between gap-2">
+          <h1 className="min-w-0 text-recipe-title break-words text-ink">{recipe.title}</h1>
+          <FavoriteButton id={recipe.id} isFavorite={recipe.isFavorite} className="-mr-2.5 -mt-1" />
+        </div>
+        <p className="text-meta text-ink-2">{recipeMetaText(recipe.totalMinutes, recipe.servings)}</p>
         <p className="text-meta text-ink-2">
           Källa:{" "}
           {recipe.sourceKind === "url" && recipe.sourceUrl ? (

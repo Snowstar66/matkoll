@@ -1,7 +1,19 @@
-import { render, screen, within } from "@testing-library/react";
-import { describe, expect, it } from "vitest";
+import { act, render as renderElement, screen, within } from "@testing-library/react";
+import userEvent from "@testing-library/user-event";
+import type { ReactElement } from "react";
+import { describe, expect, it, vi } from "vitest";
+import { ToastProvider } from "@/components/toast";
+import { fail, type Result } from "@/lib/errors";
+import type { FavoriteChange } from "../domain/recipe-list";
 import type { SavedRecipe, SavedRecipeLine } from "../domain/saved-recipe";
 import { RecipeView } from "./recipe-view";
+
+const refresh = vi.fn();
+vi.mock("next/navigation", () => ({ useRouter: () => ({ refresh }) }));
+const setFavorite = vi.fn<(change: FavoriteChange) => Promise<Result<FavoriteChange>>>();
+vi.mock("../actions/set-favorite", () => ({ setFavorite: (change: FavoriteChange) => setFavorite(change) }));
+
+const render = (element: ReactElement) => renderElement(<ToastProvider>{element}</ToastProvider>);
 
 let lineId = 0;
 const line = (overrides: Partial<SavedRecipeLine> & Pick<SavedRecipeLine, "originalText">): SavedRecipeLine => ({
@@ -90,5 +102,18 @@ describe("RecipeView", () => {
     render(<RecipeView recipe={recipe} />);
     const steps = within(screen.getByRole("region", { name: "Steg" })).getAllByRole("listitem");
     expect(steps.map((step) => step.textContent)).toEqual(["1Skär kycklingen i bitar.", "2Låt puttra i 20 minuter."]);
+  });
+
+  it("has the heart beside the title; a tap shows it at once, and a failed save puts it back", async () => {
+    const user = userEvent.setup();
+    let answer: (result: Result<FavoriteChange>) => void = () => {};
+    setFavorite.mockImplementationOnce(() => new Promise((resolve) => (answer = resolve)));
+    render(<RecipeView recipe={recipe} />);
+    await user.click(screen.getByRole("button", { name: "Favorit", pressed: false }));
+    expect(setFavorite).toHaveBeenCalledWith({ id: recipe.id, isFavorite: true });
+    expect(screen.getByRole("button", { name: "Favorit", pressed: true })).toBeInTheDocument();
+    await act(async () => answer(fail("recipe_favorite_failed")));
+    expect(screen.getByRole("button", { name: "Favorit", pressed: false })).toBeInTheDocument();
+    expect(screen.getByTestId("toast")).toHaveTextContent("Det gick inte att spara favoriten.");
   });
 });

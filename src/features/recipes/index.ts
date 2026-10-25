@@ -39,6 +39,17 @@ export {
 } from "./domain/import";
 export { sourceLabel } from "./domain/source-label";
 export {
+  RECIPE_FILTERS,
+  recipeSearchSchema,
+  favoriteChangeSchema,
+  recipeMetaText,
+  parseRecipeFilter,
+  filterRecipes,
+  type RecipeListItem,
+  type RecipeFilter,
+  type FavoriteChange,
+} from "./domain/recipe-list";
+export {
   toSaveRecipeArgs,
   type SavedRecipe,
   type SavedRecipeLine,

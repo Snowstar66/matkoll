@@ -1,11 +1,17 @@
 "use client";
 
-import { useEffect, useId, useRef, useState } from "react";
+import { type Ref, useEffect, useId, useImperativeHandle, useRef, useState } from "react";
 import { cx } from "./cx";
 import { CloseIcon, SearchIcon } from "./icons";
 
 /** Pause after the last keystroke before searching (EXPERIENCE.md, Sökfält). */
 export const searchDelayMs = 200;
+
+/** What a parent can do with the field, e.g. "Rensa sökning" in an empty state. */
+export type SearchFieldHandle = {
+  /** Empties the field, searches for "" at once and puts focus in the field. */
+  clear: () => void;
+};
 
 export type SearchFieldProps = {
   /** Name for screen readers, e.g. "Sök recept". */
@@ -14,10 +20,21 @@ export type SearchFieldProps = {
   defaultValue?: string;
   /** Called 200 ms after typing stops, and at once on Enter or when the field becomes empty. */
   onSearch: (query: string) => void;
+  /** The most characters the field takes, e.g. the action's limit. */
+  maxLength?: number;
   className?: string;
+  ref?: Ref<SearchFieldHandle>;
 };
 
-export function SearchField({ label, placeholder, defaultValue = "", onSearch, className }: SearchFieldProps) {
+export function SearchField({
+  label,
+  placeholder,
+  defaultValue = "",
+  onSearch,
+  maxLength,
+  className,
+  ref,
+}: SearchFieldProps) {
   const id = useId();
   const [value, setValue] = useState(defaultValue);
   const inputRef = useRef<HTMLInputElement>(null);
@@ -50,6 +67,8 @@ export function SearchField({ label, placeholder, defaultValue = "", onSearch, c
     inputRef.current?.focus();
   }
 
+  useImperativeHandle(ref, () => ({ clear }));
+
   return (
     <div
       className={cx(
@@ -68,6 +87,7 @@ export function SearchField({ label, placeholder, defaultValue = "", onSearch, c
         enterKeyHint="search"
         autoComplete="off"
         value={value}
+        maxLength={maxLength}
         placeholder={placeholder}
         onChange={(event) => change(event.target.value)}
         onKeyDown={(event) => {

@@ -1,9 +1,10 @@
 import { randomUUID } from "node:crypto";
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
 import { commitIngredients } from "@/features/catalog/data/commit";
-import { loadIngredientNames } from "@/features/catalog/data/queries";
-import type { RecipeDraft, RecipeLine, SaveRecipeArgs } from "@/features/recipes";
-import { getRecipe } from "@/features/recipes/data/queries";
+import { findIngredientIdsIn, loadIngredientNames } from "@/features/catalog/data/queries";
+import type { RecipeDraft, RecipeLine, RecipeListItem, SaveRecipeArgs } from "@/features/recipes";
+import { setFavoriteIn } from "@/features/recipes/data/favorite";
+import { getRecipe, listRecipes, searchRecipesIn } from "@/features/recipes/data/queries";
 import { saveRecipeIn } from "@/features/recipes/data/save";
 import { localSupabaseUrl } from "../local-supabase";
 import {
@@ -471,5 +472,167 @@ describe("saveRecipeIn and getRecipe", () => {
     // Another user sees nothing.
     const other = await createTestUser("save-draft-other");
     expect(await getRecipe(other.db, id, names)).toBeNull();
+  });
+});
+
+describe("the library: listRecipes, searchRecipesIn and setFavoriteIn", () => {
+  let user: TestUser;
+  let other: TestUser;
+  const ids: Record<"gryta" | "soppa" | "pannkakor" | "procent", string> = {
+    gryta: "",
+    soppa: "",
+    pannkakor: "",
+    procent: "",
+  };
+  let gulLok = "";
+  let agg = "";
+
+  async function addLibraryRecipe(
+    db: Db,
+    recipe: { title: string; minutes?: number; favorite?: boolean },
+    lines: { text: string; ingredientId?: string }[],
+  ): Promise<string> {
+    const { data, error } = await db
+      .from("recipe")
+      .insert({
+        title: recipe.title,
+        original_servings: 4,
+        total_minutes: recipe.minutes ?? null,
+        source_kind: "text",
+        is_favorite: recipe.favorite ?? false,
+      })
+      .select("id")
+      .single();
+    if (error) throw error;
+    for (const [position, line] of lines.entries()) {
+      const inserted = await db.from("recipe_ingredient").insert({
+        recipe_id: data.id,
+        ingredient_id: line.ingredientId ?? null,
+        position,
+        original_text: line.text,
+        is_vague: true,
+      });
+      if (inserted.error) throw inserted.error;
+    }
+    return data.id;
+  }
+
+  const search = (db: Db, text: string, favoritesOnly = false) =>
+    findIngredientIdsIn(db, text).then((ingredientIds) => searchRecipesIn(db, { text, ingredientIds, favoritesOnly }));
+  const idsOf = (items: RecipeListItem[]) => items.map(({ id }) => id);
+
+  beforeAll(async () => {
+    user = await createTestUser("library");
+    other = await createTestUser("library-other");
+    gulLok = await addIngredient(user.db, "Gul lök");
+    agg = await addIngredient(user.db, "Ägg");
+    const { error } = await user.db.from("ingredient_synonym").insert({ normalized: "hönsägg", ingredient_id: agg });
+    if (error) throw error;
+
+    // Saved in this order, so newest first is procent, pannkakor, soppa, gryta.
+    ids.gryta = await addLibraryRecipe(user.db, { title: "Krämig kycklinggryta", minutes: 35, favorite: true }, [
+      { text: "1 st gul lök", ingredientId: gulLok },
+      { text: "600 g kycklinglårfilé" },
+    ]);
+    ids.soppa = await addLibraryRecipe(user.db, { title: "Linssoppa" }, [{ text: "1 lök, hackad" }, { text: "salt" }]);
+    ids.pannkakor = await addLibraryRecipe(user.db, { title: "Pannkakor" }, [{ text: "3 ägg", ingredientId: agg }]);
+    ids.procent = await addLibraryRecipe(user.db, { title: "Grädde 50% med extra_sås" }, [{ text: "2 dl grädde" }]);
+
+    // Another user's recipe that matches the same words.
+    const othersOnion = await addIngredient(other.db, "Gul lök");
+    await addLibraryRecipe(other.db, { title: "Annan gryta", favorite: true }, [{ text: "1 lök", ingredientId: othersOnion }]);
+  });
+
+  it("lists the user's recipes as rows, newest first, and only favourites on request", async () => {
+    const all = await listRecipes(user.db);
+    expect(idsOf(all)).toEqual([ids.procent, ids.pannkakor, ids.soppa, ids.gryta]);
+    expect(all.at(-1)).toEqual({
+      id: ids.gryta,
+      title: "Krämig kycklinggryta",
+      imageUrl: null,
+      totalMinutes: 35,
+      originalServings: 4,
+      isFavorite: true,
+    });
+    expect(idsOf(await listRecipes(user.db, { favoritesOnly: true }))).toEqual([ids.gryta]);
+  });
+
+  it("finds recipes by title", async () => {
+    expect(idsOf(await search(user.db, "gryta"))).toEqual([ids.gryta]);
+    expect(idsOf(await search(user.db, "LINS"))).toEqual([ids.soppa]);
+  });
+
+  it("finds recipes by a line's original text and its catalog ingredient, each recipe once, newest first", async () => {
+    expect(idsOf(await search(user.db, "lök"))).toEqual([ids.soppa, ids.gryta]);
+  });
+
+  it("finds recipes through a synonym of the line's ingredient", async () => {
+    expect(idsOf(await search(user.db, "hönsägg"))).toEqual([ids.pannkakor]);
+  });
+
+  it("combines search and Favoriter", async () => {
+    expect(idsOf(await search(user.db, "lök", true))).toEqual([ids.gryta]);
+    expect(await search(user.db, "linssoppa", true)).toEqual([]);
+  });
+
+  it("treats LIKE wildcards in the text as plain characters", async () => {
+    expect(idsOf(await search(user.db, "%"))).toEqual([ids.procent]);
+    expect(idsOf(await search(user.db, "_"))).toEqual([ids.procent]);
+    expect(idsOf(await search(user.db, "50%"))).toEqual([ids.procent]);
+    expect(await search(user.db, "\\")).toEqual([]);
+    expect(await search(user.db, "xyz")).toEqual([]);
+    expect(await searchRecipesIn(user.db, { text: "", ingredientIds: [gulLok] })).toEqual([]);
+  });
+
+  it("finds a recipe through an ingredient id beyond the first chunk of 100", async () => {
+    const many = [...Array.from({ length: 149 }, () => randomUUID()), agg];
+    expect(idsOf(await searchRecipesIn(user.db, { text: "qqq", ingredientIds: many }))).toEqual([ids.pannkakor]);
+  });
+
+  it("respects RLS: another user and the anonymous client see none of the recipes", async () => {
+    expect(idsOf(await listRecipes(other.db))).not.toContain(ids.gryta);
+    expect(await listRecipes(other.db)).toHaveLength(1);
+    // Even with the owner's ingredient ids.
+    const found = await searchRecipesIn(other.db, { text: "kyckling", ingredientIds: [gulLok, agg], favoritesOnly: false });
+    expect(found).toEqual([]);
+    await expect(listRecipes(anonClient())).rejects.toThrow("query_failed 42501");
+  });
+
+  it("sets a favourite on the user's own recipe only", async () => {
+    expect(await setFavoriteIn(user.db, user.id, ids.soppa, true)).toBe(true);
+    expect(idsOf(await listRecipes(user.db, { favoritesOnly: true }))).toEqual([ids.soppa, ids.gryta]);
+    expect(await setFavoriteIn(user.db, user.id, ids.soppa, false)).toBe(true);
+    expect(idsOf(await listRecipes(user.db, { favoritesOnly: true }))).toEqual([ids.gryta]);
+
+    // Another user's id changes nothing.
+    expect(await setFavoriteIn(other.db, other.id, ids.pannkakor, true)).toBe(false);
+    // The update filters on the user too: the owner's recipe under another user id changes nothing.
+    expect(await setFavoriteIn(user.db, other.id, ids.pannkakor, true)).toBe(false);
+    const { data } = await adminClient().from("recipe").select("is_favorite").eq("id", ids.pannkakor).single();
+    expect(data?.is_favorite).toBe(false);
+  });
+
+  it("lists 200 recipes well within a second (NFR7)", async () => {
+    const many = await createTestUser("library-200");
+    const rows = Array.from({ length: 200 }, (_, index) => ({
+      title: `Recept ${index}`,
+      original_servings: 4,
+      total_minutes: 30,
+      source_kind: "text",
+      is_favorite: index % 5 === 0,
+    }));
+    const { error } = await many.db.from("recipe").insert(rows);
+    if (error) throw error;
+    const started = performance.now();
+    const listed = await listRecipes(many.db);
+    const listMs = performance.now() - started;
+    const searchStarted = performance.now();
+    const found = await search(many.db, "recept 1");
+    const searchMs = performance.now() - searchStarted;
+    console.info(`listRecipes, 200 recipes: ${listMs.toFixed(0)} ms; searchRecipesIn: ${searchMs.toFixed(0)} ms`);
+    expect(listed).toHaveLength(200);
+    expect(found.length).toBeGreaterThan(100);
+    expect(listMs).toBeLessThan(1000);
+    expect(searchMs).toBeLessThan(1000);
   });
 });
