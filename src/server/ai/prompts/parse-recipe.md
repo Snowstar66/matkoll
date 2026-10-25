@@ -19,7 +19,7 @@ En post per ingrediens, i receptets ordning. Rubriker som "Sås" eller "Till ser
 
 - `originalText`: raden ordagrant som den står, utan punkttecken i början.
 - Dela upp raden i mängd, enhet och ingrediens:
-  - `amount`: mängden som tal med punkt som decimaltecken. "1 1/2" och "1½" blir 1.5, "½" blir 0.5. Vid ett intervall som "2–3" tar du det första talet.
+  - `amount`: mängden som tal med punkt som decimaltecken. "1 1/2" och "1½" blir 1.5, "½" blir 0.5. Vid ett intervall som "2–3" tar du det största talet (3), så att det räcker. Portioner följer sin egen regel ovan.
   - `unit`: enheten som den står i receptet, t.ex. "dl", "msk", "g", "st", "burk". Använd `null` om raden bara har ett antal, som "2 ägg".
 - Märk vaga mängder: när mängden inte går att ange som tal ("salt", "peppar efter smak", "en skvätt olja", "smör till stekning") sätter du `isVague` till `true` och både `amount` och `unit` till `null`. Annars är `isVague` `false`.
 - `hint` är ditt förslag till en post i Matkolls ingredienskatalog:

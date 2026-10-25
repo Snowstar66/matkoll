@@ -5,13 +5,51 @@ export type Database = {
   
   "public": {
           Tables: {
-            [_ in never]: never
+            "ingredient": {
+                  Row: {
+                    "created_at": string,"default_unit": string | null,"id": string,"location": string,"name": string,"normalized_name": string,"section": string,"user_id": string
+                  }
+                  ComputedFields: never
+                  Insert: {
+                    "created_at"?: string,"default_unit"?: string | null,"id"?: string,"location": string,"name": string,"normalized_name": string,"section": string,"user_id"?: string
+                  }
+                  Update: {
+                    "created_at"?: string,"default_unit"?: string | null,"id"?: string,"location"?: string,"name"?: string,"normalized_name"?: string,"section"?: string,"user_id"?: string
+                  }
+                  Relationships: [
+                    
+                  ]
+                },"ingredient_synonym": {
+                  Row: {
+                    "created_at": string,"id": string,"ingredient_id": string,"normalized": string,"user_id": string
+                  }
+                  ComputedFields: never
+                  Insert: {
+                    "created_at"?: string,"id"?: string,"ingredient_id": string,"normalized": string,"user_id"?: string
+                  }
+                  Update: {
+                    "created_at"?: string,"id"?: string,"ingredient_id"?: string,"normalized"?: string,"user_id"?: string
+                  }
+                  Relationships: [
+                    {
+      foreignKeyName: "ingredient_synonym_ingredient_fkey"
+      columns: ["ingredient_id","user_id"]
+isOneToOne: false
+      referencedRelation: "ingredient"
+      referencedColumns: ["id","user_id"]
+    }
+                  ]
+                }
           }
           Views: {
             [_ in never]: never
           }
           Functions: {
-            [_ in never]: never
+            "commit_ingredients":
+{ Args: { "new_ingredients": Json,"synonyms": Json }; Returns: {
+              "id": string,"normalized_name": string
+            }[]
+                           }
           }
           Enums: {
             [_ in never]: never

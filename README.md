@@ -22,7 +22,7 @@ Logga in på `http://localhost:3000/logga-in`. Länken hamnar i Mailpit på `htt
 | `pnpm lint` | ESLint, inklusive lagerreglerna (AD-1) |
 | `pnpm typecheck` | Genererar Next-typer och kör `tsc --noEmit` |
 | `pnpm test` | Vitest (domain-tester, miljövalidering, AI-porten med falsk modell och mock, lagerreglerna, designtokens och komponenttester) |
-| `pnpm test:integration` | Vitest mot lokal Supabase (stängd registrering, `users:sync`). Kräver `pnpm db:start` och `pnpm db:env` |
+| `pnpm test:integration` | Vitest mot lokal Supabase (stängd registrering, `users:sync`, RLS och ingredienskatalogen). Kräver `pnpm db:start` och `pnpm db:env` |
 | `pnpm build` | Produktionsbygge. Kräver `SITE_URL` och `AI_PROVIDER` (t.ex. `AI_PROVIDER=mock pnpm build`) |
 | `pnpm test:e2e` | Playwright mot `pnpm dev` på port 3100 (`CI=1` kör `pnpm start`, så bygg först). Kräver lokal Supabase och `pnpm db:env`. Testanvändaren `e2e@matkoll.test` skapas med `users:sync` och loggas in via `/auth/confirm` i `tests/e2e/global-setup.ts`. Första gången: `pnpm exec playwright install chromium` |
 | `pnpm eval:ai` | Kör AI-testuppsättningen mot vald `AI_PROVIDER` och skriver `tests/eval/report.md`. Manuellt, aldrig i CI (se AI-tjänsten nedan) |
@@ -106,6 +106,48 @@ För att testa felbeskeden i importflödet svarar mocken med ett fel på de rese
 | `matkoll-mock: ai_invalid` | `ai_invalid` |
 | `matkoll-mock: ai_rejected` | `ai_rejected` |
 | `matkoll-mock: import_no_recipe` | `import_no_recipe` | Bilden av en receptsida skapas med `node scripts/render-recipe-image.mjs [namn]`.
+
+### Ingredienskatalogen
+
+Modulen `src/features/catalog` äger tabellerna `ingredient` och `ingredient_synonym` (AD-1, AD-6). Andra moduler importerar bara via två ingångar.
+
+`@/features/catalog` (`index.ts`, domänen, säker i klienten):
+
+| Export | Gör |
+| --- | --- |
+| `normalizeUnit`, `parseQuantity`, `formatQuantity`, `UNITS` | Enda sättet att tolka enheter och mängder och att visa en mängd ("1,5 dl", "<0,01 g"). En okänd enhet ("näve") ger `known: false`, och raden blir vag. Ett intervall ("2–3") ger det största talet, som i AI-prompten. "1.500" och "1 000" är tusental. Enheter räknas aldrig om (AD-12) |
+| `SECTIONS`, `toSection`, `LOCATIONS`, `toLocation` | Avdelningar i listans ordning och platser hemma. Okänd avdelning blir Övrigt, och okänd plats följer avdelningen |
+| `normalizeIngredientText`, `cleanIngredientText` | Den enda normaliseringen: utan punkttecken, mängd och enhet (även "500g", "ett par", "1 näve"), parenteser, "efter smak" och liknande, och tillagningsord ("1 Lök, hackad" → "lök"). Ord som kan vara en egen vara ("torkade", "rökt", "riven") tas bara bort efter ett kommatecken. `cleanIngredientText` gör samma sak men behåller versalerna och ger namnet på en föreslagen ingrediens ("Gul lök") |
+| `IngredientMatch`, `IngredientChoice`, `IngredientProposal` och deras Zod-scheman | Matchningens resultat och det som sparande actions skickar till `commitIngredients` |
+
+`@/features/catalog/server` (`server.ts`, `server-only`, användarens sessionsklient):
+
+| Export | Gör |
+| --- | --- |
+| `matchIngredients(items)` | Skrivfri matchning i ordningen: radens text mot namn, mot synonym, sedan AI-tipsets namn mot namn och synonym (`confidence: "hint"`, osäkrare, så förhandsgranskningen ber Pontus kontrollera), annars ett förslag på ny ingrediens (`kind: "new"`). Saknas både användbar text och tips blir resultatet `{ kind: "unmatched" }` |
+| `commitIngredients(choices)` | Bara för sparande actions. Returnerar ett id per val i samma ordning (`null` för `unmatched`). Skapar nya ingredienser och synonymer i ett anrop till Postgres-funktionen `commit_ingredients` (en rad även vid samtidiga anrop, befintliga ingredienser ändras aldrig). Kontrollerar att alla id finns i användarens katalog (`catalog_unknown_ingredient`) |
+
+Synonymer sparas av `commitIngredients`:
+
+- När Pontus valt en annan ingrediens (`kind: "chosen"`) sparas radens normaliserade text som synonym; en befintlig synonym pekas om. Olika val för samma text i ett anrop ger `catalog_conflicting_synonyms`.
+- En ny ingrediens vars namn skiljer sig från radens text får texten som synonym ("Lök, hackad" med namnet "Gul lök" ger synonymen "lök"), utom när två nya ingredienser delar texten ("salt och peppar").
+- Ingen synonym sparas när texten redan leder till den valda ingrediensen, eller när texten är en annan ingrediens exakta namn: namnet matchas alltid först (AD-6), så synonymen skulle aldrig användas.
+
+Katalogingredienser tas aldrig bort (AD-20): ingen roll har `delete` på `ingredient`. Listorna i databasens `check` måste vara exakt domänens; `tests/design/catalog-checks.test.ts` kontrollerar det.
+
+### Migrationer
+
+Schemat ändras bara med migrationer (AD-4, AD-5):
+
+```bash
+pnpm exec supabase migration new <namn>   # skapar supabase/migrations/<tid>_<namn>.sql
+pnpm exec supabase migration up           # kör nya migrationer mot den lokala databasen
+pnpm db:types                             # genererar src/lib/supabase/database.types.ts; checka in filen
+```
+
+Utanför en terminal (t.ex. i ett skript eller en agent) väntar `migration new` på SQL från stdin; lägg till `< /dev/null`.
+
+Kör inte `supabase db reset` lokalt: det raderar användarna. Ändra aldrig en migration som redan körts; skriv en ny. Varje tabell får `user_id ... default auth.uid() references auth.users on delete cascade`, RLS med policyn `user_id = (select auth.uid())`, grants till `authenticated` och `service_role` men aldrig `anon`, och ett RLS-test med `expectRlsIsolation` från `tests/integration/support.ts`. CI startar från en tom databas och misslyckas om de genererade typerna skiljer sig från den incheckade filen.
 
 ### Supabase i molnet
 
