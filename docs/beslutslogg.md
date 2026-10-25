@@ -2,6 +2,12 @@
 
 Beslut som fattats under bygget: vad, varför och vilka alternativ som fanns. Nyaste överst.
 
+## 2026-10-26 – Receptrader utan katalogingrediens på inköpslistan
+
+- **Beslut:** en receptrad som saknar katalogingrediens blir en post under Övrigt med radens originaltext. Mängden räknas inte om och lagret dras inte av. Listnyckeln är `t:<normaliserad text>`, så samma text från flera rätter slås ihop. I lagningsstatus räknas raden fortfarande inte (Story 2.4).
+- **Varför:** en rad som faller bort tyst kan betyda att något saknas när Pontus kommer hem från butiken. Att visa den neutralt är bättre.
+- **Alternativ:** ingen post, vilket är enklare men gör att det kan saknas varor; eller kräva att varje rad kopplas till en katalogingrediens innan receptet sparas.
+
 ## 2026-10-26 – Logga ut gäller bara den här enheten
 
 - **Beslut:** "Logga ut" i Inställningar avslutar sessionen i den här webbläsaren (`scope: "local"`). Pontus är fortfarande inloggad på andra enheter.
