@@ -38,7 +38,9 @@ export function RecipeView({ recipe, menu }: { recipe: SavedRecipe; menu?: React
             {menu}
           </div>
         </div>
-        <p className="text-meta text-ink-2">{recipeMetaText(recipe.totalMinutes, recipe.servings)}</p>
+        <p className="text-meta text-ink-2" data-testid="recipe-meta">
+          {recipeMetaText(recipe.totalMinutes, recipe.servings)}
+        </p>
         <p className="text-meta text-ink-2">
           Källa:{" "}
           {recipe.sourceKind === "url" && recipe.sourceUrl ? (

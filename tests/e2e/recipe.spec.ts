@@ -74,7 +74,7 @@ test("Spara recept saves the recipe and opens the recipe view", async ({ page })
   await expect(page).toHaveTitle(`${title} – Matkoll`);
   await expectReceptCurrent(page);
   // The recipe has no time, so only the servings.
-  await expect(page.getByText("4 portioner", { exact: true })).toBeVisible();
+  await expect(page.getByTestId("recipe-meta")).toHaveText("4 portioner");
   await expect(page.getByText("Källa: Inklistrad text")).toBeVisible();
   // No image address from pasted text: the placeholder takes its place.
   await expect(page.getByTestId("recipe-image-placeholder")).toBeVisible();
