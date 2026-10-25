@@ -91,7 +91,7 @@ function readStoryStatuses() {
     if (/^development_status:\s*$/.test(line)) { inSection = true; continue; }
     if (inSection && /^\S/.test(line)) inSection = false;
     if (!inSection) continue;
-    const m = line.match(/^\s+([\w-]+):\s*([\w-]+)\s*$/);
+    const m = line.match(/^\s+([\p{L}\p{N}_-]+):\s*([\w-]+)\s*$/u);
     if (!m) continue;
     const [, key, status] = m;
     const story = key.match(/^(\d+)-(\d+)-/);
@@ -153,7 +153,7 @@ function sync() {
     "--limit", "500", "--json", "number,body,state");
   const issueByKey = new Map();
   for (const issue of issues) {
-    const m = issue.body?.match(/<!-- bmad-story: ([\w-]+) -->/);
+    const m = issue.body?.match(/<!-- bmad-story: ([\p{L}\p{N}_-]+) -->/u);
     if (m) issueByKey.set(m[1], issue);
   }
 

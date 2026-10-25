@@ -408,6 +408,10 @@ så att jag slipper kopiera receptet för hand.
 **Så** hämtar servern sidan, skickar JSON-LD och läsbar text till `parseRecipe` och visar samma förhandsgranskning som för text, med `sourceKind: url` och källans URL
 **Och** testerna använder sparade sidor från båda sajterna i `tests/fixtures/sites/`
 
+**Givet** ica.se, arla.se och coop.se
+**När** en receptsida från varje sajt hämtas med `safeFetch` under utvecklingen
+**Så** noteras resultatet (fungerar, blockeras, saknar receptdata) i `docs/oppna-fragor.md` (T1), och de sajter som fungerar läggs till i `ensure_user_defaults()`
+
 **Givet** en länk till en domän som inte är godkänd
 **När** Pontus tolkar den
 **Så** visas "[domän] är inte en godkänd receptsajt." med knappen "Öppna inställningar", och ingen hämtning görs
@@ -626,7 +630,7 @@ så att jag har en plan för veckan.
 
 **Givet** arket Lägg till rätt med favoriter överst och sökning i biblioteket under
 **När** Pontus trycker på en favorit
-**Så** anropas `addToCurrentPlan(recipeId)`, som skapar en aktuell matsedel om ingen finns, rätten läggs till med receptets originalportioner och arket stängs; en favorit kräver alltså två tryck (FR13, SM-4)
+**Så** anropas `addToCurrentPlan(recipeId)`, som skapar en aktuell matsedel om ingen finns (namn "Vecka <ISO-veckonummer>", går att ändra), rätten läggs till med receptets originalportioner och arket stängs; en favorit kräver alltså två tryck (FR13, SM-4)
 
 **Givet** receptvyn
 **När** Pontus trycker "Lägg på matsedeln"
