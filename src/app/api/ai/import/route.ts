@@ -1,8 +1,8 @@
 import { requireUserForRoute } from "@/features/auth/server";
 import { importRequestSchema } from "@/features/recipes";
 import { importRecipe } from "@/features/recipes/server";
-import { fail, type ErrorCode, type Result } from "@/lib/errors";
-import { env } from "@/server/env";
+import { fail } from "@/lib/errors";
+import { isCrossSite, mediaTypeOf, readCapped, respond, unreadBody } from "../route-support";
 
 // Import of a recipe from pasted text or a link (AD-9, AD-11): the client
 // posts through src/lib/ai-client.ts and gets a RecipeDraft back. Never writes
@@ -21,75 +21,19 @@ export const maxDuration = 120;
 /** Largest request body: 12 000 characters of text, as UTF-8 and JSON, fit well within it. */
 const maxBodyBytes = 64 * 1024;
 
-const statusFor: Partial<Record<ErrorCode, number>> = {
-  unauthorized: 401,
-  validation: 400,
-  import_no_recipe: 422,
-  ai_invalid: 502,
-  ai_rejected: 502,
-  ai_unavailable: 503,
-  catalog_unavailable: 503,
-  settings_unavailable: 503,
-  fetch_invalid_url: 422,
-  fetch_domain_not_allowed: 422,
-  fetch_blocked: 502,
-  fetch_too_large: 502,
-  fetch_timeout: 504,
-  // The client went away ("Avbryt"); nobody reads the answer.
-  fetch_aborted: 499,
-};
-
-function respond<T>(result: Result<T>, status?: number): Response {
-  return Response.json(result, { status: status ?? (result.ok ? 200 : (statusFor[result.error.code] ?? 500)) });
-}
-
-/** True when the browser says the request comes from another site. Requests without the headers (scripts, tests) pass. */
-function isCrossSite(request: Request): boolean {
-  const origin = request.headers.get("origin");
-  if (origin !== null && origin !== new URL(env.SITE_URL).origin) return true;
-  const site = request.headers.get("sec-fetch-site");
-  return site !== null && site !== "same-origin" && site !== "none";
-}
-
-function isJson(request: Request): boolean {
-  const type = request.headers.get("content-type")?.split(";")[0]?.trim().toLowerCase();
-  return type === "application/json";
-}
-
-/** The body as text, or `null` when it is larger than `limit` bytes. Stops reading at the limit. */
-async function readCapped(request: Request, limit: number): Promise<string | null> {
-  const length = Number(request.headers.get("content-length"));
-  if (Number.isFinite(length) && length > limit) return null;
-  if (!request.body) return "";
-  const reader = request.body.getReader();
-  const chunks: Uint8Array[] = [];
-  let size = 0;
-  for (;;) {
-    const { done, value } = await reader.read();
-    if (done) break;
-    size += value.byteLength;
-    if (size > limit) {
-      await reader.cancel();
-      return null;
-    }
-    chunks.push(value);
-  }
-  return new TextDecoder().decode(Buffer.concat(chunks));
-}
-
 export async function POST(request: Request): Promise<Response> {
   if (isCrossSite(request)) return respond(fail("unauthorized"), 403);
 
   const auth = await requireUserForRoute();
   if (auth.response) return auth.response;
 
-  if (!isJson(request)) return respond(fail("validation"), 415);
-  const text = await readCapped(request, maxBodyBytes);
-  if (text === null) return respond(fail("validation"), 413);
+  if (mediaTypeOf(request) !== "application/json") return respond(fail("validation"), 415);
+  const read = await readCapped(request, maxBodyBytes);
+  if (!read.ok) return read.reason === "too_large" ? respond(fail("validation"), 413) : unreadBody(read.reason);
 
   let body: unknown;
   try {
-    body = JSON.parse(text);
+    body = JSON.parse(new TextDecoder().decode(read.bytes));
   } catch {
     return respond(fail("validation"));
   }

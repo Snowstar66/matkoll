@@ -120,7 +120,8 @@ export function RecipePreview({
         <Button variant="text" onClick={onBack} className="-ml-3 self-start">
           {backLabel}
         </Button>
-        {draft.sourceKind === "url" ? (
+        {/* The source of a link or a photo; pasted text needs no reminder. */}
+        {draft.sourceKind === "url" || draft.sourceKind === "photo" ? (
           <p className="text-meta text-ink-2">Källa: {sourceLabel(draft.sourceKind, draft.sourceUrl)}</p>
         ) : null}
       </div>

@@ -4,6 +4,7 @@
     "<name>.expected.json (what pnpm eval:ai checks), optionally <name>.jsonld.json (JSON-LD sent with the text)",
     "and <name>.png (the same recipe as an image). 'default' is the mock's answer for unknown input.",
     "'reserved' inputs make the mock fail with that error code, for tests of the error messages.",
+    "'reservedImages' do the same for a photo: the mock keys them on the image bytes, so a PNG that the client sends as it is (it already fits) reaches the mock unchanged.",
     "koket-* and tasteline-* are the saved pages in tests/fixtures/sites/ as the import flow reads them (extractRecipePage); extract.test.ts keeps them in step."
   ],
   "default": "kycklinggryta",
@@ -49,6 +50,24 @@
     },
     {
       "text": "matkoll-mock: import_no_recipe",
+      "code": "import_no_recipe"
+    }
+  ],
+  "reservedImages": [
+    {
+      "image": "reserved-ai_unavailable.png",
+      "code": "ai_unavailable"
+    },
+    {
+      "image": "reserved-ai_invalid.png",
+      "code": "ai_invalid"
+    },
+    {
+      "image": "reserved-ai_rejected.png",
+      "code": "ai_rejected"
+    },
+    {
+      "image": "reserved-import_no_recipe.png",
       "code": "import_no_recipe"
     }
   ]

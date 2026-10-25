@@ -6,14 +6,15 @@ import { fail, ok, type Result } from "@/lib/errors";
 import { getAiService, type ParseRecipeInput } from "@/server/ai";
 import { checkLinkSyntax, extractRecipePage, fetchRecipePage } from "@/server/fetch";
 import { fromAiRecipe, type RecipeSource } from "../domain/from-ai-recipe";
-import { maxImportTextChars, type ImportRequest, type RecipeImport } from "../domain/import";
+import { maxImportTextChars, type ImportInput, type RecipeImport } from "../domain/import";
 import { recipeDraftSchema } from "../domain/recipe-draft";
 
-// The server side of importing pasted text or a link (AD-2, AD-9, AD-10,
-// AD-11). Not a Server Action: the Route Handler /api/ai/import calls it with
-// the request's signal, so "Avbryt" in the client stops the fetch and the
-// model call. It never writes: the draft lives in the client until Pontus
-// saves it (Story 1.7).
+// The server side of importing pasted text, a link or a photo (AD-2, AD-9,
+// AD-10, AD-11, AD-15). Not a Server Action: the Route Handlers /api/ai/import
+// and /api/ai/import/photo call it with the request's signal, so "Avbryt" in
+// the client stops the fetch and the model call. It never writes: the draft
+// lives in the client until Pontus saves it (Story 1.7), and a photo is only
+// passed on to the AI port, never stored or logged.
 
 /** Runs a catalog read; a failed query becomes `catalog_unavailable`, anything else is a bug and is thrown. */
 async function fromCatalog<T>(read: () => Promise<T>): Promise<Result<T>> {
@@ -62,7 +63,8 @@ async function readRecipePage(
 }
 
 /**
- * Parses pasted text, or a recipe page from a link, with the AI port, matches
+ * Parses pasted text, a recipe page from a link or a photo of a cookbook page
+ * (sent to the model as a `file` part) with the AI port, matches
  * each line against the catalog and maps the answer with fromAiRecipe. Fails
  * with `unauthorized`, `validation`, for a link `settings_unavailable` and the
  * fetch port's codes (`fetch_invalid_url`, `fetch_domain_not_allowed`,
@@ -72,7 +74,7 @@ async function readRecipePage(
  * `ai_invalid`.
  */
 export async function importRecipe(
-  input: ImportRequest,
+  input: ImportInput,
   { signal }: { signal: AbortSignal },
 ): Promise<Result<RecipeImport>> {
   const user = await requireUser();
@@ -84,6 +86,9 @@ export async function importRecipe(
     const page = await readRecipePage(input.url, signal);
     if (!page.ok) return page;
     ({ input: parseInput, source } = page.data);
+  } else if (input.kind === "photo") {
+    parseInput = { image: input.image };
+    source = { kind: "photo" };
   } else {
     parseInput = { text: input.text };
     source = { kind: "text" };

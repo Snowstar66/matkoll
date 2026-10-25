@@ -37,11 +37,28 @@ function toResult<T>(payload: unknown): Result<T> {
  * page), gives `ai_unavailable`. Aborting `signal` gives `{ aborted: true }`.
  */
 export async function postAi<T>(path: string, body: unknown, signal: AbortSignal): Promise<AiCallResult<T>> {
+  return post<T>(path, { headers: { "content-type": "application/json" }, body: JSON.stringify(body) }, signal);
+}
+
+/**
+ * Posts `formData` as multipart/form-data, e.g. a photo, to an AI Route
+ * Handler. Same result and abort as postAi. The browser sets the content type
+ * with its boundary.
+ */
+export async function postAiForm<T>(path: string, formData: FormData, signal: AbortSignal): Promise<AiCallResult<T>> {
+  return post<T>(path, { body: formData }, signal);
+}
+
+async function post<T>(
+  path: string,
+  { headers, body }: { headers?: Record<string, string>; body: BodyInit },
+  signal: AbortSignal,
+): Promise<AiCallResult<T>> {
   try {
     const response = await fetch(path, {
       method: "POST",
-      headers: { "content-type": "application/json", accept: "application/json" },
-      body: JSON.stringify(body),
+      headers: { ...headers, accept: "application/json" },
+      body,
       signal,
     });
     return toResult<T>(await response.json());

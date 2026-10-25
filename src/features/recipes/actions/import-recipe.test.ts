@@ -245,3 +245,43 @@ describe("importRecipe from a link", () => {
     expect(getActiveRecipeDomains).not.toHaveBeenCalled();
   });
 });
+
+describe("importRecipe from a photo", () => {
+  const png = () =>
+    new Uint8Array(readFileSync(new URL("../../../../tests/fixtures/ai/ugnspannkaka.png", import.meta.url)));
+
+  it("sends the image to parseRecipe as it is, with the signal, and marks the draft as a photo", async () => {
+    const controller = new AbortController();
+    const image = { data: png(), mediaType: "image/png" as const };
+    const result = await importRecipe({ kind: "photo", image }, { signal: controller.signal });
+
+    expect(parseRecipe).toHaveBeenCalledWith({ image }, controller.signal);
+    if (!result.ok) throw new Error(result.error.code);
+    expect(result.data.draft).toMatchObject({
+      title: "Ugnspannkaka med bacon",
+      sourceKind: "photo",
+      sourceUrl: null,
+      imageUrl: null,
+    });
+    expect(getActiveRecipeDomains).not.toHaveBeenCalled();
+  });
+
+  it("passes on import_no_recipe from the AI port", async () => {
+    parseRecipe.mockResolvedValueOnce(fail("import_no_recipe"));
+    const result = await importRecipe({ kind: "photo", image: { data: png(), mediaType: "image/png" } }, { signal: signal() });
+    expect(result).toEqual(fail("import_no_recipe"));
+    expect(matchIngredients).not.toHaveBeenCalled();
+  });
+
+  it("gives validation for an image the AI port does not take", async () => {
+    // The port checks the limits itself too (withInputValidation); the route checks them first.
+    const { createAiService } = await import("@/server/ai/service");
+    const checked = createAiService({ AI_PROVIDER: "mock" } as Parameters<typeof createAiService>[0]);
+    parseRecipe.mockImplementationOnce(checked.parseRecipe);
+    const result = await importRecipe(
+      { kind: "photo", image: { data: new Uint8Array(0), mediaType: "image/jpeg" } },
+      { signal: signal() },
+    );
+    expect(result).toEqual(fail("validation"));
+  });
+});

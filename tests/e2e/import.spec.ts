@@ -2,7 +2,7 @@ import { readFileSync } from "node:fs";
 import { expect, type Locator, type Page, test } from "@playwright/test";
 import { adminClient, e2eEmail, outsiderStorageState, userStorageState } from "./support";
 
-// Story 1.6 and 1.8: importing a recipe from pasted text or a link, with
+// Story 1.6, 1.8 and 1.9: importing a recipe from pasted text, a link or a photo, with
 // AI_PROVIDER=mock. In CI this runs against the built server (`pnpm build &&
 // pnpm start`), so a working import also shows that the AI port, with its
 // prompt bundled through `?raw`, works after `next build`. It also tests the
@@ -75,7 +75,7 @@ test.beforeAll(async () => {
   await seedCatalog();
 });
 
-test("the sheet opens on the Länk tab; Text works and Foto is coming", async ({ page }) => {
+test("the sheet opens on the Länk tab, with Text and Foto beside it", async ({ page }) => {
   const errors = watchErrors(page);
   await openImport(page, "Länk");
 
@@ -94,7 +94,9 @@ test("the sheet opens on the Länk tab; Text works and Foto is coming", async ({
   await expect(tolka).toBeDisabled();
 
   await sheet(page).getByRole("tab", { name: "Foto" }).click();
-  await expect(sheet(page).getByRole("tabpanel")).toHaveText("Kommer snart.");
+  await expect(sheet(page).getByRole("tabpanel")).toContainText("Bilden sparas inte.");
+  await expect(sheet(page).getByRole("button", { name: "Välj bild" })).toBeVisible();
+  await expect(tolka).toHaveCount(0);
   expect(errors).toEqual([]);
 });
 
@@ -592,4 +594,374 @@ test.describe("/api/ai/import signed in", () => {
       expect(body.error.fields).toEqual(fields);
     });
   }
+});
+
+// Story 1.9: a photo of a cookbook page. The fixture PNG already fits (768 × 942
+// px, 110 kB), so the client sends it as it is and the mock answers it by its
+// bytes; the reserved PNGs make the mock fail with an error code the same way.
+
+const photoPath = "tests/fixtures/ai/ugnspannkaka.png";
+const photoRoute = "**/api/ai/import/photo";
+
+/** Opens the Foto tab and chooses `files` with "Välj bild", through the browser's file chooser. */
+async function choosePhoto(page: Page, files: Parameters<import("@playwright/test").FileChooser["setFiles"]>[0]) {
+  const tab = sheet(page).getByRole("tab", { name: "Foto" });
+  if ((await tab.getAttribute("aria-selected")) !== "true") await tab.click();
+  const chooser = page.waitForEvent("filechooser");
+  await sheet(page).getByRole("button", { name: "Välj bild" }).click();
+  await (await chooser).setFiles(files);
+}
+
+/** The width and height in a JPEG's frame header (SOF0–SOF15, except DHT, JPG and DAC). */
+function jpegSize(jpeg: Buffer): { width: number; height: number } {
+  let offset = 2;
+  while (offset < jpeg.length) {
+    const marker = jpeg[offset + 1];
+    const length = jpeg.readUInt16BE(offset + 2);
+    if (marker >= 0xc0 && marker <= 0xcf && ![0xc4, 0xc8, 0xcc].includes(marker)) {
+      return { height: jpeg.readUInt16BE(offset + 5), width: jpeg.readUInt16BE(offset + 7) };
+    }
+    offset += 2 + length;
+  }
+  throw new Error("no frame header");
+}
+
+/** The file in a multipart/form-data body's `image` field. */
+function imageFromMultipart(body: Buffer, contentType: string): Buffer {
+  const boundary = /boundary=(?:"([^"]+)"|([^;]+))/.exec(contentType);
+  if (!boundary) throw new Error("no boundary");
+  const delimiter = Buffer.from(`--${boundary[1] ?? boundary[2]}`);
+  const start = body.indexOf(delimiter);
+  const headerEnd = body.indexOf("\r\n\r\n", start);
+  if (!body.subarray(start, headerEnd).toString().includes('name="image"')) throw new Error("no image field");
+  const end = body.indexOf(Buffer.concat([Buffer.from("\r\n"), delimiter]), headerEnd);
+  return body.subarray(headerEnd + 4, end);
+}
+
+/**
+ * A camera-sized JPEG of about 6 MB, 4000 × 3000 px, made in the browser, with
+ * EXIF orientation 6 (turned 90° clockwise), so it shows as 3000 × 4000.
+ */
+async function largeCameraPhoto(page: Page): Promise<Buffer> {
+  const base64 = await page.evaluate(async () => {
+    const canvas = document.createElement("canvas");
+    canvas.width = 4000;
+    canvas.height = 3000;
+    const context = canvas.getContext("2d")!;
+    const image = context.createImageData(4000, 3000);
+    // A page-like light background with fine noise, so the JPEG is large. The noise
+    // comes from a fixed-seed generator (mulberry32), so every run sends the same photo.
+    let seed = 0x6d61746b;
+    const next = () => {
+      seed = (seed + 0x6d2b79f5) | 0;
+      let t = Math.imul(seed ^ (seed >>> 15), 1 | seed);
+      t = (t + Math.imul(t ^ (t >>> 7), 61 | t)) ^ t;
+      return ((t ^ (t >>> 14)) >>> 0) / 4294967296;
+    };
+    for (let index = 0; index < image.data.length; index += 4) {
+      const shade = 225 + Math.floor(next() * 30);
+      image.data[index] = shade;
+      image.data[index + 1] = shade - 5;
+      image.data[index + 2] = shade - 15;
+      image.data[index + 3] = 255;
+    }
+    context.putImageData(image, 0, 0);
+    context.fillStyle = "black";
+    context.font = "120px serif";
+    for (let line = 0; line < 20; line++) context.fillText("Ugnspannkaka med bacon", 200, 200 + line * 140);
+    const blob = await new Promise<Blob>((resolve) => canvas.toBlob((b) => resolve(b!), "image/jpeg", 0.95));
+    const bytes = new Uint8Array(await blob.arrayBuffer());
+    let binary = "";
+    for (let index = 0; index < bytes.length; index += 0x8000) {
+      binary += String.fromCharCode(...bytes.subarray(index, index + 0x8000));
+    }
+    return btoa(binary);
+  });
+  const jpeg = Buffer.from(base64, "base64");
+  // APP1 "Exif" with a big-endian TIFF header and one IFD entry: Orientation (0x0112) = 6.
+  const tiff = Buffer.from([0x4d, 0x4d, 0, 0x2a, 0, 0, 0, 8, 0, 1, 0x01, 0x12, 0, 3, 0, 0, 0, 1, 0, 6, 0, 0, 0, 0, 0, 0]);
+  const payload = Buffer.concat([Buffer.from("Exif\0\0", "latin1"), tiff]);
+  const length = Buffer.alloc(2);
+  length.writeUInt16BE(payload.length + 2);
+  return Buffer.concat([jpeg.subarray(0, 2), Buffer.from([0xff, 0xe1]), length, payload, jpeg.subarray(2)]);
+}
+
+test.describe("import from a photo", () => {
+  test("the photo becomes a preview from 'Foto av kokbok', and the photo is kept for going back", async ({ page }) => {
+    const errors = watchErrors(page);
+    await openImport(page, "Länk");
+    await choosePhoto(page, photoPath);
+
+    await expect(sheet(page).getByLabel("Titel")).toHaveValue("Ugnspannkaka med bacon");
+    await expect(sheet(page).getByText("Källa: Foto av kokbok")).toBeVisible();
+    await expect(sheet(page).getByText("4 portioner")).toBeVisible();
+    // The mock knows the fixture by its bytes, so this recipe shows that a PNG that fits is sent unchanged.
+
+    await sheet(page).getByRole("button", { name: "Tillbaka till bilden" }).click();
+    await expect(sheet(page).getByRole("tab", { name: "Foto" })).toHaveAttribute("aria-selected", "true");
+    await expect(sheet(page).getByRole("button", { name: "Välj bild" })).toBeFocused();
+    await sheet(page).getByRole("button", { name: "Visa förhandsgranskningen" }).click();
+    await expect(sheet(page).getByLabel("Titel")).toHaveValue("Ugnspannkaka med bacon");
+    expect(errors).toEqual([]);
+  });
+
+  test("the saved recipe has the photo as its source and no image", async ({ page }) => {
+    await openImport(page, "Länk");
+    await choosePhoto(page, photoPath);
+    await expect(sheet(page).getByLabel("Titel")).toHaveValue("Ugnspannkaka med bacon");
+    await sheet(page).getByRole("button", { name: "Spara recept" }).click();
+    await expect(page).toHaveURL(/\/recept\/[0-9a-f-]{36}$/);
+    const id = page.url().split("/").pop();
+    const { data, error } = await adminClient().from("recipe").select("source_kind, source_url, image_url").eq("id", id).single();
+    if (error) throw error;
+    expect(data).toEqual({ source_kind: "photo", source_url: null, image_url: null });
+    await expect(page.getByText("Foto av kokbok")).toBeVisible();
+    // Leave the library empty for the other tests.
+    const deleted = await adminClient().from("recipe").delete().eq("id", id);
+    if (deleted.error) throw deleted.error;
+  });
+
+  test("a large camera photo is sent as a JPEG of at most 1600 px and 1.5 MB, turned the right way", async ({ page }) => {
+    await openImport(page, "Länk");
+    const photo = await largeCameraPhoto(page);
+    expect(photo.length).toBeGreaterThan(4 * 1024 * 1024);
+    expect(jpegSize(photo)).toEqual({ width: 4000, height: 3000 });
+
+    // Read from the route: a large body is not kept on the request event.
+    const sent: { body: Buffer; contentType: string }[] = [];
+    await page.route(photoRoute, async (route) => {
+      const request = route.request();
+      sent.push({ body: request.postDataBuffer()!, contentType: (await request.allHeaders())["content-type"] });
+      await route.continue();
+    });
+    await choosePhoto(page, { name: "IMG_0001.jpg", mimeType: "image/jpeg", buffer: photo });
+    await expect.poll(() => sent.length).toBe(1);
+    const { body, contentType } = sent[0];
+    const image = imageFromMultipart(body, contentType);
+    expect(image.length).toBeLessThanOrEqual(1.5 * 1024 * 1024);
+    expect(body.length).toBeLessThan(2 * 1024 * 1024);
+    expect([...image.subarray(0, 3)]).toEqual([0xff, 0xd8, 0xff]);
+    // EXIF orientation 6 is applied: the landscape sensor image becomes a portrait page.
+    expect(jpegSize(image)).toEqual({ width: 1200, height: 1600 });
+    // Unknown bytes to the mock: its default recipe, still from a photo.
+    await expect(sheet(page).getByText("Källa: Foto av kokbok")).toBeVisible();
+  });
+
+  test("a file that cannot be read is not sent", async ({ page }) => {
+    let requests = 0;
+    await page.route(photoRoute, async (route) => {
+      requests++;
+      await route.continue();
+    });
+    await openImport(page, "Länk");
+    // HEIC from an iPhone, which Chrome on a desktop cannot decode.
+    const heic = Buffer.concat([Buffer.from([0, 0, 0, 0x18]), Buffer.from("ftypheic"), Buffer.alloc(2048, 7)]);
+    await choosePhoto(page, { name: "IMG_0002.HEIC", mimeType: "image/heic", buffer: heic });
+    await expect(sheet(page).getByRole("alert")).toHaveText("Bildformatet stöds inte. Välj en JPEG-, PNG- eller WebP-bild.");
+    await expect(sheet(page).getByRole("button", { name: "Försök igen" })).toHaveCount(0);
+    expect(requests).toBe(0);
+
+    // Another photo works as usual from there.
+    await choosePhoto(page, photoPath);
+    await expect(sheet(page).getByLabel("Titel")).toHaveValue("Ugnspannkaka med bacon");
+  });
+
+  const unreadable = "Det gick inte att tolka bilden. Ta en ny bild, välj en annan eller klistra in texten.";
+  const photoFailures = [
+    { code: "import_no_recipe", message: unreadable, retry: true, otherWays: true },
+    { code: "ai_invalid", message: unreadable, retry: true, otherWays: true },
+    { code: "ai_unavailable", message: "AI-tjänsten svarar inte just nu. Är datorn med modellen igång?", retry: true, otherWays: false },
+    {
+      code: "ai_rejected",
+      message: "AI-tjänsten tog inte emot bilden. Prova en tydligare bild eller försök igen senare.",
+      retry: false,
+      otherWays: false,
+    },
+  ] as const;
+
+  for (const { code, message, retry, otherWays } of photoFailures) {
+    test(`${code} for a photo shows its message${retry ? " and sends the same photo again" : ""}`, async ({ page }) => {
+      const reserved = `tests/fixtures/ai/reserved-${code}.png`;
+      let requests = 0;
+      await page.route(photoRoute, async (route) => {
+        requests++;
+        await route.continue();
+      });
+      await openImport(page, "Länk");
+      await choosePhoto(page, reserved);
+      const alert = sheet(page).getByRole("alert");
+      await expect(alert).toHaveText(message);
+      const again = sheet(page).getByRole("button", { name: "Försök igen" });
+      await expect(again).toHaveCount(retry ? 1 : 0);
+      await expect(sheet(page).getByRole("button", { name: "Välj en annan bild" })).toHaveCount(otherWays ? 1 : 0);
+      await expect(sheet(page).getByRole("button", { name: "Klistra in text i stället" })).toHaveCount(otherWays ? 1 : 0);
+      if (retry) {
+        await again.click();
+        // The same photo again, from memory, without choosing a file: the mock knows it by its bytes.
+        await expect.poll(() => requests).toBe(2);
+        await expect(alert).toHaveText(message);
+      }
+      // The error goes away with a photo that works.
+      await choosePhoto(page, photoPath);
+      await expect(sheet(page).getByLabel("Titel")).toHaveValue("Ugnspannkaka med bacon");
+      await expect(sheet(page).getByRole("alert")).toHaveCount(0);
+    });
+  }
+
+  test("a photo without a recipe offers another photo or pasting the text instead", async ({ page }) => {
+    await openImport(page, "Länk");
+    await choosePhoto(page, "tests/fixtures/ai/reserved-import_no_recipe.png");
+    await expect(sheet(page).getByRole("alert")).toHaveText(unreadable);
+
+    // "Välj en annan bild" opens the file picker again, from the photo tab's button.
+    const chooser = page.waitForEvent("filechooser");
+    await sheet(page).getByRole("button", { name: "Välj en annan bild" }).click();
+    await (await chooser).setFiles([]);
+    await expect(sheet(page).getByRole("button", { name: "Välj bild" })).toBeFocused();
+
+    await sheet(page).getByRole("button", { name: "Klistra in text i stället" }).click();
+    await expect(sheet(page).getByRole("tab", { name: "Text" })).toHaveAttribute("aria-selected", "true");
+    await expect(textField(page)).toBeFocused();
+  });
+
+  test("Avbryt stops the photo import without an error", async ({ page }) => {
+    const errors = watchErrors(page);
+    let release = () => {};
+    const held = new Promise<void>((resolve) => {
+      release = resolve;
+    });
+    await page.route(photoRoute, async (route) => {
+      await held;
+      await route.continue().catch(() => {});
+    });
+    await openImport(page, "Länk");
+    await choosePhoto(page, photoPath);
+    await expect(sheet(page).getByRole("status").getByText("Läser receptet …")).toBeVisible();
+    const aborted = page.waitForEvent("requestfailed", (request) => request.url().endsWith("/api/ai/import/photo"));
+    await sheet(page).getByRole("button", { name: "Avbryt" }).click();
+    await aborted;
+    release();
+
+    await expect(sheet(page).getByText("Läser receptet …")).toHaveCount(0);
+    await expect(sheet(page).getByRole("alert")).toHaveCount(0);
+    await expect(sheet(page).getByLabel("Titel")).toHaveCount(0);
+    await expect(sheet(page).getByRole("button", { name: "Välj bild" })).toBeFocused();
+    expect(errors.filter((error) => !error.includes("Failed to load resource"))).toEqual([]);
+  });
+
+  test("a new photo asks before it replaces an edited preview; keeping it keeps the old photo", async ({ page }) => {
+    let requests = 0;
+    await page.route(photoRoute, async (route) => {
+      requests++;
+      await route.continue();
+    });
+    await openImport(page, "Länk");
+    await choosePhoto(page, photoPath);
+    await sheet(page).getByLabel("Titel").fill("Pannkaka");
+    await sheet(page).getByRole("button", { name: "Tillbaka till bilden" }).click();
+    await choosePhoto(page, "tests/fixtures/ai/reserved-ai_rejected.png");
+    await expect(sheet(page).getByText("Släng ändringarna?")).toBeVisible();
+    await sheet(page).getByRole("button", { name: "Fortsätt ändra" }).click();
+    await expect(sheet(page).getByLabel("Titel")).toHaveValue("Pannkaka");
+    expect(requests).toBe(1);
+
+    // The edited preview still belongs to the kept photo, so it can be reached again.
+    await sheet(page).getByRole("button", { name: "Tillbaka till bilden" }).click();
+    await sheet(page).getByRole("button", { name: "Visa förhandsgranskningen" }).click();
+    await expect(sheet(page).getByLabel("Titel")).toHaveValue("Pannkaka");
+  });
+
+  test("Släng ändringarna sends the new photo in place of the edited preview", async ({ page }) => {
+    let requests = 0;
+    await page.route(photoRoute, async (route) => {
+      requests++;
+      await route.continue();
+    });
+    await openImport(page, "Länk");
+    await choosePhoto(page, photoPath);
+    await sheet(page).getByLabel("Titel").fill("Pannkaka");
+    await sheet(page).getByRole("button", { name: "Tillbaka till bilden" }).click();
+    await choosePhoto(page, "tests/fixtures/ai/reserved-ai_rejected.png");
+    const sent = page.waitForRequest((request) => request.url().endsWith("/api/ai/import/photo"));
+    await sheet(page).getByRole("button", { name: "Släng ändringarna" }).click();
+    await sent;
+    await expect(sheet(page).getByRole("alert")).toHaveText(
+      "AI-tjänsten tog inte emot bilden. Prova en tydligare bild eller försök igen senare.",
+    );
+    expect(requests).toBe(2);
+  });
+});
+
+test.describe("import from a photo on a phone", () => {
+  test.use({ hasTouch: true, isMobile: true });
+
+  test("Fotografera sidan opens the back camera; Välj bild is there too", async ({ page }) => {
+    await openImport(page, "Länk");
+    await sheet(page).getByRole("tab", { name: "Foto" }).click();
+    const chooser = page.waitForEvent("filechooser");
+    await sheet(page).getByRole("button", { name: "Fotografera sidan" }).click();
+    const camera = await chooser;
+    expect(await camera.element().getAttribute("capture")).toBe("environment");
+    expect(await camera.element().getAttribute("accept")).toBe("image/*");
+    await camera.setFiles(photoPath);
+    await expect(sheet(page).getByLabel("Titel")).toHaveValue("Ugnspannkaka med bacon");
+    await expect(sheet(page).getByText("Källa: Foto av kokbok")).toBeVisible();
+
+    await sheet(page).getByRole("button", { name: "Tillbaka till bilden" }).click();
+    const picker = page.waitForEvent("filechooser");
+    await sheet(page).getByRole("button", { name: "Välj bild" }).click();
+    expect(await (await picker).element().getAttribute("capture")).toBeNull();
+  });
+});
+
+test.describe("/api/ai/import/photo without access", () => {
+  test.use({ storageState: { cookies: [], origins: [] } });
+
+  test("answers 401 without a session", async ({ request }) => {
+    const response = await request.post("/api/ai/import/photo", {
+      multipart: { image: { name: "photo.png", mimeType: "image/png", buffer: readFileSync(photoPath) } },
+    });
+    expect(response.status()).toBe(401);
+    expect(await response.json()).toEqual({ ok: false, error: { code: "unauthorized", message: "Du behöver logga in." } });
+  });
+});
+
+test.describe("/api/ai/import/photo signed in", () => {
+  test("answers a draft from the photo and never writes", async ({ request }) => {
+    const count = () => adminClient().from("ingredient").select("id", { count: "exact", head: true }).eq("user_id", e2eUserId);
+    const before = await count();
+    const response = await request.post("/api/ai/import/photo", {
+      multipart: { image: { name: "photo.jpg", mimeType: "image/jpeg", buffer: readFileSync(photoPath) } },
+    });
+    expect(response.status()).toBe(200);
+    expect(await response.json()).toMatchObject({
+      ok: true,
+      data: { draft: { title: "Ugnspannkaka med bacon", sourceKind: "photo", sourceUrl: null, imageUrl: null } },
+    });
+    expect((await count()).count).toBe(before.count);
+  });
+
+  test("answers an image over 1.5 MB with 413 image_too_large", async ({ request }) => {
+    // About 1.6 MB: under the 2 MB request limit, so the image's own size check answers.
+    const big = Buffer.concat([readFileSync(photoPath), Buffer.alloc(1.6 * 1024 * 1024 - 110_000)]);
+    const response = await request.post("/api/ai/import/photo", {
+      multipart: { image: { name: "photo.png", mimeType: "image/png", buffer: big } },
+    });
+    expect(response.status()).toBe(413);
+    expect(await response.json()).toEqual({
+      ok: false,
+      error: { code: "image_too_large", message: "Bilden är för stor. Ta en ny bild eller välj en mindre bild." },
+    });
+  });
+
+  test("answers a text file with 415 image_unsupported, even when it says it is a JPEG", async ({ request }) => {
+    const response = await request.post("/api/ai/import/photo", {
+      multipart: { image: { name: "recept.jpg", mimeType: "image/jpeg", buffer: Buffer.from(kycklinggryta) } },
+    });
+    expect(response.status()).toBe(415);
+    expect(await response.json()).toEqual({
+      ok: false,
+      error: { code: "image_unsupported", message: "Bildformatet stöds inte. Välj en JPEG-, PNG- eller WebP-bild." },
+    });
+  });
 });

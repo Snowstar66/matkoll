@@ -1,6 +1,6 @@
 import { afterEach, describe, expect, it, vi } from "vitest";
-import { postAi } from "./ai-client";
-import { errorMessages } from "./errors";
+import { postAi, postAiForm } from "./ai-client";
+import { errorMessages, fail } from "./errors";
 
 const json = (body: unknown, status = 200) =>
   new Response(JSON.stringify(body), { status, headers: { "content-type": "application/json" } });
@@ -91,6 +91,45 @@ describe("postAi with a fetch error", () => {
     expect(result).toEqual({
       ok: false,
       error: { code: "fetch_domain_not_allowed", message: errorMessages.fetch_domain_not_allowed, fields: { domain: "ica.se" } },
+    });
+  });
+});
+
+describe("postAiForm", () => {
+  it("posts the form data without its own content type, with the signal, and returns the data", async () => {
+    const fetchMock = mockFetch(async () => json({ ok: true, data: { title: "Ugnspannkaka" } }));
+    const controller = new AbortController();
+    const form = new FormData();
+    form.append("image", new Blob([new Uint8Array([0xff, 0xd8, 0xff])], { type: "image/jpeg" }), "photo.jpg");
+    const result = await postAiForm("/api/ai/import/photo", form, controller.signal);
+
+    expect(result).toEqual({ ok: true, data: { title: "Ugnspannkaka" } });
+    const [path, init] = fetchMock.mock.calls[0];
+    expect(path).toBe("/api/ai/import/photo");
+    expect(init?.method).toBe("POST");
+    expect(init?.body).toBe(form);
+    // The browser sets multipart/form-data with its boundary.
+    expect(new Headers(init?.headers).get("content-type")).toBeNull();
+    expect(new Headers(init?.headers).get("accept")).toBe("application/json");
+    expect(init?.signal).toBe(controller.signal);
+  });
+
+  it("returns image_too_large with its Swedish text", async () => {
+    mockFetch(async () => json({ ok: false, error: { code: "image_too_large", message: "" } }, 413));
+    const result = await postAiForm("/api/ai/import/photo", new FormData(), new AbortController().signal);
+    expect(result).toEqual({ ok: false, error: { code: "image_too_large", message: errorMessages.image_too_large } });
+  });
+
+  it("gives ai_unavailable for a network error and aborted for an abort", async () => {
+    mockFetch(async () => Promise.reject(new TypeError("Failed to fetch")));
+    expect(await postAiForm("/api/ai/import/photo", new FormData(), new AbortController().signal)).toEqual(
+      fail("ai_unavailable"),
+    );
+    const controller = new AbortController();
+    controller.abort();
+    expect(await postAiForm("/api/ai/import/photo", new FormData(), controller.signal)).toEqual({
+      ok: false,
+      aborted: true,
     });
   });
 });

@@ -27,8 +27,14 @@ export {
   importTextTooLongMessage,
   noRecipeOnPageMessage,
   pasteTextInsteadCodes,
+  offersPasteTextInstead,
+  isUnreadablePhoto,
+  photoUnreadableMessage,
+  photoRejectedMessage,
+  type ImportInput,
   type ImportKind,
   type ImportRequest,
+  type PhotoImport,
   type RecipeImport,
 } from "./domain/import";
 export { sourceLabel } from "./domain/source-label";

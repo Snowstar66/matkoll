@@ -13,6 +13,7 @@ type Manifest = {
   default: string;
   cases: { name: string; jsonLd?: boolean; image?: boolean }[];
   reserved: { text: string; code: string }[];
+  reservedImages: { image: string; code: string }[];
 };
 const manifest = JSON.parse(read("manifest.json")) as Manifest;
 const signal = () => new AbortController().signal;
@@ -70,6 +71,19 @@ describe("mock AI service", () => {
     "fails with %s for its reserved input",
     async (code, text) => {
       const result = await service.parseRecipe({ text: `  ${text.toUpperCase()} ` }, signal());
+      expect(result).toMatchObject({ ok: false, error: { code } });
+    },
+  );
+
+  it("covers every error code with a reserved image too", () => {
+    expect(manifest.reservedImages.map((entry) => entry.code).sort()).toEqual([...mockErrorCodes].sort());
+  });
+
+  it.each(manifest.reservedImages.map((entry) => [entry.code, entry.image]))(
+    "fails with %s for its reserved image",
+    async (code, image) => {
+      const data = new Uint8Array(readFileSync(join(dir, image)));
+      const result = await service.parseRecipe({ image: { data, mediaType: "image/png" } }, signal());
       expect(result).toMatchObject({ ok: false, error: { code } });
     },
   );

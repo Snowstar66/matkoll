@@ -13,7 +13,8 @@ import type { AiService, ParseRecipeInput } from "../service";
 // SHA-256 of the normalized input text (text plus JSON-LD), or of the image
 // bytes when there is no text. Unknown input gets the default case. Reserved
 // inputs in manifest.json make the mock fail with an error code, so the import
-// flow's error messages can be tested end to end.
+// flow's error messages can be tested end to end; reserved images do the same
+// for a photo.
 
 /** Error codes the mock can be asked to return through a reserved input. */
 export const mockErrorCodes = ["ai_unavailable", "ai_invalid", "ai_rejected", "import_no_recipe"] as const;
@@ -23,6 +24,7 @@ type Manifest = {
   default: string;
   cases: { name: string; jsonLd?: boolean; image?: boolean }[];
   reserved: { text: string; code: MockErrorCode }[];
+  reservedImages?: { image: string; code: MockErrorCode }[];
 };
 
 type Answer = { recipe: AiRecipe } | { code: MockErrorCode };
@@ -67,9 +69,13 @@ function loadFixtures(dir: string): Fixtures {
     });
     if (image) byKey.set(sha256(readFileSync(join(dir, `${name}.png`))), { recipe });
   }
-  for (const { text, code } of manifest.reserved) {
+  const checked = (code: MockErrorCode) => {
     if (!(mockErrorCodes as readonly string[]).includes(code)) throw new Error("unknown reserved code");
-    byKey.set(sha256(normalizeInputText({ text })), { code });
+    return { code };
+  };
+  for (const { text, code } of manifest.reserved) byKey.set(sha256(normalizeInputText({ text })), checked(code));
+  for (const { image, code } of manifest.reservedImages ?? []) {
+    byKey.set(sha256(readFileSync(join(dir, image))), checked(code));
   }
 
   const fallback = recipes.get(manifest.default);

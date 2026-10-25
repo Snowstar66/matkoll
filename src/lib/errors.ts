@@ -23,6 +23,9 @@ export const errorMessages = {
   fetch_too_large: "Sidan är för stor för att läsas.",
   /** The caller stopped the fetch ("Avbryt"); the client shows nothing for it. */
   fetch_aborted: "Hämtningen avbröts.",
+  // Photos (AD-15): resized in the client, checked again by the server.
+  image_too_large: "Bilden är för stor. Ta en ny bild eller välj en mindre bild.",
+  image_unsupported: "Bildformatet stöds inte. Välj en JPEG-, PNG- eller WebP-bild.",
 } as const;
 
 /**

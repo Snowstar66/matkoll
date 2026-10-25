@@ -28,3 +28,6 @@
 - source_spec: `_bmad-output/implementation-artifacts/spec-1-7-spara-recept-och-visa-receptet.md`
   summary: Testa meddelandet när sessionen gått ut vid "Spara recept", och överväg att behålla utkastet över en ny inloggning.
   evidence: Grenen `unauthorized` i `save()` testas inte; utkastet försvinner om sessionen gått ut.
+- source_spec: `_bmad-output/implementation-artifacts/spec-1-9-importera-recept-fran-foto.md`
+  summary: E2E som avbryter (Avbryt eller stängning) medan bilden förminskas och visar att inget skickas.
+  evidence: Nuvarande test avbryter först när förfrågan är skickad; kräver att `createImageBitmap`/`toBlob` görs långsamma i testet.

@@ -10,16 +10,16 @@ import {
   useId,
   useRef,
   useState,
+  useSyncExternalStore,
   useTransition,
 } from "react";
 import { Button } from "@/components/button";
-import { EmptyState } from "@/components/empty-state";
 import { FieldError, FieldLabel, Input } from "@/components/field";
 import { PlusIcon } from "@/components/icons";
 import { Notice } from "@/components/notice";
 import { Sheet } from "@/components/sheet";
 import { useToast } from "@/components/toast";
-import { postAi } from "@/lib/ai-client";
+import { postAi, postAiForm, type AiCallResult } from "@/lib/ai-client";
 import { errorMessages, fail, type AppError } from "@/lib/errors";
 import { saveRecipe } from "../actions/save-recipe";
 import {
@@ -28,19 +28,23 @@ import {
   importTextTooLongMessage,
   maxImportTextChars,
   maxImportUrlChars,
-  pasteTextInsteadCodes,
+  isUnreadablePhoto,
+  offersPasteTextInstead,
   recipeImportSchema,
   type ImportKind,
   type ImportRequest,
 } from "../domain/import";
 import { validateDraft, type PendingFieldText, type RecipeDraft } from "../domain/recipe-draft";
+import { downscaleImage } from "./downscale-image";
 import type { SearchIngredients } from "./ingredient-picker";
 import { RecipePreview } from "./recipe-preview";
 
 // Importera recept (FR-3, FR-4): a sheet with the tabs Länk, Text and Foto,
-// opening on Länk. A link or pasted text is parsed by /api/ai/import through
-// src/lib/ai-client.ts (AD-9), and the preview is shown in the same sheet.
-// Nothing is saved until "Spara recept", which calls the Server Action
+// opening on Länk. A link or pasted text is parsed by /api/ai/import and a
+// photo by /api/ai/import/photo, through src/lib/ai-client.ts (AD-9), and the
+// preview is shown in the same sheet. A photo is made small in the browser
+// first (AD-15) and kept in memory only while the sheet is open, for "Försök
+// igen". Nothing is saved until "Spara recept", which calls the Server Action
 // saveRecipe and opens the recipe view.
 
 type Tab = "link" | "text" | "photo";
@@ -52,12 +56,22 @@ const tabs: { id: Tab; label: string }[] = [
 ];
 
 /** The tab each import kind is made from. */
-const tabFor: Record<ImportKind, Tab> = { url: "link", text: "text" };
+const tabFor: Record<ImportKind, Tab> = { url: "link", text: "text", photo: "photo" };
+const kindFor: Record<Tab, ImportKind> = { link: "url", text: "text", photo: "photo" };
+
+/** A photo, made small and ready to send; `id` tells one photo from the next. */
+type Photo = { id: number; image: Blob };
+
+const backLabels: Record<ImportKind, string> = {
+  url: "Tillbaka till länken",
+  text: "Tillbaka till texten",
+  photo: "Tillbaka till bilden",
+};
 
 type Preview = {
   /** Increases with every import, so the preview starts afresh. */
   key: number;
-  /** What the preview was parsed from: the link or the text, as it was sent. */
+  /** What the preview was parsed from: the link or the text as it was sent, or the photo's id. */
   source: { kind: ImportKind; value: string };
   /** The id the recipe gets when saved, made with the preview, so saving it again never makes a copy. */
   recipeId: string;
@@ -75,6 +89,24 @@ const retryable = new Set<AppError["code"]>([
   "catalog_unavailable",
   "settings_unavailable",
 ]);
+
+/** A phone or tablet: the camera button is shown. Desktops get the file picker only (EXPERIENCE.md, Responsive). */
+const coarsePointer = "(pointer: coarse)";
+
+function subscribePointer(onChange: () => void): () => void {
+  if (typeof window.matchMedia !== "function") return () => {};
+  const query = window.matchMedia(coarsePointer);
+  query.addEventListener("change", onChange);
+  return () => query.removeEventListener("change", onChange);
+}
+
+function useCoarsePointer(): boolean {
+  return useSyncExternalStore(
+    subscribePointer,
+    () => typeof window.matchMedia === "function" && window.matchMedia(coarsePointer).matches,
+    () => false,
+  );
+}
 
 /** From this length on, the text field shows how much is left. */
 const counterFrom = Math.floor(maxImportTextChars * 0.9);
@@ -103,6 +135,14 @@ export function ImportSheet({ open, onClose, searchIngredients }: ImportSheetPro
   const [tab, setTab] = useState<Tab>("link");
   const [url, setUrl] = useState("");
   const [text, setText] = useState("");
+  /** The last photo that could be made small, kept for "Försök igen" until the sheet closes. */
+  const [photo, setPhoto] = useState<Photo | null>(null);
+  /**
+   * A new photo chosen over an edited preview, waiting for "Släng ändringarna?".
+   * It replaces `photo` only when it is sent; "Fortsätt ändra" drops it.
+   */
+  const [pendingPhoto, setPendingPhoto] = useState<Photo | null>(null);
+  const photoCount = useRef(0);
   const [view, setView] = useState<"input" | "reading" | "preview">("input");
   /** The last import's error, shown in the tab it was made from. */
   const [error, setError] = useState<{ kind: ImportKind; error: AppError } | null>(null);
@@ -122,6 +162,11 @@ export function ImportSheet({ open, onClose, searchIngredients }: ImportSheetPro
   const request = useRef<AbortController | null>(null);
   const urlRef = useRef<HTMLInputElement>(null);
   const textRef = useRef<HTMLTextAreaElement>(null);
+  const cameraRef = useRef<HTMLInputElement>(null);
+  const pickerRef = useRef<HTMLInputElement>(null);
+  /** The photo tab's first button, "Fotografera sidan" or "Välj bild". */
+  const photoButtonRef = useRef<HTMLButtonElement>(null);
+  const touch = useCoarsePointer();
   const tabRefs = useRef(new Map<Tab, HTMLButtonElement>());
   /** The field to focus once the input view shows the tab. */
   const focusField = useRef<ImportKind | null>(null);
@@ -135,15 +180,16 @@ export function ImportSheet({ open, onClose, searchIngredients }: ImportSheetPro
     const kind = focusField.current;
     if (view !== "input" || kind === null || tab !== tabFor[kind]) return;
     focusField.current = null;
-    (kind === "url" ? urlRef : textRef).current?.focus();
+    (kind === "url" ? urlRef : kind === "text" ? textRef : photoButtonRef).current?.focus();
   }, [view, tab]);
 
-  /** The import kind of the open tab; the photo tab has none yet. */
-  const kind: ImportKind | null = tab === "link" ? "url" : tab === "text" ? "text" : null;
-  const valueFor = (of: ImportKind) => (of === "url" ? url : text);
-  /** The preview was parsed from what is in the open tab's field right now. */
+  /** The import kind of the open tab. */
+  const kind = kindFor[tab];
+  /** What an import of this kind sends: the link, the text, or the id of the kept photo ("" when there is none). */
+  const valueFor = (of: ImportKind) => (of === "url" ? url : of === "text" ? text : photo ? String(photo.id) : "");
+  /** The preview was parsed from what is in the open tab's field (or the kept photo) right now. */
   const previewMatchesInput =
-    preview !== null && kind !== null && preview.source.kind === kind && preview.source.value === valueFor(kind);
+    preview !== null && preview.source.kind === kind && preview.source.value === valueFor(kind);
 
   const edited = isEdited(preview);
   // Pasted text that has not been parsed counts too, so closing never loses it silently.
@@ -161,6 +207,8 @@ export function ImportSheet({ open, onClose, searchIngredients }: ImportSheetPro
     setTab("link");
     setUrl("");
     setText("");
+    setPhoto(null);
+    setPendingPhoto(null);
     setView("input");
     setError(null);
     setPreview(null);
@@ -199,12 +247,13 @@ export function ImportSheet({ open, onClose, searchIngredients }: ImportSheetPro
   /** A tab change also drops a pending "Släng ändringarna?", which was about the other tab. */
   function changeTab(next: Tab) {
     setConfirm(null);
+    setPendingPhoto(null);
     setTab(next);
   }
 
   function requestParse() {
     // One import at a time: Enter in the read-only field while reading does nothing.
-    if (view === "reading" || kind === null || !valueFor(kind).trim()) return;
+    if (view === "reading" || !valueFor(kind).trim()) return;
     if (edited) setConfirm("replace");
     else void parse(kind);
   }
@@ -220,18 +269,32 @@ export function ImportSheet({ open, onClose, searchIngredients }: ImportSheetPro
     router.push("/installningar");
   }
 
-  async function parse(of: ImportKind) {
+  /**
+   * Sends the link, the text or the photo (the kept one unless `photoToSend`
+   * is given) and shows the preview. A photo that is sent becomes the kept
+   * one, for "Försök igen".
+   */
+  async function parse(of: ImportKind, photoToSend: Photo | null = photo) {
     setConfirm(null);
-    if (!valueFor(of).trim()) return;
+    setPendingPhoto(null);
+    const value = of === "photo" ? (photoToSend ? String(photoToSend.id) : "") : valueFor(of);
+    if (!value.trim()) return;
+    if (of === "photo") setPhoto(photoToSend);
     request.current?.abort();
     const controller = new AbortController();
     request.current = controller;
     setError(null);
     setView("reading");
 
-    const value = valueFor(of);
-    const body: ImportRequest = of === "url" ? { kind: "url", url: value } : { kind: "text", text: value };
-    const result = await postAi<unknown>("/api/ai/import", body, controller.signal);
+    let result: AiCallResult<unknown>;
+    if (of === "photo" && photoToSend) {
+      const form = new FormData();
+      form.append("image", photoToSend.image, "photo");
+      result = await postAiForm<unknown>("/api/ai/import/photo", form, controller.signal);
+    } else {
+      const body: ImportRequest = of === "url" ? { kind: "url", url: value } : { kind: "text", text: value };
+      result = await postAi<unknown>("/api/ai/import", body, controller.signal);
+    }
     // Cancelled, closed or replaced by a newer import: this answer is not wanted.
     if (request.current !== controller) return;
     request.current = null;
@@ -263,6 +326,50 @@ export function ImportSheet({ open, onClose, searchIngredients }: ImportSheetPro
     setView("input");
   }
 
+  /**
+   * A photo from the camera or the file picker: made small in the browser
+   * (AD-15), kept for "Försök igen", then sent. "Läser receptet …" shows from
+   * the start, and "Avbryt" works while the photo is made small too. A photo
+   * that cannot be read or made small enough is never sent.
+   */
+  async function choosePhoto(file: File) {
+    setConfirm(null);
+    request.current?.abort();
+    const controller = new AbortController();
+    request.current = controller;
+    setError(null);
+    setView("reading");
+
+    const prepared = await downscaleImage(file);
+    // Cancelled or closed meanwhile.
+    if (request.current !== controller) return;
+    request.current = null;
+    if (!prepared.ok) {
+      // The photo kept from before stays, so "Försök igen" and its preview still work.
+      setError({ kind: "photo", error: prepared.error });
+      focusField.current = "photo";
+      setView("input");
+      return;
+    }
+    photoCount.current += 1;
+    const next: Photo = { id: photoCount.current, image: prepared.data };
+    if (edited) {
+      // An edited preview is not replaced without asking, as for text; the new photo waits.
+      setPendingPhoto(next);
+      setView("input");
+      setConfirm("replace");
+      return;
+    }
+    void parse("photo", next);
+  }
+
+  /** The chosen file; the field is emptied so the same photo can be chosen again. */
+  function onPhotoChosen(event: { currentTarget: HTMLInputElement }) {
+    const file = event.currentTarget.files?.[0];
+    event.currentTarget.value = "";
+    if (file) void choosePhoto(file);
+  }
+
   function cancel() {
     request.current?.abort();
     request.current = null;
@@ -281,6 +388,12 @@ export function ImportSheet({ open, onClose, searchIngredients }: ImportSheetPro
     } catch {
       // No permission or no clipboard API: the field stays as it is.
     }
+  }
+
+  /** "Ta en ny bild" / "Välj en annan bild": focus on the photo tab's first button, and its camera or file picker opened. */
+  function newPhoto() {
+    photoButtonRef.current?.focus();
+    (touch ? cameraRef : pickerRef).current?.click();
   }
 
   /** "Klistra in text i stället": the Text tab, with focus in its field. */
@@ -309,26 +422,37 @@ export function ImportSheet({ open, onClose, searchIngredients }: ImportSheetPro
   function errorNotice(of: ImportKind) {
     if (error?.kind !== of) return null;
     const { error: shown } = error;
-    let action: ReactNode = null;
+    const actions: ReactNode[] = [];
     if (shown.code === "fetch_domain_not_allowed") {
-      action = (
-        <Button variant="text" onClick={requestSettings}>
+      actions.push(
+        <Button key="settings" variant="text" onClick={requestSettings}>
           Öppna inställningar
-        </Button>
-      );
-    } else if (of === "url" && pasteTextInsteadCodes.has(shown.code)) {
-      action = (
-        <Button variant="text" onClick={pasteTextInstead}>
-          Klistra in text i stället
-        </Button>
-      );
-    } else if (retryable.has(shown.code)) {
-      action = (
-        <Button variant="text" onClick={requestParse}>
-          Försök igen
-        </Button>
+        </Button>,
       );
     }
+    // A photo the model could not read may work on a second try, as may an answer that was away or invalid.
+    if (retryable.has(shown.code) || isUnreadablePhoto(shown.code, of)) {
+      actions.push(
+        <Button key="retry" variant="text" onClick={requestParse}>
+          Försök igen
+        </Button>,
+      );
+    }
+    if (isUnreadablePhoto(shown.code, of)) {
+      actions.push(
+        <Button key="new-photo" variant="text" onClick={newPhoto}>
+          {touch ? "Ta en ny bild" : "Välj en annan bild"}
+        </Button>,
+      );
+    }
+    if (offersPasteTextInstead(shown.code, of)) {
+      actions.push(
+        <Button key="paste" variant="text" onClick={pasteTextInstead}>
+          Klistra in text i stället
+        </Button>,
+      );
+    }
+    const action = actions.length > 0 ? <div className="flex flex-wrap">{actions}</div> : null;
     return (
       <Notice role="alert" action={action}>
         {importErrorMessage(shown, of)}
@@ -345,7 +469,7 @@ export function ImportSheet({ open, onClose, searchIngredients }: ImportSheetPro
     ) : null;
 
   let footer: ReactNode = null;
-  if (view === "input" && kind !== null && confirm !== null) {
+  if (view === "input" && confirm !== null) {
     footer = (
       <>
         <p role="alert" className="text-body text-ink">
@@ -354,7 +478,9 @@ export function ImportSheet({ open, onClose, searchIngredients }: ImportSheetPro
         <Button
           variant="secondary"
           fullWidth
-          onClick={() => (confirm === "settings" ? openSettings() : void parse(kind))}
+          onClick={() =>
+            confirm === "settings" ? openSettings() : void parse(kind, kind === "photo" ? (pendingPhoto ?? photo) : null)
+          }
         >
           Släng ändringarna
         </Button>
@@ -365,6 +491,7 @@ export function ImportSheet({ open, onClose, searchIngredients }: ImportSheetPro
           onClick={() => {
             const keepPreview = confirm === "replace";
             setConfirm(null);
+            setPendingPhoto(null);
             if (keepPreview) setView("preview");
           }}
         >
@@ -372,7 +499,46 @@ export function ImportSheet({ open, onClose, searchIngredients }: ImportSheetPro
         </Button>
       </>
     );
-  } else if (view === "input" && kind !== null) {
+  } else if (view === "input" && kind === "photo") {
+    // The camera on a phone, the file picker on a desktop (EXPERIENCE.md, Responsive). On a phone
+    // "Välj bild" is there too, for a photo taken earlier. No camera API beyond the file input.
+    footer = (
+      <>
+        {touch ? (
+          <Button ref={photoButtonRef} fullWidth onClick={() => cameraRef.current?.click()}>
+            Fotografera sidan
+          </Button>
+        ) : null}
+        <Button
+          ref={touch ? undefined : photoButtonRef}
+          variant={touch ? "text" : "primary"}
+          fullWidth
+          onClick={() => pickerRef.current?.click()}
+        >
+          Välj bild
+        </Button>
+        <input
+          ref={cameraRef}
+          type="file"
+          accept="image/*"
+          capture="environment"
+          tabIndex={-1}
+          aria-hidden="true"
+          className="sr-only"
+          onChange={onPhotoChosen}
+        />
+        <input
+          ref={pickerRef}
+          type="file"
+          accept="image/*"
+          tabIndex={-1}
+          aria-hidden="true"
+          className="sr-only"
+          onChange={onPhotoChosen}
+        />
+      </>
+    );
+  } else if (view === "input") {
     footer = (
       <Button fullWidth disabled={!valueFor(kind).trim()} onClick={requestParse}>
         Tolka
@@ -417,7 +583,7 @@ export function ImportSheet({ open, onClose, searchIngredients }: ImportSheetPro
             onPendingChange={(pending) => setPreview((current) => current && { ...current, pending })}
             errors={errors}
             searchIngredients={searchIngredients}
-            backLabel={preview.source.kind === "url" ? "Tillbaka till länken" : "Tillbaka till texten"}
+            backLabel={backLabels[preview.source.kind]}
             onBack={() => {
               focusField.current = preview.source.kind;
               changeTab(tabFor[preview.source.kind]);
@@ -530,7 +696,16 @@ export function ImportSheet({ open, onClose, searchIngredients }: ImportSheetPro
                   {tab === "text" ? showPreviewButton : null}
                 </div>
               ) : (
-                <EmptyState className="py-8">Kommer snart.</EmptyState>
+                <div className="flex flex-col gap-3">
+                  {errorNotice("photo")}
+                  <p className="text-body text-ink-2">
+                    {touch ? "Fotografera receptsidan i kokboken" : "Välj ett foto av receptsidan i kokboken"}, så läser
+                    AI-tjänsten av receptet. Bilden sparas inte.
+                  </p>
+                  {/* Mounted empty, so the text is announced when it appears. */}
+                  <div role="status">{reading && tab === "photo" ? <Reading /> : null}</div>
+                  {tab === "photo" ? showPreviewButton : null}
+                </div>
               )}
             </div>
           ))}

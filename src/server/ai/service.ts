@@ -1,5 +1,6 @@
 import "server-only";
 import { fail, ok, type Result } from "@/lib/errors";
+import { imageMediaTypes, maxImageBytes } from "@/lib/images";
 import type { Env } from "@/server/env-schema";
 import { createAnthropicTarget } from "./adapters/anthropic";
 import { createLmStudioTarget } from "./adapters/lmstudio";
@@ -41,8 +42,8 @@ export interface AiService {
 export const inputLimits = {
   maxTextChars: 12_000,
   /** AD-15: photos are resized in the client to at most 1.5 MB. */
-  maxImageBytes: 1.5 * 1024 * 1024,
-  imageMediaTypes: ["image/jpeg", "image/png", "image/webp"],
+  maxImageBytes,
+  imageMediaTypes,
   maxOutputTokens: 3_000,
 } as const;
 
