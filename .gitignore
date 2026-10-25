@@ -1,0 +1,32 @@
+# OS
+.DS_Store
+
+# Dependencies and build output
+node_modules/
+.next/
+out/
+build/
+coverage/
+*.tsbuildinfo
+next-env.d.ts
+
+# Environment and secrets
+.env
+.env*.local
+
+# Logs
+*.log
+npm-debug.log*
+pnpm-debug.log*
+
+# Vercel / Supabase local state
+.vercel/
+supabase/.branches/
+supabase/.temp/
+
+# Test output
+playwright-report/
+test-results/
+
+# Original requirements archive (content lives in docs/)
+krav/

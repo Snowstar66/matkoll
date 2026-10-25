@@ -1,0 +1,90 @@
+<!doctype html>
+<html lang="sv">
+<head>
+<meta charset="utf-8">
+<title>Matkoll – Recept</title>
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&amp;display=swap">
+<style>
+body{margin:0}
+a{color:#2E5A85;text-decoration:none}a:hover{color:#1F4468}
+</style>
+</helmet>
+<div style="width: 390px; height: 844px; position: relative; overflow: hidden; background: #F5F7F4; font-family: -apple-system, BlinkMacSystemFont, 'SF Pro Text', Inter, 'Helvetica Neue', Arial, sans-serif; color: #1B2420; box-sizing: border-box">
+  <div style="padding: 56px 20px 0; display: flex; flex-direction: column; gap: 16px">
+    <div style="display: flex; align-items: flex-end; justify-content: space-between">
+      <h1 style="margin: 0; font-size: 34px; font-weight: 700; letter-spacing: -0.5px">Recept</h1>
+      <button aria-label="Importera recept" style="width: 44px; height: 44px; border-radius: 22px; border: none; background: #3E7C62; color: #FFFFFF; display: flex; align-items: center; justify-content: center; cursor: pointer">
+        <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" aria-hidden="true"><path d="M12 5v14M5 12h14"></path></svg>
+      </button>
+    </div>
+    <label style="display: flex; align-items: center; gap: 8px; height: 40px; padding: 0 12px; background: #E9EDEA; border-radius: 12px; color: #56635D; font-size: 16px">
+      <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true"><circle cx="11" cy="11" r="7"></circle><path d="M20 20l-3.5-3.5"></path></svg>
+      <span style="position: absolute; width: 1px; height: 1px; overflow: hidden">Sök recept</span>
+      <input placeholder="Sök bland dina recept" style="flex: 1; border: none; background: transparent; font: inherit; color: #1B2420; outline: none">
+    </label>
+    <div style="display: flex; gap: 8px">
+      <button style="height: 34px; padding: 0 14px; border-radius: 17px; border: none; background: #1B2420; color: #FFFFFF; font: inherit; font-size: 14px; font-weight: 600">Alla</button>
+      <button style="height: 34px; padding: 0 14px; border-radius: 17px; border: none; background: #FFFFFF; color: #1B2420; font: inherit; font-size: 14px; font-weight: 500">Favoriter</button>
+      <button style="height: 34px; padding: 0 14px; border-radius: 17px; border: none; background: #FFFFFF; color: #1B2420; font: inherit; font-size: 14px; font-weight: 500">Kan lagas nu</button>
+    </div>
+  </div>
+  <div style="padding: 20px 20px 0; display: flex; flex-direction: column; gap: 12px">
+    <sc-for list="{{recipes}}" as="r" hint-placeholder-count="4">
+      <div style="display: flex; align-items: center; gap: 14px; padding: 12px; background: #FFFFFF; border-radius: 18px">
+        <a href="Recept.dc.html" style="flex: 1; min-width: 0; display: flex; align-items: center; gap: 14px; color: #1B2420">
+          <div style="width: 72px; height: 72px; flex-shrink: 0; border-radius: 14px; background: {{r.tint}}; display: flex; align-items: center; justify-content: center; color: #56635D">
+            <svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" role="img" aria-label="Receptbild"><circle cx="12" cy="12" r="8"></circle><circle cx="12" cy="12" r="4.5"></circle></svg>
+          </div>
+          <div style="flex: 1; min-width: 0; display: flex; flex-direction: column; gap: 4px">
+            <div style="font-size: 17px; font-weight: 600; line-height: 1.25">{{r.title}}</div>
+            <div style="font-size: 14px; color: #56635D">{{r.meta}}</div>
+            <div style="align-self: flex-start; margin-top: 2px; padding: 3px 9px; border-radius: 10px; font-size: 12px; font-weight: 600; background: {{r.badgeBg}}; color: {{r.badgeFg}}">{{r.status}}</div>
+          </div>
+        </a>
+        <button aria-label="Favorit" style="width: 44px; height: 44px; flex-shrink: 0; border: none; background: transparent; color: #3E7C62; display: flex; align-items: center; justify-content: center">
+          <sc-if value="{{r.fav}}" hint-placeholder-val="{{true}}">
+            <svg width="22" height="22" viewBox="0 0 24 24" fill="currentColor" stroke="currentColor" stroke-width="1.8" stroke-linejoin="round" aria-hidden="true"><path d="M12 20s-7-4.4-7-10a4 4 0 0 1 7-2.6A4 4 0 0 1 19 10c0 5.6-7 10-7 10z"></path></svg>
+          </sc-if>
+          <sc-if value="{{r.notFav}}" hint-placeholder-val="{{false}}">
+            <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="#8A968F" stroke-width="1.8" stroke-linejoin="round" aria-hidden="true"><path d="M12 20s-7-4.4-7-10a4 4 0 0 1 7-2.6A4 4 0 0 1 19 10c0 5.6-7 10-7 10z"></path></svg>
+          </sc-if>
+        </button>
+      </div>
+    </sc-for>
+  </div>
+  <nav aria-label="Huvudmeny" style="position: absolute; left: 0; right: 0; bottom: 0; height: 84px; padding-bottom: 24px; box-sizing: border-box; background: rgba(255,255,255,0.92); border-top: 1px solid #E3E8E4; display: grid; grid-template-columns: repeat(4, minmax(0, 1fr))">
+    <a href="Main.dc.html" style="display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 3px; font-size: 11px; font-weight: 600; color: #3E7C62">
+      <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M5 4h11a3 3 0 0 1 3 3v13H8a3 3 0 0 1-3-3z"></path><path d="M5 17a3 3 0 0 1 3-3h11"></path></svg>Recept</a>
+    <a href="#matsedel" style="display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 3px; font-size: 11px; font-weight: 500; color: #6B7872">
+      <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="4" y="5" width="16" height="15" rx="3"></rect><path d="M4 10h16M9 3v4M15 3v4"></path></svg>Matsedel</a>
+    <a href="Lista.dc.html" style="display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 3px; font-size: 11px; font-weight: 500; color: #6B7872">
+      <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M9 6h11M9 12h11M9 18h11"></path><path d="M4 6l1 1 2-2M4 12l1 1 2-2M4 18l1 1 2-2"></path></svg>Lista</a>
+    <a href="Hemma.dc.html" style="display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 3px; font-size: 11px; font-weight: 500; color: #6B7872">
+      <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M4 11l8-7 8 7v9H4z"></path><path d="M10 20v-6h4v6"></path></svg>Hemma</a>
+  </nav>
+</div>
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props='{"$preview":{"width":390,"height":844}}'>
+class Component extends DCLogic {
+  renderVals() {
+    const ok = { bg: '#DDEFE5', fg: '#2C5E48' };
+    const miss = { bg: '#E3ECF7', fg: '#2E5A85' };
+    const list = [
+      { title: 'Krämig kycklinggryta', meta: '35 min · 4 portioner', status: 'Kan lagas nu', s: ok, tint: '#DDEFE5', fav: true },
+      { title: 'Pasta med tomat och basilika', meta: '20 min · 2 portioner', status: 'Saknar 1 vara', s: miss, tint: '#DCE9F6', fav: false },
+      { title: 'Ugnsbakad lax med citron', meta: '30 min · 4 portioner', status: 'Saknar 3 varor', s: miss, tint: '#EEF0E6', fav: true },
+      { title: 'Röd linssoppa', meta: '40 min · 6 portioner', status: 'Kan lagas nu', s: ok, tint: '#E4EEF2', fav: false }
+    ];
+    return {
+      recipes: list.map((r) => ({ ...r, badgeBg: r.s.bg, badgeFg: r.s.fg, notFav: !r.fav }))
+    };
+  }
+}
+</script>
+</body>
+</html>
