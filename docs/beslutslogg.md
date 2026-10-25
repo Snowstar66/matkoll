@@ -2,6 +2,20 @@
 
 Beslut som fattats under bygget: vad, varför och vilka alternativ som fanns. Nyaste överst.
 
+## 2026-10-25 – UX: DESIGN.md och EXPERIENCE.md
+
+UX: `_bmad-output/planning-artifacts/ux-designs/ux-Matkoll-2026-10-25/`. Beslut utöver UX-specen:
+
+- **Mörkt läge** har egna härledda färger i samma färgfamiljer, och alla textpar är kontrollerade mot 4,5:1. Läget följer systemets inställning; det finns ingen växlare i appen. Alternativ: växlare i inställningarna (skjuts upp).
+- **`ink-3` bara på vita ytor.** Mot sidbakgrunden ger den 4,28:1, vilket är under kravet. Text direkt på bakgrunden använder `ink-2`.
+- **Inga skuggor**; djupet kommer från bakgrund mot vit yta, som i skisserna.
+- **Import** startar från "+" i Recept-rubriken, i ett ark med flikarna Länk, Text och Foto.
+- **Matsedel** (ej skissad): kort som receptraderna, med portionsväljare och status. "Lägg till rätt" visar favoriter först, så att en favorit kräver två tryck (SM-4).
+- **Stegläge** (ej skissat): helskärm, 24 px stegtext, stegets ingredienser ovanför och Föregående/Nästa i tumzonen.
+- **Inställningar** nås via kugghjul i Recept-rubriken på mobil och längst ned i sidomenyn på dator. Produktval anges per vara i listpostdetaljen.
+- **Fel och varningar** visas i blått. Borttagning ångras via en kort bekräftelse; förhandsbekräftelse krävs bara för att ta bort recept och matsedlar.
+- **Brytpunkt för dator** är 1024 px.
+
 ## 2026-10-25 – PRD: tolkningar av briefen
 
 PRD: `_bmad-output/planning-artifacts/prds/prd-Matkoll-2026-10-25/prd.md`. Beslut som inte står uttryckligen i briefen:
