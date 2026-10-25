@@ -1,4 +1,5 @@
 import Link from "next/link";
+import type { ReactNode } from "react";
 import { ChevronLeftIcon } from "@/components/icons";
 import { formatQuantity, normalizeIngredientText } from "@/features/catalog";
 import { recipeMetaText } from "../domain/recipe-list";
@@ -8,10 +9,11 @@ import { FavoriteButton } from "./favorite-button";
 import { RecipeImage } from "./recipe-image";
 
 // Receptvy (FR-20, the base): the same look whatever the source, with the
-// heart (FR-9) beside the title. The portion selector, "X av Y hemma" and the
-// buttons arrive in later stories.
+// heart (FR-9) and the menu (⋯, Story 1.11) beside the title. The portion
+// selector, "X av Y hemma" and the buttons arrive in later stories.
 
-export function RecipeView({ recipe }: { recipe: SavedRecipe }) {
+/** `menu`: the menu (⋯) with "Ändra", from the page, which has what its form needs. */
+export function RecipeView({ recipe, menu }: { recipe: SavedRecipe; menu?: ReactNode }) {
   const source = sourceLabel(recipe.sourceKind, recipe.sourceUrl);
   return (
     <article className="flex flex-col gap-6 pb-gutter">
@@ -31,7 +33,10 @@ export function RecipeView({ recipe }: { recipe: SavedRecipe }) {
       <header className="flex flex-col gap-1.5">
         <div className="flex items-start justify-between gap-2">
           <h1 className="min-w-0 text-recipe-title break-words text-ink">{recipe.title}</h1>
-          <FavoriteButton id={recipe.id} isFavorite={recipe.isFavorite} className="-mr-2.5 -mt-1" />
+          <div className="-mt-1 -mr-2.5 flex shrink-0">
+            <FavoriteButton id={recipe.id} isFavorite={recipe.isFavorite} />
+            {menu}
+          </div>
         </div>
         <p className="text-meta text-ink-2">{recipeMetaText(recipe.totalMinutes, recipe.servings)}</p>
         <p className="text-meta text-ink-2">

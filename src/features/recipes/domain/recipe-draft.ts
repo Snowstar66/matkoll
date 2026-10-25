@@ -3,7 +3,9 @@ import { chosenIngredientSchema, ingredientMatchSchema, unitSchema } from "@/fea
 
 // The one format for a parsed recipe (AD-10). Link, text, photo and AI
 // suggestions all become a RecipeDraft through fromAiRecipe; the preview edits
-// it, and saveRecipe/updateRecipe (Story 1.7) are the only ways it is written.
+// it, and saveRecipe (Story 1.7) and updateRecipe (Story 1.11) are the only
+// ways it is written. A saved recipe being changed becomes a draft through
+// toEditableDraft, with the ids of its lines and steps.
 
 export const SOURCE_KINDS = ["url", "text", "photo", "ai"] as const;
 export const sourceKindSchema = z.enum(SOURCE_KINDS);
@@ -42,6 +44,12 @@ export type LineHint = z.infer<typeof lineHintSchema>;
 
 export const recipeLineSchema = z
   .object({
+    /**
+     * The saved line's id, when a saved recipe is being changed (Story 1.11):
+     * updateRecipe keeps it. A line from an import, or one added while
+     * changing, has none.
+     */
+    id: z.uuid().optional(),
     /** The line as written in the recipe; shown for a vague line. */
     originalText: z.string().trim().min(1).max(draftLimits.originalTextChars),
     amount: z.number().positive().nullable(),
@@ -66,6 +74,26 @@ export const recipeLineSchema = z
   });
 export type RecipeLine = z.infer<typeof recipeLineSchema>;
 
+const stepTextSchema = z.string().trim().min(1).max(draftLimits.stepChars);
+
+/**
+ * A step: its text, as an import makes it, or the saved step's id with its
+ * text, when a saved recipe is being changed (Story 1.11): updateRecipe keeps
+ * the id. Both are the same step to everything but updateRecipe.
+ */
+export const recipeStepSchema = z.union([stepTextSchema, z.object({ id: z.uuid().optional(), text: stepTextSchema })]);
+export type RecipeStep = z.infer<typeof recipeStepSchema>;
+
+/** The text of a step, with or without id. */
+export function stepText(step: RecipeStep): string {
+  return typeof step === "string" ? step : step.text;
+}
+
+/** The saved step's id, or `null` for a step without one. */
+export function stepId(step: RecipeStep): string | null {
+  return typeof step === "string" ? null : (step.id ?? null);
+}
+
 export const recipeDraftSchema = z
   .object({
     title: z.string().trim().min(1).max(draftLimits.titleChars),
@@ -76,7 +104,7 @@ export const recipeDraftSchema = z
     sourceKind: sourceKindSchema,
     /** The recipe page, only for sourceKind "url". */
     sourceUrl: webUrl().nullable(),
-    steps: z.array(z.string().trim().min(1).max(draftLimits.stepChars)).max(draftLimits.steps),
+    steps: z.array(recipeStepSchema).max(draftLimits.steps),
     lines: z.array(recipeLineSchema).max(draftLimits.lines),
   })
   .superRefine((draft, context) => {
@@ -125,13 +153,18 @@ export function validateDraft(draft: RecipeDraft, pending: PendingFieldText = {}
   const errors: Record<string, string> = {};
   if (!draft.title.trim()) errors.title = draftFieldMessages.title;
   draft.steps.forEach((step, index) => {
-    if (!step.trim()) errors[`steps.${index}`] = draftFieldMessages.step;
+    if (!stepText(step).trim()) errors[`steps.${index}`] = draftFieldMessages.step;
   });
   if (pending.totalMinutes !== undefined) errors.totalMinutes = draftFieldMessages.number;
   for (const index of Object.keys(pending.amounts ?? {})) errors[`lines.${index}.amount`] = draftFieldMessages.number;
   const parsed = recipeDraftSchema.safeParse(draft);
   if (!parsed.success) {
-    for (const issue of parsed.error.issues) errors[issue.path.join(".")] ??= draftFieldMessages.other;
+    for (const issue of parsed.error.issues) {
+      const path = issue.path.join(".");
+      // A field that already has its error (a saved step's text) needs no second one.
+      if (Object.keys(errors).some((field) => path.startsWith(`${field}.`))) continue;
+      errors[path] ??= draftFieldMessages.other;
+    }
   }
   return errors;
 }

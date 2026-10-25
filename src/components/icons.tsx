@@ -100,6 +100,17 @@ export function MinusIcon(props: IconProps) {
   );
 }
 
+/** Three dots in a row: a menu with more choices (⋯). */
+export function MoreIcon(props: IconProps) {
+  return (
+    <Icon filled strokeWidth={0} {...props}>
+      <circle cx="5" cy="12" r="1.9" />
+      <circle cx="12" cy="12" r="1.9" />
+      <circle cx="19" cy="12" r="1.9" />
+    </Icon>
+  );
+}
+
 export function ChevronLeftIcon(props: IconProps) {
   return (
     <Icon strokeWidth={2.2} {...props}>

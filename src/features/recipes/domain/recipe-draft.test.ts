@@ -42,6 +42,21 @@ describe("recipeDraftSchema", () => {
     expect(recipeDraftSchema.safeParse(draft({ lines })).success).toBe(true);
   });
 
+  it("accepts the ids of a saved recipe's lines and steps, beside lines and steps without", () => {
+    const saved = draft({
+      steps: [{ id, text: "Koka." }, "Servera.", { text: "Ät." }],
+      lines: [{ ...line, id }, line],
+    });
+    expect(recipeDraftSchema.safeParse(saved).success).toBe(true);
+    expect(validateDraft(saved)).toEqual({});
+    expect(recipeDraftSchema.safeParse(draft({ lines: [{ ...line, id: "rad-1" }] })).success).toBe(false);
+    expect(recipeDraftSchema.safeParse(draft({ steps: [{ id: "steg-1", text: "Koka." }] })).success).toBe(false);
+  });
+
+  it("asks for text in a saved step too", () => {
+    expect(validateDraft(draft({ steps: [{ id, text: " " }] }))).toEqual({ "steps.0": draftFieldMessages.step });
+  });
+
   it("accepts a link with its source URL and image", () => {
     const fromUrl = draft({
       sourceKind: "url",

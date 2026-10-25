@@ -37,6 +37,7 @@ const recipe: SavedRecipe = {
   sourceKind: "url",
   sourceUrl: "https://www.koket.se/kramig-kycklinggryta",
   isFavorite: false,
+  updatedAt: "2026-10-26T10:00:00.123456+00:00",
   steps: [
     { id: "step-0", position: 0, text: "Skär kycklingen i bitar." },
     { id: "step-1", position: 1, text: "Låt puttra i 20 minuter." },

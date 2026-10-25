@@ -135,6 +135,9 @@ isOneToOne: false
                            },
 "save_recipe":
 { Args: { "lines": Json,"recipe": Json,"steps": Json }; Returns: string
+                           },
+"update_recipe":
+{ Args: { "expected_updated_at": string,"id": string,"lines": Json,"recipe": Json,"steps": Json }; Returns: string
                            }
           }
           Enums: {

@@ -7,6 +7,9 @@ export {
   recipeDraftSchema,
   draftLimits,
   lineHintSchema,
+  recipeStepSchema,
+  stepText,
+  stepId,
   validateDraft,
   draftFieldMessages,
   type LineHint,
@@ -14,8 +17,10 @@ export {
   type SourceKind,
   type LineIngredient,
   type RecipeLine,
+  type RecipeStep,
   type RecipeDraft,
 } from "./domain/recipe-draft";
+export { toEditableDraft, savedIngredientNames, lineChoices, hasOnlySavedIds } from "./domain/editable-draft";
 export { fromAiRecipe, type AiRecipeLike, type RecipeSource } from "./domain/from-ai-recipe";
 export {
   maxImportTextChars,
@@ -51,6 +56,8 @@ export {
 } from "./domain/recipe-list";
 export {
   toSaveRecipeArgs,
+  toUpdateRecipeArgs,
+  type UpdateRecipeArgs,
   type SavedRecipe,
   type SavedRecipeLine,
   type SavedRecipeStep,

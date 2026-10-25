@@ -2,10 +2,20 @@ import { randomUUID } from "node:crypto";
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
 import { commitIngredients } from "@/features/catalog/data/commit";
 import { findIngredientIdsIn, loadIngredientNames } from "@/features/catalog/data/queries";
-import type { RecipeDraft, RecipeLine, RecipeListItem, SaveRecipeArgs } from "@/features/recipes";
+import {
+  hasOnlySavedIds,
+  lineChoices,
+  toEditableDraft,
+  type RecipeDraft,
+  type RecipeLine,
+  type RecipeListItem,
+  type SaveRecipeArgs,
+  type UpdateRecipeArgs,
+} from "@/features/recipes";
 import { setFavoriteIn } from "@/features/recipes/data/favorite";
 import { getRecipe, listRecipes, searchRecipesIn } from "@/features/recipes/data/queries";
 import { saveRecipeIn } from "@/features/recipes/data/save";
+import { deleteRecipeIn, savedRecipeRefsIn, updateRecipeIn } from "@/features/recipes/data/update";
 import { localSupabaseUrl } from "../local-supabase";
 import {
   adminClient,
@@ -634,5 +644,294 @@ describe("the library: listRecipes, searchRecipesIn and setFavoriteIn", () => {
     expect(found.length).toBeGreaterThan(100);
     expect(listMs).toBeLessThan(1000);
     expect(searchMs).toBeLessThan(1000);
+  });
+});
+
+describe("update_recipe and deleting a recipe", () => {
+  type SavedRows = {
+    id: string;
+    updatedAt: string;
+    steps: { id: string; position: number; text: string }[];
+    lines: { id: string; position: number; original_text: string; step_id: string | null; ingredient_id: string | null }[];
+  };
+
+  /** Saves the small recipe and returns its id and its rows in order. */
+  async function saved(db: Db, args = saveArgs()): Promise<SavedRows> {
+    const { data: id, error } = await db.rpc("save_recipe", args);
+    if (error) throw error;
+    return rows(db, id!);
+  }
+
+  async function rows(db: Db, id: string): Promise<SavedRows> {
+    const recipe = await adminClient().from("recipe").select("updated_at").eq("id", id).single();
+    if (recipe.error) throw recipe.error;
+    const steps = await adminClient().from("recipe_step").select("id, position, text").eq("recipe_id", id).order("position");
+    const lines = await adminClient()
+      .from("recipe_ingredient")
+      .select("id, position, original_text, step_id, ingredient_id")
+      .eq("recipe_id", id)
+      .order("position");
+    if (steps.error) throw steps.error;
+    if (lines.error) throw lines.error;
+    return { id, updatedAt: recipe.data.updated_at, steps: steps.data, lines: lines.data };
+  }
+
+  /** update_recipe's arguments that keep the saved recipe exactly as it is. */
+  function unchanged(recipe: SavedRows): UpdateRecipeArgs {
+    const base = saveArgs();
+    return {
+      id: recipe.id,
+      expected_updated_at: recipe.updatedAt,
+      recipe: { title: "Linssoppa", original_servings: 4, total_minutes: 30 },
+      steps: recipe.steps.map(({ id, position, text }) => ({ id, position, text })),
+      lines: base.lines.map((line, index) => ({ ...line, id: recipe.lines[index].id })),
+    };
+  }
+
+  it("updates the recipe, keeps the ids of kept lines and steps, adds new ones and deletes the rest", async () => {
+    const user = await createTestUser("update");
+    const before = await saved(user.db);
+    const args = unchanged(before);
+    const { data, error } = await user.db.rpc("update_recipe", {
+      ...args,
+      recipe: { title: "Röd linssoppa", original_servings: 6, total_minutes: null },
+      // Step 1 ("Hacka löken.") goes, step 2 moves first and a new step follows.
+      steps: [
+        { id: before.steps[1].id, position: 0, text: "Koka allt länge." },
+        { id: null, position: 1, text: "Servera." },
+      ],
+      // The first line stays and now belongs to the new step; the vague line goes; a new line comes.
+      lines: [
+        { ...args.lines[0], original_text: "4 dl röda linser", amount: 4, step_position: 1 },
+        { id: null, position: 1, original_text: "1 l vatten", amount: 1, unit: "l", is_vague: false, ingredient_id: null, step_position: 0 },
+      ],
+    });
+    expect(error).toBeNull();
+    expect(data).toBe(before.id);
+
+    const after = await rows(user.db, before.id);
+    expect(after.steps).toEqual([
+      { id: before.steps[1].id, position: 0, text: "Koka allt länge." },
+      { id: expect.any(String), position: 1, text: "Servera." },
+    ]);
+    expect(after.steps[1].id).not.toBe(before.steps[0].id);
+    expect(after.lines).toEqual([
+      { id: before.lines[0].id, position: 0, original_text: "4 dl röda linser", step_id: after.steps[1].id, ingredient_id: null },
+      { id: expect.any(String), position: 1, original_text: "1 l vatten", step_id: after.steps[0].id, ingredient_id: null },
+    ]);
+    expect(await countAll(user)).toEqual([1, 2, 2]);
+
+    const recipe = await user.db.from("recipe").select("*").eq("id", before.id).single();
+    expect(recipe.data).toMatchObject({
+      title: "Röd linssoppa",
+      original_servings: 6,
+      total_minutes: null,
+      source_kind: "text",
+      source_url: null,
+    });
+    expect(new Date(recipe.data!.updated_at).getTime()).toBeGreaterThan(new Date(before.updatedAt).getTime());
+  });
+
+  it("reorders kept steps and lines without tripping over their positions", async () => {
+    const user = await createTestUser("update-order");
+    const before = await saved(user.db);
+    const args = unchanged(before);
+    const { error } = await user.db.rpc("update_recipe", {
+      ...args,
+      steps: args.steps.map((step) => ({ ...step, position: 1 - step.position })),
+      lines: args.lines.map((line) => ({ ...line, position: 1 - line.position, step_position: null })),
+    });
+    expect(error).toBeNull();
+    const after = await rows(user.db, before.id);
+    expect(after.steps.map(({ id }) => id)).toEqual([before.steps[1].id, before.steps[0].id]);
+    expect(after.lines.map(({ id }) => id)).toEqual([before.lines[1].id, before.lines[0].id]);
+  });
+
+  it("removes every step and line when the lists are empty", async () => {
+    const user = await createTestUser("update-empty");
+    const before = await saved(user.db);
+    const { error } = await user.db.rpc("update_recipe", { ...unchanged(before), steps: [], lines: [] });
+    expect(error).toBeNull();
+    expect(await countAll(user)).toEqual([1, 0, 0]);
+  });
+
+  it.each([
+    ["a line of another recipe", "line"],
+    ["a step of another recipe", "step"],
+  ] as const)("refuses %s, even the user's own, and changes nothing (22023)", async (_, kind) => {
+    const user = await createTestUser(`update-foreign-${kind}`);
+    const before = await saved(user.db);
+    const other = await saved(user.db);
+    const args = unchanged(before);
+    const changed =
+      kind === "line"
+        ? { ...args, lines: [{ ...args.lines[0], id: other.lines[0].id }, args.lines[1]] }
+        : { ...args, steps: [{ ...args.steps[0], id: other.steps[0].id }, args.steps[1]] };
+    const { error } = await user.db.rpc("update_recipe", { ...changed, recipe: { ...args.recipe, title: "Ändrad" } });
+    expect(error?.code).toBe("22023");
+    expect(await rows(user.db, before.id)).toEqual(before);
+    expect(await rows(user.db, other.id)).toEqual(other);
+    const { data } = await user.db.from("recipe").select("title").eq("id", before.id).single();
+    expect(data?.title).toBe("Linssoppa");
+  });
+
+  it.each([
+    ["a line id twice", (args: UpdateRecipeArgs) => ({ ...args, lines: [args.lines[0], { ...args.lines[1], id: args.lines[0].id }] })],
+    ["a gap in the steps", (args: UpdateRecipeArgs) => ({ ...args, steps: [args.steps[0], { ...args.steps[1], position: 2 }] })],
+    ["a gap in the lines", (args: UpdateRecipeArgs) => ({ ...args, lines: [args.lines[0], { ...args.lines[1], position: 5 }] })],
+    ["a step position that names no step", (args: UpdateRecipeArgs) => ({ ...args, lines: [{ ...args.lines[0], step_position: 7 }, args.lines[1]] })],
+    [
+      "more than 100 steps",
+      (args: UpdateRecipeArgs) => ({ ...args, steps: Array.from({ length: 101 }, (_, position) => ({ id: null, position, text: "Koka." })) }),
+    ],
+    ["steps that are not a list", (args: UpdateRecipeArgs) => ({ ...args, steps: {} as never })],
+  ])("refuses %s (22023) and changes nothing", async (name, change) => {
+    const user = await createTestUser(`update-shape-${name.replace(/\W+/g, "-")}`);
+    const before = await saved(user.db);
+    const args = unchanged(before);
+    const { error } = await user.db.rpc("update_recipe", change({ ...args, recipe: { ...args.recipe, title: "Ändrad" } }));
+    expect(error?.code).toBe("22023");
+    expect(await rows(user.db, before.id)).toEqual(before);
+  });
+
+  it("changes everything or nothing: an invalid line after valid changes leaves the recipe as it was", async () => {
+    const user = await createTestUser("update-nothing");
+    const before = await saved(user.db);
+    const args = unchanged(before);
+    const { error } = await user.db.rpc("update_recipe", {
+      ...args,
+      recipe: { ...args.recipe, title: "Ändrad" },
+      steps: [args.steps[1]].map((step) => ({ ...step, position: 0 })),
+      lines: [
+        { ...args.lines[0], step_position: 0 },
+        // Vague with an amount breaks the line check.
+        { ...args.lines[1], amount: 2 },
+      ],
+    });
+    expect(error?.code).toBe("23514");
+    expect(await rows(user.db, before.id)).toEqual(before);
+    const { data } = await user.db.from("recipe").select("title").eq("id", before.id).single();
+    expect(data?.title).toBe("Linssoppa");
+  });
+
+  it("refuses a form filled before a newer change (MK409) and changes nothing", async () => {
+    const user = await createTestUser("update-conflict");
+    const before = await saved(user.db);
+    const args = unchanged(before);
+    // Changed elsewhere since the form was filled (here: the heart).
+    expect((await user.db.from("recipe").update({ is_favorite: true }).eq("id", before.id)).error).toBeNull();
+    const changedElsewhere = await rows(user.db, before.id);
+    const { error } = await user.db.rpc("update_recipe", { ...args, recipe: { ...args.recipe, title: "Gammal" }, steps: [], lines: [] });
+    expect(error?.code).toBe("MK409");
+    expect(await rows(user.db, before.id)).toEqual(changedElsewhere);
+    const { data } = await user.db.from("recipe").select("title").eq("id", before.id).single();
+    expect(data?.title).toBe("Linssoppa");
+
+    // With the new updated_at it goes through.
+    const fresh = await user.db.rpc("update_recipe", { ...unchanged(changedElsewhere), recipe: { ...args.recipe, title: "Ny" } });
+    expect(fresh.error).toBeNull();
+  });
+
+  it("respects RLS: another user changes and deletes nothing, and only signed-in users may run it", async () => {
+    const owner = await createTestUser("update-owner");
+    const other = await createTestUser("update-other");
+    const before = await saved(owner.db);
+    const args = unchanged(before);
+    const changed = { ...args, recipe: { ...args.recipe, title: "Kapad" }, steps: [], lines: [] };
+
+    const { data, error } = await other.db.rpc("update_recipe", changed);
+    expect(error).toBeNull();
+    expect(data).toBeNull();
+    expect((await anonClient().rpc("update_recipe", changed)).error?.code).toBe("42501");
+    expect((await adminClient().rpc("update_recipe", changed)).error?.code).toBe("42501");
+
+    expect(await deleteRecipeIn(other.db, other.id, before.id)).toBe(false);
+    // The delete filters on the user too: the owner's recipe under another user id goes nowhere.
+    expect(await deleteRecipeIn(owner.db, other.id, before.id)).toBe(false);
+    expect(await savedRecipeRefsIn(other.db, before.id)).toBeNull();
+
+    expect(await rows(owner.db, before.id)).toEqual(before);
+    expect(await countAll(owner)).toEqual([1, 2, 2]);
+  });
+
+  it("deletes the user's recipe with its steps and lines and keeps the catalog", async () => {
+    const user = await createTestUser("delete");
+    const ingredientId = await addIngredient(user.db, "Linser");
+    const before = await saved(user.db, saveArgs(saveArgs().lines.map((row) => ({ ...row, ingredient_id: ingredientId }))));
+    expect(await deleteRecipeIn(user.db, user.id, before.id)).toBe(true);
+    expect(await countAll(user)).toEqual([0, 0, 0]);
+    expect(await countRows("ingredient", user.id)).toBe(1);
+    expect(await deleteRecipeIn(user.db, user.id, before.id)).toBe(false);
+  });
+
+  it("updateRecipeIn with the catalog commit: a relinked line saves a synonym, an unchanged one none", async () => {
+    const user = await createTestUser("update-draft");
+    const gulLok = await addIngredient(user.db, "Gul lök");
+    const rodlok = await addIngredient(user.db, "Rödlök");
+    const salt = await addIngredient(user.db, "Salt");
+    const peppar = await addIngredient(user.db, "Svartpeppar");
+    const names = (ids: readonly string[]) => loadIngredientNames(user.db, ids);
+    const recipeId = randomUUID();
+    const draft: RecipeDraft = {
+      title: "Linssoppa",
+      servings: 4,
+      totalMinutes: null,
+      imageUrl: null,
+      sourceKind: "text",
+      sourceUrl: null,
+      steps: ["Hacka löken.", "Koka allt."],
+      lines: [
+        line({ originalText: "1 lök, hackad", amount: 1, unit: "st", isVague: false, ingredient: { kind: "match", ingredientId: gulLok, confidence: "hint" }, stepIndexes: [0] }),
+        line({ originalText: "salt och peppar", ingredient: { kind: "match", ingredientId: salt, confidence: "hint" } }),
+        line({ originalText: "salt och peppar", ingredient: { kind: "match", ingredientId: peppar, confidence: "hint" } }),
+      ],
+    };
+    const firstIds = await commitIngredients(user.db, draft.lines.map(({ originalText, ingredient }) => ({ text: originalText, ingredient })));
+    await saveRecipeIn(user.db, recipeId, draft, firstIds);
+    const before = (await getRecipe(user.db, recipeId, names))!;
+
+    // Pontus relinks the onion line to Rödlök, removes the first step and adds one.
+    const editable = toEditableDraft(before);
+    const changed: RecipeDraft = {
+      ...editable,
+      title: "Röd linssoppa",
+      steps: [editable.steps[1], "Servera."],
+      lines: [
+        { ...editable.lines[0], ingredient: { kind: "chosen", ingredientId: rodlok }, stepIndexes: [] },
+        editable.lines[1],
+        editable.lines[2],
+      ],
+    };
+    const refs = (await savedRecipeRefsIn(user.db, recipeId))!;
+    expect(refs).toEqual({
+      updatedAt: before.updatedAt,
+      lines: new Map(before.lines.map(({ id, ingredientId }) => [id, ingredientId])),
+      stepIds: new Set(before.steps.map(({ id }) => id)),
+    });
+    expect(hasOnlySavedIds(changed, refs)).toBe(true);
+    // Unchanged lines with the same text pointing at different ingredients would otherwise conflict.
+    const ids = await commitIngredients(user.db, lineChoices(changed.lines, refs.lines));
+    expect(await updateRecipeIn(user.db, recipeId, changed, ids, before.updatedAt)).toBe("updated");
+
+    const after = (await getRecipe(user.db, recipeId, names))!;
+    expect(after.title).toBe("Röd linssoppa");
+    expect(after.steps.map(({ id, text }) => ({ id, text }))).toEqual([
+      { id: before.steps[1].id, text: "Koka allt." },
+      { id: expect.any(String), text: "Servera." },
+    ]);
+    expect(after.lines.map(({ id, ingredientName }) => ({ id, ingredientName }))).toEqual([
+      { id: before.lines[0].id, ingredientName: "Rödlök" },
+      { id: before.lines[1].id, ingredientName: "Salt" },
+      { id: before.lines[2].id, ingredientName: "Svartpeppar" },
+    ]);
+    const synonyms = await user.db.from("ingredient_synonym").select("normalized, ingredient_id");
+    expect(synonyms.data).toEqual([{ normalized: "lök", ingredient_id: rodlok }]);
+
+    // Another user's recipe id changes nothing.
+    const other = await createTestUser("update-draft-other");
+    expect(await updateRecipeIn(other.db, recipeId, changed, ids.map(() => null), after.updatedAt)).toBe("not_found");
+    // A form filled before that change is a conflict, and changes nothing.
+    expect(await updateRecipeIn(user.db, recipeId, { ...changed, title: "Gammal" }, ids, before.updatedAt)).toBe("conflict");
+    expect((await getRecipe(user.db, recipeId, names))!.title).toBe("Röd linssoppa");
   });
 });

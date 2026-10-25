@@ -34,6 +34,7 @@ import {
   type ImportKind,
   type ImportRequest,
 } from "../domain/import";
+import { isDraftDirty } from "../domain/preview";
 import { validateDraft, type PendingFieldText, type RecipeDraft } from "../domain/recipe-draft";
 import { downscaleImage } from "./downscale-image";
 import type { SearchIngredients } from "./ingredient-picker";
@@ -112,16 +113,9 @@ function useCoarsePointer(): boolean {
 const counterFrom = Math.floor(maxImportTextChars * 0.9);
 const formatCount = (n: number) => n.toLocaleString("sv-SE");
 
-function hasPending({ totalMinutes, amounts }: PendingFieldText): boolean {
-  return totalMinutes !== undefined || Object.keys(amounts ?? {}).length > 0;
-}
-
 /** Pontus has changed the preview: a field, or text that has not become a value yet. */
 function isEdited(preview: Preview | null): boolean {
-  return (
-    preview !== null &&
-    (hasPending(preview.pending) || JSON.stringify(preview.draft) !== JSON.stringify(preview.initial))
-  );
+  return preview !== null && isDraftDirty(preview.draft, preview.initial, preview.pending);
 }
 
 export type ImportSheetProps = {

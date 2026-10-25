@@ -1,6 +1,6 @@
 import { cleanIngredientText, normalizeUnit, parseQuantity, toLocation, toSection } from "@/features/catalog";
 import type { Unit } from "@/features/catalog";
-import type { RecipeLine } from "./recipe-draft";
+import type { PendingFieldText, RecipeDraft, RecipeLine, RecipeStep } from "./recipe-draft";
 
 // Edits Pontus makes in the preview (FR-6). Pure, so the preview and the
 // recipe form of Story 1.11 change a draft the same way.
@@ -54,6 +54,63 @@ export function withNewIngredient(line: RecipeLine, name: string): RecipeLine {
         defaultUnit: previous ? previous.defaultUnit : normalizeUnit(line.hint?.defaultUnit).unit,
       },
     },
+  };
+}
+
+/** Some field holds typed text that has not become a value. */
+export function hasPending({ totalMinutes, amounts }: PendingFieldText): boolean {
+  return totalMinutes !== undefined || Object.keys(amounts ?? {}).length > 0;
+}
+
+/** Pontus has changed the draft since `initial`, or typed text that has not become a value yet. */
+export function isDraftDirty(draft: RecipeDraft, initial: RecipeDraft, pending: PendingFieldText): boolean {
+  return hasPending(pending) || JSON.stringify(draft) !== JSON.stringify(initial);
+}
+
+/** Whether the form shows an error under the field at `path`; others need a notice of their own. */
+export function isShownField(path: string): boolean {
+  return path === "title" || path === "totalMinutes" || /^steps\.\d+$/.test(path) || /^lines\.\d+\.amount$/.test(path);
+}
+
+/** The line at `index` is removed. */
+export function withoutLine(draft: RecipeDraft, index: number): RecipeDraft {
+  return { ...draft, lines: draft.lines.filter((_, i) => i !== index) };
+}
+
+/** Typed amounts by line index, after the line at `index` is removed: later lines move up one. */
+export function withoutPendingAmount(pending: PendingFieldText, index: number): PendingFieldText {
+  if (!pending.amounts) return pending;
+  const amounts: Record<number, string> = {};
+  for (const [key, text] of Object.entries(pending.amounts)) {
+    const at = Number(key);
+    if (at < index) amounts[at] = text;
+    else if (at > index) amounts[at - 1] = text;
+  }
+  return { ...pending, amounts };
+}
+
+/** A new, empty step at the end. */
+export function withNewStep(draft: RecipeDraft): RecipeDraft {
+  return { ...draft, steps: [...draft.steps, ""] };
+}
+
+/** New text for a step; a saved step keeps its id. */
+export function withStepText(step: RecipeStep, text: string): RecipeStep {
+  return typeof step === "string" ? text : { ...step, text };
+}
+
+/**
+ * The step at `index` is removed. The lines no longer point at it, and their
+ * later steps move up one, so every line keeps the steps it had.
+ */
+export function withoutStep(draft: RecipeDraft, index: number): RecipeDraft {
+  return {
+    ...draft,
+    steps: draft.steps.filter((_, i) => i !== index),
+    lines: draft.lines.map((line) => ({
+      ...line,
+      stepIndexes: line.stepIndexes.filter((at) => at !== index).map((at) => (at > index ? at - 1 : at)),
+    })),
   };
 }
 

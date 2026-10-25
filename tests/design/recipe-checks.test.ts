@@ -13,6 +13,7 @@ import { SOURCE_KINDS, draftLimits } from "@/features/recipes";
 const migrations = fileURLToPath(new URL("../../supabase/migrations/", import.meta.url));
 const recipesMigration = readdirSync(migrations).filter((name) => /^\d+_recipes\.sql$/.test(name));
 const hardeningMigration = readdirSync(migrations).filter((name) => /^\d+_recipes_hardening\.sql$/.test(name));
+const updateMigration = readdirSync(migrations).filter((name) => /^\d+_recipes_update_conflict\.sql$/.test(name));
 
 function recipesSql(): string {
   if (recipesMigration.length !== 1) {
@@ -28,6 +29,13 @@ function hardeningSql(): string {
     throw new Error(`Expected exactly one supabase/migrations/<time>_recipes_hardening.sql, found ${hardeningMigration.length}.`);
   }
   return readFileSync(join(migrations, hardeningMigration[0]), "utf8");
+}
+
+function updateSql(): string {
+  if (updateMigration.length !== 1) {
+    throw new Error(`Expected exactly one supabase/migrations/<time>_recipes_update_conflict.sql, found ${updateMigration.length}.`);
+  }
+  return readFileSync(join(migrations, updateMigration[0]), "utf8");
 }
 
 /** The number in `constraint <name> check (char_length(<column>) <= <n>)`. */
@@ -76,5 +84,10 @@ describe("recipe check constraints", () => {
   it("save_recipe takes as many steps and lines as a draft", () => {
     expect(countLimit(hardeningSql(), "steps")).toBe(draftLimits.steps);
     expect(countLimit(hardeningSql(), "lines")).toBe(draftLimits.lines);
+  });
+
+  it("update_recipe (its latest definition) takes as many steps and lines as a draft", () => {
+    expect(countLimit(updateSql(), "steps")).toBe(draftLimits.steps);
+    expect(countLimit(updateSql(), "lines")).toBe(draftLimits.lines);
   });
 });

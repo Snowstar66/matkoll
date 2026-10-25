@@ -8,8 +8,16 @@ import {
   withChosenIngredient,
   withNewIngredient,
   withUnit,
+  withNewStep,
+  withStepText,
+  withoutLine,
+  withoutPendingAmount,
+  withoutStep,
+  hasPending,
+  isDraftDirty,
+  isShownField,
 } from "./preview";
-import type { RecipeLine } from "./recipe-draft";
+import type { RecipeDraft, RecipeLine } from "./recipe-draft";
 
 const id = "6f1c1b7e-3c1a-4c55-9a59-0f3f2b8f2a01";
 const other = "6f1c1b7e-3c1a-4c55-9a59-0f3f2b8f2a02";
@@ -119,5 +127,86 @@ describe("ingredientLabel", () => {
 
   it("says when there is no ingredient", () => {
     expect(ingredientLabel({ ...line, ingredient: { kind: "unmatched" } }, names)).toBe("Ingen ingrediens");
+  });
+});
+
+describe("adding and removing lines and steps", () => {
+  const stepId = "6f1c1b7e-3c1a-4c55-9a59-0f3f2b8f2a03";
+  const draft: RecipeDraft = {
+    title: "Linssoppa",
+    servings: 4,
+    totalMinutes: null,
+    imageUrl: null,
+    sourceKind: "text",
+    sourceUrl: null,
+    steps: [{ id: stepId, text: "Hacka." }, "Koka.", "Servera."],
+    lines: [
+      { ...line, stepIndexes: [0, 2] },
+      { ...vague, stepIndexes: [1] },
+      { ...line, originalText: "salt", stepIndexes: [2, 1] },
+    ],
+  };
+
+  it("removes a line and leaves the others as they were", () => {
+    expect(withoutLine(draft, 1).lines).toEqual([draft.lines[0], draft.lines[2]]);
+    expect(withoutLine(draft, 1).steps).toBe(draft.steps);
+  });
+
+  it("moves typed amounts of later lines up when a line is removed", () => {
+    expect(withoutPendingAmount({ totalMinutes: "x", amounts: { 0: "a", 1: "b", 3: "d" } }, 1)).toEqual({
+      totalMinutes: "x",
+      amounts: { 0: "a", 2: "d" },
+    });
+    const none = { totalMinutes: "x" };
+    expect(withoutPendingAmount(none, 0)).toBe(none);
+  });
+
+  it("removes a step, and the lines keep pointing at the steps they had", () => {
+    const changed = withoutStep(draft, 1);
+    expect(changed.steps).toEqual([{ id: stepId, text: "Hacka." }, "Servera."]);
+    expect(changed.lines.map(({ stepIndexes }) => stepIndexes)).toEqual([[0, 1], [], [1]]);
+  });
+
+  it("adds an empty step at the end", () => {
+    expect(withNewStep(draft).steps).toEqual([...draft.steps, ""]);
+  });
+
+  it("changes a step's text and keeps a saved step's id", () => {
+    expect(withStepText({ id: stepId, text: "Hacka." }, "Skiva.")).toEqual({ id: stepId, text: "Skiva." });
+    expect(withStepText("Koka.", "Sjud.")).toBe("Sjud.");
+  });
+});
+
+describe("hasPending, isDraftDirty and isShownField", () => {
+  const draft: RecipeDraft = {
+    title: "Soppa",
+    servings: 4,
+    totalMinutes: null,
+    imageUrl: null,
+    sourceKind: "text",
+    sourceUrl: null,
+    steps: ["Koka."],
+    lines: [line],
+  };
+
+  it("counts typed text that is not a value yet as pending", () => {
+    expect(hasPending({})).toBe(false);
+    expect(hasPending({ amounts: {} })).toBe(false);
+    expect(hasPending({ totalMinutes: "x" })).toBe(true);
+    expect(hasPending({ amounts: { 0: "x" } })).toBe(true);
+  });
+
+  it("is dirty after a change or with pending text, not otherwise", () => {
+    expect(isDraftDirty(draft, draft, {})).toBe(false);
+    expect(isDraftDirty({ ...draft }, draft, {})).toBe(false);
+    expect(isDraftDirty({ ...draft, title: "Gryta" }, draft, {})).toBe(true);
+    expect(isDraftDirty(draft, draft, { totalMinutes: "x" })).toBe(true);
+  });
+
+  it("knows which errors the form shows under a field", () => {
+    for (const path of ["title", "totalMinutes", "steps.3", "lines.0.amount"]) expect(isShownField(path)).toBe(true);
+    for (const path of ["imageUrl", "sourceUrl", "sourceKind", "servings", "lines.0.isVague", "steps.0.text"]) {
+      expect(isShownField(path)).toBe(false);
+    }
   });
 });
