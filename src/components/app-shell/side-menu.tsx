@@ -2,10 +2,11 @@
 
 import Link from "next/link";
 import { usePathname } from "next/navigation";
+import { Suspense } from "react";
 import { cx } from "../cx";
 import { currentState, type Destination, mainDestinations, settingsDestination } from "./destinations";
 
-function MenuLink({ destination, pathname }: { destination: Destination; pathname: string }) {
+function MenuLink({ destination, pathname }: { destination: Destination; pathname: string | null }) {
   const { href, label, Icon } = destination;
   const current = currentState(pathname, href);
   return (
@@ -25,9 +26,24 @@ function MenuLink({ destination, pathname }: { destination: Destination; pathnam
   );
 }
 
-/** Sidomeny: from 1024 px, the four main surfaces plus Inställningar at the bottom. */
+/**
+ * Sidomeny: from 1024 px, the four main surfaces plus Inställningar at the
+ * bottom. Like the tab bar, it renders without a current item until the path
+ * of a dynamic route is known (AD-18).
+ */
 export function SideMenu() {
-  const pathname = usePathname();
+  return (
+    <Suspense fallback={<SideMenuNav pathname={null} />}>
+      <CurrentSideMenu />
+    </Suspense>
+  );
+}
+
+function CurrentSideMenu() {
+  return <SideMenuNav pathname={usePathname()} />;
+}
+
+function SideMenuNav({ pathname }: { pathname: string | null }) {
   return (
     <nav
       aria-label="Huvudmeny"

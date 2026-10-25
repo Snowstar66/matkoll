@@ -22,7 +22,7 @@ Logga in på `http://localhost:3000/logga-in`. Länken hamnar i Mailpit på `htt
 | `pnpm lint` | ESLint, inklusive lagerreglerna (AD-1) |
 | `pnpm typecheck` | Genererar Next-typer och kör `tsc --noEmit` |
 | `pnpm test` | Vitest (domain-tester, miljövalidering, AI-porten med falsk modell och mock, lagerreglerna, designtokens och komponenttester) |
-| `pnpm test:integration` | Vitest mot lokal Supabase (stängd registrering, `users:sync`, RLS, ingredienskatalogen och dess sökning). Kräver `pnpm db:start` och `pnpm db:env` |
+| `pnpm test:integration` | Vitest mot lokal Supabase (stängd registrering, `users:sync`, RLS, ingredienskatalogen och dess sökning, recepttabellerna och `save_recipe`). Kräver `pnpm db:start` och `pnpm db:env` |
 | `pnpm build` | Produktionsbygge. Kräver `SITE_URL` och `AI_PROVIDER` (t.ex. `AI_PROVIDER=mock pnpm build`) |
 | `pnpm test:e2e` | Playwright mot `pnpm dev` på port 3100 (`CI=1` kör `pnpm start`, så bygg först). Kräver lokal Supabase och `pnpm db:env`. Testanvändaren `e2e@matkoll.test` skapas med `users:sync` och loggas in via `/auth/confirm` i `tests/e2e/global-setup.ts`. Första gången: `pnpm exec playwright install chromium` |
 | `pnpm eval:ai` | Kör AI-testuppsättningen mot vald `AI_PROVIDER` och skriver `tests/eval/report.md`. Manuellt, aldrig i CI (se AI-tjänsten nedan) |
@@ -140,7 +140,7 @@ Katalogingredienser tas aldrig bort (AD-20): ingen roll har `delete` på `ingred
 
 ### Importera recept
 
-Arket Importera recept öppnas med "+" i Recept-rubriken eller med knappen "Importera recept" i det tomma biblioteket. Det har flikarna Länk, Text och Foto; bara Text fungerar än (Länk och Foto kommer i Story 1.8 och 1.9). Inget sparas: förhandsgranskningen lever i klienten tills "Spara recept" finns (Story 1.7).
+Arket Importera recept öppnas med "+" i Recept-rubriken eller med knappen "Importera recept" i det tomma biblioteket. Det har flikarna Länk, Text och Foto; bara Text fungerar än (Länk och Foto kommer i Story 1.8 och 1.9). Inget sparas förrän Pontus trycker "Spara recept" (se Spara recept och receptvyn nedan); fram till dess lever förhandsgranskningen i klienten.
 
 Flödet (AD-2, AD-9, AD-10):
 
@@ -152,7 +152,30 @@ Svarets HTTP-status följer felkoden: 400 `validation`, 401 `unauthorized`, 422 
 
 `RecipeDraft` (`src/features/recipes/domain/recipe-draft.ts`, Zod) är det enda formatet för ett tolkat recept, och `fromAiRecipe(aiRecipe, matches, source)` är den enda mappningen från AI-svaret. Enheten tolkas med katalogens `normalizeUnit`; en rad utan mängd, eller med en okänd enhet ("1 bit", "en näve"), blir vag, utan mängd och enhet; en rad är vag precis när den saknar mängd. AI-tipset sparas på raden (`hint`), så att en ny ingrediens som Pontus namnger får tipsets avdelning, plats och enhet. Stegindex som inte pekar på ett steg tas bort.
 
-I förhandsgranskningen går titel, portioner, tid, mängd, enhet, katalogingrediens och steg att ändra. En rad som matchats via AI-tipsets namn har en ljusblå ring och "Kontrollera", och en ny katalogingrediens märks "Ny". Ett tryck på ingrediensen öppnar sökningen i samma ark; en vald ingrediens blir `{ kind: "chosen", ingredientId }`, och utan träff kan namnet användas för en ny ingrediens. `validateDraft(draft, pending)` ger felen per fält (tom titel, tomt steg, mängd eller tid som inte är ett tal), och arket räknar ut `isValid`, som "Spara recept" ska följa i Story 1.7. Har förhandsgranskningen ändrats, eller finns inklistrad text som inte tolkats, frågar arket "Släng ändringarna?" innan det stängs, och likaså innan en ny tolkning ersätter en ändrad förhandsgranskning. Texten får vara högst 12 000 tecken; nära gränsen visas antalet.
+I förhandsgranskningen går titel, portioner, tid, mängd, enhet, katalogingrediens och steg att ändra. En rad som matchats via AI-tipsets namn har en ljusblå ring och "Kontrollera", och en ny katalogingrediens märks "Ny". Ett tryck på ingrediensen öppnar sökningen i samma ark; en vald ingrediens blir `{ kind: "chosen", ingredientId }`, och utan träff kan namnet användas för en ny ingrediens. `validateDraft(draft, pending)` ger felen per fält (tom titel, tomt steg, mängd eller tid som inte är ett tal), och arket räknar ut `isValid`; "Spara recept" är inaktiv tills den är sann. Har förhandsgranskningen ändrats, eller finns inklistrad text som inte tolkats, frågar arket "Släng ändringarna?" innan det stängs, och likaså innan en ny tolkning ersätter en ändrad förhandsgranskning. Texten får vara högst 12 000 tecken; nära gränsen visas antalet.
+
+### Spara recept och receptvyn
+
+Modulen `src/features/recipes` äger tabellerna `recipe`, `recipe_step` och `recipe_ingredient` (AD-1, migrationen `supabase/migrations/<tid>_recipes.sql`):
+
+| Tabell | Innehåll |
+| --- | --- |
+| `recipe` | `title`, `original_servings` (minst 1), `total_minutes` (tom eller minst 0), `image_url` (bara adressen, AD-15), `source_kind` (`url`, `text`, `photo`, `ai`), `source_url` (bara för `url`), `is_favorite`, `created_at`, `updated_at` |
+| `recipe_step` | `recipe_id`, `position` (från 0, unik per recept), `text` |
+| `recipe_ingredient` | `recipe_id`, `ingredient_id` (tom för en rad utan katalogingrediens), `step_id` (radens första steg, valfritt), `position`, `original_text`, `amount`, `unit` (en av `UNITS`), `is_vague`. En vag rad saknar mängd och enhet, och en rad utan mängd är vag |
+
+Steg och rader har sammansatta främmande nycklar `(recipe_id, user_id)` med `on delete cascade`, så de försvinner med receptet. `ingredient_id` refererar katalogen med `(ingredient_id, user_id)` och `on delete restrict` (AD-20), och `step_id` måste vara ett steg i samma recept (`on delete set null`). RLS, policy och grants följer AD-4. `tests/design/recipe-checks.test.ts` kontrollerar att listorna för `unit` och `source_kind` är exakt domänens `UNITS` och `SOURCE_KINDS`.
+
+"Spara recept" längst ned i förhandsgranskningen är inaktiv så länge `validateDraft` hittar fel. Den anropar Server Action `saveRecipe(draft)` i `src/features/recipes/actions/save-recipe.ts`, den enda skrivvägen för nya recept:
+
+1. `requireUser()` och `recipeDraftSchema` (`unauthorized`, `validation`).
+2. `catalog.commitIngredients` med ett val per rad: nya katalogingredienser skapas, en omkopplad rad sparas som synonym, och varje rad får sitt id (`null` för en rad utan ingrediens).
+3. `saveRecipeIn(db, draft, ingredientIds)` anropar Postgres-funktionen `save_recipe(recipe, steps, lines)` (`security invoker`, bara för `authenticated`), som skriver receptet, stegen och raderna i en transaktion och returnerar receptets id. En ogiltig rad ger ett fel och inga rader alls.
+4. `revalidateFor("recipe")` från `src/lib/revalidate.ts` (AD-18), som förnyar `/recept` och `/recept/[id]`.
+
+Katalogen och receptet är olika moduler och sparas därför inte i samma transaktion (AD-1). Misslyckas receptet återanvänder nästa försök de ingredienser som redan skapats. Ett fel, även ett avbrutet anrop, ger `recipe_save_failed` ("Det gick inte att spara receptet. Försök igen.") i en meddelanderuta ovanför knappen, och förhandsgranskningen står kvar. Vid framgång stängs arket, Pontus hamnar på `/recept/[id]` och ser den korta bekräftelsen "Receptet är sparat.".
+
+Receptvyn `/recept/[id]` läser receptet med `getRecipe(id)` från `@/features/recipes/server` inuti `<Suspense>`. Ingrediensnamnen kommer från `catalog.getIngredientNames`. Vyn visar bilden (`<img referrerPolicy="no-referrer">`, platshållare utan bild eller vid fel), titel, tid, portioner och källa från `sourceLabel()` (värdnamnet utan `www.`, "Inklistrad text", "Foto av kokbok" eller "AI-förslag"). Ingredienser visas med mängd från `formatQuantity`, och vaga rader och rader utan ingrediens med originaltexten. Stegen är numrerade. På mobil står ingredienserna ovanför stegen, på dator bredvid. Ett id som inte är ett uuid eller inte är användarens recept ger "Sidan finns inte.".
 
 ### Migrationer
 

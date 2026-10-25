@@ -25,7 +25,7 @@ describe("HeartToggle", () => {
       const [on, setOn] = useState(false);
       return (
         <div className="relative flex">
-          <a href="/recept/1" onClick={onLinkClick} className="flex-1 after:absolute after:inset-0">
+          <a href="#krämig-kycklinggryta" onClick={onLinkClick} className="flex-1 after:absolute after:inset-0">
             Krämig kycklinggryta
           </a>
           <HeartToggle pressed={on} onPressedChange={setOn} className="relative z-10" />

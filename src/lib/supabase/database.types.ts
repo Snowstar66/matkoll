@@ -39,6 +39,72 @@ isOneToOne: false
       referencedColumns: ["id","user_id"]
     }
                   ]
+                },"recipe": {
+                  Row: {
+                    "created_at": string,"id": string,"image_url": string | null,"is_favorite": boolean,"original_servings": number,"source_kind": string,"source_url": string | null,"title": string,"total_minutes": number | null,"updated_at": string,"user_id": string
+                  }
+                  ComputedFields: never
+                  Insert: {
+                    "created_at"?: string,"id"?: string,"image_url"?: string | null,"is_favorite"?: boolean,"original_servings": number,"source_kind": string,"source_url"?: string | null,"title": string,"total_minutes"?: number | null,"updated_at"?: string,"user_id"?: string
+                  }
+                  Update: {
+                    "created_at"?: string,"id"?: string,"image_url"?: string | null,"is_favorite"?: boolean,"original_servings"?: number,"source_kind"?: string,"source_url"?: string | null,"title"?: string,"total_minutes"?: number | null,"updated_at"?: string,"user_id"?: string
+                  }
+                  Relationships: [
+                    
+                  ]
+                },"recipe_ingredient": {
+                  Row: {
+                    "amount": number | null,"created_at": string,"id": string,"ingredient_id": string | null,"is_vague": boolean,"original_text": string,"position": number,"recipe_id": string,"step_id": string | null,"unit": string | null,"user_id": string
+                  }
+                  ComputedFields: never
+                  Insert: {
+                    "amount"?: number | null,"created_at"?: string,"id"?: string,"ingredient_id"?: string | null,"is_vague": boolean,"original_text": string,"position": number,"recipe_id": string,"step_id"?: string | null,"unit"?: string | null,"user_id"?: string
+                  }
+                  Update: {
+                    "amount"?: number | null,"created_at"?: string,"id"?: string,"ingredient_id"?: string | null,"is_vague"?: boolean,"original_text"?: string,"position"?: number,"recipe_id"?: string,"step_id"?: string | null,"unit"?: string | null,"user_id"?: string
+                  }
+                  Relationships: [
+                    {
+      foreignKeyName: "recipe_ingredient_ingredient_fkey"
+      columns: ["ingredient_id","user_id"]
+isOneToOne: false
+      referencedRelation: "ingredient"
+      referencedColumns: ["id","user_id"]
+    },{
+      foreignKeyName: "recipe_ingredient_recipe_fkey"
+      columns: ["recipe_id","user_id"]
+isOneToOne: false
+      referencedRelation: "recipe"
+      referencedColumns: ["id","user_id"]
+    },{
+      foreignKeyName: "recipe_ingredient_step_fkey"
+      columns: ["step_id","recipe_id","user_id"]
+isOneToOne: false
+      referencedRelation: "recipe_step"
+      referencedColumns: ["id","recipe_id","user_id"]
+    }
+                  ]
+                },"recipe_step": {
+                  Row: {
+                    "created_at": string,"id": string,"position": number,"recipe_id": string,"text": string,"user_id": string
+                  }
+                  ComputedFields: never
+                  Insert: {
+                    "created_at"?: string,"id"?: string,"position": number,"recipe_id": string,"text": string,"user_id"?: string
+                  }
+                  Update: {
+                    "created_at"?: string,"id"?: string,"position"?: number,"recipe_id"?: string,"text"?: string,"user_id"?: string
+                  }
+                  Relationships: [
+                    {
+      foreignKeyName: "recipe_step_recipe_fkey"
+      columns: ["recipe_id","user_id"]
+isOneToOne: false
+      referencedRelation: "recipe"
+      referencedColumns: ["id","user_id"]
+    }
+                  ]
                 }
           }
           Views: {
@@ -49,6 +115,9 @@ isOneToOne: false
 { Args: { "new_ingredients": Json,"synonyms": Json }; Returns: {
               "id": string,"normalized_name": string
             }[]
+                           },
+"save_recipe":
+{ Args: { "lines": Json,"recipe": Json,"steps": Json }; Returns: string
                            }
           }
           Enums: {

@@ -4,7 +4,15 @@ import { useState } from "react";
 import { describe, expect, it, vi } from "vitest";
 import { Sheet } from "./sheet";
 
-function Harness({ isDirty = false, onClose }: { isDirty?: boolean; onClose?: () => void }) {
+function Harness({
+  isDirty = false,
+  preventClose = false,
+  onClose,
+}: {
+  isDirty?: boolean;
+  preventClose?: boolean;
+  onClose?: () => void;
+}) {
   const [open, setOpen] = useState(false);
   return (
     <>
@@ -15,6 +23,7 @@ function Harness({ isDirty = false, onClose }: { isDirty?: boolean; onClose?: ()
         open={open}
         title="Importera recept"
         isDirty={isDirty}
+        preventClose={preventClose}
         closeLabel="Avbryt"
         onClose={() => {
           onClose?.();
@@ -168,6 +177,20 @@ describe("Sheet", () => {
     expect(dirty).not.toHaveBeenCalled();
     expect(dialog().open).toBe(true);
     expect(screen.getByRole("alert")).toHaveTextContent("Släng ändringarna?");
+  });
+
+  it("cannot be closed while preventClose is set", async () => {
+    const onClose = vi.fn();
+    render(<Harness preventClose onClose={onClose} />);
+    const { user } = await openSheet();
+    expect(screen.getByRole("button", { name: "Avbryt" })).toBeDisabled();
+    await user.keyboard("{Escape}");
+    fireEvent.pointerDown(dialog());
+    fireEvent.click(dialog());
+    act(() => dialog().requestClose());
+    act(() => dialog().close());
+    expect(onClose).not.toHaveBeenCalled();
+    expect(dialog().open).toBe(true);
   });
 
   describe("never stacked", () => {

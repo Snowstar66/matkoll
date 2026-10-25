@@ -12,6 +12,7 @@ export const errorMessages = {
   ai_rejected: "AI-tjänsten tog inte emot förfrågan. Prova med en kortare text eller försök igen senare.",
   import_no_recipe: "Det gick inte att hitta något recept i texten.",
   catalog_unavailable: "Det gick inte att läsa ingredienskatalogen. Försök igen.",
+  recipe_save_failed: "Det gick inte att spara receptet. Försök igen.",
 } as const;
 
 /**

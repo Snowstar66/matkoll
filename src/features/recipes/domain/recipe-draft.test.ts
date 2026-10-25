@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { draftFieldMessages, recipeDraftSchema, validateDraft, type RecipeDraft } from "./recipe-draft";
+import { draftFieldMessages, draftLimits, recipeDraftSchema, validateDraft, type RecipeDraft } from "./recipe-draft";
 
 const id = "6f1c1b7e-3c1a-4c55-9a59-0f3f2b8f2a01";
 
@@ -68,8 +68,24 @@ describe("recipeDraftSchema", () => {
     ["a zero amount", draft({ lines: [{ ...line, amount: 0 }] })],
     ["a step index past the last step", draft({ lines: [{ ...line, stepIndexes: [1] }] })],
     ["a chosen ingredient without id", draft({ lines: [{ ...line, ingredient: { kind: "chosen" } as never }] })],
+    ["a title over the limit", draft({ title: "a".repeat(draftLimits.titleChars + 1) })],
+    ["a step over the limit", draft({ steps: ["a".repeat(draftLimits.stepChars + 1)] })],
+    ["too many steps", draft({ steps: Array.from({ length: draftLimits.steps + 1 }, () => "Koka.") })],
+    ["an original text over the limit", draft({ lines: [{ ...line, originalText: "a".repeat(draftLimits.originalTextChars + 1) }] })],
+    ["too many lines", draft({ lines: Array.from({ length: draftLimits.lines + 1 }, () => line) })],
+    ["an image address over the limit", draft({ imageUrl: `https://koket.se/${"a".repeat(draftLimits.urlChars)}` })],
   ])("rejects %s", (_name, value) => {
     expect(recipeDraftSchema.safeParse(value).success).toBe(false);
+  });
+
+  it("accepts a draft at every limit", () => {
+    const atLimit = draft({
+      title: "a".repeat(draftLimits.titleChars),
+      steps: Array.from({ length: draftLimits.steps }, () => "a".repeat(draftLimits.stepChars)),
+      lines: Array.from({ length: draftLimits.lines }, () => ({ ...line, originalText: "a".repeat(draftLimits.originalTextChars) })),
+      imageUrl: `https://k.se/${"a".repeat(draftLimits.urlChars - "https://k.se/".length)}`,
+    });
+    expect(recipeDraftSchema.safeParse(atLimit).success).toBe(true);
   });
 });
 

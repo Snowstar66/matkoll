@@ -4,6 +4,7 @@ import { chromium, type FullConfig } from "@playwright/test";
 import { localSupabaseUrl } from "../local-supabase";
 import {
   adminClient,
+  deleteE2eUser,
   e2eEmail,
   magicLinkPath,
   outsiderEmail,
@@ -19,6 +20,10 @@ export default async function globalSetup(config: FullConfig) {
   localSupabaseUrl();
   const baseURL = config.projects[0].use.baseURL;
   if (!baseURL) throw new Error("playwright.config.ts must set use.baseURL");
+
+  // Every run starts with an empty E2E user: earlier runs' recipes and catalog
+  // would otherwise make the specs depend on each other.
+  await deleteE2eUser();
 
   // The E2E user comes from users:sync, like Pontus does.
   execFileSync(process.execPath, ["scripts/users-sync.mjs"], {

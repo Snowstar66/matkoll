@@ -1,7 +1,7 @@
 "use client";
 
 import { usePathname } from "next/navigation";
-import { useEffect, useLayoutEffect, useRef } from "react";
+import { Suspense, useEffect, useLayoutEffect, useRef } from "react";
 import { shellPaths } from "./destinations";
 
 /** How long to keep trying while the page below streams in and grows. */
@@ -13,6 +13,15 @@ const restoreForMs = 1500;
  * `scroll={false}`; this puts a surface back at its saved position, or the top.
  */
 export function ScrollMemory() {
+  // The path of a dynamic route is known only at request time (AD-18).
+  return (
+    <Suspense fallback={null}>
+      <PathScrollMemory />
+    </Suspense>
+  );
+}
+
+function PathScrollMemory() {
   const pathname = usePathname();
   const positions = useRef(new Map<string, number>());
   const currentPath = useRef(pathname);

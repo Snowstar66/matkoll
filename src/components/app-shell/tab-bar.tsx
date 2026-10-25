@@ -2,12 +2,28 @@
 
 import Link from "next/link";
 import { usePathname } from "next/navigation";
+import { Suspense } from "react";
 import { cx } from "../cx";
 import { currentState, mainDestinations } from "./destinations";
 
-/** Flikfält: the four main surfaces at the bottom, below 1024 px. */
+/**
+ * Flikfält: the four main surfaces at the bottom, below 1024 px. On a route
+ * with a dynamic segment (/recept/[id]) the path is known only at request
+ * time, so the bar first renders without a current tab (AD-18).
+ */
 export function TabBar() {
-  const pathname = usePathname();
+  return (
+    <Suspense fallback={<TabBarNav pathname={null} />}>
+      <CurrentTabBar />
+    </Suspense>
+  );
+}
+
+function CurrentTabBar() {
+  return <TabBarNav pathname={usePathname()} />;
+}
+
+function TabBarNav({ pathname }: { pathname: string | null }) {
   return (
     <nav
       aria-label="Huvudmeny"

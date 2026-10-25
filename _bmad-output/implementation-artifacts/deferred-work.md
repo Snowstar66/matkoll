@@ -25,3 +25,6 @@
 - source_spec: `_bmad-output/implementation-artifacts/spec-1-6-importera-recept-fran-inklistrad-text.md`
   summary: LÖST – E2E i Story 1.6 kör AI-porten (med prompten via `?raw`) i den byggda servern och Sheet i riktig webbläsare (Esc, stängknapp, "Släng ändringarna?"). Svep nedåt är fortfarande bara testat i jsdom.
   evidence: `tests/e2e/import.spec.ts` mot `pnpm build && pnpm start`.
+- source_spec: `_bmad-output/implementation-artifacts/spec-1-7-spara-recept-och-visa-receptet.md`
+  summary: Testa meddelandet när sessionen gått ut vid "Spara recept", och överväg att behålla utkastet över en ny inloggning.
+  evidence: Grenen `unauthorized` i `save()` testas inte; utkastet försvinner om sessionen gått ut.

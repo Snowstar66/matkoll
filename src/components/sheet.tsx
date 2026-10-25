@@ -19,6 +19,8 @@ export type SheetProps = {
   closeLabel?: string;
   /** Buttons at the bottom of the sheet, e.g. the primary action. */
   footer?: ReactNode;
+  /** While true (e.g. while saving), nothing closes the sheet and the header button is disabled. */
+  preventClose?: boolean;
 };
 
 type SheetEntry = {
@@ -50,7 +52,16 @@ function focusable(element: Element | null): HTMLElement | null {
  * On close, focus returns to the opener, else to the opener of the sheet it
  * replaced, else to the main content.
  */
-export function Sheet({ open, onClose, title, children, isDirty = false, closeLabel = "Klar", footer }: SheetProps) {
+export function Sheet({
+  open,
+  onClose,
+  title,
+  children,
+  isDirty = false,
+  closeLabel = "Klar",
+  footer,
+  preventClose = false,
+}: SheetProps) {
   const dialogRef = useRef<HTMLDialogElement>(null);
   const closeButtonRef = useRef<HTMLButtonElement>(null);
   const pointerDownOnBackdrop = useRef(false);
@@ -63,10 +74,10 @@ export function Sheet({ open, onClose, title, children, isDirty = false, closeLa
   const restoreFocusAfterConfirm = useRef(false);
 
   // Latest props for event handlers and the registry.
-  const latest = useRef({ onClose, isDirty });
+  const latest = useRef({ onClose, isDirty, preventClose });
   useEffect(() => {
-    latest.current = { onClose, isDirty };
-  }, [onClose, isDirty]);
+    latest.current = { onClose, isDirty, preventClose };
+  }, [onClose, isDirty, preventClose]);
 
   function askConfirm() {
     focusBeforeConfirm.current = focusable(document.activeElement);
@@ -156,6 +167,7 @@ export function Sheet({ open, onClose, title, children, isDirty = false, closeLa
   }, [open]);
 
   function requestClose() {
+    if (latest.current.preventClose) return;
     if (latest.current.isDirty) askConfirm();
     else latest.current.onClose();
   }
@@ -207,7 +219,9 @@ export function Sheet({ open, onClose, title, children, isDirty = false, closeLa
         // Closed by the browser while still meant to be open (back gesture, form method="dialog",
         // a cancel the browser would not let us stop).
         if (!open) return;
-        if (latest.current.isDirty) {
+        if (latest.current.preventClose) {
+          event.currentTarget.showModal();
+        } else if (latest.current.isDirty) {
           event.currentTarget.showModal();
           if (!confirming) askConfirm();
         } else {
@@ -248,7 +262,13 @@ export function Sheet({ open, onClose, title, children, isDirty = false, closeLa
                 {title}
               </h2>
               {confirming ? null : (
-                <Button ref={closeButtonRef} variant="text" onClick={requestClose} className="-mr-3">
+                <Button
+                  ref={closeButtonRef}
+                  variant="text"
+                  disabled={preventClose}
+                  onClick={requestClose}
+                  className="-mr-3"
+                >
                   {closeLabel}
                 </Button>
               )}

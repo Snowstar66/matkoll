@@ -22,7 +22,8 @@ export const settingsDestination: Destination = { href: "/installningar", label:
 export const shellPaths: readonly string[] = [...mainDestinations, settingsDestination].map((d) => d.href);
 
 /** `page` on the destination itself, `true` on a page below it, otherwise nothing. */
-export function currentState(pathname: string, href: string): "page" | "true" | undefined {
+export function currentState(pathname: string | null, href: string): "page" | "true" | undefined {
+  if (pathname === null) return undefined;
   if (pathname === href) return "page";
   if (pathname.startsWith(`${href}/`)) return "true";
   return undefined;

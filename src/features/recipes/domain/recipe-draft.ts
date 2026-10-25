@@ -9,7 +9,20 @@ export const SOURCE_KINDS = ["url", "text", "photo", "ai"] as const;
 export const sourceKindSchema = z.enum(SOURCE_KINDS);
 export type SourceKind = z.infer<typeof sourceKindSchema>;
 
-const webUrl = () => z.url({ protocol: /^https?$/ });
+/**
+ * Size limits of a draft, the same as the checks in the recipes migrations and
+ * in save_recipe (tests/design/recipe-checks.test.ts).
+ */
+export const draftLimits = {
+  titleChars: 200,
+  stepChars: 2000,
+  originalTextChars: 300,
+  urlChars: 2048,
+  steps: 100,
+  lines: 200,
+} as const;
+
+const webUrl = () => z.url({ protocol: /^https?$/ }).max(draftLimits.urlChars);
 
 /** The catalog ingredient of a line: the catalog's match, or one Pontus chose instead. */
 export const lineIngredientSchema = z.union([ingredientMatchSchema, chosenIngredientSchema]);
@@ -30,7 +43,7 @@ export type LineHint = z.infer<typeof lineHintSchema>;
 export const recipeLineSchema = z
   .object({
     /** The line as written in the recipe; shown for a vague line. */
-    originalText: z.string().trim().min(1),
+    originalText: z.string().trim().min(1).max(draftLimits.originalTextChars),
     amount: z.number().positive().nullable(),
     unit: unitSchema.nullable(),
     /**
@@ -55,7 +68,7 @@ export type RecipeLine = z.infer<typeof recipeLineSchema>;
 
 export const recipeDraftSchema = z
   .object({
-    title: z.string().trim().min(1),
+    title: z.string().trim().min(1).max(draftLimits.titleChars),
     /** The servings the amounts are written for. */
     servings: z.number().int().min(1),
     totalMinutes: z.number().int().min(0).nullable(),
@@ -63,8 +76,8 @@ export const recipeDraftSchema = z
     sourceKind: sourceKindSchema,
     /** The recipe page, only for sourceKind "url". */
     sourceUrl: webUrl().nullable(),
-    steps: z.array(z.string().trim().min(1)),
-    lines: z.array(recipeLineSchema),
+    steps: z.array(z.string().trim().min(1).max(draftLimits.stepChars)).max(draftLimits.steps),
+    lines: z.array(recipeLineSchema).max(draftLimits.lines),
   })
   .superRefine((draft, context) => {
     if ((draft.sourceKind === "url") !== (draft.sourceUrl !== null)) {

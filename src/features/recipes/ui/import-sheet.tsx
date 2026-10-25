@@ -1,14 +1,27 @@
 "use client";
 
-import { createContext, type KeyboardEvent, type ReactNode, useContext, useEffect, useId, useRef, useState } from "react";
+import { useRouter } from "next/navigation";
+import {
+  createContext,
+  type KeyboardEvent,
+  type ReactNode,
+  useContext,
+  useEffect,
+  useId,
+  useRef,
+  useState,
+  useTransition,
+} from "react";
 import { Button } from "@/components/button";
 import { EmptyState } from "@/components/empty-state";
 import { FieldError, FieldLabel } from "@/components/field";
 import { PlusIcon } from "@/components/icons";
 import { Notice } from "@/components/notice";
 import { Sheet } from "@/components/sheet";
+import { useToast } from "@/components/toast";
 import { postAi } from "@/lib/ai-client";
-import { fail, type AppError } from "@/lib/errors";
+import { errorMessages, fail, type AppError } from "@/lib/errors";
+import { saveRecipe } from "../actions/save-recipe";
 import {
   importErrorMessage,
   importTextTooLongMessage,
@@ -22,7 +35,8 @@ import { RecipePreview } from "./recipe-preview";
 
 // Importera recept (FR-3, FR-4): a sheet with the tabs Länk, Text and Foto.
 // Text is parsed by /api/ai/import through src/lib/ai-client.ts (AD-9), and
-// the preview is shown in the same sheet. Nothing is saved here (Story 1.7).
+// the preview is shown in the same sheet. Nothing is saved until "Spara
+// recept", which calls the Server Action saveRecipe and opens the recipe view.
 
 type Tab = "link" | "text" | "photo";
 
@@ -37,6 +51,8 @@ type Preview = {
   key: number;
   /** The text the preview was parsed from. */
   sourceText: string;
+  /** The id the recipe gets when saved, made with the preview, so saving it again never makes a copy. */
+  recipeId: string;
   initial: RecipeDraft;
   draft: RecipeDraft;
   names: Readonly<Record<string, string>>;
@@ -78,10 +94,17 @@ export function ImportSheet({ open, onClose, searchIngredients }: ImportSheetPro
   const [preview, setPreview] = useState<Preview | null>(null);
   /** "Släng ändringarna?" before a new parse replaces an edited preview. */
   const [confirmReplace, setConfirmReplace] = useState(false);
+  const [saving, startSaving] = useTransition();
+  /** Why "Spara recept" failed; the preview stays as it was. */
+  const [saveError, setSaveError] = useState<string | null>(null);
+  const router = useRouter();
+  const { showToast } = useToast();
   const request = useRef<AbortController | null>(null);
   const textRef = useRef<HTMLTextAreaElement>(null);
   const tabRefs = useRef(new Map<Tab, HTMLButtonElement>());
   const focusText = useRef(false);
+  /** Increases when the sheet closes; a save that answers after that is ignored. */
+  const saveToken = useRef(0);
 
   // Stop a running import when the sheet goes away.
   useEffect(() => () => request.current?.abort(), []);
@@ -97,10 +120,11 @@ export function ImportSheet({ open, onClose, searchIngredients }: ImportSheetPro
   const unparsedText = text.trim() !== "" && text !== preview?.sourceText;
   const isDirty = edited || unparsedText;
   const errors = preview ? validateDraft(preview.draft, preview.pending) : {};
-  /** Story 1.7 lets "Spara recept" save only a valid draft. */
+  /** "Spara recept" saves only a valid draft. */
   const isValid = Object.keys(errors).length === 0;
 
   function close() {
+    saveToken.current += 1;
     request.current?.abort();
     request.current = null;
     setTab("text");
@@ -109,7 +133,34 @@ export function ImportSheet({ open, onClose, searchIngredients }: ImportSheetPro
     setError(null);
     setPreview(null);
     setConfirmReplace(false);
+    setSaveError(null);
     onClose();
+  }
+
+  /** "Spara recept": saves the draft, then closes the sheet and opens the recipe view. */
+  function save() {
+    if (!preview || !isValid || saving) return;
+    const { draft, recipeId } = preview;
+    const token = saveToken.current;
+    setSaveError(null);
+    startSaving(async () => {
+      let result: Awaited<ReturnType<typeof saveRecipe>>;
+      try {
+        result = await saveRecipe(draft, recipeId);
+      } catch {
+        // The connection broke or the server failed: nothing to show but the save error.
+        result = fail("recipe_save_failed");
+      }
+      // The sheet closed meanwhile (it cannot while saving, but never act on a stale answer).
+      if (saveToken.current !== token) return;
+      if (!result.ok) {
+        setSaveError(result.error.code === "unauthorized" ? result.error.message : errorMessages.recipe_save_failed);
+        return;
+      }
+      close();
+      router.push(`/recept/${result.data.id}`);
+      showToast("Receptet är sparat.");
+    });
   }
 
   function requestParse() {
@@ -140,11 +191,13 @@ export function ImportSheet({ open, onClose, searchIngredients }: ImportSheetPro
         setPreview((previous) => ({
           key: (previous?.key ?? 0) + 1,
           sourceText,
+          recipeId: crypto.randomUUID(),
           initial: draft,
           draft,
           names: ingredientNames,
           pending: {},
         }));
+        setSaveError(null);
         setView("preview");
         return;
       }
@@ -216,12 +269,30 @@ export function ImportSheet({ open, onClose, searchIngredients }: ImportSheetPro
         Avbryt
       </Button>
     );
+  } else if (view === "preview" && preview) {
+    footer = (
+      <>
+        {saveError ? <Notice role="alert">{saveError}</Notice> : null}
+        <Button fullWidth disabled={!isValid || saving} onClick={save}>
+          {saving ? "Sparar …" : "Spara recept"}
+        </Button>
+      </>
+    );
   }
 
   return (
-    <Sheet open={open} onClose={close} title="Importera recept" closeLabel="Stäng" isDirty={isDirty} footer={footer}>
+    <Sheet
+      open={open}
+      onClose={close}
+      title="Importera recept"
+      closeLabel="Stäng"
+      isDirty={isDirty}
+      preventClose={saving}
+      footer={footer}
+    >
       {view === "preview" && preview ? (
-        <div data-valid={isValid}>
+        // Nothing in the preview can change while it is being saved.
+        <div data-valid={isValid} inert={saving}>
           <RecipePreview
             key={preview.key}
             draft={preview.draft}

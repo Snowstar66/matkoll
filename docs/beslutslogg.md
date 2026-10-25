@@ -2,6 +2,12 @@
 
 Beslut som fattats under bygget: vad, varför och vilka alternativ som fanns. Nyaste överst.
 
+## 2026-10-25 – En ingrediensrad kopplas till ett steg
+
+- **Beslut:** en receptrad sparar bara sitt första steg (`recipe_ingredient.step_id`), även om AI:n kopplar raden till flera steg. Stegläget (Epic 4) visar raden vid första användningen.
+- **Varför:** datamodellen har ett `step_id`, och det räcker för att visa vad som behövs när.
+- **Alternativ:** en kopplingstabell rad–steg; tas upp om stegläget behöver det.
+
 ## 2026-10-25 – Grenskydd på main
 
 - **Beslut:** `main` är skyddad. Lint, typecheck, test, e2e och gitleaks måste passera, grenen måste vara à jour, allt går via PR och skyddet gäller även administratörer. Force push och radering är avstängda. Inga godkännanden krävs på GitHub (en användare); kodgranskningen görs av BMAD:s granskningssteg (AD-23).

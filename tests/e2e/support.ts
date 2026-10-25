@@ -27,6 +27,24 @@ export function adminClient(): SupabaseClient {
 }
 
 /**
+ * Deletes the E2E user, if there is one, so each run starts with no recipes,
+ * steps, lines, synonyms or catalog ingredients for it: they all go with the
+ * user (on delete cascade). The service role may not delete catalog
+ * ingredients on its own (AD-20), so removing the user is the way to empty
+ * the catalog. Only against local Supabase; global-setup creates the user
+ * again with users:sync.
+ */
+export async function deleteE2eUser(): Promise<void> {
+  localSupabaseUrl();
+  const { data, error } = await adminClient().auth.admin.listUsers({ perPage: 1000 });
+  if (error) throw error;
+  const user = data.users.find((candidate) => candidate.email === e2eEmail);
+  if (!user) return;
+  const deleted = await adminClient().auth.admin.deleteUser(user.id);
+  if (deleted.error) throw deleted.error;
+}
+
+/**
  * A fresh magic link for `email`, pointing at the app's real /auth/confirm, the
  * same URL the e-mail template builds. No test route in the app is involved.
  */
