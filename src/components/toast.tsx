@@ -9,9 +9,14 @@ export const toastWithUndoDurationMs = 5000;
 export type ToastOptions = {
   /** Shows "Ångra"; called once if Pontus taps it before the toast goes away. */
   onUndo?: () => void;
+  /**
+   * Called once when the toast goes away without "Ångra": its time ran out,
+   * it was dismissed, or a new toast replaced it.
+   */
+  onClose?: () => void;
 };
 
-type ToastState = { id: number; message: string; onUndo?: () => void };
+type ToastState = { id: number; message: string; onUndo?: () => void; onClose?: () => void };
 
 type ToastApi = {
   /** Shows a short confirmation, replacing any that is showing. */
@@ -44,27 +49,42 @@ export function ToastProvider({ children }: { children: ReactNode }) {
   // Time left for the toast with this id; counts down only while not paused.
   const remaining = useRef<{ id: number; ms: number }>({ id: 0, ms: 0 });
   const paused = toast !== null && (hoveredId === toast.id || focusedId === toast.id);
+  // The toast showing now, for onClose; state updaters must stay free of side effects.
+  const current = useRef<ToastState | null>(null);
 
-  const showToast = useCallback((message: string, options?: ToastOptions) => {
-    nextId.current += 1;
-    remaining.current = { id: nextId.current, ms: options?.onUndo ? toastWithUndoDurationMs : toastDurationMs };
-    setToast({ id: nextId.current, message, onUndo: options?.onUndo });
+  /** Replaces the toast; the one it replaces gets onClose unless it went with "Ångra". */
+  const replaceToast = useCallback((next: ToastState | null, undone = false) => {
+    const previous = current.current;
+    current.current = next;
+    setToast(next);
+    if (previous && !undone) previous.onClose?.();
   }, []);
-  const dismissToast = useCallback(() => setToast(null), []);
+
+  const showToast = useCallback(
+    (message: string, options?: ToastOptions) => {
+      nextId.current += 1;
+      remaining.current = { id: nextId.current, ms: options?.onUndo ? toastWithUndoDurationMs : toastDurationMs };
+      replaceToast({ id: nextId.current, message, onUndo: options?.onUndo, onClose: options?.onClose });
+    },
+    [replaceToast],
+  );
+  const dismissToast = useCallback(() => replaceToast(null), [replaceToast]);
 
   useEffect(() => {
     if (!toast || paused) return;
     const { id } = toast;
     const started = Date.now();
     const timer = setTimeout(
-      () => setToast((current) => (current?.id === id ? null : current)),
+      () => {
+        if (current.current?.id === id) replaceToast(null);
+      },
       remaining.current.id === id ? remaining.current.ms : 0,
     );
     return () => {
       clearTimeout(timer);
       if (remaining.current.id === id) remaining.current.ms -= Date.now() - started;
     };
-  }, [toast, paused]);
+  }, [toast, paused, replaceToast]);
 
   const api = useMemo(() => ({ showToast, dismissToast }), [showToast, dismissToast]);
 
@@ -96,7 +116,7 @@ export function ToastProvider({ children }: { children: ReactNode }) {
                 type="button"
                 onClick={() => {
                   const undo = toast.onUndo;
-                  setToast(null);
+                  replaceToast(null, true);
                   undo?.();
                 }}
                 className="min-h-tap shrink-0 rounded-md px-3 text-body font-semibold text-mint"

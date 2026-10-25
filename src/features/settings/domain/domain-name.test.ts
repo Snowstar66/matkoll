@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { domainNameMessage, domainNameSchema, normalizeDomainName } from "./domain-name";
+import { compareDomains, domainNameMessage, domainNameSchema, normalizeDomainName } from "./domain-name";
 
 describe("normalizeDomainName", () => {
   it.each([
@@ -46,5 +46,19 @@ describe("domainNameSchema", () => {
     const result = domainNameSchema.safeParse("inte en domän");
     expect(result.success).toBe(false);
     expect(result.error?.issues[0].message).toBe(domainNameMessage);
+  });
+});
+
+describe("compareDomains", () => {
+  it("sorts by code unit, whatever the locale", () => {
+    expect(["tasteline.com", "koket.se", "arla.se", "a-b.se", "a.se", "ica.se"].sort(compareDomains)).toEqual([
+      "a-b.se",
+      "a.se",
+      "arla.se",
+      "ica.se",
+      "koket.se",
+      "tasteline.com",
+    ]);
+    expect(compareDomains("koket.se", "koket.se")).toBe(0);
   });
 });

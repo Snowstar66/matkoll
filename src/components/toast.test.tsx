@@ -116,4 +116,43 @@ describe("ToastProvider", () => {
     fireEvent.click(screen.getByRole("button", { name: "Lagt 8 varor i lagret." }));
     expect(screen.queryByRole("button", { name: "Ångra" })).not.toBeInTheDocument();
   });
+
+  it("calls onClose once when the time runs out or a new toast replaces it, never after Ångra", () => {
+    const onClose = vi.fn();
+    const onUndo = vi.fn();
+    function Closing() {
+      const { showToast } = useToast();
+      return (
+        <>
+          <button type="button" onClick={() => showToast("Tog bort koket.se.", { onUndo, onClose })}>
+            Ta bort
+          </button>
+          <button type="button" onClick={() => showToast("Lade till arla.se.")}>
+            Lägg till
+          </button>
+        </>
+      );
+    }
+    render(
+      <ToastProvider>
+        <Closing />
+      </ToastProvider>,
+    );
+
+    fireEvent.click(screen.getByRole("button", { name: "Ta bort" }));
+    act(() => vi.advanceTimersByTime(5_000));
+    expect(onClose).toHaveBeenCalledTimes(1);
+
+    fireEvent.click(screen.getByRole("button", { name: "Ta bort" }));
+    fireEvent.click(screen.getByRole("button", { name: "Lägg till" }));
+    expect(onClose).toHaveBeenCalledTimes(2);
+    act(() => vi.advanceTimersByTime(5_000));
+    expect(onClose).toHaveBeenCalledTimes(2);
+
+    fireEvent.click(screen.getByRole("button", { name: "Ta bort" }));
+    fireEvent.click(screen.getByRole("button", { name: "Ångra" }));
+    expect(onUndo).toHaveBeenCalledTimes(1);
+    act(() => vi.advanceTimersByTime(5_000));
+    expect(onClose).toHaveBeenCalledTimes(2);
+  });
 });

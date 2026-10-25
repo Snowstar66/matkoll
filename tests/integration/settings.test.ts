@@ -1,12 +1,15 @@
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
 import { loadActiveRecipeDomains } from "@/features/settings/data/queries";
 import { insertUserDefaults } from "@/features/settings/data/defaults";
+import { SettingsDataError } from "@/features/settings/data/client";
+import { addRecipeSiteIn, setRecipeSiteActiveIn } from "@/features/settings/data/sites";
 import { localSupabaseUrl } from "../local-supabase";
 import { adminClient, anonClient, createTestUser, deleteTestUsers, expectRlsIsolation } from "./support";
 
 // The settings module against local Supabase (AD-4, AD-11, AD-21): RLS on
-// recipe_site, the start data from ensure_user_defaults() and the domain rules
-// in the table's check constraint.
+// recipe_site, the start data from ensure_user_defaults(), the domain rules
+// in the table's check constraint, and adding, turning off and turning on
+// sites from Inställningar (Story 1.12).
 
 let unique = 0;
 const uniqueDomain = () => `test-${Date.now()}-${unique++}.example`;
@@ -120,5 +123,88 @@ describe("loadActiveRecipeDomains", () => {
     const extra = uniqueDomain();
     expect((await other.db.from("recipe_site").insert({ domain: extra })).error).toBeNull();
     expect(await loadActiveRecipeDomains(user.db)).toEqual(["arla.se", "ica.se", "koket.se", "tasteline.com"]);
+  });
+});
+
+describe("managing sites in Inställningar", () => {
+  it("adds a new site, active", async () => {
+    const user = await createTestUser("sites-add");
+    await insertUserDefaults(user.db);
+    const domain = uniqueDomain();
+    expect(await addRecipeSiteIn(user.db, user.id, domain)).toBe("added");
+    expect(await loadActiveRecipeDomains(user.db)).toContain(domain);
+    expect(await sitesOf(user.id)).toContainEqual({ domain, is_active: true });
+  });
+
+  it("calls an active site a duplicate and changes nothing", async () => {
+    const user = await createTestUser("sites-duplicate");
+    await insertUserDefaults(user.db);
+    const before = await sitesOf(user.id);
+    expect(await addRecipeSiteIn(user.db, user.id, "koket.se")).toBe("duplicate");
+    expect(await sitesOf(user.id)).toEqual(before);
+  });
+
+  it("refuses a domain the table's check refuses", async () => {
+    const user = await createTestUser("sites-invalid");
+    expect(await addRecipeSiteIn(user.db, user.id, "www.koket.se")).toBe("invalid");
+    expect(await sitesOf(user.id)).toEqual([]);
+  });
+
+  it("turns a site off without deleting it, and it stays off after the next sign-in", async () => {
+    const user = await createTestUser("sites-off");
+    await insertUserDefaults(user.db);
+    expect(await setRecipeSiteActiveIn(user.db, user.id, "koket.se", false)).toBe("changed");
+    expect(await setRecipeSiteActiveIn(user.db, user.id, "koket.se", false)).toBe("unchanged");
+    expect(await loadActiveRecipeDomains(user.db)).toEqual(["arla.se", "ica.se", "tasteline.com"]);
+    expect(await sitesOf(user.id)).toContainEqual({ domain: "koket.se", is_active: false });
+
+    // A new sign-in runs ensure_user_defaults() again.
+    await insertUserDefaults(user.db);
+    expect(await loadActiveRecipeDomains(user.db)).toEqual(["arla.se", "ica.se", "tasteline.com"]);
+  });
+
+  it("turns an off site on again, by Ångra or by adding it again", async () => {
+    const user = await createTestUser("sites-on");
+    await insertUserDefaults(user.db);
+    await setRecipeSiteActiveIn(user.db, user.id, "koket.se", false);
+    expect(await setRecipeSiteActiveIn(user.db, user.id, "koket.se", true)).toBe("changed");
+    expect(await setRecipeSiteActiveIn(user.db, user.id, "koket.se", true)).toBe("unchanged");
+    expect(await loadActiveRecipeDomains(user.db)).toContain("koket.se");
+
+    await setRecipeSiteActiveIn(user.db, user.id, "arla.se", false);
+    expect(await addRecipeSiteIn(user.db, user.id, "arla.se")).toBe("reactivated");
+    expect(await sitesOf(user.id)).toEqual([
+      { domain: "arla.se", is_active: true },
+      { domain: "ica.se", is_active: true },
+      { domain: "koket.se", is_active: true },
+      { domain: "tasteline.com", is_active: true },
+    ]);
+  });
+
+  it("reports a site the user does not have", async () => {
+    const user = await createTestUser("sites-missing");
+    expect(await setRecipeSiteActiveIn(user.db, user.id, uniqueDomain(), false)).toBe("missing");
+  });
+
+  it("never changes another user's sites", async () => {
+    const owner = await createTestUser("sites-owner");
+    const other = await createTestUser("sites-intruder");
+    await insertUserDefaults(owner.db);
+    await setRecipeSiteActiveIn(owner.db, owner.id, "ica.se", false);
+    const before = await sitesOf(owner.id);
+
+    // With the owner's id too: RLS hides the rows from the other user.
+    expect(await setRecipeSiteActiveIn(other.db, owner.id, "koket.se", false)).toBe("missing");
+    expect(await setRecipeSiteActiveIn(other.db, owner.id, "ica.se", true)).toBe("missing");
+    expect(await setRecipeSiteActiveIn(other.db, other.id, "koket.se", false)).toBe("missing");
+    // An insert for the owner is refused by RLS (42501), and the reactivation finds nothing.
+    await expect(addRecipeSiteIn(other.db, owner.id, "ica.se")).rejects.toThrow(SettingsDataError);
+    await expect(addRecipeSiteIn(other.db, owner.id, uniqueDomain())).rejects.toThrow(SettingsDataError);
+    expect(await sitesOf(owner.id)).toEqual(before);
+
+    // The other user's add lands on their own rows only.
+    expect(await addRecipeSiteIn(other.db, other.id, "ica.se")).toBe("added");
+    expect(await sitesOf(other.id)).toEqual([{ domain: "ica.se", is_active: true }]);
+    expect(await sitesOf(owner.id)).toEqual(before);
   });
 });

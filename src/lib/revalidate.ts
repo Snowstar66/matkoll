@@ -12,6 +12,9 @@ type Route = { path: string; type: "page" | "layout" };
 const routesByTable = {
   // Layout level: the library and every recipe view below it (/recept/[id]).
   recipe: [{ path: "/recept", type: "layout" }],
+  // The list of approved recipe sites in Inställningar. Import reads the sites
+  // on every request, so it needs nothing here.
+  recipe_site: [{ path: "/installningar", type: "page" }],
 } satisfies Partial<Record<TableName, readonly Route[]>>;
 
 export type RevalidatedTable = keyof typeof routesByTable;

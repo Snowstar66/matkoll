@@ -15,6 +15,8 @@ import {
   recipesEmail,
   recipesStorageState,
   sessionCookiesFor,
+  settingsEmail,
+  settingsStorageState,
   userStorageState,
 } from "./support";
 
@@ -47,6 +49,7 @@ export default async function globalSetup(config: FullConfig) {
       [e2eEmail, userStorageState],
       [recipesEmail, recipesStorageState],
       [libraryEmail, libraryStorageState],
+      [settingsEmail, settingsStorageState],
     ] as const) {
       const user = await browser.newContext({ baseURL });
       const page = await user.newPage();

@@ -1,4 +1,5 @@
 import "server-only";
+import { isAuthSessionMissingError } from "@supabase/supabase-js";
 import { createClient } from "@/lib/supabase/server";
 
 /** Outcome of a Supabase call; `code` is Supabase's error code or HTTP status, never user data. */
@@ -34,4 +35,29 @@ export async function verifyEmailLink(
   if (isAllowed(data.user?.email)) return "signed_in";
   await supabase.auth.signOut({ scope: "local" });
   return "not_allowed";
+}
+
+/** Outcome of signing out: whether this browser's session is gone, and Supabase's error code if something failed. */
+export type SignOutOutcome = { signedOut: boolean; code?: string };
+
+function errorCode(error: { code?: string; status?: number }): string {
+  return String(error.code ?? error.status ?? "unknown");
+}
+
+/**
+ * Ends the session in this browser: Supabase revokes it and the client
+ * removes the session cookies. `local` scope, so other devices where Pontus
+ * is signed in stay signed in. When revoking fails, Supabase still removes
+ * the cookies in most cases, so what counts is whether a session is left;
+ * when that cannot be told (getClaims fails for another reason than a
+ * missing session), the session counts as left.
+ */
+export async function endSession(): Promise<SignOutOutcome> {
+  const supabase = await createClient();
+  const { error } = await supabase.auth.signOut({ scope: "local" });
+  if (!error) return { signedOut: true };
+  const code = errorCode(error);
+  const claims = await supabase.auth.getClaims();
+  if (claims.error && !isAuthSessionMissingError(claims.error)) return { signedOut: false, code };
+  return { signedOut: !claims.data?.claims, code };
 }

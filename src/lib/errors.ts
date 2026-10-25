@@ -7,6 +7,7 @@ export const errorMessages = {
   validation: "Kontrollera uppgifterna och försök igen.",
   auth_link_invalid: "Länken har gått ut eller redan använts. Be om en ny.",
   auth_not_allowed: "Adressen har inte åtkomst till Matkoll.",
+  auth_sign_out_failed: "Det gick inte att logga ut. Försök igen.",
   ai_unavailable: "AI-tjänsten svarar inte just nu. Är datorn med modellen igång?",
   ai_invalid: "Det gick inte att tolka svaret. Försök igen.",
   ai_rejected: "AI-tjänsten tog inte emot förfrågan. Prova med en kortare text eller försök igen senare.",
@@ -19,6 +20,11 @@ export const errorMessages = {
   recipe_search_failed: "Det gick inte att söka bland recepten. Försök igen.",
   recipe_favorite_failed: "Det gick inte att spara favoriten.",
   settings_unavailable: "Det gick inte att läsa inställningarna. Försök igen.",
+  // Recipe sites in Inställningar (FR7). The sentence with the site's name,
+  // "koket.se finns redan.", is in `fields.domain`.
+  settings_invalid_domain: "Ange en giltig webbadress, t.ex. koket.se.",
+  settings_duplicate_domain: "Sajten finns redan.",
+  settings_save_failed: "Det gick inte att spara ändringen. Försök igen.",
   // Fetching a recipe page (AD-11). The sentence with the site's name, from
   // `fields.domain`, is built by fetchErrorMessage below.
   fetch_invalid_url: "Det där ser inte ut som en länk till en receptsida. Kopiera hela adressen, som börjar med https://.",

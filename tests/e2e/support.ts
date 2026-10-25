@@ -17,14 +17,20 @@ export const e2eEmail = "e2e@matkoll.test";
 export const recipesEmail = "e2e-recept@matkoll.test";
 /** The E2E user of library.spec.ts alone, so its list holds only what it saves. */
 export const libraryEmail = "e2e-bibliotek@matkoll.test";
+/**
+ * The E2E user of settings.spec.ts alone: it turns recipe sites off and signs
+ * out, which must not reach the other specs' users.
+ */
+export const settingsEmail = "e2e-installningar@matkoll.test";
 /** Every address in ALLOWED_EMAILS for the E2E server (see playwright.config.ts). */
-export const e2eEmails = [e2eEmail, recipesEmail, libraryEmail] as const;
+export const e2eEmails = [e2eEmail, recipesEmail, libraryEmail, settingsEmail] as const;
 /** A real Supabase user whose address is not in ALLOWED_EMAILS. */
 export const outsiderEmail = "utanfor@matkoll.test";
 
 export const userStorageState = "tests/e2e/.auth/user.json";
 export const recipesStorageState = "tests/e2e/.auth/recipes.json";
 export const libraryStorageState = "tests/e2e/.auth/library.json";
+export const settingsStorageState = "tests/e2e/.auth/settings.json";
 export const outsiderStorageState = "tests/e2e/.auth/outsider.json";
 
 export const mailpitUrl = "http://127.0.0.1:54324";

@@ -2,6 +2,12 @@
 
 Beslut som fattats under bygget: vad, varför och vilka alternativ som fanns. Nyaste överst.
 
+## 2026-10-26 – Logga ut gäller bara den här enheten
+
+- **Beslut:** "Logga ut" i Inställningar avslutar sessionen i den här webbläsaren (`scope: "local"`). Pontus är fortfarande inloggad på andra enheter.
+- **Varför:** att logga ut på datorn ska inte logga ut telefonen mitt i handlingen.
+- **Alternativ:** global utloggning av alla enheter. Kan läggas till som en egen knapp om det behövs.
+
 ## 2026-10-25 – Receptsajter stängs av, raderas inte
 
 - **Beslut:** en godkänd receptsajt tas aldrig bort ur `recipe_site`; Pontus stänger av den (`is_active = false`). `ensure_user_defaults()` lägger bara till saknade sajter och aktiverar aldrig en avstängd. Story 1.12 bygger inställningarna så.
