@@ -4,15 +4,18 @@ import { importRecipe } from "@/features/recipes/server";
 import { fail, type ErrorCode, type Result } from "@/lib/errors";
 import { env } from "@/server/env";
 
-// Import of a recipe (AD-9): the client posts through src/lib/ai-client.ts and
-// gets a RecipeDraft back. Never writes to the database (AD-2). The request's
-// signal goes all the way to the model, so "Avbryt" stops the call.
+// Import of a recipe from pasted text or a link (AD-9, AD-11): the client
+// posts through src/lib/ai-client.ts and gets a RecipeDraft back. Never writes
+// to the database (AD-2). The request's signal goes all the way to the page
+// fetch and the model, so "Avbryt" stops both.
 //
-// A run can keep the local model busy for up to 110 s, so only the app itself
+// A run can keep the local model busy for up to 115 s, so only the app itself
 // may start one: JSON only (a cross-site form cannot send it without a
 // preflight), the app's own origin, and a small body.
 
-// The AI port's budget is 110 s in total (AD-9).
+// The AI port's budget is 115 s in total (AD-9). For a link the page fetch
+// (at most 10 s) comes first, so a slow site and a slow model together can
+// reach this limit.
 export const maxDuration = 120;
 
 /** Largest request body: 12 000 characters of text, as UTF-8 and JSON, fit well within it. */
@@ -26,6 +29,14 @@ const statusFor: Partial<Record<ErrorCode, number>> = {
   ai_rejected: 502,
   ai_unavailable: 503,
   catalog_unavailable: 503,
+  settings_unavailable: 503,
+  fetch_invalid_url: 422,
+  fetch_domain_not_allowed: 422,
+  fetch_blocked: 502,
+  fetch_too_large: 502,
+  fetch_timeout: 504,
+  // The client went away ("Avbryt"); nobody reads the answer.
+  fetch_aborted: 499,
 };
 
 function respond<T>(result: Result<T>, status?: number): Response {
@@ -85,5 +96,5 @@ export async function POST(request: Request): Promise<Response> {
   const parsed = importRequestSchema.safeParse(body);
   if (!parsed.success) return respond(fail("validation"));
 
-  return respond(await importRecipe({ text: parsed.data.text }, { signal: request.signal }));
+  return respond(await importRecipe(parsed.data, { signal: request.signal }));
 }

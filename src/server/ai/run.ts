@@ -39,13 +39,21 @@ export type Limits = {
   totalMs: number;
   /** Model calls when answers do not match the schema: the first one plus two new attempts. */
   maxAttempts: number;
+  /** A new attempt starts only when at least this much of the total budget is left. */
+  minRetryMs: number;
 };
 
+/**
+ * AD-9: a real recipe page takes Qwen in LM Studio 40–60 s to answer, so one
+ * attempt may use most of the total. A new attempt that could not finish
+ * anyway is not started.
+ */
 export const defaultLimits: Limits = {
   healthMs: 5_000,
-  attemptMs: 45_000,
-  totalMs: 110_000,
+  attemptMs: 100_000,
+  totalMs: 115_000,
   maxAttempts: 3,
+  minRetryMs: 20_000,
 };
 
 export type StructuredRequest<SCHEMA extends z.ZodType> = {
@@ -75,6 +83,7 @@ export async function runStructured<SCHEMA extends z.ZodType>(
   limits: Limits = defaultLimits,
 ): Promise<Result<z.infer<SCHEMA>>> {
   if (signal.aborted) return failWith("ai_unavailable", "aborted");
+  const started = performance.now();
   const total = AbortSignal.any([signal, AbortSignal.timeout(limits.totalMs)]);
   /** Why the run stopped when one of its signals fired. */
   const stopReason = (): Reason => (signal.aborted ? "aborted" : "timeout");
@@ -91,6 +100,8 @@ export async function runStructured<SCHEMA extends z.ZodType>(
   let feedback: ModelMessage | undefined;
   for (let attempt = 1; attempt <= limits.maxAttempts; attempt++) {
     if (total.aborted) break;
+    // Too little time left for another full answer: report the invalid one now.
+    if (attempt > 1 && limits.totalMs - (performance.now() - started) < limits.minRetryMs) break;
     const attemptSignal = AbortSignal.any([total, AbortSignal.timeout(limits.attemptMs)]);
     try {
       const result = await generateText({

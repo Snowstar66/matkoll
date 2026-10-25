@@ -17,6 +17,7 @@ import {
   withUnit,
 } from "../domain/preview";
 import type { PendingFieldText, RecipeDraft, RecipeLine } from "../domain/recipe-draft";
+import { sourceLabel } from "../domain/source-label";
 import { IngredientPicker, type SearchIngredients } from "./ingredient-picker";
 
 export type RecipePreviewProps = {
@@ -30,8 +31,10 @@ export type RecipePreviewProps = {
   /** Field errors from validateDraft(draft, pending), shown under each field. */
   errors: Readonly<Record<string, string>>;
   searchIngredients: SearchIngredients;
-  /** "Tillbaka till texten"; leaves the preview as it is. */
+  /** "Tillbaka till texten" (or `backLabel`); leaves the preview as it is. */
   onBack: () => void;
+  /** The back button's text; "Tillbaka till länken" for a link. */
+  backLabel?: string;
 };
 
 const textareaClasses =
@@ -58,6 +61,7 @@ export function RecipePreview({
   errors,
   searchIngredients,
   onBack,
+  backLabel = "Tillbaka till texten",
 }: RecipePreviewProps) {
   const [picking, setPicking] = useState<number | null>(null);
   const [editing, setEditing] = useState<number | null>(null);
@@ -112,9 +116,14 @@ export function RecipePreview({
 
   return (
     <div className="flex flex-col gap-5">
-      <Button variant="text" onClick={onBack} className="-ml-3 self-start">
-        Tillbaka till texten
-      </Button>
+      <div className="flex flex-col gap-1">
+        <Button variant="text" onClick={onBack} className="-ml-3 self-start">
+          {backLabel}
+        </Button>
+        {draft.sourceKind === "url" ? (
+          <p className="text-meta text-ink-2">Källa: {sourceLabel(draft.sourceKind, draft.sourceUrl)}</p>
+        ) : null}
+      </div>
 
       <div className="flex flex-col gap-1.5">
         <FieldLabel htmlFor={`${ids}-title`}>Titel</FieldLabel>

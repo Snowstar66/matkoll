@@ -1,0 +1,243 @@
+{
+  "title": "Bakad fetaost med rostad potatis",
+  "servings": 4,
+  "totalMinutes": 60,
+  "ingredients": [
+    {
+      "originalText": "1 kg fast potatis, små",
+      "amount": 1,
+      "unit": "kg",
+      "isVague": false,
+      "hint": {
+        "name": "potatis",
+        "section": "Frukt och grönt",
+        "location": "Kyl",
+        "defaultUnit": "kg"
+      },
+      "stepIndexes": [
+        1,
+        2
+      ]
+    },
+    {
+      "originalText": "1 tsk torkad oregano",
+      "amount": 1,
+      "unit": "tsk",
+      "isVague": false,
+      "hint": {
+        "name": "torkad oregano",
+        "section": "Skafferi",
+        "location": "Skafferi",
+        "defaultUnit": "tsk"
+      },
+      "stepIndexes": [
+        1
+      ]
+    },
+    {
+      "originalText": "1 tsk salt",
+      "amount": 1,
+      "unit": "tsk",
+      "isVague": false,
+      "hint": {
+        "name": "salt",
+        "section": "Övrigt",
+        "location": "Skafferi",
+        "defaultUnit": "tsk"
+      },
+      "stepIndexes": [
+        1
+      ]
+    },
+    {
+      "originalText": "2 msk olivolja, Fontana Olivolja Extra Virgin",
+      "amount": 2,
+      "unit": "msk",
+      "isVague": false,
+      "hint": {
+        "name": "olivolja",
+        "section": "Skafferi",
+        "location": "Skafferi",
+        "defaultUnit": "ml"
+      },
+      "stepIndexes": [
+        1
+      ]
+    },
+    {
+      "originalText": "4 klyfta vitlök",
+      "amount": 4,
+      "unit": "klyfta",
+      "isVague": false,
+      "hint": {
+        "name": "vitlök",
+        "section": "Frukt och grönt",
+        "location": "Kyl",
+        "defaultUnit": "klyfta"
+      },
+      "stepIndexes": [
+        1
+      ]
+    },
+    {
+      "originalText": "600 g fetaost, Fontana Feta original",
+      "amount": 600,
+      "unit": "g",
+      "isVague": false,
+      "hint": {
+        "name": "fetaost",
+        "section": "Mejeri",
+        "location": "Kyl",
+        "defaultUnit": "g"
+      },
+      "stepIndexes": [
+        4
+      ]
+    },
+    {
+      "originalText": "1 st citron(er)",
+      "amount": 1,
+      "unit": "st",
+      "isVague": false,
+      "hint": {
+        "name": "citron",
+        "section": "Frukt och grönt",
+        "location": "Kyl",
+        "defaultUnit": "st"
+      },
+      "stepIndexes": [
+        3
+      ]
+    },
+    {
+      "originalText": "1 tsk chiliflakes",
+      "amount": 1,
+      "unit": "tsk",
+      "isVague": false,
+      "hint": {
+        "name": "chiliflakes",
+        "section": "Skafferi",
+        "location": "Skafferi",
+        "defaultUnit": "tsk"
+      },
+      "stepIndexes": [
+        4
+      ]
+    },
+    {
+      "originalText": "4 msk olivolja, Fontana Olivolja Extra Virgin",
+      "amount": 4,
+      "unit": "msk",
+      "isVague": false,
+      "hint": {
+        "name": "olivolja",
+        "section": "Skafferi",
+        "location": "Skafferi",
+        "defaultUnit": "ml"
+      },
+      "stepIndexes": [
+        3,
+        4
+      ]
+    },
+    {
+      "originalText": "svartpeppar",
+      "amount": null,
+      "unit": null,
+      "isVague": true,
+      "hint": {
+        "name": "svartpeppar",
+        "section": "Övrigt",
+        "location": "Skafferi",
+        "defaultUnit": "tsk"
+      },
+      "stepIndexes": [
+        5
+      ]
+    },
+    {
+      "originalText": "100 g blandsallad",
+      "amount": 100,
+      "unit": "g",
+      "isVague": false,
+      "hint": {
+        "name": "blandsallad",
+        "section": "Frukt och grönt",
+        "location": "Kyl",
+        "defaultUnit": "g"
+      },
+      "stepIndexes": [
+        6
+      ]
+    },
+    {
+      "originalText": "2 msk vinäger, al. vitvin/äppelcider/sherryvinäger",
+      "amount": 2,
+      "unit": "msk",
+      "isVague": false,
+      "hint": {
+        "name": "vinäger",
+        "section": "Skafferi",
+        "location": "Skafferi",
+        "defaultUnit": "ml"
+      },
+      "stepIndexes": [
+        6
+      ]
+    },
+    {
+      "originalText": "2 msk olivolja, Fontana Olivolja Extra Virgin",
+      "amount": 2,
+      "unit": "msk",
+      "isVague": false,
+      "hint": {
+        "name": "olivolja",
+        "section": "Skafferi",
+        "location": "Skafferi",
+        "defaultUnit": "ml"
+      },
+      "stepIndexes": [
+        6
+      ]
+    },
+    {
+      "originalText": "salt",
+      "amount": null,
+      "unit": null,
+      "isVague": true,
+      "hint": {
+        "name": "salt",
+        "section": "Övrigt",
+        "location": "Skafferi",
+        "defaultUnit": "tsk"
+      },
+      "stepIndexes": [
+        6
+      ]
+    },
+    {
+      "originalText": "svartpeppar",
+      "amount": null,
+      "unit": null,
+      "isVague": true,
+      "hint": {
+        "name": "svartpeppar",
+        "section": "Övrigt",
+        "location": "Skafferi",
+        "defaultUnit": "tsk"
+      },
+      "stepIndexes": [
+        6
+      ]
+    }
+  ],
+  "steps": [
+    "Sätt ugnen på 200 grader varmluft.",
+    "Dela potatisen på mitten och lägg på en plåt med bakplåtspapper. Strö på torkad oregano, salt, 2 msk olivolja och vitlöksklyftor med skal.",
+    "Blanda runt med händerna. Baka i ugnen ca 30 minuter.",
+    "Riv av 4 stora ark aluminiumfolie. Häll 1/2 msk olivolja på varje ark och lägg i två tunna citronskivor.",
+    "Lägg fetaosten på citronskivorna, en i varje ark. Häll på 1/2 msk olivolja på varje, fördela chiliflakes över fetaostarna och citronskivorna.",
+    "Dra över några varv svartpeppar. Vik ihop paketen och baka i ugnen i ca 20 minuter.",
+    "Blanda salladen med 2 msk olivolja och 2 msk vinäger. Servera potatisen med fetaosten i folien och salladen."
+  ]
+}

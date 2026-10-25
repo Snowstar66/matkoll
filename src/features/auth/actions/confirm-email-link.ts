@@ -1,13 +1,24 @@
 import "server-only";
+import { ensureUserDefaults, SettingsDataError } from "@/features/settings/server";
 import { env } from "@/server/env";
 import { type EmailLinkResult, verifyEmailLink } from "../data/auth";
 import { isAllowedEmail } from "../domain/allowed-email";
 
 /**
  * Signs in with the token hash from the magic link (AD-3). A valid link for an
- * address outside ALLOWED_EMAILS gives no session. Story 1.8 adds
- * ensure_user_defaults() here.
+ * address outside ALLOWED_EMAILS gives no session. After a successful sign-in
+ * the user's start data is ensured (AD-21); a failure there is logged but
+ * does not stop the sign-in, and the next sign-in tries again.
  */
 export async function confirmEmailLink(tokenHash: string): Promise<EmailLinkResult> {
-  return verifyEmailLink(tokenHash, (email) => isAllowedEmail(email, env.ALLOWED_EMAILS ?? []));
+  const result = await verifyEmailLink(tokenHash, (email) => isAllowedEmail(email, env.ALLOWED_EMAILS ?? []));
+  if (result === "signed_in") {
+    try {
+      await ensureUserDefaults();
+    } catch (error) {
+      // Only the fixed reason, never user data.
+      console.error("settings_defaults_failed", { reason: error instanceof SettingsDataError ? error.detail : "unknown" });
+    }
+  }
+  return result;
 }

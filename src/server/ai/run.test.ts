@@ -1,7 +1,7 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { createLmStudioTarget } from "./adapters/lmstudio";
 import { createOpenAiTarget } from "./adapters/openai";
-import { runStructured, schemaFeedback, type Limits, type ModelTarget } from "./run";
+import { defaultLimits, runStructured, schemaFeedback, type Limits, type ModelTarget } from "./run";
 import { aiRecipe } from "./schemas";
 import { createModelAiService } from "./service";
 import {
@@ -22,7 +22,7 @@ import {
 // test before Vitest's own timeout, never by measuring elapsed time.
 
 /** Budgets so large that only the one a test lowers can end it. */
-const limits: Limits = { healthMs: 30_000, attemptMs: 30_000, totalMs: 60_000, maxAttempts: 3 };
+const limits: Limits = { healthMs: 30_000, attemptMs: 30_000, totalMs: 60_000, maxAttempts: 3, minRetryMs: 0 };
 const request = {
   schema: aiRecipe,
   system: "Tolka receptet.",
@@ -89,6 +89,17 @@ describe("runStructured with a fake model", () => {
     });
     expect(model.doGenerateCalls).toHaveLength(3);
     expect(errors).toHaveBeenCalledWith("ai_invalid", { reason: "invalid" });
+  });
+
+  it("does not start a new attempt when less than minRetryMs of the total is left", async () => {
+    const model = fakeModel(invalid, valid);
+    const result = await runStructured({ model }, request, signal(), { ...limits, minRetryMs: limits.totalMs + 1 });
+    expect(result).toMatchObject({ ok: false, error: { code: "ai_invalid" } });
+    expect(model.doGenerateCalls).toHaveLength(1);
+  });
+
+  it("gives a real recipe page 100 s per attempt, 115 s in total, and a retry only with 20 s left (AD-9)", () => {
+    expect(defaultLimits).toEqual({ healthMs: 5_000, attemptMs: 100_000, totalMs: 115_000, maxAttempts: 3, minRetryMs: 20_000 });
   });
 
   it("treats a vague line with an amount as invalid", async () => {

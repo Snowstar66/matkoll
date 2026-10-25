@@ -36,6 +36,7 @@ async function expectReceptCurrent(page: Page) {
 async function previewRecipe(page: Page, title: string) {
   await page.goto("/recept");
   await page.locator("header").getByRole("button", { name: "Importera recept" }).click();
+  await sheet(page).getByRole("tab", { name: "Text" }).click();
   await sheet(page).getByLabel("Recepttext").fill(fiskgratang);
   await sheet(page).getByRole("button", { name: "Tolka" }).click();
   await expect(sheet(page).getByLabel("Titel")).toHaveValue(fixtureTitle);

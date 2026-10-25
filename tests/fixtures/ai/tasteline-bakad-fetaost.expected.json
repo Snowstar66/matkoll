@@ -1,0 +1,26 @@
+{
+  "title": "Bakad fetaost med rostad potatis",
+  "servings": 4,
+  "totalMinutes": 60,
+  "ingredientCount": 15,
+  "keyIngredients": [
+    {
+      "name": "potatis",
+      "amount": 1,
+      "unit": "kg"
+    },
+    {
+      "name": "fetaost",
+      "amount": 600,
+      "unit": "g"
+    },
+    {
+      "name": "blandsallad",
+      "amount": 100,
+      "unit": "g"
+    }
+  ],
+  "vagueLines": [
+    "svartpeppar"
+  ]
+}

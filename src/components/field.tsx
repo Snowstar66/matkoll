@@ -1,11 +1,11 @@
-import type { HTMLAttributes, InputHTMLAttributes, LabelHTMLAttributes } from "react";
+import type { ComponentPropsWithRef, HTMLAttributes, LabelHTMLAttributes } from "react";
 import { cx } from "./cx";
 
 /** Classes for a text field: at least 16 px text so iPhone Safari does not zoom, 52 px high. */
 export const inputClasses =
   "h-button w-full rounded-md border border-ink-3 bg-surface px-4 text-body text-ink placeholder:text-ink-3 aria-[invalid=true]:border-sky-ink";
 
-export type InputProps = InputHTMLAttributes<HTMLInputElement>;
+export type InputProps = ComponentPropsWithRef<"input">;
 
 /** A text field. Pair it with a visible `<label>` (or `FieldLabel`) through `id`. */
 export function Input({ className, ...props }: InputProps) {

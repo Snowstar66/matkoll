@@ -13,7 +13,37 @@ export const errorMessages = {
   import_no_recipe: "Det gick inte att hitta något recept i texten.",
   catalog_unavailable: "Det gick inte att läsa ingredienskatalogen. Försök igen.",
   recipe_save_failed: "Det gick inte att spara receptet. Försök igen.",
+  settings_unavailable: "Det gick inte att läsa inställningarna. Försök igen.",
+  // Fetching a recipe page (AD-11). The sentence with the site's name, from
+  // `fields.domain`, is built by fetchErrorMessage below.
+  fetch_invalid_url: "Det där ser inte ut som en länk till en receptsida. Kopiera hela adressen, som börjar med https://.",
+  fetch_domain_not_allowed: "Sajten är inte en godkänd receptsajt.",
+  fetch_blocked: "Sajten släppte inte in oss.",
+  fetch_timeout: "Sajten svarade inte i tid.",
+  fetch_too_large: "Sidan är för stor för att läsas.",
+  /** The caller stopped the fetch ("Avbryt"); the client shows nothing for it. */
+  fetch_aborted: "Hämtningen avbröts.",
 } as const;
+
+/**
+ * The text for a fetch error that names the site, when `fields.domain` has it:
+ * "ica.se är inte en godkänd receptsajt." (EXPERIENCE.md, State Patterns).
+ * Other errors keep their message.
+ */
+export function fetchErrorMessage(error: Pick<AppError, "code" | "message" | "fields">): string {
+  const domain = error.fields?.domain;
+  if (!domain) return error.message;
+  switch (error.code) {
+    case "fetch_domain_not_allowed":
+      return `${domain} är inte en godkänd receptsajt.`;
+    case "fetch_blocked":
+      return `${domain} släppte inte in oss.`;
+    case "fetch_timeout":
+      return `${domain} svarade inte i tid.`;
+    default:
+      return error.message;
+  }
+}
 
 /**
  * The text for `ai_invalid` in an import: after an invalid AI answer, an import

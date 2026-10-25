@@ -81,3 +81,16 @@ describe("postAi", () => {
     expect(await pending).toEqual({ ok: false, aborted: true });
   });
 });
+
+describe("postAi with a fetch error", () => {
+  it("keeps the site's domain from a link import", async () => {
+    mockFetch(async () =>
+      json({ ok: false, error: { code: "fetch_domain_not_allowed", message: "", fields: { domain: "ica.se" } } }, 422),
+    );
+    const result = await postAi("/api/ai/import", { kind: "url", url: "https://www.ica.se/x" }, new AbortController().signal);
+    expect(result).toEqual({
+      ok: false,
+      error: { code: "fetch_domain_not_allowed", message: errorMessages.fetch_domain_not_allowed, fields: { domain: "ica.se" } },
+    });
+  });
+});

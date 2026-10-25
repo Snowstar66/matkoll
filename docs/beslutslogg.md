@@ -2,6 +2,18 @@
 
 Beslut som fattats under bygget: vad, varför och vilka alternativ som fanns. Nyaste överst.
 
+## 2026-10-25 – Receptsajter stängs av, raderas inte
+
+- **Beslut:** en godkänd receptsajt tas aldrig bort ur `recipe_site`; Pontus stänger av den (`is_active = false`). `ensure_user_defaults()` lägger bara till saknade sajter och aktiverar aldrig en avstängd. Story 1.12 bygger inställningarna så.
+- **Varför:** annars skulle en borttagen standardsajt komma tillbaka vid nästa inloggning.
+- **Alternativ:** radering med en "borttagen"-markering; mer komplext.
+
+## 2026-10-25 – Längre tidsgräns för AI-tolkning
+
+- **Beslut:** varje AI-försök får 100 s och hela tolkningen 115 s (tidigare 45 s respektive 110 s). Ett nytt försök vid ogiltigt svar görs bara om tiden räcker.
+- **Varför:** Qwen3.6 i LM Studio (ca 45 token/s) behövde 40–56 s för fulla recept från koket.se, ica.se och arla.se; med 45 s fick ungefär hälften `ai_unavailable`. 115 s ryms i routens `maxDuration` (120 s) och Vercels gräns (300 s).
+- **Alternativ:** kortare AI-svar eller snabbare modell; kan prövas senare.
+
 ## 2026-10-25 – En ingrediensrad kopplas till ett steg
 
 - **Beslut:** en receptrad sparar bara sitt första steg (`recipe_ingredient.step_id`), även om AI:n kopplar raden till flera steg. Stegläget (Epic 4) visar raden vid första användningen.

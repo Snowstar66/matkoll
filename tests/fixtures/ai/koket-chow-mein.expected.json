@@ -1,0 +1,28 @@
+{
+  "title": "Chow mein med lövbiff",
+  "servings": 4,
+  "totalMinutes": 45,
+  "ingredientCount": 19,
+  "keyIngredients": [
+    {
+      "name": "lövbiff",
+      "amount": 400,
+      "unit": "g"
+    },
+    {
+      "name": "äggnudlar",
+      "amount": 300,
+      "unit": "g"
+    },
+    {
+      "name": "ostronsås",
+      "amount": 3,
+      "unit": "msk"
+    }
+  ],
+  "vagueLines": [
+    "rapsolja (till stekning)",
+    "salt",
+    "vitpeppar"
+  ]
+}

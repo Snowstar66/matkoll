@@ -2,11 +2,17 @@ import { readFileSync } from "node:fs";
 import { expect, type Locator, type Page, test } from "@playwright/test";
 import { adminClient, e2eEmail, outsiderStorageState, userStorageState } from "./support";
 
-// Story 1.6: importing a recipe from pasted text, with AI_PROVIDER=mock. In CI
-// this runs against the built server (`pnpm build && pnpm start`), so a working
-// import also shows that the AI port, with its prompt bundled through `?raw`,
-// works after `next build`. It also tests the Sheet in a real browser: Esc,
-// the close button and "Släng ändringarna?".
+// Story 1.6 and 1.8: importing a recipe from pasted text or a link, with
+// AI_PROVIDER=mock. In CI this runs against the built server (`pnpm build &&
+// pnpm start`), so a working import also shows that the AI port, with its
+// prompt bundled through `?raw`, works after `next build`. It also tests the
+// Sheet in a real browser: Esc, the close button and "Släng ändringarna?".
+//
+// Recipe sites: with AI_PROVIDER=mock the import flow's fetch port reads the
+// saved pages in tests/fixtures/sites instead of the internet
+// (src/server/fetch/fixture-sites.ts), still through safeFetch and its checks,
+// so no test reaches a real site. The approved sites come from
+// ensure_user_defaults(), which /auth/confirm runs when global-setup signs in.
 
 const linssoppa = readFileSync("tests/fixtures/ai/linssoppa.txt", "utf8");
 const kycklinggryta = readFileSync("tests/fixtures/ai/kycklinggryta.txt", "utf8");
@@ -45,13 +51,17 @@ function watchErrors(page: Page): string[] {
 
 const sheet = (page: Page) => page.getByRole("dialog", { name: "Importera recept" });
 const textField = (page: Page) => sheet(page).getByLabel("Recepttext");
+const linkField = (page: Page) => sheet(page).getByLabel("Länk till receptet");
 const line = (page: Page, originalText: string): Locator =>
   sheet(page).getByTestId("recipe-line").filter({ hasText: originalText });
 
-async function openImport(page: Page) {
+/** Opens the sheet, on the Text tab unless `tab` says otherwise (it opens on Länk). */
+async function openImport(page: Page, tab: "Länk" | "Text" = "Text") {
   await page.goto("/recept");
   await page.locator("header").getByRole("button", { name: "Importera recept" }).click();
   await expect(sheet(page)).toBeVisible();
+  await expect(sheet(page).getByRole("tab", { name: "Länk" })).toHaveAttribute("aria-selected", "true");
+  if (tab === "Text") await sheet(page).getByRole("tab", { name: "Text" }).click();
 }
 
 async function parse(page: Page, text: string) {
@@ -65,22 +75,24 @@ test.beforeAll(async () => {
   await seedCatalog();
 });
 
-test("the sheet opens on the Text tab; Länk and Foto are coming", async ({ page }) => {
+test("the sheet opens on the Länk tab; Text works and Foto is coming", async ({ page }) => {
   const errors = watchErrors(page);
-  await openImport(page);
+  await openImport(page, "Länk");
 
   const tabs = sheet(page).getByRole("tab");
   await expect(tabs).toHaveText(["Länk", "Text", "Foto"]);
-  await expect(sheet(page).getByRole("tab", { name: "Text" })).toHaveAttribute("aria-selected", "true");
-  await expect(textField(page)).toBeVisible();
-
+  await expect(linkField(page)).toBeVisible();
   const tolka = sheet(page).getByRole("button", { name: "Tolka" });
+  await expect(tolka).toBeDisabled();
+  await linkField(page).fill("   ");
+  await expect(tolka).toBeDisabled();
+
+  await sheet(page).getByRole("tab", { name: "Text" }).click();
+  await expect(textField(page)).toBeVisible();
   await expect(tolka).toBeDisabled();
   await textField(page).fill("   ");
   await expect(tolka).toBeDisabled();
 
-  await sheet(page).getByRole("tab", { name: "Länk" }).click();
-  await expect(sheet(page).getByRole("tabpanel")).toHaveText("Kommer snart.");
   await sheet(page).getByRole("tab", { name: "Foto" }).click();
   await expect(sheet(page).getByRole("tabpanel")).toHaveText("Kommer snart.");
   expect(errors).toEqual([]);
@@ -92,7 +104,7 @@ test("the empty library's button opens the same sheet", async ({ page }) => {
   await expect(empty).toBeVisible();
   await page.getByRole("main").getByRole("button", { name: "Importera recept" }).last().click();
   await expect(sheet(page)).toBeVisible();
-  await expect(sheet(page).getByRole("tab", { name: "Text" })).toHaveAttribute("aria-selected", "true");
+  await expect(sheet(page).getByRole("tab", { name: "Länk" })).toHaveAttribute("aria-selected", "true");
 });
 
 test("pasted text becomes a preview that can be edited, and closing asks before discarding", async ({ page }) => {
@@ -173,8 +185,10 @@ test("pasted text becomes a preview that can be edited, and closing asks before 
   await expect(sheet(page)).toBeHidden();
   await expect(page.getByText("Inga recept än.")).toBeVisible();
 
-  // Opened again, the sheet starts empty.
+  // Opened again, the sheet starts empty, on Länk.
   await page.locator("header").getByRole("button", { name: "Importera recept" }).click();
+  await expect(sheet(page).getByRole("tab", { name: "Länk" })).toHaveAttribute("aria-selected", "true");
+  await sheet(page).getByRole("tab", { name: "Text" }).click();
   await expect(textField(page)).toHaveValue("");
   expect(errors).toEqual([]);
 });
@@ -323,6 +337,178 @@ for (const { code, message, retry } of failures) {
   });
 }
 
+const chowMein = "https://www.koket.se/chow-mein-med-lovbiff";
+
+async function parseLink(page: Page, url: string) {
+  await linkField(page).fill(url);
+  await sheet(page).getByRole("button", { name: "Tolka" }).click();
+}
+
+test.describe("import from a link", () => {
+  test("an approved link becomes a preview with its source", async ({ page }) => {
+    const errors = watchErrors(page);
+    await openImport(page, "Länk");
+    await parseLink(page, chowMein);
+
+    await expect(sheet(page).getByLabel("Titel")).toHaveValue("Chow mein med lövbiff");
+    await expect(sheet(page).getByText("Källa: koket.se")).toBeVisible();
+    await expect(sheet(page).getByText("4 portioner")).toBeVisible();
+    await expect(sheet(page).getByLabel("Tid i minuter")).toHaveValue("45");
+    await expect(sheet(page).getByTestId("recipe-line")).toHaveCount(19);
+
+    // Back to the link, and to the same preview again.
+    await sheet(page).getByRole("button", { name: "Tillbaka till länken" }).click();
+    await expect(linkField(page)).toHaveValue(chowMein);
+    await expect(linkField(page)).toBeFocused();
+    await sheet(page).getByRole("button", { name: "Visa förhandsgranskningen" }).click();
+    await expect(sheet(page).getByLabel("Titel")).toHaveValue("Chow mein med lövbiff");
+    expect(errors).toEqual([]);
+  });
+
+  test("tasteline.com, and a link that redirects within the site, work too", async ({ page }) => {
+    await openImport(page, "Länk");
+    await parseLink(page, "https://www.tasteline.com/recept/bakad-fetaost-med-rostad-potatis/");
+    await expect(sheet(page).getByLabel("Titel")).toHaveValue("Bakad fetaost med rostad potatis");
+    await expect(sheet(page).getByText("Källa: tasteline.com")).toBeVisible();
+
+    await sheet(page).getByRole("button", { name: "Tillbaka till länken" }).click();
+    await parseLink(page, "https://koket.se/chow-mein-med-lovbiff");
+    await expect(sheet(page).getByLabel("Titel")).toHaveValue("Chow mein med lövbiff");
+  });
+
+  test("a site that is not approved is refused, with a way to the settings", async ({ page }) => {
+    await openImport(page, "Länk");
+    await parseLink(page, "https://www.example.com/recept/kladdkaka");
+    await expect(sheet(page).getByRole("alert")).toHaveText("example.com är inte en godkänd receptsajt.");
+    await expect(linkField(page)).toHaveValue("https://www.example.com/recept/kladdkaka");
+    await sheet(page).getByRole("button", { name: "Öppna inställningar" }).click();
+    await expect(page).toHaveURL(/\/installningar$/);
+  });
+
+  test("Öppna inställningar asks before it throws away pasted text", async ({ page }) => {
+    await openImport(page);
+    await textField(page).fill(linssoppa);
+    await sheet(page).getByRole("tab", { name: "Länk" }).click();
+    await parseLink(page, "https://www.example.com/recept/kladdkaka");
+    await sheet(page).getByRole("button", { name: "Öppna inställningar" }).click();
+    await expect(sheet(page).getByText("Släng ändringarna?")).toBeVisible();
+    await sheet(page).getByRole("button", { name: "Fortsätt ändra" }).click();
+    await expect(page).toHaveURL(/\/recept$/);
+    await expect(linkField(page)).toBeVisible();
+
+    await sheet(page).getByRole("button", { name: "Öppna inställningar" }).click();
+    await sheet(page).getByRole("button", { name: "Släng ändringarna" }).click();
+    await expect(page).toHaveURL(/\/installningar$/);
+  });
+
+  test("Enter while the page is read does not start a second import", async ({ page }) => {
+    let release = () => {};
+    const held = new Promise<void>((resolve) => {
+      release = resolve;
+    });
+    let requests = 0;
+    await page.route("**/api/ai/import", async (route) => {
+      requests++;
+      await held;
+      await route.continue().catch(() => {});
+    });
+    await openImport(page, "Länk");
+    await parseLink(page, chowMein);
+    await expect(sheet(page).getByRole("status").getByText("Läser receptet …")).toBeVisible();
+    await linkField(page).press("Enter");
+    release();
+    await expect(sheet(page).getByLabel("Titel")).toHaveValue("Chow mein med lövbiff");
+    expect(requests).toBe(1);
+  });
+
+  test("when the approved sites cannot be read, Försök igen tries again", async ({ page }) => {
+    // The settings read cannot fail on its own in E2E, so the answer is simulated in the browser.
+    let calls = 0;
+    await page.route("**/api/ai/import", async (route) => {
+      calls++;
+      if (calls === 1) {
+        await route.fulfill({
+          status: 503,
+          json: { ok: false, error: { code: "settings_unavailable", message: "" } },
+        });
+      } else {
+        await route.continue();
+      }
+    });
+    await openImport(page, "Länk");
+    await parseLink(page, chowMein);
+    await expect(sheet(page).getByRole("alert")).toHaveText("Det gick inte att läsa inställningarna. Försök igen.");
+    await sheet(page).getByRole("button", { name: "Försök igen" }).click();
+    await expect(sheet(page).getByLabel("Titel")).toHaveValue("Chow mein med lövbiff");
+    expect(calls).toBe(2);
+  });
+
+  test("an address that is not an https link is refused", async ({ page }) => {
+    await openImport(page, "Länk");
+    for (const url of ["http://www.koket.se/chow-mein-med-lovbiff", "https://127.0.0.1/recept", "chow mein"]) {
+      await parseLink(page, url);
+      await expect(sheet(page).getByRole("alert")).toHaveText(
+        "Det där ser inte ut som en länk till en receptsida. Kopiera hela adressen, som börjar med https://.",
+      );
+    }
+  });
+
+  for (const { name, url, message } of [
+    { name: "a site that refuses", url: "https://www.koket.se/matkoll-test/blockerad", message: "koket.se släppte inte in oss." },
+    {
+      name: "a page without a recipe",
+      url: "https://www.koket.se/matkoll-test/inget-recept",
+      message: "Det gick inte att hitta något recept på sidan.",
+    },
+    // The saved site never answers, so this one waits for safeFetch's 10 s.
+    { name: "a site that does not answer in time", url: "https://www.koket.se/matkoll-test/langsam", message: "koket.se svarade inte i tid." },
+    { name: "a page over 3 MB", url: "https://www.koket.se/matkoll-test/for-stor", message: "Sidan är för stor för att läsas." },
+  ]) {
+    test(`${name} offers to paste the text instead`, async ({ page }) => {
+      await openImport(page, "Länk");
+      await parseLink(page, url);
+      // Longer than safeFetch's 10 s, for the site that never answers.
+      await expect(sheet(page).getByRole("alert")).toHaveText(message, { timeout: 15_000 });
+      await sheet(page).getByRole("button", { name: "Klistra in text i stället" }).click();
+      await expect(sheet(page).getByRole("tab", { name: "Text" })).toHaveAttribute("aria-selected", "true");
+      await expect(textField(page)).toBeFocused();
+
+      // The text tab works as usual from there.
+      await parse(page, linssoppa);
+      await expect(sheet(page).getByLabel("Titel")).toHaveValue("Röd linssoppa med kokosmjölk");
+      await sheet(page).getByRole("button", { name: "Tillbaka till texten" }).click();
+      await expect(textField(page)).toHaveValue(linssoppa);
+    });
+  }
+
+  test("a redirect to another site is refused", async ({ page }) => {
+    await openImport(page, "Länk");
+    await parseLink(page, "https://www.koket.se/matkoll-test/annan-sajt");
+    await expect(sheet(page).getByRole("alert")).toHaveText("example.com är inte en godkänd receptsajt.");
+  });
+
+  test("Klistra in länk reads the clipboard only when tapped, if the browser allows it", async ({ page, context }) => {
+    await openImport(page, "Länk");
+    // Without permission nothing happens.
+    await context.clearPermissions();
+    await sheet(page).getByRole("button", { name: "Klistra in länk" }).click();
+    await expect(linkField(page)).toHaveValue("");
+
+    await context.grantPermissions(["clipboard-read", "clipboard-write"]);
+    await page.evaluate((url) => navigator.clipboard.writeText(`  ${url}\n`), chowMein);
+    await expect(linkField(page)).toHaveValue("");
+    await sheet(page).getByRole("button", { name: "Klistra in länk" }).click();
+    await expect(linkField(page)).toHaveValue(chowMein);
+
+    // A link that is too long is not cut; it is not used, and the sheet says why.
+    await linkField(page).fill("");
+    await page.evaluate((url) => navigator.clipboard.writeText(url), `${chowMein}?${"a".repeat(2_100)}`);
+    await sheet(page).getByRole("button", { name: "Klistra in länk" }).click();
+    await expect(sheet(page).getByText(/^Länken i urklippet är längre än 2 048 tecken/)).toBeVisible();
+    await expect(linkField(page)).toHaveValue("");
+  });
+});
+
 test.describe("desktop, 1280 × 800", () => {
   test.use({ viewport: { width: 1280, height: 800 } });
 
@@ -376,4 +562,34 @@ test.describe("/api/ai/import signed in", () => {
     expect(invalid.status()).toBe(400);
     expect(await invalid.json()).toMatchObject({ ok: false, error: { code: "validation" } });
   });
+
+  test("answers a link with the page's draft and its source", async ({ request }) => {
+    const response = await request.post("/api/ai/import", { data: { kind: "url", url: chowMein } });
+    expect(response.status()).toBe(200);
+    expect(await response.json()).toMatchObject({
+      ok: true,
+      data: {
+        draft: {
+          title: "Chow mein med lövbiff",
+          sourceKind: "url",
+          sourceUrl: chowMein,
+          imageUrl: "https://img.koket.se/standard-mega/chow-mein-med-lovbiff-filip-poons-recept.png.jpg",
+        },
+      },
+    });
+  });
+
+  for (const { name, url, status, code, fields } of [
+    { name: "a site that is not approved", url: "https://www.example.org/recept/x", status: 422, code: "fetch_domain_not_allowed", fields: { domain: "example.org" } },
+    { name: "an http link", url: "http://www.koket.se/x", status: 422, code: "fetch_invalid_url", fields: undefined },
+    { name: "a site that refuses", url: "https://www.koket.se/matkoll-test/blockerad", status: 502, code: "fetch_blocked", fields: { domain: "koket.se" } },
+  ]) {
+    test(`answers ${name} with ${status} ${code}`, async ({ request }) => {
+      const response = await request.post("/api/ai/import", { data: { kind: "url", url } });
+      expect(response.status()).toBe(status);
+      const body = await response.json();
+      expect(body).toMatchObject({ ok: false, error: { code } });
+      expect(body.error.fields).toEqual(fields);
+    });
+  }
 });

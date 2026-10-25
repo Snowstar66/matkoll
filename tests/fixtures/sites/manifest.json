@@ -1,0 +1,21 @@
+{
+  "$comment": [
+    "Recipe sites for AI_PROVIDER=mock with a localhost SITE_URL (src/server/fetch/index.ts, fixture-sites.ts): tests, E2E and CI fetch these instead of the internet.",
+    "Each page: url and file (a saved page), status (an HTTP error), redirect (a Location, status 301 unless given),",
+    "hang (never answers, so safeFetch's 10 s run out) or bytes (an HTML page of that size, without Content-Length).",
+    "koket-chow-mein.html and tasteline-bakad-fetaost.html were saved once with `pnpm sites:probe --save`, only as test input.",
+    "The only edit: tasteline's Cloudflare analytics beacon was removed, since its public site token trips gitleaks.",
+    "Addresses under /matkoll-test/ do not exist on the real sites; they give the import flow's error cases."
+  ],
+  "pages": [
+    { "url": "https://www.koket.se/chow-mein-med-lovbiff", "file": "koket-chow-mein.html" },
+    { "url": "https://koket.se/chow-mein-med-lovbiff", "redirect": "https://www.koket.se/chow-mein-med-lovbiff" },
+    { "url": "https://www.tasteline.com/recept/bakad-fetaost-med-rostad-potatis/", "file": "tasteline-bakad-fetaost.html" },
+    { "url": "https://www.koket.se/matkoll-test/inget-recept", "file": "inget-recept.html" },
+    { "url": "https://www.koket.se/matkoll-test/blockerad", "status": 403 },
+    { "url": "https://www.koket.se/matkoll-test/tom-sida", "file": "tom-sida.html" },
+    { "url": "https://www.koket.se/matkoll-test/langsam", "hang": true },
+    { "url": "https://www.koket.se/matkoll-test/for-stor", "bytes": 3500000 },
+    { "url": "https://www.koket.se/matkoll-test/annan-sajt", "redirect": "https://example.com/recept", "status": 302 }
+  ]
+}

@@ -3,7 +3,8 @@
     "Test set for the AI port. Each case: <name>.txt (input text), <name>.response.json (the mock's answer),",
     "<name>.expected.json (what pnpm eval:ai checks), optionally <name>.jsonld.json (JSON-LD sent with the text)",
     "and <name>.png (the same recipe as an image). 'default' is the mock's answer for unknown input.",
-    "'reserved' inputs make the mock fail with that error code, for tests of the error messages."
+    "'reserved' inputs make the mock fail with that error code, for tests of the error messages.",
+    "koket-* and tasteline-* are the saved pages in tests/fixtures/sites/ as the import flow reads them (extractRecipePage); extract.test.ts keeps them in step."
   ],
   "default": "kycklinggryta",
   "cases": [
@@ -23,6 +24,14 @@
     },
     {
       "name": "fiskgratang"
+    },
+    {
+      "name": "koket-chow-mein",
+      "jsonLd": true
+    },
+    {
+      "name": "tasteline-bakad-fetaost",
+      "jsonLd": true
     }
   ],
   "reserved": [

@@ -85,6 +85,20 @@ isOneToOne: false
       referencedColumns: ["id","recipe_id","user_id"]
     }
                   ]
+                },"recipe_site": {
+                  Row: {
+                    "created_at": string,"domain": string,"id": string,"is_active": boolean,"user_id": string
+                  }
+                  ComputedFields: never
+                  Insert: {
+                    "created_at"?: string,"domain": string,"id"?: string,"is_active"?: boolean,"user_id"?: string
+                  }
+                  Update: {
+                    "created_at"?: string,"domain"?: string,"id"?: string,"is_active"?: boolean,"user_id"?: string
+                  }
+                  Relationships: [
+                    
+                  ]
                 },"recipe_step": {
                   Row: {
                     "created_at": string,"id": string,"position": number,"recipe_id": string,"text": string,"user_id": string
@@ -115,6 +129,9 @@ isOneToOne: false
 { Args: { "new_ingredients": Json,"synonyms": Json }; Returns: {
               "id": string,"normalized_name": string
             }[]
+                           },
+"ensure_user_defaults":
+{ Args: Record<PropertyKey, never>; Returns: undefined
                            },
 "save_recipe":
 { Args: { "lines": Json,"recipe": Json,"steps": Json }; Returns: string
