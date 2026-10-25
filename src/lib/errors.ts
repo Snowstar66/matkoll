@@ -11,7 +11,19 @@ export const errorMessages = {
   ai_invalid: "Det gick inte att tolka svaret. Försök igen.",
   ai_rejected: "AI-tjänsten tog inte emot förfrågan. Prova med en kortare text eller försök igen senare.",
   import_no_recipe: "Det gick inte att hitta något recept i texten.",
+  catalog_unavailable: "Det gick inte att läsa ingredienskatalogen. Försök igen.",
 } as const;
+
+/**
+ * The text for `ai_invalid` in an import: after an invalid AI answer, an import
+ * also suggests pasting the text (EXPERIENCE.md, State Patterns).
+ */
+export const importInvalidMessage = "Det gick inte att tolka svaret. Försök igen eller klistra in texten.";
+
+/** True for a string that is one of the error codes above. */
+export function isErrorCode(value: unknown): value is ErrorCode {
+  return typeof value === "string" && Object.hasOwn(errorMessages, value);
+}
 
 export type ErrorCode = keyof typeof errorMessages;
 

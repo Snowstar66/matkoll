@@ -22,3 +22,6 @@
 - source_spec: `_bmad-output/implementation-artifacts/spec-1-4-ai-tjansten-med-testleverantor-och-lokal-modell.md`
   summary: E2E-kontroll under `pnpm build && pnpm start` att AI-porten (med prompt via `?raw`) fungerar i det byggda servern, när första route använder porten i Story 1.6.
   evidence: Turbopack-regeln verifierades bara för hand; Vitest löser `?raw` själv, så CI märker inte om regeln slutar fungera.
+- source_spec: `_bmad-output/implementation-artifacts/spec-1-6-importera-recept-fran-inklistrad-text.md`
+  summary: LÖST – E2E i Story 1.6 kör AI-porten (med prompten via `?raw`) i den byggda servern och Sheet i riktig webbläsare (Esc, stängknapp, "Släng ändringarna?"). Svep nedåt är fortfarande bara testat i jsdom.
+  evidence: `tests/e2e/import.spec.ts` mot `pnpm build && pnpm start`.

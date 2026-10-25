@@ -22,7 +22,7 @@ Logga in på `http://localhost:3000/logga-in`. Länken hamnar i Mailpit på `htt
 | `pnpm lint` | ESLint, inklusive lagerreglerna (AD-1) |
 | `pnpm typecheck` | Genererar Next-typer och kör `tsc --noEmit` |
 | `pnpm test` | Vitest (domain-tester, miljövalidering, AI-porten med falsk modell och mock, lagerreglerna, designtokens och komponenttester) |
-| `pnpm test:integration` | Vitest mot lokal Supabase (stängd registrering, `users:sync`, RLS och ingredienskatalogen). Kräver `pnpm db:start` och `pnpm db:env` |
+| `pnpm test:integration` | Vitest mot lokal Supabase (stängd registrering, `users:sync`, RLS, ingredienskatalogen och dess sökning). Kräver `pnpm db:start` och `pnpm db:env` |
 | `pnpm build` | Produktionsbygge. Kräver `SITE_URL` och `AI_PROVIDER` (t.ex. `AI_PROVIDER=mock pnpm build`) |
 | `pnpm test:e2e` | Playwright mot `pnpm dev` på port 3100 (`CI=1` kör `pnpm start`, så bygg först). Kräver lokal Supabase och `pnpm db:env`. Testanvändaren `e2e@matkoll.test` skapas med `users:sync` och loggas in via `/auth/confirm` i `tests/e2e/global-setup.ts`. Första gången: `pnpm exec playwright install chromium` |
 | `pnpm eval:ai` | Kör AI-testuppsättningen mot vald `AI_PROVIDER` och skriver `tests/eval/report.md`. Manuellt, aldrig i CI (se AI-tjänsten nedan) |
@@ -126,6 +126,9 @@ Modulen `src/features/catalog` äger tabellerna `ingredient` och `ingredient_syn
 | --- | --- |
 | `matchIngredients(items)` | Skrivfri matchning i ordningen: radens text mot namn, mot synonym, sedan AI-tipsets namn mot namn och synonym (`confidence: "hint"`, osäkrare, så förhandsgranskningen ber Pontus kontrollera), annars ett förslag på ny ingrediens (`kind: "new"`). Saknas både användbar text och tips blir resultatet `{ kind: "unmatched" }` |
 | `commitIngredients(choices)` | Bara för sparande actions. Returnerar ett id per val i samma ordning (`null` för `unmatched`). Skapar nya ingredienser och synonymer i ett anrop till Postgres-funktionen `commit_ingredients` (en rad även vid samtidiga anrop, befintliga ingredienser ändras aldrig). Kontrollerar att alla id finns i användarens katalog (`catalog_unknown_ingredient`) |
+| `getIngredientNames(ids)` | Namnen på ingredienserna med de id:na i användarens katalog, per id. Förhandsgranskningen visar dem för matchade rader |
+| `searchIngredients(query)` | Server Action (läsning, undantaget `search*` i AD-1) som söker namn och synonymer som innehåller texten, bäst först (exakt, början, ordbörjan, övrigt), högst 20 träffar. Sidan skickar den som prop till klientkomponenter i andra moduler, som inte får importera `server.ts` |
+| `CatalogDataError` | Felet som funktionerna ovan kastar när Supabase fallerar; `code` säger varför, aldrig användardata. Anroparen gör det till `catalog_unavailable` |
 
 Synonymer sparas av `commitIngredients`:
 
@@ -134,6 +137,22 @@ Synonymer sparas av `commitIngredients`:
 - Ingen synonym sparas när texten redan leder till den valda ingrediensen, eller när texten är en annan ingrediens exakta namn: namnet matchas alltid först (AD-6), så synonymen skulle aldrig användas.
 
 Katalogingredienser tas aldrig bort (AD-20): ingen roll har `delete` på `ingredient`. Listorna i databasens `check` måste vara exakt domänens; `tests/design/catalog-checks.test.ts` kontrollerar det.
+
+### Importera recept
+
+Arket Importera recept öppnas med "+" i Recept-rubriken eller med knappen "Importera recept" i det tomma biblioteket. Det har flikarna Länk, Text och Foto; bara Text fungerar än (Länk och Foto kommer i Story 1.8 och 1.9). Inget sparas: förhandsgranskningen lever i klienten tills "Spara recept" finns (Story 1.7).
+
+Flödet (AD-2, AD-9, AD-10):
+
+1. `src/features/recipes/ui/import-sheet.tsx` skickar `{ kind: "text", text }` med `postAi` i `src/lib/ai-client.ts`. "Avbryt" avbryter anropet med en `AbortSignal`; det ger `{ ok: false, aborted: true }`, som inte visas som fel. Nätverksfel och svar som inte har resultatformen ger `ai_unavailable`.
+2. Route Handlern `POST /api/ai/import` (`maxDuration = 120`) tar bara emot anrop från appen själv: en `Origin` som inte är `SITE_URL` eller `Sec-Fetch-Site` som inte är `same-origin`/`none` ger 403. Sedan kontrollerar den inloggningen med `requireUserForRoute` (401 `unauthorized` utan behörig användare), kräver `content-type: application/json` (415) och högst 64 kB (413), validerar kroppen med `importRequestSchema` (400 `validation`) och anropar `importRecipe` med `request.signal`, så att ett avbrott stoppar modellen.
+3. `importRecipe` i `src/features/recipes/actions/import-recipe.ts` kör `parseRecipe`, sedan `matchIngredients` och `fromAiRecipe`, och svarar `{ ok: true, data: { draft, ingredientNames } }`: en `RecipeDraft` och namnen på de katalogingredienser raderna matchats mot. Utkastet kontrolleras med `recipeDraftSchema` (annars `ai_invalid`). Den skriver aldrig till databasen.
+
+Svarets HTTP-status följer felkoden: 400 `validation`, 401 `unauthorized`, 422 `import_no_recipe`, 502 `ai_invalid` och `ai_rejected`, 503 `ai_unavailable` och `catalog_unavailable`. Klienten läser resultatet oavsett status och visar texten från `src/lib/errors.ts`; vid import gäller `importInvalidMessage` för `ai_invalid` ("… Försök igen eller klistra in texten.").
+
+`RecipeDraft` (`src/features/recipes/domain/recipe-draft.ts`, Zod) är det enda formatet för ett tolkat recept, och `fromAiRecipe(aiRecipe, matches, source)` är den enda mappningen från AI-svaret. Enheten tolkas med katalogens `normalizeUnit`; en rad utan mängd, eller med en okänd enhet ("1 bit", "en näve"), blir vag, utan mängd och enhet; en rad är vag precis när den saknar mängd. AI-tipset sparas på raden (`hint`), så att en ny ingrediens som Pontus namnger får tipsets avdelning, plats och enhet. Stegindex som inte pekar på ett steg tas bort.
+
+I förhandsgranskningen går titel, portioner, tid, mängd, enhet, katalogingrediens och steg att ändra. En rad som matchats via AI-tipsets namn har en ljusblå ring och "Kontrollera", och en ny katalogingrediens märks "Ny". Ett tryck på ingrediensen öppnar sökningen i samma ark; en vald ingrediens blir `{ kind: "chosen", ingredientId }`, och utan träff kan namnet användas för en ny ingrediens. `validateDraft(draft, pending)` ger felen per fält (tom titel, tomt steg, mängd eller tid som inte är ett tal), och arket räknar ut `isValid`, som "Spara recept" ska följa i Story 1.7. Har förhandsgranskningen ändrats, eller finns inklistrad text som inte tolkats, frågar arket "Släng ändringarna?" innan det stängs, och likaså innan en ny tolkning ersätter en ändrad förhandsgranskning. Texten får vara högst 12 000 tecken; nära gränsen visas antalet.
 
 ### Migrationer
 

@@ -1,5 +1,12 @@
 import "server-only";
 import type { CatalogSnapshot } from "../domain/match";
+import {
+  containsPattern,
+  maxSearchHits,
+  rankSearchHits,
+  type IngredientSearchHit,
+  type SearchCandidate,
+} from "../domain/search";
 import { CatalogDataError, chunks, type CatalogDb } from "./client";
 
 /**
@@ -40,4 +47,64 @@ export async function existingIngredientIds(db: CatalogDb, ids: readonly string[
     }),
   );
   return found;
+}
+
+/** The names of the ingredients among `ids` in the signed-in user's catalog, by id. */
+export async function loadIngredientNames(db: CatalogDb, ids: readonly string[]): Promise<Record<string, string>> {
+  const names: Record<string, string> = {};
+  await Promise.all(
+    chunks([...new Set(ids)]).map(async (chunk) => {
+      const { data, error } = await db.from("ingredient").select("id, name").in("id", chunk);
+      if (error) throw new CatalogDataError("query_failed", error.code);
+      for (const row of data) names[row.id] = row.name;
+    }),
+  );
+  return names;
+}
+
+/**
+ * Rows read per table before ranking, in alphabetical order. In a catalog with
+ * more matching rows than this, a better hit later in the alphabet can be
+ * missed; typing more of the name narrows the search.
+ */
+const searchCandidateLimit = 5 * maxSearchHits;
+
+/**
+ * Ingredients whose normalised name, or one of whose synonyms, contains
+ * `text` (already lower case, see searchText), ranked by rankSearchHits.
+ */
+export async function searchCatalog(db: CatalogDb, text: string): Promise<IngredientSearchHit[]> {
+  const pattern = containsPattern(text);
+  if (!pattern) return [];
+  const [names, aliases] = await Promise.all([
+    db
+      .from("ingredient")
+      .select("id, name, normalized_name")
+      .ilike("normalized_name", pattern)
+      .order("normalized_name")
+      .limit(searchCandidateLimit),
+    db
+      .from("ingredient_synonym")
+      .select("ingredient_id, normalized")
+      .ilike("normalized", pattern)
+      .order("normalized")
+      .limit(searchCandidateLimit),
+  ]);
+  if (names.error) throw new CatalogDataError("query_failed", names.error.code);
+  if (aliases.error) throw new CatalogDataError("query_failed", aliases.error.code);
+
+  const candidates: SearchCandidate[] = names.data.map((row) => ({
+    id: row.id,
+    name: row.name,
+    matchedTexts: [row.normalized_name],
+  }));
+  const synonymNames = await loadIngredientNames(
+    db,
+    aliases.data.map((row) => row.ingredient_id),
+  );
+  for (const row of aliases.data) {
+    const name = synonymNames[row.ingredient_id];
+    if (name) candidates.push({ id: row.ingredient_id, name, matchedTexts: [row.normalized] });
+  }
+  return rankSearchHits(text, candidates);
 }

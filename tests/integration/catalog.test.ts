@@ -1,6 +1,7 @@
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
 import { matchIngredientsIn } from "@/features/catalog/actions/match-ingredients";
 import { commitIngredients } from "@/features/catalog/data/commit";
+import { loadIngredientNames, searchCatalog } from "@/features/catalog/data/queries";
 import { LOCATIONS, SECTIONS, UNITS, type IngredientChoice, type IngredientProposal } from "@/features/catalog";
 import { localSupabaseUrl } from "../local-supabase";
 import {
@@ -367,5 +368,70 @@ describe("commitIngredients", () => {
       "catalog_validation",
     );
     expect(await countRows("ingredient", user.id)).toBe(0);
+  });
+});
+
+describe("searchIngredients", () => {
+  let user: TestUser;
+  let gulLok: string;
+  let rodlok: string;
+  let vitlok: string;
+
+  async function addNamed(db: Db, name: string): Promise<string> {
+    const { data, error } = await db
+      .from("ingredient")
+      .insert({ name, normalized_name: name.toLocaleLowerCase("sv-SE"), section: "Frukt och grönt", location: "Skafferi" })
+      .select("id")
+      .single();
+    if (error) throw error;
+    return data.id;
+  }
+
+  beforeAll(async () => {
+    user = await createTestUser("search");
+    gulLok = await addNamed(user.db, "Gul lök");
+    rodlok = await addNamed(user.db, "Rödlök");
+    vitlok = await addNamed(user.db, "Vitlök");
+    await addNamed(user.db, "Grädde 50%");
+    await addSynonym(user.db, "schalottenlök", rodlok);
+  });
+
+  it("finds names and synonyms that contain the text, best first, with the display name", async () => {
+    expect(await searchCatalog(user.db, "gul lök")).toEqual([{ id: gulLok, name: "Gul lök" }]);
+    expect(await searchCatalog(user.db, "lök")).toEqual([
+      { id: gulLok, name: "Gul lök" },
+      { id: rodlok, name: "Rödlök" },
+      { id: vitlok, name: "Vitlök" },
+    ]);
+    expect(await searchCatalog(user.db, "schalott")).toEqual([{ id: rodlok, name: "Rödlök" }]);
+  });
+
+  it("treats LIKE wildcards in the text as plain characters", async () => {
+    expect(await searchCatalog(user.db, "%")).toEqual([{ id: expect.any(String), name: "Grädde 50%" }]);
+    expect(await searchCatalog(user.db, "_")).toEqual([]);
+    expect(await searchCatalog(user.db, "")).toEqual([]);
+  });
+
+  it("gives at most 20 hits", async () => {
+    const many = await createTestUser("search-many");
+    for (let index = 0; index < 25; index++) await addNamed(many.db, `Ost ${index}`);
+    expect(await searchCatalog(many.db, "ost")).toHaveLength(20);
+  });
+
+  it("never shows another user's catalog", async () => {
+    const other = await createTestUser("search-other");
+    await addNamed(other.db, "Gul lök extra");
+    await addSynonym(other.db, "gul", await addNamed(other.db, "Saffran"));
+    expect(await searchCatalog(user.db, "gul")).toEqual([{ id: gulLok, name: "Gul lök" }]);
+  });
+
+  it("names ingredients by id, only the user's own", async () => {
+    const other = await createTestUser("names-other");
+    const othersId = await addNamed(other.db, "Saffran");
+    expect(await loadIngredientNames(user.db, [gulLok, vitlok, gulLok, othersId])).toEqual({
+      [gulLok]: "Gul lök",
+      [vitlok]: "Vitlök",
+    });
+    expect(await loadIngredientNames(user.db, [])).toEqual({});
   });
 });

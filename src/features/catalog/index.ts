@@ -23,3 +23,9 @@ export {
   type ChosenIngredient,
   type IngredientChoice,
 } from "./domain/match";
+export {
+  ingredientSearchSchema,
+  maxSearchHits,
+  searchText,
+  type IngredientSearchHit,
+} from "./domain/search";

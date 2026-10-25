@@ -114,6 +114,17 @@
   --drop-shadow-*: initial;
   --text-shadow-*: initial;
   --breakpoint-desktop: 64rem; /* 1024 px */
+
+  /* Förloppsrad without a known end, e.g. "Läser receptet …" (EXPERIENCE.md, Import pågår). */
+  --animate-progress: progress-indeterminate 1.4s ease-in-out infinite;
+  @keyframes progress-indeterminate {
+    from {
+      transform: translateX(-100%);
+    }
+    to {
+      transform: translateX(300%);
+    }
+  }
 }
 
 @theme inline {
