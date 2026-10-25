@@ -1,0 +1,46 @@
+{
+  "$comment": [
+    "Test set for the AI port. Each case: <name>.txt (input text), <name>.response.json (the mock's answer),",
+    "<name>.expected.json (what pnpm eval:ai checks), optionally <name>.jsonld.json (JSON-LD sent with the text)",
+    "and <name>.png (the same recipe as an image). 'default' is the mock's answer for unknown input.",
+    "'reserved' inputs make the mock fail with that error code, for tests of the error messages."
+  ],
+  "default": "kycklinggryta",
+  "cases": [
+    {
+      "name": "kycklinggryta"
+    },
+    {
+      "name": "ugnspannkaka",
+      "image": true
+    },
+    {
+      "name": "linssoppa"
+    },
+    {
+      "name": "kladdkaka",
+      "jsonLd": true
+    },
+    {
+      "name": "fiskgratang"
+    }
+  ],
+  "reserved": [
+    {
+      "text": "matkoll-mock: ai_unavailable",
+      "code": "ai_unavailable"
+    },
+    {
+      "text": "matkoll-mock: ai_invalid",
+      "code": "ai_invalid"
+    },
+    {
+      "text": "matkoll-mock: ai_rejected",
+      "code": "ai_rejected"
+    },
+    {
+      "text": "matkoll-mock: import_no_recipe",
+      "code": "import_no_recipe"
+    }
+  ]
+}

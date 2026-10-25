@@ -1,0 +1,135 @@
+{
+  "title": "Fiskgratäng med räkor",
+  "servings": 4,
+  "totalMinutes": null,
+  "ingredients": [
+    {
+      "originalText": "600 g torskfilé",
+      "amount": 600,
+      "unit": "g",
+      "isVague": false,
+      "hint": {
+        "name": "torskfilé",
+        "section": "Kött och fisk",
+        "location": "Kyl",
+        "defaultUnit": "g"
+      },
+      "stepIndexes": [
+        1
+      ]
+    },
+    {
+      "originalText": "200 g skalade räkor",
+      "amount": 200,
+      "unit": "g",
+      "isVague": false,
+      "hint": {
+        "name": "skalade räkor",
+        "section": "Kött och fisk",
+        "location": "Frys",
+        "defaultUnit": "g"
+      },
+      "stepIndexes": [
+        1
+      ]
+    },
+    {
+      "originalText": "1 purjolök",
+      "amount": 1,
+      "unit": null,
+      "isVague": false,
+      "hint": {
+        "name": "purjolök",
+        "section": "Frukt och grönt",
+        "location": "Kyl",
+        "defaultUnit": "st"
+      },
+      "stepIndexes": [
+        2
+      ]
+    },
+    {
+      "originalText": "3 dl matlagningsgrädde",
+      "amount": 3,
+      "unit": "dl",
+      "isVague": false,
+      "hint": {
+        "name": "matlagningsgrädde",
+        "section": "Mejeri",
+        "location": "Kyl",
+        "defaultUnit": "dl"
+      },
+      "stepIndexes": [
+        3
+      ]
+    },
+    {
+      "originalText": "1 dl riven ost",
+      "amount": 1,
+      "unit": "dl",
+      "isVague": false,
+      "hint": {
+        "name": "riven ost",
+        "section": "Mejeri",
+        "location": "Kyl",
+        "defaultUnit": "g"
+      },
+      "stepIndexes": [
+        3
+      ]
+    },
+    {
+      "originalText": "1 msk smör",
+      "amount": 1,
+      "unit": "msk",
+      "isVague": false,
+      "hint": {
+        "name": "smör",
+        "section": "Mejeri",
+        "location": "Kyl",
+        "defaultUnit": "g"
+      },
+      "stepIndexes": [
+        2
+      ]
+    },
+    {
+      "originalText": "salt",
+      "amount": null,
+      "unit": null,
+      "isVague": true,
+      "hint": {
+        "name": "salt",
+        "section": "Skafferi",
+        "location": "Skafferi",
+        "defaultUnit": "krm"
+      },
+      "stepIndexes": [
+        3
+      ]
+    },
+    {
+      "originalText": "färsk dill",
+      "amount": null,
+      "unit": null,
+      "isVague": true,
+      "hint": {
+        "name": "dill",
+        "section": "Frukt och grönt",
+        "location": "Kyl",
+        "defaultUnit": "knippe"
+      },
+      "stepIndexes": [
+        5
+      ]
+    }
+  ],
+  "steps": [
+    "Sätt ugnen på 200 grader och smörj en ugnsform.",
+    "Skär fisken i bitar och lägg dem i formen. Strö räkorna över.",
+    "Strimla purjolöken, fräs den mjuk i smöret och lägg den över fisken.",
+    "Häll över grädden, salta lätt och strö över osten.",
+    "Gratinera mitt i ugnen i 25 minuter, tills fisken är genomkokt.",
+    "Toppa med hackad dill."
+  ]
+}

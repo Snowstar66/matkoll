@@ -26,7 +26,8 @@ export default defineConfig({
     url: `http://localhost:${port}/logga-in`,
     reuseExistingServer: !isCi,
     timeout: 120_000,
-    // SITE_URL builds the link in the e-mail, so it must be this server.
+    // SITE_URL builds the link in the e-mail, so it must be this server. AI_PROVIDER must be
+    // explicit, since `next start` runs in production mode (the mock is never a silent default there).
     env: { AI_PROVIDER: "mock", ALLOWED_EMAILS: e2eEmail, SITE_URL: `http://localhost:${port}` },
   },
 });

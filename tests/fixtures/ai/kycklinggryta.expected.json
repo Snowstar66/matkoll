@@ -1,0 +1,39 @@
+{
+  "title": "Krämig kycklinggryta med curry",
+  "servings": 4,
+  "totalMinutes": 40,
+  "ingredientCount": 13,
+  "keyIngredients": [
+    {
+      "name": [
+        "kycklinglårfilé",
+        "kyckling"
+      ],
+      "amount": 600,
+      "unit": "g"
+    },
+    {
+      "name": "gul lök",
+      "amount": 1,
+      "unit": null
+    },
+    {
+      "name": "curry",
+      "amount": 2,
+      "unit": "tsk"
+    },
+    {
+      "name": "krossade tomater",
+      "amount": 1,
+      "unit": "burk"
+    },
+    {
+      "name": "matlagningsgrädde",
+      "amount": 2.5,
+      "unit": "dl"
+    }
+  ],
+  "vagueLines": [
+    "salt och peppar"
+  ]
+}

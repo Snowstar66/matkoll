@@ -19,3 +19,6 @@
 - source_spec: `_bmad-output/implementation-artifacts/spec-1-3-app-skal-navigering-och-designtokens.md`
   summary: E2E-test i riktig webbläsare av Sheet (Esc, cancel/stängningsbegäran, svep, "Släng ändringarna?") när första riktiga användningen finns i Story 1.6.
   evidence: jsdom saknar `showModal` och stängningsbegäranden; tester körs mot en polyfill.
+- source_spec: `_bmad-output/implementation-artifacts/spec-1-4-ai-tjansten-med-testleverantor-och-lokal-modell.md`
+  summary: E2E-kontroll under `pnpm build && pnpm start` att AI-porten (med prompt via `?raw`) fungerar i det byggda servern, när första route använder porten i Story 1.6.
+  evidence: Turbopack-regeln verifierades bara för hand; Vitest löser `?raw` själv, så CI märker inte om regeln slutar fungera.

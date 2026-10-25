@@ -1,0 +1,26 @@
+{
+  "title": "Kladdkaka med havssalt",
+  "servings": 8,
+  "totalMinutes": 40,
+  "ingredientCount": 8,
+  "keyIngredients": [
+    {
+      "name": "smör",
+      "amount": 100,
+      "unit": "g"
+    },
+    {
+      "name": "strösocker",
+      "amount": 2.5,
+      "unit": "dl"
+    },
+    {
+      "name": "kakao",
+      "amount": 4,
+      "unit": "msk"
+    }
+  ],
+  "vagueLines": [
+    "grädde till servering"
+  ]
+}

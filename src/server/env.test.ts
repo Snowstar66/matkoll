@@ -59,13 +59,14 @@ describe("parseEnv", () => {
     expect(parseEnv({}).SITE_URL).toBe("http://localhost:3000");
     expect(parseEnv({ NODE_ENV: "test" }).SITE_URL).toBe("http://localhost:3000");
     expect(parseEnv({ SITE_URL: "https://matkoll.example.com" }).SITE_URL).toBe("https://matkoll.example.com");
-    expect(parseEnv({ NODE_ENV: "production", SITE_URL: "https://matkoll.example.com" }).SITE_URL).toBe(
+    const production = { NODE_ENV: "production", AI_PROVIDER: "mock" };
+    expect(parseEnv({ ...production, SITE_URL: "https://matkoll.example.com" }).SITE_URL).toBe(
       "https://matkoll.example.com",
     );
-    expect(() => parseEnv({ NODE_ENV: "production" })).toThrowError(
+    expect(() => parseEnv(production)).toThrowError(
       expect.objectContaining({ name: "EnvError", variables: ["SITE_URL"] }),
     );
-    expect(() => parseEnv({ NODE_ENV: "production", SITE_URL: "" })).toThrowError(EnvError);
+    expect(() => parseEnv({ ...production, SITE_URL: "" })).toThrowError(EnvError);
     expect(() => parseEnv({ SITE_URL: "ftp://example.com" })).toThrowError(EnvError);
   });
 
@@ -77,6 +78,103 @@ describe("parseEnv", () => {
       expect(() => parseEnv({ NEXT_PUBLIC_SUPABASE_URL: url })).toThrowError(EnvError);
       expect(() => parseEnv({ LMSTUDIO_BASE_URL: url })).toThrowError(EnvError);
     }
+  });
+});
+
+describe("parseEnv: AI settings fit together", () => {
+  const thrown = (source: Record<string, string>) => {
+    try {
+      parseEnv(source);
+    } catch (error) {
+      return error as EnvError;
+    }
+    throw new Error("expected parseEnv to throw");
+  };
+
+  it("needs nothing for mock", () => {
+    expect(parseEnv({ AI_PROVIDER: "mock" }).AI_MODEL).toBeUndefined();
+  });
+
+  it("requires LMSTUDIO_BASE_URL for lmstudio and defaults AI_MODEL to the tested model", () => {
+    const error = thrown({ AI_PROVIDER: "lmstudio" });
+    expect(error).toBeInstanceOf(EnvError);
+    expect(error.variables).toEqual(["LMSTUDIO_BASE_URL"]);
+
+    const env = parseEnv({ AI_PROVIDER: "lmstudio", LMSTUDIO_BASE_URL: "http://localhost:1234/v1" });
+    expect(env.AI_MODEL).toBe("qwen/qwen3.6-35b-a3b");
+    expect(
+      parseEnv({ AI_PROVIDER: "lmstudio", LMSTUDIO_BASE_URL: "http://localhost:1234/v1", AI_MODEL: "other" })
+        .AI_MODEL,
+    ).toBe("other");
+  });
+
+  it.each([
+    ["anthropic", "ANTHROPIC_API_KEY"],
+    ["openai", "OPENAI_API_KEY"],
+  ])("requires the key and AI_MODEL for %s", (provider, keyName) => {
+    expect(thrown({ AI_PROVIDER: provider }).variables).toEqual([keyName, "AI_MODEL"]);
+    expect(thrown({ AI_PROVIDER: provider, [keyName]: "sk-secret-value" }).variables).toEqual(["AI_MODEL"]);
+    expect(thrown({ AI_PROVIDER: provider, AI_MODEL: "model" }).variables).toEqual([keyName]);
+    const env = parseEnv({ AI_PROVIDER: provider, [keyName]: "sk-secret-value", AI_MODEL: "model" });
+    expect(env.AI_MODEL).toBe("model");
+  });
+
+  it("does not echo the key when another setting is missing", () => {
+    const error = thrown({ AI_PROVIDER: "openai", OPENAI_API_KEY: "sk-secret-value" });
+    expect(error.message).toContain("AI_MODEL");
+    expect(error.message).not.toContain("sk-secret-value");
+  });
+
+  it.each([["CF_ACCESS_CLIENT_ID"], ["CF_ACCESS_CLIENT_SECRET"]])(
+    "rejects %s without its pair, naming both",
+    (name) => {
+      const error = thrown({ [name]: "token-value" });
+      expect(error.variables).toEqual(["CF_ACCESS_CLIENT_ID", "CF_ACCESS_CLIENT_SECRET"]);
+      expect(error.message).not.toContain("token-value");
+    },
+  );
+
+  it("accepts the Cloudflare Access pair", () => {
+    const env = parseEnv({
+      AI_PROVIDER: "lmstudio",
+      LMSTUDIO_BASE_URL: "https://lmstudio.example.com/v1",
+      CF_ACCESS_CLIENT_ID: "id",
+      CF_ACCESS_CLIENT_SECRET: "secret",
+    });
+    expect(env.CF_ACCESS_CLIENT_ID).toBe("id");
+  });
+
+  it("requires AI_PROVIDER in production, and allows the mock there only when set explicitly", () => {
+    const site = { NODE_ENV: "production", SITE_URL: "https://matkoll.example.com" };
+    expect(thrown(site).variables).toEqual(["AI_PROVIDER"]);
+    expect(thrown({ ...site, AI_PROVIDER: " " }).variables).toEqual(["AI_PROVIDER"]);
+    expect(parseEnv({ ...site, AI_PROVIDER: "mock" }).AI_PROVIDER).toBe("mock");
+    expect(parseEnv({ NODE_ENV: "development" }).AI_PROVIDER).toBe("mock");
+  });
+
+  it("treats whitespace-only values as unset", () => {
+    expect(thrown({ AI_PROVIDER: "openai", OPENAI_API_KEY: "key", AI_MODEL: "  " }).variables).toEqual(["AI_MODEL"]);
+    expect(thrown({ AI_PROVIDER: "openai", OPENAI_API_KEY: "\t", AI_MODEL: "m" }).variables).toEqual([
+      "OPENAI_API_KEY",
+    ]);
+    expect(parseEnv({ CF_ACCESS_CLIENT_ID: " ", CF_ACCESS_CLIENT_SECRET: "" }).CF_ACCESS_CLIENT_ID).toBeUndefined();
+  });
+
+  it("requires https for LM Studio when the Cloudflare Access pair is set", () => {
+    const pair = { AI_PROVIDER: "lmstudio", CF_ACCESS_CLIENT_ID: "id", CF_ACCESS_CLIENT_SECRET: "secret" };
+    const error = thrown({ ...pair, LMSTUDIO_BASE_URL: "http://lmstudio.example.com/v1" });
+    expect(error.variables).toEqual(["LMSTUDIO_BASE_URL"]);
+    expect(error.message).not.toContain("secret");
+    expect(parseEnv({ ...pair, LMSTUDIO_BASE_URL: "https://lmstudio.example.com/v1" }).LMSTUDIO_BASE_URL).toBe(
+      "https://lmstudio.example.com/v1",
+    );
+  });
+
+  it("reports AI problems and a missing SITE_URL together", () => {
+    expect(thrown({ NODE_ENV: "production", AI_PROVIDER: "lmstudio" }).variables).toEqual([
+      "LMSTUDIO_BASE_URL",
+      "SITE_URL",
+    ]);
   });
 });
 

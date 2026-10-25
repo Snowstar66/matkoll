@@ -1,0 +1,26 @@
+{
+  "@context": "https://schema.org",
+  "@type": "Recipe",
+  "name": "Kladdkaka med havssalt",
+  "author": { "@type": "Organization", "name": "Matkollsbloggen" },
+  "recipeYield": "8",
+  "totalTime": "PT40M",
+  "recipeCategory": "Bakverk",
+  "recipeIngredient": [
+    "100 g smör",
+    "2 ägg",
+    "2,5 dl strösocker",
+    "1 dl vetemjöl",
+    "4 msk kakao",
+    "1 tsk vaniljsocker",
+    "1 krm flingsalt",
+    "grädde till servering"
+  ],
+  "recipeInstructions": [
+    { "@type": "HowToStep", "text": "Sätt ugnen på 175°C. Smörj och bröa en form med löstagbar kant, ca 22 cm." },
+    { "@type": "HowToStep", "text": "Smält smöret i en kastrull. Ta av från plattan." },
+    { "@type": "HowToStep", "text": "Rör ner socker, ägg, mjöl, kakao och vaniljsocker i smöret." },
+    { "@type": "HowToStep", "text": "Häll smeten i formen och grädda i mitten av ugnen ca 15-20 minuter. Kakan ska vara kladdig i mitten." },
+    { "@type": "HowToStep", "text": "Strö över flingsalt och låt kakan kallna. Servera med vispad grädde." }
+  ]
+}

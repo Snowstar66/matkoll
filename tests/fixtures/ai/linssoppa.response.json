@@ -1,0 +1,200 @@
+{
+  "title": "Röd linssoppa med kokosmjölk",
+  "servings": 6,
+  "totalMinutes": 30,
+  "ingredients": [
+    {
+      "originalText": "2 gula lökar",
+      "amount": 2,
+      "unit": null,
+      "isVague": false,
+      "hint": {
+        "name": "gul lök",
+        "section": "Frukt och grönt",
+        "location": "Skafferi",
+        "defaultUnit": "st"
+      },
+      "stepIndexes": [
+        0,
+        1
+      ]
+    },
+    {
+      "originalText": "3 vitlöksklyftor",
+      "amount": 3,
+      "unit": "klyftor",
+      "isVague": false,
+      "hint": {
+        "name": "vitlök",
+        "section": "Frukt och grönt",
+        "location": "Skafferi",
+        "defaultUnit": "klyfta"
+      },
+      "stepIndexes": [
+        0,
+        1
+      ]
+    },
+    {
+      "originalText": "1 bit färsk ingefära, ca 3 cm",
+      "amount": 1,
+      "unit": "bit",
+      "isVague": false,
+      "hint": {
+        "name": "ingefära",
+        "section": "Frukt och grönt",
+        "location": "Kyl",
+        "defaultUnit": "g"
+      },
+      "stepIndexes": [
+        0,
+        1
+      ]
+    },
+    {
+      "originalText": "2 morötter",
+      "amount": 2,
+      "unit": null,
+      "isVague": false,
+      "hint": {
+        "name": "morot",
+        "section": "Frukt och grönt",
+        "location": "Kyl",
+        "defaultUnit": "st"
+      },
+      "stepIndexes": [
+        0,
+        1
+      ]
+    },
+    {
+      "originalText": "2 msk olivolja",
+      "amount": 2,
+      "unit": "msk",
+      "isVague": false,
+      "hint": {
+        "name": "olivolja",
+        "section": "Skafferi",
+        "location": "Skafferi",
+        "defaultUnit": "msk"
+      },
+      "stepIndexes": [
+        1
+      ]
+    },
+    {
+      "originalText": "1 1/2 msk tomatpuré",
+      "amount": 1.5,
+      "unit": "msk",
+      "isVague": false,
+      "hint": {
+        "name": "tomatpuré",
+        "section": "Skafferi",
+        "location": "Skafferi",
+        "defaultUnit": "msk"
+      },
+      "stepIndexes": [
+        2
+      ]
+    },
+    {
+      "originalText": "1 tsk spiskummin",
+      "amount": 1,
+      "unit": "tsk",
+      "isVague": false,
+      "hint": {
+        "name": "spiskummin",
+        "section": "Skafferi",
+        "location": "Skafferi",
+        "defaultUnit": "tsk"
+      },
+      "stepIndexes": [
+        2
+      ]
+    },
+    {
+      "originalText": "3 dl röda linser",
+      "amount": 3,
+      "unit": "dl",
+      "isVague": false,
+      "hint": {
+        "name": "röda linser",
+        "section": "Skafferi",
+        "location": "Skafferi",
+        "defaultUnit": "dl"
+      },
+      "stepIndexes": [
+        3
+      ]
+    },
+    {
+      "originalText": "1 burk kokosmjölk (400 ml)",
+      "amount": 1,
+      "unit": "burk",
+      "isVague": false,
+      "hint": {
+        "name": "kokosmjölk",
+        "section": "Skafferi",
+        "location": "Skafferi",
+        "defaultUnit": "förp"
+      },
+      "stepIndexes": [
+        3
+      ]
+    },
+    {
+      "originalText": "1 liter grönsaksbuljong",
+      "amount": 1,
+      "unit": "liter",
+      "isVague": false,
+      "hint": {
+        "name": "grönsaksbuljong",
+        "section": "Skafferi",
+        "location": "Skafferi",
+        "defaultUnit": "l"
+      },
+      "stepIndexes": [
+        3
+      ]
+    },
+    {
+      "originalText": "saften från 1/2 citron",
+      "amount": 0.5,
+      "unit": null,
+      "isVague": false,
+      "hint": {
+        "name": "citron",
+        "section": "Frukt och grönt",
+        "location": "Kyl",
+        "defaultUnit": "st"
+      },
+      "stepIndexes": [
+        5
+      ]
+    },
+    {
+      "originalText": "en näve färsk koriander",
+      "amount": null,
+      "unit": null,
+      "isVague": true,
+      "hint": {
+        "name": "färsk koriander",
+        "section": "Frukt och grönt",
+        "location": "Kyl",
+        "defaultUnit": "kruka"
+      },
+      "stepIndexes": [
+        6
+      ]
+    }
+  ],
+  "steps": [
+    "Hacka lök, vitlök och ingefära. Skala morötterna och skär dem i små tärningar.",
+    "Fräs grönsakerna i oljan i en stor kastrull på medelvärme i 5 minuter utan att de tar färg.",
+    "Rör ner tomatpuré och spiskummin och fräs 1 minut till.",
+    "Skölj linserna i kallt vatten och lägg dem i kastrullen. Häll på kokosmjölk och buljong.",
+    "Låt koka under lock i 15 minuter, tills linserna är mjuka.",
+    "Mixa soppan slät med en stavmixer och smaka av med citronsaft.",
+    "Strö över hackad koriander precis innan servering."
+  ]
+}

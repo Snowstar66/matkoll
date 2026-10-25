@@ -13,6 +13,7 @@ concurrency:
   cancel-in-progress: ${{ github.event_name == 'pull_request' }}
 
 env:
+  # Production mode (`next build`, `next start`) requires AI_PROVIDER to be set; the mock only when chosen explicitly.
   AI_PROVIDER: mock
   # The Playwright server's origin; required by `next build` / `next start` in production mode.
   SITE_URL: http://localhost:3100

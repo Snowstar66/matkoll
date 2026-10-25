@@ -7,6 +7,10 @@ export const errorMessages = {
   validation: "Kontrollera uppgifterna och försök igen.",
   auth_link_invalid: "Länken har gått ut eller redan använts. Be om en ny.",
   auth_not_allowed: "Adressen har inte åtkomst till Matkoll.",
+  ai_unavailable: "AI-tjänsten svarar inte just nu. Är datorn med modellen igång?",
+  ai_invalid: "Det gick inte att tolka svaret. Försök igen.",
+  ai_rejected: "AI-tjänsten tog inte emot förfrågan. Prova med en kortare text eller försök igen senare.",
+  import_no_recipe: "Det gick inte att hitta något recept i texten.",
 } as const;
 
 export type ErrorCode = keyof typeof errorMessages;

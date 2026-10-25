@@ -60,13 +60,21 @@ for (const [key, value] of Object.entries(values)) {
   if (!written.has(key)) updated.push(`${key}=${value}`);
 }
 
-// A local production build (`pnpm build`) requires SITE_URL; default it to the dev
-// server, but never overwrite a value the developer has set.
-const siteUrlIndex = updated.findIndex((line) => /^\s*SITE_URL\s*=/.test(line));
-if (siteUrlIndex === -1) {
-  updated.push("SITE_URL=http://localhost:3000");
-} else if (/^\s*SITE_URL\s*=\s*$/.test(updated[siteUrlIndex])) {
-  updated[siteUrlIndex] = "SITE_URL=http://localhost:3000";
+// A local production build (`pnpm build`) requires SITE_URL and an explicit
+// AI_PROVIDER; default them to the dev server and the local LM Studio, but never
+// overwrite a value the developer has set.
+const localDefaults = {
+  SITE_URL: "http://localhost:3000",
+  AI_PROVIDER: "lmstudio",
+  LMSTUDIO_BASE_URL: "http://localhost:1234/v1",
+};
+for (const [key, value] of Object.entries(localDefaults)) {
+  const index = updated.findIndex((line) => new RegExp(`^\\s*${key}\\s*=`).test(line));
+  if (index === -1) {
+    updated.push(`${key}=${value}`);
+  } else if (new RegExp(`^\\s*${key}\\s*=\\s*$`).test(updated[index])) {
+    updated[index] = `${key}=${value}`;
+  }
 }
 
 writeFileSync(envFile, `${updated.join("\n").replace(/\n*$/, "")}\n`, { mode: 0o600 });

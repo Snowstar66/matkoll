@@ -1,0 +1,214 @@
+{
+  "title": "Krämig kycklinggryta med curry",
+  "servings": 4,
+  "totalMinutes": 40,
+  "ingredients": [
+    {
+      "originalText": "600 g kycklinglårfilé",
+      "amount": 600,
+      "unit": "g",
+      "isVague": false,
+      "hint": {
+        "name": "kycklinglårfilé",
+        "section": "Kött och fisk",
+        "location": "Kyl",
+        "defaultUnit": "g"
+      },
+      "stepIndexes": [
+        0,
+        1
+      ]
+    },
+    {
+      "originalText": "1 gul lök",
+      "amount": 1,
+      "unit": null,
+      "isVague": false,
+      "hint": {
+        "name": "gul lök",
+        "section": "Frukt och grönt",
+        "location": "Skafferi",
+        "defaultUnit": "st"
+      },
+      "stepIndexes": [
+        0,
+        2
+      ]
+    },
+    {
+      "originalText": "2 vitlöksklyftor",
+      "amount": 2,
+      "unit": "klyftor",
+      "isVague": false,
+      "hint": {
+        "name": "vitlök",
+        "section": "Frukt och grönt",
+        "location": "Skafferi",
+        "defaultUnit": "klyfta"
+      },
+      "stepIndexes": [
+        0,
+        2
+      ]
+    },
+    {
+      "originalText": "1 msk rapsolja",
+      "amount": 1,
+      "unit": "msk",
+      "isVague": false,
+      "hint": {
+        "name": "rapsolja",
+        "section": "Skafferi",
+        "location": "Skafferi",
+        "defaultUnit": "msk"
+      },
+      "stepIndexes": [
+        1
+      ]
+    },
+    {
+      "originalText": "2 tsk curry",
+      "amount": 2,
+      "unit": "tsk",
+      "isVague": false,
+      "hint": {
+        "name": "curry",
+        "section": "Skafferi",
+        "location": "Skafferi",
+        "defaultUnit": "tsk"
+      },
+      "stepIndexes": [
+        2
+      ]
+    },
+    {
+      "originalText": "1 burk krossade tomater (400 g)",
+      "amount": 1,
+      "unit": "burk",
+      "isVague": false,
+      "hint": {
+        "name": "krossade tomater",
+        "section": "Skafferi",
+        "location": "Skafferi",
+        "defaultUnit": "förp"
+      },
+      "stepIndexes": [
+        3
+      ]
+    },
+    {
+      "originalText": "2,5 dl matlagningsgrädde",
+      "amount": 2.5,
+      "unit": "dl",
+      "isVague": false,
+      "hint": {
+        "name": "matlagningsgrädde",
+        "section": "Mejeri",
+        "location": "Kyl",
+        "defaultUnit": "dl"
+      },
+      "stepIndexes": [
+        3
+      ]
+    },
+    {
+      "originalText": "1 dl vatten",
+      "amount": 1,
+      "unit": "dl",
+      "isVague": false,
+      "hint": {
+        "name": "vatten",
+        "section": "Övrigt",
+        "location": "Skafferi",
+        "defaultUnit": "dl"
+      },
+      "stepIndexes": [
+        3
+      ]
+    },
+    {
+      "originalText": "1 kycklingbuljongtärning",
+      "amount": 1,
+      "unit": null,
+      "isVague": false,
+      "hint": {
+        "name": "kycklingbuljong",
+        "section": "Skafferi",
+        "location": "Skafferi",
+        "defaultUnit": "st"
+      },
+      "stepIndexes": [
+        3
+      ]
+    },
+    {
+      "originalText": "1 röd paprika",
+      "amount": 1,
+      "unit": null,
+      "isVague": false,
+      "hint": {
+        "name": "röd paprika",
+        "section": "Frukt och grönt",
+        "location": "Kyl",
+        "defaultUnit": "st"
+      },
+      "stepIndexes": [
+        0,
+        4
+      ]
+    },
+    {
+      "originalText": "salt och peppar",
+      "amount": null,
+      "unit": null,
+      "isVague": true,
+      "hint": {
+        "name": "salt",
+        "section": "Skafferi",
+        "location": "Skafferi",
+        "defaultUnit": "krm"
+      },
+      "stepIndexes": [
+        4
+      ]
+    },
+    {
+      "originalText": "salt och peppar",
+      "amount": null,
+      "unit": null,
+      "isVague": true,
+      "hint": {
+        "name": "svartpeppar",
+        "section": "Skafferi",
+        "location": "Skafferi",
+        "defaultUnit": "krm"
+      },
+      "stepIndexes": [
+        4
+      ]
+    },
+    {
+      "originalText": "färsk koriander till servering",
+      "amount": null,
+      "unit": null,
+      "isVague": true,
+      "hint": {
+        "name": "färsk koriander",
+        "section": "Frukt och grönt",
+        "location": "Kyl",
+        "defaultUnit": "kruka"
+      },
+      "stepIndexes": [
+        5
+      ]
+    }
+  ],
+  "steps": [
+    "Skär kycklingen i bitar. Hacka lök och vitlök fint och strimla paprikan.",
+    "Hetta upp oljan i en stor gryta och bryn kycklingen runt om.",
+    "Fräs lök, vitlök och curry i 2 minuter. Rör om så att curryn inte bränns.",
+    "Häll i krossade tomater, grädde och vatten och smula ner buljongtärningen. Låt sjuda under lock i 20 minuter.",
+    "Lägg i paprikan de sista 5 minuterna. Smaka av med salt och peppar.",
+    "Toppa med färsk koriander och servera."
+  ]
+}

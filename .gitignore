@@ -48,3 +48,6 @@ yarn-error.log*
 
 # Playwright sessions saved by tests/e2e/global-setup.ts
 tests/e2e/.auth/
+
+# Written by `pnpm eval:ai`
+tests/eval/report.md

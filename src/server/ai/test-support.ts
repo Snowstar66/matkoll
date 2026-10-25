@@ -1,0 +1,137 @@
+// Helpers for the AI port's tests: a fake model (MockLanguageModelV4) and a
+// fake LM Studio server behind a fetch function. Never imported by the app.
+import { MockLanguageModelV4 } from "ai/test";
+import type { AiRecipe } from "./schemas";
+
+type GenerateResult = Awaited<ReturnType<MockLanguageModelV4["doGenerate"]>>;
+
+export const validRecipe: AiRecipe = {
+  title: "Pannkakor",
+  servings: 4,
+  totalMinutes: 30,
+  ingredients: [
+    {
+      originalText: "3 dl mjölk",
+      amount: 3,
+      unit: "dl",
+      isVague: false,
+      hint: { name: "mjölk", section: "Mejeri", location: "Kyl", defaultUnit: "dl" },
+      stepIndexes: [0],
+    },
+    {
+      originalText: "salt",
+      amount: null,
+      unit: null,
+      isVague: true,
+      hint: { name: "salt", section: "Skafferi", location: "Skafferi", defaultUnit: "krm" },
+      stepIndexes: [],
+    },
+  ],
+  steps: ["Vispa ihop smeten.", "Stek pannkakorna."],
+};
+
+/** The model's JSON for parseRecipe: the recipe wrapped as the answer schema says. */
+export function recipeAnswer(recipe: unknown = validRecipe): string {
+  return JSON.stringify({ noRecipe: false, recipe });
+}
+
+export const testModelId = "qwen/qwen3.6-35b-a3b";
+
+export function textAnswer(text: string): GenerateResult {
+  return {
+    content: [{ type: "text", text }],
+    finishReason: { unified: "stop", raw: "stop" },
+    usage: {
+      inputTokens: { total: 10, noCache: 10, cacheRead: undefined, cacheWrite: undefined },
+      outputTokens: { total: 20, text: 20, reasoning: undefined },
+    },
+    warnings: [],
+  };
+}
+
+/** A model that answers with the given texts in order (the last one repeats). */
+export function fakeModel(...answers: string[]) {
+  let call = 0;
+  return new MockLanguageModelV4({
+    doGenerate: async () => textAnswer(answers[Math.min(call++, answers.length - 1)]),
+  });
+}
+
+/** Resolves never; rejects with the signal's reason when it is aborted. */
+export function untilAborted(signal: AbortSignal | undefined): Promise<never> {
+  return new Promise((_, reject) => {
+    if (!signal) return reject(new Error("no abort signal"));
+    if (signal.aborted) return reject(signal.reason);
+    signal.addEventListener("abort", () => reject(signal.reason), { once: true });
+  });
+}
+
+/** A model that answers `answers` in order and then only finishes when its call is aborted. */
+export function hangingModel(...answers: string[]) {
+  const signals: AbortSignal[] = [];
+  let call = 0;
+  const model = new MockLanguageModelV4({
+    doGenerate: ({ abortSignal }) => {
+      if (call < answers.length) return Promise.resolve(textAnswer(answers[call++]));
+      if (abortSignal) signals.push(abortSignal);
+      return untilAborted(abortSignal);
+    },
+  });
+  return { model, signals };
+}
+
+/** Name of an AbortSignal's reason: "TimeoutError" for a budget, "AbortError" for the caller. */
+export const abortReason = (signal: AbortSignal) => (signal.reason as { name?: string } | undefined)?.name;
+
+export function chatCompletion(content: string) {
+  return {
+    id: "chatcmpl-1",
+    object: "chat.completion",
+    created: 1_761_400_000,
+    model: testModelId,
+    choices: [{ index: 0, message: { role: "assistant", content }, finish_reason: "stop" }],
+    usage: { prompt_tokens: 10, completion_tokens: 20, total_tokens: 30 },
+  };
+}
+
+type Reply = Response | (() => Response) | Error;
+
+export type FakeServer = {
+  fetch: typeof fetch;
+  requests: { url: string; init?: RequestInit }[];
+  chatCalls: () => number;
+};
+
+/**
+ * A fake OpenAI-compatible server. `models` answers GET /models (the health
+ * check), `chat` answers POST /chat/completions (the last reply repeats).
+ */
+export function fakeServer({ models, chat }: { models?: Reply; chat: Reply[] }): FakeServer {
+  const requests: FakeServer["requests"] = [];
+  let chatIndex = 0;
+  const reply = (value: Reply) => {
+    if (value instanceof Error) throw value;
+    return typeof value === "function" ? value() : value.clone();
+  };
+
+  const fetchImpl = async (input: RequestInfo | URL, init?: RequestInit) => {
+    const url = typeof input === "string" ? input : input instanceof URL ? input.href : input.url;
+    requests.push({ url, init });
+    if (url.endsWith("/models")) {
+      return reply(models ?? Response.json({ object: "list", data: [{ id: testModelId, object: "model" }] }));
+    }
+    if (url.endsWith("/chat/completions")) return reply(chat[Math.min(chatIndex++, chat.length - 1)]);
+    return new Response("not found", { status: 404 });
+  };
+
+  return {
+    fetch: fetchImpl as typeof fetch,
+    requests,
+    chatCalls: () => requests.filter((request) => request.url.endsWith("/chat/completions")).length,
+  };
+}
+
+export function connectionRefused(): Error {
+  const cause = Object.assign(new Error("connect ECONNREFUSED 127.0.0.1:1234"), { code: "ECONNREFUSED" });
+  return new TypeError("fetch failed", { cause });
+}

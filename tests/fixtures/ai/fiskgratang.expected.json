@@ -1,0 +1,29 @@
+{
+  "title": "Fiskgratäng med räkor",
+  "servings": 4,
+  "totalMinutes": null,
+  "ingredientCount": 8,
+  "keyIngredients": [
+    {
+      "name": "torskfilé",
+      "amount": 600,
+      "unit": "g"
+    },
+    {
+      "name": [
+        "räkor",
+        "räka"
+      ],
+      "amount": 200,
+      "unit": "g"
+    },
+    {
+      "name": "purjolök",
+      "amount": 1,
+      "unit": null
+    }
+  ],
+  "vagueLines": [
+    "salt"
+  ]
+}

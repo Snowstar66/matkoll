@@ -1,0 +1,109 @@
+import "server-only";
+import { createHash } from "node:crypto";
+import { readFileSync } from "node:fs";
+import { join } from "node:path";
+import { fail, ok, type ErrorCode } from "@/lib/errors";
+import { aiRecipe, type AiRecipe } from "../schemas";
+import type { AiService, ParseRecipeInput } from "../service";
+
+// Deterministic stand-in for a model, used in all tests and in CI (AD-9). It
+// answers from tests/fixtures/ai/: manifest.json lists the cases, each with a
+// recipe text (<name>.txt), the answer (<name>.response.json) and optionally
+// JSON-LD (<name>.jsonld.json) and an image (<name>.png). The key is the
+// SHA-256 of the normalized input text (text plus JSON-LD), or of the image
+// bytes when there is no text. Unknown input gets the default case. Reserved
+// inputs in manifest.json make the mock fail with an error code, so the import
+// flow's error messages can be tested end to end.
+
+/** Error codes the mock can be asked to return through a reserved input. */
+export const mockErrorCodes = ["ai_unavailable", "ai_invalid", "ai_rejected", "import_no_recipe"] as const;
+type MockErrorCode = (typeof mockErrorCodes)[number] & ErrorCode;
+
+type Manifest = {
+  default: string;
+  cases: { name: string; jsonLd?: boolean; image?: boolean }[];
+  reserved: { text: string; code: MockErrorCode }[];
+};
+
+type Answer = { recipe: AiRecipe } | { code: MockErrorCode };
+type Fixtures = { byKey: Map<string, Answer>; fallback: AiRecipe };
+
+export const defaultFixturesDir = join(process.cwd(), "tests", "fixtures", "ai");
+
+/** Normalized input text: Unicode NFC, one space between words, lower case. */
+export function normalizeInputText(input: Pick<ParseRecipeInput, "text" | "jsonLd">): string {
+  return [input.text, input.jsonLd]
+    .filter((part): part is string => Boolean(part?.trim()))
+    .join("\n")
+    .normalize("NFC")
+    .replace(/\s+/g, " ")
+    .trim()
+    .toLowerCase();
+}
+
+export function mockKey(input: ParseRecipeInput): string | undefined {
+  const text = normalizeInputText(input);
+  if (text) return sha256(text);
+  if (input.image) return sha256(input.image.data);
+  return undefined;
+}
+
+function sha256(data: string | Uint8Array): string {
+  return createHash("sha256").update(data).digest("hex");
+}
+
+function loadFixtures(dir: string): Fixtures {
+  const read = (file: string) => readFileSync(join(dir, file), "utf8");
+  const manifest = JSON.parse(read("manifest.json")) as Manifest;
+  const byKey = new Map<string, Answer>();
+  const recipes = new Map<string, AiRecipe>();
+
+  for (const { name, jsonLd, image } of manifest.cases) {
+    const recipe = aiRecipe.parse(JSON.parse(read(`${name}.response.json`)));
+    recipes.set(name, recipe);
+    const text = read(`${name}.txt`);
+    byKey.set(sha256(normalizeInputText({ text, jsonLd: jsonLd ? read(`${name}.jsonld.json`) : undefined })), {
+      recipe,
+    });
+    if (image) byKey.set(sha256(readFileSync(join(dir, `${name}.png`))), { recipe });
+  }
+  for (const { text, code } of manifest.reserved) {
+    if (!(mockErrorCodes as readonly string[]).includes(code)) throw new Error("unknown reserved code");
+    byKey.set(sha256(normalizeInputText({ text })), { code });
+  }
+
+  const fallback = recipes.get(manifest.default);
+  if (!fallback) throw new Error("default case missing");
+  return { byKey, fallback };
+}
+
+export function createMockAiService(dir: string = defaultFixturesDir): AiService {
+  // Loaded once, on first use; a failure is remembered too.
+  let loaded: { fixtures: Fixtures } | { error: true } | undefined;
+  const fixtures = () => {
+    if (!loaded) {
+      try {
+        loaded = { fixtures: loadFixtures(dir) };
+      } catch {
+        loaded = { error: true };
+      }
+    }
+    return "fixtures" in loaded ? loaded.fixtures : undefined;
+  };
+
+  return {
+    async parseRecipe(input, signal) {
+      if (signal.aborted) return fail("ai_unavailable");
+      const current = fixtures();
+      if (!current) {
+        console.error("ai_unavailable", { reason: "fixtures" });
+        return fail("ai_unavailable");
+      }
+      const key = mockKey(input);
+      const answer = key ? current.byKey.get(key) : undefined;
+      if (answer && "code" in answer) return fail(answer.code);
+      // structuredClone: callers may change the result without changing the fixture.
+      return ok(structuredClone(answer ? answer.recipe : current.fallback));
+    },
+  };
+}

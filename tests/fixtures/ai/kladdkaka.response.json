@@ -1,0 +1,134 @@
+{
+  "title": "Kladdkaka med havssalt",
+  "servings": 8,
+  "totalMinutes": 40,
+  "ingredients": [
+    {
+      "originalText": "100 g smör",
+      "amount": 100,
+      "unit": "g",
+      "isVague": false,
+      "hint": {
+        "name": "smör",
+        "section": "Mejeri",
+        "location": "Kyl",
+        "defaultUnit": "g"
+      },
+      "stepIndexes": [
+        1
+      ]
+    },
+    {
+      "originalText": "2 ägg",
+      "amount": 2,
+      "unit": null,
+      "isVague": false,
+      "hint": {
+        "name": "ägg",
+        "section": "Mejeri",
+        "location": "Kyl",
+        "defaultUnit": "st"
+      },
+      "stepIndexes": [
+        2
+      ]
+    },
+    {
+      "originalText": "2,5 dl strösocker",
+      "amount": 2.5,
+      "unit": "dl",
+      "isVague": false,
+      "hint": {
+        "name": "strösocker",
+        "section": "Skafferi",
+        "location": "Skafferi",
+        "defaultUnit": "dl"
+      },
+      "stepIndexes": [
+        2
+      ]
+    },
+    {
+      "originalText": "1 dl vetemjöl",
+      "amount": 1,
+      "unit": "dl",
+      "isVague": false,
+      "hint": {
+        "name": "vetemjöl",
+        "section": "Skafferi",
+        "location": "Skafferi",
+        "defaultUnit": "dl"
+      },
+      "stepIndexes": [
+        2
+      ]
+    },
+    {
+      "originalText": "4 msk kakao",
+      "amount": 4,
+      "unit": "msk",
+      "isVague": false,
+      "hint": {
+        "name": "kakao",
+        "section": "Skafferi",
+        "location": "Skafferi",
+        "defaultUnit": "msk"
+      },
+      "stepIndexes": [
+        2
+      ]
+    },
+    {
+      "originalText": "1 tsk vaniljsocker",
+      "amount": 1,
+      "unit": "tsk",
+      "isVague": false,
+      "hint": {
+        "name": "vaniljsocker",
+        "section": "Skafferi",
+        "location": "Skafferi",
+        "defaultUnit": "tsk"
+      },
+      "stepIndexes": [
+        2
+      ]
+    },
+    {
+      "originalText": "1 krm flingsalt",
+      "amount": 1,
+      "unit": "krm",
+      "isVague": false,
+      "hint": {
+        "name": "flingsalt",
+        "section": "Skafferi",
+        "location": "Skafferi",
+        "defaultUnit": "krm"
+      },
+      "stepIndexes": [
+        4
+      ]
+    },
+    {
+      "originalText": "grädde till servering",
+      "amount": null,
+      "unit": null,
+      "isVague": true,
+      "hint": {
+        "name": "vispgrädde",
+        "section": "Mejeri",
+        "location": "Kyl",
+        "defaultUnit": "dl"
+      },
+      "stepIndexes": [
+        4
+      ]
+    }
+  ],
+  "steps": [
+    "Sätt ugnen på 175 grader. Smörj och bröa en form med löstagbar kant, ca 22 cm.",
+    "Smält smöret i en kastrull och ta av den från plattan.",
+    "Rör ner socker, ägg, mjöl, kakao och vaniljsocker.",
+    "Häll smeten i formen och grädda mitt i ugnen i 15–20 minuter. Kakan ska vara kladdig i mitten.",
+    "Strö över flingsalt och låt kakan kallna. Servera med vispad grädde."
+  ]
+}

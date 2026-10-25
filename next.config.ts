@@ -17,6 +17,12 @@ const nextConfig: NextConfig = {
         loaders: ["@tailwindcss/turbopack"],
         as: "*.css",
       },
+      // Prompt files for the AI port (src/server/ai/prompts.ts) are bundled as
+      // strings, so they ship with the server build. Vitest handles `?raw` itself.
+      "*.md": {
+        condition: { query: "?raw" },
+        type: "text",
+      },
     },
   },
 };
