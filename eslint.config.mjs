@@ -100,6 +100,17 @@ const processImports = ["process", "node:process"].map((name) => ({
   message: "Read configuration through src/server/env.ts (AD-14).",
 }));
 
+const serviceRoleMessage =
+  "The service role is only for scripts/ and tests/; src uses the session client in @/lib/supabase/server (AD-4).";
+
+// The app talks to Supabase through @supabase/ssr session clients; a plain
+// supabase-js client is how a service role key would get in.
+const supabaseJsClient = {
+  name: "@supabase/supabase-js",
+  importNames: ["createClient"],
+  message: serviceRoleMessage,
+};
+
 const domainPatterns = [
   {
     group: ["react", "react/*", "react-dom", "react-dom/*", "next", "next/*"],
@@ -125,7 +136,7 @@ const domainPatterns = [
 const restrictedImports = ({ aiSdk = true, processImport = true, domain = false } = {}) => [
   "error",
   {
-    paths: processImport ? processImports : [],
+    paths: [...(processImport ? processImports : []), supabaseJsClient],
     patterns: [...(aiSdk ? [aiSdkPattern] : []), ...(domain ? domainPatterns : [])],
   },
 ];
@@ -143,6 +154,14 @@ const processEnvSelectors = [
   "VariableDeclarator[init.property.name='process'] > ObjectPattern > Property[key.name='env']",
 ].map((selector) => ({ selector, message: envMessage }));
 
+const serviceRoleSelectors = [
+  "Identifier[name='SUPABASE_SERVICE_ROLE_KEY']",
+  "Literal[value='SUPABASE_SERVICE_ROLE_KEY']",
+  "TemplateElement[value.raw=/SUPABASE_SERVICE_ROLE_KEY/]",
+  "Literal[value='service_role']",
+  "Literal[value=/^sb_secret_/]",
+].map((selector) => ({ selector, message: serviceRoleMessage }));
+
 const eslintConfig = defineConfig([
   ...nextVitals,
   ...nextTs,
@@ -152,7 +171,7 @@ const eslintConfig = defineConfig([
     rules: {
       "import/no-restricted-paths": ["error", { basePath: root, zones: layerZones }],
       "no-restricted-imports": restrictedImports(),
-      "no-restricted-syntax": ["error", ...processEnvSelectors],
+      "no-restricted-syntax": ["error", ...processEnvSelectors, ...serviceRoleSelectors],
     },
   },
   {
@@ -174,7 +193,7 @@ const eslintConfig = defineConfig([
     files: ["src/server/env.ts"],
     rules: {
       "no-restricted-imports": restrictedImports({ processImport: false }),
-      "no-restricted-syntax": "off",
+      "no-restricted-syntax": ["error", ...serviceRoleSelectors],
     },
   },
   // Override default ignores of eslint-config-next.

@@ -55,6 +55,20 @@ describe("parseEnv", () => {
     );
   });
 
+  it("defaults SITE_URL outside production and requires it in production", () => {
+    expect(parseEnv({}).SITE_URL).toBe("http://localhost:3000");
+    expect(parseEnv({ NODE_ENV: "test" }).SITE_URL).toBe("http://localhost:3000");
+    expect(parseEnv({ SITE_URL: "https://matkoll.example.com" }).SITE_URL).toBe("https://matkoll.example.com");
+    expect(parseEnv({ NODE_ENV: "production", SITE_URL: "https://matkoll.example.com" }).SITE_URL).toBe(
+      "https://matkoll.example.com",
+    );
+    expect(() => parseEnv({ NODE_ENV: "production" })).toThrowError(
+      expect.objectContaining({ name: "EnvError", variables: ["SITE_URL"] }),
+    );
+    expect(() => parseEnv({ NODE_ENV: "production", SITE_URL: "" })).toThrowError(EnvError);
+    expect(() => parseEnv({ SITE_URL: "ftp://example.com" })).toThrowError(EnvError);
+  });
+
   it("accepts only http and https URLs", () => {
     expect(parseEnv({ LMSTUDIO_BASE_URL: "https://lmstudio.example.com/v1" }).LMSTUDIO_BASE_URL).toBe(
       "https://lmstudio.example.com/v1",
@@ -67,14 +81,29 @@ describe("parseEnv", () => {
 });
 
 describe(".env.example", () => {
-  it("lists exactly the variables in the schema", () => {
-    const example = readFileSync(new URL("../../.env.example", import.meta.url), "utf8");
-    const names = example
+  const scriptsMarker = "# --- scripts and tests only ---";
+  const example = readFileSync(new URL("../../.env.example", import.meta.url), "utf8");
+  const [appPart, scriptsPart = ""] = example.split(scriptsMarker);
+  const namesIn = (text: string) =>
+    text
       .split("\n")
       .map((line) => line.trim())
       .filter((line) => line && !line.startsWith("#"))
       .map((line) => line.split("=")[0].trim());
-    expect([...names].sort()).toEqual(Object.keys(envSchema.shape).sort());
+
+  it("lists exactly the app's variables above the scripts-and-tests marker", () => {
+    expect([...namesIn(appPart)].sort()).toEqual(Object.keys(envSchema.shape).sort());
+  });
+
+  it("keeps script and test variables out of the app schema", () => {
+    expect(example).toContain(scriptsMarker);
+    const scriptNames = namesIn(scriptsPart);
+    expect(scriptNames.length).toBeGreaterThan(0);
+    for (const name of scriptNames) {
+      expect(name).toMatch(/^[A-Z][A-Z0-9_]*$/);
+      expect(Object.keys(envSchema.shape)).not.toContain(name);
+    }
+    expect(Object.keys(envSchema.shape).filter((name) => /SERVICE_ROLE|SECRET_KEY/.test(name))).toEqual([]);
   });
 });
 

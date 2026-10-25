@@ -38,6 +38,10 @@ describe("allowed imports", () => {
     ["actions import the AI port", "src/features/other/actions/allowed.ts", 'import { ai } from "@/server/ai";\nimport { client } from "@/server/ai/client";'],
     ["a route uses a module's ui", "src/app/example/page.tsx", 'import { exampleView } from "@/features/example/ui/example-view";'],
     ["a module's index.ts exports its domain", "src/features/example/index.ts", 'export { describeExample } from "./domain/rules";'],
+    ["data uses the Supabase session client", "src/features/example/data/allowed.ts", 'import { createClient } from "@/lib/supabase/server";'],
+    ["another module's data uses the Supabase session client", "src/features/other/data/allowed.ts", 'import { createClient } from "@/lib/supabase/server";'],
+    ["src imports Supabase types", "src/features/example/data/allowed.ts", 'import type { SupabaseClient } from "@supabase/supabase-js";'],
+    ["the proxy uses the Supabase proxy client", "src/proxy.ts", 'import { updateSession } from "@/lib/supabase/proxy";'],
   ])("%s", async (_name, filePath, code) => {
     expect(await ruleErrors(filePath, `${code}\n`)).toEqual([]);
   });
@@ -91,6 +95,19 @@ describe("forbidden imports", () => {
     ["globalThis.process.env", "src/lib/bad.ts", "export const value = globalThis.process.env.AI_PROVIDER;", "no-restricted-syntax"],
     ["importing node:process", "src/lib/bad.ts", 'import { env } from "node:process";\nexport const value = env.AI_PROVIDER;', "no-restricted-imports"],
     ["importing process", "src/lib/bad.ts", 'import process from "process";\nexport const value = process.pid;', "no-restricted-imports"],
+    ["domain imports the Supabase session client", "src/features/example/domain/bad.ts", 'import { createClient } from "@/lib/supabase/server";', "import/no-restricted-paths"],
+    ["ui imports the Supabase session client", "src/features/example/ui/bad.ts", 'import { createClient } from "@/lib/supabase/server";', "import/no-restricted-paths"],
+    ["src/server imports the Supabase session client", "src/server/ai/bad.ts", 'import { createClient } from "@/lib/supabase/server";', "import/no-restricted-paths"],
+    ["src/server/fetch imports the Supabase session client", "src/server/fetch/bad.ts", 'import { createClient } from "@/lib/supabase/server";', "import/no-restricted-paths"],
+    ["index.ts imports the Supabase session client", "src/features/example/index.ts", 'export { createClient } from "@/lib/supabase/server";', "import/no-restricted-paths"],
+    ["supabase-js createClient in src", "src/features/example/data/bad.ts", 'import { createClient } from "@supabase/supabase-js";', "no-restricted-imports"],
+    ["supabase-js createClient in env.ts", "src/server/env.ts", 'import { createClient } from "@supabase/supabase-js";', "no-restricted-imports"],
+    ["the service role variable in src", "src/features/example/data/bad.ts", 'import { env } from "@/server/env";\n// @ts-expect-error not in the schema\nexport const key = env.SUPABASE_SERVICE_ROLE_KEY;', "no-restricted-syntax"],
+    ["the service role variable name as a string", "src/lib/bad.ts", 'export const name = "SUPABASE_SERVICE_ROLE_KEY";', "no-restricted-syntax"],
+    ["the service role variable in a template", "src/lib/bad.ts", "export const name = `${'x'}:SUPABASE_SERVICE_ROLE_KEY`;", "no-restricted-syntax"],
+    ["the service role variable in env.ts", "src/server/env.ts", "export const key = process.env.SUPABASE_SERVICE_ROLE_KEY;", "no-restricted-syntax"],
+    ["a service_role string", "src/lib/bad.ts", 'export const role = "service_role";', "no-restricted-syntax"],
+    ["a secret key literal", "src/lib/bad.ts", 'export const key = "sb_secret_abc";', "no-restricted-syntax"],
   ])("%s", async (_name, filePath, code, rule) => {
     expect(await ruleErrors(filePath, `${code}\n`)).toContain(rule);
   });

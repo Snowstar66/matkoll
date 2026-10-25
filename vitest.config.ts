@@ -13,6 +13,7 @@ export default defineConfig({
   test: {
     environment: "node",
     include: ["src/**/*.test.{ts,tsx}", "tests/**/*.test.{ts,tsx}"],
-    exclude: ["node_modules/**", ".next/**", "tests/e2e/**"],
+    // Integration tests need local Supabase and run with `pnpm test:integration`.
+    exclude: ["node_modules/**", ".next/**", "tests/e2e/**", "tests/integration/**"],
   },
 });

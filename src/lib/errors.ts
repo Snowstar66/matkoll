@@ -1,0 +1,34 @@
+// Result shape and error codes for actions and Route Handlers (AD-13).
+// Codes are `<area>_<reason>`; the Swedish text follows Voice and Tone in EXPERIENCE.md.
+// Expected errors are returned, never thrown to the client.
+
+export const errorMessages = {
+  unauthorized: "Du behöver logga in.",
+  validation: "Kontrollera uppgifterna och försök igen.",
+  auth_link_invalid: "Länken har gått ut eller redan använts. Be om en ny.",
+  auth_not_allowed: "Adressen har inte åtkomst till Matkoll.",
+} as const;
+
+export type ErrorCode = keyof typeof errorMessages;
+
+export type AppError = {
+  code: ErrorCode;
+  message: string;
+  /** Per-field messages for form validation, keyed by field name. */
+  fields?: Record<string, string>;
+};
+
+export type Result<T> = { ok: true; data: T } | { ok: false; error: AppError };
+
+export function ok<T>(data: T): Result<T>;
+export function ok(): Result<null>;
+export function ok<T>(data?: T): Result<T | null> {
+  return { ok: true, data: data ?? null };
+}
+
+export function fail(code: ErrorCode, fields?: Record<string, string>): { ok: false; error: AppError } {
+  return {
+    ok: false,
+    error: fields ? { code, message: errorMessages[code], fields } : { code, message: errorMessages[code] },
+  };
+}

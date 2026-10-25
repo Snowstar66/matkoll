@@ -2,7 +2,8 @@ import { z } from "zod";
 
 // Pure environment schema (AD-14), safe to import in tests. src/server/env.ts is
 // the only place that applies it to process.env. Adding a variable means updating
-// this schema, the approved list in the architecture and .env.example.
+// this schema, the approved list in the architecture and .env.example. Variables
+// that only scripts and tests read live in a marked section of .env.example.
 
 /** Treats unset and empty values the same, so `KEY=` in a .env file means "not set". */
 const optional = <T extends z.ZodType>(schema: T) =>
@@ -25,8 +26,9 @@ export const aiProviders = ["lmstudio", "anthropic", "openai", "mock"] as const;
 export const envSchema = z.object({
   NEXT_PUBLIC_SUPABASE_URL: optional(httpUrl),
   NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY: optional(z.string()),
-  /** Only for tests and scripts, never for request handling (AD-4). */
-  SUPABASE_SERVICE_ROLE_KEY: optional(z.string()),
+  // The service role key is deliberately not here: only scripts/ and tests/ read it (AD-4).
+  /** The app's public origin, used for links in e-mail. Required in production; see parseEnv. */
+  SITE_URL: optional(httpUrl),
   ALLOWED_EMAILS: optional(emailList),
   AI_PROVIDER: z.preprocess(
     (value) => (value === "" ? undefined : value),
@@ -40,7 +42,10 @@ export const envSchema = z.object({
   OPENAI_API_KEY: optional(z.string()),
 });
 
-export type Env = z.infer<typeof envSchema>;
+/** SITE_URL outside production when it is not set. */
+export const devSiteUrl = "http://localhost:3000";
+
+export type Env = Omit<z.infer<typeof envSchema>, "SITE_URL"> & { SITE_URL: string };
 
 export class EnvError extends Error {
   constructor(readonly variables: string[], details: string[]) {
@@ -55,7 +60,14 @@ export class EnvError extends Error {
  */
 export function parseEnv(source: Record<string, string | undefined>): Env {
   const result = envSchema.safeParse(source);
-  if (result.success) return result.data;
+  if (result.success) {
+    const { SITE_URL, ...rest } = result.data;
+    if (SITE_URL) return { ...rest, SITE_URL };
+    if (source.NODE_ENV === "production") {
+      throw new EnvError(["SITE_URL"], ["SITE_URL (required in production)"]);
+    }
+    return { ...rest, SITE_URL: devSiteUrl };
+  }
 
   const variables = [...new Set(result.error.issues.map((issue) => String(issue.path[0])))];
   const details = result.error.issues.map(

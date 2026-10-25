@@ -14,6 +14,12 @@ concurrency:
 
 env:
   AI_PROVIDER: mock
+  # The Playwright server's origin; required by `next build` / `next start` in production mode.
+  SITE_URL: http://localhost:3100
+  # Same version as the `supabase` dev dependency, so generated types match.
+  SUPABASE_CLI_VERSION: 2.122.0
+  # Mailpit, Auth, the API gateway and Postgres stay; the rest is not used by tests.
+  SUPABASE_EXCLUDE: realtime,storage-api,imgproxy,edge-runtime,logflare,vector,supavisor,studio
 
 jobs:
   lint:
@@ -55,7 +61,9 @@ jobs:
       - run: pnpm install --frozen-lockfile
       - run: pnpm test
 
-  e2e:
+  # Local Supabase (AD-5): generated types must match the schema, then the
+  # integration tests run against it. Services the tests do not use are skipped.
+  integration:
     runs-on: ubuntu-latest
     timeout-minutes: 15
     steps:
@@ -66,6 +74,35 @@ jobs:
           node-version: 24
           cache: pnpm
       - run: pnpm install --frozen-lockfile
+      - uses: supabase/setup-cli@v3
+        with:
+          version: ${{ env.SUPABASE_CLI_VERSION }}
+      - run: supabase start -x ${{ env.SUPABASE_EXCLUDE }}
+      - name: Generated types match the schema
+        run: |
+          pnpm db:types
+          git diff --exit-code src/lib/supabase/database.types.ts
+      - run: pnpm db:env
+      - run: pnpm test:integration
+
+  e2e:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v7
+      - uses: pnpm/action-setup@v6
+      - uses: actions/setup-node@v7
+        with:
+          node-version: 24
+          cache: pnpm
+      - run: pnpm install --frozen-lockfile
+      - uses: supabase/setup-cli@v3
+        with:
+          version: ${{ env.SUPABASE_CLI_VERSION }}
+      - run: supabase start -x ${{ env.SUPABASE_EXCLUDE }}
+      # Writes the Supabase URL and keys from `supabase status` to .env.local,
+      # which `next build`, `next start` and Playwright read.
+      - run: pnpm db:env
       - run: pnpm exec playwright install --with-deps chromium
       - run: pnpm build
       - run: pnpm test:e2e

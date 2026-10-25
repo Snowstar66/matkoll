@@ -45,3 +45,6 @@ yarn-error.log*
 .pnpm-debug.log*
 .env*
 !.env.example
+
+# Playwright sessions saved by tests/e2e/global-setup.ts
+tests/e2e/.auth/

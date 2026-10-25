@@ -10,3 +10,9 @@
 - source_spec: `_bmad-output/implementation-artifacts/spec-1-1-projektgrund-med-kontroller.md`
   summary: Komplettera `AGENTS.md` med projektets regler (AD-1-lager, ingångar index.ts/server.ts, env.ts, AI SDK bara i src/server/ai, svenska UI/engelsk kod) och pekare till docs/.
   evidence: Filen innehåller bara Next.js genererade block; agenter som arbetar i repot får ingen projektkontext.
+- source_spec: `_bmad-output/implementation-artifacts/spec-1-2-inloggning-med-engangslank.md`
+  summary: Skydda engångslänken mot e-postskannrar som öppnar länkar i förväg (mellansida med knapp, verifiering på POST).
+  evidence: `/auth/confirm` verifierar på GET. Ej verifierat för Pontus e-postklient; avgörs om första klicket ger "Länken har gått ut eller redan använts".
+- source_spec: `_bmad-output/implementation-artifacts/spec-1-2-inloggning-med-engangslank.md`
+  summary: Integrationstest som kör `users:sync --prune` mot riktig Supabase med isolerade testanvändare.
+  evidence: Bara planeringslogiken är testad; ett trasigt flagg- eller raderingsanrop märks inte. Ett säkert test måste skydda utvecklarens egna användare.
