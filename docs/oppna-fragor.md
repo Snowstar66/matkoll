@@ -16,7 +16,7 @@ Frågor och osäkerheter som samlas under bygget och presenteras för Pontus nä
 | --- | --- | --- | --- |
 | T1 | Klarar ica.se, arla.se och coop.se serverhämtning? | Testas tidigt i Epic 1; läggs till som godkända receptsajter bara om importen fungerar | Brief |
 | T2 | Hur stabilt fyller Claude in Chrome varukorgen på ICA Handla? | Pontus testar efter Epic 7 | Brief |
-| T3 | Klarar Qwen3.6-35B-A3B i LM Studio både bild och JSON-schema, och stängs tänkläget av? | `pnpm eval:ai` mot LM Studio när servern är igång (`lms server start`); måste vara gjort innan Epic 1 räknas som klar | Arkitektur, Story 1.4 |
+| T3 | ~~Klarar Qwen3.6-35B-A3B i LM Studio både bild och JSON-schema, och stängs tänkläget av?~~ **Besvarad 2026-10-25:** ja. Röktestet ger 5 av 6: text, bild, JSON-LD och strikt JSON-schema fungerar, och försök att smuggla in instruktioner ignoreras. Tänkläget stängs av med `reasoning_effort: "none"`. Kvar: Qwen uppskattar en total tid när receptet saknar sådan. | Ingen åtgärd; tiden visas bara som information | Arkitektur, Story 1.4 |
 
 ## Checklista för Pontus (när molnet sätts upp, efter Epic 1–3)
 

@@ -36,10 +36,15 @@ export function createLmStudioTarget(config: LmStudioConfig): ModelTarget {
   return {
     model: provider.chatModel(config.model),
     providerOptions: {
-      // Passed through to the request body. Qwen3.6's chat template reads
-      // enable_thinking; without this the model thinks before every answer,
-      // which costs most of the time budget.
-      [providerName]: { chat_template_kwargs: { enable_thinking: false } },
+      // Passed through to the request body. LM Studio only turns Qwen3.6's
+      // thinking off with reasoning_effort "none": with chat_template_kwargs
+      // alone, the whole answer lands in reasoning_content and content is empty
+      // (found in the Story 1.4 smoke test). enable_thinking is kept for servers
+      // that read the chat template directly.
+      [providerName]: {
+        reasoningEffort: "none",
+        chat_template_kwargs: { enable_thinking: false },
+      },
     },
     // GET /models answers fast even while a model is busy, so a sleeping Mac or
     // a stopped server is found in seconds instead of after the attempt budget.

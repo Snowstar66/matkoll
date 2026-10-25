@@ -1,3 +1,4 @@
+import { normalizeUnit } from "@/features/catalog";
 import type { AiRecipe } from "@/server/ai/schemas";
 
 // Compares a parseRecipe answer with <name>.expected.json. Used by `pnpm eval:ai`
@@ -71,7 +72,7 @@ export function compare(recipe: AiRecipe, expected: Expected): Check[] {
   for (const key of expected.keyIngredients) {
     const names = Array.isArray(key.name) ? key.name : [key.name];
     const line = recipe.ingredients.find((candidate) => names.some((name) => nameMatches(candidate.hint.name, name)));
-    const unitOk = (line?.unit === null ? null : normalize(line?.unit ?? "")) === (key.unit === null ? null : normalize(key.unit));
+    const unitOk = Boolean(line) && sameUnit(line?.unit ?? null, key.unit);
     checks.push({
       name: `Ingrediens "${names[0]}"`,
       ok: Boolean(line) && line?.amount === key.amount && unitOk,
@@ -92,4 +93,17 @@ export function compare(recipe: AiRecipe, expected: Expected): Check[] {
     });
   }
   return checks;
+}
+
+/**
+ * Units compared the way the catalog stores them (normalizeUnit: "burk" and
+ * "förp" are the same), and a plain count equals "st" ("2 ägg" vs "2 st ägg").
+ */
+function sameUnit(actual: string | null, expected: string | null): boolean {
+  const canonical = (unit: string | null) => {
+    if (unit === null) return "st";
+    const { unit: normalized } = normalizeUnit(unit);
+    return normalized ?? unit.trim().toLocaleLowerCase("sv-SE");
+  };
+  return canonical(actual) === canonical(expected);
 }

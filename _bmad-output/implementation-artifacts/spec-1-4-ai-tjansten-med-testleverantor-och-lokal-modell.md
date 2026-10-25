@@ -86,7 +86,7 @@ context:
 - Testuppsättningen har fem påhittade recept (JSON-LD med sidtext, bild, inbakad instruktion, portionsintervall, recept utan tid) och väntar på Pontus bekräftelse (epicens klart-villkor). `pnpm eval:ai` vägrar köra mot mocken.
 
 - Slutverifiering efter granskning: lint, typecheck, 313 Vitest, 5 integrationstester, build, 28 Playwright (`CI=1`). `pnpm db:env` fyller nu i `AI_PROVIDER=lmstudio` och `LMSTUDIO_BASE_URL=http://localhost:1234/v1` lokalt när de saknas, så att `pnpm build` och `pnpm eval:ai` fungerar utan extra steg.
-- **Återstår:** röktestet mot Qwen3.6-35B-A3B i LM Studio (`pnpm eval:ai`). Modellen är laddad men LM Studios API-server var avstängd under hela storyn. Körs när Pontus startat servern; resultatet loggas i arkitekturens memlog. Krävs innan Epic 1 räknas som klar.
+- **Röktest mot Qwen3.6-35B-A3B (gjort 2026-10-25):** första körningen gav 0/6 eftersom LM Studio lade hela svaret i `reasoning_content`. Adaptern skickar nu `reasoning_effort: "none"`, prompten använder första mängden som den står och anger tid bara när receptet gör det, och utvärderingen jämför enheter via `normalizeUnit`. Tredje körningen: 5 av 6 (20–32 s per fall). Kvar: Qwen uppskattar en total tid för fiskgratängen trots att receptet saknar en. Loggat i arkitekturens memlog.
 
 ## Spec Change Log
 

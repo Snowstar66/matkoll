@@ -171,6 +171,8 @@ describe("LM Studio adapter against a fake server", () => {
     expect(body.response_format).toMatchObject({ type: "json_schema", json_schema: { strict: true } });
     expect(body.response_format.json_schema.schema.properties).toHaveProperty("ingredients");
     expect(body.chat_template_kwargs).toEqual({ enable_thinking: false });
+    // LM Studio only turns thinking off with reasoning_effort "none" (smoke test, Story 1.4).
+    expect(body.reasoning_effort).toBe("none");
   });
 
   it("sends the Cloudflare Access headers when they are set", async () => {
