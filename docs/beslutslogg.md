@@ -2,6 +2,16 @@
 
 Beslut som fattats under bygget: vad, varför och vilka alternativ som fanns. Nyaste överst.
 
+## 2026-10-25 – Epics och stories
+
+Epics och stories: `_bmad-output/planning-artifacts/epics.md` (7 epics, 33 stories). Beslut:
+
+- **Briefens sju epics behålls**, så att de stämmer med boardens Epic-fält. Grunden (projekt, inloggning, app-skal, AI-tjänst, katalog) ligger som de fem första storyna i Epic 1. Alternativ: en separat grund-epic – ger ingen användarnytta på egen hand.
+- **Lagningsstatus i biblioteket byggs i Epic 2** (när lagret finns), och filtret "Kan lagas nu" med rangordning i Epic 5. Briefen lägger båda i Epic 5; flytten gör att kärnan (Epic 1–3) visar status direkt.
+- **Receptvyn finns redan i Epic 1** (efter sparning), och portioner, "X av Y hemma" och stegläge kommer i Epic 4.
+- **Story 3.8 förbereder molndriften** (säkerhetskopiering, driftbeskrivning, ett flöde från början till slut i CI) utan Pontus konton.
+- **Tabeller skapas i den story som först behöver dem**, t.ex. butikstabellen först i Epic 7.
+
 ## 2026-10-25 – Arkitektur
 
 Arkitektur: `_bmad-output/planning-artifacts/architecture/architecture-Matkoll-2026-10-25/ARCHITECTURE-SPINE.md` (23 beslut, AD-1–AD-23). Granskad av fyra oberoende granskare; rapporterna ligger i `reviews/`. De viktigaste besluten:
