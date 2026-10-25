@@ -29,7 +29,7 @@
 # - Dev moves story to 'review', then runs code-review (fresh context, different LLM recommended)
 # - Retrospective appends its action items to action_items; the status view surfaces open ones
 generated: 10-25-2026 18:16
-last_updated: 10-25-2026 19:26
+last_updated: 10-25-2026 20:03
 project: Matkoll
 project_key: NOKEY
 tracking_system: file-system
@@ -38,7 +38,7 @@ development_status:
   epic-1: in-progress
   1-1-projektgrund-med-kontroller: review
   1-2-inloggning-med-engångslänk: review
-  1-3-app-skal-navigering-och-designtokens: backlog
+  1-3-app-skal-navigering-och-designtokens: review
   1-4-ai-tjänsten-med-testleverantör-och-lokal-modell: backlog
   1-5-ingredienskatalog-enheter-och-avdelningar: backlog
   1-6-importera-recept-från-inklistrad-text: backlog

@@ -116,9 +116,10 @@ components:
     width: '{spacing.side-menu-width}'
     background: '{colors.surface}'
     active-background: '{colors.mint}'
-    active-text: '{colors.accent}'
+    active-text: '{colors.mint-ink}'
+    active-icon: '{colors.accent}'
   search-field:
-    height: 40px
+    height: '{spacing.tap-min}'
     radius: '{rounded.md}'
     background: '{colors.surface}'
   filter-pill:
@@ -167,7 +168,7 @@ components:
   check-circle:
     size: 26px
     hitArea: '{spacing.tap-min}'
-    border-open: '2px solid {colors.border}'
+    border-open: '2px solid {colors.ink-3}'
     fill-done: '{colors.accent}'
   location-card:
     height: 100px
@@ -222,7 +223,7 @@ Ljust läge följer `docs/ux/ux-spec.md` exakt. Mörkt läge är härlett ur sam
 
 - **Bakgrund (`{colors.bg}`)** är sidbakgrunden. Den är ljust grågrön så att vita kort syns utan skuggor.
 - **Yta (`{colors.surface}`)** används för kort, listor, flikfält och ark.
-- **Text (`{colors.ink}`, `{colors.ink-2}`, `{colors.ink-3}`)**: `ink` för rubriker och varunamn, `ink-2` för brödtext och mängder, `ink-3` för metadata och inaktiva flikar. `ink-3` får bara ligga på `surface` (4,6:1). På `bg` når den bara 4,3:1, så text direkt på sidbakgrunden använder `ink-2`.
+- **Text (`{colors.ink}`, `{colors.ink-2}`, `{colors.ink-3}`)**: `ink` för rubriker och varunamn, `ink-2` för brödtext och mängder, `ink-3` för metadata, inaktiva flikar och kanter på kontroller (omarkerad bock, inmatningsfält), som behöver minst 3:1 mot bakgrunden (WCAG 1.4.11). `ink-3` får bara ligga på `surface` (4,6:1). På `bg` når den bara 4,3:1, så text direkt på sidbakgrunden använder `ink-2`.
 - **Accent (`{colors.accent}`)** är den enda starka färgen: primärknappar, aktiv flik, valt filter, bocken på avbockade poster och ramen på valt platskort. Den används inte som dekor.
 - **Mint (`{colors.mint}` / `{colors.mint-ink}`)** betyder "finns" eller "går att laga": "Kan lagas nu", "Finns hemma"-etiketter och platskortet Kyl.
 - **Ljusblått (`{colors.sky}` / `{colors.sky-ink}`)** betyder "saknas" eller "obs": "Saknar N varor", blå ring på saknade ingredienser, sekundärknappar, kameraknappen, platskortet Frys och alla varnings- och felmeddelanden.
@@ -269,7 +270,7 @@ Mjuka, generösa hörn enligt `rounded`-tokens och komponenternas tokens ovan. B
 Samma komponenter, i samma ordning och med samma namn, finns i `EXPERIENCE.md` under Component Patterns. Tokennyckeln står inom parentes.
 
 - **Flikfält** (`tab-bar`): fyra flikar (Recept, Matsedel, Lista, Hemma) med ikon och etikett. Aktiv flik i `{colors.accent}`, övriga i `{colors.ink-3}`.
-- **Sidomeny** (`side-menu`): samma fyra mål som flikfältet, i en lista, plus Inställningar längst ned. Aktivt mål har `{colors.mint}`-bakgrund och `{colors.accent}`-text.
+- **Sidomeny** (`side-menu`): samma fyra mål som flikfältet, i en lista, plus Inställningar längst ned. Aktivt mål har `{colors.mint}`-bakgrund, `{colors.mint-ink}`-text och ikon i `{colors.accent}` (accent på mint ger bara 4,1:1).
 - **Sökfält** (`search-field`): vitt fält med förstoringsglas och platshållartext i `{colors.ink-3}`.
 - **Filterpiller** (`filter-pill`): Alla, Favoriter, Kan lagas nu. Valt piller fylls med `{colors.accent}`.
 - **Receptrad** (`recipe-row`): kort med bild (`{spacing.thumb-list}` i kvadrat), titel i `{typography.row-title}`, "35 min · 4 portioner" i `{typography.meta}` och en statusetikett.

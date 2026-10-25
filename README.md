@@ -21,7 +21,7 @@ Logga in på `http://localhost:3000/logga-in`. Länken hamnar i Mailpit på `htt
 | --- | --- |
 | `pnpm lint` | ESLint, inklusive lagerreglerna (AD-1) |
 | `pnpm typecheck` | Genererar Next-typer och kör `tsc --noEmit` |
-| `pnpm test` | Vitest (domain-tester, miljövalidering, lagerreglerna) |
+| `pnpm test` | Vitest (domain-tester, miljövalidering, lagerreglerna, designtokens och komponenttester) |
 | `pnpm test:integration` | Vitest mot lokal Supabase (stängd registrering, `users:sync`). Kräver `pnpm db:start` och `pnpm db:env` |
 | `pnpm build` | Produktionsbygge |
 | `pnpm test:e2e` | Playwright mot `pnpm dev` på port 3100 (`CI=1` kör `pnpm start`, så bygg först). Kräver lokal Supabase och `pnpm db:env`. Testanvändaren `e2e@matkoll.test` skapas med `users:sync` och loggas in via `/auth/confirm` i `tests/e2e/global-setup.ts`. Första gången: `pnpm exec playwright install chromium` |
@@ -29,6 +29,25 @@ Logga in på `http://localhost:3000/logga-in`. Länken hamnar i Mailpit på `htt
 | `pnpm db:env` | Skriver `NEXT_PUBLIC_SUPABASE_URL`, `NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY` och `SUPABASE_SERVICE_ROLE_KEY` från `supabase status` till `.env.local` |
 | `pnpm db:types` | Genererar `src/lib/supabase/database.types.ts`; körs efter varje migration (AD-5) |
 | `pnpm users:sync` | Skapar användarna i `ALLOWED_EMAILS` med service role (`--prune` tar bort övriga) |
+
+### Utseende och byggstenar
+
+Färger, typografi, radier och mått från `DESIGN.md` finns som CSS-variabler i `src/app/globals.css`, med mörka värden under `prefers-color-scheme: dark`, och mappas till Tailwind-klasser med `@theme inline` (AD-17). Tailwinds egna färger, radier och textstorlekar är bortplockade, så bara tokens går att använda: `bg-surface`, `text-ink-2`, `bg-accent`, `rounded-lg`, `text-page-title`, `h-button`, `size-tap`, `max-w-content` och brytpunkten `desktop:` (1024 px). Hex-värden får bara stå i `globals.css`; `tests/design/no-hex.test.ts` stoppar dem i resten av `src/`, och `tests/design/contrast.test.ts` kontrollerar att textparen når 4,5:1 i båda lägena.
+
+De gemensamma byggstenarna ligger i `src/components/` och följer Component Patterns i `EXPERIENCE.md`. Använd dem i stället för egna varianter:
+
+| Byggsten | Fil |
+| --- | --- |
+| App-skal: flikfält, sidomeny, sidrubrik, bevarad scrollposition | `app-shell/` (layouten i `src/app/(app)/layout.tsx`) |
+| `Button` (primär, sekundär, text) och `buttonClasses` för länkar | `button.tsx` |
+| `Input`, `FieldLabel`, `FieldError` | `field.tsx` |
+| `FixedAction`, `FilterPills`, `SearchField` (200 ms), `Stepper` (minst 1) | `fixed-action.tsx`, `filter-pills.tsx`, `search-field.tsx`, `stepper.tsx` |
+| `StatusBadge`, `AiBadge`, `HeartToggle`, `CheckCircle` | `badges.tsx`, `heart-toggle.tsx`, `check-circle.tsx` |
+| `Sheet` (ark, med "Släng ändringarna?" vid `isDirty`) | `sheet.tsx` |
+| `Notice`, `ToastProvider`/`useToast`, `Skeleton` (efter 300 ms), `EmptyState` | `notice.tsx`, `toast.tsx`, `skeleton.tsx`, `empty-state.tsx` |
+| Ikoner (egna SVG, `aria-hidden`) | `icons.tsx` |
+
+Komponenttester (`*.test.tsx`) körs i jsdom med Testing Library, övriga Vitest-tester i node.
 
 ### Före commit
 

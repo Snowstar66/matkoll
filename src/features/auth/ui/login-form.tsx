@@ -1,6 +1,9 @@
 "use client";
 
 import { type FormEvent, useActionState, useId, useState, useSyncExternalStore } from "react";
+import { Button } from "@/components/button";
+import { FieldError, FieldLabel, Input } from "@/components/field";
+import { Notice } from "@/components/notice";
 import { loginFieldErrors, loginSchema } from "../domain/login-schema";
 import { sendMagicLink, type SendMagicLinkState } from "../actions/send-magic-link";
 
@@ -50,12 +53,10 @@ export function LoginForm({ next, notice }: LoginFormProps) {
 
   return (
     <form action={formAction} onSubmit={validateBeforeSubmit} noValidate className="flex w-full flex-col gap-3">
-      {showNotice ? <p role="alert">{notice}</p> : null}
+      {showNotice ? <Notice role="alert">{notice}</Notice> : null}
       {next ? <input type="hidden" name="next" value={next} /> : null}
-      <label htmlFor={emailId} className="font-medium">
-        E-postadress
-      </label>
-      <input
+      <FieldLabel htmlFor={emailId}>E-postadress</FieldLabel>
+      <Input
         id={emailId}
         name="email"
         type="email"
@@ -65,21 +66,16 @@ export function LoginForm({ next, notice }: LoginFormProps) {
         aria-invalid={fieldError ? true : undefined}
         aria-describedby={fieldError ? errorId : undefined}
         onChange={() => setClientError(null)}
-        className="min-h-11 w-full rounded-md border border-current/30 bg-transparent px-3 text-base"
       />
       {fieldError ? (
-        <p id={errorId} role="alert">
+        <FieldError id={errorId} role="alert">
           {fieldError}
-        </p>
+        </FieldError>
       ) : null}
-      <button
-        type="submit"
-        disabled={pending || !hydrated}
-        className="min-h-11 rounded-md border border-current px-4 text-base font-medium disabled:opacity-60"
-      >
+      <Button type="submit" fullWidth disabled={pending || !hydrated}>
         Skicka länk
-      </button>
-      <p role="status" aria-live="polite">
+      </Button>
+      <p role="status" aria-live="polite" className="text-body text-ink-2">
         {sent ? sentMessage : null}
       </p>
     </form>

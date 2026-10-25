@@ -16,3 +16,6 @@
 - source_spec: `_bmad-output/implementation-artifacts/spec-1-2-inloggning-med-engangslank.md`
   summary: Integrationstest som kör `users:sync --prune` mot riktig Supabase med isolerade testanvändare.
   evidence: Bara planeringslogiken är testad; ett trasigt flagg- eller raderingsanrop märks inte. Ett säkert test måste skydda utvecklarens egna användare.
+- source_spec: `_bmad-output/implementation-artifacts/spec-1-3-app-skal-navigering-och-designtokens.md`
+  summary: E2E-test i riktig webbläsare av Sheet (Esc, cancel/stängningsbegäran, svep, "Släng ändringarna?") när första riktiga användningen finns i Story 1.6.
+  evidence: jsdom saknar `showModal` och stängningsbegäranden; tester körs mot en polyfill.

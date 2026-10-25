@@ -3,6 +3,9 @@ import { defineConfig } from "vitest/config";
 
 const fromRoot = (path: string) => fileURLToPath(new URL(path, import.meta.url));
 
+// Integration tests need local Supabase and run with `pnpm test:integration`.
+const exclude = ["node_modules/**", ".next/**", "tests/e2e/**", "tests/integration/**"];
+
 export default defineConfig({
   resolve: {
     alias: {
@@ -11,9 +14,27 @@ export default defineConfig({
     },
   },
   test: {
-    environment: "node",
-    include: ["src/**/*.test.{ts,tsx}", "tests/**/*.test.{ts,tsx}"],
-    // Integration tests need local Supabase and run with `pnpm test:integration`.
-    exclude: ["node_modules/**", ".next/**", "tests/e2e/**", "tests/integration/**"],
+    projects: [
+      {
+        extends: true,
+        test: {
+          name: "node",
+          environment: "node",
+          include: ["src/**/*.test.ts", "tests/**/*.test.ts"],
+          exclude,
+        },
+      },
+      {
+        // Component tests (*.test.tsx) run in jsdom with Testing Library.
+        extends: true,
+        test: {
+          name: "jsdom",
+          environment: "jsdom",
+          include: ["src/**/*.test.tsx", "tests/**/*.test.tsx"],
+          exclude,
+          setupFiles: ["./tests/setup/jsdom.ts"],
+        },
+      },
+    ],
   },
 });

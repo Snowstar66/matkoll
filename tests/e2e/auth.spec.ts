@@ -12,6 +12,8 @@ import {
 } from "./support";
 
 const sentText = "Om adressen har åtkomst får du en länk";
+// Shown only once the page has checked the session (inside <Suspense>).
+const emptyLibrary = "Inga recept än.";
 
 // The tests in this file run in order (the default). They share the E2E user, and a
 // new magic link for a user replaces the previous one, so they must not run in parallel.
@@ -64,7 +66,7 @@ test.describe("without a session", () => {
     const otherPage = await otherBrowser.newPage();
     await otherPage.goto(href!);
     await expect(otherPage).toHaveURL(/\/recept\?flik=x$/);
-    await expect(otherPage.getByText(`Inloggad som ${e2eEmail}`)).toBeVisible();
+    await expect(otherPage.getByText(emptyLibrary)).toBeVisible();
     await otherBrowser.close();
   });
 
@@ -113,22 +115,25 @@ test.describe("without a session", () => {
 test.describe("signed in", () => {
   test.use({ storageState: userStorageState });
 
-  test("the recipe page shows the signed-in address", async ({ page }) => {
+  test("the start page is the recipe page", async ({ page }) => {
     await page.goto("/");
     await expect(page).toHaveURL(/\/recept$/);
     await expect(page.getByRole("heading", { level: 1, name: "Recept" })).toBeVisible();
-    await expect(page.getByText(`Inloggad som ${e2eEmail}`)).toBeVisible();
+    await expect(page.getByText(emptyLibrary)).toBeVisible();
   });
 });
 
 test.describe("session for an address outside ALLOWED_EMAILS", () => {
   test.use({ storageState: outsiderStorageState });
 
-  test("a page sends the user to the login page", async ({ page }) => {
-    await page.goto("/recept");
-    await expect(page).toHaveURL(/\/logga-in/);
-    await expect(page.getByText("Inloggad som")).toHaveCount(0);
-  });
+  for (const path of ["/recept", "/matsedel", "/lista", "/hemma", "/installningar"]) {
+    test(`${path} sends the user to the login page`, async ({ page }) => {
+      await page.goto(path);
+      await expect(page).toHaveURL(new RegExp(`/logga-in\\?next=${encodeURIComponent(path)}$`));
+      await expect(page.getByRole("heading", { level: 1, name: "Logga in" })).toBeVisible();
+      await expect(page.getByText(emptyLibrary)).toHaveCount(0);
+    });
+  }
 });
 
 test.describe("session refresh", () => {
@@ -164,7 +169,7 @@ test.describe("session refresh", () => {
 
     await page.reload();
     await expect(page).toHaveURL(/\/recept$/);
-    await expect(page.getByText(`Inloggad som ${e2eEmail}`)).toBeVisible();
+    await expect(page.getByText(emptyLibrary)).toBeVisible();
 
     const refreshed = await sessionCookie(context);
     expect(refreshed.session.access_token).not.toBe(session.access_token);

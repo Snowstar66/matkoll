@@ -1,25 +1,229 @@
 @import "tailwindcss";
 
-/* Placeholder tokens from the starter; DESIGN.md tokens arrive in Story 1.3. */
+/*
+ * Design tokens from DESIGN.md (AD-17). This is the only file in src/ with colour
+ * values; components use the Tailwind classes mapped below (bg-surface, text-ink-2,
+ * rounded-lg, text-page-title, h-button …) or var(--token).
+ * Dark values follow the system setting; there is no switch.
+ */
 :root {
-  --background: #ffffff;
-  --foreground: #171717;
-}
+  color-scheme: light dark;
 
-@theme inline {
-  --color-background: var(--background);
-  --color-foreground: var(--foreground);
+  /* Colours, light */
+  --bg: #F5F7F4;
+  --surface: #FFFFFF;
+  --ink: #1B2420;
+  --ink-2: #56635D;
+  --ink-3: #6B7872;
+  --hairline: #EEF1EF;
+  --border: #E3E8E4;
+  --accent: #3E7C62;
+  --on-accent: #FFFFFF;
+  --mint: #DDEFE5;
+  --mint-ink: #2C5E48;
+  --sky: #DCE9F6;
+  --sky-ink: #2E5A85;
+  --sand: #F1ECE2;
+  --sand-ink: #6E5B3E;
+  /* Veil behind sheets and dialogs: 40 % ink (DESIGN.md, Elevation & Depth). */
+  --scrim: color-mix(in srgb, var(--ink) 40%, transparent);
+
+  /* Typography */
+  --font-family: -apple-system, BlinkMacSystemFont, "SF Pro Text", Inter, "Helvetica Neue", Arial, sans-serif;
+  --page-title-size: 34px;
+  --page-title-weight: 700;
+  --page-title-tracking: -0.5px;
+  --page-title-leading: 1.1;
+  --recipe-title-size: 28px;
+  --recipe-title-weight: 700;
+  --recipe-title-tracking: -0.4px;
+  --recipe-title-leading: 1.15;
+  --step-size: 24px;
+  --step-weight: 500;
+  --step-leading: 1.4;
+  --row-title-size: 17px;
+  --row-title-weight: 600;
+  --row-title-leading: 1.25;
+  --body-size: 16px;
+  --body-weight: 400;
+  --body-leading: 1.45;
+  --meta-size: 14px;
+  --meta-weight: 400;
+  --meta-leading: 1.35;
+  --section-label-size: 13px;
+  --section-label-weight: 600;
+  --section-label-tracking: 0.4px;
+  --badge-size: 12px;
+  --badge-weight: 600;
+  --tab-label-size: 11px;
+  --tab-label-weight: 500;
+
+  /* Corners */
+  --rounded-sm: 10px;
+  --rounded-md: 14px;
+  --rounded-lg: 18px;
+  --rounded-xl: 24px;
+  --rounded-pill: 17px;
+  --rounded-full: 9999px;
+
+  /* Spacing and sizes (the 4–24 px steps are Tailwind's 1–6; 32 px is 8) */
+  --gutter-mobile: 20px;
+  /* Side padding that also keeps clear of the iPhone's side safe areas in landscape. */
+  --gutter-page: max(var(--gutter-mobile), env(safe-area-inset-left), env(safe-area-inset-right));
+  --header-top-mobile: 56px;
+  --tap-min: 44px;
+  --tab-bar-height: 84px;
+  --side-menu-width: 240px;
+  --content-max: 720px;
+  --dialog-max: 560px;
+  --thumb-list: 72px;
+  --button-height: 52px;
+  --fixed-action-gap: 12px;
 }
 
 @media (prefers-color-scheme: dark) {
   :root {
-    --background: #0a0a0a;
-    --foreground: #ededed;
+    --bg: #121714;
+    --surface: #1B211E;
+    --ink: #E8EDEA;
+    --ink-2: #A9B5AF;
+    --ink-3: #8E9A94;
+    --hairline: #262E2A;
+    --border: #2F3833;
+    --accent: #6FB394;
+    --on-accent: #0F1A15;
+    --mint: #1F3A2D;
+    --mint-ink: #A8D9BF;
+    --sky: #1E3247;
+    --sky-ink: #A9C9EA;
+    --sand: #3A3326;
+    --sand-ink: #DCC9A6;
+    /* Dark ink is light, so the veil darkens with black instead. */
+    --scrim: color-mix(in srgb, #000000 60%, transparent);
   }
 }
 
-body {
-  background: var(--background);
-  color: var(--foreground);
-  font-family: system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
+/* Only DESIGN.md tokens: Tailwind's own palette, radii and text sizes are removed (no red anywhere). */
+@theme {
+  --color-*: initial;
+  --radius-*: initial;
+  --text-*: initial;
+  /* No shadows (DESIGN.md, Elevation & Depth). */
+  --shadow-*: initial;
+  --inset-shadow-*: initial;
+  --drop-shadow-*: initial;
+  --text-shadow-*: initial;
+  --breakpoint-desktop: 64rem; /* 1024 px */
+}
+
+@theme inline {
+  --color-bg: var(--bg);
+  --color-surface: var(--surface);
+  --color-ink: var(--ink);
+  --color-ink-2: var(--ink-2);
+  --color-ink-3: var(--ink-3);
+  --color-hairline: var(--hairline);
+  --color-border: var(--border);
+  --color-accent: var(--accent);
+  --color-on-accent: var(--on-accent);
+  --color-mint: var(--mint);
+  --color-mint-ink: var(--mint-ink);
+  --color-sky: var(--sky);
+  --color-sky-ink: var(--sky-ink);
+  --color-sand: var(--sand);
+  --color-sand-ink: var(--sand-ink);
+
+  --font-sans: var(--font-family);
+
+  --text-page-title: var(--page-title-size);
+  --text-page-title--font-weight: var(--page-title-weight);
+  --text-page-title--letter-spacing: var(--page-title-tracking);
+  --text-page-title--line-height: var(--page-title-leading);
+  --text-recipe-title: var(--recipe-title-size);
+  --text-recipe-title--font-weight: var(--recipe-title-weight);
+  --text-recipe-title--letter-spacing: var(--recipe-title-tracking);
+  --text-recipe-title--line-height: var(--recipe-title-leading);
+  --text-step: var(--step-size);
+  --text-step--font-weight: var(--step-weight);
+  --text-step--line-height: var(--step-leading);
+  --text-row-title: var(--row-title-size);
+  --text-row-title--font-weight: var(--row-title-weight);
+  --text-row-title--line-height: var(--row-title-leading);
+  --text-body: var(--body-size);
+  --text-body--font-weight: var(--body-weight);
+  --text-body--line-height: var(--body-leading);
+  --text-meta: var(--meta-size);
+  --text-meta--font-weight: var(--meta-weight);
+  --text-meta--line-height: var(--meta-leading);
+  --text-section-label: var(--section-label-size);
+  --text-section-label--font-weight: var(--section-label-weight);
+  --text-section-label--letter-spacing: var(--section-label-tracking);
+  --text-badge: var(--badge-size);
+  --text-badge--font-weight: var(--badge-weight);
+  --text-tab-label: var(--tab-label-size);
+  --text-tab-label--font-weight: var(--tab-label-weight);
+
+  --radius-sm: var(--rounded-sm);
+  --radius-md: var(--rounded-md);
+  --radius-lg: var(--rounded-lg);
+  --radius-xl: var(--rounded-xl);
+  --radius-pill: var(--rounded-pill);
+
+  --spacing-gutter: var(--gutter-mobile);
+  --spacing-page: var(--gutter-page);
+  --spacing-header-top: var(--header-top-mobile);
+  --spacing-tap: var(--tap-min);
+  --spacing-tab-bar: var(--tab-bar-height);
+  --spacing-side-menu: var(--side-menu-width);
+  --spacing-thumb: var(--thumb-list);
+  --spacing-button: var(--button-height);
+  --spacing-fixed-gap: var(--fixed-action-gap);
+
+  --container-content: var(--content-max);
+  --container-dialog: var(--dialog-max);
+}
+
+@layer base {
+  html {
+    -webkit-text-size-adjust: 100%;
+  }
+
+  body {
+    background-color: var(--bg);
+    color: var(--ink);
+    font-family: var(--font-family);
+    font-size: var(--body-size);
+    line-height: var(--body-leading);
+  }
+
+  /* Visible focus ring in the accent colour (EXPERIENCE.md, Accessibility Floor). */
+  :focus-visible {
+    outline: 2px solid var(--accent);
+    outline-offset: 2px;
+  }
+
+  /* No shadows anywhere; sheets and dialogs dim the page with a veil instead. */
+  dialog::backdrop {
+    background-color: var(--scrim);
+  }
+}
+
+/* Section labels are uppercase (DESIGN.md, typography.section-label). */
+@layer utilities {
+  .text-section-label {
+    text-transform: uppercase;
+  }
+}
+
+/* "Minska rörelse": sheets, transitions and skeleton pulses stand still. */
+@media (prefers-reduced-motion: reduce) {
+  *,
+  ::before,
+  ::after,
+  ::backdrop {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+    scroll-behavior: auto !important;
+  }
 }
