@@ -8,7 +8,7 @@
 
 import { execFileSync } from "node:child_process";
 import { existsSync, readFileSync, readdirSync } from "node:fs";
-import { join } from "node:path";
+import { join, relative } from "node:path";
 
 const OWNER = "Snowstar66";
 const REPO = "Snowstar66/matkoll";
@@ -16,6 +16,8 @@ const PROJECT_NUMBER = "1";
 const ROOT = new URL("..", import.meta.url).pathname;
 const SPRINT_STATUS = join(ROOT, "_bmad-output/implementation-artifacts/sprint-status.yaml");
 const PLANNING_DIR = join(ROOT, "_bmad-output/planning-artifacts");
+const IMPLEMENTATION_DIR = join(ROOT, "_bmad-output/implementation-artifacts");
+const BLOB = `https://github.com/${REPO}/blob/main`;
 
 // BMAD story status -> board column
 const COLUMN_FOR_STATUS = {
@@ -98,23 +100,45 @@ function readStoryStatuses() {
   return stories;
 }
 
-// Story titles come from the epics document(s): "### Story 1.2: Title".
-function readStoryTitles() {
-  const titles = new Map();
+// Story sections come from the epics document(s): "### Story 1.2: Title" up to the next heading of the same or higher level.
+function readStorySections() {
+  const sections = new Map();
   const walk = (dir) => {
     if (!existsSync(dir)) return;
     for (const entry of readdirSync(dir, { withFileTypes: true })) {
       const p = join(dir, entry.name);
       if (entry.isDirectory()) walk(p);
       else if (entry.name.endsWith(".md")) {
-        for (const m of readFileSync(p, "utf8").matchAll(/^#+\s*Story\s+(\d+)\.(\d+):\s*(.+)$/gm)) {
-          titles.set(`${m[1]}.${m[2]}`, m[3].trim());
-        }
+        const lines = readFileSync(p, "utf8").split("\n");
+        lines.forEach((line, i) => {
+          const m = line.match(/^(#+)\s*Story\s+(\d+)\.(\d+):\s*(.+)$/);
+          if (!m) return;
+          const level = m[1].length;
+          let end = lines.findIndex((l, j) => j > i && /^#+\s/.test(l) && l.match(/^#+/)[0].length <= level);
+          if (end === -1) end = lines.length;
+          sections.set(`${m[2]}.${m[3]}`, {
+            title: m[4].trim(),
+            text: lines.slice(i + 1, end).join("\n").trim(),
+            file: relative(ROOT, p),
+          });
+        });
       }
     }
   };
   walk(PLANNING_DIR);
-  return titles;
+  return sections;
+}
+
+function storyBody(s, section) {
+  const parts = [];
+  if (section?.text) parts.push(section.text);
+  const links = [];
+  if (section) links.push(`[Epics och stories](${BLOB}/${section.file})`);
+  const storyFile = existsSync(IMPLEMENTATION_DIR) && readdirSync(IMPLEMENTATION_DIR).find((f) => f.startsWith(`${s.key}`) && f.endsWith(".md"));
+  if (storyFile) links.push(`[Story-fil](${BLOB}/_bmad-output/implementation-artifacts/${storyFile})`);
+  parts.push(`---\nStory \`${s.key}\` från BMAD.${links.length ? " " + links.join(" · ") : ""}`);
+  parts.push(`<!-- bmad-story: ${s.key} -->`);
+  return parts.join("\n\n");
 }
 
 function epicOption(project, epicNumber) {
@@ -124,7 +148,7 @@ function epicOption(project, epicNumber) {
 function sync() {
   const project = loadProject();
   const stories = readStoryStatuses();
-  const titles = readStoryTitles();
+  const sections = readStorySections();
   const issues = ghJson("issue", "list", "--repo", REPO, "--label", "story", "--state", "all",
     "--limit", "500", "--json", "number,body,state");
   const issueByKey = new Map();
@@ -138,12 +162,16 @@ function sync() {
     const column = COLUMN_FOR_STATUS[s.status];
     if (!column) { log.push(`? ${s.key}: unknown status "${s.status}", skipped`); continue; }
     let issue = issueByKey.get(s.key);
+    const section = sections.get(`${s.epic}.${s.num}`);
+    const body = storyBody(s, section);
     if (!issue) {
-      const title = `${s.epic}.${s.num} ${titles.get(`${s.epic}.${s.num}`) ?? s.key}`;
-      const body = `Story \`${s.key}\` från BMAD.\n\nDetaljer: \`_bmad-output/planning-artifacts/\` och story-filen när den skapats.\n\n<!-- bmad-story: ${s.key} -->`;
+      const title = `${s.epic}.${s.num} ${section?.title ?? s.key}`;
       const url = gh("issue", "create", "--repo", REPO, "--title", title, "--label", "story", "--body", body);
       issue = { number: Number(url.split("/").pop()), state: "OPEN" };
       log.push(`+ ${title}`);
+    } else if (issue.body.trim() !== body) {
+      gh("issue", "edit", String(issue.number), "--repo", REPO, "--body", body);
+      log.push(`✎ #${issue.number} ${s.key}: description updated`);
     }
     const item = ensureItem(project, issue.number);
     const epicName = epicOption(project, s.epic);
