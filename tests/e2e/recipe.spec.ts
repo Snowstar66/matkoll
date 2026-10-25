@@ -76,8 +76,9 @@ test("Spara recept saves the recipe and opens the recipe view", async ({ page })
   // The recipe has no time, so only the servings.
   await expect(page.getByTestId("recipe-meta")).toHaveText("4 portioner");
   await expect(page.getByText("Källa: Inklistrad text")).toBeVisible();
-  // No image address from pasted text: the placeholder takes its place.
-  await expect(page.getByTestId("recipe-image-placeholder")).toBeVisible();
+  // No image address from pasted text: the placeholder takes its place. The
+  // library stays mounted but hidden after navigation, so only visible ones count.
+  await expect(page.getByTestId("recipe-image-placeholder").filter({ visible: true })).toHaveCount(1);
 
   const ingredients = page.getByRole("region", { name: "Ingredienser" });
   const lines = ingredients.getByTestId("recipe-view-line");
