@@ -2,6 +2,12 @@
 
 Beslut som fattats under bygget: vad, varför och vilka alternativ som fanns. Nyaste överst.
 
+## 2026-10-25 – Grenskydd på main
+
+- **Beslut:** `main` är skyddad. Lint, typecheck, test, e2e och gitleaks måste passera, grenen måste vara à jour, allt går via PR och skyddet gäller även administratörer. Force push och radering är avstängda. Inga godkännanden krävs på GitHub (en användare); kodgranskningen görs av BMAD:s granskningssteg (AD-23).
+- **Följd:** även dokumentändringar går via en gren och PR. Planeringsdokumenten committades till `main` innan skyddet sattes.
+- **Alternativ:** skydd utan att gälla administratörer – då kan en push gå förbi kontrollerna utan att det märks.
+
 ## 2026-10-25 – Epics och stories
 
 Epics och stories: `_bmad-output/planning-artifacts/epics.md` (7 epics, 33 stories). Beslut:

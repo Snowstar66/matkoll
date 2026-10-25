@@ -80,7 +80,7 @@ Inget kod finns ännu. Referensscaffold (samma flaggor) ligger i `/private/tmp/c
 - CI-actions på senaste huvudversion (`checkout@v7`, `setup-node@v7`, `pnpm/action-setup@v6` som stöder pnpm 12, `upload-artifact@v7`); alla taggar verifierade mot GitHub.
 - `gitleaks` 8.30.1 installerades i `~/.local/bin` efter kontroll mot releasens SHA-256.
 - Verifierat: lint, typecheck, 31 Vitest-tester (inkl. 26 lintfall), build, Playwright (`CI=1`), och lefthook stoppar en stagad hemlighet.
-- Kvar: grenskydd på `main` sätts när CI-jobben har körts en gång på GitHub (efter push av grenen).
+- Första CI-körningen på GitHub (PR #39): alla fem jobben gröna. Grenskydd på `main` satt med de fem kontrollerna som obligatoriska.
 
 ## Spec Change Log
 
