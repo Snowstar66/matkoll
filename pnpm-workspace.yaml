@@ -1,0 +1,5 @@
+allowBuilds:
+  sharp: false
+  unrs-resolver: false
+  # Hooks are installed by the "prepare" script instead.
+  lefthook: false

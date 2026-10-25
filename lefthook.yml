@@ -1,0 +1,10 @@
+# Pre-commit checks (AD-23). Requires gitleaks on PATH (see README).
+pre-commit:
+  piped: true
+  jobs:
+    - name: gitleaks
+      run: gitleaks git --pre-commit --staged --redact --verbose
+
+    - name: eslint
+      glob: "*.{js,jsx,mjs,cjs,ts,tsx,mts,cts}"
+      run: pnpm exec eslint --no-warn-ignored {staged_files}

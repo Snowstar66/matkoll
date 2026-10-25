@@ -30,3 +30,18 @@ test-results/
 
 # Original requirements archive (content lives in docs/)
 krav/
+
+# From create-next-app (merged)
+/.pnp
+.pnp.*
+.yarn/*
+!.yarn/patches
+!.yarn/plugins
+!.yarn/releases
+!.yarn/versions
+*.pem
+yarn-debug.log*
+yarn-error.log*
+.pnpm-debug.log*
+.env*
+!.env.example
