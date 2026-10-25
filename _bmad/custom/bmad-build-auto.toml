@@ -1,0 +1,7 @@
+# Matkoll: keep the GitHub board in sync and follow the autonomy rules.
+[workflow]
+persistent_facts = [
+  "file:docs/autonomi.md",
+  "The GitHub Project board (https://github.com/users/Snowstar66/projects/1) mirrors sprint-status.yaml. Whenever a story status changes in sprint-status.yaml, run `node scripts/board.mjs sync` from the project root so the board stays current.",
+]
+on_complete = "Run `node scripts/board.mjs sync` from the project root and report any board changes in one line."

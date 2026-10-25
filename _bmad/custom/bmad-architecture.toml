@@ -1,0 +1,6 @@
+# Matkoll: work autonomously from the brief; log decisions instead of asking.
+[workflow]
+persistent_facts = [
+  "file:docs/autonomi.md",
+  "file:docs/brief.md",
+]
