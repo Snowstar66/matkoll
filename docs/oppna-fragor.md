@@ -16,3 +16,13 @@ Frågor och osäkerheter som samlas under bygget och presenteras för Pontus nä
 | --- | --- | --- | --- |
 | T1 | Klarar ica.se, arla.se och coop.se serverhämtning? | Testas tidigt i Epic 1; läggs till som godkända receptsajter bara om importen fungerar | Brief |
 | T2 | Hur stabilt fyller Claude in Chrome varukorgen på ICA Handla? | Pontus testar efter Epic 7 | Brief |
+| T3 | Klarar Qwen3.6-35B-A3B i LM Studio både bild och JSON-schema? | Röktest i Epic 1 innan den räknas som klar | Arkitektur |
+
+## Checklista för Pontus (när molnet sätts upp, efter Epic 1–3)
+
+- Skapa Vercel-projektet `matkoll` (region `arn1`) och Supabase-projektet `matkoll` (region `eu-north-1`), och lägg in miljövariablerna enligt `.env.example`.
+- I Supabase: stäng av registrering, sätt Site URL och redirect-URL, lägg in e-postmallen för engångslänken, och överväg egen SMTP (Supabase inbyggda e-post har låg gräns).
+- Kör `pnpm users:sync` mot molnet så att din e-post finns som användare.
+- Lägg in hemligheten för säkerhetskopians lösenfras i GitHub.
+- Sätt upp Cloudflare Tunnel och Access (kräver domän) och lägg in tokenvariablerna.
+- Godkänn första publiceringen i produktion.

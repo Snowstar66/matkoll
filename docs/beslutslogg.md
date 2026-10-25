@@ -2,6 +2,22 @@
 
 Beslut som fattats under bygget: vad, varför och vilka alternativ som fanns. Nyaste överst.
 
+## 2026-10-25 – Arkitektur
+
+Arkitektur: `_bmad-output/planning-artifacts/architecture/architecture-Matkoll-2026-10-25/ARCHITECTURE-SPINE.md` (23 beslut, AD-1–AD-23). Granskad av fyra oberoende granskare; rapporterna ligger i `reviews/`. De viktigaste besluten:
+
+- **Modulär monolit** med en modul per område (katalog, recept, lager, matsedel, inköpslista, förslag, inställningar). Varje tabell har en ägarmodul. Alternativ: lager per teknik (alla sidor, all databaskod) – ger mer koppling mellan områden.
+- **Inköpslistan räknas fram vid varje visning** från matsedeln och lagret; bara bockar, ändrade mängder, dolda poster och egna varor sparas. Varför: listan kan aldrig bli inaktuell (FR-18). Alternativ: lagrad lista som byggs om vid ändring (addendum) – risk för glapp.
+- **"Finns hemma" räknas på ett ställe** (`coverage`, `recipeStatus`), så att bibliotek, matsedel, receptvy och lista är överens. En matsedelsrätt kan visa "Kan lagas nu" medan listan föreslår samma vara när två rätter delar den; det är avsiktligt.
+- **Förhandsgranskning och bildanalys skriver inget.** Nya katalogingredienser skapas först när Pontus sparar eller bekräftar (FR-6, FR-25).
+- **Inloggning:** registrering avstängd i Supabase och e-postadressen kontrolleras mot tillåtelselistan vid varje anrop. Varför: den publika nyckeln gör annars att vem som helst kan skapa konto och nå AI:n på Macen.
+- **Recept med inbyggd receptdata (JSON-LD) tolkas ändå av AI:n.** Varför: koket.se blandar in rubriker och tasteline.com saknar mängder.
+- **Okänd enhet gör raden vag** (blir "finns hemma?") i stället för att räknas som "st".
+- **Foton förminskas i mobilen** till högst 1,5 MB före uppladdning (Vercels gräns är 4,5 MB) och sparas aldrig.
+- **Katalogingredienser slås inte ihop i v1.**
+- **TypeScript 5 och ESLint 9** i stället för senaste 7 och 10, eftersom Next.js startmall låser dem.
+- **Moln i Stockholm** (Vercel `arn1`, Supabase `eu-north-1`). Veckovis krypterad säkerhetskopia via GitHub Actions, som också hindrar att gratisprojektet pausas.
+
 ## 2026-10-25 – UX: DESIGN.md och EXPERIENCE.md
 
 UX: `_bmad-output/planning-artifacts/ux-designs/ux-Matkoll-2026-10-25/`. Beslut utöver UX-specen:
