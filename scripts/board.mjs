@@ -9,11 +9,12 @@
 import { execFileSync } from "node:child_process";
 import { existsSync, readFileSync, readdirSync } from "node:fs";
 import { join, relative } from "node:path";
+import { fileURLToPath } from "node:url";
 
 const OWNER = "Snowstar66";
 const REPO = "Snowstar66/matkoll";
 const PROJECT_NUMBER = "1";
-const ROOT = new URL("..", import.meta.url).pathname;
+const ROOT = fileURLToPath(new URL("..", import.meta.url));
 const SPRINT_STATUS = join(ROOT, "_bmad-output/implementation-artifacts/sprint-status.yaml");
 const PLANNING_DIR = join(ROOT, "_bmad-output/planning-artifacts");
 const IMPLEMENTATION_DIR = join(ROOT, "_bmad-output/implementation-artifacts");
