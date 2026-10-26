@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { emailCodeSchema, loginFieldErrors, loginSchema } from "./login-schema";
+import { emailCodeSchema, loginFieldErrors, loginSchema, normalizeEmailCode } from "./login-schema";
 
 describe("loginSchema", () => {
   it("accepts and trims a valid address", () => {
@@ -13,16 +13,44 @@ describe("loginSchema", () => {
       expect(loginFieldErrors(result.error)).toEqual({ email: "Ange en giltig e-postadress." });
     }
   });
+
+  it("keeps a next of up to 512 characters and drops a longer one", () => {
+    const kept = `/${"a".repeat(511)}`;
+    expect(loginSchema.parse({ email: "pontus@example.com", next: kept }).next).toBe(kept);
+    const parsed = loginSchema.safeParse({ email: "pontus@example.com", next: `/${"a".repeat(512)}` });
+    expect(parsed.success).toBe(true);
+    expect(parsed.data?.next).toBeUndefined();
+  });
+});
+
+describe("normalizeEmailCode", () => {
+  it.each([
+    ["012345", "012345"],
+    [" 012345 ", "012345"],
+    ["123 456", "123456"],
+    ["123-456", "123456"],
+    ["123\u2013456", "123456"],
+    ["\uff11\uff12\uff13\uff14\uff15\uff16", "123456"],
+    ["12\u00a034\u202f56", "123456"],
+  ])("turns %j into %j", (code, expected) => {
+    expect(normalizeEmailCode(code)).toBe(expected);
+  });
 });
 
 describe("emailCodeSchema", () => {
-  it("accepts six digits and drops spaces around them", () => {
-    expect(emailCodeSchema.parse({ email: "pontus@example.com", code: " 012345 " }).code).toBe("012345");
-  });
+  it.each(["012345", " 012345 ", "123 456", "123-456", "\uff11\uff12\uff13\uff14\uff15\uff16"])(
+    "accepts %j as six digits",
+    (code) => {
+      expect(emailCodeSchema.parse({ email: "pontus@example.com", code }).code).toMatch(/^[0-9]{6}$/);
+    },
+  );
 
-  it.each(["12a45", "12345", "1234567", "123 456", "", "١٢٣٤٥٦", undefined])("refuses the code %s", (code) => {
-    expect(emailCodeSchema.safeParse({ email: "pontus@example.com", code }).success).toBe(false);
-  });
+  it.each(["12a45", "12345", "1234567", "", "\u0661\u0662\u0663\u0664\u0665\u0666", "12.3456", undefined])(
+    "refuses the code %j",
+    (code) => {
+      expect(emailCodeSchema.safeParse({ email: "pontus@example.com", code }).success).toBe(false);
+    },
+  );
 
   it("refuses an invalid address", () => {
     expect(emailCodeSchema.safeParse({ email: "inte-en-adress", code: "123456" }).success).toBe(false);

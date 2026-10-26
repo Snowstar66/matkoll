@@ -1,5 +1,5 @@
 import { expect, type Page, test } from "@playwright/test";
-import { adminClient, e2eUserId, magicLinkPath, settingsEmail, settingsStorageState } from "./support";
+import { adminClient, e2eUserId, magicLinkPath, openMagicLink, settingsEmail, settingsStorageState } from "./support";
 
 // Story 1.12: Inställningar with the approved recipe sites and "Logga ut".
 // The specs use a user of their own (settingsEmail): turning koket.se off and
@@ -201,7 +201,7 @@ test("Logga ut ends the session; a removed site stays removed after signing in a
   // A session of its own, so the shared storage state keeps its session.
   const context = await browser.newContext({ baseURL, viewport: mobile });
   const page = await context.newPage();
-  await page.goto(await magicLinkPath(settingsEmail, "/installningar"));
+  await openMagicLink(page, await magicLinkPath(settingsEmail, "/installningar"));
   await expect(page).toHaveURL(/\/installningar$/);
 
   await sitesList(page).getByRole("button", { name: "Ta bort koket.se" }).click();
@@ -218,7 +218,7 @@ test("Logga ut ends the session; a removed site stays removed after signing in a
   await expect(page).toHaveURL(/\/logga-in\?next=%2Frecept$/);
 
   // Signing in again runs ensure_user_defaults(), which leaves koket.se off.
-  await page.goto(await magicLinkPath(settingsEmail, "/installningar"));
+  await openMagicLink(page, await magicLinkPath(settingsEmail, "/installningar"));
   await expect(page).toHaveURL(/\/installningar$/);
   await expectSites(page, ["arla.se", "ica.se", "tasteline.com"]);
   await context.close();

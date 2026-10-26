@@ -1,6 +1,6 @@
 import "server-only";
 import { isAuthSessionMissingError } from "@supabase/supabase-js";
-import { createClient } from "@/lib/supabase/server";
+import { createClient, removeSessionCookies } from "@/lib/supabase/server";
 
 /** Outcome of a Supabase call; `code` is Supabase's error code or HTTP status, never user data. */
 export type SupabaseOutcome = { ok: true } | { ok: false; code: string };
@@ -20,6 +20,21 @@ export async function requestMagicLink(email: string, redirectTo: string): Promi
 
 export type EmailLinkResult = "signed_in" | "invalid" | "not_allowed";
 
+type SessionClient = Awaited<ReturnType<typeof createClient>>;
+
+/**
+ * Ends a session that was just made for an address outside ALLOWED_EMAILS.
+ * When Supabase cannot sign it out, the session cookies are deleted here,
+ * every chunk, so the answer never leaves with a session cookie set. Only the
+ * fixed reason is logged.
+ */
+async function dropRefusedSession(supabase: SessionClient, event: string): Promise<void> {
+  const { error } = await supabase.auth.signOut({ scope: "local" });
+  if (!error) return;
+  console.error(event, errorCode(error));
+  await removeSessionCookies();
+}
+
 /**
  * Exchanges the link's token hash for a session, which sets the cookies. When
  * `isAllowed` rejects the signed-in address, the new session is signed out again
@@ -33,30 +48,40 @@ export async function verifyEmailLink(
   const { data, error } = await supabase.auth.verifyOtp({ token_hash: tokenHash, type: "email" });
   if (error) return "invalid";
   if (isAllowed(data.user?.email)) return "signed_in";
-  await supabase.auth.signOut({ scope: "local" });
+  await dropRefusedSession(supabase, "auth_link_signout_failed");
   return "not_allowed";
 }
 
-/** Outcome of signing in with the code; `code` is Supabase's error code when it refused the code. */
-export type EmailCodeOutcome = { result: EmailLinkResult; code?: string };
+/**
+ * Outcome of signing in with the code; `code` is Supabase's error code when it
+ * refused the code. `rate_limited` is Supabase's own limit on checks.
+ */
+export type EmailCodeOutcome = { result: EmailLinkResult | "rate_limited"; code?: string };
+
+/** Supabase's answers when too many checks come from one IP. */
+function isRateLimit(error: { code?: string; status?: number }): boolean {
+  return error.code === "over_request_rate_limit" || error.status === 429;
+}
 
 /**
  * Signs in with the six-digit code from the same e-mail as the link (AD-3,
  * AD-27). Supabase checks the code, its lifetime (`otp_expiry`) and its rate
  * limit, and the code and the link are one token: once either is used, both
- * are. As with the link, an address that `isAllowed` rejects is signed out
- * again on the same client, so no cookie for it remains.
+ * are. `forwardedFor` is the browser's IP for Supabase's per-IP limits. As
+ * with the link, an address that `isAllowed` rejects is signed out again at
+ * once, and its cookies are deleted if that fails.
  */
 export async function verifyEmailCode(
   email: string,
   code: string,
   isAllowed: (email: string | undefined) => boolean,
+  { forwardedFor }: { forwardedFor?: string | null } = {},
 ): Promise<EmailCodeOutcome> {
-  const supabase = await createClient();
+  const supabase = await createClient({ forwardedFor });
   const { data, error } = await supabase.auth.verifyOtp({ email, token: code, type: "email" });
-  if (error) return { result: "invalid", code: errorCode(error) };
+  if (error) return { result: isRateLimit(error) ? "rate_limited" : "invalid", code: errorCode(error) };
   if (isAllowed(data.user?.email)) return { result: "signed_in" };
-  await supabase.auth.signOut({ scope: "local" });
+  await dropRefusedSession(supabase, "auth_code_signout_failed");
   return { result: "not_allowed" };
 }
 

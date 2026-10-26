@@ -26,6 +26,7 @@ import {
   libraryEmail,
   libraryStorageState,
   magicLinkPath,
+  openMagicLink,
   mealplanEmail,
   mealplanStorageState,
   outsiderEmail,
@@ -122,7 +123,7 @@ export default async function globalSetup(config: FullConfig) {
     ] as const) {
       const user = await browser.newContext({ baseURL });
       const page = await user.newPage();
-      await page.goto(await magicLinkPath(email, "/recept"));
+      await openMagicLink(page, await magicLinkPath(email, "/recept"));
       await page.waitForURL(/\/recept$/);
       await user.storageState({ path });
       await user.close();

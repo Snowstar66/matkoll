@@ -34,6 +34,10 @@ describe("icon", () => {
     const bytes = await png(await Icon({ id: Promise.resolve(id) }));
     expect(pngSize(bytes)).toEqual({ width: side, height: side });
   });
+
+  it.each(["zzz", "0", "1024"])("is not found for the unknown id %s", async (id) => {
+    await expect(Icon({ id: Promise.resolve(id) })).rejects.toThrow(/NEXT_HTTP_ERROR_FALLBACK;404|NEXT_NOT_FOUND/);
+  });
 });
 
 describe("apple-icon", () => {

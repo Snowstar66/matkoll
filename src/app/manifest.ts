@@ -9,6 +9,8 @@ export default function manifest(): MetadataRoute.Manifest {
   // One colour only: light mode's bg, like theme-color's light value.
   const background = rgbToHex(themeColors.light);
   return {
+    // A stable identity, so a changed start_url does not make it another app.
+    id: "/",
     name: appName,
     short_name: appName,
     description: appDescription,

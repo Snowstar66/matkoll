@@ -7,6 +7,7 @@ import manifest from "./manifest";
 describe("manifest", () => {
   it("opens Matkoll full screen at Recept, in Swedish", () => {
     expect(manifest()).toMatchObject({
+      id: "/",
       name: "Matkoll",
       short_name: "Matkoll",
       description: "Recept, matsedel, inköpslista och det du har hemma.",

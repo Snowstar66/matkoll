@@ -68,7 +68,9 @@ Länken i mejlet går till `<adress>/auth/confirm?next=…` (appen bygger den fr
 
 - **Email OTP Length:** `6` (som `otp_length` lokalt). Inloggningssidan tar bara emot sex siffror.
 - **Email OTP Expiration:** `3600` sekunder (som `otp_expiry` lokalt). Länken och koden gäller då i en timme, och när den ena har använts går ingen av dem att använda igen.
-- Supabase begränsar hur ofta en kod eller länk kan skickas (en gång i minuten per adress som standard) och hur många inloggningsförsök som görs (under **Authentication → Rate Limits**). Låt standardvärdena stå kvar.
+- Supabase begränsar hur ofta en kod eller länk kan skickas (en gång i minuten per adress som standard) och hur många inloggningsförsök som görs per IP (under **Authentication → Rate Limits**). Låt standardvärdena stå kvar. Appen skickar webbläsarens IP till Supabase i rubriken `Sb-Forwarded-For`, eftersom koden kontrolleras från Vercel; om molnet inte tar emot den räknar Supabase per Vercel-IP (öppen fråga T7). Appen har dessutom en egen gräns: 5 fel koder per adress och IP på 15 minuter, per serverinstans.
+- **Allow new users to sign up** ska vara avstängd (steg 3). Varken länken eller koden kan då skapa en användare (`shouldCreateUser: false`), bara logga in dem som `pnpm users:sync` har skapat. Låt e-postinloggningen (**Email**-leverantören) vara på; det är den som skickar länken och koden.
+- Länken i mejlet öppnar en sida med knappen "Logga in", och först knappen loggar in. Då kan inte en länkskanner i e-posten (till exempel Microsoft Safe Links) använda upp länken och koden genom att öppna länken i förväg.
 
 Supabase inbyggda e-post skickar bara till projektets teammedlemmar och bara några mejl i timmen. Det räcker så länge bara du loggar in, med samma adress som ditt Supabase-konto. Ska fler logga in, eller tar gränsen slut: lägg in egen SMTP under **Authentication → Emails → SMTP Settings** (till exempel Resend eller Postmark, med avsändaradress på en egen domän).
 

@@ -2,7 +2,7 @@
 title: 'Story 11.6: Matkoll på hemskärmen'
 type: 'feature'
 created: '2026-10-26'
-status: 'in-progress'
+status: 'done'
 baseline_commit: '22a0febb5a37b5120ee9ebe41fe517877d340851'
 route: 'dispatch'
 context:
@@ -137,6 +137,42 @@ context:
 - **Integrationstesterna och `recipe.spec.ts` mot den delade databasen:** två integrationstester (`catalog.test.ts`, "Saffran", och `pantry-site.test.ts`, `label` och `created_at` i svaret) och ett e2e-test i `recipe.spec.ts` ("Torskfilé") misslyckas, eftersom den lokala databasen har fyra migrationer från andra grenar (bland dem `pantry_item.label` från 11.2) som inte finns i den här grenen. Storyn ändrar ingen migration och inget av det som testerna läser.
 
 ## Review Triage Log
+
+Iteration 1. Tre granskare gick igenom `9ea6f34`. Grenen ombaserades först på `epic/11-nytt-utseende` (`2789f7d`, med Epic 10 och namnen Lagersaldo och Inköpslista). Ingen migration behövdes.
+
+**Patch:**
+- Gissning av koden:
+  - Supabase räknar kodkontroller per IP, men `verifyOtp` körs från Next-servern. Webbläsarens IP (första giltiga i `x-forwarded-for`, annars `x-real-ip`, `src/lib/client-ip.ts`) skickas därför till Supabase som `Sb-Forwarded-For` (`createClient({ forwardedFor })`). Rubriken finns i Supabase Auth sedan december 2025 bakom `GOTRUE_SECURITY_SB_FORWARDED_FOR_ENABLED` (supabase/auth, "Sb-Forwarded-For"); om den gäller i molnet är öppen fråga T7. Ett test visar att rubriken skickas.
+  - Appens egen gräns före Supabase: högst 5 fel koder per adress (sha256) och IP på 15 minuter, sedan `auth_code_rate_limited` ("För många försök. Vänta en stund eller skicka en ny länk.") utan anrop. I minnet (`domain/code-attempts.ts`, en `Map` med tidsgräns och högst 10 000 nycklar), alltså per serverinstans. Varje `auth_code_invalid` räknas, också fel format och en adress utanför listan, så att gränsen inte avslöjar listan. En lyckad inloggning nollställer. En gräns i databasen skulle kräva en funktion som `anon` får anropa (AD-4) och är öppen fråga 17.
+- Tillåtelselistan kontrolleras före `verifyOtp`: en adress utanför listan ger `auth_code_invalid` utan anrop till Supabase. Kontrollen efter `verifyOtp` står kvar som ett andra lager. E2E visar att Supabase inte registrerar någon inloggning för en sådan adress.
+- Utloggningen efter en nekad adress kontrolleras: misslyckas `signOut` tas alla delar av `sb-*-auth-token` bort direkt (`removeSessionCookies`), och `auth_code_signout_failed` (eller `auth_link_signout_failed` för länken) loggas med bara orsaken.
+- Supabases `over_request_rate_limit` (eller status 429) ger `auth_code_rate_limited`, inte "Koden stämmer inte".
+- Loggning: `auth_code_not_allowed` och `auth_code_rate_limited` (`by: "app"` eller `"supabase"`) på nivån warn, med 8 tecken av IP-adressens hash. Aldrig adressen eller koden.
+- Länkskanner i e-posten: `/auth/confirm` är nu en sida (`page.tsx`) som bara visar "Logga in". Först knappen (Server Action `confirmEmailLinkForm`, POST) använder token. `next` hanteras som förut, och en länk utan token går till `/logga-in?fel=lank`. En Route Handler och en sida kan inte dela segment i Next 16, så route.ts togs bort. Sidan har `referrer: no-referrer`. E2E-testerna som följer länken trycker på knappen (`openMagicLink` i `support.ts`), och ett nytt test visar att två GET inte använder upp länken.
+- `safeNextPath` löser med `https://x.invalid`, godtar bara sökvägar med ett enda inledande "/", och kontrollerar samma sak efter procentavkodning, så `/%2F/evil`, `/%5Cevil` och `/%09/evil` avvisas. Högst 512 tecken, och `next` över gränsen släpps i Zod-schemat (`.catch(undefined)`) i stället för att ge ett fel i formuläret. Tester för `/\t/evil`, `/\n/evil`, `%2F%2Fevil`, `/%5Cevil`, `javascript:` och ett långt värde.
+- Ikonerna och proxyn:
+  - Ett okänt id (`/icon/zzz`) ger `notFound()` och 404 (e2e). `dynamicParams` finns inte med Cache Components, så kontrollen ligger i `icon.tsx`.
+  - `matcher` släpper inte längre igenom alla sökvägar med punkt, bara `/favicon.ico`, `/manifest.webmanifest`, `/robots.txt`, `/sitemap.xml` och ikonerna. `/recept/x.json` och `/api/pantry/photo.png` går genom proxyn (test). Det finns ingen `public/`.
+  - Alla sex Route Handlers under `/api` anropar `requireUserForRoute()` själva (kontrollerat).
+- Registrering: lokalt `enable_signup = false` (Auth har `GOTRUE_DISABLE_SIGNUP=true`) och `shouldCreateUser: false`. `docs/drift.md` steg 3 säger redan att den stängs av i molnet, och steg 5 säger nu att varken länken eller koden kan skapa användare.
+- Kodformuläret:
+  - Adressen som länken gick till fryses (`codeStep.email`) och koden kontrolleras mot den. Fältet är skrivskyddat medan kodsteget visas, med "Byt adress".
+  - Kodformuläret har en nyckel per utskick, så att ett nytt utskick tar bort gamla fel.
+  - Kodsteget sparas i `sessionStorage` (`{ sent, email, at }`, i `try/catch`, högst en timme) och visas igen efter en omladdning i samma flik. Det tas bort när koden skickas och sparas igen om koden nekades.
+  - "Jag har redan en kod" öppnar kodsteget utan nytt mejl.
+- Koden normaliseras (NFKC, mellanslag och bindestreck bort), så "123 456", "123-456" och helbreddssiffror godtas.
+- "Tillbaka" i receptvyn går bakåt i historiken när sidan nåddes inom Matkoll (`BackLink`, och `ScrollMemory` räknar navigeringarna), annars till `/recept`. Öppnad från Matsedel går den tillbaka till Matsedel (e2e).
+- Hemskärmsraden visar Safaris steg bara på iPhone och iPad (också iPadOS som säger "Macintosh"), "välj Installera appen i webbläsarens meny" på Android och inget på en dator.
+- Manifestet har `id: "/"`.
+- AD-3 i `ARCHITECTURE-SPINE.md` beskriver sidan med knappen, gränsen och `Sb-Forwarded-For`.
+
+**Avvisat:**
+- `[auth.email] enable_signup = false` i `config.toml`. Den inställningen styr hela e-postinloggningen (`GOTRUE_EXTERNAL_EMAIL_ENABLED`), inte registreringen, som redan är avstängd med `[auth] enable_signup = false`.
+- Att jämna ut svarstiden mellan en adress utanför listan (inget anrop) och en tillåten adress (ett anrop). "Skicka länk" har samma skillnad sedan 1.2, och gränsen gäller lika för båda.
+- En gräns per adress oberoende av IP. Den skulle låta vem som helst stänga ute Pontus genom att gissa fel fem gånger.
+
+**Kvar efter granskningen:**
+- Integrationstestet `pantry-site.test.ts` ("empty_pantry_place") misslyckas mot den delade databasen, som har 11.2:s migration (`pantry_item.label`) men grenen inte. Storyn rör ingen migration.
 
 ## Verification
 

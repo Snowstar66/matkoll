@@ -1,3 +1,4 @@
+import type { Page } from "@playwright/test";
 import { createServerClient } from "@supabase/ssr";
 import { createClient, type SupabaseClient } from "@supabase/supabase-js";
 import { localSupabaseUrl } from "../local-supabase";
@@ -304,6 +305,16 @@ export async function magicLinkPath(email: string, next = "/recept"): Promise<st
   if (error) throw error;
   const params = new URLSearchParams({ token_hash: data.properties.hashed_token, type: "email", next });
   return `/auth/confirm?${params}`;
+}
+
+/**
+ * Opens a magic link (from the e-mail or magicLinkPath) and presses "Logga
+ * in", as Pontus does: the link is used only when the button posts (Story
+ * 11.6), so a mail scanner that fetches it uses nothing up.
+ */
+export async function openMagicLink(page: Page, path: string): Promise<void> {
+  await page.goto(path);
+  await page.getByRole("main").getByRole("button", { name: "Logga in" }).click();
 }
 
 /**

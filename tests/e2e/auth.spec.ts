@@ -4,6 +4,7 @@ import {
   deleteMailsTo,
   e2eEmail,
   magicLinkPath,
+  openMagicLink,
   mailHtml,
   mailsTo,
   outsiderEmail,
@@ -64,7 +65,7 @@ test.describe("without a session", () => {
 
     const otherBrowser = await browser.newContext();
     const otherPage = await otherBrowser.newPage();
-    await otherPage.goto(href!);
+    await openMagicLink(otherPage, href!);
     await expect(otherPage).toHaveURL(/\/recept\?flik=x$/);
     await expect(otherPage.getByText(emptyLibrary)).toBeVisible();
     await otherBrowser.close();
@@ -84,30 +85,43 @@ test.describe("without a session", () => {
   });
 
   test("an invalid or used link leads to the login page with an explanation", async ({ page }) => {
-    await page.goto("/auth/confirm?token_hash=ogiltig&type=email&next=/recept");
+    await openMagicLink(page, "/auth/confirm?token_hash=ogiltig&type=email&next=/recept");
     await expect(page).toHaveURL(/\/logga-in\?fel=lank&next=%2Frecept$/);
     await expect(page.getByRole("main").getByRole("alert")).toHaveText("Länken har gått ut eller redan använts. Be om en ny.");
   });
 
   test("a valid link for an address outside ALLOWED_EMAILS gives no session", async ({ page, context }) => {
-    await page.goto(await magicLinkPath(outsiderEmail, "/recept"));
+    await openMagicLink(page, await magicLinkPath(outsiderEmail, "/recept"));
     await expect(page).toHaveURL(/\/logga-in\?fel=atkomst$/);
     await expect(page.getByRole("main").getByRole("alert")).toHaveText("Adressen har inte åtkomst till Matkoll.");
     const authCookies = (await context.cookies()).filter((cookie) => /^sb-.+-auth-token/.test(cookie.name));
     expect(authCookies).toEqual([]);
   });
 
-  test("a link keeps a next with a query string", async ({ request, baseURL }) => {
-    const response = await request.get(await magicLinkPath(e2eEmail, "/recept?flik=x"), { maxRedirects: 0 });
-    expect(response.status()).toBe(307);
-    expect(new URL(response.headers().location, baseURL).toString()).toBe(`${baseURL}/recept?flik=x`);
+  test("opening a link uses nothing up: only the button signs in (Story 11.6)", async ({ page, request }) => {
+    // A mail scanner fetches the link; the page answers with the button and nothing more.
+    const link = await magicLinkPath(e2eEmail, "/recept?flik=x");
+    for (let i = 0; i < 2; i++) {
+      const response = await request.get(link, { maxRedirects: 0 });
+      expect(response.status()).toBe(200);
+      expect(await response.text()).toContain("Logga in");
+    }
+    await page.goto(link);
+    await expect(page).toHaveURL(/\/auth\/confirm\?/);
+    await expect(page.getByRole("heading", { level: 1, name: "Logga in" })).toBeVisible();
+    await page.getByRole("main").getByRole("button", { name: "Logga in" }).click();
+    await expect(page).toHaveURL(/\/recept\?flik=x$/);
   });
 
-  for (const next of ["//evil.com", "https://evil.com", "/\\evil.com"]) {
-    test(`an unsafe next (${next}) is ignored`, async ({ request, baseURL }) => {
-      const response = await request.get(await magicLinkPath(e2eEmail, next), { maxRedirects: 0 });
-      expect(response.status()).toBe(307);
-      expect(new URL(response.headers().location, baseURL).toString()).toBe(`${baseURL}/recept`);
+  test("a link without a token leads to the login page without a button", async ({ page }) => {
+    await page.goto("/auth/confirm?next=/matsedel");
+    await expect(page).toHaveURL(/\/logga-in\?fel=lank&next=%2Fmatsedel$/);
+  });
+
+  for (const next of ["//evil.com", "https://evil.com", "/\\evil.com", "/%5Cevil.com"]) {
+    test(`an unsafe next (${next}) is ignored`, async ({ page, baseURL }) => {
+      await openMagicLink(page, await magicLinkPath(e2eEmail, next));
+      await expect(page).toHaveURL(`${baseURL}/recept`);
     });
   }
 });
@@ -159,7 +173,7 @@ test.describe("session refresh", () => {
     // A session of its own, so the shared storage state keeps its refresh token.
     const context = await browser.newContext({ baseURL });
     const page = await context.newPage();
-    await page.goto(await magicLinkPath(e2eEmail, "/recept"));
+    await openMagicLink(page, await magicLinkPath(e2eEmail, "/recept"));
     await expect(page).toHaveURL(/\/recept$/);
 
     const { first, session } = await sessionCookie(context);

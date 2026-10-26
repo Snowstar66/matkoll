@@ -21,7 +21,10 @@ describe("proxy matcher", () => {
     "/apple-icon?3f2a1b0c9d8e7f6a",
     "/apple-icon/0",
     "/favicon.ico",
+    "/robots.txt",
+    "/sitemap.xml",
     "/_next/static/chunks/main.js",
+    "/_next/image?url=x",
   ])("lets %s through without the proxy", (url) => {
     expect(runsProxy(url)).toBe(false);
   });
@@ -46,6 +49,14 @@ describe("proxy matcher", () => {
     "/recept/icon",
     "/installningar/apple-icon",
     "/manifest",
+    // A dot no longer lets a path through: only the files listed in the matcher.
+    "/recept/x.json",
+    "/api/pantry/photo.png",
+    "/hemma.png",
+    "/manifest.webmanifest/x",
+    "/favicon.ico.json",
+    "/x/favicon.ico",
+    "/robots.txt/x",
   ])("runs the proxy for %s", (url) => {
     expect(runsProxy(url)).toBe(true);
   });

@@ -1,6 +1,6 @@
 import { readFileSync } from "node:fs";
 import { expect, type Page, test } from "@playwright/test";
-import { adminClient, coreFlowEmail, deleteMailsTo, mailHtml, mailsTo, recreateE2eUser } from "./support";
+import { adminClient, coreFlowEmail, deleteMailsTo, mailHtml, mailsTo, openMagicLink, recreateE2eUser } from "./support";
 
 // Story 3.8: the whole core of Epic 1–3 in one go, as Pontus uses it. Sign in
 // through the real /logga-in and the link in Mailpit (no saved session, no
@@ -60,7 +60,7 @@ test("sign in, import a recipe, plan it, check a line off and put it in the pant
   const href = (await mailHtml(mail.ID)).match(/href="([^"]*\/auth\/confirm\?[^"]*)"/)?.[1]?.replaceAll("&amp;", "&");
   expect(href).toBeDefined();
   expect(new URL(href!).pathname).toBe("/auth/confirm");
-  await page.goto(href!);
+  await openMagicLink(page, href!);
   await expect(page).toHaveURL(/\/recept$/);
   await expect(page.getByRole("heading", { level: 1, name: "Recept" })).toBeVisible();
 

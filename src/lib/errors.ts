@@ -10,6 +10,8 @@ export const errorMessages = {
   // The code from the e-mail (Story 11.6): a wrong, expired or used code and an
   // address outside ALLOWED_EMAILS all give this, so the allowlist is never revealed.
   auth_code_invalid: "Koden stämmer inte eller har gått ut. Skicka en ny länk.",
+  // Too many wrong codes from one address and IP (the app's limit) or Supabase's own limit.
+  auth_code_rate_limited: "För många försök. Vänta en stund eller skicka en ny länk.",
   auth_sign_out_failed: "Det gick inte att logga ut. Försök igen.",
   ai_unavailable: "AI-tjänsten svarar inte just nu. Är datorn med modellen igång?",
   ai_invalid: "Det gick inte att tolka svaret. Försök igen.",

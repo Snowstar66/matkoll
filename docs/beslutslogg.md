@@ -9,7 +9,9 @@ Beslut som fattats under bygget: vad, varför och vilka alternativ som fanns. Ny
 - **Tillbaka syns på alla bredder,** också på dator, där den förut var dold. Varför: en hemskärmsapp på iPad har lika lite bakåtknapp som på iPhone. I receptvyn är den runda pilen nu en knapp med pil och texten "Tillbaka".
 - **Koden och länken är samma engångstoken hos Supabase:** när den ena har använts fungerar inte den andra. E2E-testet visar det. Mallen säger det till Pontus.
 - **E2E-testet tar koden från `auth.admin.generateLink`, inte från Mailpit.** Den lokala Auth läser mallen en gång och behåller den tills den startas om, och den delade Auth-containern startades inte om under natten, eftersom andra grenar testar mot samma stack. Ett enhetstest (`tests/design/email-template.test.ts`) visar att mallen har länken först och koden efter texten. I CI startas Supabase från repot, så där har mejlet koden.
-- **Raden "Lägg Matkoll på hemskärmen …"** visas först när webbläsaren har svarat att appen inte körs från hemskärmen, så den blinkar aldrig fram i appen.
+- **Raden "Lägg Matkoll på hemskärmen …"** visas först när webbläsaren har svarat att appen inte körs från hemskärmen, så den blinkar aldrig fram i appen. Efter granskningen bara på iPhone och iPad; Android får webbläsarmenyns ord och en dator ingenting.
+- **Efter granskningen: gränsen för fel koder ligger i serverns minne,** 5 per adress och IP på 15 minuter, före Supabase och före tillåtelselistan, och webbläsarens IP skickas till Supabase som `Sb-Forwarded-For`. Alternativet, en gräns i databasen, kräver en funktion som `anon` får anropa, vilket AD-4 inte tillåter i dag (öppen fråga 17). Varför: Supabase räknar annars alla försök på Vercels IP.
+- **Efter granskningen: länken i mejlet loggar in först när knappen "Logga in" trycks.** Alternativ: logga in direkt när länken öppnas, som förut. Varför: länkskannrar i e-post (till exempel Safe Links) öppnar länkar i förväg, och eftersom länken och koden är samma token skulle det använda upp båda.
 
 ## 2026-10-26 – Kursändring för nytt utseende (Epic 11)
 

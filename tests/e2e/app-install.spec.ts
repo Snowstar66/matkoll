@@ -4,6 +4,7 @@ import {
   appInstallEmail,
   deleteMailsTo,
   magicLinkPath,
+  openMagicLink,
   mailsTo,
   outsiderEmail,
   recreateE2eUser,
@@ -62,6 +63,7 @@ test.describe("without a session", () => {
     expect(response.status()).toBe(200);
     expect(response.headers()["content-type"]).toContain("application/manifest+json");
     expect(await response.json()).toEqual({
+      id: "/",
       name: "Matkoll",
       short_name: "Matkoll",
       description: "Recept, matsedel, inköpslista och det du har hemma.",
@@ -101,8 +103,13 @@ test.describe("without a session", () => {
     }
   });
 
+  test("an unknown icon is not found", async ({ request }) => {
+    const response = await request.get("/icon/zzz", { maxRedirects: 0 });
+    expect(response.status()).toBe(404);
+  });
+
   test("a page still answers 307 to the login page", async ({ request }) => {
-    for (const path of ["/recept", "/icons", "/icon/192/extra", "/recept/icon", "/manifest"]) {
+    for (const path of ["/recept", "/icons", "/icon/192/extra", "/recept/icon", "/manifest", "/recept/x.json"]) {
       const response = await request.get(path, { maxRedirects: 0 });
       expect(response.status(), path).toBe(307);
       expect(response.headers().location, path).toMatch(/\/logga-in\?next=/);
@@ -115,7 +122,7 @@ test.describe("without a session", () => {
 test.describe("<head>", () => {
   test("has the manifest, the Apple icon and title, the status bar style and both theme colours", async ({ page }) => {
     await recreateE2eUser(appInstallEmail);
-    await page.goto(await magicLinkPath(appInstallEmail, "/recept"));
+    await openMagicLink(page, await magicLinkPath(appInstallEmail, "/recept"));
     await expect(page).toHaveURL(/\/recept$/);
     const head = page.locator("head");
     await expect(head.locator('link[rel="manifest"]')).toHaveAttribute("href", "/manifest.webmanifest");
@@ -182,7 +189,7 @@ test.describe("signing in with the code", () => {
     // The code and the link are one token: once the code is used, so is the link.
     const other = await browser.newContext();
     const otherPage = await other.newPage();
-    await otherPage.goto(link);
+    await openMagicLink(otherPage, link);
     await expect(otherPage).toHaveURL(/\/logga-in\?fel=lank/);
     await other.close();
   });
@@ -199,22 +206,38 @@ test.describe("signing in with the code", () => {
     await expect(page.getByRole("main").getByRole("alert")).toHaveText(invalidText);
     await expect(page).toHaveURL(/\/logga-in$/);
     expect(await authCookies(context)).toEqual([]);
-    // Supabase accepted the code, so it was the allowlist that refused it.
-    expect(await lastSignIn(outsiderEmail)).not.toBe(before);
+    // The allowlist refused it before Supabase was asked: no sign-in was recorded.
+    expect(await lastSignIn(outsiderEmail)).toBe(before);
   });
 });
 
 test.describe("Tillbaka on every page under a tab", () => {
   test.use({ viewport: mobile });
   const title = "Snabb tomatsoppa";
+  let recipeId = "";
 
   test.beforeEach(async ({ page }) => {
     const userId = await recreateE2eUser(appInstallEmail);
-    const { error } = await adminClient()
+    const admin = adminClient();
+    const recipe = await admin
       .from("recipe")
-      .insert({ user_id: userId, title, original_servings: 2, source_kind: "text", is_favorite: true });
-    if (error) throw error;
-    await page.goto(await magicLinkPath(appInstallEmail, "/recept"));
+      .insert({ user_id: userId, title, original_servings: 2, source_kind: "text", is_favorite: true })
+      .select("id")
+      .single();
+    if (recipe.error) throw recipe.error;
+    recipeId = (recipe.data as { id: string }).id;
+    const plan = await admin.from("meal_plan").insert({ user_id: userId, name: "Vecka 44", is_current: true }).select("id").single();
+    if (plan.error) throw plan.error;
+    const dish = await admin.from("meal_plan_recipe").insert({
+      user_id: userId,
+      meal_plan_id: (plan.data as { id: string }).id,
+      recipe_id: recipeId,
+      recipe_title: title,
+      servings: 2,
+      position: 0,
+    });
+    if (dish.error) throw dish.error;
+    await openMagicLink(page, await magicLinkPath(appInstallEmail, "/recept"));
     await expect(page).toHaveURL(/\/recept$/);
   });
 
@@ -237,10 +260,27 @@ test.describe("Tillbaka on every page under a tab", () => {
     await expect(page.getByRole("radio", { name: "Favoriter" }).filter({ visible: true })).toBeChecked();
   });
 
+  test("a recipe opened from Matsedel leads back to Matsedel", async ({ page }) => {
+    await page.getByRole("navigation", { name: "Huvudmeny" }).getByRole("link", { name: "Matsedel" }).click();
+    await expect(page).toHaveURL(/\/matsedel$/);
+    await page.getByRole("main").getByRole("link", { name: title }).filter({ visible: true }).click();
+    await expect(page.getByRole("heading", { level: 1, name: title })).toBeVisible();
+    await goBack(page);
+    await expect(page).toHaveURL(/\/matsedel$/);
+  });
+
+  test("a recipe opened by its address leads to Recept", async ({ page }) => {
+    await page.goto(`/recept/${recipeId}`);
+    await expect(page.getByRole("heading", { level: 1, name: title })).toBeVisible();
+    await goBack(page);
+    await expect(page).toHaveURL(/\/recept$/);
+  });
+
   test("Inställningar and Tidigare matsedlar lead to the page above", async ({ page }) => {
     await page.goto("/installningar");
     await expect(page.getByRole("heading", { level: 1, name: "Inställningar" })).toBeVisible();
-    await expect(page.getByText("Lägg Matkoll på hemskärmen: tryck Dela och sedan Lägg till på hemskärmen.")).toBeVisible();
+    // Desktop Chrome: no steps for adding to a home screen.
+    await expect(page.getByTestId("home-screen-hint")).toHaveCount(0);
     await goBack(page);
     await expect(page).toHaveURL(/\/recept$/);
 
@@ -248,5 +288,20 @@ test.describe("Tillbaka on every page under a tab", () => {
     await expect(page.getByRole("heading", { level: 1, name: "Tidigare matsedlar" })).toBeVisible();
     await goBack(page);
     await expect(page).toHaveURL(/\/matsedel$/);
+  });
+});
+
+test.describe("Inställningar on an iPhone", () => {
+  test.use({
+    viewport: mobile,
+    userAgent:
+      "Mozilla/5.0 (iPhone; CPU iPhone OS 18_0 like Mac OS X) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/18.0 Mobile/15E148 Safari/604.1",
+  });
+
+  test("says how to put Matkoll on the home screen in Safari", async ({ page }) => {
+    await recreateE2eUser(appInstallEmail);
+    await openMagicLink(page, await magicLinkPath(appInstallEmail, "/installningar"));
+    await expect(page).toHaveURL(/\/installningar$/);
+    await expect(page.getByText("Lägg Matkoll på hemskärmen: tryck Dela och sedan Lägg till på hemskärmen.")).toBeVisible();
   });
 });
