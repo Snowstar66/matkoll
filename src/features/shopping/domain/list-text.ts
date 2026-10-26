@@ -9,8 +9,16 @@ import type { ShoppingLine } from "./compute-list";
 /** The empty list without a meal plan, or with a plan without dishes. */
 export const emptyPlanText = "Lägg rätter på matsedeln så räknas listan fram.";
 
-/** The empty list with dishes on the plan: everything is at home. */
-export const allAtHomeText = "Allt finns hemma.";
+/**
+ * The empty list with dishes on the plan: everything is in the pantry it is
+ * counted against. "Allt finns i lagret för Stugan." with the place's name
+ * (pantry.shownSiteName, with more than one place), also for Hemma, so the
+ * text works with any name without inflection; "Allt finns hemma." without
+ * one, as in 1.0 (UX-DR17, Story 8.5).
+ */
+export function allInStockText(siteName: string | null): string {
+  return siteName === null ? "Allt finns hemma." : `Allt finns i lagret för ${siteName}.`;
+}
 
 /** A vague line's ingredient is not at home: buy it, or check first. */
 export const askAtHomeText = "Finns hemma?";
@@ -63,6 +71,16 @@ export function restoreFailedText(labels: readonly string[]): string {
 /** Announced when the list is counted again while it is open: "Inköpslistan är omräknad. 12 varor kvar." */
 export function recountedText(left: number): string {
   return `Inköpslistan är omräknad. ${itemsLeftText(left)}.`;
+}
+
+/**
+ * Announced when the list is counted against another place while it is
+ * open, and the switch was not made from its own sheet (another device,
+ * Hemma, or a place that was gone): "Listan räknas nu mot Hemma. 3 varor
+ * kvar." (Story 8.5).
+ */
+export function siteRecountedText(siteName: string, left: number): string {
+  return `Listan räknas nu mot ${siteName}. ${itemsLeftText(left)}.`;
 }
 
 /**

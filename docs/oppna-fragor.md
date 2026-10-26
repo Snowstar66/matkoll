@@ -39,6 +39,7 @@ Varje punkt beskrivs steg för steg, med var värdet hämtas och hur det kontrol
 - Lägg in GitHub-hemligheterna för säkerhetskopian: `SUPABASE_DB_URL` (Session pooler-strängen) och `BACKUP_PASSPHRASE` (minst 32 tecken; spara den i din lösenordshanterare), och repovariabeln `BACKUP_ENABLED=true`. Kör sedan flödet Backup en gång för hand. Kontrollera att mejl om misslyckade flöden går till dig, och ladda ner den senaste säkerhetskopian en gång i månaden.
 - Godkänn första publiceringen i produktion.
 - Kontrollera standardbutiken i Inställningar → Butik. Öppna URL:en `https://handlaprivatkund.ica.se/stores/1003733` i din webbläsare och se att den leder till Maxi ICA Stormarknad Östersund i ICA Handla. Rätta den annars, och fyll i butikens adress.
+- Prova Flöde 6 inför nästa resa till stugan: byt till Stugan under Lista, handla, tryck Lägg i lagret i stugan och välj Hemma igen på söndagen. Svara sedan på frågorna 6 och 7.
 
 ## Prova Skicka till ICA med Claude in Chrome (efter Epic 7)
 

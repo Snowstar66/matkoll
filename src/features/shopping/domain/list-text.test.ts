@@ -1,6 +1,7 @@
 import { describe, expect, it } from "vitest";
 import type { ShoppingLine } from "./compute-list";
 import {
+  allInStockText,
   checkLabel,
   computedAmountText,
   copiedText,
@@ -17,6 +18,7 @@ import {
   putInPantryText,
   recountedText,
   siteGoneText,
+  siteRecountedText,
   restoreFailedText,
   sendButtonText,
   skippedDishesText,
@@ -60,6 +62,18 @@ describe("list texts", () => {
 
   it("announces a recount with the items left", () => {
     expect(recountedText(4)).toBe("Inköpslistan är omräknad. 4 varor kvar.");
+  });
+
+  it("announces a list counted against another place with its name and the items left", () => {
+    expect(siteRecountedText("Hemma", 3)).toBe("Listan räknas nu mot Hemma. 3 varor kvar.");
+    expect(siteRecountedText("Stugan", 1)).toBe("Listan räknas nu mot Stugan. 1 vara kvar.");
+  });
+
+  it("says everything is in stock, naming the place only when there is a name to show", () => {
+    expect(allInStockText(null)).toBe("Allt finns hemma.");
+    expect(allInStockText("Stugan")).toBe("Allt finns i lagret för Stugan.");
+    // Without inflection, so Hemma reads the same way with several places.
+    expect(allInStockText("Hemma")).toBe("Allt finns i lagret för Hemma.");
   });
 
   it("names the dishes a line comes from, each title once", () => {

@@ -2,6 +2,24 @@
 
 Beslut som fattats under bygget: vad, varför och vilka alternativ som fanns. Nyaste överst.
 
+## 2026-10-26 – Inköpslista inför resan till ett annat ställe (Story 8.5)
+
+- **Underlag:** specen `spec-8-5-inkopslista-infor-resan-till-ett-annat-stalle.md`, där besluten var förslag, och AD-24.
+- **Beslut:**
+  - **Arket "Räkna listan mot" väntar på svaret innan det stänger,** i stället för att välja optimistiskt som pillren i Hemma. `selectPantrySite` revaliderar `/lista` i samma anrop (`revalidateFor("pantry_site")`), så när svaret kommer är listan redan omräknad, och Pontus ser aldrig "Lager: Stugan" ovanför en lista som är räknad mot Hemma. Raden som sparas visar "Sparar …", och de andra raderna väntar så länge.
+  - **Listans annonsering "Inköpslistan är omräknad. …" görs inte när det som ändrats är stället.** Bekräftelsen "Listan räknas nu mot Stugan." säger det i stället, så att skärmläsaren får en text och inte två. Antalet varor står i listans sammanfattning. Nästa omräkning på samma ställe annonseras som förut.
+  - **Knappen "Byt" har `aria-label` "Byt lager för listan".** Den synliga texten är bara "Byt", som är otydlig för en skärmläsare utan raden bredvid.
+  - **Raden "Lager: Hemma" och "Byt" renderas av sidan, inte av `ShoppingList`** (`ListSiteLine` i `pantry/ui`, AD-24). Sidan läser ställena i samma förfrågan som listan, och `ShoppingList` får bara `site` som data för sina texter.
+  - **"Allt finns hemma." står kvar med ett ställe.** Med flera ställen blir det "Allt finns i lagret för Stugan.", också för Hemma, så att texten fungerar med alla namn utan böjning.
+- **Efter granskningen:**
+  - **Ett tryck på valt ställe sparar också,** i stället för att bara stänga arket. Sidan kan vara inaktuell efter ett byte på en annan enhet, och valet kan göras två gånger utan skada.
+  - **Raderna i arket är vanliga knappar,** med `aria-current` och bocken på valt ställe, inte radioknappar. Ett val sparar och stänger arket.
+  - **Ett svar som inte kommer** (inom 20 sekunder) läser om sidan. Visar den det tryckta stället har valet sparats. Annars visas felet, så att arket aldrig blir låst.
+  - **Listan tiger bara om byten som gjordes i arket.** Ett byte på en annan enhet, i Hemma eller efter ett borttaget ställe annonseras: "Listan räknas nu mot Hemma. 2 varor kvar.".
+  - **"Byt" väntar** medan "Lägg i lagret" eller en bock sparas. Sidan sätter ihop raden och listan i `ShoppingListView`, så att `pantry/ui` och `shopping/ui` fortfarande inte importerar varandra.
+  - **Läsningen av ställena stoppar aldrig listan.** Ett fel ger bara ingen rad. Saknar listan ställe, visas valt ställe ur ställena, så att listan kan bytas bort från ett ställe vars lager inte går att läsa.
+  - **När raden försvinner med arket öppet** (bara ett ställe kvar) går fokus till sidrubriken, och ett borttaget ställe sägs i en kort bekräftelse.
+
 ## 2026-10-26 – Nummer på fotot (Story 6.6)
 
 - **Underlag:** Pontus ville se ett nummer på varje vara på fotot och samma nummer på kortet, för att kunna kontrollera vad modellen har läst av. Experimentet med Pontus foto (2048 px, temperatur 0, appens prompt) mot Qwen3.6 i LM Studio:

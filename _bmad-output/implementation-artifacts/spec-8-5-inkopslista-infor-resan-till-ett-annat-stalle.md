@@ -2,7 +2,8 @@
 title: 'Story 8.5: Inköpslista inför resan till ett annat ställe'
 type: 'feature'
 created: '2026-10-26'
-status: 'draft'
+status: 'done'
+baseline_commit: 'c6b2f84706215a2e5c3ad722a862849ad13ff7a7'
 route: 'dispatch'
 context:
   - '{project-root}/_bmad-output/implementation-artifacts/epic-8-context.md'
@@ -96,13 +97,13 @@ context:
 ## Tasks & Acceptance
 
 **Execution:**
-- [ ] `src/features/pantry/domain/site.ts` (+ test), `index.ts` -- nya texter:
+- [x] `src/features/pantry/domain/site.ts` (+ test), `index.ts` -- nya texter:
   - `switchListTitle`: "Räkna listan mot";
   - `switchListButtonText`: "Byt", med `aria-label` "Byt lager för listan";
   - `listCountedAgainstText(name)`: "Listan räknas nu mot Stugan.".
 
   -- EXPERIENCE.md, Voice and Tone
-- [ ] `src/features/pantry/ui/list-site-line.tsx` (+ test) -- `ListSiteLine({ site, sites })` (klient):
+- [x] `src/features/pantry/ui/list-site-line.tsx` (+ test) -- `ListSiteLine({ site, sites })` (klient):
   - Den visar `siteLineText(site)` och textknappen "Byt", och ingenting när `siteCount <= 1`.
   - "Byt" öppnar arket Byt ställe (`Sheet`, titel "Räkna listan mot"). Arket har en `role="radiogroup"` med en rad per ställe, där valt ställe har `aria-checked="true"` och en bock.
   - Ett tryck på ett annat ställe anropar `selectPantrySite` i en transition. Raden visar att den sparar, och de andra raderna är inaktiva.
@@ -111,15 +112,15 @@ context:
   - Arket stängs när sidan göms (Activity). Fokus går tillbaka till "Byt".
 
   -- FR-30, FR-32, UX-DR17
-- [ ] `src/app/(app)/lista/shopping-list-content.tsx` -- läser `listPantrySites()` bredvid `getShoppingList()`, i samma förfrågan, och renderar `ListSiteLine` med listans `site` direkt under sidrubriken, före `ShoppingList`. Ett fel när ställena läses ger ingen rad, och listan visas ändå -- AD-18, AD-24
-- [ ] `src/features/shopping/domain/list-text.ts` (+ test) -- `allInStockText(siteName: string | null)` ger "Allt finns i lagret för Stugan." eller "Allt finns hemma." och ersätter `allAtHomeText` -- EXPERIENCE.md, State Patterns
-- [ ] `src/features/shopping/ui/shopping-list.tsx` (+ test):
+- [x] `src/app/(app)/lista/shopping-list-content.tsx` -- läser `listPantrySites()` bredvid `getShoppingList()`, i samma förfrågan, och renderar `ListSiteLine` med listans `site` direkt under sidrubriken, före `ShoppingList`. Ett fel när ställena läses ger ingen rad, och listan visas ändå -- AD-18, AD-24
+- [x] `src/features/shopping/domain/list-text.ts` (+ test) -- `allInStockText(siteName: string | null)` ger "Allt finns i lagret för Stugan." eller "Allt finns hemma." och ersätter `allAtHomeText` -- EXPERIENCE.md, State Patterns
+- [x] `src/features/shopping/ui/shopping-list.tsx` (+ test):
   - Den tomma listan med matsedel använder `allInStockText`, med namnet bara när `site.siteCount > 1`.
   - `useRecountAnnouncement` får `site?.id`. När stället skiljer sig från det senast visade annonseras inget, men det visade läget uppdateras ändå.
   - Bockar, överstyrningar och egna varor hanteras som förut.
 
   Testerna täcker ingen annonsering vid byte av ställe, annonseringen vid en annan omräkning och texterna -- FR-32, FR-18
-- [ ] `tests/e2e/site-list.spec.ts` (+ `support.ts`, `global-setup.ts`) -- egen e2e-användare `e2e-stalle-lista@matkoll.test` (`siteListEmail`, i `e2eEmails`), med behörighet till urklippet som i `basket-export.spec.ts`. Före varje test seedar service role:
+- [x] `tests/e2e/site-list.spec.ts` (+ `support.ts`, `global-setup.ts`) -- egen e2e-användare `e2e-stalle-lista@matkoll.test` (`siteListEmail`, i `e2eEmails`), med behörighet till urklippet som i `basket-export.spec.ts`. Före varje test seedar service role:
   - katalogingredienserna "ketchup", "senap" och "korv";
   - receptet "Korv med bröd" med ketchup 1 förp, senap 1 förp och korv 4 st, på den aktuella matsedeln;
   - Stugan;
@@ -136,8 +137,8 @@ context:
   - i ett eget test, när Stugan har tagits bort: ingen rad, och "Allt finns hemma." när allt finns.
 
   -- matrisen, FR-26, FR-32
-- [ ] `tests/e2e/shopping.spec.ts`, `basket-export.spec.ts`, `put-in-pantry.spec.ts` -- går igenom oförändrade, med ett ställe.
-- [ ] `docs/beslutslogg.md` -- en post för storyn: att arket väntar på svaret innan det stänger, att listans annonsering inte görs vid byte av ställe och texten "Byt lager för listan". Under "Checklista för Pontus" i `docs/oppna-fragor.md` läggs en punkt: "Prova Flöde 6 inför nästa resa till stugan: byt till Stugan under Lista, handla, tryck Lägg i lagret i stugan och välj Hemma igen på söndagen. Svara sedan på frågorna 6 och 7."
+- [x] `tests/e2e/shopping.spec.ts`, `basket-export.spec.ts`, `put-in-pantry.spec.ts` -- går igenom oförändrade, med ett ställe.
+- [x] `docs/beslutslogg.md` -- en post för storyn: att arket väntar på svaret innan det stänger, att listans annonsering inte görs vid byte av ställe och texten "Byt lager för listan". Under "Checklista för Pontus" i `docs/oppna-fragor.md` läggs en punkt: "Prova Flöde 6 inför nästa resa till stugan: byt till Stugan under Lista, handla, tryck Lägg i lagret i stugan och välj Hemma igen på söndagen. Svara sedan på frågorna 6 och 7."
 
 **Acceptance Criteria:**
 - Given `pnpm lint && pnpm typecheck && pnpm test && pnpm test:integration && AI_PROVIDER=mock pnpm build && CI=1 pnpm test:e2e`, when de körs, then lyckas alla.
@@ -156,7 +157,61 @@ context:
 
 ## Spec Change Log
 
+### Vid bygget
+
+- **Besluten (förslag) godkändes som de står,** utom ett tryck på valt ställe, som ändrades efter granskningen (se nedan). Ingen migration.
+- **Arket stänger i en transition efter svaret.** `setSheetOpen(false)` och bekräftelsen görs i `startTransition` (från `react`), medan bytets egen transition fortfarande pågår. React lägger då ihop dem med routerns transition för den revaliderade sidan, så att arket stänger samtidigt som den omräknade listan visas. Ett andra anrop till samma `useTransition` inifrån den asynkrona funktionen blev aldrig klart i testmiljön, så det används inte. Vad som sparas hålls i ett eget tillstånd (`savingId`), inte i transitionens `isPending`, så att arket aldrig låses av en transition som inte blir klar.
+- **Raderna i arket är vanliga knappar i en lista,** inte radioknappar som Boundaries säger (efter granskningen). Ett val sparar och stänger arket, så radioknappssemantik med piltangenter blev fel. Valt ställe har `aria-current="true"` och bocken, och alla rader ligger i den vanliga tabbordningen. Arkets knapp i rubriken heter "Avbryt", eftersom den stänger utan att ändra något.
+- **Ett tryck på valt ställe sparar också** (efter granskningen), i stället för att bara stänga arket som matrisen och beslutet säger. Sidan kan vara inaktuell efter ett byte på en annan enhet, och `selectPantrySite` gör samma sak två gånger utan skada. Bekräftelsen säger då "Listan räknas nu mot Hemma.".
+- **Raden ligger under rubriken med `-mt-4 mb-4`.** `ShoppingList` drar upp sin sammanfattning med `-mt-4`, så raden lägger tillbaka samma avstånd under sig. Då ligger knappens tryckyta på 44 px aldrig under sammanfattningen. "Byt" har storleken för textknappar, inte `{typography.meta}`, eftersom `cx` inte slår ihop klasser.
+- **"Byt" väntar på hydreringen** (`useHydrated`), som pillren i Hemma, och på det listan sparar (efter granskningen).
+- **`ShoppingListView` i `src/app/(app)/lista/`** (efter granskningen) är en klientkomponent som sidan renderar. Den sätter ihop `ListSiteLine` (`pantry/ui`) och `ShoppingList` (`shopping/ui`), som fortfarande aldrig importerar varandra (AD-24). Genom den får `ShoppingList` två saker utöver `site`, vilket Boundaries inte nämner:
+  - `onBusyChange`, så att "Byt" väntar medan "Lägg i lagret" eller en bock sparas;
+  - `isQuietSwitch`, så att listan bara tiger om ett byte som gjordes i arket.
+- **`ShoppingListContent` läser ställena med `listPantrySites()` bredvid `getShoppingList()`** med `Promise.allSettled`. Listan hanteras först, också omdirigeringen vid `unauthorized`. Ett fel när ställena läses ger aldrig ett fel på sidan, bara ingen rad. Ett `PantryDataError` loggas inte en gång till, eftersom `getShoppingList` redan loggar det som `pantry_unavailable`, men andra fel loggas som `pantry_sites_unavailable` med bara felets namn.
+- **Raden och arket visar samma ställe:** listans ställe, med antalet ställen från `sites`. När listan saknar ställe men ställena gick att läsa, visas valt ställe ur `sites`, så att listan kan bytas bort från ett ställe vars lager inte går att läsa. Om listan och ställena inte stämmer överens läses sidan om, en gång.
+- **Ett borttaget ställe:** med tre eller fler ställen står arket kvar med "Stället finns inte längre. Välj ett annat ställe.", och det borttagna stället försvinner ur arket när sidan har lästs om. Med bara ett ställe kvar försvinner raden och arket. Meddelandet kommer då som kort bekräftelse (`role="alert"`), och fokus går till sidrubriken.
+- **E2E:**
+  - "Dolda varor" prövas med ketchup, som är täckt på Hemma och dold. Mot Stugan saknas den, men den står kvar som dold ("Dolda varor (1)").
+  - Specen seedar också butiken Maxi ICA Stormarknad Östersund för "Skicka till ICA". Bockar, överstyrningar och egna varor läggs in med service role.
+
 ## Review Triage Log
+
+Iteration 1. Tre granskare gick igenom 0d022e8. Ingen migration.
+
+**Patch:**
+- **Arket följer raden:** när raden försvinner, för att stället inte går att läsa eller för att bara ett ställe är kvar efter en omläsning, stängs arket och dess meddelande glöms. Arket öppnas aldrig igen av sig självt. Försvann raden för att det valda stället var borttaget, kommer meddelandet som kort bekräftelse, och fokus går till sidrubriken, aldrig till `<body>`.
+- **Svar som inte kommer:**
+  - Kastar anropet, eller kommer inget svar inom 20 sekunder (`selectTimeoutMs`), läses sidan om. Visar den då det tryckta stället har valet sparats: meddelandet glöms, arket stänger och bekräftelsen visas. Annars visas `pantry_site_failed`.
+  - Läses sidan inte om inom 10 sekunder (`refreshWaitMs`) visas felet ändå, så att arket aldrig blir låst och "Avbryt" fungerar igen.
+- **Listan gömd under sparandet:** ett fel kommer då som kort bekräftelse (`role="alert"`). En lyckad växling bekräftas inte på en annan sida.
+- **Alltid spara:** ett tryck på det ställe som visas som valt anropar också `selectPantrySite`, eftersom sidan kan vara inaktuell.
+- **Vanliga knappar:** raderna är knappar i en lista, med `aria-current="true"` och bocken på valt ställe, och utan egen hantering av piltangenter. Raden som sparas visar "Sparar …", och alla rader väntar. En spärr som sätts direkt vid trycket gör att ett andra tryck eller Enter inte ger ett andra anrop.
+- **"Byt" väntar på "Lägg i lagret"** och på bockar som sparas (`ShoppingListView`, `onBusyChange`).
+- **Läsningen av ställena stoppar aldrig listan:** `Promise.allSettled`, med listan först. Varje fel ger ingen rad, och oväntade fel loggas. Raden visar valt ställe ur `sites` när listan saknar ställe.
+- **Annonseringen:** listan tiger bara om ett byte som gjordes i arket (`isQuietSwitch`, en gång per byte). Ett byte någon annanstans, alltså på en annan enhet, i Hemma eller efter ett borttaget ställe, annonseras som "Listan räknas nu mot Hemma. 2 varor kvar." (`siteRecountedText`).
+- **`unauthorized`:** arket stängs innan sidan läses om.
+- **Nya tester:**
+  - ett kontraktstest att `revalidateFor("pantry_site")` revaliderar `/lista`;
+  - `ListSiteLine`:
+    - svar som går förlorade;
+    - tidsgränserna;
+    - borttaget ställe med två och tre ställen;
+    - dubbeltryck och Enter;
+    - gömd lista;
+    - raden som försvinner och kommer tillbaka;
+    - listan och ställena som inte stämmer överens;
+  - `ShoppingListView`: ett byte från arket annonseras en gång, ett byte någon annanstans annonseras, och "Byt" väntar på en bock;
+  - e2e:
+    - ett ställe som tas bort med service role medan arket är öppet;
+    - senap avbockad mot Hemma, sedan byte till Stugan och "Lägg i lagret", med exakt vad som hamnar i Stugans lager.
+- **E2E-specen:** bekräftelserna hittas på sin text (`filter({ hasText })`), och en tidigare bekräftelse får försvinna före nästa byte. Den tomma annonseringen läses direkt efter bekräftelsen, utan nya försök.
+
+**Avvisat:**
+- Kopplingen mellan radens `-mt-4 mb-4` och sammanfattningens `-mt-4` i `ShoppingList`. Den är kosmetisk och täcks av e2e-kontrollen att sidan inte scrollar i sidled.
+
+**Kvar som känd begränsning:**
+- Om en ändring från en annan enhet, till exempel en rättad mängd, råkar komma i samma rendering som ett byte från arket, annonseras den inte. Listan räknas då om mot ett annat lager, och det går inte att skilja ändringarna åt. Tystnaden gäller bara den rendering där stället byts.
 
 ## Verification
 
