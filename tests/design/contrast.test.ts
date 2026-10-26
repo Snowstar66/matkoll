@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { themeColors } from "@/app/theme-colors";
+import { appIconColors, themeColors } from "@/app/theme-colors";
 import { colorTokens } from "./tokens";
 
 // NFR4: every text pair in DESIGN.md reaches 4.5:1 in light and dark mode.
@@ -70,6 +70,17 @@ describe("design tokens", () => {
       `rgb(${[1, 3, 5].map((i) => parseInt(hex.slice(i, i + 2), 16)).join(" ")})`;
     expect(themeColors.light).toBe(rgb(light.bg));
     expect(themeColors.dark).toBe(rgb(dark.bg));
+  });
+
+  it("the app icon's colours are light mode's tokens (DESIGN.md, app-icon)", () => {
+    const rgb = (hex: string) =>
+      `rgb(${[1, 3, 5].map((i) => parseInt(hex.slice(i, i + 2), 16)).join(" ")})`;
+    expect(appIconColors).toEqual({
+      bg: rgb(light.bg),
+      accent: rgb(light.accent),
+      sand: rgb(light.sand),
+      sandInk: rgb(light["sand-ink"]),
+    });
   });
 });
 

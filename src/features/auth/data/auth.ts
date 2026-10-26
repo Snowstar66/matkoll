@@ -37,6 +37,29 @@ export async function verifyEmailLink(
   return "not_allowed";
 }
 
+/** Outcome of signing in with the code; `code` is Supabase's error code when it refused the code. */
+export type EmailCodeOutcome = { result: EmailLinkResult; code?: string };
+
+/**
+ * Signs in with the six-digit code from the same e-mail as the link (AD-3,
+ * AD-27). Supabase checks the code, its lifetime (`otp_expiry`) and its rate
+ * limit, and the code and the link are one token: once either is used, both
+ * are. As with the link, an address that `isAllowed` rejects is signed out
+ * again on the same client, so no cookie for it remains.
+ */
+export async function verifyEmailCode(
+  email: string,
+  code: string,
+  isAllowed: (email: string | undefined) => boolean,
+): Promise<EmailCodeOutcome> {
+  const supabase = await createClient();
+  const { data, error } = await supabase.auth.verifyOtp({ email, token: code, type: "email" });
+  if (error) return { result: "invalid", code: errorCode(error) };
+  if (isAllowed(data.user?.email)) return { result: "signed_in" };
+  await supabase.auth.signOut({ scope: "local" });
+  return { result: "not_allowed" };
+}
+
 /** Outcome of signing out: whether this browser's session is gone, and Supabase's error code if something failed. */
 export type SignOutOutcome = { signedOut: boolean; code?: string };
 

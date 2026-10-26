@@ -2,6 +2,15 @@
 
 Beslut som fattats under bygget: vad, varför och vilka alternativ som fanns. Nyaste överst.
 
+## 2026-10-26 – Matkoll på hemskärmen (Story 11.6)
+
+- **Ikonerna genereras med `next/og`** (`src/app/icon.tsx` med `generateImageMetadata`, `src/app/apple-icon.tsx`) och byggs som statiska filer också med `cacheComponents`. Någon PNG behövde inte ritas för hand. Adresserna är `/icon/192`, `/icon/512`, `/icon/maskable` och `/apple-icon`, och manifestet pekar på de tre första.
+- **Moroten ritas i `sand-ink` på en platta i `sand`, med blasten i `accent`,** på ljust lägets `bg`. Varför: `sand` mot `bg` syns knappt, så moroten själv behöver en mörkare ton. Färgerna står i `theme-colors.ts` (`appIconColors`) och testas mot `globals.css`. Ingen orange: den finns inte bland tokens, och "inget rött" gäller.
+- **Tillbaka syns på alla bredder,** också på dator, där den förut var dold. Varför: en hemskärmsapp på iPad har lika lite bakåtknapp som på iPhone. I receptvyn är den runda pilen nu en knapp med pil och texten "Tillbaka".
+- **Koden och länken är samma engångstoken hos Supabase:** när den ena har använts fungerar inte den andra. E2E-testet visar det. Mallen säger det till Pontus.
+- **E2E-testet tar koden från `auth.admin.generateLink`, inte från Mailpit.** Den lokala Auth läser mallen en gång och behåller den tills den startas om, och den delade Auth-containern startades inte om under natten, eftersom andra grenar testar mot samma stack. Ett enhetstest (`tests/design/email-template.test.ts`) visar att mallen har länken först och koden efter texten. I CI startas Supabase från repot, så där har mejlet koden.
+- **Raden "Lägg Matkoll på hemskärmen …"** visas först när webbläsaren har svarat att appen inte körs från hemskärmen, så den blinkar aldrig fram i appen.
+
 ## 2026-10-26 – Kursändring för nytt utseende (Epic 11)
 
 - **Underlag:** Pontus bad om "betydligt trevligare ux. Som ser proffsigare ut.", ville ha lagervarorna i kategorier ("Kanske protein, mejeri, grönsaker osv. Du får vara lite kreativ. Kanske nån ikon."), ingen mängd i listan ("men fyll på med mer info om du har ngn"), "en soptunna på varje iaf som raderar utan kontrollfråga", en inköpslista som "behöver också lyftas" och "hela look and feel som det kommer se ut i mobilen". Pontus godkände tre skisser: Lagersaldo ("ja mycket snyggare enl din skiss"), Inköpslista ("inköpslistan börjar bli mkt bättre") och hela appen ("ja nu börjar du verkligen hitta ux som app. bravo. håll den stilen"). Skisserna ligger i `_bmad-output/planning-artifacts/ux-designs/ux-Matkoll-2026-10-25/mockups/`. Koden lästes på `epic/10-spara-foto` (`4ceb250`), och Next.js 16.4.3-dokumentationen om manifest, ikoner och `appleWebApp` lästes i `node_modules/next/dist/docs/`.

@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { loginFieldErrors, loginSchema } from "./login-schema";
+import { emailCodeSchema, loginFieldErrors, loginSchema } from "./login-schema";
 
 describe("loginSchema", () => {
   it("accepts and trims a valid address", () => {
@@ -12,5 +12,19 @@ describe("loginSchema", () => {
     if (!result.success) {
       expect(loginFieldErrors(result.error)).toEqual({ email: "Ange en giltig e-postadress." });
     }
+  });
+});
+
+describe("emailCodeSchema", () => {
+  it("accepts six digits and drops spaces around them", () => {
+    expect(emailCodeSchema.parse({ email: "pontus@example.com", code: " 012345 " }).code).toBe("012345");
+  });
+
+  it.each(["12a45", "12345", "1234567", "123 456", "", "١٢٣٤٥٦", undefined])("refuses the code %s", (code) => {
+    expect(emailCodeSchema.safeParse({ email: "pontus@example.com", code }).success).toBe(false);
+  });
+
+  it("refuses an invalid address", () => {
+    expect(emailCodeSchema.safeParse({ email: "inte-en-adress", code: "123456" }).success).toBe(false);
   });
 });

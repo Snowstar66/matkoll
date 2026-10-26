@@ -11,7 +11,7 @@ import {
   userStorageState,
 } from "./support";
 
-const sentText = "Om adressen har åtkomst får du en länk";
+const sentText = "Vi har skickat en länk och en kod till din e-post.";
 // Shown only once the page has checked the session (inside <Suspense>).
 const emptyLibrary = "Inga recept än.";
 

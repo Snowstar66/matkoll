@@ -62,11 +62,17 @@ Länken i mejlet går till `<adress>/auth/confirm?next=…` (appen bygger den fr
 **Authentication → Emails → Templates → Magic Link:**
 
 - **Subject:** `Din inloggningslänk till Matkoll`
-- **Body:** innehållet i `supabase/templates/magic-link.html`, oförändrat (samma som lokalt, se `[auth.email.template.magic_link]` i `supabase/config.toml`).
+- **Body:** innehållet i `supabase/templates/magic-link.html`, oförändrat (samma som lokalt, se `[auth.email.template.magic_link]` i `supabase/config.toml`). Från Epic 11 (Story 11.6) har mallen både länken och den sexsiffriga koden `{{ .Token }}` under texten "Eller skriv in koden i Matkoll:". Koden behövs för att logga in i Matkoll på hemskärmen, som inte delar inloggning med Safari, där länken öppnas. Har du lagt in en äldre mall: klistra in den nya, annars kommer bara länken i mejlet.
+
+**Authentication → Sign In / Providers → Email:**
+
+- **Email OTP Length:** `6` (som `otp_length` lokalt). Inloggningssidan tar bara emot sex siffror.
+- **Email OTP Expiration:** `3600` sekunder (som `otp_expiry` lokalt). Länken och koden gäller då i en timme, och när den ena har använts går ingen av dem att använda igen.
+- Supabase begränsar hur ofta en kod eller länk kan skickas (en gång i minuten per adress som standard) och hur många inloggningsförsök som görs (under **Authentication → Rate Limits**). Låt standardvärdena stå kvar.
 
 Supabase inbyggda e-post skickar bara till projektets teammedlemmar och bara några mejl i timmen. Det räcker så länge bara du loggar in, med samma adress som ditt Supabase-konto. Ska fler logga in, eller tar gränsen slut: lägg in egen SMTP under **Authentication → Emails → SMTP Settings** (till exempel Resend eller Postmark, med avsändaradress på en egen domän).
 
-**Kontroll:** mejlet i steg 11 har ämnet och texten från mallen ("Logga in på Matkoll").
+**Kontroll:** mejlet i steg 11 har ämnet och texten från mallen ("Logga in på Matkoll"), länken och en sexsiffrig kod i stor text. Skicka en ny länk, skriv in koden på inloggningssidan och tryck "Logga in": du ska komma till Recept.
 
 ## 6. Schemat: `supabase link` och `supabase db push`
 

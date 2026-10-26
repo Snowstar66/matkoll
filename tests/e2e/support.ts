@@ -162,6 +162,12 @@ export const photoSaveEmail = "e2e-foto-spara@matkoll.test";
  * through /logga-in and the link in Mailpit, so it has no storage state.
  */
 export const coreFlowEmail = "e2e-karna@matkoll.test";
+/**
+ * The E2E user of app-install.spec.ts alone (Matkoll på hemskärmen, Story
+ * 11.6): it signs in with the code from the e-mail in Mailpit, and is made
+ * again before each such test, so it has no storage state.
+ */
+export const appInstallEmail = "e2e-utseende-app@matkoll.test";
 /** Every address in ALLOWED_EMAILS for the E2E server (see playwright.config.ts). */
 export const e2eEmails = [
   e2eEmail,
@@ -191,6 +197,7 @@ export const e2eEmails = [
   sitePhotoEmail,
   photoSaveEmail,
   coreFlowEmail,
+  appInstallEmail,
 ] as const;
 /** A real Supabase user whose address is not in ALLOWED_EMAILS. */
 export const outsiderEmail = "utanfor@matkoll.test";

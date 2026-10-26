@@ -2,7 +2,8 @@
 title: 'Story 11.6: Matkoll på hemskärmen'
 type: 'feature'
 created: '2026-10-26'
-status: 'draft'
+status: 'in-progress'
+baseline_commit: '22a0febb5a37b5120ee9ebe41fe517877d340851'
 route: 'dispatch'
 context:
   - '{project-root}/_bmad-output/implementation-artifacts/epic-11-context.md'
@@ -87,19 +88,19 @@ context:
 ## Tasks & Acceptance
 
 **Execution:**
-- [ ] `src/app/manifest.ts` (+ test) -- manifestet enligt Boundaries -- FR-44, AD-27
-- [ ] `src/app/icon.tsx`, `src/app/apple-icon.tsx` (+ test), `src/app/theme-colors.ts` -- ikonerna och färgerna, med test mot `globals.css` -- AD-17, UX-DR27
-- [ ] `src/app/layout.tsx` -- `appleWebApp`
-- [ ] `src/proxy.ts` (+ test) -- `matcher` enligt Boundaries
-- [ ] `supabase/templates/magic-link.html` -- koden. Lokalt startas `auth` om för att läsa in mallen (inte `supabase db reset`)
-- [ ] `src/features/auth/actions/verify-email-code.ts` (+ test), `src/lib/errors.ts` -- `verifyEmailCode` och `auth_code_invalid` -- FR-1, AD-3
-- [ ] `src/features/auth/ui/` (+ test) -- kodfältet efter "Skicka länk"
-- [ ] `src/components/app-shell/page-header.tsx` och sidorna (+ tester) -- "Tillbaka" där den saknas
-- [ ] `src/features/settings/ui/` (+ test) -- hemskärmsraden
-- [ ] `tests/e2e/app-install.spec.ts` (+ `support.ts`, `global-setup.ts`) -- egen e2e-användare `e2e-utseende-app@matkoll.test`: manifestet och ikonerna utan kakor, `/recept` omdirigeras, `head`, inloggning med kod (koden från Mailpit eller `auth.admin.generateLink`, som `global-setup.ts`), fel kod, tillbakaknapparna
-- [ ] `docs/oppna-fragor.md` -- checklistan för molnet: mallen läggs in med koden. "Att prova på riktig telefon": lägg på hemskärmen och logga in med koden
-- [ ] `docs/drift.md` -- mallen med koden
-- [ ] `docs/beslutslogg.md` -- en post för storyn
+- [x] `src/app/manifest.ts` (+ test) -- manifestet enligt Boundaries -- FR-44, AD-27
+- [x] `src/app/icon.tsx`, `src/app/apple-icon.tsx` (+ test), `src/app/theme-colors.ts` -- ikonerna och färgerna, med test mot `globals.css` -- AD-17, UX-DR27
+- [x] `src/app/layout.tsx` -- `appleWebApp`
+- [x] `src/proxy.ts` (+ test) -- `matcher` enligt Boundaries
+- [x] `supabase/templates/magic-link.html` -- koden. Lokalt startas `auth` om för att läsa in mallen (inte `supabase db reset`)
+- [x] `src/features/auth/actions/verify-email-code.ts` (+ test), `src/lib/errors.ts` -- `verifyEmailCode` och `auth_code_invalid` -- FR-1, AD-3
+- [x] `src/features/auth/ui/` (+ test) -- kodfältet efter "Skicka länk"
+- [x] `src/components/app-shell/page-header.tsx` och sidorna (+ tester) -- "Tillbaka" där den saknas
+- [x] `src/features/settings/ui/` (+ test) -- hemskärmsraden
+- [x] `tests/e2e/app-install.spec.ts` (+ `support.ts`, `global-setup.ts`) -- egen e2e-användare `e2e-utseende-app@matkoll.test`: manifestet och ikonerna utan kakor, `/recept` omdirigeras, `head`, inloggning med kod (koden från Mailpit eller `auth.admin.generateLink`, som `global-setup.ts`), fel kod, tillbakaknapparna
+- [x] `docs/oppna-fragor.md` -- checklistan för molnet: mallen läggs in med koden. "Att prova på riktig telefon": lägg på hemskärmen och logga in med koden
+- [x] `docs/drift.md` -- mallen med koden
+- [x] `docs/beslutslogg.md` -- en post för storyn
 
 **Acceptance Criteria:**
 - Given `pnpm lint && pnpm typecheck && pnpm test && pnpm test:integration && AI_PROVIDER=mock pnpm build && CI=1 pnpm test:e2e`, when de körs, then lyckas alla.
@@ -117,6 +118,23 @@ context:
 - **Risk: Wake Lock i hemskärmsappen.** Stegläget provas också från hemskärmen på riktig iPhone.
 
 ## Spec Change Log
+
+### Vid bygget
+
+- **Byggd på `22a0feb`** (`baseline_commit`), kursändringen för Epic 11, i grenen `story/11-6` från `epic/11-nytt-utseende`. 11.1–11.5 finns inte i grenen än. Storyn behöver bara tokens som redan finns (`bg`, `accent`, `sand`, `sand-ink`).
+- **Next.js 16.4.3-dokumentationen lästes först:** `manifest.md`, `app-icons.md`, `generate-image-metadata.md`, `image-response.md`, `progressive-web-apps.md`, `generate-metadata.md` (`appleWebApp`) och `proxy.md` (`matcher` och testverktygen). `capable: true` ger `<meta name="mobile-web-app-capable" content="yes">` i Next 16, inte `apple-mobile-web-app-capable`.
+- **Ikonerna genereras med `ImageResponse`** och byggs statiskt också med `cacheComponents` (`○ /apple-icon`, `● /icon/192`, `/icon/512`, `/icon/maskable`). Reservvägen med PNG behövdes inte. `icon.tsx` har `generateImageMetadata` med id:n `192`, `512` och `maskable`. Teckningen ligger i `src/app/app-icon-image.tsx` (SVG i 100 × 100), och storlekarna och motivets skala (0,84, och 0,72 för maskable så att motivet ryms i den säkra cirkeln) i `src/app/app-info.ts`, som manifestet läser utan att dra in `next/og`. Namnet och beskrivningen ligger också där och delas med `layout.tsx`.
+- **Motivet:** moroten i `sand-ink` med räfflor i `sand` och blast i `accent`, på en rund platta i `sand`, på `bg`. Avvikelse från "en morot i accent och sand": `sand` syns knappt mot `bg`, så moroten själv fick `sand-ink`. `appIconColors` i `theme-colors.ts` testas mot `globals.css` i `contrast.test.ts`.
+- **Manifestets färg:** `rgbToHex(themeColors.light)` ger `#F5F7F4`. Testet av `rgbToHex` ligger i `tests/design/theme-colors.test.ts`, eftersom `no-hex.test.ts` inte tillåter färgvärden i `src/` utanför `globals.css` och `theme-colors.ts`.
+- **Proxyn:** `matcher` utesluter `(?:apple-)?icon(?:/[a-zA-Z0-9_-]+)?$` utöver det som redan var undantaget. `/manifest.webmanifest` släpptes redan igenom av regeln för filändelser. `src/proxy.test.ts` går igenom sökvägarna med `unstable_doesMiddlewareMatch` (dokumentationen nämner `unstable_doesProxyMatch`, men den finns inte i 16.4.3), bland dem efterapningar som `/icons`, `/icon/192/extra` och `/recept/icon`, som ska gå genom proxyn.
+- **Koden:** `verifyEmailCode({ email, code, next })` i `auth/actions/verify-email-code.ts` anropar `verifyEmailCode` i `auth/data/auth.ts`, som gör `verifyOtp({ email, token, type: 'email' })` med sessionsklienten och loggar ut direkt om `ALLOWED_EMAILS` inte har adressen (som `verifyEmailLink`). Zod-schemat är `emailCodeSchema` i `login-schema.ts` (`[0-9]{6}`, mellanslag runt koden tas bort). Supabases felkod (till exempel `otp_expired`) loggas på nivån info som `auth_code_refused`, aldrig koden eller adressen. Startdatan efter inloggning (AD-21) flyttades till `ensureStartData()`, som länken och koden delar.
+- **Koden och länken är samma engångstoken:** när koden har använts leder länken med samma token till `/logga-in?fel=lank`. E2E-testet visar det, och mallen säger att ingen av dem går att använda igen. Livslängden är en timme (`otp_expiry = 3600`), och Supabase begränsar antalet försök (`[auth.rate_limit] token_verifications = 30` per fem minuter och IP lokalt).
+- **Inloggningssidan:** "Skicka länk" blir sekundär när kodfältet visas, så att "Logga in" är den enda primära knappen. E-postfältet är kontrollerat, så adressen står kvar när formuläret skickas. Svaret om en fel kod döljs när koden ändras. Inledningen säger nu "… en inloggningslänk och en kod."
+- **Mallen lokalt:** Kong läser `supabase/templates/magic-link.html` från huvudmappen, och Auth behåller mallen den läste tills den startas om. Att starta om den delade Auth-containern gjordes inte (andra grenar testar mot samma stack), så Mailpit har inte koden förrän mallen finns i huvudmappen och Auth har startats om. E2E-testet tar därför koden från `auth.admin.generateLink` (spec-tillåtet), efter att ha kontrollerat att Supabase skickade mejlet. `tests/design/email-template.test.ts` visar att mallen har länken först och koden efter texten, och att `otp_length` och `otp_expiry` är 6 och 3600. I CI startas Supabase från repot, så där har mejlet koden. Omstarten står i `docs/oppna-fragor.md`.
+- **Tillbaka syns på alla bredder,** också på dator (förut `desktop:hidden`), eftersom en hemskärmsapp på iPad saknar bakåtknapp. `PageHeader` hade redan "Tillbaka" i Inställningar, Tidigare matsedlar och en tidigare matsedel. Receptvyn hade bara en rund pil med `aria-label`, nu en knapp med pil och texten "Tillbaka". Båda har `min-h-tap` och `min-w-tap`.
+- **Hemskärmsraden** (`settings/ui/home-screen-hint.tsx`) läser `display-mode: standalone` och `navigator.standalone` med `useSyncExternalStore`, och visas inte vid serverrenderingen, så den blinkar aldrig fram i appen. Den står ovanför "Logga ut".
+- **E2E:** `appInstallEmail` (`e2e-utseende-app@matkoll.test`) finns i `e2eEmails` men får ingen sparad session, som `coreFlowEmail`. Testerna gör om användaren med `recreateE2eUser`. `auth.spec.ts` och `core-flow.spec.ts` har den nya texten "Vi har skickat en länk och en kod till din e-post.".
+- **Integrationstesterna och `recipe.spec.ts` mot den delade databasen:** två integrationstester (`catalog.test.ts`, "Saffran", och `pantry-site.test.ts`, `label` och `created_at` i svaret) och ett e2e-test i `recipe.spec.ts` ("Torskfilé") misslyckas, eftersom den lokala databasen har fyra migrationer från andra grenar (bland dem `pantry_item.label` från 11.2) som inte finns i den här grenen. Storyn ändrar ingen migration och inget av det som testerna läser.
 
 ## Review Triage Log
 

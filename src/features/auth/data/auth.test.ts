@@ -1,15 +1,22 @@
 import { AuthSessionMissingError, AuthUnknownError } from "@supabase/supabase-js";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
-// endSession with the session client stubbed.
+// endSession and verifyEmailCode with the session client stubbed.
 
 const signOut = vi.fn();
 const getClaims = vi.fn();
+const verifyOtp = vi.fn();
 vi.mock("@/lib/supabase/server", () => ({
-  createClient: async () => ({ auth: { signOut: (...args: unknown[]) => signOut(...args), getClaims: () => getClaims() } }),
+  createClient: async () => ({
+    auth: {
+      signOut: (...args: unknown[]) => signOut(...args),
+      getClaims: () => getClaims(),
+      verifyOtp: (...args: unknown[]) => verifyOtp(...args),
+    },
+  }),
 }));
 
-const { endSession } = await import("./auth");
+const { endSession, verifyEmailCode } = await import("./auth");
 
 const claims = { data: { claims: { sub: "user" } }, error: null };
 const noClaims = { data: null, error: null };
@@ -17,6 +24,37 @@ const noClaims = { data: null, error: null };
 beforeEach(() => {
   signOut.mockReset().mockResolvedValue({ error: null });
   getClaims.mockReset().mockResolvedValue(noClaims);
+  verifyOtp.mockReset();
+});
+
+describe("verifyEmailCode", () => {
+  const allowOnly = (allowed: string) => (email: string | undefined) => email === allowed;
+
+  it("asks Supabase for an e-mail OTP and keeps the session of an allowed address", async () => {
+    verifyOtp.mockResolvedValue({ data: { user: { email: "pontus@example.com" } }, error: null });
+    expect(await verifyEmailCode("pontus@example.com", "123456", allowOnly("pontus@example.com"))).toEqual({
+      result: "signed_in",
+    });
+    expect(verifyOtp).toHaveBeenCalledWith({ email: "pontus@example.com", token: "123456", type: "email" });
+    expect(signOut).not.toHaveBeenCalled();
+  });
+
+  it("signs out again at once for an address outside the list", async () => {
+    verifyOtp.mockResolvedValue({ data: { user: { email: "annan@example.com" } }, error: null });
+    expect(await verifyEmailCode("annan@example.com", "123456", allowOnly("pontus@example.com"))).toEqual({
+      result: "not_allowed",
+    });
+    expect(signOut).toHaveBeenCalledWith({ scope: "local" });
+  });
+
+  it("gives Supabase's code for a refused code", async () => {
+    verifyOtp.mockResolvedValue({ data: { user: null, session: null }, error: { code: "otp_expired", status: 403 } });
+    expect(await verifyEmailCode("pontus@example.com", "123456", allowOnly("pontus@example.com"))).toEqual({
+      result: "invalid",
+      code: "otp_expired",
+    });
+    expect(signOut).not.toHaveBeenCalled();
+  });
 });
 
 describe("endSession", () => {
