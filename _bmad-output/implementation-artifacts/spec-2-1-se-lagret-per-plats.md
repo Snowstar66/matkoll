@@ -2,9 +2,10 @@
 title: 'Story 2.1: Se lagret per plats'
 type: 'feature'
 created: '2026-10-26'
-status: 'draft'
+status: 'in-progress'
 route: 'dispatch'
 review_loop_iteration: 0
+baseline_commit: '0a40829a59ae418e14790d06b208b8ec66183c1e'
 context:
   - '{project-root}/_bmad-output/implementation-artifacts/epic-2-context.md'
   - '{project-root}/_bmad-output/planning-artifacts/ux-designs/ux-Matkoll-2026-10-25/EXPERIENCE.md'
