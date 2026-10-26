@@ -45,6 +45,8 @@ export const errorMessages = {
   // elsewhere (or the recipes did): the page is read again.
   mealplan_plans_changed: "Matsedlarna har ändrats.",
   mealplan_delete_failed: "Det gick inte att ta bort matsedeln. Försök igen.",
+  // Inköpslista (Story 3.3): the plan, its recipes or the catalog cannot be read.
+  shopping_unavailable: "Det gick inte att läsa inköpslistan. Försök igen.",
   // Recipe sites in Inställningar (FR7). The sentence with the site's name,
   // "koket.se finns redan.", is in `fields.domain`.
   settings_invalid_domain: "Ange en giltig webbadress, t.ex. koket.se.",

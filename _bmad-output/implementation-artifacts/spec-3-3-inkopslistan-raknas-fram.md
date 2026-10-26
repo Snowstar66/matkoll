@@ -2,9 +2,10 @@
 title: 'Story 3.3: Inköpslistan räknas fram'
 type: 'feature'
 created: '2026-10-26'
-status: 'draft'
+status: 'done'
 route: 'dispatch'
-review_loop_iteration: 0
+review_loop_iteration: 1
+baseline_commit: '179093e29ba7e0187cfc36535ce22e4bca4eda0a'
 context:
   - '{project-root}/_bmad-output/implementation-artifacts/epic-3-context.md'
   - '{project-root}/_bmad-output/planning-artifacts/architecture/architecture-Matkoll-2026-10-25/ARCHITECTURE-SPINE.md'
@@ -66,18 +67,18 @@ context:
 ## Tasks & Acceptance
 
 **Execution:**
-- [ ] `src/features/shopping/domain/line-key.ts` (+ test) -- `recipeLineKey(ingredientId, unit | null)`, `customLineKey(id)`, `parseLineKey(key)` och `lineKeySchema` (Zod) för 3.4–3.6 -- AD-8
-- [ ] `src/features/recipes/domain/scale.ts` (+ test, om den saknas) -- `scaleLines(lines, factor)`; vaga rader oförändrade -- AD-7
-- [ ] `src/features/pantry/domain/aggregate-needs.ts` (vid behov) -- ursprung per behov, utan att ändra resultatet för befintliga anropare -- AD-7
-- [ ] `src/features/shopping/domain/compute-list.ts` (+ test) -- `computeList` och typerna `ShoppingLine`, `ShoppingListInput`, `Overlay` (tomt överlägg tills vidare); tester för varje rad i matrisen som gäller domänen, sortering per `SECTIONS` och sedan namn -- AD-7, AD-8, FR15
-- [ ] `src/features/shopping/data/queries.ts`, `server.ts`, `index.ts` -- `getShoppingList()`: `requireUser`, hämtar indata via de andra modulernas `server.ts`, anropar `computeList`, returnerar `{ plan: { id, name, dishCount } | null, lines }`; inga tabeller läses över modulgränsen -- AD-1
-- [ ] `src/lib/revalidate.ts` -- `recipe` och `pantry_item` revaliderar även `/matsedel` och `/lista` -- AD-18
-- [ ] `src/lib/errors.ts` -- `shopping_unavailable` -- AD-13
-- [ ] `src/features/shopping/ui/` -- `ShoppingList` med sektionsrubriker och `ShoppingLineRow` (varunamn, "från [rätt]" i metadata, mängd till höger, "(hemma: …)" och "Finns hemma?"), rubrikraden, tomma lägen, live-region -- UX-DR9
-- [ ] `src/app/(app)/lista/page.tsx` -- data inuti `<Suspense>` med skelettrader -- AD-18
-- [ ] `tests/integration/shopping.test.ts` -- `getShoppingList` mot riktiga recept, matsedel och lager; 10 rätter och 200 lagervaror inom tidsgränsen -- NFR7
-- [ ] `tests/e2e/support.ts`, `global-setup.ts` -- `shoppingEmail` ("e2e-lista@matkoll.test") i `e2eEmails` med egen storage state -- egen e2e-användare
-- [ ] `tests/e2e/shopping.spec.ts` -- egen e2e-användare; data läggs in med service role: tom lista utan matsedel, grupperade poster med "från [rätt]", "(hemma: 1 kg)", "Finns hemma?", "Allt finns hemma.", omräkning efter ändrade portioner och ändrat lager -- matrisen
+- [x] `src/features/shopping/domain/line-key.ts` (+ test) -- `recipeLineKey(ingredientId, unit | null)`, `customLineKey(id)`, `parseLineKey(key)` och `lineKeySchema` (Zod) för 3.4–3.6 -- AD-8
+- [x] `src/features/recipes/domain/scale.ts` (+ test, om den saknas) -- `scaleLines(lines, factor)`; vaga rader oförändrade -- AD-7
+- [x] `src/features/pantry/domain/aggregate-needs.ts` (vid behov) -- ursprung per behov, utan att ändra resultatet för befintliga anropare -- AD-7
+- [x] `src/features/shopping/domain/compute-list.ts` (+ test) -- `computeList` och typerna `ShoppingLine`, `ShoppingListInput`, `Overlay` (tomt överlägg tills vidare); tester för varje rad i matrisen som gäller domänen, sortering per `SECTIONS` och sedan namn -- AD-7, AD-8, FR15
+- [x] `src/features/shopping/data/queries.ts`, `server.ts`, `index.ts` -- `getShoppingList()`: `requireUser`, hämtar indata via de andra modulernas `server.ts`, anropar `computeList`, returnerar `{ plan: { id, name, dishCount } | null, lines }`; inga tabeller läses över modulgränsen -- AD-1
+- [x] `src/lib/revalidate.ts` -- `recipe` och `pantry_item` revaliderar även `/matsedel` och `/lista` -- AD-18
+- [x] `src/lib/errors.ts` -- `shopping_unavailable` -- AD-13
+- [x] `src/features/shopping/ui/` -- `ShoppingList` med sektionsrubriker och `ShoppingLineRow` (varunamn, "från [rätt]" i metadata, mängd till höger, "(hemma: …)" och "Finns hemma?"), rubrikraden, tomma lägen, live-region -- UX-DR9
+- [x] `src/app/(app)/lista/page.tsx` -- data inuti `<Suspense>` med skelettrader -- AD-18
+- [x] `tests/integration/shopping.test.ts` -- `getShoppingList` mot riktiga recept, matsedel och lager; 10 rätter och 200 lagervaror inom tidsgränsen -- NFR7
+- [x] `tests/e2e/support.ts`, `global-setup.ts` -- `shoppingEmail` ("e2e-lista@matkoll.test") i `e2eEmails` med egen storage state -- egen e2e-användare
+- [x] `tests/e2e/shopping.spec.ts` -- egen e2e-användare; data läggs in med service role: tom lista utan matsedel, grupperade poster med "från [rätt]", "(hemma: 1 kg)", "Finns hemma?", "Allt finns hemma.", omräkning efter ändrade portioner och ändrat lager -- matrisen
 
 **Acceptance Criteria:**
 - Given `pnpm lint && pnpm typecheck && pnpm test && pnpm test:integration && AI_PROVIDER=mock pnpm build && CI=1 pnpm test:e2e`, when de körs, then lyckas alla.
@@ -88,7 +89,34 @@ context:
 
 ## Spec Change Log
 
+- `getShoppingList()` ger ett `Result`, där listan har `plan.dishTitles` (för "från [rätt]") och `pantryUnavailable`. Receptradernas listtyp har `originalText`, som behövs för `t:`-poster.
+
 ## Review Triage Log
+
+Iteration 1. Granskare: Blind Hunter, Edge Case Hunter och Verification Gap.
+
+**Patch:**
+- En ingrediens som saknas och har både en vag rad och en rad med mängd blir en post.
+- En delvis täckt post visar andra enheter hemma.
+- Textposter visar en multiplikator.
+- Styckenheter avrundas uppåt.
+- Etiketter:
+  - en stabil reserv utan mängd
+  - aldrig tom
+  - ordnad efter position
+- `t:`-nyckelns byggare och tolkare stämmer överens.
+- En okänd avdelning blir Övrigt.
+- Rätter med borttaget recept räknas inte och visas med en notis.
+- Notisen om lagret visas bara när den är relevant.
+- Live-regionen töms och har en fullständig signatur.
+- `/lista` revalideras vid katalogändringar.
+- Omdirigering vid `unauthorized`.
+
+**Defer:** en knapp för att försöka igen i felnotisen.
+
+**Reject:**
+- läsning i en transaktion
+- ett mjukt prestandatest
 
 ## Verification
 

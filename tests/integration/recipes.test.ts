@@ -567,8 +567,22 @@ describe("the library: listRecipes, searchRecipesIn and setFavoriteIn", () => {
       originalServings: 4,
       isFavorite: true,
       lines: expect.arrayContaining([
-        { id: expect.any(String), ingredientId: gulLok, amount: null, unit: null, isVague: true },
-        { id: expect.any(String), ingredientId: null, amount: null, unit: null, isVague: true },
+        {
+          id: expect.any(String),
+          ingredientId: gulLok,
+          amount: null,
+          unit: null,
+          isVague: true,
+          originalText: "1 st gul lök",
+        },
+        {
+          id: expect.any(String),
+          ingredientId: null,
+          amount: null,
+          unit: null,
+          isVague: true,
+          originalText: "600 g kycklinglårfilé",
+        },
       ]),
     });
     expect(all.at(-1)?.lines).toHaveLength(2);

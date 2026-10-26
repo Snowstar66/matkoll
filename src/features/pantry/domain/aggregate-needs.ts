@@ -46,6 +46,41 @@ export function lineNeedKey(line: NeedLine): string | null {
   return keyOf(line.ingredientId, isVague(line) ? null : unitOf(line));
 }
 
+/** A line on a list of several recipes, with the id of what it comes from (a matsedelsrätt). */
+export type OriginLine = NeedLine & { origin: string };
+
+/** A need with what it comes from: each origin once, in the order its lines first appear. */
+export type NeedWithOrigins = Need & { origins: string[] };
+
+type Summed = { need: Need; origins: string[] };
+
+/** The one summation behind aggregateNeeds and aggregateNeedsWithOrigins. */
+function sumNeeds<L extends NeedLine>(
+  lines: readonly L[],
+  factor: number,
+  originOf: (line: L) => string | null,
+): Summed[] {
+  const needs = new Map<string, Summed>();
+  for (const line of lines) {
+    const key = lineNeedKey(line);
+    if (key === null || line.ingredientId === null) continue;
+    const before = needs.get(key);
+    const origins = before?.origins ?? [];
+    const origin = originOf(line);
+    if (origin !== null && !origins.includes(origin)) origins.push(origin);
+    if (isVague(line)) {
+      if (!before) needs.set(key, { need: { ingredientId: line.ingredientId, amount: null, unit: null }, origins });
+      continue;
+    }
+    const amount = (line.amount ?? 0) * factor + (before?.need.amount ?? 0);
+    needs.set(key, {
+      need: { ingredientId: line.ingredientId, amount: roundSum(amount), unit: unitOf(line) },
+      origins,
+    });
+  }
+  return [...needs.values()];
+}
+
 /**
  * The lines' needs, summed per `(ingredientId, unit)` with each amount times
  * `factor` (1 for the recipe's own servings), in the order each need first
@@ -55,17 +90,15 @@ export function lineNeedKey(line: NeedLine): string | null {
  * are left out. Sums are rounded to 1e-6, as the snapshot's are.
  */
 export function aggregateNeeds(lines: readonly NeedLine[], factor: number): Need[] {
-  const needs = new Map<string, Need>();
-  for (const line of lines) {
-    const key = lineNeedKey(line);
-    if (key === null || line.ingredientId === null) continue;
-    const before = needs.get(key);
-    if (isVague(line)) {
-      if (!before) needs.set(key, { ingredientId: line.ingredientId, amount: null, unit: null });
-      continue;
-    }
-    const amount = (line.amount ?? 0) * factor + (before?.amount ?? 0);
-    needs.set(key, { ingredientId: line.ingredientId, amount: roundSum(amount), unit: unitOf(line) });
-  }
-  return [...needs.values()];
+  return sumNeeds(lines, factor, () => null).map(({ need }) => need);
+}
+
+/**
+ * As aggregateNeeds, for lines from several recipes that are already scaled
+ * (recipes.scaleLines), so the factor is 1: each need also says which origins
+ * (matsedelsrätter) its lines come from, for "från [rätt]" on the shopping
+ * list (AD-7, AD-8).
+ */
+export function aggregateNeedsWithOrigins(lines: readonly OriginLine[]): NeedWithOrigins[] {
+  return sumNeeds(lines, 1, (line) => line.origin).map(({ need, origins }) => ({ ...need, origins }));
 }

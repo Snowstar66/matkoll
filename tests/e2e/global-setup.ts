@@ -21,6 +21,8 @@ import {
   sessionCookiesFor,
   settingsEmail,
   settingsStorageState,
+  shoppingEmail,
+  shoppingStorageState,
   statusEmail,
   statusStorageState,
   userStorageState,
@@ -59,6 +61,7 @@ export default async function globalSetup(config: FullConfig) {
       [pantryEmail, pantryStorageState],
       [statusEmail, statusStorageState],
       [mealplanEmail, mealplanStorageState],
+      [shoppingEmail, shoppingStorageState],
     ] as const) {
       const user = await browser.newContext({ baseURL });
       const page = await user.newPage();

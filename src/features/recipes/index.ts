@@ -53,6 +53,7 @@ export {
   withStatus,
   type RecipeListItem,
   type RecipeListRow,
+  type RecipeRowLine,
   type RecipeFilter,
   type FavoriteChange,
 } from "./domain/recipe-list";
@@ -65,3 +66,4 @@ export {
   type SavedRecipeStep,
   type SaveRecipeArgs,
 } from "./domain/saved-recipe";
+export { scaleFactor, scaleLines, type ScalableLine } from "./domain/scale";

@@ -2,6 +2,23 @@
 
 Beslut som fattats under bygget: vad, varför och vilka alternativ som fanns. Nyaste överst.
 
+## 2026-10-26 – Inköpslistans poster: hela styck, vaga rader och okopplade rader
+
+- **Beslut:**
+  - I en enhet som räknar hela saker (st, förp, klyfta, kruka, knippe, skiva) avrundas det som ska köpas uppåt till ett heltal, så 1,5 st blir 2 st. Jämförelsen med lagret använder det exakta behovet, och listnyckeln ändras inte.
+  - Om en ingrediens saknas och har både en vag rad och en rad med mängd blir det en enda post: posten med mängd. Den vaga radens rätter läggs till i "från [rätt]", och ingen "Finns hemma?"-post visas.
+  - En receptrad utan katalogingrediens skalas aldrig. Posten får i stället en faktor som är summan av rätternas skalfaktorer, avrundad till en decimal, och den visas när den inte är 1: "2 citroner ×2", "×1,5".
+  - När katalogen saknar namn heter posten som radens text utan mängd och enhet. Som sista utväg heter den "Okänd vara".
+  - En rätt vars recept är borttaget räknas inte, och listan säger "1 rätt med borttaget recept räknas inte." / "N rätter med borttagna recept räknas inte.". Räknas ingen rätt visas texten för tom matsedel (Story 3.3).
+- **Varför:** man köper inte en halv paprika. "Salt 1 tsk" och "Salt – Finns hemma?" på samma lista säger samma sak två gånger. En okopplad rad som "2 citroner" ser annars likadan ut för 4 som för 8 portioner. "Allt finns hemma." får inte visas när ingen rätt har räknats (granskningen av 3.3).
+- **Alternativ:** visa decimaler i alla enheter; behålla den vaga posten bredvid posten med mängd; skala texten i den okopplade raden, vilket kräver tolkning av fritext.
+
+## 2026-10-26 – Inköpslistan när lagret inte går att läsa, och omräkning medan listan är öppen
+
+- **Beslut:** om lagret inte går att läsa visas inköpslistan ändå, med hela behovet och utan avdrag. Överst står en blå `Notice` med `role="status"` och texten "Det gick inte att läsa lagret, så inget är avdraget från listan.". Den visas bara när någon rätt räknas. Utan aktuell matsedel läses lagret inte alls. Om matsedeln, recepten eller katalogen inte går att läsa visas bara `shopping_unavailable`. När listan räknas om medan den visas annonserar en live-region "Inköpslistan är omräknad. N varor kvar.". Texten töms efter 5 s och när listan döljs. Listan som visas när Pontus öppnar fliken annonseras inte. "från [rätt]" visar varje rätts titel en gång, även när samma recept står två gånger på matsedeln (Story 3.3).
+- **Varför:** i butiken är en lista utan avdrag bättre än ingen lista, men den får inte se avdragen ut. Matrisen säger inte vad live-regionen säger. En rätt som står två gånger ska inte ge "från Linssoppa, Linssoppa".
+- **Alternativ:** `shopping_unavailable` även när bara lagret fattas; ingen text i live-regionen, bara uppdaterad rubrikrad.
+
 ## 2026-10-26 – Tidigare matsedlar
 
 - **Beslut:** "Ny matsedel" är en sekundärknapp överst i Tidigare och visar, liksom "Använd igen", "Matsedeln är skapad." på Matsedel. Ingen av dem frågar i förväg, eftersom den förra matsedeln finns kvar som tidigare. En tidigare matsedel visas utan bild och status, med titel (länk till receptet) och portioner. Efter "Ta bort matsedel" hamnar Pontus i Tidigare med "Matsedeln är borttagen.". Den aktuella matsedeln går inte att ta bort därifrån, och dess adress under Tidigare leder till Matsedel. "Använd igen" kopierar rätternas sparade titlar, som när en rätt läggs till, och läser inte recepten igen. Datumet i listan skrivs med fasta svenska månadsförkortningar ("26 okt 2026"), så att servern och webbläsarna skriver likadant (Story 3.2).

@@ -1,6 +1,8 @@
 // Client-safe entry: types and domain (AD-1).
 export {
   UNITS,
+  COUNT_UNITS,
+  isCountUnit,
   unitSchema,
   normalizeUnit,
   parseQuantity,

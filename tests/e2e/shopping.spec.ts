@@ -1,0 +1,246 @@
+import { expect, type Page, type Response, test } from "@playwright/test";
+import { adminClient, e2eUserId, shoppingEmail, shoppingStorageState } from "./support";
+
+// Story 3.3: Inköpslista, counted from the current meal plan, its recipes and
+// the pantry every time it is read. The spec has an E2E user of its own
+// (shoppingEmail), which the later list stories share; everything is made
+// with the service role before the tests. Two recipes for 4 portions:
+// Krämig kycklinggryta (2 dl grädde, 1 paprika, salt efter smak) and Paj
+// (1 dl grädde, 2 dl mjöl, "En näve persilja" without a catalog
+// ingredient), with 1 kg mjöl in the pantry. The tests build on each other
+// and run in order.
+
+const mobile = { width: 375, height: 812 };
+const gryta = "Krämig kycklinggryta";
+const paj = "Paj";
+
+test.use({ storageState: shoppingStorageState, viewport: mobile });
+test.describe.configure({ mode: "serial" });
+
+let userId = "";
+let ids = new Map<string, string>();
+const recipeIds: Record<string, string> = {};
+let persiljaLineId = "";
+
+const sectionOf: Record<string, string> = {
+  Grädde: "Mejeri",
+  Mjöl: "Skafferi",
+  Salt: "Skafferi",
+  Paprika: "Frukt och grönt",
+};
+
+/** Upserts the catalog ingredients (they are never deleted) and returns their ids by name. */
+async function seedIngredients(names: string[]): Promise<Map<string, string>> {
+  const { data, error } = await adminClient()
+    .from("ingredient")
+    .upsert(
+      names.map((name) => ({
+        user_id: userId,
+        name,
+        normalized_name: name.toLocaleLowerCase("sv-SE"),
+        section: sectionOf[name],
+        location: "Kyl",
+      })),
+      { onConflict: "user_id,normalized_name" },
+    )
+    .select("id, name");
+  if (error) throw error;
+  return new Map((data as { id: string; name: string }[]).map((row) => [row.name, row.id]));
+}
+
+type SeedLine = { text: string; ingredient: string | null; amount: number | null; unit: string | null };
+
+async function seedRecipe(title: string, lines: SeedLine[]): Promise<{ id: string; lineIds: string[] }> {
+  const admin = adminClient();
+  const recipe = await admin
+    .from("recipe")
+    .insert({ user_id: userId, title, original_servings: 4, total_minutes: 30, source_kind: "text" })
+    .select("id")
+    .single();
+  if (recipe.error) throw recipe.error;
+  const id = (recipe.data as { id: string }).id;
+  const inserted = await admin
+    .from("recipe_ingredient")
+    .insert(
+      lines.map((line, position) => ({
+        user_id: userId,
+        recipe_id: id,
+        position,
+        original_text: line.text,
+        amount: line.amount,
+        unit: line.unit,
+        is_vague: line.amount === null,
+        ingredient_id: line.ingredient === null ? null : ids.get(line.ingredient),
+      })),
+    )
+    .select("id, position");
+  if (inserted.error) throw inserted.error;
+  const rows = (inserted.data as { id: string; position: number }[]).sort((a, b) => a.position - b.position);
+  recipeIds[title] = id;
+  return { id, lineIds: rows.map((row) => row.id) };
+}
+
+async function addPantry(ingredient: string, amount: number | null, unit: string | null, location = "Kyl") {
+  const { error } = await adminClient()
+    .from("pantry_item")
+    .insert({ user_id: userId, ingredient_id: ids.get(ingredient), location, amount, unit });
+  if (error) throw error;
+}
+
+test.beforeAll(async () => {
+  userId = await e2eUserId(shoppingEmail);
+  const admin = adminClient();
+  // A retry starts again from no plan, no recipes and an empty pantry.
+  for (const table of ["meal_plan", "pantry_item", "recipe"] as const) {
+    const { error } = await admin.from(table).delete().eq("user_id", userId);
+    if (error) throw error;
+  }
+  ids = await seedIngredients(["Grädde", "Mjöl", "Salt", "Paprika"]);
+  await seedRecipe(gryta, [
+    { text: "2 dl grädde", ingredient: "Grädde", amount: 2, unit: "dl" },
+    { text: "1 paprika", ingredient: "Paprika", amount: 1, unit: null },
+    { text: "salt efter smak", ingredient: "Salt", amount: null, unit: null },
+  ]);
+  const pie = await seedRecipe(paj, [
+    { text: "1 dl grädde", ingredient: "Grädde", amount: 1, unit: "dl" },
+    { text: "2 dl mjöl", ingredient: "Mjöl", amount: 2, unit: "dl" },
+    { text: "En näve persilja", ingredient: null, amount: null, unit: null },
+  ]);
+  persiljaLineId = pie.lineIds[2];
+  await addPantry("Mjöl", 1, "kg", "Skafferi");
+});
+
+/** Collects console errors and uncaught exceptions for the page. */
+function watchErrors(page: Page): string[] {
+  const errors: string[] = [];
+  page.on("console", (message) => {
+    if (message.type() === "error") errors.push(message.text());
+  });
+  page.on("pageerror", (error) => errors.push(error.message));
+  return errors;
+}
+
+// Earlier routes stay mounted but hidden after a client navigation, so every
+// locator is scoped to what is visible.
+const lines = (page: Page) => page.getByTestId("shopping-line").filter({ visible: true });
+const lineOf = (page: Page, label: string) => lines(page).filter({ has: page.getByText(label, { exact: true }) });
+const summary = (page: Page) => page.getByTestId("list-summary").filter({ visible: true });
+const sectionHeadings = (page: Page) => page.getByRole("heading", { level: 2 }).filter({ visible: true });
+const tab = (page: Page, name: "Matsedel" | "Lista") =>
+  page.getByRole("navigation", { name: "Huvudmeny" }).getByRole("link", { name });
+
+/** Waits until `count` Server Action calls started after this point have answered. */
+async function actionsAnswered(page: Page, count: number, act: () => Promise<void>) {
+  let answered = 0;
+  const seen = (response: Response) => {
+    if (response.request().method() === "POST" && "next-action" in response.request().headers()) answered += 1;
+  };
+  page.on("response", seen);
+  await act();
+  await expect.poll(() => answered).toBeGreaterThanOrEqual(count);
+  page.off("response", seen);
+}
+
+test("without a meal plan the list says to put dishes on it", async ({ page }) => {
+  const errors = watchErrors(page);
+  await page.goto("/lista");
+  await expect(page.getByRole("heading", { name: "Inköpslista", level: 1 })).toBeVisible();
+  await expect(page.getByText("Lägg rätter på matsedeln så räknas listan fram.").filter({ visible: true })).toBeVisible();
+  await expect(summary(page)).toHaveCount(0);
+  expect(errors).toEqual([]);
+});
+
+test("the list groups the lines by section, with från [rätt], the pantry beside and Finns hemma?", async ({ page }) => {
+  const admin = adminClient();
+  const plan = await admin
+    .from("meal_plan")
+    .insert({ user_id: userId, name: "Vecka 44", is_current: true })
+    .select("id")
+    .single();
+  if (plan.error) throw plan.error;
+  const dishes = await admin.from("meal_plan_recipe").insert(
+    [gryta, paj].map((title, position) => ({
+      user_id: userId,
+      meal_plan_id: (plan.data as { id: string }).id,
+      recipe_id: recipeIds[title],
+      recipe_title: title,
+      servings: 4,
+      position,
+    })),
+  );
+  if (dishes.error) throw dishes.error;
+
+  const errors = watchErrors(page);
+  await page.goto("/lista");
+  await expect(summary(page)).toHaveText("Vecka 44 · 2 rätter · 5 varor kvar");
+  await expect(sectionHeadings(page)).toHaveText(["Frukt och grönt", "Mejeri", "Skafferi", "Övrigt"]);
+  await expect(lines(page)).toHaveCount(5);
+  // An amount without unit counts as st.
+  await expect(lineOf(page, "Paprika")).toContainText(`från ${gryta}`);
+  await expect(lineOf(page, "Paprika")).toContainText("1 st");
+  // 2 dl and 1 dl from two dishes is one line.
+  await expect(lineOf(page, "Grädde")).toContainText(`från ${gryta}, ${paj}`);
+  await expect(lineOf(page, "Grädde")).toContainText("3 dl");
+  // 1 kg at home is never converted into dl.
+  await expect(lineOf(page, "Mjöl")).toContainText("2 dl (hemma: 1 kg)");
+  await expect(lineOf(page, "Salt")).toContainText("Finns hemma?");
+  // A line without a catalog ingredient, with its own text, under Övrigt.
+  const other = page.getByRole("region", { name: "Övrigt" }).filter({ visible: true });
+  await expect(other.getByTestId("shopping-line")).toHaveText([`En näve persilja från ${paj}`]);
+  expect(errors).toEqual([]);
+});
+
+test("more servings on Matsedel count the list again", async ({ page }) => {
+  const errors = watchErrors(page);
+  await page.goto("/lista");
+  await expect(lineOf(page, "Grädde")).toContainText("3 dl");
+
+  await tab(page, "Matsedel").click();
+  await expect(page).toHaveURL(/\/matsedel$/);
+  const dish = page.getByTestId("plan-dish").filter({ visible: true }).filter({ hasText: gryta });
+  for (const servings of [5, 6]) {
+    await actionsAnswered(page, 1, () => dish.getByRole("button", { name: `Fler portioner, ${gryta}` }).click());
+    await expect(dish.getByText(`${servings} portioner`)).toBeVisible();
+  }
+
+  await tab(page, "Lista").click();
+  await expect(page).toHaveURL(/\/lista$/);
+  // 2 dl for 4 is 3 dl for 6, and 1 dl from Paj.
+  await expect(lineOf(page, "Grädde")).toContainText("4 dl");
+  // 1.5 paprikor are bought as 2.
+  await expect(lineOf(page, "Paprika")).toContainText("2 st");
+  // Coming back to the list is not a recount while it is open: nothing is announced.
+  // Read at once, not retried: the text would otherwise be cleared after a few seconds anyway.
+  expect(await page.getByTestId("list-announcement").filter({ visible: true }).textContent()).toBe("");
+  expect(errors).toEqual([]);
+});
+
+test("what is at home is taken off when the pantry changes", async ({ page }) => {
+  await addPantry("Grädde", 3, "dl");
+  await addPantry("Salt", null, null, "Skafferi");
+  const errors = watchErrors(page);
+  await page.goto("/lista");
+  // 4 dl needed, 3 dl at home; salt is at home.
+  await expect(lineOf(page, "Grädde")).toContainText("1 dl");
+  await expect(lineOf(page, "Salt")).toHaveCount(0);
+  await expect(summary(page)).toHaveText("Vecka 44 · 2 rätter · 4 varor kvar");
+
+  await addPantry("Grädde", 1, "dl", "Frys");
+  await page.reload();
+  await expect(lineOf(page, "Grädde")).toHaveCount(0);
+  expect(errors).toEqual([]);
+});
+
+test("the list says everything is at home when nothing is short", async ({ page }) => {
+  await addPantry("Paprika", 2, "st", "Kyl");
+  await addPantry("Mjöl", 5, "dl", "Skafferi");
+  const { error } = await adminClient().from("recipe_ingredient").delete().eq("id", persiljaLineId);
+  if (error) throw error;
+
+  const errors = watchErrors(page);
+  await page.goto("/lista");
+  await expect(page.getByText("Allt finns hemma.").filter({ visible: true })).toBeVisible();
+  await expect(summary(page)).toHaveText("Vecka 44 · 2 rätter · 0 varor kvar");
+  await expect(lines(page)).toHaveCount(0);
+  expect(errors).toEqual([]);
+});

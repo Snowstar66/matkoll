@@ -331,7 +331,7 @@ describe("getRecipesByIds", () => {
         totalMinutes: null,
         originalServings: 4,
         isFavorite: false,
-        lines: [{ id: line.data.id, ingredientId: null, amount: null, unit: null, isVague: true }],
+        lines: [{ id: line.data.id, ingredientId: null, amount: null, unit: null, isVague: true, originalText: "salt" }],
       },
     ]);
     expect(await getRecipesByIdsIn(owner.db, [])).toEqual([]);

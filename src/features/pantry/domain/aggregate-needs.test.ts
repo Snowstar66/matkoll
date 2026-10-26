@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { aggregateNeeds, lineNeedKey, needKey, type NeedLine } from "./aggregate-needs";
+import { aggregateNeeds, aggregateNeedsWithOrigins, lineNeedKey, needKey, type NeedLine } from "./aggregate-needs";
 
 const line = (overrides: Partial<NeedLine> & Pick<NeedLine, "ingredientId">): NeedLine => ({
   amount: null,
@@ -74,6 +74,27 @@ describe("aggregateNeeds", () => {
         1,
       ),
     ).toEqual([{ ingredientId: "gradde", amount: 0.3, unit: "dl" }]);
+  });
+});
+
+describe("aggregateNeedsWithOrigins", () => {
+  it("sums like aggregateNeeds and lists each need's origins once, in order", () => {
+    const lines = [
+      { ...line({ ingredientId: "gradde", amount: 2, unit: "dl" }), origin: "gryta" },
+      { ...line({ ingredientId: "mjol", amount: 1, unit: "dl" }), origin: "gryta" },
+      { ...line({ ingredientId: "gradde", amount: 1, unit: "dl" }), origin: "soppa" },
+      { ...line({ ingredientId: "gradde", amount: 0.5, unit: "dl" }), origin: "gryta" },
+      { ...line({ ingredientId: "salt", isVague: true }), origin: "soppa" },
+      { ...line({ ingredientId: "salt", isVague: true }), origin: "gryta" },
+      { ...line({ ingredientId: null, amount: 1, unit: "st" }), origin: "paj" },
+    ];
+    expect(aggregateNeedsWithOrigins(lines)).toEqual([
+      { ingredientId: "gradde", amount: 3.5, unit: "dl", origins: ["gryta", "soppa"] },
+      { ingredientId: "mjol", amount: 1, unit: "dl", origins: ["gryta"] },
+      { ingredientId: "salt", amount: null, unit: null, origins: ["soppa", "gryta"] },
+    ]);
+    const withoutOrigins = aggregateNeedsWithOrigins(lines).map(({ ingredientId, amount, unit }) => ({ ingredientId, amount, unit }));
+    expect(withoutOrigins).toEqual(aggregateNeeds(lines, 1));
   });
 });
 

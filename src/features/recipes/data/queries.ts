@@ -1,9 +1,8 @@
 import "server-only";
 import { unitSchema } from "@/features/catalog";
-import type { StatusLine } from "@/features/pantry";
 import { containsPattern } from "@/lib/like-pattern";
 import { sourceKindSchema } from "../domain/recipe-draft";
-import type { RecipeListRow } from "../domain/recipe-list";
+import type { RecipeListRow, RecipeRowLine } from "../domain/recipe-list";
 import type { SavedRecipe } from "../domain/saved-recipe";
 import { RecipeDataError, type RecipesDb } from "./client";
 
@@ -79,10 +78,18 @@ export async function getRecipe(
 
 /** The library row's own columns. */
 const listColumns = "id, title, image_url, total_minutes, original_servings, is_favorite, created_at";
-/** A recipe line's columns for the status (pantry.recipeStatus). */
-const lineColumns = "id, ingredient_id, amount, unit, is_vague";
+/** A recipe line's columns for the status (pantry.recipeStatus) and the shopping list. */
+const lineColumns = "id, position, ingredient_id, amount, unit, is_vague, original_text";
 
-type LineRow = { id: string; ingredient_id: string | null; amount: number | null; unit: string | null; is_vague: boolean };
+type LineRow = {
+  id: string;
+  position: number;
+  ingredient_id: string | null;
+  amount: number | null;
+  unit: string | null;
+  is_vague: boolean;
+  original_text: string;
+};
 
 type ListRow = {
   id: string;
@@ -106,13 +113,21 @@ function newestFirst(a: ListRow, b: ListRow): number {
  * line is logged and left out of the status (no catalog ingredient) rather
  * than failing the whole library.
  */
-function toStatusLine(line: LineRow): StatusLine {
+function toStatusLine(line: LineRow): RecipeRowLine {
   const unit = unitSchema.nullable().safeParse(line.unit);
+  const originalText = line.original_text;
   if (!unit.success) {
     console.error("recipe_line_invalid", { reason: "unit", lineId: line.id });
-    return { id: line.id, ingredientId: null, amount: line.amount, unit: null, isVague: line.is_vague };
+    return { id: line.id, ingredientId: null, amount: line.amount, unit: null, isVague: line.is_vague, originalText };
   }
-  return { id: line.id, ingredientId: line.ingredient_id, amount: line.amount, unit: unit.data, isVague: line.is_vague };
+  return {
+    id: line.id,
+    ingredientId: line.ingredient_id,
+    amount: line.amount,
+    unit: unit.data,
+    isVague: line.is_vague,
+    originalText,
+  };
 }
 
 function toListRow(row: ListRow, lines: readonly LineRow[]): RecipeListRow {
@@ -123,7 +138,8 @@ function toListRow(row: ListRow, lines: readonly LineRow[]): RecipeListRow {
     totalMinutes: row.total_minutes,
     originalServings: row.original_servings,
     isFavorite: row.is_favorite,
-    lines: lines.map(toStatusLine),
+    // In the recipe's order, so whatever reads "the first line" reads the same one every time.
+    lines: [...lines].sort((a, b) => a.position - b.position).map(toStatusLine),
   };
 }
 
@@ -262,6 +278,7 @@ export async function getRecipesByIdsIn(db: RecipesDb, ids: readonly string[]): 
           .select(`${listColumns}, lines:recipe_ingredient(${lineColumns})`)
           .in("id", chunk)
           .order("id")
+          .order("position", { referencedTable: "lines" })
           .range(from, to),
       ),
     ),
