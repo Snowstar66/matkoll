@@ -2,6 +2,56 @@
 
 Beslut som fattats under bygget: vad, varför och vilka alternativ som fanns. Nyaste överst.
 
+## 2026-10-26 – Kursändring för version 1.1, Flera ställen (Epic 8)
+
+- **Beslut (Claude, headless enligt `docs/autonomi.md`; allt går att ändra):**
+  - **Kursändringen görs som en ny Epic 8 med fem stories** (alternativ 1, direkt justering). 1.0:s stories ändras inte. Förslaget står i `_bmad-output/planning-artifacts/sprint-change-proposal-2026-10-26-flera-stallen.md`.
+  - **Ett valt ställe styr allt (modell A).** Varje användare har exakt ett valt ställe, `pantry_site.is_selected`, som sparas på servern och gäller alla enheter. Det styr Hemma, lagningsstatusen, rangordningen, AI-förslagen, inköpslistans avdrag, "Lägg i lagret" och bildanalysen. Det är Pontus egen beskrivning, och samma mönster som vald butik (`select_store`).
+  - **Lagret summeras aldrig över ställen,** och Matkoll byter aldrig ställe på egen hand (motmåttet SM-C3).
+  - **Pontus tittar på ett annat ställes lager genom att välja det** i Hemma. Det finns ingen separat visning via adressen.
+  - **"Byt" i inköpslistan är samma val som i Hemma.** Listan har inget eget ställe.
+  - **Termer:** "ställe" och "valt ställe". "Plats" betyder fortfarande Kyl, Frys och Skafferi. Det första stället heter "Hemma", och sidan och fliken Hemma behåller sitt namn.
+  - **Ny AD-24 i arkitekturen:**
+    - `pantry` äger `pantry_site`.
+    - `pantry_item.site_id` är `not null`, med en sammansatt nyckel och `on delete restrict`.
+    - Den unika nyckeln är `(user_id, site_id, ingredient_id, location, unit)`.
+    - `getPantrySnapshot(siteId?)` gäller valt ställe.
+    - Skrivningar tar ställets id från vyn (FR-33).
+    - SQL-funktionerna får parametern `site uuid default null`, där `null` betyder valt ställe, för bakåtkompatibilitet (AD-5).
+    - `ensure_pantry_defaults()` ägs av `pantry` (AD-21).
+    - `revalidateFor('pantry_site')`.
+
+    AD-7, AD-8, AD-18, AD-19 och AD-21 får tillägg, och inga AD-id ändras.
+  - **Migreringen bara lägger till:** "Hemma" läggs in för varje användare i `auth.users`, och alla befintliga rader flyttas dit med samma id. Inget tas bort.
+  - **Gränser:** namnet har 1–40 tecken och är unikt utan hänsyn till stora och små bokstäver, och det får finnas högst 10 ställen. Ett ställe kan tas bort bara om det är tomt och inte valt, och det sista aldrig. Borttagningen görs utan fråga och utan "Ångra", eftersom inget går förlorat.
+  - **Ställesväljaren:** med ett ställe visas bara "Lägg till ställe" längst ned i Hemma. Med flera visas filterpiller ovanför platskorten och "Ställen". Ett nytt ställe väljs inte automatiskt.
+  - **Texter:** ställets namn nämns bara när det finns fler än ett ställe, med mönstren "Lager: Stugan" och "… för Stugan.", så att alla namn fungerar utan böjning, också "Hemma".
+  - **Stället ingår aldrig i listnycklar, bockar, överstyrningar, egna varor, produktval eller exporten.** Ett byte räknar om listan, och överlägget står kvar.
+  - **Utanför 1.1:**
+    - att flytta eller kopiera varor mellan ställen;
+    - att välja ställe efter position;
+    - att summera lagret över ställen;
+    - en matsedel per ställe;
+    - delade ställen.
+  - **Story-ordning:**
+    1. 8.1, datamodell och migrering;
+    2. 8.2, välja och hantera ställen;
+    3. 8.3, status, förslag och "Lägg i lagret";
+    4. 8.4, foto, inventering och tömning;
+    5. 8.5, inköpslistan inför resan.
+  - **Städat i `epics.md`:** Story 6.3 och 6.4 låg under Epic List och står nu under Epic 6, och rubriken för Epic 7 i Epic List har rätt nivå. Innehållet är oförändrat.
+- **Varför:**
+  - Det är Pontus mål med 1.1 (`docs/backlog-efter-1-0.md`, punkt 1): att handla rätt inför resan till stugan, att se stugans lager på distans och att "Lägg i lagret" lägger på det valda stället.
+  - Ett begrepp och en inställning är det enklaste som uppfyller målet.
+  - Den sammansatta nyckeln och `restrict` gör att ingen vara kan hamna på en annan användares ställe eller försvinna med ett ställe.
+- **Alternativ:**
+  - Ett eget ställe för listan eller matsedeln, skilt från valt ställe (modell B).
+  - Att Hemma visar ett ställe via `?stalle=` utan att byta valt ställe (modell C).
+  - Ställe som en del av `location` ("Stugan/Kyl", modell D), som bryter AD-12.
+  - Valt ställe i en cookie per enhet, där mobilen och datorn skulle kunna räkna mot olika lager.
+  - Ett ställe som väljs automatiskt när det skapas.
+  - Att tabellen ägs av `settings` som `store`. Den hör till lagret, och `pantry` måste kunna låsa den med `pantry_lock()`.
+
 ## 2026-10-26 – Skicka till ICA (Story 7.3)
 
 - **Beslut:**

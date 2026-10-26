@@ -11,6 +11,8 @@ Frågor och osäkerheter som samlas under bygget och presenteras för Pontus nä
 | 3 | Molnleverantör för AI när appen ska användas av fler | Den billigaste som klarar testuppsättningen; avgörs senare | Brief |
 | 4 | Ska Vercel bygga förhandsversioner av grenar? De får ingen databas och svarar 503, så de är bara en byggkontroll. | Behåll dem med `SITE_URL` och `AI_PROVIDER=mock` i Preview; stäng av dem om de bara stör (se `docs/drift.md`, steg 9) | Story 3.8 |
 | 5 | ~~Får en sammanslagning till `main` driftsätta i produktion?~~ **Besvarad 2026-10-26 (Pontus): ja.** Epic-PR:erna slås ihop till `main` som tidigare. Så länge Production i Vercel saknar miljövariabler misslyckas produktionsbygget och inget publiceras. Den första riktiga publiceringen görs när Pontus följer `docs/drift.md`. | Lägg inte in miljövariabler i Production förrän Supabase i molnet finns | 2026-10-26, PR #41 |
+| 6 | Ska det gå att titta på ett annat ställes lager utan att byta valt ställe? I 1.1 väljer Pontus stället i Hemma, och då gäller det i hela appen tills Pontus väljer tillbaka. | Nej i 1.1: ett valt ställe och raden "Lager: Stugan" som påminnelse. Om Pontus ofta glömmer att välja tillbaka läggs en visning via adressen till (`?stalle=`, modell C). AD-24 klarar det utan ombyggnad. | Kursändring 1.1, 2026-10-26 |
+| 7 | Ska inköpslistan (eller matsedeln) ha ett eget ställe, skilt från det som lagningsstatusen räknar mot? Det gäller till exempel att planera för stugan medan Pontus lagar mat hemma samma kväll. | Nej i 1.1: "Byt" i listan är samma val som i Hemma. Om det behövs lagras ett ställe per matsedel (modell B). `putCheckedInPantry` tar redan emot ett ställe. | Kursändring 1.1, 2026-10-26 |
 
 ## Tekniska osäkerheter (utredas under bygget)
 

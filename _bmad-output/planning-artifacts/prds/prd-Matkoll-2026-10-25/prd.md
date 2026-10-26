@@ -2,7 +2,7 @@
 title: Matkoll
 status: draft
 created: 2026-10-25
-updated: 2026-10-25
+updated: 2026-10-26
 ---
 
 # PRD: Matkoll
@@ -357,6 +357,10 @@ Pontus kan ändra butik i inställningarna (namn, kedja, butiks-id, adress), äv
 
 - Steg 3 i Epic 7 (inbyggd agent). Byggs bara om steg 1–2 inte räcker.
 - Molndrift med extern AI-leverantör. AI-tjänsten är förberedd för det, men valet görs när appen ska användas av fler.
+
+### 8.3 Efter 1.0
+
+- **Version 1.1, Flera ställen (Epic 8):** lagret delas på ställen, till exempel Hemma och Stugan, och inköpslistan räknas mot det valda stället. Kraven FR-29–FR-33 och NFR-9, och de avgränsningar av befintliga krav som 1.1 ger, står i `addendum.md` under "Version 1.1: Flera ställen".
 
 ## 9. Effektmål
 

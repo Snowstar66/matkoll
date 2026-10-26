@@ -29,7 +29,7 @@
 # - Dev moves story to 'review', then runs code-review (fresh context, different LLM recommended)
 # - Retrospective appends its action items to action_items; the status view surfaces open ones
 generated: 10-25-2026 18:16
-last_updated: 10-26-2026 00:39
+last_updated: 10-26-2026 15:18
 project: Matkoll
 project_key: NOKEY
 tracking_system: file-system
@@ -90,3 +90,11 @@ development_status:
   7-2-produktval-per-vara: done
   7-3-skicka-till-ica: done
   epic-7-retrospective: optional
+
+  epic-8: backlog
+  8-1-ställen-i-lagret-med-hemma-som-första-ställe: backlog
+  8-2-välja-och-hantera-ställen-i-hemma: backlog
+  8-3-lagningsstatus-förslag-och-lägg-i-lagret-följer-valt-ställe: backlog
+  8-4-foto-inventering-och-tömning-per-ställe: backlog
+  8-5-inköpslista-inför-resan-till-ett-annat-ställe: backlog
+  epic-8-retrospective: optional
