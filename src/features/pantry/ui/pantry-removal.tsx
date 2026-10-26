@@ -11,7 +11,7 @@ import { restorePantryItem } from "../actions/restore-pantry-item";
 import { restorePantryRemoval } from "../actions/restore-pantry-removal";
 import { comparePantryItems, type PantryItem } from "../domain/pantry-item";
 import type { PantryRow } from "../domain/pantry-item-form";
-import { withoutStock, withRestoredStock } from "../domain/pantry-suggestion";
+import { withoutPlace, withRestoredPlace, withRestoredStock } from "../domain/pantry-suggestion";
 import {
   alreadyEmptyText,
   emptiedPlaceText,
@@ -180,12 +180,13 @@ const unnamed = (id: string, location: Location): PantryItem => ({
  * the toasts outlive a change of location. When an action gets no answer,
  * the page is read again so the list shows what is saved. Needs a
  * PantrySuggestionsProvider above: emptying and "Ångra" keep "I kylen nu" on
- * the lagerförslag true.
+ * the lagerförslag true, and emptying the photographed location ends its
+ * comparison (Story 6.4): the suggestions become a plain list.
  */
 export function PantryRemovalProvider({ children }: { children: ReactNode }) {
   const { showToast } = useToast();
   const router = useRouter();
-  const { editSuggestions, generation } = usePantrySuggestions();
+  const { editResult, editSuggestions, generation } = usePantrySuggestions();
   const [entries, setEntries] = useState<ReadonlyMap<string, Entry>>(() => new Map());
   const [focusAfter, setFocusAfter] = useState<string | null>(null);
   /** Emptying and "Ångra" by operation on their way, per location. */
@@ -312,6 +313,8 @@ export function PantryRemovalProvider({ children }: { children: ReactNode }) {
     forgetRemovals(result.data.restoredIds.filter((id) => !tokens.has(id)));
     const rows = result.data.rows;
     editSuggestions(generation(), (suggestions) => withRestoredStock(suggestions, operation.location, rows));
+    // A photo compared with the location before it was emptied no longer matches it (Story 6.4).
+    editResult(generation(), (result) => withRestoredPlace(result, operation.location));
     return { ok: true, skipped: result.data.skipped };
   }
 
@@ -409,7 +412,7 @@ export function PantryRemovalProvider({ children }: { children: ReactNode }) {
     const shown = new Map(items.map((item) => [item.id, item]));
     // The list is empty at once, also of rows another tab added (only the id counts for them).
     for (const id of removedIds) settle(id, begin("remove", shown.get(id) ?? unnamed(id, location)));
-    editSuggestions(generation(), (suggestions) => withoutStock(suggestions, location));
+    editResult(generation(), (result) => withoutPlace(result, location));
     if (removed > 0) {
       const ids = new Set(removedIds);
       confirmOperation({ id: operationId, location, count: removed, known: items.filter((item) => ids.has(item.id)) });
@@ -427,7 +430,7 @@ export function PantryRemovalProvider({ children }: { children: ReactNode }) {
       if (!lost || lost.operation.location !== location) return;
       lostEmpty.current = null;
       if (items.length > 0 || Date.now() - lost.at > lostEmptyWindowMs) return;
-      editSuggestions(generation(), (suggestions) => withoutStock(suggestions, location));
+      editResult(generation(), (result) => withoutPlace(result, location));
       confirmOperation(lost.operation);
     };
   });

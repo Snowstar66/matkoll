@@ -26,6 +26,7 @@ vi.mock("@/features/pantry/actions/empty-pantry-place", () => ({ emptyPantryPlac
 vi.mock("@/features/pantry/actions/restore-pantry-removal", () => ({ restorePantryRemoval: vi.fn() }));
 vi.mock("@/features/pantry/actions/restore-pantry-item", () => ({ restorePantryItem: vi.fn() }));
 const confirmPantrySuggestions = vi.fn();
+vi.mock("@/features/pantry/actions/confirm-pantry-inventory", () => ({ confirmPantryInventory: vi.fn() }));
 vi.mock("@/features/pantry/actions/confirm-pantry-suggestions", () => ({
   confirmPantrySuggestions: (...args: unknown[]) => confirmPantrySuggestions(...args),
 }));
@@ -109,8 +110,10 @@ describe("HomeContent", () => {
       amount: 2,
       unit: "st",
       current: null,
+      change: null,
+      replaces: [],
     };
-    await act(async () => answers[0](ok({ location: "Kyl", suggestions: [suggestion], dropped: 0 })));
+    await act(async () => answers[0](ok({ location: "Kyl", suggestions: [suggestion], dropped: 0, inventory: { kind: "unread" } })));
 
     const section = screen.getByRole("region", { name: "Lagerförslag från kylen" });
     expect(within(section).getByTestId("pantry-suggestion")).toHaveTextContent("gurkaNy2 st · Kyl");

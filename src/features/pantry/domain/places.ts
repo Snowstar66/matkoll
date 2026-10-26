@@ -115,3 +115,45 @@ const maybeEmptied: Record<Location, string> = {
 export function maybeEmptiedText(location: Location): string {
   return maybeEmptied[location];
 }
+
+// "Inventera en plats med foto" (Story 6.4).
+
+/** The short confirmation, with "Ångra", after "Behåll" on a "Syns inte längre" card: "senap står kvar i kylen." */
+export function keptItemText(name: string, location: Location): string {
+  return `${name} står kvar i ${definite[location]}.`;
+}
+
+/** The short confirmation, without "Ångra", when the item's rows were gone already: "yoghurt är redan borttagen." */
+export function alreadyRemovedText(name: string): string {
+  return `${name} är redan borttagen.`;
+}
+
+const updated: Record<Location, string> = {
+  Kyl: "Kylen är uppdaterad",
+  Frys: "Frysen är uppdaterad",
+  Skafferi: "Skafferiet är uppdaterat",
+};
+
+/** "1 ny", "3 nya": counts of the parts of an inventory, singular and plural. */
+function countWord(count: number, one: string, many: string): string {
+  return `${count} ${count === 1 ? one : many}`;
+}
+
+/**
+ * The short confirmation after "Bekräfta alla" on a compared photo: "Kylen
+ * är uppdaterad: 3 nya, 1 ändrad och 2 borttagna." A part that is 0 is left
+ * out, and with none left it is "Kylen är uppdaterad."
+ */
+export function inventoryAppliedText(
+  location: Location,
+  { added, changed, removed }: { added: number; changed: number; removed: number },
+): string {
+  const parts = [
+    added > 0 ? countWord(added, "ny", "nya") : null,
+    changed > 0 ? countWord(changed, "ändrad", "ändrade") : null,
+    removed > 0 ? countWord(removed, "borttagen", "borttagna") : null,
+  ].filter((part) => part !== null);
+  if (parts.length === 0) return `${updated[location]}.`;
+  const listed = parts.length === 1 ? parts[0] : `${parts.slice(0, -1).join(", ")} och ${parts.at(-1)}`;
+  return `${updated[location]}: ${listed}.`;
+}

@@ -3,8 +3,21 @@ import type { IngredientMatch, Location, Unit } from "@/features/catalog";
 import { errorMessages, fail } from "@/lib/errors";
 import type { PantryAmountRow } from "./pantry-item";
 import {
+  allUnchangedText,
   analyzeErrorMessage,
   analyzeResultSchema,
+  changeSpokenText,
+  changeText,
+  incompleteComparisonText,
+  inventoryConfirmSchema,
+  unchangedCountText,
+  unreadPlaceText,
+  withoutPlace,
+  withRestoredPlace,
+  changedPlaceText,
+  partlyUnchangedText,
+  changesLeftText,
+  undoRemovalLabel,
   analyzeRetryCodes,
   cameraButtonText,
   confirmItemFromForm,
@@ -106,6 +119,9 @@ describe("toPantrySuggestions", () => {
       amount: 1,
       unit: "förp",
       current: { unlimited: false, amounts: [{ amount: 2, unit: "förp" }] },
+      // Compared with the place later (compareWithPlace).
+      change: null,
+      replaces: [],
     });
     expect(suggestions[1].ingredient).toEqual({
       kind: "new",
@@ -281,13 +297,15 @@ describe("analyzeResultSchema", () => {
     amount: 1,
     unit: "förp",
     current: null,
+    change: null,
+    replaces: [],
   };
 
   it("takes an empty list and up to 25 suggestions, with the count of items left out", () => {
     expect(maxPantrySuggestions).toBe(25);
-    expect(analyzeResultSchema.safeParse({ location: "Kyl", suggestions: [], dropped: 3 }).success).toBe(true);
+    expect(analyzeResultSchema.safeParse({ location: "Kyl", suggestions: [], dropped: 3, inventory: { kind: "unread" } }).success).toBe(true);
     const all = Array.from({ length: 25 }, (_, index) => ({ ...suggestion, id: `s${index + 1}` }));
-    expect(analyzeResultSchema.safeParse({ location: "Frys", suggestions: all, dropped: 0 }).success).toBe(true);
+    expect(analyzeResultSchema.safeParse({ location: "Frys", suggestions: all, dropped: 0, inventory: { kind: "empty" } }).success).toBe(true);
     expect(analyzeResultSchema.safeParse({ location: "Frys", suggestions: [...all, suggestion], dropped: 0 }).success).toBe(false);
     expect(analyzeResultSchema.safeParse({ location: "Frys", suggestions: [] }).success).toBe(false);
     expect(analyzeResultSchema.safeParse({ location: "Frys", suggestions: [], dropped: -1 }).success).toBe(false);
@@ -479,6 +497,8 @@ describe("confirmItemFromSuggestion and confirmItemFromForm", () => {
       amount: 6,
       unit: "st",
       current: null,
+      change: null,
+      replaces: [],
     };
     expect(confirmItemFromSuggestion(suggestion)).toEqual({
       ingredient: suggestion.ingredient,
@@ -529,6 +549,8 @@ describe("review patches", () => {
     amount: 2,
     unit: "st",
     current: null,
+    change: null,
+    replaces: [],
   };
   const mjolkSuggestion = (id: string, amount: number | null, unit: Unit | null): PantrySuggestion => ({
     id,
@@ -538,6 +560,8 @@ describe("review patches", () => {
     amount,
     unit,
     current: { unlimited: false, amounts: [{ amount: 2, unit: "förp" }, { amount: 1, unit: "l" }] },
+    change: null,
+    replaces: [],
   });
 
   it("keeps a new suggestion's proposal, default place and unit through the sheet while its name is the same", () => {
@@ -615,6 +639,8 @@ describe("withoutStock and withRestoredStock (Töm en plats)", () => {
     amount: 1,
     unit: "förp" as const,
     current: { unlimited: false, amounts: [{ amount: 2, unit: "förp" as const }] },
+    change: null,
+    replaces: [] as string[],
   };
   const inKyl = (id: string, ingredientId: string, current: PantrySuggestionLike["current"] = base.current) =>
     ({ ...base, id, name: id, location: "Kyl" as const, ingredient: { kind: "existing" as const, ingredientId }, current });
@@ -655,5 +681,84 @@ describe("withoutStock and withRestoredStock (Töm en plats)", () => {
     ]);
     expect(restored.current).toEqual({ unlimited: false, amounts: [{ amount: 1, unit: "l" }, { amount: 2, unit: "förp" }] });
     expect(withRestoredStock([confirmed], "Kyl", [])).toEqual([confirmed]);
+  });
+});
+
+describe("Inventera en plats med foto: texts, schema and Töm", () => {
+  const mjolk = "11111111-1111-4111-8111-111111111111";
+  const rowId = "22222222-2222-4222-8222-222222222222";
+  const operation = "33333333-3333-4333-8333-333333333333";
+
+  it("shows what changed, with the arrow only for the eye", () => {
+    const now = { unlimited: false, amounts: [{ amount: 2, unit: "förp" as const }] };
+    expect(changeText(now, { amount: 1, unit: "förp" })).toBe("nu: 2 förp → bilden: 1 förp");
+    expect(changeText({ unlimited: true, amounts: [] }, { amount: 1, unit: "förp" })).toBe("nu: finns hemma → bilden: 1 förp");
+    expect(changeText(now, { amount: null, unit: null })).toBe("nu: 2 förp → bilden: finns hemma");
+    expect(changeSpokenText("Kyl", now, { amount: 1, unit: "l" })).toBe("I kylen nu: 2 förp. På bilden: 1 l.");
+  });
+
+  it("counts the suggestions that match, and says when everything does or the place could not be read", () => {
+    expect(unchangedCountText(1)).toBe("1 vara stämmer med lagret.");
+    expect(unchangedCountText(2)).toBe("2 varor stämmer med lagret.");
+    expect(allUnchangedText("Kyl")).toBe("Allt i kylen stämmer med bilden.");
+    expect(unreadPlaceText("Skafferi")).toBe("Det gick inte att jämföra med lagret i skafferiet.");
+    expect(incompleteComparisonText).toBe("Några varor på bilden gick inte att tolka. Kontrollera innan du tar bort.");
+  });
+
+  it("takes 0–40 items, at most 50 rows to replace and 1 000 to remove, something to do, and an operation id with removals", () => {
+    const item = { ingredient: { kind: "existing" as const, ingredientId: mjolk }, location: "Kyl" as const, amount: 1, unit: "förp" as const };
+    const base = { location: "Kyl" as const, items: [item], replaceRowIds: [], removeRowIds: [], operationId: null };
+    expect(inventoryConfirmSchema.safeParse(base).success).toBe(true);
+    expect(inventoryConfirmSchema.safeParse({ ...base, items: [], removeRowIds: [rowId], operationId: operation }).success).toBe(true);
+    for (const wrong of [
+      { ...base, items: [] },
+      { ...base, items: Array.from({ length: 41 }, () => item) },
+      { ...base, replaceRowIds: Array.from({ length: 51 }, () => rowId) },
+      { ...base, removeRowIds: Array.from({ length: 1001 }, () => rowId), operationId: operation },
+      { ...base, removeRowIds: [rowId] },
+      { ...base, removeRowIds: ["yoghurt"], operationId: operation },
+      { ...base, location: "Källare" },
+    ]) {
+      expect(inventoryConfirmSchema.safeParse(wrong).success).toBe(false);
+    }
+  });
+
+  it("makes a comparison with an emptied place a plain list, and leaves another place's alone", () => {
+    const suggestion = {
+      id: "s1",
+      name: "mjölk",
+      ingredient: { kind: "existing" as const, ingredientId: mjolk },
+      location: "Kyl" as const,
+      amount: 1,
+      unit: "förp" as const,
+      current: { unlimited: false, amounts: [{ amount: 2, unit: "förp" as const }] },
+      change: "changed" as const,
+      replaces: [rowId],
+    };
+    const result = {
+      location: "Kyl" as const,
+      dropped: 0,
+      suggestions: [suggestion],
+      inventory: { kind: "compared" as const, incomplete: false, missing: [] },
+    };
+    expect(withoutPlace(result, "Kyl")).toEqual({
+      ...result,
+      suggestions: [{ ...suggestion, current: null, change: null, replaces: [] }],
+      inventory: { kind: "empty" },
+    });
+    expect(withoutPlace(result, "Frys")).toEqual(result);
+    // After "Ångra" for the emptied place, the photo no longer matches it.
+    expect(withRestoredPlace(withoutPlace(result, "Kyl"), "Kyl").inventory).toEqual({ kind: "unread", changed: true });
+    expect(withRestoredPlace(result, "Frys")).toEqual(result);
+  });
+
+  it("has texts for a changed place, a partial match, changes left and the removals' undo", () => {
+    expect(changedPlaceText("Kyl")).toBe("Lagret i kylen har ändrats sedan bilden togs.");
+    expect(partlyUnchangedText("Frys")).toBe(
+      "Det som syns på bilden stämmer med lagret i frysen, men några varor gick inte att tolka.",
+    );
+    expect(changesLeftText(1)).toBe("1 ändring är kvar att bekräfta.");
+    expect(changesLeftText(3)).toBe("3 ändringar är kvar att bekräfta.");
+    expect(undoRemovalLabel).toBe("Ångra borttagning");
   });
 });

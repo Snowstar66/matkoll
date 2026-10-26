@@ -2,6 +2,61 @@
 
 Beslut som fattats under bygget: vad, varför och vilka alternativ som fanns. Nyaste överst.
 
+## 2026-10-26 – Inventera en plats med foto (Story 6.4)
+
+- **Beslut:**
+  - **En plats utan varor fungerar som i 6.1 och 6.2.** Det finns inget att jämföra med, så grupperna visas inte, och 6.2:s väg (`confirmPantrySuggestions`) används oförändrad. Detsamma gäller en plats som inte gick att läsa, med raden "Det gick inte att jämföra med lagret i kylen." under rubriken.
+  - **Jämförelsen sker per katalogingrediens, inte per enhet.** "Ändrat" betyder att bildens mängder för ingrediensen skiljer sig från platsens. Bekräfta ger platsen bildens mängder, och rader i andra enheter ersätts (`replaces`). Ett foto räknas alltså som en inventering av alla enheter, vilket löser det som 6.2 lämnade till senare. Rader tas bort bara efter ett tryck på ett kort som visar "nu: 2 förp → bilden: 1 l", och enheter räknas aldrig om (AD-7). Ersatta rader följer inte med i "Ångra", på samma sätt som en bekräftelse i 6.2 inte går att ångra.
+  - **`replaces` beräknas på servern mot hela bildens enheter för ingrediensen,** så två kort för samma ingrediens (förp och l) som bekräftas ett i taget ger samma resultat som "Bekräfta alla". SQL kontrollerar att varje rad hör till en ingrediens som sätts på platsen.
+  - **Oförändrade förslag visas inte som kort,** bara som "2 varor stämmer med lagret.". 6.1:s regler (en obegränsad vara förblir obegränsad, och en vara utan mängd får platsens mängd) gör att osäkra AI-mängder blir oförändrade i stället för falska ändringar. Om allt stämmer och inget saknas visas "Allt i kylen stämmer med bilden." i kameraytan (`role="status"`).
+  - **"Syns inte längre" har "Ta bort" (primär) och "Behåll" (text),** utan Rätta. "Behåll" fungerar som Avvisa: kortet försvinner, inget skrivs, och "Ångra" sätter tillbaka kortet. Ett kort gäller en ingrediens och tar bort alla dess rader på platsen.
+  - **En vara som AI:n nämnde ger aldrig ett förslag om borttagning när ingrediensen är känd,** också när förslaget föll bort (`seenIngredientIds`). När något föll bort, listan kapades eller AI:n gav 25 varor eller fler visar gruppen "Några varor på bilden gick inte att tolka. Kontrollera innan du tar bort.". "Bekräfta alla" tar ändå med borttagningarna, eftersom de syns och går att ångra.
+  - **"Bekräfta alla" sparar allt i ett anrop och en transaktion** (`apply_pantry_inventory`): alla kort i "Nytt" och "Ändrat" som går att bekräfta och alla kort i "Syns inte längre" som är kvar. En borttagning för en ingrediens som också sätts i samma anrop hoppas över i SQL.
+  - **"Ångra" efter "Bekräfta alla" sätter bara tillbaka borttagningarna,** inte tillägg och ändringar. Bekräftelsen räknar upp allt ("Kylen är uppdaterad: 3 nya, 1 ändrad och 2 borttagna."). Om Pontus tycker att det är otydligt ändras texten till "Kylen är uppdaterad. 2 varor är borttagna.". Korten för de borttagna varorna kommer inte tillbaka efter "Ångra", eftersom raderna syns i listan igen.
+  - **En ny Server Action och en ny Postgres-funktion** i stället för att utöka `confirmPantrySuggestions`. Katalogsteget (`mergeConfirmations`, `commitIngredients` och `mergePantrySets`) är utbrutet till `commitConfirmations`, som båda actionerna använder. `apply_pantry_inventory` anropar `set_pantry_items` inifrån, så att reglerna för att sätta mängder bara finns på ett ställe.
+  - **Ny felkod `pantry_inventory_failed`:** "Det gick inte att uppdatera lagret. Försök igen.".
+  - **Rader som redan är borta hoppas över** i stället för att neka hela anropet. "Ta bort yoghurt" för en rad som en annan flik redan har tagit bort ger "yoghurt är redan borttagen." utan "Ångra".
+  - **Märket "Ny" (ny katalogingrediens) behålls under rubriken "Nytt".** Om det är förvirrande ändras det till "Ny i katalogen".
+  - **AI-anropet är oförändrat.** Jämförelsen (`compareWithPlace`) är ren domänlogik efter `toPantrySuggestions`, utan databas och modell.
+  - **AD-19 utökas:** `pantry` får skrivoperationen `confirmPantryInventory({ location, items, replaceRowIds, removeRowIds, operationId })`. Den sätter, ersätter och tar bort i en transaktion (`apply_pantry_inventory`) och sparar de borttagna raderna i `pantry_removal` under operations-id:t, så att `restorePantryRemoval(operationId)` (6.3) är dess "Ångra".
+  - **Tillagt vid bygget:**
+    - **"Ångra" använder 6.3:s operationsbaserade mekanism i stället för `restorePantryItems`,** som togs bort i 6.3:s granskning. Klienten väljer ett operations-id, `apply_pantry_inventory` sparar de borttagna raderna i `pantry_removal` i samma transaktion, och "Ångra" anropar `restore_pantry_removal(operation_id)` en gång, med samma regler för krockar som efter "Töm kylen". Funktionen tar därför en femte parameter, `operation_id`, som krävs när något tas bort.
+    - **Borttagningar medan bekräftelsen visas slås ihop** genom att samma operations-id skickas igen: raderna läggs till i samma post i `pantry_removal`, och texten blir "yoghurt och senap är borttagna.". "Bekräfta alla" medan en sådan bekräftelse visas tar med den. En bekräftelse av ett enskilt kort ersätter den, som i 2.3 och 6.2.
+    - **En borttagning som misslyckas eller inte får svar** gör att nästa borttagning skickar samma operations-id. Funktionen svarar med hur många rader posten har (`undoable`), så om raderna redan togs bort av anropet som inte fick svar erbjuds "Ångra" ändå.
+    - Funktionen nekar själv fler än 40 poster, 50 ersatta och 1 000 borttagna id, och ett designtest låser gränserna och platslistan mot domänen.
+    - Servern kontrollerar jämförelsen mot klientens schema. En jämförelse som inte går igenom loggas (`analyze_inventory_invalid`) och blir `unread`, i stället för att hela svaret blir ogiltigt.
+    - Ett foto utan förslag visar som förut "Hittade inga varor på bilden …" och ingen grupp "Syns inte längre", även om platsen har varor.
+    - Rätta på ett kort sparar också via `confirmPantryInventory`. De ersatta raderna följer bara med när arket behåller förslagets ingrediens och plats.
+    - Efter "Töm kylen" på den fotograferade platsen blir förslagen en vanlig lista utan grupper, också om "Ångra" används efteråt.
+  - **Ändrat efter granskningen** (migrationen `*_pantry_apply_inventory_hardening.sql`):
+    - **En ofullständig jämförelse tar inte bort något med "Bekräfta alla".** Jämförelsen är ofullständig när AI-varor föll bort eller kapades, när ett förslag är en ny katalogingrediens (det kan vara en vara på platsen under ett annat namn) eller när bilden inte gav något förslag för platsen. Då tar bara "Ta bort" bort, gruppen visar varningen, och "Bekräfta alla" är inaktiv om det bara finns "Syns inte längre" kvar. Detta ersätter beslutet ovan att "Bekräfta alla" ändå tar med borttagningarna. Gränsen på 25 varor räknas inte längre för sig.
+    - "Allt i kylen stämmer med bilden." visas bara för en fullständig jämförelse. Annars visas "Det som syns på bilden stämmer med lagret i kylen, men några varor gick inte att tolka.".
+    - **Ett foto utan användbara varor av en plats med varor** visar alla platsens varor under "Syns inte längre", som ofullständigt, i stället för "Hittade inga varor på bilden …". Detta ersätter tillägget ovan.
+    - "Syns inte längre" står kvar när alla andra kort är hanterade, och fokus går då till det första "Ta bort".
+    - Bara förslag för den fotograferade platsen jämförs. Ett förslag för en annan plats är "Nytt" där, ersätter inget och skyddar inget från "Syns inte längre".
+    - **Ett foto utan mängd räknas som oförändrat** mot en plats med mängder. Det ersätter aldrig mätta rader med "finns hemma".
+    - En vara som en bekräftelse just har satt (också via Rätta, eller ett nytt namn som var en befintlig ingrediens) tas bort ur "Syns inte längre". Servern svarar med de satta ingrediensernas id.
+    - **Rätta med en annan enhet ersätter alla ingrediensens rader på platsen.** Servern behåller raden med postens nyckel. Förslaget har därför platsens rad-id (`placeRowIds`).
+    - **"Bekräfta alla" håller sig inom 50 ersatta rader.** Förslag som inte ryms lämnas kvar som kort, och bekräftelsen säger "1 ändring är kvar att bekräfta.". Ett enskilt kort ryms alltid. Ett designtest låser gränsen mot SQL.
+    - **Efter commit svarar actionen alltid `ok`.** Ett svar som inte går att läsa, eller fel antal satta rader, loggas som varning (`pantry_inventory_answer_unreadable`) och revalideras. Färre ersatta rader än begärt loggas med antal (`pantry_inventory_replace_skipped`).
+    - "Ångra" som trycks medan ett anrop sparas görs när anropet har svarat, som Avvisa och Behåll.
+    - **Ett operations-id återanvänds bara för samma plats och bara medan dess bekräftelse visas.** Om bekräftelsen stängdes medan anropet pågick får svaret en egen bekräftelse för sina egna varor. Dess "Ångra" sätter ändå tillbaka hela posten, alltså också de tidigare borttagningarna under samma id. Ett id från en misslyckad borttagning återanvänds bara om det var nytt, aldrig en stängd bekräftelses id.
+    - **Bekräftelsen efter "Bekräfta alla"** räknar bara det anropets borttagningar. Dess knapp heter "Ångra borttagning" (`undoLabel` i toasten), eftersom den bara sätter tillbaka borttagningarna.
+    - **Efter "Ångra" kommer korten tillbaka** under "Syns inte längre", för de varor vars rader kom tillbaka, så länge förslagen är desamma. Detta ersätter beslutet ovan att korten inte kommer tillbaka.
+    - **"Töm kylen" och sedan "Ångra"** medan ett jämfört foto visas ger raden "Lagret i kylen har ändrats sedan bilden togs." (jämförelsen blir `unread`).
+    - **`pantry_removal`:** en borttagning som läggs till en post förnyar postens `created_at`. Bara anroparens egen post uppdateras. Nyckeln är `(user_id, id)`, så en annan användares id krockar aldrig. En insättning som ändå krockar ger `MK409`, och actionen försöker en gång till med ett nytt id, som den skickar tillbaka.
+    - Korten i "Syns inte längre" har id:n med prefix (`missing:m1`), så att de aldrig kan krocka med förslagens id:n.
+  - **Inte gjort, efter granskningen:**
+    - Att en senare bekräftelse inte ersätter bekräftelsen med "Ångra". Det är samma som i 2.3, 6.2 och 6.3.
+    - Att en vara som är "finns hemma" visas som "Ändrat" när bilden har en mängd. "Finns hemma" betyder att varan inte räknas.
+- **Varför:** beslutet "Uppdatera lagret med foto (Story 6.3 och 6.4)", FR-25 (inget tas bort utan ett tryck), AD-2, AD-6 (inga synonymer från foton), AD-9 (AI-porten oförändrad), AD-13, AD-19 och AD-20 (hård radering, och "Ångra" ger samma id).
+- **Alternativ:**
+  - Jämförelse per enhet, där "mjölk 1 l" skulle bli "Nytt" och "mjölk 2 förp" "Syns inte längre" för samma kartong.
+  - Att "Bekräfta alla" hoppar över borttagningarna när jämförelsen är ofullständig.
+  - Att utöka `confirmPantrySuggestions` i stället för en ny action.
+  - "Ångra" med raderna från klientens svar (`restorePantryItems`), som 6.3 tog bort.
+  - Att också spara de ersatta raderna för "Ångra", som skulle sätta tillbaka "mjölk 2 förp" bredvid "mjölk 1 l" och alltså ångra halva ändringen.
+
 ## 2026-10-26 – Töm en plats (Story 6.3)
 
 - **Beslut:**

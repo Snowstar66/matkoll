@@ -9,6 +9,8 @@ export const toastWithUndoDurationMs = 5000;
 export type ToastOptions = {
   /** Shows "Ångra"; called once if Pontus taps it before the toast goes away. */
   onUndo?: () => void;
+  /** The undo button's text when it undoes only part of what the message says, e.g. "Ångra borttagning"; "Ångra" otherwise. */
+  undoLabel?: string;
   /**
    * Called once when the toast goes away without "Ångra": its time ran out,
    * it was dismissed, or a new toast replaced it.
@@ -25,6 +27,7 @@ type ToastState = {
   id: number;
   message: string;
   onUndo?: () => void;
+  undoLabel?: string;
   onClose?: () => void;
   role: "status" | "alert";
 };
@@ -80,6 +83,7 @@ export function ToastProvider({ children }: { children: ReactNode }) {
         id: nextId.current,
         message,
         onUndo: options?.onUndo,
+        undoLabel: options?.undoLabel,
         onClose: options?.onClose,
         role: options?.role ?? "status",
       });
@@ -145,7 +149,7 @@ export function ToastProvider({ children }: { children: ReactNode }) {
                 }}
                 className="min-h-tap shrink-0 rounded-md px-3 text-body font-semibold text-mint"
               >
-                Ångra
+                {toast.undoLabel ?? "Ångra"}
               </button>
             ) : null}
           </div>

@@ -2,7 +2,7 @@
 title: 'Story 6.4: Inventera en plats med foto'
 type: 'feature'
 created: '2026-10-26'
-status: 'draft'
+status: 'done'
 route: 'dispatch'
 context:
   - '{project-root}/_bmad-output/implementation-artifacts/epic-6-context.md'
@@ -109,7 +109,7 @@ context:
 ## Tasks & Acceptance
 
 **Execution:**
-- [ ] `src/features/pantry/domain/place-inventory.ts` (+ test), `index.ts` -- ren domän för jämförelsen:
+- [x] `src/features/pantry/domain/place-inventory.ts` (+ test), `index.ts` -- ren domän för jämförelsen:
   - `placeInventorySchema` är `{ kind: "empty" } | { kind: "unread" } | { kind: "compared"; missing: MissingItem[]; incomplete: boolean }`.
   - `MissingItem` är `{ id: "m1" …, ingredientId, name, location, rows: { id: uuid; amount; unit }[] (minst 1), stock: PlaceStock }`, en post per ingrediens. Listan har högst 1 000 poster.
   - `pantrySuggestionSchema` får `change: "new" | "changed" | "unchanged" | null` (`null` utanför jämförelsen) och `replaces: uuid[]` (högst 50, tom utanför jämförelsen).
@@ -132,7 +132,7 @@ context:
   - att 6.1:s regler (obegränsad förblir obegränsad, och en mängd tas från platsen) ger `unchanged` i stället för falska ändringar.
 
   -- AD-6, AD-12, AD-19
-- [ ] `src/features/pantry/domain/pantry-suggestion.ts` (+ test), `places.ts` (+ test) -- `analyzeResultSchema` får `inventory: placeInventorySchema`. Nya texter:
+- [x] `src/features/pantry/domain/pantry-suggestion.ts` (+ test), `places.ts` (+ test) -- `analyzeResultSchema` får `inventory: placeInventorySchema`. Nya texter:
   - `changeText(current, suggestion)` ger "nu: 2 förp → bilden: 1 förp" eller "nu: finns hemma → bilden: 1 förp". Pilen är `aria-hidden`, och skärmläsaren får "I kylen nu: 2 förp. På bilden: 1 förp.";
   - `unchangedCountText(n)` ger "1 vara stämmer med lagret." eller "2 varor stämmer med lagret.";
   - `allUnchangedText(location)` ger "Allt i kylen stämmer med bilden.";
@@ -143,14 +143,14 @@ context:
   - `alreadyRemovedText(name)` ger "yoghurt är redan borttagen.".
 
   -- EXPERIENCE.md, Voice and Tone
-- [ ] `src/features/pantry/actions/analyze-place.ts` (+ test) -- efter `toPantrySuggestions` anropas `compareWithPlace` med:
+- [x] `src/features/pantry/actions/analyze-place.ts` (+ test) -- efter `toPantrySuggestions` anropas `compareWithPlace` med:
   - `placeItems`: raderna från `readPlace`, eller `null` när läsningen misslyckades eller hoppades över nära deadline;
   - `seenIngredientIds`: alla matchade id, också de vars förslag föll bort;
   - `incomplete`: `true` när något föll bort, när listan kapades eller när AI:n gav `maxPantrySuggestions` varor eller fler.
 
   Förslag som inte passerar schemat filtreras som i dag, före jämförelsen. AI-anropet och dess indata är oförändrade, och ett test låser det. Testerna täcker `empty`, `unread`, `compared`, `seenIngredientIds` och att inget skrivs
   -- AD-2, AD-9
-- [ ] `supabase/migrations/<ts>_pantry_apply_inventory.sql` (`supabase migration new pantry_apply_inventory`), `database.types.ts` (`pnpm db:types`) -- `apply_pantry_inventory(place text, items jsonb, replace_ids uuid[], remove_ids uuid[]) returns jsonb`. Den är `security invoker`, har `set search_path = ''`, `revoke`/`grant` som `set_pantry_items` och gör i tur och ordning:
+- [x] `supabase/migrations/<ts>_pantry_apply_inventory.sql` (`supabase migration new pantry_apply_inventory`), `database.types.ts` (`pnpm db:types`) -- `apply_pantry_inventory(place text, items jsonb, replace_ids uuid[], remove_ids uuid[]) returns jsonb`. Den är `security invoker`, har `set search_path = ''`, `revoke`/`grant` som `set_pantry_items` och gör i tur och ordning:
   1. nekar `null`-anropare (`42501`), en okänd plats, `items` som inte är en array och en begäran utan både poster och borttagningar (`22023`);
   2. tar `pantry_lock()`;
   3. tar bort rader i `replace_ids` som är användarens, ligger på `place`, har en ingrediens som en post på `place` har och inte har samma nyckel som någon post, så att en rad som posten ändå sätter behåller sitt id;
@@ -160,9 +160,9 @@ context:
 
   Ett id som inte uppfyller villkoren hoppas över tyst. Ett fel någonstans rullar tillbaka allt
   -- AD-19, AD-20
-- [ ] `src/features/pantry/data/inventory.ts` (+ test) -- `applyPantryInventoryIn(db, { place, items, replaceRowIds, removeRowIds })` validerar (`invalid_items`), anropar funktionen och tolkar svaret med `pantryItemSetSchema` och `pantryRowSchema`. En borttagen rad som inte går att tolka räknas men kan inte ångras. Fel blir `apply_failed <code>` -- AD-19
-- [ ] `src/features/pantry/actions/commit-confirmations.ts`, `confirm-pantry-suggestions.ts` (+ test) -- bryt ut steg 3–4 i `confirmPantrySuggestions` (`mergeConfirmations` och `commitIngredients`, med kontrollen av `missing_id`) och sammanslagningen efter katalogen (`mergePantrySets`) till en server-only-hjälpare. `confirmPantrySuggestions` använder den, och dess tester går igenom oförändrade -- AD-1, AD-6
-- [ ] `src/features/pantry/actions/confirm-pantry-inventory.ts` (+ test) -- `confirmPantryInventory({ location, items, replaceRowIds, removeRowIds })` är en Server Action. Den gör i tur och ordning:
+- [x] `src/features/pantry/data/inventory.ts` (+ test) -- `applyPantryInventoryIn(db, { place, items, replaceRowIds, removeRowIds })` validerar (`invalid_items`), anropar funktionen och tolkar svaret med `pantryItemSetSchema` och `pantryRowSchema`. En borttagen rad som inte går att tolka räknas men kan inte ångras. Fel blir `apply_failed <code>` -- AD-19
+- [x] `src/features/pantry/actions/commit-confirmations.ts`, `confirm-pantry-suggestions.ts` (+ test) -- bryt ut steg 3–4 i `confirmPantrySuggestions` (`mergeConfirmations` och `commitIngredients`, med kontrollen av `missing_id`) och sammanslagningen efter katalogen (`mergePantrySets`) till en server-only-hjälpare. `confirmPantrySuggestions` använder den, och dess tester går igenom oförändrade -- AD-1, AD-6
+- [x] `src/features/pantry/actions/confirm-pantry-inventory.ts` (+ test) -- `confirmPantryInventory({ location, items, replaceRowIds, removeRowIds })` är en Server Action. Den gör i tur och ordning:
   1. `requireUser`;
   2. validerar med `inventoryConfirmSchema`: 0–40 poster, högst 50 och 1 000 id och minst något att göra. Felet `validation` har index per post som i 6.2;
   3. anropar hjälparen från föregående task;
@@ -178,8 +178,8 @@ context:
   - loggar utan namn.
 
   -- FR-25, AD-2, AD-6, AD-19
-- [ ] `src/lib/errors.ts` -- ny kod `pantry_inventory_failed` med texten "Det gick inte att uppdatera lagret. Försök igen." -- AD-13
-- [ ] `src/features/pantry/ui/use-pantry-analysis.ts`, `pantry-suggestions.tsx` (+ test) -- tillståndet och granskningen:
+- [x] `src/lib/errors.ts` -- ny kod `pantry_inventory_failed` med texten "Det gick inte att uppdatera lagret. Försök igen." -- AD-13
+- [x] `src/features/pantry/ui/use-pantry-analysis.ts`, `pantry-suggestions.tsx` (+ test) -- tillståndet och granskningen:
   - Analysen håller `inventory` bredvid förslagen och får `editMissing(generation, edit)` på samma sätt som `editSuggestions`. `EmptyAnswer` får `"unchanged"` för ett svar där allt stämmer.
   - Granskningen väljer väg efter `inventory.kind`. Vid `compared` sparar Bekräfta, arkets "Bekräfta" och "Bekräfta alla" med `confirmPantryInventory` (via `inventoryRequest`), och annars med `confirmPantrySuggestions` som i 6.2.
   - `replaces` följer bara med när arkets ingrediens och plats är förslagets egna.
@@ -190,7 +190,7 @@ context:
   - Efter "Töm" (6.3) på den fotograferade platsen blir `inventory` `{ kind: "empty" }` och förslagens `change` och `replaces` nollställs.
 
   -- FR-25, AD-20
-- [ ] `src/features/pantry/ui/pantry-suggestion-list.tsx` (+ test), `pantry-camera.tsx` (+ test) -- vid `compared` visar sektionen, under rubriken och "Bekräfta alla":
+- [x] `src/features/pantry/ui/pantry-suggestion-list.tsx` (+ test), `pantry-camera.tsx` (+ test) -- vid `compared` visar sektionen, under rubriken och "Bekräfta alla":
   - `unchangedCountText` när något är oförändrat;
   - tre undergrupper med h3 "Nytt", "Ändrat" och "Syns inte längre", där en tom grupp inte visas.
 
@@ -201,7 +201,7 @@ context:
 
   Vid `unread` visas `unreadPlaceText` under rubriken. Kameraytan visar `allUnchangedText` med `role="status"` för `"unchanged"`. Vid `empty` och `unread` ser listan ut som i 6.2
   -- UX-DR11, EXPERIENCE.md, Lagerförslag
-- [ ] `tests/integration/pantry.test.ts` (utökad) -- `apply_pantry_inventory` med två användare:
+- [x] `tests/integration/pantry.test.ts` (utökad) -- `apply_pantry_inventory` med två användare:
   - tillägg, ändringar och borttagningar i ett anrop;
   - allt eller inget när en post nekas (`23503`);
   - att `remove_ids` och `replace_ids` för en annan plats eller användare hoppas över;
@@ -212,13 +212,13 @@ context:
   - att `anon` nekas.
 
   -- AD-19, AD-20
-- [ ] `tests/e2e/pantry-camera.spec.ts`, `pantry-suggestions.spec.ts` (och deras komponenttester) -- de seedar varor i Kyl och hamnar därför i jämförelsen. Förväntningarna uppdateras så att specarnas syfte behålls:
+- [x] `tests/e2e/pantry-camera.spec.ts`, `pantry-suggestions.spec.ts` (och deras komponenttester) -- de seedar varor i Kyl och hamnar därför i jämförelsen. Förväntningarna uppdateras så att specarnas syfte behålls:
   - smör visas inte som kort, utan räknas i "stämmer med lagret";
   - mjölk visar `changeText` i stället för "I kylen nu";
   - de fall som prövar 6.2:s vanliga lista fotograferar en tom plats eller seedar en annan plats.
 
   -- 6.1, 6.2
-- [ ] `tests/e2e/pantry-inventory.spec.ts` (+ `support.ts`, `global-setup.ts`) -- egen e2e-användare `e2e-inventering@matkoll.test` (`inventoryEmail`, med storage state), med `AI_PROVIDER=mock` och `kyl.png`. Före varje test seedar service role katalogingredienserna "mjölk", "smör", "ägg" (st), "yoghurt" och "senap" och i Kyl lagervarorna "mjölk 2 förp", "smör" (obegränsad), "ägg 6 st", "yoghurt 2 förp" och "senap" (obegränsad). Frys är tom. Testerna kontrollerar:
+- [x] `tests/e2e/pantry-inventory.spec.ts` (+ `support.ts`, `global-setup.ts`) -- egen e2e-användare `e2e-inventering@matkoll.test` (`inventoryEmail`, med storage state), med `AI_PROVIDER=mock` och `kyl.png`. Före varje test seedar service role katalogingredienserna "mjölk", "smör", "ägg" (st), "yoghurt" och "senap" och i Kyl lagervarorna "mjölk 2 förp", "smör" (obegränsad), "ägg 6 st", "yoghurt 2 förp" och "senap" (obegränsad). Frys är tom. Testerna kontrollerar:
   - grupperna och texterna i matrisen, och att lagret är oförändrat efter analysen (service role);
   - "Behåll senap", sedan "Ångra", så att kortet är tillbaka;
   - "Bekräfta alla", som ger "Kylen är uppdaterad: 3 nya, 1 ändrad och 2 borttagna.", att sektionen försvinner, "6 varor" i kortet Kyl, "mjölk 1 förp" och att yoghurt och senap saknas;
@@ -255,7 +255,50 @@ context:
 
 ## Spec Change Log
 
+- Två rader i den frysta matrisen ändras efter granskningen. Pontus har delegerat sådana beslut.
+  - **Ångra borttagning:** kortet kommer tillbaka efter Ångra, medan matrisen sa att det inte gör det. Annars går det inte att välja Behåll i samma granskning.
+  - **Bekräfta alla:** borttagningarna tas bara med när jämförelsen är fullständig. En ny katalogingrediens på bilden gör jämförelsen ofullständig, och då måste Pontus trycka "Ta bort" på varje vara. Det skyddar mot att AI:n tömmer lagret på något den bara kallat vid ett annat namn.
+
+- Ångra använder operationsposten från 6.3. Här är `restore_pantry_removal(operation_id)` istället för `restorePantryItems`.
+  - `apply_pantry_inventory` sparar de borttagna raderna i `pantry_removal` i samma transaktion och returnerar `undoable`.
+  - Flera "Ta bort" i rad delar samma operations-id.
+  - Rader som ersätts när Pontus bekräftar "Ändrat" sparas inte för Ångra, eftersom ändringar står kvar enligt matrisen.
+
 ## Review Triage Log
+
+Iteration 1. Granskare: Blind Hunter, Edge Case Hunter och Verification Gap.
+
+**Patch:**
+- "Syns inte längre" och tomma foton:
+  - Korten "Syns inte längre" ligger kvar när alla andra kort är hanterade.
+  - Ett tomt foto av en plats med varor ger förslag i "Syns inte längre".
+- Jämförelsen:
+  - Bara förslag för den fotograferade platsen jämförs.
+  - Jämförelsen räknas som ofullständig när varor föll bort eller kortades av, eller när en ny ingrediens föreslås. Då tar "Bekräfta alla" inte med borttagningarna.
+  - "Allt stämmer" visas bara när jämförelsen är fullständig.
+  - En bekräftad ingrediens lämnar "Syns inte längre".
+  - Okänd mängd ersätter aldrig uppmätta rader.
+- Skrivningen:
+  - En rättad enhet skickar alla rader av ingrediensen.
+  - Gränsen för `replaceRowIds` gäller sammanlagt för alla förslag.
+  - Fel efter commit ger ok med en varning.
+  - Hoppade ersättningar loggas.
+- Ångra:
+  - Ångra väntar medan en sparning pågår.
+  - En batch återanvänds bara för samma plats och bara medan dess toast lever.
+  - `spareOperation` rättas.
+  - Toasten räknar bara det aktuella anropets borttagningar, och ångra-knappen heter "Ångra borttagning".
+  - Kort som ångras kommer tillbaka.
+  - "Töm" följt av Ångra markerar jämförelsen som oläst.
+- `pantry_removal`: `created_at` uppdateras och ägandet kontrolleras.
+- Id:n får prefix.
+- Nya tester:
+  - "Bekräfta alla" slås ihop med en borttagning
+  - förfalskade ersättnings-id:n
+
+**Reject:**
+- att andra toasts ersätter ångra-toasten, som i 2.3, 6.2 och 6.3
+- att "finns hemma" aldrig blir Ändrat, vilket är ett beslut
 
 ## Verification
 

@@ -17,6 +17,8 @@ import {
   e2eEmails,
   emptyPlaceEmail,
   emptyPlaceStorageState,
+  inventoryEmail,
+  inventoryStorageState,
   libraryEmail,
   libraryStorageState,
   magicLinkPath,
@@ -92,6 +94,7 @@ export default async function globalSetup(config: FullConfig) {
       [cameraEmail, cameraStorageState],
       [suggestionsEmail, suggestionsStorageState],
       [emptyPlaceEmail, emptyPlaceStorageState],
+      [inventoryEmail, inventoryStorageState],
       [storeEmail, storeStorageState],
       [productChoiceEmail, productChoiceStorageState],
     ] as const) {

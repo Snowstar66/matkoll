@@ -36,3 +36,7 @@
 
 - **Kvarlämnade testanvändare (`pantry-many-…`):** e2e-förberedelsen varnar för integrationstestanvändare som blir kvar. Troligen tar det för lång tid att radera användaren med 1001 ingredienser med cascade. Utred `deleteTestUsers` (vänta längre, eller radera lagret och katalogen först med SQL) när det stör.
 - **Svep nära skärmkanten och VoiceOver på lagervaror:** måste kontrolleras på riktig iPhone (checklistan i `docs/oppna-fragor.md`).
+
+## Från 6.4 (2026-10-26)
+
+- **Instabilt integrationstest:** "Lägg i lagret … double tap" i `tests/integration/shopping.test.ts` föll en gång i en full körning och gick sedan igenom 3 gånger i rad. Utred tidsberoendet om det faller i CI.

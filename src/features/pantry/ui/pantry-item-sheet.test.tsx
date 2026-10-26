@@ -26,6 +26,7 @@ vi.mock("../actions/empty-pantry-place", () => ({ emptyPantryPlace: vi.fn() }));
 vi.mock("../actions/restore-pantry-removal", () => ({ restorePantryRemoval: vi.fn() }));
 vi.mock("../actions/restore-pantry-item", () => ({ restorePantryItem: vi.fn() }));
 vi.mock("../actions/confirm-pantry-suggestions", () => ({ confirmPantrySuggestions: vi.fn() }));
+vi.mock("../actions/confirm-pantry-inventory", () => ({ confirmPantryInventory: vi.fn() }));
 vi.mock("@/lib/ai-client", () => ({ postAiForm: vi.fn() }));
 vi.mock("@/lib/downscale-image", () => ({ downscaleImage: vi.fn() }));
 
@@ -315,6 +316,8 @@ describe("PantryItemSheet, a lagerförslag (Rätta)", () => {
     amount: 0.5,
     unit: "l",
     current: null,
+    change: null,
+    replaces: [],
   };
   const mjolkSuggestion: PantrySuggestion = {
     id: "s4",
@@ -324,6 +327,8 @@ describe("PantryItemSheet, a lagerförslag (Rätta)", () => {
     amount: 1,
     unit: "förp",
     current: { unlimited: false, amounts: [{ amount: 2, unit: "förp" }] },
+    change: null,
+    replaces: [],
   };
 
   const onConfirm = vi.fn<(id: string, generation: number, form: PantryItemForm, onSaved: () => void) => Promise<CorrectOutcome>>();

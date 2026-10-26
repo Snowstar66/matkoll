@@ -1,19 +1,15 @@
 "use server";
 
 import { requireUser } from "@/features/auth/server";
-import { CatalogDataError, commitIngredients } from "@/features/catalog/server";
+import { CatalogDataError } from "@/features/catalog/server";
 import { fail, ok, type Result } from "@/lib/errors";
 import { revalidateFor } from "@/lib/revalidate";
 import { createClient } from "@/lib/supabase/server";
 import { PantryDataError } from "../data/client";
 import { setPantryItemsIn } from "../data/set";
-import {
-  confirmSuggestionsSchema,
-  mergeConfirmations,
-  mergePantrySets,
-  suggestionInvalidText,
-  type ConfirmItemInput,
-} from "../domain/pantry-suggestion";
+import type { PantryItemSet } from "../domain/pantry-item-form";
+import { confirmSuggestionsSchema, suggestionInvalidText, type ConfirmItemInput } from "../domain/pantry-suggestion";
+import { commitConfirmations } from "./commit-confirmations";
 
 /**
  * Bekräfta, "Bekräfta alla" and the sheet's "Bekräfta" for lagerförslag
@@ -48,40 +44,15 @@ export async function confirmPantrySuggestions(items: readonly ConfirmItemInput[
     }
     return Object.keys(fields).length > 0 ? fail("validation", fields) : fail("validation");
   }
-  const merged = mergeConfirmations(parsed.data);
-
-  let ids: (string | null)[];
+  let sets: PantryItemSet[];
   try {
-    ids = await commitIngredients(
-      merged.map(({ ingredient }) =>
-        ingredient.kind === "new"
-          ? {
-              text: ingredient.name,
-              ingredient: {
-                kind: "new",
-                proposal: {
-                  name: ingredient.name,
-                  section: ingredient.section,
-                  location: ingredient.location,
-                  defaultUnit: ingredient.defaultUnit,
-                },
-              },
-            }
-          : { text: "", ingredient: { kind: "match", ingredientId: ingredient.ingredientId, confidence: "exact" } },
-      ),
-    );
-    if (ids.length !== merged.length || ids.some((id) => id === null)) {
-      throw new CatalogDataError("query_failed", "missing_id");
-    }
+    sets = await commitConfirmations(parsed.data);
   } catch (error) {
     if (!(error instanceof CatalogDataError)) throw error;
     console.error("pantry_confirm_failed", { reason: `catalog_${error.code}`, detail: error.detail });
     return fail("pantry_confirm_failed");
   }
 
-  const sets = mergePantrySets(
-    merged.map(({ location, amount, unit }, index) => ({ ingredientId: ids[index]!, location, amount, unit })),
-  );
   try {
     const rows = await setPantryItemsIn(await createClient(), sets);
     if (rows.length !== sets.length) throw new PantryDataError("missing_rows");

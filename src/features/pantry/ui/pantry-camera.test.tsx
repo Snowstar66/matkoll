@@ -32,6 +32,7 @@ vi.mock("../actions/empty-pantry-place", () => ({ emptyPantryPlace: vi.fn() }));
 vi.mock("../actions/restore-pantry-removal", () => ({ restorePantryRemoval: vi.fn() }));
 vi.mock("../actions/restore-pantry-item", () => ({ restorePantryItem: vi.fn() }));
 vi.mock("../actions/confirm-pantry-suggestions", () => ({ confirmPantrySuggestions: vi.fn() }));
+vi.mock("../actions/confirm-pantry-inventory", () => ({ confirmPantryInventory: vi.fn() }));
 
 /** A phone (coarse pointer) or a desktop, as matchMedia says. */
 function pointer(coarse: boolean) {
@@ -172,7 +173,7 @@ describe("PantryCamera", () => {
   it("says when the photo shows no food, with Lägg till vara opening the sheet Lagervara", async () => {
     render(<Hemma />);
     await photograph();
-    await answer(ok({ location: "Kyl", suggestions: [], dropped: 0 }));
+    await answer(ok({ location: "Kyl", suggestions: [], dropped: 0, inventory: { kind: "unread" } }));
     const status = within(area())
       .getAllByRole("status")
       .find((element) => element.textContent !== "");

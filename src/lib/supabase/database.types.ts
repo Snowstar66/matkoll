@@ -356,6 +356,9 @@ isOneToOne: false
 "add_to_pantry":
 { Args: { "items": Json }; Returns: number
                            },
+"apply_pantry_inventory":
+{ Args: { "items": Json,"operation_id"?: string,"place": string,"remove_ids": (string)[],"replace_ids": (string)[] }; Returns: Json
+                           },
 "clear_put_in_pantry":
 { Args: { "check_ids": (string)[],"custom_item_ids": (string)[],"override_keys": (string)[],"plan_id": string }; Returns: number
                            },

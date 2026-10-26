@@ -56,9 +56,10 @@ const fresh = (name: string): PantrySuggestion["ingredient"] => ({
 const fridge: AnalyzeResult = {
   location: "Kyl",
   dropped: 0,
+  inventory: { kind: "empty" },
   suggestions: [
-    { id: "s1", name: "gurka", ingredient: fresh("gurka"), location: "Kyl", amount: 2, unit: "st", current: null },
-    { id: "s2", name: "ketchup", ingredient: fresh("ketchup"), location: "Kyl", amount: null, unit: null, current: null },
+    { id: "s1", name: "gurka", ingredient: fresh("gurka"), location: "Kyl", amount: 2, unit: "st", current: null, change: null, replaces: [] },
+    { id: "s2", name: "ketchup", ingredient: fresh("ketchup"), location: "Kyl", amount: null, unit: null, current: null, change: null, replaces: [] },
     {
       id: "s3",
       name: "mjölk",
@@ -67,6 +68,8 @@ const fridge: AnalyzeResult = {
       amount: 1,
       unit: "förp",
       current: { unlimited: false, amounts: [{ amount: 2, unit: "förp" }] },
+      change: null,
+      replaces: [],
     },
     {
       id: "s4",
@@ -76,6 +79,8 @@ const fridge: AnalyzeResult = {
       amount: null,
       unit: null,
       current: { unlimited: true, amounts: [] },
+      change: null,
+      replaces: [],
     },
   ],
 };

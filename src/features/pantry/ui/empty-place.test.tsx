@@ -28,6 +28,7 @@ vi.mock("../actions/restore-pantry-removal", () => ({
 vi.mock("../actions/remove-pantry-item", () => ({ removePantryItem: vi.fn() }));
 vi.mock("../actions/restore-pantry-item", () => ({ restorePantryItem: vi.fn() }));
 vi.mock("../actions/confirm-pantry-suggestions", () => ({ confirmPantrySuggestions: vi.fn() }));
+vi.mock("../actions/confirm-pantry-inventory", () => ({ confirmPantryInventory: vi.fn() }));
 vi.mock("../actions/set-pantry-item", () => ({ savePantryItem: vi.fn() }));
 vi.mock("../actions/search-ingredients", () => ({ searchPantryIngredients: vi.fn() }));
 const refresh = vi.fn();
@@ -235,6 +236,8 @@ describe("lagerförslag when the location is emptied", () => {
       amount: 1,
       unit: "förp",
       current: { unlimited: false, amounts: [{ amount: 2, unit: "förp" }] },
+      change: null,
+      replaces: [],
       ...change,
     }) satisfies PantrySuggestion;
 
@@ -242,6 +245,7 @@ describe("lagerförslag when the location is emptied", () => {
     const result: AnalyzeResult = {
       location: "Kyl",
       dropped: 0,
+      inventory: { kind: "empty" },
       suggestions: [suggestion("1", "mjölk", "Kyl"), suggestion("2", "ärtor", "Frys")],
     };
     const kyl = items(2);
@@ -272,5 +276,59 @@ describe("lagerförslag when the location is emptied", () => {
     );
     await act(async () => fireEvent.click(within(screen.getByTestId("toast")).getByRole("button", { name: "Ångra" })));
     expect(await screen.findByText("I kylen nu: 3 förp")).toBeInTheDocument();
+  });
+
+  it("turns a photo compared with the emptied location into the plain list, without Syns inte längre", async () => {
+    const yoghurtId = "40000000-aaaa-4aaa-8aaa-aaaaaaaaaaaa";
+    const result: AnalyzeResult = {
+      location: "Kyl",
+      dropped: 0,
+      inventory: {
+        kind: "compared",
+        incomplete: false,
+        missing: [
+          {
+            id: "m1",
+            ingredientId: yoghurtId,
+            name: "yoghurt",
+            location: "Kyl",
+            rows: [{ id: "41000000-aaaa-4aaa-8aaa-aaaaaaaaaaaa", amount: 2, unit: "förp" }],
+            stock: { unlimited: false, amounts: [{ amount: 2, unit: "förp" }] },
+          },
+        ],
+      },
+      suggestions: [
+        suggestion("1", "mjölk", "Kyl", { change: "changed" }),
+        suggestion("3", "smör", "Kyl", { change: "unchanged", current: { unlimited: false, amounts: [{ amount: 1, unit: "förp" }] } }),
+      ],
+    };
+    const kyl = items(2);
+    emptyPantryPlace.mockResolvedValueOnce(ok(emptiedOf(kyl)));
+    render(<Hemma initial={kyl} />);
+    const pickers = screen.getByTestId("pantry-camera").querySelectorAll<HTMLInputElement>('input[type="file"]');
+    fireEvent.change(pickers[pickers.length - 1], {
+      target: { files: [new File([new Uint8Array([0xff, 0xd8, 0xff])], "IMG_1.jpg", { type: "image/jpeg" })] },
+    });
+    await waitFor(() => expect(screen.getByText("Tittar på bilden …")).toBeInTheDocument());
+    await act(async () => answerAnalysis(ok(result)));
+    expect(await screen.findByText("nu: 2 förp → bilden: 1 förp")).toBeInTheDocument();
+    expect(screen.getAllByTestId("pantry-missing")).toHaveLength(1);
+    expect(screen.getAllByTestId("pantry-suggestion")).toHaveLength(1);
+
+    fireEvent.click(emptyButton()!);
+    fireEvent.click(sheetConfirm());
+    // Every suggestion is a card again, as for an empty place, and nothing is offered for removal.
+    await waitFor(() => expect(screen.getAllByTestId("pantry-suggestion")).toHaveLength(2));
+    expect(screen.queryByTestId("pantry-missing")).toBeNull();
+    expect(screen.queryByRole("heading", { name: "Ändrat" })).toBeNull();
+    expect(screen.queryByText(/stämmer med lagret/)).toBeNull();
+    expect(screen.queryByText(/→/)).toBeNull();
+
+    // Ångra puts the rows back, but not the ones the photo was compared with: the list says so.
+    restorePantryRemoval.mockResolvedValueOnce(ok({ restoredIds: [kyl[0].id], rows: [], skipped: 0 }));
+    await act(async () => fireEvent.click(within(screen.getByTestId("toast")).getByRole("button", { name: "Ångra" })));
+    expect(await screen.findByText("Lagret i kylen har ändrats sedan bilden togs.")).toBeInTheDocument();
+    expect(screen.getAllByTestId("pantry-suggestion")).toHaveLength(2);
+    expect(screen.queryByTestId("pantry-missing")).toBeNull();
   });
 });

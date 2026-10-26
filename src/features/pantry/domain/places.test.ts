@@ -17,6 +17,9 @@ import {
   rejectedItemText,
   removedItemsText,
   savedItemText,
+  keptItemText,
+  alreadyRemovedText,
+  inventoryAppliedText,
 } from "./places";
 
 describe("placeSlug and placeFromSlug", () => {
@@ -117,5 +120,25 @@ describe("the texts for emptying a location", () => {
   it("counts the items Ångra could not put back", () => {
     expect(notRestoredText(1)).toBe("1 vara gick inte att ångra.");
     expect(notRestoredText(2)).toBe("2 varor gick inte att ångra.");
+  });
+});
+
+describe("Inventera en plats med foto", () => {
+  it("says an item stays, or was gone already", () => {
+    expect(keptItemText("senap", "Kyl")).toBe("senap står kvar i kylen.");
+    expect(keptItemText("ärtor", "Frys")).toBe("ärtor står kvar i frysen.");
+    expect(alreadyRemovedText("yoghurt")).toBe("yoghurt är redan borttagen.");
+  });
+
+  it("counts what Bekräfta alla did, leaving out the parts that are 0, in the location's gender", () => {
+    expect(inventoryAppliedText("Kyl", { added: 3, changed: 1, removed: 2 })).toBe(
+      "Kylen är uppdaterad: 3 nya, 1 ändrad och 2 borttagna.",
+    );
+    expect(inventoryAppliedText("Frys", { added: 1, changed: 2, removed: 1 })).toBe(
+      "Frysen är uppdaterad: 1 ny, 2 ändrade och 1 borttagen.",
+    );
+    expect(inventoryAppliedText("Skafferi", { added: 0, changed: 0, removed: 2 })).toBe("Skafferiet är uppdaterat: 2 borttagna.");
+    expect(inventoryAppliedText("Kyl", { added: 2, changed: 0, removed: 1 })).toBe("Kylen är uppdaterad: 2 nya och 1 borttagen.");
+    expect(inventoryAppliedText("Kyl", { added: 0, changed: 0, removed: 0 })).toBe("Kylen är uppdaterad.");
   });
 });

@@ -66,8 +66,8 @@ const smor = "6f1c1b7e-3c1a-4c55-9a59-0f3f2b8f2a02";
 const known: Record<string, string> = { mjölk: mjolk, smör: smor };
 const catalogNames: Record<string, string> = { [mjolk]: "Mjölk", [smor]: "Smör" };
 const atHome: PantryItem[] = [
-  { id: "p1", ingredientId: mjolk, name: "Mjölk", location: "Kyl", amount: 2, unit: "förp" },
-  { id: "p2", ingredientId: smor, name: "Smör", location: "Kyl", amount: null, unit: null },
+  { id: "7a1c1b7e-3c1a-4c55-9a59-0f3f2b8f2a01", ingredientId: mjolk, name: "Mjölk", location: "Kyl", amount: 2, unit: "förp" },
+  { id: "7a1c1b7e-3c1a-4c55-9a59-0f3f2b8f2a02", ingredientId: smor, name: "Smör", location: "Kyl", amount: null, unit: null },
 ];
 const signal = () => new AbortController().signal;
 const user = (userId = "user") => ok({ id: userId, email: "pontus@example.com" });
@@ -145,16 +145,34 @@ describe("analyzePlace", () => {
     matchIngredients.mockImplementation(async (items) => items.map((): IngredientMatch => ({ kind: "unmatched" })));
     const result = await analyzePlace({ image: kyl, location: "Kyl" }, { signal: signal() });
     // Items were seen but none could be used: counted, so the client can say so.
-    expect(result).toEqual(ok({ location: "Kyl", suggestions: [], dropped: 6 }));
+    expect(result).toMatchObject(ok({ location: "Kyl", suggestions: [], dropped: 6 }));
+    // Nothing the AI named could be linked, so the place's items are not seen, and the comparison says it is incomplete.
+    expect(result.ok && result.data.inventory).toMatchObject({
+      kind: "compared",
+      incomplete: true,
+      missing: [{ name: "Mjölk" }, { name: "Smör" }],
+    });
     expect(getIngredientNames).not.toHaveBeenCalled();
     expect(console.info).toHaveBeenCalledWith("analyze_items_dropped", { unmatched: 6, unnamed: 0, unusable: 0, invalid: 0 });
   });
 
-  it("gives an empty list for a photo without food, without asking the catalog", async () => {
+  it("gives an empty list for a photo without food, without asking the catalog, compared with an empty place", async () => {
+    listPantryIn.mockResolvedValueOnce([]);
     const result = await analyzePlace({ image: photo("tom-hylla.png"), location: "Frys" }, { signal: signal() });
-    expect(result).toEqual(ok({ location: "Frys", suggestions: [], dropped: 0 }));
+    expect(result).toEqual(ok({ location: "Frys", suggestions: [], dropped: 0, inventory: { kind: "empty" } }));
     expect(matchIngredients).not.toHaveBeenCalled();
-    expect(listPantryIn).not.toHaveBeenCalled();
+    expect(getIngredientNames).not.toHaveBeenCalled();
+  });
+
+  it("puts every item of a place with items under Syns inte längre for a photo without food, as incomplete", async () => {
+    const result = await analyzePlace({ image: photo("tom-hylla.png"), location: "Kyl" }, { signal: signal() });
+    expect(result.ok && result.data.suggestions).toEqual([]);
+    expect(result.ok && result.data.inventory).toMatchObject({
+      kind: "compared",
+      incomplete: true,
+      missing: [{ name: "Mjölk" }, { name: "Smör" }],
+    });
+    expect(matchIngredients).not.toHaveBeenCalled();
   });
 
   it("gives unauthorized without asking the AI", async () => {
@@ -201,6 +219,97 @@ describe("analyzePlace", () => {
     expect(console.error).toHaveBeenCalledWith("pantry_unavailable", logged);
   });
 
+  describe("compared with the place (Story 6.4)", () => {
+    const yoghurt = "6f1c1b7e-3c1a-4c55-9a59-0f3f2b8f2a03";
+    const yoghurtRow: PantryItem = {
+      id: "7a1c1b7e-3c1a-4c55-9a59-0f3f2b8f2a03",
+      ingredientId: yoghurt,
+      name: "Yoghurt",
+      location: "Kyl",
+      amount: 2,
+      unit: "förp",
+    };
+
+    it("groups the suggestions against the place's items, with the AI call unchanged, and writes nothing", async () => {
+      listPantryIn.mockResolvedValueOnce([...atHome, yoghurtRow]);
+      const result = await analyzePlace({ image: kyl, location: "Kyl" }, { signal: signal() });
+      if (!result.ok) throw new Error(result.error.code);
+      // The AI port gets the same input as before the comparison: the photo and the place, nothing about the pantry.
+      expect(analyzeImage).toHaveBeenCalledTimes(1);
+      expect(analyzeImage.mock.calls[0][0]).toEqual({ image: kyl, place: "Kyl" });
+      expect(result.data.suggestions.map(({ name, change }) => [name, change])).toEqual([
+        ["grädde", "new"],
+        ["gurka", "new"],
+        ["ketchup", "new"],
+        ["Mjölk", "changed"],
+        ["Smör", "unchanged"],
+        ["ägg", "new"],
+      ]);
+      // grädde, gurka, ketchup and ägg are new catalog ingredients: maybe an item of the fridge under another name.
+      expect(result.data.inventory).toEqual({
+        kind: "compared",
+        incomplete: true,
+        missing: [
+          {
+            id: "missing:m1",
+            ingredientId: yoghurt,
+            name: "Yoghurt",
+            location: "Kyl",
+            rows: [{ id: yoghurtRow.id, amount: 2, unit: "förp" }],
+            stock: { unlimited: false, amounts: [{ amount: 2, unit: "förp" }] },
+          },
+        ],
+      });
+      expect(commitIngredients).not.toHaveBeenCalled();
+      expect(db.from).not.toHaveBeenCalled();
+      expect(db.rpc).not.toHaveBeenCalled();
+    });
+
+    it("is empty for a place without items: the suggestions as in 6.1 and 6.2", async () => {
+      listPantryIn.mockResolvedValueOnce([]);
+      const result = await analyzePlace({ image: kyl, location: "Frys" }, { signal: signal() });
+      if (!result.ok) throw new Error(result.error.code);
+      expect(result.data.inventory).toEqual({ kind: "empty" });
+      expect(result.data.suggestions.every(({ change, replaces }) => change === null && replaces.length === 0)).toBe(true);
+    });
+
+    it("is unread when the place cannot be read (and when its read is skipped near the deadline, below)", async () => {
+      listPantryIn.mockRejectedValueOnce(new PantryDataError("query_failed 500"));
+      const failed = await analyzePlace({ image: kyl, location: "Kyl" }, { signal: signal() });
+      expect(failed.ok && failed.data.inventory).toEqual({ kind: "unread" });
+    });
+
+    it("never offers to remove an ingredient the AI named, also when its suggestion was left out (unnamed)", async () => {
+      getIngredientNames.mockResolvedValueOnce({ [smor]: "Smör" });
+      const result = await analyzePlace({ image: kyl, location: "Kyl" }, { signal: signal() });
+      if (!result.ok) throw new Error(result.error.code);
+      expect(result.data.suggestions.map(({ name }) => name)).not.toContain("Mjölk");
+      // Mjölk is in the fridge and was seen: not "Syns inte längre". Something was left out: incomplete.
+      expect(result.data.inventory).toEqual({ kind: "compared", incomplete: true, missing: [] });
+    });
+
+    it("is complete when every item is a known ingredient and nothing was dropped or cut, also for 25 items", async () => {
+      analyzeImage.mockResolvedValueOnce(answer([fixture[0], fixture[2]]));
+      const known2 = await analyzePlace({ image: kyl, location: "Kyl" }, { signal: signal() });
+      expect(known2.ok && known2.data.inventory).toMatchObject({ kind: "compared", incomplete: false });
+
+      const many = Array.from({ length: 30 }, () => fixture[2]);
+      analyzeImage.mockResolvedValueOnce(answer(many));
+      const cut = await analyzePlace({ image: kyl, location: "Kyl" }, { signal: signal() });
+      expect(cut.ok && cut.data.inventory).toMatchObject({ kind: "compared", incomplete: true });
+    });
+
+    it("leaves out a comparison the client could not read, never the whole answer", async () => {
+      listPantryIn.mockResolvedValueOnce([...atHome, { ...yoghurtRow, id: "not-a-uuid" }]);
+      const result = await analyzePlace({ image: kyl, location: "Kyl" }, { signal: signal() });
+      if (!result.ok) throw new Error(result.error.code);
+      expect(result.data.inventory).toEqual({ kind: "unread" });
+      expect(result.data.suggestions).toHaveLength(6);
+      expect(result.data.suggestions.every(({ change, replaces }) => change === null && replaces.length === 0)).toBe(true);
+      expect(console.error).toHaveBeenCalledWith("analyze_inventory_invalid");
+    });
+  });
+
   it("throws other errors from the pantry, which are bugs", async () => {
     listPantryIn.mockRejectedValueOnce(new TypeError("bug"));
     await expect(analyzePlace({ image: kyl, location: "Kyl" }, { signal: signal() })).rejects.toThrow("bug");
@@ -234,7 +343,7 @@ describe("analyzePlace", () => {
   it("counts invalid items also when none is left", async () => {
     analyzeImage.mockResolvedValueOnce(answer([], 2));
     expect(await analyzePlace({ image: kyl, location: "Kyl" }, { signal: signal() })).toEqual(
-      ok({ location: "Kyl", suggestions: [], dropped: 2 }),
+      ok({ location: "Kyl", suggestions: [], dropped: 2, inventory: expect.objectContaining({ kind: "compared", incomplete: true }) }),
     );
     expect(matchIngredients).not.toHaveBeenCalled();
   });
@@ -303,6 +412,7 @@ describe("analyzePlace", () => {
       expect(result.data.suggestions).toHaveLength(6);
       expect(result.data.suggestions.every((suggestion) => suggestion.current === null)).toBe(true);
       expect(listPantryIn).not.toHaveBeenCalled();
+      expect(result.data.inventory).toEqual({ kind: "unread" });
       expect(console.info).toHaveBeenCalledWith("analyze_place_skipped", { reason: "deadline" });
     });
   });

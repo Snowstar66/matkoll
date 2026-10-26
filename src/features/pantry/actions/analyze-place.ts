@@ -7,6 +7,7 @@ import { createClient } from "@/lib/supabase/server";
 import { getAiService, type ImageInput } from "@/server/ai";
 import { PantryDataError } from "../data/client";
 import { listPantryIn } from "../data/queries";
+import { compareWithPlace, placeInventorySchema, withoutComparison } from "../domain/place-inventory";
 import type { PantryItem } from "../domain/pantry-item";
 import {
   maxPantrySuggestions,
@@ -102,9 +103,11 @@ export type AnalyzePlaceOptions = {
  * 40 items (the rest logged as a count), one matchIngredients call for them
  * and the matched names (`catalog_unavailable`), the place's items for "I
  * kylen nu" (a failed read is logged and leaves them out; skipped when the
- * deadline is near), toPantrySuggestions, and pantrySuggestionSchema for each
- * suggestion. Items and suggestions left out are counted in `dropped` and
- * logged as counts. No item is fine: an empty list. A request that goes away
+ * deadline is near), toPantrySuggestions, pantrySuggestionSchema for each
+ * suggestion, and compareWithPlace against the place's items (Story 6.4:
+ * `inventory`, `unread` when they could not be read). Items and suggestions
+ * left out are counted in `dropped` and logged as counts. No item is fine:
+ * an empty list. A request that goes away
  * is `ai_unavailable`, one stopped by a newer analysis of the same user is
  * `ai_superseded`, and nothing more is read. With less than minReadMs left
  * before the deadline, a read the answer needs is `ai_unavailable`. Never
@@ -147,29 +150,33 @@ async function analyze(
   const items = analyzed.data.items.slice(0, maxPantrySuggestions);
   const trimmed = analyzed.data.items.length - items.length;
   if (trimmed > 0) console.info("analyze_items_trimmed", { dropped: trimmed });
-  if (items.length === 0) {
-    logDropped({ unmatched: 0, unnamed: 0, unusable: 0, invalid });
-    return ok({ location, suggestions: [], dropped: invalid });
+  const timeLeft = () => (deadline === undefined ? Infinity : deadline - Date.now());
+  // No item: nothing to match, but the place is still compared (everything there is "Syns inte längre").
+  let matched: IngredientMatch[] = [];
+  let names: Record<string, string> = {};
+  if (items.length > 0) {
+    if (timeLeft() < minReadMs) return outOfTime();
+    const matches = await fromCatalog(() => matchIngredients(items.map((item) => ({ text: item.label, hint: item.hint }))));
+    if (!matches.ok) return matches;
+    if (signal.aborted) return stopped();
+    matched = matches.data;
   }
 
-  const timeLeft = () => (deadline === undefined ? Infinity : deadline - Date.now());
-  if (timeLeft() < minReadMs) return outOfTime();
-  const matches = await fromCatalog(() => matchIngredients(items.map((item) => ({ text: item.label, hint: item.hint }))));
-  if (!matches.ok) return matches;
-  if (signal.aborted) return stopped();
-
-  const ids = [...new Set(matches.data.flatMap((match: IngredientMatch) => (match.kind === "match" ? [match.ingredientId] : [])))];
-  if (ids.length > 0 && timeLeft() < minReadMs) return outOfTime();
-  const names = ids.length > 0 ? await fromCatalog(() => getIngredientNames(ids)) : ok<Record<string, string>>({});
-  if (!names.ok) return names;
-  if (signal.aborted) return stopped();
+  const ids = [...new Set(matched.flatMap((match: IngredientMatch) => (match.kind === "match" ? [match.ingredientId] : [])))];
+  if (ids.length > 0) {
+    if (timeLeft() < minReadMs) return outOfTime();
+    const found = await fromCatalog(() => getIngredientNames(ids));
+    if (!found.ok) return found;
+    if (signal.aborted) return stopped();
+    names = found.data;
+  }
 
   // "I kylen nu" is extra: near the deadline the suggestions come without it.
   let current: PantryItem[] | null = null;
   if (timeLeft() >= minReadMs) current = await readPlace(location);
   else console.info("analyze_place_skipped", { reason: "deadline" });
 
-  const built = toPantrySuggestions(items, matches.data, { location, names: names.data, current });
+  const built = toPantrySuggestions(items, matched, { location, names, current });
   logDropped({ ...built.dropped, invalid });
   // The schema the client checks, per suggestion: one that would not pass is left out, never the whole answer.
   const suggestions = built.suggestions.filter(
@@ -178,7 +185,24 @@ async function analyze(
   const outputInvalid = built.suggestions.length - suggestions.length;
   if (outputInvalid > 0) console.error("analyze_output_invalid", { count: outputInvalid });
   const { unmatched, unnamed, unusable } = built.dropped;
-  return ok({ location, suggestions, dropped: invalid + unmatched + unnamed + unusable + outputInvalid });
+  const dropped = invalid + unmatched + unnamed + unusable + outputInvalid;
+  // Story 6.4: the suggestions against the place's rows. An ingredient the AI
+  // named is never "Syns inte längre", also when its suggestion was left out;
+  // items that could not be read or were cut (and new catalog ingredients, in
+  // compareWithPlace) make the comparison incomplete.
+  const compared = compareWithPlace(suggestions, current, {
+    location,
+    seenIngredientIds: new Set(ids),
+    incomplete: dropped > 0 || trimmed > 0,
+  });
+  // The schema the client checks: a comparison that would not pass (a row the
+  // domain cannot read) is left out, never the whole answer, and the
+  // suggestions are then outside any comparison.
+  if (!placeInventorySchema.safeParse(compared.inventory).success) {
+    console.error("analyze_inventory_invalid");
+    return ok({ location, suggestions: suggestions.map(withoutComparison), dropped, inventory: { kind: "unread" } });
+  }
+  return ok({ location, suggestions: compared.suggestions, dropped, inventory: compared.inventory });
 }
 
 /** Counts only, never the items or their names. */

@@ -30,6 +30,7 @@ vi.mock("../actions/restore-pantry-removal", () => ({
   restorePantryRemoval: (operationId: string) => restorePantryRemoval(operationId),
 }));
 vi.mock("../actions/confirm-pantry-suggestions", () => ({ confirmPantrySuggestions: vi.fn() }));
+vi.mock("../actions/confirm-pantry-inventory", () => ({ confirmPantryInventory: vi.fn() }));
 vi.mock("../actions/set-pantry-item", () => ({ savePantryItem: (form: PantryItemFormInput) => savePantryItem(form) }));
 vi.mock("../actions/search-ingredients", () => ({ searchPantryIngredients: vi.fn() }));
 const refresh = vi.fn();

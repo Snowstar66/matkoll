@@ -3,6 +3,7 @@ import { join } from "node:path";
 import { fileURLToPath } from "node:url";
 import { describe, expect, it } from "vitest";
 import { LOCATIONS, UNITS } from "@/features/catalog";
+import { maxConfirmItems, maxInventoryRemovals, maxInventoryReplaces } from "@/features/pantry/domain/pantry-suggestion";
 
 // AD-12, AD-19: a pantry item's location is one of the catalog's LOCATIONS and
 // its unit one of UNITS. The `check` lists in the pantry migration must be
@@ -67,20 +68,36 @@ describe("add_to_pantry's input checks", () => {
   });
 });
 
-// empty_pantry_place (Story 6.3) refuses an unknown location itself (22023),
-// with a list that must equal LOCATIONS. Read from the latest migration that
-// (re)defines it.
-describe("empty_pantry_place's location check", () => {
+// empty_pantry_place (Story 6.3) and apply_pantry_inventory (Story 6.4)
+// refuse an unknown location themselves (22023), with a list that must equal
+// LOCATIONS. Read from the latest migration that (re)defines each.
+describe.each(["empty_pantry_place", "apply_pantry_inventory"])("%s's location check", (fn) => {
   it("lists exactly the domain values", () => {
     const latest = readdirSync(migrations)
       .filter((name) => name.endsWith(".sql"))
       .sort()
       .map((file) => ({ file, sql: readFileSync(join(migrations, file), "utf8") }))
-      .filter(({ sql }) => /create (or replace )?function public\.empty_pantry_place\(/.test(sql))
+      .filter(({ sql }) => new RegExp(`create (or replace )?function public\\.${fn}\\(`).test(sql))
       .at(-1);
-    expect(latest, "a migration that defines empty_pantry_place").toBeDefined();
+    expect(latest, `a migration that defines ${fn}`).toBeDefined();
     const match = /place not in \(([^)]*)\)/.exec(latest!.sql);
     expect(match, `the location list in ${latest!.file}`).not.toBeNull();
     expect([...match![1].matchAll(/'((?:[^']|'')*)'/g)].map((value) => value[1])).toEqual([...LOCATIONS]);
+  });
+});
+
+// apply_pantry_inventory (Story 6.4) takes arrays from the client, so it
+// guards their sizes itself, with the limits of confirmPantryInventory.
+describe("apply_pantry_inventory's size limits", () => {
+  it("equal the domain's", () => {
+    const latest = readdirSync(migrations)
+      .filter((name) => name.endsWith(".sql"))
+      .sort()
+      .map((file) => ({ file, sql: readFileSync(join(migrations, file), "utf8") }))
+      .filter(({ sql }) => /create (or replace )?function public\.apply_pantry_inventory\(/.test(sql))
+      .at(-1);
+    const match = /item_count > (\d+) or replace_count > (\d+) or remove_count > (\d+)/.exec(latest?.sql ?? "");
+    expect(match, `the limits in ${latest?.file}`).not.toBeNull();
+    expect(match!.slice(1).map(Number)).toEqual([maxConfirmItems, maxInventoryReplaces, maxInventoryRemovals]);
   });
 });

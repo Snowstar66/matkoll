@@ -41,6 +41,10 @@ export const errorMessages = {
   // The suggestions stay; new catalog ingredients may stay too, and trying
   // again uses them.
   pantry_confirm_failed: "Det gick inte att lägga förslagen i lagret. Försök igen.",
+  // Confirming a photo compared with its place (Story 6.4): what is added,
+  // changed and removed is one transaction, so nothing changed. The
+  // suggestions stay; new catalog ingredients may stay too.
+  pantry_inventory_failed: "Det gick inte att uppdatera lagret. Försök igen.",
   // Matsedel (Story 3.1). After failed servings the selector shows the saved
   // value again; after a failed remove the dish is back on the plan.
   mealplan_unavailable: "Det gick inte att läsa matsedeln. Försök igen.",
