@@ -1,7 +1,8 @@
-import { act, fireEvent, render, screen, within } from "@testing-library/react";
+import { act, fireEvent, render, screen, waitFor, within } from "@testing-library/react";
 import { useEffect, useState } from "react";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import { ToastProvider } from "@/components/toast";
+import type { Location } from "@/features/catalog";
 import { fail, ok, type Result } from "@/lib/errors";
 import type { PantryItem } from "../domain/pantry-item";
 import type { PantryItemFormInput, PantryRow } from "../domain/pantry-item-form";
@@ -18,6 +19,16 @@ const restorePantryItem = vi.fn<(row: PantryRow) => Promise<Result<PantryRow>>>(
 const savePantryItem = vi.fn<(form: PantryItemFormInput) => Promise<Result<{ id: string }>>>();
 vi.mock("../actions/remove-pantry-item", () => ({ removePantryItem: (id: string) => removePantryItem(id) }));
 vi.mock("../actions/restore-pantry-item", () => ({ restorePantryItem: (row: PantryRow) => restorePantryItem(row) }));
+type Emptied = { removed: number; removedIds: string[] };
+type Restored = { restoredIds: string[]; rows: PantryRow[]; skipped: number };
+const emptyPantryPlace = vi.fn<(location: Location, operationId: string) => Promise<Result<Emptied>>>();
+const restorePantryRemoval = vi.fn<(operationId: string) => Promise<Result<Restored>>>();
+vi.mock("../actions/empty-pantry-place", () => ({
+  emptyPantryPlace: (location: Location, operationId: string) => emptyPantryPlace(location, operationId),
+}));
+vi.mock("../actions/restore-pantry-removal", () => ({
+  restorePantryRemoval: (operationId: string) => restorePantryRemoval(operationId),
+}));
 vi.mock("../actions/confirm-pantry-suggestions", () => ({ confirmPantrySuggestions: vi.fn() }));
 vi.mock("../actions/set-pantry-item", () => ({ savePantryItem: (form: PantryItemFormInput) => savePantryItem(form) }));
 vi.mock("../actions/search-ingredients", () => ({ searchPantryIngredients: vi.fn() }));
@@ -53,11 +64,17 @@ let serverUpdate: (update: (items: PantryItem[]) => PantryItem[]) => void = () =
 const serverRemoves = (id: string) => act(() => serverUpdate((items) => items.filter((other) => other.id !== id)));
 const serverAdds = (added: PantryItem) => act(() => serverUpdate((items) => [...items, added].sort(byName)));
 
+/** The server's items for Kyl as last rendered. */
+let serverItems: readonly PantryItem[] = [];
+
 function Hemma({ initial }: { initial: PantryItem[] }) {
   const [items, setItems] = useState(initial);
   useEffect(() => {
     serverUpdate = (update) => setItems(update);
   }, []);
+  useEffect(() => {
+    serverItems = items;
+  }, [items]);
   return (
     <ToastProvider>
       <PantrySuggestionsProvider>
@@ -101,7 +118,26 @@ beforeEach(() => {
     return ok(row);
   });
   savePantryItem.mockReset();
+  // By default the server empties Kyl, keeps the rows by operation id, and its items change right after the answer.
+  removals.clear();
+  emptyPantryPlace.mockReset().mockImplementation(async (_location, operationId) => {
+    const rows = removals.get(operationId) ?? serverItems.map(rowOf);
+    removals.set(operationId, rows);
+    queueMicrotask(() => serverUpdate(() => []));
+    return ok({ removed: rows.length, removedIds: rows.map((row) => row.id) });
+  });
+  restorePantryRemoval.mockReset().mockImplementation(async (operationId) => {
+    const rows = removals.get(operationId) ?? [];
+    removals.delete(operationId);
+    queueMicrotask(() =>
+      serverUpdate((items) => [...items, ...rows.map((row) => everything.find((other) => other.id === row.id)!)].sort(byName)),
+    );
+    return ok({ restoredIds: rows.map((row) => row.id), rows, skipped: 0 });
+  });
 });
+
+/** The rows the fake server keeps per operation id. */
+const removals = new Map<string, PantryRow[]>();
 
 describe("applyPantryChanges", () => {
   it("leaves out removed items and puts restored ones of the location back in order", () => {
@@ -273,8 +309,8 @@ describe("Ta bort in the sheet", () => {
     fireEvent.change(screen.getByLabelText("Mängd"), { target: { value: "2" } });
     await act(async () => fireEvent.click(screen.getByRole("button", { name: "Spara ändringar" })));
     // Saving closes the sheet; it opens again from the list as it is now.
-    expect(screen.queryByRole("dialog", { name: "Lagervara" })).toBeNull();
-    fireEvent.click(screen.getByRole("button", { name: "Mjölk 2 l" }));
+    await waitFor(() => expect(screen.queryByRole("dialog", { name: "Lagervara" })).toBeNull());
+    fireEvent.click(await screen.findByRole("button", { name: "Mjölk 2 l" }));
     await act(async () => fireEvent.click(screen.getByRole("button", { name: "Ta bort" })));
     expect(removePantryItem).toHaveBeenCalledWith(moved.id);
   });
@@ -302,5 +338,208 @@ describe("focus after a removal", () => {
     render(<Hemma initial={[mjolk, smor]} />);
     await tapRemove("Mjölk");
     expect(screen.getByRole("button", { name: "Smör 250 g" })).not.toHaveFocus();
+  });
+});
+
+describe("emptying a location", () => {
+  /** "Töm kylen" under the list, then the sheet's "Töm kylen". */
+  const emptyKyl = async () => {
+    fireEvent.click(screen.getByRole("button", { name: "Töm kylen" }));
+    const sheet = screen.getByRole("dialog", { name: "Töm kylen" });
+    await act(async () => fireEvent.click(within(sheet).getByRole("button", { name: "Töm kylen" })));
+  };
+  const operationOf = (call = 0) => emptyPantryPlace.mock.calls[call][1];
+  const uuid = /^[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/;
+
+  it("empties the list at once after the answer, before the server's list has caught up", async () => {
+    emptyPantryPlace.mockResolvedValueOnce(ok({ removed: 4, removedIds: everything.map((one) => one.id) }));
+    render(<Hemma initial={everything} />);
+    await emptyKyl();
+    expect(emptyPantryPlace).toHaveBeenCalledTimes(1);
+    expect(emptyPantryPlace).toHaveBeenCalledWith("Kyl", expect.stringMatching(uuid));
+    expect(removePantryItem).not.toHaveBeenCalled();
+    expect(rowNames()).toEqual([]);
+    expect(tagNames()).toEqual([]);
+    expect(screen.getByText("Inget i kylen än.")).toBeInTheDocument();
+    expect(kylCard()).toHaveTextContent("Kyl 0 varor");
+    expect(toast()).toHaveTextContent("Tog bort 4 varor ur kylen.");
+    expect(within(toast()).getByRole("button", { name: "Ångra" })).toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: "Töm kylen" })).toBeNull();
+  });
+
+  it("puts every row back with one call by operation id on Ångra", async () => {
+    render(<Hemma initial={[mjolk, smor, salt]} />);
+    await emptyKyl();
+    await waitFor(() => expect(serverItems).toEqual([]));
+    await undo();
+    expect(restorePantryRemoval).toHaveBeenCalledTimes(1);
+    expect(restorePantryRemoval).toHaveBeenCalledWith(operationOf());
+    expect(restorePantryItem).not.toHaveBeenCalled();
+    expect(rowNames()).toEqual(["Mjölk 1 l", "Smör 250 g"]);
+    expect(tagNames()).toEqual(["Salt"]);
+    expect(kylCard()).toHaveTextContent("Kyl 3 varor");
+    expect(await screen.findByRole("button", { name: "Töm kylen" })).toBeInTheDocument();
+  });
+
+  it("counts the actual rows removed, and Ångra shows also the rows the list did not show", async () => {
+    render(<Hemma initial={[mjolk]} />);
+    // Another tab added Ägg; the server removes it too.
+    emptyPantryPlace.mockImplementationOnce(async (_location, operationId) => {
+      removals.set(operationId, [rowOf(mjolk), rowOf(agg)]);
+      queueMicrotask(() => serverUpdate(() => []));
+      return ok({ removed: 2, removedIds: [mjolk.id, agg.id] });
+    });
+    await emptyKyl();
+    expect(toast()).toHaveTextContent("Tog bort 2 varor ur kylen.");
+    await waitFor(() => expect(serverItems).toEqual([]));
+    await undo();
+    // Ägg's removal goes with Ångra, so the server's list shows it.
+    await waitFor(() => expect(rowNames()).toEqual(["Mjölk 1 l", "Ägg 6 st"]));
+  });
+
+  it("keeps the others and tells how many could not be put back when Ångra skips rows", async () => {
+    const mjolkAgain = { ...mjolk, id: "55555555-5555-4555-8555-555555555555", amount: 3 };
+    render(<Hemma initial={[mjolk, smor]} />);
+    await emptyKyl();
+    await waitFor(() => expect(serverItems).toEqual([]));
+    // Pontus adds mjölk again before Ångra.
+    serverAdds(mjolkAgain);
+    restorePantryRemoval.mockImplementationOnce(async () => {
+      queueMicrotask(() => serverUpdate((items) => [...items, smor].sort(byName)));
+      return ok({ restoredIds: [smor.id], rows: [rowOf(smor)], skipped: 1 });
+    });
+    await undo();
+    await waitFor(() => expect(rowNames()).toEqual(["Mjölk 3 l", "Smör 250 g"]));
+    expect(screen.getByRole("alert")).toHaveTextContent("1 vara gick inte att ångra.");
+    expect(refresh).not.toHaveBeenCalled();
+  });
+
+  it("takes a skipped row the list would show away again once the answer comes", async () => {
+    restorePantryRemoval.mockImplementationOnce(async () => ok({ restoredIds: [smor.id], rows: [rowOf(smor)], skipped: 1 }));
+    render(<Hemma initial={[mjolk, smor]} />);
+    await emptyKyl();
+    await waitFor(() => expect(serverItems).toEqual([]));
+    await undo();
+    expect(rowNames()).toEqual(["Smör 250 g"]);
+    expect(toast()).toHaveTextContent("1 vara gick inte att ångra.");
+  });
+
+  it("leaves the items removed and says so as an alert when Ångra fails", async () => {
+    restorePantryRemoval.mockResolvedValueOnce(fail("pantry_restore_failed"));
+    render(<Hemma initial={[mjolk, smor]} />);
+    await emptyKyl();
+    await waitFor(() => expect(serverItems).toEqual([]));
+    await undo();
+    expect(rowNames()).toEqual([]);
+    expect(screen.getByRole("alert")).toHaveTextContent("Det gick inte att ångra.");
+    expect(refresh).not.toHaveBeenCalled();
+  });
+
+  it("reads the page again when Ångra gets no answer", async () => {
+    restorePantryRemoval.mockRejectedValueOnce(new TypeError("Failed to fetch"));
+    render(<Hemma initial={[mjolk, smor]} />);
+    await emptyKyl();
+    await waitFor(() => expect(serverItems).toEqual([]));
+    await undo();
+    expect(rowNames()).toEqual([]);
+    expect(screen.getByRole("alert")).toHaveTextContent("Det gick inte att ångra.");
+    expect(refresh).toHaveBeenCalledTimes(1);
+  });
+
+  it("says the location is empty already, without Ångra, when there was nothing to remove", async () => {
+    emptyPantryPlace.mockImplementationOnce(async () => {
+      queueMicrotask(() => serverUpdate(() => []));
+      return ok({ removed: 0, removedIds: [] });
+    });
+    render(<Hemma initial={[mjolk]} />);
+    await emptyKyl();
+    expect(toast()).toHaveTextContent("Kylen är redan tom.");
+    expect(within(toast()).queryByRole("button", { name: "Ångra" })).toBeNull();
+    expect(screen.queryByRole("dialog", { name: "Töm kylen" })).toBeNull();
+  });
+
+  it("offers Ångra by operation id when the answer is lost but the location is empty when read again", async () => {
+    // The server emptied Kyl, but the answer never came.
+    emptyPantryPlace.mockImplementationOnce(async (_location, operationId) => {
+      removals.set(operationId, serverItems.map(rowOf));
+      throw new TypeError("Failed to fetch");
+    });
+    render(<Hemma initial={[mjolk, smor]} />);
+    await emptyKyl();
+    const sheet = screen.getByRole("dialog", { name: "Töm kylen" });
+    expect(within(sheet).getByRole("alert")).toHaveTextContent("Det gick inte att ta bort varorna. Försök igen.");
+    expect(rowNames()).toEqual(["Mjölk 1 l", "Smör 250 g"]);
+    expect(refresh).toHaveBeenCalledTimes(1);
+
+    // The page as read again: Kyl is empty, so the sheet closes and Ångra is offered.
+    act(() => serverUpdate(() => []));
+    await waitFor(() => expect(toast()).toHaveTextContent("Kylen kan ha tömts."));
+    expect(screen.queryByRole("dialog", { name: "Töm kylen" })).toBeNull();
+    await undo();
+    expect(restorePantryRemoval).toHaveBeenCalledWith(operationOf());
+    await waitFor(() => expect(rowNames()).toEqual(["Mjölk 1 l", "Smör 250 g"]));
+  });
+
+  it("offers nothing when the answer is lost and the location still has its items, and tries again with the same operation id", async () => {
+    emptyPantryPlace.mockRejectedValueOnce(new TypeError("Failed to fetch"));
+    render(<Hemma initial={[mjolk, smor]} />);
+    await emptyKyl();
+    // The page as read again: nothing was removed.
+    act(() => serverUpdate((items) => [...items]));
+    expect(screen.queryByText("Kylen kan ha tömts.")).toBeNull();
+    expect(screen.queryByTestId("toast")).toBeNull();
+
+    const sheet = screen.getByRole("dialog", { name: "Töm kylen" });
+    await act(async () => fireEvent.click(within(sheet).getByRole("button", { name: "Töm kylen" })));
+    expect(emptyPantryPlace).toHaveBeenCalledTimes(2);
+    expect(operationOf(1)).toBe(operationOf(0));
+    expect(toast()).toHaveTextContent("Tog bort 2 varor ur kylen.");
+  });
+
+  it("reads the page again for an expired session", async () => {
+    emptyPantryPlace.mockResolvedValueOnce(fail("unauthorized"));
+    render(<Hemma initial={[mjolk]} />);
+    await emptyKyl();
+    expect(refresh).toHaveBeenCalledTimes(1);
+    expect(rowNames()).toEqual(["Mjölk 1 l"]);
+  });
+
+  it("joins a removal still showing its Ångra, and Ångra puts back both", async () => {
+    render(<Hemma initial={[mjolk, smor, agg]} />);
+    await tapRemove("Mjölk");
+    expect(toast()).toHaveTextContent("Mjölk är borttagen.");
+    await waitFor(() => expect(serverItems.map((one) => one.id)).toEqual([smor.id, agg.id]));
+    await emptyKyl();
+    expect(toast()).toHaveTextContent("Tog bort 3 varor ur kylen.");
+    await waitFor(() => expect(serverItems).toEqual([]));
+    await undo();
+    expect(restorePantryItem).toHaveBeenCalledWith(rowOf(mjolk));
+    expect(restorePantryRemoval).toHaveBeenCalledWith(operationOf());
+    await waitFor(() => expect(rowNames()).toEqual(["Mjölk 1 l", "Smör 250 g", "Ägg 6 st"]));
+  });
+
+  it("keeps the emptying's Ångra when a single item is removed while it shows", async () => {
+    render(<Hemma initial={[mjolk, smor]} />);
+    await emptyKyl();
+    await waitFor(() => expect(serverItems).toEqual([]));
+    // Another tab added Ägg meanwhile, and Pontus removes it too.
+    serverAdds(agg);
+    await tapRemove("Ägg");
+    expect(toast()).toHaveTextContent("Tog bort 3 varor ur kylen.");
+    await waitFor(() => expect(serverItems).toEqual([]));
+    await undo();
+    expect(restorePantryRemoval).toHaveBeenCalledWith(operationOf());
+    expect(restorePantryItem).toHaveBeenCalledWith(rowOf(agg));
+    await waitFor(() => expect(rowNames()).toEqual(["Mjölk 1 l", "Smör 250 g", "Ägg 6 st"]));
+  });
+
+  it("makes Töm kylen unavailable while a removal in the location is on its way", async () => {
+    const pending = deferred<Result<PantryRow | null>>();
+    removePantryItem.mockImplementationOnce(() => pending.promise);
+    render(<Hemma initial={[mjolk, smor]} />);
+    await tapRemove("Mjölk");
+    expect(screen.getByRole("button", { name: "Töm kylen" })).toBeDisabled();
+    await act(async () => pending.resolve(ok(rowOf(mjolk))));
+    expect(screen.getByRole("button", { name: "Töm kylen" })).toBeEnabled();
   });
 });

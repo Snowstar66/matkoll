@@ -3,6 +3,7 @@
 import { useEffect } from "react";
 import type { Location } from "@/features/catalog";
 import type { PantryItem } from "../domain/pantry-item";
+import { EmptyPlaceButton } from "./empty-place";
 import { LocationCards } from "./location-cards";
 import { PantryCamera } from "./pantry-camera";
 import { PantryList } from "./pantry-list";
@@ -23,8 +24,9 @@ export type PantryPlaceProps = {
  * latest photo (needs a PantrySuggestionsProvider above), and the chosen
  * location's items, with removals and
  * "Ångra" that the server's items do not show yet already applied
- * (usePantryRemoval). The chosen card counts the items shown, so card and
- * list never disagree.
+ * (usePantryRemoval), and "Töm kylen" under them while there are any. The
+ * chosen card counts the items shown, so card, list and the question in
+ * "Töm kylen" never disagree.
  */
 export function PantryPlace({ location, counts, items }: PantryPlaceProps) {
   const { changes, report } = usePantryRemoval();
@@ -37,6 +39,7 @@ export function PantryPlace({ location, counts, items }: PantryPlaceProps) {
       <PantryCamera location={location} />
       <PantrySuggestionList />
       <PantryList location={location} items={shown} />
+      <EmptyPlaceButton location={location} count={shown.length} items={shown} />
     </div>
   );
 }

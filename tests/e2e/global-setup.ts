@@ -15,6 +15,8 @@ import {
   deleteE2eUsers,
   e2eEmail,
   e2eEmails,
+  emptyPlaceEmail,
+  emptyPlaceStorageState,
   libraryEmail,
   libraryStorageState,
   magicLinkPath,
@@ -89,6 +91,7 @@ export default async function globalSetup(config: FullConfig) {
       [aiSuggestionsEmail, aiSuggestionsStorageState],
       [cameraEmail, cameraStorageState],
       [suggestionsEmail, suggestionsStorageState],
+      [emptyPlaceEmail, emptyPlaceStorageState],
       [storeEmail, storeStorageState],
       [productChoiceEmail, productChoiceStorageState],
     ] as const) {

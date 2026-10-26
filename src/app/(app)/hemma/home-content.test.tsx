@@ -22,6 +22,8 @@ vi.mock("@/features/pantry/actions/set-pantry-item", () => ({ savePantryItem: vi
 vi.mock("@/features/pantry/actions/search-ingredients", () => ({ searchPantryIngredients: vi.fn() }));
 vi.mock("next/navigation", () => ({ useRouter: () => ({ refresh: vi.fn() }) }));
 vi.mock("@/features/pantry/actions/remove-pantry-item", () => ({ removePantryItem: vi.fn() }));
+vi.mock("@/features/pantry/actions/empty-pantry-place", () => ({ emptyPantryPlace: vi.fn() }));
+vi.mock("@/features/pantry/actions/restore-pantry-removal", () => ({ restorePantryRemoval: vi.fn() }));
 vi.mock("@/features/pantry/actions/restore-pantry-item", () => ({ restorePantryItem: vi.fn() }));
 const confirmPantrySuggestions = vi.fn();
 vi.mock("@/features/pantry/actions/confirm-pantry-suggestions", () => ({

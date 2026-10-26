@@ -2,6 +2,47 @@
 
 Beslut som fattats under bygget: vad, varför och vilka alternativ som fanns. Nyaste överst.
 
+## 2026-10-26 – Töm en plats (Story 6.3)
+
+- **Beslut:**
+  - **En kontrollfråga trots att tömningen går att ångra.** EXPERIENCE.md kräver bekräftelse i förväg bara för det som inte går att ångra, men här försvinner många varor på en gång, och ett feltryck på en textknapp blir dyrt om bekräftelsen hinner försvinna. Arket "Töm kylen" frågar "Ta bort alla 14 varor i kylen?" (eller "Ta bort 1 vara i kylen?") utan "Är du säker?", och "Du kan ångra direkt efteråt." ersätter "Det går inte att ångra.". Fokus börjar på "Avbryt".
+  - **Knappen är en textknapp under listan** ("Töm kylen", "Töm frysen", "Töm skafferiet"), inte vid platskorten eller i sidhuvudet. Den används sällan, och kameraknappen ska synas först. Den saknas för en tom plats och i felvägen, där lagret inte går att läsa.
+  - **En ny Postgres-funktion, `empty_pantry_place(place)`,** i stället för en `delete` via PostgREST, så att tömningen tar `pantry_lock()` och aldrig blandas med `set_pantry_items`, `restore_pantry_item` eller `add_to_pantry` som pågår samtidigt. Den nekar en okänd plats (`22023`) och returnerar de borttagna raderna i id-ordning.
+  - **Servern tar bort alla rader på platsen, inte bara de som visades.** En vara som en annan flik har lagt till under tiden tas också bort, och bekräftelsen säger det verkliga antalet ("Tog bort 15 varor ur kylen."). "Töm kylen" betyder att kylen blir tom, och "Ångra" sätter tillbaka allt som togs bort.
+  - **"Ångra" sätter tillbaka det som går och hoppar över krockar,** i en transaktion. En rad hoppas över om id:t redan finns eller om platsen nu har varan igen (samma nyckel, eller obegränsad mot mängd), samma villkor som `restore_pantry_item`. Den nya raden står kvar, och "1 vara gick inte att ångra." visas med `role="alert"`.
+  - **"Ångra" är ett anrop och en transaktion** i stället för ett anrop per rad. Konfliktvillkoret är utbrutet i hjälpfunktionen `pantry_place_has_item()`, som också `restore_pantry_item` nu använder, med samma signatur och beteende som förut.
+  - **Tömningen är inte optimistisk.** Arkets knapp visar "Tar bort …" tills svaret kommer, och arket kan inte stängas under tiden, så att ett fel visas i arket med varorna kvar. Efter svaret göms raderna direkt, så att listan inte blinkar medan revalideringen kommer.
+  - **Fokus går till kameraknappen efter tömningen,** eftersom nästa steg är att fotografera platsen.
+  - **Bekräftelsen säger "Tog bort 14 varor ur kylen."** och nämner platsen. Den slås aldrig ihop med enstaka borttagningar. "Kylen är redan tom." (eller "Frysen är redan tom.", "Skafferiet är redan tomt.") visas utan "Ångra" när en annan flik redan hade tömt platsen.
+  - **Lagerförslag från den tömda platsen står kvar** men utan raden "I kylen nu". "Ångra" ger inte tillbaka raden, eftersom den bara är extra information och ett nytt foto ger den igen.
+  - **Ny felkod `pantry_empty_failed`:** "Det gick inte att ta bort varorna. Försök igen.". Den visas i arket, där frågan redan säger vilken plats det gäller.
+  - **AD-19 utökas:** `pantry` får två nya skrivoperationer:
+    - `emptyPantryPlace(location, operationId)` tar bort alla användarens rader på platsen och sparar dem i `pantry_removal` under operations-id:t, i en transaktion (`empty_pantry_place`).
+    - `restorePantryRemoval(operationId)` sätter tillbaka de sparade raderna med samma id i en transaktion (`restore_pantry_removal`) och hoppar över rader som krockar.
+  - **Tillagt vid bygget:**
+    - `emptyPantryPlace` revaliderar också när platsen redan var tom, så att en lista som fortfarande visar varorna kommer ikapp.
+    - Ett designtest låser platslistan i `empty_pantry_place` mot `LOCATIONS`.
+  - **Ändrat efter granskningen** (migrationen `*_pantry_removal.sql`):
+    - **Ångra-uppgifterna sparas på servern, inte bara i klientens svar.** Den nya tabellen `pantry_removal` (RLS, grants som övriga tabeller, aldrig `anon`) har en post per borttagning med klientens operations-id, användaren, tiden och de borttagna raderna. `empty_pantry_place(place, operation_id)` sparar posten i samma transaktion som raderingen och svarar med ett enda värde, `{ removed, items }`, så att PostgREST:s `max_rows` aldrig kan korta svaret. Samma operations-id en gång till ger den sparade posten utan att ta bort något mer.
+    - "Ångra" anropar `restore_pantry_removal(operation_id)`, som sätter tillbaka från posten under `pantry_lock()`, hoppar över krockar och rader vars katalogingrediens saknas, svarar `{ restored, skipped }` och tar bort posten. En okänd, redan ångrad eller rensad operation ger `P0002` ("Det gick inte att ångra."). Poster äldre än ett dygn rensas av båda funktionerna. Bekräftelsens antal är alltså alltid det antal som "Ångra" kan sätta tillbaka, också för rader som domänen inte kan tolka.
+    - `restore_pantry_items(items)` och `restorePantryItems(rows)` är borttagna. Ingen funktion tar längre emot en lista från klienten, så det finns ingen storleksgräns att låsa. Posten och `restore_pantry_removal` är byggda för att också användas av 6.4: en skrivning som tar bort rader och erbjuder "Ångra" sparar dem i `pantry_removal` i sin egen transaktion.
+    - **Inget svar på "Töm kylen":** arket visar felet, och sidan läses om. Om platsen då är tom visas "Kylen kan ha tömts." med "Ångra" via operations-id:t, och arket stängs. Ett nytt försök i arket skickar samma operations-id, så en tömning vars svar försvann görs aldrig två gånger. Ett nytt ark får ett nytt id. När raderingen har gått igenom svarar actionen alltid `ok`. Ett fel vid revalideringen loggas bara (`pantry_revalidate_failed`).
+    - **Bekräftelserna slås ihop.** En enstaka borttagning medan tömningens bekräftelse visas läggs till i samma "Ångra", och en tömning medan en enstaka borttagnings bekräftelse visas tar med den. Texten blir då "Tog bort 15 varor ur kylen." (eller "Tog bort 17 varor." när varorna kommer från flera platser). "Kylen är redan tom." visas inte när en bekräftelse med "Ångra" redan visas, så att den inte ersätts.
+    - "Töm kylen" är inaktiv medan en borttagning, ett "Ångra" eller en tömning på platsen pågår. Arket frågar om det antal som visas just nu och stängs om platsen blir tom medan det är öppet.
+    - Efter "Ångra" försvinner borttagningen för varje rad som kom tillbaka, också rader som listan inte visade, och raden "I kylen nu" på platsens lagerförslag räknas om från de rader som kom tillbaka.
+    - Krockar vid "Ångra" loggas som info (`pantry_restore_skipped` med antalet), och verkliga fel som `pantry_restore_failed`.
+    - Ett integrationstest visar att låset tas: "Ångra" och `setPantryItemsIn` med den andra sorten körs samtidigt i flera omgångar, och platsen har aldrig både obegränsad och mängd.
+- **Varför:** beslutet "Uppdatera lagret med foto (Story 6.3 och 6.4)", AD-1 (bara `pantry` skriver `pantry_item`, och en atomär skrivning är en Postgres-funktion), AD-2, AD-13, AD-18, AD-19 och AD-20 (hård radering, och "Ångra" ger samma id).
+- **Alternativ:**
+  - `db.from("pantry_item").delete().eq("location", …)` som `removePantryItemIn`, som är en transaktion men inte tar låset.
+  - Att klienten skickar de id den visade, vilket kan lämna kvar en vara i en kyl som Pontus trodde var tom.
+  - "Ångra" som allt eller inget, där en enda krock skulle lämna 13 varor borttagna.
+  - Ett anrop till `restore_pantry_item` per rad.
+  - "Ångra" med raderna från klientens svar (`restore_pantry_items`), som gjorde "Ångra" beroende av att svaret kom fram och kunde tolkas.
+  - Optimistisk tömning, där ett fel skulle ta tillbaka varorna efter att listan redan var tom.
+  - Fokus på "Lägg till vara" i den tomma platsen.
+  - `removedItemsText`, som räknar upp namn för en eller två varor och inte säger var.
+
 ## 2026-10-26 – Uppdatera lagret med foto (Story 6.3 och 6.4)
 
 - **Beslut (Pontus):** två nya stories byggs direkt efter Story 7.2 och före 7.3:

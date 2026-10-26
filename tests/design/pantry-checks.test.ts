@@ -66,3 +66,21 @@ describe("add_to_pantry's input checks", () => {
     expect([...match![1].matchAll(/'((?:[^']|'')*)'/g)].map((value) => value[1])).toEqual([...values]);
   });
 });
+
+// empty_pantry_place (Story 6.3) refuses an unknown location itself (22023),
+// with a list that must equal LOCATIONS. Read from the latest migration that
+// (re)defines it.
+describe("empty_pantry_place's location check", () => {
+  it("lists exactly the domain values", () => {
+    const latest = readdirSync(migrations)
+      .filter((name) => name.endsWith(".sql"))
+      .sort()
+      .map((file) => ({ file, sql: readFileSync(join(migrations, file), "utf8") }))
+      .filter(({ sql }) => /create (or replace )?function public\.empty_pantry_place\(/.test(sql))
+      .at(-1);
+    expect(latest, "a migration that defines empty_pantry_place").toBeDefined();
+    const match = /place not in \(([^)]*)\)/.exec(latest!.sql);
+    expect(match, `the location list in ${latest!.file}`).not.toBeNull();
+    expect([...match![1].matchAll(/'((?:[^']|'')*)'/g)].map((value) => value[1])).toEqual([...LOCATIONS]);
+  });
+});

@@ -20,7 +20,8 @@ export const metadata: Metadata = { title: "Hemma" };
 // lagerförslag (Story 6.1); each is saved only when Pontus confirms it, or
 // corrects it in the sheet Lagervara and confirms it there, and rejected ones
 // are never saved (Story 6.2). The suggestions' provider is above the sheet's,
-// which takes its "Bekräfta" and "Avvisa" from it.
+// which takes its "Bekräfta" and "Avvisa" from it. "Töm kylen" under the list
+// empties the chosen location after a question, with "Ångra" (Story 6.3).
 export default function HomePage({ searchParams }: PageProps<"/hemma">) {
   return (
     <Suspense

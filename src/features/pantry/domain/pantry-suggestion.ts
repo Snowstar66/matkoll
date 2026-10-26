@@ -533,3 +533,41 @@ export const suggestionGoneText = "Förslaget finns inte längre.";
 export function isConfirmable(suggestion: PantrySuggestion): boolean {
   return confirmItemSchema.safeParse(confirmItemFromSuggestion(suggestion)).success;
 }
+
+/**
+ * After "Töm kylen" (Story 6.3): the location is empty, so its suggestions
+ * lose "I kylen nu"; the others keep theirs.
+ */
+export function withoutStock(suggestions: readonly PantrySuggestion[], location: Location): PantrySuggestion[] {
+  return suggestions.map((suggestion) =>
+    suggestion.location === location && suggestion.current !== null ? { ...suggestion, current: null } : suggestion,
+  );
+}
+
+/**
+ * After "Ångra" for an emptied location: "I kylen nu" on the location's
+ * suggestions gains the rows put back, next to what was confirmed since. A
+ * restored row never shares a unit with a row there now (those are skipped),
+ * and an ingredient is either unlimited or has amounts.
+ */
+export function withRestoredStock(
+  suggestions: readonly PantrySuggestion[],
+  location: Location,
+  rows: readonly (PantryAmountRow & { location: Location })[],
+): PantrySuggestion[] {
+  const stocks = stockByIngredient(rows.filter((row) => row.location === location));
+  if (stocks.size === 0) return [...suggestions];
+  return suggestions.map((suggestion) => {
+    const { ingredient } = suggestion;
+    const restored = ingredient.kind === "existing" ? stocks.get(ingredient.ingredientId) : undefined;
+    if (suggestion.location !== location || !restored) return suggestion;
+    const now = suggestion.current;
+    if (!now) return { ...suggestion, current: restored };
+    if (now.unlimited || restored.unlimited) return { ...suggestion, current: { unlimited: true, amounts: [] } };
+    const amounts = [...now.amounts, ...restored.amounts.filter(({ unit }) => !now.amounts.some((other) => other.unit === unit))];
+    return {
+      ...suggestion,
+      current: { unlimited: false, amounts: amounts.sort((a, b) => unitOrder(a.unit) - unitOrder(b.unit)) },
+    };
+  });
+}

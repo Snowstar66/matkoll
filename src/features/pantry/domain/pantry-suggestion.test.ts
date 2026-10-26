@@ -19,6 +19,8 @@ import {
   mergePantrySets,
   noSuggestionsText,
   withConfirmedStock,
+  withoutStock,
+  withRestoredStock,
   pantrySuggestionSchema,
   suggestionAmountText,
   suggestionsArrivedText,
@@ -603,5 +605,55 @@ describe("review patches", () => {
     expect(isConfirmable(gurka)).toBe(true);
     expect(isConfirmable({ ...gurka, amount: 1_000_000 })).toBe(false);
     expect(isConfirmable({ ...gurka, unit: null })).toBe(false);
+  });
+});
+
+describe("withoutStock and withRestoredStock (Töm en plats)", () => {
+  const mjolk = "11111111-1111-4111-8111-111111111111";
+  const smor = "22222222-2222-4222-8222-222222222222";
+  const base = {
+    amount: 1,
+    unit: "förp" as const,
+    current: { unlimited: false, amounts: [{ amount: 2, unit: "förp" as const }] },
+  };
+  const inKyl = (id: string, ingredientId: string, current: PantrySuggestionLike["current"] = base.current) =>
+    ({ ...base, id, name: id, location: "Kyl" as const, ingredient: { kind: "existing" as const, ingredientId }, current });
+  type PantrySuggestionLike = Parameters<typeof withoutStock>[0][number];
+  const fresh = (id: string): PantrySuggestionLike => ({
+    ...base,
+    id,
+    name: id,
+    location: "Kyl",
+    ingredient: { kind: "new", proposalId: "n1", name: id, section: "Mejeri", location: "Kyl", defaultUnit: "förp" },
+    current: null,
+  });
+
+  it("takes I kylen nu away from the emptied location only", () => {
+    const frys = { ...inKyl("s2", smor), location: "Frys" as const };
+    expect(withoutStock([inKyl("s1", mjolk), frys], "Kyl")).toEqual([inKyl("s1", mjolk, null), frys]);
+  });
+
+  it("gives the location's suggestions the rows put back", () => {
+    const rows = [
+      { ingredientId: mjolk, location: "Kyl" as const, amount: 2, unit: "förp" as const },
+      { ingredientId: mjolk, location: "Kyl" as const, amount: 5, unit: "dl" as const },
+      { ingredientId: smor, location: "Kyl" as const, amount: null, unit: null },
+      { ingredientId: smor, location: "Frys" as const, amount: 1, unit: "förp" as const },
+    ];
+    const restored = withRestoredStock([inKyl("s1", mjolk, null), inKyl("s2", smor, null), fresh("s3")], "Kyl", rows);
+    expect(restored.map((suggestion) => suggestion.current)).toEqual([
+      { unlimited: false, amounts: [{ amount: 5, unit: "dl" }, { amount: 2, unit: "förp" }] },
+      { unlimited: true, amounts: [] },
+      null,
+    ]);
+  });
+
+  it("keeps what was confirmed since next to the rows put back", () => {
+    const confirmed = inKyl("s1", mjolk, { unlimited: false, amounts: [{ amount: 1, unit: "l" }] });
+    const [restored] = withRestoredStock([confirmed], "Kyl", [
+      { ingredientId: mjolk, location: "Kyl", amount: 2, unit: "förp" },
+    ]);
+    expect(restored.current).toEqual({ unlimited: false, amounts: [{ amount: 1, unit: "l" }, { amount: 2, unit: "förp" }] });
+    expect(withRestoredStock([confirmed], "Kyl", [])).toEqual([confirmed]);
   });
 });

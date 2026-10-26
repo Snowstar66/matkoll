@@ -31,6 +31,9 @@ export const errorMessages = {
   // the list; after a failed "Ångra" it stays removed.
   pantry_remove_failed: "Det gick inte att ta bort varan.",
   pantry_restore_failed: "Det gick inte att ångra.",
+  // "Töm kylen" (Story 6.3), shown in the sheet that asked: nothing is
+  // removed, and the sheet stays so it can be tried again.
+  pantry_empty_failed: "Det gick inte att ta bort varorna. Försök igen.",
   // "Lägg i lagret" (Story 3.7) before or while the pantry is written: nothing
   // is added, and the checks stay.
   pantry_add_failed: "Det gick inte att lägga varorna i lagret. Försök igen.",

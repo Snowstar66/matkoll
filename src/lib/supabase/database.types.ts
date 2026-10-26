@@ -113,6 +113,20 @@ isOneToOne: false
       referencedColumns: ["id","user_id"]
     }
                   ]
+                },"pantry_removal": {
+                  Row: {
+                    "created_at": string,"id": string,"removed_rows": NonNullable<Json>,"user_id": string
+                  }
+                  ComputedFields: never
+                  Insert: {
+                    "created_at"?: string,"id": string,"removed_rows": NonNullable<Json>,"user_id"?: string
+                  }
+                  Update: {
+                    "created_at"?: string,"id"?: string,"removed_rows"?: NonNullable<Json>,"user_id"?: string
+                  }
+                  Relationships: [
+                    
+                  ]
                 },"product_choice": {
                   Row: {
                     "created_at": string,"id": string,"ingredient_id": string,"package_size": string | null,"product_name": string,"store_id": string,"updated_at": string,"url": string | null,"user_id": string
@@ -356,6 +370,9 @@ isOneToOne: false
 "detach_recipe_from_current_plan":
 { Args: { "detached_recipe_id": string }; Returns: number
                            },
+"empty_pantry_place":
+{ Args: { "operation_id": string,"place": string }; Returns: Json
+                           },
 "ensure_user_defaults":
 { Args: Record<PropertyKey, never>; Returns: undefined
                            },
@@ -367,6 +384,9 @@ isOneToOne: false
                            },
 "pantry_lock":
 { Args: Record<PropertyKey, never>; Returns: undefined
+                           },
+"pantry_place_has_item":
+{ Args: { "ingredient": string,"item_unit": string,"place": string }; Returns: boolean
                            },
 "remove_shopping_custom_item":
 { Args: { "item_id": string }; Returns: {
@@ -401,6 +421,9 @@ isOneToOne: false
         isOneToOne: true
         isSetofReturn: false
       } },
+"restore_pantry_removal":
+{ Args: { "operation_id": string }; Returns: Json
+                           },
 "restore_plan_recipe":
 { Args: { "dish": Json }; Returns: {
               "created_at": string,

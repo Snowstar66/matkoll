@@ -91,6 +91,12 @@ export const cameraEmail = "e2e-bildanalys@matkoll.test";
  */
 export const suggestionsEmail = "e2e-lagerforslag@matkoll.test";
 /**
+ * The E2E user of empty-place.spec.ts alone ("Töm en plats", Story 6.3):
+ * each test empties its pantry and makes its catalog and pantry with the
+ * service role, so what is removed and put back can be checked row by row.
+ */
+export const emptyPlaceEmail = "e2e-tom-plats@matkoll.test";
+/**
  * The E2E user of store.spec.ts alone (Butik in Inställningar, Story 7.1):
  * each test sets its stores with the service role, so which store is
  * selected depends on nothing else.
@@ -124,6 +130,7 @@ export const e2eEmails = [
   aiSuggestionsEmail,
   cameraEmail,
   suggestionsEmail,
+  emptyPlaceEmail,
   storeEmail,
   productChoiceEmail,
   coreFlowEmail,
@@ -146,6 +153,7 @@ export const cookableStorageState = "tests/e2e/.auth/cookable.json";
 export const aiSuggestionsStorageState = "tests/e2e/.auth/ai-suggestions.json";
 export const cameraStorageState = "tests/e2e/.auth/camera.json";
 export const suggestionsStorageState = "tests/e2e/.auth/suggestions.json";
+export const emptyPlaceStorageState = "tests/e2e/.auth/empty-place.json";
 export const storeStorageState = "tests/e2e/.auth/store.json";
 export const productChoiceStorageState = "tests/e2e/.auth/product-choice.json";
 export const outsiderStorageState = "tests/e2e/.auth/outsider.json";

@@ -39,6 +39,8 @@ vi.mock("../actions/confirm-pantry-suggestions", () => ({
     new Promise<Result<{ count: number }>>((resolve, reject) => confirms.push({ items, answer: resolve, reject })),
 }));
 vi.mock("../actions/remove-pantry-item", () => ({ removePantryItem: vi.fn() }));
+vi.mock("../actions/empty-pantry-place", () => ({ emptyPantryPlace: vi.fn() }));
+vi.mock("../actions/restore-pantry-removal", () => ({ restorePantryRemoval: vi.fn() }));
 vi.mock("../actions/restore-pantry-item", () => ({ restorePantryItem: vi.fn() }));
 
 const mjolkId = "6f1c1b7e-3c1a-4c55-9a59-0f3f2b8f2a01";

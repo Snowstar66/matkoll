@@ -22,6 +22,8 @@ vi.mock("../actions/search-ingredients", () => ({
 
 vi.mock("next/navigation", () => ({ useRouter: () => ({ refresh: vi.fn() }) }));
 vi.mock("../actions/remove-pantry-item", () => ({ removePantryItem: vi.fn() }));
+vi.mock("../actions/empty-pantry-place", () => ({ emptyPantryPlace: vi.fn() }));
+vi.mock("../actions/restore-pantry-removal", () => ({ restorePantryRemoval: vi.fn() }));
 vi.mock("../actions/restore-pantry-item", () => ({ restorePantryItem: vi.fn() }));
 vi.mock("../actions/confirm-pantry-suggestions", () => ({ confirmPantrySuggestions: vi.fn() }));
 vi.mock("@/lib/ai-client", () => ({ postAiForm: vi.fn() }));
@@ -348,9 +350,11 @@ describe("PantryItemSheet, a lagerförslag (Rätta)", () => {
   function open(suggestion: PantrySuggestion) {
     render(
       <ToastProvider>
-        <PantryRemovalProvider>
-          <Correct suggestion={suggestion} />
-        </PantryRemovalProvider>
+        <PantrySuggestionsProvider>
+          <PantryRemovalProvider>
+            <Correct suggestion={suggestion} />
+          </PantryRemovalProvider>
+        </PantrySuggestionsProvider>
       </ToastProvider>,
     );
     fireEvent.click(screen.getByRole("button", { name: "Rätta" }));

@@ -2,7 +2,7 @@
 title: 'Story 6.3: Töm en plats'
 type: 'feature'
 created: '2026-10-26'
-status: 'draft'
+status: 'done'
 route: 'dispatch'
 context:
   - '{project-root}/_bmad-output/implementation-artifacts/epic-6-context.md'
@@ -96,25 +96,25 @@ context:
 ## Tasks & Acceptance
 
 **Execution:**
-- [ ] `supabase/migrations/<ts>_pantry_empty_place.sql` (`supabase migration new pantry_empty_place`), `src/lib/supabase/database.types.ts` (`pnpm db:types`) -- två nya funktioner, båda `security invoker` med `set search_path = ''`, `revoke all … from public, anon, authenticated, service_role` och `grant execute … to authenticated`:
+- [x] `supabase/migrations/<ts>_pantry_empty_place.sql` (`supabase migration new pantry_empty_place`), `src/lib/supabase/database.types.ts` (`pnpm db:types`) -- två nya funktioner, båda `security invoker` med `set search_path = ''`, `revoke all … from public, anon, authenticated, service_role` och `grant execute … to authenticated`:
   - `empty_pantry_place(place text) returns setof public.pantry_item` nekar `auth.uid()` som är `null` (`42501`) och en plats utanför Kyl, Frys och Skafferi (`22023`). Den tar `pantry_lock()`, gör `delete … where user_id = caller and location = place returning *` och ger raderna i id-ordning.
   - `restore_pantry_items(items jsonb) returns setof public.pantry_item` nekar `null`-anropare och allt som inte är en icke-tom array (`22023`), och ett element utan id. Den tar `pantry_lock()` och sätter sedan in varje rad med sitt id, sin ingrediens, plats, mängd och enhet. En rad hoppas över om id:t redan finns, eller om platsen har en rad för samma ingrediens med samma enhet eller där någon av dem är obegränsad (samma villkor som `restore_pantry_item`). Den ger de rader som sattes in.
 
   Kommentaren överst förklarar låset, varför rader hoppas över i stället för att neka hela "Ångra", och att en främmande ingrediens ger `23503` via främmande nyckel och RLS
   -- AD-19, AD-20
-- [ ] `src/features/pantry/data/remove.ts` (+ test) -- två nya funktioner:
+- [x] `src/features/pantry/data/remove.ts` (+ test) -- två nya funktioner:
   - `emptyPantryPlaceIn(db, location)` validerar platsen med `locationSchema` (`invalid_location`) och anropar `empty_pantry_place`. Fel blir `empty_failed <code>`. Den ger `{ rows: PantryRow[]; unrestorable: number }`, där en rad som inte går att tolka räknas i `unrestorable`. Den är ändå borttagen, men kan inte sättas tillbaka (som i `removePantryItemIn`).
   - `restorePantryItemsIn(db, rows)` validerar med `z.array(pantryRowSchema).min(1).max(maxRestoreItems)` (`invalid_row`), där `maxRestoreItems = 1000` motsvarar `pantryPageSize`. Den anropar `restore_pantry_items` och ger de rader som sattes tillbaka. Fel blir `restore_failed <code>`.
 
   -- AD-19, AD-20
-- [ ] `src/features/pantry/actions/empty-pantry-place.ts`, `restore-pantry-items.ts` (+ tester) -- Server Actions:
+- [x] `src/features/pantry/actions/empty-pantry-place.ts`, `restore-pantry-items.ts` (+ tester) -- Server Actions:
   - `emptyPantryPlace(location)`: `requireUser`, `locationSchema` (`validation`), `emptyPantryPlaceIn` och `revalidateFor("pantry_item")`. Den ger `Result<{ rows: PantryRow[]; removed: number }>`, där `removed` också räknar de rader som inte går att sätta tillbaka. `PantryDataError` loggas med orsak och ger `pantry_empty_failed`.
   - `restorePantryItems(rows)`: `requireUser`, schemat (`validation`), `restorePantryItemsIn` och `revalidateFor("pantry_item")`, också när rader hoppades över. Den ger `Result<{ restored: number; skipped: number }>`. `PantryDataError` loggas och ger `pantry_restore_failed`.
 
   Testerna täcker utloggad, ogiltig plats, ogiltiga rader, fler än 1 000 rader, databasfel, att revalidering bara sker efter en skrivning, att `skipped` räknas och att loggarna bara innehåller koder, orsaker och antal, aldrig varunamn
   -- AD-2, AD-13, AD-18
-- [ ] `src/lib/errors.ts` -- ny kod `pantry_empty_failed` med texten "Det gick inte att ta bort varorna. Försök igen." och en kommentar om när den används -- AD-13
-- [ ] `src/features/pantry/domain/places.ts` (+ test) -- nya texthjälpare:
+- [x] `src/lib/errors.ts` -- ny kod `pantry_empty_failed` med texten "Det gick inte att ta bort varorna. Försök igen." och en kommentar om när den används -- AD-13
+- [x] `src/features/pantry/domain/places.ts` (+ test) -- nya texthjälpare:
   - `emptyPlaceButtonText(location)` ger "Töm kylen", "Töm frysen" eller "Töm skafferiet", och är också arkets titel och knapp;
   - `emptyPlaceQuestion(location, count)` ger "Ta bort alla 14 varor i kylen?" eller "Ta bort 1 vara i kylen?";
   - `emptyPlaceUndoHint` är "Du kan ångra direkt efteråt.";
@@ -124,7 +124,7 @@ context:
 
   Exporteras från `index.ts`
   -- EXPERIENCE.md, Voice and Tone
-- [ ] `src/features/pantry/ui/pantry-removal.tsx` (+ test) -- `PantryRemovalProvider` får `emptyPlace(location, items): Promise<Result<…>>`:
+- [x] `src/features/pantry/ui/pantry-removal.tsx` (+ test) -- `PantryRemovalProvider` får `emptyPlace(location, items): Promise<Result<…>>`:
   - Den anropar `emptyPantryPlace`. Vid `ok` läggs en ändring `remove` in för varje returnerad rad, så att listan är tom direkt och inte blinkar innan servern har kommit ikapp.
   - Bekräftelsen `emptiedPlaceText` visas med "Ångra" (5 s). Tömningen får en egen bekräftelse och slås aldrig ihop med enstaka borttagningar.
   - "Ångra" lägger in ändringar `restore` och anropar `restorePantryItems` en gång med alla rader. Rader som hoppades över tas bort ur ändringarna, och `notRestoredText` visas med `role="alert"`.
@@ -133,14 +133,14 @@ context:
 
   Felet vid tömning lämnas till arket. Testerna täcker att listan töms direkt, "Ångra" med alla rader i ett anrop, delvis "Ångra", att "Ångra" misslyckas, 0 rader och ett svar som försvinner
   -- AD-19, AD-20, 2.3
-- [ ] `src/features/pantry/ui/empty-place.tsx` (+ test), `pantry-place.tsx` -- `EmptyPlaceButton({ location, count, items })` är en `Button` (variant text) med `emptyPlaceButtonText`, och den visas under `PantryList` bara när `count > 0`. Den öppnar ett `Sheet`:
+- [x] `src/features/pantry/ui/empty-place.tsx` (+ test), `pantry-place.tsx` -- `EmptyPlaceButton({ location, count, items })` är en `Button` (variant text) med `emptyPlaceButtonText`, och den visas under `PantryList` bara när `count > 0`. Den öppnar ett `Sheet`:
   - titeln är `emptyPlaceButtonText`, och `closeLabel` är "Avbryt" med `initialFocus="close"`;
   - texten är `emptyPlaceQuestion` och `emptyPlaceUndoHint`;
   - foten har en `Notice` med `role="alert"` vid fel och den primära knappen `emptyPlaceButtonText`, som visar "Tar bort …" och har `preventClose` medan anropet pågår.
 
   Vid `ok` stängs arket, och fokus går till kameraknappen via `cameraButtonRef` från `usePantrySuggestions`. Förslag från samma plats får `current: null` via `editSuggestions`, eftersom platsen är tom. `count` är `shown.length` i `PantryPlace`, alltså samma antal som kortet visar. Testerna täcker att knappen saknas för en tom plats, texten för 1 och 14 varor, att Avbryt inte anropar något, "Tar bort …", fel i arket och fokus efteråt
   -- UX-DR4, EXPERIENCE.md, Ark
-- [ ] `tests/integration/pantry.test.ts` (utökad) -- med två användare mot lokal Supabase:
+- [x] `tests/integration/pantry.test.ts` (utökad) -- med två användare mot lokal Supabase:
   - `empty_pantry_place` tar bara bort den egna användarens rader på platsen och returnerar dem med id;
   - en annan användares rader och användarens andra platser är orörda;
   - `restore_pantry_items` sätter tillbaka alla med samma id;
@@ -150,7 +150,7 @@ context:
   - `anon` får inte köra någon av funktionerna.
 
   -- AD-19, AD-20
-- [ ] `tests/e2e/empty-place.spec.ts` (+ `support.ts`, `global-setup.ts`) -- egen e2e-användare `e2e-tom-plats@matkoll.test` (`emptyPlaceEmail`, med storage state), med `AI_PROVIDER=mock`. Före varje test tömmer service role användarens lager och seedar katalogingredienserna "mjölk", "ost", "smör" och "ärtor" och lagervarorna "mjölk 2 förp", "ost 1 förp" och "smör" (obegränsad) i Kyl och "ärtor 1 förp" i Frys. Testet kontrollerar:
+- [x] `tests/e2e/empty-place.spec.ts` (+ `support.ts`, `global-setup.ts`) -- egen e2e-användare `e2e-tom-plats@matkoll.test` (`emptyPlaceEmail`, med storage state), med `AI_PROVIDER=mock`. Före varje test tömmer service role användarens lager och seedar katalogingredienserna "mjölk", "ost", "smör" och "ärtor" och lagervarorna "mjölk 2 förp", "ost 1 förp" och "smör" (obegränsad) i Kyl och "ärtor 1 förp" i Frys. Testet kontrollerar:
   - att Skafferi saknar töm-knapp;
   - att "Töm kylen" ger frågan "Ta bort alla 3 varor i kylen?" med fokus på "Avbryt", och att "Avbryt" inte tar bort något;
   - att "Töm kylen" i arket ger "Tog bort 3 varor ur kylen.", "Inget i kylen än.", "0 varor" på kortet Kyl, "1 vara" på kortet Frys och ingen töm-knapp;
@@ -180,7 +180,30 @@ context:
 
 ## Spec Change Log
 
+- Efter granskningen sparas det som Ångra behöver på servern. Den nya tabellen `pantry_removal` håller de borttagna raderna under ett operations-id. Ångra återställer med `restore_pantry_removal(operation_id)`. `empty_pantry_place(place, operation_id)` ger en enda rad tillbaka, så att `max_rows` aldrig kan korta svaret. Ett svar som försvinner ger ändå möjlighet att ångra, och mekanismen återanvänds i 6.4.
+
 ## Review Triage Log
+
+Iteration 1. Granskare: Blind Hunter, Edge Case Hunter och Verification Gap.
+- **Patch:**
+  - Ångra sparas på servern, se Spec Change Log.
+  - När svaret försvinner visas sökvägen "kan ha tömts" med Ångra.
+  - Fel vid revalidering efter commit fäller inte resultatet.
+  - En enskild borttagning under ångra-fönstret slås ihop med tömningen.
+  - "Töm" är spärrad medan en ändring pågår, och arket stängs vid 0 varor.
+  - Efter Ångra rensas alla återställda id:n, och "I kylen nu" räknas om.
+  - Storleksgräns i SQL.
+  - Skip och fel loggas under olika namn.
+- **Nya tester:**
+  - mer än `max_rows` rader
+  - idempotens
+  - konflikter och saknade ingredienser
+  - rensning av gamla poster
+  - RLS
+  - kapplöpning om låset
+  - fel efter commit
+  - ett ångra-fönster som blandar tömning och enskild borttagning
+  - konflikt vid Ångra i e2e
 
 ## Verification
 

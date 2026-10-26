@@ -19,6 +19,14 @@ export {
   removedItemsText,
   confirmedItemsText,
   rejectedItemText,
+  emptyPlaceButtonText,
+  emptyPlaceQuestion,
+  emptyPlaceUndoHint,
+  emptiedPlaceText,
+  alreadyEmptyText,
+  notRestoredText,
+  removedCountText,
+  maybeEmptiedText,
 } from "./domain/places";
 export {
   analyzeResultSchema,
@@ -42,6 +50,8 @@ export {
   maxConfirmItems,
   mergePantrySets,
   withConfirmedStock,
+  withoutStock,
+  withRestoredStock,
   isConfirmable,
   suggestionInvalidText,
   suggestionGoneText,
