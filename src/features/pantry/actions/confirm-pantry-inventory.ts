@@ -5,13 +5,20 @@ import { requireUser } from "@/features/auth/server";
 import { CatalogDataError } from "@/features/catalog/server";
 import { fail, ok, type Result } from "@/lib/errors";
 import { createClient } from "@/lib/supabase/server";
-import { revalidateFor } from "@/lib/revalidate";
 import { isSiteGone, PantryDataError, siteGoneCode } from "../data/client";
 import { applyPantryInventoryIn } from "../data/inventory";
 import type { PantryItemSet, PantryRow } from "../domain/pantry-item-form";
 import { inventoryConfirmSchema, suggestionInvalidText, type InventoryConfirmInput } from "../domain/pantry-suggestion";
 import { commitConfirmations } from "./commit-confirmations";
-import { revalidatePantryCommitted } from "./revalidate-committed";
+import { revalidatePantryCommitted, revalidateSiteGone } from "./revalidate-committed";
+import { checkSiteForWrite } from "./site-for-write";
+
+/** The place is gone, or none was sent: logged with the code only, and the page is read again. */
+function siteGone(): Result<never> {
+  console.info("pantry_site_gone", { reason: siteGoneCode });
+  revalidateSiteGone();
+  return fail("pantry_site_gone");
+}
 
 /** What confirmPantryInventory did. */
 export type ConfirmedInventory = {
@@ -48,15 +55,17 @@ export type ConfirmedInventory = {
  * Story 8.4 (FR-33, AD-24): everything is read and written on the photo's
  * place (`siteId`, sent as `site`), never on the one selected when the call
  * arrives; ids of another place's rows are skipped. `null` is the selected
- * place, only for a photo of a user without places.
+ * place, and only for a user without places (checkSiteForWrite).
  *
  * Fails with `unauthorized`, `validation` (with the index of each item that
  * is not valid in `fields`, as confirmPantrySuggestions), `pantry_site_gone`
- * (the place is removed or not the user's; the page is read again) or
- * `pantry_inventory_failed` (logged with its reason, never with names or
- * amounts); nothing in the pantry is written then. An operation id that is
- * taken is tried once more with a new one, for the same place, which the
- * answer gives back.
+ * (the place is removed or not the user's, or none was sent by a user with
+ * places; the page is read again) or `pantry_inventory_failed` (logged with
+ * its reason, never with names or amounts); nothing in the pantry is written
+ * then. An operation id that is taken (MK409) is tried once more with a new
+ * one, for the same place, which the answer gives back, unless the client
+ * expects the removals to join it (`joinsOperation`): that is
+ * `pantry_inventory_failed`.
  * Once the write has committed the answer is `ok`, also when the database's
  * answer could not all be read (logged as a warning).
  */
@@ -72,7 +81,10 @@ export async function confirmPantryInventory(input: InventoryConfirmInput): Prom
     }
     return Object.keys(fields).length > 0 ? fail("validation", fields) : fail("validation");
   }
-  const { siteId, location, items, replaceRowIds, removeRowIds, operationId } = parsed.data;
+  const { siteId, location, items, replaceRowIds, removeRowIds, operationId, joinsOperation } = parsed.data;
+  const db = await createClient();
+  const site = await checkSiteForWrite(db, siteId);
+  if (!site.ok) return site.reason === "unavailable" ? fail("pantry_inventory_failed") : siteGone();
 
   let sets: PantryItemSet[] = [];
   if (items.length > 0) {
@@ -85,7 +97,6 @@ export async function confirmPantryInventory(input: InventoryConfirmInput): Prom
     }
   }
 
-  const db = await createClient();
   // The retry with a new operation id keeps the place.
   const apply = (operation: string | null) =>
     applyPantryInventoryIn(db, { place: location, items: sets, replaceRowIds, removeRowIds, operationId: operation, siteId });
@@ -95,20 +106,20 @@ export async function confirmPantryInventory(input: InventoryConfirmInput): Prom
     try {
       applied = await apply(usedOperation);
     } catch (error) {
-      // The operation id is taken (MK409): nothing was written; once more with a new id.
-      if (!(error instanceof PantryDataError) || error.detail !== "apply_failed MK409" || !usedOperation) throw error;
+      // The operation id is taken (MK409): nothing was written. A new id is
+      // tried once, but never for a batch the client expects to join, whose
+      // removals would otherwise leave its "Ångra" in silence (Story 8.4).
+      if (!(error instanceof PantryDataError) || error.detail !== "apply_failed MK409" || !usedOperation || joinsOperation) {
+        throw error;
+      }
       console.info("pantry_inventory_operation_taken");
       usedOperation = randomUUID();
       applied = await apply(usedOperation);
     }
   } catch (error) {
     if (!(error instanceof PantryDataError)) throw error;
-    if (isSiteGone(error)) {
-      // Nothing was written; the page is read again, so Hemma shows a place that is there.
-      console.error("pantry_site_gone", { reason: siteGoneCode });
-      revalidateFor("pantry_site");
-      return fail("pantry_site_gone");
-    }
+    // Nothing was written; the page is read again, so Hemma shows a place that is there.
+    if (isSiteGone(error)) return siteGone();
     console.error("pantry_inventory_failed", { reason: error.message, detail: error.detail });
     return fail("pantry_inventory_failed");
   }

@@ -15,6 +15,7 @@ import {
 } from "../domain/pantry-suggestion";
 import { hasNumberableCards, locateResultSchema, pointsByNumber, type PhotoNumbers } from "../domain/photo-numbers";
 import { groupSuggestions, type MissingItem } from "../domain/place-inventory";
+import type { PhotoSite } from "../domain/site";
 
 // The state of "Fotografera kylen" (FR-24, AD-2, AD-15, AD-18), held by
 // PantrySuggestionsProvider above Hemma's keyed <Suspense>, so the
@@ -29,8 +30,11 @@ import { groupSuggestions, type MissingItem } from "../domain/place-inventory";
 // Places (Story 8.4, FR-33, AD-24): a photo is bound to the place Hemma shows
 // when it is taken. Its id goes with the photo to /api/ai/analyze, and the
 // answer has the place (`result.site`), which every write from the
-// suggestions sends. The suggestions stay, with the same generation, when
-// Hemma switches place, as when another location card is chosen.
+// suggestions sends. An answer for another place than the one sent is
+// `ai_invalid`; one without a place (a server of before 8.4) keeps the place
+// sent. The suggestions stay, with the same generation, when Hemma switches
+// place, as when another location card is chosen. When a write finds the
+// place gone, they go (dropForGoneSite).
 //
 // The photo during review (quick fix after Story 6.5): the resized photo
 // that was sent for an answer with cards is kept as an object URL
@@ -55,7 +59,7 @@ import { groupSuggestions, type MissingItem } from "../domain/place-inventory";
  * showed when it was taken (Story 8.4, so "Försök igen" is for the same
  * place) and its size in pixels when it can be read from the file.
  */
-type KeptPhoto = { image: Blob; location: Location; siteId: string; size: ImageSize | null };
+type KeptPhoto = { image: Blob; location: Location; site: PhotoSite; size: ImageSize | null };
 
 /**
  * The photo an answer was read from, as an object URL, with its size in
@@ -110,10 +114,15 @@ export type PantryAnalysis = {
   cameraButtonRef: RefObject<HTMLButtonElement | null>;
   /**
    * A photo from the camera or the file picker: resized, then analysed for
-   * `location` of the place `siteId`, the one Hemma shows as it is taken
+   * `location` of the place `site`, the one Hemma shows as it is taken
    * (Story 8.4): the answer and every write from it stay with that place.
    */
-  analyze: (file: Blob, location: Location, siteId: string) => void;
+  analyze: (file: Blob, location: Location, site: PhotoSite) => void;
+  /**
+   * Story 8.4: drops the suggestions of `generation`, whose place is gone,
+   * and says so in the camera area; returns whether they were still there.
+   */
+  dropForGoneSite: (generation: number) => boolean;
   /** "Försök igen": the kept photo again, for its own place. */
   retry: () => void;
   /** "Avbryt": stops the analysis; nothing is shown for it, and the suggestions from before stay. */
@@ -250,6 +259,27 @@ export function usePantryAnalysis(): PantryAnalysis {
     setNumbers(job.url, parsed?.success ? { kind: "ready", points: pointsByNumber(parsed.data, job.labels) } : noNumbers);
   }
 
+  /**
+   * Story 8.4: a write from the suggestions of `expected` found their place
+   * gone. They could never be saved, so they go with their photo, and the
+   * camera area says why ("Stället finns inte längre. Välj ett annat
+   * ställe.", as an alert). Returns whether they went.
+   */
+  function dropForGoneSite(expected: number): boolean {
+    if (generation.current !== expected || !latest.current) return false;
+    locateRequest.current?.abort();
+    locateRequest.current = null;
+    lookup.current = null;
+    resume.current = null;
+    setResult(null);
+    setReviewPhotoState(null);
+    setEmpty(null);
+    setPhoto(null);
+    setError(fail("pantry_site_gone").error);
+    setSettles((count) => count + 1);
+    return true;
+  }
+
   /** The photo at `url` cannot be shown (Story 6.6): its numbers go, and are not looked up again. */
   function dropPhotoNumbers(url: string) {
     if (lookup.current?.url === url) {
@@ -356,7 +386,7 @@ export function usePantryAnalysis(): PantryAnalysis {
     const form = new FormData();
     form.append("image", kept.image, "photo");
     form.append("location", kept.location);
-    form.append("site", kept.siteId);
+    form.append("site", kept.site.id);
     let answer: AiCallResult<unknown>;
     try {
       answer = await postAiForm<unknown>("/api/ai/analyze", form, controller.signal);
@@ -375,13 +405,17 @@ export function usePantryAnalysis(): PantryAnalysis {
 
     if (answer.ok) {
       const parsed = analyzeResultSchema.safeParse(answer.data);
-      if (!parsed.success) {
+      // Story 8.4: an answer for another place than the one sent is not this photo's.
+      if (!parsed.success || (parsed.data.site !== null && parsed.data.site.id !== kept.site.id)) {
         failWith(fail("ai_invalid").error, kept);
         return;
       }
+      // A server of before Story 8.4 (a deploy) sends no place: the suggestions keep the one sent.
+      const sentNoSite = typeof answer.data === "object" && answer.data !== null && !("site" in answer.data);
+      const data = sentNoSite ? { ...parsed.data, site: kept.site } : parsed.data;
       // New suggestions replace the old ones only now that they are here. The photo is no longer kept
       // for "Försök igen"; it is shown with the cards while they are reviewed, and not without them.
-      setResult(parsed.data);
+      setResult(data);
       setPhoto(null);
       const groups = groupSuggestions(parsed.data);
       const hasCards = groups.added.length + groups.changed.length + groups.missing.length > 0;
@@ -412,7 +446,7 @@ export function usePantryAnalysis(): PantryAnalysis {
   }
 
   /** Resizes the photo (AD-15) and sends it. A photo that cannot be read or made small enough is never sent. */
-  async function analyze(file: Blob, location: Location, siteId: string) {
+  async function analyze(file: Blob, location: Location, site: PhotoSite) {
     const controller = start();
     let prepared: Result<Blob>;
     try {
@@ -428,7 +462,7 @@ export function usePantryAnalysis(): PantryAnalysis {
     }
     const size = await photoSizeOf(prepared.data);
     if (!isCurrent(controller)) return;
-    await send(controller, { image: prepared.data, location, siteId, size });
+    await send(controller, { image: prepared.data, location, site: { id: site.id, name: site.name }, size });
   }
 
   function retry() {
@@ -460,7 +494,8 @@ export function usePantryAnalysis(): PantryAnalysis {
     announce: setAnnouncement,
     cameraAreaRef,
     cameraButtonRef,
-    analyze: (file, location, siteId) => void analyze(file, location, siteId),
+    analyze: (file, location, site) => void analyze(file, location, site),
+    dropForGoneSite,
     retry,
     cancel,
     generation: () => generation.current,

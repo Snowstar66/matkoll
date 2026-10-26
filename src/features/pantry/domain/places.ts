@@ -118,6 +118,18 @@ export function removedCountText(count: number, locations: readonly Location[], 
     : `Tog bort ${itemCountText(count)}.`;
 }
 
+/**
+ * After "Ångra" put rows back on another place than the one Hemma shows
+ * (Story 8.4), so the list does not show them: "Lade tillbaka 14 varor i
+ * kylen för Stugan." With more than one location, or more than one place
+ * (`site` null), "Lade tillbaka 15 varor.".
+ */
+export function restoredElsewhereText(count: number, locations: readonly Location[], site: NamedSite | null): string {
+  const [only, ...others] = new Set(locations);
+  const where = only !== undefined && others.length === 0 && site !== null ? ` i ${definite[only]}${siteSuffix(site)}` : "";
+  return `Lade tillbaka ${itemCountText(count)}${where}.`;
+}
+
 const maybeEmptied: Record<Location, string> = {
   Kyl: "Kylen kan ha tömts.",
   Frys: "Frysen kan ha tömts.",

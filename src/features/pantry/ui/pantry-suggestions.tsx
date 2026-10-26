@@ -26,6 +26,7 @@ import {
   confirmItemFromSuggestion,
   isBulkConfirmable,
   isConfirmable,
+  photoSiteId,
   uncertainLeftText,
   withConfirmedStock,
   type AnalyzeResult,
@@ -45,6 +46,7 @@ import {
   removedItemsText,
   savedItemText,
 } from "../domain/places";
+import { useLiveUndo } from "./site-switching";
 import { focusIsFree, type PantryAnalysis, usePantryAnalysis } from "./use-pantry-analysis";
 
 // Lagerförslag for Hemma (FR-24, FR-25): one analysis state for the page,
@@ -240,17 +242,11 @@ type RemovalBatch = {
 };
 
 /**
- * The place every write from `result` goes to (Story 8.4, FR-33): the
- * photo's, never the one Hemma shows by the time of the tap; `null` (the
- * selected place) only for a photo of a user without places.
+ * Whether a removal operation was for the same place and location, so its id
+ * may be sent again. Two operations without a place are never the same place.
  */
-function photoSiteId(result: Pick<AnalyzeResult, "site">): string | null {
-  return result.site?.id ?? null;
-}
-
-/** Whether a removal operation was for the same place and location, so its id may be sent again. */
 function samePlace(operation: { siteId: string | null; location: Location } | null, siteId: string | null, location: Location) {
-  return operation !== null && operation.siteId === siteId && operation.location === location;
+  return operation !== null && operation.siteId !== null && operation.siteId === siteId && operation.location === location;
 }
 
 /** A "Syns inte längre" item back in the list after "Ångra", in the list's order (by name, Swedish). */
@@ -262,6 +258,7 @@ function withMissing(missing: readonly MissingItem[], back: readonly MissingItem
 function usePantryReview(analysis: PantryAnalysis): PantryReview {
   const router = useRouter();
   const { showToast } = useToast();
+  const { holdUndo } = useLiveUndo();
   const [pending, setPending] = useState<Pending | null>(null);
   const [error, setError] = useState<{ error: AppError; generation: number } | null>(null);
   const [refused, setRefused] = useState<Refused | null>(null);
@@ -414,8 +411,21 @@ function usePantryReview(analysis: PantryAnalysis): PantryReview {
     );
   }
 
+  /**
+   * Story 8.4: the suggestions' place is gone, so none of them can be saved:
+   * they go, the camera area says why, and focus goes to the camera button.
+   * Returns whether the error was that.
+   */
+  function goneSite(generation: number, appError: AppError): boolean {
+    if (appError.code !== "pantry_site_gone") return false;
+    analysis.dropForGoneSite(generation);
+    requestFocus({ kind: "camera" });
+    return true;
+  }
+
   /** Shows a failure at the top of the section, marks the refused suggestions, and gives focus back. */
   function failed(generation: number, appError: AppError, itemIds: readonly string[], focus: SuggestionFocus) {
+    if (goneSite(generation, appError)) return;
     const fields = appError.code === "validation" ? (appError.fields ?? {}) : {};
     refuse(
       generation,
@@ -452,7 +462,17 @@ function usePantryReview(analysis: PantryAnalysis): PantryReview {
     const spare = kept && samePlace(kept, siteId, request.location) ? kept.id : null;
     const sent = removes || (all && showing) ? (showing?.id ?? spare ?? newId()) : null;
     const { location, items, replaceRowIds, removeRowIds } = request;
-    const input: InventoryConfirmInput = { siteId, location, items, replaceRowIds, removeRowIds, operationId: sent };
+    // An id that shows, or one of a removal without an answer, is a batch to join: never left in silence (MK409).
+    const joinsOperation = sent !== null && (sent === showing?.id || sent === spare);
+    const input: InventoryConfirmInput = {
+      siteId,
+      location,
+      items,
+      replaceRowIds,
+      removeRowIds,
+      operationId: sent,
+      joinsOperation,
+    };
     const { result } = await save(ids, all, () => confirmPantryInventory(input), "pantry_inventory_failed");
     if (!result.ok) {
       // A new id is kept for the next removal; a confirmation's id is used again only while it shows.
@@ -494,10 +514,14 @@ function usePantryReview(analysis: PantryAnalysis): PantryReview {
   /**
    * Shows `text` with "Ångra" (or `undoLabel`) for the removals in `next`,
    * which later removals in the same place join while it shows. "Ångra"
-   * tapped while a confirmation is being saved waits for its answer.
+   * tapped while a confirmation is being saved waits for its answer. Story
+   * 8.4: the place is held while the confirmation shows, and until "Ångra"
+   * has answered (useLiveUndo), so the sheet Ställen offers no "Ta bort" for
+   * the place the rows would go back to.
    */
   function showRemovals(next: RemovalBatch, text: string, undoLabel?: string) {
     batch.current = next;
+    const release = holdUndo(next.siteId === null ? [] : [next.siteId]);
     const forget = () => {
       if (batch.current === next) batch.current = null;
     };
@@ -505,11 +529,14 @@ function usePantryReview(analysis: PantryAnalysis): PantryReview {
       undoLabel,
       onUndo: () => {
         forget();
-        const undo = () => void undoRemoval(next);
+        const undo = () => void undoRemoval(next).finally(release);
         if (busy.current) deferred.current.push(undo);
         else undo();
       },
-      onClose: forget,
+      onClose: () => {
+        forget();
+        release();
+      },
     });
   }
 
@@ -698,6 +725,8 @@ function usePantryReview(analysis: PantryAnalysis): PantryReview {
     }
     let outcome: CorrectOutcome;
     if (!answer.ok) {
+      // The sheet says why; with the place gone, the cards behind it go too (Story 8.4).
+      if (answer.error.code === "pantry_site_gone") analysis.dropForGoneSite(generation);
       outcome = { kind: "failed", error: answer.error };
     } else if (analysis.generation() !== generation) {
       outcome = { kind: "savedStale" };

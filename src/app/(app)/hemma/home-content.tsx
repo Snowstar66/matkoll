@@ -50,7 +50,7 @@ export async function HomeContent({ site, location, next }: HomeContentProps) {
     return (
       <div className="flex flex-col gap-6">
         <Notice role="alert">{message}</Notice>
-        <PantryCamera siteId={site.id} location={location} />
+        <PantryCamera site={site} location={location} />
         <PantrySuggestionList siteId={site.id} />
         {/* With one place, the sheet Ställen is reached only from here (needs a SiteSwitch above). */}
         {site.siteCount === 1 ? <AddSiteButton /> : null}

@@ -41,7 +41,7 @@ export function PantryPlace({ site, location, counts, items }: PantryPlaceProps)
   return (
     <div className="flex flex-col gap-6">
       <LocationCards selected={location} counts={{ ...counts, [location]: shown.length }} />
-      <PantryCamera siteId={site.id} location={location} />
+      <PantryCamera site={site} location={location} />
       <PantrySuggestionList siteId={site.id} />
       <PantryList location={location} items={shown} />
       <EmptyPlaceButton site={site} location={location} count={shown.length} items={shown} />

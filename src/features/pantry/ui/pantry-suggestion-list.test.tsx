@@ -116,7 +116,7 @@ function Hemma({ location = "Kyl", away = false }: { location?: Location; away?:
             <p>Laddar</p>
           ) : (
             <div key={location}>
-              <PantryCamera siteId={testSite.id} location={location} />
+              <PantryCamera site={photoSite} location={location} />
               <PantrySuggestionList siteId={testSite.id} />
             </div>
           )}
@@ -437,6 +437,8 @@ describe("Rätta", () => {
     expect(lastConfirm().items).toEqual([
       { ingredient: { kind: "existing", ingredientId: mjolkId }, location: "Frys", amount: 2.5, unit: "förp" },
     ]);
+    // Story 8.4: a plain photo's Rätta saves on the photo's place.
+    expect(confirms.at(-1)?.siteId).toBe(photoSite.id);
     await answerConfirm();
     await waitFor(() => expect(screen.queryByRole("dialog")).toBeNull());
     expect(cardNames()).toEqual(["gurka", "ketchup", "smör"]);

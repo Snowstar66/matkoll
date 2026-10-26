@@ -11,6 +11,7 @@ import {
   maybeEmptiedText,
   notRestoredText,
   removedCountText,
+  restoredElsewhereText,
   itemCountText,
   placeFromSlug,
   placeSlug,
@@ -125,6 +126,13 @@ describe("the texts for emptying a location", () => {
     expect(removedCountText(15, ["Kyl", "Kyl"], stugan)).toBe("Tog bort 15 varor ur kylen för Stugan.");
     // From more than one place: no location and no place.
     expect(removedCountText(15, ["Kyl", "Kyl"], null)).toBe("Tog bort 15 varor.");
+  });
+
+  it("says where Ångra put rows back that the list does not show (Story 8.4)", () => {
+    expect(restoredElsewhereText(14, ["Kyl"], stugan)).toBe("Lade tillbaka 14 varor i kylen för Stugan.");
+    expect(restoredElsewhereText(1, ["Frys", "Frys"], stugan)).toBe("Lade tillbaka 1 vara i frysen för Stugan.");
+    expect(restoredElsewhereText(3, ["Kyl", "Frys"], stugan)).toBe("Lade tillbaka 3 varor.");
+    expect(restoredElsewhereText(3, ["Kyl"], null)).toBe("Lade tillbaka 3 varor.");
   });
 
   it("says a location may have been emptied when the answer was lost", () => {

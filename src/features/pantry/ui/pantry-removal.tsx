@@ -19,6 +19,7 @@ import {
   notRestoredText,
   removedCountText,
   removedItemsText,
+  restoredElsewhereText,
 } from "../domain/places";
 import type { SelectedSite } from "../domain/site";
 import { usePantrySuggestions } from "./pantry-suggestions";
@@ -172,8 +173,11 @@ type Operation = {
 /** Everything one confirmation's "Ångra" puts back. */
 type Batch = { singles: readonly Removed[]; operations: readonly Operation[] };
 
+/** Rows put back on a place and location: their place's name is known for an emptied location. */
+type Restored = { siteId: string; site: SelectedSite | null; location: Location; count: number };
+
 /** How one restore went, for the confirmation after "Ångra". */
-type Outcome = { ok: true; skipped: number } | { ok: false; message: string; lost: boolean };
+type Outcome = { ok: true; skipped: number; restored: Restored[] } | { ok: false; message: string; lost: boolean };
 
 /** How long after a lost answer a location seen empty counts as emptied by it. */
 export const lostEmptyWindowMs = 30_000;
@@ -237,6 +241,8 @@ export function PantryRemovalProvider({ children }: { children: ReactNode }) {
   const batch = useRef<Batch | null>(null);
   /** An emptying whose answer was lost, until the location's items are read again. */
   const lostEmpty = useRef<{ operation: Operation; at: number } | null>(null);
+  /** The place Hemma shows, as last reported: "Ångra" says where rows went that it does not show (Story 8.4). */
+  const shownSiteId = useRef<string | null>(null);
   /** What `report` does besides keeping the server's items; set after each render. */
   const onReport = useRef<(siteId: string, location: Location, items: readonly PantryItem[]) => void>(() => {});
 
@@ -284,6 +290,7 @@ export function PantryRemovalProvider({ children }: { children: ReactNode }) {
 
   const report = useCallback((siteId: string, location: Location, items: readonly PantryItem[]) => {
     serverItems.current.set(placeKey(siteId, location), items);
+    shownSiteId.current = siteId;
     setEntries((current) => {
       const done = [...current.values()].filter(
         (entry) =>
@@ -313,7 +320,7 @@ export function PantryRemovalProvider({ children }: { children: ReactNode }) {
       const result = await restorePantryItem(row);
       if (result.ok) {
         settle(item.id, token);
-        return { ok: true, skipped: 0 };
+        return { ok: true, skipped: 0, restored: [{ siteId: item.siteId, site: null, location: item.location, count: 1 }] };
       }
       drop(item.id, token);
       return { ok: false, message: result.error.message, lost: false };
@@ -363,7 +370,8 @@ export function PantryRemovalProvider({ children }: { children: ReactNode }) {
     );
     // A photo compared with the location before it was emptied no longer matches it (Story 6.4).
     editResult(generation(), (current) => withRestoredPlace(current, siteId, operation.location));
-    return { ok: true, skipped: result.data.skipped };
+    const restored = [{ siteId, site: operation.site, location: operation.location, count: result.data.restoredIds.length }];
+    return { ok: true, skipped: result.data.skipped, restored };
   }
 
   /** "Ångra" for a confirmation: everything in it back, then one alert for what failed or was skipped. */
@@ -375,7 +383,19 @@ export function PantryRemovalProvider({ children }: { children: ReactNode }) {
       return;
     }
     const skipped = outcomes.reduce((sum, outcome) => sum + (outcome.ok ? outcome.skipped : 0), 0);
-    if (skipped > 0) showToast(notRestoredText(skipped), { role: "alert" });
+    if (skipped > 0) {
+      showToast(notRestoredText(skipped), { role: "alert" });
+      return;
+    }
+    // Story 8.4: rows put back on another place than the one shown are not in the list, so the toast says where they went.
+    const elsewhere = outcomes.flatMap((outcome) =>
+      outcome.ok ? outcome.restored.filter((one) => one.count > 0 && one.siteId !== shownSiteId.current) : [],
+    );
+    if (elsewhere.length === 0) return;
+    const sites = new Set(elsewhere.map(({ siteId }) => siteId));
+    const named = sites.size === 1 ? (elsewhere.find(({ site }) => site !== null)?.site ?? null) : null;
+    const count = elsewhere.reduce((sum, one) => sum + one.count, 0);
+    showToast(restoredElsewhereText(count, elsewhere.map(({ location }) => location), named));
   }
 
   /**
@@ -498,14 +518,15 @@ export function PantryRemovalProvider({ children }: { children: ReactNode }) {
     onReport.current = (siteId, location, items) => {
       const lost = lostEmpty.current;
       if (!lost) return;
-      // Hemma shows another place by now (Story 8.4): an empty location there says nothing about this one.
-      if (lost.operation.site.id !== siteId) {
+      if (Date.now() - lost.at > lostEmptyWindowMs) {
         lostEmpty.current = null;
         return;
       }
-      if (lost.operation.location !== location) return;
+      // Story 8.4: another place or location says nothing about this one, so
+      // the record waits for its own place and location to be read again.
+      if (lost.operation.site.id !== siteId || lost.operation.location !== location) return;
       lostEmpty.current = null;
-      if (items.length > 0 || Date.now() - lost.at > lostEmptyWindowMs) return;
+      if (items.length > 0) return;
       editResult(generation(), (result) => withoutPlace(result, siteId, location));
       confirmOperation(lost.operation);
     };

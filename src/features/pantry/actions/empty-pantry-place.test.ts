@@ -31,6 +31,7 @@ beforeEach(() => {
   revalidateFor.mockReset();
   log?.mockRestore();
   log = vi.spyOn(console, "error").mockImplementation(() => {});
+  vi.spyOn(console, "info").mockImplementation(() => {});
 });
 
 describe("emptyPantryPlace", () => {
@@ -82,9 +83,9 @@ describe("emptyPantryPlace", () => {
     expect(revalidateFor).not.toHaveBeenCalled();
   });
 
-  it("sends null for the selected place", async () => {
-    await emptyPantryPlace("Kyl", operation, null);
-    expect(emptyPantryPlaceIn).toHaveBeenCalledWith(db, "Kyl", operation, null);
+  it("refuses no place: there is no fallback to the selected place (Story 8.4)", async () => {
+    expect(await emptyPantryPlace("Kyl", operation, null as unknown as string)).toEqual(fail("validation"));
+    expect(emptyPantryPlaceIn).not.toHaveBeenCalled();
   });
 
   it("refuses a place that is not a uuid, and removes nothing (Story 8.4)", async () => {
@@ -96,7 +97,8 @@ describe("emptyPantryPlace", () => {
     emptyPantryPlaceIn.mockRejectedValue(new PantryDataError("site_gone"));
     expect(await emptyPantryPlace("Kyl", operation, stugan)).toEqual(fail("pantry_site_gone"));
     expect(revalidateFor).toHaveBeenCalledExactlyOnceWith("pantry_site");
-    expect(log).toHaveBeenCalledWith("pantry_site_gone", { reason: "MK410" });
+    expect(console.info).toHaveBeenCalledWith("pantry_site_gone", { reason: "MK410" });
+    expect(log).not.toHaveBeenCalledWith("pantry_site_gone", expect.anything());
   });
 
   it("throws errors that are not the pantry's", async () => {

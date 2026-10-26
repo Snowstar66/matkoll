@@ -85,15 +85,15 @@ const fridge: AnalyzeResult = {
 };
 const freezer: AnalyzeResult = { site: photoSite, location: "Frys", suggestions: [suggestion("s1", "ärtor", { location: "Frys" })], dropped: 0, inventory: { kind: "empty" } };
 
-function Hemma({ location = "Kyl", shownSiteId = testSite.id }: { location?: Location; shownSiteId?: string }) {
+function Hemma({ location = "Kyl", shownSite = photoSite }: { location?: Location; shownSite?: { id: string; name: string } }) {
   return (
     <ToastProvider>
       <PantrySuggestionsProvider>
         <PantrySheetProvider location={location} site={testSite}>
           {/* Keyed like Hemma's <Suspense>: another card mounts them anew under the same provider. */}
           <div key={location}>
-            <PantryCamera siteId={shownSiteId} location={location} />
-            <PantrySuggestionList siteId={shownSiteId} />
+            <PantryCamera site={shownSite} location={location} />
+            <PantrySuggestionList siteId={shownSite.id} />
           </div>
           <button type="button">Utanför</button>
         </PantrySheetProvider>
@@ -376,7 +376,7 @@ describe("the photo's place (Story 8.4)", () => {
   const stugan = { id: "66666666-6666-4666-8666-666666666666", name: "Stugan" };
 
   it("sends the place Hemma shows with the photo, and the same place with Försök igen", async () => {
-    render(<Hemma shownSiteId={stugan.id} />);
+    render(<Hemma shownSite={stugan} />);
     choose();
     await resize();
     expect(lastCall().form.get("site")).toBe(stugan.id);
@@ -398,12 +398,12 @@ describe("the photo's place (Story 8.4)", () => {
 
   it("says which place the suggestions are for while Hemma shows another, and saves on the photo's place", async () => {
     confirmPantrySuggestions.mockReset().mockResolvedValue(ok({ count: 1 }));
-    const { rerender } = render(<Hemma shownSiteId={stugan.id} />);
+    const { rerender } = render(<Hemma shownSite={stugan} />);
     await analyzeWith(ok({ ...fridge, site: stugan }));
     expect(screen.getByTestId("pantry-suggestions-site")).toBeEmptyDOMElement();
 
     // Pontus selects Hemma while the suggestions show: they stay, with a line about their place.
-    rerender(<Hemma shownSiteId={testSite.id} />);
+    rerender(<Hemma shownSite={photoSite} />);
     expect(cardNames()).toEqual(["grädde", "mjölk"]);
     expect(screen.getByTestId("pantry-suggestions-site")).toHaveTextContent("Förslagen gäller Stugan.");
     expect(screen.getByTestId("pantry-suggestions-site")).toHaveAttribute("role", "status");
@@ -411,5 +411,36 @@ describe("the photo's place (Story 8.4)", () => {
     fireEvent.click(screen.getByRole("button", { name: "Bekräfta grädde" }));
     await waitFor(() => expect(confirmPantrySuggestions).toHaveBeenCalledTimes(1));
     expect(confirmPantrySuggestions.mock.calls[0][0]).toMatchObject({ siteId: stugan.id });
+  });
+
+  it("refuses an answer for another place than the one sent as ai_invalid", async () => {
+    render(<Hemma shownSite={stugan} />);
+    await analyzeWith(ok({ ...fridge, site: photoSite }));
+    expect(cardNames()).toEqual([]);
+    expect(await within(screen.getByTestId("pantry-camera")).findByRole("alert")).toHaveTextContent(errorMessages.ai_invalid);
+  });
+
+  it("keeps the place it sent when an answer has none (a server of before Story 8.4), and saves there", async () => {
+    confirmPantrySuggestions.mockReset().mockResolvedValue(ok({ count: 1 }));
+    const { rerender } = render(<Hemma shownSite={stugan} />);
+    const withoutSite: Partial<AnalyzeResult> = { ...fridge };
+    delete withoutSite.site;
+    await analyzeWith(ok(withoutSite));
+    expect(cardNames()).toEqual(["grädde", "mjölk"]);
+    rerender(<Hemma shownSite={photoSite} />);
+    expect(screen.getByTestId("pantry-suggestions-site")).toHaveTextContent("Förslagen gäller Stugan.");
+    fireEvent.click(screen.getByRole("button", { name: "Bekräfta grädde" }));
+    await waitFor(() => expect(confirmPantrySuggestions).toHaveBeenCalledTimes(1));
+    expect(confirmPantrySuggestions.mock.calls[0][0]).toMatchObject({ siteId: stugan.id });
+  });
+
+  it("drops the suggestions when a confirmation finds their place gone, and says so in the camera area", async () => {
+    confirmPantrySuggestions.mockReset().mockResolvedValue(fail("pantry_site_gone"));
+    render(<Hemma />);
+    await analyzeWith();
+    fireEvent.click(screen.getByRole("button", { name: "Bekräfta grädde" }));
+    await waitFor(() => expect(cardNames()).toEqual([]));
+    expect(within(screen.getByTestId("pantry-camera")).getByRole("alert")).toHaveTextContent(errorMessages.pantry_site_gone);
+    expect(screen.queryByRole("button", { name: "Försök igen" })).toBeNull();
   });
 });

@@ -101,22 +101,26 @@ type SiteLookup = { ok: true; site: PhotoSite | null } | { ok: false; result: Re
  * without `siteId`; read before the AI is asked, since a photo of a place
  * that is gone cannot be saved anyway. A place that is not the user's (gone,
  * or another user's) is `pantry_site_gone`, and places that cannot be read
- * `pantry_unavailable` (logged with the reason only, never a name). A user
- * without places has none: `site: null`.
+ * `pantry_unavailable`, whatever the error (logged with the reason only,
+ * never a name), so the route never answers an unstructured 500. Only a user
+ * without places has none (`site: null`); a user with places but none
+ * selected is `pantry_site_gone`, never `site: null`, so nothing from the
+ * photo can fall back to whatever is selected later.
  */
 async function lookUpSite(siteId: string | undefined): Promise<SiteLookup> {
   let sites: PantrySite[];
   try {
     sites = await loadPantrySitesIn(await createClient());
   } catch (error) {
-    if (!(error instanceof PantryDataError)) throw error;
-    console.error("pantry_unavailable", { reason: error.detail });
+    console.error("pantry_unavailable", {
+      reason: error instanceof PantryDataError ? error.detail : error instanceof Error ? error.name : "unknown",
+    });
     return { ok: false, result: fail("pantry_unavailable") };
   }
+  if (sites.length === 0) return { ok: true, site: null };
   const site = siteId === undefined ? sites.find((other) => other.isSelected) : sites.find((other) => other.id === siteId);
   if (site) return { ok: true, site: { id: site.id, name: site.name } };
-  if (siteId === undefined) return { ok: true, site: null };
-  console.error("pantry_site_gone", { reason: "analyze" });
+  console.info("pantry_site_gone", { reason: siteId === undefined ? "no_selected_site" : "analyze" });
   return { ok: false, result: fail("pantry_site_gone") };
 }
 
@@ -127,11 +131,11 @@ export type AnalyzePlaceOptions = {
 };
 
 /**
- * Lagerförslag from a photo of a place. In order: the user, the place
- * (Story 8.4: `siteId` among the user's places, else the selected one;
- * `pantry_site_gone` or `pantry_unavailable` before the AI is asked, see
- * lookUpSite), then an analysis of the user's still on its way is stopped,
- * the AI port's analyzeImage
+ * Lagerförslag from a photo of a place. In order: the user (an analysis of
+ * theirs still on its way is stopped), the place (Story 8.4: `siteId` among
+ * the user's places, else the selected one; `pantry_site_gone` or
+ * `pantry_unavailable` before the AI is asked, see lookUpSite), the AI
+ * port's analyzeImage
  * (`validation`, `ai_unavailable`, `ai_rejected`, `ai_invalid`), the first
  * 40 items (the rest logged as a count), one matchIngredients call for them
  * and the matched names (`catalog_unavailable`), the items in the location
@@ -157,14 +161,19 @@ export async function analyzePlace(
 ): Promise<Result<AnalyzeResult>> {
   const user = await requireUser();
   if (!user.ok) return user;
-  // Story 8.4: the place before the model, which may take 100 s for a photo that could not be saved.
-  const looked = await lookUpSite(input.siteId);
-  if (!looked.ok) return looked.result;
-  if (signal.aborted) return stopped();
 
-  // An analysis always starts: it stops any run of the same user on its way (ai-runs.ts).
+  // An analysis always starts: it stops any run of the same user on its way
+  // (ai-runs.ts), also when its place turns out to be gone.
   const own = startRun(user.data.id, "analyze");
   try {
+    // Story 8.4: the place before the model, which may take 100 s for a photo that could not be saved.
+    const looked = await lookUpSite(input.siteId);
+    if (!looked.ok) return looked.result;
+    if (signal.aborted) return stopped();
+    if (own.signal.aborted) {
+      console.info("analyze_superseded");
+      return fail("ai_superseded");
+    }
     const result = await analyze(input, looked.site, AbortSignal.any([signal, own.signal]), deadline);
     if (own.signal.aborted && !signal.aborted) {
       console.info("analyze_superseded");

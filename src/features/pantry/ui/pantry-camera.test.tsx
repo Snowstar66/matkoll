@@ -62,7 +62,7 @@ function Hemma({ location = "Kyl" }: { location?: Location }) {
       <PantrySuggestionsProvider>
         <PantrySheetProvider location={location} site={testSite}>
           {/* Keyed like Hemma's <Suspense>: another card mounts it anew under the same provider. */}
-          <PantryCamera key={location} siteId={testSite.id} location={location} />
+          <PantryCamera key={location} site={photoSite} location={location} />
         </PantrySheetProvider>
       </PantrySuggestionsProvider>
     </ToastProvider>

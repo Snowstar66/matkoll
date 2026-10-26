@@ -38,6 +38,8 @@ import {
   suggestionAmountText,
   suggestionsArrivedText,
   suggestionsHeading,
+  isPhotoOfSite,
+  photoSiteId,
   suggestionsSiteText,
   toPantrySuggestions,
   unreadableItemsText,
@@ -382,7 +384,8 @@ describe("analyzeResultSchema", () => {
     const empty = { location: "Kyl", suggestions: [], dropped: 0, inventory: { kind: "empty" } };
     expect(analyzeResultSchema.safeParse({ ...empty, site: photoSite }).success).toBe(true);
     expect(analyzeResultSchema.safeParse({ ...empty, site: { ...photoSite, name: "s".repeat(40) } }).success).toBe(true);
-    expect(analyzeResultSchema.safeParse(empty).success).toBe(false);
+    // An answer without a place (a server of before Story 8.4) reads as null; the client puts the place it sent.
+    expect(analyzeResultSchema.parse(empty).site).toBeNull();
     expect(analyzeResultSchema.safeParse({ ...empty, site: { ...photoSite, id: "stugan" } }).success).toBe(false);
     expect(analyzeResultSchema.safeParse({ ...empty, site: { ...photoSite, name: "" } }).success).toBe(false);
     expect(analyzeResultSchema.safeParse({ ...empty, site: { ...photoSite, name: "s".repeat(41) } }).success).toBe(false);
@@ -930,8 +933,12 @@ describe("Inventera en plats med foto: texts, schema and Töm", () => {
     // Story 8.4: emptying another place's location changes nothing.
     expect(withoutPlace(result, mjolk, "Kyl")).toEqual(result);
     expect(withRestoredPlace(result, mjolk, "Kyl")).toEqual(result);
-    // A photo without a place (a user without places) is of the only place there is.
-    expect(withoutPlace({ ...result, site: null }, mjolk, "Kyl").inventory).toEqual({ kind: "empty" });
+    // A photo without a place is of no place: emptying a place never changes it.
+    expect(withoutPlace({ ...result, site: null }, mjolk, "Kyl")).toEqual({ ...result, site: null });
+    expect(isPhotoOfSite({ site: null }, mjolk)).toBe(false);
+    expect(isPhotoOfSite(result, photoSite.id)).toBe(true);
+    expect(photoSiteId(result)).toBe(photoSite.id);
+    expect(photoSiteId({ site: null })).toBeNull();
     // After "Ångra" for the emptied place, the photo no longer matches it.
     expect(withRestoredPlace(withoutPlace(result, photoSite.id, "Kyl"), photoSite.id, "Kyl").inventory).toEqual({ kind: "unread", changed: true });
     expect(withRestoredPlace(result, photoSite.id, "Frys")).toEqual(result);

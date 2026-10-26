@@ -9,6 +9,12 @@ Beslut som fattats under bygget: vad, varför och vilka alternativ som fanns. Ny
 - **"Töm kylen" tömmer det ställe som Hemma visade när arket öppnades,** och med fler än ett ställe säger texterna "Ta bort alla 14 varor i kylen för Stugan?" och "Tog bort 14 varor ur kylen för Stugan.". Med ett ställe är texterna som i 1.0. "Ångra" sätter tillbaka på radernas eget ställe, också efter ett byte. "Kylen kan ha tömts." erbjuds bara när Hemma fortfarande visar samma ställe.
 - **Stället kontrolleras före AI-anropet.** Ett ställe som inte finns, eller som är en annan användares, ger `pantry_site_gone` (409) utan AI-anrop och utan "Försök igen", och sidan läses om. Varför: en läsning av ställena är billig jämfört med en analys på 20–100 s, och ett foto av ett ställe som är borta går inte att spara ändå. Går ställena inte att läsa ges `pantry_unavailable` med "Försök igen". En klient utan fältet `site` (1.0 under driftsättningen) får valt ställe.
 - AI-porten, prompten och mocken är oförändrade: modellen får platsen som förut och aldrig stället (AD-9).
+- **Efter granskningen:**
+  - **Ingen skrivning faller tillbaka på valt ställe i tysthet.** En skrivning från förslagen utan ställe ger `pantry_site_gone` när användaren har ställen, och "Töm kylen" kräver ett ställe.
+  - **Ett "Ångra" rymmer ett ställe.** `apply_pantry_inventory` ger `MK409` för ett operations-id vars post har rader från ett annat ställe (en migration), och actionen byter bara id när klienten inte väntar sig att gå med i en batch.
+  - **Förslag vars ställe är borta tas bort.** Kameraytan säger "Stället finns inte längre. Välj ett annat ställe.", så att inga kort står kvar som inte går att bekräfta.
+  - **"Ångra" efter ett byte säger var raderna hamnade:** "Lade tillbaka 2 varor i kylen för Hemma.".
+
 ## 2026-10-26 – Inköpslista inför resan till ett annat ställe (Story 8.5)
 
 - **Underlag:** specen `spec-8-5-inkopslista-infor-resan-till-ett-annat-stalle.md`, där besluten var förslag, och AD-24.

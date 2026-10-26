@@ -167,9 +167,11 @@ export const analyzeResultSchema = z.object({
    * (FR-33, AD-24). Every write from the suggestions sends its id, also when
    * Hemma shows another place by then. `null` only for a user without places
    * yet (before ensure_pantry_defaults): the writes then go to the selected
-   * place.
+   * place, which the server allows only while the user has none. Missing in
+   * an answer from a server of before Story 8.4 (a deploy): `null` here, and
+   * the client puts the place it sent instead (usePantryAnalysis).
    */
-  site: photoSiteSchema.nullable(),
+  site: photoSiteSchema.nullable().default(null),
   location: locationSchema,
   suggestions: z.array(pantrySuggestionSchema).max(maxPantrySuggestions),
   dropped: z.number().int().min(0),
@@ -603,8 +605,14 @@ export const confirmItemSchema = z
 export type ConfirmItem = z.infer<typeof confirmItemSchema>;
 export type ConfirmItemInput = z.input<typeof confirmItemSchema>;
 
-/** The place a confirmation writes to (Story 8.4): the photo's place, or `null` for the selected one. */
+/**
+ * The place a confirmation writes to (Story 8.4): the photo's place, or
+ * `null`, which the actions allow only for a user without places.
+ */
 const confirmSiteSchema = z.uuid().nullable();
+
+/** 1–40 confirmed suggestions. */
+const confirmItemsSchema = z.array(confirmItemSchema).min(1).max(maxConfirmItems);
 
 /**
  * What confirmPantrySuggestions takes: the photo's place (`siteId`, Story
@@ -612,9 +620,16 @@ const confirmSiteSchema = z.uuid().nullable();
  */
 export const confirmSuggestionsSchema = z.object({
   siteId: confirmSiteSchema,
-  items: z.array(confirmItemSchema).min(1).max(maxConfirmItems),
+  items: confirmItemsSchema,
 });
 export type ConfirmSuggestionsInput = z.input<typeof confirmSuggestionsSchema>;
+
+/**
+ * What a client of before Story 8.4 sends during a deploy: the items alone,
+ * for the selected place. The action takes it only from a user with one
+ * place at most (version skew, AD-5).
+ */
+export const legacyConfirmSuggestionsSchema = confirmItemsSchema;
 
 /** At most this many rows one inventory replaces ("Ändrat" in other units); inventoryRequest keeps to it. */
 export const maxInventoryReplaces = maxRequestReplaces;
@@ -635,6 +650,14 @@ export const inventoryConfirmSchema = z
     replaceRowIds: z.array(z.uuid()).max(maxInventoryReplaces),
     removeRowIds: z.array(z.uuid()).max(maxInventoryRemovals),
     operationId: z.uuid().nullable(),
+    /**
+     * Story 8.4: the operation id is one the client expects the removals to
+     * join (a confirmation with "Ångra" that shows, or an earlier removal
+     * without an answer). When it is taken (MK409), the action then fails
+     * instead of trying with a new id, so the removals never leave the
+     * batch they were meant for.
+     */
+    joinsOperation: z.boolean().optional(),
   })
   .refine(({ items, removeRowIds }) => items.length + removeRowIds.length > 0, { path: ["items"] })
   .refine(({ removeRowIds, operationId }) => removeRowIds.length === 0 || operationId !== null, { path: ["operationId"] });
@@ -777,11 +800,20 @@ export function suggestionsSiteText(name: string): string {
 
 /**
  * Whether `result` is from a photo of the place `siteId` (Story 8.4). A
- * result without a place (a user without places) is of the selected place,
- * the only one there is.
+ * result without a place is of no place: nothing done on a place changes it.
  */
 export function isPhotoOfSite(result: Pick<AnalyzeResult, "site">, siteId: string): boolean {
-  return result.site === null || result.site.id === siteId;
+  return result.site !== null && result.site.id === siteId;
+}
+
+/**
+ * The place every write from `result` goes to (Story 8.4, FR-33): the
+ * photo's, never the one Hemma shows by the time of the tap; `null` only for
+ * a photo of a user without places. The one source for Bekräfta, Rätta,
+ * "Bekräfta alla", "Ta bort" and the sheet Lagervara's target.
+ */
+export function photoSiteId(result: Pick<AnalyzeResult, "site">): string | null {
+  return result.site?.id ?? null;
 }
 
 /** When the sheet's suggestion was replaced by a newer photo's, or is gone, before Bekräfta or Avvisa. */

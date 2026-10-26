@@ -568,7 +568,7 @@ describe("emptying a location", () => {
     await waitFor(() => expect(rowNames()).toEqual(["Mjölk 1 l", "Smör 250 g"]));
   });
 
-  it("offers nothing after a lost answer once Hemma shows another place (Story 8.4)", async () => {
+  it("keeps a lost answer's record while another place shows, and offers Ångra when its own place is read again empty (Story 8.4)", async () => {
     emptyPantryPlace.mockImplementationOnce(async (_location, operationId) => {
       removals.set(operationId, serverItems.map(rowOf));
       throw new TypeError("Failed to fetch");
@@ -576,11 +576,13 @@ describe("emptying a location", () => {
     render(<Hemma initial={[mjolk, smor]} />);
     await emptyKyl();
     expect(emptyPantryPlace).toHaveBeenCalledWith("Kyl", expect.stringMatching(uuid), hemmaSite.id);
-    // Another place is selected before the page is read again: an empty fridge there says nothing.
+    // Another place is shown first: an empty fridge there says nothing, and the record waits.
     act(() => serverSwitch(stuganSite, []));
-    act(() => serverSwitch(hemmaSite, []));
     expect(screen.queryByText("Kylen kan ha tömts.")).toBeNull();
     expect(screen.queryByTestId("toast")).toBeNull();
+    // Hemma's fridge, read again empty: it may have been emptied.
+    act(() => serverSwitch(hemmaSite, []));
+    await waitFor(() => expect(toast()).toHaveTextContent("Kylen kan ha tömts."));
   });
 
   it("keeps Ångra for an emptied place when Hemma switches place, and puts the rows back there (Story 8.4)", async () => {
@@ -595,8 +597,28 @@ describe("emptying a location", () => {
     await undo();
     expect(restorePantryRemoval).toHaveBeenCalledWith(operationOf());
     expect(screen.queryByRole("alert")).toBeNull();
+    await waitFor(() => expect(toast()).toHaveTextContent("Lade tillbaka 2 varor i kylen för Hemma."));
     // The rows are Hemma's: Stugan's list never shows them.
     expect(rowNames()).toEqual([]);
+  });
+
+  it("says nothing more after Ångra puts the rows back on the place shown", async () => {
+    render(<Hemma initial={[mjolk, smor]} />);
+    await emptyKyl();
+    await undo();
+    await waitFor(() => expect(rowNames()).toEqual(["Mjölk 1 l", "Smör 250 g"]));
+    expect(screen.queryByText(/Lade tillbaka/)).toBeNull();
+  });
+
+  it("names no place in a confirmation for removals from two places (Story 8.4)", async () => {
+    const stuganSalt = { ...salt, siteId: stuganSite.id };
+    render(<Hemma initial={[mjolk, smor]} />);
+    await tapRemove("Mjölk");
+    expect(toast()).toHaveTextContent("Mjölk är borttagen.");
+    act(() => serverSwitch(stuganSite, [stuganSalt]));
+    await emptyKyl();
+    expect(toast()).toHaveTextContent("Tog bort 2 varor.");
+    expect(toast()).not.toHaveTextContent(/kylen|Stugan|Hemma/);
   });
 
   it("offers nothing when the answer is lost and the location still has its items, and tries again with the same operation id", async () => {

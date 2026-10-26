@@ -142,14 +142,14 @@ const fridge: AnalyzeResult = {
   },
 };
 
-function Hemma({ location = "Kyl", shownSiteId = testSite.id }: { location?: Location; shownSiteId?: string }) {
+function Hemma({ location = "Kyl", shownSite = photoSite }: { location?: Location; shownSite?: { id: string; name: string } }) {
   return (
     <ToastProvider>
       <PantrySuggestionsProvider>
         <PantrySheetProvider location={location} site={testSite}>
           <div key={location}>
-            <PantryCamera siteId={shownSiteId} location={location} />
-            <PantrySuggestionList siteId={shownSiteId} />
+            <PantryCamera site={shownSite} location={location} />
+            <PantrySuggestionList siteId={shownSite.id} />
           </div>
         </PantrySheetProvider>
       </PantrySuggestionsProvider>
@@ -319,6 +319,7 @@ describe("Bekräfta on a compared photo", () => {
       replaceRowIds: [mjolkLiterRow],
       removeRowIds: [],
       operationId: null,
+      joinsOperation: false,
     });
     expect(within(section()).getByRole("button", { name: "Sparar …" })).toBeDisabled();
     for (const shown of within(section()).getAllByRole("button")) {
@@ -388,9 +389,9 @@ describe("the photo's place (Story 8.4)", () => {
   const stugan = { id: "66666666-6666-4666-8666-666666666666", name: "Stugan" };
 
   it("saves Rätta's Bekräfta, Ta bort and Bekräfta alla on the photo's place while Hemma shows another", async () => {
-    const { rerender } = render(<Hemma shownSiteId={stugan.id} />);
+    const { rerender } = render(<Hemma shownSite={stugan} />);
     await analyze({ ...fridge, site: stugan });
-    rerender(<Hemma shownSiteId={testSite.id} />);
+    rerender(<Hemma shownSite={photoSite} />);
     expect(screen.getByTestId("pantry-suggestions-site")).toHaveTextContent("Förslagen gäller Stugan.");
 
     fireEvent.click(button("Rätta mjölk"));
@@ -406,8 +407,8 @@ describe("the photo's place (Story 8.4)", () => {
     expect(lastSave().input).toMatchObject({ siteId: stugan.id, removeRowIds: [yoghurtRow] });
   });
 
-  it("never sends the operation id of one place's removals with another place's", async () => {
-    render(<Hemma />);
+  it("never sends the operation id of one place's failed removal with another place's", async () => {
+    const { rerender } = render(<Hemma shownSite={stugan} />);
     await analyze({ ...fridge, site: stugan });
     fireEvent.click(button("Ta bort yoghurt"));
     await waitFor(() => expect(saves).toHaveLength(1));
@@ -415,11 +416,56 @@ describe("the photo's place (Story 8.4)", () => {
     // No answer: the id is kept for the next removal on the same place and location only.
     await answerSave(fail("pantry_inventory_failed"));
 
-    await analyze({ ...fridge, site: { id: testSite.id, name: "Hemma" } });
+    rerender(<Hemma shownSite={photoSite} />);
+    await analyze({ ...fridge, site: photoSite });
     fireEvent.click(button("Ta bort yoghurt"));
     await waitFor(() => expect(saves).toHaveLength(2));
     expect(lastSave().input.siteId).toBe(testSite.id);
     expect(lastSave().input.operationId).not.toBe(stuganOperation);
+  });
+
+  it("keeps separate batches per place: a Hemma photo's removal never joins Stugan's confirmation that shows", async () => {
+    const { rerender } = render(<Hemma shownSite={stugan} />);
+    await analyze({ ...fridge, site: stugan });
+    fireEvent.click(button("Ta bort yoghurt"));
+    await waitFor(() => expect(saves).toHaveLength(1));
+    const stuganOperation = lastSave().input.operationId;
+    expect(lastSave().input.joinsOperation).toBe(false);
+    await answerSave(answered({ removed: [removedRow(yoghurtRow, yoghurtId)], removedCount: 1, undoable: 1, operationId: stuganOperation }));
+    // Stugan's confirmation with Ångra still shows.
+    expect(within(toast()).getByRole("button", { name: "Ångra" })).toBeInTheDocument();
+
+    rerender(<Hemma shownSite={photoSite} />);
+    await analyze({ ...fridge, site: photoSite });
+    fireEvent.click(button("Ta bort yoghurt"));
+    await waitFor(() => expect(saves).toHaveLength(2));
+    expect(lastSave().input).toMatchObject({ siteId: photoSite.id, joinsOperation: false });
+    expect(lastSave().input.operationId).not.toBe(stuganOperation);
+  });
+
+  it("sends the batch it joins with joinsOperation, so a taken id is never swapped in silence", async () => {
+    render(<Hemma />);
+    await analyze();
+    fireEvent.click(button("Ta bort yoghurt"));
+    await waitFor(() => expect(saves).toHaveLength(1));
+    const operation = lastSave().input.operationId;
+    await answerSave(answered({ removed: [removedRow(yoghurtRow, yoghurtId)], removedCount: 1, undoable: 1, operationId: operation }));
+    fireEvent.click(button("Ta bort senap"));
+    await waitFor(() => expect(saves).toHaveLength(2));
+    expect(lastSave().input).toMatchObject({ operationId: operation, joinsOperation: true });
+  });
+
+  it("drops the suggestions when their place is gone, and says so in the camera area", async () => {
+    render(<Hemma />);
+    await analyze();
+    fireEvent.click(button("Ta bort yoghurt"));
+    await waitFor(() => expect(saves).toHaveLength(1));
+    await answerSave(fail("pantry_site_gone"));
+    await waitFor(() => expect(screen.queryByTestId("pantry-suggestions")).toBeNull());
+    expect(within(screen.getByTestId("pantry-camera")).getByRole("alert")).toHaveTextContent(
+      "Stället finns inte längre. Välj ett annat ställe.",
+    );
+    await waitFor(() => expect(cameraButton()).toHaveFocus());
   });
 });
 

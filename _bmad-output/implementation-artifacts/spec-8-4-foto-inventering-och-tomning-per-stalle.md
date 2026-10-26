@@ -2,7 +2,7 @@
 title: 'Story 8.4: Foto, inventering och tömning per ställe'
 type: 'feature'
 created: '2026-10-26'
-status: 'in-progress'
+status: 'done'
 baseline_commit: '2d6f200097a038c8c6170735ed400858799eead7'
 route: 'dispatch'
 context:
@@ -205,14 +205,14 @@ context:
 ### Vid bygget
 
 - **Byggd på 6.6 med granskningens ändringar** (`2d6f200`, `baseline_commit`). `analyze-place.ts` fick `site` bredvid 6.6:s `readingOf`.
-- **Ingen migration.** Funktionerna från 8.1 tar redan `site`, filtrerar på `site_id` och lämnar `site_id` på raderna. Bara TypeScript-lagret ändrades.
+- **Ingen migration vid bygget.** Funktionerna från 8.1 tar redan `site`, filtrerar på `site_id` och lämnar `site_id` på raderna. Granskningen lade till en, se Review Triage Log.
 - **`analyzePlace` slår upp stället med `loadPantrySitesIn` i `data/sites.ts`, inte med `listPantrySites()`.** `pantry/server.ts` exporterar `analyzePlace`, så ett anrop tillbaka till `server.ts` hade gett ett cirkulärt beroende, och React `cache` memoiserar inte i en Route Handler. Resultatet är detsamma: användarens ställen läses en gång, före AI-anropet.
 - **Går ställena inte att läsa före AI-anropet ges `pantry_unavailable`** (503) utan AI-anrop. Koden läggs i `analyzeRetryCodes`, så att "Försök igen" skickar samma foto för samma ställe igen. Specen nämner bara `pantry_site_gone`. Ingen ny felkod. `pantry_site_gone` svarar 409 från routen.
-- **`analyze(file, location, siteId)` och `PantryCamera`/`PantrySuggestionList` tar ställets id** (`siteId`), inte hela stället. Namnet kommer från serverns svar (`result.site.name`), så klienten behöver bara id:t.
+- **`PantrySuggestionList` tar ställets id** (`siteId`), inte hela stället. `analyze` och `PantryCamera` tog också bara id:t vid bygget. Efter granskningen tar de stället (`site`, id och namn), så att ett svar utan ställe kan få det skickade (se Review Triage Log).
 - **Raden "Förslagen gäller Stugan." är ett `<p role="status">` direkt under rubriken, som alltid finns och är dold när den är tom,** som 6.6:s statusrad, så att texten annonseras när den kommer. Ett test från snabbfixen efter 6.5 som kräver att miniatyren står direkt efter rubriken läser nu förbi den tomma raden. Med `PantrySuggestionsProvider` utan nyckel står förslagen kvar vid ett byte, men listan under `<Suspense key>` monteras om. Därför finns texten redan när raden monteras efter ett byte, och skärmläsaren läser den med sektionen (manuell kontroll med VoiceOver).
 - **Rätta:** arket Lagervara öppnas för förslagets ställe (`target.siteId` från `result.site`), och `confirmCorrected` skickar `result.site?.id ?? null`.
 - **`removedCountText(count, locations, site)`** tar stället. `null` betyder att raderna kommer från fler än ett ställe, och då står texten utan plats och ställe ("Tog bort 17 varor."). `maybeEmptiedText` är oförändrad, eftersom den bara visas när Hemma visar samma ställe.
-- **"Kylen kan ha tömts.":** posten för ett förlorat svar glöms när Hemma rapporterar ett annat ställe, så att "Ångra" inte erbjuds om Hemma byter ställe och sedan byter tillbaka.
+- **"Kylen kan ha tömts.":** vid bygget glömdes posten för ett förlorat svar när Hemma rapporterade ett annat ställe. Efter granskningen väntar den i stället på sitt eget ställe och sin egen plats, tills fönstret på 30 s har gått (se Review Triage Log).
 - **`EmptyPlaceButton` tar `site` (`SelectedSite`)** och sparar det med operations-id:t i arket. `emptyPlace(site, …)` behöver namnet för "… för Stugan.". `emptyPantryPlace(location, operationId, siteId)` kräver det tredje argumentet. En upprepning med ett annat ställe ger `MK409` och därmed `pantry_empty_failed`, men klienten skickar aldrig samma id för ett annat ställe.
 - **`confirmSuggestionsSchema` är ett objekt,** så fältfelen har sökvägen `["items", index]`. Actionen läser dem därifrån, och klienten får samma `fields` som förut.
 - **Rader i svaren har `siteId`:** `SetPantryRow.siteId` är valfritt, och svaren från `apply_pantry_inventory` och `restore_pantry_removal` läser `site_id`. Fyra jämförelser i `tests/integration/pantry.test.ts` fick `siteId`. I testet där en annan användare försöker sätta tillbaka ägarens rad ger raden med sitt ställe nu `site_gone` (MK410) före `23503`. Utan ställe ger den `23503` som förut.
@@ -221,6 +221,53 @@ context:
 - **Samtidiga skrivningar** i integrationstestet görs med samma klient i `Promise.all`. Testet visar att båda lyckas och att resultatet är detsamma som efter varandra. Ordningen själv syns inte utifrån.
 
 ## Review Triage Log
+
+Iteration 1. Granskare: Blind Hunter, Edge Case Hunter och Verification Gap. Ändringen i SQL ligger i en migration, `pantry_inventory_operation_site`. Grenen bygger på `epic/8-flera-stallen` med 8.5 (`3c9866e`).
+
+**Patch:**
+- Ingen tyst återgång till valt ställe:
+  - `emptyPantryPlace` kräver ett ställe (ett uuid). `null` ger `validation`.
+  - Bekräfta, Rätta och inventeringen utan ställe ger `pantry_site_gone` och skriver inget, när användaren har ställen (`checkSiteForWrite`). `null` gäller bara för en användare utan ställen.
+  - `analyzePlace` ger `pantry_site_gone`, aldrig `site: null`, till en användare med ställen men utan valt ställe.
+- `lookUpSite`:
+  - Varje fel vid läsningen av ställena ger `pantry_unavailable`, inte bara `PantryDataError`, så att routen aldrig svarar ett ostrukturerat 500. Felet loggas med bara orsaken.
+  - `startRun` anropas före uppslaget, så att en ny analys stoppar användarens tidigare körning också när stället är borta. Körningen avslutas då.
+- MK409 och batchar:
+  - `confirmPantryInventory` försöker med ett nytt operations-id efter MK409 bara när klienten inte väntar sig att gå med i en batch (`joinsOperation`). Annars ger den `pantry_inventory_failed`.
+  - Migrationen `20261026184443_pantry_inventory_operation_site.sql` ersätter `apply_pantry_inventory` med samma signatur och rättigheter. Ett operations-id vars post har en rad från ett annat ställe (eller utan ställe) ger `MK409` innan något skrivs, som `empty_pantry_place` gör. Tidigare gick raderna med i posten, så att ett "Ångra" kunde rymma två ställen.
+  - `samePlace` räknar aldrig två ställen som är `null` som samma ställe.
+- "Töm kylen" och "Ångra":
+  - Posten för ett förlorat svar ("Kylen kan ha tömts.") står kvar tills fönstret har gått eller tills samma ställe och plats har lästs om. Den glöms inte när ett annat ställe rapporterar först.
+  - När "Ångra" sätter tillbaka rader på ett annat ställe än det som visas, säger en kort bekräftelse var de hamnade: "Lade tillbaka 2 varor i kylen för Hemma." (`restoredElsewhereText`). Kommer raderna från flera platser eller ställen står det "Lade tillbaka N varor.".
+  - `EmptyPlaceButton` sparar ställe, plats, varor och antal när arket öppnas. Frågan, `known` och stängningen använder de sparade värdena, och arket stängs när Hemma visar ett annat ställe eller en annan plats.
+  - Borttagningar från förslagen ("Ta bort", "Bekräfta alla") håller sitt ställe med `holdUndo` medan bekräftelsen med "Ångra" visas och tills "Ångra" har svarat, som borttagningarna i listan. Arket Ställen erbjuder då ingen "Ta bort" för stället.
+- Förslagen:
+  - `pantry_site_gone` från en skrivning (Bekräfta, Rätta, "Bekräfta alla", "Ta bort", inventeringen) tar bort förslagen för den generationen. Kameraytan säger "Stället finns inte längre. Välj ett annat ställe." (som `alert`), och fokus går till kameraknappen. Korten står aldrig kvar utan att gå att bekräfta.
+  - Rättas ställe har en källa, `photoSiteId` i domänen, för både arkets mål och `confirmCorrected`.
+  - `isPhotoOfSite` ger `false` för ett svar utan ställe.
+  - Kameraknappen och "Välj bild" väntar medan ett byte av ställe pågår (`useSiteSwitching`).
+- Versionsskillnad under driftsättningen:
+  - Klientens `analyzeResultSchema.site` är `.nullable().default(null)`. Ett svar utan fältet får det ställe som skickades, och `analyze` och `PantryCamera` tar därför stället med namn.
+  - Ett svar för ett annat ställe än det som skickades ger `ai_invalid`.
+  - `confirmPantrySuggestions` tar också den nakna listan från en klient före 8.4, för valt ställe, men bara när användaren har högst ett ställe. Annars ger den `validation`.
+- Actions:
+  - `revalidateFor("pantry_site")` i grenarna för `site_gone` ligger i try/catch (`revalidateSiteGone`), som framgångsvägen.
+  - `pantry_site_gone` loggas på nivån info i 8.4:s actions och i `lookUpSite`.
+- Nya tester:
+  - separata batchar per ställe: en Hemma-bilds "Ta bort" går aldrig med i Stugans bekräftelse som visas;
+  - "Ångra" efter "Töm kylen" på Stugan lämnar en Hemma-bilds "I kylen nu" orörd;
+  - en bekräftelse för borttagningar från två ställen säger "Tog bort N varor." utan ställe;
+  - Rätta på en bild utan jämförelse skickar bildens ställe (`confirms.at(-1).siteId`);
+  - MK409 för ett operations-id från ett annat ställes borttagning (integrationstest);
+  - `null` utan och med ställen, den nakna listan, `joinsOperation`, `pantry_unavailable` för alla fel, valt ställe saknas, körningen som stoppas före uppslaget, svar för fel ställe, svar utan ställe, förslag som tas bort när stället är borta, "Lade tillbaka …" och posten som väntar på sitt ställe.
+
+**Avvisat:**
+- En annan HTTP-status för `pantry_site_gone` än för `ai_superseded` (båda 409). Klienten går efter koden.
+- Att spara `site_id` och plats i `pantry_removal` för en upprepning av en tömning utan rader. Den tar inte bort något, så den är ofarlig.
+
+**Utanför storyn:** `set-pantry-item`, `restore-pantry-item`, `pantry/server.ts`, `home-content.tsx` och `put-checked-in-pantry` (8.2, 8.3, 8.5) loggar fortfarande `pantry_site_gone` som fel. Punkten om loggnivå gäller 8.4:s kod.
+
+**Migrationen lokalt:** en säkerhetskopia av bara data togs först, och `scripts/pantry-site-check.sql` kördes före och efter `supabase migration up` under testlåset. `diff` var tom (83 rader i `pantry_item`), och eftervillkoren håller. Typerna är oförändrade (`supabase gen types`).
 
 ## Verification
 

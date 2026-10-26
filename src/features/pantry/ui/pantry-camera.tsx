@@ -16,6 +16,8 @@ import {
 } from "../domain/pantry-suggestion";
 import { AddPantryItemButton } from "./pantry-item-sheet";
 import { usePantrySuggestions } from "./pantry-suggestions";
+import { useSiteSwitching } from "./site-switching";
+import type { PhotoSite } from "../domain/site";
 import { focusIsFree } from "./use-pantry-analysis";
 
 // Kameraknappen (FR-24, UX-DR10, DESIGN.md camera-button): a light blue
@@ -34,12 +36,12 @@ import { focusIsFree } from "./use-pantry-analysis";
 
 export type PantryCameraProps = {
   /** The place Hemma shows (Story 8.4): a new photo is taken for it, and its suggestions stay with it. */
-  siteId: string;
+  site: PhotoSite;
   /** The chosen location: the button's text and the place a new photo shows. */
   location: Location;
 };
 
-export function PantryCamera({ siteId, location }: PantryCameraProps) {
+export function PantryCamera({ site, location }: PantryCameraProps) {
   const {
     analyzing,
     result,
@@ -57,6 +59,8 @@ export function PantryCamera({ siteId, location }: PantryCameraProps) {
     cancel,
   } = usePantrySuggestions();
   const touch = useCoarsePointer();
+  // Story 8.4: while Hemma switches place, a photo would be taken for the place being left.
+  const switching = useSiteSwitching();
   const cameraRef = useRef<HTMLInputElement>(null);
   const pickerRef = useRef<HTMLInputElement>(null);
   // What this mount has already moved focus for: a remount (another location
@@ -85,7 +89,7 @@ export function PantryCamera({ siteId, location }: PantryCameraProps) {
   function onChosen(event: ChangeEvent<HTMLInputElement>) {
     const file = event.currentTarget.files?.[0];
     event.currentTarget.value = "";
-    if (file) analyze(file, location, siteId);
+    if (file) analyze(file, location, site);
   }
 
   let notice = null;
@@ -136,13 +140,14 @@ export function PantryCamera({ siteId, location }: PantryCameraProps) {
             ref={cameraButtonRef}
             variant="secondary"
             fullWidth
+            disabled={switching}
             onClick={() => (touch ? cameraRef : pickerRef).current?.click()}
           >
             <CameraIcon size={22} />
             {cameraButtonText(location)}
           </Button>
           {touch ? (
-            <Button variant="text" onClick={() => pickerRef.current?.click()} className="self-center">
+            <Button variant="text" disabled={switching} onClick={() => pickerRef.current?.click()} className="self-center">
               Välj bild
             </Button>
           ) : null}

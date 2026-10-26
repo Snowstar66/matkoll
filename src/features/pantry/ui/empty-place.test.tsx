@@ -215,12 +215,12 @@ describe("the sheet when the location changes meanwhile", () => {
     return <Hemma initial={items} />;
   }
 
-  it("asks about the items there are now, and closes when none are left", () => {
+  it("keeps the question it asked when it opened (Story 8.4), and closes when none are left", () => {
     const { rerender } = render(<Changing items={items(3)} />);
     fireEvent.click(emptyButton()!);
     expect(within(sheet()).getByText("Ta bort alla 3 varor i kylen?")).toBeInTheDocument();
     rerender(<Changing items={items(2)} />);
-    expect(within(sheet()).getByText("Ta bort alla 2 varor i kylen?")).toBeInTheDocument();
+    expect(within(sheet()).getByText("Ta bort alla 3 varor i kylen?")).toBeInTheDocument();
     rerender(<Changing items={[]} />);
     expect(screen.queryByRole("dialog", { name: "Töm kylen" })).toBeNull();
     expect(emptyPantryPlace).not.toHaveBeenCalled();
@@ -399,9 +399,11 @@ describe("Töm kylen on a place (Story 8.4)", () => {
         },
       ],
     };
+    const hemmaOfTwo: SelectedSite = { ...hemma, siteCount: 2 };
     const kyl = items(2).map((one) => ({ ...one, siteId: stugan.id }));
     emptyPantryPlace.mockResolvedValueOnce(ok(emptiedOf(kyl)));
-    render(<Hemma initial={kyl} site={stugan} />);
+    // The photo is taken on Hemma, and then Stugan is selected.
+    const { rerender } = render(<Hemma initial={items(1)} site={hemmaOfTwo} />);
     const pickers = screen.getByTestId("pantry-camera").querySelectorAll<HTMLInputElement>('input[type="file"]');
     fireEvent.change(pickers[pickers.length - 1], {
       target: { files: [new File([new Uint8Array([0xff, 0xd8, 0xff])], "IMG_1.jpg", { type: "image/jpeg" })] },
@@ -409,6 +411,7 @@ describe("Töm kylen on a place (Story 8.4)", () => {
     await waitFor(() => expect(screen.getByText("Tittar på bilden …")).toBeInTheDocument());
     await act(async () => answerAnalysis(ok(result)));
     expect(await screen.findByText("nu: 2 förp → bilden: 1 förp")).toBeInTheDocument();
+    rerender(<Hemma initial={kyl} site={stugan} />);
     expect(screen.getByText("Förslagen gäller Hemma.")).toBeInTheDocument();
 
     fireEvent.click(emptyButton()!);
@@ -417,5 +420,32 @@ describe("Töm kylen on a place (Story 8.4)", () => {
     // Hemma's fridge was not emptied: the comparison with it stands.
     expect(screen.getByText("nu: 2 förp → bilden: 1 förp")).toBeInTheDocument();
     expect(screen.getByRole("heading", { name: "Ändrat" })).toBeInTheDocument();
+
+    // Ångra puts Stugan's rows back, the same ingredient among them: the Hemma photo's "I kylen nu" is unchanged.
+    restorePantryRemoval.mockResolvedValueOnce(
+      ok({
+        restoredIds: [kyl[0].id],
+        rows: [
+          { id: kyl[0].id, siteId: stugan.id, ingredientId: "10000000-aaaa-4aaa-8aaa-aaaaaaaaaaaa", location: "Kyl", amount: 5, unit: "förp" },
+        ] satisfies PantryRow[],
+        skipped: 0,
+      }),
+    );
+    await act(async () => fireEvent.click(within(screen.getByTestId("toast")).getByRole("button", { name: "Ångra" })));
+    await waitFor(() => expect(restorePantryRemoval).toHaveBeenCalledTimes(1));
+    expect(screen.getByText("nu: 2 förp → bilden: 1 förp")).toBeInTheDocument();
+    expect(screen.queryByText(/5 förp/)).toBeNull();
+    expect(screen.queryByText("Lagret i kylen har ändrats sedan bilden togs.")).toBeNull();
+  });
+
+  it("closes the sheet when Hemma shows another place, and keeps the question it asked", () => {
+    const { rerender } = render(<Hemma initial={items(3)} site={stugan} />);
+    fireEvent.click(emptyButton()!);
+    expect(within(sheet()).getByText("Ta bort alla 3 varor i kylen för Stugan?")).toBeInTheDocument();
+    rerender(<Hemma initial={items(2)} site={stugan} />);
+    expect(within(sheet()).getByText("Ta bort alla 3 varor i kylen för Stugan?")).toBeInTheDocument();
+    rerender(<Hemma initial={items(2)} site={{ ...hemma, siteCount: 2 }} />);
+    expect(screen.queryByRole("dialog", { name: "Töm kylen" })).toBeNull();
+    expect(emptyPantryPlace).not.toHaveBeenCalled();
   });
 });

@@ -40,7 +40,7 @@ import {
   parseAmountField,
   type PantryItemFormInput,
 } from "../domain/pantry-item-form";
-import { suggestionGoneText, type PantrySuggestion } from "../domain/pantry-suggestion";
+import { photoSiteId, suggestionGoneText, type PantrySuggestion } from "../domain/pantry-suggestion";
 import { confirmedItemsText, savedItemText } from "../domain/places";
 import { PantryRemovalProvider, usePantryRemoval } from "./pantry-removal";
 import { type CorrectOutcome, type RejectOutcome, usePantrySuggestions } from "./pantry-suggestions";
@@ -568,7 +568,8 @@ export function PantrySheetProvider({
     // A suggestion keeps its photo's place (Story 8.4), which confirmCorrected sends.
     openSuggestion: (suggestion) => {
       const current = generation();
-      const photoSite = latestResult(current)?.site?.id;
+      const photo = latestResult(current);
+      const photoSite = photo ? photoSiteId(photo) : null;
       openWith({ kind: "suggestion", suggestion, generation: current, siteId: photoSite ?? site.id });
     },
   };

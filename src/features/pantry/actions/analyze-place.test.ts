@@ -704,6 +704,47 @@ describe("analyzePlace for a place (Story 8.4)", () => {
     expect(console.error).toHaveBeenCalledWith("pantry_unavailable", { reason: "query_failed 500" });
   });
 
+  it("gives pantry_unavailable for any error while reading the places, never an unstructured failure", async () => {
+    loadPantrySitesIn.mockRejectedValue(new TypeError("fetch failed"));
+    expect(await analyzePlace({ image: kyl, location: "Kyl", siteId: stugan }, { signal: signal() })).toEqual(
+      fail("pantry_unavailable"),
+    );
+    expect(analyzeImage).not.toHaveBeenCalled();
+    expect(console.error).toHaveBeenCalledWith("pantry_unavailable", { reason: "TypeError" });
+  });
+
+  it("gives pantry_site_gone, never site null, to a user with places but none selected", async () => {
+    loadPantrySitesIn.mockResolvedValue(places.map((place) => ({ ...place, isSelected: false })));
+    expect(await analyzePlace({ image: kyl, location: "Kyl" }, { signal: signal() })).toEqual(fail("pantry_site_gone"));
+    expect(analyzeImage).not.toHaveBeenCalled();
+    expect(console.info).toHaveBeenCalledWith("pantry_site_gone", { reason: "no_selected_site" });
+  });
+
+  it("stops the user's earlier analysis also when the new photo's place is gone", async () => {
+    let release = () => {};
+    const held = new Promise<void>((resolve) => {
+      release = resolve;
+    });
+    const signals: AbortSignal[] = [];
+    analyzeImage.mockImplementationOnce(async (input: AnalyzeImageInput, aiSignal: AbortSignal, options?: RunOptions) => {
+      signals.push(aiSignal);
+      await held;
+      return ai.analyzeImage(input, aiSignal, options);
+    });
+    const running = analyzePlace({ image: kyl, location: "Kyl", siteId: stugan }, { signal: signal() });
+    await vi.waitFor(() => expect(signals).toHaveLength(1));
+
+    const gone = "5a1c1b7e-3c1a-4c55-9a59-0f3f2b8f2aff";
+    expect(await analyzePlace({ image: kyl, location: "Kyl", siteId: gone }, { signal: signal() })).toEqual(
+      fail("pantry_site_gone"),
+    );
+    expect(signals[0].aborted).toBe(true);
+    release();
+    expect(await running).toEqual(fail("ai_superseded"));
+    // The failed lookup ended its own run: a new analysis runs as usual.
+    expect((await analyzePlace({ image: kyl, location: "Kyl", siteId: stugan }, { signal: signal() })).ok).toBe(true);
+  });
+
   it("checks the user before the place", async () => {
     requireUser.mockResolvedValue(fail("unauthorized"));
     expect(await analyzePlace({ image: kyl, location: "Kyl", siteId: stugan }, { signal: signal() })).toEqual(

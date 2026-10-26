@@ -1287,6 +1287,39 @@ describe("photo, inventory and emptying on a place (Story 8.4)", () => {
     expect(back.sort()).toEqual([s.stuganMjolk, s.stuganSenap].sort());
   });
 
+  it("gives MK409 for an operation id whose record holds another place's rows, and writes nothing", async () => {
+    const s = await stocked("pantry-site-photo-operation");
+    const operation = randomUUID();
+    await emptyPantryPlaceIn(s.user.db, "Kyl", operation, s.stugan);
+    const before = await stateOf(s.user.id);
+    await expect(
+      applyPantryInventoryIn(s.user.db, {
+        siteId: s.hemma,
+        place: "Kyl",
+        items: [],
+        replaceRowIds: [],
+        removeRowIds: [s.hemmaYoghurt],
+        operationId: operation,
+      }),
+    ).rejects.toThrow(new PantryDataError("apply_failed MK409"));
+    expect(await stateOf(s.user.id)).toEqual(before);
+    const { data: record } = await adminClient().from("pantry_removal").select("removed_rows").eq("id", operation).single();
+    expect((record?.removed_rows as { site_id: string }[]).every((row) => row.site_id === s.stugan)).toBe(true);
+
+    // The same place joins the record, as before.
+    await seed(s.user.id, [{ site_id: s.stugan, ingredient_id: s.yoghurt, location: "Kyl", amount: 1, unit: "förp" }]);
+    const stuganYoghurt = (await stateOf(s.user.id)).find((row) => row.site_id === s.stugan && row.ingredient_id === s.yoghurt)!;
+    const joined = await applyPantryInventoryIn(s.user.db, {
+      siteId: s.stugan,
+      place: "Kyl",
+      items: [],
+      replaceRowIds: [],
+      removeRowIds: [stuganYoghurt.id],
+      operationId: operation,
+    });
+    expect(joined.undoable).toBe(3);
+  });
+
   it("restorePantryRemovalIn skips the rows of a place deleted since", async () => {
     const s = await stocked("pantry-site-photo-restore-gone");
     const operation = randomUUID();
