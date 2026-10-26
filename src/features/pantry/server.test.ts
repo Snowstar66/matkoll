@@ -50,23 +50,37 @@ beforeEach(() => {
   log = vi.spyOn(console, "error").mockImplementation(() => {});
 });
 
+const stugan = "55555555-5555-4555-8555-555555555555";
+
 describe("addToPantry", () => {
   it("adds the items with the session client and the catalog's locations", async () => {
-    expect(await addToPantry([item])).toEqual(ok({ added: 1 }));
-    expect(addToPantryIn).toHaveBeenCalledWith(db, [item], expect.any(Function));
+    expect(await addToPantry([item], null)).toEqual(ok({ added: 1 }));
+    expect(addToPantryIn).toHaveBeenCalledWith(db, [item], expect.any(Function), null);
     const locations = addToPantryIn.mock.calls[0]![2] as (ids: string[]) => unknown;
     getIngredientDefaults.mockResolvedValue({});
     await locations([item.ingredientId]);
     expect(getIngredientDefaults).toHaveBeenCalledWith([item.ingredientId]);
   });
 
-  it("returns unauthorized without an allowed user, and validation for invalid items, without writing", async () => {
+  it("adds the items to the place given", async () => {
+    expect(await addToPantry([item], stugan)).toEqual(ok({ added: 1 }));
+    expect(addToPantryIn).toHaveBeenCalledWith(db, [item], expect.any(Function), stugan);
+  });
+
+  it("returns unauthorized without an allowed user, and validation for invalid items or place, without writing", async () => {
     requireUser.mockResolvedValue(fail("unauthorized"));
-    expect(await addToPantry([item])).toEqual(fail("unauthorized"));
+    expect(await addToPantry([item], null)).toEqual(fail("unauthorized"));
     requireUser.mockResolvedValue(ok({ id: "user" }));
-    expect(await addToPantry([])).toEqual(fail("validation"));
-    expect(await addToPantry([{ ...item, unit: null }])).toEqual(fail("validation"));
+    expect(await addToPantry([], null)).toEqual(fail("validation"));
+    expect(await addToPantry([{ ...item, unit: null }], null)).toEqual(fail("validation"));
+    expect(await addToPantry([item], "Stugan")).toEqual(fail("validation"));
     expect(addToPantryIn).not.toHaveBeenCalled();
+  });
+
+  it("gives pantry_site_gone, logged with its code only, for a place that is gone", async () => {
+    addToPantryIn.mockRejectedValue(new PantryDataError("site_gone"));
+    expect(await addToPantry([item], stugan)).toEqual(fail("pantry_site_gone"));
+    expect(log).toHaveBeenCalledWith("pantry_site_gone", { reason: "MK410" });
   });
 
   it.each([
@@ -74,12 +88,12 @@ describe("addToPantry", () => {
     [new CatalogDataError("query_failed", "08006"), { reason: "catalog_query_failed", detail: "08006" }],
   ])("gives pantry_add_failed, logged, when %s", async (error, logged) => {
     addToPantryIn.mockRejectedValue(error);
-    expect(await addToPantry([item])).toEqual(fail("pantry_add_failed"));
+    expect(await addToPantry([item], null)).toEqual(fail("pantry_add_failed"));
     expect(log).toHaveBeenCalledWith("pantry_add_failed", logged);
   });
 
   it("throws what it does not expect", async () => {
     addToPantryIn.mockRejectedValue(new Error("bug"));
-    await expect(addToPantry([item])).rejects.toThrow("bug");
+    await expect(addToPantry([item], null)).rejects.toThrow("bug");
   });
 });

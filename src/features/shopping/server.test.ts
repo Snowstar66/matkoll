@@ -41,10 +41,12 @@ vi.mock("@/features/recipes/server", () => ({
   getRecipesByIds: (ids: string[]) => getRecipesByIds(ids),
 }));
 const getPantrySnapshot = vi.fn();
+const getSelectedSite = vi.fn();
 const findPantryAdditions = vi.fn();
 vi.mock("@/features/pantry/server", () => ({
   PantryDataError,
-  getPantrySnapshot: () => getPantrySnapshot(),
+  getPantrySnapshot: (...args: unknown[]) => getPantrySnapshot(...args),
+  getSelectedSite: () => getSelectedSite(),
   findPantryAdditions: (keys: string[]) => findPantryAdditions(keys),
 }));
 const getIngredientNames = vi.fn();
@@ -109,8 +111,16 @@ const choice = {
   url: null,
   updatedAt: "2026-10-26T11:23:47.123456+00:00",
 };
-/** What the list gets beside it when the store has no choices. */
-const withStore = { store, storeUnavailable: false, productChoices: {}, productChoicesUnavailable: false, unreadableChoices: [] };
+const stugan = { id: "88888888-8888-4888-8888-888888888888", name: "Stugan", siteCount: 2 };
+/** What the list gets beside it when the store has no choices: the store, and the place it is counted against. */
+const withStore = {
+  store,
+  storeUnavailable: false,
+  productChoices: {},
+  productChoicesUnavailable: false,
+  unreadableChoices: [],
+  site: stugan,
+};
 const listed = (choices: Record<string, unknown> = {}, unreadable: string[] = []) => ({ choices, unreadable });
 
 let log: ReturnType<typeof vi.spyOn>;
@@ -119,6 +129,7 @@ beforeEach(() => {
   getCurrentPlan.mockReset().mockResolvedValue(plan);
   getRecipesByIds.mockReset().mockResolvedValue([recipe]);
   getPantrySnapshot.mockReset().mockResolvedValue(toSnapshot([{ ingredientId: gradde, amount: 1, unit: "dl" }]));
+  getSelectedSite.mockReset().mockResolvedValue(stugan);
   getIngredientNames.mockReset().mockResolvedValue({ [gradde]: "Grädde" });
   getIngredientDefaults.mockReset().mockResolvedValue({ [gradde]: { section: "Mejeri", location: "Kyl", defaultUnit: "dl" } });
   listChecksIn.mockReset().mockResolvedValue([]);
@@ -156,6 +167,21 @@ describe("getShoppingList", () => {
     );
     expect(getRecipesByIds).toHaveBeenCalledWith([recipeId]);
     expect(getIngredientNames).toHaveBeenCalledWith([gradde]);
+    // The selected place's pantry, asked for without a place (AD-24).
+    expect(getPantrySnapshot).toHaveBeenCalledWith();
+  });
+
+  it("gives the list with site null, logged, when the place cannot be read", async () => {
+    getSelectedSite.mockRejectedValue(new PantryDataError("sites_failed 08006"));
+    const result = await getShoppingList();
+    expect(result.ok && result.data.site).toBeNull();
+    expect(result.ok && result.data.lines).toHaveLength(1);
+    expect(log).toHaveBeenCalledWith("pantry_unavailable", { reason: "sites_failed 08006" });
+  });
+
+  it("throws what the place's read does not expect", async () => {
+    getSelectedSite.mockRejectedValue(new TypeError("bug"));
+    await expect(getShoppingList()).rejects.toThrow("bug");
   });
 
   it("marks the plan's checked lines, read with the session client", async () => {

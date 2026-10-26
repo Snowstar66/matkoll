@@ -11,6 +11,7 @@ import { FixedAction } from "@/components/fixed-action";
 import type { SearchIngredients } from "@/components/ingredient-picker";
 import { Notice } from "@/components/notice";
 import { SwipeRow } from "@/components/swipe-row";
+import type { SelectedSite } from "@/features/pantry";
 import type { Store } from "@/features/settings";
 import { useToast } from "@/components/toast";
 import { errorMessages, fail, ok, type Result } from "@/lib/errors";
@@ -105,6 +106,12 @@ export type ShoppingListProps = {
   storeUnavailable?: boolean;
   /** The store's product choices by catalog ingredient id. */
   productChoices?: Readonly<Record<string, ProductChoice>>;
+  /**
+   * The place the list is counted against (getShoppingList, AD-24); "Lägg i
+   * lagret" puts the items there. `null` when there is none or it could not
+   * be read: then the place selected when Pontus taps.
+   */
+  site?: SelectedSite | null;
   /** The choices could not be read: the detail's section Produktval says so. */
   productChoicesUnavailable?: boolean;
   /** The catalog ingredients whose stored choice cannot be read: their section says so. */
@@ -409,6 +416,7 @@ export function ShoppingList({
   productChoices = noChoices,
   productChoicesUnavailable = false,
   unreadableChoices = noUnreadable,
+  site = null,
 }: ShoppingListProps) {
   const planId = plan?.id ?? null;
   const { checks, toggle, notice, saving } = useChecks(planId, savedLines);
@@ -422,7 +430,7 @@ export function ShoppingList({
     [planId, removal.shown, checks],
   );
   const own = useOwnChanges(savedLines);
-  const pantry = usePutInPantry(planId, savedLines, own);
+  const pantry = usePutInPantry(planId, site?.id ?? null, savedLines, own);
   // The lines "Lägg i lagret" acts on, as shown (a tap shows before it is saved); a checked text line is not one.
   const toPantry = lines.flatMap((line) => (canPutInPantry(line) ? [line.key] : []));
   // The sets are new each render; one set per content, so the announcement's effect runs only on a change.

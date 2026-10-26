@@ -37,6 +37,9 @@ export const errorMessages = {
   // "Lägg i lagret" (Story 3.7) before or while the pantry is written: nothing
   // is added, and the checks stay.
   pantry_add_failed: "Det gick inte att lägga varorna i lagret. Försök igen.",
+  // A write to a place that has been removed elsewhere, or is not the user's
+  // (MK410, Epic 8): nothing is written, and the view is read again.
+  pantry_site_gone: "Stället finns inte längre. Välj ett annat ställe.",
   // Confirming lagerförslag (Story 6.2): the catalog or the pantry refused.
   // The suggestions stay; new catalog ingredients may stay too, and trying
   // again uses them.

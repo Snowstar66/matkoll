@@ -155,6 +155,13 @@ describe("putInPantryText", () => {
     expect(putInPantryText(0, 2)).toBe("Tog bort 2 varor från listan.");
     expect(putInPantryText(0, 0)).toBeNull();
   });
+
+  it("names the place the items went to, with more than one place", () => {
+    expect(putInPantryText(8, 0, "Stugan")).toBe("Lagt 8 varor i lagret för Stugan.");
+    expect(putInPantryText(1, 2, "Stugan")).toBe("Lagt 1 vara i lagret för Stugan.");
+    expect(putInPantryText(8, 0, null)).toBe("Lagt 8 varor i lagret.");
+    expect(putInPantryText(0, 2, "Stugan")).toBe("Tog bort 2 varor från listan.");
+  });
 });
 
 describe("the basket export's texts (Story 7.3)", () => {

@@ -21,8 +21,18 @@ vi.mock("@/features/catalog/server", () => ({
   findIngredientIds: (text: string) => findIngredientIds(text),
 }));
 
-const pantrySnapshotOrNull = vi.fn();
-vi.mock("../data/pantry-snapshot", () => ({ pantrySnapshotOrNull: () => pantrySnapshotOrNull() }));
+class PantryDataError extends Error {
+  constructor(readonly detail: string) {
+    super(detail);
+  }
+}
+const getPantrySnapshot = vi.fn();
+const getSelectedSite = vi.fn();
+vi.mock("@/features/pantry/server", () => ({
+  PantryDataError,
+  getPantrySnapshot: (...args: unknown[]) => getPantrySnapshot(...args),
+  getSelectedSite: () => getSelectedSite(),
+}));
 
 const searchRecipesIn = vi.fn();
 vi.mock("../data/queries", () => ({ searchRecipesIn: (...args: unknown[]) => searchRecipesIn(...args) }));
@@ -54,12 +64,22 @@ const gryta = {
   missingCount: 1,
 };
 
+const stugan = { id: "55555555-5555-4555-8555-555555555555", name: "Stugan", siteCount: 2 };
+
+/** The pantry cannot be read: logged, and the recipes come without status. */
+function pantryFails() {
+  vi.spyOn(console, "error").mockImplementation(() => {});
+  getPantrySnapshot.mockRejectedValue(new PantryDataError("query_failed 08006"));
+}
+
 beforeEach(() => {
+  vi.restoreAllMocks();
   requireUser.mockReset().mockResolvedValue(ok({ id: "user", email: "pontus@example.com" }));
   findIngredientIds.mockReset().mockResolvedValue(["lok-id"]);
   searchRecipesIn.mockReset().mockResolvedValue([row]);
+  getSelectedSite.mockReset().mockResolvedValue(stugan);
   // Enough cream; no onion.
-  pantrySnapshotOrNull.mockReset().mockResolvedValue(new Map([["gradde-id", { unlimited: false, amounts: [{ unit: "dl", amount: 3 }] }]]));
+  getPantrySnapshot.mockReset().mockResolvedValue(new Map([["gradde-id", { unlimited: false, amounts: [{ unit: "dl", amount: 3 }] }]]));
 });
 
 describe("searchRecipes", () => {
@@ -74,7 +94,7 @@ describe("searchRecipes", () => {
     expect(await searchRecipes("gryta")).toEqual(fail("unauthorized"));
     expect(findIngredientIds).not.toHaveBeenCalled();
     expect(searchRecipesIn).not.toHaveBeenCalled();
-    expect(pantrySnapshotOrNull).not.toHaveBeenCalled();
+    expect(getPantrySnapshot).not.toHaveBeenCalled();
   });
 
   it("rejects more than 100 characters and a value that is not text", async () => {
@@ -99,38 +119,47 @@ describe("searchRecipes", () => {
   });
 
   it("gives the recipes without status when the pantry cannot be read, never recipe_search_failed", async () => {
-    pantrySnapshotOrNull.mockResolvedValue(null);
+    pantryFails();
     expect(await searchRecipes("gryta")).toEqual(ok([{ ...gryta, missingCount: null }]));
   });
 
   it("does not read the pantry when nothing is found", async () => {
     searchRecipesIn.mockResolvedValue([]);
     expect(await searchRecipes("xyz")).toEqual(ok([]));
-    expect(pantrySnapshotOrNull).not.toHaveBeenCalled();
+    expect(getPantrySnapshot).not.toHaveBeenCalled();
   });
 
   it("throws other errors, which are bugs", async () => {
     searchRecipesIn.mockRejectedValue(new TypeError("boom"));
     await expect(searchRecipes("lök")).rejects.toThrow("boom");
     searchRecipesIn.mockResolvedValue([row]);
-    pantrySnapshotOrNull.mockRejectedValue(new TypeError("pantry bug"));
+    getPantrySnapshot.mockRejectedValue(new TypeError("pantry bug"));
     await expect(searchRecipes("lök")).rejects.toThrow("pantry bug");
   });
 });
 
 describe("searchLibrary", () => {
-  it("gives the same recipes, with whether the pantry could be read", async () => {
-    expect(await searchLibrary("gryta")).toEqual(ok({ recipes: [gryta], pantryUnavailable: false }));
-    pantrySnapshotOrNull.mockResolvedValue(null);
+  it("gives the same recipes, with whether the pantry could be read and the place it is of", async () => {
+    expect(await searchLibrary("gryta")).toEqual(ok({ recipes: [gryta], pantryUnavailable: false, site: stugan }));
+    // The selected place's pantry, asked for without a place (AD-24).
+    expect(getPantrySnapshot).toHaveBeenCalledWith();
+    pantryFails();
     expect(await searchLibrary("gryta")).toEqual(
-      ok({ recipes: [{ ...gryta, missingCount: null }], pantryUnavailable: true }),
+      ok({ recipes: [{ ...gryta, missingCount: null }], pantryUnavailable: true, site: null }),
     );
   });
 
-  it("says the pantry was readable when nothing is found, since it is not read", async () => {
+  it("gives the place selected when it searches, so the line and the badges agree", async () => {
+    getSelectedSite.mockResolvedValue({ ...stugan, id: "66666666-6666-4666-8666-666666666666", name: "Hemma" });
+    const found = await searchLibrary("gryta");
+    expect(found.ok && found.data.site?.name).toBe("Hemma");
+  });
+
+  it("says the pantry was readable when nothing is found, since it is not read, and has no place", async () => {
     searchRecipesIn.mockResolvedValue([]);
-    expect(await searchLibrary("xyz")).toEqual(ok({ recipes: [], pantryUnavailable: false }));
-    expect(pantrySnapshotOrNull).not.toHaveBeenCalled();
+    expect(await searchLibrary("xyz")).toEqual(ok({ recipes: [], pantryUnavailable: false, site: null }));
+    expect(getPantrySnapshot).not.toHaveBeenCalled();
+    expect(getSelectedSite).not.toHaveBeenCalled();
   });
 
   it("fails as searchRecipes does", async () => {

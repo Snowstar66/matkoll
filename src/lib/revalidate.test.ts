@@ -18,6 +18,16 @@ describe("revalidateFor", () => {
     ]);
   });
 
+  it("revalidates Hemma, the recipes, the meal plan and the list after the selected place changes", () => {
+    revalidateFor("pantry_site");
+    expect(revalidatePath.mock.calls).toEqual([
+      ["/hemma", "page"],
+      ["/recept", "layout"],
+      ["/matsedel", "layout"],
+      ["/lista", "page"],
+    ]);
+  });
+
   it("revalidates the meal plan, the shopping list and the recipes after a meal plan write", () => {
     revalidateFor("meal_plan_recipe");
     revalidateFor("meal_plan");

@@ -34,8 +34,11 @@ vi.mock("@/features/catalog/server", () => ({
   matchIngredients: (items: readonly MatchItem[]) => matchIngredients(items),
   getIngredientNames: (ids: readonly string[]) => getIngredientNames(ids),
 }));
-const getPantrySnapshot = vi.fn<() => Promise<PantrySnapshot>>();
-vi.mock("@/features/pantry/server", () => ({ PantryDataError, getPantrySnapshot: () => getPantrySnapshot() }));
+const getPantrySnapshot = vi.fn<(siteId?: string) => Promise<PantrySnapshot>>();
+vi.mock("@/features/pantry/server", () => ({
+  PantryDataError,
+  getPantrySnapshot: (...args: [siteId?: string]) => getPantrySnapshot(...args),
+}));
 
 const ai = withInputValidation(createMockAiService());
 const suggestDishes = vi.fn(ai.suggestDishes);
@@ -132,6 +135,12 @@ describe("suggestFromPantry", () => {
     expect(suggestions[2].ingredientNames).toEqual({ [ids.lok]: "Gul lök", [ids.ost]: "Riven ost" });
   });
 
+  it("reads the selected place's pantry: the snapshot is asked for without a place (AD-24)", async () => {
+    await suggestFromPantry({ avoidTitles: [] }, { signal: signal() });
+    expect(getPantrySnapshot).toHaveBeenCalledTimes(1);
+    expect(getPantrySnapshot).toHaveBeenCalledWith();
+  });
+
   it("gives unauthorized without reading anything", async () => {
     requireUser.mockResolvedValue(fail("unauthorized"));
     expect(await suggestFromPantry({ avoidTitles: [] }, { signal: signal() })).toEqual(fail("unauthorized"));
@@ -151,7 +160,7 @@ describe("suggestFromPantry", () => {
     await expect(suggestFromPantry({ avoidTitles: [] }, { signal: signal() })).rejects.toThrow("bug");
   });
 
-  it("gives suggest_empty_pantry without asking the AI when nothing is at home", async () => {
+  it("gives suggest_empty_pantry without asking the AI when nothing is at home, also on an empty place such as Stugan", async () => {
     getPantrySnapshot.mockResolvedValue(new Map());
     expect(await suggestFromPantry({ avoidTitles: [] }, { signal: signal() })).toEqual(fail("suggest_empty_pantry"));
     expect(getIngredientNames).not.toHaveBeenCalled();

@@ -6,6 +6,7 @@ import { AddDishButton, AddDishProvider } from "@/features/mealplan/ui/add-dish-
 import { MealPlanList } from "@/features/mealplan/ui/meal-plan-list";
 import { PreviousPlansLink } from "@/features/mealplan/ui/previous-plans-link";
 import type { RecipeListItem } from "@/features/recipes";
+import { siteLineText } from "@/features/pantry";
 import { listRecipes, RecipeDataError, searchRecipes } from "@/features/recipes/server";
 import { errorMessages } from "@/lib/errors";
 
@@ -30,7 +31,9 @@ async function libraryOrNull(): Promise<RecipeListItem[] | null> {
  * cannot be read, a notice says so. The library, the recipes behind the
  * dishes and the pantry each degrade on their own: the sheet says the
  * library could not be read, the dishes show their stored titles, or the
- * status is left out. Other errors go to the error boundary.
+ * status is left out. With more than one place, "Lager: Stugan" under the
+ * page title says which place the status is counted against (AD-24); the
+ * list shows it while it has dishes. Other errors go to the error boundary.
  */
 export async function MealPlanContent() {
   await requireUserOrRedirect("/matsedel");
@@ -61,7 +64,12 @@ export async function MealPlanContent() {
           </>
         }
       />
-      <MealPlanList planName={view.plan?.name ?? null} dishes={view.dishes} snapshot={view.snapshot} />
+      <MealPlanList
+        planName={view.plan?.name ?? null}
+        dishes={view.dishes}
+        snapshot={view.snapshot}
+        siteLine={siteLineText(view.site)}
+      />
     </AddDishProvider>
   );
 }

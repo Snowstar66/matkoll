@@ -226,6 +226,26 @@ describe("RecipeView", () => {
     expect(screen.queryAllByRole("img")).toHaveLength(0);
   });
 
+  it("says which place the status is counted against under X av Y hemma, outside the live region", () => {
+    const stugan = { id: "55555555-5555-4555-8555-555555555555", name: "Stugan", siteCount: 2 };
+    render(<RecipeView recipe={recipe} snapshot={allHome} site={stugan} />);
+    const siteLine = screen.getByText("Lager: Stugan");
+    expect(siteLine.tagName).toBe("P");
+    expect(siteLine).toHaveClass("text-meta", "text-ink-2");
+    expect(siteLine.closest("[aria-live]")).toBeNull();
+    // After the status in the reading order.
+    expect(atHome()!.compareDocumentPosition(siteLine) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
+  });
+
+  it("has no line with one place, or without a status", () => {
+    const hemma = { id: "55555555-5555-4555-8555-555555555555", name: "Hemma", siteCount: 1 };
+    const { unmount } = render(<RecipeView recipe={recipe} snapshot={allHome} site={hemma} />);
+    expect(screen.queryByText(/^Lager:/)).not.toBeInTheDocument();
+    unmount();
+    render(<RecipeView recipe={recipe} snapshot={null} site={{ ...hemma, name: "Stugan", siteCount: 2 }} />);
+    expect(screen.queryByText(/^Lager:/)).not.toBeInTheDocument();
+  });
+
   it("numbers the steps", () => {
     render(<RecipeView recipe={recipe} snapshot={allHome} />);
     const steps = within(screen.getByRole("region", { name: "Steg" })).getAllByRole("listitem");

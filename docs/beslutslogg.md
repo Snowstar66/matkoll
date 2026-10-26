@@ -2,6 +2,24 @@
 
 Beslut som fattats under bygget: vad, varför och vilka alternativ som fanns. Nyaste överst.
 
+## 2026-10-26 – Lagningsstatus, förslag och Lägg i lagret följer valt ställe (Story 8.3)
+
+- **Underlag:** specen `spec-8-3-lagningsstatus-forslag-och-lagg-i-lagret-foljer-valt-stalle.md`, där besluten var förslag, och AD-24.
+- **Beslut:**
+  - **Raden "Lager: Stugan" skrivs bara av `siteLineText` i `pantry/domain/site.ts`,** så att alla moduler skriver den likadant. Den ger `null` med ett ställe, och då är allt som i 1.0. `siteSuffix` ger " för Stugan" för texter som "Lagt 8 varor i lagret för Stugan.".
+  - **Var raden visas:**
+    - i receptvyn under "X av Y hemma", utanför live-regionen, så att den inte läses upp när portionerna ändras;
+    - i Matsedel under sidrubriken, när matsedeln har rätter;
+    - i Recept bara med filtret "Kan lagas nu", direkt under filterpillren, så att pillret som trycks inte flyttar sig.
+
+    Raden visas aldrig utan status. `recipes` och `mealplan` läser `getSelectedSite()` och `getPantrySnapshot()` i samma förfrågan. Båda är memoiserade och läser samma valda ställe. Går lagret inte att läsa, visas varken status eller rad.
+  - **I biblioteket följer raden serverns ställe före sökningens,** eftersom raderna tar sin status från serverns lista i första hand. Sökningens ställe gäller bara när serverns lista saknade status.
+  - **"Lägg i lagret" räknar om listan mot listans ställe och lägger varorna där.** Klienten skickar `site.id` från `getShoppingList`. Ett ställe som väljs på en annan enhet efter att listan visades ändrar ingenting. Ett ställe som har tagits bort, eller som är en annan användares, ger `pantry_site_gone` (`MK410`). Då skrivs inget, bockarna står kvar och listan läses om. `siteId` får vara `null` när listan saknade ställe, och då gäller valt ställe.
+  - **Kvittona i `pantry_addition` gäller per användare, inte per ställe** (frågan från granskningen av 8.1). Nyckeln är bockens id. Kvittot glöms när bocken har rensats, och en ny bock får ett nytt id. Samma nyckel kan därför bara komma igen när ett avbrutet försök görs om. Då har varan redan köpts och lagts på det första stället, och det är rätt att den inte läggs till på det andra. Ett integrationstest låser det (`tests/integration/put-in-pantry-site.test.ts`).
+  - **Bekräftelsen namnger stället efter skrivningen** (`siteName` från `listPantrySites()`). Ett fel där ger texten från 1.0 och loggas bara.
+  - **AI-förslagen ändras inte.** De läser `getPantrySnapshot()` utan argument, alltså valt ställe, och ett test låser det.
+- **Vid bygget:** e2e-specen `site-status.spec.ts` väljer ställe med service role, eftersom väljaren i Hemma kommer i 8.2. Den gör en upsert av alla ställen i en sats, med det valda sist, så att det partiella unika indexet och `pantry_site_one_selected` håller. Specen laddar därför om sidorna efter ett byte. Kontrollen att ett byte syns utan omladdning kräver väljaren och läggs till när 8.2 finns på grenen.
+
 ## 2026-10-26 – Stabil bildtolkning och fotot under granskningen (snabbfix efter 6.5)
 
 - **Underlag:** Pontus såg att samma foto gav mycket olika förslag varje gång. Mätt med Pontus foto av kylen, förminskat till 2048 px, med appens prompt mot Qwen3.6 i LM Studio, tre körningar per inställning:

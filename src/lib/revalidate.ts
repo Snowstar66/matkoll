@@ -36,6 +36,15 @@ const routesByTable = {
     { path: "/matsedel", type: "layout" },
     { path: "/lista", type: "page" },
   ],
+  // The selected place (Epic 8, AD-24): Hemma shows its pantry, and the
+  // recipes' status, the meal plan's dishes and the shopping list are counted
+  // against it, each with the line "Lager".
+  pantry_site: [
+    { path: "/hemma", type: "page" },
+    { path: "/recept", type: "layout" },
+    { path: "/matsedel", type: "layout" },
+    { path: "/lista", type: "page" },
+  ],
   // The meal plan, the shopping list counted from it, and the recipes, which
   // may show what is on the plan (AD-18). Both tables, so either can be named.
   meal_plan: [

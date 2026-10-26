@@ -11,3 +11,9 @@ export class PantryDataError extends Error {
     this.name = "PantryDataError";
   }
 }
+
+/** The Postgres code of a place that is removed, or not the user's (pantry_target_site, Story 8.1). */
+export const siteGoneCode = "MK410";
+
+/** PantryDataError's detail for siteGoneCode: the caller gives `pantry_site_gone`, and nothing was written. */
+export const siteGoneDetail = "site_gone";

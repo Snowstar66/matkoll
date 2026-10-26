@@ -2,8 +2,8 @@ import "server-only";
 import { requireUser } from "@/features/auth/server";
 import { CatalogDataError, getIngredientDefaults, getIngredientNames } from "@/features/catalog/server";
 import { getCurrentPlan, MealPlanDataError } from "@/features/mealplan/server";
-import type { PantrySnapshot } from "@/features/pantry";
-import { findPantryAdditions, getPantrySnapshot, PantryDataError } from "@/features/pantry/server";
+import type { PantrySnapshot, SelectedSite } from "@/features/pantry";
+import { findPantryAdditions, getPantrySnapshot, getSelectedSite, PantryDataError } from "@/features/pantry/server";
 import { getRecipesByIds, RecipeDataError } from "@/features/recipes/server";
 import { getSelectedStore, SettingsDataError } from "@/features/settings/server";
 import { fail, ok, type Result } from "@/lib/errors";
@@ -25,7 +25,8 @@ import type { CheckRow } from "./domain/put-in-pantry";
 // (Story 3.4), own items (Story 3.5) and overrides (Story 3.6), with the
 // signed-in user's session client, so RLS limits every read to the user's own
 // rows. Beside the list, never in it, come the selected store (settings) and
-// its product choices (Story 7.2). Checking a line off, adding, changing or
+// its product choices (Story 7.2), and the place the list is counted against
+// (pantry, AD-24), which "Lägg i lagret" sends back. Checking a line off, adding, changing or
 // removing an own item, correcting, hiding or restoring a line, and saving or
 // removing a product choice are the Server Actions in ./actions, used by this
 // module's own ui.
@@ -36,9 +37,13 @@ import type { CheckRow } from "./domain/put-in-pantry";
  * interrupted "Lägg i lagret" already put in the pantry (Story 3.7), so the
  * button stays reachable to clear them; beside it, the selected store and its
  * product choices by catalog ingredient (Story 7.2), which never change how
- * the list is counted.
+ * the list is counted; and `site`, the place whose pantry the list is counted
+ * against (pantry.getSelectedSite, AD-24), or `null` when the user has none
+ * or it cannot be read. "Lägg i lagret" sends its id, so the items go to the
+ * place the list showed (FR-33). The place never changes a line's key, a
+ * check, an override, an own item, a product choice or the export.
  */
-export type ShoppingList = CountedList & { pendingClear: number } & ProductChoiceContext;
+export type ShoppingList = CountedList & { pendingClear: number } & ProductChoiceContext & { site: SelectedSite | null };
 
 /**
  * The selected store (settings.getSelectedStore) and then its product
@@ -83,6 +88,22 @@ async function storeAndChoices(): Promise<ProductChoiceContext> {
 async function pantrySnapshotOrNull(): Promise<PantrySnapshot | null> {
   try {
     return await getPantrySnapshot();
+  } catch (error) {
+    if (!(error instanceof PantryDataError)) throw error;
+    console.error("pantry_unavailable", { reason: error.detail });
+    return null;
+  }
+}
+
+/**
+ * The place the list is counted against, or `null` when the user has none or
+ * it cannot be read (logged as `pantry_unavailable`): the list is shown all
+ * the same. getSelectedSite and getPantrySnapshot are memoised per request
+ * and read the same selected place. Other errors are bugs and are thrown.
+ */
+async function selectedSiteOrNull(): Promise<SelectedSite | null> {
+  try {
+    return await getSelectedSite();
   } catch (error) {
     if (!(error instanceof PantryDataError)) throw error;
     console.error("pantry_unavailable", { reason: error.detail });
@@ -137,8 +158,9 @@ async function pendingClearOf(list: CountedList, checks: readonly CheckRow[] | n
  * without them and `checksUnavailable`. A pantry that cannot be read gives the list
  * with nothing taken off and `pantryUnavailable`. `pendingClear` counts the
  * checks an interrupted "Lägg i lagret" left behind. The selected store and
- * its product choices are read alongside (storeAndChoices); when they cannot
- * be read, the list is given all the same. Other errors are thrown.
+ * its product choices are read alongside (storeAndChoices), and so is the
+ * place the list is counted against (`site`); when they cannot be read, the
+ * list is given all the same. Other errors are thrown.
  */
 export async function getShoppingList(): Promise<Result<ShoppingList>> {
   const user = await requireUser();
@@ -146,7 +168,7 @@ export async function getShoppingList(): Promise<Result<ShoppingList>> {
   let checks: CheckRow[] | null = null;
   // The store and its choices are read alongside the list; both settle
   // before either is used, so neither is left running unobserved.
-  const [counted, choices] = await Promise.allSettled([
+  const [counted, choices, site] = await Promise.allSettled([
     loadShoppingList({
       currentPlan: getCurrentPlan,
       recipesByIds: getRecipesByIds,
@@ -161,13 +183,15 @@ export async function getShoppingList(): Promise<Result<ShoppingList>> {
       overrides: async (planId) => listOverridesIn(await createClient(), planId),
     }),
     storeAndChoices(),
+    selectedSiteOrNull(),
   ]);
-  // storeAndChoices handles every expected error: what it throws is a bug.
+  // storeAndChoices and selectedSiteOrNull handle every expected error: what they throw is a bug.
   if (choices.status === "rejected") throw choices.reason;
+  if (site.status === "rejected") throw site.reason;
   try {
     if (counted.status === "rejected") throw counted.reason;
     const list = counted.value;
-    return ok({ ...list, pendingClear: await pendingClearOf(list, checks), ...choices.value });
+    return ok({ ...list, pendingClear: await pendingClearOf(list, checks), ...choices.value, site: site.value });
   } catch (error) {
     if (error instanceof MealPlanDataError || error instanceof RecipeDataError || error instanceof ShoppingDataError) {
       console.error("shopping_unavailable", { reason: error.detail });

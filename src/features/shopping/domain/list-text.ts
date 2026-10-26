@@ -169,11 +169,13 @@ export const putInPantryButtonText = "Lägg i lagret";
  * were checked, "Tog bort 1 vara från listan.", "Tog bort 2 varor från
  * listan."; `null` when nothing was put in the pantry or taken off the list
  * (only lines without a catalog ingredient were checked, and their checks
- * are cleared).
+ * are cleared). With `siteName`, the place the items went to when the user
+ * has more than one (putCheckedInPantry): "Lagt 8 varor i lagret för
+ * Stugan." (EXPERIENCE.md, Voice and Tone).
  */
-export function putInPantryText(added: number, removed: number): string | null {
+export function putInPantryText(added: number, removed: number, siteName: string | null = null): string | null {
   const items = (count: number) => `${count} ${count === 1 ? "vara" : "varor"}`;
-  if (added > 0) return `Lagt ${items(added)} i lagret.`;
+  if (added > 0) return `Lagt ${items(added)} i lagret${siteName ? ` för ${siteName}` : ""}.`;
   if (removed > 0) return `Tog bort ${items(removed)} från listan.`;
   return null;
 }

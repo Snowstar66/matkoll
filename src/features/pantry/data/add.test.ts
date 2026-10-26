@@ -42,6 +42,34 @@ describe("addToPantryIn", () => {
     });
   });
 
+  it("sends the place when one is given, and leaves it out for the selected place", async () => {
+    const stugan = "55555555-5555-4555-8555-555555555555";
+    const { db, rpc } = fakeRpc({ data: 1, error: null });
+    const locations = async () => ({ [kaffe]: { location: "Skafferi" as const } });
+    const item = { key: key1, ingredientId: kaffe, amount: 1, unit: "förp" as const };
+    await addToPantryIn(db, [item], locations, stugan);
+    await addToPantryIn(db, [item], locations, null);
+    const row = { key: key1, ingredient_id: kaffe, location: "Skafferi", amount: 1, unit: "förp" };
+    expect(rpc.mock.calls).toEqual([
+      ["add_to_pantry", { items: [row], site: stugan }],
+      ["add_to_pantry", { items: [row] }],
+    ]);
+  });
+
+  it("refuses a place that is not a uuid, and gives site_gone for a place that is gone, MK410", async () => {
+    const locations = async () => ({ [kaffe]: { location: "Skafferi" as const } });
+    const item = { key: key1, ingredientId: kaffe, amount: 1, unit: "förp" as const };
+    const refused = fakeRpc({ data: 1, error: null });
+    await expect(addToPantryIn(refused.db, [item], locations, "Stugan")).rejects.toThrow(
+      new PantryDataError("invalid_site"),
+    );
+    expect(refused.rpc).not.toHaveBeenCalled();
+    const gone = fakeRpc({ data: null, error: { code: "MK410" } });
+    await expect(
+      addToPantryIn(gone.db, [item], locations, "55555555-5555-4555-8555-555555555555"),
+    ).rejects.toThrow(new PantryDataError("site_gone"));
+  });
+
   it("refuses an ingredient the catalog does not return, also with a location given", async () => {
     const { db, rpc } = fakeRpc({ data: 1, error: null });
     await expect(

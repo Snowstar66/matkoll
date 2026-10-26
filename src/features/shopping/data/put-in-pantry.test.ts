@@ -172,6 +172,44 @@ describe("putInPantryWith", () => {
     expect(d.clear).not.toHaveBeenCalled();
   });
 
+  it("passes on pantry_site_gone, clearing nothing and keeping the checks", async () => {
+    const { deps: d } = deps({ addToPantry: vi.fn(async () => fail("pantry_site_gone")) });
+    expect(await putInPantryWith(d, planId)).toEqual({ kind: "pantry_failed", error: fail("pantry_site_gone").error });
+    expect(d.clear).not.toHaveBeenCalled();
+    expect(d.forgetAdditions).not.toHaveBeenCalled();
+  });
+
+  it("counts the list against the pantry it is given: a line covered there is not sent", async () => {
+    // The list's place has the grädde; another place's would not change this.
+    const { deps: base } = deps();
+    const { deps: d } = deps({
+      sources: { ...base.sources, pantry: async () => toSnapshot([{ ingredientId: gradde, amount: 3, unit: "dl" }]) },
+    });
+    await putInPantryWith(d, planId);
+    expect(d.addToPantry).toHaveBeenCalledWith([
+      { key: check4, ingredientId: kaffe, amount: 2, unit: "förp" },
+      { key: check2, ingredientId: salt, amount: null, unit: null },
+    ]);
+  });
+
+  it("never sends an item twice on a second run against another place's pantry: a covered line's receipt clears its check", async () => {
+    // The first run put everything in the pantry of one place but got no
+    // answer; the second counts against another place, which has the grädde.
+    const { deps: base } = deps();
+    const { deps: d } = deps({
+      sources: { ...base.sources, pantry: async () => toSnapshot([{ ingredientId: gradde, amount: 3, unit: "dl" }]) },
+      findAdditions: vi.fn(async () => [check1]),
+    });
+    await putInPantryWith(d, planId);
+    // The grädde is not sent again; its check is cleared with its receipt.
+    expect(d.addToPantry).toHaveBeenCalledWith([
+      { key: check4, ingredientId: kaffe, amount: 2, unit: "förp" },
+      { key: check2, ingredientId: salt, amount: null, unit: null },
+    ]);
+    expect(d.clear).toHaveBeenCalledWith(planId, expect.objectContaining({ checkIds: [check5, check4, check2, check1] }));
+    // The rest keep their keys, the checks' ids, so the pantry skips those it has a receipt of.
+  });
+
   it("tries a failed clear once more", async () => {
     const clear = vi.fn().mockImplementationOnce(failingClear).mockResolvedValueOnce(2);
     const { deps: d } = deps({ clear });

@@ -6,7 +6,7 @@ import { requireUser } from "@/features/auth/server";
 import { fail, ok, type Result } from "@/lib/errors";
 import { createClient } from "@/lib/supabase/server";
 import { RecipeDataError } from "../data/client";
-import { pantrySnapshotOrNull } from "../data/pantry-snapshot";
+import { pantryForStatus } from "../data/pantry-snapshot";
 import { searchRecipesIn } from "../data/queries";
 import { recipeSearchSchema, toLibrary, type RecipeLibrary, type RecipeListItem } from "../domain/recipe-list";
 
@@ -26,9 +26,10 @@ export async function searchRecipes(query: string): Promise<Result<RecipeListIte
 }
 
 /**
- * searchRecipes for the Recept page's library: the same recipes, and whether
+ * searchRecipes for the Recept page's library: the same recipes, whether
  * the pantry could not be read (never when nothing is found, since the pantry
- * is not read then), so Kan lagas nu can say why it does not rank them.
+ * is not read then), so Kan lagas nu can say why it does not rank them, and
+ * the place the status was counted against (none when nothing is found).
  */
 export async function searchLibrary(query: string): Promise<Result<RecipeLibrary>> {
   return search(query);
@@ -44,9 +45,12 @@ async function search(query: string): Promise<Result<RecipeLibrary>> {
   try {
     const ingredientIds = await findIngredientIds(text);
     const rows = await searchRecipesIn(await createClient(), { text, ingredientIds });
-    if (rows.length === 0) return ok({ recipes: [], pantryUnavailable: false });
-    // A pantry that cannot be read gives the recipes without status, never a failed search.
-    return ok(toLibrary(rows, await pantrySnapshotOrNull()));
+    if (rows.length === 0) return ok({ recipes: [], pantryUnavailable: false, site: null });
+    // A pantry that cannot be read gives the recipes without status, never a
+    // failed search. The status and the place are the ones selected now, so
+    // the line "Lager" and the badges always agree (AD-24).
+    const { snapshot, site } = await pantryForStatus();
+    return ok(toLibrary(rows, snapshot, site));
   } catch (error) {
     if (error instanceof CatalogDataError) {
       console.error("recipe_search_failed", { reason: `catalog_${error.code}` });

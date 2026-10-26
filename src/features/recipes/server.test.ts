@@ -22,7 +22,12 @@ const { PantryDataError } = vi.hoisted(() => ({
   },
 }));
 const getPantrySnapshot = vi.fn();
-vi.mock("@/features/pantry/server", () => ({ PantryDataError, getPantrySnapshot: () => getPantrySnapshot() }));
+const getSelectedSite = vi.fn();
+vi.mock("@/features/pantry/server", () => ({
+  PantryDataError,
+  getPantrySnapshot: () => getPantrySnapshot(),
+  getSelectedSite: () => getSelectedSite(),
+}));
 
 const { getRecipeWithPantry, listLibrary } = await import("./server");
 
@@ -41,6 +46,8 @@ const libraryRow = {
   lines: [line("gradde")],
 };
 
+const stugan = { id: "55555555-5555-4555-8555-555555555555", name: "Stugan", siteCount: 2 };
+
 /** The library row as the page gets it, without its lines. */
 const libraryItem = Object.fromEntries(Object.entries(libraryRow).filter(([key]) => key !== "lines"));
 
@@ -49,6 +56,7 @@ beforeEach(() => {
   getRecipeIn.mockReset().mockResolvedValue(recipe);
   listRecipesIn.mockReset().mockResolvedValue([libraryRow]);
   getPantrySnapshot.mockReset().mockResolvedValue(toSnapshot([]));
+  getSelectedSite.mockReset().mockResolvedValue(stugan);
   log?.mockRestore();
   log = vi.spyOn(console, "error").mockImplementation(() => {});
 });
@@ -63,13 +71,14 @@ describe("getRecipeWithPantry", () => {
     );
     const found = await getRecipeWithPantry(id);
     expect(found?.recipe).toBe(recipe);
+    expect(found?.site).toBe(stugan);
     expect(found?.snapshot).toEqual(new Map([["gradde", { unlimited: false, amounts: [{ unit: "dl", amount: 2 }] }]]));
   });
 
-  it("gives the recipe with snapshot null when the pantry cannot be read", async () => {
+  it("gives the recipe with snapshot null, and no place, when the pantry cannot be read", async () => {
     getPantrySnapshot.mockRejectedValue(new PantryDataError("query_failed 08006"));
     const found = await getRecipeWithPantry(id);
-    expect(found).toEqual({ recipe, snapshot: null });
+    expect(found).toEqual({ recipe, snapshot: null, site: null });
     expect(log).toHaveBeenCalledWith("pantry_unavailable", { reason: "query_failed 08006" });
   });
 
@@ -82,18 +91,35 @@ describe("getRecipeWithPantry", () => {
     expect(await getRecipeWithPantry("inte-ett-id")).toBeNull();
     expect(getRecipeIn).not.toHaveBeenCalled();
     expect(getPantrySnapshot).not.toHaveBeenCalled();
+    expect(getSelectedSite).not.toHaveBeenCalled();
+  });
+
+  it("gives the recipe with its status and no place when the place cannot be read", async () => {
+    getSelectedSite.mockRejectedValue(new PantryDataError("sites_failed 08006"));
+    const found = await getRecipeWithPantry(id);
+    expect(found?.site).toBeNull();
+    expect(found?.snapshot).toEqual(new Map());
+    expect(log).toHaveBeenCalledWith("pantry_unavailable", { reason: "sites_failed 08006" });
   });
 });
 
 describe("listLibrary", () => {
-  it("gives the rows with their status and says the pantry was read", async () => {
+  it("gives the rows with their status, says the pantry was read, and has the place it is of", async () => {
     getPantrySnapshot.mockResolvedValue(toSnapshot([{ ingredientId: "gradde", amount: 2, unit: "dl" }]));
-    expect(await listLibrary()).toEqual({ recipes: [{ ...libraryItem, missingCount: 0 }], pantryUnavailable: false });
+    expect(await listLibrary()).toEqual({
+      recipes: [{ ...libraryItem, missingCount: 0 }],
+      pantryUnavailable: false,
+      site: stugan,
+    });
   });
 
-  it("gives the rows without status and pantryUnavailable when the pantry cannot be read", async () => {
+  it("gives the rows without status or place, and pantryUnavailable, when the pantry cannot be read", async () => {
     getPantrySnapshot.mockRejectedValue(new PantryDataError("query_failed 08006"));
-    expect(await listLibrary()).toEqual({ recipes: [{ ...libraryItem, missingCount: null }], pantryUnavailable: true });
+    expect(await listLibrary()).toEqual({
+      recipes: [{ ...libraryItem, missingCount: null }],
+      pantryUnavailable: true,
+      site: null,
+    });
     expect(log).toHaveBeenCalledWith("pantry_unavailable", { reason: "query_failed 08006" });
   });
 });

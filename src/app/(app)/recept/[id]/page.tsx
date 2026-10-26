@@ -39,11 +39,12 @@ async function RecipeContent({ params }: Pick<PageProps<"/recept/[id]">, "params
   await requireUserOrRedirect(`/recept/${encodeURIComponent(id)}`);
   const found = await getRecipeWithPantry(id);
   if (!found) notFound();
-  const { recipe, snapshot } = found;
+  const { recipe, snapshot, site } = found;
   return (
     <RecipeView
       recipe={recipe}
       snapshot={snapshot}
+      site={site}
       menu={<RecipeMenu recipe={recipe} searchIngredients={searchIngredients} />}
       addToPlan={addToCurrentPlan}
     />
