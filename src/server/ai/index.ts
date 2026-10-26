@@ -4,8 +4,18 @@ import { createAiService, type AiService } from "./service";
 
 // Entry point of the AI port (AD-9). Only src/server/ai imports the AI SDK.
 
-export type { AiService, ImageInput, ParseRecipeInput, SuggestDishesInput, SuggestPantryItem } from "./service";
-export type { AiIngredientHint, AiRecipe, AiRecipeIngredient } from "./schemas";
+export type {
+  AiService,
+  AnalyzeImageInput,
+  AnalyzeImageResult,
+  AnalyzePlace,
+  ImageInput,
+  ParseRecipeInput,
+  RunOptions,
+  SuggestDishesInput,
+  SuggestPantryItem,
+} from "./service";
+export type { AiIngredientHint, AiPantryItem, AiRecipe, AiRecipeIngredient } from "./schemas";
 
 let service: AiService | undefined;
 

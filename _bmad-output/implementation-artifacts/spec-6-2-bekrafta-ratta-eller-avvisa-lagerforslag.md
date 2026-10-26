@@ -176,6 +176,12 @@ context:
 - Platskortens antal uppdateras genom `revalidateFor("pantry_item")`, som också räknar om lagningsstatus i biblioteket, matsedeln och inköpslistan (AD-18). Det kort som räknar de visade varorna (`PantryPlace`) följer med.
 - Loggning sker bara med felkod och orsak, aldrig med varunamn eller mängder.
 
+- **Från 6.1:**
+  - Upp till 25 förslag, inte 40.
+  - Nya ingredienser har `proposalId`, som är gemensamt för flera enheter av samma vara, så att ingrediensen bara skapas en gång. Bekräftelsens schema ska ta emot det.
+  - Svaret har fältet `dropped`.
+  - `ai_superseded` behandlas som ett avbrott.
+
 ## Spec Change Log
 
 ## Review Triage Log

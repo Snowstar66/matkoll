@@ -6,6 +6,8 @@ import {
   adminClient,
   aiSuggestionsEmail,
   aiSuggestionsStorageState,
+  cameraEmail,
+  cameraStorageState,
   cookableEmail,
   cookableStorageState,
   cookModeEmail,
@@ -79,6 +81,7 @@ export default async function globalSetup(config: FullConfig) {
       [cookModeEmail, cookModeStorageState],
       [cookableEmail, cookableStorageState],
       [aiSuggestionsEmail, aiSuggestionsStorageState],
+      [cameraEmail, cameraStorageState],
     ] as const) {
       const user = await browser.newContext({ baseURL });
       const page = await user.newPage();

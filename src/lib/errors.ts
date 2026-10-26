@@ -11,6 +11,9 @@ export const errorMessages = {
   ai_unavailable: "AI-tjänsten svarar inte just nu. Är datorn med modellen igång?",
   ai_invalid: "Det gick inte att tolka svaret. Försök igen.",
   ai_rejected: "AI-tjänsten tog inte emot förfrågan. Prova med en kortare text eller försök igen senare.",
+  // A photo analysis stopped because a newer one from the same person started
+  // (another tab, a double tap). Not an error: the client shows nothing for it.
+  ai_superseded: "En nyare bild analyseras.",
   import_no_recipe: "Det gick inte att hitta något recept i texten.",
   // AI-förslag (Story 5.2) with nothing at home: the AI is not asked.
   suggest_empty_pantry: "Lagret är tomt. Lägg till varor i Hemma, så kan AI:n föreslå rätter.",

@@ -2,7 +2,7 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { fail } from "@/lib/errors";
 import { maxImageBytes } from "@/lib/images";
-import { jpegHeader, pngHeader } from "../../../../tests/support/image-headers";
+import { jpegHeader, pngChunk, pngFile, pngHeader } from "../../tests/support/image-headers";
 import { downscaleImage, fitWithin, halvingSteps, jpegQualities } from "./downscale-image";
 
 // jsdom decodes no images and draws nothing, so createImageBitmap and the
@@ -200,12 +200,33 @@ describe("downscaleImage", () => {
     expect(result.ok && result.data.type).toBe("image/jpeg");
   });
 
-  it("sends a PNG that fits and is shown at its header's size as it is", async () => {
+  it("sends a PNG that fits and is shown at its header's size with the same bytes, when it has no metadata", async () => {
     fullSize = { width: 768, height: 942 };
-    const png = blob(pngHeader(768, 942, 110_000), "image/png");
-    const result = await downscaleImage(png);
-    expect(result).toEqual({ ok: true, data: png });
+    const bytes = pngFile(768, 942, { size: 110_000 });
+    const result = await downscaleImage(blob(bytes, "image/png"));
+    if (!result.ok) throw new Error(result.error.code);
+    expect(result.data.type).toBe("image/png");
+    expect(new Uint8Array(await result.data.arrayBuffer())).toEqual(bytes);
     expect(drawn).toEqual([]);
+  });
+
+  it("sends a PNG that fits without its metadata chunks: no text, EXIF or time", async () => {
+    fullSize = { width: 768, height: 942 };
+    const idat = pngChunk("IDAT", new Uint8Array(1000));
+    const withMetadata = pngFile(768, 942, {
+      chunks: [pngChunk("tEXt", [..."GPS 59.3"].map((c) => c.charCodeAt(0))), pngChunk("eXIf", [1, 2, 3]), pngChunk("tIME", [7, 234, 10, 26, 9, 0, 0]), idat],
+    });
+    const result = await downscaleImage(blob(withMetadata, "image/png"));
+    if (!result.ok) throw new Error(result.error.code);
+    expect(new Uint8Array(await result.data.arrayBuffer())).toEqual(pngFile(768, 942, { chunks: [idat] }));
+    expect(drawn).toEqual([]);
+  });
+
+  it("re-encodes a PNG that fits but whose chunks cannot be read", async () => {
+    fullSize = { width: 768, height: 942 };
+    const result = await downscaleImage(blob(pngHeader(768, 942, 110_000), "image/png"));
+    expect(drawn).toHaveLength(1);
+    expect(result.ok && result.data.type).toBe("image/jpeg");
   });
 
   it("re-encodes a PNG that the browser turns (eXIf), even when it fits", async () => {

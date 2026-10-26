@@ -1,8 +1,7 @@
 import { requireUserForRoute } from "@/features/auth/server";
 import { importRecipe } from "@/features/recipes/server";
 import { fail } from "@/lib/errors";
-import { imageSideTolerance, imageSizeOf, imageTypeOf, maxImageBytes, maxImageSide } from "@/lib/images";
-import { isCrossSite, mediaTypeOf, readCapped, respond, unreadBody } from "../../route-support";
+import { isCrossSite, mediaTypeOf, readImageForm, respond } from "../../route-support";
 
 // Import of a recipe from a photo of a cookbook page (AD-9, AD-15): the client
 // resizes the photo and posts it through src/lib/ai-client.ts as
@@ -18,9 +17,6 @@ import { isCrossSite, mediaTypeOf, readCapped, respond, unreadBody } from "../..
 // The AI port's budget is 115 s in total (AD-9).
 export const maxDuration = 120;
 
-/** Largest request body: a photo of at most 1.5 MB with the form's headers fits well within it. */
-const maxBodyBytes = 2 * 1024 * 1024;
-
 export async function POST(request: Request): Promise<Response> {
   if (isCrossSite(request)) return respond(fail("unauthorized"), 403);
 
@@ -28,28 +24,9 @@ export async function POST(request: Request): Promise<Response> {
   if (auth.response) return auth.response;
 
   if (mediaTypeOf(request) !== "multipart/form-data") return respond(fail("validation"), 415);
-  // The photo is all that makes a request this large.
-  const read = await readCapped(request, maxBodyBytes);
-  if (!read.ok) return read.reason === "too_large" ? respond(fail("image_too_large")) : unreadBody(read.reason);
+  // Size, type and pixels of the photo, checked on its own bytes (AD-15).
+  const form = await readImageForm(request);
+  if (!form.ok) return form.response;
 
-  let form: FormData;
-  try {
-    // The body is already read and capped; parse it with the request's boundary.
-    form = await new Response(read.bytes, { headers: { "content-type": request.headers.get("content-type") ?? "" } }).formData();
-  } catch {
-    return respond(fail("validation"));
-  }
-  const file = form.get("image");
-  if (!(file instanceof Blob) || file.size === 0) return respond(fail("validation"));
-  if (file.size > maxImageBytes) return respond(fail("image_too_large"));
-
-  const data = new Uint8Array(await file.arrayBuffer());
-  // The type and the size in pixels come from the bytes, whatever the client says.
-  const mediaType = imageTypeOf(data);
-  const size = imageSizeOf(data);
-  if (!mediaType || !size) return respond(fail("image_unsupported"));
-  // The client resizes to maxImageSide; a larger image did not come through it.
-  if (Math.max(size.width, size.height) > maxImageSide + imageSideTolerance) return respond(fail("image_too_large"));
-
-  return respond(await importRecipe({ kind: "photo", image: { data, mediaType } }, { signal: request.signal }));
+  return respond(await importRecipe({ kind: "photo", image: form.image }, { signal: request.signal }));
 }

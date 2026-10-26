@@ -1,4 +1,5 @@
 import { fail, type ErrorCode, type Result } from "@/lib/errors";
+import { imageSideTolerance, imageSizeOf, imageTypeOf, maxImageBytes, maxImageSide, type ImageMediaType } from "@/lib/images";
 import { env } from "@/server/env";
 
 // Shared by the AI Route Handlers (AD-9): the checks that only the app itself
@@ -13,6 +14,8 @@ const statusFor: Partial<Record<ErrorCode, number>> = {
   ai_invalid: 502,
   ai_rejected: 502,
   ai_unavailable: 503,
+  // A newer analysis from the same person took over; nobody shows this answer.
+  ai_superseded: 409,
   catalog_unavailable: 503,
   pantry_unavailable: 503,
   settings_unavailable: 503,
@@ -91,4 +94,61 @@ export function unreadBody(reason: "aborted" | "broken"): Response {
     return respond(fail("validation"), 499);
   }
   return respond(fail("validation"), 400);
+}
+
+/** Largest request with a photo: a photo of at most 1.5 MB with the form's headers and fields fits well within it. */
+export const maxImageBodyBytes = 2 * 1024 * 1024;
+
+/** A photo read from a form, with its type from its own bytes (AD-15). */
+export type FormImage = { data: Uint8Array; mediaType: ImageMediaType };
+
+export type ImageForm<Field extends string> =
+  | { ok: true; image: FormImage; fields: Record<Field, string | null> }
+  | { ok: false; response: Response };
+
+/**
+ * Reads a multipart/form-data body with a photo in the field `image` (AD-15):
+ * at most maxImageBodyBytes (413 `image_too_large`), parsed as a form (400
+ * `validation` when it is not one, or has no image), the image at most 1.5 MB
+ * (413), a JPEG, PNG or WebP by its first bytes (415 `image_unsupported`) and
+ * at most maxImageSide (with imageSideTolerance) on its longest side by its
+ * header (413). Gives the image and the text `fields` (`null` when missing or
+ * not text), or the error response to send. The caller checks the origin, the
+ * user and the media type first. The photo is only held in memory.
+ */
+export async function readImageForm<Field extends string>(
+  request: Request,
+  fields: readonly Field[] = [],
+): Promise<ImageForm<Field>> {
+  const failed = (response: Response) => ({ ok: false as const, response });
+  // The photo is all that makes a request this large.
+  const read = await readCapped(request, maxImageBodyBytes);
+  if (!read.ok) return failed(read.reason === "too_large" ? respond(fail("image_too_large")) : unreadBody(read.reason));
+
+  let form: FormData;
+  try {
+    // The body is already read and capped; parse it with the request's boundary.
+    form = await new Response(read.bytes, { headers: { "content-type": request.headers.get("content-type") ?? "" } }).formData();
+  } catch {
+    return failed(respond(fail("validation")));
+  }
+  const file = form.get("image");
+  if (!(file instanceof Blob) || file.size === 0) return failed(respond(fail("validation")));
+  if (file.size > maxImageBytes) return failed(respond(fail("image_too_large")));
+
+  const data = new Uint8Array(await file.arrayBuffer());
+  // The type and the size in pixels come from the bytes, whatever the client says.
+  const mediaType = imageTypeOf(data);
+  const size = imageSizeOf(data);
+  if (!mediaType || !size) return failed(respond(fail("image_unsupported")));
+  // The client resizes to maxImageSide; a larger image did not come through it.
+  if (Math.max(size.width, size.height) > maxImageSide + imageSideTolerance) return failed(respond(fail("image_too_large")));
+
+  const values = Object.fromEntries(
+    fields.map((field) => {
+      const value = form.get(field);
+      return [field, typeof value === "string" ? value : null];
+    }),
+  ) as Record<Field, string | null>;
+  return { ok: true, image: { data, mediaType }, fields: values };
 }

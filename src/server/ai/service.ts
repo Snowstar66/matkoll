@@ -17,11 +17,17 @@ import { createMockAiService } from "./adapters/mock";
 import { createOpenAiTarget } from "./adapters/openai";
 import { prompts } from "./prompts";
 import { defaultLimits, runStructured, type Limits, type ModelTarget } from "./run";
-import { parseRecipeAnswer, suggestDishesAnswerFor, type AiRecipe } from "./schemas";
+import {
+  analyzeImageAnswer,
+  parseAnalyzeItems,
+  parseRecipeAnswer,
+  suggestDishesAnswerFor,
+  type AiPantryItem,
+  type AiRecipe,
+} from "./schemas";
 
 // The AI port (AD-9). Modules call these methods and never see the provider.
-// analyzeImage (Epic 6) is added here like parseRecipe and suggestDishes, with
-// its schema in schemas.ts and its prompt in prompts/.
+// Each has its schema in schemas.ts and its prompt in prompts/.
 
 export type ImageInput = { data: Uint8Array; mediaType: string };
 
@@ -44,13 +50,29 @@ export type SuggestDishesInput = {
   avoidTitles: string[];
 };
 
-export type SuggestDishesOptions = {
+export type RunOptions = {
   /**
    * When the whole request must be done (Date.now() milliseconds): the run's
    * total budget is cut to the time left, so the Route Handler fits its
    * maxDuration. Without it, the usual budget.
    */
   deadline?: number;
+};
+
+export type SuggestDishesOptions = RunOptions;
+
+/** The places at home a photo can show. The port takes them as strings; it never imports a feature module (AD-1). */
+export const analyzePlaces = ["Kyl", "Frys", "Skafferi"] as const;
+export type AnalyzePlace = (typeof analyzePlaces)[number];
+
+/** What analyzeImage answers: the items that passed aiPantryItem, in the model's order, and how many did not. */
+export type AnalyzeImageResult = { items: AiPantryItem[]; invalid: number };
+
+export type AnalyzeImageInput = {
+  /** A photo of the place, already resized in the client (AD-15). Never stored or logged. */
+  image: ImageInput;
+  /** The place the photo shows. */
+  place: AnalyzePlace;
 };
 
 export interface AiService {
@@ -66,6 +88,16 @@ export interface AiService {
    * little time), `ai_rejected` or `ai_invalid`.
    */
   suggestDishes(input: SuggestDishesInput, signal: AbortSignal, options?: SuggestDishesOptions): Promise<Result<AiRecipe[]>>;
+  /**
+   * The food items the model sees in a photo of a place at home, possibly
+   * none, and possibly more than inputLimits.analyze.maxItems (the caller
+   * keeps the first ones). Each item is checked on its own: one that does not
+   * pass aiPantryItem is left out and counted in `invalid`. Fails with
+   * `validation` (an image outside the limits, or an unknown place),
+   * `ai_unavailable` (also when the deadline leaves too little time),
+   * `ai_rejected` or `ai_invalid` (the answer as a whole is broken).
+   */
+  analyzeImage(input: AnalyzeImageInput, signal: AbortSignal, options?: RunOptions): Promise<Result<AnalyzeImageResult>>;
 }
 
 /**
@@ -87,19 +119,34 @@ export const inputLimits = {
    * dish), so prompt, schema, pantry and answer fit in 8 192 tokens.
    */
   suggest: { ...suggestInputLimits, maxOutputTokens: 4_000 },
+  /**
+   * analyzeImage: measured with Qwen3.6 in LM Studio (2026-10-26), prompt,
+   * schema and a photo of 1600 px are under 1 000 tokens, and an item is
+   * about 60 tokens of answer. At most 25 items is about 1 500 tokens, so
+   * 3 000 leaves room for long labels, and the answer comes well within the
+   * 100 s attempt. The prompt asks for at most 25; more are cut by the
+   * caller, not refused.
+   */
+  analyze: { maxItems: 25, maxOutputTokens: 3_000 },
 } as const;
+
+/** True for an image that is not empty, at most maxImageBytes and of a type the port takes. */
+export function isValidImage({ data, mediaType }: ImageInput): boolean {
+  if (data.byteLength === 0 || data.byteLength > inputLimits.maxImageBytes) return false;
+  return (inputLimits.imageMediaTypes as readonly string[]).includes(mediaType);
+}
 
 /** True when the input has something to read and stays within inputLimits. */
 export function isValidParseRecipeInput(input: ParseRecipeInput): boolean {
   const text = (input.text?.trim().length ?? 0) + (input.jsonLd?.trim().length ?? 0);
   if (text === 0 && !input.image) return false;
   if (text > inputLimits.maxTextChars) return false;
-  if (input.image) {
-    const { data, mediaType } = input.image;
-    if (data.byteLength === 0 || data.byteLength > inputLimits.maxImageBytes) return false;
-    if (!(inputLimits.imageMediaTypes as readonly string[]).includes(mediaType)) return false;
-  }
-  return true;
+  return !input.image || isValidImage(input.image);
+}
+
+/** True for an image within the limits and one of the three places. */
+export function isValidAnalyzeImageInput(input: AnalyzeImageInput): boolean {
+  return isValidImage(input.image) && (analyzePlaces as readonly string[]).includes(input.place);
 }
 
 /** True when there is at least one pantry entry and the input stays within inputLimits.suggest. */
@@ -114,13 +161,13 @@ export function isValidSuggestDishesInput(input: SuggestDishesInput): boolean {
 }
 
 /** Less time than this left before the deadline: the model is not asked. */
-export const minSuggestRunMs = 10_000;
+export const minRunMs = 10_000;
 
 /** The run's budget within the deadline, or `null` when too little time is left. */
 export function limitsWithin(limits: Limits, deadline: number | undefined): Limits | null {
   if (deadline === undefined) return limits;
   const left = deadline - Date.now();
-  if (left < minSuggestRunMs) return null;
+  if (left < minRunMs) return null;
   const totalMs = Math.min(limits.totalMs, left);
   return { ...limits, totalMs, attemptMs: Math.min(limits.attemptMs, totalMs) };
 }
@@ -135,6 +182,10 @@ export function withInputValidation(service: AiService): AiService {
     async suggestDishes(input, signal, options) {
       if (!isValidSuggestDishesInput(input)) return fail("validation");
       return service.suggestDishes(input, signal, options);
+    },
+    async analyzeImage(input, signal, options) {
+      if (!isValidAnalyzeImageInput(input)) return fail("validation");
+      return service.analyzeImage(input, signal, options);
     },
   };
 }
@@ -180,7 +231,37 @@ export function createModelAiService(target: ModelTarget, limits: Limits = defau
       if (!answer.ok) return answer;
       return ok(answer.data.suggestions);
     },
+    async analyzeImage(input, signal, options = {}) {
+      const within = limitsWithin(limits, options.deadline);
+      if (!within) {
+        console.error("ai_unavailable", { reason: "deadline" });
+        return fail("ai_unavailable");
+      }
+      const answer = await runStructured(
+        target,
+        {
+          schema: analyzeImageAnswer,
+          system: prompts.analyzeImage,
+          messages: [{ role: "user", content: analyzeImageContent(input) }],
+          maxOutputTokens: inputLimits.analyze.maxOutputTokens,
+        },
+        signal,
+        within,
+      );
+      if (!answer.ok) return answer;
+      return ok(parseAnalyzeItems(answer.data.items));
+    },
   };
+}
+
+const placeNames: Record<AnalyzePlace, string> = { Kyl: "kylen", Frys: "frysen", Skafferi: "skafferiet" };
+
+/** The user message: "Bilden visar kylen." and the photo as a `file` part. */
+export function analyzeImageContent(input: AnalyzeImageInput) {
+  return [
+    { type: "text" as const, text: `Bilden visar ${placeNames[input.place]}.` },
+    { type: "file" as const, data: input.image.data, mediaType: input.image.mediaType },
+  ];
 }
 
 /**

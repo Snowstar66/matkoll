@@ -20,7 +20,8 @@ export function itemCountText(count: number): string {
   return `${count} ${count === 1 ? "vara" : "varor"}`;
 }
 
-const definite: Record<Location, string> = { Kyl: "kylen", Frys: "frysen", Skafferi: "skafferiet" };
+/** The location in definite form: "kylen", "frysen", "skafferiet". */
+export const definite: Record<Location, string> = { Kyl: "kylen", Frys: "frysen", Skafferi: "skafferiet" };
 
 /** "Inget i kylen än.", "Inget i frysen än." or "Inget i skafferiet än." */
 export function emptyPlaceText(location: Location): string {

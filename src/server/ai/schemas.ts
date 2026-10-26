@@ -19,16 +19,18 @@ export const aiIngredientHint = z.object({
   defaultUnit: text().describe("Enheten ingrediensen oftast köps eller mäts i"),
 });
 
+/** A unit as written, or null; an empty unit means no unit. */
+const unit = () =>
+  z
+    .string()
+    .nullable()
+    .transform((value) => (value?.trim() ? value.trim() : null));
+
 export const aiRecipeIngredient = z
   .object({
     originalText: text().describe("Raden ordagrant som den står i receptet"),
     amount: z.number().positive().nullable().describe("Mängden som tal, null vid vag mängd"),
-    unit: z
-      .string()
-      .nullable()
-      // An empty unit means no unit.
-      .transform((unit) => (unit?.trim() ? unit.trim() : null))
-      .describe("Enheten som den står, null om den saknas eller vid vag mängd"),
+    unit: unit().describe("Enheten som den står, null om den saknas eller vid vag mängd"),
     isVague: z.boolean().describe("true när mängden inte går att ange som tal, t.ex. salt efter smak"),
     hint: aiIngredientHint,
     stepIndexes: z
@@ -126,8 +128,85 @@ export function suggestDishesAnswerFor(avoidTitles: readonly string[]) {
 /** suggestDishesAnswer with nothing to avoid, e.g. for the mock's fixtures. */
 export const suggestDishesAnswer = suggestDishesAnswerFor([]);
 
+/** The longest label or hint text taken from the model for a pantry item; a longer one is no label on a shelf. */
+export const maxPantryItemTextChars = 200;
+
+/** Text from the model for a pantry item: not empty, at most maxPantryItemTextChars. The length is a refinement, so it stays out of the JSON schema. */
+const itemText = () =>
+  text().refine((value) => value.length <= maxPantryItemTextChars, {
+    message: `At most ${maxPantryItemTextChars} characters`,
+  });
+
+const pantryHintDescriptions = {
+  name: "Varan i grundform, t.ex. mellanmjölk",
+  section: "Avdelning i butiken",
+  location: "Plats hemma: Kyl, Frys eller Skafferi",
+  defaultUnit: "Enheten varan oftast köps i",
+} as const;
+
+/**
+ * The shape the model answers per item in analyzeImage: types and fields
+ * only, so strict JSON schemas take it, and one bad item never makes the
+ * whole answer invalid. Each item is then checked on its own against
+ * aiPantryItem (parseAnalyzeItems).
+ */
+const aiPantryItemShape = z.object({
+  label: z.string().describe("Varan som den syns, t.ex. Arla mellanmjölk"),
+  amount: z
+    .number()
+    .nullable()
+    .describe("Antal synliga förpackningar eller styck, eller mängden som står tydligt, annars null"),
+  unit: z.string().nullable().describe("Enheten till mängden, t.ex. förp eller st, null om mängden saknas"),
+  hint: z.object({
+    name: z.string().describe(pantryHintDescriptions.name),
+    section: z.string().describe(pantryHintDescriptions.section),
+    location: z.string().describe(pantryHintDescriptions.location),
+    defaultUnit: z.string().describe(pantryHintDescriptions.defaultUnit),
+  }),
+});
+
+/**
+ * What the model answers to analyzeImage: the food items it sees, an empty
+ * list when there are none. No maxItems: strict JSON schemas do not take it,
+ * so the prompt asks for at most inputLimits.analyze.maxItems and the caller
+ * keeps the first ones. Only a broken answer as a whole (no list, a field of
+ * the wrong type) is invalid and retried.
+ */
+export const analyzeImageAnswer = z.object({
+  items: z.array(aiPantryItemShape).describe("Matvarorna som syns tydligt, tom lista om inga syns"),
+});
+
+/**
+ * One food item as the port returns it, checked on its own. What it says is
+ * only what the model sees, so it is untrusted text: the catalog link comes
+ * from matchIngredients (AD-6), never from the model. An amount of 0 is no
+ * amount; a negative one makes the item invalid.
+ */
+export const aiPantryItem = z.object({
+  label: itemText(),
+  amount: z
+    .number()
+    .min(0)
+    .nullable()
+    .transform((amount) => (amount === 0 ? null : amount)),
+  unit: unit(),
+  hint: z.object({ name: itemText(), section: itemText(), location: itemText(), defaultUnit: itemText() }),
+});
+
+/** The items of an answer that pass aiPantryItem, in order, and how many did not. */
+export function parseAnalyzeItems(items: readonly unknown[]): { items: AiPantryItem[]; invalid: number } {
+  const valid: AiPantryItem[] = [];
+  for (const item of items) {
+    const parsed = aiPantryItem.safeParse(item);
+    if (parsed.success) valid.push(parsed.data);
+  }
+  return { items: valid, invalid: items.length - valid.length };
+}
+
 export type AiIngredientHint = z.infer<typeof aiIngredientHint>;
 export type AiRecipeIngredient = z.infer<typeof aiRecipeIngredient>;
 export type AiRecipe = z.infer<typeof aiRecipe>;
 export type ParseRecipeAnswer = z.infer<typeof parseRecipeAnswer>;
 export type SuggestDishesAnswer = z.infer<typeof suggestDishesAnswer>;
+export type AiPantryItem = z.output<typeof aiPantryItem>;
+export type AnalyzeImageAnswer = z.infer<typeof analyzeImageAnswer>;

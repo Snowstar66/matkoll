@@ -6,7 +6,8 @@
     "'reserved' inputs make the mock fail with that error code, for tests of the error messages.",
     "'reservedImages' do the same for a photo: the mock keys them on the image bytes, so a PNG that the client sends as it is (it already fits) reaches the mock unchanged.",
     "koket-* and tasteline-* are the saved pages in tests/fixtures/sites/ as the import flow reads them (extractRecipePage); extract.test.ts keeps them in step.",
-    "'suggest' is the case suggestDishes answers with: suggest-dishes.response.json (the model's answer, three recipes), suggest-dishes.pantry.json (the input pnpm eval:ai sends) and suggest-dishes.expected.json (what it checks). Whatever is at home, the mock answers the first of 'suggest' and 'suggestAlternatives' (suggest-dishes-andra.response.json) that has none of the titles to avoid, else ai_invalid; a pantry item named like a 'reserved' text (ai_unavailable, ai_invalid, ai_rejected) makes it fail with that code."
+    "'suggest' is the case suggestDishes answers with: suggest-dishes.response.json (the model's answer, three recipes), suggest-dishes.pantry.json (the input pnpm eval:ai sends) and suggest-dishes.expected.json (what it checks). Whatever is at home, the mock answers the first of 'suggest' and 'suggestAlternatives' (suggest-dishes-andra.response.json) that has none of the titles to avoid, else ai_invalid; a pantry item named like a 'reserved' text (ai_unavailable, ai_invalid, ai_rejected) makes it fail with that code.",
+    "'analyze' is what analyzeImage answers: each case is a synthetic photo <name>.png (drawn by scripts/render-pantry-image.mjs, never a real photo, since the repo is public) and the model's answer <name>.analyze.json. The mock keys the photo on its bytes; any other photo gets 'default'. The reserved images for ai_unavailable, ai_invalid and ai_rejected give those codes; reserved-import_no_recipe.png gets the default answer."
   ],
   "default": "kycklinggryta",
   "cases": [
@@ -75,5 +76,16 @@
   "suggest": "suggest-dishes",
   "suggestAlternatives": [
     "suggest-dishes-andra"
-  ]
+  ],
+  "analyze": {
+    "default": "kyl",
+    "cases": [
+      {
+        "name": "kyl"
+      },
+      {
+        "name": "tom-hylla"
+      }
+    ]
+  }
 }

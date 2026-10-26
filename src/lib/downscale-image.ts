@@ -1,10 +1,21 @@
-import { fail, ok, type Result } from "@/lib/errors";
-import { imageSizeOf, imageTypeOf, jpegOrientation, maxImageBytes, maxImageSide, type ImageSize } from "@/lib/images";
+import { fail, ok, type Result } from "./errors";
+import {
+  imageSizeOf,
+  imageTypeOf,
+  jpegOrientation,
+  maxImageBytes,
+  maxImageSide,
+  stripPngMetadata,
+  type ImageSize,
+} from "./images";
 
-// A photo of a cookbook page is made small in the browser before it is sent
-// (AD-15): at most 1600 px on the longest side and at most 1.5 MB, as JPEG,
-// turned the way the camera held it. Nothing is stored; the result is only
-// kept in memory for "Försök igen".
+// A photo for the AI port (a cookbook page in Importera recept, a place in
+// Hemma) is made small in the browser before it is sent (AD-15): at most
+// 1600 px on the longest side and at most 1.5 MB, as JPEG, turned the way the
+// camera held it. Every photo is re-encoded through a canvas, which drops EXIF,
+// GPS included, except a PNG that already fits: it is sent with its metadata
+// chunks removed (stripPngMetadata), since re-encoding only loses detail.
+// Nothing is stored; the result is only kept in memory for "Försök igen".
 //
 // A phone photo is 12–48 megapixels, so decoding it in full can run a phone
 // out of memory. Where the browser can, it decodes straight to the smaller
@@ -160,7 +171,9 @@ function toJpeg(canvas: HTMLCanvasElement, quality: number): Promise<Blob | null
  * The photo as it is sent: a JPEG of at most 1600 px on the longest side and
  * at most 1.5 MB, with lower quality tried until it fits. A PNG that already
  * fits, and that the browser shows at the size in its header (no rotation),
- * is sent as it is, since re-encoding only loses detail. Fails with
+ * is sent with only its image chunks (stripPngMetadata: no text, EXIF or
+ * time), since re-encoding only loses detail; one whose chunks cannot be
+ * read is re-encoded. Fails with
  * `image_unsupported` when the file cannot be decoded and `image_too_large`
  * when even the lowest quality is too large or the browser runs out of
  * memory; nothing is sent then.
@@ -194,7 +207,10 @@ export async function downscaleImage(file: Blob): Promise<Result<Blob>> {
 
     const unturnedPng =
       type === "image/png" && stored !== null && stored.width === width && stored.height === height;
-    if (unturnedPng && target.width === width && target.height === height && file.size <= maxImageBytes) return ok(file);
+    if (unturnedPng && target.width === width && target.height === height && file.size <= maxImageBytes) {
+      const stripped = stripPngMetadata(new Uint8Array(await file.arrayBuffer()));
+      if (stripped) return ok(new Blob([stripped as BlobPart], { type: "image/png" }));
+    }
 
     let canvas: HTMLCanvasElement | null;
     try {

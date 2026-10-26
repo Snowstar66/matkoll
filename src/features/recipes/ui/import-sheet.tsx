@@ -10,7 +10,6 @@ import {
   useId,
   useRef,
   useState,
-  useSyncExternalStore,
   useTransition,
 } from "react";
 import { Button } from "@/components/button";
@@ -19,6 +18,8 @@ import { PlusIcon } from "@/components/icons";
 import { Notice } from "@/components/notice";
 import { Sheet } from "@/components/sheet";
 import { useToast } from "@/components/toast";
+import { useCoarsePointer } from "@/components/use-coarse-pointer";
+import { downscaleImage } from "@/lib/downscale-image";
 import { postAi, postAiForm, type AiCallResult } from "@/lib/ai-client";
 import { errorMessages, fail, type AppError } from "@/lib/errors";
 import { saveRecipe } from "../actions/save-recipe";
@@ -36,7 +37,6 @@ import {
 } from "../domain/import";
 import { isDraftDirty } from "../domain/preview";
 import { validateDraft, type PendingFieldText, type RecipeDraft } from "../domain/recipe-draft";
-import { downscaleImage } from "./downscale-image";
 import type { SearchIngredients } from "@/components/ingredient-picker";
 import { RecipePreview } from "./recipe-preview";
 
@@ -91,24 +91,6 @@ const retryable = new Set<AppError["code"]>([
   "settings_unavailable",
 ]);
 
-/** A phone or tablet: the camera button is shown. Desktops get the file picker only (EXPERIENCE.md, Responsive). */
-const coarsePointer = "(pointer: coarse)";
-
-function subscribePointer(onChange: () => void): () => void {
-  if (typeof window.matchMedia !== "function") return () => {};
-  const query = window.matchMedia(coarsePointer);
-  query.addEventListener("change", onChange);
-  return () => query.removeEventListener("change", onChange);
-}
-
-function useCoarsePointer(): boolean {
-  return useSyncExternalStore(
-    subscribePointer,
-    () => typeof window.matchMedia === "function" && window.matchMedia(coarsePointer).matches,
-    () => false,
-  );
-}
-
 /** From this length on, the text field shows how much is left. */
 const counterFrom = Math.floor(maxImportTextChars * 0.9);
 const formatCount = (n: number) => n.toLocaleString("sv-SE");
@@ -160,6 +142,7 @@ export function ImportSheet({ open, onClose, searchIngredients }: ImportSheetPro
   const pickerRef = useRef<HTMLInputElement>(null);
   /** The photo tab's first button, "Fotografera sidan" or "Välj bild". */
   const photoButtonRef = useRef<HTMLButtonElement>(null);
+  /** A phone or tablet: the camera button is shown. Desktops get the file picker only (EXPERIENCE.md, Responsive). */
   const touch = useCoarsePointer();
   const tabRefs = useRef(new Map<Tab, HTMLButtonElement>());
   /** The field to focus once the input view shows the tab. */

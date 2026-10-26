@@ -6,6 +6,7 @@ import { fail, ok, type Result } from "@/lib/errors";
 import type { PantryItem } from "../domain/pantry-item";
 import type { PantryItemFormInput, PantryRow } from "../domain/pantry-item-form";
 import { AddPantryItemButton, PantrySheetProvider } from "./pantry-item-sheet";
+import { PantrySuggestionsProvider } from "./pantry-suggestions";
 import { PantryPlace } from "./pantry-place";
 import { applyPantryChanges } from "./pantry-removal";
 
@@ -58,10 +59,12 @@ function Hemma({ initial }: { initial: PantryItem[] }) {
   }, []);
   return (
     <ToastProvider>
-      <PantrySheetProvider location="Kyl">
-        <AddPantryItemButton variant="icon" />
-        <PantryPlace location="Kyl" counts={{ Kyl: items.length, Frys: 2, Skafferi: 0 }} items={items} />
-      </PantrySheetProvider>
+      <PantrySuggestionsProvider>
+        <PantrySheetProvider location="Kyl">
+          <AddPantryItemButton variant="icon" />
+          <PantryPlace location="Kyl" counts={{ Kyl: items.length, Frys: 2, Skafferi: 0 }} items={items} />
+        </PantrySheetProvider>
+      </PantrySuggestionsProvider>
     </ToastProvider>
   );
 }

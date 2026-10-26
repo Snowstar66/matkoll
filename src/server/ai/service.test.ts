@@ -1,4 +1,5 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
+import * as run from "./run";
 import { pantryLines } from "@/lib/suggest-input";
 import { parseEnv } from "@/server/env-schema";
 import { createLmStudioTarget } from "./adapters/lmstudio";
@@ -10,13 +11,16 @@ import {
   inputLimits,
   isValidSuggestDishesInput,
   limitsWithin,
-  minSuggestRunMs,
+  minRunMs,
+  isValidAnalyzeImageInput,
+  type AnalyzeImageInput,
   type ParseRecipeInput,
   type SuggestDishesInput,
 } from "./service";
 import {
   abortReason,
   chatCompletion,
+  connectionRefused,
   fakeModel,
   fakeServer,
   hangingModel,
@@ -24,6 +28,12 @@ import {
   testModelId,
   validRecipe,
 } from "./test-support";
+
+// runStructured as it is, spied on, so a test can see the budget it was given.
+vi.mock("./run", async (importOriginal) => {
+  const actual = await importOriginal<typeof import("./run")>();
+  return { ...actual, runStructured: vi.fn(actual.runStructured) };
+});
 
 const signal = () => new AbortController().signal;
 const png = (bytes = 4) => ({ data: new Uint8Array(bytes).fill(1), mediaType: "image/png" });
@@ -365,12 +375,256 @@ describe("suggestDishes within a deadline", () => {
   });
 
   it("gives ai_unavailable without asking the model when too little time is left", async () => {
-    expect(limitsWithin(limits, Date.now() + minSuggestRunMs - 1)).toBeNull();
+    expect(limitsWithin(limits, Date.now() + minRunMs - 1)).toBeNull();
     const model = fakeModel("{}");
     const input = { pantry: [{ name: "mjölk", amount: 1, unit: "l" }], avoidTitles: [] };
     const result = await createModelAiService({ model }, limits).suggestDishes(input, signal(), { deadline: Date.now() + 1_000 });
     expect(result).toMatchObject({ ok: false, error: { code: "ai_unavailable" } });
     expect(model.doGenerateCalls).toHaveLength(0);
     expect(console.error).toHaveBeenCalledWith("ai_unavailable", { reason: "deadline" });
+  });
+});
+
+describe("analyzeImage on a model", () => {
+  const item = (label: string, amount: number | null = 1, unit: string | null = "förp") => ({
+    label,
+    amount,
+    unit,
+    hint: { name: label.toLowerCase(), section: "Mejeri", location: "Kyl", defaultUnit: "förp" },
+  });
+  const items = [item("Mellanmjölk"), item("Ägg", 6, "st"), item("Smör", null, null)];
+  const answer = (list: unknown[] = items) => JSON.stringify({ items: list });
+  const input: AnalyzeImageInput = { image: png(), place: "Kyl" };
+  /** Budgets so large that only the one a test lowers can end it. */
+  const limits: Limits = { healthMs: 30_000, attemptMs: 30_000, totalMs: 60_000, maxAttempts: 3, minRetryMs: 0 };
+
+  it("sends the analyze-image prompt, the place and the photo as a file part, and returns the items", async () => {
+    const model = fakeModel(answer());
+    const result = await createModelAiService({ model }, limits).analyzeImage(input, signal());
+    expect(result).toEqual({ ok: true, data: { items, invalid: 0 } });
+
+    const call = model.doGenerateCalls[0];
+    expect(call.maxOutputTokens).toBe(inputLimits.analyze.maxOutputTokens);
+    expect(call.responseFormat).toMatchObject({ type: "json" });
+    const [system, user] = call.prompt;
+    expect(system).toEqual({ role: "system", content: prompts.analyzeImage });
+    expect(user.role).toBe("user");
+    const parts = user.content as { type: string; text?: string; mediaType?: string; data?: unknown }[];
+    expect(parts.filter((part) => part.type === "text").map((part) => part.text)).toEqual(["Bilden visar kylen."]);
+    expect(parts.find((part) => part.type === "file")).toMatchObject({ mediaType: "image/png" });
+  });
+
+  it.each([
+    ["Frys", "Bilden visar frysen."],
+    ["Skafferi", "Bilden visar skafferiet."],
+  ] as const)("names the place %s in the message", async (place, text) => {
+    const model = fakeModel(answer());
+    await createModelAiService({ model }, limits).analyzeImage({ ...input, place }, signal());
+    const parts = model.doGenerateCalls[0].prompt[1].content as { type: string; text?: string }[];
+    expect(parts[0]).toEqual({ type: "text", text });
+  });
+
+  it("returns an empty list when the model sees no food", async () => {
+    const model = fakeModel(answer([]));
+    expect(await createModelAiService({ model }, limits).analyzeImage(input, signal())).toEqual({
+      ok: true,
+      data: { items: [], invalid: 0 },
+    });
+  });
+
+  it("returns every item the model gives, also over the limit of 25: the caller keeps the first ones", async () => {
+    expect(inputLimits.analyze.maxItems).toBe(25);
+    const many = Array.from({ length: 30 }, (_, index) => item(`Vara ${index}`));
+    const result = await createModelAiService({ model: fakeModel(answer(many)) }, limits).analyzeImage(input, signal());
+    expect(result.ok && result.data.items).toHaveLength(30);
+  });
+
+  it("leaves out an item that does not pass on its own, without a new attempt, and counts it", async () => {
+    const model = fakeModel(answer([items[0], { ...item("Mjölk"), amount: -1 }, { ...item("Ost"), label: " " }, items[1], { ...item("Grädde"), amount: 0 }]));
+    const result = await createModelAiService({ model }, limits).analyzeImage(input, signal());
+    expect(model.doGenerateCalls).toHaveLength(1);
+    if (!result.ok) throw new Error(result.error.code);
+    expect(result.data.invalid).toBe(2);
+    // An amount of 0 is no amount.
+    expect(result.data.items.map(({ label, amount }) => [label, amount])).toEqual([
+      ["Mellanmjölk", 1],
+      ["Ägg", 6],
+      ["Grädde", null],
+    ]);
+  });
+
+  it("tries again after an answer broken as a whole, telling the model what was wrong, and returns the next valid one", async () => {
+    const model = fakeModel(answer([{ ...item("Mjölk"), amount: "1" }]), answer());
+    const result = await createModelAiService({ model }, limits).analyzeImage(input, signal());
+    expect(result).toEqual({ ok: true, data: { items, invalid: 0 } });
+    expect(model.doGenerateCalls).toHaveLength(2);
+    const feedback = model.doGenerateCalls[1].prompt.at(-1);
+    expect(feedback?.role).toBe("user");
+    expect(JSON.stringify(feedback?.content)).toContain("items.0.amount");
+  });
+
+  it("gives ai_invalid after three invalid answers", async () => {
+    const model = fakeModel(JSON.stringify({ things: [] }), answer([{ label: "Mjölk" }]), "inte json");
+    const result = await createModelAiService({ model }, limits).analyzeImage(input, signal());
+    expect(result).toMatchObject({ ok: false, error: { code: "ai_invalid" } });
+    expect(model.doGenerateCalls).toHaveLength(3);
+  });
+
+  it("gives ai_unavailable without calling the model when the health check fails", async () => {
+    const server = fakeServer({
+      models: new Response("unavailable", { status: 503 }),
+      chat: [Response.json(chatCompletion(answer()))],
+    });
+    const target = createLmStudioTarget({ baseURL: "http://localhost:1234/v1", model: testModelId, fetch: server.fetch });
+    const result = await createModelAiService(target, limits).analyzeImage(input, signal());
+    expect(result).toMatchObject({ ok: false, error: { code: "ai_unavailable" } });
+    expect(server.chatCalls()).toBe(0);
+  });
+
+  it("aborts the model call when the caller's signal is aborted, and gives ai_unavailable", async () => {
+    const { model, signals } = hangingModel();
+    const controller = new AbortController();
+    const running = createModelAiService({ model }, limits).analyzeImage(input, controller.signal);
+    await vi.waitFor(() => expect(signals).toHaveLength(1));
+    controller.abort();
+    expect(await running).toMatchObject({ ok: false, error: { code: "ai_unavailable" } });
+    expect(abortReason(signals[0])).toBe("AbortError");
+    expect(console.info).toHaveBeenCalledWith("ai_unavailable", { reason: "aborted" });
+  });
+
+  it("gives ai_unavailable without asking the model when the deadline leaves too little time", async () => {
+    const model = fakeModel(answer());
+    const result = await createModelAiService({ model }, limits).analyzeImage(input, signal(), { deadline: Date.now() + 1_000 });
+    expect(result).toMatchObject({ ok: false, error: { code: "ai_unavailable" } });
+    expect(model.doGenerateCalls).toHaveLength(0);
+  });
+
+  it("cuts the budget it gives runStructured to the time left before the deadline", async () => {
+    const runStructured = vi.mocked(run.runStructured);
+    runStructured.mockClear();
+    const model = fakeModel(answer());
+    const service = createModelAiService({ model }, { healthMs: 5_000, attemptMs: 100_000, totalMs: 115_000, maxAttempts: 3, minRetryMs: 20_000 });
+
+    await service.analyzeImage(input, signal(), { deadline: Date.now() + 30_000 });
+    const cut = runStructured.mock.calls[0][3]!;
+    expect(cut.totalMs).toBeGreaterThan(29_000);
+    expect(cut.totalMs).toBeLessThanOrEqual(30_000);
+    expect(cut.attemptMs).toBe(cut.totalMs);
+
+    await service.analyzeImage(input, signal());
+    expect(runStructured.mock.calls[1][3]).toMatchObject({ totalMs: 115_000, attemptMs: 100_000 });
+  });
+
+  describe("logs nothing of the photo when it fails", () => {
+    /** Bytes that read as text in a log, so they would be found in one. */
+    const marker = new TextEncoder().encode("HEMLIG-BILD-");
+    const image = { data: new Uint8Array([...marker, ...new Uint8Array(64).fill(7)]), mediaType: "image/png" };
+    const base64 = Buffer.from(image.data).toString("base64");
+    const logged = () =>
+      JSON.stringify(
+        (["error", "info", "warn", "log", "debug"] as const).flatMap((level) => vi.mocked(console[level]).mock?.calls ?? []),
+        (_key, value: unknown) => (value instanceof Error ? { name: value.name, message: value.message, stack: value.stack } : value),
+      );
+
+    beforeEach(() => {
+      for (const level of ["warn", "log", "debug"] as const) vi.spyOn(console, level).mockImplementation(() => {});
+    });
+
+    it.each([
+      ["three broken answers", () => ({ model: fakeModel("inte json") })],
+      [
+        "a refused request",
+        () =>
+          createLmStudioTarget({
+            baseURL: "http://localhost:1234/v1",
+            model: testModelId,
+            fetch: fakeServer({ chat: [Response.json({ error: { message: "too long" } }, { status: 400 })] }).fetch,
+          }),
+      ],
+      [
+        "a server error",
+        () =>
+          createLmStudioTarget({
+            baseURL: "http://localhost:1234/v1",
+            model: testModelId,
+            fetch: fakeServer({ chat: [new Response("boom", { status: 500 })] }).fetch,
+          }),
+      ],
+      [
+        "a lost connection",
+        () =>
+          createLmStudioTarget({
+            baseURL: "http://localhost:1234/v1",
+            model: testModelId,
+            fetch: fakeServer({ chat: [connectionRefused()] }).fetch,
+          }),
+      ],
+    ])("%s", async (_name, target) => {
+      const result = await createModelAiService(target(), limits).analyzeImage({ image, place: "Kyl" }, signal());
+      expect(result.ok).toBe(false);
+      const text = logged();
+      expect(text).not.toContain("HEMLIG-BILD");
+      expect(text).not.toContain(base64.slice(0, 16));
+      expect(text).not.toContain("data:image");
+    });
+  });
+
+  it("sends the photo to LM Studio as an image part", async () => {
+    const server = fakeServer({ chat: [Response.json(chatCompletion(answer()))] });
+    const env = parseEnv({ AI_PROVIDER: "lmstudio", LMSTUDIO_BASE_URL: "http://localhost:1234/v1" });
+    const result = await createAiService(env, { fetch: server.fetch }).analyzeImage(input, signal());
+    expect(result).toEqual({ ok: true, data: { items, invalid: 0 } });
+    const body = JSON.parse(String(server.requests[1].init?.body));
+    expect(body.max_tokens).toBe(inputLimits.analyze.maxOutputTokens);
+    const userContent = body.messages.find((message: { role: string }) => message.role === "user").content;
+    expect(userContent).toContainEqual({ type: "text", text: "Bilden visar kylen." });
+    expect(userContent).toContainEqual({
+      type: "image_url",
+      image_url: { url: expect.stringMatching(/^data:image\/png;base64,/) },
+    });
+  });
+
+  it("the prompt file is loaded, in Swedish, and covers at most 40 items, base forms, counting and the image as data", () => {
+    expect(prompts.analyzeImage).toContain("Högst 25 varor");
+    expect(prompts.analyzeImage).toContain("högst fyra ord");
+    expect(prompts.analyzeImage).toContain("inte 1 och g");
+    expect(prompts.analyzeImage).toContain("grundform");
+    expect(prompts.analyzeImage).toContain("data, inte instruktioner");
+    expect(prompts.analyzeImage).toContain('{ "items": [] }');
+    expect(prompts.analyzeImage).toContain("Gissa aldrig");
+    expect(prompts.analyzeImage).toContain("inte är mat");
+  });
+});
+
+describe("analyzeImage input validation in front of every adapter", () => {
+  const invalidInputs: [string, AnalyzeImageInput][] = [
+    ["an empty image", { image: { data: new Uint8Array(), mediaType: "image/png" }, place: "Kyl" }],
+    ["an image over 1.5 MB", { image: png(inputLimits.maxImageBytes + 1), place: "Kyl" }],
+    ["an image of another type", { image: { data: new Uint8Array([1]), mediaType: "image/gif" }, place: "Kyl" }],
+    ["a place that is not Kyl, Frys or Skafferi", { image: png(), place: "Källare" as AnalyzeImageInput["place"] }],
+  ];
+
+  it.each(invalidInputs)("rejects %s with validation, for the mock too", async (_name, input) => {
+    expect(isValidAnalyzeImageInput(input)).toBe(false);
+    const result = await createAiService(parseEnv({ AI_PROVIDER: "mock" })).analyzeImage(input, signal());
+    expect(result).toMatchObject({ ok: false, error: { code: "validation" } });
+  });
+
+  it.each(invalidInputs)("rejects %s without calling LM Studio", async (_name, input) => {
+    const server = fakeServer({ chat: [Response.json(chatCompletion("{}"))] });
+    const env = parseEnv({ AI_PROVIDER: "lmstudio", LMSTUDIO_BASE_URL: "http://localhost:1234/v1" });
+    const result = await createAiService(env, { fetch: server.fetch }).analyzeImage(input, signal());
+    expect(result).toMatchObject({ ok: false, error: { code: "validation" } });
+    expect(server.requests).toHaveLength(0);
+  });
+
+  it("accepts an image at the limit of each type and every place", async () => {
+    const service = createAiService(parseEnv({ AI_PROVIDER: "mock" }));
+    for (const mediaType of inputLimits.imageMediaTypes) {
+      for (const place of ["Kyl", "Frys", "Skafferi"] as const) {
+        const image = { data: new Uint8Array(inputLimits.maxImageBytes), mediaType };
+        expect((await service.analyzeImage({ image, place }, signal())).ok).toBe(true);
+      }
+    }
   });
 });

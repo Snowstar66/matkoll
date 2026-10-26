@@ -423,8 +423,8 @@ export function PantrySheetProvider({ location, children }: { location: Location
   );
 }
 
-/** Opens the sheet for a new item: the round "+" for the page header, or a primary button. */
-export function AddPantryItemButton({ variant }: { variant: "icon" | "primary" }) {
+/** Opens the sheet for a new item: the round "+" for the page header, a primary button, or a text button (in a notice). */
+export function AddPantryItemButton({ variant }: { variant: "icon" | "primary" | "text" }) {
   const { openNew } = usePantrySheet();
   if (variant === "icon") {
     return (
@@ -438,5 +438,9 @@ export function AddPantryItemButton({ variant }: { variant: "icon" | "primary" }
       </button>
     );
   }
-  return <Button onClick={openNew}>Lägg till vara</Button>;
+  return (
+    <Button variant={variant} onClick={openNew}>
+      Lägg till vara
+    </Button>
+  );
 }

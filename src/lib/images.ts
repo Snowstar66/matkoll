@@ -154,3 +154,76 @@ export function jpegOrientation(bytes: Uint8Array): number {
   }
   return 1;
 }
+
+/**
+ * The PNG chunks a photo keeps on its way to the AI port: the image itself
+ * and what changes how it looks. Everything else (text, EXIF, time, physical
+ * size, colour profiles and the like) is metadata and is left out (AD-15).
+ */
+const keptPngChunks = new Set(["IHDR", "PLTE", "tRNS", "IDAT", "IEND", "gAMA", "cHRM", "sRGB"]);
+
+/**
+ * The PNG without its ancillary chunks (keptPngChunks), or `null` when the
+ * bytes are not a PNG whose chunks can be walked to IEND. A PNG that has
+ * nothing to remove comes back with the same bytes.
+ */
+export function stripPngMetadata(bytes: Uint8Array): Uint8Array | null {
+  if (!startsWith(bytes, pngSignature)) return null;
+  const parts: Uint8Array[] = [bytes.subarray(0, pngSignature.length)];
+  let at = pngSignature.length;
+  for (;;) {
+    if (at + 12 > bytes.length) return null;
+    const length = u32be(bytes, at);
+    const end = at + 12 + length;
+    if (end > bytes.length) return null;
+    const type = String.fromCharCode(...bytes.subarray(at + 4, at + 8));
+    if (keptPngChunks.has(type)) parts.push(bytes.subarray(at, end));
+    at = end;
+    if (type === "IEND") break;
+  }
+  const out = new Uint8Array(parts.reduce((sum, part) => sum + part.length, 0));
+  let offset = 0;
+  for (const part of parts) {
+    out.set(part, offset);
+    offset += part.length;
+  }
+  return out;
+}
+
+/**
+ * The JPEG without its metadata segments before the image data: APP1–APP15
+ * (EXIF with GPS, XMP, ICC) and comments. JFIF (APP0) and the segments that
+ * decode the image stay. `null` when the bytes are not a JPEG whose segments
+ * can be walked to the start of scan.
+ */
+export function stripJpegMetadata(bytes: Uint8Array): Uint8Array | null {
+  if (imageTypeOf(bytes) !== "image/jpeg") return null;
+  const parts: Uint8Array[] = [bytes.subarray(0, 2)];
+  let at = 2;
+  for (;;) {
+    if (at + 4 > bytes.length || bytes[at] !== 0xff) return null;
+    const marker = bytes[at + 1];
+    if (marker === 0xff) {
+      at += 1;
+      continue;
+    }
+    if (marker === 0xda) {
+      // Start of scan: the image data follows, up to the end.
+      parts.push(bytes.subarray(at));
+      break;
+    }
+    if (marker === 0xd8 || marker === 0xd9) return null;
+    const end = at + 2 + u16be(bytes, at + 2);
+    if (end > bytes.length) return null;
+    const metadata = (marker >= 0xe1 && marker <= 0xef) || marker === 0xfe;
+    if (!metadata) parts.push(bytes.subarray(at, end));
+    at = end;
+  }
+  const out = new Uint8Array(parts.reduce((sum, part) => sum + part.length, 0));
+  let offset = 0;
+  for (const part of parts) {
+    out.set(part, offset);
+    offset += part.length;
+  }
+  return out;
+}

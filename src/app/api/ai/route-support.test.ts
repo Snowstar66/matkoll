@@ -1,12 +1,13 @@
 import { afterEach, describe, expect, it, vi } from "vitest";
 import { fail } from "@/lib/errors";
+import { jpegHeader, pngHeader } from "../../../../tests/support/image-headers";
 
 // The body reader shared by the AI Route Handlers: its limit, a client that
 // goes away mid-upload, and a broken body.
 
 vi.mock("@/server/env", () => ({ env: { SITE_URL: "http://localhost:3100" } }));
 
-const { readCapped, respond, unreadBody } = await import("./route-support");
+const { maxImageBodyBytes, readCapped, readImageForm, respond, unreadBody } = await import("./route-support");
 
 /** A request-like object, so the test can set Content-Length freely and count what is read. */
 function fakeRequest({
@@ -112,5 +113,52 @@ describe("respond", () => {
     ["pantry_unavailable", 503],
   ] as const)("answers %s with %i", (code, status) => {
     expect(respond(fail(code)).status).toBe(status);
+  });
+});
+
+describe("readImageForm", () => {
+  /** A multipart request as a browser sends it, encoded up front. */
+  async function formRequest(fields: Record<string, Blob | string>): Promise<Request> {
+    const body = new FormData();
+    for (const [name, value] of Object.entries(fields)) {
+      if (value instanceof Blob) body.append(name, value, "photo");
+      else body.append(name, value);
+    }
+    const encoded = new Response(body);
+    return new Request("http://localhost:3100/api/ai/analyze", {
+      method: "POST",
+      body: new Uint8Array(await encoded.arrayBuffer()),
+      headers: { "content-type": encoded.headers.get("content-type") ?? "" },
+    });
+  }
+  const jpeg = () => new Blob([jpegHeader(1200, 1600) as BlobPart], { type: "image/jpeg" });
+
+  it("allows 2 MB for the whole request", () => {
+    expect(maxImageBodyBytes).toBe(2 * 1024 * 1024);
+  });
+
+  it("gives the image with its type from the bytes, and the asked fields as text", async () => {
+    const png = new Blob([pngHeader(720, 900) as BlobPart], { type: "application/octet-stream" });
+    const read = await readImageForm(await formRequest({ image: png, location: "Kyl", other: "x" }), ["location", "missing"]);
+    if (!read.ok) throw new Error(String(read.response.status));
+    expect(read.image.mediaType).toBe("image/png");
+    expect(read.image.data.byteLength).toBe(png.size);
+    expect(read.fields).toEqual({ location: "Kyl", missing: null });
+  });
+
+  it("gives null for a field that is a file instead of text", async () => {
+    const read = await readImageForm(await formRequest({ image: jpeg(), location: jpeg() }), ["location"]);
+    expect(read.ok && read.fields).toEqual({ location: null });
+  });
+
+  it.each([
+    ["no image", () => ({ location: "Kyl" }), 400, "validation"],
+    ["an image that is text", () => ({ image: new Blob(["mjölk"], { type: "image/jpeg" }) }), 415, "image_unsupported"],
+    ["an image over 1600 px", () => ({ image: new Blob([pngHeader(2000, 900) as BlobPart]) }), 413, "image_too_large"],
+  ] as const)("answers %s with %i %s", async (_name, fields, status, code) => {
+    const read = await readImageForm(await formRequest(fields()), ["location"]);
+    if (read.ok) throw new Error("expected a response");
+    expect(read.response.status).toBe(status);
+    expect(await read.response.json()).toEqual(fail(code));
   });
 });

@@ -2,7 +2,7 @@
 title: 'Story 6.1: Fotografera en plats och få lagerförslag'
 type: 'feature'
 created: '2026-10-26'
-status: 'draft'
+status: 'done'
 route: 'dispatch'
 context:
   - '{project-root}/_bmad-output/implementation-artifacts/epic-6-context.md'
@@ -109,8 +109,8 @@ context:
 ## Tasks & Acceptance
 
 **Execution:**
-- [ ] `src/lib/downscale-image.ts` (+ test), `src/components/use-coarse-pointer.ts`, `src/features/recipes/ui/import-sheet.tsx` -- flytta `downscaleImage` (med test) från `recipes/ui` till `src/lib/` och `useCoarsePointer` till `src/components/`, så att `pantry/ui` kan använda dem (AD-1). `import-sheet.tsx` importerar från de nya platserna. Beteendet ändras inte -- AD-1, AD-15
-- [ ] `src/server/ai/schemas.ts` (+ test) -- `aiPantryItem = z.object({ label, amount, unit, hint })`:
+- [x] `src/lib/downscale-image.ts` (+ test), `src/components/use-coarse-pointer.ts`, `src/features/recipes/ui/import-sheet.tsx` -- flytta `downscaleImage` (med test) från `recipes/ui` till `src/lib/` och `useCoarsePointer` till `src/components/`, så att `pantry/ui` kan använda dem (AD-1). `import-sheet.tsx` importerar från de nya platserna. Beteendet ändras inte -- AD-1, AD-15
+- [x] `src/server/ai/schemas.ts` (+ test) -- `aiPantryItem = z.object({ label, amount, unit, hint })`:
   - `label` är `text()` med beskrivningen "Varan som den syns, t.ex. Arla mellanmjölk";
   - `amount` är `z.number().positive().nullable()` (antal synliga förpackningar eller styck, eller en mängd som står tydligt på förpackningen, annars `null`);
   - `unit` behandlas som i `aiRecipeIngredient`, där en tom sträng blir `null`;
@@ -118,7 +118,7 @@ context:
 
   `analyzeImageAnswer = z.object({ items: z.array(aiPantryItem) })`, utan `maxItems` i JSON-schemat. Testerna täcker ett giltigt svar, en tom lista, negativ mängd, saknad `hint` och att JSON-schemat från `z.toJSONSchema` inte har `minItems` eller `maxItems` på `items`
   -- AD-9
-- [ ] `src/server/ai/prompts/analyze-image.md`, `prompts.ts` -- svensk systemprompt:
+- [x] `src/server/ai/prompts/analyze-image.md`, `prompts.ts` -- svensk systemprompt:
   - lista matvaror som syns tydligt på bilden av platsen (kylen, frysen eller skafferiet), högst 40;
   - `label` som varan syns och `hint.name` i grundform utan märke ("mellanmjölk", "gul lök");
   - `amount` och `unit` bara när antalet förpackningar eller styck går att räkna, eller när mängden står tydligt på förpackningen, annars `null`;
@@ -128,13 +128,13 @@ context:
   - en tom lista när inga varor syns.
 
   Importeras med `?raw` -- AD-9
-- [ ] `src/server/ai/service.ts` (+ `service.test.ts`), `index.ts` -- `AnalyzeImageInput = { image: ImageInput; place: "Kyl" | "Frys" | "Skafferi" }`.
+- [x] `src/server/ai/service.ts` (+ `service.test.ts`), `index.ts` -- `AnalyzeImageInput = { image: ImageInput; place: "Kyl" | "Frys" | "Skafferi" }`.
   - `inputLimits.analyze = { maxItems: 40, maxOutputTokens: 3000 }`. `isValidAnalyzeImageInput` använder samma bildkontroll som `isValidParseRecipeInput` (bryt ut den till en gemensam funktion) och en giltig plats. `withInputValidation` täcker också `analyzeImage`.
   - `createModelAiService.analyzeImage` bygger användarmeddelandet ("Bilden visar kylen." och `file`-delen) och anropar `runStructured` med `analyzeImageAnswer`. Den returnerar `Result<AiPantryItem[]>`.
   - `index.ts` exporterar `AnalyzeImageInput` och `AiPantryItem`.
   - Testerna med `fakeModel` täcker giltigt svar, tom lista, ogiltigt och sedan giltigt (nytt försök med feedback), bara ogiltiga (`ai_invalid`), att hälsokontrollen inte svarar (`ai_unavailable`), avbrott, att meddelandet har bilden som `file`-del och platsens namn, och att en bild utanför gränserna ger `validation` utan anrop
   -- AD-9, AD-15
-- [ ] `src/server/ai/adapters/mock.ts` (+ `mock.test.ts`), `tests/fixtures/ai/manifest.json`, `kyl.png`, `kyl.analyze.json`, `tom-hylla.png`, `tom-hylla.analyze.json` -- mocken svarar på `analyzeImage` från manifestets nya `analyze`-del (`{ "default": "kyl", "cases": [{ "name": "kyl" }, { "name": "tom-hylla" }] }`), nycklat på SHA-256 av bildens bytes.
+- [x] `src/server/ai/adapters/mock.ts` (+ `mock.test.ts`), `tests/fixtures/ai/manifest.json`, `kyl.png`, `kyl.analyze.json`, `tom-hylla.png`, `tom-hylla.analyze.json` -- mocken svarar på `analyzeImage` från manifestets nya `analyze`-del (`{ "default": "kyl", "cases": [{ "name": "kyl" }, { "name": "tom-hylla" }] }`), nycklat på SHA-256 av bildens bytes.
   - Svaren valideras med `analyzeImageAnswer` när de läses.
   - En okänd bild ger standardsvaret.
   - `reserved-ai_unavailable.png`, `reserved-ai_invalid.png` och `reserved-ai_rejected.png` ger sina koder, och `reserved-import_no_recipe.png` ger standardsvaret.
@@ -144,7 +144,7 @@ context:
   - `$comment` i manifestet förklarar `analyze`.
 
   -- AD-9
-- [ ] `src/features/pantry/domain/pantry-suggestion.ts` (+ test), `index.ts` -- `AiPantryItemLike` deklareras här, eftersom domänen inte importerar porten.
+- [x] `src/features/pantry/domain/pantry-suggestion.ts` (+ test), `index.ts` -- `AiPantryItemLike` deklareras här, eftersom domänen inte importerar porten.
   - `pantrySuggestionSchema = { id, name, ingredient, location, amount, unit, current }`:
     - `ingredient` är `{ kind: "existing", ingredientId }` eller `{ kind: "new", name, section, location, defaultUnit }`;
     - `amount` och `unit` är båda `null` eller båda satta, med `amount < maxPantryAmount` och `unit` ur `unitSchema`;
@@ -162,7 +162,7 @@ context:
   - Texthjälpare: `cameraButtonText(location)`, `suggestionsHeading(location)` ("Lagerförslag från kylen"), `currentAmountText(location, current)` ("I kylen nu: 2 förp" eller "I kylen nu: finns hemma", med `formatQuantity`), `suggestionAmountText(suggestion)` ("Finns hemma" när mängden är `null`), `noSuggestionsText` och `analyzeErrorMessage(error)`, som ger en egen text för `ai_rejected` och annars `error.message`.
 
   -- AD-6, AD-12, AD-19
-- [ ] `src/features/pantry/actions/analyze-place.ts` (+ test), `server.ts` -- `analyzePlace({ image, location }, { signal })` är en serverfunktion, inte en Server Action. Den gör i tur och ordning:
+- [x] `src/features/pantry/actions/analyze-place.ts` (+ test), `server.ts` -- `analyzePlace({ image, location }, { signal })` är en serverfunktion, inte en Server Action. Den gör i tur och ordning:
   1. `requireUser`;
   2. `getAiService().analyzeImage({ image, place: location }, signal)`;
   3. tar de första 40 varorna och loggar `info` med antalet som togs bort;
@@ -173,21 +173,21 @@ context:
 
   Den returnerar `Result<{ location, suggestions }>`. Testerna täcker alla felvägar, en tom lista, att kopplingen bara kommer från `matchIngredients`, att lagret som inte går att läsa inte stoppar analysen och att inga skrivfunktioner anropas
   -- AD-1, AD-2, AD-6, AD-9
-- [ ] `src/app/api/ai/route-support.ts` (+ test), `src/app/api/ai/import/photo/route.ts` -- bryt ut bildkontrollen till `readImageForm(request, fields)`. Den läser kroppen med `readCapped` (2 MB), tolkar formuläret, kontrollerar `image` (storlek, typ och pixlar ur byten) och ger bilden och de övriga fälten, eller ett färdigt felsvar. Fotoimporten använder den utan att beteendet ändras, och dess tester går igenom oförändrade -- AD-15
-- [ ] `src/app/api/ai/analyze/route.ts` (+ `route.test.ts`) -- `POST` i samma ordning som `/api/ai/import/photo`: `isCrossSite` (403), `requireUserForRoute` (401), `multipart/form-data` (415), `readImageForm` och fältet `location` validerat med `locationSchema` (400). Den anropar sedan `analyzePlace(…, { signal: request.signal })` och `respond`. `maxDuration = 120`. Testerna täcker varje rad i matrisen som gäller servern -- AD-9, AD-15
-- [ ] `src/features/pantry/ui/pantry-suggestions.tsx` (+ test), `use-pantry-analysis.ts` -- `PantrySuggestionsProvider` håller tillståndet (förslagen med sin plats, `analyzing`, felet och det senaste förminskade fotot för "Försök igen"). Hooken förminskar fotot, anropar `postAiForm("/api/ai/analyze", …)`, validerar svaret med `analyzeResultSchema` (ett svar som inte passerar blir `ai_invalid`), ger `router.refresh()` vid `unauthorized` och avbryter i cleanup. Ett nytt anrop avbryter det förra. Förslagen ersätts först när ett nytt svar kommer -- AD-2, AD-18
-- [ ] `src/features/pantry/ui/pantry-camera.tsx` (+ test) -- `PantryCamera` med kameraknappen (`Button` variant secondary, `fullWidth`, `CameraIcon`, `cameraButtonText`) och de dolda filfälten (`accept="image/*"`, `capture="environment"` bara på mobil) samt "Välj bild" på mobil.
+- [x] `src/app/api/ai/route-support.ts` (+ test), `src/app/api/ai/import/photo/route.ts` -- bryt ut bildkontrollen till `readImageForm(request, fields)`. Den läser kroppen med `readCapped` (2 MB), tolkar formuläret, kontrollerar `image` (storlek, typ och pixlar ur byten) och ger bilden och de övriga fälten, eller ett färdigt felsvar. Fotoimporten använder den utan att beteendet ändras, och dess tester går igenom oförändrade -- AD-15
+- [x] `src/app/api/ai/analyze/route.ts` (+ `route.test.ts`) -- `POST` i samma ordning som `/api/ai/import/photo`: `isCrossSite` (403), `requireUserForRoute` (401), `multipart/form-data` (415), `readImageForm` och fältet `location` validerat med `locationSchema` (400). Den anropar sedan `analyzePlace(…, { signal: request.signal })` och `respond`. `maxDuration = 120`. Testerna täcker varje rad i matrisen som gäller servern -- AD-9, AD-15
+- [x] `src/features/pantry/ui/pantry-suggestions.tsx` (+ test), `use-pantry-analysis.ts` -- `PantrySuggestionsProvider` håller tillståndet (förslagen med sin plats, `analyzing`, felet och det senaste förminskade fotot för "Försök igen"). Hooken förminskar fotot, anropar `postAiForm("/api/ai/analyze", …)`, validerar svaret med `analyzeResultSchema` (ett svar som inte passerar blir `ai_invalid`), ger `router.refresh()` vid `unauthorized` och avbryter i cleanup. Ett nytt anrop avbryter det förra. Förslagen ersätts först när ett nytt svar kommer -- AD-2, AD-18
+- [x] `src/features/pantry/ui/pantry-camera.tsx` (+ test) -- `PantryCamera` med kameraknappen (`Button` variant secondary, `fullWidth`, `CameraIcon`, `cameraButtonText`) och de dolda filfälten (`accept="image/*"`, `capture="environment"` bara på mobil) samt "Välj bild" på mobil.
   - Under analysen visar den "Tittar på bilden …" med förloppsrad i `role="status"` och textknappen "Avbryt".
   - Fel visas i en `Notice` med `role="alert"`, med "Försök igen" som skickar det sparade fotot igen. För bildfel finns ingen sådan knapp.
   - Tomt svar visar `noSuggestionsText` med `role="status"` och `AddPantryItemButton`.
   - Fokus går tillbaka till kameraknappen efter "Avbryt".
 
   -- FR-24, UX-DR10
-- [ ] `src/features/pantry/ui/pantry-suggestion-list.tsx` (+ test) -- `<section aria-labelledby>` med rubriken från `suggestionsHeading` (h2, `tabIndex={-1}`, fokus när förslag kommer) och en lista med kort som liknar receptrader: namn, `suggestionAmountText`, platsen, `Badge` "Ny" för en ny katalogingrediens och `currentAmountText` när `current` finns. Inga knappar ännu (6.2) -- FR-24
-- [ ] `src/features/pantry/ui/pantry-place.tsx`, `src/app/(app)/hemma/page.tsx`, `home-content.tsx` (+ test) -- `HomePlace` lägger `PantrySuggestionsProvider` runt `PantrySheetProvider`, utan nyckel, så att förslagen finns kvar när platskortet byts. `PantryPlace` visar platskorten, `PantryCamera`, `PantrySuggestionList` och sedan listan. Felvägen i `HomeContent` visar `PantryCamera` och förslagen under `Notice`. Kommentaren "The camera arrives with Epic 6." tas bort -- FR-24, AD-18
-- [ ] `src/lib/errors.ts` -- inga nya koder. `analyzeErrorMessage` ger för `ai_rejected` texten "AI-tjänsten tog inte emot bilden. Ta en ny bild eller försök igen senare." -- AD-13
-- [ ] `tests/eval/analyze-image.eval.ts` (+ `.gitignore` för `tests/eval/photos/` och `tests/eval/analyze-report.md`) -- kör `analyzeImage` mot vald `AI_PROVIDER` med Pontus egna foton i `tests/eval/photos/` (`<namn>.jpg` och `<namn>.expected.json` med plats och förväntade varor i grundform). Den vägrar köra mot mocken, hoppar över med ett tydligt besked när mappen är tom och skriver träffar, missar, felgissningar och tid per bild i rapporten -- AD-9
-- [ ] `tests/e2e/pantry-camera.spec.ts` (+ `support.ts`, `global-setup.ts`) -- egen e2e-användare `e2e-bildanalys@matkoll.test`, med `AI_PROVIDER=mock`. Med service role seedar testet katalogingrediensen "mjölk" och lagervaran "mjölk 2 förp" i Kyl. Det kontrollerar:
+- [x] `src/features/pantry/ui/pantry-suggestion-list.tsx` (+ test) -- `<section aria-labelledby>` med rubriken från `suggestionsHeading` (h2, `tabIndex={-1}`, fokus när förslag kommer) och en lista med kort som liknar receptrader: namn, `suggestionAmountText`, platsen, `Badge` "Ny" för en ny katalogingrediens och `currentAmountText` när `current` finns. Inga knappar ännu (6.2) -- FR-24
+- [x] `src/features/pantry/ui/pantry-place.tsx`, `src/app/(app)/hemma/page.tsx`, `home-content.tsx` (+ test) -- `HomePlace` lägger `PantrySuggestionsProvider` runt `PantrySheetProvider`, utan nyckel, så att förslagen finns kvar när platskortet byts. `PantryPlace` visar platskorten, `PantryCamera`, `PantrySuggestionList` och sedan listan. Felvägen i `HomeContent` visar `PantryCamera` och förslagen under `Notice`. Kommentaren "The camera arrives with Epic 6." tas bort -- FR-24, AD-18
+- [x] `src/lib/errors.ts` -- inga nya koder. `analyzeErrorMessage` ger för `ai_rejected` texten "AI-tjänsten tog inte emot bilden. Ta en ny bild eller försök igen senare." -- AD-13
+- [x] `tests/eval/analyze-image.eval.ts` (+ `.gitignore` för `tests/eval/photos/` och `tests/eval/analyze-report.md`) -- kör `analyzeImage` mot vald `AI_PROVIDER` med Pontus egna foton i `tests/eval/photos/` (`<namn>.jpg` och `<namn>.expected.json` med plats och förväntade varor i grundform). Den vägrar köra mot mocken, hoppar över med ett tydligt besked när mappen är tom och skriver träffar, missar, felgissningar och tid per bild i rapporten -- AD-9
+- [x] `tests/e2e/pantry-camera.spec.ts` (+ `support.ts`, `global-setup.ts`) -- egen e2e-användare `e2e-bildanalys@matkoll.test`, med `AI_PROVIDER=mock`. Med service role seedar testet katalogingrediensen "mjölk" och lagervaran "mjölk 2 förp" i Kyl. Det kontrollerar:
   - kameraknappens text för Kyl, Frys och Skafferi;
   - att inget anrop till `/api/ai/analyze` görs när sidan visas eller ett kort väljs;
   - `capture="environment"` med `hasTouch` och "Välj bild";
@@ -227,7 +227,43 @@ context:
 
 ## Spec Change Log
 
+- Taket för antal varor sänks från 40 till 25. Uppmätt mot Qwen tar varje vara ungefär 60 token, så 40 varor hamnar vid gränsen för både svarsutrymme och tid.
+- Porten ger `{ items, invalid }` i stället för `AiPantryItem[]`.
+- Svaret får fältet `dropped`.
+- Nya ingredienser får ett obligatoriskt `proposalId`.
+- Ny felkod `ai_superseded` (409).
+
+- Mönster från 5.2:
+  - deadline inom `maxDuration`
+  - bara en körning per användare, där en ny körning avbryter den gamla
+  - kontroll av avbrott efter varje steg
+- Ett tomt svar ersätter tidigare förslag.
+- Förslagen försvinner när Pontus lämnar Hemma, även när sidan bara döljs.
+
 ## Review Triage Log
+
+Iteration 1. Granskare: Blind Hunter, Edge Case Hunter och Verification Gap.
+- **Patch:**
+  - Mängder avrundas och begränsas.
+  - AI-svaret valideras per vara och serverns resultat per förslag, så att en felaktig vara inte fäller hela svaret. Antalet bortfallna varor loggas, och ett eget meddelande visas när alla varor föll bort.
+  - Svarsutrymmet räcker för 40 varor.
+  - Sammanslagning:
+    - En ny ingrediens får ett gemensamt förslags-id även om den har flera enheter.
+    - En okänd enhet gör posten obegränsad.
+    - Namn på nya ingredienser begränsas.
+  - Deadline med marginal, och ett eget utfall när körningen ersätts av en nyare.
+  - Klienten:
+    - try/catch runt anropen
+    - fotot sparas bara för ett nytt försök
+    - fokus hanteras varsamt
+  - Integritet:
+    - Bilden kodas alltid om, även PNG, så att metadata inte följer med.
+    - Utvärderingen tar bort metadata och nekar molnleverantörer som standard.
+    - Ett test visar att bilden aldrig hamnar i loggar.
+  - Nya tester:
+    - förslagen försvinner när Pontus lämnar Hemma och kommer tillbaka
+    - felvägen visar förslag
+    - deadlinen kortar budgeten
 
 ## Verification
 
