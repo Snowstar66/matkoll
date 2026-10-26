@@ -134,6 +134,12 @@ test.describe("session for an address outside ALLOWED_EMAILS", () => {
       await expect(page.getByText(emptyLibrary)).toHaveCount(0);
     });
   }
+
+  test("/hemma?plats=frys keeps the location in next", async ({ page }) => {
+    await page.goto("/hemma?plats=frys");
+    await expect(page).toHaveURL(/\/logga-in\?next=%2Fhemma%3Fplats%3Dfrys$/);
+    await expect(page.getByRole("heading", { level: 1, name: "Logga in" })).toBeVisible();
+  });
 });
 
 test.describe("session refresh", () => {

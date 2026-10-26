@@ -2,6 +2,12 @@
 
 Beslut som fattats under bygget: vad, varför och vilka alternativ som fanns. Nyaste överst.
 
+## 2026-10-26 – Mängd utan enhet räknas som styck
+
+- **Beslut:** en mängd utan enhet, till exempel receptraden "1 purjolök", räknas som `st`. I lagret får en mängd alltid en enhet: utan vald enhet sparas `st`. Lagningsstatus och inköpslistan jämför receptrader utan enhet som `st`, och listnyckeln blir `r:<id>:st`.
+- **Varför:** lagret och listan måste kunna jämföra "1 purjolök" i receptet med "2 purjolökar" hemma. `-` i listnyckeln är reserverat för vaga rader.
+- **Alternativ:** en egen "ingen enhet"-nyckel; den hade krockat med vaga rader och obegränsade lagervaror.
+
 ## 2026-10-26 – Receptrader utan katalogingrediens på inköpslistan
 
 - **Beslut:** en receptrad som saknar katalogingrediens blir en post under Övrigt med radens originaltext. Mängden räknas inte om och lagret dras inte av. Listnyckeln är `t:<normaliserad text>`, så samma text från flera rätter slås ihop. I lagningsstatus räknas raden fortfarande inte (Story 2.4).

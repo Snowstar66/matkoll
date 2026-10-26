@@ -12,6 +12,8 @@ import {
   magicLinkPath,
   outsiderEmail,
   outsiderStorageState,
+  pantryEmail,
+  pantryStorageState,
   recipesEmail,
   recipesStorageState,
   sessionCookiesFor,
@@ -50,6 +52,7 @@ export default async function globalSetup(config: FullConfig) {
       [recipesEmail, recipesStorageState],
       [libraryEmail, libraryStorageState],
       [settingsEmail, settingsStorageState],
+      [pantryEmail, pantryStorageState],
     ] as const) {
       const user = await browser.newContext({ baseURL });
       const page = await user.newPage();

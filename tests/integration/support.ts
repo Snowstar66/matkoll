@@ -65,11 +65,14 @@ export async function createTestUser(name: string): Promise<TestUser> {
   return { id, email, db };
 }
 
-/** Deletes every user createTestUser made; their rows go with them (on delete cascade). */
+/**
+ * Deletes every user createTestUser made; their rows go with them (on delete
+ * cascade). A user a test has already deleted is skipped.
+ */
 export async function deleteTestUsers(): Promise<void> {
   for (const id of createdUserIds) {
     const { error } = await adminClient().auth.admin.deleteUser(id);
-    if (error) throw error;
+    if (error && error.code !== "user_not_found") throw error;
     createdUserIds.delete(id);
   }
 }

@@ -65,6 +65,8 @@ context:
 
 ## Implementation Notes
 
+- En receptrad med mängd men utan enhet jämförs som `st` (beslut 2026-10-26).
+
 ## Spec Change Log
 
 ## Review Triage Log

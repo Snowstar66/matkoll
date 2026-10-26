@@ -2,9 +2,9 @@
 title: 'Story 2.1: Se lagret per plats'
 type: 'feature'
 created: '2026-10-26'
-status: 'in-progress'
+status: 'done'
 route: 'dispatch'
-review_loop_iteration: 0
+review_loop_iteration: 1
 baseline_commit: '0a40829a59ae418e14790d06b208b8ec66183c1e'
 context:
   - '{project-root}/_bmad-output/implementation-artifacts/epic-2-context.md'
@@ -52,24 +52,51 @@ context:
 ## Tasks & Acceptance
 
 **Execution:**
-- [ ] `supabase/migrations/<tid>_pantry.sql` (`supabase migration new … < /dev/null`, `supabase migration up`) och `pnpm db:types` -- `pantry_item` enligt Boundaries, index på `(user_id, location)` -- AD-4, AD-19
-- [ ] `tests/design/` -- `location`- och `unit`-listorna i migrationen är exakt `LOCATIONS` och `UNITS` -- drift
-- [ ] `src/features/pantry/domain/` (+ test) -- typerna `PantryItem`, `PantrySnapshot`; ren funktion `toSnapshot(rows)` som summerar per ingrediens och enhet över platser och sätter `unlimited` om någon rad saknar mängd -- AD-19
-- [ ] `src/features/pantry/data/queries.ts`, `src/features/pantry/server.ts`, `src/features/pantry/index.ts` -- `listPantry(location)` (med ingrediensnamn via `catalog.getIngredientNames`, sorterade på namn) och `getPantrySnapshot()` (React `cache` per förfrågan) -- AD-1, AD-19
-- [ ] `src/features/pantry/ui/` -- platskorten (knappar med `aria-pressed` eller länkar med `aria-current`, minst 44 px), listan "Med mängd", etiketterna "Finns hemma", tomt läge -- UX
-- [ ] `src/app/(app)/hemma/page.tsx` -- plats från `?plats=` (kyl/frys/skafferi), data inuti `<Suspense>` med skelettrader, antal per plats på korten -- matrisen
-- [ ] `tests/integration/pantry.test.ts` -- RLS med `expectRlsIsolation('pantry_item', …)`; unik nyckel med `nulls not distinct`; FK nekar främmande ingrediens; `check` nekar okänd plats och enhet; mängd ≤ 0 nekas; `listPantry` och `getPantrySnapshot` mot riktiga rader -- matrisen
-- [ ] `tests/e2e/pantry.spec.ts` -- egen e2e-användare med lagerrader skapade via service role före testet: platskort med antal, byte av plats, rader och etiketter, tom plats, mobil och dator -- matrisen
-- [ ] `README.md` -- avsnitt om lagret -- dokumentation
+- [x] `supabase/migrations/<tid>_pantry.sql` (`supabase migration new … < /dev/null`, `supabase migration up`) och `pnpm db:types` -- `pantry_item` enligt Boundaries, index på `(user_id, location)` -- AD-4, AD-19
+- [x] `tests/design/` -- `location`- och `unit`-listorna i migrationen är exakt `LOCATIONS` och `UNITS` -- drift
+- [x] `src/features/pantry/domain/` (+ test) -- typerna `PantryItem`, `PantrySnapshot`; ren funktion `toSnapshot(rows)` som summerar per ingrediens och enhet över platser och sätter `unlimited` om någon rad saknar mängd -- AD-19
+- [x] `src/features/pantry/data/queries.ts`, `src/features/pantry/server.ts`, `src/features/pantry/index.ts` -- `listPantry(location)` (med ingrediensnamn via `catalog.getIngredientNames`, sorterade på namn) och `getPantrySnapshot()` (React `cache` per förfrågan) -- AD-1, AD-19
+- [x] `src/features/pantry/ui/` -- platskorten (knappar med `aria-pressed` eller länkar med `aria-current`, minst 44 px), listan "Med mängd", etiketterna "Finns hemma", tomt läge -- UX
+- [x] `src/app/(app)/hemma/page.tsx` -- plats från `?plats=` (kyl/frys/skafferi), data inuti `<Suspense>` med skelettrader, antal per plats på korten -- matrisen
+- [x] `tests/integration/pantry.test.ts` -- RLS med `expectRlsIsolation('pantry_item', …)`; unik nyckel med `nulls not distinct`; FK nekar främmande ingrediens; `check` nekar okänd plats och enhet; mängd ≤ 0 nekas; `listPantry` och `getPantrySnapshot` mot riktiga rader -- matrisen
+- [x] `tests/e2e/pantry.spec.ts` -- egen e2e-användare med lagerrader skapade via service role före testet: platskort med antal, byte av plats, rader och etiketter, tom plats, mobil och dator -- matrisen
+- [x] `README.md` -- avsnitt om lagret -- dokumentation
 
 **Acceptance Criteria:**
 - Given `pnpm lint && pnpm typecheck && pnpm test && pnpm test:integration && AI_PROVIDER=mock pnpm build && CI=1 pnpm test:e2e`, when de körs, then lyckas alla.
 
 ## Implementation Notes
 
+- `pantry_item_unlimited_check ((amount is null) = (unit is null))`: en mängd har alltid en enhet. Annars skulle en mängd utan enhet hamna på samma plats i den unika nyckeln som den obegränsade raden.
+- Antalet på platskorten räknar rader. Mjölk i l och i dl blir alltså 2, precis som listan visar.
+- Platslänkarna ersätter historiken (`replace`), så Tillbaka lämnar Hemma.
+
 ## Spec Change Log
 
 ## Review Triage Log
+
+Iteration 1. Granskare: Blind Hunter, Edge Case Hunter och Verification Gap.
+- **Patch:**
+  - Ett test att det går att radera en användare som har lagerrader. FK:n blir `no action` om `restrict` stoppar raderingen.
+  - Mängden måste vara under 1 000 000, vilket också stänger ute NaN och Infinity.
+  - Summorna i ögonblicksbilden avrundas till 1e-6.
+  - Antalet på den valda platsen räknas från listan.
+  - Rubrik-id:n kommer från `useId`.
+  - Suspense-gränsen har platsen som nyckel.
+  - Ingrediens-id:n dedupliceras och hämtas i omgångar.
+  - Ett designtest kontrollerar `max_rows`, och ett integrationstest kör 1001 rader.
+  - Ett test av läsfelet, där loggen tar med detaljen.
+  - Frys-kortets färg och djuplänken genom inloggningen testas.
+- **Defer:**
+  - keyset-sidning (en användare)
+  - en knapp för att försöka igen i notisen
+  - ett drifttest mot `pg_constraint`
+  - att blandningen av obegränsad vara och vara med mängd på samma plats hanteras i 2.2
+- **Reject:**
+  - kanonisk omdirigering av en okänd `?plats` (Kyl visas)
+  - `updated_at` (inget behov)
+  - att ogiltiga rader hoppas över i stället för att kasta (samma mönster som recepten)
+  - att `replace` tas bort på platslänkarna (avsiktligt)
 
 ## Verification
 

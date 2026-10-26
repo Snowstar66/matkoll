@@ -68,6 +68,9 @@ context:
 
 ## Implementation Notes
 
+- En ingrediens på en plats är antingen obegränsad eller har mängder. `set_pantry_items` tar bort de andra raderna av samma ingrediens och plats när en obegränsad rad sätts, och tar bort den obegränsade raden när en mängd sätts (från granskningen av 2.1).
+- En mängd utan enhet sparas med enheten `st`, eftersom lagret kräver en enhet när det finns en mängd (2.1). Samma regel används mot receptrader i lagningsstatus (2.4) och inköpslistan (3.3). Se beslutsloggen 2026-10-26.
+
 ## Spec Change Log
 
 ## Review Triage Log

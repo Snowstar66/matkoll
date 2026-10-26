@@ -39,6 +39,26 @@ isOneToOne: false
       referencedColumns: ["id","user_id"]
     }
                   ]
+                },"pantry_item": {
+                  Row: {
+                    "amount": number | null,"created_at": string,"id": string,"ingredient_id": string,"location": string,"unit": string | null,"user_id": string
+                  }
+                  ComputedFields: never
+                  Insert: {
+                    "amount"?: number | null,"created_at"?: string,"id"?: string,"ingredient_id": string,"location": string,"unit"?: string | null,"user_id"?: string
+                  }
+                  Update: {
+                    "amount"?: number | null,"created_at"?: string,"id"?: string,"ingredient_id"?: string,"location"?: string,"unit"?: string | null,"user_id"?: string
+                  }
+                  Relationships: [
+                    {
+      foreignKeyName: "pantry_item_ingredient_fkey"
+      columns: ["ingredient_id","user_id"]
+isOneToOne: false
+      referencedRelation: "ingredient"
+      referencedColumns: ["id","user_id"]
+    }
+                  ]
                 },"recipe": {
                   Row: {
                     "created_at": string,"id": string,"image_url": string | null,"is_favorite": boolean,"original_servings": number,"source_kind": string,"source_url": string | null,"title": string,"total_minutes": number | null,"updated_at": string,"user_id": string
