@@ -1,4 +1,4 @@
-import { act, fireEvent, render as renderBare, type RenderOptions, screen, within } from "@testing-library/react";
+import { act, fireEvent, render as renderBare, type RenderOptions, screen, waitFor, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { Activity, type ReactElement, useEffect, useState } from "react";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
@@ -255,14 +255,15 @@ describe("ShoppingList checks", () => {
     render(<ServerList initial={lines} />);
     const box = screen.getByRole("checkbox", { name: "Paprika, 1 st" });
     await user.click(box);
-    expect(box).not.toBeChecked();
-    expect(screen.getByRole("alert")).toHaveTextContent("Det gick inte att spara bocken.");
+    // The answer settles in a transition after the click, so wait for it.
+    expect(await screen.findByRole("alert")).toHaveTextContent("Det gick inte att spara bocken.");
+    await waitFor(() => expect(box).not.toBeChecked());
     expect(screen.getByTestId("list-summary")).toHaveTextContent("6 varor kvar");
     expect(refresh).not.toHaveBeenCalled();
 
     await user.click(box);
+    await waitFor(() => expect(screen.queryByRole("alert")).not.toBeInTheDocument());
     expect(box).toBeChecked();
-    expect(screen.queryByRole("alert")).not.toBeInTheDocument();
   });
 
   it("puts the check back when the action gets no answer", async () => {
@@ -271,8 +272,8 @@ describe("ShoppingList checks", () => {
     render(<ServerList initial={lines} />);
     const box = screen.getByRole("checkbox", { name: "Paprika, 1 st" });
     await user.click(box);
-    expect(box).not.toBeChecked();
-    expect(screen.getByRole("alert")).toHaveTextContent("Det gick inte att spara bocken.");
+    expect(await screen.findByRole("alert")).toHaveTextContent("Det gick inte att spara bocken.");
+    await waitFor(() => expect(box).not.toBeChecked());
   });
 
   it("reads the list again and says so when the plan was switched elsewhere", async () => {
