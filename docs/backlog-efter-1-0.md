@@ -19,6 +19,7 @@ Pontus idéer 2026-10-26, bedömda och ordnade. Version 1.0 är Epic 1–7 enlig
 - **Enkel första version:** Pontus klistrar in en länk till butikens erbjudanden, eller fotograferar reklambladet. AI:n plockar ut erbjudandena, med samma teknik som receptimport och bildanalys, och förslagen tar hänsyn till dem.
 - **Svårare variant:** att hämta erbjudandena automatiskt varje vecka från ICA, Willys, Coop och Lidl. Det kräver att varje kedjas webbplats utreds, och det kan gå sönder när de ändrar sina sidor.
 - **Svårighet:** låg till medel i den enkla versionen, hög i den automatiska.
+- **Planerad som Epic 9 (2026-10-26):** den enkla versionen, med inklistrad text eller foto av reklambladet, i fyra stories (9.1–9.4). AI-förslagen prioriterar rätter med varor på erbjudande i vald butik. Länkar ingår inte, eftersom Matkoll aldrig hämtar från butikers webbplatser (öppen fråga 8), och den automatiska hämtningen är ett senare alternativ (öppen fråga 9). Underlag: `_bmad-output/planning-artifacts/sprint-change-proposal-2026-10-26-erbjudanden.md` och `_bmad-output/implementation-artifacts/epic-9-context.md`. Byggs efter Epic 8.
 
 ## 3. Jämföra butiker för en färdig inköpslista (föreslås som 1.3, med en utredning först)
 
@@ -34,5 +35,5 @@ Pontus idéer 2026-10-26, bedömda och ordnade. Version 1.0 är Epic 1–7 enlig
 
 1. Gör klart 1.0, alltså Epic 4–7 som planerat. Epic 7 får en butiksmodell som klarar flera butiker.
 2. 1.1: flera ställen.
-3. 1.2: erbjudanden i den enkla versionen, med inklistrad eller fotograferad reklam.
+3. 1.2: erbjudanden i den enkla versionen, med inklistrad eller fotograferad reklam. Planerad som Epic 9.
 4. Utredning, och därefter 1.3: butiksjämförelse.

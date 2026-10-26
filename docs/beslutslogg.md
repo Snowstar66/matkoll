@@ -2,6 +2,43 @@
 
 Beslut som fattats under bygget: vad, varför och vilka alternativ som fanns. Nyaste överst.
 
+## 2026-10-26 – Kursändring för version 1.2, Veckans erbjudanden (Epic 9)
+
+- **Beslut (Claude, headless enligt `docs/autonomi.md`; allt går att ändra):**
+  - **Kursändringen görs som en ny Epic 9 med fyra stories** (alternativ 1, direkt justering). 1.0:s och 1.1:s stories ändras inte. Förslaget står i `_bmad-output/planning-artifacts/sprint-change-proposal-2026-10-26-erbjudanden.md`. Epic 9 planeras parallellt med att Epic 8 byggs, i grenen `epic/9-erbjudanden` från `main`, och byggs efter att Epic 8 är ihopslagen. Numren följer efter Epic 8: FR-34–FR-36, NFR-10, AD-25, UX-DR19–UX-DR20, UJ-7, Flöde 7 och öppna frågor 8–10.
+  - **Den enkla versionen, som Pontus valde:** Pontus klistrar in text från butikens erbjudandesida eller fotograferar reklambladet (eller väljer en skärmbild). AI:n plockar ut erbjudandena med en ny metod i AI-porten, `extractOffers`, med samma regler som `parseRecipe` och `analyzeImage`.
+  - **Ingen länk i 1.2.** Att servern hämtar en länk skulle betyda att Matkoll anropar ICA eller en annan butik, vilket inte är tillåtet. Receptimportens regler (AD-11) gäller godkända receptsajter, inte butiker, och erbjudandesidor byggs ofta i webbläsaren, som coop.se (T1), så serverhämtning skulle troligen inte ge någon text. Butikernas villkor är inte kontrollerade (PRD 6). En text som bara är en länk ger därför ett besked, utan hämtning och utan AI-anrop. Frågan står som öppen fråga 8.
+  - **Ingen hämtning alls:** `offers` får inte importera `src/server/fetch` (ESLint-zon), och ett test visar att flödet aldrig anropar `fetch`. Fixturerna är påhittade.
+  - **Ny modul `offers` som äger `store_offer`,** i stället för att lägga tabellen i `settings` (butiker är inställningar, erbjudanden ändras varje vecka) eller i `shopping` (listan läser aldrig erbjudanden i 1.2).
+  - **Ett erbjudande gäller en butik och en vecka** (måndag–söndag, svensk tid, lagrad som måndagens datum). Bara den här och nästa vecka går att spara. Förvalet i arket är den här veckan måndag–fredag och nästa vecka lördag–söndag, eftersom bladet för nästa vecka brukar komma i helgen.
+  - **Veckans erbjudanden är den senaste vecka som Pontus har lagt in och som inte är slut.** Veckor blandas aldrig. Veckor som är slut används aldrig och tas bort när Pontus sparar nya erbjudanden, utan schemalagt jobb.
+  - **Flera inläsningar för samma vecka läggs ihop per vara** (normaliserat namn), så att ett blad kan läsas in en sida i taget. Högst 40 erbjudanden per inläsning och 100 per butik och vecka.
+  - **Erbjudanden skapar aldrig katalogingredienser.** De kopplas med den skrivfria `matchIngredients` när varan finns, och annars sparas bara namnet.
+  - **AI-svaret har bara namn som i bladet, vara i grundform och pris som text.** Inga avdelningar, platser eller enheter, eftersom erbjudandena aldrig blir katalogingredienser. Varje post kontrolleras för sig, som i bildanalysen.
+  - **Ett foto av bladet behandlas som ett foto av en plats:** 2048 px och Qwens sampling från Story 6.5, eftersom bladet har liten text och många rutor.
+  - **AI-förslagen prioriterar, men kräver inte.** `suggestDishes` får varornas namn (högst 40, 1 000 tecken, aldrig priser), och prompten ber att minst två av rätterna använder ett erbjudande när det går. Schemat kontrollerar det inte, för att inte få fler ogiltiga svar nära tidsgränsen (T5). Servern räknar vilka erbjudanden varje förslag använder, sorterar förslagen och visar "På erbjudande: …". Utan erbjudanden är meddelandet till modellen exakt som i 1.0.
+  - **Erbjudanden ändrar inget annat:** lagningsstatus, "Kan lagas nu", rangordningen, inköpslistan och exporten läser dem aldrig.
+  - **Oberoende av ställen.** Epic 9 läser lagret bara via `getPantrySnapshot()` utan argument i AI-förslagen, vilket efter Epic 8 är valt ställe (AD-24). Erbjudanden hör till en butik och har inget ställe.
+  - **Ingången ligger i Recept med filtret "Kan lagas nu",** som raden Veckans erbjudanden ovanför "Föreslå rätter med AI", eftersom det är där förslagen används. Inte i Inställningar, eftersom erbjudandena ändras varje vecka.
+  - **Story-ordning:**
+    1. 9.1, erbjudanden från inklistrad text (tabell, port, ark, granskning och sparande);
+    2. 9.2, AI-förslag som prioriterar erbjudandena;
+    3. 9.3, foto av reklambladet;
+    4. 9.4, se och ta bort erbjudanden.
+
+    9.2 kommer före fotot, så att nyttan finns så tidigt som möjligt.
+  - **Utanför 1.2:** automatisk hämtning varje vecka från ICA, Willys, Coop och Lidl, länkar som servern hämtar, erbjudanden i inköpslistan och exporten, och prisjämförelse.
+- **Varför:** Pontus beslut om den enkla versionen (`docs/backlog-efter-1-0.md`, punkt 2), PRD 6 (Matkoll gör aldrig något i butiken), AD-2 (inget sparas utan bekräftelse), AD-6 (katalogen) och AD-9 (AI-porten). Det enklaste som ger förslag med veckans erbjudanden.
+- **Alternativ:**
+  - En länk som servern hämtar med `safeFetch`, med butikens domän som godkänd sajt.
+  - Automatisk hämtning varje vecka.
+  - Erbjudanden i `settings` eller `shopping`.
+  - Att låta AI:n tolka veckan ur bladet, i stället för att Pontus väljer den.
+  - Att spara erbjudanden som katalogingredienser.
+  - Ett hårt krav i schemat på att förslagen använder erbjudanden.
+  - Att erbjudandena också påverkar rangordningen ur biblioteket.
+  - Att den här veckan alltid gäller, också när nästa veckas blad är inlagt.
+
 ## 2026-10-26 – Skicka till ICA (Story 7.3)
 
 - **Beslut:**

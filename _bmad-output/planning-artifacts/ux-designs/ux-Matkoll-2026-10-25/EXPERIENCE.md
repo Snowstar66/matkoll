@@ -1,12 +1,13 @@
 ---
 name: Matkoll
 status: final
-updated: 2026-10-25
+updated: 2026-10-26
 sources:
   - _bmad-output/planning-artifacts/prds/prd-Matkoll-2026-10-25/prd.md
   - docs/brief.md
   - docs/ux/ux-spec.md
   - docs/ux/skisser/
+  - _bmad-output/planning-artifacts/prds/prd-Matkoll-2026-10-25/addendum.md (version 1.2)
 ---
 
 # Matkoll – upplevelse
@@ -17,7 +18,7 @@ Den här filen och `DESIGN.md` gäller före skisserna i `docs/ux/skisser/` när
 
 Matkoll är en webbapp, mobil först (från 375 px), som också fungerar på dator. Ingen native app. Inget komponentbibliotek; komponenterna byggs från tokens i `DESIGN.md` (teknikvalet står i `docs/autonomi.md`). Gränssnittet är på svenska och används av en person, Pontus. Ljust och mörkt läge följer systemets inställning.
 
-Begreppen följer PRD:ns ordlista (§3) ordagrant: recept, receptbibliotek, matsedel, matsedelsrätt, inköpslista, listpost, lager, lagervara, plats, stegläge, AI-förslag, lagerförslag med flera.
+Begreppen följer PRD:ns ordlista (§3) ordagrant: recept, receptbibliotek, matsedel, matsedelsrätt, inköpslista, listpost, lager, lagervara, plats, stegläge, AI-förslag, lagerförslag med flera. Från version 1.2 kommer **erbjudande** och **veckans erbjudanden** från addendumet ("Version 1.2: Veckans erbjudanden"). Ett erbjudande gäller alltid en butik och en vecka.
 
 ## Information Architecture
 
@@ -31,6 +32,8 @@ Begreppen följer PRD:ns ordlista (§3) ordagrant: recept, receptbibliotek, mats
 | Ändra recept | "Ändra" i receptvyns meny (⋯) | Samma formulär som förhandsgranskningen; "Ta bort recept" längst ned | FR-6, FR-10 | Förhandsgranskning |
 | Stegläge (Laga nu) | "Laga nu" i receptvyn | Ett steg i taget, skärmen tänd | FR-21 | Stegläge (komponent), Interaction Primitives, Responsive, Flöde 4, `{typography.step}` |
 | AI-förslag | Filtret "Kan lagas nu", längst ned: "Föreslå rätter med AI" | Tre märkta förslag utifrån lagret | FR-23 | Flöde 5, AI-etikett |
+| Raden Veckans erbjudanden (1.2) | Filtret "Kan lagas nu", längst ned, ovanför "Föreslå rätter med AI" | Visar om det finns erbjudanden för vald butik, och öppnar arket | FR-35, FR-36 | Veckans erbjudanden (rad), Flöde 7 |
+| Veckans erbjudanden (ark, 1.2) | "Lägg in erbjudanden" eller "Visa" på raden | Välja vecka, klistra in text eller fotografera bladet, granska, spara, ta bort | FR-34, FR-35 | Ark, Veckans erbjudanden (ark), Flöde 7 |
 | Matsedel | Flik 2 | Aktuell matsedel med matsedelsrätter och portioner | FR-13 | Matsedelsrätt (komponent), Flöde 2 |
 | Lägg till rätt (ark) | "Lägg till rätt" i Matsedel | Favoriter först, sedan sök i biblioteket | FR-13 | Flöde 2 |
 | Tidigare matsedlar | "Tidigare" i Matsedel-rubriken | Lista; "Använd igen" skapar en ny matsedel | FR-14 | Receptrad |
@@ -58,8 +61,12 @@ Kort, saklig och vänlig svenska. Du-tilltal. Inga utropstecken, inga emojis, in
 | "Ta bort Krämig kycklinggryta? Det går inte att ångra." | "Är du säker?" |
 | "Lagt 8 varor i lagret." | "Åtgärden lyckades" |
 | "AI-förslag" som etikett | "Magi", "Smart", gnistor |
+| "På erbjudande: fläskfilé, broccoli" | "Spara pengar med veckans fynd!" |
+| "Matkoll hämtar inte sidor från butiker. Kopiera texten på sidan och klistra in den här." | "Ogiltig indata" |
 
-Knappar är verb: "Spara recept", "Lägg på matsedeln", "Laga nu", "Skicka till ICA", "Lägg i lagret", "Fotografera kylen".
+Knappar är verb: "Spara recept", "Lägg på matsedeln", "Laga nu", "Skicka till ICA", "Lägg i lagret", "Fotografera kylen", "Läs erbjudandena", "Fotografera bladet".
+
+**Erbjudanden i texter (1.2):** veckan skrivs "vecka 45" och, där det finns plats, med datum: "vecka 45, 4–10 nov". Butiken nämns med sitt namn. Priser visas som AI:n läste dem och räknas aldrig om. Matkoll lovar aldrig att något blir billigare.
 
 ## Component Patterns
 
@@ -72,7 +79,9 @@ Beteende. Utseendet beskrivs under Components i `DESIGN.md`, med samma namn och 
 | Filterpiller | Recept | Ett valt åt gången. "Kan lagas nu" sorterar efter antal saknade varor, minst först (FR-22). Valet sparas på enheten. |
 | Receptrad | Recept, Lägg till rätt, AI-förslag | Tryck öppnar receptvyn. I Lägg till rätt lägger ett tryck i stället rätten på matsedeln och stänger arket. |
 | Statusetikett | Receptrad, Matsedelsrätt | Räknas om när lagret ändras (FR-8). |
-| AI-etikett | AI-förslag, förhandsgranskning av AI-förslag | Följer med tills receptet sparats. Ett sparat AI-förslag får källan "AI-förslag". AI-förslag visas i en egen sektion och blandas aldrig med biblioteket. |
+| AI-etikett | AI-förslag, förhandsgranskning av AI-förslag | Följer med tills receptet sparats. Ett sparat AI-förslag får källan "AI-förslag". AI-förslag visas i en egen sektion och blandas aldrig med biblioteket. Från 1.2 står "På erbjudande: fläskfilé, broccoli" i `{typography.meta}` under titeln på ett förslag som använder veckans erbjudanden, och över förslagen står "Med veckans erbjudanden från Maxi ICA Stormarknad Östersund." när erbjudanden användes. Raden försvinner när förslaget sparas. |
+| Veckans erbjudanden (rad, 1.2) | Recept, filtret "Kan lagas nu" | Ovanför "Föreslå rätter med AI", i `{typography.meta}`. Utan erbjudanden: "Inga erbjudanden inlagda." och textknappen "Lägg in erbjudanden". Med erbjudanden: "24 erbjudanden från Maxi ICA Stormarknad Östersund, vecka 45." och textknappen "Visa". Utan vald butik: "Välj en butik i inställningarna för att lägga in erbjudanden." och länken "Öppna inställningar". Raden följer vald butik och annonseras inte när sidan laddas. |
+| Veckans erbjudanden (ark, 1.2) | Recept | Rubriken "Veckans erbjudanden" och butikens namn under. Två filterpiller väljer vecka ("Vecka 44" och "Vecka 45"), förvalt enligt AD-25. **Inläsning:** flikarna Text och Foto. Text har fältet "Text från butikens sida" och knappen "Läs erbjudandena". Foto har "Fotografera bladet" (bakre kameran) och "Välj bild" (också skärmbilder). **Förlopp:** "Läser erbjudandena …" eller "Tittar på bladet …" med "Avbryt". **Granskning:** "Hittade 18 erbjudanden för vecka 45." och en rad per erbjudande med namnet som i bladet, priset i `{typography.meta}` och knappen "Ta bort" (namnet "Ta bort Fläskfilé"). En granskad rad tas bort direkt, utan "Ångra", eftersom inget är sparat. "Spara 16 erbjudanden" är primärknapp. **Inlagda:** under rubriken "Inlagda för vecka 45" står de sparade erbjudandena, med "Ta bort" per rad och textknappen "Ta bort alla". Båda ger "Ångra" i den korta bekräftelsen. "Läs in fler" börjar en ny inläsning för samma vecka. |
 | Hjärta | Receptrad, receptvy | Ett tryck växlar favorit och sparas direkt. Påverkar inte navigeringen. |
 | Portionsväljare | Receptvy, Matsedelsrätt | − och + i steg om 1, minst 1. Mängder skalas direkt. I receptvyn påverkar valet bara visningen; i en matsedelsrätt sparas det. |
 | Ingrediensrad | Receptvy, förhandsgranskning, stegläge | Visar bock (finns) eller ring (saknas). Vag mängd visar originaltexten, t.ex. "efter behov". I förhandsgranskningen får en osäker katalogkoppling ring och "Kontrollera", och en ny katalogingrediens märks "Ny". Rättad koppling sparas som synonym till katalogingrediensen. |
@@ -118,6 +127,17 @@ Gemensamma tillstånd först, sedan per yta i IA-ordning.
 | Tom plats | Hemma | "Inget i kylen än." + "Lägg till vara" och "Fotografera kylen". |
 | Bildanalys pågår | Lagerförslag | "Tittar på bilden …" + "Avbryt". |
 | Inga lagerförslag | Lagerförslag | "Hittade inga varor på bilden. Prova ett ljusare foto eller lägg till för hand." |
+| Erbjudanden läses (1.2) | Veckans erbjudanden | "Läser erbjudandena …" (text) eller "Tittar på bladet …" (foto) + "Avbryt". |
+| Inga erbjudanden hittades (1.2) | Veckans erbjudanden | Meddelanderuta: "Hittade inga erbjudanden. Kopiera hela sidan, eller prova ett skarpare foto." Texten eller fotot står kvar. |
+| Bara en länk (1.2) | Veckans erbjudanden | Meddelanderuta: "Matkoll hämtar inte sidor från butiker. Kopiera texten på sidan och klistra in den här." Ingenting hämtas och AI-tjänsten anropas inte. |
+| För lång text (1.2) | Veckans erbjudanden | Under fältet: "Texten är för lång. Klistra in en del i taget." |
+| Några erbjudanden gick inte att läsa (1.2) | Veckans erbjudanden | Under rubriken i granskningen: "2 erbjudanden gick inte att läsa." Vid fler än 40: "Bara de första 40 erbjudandena kom med. Läs in resten för sig." |
+| Erbjudanden sparade (1.2) | Veckans erbjudanden | Kort bekräftelse: "Sparade 16 erbjudanden för vecka 45." |
+| Veckan är slut (1.2) | Veckans erbjudanden | Meddelanderuta: "Veckan är slut. Välj en annan vecka och spara igen." Granskningen står kvar. |
+| För många erbjudanden (1.2) | Veckans erbjudanden | Meddelanderuta: "Du kan ha högst 100 erbjudanden per vecka. Ta bort några först." |
+| Erbjudanden borttagna (1.2) | Veckans erbjudanden | "Tog bort Fläskfilé." eller "Tog bort 24 erbjudanden." med "Ångra" i 5 s. |
+| Erbjudandena går inte att läsa (1.2) | Recept, AI-förslag | Raden: "Det gick inte att läsa erbjudandena." Förslagen görs ändå, utan erbjudanden, och raden "Med veckans erbjudanden …" visas inte. |
+| Inget förslag använder erbjudandena (1.2) | AI-förslag | Över förslagen: "Inget av förslagen använder veckans erbjudanden." |
 
 ## Interaction Primitives
 
@@ -206,6 +226,16 @@ iPhone Safari är huvudmålet. Innehållet håller sig innanför säkerhetsmargi
 4. Tre förslag visas, alla märkta "AI-förslag".
 5. **Klimax:** hen trycker "Spara" på ett förslag, granskar det i förhandsgranskningen och det läggs i biblioteket med etiketten "Kan lagas nu".
 
+### Flöde 7 – Veckans meny från reklambladet (UJ-7, version 1.2, söndag förmiddag)
+
+1. Pontus väljer filtret "Kan lagas nu". Längst ned står "Inga erbjudanden inlagda." Pontus trycker "Lägg in erbjudanden".
+2. Arket "Veckans erbjudanden" har förvalt vecka 45, eftersom det är söndag. Pontus väljer Foto och trycker "Fotografera bladet".
+3. "Tittar på bladet …". Sedan: "Hittade 18 erbjudanden för vecka 45." Pontus tar bort tvättmedlet och kaffefiltren och trycker "Spara 16 erbjudanden".
+4. Raden säger nu "16 erbjudanden från Maxi ICA Stormarknad Östersund, vecka 45." Pontus trycker "Föreslå rätter med AI".
+5. **Klimax:** över förslagen står "Med veckans erbjudanden från Maxi ICA Stormarknad Östersund." Det första förslaget har "På erbjudande: fläskfilé, broccoli". Pontus sparar det och lägger det på matsedeln.
+
+**Variant, text från butikens sida:** Pontus markerar all text på erbjudandesidan i webbläsaren, kopierar den och klistrar in den under Text. Om Pontus i stället klistrar in en länk säger Matkoll att den inte hämtar sidor från butiker.
+
 ## Settings
 
 | Inställning | Beteende |
@@ -215,3 +245,5 @@ iPhone Safari är huvudmålet. Innehållet håller sig innanför säkerhetsmargi
 | Logga ut | Textknapp längst ned. |
 
 Produktval (FR-27) anges per vara i listpostdetaljen och gäller för den katalogingrediensen i vald butik.
+
+Veckans erbjudanden (1.2, FR-34) läggs in under Recept, vid AI-förslagen, och inte i Inställningar, eftersom de ändras varje vecka. De gäller vald butik.

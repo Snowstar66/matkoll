@@ -90,3 +90,10 @@ development_status:
   7-2-produktval-per-vara: done
   7-3-skicka-till-ica: done
   epic-7-retrospective: optional
+
+  epic-9: backlog
+  9-1-veckans-erbjudanden-från-inklistrad-text: backlog
+  9-2-ai-förslag-prioriterar-veckans-erbjudanden: backlog
+  9-3-erbjudanden-från-foto-av-reklambladet: backlog
+  9-4-se-och-ta-bort-veckans-erbjudanden: backlog
+  epic-9-retrospective: optional

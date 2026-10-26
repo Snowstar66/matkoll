@@ -2,7 +2,7 @@
 title: Matkoll
 status: draft
 created: 2026-10-25
-updated: 2026-10-25
+updated: 2026-10-26
 ---
 
 # PRD: Matkoll
@@ -357,6 +357,10 @@ Pontus kan ändra butik i inställningarna (namn, kedja, butiks-id, adress), äv
 
 - Steg 3 i Epic 7 (inbyggd agent). Byggs bara om steg 1–2 inte räcker.
 - Molndrift med extern AI-leverantör. AI-tjänsten är förberedd för det, men valet görs när appen ska användas av fler.
+
+### 8.3 Efter 1.0
+
+- **Version 1.2, Veckans erbjudanden (Epic 9):** Pontus klistrar in eller fotograferar butikens erbjudanden, och AI-förslagen prioriterar rätter med varor på erbjudande i vald butik. Kraven FR-34–FR-36 och NFR-10 står i `addendum.md` under "Version 1.2: Veckans erbjudanden".
 
 ## 9. Effektmål
 

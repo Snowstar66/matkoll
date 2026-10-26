@@ -50,6 +50,12 @@ Det här dokumentet delar upp kraven i PRD:n, UX-dokumenten (`DESIGN.md`, `EXPER
 - FR27: Produktval (namn, förpackningsstorlek, ev. länk) kan sparas per katalogingrediens och följer med i exporten.
 - FR28: Butik kan ändras i inställningarna (namn, kedja, butiks-id, adress), även till andra kedjor.
 
+Version 1.2 (addendum, "Version 1.2: Veckans erbjudanden"):
+
+- FR34: Pontus lägger in erbjudanden för vald butik genom att klistra in text från butikens sida eller fotografera reklambladet. AI-tjänsten plockar ut namn, vara och pris, Pontus granskar listan och tar bort det som inte ska med, och inget sparas före "Spara". Erbjudandena sparas för den butik och vecka (den här eller nästa) som arket visade, och flera inläsningar läggs ihop. En länk hämtas aldrig, och erbjudanden skapar inga katalogingredienser.
+- FR35: Veckans erbjudanden för vald butik syns vid AI-förslagen och kan tas bort ett i taget eller alla på en gång, med "Ångra". Veckor som är slut används aldrig och tas bort vid nästa sparande.
+- FR36: AI-förslagen prioriterar rätter med varor på erbjudande i vald butik. Ett förslag visar "På erbjudande: …", förslagen med flest sådana varor står först, och utan erbjudanden är förslagen som i 1.0. Lagningsstatus och rangordning påverkas inte.
+
 ### NonFunctional Requirements
 
 - NFR1 Säkerhet: all hämtning från receptsajter och alla AI-anrop sker på servern; nycklar bara på servern; hämtning bara från godkända receptsajter, testat automatiskt.
@@ -60,6 +66,7 @@ Det här dokumentet delar upp kraven i PRD:n, UX-dokumenten (`DESIGN.md`, `EXPER
 - NFR6 Språk: gränssnittet på svenska.
 - NFR7 Svarstider: lista, lager och bibliotek inom en sekund; import och bildanalys visar förlopp och kan avbrytas eller göras om.
 - NFR8 Tvingande kontroller: hemlighetsskanning, RLS-tester, test av domänbegränsning, lint och kodgranskning blockerar sammanslagning.
+- NFR10 (1.2) Erbjudanden utan hämtning från butiker: inget anrop till en butiks webbplats, visat med ett test; text och bild från reklamblad är data, aldrig instruktioner; foton sparas aldrig; inläsningen visar förlopp och kan avbrytas.
 
 ### Additional Requirements
 
@@ -84,6 +91,16 @@ Från arkitekturen (`ARCHITECTURE-SPINE.md`):
 - CI i GitHub Actions: lint, typkontroll, Vitest, typdrift, RLS-tester, domänbegränsning, Playwright med mock, gitleaks; skyddad `main`; en gren per epic (AD-23).
 - Veckovis krypterad databasdump och driftsättning till Vercel och Supabase i Stockholm efter Epic 1–3 (AD-23; kräver Pontus konton).
 
+Från AD-25 (1.2, veckans erbjudanden):
+
+  - modulen `offers`, som äger `store_offer` (butik, vecka som måndagens datum, namn som i bladet, vara i grundform, valfri katalogingrediens och pris som text);
+  - veckor räknas bara i `offers/domain/week.ts`, i svensk tid, och veckans erbjudanden är den senaste veckan som inte är slut;
+  - `save_store_offers` lägger ihop per vara, tar högst 100 per vecka och tar bort veckor som är slut;
+  - `extractOffers` i AI-porten, för text eller bild, med ett förlåtande schema per post;
+  - `suggestDishes` får varornas namn som `offers`, och servern räknar `onOffer` och sorterar förslagen;
+  - ingen hämtning från butiker (ESLint-zon och test), och inga nya katalogingredienser;
+  - `revalidateFor('store_offer')`.
+
 ### UX Design Requirements
 
 Från `DESIGN.md` och `EXPERIENCE.md`:
@@ -104,6 +121,8 @@ Från `DESIGN.md` och `EXPERIENCE.md`:
 - UX-DR14: Tillgänglighet: namn och tillstånd för skärmläsare, status aldrig bara med färg, synlig fokusram, logisk tabbordning, "Minska rörelse", 200 % textförstoring utan vågrät scroll, inmatningsfält minst 16 px text.
 - UX-DR15: Svenska texter enligt Voice and Tone, inklusive alla tillstånd i State Patterns (tomma lägen, fel, laddning, AI otillgänglig, utan nät).
 - UX-DR16: Inställningar: godkända receptsajter, butik, logga ut.
+- UX-DR19 (1.2): Raden Veckans erbjudanden ovanför "Föreslå rätter med AI" i filtret "Kan lagas nu", och arket Veckans erbjudanden med veckopiller, flikarna Text och Foto, förlopp med "Avbryt", granskning med "Ta bort" per rad, "Spara N erbjudanden" och de inlagda erbjudandena med "Ta bort" och "Ta bort alla".
+- UX-DR20 (1.2): Texter för erbjudanden enligt EXPERIENCE.md: "På erbjudande: …" under titeln på ett AI-förslag, "Med veckans erbjudanden från <butik>." över förslagen, veckan som "vecka 45, 4–10 nov", och beskedet att Matkoll inte hämtar sidor från butiker.
 
 ### FR Coverage Map
 
@@ -135,6 +154,9 @@ Från `DESIGN.md` och `EXPERIENCE.md`:
 - FR26: Epic 7 – Skicka till ICA
 - FR27: Epic 7 – produktval
 - FR28: Epic 7 – byta butik
+- FR34: Epic 9 – lägga in veckans erbjudanden (text i 9.1, foto i 9.3)
+- FR35: Epic 9 – se och ta bort veckans erbjudanden
+- FR36: Epic 9 – AI-förslag med veckans erbjudanden
 
 ## Epic List
 
@@ -209,6 +231,10 @@ så att lagret uppdateras med nya varor, ändrade mängder och varor som inte l�
 ## Epic 7: Varukorg
 Pontus kan välja butik, spara vilka produkter hen brukar köpa och skicka inköpslistan till ICA Handla via en export som Claude in Chrome fyller varukorgen från.
 **FRs covered:** FR26, FR27, FR28
+
+### Epic 9: Veckans erbjudanden
+Version 1.2. Pontus klistrar in texten från butikens erbjudandesida eller fotograferar reklambladet, granskar erbjudandena som AI:n plockar ut och sparar dem för vald butik och vecka. AI-förslagen prioriterar sedan rätter med varor på erbjudande. Matkoll hämtar aldrig något från butikens webbplats. Byggs efter Epic 8.
+**FRs covered:** FR34, FR35, FR36, NFR10 (och FR23, som får erbjudanden som indata)
 
 ## Epic 1: Receptimport och receptbibliotek
 
@@ -1051,3 +1077,133 @@ så att jag slipper lägga varorna i varukorgen för hand.
 **Givet** appen
 **När** exporten skapats
 **Så** gör appen aldrig något i butiken själv
+
+## Epic 9: Veckans erbjudanden
+
+Version 1.2. Pontus klistrar in texten från butikens erbjudandesida eller fotograferar reklambladet. AI:n plockar ut erbjudandena med samma teknik som receptimporten och bildanalysen, Pontus granskar dem och sparar dem för vald butik och en vecka. AI-förslagen prioriterar sedan rätter med varor på erbjudande. Matkoll hämtar aldrig något från butikens webbplats. Arkitekturen står i AD-25. Epicen byggs efter Epic 8, och storyna byggs i ordning.
+
+### Story 9.1: Veckans erbjudanden från inklistrad text
+
+Som Pontus,
+vill jag klistra in texten från butikens erbjudandesida och få erbjudandena som en lista,
+så att Matkoll vet vad som är billigt den här veckan utan att jag skriver av något.
+
+**Acceptance Criteria:**
+
+**Givet** migrationen för `store_offer` (unik på `user_id, store_id, week_start, name`, `week_start` alltid en måndag, sammansatta nycklar till `store` och `ingredient` med `on delete restrict`) med RLS och grants
+**När** RLS-testerna körs
+**Så** kan varken en anonym klient eller en annan användare läsa eller skriva erbjudanden (AD-4, AD-25)
+
+**Givet** AI-porten med `extractOffers` och mocken
+**När** den får en påhittad erbjudandetext
+**Så** svarar den med namn som i texten, vara i grundform och pris som text, enligt schemat, och en ogiltig post lämnas ute och räknas utan att svaret blir ogiltigt (AD-9)
+
+**Givet** Recept med filtret "Kan lagas nu" och inga erbjudanden
+**När** listan visas
+**Så** står "Inga erbjudanden inlagda." och "Lägg in erbjudanden" ovanför "Föreslå rätter med AI" (UX-DR19)
+
+**Givet** arket Veckans erbjudanden med vald butik och förvald vecka
+**När** Pontus klistrar in text och trycker "Läs erbjudandena"
+**Så** visas "Läser erbjudandena …" och "Avbryt", och sedan "Hittade 18 erbjudanden för vecka 45." med en rad per erbjudande (FR34)
+
+**Givet** granskningen
+**När** Pontus tar bort två rader och trycker "Spara 16 erbjudanden"
+**Så** sparas 16 erbjudanden för den butik och vecka som arket visade, inget sparas före trycket, och raden säger "16 erbjudanden från Maxi ICA Stormarknad Östersund, vecka 45."
+
+**Givet** sparade erbjudanden för veckan
+**När** Pontus läser in en text till för samma vecka och sparar
+**Så** läggs erbjudandena ihop, och samma vara blir ett erbjudande
+
+**Givet** en text som bara är en länk
+**När** Pontus trycker "Läs erbjudandena"
+**Så** hämtas ingenting och AI-tjänsten anropas inte, och "Matkoll hämtar inte sidor från butiker. Kopiera texten på sidan och klistra in den här." visas (NFR10)
+
+**Givet** ett erbjudande vars vara inte finns i katalogen
+**När** det sparas
+**Så** sparas det med varans namn och utan katalogingrediens, och katalogen är oförändrad (AD-6)
+
+### Story 9.2: AI-förslag prioriterar veckans erbjudanden
+
+Som Pontus,
+vill jag att AI-förslagen gärna använder det som är på erbjudande i min butik den här veckan,
+så att veckans middagar blir billigare utan att jag letar själv.
+
+**Acceptance Criteria:**
+
+**Givet** inga erbjudanden för vald butik
+**När** Pontus ber om AI-förslag
+**Så** får AI-tjänsten exakt samma meddelande som i 1.0, och förslagen visas som förut (FR36)
+
+**Givet** veckans erbjudanden för vald butik
+**När** Pontus ber om AI-förslag
+**Så** får AI-tjänsten varornas namn under "Erbjudanden i butiken den här veckan:" efter lagret, och klienten skickar aldrig erbjudandena själv (AD-25)
+
+**Givet** tre förslag där ett använder två varor på erbjudande och ett använder en
+**När** förslagen visas
+**Så** står de i den ordningen före förslaget utan erbjudanden, och varje förslag med erbjudanden har "På erbjudande: fläskfilé, broccoli" under titeln (UX-DR20)
+**Och** över förslagen står "Med veckans erbjudanden från Maxi ICA Stormarknad Östersund."
+
+**Givet** att erbjudandena inte går att läsa
+**När** Pontus ber om AI-förslag
+**Så** visas förslagen ändå, utan erbjudanden
+
+**Givet** erbjudanden
+**När** Recept visar lagningsstatus och filtret "Kan lagas nu"
+**Så** är status och rangordning desamma som utan erbjudanden (AD-7)
+
+**Givet** ett förslag som sparas
+**När** det ligger i biblioteket
+**Så** har det ingen rad om erbjudanden
+
+### Story 9.3: Erbjudanden från foto av reklambladet
+
+Som Pontus,
+vill jag fotografera reklambladet eller välja en skärmbild av butikens erbjudanden,
+så att jag kan lägga in erbjudandena också när jag inte har texten.
+
+**Acceptance Criteria:**
+
+**Givet** arket Veckans erbjudanden
+**När** Pontus väljer fliken Foto
+**Så** finns "Fotografera bladet", som öppnar bakre kameran på mobil, och "Välj bild", som också tar skärmbilder (FR34)
+
+**Givet** ett foto
+**När** det skickas
+**Så** förminskas det i klienten till högst 2048 px och 1,5 MB, skickas till `/api/ai/offers/photo` och sparas aldrig (AD-15)
+**Och** "Tittar på bladet …" och "Avbryt" visas
+
+**Givet** ett påhittat reklamblad i mockens fixturer
+**När** analysen är klar
+**Så** visas samma granskning som för text, och "Spara" fungerar som i 9.1
+
+**Givet** ett foto utan erbjudanden
+**När** analysen är klar
+**Så** visas "Hittade inga erbjudanden. Kopiera hela sidan, eller prova ett skarpare foto." och inget sparas
+
+### Story 9.4: Se och ta bort veckans erbjudanden
+
+Som Pontus,
+vill jag se vilka erbjudanden som är inlagda och ta bort det som är fel,
+så att förslagen bara bygger på rätt erbjudanden.
+
+**Acceptance Criteria:**
+
+**Givet** veckans erbjudanden
+**När** Pontus trycker "Visa" på raden
+**Så** visar arket "Inlagda för vecka 45" med erbjudandena, var och en med namn, pris och "Ta bort" (FR35)
+
+**Givet** ett inlagt erbjudande
+**När** Pontus trycker "Ta bort"
+**Så** tas det bort, och "Ångra" i den korta bekräftelsen sätter tillbaka det med samma id (AD-20)
+
+**Givet** inlagda erbjudanden
+**När** Pontus trycker "Ta bort alla"
+**Så** tas veckans alla erbjudanden bort, och "Ångra" sätter tillbaka dem
+
+**Givet** erbjudanden för en vecka som är slut
+**När** Pontus sparar nya erbjudanden
+**Så** tas de gamla bort, och de har aldrig använts i förslagen efter att veckan tog slut
+
+**Givet** erbjudanden för både den här och nästa vecka
+**När** raden och förslagen visas
+**Så** gäller de nästa vecka, den senaste som inte är slut, och veckor blandas aldrig (AD-25)

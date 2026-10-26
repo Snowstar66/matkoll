@@ -4,14 +4,15 @@ type: architecture-spine
 purpose: build-substrate
 altitude: feature
 paradigm: 'Modulär monolit: feature-moduler med inre lager, externa tjänster bakom portar (ports and adapters)'
-scope: 'Matkoll v1, hela appen (Epic 1–7)'
+scope: 'Matkoll v1, 1.1 och 1.2, hela appen (Epic 1–9)'
 status: final
 created: '2026-10-25'
-updated: '2026-10-25'
-binds: [FR-1, FR-2, FR-3, FR-4, FR-5, FR-6, FR-7, FR-8, FR-9, FR-10, FR-11, FR-12, FR-13, FR-14, FR-15, FR-16, FR-17, FR-18, FR-19, FR-20, FR-21, FR-22, FR-23, FR-24, FR-25, FR-26, FR-27, FR-28, NFR-1, NFR-2, NFR-3, NFR-4, NFR-5, NFR-6, NFR-7, NFR-8]
+updated: '2026-10-26'
+binds: [FR-1, FR-2, FR-3, FR-4, FR-5, FR-6, FR-7, FR-8, FR-9, FR-10, FR-11, FR-12, FR-13, FR-14, FR-15, FR-16, FR-17, FR-18, FR-19, FR-20, FR-21, FR-22, FR-23, FR-24, FR-25, FR-26, FR-27, FR-28, FR-29, FR-30, FR-31, FR-32, FR-33, FR-34, FR-35, FR-36, NFR-1, NFR-2, NFR-3, NFR-4, NFR-5, NFR-6, NFR-7, NFR-8, NFR-9, NFR-10]
 sources:
   - _bmad-output/planning-artifacts/prds/prd-Matkoll-2026-10-25/prd.md
   - _bmad-output/planning-artifacts/prds/prd-Matkoll-2026-10-25/addendum.md
+  - _bmad-output/planning-artifacts/sprint-change-proposal-2026-10-26-erbjudanden.md
   - _bmad-output/planning-artifacts/ux-designs/ux-Matkoll-2026-10-25/DESIGN.md
   - _bmad-output/planning-artifacts/ux-designs/ux-Matkoll-2026-10-25/EXPERIENCE.md
   - docs/brief.md
@@ -46,6 +47,7 @@ Feature-moduler och deras tabeller:
 | `shopping` | `shopping_check`, `shopping_line_override`, `shopping_custom_item`, `product_choice` |
 | `suggestions` | – (läser via andra moduler) |
 | `settings` | `recipe_site`, `store` |
+| `offers` (1.2, AD-25) | `store_offer` |
 
 ## Invariants & Rules
 
@@ -144,6 +146,7 @@ Pilarna är de enda tillåtna beroendena. En annan modul nås bara via dess `ind
   - SDK:ns `maxRetries` är 0. Porten gör högst två nya försök vid ogiltigt svar (`ai_invalid`). Nätverksfel, tidsgräns för anslutning (5 s) eller svar som inte är JSON ger `ai_unavailable` utan nya försök. Tidsbudget: 100 s per försök, 115 s totalt (ändrad 2026-10-25 efter Story 1.8: Qwen i LM Studio behöver 40–56 s för fulla recept). Ett nytt försök görs bara om tiden räcker.
   - Svarsscheman finns i `src/server/ai/schemas.ts` och promptar som filer i `src/server/ai/prompts/`. `mock` är deterministisk och används i alla tester och i CI.
   - AI-flöden startas från klienten via `src/lib/ai-client.ts` till Route Handlers i `src/app/api/ai/*` (`maxDuration = 120`). Handlern anropar modulens serverfunktion (t.ex. `recipes/actions/importRecipe.ts`) och skickar vidare `request.signal`. AI anropas aldrig vid rendering eller i `data`.
+  - Tillägg (1.2, AD-25): porten får en fjärde metod, `extractOffers`, med samma regler, och `suggestDishes` får veckans erbjudanden som namn bredvid lagret.
 
 ### AD-10 – Ett receptformat
 
@@ -185,6 +188,7 @@ Pilarna är de enda tillåtna beroendena. En annan modul nås bara via dess `ind
 - **Binds:** FR-4, FR-8, FR-24
 - **Prevents:** lagrade privata foton, uppladdningar som stoppas av Vercels gräns på 4,5 MB, och trasiga receptbilder.
 - **Rule:** Foton av kokbokssidor och platser förminskas i klienten till högst 1600 px och 1,5 MB (JPEG) före uppladdning, kontrolleras på servern (`image_too_large`), skickas till AI-tjänsten och sparas aldrig. Receptbilder sparas som URL och visas med `<img referrerPolicy="no-referrer">` och en platshållare vid fel. Ingen CSP i v1.
+- **Tillägg (1.2, AD-25):** ett foto av ett reklamblad eller en skärmbild av en erbjudandesida behandlas som ett foto av en plats: samma största sida som en plats (2048 px från Story 6.5) och samma tak på 1,5 MB. Det skickas till AI-tjänsten och sparas aldrig.
 
 ### AD-16 – Varukorgsexporten
 
@@ -202,7 +206,7 @@ Pilarna är de enda tillåtna beroendena. En annan modul nås bara via dess `ind
 
 - **Binds:** alla sidor och actions
 - **Prevents:** byggfel från sessionsläsning utanför `<Suspense>`, cachad användardata och inaktuella härledda vyer.
-- **Rule:** `cacheComponents: true` behålls som i startmallen. Allt som läser sessionen eller användardata renderas i en komponent inuti `<Suspense>`; en layout gör aldrig `await` på sessionen på toppnivå. Ingen `'use cache'` på användardata i v1. Route segment config begränsas till `maxDuration`. Efter en skrivning anropar actionen `revalidateFor(table)` från `src/lib/revalidate.ts`, som mappar tabell till alla rutter som visar den eller något härlett ur den (t.ex. `pantry_item` → `/hemma`, `/recept`, `/recept/[id]`, `/matsedel`, `/lista`). `revalidatePath` anropas inte direkt. Klientkomponenter med effekter (t.ex. Wake Lock i stegläget) städar upp i effektens cleanup och återtar resurser vid `visibilitychange`.
+- **Rule:** `cacheComponents: true` behålls som i startmallen. Allt som läser sessionen eller användardata renderas i en komponent inuti `<Suspense>`; en layout gör aldrig `await` på sessionen på toppnivå. Ingen `'use cache'` på användardata i v1. Route segment config begränsas till `maxDuration`. Efter en skrivning anropar actionen `revalidateFor(table)` från `src/lib/revalidate.ts`, som mappar tabell till alla rutter som visar den eller något härlett ur den (t.ex. `pantry_item` → `/hemma`, `/recept`, `/recept/[id]`, `/matsedel`, `/lista`). `revalidatePath` anropas inte direkt. Tillägg (1.2, AD-25): `store_offer` → `/recept` (layout), och `store` får också `/recept` (layout), eftersom raden med veckans erbjudanden följer vald butik. Klientkomponenter med effekter (t.ex. Wake Lock i stegläget) städar upp i effektens cleanup och återtar resurser vid `visibilitychange`.
 
 ### AD-19 – Lagervarans identitet och skrivoperationer
 
@@ -244,6 +248,62 @@ Pilarna är de enda tillåtna beroendena. En annan modul nås bara via dess `ind
   - Produktion byggs bara från `main`. Förhandsdriftsättningar saknar Supabase-variabler. `supabase db push` körs före koddriftsättningen. Första publiceringen i produktion kräver Pontus godkännande.
   - Vercel och Supabase ligger i Stockholm (Vercel `arn1`, Supabase `eu-north-1`).
   - Ett schemalagt GitHub Actions-flöde gör varje vecka en krypterad `supabase db dump` (lösenfras som hemlighet) och sparar den som artefakt. Det håller också gratisprojektet aktivt.
+
+### AD-25 – Veckans erbjudanden
+
+- **Binds:** FR-34, FR-35, FR-36, NFR-10, och i 1.2 också FR-23
+- **Prevents:**
+  - hämtning från butikers webbplatser;
+  - AI-svar om erbjudanden som sparas utan att Pontus har sett dem;
+  - erbjudanden som fyller ingredienskatalogen med varor som aldrig lagas;
+  - erbjudanden från olika veckor eller butiker som blandas i förslagen;
+  - erbjudanden som ändrar lagningsstatus, rangordning, inköpslista eller export;
+  - text i ett reklamblad som blir en instruktion till modellen.
+- **Rule:**
+  - **Data:**
+    - Den nya modulen `offers` äger `store_offer` (`id`, `user_id`, `store_id`, `week_start`, `label`, `name`, `ingredient_id`, `price`, `created_at`).
+      - `store_id` refererar `store (id, user_id)` och `ingredient_id` (valfri) refererar `ingredient (id, user_id)`, båda med `on delete restrict` (AD-20, som `product_choice`).
+      - `week_start` är veckans måndag, med en `check` på `extract(isodow from week_start) = 1`.
+      - `label` är varan som den står i bladet (1–120 tecken), `name` är varan i grundform, normaliserad med `catalog/domain/normalize.ts` (1–100 tecken), och `price` är priset som text (högst 40 tecken) eller `null`. Ingen text har radbrytningar.
+      - Unik på `(user_id, store_id, week_start, name)`, med indexet `(user_id, store_id, week_start)`.
+      - RLS, grants och RLS-test enligt AD-4.
+    - Ingen annan modul läser eller skriver `store_offer` (AD-1).
+  - **Vecka:**
+    - Bara `offers/domain/week.ts` räknar veckor, alltid i svensk tid (`Europe/Stockholm`): `weekStartOf(date)`, `isWeekOver(weekStart, now)`, `importWeekDefault(now)` och `weekLabel(weekStart)` ("vecka 45, 4–10 nov").
+    - En vecka går från måndag till söndag. Bara den här och nästa vecka går att spara. Förvalet är den här veckan måndag–fredag och nästa vecka lördag–söndag, eftersom bladet för nästa vecka brukar komma i helgen.
+    - **Veckans erbjudanden** för en butik är erbjudandena för den senaste `week_start` vars vecka inte är slut. Veckor blandas aldrig.
+  - **Läsning:** `offers/server.ts` exporterar `getActiveOffers(storeId): { weekStart, offers } | null` och `listOffers(storeId, weekStart)`, memoiserade per förfrågan med React `cache`.
+  - **Skrivning:**
+    - `saveOffers({ storeId, weekStart, items })` (Server Action) anropar Postgres-funktionen `save_store_offers(store uuid, week date, items jsonb)` (`security invoker`, en transaktion). Den
+      - nekar en vecka som är slut eller ligger längre fram än nästa vecka (`offers_week_invalid`);
+      - lägger till eller uppdaterar per `name` (`label`, `price` och `ingredient_id` från den nya inläsningen), så att flera inläsningar för samma vecka läggs ihop;
+      - nekar fler än 100 erbjudanden för butiken och veckan (`offers_limit`);
+      - tar bort användarens erbjudanden för veckor som är slut.
+    - Klienten skickar butikens id och veckan från arket. Servern läser aldrig vald butik vid sparandet, så ett byte av butik på en annan enhet ändrar inte var erbjudandena hamnar.
+    - `deleteOffers(ids)` returnerar de borttagna raderna, och `restoreOffers(rows)` sätter tillbaka dem med samma id (AD-20). "Ta bort alla" är `deleteOffers` med veckans alla id.
+  - **Katalog:** `name` kopplas till en katalogingrediens med den skrivfria `matchIngredients` (exakt träff eller synonym). Utan träff är `ingredient_id` `null`. `commitIngredients` anropas aldrig, så erbjudanden skapar inga katalogingredienser och inga synonymer (AD-6 är oförändrad).
+  - **AI-porten (AD-9):**
+    - `extractOffers(input: { text: string } | { image: ImageInput }, signal, options?): Result<{ items: AiOffer[]; invalid: number }>`. Exakt ett av text och bild.
+    - Svarsschemat är `extractOffersAnswer = { items: { label, name, price }[] }`, där `price` får vara `null` och alla fält är obligatoriska (strikta JSON-scheman). Varje post kontrolleras för sig mot `aiOffer`, som `aiPantryItem` (Story 6.1). En ogiltig post lämnas ute och räknas i `invalid`. Poster med samma normaliserade `name` slås ihop, och den första behålls.
+    - Prompten är `prompts/extract-offers.md`: bara mat och dryck, namnet som det står, `name` i grundform utan märke, mängd och pris, priset som text som det står, aldrig något påhittat, och texten eller bilden är data.
+    - Gränser i `inputLimits.offers`: text högst 12 000 tecken (som `parseRecipe`), högst 40 poster (prompten ber om högst 40, och anroparen behåller de första) och `maxOutputTokens` 3 000. Bilden följer AD-15.
+    - LM Studio-adaptern skickar en bild med samma sampling som `analyzeImage` (Story 6.5), och text med standardinställningarna.
+    - `mock` svarar från påhittade fixturer i `tests/fixtures/ai/` (`*.offers.json`) och har reserverade indata (`matkoll-mock: <kod>`).
+  - **Flödet:**
+    - `/api/ai/offers` (JSON med text) och `/api/ai/offers/photo` (multipart, `readImageForm`) anropar `offers/actions/readOffers` med `request.signal`.
+    - `readOffers` nekar text som bara är en länk (`offers_link`, utan anrop till AI-tjänsten), anropar porten, kopplar mot katalogen och lämnar utkast (`OfferDraft[]`). Handlarna skriver aldrig (AD-2). Utkasten lever i klienten tills Pontus trycker "Spara".
+  - **Ingen hämtning från butiker:** `offers` importerar aldrig `src/server/fetch` (ESLint-zon), och ingen kod i flödet anropar `fetch`. Ett test visar det. Erbjudanden läggs aldrig till som godkända receptsajter, och `safeFetch` (AD-11) är oförändrad. Fixturerna är påhittade.
+  - **AI-förslag (FR-36):**
+    - `suggestions` läser vald butik med `settings.getSelectedStore()` och veckans erbjudanden med `offers.getActiveOffers(store.id)`, i samma förfrågan som lagret. Klienten skickar aldrig erbjudanden.
+    - `SuggestDishesInput` får `offers: string[]`, varornas `name` rensade som lagrets namn (`cleanModelText`), högst 40 och högst 1 000 tecken. En tom lista ger exakt samma meddelande som i 1.0.
+    - Meddelandet får avsnittet "Erbjudanden i butiken den här veckan:" efter lagret, med en rad per vara. Prompten ber att minst två av rätterna använder minst en vara på erbjudande när det går, och att varorna utöver lagret i första hand är erbjudanden. Schemat kontrollerar inte erbjudandena, så ett svar utan dem är giltigt.
+    - Servern räknar vilka erbjudanden varje förslag använder med `offersIn(lines, offers)` i `offers/domain` (samma katalogingrediens, annars samma normaliserade namn). Förslagen sorteras efter antal, flest först och annars i AI:ns ordning. Svaret får `onOffer: string[]` per förslag och `offers: { storeName, weekLabel, count } | null`.
+    - Kravet på minst två varor hemma (`minPantryIngredients`) gäller som förut. Lagret är `getPantrySnapshot()` utan argument, alltså valt ställe från 1.1 (AD-24). Erbjudanden hör till en butik och har inget ställe.
+    - Om butiken eller erbjudandena inte går att läsa loggas `offers_unavailable`, och förslagen görs utan erbjudanden.
+  - **Utan påverkan:** `coverage`, `recipeStatus`, rangordningen (AD-7), `computeList` och exporten (AD-8, AD-16) läser aldrig erbjudanden.
+  - **UI:** raden "Veckans erbjudanden" och arket ligger i `offers/ui`. `/recept` renderar raden och skickar den till biblioteket som en slot (route → ui), så att `recipes/ui` aldrig importerar `offers/ui`. Raden "På erbjudande" i ett förslag ritas av `recipes/ui` från `DishSuggestions`.
+  - **Fel (AD-13):** `offers_link`, `offers_none`, `offers_text_too_long`, `offers_store_missing`, `offers_week_invalid`, `offers_limit`, `offers_failed` och `offers_unavailable`, med svenska texter i `src/lib/errors.ts`. Loggarna har bara felkoder och antal, aldrig varor eller priser.
+  - **Rendering:** `revalidateFor('store_offer')` → `/recept` (layout), och `store` revaliderar också `/recept` (AD-18).
 
 ## Consistency Conventions
 
@@ -291,9 +351,9 @@ Pilarna är de enda tillåtna beroendena. En annan modul nås bara via dess `ind
 ```text
 matkoll/
   src/
-    app/                  # (app)/recept, matsedel, lista, hemma, installningar; logga-in; auth/confirm; api/ai/{import,analyze,suggest}
+    app/                  # (app)/recept, matsedel, lista, hemma, installningar; logga-in; auth/confirm; api/ai/{import,analyze,suggest,offers}
     features/
-      auth/ catalog/ recipes/ pantry/ mealplan/ shopping/ suggestions/ settings/
+      auth/ catalog/ recipes/ pantry/ mealplan/ shopping/ suggestions/ settings/ offers/ (1.2)
         ui/ actions/ domain/ data/ index.ts server.ts
     components/           # gemensamma byggstenar och komponenter som används i flera moduler
     lib/
@@ -330,6 +390,8 @@ erDiagram
   meal_plan ||--o{ shopping_line_override : "har"
   meal_plan ||--o{ shopping_custom_item : "har"
   store ||--o{ product_choice : "gäller"
+  store ||--o{ store_offer : "har (1.2)"
+  ingredient |o--o{ store_offer : "kopplas (valfritt, 1.2)"
   recipe_site
 ```
 
@@ -349,6 +411,7 @@ erDiagram
 | `product_choice` | `ingredient_id`, `store_id`, `product_name`, `package_size`, `url` |
 | `store` | `name`, `chain`, `external_store_id`, `address`, `url`, `is_selected` |
 | `recipe_site` | `domain` (unik), `is_active` |
+| `store_offer` (1.2) | `store_id`, `week_start` (måndag), `label`, `name` (unik per butik och vecka), `ingredient_id` (valfri), `price` |
 
 Ingen kolumn för vikt per dl eller st i v1, eftersom enheter aldrig räknas om.
 
@@ -390,6 +453,7 @@ Molnmiljön kräver Pontus konton och läggs på hens checklista i `docs/autonom
 | FR-22, FR-23 Förslag | `suggestions`, `app/api/ai/suggest` | AD-7, AD-9, AD-10 |
 | FR-24, FR-25 Bildanalys | `pantry`, `app/api/ai/analyze` | AD-2, AD-6, AD-9, AD-15, AD-19 |
 | FR-26–FR-28 Varukorgsexport | `shopping`, `settings` | AD-16 |
+| FR-34–FR-36, NFR-10 Veckans erbjudanden (1.2) | `offers` (äger `store_offer`), `src/server/ai` (`extractOffers`), `suggestions`; `app/recept`, `app/api/ai/offers` | AD-1, AD-2, AD-6, AD-9, AD-13, AD-15, AD-18, AD-20, AD-25 |
 | NFR-1, NFR-2 Säkerhet, utbytbar AI | `src/server`, `auth` | AD-3, AD-4, AD-9, AD-11, AD-14 |
 | NFR-3–NFR-6 Responsiv, tillgänglig, utseende, svenska | `src/components`, `globals.css`, `src/lib/errors.ts` | AD-13, AD-17 |
 | NFR-7 Svarstider | regioner, AI-budget | AD-9, AD-23 |
@@ -403,4 +467,5 @@ Molnmiljön kräver Pontus konton och läggs på hens checklista i `docs/autonom
 - **Sammanslagning av katalogingredienser:** ingår inte i v1. Kräver ett nytt beslut om omkoppling i alla moduler innan det byggs.
 - **Domän och Cloudflare-uppsättning:** kräver Pontus domän; påverkar bara miljövariabler.
 - **Övervakning i molnet:** Vercels inbyggda loggar räcker för en användare.
+- **Erbjudanden efter 1.2:** att hämta erbjudanden automatiskt från ICA, Willys, Coop och Lidl, och att klistra in en länk som servern hämtar. Båda kräver ett nytt AD om hämtning från butiker (villkor, domäner och test), eftersom AD-25 förbjuder all hämtning. Erbjudanden i inköpslistan och prisjämförelse hör till 1.3. `store_offer` har redan butik, vecka och katalogingrediens, så inget av det kräver en ny datamodell.
 - **Vercel Hobby och fler användare:** Hobby gäller icke-kommersiellt bruk; plan och upphovsrätt för receptinnehåll prövas innan appen öppnas för andra.
