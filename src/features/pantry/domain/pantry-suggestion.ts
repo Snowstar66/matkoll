@@ -23,6 +23,16 @@ import {
   type PantryItemForm,
   type PantryItemSet,
 } from "./pantry-item-form";
+import {
+  maxReplaces,
+  maxRequestReplaces,
+  placeInventorySchema,
+  placeStockSchema,
+  stockByIngredient,
+  suggestionChangeSchema,
+  withoutComparison,
+  type PlaceStock,
+} from "./place-inventory";
 import { definite } from "./places";
 
 // Lagerförslag (FR-24, AD-6, AD-12, AD-19): what a photo of a place at home
@@ -96,12 +106,7 @@ export type SuggestionIngredient = z.infer<typeof suggestionIngredientSchema>;
 const amountHasUnit = (item: { amount: number | null; unit: string | null }) =>
   (item.amount === null) === (item.unit === null);
 
-/** What the place has of the suggestion's ingredient now: unlimited, or its amounts per unit. */
-export const placeStockSchema = z.object({
-  unlimited: z.boolean(),
-  amounts: z.array(z.object({ amount: z.number().positive(), unit: unitSchema })),
-});
-export type PlaceStock = z.infer<typeof placeStockSchema>;
+export { placeStockSchema, type PlaceStock } from "./place-inventory";
 
 export const pantrySuggestionSchema = z
   .object({
@@ -116,6 +121,12 @@ export const pantrySuggestionSchema = z
     unit: unitSchema.nullable(),
     /** The place's stock of the ingredient, or `null` when it has none or it could not be read. */
     current: placeStockSchema.nullable(),
+    /** "Nytt", "Ändrat" or "oförändrat" when the photo was compared with the place (Story 6.4); `null` otherwise. */
+    change: suggestionChangeSchema,
+    /** The place's rows of the ingredient that confirming replaces (other units); empty outside "Ändrat". */
+    replaces: z.array(z.uuid()).max(maxReplaces),
+    /** All the place's rows of the ingredient, when compared: the sheet replaces them when it changes the unit. */
+    placeRowIds: z.array(z.uuid()).max(maxReplaces).optional(),
   })
   .refine(amountHasUnit, { path: ["unit"] });
 export type PantrySuggestion = z.infer<typeof pantrySuggestionSchema>;
@@ -131,6 +142,8 @@ export const analyzeResultSchema = z.object({
   location: locationSchema,
   suggestions: z.array(pantrySuggestionSchema).max(maxPantrySuggestions),
   dropped: z.number().int().min(0),
+  /** How the photo compares with what the place has (Story 6.4). */
+  inventory: placeInventorySchema,
 });
 export type AnalyzeResult = z.infer<typeof analyzeResultSchema>;
 
@@ -161,28 +174,6 @@ function readAmount(item: Pick<AiPantryItemLike, "amount" | "unit">): ReadAmount
 const clampAmount = (amount: number) => Math.min(roundSum(amount), maxSuggestionAmount);
 
 const unitOrder = (unit: Unit) => UNITS.indexOf(unit);
-
-/** The place's stock per catalog ingredient id, from its rows: unlimited, or the amounts per unit in the order of UNITS. */
-function stockByIngredient(rows: readonly PantryAmountRow[]): Map<string, PlaceStock> {
-  const sums = new Map<string, { unlimited: boolean; byUnit: Map<Unit, number> }>();
-  for (const row of rows) {
-    const stock = sums.get(row.ingredientId) ?? { unlimited: false, byUnit: new Map<Unit, number>() };
-    sums.set(row.ingredientId, stock);
-    if (row.amount === null || row.unit === null) stock.unlimited = true;
-    else stock.byUnit.set(row.unit, (stock.byUnit.get(row.unit) ?? 0) + row.amount);
-  }
-  return new Map(
-    [...sums].map(([id, { unlimited: isUnlimited, byUnit }]) => [
-      id,
-      {
-        unlimited: isUnlimited,
-        amounts: [...byUnit]
-          .map(([unit, amount]) => ({ amount: roundSum(amount), unit }))
-          .sort((a, b) => unitOrder(a.unit) - unitOrder(b.unit)),
-      },
-    ]),
-  );
-}
 
 type Group = {
   name: string;
@@ -280,7 +271,7 @@ export function toPantrySuggestions(
   const suggestions: Omit<PantrySuggestion, "id">[] = [];
   for (const { name, ingredient, byUnit, unknown } of groups.values()) {
     const stock = ingredient.kind === "existing" ? (stocks.get(ingredient.ingredientId) ?? null) : null;
-    const base = { name, ingredient, location, current: stock };
+    const base = { name, ingredient, location, current: stock, change: null, replaces: [] };
     if (stock?.unlimited || unknown) {
       suggestions.push({ ...base, ...unlimited });
     } else if (byUnit.size > 0) {
@@ -322,6 +313,70 @@ export function currentAmountText(location: Location, current: PlaceStock): stri
 export function suggestionAmountText(suggestion: Pick<PantrySuggestion, "amount" | "unit">): string {
   return suggestion.amount === null ? "Finns hemma" : formatQuantity(suggestion.amount, suggestion.unit);
 }
+
+/** An amount on the "Ändrat" card: "2 förp", "1 l, 2 förp" or "finns hemma". */
+function stockText(stock: PlaceStock): string {
+  return stock.unlimited ? "finns hemma" : stock.amounts.map(({ amount, unit }) => formatQuantity(amount, unit)).join(", ");
+}
+
+/** The suggestion's amount in a sentence: "1 förp", or "finns hemma" when it has none. */
+function photoAmountText(suggestion: Pick<PantrySuggestion, "amount" | "unit">): string {
+  return suggestion.amount === null ? "finns hemma" : formatQuantity(suggestion.amount, suggestion.unit);
+}
+
+/** What an "Ändrat" card shows instead of "I kylen nu": "nu: 2 förp → bilden: 1 förp" (the arrow is hidden from screen readers). */
+export function changeText(current: PlaceStock, suggestion: Pick<PantrySuggestion, "amount" | "unit">): string {
+  return `nu: ${stockText(current)} → bilden: ${photoAmountText(suggestion)}`;
+}
+
+/** What a screen reader hears for changeText: "I kylen nu: 2 förp. På bilden: 1 förp." */
+export function changeSpokenText(
+  location: Location,
+  current: PlaceStock,
+  suggestion: Pick<PantrySuggestion, "amount" | "unit">,
+): string {
+  return `I ${definite[location]} nu: ${stockText(current)}. På bilden: ${photoAmountText(suggestion)}.`;
+}
+
+/** Under the heading, for the suggestions that match the place: "1 vara stämmer med lagret." or "2 varor stämmer med lagret." */
+export function unchangedCountText(count: number): string {
+  return `${count} ${count === 1 ? "vara stämmer" : "varor stämmer"} med lagret.`;
+}
+
+/** In the camera area when every suggestion matches the place and nothing is missing: "Allt i kylen stämmer med bilden." */
+export function allUnchangedText(location: Location): string {
+  return `Allt i ${definite[location]} stämmer med bilden.`;
+}
+
+/** Under "Syns inte längre" when some of the AI's items could not be read, so a missing item may just not be understood. */
+export const incompleteComparisonText = "Några varor på bilden gick inte att tolka. Kontrollera innan du tar bort.";
+
+/** Under the heading when the place could not be read: "Det gick inte att jämföra med lagret i kylen." */
+export function unreadPlaceText(location: Location): string {
+  return `Det gick inte att jämföra med lagret i ${definite[location]}.`;
+}
+
+/** Under the heading when the place was emptied and put back since the photo: "Lagret i kylen har ändrats sedan bilden togs." */
+export function changedPlaceText(location: Location): string {
+  return `Lagret i ${definite[location]} har ändrats sedan bilden togs.`;
+}
+
+/**
+ * In the camera area when what the photo shows matches the place, but the
+ * comparison is incomplete: "Det som syns på bilden stämmer med lagret i
+ * kylen, men några varor gick inte att tolka."
+ */
+export function partlyUnchangedText(location: Location): string {
+  return `Det som syns på bilden stämmer med lagret i ${definite[location]}, men några varor gick inte att tolka.`;
+}
+
+/** After "Bekräfta alla" when some changes did not fit in one call: "1 ändring är kvar att bekräfta." */
+export function changesLeftText(count: number): string {
+  return `${count} ${count === 1 ? "ändring är" : "ändringar är"} kvar att bekräfta.`;
+}
+
+/** The undo button of a confirmation whose "Ångra" puts back only the removals ("Bekräfta alla"). */
+export const undoRemovalLabel = "Ångra borttagning";
 
 /** When the photo shows no food (EXPERIENCE.md, State Patterns). */
 export const noSuggestionsText = "Hittade inga varor på bilden. Prova ett ljusare foto eller lägg till för hand.";
@@ -398,6 +453,29 @@ export type ConfirmItemInput = z.input<typeof confirmItemSchema>;
 
 /** What confirmPantrySuggestions takes: 1–40 items. */
 export const confirmSuggestionsSchema = z.array(confirmItemSchema).min(1).max(maxConfirmItems);
+
+/** At most this many rows one inventory replaces ("Ändrat" in other units); inventoryRequest keeps to it. */
+export const maxInventoryReplaces = maxRequestReplaces;
+/** At most this many rows one inventory removes ("Syns inte längre"): one pantry page (pantryPageSize). */
+export const maxInventoryRemovals = 1000;
+
+/**
+ * What confirmPantryInventory takes (Story 6.4): the photographed place,
+ * 0–40 items, the rows they replace and the rows to remove, at least one
+ * item or removal, and an operation id (the client's, for "Ångra") with any
+ * removal. The limits equal apply_pantry_inventory's.
+ */
+export const inventoryConfirmSchema = z
+  .object({
+    location: locationSchema,
+    items: z.array(confirmItemSchema).max(maxConfirmItems),
+    replaceRowIds: z.array(z.uuid()).max(maxInventoryReplaces),
+    removeRowIds: z.array(z.uuid()).max(maxInventoryRemovals),
+    operationId: z.uuid().nullable(),
+  })
+  .refine(({ items, removeRowIds }) => items.length + removeRowIds.length > 0, { path: ["items"] })
+  .refine(({ removeRowIds, operationId }) => removeRowIds.length === 0 || operationId !== null, { path: ["operationId"] });
+export type InventoryConfirmInput = z.input<typeof inventoryConfirmSchema>;
 
 /** The ingredient's key: its id, or its new name normalised (commitIngredients makes one ingredient of a name). */
 const ingredientKey = (ingredient: ConfirmIngredient) =>
@@ -532,4 +610,69 @@ export const suggestionGoneText = "Förslaget finns inte längre.";
 /** Whether a suggestion can be confirmed as it is (confirmItemSchema). */
 export function isConfirmable(suggestion: PantrySuggestion): boolean {
   return confirmItemSchema.safeParse(confirmItemFromSuggestion(suggestion)).success;
+}
+
+/**
+ * After "Töm kylen" (Story 6.3): the location is empty, so its suggestions
+ * lose "I kylen nu"; the others keep theirs.
+ */
+export function withoutStock(suggestions: readonly PantrySuggestion[], location: Location): PantrySuggestion[] {
+  return suggestions.map((suggestion) =>
+    suggestion.location === location && (suggestion.current !== null || suggestion.change !== null)
+      ? { ...withoutComparison(suggestion), current: null }
+      : suggestion,
+  );
+}
+
+/**
+ * After "Töm kylen" (Story 6.3) with suggestions from a photo (Story 6.4):
+ * the location is empty, so its suggestions lose "I kylen nu" and their
+ * place in the comparison, and a comparison with the emptied location
+ * becomes `empty`: the suggestions are a plain list, as for an empty place,
+ * and "Syns inte längre" goes.
+ */
+export function withoutPlace(result: AnalyzeResult, location: Location): AnalyzeResult {
+  return {
+    ...result,
+    suggestions: withoutStock(result.suggestions, location),
+    inventory: result.location === location ? { kind: "empty" } : result.inventory,
+  };
+}
+
+/**
+ * After "Ångra" for an emptied location: the photographed location has items
+ * again, but not the ones the photo was compared with, so its comparison is
+ * `unread` with `changed` ("Lagret i kylen har ändrats sedan bilden togs."),
+ * and the suggestions stay a plain list.
+ */
+export function withRestoredPlace(result: AnalyzeResult, location: Location): AnalyzeResult {
+  return result.location === location ? { ...result, inventory: { kind: "unread", changed: true } } : result;
+}
+
+/**
+ * After "Ångra" for an emptied location: "I kylen nu" on the location's
+ * suggestions gains the rows put back, next to what was confirmed since. A
+ * restored row never shares a unit with a row there now (those are skipped),
+ * and an ingredient is either unlimited or has amounts.
+ */
+export function withRestoredStock(
+  suggestions: readonly PantrySuggestion[],
+  location: Location,
+  rows: readonly (PantryAmountRow & { location: Location })[],
+): PantrySuggestion[] {
+  const stocks = stockByIngredient(rows.filter((row) => row.location === location));
+  if (stocks.size === 0) return [...suggestions];
+  return suggestions.map((suggestion) => {
+    const { ingredient } = suggestion;
+    const restored = ingredient.kind === "existing" ? stocks.get(ingredient.ingredientId) : undefined;
+    if (suggestion.location !== location || !restored) return suggestion;
+    const now = suggestion.current;
+    if (!now) return { ...suggestion, current: restored };
+    if (now.unlimited || restored.unlimited) return { ...suggestion, current: { unlimited: true, amounts: [] } };
+    const amounts = [...now.amounts, ...restored.amounts.filter(({ unit }) => !now.amounts.some((other) => other.unit === unit))];
+    return {
+      ...suggestion,
+      current: { unlimited: false, amounts: amounts.sort((a, b) => unitOrder(a.unit) - unitOrder(b.unit)) },
+    };
+  });
 }

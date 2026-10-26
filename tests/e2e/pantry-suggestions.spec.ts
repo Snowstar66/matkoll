@@ -3,7 +3,10 @@ import { adminClient, e2eUserId, suggestionsEmail, suggestionsStorageState } fro
 
 // Story 6.2: confirming, correcting and rejecting lagerförslag on Hemma, with
 // AI_PROVIDER=mock. kyl.png gives six suggestions (kyl.analyze.json): grädde,
-// gurka, ketchup, mjölk, smör and ägg. The spec has an E2E user of its own
+// gurka, ketchup, mjölk, smör and ägg. Kyl has mjölk and smör, so a photo of
+// it is compared with them (Story 6.4): smör matches and has no card, mjölk
+// is "Ändrat", and the other four "Nytt". The plain list of Story 6.2 is
+// tested with a photo of the empty Skafferi. The spec has an E2E user of its own
 // (suggestionsEmail): before each test the service role empties its pantry
 // and synonyms and makes the catalog ingredients "mjölk" and "smör" and the
 // pantry items "mjölk 2 förp" and "smör" (unlimited) in Kyl. Catalog
@@ -81,8 +84,11 @@ const camera = (page: Page) => page.getByTestId("pantry-camera").filter({ visibl
 const cameraButton = (page: Page) => camera(page).getByRole("button", { name: "Fotografera kylen" });
 const section = (page: Page) => page.getByTestId("pantry-suggestions").filter({ visible: true });
 const cards = (page: Page) => section(page).getByTestId("pantry-suggestion");
-const cardNames = (page: Page) => cards(page).getByRole("heading", { level: 3 });
+/** The cards' names: h4 under the groups of a compared photo, h3 in the plain list. */
+const cardNames = (page: Page, level: 3 | 4 = 4) => cards(page).getByRole("heading", { level });
 const kylCard = (page: Page) => page.getByRole("navigation", { name: "Platser" }).getByRole("link", { name: /^Kyl/ });
+const skafferiCard = (page: Page) =>
+  page.getByRole("navigation", { name: "Platser" }).getByRole("link", { name: /^Skafferi/ });
 const rows = (page: Page) => page.getByTestId("pantry-row").filter({ visible: true });
 const tags = (page: Page) => page.getByTestId("pantry-tag").filter({ visible: true });
 const sheet = (page: Page) => page.getByRole("dialog", { name: "Lagervara" });
@@ -94,6 +100,15 @@ async function photographFridge(page: Page) {
   const chooser = page.waitForEvent("filechooser");
   await cameraButton(page).click();
   await (await chooser).setFiles(kyl);
+  await expect(cards(page)).toHaveCount(5);
+}
+
+async function photographPantry(page: Page) {
+  await page.goto("/hemma?plats=skafferi");
+  await expect(skafferiCard(page)).toHaveText(/^Skafferi\s*0 varor$/);
+  const chooser = page.waitForEvent("filechooser");
+  await camera(page).getByRole("button", { name: "Fotografera skafferiet" }).click();
+  await (await chooser).setFiles(kyl);
   await expect(cards(page)).toHaveCount(6);
 }
 
@@ -101,10 +116,12 @@ test("confirm, correct, reject and Bekräfta alla save only what Pontus confirme
   const errors = watchErrors(page);
   await photographFridge(page);
 
-  // Six cards, each with its three buttons, and Bekräfta alla.
-  await expect(cardNames(page)).toHaveText(["grädde", "gurka", "ketchup", "mjölk", "smör", "ägg"]);
-  for (const name of ["grädde", "gurka", "ketchup", "mjölk", "smör", "ägg"]) {
-    const card = cards(page).filter({ has: page.getByRole("heading", { level: 3, name, exact: true }) });
+  // Five cards, each with its three buttons, and Bekräfta alla; smör matches the fridge and is only counted.
+  await expect(cardNames(page)).toHaveText(["grädde", "gurka", "ketchup", "ägg", "mjölk"]);
+  await expect(section(page).getByText("1 vara stämmer med lagret.")).toBeVisible();
+  await expect(cards(page).filter({ hasText: "mjölk" }).getByText("nu: 2 förp → bilden: 1 förp")).toBeVisible();
+  for (const name of ["grädde", "gurka", "ketchup", "ägg", "mjölk"]) {
+    const card = cards(page).filter({ has: page.getByRole("heading", { level: 4, name, exact: true }) });
     await expect(card).toContainText("· Kyl");
     for (const verb of ["Bekräfta", "Rätta", "Avvisa"]) {
       const button = card.getByRole("button", { name: `${verb} ${name}`, exact: true });
@@ -119,8 +136,9 @@ test("confirm, correct, reject and Bekräfta alla save only what Pontus confirme
   // Bekräfta mjölk: set to 1 förp, not added to; Kyl has as many items as before.
   await section(page).getByRole("button", { name: "Bekräfta mjölk" }).click();
   await expect(toast(page)).toHaveText("mjölk är sparad i kylen.");
-  await expect(cardNames(page)).toHaveText(["grädde", "gurka", "ketchup", "smör", "ägg"]);
-  await expect(section(page).getByRole("button", { name: "Bekräfta smör" })).toBeFocused();
+  await expect(cardNames(page)).toHaveText(["grädde", "gurka", "ketchup", "ägg"]);
+  // mjölk was the last card: focus goes to the one before it.
+  await expect(section(page).getByRole("button", { name: "Bekräfta ägg" })).toBeFocused();
   await expect(rows(page).filter({ hasText: "mjölk" })).toHaveText([/^mjölk\s*1 förp$/]);
   await expect(kylCard(page)).toHaveText(/^Kyl\s*2 varor$/);
 
@@ -143,22 +161,22 @@ test("confirm, correct, reject and Bekräfta alla save only what Pontus confirme
   await sheet(page).getByRole("button", { name: "Bekräfta" }).click();
   await expect(sheet(page)).toHaveCount(0);
   await expect(toast(page)).toHaveText("matlagningsgrädde är sparad i kylen.");
-  await expect(cardNames(page)).toHaveText(["gurka", "ketchup", "smör", "ägg"]);
+  await expect(cardNames(page)).toHaveText(["gurka", "ketchup", "ägg"]);
   await expect(rows(page).filter({ hasText: "matlagningsgrädde" })).toHaveText([/^matlagningsgrädde\s*2 dl$/]);
   await expect(kylCard(page)).toHaveText(/^Kyl\s*3 varor$/);
 
   // Avvisa ketchup, Ångra, and Avvisa again: nothing asks the server.
   await section(page).getByRole("button", { name: "Avvisa ketchup" }).click();
   await expect(toast(page)).toContainText("ketchup är avvisad.");
-  await expect(cardNames(page)).toHaveText(["gurka", "smör", "ägg"]);
+  await expect(cardNames(page)).toHaveText(["gurka", "ägg"]);
   await toast(page).getByRole("button", { name: "Ångra" }).click();
-  await expect(cardNames(page)).toHaveText(["gurka", "ketchup", "smör", "ägg"]);
+  await expect(cardNames(page)).toHaveText(["gurka", "ketchup", "ägg"]);
   await section(page).getByRole("button", { name: "Avvisa ketchup" }).click();
-  await expect(cardNames(page)).toHaveText(["gurka", "smör", "ägg"]);
+  await expect(cardNames(page)).toHaveText(["gurka", "ägg"]);
 
-  // Bekräfta alla: the three left in one call.
+  // Bekräfta alla: the two left in one call; smör, which matches, is left as it is.
   await section(page).getByRole("button", { name: "Bekräfta alla" }).click();
-  await expect(toast(page)).toHaveText("Lagt 3 varor i lagret.");
+  await expect(toast(page)).toHaveText("Kylen är uppdaterad: 2 nya.");
   await expect(section(page)).toHaveCount(0);
   await expect(cameraButton(page)).toBeFocused();
   await expect(kylCard(page)).toHaveText(/^Kyl\s*5 varor$/);
@@ -173,7 +191,10 @@ test("confirm, correct, reject and Bekräfta alla save only what Pontus confirme
 });
 
 test("a confirmation that gets no answer keeps the suggestions with a notice, and trying again saves them", async ({ page }) => {
-  await photographFridge(page);
+  // The plain list of Story 6.2: Skafferi has nothing to compare with.
+  await photographPantry(page);
+  await expect(cardNames(page, 3)).toHaveText(["grädde", "gurka", "ketchup", "mjölk", "smör", "ägg"]);
+  await expect(section(page).getByRole("heading", { name: "Nytt" })).toHaveCount(0);
   const before = await saved();
 
   // The Server Action's request fails, as without a connection.
@@ -190,9 +211,18 @@ test("a confirmation that gets no answer keeps the suggestions with a notice, an
   await section(page).getByRole("button", { name: "Bekräfta alla" }).click();
   await expect(toast(page)).toHaveText("Lagt 4 varor i lagret.");
   await expect(section(page)).toHaveCount(0);
-  await expect(kylCard(page)).toHaveText(/^Kyl\s*4 varor$/);
+  await expect(skafferiCard(page)).toHaveText(/^Skafferi\s*4 varor$/);
   const after = await saved();
   expect(after.catalog.filter((name) => /^(grädde|ketchup) /.test(name))).toEqual([]);
-  expect(after.pantry).toEqual(["gurka 2 st Kyl", "mjölk 1 förp Kyl", "smör - - Kyl", "ägg 6 st Kyl"].sort());
+  expect(after.pantry).toEqual(
+    [
+      "gurka 2 st Skafferi",
+      "mjölk 1 förp Skafferi",
+      "mjölk 2 förp Kyl",
+      "smör - - Kyl",
+      "smör 1 förp Skafferi",
+      "ägg 6 st Skafferi",
+    ].sort(),
+  );
   expect(after.synonyms).toBe(0);
 });

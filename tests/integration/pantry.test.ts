@@ -4,8 +4,15 @@ import { commitIngredients } from "@/features/catalog/data/commit";
 import { loadIngredientDefaults, loadIngredientNames } from "@/features/catalog/data/queries";
 import { addToPantryIn, findPantryAdditionsIn, forgetPantryAdditionsIn } from "@/features/pantry/data/add";
 import { PantryDataError } from "@/features/pantry/data/client";
-import { countPantryIn, listPantryIn, loadPantrySnapshot } from "@/features/pantry/data/queries";
-import { removePantryItemIn, restorePantryItemIn } from "@/features/pantry/data/remove";
+import type { PantryRow } from "@/features/pantry/domain/pantry-item-form";
+import { countPantryIn, listPantryIn, loadPantrySnapshot, pantryPageSize } from "@/features/pantry/data/queries";
+import {
+  emptyPantryPlaceIn,
+  removePantryItemIn,
+  restorePantryItemIn,
+  restorePantryRemovalIn,
+} from "@/features/pantry/data/remove";
+import { applyPantryInventoryIn } from "@/features/pantry/data/inventory";
 import { setPantryItemsIn } from "@/features/pantry/data/set";
 import { localSupabaseUrl } from "../local-supabase";
 import {
@@ -23,8 +30,10 @@ import {
 // the unique key with unlimited items, the composite foreign key to the
 // catalog, the check constraints, listPantry and getPantrySnapshot's
 // queries against real rows, setPantryItems (set_pantry_items), and
-// removePantryItem with restorePantryItem (restore_pantry_item), and
-// addToPantry (add_to_pantry) with its receipts (pantry_addition).
+// removePantryItem with restorePantryItem (restore_pantry_item),
+// emptyPantryPlace with restorePantryRemoval (empty_pantry_place,
+// restore_pantry_removal, pantry_removal), addToPantry (add_to_pantry) with its receipts (pantry_addition), and
+// confirmPantryInventory's write (apply_pantry_inventory).
 
 let unique = 0;
 const uniqueName = (base: string) => `${base} ${Date.now()}-${unique++}`;
@@ -585,6 +594,479 @@ describe("removePantryItem and restorePantryItem", () => {
     expect((await adminClient().rpc("pantry_lock")).error?.code).toBe("42501");
     expect((await owner.db.rpc("pantry_lock")).error).toBeNull();
     expect(await rowsOf(owner.id)).toEqual([{ id: kept.id, ingredient_id: mjolk, location: "Frys", amount: 2, unit: "l" }]);
+  });
+});
+
+describe("emptyPantryPlace and restorePantryRemoval", () => {
+  const byId = <T extends { id: string }>(rows: readonly T[]) => [...rows].sort((a, b) => a.id.localeCompare(b.id));
+  const asDbRow = ({ id, ingredientId, location, amount, unit }: PantryRow) => ({
+    id,
+    ingredient_id: ingredientId,
+    location,
+    amount,
+    unit,
+  });
+
+  it("isolates pantry_removal", async () => {
+    await expectRlsIsolation("pantry_removal", async () => ({ id: randomUUID(), removed_rows: [] }));
+  });
+
+  it("removes only the user's rows in the location, keeps them on the server, and puts them all back by operation id", async () => {
+    const user = await createTestUser("pantry-empty-place");
+    const other = await createTestUser("pantry-empty-place-other");
+    const mjolk = await addIngredient(user.db, uniqueName("Mjölk"));
+    const smor = await addIngredient(user.db, uniqueName("Smör"));
+    const arter = await addIngredient(user.db, uniqueName("Ärtor"), "Frys");
+    const othersMjolk = await addIngredient(other.db, uniqueName("Mjölk"));
+    const inKyl = await setPantryItemsIn(user.db, [
+      { ingredientId: mjolk, location: "Kyl", amount: 2, unit: "förp" },
+      { ingredientId: mjolk, location: "Kyl", amount: 5, unit: "dl" },
+      { ingredientId: smor, location: "Kyl", amount: null, unit: null },
+    ]);
+    const [inFrys] = await setPantryItemsIn(user.db, [{ ingredientId: arter, location: "Frys", amount: 1, unit: "förp" }]);
+    await setPantryItemsIn(other.db, [{ ingredientId: othersMjolk, location: "Kyl", amount: 1, unit: "l" }]);
+    const othersBefore = await rowsOf(other.id);
+    const before = await rowsOf(user.id);
+    const operation = randomUUID();
+
+    const emptied = await emptyPantryPlaceIn(user.db, "Kyl", operation);
+    expect(emptied).toEqual({ removed: 3, removedIds: byId(inKyl).map((row) => row.id) });
+    expect(await rowsOf(user.id)).toEqual([{ id: inFrys.id, ingredient_id: arter, location: "Frys", amount: 1, unit: "förp" }]);
+    expect(await rowsOf(other.id)).toEqual(othersBefore);
+    // The record is the user's own: another user can neither read nor undo it.
+    expect((await other.db.from("pantry_removal").select("id")).data).toEqual([]);
+    await expect(restorePantryRemovalIn(other.db, operation)).rejects.toThrow(new PantryDataError("restore_failed P0002"));
+
+    const restored = await restorePantryRemovalIn(user.db, operation);
+    expect(restored.skipped).toBe(0);
+    expect([...restored.restoredIds].sort()).toEqual(byId(inKyl).map((row) => row.id));
+    expect(byId(restored.rows)).toEqual(byId(inKyl));
+    expect(await rowsOf(user.id)).toEqual(before);
+    // One "Ångra" per operation: the record is gone.
+    expect(await countRows("pantry_removal", user.id)).toBe(0);
+    await expect(restorePantryRemovalIn(user.db, operation)).rejects.toThrow(new PantryDataError("restore_failed P0002"));
+  });
+
+  it("gives the same answer for the same operation id, without removing anything more", async () => {
+    const user = await createTestUser("pantry-empty-repeat");
+    const mjolk = await addIngredient(user.db, uniqueName("Mjölk"));
+    const ost = await addIngredient(user.db, uniqueName("Ost"));
+    const [row] = await setPantryItemsIn(user.db, [{ ingredientId: mjolk, location: "Kyl", amount: 2, unit: "förp" }]);
+    const operation = randomUUID();
+    const first = await emptyPantryPlaceIn(user.db, "Kyl", operation);
+    expect(first).toEqual({ removed: 1, removedIds: [row.id] });
+
+    // Added after the first call, as if the answer was lost and Pontus went on.
+    const [added] = await setPantryItemsIn(user.db, [{ ingredientId: ost, location: "Kyl", amount: 1, unit: "förp" }]);
+    expect(await emptyPantryPlaceIn(user.db, "Kyl", operation)).toEqual(first);
+    expect(await rowsOf(user.id)).toEqual([asDbRow(added)]);
+    expect(await countRows("pantry_removal", user.id)).toBe(1);
+  });
+
+  it("gives no rows for an empty location", async () => {
+    const user = await createTestUser("pantry-empty-none");
+    expect(await emptyPantryPlaceIn(user.db, "Skafferi", randomUUID())).toEqual({ removed: 0, removedIds: [] });
+  });
+
+  it("removes, reports and restores more rows than the API returns in one read (max_rows)", async () => {
+    const user = await createTestUser("pantry-empty-many");
+    const units = ["g", "kg", "ml", "cl", "dl", "l", "krm", "tsk", "msk", "st", "förp", "klyfta", "kruka", "knippe", "skiva"];
+    const ingredients = await user.db
+      .from("ingredient")
+      .insert(
+        Array.from({ length: 67 }, (_, n) => {
+          const name = uniqueName(`Vara ${n}`);
+          return { name, normalized_name: name.toLocaleLowerCase("sv-SE"), section: "Övrigt", location: "Kyl" };
+        }),
+      )
+      .select("id");
+    if (ingredients.error) throw ingredients.error;
+    const rows = ingredients.data.flatMap(({ id }) => units.map((unit) => ({ ingredient_id: id, location: "Kyl", amount: 1, unit })));
+    expect(rows.length).toBeGreaterThan(pantryPageSize);
+    await addItems(user.db, rows);
+    const operation = randomUUID();
+
+    const emptied = await emptyPantryPlaceIn(user.db, "Kyl", operation);
+    expect(emptied.removed).toBe(rows.length);
+    expect(new Set(emptied.removedIds).size).toBe(rows.length);
+    expect(await countRows("pantry_item", user.id)).toBe(0);
+
+    const restored = await restorePantryRemovalIn(user.db, operation);
+    expect(restored.restoredIds).toHaveLength(rows.length);
+    expect(restored.skipped).toBe(0);
+    expect(await countRows("pantry_item", user.id)).toBe(rows.length);
+  });
+
+  it("skips rows that clash with the location now, and puts the others back", async () => {
+    const user = await createTestUser("pantry-restore-removal-clash");
+    const mjolk = await addIngredient(user.db, uniqueName("Mjölk"));
+    const salt = await addIngredient(user.db, uniqueName("Salt"));
+    const smor = await addIngredient(user.db, uniqueName("Smör"));
+    const agg = await addIngredient(user.db, uniqueName("Ägg"));
+    await setPantryItemsIn(user.db, [
+      { ingredientId: mjolk, location: "Kyl", amount: 2, unit: "förp" },
+      { ingredientId: salt, location: "Kyl", amount: 1, unit: "kg" },
+      { ingredientId: smor, location: "Kyl", amount: null, unit: null },
+      { ingredientId: agg, location: "Kyl", amount: 6, unit: "st" },
+    ]);
+    const before = await rowsOf(user.id);
+    const operation = randomUUID();
+    await emptyPantryPlaceIn(user.db, "Kyl", operation);
+
+    // Meanwhile: mjölk with the same key, salt unlimited (against an amount),
+    // and smör with an amount (against unlimited).
+    const added = await setPantryItemsIn(user.db, [
+      { ingredientId: mjolk, location: "Kyl", amount: 1, unit: "förp" },
+      { ingredientId: salt, location: "Kyl", amount: null, unit: null },
+      { ingredientId: smor, location: "Kyl", amount: 250, unit: "g" },
+    ]);
+
+    const restored = await restorePantryRemovalIn(user.db, operation);
+    const aggRow = before.find((row) => row.ingredient_id === agg)!;
+    expect(restored).toEqual({
+      restoredIds: [aggRow.id],
+      rows: [{ id: aggRow.id, ingredientId: agg, location: "Kyl", amount: 6, unit: "st" }],
+      skipped: 3,
+    });
+    expect(byId(await rowsOf(user.id))).toEqual(byId([...added.map(asDbRow), aggRow]));
+  });
+
+  it("skips a row whose ingredient is gone or not the user's, and a taken id, and puts the others back", async () => {
+    const user = await createTestUser("pantry-restore-removal-gone");
+    const other = await createTestUser("pantry-restore-removal-gone-other");
+    const mjolk = await addIngredient(user.db, uniqueName("Mjölk"));
+    const othersSalt = await addIngredient(other.db, uniqueName("Salt"));
+    const [othersRow] = await setPantryItemsIn(other.db, [{ ingredientId: othersSalt, location: "Kyl", amount: 1, unit: "kg" }]);
+    const kept = randomUUID();
+    const operation = randomUUID();
+    const row = (id: string, ingredientId: string, unit: string) => ({ id, ingredient_id: ingredientId, location: "Kyl", amount: 1, unit });
+    // A record as the server would keep it, with rows that can no longer go back.
+    const stored = await user.db.from("pantry_removal").insert({
+      id: operation,
+      removed_rows: [
+        row(randomUUID(), madeUpId, "l"),
+        row(randomUUID(), othersSalt, "kg"),
+        row(othersRow.id, mjolk, "dl"),
+        row(kept, mjolk, "l"),
+      ],
+    });
+    expect(stored.error).toBeNull();
+
+    const restored = await restorePantryRemovalIn(user.db, operation);
+    expect(restored.restoredIds).toEqual([kept]);
+    expect(restored.skipped).toBe(3);
+    expect(await rowsOf(user.id)).toEqual([{ id: kept, ingredient_id: mjolk, location: "Kyl", amount: 1, unit: "l" }]);
+    expect(await rowsOf(other.id)).toEqual([asDbRow(othersRow)]);
+  });
+
+  it("prunes records older than a day, so their Ångra is gone", async () => {
+    const user = await createTestUser("pantry-removal-prune");
+    const mjolk = await addIngredient(user.db, uniqueName("Mjölk"));
+    await setPantryItemsIn(user.db, [{ ingredientId: mjolk, location: "Kyl", amount: 2, unit: "förp" }]);
+    const old = randomUUID();
+    const recent = randomUUID();
+    await emptyPantryPlaceIn(user.db, "Kyl", old);
+    await emptyPantryPlaceIn(user.db, "Frys", recent);
+    const aged = await adminClient()
+      .from("pantry_removal")
+      .update({ created_at: new Date(Date.now() - 25 * 60 * 60 * 1000).toISOString() })
+      .eq("user_id", user.id)
+      .eq("id", old);
+    expect(aged.error).toBeNull();
+
+    await emptyPantryPlaceIn(user.db, "Skafferi", randomUUID());
+    expect(await countRows("pantry_removal", user.id)).toBe(2);
+    await expect(restorePantryRemovalIn(user.db, old)).rejects.toThrow(new PantryDataError("restore_failed P0002"));
+    expect(await rowsOf(user.id)).toEqual([]);
+    expect((await restorePantryRemovalIn(user.db, recent)).skipped).toBe(0);
+  });
+
+  it("takes the pantry lock: Ångra and a set of the other kind never leave both in the location", async () => {
+    const user = await createTestUser("pantry-removal-race");
+    const smor = await addIngredient(user.db, uniqueName("Smör"));
+    for (let round = 0; round < 8; round += 1) {
+      await adminClient().from("pantry_item").delete().eq("user_id", user.id);
+      await setPantryItemsIn(user.db, [{ ingredientId: smor, location: "Kyl", amount: null, unit: null }]);
+      const operation = randomUUID();
+      await emptyPantryPlaceIn(user.db, "Kyl", operation);
+
+      await Promise.all([
+        restorePantryRemovalIn(user.db, operation),
+        setPantryItemsIn(user.db, [{ ingredientId: smor, location: "Kyl", amount: 250, unit: "g" }]),
+      ]);
+      const rows = await rowsOf(user.id);
+      const unlimited = rows.some((row) => row.unit === null);
+      const withAmount = rows.some((row) => row.unit !== null);
+      expect(unlimited && withAmount, `round ${round}: ${JSON.stringify(rows)}`).toBe(false);
+    }
+  });
+
+  it("refuses an unknown location or operation id, anon and the service role", async () => {
+    const user = await createTestUser("pantry-empty-invalid");
+    const mjolk = await addIngredient(user.db, uniqueName("Mjölk"));
+    const [row] = await setPantryItemsIn(user.db, [{ ingredientId: mjolk, location: "Kyl", amount: 1, unit: "l" }]);
+    const operation = randomUUID();
+
+    expect((await user.db.rpc("empty_pantry_place", { place: "Garage", operation_id: operation })).error?.code).toBe("22023");
+    await expect(emptyPantryPlaceIn(user.db, "Kyl", "op-1")).rejects.toThrow(new PantryDataError("invalid_operation"));
+    await expect(restorePantryRemovalIn(user.db, "op-1")).rejects.toThrow(new PantryDataError("invalid_operation"));
+    await expect(restorePantryRemovalIn(user.db, operation)).rejects.toThrow(new PantryDataError("restore_failed P0002"));
+
+    for (const client of [anonClient(), adminClient()]) {
+      expect((await client.rpc("empty_pantry_place", { place: "Kyl", operation_id: operation })).error?.code).toBe("42501");
+      expect((await client.rpc("restore_pantry_removal", { operation_id: operation })).error?.code).toBe("42501");
+      expect((await client.rpc("pantry_place_has_item", { ingredient: mjolk, place: "Kyl", item_unit: "l" })).error?.code).toBe(
+        "42501",
+      );
+    }
+    expect((await anonClient().from("pantry_removal").select("id")).error?.code).toBe("42501");
+    expect(await rowsOf(user.id)).toEqual([asDbRow(row)]);
+  });
+});
+
+describe("applyPantryInventory (apply_pantry_inventory)", () => {
+  const byId = <T extends { id: string }>(rows: readonly T[]) => [...rows].sort((a, b) => a.id.localeCompare(b.id));
+  const kyl = (ingredientId: string, amount: number | null, unit: string | null) => ({
+    ingredientId,
+    location: "Kyl" as const,
+    amount,
+    unit: unit as never,
+  });
+
+  it("adds, changes, replaces and removes in one call, keeps the removals for Ångra, and restores them with the same ids", async () => {
+    const user = await createTestUser("pantry-inventory");
+    const [mjolk, smor, yoghurt, senap, gradde] = await Promise.all(
+      ["Mjölk", "Smör", "Yoghurt", "Senap", "Grädde"].map((name) => addIngredient(user.db, uniqueName(name))),
+    );
+    const [mjolkForp, mjolkDl, smorRow, yoghurtRow, senapRow] = await setPantryItemsIn(user.db, [
+      kyl(mjolk, 2, "förp"),
+      kyl(mjolk, 5, "dl"),
+      kyl(smor, null, null),
+      kyl(yoghurt, 2, "förp"),
+      kyl(senap, null, null),
+    ]);
+    const operation = randomUUID();
+
+    const applied = await applyPantryInventoryIn(user.db, {
+      place: "Kyl",
+      items: [kyl(mjolk, 1, "förp"), kyl(gradde, 1, "förp")],
+      replaceRowIds: [mjolkDl.id, mjolkForp.id],
+      removeRowIds: [yoghurtRow.id, senapRow.id],
+      operationId: operation,
+    });
+    expect(applied.removedCount).toBe(2);
+    expect(applied.undoable).toBe(2);
+    expect(byId(applied.removed)).toEqual(byId([yoghurtRow, senapRow]));
+    // mjölk förp keeps its id (the same key as an item); the dl row is replaced.
+    expect(applied.set[0]).toEqual({ ...kyl(mjolk, 1, "förp"), id: mjolkForp.id });
+    const after = await rowsOf(user.id);
+    expect(byId(after)).toEqual(
+      byId([
+        { id: mjolkForp.id, ingredient_id: mjolk, location: "Kyl", amount: 1, unit: "förp" },
+        { id: smorRow.id, ingredient_id: smor, location: "Kyl", amount: null, unit: null },
+        { id: applied.set[1].id, ingredient_id: gradde, location: "Kyl", amount: 1, unit: "förp" },
+      ]),
+    );
+
+    // Ångra: the removed rows come back with the same ids; the additions and changes stay, the replaced row does not.
+    const restored = await restorePantryRemovalIn(user.db, operation);
+    expect([...restored.restoredIds].sort()).toEqual([senapRow.id, yoghurtRow.id].sort());
+    expect(restored.skipped).toBe(0);
+    const ids = (await rowsOf(user.id)).map((row) => row.id).sort();
+    expect(ids).toEqual([mjolkForp.id, smorRow.id, applied.set[1].id, yoghurtRow.id, senapRow.id].sort());
+    expect(ids).not.toContain(mjolkDl.id);
+  });
+
+  it("joins removals with the same operation id into one record, so one Ångra puts them all back", async () => {
+    const user = await createTestUser("pantry-inventory-join");
+    const [yoghurt, senap] = await Promise.all(["Yoghurt", "Senap"].map((name) => addIngredient(user.db, uniqueName(name))));
+    const [yoghurtRow, senapRow] = await setPantryItemsIn(user.db, [kyl(yoghurt, 2, "förp"), kyl(senap, null, null)]);
+    const operation = randomUUID();
+    const remove = (ids: string[]) =>
+      applyPantryInventoryIn(user.db, { place: "Kyl", items: [], replaceRowIds: [], removeRowIds: ids, operationId: operation });
+
+    expect(await remove([yoghurtRow.id])).toMatchObject({ removedCount: 1, undoable: 1 });
+    expect(await remove([senapRow.id])).toMatchObject({ removedCount: 1, undoable: 2 });
+    // Again, as after a lost answer: nothing more is removed, the record stays.
+    expect(await remove([senapRow.id])).toMatchObject({ removedCount: 0, undoable: 2 });
+    expect(await countRows("pantry_removal", user.id)).toBe(1);
+
+    expect((await restorePantryRemovalIn(user.db, operation)).restoredIds).toHaveLength(2);
+    expect(await countRows("pantry_item", user.id)).toBe(2);
+  });
+
+  it("is all or nothing: a refused item (23503) leaves everything as it was", async () => {
+    const user = await createTestUser("pantry-inventory-atomic");
+    const other = await createTestUser("pantry-inventory-atomic-other");
+    const [mjolk, yoghurt] = await Promise.all(["Mjölk", "Yoghurt"].map((name) => addIngredient(user.db, uniqueName(name))));
+    const othersSalt = await addIngredient(other.db, uniqueName("Salt"));
+    const [, mjolkDl, yoghurtRow] = await setPantryItemsIn(user.db, [
+      kyl(mjolk, 2, "förp"),
+      kyl(mjolk, 5, "dl"),
+      kyl(yoghurt, 2, "förp"),
+    ]);
+    const before = await rowsOf(user.id);
+    const operation = randomUUID();
+
+    await expect(
+      applyPantryInventoryIn(user.db, {
+        place: "Kyl",
+        items: [kyl(mjolk, 1, "förp"), kyl(othersSalt, 1, "kg")],
+        replaceRowIds: [mjolkDl.id],
+        removeRowIds: [yoghurtRow.id],
+        operationId: operation,
+      }),
+    ).rejects.toThrow(new PantryDataError("apply_failed 23503"));
+    expect(await rowsOf(user.id)).toEqual(before);
+    expect(await countRows("pantry_removal", user.id)).toBe(0);
+  });
+
+  it("skips ids of another location or user, and a removal of an ingredient the call also sets", async () => {
+    const user = await createTestUser("pantry-inventory-skip");
+    const other = await createTestUser("pantry-inventory-skip-other");
+    const [mjolk, arter, yoghurt] = await Promise.all(
+      ["Mjölk", "Ärtor", "Yoghurt"].map((name) => addIngredient(user.db, uniqueName(name))),
+    );
+    const othersMjolk = await addIngredient(other.db, uniqueName("Mjölk"));
+    const [mjolkRow, yoghurtRow] = await setPantryItemsIn(user.db, [kyl(mjolk, 2, "förp"), kyl(yoghurt, 2, "förp")]);
+    const [arterRow, arterDl] = await setPantryItemsIn(user.db, [
+      { ingredientId: arter, location: "Frys", amount: 1, unit: "förp" },
+      { ingredientId: arter, location: "Frys", amount: 5, unit: "dl" },
+    ]);
+    const [othersRow] = await setPantryItemsIn(other.db, [kyl(othersMjolk, 1, "l")]);
+    const othersBefore = await rowsOf(other.id);
+
+    const applied = await applyPantryInventoryIn(user.db, {
+      place: "Kyl",
+      items: [kyl(yoghurt, 1, "förp"), kyl(arter, 1, "förp")],
+      // A Frys row of an ingredient the call sets in Kyl, and another user's row.
+      replaceRowIds: [arterDl.id, othersRow.id],
+      // Another location's row, another user's row, and yoghurt, which the call sets.
+      removeRowIds: [arterRow.id, othersRow.id, yoghurtRow.id, mjolkRow.id],
+      operationId: randomUUID(),
+    });
+    expect(applied.removed.map((row) => row.id)).toEqual([mjolkRow.id]);
+    const rows = await rowsOf(user.id);
+    expect(rows.map((row) => row.id)).toEqual(expect.arrayContaining([arterRow.id, arterDl.id, yoghurtRow.id]));
+    expect(rows.find((row) => row.id === yoghurtRow.id)).toMatchObject({ amount: 1, unit: "förp" });
+    expect(rows.some((row) => row.id === mjolkRow.id)).toBe(false);
+    expect(await rowsOf(other.id)).toEqual(othersBefore);
+  });
+
+  it("never replaces a forged id: a row whose ingredient no item sets in the place, or set only in another place", async () => {
+    const user = await createTestUser("pantry-inventory-forged-replace");
+    const [mjolk, yoghurt] = await Promise.all(["Mjölk", "Yoghurt"].map((name) => addIngredient(user.db, uniqueName(name))));
+    const [mjolkRow, yoghurtRow] = await setPantryItemsIn(user.db, [kyl(mjolk, 2, "förp"), kyl(yoghurt, 2, "förp")]);
+    const operation = randomUUID();
+    const applied = await applyPantryInventoryIn(user.db, {
+      place: "Kyl",
+      // mjölk is set in Frys only, and nothing sets yoghurt: neither Kyl row may be replaced.
+      items: [{ ingredientId: mjolk, location: "Frys", amount: 1, unit: "l" }],
+      replaceRowIds: [mjolkRow.id, yoghurtRow.id],
+      removeRowIds: [],
+      operationId: operation,
+    });
+    expect(applied).toMatchObject({ replaced: 0, removedCount: 0, undoable: 0 });
+    const ids = (await rowsOf(user.id)).map((row) => row.id);
+    expect(ids).toEqual(expect.arrayContaining([mjolkRow.id, yoghurtRow.id]));
+    expect(ids).toHaveLength(3);
+    expect(await countRows("pantry_removal", user.id)).toBe(0);
+  });
+
+  it("renews the record's time when removals join it, so it is not pruned under them", async () => {
+    const user = await createTestUser("pantry-inventory-renew");
+    const [yoghurt, senap] = await Promise.all(["Yoghurt", "Senap"].map((name) => addIngredient(user.db, uniqueName(name))));
+    const [yoghurtRow, senapRow] = await setPantryItemsIn(user.db, [kyl(yoghurt, 2, "förp"), kyl(senap, null, null)]);
+    const operation = randomUUID();
+    const remove = (id: string) =>
+      applyPantryInventoryIn(user.db, { place: "Kyl", items: [], replaceRowIds: [], removeRowIds: [id], operationId: operation });
+    await remove(yoghurtRow.id);
+    const old = new Date(Date.now() - 23 * 60 * 60 * 1000).toISOString();
+    const aged = await adminClient().from("pantry_removal").update({ created_at: old }).eq("user_id", user.id).eq("id", operation);
+    expect(aged.error).toBeNull();
+    await remove(senapRow.id);
+    const { data, error } = await adminClient().from("pantry_removal").select("created_at").eq("user_id", user.id).single();
+    if (error) throw error;
+    expect(new Date(data.created_at).getTime()).toBeGreaterThan(new Date(old).getTime() + 60 * 60 * 1000);
+    expect((await restorePantryRemovalIn(user.db, operation)).restoredIds).toHaveLength(2);
+  });
+
+  it("keeps a record per user: the same operation id of another user neither collides nor is written", async () => {
+    const user = await createTestUser("pantry-inventory-own");
+    const other = await createTestUser("pantry-inventory-own-other");
+    const yoghurt = await addIngredient(user.db, uniqueName("Yoghurt"));
+    const othersSalt = await addIngredient(other.db, uniqueName("Salt"));
+    const [row] = await setPantryItemsIn(user.db, [kyl(yoghurt, 2, "förp")]);
+    const [othersRow] = await setPantryItemsIn(other.db, [kyl(othersSalt, 1, "kg")]);
+    const operation = randomUUID();
+    await applyPantryInventoryIn(other.db, {
+      place: "Kyl",
+      items: [],
+      replaceRowIds: [],
+      removeRowIds: [othersRow.id],
+      operationId: operation,
+    });
+    expect(
+      await applyPantryInventoryIn(user.db, { place: "Kyl", items: [], replaceRowIds: [], removeRowIds: [row.id], operationId: operation }),
+    ).toMatchObject({ removedCount: 1, undoable: 1 });
+    // Each user's "Ångra" puts back their own row only.
+    expect((await restorePantryRemovalIn(other.db, operation)).restoredIds).toEqual([othersRow.id]);
+    expect((await restorePantryRemovalIn(user.db, operation)).restoredIds).toEqual([row.id]);
+  });
+
+  it("keeps the either/or rule: unlimited replaces amounts and the other way round", async () => {
+    const user = await createTestUser("pantry-inventory-kind");
+    const [smor, mjolk] = await Promise.all(["Smör", "Mjölk"].map((name) => addIngredient(user.db, uniqueName(name))));
+    await setPantryItemsIn(user.db, [kyl(smor, null, null), kyl(mjolk, 2, "förp"), kyl(mjolk, 1, "l")]);
+    await applyPantryInventoryIn(user.db, {
+      place: "Kyl",
+      items: [kyl(smor, 250, "g"), kyl(mjolk, null, null)],
+      replaceRowIds: [],
+      removeRowIds: [],
+      operationId: null,
+    });
+    const rows = await rowsOf(user.id);
+    expect(rows.filter((row) => row.ingredient_id === smor).map(({ amount, unit }) => [amount, unit])).toEqual([[250, "g"]]);
+    expect(rows.filter((row) => row.ingredient_id === mjolk).map(({ amount, unit }) => [amount, unit])).toEqual([[null, null]]);
+  });
+
+  it("refuses an unknown place, too many ids, removals without an operation, an empty request, anon and the service role", async () => {
+    const user = await createTestUser("pantry-inventory-refuse");
+    const mjolk = await addIngredient(user.db, uniqueName("Mjölk"));
+    const [row] = await setPantryItemsIn(user.db, [kyl(mjolk, 2, "förp")]);
+    const call = (db: Db, args: Record<string, unknown>) =>
+      db.rpc("apply_pantry_inventory", {
+        place: "Kyl",
+        items: [],
+        replace_ids: [],
+        remove_ids: [row.id],
+        operation_id: randomUUID(),
+        ...args,
+      } as never);
+    for (const args of [
+      { place: "Garage" },
+      { items: {} },
+      { items: [1] },
+      { remove_ids: [] },
+      { operation_id: null },
+      { items: Array.from({ length: 41 }, () => ({ ingredient_id: mjolk, location: "Kyl", amount: 1, unit: "förp" })) },
+      { replace_ids: Array.from({ length: 51 }, () => randomUUID()) },
+      { remove_ids: Array.from({ length: 1001 }, () => randomUUID()) },
+    ]) {
+      expect((await call(user.db, args)).error?.code, JSON.stringify(Object.keys(args))).toBe("22023");
+    }
+    for (const client of [anonClient(), adminClient()]) {
+      expect((await call(client, {})).error?.code).toBe("42501");
+    }
+    expect(await rowsOf(user.id)).toEqual([asRow(row)]);
+  });
+
+  const asRow = ({ id, ingredientId, location, amount, unit }: PantryRow) => ({
+    id,
+    ingredient_id: ingredientId,
+    location,
+    amount,
+    unit,
   });
 });
 

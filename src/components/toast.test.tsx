@@ -79,6 +79,25 @@ describe("ToastProvider", () => {
     expect(liveRegion()).toBeEmptyDOMElement();
   });
 
+  it("names the undo button after what it undoes when told to", () => {
+    function Labelled() {
+      const { showToast } = useToast();
+      return (
+        <button type="button" onClick={() => showToast("Kylen är uppdaterad.", { onUndo: () => {}, undoLabel: "Ångra borttagning" })}>
+          visa
+        </button>
+      );
+    }
+    render(
+      <ToastProvider>
+        <Labelled />
+      </ToastProvider>,
+    );
+    fireEvent.click(screen.getByRole("button", { name: "visa" }));
+    expect(screen.getByRole("button", { name: "Ångra borttagning" })).toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: "Ångra" })).toBeNull();
+  });
+
   it("keeps only the message in the live region, with Ångra outside it", () => {
     renderToasts();
     fireEvent.click(screen.getByRole("button", { name: "Tog bort Mjölk." }));

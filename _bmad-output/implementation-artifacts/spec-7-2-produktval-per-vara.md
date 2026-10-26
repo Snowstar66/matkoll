@@ -2,7 +2,7 @@
 title: 'Story 7.2: Produktval per vara'
 type: 'feature'
 created: '2026-10-26'
-status: 'draft'
+status: 'done'
 route: 'dispatch'
 context:
   - '{project-root}/_bmad-output/implementation-artifacts/epic-7-context.md'
@@ -100,14 +100,14 @@ context:
 ## Tasks & Acceptance
 
 **Execution:**
-- [ ] `supabase/migrations/<ts>_shopping_product_choice.sql` (skapad med `supabase migration new shopping_product_choice`):
+- [x] `supabase/migrations/<ts>_shopping_product_choice.sql` (skapad med `supabase migration new shopping_product_choice`):
   1. Tabellen `product_choice` med kolumner, kontroller, `product_choice_user_id_ingredient_id_store_id_key` och de två sammansatta främmande nycklarna med `on delete restrict`.
   2. Index på `(user_id, store_id)` för listans läsning och på `(store_id, user_id)` och `(ingredient_id, user_id)` för nycklarnas uppslag.
   3. RLS, policy, `revoke` och `grant` enligt AD-4.
   4. En trigger eller `default now()` med uppdatering i upserten för `updated_at`.
 
   Därefter genereras typerna om -- AD-4, AD-5, AD-20
-- [ ] `src/features/shopping/domain/product-choice.ts` (+ test), `index.ts`:
+- [x] `src/features/shopping/domain/product-choice.ts` (+ test), `index.ts`:
   - `ProductChoice = { id, ingredientId, storeId, productName, packageSize, url }`.
   - `productChoiceFormSchema` (`ingredientId` och `storeId` som `z.guid()`, produkt trimmad 1–200 utan kontrolltecken med enkla mellanslag, förpackning ≤ 40, länk med `https` och värdnamn ≤ 2048). Tomma valfria fält blir `null`.
   - `productChoiceFieldErrors(error)`.
@@ -116,7 +116,7 @@ context:
   - Texterna `noProductChoiceText(storeName)`, `unlinkedCustomItemText`, `noStoreText`, `productChoiceSavedText`, `productChoiceRemovedText` och `productChoiceTitle(label)` ("Produktval för grädde", med varans namn i gemener enligt `toLocaleLowerCase("sv-SE")`).
 
   -- FR-27
-- [ ] `src/features/shopping/data/product-choices.ts` (+ integrationstest):
+- [x] `src/features/shopping/data/product-choices.ts` (+ integrationstest):
   - `listProductChoicesIn(db, storeId)` ger `Record<ingredientId, ProductChoice>`.
   - `upsertProductChoiceIn(db, userId, form)` gör `upsert` med `onConflict: "user_id,ingredient_id,store_id"` och sätter `updated_at`.
   - `removeProductChoiceIn(db, id)` ger den borttagna raden.
@@ -125,41 +125,41 @@ context:
   - Alla kastar `ShoppingDataError` för andra fel.
 
   -- AD-1, AD-20
-- [ ] `src/features/shopping/server.ts`, `data/queries.ts` (+ tester):
+- [x] `src/features/shopping/server.ts`, `data/queries.ts` (+ tester):
   - `getShoppingList` läser `getSelectedStore()` och, när det finns en butik, `listProductChoicesIn(db, store.id)`. Båda läses parallellt med listan.
   - Resultatet får `store: Store | null`, `storeUnavailable: boolean`, `productChoices: Record<string, ProductChoice>` och `productChoicesUnavailable: boolean`.
   - `SettingsDataError` loggas som `settings_store_unavailable`, och `ShoppingDataError` från produktvalen som `shopping_product_choices_unavailable`. Ingen av dem stoppar listan.
 
   -- AD-8, AD-18
-- [ ] `src/features/shopping/actions/save-product-choice.ts`, `remove-product-choice.ts`, `restore-product-choice.ts` (+ tester):
+- [x] `src/features/shopping/actions/save-product-choice.ts`, `remove-product-choice.ts`, `restore-product-choice.ts` (+ tester):
   - `saveProductChoice` börjar med `requireUser()`, validerar med `productChoiceFormSchema` och ger `ok({ choice })` eller `fail` med `validation` (fältfel, och `invalid_reference`), `shopping_product_choice_save_failed` eller `unauthorized`.
   - `removeProductChoice({ id })` ger raden för "Ångra".
   - `restoreProductChoice(row)` validerar raden med Zod och ger `shopping_restore_failed` vid konflikt.
   - Alla anropar `revalidateFor("product_choice")`.
 
   -- AD-2, AD-13
-- [ ] `src/lib/errors.ts` -- nya koder:
+- [x] `src/lib/errors.ts` -- nya koder:
   - `shopping_product_choice_save_failed`: "Det gick inte att spara produktvalet. Försök igen.";
   - `shopping_product_choices_unavailable`: "Det gick inte att läsa produktvalen. Försök igen.".
 
   -- AD-13
-- [ ] `src/lib/revalidate.ts` -- `product_choice: [{ path: "/lista", type: "page" }]` -- AD-18
-- [ ] `src/features/shopping/ui/product-choice-section.tsx` (+ test) -- `ProductChoiceSection` är `<section aria-labelledby>` med h3 "Produktval". Den visar `productChoiceText` och länken "Öppna produkten" när en sådan finns, och knappen "Ändra produktval". Annars visar den `noProductChoiceText` och "Ange produktval". Varianterna är:
+- [x] `src/lib/revalidate.ts` -- `product_choice: [{ path: "/lista", type: "page" }]` -- AD-18
+- [x] `src/features/shopping/ui/product-choice-section.tsx` (+ test) -- `ProductChoiceSection` är `<section aria-labelledby>` med h3 "Produktval". Den visar `productChoiceText` och länken "Öppna produkten" när en sådan finns, och knappen "Ändra produktval". Annars visar den `noProductChoiceText` och "Ange produktval". Varianterna är:
   - okopplad egen vara (`unlinkedCustomItemText`, ingen knapp);
   - ingen butik (`noStoreText` med länk till `/installningar`);
   - butiken eller valen går inte att läsa (`Notice role="status"` med felets text, ingen knapp).
 
   -- FR-27
-- [ ] `src/features/shopping/ui/product-choice-sheet.tsx` (+ test) -- `ProductChoiceSheet` är ett `Sheet` med titeln `productChoiceTitle(label)` och butikens namn under titeln. Fälten är Produkt, Förpackning (platshållare "t.ex. 5 dl") och Länk (`type="url"`, `inputMode="url"`). Knapparna är "Spara" och "Avbryt", och "Ta bort produktval" (textknapp) finns när ett val finns. Arket använder `useActionState`, `isDirty` och `preventClose` medan det sparar. Efter "Spara" stängs det med en kort bekräftelse. Efter "Ta bort produktval" stängs det med en kort bekräftelse med "Ångra" -- FR-27, UX-DR4, UX-DR5
-- [ ] `src/features/shopping/ui/line-detail-sheet.tsx`, `custom-item-sheet.tsx`, `shopping-list.tsx` (+ tester):
+- [x] `src/features/shopping/ui/product-choice-sheet.tsx` (+ test) -- `ProductChoiceSheet` är ett `Sheet` med titeln `productChoiceTitle(label)` och butikens namn under titeln. Fälten är Produkt, Förpackning (platshållare "t.ex. 5 dl") och Länk (`type="url"`, `inputMode="url"`). Knapparna är "Spara" och "Avbryt", och "Ta bort produktval" (textknapp) finns när ett val finns. Arket använder `useActionState`, `isDirty` och `preventClose` medan det sparar. Efter "Spara" stängs det med en kort bekräftelse. Efter "Ta bort produktval" stängs det med en kort bekräftelse med "Ångra" -- FR-27, UX-DR4, UX-DR5
+- [x] `src/features/shopping/ui/line-detail-sheet.tsx`, `custom-item-sheet.tsx`, `shopping-list.tsx` (+ tester):
   - `RecipeLineDetail` visar `ProductChoiceSection` under ursprunget när `canHaveProductChoice(line)`. `CustomItemSheet` visar den under formuläret för en sparad egen vara.
   - "Ange produktval" och "Ändra produktval" ber `ShoppingList` byta arket: detaljen stängs (med "Släng ändringarna?" om den har ändringar) och `ProductChoiceSheet` öppnas för samma post.
   - `ShoppingList` får `store`, `storeUnavailable`, `productChoices` och `productChoicesUnavailable` från `ShoppingListContent`.
   - Kommentaren "No product choice here (Epic 7)." tas bort.
 
   -- FR-27, UX-DR4
-- [ ] `src/app/(app)/lista/shopping-list-content.tsx` (+ test) -- skickar de nya fälten vidare -- AD-18
-- [ ] `tests/integration/shopping.test.ts`:
+- [x] `src/app/(app)/lista/shopping-list-content.tsx` (+ test) -- skickar de nya fälten vidare -- AD-18
+- [x] `tests/integration/shopping.test.ts`:
   - `expectRlsIsolation("product_choice", …)`, där ägaren först får en ingrediens och en butik;
   - unikheten på ingrediens och butik (`23505`);
   - att samma ingrediens kan ha val i två butiker;
@@ -168,7 +168,7 @@ context:
   - att ingrediensen och butiken inte kan tas bort medan ett val pekar på dem (`23503`, `restrict`).
 
   -- AD-4, AD-20
-- [ ] `tests/e2e/product-choice.spec.ts` (+ `support.ts`, `global-setup.ts`) -- egen e2e-användare `e2e-produktval@matkoll.test`. Med service role seedas en matsedel med ett recept som har "grädde 3 dl" och "2 citroner", samt den egna varan "Kaffe" kopplad till kaffe och den okopplade egna varan "Diskmedel". Specen kontrollerar:
+- [x] `tests/e2e/product-choice.spec.ts` (+ `support.ts`, `global-setup.ts`) -- egen e2e-användare `e2e-produktval@matkoll.test`. Med service role seedas en matsedel med ett recept som har "grädde 3 dl" och "2 citroner", samt den egna varan "Kaffe" kopplad till kaffe och den okopplade egna varan "Diskmedel". Specen kontrollerar:
   - att ett produktval anges och sparas för grädde, och att det visas när detaljen öppnas igen och efter omladdning;
   - "Ta bort produktval" och "Ångra";
   - att Kaffe har sektionen och att Diskmedel har texten om koppling;
@@ -199,6 +199,33 @@ context:
 ## Spec Change Log
 
 ## Review Triage Log
+
+Iteration 1. Granskare: Blind Hunter, Edge Case Hunter och Verification Gap.
+
+**Patch:**
+- Osynliga tecken i migreringarnas källtext skrivs om som synliga escape-sekvenser. Det är ett loggat undantag från regeln att aldrig ändra en migrering som redan har körts, och ett lint-test vaktar mot att de kommer tillbaka.
+- Drifttester för nekade tecken och URL:er, både i domänen och i databasen.
+- Borttagning och uppdatering:
+  - En rad som är borttagen men inte går att tolka räknas som borttagen.
+  - En uppdatering som är skriven men inte går att tolka räknas som sparad.
+- Rader som inte går att läsa visas med en notis och skrivs inte över.
+- Skrivningen är villkorad mot det val som visades när arket öppnades. Arket stängs eller läses om när butiken byts.
+- Egen felkod när butiken eller varan har försvunnit.
+- Ett överflödigt index tas bort. `restrict` behålls.
+- `allSettled` i `getShoppingList`.
+- Konflikter loggas på info-nivå.
+- Användargränssnitt:
+  - knappen är spärrad när formuläret har osparade ändringar
+  - titlarna behåller stora och små bokstäver
+  - länken talar om att den öppnas i ny flik
+  - nollbredds- och bidi-tecken rensas
+- Nya tester:
+  - e2e-vakt mot produktlänkens värd
+  - Ångra när sessionen har gått ut
+
+**Reject:**
+- en token för Ångra (RLS räcker)
+- att behålla `created_at` vid Ångra
 
 ## Verification
 

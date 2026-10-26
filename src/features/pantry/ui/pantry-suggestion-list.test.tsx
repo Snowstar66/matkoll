@@ -39,6 +39,8 @@ vi.mock("../actions/confirm-pantry-suggestions", () => ({
     new Promise<Result<{ count: number }>>((resolve, reject) => confirms.push({ items, answer: resolve, reject })),
 }));
 vi.mock("../actions/remove-pantry-item", () => ({ removePantryItem: vi.fn() }));
+vi.mock("../actions/empty-pantry-place", () => ({ emptyPantryPlace: vi.fn() }));
+vi.mock("../actions/restore-pantry-removal", () => ({ restorePantryRemoval: vi.fn() }));
 vi.mock("../actions/restore-pantry-item", () => ({ restorePantryItem: vi.fn() }));
 
 const mjolkId = "6f1c1b7e-3c1a-4c55-9a59-0f3f2b8f2a01";
@@ -54,9 +56,10 @@ const fresh = (name: string): PantrySuggestion["ingredient"] => ({
 const fridge: AnalyzeResult = {
   location: "Kyl",
   dropped: 0,
+  inventory: { kind: "empty" },
   suggestions: [
-    { id: "s1", name: "gurka", ingredient: fresh("gurka"), location: "Kyl", amount: 2, unit: "st", current: null },
-    { id: "s2", name: "ketchup", ingredient: fresh("ketchup"), location: "Kyl", amount: null, unit: null, current: null },
+    { id: "s1", name: "gurka", ingredient: fresh("gurka"), location: "Kyl", amount: 2, unit: "st", current: null, change: null, replaces: [] },
+    { id: "s2", name: "ketchup", ingredient: fresh("ketchup"), location: "Kyl", amount: null, unit: null, current: null, change: null, replaces: [] },
     {
       id: "s3",
       name: "mjölk",
@@ -65,6 +68,8 @@ const fridge: AnalyzeResult = {
       amount: 1,
       unit: "förp",
       current: { unlimited: false, amounts: [{ amount: 2, unit: "förp" }] },
+      change: null,
+      replaces: [],
     },
     {
       id: "s4",
@@ -74,6 +79,8 @@ const fridge: AnalyzeResult = {
       amount: null,
       unit: null,
       current: { unlimited: true, amounts: [] },
+      change: null,
+      replaces: [],
     },
   ],
 };

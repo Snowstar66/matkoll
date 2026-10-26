@@ -1,5 +1,6 @@
 import { formatQuantity, SECTIONS, type Section, type Unit } from "@/features/catalog";
 import { dishCountText } from "@/features/mealplan";
+import type { Store } from "@/features/settings";
 import type { ShoppingLine } from "./compute-list";
 
 // What Inköpslista says (EXPERIENCE.md, UX-DR9). Pure, so it is tested
@@ -182,3 +183,50 @@ export const partlyPutInPantryText = "Det gick inte att lägga allt i lagret.";
 
 /** After "Lägg i lagret" when no answer came: trying again adds nothing twice. */
 export const serverUnreachableText = "Det gick inte att nå servern. Försök igen.";
+
+/**
+ * The button that copies the basket export (Story 7.3), named after the
+ * selected store's chain: "Skicka till ICA", "Skicka till Willys"; "Skicka
+ * till butiken" for Annan, or without a store. The export is the same for
+ * every chain (decision 2026-10-26).
+ */
+export function sendButtonText(store: Pick<Store, "chain"> | null): string {
+  return !store || store.chain === "Annan" ? "Skicka till butiken" : `Skicka till ${store.chain}`;
+}
+
+/** What the confirmation after a copy must say beside "kopierad". */
+export type CopiedNotes = {
+  /** The product choices could not be read: the export has none. */
+  withoutChoices?: boolean;
+  /** Some exported items' choices could not be read: the export lacks those. */
+  partialChoices?: boolean;
+  /** The checks could not be read: items already in the basket may be in the export. */
+  checksUnread?: boolean;
+};
+
+/**
+ * The short confirmation after the export is copied: "Inköpslistan är
+ * kopierad. Klistra in den i Claude i Chrome på ICA Handla."; for another
+ * chain "… på butikens webbplats."; "kopierad utan produktval" when the
+ * choices could not be read, "utan alla produktval" when some could not;
+ * and when the checks could not be read, "…, men bockarna gick inte att
+ * läsa. Kontrollera varukorgen." instead of where to paste.
+ */
+export function copiedText(
+  store: Pick<Store, "chain"> | null,
+  { withoutChoices = false, partialChoices = false, checksUnread = false }: CopiedNotes = {},
+): string {
+  const choices = withoutChoices ? " utan produktval" : partialChoices ? " utan alla produktval" : "";
+  if (checksUnread) return `Inköpslistan är kopierad${choices}, men bockarna gick inte att läsa. Kontrollera varukorgen.`;
+  const where = store?.chain === "ICA" ? "ICA Handla" : "butikens webbplats";
+  return `Inköpslistan är kopierad${choices}. Klistra in den i Claude i Chrome på ${where}.`;
+}
+
+/** The sheet with the export when the browser refuses the clipboard. */
+export const exportSheetTitle = "Inköpslistan";
+/** The read-only field in that sheet, for screen readers. */
+export const exportTextLabel = "Exporttext";
+/** The sheet's primary button, which tries the clipboard again. */
+export const copyText = "Kopiera";
+/** Under the field when "Kopiera" is refused again; the text is selected again. */
+export const copyFailedText = "Det gick inte att kopiera. Markera texten och kopiera den själv.";

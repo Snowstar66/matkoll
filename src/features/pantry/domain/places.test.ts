@@ -1,14 +1,25 @@
 import { describe, expect, it } from "vitest";
 import { LOCATIONS } from "@/features/catalog";
 import {
+  alreadyEmptyText,
   confirmedItemsText,
+  emptiedPlaceText,
+  emptyPlaceButtonText,
+  emptyPlaceQuestion,
   emptyPlaceText,
+  emptyPlaceUndoHint,
+  maybeEmptiedText,
+  notRestoredText,
+  removedCountText,
   itemCountText,
   placeFromSlug,
   placeSlug,
   rejectedItemText,
   removedItemsText,
   savedItemText,
+  keptItemText,
+  alreadyRemovedText,
+  inventoryAppliedText,
 } from "./places";
 
 describe("placeSlug and placeFromSlug", () => {
@@ -66,5 +77,68 @@ describe("confirmedItemsText and rejectedItemText", () => {
 
   it("names the rejected suggestion", () => {
     expect(rejectedItemText("ketchup")).toBe("ketchup är avvisad.");
+  });
+});
+
+describe("the texts for emptying a location", () => {
+  it("names the button, sheet and its button after the location", () => {
+    expect(LOCATIONS.map(emptyPlaceButtonText)).toEqual(["Töm kylen", "Töm frysen", "Töm skafferiet"]);
+  });
+
+  it("asks about all items, or the one item", () => {
+    expect(emptyPlaceQuestion("Kyl", 14)).toBe("Ta bort alla 14 varor i kylen?");
+    expect(emptyPlaceQuestion("Frys", 2)).toBe("Ta bort alla 2 varor i frysen?");
+    expect(emptyPlaceQuestion("Kyl", 1)).toBe("Ta bort 1 vara i kylen?");
+    expect(emptyPlaceQuestion("Skafferi", 1)).toBe("Ta bort 1 vara i skafferiet?");
+    expect(emptyPlaceUndoHint).toBe("Du kan ångra direkt efteråt.");
+  });
+
+  it("confirms with the number removed and the location", () => {
+    expect(emptiedPlaceText("Kyl", 14)).toBe("Tog bort 14 varor ur kylen.");
+    expect(emptiedPlaceText("Kyl", 1)).toBe("Tog bort 1 vara ur kylen.");
+    expect(emptiedPlaceText("Skafferi", 3)).toBe("Tog bort 3 varor ur skafferiet.");
+  });
+
+  it("says when the location was empty already, in the location's gender", () => {
+    expect(LOCATIONS.map(alreadyEmptyText)).toEqual([
+      "Kylen är redan tom.",
+      "Frysen är redan tom.",
+      "Skafferiet är redan tomt.",
+    ]);
+  });
+
+  it("counts removals undone together, with the location when there is one", () => {
+    expect(removedCountText(15, ["Kyl", "Kyl"])).toBe("Tog bort 15 varor ur kylen.");
+    expect(removedCountText(17, ["Kyl", "Frys"])).toBe("Tog bort 17 varor.");
+    expect(removedCountText(1, [])).toBe("Tog bort 1 vara.");
+  });
+
+  it("says a location may have been emptied when the answer was lost", () => {
+    expect(LOCATIONS.map(maybeEmptiedText)).toEqual(["Kylen kan ha tömts.", "Frysen kan ha tömts.", "Skafferiet kan ha tömts."]);
+  });
+
+  it("counts the items Ångra could not put back", () => {
+    expect(notRestoredText(1)).toBe("1 vara gick inte att ångra.");
+    expect(notRestoredText(2)).toBe("2 varor gick inte att ångra.");
+  });
+});
+
+describe("Inventera en plats med foto", () => {
+  it("says an item stays, or was gone already", () => {
+    expect(keptItemText("senap", "Kyl")).toBe("senap står kvar i kylen.");
+    expect(keptItemText("ärtor", "Frys")).toBe("ärtor står kvar i frysen.");
+    expect(alreadyRemovedText("yoghurt")).toBe("yoghurt är redan borttagen.");
+  });
+
+  it("counts what Bekräfta alla did, leaving out the parts that are 0, in the location's gender", () => {
+    expect(inventoryAppliedText("Kyl", { added: 3, changed: 1, removed: 2 })).toBe(
+      "Kylen är uppdaterad: 3 nya, 1 ändrad och 2 borttagna.",
+    );
+    expect(inventoryAppliedText("Frys", { added: 1, changed: 2, removed: 1 })).toBe(
+      "Frysen är uppdaterad: 1 ny, 2 ändrade och 1 borttagen.",
+    );
+    expect(inventoryAppliedText("Skafferi", { added: 0, changed: 0, removed: 2 })).toBe("Skafferiet är uppdaterat: 2 borttagna.");
+    expect(inventoryAppliedText("Kyl", { added: 2, changed: 0, removed: 1 })).toBe("Kylen är uppdaterad: 2 nya och 1 borttagen.");
+    expect(inventoryAppliedText("Kyl", { added: 0, changed: 0, removed: 0 })).toBe("Kylen är uppdaterad.");
   });
 });

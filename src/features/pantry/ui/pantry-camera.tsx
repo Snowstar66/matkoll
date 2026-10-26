@@ -6,7 +6,14 @@ import { CameraIcon } from "@/components/icons";
 import { Notice } from "@/components/notice";
 import { useCoarsePointer } from "@/components/use-coarse-pointer";
 import type { Location } from "@/features/catalog";
-import { analyzeErrorMessage, cameraButtonText, noSuggestionsText, unreadableItemsText } from "../domain/pantry-suggestion";
+import {
+  allUnchangedText,
+  analyzeErrorMessage,
+  cameraButtonText,
+  noSuggestionsText,
+  partlyUnchangedText,
+  unreadableItemsText,
+} from "../domain/pantry-suggestion";
 import { AddPantryItemButton } from "./pantry-item-sheet";
 import { usePantrySuggestions } from "./pantry-suggestions";
 import { focusIsFree } from "./use-pantry-analysis";
@@ -18,7 +25,8 @@ import { focusIsFree } from "./use-pantry-analysis";
 // it opens the file picker (EXPERIENCE.md, Responsive). No camera API beyond
 // the file input. While a photo is analysed, "Tittar på bilden …" with a
 // progress bar and "Avbryt" take its place. Errors and an empty answer show
-// in a notice at the top of this area, and the camera button takes focus back
+// in a notice at the top of this area ("Allt i kylen stämmer med bilden."
+// when a photo matches the place, Story 6.4), and the camera button takes focus back
 // (unless Pontus has moved on, e.g. into the sheet); the rest of Hemma keeps
 // working.
 
@@ -30,6 +38,7 @@ export type PantryCameraProps = {
 export function PantryCamera({ location }: PantryCameraProps) {
   const {
     analyzing,
+    result,
     error,
     empty,
     canRetry,
@@ -89,6 +98,13 @@ export function PantryCamera({ location }: PantryCameraProps) {
         }
       >
         {analyzeErrorMessage(error)}
+      </Notice>
+    );
+  } else if (!analyzing && (empty === "unchanged" || empty === "partlyUnchanged") && result) {
+    // Story 6.4: every suggestion matches the place, and nothing is missing; "Allt …" only for a complete comparison.
+    notice = (
+      <Notice role="status">
+        {empty === "unchanged" ? allUnchangedText(result.location) : partlyUnchangedText(result.location)}
       </Notice>
     );
   } else if (!analyzing && empty) {

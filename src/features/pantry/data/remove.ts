@@ -1,5 +1,6 @@
 import "server-only";
 import { z } from "zod";
+import { locationSchema, type Location } from "@/features/catalog";
 import { pantryRowSchema, type PantryRow } from "../domain/pantry-item-form";
 import { PantryDataError, type PantryDb } from "./client";
 
@@ -76,4 +77,97 @@ export async function restorePantryItemIn(db: PantryDb, row: PantryRow): Promise
   });
   if (error) throw new PantryDataError(`restore_failed ${error.code}`);
   return toPantryRow(data);
+}
+
+const answerRowSchema = z.object({
+  id: z.uuid(),
+  ingredient_id: z.string(),
+  location: z.string(),
+  amount: z.union([z.number(), z.string()]).nullable(),
+  unit: z.string().nullable(),
+});
+type AnswerRow = z.infer<typeof answerRowSchema>;
+
+/**
+ * The rows in a function's answer. The write has committed when the answer
+ * is read, so a row that does not parse is left out here, never thrown: the
+ * server keeps it, and "Ångra" puts it back all the same.
+ */
+function answerRows(value: unknown): AnswerRow[] {
+  if (!Array.isArray(value)) return [];
+  return value.flatMap((row) => {
+    const parsed = answerRowSchema.safeParse(row);
+    return parsed.success ? [parsed.data] : [];
+  });
+}
+
+/** An answer row as a PantryRow, or null when it is not one the domain knows. */
+function asPantryRow(row: AnswerRow): PantryRow | null {
+  const parsed = pantryRowSchema.safeParse({
+    id: row.id,
+    ingredientId: row.ingredient_id,
+    location: row.location,
+    amount: row.amount === null ? null : Number(row.amount),
+    unit: row.unit,
+  });
+  return parsed.success ? parsed.data : null;
+}
+
+/**
+ * What emptyPantryPlaceIn removed: how many rows (all of which "Ångra" can
+ * put back, from the server's record) and their ids, so the list can hide
+ * them at once.
+ */
+export type EmptiedPlace = { removed: number; removedIds: string[] };
+
+/**
+ * emptyPantryPlace (AD-19) for the signed-in user: deletes every row in the
+ * location for good (AD-20) and stores them under `operationId` for "Ångra"
+ * (pantry_removal), in one transaction under pantry_lock()
+ * (empty_pantry_place). Rows another tab added meanwhile go too. The same
+ * operation id again (a retry after a lost answer) removes nothing more and
+ * gives the same answer. The answer is one value, so it is never cut short.
+ *
+ * Throws PantryDataError: `invalid_location` or `invalid_operation` before
+ * anything is deleted, or `empty_failed <code>` when Postgres refuses (nothing
+ * is deleted then). Never throws once the delete has committed.
+ */
+export async function emptyPantryPlaceIn(db: PantryDb, location: Location, operationId: string): Promise<EmptiedPlace> {
+  const place = locationSchema.safeParse(location);
+  if (!place.success) throw new PantryDataError("invalid_location");
+  if (!idSchema.safeParse(operationId).success) throw new PantryDataError("invalid_operation");
+  const { data, error } = await db.rpc("empty_pantry_place", { place: place.data, operation_id: operationId });
+  if (error) throw new PantryDataError(`empty_failed ${error.code}`);
+  const answer = (data ?? {}) as { removed?: unknown; items?: unknown };
+  const removedIds = answerRows(answer.items).map((row) => row.id);
+  const removed = typeof answer.removed === "number" ? answer.removed : removedIds.length;
+  return { removed, removedIds };
+}
+
+/** What "Ångra" put back: every restored id, the restored rows the domain knows, and how many were skipped. */
+export type RestoredRemoval = { restoredIds: string[]; rows: PantryRow[]; skipped: number };
+
+/**
+ * restorePantryRemoval (AD-19, AD-20) for the signed-in user: "Ångra" for a
+ * removal operation (restore_pantry_removal). Puts the rows the server
+ * stored back with the same ids, amounts, units and locations, in one
+ * transaction under pantry_lock(), and forgets the record. A row is skipped
+ * when its id is taken, the location has the item again (the same unit, or
+ * either one unlimited), or its catalog ingredient is gone.
+ *
+ * Throws PantryDataError: `invalid_operation` before calling, or
+ * `restore_failed <code>` when Postgres refuses (P0002 for an operation that
+ * is unknown, already undone or pruned); nothing is restored then.
+ */
+export async function restorePantryRemovalIn(db: PantryDb, operationId: string): Promise<RestoredRemoval> {
+  if (!idSchema.safeParse(operationId).success) throw new PantryDataError("invalid_operation");
+  const { data, error } = await db.rpc("restore_pantry_removal", { operation_id: operationId });
+  if (error) throw new PantryDataError(`restore_failed ${error.code}`);
+  const answer = (data ?? {}) as { restored?: unknown; skipped?: unknown };
+  const restored = answerRows(answer.restored);
+  return {
+    restoredIds: restored.map((row) => row.id),
+    rows: restored.flatMap((row) => asPantryRow(row) ?? []),
+    skipped: typeof answer.skipped === "number" ? answer.skipped : 0,
+  };
 }

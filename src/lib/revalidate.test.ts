@@ -50,6 +50,19 @@ describe("revalidateFor", () => {
     }
   });
 
+  it("revalidates only the shopping list after a product choice write", () => {
+    revalidateFor("product_choice");
+    expect(revalidatePath.mock.calls).toEqual([["/lista", "page"]]);
+  });
+
+  it("revalidates Inställningar and the shopping list after a store write", () => {
+    revalidateFor("store");
+    expect(revalidatePath.mock.calls).toEqual([
+      ["/installningar", "page"],
+      ["/lista", "page"],
+    ]);
+  });
+
   it.each(["shopping_check", "shopping_custom_item"] as const)("revalidates only the shopping list after a write to %s", (table) => {
     revalidateFor(table);
     expect(revalidatePath.mock.calls).toEqual([["/lista", "page"]]);

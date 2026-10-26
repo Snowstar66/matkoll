@@ -12,6 +12,7 @@ import {
   type AnalyzeResult,
   type PantrySuggestion,
 } from "../domain/pantry-suggestion";
+import { groupSuggestions, type MissingItem } from "../domain/place-inventory";
 
 // The state of "Fotografera kylen" (FR-24, AD-2, AD-15, AD-18), held by
 // PantrySuggestionsProvider above Hemma's keyed <Suspense>, so the
@@ -26,8 +27,13 @@ import {
 /** A resized photo and the place it shows. */
 type KeptPhoto = { image: Blob; location: Location };
 
-/** Why an analysis gave no suggestions: the photo showed no food, or its items could not be read. */
-export type EmptyAnswer = "none" | "unreadable";
+/**
+ * Why an analysis gave no cards: the photo showed no food, its items could
+ * not be read, or (Story 6.4) everything matches the place and nothing is
+ * missing, with a complete comparison (`unchanged`) or with items that could
+ * not be read (`partlyUnchanged`).
+ */
+export type EmptyAnswer = "none" | "unreadable" | "unchanged" | "partlyUnchanged";
 
 export type PantryAnalysis = {
   /** The latest suggestions and the place they are from, or `null` before any. */
@@ -70,8 +76,14 @@ export type PantryAnalysis = {
   resultGeneration: number;
   /** The suggestions as they are now (not as last rendered), or `null` when `generation` is no longer the one given. */
   latestSuggestions: (generation: number) => readonly PantrySuggestion[] | null;
+  /** The suggestions with their comparison as they are now, or `null` when `generation` is no longer the one given. */
+  latestResult: (generation: number) => AnalyzeResult | null;
   /** Changes the suggestions, unless `generation` is no longer the one given; returns whether it did. */
   editSuggestions: (generation: number, edit: (suggestions: PantrySuggestion[]) => PantrySuggestion[]) => boolean;
+  /** Changes the "Syns inte längre" items of a compared photo (Story 6.4), like editSuggestions. */
+  editMissing: (generation: number, edit: (missing: MissingItem[]) => MissingItem[]) => boolean;
+  /** Changes the whole answer (suggestions and comparison), like editSuggestions. */
+  editResult: (generation: number, edit: (result: AnalyzeResult) => AnalyzeResult) => boolean;
 };
 
 /** Focus is still in the camera area, or on nothing: an answer may take it. Elsewhere (a sheet, the list), it stays. */
@@ -108,14 +120,24 @@ export function usePantryAnalysis(): PantryAnalysis {
     setResultGeneration(generation.current);
   }
 
-  function editSuggestions(expected: number, edit: (suggestions: PantrySuggestion[]) => PantrySuggestion[]): boolean {
+  function editResult(expected: number, edit: (result: AnalyzeResult) => AnalyzeResult): boolean {
     const current = latest.current;
     if (generation.current !== expected || !current) return false;
-    const next = { ...current, suggestions: edit(current.suggestions) };
+    const next = edit(current);
     latest.current = next;
     setResultState(next);
     return true;
   }
+
+  const editSuggestions = (expected: number, edit: (suggestions: PantrySuggestion[]) => PantrySuggestion[]) =>
+    editResult(expected, (current) => ({ ...current, suggestions: edit(current.suggestions) }));
+
+  const editMissing = (expected: number, edit: (missing: MissingItem[]) => MissingItem[]) =>
+    editResult(expected, (current) =>
+      current.inventory.kind === "compared"
+        ? { ...current, inventory: { ...current.inventory, missing: edit(current.inventory.missing) } }
+        : current,
+    );
 
   // Leaving Hemma, also when the page is only hidden after a navigation:
   // the analysis on its way is stopped, and the suggestions and the photo go.
@@ -191,10 +213,16 @@ export function usePantryAnalysis(): PantryAnalysis {
       // New suggestions replace the old ones only now that they are here. The photo is not needed any more.
       setResult(parsed.data);
       setPhoto(null);
-      if (parsed.data.suggestions.length > 0) {
+      const groups = groupSuggestions(parsed.data);
+      if (groups.added.length + groups.changed.length + groups.missing.length > 0) {
+        // Cards to show, also "Syns inte längre" alone for a photo without usable items of a place with items (Story 6.4).
         setArrivals((count) => count + 1);
-      } else {
+      } else if (parsed.data.suggestions.length === 0) {
         setEmpty(parsed.data.dropped > 0 ? "unreadable" : "none");
+        setSettles((count) => count + 1);
+      } else {
+        // Everything matches the place (Story 6.4): no card, the camera area says so.
+        setEmpty(groups.incomplete || parsed.data.dropped > 0 ? "partlyUnchanged" : "unchanged");
         setSettles((count) => count + 1);
       }
       return;
@@ -256,6 +284,9 @@ export function usePantryAnalysis(): PantryAnalysis {
     resultGeneration,
     latestSuggestions: (expected) =>
       generation.current === expected && latest.current ? latest.current.suggestions : null,
+    latestResult: (expected) => (generation.current === expected ? latest.current : null),
     editSuggestions,
+    editMissing,
+    editResult,
   };
 }

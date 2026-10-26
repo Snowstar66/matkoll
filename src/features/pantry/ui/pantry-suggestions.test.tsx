@@ -43,8 +43,11 @@ vi.mock("next/navigation", () => ({ useRouter: () => ({ refresh }) }));
 vi.mock("../actions/set-pantry-item", () => ({ savePantryItem: vi.fn() }));
 vi.mock("../actions/search-ingredients", () => ({ searchPantryIngredients: vi.fn() }));
 vi.mock("../actions/remove-pantry-item", () => ({ removePantryItem: vi.fn() }));
+vi.mock("../actions/empty-pantry-place", () => ({ emptyPantryPlace: vi.fn() }));
+vi.mock("../actions/restore-pantry-removal", () => ({ restorePantryRemoval: vi.fn() }));
 vi.mock("../actions/restore-pantry-item", () => ({ restorePantryItem: vi.fn() }));
 vi.mock("../actions/confirm-pantry-suggestions", () => ({ confirmPantrySuggestions: vi.fn() }));
+vi.mock("../actions/confirm-pantry-inventory", () => ({ confirmPantryInventory: vi.fn() }));
 
 const mjolkId = "6f1c1b7e-3c1a-4c55-9a59-0f3f2b8f2a01";
 const suggestion = (id: string, name: string, change: Partial<PantrySuggestion> = {}): PantrySuggestion => ({
@@ -55,11 +58,14 @@ const suggestion = (id: string, name: string, change: Partial<PantrySuggestion> 
   amount: 1,
   unit: "förp",
   current: null,
+  change: null,
+  replaces: [],
   ...change,
 });
 const fridge: AnalyzeResult = {
   location: "Kyl",
   dropped: 0,
+  inventory: { kind: "empty" },
   suggestions: [
     suggestion("s1", "grädde"),
     suggestion("s2", "mjölk", {
@@ -68,7 +74,7 @@ const fridge: AnalyzeResult = {
     }),
   ],
 };
-const freezer: AnalyzeResult = { location: "Frys", suggestions: [suggestion("s1", "ärtor", { location: "Frys" })], dropped: 0 };
+const freezer: AnalyzeResult = { location: "Frys", suggestions: [suggestion("s1", "ärtor", { location: "Frys" })], dropped: 0, inventory: { kind: "empty" } };
 
 function Hemma({ location = "Kyl" }: { location?: Location }) {
   return (
@@ -233,7 +239,7 @@ describe("PantrySuggestionsProvider", () => {
   it("shows the empty text for an empty answer, the earlier suggestions go, and the camera button takes focus", async () => {
     render(<Hemma />);
     await analyzeWith(ok(fridge));
-    await analyzeWith(ok({ location: "Kyl", suggestions: [], dropped: 0 }));
+    await analyzeWith(ok({ location: "Kyl", suggestions: [], dropped: 0, inventory: { kind: "unread" } }));
     expect(screen.getByText("Hittade inga varor på bilden. Prova ett ljusare foto eller lägg till för hand.")).toBeInTheDocument();
     expect(cardNames()).toEqual([]);
     expect(heading()).toBeNull();
@@ -242,7 +248,7 @@ describe("PantrySuggestionsProvider", () => {
 
   it("says so when the AI named items but none could be used", async () => {
     render(<Hemma />);
-    await analyzeWith(ok({ location: "Kyl", suggestions: [], dropped: 4 }));
+    await analyzeWith(ok({ location: "Kyl", suggestions: [], dropped: 4, inventory: { kind: "unread" } }));
     expect(
       screen.getByText("Det gick inte att tolka varorna på bilden. Ta en ny bild eller lägg till för hand."),
     ).toBeInTheDocument();

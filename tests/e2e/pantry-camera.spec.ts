@@ -8,7 +8,9 @@ import { adminClient, cameraEmail, cameraStorageState, e2eUserId } from "./suppo
 // tom-hylla.png none, and the reserved PNGs an error code. The spec has an E2E
 // user of its own (cameraEmail): before each test the service role makes the
 // catalog ingredient "mjölk" and the pantry item "mjölk 2 förp" in Kyl, and
-// nothing else. The tests run in order, since they share the user.
+// nothing else, so a photo of Kyl is compared with it (Story 6.4): mjölk is
+// "Ändrat" and the other five "Nytt". The tests run in order, since they
+// share the user.
 
 const kyl = "tests/fixtures/ai/kyl.png";
 const emptyShelf = "tests/fixtures/ai/tom-hylla.png";
@@ -144,18 +146,20 @@ test("a photo of the fridge gives six suggestions, writes nothing, and they stay
   const heading = section(page).getByRole("heading", { level: 2, name: "Lagerförslag från kylen" });
   await expect(heading).toBeFocused();
   await expect(cards(page)).toHaveCount(6);
-  await expect(cards(page).getByRole("heading", { level: 3 })).toHaveText(["grädde", "gurka", "ketchup", "mjölk", "smör", "ägg"]);
+  // Kyl has mjölk (Story 6.4): the photo is compared with it, so mjölk is "Ändrat" and the rest "Nytt".
+  await expect(section(page).getByRole("heading", { level: 3 })).toHaveText(["Nytt", "Ändrat"]);
+  await expect(cards(page).getByRole("heading", { level: 4 })).toHaveText(["grädde", "gurka", "ketchup", "smör", "ägg", "mjölk"]);
   const expected: [string, string, boolean, string | null][] = [
     ["grädde", "1 förp · Kyl", true, null],
     ["gurka", "2 st · Kyl", true, null],
     ["ketchup", "Finns hemma · Kyl", true, null],
-    ["mjölk", "1 förp · Kyl", false, "I kylen nu: 2 förp"],
     ["smör", "1 förp · Kyl", true, null],
     ["ägg", "6 st · Kyl", true, null],
+    ["mjölk", "1 förp · Kyl", false, "nu: 2 förp → bilden: 1 förp"],
   ];
   for (const [index, [name, amount, isNew, now]] of expected.entries()) {
     const shown = cards(page).nth(index);
-    await expect(shown.getByRole("heading", { level: 3 })).toHaveText(name);
+    await expect(shown.getByRole("heading", { level: 4 })).toHaveText(name);
     await expect(shown.getByText(amount, { exact: true })).toBeVisible();
     await expect(shown.getByText("Ny", { exact: true })).toHaveCount(isNew ? 1 : 0);
     if (now) await expect(shown.getByText(now, { exact: true })).toBeVisible();
@@ -230,9 +234,9 @@ test("choosing Frys while the fridge is analysed keeps the analysis, and its sug
   await expect(cards(page).filter({ hasText: "· Frys" })).toHaveCount(0);
 });
 
-test("a photo without food says so and offers to add an item by hand", async ({ page }) => {
-  await page.goto("/hemma");
-  await photograph(page, "Fotografera kylen", emptyShelf);
+test("a photo without food of an empty place says so and offers to add an item by hand", async ({ page }) => {
+  await page.goto("/hemma?plats=frys");
+  await photograph(page, "Fotografera frysen", emptyShelf);
   const status = camera(page).getByRole("status").filter({
     hasText: "Hittade inga varor på bilden. Prova ett ljusare foto eller lägg till för hand.",
   });
@@ -240,6 +244,22 @@ test("a photo without food says so and offers to add an item by hand", async ({ 
   await expect(section(page)).toHaveCount(0);
   await camera(page).getByRole("button", { name: "Lägg till vara" }).click();
   await expect(page.getByRole("dialog", { name: "Lagervara" })).toBeVisible();
+});
+
+test("a photo without food of the fridge lists what it has under Syns inte längre, with the warning", async ({ page }) => {
+  const before = await rowCounts();
+  await page.goto("/hemma");
+  await photograph(page, "Fotografera kylen", emptyShelf);
+  await expect(section(page).getByRole("heading", { level: 3 })).toHaveText(["Syns inte längre"]);
+  await expect(section(page).getByTestId("pantry-missing")).toHaveCount(1);
+  await expect(section(page).getByTestId("pantry-missing")).toContainText("mjölk");
+  await expect(
+    section(page).getByText("Några varor på bilden gick inte att tolka. Kontrollera innan du tar bort."),
+  ).toBeVisible();
+  // Only Ta bort removes from an incomplete comparison.
+  await expect(section(page).getByRole("button", { name: "Bekräfta alla" })).toBeDisabled();
+  await expect(camera(page).getByText("Hittade inga varor på bilden.", { exact: false })).toHaveCount(0);
+  expect(await rowCounts()).toEqual(before);
 });
 
 test("the AI out of reach: the text and Försök igen with the same photo, while the list and + work", async ({ page }) => {

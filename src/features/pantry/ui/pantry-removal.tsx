@@ -1,21 +1,35 @@
 "use client";
 
 import { useRouter } from "next/navigation";
-import { createContext, type ReactNode, useCallback, useContext, useMemo, useRef, useState } from "react";
+import { createContext, type ReactNode, useCallback, useContext, useEffect, useMemo, useRef, useState } from "react";
 import { useToast } from "@/components/toast";
 import type { Location } from "@/features/catalog";
-import { fail, type Result } from "@/lib/errors";
+import { fail, ok, type Result } from "@/lib/errors";
+import { emptyPantryPlace } from "../actions/empty-pantry-place";
 import { removePantryItem } from "../actions/remove-pantry-item";
 import { restorePantryItem } from "../actions/restore-pantry-item";
+import { restorePantryRemoval } from "../actions/restore-pantry-removal";
 import { comparePantryItems, type PantryItem } from "../domain/pantry-item";
 import type { PantryRow } from "../domain/pantry-item-form";
-import { removedItemsText } from "../domain/places";
+import { withoutPlace, withRestoredPlace, withRestoredStock } from "../domain/pantry-suggestion";
+import {
+  alreadyEmptyText,
+  emptiedPlaceText,
+  maybeEmptiedText,
+  notRestoredText,
+  removedCountText,
+  removedItemsText,
+} from "../domain/places";
+import { usePantrySuggestions } from "./pantry-suggestions";
 
 // Removing a pantry item with "Ångra" (FR-11, Story 2.3): no question first
 // (EXPERIENCE.md, Interaction Primitives). The item leaves the list at once
 // and the short confirmation offers "Ångra" for 5 s, which puts the row back
 // with the same id (AD-20). A swipe on a row and "Ta bort" in the sheet
-// Lagervara both come here.
+// Lagervara both come here. "Töm kylen" (Story 6.3) comes here too, after
+// its sheet has asked: one call empties the location under an operation id,
+// the server keeps the removed rows, and "Ångra" puts them all back by that
+// id in one call.
 
 /** A change the list shows before the server's list has it. */
 export type PantryChange = { kind: "remove" | "restore"; item: PantryItem };
@@ -82,6 +96,18 @@ type PantryRemovalApi = {
    * `moveFocus` (keyboard, sheet): focus goes to the next item afterwards.
    */
   removeItem: (item: PantryItem, options?: { moveFocus?: boolean }) => void;
+  /**
+   * "Töm kylen" after the sheet has asked: empties `location` on the server
+   * under `operationId` (not optimistically), then hides its rows at once and
+   * confirms with "Ångra". `items` are the rows the list shows, for their
+   * names. A failure is returned for the sheet to show; nothing is removed
+   * then. When the answer is lost, the page is read again, and if the
+   * location then looks empty, "Kylen kan ha tömts." offers "Ångra" by the
+   * operation id. The same id again is a safe retry.
+   */
+  emptyPlace: (location: Location, items: readonly PantryItem[], operationId: string) => Promise<Result<{ removed: number }>>;
+  /** A removal, "Ångra" or emptying of the location is on its way: "Töm kylen" waits. */
+  isPending: (location: Location) => boolean;
   /** The changes waiting for the server's list; see applyPantryChanges. */
   changes: readonly PantryChange[];
   /** Tells the removals the server's items of a location, as Hemma shows them. */
@@ -100,29 +126,80 @@ export function usePantryRemoval(): PantryRemovalApi {
   return api;
 }
 
+/** A single item removed, and its row as it was. */
 type Removed = { item: PantryItem; row: PantryRow };
+
+/** An emptied location, whose rows the server keeps under the operation id. */
+type Operation = {
+  id: string;
+  location: Location;
+  /** How many rows it removed; `null` when the answer was lost. */
+  count: number | null;
+  /** The items the list showed, which "Ångra" shows again at once. */
+  known: readonly PantryItem[];
+};
+
+/** Everything one confirmation's "Ångra" puts back. */
+type Batch = { singles: readonly Removed[]; operations: readonly Operation[] };
+
+/** How one restore went, for the confirmation after "Ångra". */
+type Outcome = { ok: true; skipped: number } | { ok: false; message: string; lost: boolean };
+
+/** How long after a lost answer a location seen empty counts as emptied by it. */
+export const lostEmptyWindowMs = 30_000;
+
+/** The confirmation's text for what "Ångra" would put back. */
+function batchText({ singles, operations }: Batch): string {
+  if (operations.length === 0) return removedItemsText(singles.map(({ item }) => item.name));
+  const unknown = operations.find((operation) => operation.count === null);
+  if (unknown) return maybeEmptiedText(unknown.location);
+  if (singles.length === 0 && operations.length === 1) return emptiedPlaceText(operations[0].location, operations[0].count ?? 0);
+  const count = operations.reduce((sum, operation) => sum + (operation.count ?? 0), singles.length);
+  return removedCountText(count, [...operations.map(({ location }) => location), ...singles.map(({ item }) => item.location)]);
+}
+
+/** A row removed from `location` that the list did not show: only its id counts. */
+const unnamed = (id: string, location: Location): PantryItem => ({
+  id,
+  ingredientId: "",
+  name: "",
+  location,
+  amount: null,
+  unit: null,
+});
 
 /**
  * Holds the removals for Hemma. The list follows at once: a removed item is
  * gone while removePantryItem runs and stays gone until the server's list no
  * longer has it, so it never flashes back; "Ångra" shows it again until the
- * server's list has it. Items removed while the confirmation shows join it
- * ("Mjölk och Smör är borttagna."), and "Ångra" puts them all back. A failed
- * removal brings the item back, and a failed "Ångra" takes it away again,
- * each with a short confirmation announced as an alert, since the toasts
- * outlive a change of location. When an action gets no answer, the page is
- * read again so the list shows what is saved.
+ * server's list has it. Removals while the confirmation shows join it
+ * ("Mjölk och Smör är borttagna."), also an emptied location and single
+ * items together ("Tog bort 15 varor ur kylen."), and "Ångra" puts them all
+ * back. A failed removal brings the item back, and a failed "Ångra" takes it
+ * away again, each with a short confirmation announced as an alert, since
+ * the toasts outlive a change of location. When an action gets no answer,
+ * the page is read again so the list shows what is saved. Needs a
+ * PantrySuggestionsProvider above: emptying and "Ångra" keep "I kylen nu" on
+ * the lagerförslag true, and emptying the photographed location ends its
+ * comparison (Story 6.4): the suggestions become a plain list.
  */
 export function PantryRemovalProvider({ children }: { children: ReactNode }) {
   const { showToast } = useToast();
   const router = useRouter();
+  const { editResult, editSuggestions, generation } = usePantrySuggestions();
   const [entries, setEntries] = useState<ReadonlyMap<string, Entry>>(() => new Map());
   const [focusAfter, setFocusAfter] = useState<string | null>(null);
+  /** Emptying and "Ångra" by operation on their way, per location. */
+  const [inFlight, setInFlight] = useState<ReadonlyMap<Location, number>>(() => new Map());
   const nextToken = useRef(0);
   /** The server's items per location, as last reported. */
   const serverItems = useRef(new Map<Location, readonly PantryItem[]>());
-  /** The items removed under the confirmation showing now; a new object per confirmation. */
-  const batch = useRef<{ removed: readonly Removed[] } | null>(null);
+  /** What the confirmation showing now puts back; a new object per confirmation. */
+  const batch = useRef<Batch | null>(null);
+  /** An emptying whose answer was lost, until the location's items are read again. */
+  const lostEmpty = useRef<{ operation: Operation; at: number } | null>(null);
+  /** What `report` does besides keeping the server's items; set after each render. */
+  const onReport = useRef<(location: Location, items: readonly PantryItem[]) => void>(() => {});
 
   const begin = useCallback((kind: Entry["kind"], item: PantryItem): number => {
     nextToken.current += 1;
@@ -155,6 +232,17 @@ export function PantryRemovalProvider({ children }: { children: ReactNode }) {
     });
   }, []);
 
+  /** Rows put back that the list did not show: their removals go, so the server's list shows them. */
+  const forgetRemovals = useCallback((ids: readonly string[]) => {
+    setEntries((current) => {
+      const gone = ids.filter((id) => current.get(id)?.kind === "remove");
+      if (gone.length === 0) return current;
+      const next = new Map(current);
+      for (const id of gone) next.delete(id);
+      return next;
+    });
+  }, []);
+
   const report = useCallback((location: Location, items: readonly PantryItem[]) => {
     serverItems.current.set(location, items);
     setEntries((current) => {
@@ -166,11 +254,101 @@ export function PantryRemovalProvider({ children }: { children: ReactNode }) {
       for (const entry of done) next.delete(entry.item.id);
       return next;
     });
+    onReport.current(location, items);
   }, []);
+
+  function markInFlight(location: Location, change: 1 | -1) {
+    setInFlight((current) => new Map(current).set(location, (current.get(location) ?? 0) + change));
+  }
 
   function failed(message: string, lost: boolean) {
     showToast(message, { role: "alert" });
     if (lost) router.refresh();
+  }
+
+  async function restoreSingle({ item, row }: Removed): Promise<Outcome> {
+    const token = begin("restore", { ...item, ...row });
+    try {
+      const result = await restorePantryItem(row);
+      if (result.ok) {
+        settle(item.id, token);
+        return { ok: true, skipped: 0 };
+      }
+      drop(item.id, token);
+      return { ok: false, message: result.error.message, lost: false };
+    } catch {
+      drop(item.id, token);
+      return { ok: false, message: fail("pantry_restore_failed").error.message, lost: true };
+    }
+  }
+
+  /**
+   * Puts an emptied location back by its operation id: the items the list
+   * showed come back at once; rows the server skipped (the location has the
+   * item again) go again, and every row put back loses its removal, also one
+   * the list never showed.
+   */
+  async function restoreOperation(operation: Operation): Promise<Outcome> {
+    markInFlight(operation.location, 1);
+    const tokens = new Map(operation.known.map((item) => [item.id, begin("restore", item)]));
+    let result: Awaited<ReturnType<typeof restorePantryRemoval>>;
+    let lost = false;
+    try {
+      result = await restorePantryRemoval(operation.id);
+    } catch {
+      result = fail("pantry_restore_failed");
+      lost = true;
+    } finally {
+      markInFlight(operation.location, -1);
+    }
+    if (!result.ok) {
+      for (const [id, token] of tokens) drop(id, token);
+      return { ok: false, message: result.error.message, lost };
+    }
+    const back = new Set(result.data.restoredIds);
+    for (const [id, token] of tokens) {
+      if (back.has(id)) settle(id, token);
+      else drop(id, token);
+    }
+    forgetRemovals(result.data.restoredIds.filter((id) => !tokens.has(id)));
+    const rows = result.data.rows;
+    editSuggestions(generation(), (suggestions) => withRestoredStock(suggestions, operation.location, rows));
+    // A photo compared with the location before it was emptied no longer matches it (Story 6.4).
+    editResult(generation(), (result) => withRestoredPlace(result, operation.location));
+    return { ok: true, skipped: result.data.skipped };
+  }
+
+  /** "Ångra" for a confirmation: everything in it back, then one alert for what failed or was skipped. */
+  async function undo({ singles, operations }: Batch) {
+    const outcomes = await Promise.all([...singles.map(restoreSingle), ...operations.map(restoreOperation)]);
+    const failures = outcomes.flatMap((outcome) => (outcome.ok ? [] : [outcome]));
+    if (failures.length > 0) {
+      failed(failures[0].message, failures.some(({ lost }) => lost));
+      return;
+    }
+    const skipped = outcomes.reduce((sum, outcome) => sum + (outcome.ok ? outcome.skipped : 0), 0);
+    if (skipped > 0) showToast(notRestoredText(skipped), { role: "alert" });
+  }
+
+  /** Shows the confirmation for `next`, whose "Ångra" puts everything in it back. */
+  function showBatch(next: Batch) {
+    batch.current = next;
+    const forget = () => {
+      if (batch.current === next) batch.current = null;
+    };
+    showToast(batchText(next), {
+      onUndo: () => {
+        forget();
+        void undo(next);
+      },
+      onClose: forget,
+    });
+  }
+
+  /** `operation` joins the confirmation showing now, replacing an earlier one with the same id. */
+  function confirmOperation(operation: Operation) {
+    const others = (batch.current?.operations ?? []).filter((other) => other.id !== operation.id);
+    showBatch({ singles: batch.current?.singles ?? [], operations: [...others, operation] });
   }
 
   async function removeItem(item: PantryItem, options?: { moveFocus?: boolean }) {
@@ -196,48 +374,79 @@ export function PantryRemovalProvider({ children }: { children: ReactNode }) {
       showToast(removedItemsText([item.name]));
       return;
     }
-    confirmRemoved({ item, row: result.data });
+    const removed = { item, row: result.data };
+    const singles = [...(batch.current?.singles ?? []).filter((other) => other.item.id !== item.id), removed];
+    showBatch({ singles, operations: batch.current?.operations ?? [] });
   }
 
-  function confirmRemoved(removed: Removed) {
-    const all = [...(batch.current?.removed ?? []).filter((other) => other.item.id !== removed.item.id), removed];
-    const current = { removed: all };
-    batch.current = current;
-    const forget = () => {
-      if (batch.current === current) batch.current = null;
+  async function emptyPlace(
+    location: Location,
+    items: readonly PantryItem[],
+    operationId: string,
+  ): Promise<Result<{ removed: number }>> {
+    markInFlight(location, 1);
+    let result: Awaited<ReturnType<typeof emptyPantryPlace>>;
+    let lost = false;
+    try {
+      result = await emptyPantryPlace(location, operationId);
+    } catch {
+      result = fail("pantry_empty_failed");
+      lost = true;
+    } finally {
+      markInFlight(location, -1);
+    }
+    if (lost) {
+      // No answer (e.g. no connection): it may have been emptied. The page is
+      // read again, and `report` offers "Ångra" if the location is empty then.
+      lostEmpty.current = { operation: { id: operationId, location, count: null, known: items }, at: Date.now() };
+      router.refresh();
+      return result;
+    }
+    if (!result.ok) {
+      // An expired session: the page sends Pontus to sign in.
+      if (result.error.code === "unauthorized") router.refresh();
+      return result;
+    }
+    if (lostEmpty.current?.operation.id === operationId) lostEmpty.current = null;
+    const { removed, removedIds } = result.data;
+    const shown = new Map(items.map((item) => [item.id, item]));
+    // The list is empty at once, also of rows another tab added (only the id counts for them).
+    for (const id of removedIds) settle(id, begin("remove", shown.get(id) ?? unnamed(id, location)));
+    editResult(generation(), (result) => withoutPlace(result, location));
+    if (removed > 0) {
+      const ids = new Set(removedIds);
+      confirmOperation({ id: operationId, location, count: removed, known: items.filter((item) => ids.has(item.id)) });
+    } else if (!batch.current) {
+      // Nothing to undo; a confirmation with "Ångra" that shows stays.
+      showToast(alreadyEmptyText(location));
+    }
+    return ok({ removed });
+  }
+
+  // After a lost answer to "Töm kylen": the location's items as read again tell whether it was emptied.
+  useEffect(() => {
+    onReport.current = (location, items) => {
+      const lost = lostEmpty.current;
+      if (!lost || lost.operation.location !== location) return;
+      lostEmpty.current = null;
+      if (items.length > 0 || Date.now() - lost.at > lostEmptyWindowMs) return;
+      editResult(generation(), (result) => withoutPlace(result, location));
+      confirmOperation(lost.operation);
     };
-    showToast(removedItemsText(all.map(({ item }) => item.name)), {
-      onUndo: () => {
-        forget();
-        void restoreAll(all);
-      },
-      onClose: forget,
-    });
-  }
-
-  async function restoreAll(removed: readonly Removed[]) {
-    const results = await Promise.all(
-      removed.map(async ({ item, row }) => {
-        const token = begin("restore", { ...item, ...row });
-        try {
-          const result = await restorePantryItem(row);
-          if (result.ok) settle(item.id, token);
-          else drop(item.id, token);
-          return { result, lost: false };
-        } catch {
-          drop(item.id, token);
-          return { result: fail("pantry_restore_failed"), lost: true };
-        }
-      }),
-    );
-    const failure = results.find(({ result }) => !result.ok);
-    if (failure && !failure.result.ok) failed(failure.result.error.message, results.some(({ lost }) => lost));
-  }
+  });
 
   const changes = useMemo(() => [...entries.values()].map(({ kind, item }) => ({ kind, item })), [entries]);
+  const pending = useMemo(() => {
+    const locations = new Set<Location>();
+    for (const [location, count] of inFlight) if (count > 0) locations.add(location);
+    for (const entry of entries.values()) if (!entry.settled) locations.add(entry.item.location);
+    return locations;
+  }, [entries, inFlight]);
   const focusMoved = useCallback(() => setFocusAfter(null), []);
   const api: PantryRemovalApi = {
     removeItem: (item, options) => void removeItem(item, options),
+    emptyPlace,
+    isPending: (location) => pending.has(location),
     changes,
     report,
     focusAfter,

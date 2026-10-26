@@ -1,15 +1,18 @@
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
-import { loadActiveRecipeDomains } from "@/features/settings/data/queries";
+import { loadActiveRecipeDomains, loadSelectedStore, loadStores } from "@/features/settings/data/queries";
 import { insertUserDefaults } from "@/features/settings/data/defaults";
 import { SettingsDataError } from "@/features/settings/data/client";
 import { addRecipeSiteIn, setRecipeSiteActiveIn } from "@/features/settings/data/sites";
+import { saveStoreIn, selectStoreIn } from "@/features/settings/data/stores";
+import { storeFormSchema, type StoreForm } from "@/features/settings";
 import { localSupabaseUrl } from "../local-supabase";
 import { adminClient, anonClient, createTestUser, deleteTestUsers, expectRlsIsolation } from "./support";
 
 // The settings module against local Supabase (AD-4, AD-11, AD-21): RLS on
 // recipe_site, the start data from ensure_user_defaults(), the domain rules
 // in the table's check constraint, and adding, turning off and turning on
-// sites from Inställningar (Story 1.12).
+// sites from Inställningar (Story 1.12), and the stores with save_store and
+// select_store (Story 7.1).
 
 let unique = 0;
 const uniqueDomain = () => `test-${Date.now()}-${unique++}.example`;
@@ -206,5 +209,394 @@ describe("managing sites in Inställningar", () => {
     expect(await addRecipeSiteIn(other.db, other.id, "ica.se")).toBe("added");
     expect(await sitesOf(other.id)).toEqual([{ domain: "ica.se", is_active: true }]);
     expect(await sitesOf(owner.id)).toEqual(before);
+  });
+});
+
+// Story 7.1: the stores (AD-1, AD-4, AD-21). Several stores per user are the
+// normal case; at most one is selected.
+
+const defaultStore = {
+  name: "Maxi ICA Stormarknad Östersund",
+  chain: "ICA",
+  external_store_id: "1003733",
+  address: null,
+  url: "https://handlaprivatkund.ica.se/stores/1003733",
+  is_selected: true,
+};
+
+async function storesOf(userId: string) {
+  const { data, error } = await adminClient()
+    .from("store")
+    .select("id, name, chain, external_store_id, address, url, is_selected")
+    .eq("user_id", userId)
+    .order("created_at")
+    .order("name");
+  if (error) throw error;
+  return data;
+}
+
+async function selectedOf(userId: string) {
+  return (await storesOf(userId)).filter((store) => store.is_selected).map((store) => store.name);
+}
+
+const storeForm = (changes: Partial<StoreForm> = {}): StoreForm => ({
+  id: crypto.randomUUID(),
+  mode: "add",
+  name: "Willys Lindhagen",
+  chain: "Willys",
+  externalStoreId: null,
+  address: null,
+  url: null,
+  makeSelected: false,
+  ...changes,
+});
+
+/** Saves `form` and returns the stored store; fails the test on any other outcome. */
+async function saved(db: Parameters<typeof saveStoreIn>[0], form: StoreForm) {
+  const outcome = await saveStoreIn(db, form);
+  if (outcome.kind !== "saved") throw new Error(`expected saved, got ${outcome.kind}`);
+  return outcome.store;
+}
+
+describe("store: schema and RLS", () => {
+  it("isolates store", async () => {
+    await expectRlsIsolation("store", async () => ({ name: "Coop Forum", chain: "Coop" }));
+  });
+
+  it("selects at most one store per user", async () => {
+    const user = await createTestUser("store-one-selected");
+    const other = await createTestUser("store-one-selected-other");
+    expect((await user.db.from("store").insert({ name: "ICA Kvantum", chain: "ICA", is_selected: true })).error).toBeNull();
+    expect((await user.db.from("store").insert({ name: "Coop", chain: "Coop", is_selected: true })).error?.code).toBe("23505");
+    // Another user has a selected store of their own.
+    expect((await other.db.from("store").insert({ name: "Coop", chain: "Coop", is_selected: true })).error).toBeNull();
+  });
+
+  it("refuses a chain outside STORE_CHAINS, a URL without https:// and empty or long texts", async () => {
+    const user = await createTestUser("store-checks");
+    const refused: { name: string; chain: string; url?: string; external_store_id?: string; address?: string }[] = [
+      { name: "ICA Handla", chain: "ICA Handla" },
+      { name: "Willys", chain: "willys" },
+      { name: "Willys", chain: "Willys", url: "http://willys.se" },
+      { name: "Willys", chain: "Willys", url: "javascript:alert(1)" },
+      { name: "Willys", chain: "Willys", url: "willys.se" },
+      { name: "Willys", chain: "Willys", url: "https://" },
+      { name: "Willys", chain: "Willys", url: "https://willys .se" },
+      { name: "Willys", chain: "Willys", url: `https://willys.se/${"a".repeat(2048)}` },
+      { name: "   ", chain: "Willys" },
+      { name: "Willys\nLindhagen", chain: "Willys" },
+      { name: "a".repeat(101), chain: "Willys" },
+      { name: "Willys", chain: "Willys", external_store_id: "" },
+      { name: "Willys", chain: "Willys", external_store_id: "1".repeat(41) },
+      { name: "Willys", chain: "Willys", address: "a".repeat(201) },
+    ];
+    for (const row of refused) {
+      expect((await user.db.from("store").insert(row)).error?.code, JSON.stringify(row)).toBe("23514");
+    }
+    expect(await storesOf(user.id)).toEqual([]);
+  });
+
+  it("keeps a chain and store id once per user, and lets several stores without an id in", async () => {
+    const user = await createTestUser("store-duplicate");
+    const other = await createTestUser("store-duplicate-other");
+    const ica = { name: "Maxi", chain: "ICA", external_store_id: "1003733" };
+    expect((await user.db.from("store").insert(ica)).error).toBeNull();
+    expect((await user.db.from("store").insert({ ...ica, name: "Maxi igen" })).error?.code).toBe("23505");
+    // The same id at another chain, and the same store for another user, are fine.
+    expect((await user.db.from("store").insert({ ...ica, chain: "Coop" })).error).toBeNull();
+    expect((await other.db.from("store").insert(ica)).error).toBeNull();
+    // Several stores without an id, also in the same chain (e.g. Lidl).
+    expect((await user.db.from("store").insert({ name: "Lidl Lillänge", chain: "Lidl" })).error).toBeNull();
+    expect((await user.db.from("store").insert({ name: "Lidl Odenskog", chain: "Lidl" })).error).toBeNull();
+  });
+});
+
+describe("store: ensure_user_defaults()", () => {
+  it("still adds the start recipe sites, active, together with the default store", async () => {
+    const user = await createTestUser("store-defaults-all");
+    await insertUserDefaults(user.db);
+    expect(await sitesOf(user.id)).toEqual([
+      { domain: "arla.se", is_active: true },
+      { domain: "ica.se", is_active: true },
+      { domain: "koket.se", is_active: true },
+      { domain: "tasteline.com", is_active: true },
+    ]);
+    expect(await storesOf(user.id)).toEqual([{ id: expect.any(String), ...defaultStore }]);
+    expect(await loadActiveRecipeDomains(user.db)).toEqual(["arla.se", "ica.se", "koket.se", "tasteline.com"]);
+  });
+
+  it("adds the default store, selected, and a second call changes nothing", async () => {
+    const user = await createTestUser("store-defaults");
+    await insertUserDefaults(user.db);
+    const first = await storesOf(user.id);
+    expect(first).toEqual([{ id: expect.any(String), ...defaultStore }]);
+
+    await insertUserDefaults(user.db);
+    expect(await storesOf(user.id)).toEqual(first);
+  });
+
+  it("never replaces or duplicates a default store Pontus has changed", async () => {
+    const user = await createTestUser("store-defaults-changed");
+    await insertUserDefaults(user.db);
+    const [store] = await storesOf(user.id);
+    const changed = await user.db
+      .from("store")
+      .update({ name: "Maxi Östersund", external_store_id: "1003734", address: "Krondikesvägen 97" })
+      .eq("id", store.id);
+    expect(changed.error).toBeNull();
+
+    await insertUserDefaults(user.db);
+    expect(await storesOf(user.id)).toEqual([
+      { ...store, name: "Maxi Östersund", external_store_id: "1003734", address: "Krondikesvägen 97" },
+    ]);
+  });
+
+  it("adds nothing for a user who has a store, selected or not", async () => {
+    const user = await createTestUser("store-defaults-has-one");
+    expect((await user.db.from("store").insert({ name: "Willys Lindhagen", chain: "Willys" })).error).toBeNull();
+    await insertUserDefaults(user.db);
+    expect((await storesOf(user.id)).map((store) => store.name)).toEqual(["Willys Lindhagen"]);
+  });
+
+  it("gives two sign-ins at once one default store", async () => {
+    const user = await createTestUser("store-defaults-race");
+    await Promise.all([insertUserDefaults(user.db), insertUserDefaults(user.db), insertUserDefaults(user.db)]);
+    expect(await storesOf(user.id)).toEqual([{ id: expect.any(String), ...defaultStore }]);
+  });
+});
+
+describe("store: reading", () => {
+  it("maps the user's stores and the selected one", async () => {
+    const user = await createTestUser("store-read");
+    const other = await createTestUser("store-read-other");
+    expect(await loadSelectedStore(user.db)).toBeNull();
+    await insertUserDefaults(user.db);
+    await insertUserDefaults(other.db);
+    const willys = await saved(user.db, storeForm({ address: "Lindhagensgatan 1" }));
+
+    const maxi = {
+      id: expect.any(String),
+      name: "Maxi ICA Stormarknad Östersund",
+      chain: "ICA",
+      externalStoreId: "1003733",
+      address: null,
+      url: "https://handlaprivatkund.ica.se/stores/1003733",
+      isSelected: true,
+    };
+    expect(await loadSelectedStore(user.db)).toEqual(maxi);
+    const stores = await loadStores(user.db);
+    expect(stores).toHaveLength(2);
+    expect(stores).toContainEqual(maxi);
+    expect(stores).toContainEqual(willys);
+  });
+});
+
+describe("store: save_store and select_store", () => {
+  it("adds a store without selecting it, and changes it with the same id", async () => {
+    const user = await createTestUser("store-save");
+    await insertUserDefaults(user.db);
+    const form = storeForm();
+    expect(await saved(user.db, form)).toEqual({
+      id: form.id,
+      name: "Willys Lindhagen",
+      chain: "Willys",
+      externalStoreId: null,
+      address: null,
+      url: null,
+      isSelected: false,
+    });
+    // A retry with the same id changes the same row.
+    const changed = await saved(user.db, { ...form, address: "Lindhagensgatan 1", url: "https://www.willys.se/" });
+    expect(changed).toMatchObject({ id: form.id, address: "Lindhagensgatan 1", url: "https://www.willys.se/", isSelected: false });
+    expect(await storesOf(user.id)).toHaveLength(2);
+    expect(await selectedOf(user.id)).toEqual(["Maxi ICA Stormarknad Östersund"]);
+  });
+
+  it("selects a saved store with make_selected, leaving exactly one selected", async () => {
+    const user = await createTestUser("store-save-select");
+    await insertUserDefaults(user.db);
+    const willys = await saved(user.db, storeForm({ makeSelected: true }));
+    expect(willys.isSelected).toBe(true);
+    expect(await selectedOf(user.id)).toEqual(["Willys Lindhagen"]);
+
+    // Changing the selected store without make_selected keeps it selected.
+    expect((await saved(user.db, { ...storeForm({ id: willys.id }), address: "Lindhagensgatan 1" })).isSelected).toBe(true);
+    expect(await selectedOf(user.id)).toEqual(["Willys Lindhagen"]);
+  });
+
+  it("selects another store with select_store, leaving exactly one selected", async () => {
+    const user = await createTestUser("store-select");
+    await insertUserDefaults(user.db);
+    const [maxi] = await storesOf(user.id);
+    const willys = await saved(user.db, storeForm({ makeSelected: true }));
+
+    expect(await selectStoreIn(user.db, maxi.id)).toBe("selected");
+    expect(await selectedOf(user.id)).toEqual(["Maxi ICA Stormarknad Östersund"]);
+    // Selecting the selected store again changes nothing.
+    expect(await selectStoreIn(user.db, maxi.id)).toBe("selected");
+    expect(await selectStoreIn(user.db, willys.id)).toBe("selected");
+    expect(await selectedOf(user.id)).toEqual(["Willys Lindhagen"]);
+  });
+
+  it("leaves exactly one store selected after selections at once", async () => {
+    const user = await createTestUser("store-select-race");
+    await insertUserDefaults(user.db);
+    const stores = [
+      (await storesOf(user.id))[0].id,
+      (await saved(user.db, storeForm({ name: "Willys Lindhagen" }))).id,
+      (await saved(user.db, storeForm({ name: "Coop Forum", chain: "Coop" }))).id,
+      (await saved(user.db, storeForm({ name: "Lidl Lillänge", chain: "Lidl" }))).id,
+    ];
+    for (let round = 0; round < 3; round += 1) {
+      // The per-user lock makes them run one after the other: every one goes
+      // through, and the last to run is the selected store.
+      const selections = stores.map((id) => selectStoreIn(user.db, id));
+      const saves = [
+        saveStoreIn(user.db, storeForm({ name: `Hemköp ${round}`, chain: "Hemköp", makeSelected: true })),
+        saveStoreIn(user.db, storeForm({ name: `City Gross ${round}`, chain: "City Gross", makeSelected: true })),
+      ];
+      const outcomes = await Promise.allSettled([...selections, ...saves]);
+      expect(outcomes.map((outcome) => outcome.status)).toEqual(Array(stores.length + 2).fill("fulfilled"));
+      expect(await Promise.all(selections)).toEqual(Array(stores.length).fill("selected"));
+      expect((await Promise.all(saves)).map((outcome) => outcome.kind)).toEqual(["saved", "saved"]);
+      expect(await selectedOf(user.id)).toHaveLength(1);
+    }
+  });
+
+  it("lets the last of two selections in a row win", async () => {
+    const user = await createTestUser("store-select-last");
+    await insertUserDefaults(user.db);
+    const willys = await saved(user.db, storeForm());
+    const coop = await saved(user.db, storeForm({ name: "Coop Forum", chain: "Coop" }));
+    for (const id of [willys.id, coop.id, willys.id]) expect(await selectStoreIn(user.db, id)).toBe("selected");
+    expect(await selectedOf(user.id)).toEqual(["Willys Lindhagen"]);
+  });
+
+  it("reports the same chain and store id as another store as duplicate, and two stores without an id are fine", async () => {
+    const user = await createTestUser("store-save-duplicate");
+    await insertUserDefaults(user.db);
+    const before = await storesOf(user.id);
+    expect(await saveStoreIn(user.db, storeForm({ name: "Maxi igen", chain: "ICA", externalStoreId: "1003733" }))).toEqual({
+      kind: "duplicate",
+    });
+    expect(await storesOf(user.id)).toEqual(before);
+
+    await saved(user.db, storeForm({ name: "Lidl Lillänge", chain: "Lidl" }));
+    await saved(user.db, storeForm({ name: "Lidl Odenskog", chain: "Lidl", makeSelected: true }));
+    expect(await storesOf(user.id)).toHaveLength(3);
+    expect(await selectedOf(user.id)).toEqual(["Lidl Odenskog"]);
+  });
+
+  it("refuses what the table's checks refuse, and saves nothing", async () => {
+    const user = await createTestUser("store-save-checks");
+    await expect(saveStoreIn(user.db, storeForm({ chain: "Konsum" as never }))).rejects.toThrow("save_store 23514");
+    await expect(saveStoreIn(user.db, storeForm({ url: "http://willys.se" }))).rejects.toThrow("save_store 23514");
+    expect(await storesOf(user.id)).toEqual([]);
+  });
+
+  it("never selects or changes another user's store", async () => {
+    const owner = await createTestUser("store-foreign-owner");
+    const other = await createTestUser("store-foreign-intruder");
+    await insertUserDefaults(owner.db);
+    await insertUserDefaults(other.db);
+    const willys = await saved(owner.db, storeForm());
+    const before = await storesOf(owner.id);
+
+    expect(await selectStoreIn(other.db, willys.id)).toBe("gone");
+    const direct = await other.db.rpc("select_store", { store_id: willys.id });
+    expect(direct.error?.code).toBe("P0002");
+    // The owner's id cannot be taken over: an add meets the owner's row
+    // (store_pkey, so the action tries again with a new id), and a change finds nothing.
+    expect(await saveStoreIn(other.db, storeForm({ id: willys.id, name: "Kapad", makeSelected: true }))).toEqual({
+      kind: "id_taken",
+    });
+    expect(await saveStoreIn(other.db, storeForm({ id: willys.id, name: "Kapad", mode: "change" }))).toEqual({ kind: "gone" });
+
+    expect(await storesOf(owner.id)).toEqual(before);
+    expect(await selectedOf(other.id)).toEqual(["Maxi ICA Stormarknad Östersund"]);
+    expect(await storesOf(other.id)).toHaveLength(1);
+  });
+
+  it("cannot be called without a session", async () => {
+    const anon = anonClient();
+    expect((await anon.rpc("select_store", { store_id: crypto.randomUUID() })).error?.code).toBe("42501");
+    expect(
+      (
+        await anon.rpc("save_store", {
+          store: { id: crypto.randomUUID(), name: "x", chain: "ICA" },
+          mode: "add",
+          make_selected: false,
+        })
+      ).error?.code,
+    ).toBe("42501");
+  });
+
+  it("changes only a store that is there with mode change", async () => {
+    const user = await createTestUser("store-change");
+    await insertUserDefaults(user.db);
+    const before = await storesOf(user.id);
+    expect(await saveStoreIn(user.db, storeForm({ mode: "change" }))).toEqual({ kind: "gone" });
+    expect(await storesOf(user.id)).toEqual(before);
+
+    const [maxi] = before;
+    const changed = await saved(
+      user.db,
+      storeForm({ id: maxi.id, mode: "change", name: maxi.name, chain: "ICA", externalStoreId: "1003733", address: "Testgatan 1" }),
+    );
+    expect(changed).toMatchObject({ id: maxi.id, address: "Testgatan 1", isSelected: true });
+  });
+
+  it("selects a saved store when no store is selected, also without make_selected", async () => {
+    const user = await createTestUser("store-first-selected");
+    const lidl = await saved(user.db, storeForm({ name: "Lidl Lillänge", chain: "Lidl" }));
+    expect(lidl.isSelected).toBe(true);
+    const coop = await saved(user.db, storeForm({ name: "Coop Forum", chain: "Coop" }));
+    expect(coop.isSelected).toBe(false);
+    expect(await selectedOf(user.id)).toEqual(["Lidl Lillänge"]);
+  });
+
+  it("keeps a store id once per chain whatever its case", async () => {
+    const user = await createTestUser("store-id-case");
+    await saved(user.db, storeForm({ name: "Coop A", chain: "Coop", externalStoreId: "AB12" }));
+    expect(await saveStoreIn(user.db, storeForm({ name: "Coop B", chain: "Coop", externalStoreId: "ab12" }))).toEqual({
+      kind: "duplicate",
+    });
+    expect((await user.db.from("store").insert({ name: "Coop C", chain: "Coop", external_store_id: " ab12" })).error?.code).toBe(
+      "23514",
+    );
+  });
+
+  it("stores what oneLine leaves, and refuses separators, bidi controls and untrimmed text", async () => {
+    const user = await createTestUser("store-one-line");
+    const typed = " \u202eMaxi\u202c\u2028ICA\u2066 Östersund\u2069 ";
+    const form = storeFormSchema.parse({
+      id: crypto.randomUUID(),
+      mode: "add",
+      name: typed,
+      chain: "ICA",
+      externalStoreId: ` 10\u202a03\u2029733 `,
+      address: `Testgatan\u2067 1\u0085`,
+      url: "",
+      makeSelected: false,
+    });
+    expect(form).toMatchObject({ name: "Maxi ICA Östersund", externalStoreId: "1003 733", address: "Testgatan 1" });
+    await saved(user.db, form);
+    for (const name of [typed, "Maxi\u2028ICA", "Maxi\u2029ICA", "Maxi \u202dICA", "Maxi\u2068", " Maxi", "Maxi "]) {
+      expect((await user.db.from("store").insert({ name, chain: "Coop" })).error?.code, JSON.stringify(name)).toBe("23514");
+    }
+    for (const address of ["Testgatan\u20281", "Testgatan 1 "]) {
+      expect((await user.db.from("store").insert({ name: "Coop", chain: "Coop", address })).error?.code).toBe("23514");
+    }
+    expect((await user.db.from("store").insert({ name: "Coop", chain: "Coop", url: "https://coop.se/\u202e" })).error?.code).toBe(
+      "23514",
+    );
+  });
+
+  it("never lets the user delete a store, which v1 does not do", async () => {
+    const user = await createTestUser("store-no-delete");
+    await insertUserDefaults(user.db);
+    const [maxi] = await storesOf(user.id);
+    expect((await user.db.from("store").delete().eq("id", maxi.id)).error?.code).toBe("42501");
+    expect(await storesOf(user.id)).toHaveLength(1);
   });
 });

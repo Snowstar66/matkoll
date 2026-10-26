@@ -53,7 +53,7 @@ const toast = (page: Page) => page.getByTestId("toast");
 
 async function addSite(page: Page, input: string) {
   await siteField(page).fill(input);
-  await page.getByRole("button", { name: "Lägg till" }).click();
+  await page.getByRole("button", { name: "Lägg till", exact: true }).click();
 }
 
 async function expectSites(page: Page, sites: string[]) {

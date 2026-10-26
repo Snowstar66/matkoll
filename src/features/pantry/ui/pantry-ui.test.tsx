@@ -12,8 +12,11 @@ vi.mock("../actions/set-pantry-item", () => ({ savePantryItem: vi.fn() }));
 vi.mock("../actions/search-ingredients", () => ({ searchPantryIngredients: vi.fn() }));
 vi.mock("next/navigation", () => ({ useRouter: () => ({ refresh: vi.fn() }) }));
 vi.mock("../actions/remove-pantry-item", () => ({ removePantryItem: vi.fn() }));
+vi.mock("../actions/empty-pantry-place", () => ({ emptyPantryPlace: vi.fn() }));
+vi.mock("../actions/restore-pantry-removal", () => ({ restorePantryRemoval: vi.fn() }));
 vi.mock("../actions/restore-pantry-item", () => ({ restorePantryItem: vi.fn() }));
 vi.mock("../actions/confirm-pantry-suggestions", () => ({ confirmPantrySuggestions: vi.fn() }));
+vi.mock("../actions/confirm-pantry-inventory", () => ({ confirmPantryInventory: vi.fn() }));
 vi.mock("@/lib/ai-client", () => ({ postAiForm: vi.fn() }));
 vi.mock("@/lib/downscale-image", () => ({ downscaleImage: vi.fn() }));
 

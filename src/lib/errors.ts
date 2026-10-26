@@ -31,6 +31,9 @@ export const errorMessages = {
   // the list; after a failed "Ångra" it stays removed.
   pantry_remove_failed: "Det gick inte att ta bort varan.",
   pantry_restore_failed: "Det gick inte att ångra.",
+  // "Töm kylen" (Story 6.3), shown in the sheet that asked: nothing is
+  // removed, and the sheet stays so it can be tried again.
+  pantry_empty_failed: "Det gick inte att ta bort varorna. Försök igen.",
   // "Lägg i lagret" (Story 3.7) before or while the pantry is written: nothing
   // is added, and the checks stay.
   pantry_add_failed: "Det gick inte att lägga varorna i lagret. Försök igen.",
@@ -38,6 +41,10 @@ export const errorMessages = {
   // The suggestions stay; new catalog ingredients may stay too, and trying
   // again uses them.
   pantry_confirm_failed: "Det gick inte att lägga förslagen i lagret. Försök igen.",
+  // Confirming a photo compared with its place (Story 6.4): what is added,
+  // changed and removed is one transaction, so nothing changed. The
+  // suggestions stay; new catalog ingredients may stay too.
+  pantry_inventory_failed: "Det gick inte att uppdatera lagret. Försök igen.",
   // Matsedel (Story 3.1). After failed servings the selector shows the saved
   // value again; after a failed remove the dish is back on the plan.
   mealplan_unavailable: "Det gick inte att läsa matsedeln. Försök igen.",
@@ -77,11 +84,33 @@ export const errorMessages = {
   // "Lägg i lagret" whose plan was switched elsewhere after the pantry was
   // written: the items are at home, the list is read again.
   shopping_put_in_pantry_plan_changed: "Varorna är lagda i lagret, men matsedeln har bytts.",
+  // Produktval (Story 7.2). A failed save keeps the sheet with its fields;
+  // a failed remove keeps the sheet with the choice. When the choices cannot
+  // be read, only the detail's section Produktval says so; the list works.
+  shopping_product_choice_save_failed: "Det gick inte att spara produktvalet. Försök igen.",
+  shopping_product_choice_remove_failed: "Det gick inte att ta bort produktvalet. Försök igen.",
+  shopping_product_choices_unavailable: "Det gick inte att läsa produktvalen. Försök igen.",
+  // A save from a sheet whose choice was saved, changed or removed elsewhere
+  // meanwhile: nothing is written, and the sheet shows the choice as it is now.
+  shopping_product_choice_changed: "Produktvalet har ändrats på annat håll. Uppgifterna är uppdaterade.",
+  // The store or the catalog ingredient is not there any more (23503): the list is read again.
+  shopping_product_choice_target_gone: "Butiken eller varan finns inte längre.",
+  // "Skicka till ICA" (Story 7.3) when the selected store cannot be read, or
+  // none is selected: nothing is copied, since the export would not say where
+  // to fill the basket. A notice above the list, with "Öppna inställningar".
+  shopping_export_store_missing: "Det gick inte att läsa butiken. Öppna inställningarna och försök igen.",
   // Recipe sites in Inställningar (FR7). The sentence with the site's name,
   // "koket.se finns redan.", is in `fields.domain`.
   settings_invalid_domain: "Ange en giltig webbadress, t.ex. koket.se.",
   settings_duplicate_domain: "Sajten finns redan.",
   settings_save_failed: "Det gick inte att spara ändringen. Försök igen.",
+  // The section Butik in Inställningar (Story 7.1). When the stores cannot be
+  // read, the recipe sites and "Logga ut" still work.
+  settings_store_unavailable: "Det gick inte att läsa butiken. Försök igen.",
+  // The same chain and store id as another of Pontus's stores; shown at Butiks-id.
+  settings_duplicate_store: "Butiken finns redan.",
+  // A store saved or selected after it went away elsewhere: the stores are read again.
+  settings_store_gone: "Butiken finns inte längre.",
   // Fetching a recipe page (AD-11). The sentence with the site's name, from
   // `fields.domain`, is built by fetchErrorMessage below.
   fetch_invalid_url: "Det där ser inte ut som en länk till en receptsida. Kopiera hela adressen, som börjar med https://.",

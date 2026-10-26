@@ -162,7 +162,51 @@ Pontus kan se vad som går att laga med det som finns hemma, rangordnat efter hu
 Pontus kan fotografera kylen, frysen eller skafferiet och bekräfta, rätta eller avvisa de varor AI:n föreslår innan något sparas.
 **FRs covered:** FR24, FR25
 
-### Epic 7: Varukorg
+#### Story 6.3: Töm en plats
+
+Som Pontus,
+vill jag kunna tömma kylen, frysen eller skafferiet med ett tryck,
+så att jag kan börja om och fylla platsen på nytt med ett foto.
+
+**Acceptance Criteria:**
+
+**Givet** en plats med varor
+**När** Pontus trycker "Töm kylen" (respektive frysen eller skafferiet)
+**Så** visas en kontrollfråga med antalet varor ("Ta bort alla 14 varor i kylen?"), och först efter bekräftelse tas alla varor på platsen bort i en transaktion
+
+**Givet** en tömd plats
+**När** bekräftelsen visas
+**Så** kan Pontus ångra i 5 s, och då kommer alla varor tillbaka med samma id, mängd och enhet
+
+**Givet** en tom plats
+**När** Hemma visas
+**Så** finns ingen töm-knapp för den platsen
+
+### Story 6.4: Inventera en plats med foto
+
+Som Pontus,
+vill jag att ett nytt foto av en plats jämförs med det som redan finns där,
+så att lagret uppdateras med nya varor, ändrade mängder och varor som inte längre finns.
+
+**Acceptance Criteria:**
+
+**Givet** en plats med varor i lagret och ett nytt foto av den
+**När** analysen är klar
+**Så** visas förslagen i tre grupper: "Nytt" (på bilden men inte i lagret), "Ändrat" (i lagret med annan mängd) och "Syns inte längre" (i lagret men inte på bilden)
+
+**Givet** ett förslag i gruppen "Syns inte längre"
+**När** Pontus bekräftar det
+**Så** tas varan bort från platsen. Ingenting tas bort utan ett tryck, eftersom AI:n kan missa varor som är skymda
+
+**Givet** förslag i alla tre grupperna
+**När** Pontus trycker "Bekräfta alla"
+**Så** sparas tilläggen, ändringarna och borttagningarna i en transaktion, och borttagningarna kan ångras i 5 s
+
+**Givet** en obegränsad vara ("Finns hemma") som inte syns på bilden
+**När** förslagen visas
+**Så** föreslås den också i "Syns inte längre"
+
+## Epic 7: Varukorg
 Pontus kan välja butik, spara vilka produkter hen brukar köpa och skicka inköpslistan till ICA Handla via en export som Claude in Chrome fyller varukorgen från.
 **FRs covered:** FR26, FR27, FR28
 

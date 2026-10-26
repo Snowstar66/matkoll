@@ -21,6 +21,12 @@ const routesByTable = {
   // The list of approved recipe sites in Inställningar. Import reads the sites
   // on every request, so it needs nothing here.
   recipe_site: [{ path: "/installningar", type: "page" }],
+  // The stores in Inställningar, and the shopping list, which shows the
+  // selected store's product choices and exports to it (Stories 7.2, 7.3).
+  store: [
+    { path: "/installningar", type: "page" },
+    { path: "/lista", type: "page" },
+  ],
   // Hemma, and the cooking status in the library, every recipe view (Story
   // 2.4) and the meal plan's dishes (Story 3.1), and the shopping list, which
   // takes what is at home off (Story 3.3).
@@ -48,6 +54,9 @@ const routesByTable = {
   shopping_custom_item: [{ path: "/lista", type: "page" }],
   // Corrected amounts and hidden lines on the shopping list (Story 3.6); only the list shows them.
   shopping_line_override: [{ path: "/lista", type: "page" }],
+  // Product choices per catalog ingredient and store (Story 7.2); the list's
+  // detail shows them, and the export (Story 7.3) reads them from the list.
+  product_choice: [{ path: "/lista", type: "page" }],
 } satisfies Partial<Record<TableName, readonly Route[]>>;
 
 export type RevalidatedTable = keyof typeof routesByTable;

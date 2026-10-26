@@ -13,7 +13,9 @@ const next = "/lista";
  * recipes or the catalog cannot be read, a notice says so; a pantry that
  * cannot be read shows the list with nothing taken off, and says that. The
  * catalog's search is passed down for the suggestions in Lägg till egen vara
- * (AD-1: a client component never imports another module's actions).
+ * (AD-1: a client component never imports another module's actions). The
+ * selected store and its product choices (Story 7.2) go beside the list; when
+ * they cannot be read, only the detail's section Produktval says so.
  */
 export async function ShoppingListContent() {
   await requireUserOrRedirect(next);
@@ -23,7 +25,19 @@ export async function ShoppingListContent() {
     if (result.error.code === "unauthorized") redirect(`/logga-in?${new URLSearchParams({ next })}`);
     return <Notice role="alert">{result.error.message}</Notice>;
   }
-  const { plan, lines, hiddenLines, pantryUnavailable, checksUnavailable, pendingClear } = result.data;
+  const {
+    plan,
+    lines,
+    hiddenLines,
+    pantryUnavailable,
+    checksUnavailable,
+    pendingClear,
+    store,
+    storeUnavailable,
+    productChoices,
+    productChoicesUnavailable,
+    unreadableChoices,
+  } = result.data;
   return (
     <ShoppingList
       plan={plan}
@@ -33,6 +47,11 @@ export async function ShoppingListContent() {
       checksUnavailable={checksUnavailable}
       pendingClear={pendingClear}
       searchIngredients={searchIngredients}
+      store={store}
+      storeUnavailable={storeUnavailable}
+      productChoices={productChoices}
+      productChoicesUnavailable={productChoicesUnavailable}
+      unreadableChoices={unreadableChoices}
     />
   );
 }

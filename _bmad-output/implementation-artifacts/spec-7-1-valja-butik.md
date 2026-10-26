@@ -2,7 +2,7 @@
 title: 'Story 7.1: Välja butik'
 type: 'feature'
 created: '2026-10-26'
-status: 'draft'
+status: 'done'
 route: 'dispatch'
 context:
   - '{project-root}/_bmad-output/implementation-artifacts/epic-7-context.md'
@@ -99,7 +99,7 @@ context:
 ## Tasks & Acceptance
 
 **Execution:**
-- [ ] `supabase/migrations/<ts>_settings_store.sql` (skapad med `supabase migration new settings_store`):
+- [x] `supabase/migrations/<ts>_settings_store.sql` (skapad med `supabase migration new settings_store`):
   1. Tabellen `store` med kolumnerna, kontrollerna, `store_id_user_id_key unique (id, user_id)`, `store_user_id_chain_external_store_id_key unique (user_id, chain, external_store_id)` och det partiella unika indexet `store_one_selected_per_user`. Utan `nulls not distinct`, så att flera butiker utan id (till exempel Lidl) går att lägga in.
   2. RLS, policy, `revoke` och `grant` enligt AD-4.
   3. `save_store(store jsonb, make_selected boolean) returns public.store`: `security invoker`, `set search_path = ''`. Med ett id från klienten som inte finns läggs butiken till, och med ett id som finns ändras den. Med `make_selected` låses användarens butiker (`select … for update`), alla sätts till `is_selected = false` och den här till `true`. Ett id som en annan användare har ger `23505`.
@@ -109,7 +109,7 @@ context:
   7. Execute bara för `authenticated`.
 
   Därefter genereras typerna om -- AD-4, AD-5, AD-21
-- [ ] `src/features/settings/domain/store.ts` (+ test), `index.ts`:
+- [x] `src/features/settings/domain/store.ts` (+ test), `index.ts`:
   - `STORE_CHAINS = ["ICA", "Willys", "Coop", "Lidl", "Hemköp", "City Gross", "Annan"] as const` och `storeChainSchema`.
   - `Store = { id, name, chain, externalStoreId, address, url, isSelected }`.
   - `storeFormSchema` (id som `z.guid()`, namn trimmat 1–100, kedja, butiks-id ≤ 40, adress ≤ 200, URL med `https` och värdnamn ≤ 2048, `makeSelected`). Tomma valfria fält blir `null`.
@@ -120,26 +120,26 @@ context:
   - `compareStores` (vald först, sedan namn med `localeCompare("sv")`).
 
   -- FR-28
-- [ ] `tests/design/settings-checks.test.ts` -- låser `store_chain_check` i den senaste migrationen som definierar den mot `STORE_CHAINS`, i samma ordning, som `shopping-checks.test.ts` gör -- AD-12-mönstret
-- [ ] `src/features/settings/data/stores.ts` (+ integrationstest), `data/queries.ts`, `server.ts`:
+- [x] `tests/design/settings-checks.test.ts` -- låser `store_chain_check` i den senaste migrationen som definierar den mot `STORE_CHAINS`, i samma ordning, som `shopping-checks.test.ts` gör -- AD-12-mönstret
+- [x] `src/features/settings/data/stores.ts` (+ integrationstest), `data/queries.ts`, `server.ts`:
   - `loadStores(db)` och `loadSelectedStore(db)` mappar raderna till `Store`.
   - `saveStoreIn(db, form)` och `selectStoreIn(db, id)` anropar funktionerna och översätter `23505` på `store_user_id_chain_external_store_id_key` till `duplicate` och `P0002` till `gone`.
   - `server.ts` exporterar `listStores()` (sorterad med `compareStores`) och `getSelectedStore(): Promise<Store | null>`. Båda kastar `SettingsDataError`.
 
   -- AD-1
-- [ ] `src/features/settings/actions/save-store.ts`, `select-store.ts` (+ tester):
+- [x] `src/features/settings/actions/save-store.ts`, `select-store.ts` (+ tester):
   - `saveStore(previous, formData)` för `useActionState`. Den börjar med `requireUser()`, validerar med `storeFormSchema`, anropar `saveStoreIn` och `revalidateFor("store")` och ger `ok({ store })` eller `fail` med `validation` (fältfel), `settings_duplicate_store` (fält `externalStoreId`), `settings_store_gone` eller `settings_save_failed`.
   - `selectStore({ id })` gör samma sak med `selectStoreIn`.
 
   -- AD-2, AD-13
-- [ ] `src/lib/errors.ts` -- nya koder:
+- [x] `src/lib/errors.ts` -- nya koder:
   - `settings_store_unavailable`: "Det gick inte att läsa butiken. Försök igen.";
   - `settings_duplicate_store`: "Butiken finns redan.";
   - `settings_store_gone`: "Butiken finns inte längre.".
 
   -- AD-13
-- [ ] `src/lib/revalidate.ts` -- `store: [{ path: "/installningar", type: "page" }, { path: "/lista", type: "page" }]` (listan visar butikens produktval och export från 7.2) -- AD-18
-- [ ] `src/features/settings/ui/store-settings.tsx` (+ test), `store-sheet.tsx` (+ test):
+- [x] `src/lib/revalidate.ts` -- `store: [{ path: "/installningar", type: "page" }, { path: "/lista", type: "page" }]` (listan visar butikens produktval och export från 7.2) -- AD-18
+- [x] `src/features/settings/ui/store-settings.tsx` (+ test), `store-sheet.tsx` (+ test):
   - `StoreSettings` är `<section aria-labelledby>` med h2 "Butik". Den visar den valda butikens kort med namnet (h3), `storeSummaryText`, adressen eller `noAddressText`, URL:en som länk och textknappen "Ändra".
   - När det finns fler butiker visas "Andra butiker" som en lista med namn, `storeSummaryText` och en sekundärknapp "Välj" (`aria-label="Välj Willys Lindhagen"`). Sist kommer textknappen "Lägg till butik".
   - `StoreSheet` är ett `Sheet` med titeln "Ändra butik" eller "Ny butik" och fälten Namn, Kedja (`<select>` med `STORE_CHAINS`), Butiks-id, Adress och URL (`type="url"`, `inputMode="url"`). Ny butik har också "Använd för varukorgen" (förvald). Knapparna är "Spara" och "Avbryt", och arket använder `isDirty`.
@@ -147,8 +147,8 @@ context:
   - Efter sparande visas en kort bekräftelse: "Butiken är sparad." eller `selectedStoreText`.
 
   -- FR-28, UX-DR16
-- [ ] `src/app/(app)/installningar/page.tsx` -- sektionen Butik läses i en egen `<Suspense>` under receptsajterna med `listStores()`. `SettingsDataError` ger `Notice` med `settings_store_unavailable` bara i den sektionen. Kommentaren "The store arrives in Epic 7." tas bort -- AD-18
-- [ ] `tests/integration/settings.test.ts`:
+- [x] `src/app/(app)/installningar/page.tsx` -- sektionen Butik läses i en egen `<Suspense>` under receptsajterna med `listStores()`. `SettingsDataError` ger `Notice` med `settings_store_unavailable` bara i den sektionen. Kommentaren "The store arrives in Epic 7." tas bort -- AD-18
+- [x] `tests/integration/settings.test.ts`:
   - `expectRlsIsolation("store", …)`;
   - standardbutiken efter `ensure_user_defaults()`, och att ett andra anrop ger samma rad (id, uppgifter, vald);
   - att en ändrad butik inte ersätts;
@@ -160,7 +160,7 @@ context:
   - att `select_store` på en annan användares butik ger `P0002` och inte ändrar något.
 
   -- AD-4, AD-21
-- [ ] `tests/e2e/store.spec.ts` (+ `support.ts`, `global-setup.ts`) -- egen e2e-användare `e2e-butik@matkoll.test`. Specen kontrollerar:
+- [x] `tests/e2e/store.spec.ts` (+ `support.ts`, `global-setup.ts`) -- egen e2e-användare `e2e-butik@matkoll.test`. Specen kontrollerar:
   - standardbutiken i Inställningar med namn, kedja, butiks-id, "Ingen adress angiven" och URL;
   - att en ändrad adress sparas och står kvar efter omladdning;
   - att "Lägg till butik" med Willys väljer den nya butiken och lägger Maxi ICA under "Andra butiker";
@@ -170,7 +170,7 @@ context:
   - att ingen förfrågan går till en adress som slutar på `ica.se` under specen (`page.on("request")`).
 
   -- matrisen
-- [ ] `docs/oppna-fragor.md` -- under "Checklista för Pontus" läggs en ny punkt: "Kontrollera standardbutiken i Inställningar → Butik. Öppna URL:en `https://handlaprivatkund.ica.se/stores/1003733` i din webbläsare och se att den leder till Maxi ICA Stormarknad Östersund i ICA Handla. Rätta den annars, och fyll i butikens adress." -- PRD 6
+- [x] `docs/oppna-fragor.md` -- under "Checklista för Pontus" läggs en ny punkt: "Kontrollera standardbutiken i Inställningar → Butik. Öppna URL:en `https://handlaprivatkund.ica.se/stores/1003733` i din webbläsare och se att den leder till Maxi ICA Stormarknad Östersund i ICA Handla. Rätta den annars, och fyll i butikens adress." -- PRD 6
 
 **Acceptance Criteria:**
 - Given `pnpm lint && pnpm typecheck && pnpm test && pnpm test:integration && AI_PROVIDER=mock pnpm build && CI=1 pnpm test:e2e`, when de körs, then lyckas alla.
@@ -193,6 +193,26 @@ context:
 ## Spec Change Log
 
 ## Review Triage Log
+
+Iteration 1. Granskare: Blind Hunter, Edge Case Hunter och Verification Gap.
+
+**Patch:**
+- Id:t för en ny butik behålls så länge arket är öppet. Ett id som krockar ger ett nytt id. Reservgenerator för UUID.
+- `save_store` har lägena `add` och `change`. Om butiken saknas vid `change` ger det P0002.
+- Delete återkallas. Advisory-lås per användare. Den första butiken blir vald.
+- Unikt butiks-id oavsett stora och små bokstäver. Strängare kontroll av text.
+- En okänd kedja blir "Annan".
+- Ändra finns på alla butiker. Arket behåller butiken det öppnades för. Välj är spärrat medan ett val pågår.
+- Nya tester:
+  - kapplöpning
+  - `StoreContent`
+  - startdata
+  - backfill
+  - refresh
+  - fokus
+  - ordning
+
+**Reject:** att begränsa backfill till tillåtna användare, eftersom registrering är avstängd och bara `users:sync` skapar användare.
 
 ## Verification
 
