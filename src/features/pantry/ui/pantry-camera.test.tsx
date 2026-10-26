@@ -10,6 +10,8 @@ import { PantrySuggestionsProvider } from "./pantry-suggestions";
 
 /** The place Hemma shows (Story 8.2). */
 const testSite = { id: "55555555-5555-4555-8555-555555555555" };
+/** The place a photo was taken for (Story 8.4): the one Hemma shows. */
+const photoSite = { id: testSite.id, name: "Hemma" };
 
 // Kameraknappen on Hemma: its text per location, the camera on a phone and
 // the file picker on a desktop, the progress with "Avbryt", and the notices
@@ -60,7 +62,7 @@ function Hemma({ location = "Kyl" }: { location?: Location }) {
       <PantrySuggestionsProvider>
         <PantrySheetProvider location={location} site={testSite}>
           {/* Keyed like Hemma's <Suspense>: another card mounts it anew under the same provider. */}
-          <PantryCamera key={location} location={location} />
+          <PantryCamera key={location} siteId={testSite.id} location={location} />
         </PantrySheetProvider>
       </PantrySuggestionsProvider>
     </ToastProvider>
@@ -187,7 +189,7 @@ describe("PantryCamera", () => {
   it("says when the photo shows no food, with Lägg till vara opening the sheet Lagervara", async () => {
     render(<Hemma />);
     await photograph();
-    await answer(ok({ location: "Kyl", suggestions: [], dropped: 0, inventory: { kind: "unread" } }));
+    await answer(ok({ site: photoSite, location: "Kyl", suggestions: [], dropped: 0, inventory: { kind: "unread" } }));
     const status = within(area())
       .getAllByRole("status")
       .find((element) => element.textContent !== "");

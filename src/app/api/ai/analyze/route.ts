@@ -1,3 +1,4 @@
+import { z } from "zod";
 import { requireUserForRoute } from "@/features/auth/server";
 import { locationSchema } from "@/features/catalog";
 import { analyzePlace } from "@/features/pantry/server";
@@ -8,7 +9,8 @@ import { isCrossSite, mediaTypeOf, readImageForm, respond } from "../route-suppo
 // Lagerförslag from a photo of a place at home (FR-24, AD-9, AD-15): the
 // client resizes the photo (to at most maxPlacePhotoSide, 2048 px, Story 6.5)
 // and posts it through src/lib/ai-client.ts as multipart/form-data with the
-// fields `image` and `location` (Kyl, Frys or Skafferi), and gets the place
+// fields `image`, `location` (Kyl, Frys or Skafferi) and `site` (the id of the
+// place Hemma showed when the photo was taken, Story 8.4), and gets the place
 // and its suggestions back. Never writes to the database (AD-2). The photo is only held in memory for the request: it is
 // passed to the AI port as a `file` part and is never written to the
 // database, to disk or to a log. The request's signal goes all the way to the
@@ -24,6 +26,9 @@ import { isCrossSite, mediaTypeOf, readImageForm, respond } from "../route-suppo
 // pantry reads after it.
 export const maxDuration = 120;
 
+/** The form's `site`: a place's id, or missing (a 1.0 client). */
+const siteSchema = z.uuid().optional();
+
 /** Time kept after the deadline for sending the answer. */
 const responseMarginS = 3;
 
@@ -36,12 +41,17 @@ export async function POST(request: Request): Promise<Response> {
 
   if (mediaTypeOf(request) !== "multipart/form-data") return respond(fail("validation"), 415);
   // Size, type and pixels of the photo, checked on its own bytes (AD-15).
-  const form = await readImageForm(request, ["location"], { maxSide: maxPlacePhotoSide });
+  const form = await readImageForm(request, ["location", "site"], { maxSide: maxPlacePhotoSide });
   if (!form.ok) return form.response;
   const location = locationSchema.safeParse(form.fields.location);
-  if (!location.success) return respond(fail("validation"));
+  // Story 8.4: the place the photo was taken for. Missing only from a 1.0 client during a deploy: the selected place.
+  const site = siteSchema.safeParse(form.fields.site ?? undefined);
+  if (!location.success || !site.success) return respond(fail("validation"));
 
   return respond(
-    await analyzePlace({ image: form.image, location: location.data }, { signal: request.signal, deadline }),
+    await analyzePlace(
+      { image: form.image, location: location.data, ...(site.data === undefined ? {} : { siteId: site.data }) },
+      { signal: request.signal, deadline },
+    ),
   );
 }

@@ -9,6 +9,8 @@ import { PantryDataError } from "../data/client";
 import { readingLabel, readingSchema } from "../domain/photo-numbers";
 import { finishRun, startRun } from "./ai-runs";
 import { listPantryIn } from "../data/queries";
+import { loadPantrySitesIn } from "../data/sites";
+import type { PantrySite, PhotoSite } from "../domain/site";
 import { compareWithPlace, placeInventorySchema, withoutComparison } from "../domain/place-inventory";
 import type { PantryItem } from "../domain/pantry-item";
 import {
@@ -46,13 +48,14 @@ async function fromCatalog<T>(read: () => Promise<T>): Promise<Result<T>> {
 }
 
 /**
- * The place's items for "I kylen nu", or `null` (logged as
- * `pantry_unavailable`) when they cannot be read: the analysis goes on
- * without them.
+ * The items in `location` of the place `siteId` for "I kylen nu", or `null`
+ * (logged as `pantry_unavailable`) when they cannot be read: the analysis
+ * goes on without them. Without `siteId` (a user without places) the
+ * selected place, which is empty then.
  */
-async function readPlace(location: Location): Promise<PantryItem[] | null> {
+async function readPlace(location: Location, siteId: string | undefined): Promise<PantryItem[] | null> {
   try {
-    return await listPantryIn(await createClient(), location, getIngredientNames);
+    return await listPantryIn(await createClient(), location, getIngredientNames, siteId);
   } catch (error) {
     if (error instanceof PantryDataError) {
       console.error("pantry_unavailable", { reason: error.detail });
@@ -82,7 +85,40 @@ export type AnalyzePlaceInput = {
   image: ImageInput;
   /** The place the photo shows; every suggestion gets it. */
   location: Location;
+  /**
+   * Story 8.4: the place (pantry_site) Hemma showed when the photo was taken,
+   * checked as a uuid by the Route Handler. Missing only from a client of
+   * version 1.0 during a deploy (AD-5): the selected place.
+   */
+  siteId?: string;
 };
+
+/** The place a photo is of, as the answer gives it, or why there is none to analyse for. */
+type SiteLookup = { ok: true; site: PhotoSite | null } | { ok: false; result: Result<never> };
+
+/**
+ * Story 8.4: the place `siteId` among the user's places, or the selected one
+ * without `siteId`; read before the AI is asked, since a photo of a place
+ * that is gone cannot be saved anyway. A place that is not the user's (gone,
+ * or another user's) is `pantry_site_gone`, and places that cannot be read
+ * `pantry_unavailable` (logged with the reason only, never a name). A user
+ * without places has none: `site: null`.
+ */
+async function lookUpSite(siteId: string | undefined): Promise<SiteLookup> {
+  let sites: PantrySite[];
+  try {
+    sites = await loadPantrySitesIn(await createClient());
+  } catch (error) {
+    if (!(error instanceof PantryDataError)) throw error;
+    console.error("pantry_unavailable", { reason: error.detail });
+    return { ok: false, result: fail("pantry_unavailable") };
+  }
+  const site = siteId === undefined ? sites.find((other) => other.isSelected) : sites.find((other) => other.id === siteId);
+  if (site) return { ok: true, site: { id: site.id, name: site.name } };
+  if (siteId === undefined) return { ok: true, site: null };
+  console.error("pantry_site_gone", { reason: "analyze" });
+  return { ok: false, result: fail("pantry_site_gone") };
+}
 
 export type AnalyzePlaceOptions = {
   signal: AbortSignal;
@@ -91,12 +127,15 @@ export type AnalyzePlaceOptions = {
 };
 
 /**
- * Lagerförslag from a photo of a place. In order: the user (an analysis of
- * theirs still on its way is stopped), the AI port's analyzeImage
+ * Lagerförslag from a photo of a place. In order: the user, the place
+ * (Story 8.4: `siteId` among the user's places, else the selected one;
+ * `pantry_site_gone` or `pantry_unavailable` before the AI is asked, see
+ * lookUpSite), then an analysis of the user's still on its way is stopped,
+ * the AI port's analyzeImage
  * (`validation`, `ai_unavailable`, `ai_rejected`, `ai_invalid`), the first
  * 40 items (the rest logged as a count), one matchIngredients call for them
- * and the matched names (`catalog_unavailable`), the place's items for "I
- * kylen nu" (a failed read is logged and leaves them out; skipped when the
+ * and the matched names (`catalog_unavailable`), the items in the location
+ * of that place for "I kylen nu" (a failed read is logged and leaves them out; skipped when the
  * deadline is near), toPantrySuggestions, pantrySuggestionSchema for each
  * suggestion, and compareWithPlace against the place's items (Story 6.4:
  * `inventory`, `unread` when they could not be read; incomplete also when
@@ -107,7 +146,10 @@ export type AnalyzePlaceOptions = {
  * `ai_superseded`, and nothing more is read. With less than minReadMs left
  * before the deadline, a read the answer needs is `ai_unavailable`. Never
  * writes (AD-2). Story 6.6: the answer has the items in reading order
- * (`reading`), and each suggestion the numbers of its items in it.
+ * (`reading`), and each suggestion the numbers of its items in it. Story
+ * 8.4: the answer has the analysed place (`site`, id and name), which every
+ * write from the suggestions sends; analyzeImage gets only the photo and the
+ * location, never the place (AD-9).
  */
 export async function analyzePlace(
   input: AnalyzePlaceInput,
@@ -115,11 +157,15 @@ export async function analyzePlace(
 ): Promise<Result<AnalyzeResult>> {
   const user = await requireUser();
   if (!user.ok) return user;
+  // Story 8.4: the place before the model, which may take 100 s for a photo that could not be saved.
+  const looked = await lookUpSite(input.siteId);
+  if (!looked.ok) return looked.result;
+  if (signal.aborted) return stopped();
 
   // An analysis always starts: it stops any run of the same user on its way (ai-runs.ts).
   const own = startRun(user.data.id, "analyze");
   try {
-    const result = await analyze(input, AbortSignal.any([signal, own.signal]), deadline);
+    const result = await analyze(input, looked.site, AbortSignal.any([signal, own.signal]), deadline);
     if (own.signal.aborted && !signal.aborted) {
       console.info("analyze_superseded");
       return fail("ai_superseded");
@@ -132,6 +178,7 @@ export async function analyzePlace(
 
 async function analyze(
   { image, location }: AnalyzePlaceInput,
+  site: PhotoSite | null,
   signal: AbortSignal,
   deadline: number | undefined,
 ): Promise<Result<AnalyzeResult>> {
@@ -169,7 +216,7 @@ async function analyze(
 
   // "I kylen nu" is extra: near the deadline the suggestions come without it.
   let current: PantryItem[] | null = null;
-  if (timeLeft() >= minReadMs) current = await readPlace(location);
+  if (timeLeft() >= minReadMs) current = await readPlace(location, site?.id);
   else console.info("analyze_place_skipped", { reason: "deadline" });
 
   const built = toPantrySuggestions(items, matched, { location, names, current });
@@ -201,6 +248,7 @@ async function analyze(
   if (!placeInventorySchema.safeParse(compared.inventory).success) {
     console.error("analyze_inventory_invalid");
     return ok({
+      site,
       location,
       suggestions: suggestions.map(withoutComparison),
       dropped,
@@ -208,7 +256,7 @@ async function analyze(
       ...reading,
     });
   }
-  return ok({ location, suggestions: compared.suggestions, dropped, inventory: compared.inventory, ...reading });
+  return ok({ site, location, suggestions: compared.suggestions, dropped, inventory: compared.inventory, ...reading });
 }
 
 /**

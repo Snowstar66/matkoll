@@ -18,6 +18,8 @@ const statusFor: Partial<Record<ErrorCode, number>> = {
   ai_superseded: 409,
   catalog_unavailable: 503,
   pantry_unavailable: 503,
+  // Story 8.4: the photo's place is removed, or not the user's; the AI was not asked.
+  pantry_site_gone: 409,
   settings_unavailable: 503,
   fetch_invalid_url: 422,
   fetch_domain_not_allowed: 422,

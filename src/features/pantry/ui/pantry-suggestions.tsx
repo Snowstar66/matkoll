@@ -50,7 +50,7 @@ import { focusIsFree, type PantryAnalysis, usePantryAnalysis } from "./use-pantr
 // Lagerförslag for Hemma (FR-24, FR-25): one analysis state for the page,
 // shared by the camera button (PantryCamera), the section
 // (PantrySuggestionList) and the sheet Lagervara. The provider sits above the
-// <Suspense> keyed on the location and has no key of its own, so the
+// <Suspense> keyed on the place and location and has no key of its own, so the
 // suggestions stay when another location card is chosen, and go when Hemma
 // is left or reloaded.
 //
@@ -69,6 +69,12 @@ import { focusIsFree, type PantryAnalysis, usePantryAnalysis } from "./use-pantr
 // inte längre" card out here alone, like Avvisa. Focus after a change is
 // moved from here, so a list or camera button mounted anew under another
 // location card still gets a move that was asked for while they were away.
+//
+// Places (Story 8.4, FR-33, AD-24): the provider has no key on the place
+// either, so the suggestions stay when Hemma switches place. Every write from
+// them (Bekräfta, the sheet's "Bekräfta", "Bekräfta alla", "Ta bort") sends
+// the photo's place (`result.site`), never the one Hemma shows by then, and an
+// operation id is sent again only for the same place and location.
 
 /** How long a confirmation may take before it counts as failed, so the buttons work again. */
 export const confirmTimeoutMs = 30_000;
@@ -222,6 +228,8 @@ async function within<T>(call: () => Promise<Result<T>>, code: ErrorCode): Promi
  */
 type RemovalBatch = {
   id: string;
+  /** The photo's place (Story 8.4): later removals join only for the same place and location. */
+  siteId: string | null;
   location: Location;
   /** The suggestions' generation the removals were made in: "Ångra" puts their cards back only while it is current. */
   generation: number;
@@ -230,6 +238,20 @@ type RemovalBatch = {
   /** How many rows the server keeps under `id`. */
   undoable: number;
 };
+
+/**
+ * The place every write from `result` goes to (Story 8.4, FR-33): the
+ * photo's, never the one Hemma shows by the time of the tap; `null` (the
+ * selected place) only for a photo of a user without places.
+ */
+function photoSiteId(result: Pick<AnalyzeResult, "site">): string | null {
+  return result.site?.id ?? null;
+}
+
+/** Whether a removal operation was for the same place and location, so its id may be sent again. */
+function samePlace(operation: { siteId: string | null; location: Location } | null, siteId: string | null, location: Location) {
+  return operation !== null && operation.siteId === siteId && operation.location === location;
+}
 
 /** A "Syns inte längre" item back in the list after "Ångra", in the list's order (by name, Swedish). */
 function withMissing(missing: readonly MissingItem[], back: readonly MissingItem[]): MissingItem[] {
@@ -253,10 +275,11 @@ function usePantryReview(analysis: PantryAnalysis): PantryReview {
   const batch = useRef<RemovalBatch | null>(null);
   /**
    * The new operation id of a removal that failed or got no answer: the next
-   * removal in the same place sends it again, so "Ångra" still finds rows it
-   * may have removed. Never the id of a confirmation that has closed.
+   * removal in the same place and location (Story 8.4) sends it again, so
+   * "Ångra" still finds rows it may have removed. Never the id of a
+   * confirmation that has closed.
    */
-  const spareOperation = useRef<{ id: string; location: Location } | null>(null);
+  const spareOperation = useRef<{ id: string; siteId: string | null; location: Location } | null>(null);
   const { cameraButtonRef } = analysis;
   const confirmButtons = useRef(new Map<string, HTMLButtonElement>());
   const confirmAllRef = useRef<HTMLButtonElement | null>(null);
@@ -403,16 +426,18 @@ function usePantryReview(analysis: PantryAnalysis): PantryReview {
   }
 
   /**
-   * Saves an inventory (Story 6.4) for the cards `ids`. Removals, and
-   * "Bekräfta alla" while a confirmation with "Ångra" for the same place
-   * shows, send the operation id of that confirmation, else of a removal in
-   * the same place that failed, else a new one; the server keeps the removed
-   * rows under it. `joined` is the confirmation the answer joins: the one
-   * whose id was sent, if it still shows.
+   * Saves an inventory (Story 6.4) for the cards `ids` on the photo's place
+   * `siteId` (Story 8.4). Removals, and "Bekräfta alla" while a confirmation
+   * with "Ångra" for the same place and location shows, send the operation
+   * id of that confirmation, else of a removal in the same place and
+   * location that failed, else a new one; the server keeps the removed rows
+   * under it. `joined` is the confirmation the answer joins: the one whose id
+   * was sent, if it still shows.
    */
   async function saveInventory(
     ids: readonly string[],
     all: boolean,
+    siteId: string | null,
     request: InventoryRequest,
   ): Promise<{
     result: Result<ConfirmedInventory>;
@@ -422,15 +447,16 @@ function usePantryReview(analysis: PantryAnalysis): PantryReview {
     before: number;
   }> {
     const removes = request.removeRowIds.length > 0;
-    const showing = batch.current?.location === request.location ? batch.current : null;
-    const spare = spareOperation.current?.location === request.location ? spareOperation.current.id : null;
+    const showing = samePlace(batch.current, siteId, request.location) ? batch.current : null;
+    const kept = spareOperation.current;
+    const spare = kept && samePlace(kept, siteId, request.location) ? kept.id : null;
     const sent = removes || (all && showing) ? (showing?.id ?? spare ?? newId()) : null;
     const { location, items, replaceRowIds, removeRowIds } = request;
-    const input: InventoryConfirmInput = { location, items, replaceRowIds, removeRowIds, operationId: sent };
+    const input: InventoryConfirmInput = { siteId, location, items, replaceRowIds, removeRowIds, operationId: sent };
     const { result } = await save(ids, all, () => confirmPantryInventory(input), "pantry_inventory_failed");
     if (!result.ok) {
       // A new id is kept for the next removal; a confirmation's id is used again only while it shows.
-      if (removes && sent && sent !== showing?.id) spareOperation.current = { id: sent, location: request.location };
+      if (removes && sent && sent !== showing?.id) spareOperation.current = { id: sent, siteId, location: request.location };
       return { result, operationId: sent, joined: null, before: 0 };
     }
     if (sent === spare) spareOperation.current = null;
@@ -498,6 +524,7 @@ function usePantryReview(analysis: PantryAnalysis): PantryReview {
     data: ConfirmedInventory,
     operationId: string,
     missing: readonly MissingItem[],
+    siteId: string | null,
     location: Location,
     generation: number,
     joined: RemovalBatch | null,
@@ -511,6 +538,7 @@ function usePantryReview(analysis: PantryAnalysis): PantryReview {
     return {
       batch: {
         id: operationId,
+        siteId,
         location,
         generation,
         items: [...earlier, ...items.filter((item) => !earlier.some((other) => other.id === item.id))],
@@ -540,7 +568,7 @@ function usePantryReview(analysis: PantryAnalysis): PantryReview {
     const withUncertain = (text: string) => (uncertain.length > 0 ? `${text} ${uncertainLeftText(uncertain.length)}` : text);
     const uncertainFocus: SuggestionFocus | null = uncertain.length > 0 ? { kind: "confirm", id: uncertain[0].id } : null;
     if (!compared) {
-      await confirmPlain(generation, chosen, all, { withUncertain, uncertainFocus });
+      await confirmPlain(generation, photoSiteId(result), chosen, all, { withUncertain, uncertainFocus });
       return;
     }
     // An incomplete comparison removes nothing with "Bekräfta alla": only "Ta bort" does.
@@ -549,7 +577,8 @@ function usePantryReview(analysis: PantryAnalysis): PantryReview {
     const request = inventoryRequest({ location: result.location, suggestions: chosen, missing });
     const saved = chosen.filter((suggestion) => request.included.includes(suggestion.id));
     const savedIds = saved.map((suggestion) => suggestion.id);
-    const answer = await saveInventory([...savedIds, ...missing.map(({ id }) => id)], all, request);
+    const siteId = photoSiteId(result);
+    const answer = await saveInventory([...savedIds, ...missing.map(({ id }) => id)], all, siteId, request);
     const current = analysis.generation() === generation;
     if (!answer.result.ok) {
       if (current) {
@@ -572,7 +601,7 @@ function usePantryReview(analysis: PantryAnalysis): PantryReview {
       showToast(current ? savedItemText(saved[0].name, saved[0].location) : confirmedItemsText(1));
     } else {
       const removals = answer.operationId
-        ? removalsOf(data, answer.operationId, missing, result.location, generation, answer.joined, answer.before)
+        ? removalsOf(data, answer.operationId, missing, siteId, result.location, generation, answer.joined, answer.before)
         : null;
       const counts = inventoryAppliedText(result.location, {
         added: saved.filter((suggestion) => suggestion.change !== "changed").length,
@@ -595,6 +624,7 @@ function usePantryReview(analysis: PantryAnalysis): PantryReview {
    */
   async function confirmPlain(
     generation: number,
+    siteId: string | null,
     chosen: readonly PantrySuggestion[],
     all: boolean,
     {
@@ -605,7 +635,12 @@ function usePantryReview(analysis: PantryAnalysis): PantryReview {
     if (chosen.length === 0) return;
     const chosenIds = chosen.map((suggestion) => suggestion.id);
     const items = chosen.map(confirmItemFromSuggestion);
-    const { result } = await save(chosenIds, all, () => confirmPantrySuggestions(items), "pantry_confirm_failed");
+    const { result } = await save(
+      chosenIds,
+      all,
+      () => confirmPantrySuggestions({ siteId, items }),
+      "pantry_confirm_failed",
+    );
     if (analysis.generation() !== generation) {
       // Newer suggestions came meanwhile: nothing to take out, and no notice about cards that are gone.
       if (result.ok) showToast(confirmedItemsText(chosen.length));
@@ -634,6 +669,8 @@ function usePantryReview(analysis: PantryAnalysis): PantryReview {
     const suggestion = result?.suggestions.find((other) => other.id === id);
     if (!result || !suggestion) return { kind: "gone" };
     const item = confirmItemFromForm(form, suggestion);
+    // The photo's place (Story 8.4), whatever place Hemma shows now.
+    const siteId = photoSiteId(result);
     let answer: Result<unknown>;
     let setIngredientIds: readonly string[] = [];
     if (result.inventory.kind === "compared") {
@@ -651,11 +688,13 @@ function usePantryReview(analysis: PantryAnalysis): PantryReview {
         replaceRowIds: own ? [...(unitChanged ? (suggestion.placeRowIds ?? suggestion.replaces) : suggestion.replaces)] : [],
         removeRowIds: [],
       };
-      const saved = await saveInventory([id], false, request);
+      const saved = await saveInventory([id], false, siteId, request);
       answer = saved.result;
       if (saved.result.ok) setIngredientIds = saved.result.data.setIngredientIds;
     } else {
-      answer = (await save([id], false, () => confirmPantrySuggestions([item]), "pantry_confirm_failed")).result;
+      answer = (
+        await save([id], false, () => confirmPantrySuggestions({ siteId, items: [item] }), "pantry_confirm_failed")
+      ).result;
     }
     let outcome: CorrectOutcome;
     if (!answer.ok) {
@@ -707,7 +746,8 @@ function usePantryReview(analysis: PantryAnalysis): PantryReview {
     const item = missingOf(generation)?.find((other) => other.id === id);
     if (!result || !item) return;
     const request = inventoryRequest({ location: result.location, suggestions: [], missing: [item] });
-    const answer = await saveInventory([id], false, request);
+    const siteId = photoSiteId(result);
+    const answer = await saveInventory([id], false, siteId, request);
     const current = analysis.generation() === generation;
     if (!answer.result.ok) {
       if (current) failed(generation, answer.result.error, [], { kind: "confirm", id });
@@ -716,7 +756,16 @@ function usePantryReview(analysis: PantryAnalysis): PantryReview {
     }
     if (current) takeOut(generation, [id], id, []);
     const removals = answer.operationId
-      ? removalsOf(answer.result.data, answer.operationId, [item], result.location, generation, answer.joined, answer.before)
+      ? removalsOf(
+          answer.result.data,
+          answer.operationId,
+          [item],
+          siteId,
+          result.location,
+          generation,
+          answer.joined,
+          answer.before,
+        )
       : null;
     // Rows kept for "Ångra" now that were not before: removed by this call, or by one with the same id that got no answer.
     if (removals && removals.added > 0) {

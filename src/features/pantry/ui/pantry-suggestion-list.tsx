@@ -16,6 +16,7 @@ import {
   suggestionsArrivedText,
   suggestionInvalidText,
   suggestionsHeading,
+  suggestionsSiteText,
   suggestionTitle,
   unchangedCountText,
   uncertainBadgeText,
@@ -79,11 +80,21 @@ import { focusIsFree } from "./use-pantry-analysis";
 // fotot"), the large photo has the same numbers on the items, and a status
 // under the thumbnail says first that they are looked up and then that they
 // are there. "Syns inte längre" cards have none. Nothing waits for them.
+//
+// Story 8.4: the suggestions keep the place the photo was taken for. While
+// Hemma shows another place, "Förslagen gäller Stugan." stands under the
+// heading (a polite status, read out once when it appears); every write from
+// the cards goes to the photo's place all the same.
 
 /** No points yet. */
 const noPoints: ReadonlyMap<number, PhotoPoint> = new Map();
 
-export function PantrySuggestionList() {
+export type PantrySuggestionListProps = {
+  /** The place Hemma shows (Story 8.4): "Förslagen gäller Stugan." while the photo's place is another. */
+  siteId: string;
+};
+
+export function PantrySuggestionList({ siteId }: PantrySuggestionListProps) {
   const headingId = useId();
   const headingRef = useRef<HTMLHeadingElement>(null);
   const {
@@ -207,6 +218,10 @@ export function PantrySuggestionList() {
         <h2 id={headingId} ref={headingRef} tabIndex={-1} className="text-section-label text-ink-2">
           {suggestionsHeading(result.location)}
         </h2>
+        {/* Story 8.4: mounted empty, so the line is announced once when Hemma shows another place than the photo's. */}
+        <p role="status" data-testid="pantry-suggestions-site" className="text-body text-ink break-words empty:hidden">
+          {result.site && result.site.id !== siteId ? suggestionsSiteText(result.site.name) : null}
+        </p>
         {reviewPhoto ? (
           <AnalyzedPhotoButton
             photo={reviewPhoto}

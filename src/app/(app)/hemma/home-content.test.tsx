@@ -123,7 +123,7 @@ describe("HomeContent", () => {
       change: null,
       replaces: [],
     };
-    await act(async () => answers[0](ok({ location: "Kyl", suggestions: [suggestion], dropped: 0, inventory: { kind: "unread" } })));
+    await act(async () => answers[0](ok({ site: { id: site.id, name: site.name }, location: "Kyl", suggestions: [suggestion], dropped: 0, inventory: { kind: "unread" } })));
 
     const section = screen.getByRole("region", { name: "Lagerförslag från kylen" });
     expect(within(section).getByTestId("pantry-suggestion")).toHaveTextContent("gurkaNy2 st · Kyl");

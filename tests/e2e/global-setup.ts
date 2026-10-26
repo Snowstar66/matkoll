@@ -51,6 +51,8 @@ import {
   sitesStorageState,
   siteStatusEmail,
   siteStatusStorageState,
+  sitePhotoEmail,
+  sitePhotoStorageState,
   statusEmail,
   statusStorageState,
   storeEmail,
@@ -112,6 +114,7 @@ export default async function globalSetup(config: FullConfig) {
       [sitesEmail, sitesStorageState],
       [siteStatusEmail, siteStatusStorageState],
       [siteListEmail, siteListStorageState],
+      [sitePhotoEmail, sitePhotoStorageState],
     ] as const) {
       const user = await browser.newContext({ baseURL });
       const page = await user.newPage();

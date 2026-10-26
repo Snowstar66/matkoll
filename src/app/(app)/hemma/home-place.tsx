@@ -17,13 +17,13 @@ import { HomeContent } from "./home-content";
  * location, so choosing another location or place shows the skeleton rows
  * (after 300 ms) instead of the old items while the new ones load. The
  * camera's suggestions are held above it, without a key, so they stay when
- * another location is chosen. Everything under SiteSwitchProvider is keyed
- * on the selected place: the camera's suggestions, the sheet Lagervara and
- * the removals start afresh for each place, so a photo or a removal from one
- * place is never confirmed on another on this device. What must outlive a
- * switch (its transition, the live region and the places a live "Ångra"
- * needs) is in SiteSwitchProvider. When the places cannot be read, Hemma
- * says so, without a switch.
+ * another location or place is chosen (Story 8.4): every write from them
+ * sends the photo's own place, every removal and "Ångra" its rows' place,
+ * and the sheet Lagervara keeps the place it opened for, so nothing from one
+ * place is saved on another. What belongs to the switch itself (its
+ * transition, the live region and the places a live "Ångra" needs) is in
+ * SiteSwitchProvider. When the places cannot be read, Hemma says so, without
+ * a switch.
  */
 export async function HomePlace({ searchParams }: Pick<PageProps<"/hemma">, "searchParams">) {
   const { plats } = await searchParams;
@@ -55,7 +55,7 @@ export async function HomePlace({ searchParams }: Pick<PageProps<"/hemma">, "sea
 
   return (
     <SiteSwitchProvider>
-      <PantrySuggestionsProvider key={site.id}>
+      <PantrySuggestionsProvider>
         <PantrySheetProvider location={location} site={site}>
           <PageHeader title="Hemma" action={<AddPantryItemButton variant="icon" />} />
           <SiteSwitch sites={sites} selected={site}>

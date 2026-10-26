@@ -7,6 +7,7 @@ import { aiPantryItem, analyzeImageAnswer } from "@/server/ai/schemas";
 import { inputLimits, withInputValidation, type AnalyzeImageInput, type RunOptions } from "@/server/ai/service";
 import { analyzeResultSchema, maxPantrySuggestions } from "../domain/pantry-suggestion";
 import type { PantryItem } from "../domain/pantry-item";
+import type { PantrySite } from "../domain/site";
 
 // analyzePlace with the AI port's mock (tests/fixtures/ai, behind the port's
 // input check, as with AI_PROVIDER=mock) and stubbed user, catalog and
@@ -41,10 +42,12 @@ vi.mock("@/features/catalog/server", () => ({
 const db = { from: vi.fn(), rpc: vi.fn() };
 vi.mock("@/lib/supabase/server", () => ({ createClient: async () => db }));
 vi.mock("../data/client", () => ({ PantryDataError }));
-const listPantryIn = vi.fn<(client: unknown, location: Location, names: unknown) => Promise<PantryItem[]>>();
+const listPantryIn = vi.fn<(client: unknown, location: Location, names: unknown, siteId?: string) => Promise<PantryItem[]>>();
 vi.mock("../data/queries", () => ({
-  listPantryIn: (client: unknown, location: Location, names: unknown) => listPantryIn(client, location, names),
+  listPantryIn: (client: unknown, location: Location, names: unknown, siteId?: string) => listPantryIn(client, location, names, siteId),
 }));
+const loadPantrySitesIn = vi.fn<(client: unknown) => Promise<PantrySite[]>>();
+vi.mock("../data/sites", () => ({ loadPantrySitesIn: (client: unknown) => loadPantrySitesIn(client) }));
 
 const ai = withInputValidation(createMockAiService());
 const analyzeImage = vi.fn(ai.analyzeImage);
@@ -68,6 +71,11 @@ const smor = "6f1c1b7e-3c1a-4c55-9a59-0f3f2b8f2a02";
 const known: Record<string, string> = { mjölk: mjolk, smör: smor };
 const catalogNames: Record<string, string> = { [mjolk]: "Mjölk", [smor]: "Smör" };
 const hemma = "5a1c1b7e-3c1a-4c55-9a59-0f3f2b8f2a00";
+const stugan = "5a1c1b7e-3c1a-4c55-9a59-0f3f2b8f2a09";
+const places: PantrySite[] = [
+  { id: hemma, name: "Hemma", isSelected: true },
+  { id: stugan, name: "Stugan", isSelected: false },
+];
 const atHome: PantryItem[] = [
   { id: "7a1c1b7e-3c1a-4c55-9a59-0f3f2b8f2a01", siteId: hemma, ingredientId: mjolk, name: "Mjölk", location: "Kyl", amount: 2, unit: "förp" },
   { id: "7a1c1b7e-3c1a-4c55-9a59-0f3f2b8f2a02", siteId: hemma, ingredientId: smor, name: "Smör", location: "Kyl", amount: null, unit: null },
@@ -94,6 +102,7 @@ beforeEach(() => {
     Object.fromEntries(ids.flatMap((wanted) => (catalogNames[wanted] ? [[wanted, catalogNames[wanted]]] : []))),
   );
   listPantryIn.mockReset().mockResolvedValue(atHome);
+  loadPantrySitesIn.mockReset().mockResolvedValue(places);
   analyzeImage.mockReset().mockImplementation(ai.analyzeImage);
   locateItems.mockReset().mockImplementation(ai.locateItems);
   commitIngredients.mockReset();
@@ -184,7 +193,9 @@ describe("analyzePlace", () => {
   it("gives an empty list for a photo without food, without asking the catalog, compared with an empty place", async () => {
     listPantryIn.mockResolvedValueOnce([]);
     const result = await analyzePlace({ image: photo("tom-hylla.png"), location: "Frys" }, { signal: signal() });
-    expect(result).toEqual(ok({ location: "Frys", suggestions: [], dropped: 0, inventory: { kind: "empty" }, reading: [] }));
+    expect(result).toEqual(
+      ok({ site: { id: hemma, name: "Hemma" }, location: "Frys", suggestions: [], dropped: 0, inventory: { kind: "empty" }, reading: [] }),
+    );
     expect(matchIngredients).not.toHaveBeenCalled();
     expect(getIngredientNames).not.toHaveBeenCalled();
   });
@@ -413,6 +424,7 @@ describe("analyzePlace", () => {
     analyzeImage.mockResolvedValueOnce(answer([], 2));
     expect(await analyzePlace({ image: kyl, location: "Kyl" }, { signal: signal() })).toEqual(
       ok({
+        site: { id: hemma, name: "Hemma" },
         location: "Kyl",
         suggestions: [],
         dropped: 2,
@@ -636,5 +648,67 @@ describe("analyzePlace", () => {
       // Once the analysis is done, the lookup runs.
       expect((await locatePlaceItems({ image: kyl, labels }, { signal: signal() })).ok).toBe(true);
     });
+  });
+});
+
+describe("analyzePlace for a place (Story 8.4)", () => {
+  const stugansKyl: PantryItem[] = [
+    { id: "7a1c1b7e-3c1a-4c55-9a59-0f3f2b8f2a11", siteId: stugan, ingredientId: mjolk, name: "Mjölk", location: "Kyl", amount: 2, unit: "förp" },
+  ];
+
+  it("reads the location on the photo's place, gives that place back, and never tells the AI about it", async () => {
+    listPantryIn.mockImplementation(async (_client, _location, _names, siteId) => (siteId === stugan ? stugansKyl : atHome));
+    const result = await analyzePlace({ image: kyl, location: "Kyl", siteId: stugan }, { signal: signal() });
+    if (!result.ok) throw new Error(result.error.code);
+    expect(result.data.site).toEqual({ id: stugan, name: "Stugan" });
+    expect(listPantryIn).toHaveBeenCalledTimes(1);
+    expect(listPantryIn.mock.calls[0][3]).toBe(stugan);
+    // The AI port's input is unchanged: the photo and the location only (AD-9).
+    expect(analyzeImage.mock.calls[0][0]).toEqual({ image: kyl, place: "Kyl" });
+    // "Smör" is unlimited at home only: on Stugan nothing is there of it.
+    expect(result.data.suggestions.find((suggestion) => suggestion.name === "Smör")?.current ?? null).toBeNull();
+  });
+
+  it("uses the selected place without `siteId` (a 1.0 client) and reads its location", async () => {
+    const result = await analyzePlace({ image: kyl, location: "Kyl" }, { signal: signal() });
+    if (!result.ok) throw new Error(result.error.code);
+    expect(result.data.site).toEqual({ id: hemma, name: "Hemma" });
+    expect(listPantryIn.mock.calls[0][3]).toBe(hemma);
+  });
+
+  it("gives site null for a user without places, and reads the selected place", async () => {
+    loadPantrySitesIn.mockResolvedValue([]);
+    const result = await analyzePlace({ image: kyl, location: "Kyl" }, { signal: signal() });
+    if (!result.ok) throw new Error(result.error.code);
+    expect(result.data.site).toBeNull();
+    expect(listPantryIn.mock.calls[0][3]).toBeUndefined();
+  });
+
+  it("gives pantry_site_gone without asking the AI for a place that is not the user's", async () => {
+    const other = "5a1c1b7e-3c1a-4c55-9a59-0f3f2b8f2aff";
+    expect(await analyzePlace({ image: kyl, location: "Kyl", siteId: other }, { signal: signal() })).toEqual(
+      fail("pantry_site_gone"),
+    );
+    expect(analyzeImage).not.toHaveBeenCalled();
+    expect(matchIngredients).not.toHaveBeenCalled();
+    expect(listPantryIn).not.toHaveBeenCalled();
+    expect(JSON.stringify(vi.mocked(console.error).mock.calls)).not.toMatch(/Stugan|Hemma/);
+  });
+
+  it("gives pantry_unavailable without asking the AI when the places cannot be read", async () => {
+    loadPantrySitesIn.mockRejectedValue(new PantryDataError("query_failed 500"));
+    expect(await analyzePlace({ image: kyl, location: "Kyl", siteId: stugan }, { signal: signal() })).toEqual(
+      fail("pantry_unavailable"),
+    );
+    expect(analyzeImage).not.toHaveBeenCalled();
+    expect(console.error).toHaveBeenCalledWith("pantry_unavailable", { reason: "query_failed 500" });
+  });
+
+  it("checks the user before the place", async () => {
+    requireUser.mockResolvedValue(fail("unauthorized"));
+    expect(await analyzePlace({ image: kyl, location: "Kyl", siteId: stugan }, { signal: signal() })).toEqual(
+      fail("unauthorized"),
+    );
+    expect(loadPantrySitesIn).not.toHaveBeenCalled();
   });
 });

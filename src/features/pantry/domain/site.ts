@@ -42,11 +42,22 @@ export type PantrySiteWithCount = PantrySite & { itemCount: number | null };
 /** The selected place, and how many places the user has (the line "Lager: Stugan" shows from two). */
 export type SelectedSite = { id: string; name: string; siteCount: number };
 
+/** A place's name as the database keeps it: 1 to maxSiteNameChars characters (pantry_site_name_check). */
+const siteNameSchema = z.string().refine((name) => name.length > 0 && charLength(name) <= maxSiteNameChars);
+
+/**
+ * The place a photo was taken for (Story 8.4, FR-33, AD-24): its id, which
+ * every write from the photo's suggestions sends, and its name, for
+ * "Förslagen gäller Stugan.".
+ */
+export const photoSiteSchema = z.object({ id: z.uuid(), name: siteNameSchema });
+export type PhotoSite = z.infer<typeof photoSiteSchema>;
+
 /** A pantry_site row as the database gives it, read as a PantrySite. */
 export const pantrySiteRowSchema = z
   .object({
     id: z.uuid(),
-    name: z.string().refine((name) => name.length > 0 && charLength(name) <= maxSiteNameChars),
+    name: siteNameSchema,
     is_selected: z.boolean(),
   })
   .transform((row): PantrySite => ({ id: row.id, name: row.name, isSelected: row.is_selected }));

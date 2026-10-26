@@ -12,6 +12,8 @@ import { focusAfter, PantrySuggestionsProvider, putBack } from "./pantry-suggest
 
 /** The place Hemma shows (Story 8.2). */
 const testSite = { id: "55555555-5555-4555-8555-555555555555" };
+/** The place a photo was taken for (Story 8.4): the one Hemma shows. */
+const photoSite = { id: testSite.id, name: "Hemma" };
 
 // The analysis as Hemma holds it (PantrySuggestionsProvider with the camera
 // and the section), with the photo's resizing (downscaleImage) and
@@ -49,7 +51,10 @@ vi.mock("../actions/remove-pantry-item", () => ({ removePantryItem: vi.fn() }));
 vi.mock("../actions/empty-pantry-place", () => ({ emptyPantryPlace: vi.fn() }));
 vi.mock("../actions/restore-pantry-removal", () => ({ restorePantryRemoval: vi.fn() }));
 vi.mock("../actions/restore-pantry-item", () => ({ restorePantryItem: vi.fn() }));
-vi.mock("../actions/confirm-pantry-suggestions", () => ({ confirmPantrySuggestions: vi.fn() }));
+const confirmPantrySuggestions = vi.fn();
+vi.mock("../actions/confirm-pantry-suggestions", () => ({
+  confirmPantrySuggestions: (...args: unknown[]) => confirmPantrySuggestions(...args),
+}));
 vi.mock("../actions/confirm-pantry-inventory", () => ({ confirmPantryInventory: vi.fn() }));
 
 const mjolkId = "6f1c1b7e-3c1a-4c55-9a59-0f3f2b8f2a01";
@@ -66,6 +71,7 @@ const suggestion = (id: string, name: string, change: Partial<PantrySuggestion> 
   ...change,
 });
 const fridge: AnalyzeResult = {
+  site: photoSite,
   location: "Kyl",
   dropped: 0,
   inventory: { kind: "empty" },
@@ -77,17 +83,17 @@ const fridge: AnalyzeResult = {
     }),
   ],
 };
-const freezer: AnalyzeResult = { location: "Frys", suggestions: [suggestion("s1", "ärtor", { location: "Frys" })], dropped: 0, inventory: { kind: "empty" } };
+const freezer: AnalyzeResult = { site: photoSite, location: "Frys", suggestions: [suggestion("s1", "ärtor", { location: "Frys" })], dropped: 0, inventory: { kind: "empty" } };
 
-function Hemma({ location = "Kyl" }: { location?: Location }) {
+function Hemma({ location = "Kyl", shownSiteId = testSite.id }: { location?: Location; shownSiteId?: string }) {
   return (
     <ToastProvider>
       <PantrySuggestionsProvider>
         <PantrySheetProvider location={location} site={testSite}>
           {/* Keyed like Hemma's <Suspense>: another card mounts them anew under the same provider. */}
           <div key={location}>
-            <PantryCamera location={location} />
-            <PantrySuggestionList />
+            <PantryCamera siteId={shownSiteId} location={location} />
+            <PantrySuggestionList siteId={shownSiteId} />
           </div>
           <button type="button">Utanför</button>
         </PantrySheetProvider>
@@ -165,7 +171,7 @@ describe("PantrySuggestionsProvider", () => {
 
   it("treats an answer that does not pass analyzeResultSchema as ai_invalid", async () => {
     render(<Hemma />);
-    await analyzeWith(ok({ location: "Kyl", suggestions: [{ id: "s1", name: "mjölk" }], dropped: 0 }));
+    await analyzeWith(ok({ site: photoSite, location: "Kyl", suggestions: [{ id: "s1", name: "mjölk" }], dropped: 0 }));
     expect(await screen.findByRole("alert")).toHaveTextContent(errorMessages.ai_invalid);
     expect(cardNames()).toEqual([]);
   });
@@ -242,7 +248,7 @@ describe("PantrySuggestionsProvider", () => {
   it("shows the empty text for an empty answer, the earlier suggestions go, and the camera button takes focus", async () => {
     render(<Hemma />);
     await analyzeWith(ok(fridge));
-    await analyzeWith(ok({ location: "Kyl", suggestions: [], dropped: 0, inventory: { kind: "unread" } }));
+    await analyzeWith(ok({ site: photoSite, location: "Kyl", suggestions: [], dropped: 0, inventory: { kind: "unread" } }));
     expect(screen.getByText("Hittade inga varor på bilden. Prova ett ljusare foto eller lägg till för hand.")).toBeInTheDocument();
     expect(cardNames()).toEqual([]);
     expect(heading()).toBeNull();
@@ -251,7 +257,7 @@ describe("PantrySuggestionsProvider", () => {
 
   it("says so when the AI named items but none could be used", async () => {
     render(<Hemma />);
-    await analyzeWith(ok({ location: "Kyl", suggestions: [], dropped: 4, inventory: { kind: "unread" } }));
+    await analyzeWith(ok({ site: photoSite, location: "Kyl", suggestions: [], dropped: 4, inventory: { kind: "unread" } }));
     expect(
       screen.getByText("Det gick inte att tolka varorna på bilden. Ta en ny bild eller lägg till för hand."),
     ).toBeInTheDocument();
@@ -363,5 +369,47 @@ describe("putBack", () => {
     expect(names(putBack([s4], s2, { before: "s1", after: "s3", index: 1 }))).toEqual(["s4", "s2"]);
     expect(names(putBack([s3, s4], s1, { before: null, after: "s2", index: 0 }))).toEqual(["s1", "s3", "s4"]);
     expect(names(putBack([s1, s2], s2, { before: "s1", after: null, index: 1 }))).toEqual(["s1", "s2"]);
+  });
+});
+
+describe("the photo's place (Story 8.4)", () => {
+  const stugan = { id: "66666666-6666-4666-8666-666666666666", name: "Stugan" };
+
+  it("sends the place Hemma shows with the photo, and the same place with Försök igen", async () => {
+    render(<Hemma shownSiteId={stugan.id} />);
+    choose();
+    await resize();
+    expect(lastCall().form.get("site")).toBe(stugan.id);
+    await answer(fail("ai_unavailable"));
+    fireEvent.click(await screen.findByRole("button", { name: "Försök igen" }));
+    expect(calls).toHaveLength(2);
+    expect(lastCall().form.get("site")).toBe(stugan.id);
+  });
+
+  it("shows pantry_site_gone in the camera area without Försök igen, and reads the page again", async () => {
+    render(<Hemma />);
+    await analyzeWith(fail("pantry_site_gone"));
+    expect(await within(screen.getByTestId("pantry-camera")).findByRole("alert")).toHaveTextContent(
+      "Stället finns inte längre. Välj ett annat ställe.",
+    );
+    expect(screen.queryByRole("button", { name: "Försök igen" })).toBeNull();
+    expect(refresh).toHaveBeenCalledTimes(1);
+  });
+
+  it("says which place the suggestions are for while Hemma shows another, and saves on the photo's place", async () => {
+    confirmPantrySuggestions.mockReset().mockResolvedValue(ok({ count: 1 }));
+    const { rerender } = render(<Hemma shownSiteId={stugan.id} />);
+    await analyzeWith(ok({ ...fridge, site: stugan }));
+    expect(screen.getByTestId("pantry-suggestions-site")).toBeEmptyDOMElement();
+
+    // Pontus selects Hemma while the suggestions show: they stay, with a line about their place.
+    rerender(<Hemma shownSiteId={testSite.id} />);
+    expect(cardNames()).toEqual(["grädde", "mjölk"]);
+    expect(screen.getByTestId("pantry-suggestions-site")).toHaveTextContent("Förslagen gäller Stugan.");
+    expect(screen.getByTestId("pantry-suggestions-site")).toHaveAttribute("role", "status");
+
+    fireEvent.click(screen.getByRole("button", { name: "Bekräfta grädde" }));
+    await waitFor(() => expect(confirmPantrySuggestions).toHaveBeenCalledTimes(1));
+    expect(confirmPantrySuggestions.mock.calls[0][0]).toMatchObject({ siteId: stugan.id });
   });
 });

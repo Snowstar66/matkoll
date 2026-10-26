@@ -5,10 +5,10 @@ import { PantryDataError, pantryWriteError, type PantryDb } from "./client";
 
 const itemsSchema = z.array(pantryItemSetSchema).min(1);
 const replaceIdSchema = z.uuid().nullable();
-const siteIdSchema = z.uuid().optional();
+const siteIdSchema = z.uuid().nullish();
 
-/** A row as set_pantry_items left it. */
-export type SetPantryRow = PantryItemSet & { id: string };
+/** A row as set_pantry_items left it, with its place (Story 8.4) when the answer had it. */
+export type SetPantryRow = PantryItemSet & { id: string; siteId?: string };
 
 /**
  * setPantryItems (AD-19) for the signed-in user (RLS limits it to their
@@ -20,10 +20,11 @@ export type SetPantryRow = PantryItemSet & { id: string };
  * the row when one of them changed. One transaction (set_pantry_items): all
  * or nothing. Returns the rows set, in order.
  *
- * `siteId` is the place to set on (AD-24, FR-33), also with `replaceId`,
- * which is removed only from that place. Without it, set_pantry_items uses
- * the place selected when the call arrives: only for the callers that do not
- * send a place yet (confirmed lagerförslag, until Story 8.4).
+ * `siteId` is the place to set on (AD-24, FR-33): the place the sheet was
+ * opened for, or the photo's place for confirmed lagerförslag (Story 8.4),
+ * also with `replaceId`, which is removed only from that place. Without it,
+ * set_pantry_items uses the place selected when the call arrives: only for a
+ * photo of a user without places.
  *
  * Throws PantryDataError: `invalid_items` before anything is written,
  * `site_gone` for a place that is gone (MK410), or `set_failed <code>` when
@@ -34,7 +35,7 @@ export async function setPantryItemsIn(
   db: PantryDb,
   items: readonly PantryItemSet[],
   replaceId: string | null = null,
-  siteId?: string,
+  siteId?: string | null,
 ): Promise<SetPantryRow[]> {
   const parsedItems = itemsSchema.safeParse(items);
   const parsedReplaceId = replaceIdSchema.safeParse(replaceId);
@@ -63,6 +64,6 @@ export async function setPantryItemsIn(
       unit: row.unit,
     });
     if (!parsed.success) throw new PantryDataError("invalid_row");
-    return { id: row.id, ...parsed.data };
+    return { id: row.id, siteId: row.site_id, ...parsed.data };
   });
 }

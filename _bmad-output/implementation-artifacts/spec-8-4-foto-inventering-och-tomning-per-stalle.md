@@ -2,7 +2,8 @@
 title: 'Story 8.4: Foto, inventering och tömning per ställe'
 type: 'feature'
 created: '2026-10-26'
-status: 'draft'
+status: 'in-progress'
+baseline_commit: '2d6f200097a038c8c6170735ed400858799eead7'
 route: 'dispatch'
 context:
   - '{project-root}/_bmad-output/implementation-artifacts/epic-8-context.md'
@@ -102,14 +103,14 @@ context:
 ## Tasks & Acceptance
 
 **Execution:**
-- [ ] `src/features/pantry/domain/pantry-suggestion.ts` (+ test):
+- [x] `src/features/pantry/domain/pantry-suggestion.ts` (+ test):
   - `analyzeResultSchema` får `site: { id: uuid, name: string } | null`. `null` gäller bara en användare som ännu saknar ställen.
   - `confirmSuggestionsSchema` blir `{ siteId: uuid | null, items }`, och `inventoryConfirmSchema` får `siteId: uuid | null`. Gränserna (40 poster, 50 och 1 000 id) är oförändrade.
   - `suggestionsSiteText(name)` ger "Förslagen gäller Stugan.".
 
   -- FR-24, FR-25, AD-24
-- [ ] `src/features/pantry/domain/places.ts` (+ test) -- `emptyPlaceQuestion(location, count, site)` och `emptiedPlaceText(location, count, site)` tar `SelectedSite | null` och lägger till `siteSuffix(site)` före punkten eller frågetecknet. Det ger "Ta bort alla 14 varor i kylen för Stugan?" och "Tog bort 14 varor ur kylen för Stugan.", och texterna från 6.3 med ett ställe -- EXPERIENCE.md, Voice and Tone
-- [ ] `src/app/api/ai/analyze/route.ts` (+ test), `src/features/pantry/actions/analyze-place.ts` (+ test):
+- [x] `src/features/pantry/domain/places.ts` (+ test) -- `emptyPlaceQuestion(location, count, site)` och `emptiedPlaceText(location, count, site)` tar `SelectedSite | null` och lägger till `siteSuffix(site)` före punkten eller frågetecknet. Det ger "Ta bort alla 14 varor i kylen för Stugan?" och "Tog bort 14 varor ur kylen för Stugan.", och texterna från 6.3 med ett ställe -- EXPERIENCE.md, Voice and Tone
+- [x] `src/app/api/ai/analyze/route.ts` (+ test), `src/features/pantry/actions/analyze-place.ts` (+ test):
   - Formuläret får fältet `site` (`z.uuid()`). Ett fält som saknas betyder valt ställe och finns bara för en 1.0-klient under driftsättningen. Ett fält som inte är ett uuid ger `validation`.
   - `analyzePlace({ image, location, siteId })` slår upp stället med `listPantrySites()` innan `analyzeImage` anropas. Ett okänt id ger `pantry_site_gone` och inget AI-anrop.
   - `readPlace(location, siteId)` läser platsen på det stället (`listPantryIn(…, siteId)`).
@@ -117,26 +118,26 @@ context:
   - Ett test låser att indata till `analyzeImage` är oförändrad (bara `image` och `place`).
 
   -- FR-24, AD-9, AD-24
-- [ ] `src/features/pantry/data/set.ts`, `inventory.ts`, `remove.ts` (+ tester):
+- [x] `src/features/pantry/data/set.ts`, `inventory.ts`, `remove.ts` (+ tester):
   - `setPantryItemsIn(…, siteId)`, `applyPantryInventoryIn(db, { …, siteId })` och `emptyPantryPlaceIn(db, location, operationId, siteId)` skickar `site`.
   - `MK410` ger detaljen `site_gone`.
   - Rader i svaren har `siteId`.
 
   -- AD-19
-- [ ] `src/features/pantry/actions/confirm-pantry-suggestions.ts`, `confirm-pantry-inventory.ts`, `empty-pantry-place.ts` (+ tester):
+- [x] `src/features/pantry/actions/confirm-pantry-suggestions.ts`, `confirm-pantry-inventory.ts`, `empty-pantry-place.ts` (+ tester):
   - `confirmPantrySuggestions({ siteId, items })`, `confirmPantryInventory({ …, siteId })` och `emptyPantryPlace(location, operationId, siteId)` validerar `siteId` och skickar det vidare.
   - `site_gone` ger `pantry_site_gone` utan skrivning.
   - Det nya försöket med ett nytt operations-id (`MK409`) behåller stället.
 
   Testerna visar att stället skickas, och att `revalidatePantryCommitted` bara anropas efter en lyckad skrivning -- FR-25, FR-33
-- [ ] `src/lib/errors.ts`, `domain/pantry-suggestion.ts` -- inga nya koder. `pantry_site_gone` (8.2) läggs inte i `analyzeRetryCodes`, så den visas utan "Försök igen", eftersom ett nytt försök inte hjälper, och fotot släpps -- AD-13
-- [ ] `src/features/pantry/ui/use-pantry-analysis.ts`, `pantry-camera.tsx` (+ tester):
+- [x] `src/lib/errors.ts`, `domain/pantry-suggestion.ts` -- inga nya koder. `pantry_site_gone` (8.2) läggs inte i `analyzeRetryCodes`, så den visas utan "Försök igen", eftersom ett nytt försök inte hjälper, och fotot släpps -- AD-13
+- [x] `src/features/pantry/ui/use-pantry-analysis.ts`, `pantry-camera.tsx` (+ tester):
   - `analyze(file, location, site)` skickar `site.id` i formuläret, och `KeptPhoto` får stället, så att "Försök igen" gäller samma ställe.
   - `PantryCamera` får `site` från `PantryPlace`.
   - Ett `pantry_site_gone` visas i kameraytan och läser om sidan.
 
   -- FR-24
-- [ ] `src/features/pantry/ui/pantry-suggestions.tsx`, `pantry-suggestion-list.tsx`, `pantry-item-sheet.tsx` (+ tester):
+- [x] `src/features/pantry/ui/pantry-suggestions.tsx`, `pantry-suggestion-list.tsx`, `pantry-item-sheet.tsx` (+ tester):
   - Alla skrivningar från förslagen, alltså Bekräfta, arkets "Bekräfta" (`confirmCorrected`), "Bekräfta alla" och "Ta bort", skickar `result.site?.id ?? null`. "Behåll" och Avvisa skriver inget, som förut.
   - `spareOperation` och sammanslagningen av "Ta bort" gäller ställe och plats.
   - `PantrySuggestionList` får det ställe Hemma visar och visar `suggestionsSiteText(result.site.name)` under rubriken när det skiljer sig från förslagens. Raden är `role="status"` och annonseras en gång när den visas.
@@ -144,7 +145,7 @@ context:
   - Förslagens generation byts inte när stället byts.
 
   -- FR-25, FR-33, AD-20
-- [ ] `src/features/pantry/ui/empty-place.tsx`, `pantry-removal.tsx`, `pantry-place.tsx` (+ tester):
+- [x] `src/features/pantry/ui/empty-place.tsx`, `pantry-removal.tsx`, `pantry-place.tsx` (+ tester):
   - `EmptyPlaceButton` får `site` och sparar det med operations-id:t när arket öppnas.
   - Frågan och bekräftelsen använder de nya texterna.
   - `emptyPlace(site, location, items, operationId)` och `isPending(siteId, location)` gäller ställe och plats.
@@ -152,7 +153,7 @@ context:
   - "Ångra" (`restorePantryRemoval`) är oförändrad och sätter tillbaka på radernas ställe.
 
   -- FR-33, AD-20
-- [ ] `tests/integration/pantry-site.test.ts` (utökad), med samma ingrediens i kylen på två ställen för samma användare:
+- [x] `tests/integration/pantry-site.test.ts` (utökad), med samma ingrediens i kylen på två ställen för samma användare:
   - `apply_pantry_inventory` med `site` ändrar, ersätter och tar bort bara på det stället. `remove_ids` och `replace_ids` från det andra stället hoppas över.
   - Posten i `pantry_removal` har `site_id` på varje rad.
   - `empty_pantry_place` med `site` tömmer bara det stället, och samma operations-id igen ger samma post.
@@ -161,8 +162,8 @@ context:
   - `MK410` ges för en annan användares ställe.
 
   -- AD-19, AD-20, AD-24
-- [ ] `tests/e2e/pantry-camera.spec.ts`, `pantry-suggestions.spec.ts`, `pantry-inventory.spec.ts`, `empty-place.spec.ts` -- går igenom med ett ställe och texterna från 1.0. Bara förväntningar som läser begäran (fältet `site`) uppdateras.
-- [ ] `tests/e2e/site-photo.spec.ts` (+ `support.ts`, `global-setup.ts`) -- egen e2e-användare `e2e-stalle-foto@matkoll.test` (`sitePhotoEmail`, i `e2eEmails`), med `AI_PROVIDER=mock` och `kyl.png`. Före varje test seedar service role:
+- [x] `tests/e2e/pantry-camera.spec.ts`, `pantry-suggestions.spec.ts`, `pantry-inventory.spec.ts`, `empty-place.spec.ts` -- går igenom med ett ställe och texterna från 1.0. Bara förväntningar som läser begäran (fältet `site`) uppdateras.
+- [x] `tests/e2e/site-photo.spec.ts` (+ `support.ts`, `global-setup.ts`) -- egen e2e-användare `e2e-stalle-foto@matkoll.test` (`sitePhotoEmail`, i `e2eEmails`), med `AI_PROVIDER=mock` och `kyl.png`. Före varje test seedar service role:
   - Stugan;
   - Hemmas kyl med mjölk 1 l och yoghurt 2 förp;
   - stugans kyl med mjölk 2 förp och senap (obegränsad);
@@ -176,7 +177,7 @@ context:
   - att en tom frys på Stugan ger 6.2:s lista när Hemmas frys har varor.
 
   -- matrisen
-- [ ] `docs/beslutslogg.md` -- en post för storyn: att fotot binds till stället när det tas, raden "Förslagen gäller Stugan.", texterna för "Töm kylen" och att stället kontrolleras före AI-anropet.
+- [x] `docs/beslutslogg.md` -- en post för storyn: att fotot binds till stället när det tas, raden "Förslagen gäller Stugan.", texterna för "Töm kylen" och att stället kontrolleras före AI-anropet.
 
 **Acceptance Criteria:**
 - Given `pnpm lint && pnpm typecheck && pnpm test && pnpm test:integration && AI_PROVIDER=mock pnpm build && CI=1 pnpm test:e2e`, when de körs, then lyckas alla.
@@ -200,6 +201,24 @@ context:
   - I 8.2 nycklas `PantrySuggestionsProvider` på valt ställe i `hemma/home-place.tsx`, så att förslagen och väntande borttagningar försvinner vid ett byte. När förslagen bär sitt ställe tas nyckeln bort, så att beslutet ovan ("förslagen står kvar när stället byts") gäller. Det som ska överleva ett byte ligger redan i `SiteSwitchProvider` ovanför nyckeln.
 
 ## Spec Change Log
+
+### Vid bygget
+
+- **Byggd på 6.6 med granskningens ändringar** (`2d6f200`, `baseline_commit`). `analyze-place.ts` fick `site` bredvid 6.6:s `readingOf`.
+- **Ingen migration.** Funktionerna från 8.1 tar redan `site`, filtrerar på `site_id` och lämnar `site_id` på raderna. Bara TypeScript-lagret ändrades.
+- **`analyzePlace` slår upp stället med `loadPantrySitesIn` i `data/sites.ts`, inte med `listPantrySites()`.** `pantry/server.ts` exporterar `analyzePlace`, så ett anrop tillbaka till `server.ts` hade gett ett cirkulärt beroende, och React `cache` memoiserar inte i en Route Handler. Resultatet är detsamma: användarens ställen läses en gång, före AI-anropet.
+- **Går ställena inte att läsa före AI-anropet ges `pantry_unavailable`** (503) utan AI-anrop. Koden läggs i `analyzeRetryCodes`, så att "Försök igen" skickar samma foto för samma ställe igen. Specen nämner bara `pantry_site_gone`. Ingen ny felkod. `pantry_site_gone` svarar 409 från routen.
+- **`analyze(file, location, siteId)` och `PantryCamera`/`PantrySuggestionList` tar ställets id** (`siteId`), inte hela stället. Namnet kommer från serverns svar (`result.site.name`), så klienten behöver bara id:t.
+- **Raden "Förslagen gäller Stugan." är ett `<p role="status">` direkt under rubriken, som alltid finns och är dold när den är tom,** som 6.6:s statusrad, så att texten annonseras när den kommer. Ett test från snabbfixen efter 6.5 som kräver att miniatyren står direkt efter rubriken läser nu förbi den tomma raden. Med `PantrySuggestionsProvider` utan nyckel står förslagen kvar vid ett byte, men listan under `<Suspense key>` monteras om. Därför finns texten redan när raden monteras efter ett byte, och skärmläsaren läser den med sektionen (manuell kontroll med VoiceOver).
+- **Rätta:** arket Lagervara öppnas för förslagets ställe (`target.siteId` från `result.site`), och `confirmCorrected` skickar `result.site?.id ?? null`.
+- **`removedCountText(count, locations, site)`** tar stället. `null` betyder att raderna kommer från fler än ett ställe, och då står texten utan plats och ställe ("Tog bort 17 varor."). `maybeEmptiedText` är oförändrad, eftersom den bara visas när Hemma visar samma ställe.
+- **"Kylen kan ha tömts.":** posten för ett förlorat svar glöms när Hemma rapporterar ett annat ställe, så att "Ångra" inte erbjuds om Hemma byter ställe och sedan byter tillbaka.
+- **`EmptyPlaceButton` tar `site` (`SelectedSite`)** och sparar det med operations-id:t i arket. `emptyPlace(site, …)` behöver namnet för "… för Stugan.". `emptyPantryPlace(location, operationId, siteId)` kräver det tredje argumentet. En upprepning med ett annat ställe ger `MK409` och därmed `pantry_empty_failed`, men klienten skickar aldrig samma id för ett annat ställe.
+- **`confirmSuggestionsSchema` är ett objekt,** så fältfelen har sökvägen `["items", index]`. Actionen läser dem därifrån, och klienten får samma `fields` som förut.
+- **Rader i svaren har `siteId`:** `SetPantryRow.siteId` är valfritt, och svaren från `apply_pantry_inventory` och `restore_pantry_removal` läser `site_id`. Fyra jämförelser i `tests/integration/pantry.test.ts` fick `siteId`. I testet där en annan användare försöker sätta tillbaka ägarens rad ger raden med sitt ställe nu `site_gone` (MK410) före `23503`. Utan ställe ger den `23503` som förut.
+- **E2E i `pantry-sites.spec.ts` (8.2):** testet "förslagen försvinner vid ett byte" visar nu det nya beteendet. Förslagen står kvar, raden "Förslagen gäller Hemma." visas och "Bekräfta alla" sparar på Hemma.
+- **E2E läser fältet `site` i sidan:** Chromium ger Playwright ingen kropp för en begäran med en fil, så `site-photo.spec.ts` lägger ett omslag kring `fetch` i sidan (`addInitScript`) och läser `FormData`.
+- **Samtidiga skrivningar** i integrationstestet görs med samma klient i `Promise.all`. Testet visar att båda lyckas och att resultatet är detsamma som efter varandra. Ordningen själv syns inte utifrån.
 
 ## Review Triage Log
 

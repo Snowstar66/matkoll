@@ -450,6 +450,21 @@ test.describe("/api/ai/analyze", () => {
     expect(response.status()).toBe(400);
     expect(await response.json()).toMatchObject({ ok: false, error: { code: "validation" } });
   });
+
+  test("answers validation for a `site` that is not a uuid, and pantry_site_gone for one that is not the user's (Story 8.4)", async ({
+    request,
+  }) => {
+    const image = { name: "kyl.png", mimeType: "image/png", buffer: await readFixture(kyl) };
+    const forged = await request.post("/api/ai/analyze", { multipart: { image, location: "Kyl", site: "stugan" } });
+    expect(forged.status()).toBe(400);
+    expect(await forged.json()).toMatchObject({ ok: false, error: { code: "validation" } });
+
+    const gone = await request.post("/api/ai/analyze", {
+      multipart: { image, location: "Kyl", site: "00000000-0000-4000-8000-000000000000" },
+    });
+    expect(gone.status()).toBe(409);
+    expect(await gone.json()).toMatchObject({ ok: false, error: { code: "pantry_site_gone" } });
+  });
 });
 
 test.describe("/api/ai/locate (Story 6.6)", () => {

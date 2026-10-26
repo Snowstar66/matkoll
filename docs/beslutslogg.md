@@ -2,6 +2,13 @@
 
 Beslut som fattats under bygget: vad, varför och vilka alternativ som fanns. Nyaste överst.
 
+## 2026-10-26 – Foto, inventering och tömning per ställe (Story 8.4)
+
+- **Fotot binds till stället när det tas, inte när svaret kommer.** Klienten skickar ställets id med fotot till `/api/ai/analyze`, och svaret har stället (`site`, id och namn). Bekräfta, Rätta, "Bekräfta alla", "Ta bort" och inventeringen skickar det stället, också när Pontus har valt ett annat under analysen eller medan förslagen visas. Varför: analysen kan ta upp till 100 s med den lokala modellen, och fotot gäller det kylskåp som fotograferades (FR-33, AD-24). Alternativ: stället som är valt när svaret kommer, vilket kan lägga stugans mjölk hemma.
+- **Förslagen står kvar när stället byts, och raden "Förslagen gäller Stugan." står under rubriken** så länge Hemma visar ett annat ställe än förslagens. Med ett ställe, eller när Hemma visar förslagens ställe, syns ingen rad, och bekräftelserna är oförändrade. Varför: samma regel som när platskortet byts (6.1). Den tillfälliga lösningen från 8.2, där förslagen försvann vid ett byte, är borta. Alternativ: "… för Stugan." i varje bekräftelse.
+- **"Töm kylen" tömmer det ställe som Hemma visade när arket öppnades,** och med fler än ett ställe säger texterna "Ta bort alla 14 varor i kylen för Stugan?" och "Tog bort 14 varor ur kylen för Stugan.". Med ett ställe är texterna som i 1.0. "Ångra" sätter tillbaka på radernas eget ställe, också efter ett byte. "Kylen kan ha tömts." erbjuds bara när Hemma fortfarande visar samma ställe.
+- **Stället kontrolleras före AI-anropet.** Ett ställe som inte finns, eller som är en annan användares, ger `pantry_site_gone` (409) utan AI-anrop och utan "Försök igen", och sidan läses om. Varför: en läsning av ställena är billig jämfört med en analys på 20–100 s, och ett foto av ett ställe som är borta går inte att spara ändå. Går ställena inte att läsa ges `pantry_unavailable` med "Försök igen". En klient utan fältet `site` (1.0 under driftsättningen) får valt ställe.
+- AI-porten, prompten och mocken är oförändrade: modellen får platsen som förut och aldrig stället (AD-9).
 ## 2026-10-26 – Inköpslista inför resan till ett annat ställe (Story 8.5)
 
 - **Underlag:** specen `spec-8-5-inkopslista-infor-resan-till-ett-annat-stalle.md`, där besluten var förslag, och AD-24.

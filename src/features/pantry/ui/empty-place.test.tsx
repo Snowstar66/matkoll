@@ -10,6 +10,10 @@ import type { AnalyzeResult, PantrySuggestion } from "../domain/pantry-suggestio
 import { PantrySheetProvider } from "./pantry-item-sheet";
 import { PantryPlace } from "./pantry-place";
 import { PantrySuggestionsProvider } from "./pantry-suggestions";
+import { SitesSheetContext } from "./site-switching";
+import type { SelectedSite } from "../domain/site";
+
+const noSheet = () => {};
 
 // "Töm kylen" on Hemma (Story 6.3): the button under the list, the sheet
 // that asks first, and what happens around it (focus, lagerförslag). The
@@ -17,9 +21,9 @@ import { PantrySuggestionsProvider } from "./pantry-suggestions";
 // changes and "Ångra" are tested in pantry-removal.test.tsx.
 
 type Emptied = { removed: number; removedIds: string[] };
-const emptyPantryPlace = vi.fn<(location: Location, operationId: string) => Promise<Result<Emptied>>>();
+const emptyPantryPlace = vi.fn<(location: Location, operationId: string, siteId: string | null) => Promise<Result<Emptied>>>();
 vi.mock("../actions/empty-pantry-place", () => ({
-  emptyPantryPlace: (location: Location, operationId: string) => emptyPantryPlace(location, operationId),
+  emptyPantryPlace: (location: Location, operationId: string, siteId: string | null) => emptyPantryPlace(location, operationId, siteId),
 }));
 const restorePantryRemoval = vi.fn();
 vi.mock("../actions/restore-pantry-removal", () => ({
@@ -45,8 +49,12 @@ vi.mock("@/lib/downscale-image", () => ({
   downscaleImage: async () => ok(new Blob(["small"], { type: "image/jpeg" })),
 }));
 
-/** The place Hemma shows; two places, so PantryPlace has no "Lägg till ställe" (it needs a SiteSwitch). */
-const hemma = { id: "55555555-5555-4555-8555-555555555555", name: "Hemma", siteCount: 2 };
+/** The place Hemma shows: the only one, so the texts are as in 1.0. */
+const hemma: SelectedSite = { id: "55555555-5555-4555-8555-555555555555", name: "Hemma", siteCount: 1 };
+/** A second place (Story 8.4): the texts name it. */
+const stugan: SelectedSite = { id: "66666666-6666-4666-8666-666666666666", name: "Stugan", siteCount: 2 };
+/** A photo of Hemma's fridge. */
+const photoOfHemma = { id: hemma.id, name: "Hemma" };
 
 const item = (n: number, location: Location = "Kyl"): PantryItem => ({
   id: `${String(n).padStart(8, "0")}-1111-4111-8111-111111111111`,
@@ -60,12 +68,20 @@ const item = (n: number, location: Location = "Kyl"): PantryItem => ({
 const items = (count: number, location: Location = "Kyl") => Array.from({ length: count }, (_, n) => item(n + 1, location));
 const emptiedOf = (emptied: readonly PantryItem[]): Emptied => ({ removed: emptied.length, removedIds: emptied.map(({ id }) => id) });
 
-function Hemma({ location = "Kyl", initial }: { location?: Location; initial: PantryItem[] }) {
+function Hemma({ location = "Kyl", initial, site = hemma }: { location?: Location; initial: PantryItem[]; site?: SelectedSite }) {
   return (
     <ToastProvider>
       <PantrySuggestionsProvider>
-        <PantrySheetProvider location={location} site={hemma}>
-          <PantryPlace site={hemma} location={location} counts={{ Kyl: 0, Frys: 3, Skafferi: 0, [location]: initial.length }} items={initial} />
+        <PantrySheetProvider location={location} site={site}>
+          {/* "Lägg till ställe" with one place needs the sheet Ställen; it is not opened here. */}
+          <SitesSheetContext.Provider value={noSheet}>
+            <PantryPlace
+              site={site}
+              location={location}
+              counts={{ Kyl: 0, Frys: 3, Skafferi: 0, [location]: initial.length }}
+              items={initial}
+            />
+          </SitesSheetContext.Provider>
         </PantrySheetProvider>
       </PantrySuggestionsProvider>
     </ToastProvider>
@@ -159,7 +175,7 @@ describe("the sheet", () => {
     // A second tap sends nothing more.
     fireEvent.click(sheetConfirm());
     expect(emptyPantryPlace).toHaveBeenCalledTimes(1);
-    expect(emptyPantryPlace).toHaveBeenCalledWith("Kyl", expect.any(String));
+    expect(emptyPantryPlace).toHaveBeenCalledWith("Kyl", expect.any(String), hemma.id);
 
     await act(async () => pending.resolve(ok(emptiedOf(kyl))));
     await waitFor(() => expect(screen.queryByRole("dialog", { name: "Töm kylen" })).toBeNull());
@@ -247,6 +263,7 @@ describe("lagerförslag when the location is emptied", () => {
 
   it("keeps the suggestions, without I kylen nu for the emptied location", async () => {
     const result: AnalyzeResult = {
+      site: photoOfHemma,
       location: "Kyl",
       dropped: 0,
       inventory: { kind: "empty" },
@@ -285,6 +302,7 @@ describe("lagerförslag when the location is emptied", () => {
   it("turns a photo compared with the emptied location into the plain list, without Syns inte längre", async () => {
     const yoghurtId = "40000000-aaaa-4aaa-8aaa-aaaaaaaaaaaa";
     const result: AnalyzeResult = {
+      site: photoOfHemma,
       location: "Kyl",
       dropped: 0,
       inventory: {
@@ -334,5 +352,70 @@ describe("lagerförslag when the location is emptied", () => {
     expect(await screen.findByText("Lagret i kylen har ändrats sedan bilden togs.")).toBeInTheDocument();
     expect(screen.getAllByTestId("pantry-suggestion")).toHaveLength(2);
     expect(screen.queryByTestId("pantry-missing")).toBeNull();
+  });
+});
+
+describe("Töm kylen on a place (Story 8.4)", () => {
+  it("empties the place Hemma shows, and names it from two places", async () => {
+    const kyl = items(14).map((one) => ({ ...one, siteId: stugan.id }));
+    emptyPantryPlace.mockResolvedValueOnce(ok(emptiedOf(kyl)));
+    render(<Hemma initial={kyl} site={stugan} />);
+    fireEvent.click(emptyButton()!);
+    expect(within(sheet()).getByText("Ta bort alla 14 varor i kylen för Stugan?")).toBeInTheDocument();
+    fireEvent.click(sheetConfirm());
+    await waitFor(() => expect(screen.getByTestId("toast")).toHaveTextContent("Tog bort 14 varor ur kylen för Stugan."));
+    expect(emptyPantryPlace).toHaveBeenCalledWith("Kyl", expect.any(String), stugan.id);
+  });
+
+  it("keeps the place the sheet opened for when trying again", async () => {
+    emptyPantryPlace.mockResolvedValueOnce(fail("pantry_site_gone"));
+    render(<Hemma initial={items(2)} site={stugan} />);
+    fireEvent.click(emptyButton()!);
+    fireEvent.click(sheetConfirm());
+    expect(await within(sheet()).findByRole("alert")).toHaveTextContent("Stället finns inte längre. Välj ett annat ställe.");
+    expect(screen.getAllByTestId("pantry-row")).toHaveLength(2);
+    fireEvent.click(await within(sheet()).findByRole("button", { name: "Töm kylen" }));
+    await waitFor(() => expect(emptyPantryPlace).toHaveBeenCalledTimes(2));
+    expect(emptyPantryPlace.mock.calls[1]).toEqual(emptyPantryPlace.mock.calls[0]);
+  });
+
+  it("leaves a photo of another place as it is", async () => {
+    const result: AnalyzeResult = {
+      site: photoOfHemma,
+      location: "Kyl",
+      dropped: 0,
+      inventory: { kind: "compared", incomplete: false, missing: [] },
+      suggestions: [
+        {
+          id: "1",
+          name: "mjölk",
+          ingredient: { kind: "existing", ingredientId: "10000000-aaaa-4aaa-8aaa-aaaaaaaaaaaa" },
+          location: "Kyl",
+          amount: 1,
+          unit: "förp",
+          current: { unlimited: false, amounts: [{ amount: 2, unit: "förp" }] },
+          change: "changed",
+          replaces: [],
+        },
+      ],
+    };
+    const kyl = items(2).map((one) => ({ ...one, siteId: stugan.id }));
+    emptyPantryPlace.mockResolvedValueOnce(ok(emptiedOf(kyl)));
+    render(<Hemma initial={kyl} site={stugan} />);
+    const pickers = screen.getByTestId("pantry-camera").querySelectorAll<HTMLInputElement>('input[type="file"]');
+    fireEvent.change(pickers[pickers.length - 1], {
+      target: { files: [new File([new Uint8Array([0xff, 0xd8, 0xff])], "IMG_1.jpg", { type: "image/jpeg" })] },
+    });
+    await waitFor(() => expect(screen.getByText("Tittar på bilden …")).toBeInTheDocument());
+    await act(async () => answerAnalysis(ok(result)));
+    expect(await screen.findByText("nu: 2 förp → bilden: 1 förp")).toBeInTheDocument();
+    expect(screen.getByText("Förslagen gäller Hemma.")).toBeInTheDocument();
+
+    fireEvent.click(emptyButton()!);
+    fireEvent.click(sheetConfirm());
+    await waitFor(() => expect(screen.getByTestId("toast")).toHaveTextContent("Tog bort 2 varor ur kylen för Stugan."));
+    // Hemma's fridge was not emptied: the comparison with it stands.
+    expect(screen.getByText("nu: 2 förp → bilden: 1 förp")).toBeInTheDocument();
+    expect(screen.getByRole("heading", { name: "Ändrat" })).toBeInTheDocument();
   });
 });

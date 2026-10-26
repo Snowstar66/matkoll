@@ -5,7 +5,8 @@ import { requireUser } from "@/features/auth/server";
 import { CatalogDataError } from "@/features/catalog/server";
 import { fail, ok, type Result } from "@/lib/errors";
 import { createClient } from "@/lib/supabase/server";
-import { PantryDataError } from "../data/client";
+import { revalidateFor } from "@/lib/revalidate";
+import { isSiteGone, PantryDataError, siteGoneCode } from "../data/client";
 import { applyPantryInventoryIn } from "../data/inventory";
 import type { PantryItemSet, PantryRow } from "../domain/pantry-item-form";
 import { inventoryConfirmSchema, suggestionInvalidText, type InventoryConfirmInput } from "../domain/pantry-suggestion";
@@ -44,11 +45,18 @@ export type ConfirmedInventory = {
  * Hemma and what is derived from the pantry (AD-18) after a successful write
  * only.
  *
+ * Story 8.4 (FR-33, AD-24): everything is read and written on the photo's
+ * place (`siteId`, sent as `site`), never on the one selected when the call
+ * arrives; ids of another place's rows are skipped. `null` is the selected
+ * place, only for a photo of a user without places.
+ *
  * Fails with `unauthorized`, `validation` (with the index of each item that
- * is not valid in `fields`, as confirmPantrySuggestions) or
+ * is not valid in `fields`, as confirmPantrySuggestions), `pantry_site_gone`
+ * (the place is removed or not the user's; the page is read again) or
  * `pantry_inventory_failed` (logged with its reason, never with names or
  * amounts); nothing in the pantry is written then. An operation id that is
- * taken is tried once more with a new one, which the answer gives back.
+ * taken is tried once more with a new one, for the same place, which the
+ * answer gives back.
  * Once the write has committed the answer is `ok`, also when the database's
  * answer could not all be read (logged as a warning).
  */
@@ -64,7 +72,7 @@ export async function confirmPantryInventory(input: InventoryConfirmInput): Prom
     }
     return Object.keys(fields).length > 0 ? fail("validation", fields) : fail("validation");
   }
-  const { location, items, replaceRowIds, removeRowIds, operationId } = parsed.data;
+  const { siteId, location, items, replaceRowIds, removeRowIds, operationId } = parsed.data;
 
   let sets: PantryItemSet[] = [];
   if (items.length > 0) {
@@ -78,8 +86,9 @@ export async function confirmPantryInventory(input: InventoryConfirmInput): Prom
   }
 
   const db = await createClient();
+  // The retry with a new operation id keeps the place.
   const apply = (operation: string | null) =>
-    applyPantryInventoryIn(db, { place: location, items: sets, replaceRowIds, removeRowIds, operationId: operation });
+    applyPantryInventoryIn(db, { place: location, items: sets, replaceRowIds, removeRowIds, operationId: operation, siteId });
   let applied: Awaited<ReturnType<typeof applyPantryInventoryIn>>;
   let usedOperation = operationId;
   try {
@@ -94,6 +103,12 @@ export async function confirmPantryInventory(input: InventoryConfirmInput): Prom
     }
   } catch (error) {
     if (!(error instanceof PantryDataError)) throw error;
+    if (isSiteGone(error)) {
+      // Nothing was written; the page is read again, so Hemma shows a place that is there.
+      console.error("pantry_site_gone", { reason: siteGoneCode });
+      revalidateFor("pantry_site");
+      return fail("pantry_site_gone");
+    }
     console.error("pantry_inventory_failed", { reason: error.message, detail: error.detail });
     return fail("pantry_inventory_failed");
   }

@@ -97,6 +97,7 @@ export async function restorePantryItemIn(db: PantryDb, row: PantryRow): Promise
 
 const answerRowSchema = z.object({
   id: z.uuid(),
+  site_id: z.uuid().optional(),
   ingredient_id: z.string(),
   location: z.string(),
   amount: z.union([z.number(), z.string()]).nullable(),
@@ -117,10 +118,11 @@ function answerRows(value: unknown): AnswerRow[] {
   });
 }
 
-/** An answer row as a PantryRow, or null when it is not one the domain knows. */
+/** An answer row as a PantryRow, with its place when the answer has it, or null when it is not one the domain knows. */
 function asPantryRow(row: AnswerRow): PantryRow | null {
   const parsed = pantryRowSchema.safeParse({
     id: row.id,
+    ...(row.site_id === undefined ? {} : { siteId: row.site_id }),
     ingredientId: row.ingredient_id,
     location: row.location,
     amount: row.amount === null ? null : Number(row.amount),
@@ -138,22 +140,37 @@ export type EmptiedPlace = { removed: number; removedIds: string[] };
 
 /**
  * emptyPantryPlace (AD-19) for the signed-in user: deletes every row in the
- * location for good (AD-20) and stores them under `operationId` for "Ångra"
- * (pantry_removal), in one transaction under pantry_lock()
- * (empty_pantry_place). Rows another tab added meanwhile go too. The same
- * operation id again (a retry after a lost answer) removes nothing more and
- * gives the same answer. The answer is one value, so it is never cut short.
+ * location of the place `siteId` (Story 8.4, sent as `site`; `null` is the
+ * place selected when the call arrives) for good (AD-20) and stores them
+ * under `operationId` for "Ångra" (pantry_removal), in one transaction under
+ * pantry_lock() (empty_pantry_place). Rows another tab added meanwhile go
+ * too; other places are never touched. The same operation id again (a retry
+ * after a lost answer) removes nothing more and gives the same answer, also
+ * when the place has been removed since. The answer is one value, so it is
+ * never cut short.
  *
- * Throws PantryDataError: `invalid_location` or `invalid_operation` before
- * anything is deleted, or `empty_failed <code>` when Postgres refuses (nothing
- * is deleted then). Never throws once the delete has committed.
+ * Throws PantryDataError: `invalid_location`, `invalid_operation` or
+ * `invalid_site` before anything is deleted, `site_gone` for a place that is
+ * removed or not the user's (MK410), or `empty_failed <code>` when Postgres
+ * refuses otherwise (MK409 for an operation id of another place's emptying);
+ * nothing is deleted then. Never throws once the delete has committed.
  */
-export async function emptyPantryPlaceIn(db: PantryDb, location: Location, operationId: string): Promise<EmptiedPlace> {
+export async function emptyPantryPlaceIn(
+  db: PantryDb,
+  location: Location,
+  operationId: string,
+  siteId: string | null,
+): Promise<EmptiedPlace> {
   const place = locationSchema.safeParse(location);
   if (!place.success) throw new PantryDataError("invalid_location");
   if (!idSchema.safeParse(operationId).success) throw new PantryDataError("invalid_operation");
-  const { data, error } = await db.rpc("empty_pantry_place", { place: place.data, operation_id: operationId });
-  if (error) throw new PantryDataError(`empty_failed ${error.code}`);
+  if (siteId !== null && !idSchema.safeParse(siteId).success) throw new PantryDataError("invalid_site");
+  const { data, error } = await db.rpc("empty_pantry_place", {
+    place: place.data,
+    operation_id: operationId,
+    ...(siteId === null ? {} : { site: siteId }),
+  });
+  if (error) throw pantryWriteError("empty_failed", error.code);
   const answer = (data ?? {}) as { removed?: unknown; items?: unknown };
   const removedIds = answerRows(answer.items).map((row) => row.id);
   const removed = typeof answer.removed === "number" ? answer.removed : removedIds.length;

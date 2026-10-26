@@ -14,6 +14,8 @@ import { PantrySuggestionsProvider } from "./pantry-suggestions";
 
 /** The place Hemma shows (Story 8.2). */
 const testSite = { id: "55555555-5555-4555-8555-555555555555" };
+/** The place a photo was taken for (Story 8.4): the one Hemma shows. */
+const photoSite = { id: testSite.id, name: "Hemma" };
 
 // Story 6.4: a photo compared with a place that has items. The section with
 // the groups Nytt, Ändrat and Syns inte längre, filled through the camera
@@ -95,6 +97,7 @@ const known = (
 
 /** The matrix's fridge: kyl.png against mjölk 2 förp, smör, ägg 6 st, yoghurt 2 förp and senap. */
 const fridge: AnalyzeResult = {
+  site: photoSite,
   location: "Kyl",
   dropped: 0,
   suggestions: [
@@ -139,14 +142,14 @@ const fridge: AnalyzeResult = {
   },
 };
 
-function Hemma({ location = "Kyl" }: { location?: Location }) {
+function Hemma({ location = "Kyl", shownSiteId = testSite.id }: { location?: Location; shownSiteId?: string }) {
   return (
     <ToastProvider>
       <PantrySuggestionsProvider>
         <PantrySheetProvider location={location} site={testSite}>
           <div key={location}>
-            <PantryCamera location={location} />
-            <PantrySuggestionList />
+            <PantryCamera siteId={shownSiteId} location={location} />
+            <PantrySuggestionList siteId={shownSiteId} />
           </div>
         </PantrySheetProvider>
       </PantrySuggestionsProvider>
@@ -310,6 +313,7 @@ describe("Bekräfta on a compared photo", () => {
     fireEvent.click(button("Bekräfta mjölk"));
     await waitFor(() => expect(saves).toHaveLength(1));
     expect(lastSave().input).toEqual({
+      siteId: photoSite.id,
       location: "Kyl",
       items: [{ ingredient: { kind: "existing", ingredientId: mjolkId }, location: "Kyl", amount: 1, unit: "förp" }],
       replaceRowIds: [mjolkLiterRow],
@@ -377,6 +381,45 @@ describe("Bekräfta on a compared photo", () => {
     fireEvent.click(within(moved).getByRole("button", { name: "Bekräfta" }));
     await waitFor(() => expect(saves).toHaveLength(2));
     expect(lastSave().input).toMatchObject({ items: [{ location: "Frys" }], replaceRowIds: [] });
+  });
+});
+
+describe("the photo's place (Story 8.4)", () => {
+  const stugan = { id: "66666666-6666-4666-8666-666666666666", name: "Stugan" };
+
+  it("saves Rätta's Bekräfta, Ta bort and Bekräfta alla on the photo's place while Hemma shows another", async () => {
+    const { rerender } = render(<Hemma shownSiteId={stugan.id} />);
+    await analyze({ ...fridge, site: stugan });
+    rerender(<Hemma shownSiteId={testSite.id} />);
+    expect(screen.getByTestId("pantry-suggestions-site")).toHaveTextContent("Förslagen gäller Stugan.");
+
+    fireEvent.click(button("Rätta mjölk"));
+    const sheet = screen.getByRole("dialog", { name: "Lagervara" });
+    fireEvent.click(within(sheet).getByRole("button", { name: "Bekräfta" }));
+    await waitFor(() => expect(saves).toHaveLength(1));
+    expect(lastSave().input.siteId).toBe(stugan.id);
+    await answerSave(answered({ set: 1 }));
+    await waitFor(() => expect(screen.queryByRole("dialog")).toBeNull());
+
+    fireEvent.click(button("Ta bort yoghurt"));
+    await waitFor(() => expect(saves).toHaveLength(2));
+    expect(lastSave().input).toMatchObject({ siteId: stugan.id, removeRowIds: [yoghurtRow] });
+  });
+
+  it("never sends the operation id of one place's removals with another place's", async () => {
+    render(<Hemma />);
+    await analyze({ ...fridge, site: stugan });
+    fireEvent.click(button("Ta bort yoghurt"));
+    await waitFor(() => expect(saves).toHaveLength(1));
+    const stuganOperation = lastSave().input.operationId;
+    // No answer: the id is kept for the next removal on the same place and location only.
+    await answerSave(fail("pantry_inventory_failed"));
+
+    await analyze({ ...fridge, site: { id: testSite.id, name: "Hemma" } });
+    fireEvent.click(button("Ta bort yoghurt"));
+    await waitFor(() => expect(saves).toHaveLength(2));
+    expect(lastSave().input.siteId).toBe(testSite.id);
+    expect(lastSave().input.operationId).not.toBe(stuganOperation);
   });
 });
 

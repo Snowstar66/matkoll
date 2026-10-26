@@ -28,14 +28,18 @@ import { focusIsFree } from "./use-pantry-analysis";
 // in a notice at the top of this area ("Allt i kylen stämmer med bilden."
 // when a photo matches the place, Story 6.4), and the camera button takes focus back
 // (unless Pontus has moved on, e.g. into the sheet); the rest of Hemma keeps
-// working.
+// working. Story 8.4: a photo is taken for the place Hemma shows; when that
+// place is gone, the area says so ("Stället finns inte längre. Välj ett annat
+// ställe.", without "Försök igen") and the page is read again.
 
 export type PantryCameraProps = {
+  /** The place Hemma shows (Story 8.4): a new photo is taken for it, and its suggestions stay with it. */
+  siteId: string;
   /** The chosen location: the button's text and the place a new photo shows. */
   location: Location;
 };
 
-export function PantryCamera({ location }: PantryCameraProps) {
+export function PantryCamera({ siteId, location }: PantryCameraProps) {
   const {
     analyzing,
     result,
@@ -81,7 +85,7 @@ export function PantryCamera({ location }: PantryCameraProps) {
   function onChosen(event: ChangeEvent<HTMLInputElement>) {
     const file = event.currentTarget.files?.[0];
     event.currentTarget.value = "";
-    if (file) analyze(file, location);
+    if (file) analyze(file, location, siteId);
   }
 
   let notice = null;

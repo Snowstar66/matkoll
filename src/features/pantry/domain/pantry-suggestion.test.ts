@@ -38,6 +38,7 @@ import {
   suggestionAmountText,
   suggestionsArrivedText,
   suggestionsHeading,
+  suggestionsSiteText,
   toPantrySuggestions,
   unreadableItemsText,
   isBulkConfirmable,
@@ -56,6 +57,8 @@ import { pantryItemFormSchema, type PantryItemFormInput } from "./pantry-item-fo
 const id = (n: number) => `6f1c1b7e-3c1a-4c55-9a59-0f3f2b8f2a0${n}`;
 const mjolk = id(1);
 const smor = id(2);
+/** The place a photo was taken for (Story 8.4). */
+const photoSite = { id: "55555555-5555-4555-8555-555555555555", name: "Stugan" };
 
 const hint = (name: string, location = "Kyl") => ({ name, section: "Mejeri", location, defaultUnit: "förp" });
 const item = (label: string, amount: number | null, unit: string | null, hintName = label.toLowerCase()): AiPantryItemLike => ({
@@ -367,12 +370,23 @@ describe("analyzeResultSchema", () => {
 
   it("takes an empty list and up to 25 suggestions, with the count of items left out", () => {
     expect(maxPantrySuggestions).toBe(25);
-    expect(analyzeResultSchema.safeParse({ location: "Kyl", suggestions: [], dropped: 3, inventory: { kind: "unread" } }).success).toBe(true);
+    expect(analyzeResultSchema.safeParse({ site: null, location: "Kyl", suggestions: [], dropped: 3, inventory: { kind: "unread" } }).success).toBe(true);
     const all = Array.from({ length: 25 }, (_, index) => ({ ...suggestion, id: `s${index + 1}` }));
-    expect(analyzeResultSchema.safeParse({ location: "Frys", suggestions: all, dropped: 0, inventory: { kind: "empty" } }).success).toBe(true);
+    expect(analyzeResultSchema.safeParse({ site: photoSite, location: "Frys", suggestions: all, dropped: 0, inventory: { kind: "empty" } }).success).toBe(true);
     expect(analyzeResultSchema.safeParse({ location: "Frys", suggestions: [...all, suggestion], dropped: 0 }).success).toBe(false);
     expect(analyzeResultSchema.safeParse({ location: "Frys", suggestions: [] }).success).toBe(false);
     expect(analyzeResultSchema.safeParse({ location: "Frys", suggestions: [], dropped: -1 }).success).toBe(false);
+  });
+
+  it("has the photo's place, or null for a user without places (Story 8.4)", () => {
+    const empty = { location: "Kyl", suggestions: [], dropped: 0, inventory: { kind: "empty" } };
+    expect(analyzeResultSchema.safeParse({ ...empty, site: photoSite }).success).toBe(true);
+    expect(analyzeResultSchema.safeParse({ ...empty, site: { ...photoSite, name: "s".repeat(40) } }).success).toBe(true);
+    expect(analyzeResultSchema.safeParse(empty).success).toBe(false);
+    expect(analyzeResultSchema.safeParse({ ...empty, site: { ...photoSite, id: "stugan" } }).success).toBe(false);
+    expect(analyzeResultSchema.safeParse({ ...empty, site: { ...photoSite, name: "" } }).success).toBe(false);
+    expect(analyzeResultSchema.safeParse({ ...empty, site: { ...photoSite, name: "s".repeat(41) } }).success).toBe(false);
+    expect(suggestionsSiteText("Stugan")).toBe("Förslagen gäller Stugan.");
   });
 
   it.each([
@@ -430,7 +444,7 @@ describe("item numbers and the reading (Story 6.6)", () => {
     change: null,
     replaces: [],
   };
-  const result = { location: "Kyl", suggestions: [], dropped: 0, inventory: { kind: "empty" } };
+  const result = { site: null, location: "Kyl", suggestions: [], dropped: 0, inventory: { kind: "empty" } };
 
   it("takes a suggestion's item numbers 1 to 25, and none", () => {
     expect(pantrySuggestionSchema.safeParse({ ...suggestion, itemNumbers: [1, 25] }).success).toBe(true);
@@ -525,7 +539,9 @@ describe("texts", () => {
   });
 
   it("offers Försök igen for the AI and the catalog, never for a photo that cannot be read", () => {
-    expect([...analyzeRetryCodes].sort()).toEqual(["ai_invalid", "ai_rejected", "ai_unavailable", "catalog_unavailable"]);
+    expect([...analyzeRetryCodes].sort()).toEqual(["ai_invalid", "ai_rejected", "ai_unavailable", "catalog_unavailable", "pantry_unavailable"]);
+    // Story 8.4: a place that is gone fails again.
+    expect(analyzeRetryCodes.has("pantry_site_gone")).toBe(false);
     expect(analyzeRetryCodes.has("image_unsupported")).toBe(false);
     expect(analyzeRetryCodes.has("image_too_large")).toBe(false);
   });
@@ -545,7 +561,7 @@ describe("confirmSuggestionsSchema", () => {
     amount: 6,
     unit: "st",
   });
-  const parse = (items: unknown) => confirmSuggestionsSchema.safeParse(items);
+  const parse = (items: unknown) => confirmSuggestionsSchema.safeParse({ siteId: photoSite.id, items });
 
   it("takes 1 to 40 items, unlimited ones and amounts just below 1 000 000", () => {
     expect(parse([existing()]).success).toBe(true);
@@ -558,7 +574,7 @@ describe("confirmSuggestionsSchema", () => {
 
   it("takes a new ingredient with or without its proposal id, and collapses its name", () => {
     const parsed = parse([fresh("  gul   lök ")]);
-    expect(parsed.success && parsed.data[0].ingredient).toEqual({
+    expect(parsed.success && parsed.data.items[0].ingredient).toEqual({
       kind: "new",
       proposalId: "n1",
       name: "gul lök",
@@ -663,7 +679,7 @@ describe("confirmItemFromSuggestion and confirmItemFromForm", () => {
       amount: 6,
       unit: "st",
     });
-    expect(confirmSuggestionsSchema.safeParse([confirmItemFromSuggestion(suggestion)]).success).toBe(true);
+    expect(confirmSuggestionsSchema.safeParse({ siteId: null, items: [confirmItemFromSuggestion(suggestion)] }).success).toBe(true);
   });
 
   // The place does not reach a confirmation: confirmPantrySuggestions sends none until Story 8.4.
@@ -868,7 +884,7 @@ describe("Inventera en plats med foto: texts, schema and Töm", () => {
 
   it("takes 0–40 items, at most 50 rows to replace and 1 000 to remove, something to do, and an operation id with removals", () => {
     const item = { ingredient: { kind: "existing" as const, ingredientId: mjolk }, location: "Kyl" as const, amount: 1, unit: "förp" as const };
-    const base = { location: "Kyl" as const, items: [item], replaceRowIds: [], removeRowIds: [], operationId: null };
+    const base = { siteId: photoSite.id, location: "Kyl" as const, items: [item], replaceRowIds: [], removeRowIds: [], operationId: null };
     expect(inventoryConfirmSchema.safeParse(base).success).toBe(true);
     expect(inventoryConfirmSchema.safeParse({ ...base, items: [], removeRowIds: [rowId], operationId: operation }).success).toBe(true);
     for (const wrong of [
@@ -879,6 +895,8 @@ describe("Inventera en plats med foto: texts, schema and Töm", () => {
       { ...base, removeRowIds: [rowId] },
       { ...base, removeRowIds: ["yoghurt"], operationId: operation },
       { ...base, location: "Källare" },
+      { ...base, siteId: "stugan" },
+      { ...base, siteId: undefined },
     ]) {
       expect(inventoryConfirmSchema.safeParse(wrong).success).toBe(false);
     }
@@ -897,20 +915,26 @@ describe("Inventera en plats med foto: texts, schema and Töm", () => {
       replaces: [rowId],
     };
     const result = {
+      site: photoSite,
       location: "Kyl" as const,
       dropped: 0,
       suggestions: [suggestion],
       inventory: { kind: "compared" as const, incomplete: false, missing: [] },
     };
-    expect(withoutPlace(result, "Kyl")).toEqual({
+    expect(withoutPlace(result, photoSite.id, "Kyl")).toEqual({
       ...result,
       suggestions: [{ ...suggestion, current: null, change: null, replaces: [] }],
       inventory: { kind: "empty" },
     });
-    expect(withoutPlace(result, "Frys")).toEqual(result);
+    expect(withoutPlace(result, photoSite.id, "Frys")).toEqual(result);
+    // Story 8.4: emptying another place's location changes nothing.
+    expect(withoutPlace(result, mjolk, "Kyl")).toEqual(result);
+    expect(withRestoredPlace(result, mjolk, "Kyl")).toEqual(result);
+    // A photo without a place (a user without places) is of the only place there is.
+    expect(withoutPlace({ ...result, site: null }, mjolk, "Kyl").inventory).toEqual({ kind: "empty" });
     // After "Ångra" for the emptied place, the photo no longer matches it.
-    expect(withRestoredPlace(withoutPlace(result, "Kyl"), "Kyl").inventory).toEqual({ kind: "unread", changed: true });
-    expect(withRestoredPlace(result, "Frys")).toEqual(result);
+    expect(withRestoredPlace(withoutPlace(result, photoSite.id, "Kyl"), photoSite.id, "Kyl").inventory).toEqual({ kind: "unread", changed: true });
+    expect(withRestoredPlace(result, photoSite.id, "Frys")).toEqual(result);
   });
 
   it("has texts for a changed place, a partial match, changes left and the removals' undo", () => {

@@ -5,7 +5,8 @@ import { loadIngredientNames } from "@/features/catalog/data/queries";
 import { PantryDataError } from "@/features/pantry/data/client";
 import { insertPantryDefaults } from "@/features/pantry/data/defaults";
 import { countPantryIn, listPantryIn, loadPantrySnapshot } from "@/features/pantry/data/queries";
-import { restorePantryItemIn } from "@/features/pantry/data/remove";
+import { applyPantryInventoryIn } from "@/features/pantry/data/inventory";
+import { emptyPantryPlaceIn, restorePantryItemIn, restorePantryRemovalIn } from "@/features/pantry/data/remove";
 import { setPantryItemsIn } from "@/features/pantry/data/set";
 import {
   deleteSiteIn,
@@ -1220,5 +1221,121 @@ describe("Hemma's reads and writes on a chosen place (Story 8.2)", () => {
     await expect(
       restorePantryItemIn(user.db, { id: id!, siteId: madeUpId, ingredientId: mjolk, location: "Kyl", amount: 1, unit: "l" }),
     ).rejects.toThrow(new PantryDataError("site_gone"));
+  });
+});
+
+describe("photo, inventory and emptying on a place (Story 8.4)", () => {
+  /** Milk in the fridge on both places, yoghurt at home and mustard (unlimited) in Stugan. */
+  async function stocked(name: string) {
+    const places = await twoPlaces(name);
+    const { user, hemma, stugan, mjolk } = places;
+    const yoghurt = await addIngredient(user.db, uniqueName("Yoghurt"));
+    const senap = await addIngredient(user.db, uniqueName("Senap"));
+    const [hemmaMjolk, hemmaYoghurt, stuganMjolk, stuganSenap] = await seed(user.id, [
+      { site_id: hemma, ingredient_id: mjolk, location: "Kyl", amount: 1, unit: "l" },
+      { site_id: hemma, ingredient_id: yoghurt, location: "Kyl", amount: 2, unit: "förp" },
+      { site_id: stugan, ingredient_id: mjolk, location: "Kyl", amount: 2, unit: "förp" },
+      { site_id: stugan, ingredient_id: senap, location: "Kyl" },
+    ]);
+    return { ...places, yoghurt, senap, hemmaMjolk: hemmaMjolk!, hemmaYoghurt: hemmaYoghurt!, stuganMjolk: stuganMjolk!, stuganSenap: stuganSenap! };
+  }
+
+  it("applyPantryInventoryIn changes, replaces and removes only on the place sent, and skips the other place's ids", async () => {
+    const s = await stocked("pantry-site-photo-inventory");
+    const hemmaBefore = await stateOf(s.user.id).then((rows) => rows.filter((row) => row.site_id === s.hemma));
+    const operation = randomUUID();
+
+    const applied = await applyPantryInventoryIn(s.user.db, {
+      siteId: s.stugan,
+      place: "Kyl",
+      items: [{ ingredientId: s.mjolk, location: "Kyl", amount: 1, unit: "l" }],
+      // Forged: Hemma's rows next to Stugan's.
+      replaceRowIds: [s.stuganMjolk, s.hemmaMjolk],
+      removeRowIds: [s.stuganSenap, s.hemmaYoghurt],
+      operationId: operation,
+    });
+    expect(applied).toMatchObject({ replaced: 1, removedCount: 1, undoable: 1, unreadable: false });
+    expect(applied.set).toEqual([expect.objectContaining({ siteId: s.stugan, ingredientId: s.mjolk, amount: 1, unit: "l" })]);
+    expect(applied.removed).toEqual([expect.objectContaining({ id: s.stuganSenap, siteId: s.stugan })]);
+    expect(await onSite(s.user.id, s.stugan)).toEqual([{ ingredient_id: s.mjolk, location: "Kyl", amount: 1, unit: "l" }]);
+    // Hemma's rows keep their ids, amounts and units.
+    expect((await stateOf(s.user.id)).filter((row) => row.site_id === s.hemma)).toEqual(hemmaBefore);
+
+    // The record for Ångra has the place on every row.
+    const { data: record } = await adminClient().from("pantry_removal").select("removed_rows").eq("id", operation).single();
+    expect(record?.removed_rows).toEqual([expect.objectContaining({ id: s.stuganSenap, site_id: s.stugan })]);
+  });
+
+  it("emptyPantryPlaceIn empties only the place sent, a replay gives the same record, and Ångra puts the rows back there", async () => {
+    const s = await stocked("pantry-site-photo-empty");
+    const operation = randomUUID();
+    const emptied = await emptyPantryPlaceIn(s.user.db, "Kyl", operation, s.stugan);
+    expect(emptied).toEqual({ removed: 2, removedIds: [s.stuganMjolk, s.stuganSenap].sort() });
+    expect(await onSite(s.user.id, s.stugan)).toEqual([]);
+    expect(await onSite(s.user.id, s.hemma)).toHaveLength(2);
+    expect(await emptyPantryPlaceIn(s.user.db, "Kyl", operation, s.stugan)).toEqual(emptied);
+    // The same id for another place is refused (MK409), and nothing more is removed.
+    await expect(emptyPantryPlaceIn(s.user.db, "Kyl", operation, s.hemma)).rejects.toThrow(new PantryDataError("empty_failed MK409"));
+    expect(await onSite(s.user.id, s.hemma)).toHaveLength(2);
+
+    // Hemma stays selected: "Ångra" puts the rows back on Stugan with the same ids.
+    const restored = await restorePantryRemovalIn(s.user.db, operation);
+    expect(restored.skipped).toBe(0);
+    expect(restored.restoredIds.sort()).toEqual([s.stuganMjolk, s.stuganSenap].sort());
+    expect(restored.rows.every((row) => row.siteId === s.stugan)).toBe(true);
+    const back = (await stateOf(s.user.id)).filter((row) => row.site_id === s.stugan).map((row) => row.id);
+    expect(back.sort()).toEqual([s.stuganMjolk, s.stuganSenap].sort());
+  });
+
+  it("restorePantryRemovalIn skips the rows of a place deleted since", async () => {
+    const s = await stocked("pantry-site-photo-restore-gone");
+    const operation = randomUUID();
+    await emptyPantryPlaceIn(s.user.db, "Kyl", operation, s.stugan);
+    expect(await deleteSiteIn(s.user.db, s.stugan)).toMatchObject({ kind: "deleted" });
+    expect(await restorePantryRemovalIn(s.user.db, operation)).toEqual({ restoredIds: [], rows: [], skipped: 2 });
+    expect(await onSite(s.user.id, s.hemma)).toHaveLength(2);
+  });
+
+  it("gives site_gone for another user's place or a deleted one, and writes nothing", async () => {
+    const s = await stocked("pantry-site-photo-foreign");
+    const other = await twoPlaces("pantry-site-photo-foreign-other");
+    const before = await stateOf(s.user.id);
+    await expect(
+      applyPantryInventoryIn(s.user.db, {
+        siteId: other.stugan,
+        place: "Kyl",
+        items: [{ ingredientId: s.mjolk, location: "Kyl", amount: 1, unit: "l" }],
+        replaceRowIds: [],
+        removeRowIds: [s.hemmaYoghurt],
+        operationId: randomUUID(),
+      }),
+    ).rejects.toThrow(new PantryDataError("site_gone"));
+    await expect(emptyPantryPlaceIn(s.user.db, "Kyl", randomUUID(), other.stugan)).rejects.toThrow(
+      new PantryDataError("site_gone"),
+    );
+    await expect(
+      setPantryItemsIn(s.user.db, [{ ingredientId: s.mjolk, location: "Kyl", amount: 1, unit: "l" }], null, madeUpId),
+    ).rejects.toThrow(new PantryDataError("site_gone"));
+    expect(await stateOf(s.user.id)).toEqual(before);
+    expect(await onSite(other.user.id, other.stugan)).toEqual([]);
+  });
+
+  it("runs an inventory on one place and an emptying on the other at once, one after the other (pantry_lock)", async () => {
+    const s = await stocked("pantry-site-photo-concurrent");
+    const [applied, emptied] = await Promise.all([
+      applyPantryInventoryIn(s.user.db, {
+        siteId: s.stugan,
+        place: "Kyl",
+        items: [{ ingredientId: s.mjolk, location: "Kyl", amount: 3, unit: "förp" }],
+        replaceRowIds: [],
+        removeRowIds: [s.stuganSenap],
+        operationId: randomUUID(),
+      }),
+      emptyPantryPlaceIn(s.user.db, "Kyl", randomUUID(), s.hemma),
+    ]);
+    expect(applied).toMatchObject({ removedCount: 1, set: [expect.objectContaining({ siteId: s.stugan, amount: 3 })] });
+    expect(emptied.removed).toBe(2);
+    expect(await onSite(s.user.id, s.hemma)).toEqual([]);
+    expect(await onSite(s.user.id, s.stugan)).toEqual([{ ingredient_id: s.mjolk, location: "Kyl", amount: 3, unit: "förp" }]);
   });
 });

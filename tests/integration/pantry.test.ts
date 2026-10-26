@@ -292,7 +292,14 @@ describe("setPantryItems", () => {
     const mjolk = await addIngredient(user.db, uniqueName("Mjölk"));
 
     const [created] = await setPantryItemsIn(user.db, [{ ingredientId: mjolk, location: "Kyl", amount: 1.5, unit: "l" }]);
-    expect(created).toEqual({ id: expect.any(String), ingredientId: mjolk, location: "Kyl", amount: 1.5, unit: "l" });
+    expect(created).toEqual({
+      id: expect.any(String),
+      siteId: expect.any(String),
+      ingredientId: mjolk,
+      location: "Kyl",
+      amount: 1.5,
+      unit: "l",
+    });
 
     // Set, not increase: the row gets 2 l and keeps its id.
     const [again] = await setPantryItemsIn(user.db, [{ ingredientId: mjolk, location: "Kyl", amount: 2, unit: "l" }]);
@@ -574,9 +581,13 @@ describe("removePantryItem and restorePantryItem", () => {
     expect(direct.data).toEqual([]);
     expect(await rowsOf(owner.id)).toHaveLength(2);
 
-    // Restoring the owner's removed row as another user: the ingredient is not in their catalog.
+    // Restoring the owner's removed row as another user: the place is not theirs (MK410), and
+    // without the place the ingredient is not in their catalog.
     await removePantryItemIn(owner.db, owner.id, row.id);
-    await expect(restorePantryItemIn(other.db, row)).rejects.toThrow(new PantryDataError("restore_failed 23503"));
+    await expect(restorePantryItemIn(other.db, row)).rejects.toThrow(new PantryDataError("site_gone"));
+    await expect(restorePantryItemIn(other.db, { ...row, siteId: undefined })).rejects.toThrow(
+      new PantryDataError("restore_failed 23503"),
+    );
     // An id the owner's row has is taken, whoever asks.
     const othersSalt = await addIngredient(other.db, uniqueName("Salt"));
     await expect(
@@ -629,7 +640,7 @@ describe("emptyPantryPlace and restorePantryRemoval", () => {
     const before = await rowsOf(user.id);
     const operation = randomUUID();
 
-    const emptied = await emptyPantryPlaceIn(user.db, "Kyl", operation);
+    const emptied = await emptyPantryPlaceIn(user.db, "Kyl", operation, null);
     expect(emptied).toEqual({ removed: 3, removedIds: byId(inKyl).map((row) => row.id) });
     expect(await rowsOf(user.id)).toEqual([{ id: inFrys.id, ingredient_id: arter, location: "Frys", amount: 1, unit: "förp" }]);
     expect(await rowsOf(other.id)).toEqual(othersBefore);
@@ -653,19 +664,19 @@ describe("emptyPantryPlace and restorePantryRemoval", () => {
     const ost = await addIngredient(user.db, uniqueName("Ost"));
     const [row] = await setPantryItemsIn(user.db, [{ ingredientId: mjolk, location: "Kyl", amount: 2, unit: "förp" }]);
     const operation = randomUUID();
-    const first = await emptyPantryPlaceIn(user.db, "Kyl", operation);
+    const first = await emptyPantryPlaceIn(user.db, "Kyl", operation, null);
     expect(first).toEqual({ removed: 1, removedIds: [row.id] });
 
     // Added after the first call, as if the answer was lost and Pontus went on.
     const [added] = await setPantryItemsIn(user.db, [{ ingredientId: ost, location: "Kyl", amount: 1, unit: "förp" }]);
-    expect(await emptyPantryPlaceIn(user.db, "Kyl", operation)).toEqual(first);
+    expect(await emptyPantryPlaceIn(user.db, "Kyl", operation, null)).toEqual(first);
     expect(await rowsOf(user.id)).toEqual([asDbRow(added)]);
     expect(await countRows("pantry_removal", user.id)).toBe(1);
   });
 
   it("gives no rows for an empty location", async () => {
     const user = await createTestUser("pantry-empty-none");
-    expect(await emptyPantryPlaceIn(user.db, "Skafferi", randomUUID())).toEqual({ removed: 0, removedIds: [] });
+    expect(await emptyPantryPlaceIn(user.db, "Skafferi", randomUUID(), null)).toEqual({ removed: 0, removedIds: [] });
   });
 
   it("removes, reports and restores more rows than the API returns in one read (max_rows)", async () => {
@@ -686,7 +697,7 @@ describe("emptyPantryPlace and restorePantryRemoval", () => {
     await addItems(user.db, rows);
     const operation = randomUUID();
 
-    const emptied = await emptyPantryPlaceIn(user.db, "Kyl", operation);
+    const emptied = await emptyPantryPlaceIn(user.db, "Kyl", operation, null);
     expect(emptied.removed).toBe(rows.length);
     expect(new Set(emptied.removedIds).size).toBe(rows.length);
     expect(await countRows("pantry_item", user.id)).toBe(0);
@@ -711,7 +722,7 @@ describe("emptyPantryPlace and restorePantryRemoval", () => {
     ]);
     const before = await rowsOf(user.id);
     const operation = randomUUID();
-    await emptyPantryPlaceIn(user.db, "Kyl", operation);
+    await emptyPantryPlaceIn(user.db, "Kyl", operation, null);
 
     // Meanwhile: mjölk with the same key, salt unlimited (against an amount),
     // and smör with an amount (against unlimited).
@@ -725,7 +736,7 @@ describe("emptyPantryPlace and restorePantryRemoval", () => {
     const aggRow = before.find((row) => row.ingredient_id === agg)!;
     expect(restored).toEqual({
       restoredIds: [aggRow.id],
-      rows: [{ id: aggRow.id, ingredientId: agg, location: "Kyl", amount: 6, unit: "st" }],
+      rows: [{ id: aggRow.id, siteId: expect.any(String), ingredientId: agg, location: "Kyl", amount: 6, unit: "st" }],
       skipped: 3,
     });
     expect(byId(await rowsOf(user.id))).toEqual(byId([...added.map(asDbRow), aggRow]));
@@ -765,8 +776,8 @@ describe("emptyPantryPlace and restorePantryRemoval", () => {
     await setPantryItemsIn(user.db, [{ ingredientId: mjolk, location: "Kyl", amount: 2, unit: "förp" }]);
     const old = randomUUID();
     const recent = randomUUID();
-    await emptyPantryPlaceIn(user.db, "Kyl", old);
-    await emptyPantryPlaceIn(user.db, "Frys", recent);
+    await emptyPantryPlaceIn(user.db, "Kyl", old, null);
+    await emptyPantryPlaceIn(user.db, "Frys", recent, null);
     const aged = await adminClient()
       .from("pantry_removal")
       .update({ created_at: new Date(Date.now() - 25 * 60 * 60 * 1000).toISOString() })
@@ -774,7 +785,7 @@ describe("emptyPantryPlace and restorePantryRemoval", () => {
       .eq("id", old);
     expect(aged.error).toBeNull();
 
-    await emptyPantryPlaceIn(user.db, "Skafferi", randomUUID());
+    await emptyPantryPlaceIn(user.db, "Skafferi", randomUUID(), null);
     expect(await countRows("pantry_removal", user.id)).toBe(2);
     await expect(restorePantryRemovalIn(user.db, old)).rejects.toThrow(new PantryDataError("restore_failed P0002"));
     expect(await rowsOf(user.id)).toEqual([]);
@@ -788,7 +799,7 @@ describe("emptyPantryPlace and restorePantryRemoval", () => {
       await adminClient().from("pantry_item").delete().eq("user_id", user.id);
       await setPantryItemsIn(user.db, [{ ingredientId: smor, location: "Kyl", amount: null, unit: null }]);
       const operation = randomUUID();
-      await emptyPantryPlaceIn(user.db, "Kyl", operation);
+      await emptyPantryPlaceIn(user.db, "Kyl", operation, null);
 
       await Promise.all([
         restorePantryRemovalIn(user.db, operation),
@@ -808,7 +819,7 @@ describe("emptyPantryPlace and restorePantryRemoval", () => {
     const operation = randomUUID();
 
     expect((await user.db.rpc("empty_pantry_place", { place: "Garage", operation_id: operation })).error?.code).toBe("22023");
-    await expect(emptyPantryPlaceIn(user.db, "Kyl", "op-1")).rejects.toThrow(new PantryDataError("invalid_operation"));
+    await expect(emptyPantryPlaceIn(user.db, "Kyl", "op-1", null)).rejects.toThrow(new PantryDataError("invalid_operation"));
     await expect(restorePantryRemovalIn(user.db, "op-1")).rejects.toThrow(new PantryDataError("invalid_operation"));
     await expect(restorePantryRemovalIn(user.db, operation)).rejects.toThrow(new PantryDataError("restore_failed P0002"));
 
@@ -848,6 +859,7 @@ describe("applyPantryInventory (apply_pantry_inventory)", () => {
     const operation = randomUUID();
 
     const applied = await applyPantryInventoryIn(user.db, {
+      siteId: null,
       place: "Kyl",
       items: [kyl(mjolk, 1, "förp"), kyl(gradde, 1, "förp")],
       replaceRowIds: [mjolkDl.id, mjolkForp.id],
@@ -858,7 +870,7 @@ describe("applyPantryInventory (apply_pantry_inventory)", () => {
     expect(applied.undoable).toBe(2);
     expect(byId(applied.removed)).toEqual(byId([yoghurtRow, senapRow]));
     // mjölk förp keeps its id (the same key as an item); the dl row is replaced.
-    expect(applied.set[0]).toEqual({ ...kyl(mjolk, 1, "förp"), id: mjolkForp.id });
+    expect(applied.set[0]).toEqual({ ...kyl(mjolk, 1, "förp"), id: mjolkForp.id, siteId: mjolkForp.siteId });
     const after = await rowsOf(user.id);
     expect(byId(after)).toEqual(
       byId([
@@ -883,7 +895,7 @@ describe("applyPantryInventory (apply_pantry_inventory)", () => {
     const [yoghurtRow, senapRow] = await setPantryItemsIn(user.db, [kyl(yoghurt, 2, "förp"), kyl(senap, null, null)]);
     const operation = randomUUID();
     const remove = (ids: string[]) =>
-      applyPantryInventoryIn(user.db, { place: "Kyl", items: [], replaceRowIds: [], removeRowIds: ids, operationId: operation });
+      applyPantryInventoryIn(user.db, { siteId: null, place: "Kyl", items: [], replaceRowIds: [], removeRowIds: ids, operationId: operation });
 
     expect(await remove([yoghurtRow.id])).toMatchObject({ removedCount: 1, undoable: 1 });
     expect(await remove([senapRow.id])).toMatchObject({ removedCount: 1, undoable: 2 });
@@ -910,6 +922,7 @@ describe("applyPantryInventory (apply_pantry_inventory)", () => {
 
     await expect(
       applyPantryInventoryIn(user.db, {
+        siteId: null,
         place: "Kyl",
         items: [kyl(mjolk, 1, "förp"), kyl(othersSalt, 1, "kg")],
         replaceRowIds: [mjolkDl.id],
@@ -937,6 +950,7 @@ describe("applyPantryInventory (apply_pantry_inventory)", () => {
     const othersBefore = await rowsOf(other.id);
 
     const applied = await applyPantryInventoryIn(user.db, {
+      siteId: null,
       place: "Kyl",
       items: [kyl(yoghurt, 1, "förp"), kyl(arter, 1, "förp")],
       // A Frys row of an ingredient the call sets in Kyl, and another user's row.
@@ -959,6 +973,7 @@ describe("applyPantryInventory (apply_pantry_inventory)", () => {
     const [mjolkRow, yoghurtRow] = await setPantryItemsIn(user.db, [kyl(mjolk, 2, "förp"), kyl(yoghurt, 2, "förp")]);
     const operation = randomUUID();
     const applied = await applyPantryInventoryIn(user.db, {
+      siteId: null,
       place: "Kyl",
       // mjölk is set in Frys only, and nothing sets yoghurt: neither Kyl row may be replaced.
       items: [{ ingredientId: mjolk, location: "Frys", amount: 1, unit: "l" }],
@@ -979,7 +994,7 @@ describe("applyPantryInventory (apply_pantry_inventory)", () => {
     const [yoghurtRow, senapRow] = await setPantryItemsIn(user.db, [kyl(yoghurt, 2, "förp"), kyl(senap, null, null)]);
     const operation = randomUUID();
     const remove = (id: string) =>
-      applyPantryInventoryIn(user.db, { place: "Kyl", items: [], replaceRowIds: [], removeRowIds: [id], operationId: operation });
+      applyPantryInventoryIn(user.db, { siteId: null, place: "Kyl", items: [], replaceRowIds: [], removeRowIds: [id], operationId: operation });
     await remove(yoghurtRow.id);
     const old = new Date(Date.now() - 23 * 60 * 60 * 1000).toISOString();
     const aged = await adminClient().from("pantry_removal").update({ created_at: old }).eq("user_id", user.id).eq("id", operation);
@@ -1000,6 +1015,7 @@ describe("applyPantryInventory (apply_pantry_inventory)", () => {
     const [othersRow] = await setPantryItemsIn(other.db, [kyl(othersSalt, 1, "kg")]);
     const operation = randomUUID();
     await applyPantryInventoryIn(other.db, {
+      siteId: null,
       place: "Kyl",
       items: [],
       replaceRowIds: [],
@@ -1007,7 +1023,7 @@ describe("applyPantryInventory (apply_pantry_inventory)", () => {
       operationId: operation,
     });
     expect(
-      await applyPantryInventoryIn(user.db, { place: "Kyl", items: [], replaceRowIds: [], removeRowIds: [row.id], operationId: operation }),
+      await applyPantryInventoryIn(user.db, { siteId: null, place: "Kyl", items: [], replaceRowIds: [], removeRowIds: [row.id], operationId: operation }),
     ).toMatchObject({ removedCount: 1, undoable: 1 });
     // Each user's "Ångra" puts back their own row only.
     expect((await restorePantryRemovalIn(other.db, operation)).restoredIds).toEqual([othersRow.id]);
@@ -1019,6 +1035,7 @@ describe("applyPantryInventory (apply_pantry_inventory)", () => {
     const [smor, mjolk] = await Promise.all(["Smör", "Mjölk"].map((name) => addIngredient(user.db, uniqueName(name))));
     await setPantryItemsIn(user.db, [kyl(smor, null, null), kyl(mjolk, 2, "förp"), kyl(mjolk, 1, "l")]);
     await applyPantryInventoryIn(user.db, {
+      siteId: null,
       place: "Kyl",
       items: [kyl(smor, 250, "g"), kyl(mjolk, null, null)],
       replaceRowIds: [],

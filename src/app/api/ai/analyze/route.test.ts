@@ -11,7 +11,7 @@ import { jpegHeader, pngHeader, webpVp8xHeader } from "../../../../../tests/supp
 const requireUserForRoute = vi.fn();
 vi.mock("@/features/auth/server", () => ({ requireUserForRoute: () => requireUserForRoute() }));
 
-type AnalyzeInput = { image: { data: Uint8Array; mediaType: string }; location: string };
+type AnalyzeInput = { image: { data: Uint8Array; mediaType: string }; location: string; siteId?: string };
 type AnalyzeOptions = { signal: AbortSignal; deadline?: number };
 const analyzePlace = vi.fn<(input: AnalyzeInput, options: AnalyzeOptions) => Promise<Result<unknown>>>();
 vi.mock("@/features/pantry/server", () => ({
@@ -23,15 +23,22 @@ vi.mock("@/server/env", () => ({ env: { SITE_URL: "http://localhost:3100" } }));
 const { POST, maxDuration } = await import("./route");
 
 const url = "http://localhost:3100/api/ai/analyze";
+/** The place Hemma showed when the photo was taken (Story 8.4). */
+const stugan = "55555555-5555-4555-8555-555555555555";
 const png = new Uint8Array(readFileSync(new URL("../../../../../tests/fixtures/ai/kyl.png", import.meta.url)));
 
 function form(
   data: Uint8Array | string | null,
-  { type = "image/png", location = "Kyl" as string | null }: { type?: string; location?: string | null } = {},
+  {
+    type = "image/png",
+    location = "Kyl" as string | null,
+    site = stugan as string | null,
+  }: { type?: string; location?: string | null; site?: string | null } = {},
 ): FormData {
   const body = new FormData();
   if (data !== null) body.append("image", new Blob([data as BlobPart], { type }), "photo");
   if (location !== null) body.append("location", location);
+  if (site !== null) body.append("site", site);
   return body;
 }
 
@@ -69,6 +76,7 @@ describe("POST /api/ai/analyze", () => {
     expect(await response.json()).toEqual({ ok: true, data: answer });
     const [input, options] = analyzePlace.mock.calls[0];
     expect(input.location).toBe("Kyl");
+    expect(input.siteId).toBe(stugan);
     expect(input.image.mediaType).toBe("image/png");
     expect(Buffer.from(input.image.data).equals(Buffer.from(png))).toBe(true);
     expect(options.signal).toBe(request.signal);
@@ -194,6 +202,8 @@ describe("POST /api/ai/analyze", () => {
     ["ai_unavailable", 503],
     ["ai_superseded", 409],
     ["catalog_unavailable", 503],
+    ["pantry_unavailable", 503],
+    ["pantry_site_gone", 409],
     ["validation", 400],
     ["unauthorized", 401],
   ] as const)("answers %s with %i", async (code, status) => {
@@ -201,5 +211,21 @@ describe("POST /api/ai/analyze", () => {
     const response = await POST(await post());
     expect(response.status).toBe(status);
     expect(await response.json()).toEqual(fail(code));
+  });
+
+  it("passes no place without the field `site`: the selected one, for a 1.0 client (Story 8.4)", async () => {
+    const response = await POST(await post({ body: form(png, { site: null }) }));
+    expect(response.status).toBe(200);
+    expect(analyzePlace.mock.calls[0][0]).not.toHaveProperty("siteId");
+  });
+
+  it.each([
+    ["a place that is not a uuid", "stugan"],
+    ["an empty place", ""],
+  ])("answers validation with 400 for %s, without asking the AI (Story 8.4)", async (_name, site) => {
+    const response = await POST(await post({ body: form(png, { site }) }));
+    expect(response.status).toBe(400);
+    expect(await response.json()).toEqual(fail("validation"));
+    expect(analyzePlace).not.toHaveBeenCalled();
   });
 });

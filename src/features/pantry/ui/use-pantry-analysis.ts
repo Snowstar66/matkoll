@@ -26,6 +26,12 @@ import { groupSuggestions, type MissingItem } from "../domain/place-inventory";
 // with is shown. The AI is only asked when Pontus has taken or chosen a
 // photo.
 //
+// Places (Story 8.4, FR-33, AD-24): a photo is bound to the place Hemma shows
+// when it is taken. Its id goes with the photo to /api/ai/analyze, and the
+// answer has the place (`result.site`), which every write from the
+// suggestions sends. The suggestions stay, with the same generation, when
+// Hemma switches place, as when another location card is chosen.
+//
 // The photo during review (quick fix after Story 6.5): the resized photo
 // that was sent for an answer with cards is kept as an object URL
 // (reviewPhoto), so Pontus can check the reading against it. It stays in this
@@ -44,8 +50,12 @@ import { groupSuggestions, type MissingItem } from "../domain/place-inventory";
 // lookup that fails or is stopped leaves the photo without numbers, and
 // nothing is shown for it.
 
-/** A resized photo, the place it shows and its size in pixels when it can be read from the file. */
-type KeptPhoto = { image: Blob; location: Location; size: ImageSize | null };
+/**
+ * A resized photo, the location it shows, the place (pantry_site) Hemma
+ * showed when it was taken (Story 8.4, so "Försök igen" is for the same
+ * place) and its size in pixels when it can be read from the file.
+ */
+type KeptPhoto = { image: Blob; location: Location; siteId: string; size: ImageSize | null };
 
 /**
  * The photo an answer was read from, as an object URL, with its size in
@@ -98,8 +108,12 @@ export type PantryAnalysis = {
   cameraAreaRef: RefObject<HTMLDivElement | null>;
   /** The camera button, for focus after "Avbryt" (and after the last suggestion is handled, Story 6.2). */
   cameraButtonRef: RefObject<HTMLButtonElement | null>;
-  /** A photo from the camera or the file picker: resized, then analysed for `location`. */
-  analyze: (file: Blob, location: Location) => void;
+  /**
+   * A photo from the camera or the file picker: resized, then analysed for
+   * `location` of the place `siteId`, the one Hemma shows as it is taken
+   * (Story 8.4): the answer and every write from it stay with that place.
+   */
+  analyze: (file: Blob, location: Location, siteId: string) => void;
   /** "Försök igen": the kept photo again, for its own place. */
   retry: () => void;
   /** "Avbryt": stops the analysis; nothing is shown for it, and the suggestions from before stay. */
@@ -342,6 +356,7 @@ export function usePantryAnalysis(): PantryAnalysis {
     const form = new FormData();
     form.append("image", kept.image, "photo");
     form.append("location", kept.location);
+    form.append("site", kept.siteId);
     let answer: AiCallResult<unknown>;
     try {
       answer = await postAiForm<unknown>("/api/ai/analyze", form, controller.signal);
@@ -390,13 +405,14 @@ export function usePantryAnalysis(): PantryAnalysis {
       }
       return;
     }
-    // An expired session: the page sends Pontus to sign in.
-    if (answer.error.code === "unauthorized") router.refresh();
+    // An expired session: the page sends Pontus to sign in. A place that is
+    // gone (Story 8.4): the page is read again, so Hemma shows one that is there.
+    if (answer.error.code === "unauthorized" || answer.error.code === "pantry_site_gone") router.refresh();
     failWith(answer.error, kept);
   }
 
   /** Resizes the photo (AD-15) and sends it. A photo that cannot be read or made small enough is never sent. */
-  async function analyze(file: Blob, location: Location) {
+  async function analyze(file: Blob, location: Location, siteId: string) {
     const controller = start();
     let prepared: Result<Blob>;
     try {
@@ -412,7 +428,7 @@ export function usePantryAnalysis(): PantryAnalysis {
     }
     const size = await photoSizeOf(prepared.data);
     if (!isCurrent(controller)) return;
-    await send(controller, { image: prepared.data, location, size });
+    await send(controller, { image: prepared.data, location, siteId, size });
   }
 
   function retry() {
@@ -444,7 +460,7 @@ export function usePantryAnalysis(): PantryAnalysis {
     announce: setAnnouncement,
     cameraAreaRef,
     cameraButtonRef,
-    analyze: (file, location) => void analyze(file, location),
+    analyze: (file, location, siteId) => void analyze(file, location, siteId),
     retry,
     cancel,
     generation: () => generation.current,

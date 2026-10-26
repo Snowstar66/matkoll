@@ -69,7 +69,9 @@ export type PantrySheetTarget =
 
 /**
  * A lagerförslag to correct, the generation of suggestions it belongs to (a
- * newer photo replaces them), and the place Hemma showed when it opened.
+ * newer photo replaces them), and its photo's place (Story 8.4; the place
+ * Hemma showed when it opened for a photo without one). The sheet's
+ * "Bekräfta" saves on the photo's place (confirmCorrected).
  */
 export type SuggestionTarget = { kind: "suggestion"; suggestion: PantrySuggestion; generation: number; siteId: string };
 
@@ -546,7 +548,7 @@ export function PantrySheetProvider({
   site: PantrySheetSite;
   children: ReactNode;
 }) {
-  const { confirmCorrected, reject, saving, generation } = usePantrySuggestions();
+  const { confirmCorrected, reject, saving, generation, latestResult } = usePantrySuggestions();
   const review: SuggestionReview = { confirm: confirmCorrected, reject, saving };
   const [sheet, setSheet] = useState<{ open: boolean; session: number; target: PantrySheetTarget }>({
     open: false,
@@ -563,8 +565,12 @@ export function PantrySheetProvider({
   const api: PantrySheetApi = {
     openNew: () => openWith({ kind: "new", location, siteId: site.id }),
     openItem: (item) => openWith({ kind: "edit", item }),
-    openSuggestion: (suggestion) =>
-      openWith({ kind: "suggestion", suggestion, generation: generation(), siteId: site.id }),
+    // A suggestion keeps its photo's place (Story 8.4), which confirmCorrected sends.
+    openSuggestion: (suggestion) => {
+      const current = generation();
+      const photoSite = latestResult(current)?.site?.id;
+      openWith({ kind: "suggestion", suggestion, generation: current, siteId: photoSite ?? site.id });
+    },
   };
   return (
     <PantryRemovalProvider>

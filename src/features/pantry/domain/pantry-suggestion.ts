@@ -35,6 +35,7 @@ import {
 } from "./place-inventory";
 import { readingSchema } from "./photo-numbers";
 import { definite } from "./places";
+import { photoSiteSchema } from "./site";
 
 // Lagerförslag (FR-24, AD-6, AD-12, AD-19): what a photo of a place at home
 // suggests for the pantry, before Pontus has confirmed anything. Each
@@ -161,6 +162,14 @@ export type PantrySuggestion = z.infer<typeof pantrySuggestionSchema>;
  * read, not that it had none.
  */
 export const analyzeResultSchema = z.object({
+  /**
+   * Story 8.4: the place the photo was taken for, as /api/ai/analyze read it
+   * (FR-33, AD-24). Every write from the suggestions sends its id, also when
+   * Hemma shows another place by then. `null` only for a user without places
+   * yet (before ensure_pantry_defaults): the writes then go to the selected
+   * place.
+   */
+  site: photoSiteSchema.nullable(),
   location: locationSchema,
   suggestions: z.array(pantrySuggestionSchema).max(maxPantrySuggestions),
   dropped: z.number().int().min(0),
@@ -533,12 +542,19 @@ export function analyzeErrorMessage(error: Pick<AppError, "code" | "message">): 
   return error.code === "ai_rejected" ? analyzeRejectedMessage : error.message;
 }
 
-/** The errors "Försök igen" (the same photo again) may help with; never for a photo that cannot be read or is too large. */
+/**
+ * The errors "Försök igen" (the same photo again) may help with; never for a
+ * photo that cannot be read or is too large, nor for a place that is gone
+ * (`pantry_site_gone`, Story 8.4: the same place fails again). The places
+ * that could not be read before the AI was asked (`pantry_unavailable`,
+ * Story 8.4) may be read the next time.
+ */
 export const analyzeRetryCodes: ReadonlySet<ErrorCode> = new Set<ErrorCode>([
   "ai_unavailable",
   "ai_invalid",
   "ai_rejected",
   "catalog_unavailable",
+  "pantry_unavailable",
 ]);
 
 /** At most this many items in one confirmation: more than one photo's suggestions, never a whole pantry. */
@@ -587,8 +603,18 @@ export const confirmItemSchema = z
 export type ConfirmItem = z.infer<typeof confirmItemSchema>;
 export type ConfirmItemInput = z.input<typeof confirmItemSchema>;
 
-/** What confirmPantrySuggestions takes: 1–40 items. */
-export const confirmSuggestionsSchema = z.array(confirmItemSchema).min(1).max(maxConfirmItems);
+/** The place a confirmation writes to (Story 8.4): the photo's place, or `null` for the selected one. */
+const confirmSiteSchema = z.uuid().nullable();
+
+/**
+ * What confirmPantrySuggestions takes: the photo's place (`siteId`, Story
+ * 8.4) and 1–40 items.
+ */
+export const confirmSuggestionsSchema = z.object({
+  siteId: confirmSiteSchema,
+  items: z.array(confirmItemSchema).min(1).max(maxConfirmItems),
+});
+export type ConfirmSuggestionsInput = z.input<typeof confirmSuggestionsSchema>;
 
 /** At most this many rows one inventory replaces ("Ändrat" in other units); inventoryRequest keeps to it. */
 export const maxInventoryReplaces = maxRequestReplaces;
@@ -596,13 +622,14 @@ export const maxInventoryReplaces = maxRequestReplaces;
 export const maxInventoryRemovals = 1000;
 
 /**
- * What confirmPantryInventory takes (Story 6.4): the photographed place,
- * 0–40 items, the rows they replace and the rows to remove, at least one
- * item or removal, and an operation id (the client's, for "Ångra") with any
- * removal. The limits equal apply_pantry_inventory's.
+ * What confirmPantryInventory takes (Story 6.4): the photo's place (`siteId`,
+ * Story 8.4) and location, 0–40 items, the rows they replace and the rows to
+ * remove, at least one item or removal, and an operation id (the client's,
+ * for "Ångra") with any removal. The limits equal apply_pantry_inventory's.
  */
 export const inventoryConfirmSchema = z
   .object({
+    siteId: confirmSiteSchema,
     location: locationSchema,
     items: z.array(confirmItemSchema).max(maxConfirmItems),
     replaceRowIds: z.array(z.uuid()).max(maxInventoryReplaces),
@@ -740,6 +767,23 @@ export function withConfirmedStock(
 /** On a card whose suggestion cannot be confirmed as it is; "Bekräfta alla" leaves it out. */
 export const suggestionInvalidText = "Förslaget går inte att spara som det är. Rätta eller avvisa det.";
 
+/**
+ * Story 8.4: above the suggestions while Hemma shows another place than the
+ * photo's: "Förslagen gäller Stugan."
+ */
+export function suggestionsSiteText(name: string): string {
+  return `Förslagen gäller ${name}.`;
+}
+
+/**
+ * Whether `result` is from a photo of the place `siteId` (Story 8.4). A
+ * result without a place (a user without places) is of the selected place,
+ * the only one there is.
+ */
+export function isPhotoOfSite(result: Pick<AnalyzeResult, "site">, siteId: string): boolean {
+  return result.site === null || result.site.id === siteId;
+}
+
 /** When the sheet's suggestion was replaced by a newer photo's, or is gone, before Bekräfta or Avvisa. */
 export const suggestionGoneText = "Förslaget finns inte längre.";
 
@@ -765,9 +809,11 @@ export function withoutStock(suggestions: readonly PantrySuggestion[], location:
  * the location is empty, so its suggestions lose "I kylen nu" and their
  * place in the comparison, and a comparison with the emptied location
  * becomes `empty`: the suggestions are a plain list, as for an empty place,
- * and "Syns inte längre" goes.
+ * and "Syns inte längre" goes. Story 8.4: only when the emptied location is
+ * on the photo's place (`siteId`); emptying another place changes nothing.
  */
-export function withoutPlace(result: AnalyzeResult, location: Location): AnalyzeResult {
+export function withoutPlace(result: AnalyzeResult, siteId: string, location: Location): AnalyzeResult {
+  if (!isPhotoOfSite(result, siteId)) return result;
   return {
     ...result,
     suggestions: withoutStock(result.suggestions, location),
@@ -779,10 +825,13 @@ export function withoutPlace(result: AnalyzeResult, location: Location): Analyze
  * After "Ångra" for an emptied location: the photographed location has items
  * again, but not the ones the photo was compared with, so its comparison is
  * `unread` with `changed` ("Lagret i kylen har ändrats sedan bilden togs."),
- * and the suggestions stay a plain list.
+ * and the suggestions stay a plain list. Story 8.4: only for the photo's
+ * place (`siteId`).
  */
-export function withRestoredPlace(result: AnalyzeResult, location: Location): AnalyzeResult {
-  return result.location === location ? { ...result, inventory: { kind: "unread", changed: true } } : result;
+export function withRestoredPlace(result: AnalyzeResult, siteId: string, location: Location): AnalyzeResult {
+  return isPhotoOfSite(result, siteId) && result.location === location
+    ? { ...result, inventory: { kind: "unread", changed: true } }
+    : result;
 }
 
 /**

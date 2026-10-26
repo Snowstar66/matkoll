@@ -4,12 +4,14 @@ import { z } from "zod";
 import { requireUser } from "@/features/auth/server";
 import { locationSchema, type Location } from "@/features/catalog";
 import { fail, ok, type Result } from "@/lib/errors";
+import { revalidateFor } from "@/lib/revalidate";
 import { createClient } from "@/lib/supabase/server";
-import { PantryDataError } from "../data/client";
+import { isSiteGone, PantryDataError, siteGoneCode } from "../data/client";
 import { emptyPantryPlaceIn, type EmptiedPlace } from "../data/remove";
 import { revalidatePantryCommitted } from "./revalidate-committed";
 
 const operationSchema = z.uuid();
+const siteSchema = z.uuid().nullable();
 
 /**
  * "Töm kylen" (Story 6.3, AD-19): deletes every item in the location for
@@ -23,21 +25,37 @@ const operationSchema = z.uuid();
  * (AD-18), also for no rows, so a list that still shows them catches up;
  * once the delete has committed, the answer is `ok`.
  *
- * Fails with `unauthorized`, `validation` or `pantry_empty_failed`; nothing
- * is removed then.
+ * Story 8.4 (FR-33, AD-24): only the location of the place Hemma showed when
+ * the sheet opened (`siteId`, sent as `site`) is emptied, never the place
+ * selected when the call arrives. `null` is the selected place; Hemma always
+ * sends its place.
+ *
+ * Fails with `unauthorized`, `validation`, `pantry_site_gone` (the place is
+ * removed or not the user's; the page is read again) or
+ * `pantry_empty_failed`; nothing is removed then.
  */
-export async function emptyPantryPlace(location: Location, operationId: string): Promise<Result<EmptiedPlace>> {
+export async function emptyPantryPlace(
+  location: Location,
+  operationId: string,
+  siteId: string | null,
+): Promise<Result<EmptiedPlace>> {
   const user = await requireUser();
   if (!user.ok) return user;
   const place = locationSchema.safeParse(location);
   const operation = operationSchema.safeParse(operationId);
-  if (!place.success || !operation.success) return fail("validation");
+  const site = siteSchema.safeParse(siteId);
+  if (!place.success || !operation.success || !site.success) return fail("validation");
 
   let emptied: EmptiedPlace;
   try {
-    emptied = await emptyPantryPlaceIn(await createClient(), place.data, operation.data);
+    emptied = await emptyPantryPlaceIn(await createClient(), place.data, operation.data, site.data);
   } catch (error) {
     if (!(error instanceof PantryDataError)) throw error;
+    if (isSiteGone(error)) {
+      console.error("pantry_site_gone", { reason: siteGoneCode });
+      revalidateFor("pantry_site");
+      return fail("pantry_site_gone");
+    }
     console.error("pantry_empty_failed", { reason: error.detail });
     return fail("pantry_empty_failed");
   }

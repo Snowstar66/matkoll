@@ -22,10 +22,10 @@ vi.mock("../actions/remove-pantry-item", () => ({ removePantryItem: (id: string)
 vi.mock("../actions/restore-pantry-item", () => ({ restorePantryItem: (row: PantryRow) => restorePantryItem(row) }));
 type Emptied = { removed: number; removedIds: string[] };
 type Restored = { restoredIds: string[]; rows: PantryRow[]; skipped: number };
-const emptyPantryPlace = vi.fn<(location: Location, operationId: string) => Promise<Result<Emptied>>>();
+const emptyPantryPlace = vi.fn<(location: Location, operationId: string, siteId: string | null) => Promise<Result<Emptied>>>();
 const restorePantryRemoval = vi.fn<(operationId: string) => Promise<Result<Restored>>>();
 vi.mock("../actions/empty-pantry-place", () => ({
-  emptyPantryPlace: (location: Location, operationId: string) => emptyPantryPlace(location, operationId),
+  emptyPantryPlace: (location: Location, operationId: string, siteId: string | null) => emptyPantryPlace(location, operationId, siteId),
 }));
 vi.mock("../actions/restore-pantry-removal", () => ({
   restorePantryRemoval: (operationId: string) => restorePantryRemoval(operationId),
@@ -444,13 +444,13 @@ describe("emptying a location", () => {
     render(<Hemma initial={everything} />);
     await emptyKyl();
     expect(emptyPantryPlace).toHaveBeenCalledTimes(1);
-    expect(emptyPantryPlace).toHaveBeenCalledWith("Kyl", expect.stringMatching(uuid));
+    expect(emptyPantryPlace).toHaveBeenCalledWith("Kyl", expect.stringMatching(uuid), hemmaSite.id);
     expect(removePantryItem).not.toHaveBeenCalled();
     expect(rowNames()).toEqual([]);
     expect(tagNames()).toEqual([]);
     expect(screen.getByText("Inget i kylen än.")).toBeInTheDocument();
     expect(kylCard()).toHaveTextContent("Kyl 0 varor");
-    expect(toast()).toHaveTextContent("Tog bort 4 varor ur kylen.");
+    expect(toast()).toHaveTextContent("Tog bort 4 varor ur kylen för Hemma.");
     expect(within(toast()).getByRole("button", { name: "Ångra" })).toBeInTheDocument();
     expect(screen.queryByRole("button", { name: "Töm kylen" })).toBeNull();
   });
@@ -478,7 +478,7 @@ describe("emptying a location", () => {
       return ok({ removed: 2, removedIds: [mjolk.id, agg.id] });
     });
     await emptyKyl();
-    expect(toast()).toHaveTextContent("Tog bort 2 varor ur kylen.");
+    expect(toast()).toHaveTextContent("Tog bort 2 varor ur kylen för Hemma.");
     await waitFor(() => expect(serverItems).toEqual([]));
     await undo();
     // Ägg's removal goes with Ångra, so the server's list shows it.
@@ -568,6 +568,37 @@ describe("emptying a location", () => {
     await waitFor(() => expect(rowNames()).toEqual(["Mjölk 1 l", "Smör 250 g"]));
   });
 
+  it("offers nothing after a lost answer once Hemma shows another place (Story 8.4)", async () => {
+    emptyPantryPlace.mockImplementationOnce(async (_location, operationId) => {
+      removals.set(operationId, serverItems.map(rowOf));
+      throw new TypeError("Failed to fetch");
+    });
+    render(<Hemma initial={[mjolk, smor]} />);
+    await emptyKyl();
+    expect(emptyPantryPlace).toHaveBeenCalledWith("Kyl", expect.stringMatching(uuid), hemmaSite.id);
+    // Another place is selected before the page is read again: an empty fridge there says nothing.
+    act(() => serverSwitch(stuganSite, []));
+    act(() => serverSwitch(hemmaSite, []));
+    expect(screen.queryByText("Kylen kan ha tömts.")).toBeNull();
+    expect(screen.queryByTestId("toast")).toBeNull();
+  });
+
+  it("keeps Ångra for an emptied place when Hemma switches place, and puts the rows back there (Story 8.4)", async () => {
+    render(<Hemma initial={[mjolk, smor]} />);
+    await emptyKyl();
+    expect(toast()).toHaveTextContent("Tog bort 2 varor ur kylen för Hemma.");
+    act(() => serverSwitch(stuganSite, []));
+    // The server puts them back on their own place, Hemma, which Stugan's list does not read.
+    restorePantryRemoval.mockImplementationOnce(async () =>
+      ok({ restoredIds: [mjolk.id, smor.id], rows: [rowOf(mjolk), rowOf(smor)], skipped: 0 }),
+    );
+    await undo();
+    expect(restorePantryRemoval).toHaveBeenCalledWith(operationOf());
+    expect(screen.queryByRole("alert")).toBeNull();
+    // The rows are Hemma's: Stugan's list never shows them.
+    expect(rowNames()).toEqual([]);
+  });
+
   it("offers nothing when the answer is lost and the location still has its items, and tries again with the same operation id", async () => {
     emptyPantryPlace.mockRejectedValueOnce(new TypeError("Failed to fetch"));
     render(<Hemma initial={[mjolk, smor]} />);
@@ -581,7 +612,7 @@ describe("emptying a location", () => {
     await act(async () => fireEvent.click(within(sheet).getByRole("button", { name: "Töm kylen" })));
     expect(emptyPantryPlace).toHaveBeenCalledTimes(2);
     expect(operationOf(1)).toBe(operationOf(0));
-    expect(toast()).toHaveTextContent("Tog bort 2 varor ur kylen.");
+    expect(toast()).toHaveTextContent("Tog bort 2 varor ur kylen för Hemma.");
   });
 
   it("reads the page again for an expired session", async () => {
@@ -598,7 +629,7 @@ describe("emptying a location", () => {
     expect(toast()).toHaveTextContent("Mjölk är borttagen.");
     await waitFor(() => expect(serverItems.map((one) => one.id)).toEqual([smor.id, agg.id]));
     await emptyKyl();
-    expect(toast()).toHaveTextContent("Tog bort 3 varor ur kylen.");
+    expect(toast()).toHaveTextContent("Tog bort 3 varor ur kylen för Hemma.");
     await waitFor(() => expect(serverItems).toEqual([]));
     await undo();
     expect(restorePantryItem).toHaveBeenCalledWith(rowOf(mjolk));
@@ -613,7 +644,7 @@ describe("emptying a location", () => {
     // Another tab added Ägg meanwhile, and Pontus removes it too.
     serverAdds(agg);
     await tapRemove("Ägg");
-    expect(toast()).toHaveTextContent("Tog bort 3 varor ur kylen.");
+    expect(toast()).toHaveTextContent("Tog bort 3 varor ur kylen för Hemma.");
     await waitFor(() => expect(serverItems).toEqual([]));
     await undo();
     expect(restorePantryRemoval).toHaveBeenCalledWith(operationOf());

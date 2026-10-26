@@ -431,20 +431,29 @@ test("the page waits while a switch is on its way: + and the list are unavailabl
   expect(errors).toEqual([]);
 });
 
-test("a photo's suggestions go when another place is selected, so they are never confirmed there", async ({ page }) => {
+// Story 8.4 replaces the stopgap of Story 8.2 (the suggestions went with a
+// switch): they stay, say which place they are for, and are saved there.
+test("a photo's suggestions stay when another place is selected, and are saved on the photo's place", async ({ page }) => {
   const errors = watchErrors(page);
-  await resetPlaces(["Hemma", "Stugan"]);
+  const sites = await resetPlaces(["Hemma", "Stugan"]);
   await openHemma(page);
   const chooser = page.waitForEvent("filechooser");
   await page.getByRole("button", { name: "Fotografera kylen" }).filter({ visible: true }).click();
   await (await chooser).setFiles("tests/fixtures/ai/kyl.png");
   const suggestions = page.getByTestId("pantry-suggestion").filter({ visible: true });
   await expect(suggestions.first()).toBeVisible();
+  const count = await suggestions.count();
+  const placeLine = page.getByTestId("pantry-suggestions-site").filter({ visible: true });
+  await expect(placeLine).toHaveCount(0);
 
   await choose(page, "Stugan");
+  await expect(suggestions).toHaveCount(count);
+  await expect(placeLine).toHaveText("Förslagen gäller Hemma.");
+  await page.getByRole("button", { name: "Bekräfta alla" }).filter({ visible: true }).click();
   await expect(suggestions).toHaveCount(0);
-  await choose(page, "Hemma");
-  await expect(suggestions).toHaveCount(0);
-  expect(await storedItems()).toEqual([]);
+  await expect.poll(async () => (await storedItems()).length).toBeGreaterThan(0);
+  const stored = await storedItems();
+  expect(stored.every((item) => item.site_id === sites.Hemma)).toBe(true);
+  await expect(rows(page)).toHaveCount(0);
   expect(errors).toEqual([]);
 });

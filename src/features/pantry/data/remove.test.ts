@@ -70,6 +70,7 @@ const dbRow = (id: string, overrides: Record<string, unknown> = {}) => ({
 });
 const otherId = "33333333-3333-4333-8333-333333333333";
 const operation = "44444444-4444-4444-8444-444444444444";
+const stugan = "55555555-5555-4555-8555-555555555555";
 
 describe("emptyPantryPlaceIn", () => {
   it("empties the location in one call under the operation id, and gives the count and ids", async () => {
@@ -77,21 +78,21 @@ describe("emptyPantryPlaceIn", () => {
       data: { removed: 2, items: [dbRow(rowId), dbRow(otherId, { amount: null, unit: null })] },
       error: null,
     });
-    expect(await emptyPantryPlaceIn(db, "Kyl", operation)).toEqual({ removed: 2, removedIds: [rowId, otherId] });
-    expect(rpc).toHaveBeenCalledWith("empty_pantry_place", { place: "Kyl", operation_id: operation });
+    expect(await emptyPantryPlaceIn(db, "Kyl", operation, stugan)).toEqual({ removed: 2, removedIds: [rowId, otherId] });
+    expect(rpc).toHaveBeenCalledWith("empty_pantry_place", { place: "Kyl", operation_id: operation, site: stugan });
   });
 
   it("counts a removed row the domain does not know, since the server keeps it for Ångra", async () => {
     const { db } = fakeRpc({ data: { removed: 2, items: [dbRow(rowId), dbRow(otherId, { unit: "kartong" })] }, error: null });
-    expect(await emptyPantryPlaceIn(db, "Kyl", operation)).toEqual({ removed: 2, removedIds: [rowId, otherId] });
+    expect(await emptyPantryPlaceIn(db, "Kyl", operation, stugan)).toEqual({ removed: 2, removedIds: [rowId, otherId] });
   });
 
   it("never throws once the delete has committed, also for an answer it cannot read", async () => {
-    expect(await emptyPantryPlaceIn(fakeRpc({ data: { removed: 0, items: [] }, error: null }).db, "Frys", operation)).toEqual({
+    expect(await emptyPantryPlaceIn(fakeRpc({ data: { removed: 0, items: [] }, error: null }).db, "Frys", operation, null)).toEqual({
       removed: 0,
       removedIds: [],
     });
-    expect(await emptyPantryPlaceIn(fakeRpc({ data: "?", error: null }).db, "Frys", operation)).toEqual({
+    expect(await emptyPantryPlaceIn(fakeRpc({ data: "?", error: null }).db, "Frys", operation, null)).toEqual({
       removed: 0,
       removedIds: [],
     });
@@ -99,16 +100,43 @@ describe("emptyPantryPlaceIn", () => {
 
   it("refuses an unknown location or operation id before calling, and throws when Postgres refuses", async () => {
     const { db, rpc } = fakeRpc({ data: null, error: null });
-    await expect(emptyPantryPlaceIn(db, "Garage" as never, operation)).rejects.toThrow(new PantryDataError("invalid_location"));
-    await expect(emptyPantryPlaceIn(db, "Kyl", "op-1")).rejects.toThrow(new PantryDataError("invalid_operation"));
+    await expect(emptyPantryPlaceIn(db, "Garage" as never, operation, stugan)).rejects.toThrow(new PantryDataError("invalid_location"));
+    await expect(emptyPantryPlaceIn(db, "Kyl", "op-1", stugan)).rejects.toThrow(new PantryDataError("invalid_operation"));
     expect(rpc).not.toHaveBeenCalled();
-    await expect(emptyPantryPlaceIn(fakeRpc({ data: null, error: { code: "42501" } }).db, "Kyl", operation)).rejects.toThrow(
+    await expect(emptyPantryPlaceIn(fakeRpc({ data: null, error: { code: "42501" } }).db, "Kyl", operation, null)).rejects.toThrow(
       new PantryDataError("empty_failed 42501"),
     );
   });
 });
 
+describe("emptyPantryPlaceIn on a place (Story 8.4)", () => {
+  it("leaves `site` out for the selected place", async () => {
+    const { db, rpc } = fakeRpc({ data: { removed: 0, items: [] }, error: null });
+    await emptyPantryPlaceIn(db, "Kyl", operation, null);
+    expect(rpc).toHaveBeenCalledWith("empty_pantry_place", { place: "Kyl", operation_id: operation });
+  });
+
+  it("refuses a place that is not a uuid before calling, and gives site_gone for MK410", async () => {
+    const { db, rpc } = fakeRpc({ data: null, error: null });
+    await expect(emptyPantryPlaceIn(db, "Kyl", operation, "stugan")).rejects.toThrow(new PantryDataError("invalid_site"));
+    expect(rpc).not.toHaveBeenCalled();
+    await expect(emptyPantryPlaceIn(fakeRpc({ data: null, error: { code: "MK410" } }).db, "Kyl", operation, stugan)).rejects.toThrow(
+      new PantryDataError("site_gone"),
+    );
+    await expect(emptyPantryPlaceIn(fakeRpc({ data: null, error: { code: "MK409" } }).db, "Kyl", operation, stugan)).rejects.toThrow(
+      new PantryDataError("empty_failed MK409"),
+    );
+  });
+});
+
 describe("restorePantryRemovalIn", () => {
+  it("gives the restored rows with their own place (Story 8.4)", async () => {
+    const { db } = fakeRpc({ data: { restored: [dbRow(rowId, { site_id: stugan })], skipped: 0 }, error: null });
+    expect((await restorePantryRemovalIn(db, operation)).rows).toEqual([
+      { id: rowId, siteId: stugan, ingredientId: mjolk, location: "Kyl", amount: 2, unit: "förp" },
+    ]);
+  });
+
   it("puts the operation's rows back in one call, and gives the ids, the known rows and the skipped count", async () => {
     const { db, rpc } = fakeRpc({
       data: { restored: [dbRow(rowId), dbRow(otherId, { unit: "kartong" })], skipped: 1 },

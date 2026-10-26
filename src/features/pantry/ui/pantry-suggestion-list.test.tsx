@@ -14,6 +14,8 @@ import { PantrySuggestionsProvider } from "./pantry-suggestions";
 
 /** The place Hemma shows (Story 8.2). */
 const testSite = { id: "55555555-5555-4555-8555-555555555555" };
+/** The place a photo was taken for (Story 8.4): the one Hemma shows. */
+const photoSite = { id: testSite.id, name: "Hemma" };
 
 // Lagerförslag: the section with one card per suggestion, filled through the
 // camera with /api/ai/analyze and the resizing stubbed, and confirmed,
@@ -45,14 +47,16 @@ vi.mock("../actions/search-ingredients", () => ({
   searchPantryIngredients: (query: string) => searchPantryIngredients(query),
 }));
 type Confirm = {
+  /** The photo's place the confirmation was sent for (Story 8.4). */
+  siteId: string | null;
   items: ConfirmItemInput[];
   answer: (result: Result<{ count: number }>) => void;
   reject: (error: unknown) => void;
 };
 let confirms: Confirm[] = [];
 vi.mock("../actions/confirm-pantry-suggestions", () => ({
-  confirmPantrySuggestions: (items: ConfirmItemInput[]) =>
-    new Promise<Result<{ count: number }>>((resolve, reject) => confirms.push({ items, answer: resolve, reject })),
+  confirmPantrySuggestions: ({ siteId, items }: { siteId: string | null; items: ConfirmItemInput[] }) =>
+    new Promise<Result<{ count: number }>>((resolve, reject) => confirms.push({ siteId, items, answer: resolve, reject })),
 }));
 vi.mock("../actions/remove-pantry-item", () => ({ removePantryItem: vi.fn() }));
 vi.mock("../actions/empty-pantry-place", () => ({ emptyPantryPlace: vi.fn() }));
@@ -70,6 +74,7 @@ const fresh = (name: string): PantrySuggestion["ingredient"] => ({
   defaultUnit: null,
 });
 const fridge: AnalyzeResult = {
+  site: photoSite,
   location: "Kyl",
   dropped: 0,
   inventory: { kind: "empty" },
@@ -111,8 +116,8 @@ function Hemma({ location = "Kyl", away = false }: { location?: Location; away?:
             <p>Laddar</p>
           ) : (
             <div key={location}>
-              <PantryCamera location={location} />
-              <PantrySuggestionList />
+              <PantryCamera siteId={testSite.id} location={location} />
+              <PantrySuggestionList siteId={testSite.id} />
             </div>
           )}
         </PantrySheetProvider>
@@ -714,8 +719,11 @@ describe("the photo during review", () => {
     expect(create.mock.calls[0][0]).toBeInstanceOf(Blob);
     expect(thumbnail()).toHaveAttribute("aria-haspopup", "dialog");
     expect(thumbnailSrc()).toBe("blob:photo-1");
-    // Right under the heading, before "Bekräfta alla".
-    expect(within(section()).getByRole("heading", { level: 2 }).nextElementSibling).toBe(thumbnail());
+    // Right under the heading (and the place's line, Story 8.4, empty and hidden here), before "Bekräfta alla".
+    const placeLine = within(section()).getByRole("heading", { level: 2 }).nextElementSibling;
+    expect(placeLine).toHaveAttribute("data-testid", "pantry-suggestions-site");
+    expect(placeLine).toBeEmptyDOMElement();
+    expect(placeLine?.nextElementSibling).toBe(thumbnail());
     expectNoRevokedImage();
   });
 

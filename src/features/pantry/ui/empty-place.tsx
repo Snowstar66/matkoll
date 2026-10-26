@@ -8,6 +8,7 @@ import type { Location } from "@/features/catalog";
 import { newId } from "@/lib/new-id";
 import type { PantryItem } from "../domain/pantry-item";
 import { emptyPlaceButtonText, emptyPlaceQuestion, emptyPlaceUndoHint } from "../domain/places";
+import type { SelectedSite } from "../domain/site";
 import { usePantryRemoval } from "./pantry-removal";
 import { usePantrySuggestions } from "./pantry-suggestions";
 
@@ -22,10 +23,18 @@ import { usePantrySuggestions } from "./pantry-suggestions";
 // "Ångra" (PantryRemovalProvider), and focus goes to the camera button: the
 // next step is a new photo. The sheet closes when the location has no items
 // left while it asks.
+//
+// Places (Story 8.4, FR-33): the sheet keeps the place Hemma showed when it
+// opened, with its operation id, and empties only that place's location.
+// With more than one place the question and the confirmation name it: "Ta
+// bort alla 14 varor i kylen för Stugan?"
 
 export type EmptyPlaceButtonProps = {
-  /** The place Hemma shows (Story 8.2): what is pending and emptied is kept per place. */
-  siteId: string;
+  /**
+   * The place Hemma shows (Story 8.2): what is pending and emptied is kept
+   * per place, and the sheet empties the place it opened for (Story 8.4).
+   */
+  site: SelectedSite;
   location: Location;
   /** The number of items shown, as the location card counts them; no button for 0. */
   count: number;
@@ -33,11 +42,14 @@ export type EmptyPlaceButtonProps = {
   items: readonly PantryItem[];
 };
 
-export function EmptyPlaceButton({ siteId, location, count, items }: EmptyPlaceButtonProps) {
+/** The open sheet's place and operation id, kept together for "Försök igen" (Story 8.4). */
+type Asking = { site: SelectedSite; operationId: string };
+
+export function EmptyPlaceButton({ site, location, count, items }: EmptyPlaceButtonProps) {
   const { emptyPlace, isPending } = usePantryRemoval();
   const { cameraButtonRef } = usePantrySuggestions();
-  /** The open sheet's operation id, kept for "Försök igen"; `null` while it is closed. */
-  const [operationId, setOperationId] = useState<string | null>(null);
+  /** The open sheet's place and operation id; `null` while it is closed. */
+  const [asking, setAsking] = useState<Asking | null>(null);
   const [emptying, setEmptying] = useState(false);
   const [error, setError] = useState<string | null>(null);
   /** Set from the tap until the answer, before React has rendered `emptying`. */
@@ -45,10 +57,12 @@ export function EmptyPlaceButton({ siteId, location, count, items }: EmptyPlaceB
   /** Increases when the location is emptied, so the camera button can take focus. */
   const [emptied, setEmptied] = useState(0);
   const text = emptyPlaceButtonText(location);
-  const pending = isPending(siteId, location);
+  /** The place the sheet asks about: the one it opened for, else the one Hemma shows. */
+  const shownSite = asking?.site ?? site;
+  const pending = isPending(shownSite.id, location);
 
   // Nothing left to ask about (emptied elsewhere, or by an answer that was lost): the sheet closes.
-  if (operationId !== null && count === 0 && !emptying) setOperationId(null);
+  if (asking !== null && count === 0 && !emptying) setAsking(null);
 
   // After the commit that closed the sheet, whose own focus return runs first.
   useEffect(() => {
@@ -57,21 +71,22 @@ export function EmptyPlaceButton({ siteId, location, count, items }: EmptyPlaceB
 
   function ask() {
     setError(null);
-    setOperationId(newId());
+    // The place is kept with the operation id, so "Försök igen" empties the same place.
+    setAsking({ site, operationId: newId() });
   }
 
   async function confirm() {
-    if (inFlight.current || operationId === null) return;
+    if (inFlight.current || asking === null) return;
     inFlight.current = true;
     setEmptying(true);
     setError(null);
     try {
-      const result = await emptyPlace(siteId, location, items, operationId);
+      const result = await emptyPlace(asking.site, location, items, asking.operationId);
       if (!result.ok) {
         setError(result.error.message);
         return;
       }
-      setOperationId(null);
+      setAsking(null);
       setEmptied((times) => times + 1);
     } finally {
       inFlight.current = false;
@@ -87,8 +102,8 @@ export function EmptyPlaceButton({ siteId, location, count, items }: EmptyPlaceB
         </Button>
       ) : null}
       <Sheet
-        open={operationId !== null}
-        onClose={() => setOperationId(null)}
+        open={asking !== null}
+        onClose={() => setAsking(null)}
         title={text}
         closeLabel="Avbryt"
         initialFocus="close"
@@ -103,7 +118,7 @@ export function EmptyPlaceButton({ siteId, location, count, items }: EmptyPlaceB
         }
       >
         <div className="flex flex-col gap-2">
-          <p className="text-body text-ink">{emptyPlaceQuestion(location, count)}</p>
+          <p className="text-body text-ink">{emptyPlaceQuestion(location, count, shownSite)}</p>
           <p className="text-body text-ink-2">{emptyPlaceUndoHint}</p>
         </div>
       </Sheet>

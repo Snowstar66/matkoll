@@ -11,7 +11,7 @@ import { restorePantryItem } from "../actions/restore-pantry-item";
 import { restorePantryRemoval } from "../actions/restore-pantry-removal";
 import { comparePantryItems, type PantryItem } from "../domain/pantry-item";
 import type { PantryRow } from "../domain/pantry-item-form";
-import { withoutPlace, withRestoredPlace, withRestoredStock } from "../domain/pantry-suggestion";
+import { isPhotoOfSite, withoutPlace, withRestoredPlace, withRestoredStock } from "../domain/pantry-suggestion";
 import {
   alreadyEmptyText,
   emptiedPlaceText,
@@ -20,6 +20,7 @@ import {
   removedCountText,
   removedItemsText,
 } from "../domain/places";
+import type { SelectedSite } from "../domain/site";
 import { usePantrySuggestions } from "./pantry-suggestions";
 import { useLiveUndo } from "./site-switching";
 
@@ -118,16 +119,17 @@ type PantryRemovalApi = {
   removeItem: (item: PantryItem, options?: { moveFocus?: boolean }) => void;
   /**
    * "Töm kylen" after the sheet has asked: empties `location` of the place
-   * Hemma shows (`siteId`) on the server under `operationId` (not
-   * optimistically), then hides its rows at once and
-   * confirms with "Ångra". `items` are the rows the list shows, for their
-   * names. A failure is returned for the sheet to show; nothing is removed
-   * then. When the answer is lost, the page is read again, and if the
-   * location then looks empty, "Kylen kan ha tömts." offers "Ångra" by the
+   * Hemma showed when the sheet opened (`site`, Story 8.4) on the server
+   * under `operationId` (not optimistically), then hides its rows at once
+   * and confirms with "Ångra" ("… för Stugan." from two places). `items` are
+   * the rows the list shows, for their names. A failure is returned for the
+   * sheet to show; nothing is removed then. When the answer is lost, the
+   * page is read again, and if the location then looks empty while Hemma
+   * still shows the same place, "Kylen kan ha tömts." offers "Ångra" by the
    * operation id. The same id again is a safe retry.
    */
   emptyPlace: (
-    siteId: string,
+    site: SelectedSite,
     location: Location,
     items: readonly PantryItem[],
     operationId: string,
@@ -158,7 +160,8 @@ type Removed = { item: PantryItem; row: PantryRow };
 /** An emptied location of a place, whose rows the server keeps under the operation id. */
 type Operation = {
   id: string;
-  siteId: string;
+  /** The place whose location was emptied (Story 8.4): its name is in the confirmation from two places. */
+  site: SelectedSite;
   location: Location;
   /** How many rows it removed; `null` when the answer was lost. */
   count: number | null;
@@ -180,9 +183,16 @@ function batchText({ singles, operations }: Batch): string {
   if (operations.length === 0) return removedItemsText(singles.map(({ item }) => item.name));
   const unknown = operations.find((operation) => operation.count === null);
   if (unknown) return maybeEmptiedText(unknown.location);
-  if (singles.length === 0 && operations.length === 1) return emptiedPlaceText(operations[0].location, operations[0].count ?? 0);
+  const [first] = operations;
+  if (singles.length === 0 && operations.length === 1) return emptiedPlaceText(first.location, first.count ?? 0, first.site);
   const count = operations.reduce((sum, operation) => sum + (operation.count ?? 0), singles.length);
-  return removedCountText(count, [...operations.map(({ location }) => location), ...singles.map(({ item }) => item.location)]);
+  // One place's name only when everything is from that place (Story 8.4).
+  const sites = new Set([...operations.map(({ site }) => site.id), ...singles.map(({ item }) => item.siteId)]);
+  return removedCountText(
+    count,
+    [...operations.map(({ location }) => location), ...singles.map(({ item }) => item.location)],
+    sites.size === 1 ? first.site : null,
+  );
 }
 
 /** A row removed from `location` of the place that the list did not show: only its id counts. */
@@ -214,7 +224,7 @@ const unnamed = (id: string, siteId: string, location: Location): PantryItem => 
 export function PantryRemovalProvider({ children }: { children: ReactNode }) {
   const { showToast } = useToast();
   const router = useRouter();
-  const { editResult, editSuggestions, generation } = usePantrySuggestions();
+  const { editResult, generation } = usePantrySuggestions();
   const { holdUndo } = useLiveUndo();
   const [entries, setEntries] = useState<ReadonlyMap<string, Entry>>(() => new Map());
   const [focusAfter, setFocusAfter] = useState<string | null>(null);
@@ -320,17 +330,19 @@ export function PantryRemovalProvider({ children }: { children: ReactNode }) {
    * the list never showed.
    */
   async function restoreOperation(operation: Operation): Promise<Outcome> {
-    markInFlight(operation.siteId, operation.location, 1);
+    const siteId = operation.site.id;
+    markInFlight(siteId, operation.location, 1);
     const tokens = new Map(operation.known.map((item) => [item.id, begin("restore", item)]));
     let result: Awaited<ReturnType<typeof restorePantryRemoval>>;
     let lost = false;
     try {
+      // The rows go back to their own place, also when Hemma shows another by now (AD-20, AD-24).
       result = await restorePantryRemoval(operation.id);
     } catch {
       result = fail("pantry_restore_failed");
       lost = true;
     } finally {
-      markInFlight(operation.siteId, operation.location, -1);
+      markInFlight(siteId, operation.location, -1);
     }
     if (!result.ok) {
       for (const [id, token] of tokens) drop(id, token);
@@ -343,9 +355,14 @@ export function PantryRemovalProvider({ children }: { children: ReactNode }) {
     }
     forgetRemovals(result.data.restoredIds.filter((id) => !tokens.has(id)));
     const rows = result.data.rows;
-    editSuggestions(generation(), (suggestions) => withRestoredStock(suggestions, operation.location, rows));
+    // "I kylen nu" changes only for suggestions from a photo of this place (Story 8.4).
+    editResult(generation(), (current) =>
+      isPhotoOfSite(current, siteId)
+        ? { ...current, suggestions: withRestoredStock(current.suggestions, operation.location, rows) }
+        : current,
+    );
     // A photo compared with the location before it was emptied no longer matches it (Story 6.4).
-    editResult(generation(), (result) => withRestoredPlace(result, operation.location));
+    editResult(generation(), (current) => withRestoredPlace(current, siteId, operation.location));
     return { ok: true, skipped: result.data.skipped };
   }
 
@@ -368,7 +385,7 @@ export function PantryRemovalProvider({ children }: { children: ReactNode }) {
    */
   function showBatch(next: Batch) {
     batch.current = next;
-    const sites = [...next.singles.map(({ item }) => item.siteId), ...next.operations.map(({ siteId }) => siteId)];
+    const sites = [...next.singles.map(({ item }) => item.siteId), ...next.operations.map(({ site }) => site.id)];
     const release = holdUndo([...new Set(sites)]);
     const forget = () => {
       if (batch.current === next) batch.current = null;
@@ -419,19 +436,21 @@ export function PantryRemovalProvider({ children }: { children: ReactNode }) {
     showBatch({ singles, operations: batch.current?.operations ?? [] });
   }
 
-  // The place is the one Hemma shows; emptyPantryPlace sends it from Story 8.4
-  // on, and until then empties the place selected when the call arrives.
+  // The place is the one Hemma showed when the sheet opened (Story 8.4):
+  // emptyPantryPlace empties only its location, whatever is selected when the
+  // call arrives.
   async function emptyPlace(
-    siteId: string,
+    site: SelectedSite,
     location: Location,
     items: readonly PantryItem[],
     operationId: string,
   ): Promise<Result<{ removed: number }>> {
+    const siteId = site.id;
     markInFlight(siteId, location, 1);
     let result: Awaited<ReturnType<typeof emptyPantryPlace>>;
     let lost = false;
     try {
-      result = await emptyPantryPlace(location, operationId);
+      result = await emptyPantryPlace(location, operationId, siteId);
     } catch {
       result = fail("pantry_empty_failed");
       lost = true;
@@ -441,12 +460,13 @@ export function PantryRemovalProvider({ children }: { children: ReactNode }) {
     if (lost) {
       // No answer (e.g. no connection): it may have been emptied. The page is
       // read again, and `report` offers "Ångra" if the location is empty then.
-      lostEmpty.current = { operation: { id: operationId, siteId, location, count: null, known: items }, at: Date.now() };
+      lostEmpty.current = { operation: { id: operationId, site, location, count: null, known: items }, at: Date.now() };
       router.refresh();
       return result;
     }
     if (!result.ok) {
-      // An expired session: the page sends Pontus to sign in.
+      // An expired session: the page sends Pontus to sign in. A place that is
+      // gone: the action has the page read again.
       if (result.error.code === "unauthorized") router.refresh();
       return result;
     }
@@ -455,12 +475,13 @@ export function PantryRemovalProvider({ children }: { children: ReactNode }) {
     const shown = new Map(items.map((item) => [item.id, item]));
     // The list is empty at once, also of rows another tab added (only the id counts for them).
     for (const id of removedIds) settle(id, begin("remove", shown.get(id) ?? unnamed(id, siteId, location)));
-    editResult(generation(), (result) => withoutPlace(result, location));
+    // A photo of this place's location loses its comparison; a photo of another place keeps it (Story 8.4).
+    editResult(generation(), (result) => withoutPlace(result, siteId, location));
     if (removed > 0) {
       const ids = new Set(removedIds);
       confirmOperation({
         id: operationId,
-        siteId,
+        site,
         location,
         count: removed,
         known: items.filter((item) => ids.has(item.id)),
@@ -476,10 +497,16 @@ export function PantryRemovalProvider({ children }: { children: ReactNode }) {
   useEffect(() => {
     onReport.current = (siteId, location, items) => {
       const lost = lostEmpty.current;
-      if (!lost || lost.operation.siteId !== siteId || lost.operation.location !== location) return;
+      if (!lost) return;
+      // Hemma shows another place by now (Story 8.4): an empty location there says nothing about this one.
+      if (lost.operation.site.id !== siteId) {
+        lostEmpty.current = null;
+        return;
+      }
+      if (lost.operation.location !== location) return;
       lostEmpty.current = null;
       if (items.length > 0 || Date.now() - lost.at > lostEmptyWindowMs) return;
-      editResult(generation(), (result) => withoutPlace(result, location));
+      editResult(generation(), (result) => withoutPlace(result, siteId, location));
       confirmOperation(lost.operation);
     };
   });
