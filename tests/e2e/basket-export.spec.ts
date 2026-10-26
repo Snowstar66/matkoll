@@ -214,7 +214,7 @@ test.afterEach(() => {
 test("Skicka till ICA copies the export without asking the server, and confirms", async ({ page }) => {
   const errors = watchErrors(page);
   await openList(page);
-  // Nothing is checked off: the only button, so the primary one.
+  // Nothing is checked off: the only button (secondary since Story 11.4).
   await expect(putButton(page)).toHaveCount(0);
   const requests = recordRequests(page);
   const url = page.url();
@@ -234,18 +234,21 @@ test("Skicka till ICA copies the export without asking the server, and confirms"
   expect(errors).toEqual([]);
 });
 
-test("a gul lök checked off is not in the next export, and Lägg i lagret stands above Skicka till ICA", async ({ page }) => {
+test("a gul lök checked off is not in the next export, and Lägg i lagret stands beside Skicka till ICA", async ({ page }) => {
   const errors = watchErrors(page);
   await openList(page);
   await check(page, "Gul lök, 2 st").click();
+  // Moved to I korgen (Story 11.4).
+  await page.getByRole("button", { name: "Visa", exact: true }).filter({ visible: true }).click();
   await expect(check(page, "Gul lök, 2 st")).toBeChecked();
   await expect(putButton(page)).toBeEnabled();
   // Off while the check was saved; on again now.
   await expect(sendButton(page)).toBeEnabled();
 
+  // One row at 375 px: "Skicka till ICA" left, "Lägg i lagret" right (Story 11.4).
   const put = await putButton(page).boundingBox();
   const send = await sendButton(page).boundingBox();
-  expect(put && send && put.y + put.height <= send.y).toBe(true);
+  expect(put && send && Math.abs(put.y - send.y) < 1 && send.x + send.width <= put.x).toBe(true);
 
   await sendButton(page).click();
   await expect(toast(page)).toHaveText(copied);

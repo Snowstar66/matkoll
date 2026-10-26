@@ -91,7 +91,7 @@ const disk: ShoppingLine = {
   coverage: { kind: "unlinked" },
   section: "Övrigt",
   origins: [],
-  checked: true,
+  checked: false,
   isCustom: true,
 };
 const previous: LineOverrideRow = { id: overrideId, planId, key: graddeKey, amount: 2, baseAmount: 3, hidden: false };
@@ -120,7 +120,8 @@ describe("Listpostdetalj for a recipe line", () => {
     await user.click(screen.getByRole("checkbox", { name: "Grädde, 3 dl (hemma: 1 l)" }));
     expect(screen.queryByRole("dialog")).not.toBeInTheDocument();
 
-    await user.click(nameButton("Grädde"));
+    // The stub's server list keeps the line unchecked, so it comes back from I korgen once the save has settled.
+    await user.click(await screen.findByRole("button", { name: /^Grädde/ }));
     const sheet = detail("Grädde");
     expect(within(sheet).getByRole("textbox", { name: "Mängd" })).toHaveValue("3");
     expect(within(sheet).getByTestId("line-detail-unit")).toHaveTextContent("dl");
@@ -233,7 +234,7 @@ describe("hiding a recipe line", () => {
     await user.click(screen.getByRole("button", { name: "Ta bort Grädde" }));
     expect(hideLine).toHaveBeenCalledWith({ planId, key: graddeKey });
     expect(screen.queryByText("Grädde")).not.toBeInTheDocument();
-    expect(screen.getByTestId("list-summary")).toHaveTextContent("1 vara kvar");
+    expect(screen.getByTestId("list-progress")).toHaveTextContent("1 vara kvar");
     expect((await screen.findAllByText("Grädde är borttagen.")).length).toBeGreaterThan(0);
     rerender(<ShoppingList plan={plan} lines={[salt]} pantryUnavailable={false} />);
 
@@ -256,7 +257,7 @@ describe("hiding a recipe line", () => {
     expect(hideLine).toHaveBeenCalledWith({ planId, key: graddeKey });
     expect((await screen.findAllByText("Grädde är borttagen.")).length).toBeGreaterThan(0);
     // Focus moves on to the next line.
-    await waitFor(() => expect(screen.getByRole("checkbox", { name: "Salt, finns hemma?" })).toHaveFocus());
+    await waitFor(() => expect(screen.getByRole("checkbox", { name: "Salt" })).toHaveFocus());
     await user.click(screen.getByRole("button", { name: "Ångra" }));
     expect(restoreLine).toHaveBeenCalledWith({ planId, key: graddeKey, previous: null, hiddenUpdatedAt });
   });

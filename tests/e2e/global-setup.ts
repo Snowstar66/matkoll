@@ -49,6 +49,8 @@ import {
   settingsEmail,
   settingsStorageState,
   shoppingEmail,
+  shoppingLookEmail,
+  shoppingLookStorageState,
   shoppingStorageState,
   siteListEmail,
   siteListStorageState,
@@ -123,6 +125,7 @@ export default async function globalSetup(config: FullConfig) {
       [sitePhotoEmail, sitePhotoStorageState],
       [photoSaveEmail, photoSaveStorageState],
       [labelEmail, labelStorageState],
+      [shoppingLookEmail, shoppingLookStorageState],
     ] as const) {
       const user = await browser.newContext({ baseURL });
       const page = await user.newPage();

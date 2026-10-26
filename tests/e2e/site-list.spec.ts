@@ -226,6 +226,9 @@ const toast = (page: Page, text: string) => page.getByTestId("toast").filter({ h
 const anyToast = (page: Page) => page.getByTestId("toast");
 const listAnnouncement = (page: Page) => page.getByTestId("list-announcement").filter({ visible: true });
 const summary = (page: Page) => page.getByTestId("list-summary").filter({ visible: true });
+const progress = (page: Page) => page.getByTestId("list-progress").filter({ visible: true });
+/** Unfolds I korgen, where the checked lines are (Story 11.4). */
+const showBasket = (page: Page) => page.getByRole("button", { name: "Visa", exact: true }).filter({ visible: true }).click();
 const putButton = (page: Page) => page.getByRole("button", { name: "Lägg i lagret", exact: true }).filter({ visible: true });
 const sendButton = (page: Page) => page.getByRole("button", { name: "Skicka till ICA", exact: true }).filter({ visible: true });
 const tab = (page: Page, name: "Inköpslista" | "Lagersaldo") =>
@@ -313,6 +316,8 @@ test("a check, a corrected amount, a hidden line and an own item stay through a 
   if (own.error) throw own.error;
 
   await page.goto("/lista");
+  // The checked korv is in I korgen (Story 11.4), which stays open through the switch.
+  await showBasket(page);
   await expect(lineCheck(page, "Korv")).toBeChecked();
   await expect(lineCheck(page, "Korv")).toHaveAccessibleName(/^Korv, 8 st/);
   await expect(lineCheck(page, "Kaffe")).toBeVisible();
@@ -335,6 +340,7 @@ test("senap checked off against Hemma leaves the list against Stugan, and is che
   const errors = watchErrors(page);
   await page.goto("/lista");
   await lineCheck(page, "Senap").click();
+  await showBasket(page);
   await expect(lineCheck(page, "Senap")).toBeChecked();
   // The check is saved once the button is on.
   await expect(putButton(page)).toBeEnabled();
@@ -342,11 +348,14 @@ test("senap checked off against Hemma leaves the list against Stugan, and is che
 
   await countAgainst(page, "Stugan");
   await expect(lineCheck(page, "Senap")).toHaveCount(0);
-  await expect(summary(page)).toHaveText("Vecka 44 · 1 rätt · 2 varor kvar");
+  await expect(summary(page)).toHaveText("Vecka 44 · 1 rätt");
+  await expect(progress(page)).toHaveText(/^2 varor kvar\s*0 av 2 i korgen$/);
   // The check stays on the server, under its key without a place.
   expect(await storedChecks()).toEqual([lineKey("Senap", "förp")]);
 
   await countAgainst(page, "Hemma");
+  // Back in I korgen, which folded while it was empty.
+  await showBasket(page);
   await expect(lineCheck(page, "Senap")).toBeChecked();
   expect(errors).toEqual([]);
 });
@@ -357,12 +366,14 @@ test("Lägg i lagret against Stugan puts only what was checked off there, and ke
   const errors = watchErrors(page);
   await page.goto("/lista");
   await lineCheck(page, "Senap").click();
-  await expect(lineCheck(page, "Senap")).toBeChecked();
+  // Moved to I korgen (Story 11.4).
+  await expect(lineCheck(page, "Senap")).toHaveCount(0);
   await expect.poll(storedChecks).toEqual([lineKey("Senap", "förp")]);
 
   await countAgainst(page, "Stugan");
   await lineCheck(page, "Korv").click();
-  await expect(lineCheck(page, "Korv")).toBeChecked();
+  await expect(lineCheck(page, "Korv")).toHaveCount(0);
+  await expect(progress(page)).toHaveText(/1 av 2 i korgen$/);
   await expect(putButton(page)).toBeEnabled();
   await putButton(page).click();
   await expect(toast(page, "Lagt 1 vara i lagret för Stugan.")).toBeVisible();
@@ -412,7 +423,8 @@ test("the empty list names Stugan when everything is in stock there", async ({ p
   await expect(lineCheck(page, "Senap")).toBeVisible();
   await countAgainst(page, "Stugan");
   await expect(page.getByText("Allt finns i lagret för Stugan.").filter({ visible: true })).toBeVisible();
-  await expect(summary(page)).toHaveText("Vecka 44 · 1 rätt · 0 varor kvar");
+  await expect(summary(page)).toHaveText("Vecka 44 · 1 rätt");
+  await expect(progress(page)).toHaveCount(0);
   expect(errors).toEqual([]);
 });
 

@@ -2,6 +2,16 @@
 
 Beslut som fattats under bygget: vad, varför och vilka alternativ som fanns. Nyaste överst.
 
+## 2026-10-27 – Inköpslistan i nytt utseende (Story 11.4)
+
+- **En avbockad post flyttas direkt** till "I korgen" längst ned, som är hopfälld från början. Framstegsraden och live-regionen ("Citron i korgen.") säger vad som hände, och fokus går till nästa posts bock. Alternativ: en kort fördröjning (öppen fråga 16). Besluten i specen godkändes som de var skrivna, eftersom Pontus gav fritt mandat för natten.
+- **Ett andra tryck med fingret på en annan bock inom 400 ms räknas inte**, eftersom nästa post glider upp under tummen när den första flyttas. Samma gräns som soptunnan (11.1). Tryck med mus eller tangentbord räknas alltid. Det är ingen fördröjning: posten flyttas direkt.
+- **Raden under namnet** är rätterna med " · " utan "från", "Egen vara", eller "Saknas i lagret" ("Saknas i Stugan" med flera ställen) före rätterna för en vag post. "Finns hemma?" används inte längre, varken i listan eller i bockens namn, som för en vag post bara är namnet ("Salt").
+- **Sammanfattningen under rubriken** säger bara "Vecka 44 · 2 rätter". Antalet kvar står i framstegsraden, så det inte står två gånger.
+- **Produktetiketten** är högst 40 % av raden med containerenheter (`40cqw`, listgruppen är container) och avkortas med "…".
+- **De fasta knapparna** står i en rad, "Skicka till ICA" (sekundär) till vänster och "Lägg i lagret" (primär) till höger. Får de inte plats bredvid varandra radbryts de uppåt (`flex-wrap-reverse`), så att "Lägg i lagret" hamnar överst och tabbordningen följer raden. "Skicka till ICA" döljs som förut när inget återstår att skicka (öppen fråga 18).
+- **Exporten, `computeList`, nycklarna och "Lägg i lagret" är oförändrade.** Exporten grupperar fortfarande per avdelning med `groupBySection`; listan visar kategorier med `groupByCategory`.
+
 ## 2026-10-27 – Märke och tid på lagervaror (Story 11.2)
 
 - **Märket är en kolumn på lagervaran,** `pantry_item.label` (1–60 tecken eller inget). Varför: det hör till raden, följer med när raden ersätts och vid "Ångra", och RLS gäller redan. Alternativ: en egen tabell.

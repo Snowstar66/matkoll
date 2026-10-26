@@ -59,7 +59,7 @@ const gradde: ShoppingLine = {
   checked: false,
   isCustom: false,
 };
-const disk = own(diskId, "diskmedel", "Övrigt", true);
+const disk = own(diskId, "diskmedel", "Övrigt");
 const coffee = own(kaffeId, "Kaffe", "Skafferi");
 const diskRow: CustomItemRow = { id: diskId, planId, label: "diskmedel", ingredientId: null, amount: null, unit: null };
 const searchIngredients = vi.fn(async (query: string) =>
@@ -218,7 +218,9 @@ describe("removing an own item", () => {
 
   it("removes the item at once, and Ångra puts it back with the same row and check", async () => {
     const user = userEvent.setup();
-    render(<ShoppingList plan={plan} lines={lines} pantryUnavailable={false} />);
+    render(<ShoppingList plan={plan} lines={[gradde, coffee, { ...disk, checked: true }]} pantryUnavailable={false} />);
+    // Checked off, it is in I korgen (Story 11.4).
+    await user.click(screen.getByRole("button", { name: "Visa" }));
     await user.click(screen.getByRole("button", { name: "Ta bort diskmedel" }));
     expect(removeCustomItem).toHaveBeenCalledWith(diskId);
     expect(screen.queryByText("diskmedel")).not.toBeInTheDocument();
@@ -226,9 +228,12 @@ describe("removing an own item", () => {
 
     await user.click(screen.getByRole("button", { name: "Ångra" }));
     expect(restoreCustomItem).toHaveBeenCalledWith(diskRow);
-    const back = await screen.findByRole("checkbox", { name: "diskmedel" });
+    // The basket folded when it was empty: the item is back in it, still checked.
+    expect(await screen.findByText("1 vara i korgen")).toBeInTheDocument();
+    await user.click(screen.getByRole("button", { name: "Visa" }));
+    const back = screen.getByRole("checkbox", { name: "diskmedel" });
     expect(back).toBeChecked();
-    expect(within(screen.getByRole("region", { name: "Övrigt" })).getByText("diskmedel")).toBeInTheDocument();
+    expect(within(screen.getByRole("list", { name: "I korgen" })).getByText("diskmedel")).toBeInTheDocument();
   });
 
   it("joins items removed while the confirmation shows, and puts them all back", async () => {
@@ -292,7 +297,8 @@ describe("removing an own item", () => {
 describe("own items after review", () => {
   it("shows the summary without dishes, and the checks notice, for a plan with only own items", () => {
     render(<ShoppingList plan={{ ...plan, dishCount: 0 }} lines={[disk, coffee]} pantryUnavailable={false} checksUnavailable />);
-    expect(screen.getByTestId("list-summary")).toHaveTextContent(/^Vecka 44 · 1 vara kvar$/);
+    expect(screen.getByTestId("list-summary")).toHaveTextContent(/^Vecka 44$/);
+    expect(screen.getByTestId("list-progress")).toHaveTextContent("2 varor kvar 0 av 2 i korgen");
     expect(screen.getByText("Det gick inte att läsa bockarna, så det går inte att bocka av just nu.")).toHaveAttribute(
       "role",
       "status",

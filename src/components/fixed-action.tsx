@@ -6,9 +6,15 @@ import { type ReactNode, useEffect, useRef, useState } from "react";
 export const fixedActionOffsetVar = "--fixed-action-offset";
 
 /**
- * Fast åtgärdsknapp: one or two full-width buttons pinned to the bottom, 12 px above
- * the tab bar on mobile and inside the iPhone safe areas. A spacer as tall as the
+ * Fast åtgärdsknapp: one or two buttons pinned to the bottom, 12 px above the
+ * tab bar on mobile and inside the iPhone safe areas. A spacer as tall as the
  * buttons keeps the end of the page from hiding behind them.
+ *
+ * One child fills the width. Two stand side by side in equal halves (a longer
+ * label takes what it needs); when they do not fit beside each other (a long
+ * label, 200 % text), they stack, with the last child on top (Story 11.4:
+ * "Skicka till ICA" left, "Lägg i lagret" right, or on top). The children
+ * keep their order in the DOM, so the tab order follows the row.
  */
 export function FixedAction({ children }: { children: ReactNode }) {
   const barRef = useRef<HTMLDivElement>(null);
@@ -44,7 +50,12 @@ export function FixedAction({ children }: { children: ReactNode }) {
         }}
       />
       <div className="fixed inset-x-0 bottom-[calc(var(--tab-bar-height)+var(--fixed-action-gap))] z-20 px-page desktop:bottom-[calc(env(safe-area-inset-bottom)+var(--fixed-action-gap))] desktop:left-side-menu">
-        <div ref={barRef} className="mx-auto flex max-w-content flex-col gap-2">
+        {/* wrap-reverse: the line that wraps goes above the first, so the last child ends on top. */}
+        <div
+          ref={barRef}
+          data-testid="fixed-action"
+          className="mx-auto flex max-w-content flex-wrap-reverse gap-2 *:min-w-fit *:grow *:basis-0"
+        >
           {children}
         </div>
       </div>

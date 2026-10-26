@@ -2,7 +2,8 @@
 title: 'Story 11.4: Inköpslistan i nytt utseende'
 type: 'feature'
 created: '2026-10-26'
-status: 'draft'
+status: 'in-progress'
+baseline_commit: 'a566fa1'
 route: 'dispatch'
 context:
   - '{project-root}/_bmad-output/implementation-artifacts/epic-11-context.md'
@@ -96,13 +97,13 @@ context:
 ## Tasks & Acceptance
 
 **Execution:**
-- [ ] `src/features/shopping/domain/list-text.ts` (+ test) -- `groupByCategory(lines)` (ersätter `groupBySection` i vyn), `lineMetaText`, `progressText(left, checked, total)`, `basketText(n)`, `inBasketAnnouncement(label)`, `backOnListAnnouncement(label)` -- FR-43, UX-DR28
-- [ ] `src/features/shopping/ui/shopping-list.tsx` (+ test) -- framstegsraden, kategorierna, listposten, I korgen med "Visa" och "Dölj", fokus och live-region enligt Boundaries -- FR-43, UX-DR25
-- [ ] `src/features/shopping/ui/product-chip.tsx` (+ test) -- etiketten från produktvalet
-- [ ] `src/components/fixed-action.tsx` (+ test) -- två knappar i en rad, ovanpå varandra när de inte får plats (flex-wrap), "Lägg i lagret" överst i det läget
-- [ ] Befintliga e2e-specar -- uppdatera de som letar efter "från …", "Finns hemma?" eller att en avbockad post står kvar
-- [ ] `tests/e2e/shopping-look.spec.ts` (+ `support.ts`, `global-setup.ts`) -- egen e2e-användare `e2e-utseende-lista@matkoll.test`: framstegsraden, en bock som flyttar posten till I korgen och tillbaka, raden under för en egen vara och en vag post med två ställen, produktetiketten och knapparna, vid 375 px
-- [ ] `docs/beslutslogg.md` -- en post för storyn
+- [x] `src/features/shopping/domain/list-text.ts` (+ test) -- `groupByCategory(lines)` (ersätter `groupBySection` i vyn), `lineMetaText`, `progressText(left, checked, total)`, `basketText(n)`, `inBasketAnnouncement(label)`, `backOnListAnnouncement(label)` -- FR-43, UX-DR28
+- [x] `src/features/shopping/ui/shopping-list.tsx` (+ test) -- framstegsraden, kategorierna, listposten, I korgen med "Visa" och "Dölj", fokus och live-region enligt Boundaries -- FR-43, UX-DR25
+- [x] `src/features/shopping/ui/product-chip.tsx` (+ test) -- etiketten från produktvalet
+- [x] `src/components/fixed-action.tsx` (+ test) -- två knappar i en rad, ovanpå varandra när de inte får plats (flex-wrap), "Lägg i lagret" överst i det läget
+- [x] Befintliga e2e-specar -- uppdatera de som letar efter "från …", "Finns hemma?" eller att en avbockad post står kvar
+- [x] `tests/e2e/shopping-look.spec.ts` (+ `support.ts`, `global-setup.ts`) -- egen e2e-användare `e2e-utseende-lista@matkoll.test`: framstegsraden, en bock som flyttar posten till I korgen och tillbaka, raden under för en egen vara och en vag post med två ställen, produktetiketten och knapparna, vid 375 px
+- [x] `docs/beslutslogg.md` -- en post för storyn
 
 **Acceptance Criteria:**
 - Given `pnpm lint && pnpm typecheck && pnpm test && pnpm test:integration && AI_PROVIDER=mock pnpm build && CI=1 pnpm test:e2e`, when de körs, then lyckas alla.
@@ -110,14 +111,32 @@ context:
 
 ## Implementation Notes
 
-- **Beslut (förslag): posten flyttas direkt.** En fördröjning skulle flytta listan under tummen medan Pontus siktar på nästa vara. Det som flyttas syns i framstegsraden och i live-regionen. Öppen fråga 16.
-- **Beslut (förslag): I korgen är hopfälld från början,** som i skissen, så att det som är kvar syns först.
-- **Beslut (förslag): "Saknas i Stugan" ersätter "Finns hemma?".** Texten säger vad som gäller, och bocken betyder fortfarande "har köpt den eller har den redan".
-- **Beslut (förslag): rätterna utan "från".** Skissen. Raden under står alltid i `ink-3`, så den läses inte som en del av namnet.
+- **Beslut (godkänt 2026-10-27): posten flyttas direkt.** En fördröjning skulle flytta listan under tummen medan Pontus siktar på nästa vara. Det som flyttas syns i framstegsraden och i live-regionen. Öppen fråga 16.
+- **Beslut (godkänt 2026-10-27): I korgen är hopfälld från början,** som i skissen, så att det som är kvar syns först.
+- **Beslut (godkänt 2026-10-27): "Saknas i Stugan" ersätter "Finns hemma?".** Texten säger vad som gäller, och bocken betyder fortfarande "har köpt den eller har den redan".
+- **Beslut (godkänt 2026-10-27): rätterna utan "från".** Skissen. Raden under står alltid i `ink-3`, så den läses inte som en del av namnet.
 - **Risk: fokus när en post flyttas.** Flytta fokus innan posten tas bort ur sin kategori. Testa med tangentbord och VoiceOver.
 - **Risk: optimistisk bock och omräkning.** Om listan räknas om medan en bock sparas ska posten inte hoppa fram och tillbaka. Behåll mönstret med `useOptimistic` från 3.4.
 
 ## Spec Change Log
+
+### Vid bygget
+
+- **Byggd på `a566fa1`** (`baseline_commit`) och ombaserad före commit på `fbe221d` (granskningsfixarna för 11.1, Story 11.6 och Story 11.2). Besluten ovan godkändes som de var skrivna: Pontus gav fritt mandat för natten.
+- **Kategorierna är vanliga `div` utan landmärke,** som i `src/components/README.md` efter granskningen av 11.1: rubriken (`CategoryHeader`, `h2`) namnger listgruppen (`ul role="list"`). Detsamma gäller "I korgen", vars `h2` namnger listan med de avbockade posterna. Testerna letar därför efter listan ("Mejeri & ägg"), inte en region.
+- **Avbockade rader har `srStatus="i korgen"`** (ListRow), så att överstrykningen också sägs.
+- **Ett andra tryck med fingret inom 400 ms** på en annan bock räknas inte (`doubleTapGuardMs`), eftersom nästa post glider upp under tummen när den första flyttas. Samma gräns som soptunnan i 11.1. Mus och tangentbord räknas alltid, och posten flyttas fortfarande direkt (ingen fördröjning). Tidsstämpeln kommer från händelsen (`pointerdown`), inte från `performance.now()`, som React Compiler inte tillåter.
+- **Fokus:** från listan till nästa posts bock, annars den föregående, annars korgradens "Visa", som i specen. Från I korgen (specen säger inget) till nästa avbockade posts bock, annars den föregående, annars posten själv tillbaka i sin kategori. Fokus flyttas före bocken när målet redan finns, annars efter nästa rendering.
+- **Live-regionen för en bock** är en egen (`check-announcement`) bredvid omräkningens (`list-announcement`), så att Pontus egen bock aldrig räknas som en omräkning.
+- **"Finns hemma?" är borta också ur bockens namn:** en vag post heter bara "Salt" (förut "Salt, finns hemma?"). Raden under säger "Saknas i lagret", och `lineAmountText` ger ingen mängd för en vag post, också i arket Dolda varor.
+- **Sammanfattningen under rubriken** är "Vecka 44 · 2 rätter" utan "N varor kvar", eftersom framstegsraden säger det.
+- **"Skicka till ICA" är sekundär också ensam**, som i specen. När allt är avbockat döljs den som förut, eftersom exporten lämnar ute avbockade varor och inte får ändras. Matrisen säger "båda knapparna", men EXPERIENCE.md (Allt i korgen) säger att bara "Lägg i lagret" står kvar. Öppen fråga 18.
+- **I korgen fälls ihop när den blir tom** ("Lägg i lagret", eller den sista posten tagen tillbaka), så att nästa bock börjar hopfälld.
+- **Produktetiketten** är högst 40 % av raden med `max-w-[40cqw]`, där listgruppen är container (`@container`). `40vw` blev för brett, eftersom raden är smalare än skärmen.
+- **`FixedAction`** lägger knapparna i en rad med `flex-wrap-reverse` och `*:grow *:basis-0 *:min-w-fit`: lika breda när de får plats, och den sista överst när de inte gör det. Receptvyns knappar (ett barn) påverkas inte.
+- **"Saknas i Hemma"** med flera ställen och Hemma valt följer specen. Öppen fråga 19.
+- **Kontrollerna** (integration och e2e under `scripts/with-test-lock.sh`): `pnpm lint`, `pnpm typecheck`, `pnpm test` (215 filer, 4 372 tester) och `pnpm test:integration` (11 filer, 455 tester) lyckas efter ombaseringen på `fbe221d`. `AI_PROVIDER=mock pnpm build` lyckas, och hela `CI=1 pnpm test:e2e` ger 272 av 272. Storyn ändrar ingenting i databasen.
+- **Skärmbilder** vid 375 px i ljust och mörkt läge (överst, och nederst med I korgen utfälld) ligger utanför repot, i agentens scratchpad.
 
 ## Review Triage Log
 

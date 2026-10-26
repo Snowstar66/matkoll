@@ -2,7 +2,14 @@ import { describe, expect, it } from "vitest";
 import type { ShoppingLine } from "./compute-list";
 import {
   allInStockText,
+  backOnListAnnouncement,
+  basketText,
+  basketTitle,
   checkLabel,
+  groupByCategory,
+  inBasketAnnouncement,
+  lineMetaText,
+  progressText,
   computedAmountText,
   copiedText,
   copyFailedText,
@@ -46,11 +53,40 @@ describe("list texts", () => {
     expect(itemsLeft([line({}), line({ checked: true }), line({})])).toBe(2);
   });
 
-  it("sums up the plan under the title", () => {
-    expect(listSummaryText("Vecka 44", 3, 12)).toBe("Vecka 44 · 3 rätter · 12 varor kvar");
-    expect(listSummaryText("Vecka 44", 1, 1)).toBe("Vecka 44 · 1 rätt · 1 vara kvar");
+  it("sums up the plan under the title, without the items left (the progress row has them)", () => {
+    expect(listSummaryText("Vecka 44", 3)).toBe("Vecka 44 · 3 rätter");
+    expect(listSummaryText("Vecka 44", 1)).toBe("Vecka 44 · 1 rätt");
     // Only own items: no dish part.
-    expect(listSummaryText("Vecka 44", 0, 1)).toBe("Vecka 44 · 1 vara kvar");
+    expect(listSummaryText("Vecka 44", 0)).toBe("Vecka 44");
+  });
+
+  it("says how far the shopping has come in the progress row (Story 11.4)", () => {
+    expect(progressText(8, 6, 14)).toEqual({ left: "8 varor kvar", basket: "6 av 14 i korgen" });
+    expect(progressText(1, 13, 14)).toEqual({ left: "1 vara kvar", basket: "13 av 14 i korgen" });
+    expect(progressText(14, 0, 14)).toEqual({ left: "14 varor kvar", basket: "0 av 14 i korgen" });
+    expect(progressText(0, 14, 14)).toEqual({ left: "Allt ligger i korgen", basket: null });
+  });
+
+  it("counts the basket and announces a line moving in and out of it (Story 11.4)", () => {
+    expect(basketText(1)).toBe("1 vara i korgen");
+    expect(basketText(6)).toBe("6 varor i korgen");
+    expect(basketTitle).toBe("I korgen");
+    expect(inBasketAnnouncement("Citron")).toBe("Citron i korgen.");
+    expect(backOnListAnnouncement("Citron")).toBe("Citron tillbaka på listan.");
+    // The user's own text is shown as written, but starts the sentence with a capital.
+    expect(inBasketAnnouncement({ text: "diskmedel", own: true })).toBe("Diskmedel i korgen.");
+    expect(backOnListAnnouncement({ text: "Kaffe Zoégas", own: true })).toBe("Kaffe Zoégas tillbaka på listan.");
+  });
+
+  it("says under a line where it comes from, without från (Story 11.4)", () => {
+    const titles = { d1: "Korv stroganoff", d2: "Kycklinggryta", d3: "Korv stroganoff" };
+    expect(lineMetaText(line({ origins: ["d1"] }), titles, null)).toBe("Korv stroganoff");
+    expect(lineMetaText(line({ origins: ["d1", "d2", "d3"] }), titles, null)).toBe("Korv stroganoff · Kycklinggryta");
+    expect(lineMetaText(line({ origins: [], isCustom: true }), titles, "Stugan")).toBe("Egen vara");
+    expect(lineMetaText(line({ origins: ["d1"], isVague: true }), titles, null)).toBe("Saknas i lagret · Korv stroganoff");
+    expect(lineMetaText(line({ origins: ["d1"], isVague: true }), titles, "Stugan")).toBe("Saknas i Stugan · Korv stroganoff");
+    expect(lineMetaText(line({ origins: ["okänd"], isVague: true }), titles, null)).toBe("Saknas i lagret");
+    expect(lineMetaText(line({ origins: ["okänd"] }), titles, null)).toBeNull();
   });
 
   it("names the items Ångra could not put back", () => {
@@ -88,11 +124,12 @@ describe("list texts", () => {
     expect(originsText([], titles)).toBeNull();
   });
 
-  it("shows the amount, the pantry beside it, or Finns hemma?", () => {
+  it("shows the amount and the pantry beside it, and nothing for a vague line", () => {
     expect(lineAmountText(line({ amount: 3, unit: "dl" }))).toBe("3 dl");
     expect(lineAmountText(line({ amount: 1.25, unit: "dl" }))).toBe("1,25 dl");
     expect(lineAmountText(line({ amount: 2, unit: "dl", pantryNote: "hemma: 1 kg" }))).toBe("2 dl (hemma: 1 kg)");
-    expect(lineAmountText(line({ amount: null, unit: null, isVague: true }))).toBe("Finns hemma?");
+    // Story 11.4: no "Finns hemma?"; the line under it says "Saknas i lagret".
+    expect(lineAmountText(line({ amount: null, unit: null, isVague: true }))).toBe("");
     expect(lineAmountText(line({ amount: null, unit: null, coverage: { kind: "unlinked" } }))).toBe("");
     expect(lineAmountText(line({ amount: null, unit: null, coverage: { kind: "unlinked" }, multiplier: 2 }))).toBe("×2");
     expect(lineAmountText(line({ amount: null, unit: null, coverage: { kind: "unlinked" }, multiplier: 1.5 }))).toBe("×1,5");
@@ -130,12 +167,33 @@ describe("list texts", () => {
     ]);
   });
 
+  it("groups lines by display category in the store's order, keeping their order (Story 11.4)", () => {
+    const groups = groupByCategory([
+      line({ key: "lax", label: "Lax", section: "Kött och fisk" }),
+      line({ key: "lok", label: "Gul lök", section: "Frukt och grönt" }),
+      line({ key: "soja", label: "Sojasås", section: "Skafferi" }),
+      line({ key: "gradde", label: "Matlagningsgrädde", section: "Mejeri" }),
+      line({ key: "falukorv", label: "Falukorv", section: "Chark" }),
+      line({ key: "tomat", label: "Krossade tomater", section: "Skafferi" }),
+      line({ key: "okand", label: "Diskmedel", section: "Kyldisk" as ShoppingLine["section"] }),
+    ]);
+    expect(groups.map(({ category, lines }) => [category, lines.map((item) => item.key)])).toEqual([
+      ["Frukt & grönt", ["lok"]],
+      ["Mejeri & ägg", ["gradde"]],
+      ["Kött, fisk & chark", ["lax", "falukorv"]],
+      ["Skafferi", ["tomat"]],
+      ["Såser & smaksättare", ["soja"]],
+      ["Övrigt", ["okand"]],
+    ]);
+    expect(groupByCategory([])).toEqual([]);
+  });
+
   it("names the check by the line's name and what it shows to the right", () => {
     expect(checkLabel(line({ label: "Paprika, röd", amount: 1, unit: "st" }))).toBe("Paprika, röd, 1 st");
     expect(checkLabel(line({ label: "Mjöl", amount: 2, unit: "dl", pantryNote: "hemma: 1 kg" }))).toBe(
       "Mjöl, 2 dl (hemma: 1 kg)",
     );
-    expect(checkLabel(line({ label: "Salt", amount: null, unit: null, isVague: true }))).toBe("Salt, finns hemma?");
+    expect(checkLabel(line({ label: "Salt", amount: null, unit: null, isVague: true }))).toBe("Salt");
     expect(checkLabel(line({ label: "En näve persilja", amount: null, unit: null }))).toBe("En näve persilja");
     expect(checkLabel(line({ label: "2 citroner", amount: null, unit: null, multiplier: 2 }))).toBe("2 citroner, ×2");
   });

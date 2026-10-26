@@ -6,7 +6,7 @@ import { adminClient, e2eUserId, putInPantryEmail, putInPantryStorageState } fro
 // Krämig kycklinggryta for 4 portions (3 dl grädde, 2 paprikor, salt efter
 // smak) on the current plan, 1 dl grädde in the pantry, and the own items
 // "kaffe" (linked to Kaffe) and "diskmedel". The list is then Grädde 2 dl,
-// Paprika 2 st and Salt "Finns hemma?", with the two own items.
+// Paprika 2 st and Salt ("Saknas i lagret"), with the two own items.
 
 const mobile = { width: 375, height: 812 };
 const gryta = "Krämig kycklinggryta";
@@ -109,6 +109,8 @@ const lines = (page: Page) => page.getByTestId("shopping-line").filter({ visible
 const check = (page: Page, name: string) => page.getByRole("checkbox", { name, exact: true }).filter({ visible: true });
 const putButton = (page: Page) => page.getByRole("button", { name: "Lägg i lagret", exact: true }).filter({ visible: true });
 const toast = (page: Page) => page.getByTestId("toast");
+/** Unfolds I korgen, where the checked lines are (Story 11.4). */
+const showBasket = (page: Page) => page.getByRole("button", { name: "Visa", exact: true }).filter({ visible: true }).click();
 const tab = (page: Page, name: "Recept" | "Lagersaldo" | "Inköpslista") =>
   page.getByRole("navigation", { name: "Huvudmeny" }).getByRole("link", { name });
 
@@ -123,6 +125,8 @@ test("the button shows once a line is checked off, and goes when the check comes
   await expect(putButton(page)).toHaveCount(0);
   await check(page, "Grädde, 2 dl").click();
   await expect(putButton(page)).toBeVisible();
+  // The checked line is in I korgen (Story 11.4); a check there takes it back.
+  await showBasket(page);
   await check(page, "Grädde, 2 dl").click();
   await expect(putButton(page)).toHaveCount(0);
   expect(errors).toEqual([]);
@@ -133,10 +137,12 @@ test("Lägg i lagret puts the checked lines in the pantry, takes them off the li
 }) => {
   const errors = watchErrors(page);
   await page.goto("/lista");
-  for (const name of ["Grädde, 2 dl", "Paprika, 2 st", "Salt, finns hemma?", "kaffe", "diskmedel"]) {
+  for (const name of ["Grädde, 2 dl", "Paprika, 2 st", "Salt", "kaffe", "diskmedel"]) {
     await check(page, name).click();
-    await expect(check(page, name)).toBeChecked();
+    // Moved to I korgen at once (Story 11.4).
+    await expect(check(page, name)).toHaveCount(0);
   }
+  await expect(page.getByTestId("list-progress").filter({ visible: true })).toHaveText("Allt ligger i korgen");
   await putButton(page).click();
   await expect(toast(page)).toHaveText("Lagt 4 varor i lagret.");
   await expect(lines(page)).toHaveCount(0);
@@ -164,12 +170,15 @@ test("only own items without a catalog ingredient are taken off the list, and th
   const errors = watchErrors(page);
   await page.goto("/lista");
   await check(page, "diskmedel").click();
+  await showBasket(page);
   await expect(check(page, "diskmedel")).toBeChecked();
   await putButton(page).click();
   await expect(toast(page)).toHaveText("Tog bort 1 vara från listan.");
   await expect(lines(page)).toHaveCount(4);
   await expect(lines(page).filter({ hasText: "diskmedel" })).toHaveCount(0);
-  for (const name of ["Grädde, 2 dl", "Paprika, 2 st", "Salt, finns hemma?", "kaffe"]) {
+  // I korgen goes with its last line.
+  await expect(page.getByTestId("basket-row").filter({ visible: true })).toHaveCount(0);
+  for (const name of ["Grädde, 2 dl", "Paprika, 2 st", "Salt", "kaffe"]) {
     await expect(check(page, name)).not.toBeChecked();
   }
   // Nothing went to the pantry.

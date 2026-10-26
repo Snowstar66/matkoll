@@ -1,4 +1,14 @@
-import { formatQuantity, nameInText, SECTIONS, type NameInText, type Section, type Unit } from "@/features/catalog";
+import {
+  CATEGORIES,
+  type Category,
+  displayCategory,
+  formatQuantity,
+  nameInText,
+  SECTIONS,
+  type NameInText,
+  type Section,
+  type Unit,
+} from "@/features/catalog";
 import { dishCountText } from "@/features/mealplan";
 import type { Store } from "@/features/settings";
 import type { ShoppingLine } from "./compute-list";
@@ -19,9 +29,6 @@ export const emptyPlanText = "Lägg rätter på matsedeln så räknas listan fra
 export function allInStockText(siteName: string | null): string {
   return siteName === null ? "Allt finns hemma." : `Allt finns i lagret för ${siteName}.`;
 }
-
-/** A vague line's ingredient is not at home: buy it, or check first. */
-export const askAtHomeText = "Finns hemma?";
 
 /** Above the list when the pantry could not be read, so nothing is taken off. */
 export const pantryUnreadText = "Det gick inte att läsa lagret, så inget är avdraget från listan.";
@@ -47,13 +54,41 @@ export function itemsLeft(lines: readonly Pick<ShoppingLine, "checked">[]): numb
 }
 
 /**
- * The line under the title: "Vecka 44 · 3 rätter · 12 varor kvar". Without
- * dishes (only own items) the dishes are left out: "Vecka 44 · 1 vara kvar".
+ * The line under the title: "Vecka 44 · 3 rätter"; without dishes (only own
+ * items) just "Vecka 44". How many items are left stands in the progress row
+ * below it (Story 11.4).
  */
-export function listSummaryText(planName: string, dishCount: number, left: number): string {
-  return dishCount > 0
-    ? `${planName} · ${dishCountText(dishCount)} · ${itemsLeftText(left)}`
-    : `${planName} · ${itemsLeftText(left)}`;
+export function listSummaryText(planName: string, dishCount: number): string {
+  return dishCount > 0 ? `${planName} · ${dishCountText(dishCount)}` : planName;
+}
+
+/**
+ * The progress row at the top of the list (Story 11.4, FR-43): "8 varor
+ * kvar" and "6 av 14 i korgen", counted over the lines not hidden; when
+ * every line is checked off, "Allt ligger i korgen" alone (`basket` is
+ * `null`).
+ */
+export function progressText(left: number, checked: number, total: number): { left: string; basket: string | null } {
+  if (total > 0 && left === 0) return { left: "Allt ligger i korgen", basket: null };
+  return { left: itemsLeftText(left), basket: `${checked} av ${total} i korgen` };
+}
+
+/** The basket row under the list: "1 vara i korgen", "6 varor i korgen". */
+export function basketText(count: number): string {
+  return `${count} ${count === 1 ? "vara" : "varor"} i korgen`;
+}
+
+/** The heading of the checked lines when "Visa" opens them. */
+export const basketTitle = "I korgen";
+
+/** Announced when a line is checked off and moves to I korgen: "Citron i korgen.". */
+export function inBasketAnnouncement(label: NameInText): string {
+  return `${nameInText(label, "start")} i korgen.`;
+}
+
+/** Announced when a check in I korgen is taken off: "Citron tillbaka på listan.". */
+export function backOnListAnnouncement(label: NameInText): string {
+  return `${nameInText(label, "start")} tillbaka på listan.`;
 }
 
 /**
@@ -95,14 +130,40 @@ export function siteRecountedText(siteName: string, left: number): string {
   return `Listan räknas nu mot ${siteName}. ${itemsLeftText(left)}.`;
 }
 
+/** The titles of the dishes a line comes from, each once (a recipe can be on the plan twice), in plan order. */
+function dishTitlesOf(origins: readonly string[], dishTitles: Readonly<Record<string, string>>): string[] {
+  return [...new Set(origins.flatMap((id) => (dishTitles[id] ? [dishTitles[id]] : [])))];
+}
+
 /**
  * "från Krämig kycklinggryta, Linssoppa": the dishes a line comes from, each
- * title once (the same recipe can be on the plan twice), in plan order.
- * `null` when no title is known.
+ * title once, in plan order; the basis of detailOriginsText. `null` when no
+ * title is known.
  */
 export function originsText(origins: readonly string[], dishTitles: Readonly<Record<string, string>>): string | null {
-  const titles = [...new Set(origins.flatMap((id) => (dishTitles[id] ? [dishTitles[id]] : [])))];
+  const titles = dishTitlesOf(origins, dishTitles);
   return titles.length > 0 ? `från ${titles.join(", ")}` : null;
+}
+
+/** Under an own item in the list. */
+export const customItemMetaText = "Egen vara";
+
+/**
+ * The line under a list line's name (Story 11.4, FR-43): "Egen vara" for an
+ * own item; the dishes it comes from with " · " between them ("Korv
+ * stroganoff · Kycklinggryta"), without "från"; for a vague line whose
+ * ingredient is not in the pantry, "Saknas i lagret" first, or "Saknas i
+ * Stugan" with the place's name (pantry.shownSiteName, with more than one
+ * place). `null` when there is nothing to say.
+ */
+export function lineMetaText(
+  line: Pick<ShoppingLine, "isCustom" | "isVague" | "origins">,
+  dishTitles: Readonly<Record<string, string>>,
+  siteName: string | null,
+): string | null {
+  if (line.isCustom) return customItemMetaText;
+  const parts = [...(line.isVague ? [`Saknas i ${siteName ?? "lagret"}`] : []), ...dishTitlesOf(line.origins, dishTitles)];
+  return parts.length > 0 ? parts.join(" · ") : null;
 }
 
 /**
@@ -123,15 +184,17 @@ export function computedAmountText(amount: number, unit: Unit | null): string {
 export const backToComputedText = "Använd beräknad mängd";
 
 /**
- * What a line shows to the right: "3 dl", "2 dl (hemma: 1 kg)", "2 dl
- * (beräknat 4 dl)" for a correction whose counted amount has changed since,
- * or "Finns hemma?". A line without a catalog ingredient, whose text says how much,
- * shows its multiplier when it is not 1 ("×2", "×1,5"), else nothing.
+ * The amount a line shows after its name: "3 dl", "2 dl (hemma: 1 kg)", "2
+ * dl (beräknat 4 dl)" for a correction whose counted amount has changed
+ * since. A vague line shows none: the line under it says "Saknas i lagret"
+ * (lineMetaText, Story 11.4). A line without a catalog ingredient, whose
+ * text says how much, shows its multiplier when it is not 1 ("×2", "×1,5"),
+ * else nothing.
  */
 export function lineAmountText(
   line: Pick<ShoppingLine, "amount" | "unit" | "isVague" | "pantryNote" | "multiplier" | "computedAmount" | "computedChanged">,
 ): string {
-  if (line.isVague) return askAtHomeText;
+  if (line.isVague) return "";
   if (line.multiplier !== undefined && line.multiplier !== 1) return `×${formatQuantity(line.multiplier, null)}`;
   const amount = formatQuantity(line.amount, line.unit);
   if (!amount) return amount;
@@ -147,8 +210,8 @@ export function lineAmountText(
 
 /**
  * The check's name for screen readers, which read its state (avbockad or
- * not) beside it: the line's name and what it shows to the right, "Paprika,
- * röd, 1 st", "Mjöl, 2 dl (hemma: 1 kg)", "Salt, finns hemma?".
+ * not) beside it: the line's name and its amount, "Paprika, röd, 1 st",
+ * "Mjöl, 2 dl (hemma: 1 kg)"; a vague line's name alone, "Salt".
  */
 export function checkLabel(
   line: Pick<
@@ -156,7 +219,6 @@ export function checkLabel(
     "label" | "amount" | "unit" | "isVague" | "pantryNote" | "multiplier" | "computedAmount" | "computedChanged"
   >,
 ): string {
-  if (line.isVague) return `${line.label}, ${askAtHomeText.toLocaleLowerCase("sv-SE")}`;
   const amount = lineAmountText(line);
   return amount ? `${line.label}, ${amount}` : line.label;
 }
@@ -178,6 +240,29 @@ export function groupBySection(lines: readonly ShoppingLine[]): { section: Secti
   return SECTIONS.flatMap((section) => {
     const group = bySection.get(section);
     return group ? [{ section, lines: group }] : [];
+  });
+}
+
+/**
+ * The lines per display category (Story 11.4, FR-40), in the order of
+ * CATEGORIES; categories without lines are left out. The category is
+ * catalog.displayCategory of the line's section and name, so the list reads
+ * like Lagersaldo. Keeps the lines' order within a category. The export
+ * still groups by section (groupBySection, AD-16).
+ */
+export function groupByCategory<T extends Pick<ShoppingLine, "section" | "label">>(
+  lines: readonly T[],
+): { category: Category; lines: T[] }[] {
+  const byCategory = new Map<Category, T[]>();
+  for (const line of lines) {
+    const category = displayCategory(line.section, line.label);
+    const group = byCategory.get(category);
+    if (group) group.push(line);
+    else byCategory.set(category, [line]);
+  }
+  return CATEGORIES.flatMap((category) => {
+    const group = byCategory.get(category);
+    return group ? [{ category, lines: group }] : [];
   });
 }
 

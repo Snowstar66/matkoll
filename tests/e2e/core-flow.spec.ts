@@ -85,9 +85,10 @@ test("sign in, import a recipe, plan it, check a line off and put it in the pant
   await expect(chicken).toHaveCount(1);
   const count = await lines(page).count();
   expect(count).toBeGreaterThan(1);
-  const check = chicken.getByRole("checkbox");
-  await check.click();
-  await expect(check).toBeChecked();
+  await chicken.getByRole("checkbox").click();
+  // Moved at once to I korgen, which is folded (Story 11.4).
+  await expect(chicken).toHaveCount(0);
+  await expect(page.getByTestId("list-progress").filter({ visible: true })).toContainText(`1 av ${count} i korgen`);
   await page.getByRole("button", { name: "Lägg i lagret", exact: true }).filter({ visible: true }).click();
   await expect(toast(page)).toHaveText("Lagt 1 vara i lagret.");
   await expect(chicken).toHaveCount(0);

@@ -4,13 +4,18 @@ import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { type ReactNode, type RefObject, useEffect, useId, useMemo, useOptimistic, useRef, useState, useTransition } from "react";
 import { Button, buttonClasses } from "@/components/button";
+import { CategoryHeader } from "@/components/category-header";
 import { CheckCircle } from "@/components/check-circle";
 import { cx } from "@/components/cx";
 import { EmptyState } from "@/components/empty-state";
 import { FixedAction } from "@/components/fixed-action";
 import type { SearchIngredients } from "@/components/ingredient-picker";
+import { ListGroup } from "@/components/list-group";
+import { ListRow } from "@/components/list-row";
+import { Meter } from "@/components/meter";
 import { Notice } from "@/components/notice";
 import { SwipeRow } from "@/components/swipe-row";
+import type { Category } from "@/features/catalog";
 import { type SelectedSite, shownSiteName } from "@/features/pantry";
 import type { Store } from "@/features/settings";
 import { useToast } from "@/components/toast";
@@ -21,16 +26,22 @@ import type { ShoppingLine } from "../domain/compute-list";
 import { exportableLines } from "../domain/export-basket";
 import {
   allInStockText,
+  backOnListAnnouncement,
+  basketText,
+  basketTitle,
   checkLabel,
   emptyPlanText,
-  groupBySection,
+  groupByCategory,
+  inBasketAnnouncement,
   itemsLeft,
   lineAmountText,
+  lineMetaText,
+  lineName,
   listSummaryText,
-  originsText,
   pantryUnreadText,
   checksUnreadText,
   hiddenLinesButtonText,
+  progressText,
   recountedText,
   sendButtonText,
   siteRecountedText,
@@ -42,31 +53,39 @@ import { LineDetailSheet } from "./line-detail-sheet";
 import { useLineRemoval } from "./line-removal";
 import { useOwnChanges } from "./own-changes";
 import { openSettingsText, type ProductChoice, type ProductChoiceContext } from "../domain/product-choice";
+import { chipChoice, ProductChip } from "./product-chip";
 import { ProductChoiceSheet } from "./product-choice-sheet";
 import { canPutInPantry } from "../domain/put-in-pantry";
 import { PutInPantryButton, usePutInPantry } from "./put-in-pantry";
 import { ExportSheet, useSendBasket } from "./send-basket";
 
-// Inköpslista (FR-15, UX-DR9): the current plan's name, number of dishes and
-// items left under the title, then the lines per store section in the fixed
-// order, each with its check, its name, "från [rätt]" and the amount to the
-// right ("2 dl (hemma: 1 kg)", "Finns hemma?"). The list is counted on the
-// server every time it is read; when it changes while it is open, a live
-// region says so. A check shows at once and is saved with setChecked (FR-16);
-// a checked line stays in its place, struck through. "Lägg till egen vara"
-// under the list adds Pontus's own item (FR-17). A tap on a line's name opens
-// Listpostdetalj (Story 3.6), where Pontus corrects a recipe line's amount or
-// changes an own item; a swipe to the left removes a line (an own item) or
-// hides it (a recipe line), with "Ångra" in the short confirmation. "Dolda
-// varor (N)" under the list shows the hidden lines, with "Visa igen". While
-// a line is checked off, "Lägg i lagret" above the tab bar puts every checked
-// line in the pantry and takes it off the list (Story 3.7). The detail of a
-// line with a catalog ingredient shows the selected store's product choice
-// for it, and its button replaces the detail with the sheet Produktval
-// (Story 7.2); the choices sit beside the list and never change its count.
-// "Skicka till ICA" (named after the store's chain) is pinned above the tab
-// bar while there is something to send, under "Lägg i lagret" when that
-// shows; it copies the basket export of the lines as shown (Story 7.3).
+// Inköpslista (FR-15, UX-DR9; the new look of Story 11.4, FR-43): the current
+// plan's name and number of dishes under the title, then the progress row
+// ("8 varor kvar", "6 av 14 i korgen" and a meter), then the lines not
+// checked off per display category (catalog.displayCategory, as in
+// Lagersaldo), each with its round check, its name with the amount after it
+// ("Mjöl 2 dl (hemma: 1 kg)"), the line under it (the dishes with " · ",
+// "Egen vara", or "Saknas i lagret" for a vague line) and the selected
+// store's product choice as a chip. The list is counted on the server every
+// time it is read; when it changes while it is open, a live region says so.
+// A check is saved with setChecked (FR-16) and moves the line at once to
+// "I korgen" at the bottom, which is folded: the basket row "6 varor i
+// korgen" with "Visa" opens it, and a check there puts the line back. A
+// second live region says "Citron i korgen." or "Citron tillbaka på
+// listan.", and focus moves to the next line's check. "Lägg till egen vara"
+// under the list adds Pontus's own item (FR-17). A tap on a line's name
+// opens Listpostdetalj (Story 3.6), where Pontus corrects a recipe line's
+// amount or changes an own item; a swipe to the left removes a line (an own
+// item) or hides it (a recipe line), with "Ångra" in the short confirmation.
+// "Dolda varor (N)" under the list shows the hidden lines, with "Visa igen".
+// The detail of a line with a catalog ingredient shows the selected store's
+// product choice for it, and its button replaces the detail with the sheet
+// Produktval (Story 7.2); the choices sit beside the list and never change
+// its count. Pinned above the tab bar: "Skicka till ICA" (named after the
+// store's chain; it copies the basket export of the lines as shown, Story
+// 7.3) while there is something to send, and "Lägg i lagret" beside it while
+// a line is checked off, which puts every checked line in the pantry and
+// takes it off the list (Story 3.7).
 
 export type ShoppingListProps = {
   /**
@@ -136,6 +155,14 @@ export type ShoppingListProps = {
 
 /** How long an announcement stays in the live region before it is cleared. */
 export const announcementMs = 5000;
+
+/**
+ * After a check moved a line away, a tap with a finger on another line's
+ * check within this time is taken as the second half of a double tap, which
+ * would land on the line that moved up under the thumb, and is ignored.
+ * Taps with a mouse or a key are never ignored.
+ */
+export const doubleTapGuardMs = 400;
 
 /**
  * Everything a line shows, so any visible change counts as a recount; except
@@ -389,6 +416,39 @@ function useChecks(planId: string | null, lines: readonly ShoppingLine[]) {
   return { checks, toggle, notice, saving: saving > 0 };
 }
 
+/**
+ * What a check that moved a line says ("Citron i korgen."), in a live region
+ * of its own beside the recount's. A new count each time, so the same text
+ * is announced again; cleared after announcementMs and when the list is
+ * hidden.
+ */
+function useMoveAnnouncement() {
+  const [announcement, setAnnouncement] = useState({ text: "", count: 0 });
+  useEffect(() => () => setAnnouncement((before) => (before.text ? { ...before, text: "" } : before)), []);
+  useEffect(() => {
+    if (!announcement.text) return;
+    const { count } = announcement;
+    const timer = setTimeout(
+      () => setAnnouncement((before) => (before.count === count ? { ...before, text: "" } : before)),
+      announcementMs,
+    );
+    return () => clearTimeout(timer);
+  }, [announcement]);
+  const announce = (text: string) => setAnnouncement((before) => ({ text, count: before.count + 1 }));
+  return { announcement, announce };
+}
+
+/** Where focus goes after a check moved a line: a line's check, or the basket row's "Visa". */
+type FocusTarget = { kind: "check"; key: string } | { kind: "basket-toggle" };
+
+/** The element a focus target stands for in the list, if it is shown. */
+function focusElement(root: HTMLElement | null, target: FocusTarget): HTMLElement | null {
+  if (!root) return null;
+  if (target.kind === "basket-toggle") return root.querySelector<HTMLElement>("[data-basket-toggle]");
+  const row = [...root.querySelectorAll<HTMLElement>("[data-line-key]")].find((element) => element.dataset.lineKey === target.key);
+  return row?.querySelector<HTMLElement>("[role=checkbox]:not([disabled])") ?? null;
+}
+
 /** No hidden lines: for a list rendered without them. */
 const noLines: readonly ShoppingLine[] = [];
 
@@ -489,12 +549,66 @@ export function ShoppingList({
   }, [busy, onBusyChange]);
   const hasDishes = plan !== null && plan.dishCount > 0;
   const hasLines = lines.length > 0;
+  const siteName = shownSiteName(site);
+  // The lines left, per category; the checked ones are in I korgen, in the list's order.
+  const groups = useMemo(() => groupByCategory(lines.filter((line) => !line.checked)), [lines]);
+  const leftKeys = groups.flatMap(({ lines: categoryLines }) => categoryLines.map((line) => line.key));
+  const inBasket = lines.filter((line) => line.checked);
+  /** I korgen unfolded; folded from the start, kept while the page is hidden (Activity), not after a reload. */
+  const [basketOpen, setBasketOpen] = useState(false);
+  // Nothing in the basket any more ("Lägg i lagret", or the last check taken back): it folds.
+  if (basketOpen && inBasket.length === 0) setBasketOpen(false);
+  const basketShown = basketOpen && inBasket.length > 0;
   const rootRef = useRef<HTMLDivElement>(null);
-  useFocusAfterRemoval(
-    rootRef,
-    removal.focusAfterRef,
-    lines.map((line) => line.key),
-  );
+  useFocusAfterRemoval(rootRef, removal.focusAfterRef, [...leftKeys, ...(basketShown ? inBasket.map((line) => line.key) : [])]);
+  const { announcement: moveAnnouncement, announce } = useMoveAnnouncement();
+  /** Focus to move once the target is shown (the basket row's "Visa" after the first check, a line back in its category). */
+  const pendingFocus = useRef<FocusTarget | null>(null);
+  useEffect(() => {
+    const target = pendingFocus.current;
+    if (target === null) return;
+    const element = focusElement(rootRef.current, target);
+    if (element) {
+      pendingFocus.current = null;
+      element.focus();
+    }
+  });
+  /**
+   * How and when the last press began ("touch", "mouse", "pen" or
+   * "keyboard", at the event's timeStamp), and the press that last moved a
+   * line, for the double tap guard.
+   */
+  const lastPress = useRef<{ type: string; at: number } | null>(null);
+  const lastMove = useRef<{ key: string; at: number } | null>(null);
+  /**
+   * A check from the list (`checked`) or from I korgen (not `checked`): focus
+   * moves first, to the next line's check in the same place, else the one
+   * before, else the basket row's "Visa" (from the list) or the line itself
+   * back in its category (from I korgen); then the line moves and the move is
+   * announced. A finger's second tap of a double tap is ignored (doubleTapGuardMs).
+   */
+  const moveLine = (line: ShoppingLine, checked: boolean) => {
+    const press = lastPress.current;
+    const previous = lastMove.current;
+    if (press?.type === "touch" && previous && previous.key !== line.key && press.at - previous.at < doubleTapGuardMs) {
+      return;
+    }
+    if (press) lastMove.current = { key: line.key, at: press.at };
+    const order = checked ? leftKeys : inBasket.map((item) => item.key);
+    const index = order.indexOf(line.key);
+    const neighbour = index === -1 ? undefined : (order[index + 1] ?? order[index - 1]);
+    const target: FocusTarget = neighbour
+      ? { kind: "check", key: neighbour }
+      : checked
+        ? { kind: "basket-toggle" }
+        : { kind: "check", key: line.key };
+    // Before the line leaves, so focus never falls back to the page.
+    const element = target.kind === "check" && target.key === line.key ? null : focusElement(rootRef.current, target);
+    if (element) element.focus();
+    else pendingFocus.current = target;
+    toggle(line.key, checked);
+    announce(checked ? inBasketAnnouncement(lineName(line)) : backOnListAnnouncement(lineName(line)));
+  };
   const [sheet, setSheet] = useState({ open: false, session: 0 });
   /** Listpostdetalj: the line as it was when its name was tapped, on the plan it was shown for. */
   const [detail, setDetail] = useState<{ open: boolean; session: number; line: ShoppingLine; planId: string } | null>(null);
@@ -563,17 +677,31 @@ export function ShoppingList({
   if (hiddenSheet && hiddenLines.length === 0) setHiddenSheet(false);
 
   return (
-    <div ref={rootRef} className="flex flex-col gap-6">
+    <div
+      ref={rootRef}
+      // How a press began, for the double tap guard: a finger's taps only.
+      onPointerDownCapture={(event) => {
+        lastPress.current = { type: event.pointerType, at: event.timeStamp };
+      }}
+      onKeyDownCapture={(event) => {
+        lastPress.current = { type: "keyboard", at: event.timeStamp };
+      }}
+      className="flex flex-col gap-6"
+    >
       {/* Mounted empty, so a recount is announced when its text arrives. */}
       <div role="status" aria-live="polite" aria-atomic="true" className="sr-only" data-testid="list-announcement">
         {announcement.text ? <span key={announcement.count}>{announcement.text}</span> : null}
+      </div>
+      {/* "Citron i korgen.": what a check just did, apart from the recount's text. */}
+      <div role="status" aria-live="polite" aria-atomic="true" className="sr-only" data-testid="check-announcement">
+        {moveAnnouncement.text ? <span key={moveAnnouncement.count}>{moveAnnouncement.text}</span> : null}
       </div>
       {hasDishes || (plan && (hasLines || plan.skippedCount > 0)) ? (
         // Close under the title, as part of the header.
         <div className="-mt-4 flex flex-col gap-1">
           {hasDishes || hasLines ? (
             <p data-testid="list-summary" className="text-meta text-ink-2">
-              {listSummaryText(plan.name, plan.dishCount, itemsLeft(lines))}
+              {listSummaryText(plan.name, plan.dishCount)}
             </p>
           ) : null}
           {plan.skippedCount > 0 ? (
@@ -618,20 +746,27 @@ export function ShoppingList({
         <>
           {!hasLines ? (
             // "Allt finns hemma." (or "… i lagret för Stugan.") only when the list has no lines at all, own items included.
-            <EmptyState>{hasDishes ? allInStockText(shownSiteName(site)) : emptyPlanText}</EmptyState>
+            <EmptyState>{hasDishes ? allInStockText(siteName) : emptyPlanText}</EmptyState>
           ) : (
-            groupBySection(lines).map(({ section, lines: sectionLines }) => (
-              <ListSection
-                key={section}
-                section={section}
-                lines={sectionLines}
-                dishTitles={plan.dishTitles}
-                onCheckedChange={toggle}
-                onRemove={removal.remove}
-                onOpen={openDetail}
-                checkingOff={checksUnavailable}
-              />
-            ))
+            <div className="flex flex-col gap-4">
+              <ProgressRow left={itemsLeft(lines)} checked={inBasket.length} total={lines.length} />
+              {groups.map(({ category, lines: categoryLines }) => (
+                <CategorySection key={category} category={category}>
+                  {categoryLines.map((line) => (
+                    <ShoppingLineRow
+                      key={line.key}
+                      line={line}
+                      meta={lineMetaText(line, plan.dishTitles, siteName)}
+                      chip={chipChoice(line, store !== null, productChoices)?.productName ?? null}
+                      onCheckedChange={(checked) => moveLine(line, checked)}
+                      onRemove={(moveFocus) => removal.remove(line, moveFocus)}
+                      onOpen={() => openDetail(line)}
+                      checkingOff={checksUnavailable}
+                    />
+                  ))}
+                </CategorySection>
+              ))}
+            </div>
           )}
           {/* Own items belong to the current plan: without one there is nothing to add them to (AD-22). */}
           <Button
@@ -642,6 +777,22 @@ export function ShoppingList({
           >
             Lägg till egen vara
           </Button>
+          {inBasket.length > 0 ? (
+            <Basket open={basketShown} onOpenChange={setBasketOpen} count={inBasket.length}>
+              {inBasket.map((line) => (
+                <ShoppingLineRow
+                  key={line.key}
+                  line={line}
+                  meta={lineMetaText(line, plan.dishTitles, siteName)}
+                  chip={chipChoice(line, store !== null, productChoices)?.productName ?? null}
+                  onCheckedChange={(checked) => moveLine(line, checked)}
+                  onRemove={(moveFocus) => removal.remove(line, moveFocus)}
+                  onOpen={() => openDetail(line)}
+                  checkingOff={checksUnavailable}
+                />
+              ))}
+            </Basket>
+          ) : null}
           {hiddenLines.length > 0 ? (
             <Button variant="text" fullWidth aria-haspopup="dialog" onClick={() => setHiddenSheet(true)}>
               {hiddenLinesButtonText(hiddenLines.length)}
@@ -715,11 +866,12 @@ export function ShoppingList({
   );
 }
 
+
 /**
- * The list's Fast åtgärdsknapp (UX-DR3): one FixedAction with "Lägg i
- * lagret" (primary) on top when it shows, and "Skicka till ICA" under it,
- * secondary then and primary alone; one primary button per view. Nothing
- * when neither shows.
+ * The list's Fast åtgärdsknapp (UX-DR3, Story 11.4): one FixedAction with
+ * "Skicka till ICA" (secondary) alone, or with "Lägg i lagret" (primary)
+ * beside it while a line is checked off; FixedAction puts "Lägg i lagret" on
+ * top when the two do not fit in a row. Nothing when neither shows.
  */
 function ListActions({
   putInPantry,
@@ -732,78 +884,127 @@ function ListActions({
   if (!putInPantry && !send) return null;
   return (
     <FixedAction>
-      {putInPantry}
       {send ? (
-        <Button variant={putInPantry ? "secondary" : "primary"} fullWidth disabled={send.disabled} onClick={send.onSend}>
+        <Button variant="secondary" disabled={send.disabled} onClick={send.onSend}>
           {send.text}
         </Button>
       ) : null}
+      {putInPantry}
     </FixedAction>
   );
 }
 
-function ListSection({
-  section,
-  lines,
-  dishTitles,
-  onCheckedChange,
-  onRemove,
-  onOpen,
-  checkingOff,
-}: {
-  section: string;
-  lines: readonly ShoppingLine[];
-  dishTitles: Readonly<Record<string, string>>;
-  onCheckedChange: (key: string, checked: boolean) => void;
-  /** Removes an own item or hides a recipe line; `moveFocus` when it came from the keyboard. */
-  onRemove: (line: ShoppingLine, moveFocus: boolean) => void;
-  /** Opens the line's Listpostdetalj. */
-  onOpen: (line: ShoppingLine) => void;
-  /** Checking is off: the saved checks could not be read. */
-  checkingOff: boolean;
-}) {
-  const headingId = useId();
+/**
+ * Framstegsrad (DESIGN.md, progress-row; FR-43): a white card at the top of
+ * the list with "8 varor kvar" and "6 av 14 i korgen" on one line, and the
+ * meter under it, counted over the lines not hidden; "Allt ligger i korgen"
+ * when everything is checked off. The meter is hidden from screen readers:
+ * the text says the same.
+ */
+function ProgressRow({ left, checked, total }: { left: number; checked: number; total: number }) {
+  const text = progressText(left, checked, total);
   return (
-    <section aria-labelledby={headingId} className="flex flex-col gap-2">
-      <h2 id={headingId} className="text-section-label text-ink-2">
-        {section}
-      </h2>
-      <ul aria-labelledby={headingId} className="flex flex-col overflow-hidden rounded-lg bg-surface">
-        {lines.map((line) => (
-          <ShoppingLineRow
-            key={line.key}
-            line={line}
-            dishTitles={dishTitles}
-            onCheckedChange={(checked) => onCheckedChange(line.key, checked)}
-            onRemove={(moveFocus) => onRemove(line, moveFocus)}
-            onOpen={() => onOpen(line)}
-            checkingOff={checkingOff}
-          />
-        ))}
-      </ul>
-    </section>
+    <div data-testid="list-progress" className="flex flex-col gap-3 rounded-lg bg-surface p-4">
+      {/* The space keeps the two texts apart for screen readers; on screen the flex gap does. */}
+      <p className="flex flex-wrap items-baseline justify-between gap-x-3 gap-y-1">
+        <span className="text-row-title text-ink">{text.left}</span>
+        {text.basket ? (
+          <>
+            {" "}
+            <span className="text-body text-ink-3">{text.basket}</span>
+          </>
+        ) : null}
+      </p>
+      <Meter value={total === 0 ? 0 : checked / total} />
+    </div>
   );
 }
 
 /**
- * One listpost: the check (CheckCircle, 44 × 44 px) to the left, the name
- * with "från [rätt]" under it, and the amount to the right. Checked, the
- * check is filled with accent and the text is struck through in ink-3; the
- * line stays in its place. The check and the name are separate tap targets:
- * with `onOpen`, the name (with "från [rätt]") is a button that opens
- * Listpostdetalj. With `onRemove`, swiping the row to the left reveals "Ta
- * bort" (SwipeRow), also reached with Tab after the row.
+ * A display category's lines: the heading with its tile and count, and the
+ * lines in a list group named by it. A plain div, so a category is no
+ * landmark of its own (components/README.md).
+ */
+function CategorySection({ category, children }: { category: Category; children: ReactNode[] }) {
+  const headingId = useId();
+  return (
+    <div data-testid="list-category" className="flex flex-col gap-2">
+      <CategoryHeader id={headingId} category={category} count={children.length} />
+      <ListGroup labelledBy={headingId} className="@container">{children}</ListGroup>
+    </div>
+  );
+}
+
+/**
+ * I korgen (DESIGN.md, basket-row; FR-43): the basket row "6 varor i korgen"
+ * with the text button "Visa", which unfolds the heading "I korgen" and the
+ * checked lines under it, struck through, and becomes "Dölj".
+ */
+function Basket({
+  open,
+  onOpenChange,
+  count,
+  children,
+}: {
+  open: boolean;
+  onOpenChange: (open: boolean) => void;
+  count: number;
+  /** The checked lines' rows, shown when unfolded. */
+  children: ReactNode;
+}) {
+  const headingId = useId();
+  const regionId = useId();
+  return (
+    <>
+      <div data-testid="basket-row" className="flex items-center justify-between gap-3 pl-1">
+        <p className="min-w-0 text-body text-ink-2">{basketText(count)}</p>
+        <Button
+          variant="text"
+          data-basket-toggle
+          aria-expanded={open}
+          // Only while the region is there, so it never points at nothing.
+          aria-controls={open ? regionId : undefined}
+          onClick={() => onOpenChange(!open)}
+          className="-mr-3 shrink-0"
+        >
+          {open ? "Dölj" : "Visa"}
+        </Button>
+      </div>
+      {open ? (
+        <div id={regionId} data-testid="basket" className="flex flex-col gap-2">
+          <h2 id={headingId} className="px-1 text-section-label text-ink-2">
+            {basketTitle}
+          </h2>
+          <ListGroup labelledBy={headingId} className="@container">{children}</ListGroup>
+        </div>
+      ) : null}
+    </>
+  );
+}
+
+/**
+ * One listpost (DESIGN.md, list-row; FR-43): the round check (CheckCircle,
+ * 26 px in a 44 × 44 px tap area) to the left, the name with the amount after
+ * it in ink-2 ("Gul lök 2 st"), the line under it, and the product chip to
+ * the right. Checked (in I korgen), the name is struck through in ink-3. The
+ * check and the text are separate tap targets: with `onOpen`, the text is a
+ * button that opens Listpostdetalj. With `onRemove`, swiping the row to the
+ * left reveals "Ta bort" (SwipeRow), also reached with Tab after the row.
  */
 export function ShoppingLineRow({
   line,
-  dishTitles,
+  meta,
+  chip = null,
   onCheckedChange,
   onRemove,
   onOpen,
   checkingOff = false,
 }: {
   line: ShoppingLine;
-  dishTitles: Readonly<Record<string, string>>;
+  /** The line under the name (lineMetaText), or `null`. */
+  meta: string | null;
+  /** The product choice's name for the chip, or `null`. */
+  chip?: string | null;
   onCheckedChange: (checked: boolean) => void;
   /** Removes or hides the line; `moveFocus` when it came from the keyboard. */
   onRemove?: (moveFocus: boolean) => void;
@@ -812,22 +1013,43 @@ export function ShoppingLineRow({
   /** Checking is off: the saved checks could not be read. */
   checkingOff?: boolean;
 }) {
-  const row = (
-    // The divider is inset like the card's padding, and moves with the row.
-    <div className="px-4">
-      <div className="flex min-h-tap items-center gap-3 border-t border-hairline py-2 group-first:border-t-0">
-        <LineContent
-          line={line}
-          dishTitles={dishTitles}
-          onCheckedChange={onCheckedChange}
-          onOpen={onOpen}
-          checkingOff={checkingOff}
-        />
-      </div>
-    </div>
+  const amount = lineAmountText(line);
+  const title = (
+    <>
+      {/* A span of its own, so the name can be found apart from the amount. */}
+      <span>{line.label}</span>
+      {amount ? (
+        <>
+          {" "}
+          {/* Struck through with the name when checked, and in its ink-3. */}
+          <span className={cx("font-normal", !line.checked && "text-ink-2")}>{amount}</span>
+        </>
+      ) : null}
+    </>
+  );
+  const shared = {
+    as: "div" as const,
+    title,
+    meta,
+    crossedOut: line.checked,
+    // The strike-through, said: "Grädde 3 dl, i korgen".
+    srStatus: line.checked ? "i korgen" : undefined,
+    leading: (
+      <CheckCircle checked={line.checked} onCheckedChange={onCheckedChange} label={checkLabel(line)} disabled={checkingOff} />
+    ),
+    trailing: chip ? <ProductChip name={chip} /> : undefined,
+  };
+  const row = onOpen ? (
+    <ListRow
+      {...shared}
+      onPress={onOpen}
+      pressProps={{ "data-testid": "shopping-line-name", "aria-haspopup": "dialog" }}
+    />
+  ) : (
+    <ListRow {...shared} />
   );
   return (
-    <li data-testid="shopping-line" data-line-key={line.key} data-checked={line.checked} className="group">
+    <li data-testid="shopping-line" data-line-key={line.key} data-checked={line.checked}>
       {onRemove ? (
         <SwipeRow actionLabel="Ta bort" actionName={`Ta bort ${line.label}`} onAction={(via) => onRemove(via === "keyboard")}>
           {row}
@@ -836,61 +1058,5 @@ export function ShoppingLineRow({
         row
       )}
     </li>
-  );
-}
-
-function LineContent({
-  line,
-  dishTitles,
-  onCheckedChange,
-  onOpen,
-  checkingOff,
-}: {
-  line: ShoppingLine;
-  dishTitles: Readonly<Record<string, string>>;
-  onCheckedChange: (checked: boolean) => void;
-  onOpen?: () => void;
-  checkingOff: boolean;
-}): ReactNode {
-  const from = originsText(line.origins, dishTitles);
-  const amount = lineAmountText(line);
-  const { checked } = line;
-  const name = (
-    <>
-      <span className={cx("text-body", checked ? "text-ink-3 line-through" : "text-ink")}>{line.label}</span>
-      {from ? <span className={cx("text-meta", checked ? "text-ink-3" : "text-ink-2")}> {from}</span> : null}
-    </>
-  );
-  return (
-    <>
-      {/* The visible circle lines up with the list's padding; the tap area reaches into it. */}
-      <CheckCircle
-        checked={checked}
-        onCheckedChange={onCheckedChange}
-        label={checkLabel(line)}
-        disabled={checkingOff}
-        className="-ml-[9px]"
-      />
-      {/* The spaces keep the words apart for screen readers. */}
-      {onOpen ? (
-        <button
-          type="button"
-          aria-haspopup="dialog"
-          data-testid="shopping-line-name"
-          onClick={onOpen}
-          className="flex min-h-tap min-w-0 flex-1 flex-col justify-center rounded-sm text-left"
-        >
-          {name}
-        </button>
-      ) : (
-        <span className="flex min-w-0 flex-1 flex-col">{name}</span>
-      )}
-      {amount ? (
-        <span className={cx("shrink-0 text-right text-body", checked ? "text-ink-3 line-through" : "text-ink-2")}>
-          {" "}
-          {amount}
-        </span>
-      ) : null}
-    </>
   );
 }
