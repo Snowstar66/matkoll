@@ -8,13 +8,15 @@ import { SignOutButton } from "@/features/auth/ui/sign-out-button";
 import { listRecipeSites, SettingsDataError } from "@/features/settings/server";
 import { RecipeSites } from "@/features/settings/ui/recipe-sites";
 import { errorMessages } from "@/lib/errors";
+import { StoreContent } from "./store-content";
 
 export const metadata: Metadata = { title: "Inställningar" };
 
-// Inställningar (FR7, UX-DR16): the approved recipe sites and "Logga ut" at
-// the bottom. The sites are read inside <Suspense> (AD-18); "Logga ut" sits
-// outside it, so it works even when the sites cannot be read. The store
-// arrives in Epic 7.
+// Inställningar (FR7, FR-28, UX-DR16): the approved recipe sites, the store
+// under them and "Logga ut" at the bottom. The sites and the stores are read
+// inside a <Suspense> each (AD-18), so a failure in one shows only in its own
+// section; "Logga ut" sits outside both, so it works even when neither can be
+// read.
 export default function SettingsPage() {
   return (
     <>
@@ -22,6 +24,9 @@ export default function SettingsPage() {
       <div className="flex flex-1 flex-col gap-10">
         <Suspense fallback={<Skeleton rows={3} />}>
           <SettingsContent />
+        </Suspense>
+        <Suspense fallback={<Skeleton rows={2} />}>
+          <StoreContent />
         </Suspense>
         <div className="mt-auto">
           <SignOutButton />

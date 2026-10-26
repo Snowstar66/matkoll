@@ -259,6 +259,20 @@ isOneToOne: false
       referencedColumns: ["id","user_id"]
     }
                   ]
+                },"store": {
+                  Row: {
+                    "address": string | null,"chain": string,"created_at": string,"external_store_id": string | null,"id": string,"is_selected": boolean,"name": string,"url": string | null,"user_id": string
+                  }
+                  ComputedFields: never
+                  Insert: {
+                    "address"?: string | null,"chain": string,"created_at"?: string,"external_store_id"?: string | null,"id"?: string,"is_selected"?: boolean,"name": string,"url"?: string | null,"user_id"?: string
+                  }
+                  Update: {
+                    "address"?: string | null,"chain"?: string,"created_at"?: string,"external_store_id"?: string | null,"id"?: string,"is_selected"?: boolean,"name"?: string,"url"?: string | null,"user_id"?: string
+                  }
+                  Relationships: [
+                    
+                  ]
                 }
           }
           Views: {
@@ -384,6 +398,27 @@ isOneToOne: false
 "save_recipe":
 { Args: { "lines": Json,"recipe": Json,"steps": Json }; Returns: string
                            },
+"save_store":
+{ Args: { "make_selected": boolean,"mode": string,"store": Json }; Returns: {
+              "address": string | null,
+"chain": string,
+"created_at": string,
+"external_store_id": string | null,
+"id": string,
+"is_selected": boolean,
+"name": string,
+"url": string | null,
+"user_id": string
+            }
+                          SetofOptions: {
+        from: "*"
+        to: "store"
+        isOneToOne: true
+        isSetofReturn: false
+      } },
+"select_store":
+{ Args: { "store_id": string }; Returns: undefined
+                           },
 "set_current_meal_plan":
 { Args: { "new_plan_id": string,"plan_name": string,"source_id"?: string }; Returns: {
               "created_at": string,
@@ -422,6 +457,9 @@ isOneToOne: false
                            },
 "show_shopping_line":
 { Args: { "line_key": string,"plan_id": string }; Returns: undefined
+                           },
+"store_lock":
+{ Args: Record<PropertyKey, never>; Returns: undefined
                            },
 "update_recipe":
 { Args: { "expected_updated_at": string,"id": string,"lines": Json,"recipe": Json,"steps": Json }; Returns: string

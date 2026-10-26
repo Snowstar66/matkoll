@@ -82,6 +82,13 @@ export const errorMessages = {
   settings_invalid_domain: "Ange en giltig webbadress, t.ex. koket.se.",
   settings_duplicate_domain: "Sajten finns redan.",
   settings_save_failed: "Det gick inte att spara ändringen. Försök igen.",
+  // The section Butik in Inställningar (Story 7.1). When the stores cannot be
+  // read, the recipe sites and "Logga ut" still work.
+  settings_store_unavailable: "Det gick inte att läsa butiken. Försök igen.",
+  // The same chain and store id as another of Pontus's stores; shown at Butiks-id.
+  settings_duplicate_store: "Butiken finns redan.",
+  // A store saved or selected after it went away elsewhere: the stores are read again.
+  settings_store_gone: "Butiken finns inte längre.",
   // Fetching a recipe page (AD-11). The sentence with the site's name, from
   // `fields.domain`, is built by fetchErrorMessage below.
   fetch_invalid_url: "Det där ser inte ut som en länk till en receptsida. Kopiera hela adressen, som börjar med https://.",

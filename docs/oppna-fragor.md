@@ -36,6 +36,7 @@ Varje punkt beskrivs steg för steg, med var värdet hämtas och hur det kontrol
 - Välj för förhandsversionerna i Vercel: behåll dem som byggkontroll (Preview får bara `SITE_URL` och `AI_PROVIDER=mock`; de bygger men svarar 503 utan databas, kontrollerat lokalt) eller stäng av dem under **Settings → Git**.
 - Lägg in GitHub-hemligheterna för säkerhetskopian: `SUPABASE_DB_URL` (Session pooler-strängen) och `BACKUP_PASSPHRASE` (minst 32 tecken; spara den i din lösenordshanterare), och repovariabeln `BACKUP_ENABLED=true`. Kör sedan flödet Backup en gång för hand. Kontrollera att mejl om misslyckade flöden går till dig, och ladda ner den senaste säkerhetskopian en gång i månaden.
 - Godkänn första publiceringen i produktion.
+- Kontrollera standardbutiken i Inställningar → Butik. Öppna URL:en `https://handlaprivatkund.ica.se/stores/1003733` i din webbläsare och se att den leder till Maxi ICA Stormarknad Östersund i ICA Handla. Rätta den annars, och fyll i butikens adress.
 
 ## Att prova på riktig telefon (när Pontus har tid)
 

@@ -1,12 +1,13 @@
 import "server-only";
 import { createClient } from "@/lib/supabase/server";
 import { insertUserDefaults } from "./data/defaults";
-import { loadActiveRecipeDomains } from "./data/queries";
+import { loadActiveRecipeDomains, loadSelectedStore, loadStores } from "./data/queries";
 import { compareDomains } from "./domain/domain-name";
+import { compareStores, type Store } from "./domain/store";
 
 // Server-only entry (AD-1). The functions use the signed-in user's session
 // client, so RLS limits them to the user's own rows. Writes go through the
-// actions in ./actions (Inställningar, Story 1.12).
+// actions in ./actions (Inställningar, Stories 1.12 and 7.1).
 
 /** What the functions below throw when Supabase fails; never user data. */
 export { SettingsDataError } from "./data/client";
@@ -32,9 +33,30 @@ export async function listRecipeSites(): Promise<string[]> {
 }
 
 /**
- * Start data for the signed-in user (AD-21). Called by auth/confirm after a
+ * Every store of the signed-in user, the selected one first and the others
+ * by name (`compareStores`), for the section Butik in Inställningar. For
+ * pages, after requireUserOrRedirect, inside <Suspense> (AD-18). Throws
+ * SettingsDataError.
+ */
+export async function listStores(): Promise<Store[]> {
+  return (await loadStores(await createClient())).sort(compareStores);
+}
+
+/**
+ * The store the signed-in user has selected, which the product choices
+ * (Story 7.2) and the basket export (Story 7.3) use; `null` when none is
+ * selected. Other modules pass it on as an argument and never assume there
+ * is only one store. Throws SettingsDataError.
+ */
+export async function getSelectedStore(): Promise<Store | null> {
+  return loadSelectedStore(await createClient());
+}
+
+/**
+ * Start data for the signed-in user (AD-21): the start recipe sites, and the
+ * default store when the user has none. Called by auth/confirm after a
  * successful sign-in; idempotent, so every sign-in may call it. Never turns
- * on a site Pontus has turned off.
+ * on a site Pontus has turned off, and never replaces a store.
  */
 export async function ensureUserDefaults(): Promise<void> {
   await insertUserDefaults(await createClient());

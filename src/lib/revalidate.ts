@@ -21,6 +21,12 @@ const routesByTable = {
   // The list of approved recipe sites in Inställningar. Import reads the sites
   // on every request, so it needs nothing here.
   recipe_site: [{ path: "/installningar", type: "page" }],
+  // The stores in Inställningar, and the shopping list, which shows the
+  // selected store's product choices and exports to it (Stories 7.2, 7.3).
+  store: [
+    { path: "/installningar", type: "page" },
+    { path: "/lista", type: "page" },
+  ],
   // Hemma, and the cooking status in the library, every recipe view (Story
   // 2.4) and the meal plan's dishes (Story 3.1), and the shopping list, which
   // takes what is at home off (Story 3.3).

@@ -2,6 +2,47 @@
 
 Beslut som fattats under bygget: vad, varför och vilka alternativ som fanns. Nyaste överst.
 
+## 2026-10-26 – Välja butik (Story 7.1)
+
+- **Beslut:**
+  - **Flera butiker redan i v1-gränssnittet.** Inställningar → Butik visar den valda butiken som ett kort och de andra under "Andra butiker" med "Välj". En ny butik läggs till utan att den gamla skrivs över. Bara `is_selected` pekar ut den butik som v1 använder (beslutet "Ordning för tilläggen efter 1.0").
+  - **Kedjan är en fast lista:** `ICA`, `Willys`, `Coop`, `Lidl`, `Hemköp`, `City Gross` och `Annan` (`STORE_CHAINS`). Listan är `store_chain_check` i databasen och låses mot domänen med ett designtest (`tests/design/settings-checks.test.ts`), som också låser fältens längdgränser.
+  - **Standardbutikens kedja är "ICA".** "ICA Handla" är ICA:s webbutik, dit URL:en leder. Kortet visar "ICA · butiks-id 1003733".
+  - **Standardbutikens URL är `https://handlaprivatkund.ica.se/stores/1003733` och adressen är tom.** Ingen av dem har kunnat kontrolleras utan att anropa ICA. Pontus kontrollerar dem i sin webbläsare (ny punkt i checklistan i `docs/oppna-fragor.md`).
+  - **`ensure_user_defaults()` lägger bara in butiken när användaren saknar butik,** med `on conflict do nothing` utan mål. En standardbutik som Pontus har ändrat kommer alltså aldrig tillbaka, och två samtidiga inloggningar ger en butik. Migrationen lägger in samma butik för befintliga användare.
+  - **En ny butik väljs som förval** ("Använd för varukorgen" ikryssad), och rutan kan kryssas ur.
+  - **Butiker kan inte tas bort i v1,** eftersom produktvalen (7.2) refererar butiken med `on delete restrict`.
+  - **Att byta kedja på en befintlig butik är tillåtet.** Hjälptexten under Kedja i "Ändra butik" säger: "Byter du kedja, lägg hellre till en ny butik, så behåller den här sina produktval."
+  - **Butiks-id är valfritt.** Två butiker utan id kolliderar inte, eftersom `null` räknas som olika i den unika nyckeln `(user_id, chain, external_store_id)`.
+  - **"Välj" sparas direkt utan fråga** och visar "Maxi ICA Stormarknad Östersund är vald." Kortet byter optimistiskt och går tillbaka med en `Notice` om valet misslyckas.
+  - **Sektionen Butik har en egen `<Suspense>` och felväg,** så att ett fel i `store` inte döljer receptsajterna eller "Logga ut".
+  - **Tillagt vid bygget:**
+    - Namn, butiks-id och adress sparas på en rad: kontrolltecken och radbrytningar blir mellanslag, och flera mellanslag blir ett. Tabellens kontroller nekar kontrolltecken, så att exportens radformat (7.3) aldrig bryts.
+    - URL:en sparas som den skrevs, men med `https://` i gemener. Den ska ha ett värdnamn och inga mellanslag (`store_url_check`). Över 2048 tecken ger "Texten får vara högst 2048 tecken.".
+    - Ett val av den butik som redan är vald ändrar inget. Att ändra den valda butiken utan "Använd för varukorgen" behåller valet.
+    - Efter ett misslyckat val eller sparande läses butikerna om med `router.refresh()`.
+    - Formulärets fält saknar `maxLength`, så att "Texten får vara högst N tecken." går att se.
+  - **Ändrat efter granskningen** (migrationen `*_settings_store_hardening.sql`):
+    - En ny butiks id väljs i klienten (`newStoreId()`, med `crypto.getRandomValues` där `crypto.randomUUID` saknas) och behålls under hela arkets öppning, också när ett fält ändras. `save_store` ändrar raden med samma id, så ett nytt försök efter ett förlorat svar ger aldrig två butiker. Om id:t redan tillhör en annan användare (`23505` på `store_pkey`) försöker actionen en gång till med ett nytt id.
+    - `save_store` får ett uttryckligt läge: `add` från "Ny butik" lägger till (eller ändrar användarens butik med samma id), och `change` från "Ändra butik" ändrar bara. En butik som inte finns ger då `P0002`, alltså "Butiken finns inte längre.", och läggs aldrig till igen.
+    - `save_store` och `select_store` tar först ett lås per användare (`store_lock()`, `pg_advisory_xact_lock(hashtextextended('store:' || user_id, 0))`). Samtidiga tillägg och val körs alltså efter varandra och krockar aldrig i en unik nyckel, och det sista vinner. Prefixet `store:` skiljer nyckeln från andra modulers lås.
+    - Om användaren inte har någon vald butik blir en sparad butik vald, också utan "Använd för varukorgen".
+    - `authenticated` har inte längre `delete` på `store`, eftersom butiker inte tas bort i v1. Select, insert och update finns kvar för funktionerna, som körs som anroparen.
+    - Den unika nyckeln är ett uttrycksindex på `(user_id, chain, lower(external_store_id))` med samma namn, så "AB12" och "ab12" i samma kedja är samma butik. Butiks-id, namn och adress måste vara trimmade.
+    - Tabellens kontroller nekar också U+2028/U+2029 och bidi-tecknen U+202A–U+202E och U+2066–U+2069. `oneLine` tar bort bidi-tecknen och gör radavgränsarna till mellanslag, och ett test visar att det som `oneLine` lämnar går att spara.
+    - En okänd kedja i en rad läses som "Annan" och loggas (`settings_store_unknown_chain`), så att en rad aldrig döljer de andra.
+    - Varje butik under "Andra butiker" har "Ändra" bredvid "Välj". Arket behåller butiken det öppnades med, så att en omläsning bakom arket aldrig gör "Ändra butik" till "Ny butik", och arket stängs om butiken försvinner.
+    - Alla "Välj" är inaktiva medan ett val sparas, och ett svar för en butik som inte längre är det senaste valet ändrar inget. Fokus flyttas till kortets rubrik först när valet har sparats, och inte alls om det misslyckas.
+  - **Inte gjort, efter granskningen:** att begränsa migrationens backfill till tillåtna användare. Bara tillåtna användare kan finnas, eftersom registreringen är avstängd och `users:sync` styr `auth.users`.
+- **Varför:** FR-28, beslutet "Ordning för tilläggen efter 1.0" (flera butiker och produktval per butik), AD-1 (atomära byten i `settings` egna funktioner), AD-4, AD-18, AD-21 och PRD 6 (Matkoll gör aldrig något i butiken själv; URL:en hämtas aldrig).
+- **Alternativ:**
+  - En enda redigerbar butik i gränssnittet och flera rader bara i databasen.
+  - Kedja som fritext, som är enklare men måste tolkas inför en prisjämförelse.
+  - "ICA Handla" som kedja, men då blir kedjan och webbutiken samma sak.
+  - Lämna standardbutikens URL tom.
+  - `on conflict` på `(chain, external_store_id)` i `ensure_user_defaults()`, som skulle ta tillbaka en ändrad standardbutik.
+  - "Ta bort" för en butik som inte är vald och saknar produktval.
+
 ## 2026-10-26 – Bekräfta, rätta eller avvisa lagerförslag (Story 6.2)
 
 - **Beslut:**
