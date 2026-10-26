@@ -158,3 +158,27 @@ export function hiddenLinesButtonText(count: number): string {
 /** The sheet with the hidden lines, and its button that shows one again. */
 export const hiddenLinesTitle = "Dolda varor";
 export const showAgainText = "Visa igen";
+
+/** The primary button above the tab bar while a line is checked off (Story 3.7). */
+export const putInPantryButtonText = "Lägg i lagret";
+
+/**
+ * The short confirmation after "Lägg i lagret": "Lagt 8 varor i lagret.",
+ * "Lagt 1 vara i lagret."; when only own items without a catalog ingredient
+ * were checked, "Tog bort 1 vara från listan.", "Tog bort 2 varor från
+ * listan."; `null` when nothing was put in the pantry or taken off the list
+ * (only lines without a catalog ingredient were checked, and their checks
+ * are cleared).
+ */
+export function putInPantryText(added: number, removed: number): string | null {
+  const items = (count: number) => `${count} ${count === 1 ? "vara" : "varor"}`;
+  if (added > 0) return `Lagt ${items(added)} i lagret.`;
+  if (removed > 0) return `Tog bort ${items(removed)} från listan.`;
+  return null;
+}
+
+/** After "Lägg i lagret" when some checked lines could not go to the pantry; they keep their checks. */
+export const partlyPutInPantryText = "Det gick inte att lägga allt i lagret.";
+
+/** After "Lägg i lagret" when no answer came: trying again adds nothing twice. */
+export const serverUnreachableText = "Det gick inte att nå servern. Försök igen.";

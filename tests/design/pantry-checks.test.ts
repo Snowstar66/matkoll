@@ -40,3 +40,29 @@ describe("pantry check constraints", () => {
     expect(checkList(pantrySql(), constraint, column)).toEqual([...values]);
   });
 });
+
+// add_to_pantry (Story 3.7) refuses an unknown unit or location itself (22023),
+// with lists that must equal UNITS and LOCATIONS. Read from the latest
+// migration that (re)defines it.
+function latestAddToPantry(): { file: string; sql: string } {
+  const latest = readdirSync(migrations)
+    .filter((name) => name.endsWith(".sql"))
+    .sort()
+    .map((file) => ({ file, sql: readFileSync(join(migrations, file), "utf8") }))
+    .filter(({ sql }) => /create (or replace )?function public\.add_to_pantry\(/.test(sql))
+    .at(-1);
+  if (!latest) throw new Error("No migration defines add_to_pantry");
+  return latest;
+}
+
+describe("add_to_pantry's input checks", () => {
+  it.each([
+    ["location", LOCATIONS],
+    ["unit", UNITS],
+  ] as const)("lists exactly the domain values for item.%s", (column, values) => {
+    const { file, sql } = latestAddToPantry();
+    const match = new RegExp(`item\\.${column} not in \\(([^)]*)\\)`).exec(sql);
+    expect(match, `the ${column} list in ${file}`).not.toBeNull();
+    expect([...match![1].matchAll(/'((?:[^']|'')*)'/g)].map((value) => value[1])).toEqual([...values]);
+  });
+});

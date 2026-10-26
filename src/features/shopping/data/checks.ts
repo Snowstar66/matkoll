@@ -26,6 +26,18 @@ export async function listChecksIn(db: ShoppingDb, planId: string): Promise<stri
   return data.map((row) => row.line_key);
 }
 
+/**
+ * The plan's checks with their ids, for "Lägg i lagret" (Story 3.7): a
+ * check's id is the idempotency key of the item it puts in the pantry, stable
+ * until the check is cleared. Throws ShoppingDataError.
+ */
+export async function listCheckRowsIn(db: ShoppingDb, planId: string): Promise<{ id: string; key: string }[]> {
+  validate(planId);
+  const { data, error } = await db.from("shopping_check").select("id, line_key").eq("meal_plan_id", planId);
+  if (error) throw new ShoppingDataError(`list_checks_failed ${error.code}`, error.code);
+  return data.map((row) => ({ id: row.id, key: row.line_key }));
+}
+
 /** The foreign key from a check to its meal plan; a violation means the plan is gone. */
 const planForeignKey = "shopping_check_meal_plan_fkey";
 

@@ -23,7 +23,7 @@ export async function ShoppingListContent() {
     if (result.error.code === "unauthorized") redirect(`/logga-in?${new URLSearchParams({ next })}`);
     return <Notice role="alert">{result.error.message}</Notice>;
   }
-  const { plan, lines, hiddenLines, pantryUnavailable, checksUnavailable } = result.data;
+  const { plan, lines, hiddenLines, pantryUnavailable, checksUnavailable, pendingClear } = result.data;
   return (
     <ShoppingList
       plan={plan}
@@ -31,6 +31,7 @@ export async function ShoppingListContent() {
       hiddenLines={hiddenLines}
       pantryUnavailable={pantryUnavailable}
       checksUnavailable={checksUnavailable}
+      pendingClear={pendingClear}
       searchIngredients={searchIngredients}
     />
   );

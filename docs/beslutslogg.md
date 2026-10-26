@@ -2,6 +2,37 @@
 
 Beslut som fattats under bygget: vad, varför och vilka alternativ som fanns. Nyaste överst.
 
+## 2026-10-26 – Lägg i lagret efter granskningen
+
+- **Beslut:**
+  - Textposter (`t:`) kan inte läggas i lagret, så deras bockar rensas inte. De står kvar avbockade och räknas inte när knappen ska visas. Det ersätter beslutet nedan om att deras bockar rensas.
+  - Bockar rensas på id: de skickade posternas bockar och bockar med kvitto vars post inte längre syns. En bock som satts på en annan enhet under tiden har ett nytt id och står kvar. Överstyrningar rensas bara för receptposter som skickades i körningen, så en dold post förblir dold.
+  - Kvittot lever lika länge som bocken. Efter en lyckad rensning tas kvittona för de rensade bockarna bort (`pantry.forgetPantryAdditions`). Gallringen efter 30 dagar finns kvar som skyddsnät. Kvitton kan inte ändras, bara skrivas och tas bort.
+  - En misslyckad rensning prövas en gång till. Om lagret är skrivet men listan inte rensad visar listan knappen även utan avbockad post (`pendingClear`), så att omförsöket alltid går att nå.
+  - En summa över lagrets maxgräns kapas till 999 999,999. En post som ändå inte kan läggas i (okänd ingrediens, ogiltig enhet) hoppas över och behåller sin bock. Resten läggs i, och listan visar "Det gick inte att lägga allt i lagret.". Postgres-funktionen nekar själv ogiltiga mängder, enheter och platser.
+  - Om matsedeln byts efter att lagret skrivits visas "Varorna är lagda i lagret, men matsedeln har bytts.". Om inget svar kommer visas "Det gick inte att nå servern. Försök igen.". Knappen är inaktiv medan en bock sparas, så att servern ser samma bockar som Pontus.
+- **Varför:** granskningen av 3.7. Rensning på nyckel kunde ta bort en bock eller en döljning som körningen inte gällde. Kvitton som bara gallrades efter 30 dagar höll kvar nycklar som inte längre skyddade något. Efter ett avbrott där alla poster täcktes av lagret fanns ingen knapp att trycka på igen.
+- **Alternativ:**
+  - Rensa på listnyckel enligt AD-8:s ordalydelse.
+  - Låta kvitton leva i 30 dagar. Det stänger också ett smalt fönster där två enheter som trycker i samma ögonblick kan lägga i en vara två gånger.
+  - Låta hela körningen misslyckas när en post inte kan läggas i.
+
+## 2026-10-26 – Lägg i lagret: kopplade egna varor och idempotens
+
+- **Beslut:**
+  - En avbockad egen vara som är kopplad till en katalogingrediens läggs i lagret som en receptpost, på ingrediensens standardplats. Den läggs i med sin mängd och enhet, eller som obegränsad lagervara om den saknar mängd. Sedan tas den bort från listan. En egen vara utan katalogkoppling tas bara bort från listan.
+  - Flödet går över två moduler och är idempotent i stället för atomärt (AD-1). `pantry.addToPantry` skriver ett kvitto i tabellen `pantry_addition` för varje post, i samma transaktion som ökningen. Kvittot är unikt på `(user_id, key)`, och nyckeln är id:t på postens bock i `shopping_check`, som är stabilt tills bocken rensas. En post vars nyckel redan har ett kvitto hoppas över, så en ny körning efter ett avbrott, ett dubbeltryck eller ett tryck från en annan enhet ökar lagret en gång. Kvitton äldre än 30 dagar tas bort när funktionen körs.
+  - Lagret skrivs alltid först och listan rensas sedan, i en egen transaktion i `shopping` (`clear_put_in_pantry`). Om rensningen misslyckas står bockarna kvar, och nästa körning hoppar över posterna med kvitto och rensar dem. En bock vars post inte längre finns på listan (lagret räcker nu) rensas också om lagret har ett kvitto för den. Då blir både lagret och listan desamma som efter en körning.
+  - Posten läggs i med den mängd listan visar: köpmängden, avrundad uppåt i styckenheter, eller den rättade mängden som den står. En vag post blir obegränsad. Om ingrediensen redan är obegränsad på någon plats ändras inget, men posten räknas ändå som lagd. Följer en obegränsad post på en plats där det finns rader med mängd ersätter den raderna där, enligt regeln i `set_pantry_items`.
+  - Receptrader utan katalogingrediens (`t:`) läggs inte i lagret. Deras bockar och överstyrningar rensas, så de står kvar på listan utan bock. (Ändrat efter granskningen, se ovan: bockarna står kvar.)
+  - Bekräftelsen räknar posterna som gick till lagret: "Lagt 8 varor i lagret." / "Lagt 1 vara i lagret.". Om bara okopplade egna varor var avbockade blir den "Tog bort N varor från listan.". Knappen "Lägg i lagret" behåller sin text och är inaktiv medan flödet pågår.
+  - Ett fel innan lagret skrivits, även när listan eller lagret inte går att läsa, ger "Det gick inte att lägga varorna i lagret. Försök igen." (`pantry_add_failed`). Ett fel efter att lagret skrivits ger "Det gick inte att lägga allt i lagret. Försök igen." (`shopping_put_in_pantry_failed`). Båda visas i en blå `Notice` ovanför listan.
+- **Varför:** underlaget (AD-8, epic-3-context) lämnade öppet vad som händer med en kopplad egen vara. En kopplad vara har en ingrediens och en plats, så den hör hemma i lagret som en receptpost. Utan kvitto skulle en ny körning efter ett avbrott öka lagret två gånger, till exempel när en rättad mängd är mindre än behovet och posten kommer tillbaka. Bockens id är stabilt och unikt per avbockning. Utan kontrollen av kvitton för bockar som inte längre syns på listan skulle en sådan bock ligga kvar och gälla igen om posten kom tillbaka.
+- **Alternativ:**
+  - Behandla alla egna varor som okopplade och bara ta bort dem.
+  - Idempotensnyckel från listnyckeln och matsedeln i stället för bockens id. Den skulle hindra att samma vara läggs i igen efter en ny avbockning på samma matsedel.
+  - Ett atomärt flöde i en enda Postgres-funktion som skriver båda modulernas tabeller (bryter mot AD-1).
+
 ## 2026-10-26 – Dolda varor och rättelser efter granskningen
 
 - **Beslut:**

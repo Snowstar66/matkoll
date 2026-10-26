@@ -3,15 +3,17 @@ import { requireUser } from "@/features/auth/server";
 import { CatalogDataError, getIngredientDefaults, getIngredientNames } from "@/features/catalog/server";
 import { getCurrentPlan, MealPlanDataError } from "@/features/mealplan/server";
 import type { PantrySnapshot } from "@/features/pantry";
-import { getPantrySnapshot, PantryDataError } from "@/features/pantry/server";
+import { findPantryAdditions, getPantrySnapshot, PantryDataError } from "@/features/pantry/server";
 import { getRecipesByIds, RecipeDataError } from "@/features/recipes/server";
 import { fail, ok, type Result } from "@/lib/errors";
 import { createClient } from "@/lib/supabase/server";
-import { listChecksIn } from "./data/checks";
+import { listCheckRowsIn } from "./data/checks";
 import { ShoppingDataError } from "./data/client";
 import { listCustomItemsIn } from "./data/custom-items";
 import { listOverridesIn } from "./data/overrides";
-import { loadShoppingList, type ShoppingList } from "./data/queries";
+import { receiptedChecks } from "./data/put-in-pantry";
+import { loadShoppingList, type ShoppingList as CountedList } from "./data/queries";
+import type { CheckRow } from "./domain/put-in-pantry";
 
 // Server-only entry (AD-1). The list is counted when it is read and never
 // stored (AD-8): from the current meal plan (mealplan), its recipes
@@ -23,7 +25,13 @@ import { loadShoppingList, type ShoppingList } from "./data/queries";
 // correcting, hiding or restoring a line are the Server Actions in ./actions,
 // used by this module's own ui.
 
-export type { ShoppingList } from "./data/queries";
+/**
+ * Inköpslista as getShoppingList gives it: the counted list, and
+ * `pendingClear`, the checks of lines no longer on the list that an
+ * interrupted "Lägg i lagret" already put in the pantry (Story 3.7), so the
+ * button stays reachable to clear them.
+ */
+export type ShoppingList = CountedList & { pendingClear: number };
 
 /**
  * The pantry for the list, or `null` when it cannot be read (logged as
@@ -45,13 +53,36 @@ async function pantrySnapshotOrNull(): Promise<PantrySnapshot | null> {
  * `shopping_checks_unavailable`): the list is then shown without checks,
  * and checking is off, rather than no list at all. Other errors are thrown.
  */
-async function checksOrNull(planId: string): Promise<string[] | null> {
+async function checksOrNull(planId: string): Promise<CheckRow[] | null> {
   try {
-    return await listChecksIn(await createClient(), planId);
+    return await listCheckRowsIn(await createClient(), planId);
   } catch (error) {
     if (!(error instanceof ShoppingDataError)) throw error;
     console.error("shopping_checks_unavailable", { reason: error.detail });
     return null;
+  }
+}
+
+/**
+ * The checks of lines no longer on the list (covered by the pantry now, or
+ * hidden) whose items an interrupted "Lägg i lagret" put in the pantry (Story
+ * 3.7). 0 when the receipts cannot be read (logged as
+ * `shopping_pending_clear_unavailable`): the list is shown all the same.
+ */
+async function pendingClearOf(list: CountedList, checks: readonly CheckRow[] | null): Promise<number> {
+  if (!checks || checks.length === 0) return 0;
+  const listed = new Set(list.lines.map((line) => line.key));
+  try {
+    return (
+      await receiptedChecks(
+        checks.filter((check) => !listed.has(check.key)),
+        findPantryAdditions,
+      )
+    ).length;
+  } catch (error) {
+    if (!(error instanceof PantryDataError)) throw error;
+    console.error("shopping_pending_clear_unavailable", { reason: error.detail });
+    return 0;
   }
 }
 
@@ -62,24 +93,28 @@ async function checksOrNull(planId: string): Promise<string[] | null> {
  * signed-in user; `shopping_unavailable` (logged) when the plan, the recipes,
  * the own items, the overrides or the catalog cannot be read. Checks that cannot be read give the list
  * without them and `checksUnavailable`. A pantry that cannot be read gives the list
- * with nothing taken off and `pantryUnavailable`. Other errors are thrown.
+ * with nothing taken off and `pantryUnavailable`. `pendingClear` counts the
+ * checks an interrupted "Lägg i lagret" left behind. Other errors are thrown.
  */
 export async function getShoppingList(): Promise<Result<ShoppingList>> {
   const user = await requireUser();
   if (!user.ok) return fail("unauthorized");
   try {
-    return ok(
-      await loadShoppingList({
-        currentPlan: getCurrentPlan,
-        recipesByIds: getRecipesByIds,
-        pantry: pantrySnapshotOrNull,
-        ingredientNames: getIngredientNames,
-        ingredientDefaults: getIngredientDefaults,
-        checks: checksOrNull,
-        customItems: async (planId) => listCustomItemsIn(await createClient(), planId),
-        overrides: async (planId) => listOverridesIn(await createClient(), planId),
-      }),
-    );
+    let checks: CheckRow[] | null = null;
+    const list = await loadShoppingList({
+      currentPlan: getCurrentPlan,
+      recipesByIds: getRecipesByIds,
+      pantry: pantrySnapshotOrNull,
+      ingredientNames: getIngredientNames,
+      ingredientDefaults: getIngredientDefaults,
+      checks: async (planId) => {
+        checks = await checksOrNull(planId);
+        return checks && checks.map((check) => check.key);
+      },
+      customItems: async (planId) => listCustomItemsIn(await createClient(), planId),
+      overrides: async (planId) => listOverridesIn(await createClient(), planId),
+    });
+    return ok({ ...list, pendingClear: await pendingClearOf(list, checks) });
   } catch (error) {
     if (error instanceof MealPlanDataError || error instanceof RecipeDataError || error instanceof ShoppingDataError) {
       console.error("shopping_unavailable", { reason: error.detail });

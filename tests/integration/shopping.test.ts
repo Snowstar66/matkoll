@@ -4,10 +4,12 @@ import { UNITS, type Section, type Unit } from "@/features/catalog";
 import { loadIngredientDefaults, loadIngredientNames } from "@/features/catalog/data/queries";
 import { getCurrentPlanIn } from "@/features/mealplan/data/queries";
 import { addToCurrentPlanIn, deletePlanIn, setCurrentPlanIn, setServingsIn } from "@/features/mealplan/data/write";
+import { addToPantryIn, findPantryAdditionsIn, forgetPantryAdditionsIn } from "@/features/pantry/data/add";
+import { PantryDataError } from "@/features/pantry/data/client";
 import { loadPantrySnapshot } from "@/features/pantry/data/queries";
 import { getRecipesByIdsIn } from "@/features/recipes/data/queries";
 import { recipeLineKey } from "@/features/shopping";
-import { listChecksIn, setCheckIn } from "@/features/shopping/data/checks";
+import { listCheckRowsIn, listChecksIn, setCheckIn } from "@/features/shopping/data/checks";
 import { ShoppingDataError } from "@/features/shopping/data/client";
 import {
   addCustomItemIn,
@@ -23,7 +25,9 @@ import {
   showLineIn,
 } from "@/features/shopping/data/overrides";
 import type { HiddenLine } from "@/features/shopping";
+import { clearPutInPantryIn, putInPantryWith, type PutInPantryDeps } from "@/features/shopping/data/put-in-pantry";
 import { loadShoppingList, type ShoppingSources } from "@/features/shopping/data/queries";
+import { fail, ok } from "@/lib/errors";
 import { localSupabaseUrl } from "../local-supabase";
 import { adminClient, anonClient, countRows, createTestUser, deleteTestUsers, expectRlsIsolation, type Db, type TestUser } from "./support";
 
@@ -33,7 +37,8 @@ import { adminClient, anonClient, countRows, createTestUser, deleteTestUsers, ex
 // never stored; only the checks (Story 3.4, shopping_check), Pontus's own
 // items (Story 3.5, shopping_custom_item) and their corrected amounts and hidden
 // lines (Story 3.6, shopping_line_override) are. NFR7: 10 dishes against 200
-// pantry items within a second.
+// pantry items within a second. "Lägg i lagret" (Story 3.7) runs the whole
+// flow against the real tables: pantry.addToPantry, then clear_put_in_pantry.
 
 /** The modules' read functions with the test user's client, as the server entries give them. */
 const sources = (db: Db): ShoppingSources => ({
@@ -1014,5 +1019,290 @@ describe("shopping_line_override", () => {
     const { error } = await user.db.from("shopping_line_override").insert(rows);
     if (error) throw error;
     expect(await listOverridesIn(user.db, planId)).toHaveLength(1005);
+  });
+});
+
+describe("Lägg i lagret", () => {
+  /** The flow's dependencies with the test user's client, as putCheckedInPantry gives them. */
+  const flow = (user: TestUser, change: Partial<PutInPantryDeps> = {}): PutInPantryDeps => {
+    const all = sources(user.db);
+    return {
+      sources: {
+        currentPlan: all.currentPlan,
+        recipesByIds: all.recipesByIds,
+        pantry: all.pantry,
+        ingredientNames: all.ingredientNames,
+        ingredientDefaults: all.ingredientDefaults,
+        customItems: all.customItems,
+        overrides: all.overrides,
+      },
+      checkRows: (planId) => listCheckRowsIn(user.db, planId),
+      findAdditions: (keys) => findPantryAdditionsIn(user.db, keys),
+      addToPantry: async (items) => {
+        try {
+          return ok({ added: await addToPantryIn(user.db, items, (ids) => loadIngredientDefaults(user.db, ids)) });
+        } catch (error) {
+          if (!(error instanceof PantryDataError)) throw error;
+          return fail("pantry_add_failed");
+        }
+      },
+      clear: (planId, cleared) => clearPutInPantryIn(user.db, planId, cleared),
+      forgetAdditions: (keys) => forgetPantryAdditionsIn(user.db, keys),
+      ...change,
+    };
+  };
+
+  /**
+   * A current plan with "Gryta" for 4: 5 dl grädde, 2 dl mjöl, 2 paprika,
+   * salt efter smak and "En näve persilja"; at home 2 dl grädde (Kyl) and
+   * 1 kg mjöl (Skafferi); own items "kaffe" (linked, no amount) and
+   * "diskmedel". Every line is checked off but paprika; grädde is corrected
+   * to 1 dl.
+   */
+  async function scenario(name: string, { checkPaprika = false } = {}) {
+    const user = await createTestUser(name);
+    const { data, error } = await user.db
+      .from("ingredient")
+      .insert(
+        (
+          [
+            ["Grädde", "Mejeri", "Kyl"],
+            ["Mjöl", "Skafferi", "Skafferi"],
+            ["Paprika", "Frukt och grönt", "Kyl"],
+            ["Salt", "Skafferi", "Skafferi"],
+            ["Kaffe", "Skafferi", "Skafferi"],
+          ] as const
+        ).map(([ingredient, section, location]) => ({
+          name: ingredient,
+          normalized_name: ingredient.toLowerCase(),
+          section,
+          location,
+        })),
+      )
+      .select("id, name");
+    if (error) throw error;
+    const id = Object.fromEntries(data.map((row) => [row.name, row.id])) as Record<
+      "Grädde" | "Mjöl" | "Paprika" | "Salt" | "Kaffe",
+      string
+    >;
+    const recipeId = await addRecipe(user.db, "Gryta", 4, [
+      { text: "5 dl grädde", ingredientId: id.Grädde, amount: 5, unit: "dl" },
+      { text: "2 dl mjöl", ingredientId: id.Mjöl, amount: 2, unit: "dl" },
+      { text: "2 paprikor", ingredientId: id.Paprika, amount: 2, unit: "st" },
+      { text: "salt efter smak", ingredientId: id.Salt, amount: null, unit: null, vague: true },
+      { text: "En näve persilja", ingredientId: null, amount: null, unit: null, vague: true },
+    ]);
+    await addDish(user.db, recipeId, "Gryta", 4);
+    await setPantry(user.db, [
+      { ingredientId: id.Grädde, amount: 2, unit: "dl", location: "Kyl" },
+      { ingredientId: id.Mjöl, amount: 1, unit: "kg", location: "Skafferi" },
+    ]);
+    const planId = (await getCurrentPlanIn(user.db))!.id;
+    const kaffe = await addCustomItemIn(user.db, {
+      id: randomUUID(),
+      planId,
+      label: "kaffe",
+      ingredientId: id.Kaffe,
+      amount: null,
+      unit: null,
+    });
+    const disk = await addCustomItemIn(user.db, {
+      id: randomUUID(),
+      planId,
+      label: "diskmedel",
+      ingredientId: null,
+      amount: null,
+      unit: null,
+    });
+    if (kaffe === "plan_changed" || disk === "plan_changed") throw new Error("no current plan");
+    const keys = {
+      gradde: recipeLineKey(id.Grädde, "dl"),
+      mjol: recipeLineKey(id.Mjöl, "dl"),
+      paprika: recipeLineKey(id.Paprika, "st"),
+      salt: recipeLineKey(id.Salt, null),
+      text: "t:en näve persilja",
+      kaffe: `c:${kaffe.id}`,
+      disk: `c:${disk.id}`,
+    };
+    for (const key of [keys.gradde, keys.mjol, keys.salt, keys.text, keys.kaffe, keys.disk]) {
+      await setCheckIn(user.db, planId, key, true);
+    }
+    if (checkPaprika) await setCheckIn(user.db, planId, keys.paprika, true);
+    await setLineAmountIn(user.db, planId, keys.gradde, 1);
+    return { user, id, planId, keys };
+  }
+
+  /** The pantry by ingredient name, comparable across users. */
+  async function pantryOf(user: TestUser, id: Record<string, string>) {
+    const names = Object.fromEntries(Object.entries(id).map(([name, ingredientId]) => [ingredientId, name]));
+    const { data, error } = await adminClient()
+      .from("pantry_item")
+      .select("ingredient_id, location, amount, unit")
+      .eq("user_id", user.id);
+    if (error) throw error;
+    return data
+      .map((row) => ({
+        name: names[row.ingredient_id],
+        location: row.location,
+        amount: row.amount === null ? null : Number(row.amount),
+        unit: row.unit,
+      }))
+      .sort((a, b) => `${a.name} ${a.unit}`.localeCompare(`${b.name} ${b.unit}`));
+  }
+
+  const listOf = async (user: TestUser) =>
+    (await loadShoppingList(sources(user.db))).lines.map((line) => [line.label, line.amount, line.unit, line.checked]);
+
+  const failingClear = async () => Promise.reject(new ShoppingDataError("clear_failed 08006", "08006"));
+
+  it("puts the checked lines in the pantry at the catalog's locations, and takes them off the list", async () => {
+    const { user, id, planId } = await scenario("shopping-put");
+    expect(await putInPantryWith(flow(user), planId)).toEqual({
+      kind: "done",
+      added: 4,
+      removed: 1,
+      skipped: 0,
+      pantryWritten: true,
+    });
+    expect(await pantryOf(user, id)).toEqual([
+      // 2 dl at home and the corrected 1 dl.
+      { name: "Grädde", location: "Kyl", amount: 3, unit: "dl" },
+      { name: "Kaffe", location: "Skafferi", amount: null, unit: null },
+      // A new row beside the 1 kg.
+      { name: "Mjöl", location: "Skafferi", amount: 2, unit: "dl" },
+      { name: "Mjöl", location: "Skafferi", amount: 1, unit: "kg" },
+      { name: "Salt", location: "Skafferi", amount: null, unit: null },
+    ]);
+    // Grädde comes back unchecked with what is still short; the text line keeps its check; own items are gone.
+    expect(await listOf(user)).toEqual([
+      ["Paprika", 2, "st", false],
+      ["Grädde", 2, "dl", false],
+      ["En näve persilja", null, null, true],
+    ]);
+    expect(await countRows("shopping_check", user.id)).toBe(1);
+    expect(await countRows("shopping_line_override", user.id)).toBe(0);
+    expect(await countRows("shopping_custom_item", user.id)).toBe(0);
+    // The cleared checks' receipts are forgotten.
+    expect(await countRows("pantry_addition", user.id)).toBe(0);
+  });
+
+  it("leaves the same pantry and list after an interruption and a second run as after one run", async () => {
+    const once = await scenario("shopping-put-once", { checkPaprika: true });
+    await putInPantryWith(flow(once.user), once.planId);
+
+    const twice = await scenario("shopping-put-twice", { checkPaprika: true });
+    const clear = vi.fn(failingClear);
+    expect(await putInPantryWith(flow(twice.user, { clear }), twice.planId)).toEqual({
+      kind: "clear_failed",
+      detail: "clear_failed 08006",
+      pantryWritten: true,
+    });
+    // Tried twice. The pantry is written and keeps its receipts; the checks stay. Paprika is covered now,
+    // so its line is gone with its check left.
+    expect(clear).toHaveBeenCalledTimes(2);
+    expect(await countRows("shopping_check", twice.user.id)).toBe(7);
+    expect(await countRows("pantry_addition", twice.user.id)).toBe(5);
+    // Mjöl, salt and paprika are covered now: only grädde (still short) and kaffe are on the list, and both have receipts.
+    expect(await putInPantryWith(flow(twice.user), twice.planId)).toEqual({
+      kind: "done",
+      added: 2,
+      removed: 1,
+      skipped: 0,
+      pantryWritten: true,
+    });
+
+    expect(await pantryOf(twice.user, twice.id)).toEqual(await pantryOf(once.user, once.id));
+    expect(await listOf(twice.user)).toEqual(await listOf(once.user));
+    expect(await countRows("shopping_check", twice.user.id)).toBe(1);
+    expect(await countRows("shopping_line_override", twice.user.id)).toBe(0);
+    expect(await countRows("pantry_addition", twice.user.id)).toBe(0);
+  });
+
+  it("keeps a line hidden after a failed clear hidden through the retry, clearing only its check", async () => {
+    const { user, planId, keys } = await scenario("shopping-put-hidden-retry");
+    await putInPantryWith(flow(user, { clear: failingClear }), planId);
+    // Grädde (corrected to 1 dl) was put in the pantry; now Pontus hides its line.
+    expect(await hideLineIn(user.db, planId, keys.gradde)).not.toBe("plan_changed");
+    expect(await putInPantryWith(flow(user), planId)).toMatchObject({ kind: "done" });
+    const overrides = await listOverridesIn(user.db, planId);
+    expect(overrides).toEqual([{ key: keys.gradde, amount: 1, baseAmount: null, hidden: true }]);
+    expect((await listCheckRowsIn(user.db, planId)).map((check) => check.key)).toEqual([keys.text]);
+  });
+
+  it("leaves a hidden line and a check without receipt as they are", async () => {
+    const { user, planId, id, keys } = await scenario("shopping-put-untouched");
+    await setCheckIn(user.db, planId, keys.paprika, true);
+    expect(await hideLineIn(user.db, planId, keys.paprika)).not.toBe("plan_changed");
+    const orphan = recipeLineKey(id.Paprika, "kg");
+    await setCheckIn(user.db, planId, orphan, true);
+    expect(await putInPantryWith(flow(user), planId)).toMatchObject({ kind: "done", added: 4 });
+    expect((await listCheckRowsIn(user.db, planId)).map((check) => check.key).sort()).toEqual(
+      [keys.text, keys.paprika, orphan].sort(),
+    );
+    expect(await listOverridesIn(user.db, planId)).toEqual([
+      { key: keys.paprika, amount: null, baseAmount: null, hidden: true },
+    ]);
+  });
+
+  it("keeps the checks and adds nothing when the pantry refuses", async () => {
+    const { user, id, planId } = await scenario("shopping-put-pantry-fails");
+    const before = await pantryOf(user, id);
+    const result = await putInPantryWith(flow(user, { addToPantry: async () => fail("pantry_add_failed") }), planId);
+    expect(result).toEqual({ kind: "pantry_failed", error: fail("pantry_add_failed").error });
+    expect(await pantryOf(user, id)).toEqual(before);
+    expect(await countRows("shopping_check", user.id)).toBe(6);
+    expect(await countRows("shopping_custom_item", user.id)).toBe(2);
+  });
+
+  it("adds once when a second run reaches the pantry before the first has cleared (a double tap, or two devices)", async () => {
+    const once = await scenario("shopping-put-single");
+    await putInPantryWith(flow(once.user), once.planId);
+    const both = await scenario("shopping-put-double");
+    // The first run clears only after the second has been to the pantry, which the receipts then hold back.
+    let secondAdded: () => void = () => {};
+    const added = new Promise<void>((resolve) => (secondAdded = resolve));
+    const first = flow(both.user, {
+      clear: async (planId, cleared) => {
+        await added;
+        return clearPutInPantryIn(both.user.db, planId, cleared);
+      },
+    });
+    const second = flow(both.user);
+    const plainAdd = second.addToPantry;
+    second.addToPantry = async (items) => {
+      const result = await plainAdd(items);
+      secondAdded();
+      return result;
+    };
+    await Promise.all([putInPantryWith(first, both.planId), putInPantryWith(second, both.planId)]);
+    expect(await pantryOf(both.user, both.id)).toEqual(await pantryOf(once.user, once.id));
+    expect(await countRows("shopping_check", both.user.id)).toBe(1);
+  });
+
+  it("writes nothing for a plan that is no longer the current one", async () => {
+    const { user, id, planId, keys } = await scenario("shopping-put-old-plan");
+    const before = await pantryOf(user, id);
+    expect(await putInPantryWith(flow(user), randomUUID())).toEqual({ kind: "plan_changed", pantryWritten: false });
+    // The plan switched between counting and clearing: the database refuses the clearing.
+    const [check] = await listCheckRowsIn(user.db, planId);
+    await setCurrentPlanIn(user.db, { id: randomUUID(), name: "Vecka 45" });
+    expect(
+      await clearPutInPantryIn(user.db, planId, { checkIds: [check!.id], overrideKeys: [keys.salt], customItemIds: [] }),
+    ).toBe("plan_changed");
+    expect(await pantryOf(user, id)).toEqual(before);
+    expect(await countRows("shopping_check", user.id)).toBe(6);
+  });
+
+  it("clears only the caller's own rows, and only for a signed-in user", async () => {
+    const { user, planId, keys } = await scenario("shopping-put-rls");
+    const other = await createTestUser("shopping-put-rls-other");
+    const [check] = await listCheckRowsIn(user.db, planId);
+    const args = { plan_id: planId, check_ids: [check!.id], override_keys: [keys.gradde], custom_item_ids: [keys.disk.slice(2)] };
+    expect((await anonClient().rpc("clear_put_in_pantry", args)).error?.code).toBe("42501");
+    expect((await other.db.rpc("clear_put_in_pantry", args)).error?.code).toBe("55000");
+    expect((await adminClient().rpc("clear_put_in_pantry", args)).error?.code).toBe("42501");
+    expect(await countRows("shopping_check", user.id)).toBe(6);
+    expect(await countRows("shopping_custom_item", user.id)).toBe(2);
+    expect(await countRows("shopping_line_override", user.id)).toBe(1);
   });
 });

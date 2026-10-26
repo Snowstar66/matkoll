@@ -1,6 +1,8 @@
+import { randomUUID } from "node:crypto";
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
 import { commitIngredients } from "@/features/catalog/data/commit";
 import { loadIngredientDefaults, loadIngredientNames } from "@/features/catalog/data/queries";
+import { addToPantryIn, findPantryAdditionsIn, forgetPantryAdditionsIn } from "@/features/pantry/data/add";
 import { PantryDataError } from "@/features/pantry/data/client";
 import { countPantryIn, listPantryIn, loadPantrySnapshot } from "@/features/pantry/data/queries";
 import { removePantryItemIn, restorePantryItemIn } from "@/features/pantry/data/remove";
@@ -21,7 +23,8 @@ import {
 // the unique key with unlimited items, the composite foreign key to the
 // catalog, the check constraints, listPantry and getPantrySnapshot's
 // queries against real rows, setPantryItems (set_pantry_items), and
-// removePantryItem with restorePantryItem (restore_pantry_item).
+// removePantryItem with restorePantryItem (restore_pantry_item), and
+// addToPantry (add_to_pantry) with its receipts (pantry_addition).
 
 let unique = 0;
 const uniqueName = (base: string) => `${base} ${Date.now()}-${unique++}`;
@@ -616,5 +619,223 @@ describe("the catalog for the sheet Lagervara", () => {
       [salt]: { section: "Övrigt", location: "Skafferi", defaultUnit: null },
     });
     expect(await loadIngredientDefaults(user.db, [])).toEqual({});
+  });
+});
+
+describe("addToPantry", () => {
+  const locations = (user: TestUser) => (ids: readonly string[]) => loadIngredientDefaults(user.db, ids);
+  const add = (user: TestUser, items: Parameters<typeof addToPantryIn>[1]) => addToPantryIn(user.db, items, locations(user));
+  const view = (rows: Awaited<ReturnType<typeof rowsOf>>) =>
+    rows.map(({ ingredient_id, location, amount, unit }) => ({ ingredient_id, location, amount, unit }));
+  async function receiptsOf(userId: string): Promise<string[]> {
+    const { data, error } = await adminClient().from("pantry_addition").select("key").eq("user_id", userId).order("key");
+    if (error) throw error;
+    return data.map((row) => row.key);
+  }
+
+  it("isolates pantry_addition", async () => {
+    await expectRlsIsolation("pantry_addition", async () => ({ key: randomUUID() }));
+  });
+
+  it("increases the row with the same unit, adds a new row beside another unit, and creates a missing item in the catalog's location", async () => {
+    const user = await createTestUser("pantry-add");
+    const gradde = await addIngredient(user.db, uniqueName("Grädde"), "Kyl");
+    const mjol = await addIngredient(user.db, uniqueName("Mjöl"), "Skafferi");
+    const paprika = await addIngredient(user.db, uniqueName("Paprika"), "Kyl");
+    await addItems(user.db, [
+      { ingredient_id: gradde, location: "Kyl", amount: 2, unit: "dl" },
+      { ingredient_id: mjol, location: "Skafferi", amount: 1, unit: "kg" },
+    ]);
+
+    const added = await add(user, [
+      { key: randomUUID(), ingredientId: gradde, amount: 3, unit: "dl" },
+      { key: randomUUID(), ingredientId: mjol, amount: 2, unit: "dl" },
+      { key: randomUUID(), ingredientId: paprika, amount: 2, unit: "st" },
+    ]);
+    expect(added).toBe(3);
+    const rows = view(await rowsOf(user.id));
+    expect(rows).toHaveLength(4);
+    expect(rows).toEqual(
+      expect.arrayContaining([
+        { ingredient_id: gradde, location: "Kyl", amount: 5, unit: "dl" },
+        { ingredient_id: mjol, location: "Skafferi", amount: 1, unit: "kg" },
+        { ingredient_id: mjol, location: "Skafferi", amount: 2, unit: "dl" },
+        { ingredient_id: paprika, location: "Kyl", amount: 2, unit: "st" },
+      ]),
+    );
+    expect(await receiptsOf(user.id)).toHaveLength(3);
+  });
+
+  it("adds to the location given, and the same ingredient twice in one call", async () => {
+    const user = await createTestUser("pantry-add-location");
+    const kaffe = await addIngredient(user.db, uniqueName("Kaffe"), "Skafferi");
+    await add(user, [
+      { key: randomUUID(), ingredientId: kaffe, amount: 1, unit: "förp", location: "Frys" },
+      { key: randomUUID(), ingredientId: kaffe, amount: 2, unit: "förp", location: "Frys" },
+    ]);
+    expect(view(await rowsOf(user.id))).toEqual([{ ingredient_id: kaffe, location: "Frys", amount: 3, unit: "förp" }]);
+  });
+
+  it("leaves an ingredient that is unlimited anywhere as it is, but counts and keeps the item", async () => {
+    const user = await createTestUser("pantry-add-unlimited");
+    const salt = await addIngredient(user.db, uniqueName("Salt"), "Skafferi");
+    await addItems(user.db, [{ ingredient_id: salt, location: "Kyl" }]);
+    const before = await rowsOf(user.id);
+    const key = randomUUID();
+    expect(await add(user, [{ key, ingredientId: salt, amount: 1, unit: "tsk" }])).toBe(1);
+    expect(await add(user, [{ key: randomUUID(), ingredientId: salt, amount: null, unit: null }])).toBe(1);
+    expect(await rowsOf(user.id)).toEqual(before);
+    expect(await receiptsOf(user.id)).toContain(key);
+  });
+
+  it("makes an item without amount unlimited in the catalog's location, replacing the amounts there only", async () => {
+    const user = await createTestUser("pantry-add-vague");
+    const salt = await addIngredient(user.db, uniqueName("Salt"), "Skafferi");
+    const kaffe = await addIngredient(user.db, uniqueName("Kaffe"), "Skafferi");
+    await addItems(user.db, [
+      { ingredient_id: kaffe, location: "Skafferi", amount: 1, unit: "förp" },
+      { ingredient_id: kaffe, location: "Frys", amount: 2, unit: "förp" },
+    ]);
+    await add(user, [
+      { key: randomUUID(), ingredientId: salt, amount: null, unit: null },
+      { key: randomUUID(), ingredientId: kaffe, amount: null, unit: null },
+    ]);
+    const rows = view(await rowsOf(user.id));
+    expect(rows).toHaveLength(3);
+    expect(rows).toEqual(
+      expect.arrayContaining([
+        { ingredient_id: salt, location: "Skafferi", amount: null, unit: null },
+        { ingredient_id: kaffe, location: "Skafferi", amount: null, unit: null },
+        { ingredient_id: kaffe, location: "Frys", amount: 2, unit: "förp" },
+      ]),
+    );
+  });
+
+  it("adds an item once per key: a second run, or the key twice in one call, changes nothing more", async () => {
+    const user = await createTestUser("pantry-add-once");
+    const gradde = await addIngredient(user.db, uniqueName("Grädde"), "Kyl");
+    const key = randomUUID();
+    const item = { key, ingredientId: gradde, amount: 3, unit: "dl" as const };
+    expect(await add(user, [item, item])).toBe(1);
+    expect(await add(user, [item])).toBe(0);
+    expect(view(await rowsOf(user.id))).toEqual([{ ingredient_id: gradde, location: "Kyl", amount: 3, unit: "dl" }]);
+    expect(await findPantryAdditionsIn(user.db, [key, randomUUID()])).toEqual([key]);
+  });
+
+  it("adds all or nothing, receipts too", async () => {
+    const user = await createTestUser("pantry-add-atomic");
+    const other = await createTestUser("pantry-add-atomic-other");
+    const gradde = await addIngredient(user.db, uniqueName("Grädde"), "Kyl");
+    const othersSalt = await addIngredient(other.db, uniqueName("Salt"), "Skafferi");
+    // Another user's ingredient: the foreign key refuses it, and the first item goes too.
+    const refused = await user.db.rpc("add_to_pantry", {
+      items: [
+        { key: randomUUID(), ingredient_id: gradde, location: "Kyl", amount: 3, unit: "dl" },
+        { key: randomUUID(), ingredient_id: othersSalt, location: "Skafferi", amount: 1, unit: "st" },
+      ],
+    });
+    expect(refused.error?.code).toBe("23503");
+    // An ingredient the catalog does not have for the user is refused before the call, also with a location.
+    for (const location of [undefined, "Skafferi" as const]) {
+      await expect(
+        add(user, [
+          { key: randomUUID(), ingredientId: gradde, amount: 3, unit: "dl" },
+          { key: randomUUID(), ingredientId: othersSalt, amount: 1, unit: "st", ...(location ? { location } : {}) },
+        ]),
+      ).rejects.toThrow(new PantryDataError("unknown_ingredient"));
+    }
+    expect(await rowsOf(user.id)).toEqual([]);
+    expect(await receiptsOf(user.id)).toEqual([]);
+    expect(await rowsOf(other.id)).toEqual([]);
+  });
+
+  it("deletes receipts older than 30 days, so their keys could add again", async () => {
+    const user = await createTestUser("pantry-add-old");
+    const gradde = await addIngredient(user.db, uniqueName("Grädde"), "Kyl");
+    const old = randomUUID();
+    const recent = randomUUID();
+    const { error } = await adminClient()
+      .from("pantry_addition")
+      .insert([
+        { user_id: user.id, key: old, created_at: new Date(Date.now() - 31 * 86_400_000).toISOString() },
+        { user_id: user.id, key: recent, created_at: new Date(Date.now() - 29 * 86_400_000).toISOString() },
+      ]);
+    if (error) throw error;
+    await add(user, [{ key: randomUUID(), ingredientId: gradde, amount: 1, unit: "dl" }]);
+    const receipts = await receiptsOf(user.id);
+    expect(receipts).not.toContain(old);
+    expect(receipts).toContain(recent);
+  });
+
+  it("is only for a signed-in user, with at least one item, and never reads another user's receipts", async () => {
+    const user = await createTestUser("pantry-add-guard");
+    const other = await createTestUser("pantry-add-guard-other");
+    const gradde = await addIngredient(user.db, uniqueName("Grädde"), "Kyl");
+    const items = [{ key: randomUUID(), ingredient_id: gradde, location: "Kyl", amount: 1, unit: "dl" }];
+    expect((await user.db.rpc("add_to_pantry", { items: [] })).error?.code).toBe("22023");
+    expect((await user.db.rpc("add_to_pantry", { items: [{ ...items[0], key: null }] })).error?.code).toBe("22023");
+    expect((await anonClient().rpc("add_to_pantry", { items })).error?.code).toBe("42501");
+    expect((await adminClient().rpc("add_to_pantry", { items })).error?.code).toBe("42501");
+    expect(await rowsOf(user.id)).toEqual([]);
+
+    expect(await user.db.rpc("add_to_pantry", { items })).toMatchObject({ data: 1, error: null });
+    expect(await findPantryAdditionsIn(other.db, [items[0]!.key])).toEqual([]);
+    // The other user's own key of the same text is theirs: it adds nothing to the owner.
+    const othersGradde = await addIngredient(other.db, uniqueName("Grädde"), "Kyl");
+    expect(await add(other, [{ key: items[0]!.key, ingredientId: othersGradde, amount: 1, unit: "dl" }])).toBe(1);
+    expect(view(await rowsOf(user.id))).toEqual([{ ingredient_id: gradde, location: "Kyl", amount: 1, unit: "dl" }]);
+  });
+});
+
+describe("addToPantry after review", () => {
+  const locations = (user: TestUser) => (ids: readonly string[]) => loadIngredientDefaults(user.db, ids);
+
+  it("caps a sum just below the pantry's maximum instead of refusing it", async () => {
+    const user = await createTestUser("pantry-add-cap");
+    const gradde = await addIngredient(user.db, uniqueName("Grädde"), "Kyl");
+    await addItems(user.db, [{ ingredient_id: gradde, location: "Kyl", amount: 999_999, unit: "dl" }]);
+    await addToPantryIn(user.db, [{ key: randomUUID(), ingredientId: gradde, amount: 2, unit: "dl" }], locations(user));
+    const capped = await user.db.rpc("add_to_pantry", {
+      items: [{ key: randomUUID(), ingredient_id: gradde, location: "Frys", amount: 5_000_000, unit: "dl" }],
+    });
+    expect(capped.error).toBeNull();
+    expect((await rowsOf(user.id)).map(({ location, amount }) => [location, amount])).toEqual([
+      ["Frys", 999_999.999],
+      ["Kyl", 999_999.999],
+    ]);
+  });
+
+  it.each([
+    ["an amount of 0", { amount: 0, unit: "dl" }],
+    ["a negative amount", { amount: -1, unit: "dl" }],
+    ["an amount without unit", { amount: 1, unit: null }],
+    ["a unit without amount", { amount: null, unit: "dl" }],
+    ["an unknown unit", { amount: 1, unit: "näve" }],
+    ["an unknown location", { amount: 1, unit: "dl", location: "Garage" }],
+  ])("refuses %s with 22023, writing nothing", async (_, change) => {
+    const user = await createTestUser(`pantry-add-input-${unique++}`);
+    const gradde = await addIngredient(user.db, uniqueName("Grädde"), "Kyl");
+    const good = { key: randomUUID(), ingredient_id: gradde, location: "Kyl", amount: 1, unit: "dl" };
+    const refused = await user.db.rpc("add_to_pantry", { items: [good, { ...good, key: randomUUID(), ...change }] });
+    expect(refused.error?.code).toBe("22023");
+    expect(await rowsOf(user.id)).toEqual([]);
+    expect(await countRows("pantry_addition", user.id)).toBe(0);
+  });
+
+  it("forgets receipts on request, so their keys could add again, and never another user's; nobody changes a receipt", async () => {
+    const user = await createTestUser("pantry-add-forget");
+    const other = await createTestUser("pantry-add-forget-other");
+    const gradde = await addIngredient(user.db, uniqueName("Grädde"), "Kyl");
+    const key = randomUUID();
+    await addToPantryIn(user.db, [{ key, ingredientId: gradde, amount: 1, unit: "dl" }], locations(user));
+
+    await forgetPantryAdditionsIn(other.db, [key]);
+    expect(await findPantryAdditionsIn(user.db, [key])).toEqual([key]);
+    const update = await user.db.from("pantry_addition").update({ key: "annan" }).eq("key", key).select("id");
+    expect(update.error?.code).toBe("42501");
+
+    await forgetPantryAdditionsIn(user.db, [key]);
+    expect(await findPantryAdditionsIn(user.db, [key])).toEqual([]);
+    expect(await addToPantryIn(user.db, [{ key, ingredientId: gradde, amount: 1, unit: "dl" }], locations(user))).toBe(1);
   });
 });

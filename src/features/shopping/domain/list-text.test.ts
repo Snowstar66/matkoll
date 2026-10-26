@@ -11,6 +11,7 @@ import {
   lineAmountText,
   listSummaryText,
   originsText,
+  putInPantryText,
   recountedText,
   restoreFailedText,
   skippedDishesText,
@@ -139,5 +140,15 @@ describe("a correction whose counted amount has changed, and Dolda varor (Story 
 
   it("counts the hidden lines", () => {
     expect(hiddenLinesButtonText(2)).toBe("Dolda varor (2)");
+  });
+});
+
+describe("putInPantryText", () => {
+  it("says how many items went to the pantry, else how many were taken off the list", () => {
+    expect(putInPantryText(8, 0)).toBe("Lagt 8 varor i lagret.");
+    expect(putInPantryText(1, 3)).toBe("Lagt 1 vara i lagret.");
+    expect(putInPantryText(0, 1)).toBe("Tog bort 1 vara från listan.");
+    expect(putInPantryText(0, 2)).toBe("Tog bort 2 varor från listan.");
+    expect(putInPantryText(0, 0)).toBeNull();
   });
 });

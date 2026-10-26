@@ -26,6 +26,9 @@ export const errorMessages = {
   // the list; after a failed "Ångra" it stays removed.
   pantry_remove_failed: "Det gick inte att ta bort varan.",
   pantry_restore_failed: "Det gick inte att ångra.",
+  // "Lägg i lagret" (Story 3.7) before or while the pantry is written: nothing
+  // is added, and the checks stay.
+  pantry_add_failed: "Det gick inte att lägga varorna i lagret. Försök igen.",
   // Matsedel (Story 3.1). After failed servings the selector shows the saved
   // value again; after a failed remove the dish is back on the plan.
   mealplan_unavailable: "Det gick inte att läsa matsedeln. Försök igen.",
@@ -59,6 +62,12 @@ export const errorMessages = {
   shopping_restore_failed: "Det gick inte att ångra.",
   // An own item changed in its detail after it was removed elsewhere (Story 3.6): the sheet closes and the list is read again.
   shopping_item_gone: "Varan finns inte längre.",
+  // "Lägg i lagret" (Story 3.7) after the pantry was written: the list could
+  // not be cleared. Trying again clears it without adding anything twice.
+  shopping_put_in_pantry_failed: "Det gick inte att lägga allt i lagret. Försök igen.",
+  // "Lägg i lagret" whose plan was switched elsewhere after the pantry was
+  // written: the items are at home, the list is read again.
+  shopping_put_in_pantry_plan_changed: "Varorna är lagda i lagret, men matsedeln har bytts.",
   // Recipe sites in Inställningar (FR7). The sentence with the site's name,
   // "koket.se finns redan.", is in `fields.domain`.
   settings_invalid_domain: "Ange en giltig webbadress, t.ex. koket.se.",

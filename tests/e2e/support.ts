@@ -45,6 +45,12 @@ export const mealplanEmail = "e2e-matsedel@matkoll.test";
  * list depends on nothing else.
  */
 export const shoppingEmail = "e2e-lista@matkoll.test";
+/**
+ * The E2E user of put-in-pantry.spec.ts alone ("Lägg i lagret", Story 3.7):
+ * each test makes its recipe, meal plan, own items and pantry with the
+ * service role, so what goes to the pantry depends on nothing else.
+ */
+export const putInPantryEmail = "e2e-lagg-i-lagret@matkoll.test";
 /** Every address in ALLOWED_EMAILS for the E2E server (see playwright.config.ts). */
 export const e2eEmails = [
   e2eEmail,
@@ -55,6 +61,7 @@ export const e2eEmails = [
   statusEmail,
   mealplanEmail,
   shoppingEmail,
+  putInPantryEmail,
 ] as const;
 /** A real Supabase user whose address is not in ALLOWED_EMAILS. */
 export const outsiderEmail = "utanfor@matkoll.test";
@@ -67,6 +74,7 @@ export const pantryStorageState = "tests/e2e/.auth/pantry.json";
 export const statusStorageState = "tests/e2e/.auth/status.json";
 export const mealplanStorageState = "tests/e2e/.auth/mealplan.json";
 export const shoppingStorageState = "tests/e2e/.auth/shopping.json";
+export const putInPantryStorageState = "tests/e2e/.auth/put-in-pantry.json";
 export const outsiderStorageState = "tests/e2e/.auth/outsider.json";
 
 export const mailpitUrl = "http://127.0.0.1:54324";

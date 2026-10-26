@@ -33,6 +33,8 @@ import { HiddenLinesSheet } from "./hidden-lines-sheet";
 import { LineDetailSheet } from "./line-detail-sheet";
 import { useLineRemoval } from "./line-removal";
 import { useOwnChanges } from "./own-changes";
+import { canPutInPantry } from "../domain/put-in-pantry";
+import { PutInPantryButton, usePutInPantry } from "./put-in-pantry";
 
 // Inköpslista (FR-15, UX-DR9): the current plan's name, number of dishes and
 // items left under the title, then the lines per store section in the fixed
@@ -45,7 +47,9 @@ import { useOwnChanges } from "./own-changes";
 // Listpostdetalj (Story 3.6), where Pontus corrects a recipe line's amount or
 // changes an own item; a swipe to the left removes a line (an own item) or
 // hides it (a recipe line), with "Ångra" in the short confirmation. "Dolda
-// varor (N)" under the list shows the hidden lines, with "Visa igen".
+// varor (N)" under the list shows the hidden lines, with "Visa igen". While
+// a line is checked off, "Lägg i lagret" above the tab bar puts every checked
+// line in the pantry and takes it off the list (Story 3.7).
 
 export type ShoppingListProps = {
   /**
@@ -69,6 +73,11 @@ export type ShoppingListProps = {
   pantryUnavailable: boolean;
   /** The checks could not be read: no line is shown checked, and checking is off. */
   checksUnavailable?: boolean;
+  /**
+   * Checks of lines no longer on the list that an interrupted "Lägg i
+   * lagret" put in the pantry (Story 3.7): the button shows to clear them.
+   */
+  pendingClear?: number;
   /**
    * Searches the catalog for the suggestions in Lägg till egen vara
    * (catalog.searchIngredients, passed down from the page, AD-1). Without
@@ -238,6 +247,8 @@ function useChecks(planId: string | null, lines: readonly ShoppingLine[]) {
     shownPlan.current = planId;
   }, [planId]);
   const [notice, setNotice] = useState<CheckNotice | null>(null);
+  /** Taps whose save has not answered yet; "Lägg i lagret" waits for them, so the server sees the checks shown. */
+  const [saving, setSaving] = useState(0);
   const nextNotice = useRef(0);
 
   // The notice belongs to what Pontus just did: it goes when the list is hidden.
@@ -280,9 +291,11 @@ function useChecks(planId: string | null, lines: readonly ShoppingLine[]) {
     const id = checkId(planId, key);
     const tap = (latestTap.current.get(id) ?? 0) + 1;
     latestTap.current.set(id, tap);
+    setSaving((count) => count + 1);
     startTransition(async () => {
       showCheck({ id, checked });
       const { result, lost } = await save({ planId, key, checked });
+      setSaving((count) => count - 1);
       if (latestTap.current.get(id) !== tap || shownPlan.current !== planId) return;
       if (result.ok) {
         setNotice((before) => (before?.key === key ? null : before));
@@ -298,7 +311,7 @@ function useChecks(planId: string | null, lines: readonly ShoppingLine[]) {
     });
   }
 
-  return { checks, toggle, notice };
+  return { checks, toggle, notice, saving: saving > 0 };
 }
 
 /** No hidden lines: for a list rendered without them. */
@@ -348,10 +361,11 @@ export function ShoppingList({
   hiddenLines = noLines,
   pantryUnavailable,
   checksUnavailable = false,
+  pendingClear = 0,
   searchIngredients = noSuggestions,
 }: ShoppingListProps) {
   const planId = plan?.id ?? null;
-  const { checks, toggle, notice } = useChecks(planId, savedLines);
+  const { checks, toggle, notice, saving } = useChecks(planId, savedLines);
   const removal = useLineRemoval(planId, savedLines);
   const lines = useMemo(
     () =>
@@ -362,6 +376,9 @@ export function ShoppingList({
     [planId, removal.shown, checks],
   );
   const own = useOwnChanges(savedLines);
+  const pantry = usePutInPantry(planId, savedLines, own);
+  // The lines "Lägg i lagret" acts on, as shown (a tap shows before it is saved); a checked text line is not one.
+  const toPantry = lines.flatMap((line) => (canPutInPantry(line) ? [line.key] : []));
   // The sets are new each render; one set per content, so the announcement's effect runs only on a change.
   const touchedIds = [...new Set([...removal.touched, ...own.touched])].sort().join("\n");
   const touched = useMemo(() => new Set(touchedIds ? touchedIds.split("\n") : []), [touchedIds]);
@@ -419,6 +436,12 @@ export function ShoppingList({
           {notice.text}
         </Notice>
       ) : null}
+      {/* "Lägg i lagret" that failed; trying again adds nothing twice. */}
+      {pantry.notice ? (
+        <Notice key={`pantry-${pantry.notice.id}`} role="alert">
+          {pantry.notice.text}
+        </Notice>
+      ) : null}
       {plan === null ? (
         <EmptyState>{emptyPlanText}</EmptyState>
       ) : (
@@ -468,6 +491,15 @@ export function ShoppingList({
             searchIngredients={searchIngredients}
             onClose={() => setSheet((current) => ({ ...current, open: false }))}
           />
+          {/* Shown while a line is checked off (as shown, before the check is saved), and while the flow runs. */}
+          {/* Also for checks an interrupted run left behind (pendingClear), so the retry stays reachable. */}
+          {!checksUnavailable && (toPantry.length > 0 || pendingClear > 0 || pantry.pending) ? (
+            <PutInPantryButton
+              disabled={pantry.pending || saving}
+              busy={pantry.pending}
+              onPut={() => void pantry.put(toPantry)}
+            />
+          ) : null}
           {/* Mounted from the first tap on a name, and kept, so it can close with its animation. */}
           {detail ? (
             <LineDetailSheet

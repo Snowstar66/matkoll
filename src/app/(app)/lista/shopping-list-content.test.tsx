@@ -37,10 +37,13 @@ describe("ShoppingListContent", () => {
         hiddenLines: [],
         pantryUnavailable: false,
         checksUnavailable: false,
+        pendingClear: 1,
       }),
     );
     render(<ToastProvider>{await ShoppingListContent()}</ToastProvider>);
     expect(screen.getByText("Allt finns hemma.")).toBeInTheDocument();
     expect(screen.getByRole("button", { name: "Lägg till egen vara" })).toBeInTheDocument();
+    // Checks an interrupted "Lägg i lagret" left behind keep the button reachable.
+    expect(screen.getByRole("button", { name: "Lägg i lagret" })).toBeInTheDocument();
   });
 });

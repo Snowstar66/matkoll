@@ -79,6 +79,20 @@ isOneToOne: false
       referencedColumns: ["id","user_id"]
     }
                   ]
+                },"pantry_addition": {
+                  Row: {
+                    "created_at": string,"id": string,"key": string,"user_id": string
+                  }
+                  ComputedFields: never
+                  Insert: {
+                    "created_at"?: string,"id"?: string,"key": string,"user_id"?: string
+                  }
+                  Update: {
+                    "created_at"?: string,"id"?: string,"key"?: string,"user_id"?: string
+                  }
+                  Relationships: [
+                    
+                  ]
                 },"pantry_item": {
                   Row: {
                     "amount": number | null,"created_at": string,"id": string,"ingredient_id": string,"location": string,"unit": string | null,"user_id": string
@@ -285,6 +299,12 @@ isOneToOne: false
         isOneToOne: true
         isSetofReturn: false
       } },
+"add_to_pantry":
+{ Args: { "items": Json }; Returns: number
+                           },
+"clear_put_in_pantry":
+{ Args: { "check_ids": (string)[],"custom_item_ids": (string)[],"override_keys": (string)[],"plan_id": string }; Returns: number
+                           },
 "commit_ingredients":
 { Args: { "new_ingredients": Json,"synonyms": Json }; Returns: {
               "id": string,"normalized_name": string

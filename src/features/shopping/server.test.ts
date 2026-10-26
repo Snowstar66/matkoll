@@ -38,7 +38,12 @@ vi.mock("@/features/recipes/server", () => ({
   getRecipesByIds: (ids: string[]) => getRecipesByIds(ids),
 }));
 const getPantrySnapshot = vi.fn();
-vi.mock("@/features/pantry/server", () => ({ PantryDataError, getPantrySnapshot: () => getPantrySnapshot() }));
+const findPantryAdditions = vi.fn();
+vi.mock("@/features/pantry/server", () => ({
+  PantryDataError,
+  getPantrySnapshot: () => getPantrySnapshot(),
+  findPantryAdditions: (keys: string[]) => findPantryAdditions(keys),
+}));
 const getIngredientNames = vi.fn();
 const getIngredientDefaults = vi.fn();
 vi.mock("@/features/catalog/server", () => ({
@@ -50,7 +55,11 @@ vi.mock("@/features/catalog/server", () => ({
 const db = { session: true };
 vi.mock("@/lib/supabase/server", () => ({ createClient: async () => db }));
 const listChecksIn = vi.fn();
-vi.mock("./data/checks", () => ({ listChecksIn: (...args: unknown[]) => listChecksIn(...args) }));
+// The checks' keys from listChecksIn's stub, with ids as listCheckRowsIn reads them.
+vi.mock("./data/checks", () => ({
+  listCheckRowsIn: async (...args: unknown[]) =>
+    ((await listChecksIn(...args)) as string[]).map((key, index) => ({ id: `check-${index}`, key })),
+}));
 const listCustomItemsIn = vi.fn();
 vi.mock("./data/custom-items", () => ({ listCustomItemsIn: (...args: unknown[]) => listCustomItemsIn(...args) }));
 const listOverridesIn = vi.fn();
@@ -83,6 +92,7 @@ beforeEach(() => {
   getIngredientNames.mockReset().mockResolvedValue({ [gradde]: "Grädde" });
   getIngredientDefaults.mockReset().mockResolvedValue({ [gradde]: { section: "Mejeri", location: "Kyl", defaultUnit: "dl" } });
   listChecksIn.mockReset().mockResolvedValue([]);
+  findPantryAdditions.mockReset().mockResolvedValue([]);
   listCustomItemsIn.mockReset().mockResolvedValue([]);
   listOverridesIn.mockReset().mockResolvedValue([]);
   log?.mockRestore();
@@ -108,6 +118,7 @@ describe("getShoppingList", () => {
         hiddenLines: [],
         pantryUnavailable: false,
         checksUnavailable: false,
+        pendingClear: 0,
       }),
     );
     expect(getRecipesByIds).toHaveBeenCalledWith([recipeId]);
@@ -125,7 +136,7 @@ describe("getShoppingList", () => {
     getCurrentPlan.mockResolvedValue(null);
     getPantrySnapshot.mockRejectedValue(new PantryDataError("query_failed 08006"));
     expect(await getShoppingList()).toEqual(
-      ok({ plan: null, lines: [], hiddenLines: [], pantryUnavailable: false, checksUnavailable: false }),
+      ok({ plan: null, lines: [], hiddenLines: [], pantryUnavailable: false, checksUnavailable: false, pendingClear: 0 }),
     );
     expect(getRecipesByIds).not.toHaveBeenCalled();
     expect(getPantrySnapshot).not.toHaveBeenCalled();
@@ -235,6 +246,26 @@ describe("getShoppingList", () => {
     failing();
     expect(await getShoppingList()).toEqual(fail("shopping_unavailable"));
     expect(log).toHaveBeenCalledWith("shopping_unavailable", logged);
+  });
+
+  it("counts the checks of lines no longer listed that an interrupted Lägg i lagret put in the pantry", async () => {
+    // The first check's line is listed; the other two are not (covered by the pantry, say).
+    listChecksIn.mockResolvedValue([`r:${gradde}:dl`, `r:${gradde}:st`, "r:00000000-0000-4000-8000-000000000000:st"]);
+    findPantryAdditions.mockResolvedValue(["check-2"]);
+    const result = await getShoppingList();
+    expect(result.ok && result.data.pendingClear).toBe(1);
+    expect(findPantryAdditions).toHaveBeenCalledWith(["check-1", "check-2"]);
+  });
+
+  it("asks the pantry nothing when every check's line is listed, and gives 0 when the receipts cannot be read", async () => {
+    listChecksIn.mockResolvedValue([`r:${gradde}:dl`]);
+    expect((await getShoppingList()).ok).toBe(true);
+    expect(findPantryAdditions).not.toHaveBeenCalled();
+    listChecksIn.mockResolvedValue([`r:${gradde}:st`]);
+    findPantryAdditions.mockRejectedValue(new PantryDataError("find_additions_failed 08006"));
+    const result = await getShoppingList();
+    expect(result.ok && result.data.pendingClear).toBe(0);
+    expect(log).toHaveBeenCalledWith("shopping_pending_clear_unavailable", { reason: "find_additions_failed 08006" });
   });
 
   it("throws other errors, which are bugs", async () => {
