@@ -6,18 +6,24 @@ import type { PantryItem } from "../domain/pantry-item";
 import { LocationCards } from "./location-cards";
 import { PantrySheetProvider } from "./pantry-item-sheet";
 import { PantryList } from "./pantry-list";
+import { PantrySuggestionsProvider } from "./pantry-suggestions";
 
 vi.mock("../actions/set-pantry-item", () => ({ savePantryItem: vi.fn() }));
 vi.mock("../actions/search-ingredients", () => ({ searchPantryIngredients: vi.fn() }));
 vi.mock("next/navigation", () => ({ useRouter: () => ({ refresh: vi.fn() }) }));
 vi.mock("../actions/remove-pantry-item", () => ({ removePantryItem: vi.fn() }));
 vi.mock("../actions/restore-pantry-item", () => ({ restorePantryItem: vi.fn() }));
+vi.mock("../actions/confirm-pantry-suggestions", () => ({ confirmPantrySuggestions: vi.fn() }));
+vi.mock("@/lib/ai-client", () => ({ postAiForm: vi.fn() }));
+vi.mock("@/lib/downscale-image", () => ({ downscaleImage: vi.fn() }));
 
 /** PantryList opens the sheet Lagervara, so it needs the providers Hemma has. */
 const render = (element: ReactElement) =>
   renderElement(
     <ToastProvider>
-      <PantrySheetProvider location="Kyl">{element}</PantrySheetProvider>
+      <PantrySuggestionsProvider>
+        <PantrySheetProvider location="Kyl">{element}</PantrySheetProvider>
+      </PantrySuggestionsProvider>
     </ToastProvider>,
   );
 

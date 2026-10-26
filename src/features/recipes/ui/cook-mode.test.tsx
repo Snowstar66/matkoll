@@ -407,7 +407,8 @@ describe("CookMode", () => {
   it("says the same when the request is refused", async () => {
     installWakeLock("refuse");
     await openCookMode();
-    expect(inDialog().getByText(wakeLockUnavailableText)).toBeInTheDocument();
+    // The refusal arrives after the request's promise has settled.
+    expect(await inDialog().findByText(wakeLockUnavailableText)).toBeInTheDocument();
     expect(inDialog().queryByRole("alert")).not.toBeInTheDocument();
   });
 

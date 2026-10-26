@@ -1,12 +1,17 @@
-import { act, fireEvent, render, screen, within } from "@testing-library/react";
+import { act, fireEvent, render, screen, waitFor, within } from "@testing-library/react";
+import { useState } from "react";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import { ToastProvider } from "@/components/toast";
 import type { Location } from "@/features/catalog";
 import { errorMessages, fail, ok, type Result } from "@/lib/errors";
 import type { PantryIngredientHit } from "../actions/search-ingredients";
 import type { PantryItem } from "../domain/pantry-item";
-import { pantryItemFormSchema, type PantryItemFormInput } from "../domain/pantry-item-form";
-import { AddPantryItemButton, PantrySheetProvider, usePantrySheet } from "./pantry-item-sheet";
+import { pantryItemFormSchema, type PantryItemForm, type PantryItemFormInput } from "../domain/pantry-item-form";
+import type { PantrySuggestion } from "../domain/pantry-suggestion";
+import { AddPantryItemButton, PantryItemSheet, PantrySheetProvider, usePantrySheet } from "./pantry-item-sheet";
+import type { CorrectOutcome, RejectOutcome } from "./pantry-suggestions";
+import { PantryRemovalProvider } from "./pantry-removal";
+import { PantrySuggestionsProvider } from "./pantry-suggestions";
 
 const savePantryItem = vi.fn<(form: PantryItemFormInput) => Promise<Result<{ id: string }>>>();
 vi.mock("../actions/set-pantry-item", () => ({ savePantryItem: (form: PantryItemFormInput) => savePantryItem(form) }));
@@ -18,6 +23,9 @@ vi.mock("../actions/search-ingredients", () => ({
 vi.mock("next/navigation", () => ({ useRouter: () => ({ refresh: vi.fn() }) }));
 vi.mock("../actions/remove-pantry-item", () => ({ removePantryItem: vi.fn() }));
 vi.mock("../actions/restore-pantry-item", () => ({ restorePantryItem: vi.fn() }));
+vi.mock("../actions/confirm-pantry-suggestions", () => ({ confirmPantrySuggestions: vi.fn() }));
+vi.mock("@/lib/ai-client", () => ({ postAiForm: vi.fn() }));
+vi.mock("@/lib/downscale-image", () => ({ downscaleImage: vi.fn() }));
 
 const gulLokId = "11111111-1111-4111-8111-111111111111";
 const mjolkId = "22222222-2222-4222-8222-222222222222";
@@ -39,10 +47,12 @@ function OpenItem({ item }: { item: PantryItem }) {
 function setup(location: Location = "Frys") {
   render(
     <ToastProvider>
-      <PantrySheetProvider location={location}>
-        <AddPantryItemButton variant="icon" />
-        <OpenItem item={mjolk} />
-      </PantrySheetProvider>
+      <PantrySuggestionsProvider>
+        <PantrySheetProvider location={location}>
+          <AddPantryItemButton variant="icon" />
+          <OpenItem item={mjolk} />
+        </PantrySheetProvider>
+      </PantrySuggestionsProvider>
     </ToastProvider>,
   );
 }
@@ -237,9 +247,11 @@ describe("PantryItemSheet, an item in the pantry", () => {
   ])("keeps the exact amount %s when only the location changes", async (amount, text) => {
     render(
       <ToastProvider>
-        <PantrySheetProvider location="Kyl">
-          <OpenItem item={{ ...mjolk, amount, unit: "kg" }} />
-        </PantrySheetProvider>
+        <PantrySuggestionsProvider>
+          <PantrySheetProvider location="Kyl">
+            <OpenItem item={{ ...mjolk, amount, unit: "kg" }} />
+          </PantrySheetProvider>
+        </PantrySuggestionsProvider>
       </ToastProvider>,
     );
     fireEvent.click(screen.getByRole("button", { name: "Öppna Mjölk" }));
@@ -289,5 +301,223 @@ describe("PantryItemSheet, an item in the pantry", () => {
     expect(savePantryItem).toHaveBeenCalledWith(
       expect.objectContaining({ ingredient: { kind: "existing", ingredientId: gulLokId }, replaceId: rowId }),
     );
+  });
+});
+
+describe("PantryItemSheet, a lagerförslag (Rätta)", () => {
+  const ketchup: PantrySuggestion = {
+    id: "s3",
+    name: "ketchup",
+    ingredient: { kind: "new", proposalId: "n2", name: "ketchup", section: "Skafferi", location: "Kyl", defaultUnit: "förp" },
+    location: "Kyl",
+    amount: 0.5,
+    unit: "l",
+    current: null,
+  };
+  const mjolkSuggestion: PantrySuggestion = {
+    id: "s4",
+    name: "mjölk",
+    ingredient: { kind: "existing", ingredientId: mjolkId },
+    location: "Kyl",
+    amount: 1,
+    unit: "förp",
+    current: { unlimited: false, amounts: [{ amount: 2, unit: "förp" }] },
+  };
+
+  const onConfirm = vi.fn<(id: string, generation: number, form: PantryItemForm, onSaved: () => void) => Promise<CorrectOutcome>>();
+  const onReject = vi.fn<(id: string, generation: number) => RejectOutcome>();
+  let reviewSaving = false;
+
+  /** The sheet for one suggestion, opened by "Rätta" as PantrySheetProvider opens it. */
+  function Correct({ suggestion }: { suggestion: PantrySuggestion }) {
+    const [sheet, setSheet] = useState({ open: false, session: 0 });
+    return (
+      <>
+        <button onClick={() => setSheet((current) => ({ open: true, session: current.session + 1 }))}>Rätta</button>
+        <PantryItemSheet
+          open={sheet.open}
+          session={sheet.session}
+          target={{ kind: "suggestion", suggestion, generation: 7 }}
+          onClose={() => setSheet((current) => ({ ...current, open: false }))}
+          review={{ confirm: onConfirm, reject: onReject, saving: reviewSaving }}
+        />
+      </>
+    );
+  }
+
+  function open(suggestion: PantrySuggestion) {
+    render(
+      <ToastProvider>
+        <PantryRemovalProvider>
+          <Correct suggestion={suggestion} />
+        </PantryRemovalProvider>
+      </ToastProvider>,
+    );
+    fireEvent.click(screen.getByRole("button", { name: "Rätta" }));
+  }
+
+  beforeEach(() => {
+    onConfirm.mockReset().mockImplementation(async (_id, _generation, _form, onSaved) => {
+      onSaved();
+      return { kind: "saved" };
+    });
+    onReject.mockReset().mockReturnValue("rejected");
+    reviewSaving = false;
+  });
+
+  it("opens on the form filled in from an existing ingredient's suggestion, with Bekräfta and Avvisa", () => {
+    open(mjolkSuggestion);
+    expect(within(sheet()).getByRole("heading", { name: "Lagervara" })).toBeInTheDocument();
+    expect(within(sheet()).getByTestId("pantry-sheet-ingredient")).toHaveTextContent("mjölk");
+    expect(within(sheet()).queryByText("Ny")).toBeNull();
+    expect(within(sheet()).getByLabelText("Mängd")).toHaveValue("1");
+    expect(within(sheet()).getByLabelText("Enhet")).toHaveValue("förp");
+    expect(location("Kyl")).toHaveAttribute("aria-checked", "true");
+    expect(within(sheet()).getByRole("button", { name: "Bekräfta" })).toBeInTheDocument();
+    expect(within(sheet()).getByRole("button", { name: "Avvisa" })).toBeInTheDocument();
+    expect(within(sheet()).queryByRole("button", { name: "Lägg till vara" })).toBeNull();
+    expect(within(sheet()).queryByRole("button", { name: "Ta bort" })).toBeNull();
+  });
+
+  it("fills in a new ingredient with its name, Ny and section, and the amount with a decimal comma", () => {
+    open(ketchup);
+    expect(within(sheet()).getByTestId("pantry-sheet-ingredient")).toHaveTextContent("ketchup");
+    expect(within(sheet()).getByText("Ny")).toBeInTheDocument();
+    expect(within(sheet()).getByLabelText("Avdelning")).toHaveValue("Skafferi");
+    expect(within(sheet()).getByLabelText("Mängd")).toHaveValue("0,5");
+    expect(within(sheet()).getByLabelText("Enhet")).toHaveValue("l");
+  });
+
+  it("leaves an unlimited suggestion's amount and unit empty", () => {
+    open({ ...mjolkSuggestion, amount: null, unit: null });
+    expect(within(sheet()).getByLabelText("Mängd")).toHaveValue("");
+    expect(within(sheet()).getByLabelText("Enhet")).toHaveValue("");
+  });
+
+  it("keeps the place when another ingredient is chosen", async () => {
+    open(mjolkSuggestion);
+    fireEvent.click(within(sheet()).getByRole("button", { name: "Byt ingrediens" }));
+    await search("gul");
+    fireEvent.click(within(sheet()).getByRole("button", { name: "Gul lök" }));
+    expect(location("Kyl")).toHaveAttribute("aria-checked", "true");
+    expect(within(sheet()).getByLabelText("Enhet")).toHaveValue("förp");
+  });
+
+  it("Bekräfta saves the form as corrected, then closes with the short confirmation", async () => {
+    open(ketchup);
+    fireEvent.change(within(sheet()).getByLabelText("Mängd"), { target: { value: "2" } });
+    fireEvent.change(within(sheet()).getByLabelText("Enhet"), { target: { value: "dl" } });
+    fireEvent.click(location("Frys"));
+    await act(async () => fireEvent.click(within(sheet()).getByRole("button", { name: "Bekräfta" })));
+    expect(onConfirm).toHaveBeenCalledWith(
+      "s3",
+      7,
+      {
+        ingredient: { kind: "new", name: "ketchup", section: "Skafferi", location: "Frys", defaultUnit: "dl" },
+        location: "Frys",
+        amount: 2,
+        unit: "dl",
+        replaceId: null,
+      },
+      expect.any(Function),
+    );
+    await waitFor(() => expect(screen.queryByRole("dialog")).toBeNull());
+    expect(screen.getByTestId("toast")).toHaveTextContent("ketchup är sparad i frysen.");
+    expect(savePantryItem).not.toHaveBeenCalled();
+  });
+
+  it("says Sparar … while confirming, and keeps the sheet with the text after a failure", async () => {
+    let answer: (outcome: CorrectOutcome) => void = () => {};
+    onConfirm.mockImplementation(() => new Promise((resolve) => (answer = resolve)));
+    open(mjolkSuggestion);
+    fireEvent.click(within(sheet()).getByRole("button", { name: "Bekräfta" }));
+    expect(within(sheet()).getByRole("button", { name: "Sparar …" })).toBeDisabled();
+    expect(within(sheet()).getByRole("button", { name: "Avvisa" })).toBeDisabled();
+    // A second submit (Enter) while saving sends nothing more.
+    fireEvent.submit(within(sheet()).getByLabelText("Mängd").closest("form")!);
+    expect(onConfirm).toHaveBeenCalledTimes(1);
+    await act(async () => answer({ kind: "failed", error: fail("pantry_confirm_failed").error }));
+    expect(await within(sheet()).findByRole("alert")).toHaveTextContent(errorMessages.pantry_confirm_failed);
+    expect(within(sheet()).getByRole("button", { name: "Bekräfta" })).toBeEnabled();
+  });
+
+  it("shows the server's text for a refused item in the sheet", async () => {
+    onConfirm.mockResolvedValue({
+      kind: "failed",
+      error: fail("validation", { "0": "Förslaget går inte att spara som det är. Rätta eller avvisa det." }).error,
+    });
+    open(mjolkSuggestion);
+    await act(async () => fireEvent.click(within(sheet()).getByRole("button", { name: "Bekräfta" })));
+    expect(await within(sheet()).findByRole("alert")).toHaveTextContent("Förslaget går inte att spara som det är.");
+  });
+
+  it("closes with Förslaget finns inte längre. when the suggestion is gone, for Bekräfta and Avvisa", async () => {
+    onConfirm.mockResolvedValue({ kind: "gone" });
+    open(mjolkSuggestion);
+    await act(async () => fireEvent.click(within(sheet()).getByRole("button", { name: "Bekräfta" })));
+    await waitFor(() => expect(screen.queryByRole("dialog")).toBeNull());
+    expect(screen.getByTestId("toast")).toHaveTextContent("Förslaget finns inte längre.");
+
+    onReject.mockReturnValue("gone");
+    fireEvent.click(screen.getByRole("button", { name: "Rätta" }));
+    fireEvent.click(within(sheet()).getByRole("button", { name: "Avvisa" }));
+    expect(screen.queryByRole("dialog")).toBeNull();
+    expect(onReject).toHaveBeenCalledWith("s4", 7);
+    expect(screen.getByTestId("toast")).toHaveTextContent("Förslaget finns inte längre.");
+  });
+
+  it("stays open, silently, when another confirmation is being saved", async () => {
+    onConfirm.mockResolvedValue({ kind: "busy" });
+    onReject.mockReturnValue("busy");
+    open(mjolkSuggestion);
+    await act(async () => fireEvent.click(within(sheet()).getByRole("button", { name: "Bekräfta" })));
+    fireEvent.click(within(sheet()).getByRole("button", { name: "Avvisa" }));
+    expect(sheet()).toBeInTheDocument();
+    expect(within(sheet()).queryByRole("alert")).toBeNull();
+    expect(screen.queryByTestId("toast")).toBeNull();
+  });
+
+  it("waits with Bekräfta and Avvisa while a card's confirmation is being saved", () => {
+    reviewSaving = true;
+    open(mjolkSuggestion);
+    expect(within(sheet()).getByRole("button", { name: "Sparar …" })).toBeDisabled();
+    expect(within(sheet()).getByRole("button", { name: "Avvisa" })).toBeDisabled();
+  });
+
+  it("refuses an amount at the field and confirms nothing", async () => {
+    open(mjolkSuggestion);
+    fireEvent.change(within(sheet()).getByLabelText("Mängd"), { target: { value: "0" } });
+    await act(async () => fireEvent.click(within(sheet()).getByRole("button", { name: "Bekräfta" })));
+    expect(within(sheet()).getByText("Ange ett tal större än 0.")).toBeInTheDocument();
+    expect(onConfirm).not.toHaveBeenCalled();
+  });
+
+  it("Avvisa closes without asking, also with changes, and rejects the suggestion", () => {
+    open(mjolkSuggestion);
+    fireEvent.change(within(sheet()).getByLabelText("Mängd"), { target: { value: "3" } });
+    fireEvent.click(within(sheet()).getByRole("button", { name: "Avvisa" }));
+    expect(screen.queryByRole("dialog")).toBeNull();
+    expect(onReject).toHaveBeenCalledWith("s4", 7);
+    expect(onConfirm).not.toHaveBeenCalled();
+  });
+
+  it("closes unchanged without asking, and asks Släng ändringarna? when changed, keeping the suggestion", () => {
+    open(mjolkSuggestion);
+    fireEvent.click(within(sheet()).getByRole("button", { name: "Avbryt" }));
+    expect(screen.queryByRole("dialog")).toBeNull();
+
+    fireEvent.click(screen.getByRole("button", { name: "Rätta" }));
+    expect(within(sheet()).getByLabelText("Mängd")).toHaveValue("1");
+    fireEvent.change(within(sheet()).getByLabelText("Mängd"), { target: { value: "3" } });
+    fireEvent.click(within(sheet()).getByRole("button", { name: "Avbryt" }));
+    expect(within(sheet()).getByText("Släng ändringarna?")).toBeInTheDocument();
+    fireEvent.click(within(sheet()).getByRole("button", { name: "Släng ändringarna" }));
+    expect(screen.queryByRole("dialog")).toBeNull();
+    expect(onReject).not.toHaveBeenCalled();
+    expect(onConfirm).not.toHaveBeenCalled();
+
+    // Opened again, it starts from the suggestion as it was.
+    fireEvent.click(screen.getByRole("button", { name: "Rätta" }));
+    expect(within(sheet()).getByLabelText("Mängd")).toHaveValue("1");
   });
 });

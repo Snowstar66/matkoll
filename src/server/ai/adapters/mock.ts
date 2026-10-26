@@ -4,7 +4,7 @@ import { readFileSync } from "node:fs";
 import { join } from "node:path";
 import { fail, ok, type ErrorCode } from "@/lib/errors";
 import { normalizeTitle } from "@/lib/suggest-input";
-import { aiRecipe, suggestDishesAnswer, type AiRecipe } from "../schemas";
+import { aiPantryItem, aiRecipe, analyzeImageAnswer, suggestDishesAnswer, type AiPantryItem, type AiRecipe } from "../schemas";
 import type { AiService, ParseRecipeInput, SuggestDishesInput } from "../service";
 
 // Deterministic stand-in for a model, used in all tests and in CI (AD-9). It
@@ -19,8 +19,13 @@ import type { AiService, ParseRecipeInput, SuggestDishesInput } from "../service
 // <suggest>.response.json, whatever is at home, or the first set in
 // suggestAlternatives none of whose titles is to be avoided (ai_invalid when
 // every set has one), unless a pantry item's name is one of the reserved
-// inputs for ai_unavailable, ai_invalid or ai_rejected. The suggest fixtures
-// are loaded on their own, so a broken one never breaks an import.
+// inputs for ai_unavailable, ai_invalid or ai_rejected. analyzeImage answers
+// from the manifest's `analyze` part: <name>.analyze.json for the photo
+// <name>.png, keyed on the SHA-256 of the image bytes, and the default case
+// for any other photo; the reserved images for ai_unavailable, ai_invalid and
+// ai_rejected give their codes (import_no_recipe means nothing to a photo of
+// a place, so it gets the default answer). The suggest and analyze fixtures
+// are each loaded on their own, so a broken one never breaks an import.
 
 /** Error codes the mock can be asked to return through a reserved input. */
 export const mockErrorCodes = ["ai_unavailable", "ai_invalid", "ai_rejected", "import_no_recipe"] as const;
@@ -28,6 +33,9 @@ type MockErrorCode = (typeof mockErrorCodes)[number] & ErrorCode;
 
 /** The reserved inputs that make suggestDishes fail, as a pantry item's name. */
 export const mockSuggestErrorCodes = ["ai_unavailable", "ai_invalid", "ai_rejected"] as const;
+
+/** The reserved images that make analyzeImage fail. */
+export const mockAnalyzeErrorCodes = ["ai_unavailable", "ai_invalid", "ai_rejected"] as const;
 
 type Manifest = {
   default: string;
@@ -38,6 +46,8 @@ type Manifest = {
   suggest: string;
   /** Further answers, for when every title of the ones before is to be avoided ("Föreslå andra rätter"). */
   suggestAlternatives?: string[];
+  /** analyzeImage: each case is a photo <name>.png with the answer <name>.analyze.json; `default` answers any other photo. */
+  analyze?: { default: string; cases: { name: string }[] };
 };
 
 type Answer = { recipe: AiRecipe } | { code: MockErrorCode };
@@ -47,6 +57,11 @@ type SuggestFixtures = {
   sets: AiRecipe[][];
   /** Normalized reserved text → its code, for the pantry items given to suggestDishes. */
   errors: Map<string, MockErrorCode>;
+};
+type AnalyzeFixtures = {
+  /** SHA-256 of the image bytes → the answer or an error code. */
+  byKey: Map<string, { items: AiPantryItem[] } | { code: MockErrorCode }>;
+  fallback: AiPantryItem[];
 };
 
 export const defaultFixturesDir = join(process.cwd(), "tests", "fixtures", "ai");
@@ -115,6 +130,28 @@ function loadSuggestFixtures(dir: string): SuggestFixtures {
   return { sets, errors };
 }
 
+function loadAnalyzeFixtures(dir: string): AnalyzeFixtures {
+  const read = (file: string) => readFileSync(join(dir, file), "utf8");
+  const manifest = JSON.parse(read("manifest.json")) as Manifest;
+  if (!manifest.analyze) throw new Error("analyze missing");
+  const byKey: AnalyzeFixtures["byKey"] = new Map();
+  const answers = new Map<string, AiPantryItem[]>();
+  for (const { name } of manifest.analyze.cases) {
+    // Every item must pass on its own: a fixture is a valid answer.
+    const items = analyzeImageAnswer.parse(JSON.parse(read(`${name}.analyze.json`))).items.map((item) => aiPantryItem.parse(item));
+    answers.set(name, items);
+    byKey.set(sha256(readFileSync(join(dir, `${name}.png`))), { items });
+  }
+  for (const { image, code } of manifest.reservedImages ?? []) {
+    if ((mockAnalyzeErrorCodes as readonly string[]).includes(code)) {
+      byKey.set(sha256(readFileSync(join(dir, image))), { code });
+    }
+  }
+  const fallback = answers.get(manifest.analyze.default);
+  if (!fallback) throw new Error("default case missing");
+  return { byKey, fallback };
+}
+
 /** The error code a reserved pantry item asks for, if any. */
 function suggestErrorFor(input: SuggestDishesInput, errors: Map<string, MockErrorCode>): MockErrorCode | undefined {
   for (const item of input.pantry) {
@@ -143,6 +180,7 @@ export function createMockAiService(dir: string = defaultFixturesDir): AiService
   // Each loaded once, on first use; a failure is remembered too.
   const fixtures = lazily(() => loadFixtures(dir));
   const suggestFixtures = lazily(() => loadSuggestFixtures(dir));
+  const analyzeFixtures = lazily(() => loadAnalyzeFixtures(dir));
 
   /** The fixtures, or undefined (logged) when they cannot be read. */
   const logged = <T>(current: T | undefined) => {
@@ -171,6 +209,14 @@ export function createMockAiService(dir: string = defaultFixturesDir): AiService
       const avoided = new Set(input.avoidTitles.map(normalizeTitle));
       const set = current.sets.find((recipes) => recipes.every((recipe) => !avoided.has(normalizeTitle(recipe.title))));
       return set ? ok(structuredClone(set)) : fail("ai_invalid");
+    },
+    async analyzeImage(input, signal) {
+      if (signal.aborted) return fail("ai_unavailable");
+      const current = logged(analyzeFixtures());
+      if (!current) return fail("ai_unavailable");
+      const answer = current.byKey.get(sha256(input.image.data));
+      if (answer && "code" in answer) return fail(answer.code);
+      return ok({ items: structuredClone(answer ? answer.items : current.fallback), invalid: 0 });
     },
   };
 }

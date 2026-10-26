@@ -281,7 +281,7 @@ describe("ShoppingList checks", () => {
     setChecked.mockResolvedValueOnce(fail("shopping_plan_changed"));
     render(<ServerList initial={lines} />);
     await user.click(screen.getByRole("checkbox", { name: "Paprika, 1 st" }));
-    expect(screen.getByRole("alert")).toHaveTextContent("Matsedeln har bytts. Listan är uppdaterad.");
+    expect(await screen.findByRole("alert")).toHaveTextContent("Matsedeln har bytts. Listan är uppdaterad.");
     expect(refresh).toHaveBeenCalled();
   });
 
@@ -325,16 +325,16 @@ describe("ShoppingList checks", () => {
     setChecked.mockResolvedValueOnce(fail("shopping_check_failed"));
     render(<ServerList initial={lines} />);
     await user.click(screen.getByRole("checkbox", { name: "Paprika, 1 st" }));
-    const first = screen.getByRole("alert");
+    const first = await screen.findByRole("alert");
     await user.click(screen.getByRole("checkbox", { name: "Grädde, 3 dl" }));
     expect(screen.getByRole("checkbox", { name: "Grädde, 3 dl" })).toBeChecked();
     expect(screen.getByRole("alert")).toBe(first);
 
     setChecked.mockResolvedValueOnce(fail("shopping_check_failed"));
     await user.click(screen.getByRole("checkbox", { name: "Paprika, 1 st" }));
-    // A new element, so screen readers announce the same text again.
+    // A new element, so screen readers announce the same text again (once the failure has settled).
+    await waitFor(() => expect(screen.getByRole("alert")).not.toBe(first));
     expect(screen.getByRole("alert")).toHaveTextContent("Det gick inte att spara bocken.");
-    expect(screen.getByRole("alert")).not.toBe(first);
   });
 
   it("gives up on a check without an answer after a while, so later taps are not stuck behind it", async () => {

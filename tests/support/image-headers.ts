@@ -59,3 +59,19 @@ export function webpVp8lHeader(width: number, height: number, size = 64): Uint8A
     size,
   );
 }
+
+/** One PNG chunk: length, type, data and a zero CRC (nothing here checks it). */
+export function pngChunk(type: string, data: number[] | Uint8Array = []): number[] {
+  return [...be32(data.length), ...ascii(type), ...data, 0, 0, 0, 0];
+}
+
+/**
+ * A PNG whose chunks can be walked: signature, IHDR, then `chunks` (by
+ * default one IDAT that pads the file to about `size` bytes), then IEND.
+ */
+export function pngFile(width: number, height: number, { size = 64, chunks }: { size?: number; chunks?: number[][] } = {}): Uint8Array {
+  const ihdr = pngChunk("IHDR", [...be32(width), ...be32(height), 8, 2, 0, 0, 0]);
+  const head = [0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a, ...ihdr];
+  const body = chunks ?? [pngChunk("IDAT", new Uint8Array(Math.max(0, size - head.length - 24)))];
+  return new Uint8Array([...head, ...body.flat(), ...pngChunk("IEND")]);
+}

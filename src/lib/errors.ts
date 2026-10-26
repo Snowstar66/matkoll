@@ -11,6 +11,9 @@ export const errorMessages = {
   ai_unavailable: "AI-tjänsten svarar inte just nu. Är datorn med modellen igång?",
   ai_invalid: "Det gick inte att tolka svaret. Försök igen.",
   ai_rejected: "AI-tjänsten tog inte emot förfrågan. Prova med en kortare text eller försök igen senare.",
+  // A photo analysis stopped because a newer one from the same person started
+  // (another tab, a double tap). Not an error: the client shows nothing for it.
+  ai_superseded: "En nyare bild analyseras.",
   import_no_recipe: "Det gick inte att hitta något recept i texten.",
   // AI-förslag (Story 5.2) with nothing at home: the AI is not asked.
   suggest_empty_pantry: "Lagret är tomt. Lägg till varor i Hemma, så kan AI:n föreslå rätter.",
@@ -31,6 +34,10 @@ export const errorMessages = {
   // "Lägg i lagret" (Story 3.7) before or while the pantry is written: nothing
   // is added, and the checks stay.
   pantry_add_failed: "Det gick inte att lägga varorna i lagret. Försök igen.",
+  // Confirming lagerförslag (Story 6.2): the catalog or the pantry refused.
+  // The suggestions stay; new catalog ingredients may stay too, and trying
+  // again uses them.
+  pantry_confirm_failed: "Det gick inte att lägga förslagen i lagret. Försök igen.",
   // Matsedel (Story 3.1). After failed servings the selector shows the saved
   // value again; after a failed remove the dish is back on the plan.
   mealplan_unavailable: "Det gick inte att läsa matsedeln. Försök igen.",

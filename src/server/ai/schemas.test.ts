@@ -1,6 +1,15 @@
 import { describe, expect, it } from "vitest";
 import { z } from "zod";
-import { aiRecipe, parseRecipeAnswer, suggestDishesAnswer, suggestDishesAnswerFor } from "./schemas";
+import {
+  aiPantryItem,
+  aiRecipe,
+  analyzeImageAnswer,
+  maxPantryItemTextChars,
+  parseAnalyzeItems,
+  parseRecipeAnswer,
+  suggestDishesAnswer,
+  suggestDishesAnswerFor,
+} from "./schemas";
 import { validRecipe } from "./test-support";
 
 describe("aiRecipe", () => {
@@ -137,5 +146,70 @@ describe("suggestDishesAnswer", () => {
     expect(suggestions.minItems ?? 0).toBeLessThanOrEqual(1);
     expect(suggestions.maxItems ?? 1).toBeLessThanOrEqual(1);
     expect(suggestions.maxItems).toBeUndefined();
+  });
+});
+
+describe("analyzeImageAnswer and aiPantryItem", () => {
+  const item = {
+    label: "Arla mellanmjölk",
+    amount: 1,
+    unit: "förp",
+    hint: { name: "mellanmjölk", section: "Mejeri", location: "Kyl", defaultUnit: "förp" },
+  };
+
+  it("takes any answer with a list of items of the right shape, also one with an item that will not pass", () => {
+    const answer = { items: [item, { ...item, label: "", amount: -1 }] };
+    expect(analyzeImageAnswer.parse(answer)).toEqual(answer);
+    expect(analyzeImageAnswer.parse({ items: [] })).toEqual({ items: [] });
+  });
+
+  it("refuses an answer that is broken as a whole: no list, or an item of the wrong shape", () => {
+    expect(analyzeImageAnswer.safeParse({}).success).toBe(false);
+    expect(analyzeImageAnswer.safeParse({ items: null }).success).toBe(false);
+    expect(analyzeImageAnswer.safeParse({ items: [{ label: "Mjölk" }] }).success).toBe(false);
+    expect(analyzeImageAnswer.safeParse({ items: [{ ...item, amount: "1" }] }).success).toBe(false);
+  });
+
+  it("checks each item on its own: valid ones in order, and a count of the others", () => {
+    const smor = { ...item, label: "Smör" };
+    const result = parseAnalyzeItems([item, { ...item, label: " " }, "inte en vara", smor, { ...item, amount: -1 }]);
+    expect(result.items.map(({ label }) => label)).toEqual(["Arla mellanmjölk", "Smör"]);
+    expect(result.invalid).toBe(3);
+    expect(parseAnalyzeItems([])).toEqual({ items: [], invalid: 0 });
+  });
+
+  it("accepts free-text units, maps an empty unit to null, trims the label and takes an amount of 0 as none", () => {
+    expect(aiPantryItem.parse({ ...item, unit: "tub" }).unit).toBe("tub");
+    expect(aiPantryItem.parse({ ...item, label: " Smör ", amount: null, unit: " " })).toMatchObject({
+      label: "Smör",
+      amount: null,
+      unit: null,
+    });
+    expect(aiPantryItem.parse({ ...item, amount: 0 }).amount).toBeNull();
+  });
+
+  it.each([
+    ["a negative amount", { amount: -1 }],
+    ["an empty label", { label: " " }],
+    ["a label over 200 characters", { label: "x".repeat(maxPantryItemTextChars + 1) }],
+    ["no hint", { hint: undefined }],
+    ["a hint without a name", { hint: { ...item.hint, name: "" } }],
+    ["a hint name over 200 characters", { hint: { ...item.hint, name: "x".repeat(maxPantryItemTextChars + 1) } }],
+  ])("refuses an item with %s", (_name, change) => {
+    expect(aiPantryItem.safeParse({ ...item, ...change }).success).toBe(false);
+  });
+
+  it("has a JSON schema with every field required, no minItems or maxItems on items, and no defaults", () => {
+    const schema = z.toJSONSchema(analyzeImageAnswer, { io: "input" }) as unknown as {
+      required: string[];
+      properties: { items: { type: string; minItems?: number; maxItems?: number; items: { required: string[] } } };
+    };
+    expect(schema.required).toEqual(["items"]);
+    const { items } = schema.properties;
+    expect(items.type).toBe("array");
+    expect(items.minItems).toBeUndefined();
+    expect(items.maxItems).toBeUndefined();
+    expect(items.items.required.sort()).toEqual(["amount", "hint", "label", "unit"]);
+    expect(JSON.stringify(schema)).not.toMatch(/"default"|"minLength"|"maxLength"|"minimum"|"exclusiveMinimum"/);
   });
 });

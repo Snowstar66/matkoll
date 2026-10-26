@@ -55,3 +55,6 @@ tests/e2e/.auth/
 # Written by `pnpm eval:ai`
 tests/eval/report.md
 tests/eval/suggest-report.md
+tests/eval/analyze-report.md
+# Own photos for the image analysis in pnpm eval:ai; the repo is public, so they never go in it
+tests/eval/photos/

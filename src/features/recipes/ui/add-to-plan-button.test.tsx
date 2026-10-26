@@ -30,7 +30,8 @@ describe("AddToPlanButton", () => {
     renderButton(addToPlan);
     await user.click(screen.getByRole("button", { name: "Lägg på matsedeln" }));
     expect(addToPlan).toHaveBeenCalledWith({ recipeId, servings: 4, id: expect.stringMatching(uuid) });
-    expect(screen.getByTestId("toast")).toHaveTextContent("Lagt på matsedeln.");
+    // The confirmation comes once the answer has settled.
+    expect(await screen.findByTestId("toast")).toHaveTextContent("Lagt på matsedeln.");
   });
 
   it("adds the chosen servings, within what a dish allows", async () => {
@@ -54,7 +55,9 @@ describe("AddToPlanButton", () => {
     const addToPlan = vi.fn<AddToPlan>().mockResolvedValue(fail("mealplan_add_failed"));
     const { rerender } = renderButton(addToPlan, 4);
     await user.click(screen.getByRole("button", { name: "Lägg på matsedeln" }));
-    await user.click(screen.getByRole("button", { name: "Lägg på matsedeln" }));
+    // The button reads "Lägger på matsedeln …" until each failed add has settled.
+    await user.click(await screen.findByRole("button", { name: "Lägg på matsedeln" }));
+    await screen.findByRole("button", { name: "Lägg på matsedeln" });
     rerender(button(addToPlan, 6));
     await user.click(screen.getByRole("button", { name: "Lägg på matsedeln" }));
     const calls = addToPlan.mock.calls.map(([input]) => input);
@@ -70,10 +73,11 @@ describe("AddToPlanButton", () => {
       .mockResolvedValueOnce(fail("mealplan_add_failed"))
       .mockResolvedValue(ok({ id: "dish" }));
     renderButton(addToPlan);
-    const button = screen.getByRole("button", { name: "Lägg på matsedeln" });
-    await user.click(button);
-    await user.click(button);
-    await user.click(button);
+    const button = () => screen.findByRole("button", { name: "Lägg på matsedeln" });
+    // The button reads "Lägger på matsedeln …" until each add has settled.
+    await user.click(await button());
+    await user.click(await button());
+    await user.click(await button());
     const ids = addToPlan.mock.calls.map(([input]) => input.id);
     expect(ids[1]).toBe(ids[0]);
     expect(ids[2]).not.toBe(ids[1]);
@@ -83,7 +87,7 @@ describe("AddToPlanButton", () => {
     const user = userEvent.setup();
     renderButton(vi.fn<AddToPlan>().mockResolvedValue(fail("mealplan_add_failed")));
     await user.click(screen.getByRole("button", { name: "Lägg på matsedeln" }));
-    expect(screen.getByTestId("toast")).toHaveTextContent("Det gick inte att lägga rätten på matsedeln.");
+    expect(await screen.findByTestId("toast")).toHaveTextContent("Det gick inte att lägga rätten på matsedeln.");
     expect(screen.getByRole("alert")).toHaveTextContent("Det gick inte att lägga rätten på matsedeln.");
   });
 

@@ -318,7 +318,8 @@ describe("AiSuggestions", () => {
       const [saved, recipeId] = saveRecipe.mock.calls[0];
       expect(saved).toEqual(gryta.draft);
       expect(recipeId).toMatch(/^[0-9a-f-]{36}$/);
-      expect(screen.queryByRole("dialog", { name: "Spara AI-förslag" })).not.toBeInTheDocument();
+      // The sheet closes, the card goes and the toast shows once the save has settled.
+      await waitFor(() => expect(screen.queryByRole("dialog", { name: "Spara AI-förslag" })).not.toBeInTheDocument());
       expect(screen.getByTestId("toast")).toHaveTextContent("Receptet är sparat.");
       expect(cards().map((card) => within(card).getByRole("heading").textContent)).toEqual(["Krämig pasta", "Ugnsomelett"]);
     });
@@ -336,7 +337,8 @@ describe("AiSuggestions", () => {
       expect(cards()).toHaveLength(3);
 
       saveRecipe.mockResolvedValueOnce(ok({ id: "11111111-2222-4333-8444-555555555555" }));
-      await user.click(within(dialog()).getByRole("button", { name: "Spara recept" }));
+      // The button reads "Sparar …" until the failed save has settled.
+      await user.click(await within(dialog()).findByRole("button", { name: "Spara recept" }));
       await waitFor(() => expect(push).toHaveBeenCalled());
       expect(saveRecipe.mock.calls[1][1]).toBe(saveRecipe.mock.calls[0][1]);
     });
@@ -350,6 +352,8 @@ describe("AiSuggestions", () => {
       await user.click(screen.getByRole("button", { name: "Spara Krämig pasta" }));
       await user.click(within(dialog()).getByRole("button", { name: "Spara recept" }));
       expect(await within(dialog()).findByRole("alert")).toHaveTextContent(errorMessages.recipe_save_failed);
+      // The sheet cannot be closed until the failed save has settled ("Sparar …").
+      await within(dialog()).findByRole("button", { name: "Spara recept" });
       await user.click(within(dialog()).getByRole("button", { name: "Stäng" }));
 
       saveRecipe.mockResolvedValueOnce(ok({ id: "11111111-2222-4333-8444-555555555555" }));
@@ -373,6 +377,8 @@ describe("AiSuggestions", () => {
       await user.click(screen.getByRole("button", { name: "Spara Kycklinggryta" }));
       await user.click(within(dialog()).getByRole("button", { name: "Spara recept" }));
       await waitFor(() => expect(push).toHaveBeenCalled());
+      // The saved card leaves the list once the save has settled.
+      await waitFor(() => expect(screen.queryByRole("dialog", { name: "Spara AI-förslag" })).not.toBeInTheDocument());
 
       await user.click(screen.getByRole("button", { name: "Föreslå andra rätter" }));
       expect(lastCall().body).toEqual({ avoidTitles: ["Krämig pasta", "Ugnsomelett", "Kycklinggryta"] });

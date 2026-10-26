@@ -20,7 +20,8 @@ export function itemCountText(count: number): string {
   return `${count} ${count === 1 ? "vara" : "varor"}`;
 }
 
-const definite: Record<Location, string> = { Kyl: "kylen", Frys: "frysen", Skafferi: "skafferiet" };
+/** The location in definite form: "kylen", "frysen", "skafferiet". */
+export const definite: Record<Location, string> = { Kyl: "kylen", Frys: "frysen", Skafferi: "skafferiet" };
 
 /** "Inget i kylen än.", "Inget i frysen än." or "Inget i skafferiet än." */
 export function emptyPlaceText(location: Location): string {
@@ -41,4 +42,14 @@ export function removedItemsText(names: readonly string[]): string {
   if (names.length === 1) return `${names[0]} är borttagen.`;
   if (names.length === 2) return `${names[0]} och ${names[1]} är borttagna.`;
   return `${names.length} varor är borttagna.`;
+}
+
+/** The short confirmation after confirming several lagerförslag at once: "Lagt 1 vara i lagret.", "Lagt 4 varor i lagret." */
+export function confirmedItemsText(count: number): string {
+  return `Lagt ${itemCountText(count)} i lagret.`;
+}
+
+/** The short confirmation, with "Ångra", after rejecting a lagerförslag: "ketchup är avvisad." */
+export function rejectedItemText(name: string): string {
+  return `${name} är avvisad.`;
 }

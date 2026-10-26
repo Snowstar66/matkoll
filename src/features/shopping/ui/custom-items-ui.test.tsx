@@ -188,7 +188,8 @@ describe("Lägg till egen vara", () => {
     expect(await within(dialog).findByRole("alert")).toHaveTextContent("Det gick inte att spara varan. Försök igen.");
     expect(within(dialog).getByRole("textbox", { name: "Vara" })).toHaveValue("diskmedel");
 
-    await user.click(within(dialog).getByRole("button", { name: "Lägg till" }));
+    // The button reads "Sparar …" until the failed save has settled.
+    await user.click(await within(dialog).findByRole("button", { name: "Lägg till" }));
     await waitFor(() => expect(addCustomItem).toHaveBeenCalledTimes(2));
     expect(addCustomItem.mock.calls[1][0].id).toBe(addCustomItem.mock.calls[0][0].id);
   });

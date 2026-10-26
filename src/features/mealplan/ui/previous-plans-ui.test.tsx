@@ -96,8 +96,9 @@ describe("PreviousPlans", () => {
     );
     await user.click(screen.getByRole("button", { name: "Ny matsedel" }));
     expect(await screen.findByRole("alert")).toHaveTextContent("Det gick inte att skapa matsedeln. Försök igen.");
-    await user.click(screen.getByRole("button", { name: "Ny matsedel" }));
-    await user.click(screen.getByRole("button", { name: "Ny matsedel" }));
+    // The button reads "Skapar …" until each failed try has settled.
+    await user.click(await screen.findByRole("button", { name: "Ny matsedel" }));
+    await user.click(await screen.findByRole("button", { name: "Ny matsedel" }));
     expect(newPlan).toHaveBeenCalledTimes(3);
     const ids = newPlan.mock.calls.map(([id]) => id);
     expect(new Set(ids).size).toBe(1);
@@ -128,7 +129,8 @@ describe("PreviousPlans", () => {
     await user.click(screen.getByRole("button", { name: "Ny matsedel" }));
     expect(router.refresh).toHaveBeenCalled();
     expect(await screen.findByRole("alert")).toHaveTextContent("Matsedlarna har ändrats.");
-    await user.click(screen.getByRole("button", { name: "Ny matsedel" }));
+    // The button reads "Skapar …" until the failed try has settled.
+    await user.click(await screen.findByRole("button", { name: "Ny matsedel" }));
     const [[first], [second]] = newPlan.mock.calls;
     expect(second).not.toBe(first);
     expect(router.push).toHaveBeenCalledWith("/matsedel");
@@ -264,7 +266,8 @@ describe("PreviousPlan", () => {
     await user.click(within(sheet).getByRole("button", { name: "Ta bort" }));
     expect(router.refresh).toHaveBeenCalled();
     expect(within(sheet).queryByRole("alert")).not.toBeInTheDocument();
-    await user.click(within(sheet).getByRole("button", { name: "Ta bort" }));
+    // The button reads "Tar bort …" until the first delete has settled.
+    await user.click(await within(sheet).findByRole("button", { name: "Ta bort" }));
     expect(await within(sheet).findByRole("alert")).toHaveTextContent("Det gick inte att ta bort matsedeln. Försök igen.");
     expect(router.replace).not.toHaveBeenCalled();
   });

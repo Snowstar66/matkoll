@@ -6,6 +6,7 @@ import { fail, ok, type Result } from "@/lib/errors";
 import type { PantryItem } from "../domain/pantry-item";
 import type { PantryItemFormInput, PantryRow } from "../domain/pantry-item-form";
 import { AddPantryItemButton, PantrySheetProvider } from "./pantry-item-sheet";
+import { PantrySuggestionsProvider } from "./pantry-suggestions";
 import { PantryPlace } from "./pantry-place";
 import { applyPantryChanges } from "./pantry-removal";
 
@@ -17,6 +18,7 @@ const restorePantryItem = vi.fn<(row: PantryRow) => Promise<Result<PantryRow>>>(
 const savePantryItem = vi.fn<(form: PantryItemFormInput) => Promise<Result<{ id: string }>>>();
 vi.mock("../actions/remove-pantry-item", () => ({ removePantryItem: (id: string) => removePantryItem(id) }));
 vi.mock("../actions/restore-pantry-item", () => ({ restorePantryItem: (row: PantryRow) => restorePantryItem(row) }));
+vi.mock("../actions/confirm-pantry-suggestions", () => ({ confirmPantrySuggestions: vi.fn() }));
 vi.mock("../actions/set-pantry-item", () => ({ savePantryItem: (form: PantryItemFormInput) => savePantryItem(form) }));
 vi.mock("../actions/search-ingredients", () => ({ searchPantryIngredients: vi.fn() }));
 const refresh = vi.fn();
@@ -58,10 +60,12 @@ function Hemma({ initial }: { initial: PantryItem[] }) {
   }, []);
   return (
     <ToastProvider>
-      <PantrySheetProvider location="Kyl">
-        <AddPantryItemButton variant="icon" />
-        <PantryPlace location="Kyl" counts={{ Kyl: items.length, Frys: 2, Skafferi: 0 }} items={items} />
-      </PantrySheetProvider>
+      <PantrySuggestionsProvider>
+        <PantrySheetProvider location="Kyl">
+          <AddPantryItemButton variant="icon" />
+          <PantryPlace location="Kyl" counts={{ Kyl: items.length, Frys: 2, Skafferi: 0 }} items={items} />
+        </PantrySheetProvider>
+      </PantrySuggestionsProvider>
     </ToastProvider>
   );
 }

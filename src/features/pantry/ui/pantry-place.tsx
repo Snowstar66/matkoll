@@ -4,8 +4,10 @@ import { useEffect } from "react";
 import type { Location } from "@/features/catalog";
 import type { PantryItem } from "../domain/pantry-item";
 import { LocationCards } from "./location-cards";
+import { PantryCamera } from "./pantry-camera";
 import { PantryList } from "./pantry-list";
 import { applyPantryChanges, usePantryRemoval } from "./pantry-removal";
+import { PantrySuggestionList } from "./pantry-suggestion-list";
 
 export type PantryPlaceProps = {
   /** The chosen location. */
@@ -17,7 +19,9 @@ export type PantryPlaceProps = {
 };
 
 /**
- * Hemma's location cards and the chosen location's items, with removals and
+ * Hemma's location cards, the camera button and the suggestions from the
+ * latest photo (needs a PantrySuggestionsProvider above), and the chosen
+ * location's items, with removals and
  * "Ångra" that the server's items do not show yet already applied
  * (usePantryRemoval). The chosen card counts the items shown, so card and
  * list never disagree.
@@ -30,6 +34,8 @@ export function PantryPlace({ location, counts, items }: PantryPlaceProps) {
   return (
     <div className="flex flex-col gap-6">
       <LocationCards selected={location} counts={{ ...counts, [location]: shown.length }} />
+      <PantryCamera location={location} />
+      <PantrySuggestionList />
       <PantryList location={location} items={shown} />
     </div>
   );

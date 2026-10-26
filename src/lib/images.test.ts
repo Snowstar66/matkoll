@@ -3,12 +3,14 @@ import { describe, expect, it } from "vitest";
 import {
   exifSegment,
   jpegHeader,
+  pngChunk,
+  pngFile,
   pngHeader,
   webpVp8Header,
   webpVp8lHeader,
   webpVp8xHeader,
 } from "../../tests/support/image-headers";
-import { imageSizeOf, imageTypeOf, jpegOrientation } from "./images";
+import { imageSizeOf, imageTypeOf, jpegOrientation, stripJpegMetadata, stripPngMetadata } from "./images";
 
 const bytes = (...values: (number | string)[]) =>
   new Uint8Array(values.flatMap((value) => (typeof value === "string" ? [...value].map((char) => char.charCodeAt(0)) : [value])));
@@ -94,5 +96,57 @@ describe("jpegOrientation", () => {
     expect(jpegOrientation(jpegHeader(400, 300))).toBe(1);
     expect(jpegOrientation(pngHeader(400, 300))).toBe(1);
     expect(jpegOrientation(jpegHeader(400, 300, { orientation: 9 }))).toBe(1);
+  });
+});
+
+describe("stripPngMetadata", () => {
+  const idat = pngChunk("IDAT", [1, 2, 3, 4]);
+
+  it("keeps a PNG with only image chunks as it is", () => {
+    const png = pngFile(720, 900, { chunks: [pngChunk("sRGB", [0]), idat] });
+    expect(stripPngMetadata(png)).toEqual(png);
+  });
+
+  it("removes text, EXIF, time, physical size and colour profile chunks", () => {
+    const text = (value: string) => [...value].map((char) => char.charCodeAt(0));
+    const png = pngFile(720, 900, {
+      chunks: [
+        pngChunk("iCCP", text("iPhone")),
+        pngChunk("pHYs", [0, 0, 0, 1, 0, 0, 0, 1, 1]),
+        pngChunk("tEXt", text("Location\0Hemma")),
+        pngChunk("iTXt", text("XML")),
+        pngChunk("zTXt", text("x")),
+        pngChunk("eXIf", [0x4d, 0x4d]),
+        idat,
+        pngChunk("tIME", [7, 234, 10, 26, 9, 0, 0]),
+      ],
+    });
+    expect(stripPngMetadata(png)).toEqual(pngFile(720, 900, { chunks: [idat] }));
+  });
+
+  it.each([
+    ["a JPEG", jpegHeader(10, 10)],
+    ["a PNG cut off before IEND", pngFile(10, 10).subarray(0, 40)],
+    ["a PNG whose chunks cannot be walked", pngHeader(10, 10, 200)],
+  ])("gives null for %s", (_name, bytes) => {
+    expect(stripPngMetadata(bytes)).toBeNull();
+  });
+});
+
+describe("stripJpegMetadata", () => {
+  it("removes EXIF and comments before the image data, and keeps JFIF and the frame", () => {
+    const sos = [0xff, 0xda, 0, 8, 1, 1, 0, 0, 0x3f, 0, 9, 9, 9, 0xff, 0xd9];
+    const withExif = new Uint8Array([...jpegHeader(1200, 1600, { size: 0, orientation: 6 }), 0xff, 0xfe, 0, 6, 0x61, 0x62, 0x63, 0x64, ...sos]);
+    const without = new Uint8Array([...jpegHeader(1200, 1600, { size: 0 }), ...sos]);
+    expect(stripJpegMetadata(withExif)).toEqual(without);
+    expect(imageSizeOf(stripJpegMetadata(withExif)!)).toEqual({ width: 1200, height: 1600 });
+    expect(jpegOrientation(stripJpegMetadata(withExif)!)).toBe(1);
+  });
+
+  it.each([
+    ["a PNG", pngFile(10, 10)],
+    ["a JPEG without a start of scan", jpegHeader(10, 10, { size: 0 })],
+  ])("gives null for %s", (_name, bytes) => {
+    expect(stripJpegMetadata(bytes)).toBeNull();
   });
 });

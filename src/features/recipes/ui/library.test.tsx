@@ -556,6 +556,7 @@ describe("Library", () => {
     setFavorite.mockRejectedValueOnce(new TypeError("Failed to fetch"));
     await user.click(screen.getByRole("button", { name: "Favorit, Krämig kycklinggryta" }));
     expect(await screen.findByTestId("toast")).toHaveTextContent("Det gick inte att spara favoriten.");
-    expect(screen.getByRole("button", { name: "Favorit, Krämig kycklinggryta", pressed: true })).toBeInTheDocument();
+    // The heart goes back once the failed save's transition has settled.
+    expect(await screen.findByRole("button", { name: "Favorit, Krämig kycklinggryta", pressed: true })).toBeInTheDocument();
   });
 });

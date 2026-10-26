@@ -1,6 +1,15 @@
 import { describe, expect, it } from "vitest";
 import { LOCATIONS } from "@/features/catalog";
-import { emptyPlaceText, itemCountText, placeFromSlug, placeSlug, removedItemsText, savedItemText } from "./places";
+import {
+  confirmedItemsText,
+  emptyPlaceText,
+  itemCountText,
+  placeFromSlug,
+  placeSlug,
+  rejectedItemText,
+  removedItemsText,
+  savedItemText,
+} from "./places";
 
 describe("placeSlug and placeFromSlug", () => {
   it("round-trips every location", () => {
@@ -46,5 +55,16 @@ describe("removedItemsText", () => {
     expect(removedItemsText(["Mjölk"])).toBe("Mjölk är borttagen.");
     expect(removedItemsText(["Mjölk", "Smör"])).toBe("Mjölk och Smör är borttagna.");
     expect(removedItemsText(["Mjölk", "Smör", "Salt"])).toBe("3 varor är borttagna.");
+  });
+});
+
+describe("confirmedItemsText and rejectedItemText", () => {
+  it("counts the confirmed suggestions", () => {
+    expect(confirmedItemsText(1)).toBe("Lagt 1 vara i lagret.");
+    expect(confirmedItemsText(4)).toBe("Lagt 4 varor i lagret.");
+  });
+
+  it("names the rejected suggestion", () => {
+    expect(rejectedItemText("ketchup")).toBe("ketchup är avvisad.");
   });
 });

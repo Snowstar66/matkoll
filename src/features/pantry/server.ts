@@ -17,12 +17,18 @@ import type { PantryItemSet } from "./domain/pantry-item-form";
 // client, so RLS limits them to the user's own rows. They are for pages,
 // after requireUserOrRedirect, inside <Suspense> (AD-18), and for other
 // modules' server code. setPantryItems is for saving actions only, after
-// requireUser (AD-2). addToPantry is for "Lägg i lagret" in the shopping
-// module (AD-19). Removing an item and "Ångra" are the Server Actions
+// requireUser (AD-2). analyzePlace only reads, for /api/ai/analyze.
+// addToPantry is for "Lägg i lagret" in the shopping module (AD-19). Removing an item and "Ångra" are the Server Actions
 // removePantryItem and restorePantryItem in ./actions (AD-19, AD-20).
 
 /** What the functions below throw when Supabase fails; never user data. */
 export { PantryDataError } from "./data/client";
+
+/**
+ * Lagerförslag from a photo of a place (FR-24), for the Route Handler
+ * /api/ai/analyze (not a Server Action). Never writes (AD-2).
+ */
+export { analyzePlace } from "./actions/analyze-place";
 
 /**
  * The signed-in user's pantry items in `location`, with the catalog
