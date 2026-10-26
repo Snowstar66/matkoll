@@ -2,7 +2,15 @@ import "server-only";
 import type { Json } from "@/lib/supabase/database.types";
 import type { Location } from "@/features/catalog";
 import type { PhotoPoint } from "../domain/photo-numbers";
-import { placePhotoBucket, type PlacePhotoMediaType } from "../domain/place-photo";
+import {
+  placePhotoBucket,
+  placePhotoCutoff,
+  placePhotoMediaTypes,
+  placePhotoRowSchema,
+  toPlacePhoto,
+  type PlacePhoto,
+  type PlacePhotoMediaType,
+} from "../domain/place-photo";
 import { PantryDataError, pantryWriteError, type PantryDb } from "./client";
 
 // The latest photo of each place (Story 10.1, AD-26): every call to Storage
@@ -167,5 +175,93 @@ export async function setPlacePhotoPointsIn(db: PantryDb, id: string, points: re
     });
     if (error) throw new PantryDataError(`update_failed ${error.code}`);
     return data === true;
+  });
+}
+
+// Visa senaste fotot (Story 10.2, AD-26): Hemma reads the rows of a place's
+// photos, never the files; the Route Handler GET /api/pantry/photo/[id]
+// reads one row and its file; "Ta bort fotot" deletes the row and then the
+// file. A photo taken before placePhotoCutoff is never read: it is as good
+// as gone, and Story 10.3's sweep removes it.
+
+/**
+ * The user's photos of the place `siteId` taken within the last 30 days at
+ * `now` (at most one per location), as Hemma shows them. A row that does not
+ * pass placePhotoRowSchema is left out. Throws PantryDataError
+ * `query_failed <code>` or `query_threw`.
+ */
+export async function loadPlacePhotosIn(db: PantryDb, siteId: string, now: Date): Promise<PlacePhoto[]> {
+  return guarded("query", async () => {
+    const { data, error } = await db
+      .from("pantry_photo")
+      .select("id, location, taken_at, width, height, reading, points")
+      .eq("site_id", siteId)
+      .gte("taken_at", placePhotoCutoff(now).toISOString());
+    if (error) throw new PantryDataError(`query_failed ${error.code}`);
+    return (data ?? []).flatMap((row) => {
+      const parsed = placePhotoRowSchema.safeParse(row);
+      return parsed.success ? [toPlacePhoto(parsed.data)] : [];
+    });
+  });
+}
+
+/** Where a photo's file is, and its type: what the Route Handler needs to send it. */
+export type PlacePhotoFile = { objectPath: string; mediaType: PlacePhotoMediaType };
+
+const isMediaType = (type: unknown): type is PlacePhotoMediaType =>
+  (placePhotoMediaTypes as readonly unknown[]).includes(type);
+
+/**
+ * The file of the user's photo `id`, when it was taken within the last 30
+ * days at `now`; `null` for a photo that is gone, older or not the user's
+ * (RLS). Throws PantryDataError `query_failed <code>`, `query_threw` or
+ * `invalid_row`.
+ */
+export async function loadPlacePhotoIn(db: PantryDb, id: string, now: Date): Promise<PlacePhotoFile | null> {
+  return guarded("query", async () => {
+    const { data, error } = await db
+      .from("pantry_photo")
+      .select("object_path, media_type")
+      .eq("id", id)
+      .gte("taken_at", placePhotoCutoff(now).toISOString())
+      .maybeSingle();
+    if (error) throw new PantryDataError(`query_failed ${error.code}`);
+    if (data === null) return null;
+    if (typeof data.object_path !== "string" || !isMediaType(data.media_type)) throw new PantryDataError("invalid_row");
+    return { objectPath: data.object_path, mediaType: data.media_type };
+  });
+}
+
+/**
+ * The bytes of the file at `path` in the bucket, read through the bucket's
+ * policies, so only the user's own; `null` when there is no such file of the
+ * user's (Storage's 404). Throws PantryDataError `download_failed <status>`
+ * or `download_threw`.
+ */
+export async function downloadPlacePhoto(db: PantryDb, path: string): Promise<Blob | null> {
+  return guarded("download", async () => {
+    const { data, error } = await db.storage.from(placePhotoBucket).download(path);
+    if (error) {
+      const status = statusOf(error);
+      // Storage answers a missing object, or one the policies hide, with 404 in its body (sometimes as HTTP 400).
+      if (status === "404" || (error as { status?: number }).status === 404) return null;
+      throw new PantryDataError(`download_failed ${status}`);
+    }
+    return data;
+  });
+}
+
+/**
+ * Deletes the user's photo row `id` and gives the path of its file, or
+ * `null` when there was no such row (gone already, or not the user's). The
+ * file is left for the caller to remove. Throws PantryDataError
+ * `delete_failed <code>` or `delete_threw`.
+ */
+export async function deletePlacePhotoRowIn(db: PantryDb, id: string): Promise<string | null> {
+  return guarded("delete", async () => {
+    const { data, error } = await db.from("pantry_photo").delete().eq("id", id).select("object_path");
+    if (error) throw new PantryDataError(`delete_failed ${error.code}`);
+    const path = data?.[0]?.object_path;
+    return typeof path === "string" ? path : null;
   });
 }

@@ -6,6 +6,7 @@ import type { PantryItem } from "../domain/pantry-item";
 import type { SelectedSite } from "../domain/site";
 import { AddSiteButton } from "./add-site-button";
 import { EmptyPlaceButton } from "./empty-place";
+import { LatestPhoto, type ShownPlacePhoto } from "./latest-photo";
 import { LocationCards } from "./location-cards";
 import { PantryCamera } from "./pantry-camera";
 import { PantryList } from "./pantry-list";
@@ -21,11 +22,13 @@ export type PantryPlaceProps = {
   counts: Record<Location, number>;
   /** The chosen location's items on the place, sorted (listPantry). */
   items: readonly PantryItem[];
+  /** Story 10.2: the latest photo of the chosen location on the place, or `null` for none. */
+  photo?: ShownPlacePhoto | null;
 };
 
 /**
- * Hemma's location cards, the camera button and the suggestions from the
- * latest photo (needs a PantrySuggestionsProvider above), and the chosen
+ * Hemma's location cards, the camera button with the line "Senaste foto"
+ * under it (Story 10.2), the suggestions from the latest photo (needs a PantrySuggestionsProvider above), and the chosen
  * location's items on the place, with removals and "Ångra" that the server's
  * items do not show yet already applied (usePantryRemoval), and "Töm kylen"
  * under them while there are any. The chosen card counts the items shown, so
@@ -33,7 +36,7 @@ export type PantryPlaceProps = {
  * only one place, "Lägg till ställe" comes last (needs a SiteSwitch above);
  * with more, the site switch above has "Ställen".
  */
-export function PantryPlace({ site, location, counts, items }: PantryPlaceProps) {
+export function PantryPlace({ site, location, counts, items, photo = null }: PantryPlaceProps) {
   const { changes, report } = usePantryRemoval();
   // The removals keep a change until the server's items show it.
   useEffect(() => report(site.id, location, items), [report, site.id, location, items]);
@@ -42,6 +45,7 @@ export function PantryPlace({ site, location, counts, items }: PantryPlaceProps)
     <div className="flex flex-col gap-6">
       <LocationCards selected={location} counts={{ ...counts, [location]: shown.length }} />
       <PantryCamera site={site} location={location} />
+      <LatestPhoto photo={photo} location={location} />
       <PantrySuggestionList siteId={site.id} />
       <PantryList location={location} items={shown} />
       <EmptyPlaceButton site={site} location={location} count={shown.length} items={shown} />

@@ -2,7 +2,15 @@ import { readFileSync } from "node:fs";
 import { randomUUID } from "node:crypto";
 import { afterAll, beforeAll, describe, expect, it, vi } from "vitest";
 import { PantryDataError, siteGoneDetail } from "@/features/pantry/data/client";
-import { savePantryPhotoIn, setPlacePhotoPointsIn, type PantryPhotoRow } from "@/features/pantry/data/photos";
+import {
+  deletePlacePhotoRowIn,
+  downloadPlacePhoto,
+  loadPlacePhotoIn,
+  loadPlacePhotosIn,
+  savePantryPhotoIn,
+  setPlacePhotoPointsIn,
+  type PantryPhotoRow,
+} from "@/features/pantry/data/photos";
 import { placePhotoBucket, placePhotoPath } from "@/features/pantry/domain/place-photo";
 import { normalizeSiteName } from "@/features/pantry/domain/site";
 import { ok } from "@/lib/errors";
@@ -42,6 +50,7 @@ vi.mock("@/features/auth/server", () => ({
 }));
 vi.mock("@/lib/revalidate", () => ({ revalidateFor: vi.fn() }));
 const { savePlacePhoto } = await import("@/features/pantry/actions/save-place-photo");
+const { removePlacePhoto } = await import("@/features/pantry/actions/remove-place-photo");
 
 const kylPng = new Uint8Array(readFileSync(new URL("../fixtures/ai/kyl.png", import.meta.url)));
 
@@ -471,5 +480,94 @@ describe("savePlacePhoto", () => {
     expect(result).toEqual({ ok: false, error: { code: "pantry_site_gone", message: expect.any(String) } });
     expect(await filesIn(`${owner.id}/${place}/frys`)).toEqual([]);
     expect((await photoRows(owner.id)).some((photo) => photo.site_id === place)).toBe(false);
+  });
+});
+
+// Story 10.2: what Hemma reads, what the route sends and "Ta bort fotot",
+// through RLS and the bucket's policies.
+describe("Visa senaste fotot (Story 10.2)", () => {
+  const png = () => stripPngMetadata(kylPng)!;
+  const day = 24 * 60 * 60 * 1000;
+  let place: string;
+  let fresh: PantryPhotoRow;
+  let old: PantryPhotoRow;
+
+  /** A photo of `place` with its file, the row added with the service role so `taken_at` can be any time. */
+  async function seed(location: "Kyl" | "Frys", takenAt: Date): Promise<PantryPhotoRow> {
+    const photo = row(owner.id, place, {
+      location,
+      takenAt,
+      reading: ["Mjölk", "Smör"],
+      points: [{ n: 2, x: 400, y: 600 }],
+    });
+    const uploaded = await bucket(owner.db).upload(photo.objectPath, png(), { contentType: "image/png", upsert: false });
+    if (uploaded.error) throw uploaded.error;
+    const inserted = await adminClient().from("pantry_photo").insert({
+      id: photo.id,
+      user_id: owner.id,
+      site_id: place,
+      location,
+      object_path: photo.objectPath,
+      media_type: "image/png",
+      width: photo.width,
+      height: photo.height,
+      taken_at: takenAt.toISOString(),
+      reading: [...photo.reading],
+      points: photo.points!.map((point) => ({ ...point })),
+    });
+    if (inserted.error) throw inserted.error;
+    return photo;
+  }
+
+  beforeAll(async () => {
+    sessionDb = owner.db;
+    sessionUser = { id: owner.id, email: owner.email };
+    place = await addSite(owner.id, "Fjällstugan");
+    fresh = await seed("Kyl", new Date(Date.now() - 29 * day));
+    old = await seed("Frys", new Date(Date.now() - 31 * day));
+  });
+
+  it("gives Hemma the place's own photos younger than 30 days, and nothing to another user", async () => {
+    const photos = await loadPlacePhotosIn(owner.db, place, new Date());
+    expect(photos).toEqual([
+      {
+        id: fresh.id,
+        location: "Kyl",
+        takenAt: fresh.takenAt,
+        width: 720,
+        height: 900,
+        reading: ["Mjölk", "Smör"],
+        points: [{ n: 2, x: 400, y: 600 }],
+      },
+    ]);
+    expect(await loadPlacePhotosIn(other.db, place, new Date())).toEqual([]);
+    // No grant to anon (AD-4).
+    await expect(loadPlacePhotosIn(anonClient(), place, new Date())).rejects.toThrow("query_failed 42501");
+  });
+
+  it("gives the route the file of the owner's photo, and nothing for an older one or another user", async () => {
+    const file = await loadPlacePhotoIn(owner.db, fresh.id, new Date());
+    expect(file).toEqual({ objectPath: fresh.objectPath, mediaType: "image/png" });
+    const blob = await downloadPlacePhoto(owner.db, file!.objectPath);
+    expect(new Uint8Array(await blob!.arrayBuffer())).toEqual(png());
+    expect(await loadPlacePhotoIn(owner.db, old.id, new Date())).toBeNull();
+    expect(await loadPlacePhotoIn(other.db, fresh.id, new Date())).toBeNull();
+    // Another user's session gets no file, also with the path in hand.
+    expect(await downloadPlacePhoto(other.db, fresh.objectPath)).toBeNull();
+    expect(await downloadPlacePhoto(anonClient(), fresh.objectPath)).toBeNull();
+    // A file that is gone.
+    expect(await downloadPlacePhoto(owner.db, `${owner.id}/${place}/kyl/${randomUUID()}.png`)).toBeNull();
+  });
+
+  it("removes the row and the file, and never another user's", async () => {
+    expect(await deletePlacePhotoRowIn(other.db, fresh.id)).toBeNull();
+    expect((await photoRows(owner.id)).some((photo) => photo.id === fresh.id)).toBe(true);
+    expect(await removePlacePhoto({ id: fresh.id })).toEqual(ok({ removed: true }));
+    expect((await photoRows(owner.id)).some((photo) => photo.id === fresh.id)).toBe(false);
+    expect(await fileAt(fresh.objectPath)).toBeNull();
+    // Gone already: ok, nothing more to do.
+    expect(await removePlacePhoto({ id: fresh.id })).toEqual(ok({ removed: false }));
+    // The older photo is left for Story 10.3's sweep.
+    expect(await fileAt(old.objectPath)).not.toBeNull();
   });
 });

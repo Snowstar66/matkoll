@@ -2,7 +2,8 @@
 title: 'Story 10.2: Visa senaste fotot i Hemma'
 type: 'feature'
 created: '2026-10-26'
-status: 'draft'
+status: 'in-progress'
+baseline_commit: '4ceb250512d84a7b566f62d98d9ff0d8b7c55b49'
 route: 'dispatch'
 context:
   - '{project-root}/_bmad-output/implementation-artifacts/epic-10-context.md'
@@ -91,17 +92,17 @@ context:
 ## Tasks & Acceptance
 
 **Execution:**
-- [ ] `src/features/pantry/domain/place-photo.ts` (+ test) -- `photoTimeText(takenAt, now)` i Europe/Stockholm, `latestPhotoText(location, time)` ("Senaste foto av kylen: idag 15:42"), `latestPhotoOpenLabel(location)`, `photoTakenText(time, hasPoints)`, `photoReadingHeading` ("AI:n läste av:"), `removePhotoQuestion(location)`, `removedPhotoText(location)` och `savedPhotoMarkers(points, reading)` (en markör per punkt med numret som etikett, procent av bredd och höjd, bara nummer som finns i avläsningen) -- UX-DR22
-- [ ] `src/features/pantry/data/photos.ts` (+ test) -- `loadPlacePhotosIn(db, siteId, now)` med raderna yngre än 30 dagar, `loadPlacePhotoIn(db, id, now)` och `downloadPlacePhoto(db, path)` -- AD-26
-- [ ] `src/features/pantry/server.ts` (+ test) -- `listPlacePhotos(siteId?)` med React `cache`. Ett läsfel ger inga foton och loggas med felkod, och Hemma visas ändå -- FR-38
-- [ ] `src/app/api/pantry/photo/[id]/route.ts` (+ test) -- `GET` enligt matrisen. Läser `params` enligt Next.js 16 (`node_modules/next/dist/docs/`) -- AD-26, NFR-11
-- [ ] `src/features/pantry/actions/remove-place-photo.ts` (+ test) -- `removePlacePhoto(id)`: `requireUser()`, Zod, tar bort raden och sedan filen med `remove`, `revalidateFor('pantry_photo')`. En rad som redan är borta ger `ok` -- FR-39
-- [ ] `src/features/pantry/ui/latest-photo.tsx` (+ test) -- raden och arket. Arket använder `AnalyzedPhotoSheet` med URL:en `/api/pantry/photo/<id>`, storleken från raden och `savedPhotoMarkers`, och får en ny valfri plats för innehåll under fotot (listan och "Ta bort fotot") och en egen underrubrik. Svarar routen 404 visas `pantry_photo_gone`-texten -- UX-DR21
-- [ ] `src/features/pantry/ui/analyzed-photo.tsx` (+ test) -- `AnalyzedPhotoSheet` får `subtitle` och `children` som valfria props. Granskningen ser ut som förut
-- [ ] `src/features/pantry/ui/pantry-place.tsx`, `src/app/(app)/hemma/home-content.tsx` (+ tester) -- raden direkt efter `PantryCamera`, med fotot för vald plats
-- [ ] `tests/integration/pantry-photo.test.ts` (utökad) -- `loadPlacePhotosIn` ger bara egna, yngre foton. `downloadPlacePhoto` med en annan användares session ger inget
-- [ ] `tests/e2e/place-photo-view.spec.ts` (+ `support.ts`, `global-setup.ts`) -- egen e2e-användare `e2e-foto-visa@matkoll.test`. Service role seedar ett ställe, ett foto (ritad bild) av kylen med avläsning och punkter, och ett utan punkter. Testerna kontrollerar raden, arket med markörer och lista, bytet av plats och ställe, svarshuvudena, 404 för en annan användares id och "Ta bort fotot" med frågan och bekräftelsen -- matrisen
-- [ ] `docs/beslutslogg.md` -- en post för storyn
+- [x] `src/features/pantry/domain/place-photo.ts` (+ test) -- `photoTimeText(takenAt, now)` i Europe/Stockholm, `latestPhotoText(location, time)` ("Senaste foto av kylen: idag 15:42"), `latestPhotoOpenLabel(location)`, `photoTakenText(time, hasPoints)`, `photoReadingHeading` ("AI:n läste av:"), `removePhotoQuestion(location)`, `removedPhotoText(location)` och `savedPhotoMarkers(points, reading)` (en markör per punkt med numret som etikett, procent av bredd och höjd, bara nummer som finns i avläsningen) -- UX-DR22
+- [x] `src/features/pantry/data/photos.ts` (+ test) -- `loadPlacePhotosIn(db, siteId, now)` med raderna yngre än 30 dagar, `loadPlacePhotoIn(db, id, now)` och `downloadPlacePhoto(db, path)` -- AD-26
+- [x] `src/features/pantry/server.ts` (+ test) -- `listPlacePhotos(siteId?)` med React `cache`. Ett läsfel ger inga foton och loggas med felkod, och Hemma visas ändå -- FR-38
+- [x] `src/app/api/pantry/photo/[id]/route.ts` (+ test) -- `GET` enligt matrisen. Läser `params` enligt Next.js 16 (`node_modules/next/dist/docs/`) -- AD-26, NFR-11
+- [x] `src/features/pantry/actions/remove-place-photo.ts` (+ test) -- `removePlacePhoto(id)`: `requireUser()`, Zod, tar bort raden och sedan filen med `remove`, `revalidateFor('pantry_photo')`. En rad som redan är borta ger `ok` -- FR-39
+- [x] `src/features/pantry/ui/latest-photo.tsx` (+ test) -- raden och arket. Arket använder `AnalyzedPhotoSheet` med URL:en `/api/pantry/photo/<id>`, storleken från raden och `savedPhotoMarkers`, och får en ny valfri plats för innehåll under fotot (listan och "Ta bort fotot") och en egen underrubrik. Svarar routen 404 visas `pantry_photo_gone`-texten -- UX-DR21
+- [x] `src/features/pantry/ui/analyzed-photo.tsx` (+ test) -- `AnalyzedPhotoSheet` får `subtitle` och `children` som valfria props. Granskningen ser ut som förut
+- [x] `src/features/pantry/ui/pantry-place.tsx`, `src/app/(app)/hemma/home-content.tsx` (+ tester) -- raden direkt efter `PantryCamera`, med fotot för vald plats
+- [x] `tests/integration/pantry-photo.test.ts` (utökad) -- `loadPlacePhotosIn` ger bara egna, yngre foton. `downloadPlacePhoto` med en annan användares session ger inget
+- [x] `tests/e2e/place-photo-view.spec.ts` (+ `support.ts`, `global-setup.ts`) -- egen e2e-användare `e2e-foto-visa@matkoll.test`. Service role seedar ett ställe, ett foto (ritad bild) av kylen med avläsning och punkter, och ett utan punkter. Testerna kontrollerar raden, arket med markörer och lista, bytet av plats och ställe, svarshuvudena, 404 för en annan användares id och "Ta bort fotot" med frågan och bekräftelsen -- matrisen
+- [x] `docs/beslutslogg.md` -- en post för storyn
 
 **Acceptance Criteria:**
 - Given `pnpm lint && pnpm typecheck && pnpm test && pnpm test:integration && AI_PROVIDER=mock pnpm build && CI=1 pnpm test:e2e`, when de körs, then lyckas alla.
@@ -117,6 +118,23 @@ context:
 - Loggar innehåller bara felkoder, aldrig fotots id, sökvägar eller avläsningen.
 
 ## Spec Change Log
+
+### Vid bygget
+
+- **Byggd på `4ceb250`** (`baseline_commit`), där Story 10.1 är klar. Ingen migration behövdes.
+- **Förslagen godkändes som de står** (Claude, headless enligt `docs/autonomi.md`): raden under kameraknappen, ingen miniatyr, listan under fotot, `validation` ger 404 och en kontrollfråga utan "Ångra".
+- **`listPlacePhotos(siteId?)`** ger `{ photos }`, som epic-kontexten säger, så att 10.3 kan lägga till `needsSweep` i samma svar. Den går genom `placeToRead` som de andra läsningarna, och ett ställe som är borta eller ett läsfel ger inga foton och loggas som `pantry_photos_unavailable` med orsaken. Åldern räknas från `taken_at`. En rad som inte klarar `placePhotoRowSchema` hoppas över.
+- **Tiden skrivs på servern** i `HomeContent` (`photoTimeText(photo.takenAt, new Date())`) och skickas som text till klienten, så att servern och webbläsaren aldrig skriver olika tider. Raden visas också i grenen där lagret inte gick att läsa, direkt efter kameraknappen.
+- **Routen läser genom `readPlacePhotoImage(id)` i `pantry/server.ts`**, som läser raden (`loadPlacePhotoIn`) och sedan filen (`downloadPlacePhoto`) med sessionsklienten. Filen hämtas som en `Blob` (högst 1,5 MB) och skickas med `Content-Length`, så att ett fel från Storage blir ett svar utan bild i stället för en avbruten ström. Ett läsfel ger 503 utan kropp och loggas som `pantry_photo_unavailable` med orsaken. 401 utan session kommer från `requireUserForRoute()` som i 10.1. `params` läses med `RouteContext<"/api/pantry/photo/[id]">`.
+- **`downloadPlacePhoto` ger `null` för Storage-svarets 404** (i kroppen, ibland som HTTP 400). Integrationstestet visar att en annan användares session, en anonym klient och en fil som saknas alla ger `null`.
+- **`AnalyzedPhotoSheet`** fick också `alt` och `errorText` som valfria props, utöver `subtitle` och `children`: alt-texten under granskningen ("som förslagen kommer från") stämmer inte för ett sparat foto, som heter "Senaste fotot av kylen". `photo` tar bara `url` och `size`. Granskningen ser ut som förut (nytt test, `analyzed-photo.test.tsx`).
+- **"Fotot finns inte längre."**: en `<img>` ser inte svarets status. När bilden inte går att visa frågar arket routen en gång med `HEAD` (Next.js svarar på `HEAD` med `GET`-hanteraren utan kropp). 404 ger `pantry_photo_gone`-texten, allt annat "Fotot kunde inte visas.". Avvikelse från risken i Implementation Notes: 401 (utgången session) ger "Fotot kunde inte visas.", inte texten för ett foto som inte finns, eftersom fotot finns kvar. Varje "Visa" ger fotot ett nytt försök (arket nycklas på fotots id och antalet öppningar).
+- **Borttagningen:** `deletePlacePhotoRowIn` tar bort raden och ger sökvägen (`delete … returning`), sedan tas filen bort med `removePlacePhotoFiles`. Matrisens "Storage nås inte" tolkas som att raden inte går att ta bort: då står fotot kvar och `pantry_photo_remove_failed` visas i frågan. Är raden borttagen men inte filen är fotot borta för Pontus, orsaken loggas (`pantry_photo_remove_failed`, `left: "file"`) och svaret är `ok`. Filen blir då en fil utan rad, som gallringen i 10.3 tar, som den förra filen i 10.1. `revalidateFor('pantry_photo')` anropas också när raden redan var borta, så att Hemma tappar raden.
+- **Frågan** är ett eget ark med rubriken "Ta bort fotot", frågan, "Ta bort" (primär, "Tar bort …" medan den väntar) och "Avbryt" i huvudet med fokus, som i "Töm kylen". "Avbryt", Esc och tryck utanför visar fotoarket igen. Efter borttagningen göms raden direkt i klienten, innan sidan har lästs om, och kameraknappen får fokus.
+- **Listan med avläsningen** är en `<ol>` där varje rad har numret som en rund siffra (samma utseende som kortens nummer, dold för skärmläsare) och numret som text för skärmläsare, så att listan läses i nummerordning. Etiketterna är text.
+- **E2E:** `place-photo-view.spec.ts` seedar Hemma (vald) och Stugan, ett foto av hemmets kyl med punkter, ett av hemmets skafferi utan punkter, ett av stugans kyl och ett av stugans frys från 31 dagar sedan. Den andra användarens foto seedas för `utanfor@matkoll.test` på ett eget ställe som tas bort efteråt, så att inget annat av den användarens data rörs. `request.newContext()` ärver specens `storageState`, så testet utan session ger det en tom `storageState`.
+- **`docs/oppna-fragor.md`:** de manuella kontrollerna ligger under "Att prova på riktig telefon".
+- **Kontroller (snabbare loop enligt Pontus):** `pnpm lint`, `pnpm typecheck`, `pnpm test`, `pnpm test:integration` och `AI_PROVIDER=mock pnpm build`, och bara de berörda e2e-specarna under testlåset (`place-photo-view`, `place-photo-save`, `pantry`, `pantry-camera`, `pantry-suggestions`, `pantry-inventory`, `pantry-image-reading`, `site-photo`, `empty-place`, `pantry-sites`). Hela e2e-sviten körs i CI.
 
 ## Review Triage Log
 
