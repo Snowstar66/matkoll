@@ -49,6 +49,9 @@ const item = (id: string, name: string, overrides: Partial<PantryItem> = {}): Pa
   location: "Kyl",
   amount: 1,
   unit: "st",
+  label: null,
+  createdAt: "2026-10-20T10:00:00+00:00",
+  section: "Mejeri",
   ...overrides,
 });
 const mjolk = item("11111111-1111-4111-8111-111111111111", "Mjölk", { unit: "l" });

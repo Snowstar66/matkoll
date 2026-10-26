@@ -720,6 +720,63 @@ describe("confirmItemFromSuggestion and confirmItemFromForm", () => {
     });
     expect(confirmItemFromForm(form({ ...base, amount: "1,5", unit: "" }))).toMatchObject({ amount: 1.5, unit: "st" });
   });
+
+  describe("the label (Story 11.2)", () => {
+    const mellanmjolk: PantrySuggestion = {
+      id: "s1",
+      name: "Mellanmjölk",
+      ingredient: { kind: "existing", ingredientId: mjolk },
+      location: "Kyl",
+      amount: 1,
+      unit: "förp",
+      current: null,
+      change: null,
+      replaces: [],
+      labels: ["Arla Mellanmjölk laktosfri 1,5 l", "Mjölk"],
+    };
+
+    it("confirms a suggestion with its first label", () => {
+      expect(confirmItemFromSuggestion(mellanmjolk)).toMatchObject({ label: "Arla Mellanmjölk laktosfri 1,5 l" });
+      expect(confirmSuggestionsSchema.safeParse({ siteId: null, items: [confirmItemFromSuggestion(mellanmjolk)] }).success).toBe(
+        true,
+      );
+    });
+
+    it("cuts a long label to 60 characters", () => {
+      const long = { ...mellanmjolk, labels: [`Arla ${"mellanmjölk ".repeat(10)}`] };
+      const { label } = confirmItemFromSuggestion(long);
+      expect(label).toBe("Arla mellanmjölk mellanmjölk mellanmjölk mellanmjölk");
+      expect(confirmSuggestionsSchema.safeParse({ siteId: null, items: [confirmItemFromSuggestion(long)] }).success).toBe(true);
+    });
+
+    it("leaves the label out without labels, so the item keeps its own", () => {
+      expect("label" in confirmItemFromSuggestion({ ...mellanmjolk, labels: undefined })).toBe(false);
+      expect("label" in confirmItemFromSuggestion({ ...mellanmjolk, labels: ["mellanmjölk"] })).toBe(false);
+    });
+
+    it("confirms the sheet's field after Rätta, and null when it was emptied", () => {
+      const base = { ingredient: { kind: "existing", ingredientId: mjolk }, location: "Kyl", replaceId: null, amount: "1", unit: "förp" } as const;
+      expect(confirmItemFromForm(form({ ...base, label: "Arla" }), mellanmjolk)).toMatchObject({ label: "Arla" });
+      expect(confirmItemFromForm(form({ ...base, label: " " }), mellanmjolk)).toMatchObject({ label: null });
+      expect("label" in confirmItemFromForm(form(base), mellanmjolk)).toBe(false);
+    });
+
+    it("keeps the first label when items merge, or the first a later item has", () => {
+      const item = (label?: string | null): ConfirmItem => ({
+        ingredient: { kind: "existing", ingredientId: mjolk },
+        location: "Kyl",
+        amount: 1,
+        unit: "förp",
+        ...(label === undefined ? {} : { label }),
+      });
+      expect(mergeConfirmations([item("Arla"), item("Garant")])).toEqual([{ ...item("Arla"), amount: 2 }]);
+      expect(mergeConfirmations([item(), item("Garant")])).toEqual([{ ...item("Garant"), amount: 2 }]);
+      expect(mergeConfirmations([item(), item()])).toEqual([{ ...item(), amount: 2 }]);
+      expect(mergePantrySets([{ ingredientId: mjolk, location: "Kyl", amount: 1, unit: "l", label: "Arla" }])).toEqual([
+        { ingredientId: mjolk, location: "Kyl", amount: 1, unit: "l", label: "Arla" },
+      ]);
+    });
+  });
 });
 
 describe("review patches", () => {

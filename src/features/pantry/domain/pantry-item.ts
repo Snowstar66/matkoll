@@ -1,4 +1,4 @@
-import { UNITS, type Location, type Unit } from "@/features/catalog";
+import { UNITS, type Location, type Section, type Unit } from "@/features/catalog";
 
 // What is at home (FR-11, FR-12, AD-19): a pantry item points at a catalog
 // ingredient and is kept in one location, with an amount and unit or
@@ -17,6 +17,12 @@ export type PantryItem = {
   /** `null` together with `unit`: unlimited. Otherwise above 0. */
   amount: number | null;
   unit: Unit | null;
+  /** Story 11.2 (FR-42): the brand or kind ("Arla laktosfri"), 1–60 characters, or `null`. */
+  label: string | null;
+  /** When the item was added (`created_at`, ISO 8601): kept when the amount changes, the row is replaced, and after "Ångra". */
+  createdAt: string;
+  /** The catalog ingredient's section, so the view can work out its category (AD-12). */
+  section: Section;
 };
 
 /** An amount at home in one unit. Units are never converted into each other (AD-12). */

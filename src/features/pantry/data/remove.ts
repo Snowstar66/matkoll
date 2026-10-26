@@ -13,11 +13,25 @@ type DbRow = {
   location: string;
   amount: number | null;
   unit: string | null;
+  label?: string | null;
+  created_at?: string;
 };
 
 /**
- * A row from the database as the domain's PantryRow, with its place when the
- * database gave it; the check lists equal the domain's.
+ * A row's label and time as PantryRow has them (Story 11.2), when the
+ * database gave them. A time is ISO 8601 with an offset, as PostgREST and
+ * to_jsonb write a timestamptz.
+ */
+function labelAndTime(row: { label?: string | null; created_at?: string }): Pick<PantryRow, "label" | "createdAt"> {
+  return {
+    ...(row.label === undefined ? {} : { label: row.label }),
+    ...(row.created_at === undefined ? {} : { createdAt: row.created_at }),
+  };
+}
+
+/**
+ * A row from the database as the domain's PantryRow, with its place, label
+ * and time when the database gave them; the check lists equal the domain's.
  */
 function toPantryRow(row: DbRow): PantryRow {
   const parsed = pantryRowSchema.safeParse({
@@ -27,6 +41,7 @@ function toPantryRow(row: DbRow): PantryRow {
     location: row.location,
     amount: row.amount === null ? null : Number(row.amount),
     unit: row.unit,
+    ...labelAndTime(row),
   });
   if (!parsed.success) throw new PantryDataError("invalid_row");
   return parsed.data;
@@ -57,7 +72,7 @@ export async function removePantryItemIn(db: PantryDb, userId: string, id: strin
     .delete()
     .eq("id", id)
     .eq("user_id", userId)
-    .select("id, site_id, ingredient_id, location, amount, unit");
+    .select("id, site_id, ingredient_id, location, amount, unit, label, created_at");
   if (error) throw new PantryDataError(`remove_failed ${error.code}`);
   const [row] = data;
   if (!row) return null;
@@ -86,9 +101,19 @@ export async function removePantryItemIn(db: PantryDb, userId: string, id: strin
 export async function restorePantryItemIn(db: PantryDb, row: PantryRow): Promise<PantryRow> {
   const parsed = pantryRowSchema.safeParse(row);
   if (!parsed.success) throw new PantryDataError("invalid_row");
-  const { id, siteId, ingredientId, location, amount, unit } = parsed.data;
+  const { id, siteId, ingredientId, location, amount, unit, label, createdAt } = parsed.data;
   const { data, error } = await db.rpc("restore_pantry_item", {
-    item: { id, ...(siteId ? { site_id: siteId } : {}), ingredient_id: ingredientId, location, amount, unit },
+    item: {
+      id,
+      ...(siteId ? { site_id: siteId } : {}),
+      ingredient_id: ingredientId,
+      location,
+      amount,
+      unit,
+      // Story 11.2: a row without them comes back without a label, added now.
+      label: label ?? null,
+      ...(createdAt ? { created_at: createdAt } : {}),
+    },
     ...(siteId ? { site: siteId } : {}),
   });
   if (error) throw pantryWriteError("restore_failed", error.code);
@@ -102,6 +127,8 @@ const answerRowSchema = z.object({
   location: z.string(),
   amount: z.union([z.number(), z.string()]).nullable(),
   unit: z.string().nullable(),
+  label: z.string().nullable().optional(),
+  created_at: z.string().optional(),
 });
 type AnswerRow = z.infer<typeof answerRowSchema>;
 
@@ -127,6 +154,7 @@ function asPantryRow(row: AnswerRow): PantryRow | null {
     location: row.location,
     amount: row.amount === null ? null : Number(row.amount),
     unit: row.unit,
+    ...labelAndTime(row),
   });
   return parsed.success ? parsed.data : null;
 }

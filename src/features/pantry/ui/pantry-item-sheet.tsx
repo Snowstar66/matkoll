@@ -36,12 +36,13 @@ import type { PantryItem } from "../domain/pantry-item";
 import {
   type PantryItemForm,
   formFieldErrors,
+  maxPantryLabelLength,
   pantryItemFormSchema,
   pantryNewIngredientName,
   parseAmountField,
   type PantryItemFormInput,
 } from "../domain/pantry-item-form";
-import { photoSiteId, suggestionGoneText, type PantrySuggestion } from "../domain/pantry-suggestion";
+import { photoSiteId, suggestionGoneText, suggestionLabel, type PantrySuggestion } from "../domain/pantry-suggestion";
 import { confirmedItemsText, savedItemText } from "../domain/places";
 import { PantryRemovalProvider, usePantryRemoval } from "./pantry-removal";
 import { type CorrectOutcome, type RejectOutcome, usePantrySuggestions } from "./pantry-suggestions";
@@ -96,6 +97,8 @@ type FormValues = {
   amount: string;
   unit: Unit | "";
   location: Location;
+  /** Story 11.2: "Märke eller sort" as typed; empty for none. */
+  label: string;
 };
 
 /** The sheet's primary button. */
@@ -112,7 +115,7 @@ const defaultSection: Section = "Övrigt";
 const amountField = (amount: number | null) => (amount === null ? "" : String(amount).replace(".", ","));
 
 function initialValues(target: PantrySheetTarget): FormValues {
-  if (target.kind === "new") return { ingredient: null, amount: "", unit: "", location: target.location };
+  if (target.kind === "new") return { ingredient: null, amount: "", unit: "", location: target.location, label: "" };
   if (target.kind === "suggestion") {
     const { suggestion } = target;
     const { ingredient } = suggestion;
@@ -124,6 +127,8 @@ function initialValues(target: PantrySheetTarget): FormValues {
       amount: amountField(suggestion.amount),
       unit: suggestion.unit ?? "",
       location: suggestion.location,
+      // The label the card's Bekräfta would save (Story 11.2).
+      label: suggestionLabel(suggestion) ?? "",
     };
   }
   const { item } = target;
@@ -133,6 +138,7 @@ function initialValues(target: PantrySheetTarget): FormValues {
     amount: amountField(item.amount),
     unit: item.unit ?? "",
     location: item.location,
+    label: item.label ?? "",
   };
 }
 
@@ -152,7 +158,8 @@ function isFormDirty(values: FormValues, initial: FormValues): boolean {
     !sameIngredient(values.ingredient, initial.ingredient) ||
     values.amount.trim() !== initial.amount.trim() ||
     values.unit !== initial.unit ||
-    values.location !== initial.location
+    values.location !== initial.location ||
+    values.label.trim() !== initial.label.trim()
   );
 }
 
@@ -168,6 +175,9 @@ function toInput(values: FormValues, ingredient: ChosenIngredient, target: Pantr
     location: values.location,
     siteId: target.kind === "edit" ? target.item.siteId : target.siteId,
     replaceId: target.kind === "edit" ? target.item.id : null,
+    // Story 11.2: an empty field removes an item's label. For a lagerförslag it
+    // leaves the label as it is, since the sheet never showed the item's own.
+    ...(target.kind === "suggestion" && values.label.trim() === "" ? {} : { label: values.label }),
   };
 }
 
@@ -311,6 +321,8 @@ export function PantryItemSheet(props: PantryItemSheetProps) {
   const amount = parseAmountField(values.amount);
   const liveAmountError = "error" in amount && (amountTouched || attempted) ? amount.error : null;
   const amountError = serverFields.amount ?? liveAmountError;
+  // maxLength keeps the field short; a longer text (set by a script) shows why at once.
+  const labelError = serverFields.label ?? fieldErrors.label ?? null;
   // A new ingredient's name is not typed here, so its problem shows at once.
   const ingredientError = serverFields.ingredient ?? fieldErrors.ingredient ?? null;
   /** Shown after a save attempt when the form is invalid without a field to point at. */
@@ -508,6 +520,20 @@ export function PantryItemSheet(props: PantryItemSheetProps) {
               value={values.location}
               onChange={(location) => update({ location })}
             />
+          </div>
+
+          <div className="flex flex-col gap-1.5">
+            <FieldLabel htmlFor={`${ids}-label`}>Märke eller sort</FieldLabel>
+            <Input
+              id={`${ids}-label`}
+              autoComplete="off"
+              placeholder="Till exempel Arla laktosfri"
+              maxLength={maxPantryLabelLength}
+              value={values.label}
+              onChange={(event) => update({ label: event.target.value })}
+              {...(labelError ? { "aria-invalid": true, "aria-describedby": `${ids}-label-error` } : {})}
+            />
+            {labelError ? <FieldError id={`${ids}-label-error`}>{labelError}</FieldError> : null}
           </div>
         </form>
       )}

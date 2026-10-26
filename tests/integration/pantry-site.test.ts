@@ -1,7 +1,7 @@
 import { execFileSync } from "node:child_process";
 import { randomUUID } from "node:crypto";
 import { afterAll, beforeAll, describe, expect, it, vi } from "vitest";
-import { loadIngredientNames } from "@/features/catalog/data/queries";
+import { loadIngredientSummaries } from "@/features/catalog/data/queries";
 import { PantryDataError } from "@/features/pantry/data/client";
 import { insertPantryDefaults } from "@/features/pantry/data/defaults";
 import { countPantryIn, listPantryIn, loadPantrySnapshot } from "@/features/pantry/data/queries";
@@ -186,7 +186,7 @@ async function twoPlaces(name: string) {
   return { user, hemma: hemma.id, stugan, mjolk };
 }
 
-const names = (user: TestUser) => (ids: readonly string[]) => loadIngredientNames(user.db, ids);
+const names = (user: TestUser) => (ids: readonly string[]) => loadIngredientSummaries(user.db, ids);
 
 beforeAll(() => {
   localSupabaseUrl();
@@ -675,7 +675,18 @@ describe("the pantry functions on two places", () => {
     expect(emptied.error).toBeNull();
     expect(emptied.data).toEqual({
       removed: 1,
-      items: [{ id: stuganRow, site_id: stugan, ingredient_id: mjolk, location: "Kyl", amount: 2, unit: "l" }],
+      items: [
+        {
+          id: stuganRow,
+          site_id: stugan,
+          ingredient_id: mjolk,
+          location: "Kyl",
+          amount: 2,
+          unit: "l",
+          label: null,
+          created_at: expect.any(String),
+        },
+      ],
     });
     expect(await onSite(user.id, stugan)).toEqual([]);
     expect(await onSite(user.id, hemma)).toEqual([{ ingredient_id: mjolk, location: "Kyl", amount: 1, unit: "l" }]);

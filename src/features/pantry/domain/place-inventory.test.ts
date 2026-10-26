@@ -319,4 +319,12 @@ describe("inventoryRequest", () => {
     // A single card always fits.
     expect(inventoryRequest({ location: "Kyl", suggestions: [b], missing: [] }).left).toEqual([]);
   });
+
+  it("sends each suggestion's first label as its item's label, and none without one (Story 11.2)", () => {
+    const a = { ...existing("s1", mjolk, 1, "förp"), labels: ["Arla Mellanmjölk laktosfri 1,5 l"] };
+    const b = existing("s2", smor, 250, "g");
+    const { items } = inventoryRequest({ location: "Kyl", suggestions: [a, b], missing: [] });
+    expect(items[0]).toMatchObject({ label: "Arla Mellanmjölk laktosfri 1,5 l" });
+    expect("label" in items[1]).toBe(false);
+  });
 });
