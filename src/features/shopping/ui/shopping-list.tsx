@@ -11,7 +11,7 @@ import { FixedAction } from "@/components/fixed-action";
 import type { SearchIngredients } from "@/components/ingredient-picker";
 import { Notice } from "@/components/notice";
 import { SwipeRow } from "@/components/swipe-row";
-import type { SelectedSite } from "@/features/pantry";
+import { type SelectedSite, shownSiteName } from "@/features/pantry";
 import type { Store } from "@/features/settings";
 import { useToast } from "@/components/toast";
 import { errorMessages, fail, ok, type Result } from "@/lib/errors";
@@ -20,7 +20,7 @@ import type { CheckChange } from "../domain/check";
 import type { ShoppingLine } from "../domain/compute-list";
 import { exportableLines } from "../domain/export-basket";
 import {
-  allAtHomeText,
+  allInStockText,
   checkLabel,
   emptyPlanText,
   groupBySection,
@@ -109,7 +109,11 @@ export type ShoppingListProps = {
   /**
    * The place the list is counted against (getShoppingList, AD-24); "Lägg i
    * lagret" puts the items there. `null` when there is none or it could not
-   * be read: then the place selected when Pontus taps.
+   * be read: then the place selected when Pontus taps. Only data for the
+   * list's texts (Story 8.5): the empty list names it with more than one
+   * place, and a list counted against another place is not announced as a
+   * recount. The line "Lager: Stugan" and "Byt" are the page's
+   * (pantry/ui ListSiteLine, AD-24).
    */
   site?: SelectedSite | null;
   /** The choices could not be read: the detail's section Produktval says so. */
@@ -150,25 +154,33 @@ function signatureOf(lines: readonly ShoppingLine[], planId: string | null, touc
  * while the list is shown, and clears the text again after announcementMs and
  * when the list is hidden. The list as it is when it is shown (on first load,
  * or when Pontus comes back to the tab, since Next keeps the page mounted but
- * hidden) is never announced.
+ * hidden) is never announced. Nor is a list counted against another place
+ * than the one shown last (`siteId`, Story 8.5): the switch's own
+ * confirmation ("Listan räknas nu mot Stugan.") says so, and a screen reader
+ * hears one text, not two. What is shown is updated all the same, so the
+ * next recount is compared with the new place's list.
  */
 function useRecountAnnouncement(
   lines: readonly ShoppingLine[],
   planId: string | null,
   touched: ReadonlySet<string>,
+  siteId: string | null,
 ): { text: string; count: number } {
-  const latest = useRef({ lines, touched });
+  const latest = useRef({ lines, touched, siteId });
   /**
-   * The lines last shown and the lines touched then; `null` while the page
-   * is hidden. A line touched then or now is left out of both sides, so a
-   * line that stops being touched is never announced.
+   * The lines last shown, the lines touched then and the place they were
+   * counted against; `null` while the page is hidden. A line touched then or
+   * now is left out of both sides, so a line that stops being touched is
+   * never announced.
    */
-  const shown = useRef<{ lines: readonly ShoppingLine[]; touched: ReadonlySet<string> } | null>(null);
+  const shown = useRef<{ lines: readonly ShoppingLine[]; touched: ReadonlySet<string>; siteId: string | null } | null>(
+    null,
+  );
   const [announcement, setAnnouncement] = useState({ text: "", count: 0 });
   const left = itemsLeft(lines);
 
   useEffect(() => {
-    latest.current = { lines, touched };
+    latest.current = { lines, touched, siteId };
   });
 
   // Runs when the list is shown, and its cleanup when it is hidden.
@@ -184,12 +196,12 @@ function useRecountAnnouncement(
     const before = shown.current;
     if (before === null) return;
     const either = new Set([...before.touched, ...touched]);
-    if (signatureOf(before.lines, planId, either) !== signatureOf(lines, planId, either)) {
+    if (before.siteId === siteId && signatureOf(before.lines, planId, either) !== signatureOf(lines, planId, either)) {
       // A new count each time, so the same text is announced again.
       setAnnouncement((previous) => ({ text: recountedText(left), count: previous.count + 1 }));
     }
-    shown.current = { lines, touched };
-  }, [lines, left, planId, touched]);
+    shown.current = { lines, touched, siteId };
+  }, [lines, left, planId, touched, siteId]);
 
   useEffect(() => {
     if (!announcement.text) return;
@@ -436,7 +448,7 @@ export function ShoppingList({
   // The sets are new each render; one set per content, so the announcement's effect runs only on a change.
   const touchedIds = [...new Set([...removal.touched, ...own.touched])].sort().join("\n");
   const touched = useMemo(() => new Set(touchedIds ? touchedIds.split("\n") : []), [touchedIds]);
-  const announcement = useRecountAnnouncement(lines, planId, touched);
+  const announcement = useRecountAnnouncement(lines, planId, touched, site?.id ?? null);
   const hasDishes = plan !== null && plan.dishCount > 0;
   const hasLines = lines.length > 0;
   const rootRef = useRef<HTMLDivElement>(null);
@@ -567,8 +579,8 @@ export function ShoppingList({
       ) : (
         <>
           {!hasLines ? (
-            // "Allt finns hemma." only when the list has no lines at all, own items included.
-            <EmptyState>{hasDishes ? allAtHomeText : emptyPlanText}</EmptyState>
+            // "Allt finns hemma." (or "… i lagret för Stugan.") only when the list has no lines at all, own items included.
+            <EmptyState>{hasDishes ? allInStockText(shownSiteName(site)) : emptyPlanText}</EmptyState>
           ) : (
             groupBySection(lines).map(({ section, lines: sectionLines }) => (
               <ListSection

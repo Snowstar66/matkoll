@@ -9,8 +9,16 @@ import type { ShoppingLine } from "./compute-list";
 /** The empty list without a meal plan, or with a plan without dishes. */
 export const emptyPlanText = "Lägg rätter på matsedeln så räknas listan fram.";
 
-/** The empty list with dishes on the plan: everything is at home. */
-export const allAtHomeText = "Allt finns hemma.";
+/**
+ * The empty list with dishes on the plan: everything is in the pantry it is
+ * counted against. "Allt finns i lagret för Stugan." with the place's name
+ * (pantry.shownSiteName, with more than one place), also for Hemma, so the
+ * text works with any name without inflection; "Allt finns hemma." without
+ * one, as in 1.0 (UX-DR17, Story 8.5).
+ */
+export function allInStockText(siteName: string | null): string {
+  return siteName === null ? "Allt finns hemma." : `Allt finns i lagret för ${siteName}.`;
+}
 
 /** A vague line's ingredient is not at home: buy it, or check first. */
 export const askAtHomeText = "Finns hemma?";

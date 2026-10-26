@@ -1,6 +1,7 @@
 import { describe, expect, it } from "vitest";
 import type { ShoppingLine } from "./compute-list";
 import {
+  allInStockText,
   checkLabel,
   computedAmountText,
   copiedText,
@@ -60,6 +61,13 @@ describe("list texts", () => {
 
   it("announces a recount with the items left", () => {
     expect(recountedText(4)).toBe("Inköpslistan är omräknad. 4 varor kvar.");
+  });
+
+  it("says everything is in stock, naming the place only when there is a name to show", () => {
+    expect(allInStockText(null)).toBe("Allt finns hemma.");
+    expect(allInStockText("Stugan")).toBe("Allt finns i lagret för Stugan.");
+    // Without inflection, so Hemma reads the same way with several places.
+    expect(allInStockText("Hemma")).toBe("Allt finns i lagret för Hemma.");
   });
 
   it("names the dishes a line comes from, each title once", () => {

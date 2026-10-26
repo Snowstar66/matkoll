@@ -2,6 +2,16 @@
 
 Beslut som fattats under bygget: vad, varför och vilka alternativ som fanns. Nyaste överst.
 
+## 2026-10-26 – Inköpslista inför resan till ett annat ställe (Story 8.5)
+
+- **Underlag:** specen `spec-8-5-inkopslista-infor-resan-till-ett-annat-stalle.md`, där besluten var förslag, och AD-24.
+- **Beslut:**
+  - **Arket "Räkna listan mot" väntar på svaret innan det stänger,** i stället för att välja optimistiskt som pillren i Hemma. `selectPantrySite` revaliderar `/lista` i samma anrop (`revalidateFor("pantry_site")`), så när svaret kommer är listan redan omräknad, och Pontus ser aldrig "Lager: Stugan" ovanför en lista som är räknad mot Hemma. Raden som sparas visar "Sparar …", och de andra raderna väntar så länge. Ett tryck på valt ställe stänger bara arket.
+  - **Listans annonsering "Inköpslistan är omräknad. …" görs inte när det som ändrats är stället.** Bekräftelsen "Listan räknas nu mot Stugan." säger det i stället, så att skärmläsaren får en text och inte två. Antalet varor står i listans sammanfattning. Nästa omräkning på samma ställe annonseras som förut.
+  - **Knappen "Byt" har `aria-label` "Byt lager för listan".** Den synliga texten är bara "Byt", som är otydlig för en skärmläsare utan raden bredvid.
+  - **Raden "Lager: Hemma" och "Byt" renderas av sidan, inte av `ShoppingList`** (`ListSiteLine` i `pantry/ui`, AD-24). Sidan läser ställena i samma förfrågan som listan, och `ShoppingList` får bara `site` som data för sina texter.
+  - **"Allt finns hemma." står kvar med ett ställe.** Med flera ställen blir det "Allt finns i lagret för Stugan.", också för Hemma, så att texten fungerar med alla namn utan böjning.
+
 ## 2026-10-26 – Lagningsstatus, förslag och Lägg i lagret följer valt ställe (Story 8.3)
 
 - **Underlag:** specen `spec-8-3-lagningsstatus-forslag-och-lagg-i-lagret-foljer-valt-stalle.md`, där besluten var förslag, och AD-24.

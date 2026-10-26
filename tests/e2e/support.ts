@@ -140,6 +140,12 @@ export const sitesEmail = "e2e-stallen@matkoll.test";
  */
 export const siteStatusEmail = "e2e-stalle-status@matkoll.test";
 /**
+ * The E2E user of site-list.spec.ts alone (Story 8.5, the list before a trip
+ * to Stugan, with ketchup and senap): each test sets its places, pantry,
+ * recipe, meal plan and store with the service role, with Hemma selected.
+ */
+export const siteListEmail = "e2e-stalle-lista@matkoll.test";
+/**
  * The E2E user of core-flow.spec.ts alone (Story 3.8): it signs in itself
  * through /logga-in and the link in Mailpit, so it has no storage state.
  */
@@ -169,6 +175,7 @@ export const e2eEmails = [
   basketExportEmail,
   sitesEmail,
   siteStatusEmail,
+  siteListEmail,
   coreFlowEmail,
 ] as const;
 /** A real Supabase user whose address is not in ALLOWED_EMAILS. */
@@ -197,6 +204,7 @@ export const productChoiceStorageState = "tests/e2e/.auth/product-choice.json";
 export const basketExportStorageState = "tests/e2e/.auth/basket-export.json";
 export const sitesStorageState = "tests/e2e/.auth/sites.json";
 export const siteStatusStorageState = "tests/e2e/.auth/site-status.json";
+export const siteListStorageState = "tests/e2e/.auth/site-list.json";
 export const outsiderStorageState = "tests/e2e/.auth/outsider.json";
 
 export const mailpitUrl = "http://127.0.0.1:54324";

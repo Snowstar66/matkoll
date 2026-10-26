@@ -1,7 +1,8 @@
 import { render, screen } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
-import { describe, expect, it, vi } from "vitest";
+import { beforeEach, describe, expect, it, vi } from "vitest";
 import { ToastProvider } from "@/components/toast";
+import type { PantrySite, SelectedSite } from "@/features/pantry";
 import { getShoppingList } from "@/features/shopping/server";
 import { fail, ok } from "@/lib/errors";
 import { ShoppingListContent } from "./shopping-list-content";
@@ -24,6 +25,43 @@ const putCheckedInPantry = vi.fn();
 vi.mock("@/features/shopping/actions/put-checked-in-pantry", () => ({
   putCheckedInPantry: (input: unknown) => putCheckedInPantry(input),
 }));
+vi.mock("@/features/pantry/actions/select-pantry-site", () => ({ selectPantrySite: vi.fn() }));
+const { FakePantryDataError, listPantrySites } = vi.hoisted(() => ({
+  FakePantryDataError: class extends Error {
+    constructor(readonly detail: string) {
+      super(detail);
+    }
+  },
+  listPantrySites: vi.fn<() => Promise<PantrySite[]>>(),
+}));
+vi.mock("@/features/pantry/server", () => ({
+  listPantrySites: () => listPantrySites(),
+  PantryDataError: FakePantryDataError,
+}));
+
+const hemmaSite: PantrySite = { id: "66666666-6666-4666-8666-666666666666", name: "Hemma", isSelected: true };
+const stuganSite: PantrySite = { id: "55555555-5555-4555-8555-555555555555", name: "Stugan", isSelected: false };
+
+beforeEach(() => {
+  listPantrySites.mockReset().mockResolvedValue([hemmaSite, stuganSite]);
+});
+
+/** A list with one dish whose needs are all in the pantry, counted against `site`. */
+const allInStock = (site: SelectedSite | null) =>
+  ok({
+    plan: { id: "plan", name: "Vecka 44", dishCount: 1, skippedCount: 0, dishTitles: {} },
+    lines: [],
+    hiddenLines: [],
+    pantryUnavailable: false,
+    checksUnavailable: false,
+    pendingClear: 0,
+    store: null,
+    storeUnavailable: false,
+    productChoices: {},
+    productChoicesUnavailable: false,
+    unreadableChoices: [],
+    site,
+  });
 
 /** What comes beside the list without a store or a place. */
 const noChoices = {
@@ -204,5 +242,38 @@ describe("ShoppingListContent", () => {
     await user.click(screen.getByRole("button", { name: "Lägg i lagret" }));
     expect(putCheckedInPantry).toHaveBeenCalledWith({ planId: "44444444-4444-4444-8444-444444444444", siteId: stugan.id });
     expect(await screen.findByTestId("toast")).toHaveTextContent("Lagt 1 vara i lagret för Stugan.");
+  });
+
+  it("shows Lager and Byt under the title with more than one place, and names the place when all is in stock", async () => {
+    vi.mocked(getShoppingList).mockResolvedValue(allInStock({ id: stuganSite.id, name: "Stugan", siteCount: 2 }));
+    const { container } = render(<ToastProvider>{await ShoppingListContent()}</ToastProvider>);
+    expect(screen.getByTestId("site-line")).toHaveTextContent("Lager: Stugan");
+    expect(screen.getByRole("button", { name: "Byt lager för listan" })).toHaveTextContent("Byt");
+    expect(screen.getByText("Allt finns i lagret för Stugan.")).toBeInTheDocument();
+    // The line comes first, before the list.
+    expect(container.firstElementChild).toContainElement(screen.getByTestId("site-line"));
+  });
+
+  it("shows no line with one place, and says everything is at home as in 1.0", async () => {
+    listPantrySites.mockResolvedValue([hemmaSite]);
+    vi.mocked(getShoppingList).mockResolvedValue(allInStock({ id: hemmaSite.id, name: "Hemma", siteCount: 1 }));
+    render(<ToastProvider>{await ShoppingListContent()}</ToastProvider>);
+    expect(screen.queryByTestId("site-line")).toBeNull();
+    expect(screen.queryByRole("button", { name: "Byt lager för listan" })).toBeNull();
+    expect(screen.getByText("Allt finns hemma.")).toBeInTheDocument();
+  });
+
+  it("shows the list without a line when the places cannot be read", async () => {
+    listPantrySites.mockRejectedValue(new FakePantryDataError("read_failed"));
+    vi.mocked(getShoppingList).mockResolvedValue(allInStock({ id: stuganSite.id, name: "Stugan", siteCount: 2 }));
+    render(<ToastProvider>{await ShoppingListContent()}</ToastProvider>);
+    expect(screen.queryByTestId("site-line")).toBeNull();
+    expect(screen.getByText("Allt finns i lagret för Stugan.")).toBeInTheDocument();
+  });
+
+  it("throws what is not a pantry error when the places are read", async () => {
+    listPantrySites.mockRejectedValue(new Error("bug"));
+    vi.mocked(getShoppingList).mockResolvedValue(allInStock(null));
+    await expect(ShoppingListContent()).rejects.toThrow("bug");
   });
 });

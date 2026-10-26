@@ -185,6 +185,60 @@ describe("ShoppingList", () => {
   });
 });
 
+describe("ShoppingList and the place it is counted against (Story 8.5)", () => {
+  const hemma = { id: "11111111-1111-4111-8111-111111111111", name: "Hemma", siteCount: 2 };
+  const stugan = { id: "22222222-2222-4222-8222-222222222222", name: "Stugan", siteCount: 2 };
+
+  it("names the place when everything is in stock with more than one place, also Hemma", () => {
+    const { rerender } = render(<ShoppingList plan={plan} lines={[]} pantryUnavailable={false} site={stugan} />);
+    expect(screen.getByText("Allt finns i lagret för Stugan.")).toBeInTheDocument();
+    rerender(<ShoppingList plan={plan} lines={[]} pantryUnavailable={false} site={hemma} />);
+    expect(screen.getByText("Allt finns i lagret för Hemma.")).toBeInTheDocument();
+    // One place, or one that could not be read: as in 1.0.
+    rerender(<ShoppingList plan={plan} lines={[]} pantryUnavailable={false} site={{ ...hemma, siteCount: 1 }} />);
+    expect(screen.getByText("Allt finns hemma.")).toBeInTheDocument();
+    rerender(<ShoppingList plan={plan} lines={[]} pantryUnavailable={false} site={null} />);
+    expect(screen.getByText("Allt finns hemma.")).toBeInTheDocument();
+    // Without dishes, the empty plan's text, whatever the place.
+    rerender(<ShoppingList plan={{ ...plan, dishCount: 0 }} lines={[]} pantryUnavailable={false} site={stugan} />);
+    expect(screen.getByText("Lägg rätter på matsedeln så räknas listan fram.")).toBeInTheDocument();
+  });
+
+  it("does not announce a list counted against another place, but announces the next recount on that place", () => {
+    const { rerender } = render(<ShoppingList plan={plan} lines={lines} pantryUnavailable={false} site={hemma} />);
+    const live = screen.getByTestId("list-announcement");
+    // Switched to Stugan: other lines, but the switch's confirmation says it.
+    rerender(<ShoppingList plan={plan} lines={lines.slice(2)} pantryUnavailable={false} site={stugan} />);
+    expect(live).toHaveTextContent("");
+    // The same lines read again on Stugan: nothing to say.
+    rerender(<ShoppingList plan={plan} lines={[...lines.slice(2)]} pantryUnavailable={false} site={stugan} />);
+    expect(live).toHaveTextContent("");
+    // Counted again on Stugan, e.g. after a change elsewhere: announced, compared with Stugan's list.
+    rerender(<ShoppingList plan={plan} lines={lines.slice(3)} pantryUnavailable={false} site={stugan} />);
+    expect(live).toHaveTextContent("Inköpslistan är omräknad. 3 varor kvar.");
+  });
+
+  it("does not announce a place that could not be read, nor the place again once it can", () => {
+    const { rerender } = render(<ShoppingList plan={plan} lines={lines} pantryUnavailable={false} site={stugan} />);
+    const live = screen.getByTestId("list-announcement");
+    rerender(<ShoppingList plan={plan} lines={lines.slice(1)} pantryUnavailable site={null} />);
+    expect(live).toHaveTextContent("");
+    rerender(<ShoppingList plan={plan} lines={lines} pantryUnavailable={false} site={stugan} />);
+    expect(live).toHaveTextContent("");
+  });
+
+  it("keeps the checks of lines that stay, and shows a check again when its line comes back", () => {
+    const checked = lines.map((item) => (item.key === "r:paprika:st" ? { ...item, checked: true } : item));
+    const { rerender } = render(<ShoppingList plan={plan} lines={checked} pantryUnavailable={false} site={hemma} />);
+    expect(screen.getByRole("checkbox", { name: /^Paprika/ })).toBeChecked();
+    // On Stugan the paprika is covered: the line is gone, its check stays on the server.
+    rerender(<ShoppingList plan={plan} lines={checked.slice(1)} pantryUnavailable={false} site={stugan} />);
+    expect(screen.queryByRole("checkbox", { name: /^Paprika/ })).toBeNull();
+    rerender(<ShoppingList plan={plan} lines={checked} pantryUnavailable={false} site={hemma} />);
+    expect(screen.getByRole("checkbox", { name: /^Paprika/ })).toBeChecked();
+  });
+});
+
 /** The list as the server gives it; setChecked's stub saves a check here, as the server's revalidation would. */
 const server: { save: (change: CheckChange) => void } = { save: () => {} };
 const saveOnServer = (change: CheckChange) => server.save(change);

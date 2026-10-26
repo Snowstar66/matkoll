@@ -198,3 +198,19 @@ export function siteSuffix(site: NamedSite | null): string {
   const name = shownSiteName(site);
   return name === null ? "" : ` för ${name}`;
 }
+
+// Story 8.5: "Byt" on the line "Lager: Hemma" in Inköpslista, and the sheet
+// it opens (FR-32, EXPERIENCE.md, Voice and Tone). It is the same selection
+// as the pills in Hemma.
+
+/** The title of the sheet Byt ställe, opened from Inköpslista. */
+export const switchListTitle = "Räkna listan mot";
+/** The text button beside "Lager: Hemma" in Inköpslista. */
+export const switchListButtonText = "Byt";
+/** The button's accessible name: "Byt" alone is unclear to a screen reader without the line beside it. */
+export const switchListButtonLabel = "Byt lager för listan";
+
+/** The short confirmation once the list is counted against the place chosen in the sheet. */
+export function listCountedAgainstText(name: string): string {
+  return `Listan räknas nu mot ${name}.`;
+}
