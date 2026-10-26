@@ -21,6 +21,14 @@ vi.mock("../data/sites", () => ({
   deleteSiteIn: (...args: unknown[]) => deleteSiteIn(...args),
 }));
 
+const steps: string[] = [];
+const loadSitePhotoPathsIn = vi.fn();
+const removePlacePhotoFiles = vi.fn();
+vi.mock("../data/photos", () => ({
+  loadSitePhotoPathsIn: (...args: unknown[]) => (steps.push("paths"), loadSitePhotoPathsIn(...args)),
+  removePlacePhotoFiles: (...args: unknown[]) => (steps.push("remove"), removePlacePhotoFiles(...args)),
+}));
+
 const { selectPantrySite } = await import("./select-pantry-site");
 const { savePantrySite } = await import("./save-pantry-site");
 const { deletePantrySite } = await import("./delete-pantry-site");
@@ -39,7 +47,10 @@ beforeEach(() => {
   requireUser.mockReset().mockResolvedValue(ok({ id: "user", email: "pontus@example.com" }));
   saveSiteIn.mockReset().mockResolvedValue({ kind: "saved", site });
   selectSiteIn.mockReset().mockResolvedValue({ kind: "selected", site: { ...site, isSelected: true } });
-  deleteSiteIn.mockReset().mockResolvedValue({ kind: "deleted", removed: true });
+  deleteSiteIn.mockReset().mockImplementation(async () => (steps.push("delete"), { kind: "deleted", removed: true }));
+  steps.length = 0;
+  loadSitePhotoPathsIn.mockReset().mockResolvedValue([]);
+  removePlacePhotoFiles.mockReset().mockImplementation(async (_db: unknown, paths: string[]) => paths.length);
   revalidateFor.mockReset();
   log?.mockRestore();
   log = vi.spyOn(console, "error").mockImplementation(() => {});
@@ -201,5 +212,48 @@ describe("deletePantrySite", () => {
     requireUser.mockResolvedValue(fail("unauthorized"));
     expect(await deletePantrySite({ id: stugan })).toEqual(fail("unauthorized"));
     expect(deleteSiteIn).not.toHaveBeenCalled();
+    expect(loadSitePhotoPathsIn).not.toHaveBeenCalled();
+  });
+
+  describe("the place's photos (Story 10.3)", () => {
+    const paths = [`user/${stugan}/kyl/a.jpg`, `user/${stugan}/frys/b.png`];
+
+    it("reads the paths first, deletes the place, then removes the files", async () => {
+      loadSitePhotoPathsIn.mockResolvedValue(paths);
+      expect(await deletePantrySite({ id: stugan })).toEqual(ok({ removed: true }));
+      expect(steps).toEqual(["paths", "delete", "remove"]);
+      expect(loadSitePhotoPathsIn).toHaveBeenCalledWith(db, stugan);
+      expect(removePlacePhotoFiles).toHaveBeenCalledWith(db, paths);
+    });
+
+    it("keeps the photos of a place in use", async () => {
+      loadSitePhotoPathsIn.mockResolvedValue(paths);
+      deleteSiteIn.mockResolvedValue({ kind: "in_use" });
+      expect(await deletePantrySite({ id: stugan })).toEqual(fail("pantry_site_in_use"));
+      expect(removePlacePhotoFiles).not.toHaveBeenCalled();
+    });
+
+    it("keeps the photos when the place cannot be deleted", async () => {
+      loadSitePhotoPathsIn.mockResolvedValue(paths);
+      deleteSiteIn.mockRejectedValue(new PantryDataError("failed 08006"));
+      expect(await deletePantrySite({ id: stugan })).toEqual(fail("pantry_site_failed"));
+      expect(removePlacePhotoFiles).not.toHaveBeenCalled();
+    });
+
+    it("still deletes the place when the files cannot be removed, logging only the reason", async () => {
+      loadSitePhotoPathsIn.mockResolvedValue(paths);
+      removePlacePhotoFiles.mockRejectedValue(new PantryDataError("remove_failed 503"));
+      expect(await deletePantrySite({ id: stugan })).toEqual(ok({ removed: true }));
+      expect(log).toHaveBeenCalledWith("pantry_photo_remove_failed", { reason: "remove_failed 503" });
+      expect(JSON.stringify(log.mock.calls)).not.toContain(stugan);
+    });
+
+    it("still deletes the place when the paths cannot be read, logging only the reason", async () => {
+      loadSitePhotoPathsIn.mockRejectedValue(new PantryDataError("query_failed 08006"));
+      expect(await deletePantrySite({ id: stugan })).toEqual(ok({ removed: true }));
+      expect(deleteSiteIn).toHaveBeenCalled();
+      expect(log).toHaveBeenCalledWith("pantry_photo_remove_failed", { reason: "query_failed 08006" });
+      expect(removePlacePhotoFiles).toHaveBeenCalledWith(db, []);
+    });
   });
 });

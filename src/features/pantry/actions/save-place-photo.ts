@@ -16,6 +16,7 @@ import {
 } from "../data/photos";
 import type { PhotoPoint } from "../domain/photo-numbers";
 import { clampTakenAt, placePhotoPath, type PlacePhotoMediaType } from "../domain/place-photo";
+import { sweepPlacePhotosIn } from "./photo-sweep";
 
 // Senaste foto (Story 10.1, FR-37, AD-2, AD-15, AD-26): the server side of
 // saving the latest photo of a place. Not a Server Action: the Route Handler
@@ -71,6 +72,20 @@ async function removeNewFile(db: PantryDb, path: string): Promise<void> {
 }
 
 /**
+ * The sweep after a save (Story 10.3): old photos and files without a row go.
+ * The photo is saved already, so nothing here may change the answer: a
+ * failure is only logged, with its reason.
+ */
+async function sweepAfterSave(db: PantryDb, now: Date): Promise<void> {
+  try {
+    const outcome = await sweepPlacePhotosIn(db, { now });
+    if (outcome.failed !== null) console.error("pantry_photo_remove_failed", { reason: outcome.failed });
+  } catch {
+    console.error("pantry_photo_remove_failed", { reason: "sweep_threw" });
+  }
+}
+
+/**
  * Whether the row of photo `id` is there after save_pantry_photo answered
  * with an error: the error may have come after the commit (a lost answer).
  * `null` when that cannot be read either.
@@ -101,7 +116,10 @@ async function rowAfterError(db: PantryDb, id: string): Promise<boolean | null> 
  * through, and the file stays (logged as `pantry_photo_unconfirmed`, the
  * file before is left for the sweep). When the file before cannot be removed,
  * that is only logged, and the sweep (Story 10.3) takes it later.
- * Revalidates Hemma (AD-18) after a save. Returns the photo's id, for points
+ * After a save the user's photos are swept (sweepPlacePhotosIn, Story 10.3:
+ * photos older than 30 days and files without a row); a failure there is
+ * only logged and never changes the answer. Revalidates Hemma (AD-18) after
+ * a save. Returns the photo's id, for points
  * that come later (savePlacePhotoPoints; for a stale photo they write
  * nothing).
  */
@@ -183,6 +201,7 @@ export async function savePlacePhoto(
         console.error("pantry_photo_remove_failed", { reason: error instanceof PantryDataError ? error.detail : "unknown" });
       }
     }
+    await sweepAfterSave(db, now);
     revalidateFor("pantry_photo");
     return ok({ id });
   } finally {

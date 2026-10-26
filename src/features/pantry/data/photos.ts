@@ -3,6 +3,7 @@ import type { Json } from "@/lib/supabase/database.types";
 import type { Location } from "@/features/catalog";
 import type { PhotoPoint } from "../domain/photo-numbers";
 import { placePhotoBucket, type PlacePhotoMediaType } from "../domain/place-photo";
+import { inBatches, intervalOf, photoSweepBatchSize } from "../domain/photo-sweep";
 import { PantryDataError, pantryWriteError, type PantryDb } from "./client";
 
 // The latest photo of each place (Story 10.1, AD-26): every call to Storage
@@ -137,17 +138,102 @@ export async function placePhotoReadingLengthIn(db: PantryDb, id: string): Promi
 }
 
 /**
- * Removes the files at `paths` from the bucket with the Storage API (AD-26)
- * and returns how many were removed. A file that is gone already, or not the
- * user's, is not counted. Throws PantryDataError `remove_failed <status>` or
- * `remove_threw`.
+ * Removes the files at `paths` from the bucket with the Storage API (AD-26),
+ * at most photoSweepBatchSize (100) names per call to Storage, and returns
+ * how many were removed. A file that is gone already, or not the user's, is
+ * not counted. Throws PantryDataError `remove_failed <status>` or
+ * `remove_threw` at the first batch that fails; the batches before it are
+ * removed.
  */
 export async function removePlacePhotoFiles(db: PantryDb, paths: readonly string[]): Promise<number> {
-  if (paths.length === 0) return 0;
-  return guarded("remove", async () => {
-    const { data, error } = await db.storage.from(placePhotoBucket).remove([...paths]);
-    if (error) throw new PantryDataError(`remove_failed ${statusOf(error)}`);
+  let removed = 0;
+  for (const batch of inBatches(paths)) {
+    removed += await guarded("remove", async () => {
+      const { data, error } = await db.storage.from(placePhotoBucket).remove(batch);
+      if (error) throw new PantryDataError(`remove_failed ${statusOf(error)}`);
+      return data?.length ?? 0;
+    });
+  }
+  return removed;
+}
+
+/** A photo the sweep removes: its row's id and its file (Story 10.3). */
+export type ExpiredPlacePhoto = { id: string; objectPath: string };
+
+/**
+ * The user's photos taken before `before` (too old to be shown, FR-39),
+ * oldest first, at most `limit` (photoSweepBatchSize). Throws PantryDataError
+ * `query_failed <code>`, `query_threw` or `invalid_row`.
+ */
+export async function loadExpiredPlacePhotosIn(
+  db: PantryDb,
+  before: Date,
+  limit = photoSweepBatchSize,
+): Promise<ExpiredPlacePhoto[]> {
+  return guarded("query", async () => {
+    const { data, error } = await db
+      .from("pantry_photo")
+      .select("id, object_path")
+      .lt("taken_at", before.toISOString())
+      .order("taken_at", { ascending: true })
+      .order("id", { ascending: true })
+      .limit(limit);
+    if (error) throw new PantryDataError(`query_failed ${error.code}`);
+    return (data ?? []).map((row) => {
+      if (typeof row.id !== "string" || typeof row.object_path !== "string") throw new PantryDataError("invalid_row");
+      return { id: row.id, objectPath: row.object_path };
+    });
+  });
+}
+
+/**
+ * The paths of the user's files in the bucket that no row of pantry_photo
+ * points at and that were uploaded more than `minAgeMs` ago, oldest first, at
+ * most 100 (pantry_photo_orphans, which reads storage.objects and
+ * pantry_photo as the user, so only the user's own count). The sweep passes
+ * photoOrphanMinAgeMs (10 minutes), so a save in progress keeps its file.
+ * Throws PantryDataError `orphans_failed <code>`, `orphans_threw` or
+ * `invalid_answer`.
+ */
+export async function loadPlacePhotoOrphansIn(db: PantryDb, minAgeMs: number): Promise<string[]> {
+  return guarded("orphans", async () => {
+    const { data, error } = await db.rpc("pantry_photo_orphans", { min_age: intervalOf(minAgeMs) });
+    if (error) throw new PantryDataError(`orphans_failed ${error.code}`);
+    const names: unknown[] = Array.isArray(data) ? data : [];
+    if (!names.every((name): name is string => typeof name === "string")) throw new PantryDataError("invalid_answer");
+    return names;
+  });
+}
+
+/**
+ * Deletes the user's photo rows `ids` and returns how many went (a row that
+ * is gone already is not counted). Only the rows: their files are removed
+ * with removePlacePhotoFiles. Throws PantryDataError `delete_failed <code>`
+ * or `delete_threw`.
+ */
+export async function deletePlacePhotoRowsIn(db: PantryDb, ids: readonly string[]): Promise<number> {
+  if (ids.length === 0) return 0;
+  return guarded("delete", async () => {
+    const { data, error } = await db.from("pantry_photo").delete().in("id", [...ids]).select("id");
+    if (error) throw new PantryDataError(`delete_failed ${error.code}`);
     return data?.length ?? 0;
+  });
+}
+
+/**
+ * The paths of the files of the user's photos on the place `siteId`, read
+ * before the place is deleted (Story 10.3): the cascade takes the rows, and
+ * the files are removed after. Throws PantryDataError `query_failed <code>`,
+ * `query_threw` or `invalid_row`.
+ */
+export async function loadSitePhotoPathsIn(db: PantryDb, siteId: string): Promise<string[]> {
+  return guarded("query", async () => {
+    const { data, error } = await db.from("pantry_photo").select("object_path").eq("site_id", siteId);
+    if (error) throw new PantryDataError(`query_failed ${error.code}`);
+    return (data ?? []).map((row) => {
+      if (typeof row.object_path !== "string") throw new PantryDataError("invalid_row");
+      return row.object_path;
+    });
   });
 }
 

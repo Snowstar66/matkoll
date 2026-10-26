@@ -36,6 +36,7 @@ Vercel-projektet skapas först men fylls med variabler i steg 9, när värdena f
 1. Supabase → **New project** → namn `matkoll`, region **North EU (Stockholm), `eu-north-1`**. Välj ett starkt databaslösenord och spara det i din lösenordshanterare; det behövs i steg 6 och 10.
 2. Anteckna `<ref>` (syns i projektets adress, `https://<ref>.supabase.co`).
 3. Om projektet erbjuder att automatiskt exponera nya tabeller i Data API kan du stänga av det, som `auto_expose_new_tables = false` lokalt. Det är inte nödvändigt: migrationerna tar själva bort standardrättigheterna och ger varje tabell sina egna (AD-4).
+4. Storage behöver inte slås på. Det ingår i gratisnivån (1 GB), och Matkoll sparar högst ett foto per plats och ställe, högst 1,5 MB och aldrig äldre än 30 dagar (Epic 10). Den privata bucketen `pantry-photo` och dess policyer skapas av `supabase db push` i steg 6, inte i panelen.
 
 **Kontroll:** **Project Settings → General** visar regionen `eu-north-1`.
 
@@ -112,6 +113,8 @@ unset SUPABASE_SERVICE_ROLE_KEY
 ```
 
 Nyckeln finns under **Project Settings → API Keys → Secret keys** (`sb_secret_…`). Variablerna i terminalen går före `.env.local`, så den lokala filen ändras inte. `ALLOWED_EMAILS` ska ha samma adresser som i Vercel (steg 9). Kör om kommandot när listan ändras; `--prune` tar bort användare som inte längre står i den.
+
+Ta bara bort en användare med `pnpm users:sync --prune`. Det tar först bort användarens foton i bucketen `pantry-photo` och sedan användaren, vars rader följer med. Går fotona inte att ta bort står användaren kvar, och skriptet avslutas med ett fel. Utdata visar bara antal, aldrig sökvägar. En borttagning under **Authentication → Users** i Supabase-panelen tar bara raderna och lämnar filerna kvar i bucketen (Story 10.3).
 
 **Kontroll:** **Authentication → Users** visar din adress, och utdata har inga fel.
 
@@ -191,16 +194,19 @@ Att tänka på med schemalagda flöden:
 
 ### Vad säkerhetskopian innehåller
 
-Kontrollerat 2026-10-26 med samma CLI-version mot den lokala stacken: `supabase db dump --dry-run`, verkliga dumpar och en återläsning i en separat, tillfällig lokal stack.
+Kontrollerat 2026-10-26 med samma CLI-version mot den lokala stacken: `supabase db dump --dry-run`, verkliga dumpar och en återläsning i en separat, tillfällig lokal stack. Provat igen samma dag med sparade foton i databasen (Story 10.3).
 
-- `schema.sql` (`supabase db dump`): det egna schemat, främst `public` med tabeller, funktioner, RLS-policyer och rättigheter. `auth`, `storage` och andra scheman som Supabase sköter tas inte med; ett nytt projekt har dem redan, och Matkoll har inga egna objekt där.
+**Foton tas aldrig med** (AD-26, NFR-11). Filerna ligger i Storage och inte i databasen, och dumpen utesluter fotonas rader och filernas sökvägar. Efter en återställning finns inga foton. De går inte att få tillbaka, men ett nytt foto tas nästa gång Pontus fotograferar platsen, och ett foto sparas ändå bara i 30 dagar.
+
+- `schema.sql` (`supabase db dump`): det egna schemat, främst `public` med tabeller, funktioner, RLS-policyer och rättigheter. `auth`, `storage` och andra scheman som Supabase sköter tas inte med; ett nytt projekt har dem redan. Matkolls enda objekt där, bucketen `pantry-photo` och dess policyer på `storage.objects`, skapas av fotomigrationerna när schemat läses in med `supabase db push` (punkt 3 under Återställning).
 - `data.sql` (`supabase db dump --data-only`): data i alla scheman utom Supabase interna, alltså även `auth.users` och `auth.identities`, som alla rader refererar via `user_id`. `auth` behöver inte läggas till. Utelämnas gör:
-  - `storage.buckets_vectors` och `storage.vector_indexes`, eftersom rollen `postgres` inte får skriva till dem vid återläsning (Matkoll lagrar inga filer);
+  - `storage.buckets_vectors` och `storage.vector_indexes`, eftersom rollen `postgres` inte får skriva till dem vid återläsning;
+  - fotona (Story 10.3): `public.pantry_photo` (raderna med avläsningen) och `storage.objects` med `storage.s3_multipart_uploads` och `storage.s3_multipart_uploads_parts` (filernas sökvägar). Också `storage.buckets`, eftersom fotomigrationen skapar bucketen igen; med den i `data.sql` stoppar återläsningen på att bucketen redan finns (`buckets_pkey`);
   - inloggningarnas tillfälliga och känsliga data: `auth.sessions`, `auth.refresh_tokens`, `auth.mfa_amr_claims` (hör till sessionerna), `auth.one_time_tokens`, `auth.flow_state` och `auth.audit_log_entries`. De behövs inte för en återställning; efteråt loggar alla in på nytt.
 
   Migrationshistoriken (`supabase_migrations`) ingår inte.
 - `manifest.txt`: commiten som körningen gjordes från, CLI-versionen och de migrationer som är körda i molnet (från `supabase_migrations.schema_migrations`).
-- `counts.txt`: antal rader i `auth.users` och i varje tabell i `public`, från `scripts/backup-counts.sql`, räknade strax före dumpen.
+- `counts.txt`: antal rader i `auth.users` och i varje tabell i `public` utom `pantry_photo`, från `scripts/backup-counts.sql`, räknade strax före dumpen.
 - Roller dumpas inte: Matkoll skapar inga egna roller, och Supabase standardroller finns i varje nytt projekt.
 
 ### Återställning
@@ -249,6 +255,17 @@ Alla okrypterade filer, också `nu.sql` nedan, ligger i en egen mapp utanför re
    ```
 
    Användes appen medan säkerhetskopian togs kan antalet skilja lite.
+
+   Kontrollera också fotonas bucket och policyer. De finns i schemat `storage`, som varken `schema.sql` eller `data.sql` tar med, och skapades av fotomigrationerna i punkt 3:
+
+   ```bash
+   psql "<Session pooler-strängen utan lösenord>" -X -A -t \
+     -c "select id, public from storage.buckets where id = 'pantry-photo'" \
+     -c "select policyname from pg_policies where schemaname = 'storage' and policyname like 'pantry_photo_%' order by 1" \
+     -c "select count(*) from public.pantry_photo"
+   ```
+
+   Svaret ska vara `pantry-photo|f`, de tre policyerna `pantry_photo_delete`, `pantry_photo_insert` och `pantry_photo_select`, och `0` foton. Saknas bucketen eller en policy har schemat inte lästs in med `db push` som i punkt 3. Gör om punkt 3 och 4 i ett nytt projekt i stället för att lägga till dem för hand.
 6. Gå tillbaka till `main` och kör migrationerna som har kommit till sedan säkerhetskopian, innan appen pekas om:
 
    ```bash

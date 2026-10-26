@@ -6,6 +6,7 @@ import type { Location } from "@/features/catalog";
 import { CatalogDataError, getIngredientDefaults, getIngredientNames } from "@/features/catalog/server";
 import { fail, ok, type Result } from "@/lib/errors";
 import { createClient } from "@/lib/supabase/server";
+import { placePhotosNeedSweepIn } from "./actions/photo-sweep";
 import { addToPantryIn, findPantryAdditionsIn, forgetPantryAdditionsIn } from "./data/add";
 import { isSiteGone, PantryDataError, siteGoneCode, siteGoneDetail } from "./data/client";
 import { insertPantryDefaults } from "./data/defaults";
@@ -182,6 +183,25 @@ export async function getPantryForStatus(): Promise<PantryForStatus> {
     return { site: null, snapshot: null };
   }
 }
+
+/**
+ * Whether the signed-in user has photos to sweep (Story 10.3, FR-39): a photo
+ * older than 30 days, or a file in the bucket without a row that is older
+ * than 10 minutes. Hemma then renders PhotoSweep, which calls the Server
+ * Action sweepPlacePhotos once. Only reads (AD-2); memoised per request.
+ * Over all the user's places, since the sweep is. When it cannot be read
+ * (logged as `pantry_photo_sweep_unavailable`, with the reason only), it is
+ * `false`, and Hemma works without it.
+ */
+export const needsPlacePhotoSweep = cache(async (): Promise<boolean> => {
+  try {
+    return await placePhotosNeedSweepIn(await createClient());
+  } catch (error) {
+    if (!(error instanceof PantryDataError)) throw error;
+    console.error("pantry_photo_sweep_unavailable", { reason: error.detail });
+    return false;
+  }
+});
 
 /** Whether `error` says a place is removed, or not the user's (MK410): the caller gives `pantry_site_gone`. */
 export function isPantrySiteGone(error: unknown): boolean {

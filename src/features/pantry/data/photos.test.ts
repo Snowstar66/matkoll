@@ -1,6 +1,10 @@
 import { describe, expect, it, vi } from "vitest";
 import { PantryDataError, siteGoneDetail, type PantryDb } from "./client";
 import {
+  deletePlacePhotoRowsIn,
+  loadExpiredPlacePhotosIn,
+  loadPlacePhotoOrphansIn,
+  loadSitePhotoPathsIn,
   photoRowExistsIn,
   placePhotoReadingLengthIn,
   removePlacePhotoFiles,
@@ -91,6 +95,126 @@ describe("removePlacePhotoFiles", () => {
   it("throws remove_failed with the status", async () => {
     const { db } = fakeStorage({ data: null, error: { message: path, status: 500 } });
     await expect(removePlacePhotoFiles(db, [path])).rejects.toThrow(new PantryDataError("remove_failed 500"));
+  });
+
+  it("removes 150 files in two calls, 100 and 50, and counts them all (Story 10.3)", async () => {
+    const paths = Array.from({ length: 150 }, (_, index) => `${user}/${site}/kyl/${index}.jpg`);
+    const remove = vi.fn(async (batch: string[]) => ({ data: batch.map((name) => ({ name })), error: null }));
+    const db = { storage: { from: () => ({ remove }) } } as unknown as PantryDb;
+    expect(await removePlacePhotoFiles(db, paths)).toBe(150);
+    expect(remove.mock.calls.map(([batch]) => batch.length)).toEqual([100, 50]);
+    expect(remove.mock.calls.flatMap(([batch]) => batch)).toEqual(paths);
+  });
+
+  it("stops at the first batch that fails", async () => {
+    const paths = Array.from({ length: 150 }, (_, index) => `${user}/${site}/kyl/${index}.jpg`);
+    const remove = vi
+      .fn()
+      .mockResolvedValueOnce({ data: [], error: { message: paths[0], statusCode: "503" } })
+      .mockResolvedValue({ data: [], error: null });
+    const db = { storage: { from: () => ({ remove }) } } as unknown as PantryDb;
+    const error = await removePlacePhotoFiles(db, paths).catch((thrown: unknown) => thrown);
+    expect(error).toEqual(new PantryDataError("remove_failed 503"));
+    expect(String((error as Error).message)).not.toContain(user);
+    expect(remove).toHaveBeenCalledTimes(1);
+  });
+});
+
+/** A client whose `from(...)` query chain answers with `answer`, recording the calls. */
+function fakeQuery(answer: { data: unknown; error: { code: string } | null }) {
+  const calls: [string, ...unknown[]][] = [];
+  const chain: Record<string, unknown> = {};
+  for (const name of ["select", "eq", "lt", "order", "limit", "delete", "in"]) {
+    chain[name] = (...args: unknown[]) => (calls.push([name, ...args]), chain);
+  }
+  chain.then = (resolve: (value: unknown) => unknown, reject: (reason: unknown) => unknown) =>
+    Promise.resolve(answer).then(resolve, reject);
+  const from = vi.fn(() => chain);
+  return { db: { from } as unknown as PantryDb, from, calls };
+}
+
+describe("loadExpiredPlacePhotosIn (Story 10.3)", () => {
+  const before = new Date("2026-09-26T15:42:00.000Z");
+
+  it("reads the photos taken before the time, oldest first, at most 100", async () => {
+    const { db, from, calls } = fakeQuery({ data: [{ id: photo, object_path: path }], error: null });
+    expect(await loadExpiredPlacePhotosIn(db, before)).toEqual([{ id: photo, objectPath: path }]);
+    expect(from).toHaveBeenCalledWith("pantry_photo");
+    expect(calls).toEqual([
+      ["select", "id, object_path"],
+      ["lt", "taken_at", before.toISOString()],
+      ["order", "taken_at", { ascending: true }],
+      ["order", "id", { ascending: true }],
+      ["limit", 100],
+    ]);
+  });
+
+  it("takes a smaller limit, and throws query_failed or invalid_row", async () => {
+    const { db, calls } = fakeQuery({ data: [], error: null });
+    expect(await loadExpiredPlacePhotosIn(db, before, 1)).toEqual([]);
+    expect(calls.at(-1)).toEqual(["limit", 1]);
+    await expect(loadExpiredPlacePhotosIn(fakeQuery({ data: null, error: { code: "08006" } }).db, before)).rejects.toThrow(
+      new PantryDataError("query_failed 08006"),
+    );
+    await expect(loadExpiredPlacePhotosIn(fakeQuery({ data: [{ id: photo }], error: null }).db, before)).rejects.toThrow(
+      new PantryDataError("invalid_row"),
+    );
+  });
+});
+
+describe("loadPlacePhotoOrphansIn (Story 10.3)", () => {
+  function fakeRpc(answer: { data: unknown; error: { code: string } | null }) {
+    const rpc = vi.fn(async () => answer);
+    return { db: { rpc } as unknown as PantryDb, rpc };
+  }
+
+  it("asks pantry_photo_orphans with the age in seconds and gives the names", async () => {
+    const { db, rpc } = fakeRpc({ data: [path], error: null });
+    expect(await loadPlacePhotoOrphansIn(db, 600_000)).toEqual([path]);
+    expect(rpc).toHaveBeenCalledWith("pantry_photo_orphans", { min_age: "600 seconds" });
+  });
+
+  it("throws orphans_failed with the code, and invalid_answer for a name that is not text", async () => {
+    await expect(loadPlacePhotoOrphansIn(fakeRpc({ data: null, error: { code: "42501" } }).db, 0)).rejects.toThrow(
+      new PantryDataError("orphans_failed 42501"),
+    );
+    await expect(loadPlacePhotoOrphansIn(fakeRpc({ data: [1], error: null }).db, 0)).rejects.toThrow(
+      new PantryDataError("invalid_answer"),
+    );
+  });
+});
+
+describe("deletePlacePhotoRowsIn (Story 10.3)", () => {
+  it("deletes the rows by id and counts what went", async () => {
+    const { db, calls } = fakeQuery({ data: [{ id: photo }], error: null });
+    expect(await deletePlacePhotoRowsIn(db, [photo])).toBe(1);
+    expect(calls).toEqual([["delete"], ["in", "id", [photo]], ["select", "id"]]);
+  });
+
+  it("asks nothing for no ids, and throws delete_failed with the code", async () => {
+    const { db, from } = fakeQuery({ data: [], error: null });
+    expect(await deletePlacePhotoRowsIn(db, [])).toBe(0);
+    expect(from).not.toHaveBeenCalled();
+    await expect(deletePlacePhotoRowsIn(fakeQuery({ data: null, error: { code: "08006" } }).db, [photo])).rejects.toThrow(
+      new PantryDataError("delete_failed 08006"),
+    );
+  });
+});
+
+describe("loadSitePhotoPathsIn (Story 10.3)", () => {
+  it("reads the paths of the place's photos", async () => {
+    const { db, calls } = fakeQuery({ data: [{ object_path: path }], error: null });
+    expect(await loadSitePhotoPathsIn(db, site)).toEqual([path]);
+    expect(calls).toEqual([
+      ["select", "object_path"],
+      ["eq", "site_id", site],
+    ]);
+  });
+
+  it("throws query_failed with the code", async () => {
+    await expect(loadSitePhotoPathsIn(fakeQuery({ data: null, error: { code: "08006" } }).db, site)).rejects.toThrow(
+      new PantryDataError("query_failed 08006"),
+    );
   });
 });
 

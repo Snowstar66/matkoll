@@ -4,7 +4,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { ToastProvider } from "@/components/toast";
 import { CatalogDataError } from "@/features/catalog/server";
 import type { PantryItem } from "@/features/pantry";
-import { countPantryItems, listPantry, PantryDataError } from "@/features/pantry/server";
+import { countPantryItems, listPantry, needsPlacePhotoSweep, PantryDataError } from "@/features/pantry/server";
 import { PantrySheetProvider } from "@/features/pantry/ui/pantry-item-sheet";
 import { PantrySuggestionsProvider } from "@/features/pantry/ui/pantry-suggestions";
 import { SiteSwitch, SiteSwitchProvider } from "@/features/pantry/ui/site-switch";
@@ -17,6 +17,7 @@ vi.mock("@/features/pantry/server", async (importOriginal) => ({
   ...(await importOriginal<typeof import("@/features/pantry/server")>()),
   countPantryItems: vi.fn(),
   listPantry: vi.fn(),
+  needsPlacePhotoSweep: vi.fn(async () => false),
 }));
 
 vi.mock("@/features/pantry/actions/set-pantry-item", () => ({ savePantryItem: vi.fn() }));
@@ -29,6 +30,8 @@ vi.mock("@/features/pantry/actions/restore-pantry-item", () => ({ restorePantryI
 vi.mock("@/features/pantry/actions/select-pantry-site", () => ({ selectPantrySite: vi.fn() }));
 vi.mock("@/features/pantry/actions/save-pantry-site", () => ({ savePantrySite: vi.fn() }));
 vi.mock("@/features/pantry/actions/delete-pantry-site", () => ({ deletePantrySite: vi.fn() }));
+const sweepPlacePhotos = vi.fn();
+vi.mock("@/features/pantry/actions/sweep-place-photos", () => ({ sweepPlacePhotos: () => sweepPlacePhotos() }));
 const confirmPantrySuggestions = vi.fn();
 vi.mock("@/features/pantry/actions/confirm-pantry-inventory", () => ({ confirmPantryInventory: vi.fn() }));
 vi.mock("@/features/pantry/actions/confirm-pantry-suggestions", () => ({
@@ -195,6 +198,23 @@ describe("HomeContent", () => {
     vi.mocked(listPantry).mockResolvedValue([mjolk]);
     render(await HomeContent({ site, location: "Kyl", next: "/hemma" }));
     expect(screen.queryByRole("button", { name: "Lägg till ställe" })).toBeNull();
+  });
+
+  it("starts the photo sweep once, showing nothing, only when there is something to sweep (Story 10.3)", async () => {
+    vi.mocked(countPantryItems).mockResolvedValue({ Kyl: 1, Frys: 0, Skafferi: 0 });
+    vi.mocked(listPantry).mockResolvedValue([mjolk]);
+    sweepPlacePhotos.mockResolvedValue(ok({ removed: 1 }));
+
+    const quiet = render(await HomeContent({ site, location: "Kyl", next: "/hemma" }));
+    expect(needsPlacePhotoSweep).toHaveBeenCalled();
+    await screen.findByText("Mjölk");
+    expect(sweepPlacePhotos).not.toHaveBeenCalled();
+    quiet.unmount();
+
+    vi.mocked(needsPlacePhotoSweep).mockResolvedValueOnce(true);
+    render(await HomeContent({ site, location: "Kyl", next: "/hemma" }));
+    await waitFor(() => expect(sweepPlacePhotos).toHaveBeenCalledTimes(1));
+    expect(screen.getByText("Mjölk")).toBeInTheDocument();
   });
 
   it("lets other errors through to the error boundary", async () => {

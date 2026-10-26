@@ -338,13 +338,20 @@ describe("backup.yml", () => {
     expect(workflow).not.toMatch(/supabase link|db push|--linked|vercel/i);
   });
 
-  it("leaves storage vectors and sensitive auth data out of the data dump", () => {
+  it("leaves storage vectors, the photos and sensitive auth data out of the data dump", () => {
     const data = dumpCommands.split("\n").find((line) => line.includes("--data-only"))!;
     const excluded = [...data.matchAll(/--exclude (\S+)/g)].map((match) => match[1]).sort();
     expect(excluded).toEqual(
       [
         "storage.buckets_vectors",
         "storage.vector_indexes",
+        // The photos (Story 10.3): their rows, the paths of their files, and the
+        // bucket, which the photo migration creates again on a restore.
+        "public.pantry_photo",
+        "storage.objects",
+        "storage.s3_multipart_uploads",
+        "storage.s3_multipart_uploads_parts",
+        "storage.buckets",
         "auth.sessions",
         "auth.refresh_tokens",
         "auth.mfa_amr_claims",
@@ -354,6 +361,11 @@ describe("backup.yml", () => {
       ].sort(),
     );
     expect(data).not.toMatch(/auth\.users|auth\.identities/);
+  });
+
+  it("never counts the photos' rows (Story 10.3), which the backup leaves out", () => {
+    const counts = read("scripts/backup-counts.sql");
+    expect(counts).toMatch(/where table_schema = 'public' and table_type = 'BASE TABLE' and table_name <> 'pantry_photo'\n/);
   });
 
   it("checks the dumps, encrypts with AES256 and decrypts each file again before upload", () => {
