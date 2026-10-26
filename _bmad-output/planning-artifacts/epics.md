@@ -15,7 +15,7 @@ inputDocuments:
 
 ## Översikt
 
-Det här dokumentet delar upp kraven i PRD:n, UX-dokumenten (`DESIGN.md`, `EXPERIENCE.md`) och arkitekturen (`ARCHITECTURE-SPINE.md`, AD-1–AD-24, AD-26 och AD-27) i epics och stories som går att bygga var för sig. Story-rubrikerna läses av `scripts/board.mjs` och blir kort på boarden. Epic 1–7 är version 1.0. Epic 8 är version 1.1, "Flera ställen", som kom till genom kursändringen `sprint-change-proposal-2026-10-26-flera-stallen.md`. Dess krav står i PRD-addendumet under "Version 1.1: Flera ställen". Epic 10, "Senaste fotot per plats", är ett tillägg till 1.1 som kom till genom kursändringen `sprint-change-proposal-2026-10-26-spara-foto.md`. Dess krav står i addendumet under "Tillägg till 1.1: Senaste fotot per plats". Epic 11, "Nytt utseende", kom till genom kursändringen `sprint-change-proposal-2026-10-26-nytt-utseende.md` efter att Pontus godkände tre mobilskisser. Dess krav står i addendumet under "Tillägg till 1.1: Nytt utseende", och skisserna ligger i `ux-designs/ux-Matkoll-2026-10-25/mockups/`. Epic 11 byggs efter Epic 10. Epic 9 (veckans erbjudanden, FR34–FR36, NFR10, AD-25, UX-DR19–UX-DR20) är planerad men vilar på grenen `epic/9-erbjudanden`, så de numren är reserverade.
+Det här dokumentet delar upp kraven i PRD:n, UX-dokumenten (`DESIGN.md`, `EXPERIENCE.md`) och arkitekturen (`ARCHITECTURE-SPINE.md`, AD-1–AD-24 och AD-26–AD-28) i epics och stories som går att bygga var för sig. Story-rubrikerna läses av `scripts/board.mjs` och blir kort på boarden. Epic 1–7 är version 1.0. Epic 8 är version 1.1, "Flera ställen", som kom till genom kursändringen `sprint-change-proposal-2026-10-26-flera-stallen.md`. Dess krav står i PRD-addendumet under "Version 1.1: Flera ställen". Epic 10, "Senaste fotot per plats", är ett tillägg till 1.1 som kom till genom kursändringen `sprint-change-proposal-2026-10-26-spara-foto.md`. Dess krav står i addendumet under "Tillägg till 1.1: Senaste fotot per plats". Epic 11, "Nytt utseende", kom till genom kursändringen `sprint-change-proposal-2026-10-26-nytt-utseende.md` efter att Pontus godkände tre mobilskisser. Dess krav står i addendumet under "Tillägg till 1.1: Nytt utseende", och skisserna ligger i `ux-designs/ux-Matkoll-2026-10-25/mockups/`. Epic 11 byggs efter Epic 10. Epic 12, "Snabbare och asynkron AI", kom till genom kursändringen `sprint-change-proposal-2026-10-26-asynkron-ai.md` efter att Pontus godkände planen. Dess krav står i addendumet under "Tillägg till 1.1: Snabbare och asynkron AI", och den byggs efter Epic 11. Epic 9 (veckans erbjudanden, FR34–FR36, NFR10, AD-25, UX-DR19–UX-DR20) är planerad men vilar på grenen `epic/9-erbjudanden`, så de numren är reserverade.
 
 ## Requirements Inventory
 
@@ -68,6 +68,12 @@ Epic 11 (addendum, "Tillägg till 1.1: Nytt utseende"):
 - FR42: En lagervara har ett valfritt märke (från fotots första etikett eller fältet "Märke eller sort") och vet när den lades till. "Ångra" sätter tillbaka märket och tiden.
 - FR43: Inköpslistan visar "8 varor kvar" och "6 av 14 i korgen" med en mätare, flyttar avbockade poster till en hopfälld "I korgen", visar rätterna, "Egen vara" eller "Saknas i <ställe>" under posten och produktvalet som etikett, och har "Skicka till ICA" och "Lägg i lagret" fast längst ned.
 - FR44: Matkoll kan läggas på hemskärmen och öppnas i helskärm (manifest, appikoner, temafärg), loggas in med en sexsiffrig kod från samma mejl som länken, och har en synlig tillbakaknapp på varje sida under en flik.
+- FR45: AI-flödena mäts med kall och varm modell före och efter varje förbättring, med rekommenderade inställningar för LM Studio i `docs/lm-studio.md`. Modellen väcks i bakgrunden när Lagersaldo eller Recept öppnas (om mätningen visar minst 20 % vinst), och AI-förslagen ber om ett kortare svar (minst 25 % färre token, högst 40 s i median varmt).
+- FR46: Bildanalys, AI-förslag och receptimport är AI-jobb: att starta ett svarar inom en sekund, Pontus kan byta sida, stänga arket och ladda om utan att jobbet stoppas, kan avbryta det, och resultatet finns privat tills det stängs eller sparas, högst 24 timmar.
+- FR47: AI-jobben körs ett i taget i den ordning de startades, högst tre aktiva, över flikar och enheter. En jobbrad visar vad som pågår och "2 i kö". Ett jobb som inte hinner börja eller vars server dör stoppar aldrig kön, och dubbeltryck ger aldrig två jobb.
+- FR48: När ett resultat är klart säger en kort bekräftelse vad som är klart, med "Visa", och fliken där det visas (Recept eller Lagersaldo) får ett märke med antalet osedda resultat.
+- FR49: Inget från AI sparas automatiskt. Ett nytt foto av samma plats ersätter det äldre, som aldrig visas. Förslag från ett foto gäller fotots ställe. AI-förslag för ett annat ställe visas med "Förslagen bygger på lagret för Hemma." Jämförelsen med platsens varor görs när resultatet öppnas.
+- FR50: AI-förslagen visas en rätt i taget så snart varje rätt är klar, om LM Studio kan strömma ett svar med JSON-schema.
 
 ### NonFunctional Requirements
 
@@ -82,6 +88,7 @@ Epic 11 (addendum, "Tillägg till 1.1: Nytt utseende"):
 - NFR9 (1.1) Migrering och svarstider för ställen: en migration som bara lägger till, fungerar med 1.0-koden och visas i ett test lämna lagret oförändrat. Byte av ställe svarar inom en sekund.
 - NFR11 (Epic 10) Integritet för platsfoton: privat bucket med RLS-tester, ingen publik eller signerad länk, ingen metadata i sparade foton (test), aldrig till AI-tjänsten igen, aldrig i repot, loggar eller säkerhetskopian, och inom Supabase gratisnivå.
 - NFR12 (Epic 11) Utseendet håller tillgänglighetsgolvet: 375 px och 1280 px, ljust och mörkt läge, 200 % text utan vågrät scroll, VoiceOver och tangentbord, tryckytor minst 44 × 44 px, och ikoner, plattor och mätare säger aldrig något som inte står i text. Inget rött, inga skuggor, inga gradienter.
+- NFR13 (Epic 12) Integritet och tålighet för AI-jobb: privata jobb med RLS-tester, inga foton eller recepttexter i jobb, på disk eller i loggar, jobbens rader aldrig i säkerhetskopian, ett jobb vars server dör stoppar aldrig kön längre än sin tidsgräns, och två serverinstanser kör aldrig två jobb för samma användare samtidigt.
 
 ### Additional Requirements
 
@@ -113,6 +120,13 @@ Från arkitekturen (`ARCHITECTURE-SPINE.md`):
   - `ensure_pantry_defaults()`;
   - en migrering till "Hemma" som bara lägger till;
   - `revalidateFor('pantry_site')`.
+- (Epic 12) AI-jobb och kön (AD-28):
+  - modulen `ai-jobs` äger `ai_job`, med högst ett jobb som körs per användare (partiellt unikt index);
+  - `enqueue_ai_job`, `claim_ai_job`, `set_ai_job_result`, `finish_ai_job`, `cancel_ai_job`, `mark_ai_job_seen` och `dismiss_ai_job`;
+  - `POST /api/ai/jobs` och `/api/ai/jobs/photo` med `maxDuration = 300`, jobbet i `after()` med egen signal och tidsgräns, indata bara i minnet;
+  - pollning med `GET /api/ai/jobs` och `src/lib/ai-jobs-client.ts`, ingen Supabase-klient i webbläsaren;
+  - `warmUp` och strömmande `suggestDishes` i porten (AD-9), kompakt svar för förslagen (AD-10);
+  - säkerhetskopian utesluter `ai_job` (AD-23).
 
 ### UX Design Requirements
 
@@ -144,6 +158,9 @@ Från `DESIGN.md` och `EXPERIENCE.md`:
 - UX-DR26 (Epic 11): Receptkort med bilden överst och statusetiketten och hjärtat på bilden (en kolumn i mobilen, två från 1024 px), rättkort med 56 px bild, "6 av 8 hemma" och mätare, och "Visa inköpslistan" längst ned i Matsedel, enligt `mockups/matkoll-mobil.html`.
 - UX-DR27 (Epic 11): Matkoll på hemskärmen: appikonen (morot), helskärm med appens bakgrund bakom statusraden, tillbakaknappar, inloggning med koden och raden om hemskärmen i Inställningar.
 - UX-DR28 (Epic 11): Texter enligt EXPERIENCE.md, Voice and Tone och State Patterns för Epic 11 ("Tillagd …", "Tog bort …", "8 varor kvar", "Saknas i Stugan", "Egen vara", "Allt ligger i korgen", "Koden stämmer inte eller har gått ut. Skicka en ny länk."). Emoji bara i kategoriplattorna.
+- UX-DR29 (Epic 12): Jobbraden ovanför flikfältet (överst i sidomenyn på dator) med "AI: Tittar på fotot av kylen · 2 i kö", och arket AI-jobb med varje jobbs läge, "Avbryt" och "Visa", enligt `EXPERIENCE.md` och `DESIGN.md` (`job-row`).
+- UX-DR30 (Epic 12): Flikmärket i `{colors.accent}` på Recept och Lagersaldo med antalet osedda AI-resultat (`tab-badge`), och den korta bekräftelsen med "Visa" i 8 s för ett klart jobb, utan bekräftelse på resultatets egen sida.
+- UX-DR31 (Epic 12): Texter och tillstånd för AI-jobb enligt EXPERIENCE.md, Voice and Tone och State Patterns: "Du kan göra annat under tiden.", "I kö, 1 före.", "3 rättförslag är klara.", "Det finns redan tre AI-jobb. Vänta tills ett är klart.", "AI-jobbet avbröts. Försök igen.", "Resultatet finns inte längre.", "Förslagen bygger på lagret för Hemma." och "Letar efter fler …".
 
 ### FR Coverage Map
 
@@ -188,6 +205,12 @@ Från `DESIGN.md` och `EXPERIENCE.md`:
 - FR42: Epic 11 – märke och tid på lagervaran (11.2, visas i 11.3)
 - FR43: Epic 11 – inköpslistan i butiken (11.4)
 - FR44: Epic 11 – Matkoll på hemskärmen (11.6)
+- FR45: Epic 12 – snabbare AI, mätt före och efter (12.1, 12.2, 12.3)
+- FR46: Epic 12 – AI-jobb i bakgrunden (12.4, och per flöde i 12.5 och 12.6)
+- FR47: Epic 12 – kön och jobbraden (12.4)
+- FR48: Epic 12 – besked när ett resultat är klart (12.4)
+- FR49: Epic 12 – inaktuella resultat (12.4 för förslag, 12.5 för foton)
+- FR50: Epic 12 – första rätten direkt (12.7)
 
 ## Epic List
 
@@ -230,6 +253,10 @@ Tillägg till 1.1. Det senaste fotot av varje plats sparas privat när det har l
 ### Epic 11: Nytt utseende
 Tillägg till 1.1. Matkoll ser ut och känns som en app i mobilen, enligt tre skisser som Pontus godkände: varorna i kategorier med ikon, Lagersaldo utan mängder men med märke eller tid och en soptunna, en inköpslista med framsteg och "I korgen", kort i Recept och Matsedel, och Matkoll på hemskärmen med inloggning med kod.
 **FRs covered:** FR40, FR41, FR42, FR43, FR44, NFR12 (och ändringar av FR1, FR12, FR13 och FR16)
+
+### Epic 12: Snabbare och asynkron AI
+Tillägg till 1.1. AI-flödena mäts och snabbas upp, och bildanalys, AI-förslag och receptimport körs som AI-jobb i bakgrunden, ett i taget i en kö. Pontus kan fortsätta i appen och får en kort bekräftelse och ett märke på fliken när ett resultat är klart. Inget från AI sparas utan Pontus bekräftelse.
+**FRs covered:** FR45, FR46, FR47, FR48, FR49, FR50, NFR13 (och ändringar av NFR7, FR3, FR4, FR23 och FR24)
 
 ## Epic 1: Receptimport och receptbibliotek
 
@@ -1649,3 +1676,203 @@ så att den känns som en riktig app i mobilen.
 **Givet** en riktig iPhone
 **När** Pontus lägger Matkoll på hemskärmen och öppnar den
 **Så** öppnas appen i helskärm med moroten som ikon och appens bakgrund bakom statusraden, i ljust och mörkt läge (Flöde 9, manuellt prov)
+
+## Epic 12: Snabbare och asynkron AI
+
+Tillägg till 1.1. Pontus skrev 2026-10-26: "Vi borde få till prestandan i qwen kommandona om det går. Kanske göra dem asynkrona om det går, och att man kan fortsätta klicka runt i appen och göra fler asynkrona anrop som ramlar in när dom är klara. Om det inte riskerar ngt." Pontus godkände planen ("ja planera det så"): först fart, mätt före och efter, sedan AI-jobb i bakgrunden, ett i taget i en kö. Epic 12 byggs efter Epic 11. Arkitekturen står i AD-28 och i tillägg till AD-1, AD-2, AD-4, AD-9, AD-10, AD-13, AD-14, AD-15, AD-18, AD-23 och AD-26. Storyna byggs i ordning. Mätningarna i 12.1, 12.2, 12.3 och 12.7 görs mot LM Studio på Pontus Mac, och siffrorna skrivs i `docs/lm-studio.md`, T5, T6 och beslutsloggen. Inget från AI sparas utan Pontus bekräftelse.
+
+### Story 12.1: Mät AI-tiderna och ställ in LM Studio
+
+Som Pontus,
+vill jag veta hur lång tid varje AI-flöde tar och vilka inställningar i LM Studio som går snabbast,
+så att varje förbättring kan mätas före och efter.
+
+**Acceptance Criteria:**
+
+**Givet** utvärderingen (`pnpm eval:ai`)
+**När** den körs mot LM Studio
+**Så** mäter den varje flöde (bildanalys med nummer, AI-förslag, import av text och länk) med kall modell (efter minst 15 minuter utan anrop) och varm modell, och rapporten har tid, token in och ut och token per sekund per körning (FR45)
+
+**Givet** LM Studio med PARALLEL 4 och med PARALLEL 1
+**När** flödena körs ett i taget, som kön kommer att köra dem, och två samtidigt
+**Så** visar rapporten tiderna för båda, och spekulativ avkodning (`--speculative-draft-mtp`) är prövad om modellen stöder den
+
+**Givet** mätningen
+**När** den är klar
+**Så** finns `docs/lm-studio.md` med de uppmätta tiderna, de rekommenderade inställningarna (samtidiga anrop, kontext, TTL, spekulativ avkodning) och kommandot för att ladda modellen så, och LM Studio har samma inställningar som före mätningen
+
+**Givet** att bygget ändrar LM Studio för att mäta
+**När** det görs
+**Så** skrivs inställningarna ned före (`lms ps`), och de återställs efteråt
+
+### Story 12.2: Väck modellen i förväg
+
+Som Pontus,
+vill jag att modellen redan är vaken när jag tar ett foto eller ber om förslag,
+så att det första anropet inte tar tre gånger så lång tid.
+
+**Acceptance Criteria:**
+
+**Givet** att Pontus öppnar Lagersaldo eller Recept
+**När** sidan visas
+**Så** anropar klienten `POST /api/ai/warm` med `image` eller `text`, högst en gång per sort och fem minuter, servern svarar direkt (202), och AI-porten skickar i bakgrunden ett anrop med flödets systemprompt, minimal indata och `maxOutputTokens: 1` (FR45, AD-9)
+
+**Givet** att ett AI-anrop eller AI-jobb redan pågår för Pontus
+**När** väckningen begärs
+**Så** görs inget
+
+**Givet** `AI_PROVIDER=mock`, `anthropic` eller `openai`
+**När** väckningen begärs
+**Så** anropas ingen modell
+
+**Givet** mätningen från 12.1 med kall modell
+**När** det första riktiga anropet görs efter väckningen
+**Så** är det minst 20 % snabbare än utan väckning, annars tas väckningen bort och beslutet loggas
+
+### Story 12.3: Kortare svar för AI-förslag
+
+Som Pontus,
+vill jag att AI-förslagen kommer fortare,
+så att jag inte väntar en och en halv minut på tre rätter.
+
+**Acceptance Criteria:**
+
+**Givet** `suggestDishes`
+**När** modellen tillfrågas
+**Så** svarar den med det kompakta schemat (receptrad med `text`, `amount`, `unit`, `name`, `stepIndexes`, och `new` bara för varor som inte finns i lagret), och porten gör om svaret till `AiRecipe` så att förhandsgranskningen och sparandet är oförändrade (FR45, AD-10)
+
+**Givet** utvärderingen `tests/eval/suggest-dishes.eval.ts` före och efter
+**När** den körs mot LM Studio med varm modell
+**Så** ger svaret minst 25 % färre token, medianen är högst 40 s, och lika många förslag är giltiga och använder minst två varor från lagret
+
+**Givet** att målet inte nås med tre rätter
+**När** mätningen visar det
+**Så** prövas färre rader och steg per rätt, och valet och siffrorna står i beslutsloggen
+
+### Story 12.4: AI-jobb i kö, med AI-förslag först
+
+Som Pontus,
+vill jag kunna be om rättförslag och fortsätta använda appen medan AI:n arbetar,
+så att jag inte behöver vänta vid en snurra.
+
+**Acceptance Criteria:**
+
+**Givet** migrationen för `ai_job`
+**När** den körs
+**Så** finns tabellen med RLS, grants, det partiella unika indexet för `running` och Postgres-funktionerna i AD-28, och RLS-testerna visar att en annan användare varken kan läsa, avbryta eller ta över ett jobb (AD-4, AD-28, NFR13)
+
+**Givet** "Föreslå rätter med AI"
+**När** Pontus trycker
+**Så** svarar `POST /api/ai/jobs` inom en sekund med jobbet, Recept visar "Letar efter idéer … Du kan göra annat under tiden." och "Avbryt", jobbraden visas, och förslagen körs i bakgrunden (FR46)
+
+**Givet** ett jobb som pågår
+**När** Pontus går till Inköpslista
+**Så** säger en kort bekräftelse "3 rättförslag är klara." med "Visa" när förslagen är klara, och Recept får märket 1, som försvinner när förslagen har visats (FR48, UX-DR30)
+
+**Givet** tre aktiva jobb
+**När** Pontus startar ett fjärde
+**Så** visas "Det finns redan tre AI-jobb. Vänta tills ett är klart." och inget startas (FR47)
+
+**Givet** två jobb
+**När** de körs
+**Så** körs de ett i taget, jobbraden säger "· 1 i kö", och "Avbryt" fungerar både för jobbet i kö och för det som pågår, också från en annan flik (FR47, UX-DR29)
+
+**Givet** ett jobb vars server dör
+**När** dess tidsgräns har gått
+**Så** visas "AI-jobbet avbröts. Försök igen.", och nästa jobb i kö startar
+
+**Givet** att Pontus byter valt ställe medan förslagen tas fram
+**När** de visas
+**Så** står "Förslagen bygger på lagret för Hemma." och "Föreslå igen" över dem (FR49)
+
+**Givet** ett dubbeltryck eller ett nytt försök med samma nyckel
+**När** jobbet startas
+**Så** finns ett jobb, inte två
+
+**Givet** jobbet och loggarna
+**När** de granskas
+**Så** finns inget lager, ingen recepttext och inget foto i `ai_job.context` eller i loggarna, bara felkoder, sorter, antal och jobbets id (NFR13)
+
+### Story 12.5: Bildanalys i bakgrunden
+
+Som Pontus,
+vill jag kunna fotografera kylen och sedan frysen direkt, och göra annat medan fotona tolkas,
+så att jag kan inventera hela köket i ett svep.
+
+**Acceptance Criteria:**
+
+**Givet** ett foto av kylen
+**När** Pontus tar det
+**Så** svarar `POST /api/ai/jobs/photo` inom en sekund, Lagersaldo visar "Tittar på bilden … Du kan göra annat under tiden." och "Avbryt", och Pontus kan fotografera frysen direkt, som hamnar i kö (FR46, FR47)
+
+**Givet** att avläsningen är klar
+**När** jobbet fortsätter med numren
+**Så** visas korten direkt, numren kommer när de är klara, och nästa jobb i kö startar först efter numren (högst 30 s till) (AD-28)
+
+**Givet** ett nytt foto av samma plats på samma ställe
+**När** det förra är i kö, pågår eller väntar på bekräftelse
+**Så** ersätts det förra, som aldrig visas och inte ger någon bekräftelse (FR49)
+
+**Givet** ett resultat för kylen
+**När** Pontus öppnar det efter att ha ändrat i kylen
+**Så** jämförs avläsningen med kylen som den är nu ("Nytt", "Ändrat", "Syns inte längre"), och förslagen gäller fotots ställe med "Förslagen gäller Stugan." när ett annat ställe är valt (FR49, AD-24)
+
+**Givet** fotot och jobbet
+**När** jobbet väntar och körs
+**Så** finns fotot bara i serverns minne och i klientens minne, aldrig i `ai_job`, på disk eller i loggar, och efter en omladdning fungerar korten men inget senaste foto sparas (AD-15, AD-26, NFR13)
+
+**Givet** låset i `ai-runs.ts` och rutterna `/api/ai/analyze` och `/api/ai/locate`
+**När** storyn är klar
+**Så** är de borttagna, och kön är den enda regeln för att modellen kör ett jobb i taget
+
+### Story 12.6: Receptimport i bakgrunden
+
+Som Pontus,
+vill jag kunna läsa in flera recept efter varandra och stänga arket medan de läses,
+så att jag kan samla recept utan att vänta på vart och ett.
+
+**Acceptance Criteria:**
+
+**Givet** arket Importera recept med en länk, en text eller ett foto
+**När** Pontus trycker "Läs in"
+**Så** svarar servern inom en sekund, arket visar "Läser receptet … Du kan göra annat under tiden.", och Pontus kan stänga arket eller läsa in nästa recept (FR46)
+
+**Givet** en länk från en domän som inte är godkänd, eller en text som är för lång
+**När** Pontus trycker "Läs in"
+**Så** visas felet direkt, och inget jobb startas
+
+**Givet** att ett recept är inläst
+**När** Pontus är på en annan sida
+**Så** säger en kort bekräftelse "Receptet Krämig kycklinggryta är inläst." med "Visa", Recept får märket 1, och "Visa" öppnar förhandsgranskningen (FR48)
+
+**Givet** ett foto av en kokbokssida
+**När** det står i kö och körs
+**Så** finns fotot bara i serverns minne, och aldrig i `ai_job` eller i loggar (AD-15, NFR13)
+
+**Givet** rutterna `/api/ai/import` och `/api/ai/import/photo`
+**När** storyn är klar
+**Så** är de borttagna
+
+### Story 12.7: Första rätten direkt
+
+Som Pontus,
+vill jag se den första rätten så fort den är klar,
+så att jag kan börja läsa medan de andra tas fram.
+
+**Acceptance Criteria:**
+
+**Givet** ett prov mot LM Studio med `streamText`, `Output.array` och det kompakta schemat från 12.3
+**När** det körs
+**Så** visar provet om varje rätt kommer innan svaret är klart, och utfallet står i T8 och beslutsloggen. Kommer den inte före, avslutas storyn med mätningen och utan strömning (FR50)
+
+**Givet** att strömningen fungerar
+**När** Pontus ber om förslag
+**Så** visas varje rätt så fort den är klar, med "Letar efter fler …" och "Avbryt" sist, och en ny rätt annonseras för skärmläsare (FR50, UX-DR31)
+
+**Givet** en rätt som inte håller (fel schema, en titel att undvika, för få varor från lagret)
+**När** den kommer
+**Så** visas den aldrig, och jobbet är klart med de rätter som höll, eller gör ett nytt försök när ingen höll
+
+**Givet** mätningen med varm modell
+**När** den körs tre gånger
+**Så** syns den första rätten efter högst 40 % av tiden för alla tre

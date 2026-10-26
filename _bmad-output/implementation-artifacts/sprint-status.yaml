@@ -29,7 +29,7 @@
 # - Dev moves story to 'review', then runs code-review (fresh context, different LLM recommended)
 # - Retrospective appends its action items to action_items; the status view surfaces open ones
 generated: 10-25-2026 18:16
-last_updated: 10-26-2026 22:00
+last_updated: 10-26-2026 23:30
 project: Matkoll
 project_key: NOKEY
 tracking_system: file-system
@@ -115,3 +115,13 @@ development_status:
   11-5-recept-och-matsedel-i-nytt-utseende: backlog
   11-6-matkoll-på-hemskärmen: backlog
   epic-11-retrospective: optional
+
+  epic-12: backlog
+  12-1-mät-ai-tiderna-och-ställ-in-lm-studio: backlog
+  12-2-väck-modellen-i-förväg: backlog
+  12-3-kortare-svar-för-ai-förslag: backlog
+  12-4-ai-jobb-i-kö-med-ai-förslag-först: backlog
+  12-5-bildanalys-i-bakgrunden: backlog
+  12-6-receptimport-i-bakgrunden: backlog
+  12-7-första-rätten-direkt: backlog
+  epic-12-retrospective: optional

@@ -287,6 +287,16 @@ components:
   app-icon:
     background: '{colors.bg}'
     motif: 'morot i {colors.accent} och sand'
+  job-row:
+    background: '{colors.surface}'
+    text: '{colors.ink-2}'
+    border: '{colors.hairline}'
+    min-height: '{spacing.tap-min}'
+  tab-badge:
+    background: '{colors.accent}'
+    text: '{colors.surface}'
+    font: '{typography.badge}'
+    radius: '{rounded.full}'
 ---
 
 ## Brand & Style
@@ -405,6 +415,11 @@ Från Epic 11 (skisserna ovan):
 - **Receptkort** (`recipe-card`): ett vitt kort med bilden överst i full bredd och `{spacing.card-image}` hög, och titeln och "35 min · 4 portioner" under. Statusetiketten ligger nere till vänster på bilden och hjärtat nere till höger, båda på en ljus platta (`image-badge`, `{colors.surface}` till 92 %) så att de syns på alla bilder. Ett recept utan bild får platshållaren i mint som förut.
 - **Rättkort** (`dish-card`): ett vitt kort med en bild på `{spacing.dish-thumb}`, titeln, raden "6 av 8 hemma" och en liten mätare. Portionsväljaren står under.
 - **Appikon** (`app-icon`): en morot i accent och sand på `{colors.bg}`, med iPhones egna rundade hörn. Ingen text i ikonen.
+
+Från Epic 12 (AI i bakgrunden):
+
+- **Jobbrad** (`job-row`): en vit remsa i full bredd direkt ovanför flikfältet, med en hårfin linje överst, minst `{spacing.tap-min}` hög. Texten "AI: Tittar på fotot av kylen · 2 i kö" i `{typography.meta}` och `{colors.ink-2}`, avkortad med "…", och en liten pil till höger. En lugn, pulserande prick i `{colors.accent}` till vänster visar att något pågår; med "Minska rörelse" står pricken still. På dator ligger raden överst i sidomenyn.
+- **Flikmärke** (`tab-badge`): en rund etikett i `{colors.accent}` med siffran i `{colors.surface}`, minst 18 px, uppe till höger på flikens ikon. Aldrig rött. Över 9 står "9+".
 
 ## Do's and Don'ts
 

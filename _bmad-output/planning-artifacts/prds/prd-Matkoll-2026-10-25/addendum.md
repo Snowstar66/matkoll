@@ -361,3 +361,120 @@ Inga nya. SM-2 (inköpslistan på under 10 minuter) och SM-3 (hela veckan i appe
 | pantry_removal | `removed_rows` tar också med `label` och `created_at` | – |
 
 Kategorierna sparas inte. Detaljerna står i arkitekturens AD-12, AD-19, AD-20 och AD-27.
+
+## Tillägg till 1.1: Snabbare och asynkron AI (Epic 12)
+
+Beslutat av Pontus 2026-10-26: "Vi borde få till prestandan i qwen kommandona om det går. Kanske göra dem asynkrona om det går, och att man kan fortsätta klicka runt i appen och göra fler asynkrona anrop som ramlar in när dom är klara. Om det inte riskerar ngt." Pontus godkände planen ("ja planera det så"): först fart, mätt före och efter, sedan AI-anrop som körs i bakgrunden. Underlag: kursändringen `_bmad-output/planning-artifacts/sprint-change-proposal-2026-10-26-asynkron-ai.md`. Byggs som Epic 12, efter Epic 11 och före Epic 9. Kraven i `prd.md` och i de tidigare avsnitten gäller som förut, med de ändringar som står nedan.
+
+Numren fortsätter efter Epic 11 (FR-44, NFR-12, UJ-9). FR-34–FR-36, NFR-10 och UJ-7 är reserverade för Epic 9.
+
+### Mål
+
+AI-flödena går fortare, och de låser inte appen. Pontus startar en bildanalys, ett AI-förslag eller en receptimport och kan fortsätta i appen medan AI:n arbetar. Resultaten kommer när de är klara, ett jobb i taget, och inget sparas utan att Pontus bekräftar.
+
+**Användarresa UJ-10. Kylen, frysen och ett recept på en gång.** Lördag förmiddag fotograferar Pontus kylen i Lagersaldo. "Tittar på bilden … Du kan göra annat under tiden." Pontus väljer Frys och fotograferar frysen. Jobbraden säger "AI: Tittar på fotot av kylen · 1 i kö". Pontus går till Recept och klistrar in en länk från koket.se. "2 i kö". Efter en halv minut säger en kort bekräftelse "14 förslag från fotot av kylen är klara." med "Visa", och Lagersaldo får märket 1. Pontus läser klart receptet först, går sedan till Lagersaldo och bekräftar förslagen. Frysens förslag och receptet kommer efter varandra. **Kantfall:** Pontus fotograferar kylen igen innan det första fotot är klart. Det första jobbet ersätts och visas aldrig.
+
+### Ordlista (tillägg)
+
+- **AI-jobb:** en bildanalys, ett AI-förslag eller en receptimport som körs i bakgrunden. Ett jobb är i kö, pågår, är klart, gick inte, är avbrutet eller är ersatt.
+- **Kö:** de AI-jobb som väntar på sin tur. Matkoll kör ett jobb i taget.
+- **Inaktuellt resultat:** ett resultat som gäller något som har ändrats sedan jobbet startade, till exempel ett annat valt ställe.
+
+### Nya krav
+
+#### FR-45: Snabbare AI, mätt före och efter
+
+AI-flödena går fortare, och varje förbättring är mätt före och efter mot LM Studio på Pontus Mac.
+
+**Konsekvenser (testbara):**
+- Utvärderingen (`pnpm eval:ai`) mäter varje flöde med kall och varm modell och skriver tiderna i en rapport. Mätningen finns i `docs/lm-studio.md`, med rekommenderade inställningar för LM Studio (samtidiga anrop, kontext, TTL och spekulativ avkodning).
+- När Pontus öppnar Lagersaldo eller Recept väcks modellen i bakgrunden, högst en gång per fem minuter, och aldrig medan ett AI-jobb pågår. Väckningen finns bara kvar om mätningen visar att det första anropet blir minst 20 % snabbare.
+- AI-förslagen ber om ett kortare svar. Målet är minst 25 % färre token och högst 40 s i median med varm modell, med lika bra förslag i utvärderingen.
+
+#### FR-46: AI-jobb i bakgrunden
+
+Pontus kan starta en bildanalys, ett AI-förslag eller en receptimport och fortsätta använda appen medan AI:n arbetar.
+
+**Konsekvenser (testbara):**
+- Att starta ett jobb svarar inom en sekund. Det som går att kontrollera utan AI (indata, stället, ett tomt lager, en länk som inte är godkänd) ger fel direkt, innan jobbet startar.
+- Pontus kan byta sida, stänga arket och ladda om appen utan att jobbet stoppas. Efter en omladdning visas jobben och resultaten igen.
+- Resultatet sparas privat tills Pontus har stängt eller sparat det, och högst 24 timmar.
+- Pontus kan avbryta ett jobb i kö eller ett som pågår.
+
+#### FR-47: Kön
+
+AI-jobben körs ett i taget, i den ordning de startades.
+
+**Konsekvenser (testbara):**
+- Pontus kan ha högst tre aktiva jobb: ett som pågår och två i kö. Ett fjärde ger "Det finns redan tre AI-jobb. Vänta tills ett är klart."
+- När något jobb är aktivt visar en jobbrad på alla sidor vad som pågår och hur många som står i kö ("AI: Tittar på fotot av kylen · 2 i kö"). Ett tryck visar alla jobb.
+- Kön gäller alla flikar och enheter där Pontus är inloggad.
+- Ett jobb som inte hinner börja inom sin tidsgräns, eller vars körning har avbrutits av servern, visas som avbrutet med "Försök igen" och stoppar aldrig kön.
+- Ett dubbeltryck eller ett nytt försök efter ett nätfel ger aldrig två jobb. Ett nytt AI-förslag när ett redan pågår visar det som pågår.
+
+#### FR-48: Besked när ett resultat är klart
+
+Pontus får veta när ett resultat är klart, också på en annan sida.
+
+**Konsekvenser (testbara):**
+- En kort bekräftelse säger vad som är klart, med "Visa": "3 rättförslag är klara.", "14 förslag från fotot av kylen är klara.", "Receptet Krämig kycklinggryta är inläst." Ett jobb som inte gick säger det: "Det gick inte att läsa receptet."
+- Fliken där resultatet visas (Recept för förslag och import, Lagersaldo för bildanalys) får ett märke med antalet klara resultat som Pontus inte har sett. Märket försvinner när resultatet har visats, på alla enheter.
+- Är Pontus redan på sidan där resultatet visas, visas resultatet direkt utan kort bekräftelse.
+
+#### FR-49: Inaktuella resultat
+
+Ett resultat som har blivit inaktuellt sparas aldrig utan att Pontus ser det.
+
+**Konsekvenser (testbara):**
+- Inget från AI sparas automatiskt. Pontus bekräftar lagerförslag och sparar recept som förut.
+- Ett nytt foto av samma plats på samma ställe ersätter ett äldre som är i kö eller pågår. Det äldre visas aldrig och ger ingen bekräftelse.
+- Förslag från ett foto gäller det ställe som fotot togs för, också om Pontus har valt ett annat ställe (FR-33), och visas med "Förslagen gäller Stugan.".
+- AI-förslag som togs fram för ett annat ställe än det valda visas med "Förslagen bygger på lagret för Hemma." och "Föreslå igen".
+- Jämförelsen med platsens varor ("Nytt", "Ändrat", "Syns inte längre") görs mot lagret som det är när Pontus öppnar resultatet.
+
+#### FR-50: Första rätten direkt
+
+AI-förslagen visas en rätt i taget, så snart varje rätt är klar.
+
+**Konsekvenser (testbara):**
+- Den första rätten syns innan de andra är klara, med "Letar efter fler …" under.
+- En rätt som inte håller (fel schema, en titel som ska undvikas, för få varor från lagret) visas aldrig. Minst en giltig rätt räcker för ett klart jobb.
+- Kravet gäller bara om LM Studio kan strömma ett svar med JSON-schema (prövas först). Annars visas alla rätter på en gång.
+
+#### NFR-13: Integritet och tålighet för AI-jobb
+
+- Jobben är privata: bara ägaren kan läsa, starta, avbryta och ta bort dem, och det visas med RLS-tester.
+- Ett foto eller en inklistrad recepttext sparas aldrig i ett jobb, på disk eller i loggar. Fotot finns bara i serverns minne medan jobbet väntar och körs. Loggar har bara felkoder, sorter, antal och jobbets id.
+- Jobbens rader tas aldrig med i säkerhetskopian.
+- Ett jobb vars server dör stoppar aldrig kön längre än jobbets tidsgräns (högst fem minuter).
+- Två serverinstanser kör aldrig två jobb för samma användare samtidigt.
+
+### Ändrade konsekvenser för befintliga krav
+
+| Krav | Med Epic 12 |
+| --- | --- |
+| NFR-7 | Receptimport, bildanalys och AI-förslag körs som AI-jobb. Att starta ett jobb svarar inom en sekund, och resten av appen går att använda medan det körs. Förloppet syns i jobbraden, och jobbet går att avbryta där eller i flödet. |
+| FR-3, FR-4 | Inläsningen fortsätter när arket stängs. Pontus kan läsa in flera recept efter varandra, och förhandsgranskningen öppnas med "Visa". |
+| FR-23 | Förslagen kommer en rätt i taget (FR-50) och kan tas fram medan Pontus gör annat. |
+| FR-24 | Analysen fortsätter när Pontus lämnar Lagersaldo, och flera platser kan fotograferas efter varandra. Numren på fotot (6.6) är en del av samma jobb. |
+
+### Effektmål
+
+Inga nya. SM-2 (inköpslistan på under 10 minuter) och SM-3 (hela veckan i appen) gynnas av att AI-flödena inte låser appen. SM-C2 gäller som förut: AI-resultat kräver fortfarande Pontus bekräftelse.
+
+### Utanför Epic 12
+
+- Pushaviseringar och besked när appen är stängd (kräver en service worker, AD-27).
+- En annan modell, en annan dator eller en molnleverantör för AI (öppen fråga 3).
+- Jobb som lever längre än en servers tak (Vercel Workflows, en extern kö) och jobb som körs vidare utan förfrågan.
+- Flera samtidiga jobb mot modellen.
+- Att spara ett jobbs indata, till exempel för att köra om det senare.
+- Strömning av bildanalysen och importen.
+
+### Datamodell (tillägg)
+
+| Tabell | Innehåll | Kopplas till |
+| --- | --- | --- |
+| ai_job | Sort, läge, nyckel mot dubbla jobb, sammanhang (ställe och plats, källa), resultat eller felkod, tider (skapad, startad, klar, sista tid och sett) | – |
+
+Indata sparas aldrig. Detaljerna står i arkitekturens AD-28.

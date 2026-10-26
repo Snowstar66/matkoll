@@ -11,6 +11,7 @@ sources:
   - _bmad-output/planning-artifacts/sprint-change-proposal-2026-10-26-spara-foto.md (Epic 10)
   - _bmad-output/planning-artifacts/sprint-change-proposal-2026-10-26-nytt-utseende.md (Epic 11)
   - _bmad-output/planning-artifacts/ux-designs/ux-Matkoll-2026-10-25/mockups/ (Epic 11)
+  - _bmad-output/planning-artifacts/sprint-change-proposal-2026-10-26-asynkron-ai.md (Epic 12)
 ---
 
 # Matkoll – upplevelse
@@ -22,6 +23,8 @@ Den här filen och `DESIGN.md` gäller före skisserna i `docs/ux/skisser/` när
 Matkoll är en webbapp, mobil först (från 375 px), som också fungerar på dator. Ingen native app. Inget komponentbibliotek; komponenterna byggs från tokens i `DESIGN.md` (teknikvalet står i `docs/autonomi.md`). Gränssnittet är på svenska och används av en person, Pontus. Ljust och mörkt läge följer systemets inställning.
 
 **Nytt utseende (Epic 11).** Pontus godkände tre skisser 2026-10-26 (länkade under Brand & Style i `DESIGN.md`). De visar målet för Recept, Matsedel, Inköpslista och Lagersaldo i mobilen. Det är fortfarande en och samma responsiva webbapp, men den kan läggas på hemskärmen och öppnas i helskärm som en app. Vid konflikt med en skiss gäller den här filen och `DESIGN.md`. Namnen Lagersaldo och Inköpslista kommer från Story 10.4.
+
+**AI i bakgrunden (Epic 12).** Bildanalys, AI-förslag och receptimport är AI-jobb. Pontus startar ett jobb och kan göra annat medan AI:n arbetar. Jobben körs ett i taget, i den ordning de startades. En jobbrad visar vad som pågår, en kort bekräftelse säger till när något är klart, och fliken där resultatet visas får ett märke. Inget från AI sparas utan att Pontus bekräftar, som förut.
 
 Begreppen följer PRD:ns ordlista (§3) ordagrant: recept, receptbibliotek, matsedel, matsedelsrätt, inköpslista, listpost, lager, lagervara, plats, stegläge, AI-förslag, lagerförslag med flera. Från version 1.1 kommer **ställe** och **valt ställe** från addendumet ("Version 1.1: Flera ställen"). Ett ställe (Hemma, Stugan) har platserna Kyl, Frys och Skafferi, och ordet "plats" betyder fortfarande bara dem.
 
@@ -57,6 +60,8 @@ Begreppen följer PRD:ns ordlista (§3) ordagrant: recept, receptbibliotek, mats
 | I korgen (Epic 11) | Längst ned i Inköpslistan, när något är avbockat | Det som redan ligger i korgen, hopfällt | FR-43 | I korgen |
 | Inloggning med kod (Epic 11) | Inloggningssidan, efter "Skicka länk" | Logga in med koden från mejlet, också i appen på hemskärmen | FR-1, FR-44 | Flöde 9 |
 | Matkoll på hemskärmen (Epic 11) | Safaris "Dela" → "Lägg till på hemskärmen"; en rad i Inställningar förklarar det | Öppna Matkoll i helskärm med egen ikon | FR-44 | Flöde 9 |
+| Jobbrad (Epic 12) | Ovanför flikfältet (mobil), överst i sidomenyn (dator), på alla sidor när ett AI-jobb är i kö eller pågår | Se vad AI:n arbetar med och hur många som står i kö | FR-47 | Jobbrad, Flöde 10 |
+| AI-jobb (ark, Epic 12) | Tryck på jobbraden | Alla aktiva och klara jobb med läge, "Avbryt" och "Visa" | FR-46, FR-47, FR-48 | AI-jobb (ark), Flöde 10 |
 
 Ytor utan skiss (Matsedel, Stegläge, ark, inställningar och mörkt läge) byggs från tabellerna här och komponenterna i `DESIGN.md`.
 
@@ -100,6 +105,16 @@ Matkoll skriver aldrig att Pontus *är* på ett ställe, bara vilket lager som g
 | "Senaste foto av kylen: idag 15:42" | "Din senaste kylbild 📷" |
 | "AI:n läste av:" | "Det här såg AI:n" |
 | "Ta bort fotot av kylen? Det går inte att ångra." | "Är du säker?" |
+
+**AI-jobb (Epic 12):** jobbet heter efter vad det gäller, inte efter tekniken: "fotot av kylen", "rättförslag", "receptet från koket.se", "receptet från fotot", "receptet från texten". Läget skrivs "I kö", "1 före", "Pågår", "Klart", "Gick inte" och "Avbrutet". Klara jobb säger vad som finns ("3 rättförslag är klara.", "14 förslag från fotot av kylen är klara.", "Receptet Krämig kycklinggryta är inläst."). Ordet "jobb" används bara i jobbraden och arket ("AI-jobb"), aldrig i en bekräftelse.
+
+| Gör | Gör inte |
+| --- | --- |
+| "AI: Tittar på fotot av kylen · 2 i kö" | "2 asynkrona anrop väntar" |
+| "3 rättförslag är klara." + "Visa" | "Ditt jobb är klart! 🎉" |
+| "Tittar på bilden … Du kan göra annat under tiden." | "Vänta, bearbetar …" |
+| "Det finns redan tre AI-jobb. Vänta tills ett är klart." | "Kön är full (429)" |
+| "Förslagen bygger på lagret för Hemma." | "Inaktuellt resultat" |
 
 ## Component Patterns
 
@@ -145,6 +160,13 @@ Beteende. Utseendet beskrivs under Components i `DESIGN.md`, med samma namn och 
 | Rättkort (Epic 11) | Matsedel | Som Matsedelsrätt: bild, titel, "6 av 8 hemma" (eller "Allt finns hemma") och mätaren, och portionsväljaren under. "Visa inköpslistan" längst ned i Matsedel går till Inköpslistan. |
 | Tillbakaknapp (Epic 11) | Receptvy, tidigare matsedel, Inställningar | En synlig "Tillbaka" (pil och text) överst på varje sida under en flik, eftersom appen på hemskärmen inte har webbläsarens bakåtknapp. |
 | Inloggning med kod (Epic 11) | Inloggning | Efter "Skicka länk" står "Vi har skickat en länk och en kod till din e-post." och fältet "Kod från mejlet" (sex siffror, `inputmode="numeric"`, `autocomplete="one-time-code"`) med knappen "Logga in". Länken fungerar som förut. Fel kod eller gammal kod: "Koden stämmer inte eller har gått ut. Skicka en ny länk." Samma svar för alla adresser. |
+| Jobbrad (Epic 12) | Alla | Visas när minst ett AI-jobb är i kö eller pågår: "AI: Tittar på fotot av kylen · 2 i kö" (utan kö bara "AI: Tittar på fotot av kylen"). Texten för det som pågår: "Tittar på fotot av kylen", "Letar efter rättförslag", "Läser receptet från koket.se". Ett tryck öppnar arket AI-jobb. Raden försvinner när inget är aktivt. Den annonseras inte vid varje pollning, bara när ett jobb startar ("AI-jobbet står i kö.") via live-regionen. Namn för skärmläsare: "AI-jobb: Tittar på fotot av kylen, 2 i kö". |
+| AI-jobb (ark, Epic 12) | Alla | Rubriken "AI-jobb". En rad per jobb, nyast överst: vad det gäller och läget ("Pågår", "I kö, 1 före", "Klart", "Gick inte", "Avbrutet"). Ett jobb i kö eller som pågår har "Avbryt" (utan fråga: det går att starta igen). Ett klart jobb har "Visa", som stänger arket och öppnar resultatet. Ett jobb som inte gick har texten från felet och "Försök igen" när det går (inte för ett foto efter en omladdning). Stängs som andra ark. |
+| Flikmärke (Epic 12) | Flikfält, sidomeny | En liten accentfärgad rund etikett med siffra på fliken Recept (klara AI-förslag och importer) och Lagersaldo (klara bildanalyser), med antalet klara jobb som Pontus inte har sett, också de som inte gick. Visas inte på den flik Pontus står på. Ett resultat räknas som sett när det har visats på sin sida. Märket uppdateras på alla enheter vid nästa pollning. Fliken läses "Recept, 1 nytt AI-resultat". Bara för AI-jobb. |
+| Kort bekräftelse för klart jobb (Epic 12) | Alla | Samma kort bekräftelse som annars, med "Visa" i stället för "Ångra", i 8 s. Visas inte när Pontus redan är på sidan där resultatet visas; där visas resultatet direkt. Står en bekräftelse med "Ångra" kvar, väntar den här tills den är borta. Flera jobb som blir klara medan fliken är dold blir en bekräftelse: "2 AI-resultat är klara." med "Visa", som öppnar arket AI-jobb. Ett ersatt eller avbrutet jobb ger ingen bekräftelse. |
+| AI-jobb i flödet (Epic 12) | Lagersaldo, Importera recept, AI-förslag | Där jobbet startades visas läget som förut ("Tittar på bilden …", "Läser receptet …", "Letar efter idéer …") med tillägget "Du kan göra annat under tiden." och "Avbryt", eller "I kö, 1 före." medan det väntar. Pontus kan lämna sidan, stänga arket och starta nästa jobb direkt. När Pontus kommer tillbaka visas läget eller resultatet. |
+| Lagerförslag från flera foton (Epic 12) | Lagersaldo | Varje plats har sina egna förslag. Platskortet för en plats med klara förslag får raden "Förslag klara" under antalet. Ett nytt foto av samma plats på samma ställe ersätter platsens förra förslag, som förut, också när det förra fotot fortfarande är i kö eller pågår. Förslag för andra platser står kvar. |
+| AI-förslag en i taget (Epic 12) | AI-förslag | Varje rätt visas så fort den är klar, under de förra, med "Letar efter fler …" och "Avbryt" sist tills alla har kommit. En ny rätt annonseras: "Ny rätt: Pasta med svamp.". Ett förslag kan sparas innan de andra har kommit. |
 
 ## State Patterns
 
@@ -200,6 +222,19 @@ Gemensamma tillstånd först, sedan per yta i IA-ordning.
 | Inget i korgen (Epic 11) | Inköpslista | Ingen korgrad. Bara "Skicka till ICA" längst ned. |
 | Fel kod (Epic 11) | Inloggning | Under fältet: "Koden stämmer inte eller har gått ut. Skicka en ny länk." Fältet töms inte. |
 | Öppnad från hemskärmen (Epic 11) | Alla | Helskärm utan webbläsarens fält. Statusraden har appens bakgrund. Utan session visas inloggningen med kodfältet. |
+| AI-jobb i kö (Epic 12) | Flödet, jobbraden, arket | "I kö, 1 före." i flödet, "· 1 i kö" i jobbraden. "Avbryt" finns. |
+| AI-jobb pågår (Epic 12) | Flödet, jobbraden, arket | Flödets text med "Du kan göra annat under tiden." och "Avbryt". |
+| AI-jobb klart (Epic 12) | Alla | Kort bekräftelse med "Visa" och flikmärke (Component Patterns). På resultatets sida visas resultatet direkt. |
+| AI-jobb gick inte (Epic 12) | Flödet, arket | Samma meddelanderuta som för ett direkt svar ("AI-tjänsten svarar inte just nu. Är datorn med modellen igång?", "Det gick inte att tolka svaret. Försök igen.") med "Försök igen". Kort bekräftelse på andra sidor: "Det gick inte att läsa receptet.", "Det gick inte att läsa fotot av kylen.", "Det gick inte att ta fram rättförslag." med "Visa". |
+| Avbrutet av Pontus (Epic 12) | Flödet, arket | Inget fel. Flödet går tillbaka till start, och jobbet står som "Avbrutet" i arket tills det stängs. |
+| För många jobb (Epic 12) | Flödet | Meddelanderuta: "Det finns redan tre AI-jobb. Vänta tills ett är klart." Inget startas. |
+| Hann inte börja (Epic 12) | Flödet, arket | "AI:n hann inte börja med det här. Försök igen." med "Försök igen". |
+| Jobbet avbröts av servern (Epic 12) | Flödet, arket | "AI-jobbet avbröts. Försök igen." med "Försök igen". |
+| Resultatet finns inte längre (Epic 12) | Flödet | "Resultatet finns inte längre." Visas för ett resultat som är äldre än 24 timmar eller har stängts på en annan enhet. |
+| Ersatt av ett nyare foto (Epic 12) | Lagersaldo | Inget visas för det äldre fotot. Det nya fotots läge visas. |
+| Förslag för ett annat ställe (Epic 12) | AI-förslag | Raden "Förslagen bygger på lagret för Hemma." och "Föreslå igen" över förslagen. De går att spara som förut. |
+| Fotot finns inte kvar (Epic 12) | Lagerförslag | Efter en omladdning: korten fungerar, men "Visa fotot" och numren på fotot saknas, och inget senaste foto sparas från det jobbet. Underrubriken säger "Fotot finns inte kvar efter omladdningen.". |
+| Appen laddas (Epic 12) | Alla | Aktiva jobb och klara resultat som inte har setts visas igen i jobbraden och med flikmärken. Ingen kort bekräftelse för det som blev klart innan appen laddades; märket räcker. |
 
 ## Interaction Primitives
 
@@ -207,7 +242,7 @@ Gemensamma tillstånd först, sedan per yta i IA-ordning.
 - Svep vänster på en listpost eller matsedelsrätt för att visa "Ta bort". Svepet är en genväg; samma åtgärd finns i detaljarket. Borttagningen kan ångras i den korta bekräftelsen. Från Epic 11 har en lagervara i stället en synlig soptunna, och svepet finns inte i Lagersaldo.
 - Stegläge: svep vänster eller höger byter steg, men knapparna Föregående och Nästa finns alltid.
 - Bekräftelse i förväg krävs bara för det som inte går att ångra: ta bort recept och ta bort matsedel. Övriga borttagningar kan ångras i den korta bekräftelsen.
-- **Används inte:** dra och släpp för omsortering, långtryck som enda väg till en funktion, karuseller, aviseringar, siffermärken på flikar.
+- **Används inte:** dra och släpp för omsortering, långtryck som enda väg till en funktion, karuseller, aviseringar utanför appen (push) och siffermärken på flikar. Ändrat (Epic 12): flikmärket för klara AI-jobb är det enda siffermärket, eftersom Pontus kan vara på en annan sida när ett resultat blir klart.
 
 ## Accessibility Floor
 
@@ -221,6 +256,7 @@ Kontrast och storlekar finns i `DESIGN.md`.
 - "Minska rörelse" stänger av arkens glidanimation och animationen vid stegbyte.
 - Sidan fungerar med 200 % textförstoring utan vågrät scroll.
 - **Epic 11:** varje story kontrolleras vid 375 px och 1280 px, i ljust och mörkt läge, med 200 % text, med VoiceOver och med tangentbord. Ikoner i kategoriplattor och mätare är dekor och döljs för skärmläsare (`aria-hidden`), och samma sak står alltid i text. Kategorirubrikerna är rubriker (`h2`) så att VoiceOvers rotor hittar dem. Ett tillstånd i en sida som göms efter en navigering (React Activity) står kvar när sidan visas igen: sökningen i Lagersaldo och "Visa" i I korgen. Ett ark stängs när sidan göms, som förut.
+- **Epic 12:** jobbraden och flikmärket har namn som säger samma sak som siffrorna ("Recept, 1 nytt AI-resultat"). Den korta bekräftelsen för ett klart jobb är en artig live-region (`role="status"`) och tar aldrig fokus. Pollningen annonserar inget i sig; bara ett nytt läge (startat, klart, gick inte, en ny rätt) läses upp, en gång. "Avbryt" och "Visa" i arket har jobbets namn för skärmläsare ("Avbryt fotot av kylen"). Jobbraden tar ingen tryckyta från flikfältet och har minst 44 px höjd.
 
 ## Inspiration & Anti-patterns
 
@@ -242,6 +278,7 @@ Den enda källan för vad som ändras vid brytpunkten (`{spacing.breakpoint-desk
 | Stegläge | Helskärm | Helskärm; piltangenterna byter steg |
 | Recept (Epic 11) | Receptkort i en kolumn | Receptkort i två kolumner inom `{spacing.content-max}` |
 | På hemskärmen (Epic 11) | Helskärm från hemskärmen, med egen ikon och tillbakaknappar | Vanlig flik i webbläsaren |
+| Jobbrad (Epic 12) | Ovanför flikfältet, under den korta bekräftelsen | Överst i sidomenyn, under Matkoll |
 
 iPhone Safari är huvudmålet. Innehållet håller sig innanför säkerhetsmarginalerna, och inmatningsfält har minst 16 px text så att sidan inte zoomar.
 
@@ -323,6 +360,19 @@ Flöde 7 hör till Epic 9 (veckans erbjudanden), som vilar.
 3. Under Lagersaldo står kylens varor under Mejeri & ägg, Kött, fisk & chark och Frukt & grönt. Under Mellanmjölk står "Arla laktosfri", under Gräddfil "Tillagd för 6 dagar sedan". Pontus trycker på soptunnan vid Gräddfil. "Tog bort Gräddfil." Fel vara: Pontus trycker "Ångra", och gräddfilen är tillbaka med samma rad under.
 4. I butiken öppnar Pontus Inköpslista. "8 varor kvar" och "0 av 8 i korgen". Pontus bockar av Gul lök. Den försvinner till "1 vara i korgen", och mätaren växer.
 5. **Klimax:** vid kassan står "Allt ligger i korgen". Hemma trycker Pontus "Lägg i lagret", och varorna står under sina kategorier i Lagersaldo, med "Tillagd idag".
+
+### Flöde 10 – Kylen, frysen och ett recept på en gång (UJ-10, Epic 12, Pontus i köket lördag förmiddag)
+
+1. Pontus öppnar Lagersaldo. Modellen väcks i bakgrunden, utan att något syns.
+2. Pontus fotograferar kylen. "Tittar på bilden … Du kan göra annat under tiden." Jobbraden visar "AI: Tittar på fotot av kylen".
+3. Pontus trycker på kortet Frys och fotograferar frysen. Under kameraknappen står "I kö, 1 före.", och jobbraden säger "· 1 i kö".
+4. Pontus går till Recept, trycker "+" och klistrar in en länk från koket.se. "Läser receptet … Du kan göra annat under tiden." Pontus stänger arket. Jobbraden säger "· 2 i kö".
+5. En kort bekräftelse: "14 förslag från fotot av kylen är klara." med "Visa". Lagersaldo får märket 1.
+6. Pontus trycker "Visa", hamnar i Lagersaldo på kylen och bekräftar förslagen. Märket försvinner.
+7. Frysens förslag och receptet blir klara efter varandra. Platskortet Frys säger "Förslag klara", och Recept får märket 1.
+8. **Klimax:** Pontus trycker på jobbraden innan den försvinner, ser "Klart" vid receptet, trycker "Visa" och sparar receptet från förhandsgranskningen. Pontus väntade aldrig på en snurra.
+
+**Variant, nytt foto av kylen:** innan det första fotot är klart fotograferar Pontus kylen igen, eftersom dörren skymde. Det första jobbet ersätts och visas aldrig, och jobbraden visar bara det nya.
 
 ## Settings
 
