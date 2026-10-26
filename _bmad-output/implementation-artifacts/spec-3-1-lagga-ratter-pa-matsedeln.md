@@ -15,7 +15,7 @@ context:
 
 ## Intent
 
-**Problem:** Pontus kan inte planera veckan. Han behöver en matsedel med rätter och portioner, där en favorit läggs till med två tryck.
+**Problem:** Pontus kan inte planera veckan. Hen behöver en matsedel med rätter och portioner, där en favorit läggs till med två tryck.
 
 **Approach:** Modulen `mealplan` får tabellerna `meal_plan` och `meal_plan_recipe` (AD-20, AD-22), `addToCurrentPlan` som skapar en aktuell matsedel vid behov, Matsedel-sidan med matsedelsrätter (portionsväljare och status), arket Lägg till rätt med favoriter överst och knappen "Lägg på matsedeln" i receptvyn. Borttagning av recept tar först bort rätten från den aktuella matsedeln (`detachRecipe`).
 

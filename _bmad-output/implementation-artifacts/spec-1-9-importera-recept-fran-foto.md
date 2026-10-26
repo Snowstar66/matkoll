@@ -15,7 +15,7 @@ context:
 
 ## Intent
 
-**Problem:** Många av Pontus recept finns i kokböcker. Han vill fotografera sidan och få samma förhandsgranskning som för text och länk.
+**Problem:** Många av Pontus recept finns i kokböcker. Hen vill fotografera sidan och få samma förhandsgranskning som för text och länk.
 
 **Approach:** Fliken Foto i arket Importera recept tar en bild med bakre kameran på mobil eller låter Pontus välja en bild på dator. Klienten förminskar bilden till högst 1600 px och 1,5 MB JPEG (AD-15) och skickar den till en egen Route Handler, som kontrollerar bilden och skickar den som `file`-del till `parseRecipe`. Bilden sparas aldrig.
 

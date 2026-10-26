@@ -16,7 +16,7 @@ context:
 
 ## Intent
 
-**Problem:** Sparade recept syns bara via direktlänk. Pontus behöver ett bibliotek där han bläddrar, söker på titel och ingrediens och snabbt når sina favoriter.
+**Problem:** Sparade recept syns bara via direktlänk. Pontus behöver ett bibliotek där hen bläddrar, söker på titel och ingrediens och snabbt når sina favoriter.
 
 **Approach:** Recept-sidan listar Pontus recept som receptrader (bild, titel, "35 min · 4 portioner", hjärta) enligt `DESIGN.md`. Sökfältet anropar läsactionen `searchRecipes` efter 200 ms paus och söker på titel, originaltext och katalogens namn och synonymer. Filtren Alla och Favoriter sparas på enheten. Hjärtat växlar favorit optimistiskt både i listan och i receptvyn.
 
