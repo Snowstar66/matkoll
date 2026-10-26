@@ -28,10 +28,18 @@ class PantryDataError extends Error {
 }
 const getPantrySnapshot = vi.fn();
 const getSelectedSite = vi.fn();
+// pantry.getPantryForStatus as pantry/server.test.ts shows it: the selected
+// place once, then that place's pantry, and neither when one cannot be read.
 vi.mock("@/features/pantry/server", () => ({
-  PantryDataError,
-  getPantrySnapshot: (...args: unknown[]) => getPantrySnapshot(...args),
-  getSelectedSite: () => getSelectedSite(),
+  getPantryForStatus: async () => {
+    try {
+      const site = await getSelectedSite();
+      return { site, snapshot: await getPantrySnapshot(site?.id) };
+    } catch (error) {
+      if (!(error instanceof PantryDataError)) throw error;
+      return { site: null, snapshot: null };
+    }
+  },
 }));
 
 const searchRecipesIn = vi.fn();
@@ -68,7 +76,6 @@ const stugan = { id: "55555555-5555-4555-8555-555555555555", name: "Stugan", sit
 
 /** The pantry cannot be read: logged, and the recipes come without status. */
 function pantryFails() {
-  vi.spyOn(console, "error").mockImplementation(() => {});
   getPantrySnapshot.mockRejectedValue(new PantryDataError("query_failed 08006"));
 }
 
@@ -141,9 +148,16 @@ describe("searchRecipes", () => {
 describe("searchLibrary", () => {
   it("gives the same recipes, with whether the pantry could be read and the place it is of", async () => {
     expect(await searchLibrary("gryta")).toEqual(ok({ recipes: [gryta], pantryUnavailable: false, site: stugan }));
-    // The selected place's pantry, asked for without a place (AD-24).
-    expect(getPantrySnapshot).toHaveBeenCalledWith();
+    // The pantry of exactly the selected place (AD-24).
+    expect(getPantrySnapshot).toHaveBeenCalledWith(stugan.id);
     pantryFails();
+    expect(await searchLibrary("gryta")).toEqual(
+      ok({ recipes: [{ ...gryta, missingCount: null }], pantryUnavailable: true, site: null }),
+    );
+  });
+
+  it("gives neither status nor place when the place cannot be read", async () => {
+    getSelectedSite.mockRejectedValue(new PantryDataError("sites_failed 08006"));
     expect(await searchLibrary("gryta")).toEqual(
       ok({ recipes: [{ ...gryta, missingCount: null }], pantryUnavailable: true, site: null }),
     );

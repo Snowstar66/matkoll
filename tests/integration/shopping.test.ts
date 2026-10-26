@@ -1174,6 +1174,7 @@ describe("Lägg i lagret", () => {
       removed: 1,
       skipped: 0,
       pantryWritten: true,
+      handled: 4,
     });
     expect(await pantryOf(user, id)).toEqual([
       // 2 dl at home and the corrected 1 dl.
@@ -1220,6 +1221,8 @@ describe("Lägg i lagret", () => {
       removed: 1,
       skipped: 0,
       pantryWritten: true,
+      // Both have receipts from the first run: the pantry takes in nothing.
+      handled: 0,
     });
 
     expect(await pantryOf(twice.user, twice.id)).toEqual(await pantryOf(once.user, once.id));

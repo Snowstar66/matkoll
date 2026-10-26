@@ -184,6 +184,17 @@ afterAll(async () => {
   await deleteTestUsers();
 });
 
+describe("getPantryForStatus", () => {
+  it("gives the selected place and exactly that place's pantry", async () => {
+    const { stugan, ketchup, korv } = await scenario("put-site-status");
+    const { site, snapshot } = await pantryServer.getPantryForStatus();
+    expect(site).toEqual({ id: stugan, name: "Stugan", siteCount: 2 });
+    expect(snapshot?.has(korv)).toBe(true);
+    // Ketchup is at Hemma only.
+    expect(snapshot?.has(ketchup)).toBe(false);
+  });
+});
+
 describe("Lägg i lagret on a place", () => {
   it("counts the list against the list's place and puts the items there, at the catalog's location", async () => {
     const { user, hemma, stugan, ketchup, planId, ketchupKey } = await scenario("put-site-stugan");
@@ -226,7 +237,8 @@ describe("Lägg i lagret on a place", () => {
     // The view switched to Hemma before the second tap: the receipt is per
     // user, so the ketchup bought once stays on Stugan only.
     selectSite(user.id, hemma);
-    expect(await putInPantryWith(flow(user, hemma), planId)).toMatchObject({ kind: "done" });
+    // The pantry takes nothing in this run, so the confirmation names no place.
+    expect(await putInPantryWith(flow(user, hemma), planId)).toMatchObject({ kind: "done", handled: 0 });
     expect((await onSite(user.id, stugan)).filter((row) => row.ingredient_id === ketchup)).toEqual([
       { ingredient_id: ketchup, location: "Skafferi", amount: 1, unit: "förp" },
     ]);

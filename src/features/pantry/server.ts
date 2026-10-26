@@ -115,6 +115,36 @@ export async function getPantrySnapshot(siteId?: string): Promise<PantrySnapshot
   return place === null ? toSnapshot([]) : snapshotOn(place);
 }
 
+/** The pantry a view counts its status against, and the place it is of; see getPantryForStatus. */
+export type PantryForStatus = { site: SelectedSite | null; snapshot: PantrySnapshot | null };
+
+/**
+ * The selected place and its pantry, for the cooking status and the line
+ * "Lager: Stugan" (AD-7, AD-24): the place is read once, and then the pantry
+ * of exactly that place's id, so the line always names the place the status
+ * was counted against. The two reads follow each other rather than relying
+ * on React `cache`, so it holds in a Server Action too, where nothing is
+ * memoised. A user without places has `site: null` and an empty pantry.
+ * When the place or the pantry cannot be read (logged as
+ * `pantry_unavailable`, with the reason only), both are `null`: no status
+ * and no line. Other errors are bugs and are thrown.
+ */
+export async function getPantryForStatus(): Promise<PantryForStatus> {
+  try {
+    const site = await getSelectedSite();
+    return { site, snapshot: site ? await getPantrySnapshot(site.id) : toSnapshot([]) };
+  } catch (error) {
+    if (!(error instanceof PantryDataError)) throw error;
+    console.error("pantry_unavailable", { reason: error.detail });
+    return { site: null, snapshot: null };
+  }
+}
+
+/** Whether `error` says a place is removed, or not the user's (MK410): the caller gives `pantry_site_gone`. */
+export function isPantrySiteGone(error: unknown): boolean {
+  return error instanceof PantryDataError && error.detail === siteGoneDetail;
+}
+
 /** The place addToPantry takes: a place's id, or `null` for the selected place. */
 const addSiteSchema = z.uuid().nullable();
 
@@ -176,10 +206,12 @@ export async function addToPantry(
     const added = await addToPantryIn(await createClient(), parsed.data, getIngredientDefaults, site.data);
     return ok({ added });
   } catch (error) {
-    if (error instanceof PantryDataError && error.detail === siteGoneDetail) {
+    if (isPantrySiteGone(error)) {
       console.error("pantry_site_gone", { reason: siteGoneCode });
       return fail("pantry_site_gone");
     }
+    // A place that is not a uuid is refused before anything is written.
+    if (error instanceof PantryDataError && error.detail === "invalid_site") return fail("validation");
     if (error instanceof PantryDataError) {
       console.error("pantry_add_failed", { reason: error.detail });
     } else if (error instanceof CatalogDataError) {

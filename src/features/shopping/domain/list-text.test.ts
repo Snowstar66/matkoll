@@ -16,6 +16,7 @@ import {
   originsText,
   putInPantryText,
   recountedText,
+  siteGoneText,
   restoreFailedText,
   sendButtonText,
   skippedDishesText,
@@ -144,6 +145,13 @@ describe("a correction whose counted amount has changed, and Dolda varor (Story 
 
   it("counts the hidden lines", () => {
     expect(hiddenLinesButtonText(2)).toBe("Dolda varor (2)");
+  });
+});
+
+describe("siteGoneText", () => {
+  it("says the list is counted again, against the place selected now when there are more than one", () => {
+    expect(siteGoneText("Hemma")).toBe("Stället finns inte längre. Listan har räknats om mot Hemma. Tryck Lägg i lagret igen.");
+    expect(siteGoneText(null)).toBe("Stället finns inte längre. Listan har räknats om. Tryck Lägg i lagret igen.");
   });
 });
 

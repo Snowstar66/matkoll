@@ -45,8 +45,18 @@ const getSelectedSite = vi.fn();
 const findPantryAdditions = vi.fn();
 vi.mock("@/features/pantry/server", () => ({
   PantryDataError,
-  getPantrySnapshot: (...args: unknown[]) => getPantrySnapshot(...args),
-  getSelectedSite: () => getSelectedSite(),
+  // pantry.getPantryForStatus as pantry/server.test.ts shows it: the selected
+  // place once, then that place's pantry, and neither when one cannot be read.
+  getPantryForStatus: async () => {
+    try {
+      const site = await getSelectedSite();
+      return { site, snapshot: await getPantrySnapshot(site?.id) };
+    } catch (error) {
+      if (!(error instanceof PantryDataError)) throw error;
+      console.error("pantry_unavailable", { reason: error.detail });
+      return { site: null, snapshot: null };
+    }
+  },
   findPantryAdditions: (keys: string[]) => findPantryAdditions(keys),
 }));
 const getIngredientNames = vi.fn();
@@ -167,15 +177,17 @@ describe("getShoppingList", () => {
     );
     expect(getRecipesByIds).toHaveBeenCalledWith([recipeId]);
     expect(getIngredientNames).toHaveBeenCalledWith([gradde]);
-    // The selected place's pantry, asked for without a place (AD-24).
-    expect(getPantrySnapshot).toHaveBeenCalledWith();
+    // The pantry of exactly the place the list names (AD-24), read once.
+    expect(getPantrySnapshot).toHaveBeenCalledTimes(1);
+    expect(getPantrySnapshot).toHaveBeenCalledWith(stugan.id);
   });
 
-  it("gives the list with site null, logged, when the place cannot be read", async () => {
+  it("gives the list with nothing taken off and site null, logged, when the place cannot be read", async () => {
     getSelectedSite.mockRejectedValue(new PantryDataError("sites_failed 08006"));
     const result = await getShoppingList();
     expect(result.ok && result.data.site).toBeNull();
-    expect(result.ok && result.data.lines).toHaveLength(1);
+    expect(result.ok && result.data.pantryUnavailable).toBe(true);
+    expect(result.ok && result.data.lines.map((line) => line.amount)).toEqual([3]);
     expect(log).toHaveBeenCalledWith("pantry_unavailable", { reason: "sites_failed 08006" });
   });
 
@@ -191,9 +203,8 @@ describe("getShoppingList", () => {
     expect(result.ok && result.data.lines.map((line) => [line.key, line.checked])).toEqual([[`r:${gradde}:dl`, true]]);
   });
 
-  it("gives no plan and no lines without a current plan, and reads no recipes and no pantry", async () => {
+  it("gives no plan and no lines without a current plan, and reads no recipes", async () => {
     getCurrentPlan.mockResolvedValue(null);
-    getPantrySnapshot.mockRejectedValue(new PantryDataError("query_failed 08006"));
     expect(await getShoppingList()).toEqual(
       ok({
         plan: null,
@@ -206,17 +217,17 @@ describe("getShoppingList", () => {
       }),
     );
     expect(getRecipesByIds).not.toHaveBeenCalled();
-    expect(getPantrySnapshot).not.toHaveBeenCalled();
     expect(listChecksIn).not.toHaveBeenCalled();
     expect(listCustomItemsIn).not.toHaveBeenCalled();
     expect(listOverridesIn).not.toHaveBeenCalled();
   });
 
-  it("reads no pantry for a plan whose dishes all lost their recipe", async () => {
+  it("counts nothing against the pantry for a plan whose dishes all lost their recipe", async () => {
     getCurrentPlan.mockResolvedValue({ ...plan, recipes: [plan.recipes[1]] });
+    getPantrySnapshot.mockRejectedValue(new PantryDataError("query_failed 08006"));
     const result = await getShoppingList();
     expect(result.ok && result.data.plan).toMatchObject({ dishCount: 0, skippedCount: 1 });
-    expect(getPantrySnapshot).not.toHaveBeenCalled();
+    expect(result.ok && result.data.pantryUnavailable).toBe(false);
     // The checks are read for any plan (own items need no dish, Story 3.5).
     expect(listChecksIn).toHaveBeenCalledWith(db, "plan");
   });

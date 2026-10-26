@@ -61,20 +61,24 @@ const ranking = [soppa, gryta, pannkakor, fisk];
 
 let serverRecipes: RecipeListItem[] = [];
 let rerenderServer: ((recipes: RecipeListItem[]) => void) | undefined;
+/** Renders the "server" list again with another place, as a place selected elsewhere does. */
+let rerenderSite: ((site: SelectedSite | null) => void) | undefined;
 let serverPantryUnavailable = false;
 let serverSite: SelectedSite | null = null;
 const searchIngredients = vi.fn(async () => ok([]));
 
 function Server() {
   const [recipes, setRecipes] = useState(serverRecipes);
+  const [site, setSite] = useState(serverSite);
   useEffect(() => {
     rerenderServer = setRecipes;
+    rerenderSite = setSite;
   }, []);
   return (
     <Library
       recipes={recipes}
       pantryUnavailable={serverPantryUnavailable}
-      site={serverSite}
+      site={site}
       searchIngredients={searchIngredients}
     />
   );
@@ -149,7 +153,7 @@ describe("Library, the line Lager", () => {
     expect(screen.queryByText(/^Lager:/)).not.toBeInTheDocument();
   });
 
-  it("names the place of the server's status, which the rows show, and the search answer's when the server had none", async () => {
+  it("names the search answer's place while its recipes are shown, also when it differs from the server's", async () => {
     const user = userEvent.setup();
     renderLibrary(ranking, { site: stugan });
     await user.click(pill("Kan lagas nu"));
@@ -157,7 +161,37 @@ describe("Library, the line Lager", () => {
     searchRecipes.mockResolvedValueOnce(ok([soppa]));
     await user.type(screen.getByRole("searchbox", { name: "Sök recept" }), "lin{Enter}");
     await waitFor(() => expect(titles()).toEqual(["Linssoppa"]));
-    expect(screen.getByText("Lager: Stugan")).toBeInTheDocument();
+    expect(screen.getByText("Lager: Hemma")).toBeInTheDocument();
+    expect(screen.queryByText("Lager: Stugan")).not.toBeInTheDocument();
+    // Back to the server's list: the server's place.
+    await user.clear(screen.getByRole("searchbox"));
+    expect(await screen.findByText("Lager: Stugan")).toBeInTheDocument();
+  });
+
+  it("has no line on no hits, after a failed search, or when the search could not read the pantry", async () => {
+    const user = userEvent.setup();
+    renderLibrary(ranking, { site: stugan });
+    await user.click(pill("Kan lagas nu"));
+    const field = screen.getByRole("searchbox", { name: "Sök recept" });
+
+    searchSite = stugan;
+    searchRecipes.mockResolvedValueOnce(ok([]));
+    await user.type(field, "xyz{Enter}");
+    await screen.findByText("Inga recept matchar.");
+    expect(screen.queryByText(/^Lager:/)).not.toBeInTheDocument();
+
+    searchRecipes.mockResolvedValueOnce(fail("recipe_search_failed"));
+    await user.clear(field);
+    await user.type(field, "lin{Enter}");
+    await screen.findByRole("alert");
+    expect(screen.queryByText(/^Lager:/)).not.toBeInTheDocument();
+
+    searchPantryUnavailable = true;
+    searchRecipes.mockResolvedValueOnce(ok([{ ...soppa, missingCount: null }]));
+    await user.clear(field);
+    await user.type(field, "sop{Enter}");
+    await waitFor(() => expect(titles()).toEqual(["Linssoppa"]));
+    expect(screen.queryByText(/^Lager:/)).not.toBeInTheDocument();
   });
 
   it("follows the search answer when the server list had no status", async () => {
@@ -168,6 +202,48 @@ describe("Library, the line Lager", () => {
     searchRecipes.mockResolvedValueOnce(ok([soppa]));
     await user.type(screen.getByRole("searchbox", { name: "Sök recept" }), "lin{Enter}");
     expect(await screen.findByText("Lager: Stugan")).toBeInTheDocument();
+  });
+});
+
+describe("Library, AI-förslag and the place", () => {
+  const draft = {
+    title: "Ugnsomelett",
+    servings: 4,
+    totalMinutes: 40,
+    imageUrl: null,
+    sourceKind: "ai",
+    sourceUrl: null,
+    steps: ["Grädda."],
+    lines: [],
+  };
+  const suggestion = () => screen.queryByRole("heading", { level: 3, name: "Ugnsomelett" });
+
+  it("hides the suggestions while the library shows another place than they were made from, and shows them again", async () => {
+    const user = userEvent.setup();
+    const hemma: SelectedSite = { ...stugan, id: "66666666-6666-4666-8666-666666666666", name: "Hemma" };
+    postAi.mockResolvedValueOnce(ok({ suggestions: [{ draft, ingredientNames: {} }], siteId: stugan.id }));
+    renderLibrary(ranking, { site: stugan });
+    await user.click(pill("Kan lagas nu"));
+    await user.click(screen.getByRole("button", { name: "Föreslå rätter med AI" }));
+    expect(await screen.findByRole("heading", { level: 3, name: "Ugnsomelett" })).toBeInTheDocument();
+
+    act(() => rerenderSite?.(hemma));
+    expect(suggestion()).not.toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "Föreslå rätter med AI" })).toBeInTheDocument();
+
+    act(() => rerenderSite?.(stugan));
+    expect(suggestion()).toBeInTheDocument();
+  });
+
+  it("keeps the suggestions when the library's place is not known", async () => {
+    const user = userEvent.setup();
+    postAi.mockResolvedValueOnce(ok({ suggestions: [{ draft, ingredientNames: {} }], siteId: stugan.id }));
+    renderLibrary(ranking, { site: stugan });
+    await user.click(pill("Kan lagas nu"));
+    await user.click(screen.getByRole("button", { name: "Föreslå rätter med AI" }));
+    expect(await screen.findByRole("heading", { level: 3, name: "Ugnsomelett" })).toBeInTheDocument();
+    act(() => rerenderSite?.(null));
+    expect(suggestion()).toBeInTheDocument();
   });
 });
 

@@ -49,7 +49,7 @@ export function withStatus(rows: readonly RecipeListRow[], snapshot: PantrySnaps
 
 /**
  * The library as the Recept page and its search get it: the rows with their
- * status, and whether the pantry could not be read (`pantrySnapshotOrNull`
+ * status, and whether the pantry could not be read (pantry.getPantryForStatus
  * gave `null`), in which case no row has a status and Kan lagas nu cannot
  * rank them. `site` is the place the status was counted against, for the
  * line "Lager: Stugan" in Kan lagas nu (AD-24); `null` without a status, or

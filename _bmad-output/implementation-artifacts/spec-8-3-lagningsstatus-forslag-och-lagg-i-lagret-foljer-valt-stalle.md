@@ -2,7 +2,7 @@
 title: 'Story 8.3: Lagningsstatus, förslag och Lägg i lagret följer valt ställe'
 type: 'feature'
 created: '2026-10-26'
-status: 'in-progress'
+status: 'done'
 baseline_commit: 'e540216bf3225de75595212c9d90754111568816'
 route: 'dispatch'
 context:
@@ -174,14 +174,48 @@ context:
   - översättningen av `MK410`, bara i `addToPantryIn`. Den kastar `PantryDataError("site_gone")`, och konstanterna `siteGoneCode` och `siteGoneDetail` ligger i `pantry/data/client.ts`.
 - **Väljaren i Hemma finns inte än,** så e2e-specen väljer ställe med service role. Den gör en upsert av användarens alla ställen i en sats, med det valda sist, så att det partiella unika indexet och `pantry_site_one_selected` håller. Specen laddar om sidan efter ett byte. Kontrollen att "Kan lagas nu" kommer tillbaka utan omladdning när Hemma väljs kräver väljaren och läggs till när 8.2 finns på grenen.
 - **I biblioteket står raden direkt under filterpillren,** inte direkt under sidrubriken. Raden visas bara med "Kan lagas nu". Under rubriken skulle den flytta ned sökfältet och pillren när "Kan lagas nu" trycks, så att pillret flyttar sig under fingret.
-- **I biblioteket följer raden serverns ställe före sökningens,** inte alltid det senaste svaret från sökningen. Raderna tar sin status från serverns lista i första hand (`byId.get(id) ?? recipe`), och raden ska namnge det ställe som märkena räknades mot. Sökningens ställe används när serverns lista saknade status. En sökning utan träffar läser inte lagret och ger `site: null`.
-- **I Matsedel visas raden av `MealPlanList`** (`siteLine`, från `siteLineText(view.site)` i `meal-plan-content.tsx`), först i listan. Då försvinner den samtidigt som den sista rätten när rätten tas bort, och tomläget "Ingen rätt på matsedeln än." har ingen rad.
-- **`site` är `null` när lagret inte går att läsa,** i `toLibrary`, i `getMealPlanView` och i receptvyn (`pantryForStatus()` i `recipes/data/pantry-snapshot.ts`). Så visas raden aldrig utan status. `getShoppingList` lämnar stället oberoende av snapshoten, som specen säger.
+- **I biblioteket följer raden serverns ställe före sökningens,** inte alltid det senaste svaret från sökningen. Raderna tar sin status från serverns lista i första hand (`byId.get(id) ?? recipe`), och raden ska namnge det ställe som märkena räknades mot. Sökningens ställe används när serverns lista saknade status. En sökning utan träffar läser inte lagret och ger `site: null`. Ändrat efter granskningen, se Review Triage Log.
+- **I Matsedel visas raden av `MealPlanList`** (`siteLine`, från `siteLineText(view.site)` i `meal-plan-content.tsx`), först i listan. Då försvinner den samtidigt som den sista rätten när rätten tas bort, och tomläget "Ingen rätt på matsedeln än." har ingen rad. Ändrat efter granskningen, se Review Triage Log.
+- **`site` är `null` när lagret inte går att läsa,** i `toLibrary`, i `getMealPlanView` och i receptvyn (`pantryForStatus()` i `recipes/data/pantry-snapshot.ts`). Så visas raden aldrig utan status. `getShoppingList` lämnar stället oberoende av snapshoten, som specen säger. Ändrat efter granskningen, se Review Triage Log.
 - **`shownSiteName(site)`** i `pantry/domain/site.ts` är basen för `siteLineText` och `siteSuffix`. `putCheckedInPantry` använder den för `siteName`, och `putInPantryText` skriver " för Stugan" med namnet.
-- **`siteName` läses bara när något lades i lagret** (`added > 0`). Annars namnger texten inget ställe.
+- **`siteName` läses bara när något lades i lagret** (`added > 0`). Annars namnger texten inget ställe. Ändrat efter granskningen, se Review Triage Log.
 - **Kvittona behöver inte nycklar per ställe** (punkten från granskningen av 8.1). Nyckeln är bockens id. Kvittot glöms när bocken har rensats, och en ny bock får ett nytt id. Samma nyckel kommer därför bara igen när ett avbrutet försök görs om. Då har varan redan köpts och lagts på det första stället, och den ska inte läggas på det andra. `tests/integration/put-in-pantry-site.test.ts` låser det, och visar också att listan räknas mot listans ställe, att ett byte på en annan enhet inte ändrar något och att ett borttaget ställe eller en annan användares ställe ger `pantry_site_gone` utan skrivning.
 
 ## Review Triage Log
+
+Iteration 1. Tre granskare gick igenom a02a163. Ingen migration.
+
+**Patch:**
+- **Ställe och lager läses i en följd:**
+  - `pantry/server` har `getPantryForStatus()`. Den läser valt ställe en gång och sedan lagret för just det stället (`getPantrySnapshot(site.id)`), så att raden "Lager" alltid namnger det ställe som statusen räknades mot. Det gäller också i en Server Action, där React `cache` inte memoiserar.
+  - Går stället eller lagret inte att läsa, är båda `null`: ingen status och ingen rad, som raden "Stället går inte att läsa" i matrisen säger. Det loggas som `pantry_unavailable`, bara med orsaken.
+  - `recipes` (`listRecipes`, `listLibrary`, `getRecipeWithPantry`, `searchRecipes`), `mealplan` (`getMealPlanView`), `shopping` (`getShoppingList`) och `suggestions` (`suggestFromPantry`) använder den. De kopierade omslagen `pantrySnapshotOrNull` och `selectedSiteOrNull` är borta, liksom `recipes/data/pantry-snapshot.ts`.
+  - Testerna som visade status utan ställe visar nu `snapshot: null, site: null`. Ett test i `pantry/server.test.ts` visar att ett fel vid läsningen av stället ger båda `null`.
+  - `getShoppingList` läser lagret även när matsedeln saknar rätter, eftersom stället och lagret läses tillsammans.
+- **"Lägg i lagret":**
+  - `siteId` är `nullish`, så att en klient från bygget före 8.3, som bara skickar `{ planId }`, fungerar.
+  - Utan `siteId` läses valt ställe en gång när åtgärden börjar. Listan räknas mot det stället, varorna läggs där och bekräftelsen namnger det, så att skrivningen och namnet alltid gäller samma ställe.
+  - `siteNameOrNull` kastar aldrig efter en lyckad skrivning. Den loggar `pantry_unavailable` med bara koden och ger `null`.
+  - Stället namnges bara när lagret tog emot något i just det här anropet. `putInPantryWith` lämnar `handled`, antalet som `add_to_pantry` lade till utan de som hoppades över för sitt kvitto. Ett nytt försök där alla varor hade kvitton namnger alltså inget ställe.
+  - Ett `pantry_site_gone` redan när listan läses (om 8.2 kastar det för ett borttaget ställe) ger samma svar som från skrivningen.
+- **Raden i biblioteket:**
+  - Medan sökträffar visas följer raden sökningens `site` och `pantryUnavailable`, annars serverns `site`. Skiljer sig sökningens ställe från serverns visas sökningens.
+  - Ingen rad vid noll träffar, efter en misslyckad sökning eller utan status.
+- **Raden i Matsedel** visas bara när minst en visad rätt har status, alltså ett recept och ett lager. Den visas aldrig på en tom matsedel eller ovanför rätter utan märken.
+- **AI-förslagen är knutna till ett ställe:**
+  - `suggestFromPantry` läser lagret med `getPantryForStatus` och lämnar `siteId`, det ställe som förslagen gjordes från.
+  - Biblioteket döljer förslagen medan det visar ett annat ställe (`site?.id`), och visar dem igen om det stället visas igen. Ett `null` på någon sida döljer inget.
+- **`pantry_site_gone` i Inköpslistan** säger "Stället finns inte längre. Listan har räknats om mot Hemma. Tryck Lägg i lagret igen." Namnet kommer från `putCheckedInPantry` (`fields.site`, med `shownSiteName`). Med ett ställe, eller utan namnet, står det "Listan har räknats om." utan namn. Den allmänna texten gäller fortfarande på andra ställen. Meddelandet visas i den blå `Notice`.
+- **`addToPantry` ger `validation`** för `invalid_site` från data-lagret, inte `pantry_add_failed`.
+- **E2E för det borttagna stället:** listan räknas mot Stugan. Sedan väljer service role Hemma, tömmer Stugan och tar bort den. Ett tryck på "Lägg i lagret" ger meddelandet, listan räknas om mot Hemma och bocken står kvar. Inget skrivs i lagret och inga kvitton skapas. Ett andra tryck lägger ketchup i Hemma.
+
+**Uppskjutet:**
+- Raden "Lager" i Inköpslistan hör till 8.5 enligt specen.
+- `getPantrySnapshot(siteId)` med ett främmande eller borttaget id som kastar `pantry_site_gone` byggs i 8.2. Kastar 8.2 det, översätter `putCheckedInPantry` det redan (`isPantrySiteGone`).
+- E2E-kontrollen att vyerna följer ett byte av ställe utan omladdning läggs till när 8.2:s väljare finns på grenen.
+
+**Avvisat:**
+- Kvitton per ställe för fallet att ett ställe töms och tas bort mellan ett avbrutet försök och det nya. Det är för osannolikt.
 
 ## Verification
 

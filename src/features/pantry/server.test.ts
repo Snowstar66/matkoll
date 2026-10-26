@@ -3,7 +3,9 @@ import { fail, ok } from "@/lib/errors";
 import { PantryDataError } from "./data/client";
 
 // addToPantry with the user check, the session client, the catalog and the
-// data function stubbed: the Result it gives for each outcome.
+// data function stubbed: the Result it gives for each outcome. And
+// getPantryForStatus with the places and the pantry stubbed: the place is
+// read once, then that place's pantry, and a failure in either gives neither.
 
 const { CatalogDataError } = vi.hoisted(() => ({
   CatalogDataError: class extends Error {
@@ -32,7 +34,15 @@ vi.mock("./data/add", () => ({
   forgetPantryAdditionsIn: vi.fn(),
 }));
 
-const { addToPantry } = await import("./server");
+const loadPantrySitesIn = vi.fn();
+vi.mock("./data/sites", () => ({ loadPantrySitesIn: (...args: unknown[]) => loadPantrySitesIn(...args) }));
+const loadPantrySnapshot = vi.fn();
+vi.mock("./data/queries", async (importOriginal) => ({
+  ...(await importOriginal<typeof import("./data/queries")>()),
+  loadPantrySnapshot: (...args: unknown[]) => loadPantrySnapshot(...args),
+}));
+
+const { addToPantry, getPantryForStatus } = await import("./server");
 
 const item = {
   key: "33333333-3333-4333-8333-333333333333",
@@ -92,8 +102,54 @@ describe("addToPantry", () => {
     expect(log).toHaveBeenCalledWith("pantry_add_failed", logged);
   });
 
+  it("gives validation, not pantry_add_failed, for a place the data layer refuses as not a uuid", async () => {
+    addToPantryIn.mockRejectedValue(new PantryDataError("invalid_site"));
+    expect(await addToPantry([item], stugan)).toEqual(fail("validation"));
+  });
+
   it("throws what it does not expect", async () => {
     addToPantryIn.mockRejectedValue(new Error("bug"));
     await expect(addToPantry([item], null)).rejects.toThrow("bug");
+  });
+});
+
+describe("getPantryForStatus", () => {
+  const hemma = { id: "44444444-4444-4444-8444-444444444444", name: "Hemma", isSelected: false };
+  const stuganSite = { id: stugan, name: "Stugan", isSelected: true };
+  const snapshot = new Map([["korv", { unlimited: false, amounts: [{ unit: "st", amount: 8 }] }]]);
+
+  beforeEach(() => {
+    loadPantrySitesIn.mockReset().mockResolvedValue([hemma, stuganSite]);
+    loadPantrySnapshot.mockReset().mockResolvedValue(snapshot);
+  });
+
+  it("reads the selected place once, then the pantry of exactly that place", async () => {
+    expect(await getPantryForStatus()).toEqual({ site: { id: stugan, name: "Stugan", siteCount: 2 }, snapshot });
+    expect(loadPantrySitesIn).toHaveBeenCalledTimes(1);
+    expect(loadPantrySnapshot).toHaveBeenCalledWith(db, stugan);
+  });
+
+  it("gives no place and an empty pantry to a user without places, reading no pantry", async () => {
+    loadPantrySitesIn.mockResolvedValue([]);
+    expect(await getPantryForStatus()).toEqual({ site: null, snapshot: new Map() });
+    expect(loadPantrySnapshot).not.toHaveBeenCalled();
+  });
+
+  it("gives neither place nor pantry, logged, when the place cannot be read", async () => {
+    loadPantrySitesIn.mockRejectedValue(new PantryDataError("sites_failed 08006"));
+    expect(await getPantryForStatus()).toEqual({ site: null, snapshot: null });
+    expect(log).toHaveBeenCalledWith("pantry_unavailable", { reason: "sites_failed 08006" });
+    expect(loadPantrySnapshot).not.toHaveBeenCalled();
+  });
+
+  it("gives neither place nor pantry, logged, when the pantry cannot be read", async () => {
+    loadPantrySnapshot.mockRejectedValue(new PantryDataError("query_failed 08006"));
+    expect(await getPantryForStatus()).toEqual({ site: null, snapshot: null });
+    expect(log).toHaveBeenCalledWith("pantry_unavailable", { reason: "query_failed 08006" });
+  });
+
+  it("throws what it does not expect", async () => {
+    loadPantrySnapshot.mockRejectedValue(new TypeError("bug"));
+    await expect(getPantryForStatus()).rejects.toThrow("bug");
   });
 });

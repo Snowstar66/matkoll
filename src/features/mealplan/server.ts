@@ -1,7 +1,7 @@
 import "server-only";
 import { cache } from "react";
 import type { PantrySnapshot, SelectedSite } from "@/features/pantry";
-import { getPantrySnapshot, getSelectedSite, PantryDataError } from "@/features/pantry/server";
+import { getPantryForStatus } from "@/features/pantry/server";
 import type { RecipeListRow } from "@/features/recipes";
 import { getRecipesByIds, RecipeDataError } from "@/features/recipes/server";
 import { revalidateFor } from "@/lib/revalidate";
@@ -76,36 +76,6 @@ export type MealPlanView = {
 };
 
 /**
- * The pantry for the dishes' status, or `null` when it cannot be read
- * (logged as `pantry_unavailable`): the status never takes the meal plan
- * down. Other errors are bugs and are thrown.
- */
-async function pantrySnapshotOrNull(): Promise<PantrySnapshot | null> {
-  try {
-    return await getPantrySnapshot();
-  } catch (error) {
-    if (!(error instanceof PantryDataError)) throw error;
-    console.error("pantry_unavailable", { reason: error.detail });
-    return null;
-  }
-}
-
-/**
- * The selected place, for the line "Lager", or `null` when the user has none
- * or it cannot be read (logged as `pantry_unavailable`). Other errors are
- * bugs and are thrown.
- */
-async function selectedSiteOrNull(): Promise<SelectedSite | null> {
-  try {
-    return await getSelectedSite();
-  } catch (error) {
-    if (!(error instanceof PantryDataError)) throw error;
-    console.error("pantry_unavailable", { reason: error.detail });
-    return null;
-  }
-}
-
-/**
  * The recipes behind the dishes, or none when they cannot be read (logged as
  * `mealplan_recipes_unavailable`): the dishes are then shown by their stored
  * titles, without image, time or status. Other errors are bugs and are thrown.
@@ -125,15 +95,14 @@ async function recipesOrNone(ids: readonly string[]): Promise<RecipeListRow[]> {
  * Matsedel's data (FR-13): the current plan, each dish with its recipe's
  * image, time, own servings and lines (recipes.getRecipesByIds, AD-1), and
  * the pantry for the status (AD-7) with the place it is of (AD-24), read in
- * parallel. Both are memoised per request and read the same selected place,
- * so the line "Lager" names the place the status was counted against. A dish
- * whose recipe is gone, or could not be read, has `recipe: null`; a pantry
- * that cannot be read gives `snapshot: null` and `site: null`. Throws
- * MealPlanDataError.
+ * parallel; pantry.getPantryForStatus reads the place once and then that
+ * place's pantry, so the line "Lager" names the place the status was counted
+ * against. A dish whose recipe is gone, or could not be read, has `recipe:
+ * null`; a place or pantry that cannot be read gives `snapshot: null` and
+ * `site: null`. Throws MealPlanDataError.
  */
 export async function getMealPlanView(): Promise<MealPlanView> {
-  const [plan, snapshot, selected] = await Promise.all([getCurrentPlan(), pantrySnapshotOrNull(), selectedSiteOrNull()]);
-  const site = snapshot ? selected : null;
+  const [plan, { snapshot, site }] = await Promise.all([getCurrentPlan(), getPantryForStatus()]);
   if (!plan) return { plan: null, dishes: [], snapshot, site };
   const recipes = await recipesOrNone(plan.recipes.flatMap((dish) => (dish.recipeId ? [dish.recipeId] : [])));
   const byId = new Map<string, DishRecipe>(

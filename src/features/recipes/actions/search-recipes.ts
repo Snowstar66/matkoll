@@ -2,11 +2,11 @@
 
 import { searchText } from "@/features/catalog";
 import { CatalogDataError, findIngredientIds } from "@/features/catalog/server";
+import { getPantryForStatus } from "@/features/pantry/server";
 import { requireUser } from "@/features/auth/server";
 import { fail, ok, type Result } from "@/lib/errors";
 import { createClient } from "@/lib/supabase/server";
 import { RecipeDataError } from "../data/client";
-import { pantryForStatus } from "../data/pantry-snapshot";
 import { searchRecipesIn } from "../data/queries";
 import { recipeSearchSchema, toLibrary, type RecipeLibrary, type RecipeListItem } from "../domain/recipe-list";
 
@@ -49,7 +49,7 @@ async function search(query: string): Promise<Result<RecipeLibrary>> {
     // A pantry that cannot be read gives the recipes without status, never a
     // failed search. The status and the place are the ones selected now, so
     // the line "Lager" and the badges always agree (AD-24).
-    const { snapshot, site } = await pantryForStatus();
+    const { snapshot, site } = await getPantryForStatus();
     return ok(toLibrary(rows, snapshot, site));
   } catch (error) {
     if (error instanceof CatalogDataError) {

@@ -8,21 +8,16 @@ vi.mock("@/lib/supabase/server", () => ({ createClient: async () => ({}) }));
 vi.mock("@/lib/revalidate", () => ({ revalidateFor: vi.fn() }));
 const getCurrentPlanIn = vi.fn();
 vi.mock("./data/queries", () => ({ getCurrentPlanIn: () => getCurrentPlanIn() }));
-const { PantryDataError, RecipeDataError } = vi.hoisted(() => {
-  class DataError extends Error {
+const { RecipeDataError } = vi.hoisted(() => ({
+  RecipeDataError: class extends Error {
     constructor(readonly detail: string) {
       super(detail);
     }
-  }
-  return { PantryDataError: class extends DataError {}, RecipeDataError: class extends DataError {} };
-});
-const getPantrySnapshot = vi.fn();
-const getSelectedSite = vi.fn();
-vi.mock("@/features/pantry/server", () => ({
-  PantryDataError,
-  getPantrySnapshot: (...args: unknown[]) => getPantrySnapshot(...args),
-  getSelectedSite: () => getSelectedSite(),
+  },
 }));
+// pantry.getPantryForStatus is tested in pantry/server.test.ts: here, what it gives.
+const getPantryForStatus = vi.fn();
+vi.mock("@/features/pantry/server", () => ({ getPantryForStatus: () => getPantryForStatus() }));
 const getRecipesByIds = vi.fn();
 vi.mock("@/features/recipes/server", () => ({
   RecipeDataError,
@@ -44,8 +39,7 @@ const stugan = { id: "55555555-5555-4555-8555-555555555555", name: "Stugan", sit
 let log: ReturnType<typeof vi.spyOn>;
 beforeEach(() => {
   getCurrentPlanIn.mockReset().mockResolvedValue(plan);
-  getPantrySnapshot.mockReset().mockResolvedValue(toSnapshot([]));
-  getSelectedSite.mockReset().mockResolvedValue(stugan);
+  getPantryForStatus.mockReset().mockResolvedValue({ site: stugan, snapshot: toSnapshot([]) });
   getRecipesByIds.mockReset().mockResolvedValue([recipe]);
   log?.mockRestore();
   log = vi.spyOn(console, "error").mockImplementation(() => {});
@@ -57,26 +51,16 @@ describe("getMealPlanView", () => {
     expect(view.plan).toEqual({ id: "plan", name: "Vecka 44" });
     expect(view.dishes[0].recipe).toEqual({ imageUrl: null, totalMinutes: 20, originalServings: 4, lines: [] });
     expect(view.snapshot).toBeInstanceOf(Map);
-    // The selected place's pantry, asked for without a place, and the place it is of (AD-24).
-    expect(getPantrySnapshot).toHaveBeenCalledWith();
+    // The place the status is counted against (AD-24).
     expect(view.site).toBe(stugan);
   });
 
-  it("gives no place when it cannot be read, and the status all the same", async () => {
-    getSelectedSite.mockRejectedValue(new PantryDataError("sites_failed 08006"));
-    const view = await getMealPlanView();
-    expect(view.site).toBeNull();
-    expect(view.snapshot).toBeInstanceOf(Map);
-    expect(log).toHaveBeenCalledWith("pantry_unavailable", { reason: "sites_failed 08006" });
-  });
-
-  it("gives snapshot null and no place when the pantry cannot be read, and the dishes all the same", async () => {
-    getPantrySnapshot.mockRejectedValue(new PantryDataError("query_failed 08006"));
+  it("gives neither status nor place when the place or the pantry cannot be read, and the dishes all the same", async () => {
+    getPantryForStatus.mockResolvedValue({ site: null, snapshot: null });
     const view = await getMealPlanView();
     expect(view.snapshot).toBeNull();
     expect(view.site).toBeNull();
     expect(view.dishes).toHaveLength(1);
-    expect(log).toHaveBeenCalledWith("pantry_unavailable", { reason: "query_failed 08006" });
   });
 
   it("shows the dishes by their stored titles when the recipes cannot be read", async () => {

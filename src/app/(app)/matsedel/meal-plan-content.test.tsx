@@ -112,6 +112,19 @@ describe("MealPlanContent", () => {
     expect(within(screen.getByTestId("plan-dish")).getByText("Saknar 1 vara")).toBeInTheDocument();
   });
 
+  it("has no line above dishes without a status: their recipes deleted or not read", async () => {
+    vi.mocked(listRecipes).mockResolvedValue([]);
+    vi.mocked(getMealPlanView).mockResolvedValue({
+      plan: { id: "plan", name: "Vecka 44" },
+      dishes: [dish, { ...dish, id: "33333333-3333-4333-8333-333333333333", recipeId, recipe: null }],
+      snapshot: toSnapshot([]),
+      site: stugan,
+    });
+    render(<ToastProvider>{await MealPlanContent()}</ToastProvider>);
+    expect(screen.getAllByTestId("plan-dish")).toHaveLength(2);
+    expect(screen.queryByText(/^Lager:/)).not.toBeInTheDocument();
+  });
+
   it("has no line with one place, or without dishes", async () => {
     vi.mocked(listRecipes).mockResolvedValue([]);
     vi.mocked(getMealPlanView).mockResolvedValue({

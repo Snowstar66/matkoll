@@ -92,6 +92,7 @@ describe("putInPantryWith", () => {
       removed: 1,
       skipped: 0,
       pantryWritten: true,
+      handled: 3,
     });
     expect(d.addToPantry).toHaveBeenCalledWith([
       { key: check1, ingredientId: gradde, amount: 3, unit: "dl" },
@@ -111,7 +112,7 @@ describe("putInPantryWith", () => {
 
   it("only clears when no checked line has a catalog ingredient", async () => {
     const { deps: d } = deps({}, [{ id: check5, key: customLineKey(diskItem) }]);
-    expect(await putInPantryWith(d, planId)).toEqual({ kind: "done", added: 0, removed: 1, skipped: 0, pantryWritten: false });
+    expect(await putInPantryWith(d, planId)).toEqual({ kind: "done", added: 0, removed: 1, skipped: 0, pantryWritten: false, handled: 0 });
     expect(d.addToPantry).not.toHaveBeenCalled();
     expect(d.clear).toHaveBeenCalledWith(planId, { checkIds: [check5], overrideKeys: [], customItemIds: [diskItem] });
   });
@@ -119,7 +120,7 @@ describe("putInPantryWith", () => {
   it("does nothing without a check, or with only a text line checked", async () => {
     for (const checks of [[], [{ id: check3, key: textKey }]]) {
       const { deps: d } = deps({}, checks);
-      expect(await putInPantryWith(d, planId)).toEqual({ kind: "done", added: 0, removed: 0, skipped: 0, pantryWritten: false });
+      expect(await putInPantryWith(d, planId)).toEqual({ kind: "done", added: 0, removed: 0, skipped: 0, pantryWritten: false, handled: 0 });
       expect(d.addToPantry).not.toHaveBeenCalled();
       expect(d.clear).not.toHaveBeenCalled();
     }
@@ -151,7 +152,7 @@ describe("putInPantryWith", () => {
   it("leaves a check whose line is gone when the pantry has no receipt of it", async () => {
     const covered = { id: check2, key: recipeLineKey(gradde, "st") };
     const { deps: d } = deps({}, [covered]);
-    expect(await putInPantryWith(d, planId)).toEqual({ kind: "done", added: 0, removed: 0, skipped: 0, pantryWritten: false });
+    expect(await putInPantryWith(d, planId)).toEqual({ kind: "done", added: 0, removed: 0, skipped: 0, pantryWritten: false, handled: 0 });
     expect(d.clear).not.toHaveBeenCalled();
   });
 
@@ -208,6 +209,11 @@ describe("putInPantryWith", () => {
     ]);
     expect(d.clear).toHaveBeenCalledWith(planId, expect.objectContaining({ checkIds: [check5, check4, check2, check1] }));
     // The rest keep their keys, the checks' ids, so the pantry skips those it has a receipt of.
+  });
+
+  it("says how many items the pantry took in this run, without those it skipped for a receipt", async () => {
+    const { deps: d } = deps({ addToPantry: vi.fn(async () => ok({ added: 0 })) });
+    expect(await putInPantryWith(d, planId)).toMatchObject({ kind: "done", added: 3, handled: 0, pantryWritten: true });
   });
 
   it("tries a failed clear once more", async () => {

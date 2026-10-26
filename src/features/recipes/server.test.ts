@@ -14,20 +14,14 @@ vi.mock("./data/queries", () => ({
   getRecipe: (...args: unknown[]) => getRecipeIn(...args),
   listRecipes: (...args: unknown[]) => listRecipesIn(...args),
 }));
-const { PantryDataError } = vi.hoisted(() => ({
-  PantryDataError: class extends Error {
-    constructor(readonly detail: string) {
-      super(detail);
-    }
-  },
-}));
-const getPantrySnapshot = vi.fn();
-const getSelectedSite = vi.fn();
-vi.mock("@/features/pantry/server", () => ({
-  PantryDataError,
-  getPantrySnapshot: () => getPantrySnapshot(),
-  getSelectedSite: () => getSelectedSite(),
-}));
+// pantry.getPantryForStatus is tested in pantry/server.test.ts: here, what it gives.
+const getPantryForStatus = vi.fn();
+vi.mock("@/features/pantry/server", () => ({ getPantryForStatus: () => getPantryForStatus() }));
+/** The pantry for the status, on Stugan. */
+const onStugan = (snapshot: ReturnType<typeof toSnapshot>) =>
+  getPantryForStatus.mockResolvedValue({ site: stugan, snapshot });
+/** Neither place nor pantry: one of them could not be read. */
+const unreadable = () => getPantryForStatus.mockResolvedValue({ site: null, snapshot: null });
 
 const { getRecipeWithPantry, listLibrary } = await import("./server");
 
@@ -55,15 +49,14 @@ let log: ReturnType<typeof vi.spyOn>;
 beforeEach(() => {
   getRecipeIn.mockReset().mockResolvedValue(recipe);
   listRecipesIn.mockReset().mockResolvedValue([libraryRow]);
-  getPantrySnapshot.mockReset().mockResolvedValue(toSnapshot([]));
-  getSelectedSite.mockReset().mockResolvedValue(stugan);
+  getPantryForStatus.mockReset().mockResolvedValue({ site: stugan, snapshot: toSnapshot([]) });
   log?.mockRestore();
   log = vi.spyOn(console, "error").mockImplementation(() => {});
 });
 
 describe("getRecipeWithPantry", () => {
   it("gives the recipe and the pantry, only for the recipe's own ingredients", async () => {
-    getPantrySnapshot.mockResolvedValue(
+    onStugan(
       toSnapshot([
         { ingredientId: "gradde", amount: 2, unit: "dl" },
         { ingredientId: "mjol", amount: 1, unit: "kg" },
@@ -75,11 +68,10 @@ describe("getRecipeWithPantry", () => {
     expect(found?.snapshot).toEqual(new Map([["gradde", { unlimited: false, amounts: [{ unit: "dl", amount: 2 }] }]]));
   });
 
-  it("gives the recipe with snapshot null, and no place, when the pantry cannot be read", async () => {
-    getPantrySnapshot.mockRejectedValue(new PantryDataError("query_failed 08006"));
+  it("gives the recipe without status or place when the place or the pantry cannot be read", async () => {
+    unreadable();
     const found = await getRecipeWithPantry(id);
     expect(found).toEqual({ recipe, snapshot: null, site: null });
-    expect(log).toHaveBeenCalledWith("pantry_unavailable", { reason: "query_failed 08006" });
   });
 
   it("gives null for a recipe that is not found", async () => {
@@ -90,22 +82,13 @@ describe("getRecipeWithPantry", () => {
   it("gives null for an id that is not a uuid without reading the recipe or the pantry", async () => {
     expect(await getRecipeWithPantry("inte-ett-id")).toBeNull();
     expect(getRecipeIn).not.toHaveBeenCalled();
-    expect(getPantrySnapshot).not.toHaveBeenCalled();
-    expect(getSelectedSite).not.toHaveBeenCalled();
-  });
-
-  it("gives the recipe with its status and no place when the place cannot be read", async () => {
-    getSelectedSite.mockRejectedValue(new PantryDataError("sites_failed 08006"));
-    const found = await getRecipeWithPantry(id);
-    expect(found?.site).toBeNull();
-    expect(found?.snapshot).toEqual(new Map());
-    expect(log).toHaveBeenCalledWith("pantry_unavailable", { reason: "sites_failed 08006" });
+    expect(getPantryForStatus).not.toHaveBeenCalled();
   });
 });
 
 describe("listLibrary", () => {
   it("gives the rows with their status, says the pantry was read, and has the place it is of", async () => {
-    getPantrySnapshot.mockResolvedValue(toSnapshot([{ ingredientId: "gradde", amount: 2, unit: "dl" }]));
+    onStugan(toSnapshot([{ ingredientId: "gradde", amount: 2, unit: "dl" }]));
     expect(await listLibrary()).toEqual({
       recipes: [{ ...libraryItem, missingCount: 0 }],
       pantryUnavailable: false,
@@ -113,13 +96,12 @@ describe("listLibrary", () => {
     });
   });
 
-  it("gives the rows without status or place, and pantryUnavailable, when the pantry cannot be read", async () => {
-    getPantrySnapshot.mockRejectedValue(new PantryDataError("query_failed 08006"));
+  it("gives the rows without status or place, and pantryUnavailable, when the place or the pantry cannot be read", async () => {
+    unreadable();
     expect(await listLibrary()).toEqual({
       recipes: [{ ...libraryItem, missingCount: null }],
       pantryUnavailable: true,
       site: null,
     });
-    expect(log).toHaveBeenCalledWith("pantry_unavailable", { reason: "query_failed 08006" });
   });
 });

@@ -37,8 +37,11 @@ const findPantryAdditions = vi.fn();
 const forgetPantryAdditions = vi.fn();
 const getPantrySnapshot = vi.fn();
 const listPantrySites = vi.fn();
+const getSelectedSite = vi.fn();
 vi.mock("@/features/pantry/server", () => ({
   PantryDataError,
+  isPantrySiteGone: (error: unknown) => error instanceof PantryDataError && error.detail === "site_gone",
+  getSelectedSite: () => getSelectedSite(),
   addToPantry: (...args: unknown[]) => addToPantry(...args),
   findPantryAdditions: (keys: unknown) => findPantryAdditions(keys),
   forgetPantryAdditions: (keys: unknown) => forgetPantryAdditions(keys),
@@ -75,11 +78,12 @@ const allTables = ["pantry_item", "shopping_check", "shopping_custom_item", "sho
 let log: ReturnType<typeof vi.spyOn>;
 beforeEach(() => {
   requireUser.mockReset().mockResolvedValue(ok({ id: "user", email: "pontus@example.com" }));
-  putInPantryWith.mockReset().mockResolvedValue({ kind: "done", added: 3, removed: 1, skipped: 0, pantryWritten: true });
+  putInPantryWith.mockReset().mockResolvedValue({ kind: "done", added: 3, removed: 1, skipped: 0, pantryWritten: true, handled: 3 });
   forgetPantryAdditions.mockReset();
   getPantrySnapshot.mockReset();
   addToPantry.mockReset();
   listPantrySites.mockReset().mockResolvedValue([hemma, stugan]);
+  getSelectedSite.mockReset().mockResolvedValue({ id: hemma.id, name: "Hemma", siteCount: 2 });
   revalidateFor.mockReset();
   log?.mockRestore();
   log = vi.spyOn(console, "error").mockImplementation(() => {});
@@ -104,18 +108,58 @@ describe("putCheckedInPantry", () => {
     expect(addToPantry).toHaveBeenCalledWith(["item"], stugan.id);
   });
 
-  it("uses the selected place for a list read without one", async () => {
-    expect(await putCheckedInPantry({ planId, siteId: null })).toEqual(
-      ok({ added: 3, removed: 1, skipped: 0, siteName: "Hemma" }),
-    );
-    const deps = putInPantryWith.mock.calls[0]![0] as {
-      sources: { pantry: () => unknown };
-      addToPantry: (items: unknown) => unknown;
-    };
-    await deps.sources.pantry();
-    expect(getPantrySnapshot).toHaveBeenCalledWith(undefined);
+  it.each([[{ planId, siteId: null }], [{ planId }]])(
+    "reads the selected place once for a list without one (%j), and counts, writes and names that place",
+    async (withoutPlace) => {
+      expect(await putCheckedInPantry(withoutPlace)).toEqual(ok({ added: 3, removed: 1, skipped: 0, siteName: "Hemma" }));
+      expect(getSelectedSite).toHaveBeenCalledTimes(1);
+      const deps = putInPantryWith.mock.calls[0]![0] as {
+        sources: { pantry: () => unknown };
+        addToPantry: (items: unknown) => unknown;
+      };
+      await deps.sources.pantry();
+      expect(getPantrySnapshot).toHaveBeenCalledWith(hemma.id);
+      await deps.addToPantry(["item"]);
+      expect(addToPantry).toHaveBeenCalledWith(["item"], hemma.id);
+    },
+  );
+
+  it("names the place written to for a list without one, though another is selected after the write", async () => {
+    putInPantryWith.mockImplementation(async () => {
+      listPantrySites.mockResolvedValue([
+        { ...hemma, isSelected: false },
+        { ...stugan, isSelected: true },
+      ]);
+      return { kind: "done", added: 1, removed: 0, skipped: 0, pantryWritten: true, handled: 1 };
+    });
+    expect(await putCheckedInPantry({ planId })).toEqual(ok({ added: 1, removed: 0, skipped: 0, siteName: "Hemma" }));
+  });
+
+  it("gives pantry_add_failed, logged, when the selected place cannot be read for a list without one", async () => {
+    getSelectedSite.mockRejectedValue(new PantryDataError("sites_failed 08006"));
+    expect(await putCheckedInPantry({ planId, siteId: null })).toEqual(fail("pantry_add_failed"));
+    expect(log).toHaveBeenCalledWith("pantry_add_failed", { reason: "read_sites_failed 08006" });
+    expect(putInPantryWith).not.toHaveBeenCalled();
+  });
+
+  it("uses the selected place for a user without places, so the pantry makes Hemma", async () => {
+    getSelectedSite.mockResolvedValue(null);
+    await putCheckedInPantry({ planId, siteId: null });
+    const deps = putInPantryWith.mock.calls[0]![0] as { addToPantry: (items: unknown) => unknown };
     await deps.addToPantry(["item"]);
     expect(addToPantry).toHaveBeenCalledWith(["item"], null);
+  });
+
+  it("names no place when the pantry took nothing in this run: every item had a receipt", async () => {
+    putInPantryWith.mockResolvedValue({ kind: "done", added: 2, removed: 0, skipped: 0, pantryWritten: true, handled: 0 });
+    expect(await putCheckedInPantry(input)).toEqual(ok({ added: 2, removed: 0, skipped: 0, siteName: null }));
+    expect(listPantrySites).not.toHaveBeenCalled();
+  });
+
+  it("never throws after the write when the place's name cannot be read", async () => {
+    listPantrySites.mockRejectedValue(new TypeError("bug"));
+    expect(await putCheckedInPantry(input)).toEqual(ok({ added: 3, removed: 1, skipped: 0, siteName: null }));
+    expect(log).toHaveBeenCalledWith("pantry_unavailable", { reason: "unexpected" });
   });
 
   it("names no place with one, when nothing was added, or when the places cannot be read", async () => {
@@ -124,9 +168,9 @@ describe("putCheckedInPantry", () => {
       ok({ added: 3, removed: 1, skipped: 0, siteName: null }),
     );
     listPantrySites.mockResolvedValue([hemma, stugan]);
-    putInPantryWith.mockResolvedValue({ kind: "done", added: 0, removed: 1, skipped: 0, pantryWritten: false });
+    putInPantryWith.mockResolvedValue({ kind: "done", added: 0, removed: 1, skipped: 0, pantryWritten: false, handled: 0 });
     expect(await putCheckedInPantry(input)).toEqual(ok({ added: 0, removed: 1, skipped: 0, siteName: null }));
-    putInPantryWith.mockResolvedValue({ kind: "done", added: 3, removed: 0, skipped: 0, pantryWritten: true });
+    putInPantryWith.mockResolvedValue({ kind: "done", added: 3, removed: 0, skipped: 0, pantryWritten: true, handled: 3 });
     listPantrySites.mockRejectedValue(new PantryDataError("sites_failed 08006"));
     expect(await putCheckedInPantry(input)).toEqual(ok({ added: 3, removed: 0, skipped: 0, siteName: null }));
     expect(log).toHaveBeenCalledWith("pantry_unavailable", { reason: "sites_failed 08006" });
@@ -137,12 +181,23 @@ describe("putCheckedInPantry", () => {
     expect(await putCheckedInPantry(input)).toEqual(ok({ added: 3, removed: 1, skipped: 0, siteName: "Torpet" }));
   });
 
-  it("gives pantry_site_gone as it is, revalidating nothing, for a place removed meanwhile", async () => {
+  it("gives pantry_site_gone with the place selected now, revalidating nothing, for a place removed meanwhile", async () => {
     putInPantryWith.mockResolvedValue({ kind: "pantry_failed", error: fail("pantry_site_gone").error });
-    expect(await putCheckedInPantry(input)).toEqual(fail("pantry_site_gone"));
+    expect(await putCheckedInPantry(input)).toEqual(fail("pantry_site_gone", { site: "Hemma" }));
     expect(revalidateFor).not.toHaveBeenCalled();
     // Logged by the pantry, with its code; not again here.
     expect(log).not.toHaveBeenCalled();
+    // With one place left, or without the name, the notice reads without it.
+    listPantrySites.mockResolvedValue([hemma]);
+    expect(await putCheckedInPantry(input)).toEqual(fail("pantry_site_gone"));
+    listPantrySites.mockRejectedValue(new PantryDataError("sites_failed 08006"));
+    expect(await putCheckedInPantry(input)).toEqual(fail("pantry_site_gone"));
+  });
+
+  it("gives pantry_site_gone when the list's place is gone already when the list is read", async () => {
+    putInPantryWith.mockRejectedValue(new PantryDataError("site_gone"));
+    expect(await putCheckedInPantry(input)).toEqual(fail("pantry_site_gone", { site: "Hemma" }));
+    expect(log).toHaveBeenCalledWith("pantry_site_gone", { reason: "read" });
   });
 
   it("gives the flow the session client's writes and the pantry's functions", async () => {
@@ -172,13 +227,13 @@ describe("putCheckedInPantry", () => {
   });
 
   it("says what could not go to the pantry, logged", async () => {
-    putInPantryWith.mockResolvedValue({ kind: "done", added: 2, removed: 0, skipped: 1, pantryWritten: true });
+    putInPantryWith.mockResolvedValue({ kind: "done", added: 2, removed: 0, skipped: 1, pantryWritten: true, handled: 2 });
     expect(await putCheckedInPantry(input)).toEqual(ok({ added: 2, removed: 0, skipped: 1, siteName: "Stugan" }));
     expect(log).toHaveBeenCalledWith("shopping_put_in_pantry_skipped", { count: 1 });
   });
 
   it("revalidates the list but not the pantry when nothing went to the pantry", async () => {
-    putInPantryWith.mockResolvedValue({ kind: "done", added: 0, removed: 1, skipped: 0, pantryWritten: false });
+    putInPantryWith.mockResolvedValue({ kind: "done", added: 0, removed: 1, skipped: 0, pantryWritten: false, handled: 0 });
     expect(await putCheckedInPantry(input)).toEqual(ok({ added: 0, removed: 1, skipped: 0, siteName: null }));
     expect(revalidateFor.mock.calls.map(([table]) => table)).toEqual(allTables.slice(1));
   });
@@ -186,7 +241,6 @@ describe("putCheckedInPantry", () => {
   it.each([
     [{ planId: "inte-ett-id", siteId: null }],
     [{ planId, siteId: "Stugan" }],
-    [{ planId }],
     [{}],
     [undefined],
   ])("rejects %j without running", async (input) => {

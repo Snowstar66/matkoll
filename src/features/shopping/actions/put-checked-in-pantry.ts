@@ -10,6 +10,8 @@ import {
   findPantryAdditions,
   forgetPantryAdditions,
   getPantrySnapshot,
+  getSelectedSite,
+  isPantrySiteGone,
   listPantrySites,
   PantryDataError,
 } from "@/features/pantry/server";
@@ -26,10 +28,11 @@ import { clearPutInPantryIn, putInPantryWith, type PutInPantryOutcome } from "..
 /**
  * What putCheckedInPantry takes: the plan the list was counted for, and the
  * place it was counted against (getShoppingList's `site.id`), or `null` when
- * the list had none: then the selected place.
+ * the list had none: then the place selected when the action starts. A
+ * client from the build before Story 8.3 sends no `siteId`, which is the same.
  */
-const putInPantrySchema = z.object({ planId: z.uuid(), siteId: z.uuid().nullable() });
-export type PutInPantryInput = z.infer<typeof putInPantrySchema>;
+const putInPantrySchema = z.object({ planId: z.uuid(), siteId: z.uuid().nullish() });
+export type PutInPantryInput = z.input<typeof putInPantrySchema>;
 
 /**
  * For the confirmation: the items put in the pantry, the own items without a
@@ -46,8 +49,13 @@ export type PutInPantryResult = { added: number; removed: number; skipped: numbe
  * ingredient's location, and takes it off the list; see putInPantryWith. The
  * list is counted here against that place's pantry, never taken from the
  * client, and never against a place selected meanwhile on another device:
- * what goes to the pantry is what Pontus saw. A place removed meanwhile gives
- * `pantry_site_gone`, with nothing written and the checks kept. The receipts
+ * what goes to the pantry is what Pontus saw. Without `siteId`, the selected
+ * place is read once at the start, and the list is counted against it and
+ * the items go to it, so the write and the confirmation's place always
+ * agree. A place removed meanwhile gives `pantry_site_gone`, with nothing
+ * written and the checks kept; its `fields.site` names the place selected now,
+ * which the list is counted against when read again (none with one place,
+ * or when it cannot be read). The receipts
  * are per user and not per place, so a second run, also with another place,
  * never adds an item twice. Checked own items linked to a catalog ingredient go
  * to the pantry too; those without a link are only removed. Idempotent rather
@@ -68,19 +76,23 @@ export async function putCheckedInPantry(input: PutInPantryInput): Promise<Resul
   if (!user.ok) return user;
   const parsed = putInPantrySchema.safeParse(input);
   if (!parsed.success) return fail("validation");
-  const { planId, siteId } = parsed.data;
+  const { planId } = parsed.data;
+  let siteId = parsed.data.siteId ?? null;
   const db = await createClient();
 
   let outcome: PutInPantryOutcome;
   try {
+    // One place for the whole run: the list's, or the one selected now, read once.
+    if (siteId === null) siteId = (await getSelectedSite())?.id ?? null;
+    const place = siteId;
     outcome = await putInPantryWith(
       {
         sources: {
           currentPlan: getCurrentPlan,
           recipesByIds: getRecipesByIds,
           // Without the pantry, the amounts to buy would be wrong: a failure
-          // stops the flow. The list's place, or the selected one without it.
-          pantry: () => getPantrySnapshot(siteId ?? undefined),
+          // stops the flow. A user without places has an empty pantry.
+          pantry: () => getPantrySnapshot(place ?? undefined),
           ingredientNames: getIngredientNames,
           ingredientDefaults: getIngredientDefaults,
           customItems: (id) => listCustomItemsIn(db, id),
@@ -88,7 +100,7 @@ export async function putCheckedInPantry(input: PutInPantryInput): Promise<Resul
         },
         checkRows: (id) => listCheckRowsIn(db, id),
         findAdditions: findPantryAdditions,
-        addToPantry: (items) => addToPantry(items, siteId),
+        addToPantry: (items) => addToPantry(items, place),
         clear: (id, cleared) => clearPutInPantryIn(db, id, cleared),
         forgetAdditions: async (keys) => {
           try {
@@ -104,6 +116,10 @@ export async function putCheckedInPantry(input: PutInPantryInput): Promise<Resul
     );
   } catch (error) {
     // Nothing is written before the list and the receipts are read.
+    if (isPantrySiteGone(error)) {
+      console.error("pantry_site_gone", { reason: "read" });
+      return siteGone();
+    }
     if (
       error instanceof MealPlanDataError ||
       error instanceof RecipeDataError ||
@@ -130,7 +146,9 @@ export async function putCheckedInPantry(input: PutInPantryInput): Promise<Resul
         added: outcome.added,
         removed: outcome.removed,
         skipped: outcome.skipped,
-        siteName: outcome.added > 0 ? await siteNameOrNull(siteId) : null,
+        // Only when the pantry took something in this run: a run whose items
+        // were all skipped for their receipts names no place.
+        siteName: outcome.handled > 0 ? await siteNameOrNull(siteId) : null,
       });
     case "plan_changed":
       revalidateFor("shopping_check");
@@ -138,7 +156,7 @@ export async function putCheckedInPantry(input: PutInPantryInput): Promise<Resul
     case "pantry_failed":
       if (outcome.error.code === "unauthorized") return fail("unauthorized");
       // Logged by the pantry with its code; the list is read again.
-      if (outcome.error.code === "pantry_site_gone") return fail("pantry_site_gone");
+      if (outcome.error.code === "pantry_site_gone") return siteGone();
       // An item the pantry refuses (validation) is logged like any failure there.
       if (outcome.error.code !== "pantry_add_failed") console.error("pantry_add_failed", { reason: outcome.error.code });
       return fail("pantry_add_failed");
@@ -149,10 +167,11 @@ export async function putCheckedInPantry(input: PutInPantryInput): Promise<Resul
 }
 
 /**
- * The name of the place the items went to (`siteId`, or the selected place),
- * as it is after the write, when the user has more than one place; `null`
- * otherwise, and when the places cannot be read (logged as
- * `pantry_unavailable`): the confirmation then reads as in 1.0.
+ * The name of the place `siteId` (or the selected place, for a user who had
+ * none when the run started), as it is after the write, when the user has
+ * more than one place; `null` otherwise. Never throws, since the pantry is
+ * written already: a failure is logged as `pantry_unavailable`, with its
+ * code only, and the confirmation reads as in 1.0.
  */
 async function siteNameOrNull(siteId: string | null): Promise<string | null> {
   try {
@@ -160,8 +179,17 @@ async function siteNameOrNull(siteId: string | null): Promise<string | null> {
     const site = sites.find((each) => (siteId === null ? each.isSelected : each.id === siteId));
     return site ? shownSiteName({ name: site.name, siteCount: sites.length }) : null;
   } catch (error) {
-    if (!(error instanceof PantryDataError)) throw error;
-    console.error("pantry_unavailable", { reason: error.detail });
+    console.error("pantry_unavailable", { reason: error instanceof PantryDataError ? error.detail : "unexpected" });
     return null;
   }
+}
+
+/**
+ * `pantry_site_gone`, with the place selected now in `fields.site` when the
+ * user has more than one place, for the list's notice (siteGoneText). Never
+ * throws: without the name, the notice reads without it.
+ */
+async function siteGone() {
+  const name = await siteNameOrNull(null);
+  return fail("pantry_site_gone", name === null ? undefined : { site: name });
 }

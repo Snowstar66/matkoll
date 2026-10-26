@@ -180,6 +180,17 @@ export function putInPantryText(added: number, removed: number, siteName: string
   return null;
 }
 
+/**
+ * After "Lägg i lagret" when the list's place was removed elsewhere
+ * (`pantry_site_gone`): nothing was added, the checks stay, and the list is
+ * read again against the place selected now, named when the user has more
+ * than one (putCheckedInPantry's `fields.site`).
+ */
+export function siteGoneText(selectedName: string | null): string {
+  const recounted = selectedName ? `Listan har räknats om mot ${selectedName}.` : "Listan har räknats om.";
+  return `Stället finns inte längre. ${recounted} Tryck Lägg i lagret igen.`;
+}
+
 /** After "Lägg i lagret" when some checked lines could not go to the pantry; they keep their checks. */
 export const partlyPutInPantryText = "Det gick inte att lägga allt i lagret.";
 

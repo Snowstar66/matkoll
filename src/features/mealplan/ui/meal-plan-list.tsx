@@ -91,8 +91,8 @@ export type MealPlanListProps = {
   snapshot: PantrySnapshot | null;
   /**
    * "Lager: Stugan" (pantry.siteLineText), the place the status is counted
-   * against, shown first while the plan has dishes; `null` with one place or
-   * without a status.
+   * against, shown first while a shown dish has a status; `null` with one
+   * place or without a status.
    */
   siteLine?: string | null;
 };
@@ -326,8 +326,9 @@ export function MealPlanList({ planName, dishes, snapshot, siteLine = null }: Me
 
   return (
     <div ref={rootRef} className="flex flex-col gap-2">
-      {/* Metadata under the page title, never announced: the dishes' badges are what changes. */}
-      {siteLine ? (
+      {/* Metadata under the page title, never announced: the dishes' badges are what changes.
+          Only above a dish with a status: a recipe, and a pantry to count it against. */}
+      {siteLine && snapshot && shown.some((dish) => dish.recipe !== null) ? (
         <p className="text-meta break-words text-ink-2" data-testid="site-line">
           {siteLine}
         </p>

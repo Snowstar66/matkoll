@@ -12,6 +12,7 @@ import {
   putInPantryButtonText,
   putInPantryText,
   serverUnreachableText,
+  siteGoneText,
 } from "../domain/list-text";
 import type { OwnChanges } from "./own-changes";
 
@@ -94,7 +95,10 @@ export function usePutInPantry(
       router.refresh();
       return;
     }
-    showNotice(result.error.message);
+    // A place removed elsewhere: the list is read again against the place selected now.
+    showNotice(
+      result.error.code === "pantry_site_gone" ? siteGoneText(result.error.fields?.site ?? null) : result.error.message,
+    );
     if (readAgain.has(result.error.code)) router.refresh();
   }
 

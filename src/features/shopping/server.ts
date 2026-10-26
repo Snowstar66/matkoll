@@ -2,8 +2,8 @@ import "server-only";
 import { requireUser } from "@/features/auth/server";
 import { CatalogDataError, getIngredientDefaults, getIngredientNames } from "@/features/catalog/server";
 import { getCurrentPlan, MealPlanDataError } from "@/features/mealplan/server";
-import type { PantrySnapshot, SelectedSite } from "@/features/pantry";
-import { findPantryAdditions, getPantrySnapshot, getSelectedSite, PantryDataError } from "@/features/pantry/server";
+import type { SelectedSite } from "@/features/pantry";
+import { findPantryAdditions, getPantryForStatus, PantryDataError } from "@/features/pantry/server";
 import { getRecipesByIds, RecipeDataError } from "@/features/recipes/server";
 import { getSelectedStore, SettingsDataError } from "@/features/settings/server";
 import { fail, ok, type Result } from "@/lib/errors";
@@ -81,37 +81,6 @@ async function storeAndChoices(): Promise<ProductChoiceContext> {
 }
 
 /**
- * The pantry for the list, or `null` when it cannot be read (logged as
- * `pantry_unavailable`): the list is then shown with nothing taken off and
- * says so, rather than not at all. Other errors are bugs and are thrown.
- */
-async function pantrySnapshotOrNull(): Promise<PantrySnapshot | null> {
-  try {
-    return await getPantrySnapshot();
-  } catch (error) {
-    if (!(error instanceof PantryDataError)) throw error;
-    console.error("pantry_unavailable", { reason: error.detail });
-    return null;
-  }
-}
-
-/**
- * The place the list is counted against, or `null` when the user has none or
- * it cannot be read (logged as `pantry_unavailable`): the list is shown all
- * the same. getSelectedSite and getPantrySnapshot are memoised per request
- * and read the same selected place. Other errors are bugs and are thrown.
- */
-async function selectedSiteOrNull(): Promise<SelectedSite | null> {
-  try {
-    return await getSelectedSite();
-  } catch (error) {
-    if (!(error instanceof PantryDataError)) throw error;
-    console.error("pantry_unavailable", { reason: error.detail });
-    return null;
-  }
-}
-
-/**
  * The plan's checks, or `null` when they cannot be read (logged as
  * `shopping_checks_unavailable`): the list is then shown without checks,
  * and checking is off, rather than no list at all. Other errors are thrown.
@@ -155,24 +124,29 @@ async function pendingClearOf(list: CountedList, checks: readonly CheckRow[] | n
  * and name. For the page, inside <Suspense> (AD-18). `unauthorized` without a
  * signed-in user; `shopping_unavailable` (logged) when the plan, the recipes,
  * the own items, the overrides or the catalog cannot be read. Checks that cannot be read give the list
- * without them and `checksUnavailable`. A pantry that cannot be read gives the list
- * with nothing taken off and `pantryUnavailable`. `pendingClear` counts the
+ * without them and `checksUnavailable`. The list is counted against the
+ * selected place's pantry, read once with the place (pantry.getPantryForStatus,
+ * AD-24), so `site` is always the place the list was counted against. A place
+ * or pantry that cannot be read gives the list with nothing taken off,
+ * `pantryUnavailable` (when there was something to count) and `site: null`.
+ * `pendingClear` counts the
  * checks an interrupted "Lägg i lagret" left behind. The selected store and
- * its product choices are read alongside (storeAndChoices), and so is the
- * place the list is counted against (`site`); when they cannot be read, the
- * list is given all the same. Other errors are thrown.
+ * its product choices are read alongside (storeAndChoices); when they cannot
+ * be read, the list is given all the same. Other errors are thrown.
  */
 export async function getShoppingList(): Promise<Result<ShoppingList>> {
   const user = await requireUser();
   if (!user.ok) return fail("unauthorized");
   let checks: CheckRow[] | null = null;
-  // The store and its choices are read alongside the list; both settle
-  // before either is used, so neither is left running unobserved.
-  const [counted, choices, site] = await Promise.allSettled([
+  // The place and its pantry, read once; the list takes the pantry from it.
+  const forStatus = getPantryForStatus();
+  // The store and its choices are read alongside the list; all settle
+  // before any is used, so none is left running unobserved.
+  const [counted, choices, status] = await Promise.allSettled([
     loadShoppingList({
       currentPlan: getCurrentPlan,
       recipesByIds: getRecipesByIds,
-      pantry: pantrySnapshotOrNull,
+      pantry: async () => (await forStatus).snapshot,
       ingredientNames: getIngredientNames,
       ingredientDefaults: getIngredientDefaults,
       checks: async (planId) => {
@@ -183,15 +157,15 @@ export async function getShoppingList(): Promise<Result<ShoppingList>> {
       overrides: async (planId) => listOverridesIn(await createClient(), planId),
     }),
     storeAndChoices(),
-    selectedSiteOrNull(),
+    forStatus,
   ]);
-  // storeAndChoices and selectedSiteOrNull handle every expected error: what they throw is a bug.
+  // storeAndChoices and getPantryForStatus handle every expected error: what they throw is a bug.
   if (choices.status === "rejected") throw choices.reason;
-  if (site.status === "rejected") throw site.reason;
+  if (status.status === "rejected") throw status.reason;
   try {
     if (counted.status === "rejected") throw counted.reason;
     const list = counted.value;
-    return ok({ ...list, pendingClear: await pendingClearOf(list, checks), ...choices.value, site: site.value });
+    return ok({ ...list, pendingClear: await pendingClearOf(list, checks), ...choices.value, site: status.value.site });
   } catch (error) {
     if (error instanceof MealPlanDataError || error instanceof RecipeDataError || error instanceof ShoppingDataError) {
       console.error("shopping_unavailable", { reason: error.detail });

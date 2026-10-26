@@ -267,6 +267,52 @@ test("Lägg i lagret with Stugan selected puts the ketchup on Stugan and says so
   expect(errors).toEqual([]);
 });
 
+test("Lägg i lagret for a place removed elsewhere writes nothing, keeps the check, counts the list against Hemma, and a second tap puts it there", async ({
+  page,
+}) => {
+  const errors = watchErrors(page);
+  // Hemma without ketchup and korv, so the list against Hemma differs from Stugan's and keeps the ketchup.
+  const cleared = await adminClient()
+    .from("pantry_item")
+    .delete()
+    .eq("site_id", hemma)
+    .in("ingredient_id", [ids.get("Ketchup"), ids.get("Korv")]);
+  if (cleared.error) throw cleared.error;
+  await selectSite(stugan);
+  await page.goto("/lista");
+  const korvCheck = page.getByRole("checkbox", { name: /^Korv/ }).filter({ visible: true });
+  await expect(korvCheck).toHaveCount(0);
+  await ketchupCheck(page).click();
+  await expect(ketchupCheck(page)).toBeChecked();
+  await expect(putButton(page)).toBeEnabled();
+
+  // Another device selects Hemma, empties Stugan and removes it.
+  await removeStugan();
+  const hemmaBefore = await pantryOn(hemma);
+  await putButton(page).click();
+  // The list's notice (not Next's route announcer, also an alert).
+  await expect(page.getByRole("alert").filter({ visible: true, hasText: "Stället" })).toHaveText(
+    "Stället finns inte längre. Listan har räknats om. Tryck Lägg i lagret igen.",
+  );
+  // The list is read again against Hemma: the korv is missing there; the ketchup keeps its check.
+  await expect(korvCheck).toBeVisible();
+  await expect(ketchupCheck(page)).toBeChecked();
+  expect(await pantryOn(hemma)).toEqual(hemmaBefore);
+  const receipts = await adminClient()
+    .from("pantry_addition")
+    .select("key", { count: "exact", head: true })
+    .eq("user_id", userId);
+  expect(receipts.count).toBe(0);
+
+  // A second tap puts the ketchup on Hemma, the only place now.
+  await putButton(page).click();
+  await expect(toast(page)).toHaveText("Lagt 1 vara i lagret.");
+  await expect
+    .poll(async () => (await pantryOn(hemma)).filter((row) => row.ingredient_id === ids.get("Ketchup")))
+    .toEqual([{ ingredient_id: ids.get("Ketchup"), location: "Skafferi", amount: 1, unit: "förp" }]);
+  expect(errors).toEqual([]);
+});
+
 test("Lägg i lagret puts the ketchup on the list's place when Hemma is selected elsewhere after the list was shown", async ({
   page,
 }) => {

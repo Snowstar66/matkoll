@@ -72,7 +72,8 @@ export type LibraryProps = {
 export function Library({ recipes, pantryUnavailable, site, searchIngredients }: LibraryProps) {
   const router = useRouter();
   const [filter, setFilter] = useRecipeFilter();
-  const dishes = useDishSuggestions();
+  // AI-förslag are of the place the server's list is counted against.
+  const dishes = useDishSuggestions(site?.id ?? null);
   const [search, setSearch] = useState<Search>({ kind: "none" });
   const [busy, setBusy] = useState(false);
   const searchField = useRef<SearchFieldHandle>(null);
@@ -137,13 +138,15 @@ export function Library({ recipes, pantryUnavailable, site, searchIngredients }:
   // status while the pantry was read is ranked last, without the notice.
   const statusUnavailable = pantryUnavailable && (search.kind !== "done" || search.pantryUnavailable);
   const notRanked = cookable && statusUnavailable && search.kind !== "failed" && visible.length > 0;
-  // The place the shown statuses were counted against: the server list's,
-  // which the rows take their status from first, else the search answer's.
-  // Only in Kan lagas nu, with a status, and with more than one place.
-  const siteLine =
-    cookable && !statusUnavailable && search.kind !== "failed"
-      ? siteLineText(site ?? (search.kind === "done" ? search.site : null))
-      : null;
+  // "Lager: Stugan", only in Kan lagas nu and with more than one place: the
+  // search answer's place while its recipes are shown, else the server
+  // list's. Never on no hits, a failed search, or without a status.
+  let siteLine: string | null = null;
+  if (cookable && search.kind === "done") {
+    siteLine = search.results.length > 0 && !search.pantryUnavailable ? siteLineText(search.site) : null;
+  } else if (cookable && search.kind === "none") {
+    siteLine = pantryUnavailable ? null : siteLineText(site);
+  }
 
   let content;
   if (search.kind === "failed") {

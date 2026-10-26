@@ -123,10 +123,12 @@ describe("Lägg i lagret", () => {
 
   it("keeps the checks when the place is gone, and reads the list again", async () => {
     const user = userEvent.setup();
-    putCheckedInPantry.mockResolvedValue(fail("pantry_site_gone"));
+    putCheckedInPantry.mockResolvedValue(fail("pantry_site_gone", { site: "Hemma" }));
     render(<ShoppingList plan={plan} lines={[{ ...lines[0]!, checked: true }]} pantryUnavailable={false} />);
     await user.click(button()!);
-    expect(await screen.findByRole("alert")).toHaveTextContent("Stället finns inte längre. Välj ett annat ställe.");
+    expect(await screen.findByRole("alert")).toHaveTextContent(
+      "Stället finns inte längre. Listan har räknats om mot Hemma. Tryck Lägg i lagret igen.",
+    );
     expect(screen.getByRole("checkbox", { name: "Grädde, 3 dl" })).toBeChecked();
     expect(refresh).toHaveBeenCalledTimes(1);
   });
@@ -193,7 +195,12 @@ describe("Lägg i lagret", () => {
     [fail("shopping_put_in_pantry_failed"), "Det gick inte att lägga allt i lagret. Försök igen.", false],
     [fail("shopping_plan_changed"), "Matsedeln har bytts. Listan är uppdaterad.", true],
     [fail("shopping_put_in_pantry_plan_changed"), "Varorna är lagda i lagret, men matsedeln har bytts.", true],
-    [fail("pantry_site_gone"), "Stället finns inte längre. Välj ett annat ställe.", true],
+    [fail("pantry_site_gone"), "Stället finns inte längre. Listan har räknats om. Tryck Lägg i lagret igen.", true],
+    [
+      fail("pantry_site_gone", { site: "Hemma" }),
+      "Stället finns inte längre. Listan har räknats om mot Hemma. Tryck Lägg i lagret igen.",
+      true,
+    ],
   ])("shows a blue notice for %j", async (result, text, reads) => {
     const user = userEvent.setup();
     putCheckedInPantry.mockResolvedValue(result);
