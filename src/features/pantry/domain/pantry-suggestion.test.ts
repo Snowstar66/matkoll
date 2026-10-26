@@ -40,6 +40,12 @@ import {
   suggestionsHeading,
   toPantrySuggestions,
   unreadableItemsText,
+  isBulkConfirmable,
+  maxSuggestionLabels,
+  suggestionTitle,
+  uncertainBadgeText,
+  uncertainLeftText,
+  uncertainSuggestionText,
   type AiPantryItemLike,
   type ConfirmItem,
   type ConfirmItemInput,
@@ -122,6 +128,8 @@ describe("toPantrySuggestions", () => {
       // Compared with the place later (compareWithPlace).
       change: null,
       replaces: [],
+      labels: ["Arla mellanmjölk"],
+      uncertain: false,
     });
     expect(suggestions[1].ingredient).toEqual({
       kind: "new",
@@ -280,6 +288,37 @@ describe("toPantrySuggestions", () => {
     expect(suggestions.map(({ name }) => name)).toEqual(["ost", "ål", "ägg", "äpple"]);
   });
 
+  it("keeps the items' different labels in order, at most three, for the card's title (Story 6.5)", () => {
+    const items = [
+      item("Arla mellanmjölk 1,5 l", 1, "förp", "mjölk"),
+      item("ICA mellanmjölk", 1, "förp", "mjölk"),
+      item("arla  MELLANMJÖLK 1,5 l", 1, "förp", "mjölk"),
+      item("Garant mellanmjölk", 1, "förp", "mjölk"),
+      item("Skånemejerier mellanmjölk", 1, "förp", "mjölk"),
+    ];
+    const [suggestion] = suggest(items, items.map(() => match(mjolk)));
+    expect(maxSuggestionLabels).toBe(3);
+    expect(suggestion.labels).toEqual(["Arla mellanmjölk 1,5 l", "ICA mellanmjölk", "Garant mellanmjölk"]);
+    // Different labels are different packages: the amounts are summed as before.
+    expect(brief([suggestion])).toEqual([["mjölk", 5, "förp"]]);
+    expect(pantrySuggestionSchema.safeParse(suggestion).success).toBe(true);
+  });
+
+  it("marks a suggestion unsure when any of its items was the model's guess, and sure without confidence (Story 6.5)", () => {
+    const sure = { ...item("Johnny's senap", 1, "förp", "senap"), confidence: "säker" as const };
+    const guess = { ...item("Gul flaska, troligen senap", 1, "förp", "senap"), confidence: "osäker" as const };
+    const plain = item("Smör", 1, "förp");
+    const suggestions = suggest([sure, guess, plain], [fresh("senap"), fresh("senap"), match(smor)]);
+    expect(suggestions.map(({ name, uncertain, amount }) => [name, uncertain, amount])).toEqual([
+      ["senap", true, 2],
+      ["smör", false, 1],
+    ]);
+    expect(isBulkConfirmable(suggestions[0])).toBe(false);
+    expect(isBulkConfirmable(suggestions[1])).toBe(true);
+    // A suggestion without the field (before Story 6.5) is sure.
+    expect(isBulkConfirmable({})).toBe(true);
+  });
+
   it("gives nothing for no items", () => {
     expect(toPantrySuggestions([], [], { location: "Kyl", names, current: [] })).toEqual({
       suggestions: [],
@@ -326,7 +365,56 @@ describe("analyzeResultSchema", () => {
   });
 });
 
+describe("pantrySuggestionSchema labels and uncertain (Story 6.5)", () => {
+  const suggestion = {
+    id: "s1",
+    name: "mjölk",
+    ingredient: { kind: "existing", ingredientId: mjolk },
+    location: "Kyl",
+    amount: 1,
+    unit: "förp",
+    current: null,
+    change: null,
+    replaces: [],
+  };
+
+  it("takes up to three labels and the flag, and a suggestion without them", () => {
+    expect(pantrySuggestionSchema.safeParse(suggestion).success).toBe(true);
+    expect(pantrySuggestionSchema.safeParse({ ...suggestion, labels: ["a", "b", "c"], uncertain: true }).success).toBe(true);
+  });
+
+  it.each([
+    ["four labels", { labels: ["a", "b", "c", "d"] }],
+    ["an empty label", { labels: [" "] }],
+    ["a label over 200 characters", { labels: ["x".repeat(201)] }],
+    ["a flag that is not a boolean", { uncertain: "osäker" }],
+  ])("refuses %s", (_name, change) => {
+    expect(pantrySuggestionSchema.safeParse({ ...suggestion, ...change }).success).toBe(false);
+  });
+});
+
 describe("texts", () => {
+  it("titles a card with the labels and the catalog name under them, or the name alone (Story 6.5)", () => {
+    expect(suggestionTitle({ name: "vispgrädde", labels: ["ICA vispgrädde 36 %"] })).toEqual({
+      title: "ICA vispgrädde 36 %",
+      ingredientName: "vispgrädde",
+    });
+    expect(suggestionTitle({ name: "mjölk", labels: ["Arla mellanmjölk", "ICA mellanmjölk"] })).toEqual({
+      title: "Arla mellanmjölk, ICA mellanmjölk",
+      ingredientName: "mjölk",
+    });
+    expect(suggestionTitle({ name: "ägg", labels: ["Ägg"] })).toEqual({ title: "ägg", ingredientName: null });
+    expect(suggestionTitle({ name: "ägg", labels: [] })).toEqual({ title: "ägg", ingredientName: null });
+    expect(suggestionTitle({ name: "ägg" })).toEqual({ title: "ägg", ingredientName: null });
+  });
+
+  it("says when the AI was unsure, and how many unsure suggestions are left (Story 6.5)", () => {
+    expect(uncertainBadgeText).toBe("Osäker");
+    expect(uncertainSuggestionText).toBe("AI:n är osäker på varan, så Bekräfta alla tar inte med den.");
+    expect(uncertainLeftText(1)).toBe("1 osäker vara är kvar att bekräfta eller rätta.");
+    expect(uncertainLeftText(2)).toBe("2 osäkra varor är kvar att bekräfta eller rätta.");
+  });
+
   it("names the place on the camera button and the heading", () => {
     expect(cameraButtonText("Kyl")).toBe("Fotografera kylen");
     expect(cameraButtonText("Frys")).toBe("Fotografera frysen");

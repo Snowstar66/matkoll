@@ -2,36 +2,42 @@
   "items": [
     {
       "label": "Mellanmjölk 1,5 %",
+      "confidence": "säker",
       "amount": 1,
       "unit": "förp",
       "hint": { "name": "mjölk", "section": "Mejeri", "location": "Kyl", "defaultUnit": "förp" }
     },
     {
       "label": "Vispgrädde 3 dl",
+      "confidence": "säker",
       "amount": 1,
       "unit": "förp",
       "hint": { "name": "grädde", "section": "Mejeri", "location": "Kyl", "defaultUnit": "förp" }
     },
     {
       "label": "Smör 500 g",
+      "confidence": "säker",
       "amount": 1,
       "unit": "förp",
       "hint": { "name": "smör", "section": "Mejeri", "location": "Kyl", "defaultUnit": "förp" }
     },
     {
       "label": "Ägg",
+      "confidence": "säker",
       "amount": 6,
       "unit": "st",
       "hint": { "name": "ägg", "section": "Mejeri", "location": "Kyl", "defaultUnit": "st" }
     },
     {
       "label": "Gurka",
+      "confidence": "säker",
       "amount": 2,
       "unit": null,
       "hint": { "name": "gurka", "section": "Frukt och grönt", "location": "Kyl", "defaultUnit": "st" }
     },
     {
       "label": "Ketchup",
+      "confidence": "säker",
       "amount": 1,
       "unit": "tub",
       "hint": { "name": "ketchup", "section": "Skafferi", "location": "Skafferi", "defaultUnit": "förp" }

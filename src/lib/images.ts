@@ -3,8 +3,15 @@
 // the size in pixels are read from the file's own bytes, never from what the
 // sender says.
 
-/** Longest side of a resized photo, in pixels. */
+/** Longest side of a resized photo of a cookbook page, in pixels. */
 export const maxImageSide = 1600;
+
+/**
+ * Longest side of a resized photo of a place at home (Story 6.5): small print
+ * on packages needs more pixels than a cookbook page. A JPEG of 2048 px at
+ * quality 0.85 is about 0.7 MB, well under maxImageBytes.
+ */
+export const maxPlacePhotoSide = 2048;
 
 /** What the server lets a longest side exceed maxImageSide by, for rounding in other clients. */
 export const imageSideTolerance = 16;

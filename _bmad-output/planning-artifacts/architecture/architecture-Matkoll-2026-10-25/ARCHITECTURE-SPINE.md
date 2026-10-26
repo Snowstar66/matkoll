@@ -188,7 +188,7 @@ Pilarna är de enda tillåtna beroendena. En annan modul nås bara via dess `ind
 
 - **Binds:** FR-4, FR-8, FR-24
 - **Prevents:** lagrade privata foton, uppladdningar som stoppas av Vercels gräns på 4,5 MB, och trasiga receptbilder.
-- **Rule:** Foton av kokbokssidor och platser förminskas i klienten till högst 1600 px och 1,5 MB (JPEG) före uppladdning, kontrolleras på servern (`image_too_large`), skickas till AI-tjänsten och sparas aldrig. Receptbilder sparas som URL och visas med `<img referrerPolicy="no-referrer">` och en platshållare vid fel. Ingen CSP i v1.
+- **Rule:** Foton av kokbokssidor och platser förminskas i klienten till högst 1600 px för en kokbokssida och 2048 px för en plats (Story 6.5, `maxPlacePhotoSide`), och högst 1,5 MB (JPEG), före uppladdning, kontrolleras på servern (`image_too_large`), skickas till AI-tjänsten och sparas aldrig. Receptbilder sparas som URL och visas med `<img referrerPolicy="no-referrer">` och en platshållare vid fel. Ingen CSP i v1.
 
 ### AD-16 – Varukorgsexporten
 

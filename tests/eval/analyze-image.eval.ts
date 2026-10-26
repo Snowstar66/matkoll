@@ -4,8 +4,8 @@ import { tmpdir } from "node:os";
 import { extname, join } from "node:path";
 import { afterAll, describe, expect, it } from "vitest";
 import { normalizeIngredientText } from "@/features/catalog";
-import { imageSizeOf, imageTypeOf, maxImageBytes, maxImageSide, stripJpegMetadata, stripPngMetadata } from "@/lib/images";
-import type { AiPantryItem } from "@/server/ai/schemas";
+import { imageSizeOf, imageTypeOf, maxImageBytes, maxPlacePhotoSide, stripJpegMetadata, stripPngMetadata } from "@/lib/images";
+import { minLoopRepeats, type AiPantryItem } from "@/server/ai/schemas";
 import { analyzePlaces, createAiService, type AnalyzePlace } from "@/server/ai/service";
 import { parseEnv } from "@/server/env-schema";
 
@@ -21,18 +21,23 @@ import { parseEnv } from "@/server/env-schema";
 // its metadata, like the client sends it: a JPEG or PNG that fits has its
 // metadata segments or chunks removed (stripJpegMetadata, stripPngMetadata),
 // and any other photo (too large, WebP, HEIC) is made small with macOS's
-// sips into a temporary folder that is removed afterwards, and then stripped.
-// For each photo the report tests/eval/analyze-report.md (ignored by git)
-// lists the hits (expected items the model named), the misses, the wrong
-// guesses (items it named that were not expected), the items the port left
-// out as invalid and the time. Refuses to run against the mock. Photos of a
-// home only go to a model on this computer (LM Studio on localhost); another
-// provider needs EVAL_ALLOW_REMOTE_PHOTOS=1. With no photos it says so and
-// skips.
+// sips to at most 2048 px at quality 85, as the client makes a photo of a
+// place (Story 6.5), into a temporary folder that is removed afterwards, and
+// then stripped. Each photo is sent EVAL_RUNS times (default 3, Story 6.5),
+// one run after the other. For each run the report tests/eval/analyze-report.md
+// (ignored by git) lists the time, the items, the unsure ones, the ones the
+// port left out as invalid, the repeats it merged, whether that was a loop,
+// the hits (expected items the model named), the misses and the wrong guesses
+// (items it named that were not expected). A run fails on an error, a loop
+// (one label minLoopRepeats extra times or more) or more than maxRunSeconds. Refuses to run
+// against the mock. Photos of a home only go to a model on this computer (LM
+// Studio on localhost); another provider needs EVAL_ALLOW_REMOTE_PHOTOS=1.
+// With no photos it says so and skips. Nothing of the photo is printed.
 
 type Expected = { place: AnalyzePlace; items: string[] };
 type CaseResult = {
   name: string;
+  run: number;
   place: AnalyzePlace;
   seconds: number;
   error?: string;
@@ -40,8 +45,15 @@ type CaseResult = {
   misses: string[];
   wrong: string[];
   invalid?: number;
+  repeated?: number;
   items?: AiPantryItem[];
 };
+
+/** How many times each photo is sent: EVAL_RUNS, default 3 (Story 6.5: the model samples, so one run says little). */
+const runs = Math.max(1, Number.parseInt(process.env.EVAL_RUNS ?? "3", 10) || 3);
+/** The AI port's attempt budget (AD-9): a run that takes longer would fail in the app. */
+const maxRunSeconds = 100;
+const isLoop = (result: CaseResult) => (result.repeated ?? 0) >= minLoopRepeats;
 
 const photosDir = join(process.cwd(), "tests", "eval", "photos");
 const reportPath = join(process.cwd(), "tests", "eval", "analyze-report.md");
@@ -82,7 +94,7 @@ function preparePhoto(file: string): { data: Uint8Array; mediaType: string } | {
   const bytes = new Uint8Array(readFileSync(path));
   const type = imageTypeOf(bytes);
   const size = imageSizeOf(bytes);
-  const fits = size !== null && bytes.byteLength <= maxImageBytes && Math.max(size.width, size.height) <= maxImageSide;
+  const fits = size !== null && bytes.byteLength <= maxImageBytes && Math.max(size.width, size.height) <= maxPlacePhotoSide;
   if (fits && type === "image/jpeg") {
     const stripped = stripJpegMetadata(bytes);
     if (stripped) return { data: stripped, mediaType: type };
@@ -91,11 +103,14 @@ function preparePhoto(file: string): { data: Uint8Array; mediaType: string } | {
     const stripped = stripPngMetadata(bytes);
     if (stripped) return { data: stripped, mediaType: type };
   }
-  if (process.platform !== "darwin") return { error: "convert it to a JPEG or PNG of at most 1600 px and 1.5 MB" };
+  if (process.platform !== "darwin") return { error: "convert it to a JPEG or PNG of at most 2048 px and 1.5 MB" };
   const temporary = mkdtempSync(join(tmpdir(), "matkoll-eval-"));
   try {
     const out = join(temporary, "photo.jpg");
-    execFileSync("sips", ["-Z", String(maxImageSide), "-s", "format", "jpeg", "-s", "formatOptions", "80", path, "--out", out], {
+    // Made smaller only when its longest side is over 2048 px (sips -Z would also make a small photo larger).
+    const longest = size ? Math.max(size.width, size.height) : sipsLongestSide(path);
+    const resize = longest === null || longest > maxPlacePhotoSide ? ["-Z", String(maxPlacePhotoSide)] : [];
+    execFileSync("sips", [...resize, "-s", "format", "jpeg", "-s", "formatOptions", "85", path, "--out", out], {
       stdio: "ignore",
     });
     const resized = stripJpegMetadata(new Uint8Array(readFileSync(out)));
@@ -105,6 +120,17 @@ function preparePhoto(file: string): { data: Uint8Array; mediaType: string } | {
     return { error: "unreadable (sips could not convert it)" };
   } finally {
     rmSync(temporary, { recursive: true, force: true });
+  }
+}
+
+/** The longest side of a photo imageSizeOf cannot read (HEIC), from sips; `null` when sips cannot tell. */
+function sipsLongestSide(path: string): number | null {
+  try {
+    const output = execFileSync("sips", ["-g", "pixelWidth", "-g", "pixelHeight", path], { encoding: "utf8" });
+    const sides = [...output.matchAll(/pixel(?:Width|Height):\s*(\d+)/g)].map((match) => Number(match[1]));
+    return sides.length === 2 ? Math.max(...sides) : null;
+  } catch {
+    return null;
   }
 }
 
@@ -123,7 +149,7 @@ function compare(items: AiPantryItem[], expected: string[]) {
   return { hits, misses, wrong };
 }
 
-const cases = photoCases();
+const cases = photoCases().flatMap((photo) => Array.from({ length: runs }, (_, index) => ({ ...photo, run: index + 1 })));
 
 describe(`analyzeImage mot ${env.AI_PROVIDER}`, () => {
   if (cases.length === 0) {
@@ -136,13 +162,13 @@ describe(`analyzeImage mot ${env.AI_PROVIDER}`, () => {
     return;
   }
 
-  it.each(cases)("$name", async ({ name, file }) => {
+  it.each(cases)("$name, körning $run", async ({ name, file, run }) => {
     const expected = JSON.parse(readFileSync(join(photosDir, `${name}.expected.json`), "utf8")) as Expected;
     if (!(analyzePlaces as readonly string[]).includes(expected.place)) throw new Error(`${name}: place must be Kyl, Frys or Skafferi`);
     const photo = preparePhoto(file);
     let entry: CaseResult;
     if ("error" in photo) {
-      entry = { name, place: expected.place, seconds: 0, error: photo.error, hits: [], misses: expected.items, wrong: [] };
+      entry = { name, run, place: expected.place, seconds: 0, error: photo.error, hits: [], misses: expected.items, wrong: [] };
     } else {
       const started = performance.now();
       const result = await service.analyzeImage({ image: photo, place: expected.place }, AbortSignal.timeout(120_000));
@@ -150,16 +176,20 @@ describe(`analyzeImage mot ${env.AI_PROVIDER}`, () => {
       entry = result.ok
         ? {
             name,
+            run,
             place: expected.place,
             seconds,
             ...compare(result.data.items, expected.items),
             invalid: result.data.invalid,
+            repeated: result.data.repeated,
             items: result.data.items,
           }
-        : { name, place: expected.place, seconds, error: result.error.code, hits: [], misses: expected.items, wrong: [] };
+        : { name, run, place: expected.place, seconds, error: result.error.code, hits: [], misses: expected.items, wrong: [] };
     }
     results.push(entry);
     expect(entry.error).toBeUndefined();
+    expect(isLoop(entry)).toBe(false);
+    expect(entry.seconds).toBeLessThanOrEqual(maxRunSeconds);
   });
 });
 
@@ -180,21 +210,27 @@ function renderReport(): string {
     `- Tid: ${new Date().toISOString()}`,
     `- Leverantör: ${env.AI_PROVIDER}`,
     `- Modell: ${env.AI_MODEL ?? "–"}`,
-    `- Foton: ${results.length}, varav ${results.filter((result) => result.error).length} med fel`,
+    `- Körningar per foto: ${runs}`,
+    `- Körningar: ${results.length}, varav ${results.filter((result) => result.error).length} med fel och ${results.filter(isLoop).length} med upprepningsslinga`,
     `- Träffar: ${hits} av ${expected} förväntade varor`,
-    `- Längsta tid: ${slowest.toFixed(1)} s${slowest > 90 ? " (över 90 s: lägg frågan i docs/oppna-fragor.md)" : ""}`,
+    `- Längsta tid: ${slowest.toFixed(1)} s${slowest > maxRunSeconds ? ` (över ${maxRunSeconds} s: lägg frågan i docs/oppna-fragor.md)` : ""}`,
     "",
-    "| Foto | Plats | Tid (s) | Träffar | Missar | Felgissningar | Ogiltiga |",
-    "| --- | --- | --- | --- | --- | --- | --- |",
+    "| Foto | Körning | Plats | Tid (s) | Varor | Osäkra | Ogiltiga | Upprepningar | Slinga | Träffar | Missar | Felgissningar |",
+    "| --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- |",
     ...results.map((result) =>
       [
         result.name,
+        String(result.run),
         result.place,
         result.error ? `Fel: ${result.error}` : result.seconds.toFixed(1),
+        String(result.items?.length ?? "–"),
+        String(result.items?.filter((item) => item.confidence === "osäker").length ?? "–"),
+        String(result.invalid ?? "–"),
+        String(result.repeated ?? "–"),
+        result.error ? "–" : isLoop(result) ? "ja" : "nej",
         result.hits.join(", ") || "–",
         result.misses.join(", ") || "–",
         result.wrong.join(", ") || "–",
-        String(result.invalid ?? "–"),
       ]
         .map(escapeCell)
         .join(" | ")
@@ -204,9 +240,16 @@ function renderReport(): string {
     "",
   ];
   for (const result of results.filter((entry) => entry.items)) {
-    lines.push(`## ${result.name}`, "", "| Som den syns | Grundform | Mängd | Enhet |", "| --- | --- | --- | --- |");
+    lines.push(
+      `## ${result.name}, körning ${result.run}`,
+      "",
+      "| Som den syns | Grundform | Säkerhet | Mängd | Enhet |",
+      "| --- | --- | --- | --- | --- |",
+    );
     for (const item of result.items ?? []) {
-      lines.push(`| ${escapeCell(item.label)} | ${escapeCell(item.hint.name)} | ${item.amount ?? "–"} | ${escapeCell(item.unit ?? "–")} |`);
+      lines.push(
+        `| ${escapeCell(item.label)} | ${escapeCell(item.hint.name)} | ${item.confidence} | ${item.amount ?? "–"} | ${escapeCell(item.unit ?? "–")} |`,
+      );
     }
     lines.push("");
   }

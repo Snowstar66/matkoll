@@ -111,14 +111,15 @@ export type ImageForm<Field extends string> =
  * at most maxImageBodyBytes (413 `image_too_large`), parsed as a form (400
  * `validation` when it is not one, or has no image), the image at most 1.5 MB
  * (413), a JPEG, PNG or WebP by its first bytes (415 `image_unsupported`) and
- * at most maxImageSide (with imageSideTolerance) on its longest side by its
- * header (413). Gives the image and the text `fields` (`null` when missing or
+ * at most `maxSide` (maxImageSide, 1600, unless given; with
+ * imageSideTolerance) on its longest side by its header (413). Gives the image and the text `fields` (`null` when missing or
  * not text), or the error response to send. The caller checks the origin, the
  * user and the media type first. The photo is only held in memory.
  */
 export async function readImageForm<Field extends string>(
   request: Request,
   fields: readonly Field[] = [],
+  { maxSide = maxImageSide }: { maxSide?: number } = {},
 ): Promise<ImageForm<Field>> {
   const failed = (response: Response) => ({ ok: false as const, response });
   // The photo is all that makes a request this large.
@@ -141,8 +142,8 @@ export async function readImageForm<Field extends string>(
   const mediaType = imageTypeOf(data);
   const size = imageSizeOf(data);
   if (!mediaType || !size) return failed(respond(fail("image_unsupported")));
-  // The client resizes to maxImageSide; a larger image did not come through it.
-  if (Math.max(size.width, size.height) > maxImageSide + imageSideTolerance) return failed(respond(fail("image_too_large")));
+  // The client resizes to maxSide; a larger image did not come through it.
+  if (Math.max(size.width, size.height) > maxSide + imageSideTolerance) return failed(respond(fail("image_too_large")));
 
   const values = Object.fromEntries(
     fields.map((field) => {

@@ -580,3 +580,69 @@ describe("Review patches", () => {
     await waitFor(() => expect(button("Bekräfta smör")).toHaveFocus());
   });
 });
+
+describe("Story 6.5: labels and unsure suggestions", () => {
+  const labelled: AnalyzeResult = {
+    ...fridge,
+    suggestions: [
+      { ...fridge.suggestions[0], labels: ["Gurka"] },
+      { ...fridge.suggestions[1], name: "senap", ingredient: fresh("senap"), labels: ["Gul flaska, troligen senap"], uncertain: true },
+      { ...fridge.suggestions[2], labels: ["Arla mellanmjölk 1,5 l", "ICA mellanmjölk"], uncertain: false },
+      fridge.suggestions[3],
+    ],
+  };
+
+  it("titles a card with the label, the catalog ingredient under it, and marks an unsure one", async () => {
+    render(<Hemma />);
+    await analyze(labelled);
+    expect(cardNames()).toEqual(["gurka", "Gul flaska, troligen senap", "Arla mellanmjölk 1,5 l, ICA mellanmjölk", "smör"]);
+    const [gurka, senap, mjolk] = cards();
+    expect(gurka.textContent).toBe("gurkaNy2 st · KylBekräftaRättaAvvisa");
+    expect(within(senap).getByText("Osäker")).toHaveClass("bg-sky");
+    expect(within(senap).getByText("Sparas som: senap")).toBeInTheDocument();
+    expect(senap).toHaveTextContent("AI:n är osäker på varan, så Bekräfta alla tar inte med den.");
+    expect(within(mjolk).getByText("Sparas som: mjölk")).toBeInTheDocument();
+    expect(within(mjolk).queryByText("Osäker")).toBeNull();
+    // The buttons keep the catalog name: it is what is saved.
+    expect(button("Bekräfta senap")).toBeEnabled();
+    expect(button("Bekräfta mjölk")).toBeEnabled();
+  });
+
+  it("leaves the unsure suggestion out of Bekräfta alla, keeps its card, says so and gives it focus", async () => {
+    render(<Hemma />);
+    await analyze(labelled);
+    fireEvent.click(button("Bekräfta alla"));
+    expect(lastConfirm().items.map((item) => item.ingredient)).toEqual(
+      [labelled.suggestions[0], labelled.suggestions[2], labelled.suggestions[3]].map(({ ingredient }) => ingredient),
+    );
+    await answerConfirm(ok({ count: 3 }));
+    expect(toast()).toHaveTextContent("Lagt 3 varor i lagret. 1 osäker vara är kvar att bekräfta eller rätta.");
+    expect(cardNames()).toEqual(["Gul flaska, troligen senap"]);
+    await waitFor(() => expect(button("Bekräfta senap")).toHaveFocus());
+    // Only the unsure card is left: Bekräfta alla has nothing to take.
+    expect(button("Bekräfta alla")).toBeDisabled();
+
+    fireEvent.click(button("Bekräfta senap"));
+    expect(lastConfirm().items.map((item) => item.ingredient)).toEqual([labelled.suggestions[1].ingredient]);
+    await answerConfirm();
+    expect(screen.queryByRole("region")).toBeNull();
+    expect(toast()).toHaveTextContent("senap är sparad i kylen.");
+  });
+
+  it("does not count an unsure card the server refused, and gives focus to the camera button when none is left", async () => {
+    render(<Hemma />);
+    await analyze(labelled);
+    fireEvent.click(button("Bekräfta senap"));
+    await answerConfirm(fail("validation", { "0": "Förslaget går inte att spara som det är. Rätta eller avvisa det." }));
+    expect(await within(section()).findByRole("alert")).toHaveTextContent(errorMessages.validation);
+    expect(button("Bekräfta senap")).toBeDisabled();
+
+    fireEvent.click(button("Bekräfta alla"));
+    expect(lastConfirm().items).toHaveLength(3);
+    await answerConfirm(ok({ count: 3 }));
+    // The refused card is still there, but it is not one "Bekräfta alla" left as unsure.
+    expect(cardNames()).toEqual(["Gul flaska, troligen senap"]);
+    expect(toast()).toHaveTextContent(/^Lagt 3 varor i lagret\.$/);
+    await waitFor(() => expect(cameraButton()).toHaveFocus());
+  });
+});

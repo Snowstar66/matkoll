@@ -49,10 +49,17 @@ import { definite } from "./places";
  */
 export type AiPantryItemLike = {
   label: string;
+  /** Story 6.5: "osäker" for the model's likely guess; missing counts as "säker". */
+  confidence?: "säker" | "osäker";
   amount: number | null;
   unit: string | null;
   hint: IngredientHint;
 };
+
+/** At most this many of the model's labels on one suggestion: its card's title. */
+export const maxSuggestionLabels = 3;
+/** The longest label kept from the model (the AI port's maxPantryItemTextChars). */
+export const maxSuggestionLabelChars = 200;
 
 /** At most this many suggestions from one photo; the server keeps the AI's first 25 items (the AI port's inputLimits.analyze.maxItems). */
 export const maxPantrySuggestions = 25;
@@ -127,6 +134,14 @@ export const pantrySuggestionSchema = z
     replaces: z.array(z.uuid()).max(maxReplaces),
     /** All the place's rows of the ingredient, when compared: the sheet replaces them when it changes the unit. */
     placeRowIds: z.array(z.uuid()).max(maxReplaces).optional(),
+    /**
+     * Story 6.5: the model's labels for the items behind the suggestion (brand,
+     * sort and size as on the package), different ones in the model's order;
+     * the card's title. Text from the model, only ever shown as text.
+     */
+    labels: z.array(z.string().trim().min(1).max(maxSuggestionLabelChars)).max(maxSuggestionLabels).optional(),
+    /** Story 6.5: some item behind it was the model's guess ("osäker"): "Bekräfta alla" leaves it out. */
+    uncertain: z.boolean().optional(),
   })
   .refine(amountHasUnit, { path: ["unit"] });
 export type PantrySuggestion = z.infer<typeof pantrySuggestionSchema>;
@@ -182,7 +197,21 @@ type Group = {
   byUnit: Map<Unit, number>;
   /** Some item had an amount that cannot be kept: the suggestion is unlimited rather than undercounted. */
   unknown: boolean;
+  /** The items' different labels, in order, at most maxSuggestionLabels. */
+  labels: string[];
+  /** Some item was the model's guess. */
+  uncertain: boolean;
 };
+
+/** A label as compared with the others of a suggestion: lower case, one space between words. */
+const labelKey = (label: string) => label.normalize("NFC").toLowerCase().replace(/\s+/g, " ").trim();
+
+/** Adds the item's label to the group's, unless it is there already, empty, too long or one too many. */
+function addLabel(group: Group, label: string) {
+  const text = label.replace(/\s+/g, " ").trim();
+  if (!text || text.length > maxSuggestionLabelChars || group.labels.length >= maxSuggestionLabels) return;
+  if (!group.labels.some((other) => labelKey(other) === labelKey(text))) group.labels.push(text);
+}
 
 /** How many of the AI's items toPantrySuggestions left out, and why. */
 export type DroppedItems = {
@@ -219,6 +248,9 @@ export type ToSuggestionsOptions = {
  * - an ingredient unlimited at the place stays unlimited (as addToPantry
  *   does), and one without amount whose place has it in exactly one unit gets
  *   that amount, so confirming never turns "mjölk 2 förp" into "Finns hemma";
+ * - Story 6.5: the items' different labels (at most maxSuggestionLabels) for
+ *   the card's title, and `uncertain` when any of its items was the model's
+ *   guess, since the summed amount then rests on it too;
  * - sorted by name (Swedish order), with the ids s1, s2 ….
  */
 export function toPantrySuggestions(
@@ -259,9 +291,11 @@ export function toPantrySuggestions(
     }
     let group = groups.get(key);
     if (!group) {
-      group = { name, ingredient: ingredient(), byUnit: new Map<Unit, number>(), unknown: false };
+      group = { name, ingredient: ingredient(), byUnit: new Map<Unit, number>(), unknown: false, labels: [], uncertain: false };
       groups.set(key, group);
     }
+    addLabel(group, item.label);
+    if (item.confidence === "osäker") group.uncertain = true;
     const amount = readAmount(item);
     if (amount.kind === "unknown") group.unknown = true;
     else if (amount.kind === "amount") group.byUnit.set(amount.unit, (group.byUnit.get(amount.unit) ?? 0) + amount.amount);
@@ -269,9 +303,9 @@ export function toPantrySuggestions(
 
   const stocks = current ? stockByIngredient(current) : new Map<string, PlaceStock>();
   const suggestions: Omit<PantrySuggestion, "id">[] = [];
-  for (const { name, ingredient, byUnit, unknown } of groups.values()) {
+  for (const { name, ingredient, byUnit, unknown, labels, uncertain } of groups.values()) {
     const stock = ingredient.kind === "existing" ? (stocks.get(ingredient.ingredientId) ?? null) : null;
-    const base = { name, ingredient, location, current: stock, change: null, replaces: [] };
+    const base = { name, ingredient, location, current: stock, change: null, replaces: [], labels, uncertain };
     if (stock?.unlimited || unknown) {
       suggestions.push({ ...base, ...unlimited });
     } else if (byUnit.size > 0) {
@@ -289,6 +323,45 @@ export function toPantrySuggestions(
       .map((suggestion, index) => ({ id: `s${index + 1}`, ...suggestion })),
     dropped,
   };
+}
+
+/**
+ * A card's title and the catalog ingredient under it (Story 6.5): the
+ * model's labels ("Arla mellanmjölk 1,5 l"), separated by commas, with the
+ * catalog name under them; just the name when there are no labels, or when
+ * the only one is the name ("Ägg" for "ägg").
+ */
+export function suggestionTitle(suggestion: Pick<PantrySuggestion, "name" | "labels">): {
+  title: string;
+  ingredientName: string | null;
+} {
+  const labels = suggestion.labels ?? [];
+  if (labels.length === 0) return { title: suggestion.name, ingredientName: null };
+  if (labels.length === 1 && normalizeIngredientText(labels[0]) === normalizeIngredientText(suggestion.name)) {
+    return { title: suggestion.name, ingredientName: null };
+  }
+  return { title: labels.join(", "), ingredientName: suggestion.name };
+}
+
+/** Under a card's label, when the catalog ingredient differs from it: "Sparas som: vispgrädde". */
+export function savedAsText(name: string): string {
+  return `Sparas som: ${name}`;
+}
+
+/** The badge on a suggestion the model was unsure of (Story 6.5). */
+export const uncertainBadgeText = "Osäker";
+
+/** On a card the model was unsure of, under the amount. */
+export const uncertainSuggestionText = "AI:n är osäker på varan, så Bekräfta alla tar inte med den.";
+
+/** After "Bekräfta alla" when unsure suggestions are left: "1 osäker vara är kvar att bekräfta eller rätta." */
+export function uncertainLeftText(count: number): string {
+  return `${count} ${count === 1 ? "osäker vara är" : "osäkra varor är"} kvar att bekräfta eller rätta.`;
+}
+
+/** Whether "Bekräfta alla" takes the suggestion: never one the model was unsure of (Story 6.5). */
+export function isBulkConfirmable(suggestion: Pick<PantrySuggestion, "uncertain">): boolean {
+  return suggestion.uncertain !== true;
 }
 
 /** The camera button: "Fotografera kylen", "Fotografera frysen" or "Fotografera skafferiet". */

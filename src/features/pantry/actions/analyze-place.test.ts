@@ -48,7 +48,7 @@ vi.mock("../data/queries", () => ({
 
 const ai = withInputValidation(createMockAiService());
 const analyzeImage = vi.fn(ai.analyzeImage);
-vi.mock("@/server/ai", () => ({ getAiService: () => ({ analyzeImage }) }));
+vi.mock("@/server/ai", () => ({ getAiService: () => ({ analyzeImage }), minLoopRepeats: 2 }));
 
 const { analyzePlace, minReadMs, postModelMarginMs } = await import("./analyze-place");
 
@@ -58,7 +58,7 @@ const kyl = photo("kyl.png");
 const fixture = analyzeImageAnswer
   .parse(JSON.parse(readFileSync(new URL("kyl.analyze.json", fixtures), "utf8")))
   .items.map((item) => aiPantryItem.parse(item));
-const answer = (items: typeof fixture, invalid = 0) => ok({ items, invalid });
+const answer = (items: typeof fixture, invalid = 0, repeated = 0) => ok({ items, invalid, repeated });
 
 const mjolk = "6f1c1b7e-3c1a-4c55-9a59-0f3f2b8f2a01";
 const smor = "6f1c1b7e-3c1a-4c55-9a59-0f3f2b8f2a02";
@@ -299,6 +299,36 @@ describe("analyzePlace", () => {
       expect(cut.ok && cut.data.inventory).toMatchObject({ kind: "compared", incomplete: true });
     });
 
+    it("is incomplete when the AI repeated a label in a loop, and logs the count (Story 6.5)", async () => {
+      analyzeImage.mockResolvedValueOnce(answer([fixture[0], fixture[2]], 0, 2));
+      const result = await analyzePlace({ image: kyl, location: "Kyl" }, { signal: signal() });
+      expect(result.ok && result.data.inventory).toMatchObject({ kind: "compared", incomplete: true });
+      expect(console.info).toHaveBeenCalledWith("analyze_items_repeated", { count: 2 });
+    });
+
+    it("stays complete for a single duplicate, which the port only merged (Story 6.5)", async () => {
+      analyzeImage.mockResolvedValueOnce(answer([fixture[0], fixture[2]], 0, 1));
+      const result = await analyzePlace({ image: kyl, location: "Kyl" }, { signal: signal() });
+      expect(result.ok && result.data.inventory).toMatchObject({ kind: "compared", incomplete: false });
+    });
+
+    it("never offers to remove an ingredient the AI was unsure of, and shows it as a card (Story 6.5)", async () => {
+      const senap = "6f1c1b7e-3c1a-4c55-9a59-0f3f2b8f2a09";
+      matchIngredients.mockImplementationOnce(async (items) =>
+        items.map((item): IngredientMatch =>
+          item.hint?.name === "senap" ? { kind: "match", ingredientId: senap, confidence: "hint" } : matchByHint([item])[0],
+        ),
+      );
+      getIngredientNames.mockResolvedValueOnce({ [senap]: "senap" });
+      listPantryIn.mockResolvedValueOnce([
+        { id: "7a1c1b7e-3c1a-4c55-9a59-0f3f2b8f2a09", ingredientId: senap, name: "senap", location: "Kyl", amount: 1, unit: "förp" },
+      ]);
+      const result = await analyzePlace({ image: photo("kyl-dorr.png"), location: "Kyl" }, { signal: signal() });
+      if (!result.ok) throw new Error(result.error.code);
+      expect(result.data.inventory).toMatchObject({ kind: "compared", missing: [] });
+      expect(result.data.suggestions.find(({ name }) => name === "senap")).toMatchObject({ uncertain: true, change: "changed", replaces: [] });
+    });
+
     it("leaves out a comparison the client could not read, never the whole answer", async () => {
       listPantryIn.mockResolvedValueOnce([...atHome, { ...yoghurtRow, id: "not-a-uuid" }]);
       const result = await analyzePlace({ image: kyl, location: "Kyl" }, { signal: signal() });
@@ -356,6 +386,19 @@ describe("analyzePlace", () => {
     expect(result.data.suggestions).toHaveLength(5);
     expect(result.data.dropped).toBe(1);
     expect(console.error).toHaveBeenCalledWith("analyze_output_invalid", { count: 1 });
+  });
+
+  it("gives each suggestion the AI's labels and marks the ones it was unsure of (Story 6.5)", async () => {
+    listPantryIn.mockResolvedValueOnce([]);
+    const result = await analyzePlace({ image: photo("kyl-dorr.png"), location: "Kyl" }, { signal: signal() });
+    if (!result.ok) throw new Error(result.error.code);
+    // The mock merged the repeated cream, as the port does: three suggestions, not six.
+    expect(result.data.suggestions.map(({ name, labels, uncertain }) => [name, labels, uncertain])).toEqual([
+      ["apelsinjuice", ["Solgården apelsinjuice 1 l"], false],
+      ["senap", ["Gul flaska, troligen senap"], true],
+      ["vispgrädde", ["Lantmejeriet vispgrädde 36 % 3 dl"], false],
+    ]);
+    expect(result.data.suggestions.find(({ name }) => name === "vispgrädde")).toMatchObject({ amount: 1, unit: "förp" });
   });
 
   it("logs codes and counts only, never the photo, the items or the names", async () => {

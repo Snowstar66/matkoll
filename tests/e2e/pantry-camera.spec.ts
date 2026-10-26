@@ -148,18 +148,28 @@ test("a photo of the fridge gives six suggestions, writes nothing, and they stay
   await expect(cards(page)).toHaveCount(6);
   // Kyl has mjölk (Story 6.4): the photo is compared with it, so mjölk is "Ändrat" and the rest "Nytt".
   await expect(section(page).getByRole("heading", { level: 3 })).toHaveText(["Nytt", "Ändrat"]);
-  await expect(cards(page).getByRole("heading", { level: 4 })).toHaveText(["grädde", "gurka", "ketchup", "smör", "ägg", "mjölk"]);
-  const expected: [string, string, boolean, string | null][] = [
-    ["grädde", "1 förp · Kyl", true, null],
-    ["gurka", "2 st · Kyl", true, null],
-    ["ketchup", "Finns hemma · Kyl", true, null],
-    ["smör", "1 förp · Kyl", true, null],
-    ["ägg", "6 st · Kyl", true, null],
-    ["mjölk", "1 förp · Kyl", false, "nu: 2 förp → bilden: 1 förp"],
+  // Story 6.5: a card's title is the label on the package, with the catalog ingredient under it when it differs.
+  await expect(cards(page).getByRole("heading", { level: 4 })).toHaveText([
+    "Vispgrädde 3 dl",
+    "gurka",
+    "ketchup",
+    "Smör 500 g",
+    "ägg",
+    "Mellanmjölk 1,5 %",
+  ]);
+  const expected: [string, string | null, string, boolean, string | null][] = [
+    ["Vispgrädde 3 dl", "grädde", "1 förp · Kyl", true, null],
+    ["gurka", null, "2 st · Kyl", true, null],
+    ["ketchup", null, "Finns hemma · Kyl", true, null],
+    ["Smör 500 g", "smör", "1 förp · Kyl", true, null],
+    ["ägg", null, "6 st · Kyl", true, null],
+    ["Mellanmjölk 1,5 %", "mjölk", "1 förp · Kyl", false, "nu: 2 förp → bilden: 1 förp"],
   ];
-  for (const [index, [name, amount, isNew, now]] of expected.entries()) {
+  for (const [index, [title, name, amount, isNew, now]] of expected.entries()) {
     const shown = cards(page).nth(index);
-    await expect(shown.getByRole("heading", { level: 4 })).toHaveText(name);
+    await expect(shown.getByRole("heading", { level: 4 })).toHaveText(title);
+    if (name) await expect(shown.getByText(`Sparas som: ${name}`, { exact: true })).toBeVisible();
+    await expect(shown.getByText("Osäker", { exact: true })).toHaveCount(0);
     await expect(shown.getByText(amount, { exact: true })).toBeVisible();
     await expect(shown.getByText("Ny", { exact: true })).toHaveCount(isNew ? 1 : 0);
     if (now) await expect(shown.getByText(now, { exact: true })).toBeVisible();

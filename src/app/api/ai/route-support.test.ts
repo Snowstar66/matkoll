@@ -161,4 +161,13 @@ describe("readImageForm", () => {
     expect(read.response.status).toBe(status);
     expect(await read.response.json()).toEqual(fail(code));
   });
+
+  it("checks the side against maxSide when given: a photo of a place may be 2048 px (Story 6.5)", async () => {
+    const at = (width: number) => formRequest({ image: new Blob([pngHeader(width, 900) as BlobPart]) });
+    expect((await readImageForm(await at(2048), [], { maxSide: 2048 })).ok).toBe(true);
+    expect((await readImageForm(await at(2048), [])).ok).toBe(false);
+    const over = await readImageForm(await at(2100), [], { maxSide: 2048 });
+    if (over.ok) throw new Error("expected a response");
+    expect(over.response.status).toBe(413);
+  });
 });

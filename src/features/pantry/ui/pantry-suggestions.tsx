@@ -24,7 +24,9 @@ import {
   changesLeftText,
   confirmItemFromForm,
   confirmItemFromSuggestion,
+  isBulkConfirmable,
   isConfirmable,
+  uncertainLeftText,
   withConfirmedStock,
   type AnalyzeResult,
   type ConfirmItemInput,
@@ -340,7 +342,8 @@ function usePantryReview(analysis: PantryAnalysis): PantryReview {
   function takeOut(
     generation: number,
     ids: readonly string[],
-    from: string | null,
+    /** The card focus moves on from, a card to focus, or `null` for the camera button. */
+    from: string | SuggestionFocus | null,
     items: readonly ConfirmItemInput[],
     setIngredientIds: readonly string[] = [],
   ) {
@@ -352,7 +355,8 @@ function usePantryReview(analysis: PantryAnalysis): PantryReview {
       .missing.filter((item) => set.has(item.ingredientId))
       .map((item) => item.id);
     const gone = new Set([...ids, ...confirmedMissing]);
-    const target = from === null ? ({ kind: "camera" } as const) : focusAfter(visibleCards(result), from, gone);
+    const target: SuggestionFocus =
+      from === null ? { kind: "camera" } : typeof from === "string" ? focusAfter(visibleCards(result), from, gone) : from;
     analysis.editResult(generation, (current) => ({
       ...current,
       suggestions: withConfirmedStock(
@@ -512,10 +516,20 @@ function usePantryReview(analysis: PantryAnalysis): PantryReview {
     const generation = analysis.generation();
     const result = analysis.latestResult(generation);
     if (!result) return;
-    const chosen = chosenSuggestions(generation, result, ids);
-    const { compared, incomplete, missing: allMissing } = groupSuggestions(result);
+    const groups = groupSuggestions(result);
+    const { compared, incomplete, missing: allMissing } = groups;
+    // "Bekräfta alla" never takes a suggestion the model was unsure of (Story 6.5): its card stays, the
+    // confirmation says how many such cards that can be confirmed are left, and focus goes to the first.
+    const chosen = chosenSuggestions(generation, result, ids).filter((suggestion) => !all || isBulkConfirmable(suggestion));
+    const uncertain = all
+      ? [...groups.added, ...groups.changed].filter(
+          (suggestion) => !isBulkConfirmable(suggestion) && isConfirmable(suggestion) && !isRefused(generation, suggestion.id),
+        )
+      : [];
+    const withUncertain = (text: string) => (uncertain.length > 0 ? `${text} ${uncertainLeftText(uncertain.length)}` : text);
+    const uncertainFocus: SuggestionFocus | null = uncertain.length > 0 ? { kind: "confirm", id: uncertain[0].id } : null;
     if (!compared) {
-      await confirmPlain(generation, chosen, all);
+      await confirmPlain(generation, chosen, all, { withUncertain, uncertainFocus });
       return;
     }
     // An incomplete comparison removes nothing with "Bekräfta alla": only "Ta bort" does.
@@ -538,7 +552,7 @@ function usePantryReview(analysis: PantryAnalysis): PantryReview {
       takeOut(
         generation,
         [...savedIds, ...missing.map(({ id }) => id)],
-        all && request.left.length === 0 ? null : (savedIds[0] ?? null),
+        (all ? uncertainFocus : null) ?? (all && request.left.length === 0 ? null : (savedIds[0] ?? null)),
         request.items,
         data.setIngredientIds,
       );
@@ -555,15 +569,28 @@ function usePantryReview(analysis: PantryAnalysis): PantryReview {
         // This call's removals only; "Ångra borttagning" may put back earlier ones too.
         removed: removals?.items.length ?? 0,
       });
-      const text = request.left.length > 0 ? `${counts} ${changesLeftText(request.left.length)}` : counts;
+      const text = withUncertain(request.left.length > 0 ? `${counts} ${changesLeftText(request.left.length)}` : counts);
       if (removals && removals.batch.undoable > 0) showRemovals(removals.batch, text, undoRemovalLabel);
       else showToast(text);
     }
     runDeferred();
   }
 
-  /** Bekräfta and "Bekräfta alla" for a photo of an empty place, or one that could not be read (Story 6.2). */
-  async function confirmPlain(generation: number, chosen: readonly PantrySuggestion[], all: boolean) {
+  /**
+   * Bekräfta and "Bekräfta alla" for a photo of an empty place, or one that
+   * could not be read (Story 6.2). For "Bekräfta alla" with unsure
+   * suggestions left (Story 6.5), `withUncertain` adds how many to the
+   * confirmation and `uncertainFocus` is where focus goes.
+   */
+  async function confirmPlain(
+    generation: number,
+    chosen: readonly PantrySuggestion[],
+    all: boolean,
+    {
+      withUncertain = (text: string) => text,
+      uncertainFocus = null,
+    }: { withUncertain?: (text: string) => string; uncertainFocus?: SuggestionFocus | null } = {},
+  ) {
     if (chosen.length === 0) return;
     const chosenIds = chosen.map((suggestion) => suggestion.id);
     const items = chosen.map(confirmItemFromSuggestion);
@@ -575,9 +602,11 @@ function usePantryReview(analysis: PantryAnalysis): PantryReview {
       failed(generation, result.error, chosenIds, all ? { kind: "confirmAll" } : { kind: "confirm", id: chosen[0].id });
     } else {
       // The action revalidated Hemma, so the location cards and the list show the new items.
-      takeOut(generation, chosenIds, all ? null : chosen[0].id, items);
+      takeOut(generation, chosenIds, all ? uncertainFocus : chosen[0].id, items);
       showToast(
-        chosen.length === 1 ? savedItemText(chosen[0].name, chosen[0].location) : confirmedItemsText(chosen.length),
+        withUncertain(
+          chosen.length === 1 ? savedItemText(chosen[0].name, chosen[0].location) : confirmedItemsText(chosen.length),
+        ),
       );
     }
     runDeferred();

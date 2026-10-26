@@ -124,8 +124,9 @@ test("a photo of the fridge is grouped against what it has, and nothing is chang
 
   await expect(section(page).getByText("2 varor stämmer med lagret.")).toBeVisible();
   await expect(section(page).getByRole("heading", { level: 3 })).toHaveText(["Nytt", "Ändrat", "Syns inte längre"]);
-  await expect(group(page, "Nytt")).toHaveText(["grädde", "gurka", "ketchup"]);
-  await expect(group(page, "Ändrat")).toHaveText(["mjölk"]);
+  // Story 6.5: the titles are the labels on the packages.
+  await expect(group(page, "Nytt")).toHaveText(["Vispgrädde 3 dl", "gurka", "ketchup"]);
+  await expect(group(page, "Ändrat")).toHaveText(["Mellanmjölk 1,5 %"]);
   await expect(section(page).getByText("nu: 2 förp → bilden: 1 förp")).toBeVisible();
   await expect(group(page, "Syns inte längre")).toHaveText(["senap", "yoghurt"]);
   const missing = section(page).getByTestId("pantry-missing");
@@ -224,11 +225,11 @@ test("a photo of the empty freezer gives the plain list, without groups", async 
   await photograph(page, "Fotografera frysen");
   await expect(section(page).getByRole("heading", { level: 2, name: "Lagerförslag från frysen" })).toBeVisible();
   await expect(section(page).getByTestId("pantry-suggestion").getByRole("heading", { level: 3 })).toHaveText([
-    "grädde",
+    "Vispgrädde 3 dl",
     "gurka",
     "ketchup",
-    "mjölk",
-    "smör",
+    "Mellanmjölk 1,5 %",
+    "Smör 500 g",
     "ägg",
   ]);
   await expect(section(page).getByRole("heading", { name: "Nytt" })).toHaveCount(0);

@@ -11,7 +11,8 @@ import {
 
 // A photo for the AI port (a cookbook page in Importera recept, a place in
 // Hemma) is made small in the browser before it is sent (AD-15): at most
-// 1600 px on the longest side and at most 1.5 MB, as JPEG, turned the way the
+// 1600 px on the longest side (2048 px for a place, Story 6.5, given as
+// `maxSide`) and at most 1.5 MB, as JPEG, turned the way the
 // camera held it. Every photo is re-encoded through a canvas, which drops EXIF,
 // GPS included, except a PNG that already fits: it is sent with its metadata
 // chunks removed (stripPngMetadata), since re-encoding only loses detail.
@@ -168,7 +169,8 @@ function toJpeg(canvas: HTMLCanvasElement, quality: number): Promise<Blob | null
 }
 
 /**
- * The photo as it is sent: a JPEG of at most 1600 px on the longest side and
+ * The photo as it is sent: a JPEG of at most `maxSide` px on the longest side
+ * (maxImageSide, 1600, unless given) and
  * at most 1.5 MB, with lower quality tried until it fits. A PNG that already
  * fits, and that the browser shows at the size in its header (no rotation),
  * is sent with only its image chunks (stripPngMetadata: no text, EXIF or
@@ -178,7 +180,10 @@ function toJpeg(canvas: HTMLCanvasElement, quality: number): Promise<Blob | null
  * when even the lowest quality is too large or the browser runs out of
  * memory; nothing is sent then.
  */
-export async function downscaleImage(file: Blob): Promise<Result<Blob>> {
+export async function downscaleImage(
+  file: Blob,
+  { maxSide = maxImageSide }: { maxSide?: number } = {},
+): Promise<Result<Blob>> {
   const head = new Uint8Array(await file.slice(0, headerBytes).arrayBuffer());
   const type = imageTypeOf(head);
   const stored = imageSizeOf(head);
@@ -187,7 +192,7 @@ export async function downscaleImage(file: Blob): Promise<Result<Blob>> {
 
   let decoded: Decoded | null = null;
   if (shown) {
-    const target = fitWithin(shown.width, shown.height);
+    const target = fitWithin(shown.width, shown.height, maxSide);
     if (target.width !== shown.width || target.height !== shown.height) {
       const resized = await decodeResized(file, target);
       if (resized === "out_of_memory") return fail("image_too_large");
@@ -203,7 +208,7 @@ export async function downscaleImage(file: Blob): Promise<Result<Blob>> {
   try {
     const { width, height } = decoded;
     if (!width || !height) return fail("image_unsupported");
-    const target = fitWithin(width, height);
+    const target = fitWithin(width, height, maxSide);
 
     const unturnedPng =
       type === "image/png" && stored !== null && stored.width === width && stored.height === height;

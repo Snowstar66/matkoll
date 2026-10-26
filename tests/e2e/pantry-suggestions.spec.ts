@@ -117,11 +117,12 @@ test("confirm, correct, reject and Bekräfta alla save only what Pontus confirme
   await photographFridge(page);
 
   // Five cards, each with its three buttons, and Bekräfta alla; smör matches the fridge and is only counted.
-  await expect(cardNames(page)).toHaveText(["grädde", "gurka", "ketchup", "ägg", "mjölk"]);
+  // Story 6.5: the title is the label on the package; the buttons keep the catalog name.
+  await expect(cardNames(page)).toHaveText(["Vispgrädde 3 dl", "gurka", "ketchup", "ägg", "Mellanmjölk 1,5 %"]);
   await expect(section(page).getByText("1 vara stämmer med lagret.")).toBeVisible();
   await expect(cards(page).filter({ hasText: "mjölk" }).getByText("nu: 2 förp → bilden: 1 förp")).toBeVisible();
   for (const name of ["grädde", "gurka", "ketchup", "ägg", "mjölk"]) {
-    const card = cards(page).filter({ has: page.getByRole("heading", { level: 4, name, exact: true }) });
+    const card = cards(page).filter({ has: page.getByRole("button", { name: `Bekräfta ${name}`, exact: true }) });
     await expect(card).toContainText("· Kyl");
     for (const verb of ["Bekräfta", "Rätta", "Avvisa"]) {
       const button = card.getByRole("button", { name: `${verb} ${name}`, exact: true });
@@ -136,7 +137,7 @@ test("confirm, correct, reject and Bekräfta alla save only what Pontus confirme
   // Bekräfta mjölk: set to 1 förp, not added to; Kyl has as many items as before.
   await section(page).getByRole("button", { name: "Bekräfta mjölk" }).click();
   await expect(toast(page)).toHaveText("mjölk är sparad i kylen.");
-  await expect(cardNames(page)).toHaveText(["grädde", "gurka", "ketchup", "ägg"]);
+  await expect(cardNames(page)).toHaveText(["Vispgrädde 3 dl", "gurka", "ketchup", "ägg"]);
   // mjölk was the last card: focus goes to the one before it.
   await expect(section(page).getByRole("button", { name: "Bekräfta ägg" })).toBeFocused();
   await expect(rows(page).filter({ hasText: "mjölk" })).toHaveText([/^mjölk\s*1 förp$/]);
@@ -193,7 +194,7 @@ test("confirm, correct, reject and Bekräfta alla save only what Pontus confirme
 test("a confirmation that gets no answer keeps the suggestions with a notice, and trying again saves them", async ({ page }) => {
   // The plain list of Story 6.2: Skafferi has nothing to compare with.
   await photographPantry(page);
-  await expect(cardNames(page, 3)).toHaveText(["grädde", "gurka", "ketchup", "mjölk", "smör", "ägg"]);
+  await expect(cardNames(page, 3)).toHaveText(["Vispgrädde 3 dl", "gurka", "ketchup", "Mellanmjölk 1,5 %", "Smör 500 g", "ägg"]);
   await expect(section(page).getByRole("heading", { name: "Nytt" })).toHaveCount(0);
   const before = await saved();
 

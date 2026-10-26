@@ -104,6 +104,12 @@ export const emptyPlaceEmail = "e2e-tom-plats@matkoll.test";
  */
 export const inventoryEmail = "e2e-inventering@matkoll.test";
 /**
+ * The E2E user of pantry-image-reading.spec.ts alone ("Bättre bildtolkning",
+ * Story 6.5): each test empties its pantry with the service role, so the
+ * photo of the fridge door is a plain list of labelled and unsure cards.
+ */
+export const imageReadingEmail = "e2e-bildtolkning@matkoll.test";
+/**
  * The E2E user of store.spec.ts alone (Butik in Inställningar, Story 7.1):
  * each test sets its stores with the service role, so which store is
  * selected depends on nothing else.
@@ -145,6 +151,7 @@ export const e2eEmails = [
   suggestionsEmail,
   emptyPlaceEmail,
   inventoryEmail,
+  imageReadingEmail,
   storeEmail,
   productChoiceEmail,
   basketExportEmail,
@@ -170,6 +177,7 @@ export const cameraStorageState = "tests/e2e/.auth/camera.json";
 export const suggestionsStorageState = "tests/e2e/.auth/suggestions.json";
 export const emptyPlaceStorageState = "tests/e2e/.auth/empty-place.json";
 export const inventoryStorageState = "tests/e2e/.auth/inventory.json";
+export const imageReadingStorageState = "tests/e2e/.auth/image-reading.json";
 export const storeStorageState = "tests/e2e/.auth/store.json";
 export const productChoiceStorageState = "tests/e2e/.auth/product-choice.json";
 export const basketExportStorageState = "tests/e2e/.auth/basket-export.json";

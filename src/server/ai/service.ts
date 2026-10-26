@@ -65,8 +65,13 @@ export type SuggestDishesOptions = RunOptions;
 export const analyzePlaces = ["Kyl", "Frys", "Skafferi"] as const;
 export type AnalyzePlace = (typeof analyzePlaces)[number];
 
-/** What analyzeImage answers: the items that passed aiPantryItem, in the model's order, and how many did not. */
-export type AnalyzeImageResult = { items: AiPantryItem[]; invalid: number };
+/**
+ * What analyzeImage answers: the items that passed aiPantryItem, in the
+ * model's order, how many did not (`invalid`), and the most extra copies of
+ * one label the model gave (`repeated`, Story 6.5): copies are merged into
+ * one item, and from minLoopRepeats the answer is a repetition loop.
+ */
+export type AnalyzeImageResult = { items: AiPantryItem[]; invalid: number; repeated: number };
 
 export type AnalyzeImageInput = {
   /** A photo of the place, already resized in the client (AD-15). Never stored or logged. */
@@ -92,7 +97,8 @@ export interface AiService {
    * The food items the model sees in a photo of a place at home, possibly
    * none, and possibly more than inputLimits.analyze.maxItems (the caller
    * keeps the first ones). Each item is checked on its own: one that does not
-   * pass aiPantryItem is left out and counted in `invalid`. Fails with
+   * pass aiPantryItem is left out and counted in `invalid`, and copies of one
+   * label are merged into one item and counted in `repeated`. Fails with
    * `validation` (an image outside the limits, or an unknown place),
    * `ai_unavailable` (also when the deadline leaves too little time),
    * `ai_rejected` or `ai_invalid` (the answer as a whole is broken).
@@ -120,12 +126,17 @@ export const inputLimits = {
    */
   suggest: { ...suggestInputLimits, maxOutputTokens: 4_000 },
   /**
-   * analyzeImage: measured with Qwen3.6 in LM Studio (2026-10-26), prompt,
-   * schema and a photo of 1600 px are under 1 000 tokens, and an item is
-   * about 60 tokens of answer. At most 25 items is about 1 500 tokens, so
-   * 3 000 leaves room for long labels, and the answer comes well within the
-   * 100 s attempt. The prompt asks for at most 25; more are cut by the
-   * caller, not refused.
+   * analyzeImage, measured with Qwen3.6 in LM Studio (MLX, 8 192 tokens of
+   * context, 2026-10-26): an item is 60–70 tokens of answer, so 25 items
+   * with brand, sort and size in the label are about 1 600 tokens, and 3 000
+   * leaves room. The prompt tokens LM Studio reports (about 1 000 for prompt,
+   * schema and message) are the same for a photo of 1600 and of 2048 px, so
+   * the photo itself is not in that count and its share of the context is not
+   * measured. Estimated at one token per 32 × 32 px, a photo of 2048 × 1536 px
+   * is about 3 100 tokens, and 1 000 + 3 100 + 3 000 fits. A real photo of
+   * the fridge at 2048 px took 19–51 s (pnpm eval:ai, Story 6.5), within the
+   * 100 s attempt. The prompt asks for at most 25;
+   * more are cut by the caller, not refused.
    */
   analyze: { maxItems: 25, maxOutputTokens: 3_000 },
 } as const;
@@ -244,6 +255,8 @@ export function createModelAiService(target: ModelTarget, limits: Limits = defau
           system: prompts.analyzeImage,
           messages: [{ role: "user", content: analyzeImageContent(input) }],
           maxOutputTokens: inputLimits.analyze.maxOutputTokens,
+          // Story 6.5: the adapter's sampling for photos (LM Studio: Qwen's settings against repetition loops).
+          sampling: target.imageSampling,
         },
         signal,
         within,

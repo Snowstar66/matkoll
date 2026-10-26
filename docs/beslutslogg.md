@@ -2,6 +2,50 @@
 
 Beslut som fattats under bygget: vad, varför och vilka alternativ som fanns. Nyaste överst.
 
+## 2026-10-26 – Bättre bildtolkning (Story 6.5)
+
+- **Underlag:** ett experiment med Pontus foto av kylen mot Qwen3.6 35B-A3B (MLX, 4 bit, kontext 8 192) i LM Studio på den här datorn, med 33 körningar.
+  - Med 1600 px och LM Studios standardinställningar för sampling fastnade 3 av 8 körningar i en upprepningsslinga ("Grädde" 12 gånger, "Vispgrädde" 22 gånger och en gul flaska 10 gånger), och en fjärde gav bara en vara.
+  - Med Qwens sampling gav 5 av 5 körningar inga slingor (2 med 1600 px och 3 med 2048 px). Med 2048 px och standardinställningarna gav 4 av 4 körningar inga slingor.
+  - Med tänkläget påslaget gick det strukturerade svaret sönder i 5 av 5 körningar.
+  - Med 2048 px, Qwens sampling och den skärpta prompten gav alla tre körningarna giltiga svar. De hade 13–22 varor med märke och storlek och tog 21–62 s.
+  - Resultaten finns bara som text i sessionens scratchpad, aldrig i repot.
+- **Beslut (Claude, headless enligt `docs/autonomi.md`; allt går att ändra):**
+  - **Ett foto av en plats förminskas till högst 2048 px** (`maxPlacePhotoSide`), och servern kontrollerar samma gräns för `/api/ai/analyze`. En kokbokssida stannar på 1600 px, eftersom inget är mätt för recept. Taket på 1,5 MB behålls, eftersom en JPEG på 2048 px med kvalitet 0,85 är ungefär 0,7 MB. **AD-15 får tillägget** att gränsen är 2048 px för en plats.
+  - **`analyzeImage` mot en Qwen-modell i LM Studio skickar Qwens sampling uttryckligen** (modellens id matchar `/qwen/i`, och en annan modell behåller sina standardvärden; ändrat efter granskningen): `temperature` 0,7, `top_p` 0,8, `top_k` 20 och `presence_penalty` 1,5. Tänkläget är fortfarande avstängt (`reasoning_effort: "none"`). Samplingen ligger i LM Studio-adaptern (`imageSampling`) och går genom `runStructured` som `sampling`. `top_k` skickas via `providerOptions.lmstudio`, eftersom AI SDK:s openai-compatible-adapter släpper `topK` med en varning men skickar okända fält under leverantörens nyckel vidare.
+  - **`parseRecipe` och `suggestDishes` behåller standardinställningarna,** och Anthropic och OpenAI ändras inte. Det saknas mätningar för de andra anropen, och resonerande modeller kan neka `temperature`. Om en slinga syns i ett recept läggs frågan i `docs/oppna-fragor.md`.
+  - **Prompten är experimentets** (`prompt-e2`), med tillägget att modellen tar de tydligaste varorna först om det finns fler än 25. Den går igenom bilden hylla för hylla, uppifrån och ned, med dörrens hyllor och lådor, och läser märke, sort, fetthalt och storlek. Den tar med delvis synliga varor som "osäker", hittar aldrig på och upprepar aldrig en post. Storleken står i `label` och inte i `unit`, och `hint.name` är grundformen utan märke.
+  - **AI-schemat får `confidence: "säker" | "osäker"`.** JSON-schemat ber om en `enum`, men tolkningen är förlåtande: "säker", "saker", "sure" och "certain" (utan hänsyn till skiftläge och mellanslag) blir säker, och allt annat eller inget alls blir osäker. Ett udda värde gör aldrig svaret eller varan ogiltig. (Ändrat efter granskningen.)
+  - **Porten slår ihop poster med samma etikettnyckel** (`labelKey` i `src/lib/label-key.ts`, som också förslagen använder). Nyckeln är NFC och gemener med ett mellanslag mellan orden, och punkt och mängd med enhet sist tas bort, så "Grädde 3 dl", "Grädde." och "grädde" är samma etikett. Den behållna posten blir osäker om någon kopia är det och får den första mängden som finns. `repeated` är det högsta antalet extra kopior av en etikett. Mocken går genom samma tolkning. (Ändrat efter granskningen.)
+    - En **enda dubblett** (`repeated` 1) slås ihop i tysthet. Mängderna adderas när båda har en mängd i samma enhet, eftersom det kan vara två förpackningar.
+    - En **slinga** (`repeated` ≥ `minLoopRepeats`, alltså samma etikett tre gånger eller fler) behåller en mängd och adderar aldrig, eftersom "Grädde" tolv gånger är modellen som upprepar sig.
+  - **En slinga gör jämförelsen med platsen ofullständig** (6.4), men en enda dubblett gör det inte. En slinga betyder att modellen kan ha slutat titta på resten av bilden, så "Bekräfta alla" tar då inte med borttagningarna.
+  - **Ett förslag är osäkert när någon av dess varor är osäker,** eftersom förslag summeras per katalogvara och enhet (6.1). Ett osäkert förslag har märket "Osäker" (blått, "kontrollera det här") och texten "AI:n är osäker på varan, så Bekräfta alla tar inte med den.". "Bekräfta alla" hoppar över det, kortet står kvar, och bekräftelsen lägger till "1 osäker vara är kvar att bekräfta eller rätta.". Ett eget Bekräfta eller Rätta sparar det som förut. Bekräftelsen räknar bara osäkra kort som går att bekräfta och som servern inte har nekat. Efter "Bekräfta alla" går fokus till det första osäkra kortet som är kvar. (Ändrat efter granskningen.)
+  - **Ett osäkert förslag räknas aldrig som "stämmer med lagret".** Det visas alltid som ett kort med "Osäker", så att Pontus bekräftar det. När mängden är densamma som platsens är det "Ändrat", utan att någon rad ersätts. (Ändrat efter granskningen.)
+  - **Ett osäkert förslag skyddar en rad från "Syns inte längre".** Något på bilden liknar varan, och att samtidigt föreslå att den tas bort vore motsägelsefullt. Felet åt det hållet är det ofarliga, eftersom en rad bara står kvar.
+  - **Kortets rubrik är etiketterna** (högst tre olika, i AI:ns ordning, med komma emellan), och katalogvaran står under som "Sparas som: vispgrädde". När den enda etiketten är katalogvarans namn ("Ägg" för "ägg") visas namnet en gång. Knapparnas namn och bekräftelserna använder katalogvaran ("Bekräfta mjölk", "mjölk är sparad i kylen."), eftersom det är den som sparas.
+  - **`maxOutputTokens` är 3 000 och taket 25 varor,** som förut. Kommentaren i `service.ts` är rättad. LM Studio rapporterar ungefär 1 000 prompt-token både för 1600 och 2048 px, så bilden ingår inte i den siffran. Bildens andel av kontexten är alltså inte mätt, och den uppskattas till ungefär 3 100 token för 2048 × 1536 px.
+  - **Utvärderingen skickar varje foto tre gånger** (`EVAL_RUNS`). Rapporten visar tid, antal varor, osäkra, ogiltiga, upprepningar och slinga per körning. En körning fallerar vid fel, vid en slinga (samma etikett tre gånger eller fler) och vid över 100 s. Fotot förminskas som i klienten till högst 2048 px och kvalitet 85, aldrig uppåt, utan metadata, och skickas bara till LM Studio på den här datorn.
+  - **Mockens nya foto `kyl-dorr.png`** (syntetiskt, ritat av `render-pantry-image.mjs`) har ett märke som modellen upprepar fyra gånger, en juice och en osäker gul flaska. E2E-specen `pantry-image-reading.spec.ts` har en egen användare, `e2e-bildtolkning@matkoll.test`.
+- **Mätt med appens kod (`pnpm eval:ai tests/eval/analyze-image.eval.ts`, 2026-10-26, tre körningar per foto):**
+  - **Pontus foto** (`IMG_5673`, 4284 × 5712 px förminskat till 1536 × 2048):
+    - Alla tre körningarna gav giltiga svar med 12 varor, utan ogiltiga varor och utan upprepningar.
+    - Tiderna var 50,8 s (den första, när modellen var kall), 19,4 s och 19,7 s.
+    - 0, 1 och 3 varor var osäkra.
+    - De fem varor som körningarna i experimentet var överens om hittades alla gånger: vispgrädde, matlagningsgrädde, senap, mellanmjölk och Pepsi.
+    - `hint.name` var en grundform utan märke i alla körningar ("mjölk", "läsk", "steaksås").
+    - Felläsningar finns kvar, till exempel "Schysst Kak" som cappuccino och "Glutenfritt" som vin.
+  - **De syntetiska bilderna** gav alla sex varor varje gång på 13–26 s, och den tomma hyllan gav inga varor på 5 s.
+  - Ingen av de 12 körningarna hade fel eller slinga.
+- **Varför:** Pontus vill att fotot tolkas lika bra som när Pontus frågar Qwen direkt, FR-24, FR-25 (inget sparas utan ett tryck), AD-9 och AD-15.
+- **Alternativ:**
+  - 2048 px också för kokbokssidor.
+  - Samma sampling för alla anrop och alla leverantörer.
+  - Att summera upprepningar, vilket skulle göra "Grädde" tolv gånger till "grädde 12 förp".
+  - Att låta en osäker vara ge både ett förslag och "Syns inte längre".
+  - Att bara märka ett förslag osäkert när alla dess varor är osäkra.
+  - Tänkläget påslaget, som gav bättre text men trasiga svar.
+
 ## 2026-10-26 – Kursändring för version 1.1, Flera ställen (Epic 8)
 
 - **Beslut (Claude, headless enligt `docs/autonomi.md`; allt går att ändra):**

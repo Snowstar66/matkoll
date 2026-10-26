@@ -1,6 +1,6 @@
 import "server-only";
 import { createOpenAICompatible } from "@ai-sdk/openai-compatible";
-import type { ModelTarget } from "../run";
+import type { ModelTarget, Sampling } from "../run";
 
 // LM Studio's OpenAI-compatible server, locally on http://localhost:1234/v1 and
 // in the cloud behind Cloudflare Tunnel + Access (AD-9, AD-14).
@@ -14,6 +14,28 @@ export type LmStudioConfig = {
 };
 
 const providerName = "lmstudio";
+
+/**
+ * Sampling for analyzeImage (Story 6.5): Qwen's recommended settings without
+ * thinking. With LM Studio's defaults a photo of 1600 px gave repetition loops
+ * ("Grädde" twelve times); with these, 2048 px gave none in the experiment of
+ * 2026-10-26 (docs/beslutslogg.md). The AI SDK's openai-compatible model drops
+ * `topK` with a warning, so top_k goes in the provider options, which are
+ * passed on in the request body. The other calls keep LM Studio's defaults:
+ * nothing has been measured for them. Only for a Qwen model (isQwenModel):
+ * the values are Qwen's, so another model keeps its own defaults.
+ */
+export const lmStudioImageSampling: Sampling = {
+  temperature: 0.7,
+  topP: 0.8,
+  presencePenalty: 1.5,
+  providerOptions: { [providerName]: { top_k: 20 } },
+};
+
+/** Whether the configured model is a Qwen model, which lmStudioImageSampling is for. */
+export function isQwenModel(model: string): boolean {
+  return /qwen/i.test(model);
+}
 
 export function createLmStudioTarget(config: LmStudioConfig): ModelTarget {
   const baseURL = config.baseURL.replace(/\/+$/, "");
@@ -46,6 +68,7 @@ export function createLmStudioTarget(config: LmStudioConfig): ModelTarget {
         chat_template_kwargs: { enable_thinking: false },
       },
     },
+    imageSampling: isQwenModel(config.model) ? lmStudioImageSampling : undefined,
     // GET /models answers fast even while a model is busy, so a sleeping Mac or
     // a stopped server is found in seconds instead of after the attempt budget.
     healthCheck: async (signal) => {

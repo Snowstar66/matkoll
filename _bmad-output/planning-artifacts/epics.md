@@ -1016,6 +1016,30 @@ så att lagret uppdateras med nya varor, ändrade mängder och varor som inte l�
 **När** förslagen visas
 **Så** föreslås den också i "Syns inte längre"
 
+### Story 6.5: Bättre bildtolkning
+
+Som Pontus,
+vill jag att fotot av kylen tolkas lika bra som när jag frågar Qwen direkt,
+så att lagerförslagen får rätt varor och märken.
+
+**Acceptance Criteria:**
+
+**Givet** ett foto av en plats
+**När** det skickas till AI:n
+**Så** är bilden högst 2048 px på längsta sidan och anropet har uttryckliga sampling-inställningar (temperatur, top_p, top_k, presence penalty) med tänkläget avstängt
+
+**Givet** AI:ns svar
+**När** samma vara upprepas
+**Så** slås upprepningarna ihop, och svaret avbryts aldrig av en upprepningsslinga
+
+**Givet** varor som bara delvis syns
+**När** förslagen visas
+**Så** är de markerade "osäker", inte förvalda för "Bekräfta alla", och kortet visar märket som rubrik med katalogvaran under
+
+**Givet** utvärderingen mot ett riktigt foto
+**När** den körs tre gånger
+**Så** ger varje körning giltigt svar utan upprepningsslinga inom 100 s
+
 ## Epic 7: Varukorg
 
 Pontus kan välja butik, spara vilka produkter hen brukar köpa och skicka inköpslistan till ICA Handla via en export som Claude in Chrome fyller varukorgen från.

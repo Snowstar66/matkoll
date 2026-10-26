@@ -4,8 +4,8 @@ import { readFileSync } from "node:fs";
 import { join } from "node:path";
 import { fail, ok, type ErrorCode } from "@/lib/errors";
 import { normalizeTitle } from "@/lib/suggest-input";
-import { aiPantryItem, aiRecipe, analyzeImageAnswer, suggestDishesAnswer, type AiPantryItem, type AiRecipe } from "../schemas";
-import type { AiService, ParseRecipeInput, SuggestDishesInput } from "../service";
+import { aiRecipe, analyzeImageAnswer, parseAnalyzeItems, suggestDishesAnswer, type AiRecipe } from "../schemas";
+import type { AiService, AnalyzeImageResult, ParseRecipeInput, SuggestDishesInput } from "../service";
 
 // Deterministic stand-in for a model, used in all tests and in CI (AD-9). It
 // answers from tests/fixtures/ai/: manifest.json lists the cases, each with a
@@ -22,7 +22,9 @@ import type { AiService, ParseRecipeInput, SuggestDishesInput } from "../service
 // inputs for ai_unavailable, ai_invalid or ai_rejected. analyzeImage answers
 // from the manifest's `analyze` part: <name>.analyze.json for the photo
 // <name>.png, keyed on the SHA-256 of the image bytes, and the default case
-// for any other photo; the reserved images for ai_unavailable, ai_invalid and
+// for any other photo, read through parseAnalyzeItems like a model's answer,
+// so repeated labels are merged and counted as the port does (Story 6.5);
+// the reserved images for ai_unavailable, ai_invalid and
 // ai_rejected give their codes (import_no_recipe means nothing to a photo of
 // a place, so it gets the default answer). The suggest and analyze fixtures
 // are each loaded on their own, so a broken one never breaks an import.
@@ -58,10 +60,12 @@ type SuggestFixtures = {
   /** Normalized reserved text → its code, for the pantry items given to suggestDishes. */
   errors: Map<string, MockErrorCode>;
 };
+/** A fixture's answer: its items after parseAnalyzeItems, and how many repeats were merged. */
+type AnalyzeAnswer = Pick<AnalyzeImageResult, "items" | "repeated">;
 type AnalyzeFixtures = {
   /** SHA-256 of the image bytes → the answer or an error code. */
-  byKey: Map<string, { items: AiPantryItem[] } | { code: MockErrorCode }>;
-  fallback: AiPantryItem[];
+  byKey: Map<string, AnalyzeAnswer | { code: MockErrorCode }>;
+  fallback: AnalyzeAnswer;
 };
 
 export const defaultFixturesDir = join(process.cwd(), "tests", "fixtures", "ai");
@@ -135,12 +139,13 @@ function loadAnalyzeFixtures(dir: string): AnalyzeFixtures {
   const manifest = JSON.parse(read("manifest.json")) as Manifest;
   if (!manifest.analyze) throw new Error("analyze missing");
   const byKey: AnalyzeFixtures["byKey"] = new Map();
-  const answers = new Map<string, AiPantryItem[]>();
+  const answers = new Map<string, AnalyzeAnswer>();
   for (const { name } of manifest.analyze.cases) {
+    const { items, invalid, repeated } = parseAnalyzeItems(analyzeImageAnswer.parse(JSON.parse(read(`${name}.analyze.json`))).items);
     // Every item must pass on its own: a fixture is a valid answer.
-    const items = analyzeImageAnswer.parse(JSON.parse(read(`${name}.analyze.json`))).items.map((item) => aiPantryItem.parse(item));
-    answers.set(name, items);
-    byKey.set(sha256(readFileSync(join(dir, `${name}.png`))), { items });
+    if (invalid > 0) throw new Error("invalid analyze fixture");
+    answers.set(name, { items, repeated });
+    byKey.set(sha256(readFileSync(join(dir, `${name}.png`))), { items, repeated });
   }
   for (const { image, code } of manifest.reservedImages ?? []) {
     if ((mockAnalyzeErrorCodes as readonly string[]).includes(code)) {
@@ -216,7 +221,8 @@ export function createMockAiService(dir: string = defaultFixturesDir): AiService
       if (!current) return fail("ai_unavailable");
       const answer = current.byKey.get(sha256(input.image.data));
       if (answer && "code" in answer) return fail(answer.code);
-      return ok({ items: structuredClone(answer ? answer.items : current.fallback), invalid: 0 });
+      const { items, repeated } = answer ?? current.fallback;
+      return ok({ items: structuredClone(items), invalid: 0, repeated });
     },
   };
 }

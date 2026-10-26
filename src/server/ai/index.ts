@@ -16,6 +16,7 @@ export type {
   SuggestPantryItem,
 } from "./service";
 export type { AiIngredientHint, AiPantryItem, AiRecipe, AiRecipeIngredient } from "./schemas";
+export { minLoopRepeats } from "./schemas";
 
 let service: AiService | undefined;
 

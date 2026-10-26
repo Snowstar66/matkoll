@@ -5,7 +5,7 @@ import { afterEach, describe, expect, it, vi } from "vitest";
 import { compare, type Expected } from "../../../../tests/eval/compare";
 import { checkSuggestions, type SuggestExpected } from "../../../../tests/eval/suggest-checks";
 import { imageSizeOf, imageTypeOf, maxImageBytes, maxImageSide } from "@/lib/images";
-import { aiPantryItem, aiRecipe, analyzeImageAnswer, suggestDishesAnswer } from "../schemas";
+import { aiPantryItem, aiRecipe, analyzeImageAnswer, parseAnalyzeItems, suggestDishesAnswer } from "../schemas";
 import type { SuggestDishesInput } from "../service";
 import {
   createMockAiService,
@@ -214,9 +214,9 @@ describe("mock suggestDishes", () => {
 describe("mock analyzeImage", () => {
   const service = createMockAiService();
   const photo = (file: string) => ({ data: new Uint8Array(readFileSync(join(dir, file))), mediaType: "image/png" });
-  const answer = (name: string) =>
-    analyzeImageAnswer.parse(JSON.parse(read(`${name}.analyze.json`))).items.map((item) => aiPantryItem.parse(item));
-  const answered = (name: string) => ({ ok: true, data: { items: answer(name), invalid: 0 } });
+  const raw = (name: string) => analyzeImageAnswer.parse(JSON.parse(read(`${name}.analyze.json`))).items;
+  const answer = (name: string) => raw(name).map((item) => aiPantryItem.parse(item));
+  const answered = (name: string) => ({ ok: true, data: parseAnalyzeItems(raw(name)) });
 
   it.each(manifest.analyze.cases.map(({ name }) => [name]))("answers the photo %s.png with its fixture", async (name) => {
     expect(await service.analyzeImage({ image: photo(`${name}.png`), place: "Kyl" }, signal())).toEqual(answered(name));
@@ -238,7 +238,19 @@ describe("mock analyzeImage", () => {
     ]);
     expect(answer("kyl")[0].label).toMatch(/mellanmjölk/i);
     expect(answer("kyl")[1].label).toMatch(/vispgrädde/i);
+    expect(answer("kyl").every(({ confidence }) => confidence === "säker")).toBe(true);
     expect(answer("tom-hylla")).toEqual([]);
+  });
+
+  it("has a brand, a repeat loop and a guess in kyl-dorr (Story 6.5), merged as the port merges them", async () => {
+    const result = await service.analyzeImage({ image: photo("kyl-dorr.png"), place: "Kyl" }, signal());
+    if (!result.ok) throw new Error(result.error.code);
+    expect(result.data.items.map(({ label, hint, confidence }) => [label, hint.name, confidence])).toEqual([
+      ["Lantmejeriet vispgrädde 36 % 3 dl", "vispgrädde", "säker"],
+      ["Solgården apelsinjuice 1 l", "apelsinjuice", "säker"],
+      ["Gul flaska, troligen senap", "senap", "osäker"],
+    ]);
+    expect(result.data).toMatchObject({ invalid: 0, repeated: 3 });
   });
 
   it.each(manifest.analyze.cases.map(({ name }) => [name]))(

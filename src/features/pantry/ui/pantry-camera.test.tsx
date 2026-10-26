@@ -21,8 +21,12 @@ vi.mock("@/lib/ai-client", () => ({
       signal.addEventListener("abort", () => resolve({ ok: false, aborted: true }), { once: true });
     }),
 }));
+const downscaled = vi.hoisted(() => [] as { maxSide?: number }[]);
 vi.mock("@/lib/downscale-image", () => ({
-  downscaleImage: async (file: Blob): Promise<Result<Blob>> => ok(file),
+  downscaleImage: async (file: Blob, options: { maxSide?: number } = {}): Promise<Result<Blob>> => {
+    downscaled.push(options);
+    return ok(file);
+  },
 }));
 vi.mock("next/navigation", () => ({ useRouter: () => ({ refresh: vi.fn() }) }));
 vi.mock("../actions/set-pantry-item", () => ({ savePantryItem: vi.fn() }));
@@ -75,6 +79,7 @@ async function photograph() {
 
 beforeEach(() => {
   calls = [];
+  downscaled.length = 0;
   pointer(false);
 });
 afterEach(() => {
@@ -118,6 +123,12 @@ describe("PantryCamera", () => {
     expect(cameraClick).toHaveBeenCalledTimes(1);
     fireEvent.click(screen.getByRole("button", { name: "Välj bild" }));
     expect(libraryClick).toHaveBeenCalledTimes(1);
+  });
+
+  it("resizes the photo of a place to at most 2048 px (Story 6.5)", async () => {
+    render(<Hemma />);
+    await photograph();
+    expect(downscaled).toEqual([{ maxSide: 2048 }]);
   });
 
   it("shows Tittar på bilden … with Avbryt in the button's place, and the button takes focus after Avbryt", async () => {

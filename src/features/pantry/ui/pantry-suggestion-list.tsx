@@ -10,11 +10,16 @@ import {
   changeText,
   currentAmountText,
   incompleteComparisonText,
+  isBulkConfirmable,
+  savedAsText,
   suggestionAmountText,
   suggestionsArrivedText,
   suggestionInvalidText,
   suggestionsHeading,
+  suggestionTitle,
   unchangedCountText,
+  uncertainBadgeText,
+  uncertainSuggestionText,
   unreadPlaceText,
   type PantrySuggestion,
 } from "../domain/pantry-suggestion";
@@ -50,6 +55,14 @@ import { focusIsFree } from "./use-pantry-analysis";
 // "Behåll". Focus moves through the cards in that order. An empty place, or
 // one that could not be read ("Det gick inte att jämföra med lagret i
 // kylen."), shows the plain list.
+//
+// Story 6.5: a card's title is the model's label as on the package ("ICA
+// vispgrädde 36 %"), with the catalog ingredient under it ("Sparas som:
+// vispgrädde"); the buttons keep
+// the catalog name, which is what is saved. A suggestion the model was
+// unsure of has the badge "Osäker" and a line that "Bekräfta alla" leaves it
+// out: it needs its own Bekräfta or Rätta, and after "Bekräfta alla" focus
+// goes to the first unsure card left.
 
 export function PantrySuggestionList() {
   const headingId = useId();
@@ -95,7 +108,10 @@ export function PantrySuggestionList() {
 
   if (!result || !groups || cardCount === 0) return null;
   const { added, changed, unchanged, missing, compared, incomplete } = groups;
-  const confirmable = [...added, ...changed].filter((suggestion) => !invalidIds.has(suggestion.id));
+  // "Bekräfta alla" never takes a suggestion the model was unsure of (Story 6.5).
+  const confirmable = [...added, ...changed].filter(
+    (suggestion) => !invalidIds.has(suggestion.id) && isBulkConfirmable(suggestion),
+  );
   const card = (suggestion: PantrySuggestion, level: 3 | 4) => (
     <SuggestionCard
       key={suggestion.id}
@@ -214,7 +230,8 @@ function SuggestionCard({
   onCorrect,
   onReject,
 }: SuggestionCardProps) {
-  const { name, ingredient, location, current, change } = suggestion;
+  const { name, ingredient, location, current, change, uncertain } = suggestion;
+  const { title, ingredientName } = suggestionTitle(suggestion);
   const Heading = level === 3 ? "h3" : "h4";
   let now = null;
   if (current && change === "changed") {
@@ -231,17 +248,18 @@ function SuggestionCard({
   return (
     <li data-testid="pantry-suggestion" className="flex flex-col gap-1 rounded-lg bg-surface p-4">
       <div className="flex items-start justify-between gap-3">
-        <Heading className="min-w-0 text-row-title break-words text-ink">{name}</Heading>
-        {ingredient.kind === "new" ? (
-          <Badge tone="neutral" className="shrink-0">
-            Ny
-          </Badge>
-        ) : null}
+        <Heading className="min-w-0 text-row-title break-words text-ink">{title}</Heading>
+        <div className="flex shrink-0 flex-wrap justify-end gap-1">
+          {uncertain ? <Badge tone="sky">{uncertainBadgeText}</Badge> : null}
+          {ingredient.kind === "new" ? <Badge tone="neutral">Ny</Badge> : null}
+        </div>
       </div>
+      {ingredientName ? <p className="text-meta break-words text-ink-2">{savedAsText(ingredientName)}</p> : null}
       <p className="text-body text-ink-2">
         <span>{suggestionAmountText(suggestion)}</span> · <span>{location}</span>
       </p>
       {now}
+      {uncertain ? <p className="text-meta text-ink-2">{uncertainSuggestionText}</p> : null}
       {invalid ? <p className="text-meta text-ink-2">{suggestionInvalidText}</p> : null}
       {/* The buttons wrap at 200 % text; the names say which suggestion they are for. */}
       <div className="mt-2 flex flex-wrap items-center gap-x-2 gap-y-1">

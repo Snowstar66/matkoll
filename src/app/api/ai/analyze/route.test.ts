@@ -113,7 +113,15 @@ describe("POST /api/ai/analyze", () => {
   });
 
   it.each([
+    ["a JPEG of 2048 px", jpegHeader(1536, 2048)],
     ["a PNG of 1700 px", pngHeader(1700, 900)],
+  ])("takes %s: a photo of a place may be up to 2048 px (Story 6.5)", async (_name, data) => {
+    const response = await POST(await post({ body: form(data) }));
+    expect(response.status).toBe(200);
+  });
+
+  it.each([
+    ["a PNG of 2100 px", pngHeader(2100, 900)],
     ["a JPEG over 1.5 MB", jpegHeader(1200, 1600, { size: 1.5 * 1024 * 1024 + 1 })],
     ["a request over 2 MB", jpegHeader(1200, 1600, { size: 2 * 1024 * 1024 })],
   ])("refuses %s with 413 image_too_large", async (_name, data) => {

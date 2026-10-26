@@ -70,6 +70,25 @@ const missingOf = (inventory: ReturnType<typeof compareWithPlace>["inventory"]) 
   inventory.kind === "compared" ? inventory.missing : [];
 
 describe("compareWithPlace", () => {
+  it("never counts a suggestion the AI was unsure of as unchanged, and still keeps it out of Syns inte längre (Story 6.5)", () => {
+    const place = [row(senap, null, null), row(agg, 6, "st"), row(mjolk, 2, "förp")];
+    const photo = [
+      { ...existing("s1", senap, null, null), uncertain: true },
+      { ...existing("s2", agg, 6, "st"), uncertain: true },
+      existing("s3", mjolk, 2, "förp"),
+    ];
+    const { suggestions, inventory } = compareWithPlace(photo, place, none);
+    expect(brief(suggestions)).toEqual([
+      ["senap", "changed"],
+      ["ägg", "changed"],
+      ["mjölk", "unchanged"],
+    ]);
+    // The stock is the same: confirming replaces no row.
+    expect(suggestions.every((suggestion) => suggestion.replaces.length === 0)).toBe(true);
+    expect(missingOf(inventory)).toEqual([]);
+    expect(groupSuggestions({ suggestions, inventory })).toMatchObject({ unchanged: 1, changed: [{ id: "s1" }, { id: "s2" }] });
+  });
+
   it("groups the matrix's fridge: Nytt, Ändrat, oförändrat and Syns inte längre (also unlimited)", () => {
     const place = [
       row(mjolk, 2, "förp"),

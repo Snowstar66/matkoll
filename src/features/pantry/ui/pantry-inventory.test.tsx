@@ -545,6 +545,34 @@ describe("review patches", () => {
     expect(button("Bekräfta alla")).toBeDisabled();
   });
 
+  it("leaves an unsure Ändrat card out of Bekräfta alla, with its badge, and says it is left (Story 6.5)", async () => {
+    render(<Hemma />);
+    const unsure = { ...fridge.suggestions[3], labels: ["Vit förpackning, troligen mjölk"], uncertain: true };
+    await analyze({ ...fridge, suggestions: [...fridge.suggestions.slice(0, 3), unsure, ...fridge.suggestions.slice(4)] });
+    expect(groupNames("Ändrat")).toEqual(["Vit förpackning, troligen mjölk"]);
+    expect(within(section()).getByText("Osäker")).toBeInTheDocument();
+    fireEvent.click(button("Bekräfta alla"));
+    await waitFor(() => expect(saves).toHaveLength(1));
+    const { input } = lastSave();
+    expect(input.items.map((item) => item.ingredient)).toEqual(fridge.suggestions.slice(0, 3).map(({ ingredient }) => ingredient));
+    // The unsure card's rows in other units are not replaced either.
+    expect(input.replaceRowIds).toEqual([]);
+    expect(input.removeRowIds).toEqual([senapRow, yoghurtRow]);
+    await answerSave(
+      answered({
+        set: 3,
+        removed: [removedRow(senapRow, senapId), removedRow(yoghurtRow, yoghurtId)],
+        removedCount: 2,
+        undoable: 2,
+      }),
+    );
+    expect(toast()).toHaveTextContent(
+      "Kylen är uppdaterad: 3 nya och 2 borttagna. 1 osäker vara är kvar att bekräfta eller rätta.",
+    );
+    expect(groupNames("Ändrat")).toEqual(["Vit förpackning, troligen mjölk"]);
+    await waitFor(() => expect(button("Bekräfta mjölk")).toHaveFocus());
+  });
+
   it("leaves the removals out of Bekräfta alla when the comparison is incomplete", async () => {
     render(<Hemma />);
     await analyze(incomplete(fridge));

@@ -4,7 +4,7 @@ import type { IngredientMatch, Location } from "@/features/catalog";
 import { CatalogDataError, getIngredientNames, matchIngredients } from "@/features/catalog/server";
 import { fail, ok, type Result } from "@/lib/errors";
 import { createClient } from "@/lib/supabase/server";
-import { getAiService, type ImageInput } from "@/server/ai";
+import { getAiService, minLoopRepeats, type ImageInput } from "@/server/ai";
 import { PantryDataError } from "../data/client";
 import { listPantryIn } from "../data/queries";
 import { compareWithPlace, placeInventorySchema, withoutComparison } from "../domain/place-inventory";
@@ -105,7 +105,8 @@ export type AnalyzePlaceOptions = {
  * kylen nu" (a failed read is logged and leaves them out; skipped when the
  * deadline is near), toPantrySuggestions, pantrySuggestionSchema for each
  * suggestion, and compareWithPlace against the place's items (Story 6.4:
- * `inventory`, `unread` when they could not be read). Items and suggestions
+ * `inventory`, `unread` when they could not be read; incomplete also when
+ * the AI repeated a label in a loop, Story 6.5). Items and suggestions
  * left out are counted in `dropped` and logged as counts. No item is fine:
  * an empty list. A request that goes away
  * is `ai_unavailable`, one stopped by a newer analysis of the same user is
@@ -146,10 +147,11 @@ async function analyze(
   if (!analyzed.ok) return analyzed;
   if (signal.aborted) return stopped();
 
-  const { invalid } = analyzed.data;
+  const { invalid, repeated } = analyzed.data;
   const items = analyzed.data.items.slice(0, maxPantrySuggestions);
   const trimmed = analyzed.data.items.length - items.length;
   if (trimmed > 0) console.info("analyze_items_trimmed", { dropped: trimmed });
+  if (repeated > 0) console.info("analyze_items_repeated", { count: repeated });
   const timeLeft = () => (deadline === undefined ? Infinity : deadline - Date.now());
   // No item: nothing to match, but the place is still compared (everything there is "Syns inte längre").
   let matched: IngredientMatch[] = [];
@@ -187,13 +189,16 @@ async function analyze(
   const { unmatched, unnamed, unusable } = built.dropped;
   const dropped = invalid + unmatched + unnamed + unusable + outputInvalid;
   // Story 6.4: the suggestions against the place's rows. An ingredient the AI
-  // named is never "Syns inte längre", also when its suggestion was left out;
-  // items that could not be read or were cut (and new catalog ingredients, in
-  // compareWithPlace) make the comparison incomplete.
+  // named is never "Syns inte längre", also when its suggestion was left out
+  // or the AI was unsure of it (Story 6.5); items that could not be read or
+  // were cut (and new catalog ingredients, in compareWithPlace) make the
+  // comparison incomplete, and so does a repetition loop (Story 6.5): a model
+  // that repeats itself may have stopped looking at the rest of the photo. A
+  // single duplicate is only merged.
   const compared = compareWithPlace(suggestions, current, {
     location,
     seenIngredientIds: new Set(ids),
-    incomplete: dropped > 0 || trimmed > 0,
+    incomplete: dropped > 0 || trimmed > 0 || repeated >= minLoopRepeats,
   });
   // The schema the client checks: a comparison that would not pass (a row the
   // domain cannot read) is left out, never the whole answer, and the

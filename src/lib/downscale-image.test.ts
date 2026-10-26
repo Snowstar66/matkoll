@@ -1,7 +1,7 @@
 // @vitest-environment jsdom
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { fail } from "@/lib/errors";
-import { maxImageBytes } from "@/lib/images";
+import { maxImageBytes, maxPlacePhotoSide } from "@/lib/images";
 import { jpegHeader, pngChunk, pngFile, pngHeader } from "../../tests/support/image-headers";
 import { downscaleImage, fitWithin, halvingSteps, jpegQualities } from "./downscale-image";
 
@@ -134,6 +134,15 @@ describe("downscaleImage", () => {
     expect(result.data.type).toBe("image/jpeg");
     expect(qualities).toEqual([0.85]);
     expect(closed).toBe(1);
+  });
+
+  it("decodes a photo of a place to 2048 px when asked (Story 6.5)", async () => {
+    const photo = cameraJpeg(6);
+    const result = await downscaleImage(photo, { maxSide: maxPlacePhotoSide });
+    expect(maxPlacePhotoSide).toBe(2048);
+    expect(createImageBitmap.mock.calls[0][1]).toMatchObject({ resizeWidth: 1536, resizeHeight: 2048 });
+    expect(drawn.at(-1)?.canvas).toEqual({ width: 1536, height: 2048 });
+    expect(result.ok).toBe(true);
   });
 
   it("asks for the turned size when EXIF turns the photo a quarter", async () => {

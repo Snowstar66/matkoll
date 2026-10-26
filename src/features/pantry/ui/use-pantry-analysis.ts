@@ -6,6 +6,7 @@ import type { Location } from "@/features/catalog";
 import { postAiForm, type AiCallResult } from "@/lib/ai-client";
 import { downscaleImage } from "@/lib/downscale-image";
 import { fail, type AppError, type Result } from "@/lib/errors";
+import { maxPlacePhotoSide } from "@/lib/images";
 import {
   analyzeResultSchema,
   analyzeRetryCodes,
@@ -237,7 +238,7 @@ export function usePantryAnalysis(): PantryAnalysis {
     const controller = start();
     let prepared: Result<Blob>;
     try {
-      prepared = await downscaleImage(file);
+      prepared = await downscaleImage(file, { maxSide: maxPlacePhotoSide });
     } catch {
       prepared = fail("image_unsupported");
     }
