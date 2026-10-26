@@ -1,0 +1,117 @@
+<!doctype html>
+<html lang="sv">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Inköpslista – skiss</title>
+<style>
+  :root {
+    --bg:#F5F7F4; --surface:#FFFFFF; --ink:#1B2420; --ink2:#56635D; --ink3:#6B7872;
+    --hair:#EEF1EF; --border:#E3E8E4; --accent:#3E7C62; --mint:#DDEFE5; --mintink:#2C5E48;
+    --sky:#DCE9F6; --skyink:#2E5A85; --sand:#F1ECE2; --sandink:#6E5B3E;
+    font-family: -apple-system, BlinkMacSystemFont, 'SF Pro Text', Inter, 'Helvetica Neue', Arial, sans-serif;
+  }
+  * { box-sizing:border-box; }
+  body { margin:0; background:#E9EDEA; color:var(--ink); }
+  .wrap { display:flex; gap:40px; justify-content:center; padding:32px 16px; flex-wrap:wrap; }
+  .note { max-width:360px; font-size:15px; line-height:1.5; color:var(--ink2); }
+  .note h2 { color:var(--ink); font-size:20px; margin:0 0 8px; }
+  .note li { margin-bottom:6px; }
+  .phone { width:390px; max-width:100%; background:var(--bg); border-radius:36px; padding:20px 16px 24px; box-shadow:0 20px 60px rgba(27,36,32,.18); position:relative; }
+  h1 { font-size:34px; font-weight:700; letter-spacing:-.5px; margin:8px 0 6px; display:flex; justify-content:space-between; align-items:center; }
+  h1 .plus { color:var(--accent); font-weight:400; font-size:32px; }
+  .sub { display:flex; justify-content:space-between; align-items:center; color:var(--ink3); font-size:14px; margin-bottom:12px; }
+  .sub b { color:var(--accent); font-weight:600; }
+  .progress { background:var(--surface); border-radius:16px; padding:14px; margin-bottom:18px; }
+  .progress .top { display:flex; justify-content:space-between; font-size:15px; font-weight:600; margin-bottom:10px; }
+  .progress .top span:last-child { color:var(--ink3); font-weight:400; }
+  .bar { height:8px; border-radius:99px; background:var(--hair); overflow:hidden; }
+  .bar i { display:block; height:100%; width:43%; background:var(--accent); border-radius:99px; }
+  .cat { margin-bottom:16px; }
+  .cathead { display:flex; align-items:center; gap:10px; margin:0 4px 8px; }
+  .catic { width:30px; height:30px; border-radius:9px; display:grid; place-items:center; font-size:17px; }
+  .cathead .name { font-size:13px; font-weight:600; letter-spacing:.4px; text-transform:uppercase; color:var(--ink2); flex:1; }
+  .cathead .count { font-size:13px; color:var(--ink3); }
+  .list { background:var(--surface); border-radius:16px; overflow:hidden; }
+  .row { display:flex; align-items:center; gap:12px; padding:11px 14px; border-top:1px solid var(--hair); min-height:56px; }
+  .row:first-child { border-top:0; }
+  .check { width:26px; height:26px; border-radius:50%; border:2px solid var(--border); flex:none; }
+  .row.done .check { background:var(--accent); border-color:var(--accent); position:relative; }
+  .row.done .check::after { content:''; position:absolute; left:8px; top:4px; width:6px; height:11px; border:solid #fff; border-width:0 2.5px 2.5px 0; transform:rotate(45deg); }
+  .row .txt { flex:1; min-width:0; }
+  .row .t { font-size:17px; font-weight:600; }
+  .row .t .amt { font-weight:400; color:var(--ink2); }
+  .row .m { font-size:13px; color:var(--ink3); margin-top:2px; }
+  .row.done .t { color:var(--ink3); text-decoration:line-through; font-weight:500; }
+  .chip { font-size:12px; font-weight:600; padding:3px 8px; border-radius:7px; background:var(--sky); color:var(--skyink); white-space:nowrap; }
+  .basket { margin:6px 4px 90px; color:var(--ink3); font-size:14px; display:flex; justify-content:space-between; }
+  .basket b { color:var(--accent); }
+  .bottom { position:absolute; left:16px; right:16px; bottom:24px; display:flex; gap:8px; }
+  .btn { flex:1; text-align:center; padding:14px; border-radius:14px; font-weight:600; font-size:16px; }
+  .btn.primary { background:var(--accent); color:#fff; }
+  .btn.second { background:var(--sky); color:var(--skyink); }
+</style>
+</head>
+<body>
+<div class="wrap">
+  <div class="phone">
+    <h1>Inköpslista <span class="plus">+</span></h1>
+    <div class="sub"><span>🏠 Lager: Duved</span><b>Byt</b></div>
+
+    <div class="progress">
+      <div class="top"><span>8 varor kvar</span><span>6 av 14 i korgen</span></div>
+      <div class="bar"><i></i></div>
+    </div>
+
+    <div class="cat">
+      <div class="cathead"><span class="catic" style="background:#DDEFE5">🥦</span><span class="name">Frukt &amp; grönt</span><span class="count">3</span></div>
+      <div class="list">
+        <div class="row"><span class="check"></span><div class="txt"><div class="t">Gul lök <span class="amt">2 st</span></div><div class="m">Korv stroganoff</div></div></div>
+        <div class="row"><span class="check"></span><div class="txt"><div class="t">Vitlök <span class="amt">1 st</span></div><div class="m">Kycklinggryta</div></div></div>
+        <div class="row done"><span class="check"></span><div class="txt"><div class="t">Citron <span class="amt">1 st</span></div></div></div>
+      </div>
+    </div>
+
+    <div class="cat">
+      <div class="cathead"><span class="catic" style="background:#F1E3DD">🥩</span><span class="name">Kött, fisk &amp; chark</span><span class="count">2</span></div>
+      <div class="list">
+        <div class="row"><span class="check"></span><div class="txt"><div class="t">Falukorv <span class="amt">800 g</span></div><div class="m">Korv stroganoff</div></div><span class="chip">Scan</span></div>
+        <div class="row"><span class="check"></span><div class="txt"><div class="t">Kycklingfilé <span class="amt">600 g</span></div><div class="m">Kycklinggryta</div></div></div>
+      </div>
+    </div>
+
+    <div class="cat">
+      <div class="cathead"><span class="catic" style="background:#DCE9F6">🥛</span><span class="name">Mejeri &amp; ägg</span><span class="count">2</span></div>
+      <div class="list">
+        <div class="row"><span class="check"></span><div class="txt"><div class="t">Matlagningsgrädde <span class="amt">3 dl</span></div><div class="m">Korv stroganoff · Kycklinggryta</div></div></div>
+        <div class="row"><span class="check"></span><div class="txt"><div class="t">Senap</div><div class="m">Saknas i Duved</div></div></div>
+      </div>
+    </div>
+
+    <div class="cat">
+      <div class="cathead"><span class="catic" style="background:#F1ECE2">🥫</span><span class="name">Skafferi</span><span class="count">1</span></div>
+      <div class="list">
+        <div class="row"><span class="check"></span><div class="txt"><div class="t">Krossade tomater <span class="amt">1 förp</span></div><div class="m">Egen vara</div></div></div>
+      </div>
+    </div>
+
+    <div class="basket"><span>🧺 6 varor i korgen</span><b>Visa</b></div>
+
+    <div class="bottom"><span class="btn second">Skicka till ICA</span><span class="btn primary">Lägg i lagret</span></div>
+  </div>
+
+  <div class="note">
+    <h2>Skiss: Inköpslista</h2>
+    <ul>
+      <li><b>Heter Inköpslista</b> i menyn och som rubrik.</li>
+      <li><b>Samma kategorier och ikoner som i Lagersaldo</b>, i butikens ordning: Frukt &amp; grönt först, Skafferi sist.</li>
+      <li><b>Runda bockar</b> och ett tydligt framsteg: "8 varor kvar" och en mätare för det som ligger i korgen.</li>
+      <li><b>Bockade varor</b> stryks över och samlas under "I korgen" längst ner, så att det som är kvar syns först.</li>
+      <li><b>Under varan</b> står vilket recept den kommer från, eller "Saknas i Duved" när listan räknas mot ett annat ställe. Ett valt märke (t.ex. Scan) visas som en liten etikett.</li>
+      <li><b>Lager: Duved · Byt</b> högst upp, och knapparna "Skicka till ICA" och "Lägg i lagret" ligger fast längst ner.</li>
+      <li>Mängden står kvar här, eftersom den behövs när du handlar.</li>
+    </ul>
+  </div>
+</div>
+</body>
+</html>

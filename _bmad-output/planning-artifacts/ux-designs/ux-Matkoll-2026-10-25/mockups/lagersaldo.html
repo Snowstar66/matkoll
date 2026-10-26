@@ -1,0 +1,129 @@
+<!doctype html>
+<html lang="sv">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Lagersaldo – skiss</title>
+<style>
+  :root {
+    --bg:#F5F7F4; --surface:#FFFFFF; --ink:#1B2420; --ink2:#56635D; --ink3:#6B7872;
+    --hair:#EEF1EF; --border:#E3E8E4; --accent:#3E7C62; --mint:#DDEFE5; --mintink:#2C5E48;
+    --sky:#DCE9F6; --skyink:#2E5A85; --sand:#F1ECE2; --sandink:#6E5B3E;
+    font-family: -apple-system, BlinkMacSystemFont, 'SF Pro Text', Inter, 'Helvetica Neue', Arial, sans-serif;
+  }
+  * { box-sizing: border-box; }
+  body { margin:0; background:#E9EDEA; color:var(--ink); }
+  .wrap { display:flex; gap:40px; justify-content:center; padding:32px 16px; flex-wrap:wrap; }
+  .note { max-width:360px; font-size:15px; line-height:1.5; color:var(--ink2); }
+  .note h2 { color:var(--ink); font-size:20px; margin:0 0 8px; }
+  .note li { margin-bottom:6px; }
+  .phone { width:390px; max-width:100%; background:var(--bg); border-radius:36px; padding:20px 16px 40px; box-shadow:0 20px 60px rgba(27,36,32,.18); }
+  h1 { font-size:34px; font-weight:700; letter-spacing:-.5px; margin:8px 0 14px; display:flex; justify-content:space-between; align-items:center; }
+  h1 .plus { color:var(--accent); font-weight:400; font-size:32px; }
+  .pills { display:flex; gap:8px; align-items:center; margin-bottom:16px; }
+  .pill { padding:8px 16px; border-radius:999px; background:var(--surface); color:var(--ink2); font-size:15px; font-weight:600; }
+  .pill.on { background:var(--accent); color:#fff; }
+  .pills .link { color:var(--accent); font-weight:600; margin-left:6px; }
+  .places { display:grid; grid-template-columns:repeat(3,1fr); gap:8px; margin-bottom:14px; }
+  .place { border-radius:16px; padding:12px; font-weight:600; font-size:15px; }
+  .place small { display:block; font-weight:400; font-size:13px; margin-top:2px; }
+  .place.kyl { background:var(--mint); color:var(--mintink); outline:2px solid var(--accent); }
+  .place.frys { background:var(--sky); color:var(--skyink); }
+  .place.skafferi { background:var(--sand); color:var(--sandink); }
+  .place .ic { font-size:20px; display:block; margin-bottom:6px; }
+  .camera { background:var(--sky); color:var(--skyink); border-radius:14px; padding:13px; text-align:center; font-weight:600; margin-bottom:6px; }
+  .lastphoto { font-size:13px; color:var(--ink3); text-align:center; margin-bottom:18px; }
+  .lastphoto b { color:var(--accent); font-weight:600; }
+  .search { background:var(--surface); border-radius:12px; padding:11px 14px; color:var(--ink3); font-size:15px; margin-bottom:18px; }
+  .cat { margin-bottom:16px; }
+  .cathead { display:flex; align-items:center; gap:10px; margin:0 4px 8px; }
+  .catic { width:30px; height:30px; border-radius:9px; display:grid; place-items:center; font-size:17px; }
+  .cathead .name { font-size:13px; font-weight:600; letter-spacing:.4px; text-transform:uppercase; color:var(--ink2); flex:1; }
+  .cathead .count { font-size:13px; color:var(--ink3); }
+  .list { background:var(--surface); border-radius:16px; overflow:hidden; }
+  .row { display:flex; align-items:center; gap:12px; padding:11px 8px 11px 14px; border-top:1px solid var(--hair); min-height:56px; }
+  .row:first-child { border-top:0; }
+  .row .txt { flex:1; min-width:0; }
+  .row .t { font-size:17px; font-weight:600; }
+  .row .m { font-size:13px; color:var(--ink3); margin-top:2px; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
+  .trash { width:44px; height:44px; border-radius:12px; display:grid; place-items:center; color:var(--ink3); }
+  .trash:hover { background:var(--hair); }
+  .toast { position:relative; margin-top:18px; background:var(--ink); color:#fff; border-radius:14px; padding:13px 16px; display:flex; justify-content:space-between; font-size:15px; }
+  .toast b { color:#A8D9BF; }
+  .tag { display:inline-block; font-size:11px; font-weight:600; padding:2px 7px; border-radius:6px; background:var(--mint); color:var(--mintink); margin-left:6px; vertical-align:2px; }
+</style>
+</head>
+<body>
+<div class="wrap">
+  <div class="phone">
+    <h1>Lagersaldo <span class="plus">+</span></h1>
+    <div class="pills"><span class="pill on">Hemma</span><span class="pill">Duved</span><span class="link">Ställen</span></div>
+    <div class="places">
+      <div class="place kyl"><span class="ic">🧊</span>Kyl<small>14 varor</small></div>
+      <div class="place frys"><span class="ic">❄️</span>Frys<small>6 varor</small></div>
+      <div class="place skafferi"><span class="ic">🫙</span>Skafferi<small>11 varor</small></div>
+    </div>
+    <div class="camera">📷&nbsp; Fotografera kylen</div>
+    <div class="lastphoto">Senaste foto: idag 15:42 · <b>Visa</b></div>
+    <div class="search">🔍&nbsp; Sök i kylen</div>
+
+    <div class="cat">
+      <div class="cathead"><span class="catic" style="background:#DCE9F6">🥛</span><span class="name">Mejeri &amp; ägg</span><span class="count">5</span></div>
+      <div class="list">
+        <div class="row"><div class="txt"><div class="t">Mellanmjölk</div><div class="m">Arla laktosfri · från fotot igår</div></div><span class="trash" aria-label="Ta bort Mellanmjölk">🗑</span></div>
+        <div class="row"><div class="txt"><div class="t">Vispgrädde</div><div class="m">ICA 36 %</div></div><span class="trash">🗑</span></div>
+        <div class="row"><div class="txt"><div class="t">Bregott</div><div class="m">Normalsaltat <span class="tag">Ny</span></div></div><span class="trash">🗑</span></div>
+        <div class="row"><div class="txt"><div class="t">Ägg</div><div class="m">Tillagd för 4 dagar sedan</div></div><span class="trash">🗑</span></div>
+        <div class="row"><div class="txt"><div class="t">Gräddfil</div><div class="m">Tillagd för 6 dagar sedan</div></div><span class="trash">🗑</span></div>
+      </div>
+    </div>
+
+    <div class="cat">
+      <div class="cathead"><span class="catic" style="background:#F1E3DD">🥩</span><span class="name">Kött, fisk &amp; chark</span><span class="count">2</span></div>
+      <div class="list">
+        <div class="row"><div class="txt"><div class="t">Kycklingfilé</div><div class="m">Tillagd igår</div></div><span class="trash">🗑</span></div>
+        <div class="row"><div class="txt"><div class="t">Falukorv</div><div class="m">Från fotot igår</div></div><span class="trash">🗑</span></div>
+      </div>
+    </div>
+
+    <div class="cat">
+      <div class="cathead"><span class="catic" style="background:#DDEFE5">🥦</span><span class="name">Frukt &amp; grönt</span><span class="count">3</span></div>
+      <div class="list">
+        <div class="row"><div class="txt"><div class="t">Gurka</div><div class="m">Tillagd för 2 dagar sedan</div></div><span class="trash">🗑</span></div>
+        <div class="row"><div class="txt"><div class="t">Citron</div><div class="m">Tillagd för 5 dagar sedan</div></div><span class="trash">🗑</span></div>
+        <div class="row"><div class="txt"><div class="t">Isbergssallad</div><div class="m">Tillagd idag</div></div><span class="trash">🗑</span></div>
+      </div>
+    </div>
+
+    <div class="cat">
+      <div class="cathead"><span class="catic" style="background:#F1ECE2">🥫</span><span class="name">Såser &amp; smaksättare</span><span class="count">3</span></div>
+      <div class="list">
+        <div class="row"><div class="txt"><div class="t">Senap</div><div class="m">Johnny's</div></div><span class="trash">🗑</span></div>
+        <div class="row"><div class="txt"><div class="t">Sojasås</div><div class="m">Glutenfri</div></div><span class="trash">🗑</span></div>
+        <div class="row"><div class="txt"><div class="t">Steaksås</div><div class="m">HP Original</div></div><span class="trash">🗑</span></div>
+      </div>
+    </div>
+
+    <div class="cat">
+      <div class="cathead"><span class="catic" style="background:#E6E1F2">🥤</span><span class="name">Dryck</span><span class="count">1</span></div>
+      <div class="list">
+        <div class="row"><div class="txt"><div class="t">Läsk</div><div class="m">Pepsi Max</div></div><span class="trash">🗑</span></div>
+      </div>
+    </div>
+
+    <div class="toast"><span>Tog bort Gräddfil.</span><b>Ångra</b></div>
+  </div>
+
+  <div class="note">
+    <h2>Skiss: Lagersaldo</h2>
+    <ul>
+      <li><b>Kategorier med ikon:</b> Mejeri &amp; ägg, Kött, fisk &amp; chark, Frukt &amp; grönt, Bröd, Såser &amp; smaksättare, Skafferi, Dryck, Frys och Övrigt. Kategorin kommer från varans avdelning, och såser och kryddor får en egen.</li>
+      <li><b>Ingen mängd i listan.</b> I stället visas märket från fotot (t.ex. "Johnny's") eller när varan lades till. Mängderna finns kvar i bakgrunden för "Kan lagas nu".</li>
+      <li><b>Soptunna på varje rad:</b> ett tryck tar bort direkt, utan fråga. En toast med "Ångra" visas i 5 sekunder om du tryckte fel. Soptunnan är grå, inte röd, enligt appens stil.</li>
+      <li><b>Sök</b> i platsen när listan blir lång.</li>
+      <li>Ikonerna är emoji i skissen. I appen blir de enhetliga linjeikoner eller emoji, efter vad du föredrar.</li>
+    </ul>
+  </div>
+</div>
+</body>
+</html>

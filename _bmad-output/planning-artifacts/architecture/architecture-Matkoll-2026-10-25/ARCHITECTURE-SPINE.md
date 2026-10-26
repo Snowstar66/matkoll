@@ -4,16 +4,18 @@ type: architecture-spine
 purpose: build-substrate
 altitude: feature
 paradigm: 'Modulär monolit: feature-moduler med inre lager, externa tjänster bakom portar (ports and adapters)'
-scope: 'Matkoll v1 och 1.1, hela appen (Epic 1–8 och Epic 10)'
+scope: 'Matkoll v1 och 1.1, hela appen (Epic 1–8, Epic 10 och Epic 11)'
 status: final
 created: '2026-10-25'
 updated: '2026-10-26'
-binds: [FR-1, FR-2, FR-3, FR-4, FR-5, FR-6, FR-7, FR-8, FR-9, FR-10, FR-11, FR-12, FR-13, FR-14, FR-15, FR-16, FR-17, FR-18, FR-19, FR-20, FR-21, FR-22, FR-23, FR-24, FR-25, FR-26, FR-27, FR-28, FR-29, FR-30, FR-31, FR-32, FR-33, FR-37, FR-38, FR-39, NFR-1, NFR-2, NFR-3, NFR-4, NFR-5, NFR-6, NFR-7, NFR-8, NFR-9, NFR-11]
+binds: [FR-1, FR-2, FR-3, FR-4, FR-5, FR-6, FR-7, FR-8, FR-9, FR-10, FR-11, FR-12, FR-13, FR-14, FR-15, FR-16, FR-17, FR-18, FR-19, FR-20, FR-21, FR-22, FR-23, FR-24, FR-25, FR-26, FR-27, FR-28, FR-29, FR-30, FR-31, FR-32, FR-33, FR-37, FR-38, FR-39, FR-40, FR-41, FR-42, FR-43, FR-44, NFR-1, NFR-2, NFR-3, NFR-4, NFR-5, NFR-6, NFR-7, NFR-8, NFR-9, NFR-11, NFR-12]
 sources:
   - _bmad-output/planning-artifacts/prds/prd-Matkoll-2026-10-25/prd.md
   - _bmad-output/planning-artifacts/prds/prd-Matkoll-2026-10-25/addendum.md
   - _bmad-output/planning-artifacts/sprint-change-proposal-2026-10-26-flera-stallen.md
   - _bmad-output/planning-artifacts/sprint-change-proposal-2026-10-26-spara-foto.md
+  - _bmad-output/planning-artifacts/sprint-change-proposal-2026-10-26-nytt-utseende.md
+  - _bmad-output/planning-artifacts/ux-designs/ux-Matkoll-2026-10-25/mockups/
   - _bmad-output/planning-artifacts/ux-designs/ux-Matkoll-2026-10-25/DESIGN.md
   - _bmad-output/planning-artifacts/ux-designs/ux-Matkoll-2026-10-25/EXPERIENCE.md
   - docs/brief.md
@@ -91,7 +93,7 @@ Pilarna är de enda tillåtna beroendena. En annan modul nås bara via dess `ind
 
 - **Binds:** FR-1, NFR-1
 - **Prevents:** konton utanför tillåtelselistan, sidor som bara skyddas av proxyn, och öppna omdirigeringar.
-- **Rule:** Supabase Auth med engångslänk och `@supabase/ssr`-cookies. Registrering är avstängd (`enable_signup = false` lokalt och i molnet), `signInWithOtp` anropas med `shouldCreateUser: false`, och de tillåtna användarna skapas av skriptet `pnpm users:sync` (service role) från `ALLOWED_EMAILS`. Länken går till `src/app/auth/confirm/route.ts`, som anropar `verifyOtp({ token_hash, type: 'email' })`; e-postmallen ligger i `supabase/config.toml` och sätts likadant i molnet. `src/proxy.ts` förnyar sessionen med `getClaims()` och omdirigerar till `/logga-in` (optimistisk kontroll). Den auktoritativa kontrollen är `requireUser()`: `getClaims()` plus att e-postadressen finns i `ALLOWED_EMAILS`, memoiserad per förfrågan med React `cache`. Den anropas i varje action, Route Handler och läsfunktion och ger `unauthorized` (401 i Route Handlers). Parametern `next` får bara vara en sökväg som börjar med `/` men inte `//`. Svaret på inloggningssidan är detsamma oavsett om adressen är tillåten.
+- **Rule:** Supabase Auth med engångslänk och `@supabase/ssr`-cookies. Registrering är avstängd (`enable_signup = false` lokalt och i molnet), `signInWithOtp` anropas med `shouldCreateUser: false`, och de tillåtna användarna skapas av skriptet `pnpm users:sync` (service role) från `ALLOWED_EMAILS`. Länken går till `src/app/auth/confirm/route.ts`, som anropar `verifyOtp({ token_hash, type: 'email' })`; e-postmallen ligger i `supabase/config.toml` och sätts likadant i molnet. `src/proxy.ts` förnyar sessionen med `getClaims()` och omdirigerar till `/logga-in` (optimistisk kontroll). Den auktoritativa kontrollen är `requireUser()`: `getClaims()` plus att e-postadressen finns i `ALLOWED_EMAILS`, memoiserad per förfrågan med React `cache`. Den anropas i varje action, Route Handler och läsfunktion och ger `unauthorized` (401 i Route Handlers). Parametern `next` får bara vara en sökväg som börjar med `/` men inte `//`. Svaret på inloggningssidan är detsamma oavsett om adressen är tillåten. Tillägg (Epic 11, AD-27): samma mejl har också en sexsiffrig kod (`{{ .Token }}` i mallen, `otp_length = 6`). Server Action `verifyEmailCode(email, code, next)` i `auth` anropar `verifyOtp({ email, token, type: 'email' })` med sessionsklienten och kontrollerar sedan `ALLOWED_EMAILS` som `auth/confirm` gör. Fel kod, gammal kod och en adress som inte är tillåten ger samma svar. Koden behövs eftersom en app på iPhones hemskärm inte delar kakor med Safari, där länken öppnas.
 
 ### AD-4 – Dataisolering med RLS och grants
 
@@ -172,6 +174,7 @@ Pilarna är de enda tillåtna beroendena. En annan modul nås bara via dess `ind
   - `locations.ts`: Kyl, Frys, Skafferi.
 
   Alla tre är Zod-enum som AI-scheman, formulär och listans gruppering använder, och `text`-kolumner med `check` i databasen. Mängd lagras som `numeric`, `null` för vag rad (`is_vague = true`) och obegränsad lagervara. Avrundning sker bara i `formatQuantity`.
+  - Tillägg (Epic 11): `categories.ts` med `CATEGORIES` (Frukt & grönt, Bröd, Mejeri & ägg, Kött, fisk & chark, Frys, Skafferi, Såser & smaksättare, Dryck, Övrigt, i den ordningen) och `displayCategory(section, name): Category`, den enda regeln för vilken kategori en vara visas under. Kött och fisk och Chark blir en kategori, och en vara i Skafferi vars normaliserade namn är eller slutar på ett ord i listan `SAUCE_WORDS` (sås, senap, ketchup, majonnäs, dressing, vinäger, buljong, fond, salt, peppar, krydda, kryddor …) blir Såser & smaksättare. Kategorin är ren visning: den sparas aldrig, AI-scheman och promptar använder fortfarande avdelningarna, och exporten (AD-16) grupperar fortfarande per avdelning. Ikon och platta per kategori väljs bara i `src/components/category-header.tsx`.
 
 ### AD-13 – Resultat och fel
 
@@ -202,7 +205,7 @@ Pilarna är de enda tillåtna beroendena. En annan modul nås bara via dess `ind
 
 - **Binds:** NFR-3, NFR-4, NFR-5, all UI
 - **Prevents:** hårdkodade färger och mått som glider från `DESIGN.md`.
-- **Rule:** Tokens från `DESIGN.md` definieras som CSS-variabler i `:root` i `src/app/globals.css` och mappas med Tailwind `@theme inline`. Mörkt läge byter variablerna i `@media (prefers-color-scheme: dark)`. Tailwind körs via `@tailwindcss/turbopack` som i startmallen, utan PostCSS-konfiguration. Komponenter använder bara tokenklasser, aldrig hex-värden.
+- **Rule:** Tokens från `DESIGN.md` definieras som CSS-variabler i `:root` i `src/app/globals.css` och mappas med Tailwind `@theme inline`. Mörkt läge byter variablerna i `@media (prefers-color-scheme: dark)`. Tailwind körs via `@tailwindcss/turbopack` som i startmallen, utan PostCSS-konfiguration. Komponenter använder bara tokenklasser, aldrig hex-värden. Tillägg (Epic 11): plattornas färger `tile-clay` och `tile-lilac` är tokens som de andra, med mörka värden. Emoji används bara som ikon i kategoriplattorna, med `aria-hidden`, och aldrig i texter (`src/lib/errors.ts`, knappar, bekräftelser). Appikonens färger läses från `src/app/theme-colors.ts`, som ett test jämför med `globals.css`, så att ingen hex finns utanför `globals.css`.
 
 ### AD-18 – Rendering och cache
 
@@ -223,11 +226,13 @@ Pilarna är de enda tillåtna beroendena. En annan modul nås bara via dess `ind
 
   Ändrat (1.1, AD-24): den unika nyckeln är `(user_id, site_id, ingredient_id, location, unit)` med `nulls not distinct`. Varje skrivoperation tar `siteId` från vyn. `getPantrySnapshot(siteId?)`, `listPantry(location, siteId?)` och `countPantryItems(siteId?)` gäller ett ställe (valt ställe om inget anges), summerat över ställets platser och aldrig över ställen. Skrivoperationerna från Epic 6 (`emptyPantryPlace`, `restorePantryRemoval`, `confirmPantryInventory`) och `confirmPantrySuggestions` hör också hit.
 
+  Tillägg (Epic 11): `pantry_item.label` är varans märke eller sort (`text`, `null` eller 1–60 tecken efter trim). Det ingår inte i den unika nyckeln. `setPantryItems` tar `label` per vara: saknas fältet står märket kvar, `null` tar bort det och en text sätter det. `confirmPantrySuggestions` och `confirmPantryInventory` skickar förslagets första etikett (6.5), avkortad till 60 tecken, när förslaget har en. `addToPantry` rör aldrig märket. `created_at` betyder "tillagd": en ändrad mängd ändrar den inte, och när `setPantryItems` ersätter en rad (ny enhet eller plats, `replace_id`) får den nya raden den ersattas `created_at` och `label`. `listPantry` ger `label`, `createdAt` och katalogingrediensens avdelning, så att vyn kan räkna kategorin (AD-12).
+
 ### AD-20 – Referenser och borttagning
 
 - **Binds:** FR-10, FR-14, alla främmande nycklar
 - **Prevents:** borttagningar som tyst raderar data i andra moduler eller misslyckas med generiska fel, och "Ångra" som ger nya id.
-- **Rule:** Främmande nycklar mellan moduler är `on delete restrict`. Inom ett aggregat (recept med steg och rader, matsedel med rätter och överlägg) är de `cascade`. Undantag: `meal_plan_recipe.recipe_id` är `on delete set null`, och raden har `recipe_title` som ögonblicksbild, så tidigare matsedlar visar "Borttaget recept". `recipes.deleteRecipe` anropar först `mealplan.detachRecipe(recipeId)`, som tar bort rätten från den aktuella matsedeln. Katalogingredienser tas inte bort och slås inte ihop i v1. All radering är hård; "Ångra" anropar `restore*(row)` med samma id, och create-actions tar emot ett valfritt id för det. Tillägg (Epic 10, AD-26): `pantry_photo` hör till ställets aggregat, så `pantry_photo (site_id, user_id)` är `on delete cascade` mot `pantry_site`. Filen i Storage följer inte med en kaskad i databasen, så den som tar bort raden tar också bort filen via Storage-API:t. Ett foto går inte att ångra, så "Ta bort fotot" har en kontrollfråga.
+- **Rule:** Främmande nycklar mellan moduler är `on delete restrict`. Inom ett aggregat (recept med steg och rader, matsedel med rätter och överlägg) är de `cascade`. Undantag: `meal_plan_recipe.recipe_id` är `on delete set null`, och raden har `recipe_title` som ögonblicksbild, så tidigare matsedlar visar "Borttaget recept". `recipes.deleteRecipe` anropar först `mealplan.detachRecipe(recipeId)`, som tar bort rätten från den aktuella matsedeln. Katalogingredienser tas inte bort och slås inte ihop i v1. All radering är hård; "Ångra" anropar `restore*(row)` med samma id, och create-actions tar emot ett valfritt id för det. Tillägg (Epic 10, AD-26): `pantry_photo` hör till ställets aggregat, så `pantry_photo (site_id, user_id)` är `on delete cascade` mot `pantry_site`. Filen i Storage följer inte med en kaskad i databasen, så den som tar bort raden tar också bort filen via Storage-API:t. Ett foto går inte att ångra, så "Ta bort fotot" har en kontrollfråga. Tillägg (Epic 11): "Ångra" sätter tillbaka allt på raden, också `created_at` och `label`. `restore_pantry_item` tar emot dem, och `pantry_removal.removed_rows` sparar dem för `restore_pantry_removal`. En `created_at` i framtiden blir `now()`.
 
 ### AD-21 – Startdata per användare
 
@@ -371,6 +376,19 @@ AD-25 hör till Epic 9 (veckans erbjudanden), som är planerad men vilar på gre
     - Säkerhetskopian tar aldrig med foton (AD-23).
   - **Rendering:** `revalidateFor('pantry_photo')` → `/hemma` (AD-18).
 
+### AD-27 – Appen på hemskärmen
+
+- **Binds:** FR-1, FR-44, NFR-12
+- **Prevents:** en hemskärmsapp som inte kan logga in, ikoner och manifest bakom inloggningen, en service worker som cachar användardata och sidor som saknar väg tillbaka i helskärm.
+- **Rule:** Matkoll är fortfarande en webbapp (Epic 11). Det som gör den till en app på hemskärmen:
+  - `src/app/manifest.ts` (`MetadataRoute.Manifest`, enligt `node_modules/next/dist/docs/01-app/03-api-reference/03-file-conventions/01-metadata/manifest.md`): `name` och `short_name` "Matkoll", `lang: 'sv'`, `start_url: '/recept'`, `scope: '/'`, `display: 'standalone'`, `background_color` och `theme_color` från `themeColors.light` och ikonerna 192 och 512 px (`purpose: 'any'`) och 512 px (`purpose: 'maskable'`).
+  - Ikonerna genereras med kod (`ImageResponse` från `next/og`) i `src/app/icon.tsx` och `src/app/apple-icon.tsx` (180 px), eller ligger som PNG i `public/` om genereringen inte fungerar i bygget. Motivet och färgerna står i `DESIGN.md` (`app-icon`), och färgerna läses från `theme-colors.ts` (AD-17).
+  - `metadata.appleWebApp` i `src/app/layout.tsx`: `title: 'Matkoll'`, `capable: true` och `statusBarStyle: 'default'`. `viewport.themeColor` gäller som förut, med ljus och mörk bakgrund.
+  - `src/proxy.ts` släpper igenom `/manifest.webmanifest`, `/icon` och `/apple-icon` (med Next.js hash-parametrar) utan session, i `matcher`. Inget annat blir publikt. Ett e2e-test utan kakor visar det.
+  - Ingen service worker, ingen offline och inga startbilder. Inget i appen cachas av webbläsaren utöver det Next.js redan gör.
+  - Varje sida under en flik har en synlig tillbakaknapp (`PageHeader`), eftersom helskärmen saknar webbläsarens bakåtknapp.
+  - Inloggningen i hemskärmsappen sker med koden i AD-3.
+
 ## Consistency Conventions
 
 | Område | Konvention |
@@ -417,7 +435,7 @@ AD-25 hör till Epic 9 (veckans erbjudanden), som är planerad men vilar på gre
 ```text
 matkoll/
   src/
-    app/                  # (app)/recept, matsedel, lista, hemma, installningar; logga-in; auth/confirm; api/ai/{import,analyze,locate,suggest}; api/pantry/photo (Epic 10)
+    app/                  # (app)/recept, matsedel, lista, hemma, installningar; logga-in; auth/confirm; api/ai/{import,analyze,locate,suggest}; api/pantry/photo (Epic 10); manifest.ts, icon.tsx, apple-icon.tsx (Epic 11)
     features/
       auth/ catalog/ recipes/ pantry/ mealplan/ shopping/ suggestions/ settings/
         ui/ actions/ domain/ data/ index.ts server.ts
@@ -468,10 +486,10 @@ erDiagram
 | `recipe` | `title`, `original_servings`, `total_minutes`, `image_url`, `source_kind`, `source_url`, `is_favorite` |
 | `recipe_step` | `recipe_id`, `position`, `text` |
 | `recipe_ingredient` | `recipe_id`, `ingredient_id`, `step_id` (valfri), `position`, `original_text`, `amount`, `unit`, `is_vague` |
-| `pantry_item` | `ingredient_id`, `site_id` (1.1), `location`, `amount`, `unit` |
+| `pantry_item` | `ingredient_id`, `site_id` (1.1), `location`, `amount`, `unit`, `label` (Epic 11, valfri) |
 | `pantry_site` (1.1) | `name`, `normalized_name` (unik), `is_selected` (högst ett per användare) |
 | `pantry_addition` | `key` (unik): kvitto för "Lägg i lagret" |
-| `pantry_removal` | `id` (operations-id), `removed_rows` (med `site_id` från 1.1): underlag för "Ångra" |
+| `pantry_removal` | `id` (operations-id), `removed_rows` (med `site_id` från 1.1, och `label` och `created_at` från Epic 11): underlag för "Ångra" |
 | `pantry_photo` (Epic 10) | `site_id`, `location`, `object_path` (unik), `media_type`, `width`, `height`, `taken_at`, `reading`, `points`; unik på `(user_id, site_id, location)`. Filen ligger i Storage-bucketen `pantry-photo` (AD-26). |
 | `meal_plan` | `name`, `is_current` |
 | `meal_plan_recipe` | `meal_plan_id`, `recipe_id` (null efter borttagning), `recipe_title`, `servings`, `position` |
@@ -524,6 +542,7 @@ Molnmiljön kräver Pontus konton och läggs på hens checklista i `docs/autonom
 | FR-26–FR-28 Varukorgsexport | `shopping`, `settings` | AD-16 |
 | FR-29–FR-33, NFR-9 Flera ställen (1.1) | `pantry` (äger `pantry_site`), läses av `recipes`, `mealplan`, `suggestions`, `shopping`; `app/hemma`, `app/lista`, `app/api/ai/analyze` | AD-1, AD-5, AD-7, AD-8, AD-18, AD-19, AD-21, AD-24 |
 | FR-37–FR-39, NFR-11 Senaste fotot per plats (Epic 10) | `pantry` (äger `pantry_photo` och bucketen `pantry-photo`); `app/hemma`, `app/api/pantry/photo`; `scripts/users-sync.mjs`, `.github/workflows/backup.yml` | AD-1, AD-2, AD-4, AD-15, AD-18, AD-20, AD-23, AD-26 |
+| FR-40–FR-44, NFR-12 Nytt utseende (Epic 11) | `catalog/domain/categories.ts`, `src/components` (kategorirubrik, listrad, soptunna, mätare, kort), `pantry` (`label`), `shopping/ui`, `recipes/ui`, `mealplan/ui`, `auth` (kod), `app/manifest.ts`, `app/icon.tsx`, `src/proxy.ts` | AD-3, AD-12, AD-17, AD-19, AD-20, AD-27 |
 | NFR-1, NFR-2 Säkerhet, utbytbar AI | `src/server`, `auth` | AD-3, AD-4, AD-9, AD-11, AD-14 |
 | NFR-3–NFR-6 Responsiv, tillgänglig, utseende, svenska | `src/components`, `globals.css`, `src/lib/errors.ts` | AD-13, AD-17 |
 | NFR-7 Svarstider | regioner, AI-budget | AD-9, AD-23 |
@@ -539,4 +558,5 @@ Molnmiljön kräver Pontus konton och läggs på hens checklista i `docs/autonom
 - **Övervakning i molnet:** Vercels inbyggda loggar räcker för en användare.
 - **Ställen efter 1.1:** att flytta eller kopiera varor mellan ställen, att välja ställe efter position och att listan har ett eget ställe, skilt från valt ställe (alternativ B i kursändringen). AD-24 tillåter alla tre utan ombyggnad: varan har redan `site_id`, och `putCheckedInPantry` tar redan emot ett ställe.
 - **Platsfoton efter Epic 10:** fler än ett foto per plats (en historik), att visa ett annat ställes foto utan att byta valt ställe och en gallring som körs utan att Pontus öppnar Hemma (ett schemalagt jobb med egen nyckel). AD-26 tillåter alla tre utan ombyggnad: varje foto har en egen sökväg, raden har stället, och gallringen är en egen funktion.
+- **Utseendet efter Epic 11:** en egen avdelning för såser i katalogen (kräver migration, promptar och omklassning), märke från produktvalet vid "Lägg i lagret", egna linjeikoner i stället för emoji, offline med service worker och push. AD-12 och AD-27 tillåter alla utan ombyggnad: kategorin räknas på ett ställe, och manifestet kan få en service worker senare.
 - **Vercel Hobby och fler användare:** Hobby gäller icke-kommersiellt bruk; plan och upphovsrätt för receptinnehåll prövas innan appen öppnas för andra.

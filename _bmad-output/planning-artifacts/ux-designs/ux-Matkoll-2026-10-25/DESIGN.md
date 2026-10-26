@@ -2,11 +2,13 @@
 name: Matkoll
 description: Personlig matplanerare på mobilen. Lugn, luftig och grågrön, där matbilderna står för färgen. Inget rött.
 status: final
-updated: 2026-10-25
+updated: 2026-10-26
 sources:
   - docs/ux/ux-spec.md
   - docs/brief.md
   - _bmad-output/planning-artifacts/prds/prd-Matkoll-2026-10-25/prd.md
+  - _bmad-output/planning-artifacts/ux-designs/ux-Matkoll-2026-10-25/mockups/ (Epic 11, godkända av Pontus 2026-10-26)
+  - _bmad-output/planning-artifacts/sprint-change-proposal-2026-10-26-nytt-utseende.md (Epic 11)
 colors:
   bg: '#F5F7F4'
   surface: '#FFFFFF'
@@ -38,6 +40,10 @@ colors:
   sky-ink-dark: '#A9C9EA'
   sand-dark: '#3A3326'
   sand-ink-dark: '#DCC9A6'
+  tile-clay: '#F1E3DD'
+  tile-lilac: '#E6E1F2'
+  tile-clay-dark: '#3B2C27'
+  tile-lilac-dark: '#2C2840'
 typography:
   family:
     fontFamily: "-apple-system, BlinkMacSystemFont, 'SF Pro Text', Inter, 'Helvetica Neue', Arial, sans-serif"
@@ -104,6 +110,12 @@ spacing:
   thumb-list: 72px
   button-height: 52px
   fixed-action-gap: 12px
+  tile-size: 30px
+  row-min: 56px
+  card-image: 120px
+  dish-thumb: 56px
+  meter-height: 8px
+  meter-height-small: 5px
 components:
   tab-bar:
     background: '{colors.surface}'
@@ -207,11 +219,87 @@ components:
     text: '{colors.surface}'
     action: '{colors.mint}'
     radius: '{rounded.md}'
+  category-header:
+    label: '{typography.section-label}'
+    text: '{colors.ink-2}'
+    count: '{colors.ink-2}'
+    gap: '{spacing.3}'
+  category-tile:
+    size: '{spacing.tile-size}'
+    radius: '{rounded.sm}'
+    fruit-veg: '{colors.mint}'
+    bread: '{colors.sand}'
+    dairy-eggs: '{colors.sky}'
+    meat-fish: '{colors.tile-clay}'
+    frozen: '{colors.sky}'
+    pantry: '{colors.sand}'
+    sauces: '{colors.sand}'
+    drinks: '{colors.tile-lilac}'
+    other: '{colors.border}'
+  list-group:
+    background: '{colors.surface}'
+    radius: '{rounded.lg}'
+    divider: '1px solid {colors.hairline}'
+  list-row:
+    minHeight: '{spacing.row-min}'
+    padding: '{spacing.3} {spacing.2} {spacing.3} {spacing.4}'
+    title: '{typography.row-title}'
+    meta: '{typography.meta}'
+    meta-text: '{colors.ink-3}'
+  trash-button:
+    size: '{spacing.tap-min}'
+    radius: '{rounded.md}'
+    icon: '{colors.ink-3}'
+    pressed: '{colors.hairline}'
+  meter:
+    height: '{spacing.meter-height}'
+    height-small: '{spacing.meter-height-small}'
+    track: '{colors.hairline}'
+    fill: '{colors.accent}'
+    radius: '{rounded.full}'
+  progress-row:
+    background: '{colors.surface}'
+    radius: '{rounded.lg}'
+    padding: '{spacing.4}'
+  product-chip:
+    background: '{colors.sky}'
+    text: '{colors.sky-ink}'
+    radius: '{rounded.sm}'
+    font: '{typography.badge}'
+  recipe-card:
+    background: '{colors.surface}'
+    radius: '{rounded.lg}'
+    image-height: '{spacing.card-image}'
+    padding: '{spacing.3}'
+  image-badge:
+    background: '{colors.surface} 92 %'
+    radius: '{rounded.sm}'
+    font: '{typography.badge}'
+  dish-card:
+    background: '{colors.surface}'
+    radius: '{rounded.lg}'
+    thumb: '{spacing.dish-thumb}'
+    thumb-radius: '{rounded.md}'
+    padding: '{spacing.3}'
+  basket-row:
+    text: '{colors.ink-2}'
+    action: '{colors.accent}'
+  app-icon:
+    background: '{colors.bg}'
+    motif: 'morot i {colors.accent} och sand'
 ---
 
 ## Brand & Style
 
 Den här filen och `EXPERIENCE.md` gäller före skisserna i `docs/ux/skisser/` när de inte stämmer överens.
+
+**Skisserna för Epic 11 (nytt utseende).** Pontus godkände tre skisser 2026-10-26, och de visar hur appen ska se ut i mobilen:
+
+- [`mockups/matkoll-mobil.html`](mockups/matkoll-mobil.html): hela appen (Recept, Matsedel, Inköpslista, Lagersaldo och appen på hemskärmen). "ja nu börjar du verkligen hitta ux som app. bravo. håll den stilen".
+- [`mockups/lagersaldo.html`](mockups/lagersaldo.html): Lagersaldo med kategorier och soptunna. "ja mycket snyggare enl din skiss".
+- [`mockups/inkopslista.html`](mockups/inkopslista.html): Inköpslistan med framsteg och "I korgen". "inköpslistan börjar bli mkt bättre".
+
+Skisserna är ritade med hårdkodade värden och påhittade varor. När en skiss och den här filen eller `EXPERIENCE.md` inte stämmer överens gäller de här två filerna (spine-dokumenten). Det gäller till exempel de exakta måtten, ikonen för Såser & smaksättare, "Ny"-etiketten, källan "från fotot" och gnistorna på AI-knappen, som inte följer med.
 
 Matkoll är ett lugnt verktyg för vardagen, inte en matblogg. Förebilderna är Mela (enhetligt receptformat, lugn layout där matbilderna står för färgen), Crouton (ordnade samlingar) och Mealime (raka flöden). Principerna lånas, inte utseendet.
 
@@ -228,8 +316,9 @@ Ljust läge följer `docs/ux/ux-spec.md` exakt. Mörkt läge är härlett ur sam
 - **Mint (`{colors.mint}` / `{colors.mint-ink}`)** betyder "finns" eller "går att laga": "Kan lagas nu", "Finns hemma"-etiketter och platskortet Kyl.
 - **Ljusblått (`{colors.sky}` / `{colors.sky-ink}`)** betyder "saknas" eller "obs": "Saknar N varor", blå ring på saknade ingredienser, sekundärknappar, kameraknappen, platskortet Frys och alla varnings- och felmeddelanden.
 - **Sand (`{colors.sand}` / `{colors.sand-ink}`)** används för platskortet Skafferi och märkningen av AI-förslag.
+- **Kategoriplattor (Epic 11):** den lilla plattan bakom kategorins ikon har en ljus ton: mint, ljusblått, sand, `{colors.tile-clay}` (lera, en ljus beige) eller `{colors.tile-lilac}` (syren), och `{colors.border}` för Övrigt. Fördelningen står under `category-tile`. Plattan är dekor: kategorins namn står alltid bredvid, och färgen betyder ingenting. Lera och syren används inte till något annat. I mörkt läge har de egna mörka värden, och mint, ljusblått och sand har sina mörka värden som förut.
 
-Inget rött förekommer, inte ens för fel eller borttagning. Inga gradienter. Färgen i gränssnittet kommer från matfotona.
+Inget rött förekommer, inte ens för fel eller borttagning. Soptunnan är grå (`{colors.ink-3}`). Inga gradienter. Färgen i gränssnittet kommer från matfotona och de små kategoriplattorna.
 
 ## Typography
 
@@ -290,6 +379,33 @@ Samma komponenter, i samma ordning och med samma namn, finns i `EXPERIENCE.md` u
 - **Kort bekräftelse** (`toast`): mörk remsa nederst, ovanför flikfältet, med text i `{colors.surface}` och eventuell knapp "Ångra" i `{colors.mint}`.
 - **Lagerförslag**: receptrad-liknande kort med varunamn, mängd och plats, och tre knappar i rad: Bekräfta (primär), Rätta och Avvisa (textknappar).
 
+Från Epic 11 (skisserna ovan):
+
+- **Kategorirubrik** (`category-header`, `category-tile`): en platta på `{spacing.tile-size}` med kategorins ikon (emoji), kategorins namn i `{typography.section-label}` och antalet längst till höger, båda i `{colors.ink-2}` direkt på sidbakgrunden. Används i Lagersaldo och Inköpslista. Kategorierna, ikonerna och plattornas färger:
+
+  | Kategori | Ikon | Platta |
+  | --- | --- | --- |
+  | Frukt & grönt | 🥦 | mint |
+  | Bröd | 🍞 | sand |
+  | Mejeri & ägg | 🥛 | ljusblå |
+  | Kött, fisk & chark | 🥩 | lera |
+  | Frys | ❄️ | ljusblå |
+  | Skafferi | 🥫 | sand |
+  | Såser & smaksättare | 🧂 | sand |
+  | Dryck | 🥤 | syren |
+  | Övrigt | 🛍️ | `border` |
+
+- **Listgrupp** (`list-group`): ett vitt kort med `{rounded.lg}` och hårfina avdelare mellan raderna. Raderna under en kategorirubrik ligger i en listgrupp.
+- **Listrad** (`list-row`): minst `{spacing.row-min}` hög. Namnet i `{typography.row-title}` och raden under i `{typography.meta}` och `{colors.ink-3}`, på en rad med "…" när den inte får plats. Till vänster kan en rund bock stå, och till höger en soptunna eller en produktetikett.
+- **Soptunna** (`trash-button`): en grå soptunna (linjeikon) i en tryckyta på `{spacing.tap-min}`, utan ram. Ytan blir `{colors.hairline}` vid tryck eller hovring.
+- **Mätare** (`meter`): ett runt spår i `{colors.hairline}` med en fyllning i `{colors.accent}`. `{spacing.meter-height}` i framstegsraden och `{spacing.meter-height-small}` i rättkort.
+- **Framstegsrad** (`progress-row`): ett vitt kort överst i Inköpslistan med "8 varor kvar" (fet) och "6 av 14 i korgen" (`{colors.ink-3}`) på en rad, och mätaren under.
+- **Produktetikett** (`product-chip`): ljusblå etikett med produktvalets namn till höger på en listpost, avkortad med "…".
+- **Korgrad** (`basket-row`): raden "6 varor i korgen" i `{colors.ink-2}` med textknappen "Visa" i `{colors.accent}`, under listans sista kategori.
+- **Receptkort** (`recipe-card`): ett vitt kort med bilden överst i full bredd och `{spacing.card-image}` hög, och titeln och "35 min · 4 portioner" under. Statusetiketten ligger nere till vänster på bilden och hjärtat nere till höger, båda på en ljus platta (`image-badge`, `{colors.surface}` till 92 %) så att de syns på alla bilder. Ett recept utan bild får platshållaren i mint som förut.
+- **Rättkort** (`dish-card`): ett vitt kort med en bild på `{spacing.dish-thumb}`, titeln, raden "6 av 8 hemma" och en liten mätare. Portionsväljaren står under.
+- **Appikon** (`app-icon`): en morot i accent och sand på `{colors.bg}`, med iPhones egna rundade hörn. Ingen text i ikonen.
+
 ## Do's and Don'ts
 
 | Gör | Gör inte |
@@ -297,7 +413,9 @@ Samma komponenter, i samma ordning och med samma namn, finns i `EXPERIENCE.md` u
 | Använd blått för "saknas", varningar och fel | Använd rött någonstans, inte ens för fel |
 | Låt matbilderna stå för färgen | Lägg till dekorativa illustrationer, gradienter eller mönster |
 | Skapa djup med `bg` mot `surface` | Använd skuggor |
-| Använd en accentfärg, för handling och "klart" | Färgkoda kategorier eller avdelningar |
+| Använd en accentfärg, för handling och "klart" | Låt en färg betyda en kategori; plattorna är dekor och namnet står alltid bredvid |
+| Ge varje kategori en ljus platta med ikon (Epic 11) | Använd emoji någon annanstans än i kategoriplattorna, eller lägg en egen ikon på varje vara |
+| Gör soptunnan grå och utan ram | Gör borttagning röd eller lägg en kontrollfråga på en borttagning som går att ångra |
 | Gör tryckytor minst 44 × 44 px | Använd små ikonknappar utan luft runt |
 | Märk AI-innehåll med sand-etiketten | Blanda AI-förslag med sparade recept utan märkning |
 | Visa alla recept i samma format oavsett källa | Behåll källsajtens typsnitt, färger eller layout |

@@ -249,3 +249,115 @@ SM-1 och SM-C2 gäller som förut. Fotot gör det lättare att lita på bildanal
 | pantry_photo | Plats, sökväg till filen, bildtyp och storlek, när fotot togs, avläsning och punkter; ett per plats och ställe | pantry_site |
 
 Filen ligger i den privata Storage-bucketen `pantry-photo`. Detaljerna står i arkitekturens AD-26.
+
+## Tillägg till 1.1: Nytt utseende (Epic 11)
+
+Beslutat av Pontus 2026-10-26: Pontus bad om "betydligt trevligare ux. Som ser proffsigare ut." och godkände tre skisser: Lagersaldo ("ja mycket snyggare enl din skiss"), Inköpslista ("inköpslistan börjar bli mkt bättre") och hela appen i mobilen ("ja nu börjar du verkligen hitta ux som app. bravo. håll den stilen"). Skisserna ligger i `_bmad-output/planning-artifacts/ux-designs/ux-Matkoll-2026-10-25/mockups/`. Underlag: kursändringen `_bmad-output/planning-artifacts/sprint-change-proposal-2026-10-26-nytt-utseende.md`. Byggs som Epic 11, efter Epic 10 och före Epic 9. Kraven i `prd.md` och i de tidigare avsnitten gäller som förut, med de ändringar som står nedan.
+
+Numren fortsätter efter Epic 10 (FR-39, NFR-11, UJ-8). FR-34–FR-36, NFR-10 och UJ-7 är reserverade för Epic 9.
+
+### Mål
+
+Matkoll ser ut och känns som en välgjord app i mobilen. Varorna står i kategorier med ikon, lagret visar det Pontus har nytta av i stället för mängder, en vara tas bort med ett tryck och kan ångras, inköpslistan visar hur långt Pontus har kommit, och appen kan läggas på hemskärmen och öppnas i helskärm.
+
+**Användarresa UJ-9. Lördagshandling med appen.** Pontus lägger Matkoll på hemskärmen och loggar in i appen med koden från mejlet. I Lagersaldo står kylens varor under Mejeri & ägg och Kött, fisk & chark, med "Arla laktosfri" under mjölken och "Tillagd för 6 dagar sedan" under gräddfilen. Pontus tar bort gräddfilen med soptunnan. I butiken bockar Pontus av, och varje vara flyttar till "I korgen" medan mätaren växer. **Kantfall:** fel vara togs bort. Pontus trycker "Ångra", och varan är tillbaka med samma rad under.
+
+### Ordlista (tillägg)
+
+- **Kategori:** en av nio grupper som varor visas i: Frukt & grönt, Bröd, Mejeri & ägg, Kött, fisk & chark, Frys, Skafferi, Såser & smaksättare, Dryck och Övrigt. Kategorin räknas fram ur katalogingrediensens avdelning och namn. Den sparas inte, och avdelningen är oförändrad.
+- **Märke:** det som står på förpackningen, till exempel "Arla laktosfri". Valfritt på en lagervara.
+- **I korgen:** de avbockade posterna i inköpslistan.
+
+### Nya krav
+
+#### FR-40: Kategorier med ikon
+
+Lagervaror och listposter visas i kategorier med en ikon.
+
+**Konsekvenser (testbara):**
+- Varje vara hamnar i exakt en kategori. Frukt och grönt, Bröd, Mejeri, Frys, Dryck och Övrigt blir sina kategorier, Kött och fisk och Chark blir Kött, fisk & chark, och Skafferi blir Skafferi utom de varor vars namn är en sås eller smaksättare, som blir Såser & smaksättare.
+- Kategorierna står i butikens ordning: Frukt & grönt, Bröd, Mejeri & ägg, Kött, fisk & chark, Frys, Skafferi, Såser & smaksättare, Dryck, Övrigt. Kategorier utan varor visas inte.
+- Varje kategori har en rubrik med ikon och antal. Ikonen betyder ingenting för skärmläsare, och namnet står alltid som text.
+- Exporten till ICA (FR-26) och katalogens avdelningar är oförändrade.
+
+#### FR-41: Lagersaldo utan mängder
+
+Pontus ser lagret per plats utan mängder, kan ta bort en vara med ett tryck och söka i platsen.
+
+**Konsekvenser (testbara):**
+- Varje lagervara är en rad under sin kategori, med namnet och en rad under: märket om det finns, annars när varan lades till ("Tillagd idag", "Tillagd igår", "Tillagd för 4 dagar sedan", "Tillagd 24 okt"). Ingen mängd visas i listan. Obegränsade varor är rader som de andra.
+- Mängderna sparas och ändras som förut i arket Lagervara och används av lagningsstatusen, inköpslistan och "Kan lagas nu".
+- Varje rad har en soptunna. Ett tryck tar bort varan utan kontrollfråga och visar "Tog bort Gräddfil." med "Ångra" i 5 s. "Ångra" sätter tillbaka varan med samma id, plats, mängd, märke och tid.
+- Ett sökfält överst filtrerar platsens varor på namn och märke.
+
+#### FR-42: Märke och tid på lagervaran
+
+En lagervara har ett valfritt märke och vet när den lades till.
+
+**Konsekvenser (testbara):**
+- När Pontus bekräftar eller rättar ett lagerförslag från ett foto sparas förslagets första etikett (6.5) som märke, avkortad till 60 tecken.
+- Arket Lagervara har fältet "Märke eller sort". Ett tomt fält tar bort märket.
+- "Tillagd" är tiden då raden skapades. En ändrad mängd ändrar den inte. En vara som byter enhet eller plats behåller sin tid.
+- "Ångra" efter en borttagning, tömning eller inventering sätter tillbaka märket och tiden.
+- Märket är text från Pontus eller modellen och visas bara som text.
+
+#### FR-43: Inköpslistan i butiken
+
+Pontus ser hur långt handlingen har kommit, och det som redan ligger i korgen flyttas undan.
+
+**Konsekvenser (testbara):**
+- Överst står "8 varor kvar" och "6 av 14 i korgen" med en mätare. Dolda poster räknas inte.
+- En avbockad post flyttas direkt till "I korgen" längst ned, som är hopfälld ("6 varor i korgen" med "Visa"). En bock där tar tillbaka posten. Bocken sparas direkt som förut (FR-16).
+- Under en post står rätterna den kommer från, "Egen vara", eller för en vag post "Saknas i lagret" (med flera ställen "Saknas i Stugan").
+- Ett produktval (FR-27) visas som en etikett på raden.
+- Mängden står kvar på listposten, eftersom den behövs i butiken.
+- "Skicka till ICA" och "Lägg i lagret" ligger fast längst ned.
+
+#### FR-44: Matkoll på hemskärmen
+
+Pontus kan lägga Matkoll på hemskärmen och öppna appen i helskärm.
+
+**Konsekvenser (testbara):**
+- Appen har ett webbappmanifest med namnet Matkoll, `display: standalone`, startsidan Recept, appens bakgrundsfärg som temafärg och appikoner (192 och 512 px, och en Apple-ikon på 180 px).
+- Öppnad från hemskärmen på iPhone visas Matkoll utan webbläsarens fält, med appens bakgrund bakom statusraden.
+- Mejlet med engångslänken har också en sexsiffrig kod, och inloggningssidan tar emot koden. Samma tillåtelselista gäller, och svaret är detsamma oavsett adress.
+- Varje sida under en flik har en synlig tillbakaknapp.
+- Manifestet och ikonerna nås utan inloggning. Inget annat gör det.
+
+#### NFR-12: Utseendet håller tillgänglighetsgolvet
+
+- Varje vy i Epic 11 fungerar vid 375 px och 1280 px, i ljust och mörkt läge och med 200 % text utan vågrät scroll, med VoiceOver och med tangentbord.
+- Tryckytor är minst 44 × 44 px, också soptunnan, bockarna och hjärtat på bilden.
+- Ikoner, plattor och mätare förmedlar aldrig något som inte också står i text.
+- Inget rött, inga skuggor och inga gradienter i gränssnittet (`DESIGN.md`).
+
+### Ändrade konsekvenser för befintliga krav
+
+| Krav | Med Epic 11 |
+| --- | --- |
+| FR-1 | Inloggning med engångslänk eller med koden i samma mejl. |
+| FR-12 | Varje lagervara är en rad under sin kategori, utan mängd. Under namnet står märket eller när varan lades till (FR-41, FR-42). Obegränsade varor visas inte längre som etiketter under "Finns hemma". |
+| FR-13 | Varje matsedelsrätt visar "X av Y hemma" och en mätare i stället för statusetiketten. Portionsväljaren står kvar. |
+| FR-16 | Listposter grupperas per kategori i butikens ordning i stället för per avdelning, och visar rätterna utan "från". En avbockad post flyttas till "I korgen". |
+
+### Effektmål
+
+Inga nya. SM-2 (inköpslistan på under 10 minuter) och SM-3 (hela veckan i appen) gynnas av en lista som är lättare att använda i butiken och en app som ligger på hemskärmen. SM-C1 gäller som förut: mängderna finns kvar i bakgrunden men visas inte i lagret.
+
+### Utanför Epic 11
+
+- En native app i App Store, offline, push-aviseringar och en service worker.
+- En egen avdelning för såser i katalogen (öppen fråga 14).
+- Märke från produktvalet vid "Lägg i lagret".
+- Att sortera om kategorier, egna kategorier och en egen ikon per vara.
+- Källan ("från fotot") under en lagervara och en "Ny"-etikett.
+- Antal varor på knappen "Visa inköpslistan" i Matsedel.
+
+### Datamodell (tillägg)
+
+| Tabell | Innehåll | Kopplas till |
+| --- | --- | --- |
+| pantry_item | Får `label` (märke eller sort, valfri, 1–60 tecken). `created_at` behålls vid ändrad mängd, byte av enhet eller plats och "Ångra". | – |
+| pantry_removal | `removed_rows` tar också med `label` och `created_at` | – |
+
+Kategorierna sparas inte. Detaljerna står i arkitekturens AD-12, AD-19, AD-20 och AD-27.

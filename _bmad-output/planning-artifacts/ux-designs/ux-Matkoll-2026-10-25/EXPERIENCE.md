@@ -9,6 +9,8 @@ sources:
   - docs/ux/skisser/
   - _bmad-output/planning-artifacts/prds/prd-Matkoll-2026-10-25/addendum.md (version 1.1)
   - _bmad-output/planning-artifacts/sprint-change-proposal-2026-10-26-spara-foto.md (Epic 10)
+  - _bmad-output/planning-artifacts/sprint-change-proposal-2026-10-26-nytt-utseende.md (Epic 11)
+  - _bmad-output/planning-artifacts/ux-designs/ux-Matkoll-2026-10-25/mockups/ (Epic 11)
 ---
 
 # Matkoll – upplevelse
@@ -18,6 +20,8 @@ sources:
 Den här filen och `DESIGN.md` gäller före skisserna i `docs/ux/skisser/` när de inte stämmer överens. `DESIGN.md` äger utseendet; den här filen äger struktur och beteende.
 
 Matkoll är en webbapp, mobil först (från 375 px), som också fungerar på dator. Ingen native app. Inget komponentbibliotek; komponenterna byggs från tokens i `DESIGN.md` (teknikvalet står i `docs/autonomi.md`). Gränssnittet är på svenska och används av en person, Pontus. Ljust och mörkt läge följer systemets inställning.
+
+**Nytt utseende (Epic 11).** Pontus godkände tre skisser 2026-10-26 (länkade under Brand & Style i `DESIGN.md`). De visar målet för Recept, Matsedel, Inköpslista och Lagersaldo i mobilen. Det är fortfarande en och samma responsiva webbapp, men den kan läggas på hemskärmen och öppnas i helskärm som en app. Vid konflikt med en skiss gäller den här filen och `DESIGN.md`. Namnen Lagersaldo och Inköpslista kommer från Story 10.4.
 
 Begreppen följer PRD:ns ordlista (§3) ordagrant: recept, receptbibliotek, matsedel, matsedelsrätt, inköpslista, listpost, lager, lagervara, plats, stegläge, AI-förslag, lagerförslag med flera. Från version 1.1 kommer **ställe** och **valt ställe** från addendumet ("Version 1.1: Flera ställen"). Ett ställe (Hemma, Stugan) har platserna Kyl, Frys och Skafferi, och ordet "plats" betyder fortfarande bara dem.
 
@@ -48,6 +52,11 @@ Begreppen följer PRD:ns ordlista (§3) ordagrant: recept, receptbibliotek, mats
 | Senaste foto (rad, Epic 10) | I Hemma, direkt under kameraknappen, när platsen har ett sparat foto | Visa när platsen senast fotograferades, och öppna fotot | FR-38 | Senaste foto |
 | Fotot av kylen (ark, Epic 10) | "Visa" på raden Senaste foto | Det sparade fotot med numren och AI:ns avläsning; ta bort fotot | FR-38, FR-39 | Ark, Fotoark |
 | Inställningar | Kugghjul i Recept-rubriken (mobil), längst ned i sidomenyn (dator) | Godkända receptsajter, butik, logga ut | FR-7, FR-28 | Settings |
+| Kategorier (Epic 11) | Lagersaldo och Inköpslista | Varorna grupperade i nio kategorier med ikon, i butikens ordning | FR-40 | Kategorirubrik, skisserna |
+| Sök i platsen (Epic 11) | Överst i Lagersaldos lista, när platsen har varor | Hitta en vara i kylen, frysen eller skafferiet | FR-41 | Sök i platsen |
+| I korgen (Epic 11) | Längst ned i Inköpslistan, när något är avbockat | Det som redan ligger i korgen, hopfällt | FR-43 | I korgen |
+| Inloggning med kod (Epic 11) | Inloggningssidan, efter "Skicka länk" | Logga in med koden från mejlet, också i appen på hemskärmen | FR-1, FR-44 | Flöde 9 |
+| Matkoll på hemskärmen (Epic 11) | Safaris "Dela" → "Lägg till på hemskärmen"; en rad i Inställningar förklarar det | Öppna Matkoll i helskärm med egen ikon | FR-44 | Flöde 9 |
 
 Ytor utan skiss (Matsedel, Stegläge, ark, inställningar och mörkt läge) byggs från tabellerna här och komponenterna i `DESIGN.md`.
 
@@ -75,6 +84,14 @@ Knappar är verb: "Spara recept", "Lägg på matsedeln", "Laga nu", "Skicka till
 - "för" + namnet: "Lagt 8 varor i lagret för Stugan.", "Ta bort alla 14 varor i kylen för Stugan?".
 
 Matkoll skriver aldrig att Pontus *är* på ett ställe, bara vilket lager som gäller.
+
+**Lagersaldo och Inköpslista (Epic 11):** raden under en lagervara är märket som det står på förpackningen ("Arla laktosfri"), eller "Tillagd idag", "Tillagd igår", "Tillagd för 4 dagar sedan" (2–13 dagar) och "Tillagd 24 okt" (äldre, med år om det är ett annat år). Under en listpost står rätterna med " · " emellan ("Korv stroganoff · Kycklinggryta"), "Egen vara", eller för en vag post "Saknas i lagret" (med flera ställen "Saknas i Stugan") före rätterna. Emoji används bara som ikon i kategoriplattorna och syns aldrig i en text.
+
+| Gör | Gör inte |
+| --- | --- |
+| "Tog bort Gräddfil." + "Ångra" | "Gräddfil raderad!" eller en kontrollfråga |
+| "8 varor kvar" och "6 av 14 i korgen" | "43 % klart 🛒" |
+| "Saknas i Stugan" | "Finns inte i stugan!" |
 
 **Foton i texter (Epic 10):** tiden skrivs "idag 15:42", "igår 09:10" eller "24 okt 15:42", i svensk tid. Platsen står i bestämd form som i 1.0 ("fotot av kylen"), och stället nämns inte, eftersom Hemma redan visar vilket ställe som gäller. Texterna säger vad AI:n läste av, aldrig att den "såg" eller "förstod" något.
 
@@ -116,6 +133,18 @@ Beteende. Utseendet beskrivs under Components i `DESIGN.md`, med samma namn och 
 | Lagerförslag | Efter bildanalys | Varje förslag har Bekräfta, Rätta (öppnar arket Lagervara förifyllt) och Avvisa. "Bekräfta alla" finns, men inget sparas utan ett tryck. Plats är förvald till den plats som fotograferades. |
 | Matsedelsrätt | Matsedel | Kort som Receptrad, med portionsväljare och statusetikett. Ändrade portioner räknar om inköpslistan. |
 | Stegläge | Stegläge | Helskärm. "Steg 1 av 6", stegets receptrader ovanför stegtexten i `{typography.step}`, knapparna Föregående och Nästa i tumzonen. Skärmen hålls tänd med Screen Wake Lock. "Stäng" går tillbaka till receptvyn. |
+| Kategorirubrik (Epic 11) | Lagersaldo, Inköpslista | En rubrik (`h2`) per kategori som har varor, i butikens ordning: Frukt & grönt, Bröd, Mejeri & ägg, Kött, fisk & chark, Frys, Skafferi, Såser & smaksättare, Dryck, Övrigt. Kategorin räknas fram ur varans avdelning, och en vara i Skafferi vars namn är en sås eller en smaksättare (senap, ketchup, sojasås, salt, peppar …) hamnar under Såser & smaksättare. Inom en kategori står varorna i svensk bokstavsordning. Antalet till höger läses som "3 varor". Ikonen och plattan döljs för skärmläsare. |
+| Lagervara i listan (Epic 11) | Lagersaldo | En rad per lagervara, med eller utan mängd: namnet och raden under (märket eller "Tillagd …"). Ingen mängd. Ett tryck på raden öppnar arket Lagervara, där mängd, enhet, plats och märke ändras. "Finns hemma"-etiketterna och rubriken "Med mängd" försvinner. Skärmläsaren läser "Mellanmjölk, Arla laktosfri, knapp". |
+| Soptunna (Epic 11) | Lagersaldo | Ett tryck tar bort varan direkt, utan fråga. Den korta bekräftelsen "Tog bort Gräddfil." med "Ångra" visas i 5 s, och "Ångra" sätter tillbaka varan med samma id, tid och märke. En ny borttagning ersätter bekräftelsen, och den förra står fast. Fokus går till nästa varas soptunna, annars den föregående, annars sökfältet eller "Lägg till vara". Namn för skärmläsare: "Ta bort Gräddfil". |
+| Sök i platsen (Epic 11) | Lagersaldo | Sökfältet "Sök i kylen / frysen / skafferiet" överst i listan när platsen har varor. Filtrerar på namn och märke medan Pontus skriver, utan fördröjning (listan finns redan). Kategorier utan träff döljs. Töms när plats eller ställe byts. Står kvar när Pontus byter flik och kommer tillbaka (Activity). |
+| Framstegsrad (Epic 11) | Inköpslista | Överst, under raden "Lager": "8 varor kvar" och "6 av 14 i korgen" med mätaren. Räknar listposter som inte är dolda. Mätaren är dekor och döljs för skärmläsare, eftersom texten säger samma sak. När allt är avbockat står "Allt ligger i korgen". |
+| Listpost (Epic 11) | Inköpslista | Rund bock till vänster, namnet med mängden efter i `{colors.ink-2}` ("Gul lök 2 st"), raden under (rätterna, "Egen vara" eller "Saknas i lagret") och produktetiketten till höger när det finns ett produktval. Ett tryck på bocken flyttar posten direkt till I korgen och sparar bocken (FR-16). Live-regionen säger "Citron i korgen.", och fokus går till nästa posts bock. Ett tryck på texten öppnar listpostdetaljen som förut. Svep vänster för att dölja eller ta bort står kvar. |
+| I korgen (Epic 11) | Inköpslista | Under listans sista kategori, när minst en post är avbockad: korgraden "6 varor i korgen" med "Visa". "Visa" fäller ut rubriken "I korgen" med de avbockade posterna, överstrukna och i samma ordning som listan, och knappen byter till "Dölj". En bock där tar tillbaka posten till sin kategori. Läget står kvar tills sidan laddas om. |
+| Fasta knappar (Epic 11) | Inköpslista | "Skicka till ICA" (sekundär) och, när minst en post är avbockad, "Lägg i lagret" (primär) i en rad längst ned. Får de inte plats bredvid varandra (200 % text) står "Lägg i lagret" överst. |
+| Receptkort (Epic 11) | Recept, AI-förslag | Som Receptrad, men med bilden överst. Ett tryck var som helst på kortet öppnar receptvyn. Hjärtat på bilden växlar favorit och navigerar aldrig. En kolumn i mobilen, två kolumner från 1024 px. |
+| Rättkort (Epic 11) | Matsedel | Som Matsedelsrätt: bild, titel, "6 av 8 hemma" (eller "Allt finns hemma") och mätaren, och portionsväljaren under. "Visa inköpslistan" längst ned i Matsedel går till Inköpslistan. |
+| Tillbakaknapp (Epic 11) | Receptvy, tidigare matsedel, Inställningar | En synlig "Tillbaka" (pil och text) överst på varje sida under en flik, eftersom appen på hemskärmen inte har webbläsarens bakåtknapp. |
+| Inloggning med kod (Epic 11) | Inloggning | Efter "Skicka länk" står "Vi har skickat en länk och en kod till din e-post." och fältet "Kod från mejlet" (sex siffror, `inputmode="numeric"`, `autocomplete="one-time-code"`) med knappen "Logga in". Länken fungerar som förut. Fel kod eller gammal kod: "Koden stämmer inte eller har gått ut. Skicka en ny länk." Samma svar för alla adresser. |
 
 ## State Patterns
 
@@ -163,11 +192,19 @@ Gemensamma tillstånd först, sedan per yta i IA-ordning.
 | Fotot laddas (Epic 10) | Fotoark | Arket har fotots storlek från början, så att det inte hoppar. Markörerna visas när fotot är laddat. |
 | Fotot kan inte tas bort (Epic 10) | Fotoark | Meddelanderuta i arket: "Det gick inte att ta bort fotot. Försök igen.". Fotot står kvar. |
 | Töm en plats med flera ställen (1.1) | Hemma | Frågan: "Ta bort alla 14 varor i kylen för Stugan?". Bekräftelsen: "Tog bort 14 varor ur kylen för Stugan." |
+| Vara utan märke (Epic 11) | Lagersaldo | Raden under säger "Tillagd …" efter radens `created_at`. |
+| Ingen träff i platsen (Epic 11) | Lagersaldo | "Inget i kylen matchar." + "Rensa sökning". |
+| Borttagen vara (Epic 11) | Lagersaldo | "Tog bort Gräddfil." + "Ångra" i 5 s. Går borttagningen inte att spara kommer varan tillbaka, och meddelanderutan säger "Det gick inte att ta bort varan." |
+| Ångra misslyckas (Epic 11) | Lagersaldo | Kort bekräftelse som alert: "Det gick inte att ångra." Varan förblir borttagen. |
+| Allt i korgen (Epic 11) | Inköpslista | Framstegsraden säger "Allt ligger i korgen", inga kategorier visas, korgraden och "Lägg i lagret" står kvar. |
+| Inget i korgen (Epic 11) | Inköpslista | Ingen korgrad. Bara "Skicka till ICA" längst ned. |
+| Fel kod (Epic 11) | Inloggning | Under fältet: "Koden stämmer inte eller har gått ut. Skicka en ny länk." Fältet töms inte. |
+| Öppnad från hemskärmen (Epic 11) | Alla | Helskärm utan webbläsarens fält. Statusraden har appens bakgrund. Utan session visas inloggningen med kodfältet. |
 
 ## Interaction Primitives
 
 - Tryck för att göra något. Viktiga handlingar har alltid en synlig knapp.
-- Svep vänster på en listpost, lagervara eller matsedelsrätt för att visa "Ta bort". Svepet är en genväg; samma åtgärd finns i detaljarket. Borttagningen kan ångras i den korta bekräftelsen.
+- Svep vänster på en listpost eller matsedelsrätt för att visa "Ta bort". Svepet är en genväg; samma åtgärd finns i detaljarket. Borttagningen kan ångras i den korta bekräftelsen. Från Epic 11 har en lagervara i stället en synlig soptunna, och svepet finns inte i Lagersaldo.
 - Stegläge: svep vänster eller höger byter steg, men knapparna Föregående och Nästa finns alltid.
 - Bekräftelse i förväg krävs bara för det som inte går att ångra: ta bort recept och ta bort matsedel. Övriga borttagningar kan ångras i den korta bekräftelsen.
 - **Används inte:** dra och släpp för omsortering, långtryck som enda väg till en funktion, karuseller, aviseringar, siffermärken på flikar.
@@ -183,6 +220,7 @@ Kontrast och storlekar finns i `DESIGN.md`.
 - Ändringar som sker i bakgrunden (listan räknas om, kort bekräftelse) annonseras via en live-region.
 - "Minska rörelse" stänger av arkens glidanimation och animationen vid stegbyte.
 - Sidan fungerar med 200 % textförstoring utan vågrät scroll.
+- **Epic 11:** varje story kontrolleras vid 375 px och 1280 px, i ljust och mörkt läge, med 200 % text, med VoiceOver och med tangentbord. Ikoner i kategoriplattor och mätare är dekor och döljs för skärmläsare (`aria-hidden`), och samma sak står alltid i text. Kategorirubrikerna är rubriker (`h2`) så att VoiceOvers rotor hittar dem. Ett tillstånd i en sida som göms efter en navigering (React Activity) står kvar när sidan visas igen: sökningen i Lagersaldo och "Visa" i I korgen. Ett ark stängs när sidan göms, som förut.
 
 ## Inspiration & Anti-patterns
 
@@ -202,6 +240,8 @@ Den enda källan för vad som ändras vid brytpunkten (`{spacing.breakpoint-desk
 | Ark | Glider upp nedifrån | Dialog i mitten |
 | Kamera | Bakre kameran direkt | Filväljare |
 | Stegläge | Helskärm | Helskärm; piltangenterna byter steg |
+| Recept (Epic 11) | Receptkort i en kolumn | Receptkort i två kolumner inom `{spacing.content-max}` |
+| På hemskärmen (Epic 11) | Helskärm från hemskärmen, med egen ikon och tillbakaknappar | Vanlig flik i webbläsaren |
 
 iPhone Safari är huvudmålet. Innehållet håller sig innanför säkerhetsmarginalerna, och inmatningsfält har minst 16 px text så att sidan inte zoomar.
 
@@ -275,6 +315,14 @@ Flöde 7 hör till Epic 9 (veckans erbjudanden), som vilar.
 6. Nästa gång Pontus fotograferar kylen och bekräftar något ersätter det nya fotot det gamla.
 
 **Variant, ta bort fotot:** någon syns på fotot. Pontus trycker "Ta bort fotot" i arket och "Ta bort" i frågan. "Fotot av kylen är borttaget.", och raden försvinner.
+
+### Flöde 9 – Lördagshandling med appen (UJ-9, Epic 11, Pontus i köket och i butiken)
+
+1. Pontus öppnar Matkoll i Safari, trycker "Dela" och "Lägg till på hemskärmen". Moroten ligger bland de andra apparna.
+2. Pontus öppnar Matkoll från hemskärmen. Appen öppnas i helskärm och visar inloggningen. Pontus skriver sin e-post och trycker "Skicka länk", öppnar Mail och skriver in koden från mejlet. Recept öppnas.
+3. Under Lagersaldo står kylens varor under Mejeri & ägg, Kött, fisk & chark och Frukt & grönt. Under Mellanmjölk står "Arla laktosfri", under Gräddfil "Tillagd för 6 dagar sedan". Pontus trycker på soptunnan vid Gräddfil. "Tog bort Gräddfil." Fel vara: Pontus trycker "Ångra", och gräddfilen är tillbaka med samma rad under.
+4. I butiken öppnar Pontus Inköpslista. "8 varor kvar" och "0 av 8 i korgen". Pontus bockar av Gul lök. Den försvinner till "1 vara i korgen", och mätaren växer.
+5. **Klimax:** vid kassan står "Allt ligger i korgen". Hemma trycker Pontus "Lägg i lagret", och varorna står under sina kategorier i Lagersaldo, med "Tillagd idag".
 
 ## Settings
 
