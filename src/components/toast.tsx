@@ -14,9 +14,20 @@ export type ToastOptions = {
    * it was dismissed, or a new toast replaced it.
    */
   onClose?: () => void;
+  /**
+   * `alert` for a failure (e.g. "Det gick inte att ångra."): announced at
+   * once through `role="alert"` instead of the polite live region.
+   */
+  role?: "status" | "alert";
 };
 
-type ToastState = { id: number; message: string; onUndo?: () => void; onClose?: () => void };
+type ToastState = {
+  id: number;
+  message: string;
+  onUndo?: () => void;
+  onClose?: () => void;
+  role: "status" | "alert";
+};
 
 type ToastApi = {
   /** Shows a short confirmation, replacing any that is showing. */
@@ -36,7 +47,8 @@ export function useToast(): ToastApi {
 /**
  * Kort bekräftelse: a dark strip at the bottom, above the tab bar and above a
  * FixedAction when there is one. The message is announced through a live region
- * that is always in the page; "Ångra" sits outside it. At most one at a time; a
+ * that is always in the page, or as an alert for a failure; "Ångra" sits
+ * outside it. At most one at a time; a
  * new one replaces the old. The time stands still while the strip is hovered or
  * has focus, so "Ångra" can be reached.
  */
@@ -64,7 +76,13 @@ export function ToastProvider({ children }: { children: ReactNode }) {
     (message: string, options?: ToastOptions) => {
       nextId.current += 1;
       remaining.current = { id: nextId.current, ms: options?.onUndo ? toastWithUndoDurationMs : toastDurationMs };
-      replaceToast({ id: nextId.current, message, onUndo: options?.onUndo, onClose: options?.onClose });
+      replaceToast({
+        id: nextId.current,
+        message,
+        onUndo: options?.onUndo,
+        onClose: options?.onClose,
+        role: options?.role ?? "status",
+      });
     },
     [replaceToast],
   );
@@ -92,8 +110,14 @@ export function ToastProvider({ children }: { children: ReactNode }) {
     <ToastContext.Provider value={api}>
       {children}
       <div role="status" aria-live="polite" aria-atomic="true" className="sr-only">
-        {toast?.message}
+        {toast?.role === "status" ? toast.message : null}
       </div>
+      {/* An alert is announced when it appears, so it is only in the page while it shows. */}
+      {toast?.role === "alert" ? (
+        <div key={toast.id} role="alert" className="sr-only">
+          {toast.message}
+        </div>
+      ) : null}
       <div className="pointer-events-none fixed inset-x-0 bottom-[calc(var(--tab-bar-height)+var(--fixed-action-gap)+var(--fixed-action-offset,0px))] z-40 flex justify-center px-page desktop:bottom-[calc(env(safe-area-inset-bottom)+var(--fixed-action-gap)*2+var(--fixed-action-offset,0px))] desktop:left-side-menu">
         {toast ? (
           <div

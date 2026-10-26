@@ -40,6 +40,7 @@ import {
   type PantryItemFormInput,
 } from "../domain/pantry-item-form";
 import { savedItemText } from "../domain/places";
+import { PantryRemovalProvider, usePantryRemoval } from "./pantry-removal";
 
 // Lagervara (FR-11, Story 2.2): the sheet that adds an item to the pantry or
 // changes one. "+" in Hemma's header, "Lägg till vara" in an empty location
@@ -123,8 +124,9 @@ export type PantryItemSheetProps = {
  * its location and unit from the catalog, and "Lägg till … som ny" asks for
  * the new ingredient's section. Then amount (optional: without one the item
  * is unlimited), unit and location. An item already in the pantry opens on
- * the form; changing its location or unit moves it. Unsaved changes ask
- * "Släng ändringarna?" before the sheet closes.
+ * the form; changing its location or unit moves it, and "Ta bort" removes it
+ * at once (the short confirmation offers "Ångra"). Unsaved changes ask
+ * "Släng ändringarna?" before the sheet closes, but not before "Ta bort".
  */
 export function PantryItemSheet({ open, onClose, target, session }: PantryItemSheetProps) {
   const [formSession, setFormSession] = useState(session);
@@ -140,6 +142,7 @@ export function PantryItemSheet({ open, onClose, target, session }: PantryItemSh
   const [attempted, setAttempted] = useState(false);
   const amountRef = useRef<HTMLInputElement>(null);
   const { showToast } = useToast();
+  const { removeItem } = usePantryRemoval();
   const ids = useId();
 
   // A new session: the form starts from the target (state adjusted while rendering).
@@ -229,6 +232,13 @@ export function PantryItemSheet({ open, onClose, target, session }: PantryItemSh
     startTransition(() => save(payload));
   }
 
+  /** "Ta bort": no question first, even with unsaved changes; the confirmation offers "Ångra" (Story 2.3). */
+  function remove() {
+    if (target.kind !== "edit" || saving) return;
+    onClose();
+    removeItem(target.item, { moveFocus: true });
+  }
+
   const formId = `${ids}-form`;
   const footer =
     picking || !ingredient ? null : (
@@ -239,6 +249,11 @@ export function PantryItemSheet({ open, onClose, target, session }: PantryItemSh
         <Button type="submit" form={formId} fullWidth disabled={saving}>
           {saving ? "Sparar …" : target.kind === "new" ? "Lägg till vara" : "Spara ändringar"}
         </Button>
+        {target.kind === "edit" ? (
+          <Button variant="text" fullWidth disabled={saving} onClick={remove}>
+            Ta bort
+          </Button>
+        ) : null}
       </>
     );
 
@@ -377,8 +392,9 @@ export function usePantrySheet(): PantrySheetApi {
 
 /**
  * Holds the sheet Lagervara for Hemma, so "+", "Lägg till vara" and a tap on
- * an item all open the same sheet. `location` is the chosen location: a new
- * item starts there.
+ * an item all open the same sheet, and the removals with "Ångra" that the
+ * list and the sheet share (PantryRemovalProvider). `location` is the chosen
+ * location: a new item starts there. Needs a ToastProvider above.
  */
 export function PantrySheetProvider({ location, children }: { location: Location; children: ReactNode }) {
   const [sheet, setSheet] = useState<{ open: boolean; session: number; target: PantrySheetTarget }>({
@@ -393,15 +409,17 @@ export function PantrySheetProvider({ location, children }: { location: Location
     openItem: (item) => openWith({ kind: "edit", item }),
   };
   return (
-    <PantrySheetContext.Provider value={api}>
-      {children}
-      <PantryItemSheet
-        open={sheet.open}
-        session={sheet.session}
-        target={sheet.target}
-        onClose={() => setSheet((current) => ({ ...current, open: false }))}
-      />
-    </PantrySheetContext.Provider>
+    <PantryRemovalProvider>
+      <PantrySheetContext.Provider value={api}>
+        {children}
+        <PantryItemSheet
+          open={sheet.open}
+          session={sheet.session}
+          target={sheet.target}
+          onClose={() => setSheet((current) => ({ ...current, open: false }))}
+        />
+      </PantrySheetContext.Provider>
+    </PantryRemovalProvider>
   );
 }
 

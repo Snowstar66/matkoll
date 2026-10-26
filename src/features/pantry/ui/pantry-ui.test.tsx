@@ -9,6 +9,9 @@ import { PantryList } from "./pantry-list";
 
 vi.mock("../actions/set-pantry-item", () => ({ savePantryItem: vi.fn() }));
 vi.mock("../actions/search-ingredients", () => ({ searchPantryIngredients: vi.fn() }));
+vi.mock("next/navigation", () => ({ useRouter: () => ({ refresh: vi.fn() }) }));
+vi.mock("../actions/remove-pantry-item", () => ({ removePantryItem: vi.fn() }));
+vi.mock("../actions/restore-pantry-item", () => ({ restorePantryItem: vi.fn() }));
 
 /** PantryList opens the sheet Lagervara, so it needs the providers Hemma has. */
 const render = (element: ReactElement) =>
@@ -57,8 +60,13 @@ describe("PantryList", () => {
         ]}
       />,
     );
-    const rows = within(screen.getByRole("list", { name: "Med mängd" })).getAllByRole("listitem");
+    const rows = within(screen.getByRole("list", { name: "Med mängd" })).getAllByTestId("pantry-row");
     expect(rows.map((row) => row.textContent)).toEqual(["Mjölk 1 l", "Smör 250 g"]);
+    // Each row has its swipe action, also reached with Tab (Story 2.3); tags are removed in the sheet.
+    expect(screen.getAllByRole("button", { name: /^Ta bort / }).map((button) => button.getAttribute("aria-label"))).toEqual([
+      "Ta bort Mjölk",
+      "Ta bort Smör",
+    ]);
     const tags = within(screen.getByRole("list", { name: "Finns hemma" })).getAllByRole("listitem");
     expect(tags.map((tag) => tag.textContent)).toEqual(["Salt"]);
   });

@@ -17,6 +17,9 @@ vi.mock("@/features/pantry/server", async (importOriginal) => ({
 
 vi.mock("@/features/pantry/actions/set-pantry-item", () => ({ savePantryItem: vi.fn() }));
 vi.mock("@/features/pantry/actions/search-ingredients", () => ({ searchPantryIngredients: vi.fn() }));
+vi.mock("next/navigation", () => ({ useRouter: () => ({ refresh: vi.fn() }) }));
+vi.mock("@/features/pantry/actions/remove-pantry-item", () => ({ removePantryItem: vi.fn() }));
+vi.mock("@/features/pantry/actions/restore-pantry-item", () => ({ restorePantryItem: vi.fn() }));
 
 /** The list opens the sheet Lagervara, which the page provides. */
 const render = (element: ReactElement) =>

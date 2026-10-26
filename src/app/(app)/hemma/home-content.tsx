@@ -4,8 +4,7 @@ import type { Location } from "@/features/catalog";
 import { CatalogDataError } from "@/features/catalog/server";
 import type { PantryItem } from "@/features/pantry";
 import { countPantryItems, listPantry, PantryDataError } from "@/features/pantry/server";
-import { LocationCards } from "@/features/pantry/ui/location-cards";
-import { PantryList } from "@/features/pantry/ui/pantry-list";
+import { PantryPlace } from "@/features/pantry/ui/pantry-place";
 import { errorMessages } from "@/lib/errors";
 
 export type HomeContentProps = {
@@ -18,8 +17,8 @@ export type HomeContentProps = {
 /**
  * Hemma's data, for a <Suspense> in page.tsx (AD-18): the location cards and
  * the chosen location's items. The chosen card's count is the number of
- * items listed, so card and list never disagree; the other two are counted
- * by the database. When the pantry or the catalog's names cannot be read,
+ * items listed (PantryPlace), so card and list never disagree; the other two
+ * are counted by the database. When the pantry or the catalog's names cannot be read,
  * a notice says so; other errors go to the error boundary.
  */
 export async function HomeContent({ location, next }: HomeContentProps) {
@@ -40,10 +39,5 @@ export async function HomeContent({ location, next }: HomeContentProps) {
     return <Notice role="alert">{errorMessages.pantry_unavailable}</Notice>;
   }
 
-  return (
-    <div className="flex flex-col gap-6">
-      <LocationCards selected={location} counts={{ ...counts, [location]: items.length }} />
-      <PantryList location={location} items={items} />
-    </div>
-  );
+  return <PantryPlace location={location} counts={counts} items={items} />;
 }

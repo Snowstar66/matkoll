@@ -53,7 +53,7 @@ development_status:
   epic-2: in-progress
   2-1-se-lagret-per-plats: review
   2-2-lägga-till-och-ändra-lagervaror: review
-  2-3-ta-bort-lagervara-med-ångra: backlog
+  2-3-ta-bort-lagervara-med-ångra: review
   2-4-lagningsstatus-i-receptbiblioteket: backlog
   epic-2-retrospective: optional
 

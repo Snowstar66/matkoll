@@ -9,14 +9,16 @@ export {
   type PantryStock,
   type PantrySnapshot,
 } from "./domain/pantry-item";
-export { placeSlug, placeFromSlug, itemCountText, emptyPlaceText, savedItemText } from "./domain/places";
+export { placeSlug, placeFromSlug, itemCountText, emptyPlaceText, savedItemText, removedItemsText } from "./domain/places";
 export {
   pantryItemFormSchema,
   pantryItemSetSchema,
+  pantryRowSchema,
   parseAmountField,
   amountErrorMessage,
   type PantryIngredient,
   type PantryItemForm,
   type PantryItemFormInput,
   type PantryItemSet,
+  type PantryRow,
 } from "./domain/pantry-item-form";

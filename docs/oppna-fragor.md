@@ -27,3 +27,11 @@ Frågor och osäkerheter som samlas under bygget och presenteras för Pontus nä
 - Lägg in hemligheten för säkerhetskopians lösenfras i GitHub.
 - Sätt upp Cloudflare Tunnel och Access (kräver domän) och lägg in tokenvariablerna.
 - Godkänn första publiceringen i produktion.
+
+## Att prova på riktig telefon (när Pontus har tid)
+
+Saker som testerna inte kan visa och som behöver en riktig iPhone:
+
+- Svep vänster på en lagervara i Hemma: knappen "Ta bort" ska visas utan att Safari går bakåt. Prova att svepa nära skärmkanten och mitt på raden.
+- VoiceOver på en lagervara: knappen "Ta bort Mjölk" ska gå att nå och aktivera, och raden ska inte öppna arket i stället.
+- Fotoimport av ett recept med kameran (Story 1.9) och engångslänken i Mail-appen (Story 1.2).

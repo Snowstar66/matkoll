@@ -155,4 +155,27 @@ describe("ToastProvider", () => {
     act(() => vi.advanceTimersByTime(5_000));
     expect(onClose).toHaveBeenCalledTimes(2);
   });
+
+  it("announces a failure as an alert, not in the polite region, for 4 s", () => {
+    function Failing() {
+      const { showToast } = useToast();
+      return (
+        <button type="button" onClick={() => showToast("Det gick inte att ångra.", { role: "alert" })}>
+          Ångra
+        </button>
+      );
+    }
+    render(
+      <ToastProvider>
+        <Failing />
+      </ToastProvider>,
+    );
+    expect(screen.queryByRole("alert")).toBeNull();
+    fireEvent.click(screen.getByRole("button", { name: "Ångra" }));
+    expect(screen.getByRole("alert")).toHaveTextContent("Det gick inte att ångra.");
+    expect(liveRegion()).toBeEmptyDOMElement();
+    expect(screen.getByTestId("toast")).toHaveTextContent("Det gick inte att ångra.");
+    act(() => vi.advanceTimersByTime(4_000));
+    expect(screen.queryByRole("alert")).toBeNull();
+  });
 });

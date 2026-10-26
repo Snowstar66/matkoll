@@ -153,6 +153,25 @@ isOneToOne: false
 "ensure_user_defaults":
 { Args: Record<PropertyKey, never>; Returns: undefined
                            },
+"pantry_lock":
+{ Args: Record<PropertyKey, never>; Returns: undefined
+                           },
+"restore_pantry_item":
+{ Args: { "item": Json }; Returns: {
+              "amount": number | null,
+"created_at": string,
+"id": string,
+"ingredient_id": string,
+"location": string,
+"unit": string | null,
+"user_id": string
+            }
+                          SetofOptions: {
+        from: "*"
+        to: "pantry_item"
+        isOneToOne: true
+        isSetofReturn: false
+      } },
 "save_recipe":
 { Args: { "lines": Json,"recipe": Json,"steps": Json }; Returns: string
                            },

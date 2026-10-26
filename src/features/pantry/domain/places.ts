@@ -31,3 +31,14 @@ export function emptyPlaceText(location: Location): string {
 export function savedItemText(name: string, location: Location): string {
   return `${name} är sparad i ${definite[location]}.`;
 }
+
+/**
+ * The short confirmation, with "Ångra", for every item removed while the same
+ * confirmation has shown: "Mjölk är borttagen.", "Mjölk och Smör är
+ * borttagna." or "3 varor är borttagna."
+ */
+export function removedItemsText(names: readonly string[]): string {
+  if (names.length === 1) return `${names[0]} är borttagen.`;
+  if (names.length === 2) return `${names[0]} och ${names[1]} är borttagna.`;
+  return `${names.length} varor är borttagna.`;
+}

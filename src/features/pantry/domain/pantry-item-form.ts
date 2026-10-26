@@ -122,15 +122,24 @@ export type PantryItemForm = z.output<typeof pantryItemFormSchema>;
  * ingredient, location and unit. Amount and unit are both null (unlimited)
  * or both set.
  */
-export const pantryItemSetSchema = z
-  .object({
-    ingredientId: z.uuid(),
-    location: locationSchema,
-    amount: z.number().positive().lt(maxPantryAmount).nullable(),
-    unit: unitSchema.nullable(),
-  })
-  .refine((item) => (item.amount === null) === (item.unit === null), { path: ["unit"] });
+const pantryItemSetShape = z.object({
+  ingredientId: z.uuid(),
+  location: locationSchema,
+  amount: z.number().positive().lt(maxPantryAmount).nullable(),
+  unit: unitSchema.nullable(),
+});
+const amountHasUnit = (item: { amount: number | null; unit: string | null }) =>
+  (item.amount === null) === (item.unit === null);
+
+export const pantryItemSetSchema = pantryItemSetShape.refine(amountHasUnit, { path: ["unit"] });
 export type PantryItemSet = z.infer<typeof pantryItemSetSchema>;
+
+/**
+ * A pantry row as removePantryItem returns it and restorePantryItem takes it
+ * back, with the same id (AD-19, AD-20).
+ */
+export const pantryRowSchema = pantryItemSetShape.extend({ id: z.uuid() }).refine(amountHasUnit, { path: ["unit"] });
+export type PantryRow = z.infer<typeof pantryRowSchema>;
 
 /**
  * The form's own messages by field name (`amount`), the first per field, for

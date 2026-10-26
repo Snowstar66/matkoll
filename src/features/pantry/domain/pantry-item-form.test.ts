@@ -7,6 +7,7 @@ import {
   parseAmountField,
   pantryItemFormSchema,
   pantryItemSetSchema,
+  pantryRowSchema,
   pantryNewIngredientName,
   unusableNameMessage,
   type PantryItemFormInput,
@@ -138,6 +139,26 @@ describe("pantryItemSetSchema", () => {
     { amount: Number.POSITIVE_INFINITY, unit: "g" },
   ])("refuses %j", (item) => {
     expect(pantryItemSetSchema.safeParse({ ingredientId: mjolkId, location: "Kyl", ...item }).success).toBe(false);
+  });
+});
+
+describe("pantryRowSchema", () => {
+  const row = { id: rowId, ingredientId: mjolkId, location: "Kyl", amount: 1, unit: "l" };
+
+  it("takes a row with its id, with an amount and unit or neither", () => {
+    expect(pantryRowSchema.parse(row)).toEqual(row);
+    expect(pantryRowSchema.safeParse({ ...row, amount: null, unit: null }).success).toBe(true);
+  });
+
+  it.each([
+    { id: "rad-1" },
+    { id: undefined },
+    { amount: 1, unit: null },
+    { amount: null, unit: "l" },
+    { location: "Garage" },
+    { amount: -1 },
+  ])("refuses %j", (overrides) => {
+    expect(pantryRowSchema.safeParse({ ...row, ...overrides }).success).toBe(false);
   });
 });
 

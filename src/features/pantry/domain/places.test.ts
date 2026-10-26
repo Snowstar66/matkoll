@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import { LOCATIONS } from "@/features/catalog";
-import { emptyPlaceText, itemCountText, placeFromSlug, placeSlug, savedItemText } from "./places";
+import { emptyPlaceText, itemCountText, placeFromSlug, placeSlug, removedItemsText, savedItemText } from "./places";
 
 describe("placeSlug and placeFromSlug", () => {
   it("round-trips every location", () => {
@@ -38,5 +38,13 @@ describe("savedItemText", () => {
     expect(savedItemText("Mjölk", "Kyl")).toBe("Mjölk är sparad i kylen.");
     expect(savedItemText("Ärtor", "Frys")).toBe("Ärtor är sparad i frysen.");
     expect(savedItemText("Salt", "Skafferi")).toBe("Salt är sparad i skafferiet.");
+  });
+});
+
+describe("removedItemsText", () => {
+  it("names one or two items, and counts more", () => {
+    expect(removedItemsText(["Mjölk"])).toBe("Mjölk är borttagen.");
+    expect(removedItemsText(["Mjölk", "Smör"])).toBe("Mjölk och Smör är borttagna.");
+    expect(removedItemsText(["Mjölk", "Smör", "Salt"])).toBe("3 varor är borttagna.");
   });
 });

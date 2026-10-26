@@ -1,8 +1,9 @@
-import { expect, type Page, test } from "@playwright/test";
+import { expect, type Page, type Response, test } from "@playwright/test";
 import { adminClient, e2eUserId, pantryEmail, pantryStorageState } from "./support";
 
-// Stories 2.1 and 2.2: Hemma with the location cards and the chosen
-// location's items, and the sheet Lagervara that adds and changes items. The
+// Stories 2.1, 2.2 and 2.3: Hemma with the location cards and the chosen
+// location's items, the sheet Lagervara that adds and changes items, and
+// removing items by swipe or in the sheet, with "Ångra". The
 // spec has an E2E user of its own (pantryEmail), whose catalog ingredients
 // and pantry rows are made with the service role before each test: 3 items
 // in Kyl (two with an amount, Salt unlimited), 1 in Frys and none in
@@ -182,7 +183,7 @@ test.describe("on a computer", () => {
 // Story 2.2: the sheet Lagervara.
 const sheet = (page: Page) => page.getByRole("dialog", { name: "Lagervara" });
 const addButton = (page: Page) => page.getByRole("button", { name: "Lägg till vara" }).filter({ visible: true }).first();
-const row = (page: Page, name: string) => rows(page).filter({ hasText: name }).getByRole("button");
+const row = (page: Page, name: string) => rows(page).filter({ hasText: name });
 const place = (page: Page, name: "Kyl" | "Frys" | "Skafferi") => sheet(page).getByRole("radio", { name });
 const amountField = (page: Page) => sheet(page).getByLabel("Mängd");
 
@@ -352,6 +353,195 @@ test.describe("the sheet Lagervara", () => {
     await sheet(page).getByRole("searchbox", { name: "Sök ingrediens" }).fill("smör");
     await sheet(page).getByRole("button", { name: "Smör" }).click();
     await expect(sheet(page).getByLabel("Enhet")).toHaveValue("g");
+    expect(errors).toEqual([]);
+  });
+});
+
+// Story 2.3: removing an item, with "Ångra".
+const toast = (page: Page) => page.getByTestId("toast");
+
+/** The id of the user's row for the item in the location, with the service role; null when there is none. */
+async function rowId(userId: string, name: Name, location: string): Promise<string | null> {
+  const { data, error } = await adminClient()
+    .from("pantry_item")
+    .select("id, ingredient!inner(name)")
+    .eq("user_id", userId)
+    .eq("location", location)
+    .eq("ingredient.name", name);
+  if (error) throw error;
+  return data[0]?.id ?? null;
+}
+
+/** The part of the row that slides; the action is behind it. */
+const front = (page: Page, name: string) =>
+  page.getByTestId("swipe-row-front").filter({ visible: true }).filter({ has: page.getByTestId("pantry-row").filter({ hasText: name }) });
+const slidOpen = "matrix(1, 0, 0, 1, -96, 0)";
+
+/**
+ * Swipes the row to the left from its middle with the mouse, which sends the
+ * same pointer events as a finger.
+ */
+async function swipeLeft(page: Page, name: string, distance = 150) {
+  const box = await row(page, name).boundingBox();
+  if (!box) throw new Error(`no row ${name}`);
+  const x = box.x + box.width / 2;
+  const y = box.y + box.height / 2;
+  await page.mouse.move(x, y);
+  await page.mouse.down();
+  await page.mouse.move(x - distance, y + 4, { steps: 12 });
+  await page.mouse.up();
+}
+
+/** Removes the row by swipe and a tap on Ta bort. */
+async function swipeAndRemove(page: Page, name: string) {
+  await swipeLeft(page, name);
+  await expect(front(page, name)).toHaveCSS("transform", slidOpen);
+  await page.getByRole("button", { name: `Ta bort ${name}` }).click();
+}
+
+/** Taps Ångra and waits for the answers to the Server Action calls it makes. */
+async function undoAndWait(page: Page, calls = 1) {
+  let answered = 0;
+  const count = (response: Response) => {
+    if (response.request().method() === "POST" && "next-action" in response.request().headers()) answered += 1;
+  };
+  page.on("response", count);
+  await toast(page).getByRole("button", { name: "Ångra" }).click();
+  await expect.poll(() => answered).toBeGreaterThanOrEqual(calls);
+  page.off("response", count);
+}
+
+test.describe("removing an item", () => {
+  test.use({ viewport: mobile });
+
+  test("a swipe to the left shows Ta bort, which removes the row at once, and Ångra puts it back with the same id", async ({
+    page,
+  }) => {
+    const errors = watchErrors(page);
+    const id = await rowId(userId, "Mjölk", "Kyl");
+    await page.goto("/hemma");
+    await expect(rows(page)).toHaveCount(2);
+
+    const remove = page.getByRole("button", { name: "Ta bort Mjölk" });
+    // A short swipe slides back.
+    await swipeLeft(page, "Mjölk", 30);
+    await expect(front(page, "Mjölk")).toHaveCSS("transform", "none");
+    await swipeLeft(page, "Mjölk");
+    await expect(front(page, "Mjölk")).toHaveCSS("transform", slidOpen);
+    // The click that ended the swipe did not open the sheet.
+    await expect(sheet(page)).toHaveCount(0);
+    await remove.click();
+
+    await expect(rows(page)).toHaveText([/^Smör\s*250 g$/]);
+    await expect(card(page, "Kyl")).toHaveText(/^Kyl\s*2 varor$/);
+    await expect(toast(page)).toContainText("Mjölk är borttagen.");
+    await expect.poll(() => rowId(userId, "Mjölk", "Kyl")).toBeNull();
+
+    await undoAndWait(page);
+    // Settled: the action has answered and the page has the server's list.
+    await expect(toast(page)).toHaveCount(0);
+    await expect(rows(page)).toHaveText([/^Mjölk\s*1 l$/, /^Smör\s*250 g$/]);
+    await expect(card(page, "Kyl")).toHaveText(/^Kyl\s*3 varor$/);
+    expect(await rowId(userId, "Mjölk", "Kyl")).toBe(id);
+    // Still there after a reload: the server has it.
+    await page.reload();
+    await expect(rows(page)).toHaveText([/^Mjölk\s*1 l$/, /^Smör\s*250 g$/]);
+    expect(errors).toEqual([]);
+  });
+
+  test("items removed while the confirmation shows join it, and one Ångra puts them all back", async ({ page }) => {
+    const errors = watchErrors(page);
+    const ids = [await rowId(userId, "Mjölk", "Kyl"), await rowId(userId, "Smör", "Kyl")];
+    await page.goto("/hemma");
+    await swipeAndRemove(page, "Mjölk");
+    await expect(toast(page)).toContainText("Mjölk är borttagen.");
+    await swipeAndRemove(page, "Smör");
+    await expect(toast(page)).toContainText("Mjölk och Smör är borttagna.");
+    await expect(rows(page)).toHaveCount(0);
+    await expect(card(page, "Kyl")).toHaveText(/^Kyl\s*1 vara$/);
+
+    await undoAndWait(page, 2);
+    await expect(toast(page)).toHaveCount(0);
+    await expect(rows(page)).toHaveText([/^Mjölk\s*1 l$/, /^Smör\s*250 g$/]);
+    await expect(card(page, "Kyl")).toHaveText(/^Kyl\s*3 varor$/);
+    expect([await rowId(userId, "Mjölk", "Kyl"), await rowId(userId, "Smör", "Kyl")]).toEqual(ids);
+    expect(errors).toEqual([]);
+  });
+
+  test("Ta bort in the sheet removes an unlimited item, and the sheet closes", async ({ page }) => {
+    const errors = watchErrors(page);
+    await page.goto("/hemma");
+    await expect(tags(page)).toHaveText(["Salt"]);
+
+    await tags(page).filter({ hasText: "Salt" }).getByRole("button").click();
+    await sheet(page).getByRole("button", { name: "Ta bort" }).click();
+    await expect(sheet(page)).toHaveCount(0);
+    await expect(tags(page)).toHaveCount(0);
+    await expect(heading(page, "Finns hemma")).toHaveCount(0);
+    await expect(toast(page)).toContainText("Salt är borttagen.");
+    await expect.poll(() => rowId(userId, "Salt", "Kyl")).toBeNull();
+    expect(errors).toEqual([]);
+  });
+
+  test("Ångra fails when the location has the item again, and the item stays removed", async ({ page }) => {
+    const errors = watchErrors(page);
+    await page.goto("/hemma");
+    await swipeAndRemove(page, "Smör");
+    await expect(toast(page)).toContainText("Smör är borttagen.");
+
+    // Meanwhile Smör in g is back in Kyl, as a new row.
+    const { data: ingredient, error } = await adminClient()
+      .from("ingredient")
+      .select("id")
+      .eq("user_id", userId)
+      .eq("name", "Smör")
+      .single();
+    if (error) throw error;
+    const inserted = await adminClient()
+      .from("pantry_item")
+      .insert({ user_id: userId, ingredient_id: ingredient.id, location: "Kyl", amount: 500, unit: "g" })
+      .select("id")
+      .single();
+    if (inserted.error) throw inserted.error;
+
+    await undoAndWait(page);
+    // A short confirmation, announced as an alert; the row that is there now shows.
+    await expect(toast(page)).toHaveText("Det gick inte att ångra.");
+    await expect(page.getByRole("alert").filter({ hasText: "Det gick inte att ångra." })).toBeAttached();
+    await expect(rows(page)).toHaveText([/^Mjölk\s*1 l$/, /^Smör\s*500 g$/]);
+    await expect.poll(() => rowId(userId, "Smör", "Kyl")).toBe(inserted.data.id);
+    expect(errors).toEqual([]);
+  });
+});
+
+test.describe("removing an item with the keyboard", () => {
+  test.use({ viewport: desktop });
+
+  test("Tab after a row reaches Ta bort without a swipe", async ({ page }) => {
+    const errors = watchErrors(page);
+    await page.goto("/hemma");
+    await row(page, "Mjölk").focus();
+    await page.keyboard.press("Tab");
+    const remove = page.getByRole("button", { name: "Ta bort Mjölk" });
+    await expect(remove).toBeFocused();
+    // The row slid aside, so the button is not covered.
+    await expect(front(page, "Mjölk")).toHaveCSS("transform", slidOpen);
+    const box = await remove.boundingBox();
+    if (!box) throw new Error("no button");
+    const center = { x: box.x + box.width / 2, y: box.y + box.height / 2 };
+    expect(await page.evaluate(({ x, y }) => document.elementFromPoint(x, y)?.textContent, center)).toBe("Ta bort");
+
+    // Esc slides it back with focus on the row; Tab and Enter remove.
+    await page.keyboard.press("Escape");
+    await expect(front(page, "Mjölk")).toHaveCSS("transform", "none");
+    await expect(row(page, "Mjölk")).toBeFocused();
+    await page.keyboard.press("Tab");
+    await expect(remove).toBeFocused();
+    await page.keyboard.press("Enter");
+    await expect(rows(page)).toHaveText([/^Smör\s*250 g$/]);
+    await expect(toast(page)).toContainText("Mjölk är borttagen.");
+    // Focus moves on to the next item.
+    await expect(row(page, "Smör")).toBeFocused();
     expect(errors).toEqual([]);
   });
 });

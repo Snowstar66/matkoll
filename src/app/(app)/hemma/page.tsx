@@ -13,8 +13,9 @@ export const metadata: Metadata = { title: "Hemma" };
 // frys, skafferi; anything else is Kyl). Everything is read inside
 // <Suspense> (AD-18), with skeleton rows while it loads. "+" in the header,
 // "Lägg till vara" in an empty location and a tap on an item open the sheet
-// Lagervara (Story 2.2); a new item starts in the chosen location. Removing
-// items arrives with Story 2.3, the camera with Epic 6.
+// Lagervara (Story 2.2); a new item starts in the chosen location. A swipe on
+// a row or "Ta bort" in the sheet removes an item, with "Ångra" (Story 2.3).
+// The camera arrives with Epic 6.
 export default function HomePage({ searchParams }: PageProps<"/hemma">) {
   return (
     <Suspense
