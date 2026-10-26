@@ -2,6 +2,25 @@
 
 Beslut som fattats under bygget: vad, varför och vilka alternativ som fanns. Nyaste överst.
 
+## 2026-10-26 – Nummer på fotot (Story 6.6)
+
+- **Underlag:** Pontus ville se ett nummer på varje vara på fotot och samma nummer på kortet, för att kunna kontrollera vad modellen har läst av. Experimentet med Pontus foto (2048 px, temperatur 0, appens prompt) mot Qwen3.6 i LM Studio:
+  - Att be om positioner i samma anrop som avläsningen gjorde avläsningen sämre. Med punkter blev 20 varor 25, modellen upprepade tidigare varor med allmänna namn, och tiden gick från ungefär 30 s till ungefär 55 s. Med rutor dubblerade den varor.
+  - Ett separat andra anrop efter avläsningen, med samma bild och de numrerade etiketterna, lämnar avläsningen identisk byte för byte. Det tog ungefär 10 s varmt på Pontus foto (20 varor, 390 token svar), 24 s vid det första, kalla anropet och 3–5 s på de syntetiska bilderna, och varje svar var giltigt och komplett. Punkterna hamnade på rätt varor på `kyl.png` och `kyl-dorr.png`, och Pontus bekräftade att de hamnar rätt på det riktiga fotot.
+  - Utvärderingen i appen (`pnpm eval:ai` med tiden för avläsningen, tiden för punkterna och summan per körning): mätning mot LM Studio väntar.
+- **Beslut (Claude, på Pontus begäran; allt går att ändra):**
+  - **Punkterna kommer från ett separat anrop, `locateItems`, efter avläsningen.** Avläsningen ändras inte. Anropet har samma bildsampling som `analyzeImage` (temperatur 0), en egen prompt och ett eget schema, och en egen budget: ett försök på högst 30 s efter hälsokontrollen, utan nytt försök. Numren är extra, så det är bättre att ge upp snabbt än att hålla modellen upptagen.
+  - **Punkter, inte rutor,** som Pontus valde. En punkt är `[x, y]` i tusendelar av bildens bredd och höjd. Varje punkt kontrolleras för sig, och en dålig punkt tas bort utan att svaret underkänns.
+  - **Korten väntar aldrig på numren.** Klienten skickar samma förminskade bild och avläsningens etiketter till `/api/ai/locate` när korten visas. Under miniatyren står "Letar upp varorna på fotot …" och sedan "Numren på korten visar var varorna är på fotot.". Misslyckas uppslaget visas inga nummer och inget fel. Fotot sparas fortfarande inte (AD-15). Det skickas en gång till, till samma AI-port.
+  - **Kortets nummer är numret på dess första vara i avläsningen.** Ett kort som samlar flera varor har markörer med sitt nummer på alla sina varor. Bara kort som visas har nummer, så varje markör har ett kort. "Syns inte längre" och oförändrade varor har inga.
+  - **Markörerna finns bara på det stora fotot.** På miniatyren (72 px) går numren inte att läsa. Markörerna är dolda för skärmläsare, och kortets nummer läses som "Nummer 3 på fotot".
+  - **En analys vinner över ett uppslag.** Låset per användare har sorten: en ny analys stoppar allt före den, och ett uppslag under en analys svarar `ai_superseded` direkt i stället för att stoppa analysen.
+- **Varför:** Pontus vill kunna kontrollera tolkningen mot fotot utan att den blir sämre (FR-24, FR-25, AD-9, AD-15).
+- **Alternativ:**
+  - Positioner i samma anrop, som gjorde avläsningen sämre och långsammare.
+  - Rutor, som dubblerade varor i experimentet.
+  - Att vänta med korten tills numren finns, vilket skulle göra varje foto ungefär 10 s långsammare.
+
 ## 2026-10-26 – Lagningsstatus, förslag och Lägg i lagret följer valt ställe (Story 8.3)
 
 - **Underlag:** specen `spec-8-3-lagningsstatus-forslag-och-lagg-i-lagret-foljer-valt-stalle.md`, där besluten var förslag, och AD-24.

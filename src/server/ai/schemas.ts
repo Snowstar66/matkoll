@@ -271,6 +271,60 @@ export function parseAnalyzeItems(items: readonly unknown[]): { items: AiPantryI
   return { items: groups.map(mergeCopies), invalid, repeated };
 }
 
+/** The coordinate range of a point on the photo, in thousandths of its width and height (Story 6.6). */
+export const maxPositionCoordinate = 1000;
+
+/**
+ * What the model answers to locateItems (Story 6.6): one point per numbered
+ * label, `n` the label's number and `position` [x, y] for the item's middle
+ * in thousandths (0–1000) from the photo's top left corner. Types only, so
+ * strict JSON schemas take it, and one bad point never makes the whole
+ * answer invalid: each is checked on its own (parseItemPositions).
+ */
+export const locateItemsAnswer = z.object({
+  positions: z
+    .array(
+      z.object({
+        n: z.number().describe("Varans nummer i listan"),
+        position: z.array(z.number()).describe("[x, y] för varans mitt, i tusendelar (0–1000)"),
+      }),
+    )
+    .describe("En post per nummer i listan, i samma ordning"),
+});
+
+/** One item's point as the port returns it: its number in the list and the point in thousandths. */
+export type ItemPosition = { n: number; x: number; y: number };
+
+const coordinate = z.number().min(0).max(maxPositionCoordinate);
+
+/**
+ * The points of an answer that are valid for `count` labels, sorted by
+ * number, and how many were not (`invalid`): `n` must be a whole number from
+ * 1 to `count` and `position` exactly two numbers from 0 to 1000. A second
+ * point for the same number is invalid too; the first one is kept.
+ */
+export function parseItemPositions(
+  entries: readonly unknown[],
+  count: number,
+): { positions: ItemPosition[]; invalid: number } {
+  const entry = z.object({
+    n: z.number().int().min(1).max(count),
+    position: z.tuple([coordinate, coordinate]),
+  });
+  const byNumber = new Map<number, ItemPosition>();
+  let invalid = 0;
+  for (const candidate of entries) {
+    const parsed = entry.safeParse(candidate);
+    if (!parsed.success || byNumber.has(parsed.data.n)) {
+      invalid++;
+      continue;
+    }
+    const [x, y] = parsed.data.position;
+    byNumber.set(parsed.data.n, { n: parsed.data.n, x, y });
+  }
+  return { positions: [...byNumber.values()].sort((a, b) => a.n - b.n), invalid };
+}
+
 export type AiIngredientHint = z.infer<typeof aiIngredientHint>;
 export type AiRecipeIngredient = z.infer<typeof aiRecipeIngredient>;
 export type AiRecipe = z.infer<typeof aiRecipe>;
@@ -279,3 +333,4 @@ export type SuggestDishesAnswer = z.infer<typeof suggestDishesAnswer>;
 export type AiPantryItem = z.output<typeof aiPantryItem>;
 export type PantryItemConfidence = (typeof pantryItemConfidences)[number];
 export type AnalyzeImageAnswer = z.infer<typeof analyzeImageAnswer>;
+export type LocateItemsAnswer = z.infer<typeof locateItemsAnswer>;

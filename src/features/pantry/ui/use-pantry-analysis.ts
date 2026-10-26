@@ -13,6 +13,7 @@ import {
   type AnalyzeResult,
   type PantrySuggestion,
 } from "../domain/pantry-suggestion";
+import { locateResultSchema, pointsByNumber, type PhotoNumbers } from "../domain/photo-numbers";
 import { groupSuggestions, type MissingItem } from "../domain/place-inventory";
 
 // The state of "Fotografera kylen" (FR-24, AD-2, AD-15, AD-18), held by
@@ -28,18 +29,32 @@ import { groupSuggestions, type MissingItem } from "../domain/place-inventory";
 // The photo during review (quick fix after Story 6.5): the resized photo
 // that was sent for an answer with cards is kept as an object URL
 // (reviewPhoto), so Pontus can check the reading against it. It stays in this
-// browser's memory only (AD-15 forbids storing it, not holding it): never
-// uploaded again, never in localStorage or IndexedDB. It lives as long as the
-// answer: when every card is handled it is only hidden, so "Ångra" brings the
-// cards back with it. Its URL is revoked once a new answer has replaced it
-// (after React has committed the new one, so no <img> shows a revoked URL)
-// and when Hemma is left, both by the effect keyed on it.
+// browser's memory only (AD-15 forbids storing it, not holding it): never in
+// localStorage or IndexedDB. It lives as long as the answer: when every card
+// is handled it is only hidden, so "Ångra" brings the cards back with it. Its
+// URL is revoked once a new answer has replaced it (after React has committed
+// the new one, so no <img> shows a revoked URL) and when Hemma is left, both
+// by the effect keyed on it.
+//
+// Nummer på fotot (Story 6.6): once the cards are shown, the same resized
+// photo is sent once more, with the answer's `reading`, to /api/ai/locate in
+// the background, and the points that come back are the photo's numbers
+// (ReviewPhoto.numbers), which the cards and the large photo show. The cards
+// never wait for them. A new photo and leaving Hemma stop the lookup; a
+// lookup that fails or is stopped leaves the photo without numbers, and
+// nothing is shown for it.
 
 /** A resized photo, the place it shows and its size in pixels when it can be read from the file. */
 type KeptPhoto = { image: Blob; location: Location; size: ImageSize | null };
 
-/** The photo an answer was read from, as an object URL, with its size in pixels when known. */
-export type ReviewPhoto = { url: string; size: ImageSize | null };
+/**
+ * The photo an answer was read from, as an object URL, with its size in
+ * pixels when known, and its numbers (Story 6.6): being looked up, none, or
+ * the points by item number.
+ */
+export type ReviewPhoto = { url: string; size: ImageSize | null; numbers: PhotoNumbers };
+
+const noNumbers: PhotoNumbers = { kind: "none" };
 
 /**
  * Why an analysis gave no cards: the photo showed no food, its items could
@@ -141,12 +156,57 @@ export function usePantryAnalysis(): PantryAnalysis {
   const request = useRef<AbortController | null>(null);
   const cameraAreaRef = useRef<HTMLDivElement | null>(null);
   const cameraButtonRef = useRef<HTMLButtonElement | null>(null);
+  /** The lookup of the numbers on the photo on its way (Story 6.6); `null` once it has answered or been stopped. */
+  const locateRequest = useRef<AbortController | null>(null);
 
-  /** The photo of a new answer, or none: the one before is revoked by the effect below once this is committed. */
-  function setReviewPhoto(kept: KeptPhoto | null) {
+  /**
+   * The photo of a new answer, or none: the one before is revoked by the
+   * effect below once this is committed. Its numbers start as `numbers`.
+   * Returns its URL, or `null` when there is no photo to show.
+   */
+  function setReviewPhoto(kept: KeptPhoto | null, numbers: PhotoNumbers = noNumbers): string | null {
     // A browser without object URLs shows the suggestions without the photo.
     const url = kept && typeof URL.createObjectURL === "function" ? URL.createObjectURL(kept.image) : null;
-    setReviewPhotoState(url ? { url, size: kept?.size ?? null } : null);
+    setReviewPhotoState(url ? { url, size: kept?.size ?? null, numbers } : null);
+    return url;
+  }
+
+  /** Sets the numbers of the photo at `url`, unless another photo has taken its place. */
+  function setNumbers(url: string, numbers: PhotoNumbers) {
+    setReviewPhotoState((current) => (current && current.url === url ? { ...current, numbers } : current));
+  }
+
+  /** Stops the lookup on its way; a photo still waiting for it gets no numbers. */
+  function stopLocating() {
+    if (!locateRequest.current) return;
+    locateRequest.current.abort();
+    locateRequest.current = null;
+    setReviewPhotoState((current) => (current?.numbers.kind === "pending" ? { ...current, numbers: noNumbers } : current));
+  }
+
+  /**
+   * Story 6.6: the same photo and the answer's reading to /api/ai/locate, in
+   * the background. The points become the numbers of the photo at `url`. Any
+   * failure (the model, the time, a newer run, an answer the schema refuses)
+   * leaves it without numbers; nothing is shown for it.
+   */
+  async function locate(kept: KeptPhoto, labels: readonly string[], url: string) {
+    const controller = new AbortController();
+    locateRequest.current = controller;
+    const form = new FormData();
+    form.append("image", kept.image, "photo");
+    form.append("labels", JSON.stringify(labels));
+    let answer: AiCallResult<unknown>;
+    try {
+      answer = await postAiForm<unknown>("/api/ai/locate", form, controller.signal);
+    } catch {
+      answer = fail("ai_unavailable");
+    }
+    // Stopped by a new photo or by leaving Hemma: the one that stopped it has set the numbers.
+    if (locateRequest.current !== controller || controller.signal.aborted) return;
+    locateRequest.current = null;
+    const parsed = answer.ok ? locateResultSchema.safeParse(answer.data) : null;
+    setNumbers(url, parsed?.success ? { kind: "ready", points: pointsByNumber(parsed.data) } : noNumbers);
   }
 
   // Each URL is revoked exactly once: after the commit that replaced it, or when Hemma is left.
@@ -189,6 +249,8 @@ export function usePantryAnalysis(): PantryAnalysis {
     () => () => {
       request.current?.abort();
       request.current = null;
+      locateRequest.current?.abort();
+      locateRequest.current = null;
       setAnalyzing(false);
       generation.current += 1;
       latest.current = null;
@@ -203,9 +265,10 @@ export function usePantryAnalysis(): PantryAnalysis {
     [],
   );
 
-  /** Starts a new analysis, stopping the one before: a new photo wins. */
+  /** Starts a new analysis, stopping the one before and the lookup of numbers: a new photo wins. */
   function start(): AbortController {
     request.current?.abort();
+    stopLocating();
     const controller = new AbortController();
     request.current = controller;
     setAnalyzing(true);
@@ -261,7 +324,12 @@ export function usePantryAnalysis(): PantryAnalysis {
       setPhoto(null);
       const groups = groupSuggestions(parsed.data);
       const hasCards = groups.added.length + groups.changed.length + groups.missing.length > 0;
-      setReviewPhoto(hasCards ? kept : null);
+      // Story 6.6: numbers only for cards that come from the reading.
+      const reading = parsed.data.reading ?? [];
+      const numbered = reading.length > 0 && groups.added.length + groups.changed.length > 0;
+      const url = setReviewPhoto(hasCards ? kept : null, numbered ? { kind: "pending" } : noNumbers);
+      // The cards first: the lookup starts only now that they are on their way to the screen.
+      if (url && numbered) void locate(kept, reading, url);
       if (hasCards) {
         // Cards to show, also "Syns inte längre" alone for a photo without usable items of a place with items (Story 6.4).
         setArrivals((count) => count + 1);

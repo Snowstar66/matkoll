@@ -6,6 +6,8 @@ import { fail, ok, type Result } from "@/lib/errors";
 import { createClient } from "@/lib/supabase/server";
 import { getAiService, minLoopRepeats, type ImageInput } from "@/server/ai";
 import { PantryDataError } from "../data/client";
+import { readingLabel } from "../domain/photo-numbers";
+import { finishRun, startRun } from "./ai-runs";
 import { listPantryIn } from "../data/queries";
 import { compareWithPlace, placeInventorySchema, withoutComparison } from "../domain/place-inventory";
 import type { PantryItem } from "../domain/pantry-item";
@@ -31,14 +33,6 @@ export const postModelMarginMs = 5_000;
 
 /** Less time than this left before the deadline: a read after the model is not started. */
 export const minReadMs = 2_000;
-
-/**
- * The analysis on its way per user, in this server process only (a second
- * server instance has its own): a new photo stops the one before, which then
- * answers `ai_superseded`, so one person never keeps the local model busy
- * twice (a second tab, a double tap that got past the client).
- */
-const runs = new Map<string, AbortController>();
 
 /** Runs a catalog read; a failed query becomes `catalog_unavailable`, anything else is a bug and is thrown. */
 async function fromCatalog<T>(read: () => Promise<T>): Promise<Result<T>> {
@@ -112,7 +106,8 @@ export type AnalyzePlaceOptions = {
  * is `ai_unavailable`, one stopped by a newer analysis of the same user is
  * `ai_superseded`, and nothing more is read. With less than minReadMs left
  * before the deadline, a read the answer needs is `ai_unavailable`. Never
- * writes (AD-2).
+ * writes (AD-2). Story 6.6: the answer has the items in reading order
+ * (`reading`), and each suggestion the numbers of its items in it.
  */
 export async function analyzePlace(
   input: AnalyzePlaceInput,
@@ -121,9 +116,8 @@ export async function analyzePlace(
   const user = await requireUser();
   if (!user.ok) return user;
 
-  runs.get(user.data.id)?.abort();
-  const own = new AbortController();
-  runs.set(user.data.id, own);
+  // An analysis always starts: it stops any run of the same user on its way (ai-runs.ts).
+  const own = startRun(user.data.id, "analyze") ?? new AbortController();
   try {
     const result = await analyze(input, AbortSignal.any([signal, own.signal]), deadline);
     if (own.signal.aborted && !signal.aborted) {
@@ -132,7 +126,7 @@ export async function analyzePlace(
     }
     return result;
   } finally {
-    if (runs.get(user.data.id) === own) runs.delete(user.data.id);
+    finishRun(user.data.id, own);
   }
 }
 
@@ -203,11 +197,21 @@ async function analyze(
   // The schema the client checks: a comparison that would not pass (a row the
   // domain cannot read) is left out, never the whole answer, and the
   // suggestions are then outside any comparison.
+  // Story 6.6: the items in reading order, also those left out, so a card's
+  // number (itemNumbers) is its items' place in this list. The client sends it
+  // back with the photo to /api/ai/locate.
+  const reading = items.map((item) => readingLabel(item.label));
   if (!placeInventorySchema.safeParse(compared.inventory).success) {
     console.error("analyze_inventory_invalid");
-    return ok({ location, suggestions: suggestions.map(withoutComparison), dropped, inventory: { kind: "unread" } });
+    return ok({
+      location,
+      suggestions: suggestions.map(withoutComparison),
+      dropped,
+      inventory: { kind: "unread" },
+      reading,
+    });
   }
-  return ok({ location, suggestions: compared.suggestions, dropped, inventory: compared.inventory });
+  return ok({ location, suggestions: compared.suggestions, dropped, inventory: compared.inventory, reading });
 }
 
 /** Counts only, never the items or their names. */

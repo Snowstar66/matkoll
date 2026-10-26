@@ -48,6 +48,13 @@ export {
   type InventoryRequest,
 } from "./domain/place-inventory";
 export {
+  locateLabelsSchema,
+  locateResultSchema,
+  readingLabel,
+  type LocateResult,
+  type PhotoPoint,
+} from "./domain/photo-numbers";
+export {
   analyzeResultSchema,
   pantrySuggestionSchema,
   toPantrySuggestions,

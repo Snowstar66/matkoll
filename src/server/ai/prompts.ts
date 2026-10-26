@@ -1,4 +1,5 @@
 import analyzeImagePrompt from "./prompts/analyze-image.md?raw";
+import locateItemsPrompt from "./prompts/locate-items.md?raw";
 import parseRecipePrompt from "./prompts/parse-recipe.md?raw";
 import suggestDishesPrompt from "./prompts/suggest-dishes.md?raw";
 
@@ -9,4 +10,5 @@ export const prompts = {
   parseRecipe: parseRecipePrompt,
   suggestDishes: suggestDishesPrompt,
   analyzeImage: analyzeImagePrompt,
+  locateItems: locateItemsPrompt,
 } as const;

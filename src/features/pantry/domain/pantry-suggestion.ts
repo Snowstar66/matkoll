@@ -33,6 +33,7 @@ import {
   withoutComparison,
   type PlaceStock,
 } from "./place-inventory";
+import { readingLabelSchema } from "./photo-numbers";
 import { definite } from "./places";
 
 // Lagerförslag (FR-24, AD-6, AD-12, AD-19): what a photo of a place at home
@@ -142,6 +143,12 @@ export const pantrySuggestionSchema = z
     labels: z.array(z.string().trim().min(1).max(maxSuggestionLabelChars)).max(maxSuggestionLabels).optional(),
     /** Story 6.5: some item behind it was the model's guess ("osäker"): "Bekräfta alla" leaves it out. */
     uncertain: z.boolean().optional(),
+    /**
+     * Story 6.6: the numbers of the items behind the suggestion in the
+     * reading (`reading` of the answer, from 1), in order; the first is the
+     * card's number on the photo.
+     */
+    itemNumbers: z.array(z.number().int().min(1).max(maxPantrySuggestions)).max(maxPantrySuggestions).optional(),
   })
   .refine(amountHasUnit, { path: ["unit"] });
 export type PantrySuggestion = z.infer<typeof pantrySuggestionSchema>;
@@ -159,6 +166,12 @@ export const analyzeResultSchema = z.object({
   dropped: z.number().int().min(0),
   /** How the photo compares with what the place has (Story 6.4). */
   inventory: placeInventorySchema,
+  /**
+   * Story 6.6: the AI's items in reading order, as one-line labels: item n is
+   * reading[n − 1], also the ones left out of the suggestions. Sent back with
+   * the photo to /api/ai/locate for the numbers on the photo.
+   */
+  reading: z.array(readingLabelSchema).max(maxPantrySuggestions).optional(),
 });
 export type AnalyzeResult = z.infer<typeof analyzeResultSchema>;
 
@@ -201,6 +214,8 @@ type Group = {
   labels: string[];
   /** Some item was the model's guess. */
   uncertain: boolean;
+  /** Story 6.6: the items' numbers in the reading (index + 1), in order. */
+  itemNumbers: number[];
 };
 
 /** A label as compared with the others of a suggestion: lower case, one space between words. */
@@ -251,6 +266,8 @@ export type ToSuggestionsOptions = {
  * - Story 6.5: the items' different labels (at most maxSuggestionLabels) for
  *   the card's title, and `uncertain` when any of its items was the model's
  *   guess, since the summed amount then rests on it too;
+ * - Story 6.6: the numbers of its items in `items` (index + 1, the reading
+ *   order), so the card and the photo can show the same number;
  * - sorted by name (Swedish order), with the ids s1, s2 ….
  */
 export function toPantrySuggestions(
@@ -291,10 +308,19 @@ export function toPantrySuggestions(
     }
     let group = groups.get(key);
     if (!group) {
-      group = { name, ingredient: ingredient(), byUnit: new Map<Unit, number>(), unknown: false, labels: [], uncertain: false };
+      group = {
+        name,
+        ingredient: ingredient(),
+        byUnit: new Map<Unit, number>(),
+        unknown: false,
+        labels: [],
+        uncertain: false,
+        itemNumbers: [],
+      };
       groups.set(key, group);
     }
     addLabel(group, item.label);
+    group.itemNumbers.push(index + 1);
     if (item.confidence === "osäker") group.uncertain = true;
     const amount = readAmount(item);
     if (amount.kind === "unknown") group.unknown = true;
@@ -303,9 +329,9 @@ export function toPantrySuggestions(
 
   const stocks = current ? stockByIngredient(current) : new Map<string, PlaceStock>();
   const suggestions: Omit<PantrySuggestion, "id">[] = [];
-  for (const { name, ingredient, byUnit, unknown, labels, uncertain } of groups.values()) {
+  for (const { name, ingredient, byUnit, unknown, labels, uncertain, itemNumbers } of groups.values()) {
     const stock = ingredient.kind === "existing" ? (stocks.get(ingredient.ingredientId) ?? null) : null;
-    const base = { name, ingredient, location, current: stock, change: null, replaces: [], labels, uncertain };
+    const base = { name, ingredient, location, current: stock, change: null, replaces: [], labels, uncertain, itemNumbers };
     if (stock?.unlimited || unknown) {
       suggestions.push({ ...base, ...unlimited });
     } else if (byUnit.size > 0) {

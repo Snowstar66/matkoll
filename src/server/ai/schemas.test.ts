@@ -4,9 +4,11 @@ import {
   aiPantryItem,
   aiRecipe,
   analyzeImageAnswer,
+  locateItemsAnswer,
   maxPantryItemTextChars,
   minLoopRepeats,
   parseAnalyzeItems,
+  parseItemPositions,
   parseRecipeAnswer,
   suggestDishesAnswer,
   suggestDishesAnswerFor,
@@ -277,5 +279,66 @@ describe("analyzeImageAnswer and aiPantryItem", () => {
     expect(items.items.required.sort()).toEqual(["amount", "confidence", "hint", "label", "unit"]);
     expect(JSON.stringify(schema)).toContain('"enum":["säker","osäker"]');
     expect(JSON.stringify(schema)).not.toMatch(/"default"|"minLength"|"maxLength"|"minimum"|"exclusiveMinimum"/);
+  });
+});
+
+describe("locateItemsAnswer and parseItemPositions (Story 6.6)", () => {
+  it("takes any list of numbers and points as a whole, so one bad point never fails the answer", () => {
+    expect(locateItemsAnswer.safeParse({ positions: [{ n: 99, position: [1, 2, 3] }] }).success).toBe(true);
+    expect(locateItemsAnswer.safeParse({ positions: [] }).success).toBe(true);
+    expect(locateItemsAnswer.safeParse({ points: [] }).success).toBe(false);
+    expect(locateItemsAnswer.safeParse({ positions: [{ n: "1", position: [1, 2] }] }).success).toBe(false);
+  });
+
+  it("has no tuple, minimum or maximum in its JSON schema, so strict providers take it", () => {
+    const schema = JSON.stringify(z.toJSONSchema(locateItemsAnswer, { io: "input" }));
+    expect(schema).not.toMatch(/prefixItems|minItems|maxItems|minimum|maximum/);
+  });
+
+  it("keeps the points with a whole number within the labels and two coordinates from 0 to 1000, sorted by number", () => {
+    expect(
+      parseItemPositions(
+        [
+          { n: 3, position: [1000, 0] },
+          { n: 1, position: [12.5, 40] },
+        ],
+        3,
+      ),
+    ).toEqual({
+      positions: [
+        { n: 1, x: 12.5, y: 40 },
+        { n: 3, x: 1000, y: 0 },
+      ],
+      invalid: 0,
+    });
+  });
+
+  it.each([
+    ["number 0", { n: 0, position: [1, 1] }],
+    ["a number beyond the labels", { n: 4, position: [1, 1] }],
+    ["a fraction", { n: 1.5, position: [1, 1] }],
+    ["a coordinate over 1000", { n: 1, position: [1001, 1] }],
+    ["a negative coordinate", { n: 1, position: [1, -1] }],
+    ["one coordinate", { n: 1, position: [1] }],
+    ["three coordinates", { n: 1, position: [1, 1, 1] }],
+    ["no position", { n: 1 }],
+    ["not an object", "1: [1, 1]"],
+  ])("leaves out a point with %s and counts it", (_name, point) => {
+    expect(parseItemPositions([point, { n: 2, position: [5, 5] }], 3)).toEqual({
+      positions: [{ n: 2, x: 5, y: 5 }],
+      invalid: 1,
+    });
+  });
+
+  it("keeps the first point for a number given twice and counts the second", () => {
+    expect(
+      parseItemPositions(
+        [
+          { n: 1, position: [1, 1] },
+          { n: 1, position: [9, 9] },
+        ],
+        1,
+      ),
+    ).toEqual({ positions: [{ n: 1, x: 1, y: 1 }], invalid: 1 });
   });
 });

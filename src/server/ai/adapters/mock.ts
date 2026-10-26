@@ -4,7 +4,16 @@ import { readFileSync } from "node:fs";
 import { join } from "node:path";
 import { fail, ok, type ErrorCode } from "@/lib/errors";
 import { normalizeTitle } from "@/lib/suggest-input";
-import { aiRecipe, analyzeImageAnswer, parseAnalyzeItems, suggestDishesAnswer, type AiRecipe } from "../schemas";
+import {
+  aiRecipe,
+  analyzeImageAnswer,
+  locateItemsAnswer,
+  parseAnalyzeItems,
+  parseItemPositions,
+  suggestDishesAnswer,
+  type AiRecipe,
+  type LocateItemsAnswer,
+} from "../schemas";
 import type { AiService, AnalyzeImageResult, ParseRecipeInput, SuggestDishesInput } from "../service";
 
 // Deterministic stand-in for a model, used in all tests and in CI (AD-9). It
@@ -26,8 +35,13 @@ import type { AiService, AnalyzeImageResult, ParseRecipeInput, SuggestDishesInpu
 // so repeated labels are merged and counted as the port does (Story 6.5);
 // the reserved images for ai_unavailable, ai_invalid and
 // ai_rejected give their codes (import_no_recipe means nothing to a photo of
-// a place, so it gets the default answer). The suggest and analyze fixtures
-// are each loaded on their own, so a broken one never breaks an import.
+// a place, so it gets the default answer). locateItems (Story 6.6) answers
+// from the manifest's `locate` part the same way: <name>.locate.json for the
+// photo <name>.png, the default case for any other photo, read through
+// parseItemPositions for the labels given, like a model's answer, and the
+// same reserved images give the same codes. The suggest, analyze and locate
+// fixtures are each loaded on their own, so a broken one never breaks an
+// import.
 
 /** Error codes the mock can be asked to return through a reserved input. */
 export const mockErrorCodes = ["ai_unavailable", "ai_invalid", "ai_rejected", "import_no_recipe"] as const;
@@ -50,6 +64,8 @@ type Manifest = {
   suggestAlternatives?: string[];
   /** analyzeImage: each case is a photo <name>.png with the answer <name>.analyze.json; `default` answers any other photo. */
   analyze?: { default: string; cases: { name: string }[] };
+  /** locateItems: each case is a photo <name>.png with the points <name>.locate.json; `default` answers any other photo. */
+  locate?: { default: string; cases: { name: string }[] };
 };
 
 type Answer = { recipe: AiRecipe } | { code: MockErrorCode };
@@ -66,6 +82,12 @@ type AnalyzeFixtures = {
   /** SHA-256 of the image bytes → the answer or an error code. */
   byKey: Map<string, AnalyzeAnswer | { code: MockErrorCode }>;
   fallback: AnalyzeAnswer;
+};
+
+type LocateFixtures = {
+  /** SHA-256 of the image bytes → the model's points or an error code. */
+  byKey: Map<string, LocateItemsAnswer | { code: MockErrorCode }>;
+  fallback: LocateItemsAnswer;
 };
 
 export const defaultFixturesDir = join(process.cwd(), "tests", "fixtures", "ai");
@@ -157,6 +179,29 @@ function loadAnalyzeFixtures(dir: string): AnalyzeFixtures {
   return { byKey, fallback };
 }
 
+function loadLocateFixtures(dir: string): LocateFixtures {
+  const read = (file: string) => readFileSync(join(dir, file), "utf8");
+  const manifest = JSON.parse(read("manifest.json")) as Manifest;
+  if (!manifest.locate) throw new Error("locate missing");
+  const byKey: LocateFixtures["byKey"] = new Map();
+  const answers = new Map<string, LocateItemsAnswer>();
+  for (const { name } of manifest.locate.cases) {
+    const answer = locateItemsAnswer.parse(JSON.parse(read(`${name}.locate.json`)));
+    // Every point must pass for as many labels as it has points: a fixture is a valid answer.
+    if (parseItemPositions(answer.positions, answer.positions.length).invalid > 0) throw new Error("invalid locate fixture");
+    answers.set(name, answer);
+    byKey.set(sha256(readFileSync(join(dir, `${name}.png`))), answer);
+  }
+  for (const { image, code } of manifest.reservedImages ?? []) {
+    if ((mockAnalyzeErrorCodes as readonly string[]).includes(code)) {
+      byKey.set(sha256(readFileSync(join(dir, image))), { code });
+    }
+  }
+  const fallback = answers.get(manifest.locate.default);
+  if (!fallback) throw new Error("default case missing");
+  return { byKey, fallback };
+}
+
 /** The error code a reserved pantry item asks for, if any. */
 function suggestErrorFor(input: SuggestDishesInput, errors: Map<string, MockErrorCode>): MockErrorCode | undefined {
   for (const item of input.pantry) {
@@ -186,6 +231,7 @@ export function createMockAiService(dir: string = defaultFixturesDir): AiService
   const fixtures = lazily(() => loadFixtures(dir));
   const suggestFixtures = lazily(() => loadSuggestFixtures(dir));
   const analyzeFixtures = lazily(() => loadAnalyzeFixtures(dir));
+  const locateFixtures = lazily(() => loadLocateFixtures(dir));
 
   /** The fixtures, or undefined (logged) when they cannot be read. */
   const logged = <T>(current: T | undefined) => {
@@ -223,6 +269,15 @@ export function createMockAiService(dir: string = defaultFixturesDir): AiService
       if (answer && "code" in answer) return fail(answer.code);
       const { items, repeated } = answer ?? current.fallback;
       return ok({ items: structuredClone(items), invalid: 0, repeated });
+    },
+    async locateItems(input, signal) {
+      if (signal.aborted) return fail("ai_unavailable");
+      const current = logged(locateFixtures());
+      if (!current) return fail("ai_unavailable");
+      const answer = current.byKey.get(sha256(input.image.data));
+      if (answer && "code" in answer) return fail(answer.code);
+      // Like a model's answer: a point for a number beyond the labels is left out and counted.
+      return ok(parseItemPositions((answer ?? current.fallback).positions, input.labels.length));
     },
   };
 }

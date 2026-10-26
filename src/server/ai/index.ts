@@ -10,12 +10,14 @@ export type {
   AnalyzeImageResult,
   AnalyzePlace,
   ImageInput,
+  LocateItemsInput,
+  LocateItemsResult,
   ParseRecipeInput,
   RunOptions,
   SuggestDishesInput,
   SuggestPantryItem,
 } from "./service";
-export type { AiIngredientHint, AiPantryItem, AiRecipe, AiRecipeIngredient } from "./schemas";
+export type { AiIngredientHint, AiPantryItem, AiRecipe, AiRecipeIngredient, ItemPosition } from "./schemas";
 export { minLoopRepeats } from "./schemas";
 
 let service: AiService | undefined;

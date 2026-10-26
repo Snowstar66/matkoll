@@ -41,6 +41,12 @@ export { PantryDataError } from "./data/client";
 export { analyzePlace } from "./actions/analyze-place";
 
 /**
+ * The points of the items on the photo of a place (Story 6.6), for the Route
+ * Handler /api/ai/locate (not a Server Action). Never writes (AD-2).
+ */
+export { locatePlaceItems } from "./actions/locate-place-items";
+
+/**
  * The signed-in user's places, in the order they were created. Memoised per
  * request. Throws PantryDataError.
  */

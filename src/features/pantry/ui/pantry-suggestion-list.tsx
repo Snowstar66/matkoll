@@ -24,7 +24,8 @@ import {
   type PantrySuggestion,
 } from "../domain/pantry-suggestion";
 import { groupSuggestions, type MissingItem } from "../domain/place-inventory";
-import { AnalyzedPhotoButton, AnalyzedPhotoSheet } from "./analyzed-photo";
+import { cardNumber, photoMarkers, photoNumbersStatus, type PhotoPoint } from "../domain/photo-numbers";
+import { AnalyzedPhotoButton, AnalyzedPhotoSheet, PhotoNumberBadge } from "./analyzed-photo";
 import { usePantrySheet } from "./pantry-item-sheet";
 import { usePantrySuggestions } from "./pantry-suggestions";
 import { focusIsFree } from "./use-pantry-analysis";
@@ -72,6 +73,15 @@ import { focusIsFree } from "./use-pantry-analysis";
 // with "Ångra". The sheet sits beside the section, so it stays open when the
 // last card goes while it shows, until Pontus closes it; a focus move asked
 // for meanwhile happens once it has closed.
+//
+// Story 6.6: once the points on the photo have come, each card shown that
+// came from the reading has its number before its title ("Nummer 3 på
+// fotot"), the large photo has the same numbers on the items, and a status
+// under the thumbnail says first that they are looked up and then that they
+// are there. "Syns inte längre" cards have none. Nothing waits for them.
+
+/** No points yet. */
+const noPoints: ReadonlyMap<number, PhotoPoint> = new Map();
 
 export function PantrySuggestionList() {
   const headingId = useId();
@@ -127,6 +137,12 @@ export function PantrySuggestionList() {
     else if (result) announce(suggestionsArrivedText(result.location, cardCount));
   }, [arrivals, result, cardCount, announce, cameraAreaRef]);
 
+  // Story 6.6: the photo's points, once they have come; the cards shown get numbers, and the photo markers.
+  const points: ReadonlyMap<number, PhotoPoint> =
+    reviewPhoto?.numbers.kind === "ready" ? reviewPhoto.numbers.points : noPoints;
+  const numberedCards = groups ? [...groups.added, ...groups.changed] : [];
+  const markers = photoMarkers(numberedCards, points);
+
   // Always in the same place of the tree, with or without the section, so an open sheet stays open.
   const photoSheet =
     reviewPhoto && result ? (
@@ -136,6 +152,7 @@ export function PantrySuggestionList() {
         location={result.location}
         open={photoOpen}
         onClose={() => setOpenPhotoUrl(null)}
+        markers={markers}
       />
     ) : null;
   if (!result || !groups || cardCount === 0) {
@@ -159,6 +176,7 @@ export function PantrySuggestionList() {
       disabled={saving}
       saving={savingIds.has(suggestion.id)}
       invalid={invalidIds.has(suggestion.id)}
+      photoNumber={reviewPhoto ? cardNumber(suggestion, points) : null}
       confirmRef={confirmButtonRef(suggestion.id)}
       onConfirm={() => confirm([suggestion.id])}
       onCorrect={() => openSuggestion(suggestion)}
@@ -178,6 +196,12 @@ export function PantrySuggestionList() {
             location={result.location}
             onOpen={() => setOpenPhotoUrl(reviewPhoto.url)}
           />
+        ) : null}
+        {reviewPhoto ? (
+          // Story 6.6: says politely that the numbers are looked up, and that they have come; empty otherwise.
+          <p role="status" data-testid="pantry-photo-numbers-status" className="text-meta text-ink-2 empty:hidden">
+            {photoNumbersStatus(reviewPhoto.numbers, markers.length > 0)}
+          </p>
         ) : null}
         <Button
           ref={confirmAllRef}
@@ -262,6 +286,8 @@ type SuggestionCardProps = {
   saving: boolean;
   /** It cannot be confirmed as it is: only Rätta and Avvisa. */
   invalid: boolean;
+  /** Story 6.6: its number on the photo, or `null` before the numbers have come or without one. */
+  photoNumber: number | null;
   confirmRef: (button: HTMLButtonElement) => () => void;
   onConfirm: () => void;
   onCorrect: () => void;
@@ -274,6 +300,7 @@ function SuggestionCard({
   disabled,
   saving,
   invalid,
+  photoNumber,
   confirmRef,
   onConfirm,
   onCorrect,
@@ -296,8 +323,9 @@ function SuggestionCard({
   }
   return (
     <li data-testid="pantry-suggestion" className="flex flex-col gap-1 rounded-lg bg-surface p-4">
-      <div className="flex items-start justify-between gap-3">
-        <Heading className="min-w-0 text-row-title break-words text-ink">{title}</Heading>
+      <div className="flex items-start gap-3">
+        {photoNumber === null ? null : <PhotoNumberBadge number={photoNumber} />}
+        <Heading className="min-w-0 flex-1 text-row-title break-words text-ink">{title}</Heading>
         <div className="flex shrink-0 flex-wrap justify-end gap-1">
           {uncertain ? <Badge tone="sky">{uncertainBadgeText}</Badge> : null}
           {ingredient.kind === "new" ? <Badge tone="neutral">Ny</Badge> : null}

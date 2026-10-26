@@ -12,6 +12,7 @@ import {
   analyzedPhotoOpenText,
   analyzedPhotoTitle,
 } from "../domain/pantry-suggestion";
+import { photoNumberText, type PhotoMarker } from "../domain/photo-numbers";
 import type { ReviewPhoto } from "./use-pantry-analysis";
 
 // The photo during review (quick fix after Story 6.5): at the top of
@@ -23,6 +24,10 @@ import type { ReviewPhoto } from "./use-pantry-analysis";
 // so small print can be read. A photo the browser cannot show says so
 // instead. The URL is an object URL owned by usePantryAnalysis, in this
 // browser's memory only (AD-15).
+//
+// Story 6.6: once the points have come, the large photo has a round number
+// on each item of a card shown, and the card the same number
+// (PhotoNumberBadge). The thumbnail has none: at 72 px they cannot be read.
 
 export type AnalyzedPhotoButtonProps = {
   photo: ReviewPhoto;
@@ -70,18 +75,41 @@ export function AnalyzedPhotoButton({ photo, location, onOpen }: AnalyzedPhotoBu
   );
 }
 
+/** A card's number and a marker on the photo look alike (Story 6.6): a round number in the accent colour. */
+const numberClasses =
+  "inline-flex h-7 min-w-7 shrink-0 items-center justify-center rounded-full bg-accent px-1.5 text-badge text-on-accent";
+
+/**
+ * A card's number on the photo (Story 6.6): the number to see, and "Nummer
+ * 3 på fotot" for a screen reader, which cannot see the markers.
+ */
+export function PhotoNumberBadge({ number }: { number: number }) {
+  return (
+    <span data-testid="pantry-photo-number" className={numberClasses}>
+      <span aria-hidden="true">{number}</span>
+      <span className="sr-only">{photoNumberText(number)}</span>
+    </span>
+  );
+}
+
 export type AnalyzedPhotoSheetProps = {
   photo: ReviewPhoto;
   location: Location;
   open: boolean;
   onClose: () => void;
+  /** Story 6.6: the cards' numbers on the photo, in percent of its width and height; none before they have come. */
+  markers?: readonly PhotoMarker[];
 };
 
 /**
  * The photo larger. Key it on the URL, so a new photo starts closed and
- * fitted, and an open sheet never changes to another photo.
+ * fitted, and an open sheet never changes to another photo. Story 6.6: the
+ * markers sit on a box with the photo's own size or proportions, placed in
+ * percent, so they stay on their items both fitted and in full size. They
+ * are hidden from screen readers: the cards carry the numbers. Without a
+ * known size there is no such box, and no markers.
  */
-export function AnalyzedPhotoSheet({ photo, location, open, onClose }: AnalyzedPhotoSheetProps) {
+export function AnalyzedPhotoSheet({ photo, location, open, onClose, markers = [] }: AnalyzedPhotoSheetProps) {
   const [failed, setFailed] = useState(false);
   const [fullSize, setFullSize] = useState(false);
   const { size } = photo;
@@ -117,21 +145,40 @@ export function AnalyzedPhotoSheet({ photo, location, open, onClose }: AnalyzedP
           onClick={() => setFullSize((full) => !full)}
           className={cx("block rounded-md", fullSize ? "w-max" : "w-full")}
         >
-          {/* eslint-disable-next-line @next/next/no-img-element */}
-          <img
-            src={photo.url}
-            alt={analyzedPhotoAlt(location)}
-            width={size?.width}
-            height={size?.height}
-            draggable={false}
-            onError={() => setFailed(true)}
-            style={style}
-            className={cx(
-              "block rounded-md",
-              fullSize ? "max-w-none" : "mx-auto h-auto",
-              !size && !fullSize && "max-h-[70dvh] w-auto max-w-full",
-            )}
-          />
+          {size ? (
+            <span data-testid="pantry-photo-frame" style={style} className={cx("relative block", !fullSize && "mx-auto")}>
+              {/* eslint-disable-next-line @next/next/no-img-element */}
+              <img
+                src={photo.url}
+                alt={analyzedPhotoAlt(location)}
+                width={size.width}
+                height={size.height}
+                draggable={false}
+                onError={() => setFailed(true)}
+                className="block size-full max-w-none rounded-md"
+              />
+              {markers.map((marker) => (
+                <span
+                  key={marker.key}
+                  aria-hidden="true"
+                  data-testid="pantry-photo-marker"
+                  style={{ left: `${marker.left}%`, top: `${marker.top}%` }}
+                  className={cx(numberClasses, "pointer-events-none absolute -translate-x-1/2 -translate-y-1/2 border-2 border-surface")}
+                >
+                  {marker.label}
+                </span>
+              ))}
+            </span>
+          ) : (
+            // eslint-disable-next-line @next/next/no-img-element
+            <img
+              src={photo.url}
+              alt={analyzedPhotoAlt(location)}
+              draggable={false}
+              onError={() => setFailed(true)}
+              className={cx("block rounded-md", fullSize ? "max-w-none" : "mx-auto max-h-[70dvh] w-auto max-w-full")}
+            />
+          )}
         </button>
       )}
     </Sheet>

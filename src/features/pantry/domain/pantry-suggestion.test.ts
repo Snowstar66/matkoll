@@ -130,6 +130,7 @@ describe("toPantrySuggestions", () => {
       replaces: [],
       labels: ["Arla mellanmjölk"],
       uncertain: false,
+      itemNumbers: [1],
     });
     expect(suggestions[1].ingredient).toEqual({
       kind: "new",
@@ -141,6 +142,22 @@ describe("toPantrySuggestions", () => {
     });
     // Only an ingredient the place has shows what it has.
     expect(suggestions.filter((suggestion) => suggestion.current !== null).map(({ name }) => name)).toEqual(["mjölk"]);
+    for (const suggestion of suggestions) expect(pantrySuggestionSchema.safeParse(suggestion).success).toBe(true);
+  });
+
+  it("gives each suggestion the numbers of its items in reading order, the same on both units of one ingredient (Story 6.6)", () => {
+    const items = [
+      item("Arla mellanmjölk", 1, "förp", "mjölk"),
+      item("?", 1, "st"),
+      item("Smör", 1, "förp"),
+      item("ICA mellanmjölk", 1, "l", "mjölk"),
+    ];
+    const suggestions = suggest(items, [match(mjolk), { kind: "unmatched" }, match(smor), match(mjolk)]);
+    expect(suggestions.map(({ name, unit, itemNumbers }) => [name, unit, itemNumbers])).toEqual([
+      ["mjölk", "förp", [1, 4]],
+      ["mjölk", "l", [1, 4]],
+      ["smör", "förp", [3]],
+    ]);
     for (const suggestion of suggestions) expect(pantrySuggestionSchema.safeParse(suggestion).success).toBe(true);
   });
 
@@ -390,6 +407,50 @@ describe("pantrySuggestionSchema labels and uncertain (Story 6.5)", () => {
     ["a flag that is not a boolean", { uncertain: "osäker" }],
   ])("refuses %s", (_name, change) => {
     expect(pantrySuggestionSchema.safeParse({ ...suggestion, ...change }).success).toBe(false);
+  });
+});
+
+describe("item numbers and the reading (Story 6.6)", () => {
+  const suggestion = {
+    id: "s1",
+    name: "mjölk",
+    ingredient: { kind: "existing", ingredientId: mjolk },
+    location: "Kyl",
+    amount: 1,
+    unit: "förp",
+    current: null,
+    change: null,
+    replaces: [],
+  };
+  const result = { location: "Kyl", suggestions: [], dropped: 0, inventory: { kind: "empty" } };
+
+  it("takes a suggestion's item numbers 1 to 25, and none", () => {
+    expect(pantrySuggestionSchema.safeParse({ ...suggestion, itemNumbers: [1, 25] }).success).toBe(true);
+    expect(pantrySuggestionSchema.safeParse({ ...suggestion, itemNumbers: [] }).success).toBe(true);
+  });
+
+  it.each([
+    ["number 0", [0]],
+    ["number 26", [26]],
+    ["a fraction", [1.5]],
+    ["26 numbers", Array.from({ length: 26 }, () => 1)],
+  ])("refuses item numbers with %s", (_name, itemNumbers) => {
+    expect(pantrySuggestionSchema.safeParse({ ...suggestion, itemNumbers }).success).toBe(false);
+  });
+
+  it("takes a reading of up to 25 one-line labels, and an answer without one", () => {
+    expect(analyzeResultSchema.safeParse(result).success).toBe(true);
+    expect(analyzeResultSchema.safeParse({ ...result, reading: Array.from({ length: 25 }, () => "Mjölk") }).success).toBe(true);
+  });
+
+  it.each([
+    ["26 labels", Array.from({ length: 26 }, () => "Mjölk")],
+    ["an empty label", [""]],
+    ["a line break", ["Arla\nmjölk"]],
+    ["spaces around", [" Mjölk"]],
+    ["a label over 200 characters", ["x".repeat(201)]],
+  ])("refuses a reading with %s", (_name, reading) => {
+    expect(analyzeResultSchema.safeParse({ ...result, reading }).success).toBe(false);
   });
 });
 

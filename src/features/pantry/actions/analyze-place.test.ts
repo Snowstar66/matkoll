@@ -135,7 +135,28 @@ describe("analyzePlace", () => {
     });
   });
 
-  it("never writes: no catalog commit and no use of the session client beyond the stubbed reads", async () => {
+  it("gives the items in reading order and each suggestion the numbers of its items in it (Story 6.6)", async () => {
+    const result = await analyzePlace({ image: kyl, location: "Kyl" }, { signal: signal() });
+    if (!result.ok) throw new Error(result.error.code);
+    expect(result.data.reading).toEqual(["Mellanmjölk 1,5 %", "Vispgrädde 3 dl", "Smör 500 g", "Ägg", "Gurka", "Ketchup"]);
+    expect(result.data.suggestions.map(({ name, itemNumbers }) => [name, itemNumbers])).toEqual([
+      ["grädde", [2]],
+      ["gurka", [5]],
+      ["ketchup", [6]],
+      ["Mjölk", [1]],
+      ["Smör", [3]],
+      ["ägg", [4]],
+    ]);
+  });
+
+  it("puts each label of the reading on one line, and gives an item with nothing left of its label the word vara", async () => {
+    const [first, second] = fixture;
+    analyzeImage.mockResolvedValueOnce(answer([{ ...first, label: "Arla\nmellanmjölk\t1,5 l" }, { ...second, label: "\u200b" }]));
+    const result = await analyzePlace({ image: kyl, location: "Kyl" }, { signal: signal() });
+    expect(result.ok && result.data.reading).toEqual(["Arla mellanmjölk 1,5 l", "vara"]);
+  });
+
+  it("never writes): no catalog commit and no use of the session client beyond the stubbed reads", async () => {
     expect((await analyzePlace({ image: kyl, location: "Kyl" }, { signal: signal() })).ok).toBe(true);
     expect(commitIngredients).not.toHaveBeenCalled();
     expect(db.from).not.toHaveBeenCalled();
@@ -160,7 +181,7 @@ describe("analyzePlace", () => {
   it("gives an empty list for a photo without food, without asking the catalog, compared with an empty place", async () => {
     listPantryIn.mockResolvedValueOnce([]);
     const result = await analyzePlace({ image: photo("tom-hylla.png"), location: "Frys" }, { signal: signal() });
-    expect(result).toEqual(ok({ location: "Frys", suggestions: [], dropped: 0, inventory: { kind: "empty" } }));
+    expect(result).toEqual(ok({ location: "Frys", suggestions: [], dropped: 0, inventory: { kind: "empty" }, reading: [] }));
     expect(matchIngredients).not.toHaveBeenCalled();
     expect(getIngredientNames).not.toHaveBeenCalled();
   });
@@ -375,7 +396,13 @@ describe("analyzePlace", () => {
   it("counts invalid items also when none is left", async () => {
     analyzeImage.mockResolvedValueOnce(answer([], 2));
     expect(await analyzePlace({ image: kyl, location: "Kyl" }, { signal: signal() })).toEqual(
-      ok({ location: "Kyl", suggestions: [], dropped: 2, inventory: expect.objectContaining({ kind: "compared", incomplete: true }) }),
+      ok({
+        location: "Kyl",
+        suggestions: [],
+        dropped: 2,
+        inventory: expect.objectContaining({ kind: "compared", incomplete: true }),
+        reading: [],
+      }),
     );
     expect(matchIngredients).not.toHaveBeenCalled();
   });

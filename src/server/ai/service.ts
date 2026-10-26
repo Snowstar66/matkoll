@@ -19,11 +19,15 @@ import { prompts } from "./prompts";
 import { defaultLimits, runStructured, type Limits, type ModelTarget } from "./run";
 import {
   analyzeImageAnswer,
+  locateItemsAnswer,
+  maxPantryItemTextChars,
   parseAnalyzeItems,
+  parseItemPositions,
   parseRecipeAnswer,
   suggestDishesAnswerFor,
   type AiPantryItem,
   type AiRecipe,
+  type ItemPosition,
 } from "./schemas";
 
 // The AI port (AD-9). Modules call these methods and never see the provider.
@@ -80,6 +84,25 @@ export type AnalyzeImageInput = {
   place: AnalyzePlace;
 };
 
+export type LocateItemsInput = {
+  /** The same photo analyzeImage read, as the client sent it (AD-15). Never stored or logged. */
+  image: ImageInput;
+  /**
+   * The items read from it, in reading order: item n is labels[n - 1]. Text
+   * from the model on one line (cleanModelText), at most
+   * inputLimits.locate.maxLabels of at most maxPantryItemTextChars each.
+   * Data for the model, never instructions.
+   */
+  labels: string[];
+};
+
+/**
+ * What locateItems answers (Story 6.6): the valid points, by number, and how
+ * many the model gave that were not valid (`invalid`). Items without a point
+ * are simply missing.
+ */
+export type LocateItemsResult = { positions: ItemPosition[]; invalid: number };
+
 export interface AiService {
   /**
    * Fails with `validation` (input outside the limits below), `import_no_recipe`
@@ -104,6 +127,18 @@ export interface AiService {
    * `ai_rejected` or `ai_invalid` (the answer as a whole is broken).
    */
   analyzeImage(input: AnalyzeImageInput, signal: AbortSignal, options?: RunOptions): Promise<Result<AnalyzeImageResult>>;
+  /**
+   * Where on the photo each of the numbered labels is (Story 6.6): a second
+   * call after analyzeImage with the same photo, which never changes the
+   * reading. One point [x, y] in thousandths per label, each checked on its
+   * own (parseItemPositions): a bad one is left out and counted in
+   * `invalid`. Its own short budget (locateLimitsFrom: one attempt of at most
+   * 30 s), since the numbers are extra. Fails with `validation` (an image or
+   * labels outside the limits), `ai_unavailable` (also when the deadline
+   * leaves too little time), `ai_rejected` or `ai_invalid` (the answer as a
+   * whole is broken).
+   */
+  locateItems(input: LocateItemsInput, signal: AbortSignal, options?: RunOptions): Promise<Result<LocateItemsResult>>;
 }
 
 /**
@@ -139,6 +174,15 @@ export const inputLimits = {
    * more are cut by the caller, not refused.
    */
   analyze: { maxItems: 25, maxOutputTokens: 3_000 },
+  /**
+   * locateItems (Story 6.6), measured with Qwen3.6 in LM Studio on Pontus's
+   * photo at 2048 px (2026-10-26): 20 points were 390 tokens of answer, in
+   * about 10 s with a warm model and 24 s on the first, cold call. At most
+   * as many labels as analyze keeps items, each a label as the port keeps it,
+   * so 1 000 tokens leave room for 25. One attempt of at most 30 s: the
+   * numbers are extra, so failing fast is better than keeping the model busy.
+   */
+  locate: { maxLabels: 25, maxLabelChars: maxPantryItemTextChars, maxOutputTokens: 1_000, attemptMs: 30_000 },
 } as const;
 
 /** True for an image that is not empty, at most maxImageBytes and of a type the port takes. */
@@ -158,6 +202,33 @@ export function isValidParseRecipeInput(input: ParseRecipeInput): boolean {
 /** True for an image within the limits and one of the three places. */
 export function isValidAnalyzeImageInput(input: AnalyzeImageInput): boolean {
   return isValidImage(input.image) && (analyzePlaces as readonly string[]).includes(input.place);
+}
+
+/** True for one label as locateItems takes it: on one line (cleanModelText leaves it as it is), not empty, at most maxLabelChars. */
+export function isValidLocateLabel(label: string): boolean {
+  return label !== "" && label === cleanModelText(label) && label.length <= inputLimits.locate.maxLabelChars;
+}
+
+/** True for an image within the limits and 1 to inputLimits.locate.maxLabels valid labels. */
+export function isValidLocateItemsInput(input: LocateItemsInput): boolean {
+  const { labels } = input;
+  if (labels.length === 0 || labels.length > inputLimits.locate.maxLabels) return false;
+  return isValidImage(input.image) && labels.every(isValidLocateLabel);
+}
+
+/**
+ * locateItems' budget within `limits` (Story 6.6): one attempt, of at most
+ * inputLimits.locate.attemptMs, after the health check. Shorter limits (in
+ * tests) stay shorter.
+ */
+export function locateLimitsFrom(limits: Limits): Limits {
+  const attemptMs = Math.min(limits.attemptMs, inputLimits.locate.attemptMs);
+  return {
+    ...limits,
+    attemptMs,
+    totalMs: Math.min(limits.totalMs, limits.healthMs + attemptMs),
+    maxAttempts: 1,
+  };
 }
 
 /** True when there is at least one pantry entry and the input stays within inputLimits.suggest. */
@@ -197,6 +268,10 @@ export function withInputValidation(service: AiService): AiService {
     async analyzeImage(input, signal, options) {
       if (!isValidAnalyzeImageInput(input)) return fail("validation");
       return service.analyzeImage(input, signal, options);
+    },
+    async locateItems(input, signal, options) {
+      if (!isValidLocateItemsInput(input)) return fail("validation");
+      return service.locateItems(input, signal, options);
     },
   };
 }
@@ -264,6 +339,31 @@ export function createModelAiService(target: ModelTarget, limits: Limits = defau
       if (!answer.ok) return answer;
       return ok(parseAnalyzeItems(answer.data.items));
     },
+    async locateItems(input, signal, options = {}) {
+      const within = limitsWithin(locateLimitsFrom(limits), options.deadline);
+      if (!within) {
+        console.error("ai_unavailable", { reason: "deadline" });
+        return fail("ai_unavailable");
+      }
+      const answer = await runStructured(
+        target,
+        {
+          schema: locateItemsAnswer,
+          system: prompts.locateItems,
+          messages: [{ role: "user", content: locateItemsContent(input) }],
+          maxOutputTokens: inputLimits.locate.maxOutputTokens,
+          // The same sampling as the reading of the photo (Story 6.5, quick fix: temperature 0).
+          sampling: target.imageSampling,
+        },
+        signal,
+        within,
+      );
+      if (!answer.ok) return answer;
+      const located = parseItemPositions(answer.data.positions, input.labels.length);
+      // Counts only, never the labels or the points.
+      if (located.invalid > 0) console.info("locate_positions_invalid", { count: located.invalid });
+      return ok(located);
+    },
   };
 }
 
@@ -274,6 +374,20 @@ export function analyzeImageContent(input: AnalyzeImageInput) {
   return [
     { type: "text" as const, text: `Bilden visar ${placeNames[input.place]}.` },
     { type: "file" as const, data: input.image.data, mediaType: input.image.mediaType },
+  ];
+}
+
+/**
+ * The user message for locateItems (Story 6.6), as in the experiment of
+ * 2026-10-26: the photo as a `file` part, then "Varorna:" with a numbered
+ * line per label ("1. Arla mellanmjölk 1,5 l"). The labels are on one line,
+ * so none can start a line of its own; the prompt says they are data.
+ */
+export function locateItemsContent(input: LocateItemsInput) {
+  const lines = input.labels.map((label, index) => `${index + 1}. ${label}`).join("\n");
+  return [
+    { type: "file" as const, data: input.image.data, mediaType: input.image.mediaType },
+    { type: "text" as const, text: `Varorna:\n${lines}` },
   ];
 }
 

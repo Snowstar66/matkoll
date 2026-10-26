@@ -16,9 +16,10 @@ export default defineConfig({
   test: {
     environment: "node",
     include: ["tests/eval/**/*.eval.ts"],
-    // One local model: one case at a time. A case may use the port's whole 110 s budget.
+    // One local model: one case at a time. A case may use the port's whole 115 s budget, and a
+    // photo's case then its lookup of the points (Story 6.6: one attempt of 30 s after a health check).
     fileParallelism: false,
-    testTimeout: 130_000,
+    testTimeout: 170_000,
     hookTimeout: 30_000,
     env: {
       // LM Studio's local server, unless .env.local or the shell says otherwise.

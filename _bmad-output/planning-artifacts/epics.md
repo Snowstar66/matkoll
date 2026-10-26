@@ -1040,6 +1040,30 @@ så att lagerförslagen får rätt varor och märken.
 **När** den körs tre gånger
 **Så** ger varje körning giltigt svar utan upprepningsslinga inom 100 s
 
+### Story 6.6: Nummer på fotot
+
+Som Pontus,
+vill jag se ett nummer på varje vara på fotot och samma nummer på förslagets kort,
+så att jag kan kontrollera vad AI:n har läst av och var.
+
+**Acceptance Criteria:**
+
+**Givet** att förslagen från ett foto har kommit
+**När** korten visas
+**Så** visas de direkt, och AI:n får i ett separat anrop samma bild och de numrerade varorna och svarar med en punkt per vara, utan att avläsningen ändras
+
+**Givet** att punkterna har kommit
+**När** Pontus öppnar fotot större
+**Så** har varje vara en numrerad markör på fotot, kortet har samma nummer ("Nummer 3 på fotot"), och markörerna följer med när fotot visas i full storlek
+
+**Givet** att anropet för punkterna misslyckas, tar för lång tid eller ersätts av ett nytt foto
+**När** korten visas
+**Så** visas inga nummer och inget fel, och Bekräfta fungerar som förut
+
+**Givet** utvärderingen mot ett riktigt foto
+**När** den körs tre gånger
+**Så** visar rapporten tiden för avläsningen, tiden för punkterna och summan per körning, och om alla varor fick en punkt
+
 ## Epic 7: Varukorg
 
 Pontus kan välja butik, spara vilka produkter hen brukar köpa och skicka inköpslistan till ICA Handla via en export som Claude in Chrome fyller varukorgen från.
