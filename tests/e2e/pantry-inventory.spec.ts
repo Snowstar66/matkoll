@@ -1,5 +1,5 @@
 import { expect, type Page, test } from "@playwright/test";
-import { adminClient, e2eUserId, inventoryEmail, inventoryStorageState } from "./support";
+import { adminClient, cardTitles, e2eUserId, inventoryEmail, inventoryStorageState } from "./support";
 
 // Story 6.4: a photo of a place that already has items is compared with it,
 // with AI_PROVIDER=mock: kyl.png gives grädde, gurka, ketchup, mjölk 1 förp,
@@ -125,8 +125,8 @@ test("a photo of the fridge is grouped against what it has, and nothing is chang
   await expect(section(page).getByText("2 varor stämmer med lagret.")).toBeVisible();
   await expect(section(page).getByRole("heading", { level: 3 })).toHaveText(["Nytt", "Ändrat", "Syns inte längre"]);
   // Story 6.5: the titles are the labels on the packages.
-  await expect(group(page, "Nytt")).toHaveText(["Vispgrädde 3 dl", "gurka", "ketchup"]);
-  await expect(group(page, "Ändrat")).toHaveText(["Mellanmjölk 1,5 %"]);
+  await expect(group(page, "Nytt")).toHaveText(cardTitles(["Vispgrädde 3 dl", "gurka", "ketchup"]));
+  await expect(group(page, "Ändrat")).toHaveText(cardTitles(["Mellanmjölk 1,5 %"]));
   await expect(section(page).getByText("nu: 2 förp → bilden: 1 förp")).toBeVisible();
   await expect(group(page, "Syns inte längre")).toHaveText(["senap", "yoghurt"]);
   const missing = section(page).getByTestId("pantry-missing");
@@ -224,14 +224,14 @@ test("a photo of the empty freezer gives the plain list, without groups", async 
   await expect(placeCard(page, "Frys")).toHaveText(/^Frys\s*0 varor$/);
   await photograph(page, "Fotografera frysen");
   await expect(section(page).getByRole("heading", { level: 2, name: "Lagerförslag från frysen" })).toBeVisible();
-  await expect(section(page).getByTestId("pantry-suggestion").getByRole("heading", { level: 3 })).toHaveText([
+  await expect(section(page).getByTestId("pantry-suggestion").getByRole("heading", { level: 3 })).toHaveText(cardTitles([
     "Vispgrädde 3 dl",
     "gurka",
     "ketchup",
     "Mellanmjölk 1,5 %",
     "Smör 500 g",
     "ägg",
-  ]);
+  ]));
   await expect(section(page).getByRole("heading", { name: "Nytt" })).toHaveCount(0);
   await expect(section(page).getByTestId("pantry-missing")).toHaveCount(0);
   await expect(section(page).getByText(/stämmer med lagret/)).toHaveCount(0);

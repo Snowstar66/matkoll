@@ -33,7 +33,7 @@ import {
   withoutComparison,
   type PlaceStock,
 } from "./place-inventory";
-import { readingLabelSchema } from "./photo-numbers";
+import { readingSchema } from "./photo-numbers";
 import { definite } from "./places";
 
 // Lagerförslag (FR-24, AD-6, AD-12, AD-19): what a photo of a place at home
@@ -171,7 +171,7 @@ export const analyzeResultSchema = z.object({
    * reading[n − 1], also the ones left out of the suggestions. Sent back with
    * the photo to /api/ai/locate for the numbers on the photo.
    */
-  reading: z.array(readingLabelSchema).max(maxPantrySuggestions).optional(),
+  reading: readingSchema.optional(),
 });
 export type AnalyzeResult = z.infer<typeof analyzeResultSchema>;
 
@@ -216,6 +216,8 @@ type Group = {
   uncertain: boolean;
   /** Story 6.6: the items' numbers in the reading (index + 1), in order. */
   itemNumbers: number[];
+  /** Story 6.6: the numbers of the items with an amount, per unit, for the card of each unit. */
+  numbersByUnit: Map<Unit, number[]>;
 };
 
 /** A label as compared with the others of a suggestion: lower case, one space between words. */
@@ -267,7 +269,9 @@ export type ToSuggestionsOptions = {
  *   the card's title, and `uncertain` when any of its items was the model's
  *   guess, since the summed amount then rests on it too;
  * - Story 6.6: the numbers of its items in `items` (index + 1, the reading
- *   order), so the card and the photo can show the same number;
+ *   order), so the card and the photo can show the same number; split by
+ *   unit, each card has its own items' numbers (the first also those without
+ *   amount), so two cards never share one;
  * - sorted by name (Swedish order), with the ids s1, s2 ….
  */
 export function toPantrySuggestions(
@@ -316,6 +320,7 @@ export function toPantrySuggestions(
         labels: [],
         uncertain: false,
         itemNumbers: [],
+        numbersByUnit: new Map<Unit, number[]>(),
       };
       groups.set(key, group);
     }
@@ -324,18 +329,28 @@ export function toPantrySuggestions(
     if (item.confidence === "osäker") group.uncertain = true;
     const amount = readAmount(item);
     if (amount.kind === "unknown") group.unknown = true;
-    else if (amount.kind === "amount") group.byUnit.set(amount.unit, (group.byUnit.get(amount.unit) ?? 0) + amount.amount);
+    else if (amount.kind === "amount") {
+      group.byUnit.set(amount.unit, (group.byUnit.get(amount.unit) ?? 0) + amount.amount);
+      group.numbersByUnit.set(amount.unit, [...(group.numbersByUnit.get(amount.unit) ?? []), index + 1]);
+    }
   });
 
   const stocks = current ? stockByIngredient(current) : new Map<string, PlaceStock>();
   const suggestions: Omit<PantrySuggestion, "id">[] = [];
-  for (const { name, ingredient, byUnit, unknown, labels, uncertain, itemNumbers } of groups.values()) {
+  for (const { name, ingredient, byUnit, unknown, labels, uncertain, itemNumbers, numbersByUnit } of groups.values()) {
     const stock = ingredient.kind === "existing" ? (stocks.get(ingredient.ingredientId) ?? null) : null;
     const base = { name, ingredient, location, current: stock, change: null, replaces: [], labels, uncertain, itemNumbers };
     if (stock?.unlimited || unknown) {
       suggestions.push({ ...base, ...unlimited });
     } else if (byUnit.size > 0) {
-      for (const [unit, sum] of byUnit) suggestions.push({ ...base, amount: clampAmount(sum), unit });
+      // Story 6.6: each unit's card has the numbers of its own items, and the first also those without amount, so
+      // two cards never share a number.
+      const withAmount = new Set([...numbersByUnit.values()].flat());
+      const withoutAmount = itemNumbers.filter((n) => !withAmount.has(n));
+      [...byUnit].forEach(([unit, sum], index) => {
+        const numbers = [...(numbersByUnit.get(unit) ?? []), ...(index === 0 ? withoutAmount : [])].sort((a, b) => a - b);
+        suggestions.push({ ...base, amount: clampAmount(sum), unit, itemNumbers: numbers });
+      });
     } else if (stock && stock.amounts.length === 1) {
       const [{ amount, unit }] = stock.amounts;
       suggestions.push({ ...base, amount: clampAmount(amount), unit });

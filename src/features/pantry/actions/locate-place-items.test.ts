@@ -92,7 +92,7 @@ describe("locatePlaceItems", () => {
   });
 
   it("answers ai_superseded at once, without asking the AI, while an analysis of the same user is on its way", async () => {
-    const analysis = startRun("user", "analyze")!;
+    const analysis = startRun("user", "analyze");
     try {
       expect(await locatePlaceItems({ image: kyl, labels }, { signal: signal() })).toEqual(fail("ai_superseded"));
       expect(locateItems).not.toHaveBeenCalled();
@@ -109,7 +109,7 @@ describe("locatePlaceItems", () => {
     const signals = holdLocate();
     const running = locatePlaceItems({ image: kyl, labels }, { signal: signal() });
     await vi.waitFor(() => expect(signals).toHaveLength(1));
-    const analysis = startRun("user", "analyze")!;
+    const analysis = startRun("user", "analyze");
     expect(await running).toEqual(fail("ai_superseded"));
     expect(signals[0].aborted).toBe(true);
     expect(console.info).toHaveBeenCalledWith("locate_superseded");
@@ -129,7 +129,7 @@ describe("locatePlaceItems", () => {
     expect(await older).toEqual(fail("ai_superseded"));
     expect(othersSignals[0].aborted).toBe(false);
     // The other user's lookup ends with its own request.
-    const stop = startRun("other", "analyze")!;
+    const stop = startRun("other", "analyze");
     expect(await others).toEqual(fail("ai_superseded"));
     finishRun("other", stop);
   });
@@ -149,14 +149,14 @@ describe("the run lock", () => {
     const lookup = startRun("lock", "locate")!;
     const newer = startRun("lock", "locate")!;
     expect(lookup.signal.aborted).toBe(true);
-    const analysis = startRun("lock", "analyze")!;
+    const analysis = startRun("lock", "analyze");
     expect(newer.signal.aborted).toBe(true);
     expect(startRun("lock", "locate")).toBeNull();
     expect(analysis.signal.aborted).toBe(false);
     // An older run that ends does not free the user.
     finishRun("lock", newer);
     expect(startRun("lock", "locate")).toBeNull();
-    const second = startRun("lock", "analyze")!;
+    const second = startRun("lock", "analyze");
     expect(analysis.signal.aborted).toBe(true);
     finishRun("lock", second);
     const free = startRun("lock", "locate");

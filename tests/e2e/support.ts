@@ -321,3 +321,12 @@ export async function mailHtml(id: string): Promise<string> {
   const body = (await response.json()) as { HTML: string };
   return body.HTML;
 }
+
+/**
+ * The titles of suggestion cards as their headings read them (Story 6.6): the
+ * title, and once the numbers on the photo have come, "Nummer 3 på fotot" for
+ * screen readers after it.
+ */
+export function cardTitles(titles: readonly string[]): RegExp[] {
+  return titles.map((title) => new RegExp(`^${title.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")}(\\s?Nummer \\d+ på fotot)?$`));
+}

@@ -133,7 +133,9 @@ export interface AiService {
    * reading. One point [x, y] in thousandths per label, each checked on its
    * own (parseItemPositions): a bad one is left out and counted in
    * `invalid`. Its own short budget (locateLimitsFrom: one attempt of at most
-   * 30 s), since the numbers are extra. Fails with `validation` (an image or
+   * 30 s), since the numbers are extra. Only for a target that supports
+   * grounding in thousandths (supportsGrounding: LM Studio with a Qwen model,
+   * and the mock): any other answers `ai_unavailable` at once. Fails with `validation` (an image or
    * labels outside the limits), `ai_unavailable` (also when the deadline
    * leaves too little time), `ai_rejected` or `ai_invalid` (the answer as a
    * whole is broken).
@@ -178,11 +180,14 @@ export const inputLimits = {
    * locateItems (Story 6.6), measured with Qwen3.6 in LM Studio on Pontus's
    * photo at 2048 px (2026-10-26): 20 points were 390 tokens of answer, in
    * about 10 s with a warm model and 24 s on the first, cold call. At most
-   * as many labels as analyze keeps items, each a label as the port keeps it,
-   * so 1 000 tokens leave room for 25. One attempt of at most 30 s: the
-   * numbers are extra, so failing fast is better than keeping the model busy.
+   * as many labels as analyze keeps items, each a label as the port keeps it;
+   * 25 points would be about 500 tokens, and 1 600 leave room for a model
+   * that writes more around them (a cut answer is logged as
+   * locate_truncated). One attempt of at most 30 s: the numbers are extra,
+   * so failing fast is better than keeping the model busy. Only a target
+   * with supportsGrounding is asked.
    */
-  locate: { maxLabels: 25, maxLabelChars: maxPantryItemTextChars, maxOutputTokens: 1_000, attemptMs: 30_000 },
+  locate: { maxLabels: 25, maxLabelChars: maxPantryItemTextChars, maxOutputTokens: 1_600, attemptMs: 30_000 },
 } as const;
 
 /** True for an image that is not empty, at most maxImageBytes and of a type the port takes. */
@@ -340,6 +345,11 @@ export function createModelAiService(target: ModelTarget, limits: Limits = defau
       return ok(parseAnalyzeItems(answer.data.items));
     },
     async locateItems(input, signal, options = {}) {
+      // Story 6.6: only a model trained to point in thousandths is asked; the photo is not sent again otherwise.
+      if (!target.supportsGrounding) {
+        console.info("ai_unavailable", { reason: "no_grounding" });
+        return fail("ai_unavailable");
+      }
       const within = limitsWithin(locateLimitsFrom(limits), options.deadline);
       if (!within) {
         console.error("ai_unavailable", { reason: "deadline" });
@@ -354,6 +364,7 @@ export function createModelAiService(target: ModelTarget, limits: Limits = defau
           maxOutputTokens: inputLimits.locate.maxOutputTokens,
           // The same sampling as the reading of the photo (Story 6.5, quick fix: temperature 0).
           sampling: target.imageSampling,
+          onTruncated: () => console.info("locate_truncated"),
         },
         signal,
         within,

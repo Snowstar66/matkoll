@@ -24,8 +24,8 @@ import {
   type PantrySuggestion,
 } from "../domain/pantry-suggestion";
 import { groupSuggestions, type MissingItem } from "../domain/place-inventory";
-import { cardNumber, photoMarkers, photoNumbersStatus, type PhotoPoint } from "../domain/photo-numbers";
-import { AnalyzedPhotoButton, AnalyzedPhotoSheet, PhotoNumberBadge } from "./analyzed-photo";
+import { cardNumber, numberedCards, photoMarkers, photoNumbersStatus, type PhotoPoint } from "../domain/photo-numbers";
+import { AnalyzedPhotoButton, AnalyzedPhotoSheet, PhotoNumberBadge, PhotoNumberText } from "./analyzed-photo";
 import { usePantrySheet } from "./pantry-item-sheet";
 import { usePantrySuggestions } from "./pantry-suggestions";
 import { focusIsFree } from "./use-pantry-analysis";
@@ -104,6 +104,7 @@ export function PantrySuggestionList() {
     confirmButtonRef,
     confirmAllRef,
     flushFocus,
+    dropPhotoNumbers,
   } = usePantrySuggestions();
   const { openSuggestion } = usePantrySheet();
   // What this mount has already moved focus for: a remount (another location
@@ -137,11 +138,26 @@ export function PantrySuggestionList() {
     else if (result) announce(suggestionsArrivedText(result.location, cardCount));
   }, [arrivals, result, cardCount, announce, cameraAreaRef]);
 
-  // Story 6.6: the photo's points, once they have come; the cards shown get numbers, and the photo markers.
-  const points: ReadonlyMap<number, PhotoPoint> =
-    reviewPhoto?.numbers.kind === "ready" ? reviewPhoto.numbers.points : noPoints;
-  const numberedCards = groups ? [...groups.added, ...groups.changed] : [];
-  const markers = photoMarkers(numberedCards, points);
+  // Story 6.6: the photo's points, once they have come. One list of cards, the ones shown, gives the badges, the
+  // markers and the status, as it gives the lookup (usePantryAnalysis).
+  const numbers = reviewPhoto?.numbers ?? null;
+  const points: ReadonlyMap<number, PhotoPoint> = numbers?.kind === "ready" ? numbers.points : noPoints;
+  const shownCards = groups ? numberedCards(groups) : [];
+  const markers = photoMarkers(shownCards, points);
+  const hasNumbers = shownCards.some((card) => cardNumber(card, points) !== null);
+  const statusTarget = numbers ? photoNumbersStatus(numbers, hasNumbers) : "";
+  // The status region is there, empty, before its text: the text is written after the commit that mounted it, so
+  // it is announced. React renders the region without children, so it never writes over the text.
+  const statusRef = useRef<HTMLParagraphElement>(null);
+  useEffect(() => {
+    if (statusRef.current && statusRef.current.textContent !== statusTarget) statusRef.current.textContent = statusTarget;
+  });
+  /** A card's number, the empty place of one being looked up, or nothing. */
+  const photoNumberOf = (suggestion: PantrySuggestion): number | "pending" | null => {
+    if (!numbers || (suggestion.itemNumbers ?? []).length === 0) return null;
+    if (numbers.kind === "pending") return "pending";
+    return cardNumber(suggestion, points);
+  };
 
   // Always in the same place of the tree, with or without the section, so an open sheet stays open.
   const photoSheet =
@@ -153,6 +169,7 @@ export function PantrySuggestionList() {
         open={photoOpen}
         onClose={() => setOpenPhotoUrl(null)}
         markers={markers}
+        onPhotoError={() => dropPhotoNumbers(reviewPhoto.url)}
       />
     ) : null;
   if (!result || !groups || cardCount === 0) {
@@ -176,7 +193,7 @@ export function PantrySuggestionList() {
       disabled={saving}
       saving={savingIds.has(suggestion.id)}
       invalid={invalidIds.has(suggestion.id)}
-      photoNumber={reviewPhoto ? cardNumber(suggestion, points) : null}
+      photoNumber={photoNumberOf(suggestion)}
       confirmRef={confirmButtonRef(suggestion.id)}
       onConfirm={() => confirm([suggestion.id])}
       onCorrect={() => openSuggestion(suggestion)}
@@ -195,14 +212,12 @@ export function PantrySuggestionList() {
             photo={reviewPhoto}
             location={result.location}
             onOpen={() => setOpenPhotoUrl(reviewPhoto.url)}
+            onPhotoError={() => dropPhotoNumbers(reviewPhoto.url)}
           />
         ) : null}
-        {reviewPhoto ? (
-          // Story 6.6: says politely that the numbers are looked up, and that they have come; empty otherwise.
-          <p role="status" data-testid="pantry-photo-numbers-status" className="text-meta text-ink-2 empty:hidden">
-            {photoNumbersStatus(reviewPhoto.numbers, markers.length > 0)}
-          </p>
-        ) : null}
+        {/* Story 6.6: says politely that the numbers are looked up, and that they have come. Always there with the
+            section, empty and taking no room otherwise, so a screen reader hears the text when it comes. */}
+        <p ref={statusRef} role="status" data-testid="pantry-photo-numbers-status" className="text-meta text-ink-2 empty:-mt-3" />
         <Button
           ref={confirmAllRef}
           variant="secondary"
@@ -286,8 +301,8 @@ type SuggestionCardProps = {
   saving: boolean;
   /** It cannot be confirmed as it is: only Rätta and Avvisa. */
   invalid: boolean;
-  /** Story 6.6: its number on the photo, or `null` before the numbers have come or without one. */
-  photoNumber: number | null;
+  /** Story 6.6: its number on the photo, "pending" while the numbers are looked up (its place is kept), or `null`. */
+  photoNumber: number | "pending" | null;
   confirmRef: (button: HTMLButtonElement) => () => void;
   onConfirm: () => void;
   onCorrect: () => void;
@@ -324,8 +339,11 @@ function SuggestionCard({
   return (
     <li data-testid="pantry-suggestion" className="flex flex-col gap-1 rounded-lg bg-surface p-4">
       <div className="flex items-start gap-3">
-        {photoNumber === null ? null : <PhotoNumberBadge number={photoNumber} />}
-        <Heading className="min-w-0 flex-1 text-row-title break-words text-ink">{title}</Heading>
+        {photoNumber === null ? null : <PhotoNumberBadge number={photoNumber === "pending" ? null : photoNumber} />}
+        <Heading className="min-w-0 flex-1 text-row-title break-words text-ink">
+          {title}
+          {typeof photoNumber === "number" ? <PhotoNumberText number={photoNumber} /> : null}
+        </Heading>
         <div className="flex shrink-0 flex-wrap justify-end gap-1">
           {uncertain ? <Badge tone="sky">{uncertainBadgeText}</Badge> : null}
           {ingredient.kind === "new" ? <Badge tone="neutral">Ny</Badge> : null}

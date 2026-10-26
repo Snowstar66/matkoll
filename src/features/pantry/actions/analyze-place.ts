@@ -6,7 +6,7 @@ import { fail, ok, type Result } from "@/lib/errors";
 import { createClient } from "@/lib/supabase/server";
 import { getAiService, minLoopRepeats, type ImageInput } from "@/server/ai";
 import { PantryDataError } from "../data/client";
-import { readingLabel } from "../domain/photo-numbers";
+import { readingLabel, readingSchema } from "../domain/photo-numbers";
 import { finishRun, startRun } from "./ai-runs";
 import { listPantryIn } from "../data/queries";
 import { compareWithPlace, placeInventorySchema, withoutComparison } from "../domain/place-inventory";
@@ -117,7 +117,7 @@ export async function analyzePlace(
   if (!user.ok) return user;
 
   // An analysis always starts: it stops any run of the same user on its way (ai-runs.ts).
-  const own = startRun(user.data.id, "analyze") ?? new AbortController();
+  const own = startRun(user.data.id, "analyze");
   try {
     const result = await analyze(input, AbortSignal.any([signal, own.signal]), deadline);
     if (own.signal.aborted && !signal.aborted) {
@@ -194,13 +194,10 @@ async function analyze(
     seenIngredientIds: new Set(ids),
     incomplete: dropped > 0 || trimmed > 0 || repeated >= minLoopRepeats,
   });
+  const reading = readingOf(items);
   // The schema the client checks: a comparison that would not pass (a row the
   // domain cannot read) is left out, never the whole answer, and the
   // suggestions are then outside any comparison.
-  // Story 6.6: the items in reading order, also those left out, so a card's
-  // number (itemNumbers) is its items' place in this list. The client sends it
-  // back with the photo to /api/ai/locate.
-  const reading = items.map((item) => readingLabel(item.label));
   if (!placeInventorySchema.safeParse(compared.inventory).success) {
     console.error("analyze_inventory_invalid");
     return ok({
@@ -208,10 +205,25 @@ async function analyze(
       suggestions: suggestions.map(withoutComparison),
       dropped,
       inventory: { kind: "unread" },
-      reading,
+      ...reading,
     });
   }
-  return ok({ location, suggestions: compared.suggestions, dropped, inventory: compared.inventory, reading });
+  return ok({ location, suggestions: compared.suggestions, dropped, inventory: compared.inventory, ...reading });
+}
+
+/**
+ * Story 6.6: the kept items (the first maxPantrySuggestions) in reading
+ * order, also those left out of the suggestions, so a card's number
+ * (itemNumbers) is its items' place in this list; the client sends it back
+ * with the photo to /api/ai/locate. Checked with the client's schema: one that
+ * would not pass is left out (logged as analyze_reading_invalid), never the
+ * whole answer, and the cards then have no numbers.
+ */
+function readingOf(items: readonly { label: string }[]): { reading?: string[] } {
+  const reading = readingSchema.safeParse(items.map((item) => readingLabel(item.label)));
+  if (reading.success) return { reading: reading.data };
+  console.error("analyze_reading_invalid");
+  return {};
 }
 
 /** Counts only, never the items or their names. */

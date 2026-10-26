@@ -891,13 +891,11 @@ describe("numbers on the photo (Story 6.6)", () => {
   });
 
   const reading = ["Mellanmjölk 1,5 %", "Smör 500 g", "Gurka", "Ketchup"];
+  const numbersOf: Record<string, number[]> = { gurka: [3], ketchup: [4], mjölk: [1], smör: [2] };
   const numbered: AnalyzeResult = {
     ...fridge,
     reading,
-    suggestions: fridge.suggestions.map((suggestion) => ({
-      ...suggestion,
-      itemNumbers: { gurka: [3], ketchup: [4], mjölk: [1], smör: [2] }[suggestion.name],
-    })),
+    suggestions: fridge.suggestions.map((suggestion) => ({ ...suggestion, itemNumbers: numbersOf[suggestion.name] })),
   };
   const located = {
     positions: [
@@ -907,8 +905,16 @@ describe("numbers on the photo (Story 6.6)", () => {
       { n: 4, x: 146, y: 813 },
     ],
   };
+  const missingSmor = {
+    id: "missing:m1",
+    ingredientId: smorId,
+    name: "smör",
+    location: "Kyl" as const,
+    rows: [{ id: "7a1c1b7e-3c1a-4c55-9a59-0f3f2b8f2a02", amount: null, unit: null }],
+    stock: { unlimited: true, amounts: [] },
+  };
 
-  /** A PNG of 720 × 900 px as far as its header goes. */
+  /** A PNG of 720 × 900 px as far as its header goes; without a header its size is unknown. */
   const png = () => {
     const bytes = new Uint8Array(33);
     bytes.set([0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a, 0, 0, 0, 13, 0x49, 0x48, 0x44, 0x52]);
@@ -917,80 +923,164 @@ describe("numbers on the photo (Story 6.6)", () => {
     return new File([bytes], "IMG_3.png", { type: "image/png" });
   };
   const status = () => within(section()).getByTestId("pantry-photo-numbers-status");
+  /** The numbers to see on the cards, in their order. */
   const badges = () => within(section()).queryAllByTestId("pantry-photo-number").map((badge) => badge.textContent);
+  const slots = () => within(section()).queryAllByTestId("pantry-photo-number-slot");
   const thumbnail = () => within(section()).getByRole("button", { name: "Fotot av kylen, visa större" });
   const photoSheet = () => screen.getByRole("dialog", { name: "Fotot av kylen" });
   const markers = () => within(photoSheet()).queryAllByTestId("pantry-photo-marker");
+  const largePhoto = () => within(photoSheet()).getByRole("img", { name: "Fotot av kylen som förslagen kommer från" });
+  /** The large photo as the browser decodes it, `width` × `height` px. */
+  const decode = (width = 720, height = 900) => {
+    const image = largePhoto();
+    Object.defineProperty(image, "naturalWidth", { configurable: true, value: width });
+    Object.defineProperty(image, "naturalHeight", { configurable: true, value: height });
+    fireEvent.load(image);
+  };
   const answerLocate = async (result: AiCallResult<unknown>, index = locates.length - 1) => {
     await act(async () => locates[index].answer(result));
   };
+  /** Analyses a photo with a known size and answers it. */
+  const analyzeNumbered = async (result: AnalyzeResult = numbered) => (await startPhoto(png()))(result);
 
-  it("shows the cards first, then looks up the points with the same photo and the reading, and numbers the cards", async () => {
+  it("shows the cards first, keeps the numbers' places, then looks up the points with the same photo and numbers the cards", async () => {
     render(<Hemma />);
     const file = png();
     await (await startPhoto(file))(numbered);
-    // The cards are there at once, without numbers, and the lookup is on its way.
+    // The cards are there at once, without numbers but with their places kept, and the lookup is on its way.
     expect(cardNames()).toEqual(["gurka", "ketchup", "mjölk", "smör"]);
     expect(badges()).toEqual([]);
-    expect(status()).toHaveTextContent("Letar upp varorna på fotot …");
-    expect(status()).toHaveAttribute("role", "status");
+    expect(slots()).toHaveLength(4);
+    for (const slot of slots()) expect(slot).toHaveClass("invisible");
+    await waitFor(() => expect(status()).toHaveTextContent("Letar upp varorna på fotot …"));
     expect(locates).toHaveLength(1);
     // The same resized photo that was analysed (the resizing is stubbed to give the file back).
     const sent = locates[0].form.get("image") as File;
     expect(new Uint8Array(await sent.arrayBuffer())).toEqual(new Uint8Array(await file.arrayBuffer()));
-    expect(sent.type).toBe("image/png");
     expect(JSON.parse(String(locates[0].form.get("labels")))).toEqual(reading);
     // Confirming never waits for the numbers.
     expect(button("Bekräfta gurka")).toBeEnabled();
     expect(button("Bekräfta alla")).toBeEnabled();
 
     await answerLocate(ok(located));
-    expect(await within(section()).findByText("Nummer 3 på fotot")).toBeInTheDocument();
-    expect(badges()).toEqual(["3Nummer 3 på fotot", "4Nummer 4 på fotot", "1Nummer 1 på fotot", "2Nummer 2 på fotot"]);
-    // The number comes before the title, and its digit is not read twice.
-    const [gurka] = cards();
-    const badge = within(gurka).getByTestId("pantry-photo-number");
-    expect(badge.compareDocumentPosition(within(gurka).getByRole("heading")) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
-    expect(within(badge).getByText("3")).toHaveAttribute("aria-hidden", "true");
-    expect(status()).toHaveTextContent("Numren på korten visar var varorna är på fotot.");
+    await waitFor(() => expect(badges()).toEqual(["3", "4", "1", "2"]));
+    expect(slots()).toHaveLength(0);
+    // The number seen is hidden from screen readers; the heading says it, after the title.
+    for (const badge of within(section()).getAllByTestId("pantry-photo-number")) expect(badge).toHaveAttribute("aria-hidden", "true");
+    expect(within(section()).getByRole("heading", { level: 3, name: /^gurka ?Nummer 3 på fotot$/ })).toBeInTheDocument();
+    expect(within(section()).getByRole("heading", { level: 3, name: /^smör ?Nummer 2 på fotot$/ })).toBeInTheDocument();
+    await waitFor(() => expect(status()).toHaveTextContent("Numren på korten visar var varorna är på fotot."));
     expect(screen.queryByRole("alert")).toBeNull();
   });
 
-  it("puts a marker hidden from screen readers on each card's item in the large photo, in percent, also in full size", async () => {
+  it("has the status region, empty, whenever the section is shown, and writes its text after it is there", async () => {
     render(<Hemma />);
-    await (await startPhoto(png()))(numbered);
+    await analyze(fridge);
+    expect(status()).toHaveAttribute("role", "status");
+    expect(status()).toBeEmptyDOMElement();
+  });
+
+  it("puts a marker hidden from screen readers on each card's item, once the photo is decoded, kept inside it", async () => {
+    render(<Hemma />);
+    await analyzeNumbered();
     await answerLocate(ok(located));
     fireEvent.click(thumbnail());
+    // Laid out from the file's header, but no marker before the photo is decoded.
+    expect(markers()).toEqual([]);
+    decode();
     expect(markers().map((marker) => marker.textContent)).toEqual(["3", "4", "1", "2"]);
     for (const marker of markers()) expect(marker).toHaveAttribute("aria-hidden", "true");
-    expect(markers()[0].style.left).toBe("69.4%");
-    expect(markers()[0].style.top).toBe("58.3%");
-    // On the box with the photo's proportions, so they stay on their items in full size.
+    expect(markers()[0].style.left).toMatch(/^clamp\(14px, 69.4%, (calc\()?100% - 14px\)?\)$/);
+    expect(markers()[0].style.top).toMatch(/^clamp\(14px, 58.3%, (calc\()?100% - 14px\)?\)$/);
+    // See-through when fitted, so the package under it shows; whole in full size.
+    expect(markers()[0]).toHaveClass("opacity-85");
     const frame = within(photoSheet()).getByTestId("pantry-photo-frame");
     expect(frame).toContainElement(markers()[0]);
+    expect(largePhoto()).toHaveClass("object-contain");
     fireEvent.click(within(photoSheet()).getByRole("button", { name: "Visa i full storlek" }));
     expect(frame.style.width).toBe("720px");
-    expect(markers()[0].style.left).toBe("69.4%");
-    // The toggle's name is still only its own: the markers are not read.
-    expect(within(photoSheet()).getByRole("button", { name: "Visa i full storlek" })).toBeInTheDocument();
+    expect(markers()[0]).not.toHaveClass("opacity-85");
+    expect(markers()[0].style.left).toMatch(/^clamp\(14px, 69.4%, (calc\()?100% - 14px\)?\)$/);
+  });
+
+  it("lays the photo out by its decoded size, not the header's, so the markers sit on what the model saw", async () => {
+    render(<Hemma />);
+    await analyzeNumbered();
+    await answerLocate(ok(located));
+    fireEvent.click(thumbnail());
+    const frame = within(photoSheet()).getByTestId("pantry-photo-frame");
+    expect(frame.style.aspectRatio).toBe("720 / 900");
+    decode(900, 720);
+    expect(frame.style.aspectRatio).toBe("900 / 720");
+    expect(largePhoto()).toHaveAttribute("width", "900");
+  });
+
+  it("drops the numbers from the cards, the photo and the status when the photo cannot be shown", async () => {
+    render(<Hemma />);
+    await analyzeNumbered();
+    await answerLocate(ok(located));
+    await waitFor(() => expect(badges()).toHaveLength(4));
+    fireEvent.click(thumbnail());
+    fireEvent.error(largePhoto());
+    expect(within(photoSheet()).getByText("Fotot kunde inte visas.")).toBeVisible();
+    await waitFor(() => expect(badges()).toEqual([]));
+    expect(slots()).toHaveLength(0);
+    await waitFor(() => expect(status()).toBeEmptyDOMElement());
+    expect(within(section()).getByRole("heading", { level: 3, name: "gurka" })).toBeInTheDocument();
+  });
+
+  it("drops the numbers and stops the lookup when the thumbnail cannot be shown", async () => {
+    render(<Hemma />);
+    await analyzeNumbered();
+    fireEvent.error(thumbnail().querySelector("img")!);
+    expect(locates[0].signal.aborted).toBe(true);
+    expect(slots()).toHaveLength(0);
+    await waitFor(() => expect(status()).toBeEmptyDOMElement());
+  });
+
+  it("looks nothing up for a photo whose size is unknown, and still shows it, without markers", async () => {
+    render(<Hemma />);
+    await analyze(numbered);
+    expect(locates).toHaveLength(0);
+    expect(slots()).toHaveLength(0);
+    fireEvent.click(thumbnail());
+    expect(largePhoto()).toBeVisible();
+    expect(within(photoSheet()).queryByTestId("pantry-photo-frame")).toBeNull();
+    expect(markers()).toEqual([]);
   });
 
   it("drops a card's number and marker when the card is handled, and leaves the others", async () => {
     render(<Hemma />);
-    await (await startPhoto(png()))(numbered);
+    await analyzeNumbered();
     await answerLocate(ok(located));
     fireEvent.click(button("Avvisa gurka"));
-    expect(badges()).not.toContain("3Nummer 3 på fotot");
+    expect(badges()).toEqual(["4", "1", "2"]);
     fireEvent.click(thumbnail());
+    decode();
     expect(markers().map((marker) => marker.textContent)).toEqual(["4", "1", "2"]);
   });
 
-  it("gives a card without a point no number, and the others theirs", async () => {
+  it("numbers a card by its first item with a point, so the number is on a marker of its own item", async () => {
     render(<Hemma />);
-    await (await startPhoto(png()))(numbered);
-    await answerLocate(ok({ positions: [located.positions[0]] }));
-    expect(await within(section()).findByText("Nummer 1 på fotot")).toBeInTheDocument();
-    expect(badges()).toEqual(["1Nummer 1 på fotot"]);
+    await analyzeNumbered({
+      ...numbered,
+      reading: [...reading, "ICA gurka"],
+      suggestions: numbered.suggestions.map((suggestion) =>
+        suggestion.name === "gurka" ? { ...suggestion, itemNumbers: [3, 5] } : suggestion,
+      ),
+    });
+    await answerLocate(ok({ positions: [{ n: 5, x: 500, y: 500 }, located.positions[0]] }));
+    await waitFor(() => expect(badges()).toEqual(["5", "1"]));
+    fireEvent.click(thumbnail());
+    decode();
+    expect(markers().map((marker) => marker.textContent)).toEqual(["5", "1"]);
+  });
+
+  it("ignores the point of an item whose label was only the placeholder", async () => {
+    render(<Hemma />);
+    await analyzeNumbered({ ...numbered, reading: ["Mellanmjölk 1,5 %", "Smör 500 g", "vara", "Ketchup"] });
+    await answerLocate(ok(located));
+    await waitFor(() => expect(badges()).toEqual(["4", "1", "2"]));
   });
 
   it.each([
@@ -999,37 +1089,74 @@ describe("numbers on the photo (Story 6.6)", () => {
     ["the answer is not the schema's", ok({ positions: [{ n: 0, x: 1, y: 1 }] })],
   ])("shows no numbers and no error when %s", async (_name, result) => {
     render(<Hemma />);
-    await (await startPhoto(png()))(numbered);
+    await analyzeNumbered();
     await answerLocate(result as AiCallResult<unknown>);
-    await waitFor(() => expect(status()).toBeEmptyDOMElement());
+    await waitFor(() => expect(slots()).toHaveLength(0));
     expect(badges()).toEqual([]);
+    await waitFor(() => expect(status()).toBeEmptyDOMElement());
     expect(screen.queryByRole("alert")).toBeNull();
-    expect(within(screen.getByTestId("pantry-camera")).queryByText(/gick inte/)).toBeNull();
     fireEvent.click(thumbnail());
+    decode();
     expect(markers()).toEqual([]);
   });
 
-  it("stops the lookup when a new photo is taken, and its late answer numbers nothing", async () => {
+  it("stops the lookup when a new photo is taken, and looks up the new one's numbers once its cards are here", async () => {
     render(<Hemma />);
-    await (await startPhoto(png()))(numbered);
+    await analyzeNumbered();
     const first = locates[0];
     const answerNew = await startPhoto(png());
     expect(first.signal.aborted).toBe(true);
     // The cards from before stay, without numbers, while the new photo is analysed.
     expect(cardNames()).toEqual(["gurka", "ketchup", "mjölk", "smör"]);
-    await waitFor(() => expect(status()).toBeEmptyDOMElement());
+    expect(slots()).toHaveLength(0);
     await answerNew({ ...numbered, suggestions: numbered.suggestions.slice(2) });
     expect(locates).toHaveLength(2);
     await answerLocate(ok(located), 0);
     expect(badges()).toEqual([]);
     await answerLocate(ok(located), 1);
-    expect(await within(section()).findByText("Nummer 1 på fotot")).toBeInTheDocument();
-    expect(badges()).toEqual(["1Nummer 1 på fotot", "2Nummer 2 på fotot"]);
+    await waitFor(() => expect(badges()).toEqual(["1", "2"]));
+  });
+
+  it.each([
+    ["is cancelled", async () => fireEvent.click(within(screen.getByTestId("pantry-camera")).getByRole("button", { name: "Avbryt" }))],
+    ["fails", async () => act(async () => answers[answers.length - 1](fail("ai_unavailable")))],
+    ["is superseded", async () => act(async () => answers[answers.length - 1](fail("ai_superseded")))],
+  ])("looks up the old cards' numbers again when a new photo's analysis %s", async (_name, end) => {
+    render(<Hemma />);
+    await analyzeNumbered();
+    await startPhoto(png());
+    expect(locates[0].signal.aborted).toBe(true);
+    await end();
+    expect(locates).toHaveLength(2);
+    expect(JSON.parse(String(locates[1].form.get("labels")))).toEqual(reading);
+    await answerLocate(ok(located));
+    await waitFor(() => expect(badges()).toEqual(["3", "4", "1", "2"]));
+  });
+
+  it("does not look up again numbers that had already come", async () => {
+    render(<Hemma />);
+    await analyzeNumbered();
+    await answerLocate(ok(located));
+    await startPhoto(png());
+    fireEvent.click(within(screen.getByTestId("pantry-camera")).getByRole("button", { name: "Avbryt" }));
+    expect(locates).toHaveLength(1);
+    expect(badges()).toEqual(["3", "4", "1", "2"]);
+  });
+
+  it("stops the lookup when every card is handled, and Ångra sends it again", async () => {
+    render(<Hemma />);
+    await analyzeNumbered({ ...numbered, suggestions: numbered.suggestions.slice(1, 2) });
+    fireEvent.click(button("Avvisa ketchup"));
+    expect(locates[0].signal.aborted).toBe(true);
+    fireEvent.click(within(toast()).getByRole("button", { name: "Ångra" }));
+    expect(locates).toHaveLength(2);
+    await answerLocate(ok(located));
+    await waitFor(() => expect(badges()).toEqual(["4"]));
   });
 
   it("stops the lookup when Hemma is left, and keeps the photo's URL lifecycle", async () => {
     const { unmount } = render(<Hemma />);
-    await (await startPhoto(png()))(numbered);
+    await analyzeNumbered();
     expect(revoke).not.toHaveBeenCalled();
     unmount();
     expect(locates[0].signal.aborted).toBe(true);
@@ -1038,69 +1165,48 @@ describe("numbers on the photo (Story 6.6)", () => {
 
   it("makes no new URL for the numbers, and revokes the photo once when a new answer replaces it", async () => {
     render(<Hemma />);
-    await (await startPhoto(png()))(numbered);
+    await analyzeNumbered();
     await answerLocate(ok(located));
     expect(created).toEqual(["blob:photo-1"]);
     expect(revoke).not.toHaveBeenCalled();
-    await analyze({ ...numbered, suggestions: numbered.suggestions.slice(2) });
+    await analyzeNumbered({ ...numbered, suggestions: numbered.suggestions.slice(2) });
     expect(revoke).toHaveBeenCalledExactlyOnceWith("blob:photo-1");
     expect(created).toEqual(["blob:photo-1", "blob:photo-2"]);
   });
 
-  it("looks nothing up without a reading, for an answer without cards, or for Syns inte längre alone", async () => {
+  it("looks nothing up without a reading, for an answer without cards, or for Syns inte längre and unchanged items alone", async () => {
     render(<Hemma />);
-    await analyze(fridge);
+    await (await startPhoto(png()))(fridge);
     expect(locates).toHaveLength(0);
-    expect(status()).toBeEmptyDOMElement();
-    await analyze({ ...numbered, suggestions: [] });
+    await analyzeNumbered({ ...numbered, suggestions: [] });
     expect(locates).toHaveLength(0);
-    await analyze({
+    await analyzeNumbered({
       ...numbered,
-      suggestions: [],
-      inventory: {
-        kind: "compared",
-        incomplete: false,
-        missing: [
-          {
-            id: "missing:m1",
-            ingredientId: smorId,
-            name: "smör",
-            location: "Kyl",
-            rows: [{ id: "7a1c1b7e-3c1a-4c55-9a59-0f3f2b8f2a02", amount: null, unit: null }],
-            stock: { unlimited: true, amounts: [] },
-          },
-        ],
-      },
+      suggestions: numbered.suggestions.slice(3).map((suggestion) => ({ ...suggestion, change: "unchanged" as const })),
+      inventory: { kind: "compared", incomplete: false, missing: [missingSmor] },
     });
     expect(within(section()).getAllByTestId("pantry-missing")).toHaveLength(1);
     expect(locates).toHaveLength(0);
+    expect(slots()).toHaveLength(0);
     expect(badges()).toEqual([]);
   });
 
-  it("gives Syns inte längre cards no number next to numbered ones", async () => {
+  it("gives unchanged items and Syns inte längre cards no number and no marker", async () => {
     render(<Hemma />);
-    await (await startPhoto(png()))({
+    await analyzeNumbered({
       ...numbered,
-      suggestions: numbered.suggestions.slice(0, 1).map((suggestion) => ({ ...suggestion, change: "new" as const })),
-      inventory: {
-        kind: "compared",
-        incomplete: false,
-        missing: [
-          {
-            id: "missing:m1",
-            ingredientId: smorId,
-            name: "smör",
-            location: "Kyl",
-            rows: [{ id: "7a1c1b7e-3c1a-4c55-9a59-0f3f2b8f2a02", amount: null, unit: null }],
-            stock: { unlimited: true, amounts: [] },
-          },
-        ],
-      },
+      suggestions: [
+        { ...numbered.suggestions[0], change: "new" as const },
+        { ...numbered.suggestions[3], change: "unchanged" as const },
+      ],
+      inventory: { kind: "compared", incomplete: false, missing: [missingSmor] },
     });
     await answerLocate(ok(located));
-    expect(await within(section()).findByText("Nummer 3 på fotot")).toBeInTheDocument();
+    await waitFor(() => expect(badges()).toEqual(["3"]));
     expect(within(within(section()).getByTestId("pantry-missing")).queryByTestId("pantry-photo-number")).toBeNull();
     fireEvent.click(thumbnail());
+    decode();
+    // Smör (item 2) is unchanged: it has a point, but no card and so no marker.
     expect(markers().map((marker) => marker.textContent)).toEqual(["3"]);
   });
 });

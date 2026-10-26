@@ -42,6 +42,13 @@ export type ModelTarget = {
   healthCheck?: (signal: AbortSignal) => Promise<HealthResult>;
   /** Sampling for analyzeImage (Story 6.5); without it, the provider's defaults. */
   imageSampling?: Sampling;
+  /**
+   * Story 6.6: the model is trained to point at things on a photo in
+   * thousandths (0–1000), as Qwen's vision models are, so locateItems may ask
+   * it. Without it, locateItems answers ai_unavailable at once and the photo
+   * is never sent a second time.
+   */
+  supportsGrounding?: boolean;
 };
 
 export type Limits = {
@@ -85,6 +92,8 @@ export type StructuredRequest<SCHEMA extends z.ZodType> = {
   maxOutputTokens?: number;
   /** Sampling for this call; without it, the provider's defaults. */
   sampling?: Sampling;
+  /** Called when the model stopped at maxOutputTokens (finish reason `length`), with or without a valid answer. */
+  onTruncated?: () => void;
 };
 
 type FailCode = "ai_unavailable" | "ai_invalid" | "ai_rejected";
@@ -144,9 +153,11 @@ export async function runStructured<SCHEMA extends z.ZodType>(
         maxRetries: 0,
         abortSignal: attemptSignal,
       });
+      if (result.finishReason === "length") request.onTruncated?.();
       return ok(result.output as z.infer<SCHEMA>);
     } catch (error) {
       if (attemptSignal.aborted) return failWith("ai_unavailable", stopReason());
+      if (NoObjectGeneratedError.isInstance(error) && error.finishReason === "length") request.onTruncated?.();
       if (APICallError.isInstance(error)) {
         const status = error.statusCode;
         // The provider refused this request (bad key, rate limit, too long, unknown model).

@@ -5,7 +5,7 @@ import { fail, ok } from "@/lib/errors";
 import { createMockAiService } from "@/server/ai/adapters/mock";
 import { aiPantryItem, analyzeImageAnswer } from "@/server/ai/schemas";
 import { inputLimits, withInputValidation, type AnalyzeImageInput, type RunOptions } from "@/server/ai/service";
-import { maxPantrySuggestions } from "../domain/pantry-suggestion";
+import { analyzeResultSchema, maxPantrySuggestions } from "../domain/pantry-suggestion";
 import type { PantryItem } from "../domain/pantry-item";
 
 // analyzePlace with the AI port's mock (tests/fixtures/ai, behind the port's
@@ -48,9 +48,11 @@ vi.mock("../data/queries", () => ({
 
 const ai = withInputValidation(createMockAiService());
 const analyzeImage = vi.fn(ai.analyzeImage);
-vi.mock("@/server/ai", () => ({ getAiService: () => ({ analyzeImage }), minLoopRepeats: 2 }));
+const locateItems = vi.fn(ai.locateItems);
+vi.mock("@/server/ai", () => ({ getAiService: () => ({ analyzeImage, locateItems }), minLoopRepeats: 2 }));
 
 const { analyzePlace, minReadMs, postModelMarginMs } = await import("./analyze-place");
+const { locatePlaceItems } = await import("./locate-place-items");
 
 const fixtures = new URL("../../../../tests/fixtures/ai/", import.meta.url);
 const photo = (file: string) => ({ data: new Uint8Array(readFileSync(new URL(file, fixtures))), mediaType: "image/png" });
@@ -93,6 +95,7 @@ beforeEach(() => {
   );
   listPantryIn.mockReset().mockResolvedValue(atHome);
   analyzeImage.mockReset().mockImplementation(ai.analyzeImage);
+  locateItems.mockReset().mockImplementation(ai.locateItems);
   commitIngredients.mockReset();
   db.from.mockReset();
   db.rpc.mockReset();
@@ -156,7 +159,7 @@ describe("analyzePlace", () => {
     expect(result.ok && result.data.reading).toEqual(["Arla mellanmjölk 1,5 l", "vara"]);
   });
 
-  it("never writes): no catalog commit and no use of the session client beyond the stubbed reads", async () => {
+  it("never writes: no catalog commit and no use of the session client beyond the stubbed reads", async () => {
     expect((await analyzePlace({ image: kyl, location: "Kyl" }, { signal: signal() })).ok).toBe(true);
     expect(commitIngredients).not.toHaveBeenCalled();
     expect(db.from).not.toHaveBeenCalled();
@@ -357,6 +360,8 @@ describe("analyzePlace", () => {
       const result = await analyzePlace({ image: kyl, location: "Kyl" }, { signal: signal() });
       if (!result.ok) throw new Error(result.error.code);
       expect(result.data.inventory).toEqual({ kind: "unread" });
+      expect(result.data.reading).toHaveLength(6);
+      expect(analyzeResultSchema.safeParse(result.data).success).toBe(true);
       expect(result.data.suggestions).toHaveLength(6);
       expect(result.data.suggestions.every(({ change, replaces }) => change === null && replaces.length === 0)).toBe(true);
       expect(console.error).toHaveBeenCalledWith("analyze_inventory_invalid");
@@ -380,6 +385,17 @@ describe("analyzePlace", () => {
     expect(matchIngredients.mock.calls[0][0][24].text).toBe("Vara 24");
     expect(result.ok && result.data.suggestions).toHaveLength(25);
     expect(console.info).toHaveBeenCalledWith("analyze_items_trimmed", { dropped: 5 });
+  });
+
+  it("gives the reading of exactly the 25 items kept, and an answer the client's schema takes (Story 6.6)", async () => {
+    const many = Array.from({ length: 30 }, (_, index) => ({ ...fixture[3], label: `Vara ${index}`, hint: { ...fixture[3].hint, name: `vara ${index}` } }));
+    analyzeImage.mockResolvedValueOnce(answer(many));
+    const result = await analyzePlace({ image: kyl, location: "Kyl" }, { signal: signal() });
+    if (!result.ok) throw new Error(result.error.code);
+    expect(result.data.reading).toHaveLength(25);
+    expect(result.data.reading?.at(-1)).toBe("Vara 24");
+    expect(analyzeResultSchema.safeParse(result.data).success).toBe(true);
+    expect(Math.max(...result.data.suggestions.flatMap(({ itemNumbers }) => itemNumbers ?? []))).toBe(25);
   });
 
   it("counts the items the AI port left out as invalid, with the ones the catalog could not use", async () => {
@@ -585,6 +601,40 @@ describe("analyzePlace", () => {
       expect(first.signals[0].aborted).toBe(false);
       first.release();
       expect((await running).ok).toBe(true);
+    });
+
+    // Story 6.6: the lookup of the numbers shares the lock, and gives way to an analysis.
+    const labels = ["Mellanmjölk 1,5 %", "Vispgrädde 3 dl"];
+
+    it("stops a lookup of the numbers on its way when the same user sends a photo", async () => {
+      const lookupSignals: AbortSignal[] = [];
+      locateItems.mockImplementationOnce(
+        (_input, lookupSignal) =>
+          new Promise((resolve) => {
+            lookupSignals.push(lookupSignal);
+            lookupSignal.addEventListener("abort", () => resolve(fail("ai_unavailable")), { once: true });
+          }),
+      );
+      const lookup = locatePlaceItems({ image: kyl, labels }, { signal: signal() });
+      await vi.waitFor(() => expect(lookupSignals).toHaveLength(1));
+
+      expect((await analyzePlace({ image: kyl, location: "Kyl" }, { signal: signal() })).ok).toBe(true);
+      expect(lookupSignals[0].aborted).toBe(true);
+      expect(await lookup).toEqual(fail("ai_superseded"));
+    });
+
+    it("answers a lookup during an analysis ai_superseded at once, without the AI, and the analysis goes on", async () => {
+      const first = holdAi();
+      const running = analyzePlace({ image: kyl, location: "Kyl" }, { signal: signal() });
+      await vi.waitFor(() => expect(first.signals).toHaveLength(1));
+
+      expect(await locatePlaceItems({ image: kyl, labels }, { signal: signal() })).toEqual(fail("ai_superseded"));
+      expect(locateItems).not.toHaveBeenCalled();
+      expect(first.signals[0].aborted).toBe(false);
+      first.release();
+      expect((await running).ok).toBe(true);
+      // Once the analysis is done, the lookup runs.
+      expect((await locatePlaceItems({ image: kyl, labels }, { signal: signal() })).ok).toBe(true);
     });
   });
 });

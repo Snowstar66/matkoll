@@ -145,19 +145,27 @@ describe("toPantrySuggestions", () => {
     for (const suggestion of suggestions) expect(pantrySuggestionSchema.safeParse(suggestion).success).toBe(true);
   });
 
-  it("gives each suggestion the numbers of its items in reading order, the same on both units of one ingredient (Story 6.6)", () => {
+  it("gives each suggestion the numbers of its items in reading order, and each unit's card only its own (Story 6.6)", () => {
     const items = [
       item("Arla mellanmjölk", 1, "förp", "mjölk"),
       item("?", 1, "st"),
       item("Smör", 1, "förp"),
       item("ICA mellanmjölk", 1, "l", "mjölk"),
+      item("Mjölk", null, null, "mjölk"),
+      item("Garant mjölk", 1, "förp", "mjölk"),
     ];
-    const suggestions = suggest(items, [match(mjolk), { kind: "unmatched" }, match(smor), match(mjolk)]);
+    const suggestions = suggest(items, [match(mjolk), { kind: "unmatched" }, match(smor), match(mjolk), match(mjolk), match(mjolk)]);
+    // The item without amount goes with the first unit's card, as its amount does; no number is on two cards.
     expect(suggestions.map(({ name, unit, itemNumbers }) => [name, unit, itemNumbers])).toEqual([
-      ["mjölk", "förp", [1, 4]],
-      ["mjölk", "l", [1, 4]],
+      ["mjölk", "förp", [1, 5, 6]],
+      ["mjölk", "l", [4]],
       ["smör", "förp", [3]],
     ]);
+    const all = suggestions.flatMap(({ itemNumbers }) => itemNumbers ?? []);
+    expect(new Set(all).size).toBe(all.length);
+    // Unlimited: one card with every number.
+    const [unlimited] = suggest([item("Smör", 1, "förp"), item("Smör", 1, "tub")], [match(smor), match(smor)]);
+    expect(unlimited).toMatchObject({ amount: null, itemNumbers: [1, 2] });
     for (const suggestion of suggestions) expect(pantrySuggestionSchema.safeParse(suggestion).success).toBe(true);
   });
 

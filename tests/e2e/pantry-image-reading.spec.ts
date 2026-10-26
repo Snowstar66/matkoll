@@ -1,5 +1,5 @@
 import { expect, type Page, test } from "@playwright/test";
-import { adminClient, e2eUserId, imageReadingEmail, imageReadingStorageState } from "./support";
+import { adminClient, cardTitles, e2eUserId, imageReadingEmail, imageReadingStorageState } from "./support";
 
 // Story 6.5: a photo is read with labels and confidence, with
 // AI_PROVIDER=mock: kyl-dorr.png gives "Lantmejeriet vispgrädde 36 % 3 dl"
@@ -83,11 +83,11 @@ test("labels are the cards' titles, a repeat is one card, and an unsure item wai
   await photographDoor(page);
 
   // Three cards: the cream the model repeated is one, with one package.
-  await expect(titles(page)).toHaveText([
+  await expect(titles(page)).toHaveText(cardTitles([
     "Solgården apelsinjuice 1 l",
     "Gul flaska, troligen senap",
     "Lantmejeriet vispgrädde 36 % 3 dl",
-  ]);
+  ]));
   const cream = cards(page).filter({ hasText: "Lantmejeriet" });
   await expect(cream.getByText("Sparas som: vispgrädde", { exact: true })).toBeVisible();
   await expect(cream.getByText("1 förp · Kyl", { exact: true })).toBeVisible();
@@ -104,7 +104,7 @@ test("labels are the cards' titles, a repeat is one card, and an unsure item wai
   // Bekräfta alla saves the two sure ones, and the unsure card stays.
   await section(page).getByRole("button", { name: "Bekräfta alla" }).click();
   await expect(toast(page)).toHaveText("Lagt 2 varor i lagret. 1 osäker vara är kvar att bekräfta eller rätta.");
-  await expect(titles(page)).toHaveText(["Gul flaska, troligen senap"]);
+  await expect(titles(page)).toHaveText(cardTitles(["Gul flaska, troligen senap"]));
   await expect(section(page).getByRole("button", { name: "Bekräfta senap" })).toBeFocused();
   await expect(section(page).getByRole("button", { name: "Bekräfta alla" })).toBeDisabled();
   await expect.poll(pantry).toEqual(["apelsinjuice 1 förp Kyl", "vispgrädde 1 förp Kyl"]);

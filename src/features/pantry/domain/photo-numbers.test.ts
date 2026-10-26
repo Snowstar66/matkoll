@@ -11,10 +11,15 @@ import {
   photoMarkers,
   photoNumberText,
   photoNumbersStatus,
+  hasNumberableCards,
+  numberedCards,
   pointsByNumber,
   readingLabel,
+  readingPlaceholder,
+  readingSchema,
   type PhotoPoint,
 } from "./photo-numbers";
+import type { PantrySuggestion } from "./pantry-suggestion";
 
 // Nummer på fotot (Story 6.6): the labels sent with the photo, the answer
 // the client checks, a card's number and the markers on the photo.
@@ -34,6 +39,11 @@ describe("the reading", () => {
     const long = readingLabel(`${"x".repeat(199)}\u{1F95B}`);
     expect(long.length).toBeLessThanOrEqual(200);
     expect(long).toBe("x".repeat(199));
+  });
+
+  it("is at most 25 one-line labels, possibly none", () => {
+    expect(readingSchema.safeParse([]).success).toBe(true);
+    expect(readingSchema.safeParse(Array.from({ length: 26 }, () => "x")).success).toBe(false);
   });
 
   it("takes 1 to 25 one-line labels to send, and nothing else", () => {
@@ -62,20 +72,62 @@ describe("the answer", () => {
   });
 
   it("keeps the first point per number", () => {
-    const byNumber = pointsByNumber({
-      positions: [
-        { n: 2, x: 1, y: 1 },
-        { n: 2, x: 9, y: 9 },
-      ],
-    });
+    const byNumber = pointsByNumber(
+      {
+        positions: [
+          { n: 2, x: 1, y: 1 },
+          { n: 2, x: 9, y: 9 },
+        ],
+      },
+      ["Mjölk", "Smör"],
+    );
     expect([...byNumber.values()]).toEqual([{ n: 2, x: 1, y: 1 }]);
+  });
+
+  it("ignores the point of a placeholder item, which keeps its number, and of a number beyond the reading", () => {
+    expect(readingPlaceholder).toBe("vara");
+    const byNumber = pointsByNumber(
+      {
+        positions: [
+          { n: 1, x: 1, y: 1 },
+          { n: 2, x: 2, y: 2 },
+          { n: 3, x: 3, y: 3 },
+          { n: 4, x: 4, y: 4 },
+        ],
+      },
+      ["Mjölk", readingPlaceholder, "Smör"],
+    );
+    expect([...byNumber.keys()]).toEqual([1, 3]);
+    // A card from the placeholder item gets no number, and no marker.
+    expect(cardNumber({ itemNumbers: [2] }, byNumber)).toBeNull();
+    expect(photoMarkers([{ itemNumbers: [2] }], byNumber)).toEqual([]);
+  });
+});
+
+describe("the cards that can have numbers", () => {
+  const card = (id: string, change: PantrySuggestion["change"], itemNumbers?: number[]) =>
+    ({ id, change, itemNumbers }) as PantrySuggestion;
+
+  it("are exactly the cards shown, Nytt and Ändrat, in their order", () => {
+    const added = [card("s1", "new", [2])];
+    const changed = [card("s2", "changed", [1])];
+    expect(numberedCards({ added, changed }).map(({ id }) => id)).toEqual(["s1", "s2"]);
+  });
+
+  it("are worth a lookup only with a reading and a card with item numbers", () => {
+    const added = [card("s1", "new", [1])];
+    expect(hasNumberableCards({ added, changed: [] }, ["Mjölk"])).toBe(true);
+    expect(hasNumberableCards({ added, changed: [] }, [])).toBe(false);
+    expect(hasNumberableCards({ added: [card("s1", "new")], changed: [] }, ["Mjölk"])).toBe(false);
+    // Only unchanged suggestions (no card) or only Syns inte längre: nothing to number.
+    expect(hasNumberableCards({ added: [], changed: [] }, ["Mjölk"])).toBe(false);
   });
 });
 
 describe("cardNumber", () => {
-  it("is the number of the card's first item, when one of its items has a point", () => {
+  it("is the first of the card's item numbers that has a point, so it is on a marker of its own item", () => {
     expect(cardNumber({ itemNumbers: [3, 7] }, points({ n: 3, x: 1, y: 1 }))).toBe(3);
-    expect(cardNumber({ itemNumbers: [3, 7] }, points({ n: 7, x: 1, y: 1 }))).toBe(3);
+    expect(cardNumber({ itemNumbers: [3, 7] }, points({ n: 7, x: 1, y: 1 }))).toBe(7);
   });
 
   it("is none without points for its items, or without item numbers", () => {
@@ -93,6 +145,12 @@ describe("photoMarkers", () => {
       { key: 2, label: 2, left: 50, top: 0 },
       { key: 5, label: 2, left: 100, top: 25 },
       { key: 1, label: 1, left: 19.3, top: 81.3 },
+    ]);
+  });
+
+  it("labels a card's markers with the number of its first item that has a point", () => {
+    expect(photoMarkers([{ itemNumbers: [2, 5] }], points({ n: 5, x: 100, y: 100 }))).toEqual([
+      { key: 5, label: 5, left: 10, top: 10 },
     ]);
   });
 

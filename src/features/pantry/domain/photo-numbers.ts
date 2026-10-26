@@ -1,6 +1,7 @@
 import { z } from "zod";
 import { cleanModelText } from "@/lib/suggest-input";
 import type { PantrySuggestion } from "./pantry-suggestion";
+import type { SuggestionGroups } from "./place-inventory";
 
 // Nummer på fotot (Story 6.6): after the cards from a photo have come, the
 // client sends the same photo and the AI's items in reading order (the
@@ -24,10 +25,20 @@ export const readingLabelSchema = z
   .max(maxReadingLabelChars)
   .refine((label) => label === cleanModelText(label), { message: "One line of text" });
 
+/** The reading: the AI's items in reading order (item n is reading[n − 1]), at most maxReadingItems. */
+export const readingSchema = z.array(readingLabelSchema).max(maxReadingItems);
+
+/**
+ * The label of an item whose own label had nothing left after cleaning: it
+ * keeps the item's number in the reading, but its point is never used, since
+ * the model was asked where "vara" is.
+ */
+export const readingPlaceholder = "vara";
+
 /**
  * An item's label as the reading keeps it: on one line, without control or
- * format characters, at most maxReadingLabelChars, and "vara" when nothing
- * is left, so every item keeps its number.
+ * format characters, at most maxReadingLabelChars, and readingPlaceholder
+ * when nothing is left, so every item keeps its number.
  */
 export function readingLabel(label: string): string {
   let text = cleanModelText(label);
@@ -37,7 +48,7 @@ export function readingLabel(label: string): string {
     while (points.join("").length > maxReadingLabelChars) points.pop();
     text = points.join("").trim();
   }
-  return text || "vara";
+  return text || readingPlaceholder;
 }
 
 /** What the client sends to /api/ai/locate with the photo: the reading's labels, 1 to maxReadingItems. */
@@ -69,21 +80,45 @@ export type PhotoNumbers =
   | { kind: "none" }
   | { kind: "ready"; points: ReadonlyMap<number, PhotoPoint> };
 
-/** The points of an answer by item number (the first point per number). */
-export function pointsByNumber(result: LocateResult): ReadonlyMap<number, PhotoPoint> {
+/**
+ * The points of an answer by item number (the first point per number),
+ * without the points of placeholder items (readingPlaceholder in `reading`)
+ * and of numbers beyond it.
+ */
+export function pointsByNumber(result: LocateResult, reading: readonly string[]): ReadonlyMap<number, PhotoPoint> {
   const points = new Map<number, PhotoPoint>();
-  for (const point of result.positions) if (!points.has(point.n)) points.set(point.n, point);
+  for (const point of result.positions) {
+    const label = reading[point.n - 1];
+    if (label === undefined || label === readingPlaceholder || points.has(point.n)) continue;
+    points.set(point.n, point);
+  }
   return points;
 }
 
-/** The card's number on the photo: its first item's number, when one of its items has a point; `null` otherwise. */
+/**
+ * The cards that can have a number (Story 6.6): exactly the suggestion cards
+ * Lagerförslag shows, "Nytt" and "Ändrat" (or the plain list), in their
+ * order. Oförändrade suggestions and "Syns inte längre" have none.
+ */
+export function numberedCards(groups: Pick<SuggestionGroups, "added" | "changed">): PantrySuggestion[] {
+  return [...groups.added, ...groups.changed];
+}
+
+/** Whether a lookup of the numbers can give any card a number: a reading, and a card shown with item numbers. */
+export function hasNumberableCards(groups: Pick<SuggestionGroups, "added" | "changed">, reading: readonly string[]): boolean {
+  return reading.length > 0 && numberedCards(groups).some((card) => (card.itemNumbers ?? []).length > 0);
+}
+
+/**
+ * The card's number on the photo: the first of its item numbers that has a
+ * point, so the number is always on a marker of the card's own item; `null`
+ * when none has.
+ */
 export function cardNumber(
   suggestion: Pick<PantrySuggestion, "itemNumbers">,
   points: ReadonlyMap<number, PhotoPoint>,
 ): number | null {
-  const numbers = suggestion.itemNumbers ?? [];
-  if (numbers.length === 0 || !numbers.some((n) => points.has(n))) return null;
-  return numbers[0];
+  return (suggestion.itemNumbers ?? []).find((n) => points.has(n)) ?? null;
 }
 
 /** A marker on the photo: the card's number at an item's point, in percent of the photo's width and height. */

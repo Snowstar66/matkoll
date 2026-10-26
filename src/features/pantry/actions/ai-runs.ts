@@ -1,7 +1,6 @@
 import "server-only";
 
-// The AI run on its way per user, in this server process only (a second
-// server instance has its own), so one person never keeps the local model
+// The AI run on its way per user, so one person never keeps the local model
 // busy twice (a second tab, a double tap that got past the client):
 // - an analysis of a photo (analyzePlace) stops whatever run of the same
 //   user was on its way, which then answers `ai_superseded`;
@@ -9,16 +8,23 @@ import "server-only";
 //   an older lookup, but never an analysis: while one is on its way, the
 //   lookup is not started and answers `ai_superseded` itself, since the
 //   numbers are extra and the reading is not.
+//
+// The lock only covers these two calls, and only in this server process: a
+// second server instance has its own, and the other AI calls (importing a
+// recipe, AI-förslag) do not take it. It is no global queue for the model.
 
 export type AiRunKind = "analyze" | "locate";
 
 const runs = new Map<string, { kind: AiRunKind; controller: AbortController }>();
 
 /**
- * Starts a run of `kind` for the user: the controller that a newer run
- * aborts, or `null` when a lookup has to give way to an analysis on its
- * way. Hand it to finishRun when the run is done.
+ * Starts a run of `kind` for the user and returns the controller that a
+ * newer run aborts. An analysis always starts; a lookup gets `null` when it
+ * has to give way to an analysis on its way. Hand the controller to
+ * finishRun when the run is done.
  */
+export function startRun(userId: string, kind: "analyze"): AbortController;
+export function startRun(userId: string, kind: "locate"): AbortController | null;
 export function startRun(userId: string, kind: AiRunKind): AbortController | null {
   const current = runs.get(userId);
   if (kind === "locate" && current?.kind === "analyze") return null;

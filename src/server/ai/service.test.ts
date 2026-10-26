@@ -29,8 +29,10 @@ import {
   hangingModel,
   recipeAnswer,
   testModelId,
+  textAnswer,
   validRecipe,
 } from "./test-support";
+import { MockLanguageModelV4 } from "ai/test";
 
 // runStructured as it is, spied on, so a test can see the budget it was given.
 vi.mock("./run", async (importOriginal) => {
@@ -702,7 +704,7 @@ describe("locateItems on a model (Story 6.6)", () => {
 
   it("sends the locate-items prompt, the photo as a file part and the numbered labels, and returns the points", async () => {
     const model = fakeModel(answer());
-    const result = await createModelAiService({ model }, limits).locateItems(input, signal());
+    const result = await createModelAiService({ model, supportsGrounding: true }, limits).locateItems(input, signal());
     expect(result).toEqual({
       ok: true,
       data: {
@@ -739,7 +741,7 @@ describe("locateItems on a model (Story 6.6)", () => {
         { n: 1, position: [300, 300] },
       ]),
     );
-    const result = await createModelAiService({ model }, limits).locateItems(input, signal());
+    const result = await createModelAiService({ model, supportsGrounding: true }, limits).locateItems(input, signal());
     expect(model.doGenerateCalls).toHaveLength(1);
     expect(result).toEqual({
       ok: true,
@@ -756,7 +758,7 @@ describe("locateItems on a model (Story 6.6)", () => {
 
   it("gives ai_invalid at once for an answer broken as a whole: one attempt only", async () => {
     const model = fakeModel(JSON.stringify({ points: [] }), answer());
-    const result = await createModelAiService({ model }, limits).locateItems(input, signal());
+    const result = await createModelAiService({ model, supportsGrounding: true }, limits).locateItems(input, signal());
     expect(result).toMatchObject({ ok: false, error: { code: "ai_invalid" } });
     expect(model.doGenerateCalls).toHaveLength(1);
   });
@@ -778,7 +780,7 @@ describe("locateItems on a model (Story 6.6)", () => {
     });
     const runStructured = vi.mocked(run.runStructured);
     runStructured.mockClear();
-    const service = createModelAiService({ model: fakeModel(answer()) }, { healthMs: 5_000, attemptMs: 100_000, totalMs: 115_000, maxAttempts: 3, minRetryMs: 20_000 });
+    const service = createModelAiService({ model: fakeModel(answer()), supportsGrounding: true }, { healthMs: 5_000, attemptMs: 100_000, totalMs: 115_000, maxAttempts: 3, minRetryMs: 20_000 });
     await service.locateItems(input, signal());
     expect(runStructured.mock.calls[0][3]).toMatchObject({ attemptMs: 30_000, totalMs: 35_000, maxAttempts: 1 });
     await service.locateItems(input, signal(), { deadline: Date.now() + 20_000 });
@@ -789,14 +791,14 @@ describe("locateItems on a model (Story 6.6)", () => {
 
   it("gives ai_unavailable when the model does not answer within the attempt", async () => {
     const { model, signals } = hangingModel();
-    const result = await createModelAiService({ model }, { ...limits, attemptMs: 50 }).locateItems(input, signal());
+    const result = await createModelAiService({ model, supportsGrounding: true }, { ...limits, attemptMs: 50 }).locateItems(input, signal());
     expect(result).toMatchObject({ ok: false, error: { code: "ai_unavailable" } });
     expect(abortReason(signals[0])).toBe("TimeoutError");
   });
 
   it("gives ai_unavailable without asking the model when the deadline leaves too little time", async () => {
     const model = fakeModel(answer());
-    const result = await createModelAiService({ model }, limits).locateItems(input, signal(), { deadline: Date.now() + 1_000 });
+    const result = await createModelAiService({ model, supportsGrounding: true }, limits).locateItems(input, signal(), { deadline: Date.now() + 1_000 });
     expect(result).toMatchObject({ ok: false, error: { code: "ai_unavailable" } });
     expect(model.doGenerateCalls).toHaveLength(0);
   });
@@ -804,7 +806,7 @@ describe("locateItems on a model (Story 6.6)", () => {
   it("uses the image sampling of the reading", async () => {
     const model = fakeModel(answer());
     const sampling = { temperature: 0, topP: 0.8, presencePenalty: 1.5 };
-    await createModelAiService({ model, imageSampling: sampling }, limits).locateItems(input, signal());
+    await createModelAiService({ model, imageSampling: sampling, supportsGrounding: true }, limits).locateItems(input, signal());
     expect(model.doGenerateCalls[0]).toMatchObject(sampling);
   });
 
@@ -821,6 +823,41 @@ describe("locateItems on a model (Story 6.6)", () => {
     expect(userContent).toContainEqual({ type: "text", text: "Varorna:\n1. Arla mellanmjölk 1,5 l\n2. Smör 500 g\n3. Ägg" });
     // Exactly one call to the model.
     expect(server.chatCalls()).toBe(1);
+  });
+
+  it("asks only a target that supports grounding, and answers ai_unavailable at once for any other", async () => {
+    const model = fakeModel(answer());
+    expect(await createModelAiService({ model }, limits).locateItems(input, signal())).toMatchObject({
+      ok: false,
+      error: { code: "ai_unavailable" },
+    });
+    expect(model.doGenerateCalls).toHaveLength(0);
+    expect(console.info).toHaveBeenCalledWith("ai_unavailable", { reason: "no_grounding" });
+  });
+
+  it.each([
+    ["LM Studio with a model that is not Qwen", { AI_PROVIDER: "lmstudio", LMSTUDIO_BASE_URL: "http://localhost:1234/v1", AI_MODEL: "google/gemma-3-27b" }],
+    ["OpenAI", { AI_PROVIDER: "openai", OPENAI_API_KEY: "sk-test", AI_MODEL: "gpt-5" }],
+    ["Anthropic", { AI_PROVIDER: "anthropic", ANTHROPIC_API_KEY: "sk-ant-test", AI_MODEL: "claude-test" }],
+  ])("never sends the photo a second time to %s", async (_name, settings) => {
+    const server = fakeServer({ chat: [Response.json(chatCompletion(answer()))] });
+    const result = await createAiService(parseEnv(settings), { fetch: server.fetch }).locateItems(input, signal());
+    expect(result).toMatchObject({ ok: false, error: { code: "ai_unavailable" } });
+    expect(server.requests).toHaveLength(0);
+  });
+
+  it("has room for 1 600 tokens and logs locate_truncated when the model stops at the limit", async () => {
+    expect(inputLimits.locate.maxOutputTokens).toBe(1_600);
+    const cut = { ...textAnswer('{"positions": [{"n": 1, "position": [1'), finishReason: { unified: "length" as const, raw: "length" } };
+    const model = new MockLanguageModelV4({ doGenerate: async () => cut });
+    const result = await createModelAiService({ model, supportsGrounding: true }, limits).locateItems(input, signal());
+    expect(result).toMatchObject({ ok: false, error: { code: "ai_invalid" } });
+    expect(console.info).toHaveBeenCalledWith("locate_truncated");
+    const whole = { ...textAnswer(answer()), finishReason: { unified: "length" as const, raw: "length" } };
+    vi.mocked(console.info).mockClear();
+    const full = new MockLanguageModelV4({ doGenerate: async () => whole });
+    expect((await createModelAiService({ model: full, supportsGrounding: true }, limits).locateItems(input, signal())).ok).toBe(true);
+    expect(console.info).toHaveBeenCalledWith("locate_truncated");
   });
 
   it("the prompt file is loaded, in Swedish, and asks for one point per number, in thousandths, with the list as data", () => {

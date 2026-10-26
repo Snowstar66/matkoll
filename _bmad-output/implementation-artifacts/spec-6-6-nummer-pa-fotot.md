@@ -124,7 +124,7 @@ Ett experiment med Pontus foto (2048 px, temperatur 0, appens prompt) mot Qwen3.
 
 ## Implementation Notes
 
-- **Beslut (förslag): kortets nummer är numret på dess första vara i avläsningen.** Avläsningen är varorna efter att porten har slagit ihop upprepningar (6.5) och kortat till 25, i modellens ordning. Ett kort som samlar flera varor (samma katalogvara) har den första varans nummer, och fotot har markörer med det numret på alla dess varor. Ett förslag som delas på två enheter har samma nummer på båda korten.
+- **Beslut (förslag): kortets nummer är numret på dess första vara i avläsningen.** Avläsningen är varorna efter att porten har slagit ihop upprepningar (6.5) och kortat till 25, i modellens ordning. Ett kort som samlar flera varor (samma katalogvara) har den första varans nummer, och fotot har markörer med det numret på alla dess varor. Ett förslag som delas på två enheter får bara numren på varorna med sin enhet, så två kort har aldrig samma nummer (ändrat efter granskningen, se Spec Change Log).
 - **Beslut (förslag): markörer bara för kort som visas.** "Nytt" och "Ändrat" (eller den vanliga listan) har nummer. Oförändrade varor, varor som inte gick att koppla till katalogen och "Syns inte längre" har inga markörer, så att varje markör har ett kort. När ett kort är hanterat försvinner dess markör.
 - **Beslut (förslag): alla varor lokaliseras,** även de utan kort, så att anropet är det som mättes. Numren följer avläsningen, så ett kort kan ha nummer 5 utan att det finns ett kort med nummer 4.
 - **Beslut (förslag): miniatyren får ingen markör.** På 72 px går numren inte att läsa. Statusen under miniatyren säger att numren letas upp och sedan att de finns på fotot.
@@ -145,7 +145,63 @@ Ett experiment med Pontus foto (2048 px, temperatur 0, appens prompt) mot Qwen3.
   - **Mätningen:** mätning mot LM Studio väntar. Storyn committas utan den, så att 8.4 kan bygga vidare, och siffrorna kommer i en egen commit.
   - **`kyl-dorr.locate.json`** kommer från ett anrop mot Qwen3.6 i LM Studio med fixturens tre varor (efter sammanslagningen). Punkterna är kontrollerade mot bilden. Tiden från det anropet räknas inte som mätning.
 
+- Efter granskningen (iteration 1):
+  - **Avläsningen** kontrolleras på servern med samma schema som klienten (`readingSchema`) innan den skickas. En avläsning som inte klarar det loggas som `analyze_reading_invalid` och lämnas utanför svaret, så att korten bara saknar nummer. Grenen för en jämförelse som inte går att läsa skickar också avläsningen.
+  - **Nummer per enhet:** delas en katalogvara på kort per enhet, får varje kort bara numren på varorna med sin enhet. Varor utan mängd följer med det första kortet, som deras mängd gör.
+  - **En källa för numren:** `numberedCards` ger exakt de kort som visas ("Nytt" och "Ändrat"). Märkena, markörerna, statusen och beslutet om uppslaget (`hasNumberableCards`) använder den. Ett svar med bara oförändrade varor och "Syns inte längre" gör inget uppslag.
+  - **Kortets nummer** är det första av dess varunummer som har en punkt (`cardNumber`), så numret står alltid på en markör på kortets egen vara. Detta ersätter "Ett kort utan punkt …" under Vid bygget.
+  - **Platshållaren** "vara" (`readingPlaceholder`) behåller sitt nummer i avläsningen, men dess punkt används aldrig.
+  - **Fotots storlek:** rutan och markörerna följer bildens avkodade storlek (`naturalWidth` och `naturalHeight`), och bilden har `object-contain`. Storleken i filens huvud lägger ut rutan tills bilden är avkodad, och då finns inga markörer. Utan storlek i filens huvud görs inget uppslag. Ett foto som inte går att visa (stort eller som miniatyr) tar bort numren från korten och statusen.
+  - **Markörerna** hålls inne i rutan (`clamp(14px, X %, calc(100 % - 14px))`). De är 24 px och lite genomskinliga (85 %) när fotot passar skärmen, och hela i full storlek. Märken och markörer har minsta storlek, `leading-none` och utfyllnad i stället för fast höjd, så att "25" ryms vid 200 % text.
+  - **Ingen layoutförskjutning:** medan numren letas upp har varje kort som kan få ett nummer en osynlig platshållare av samma storlek.
+  - **Skärmläsare:** "Nummer 3 på fotot" står som dold text i kortets rubrik, efter titeln. Siffran man ser är dold för skärmläsare. Statusregionen finns, tom, så länge sektionen visas, och texten skrivs först efter att regionen har kommit på plats.
+  - **Uppslagets livslängd:** ett nytt uppslag stoppar det som pågår. Uppslaget stoppas när fotot byts, när Hemma lämnas, när ett foto inte går att visa och när alla kort är hanterade. "Ångra" skickar det igen. Avbryts, misslyckas eller ersätts ett nytt fotos analys medan de gamla korten står kvar, skickas de gamla korten uppslag igen. Nummer som redan har kommit slås aldrig upp igen.
+  - **Låset:** `startRun(id, "analyze")` ger alltid en controller (överlagring), och reservvägen `?? new AbortController()` är borta. `ai-runs.ts` säger att låset gäller per process och bara de två anropen.
+  - **Leverantörer:** `locateItems` frågar bara ett mål med `supportsGrounding`, alltså LM Studio med en Qwen-modell (`/qwen/i`) och mocken. Alla andra svarar `ai_unavailable` direkt, så att fotot aldrig skickas en andra gång till en leverantör som inte är tränad för punkter i tusendelar.
+  - **Svarsbudget:** `maxOutputTokens` för uppslaget är 1 600. När modellen stannar vid gränsen loggas `locate_truncated`.
+  - **E2E:** kortens rubriker kontrolleras med `cardTitles` (`tests/e2e/support.ts`), eftersom rubriken nu kan sluta med "Nummer 3 på fotot".
+
 ## Review Triage Log
+
+Iteration 1. Granskare: Blind Hunter, Edge Case Hunter och Verification Gap.
+
+**Patch:**
+- Avläsningen:
+  - Servern bygger `reading` av exakt de varor som behölls (högst 25) och kontrollerar den med klientens schema. Ett fel loggas som `analyze_reading_invalid` och fäller aldrig svaret.
+  - Grenen utan läsbar jämförelse skickar också `reading`.
+- Numren:
+  - Kort per enhet delar aldrig ett nummer.
+  - Märken, markörer och uppslaget utgår från samma kort (`numberedCards`). Oförändrade varor har inget nummer, och ett svar med bara sådana gör inget uppslag.
+  - `cardNumber` tar det första varunumret som har en punkt.
+  - Platshållaren "vara" får inget nummer på fotot.
+- Fotot:
+  - Den avkodade storleken styr rutan och markörerna, och bilden har `object-contain`.
+  - Utan känd storlek görs inget uppslag.
+  - Ett foto som inte går att visa tar bort numren.
+  - Markörerna hålls inne i rutan, är mindre och lite genomskinliga när fotot passar skärmen.
+  - Märken och markörer växer med texten.
+- Ingen layoutförskjutning: en osynlig platshållare medan numren letas upp.
+- Skärmläsare: numret i rubriken, och en statusregion som finns tom innan texten kommer.
+- Uppslagets livslängd: ett pågående uppslag stoppas av ett nytt och när kort, foto eller Hemma försvinner. De gamla korten får sina nummer igen om ett nytt fotos analys inte ger något svar.
+- Låset: `startRun` för en analys ger aldrig `null`. Låset är dokumenterat som per process och för två anrop. Nya tester för uppslag och analys mot varandra.
+- Leverantörer: bara mål med `supportsGrounding` tillfrågas.
+- Svarsbudget: 1 600 token och loggen `locate_truncated`.
+- Felstavat testnamn rättat ("never writes").
+- Nya tester:
+  - 30 varor ger en avläsning med 25 som klarar klientens schema;
+  - grenen utan läsbar jämförelse;
+  - nummer per enhet;
+  - inga markörer utan känd storlek, med fotot kvar;
+  - inga nummer efter ett bildfel;
+  - inget nummer eller markör för oförändrade varor;
+  - nytt uppslag efter avbruten, misslyckad eller ersatt analys;
+  - leverantörer utan stöd för punkter;
+  - avkortat svar.
+
+**Avvisat:**
+- Annan sampling för uppslaget. Experimentet mätte med `presence_penalty` 1,5, och punkterna hamnade rätt, så det som mättes behålls.
+- En HMAC-token som knyter uppslaget till en tidigare analys. Appen har en användare, och etiketterna påverkar bara användarens egna punkter.
+- Ett globalt lås för alla AI-anrop. Låset är dokumenterat i stället.
 
 ## Verification
 

@@ -1,5 +1,5 @@
 import { expect, type Page, test } from "@playwright/test";
-import { adminClient, cameraEmail, cameraStorageState, e2eUserId } from "./support";
+import { adminClient, cardTitles, cameraEmail, cameraStorageState, e2eUserId } from "./support";
 
 // Story 6.1: the camera button on Hemma and lagerförslag from a photo, with
 // AI_PROVIDER=mock. The fixture photos are synthetic PNGs that already fit
@@ -150,14 +150,14 @@ test("a photo of the fridge gives six suggestions, writes nothing, and they stay
   // Kyl has mjölk (Story 6.4): the photo is compared with it, so mjölk is "Ändrat" and the rest "Nytt".
   await expect(section(page).getByRole("heading", { level: 3 })).toHaveText(["Nytt", "Ändrat"]);
   // Story 6.5: a card's title is the label on the package, with the catalog ingredient under it when it differs.
-  await expect(cards(page).getByRole("heading", { level: 4 })).toHaveText([
+  await expect(cards(page).getByRole("heading", { level: 4 })).toHaveText(cardTitles([
     "Vispgrädde 3 dl",
     "gurka",
     "ketchup",
     "Smör 500 g",
     "ägg",
     "Mellanmjölk 1,5 %",
-  ]);
+  ]));
   const expected: [string, string | null, string, boolean, string | null][] = [
     ["Vispgrädde 3 dl", "grädde", "1 förp · Kyl", true, null],
     ["gurka", null, "2 st · Kyl", true, null],
@@ -168,7 +168,7 @@ test("a photo of the fridge gives six suggestions, writes nothing, and they stay
   ];
   for (const [index, [title, name, amount, isNew, now]] of expected.entries()) {
     const shown = cards(page).nth(index);
-    await expect(shown.getByRole("heading", { level: 4 })).toHaveText(title);
+    await expect(shown.getByRole("heading", { level: 4 })).toHaveText(cardTitles([title]));
     if (name) await expect(shown.getByText(`Sparas som: ${name}`, { exact: true })).toBeVisible();
     await expect(shown.getByText("Osäker", { exact: true })).toHaveCount(0);
     await expect(shown.getByText(amount, { exact: true })).toBeVisible();
@@ -252,9 +252,9 @@ test("the cards come first, then their numbers, and the large photo has the same
   ] as const;
   for (const [index, [title, number]] of expected.entries()) {
     const shown = cards(page).nth(index);
-    await expect(shown.getByRole("heading", { level: 4 })).toHaveText(title);
+    await expect(shown.getByRole("heading", { level: 4 })).toHaveText(cardTitles([title]));
     await expect(shown.getByText(`Nummer ${number} på fotot`, { exact: true })).toBeAttached();
-    await expect(shown.getByTestId("pantry-photo-number")).toHaveText(`${number}Nummer ${number} på fotot`);
+    await expect(shown.getByTestId("pantry-photo-number")).toHaveText(String(number));
   }
   expect(await page.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth)).toBe(true);
 
