@@ -1,5 +1,6 @@
 import { z } from "zod";
 import {
+  catalogName,
   displayAmount,
   formatQuantity,
   locationSchema,
@@ -395,9 +396,9 @@ export function suggestionTitle(suggestion: Pick<PantrySuggestion, "name" | "lab
   return { title: labels.join(", "), ingredientName: suggestion.name };
 }
 
-/** Under a card's label, when the catalog ingredient differs from it: "Sparas som: vispgrädde". */
+/** Under a card's label, when the catalog ingredient differs from it: "Sparas som: Vispgrädde", as the catalog stores it (Story 10.4). */
 export function savedAsText(name: string): string {
-  return `Sparas som: ${name}`;
+  return `Sparas som: ${catalogName(name)}`;
 }
 
 /** The badge on a suggestion the model was unsure of (Story 6.5). */
@@ -715,7 +716,7 @@ export function confirmItemFromSuggestion(suggestion: PantrySuggestion): Confirm
  * A suggestion corrected in the sheet Lagervara, as it is confirmed: the
  * form's ingredient, place, amount and unit. A new ingredient gets the form's
  * place as its default place, unless it is still the suggestion's own new
- * ingredient (the same name): then it keeps the suggestion's proposal id,
+ * ingredient (the same name, compared normalised): then it keeps the suggestion's proposal id,
  * default place and unit, with the form's section, so Rätta and then
  * Bekräfta create the same catalog ingredient as Bekräfta alone.
  */
@@ -725,7 +726,7 @@ export function confirmItemFromForm(form: PantryItemForm, suggestion?: PantrySug
   let confirmed: ConfirmItemInput["ingredient"];
   if (ingredient.kind === "existing") {
     confirmed = { kind: "existing", ingredientId: ingredient.ingredientId };
-  } else if (own?.kind === "new" && collapseName(own.name) === collapseName(ingredient.name)) {
+  } else if (own?.kind === "new" && normalizeIngredientText(own.name) === normalizeIngredientText(ingredient.name)) {
     confirmed = { ...own, section: ingredient.section };
   } else {
     confirmed = { kind: "new", name: ingredient.name, section: ingredient.section, location, defaultUnit: ingredient.defaultUnit };

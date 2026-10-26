@@ -399,6 +399,9 @@ isOneToOne: false
 "apply_pantry_inventory":
 { Args: { "items": Json,"operation_id"?: string,"place": string,"remove_ids": (string)[],"replace_ids": (string)[],"site"?: string }; Returns: Json
                            },
+"catalog_display_name":
+{ Args: { "name_text": string }; Returns: string
+                           },
 "clear_put_in_pantry":
 { Args: { "check_ids": (string)[],"custom_item_ids": (string)[],"override_keys": (string)[],"plan_id": string }; Returns: number
                            },
@@ -436,6 +439,9 @@ isOneToOne: false
                            },
 "pantry_owner_lock":
 { Args: { "owner": string }; Returns: undefined
+                           },
+"pantry_photo_orphans":
+{ Args: { "min_age": string }; Returns: string[]
                            },
 "pantry_photo_points_valid":
 { Args: { "points": Json,"reading": Json }; Returns: boolean

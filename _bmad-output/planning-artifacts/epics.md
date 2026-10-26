@@ -1464,6 +1464,36 @@ så att inga bilder av mitt hem ligger kvar i onödan.
 **När** den körs
 **Så** innehåller den inga foton och inga rader från `storage.objects` eller `pantry_photo`, och `docs/drift.md` beskriver hur bucketen och policyerna kommer tillbaka vid en återställning, provat i en tillfällig lokal stack (AD-23)
 
+### Story 10.4: Lagersaldo och stor bokstav
+
+En snabbfix som Pontus bad om under Epic 10. Lagersidan hette Hemma, samma sak som det första stället (Epic 8), och sparade varunamn började ibland med liten bokstav.
+
+Som Pontus,
+vill jag att lagersidan heter Lagersaldo och att varornas namn börjar med stor bokstav,
+så att sidan inte förväxlas med stället Hemma och namnen ser likadana ut överallt.
+
+**Acceptance Criteria:**
+
+**Givet** menyn på mobil och dator
+**När** Pontus ser den
+**Så** heter lagersidan "Lagersaldo", rubriken och sidans titel är "Lagersaldo", och adressen är fortfarande `/hemma`
+
+**Givet** menyn på mobil och dator
+**När** Pontus ser den
+**Så** heter menyvalet för inköpslistan "Inköpslista" i stället för "Lista", adressen är fortfarande `/lista`, och ingen etikett i flikfältet klipps vid 375 px med 200 % textförstoring
+
+**Givet** stället Hemma
+**När** det visas i väljaren, i arket Ställen, i raden "Lager: Hemma" eller i en bekräftelse som "Tog bort 2 varor ur kylen för Hemma."
+**Så** heter stället fortfarande Hemma
+
+**Givet** en ny vara från ett foto, ett recept, AI-förslag eller arket Lagervara, till exempel "bregott"
+**När** den sparas i katalogen
+**Så** är namnet "Bregott", medan det normaliserade namnet, matchningen och sökningen är oförändrade
+
+**Givet** varor som redan finns i katalogen med liten första bokstav, till exempel "mellanmjölk" och "ägg"
+**När** migrationen har körts
+**Så** heter de "Mellanmjölk" och "Ägg", och inga andra kolumner eller rader har ändrats
+
 ## Epic 11: Nytt utseende
 
 Tillägg till 1.1. Pontus bad om "betydligt trevligare ux. Som ser proffsigare ut." och godkände tre skisser: Lagersaldo ("ja mycket snyggare enl din skiss"), Inköpslista ("inköpslistan börjar bli mkt bättre") och hela appen i mobilen ("ja nu börjar du verkligen hitta ux som app. bravo. håll den stilen"). Skisserna ligger i `ux-designs/ux-Matkoll-2026-10-25/mockups/`, och `DESIGN.md` och `EXPERIENCE.md` gäller när de inte stämmer överens. Epic 11 byggs efter Epic 10, där Story 10.4 redan byter namn till Lagersaldo och Inköpslista. Arkitekturen står i AD-27 och i tillägg till AD-3, AD-12, AD-17, AD-19 och AD-20. Storyna byggs i ordning, och varje story håller tillgänglighetsgolvet (NFR12): 44 px tryckytor, 200 % text, 375 px bredd, mörkt läge, VoiceOver och React Activity.

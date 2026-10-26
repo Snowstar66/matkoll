@@ -1,12 +1,13 @@
 import { expect, type Page, test } from "@playwright/test";
+import { normalizeIngredientText } from "@/features/catalog";
 import { adminClient, e2eUserId, emptyPlaceEmail, emptyPlaceStorageState } from "./support";
 
 // Story 6.3: "Töm kylen" on Hemma asks first, empties the location in one
 // call, and "Ångra" puts every row back with the same id. The spec has an E2E
 // user of its own (emptyPlaceEmail): before each test the service role
-// empties its pantry and makes the catalog ingredients "mjölk", "ost", "smör"
-// and "ärtor" and the pantry items "mjölk 2 förp", "ost 1 förp" and "smör"
-// (unlimited) in Kyl and "ärtor 1 förp" in Frys. Skafferi is empty. The tests
+// empties its pantry and makes the catalog ingredients "Mjölk", "Ost", "Smör"
+// and "Ärtor" and the pantry items "Mjölk 2 förp", "Ost 1 förp" and "Smör"
+// (unlimited) in Kyl and "Ärtor 1 förp" in Frys. Skafferi is empty. The tests
 // run in order, since they share the user. No AI is asked.
 
 test.use({ storageState: emptyPlaceStorageState, viewport: { width: 375, height: 812 } });
@@ -25,21 +26,23 @@ test.beforeEach(async () => {
     .from("ingredient")
     .upsert(
       [
-        { user_id: userId, name: "mjölk", normalized_name: "mjölk", section: "Mejeri", location: "Kyl", default_unit: "förp" },
-        { user_id: userId, name: "ost", normalized_name: "ost", section: "Mejeri", location: "Kyl", default_unit: "förp" },
-        { user_id: userId, name: "smör", normalized_name: "smör", section: "Mejeri", location: "Kyl", default_unit: "förp" },
-        { user_id: userId, name: "ärtor", normalized_name: "ärtor", section: "Frys", location: "Frys", default_unit: "förp" },
+        { user_id: userId, name: "Mjölk", normalized_name: "mjölk", section: "Mejeri", location: "Kyl", default_unit: "förp" },
+        { user_id: userId, name: "Ost", normalized_name: "ost", section: "Mejeri", location: "Kyl", default_unit: "förp" },
+        { user_id: userId, name: "Smör", normalized_name: "smör", section: "Mejeri", location: "Kyl", default_unit: "förp" },
+        { user_id: userId, name: "Ärtor", normalized_name: "ärtor", section: "Frys", location: "Frys", default_unit: "förp" },
       ],
       { onConflict: "user_id,normalized_name" },
     )
     .select("id, name");
   if (catalog.error) throw catalog.error;
-  const id = (name: string) => catalog.data.find((row) => row.name === name)!.id;
+  // Story 10.4: the catalog stores the name with a capital, so it is found normalised.
+  const id = (name: string) =>
+    catalog.data.find((row) => normalizeIngredientText(row.name) === normalizeIngredientText(name))!.id;
   const inserted = await admin.from("pantry_item").insert([
-    { user_id: userId, ingredient_id: id("mjölk"), location: "Kyl", amount: 2, unit: "förp" },
-    { user_id: userId, ingredient_id: id("ost"), location: "Kyl", amount: 1, unit: "förp" },
-    { user_id: userId, ingredient_id: id("smör"), location: "Kyl", amount: null, unit: null },
-    { user_id: userId, ingredient_id: id("ärtor"), location: "Frys", amount: 1, unit: "förp" },
+    { user_id: userId, ingredient_id: id("Mjölk"), location: "Kyl", amount: 2, unit: "förp" },
+    { user_id: userId, ingredient_id: id("Ost"), location: "Kyl", amount: 1, unit: "förp" },
+    { user_id: userId, ingredient_id: id("Smör"), location: "Kyl", amount: null, unit: null },
+    { user_id: userId, ingredient_id: id("Ärtor"), location: "Frys", amount: 1, unit: "förp" },
   ]);
   if (inserted.error) throw inserted.error;
 });
@@ -131,8 +134,8 @@ test("Töm kylen removes every item in Kyl, and Ångra puts them back with the s
 
   await toast(page).getByRole("button", { name: "Ångra" }).click();
   await expect(card(page, "Kyl")).toHaveText(/^Kyl\s*3 varor$/);
-  await expect(rows(page)).toHaveText([/^mjölk\s*2 förp$/, /^ost\s*1 förp$/]);
-  await expect(tags(page)).toHaveText(["smör"]);
+  await expect(rows(page)).toHaveText([/^Mjölk\s*2 förp$/, /^Ost\s*1 förp$/]);
+  await expect(tags(page)).toHaveText(["Smör"]);
   await expect(emptyButton(page)).toBeVisible();
   await expect.poll(() => rowsIn("Kyl")).toEqual(before);
   expect(await rowsIn("Frys")).toHaveLength(1);
@@ -148,7 +151,7 @@ test("Ångra skips an item added again meanwhile and says so, and puts the other
   await sheet(page).getByRole("button", { name: "Töm kylen" }).click();
   await expect(toast(page)).toContainText("Tog bort 3 varor ur kylen.");
 
-  // Another device puts "mjölk 1 förp" in Kyl before Ångra.
+  // Another device puts "Mjölk 1 förp" in Kyl before Ångra.
   const mjolk = before.find((row) => row.amount === 2)!;
   const added = await adminClient()
     .from("pantry_item")
@@ -166,7 +169,7 @@ test("Ångra skips an item added again meanwhile and says so, and puts the other
   ].sort((a, b) => a.id.localeCompare(b.id));
   await expect.poll(() => rowsIn("Kyl")).toEqual(expected);
   await expect(card(page, "Kyl")).toHaveText(/^Kyl\s*3 varor$/);
-  await expect(rows(page)).toHaveText([/^mjölk\s*1 förp$/, /^ost\s*1 förp$/]);
-  await expect(tags(page)).toHaveText(["smör"]);
+  await expect(rows(page)).toHaveText([/^Mjölk\s*1 förp$/, /^Ost\s*1 förp$/]);
+  await expect(tags(page)).toHaveText(["Smör"]);
   expect(errors).toEqual([]);
 });

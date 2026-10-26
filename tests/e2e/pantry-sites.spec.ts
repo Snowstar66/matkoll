@@ -137,7 +137,7 @@ const itemSheet = (page: Page) => page.getByRole("dialog", { name: "Lagervara" }
 /** Hemma, once React runs: the switch's text button (or "Lägg till ställe" with one place) is enabled. */
 async function openHemma(page: Page, path = "/hemma") {
   await page.goto(path);
-  await expect(page.getByRole("heading", { level: 1, name: "Hemma" })).toBeVisible();
+  await expect(page.getByRole("heading", { level: 1, name: "Lagersaldo" })).toBeVisible();
   const ready = (await storedPlaces()).length > 1 ? sitesButton(page) : addSiteButton(page);
   await expect(ready).toBeEnabled();
 }
@@ -213,7 +213,7 @@ test("Lägg till ställe adds Stugan, not selected, and Hemma shows the pills an
   await expect(pill(page, "Stugan")).toHaveAttribute("aria-checked", "false");
   await expect(sitesButton(page)).toBeVisible();
   await expect(addSiteButton(page)).toHaveCount(0);
-  await expect(page.getByRole("heading", { level: 1 })).toHaveText("Hemma");
+  await expect(page.getByRole("heading", { level: 1 })).toHaveText("Lagersaldo");
   for (const target of [pill(page, "Hemma"), pill(page, "Stugan"), sitesButton(page)]) await expectTapSize(target);
   await noHorizontalScroll(page);
   expect(errors).toEqual([]);
@@ -266,7 +266,7 @@ test("a tap on Stugan selects it, keeps Frys chosen, says so, and shows its empt
   for (const name of ["Kyl", "Frys", "Skafferi"] as const) await expect(card(page, name)).toHaveText(new RegExp(`^${name}\\s*0 varor$`));
   await expect(page.getByText("Inget i frysen än.").filter({ visible: true })).toBeVisible();
   await expect(page.getByRole("button", { name: "Fotografera frysen" }).filter({ visible: true })).toBeVisible();
-  await expect(page.getByRole("heading", { level: 1 })).toHaveText("Hemma");
+  await expect(page.getByRole("heading", { level: 1 })).toHaveText("Lagersaldo");
   expect(await selectedPlace()).toBe("Stugan");
   expect(errors).toEqual([]);
 });

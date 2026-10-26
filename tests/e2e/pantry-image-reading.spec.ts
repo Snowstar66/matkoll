@@ -7,7 +7,7 @@ import { adminClient, cardTitles, e2eUserId, imageReadingEmail, imageReadingStor
 // apelsinjuice 1 l" and "Gul flaska, troligen senap" marked osäker
 // (kyl-dorr.analyze.json). The spec has an E2E user of its own
 // (imageReadingEmail): before each test the service role empties its pantry
-// and makes the catalog ingredients "vispgrädde", "apelsinjuice" and "senap",
+// and makes the catalog ingredients "Vispgrädde", "Apelsinjuice" and "Senap",
 // so Kyl is empty and the cards are the plain list of Story 6.2.
 
 const door = "tests/fixtures/ai/kyl-dorr.png";
@@ -25,12 +25,13 @@ test.beforeEach(async () => {
     const removed = await admin.from(table).delete().eq("user_id", userId);
     if (removed.error) throw removed.error;
   }
-  // The photo's ingredients are in the catalog, so every run shows the same cards (no "Ny").
+  // The photo's ingredients are in the catalog, so every run shows the same cards (no "Ny"),
+  // with an uppercase first letter as the catalog stores names (Story 10.4).
   const catalog = await admin.from("ingredient").upsert(
     [
-      { user_id: userId, name: "vispgrädde", normalized_name: "vispgrädde", section: "Mejeri", location: "Kyl", default_unit: "förp" },
-      { user_id: userId, name: "apelsinjuice", normalized_name: "apelsinjuice", section: "Dryck", location: "Kyl", default_unit: "förp" },
-      { user_id: userId, name: "senap", normalized_name: "senap", section: "Skafferi", location: "Kyl", default_unit: "förp" },
+      { user_id: userId, name: "Vispgrädde", normalized_name: "vispgrädde", section: "Mejeri", location: "Kyl", default_unit: "förp" },
+      { user_id: userId, name: "Apelsinjuice", normalized_name: "apelsinjuice", section: "Dryck", location: "Kyl", default_unit: "förp" },
+      { user_id: userId, name: "Senap", normalized_name: "senap", section: "Skafferi", location: "Kyl", default_unit: "förp" },
     ],
     { onConflict: "user_id,normalized_name" },
   );
@@ -89,10 +90,10 @@ test("labels are the cards' titles, a repeat is one card, and an unsure item wai
     "Lantmejeriet vispgrädde 36 % 3 dl",
   ]));
   const cream = cards(page).filter({ hasText: "Lantmejeriet" });
-  await expect(cream.getByText("Sparas som: vispgrädde", { exact: true })).toBeVisible();
+  await expect(cream.getByText("Sparas som: Vispgrädde", { exact: true })).toBeVisible();
   await expect(cream.getByText("1 förp · Kyl", { exact: true })).toBeVisible();
   const mustard = cards(page).filter({ hasText: "Gul flaska" });
-  await expect(mustard.getByText("Sparas som: senap", { exact: true })).toBeVisible();
+  await expect(mustard.getByText("Sparas som: Senap", { exact: true })).toBeVisible();
   await expect(mustard.getByText("Osäker", { exact: true })).toBeVisible();
   await expect(mustard.getByText("AI:n är osäker på varan, så Bekräfta alla tar inte med den.")).toBeVisible();
   await expect(section(page).getByText("Osäker", { exact: true })).toHaveCount(1);
@@ -105,15 +106,15 @@ test("labels are the cards' titles, a repeat is one card, and an unsure item wai
   await section(page).getByRole("button", { name: "Bekräfta alla" }).click();
   await expect(toast(page)).toHaveText("Lagt 2 varor i lagret. 1 osäker vara är kvar att bekräfta eller rätta.");
   await expect(titles(page)).toHaveText(cardTitles(["Gul flaska, troligen senap"]));
-  await expect(section(page).getByRole("button", { name: "Bekräfta senap" })).toBeFocused();
+  await expect(section(page).getByRole("button", { name: "Bekräfta Senap" })).toBeFocused();
   await expect(section(page).getByRole("button", { name: "Bekräfta alla" })).toBeDisabled();
-  await expect.poll(pantry).toEqual(["apelsinjuice 1 förp Kyl", "vispgrädde 1 förp Kyl"]);
+  await expect.poll(pantry).toEqual(["Apelsinjuice 1 förp Kyl", "Vispgrädde 1 förp Kyl"]);
 
   // Its own Bekräfta saves it.
-  await section(page).getByRole("button", { name: "Bekräfta senap" }).click();
-  await expect(toast(page)).toHaveText("senap är sparad i kylen.");
+  await section(page).getByRole("button", { name: "Bekräfta Senap" }).click();
+  await expect(toast(page)).toHaveText("Senap är sparad i kylen.");
   await expect(section(page)).toHaveCount(0);
   await expect(kylCard(page)).toHaveText(/^Kyl\s*3 varor$/);
-  await expect.poll(pantry).toEqual(["apelsinjuice 1 förp Kyl", "senap 1 förp Kyl", "vispgrädde 1 förp Kyl"]);
+  await expect.poll(pantry).toEqual(["Apelsinjuice 1 förp Kyl", "Senap 1 förp Kyl", "Vispgrädde 1 förp Kyl"]);
   expect(errors).toEqual([]);
 });

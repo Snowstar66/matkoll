@@ -46,6 +46,7 @@ import {
   unreadableItemsText,
   isBulkConfirmable,
   maxSuggestionLabels,
+  savedAsText,
   suggestionTitle,
   uncertainBadgeText,
   uncertainLeftText,
@@ -493,6 +494,9 @@ describe("texts", () => {
     expect(suggestionTitle({ name: "ägg", labels: ["Ägg"] })).toEqual({ title: "ägg", ingredientName: null });
     expect(suggestionTitle({ name: "ägg", labels: [] })).toEqual({ title: "ägg", ingredientName: null });
     expect(suggestionTitle({ name: "ägg" })).toEqual({ title: "ägg", ingredientName: null });
+    // Story 10.4: a label that is the catalog name in other case is the name; no "Sparas som".
+    expect(suggestionTitle({ name: "Gurka", labels: ["gurka"] })).toEqual({ title: "Gurka", ingredientName: null });
+    expect(savedAsText("vispgrädde")).toBe("Sparas som: Vispgrädde");
   });
 
   it("says when the AI was unsure, and how many unsure suggestions are left (Story 6.5)", () => {

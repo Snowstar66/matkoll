@@ -11,7 +11,7 @@ Mappen `skisser/` innehåller fyra mobilskärmar (390 × 844) som HTML-markup fr
 | `1-recept-bibliotek.html` | Recept: biblioteket med sökning, filter och status per rätt |
 | `2-receptvy.html` | Receptvy: portionsväljare, ingredienser mot lagret, knappar |
 | `3-inkopslista.html` | Inköpslista: grupperad per avdelning, Skicka till ICA |
-| `4-hemma.html` | Hemma: platskort, kamera, varor med och utan mängd |
+| `4-hemma.html` | Hemma (sedan Story 10.4 Lagersaldo): platskort, kamera, varor med och utan mängd |
 
 Matsedel och Laga mat (stegläge) är inte skissade. Följ samma mönster.
 
@@ -44,11 +44,11 @@ Inget rött i gränssnittet. Varningar och "saknas" använder blått.
 
 ## Navigering
 
-Fyra flikar längst ned på mobil, sidomeny på dator: Recept, Matsedel, Lista, Hemma. Aktiv flik i `accent`.
+Fyra flikar längst ned på mobil, sidomeny på dator: Recept, Matsedel, Inköpslista och Lagersaldo (hette Lista och Hemma före Story 10.4). På en smal skärm, som 375 px med 200 % zoom, bryts Mat/sedel, Inköps/lista och Lager/saldo på två rader. Aktiv flik i `accent`.
 
 ## Skärmregler
 
 - **Recept:** filterpiller Alla / Favoriter / Kan lagas nu. Varje rätt visar bild, titel, tid, portioner och status ("Kan lagas nu" i mint, "Saknar N varor" i sky). Hjärta för favorit.
 - **Receptvy:** bild överst, portionsväljare, sammanfattning "X av Y hemma". Ingredienser med grön bock (finns hemma) eller blå ring (saknas). Knappar: "Lägg på matsedeln" (primär) och "Laga nu" (sekundär).
 - **Inköpslista:** sektioner per butiksavdelning, runda bockar, vilken rätt varan kommer från. "Lägg till egen vara". Fast knapp "Skicka till ICA".
-- **Hemma:** tre platskort (Kyl/mint, Frys/sky, Skafferi/sand) med ikon och antal, valt kort med 2 px ram i `accent`. Kameraknappen följer vald plats. "Med mängd" som rader; "Finns hemma" (utan mängd) som etiketter.
+- **Lagersaldo (tidigare Hemma):** tre platskort (Kyl/mint, Frys/sky, Skafferi/sand) med ikon och antal, valt kort med 2 px ram i `accent`. Kameraknappen följer vald plats. "Med mängd" som rader; "Finns hemma" (utan mängd) som etiketter.

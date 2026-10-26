@@ -22,6 +22,7 @@ import { Sheet } from "@/components/sheet";
 import { useToast } from "@/components/toast";
 import {
   LOCATIONS,
+  normalizeIngredientText,
   SECTIONS,
   UNITS,
   type Location,
@@ -138,7 +139,12 @@ function initialValues(target: PantrySheetTarget): FormValues {
 function sameIngredient(a: ChosenIngredient | null, b: ChosenIngredient | null): boolean {
   if (a === null || b === null) return a === b;
   if (a.kind === "existing" && b.kind === "existing") return a.ingredientId === b.ingredientId;
-  return a.kind === "new" && b.kind === "new" && a.name === b.name && a.section === b.section;
+  return (
+    a.kind === "new" &&
+    b.kind === "new" &&
+    normalizeIngredientText(a.name) === normalizeIngredientText(b.name) &&
+    a.section === b.section
+  );
 }
 
 function isFormDirty(values: FormValues, initial: FormValues): boolean {

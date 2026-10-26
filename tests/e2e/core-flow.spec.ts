@@ -27,7 +27,7 @@ function watchErrors(page: Page): string[] {
 
 // Earlier routes stay mounted but hidden after a client navigation, so the
 // locators below are scoped to what is visible.
-const tab = (page: Page, name: "Recept" | "Matsedel" | "Lista" | "Hemma") =>
+const tab = (page: Page, name: "Recept" | "Matsedel" | "Inköpslista" | "Lagersaldo") =>
   page.getByRole("navigation", { name: "Huvudmeny" }).getByRole("link", { name });
 const sheet = (page: Page) => page.getByRole("dialog", { name: "Importera recept" });
 const toast = (page: Page) => page.getByTestId("toast");
@@ -79,7 +79,7 @@ test("sign in, import a recipe, plan it, check a line off and put it in the pant
   await expect(toast(page)).toHaveText("Lagt på matsedeln.");
 
   // Lista: check one line off and put it in the pantry.
-  await tab(page, "Lista").click();
+  await tab(page, "Inköpslista").click();
   await expect(page).toHaveURL(/\/lista$/);
   const chicken = lines(page).filter({ hasText: /kycklinglårfilé/i });
   await expect(chicken).toHaveCount(1);
@@ -93,8 +93,8 @@ test("sign in, import a recipe, plan it, check a line off and put it in the pant
   await expect(chicken).toHaveCount(0);
   await expect(lines(page)).toHaveCount(count - 1);
 
-  // Hemma: the chicken is in the fridge.
-  await tab(page, "Hemma").click();
+  // Lagersaldo: the chicken is in the fridge.
+  await tab(page, "Lagersaldo").click();
   await expect(page).toHaveURL(/\/hemma/);
   const rows = page.getByTestId("pantry-row").filter({ visible: true });
   await expect(rows.filter({ hasText: /kycklinglårfilé/i })).toHaveText(/kycklinglårfilé\s*600 g/i);

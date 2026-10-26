@@ -109,7 +109,7 @@ const lines = (page: Page) => page.getByTestId("shopping-line").filter({ visible
 const check = (page: Page, name: string) => page.getByRole("checkbox", { name, exact: true }).filter({ visible: true });
 const putButton = (page: Page) => page.getByRole("button", { name: "Lägg i lagret", exact: true }).filter({ visible: true });
 const toast = (page: Page) => page.getByTestId("toast");
-const tab = (page: Page, name: "Recept" | "Hemma" | "Lista") =>
+const tab = (page: Page, name: "Recept" | "Lagersaldo" | "Inköpslista") =>
   page.getByRole("navigation", { name: "Huvudmeny" }).getByRole("link", { name });
 
 test.beforeEach(async () => {
@@ -143,8 +143,8 @@ test("Lägg i lagret puts the checked lines in the pantry, takes them off the li
   await expect(page.getByText("Allt finns hemma.").filter({ visible: true })).toBeVisible();
   await expect(putButton(page)).toHaveCount(0);
 
-  // Hemma: the catalog's locations, increased or created, and unlimited for salt and kaffe.
-  await tab(page, "Hemma").click();
+  // Lagersaldo: the catalog's locations, increased or created, and unlimited for salt and kaffe.
+  await tab(page, "Lagersaldo").click();
   await expect(page).toHaveURL(/\/hemma/);
   const rows = page.getByTestId("pantry-row").filter({ visible: true });
   await expect(rows.filter({ hasText: "Grädde" })).toHaveText(/Grädde\s*3 dl/);

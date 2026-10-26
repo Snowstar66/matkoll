@@ -11,7 +11,7 @@ import { restoreCustomItem } from "../actions/restore-custom-item";
 import { restoreLine } from "../actions/restore-line";
 import { compareShoppingLines, type ShoppingLine } from "../domain/compute-list";
 import { parseLineKey } from "../domain/line-key";
-import { restoreFailedText } from "../domain/list-text";
+import { lineName, restoreFailedText } from "../domain/list-text";
 
 // "Ta bort" on a list line with "Ångra" (FR-17, AD-20): no question first
 // (EXPERIENCE.md, Interaction Primitives). The line leaves the list at once
@@ -240,7 +240,7 @@ export function useLineRemoval(planId: string | null, lines: readonly ShoppingLi
     settle(id, token);
     if (!removed.undo) {
       // Gone, but it cannot be put back.
-      showOther(removedItemsText([line.label]));
+      showOther(removedItemsText([lineName(line)]));
       return;
     }
     confirmRemoved({ line, planId: plan, undo: removed.undo });
@@ -253,7 +253,7 @@ export function useLineRemoval(planId: string | null, lines: readonly ShoppingLi
     const forget = () => {
       if (batch.current === current) batch.current = null;
     };
-    showToast(removedItemsText(all.map(({ line }) => line.label)), {
+    showToast(removedItemsText(all.map(({ line }) => lineName(line))), {
       onUndo: () => {
         forget();
         void restoreAll(all);
@@ -282,7 +282,7 @@ export function useLineRemoval(planId: string | null, lines: readonly ShoppingLi
     if (failures.length === 0) return;
     // A plan switched elsewhere says so; otherwise, of several, the alert names the ones not put back.
     const failure = failures.find(({ result }) => !result.ok && result.error.code === "shopping_plan_changed") ?? failures[0];
-    const message = removed.length > 1 ? restoreFailedText(failures.map(({ line }) => line.label)) : undefined;
+    const message = removed.length > 1 ? restoreFailedText(failures.map(({ line }) => lineName(line))) : undefined;
     failed(failure.result, results.some(({ lost }) => lost), message);
   }
 

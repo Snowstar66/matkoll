@@ -103,7 +103,7 @@ test.describe("on a phone", () => {
   test("shows the three location cards with counts, and Kyl's rows and tags", async ({ page }) => {
     const errors = watchErrors(page);
     await page.goto("/hemma");
-    await expect(page.getByRole("heading", { level: 1, name: "Hemma" })).toBeVisible();
+    await expect(page.getByRole("heading", { level: 1, name: "Lagersaldo" })).toBeVisible();
 
     await expect(card(page, "Kyl")).toHaveText(/^Kyl\s*3 varor$/);
     await expect(card(page, "Frys")).toHaveText(/^Frys\s*1 vara$/);
@@ -456,7 +456,7 @@ test.describe("removing an item", () => {
     await swipeAndRemove(page, "Mjölk");
     await expect(toast(page)).toContainText("Mjölk är borttagen.");
     await swipeAndRemove(page, "Smör");
-    await expect(toast(page)).toContainText("Mjölk och Smör är borttagna.");
+    await expect(toast(page)).toContainText("Mjölk och smör är borttagna.");
     await expect(rows(page)).toHaveCount(0);
     await expect(card(page, "Kyl")).toHaveText(/^Kyl\s*1 vara$/);
 

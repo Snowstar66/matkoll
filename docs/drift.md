@@ -36,8 +36,9 @@ Vercel-projektet skapas först men fylls med variabler i steg 9, när värdena f
 1. Supabase → **New project** → namn `matkoll`, region **North EU (Stockholm), `eu-north-1`**. Välj ett starkt databaslösenord och spara det i din lösenordshanterare; det behövs i steg 6 och 10.
 2. Anteckna `<ref>` (syns i projektets adress, `https://<ref>.supabase.co`).
 3. Om projektet erbjuder att automatiskt exponera nya tabeller i Data API kan du stänga av det, som `auto_expose_new_tables = false` lokalt. Det är inte nödvändigt: migrationerna tar själva bort standardrättigheterna och ger varje tabell sina egna (AD-4).
+4. Projektet måste ha **PostgreSQL 17 eller senare**, som lokalt (`major_version = 17` i `supabase/config.toml`). Migrationerna `catalog_name_capital` och `catalog_name_rule` (Story 10.4) använder kollationen `pg_c_utf8`, som finns från version 17, och stoppar med ett tydligt fel på en äldre version.
 
-**Kontroll:** **Project Settings → General** visar regionen `eu-north-1`.
+**Kontroll:** **Project Settings → General** visar regionen `eu-north-1`, och **Project Settings → Infrastructure** visar Postgres 17 eller senare.
 
 ## 3. Registrering avstängd
 
