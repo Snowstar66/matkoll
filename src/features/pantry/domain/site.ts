@@ -168,3 +168,33 @@ export function siteFieldErrors(error: z.ZodError): Record<string, string> {
   }
   return fields;
 }
+
+/** What the texts below need of a place. */
+type NamedSite = Pick<SelectedSite, "name" | "siteCount">;
+
+/**
+ * The place's name where a text names it, or `null` with one place (or none,
+ * or a place that could not be read): then everything reads as in 1.0,
+ * without place names (UX-DR17). The basis of siteLineText and siteSuffix.
+ */
+export function shownSiteName(site: NamedSite | null): string | null {
+  return site && site.siteCount > 1 ? site.name : null;
+}
+
+/**
+ * "Lager: Stugan": the line that says which place the status is counted
+ * against, under the page title in Recept (Kan lagas nu), Matsedel and
+ * Inköpslista, and under "X av Y hemma" in the recipe view; `null` with one
+ * place. Every module writes the line with this, so it reads the same
+ * everywhere (AD-24).
+ */
+export function siteLineText(site: NamedSite | null): string | null {
+  const name = shownSiteName(site);
+  return name === null ? null : `Lager: ${name}`;
+}
+
+/** " för Stugan", for texts such as "Lagt 8 varor i lagret för Stugan."; "" with one place. */
+export function siteSuffix(site: NamedSite | null): string {
+  const name = shownSiteName(site);
+  return name === null ? "" : ` för ${name}`;
+}

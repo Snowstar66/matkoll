@@ -15,7 +15,8 @@ const next = "/lista";
  * catalog's search is passed down for the suggestions in Lägg till egen vara
  * (AD-1: a client component never imports another module's actions). The
  * selected store and its product choices (Story 7.2) go beside the list; when
- * they cannot be read, only the detail's section Produktval says so.
+ * they cannot be read, only the detail's section Produktval says so. The place
+ * the list is counted against goes to the list too, for "Lägg i lagret".
  */
 export async function ShoppingListContent() {
   await requireUserOrRedirect(next);
@@ -37,6 +38,7 @@ export async function ShoppingListContent() {
     productChoices,
     productChoicesUnavailable,
     unreadableChoices,
+    site,
   } = result.data;
   return (
     <ShoppingList
@@ -52,6 +54,7 @@ export async function ShoppingListContent() {
       productChoices={productChoices}
       productChoicesUnavailable={productChoicesUnavailable}
       unreadableChoices={unreadableChoices}
+      site={site}
     />
   );
 }

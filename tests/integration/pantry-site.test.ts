@@ -1194,7 +1194,7 @@ describe("Hemma's reads and writes on a chosen place (Story 8.2)", () => {
 
     await expect(
       setPantryItemsIn(user.db, [{ ingredientId: mjolk, location: "Kyl", amount: 1, unit: "l" }], null, madeUpId),
-    ).rejects.toThrow(new PantryDataError("set_failed MK410"));
+    ).rejects.toThrow(new PantryDataError("site_gone"));
   });
 
   it("puts a removed row back on its own place after another is selected, and MK410 when that place is gone", async () => {
@@ -1219,6 +1219,6 @@ describe("Hemma's reads and writes on a chosen place (Story 8.2)", () => {
     await user.db.from("pantry_item").delete().eq("id", id!);
     await expect(
       restorePantryItemIn(user.db, { id: id!, siteId: madeUpId, ingredientId: mjolk, location: "Kyl", amount: 1, unit: "l" }),
-    ).rejects.toThrow(new PantryDataError("restore_failed MK410"));
+    ).rejects.toThrow(new PantryDataError("site_gone"));
   });
 });

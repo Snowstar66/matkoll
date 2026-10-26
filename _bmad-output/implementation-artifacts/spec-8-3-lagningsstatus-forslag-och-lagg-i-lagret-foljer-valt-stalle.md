@@ -2,7 +2,8 @@
 title: 'Story 8.3: Lagningsstatus, förslag och Lägg i lagret följer valt ställe'
 type: 'feature'
 created: '2026-10-26'
-status: 'draft'
+status: 'done'
+baseline_commit: 'e540216bf3225de75595212c9d90754111568816'
 route: 'dispatch'
 context:
   - '{project-root}/_bmad-output/implementation-artifacts/epic-8-context.md'
@@ -88,28 +89,28 @@ context:
 ## Tasks & Acceptance
 
 **Execution:**
-- [ ] `src/features/pantry/domain/site.ts` (+ test), `index.ts` -- `siteLineText(site: SelectedSite | null): string | null` ger "Lager: Stugan" när `siteCount > 1` och annars `null`. `siteSuffix(site)` ger " för Stugan" när `siteCount > 1` och annars "", för texter som "… i lagret för Stugan." -- EXPERIENCE.md, Voice and Tone
-- [ ] `src/features/pantry/server.ts`, `data/add.ts` (+ tester):
+- [x] `src/features/pantry/domain/site.ts` (+ test), `index.ts` -- `siteLineText(site: SelectedSite | null): string | null` ger "Lager: Stugan" när `siteCount > 1` och annars `null`. `siteSuffix(site)` ger " för Stugan" när `siteCount > 1` och annars "", för texter som "… i lagret för Stugan." -- EXPERIENCE.md, Voice and Tone
+- [x] `src/features/pantry/server.ts`, `data/add.ts` (+ tester):
   - `addToPantry(items, siteId: string | null)` validerar `siteId` (`z.uuid().nullable()`) och skickar `site` till `add_to_pantry`.
   - `MK410` blir `pantry_site_gone`. Det loggas med felkoden, och inget läggs till.
 
   -- FR-19, FR-33, AD-19
-- [ ] `src/features/recipes/server.ts`, `data/pantry-snapshot.ts`, `actions/search-recipes.ts`, `domain/recipe-list.ts` (+ tester):
+- [x] `src/features/recipes/server.ts`, `data/pantry-snapshot.ts`, `actions/search-recipes.ts`, `domain/recipe-list.ts` (+ tester):
   - `selectedSiteOrNull()` läser `getSelectedSite()` och ger `null` vid `PantryDataError`, som loggas som `pantry_unavailable`.
   - `RecipeLibrary` får `site: SelectedSite | null`, både från `listLibrary()` och från `searchRecipes`.
   - `getRecipeWithPantry` lämnar `site` bredvid snapshoten.
 
   -- AD-1, AD-24
-- [ ] `src/features/recipes/ui/library.tsx`, `recipe-body.tsx` (+ tester):
+- [x] `src/features/recipes/ui/library.tsx`, `recipe-body.tsx` (+ tester):
   - I biblioteket visas `siteLineText(site)` under sidrubriken bara när filtret är "Kan lagas nu", och raden följer det senaste svaret från sökningen.
   - I receptvyn visas raden under "X av Y hemma", som `<p className="text-meta text-ink-2">`.
   - Raden syns inte när statusen saknas.
 
   -- FR-8, FR-20, FR-22, UX-DR17
-- [ ] `src/features/mealplan/server.ts`, `src/app/(app)/matsedel/meal-plan-content.tsx` (+ tester) -- `MealPlanView` får `site: SelectedSite | null`, och raden visas under sidrubriken när den inte är `null` och matsedeln har rätter -- FR-13, UX-DR17
-- [ ] `src/features/suggestions/actions/suggest-from-pantry.ts` (+ test) -- ingen kodändring. Ett test visar att `getPantrySnapshot` anropas utan argument, och därmed gäller valt ställe -- FR-23
-- [ ] `src/features/shopping/server.ts` (+ test) -- `getShoppingList` lämnar `site: SelectedSite | null` från `getSelectedSite()` bredvid listan. Ett fel där ger `site: null` och loggas som `pantry_unavailable`, och listan visas ändå -- AD-8, AD-24
-- [ ] `src/features/shopping/actions/put-checked-in-pantry.ts`, `data/put-in-pantry.ts` (+ tester):
+- [x] `src/features/mealplan/server.ts`, `src/app/(app)/matsedel/meal-plan-content.tsx` (+ tester) -- `MealPlanView` får `site: SelectedSite | null`, och raden visas under sidrubriken när den inte är `null` och matsedeln har rätter -- FR-13, UX-DR17
+- [x] `src/features/suggestions/actions/suggest-from-pantry.ts` (+ test) -- ingen kodändring. Ett test visar att `getPantrySnapshot` anropas utan argument, och därmed gäller valt ställe -- FR-23
+- [x] `src/features/shopping/server.ts` (+ test) -- `getShoppingList` lämnar `site: SelectedSite | null` från `getSelectedSite()` bredvid listan. Ett fel där ger `site: null` och loggas som `pantry_unavailable`, och listan visas ändå -- AD-8, AD-24
+- [x] `src/features/shopping/actions/put-checked-in-pantry.ts`, `data/put-in-pantry.ts` (+ tester):
   - `putInPantrySchema` blir `{ planId: z.uuid(), siteId: z.uuid().nullable() }`.
   - Källan `pantry` blir `() => getPantrySnapshot(siteId ?? undefined)`, och `addToPantry` blir `(items) => addToPantry(items, siteId)`.
   - `pantry_site_gone` från `addToPantry` lämnas vidare oförändrad, och de andra felen loggas som förut.
@@ -122,14 +123,14 @@ context:
   - `validation` för ett `siteId` som inte är ett uuid.
 
   -- FR-19, FR-32, FR-33, AD-8
-- [ ] `src/features/shopping/domain/list-text.ts` (+ test), `ui/put-in-pantry.tsx`, `ui/shopping-list.tsx` (+ tester), `src/app/(app)/lista/shopping-list-content.tsx`:
+- [x] `src/features/shopping/domain/list-text.ts` (+ test), `ui/put-in-pantry.tsx`, `ui/shopping-list.tsx` (+ tester), `src/app/(app)/lista/shopping-list-content.tsx`:
   - `putInPantryText(added, removed, siteName)` ger "Lagt 8 varor i lagret för Stugan." när `siteName` finns och annars texten från 1.0. "Tog bort 2 varor från listan." är oförändrad.
   - `ShoppingList` får `site` och skickar `site?.id ?? null` med `putCheckedInPantry`.
   - `pantry_site_gone` visas i listans `Notice` och läser om listan (som `planChanged`).
 
   -- FR-19, EXPERIENCE.md
-- [ ] `src/lib/revalidate.test.ts` (ny eller utökad) -- `revalidateFor("pantry_site")` revaliderar `/hemma` (page), `/recept` (layout), `/matsedel` (layout) och `/lista` (page) -- AD-18
-- [ ] `tests/e2e/site-status.spec.ts` (+ `support.ts`, `global-setup.ts`) -- egen e2e-användare `e2e-stalle-status@matkoll.test` (`siteStatusEmail`, i `e2eEmails`). Före varje test seedar service role:
+- [x] `src/lib/revalidate.test.ts` (ny eller utökad) -- `revalidateFor("pantry_site")` revaliderar `/hemma` (page), `/recept` (layout), `/matsedel` (layout) och `/lista` (page) -- AD-18
+- [x] `tests/e2e/site-status.spec.ts` (+ `support.ts`, `global-setup.ts`) -- egen e2e-användare `e2e-stalle-status@matkoll.test` (`siteStatusEmail`, i `e2eEmails`). Före varje test seedar service role:
   - katalogingredienserna "ketchup" (Skafferi) och "korv" (Kyl);
   - receptet "Korv med ketchup" med båda;
   - stället Stugan;
@@ -145,8 +146,8 @@ context:
   - i ett eget test: att ketchup hamnar på Stugan när service role väljer Hemma efter att listan visades.
 
   -- matrisen
-- [ ] `tests/e2e/put-in-pantry.spec.ts`, `cookable.spec.ts`, `mealplan.spec.ts` -- går igenom oförändrade, med ett ställe.
-- [ ] `docs/beslutslogg.md` -- en post för storyn: var raden "Lager" visas, `siteLineText`, och att "Lägg i lagret" räknar om listan mot listans ställe.
+- [x] `tests/e2e/put-in-pantry.spec.ts`, `cookable.spec.ts`, `mealplan.spec.ts` -- går igenom oförändrade, med ett ställe.
+- [x] `docs/beslutslogg.md` -- en post för storyn: var raden "Lager" visas, `siteLineText`, och att "Lägg i lagret" räknar om listan mot listans ställe.
 
 **Acceptance Criteria:**
 - Given `pnpm lint && pnpm typecheck && pnpm test && pnpm test:integration && AI_PROVIDER=mock pnpm build && CI=1 pnpm test:e2e`, when de körs, then lyckas alla.
@@ -165,7 +166,56 @@ context:
 
 ## Spec Change Log
 
+### Vid bygget
+
+- **8.3 byggdes samtidigt som 8.2,** på grenen `story/8-3` från `epic/8-flera-stallen` (e540216). Därför finns tre saker från 8.2 också här, i den minsta form som 8.3 behöver. De ger konflikter som löses när grenarna slås ihop:
+  - `revalidateFor("pantry_site")` i `src/lib/revalidate.ts`, med samma fyra vägar och samma ordning som i 8.2:s spec, eftersom testet ingår i 8.3:s uppgifter;
+  - felkoden `pantry_site_gone` i `src/lib/errors.ts`, med texten från epic-kontexten;
+  - översättningen av `MK410`, bara i `addToPantryIn`. Den kastar `PantryDataError("site_gone")`, och konstanterna `siteGoneCode` och `siteGoneDetail` ligger i `pantry/data/client.ts`.
+- **Väljaren i Hemma finns inte än,** så e2e-specen väljer ställe med service role. Den gör en upsert av användarens alla ställen i en sats, med det valda sist, så att det partiella unika indexet och `pantry_site_one_selected` håller. Specen laddar om sidan efter ett byte. Kontrollen att "Kan lagas nu" kommer tillbaka utan omladdning när Hemma väljs kräver väljaren och läggs till när 8.2 finns på grenen.
+- **I biblioteket står raden direkt under filterpillren,** inte direkt under sidrubriken. Raden visas bara med "Kan lagas nu". Under rubriken skulle den flytta ned sökfältet och pillren när "Kan lagas nu" trycks, så att pillret flyttar sig under fingret.
+- **I biblioteket följer raden serverns ställe före sökningens,** inte alltid det senaste svaret från sökningen. Raderna tar sin status från serverns lista i första hand (`byId.get(id) ?? recipe`), och raden ska namnge det ställe som märkena räknades mot. Sökningens ställe används när serverns lista saknade status. En sökning utan träffar läser inte lagret och ger `site: null`. Ändrat efter granskningen, se Review Triage Log.
+- **I Matsedel visas raden av `MealPlanList`** (`siteLine`, från `siteLineText(view.site)` i `meal-plan-content.tsx`), först i listan. Då försvinner den samtidigt som den sista rätten när rätten tas bort, och tomläget "Ingen rätt på matsedeln än." har ingen rad. Ändrat efter granskningen, se Review Triage Log.
+- **`site` är `null` när lagret inte går att läsa,** i `toLibrary`, i `getMealPlanView` och i receptvyn (`pantryForStatus()` i `recipes/data/pantry-snapshot.ts`). Så visas raden aldrig utan status. `getShoppingList` lämnar stället oberoende av snapshoten, som specen säger. Ändrat efter granskningen, se Review Triage Log.
+- **`shownSiteName(site)`** i `pantry/domain/site.ts` är basen för `siteLineText` och `siteSuffix`. `putCheckedInPantry` använder den för `siteName`, och `putInPantryText` skriver " för Stugan" med namnet.
+- **`siteName` läses bara när något lades i lagret** (`added > 0`). Annars namnger texten inget ställe. Ändrat efter granskningen, se Review Triage Log.
+- **Kvittona behöver inte nycklar per ställe** (punkten från granskningen av 8.1). Nyckeln är bockens id. Kvittot glöms när bocken har rensats, och en ny bock får ett nytt id. Samma nyckel kommer därför bara igen när ett avbrutet försök görs om. Då har varan redan köpts och lagts på det första stället, och den ska inte läggas på det andra. `tests/integration/put-in-pantry-site.test.ts` låser det, och visar också att listan räknas mot listans ställe, att ett byte på en annan enhet inte ändrar något och att ett borttaget ställe eller en annan användares ställe ger `pantry_site_gone` utan skrivning.
+
 ## Review Triage Log
+
+Iteration 1. Tre granskare gick igenom a02a163. Ingen migration.
+
+**Patch:**
+- **Ställe och lager läses i en följd:**
+  - `pantry/server` har `getPantryForStatus()`. Den läser valt ställe en gång och sedan lagret för just det stället (`getPantrySnapshot(site.id)`), så att raden "Lager" alltid namnger det ställe som statusen räknades mot. Det gäller också i en Server Action, där React `cache` inte memoiserar.
+  - Går stället eller lagret inte att läsa, är båda `null`: ingen status och ingen rad, som raden "Stället går inte att läsa" i matrisen säger. Det loggas som `pantry_unavailable`, bara med orsaken.
+  - `recipes` (`listRecipes`, `listLibrary`, `getRecipeWithPantry`, `searchRecipes`), `mealplan` (`getMealPlanView`), `shopping` (`getShoppingList`) och `suggestions` (`suggestFromPantry`) använder den. De kopierade omslagen `pantrySnapshotOrNull` och `selectedSiteOrNull` är borta, liksom `recipes/data/pantry-snapshot.ts`.
+  - Testerna som visade status utan ställe visar nu `snapshot: null, site: null`. Ett test i `pantry/server.test.ts` visar att ett fel vid läsningen av stället ger båda `null`.
+  - `getShoppingList` läser lagret även när matsedeln saknar rätter, eftersom stället och lagret läses tillsammans.
+- **"Lägg i lagret":**
+  - `siteId` är `nullish`, så att en klient från bygget före 8.3, som bara skickar `{ planId }`, fungerar.
+  - Utan `siteId` läses valt ställe en gång när åtgärden börjar. Listan räknas mot det stället, varorna läggs där och bekräftelsen namnger det, så att skrivningen och namnet alltid gäller samma ställe.
+  - `siteNameOrNull` kastar aldrig efter en lyckad skrivning. Den loggar `pantry_unavailable` med bara koden och ger `null`.
+  - Stället namnges bara när lagret tog emot något i just det här anropet. `putInPantryWith` lämnar `handled`, antalet som `add_to_pantry` lade till utan de som hoppades över för sitt kvitto. Ett nytt försök där alla varor hade kvitton namnger alltså inget ställe.
+  - Ett `pantry_site_gone` redan när listan läses (om 8.2 kastar det för ett borttaget ställe) ger samma svar som från skrivningen.
+- **Raden i biblioteket:**
+  - Medan sökträffar visas följer raden sökningens `site` och `pantryUnavailable`, annars serverns `site`. Skiljer sig sökningens ställe från serverns visas sökningens.
+  - Ingen rad vid noll träffar, efter en misslyckad sökning eller utan status.
+- **Raden i Matsedel** visas bara när minst en visad rätt har status, alltså ett recept och ett lager. Den visas aldrig på en tom matsedel eller ovanför rätter utan märken.
+- **AI-förslagen är knutna till ett ställe:**
+  - `suggestFromPantry` läser lagret med `getPantryForStatus` och lämnar `siteId`, det ställe som förslagen gjordes från.
+  - Biblioteket döljer förslagen medan det visar ett annat ställe (`site?.id`), och visar dem igen om det stället visas igen. Ett `null` på någon sida döljer inget.
+- **`pantry_site_gone` i Inköpslistan** säger "Stället finns inte längre. Listan har räknats om mot Hemma. Tryck Lägg i lagret igen." Namnet kommer från `putCheckedInPantry` (`fields.site`, med `shownSiteName`). Med ett ställe, eller utan namnet, står det "Listan har räknats om." utan namn. Den allmänna texten gäller fortfarande på andra ställen. Meddelandet visas i den blå `Notice`.
+- **`addToPantry` ger `validation`** för `invalid_site` från data-lagret, inte `pantry_add_failed`.
+- **E2E för det borttagna stället:** listan räknas mot Stugan. Sedan väljer service role Hemma, tömmer Stugan och tar bort den. Ett tryck på "Lägg i lagret" ger meddelandet, listan räknas om mot Hemma och bocken står kvar. Inget skrivs i lagret och inga kvitton skapas. Ett andra tryck lägger ketchup i Hemma.
+
+**Uppskjutet:**
+- Raden "Lager" i Inköpslistan hör till 8.5 enligt specen.
+- `getPantrySnapshot(siteId)` med ett främmande eller borttaget id som kastar `pantry_site_gone` byggs i 8.2. Kastar 8.2 det, översätter `putCheckedInPantry` det redan (`isPantrySiteGone`).
+- E2E-kontrollen att vyerna följer ett byte av ställe utan omladdning läggs till när 8.2:s väljare finns på grenen.
+
+**Avvisat:**
+- Kvitton per ställe för fallet att ett ställe töms och tas bort mellan ett avbrutet försök och det nya. Det är för osannolikt.
 
 ## Verification
 

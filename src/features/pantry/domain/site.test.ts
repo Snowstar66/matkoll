@@ -15,12 +15,39 @@ import {
   renamedSiteText,
   selectedSiteLabel,
   selectedSiteText,
+  shownSiteName,
   siteFieldErrors,
   siteFormSchema,
   siteLimitText,
+  siteLineText,
   siteNameTakenText,
   siteNameTooLongText,
+  siteSuffix,
 } from "./site";
+
+describe("siteLineText, siteSuffix and shownSiteName", () => {
+  const stugan = { id: "11111111-1111-4111-8111-111111111111", name: "Stugan", siteCount: 2 };
+
+  it("name the place when there is more than one", () => {
+    expect(siteLineText(stugan)).toBe("Lager: Stugan");
+    expect(siteSuffix(stugan)).toBe(" för Stugan");
+    expect(shownSiteName(stugan)).toBe("Stugan");
+    expect(siteLineText({ ...stugan, name: "Hemma", siteCount: 10 })).toBe("Lager: Hemma");
+  });
+
+  it("name nothing with one place, or none, as in 1.0", () => {
+    for (const site of [{ ...stugan, name: "Hemma", siteCount: 1 }, { ...stugan, siteCount: 0 }, null]) {
+      expect(siteLineText(site)).toBeNull();
+      expect(siteSuffix(site)).toBe("");
+      expect(shownSiteName(site)).toBeNull();
+    }
+  });
+
+  it("keep a long name whole, so the line wraps rather than cuts it", () => {
+    const name = "a".repeat(maxSiteNameChars);
+    expect(siteLineText({ ...stugan, name })).toBe(`Lager: ${name}`);
+  });
+});
 
 describe("normalizeSiteName", () => {
   it.each([

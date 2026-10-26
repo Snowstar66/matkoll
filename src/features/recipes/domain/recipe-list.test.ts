@@ -134,15 +134,19 @@ describe("toLibrary", () => {
     lines: [{ id: "l1", ingredientId: "gradde", amount: 3, unit: "dl", isVague: false, originalText: "3 dl grädde" }],
   };
 
-  it("gives the rows with status and says the pantry was read", () => {
-    const library = toLibrary([row], toSnapshot([{ ingredientId: "gradde", amount: 3, unit: "dl" }]));
+  const stugan = { id: "55555555-5555-4555-8555-555555555555", name: "Stugan", siteCount: 2 };
+
+  it("gives the rows with status, says the pantry was read, and has the place it is of", () => {
+    const library = toLibrary([row], toSnapshot([{ ingredientId: "gradde", amount: 3, unit: "dl" }]), stugan);
     expect(library.pantryUnavailable).toBe(false);
+    expect(library.site).toBe(stugan);
     expect(library.recipes.map(({ missingCount }) => missingCount)).toEqual([0]);
   });
 
-  it("says the pantry could not be read without a snapshot", () => {
-    const library = toLibrary([row], null);
+  it("says the pantry could not be read without a snapshot, and has no place then", () => {
+    const library = toLibrary([row], null, stugan);
     expect(library.pantryUnavailable).toBe(true);
+    expect(library.site).toBeNull();
     expect(library.recipes.map(({ missingCount }) => missingCount)).toEqual([null]);
   });
 });

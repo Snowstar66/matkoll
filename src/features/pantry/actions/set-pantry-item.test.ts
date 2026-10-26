@@ -162,9 +162,9 @@ describe("savePantryItem", () => {
   });
 
   it("gives pantry_site_gone for a place that was deleted (MK410), and revalidates the places", async () => {
-    setPantryItemsIn.mockRejectedValue(new PantryDataError("set_failed MK410"));
+    setPantryItemsIn.mockRejectedValue(new PantryDataError("site_gone"));
     expect(await savePantryItem(form())).toEqual(fail("pantry_site_gone"));
-    expect(log).toHaveBeenCalledWith("pantry_site_gone", { reason: "set_failed MK410" });
+    expect(log).toHaveBeenCalledWith("pantry_site_gone", { reason: "MK410" });
     expect(revalidateFor).toHaveBeenCalledWith("pantry_site");
   });
 

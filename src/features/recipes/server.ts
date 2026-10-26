@@ -2,9 +2,9 @@ import "server-only";
 import { cache } from "react";
 import { z } from "zod";
 import { getIngredientNames } from "@/features/catalog/server";
-import { snapshotFor, type PantrySnapshot } from "@/features/pantry";
+import { snapshotFor, type PantrySnapshot, type SelectedSite } from "@/features/pantry";
+import { getPantryForStatus } from "@/features/pantry/server";
 import { createClient } from "@/lib/supabase/server";
-import { pantrySnapshotOrNull } from "./data/pantry-snapshot";
 import {
   getRecipe as getRecipeIn,
   getRecipesByIdsIn,
@@ -54,19 +54,20 @@ export const getRecipe = cache(async (id: string): Promise<SavedRecipe | null> =
  * inside <Suspense> (AD-18). Throws RecipeDataError.
  */
 export async function listRecipes(options?: ListOptions): Promise<RecipeListItem[]> {
-  const [rows, snapshot] = await Promise.all([listRecipesIn(await createClient(), options), pantrySnapshotOrNull()]);
+  const [rows, { snapshot }] = await Promise.all([listRecipesIn(await createClient(), options), getPantryForStatus()]);
   return withStatus(rows, snapshot);
 }
 
 /**
- * The library for the Recept page: listRecipes' rows, and whether the pantry
- * could not be read, so Kan lagas nu can say why it does not rank them. For
- * pages, after requireUserOrRedirect, inside <Suspense> (AD-18). Throws
- * RecipeDataError.
+ * The library for the Recept page: listRecipes' rows, whether the pantry
+ * could not be read, so Kan lagas nu can say why it does not rank them, and
+ * the place the status was counted against, for the line "Lager: Stugan"
+ * (AD-24). For pages, after requireUserOrRedirect, inside <Suspense>
+ * (AD-18). Throws RecipeDataError.
  */
 export async function listLibrary(): Promise<RecipeLibrary> {
-  const [rows, snapshot] = await Promise.all([listRecipesIn(await createClient()), pantrySnapshotOrNull()]);
-  return toLibrary(rows, snapshot);
+  const [rows, { snapshot, site }] = await Promise.all([listRecipesIn(await createClient()), getPantryForStatus()]);
+  return toLibrary(rows, snapshot, site);
 }
 
 /**
@@ -76,18 +77,22 @@ export async function listLibrary(): Promise<RecipeLibrary> {
  * browser. An id that is not a uuid is `null` at once, without reading
  * anything; for a uuid the recipe and the pantry are read in parallel.
  * `snapshot` is `null` when the pantry cannot be read (logged as
- * `pantry_unavailable`): the recipe is shown without status. `null` for a
+ * `pantry_unavailable`), and then `site` is `null` too: the recipe is shown
+ * without status and without the line. `site` is the place the pantry is of
+ * (pantry.getPantryForStatus), for "Lager: Stugan" under "X av Y hemma"
+ * (AD-24). `null` for a
  * recipe getRecipe does not find. Throws RecipeDataError.
  */
 export async function getRecipeWithPantry(
   id: string,
-): Promise<{ recipe: SavedRecipe; snapshot: PantrySnapshot | null } | null> {
+): Promise<{ recipe: SavedRecipe; snapshot: PantrySnapshot | null; site: SelectedSite | null } | null> {
   if (!recipeIdSchema.safeParse(id).success) return null;
-  const [recipe, snapshot] = await Promise.all([getRecipe(id), pantrySnapshotOrNull()]);
+  const [recipe, { snapshot, site }] = await Promise.all([getRecipe(id), getPantryForStatus()]);
   if (!recipe) return null;
   return {
     recipe,
     snapshot: snapshot ? snapshotFor(snapshot, recipe.lines.map((line) => line.ingredientId)) : null,
+    site,
   };
 }
 

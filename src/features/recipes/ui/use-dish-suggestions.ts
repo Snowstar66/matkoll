@@ -18,7 +18,10 @@ import { fail, type AppError } from "@/lib/errors";
  */
 export type ShownSuggestion = DishSuggestion & { key: number; recipeId: string };
 
+const noSuggestions: ShownSuggestion[] = [];
+
 export type DishSuggestionsState = {
+  /** The suggestions for the place shown; none while they are of another place. */
   suggestions: ShownSuggestion[];
   /** A call to /api/ai/suggest is on its way. */
   loading: boolean;
@@ -36,9 +39,22 @@ export type DishSuggestionsState = {
   remove: (key: number) => void;
 };
 
-export function useDishSuggestions(): DishSuggestionsState {
+/**
+ * `shownSiteId` is the place the library counts its status against (AD-24).
+ * Suggestions are kept with the place they were suggested from, and hidden
+ * while the library shows another place (a place selected elsewhere): they
+ * were made from that place's pantry. They come back if that place is shown
+ * again, and a new call replaces them. A `null` on either side (no place,
+ * or a pantry that could not be read) hides nothing.
+ */
+export function useDishSuggestions(shownSiteId: string | null = null): DishSuggestionsState {
   const router = useRouter();
-  const [suggestions, setSuggestions] = useState<ShownSuggestion[]>([]);
+  const [made, setMade] = useState<{ suggestions: ShownSuggestion[]; siteId: string | null }>({
+    suggestions: [],
+    siteId: null,
+  });
+  const otherPlace = made.siteId !== null && shownSiteId !== null && made.siteId !== shownSiteId;
+  const suggestions = otherPlace ? noSuggestions : made.suggestions;
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<AppError | null>(null);
   const [arrivals, setArrivals] = useState(0);
@@ -83,13 +99,14 @@ export function useDishSuggestions(): DishSuggestionsState {
       const parsed = dishSuggestionsSchema.safeParse(result.data);
       if (parsed.success) {
         // New suggestions replace the old ones only now that they are here.
-        setSuggestions(
-          parsed.data.suggestions.map((suggestion) => ({
+        setMade({
+          siteId: parsed.data.siteId,
+          suggestions: parsed.data.suggestions.map((suggestion) => ({
             ...suggestion,
             key: ++nextKey.current,
             recipeId: crypto.randomUUID(),
           })),
-        );
+        });
         setArrivals((count) => count + 1);
         return;
       }
@@ -112,7 +129,7 @@ export function useDishSuggestions(): DishSuggestionsState {
   function remove(key: number) {
     const saved = suggestions.find((suggestion) => suggestion.key === key);
     if (saved) savedTitles.current = [saved.draft.title, ...savedTitles.current];
-    setSuggestions((current) => current.filter((suggestion) => suggestion.key !== key));
+    setMade((current) => ({ ...current, suggestions: current.suggestions.filter((suggestion) => suggestion.key !== key) }));
   }
 
   return {

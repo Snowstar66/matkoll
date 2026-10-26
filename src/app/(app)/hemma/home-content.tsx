@@ -3,7 +3,7 @@ import { requireUserOrRedirect } from "@/features/auth/server";
 import type { Location } from "@/features/catalog";
 import { CatalogDataError } from "@/features/catalog/server";
 import type { PantryItem, SelectedSite } from "@/features/pantry";
-import { countPantryItems, listPantry, PantryDataError } from "@/features/pantry/server";
+import { countPantryItems, isPantrySiteGone, listPantry, PantryDataError } from "@/features/pantry/server";
 import { AddSiteButton } from "@/features/pantry/ui/add-site-button";
 import { PantryCamera } from "@/features/pantry/ui/pantry-camera";
 import { PantryPlace } from "@/features/pantry/ui/pantry-place";
@@ -39,8 +39,9 @@ export async function HomeContent({ site, location, next }: HomeContentProps) {
   } catch (error) {
     let message: string = errorMessages.pantry_unavailable;
     if (error instanceof PantryDataError) {
-      if (error.detail === "site_gone") message = errorMessages.pantry_site_gone;
-      console.error(error.detail === "site_gone" ? "pantry_site_gone" : "pantry_unavailable", { reason: error.detail });
+      const gone = isPantrySiteGone(error);
+      if (gone) message = errorMessages.pantry_site_gone;
+      console.error(gone ? "pantry_site_gone" : "pantry_unavailable", { reason: error.detail });
     } else if (error instanceof CatalogDataError) {
       console.error("pantry_unavailable", { reason: error.code, detail: error.detail });
     } else {

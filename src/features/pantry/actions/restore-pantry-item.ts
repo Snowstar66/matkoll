@@ -4,7 +4,7 @@ import { requireUser } from "@/features/auth/server";
 import { fail, ok, type Result } from "@/lib/errors";
 import { revalidateFor } from "@/lib/revalidate";
 import { createClient } from "@/lib/supabase/server";
-import { PantryDataError } from "../data/client";
+import { isSiteGone, PantryDataError, siteGoneCode } from "../data/client";
 import { restorePantryItemIn } from "../data/remove";
 import { pantryRowSchema, type PantryRow } from "../domain/pantry-item-form";
 
@@ -32,8 +32,8 @@ export async function restorePantryItem(row: PantryRow): Promise<Result<PantryRo
     return ok(restored);
   } catch (error) {
     if (!(error instanceof PantryDataError)) throw error;
-    if (error.detail === "restore_failed MK410") {
-      console.error("pantry_site_gone", { reason: error.detail });
+    if (isSiteGone(error)) {
+      console.error("pantry_site_gone", { reason: siteGoneCode });
       revalidateFor("pantry_site");
       return fail("pantry_site_gone");
     }

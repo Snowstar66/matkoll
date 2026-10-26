@@ -1,6 +1,6 @@
 import "server-only";
 import { pantrySiteRowSchema, type PantrySite, type SiteForm } from "../domain/site";
-import { PantryDataError, type PantryDb } from "./client";
+import { PantryDataError, siteGoneCode, type PantryDb } from "./client";
 
 // Every function needs the signed-in user's session client, never an admin
 // client: RLS limits pantry_site to the user's own places, and "the selected
@@ -92,7 +92,7 @@ export async function saveSiteIn(db: PantryDb, form: SiteForm): Promise<SaveSite
     mode: form.mode,
   });
   if (error) {
-    if (error.code === "MK410") return { kind: "gone" };
+    if (error.code === siteGoneCode) return { kind: "gone" };
     if (error.code === "MK422") return { kind: "limit" };
     if (error.code === "MK424") return { kind: "stale" };
     if (error.code === "23505" && error.message.includes(nameKey)) {
@@ -114,7 +114,7 @@ export type SelectSiteOutcome = { kind: "selected"; site: PantrySite } | { kind:
 export async function selectSiteIn(db: PantryDb, id: string): Promise<SelectSiteOutcome> {
   const { data, error } = await db.rpc("select_pantry_site", { site_id: id });
   if (error) {
-    if (error.code === "MK410") return { kind: "gone" };
+    if (error.code === siteGoneCode) return { kind: "gone" };
     throw new PantryDataError(`failed ${error.code}`);
   }
   return { kind: "selected", site: toSite(data) };

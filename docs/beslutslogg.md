@@ -2,6 +2,32 @@
 
 Beslut som fattats under bygget: vad, varför och vilka alternativ som fanns. Nyaste överst.
 
+## 2026-10-26 – Lagningsstatus, förslag och Lägg i lagret följer valt ställe (Story 8.3)
+
+- **Underlag:** specen `spec-8-3-lagningsstatus-forslag-och-lagg-i-lagret-foljer-valt-stalle.md`, där besluten var förslag, och AD-24.
+- **Beslut:**
+  - **Raden "Lager: Stugan" skrivs bara av `siteLineText` i `pantry/domain/site.ts`,** så att alla moduler skriver den likadant. Den ger `null` med ett ställe, och då är allt som i 1.0. `siteSuffix` ger " för Stugan" för texter som "Lagt 8 varor i lagret för Stugan.".
+  - **Var raden visas:**
+    - i receptvyn under "X av Y hemma", utanför live-regionen, så att den inte läses upp när portionerna ändras;
+    - i Matsedel under sidrubriken, när matsedeln har rätter;
+    - i Recept bara med filtret "Kan lagas nu", direkt under filterpillren, så att pillret som trycks inte flyttar sig.
+
+    Raden visas aldrig utan status. `recipes` och `mealplan` läser `getSelectedSite()` och `getPantrySnapshot()` i samma förfrågan. Båda är memoiserade och läser samma valda ställe. Går lagret inte att läsa, visas varken status eller rad.
+  - **"Lägg i lagret" räknar om listan mot listans ställe och lägger varorna där.** Klienten skickar `site.id` från `getShoppingList`. Ett ställe som väljs på en annan enhet efter att listan visades ändrar ingenting. Ett ställe som har tagits bort, eller som är en annan användares, ger `pantry_site_gone` (`MK410`). Då skrivs inget, bockarna står kvar och listan läses om. `siteId` får vara `null` när listan saknade ställe, och då gäller valt ställe.
+  - **Kvittona i `pantry_addition` gäller per användare, inte per ställe** (frågan från granskningen av 8.1). Nyckeln är bockens id. Kvittot glöms när bocken har rensats, och en ny bock får ett nytt id. Samma nyckel kan därför bara komma igen när ett avbrutet försök görs om. Då har varan redan köpts och lagts på det första stället, och det är rätt att den inte läggs till på det andra. Ett integrationstest låser det (`tests/integration/put-in-pantry-site.test.ts`).
+  - **Bekräftelsen namnger stället efter skrivningen** (`siteName` från `listPantrySites()`). Ett fel där ger texten från 1.0 och loggas bara.
+  - **AI-förslagen ändras inte.** De läser `getPantrySnapshot()` utan argument, alltså valt ställe, och ett test låser det.
+- **Efter granskningen:**
+  - **`getPantryForStatus()` i `pantry/server`** läser valt ställe en gång och sedan lagret för just det stället, också i en Server Action, där React `cache` inte memoiserar. Går något av dem inte att läsa, är båda `null`: ingen status och ingen rad. `recipes`, `mealplan`, `shopping` och `suggestions` använder den.
+  - **I biblioteket följer raden sökningens ställe medan sökträffar visas,** annars serverns. Ingen rad vid noll träffar, efter en misslyckad sökning eller utan status. I Matsedel visas raden bara ovanför rätter med status.
+  - **"Lägg i lagret" utan `siteId`** (också från en klient från bygget före 8.3) läser valt ställe en gång när åtgärden börjar och använder det både för listan och för skrivningen. Bekräftelsen namnger stället bara när lagret tog emot något i just det anropet, och läsningen av namnet kastar aldrig efter skrivningen.
+  - **AI-förslagen bär med sig stället de gjordes från** (`siteId`), och biblioteket döljer dem medan det visar ett annat ställe.
+  - **Ett borttaget ställe i Inköpslistan** ger "Stället finns inte längre. Listan har räknats om mot Hemma. Tryck Lägg i lagret igen.", utan namnet med ett ställe.
+- **Vid bygget:** e2e-specen `site-status.spec.ts` väljer ställe med service role, eftersom väljaren i Hemma kommer i 8.2. Den gör en upsert av alla ställen i en sats, med det valda sist, så att det partiella unika indexet och `pantry_site_one_selected` håller. Specen laddar därför om sidorna efter ett byte. Kontrollen att ett byte syns utan omladdning kräver väljaren och läggs till när 8.2 finns på grenen.
+- **Vid sammanslagningen med 8.2:**
+  - **En enda tolkning av `MK410`:** `pantryWriteError` i `pantry/data/client.ts` ger detaljen `site_gone` (`siteGoneDetail`) för `MK410` från alla skrivningar (Lägg i lagret, arket Lagervara och "Ångra"), och läsningen av ett ställe som inte är användarens ger samma detalj. `isSiteGone`, och `isPantrySiteGone` i `pantry/server`, avgör det överallt: i `addToPantry`, i actionerna i Hemma, i Hemmas läsning och i Inköpslistan.
+  - **`getPantryForStatus()` läser lagret för stället den just läste** utan att läsa ställena en gång till, eftersom stället redan är ett av användarens.
+
 ## 2026-10-26 – Välja och hantera ställen i Hemma (Story 8.2)
 
 - **Underlag:** specen `spec-8-2-valja-och-hantera-stallen-i-hemma.md`, där besluten nedan var förslag som godkändes som de stod, EXPERIENCE.md (Ställesväljare och arket Ställen) och AD-24.

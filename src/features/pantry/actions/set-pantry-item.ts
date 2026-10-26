@@ -5,7 +5,7 @@ import { CatalogDataError, commitIngredients } from "@/features/catalog/server";
 import { fail, ok, type Result } from "@/lib/errors";
 import { revalidateFor } from "@/lib/revalidate";
 import { createClient } from "@/lib/supabase/server";
-import { PantryDataError } from "../data/client";
+import { isSiteGone, PantryDataError, siteGoneCode } from "../data/client";
 import { setPantryItemsIn } from "../data/set";
 import { formFieldErrors, pantryItemFormSchema, type PantryItemFormInput } from "../domain/pantry-item-form";
 
@@ -80,8 +80,8 @@ export async function savePantryItem(form: PantryItemFormInput): Promise<Result<
     return ok({ id: row.id });
   } catch (error) {
     if (!(error instanceof PantryDataError)) throw error;
-    if (error.detail === "set_failed MK410") {
-      console.error("pantry_site_gone", { reason: error.detail });
+    if (isSiteGone(error)) {
+      console.error("pantry_site_gone", { reason: siteGoneCode });
       revalidateFor("pantry_site");
       return fail("pantry_site_gone");
     }

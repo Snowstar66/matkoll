@@ -1,12 +1,13 @@
 import "server-only";
 import { cache } from "react";
+import { z } from "zod";
 import { requireUser } from "@/features/auth/server";
 import type { Location } from "@/features/catalog";
 import { CatalogDataError, getIngredientDefaults, getIngredientNames } from "@/features/catalog/server";
 import { fail, ok, type Result } from "@/lib/errors";
 import { createClient } from "@/lib/supabase/server";
 import { addToPantryIn, findPantryAdditionsIn, forgetPantryAdditionsIn } from "./data/add";
-import { PantryDataError } from "./data/client";
+import { isSiteGone, PantryDataError, siteGoneCode, siteGoneDetail } from "./data/client";
 import { insertPantryDefaults } from "./data/defaults";
 import { checkedSiteId, countPantryIn, listPantryIn, loadPantrySnapshot, zeroCounts } from "./data/queries";
 import { setPantryItemsIn, type SetPantryRow } from "./data/set";
@@ -71,7 +72,7 @@ export const getSelectedSite = cache(async (): Promise<SelectedSite | null> => {
 async function placeToRead(siteId: string | undefined): Promise<string | null> {
   if (siteId === undefined) return (await getSelectedSite())?.id ?? null;
   const place = checkedSiteId(siteId);
-  if (!(await listPantrySites()).some((site) => site.id === place)) throw new PantryDataError("site_gone");
+  if (!(await listPantrySites()).some((site) => site.id === place)) throw new PantryDataError(siteGoneDetail);
   return place;
 }
 
@@ -142,6 +143,41 @@ export async function getPantrySnapshot(siteId?: string): Promise<PantrySnapshot
   return place === null ? toSnapshot([]) : snapshotOn(place);
 }
 
+/** The pantry a view counts its status against, and the place it is of; see getPantryForStatus. */
+export type PantryForStatus = { site: SelectedSite | null; snapshot: PantrySnapshot | null };
+
+/**
+ * The selected place and its pantry, for the cooking status and the line
+ * "Lager: Stugan" (AD-7, AD-24): the place is read once, and then the pantry
+ * of exactly that place's id, so the line always names the place the status
+ * was counted against. The two reads follow each other rather than relying
+ * on React `cache`, so it holds in a Server Action too, where nothing is
+ * memoised. A user without places has `site: null` and an empty pantry.
+ * When the place or the pantry cannot be read (logged as
+ * `pantry_unavailable`, with the reason only), both are `null`: no status
+ * and no line. Other errors are bugs and are thrown.
+ */
+export async function getPantryForStatus(): Promise<PantryForStatus> {
+  try {
+    const site = await getSelectedSite();
+    // The place is one of the user's, just read, so its pantry is read without
+    // placeToRead's second read of the places (Story 8.2).
+    return { site, snapshot: site ? await snapshotOn(site.id) : toSnapshot([]) };
+  } catch (error) {
+    if (!(error instanceof PantryDataError)) throw error;
+    console.error("pantry_unavailable", { reason: error.detail });
+    return { site: null, snapshot: null };
+  }
+}
+
+/** Whether `error` says a place is removed, or not the user's (MK410): the caller gives `pantry_site_gone`. */
+export function isPantrySiteGone(error: unknown): boolean {
+  return isSiteGone(error);
+}
+
+/** The place addToPantry takes: a place's id, or `null` for the selected place. */
+const addSiteSchema = z.uuid().nullable();
+
 /**
  * The pantry's start data for the signed-in user (AD-21, AD-24): Hemma as the
  * selected place when the user has no places. Called by auth/confirm after
@@ -177,19 +213,35 @@ export async function setPantryItems(
  * run after an interruption never adds it twice (AD-1). Not a Server Action:
  * for shopping's putCheckedInPantry, which revalidates (AD-18).
  *
+ * Everything goes to the place `siteId`, the one the list was counted
+ * against (FR-33, AD-24), or the selected place when it is `null` (a list
+ * read without a place). The receipts are per user, so a second run never
+ * adds an item twice, also with another place.
+ *
  * Returns the number of items handled (without those skipped for their key).
- * Fails with `unauthorized`, `validation` or `pantry_add_failed` (logged);
- * nothing is added then.
+ * Fails with `unauthorized`, `validation`, `pantry_site_gone` (the place is
+ * removed or not the user's; logged with its code) or `pantry_add_failed`
+ * (logged); nothing is added then.
  */
-export async function addToPantry(items: readonly AddToPantryItem[]): Promise<Result<{ added: number }>> {
+export async function addToPantry(
+  items: readonly AddToPantryItem[],
+  siteId: string | null,
+): Promise<Result<{ added: number }>> {
   const user = await requireUser();
   if (!user.ok) return user;
   const parsed = addToPantryItemsSchema.safeParse(items);
-  if (!parsed.success) return fail("validation");
+  const site = addSiteSchema.safeParse(siteId);
+  if (!parsed.success || !site.success) return fail("validation");
   try {
-    const added = await addToPantryIn(await createClient(), parsed.data, getIngredientDefaults);
+    const added = await addToPantryIn(await createClient(), parsed.data, getIngredientDefaults, site.data);
     return ok({ added });
   } catch (error) {
+    if (isPantrySiteGone(error)) {
+      console.error("pantry_site_gone", { reason: siteGoneCode });
+      return fail("pantry_site_gone");
+    }
+    // A place that is not a uuid is refused before anything is written.
+    if (error instanceof PantryDataError && error.detail === "invalid_site") return fail("validation");
     if (error instanceof PantryDataError) {
       console.error("pantry_add_failed", { reason: error.detail });
     } else if (error instanceof CatalogDataError) {

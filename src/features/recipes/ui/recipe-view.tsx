@@ -2,7 +2,7 @@ import Link from "next/link";
 import type { ReactNode } from "react";
 import { ChevronLeftIcon } from "@/components/icons";
 import { RecipeImage } from "@/components/recipe-image";
-import type { PantrySnapshot } from "@/features/pantry";
+import type { PantrySnapshot, SelectedSite } from "@/features/pantry";
 import { recipeTimeText } from "../domain/recipe-list";
 import type { SavedRecipe } from "../domain/saved-recipe";
 import { sourceLabel } from "../domain/source-label";
@@ -25,6 +25,11 @@ export type RecipeViewProps = {
    * shown without badge, marks and "X av Y hemma".
    */
   snapshot: PantrySnapshot | null;
+  /**
+   * The place the snapshot is of, for the line "Lager: Stugan" under "X av Y
+   * hemma" (AD-24); `null`, or left out, without a status or with one place.
+   */
+  site?: SelectedSite | null;
   /** The menu (⋯) with "Ändra", from the page, which has what its form needs. */
   menu?: ReactNode;
   /**
@@ -34,7 +39,7 @@ export type RecipeViewProps = {
   addToPlan?: AddToPlan;
 };
 
-export function RecipeView({ recipe, snapshot, menu, addToPlan }: RecipeViewProps) {
+export function RecipeView({ recipe, snapshot, site = null, menu, addToPlan }: RecipeViewProps) {
   const source = sourceLabel(recipe.sourceKind, recipe.sourceUrl);
   // The portion selector shows the servings, so the meta line is only the time.
   const time = recipeTimeText(recipe.totalMinutes);
@@ -78,7 +83,13 @@ export function RecipeView({ recipe, snapshot, menu, addToPlan }: RecipeViewProp
         </p>
       </header>
 
-      <RecipeBody key={servingsVersion(recipe)} recipe={recipe} snapshot={snapshot} addToPlan={addToPlan} />
+      <RecipeBody
+        key={servingsVersion(recipe)}
+        recipe={recipe}
+        snapshot={snapshot}
+        site={site}
+        addToPlan={addToPlan}
+      />
     </article>
   );
 }

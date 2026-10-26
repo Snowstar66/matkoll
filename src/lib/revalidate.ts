@@ -39,7 +39,8 @@ const routesByTable = {
   // The places in the pantry (Story 8.2, AD-24): selecting another place
   // changes everything counted against the pantry, so the routes are those
   // of pantry_item: Hemma, the cooking status in the library and every recipe
-  // view, the meal plan's dishes, and the shopping list.
+  // view, the meal plan's dishes, and the shopping list, each with the line
+  // "Lager" (Story 8.3).
   pantry_site: [
     { path: "/hemma", type: "page" },
     { path: "/recept", type: "layout" },

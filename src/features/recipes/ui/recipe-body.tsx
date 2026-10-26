@@ -5,7 +5,13 @@ import { Button } from "@/components/button";
 import { FixedAction } from "@/components/fixed-action";
 import { Stepper } from "@/components/stepper";
 import { clampServings, maxServings } from "@/features/mealplan";
-import { atHomeSummaryText, recipeStatusForFactor, type PantrySnapshot } from "@/features/pantry";
+import {
+  atHomeSummaryText,
+  recipeStatusForFactor,
+  siteLineText,
+  type PantrySnapshot,
+  type SelectedSite,
+} from "@/features/pantry";
 import { cookSteps } from "../domain/cook-steps";
 import type { SavedRecipe } from "../domain/saved-recipe";
 import { scaleFactor, scaleLines } from "../domain/scale";
@@ -21,6 +27,8 @@ export type RecipeBodyProps = {
    * could not be read: no badge, marks or "X av Y hemma" then.
    */
   snapshot: PantrySnapshot | null;
+  /** The place the snapshot is of: "Lager: Stugan" under "X av Y hemma" with more than one place. */
+  site?: SelectedSite | null;
   /** mealplan.addToCurrentPlan from the page (AD-1): "Lägg på matsedeln" pinned to the bottom. */
   addToPlan?: AddToPlan;
 };
@@ -47,7 +55,7 @@ export type RecipeBodyProps = {
  * servings shown, and closing it leaves the servings and the scroll as they
  * were. It closes if the steps go while it is open (a re-read after "Ändra").
  */
-export function RecipeBody({ recipe, snapshot, addToPlan }: RecipeBodyProps) {
+export function RecipeBody({ recipe, snapshot, site = null, addToPlan }: RecipeBodyProps) {
   const [servings, setServings] = useState(() => clampServings(recipe.servings));
   const factor = scaleFactor(servings, recipe.servings);
   const lines = useMemo(() => scaleLines(recipe.lines, factor), [recipe.lines, factor]);
@@ -56,6 +64,8 @@ export function RecipeBody({ recipe, snapshot, addToPlan }: RecipeBodyProps) {
     [recipe.lines, factor, snapshot],
   );
   const steps = useMemo(() => cookSteps(recipe.steps, lines), [recipe.steps, lines]);
+  // Only beside a status: the place it is counted against (AD-24).
+  const siteLine = status ? siteLineText(site) : null;
   const canCook = steps.length > 0;
   const [cooking, setCooking] = useState(false);
   const [adding, setAdding] = useState(false);
@@ -70,17 +80,25 @@ export function RecipeBody({ recipe, snapshot, addToPlan }: RecipeBodyProps) {
 
   return (
     <>
-      <div className="flex flex-wrap items-center gap-x-4 gap-y-2">
-        <Stepper value={servings} onChange={setServings} min={1} max={maxServings} />
-        {status ? (
-          <div aria-live="polite" aria-atomic="true" className="flex flex-wrap items-center gap-x-3 gap-y-1">
-            <RecipeStatusBadge missingCount={status.missingCount} />
-            {status.ingredientCount > 0 ? (
-              <p className="text-meta text-ink-2" data-testid="recipe-at-home">
-                {atHomeSummaryText(status.atHomeCount, status.ingredientCount)}
-              </p>
-            ) : null}
-          </div>
+      <div className="flex flex-col gap-1">
+        <div className="flex flex-wrap items-center gap-x-4 gap-y-2">
+          <Stepper value={servings} onChange={setServings} min={1} max={maxServings} />
+          {status ? (
+            <div aria-live="polite" aria-atomic="true" className="flex flex-wrap items-center gap-x-3 gap-y-1">
+              <RecipeStatusBadge missingCount={status.missingCount} />
+              {status.ingredientCount > 0 ? (
+                <p className="text-meta text-ink-2" data-testid="recipe-at-home">
+                  {atHomeSummaryText(status.atHomeCount, status.ingredientCount)}
+                </p>
+              ) : null}
+            </div>
+          ) : null}
+        </div>
+        {/* Outside the live region: metadata, not read out when the servings change. */}
+        {siteLine ? (
+          <p className="text-meta break-words text-ink-2" data-testid="site-line">
+            {siteLine}
+          </p>
         ) : null}
       </div>
 

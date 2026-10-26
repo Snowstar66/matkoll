@@ -2,7 +2,7 @@ import "server-only";
 import { z } from "zod";
 import { locationSchema, type Location } from "@/features/catalog";
 import { pantryRowSchema, type PantryRow } from "../domain/pantry-item-form";
-import { PantryDataError, type PantryDb } from "./client";
+import { PantryDataError, pantryWriteError, type PantryDb } from "./client";
 
 const idSchema = z.uuid();
 
@@ -79,9 +79,9 @@ export async function removePantryItemIn(db: PantryDb, userId: string, id: strin
  * with the same key, or one of the other kind: unlimited or amounts) or a
  * row has the id.
  *
- * Throws PantryDataError: `invalid_row` before anything is written, or
- * `restore_failed <code>` when Postgres refuses (23505 for the cases above,
- * MK410 for a place that is gone).
+ * Throws PantryDataError: `invalid_row` before anything is written,
+ * `site_gone` for a place that is gone (MK410), or `restore_failed <code>`
+ * when Postgres refuses otherwise (23505 for the cases above).
  */
 export async function restorePantryItemIn(db: PantryDb, row: PantryRow): Promise<PantryRow> {
   const parsed = pantryRowSchema.safeParse(row);
@@ -91,7 +91,7 @@ export async function restorePantryItemIn(db: PantryDb, row: PantryRow): Promise
     item: { id, ...(siteId ? { site_id: siteId } : {}), ingredient_id: ingredientId, location, amount, unit },
     ...(siteId ? { site: siteId } : {}),
   });
-  if (error) throw new PantryDataError(`restore_failed ${error.code}`);
+  if (error) throw pantryWriteError("restore_failed", error.code);
   return toPantryRow(data);
 }
 

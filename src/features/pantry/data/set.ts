@@ -1,7 +1,7 @@
 import "server-only";
 import { z } from "zod";
 import { pantryItemSetSchema, type PantryItemSet } from "../domain/pantry-item-form";
-import { PantryDataError, type PantryDb } from "./client";
+import { PantryDataError, pantryWriteError, type PantryDb } from "./client";
 
 const itemsSchema = z.array(pantryItemSetSchema).min(1);
 const replaceIdSchema = z.uuid().nullable();
@@ -25,9 +25,10 @@ export type SetPantryRow = PantryItemSet & { id: string };
  * the place selected when the call arrives: only for the callers that do not
  * send a place yet (confirmed lagerförslag, until Story 8.4).
  *
- * Throws PantryDataError: `invalid_items` before anything is written, or
- * `set_failed <code>` when Postgres refuses (e.g. 23503 for an ingredient
- * that is not in the user's catalog, MK410 for a place that is gone).
+ * Throws PantryDataError: `invalid_items` before anything is written,
+ * `site_gone` for a place that is gone (MK410), or `set_failed <code>` when
+ * Postgres refuses otherwise (e.g. 23503 for an ingredient that is not in
+ * the user's catalog).
  */
 export async function setPantryItemsIn(
   db: PantryDb,
@@ -52,7 +53,7 @@ export async function setPantryItemsIn(
     ...(parsedReplaceId.data ? { replace_id: parsedReplaceId.data } : {}),
     ...(parsedSiteId.data ? { site: parsedSiteId.data } : {}),
   });
-  if (error) throw new PantryDataError(`set_failed ${error.code}`);
+  if (error) throw pantryWriteError("set_failed", error.code);
 
   return data.map((row) => {
     const parsed = pantryItemSetSchema.safeParse({

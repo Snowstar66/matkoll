@@ -16,6 +16,7 @@ import {
   originsText,
   putInPantryText,
   recountedText,
+  siteGoneText,
   restoreFailedText,
   sendButtonText,
   skippedDishesText,
@@ -147,6 +148,13 @@ describe("a correction whose counted amount has changed, and Dolda varor (Story 
   });
 });
 
+describe("siteGoneText", () => {
+  it("says the list is counted again, against the place selected now when there are more than one", () => {
+    expect(siteGoneText("Hemma")).toBe("Stället finns inte längre. Listan har räknats om mot Hemma. Tryck Lägg i lagret igen.");
+    expect(siteGoneText(null)).toBe("Stället finns inte längre. Listan har räknats om. Tryck Lägg i lagret igen.");
+  });
+});
+
 describe("putInPantryText", () => {
   it("says how many items went to the pantry, else how many were taken off the list", () => {
     expect(putInPantryText(8, 0)).toBe("Lagt 8 varor i lagret.");
@@ -154,6 +162,13 @@ describe("putInPantryText", () => {
     expect(putInPantryText(0, 1)).toBe("Tog bort 1 vara från listan.");
     expect(putInPantryText(0, 2)).toBe("Tog bort 2 varor från listan.");
     expect(putInPantryText(0, 0)).toBeNull();
+  });
+
+  it("names the place the items went to, with more than one place", () => {
+    expect(putInPantryText(8, 0, "Stugan")).toBe("Lagt 8 varor i lagret för Stugan.");
+    expect(putInPantryText(1, 2, "Stugan")).toBe("Lagt 1 vara i lagret för Stugan.");
+    expect(putInPantryText(8, 0, null)).toBe("Lagt 8 varor i lagret.");
+    expect(putInPantryText(0, 2, "Stugan")).toBe("Tog bort 2 varor från listan.");
   });
 });
 

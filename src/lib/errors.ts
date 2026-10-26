@@ -45,8 +45,8 @@ export const errorMessages = {
   // changed and removed is one transaction, so nothing changed. The
   // suggestions stay; new catalog ingredients may stay too.
   pantry_inventory_failed: "Det gick inte att uppdatera lagret. Försök igen.",
-  // Places in the pantry (Story 8.2, AD-24). A place deleted elsewhere: nothing
-  // is written, and the page is read again.
+  // Places in the pantry (Story 8.2, AD-24). A place deleted elsewhere, or not
+  // the user's (MK410): nothing is written, and the view is read again.
   pantry_site_gone: "Stället finns inte längre. Välj ett annat ställe.",
   // The field shows siteNameTakenText with the name ("… som heter Stugan.").
   pantry_site_name_taken: "Det finns redan ett ställe med det namnet.",

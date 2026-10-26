@@ -20,8 +20,20 @@ vi.mock("@/features/shopping/actions/save-product-choice", () => ({ saveProductC
 vi.mock("@/features/shopping/actions/remove-product-choice", () => ({ removeProductChoice: vi.fn() }));
 vi.mock("@/features/shopping/actions/restore-product-choice", () => ({ restoreProductChoice: vi.fn() }));
 vi.mock("@/features/catalog/server", () => ({ searchIngredients: vi.fn() }));
+const putCheckedInPantry = vi.fn();
+vi.mock("@/features/shopping/actions/put-checked-in-pantry", () => ({
+  putCheckedInPantry: (input: unknown) => putCheckedInPantry(input),
+}));
 
-const noChoices = { store: null, storeUnavailable: false, productChoices: {}, productChoicesUnavailable: false, unreadableChoices: [] };
+/** What comes beside the list without a store or a place. */
+const noChoices = {
+  store: null,
+  storeUnavailable: false,
+  productChoices: {},
+  productChoicesUnavailable: false,
+  unreadableChoices: [],
+  site: null,
+};
 
 describe("ShoppingListContent", () => {
   it("shows shopping_unavailable in a notice when the list cannot be read", async () => {
@@ -102,6 +114,7 @@ describe("ShoppingListContent", () => {
         },
         productChoicesUnavailable: false,
         unreadableChoices: [],
+        site: null,
       }),
     );
     const user = userEvent.setup();
@@ -154,5 +167,42 @@ describe("ShoppingListContent", () => {
     await user.click(screen.getByRole("button", { name: /^Grädde/ }));
     const detail = await screen.findByRole("dialog", { name: "Grädde" });
     expect(detail).toHaveTextContent("Det gick inte att läsa produktvalet.");
+  });
+
+  it("passes the list's place on, so Lägg i lagret puts the items there", async () => {
+    const graddeId = "11111111-1111-4111-8111-111111111111";
+    const stugan = { id: "55555555-5555-4555-8555-555555555555", name: "Stugan", siteCount: 2 };
+    putCheckedInPantry.mockResolvedValue(ok({ added: 1, removed: 0, skipped: 0, siteName: "Stugan" }));
+    vi.mocked(getShoppingList).mockResolvedValue(
+      ok({
+        plan: { id: "44444444-4444-4444-8444-444444444444", name: "Vecka 44", dishCount: 1, skippedCount: 0, dishTitles: {} },
+        lines: [
+          {
+            key: `r:${graddeId}:dl`,
+            ingredientId: graddeId,
+            label: "Grädde",
+            amount: 3,
+            unit: "dl" as const,
+            isVague: false,
+            coverage: { kind: "missing" as const },
+            section: "Mejeri" as const,
+            origins: [],
+            checked: true,
+            isCustom: false,
+          },
+        ],
+        hiddenLines: [],
+        pantryUnavailable: false,
+        checksUnavailable: false,
+        pendingClear: 0,
+        ...noChoices,
+        site: stugan,
+      }),
+    );
+    const user = userEvent.setup();
+    render(<ToastProvider>{await ShoppingListContent()}</ToastProvider>);
+    await user.click(screen.getByRole("button", { name: "Lägg i lagret" }));
+    expect(putCheckedInPantry).toHaveBeenCalledWith({ planId: "44444444-4444-4444-8444-444444444444", siteId: stugan.id });
+    expect(await screen.findByTestId("toast")).toHaveTextContent("Lagt 1 vara i lagret för Stugan.");
   });
 });
