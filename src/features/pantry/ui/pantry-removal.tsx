@@ -208,6 +208,9 @@ const unnamed = (id: string, siteId: string, location: Location): PantryItem => 
   location,
   amount: null,
   unit: null,
+  label: null,
+  createdAt: null,
+  section: "Övrigt",
 });
 
 /**

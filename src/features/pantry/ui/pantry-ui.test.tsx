@@ -39,6 +39,9 @@ const item = (overrides: Partial<PantryItem> & Pick<PantryItem, "id" | "name">):
   location: "Kyl",
   amount: null,
   unit: null,
+  label: null,
+  createdAt: "2026-10-20T10:00:00+00:00",
+  section: "Mejeri",
   ...overrides,
 });
 

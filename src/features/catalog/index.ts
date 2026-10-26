@@ -35,6 +35,7 @@ export {
   type ChosenIngredient,
   type IngredientChoice,
   type IngredientDefaults,
+  type IngredientSummary,
 } from "./domain/match";
 export {
   ingredientSearchSchema,

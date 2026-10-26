@@ -21,11 +21,13 @@ import { formFieldErrors, pantryItemFormSchema, type PantryItemFormInput } from 
  * instead of creating another (commit_ingredients' on conflict). `replaceId` is the row being
  * edited: a changed location, unit or ingredient moves it, all or nothing.
  * `siteId` is the place the sheet was opened for (FR-33, AD-24): the item is
- * saved there, also when another place has been selected since. Revalidates
- * Hemma and the recipes (AD-18).
+ * saved there, also when another place has been selected since. The label
+ * (Story 11.2, FR-42) is the field "Märke eller sort": a text sets it, an
+ * empty field removes it. A moved row keeps the time it was added
+ * (set_pantry_items). Revalidates Hemma and the recipes (AD-18).
  *
  * Returns the id of the row set. Fails with `unauthorized`, `validation`
- * (the form's message in `fields.amount` or `fields.ingredient`),
+ * (the form's message in `fields.amount`, `fields.label` or `fields.ingredient`),
  * `pantry_site_gone` (the place was deleted: the item is not set, though a
  * new catalog ingredient created first stays in the catalog, and the page is
  * read again) or `pantry_save_failed`.
@@ -39,6 +41,8 @@ export async function savePantryItem(form: PantryItemFormInput): Promise<Result<
     return Object.keys(fields).length > 0 ? fail("validation", fields) : fail("validation");
   }
   const { ingredient, location, amount, unit, siteId, replaceId } = parsed.data;
+  // Story 11.2: the field "Märke eller sort"; a client without it keeps the label.
+  const label = "label" in parsed.data ? parsed.data.label : undefined;
 
   let ingredientId: string;
   if (ingredient.kind === "new") {
@@ -71,7 +75,7 @@ export async function savePantryItem(form: PantryItemFormInput): Promise<Result<
   try {
     const [row] = await setPantryItemsIn(
       await createClient(),
-      [{ ingredientId, location, amount, unit }],
+      [{ ingredientId, location, amount, unit, ...(label === undefined ? {} : { label }) }],
       replaceId,
       siteId,
     );

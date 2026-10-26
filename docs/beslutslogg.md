@@ -2,6 +2,15 @@
 
 Beslut som fattats under bygget: vad, varför och vilka alternativ som fanns. Nyaste överst.
 
+## 2026-10-27 – Märke och tid på lagervaror (Story 11.2)
+
+- **Märket är en kolumn på lagervaran,** `pantry_item.label` (1–60 tecken eller inget). Varför: det hör till raden, följer med när raden ersätts och vid "Ångra", och RLS gäller redan. Alternativ: en egen tabell.
+- **Märket kommer från fotots första etikett** när ett förslag bekräftas eller rättas, och från fältet "Märke eller sort" i arket Lagervara. "Lägg i lagret" rör det aldrig. En etikett som bara är varans namn ("Ägg") sparas inte, eftersom den inte säger något mer. En lång etikett kapas vid ett ord, utan "…". I arket får fältet högst 60 tecken, och ett tömt fält tar bort märket.
+- **`created_at` betyder "tillagd".** En ändrad mängd ändrar den inte. När en rad ersätts (ny enhet eller plats, obegränsad mot mängd, eller "Ändrat" i en inventering) får den nya raden den gamlas tid och, om inget nytt märke anges, dess märke. "Ångra" sätter tillbaka båda. En tid i framtiden blir nu. Alternativ: en ny `updated_at`, som inte svarar på "när kom den hem".
+- **Samma regel för märket i databasen och domänen:** inget blanksteg först eller sist, 1–60 tecken och inga osynliga tecken eller radbrytningar, som ställets namn. Ett test låser regeln mot domänen.
+- **Migrationen är bakåtkompatibel:** samma signaturer, och en anropare utan `label` får samma beteende som förut, utom att tiden nu står kvar.
+- **Efter granskningen: ett märke försvinner aldrig av misstag.** Fotots märke fyller bara en vara utan märke, så modellen skriver aldrig över det Pontus skrev. Ett tomt fält tar bort märket bara på varan som redigeras. Rätta visar varans eget märke när det finns. Ångra hoppar över en trasig sparad rad i stället för att stoppa, och en tid begränsas till mellan 2000 och nu. Alternativ: att det senaste märket alltid vinner, som var enklare men kunde radera ett märke Pontus skrivit.
+
 ## 2026-10-27 – Gemensam grund för nytt utseende (Story 11.1)
 
 - **Kategorierna** räknas fram av `displayCategory(section, name)` i `catalog/domain/categories.ts` och sparas aldrig (AD-12). `SAUCE_WORDS` har epic-kontextens ord och några till som annars hamnar i Skafferi: "sauce", "oelek" (Sambal oelek), "chili", "chilipulver", "lökpulver", "buljongtärning(ar)", "harissa", "wasabi", "chutney", "masala" och vanliga torkade kryddor (kardemumma, muskot, nejlika, ingefära, lagerblad, saffran, basilika, rosmarin, mejram, dragon, dill, kummin). "Pulver" och "tärning" ensamma är inte med, eftersom bakpulver och kakaopulver inte är smaksättare. Varje ord står i tabelltestet. Alternativ: bara epic-kontextens lista.

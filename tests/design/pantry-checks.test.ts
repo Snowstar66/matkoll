@@ -3,7 +3,9 @@ import { join } from "node:path";
 import { fileURLToPath } from "node:url";
 import { describe, expect, it } from "vitest";
 import { LOCATIONS, UNITS } from "@/features/catalog";
+import { blankLabelCodePoints, maxPantryLabelLength } from "@/features/pantry/domain/pantry-item-form";
 import { maxConfirmItems, maxInventoryRemovals, maxInventoryReplaces } from "@/features/pantry/domain/pantry-suggestion";
+import { refusedCodePoints } from "@/lib/one-line";
 
 // AD-12, AD-19: a pantry item's location is one of the catalog's LOCATIONS and
 // its unit one of UNITS. The `check` lists in the pantry migration must be
@@ -99,5 +101,67 @@ describe("apply_pantry_inventory's size limits", () => {
     const match = /item_count > (\d+) or replace_count > (\d+) or remove_count > (\d+)/.exec(latest?.sql ?? "");
     expect(match, `the limits in ${latest?.file}`).not.toBeNull();
     expect(match!.slice(1).map(Number)).toEqual([maxConfirmItems, maxInventoryReplaces, maxInventoryRemovals]);
+  });
+});
+
+// Story 11.2 (FR-42, AD-19): pantry_item_label_check is pantryLabelSchema's
+// rule: at most maxPantryLabelLength characters, trimmed (btrim), and none of
+// refusedCodePoints (src/lib/one-line.ts). Read from the latest migration
+// that defines it.
+describe("pantry_item_label_check", () => {
+  function labelCheck(): { file: string; body: string } {
+    const latest = readdirSync(migrations)
+      .filter((name) => name.endsWith(".sql"))
+      .sort()
+      .map((file) => ({ file, sql: readFileSync(join(migrations, file), "utf8") }))
+      .filter(({ sql }) => sql.includes("constraint pantry_item_label_check check ("))
+      .at(-1);
+    if (!latest) throw new Error("No migration defines pantry_item_label_check");
+    const start = latest.sql.lastIndexOf("constraint pantry_item_label_check check (");
+    let depth = 0;
+    for (let index = latest.sql.indexOf("(", start); index < latest.sql.length; index += 1) {
+      if (latest.sql[index] === "(") depth += 1;
+      if (latest.sql[index] === ")") depth -= 1;
+      if (depth === 0) return { file: latest.file, body: latest.sql.slice(start, index + 1) };
+    }
+    throw new Error("Unbalanced pantry_item_label_check");
+  }
+
+  /** A code point as the bracket writes it: an escape, never the character itself. */
+  const escaped = (point: number) =>
+    point <= 0xff ? `${"\\"}x${point.toString(16).padStart(2, "0")}` : `${"\\"}u${point.toString(16).padStart(4, "0")}`;
+
+  it("limits the label to maxPantryLabelLength", () => {
+    const { file, body } = labelCheck();
+    const limit = /char_length\(label\) between 1 and (\d+)/.exec(body);
+    expect(limit, `the limit in ${file}`).not.toBeNull();
+    expect(Number(limit![1]), file).toBe(maxPantryLabelLength);
+  });
+
+  it("refuses a label that is not trimmed", () => {
+    const { file, body } = labelCheck();
+    expect(body, file).toContain("label is null");
+    expect(body, file).toContain("label = btrim(label)");
+  });
+
+  it("refuses exactly refusedCodePoints", () => {
+    const { file, body } = labelCheck();
+    const bracket = /label !~ '\[([^\]]*)\]'/.exec(body);
+    expect(bracket, `the refused bracket in ${file}`).not.toBeNull();
+    const expected = refusedCodePoints
+      .map(([from, to]) =>
+        from === to ? escaped(from) : to === from + 1 ? `${escaped(from)}${escaped(to)}` : `${escaped(from)}-${escaped(to)}`,
+      )
+      .join("");
+    expect(bracket![1], file).toBe(expected);
+  });
+
+  it("refuses exactly blankLabelCodePoints, and a label of only white space (after review)", () => {
+    const { file, body } = labelCheck();
+    const brackets = [...body.matchAll(/label !~ '\[([^\]]*)\]'/g)].map((match) => match[1]);
+    expect(brackets, file).toHaveLength(2);
+    // Written as \u escapes, also below U+0100.
+    expect(brackets[1], file).toBe(blankLabelCodePoints.map((point) => `${"\\"}u${point.toString(16).padStart(4, "0")}`).join(""));
+    expect(body, file).toContain("label ~ '[^[:space:]]'");
   });
 });
