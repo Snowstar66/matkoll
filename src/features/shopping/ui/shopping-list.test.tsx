@@ -185,6 +185,15 @@ describe("ShoppingList", () => {
   });
 });
 
+/** A promise resolved from the test, to see the list while an action waits. */
+function deferred<T>() {
+  let resolve!: (value: T) => void;
+  const promise = new Promise<T>((done) => {
+    resolve = done;
+  });
+  return { promise, resolve };
+}
+
 describe("ShoppingList and the place it is counted against (Story 8.5)", () => {
   const hemma = { id: "11111111-1111-4111-8111-111111111111", name: "Hemma", siteCount: 2 };
   const stugan = { id: "22222222-2222-4222-8222-222222222222", name: "Stugan", siteCount: 2 };
@@ -204,27 +213,62 @@ describe("ShoppingList and the place it is counted against (Story 8.5)", () => {
     expect(screen.getByText("Lägg rätter på matsedeln så räknas listan fram.")).toBeInTheDocument();
   });
 
-  it("does not announce a list counted against another place, but announces the next recount on that place", () => {
-    const { rerender } = render(<ShoppingList plan={plan} lines={lines} pantryUnavailable={false} site={hemma} />);
+  it("keeps quiet once for a switch made in the list's own sheet, and announces the next recount on that place", () => {
+    const isQuietSwitch = vi.fn((siteId: string | null) => siteId === stugan.id);
+    const view = (shown: ShoppingLine[], site: typeof hemma) => (
+      <ShoppingList plan={plan} lines={shown} pantryUnavailable={false} site={site} isQuietSwitch={isQuietSwitch} />
+    );
+    const { rerender } = render(view(lines, hemma));
     const live = screen.getByTestId("list-announcement");
-    // Switched to Stugan: other lines, but the switch's confirmation says it.
-    rerender(<ShoppingList plan={plan} lines={lines.slice(2)} pantryUnavailable={false} site={stugan} />);
+    expect(isQuietSwitch).not.toHaveBeenCalled();
+    // Switched to Stugan from the sheet: other lines, but the switch's confirmation says it.
+    rerender(view(lines.slice(2), stugan));
     expect(live).toHaveTextContent("");
-    // The same lines read again on Stugan: nothing to say.
-    rerender(<ShoppingList plan={plan} lines={[...lines.slice(2)]} pantryUnavailable={false} site={stugan} />);
+    expect(isQuietSwitch).toHaveBeenCalledTimes(1);
+    expect(isQuietSwitch).toHaveBeenCalledWith(stugan.id);
+    // The same lines read again on Stugan: nothing to say, and nothing asked.
+    rerender(view([...lines.slice(2)], stugan));
     expect(live).toHaveTextContent("");
     // Counted again on Stugan, e.g. after a change elsewhere: announced, compared with Stugan's list.
-    rerender(<ShoppingList plan={plan} lines={lines.slice(3)} pantryUnavailable={false} site={stugan} />);
+    rerender(view(lines.slice(3), stugan));
     expect(live).toHaveTextContent("Inköpslistan är omräknad. 3 varor kvar.");
+    expect(isQuietSwitch).toHaveBeenCalledTimes(1);
   });
 
-  it("does not announce a place that could not be read, nor the place again once it can", () => {
+  it("says which place the list is counted against after a switch made elsewhere", () => {
+    const { rerender } = render(<ShoppingList plan={plan} lines={lines} pantryUnavailable={false} site={stugan} />);
+    const live = screen.getByTestId("list-announcement");
+    // Hemma selected on another device, or after a place that was gone: no sheet to say it.
+    rerender(<ShoppingList plan={plan} lines={lines.slice(1)} pantryUnavailable={false} site={hemma} />);
+    expect(live).toHaveTextContent("Listan räknas nu mot Hemma. 5 varor kvar.");
+    // Also when nothing on the list changed.
+    rerender(<ShoppingList plan={plan} lines={lines.slice(1)} pantryUnavailable={false} site={stugan} />);
+    expect(live).toHaveTextContent("Listan räknas nu mot Stugan. 5 varor kvar.");
+  });
+
+  it("announces a recount without a place name when the place cannot be read, or is the only one", () => {
     const { rerender } = render(<ShoppingList plan={plan} lines={lines} pantryUnavailable={false} site={stugan} />);
     const live = screen.getByTestId("list-announcement");
     rerender(<ShoppingList plan={plan} lines={lines.slice(1)} pantryUnavailable site={null} />);
-    expect(live).toHaveTextContent("");
-    rerender(<ShoppingList plan={plan} lines={lines} pantryUnavailable={false} site={stugan} />);
-    expect(live).toHaveTextContent("");
+    expect(live).toHaveTextContent("Inköpslistan är omräknad. 5 varor kvar.");
+    // Stugan removed: Hemma is the only place, and the lines are the same.
+    rerender(<ShoppingList plan={plan} lines={lines.slice(1)} pantryUnavailable={false} site={{ ...hemma, siteCount: 1 }} />);
+    expect(live).toHaveTextContent("Inköpslistan är omräknad. 5 varor kvar.");
+    rerender(<ShoppingList plan={plan} lines={lines.slice(2)} pantryUnavailable={false} site={{ ...stugan, siteCount: 1 }} />);
+    expect(live).toHaveTextContent("Inköpslistan är omräknad. 4 varor kvar.");
+  });
+
+  it("tells the page while a check is being saved, so Byt can wait", async () => {
+    const answer = deferred<Result<CheckChange>>();
+    setChecked.mockImplementation(() => answer.promise);
+    const onBusyChange = vi.fn();
+    const user = userEvent.setup();
+    render(<ShoppingList plan={plan} lines={lines} pantryUnavailable={false} site={hemma} onBusyChange={onBusyChange} />);
+    expect(onBusyChange).toHaveBeenLastCalledWith(false);
+    await user.click(screen.getByRole("checkbox", { name: /^Paprika/ }));
+    await waitFor(() => expect(onBusyChange).toHaveBeenLastCalledWith(true));
+    await act(async () => answer.resolve(ok({ planId: plan.id, key: "r:paprika:st", checked: true })));
+    await waitFor(() => expect(onBusyChange).toHaveBeenLastCalledWith(false));
   });
 
   it("keeps the checks of lines that stay, and shows a check again when its line comes back", () => {

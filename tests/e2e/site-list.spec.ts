@@ -182,6 +182,20 @@ async function seed() {
   await addPantry(stugan, "Senap", 1, "förp");
 }
 
+type PantryRow = { ingredient_id: string; location: string; amount: number | null; unit: string | null };
+
+const byIngredient = (a: PantryRow, b: PantryRow) => `${a.ingredient_id}${a.location}`.localeCompare(`${b.ingredient_id}${b.location}`);
+
+/** The rows on one place, read with the service role, in a fixed order. */
+async function pantryOn(siteId: string): Promise<PantryRow[]> {
+  const { data, error } = await adminClient()
+    .from("pantry_item")
+    .select("ingredient_id, location, amount, unit")
+    .eq("site_id", siteId);
+  if (error) throw error;
+  return (data as PantryRow[]).map((row) => ({ ...row, amount: row.amount === null ? null : Number(row.amount) })).sort(byIngredient);
+}
+
 /** The current plan's checks, by list key, with the service role. */
 async function storedChecks(): Promise<string[]> {
   const { data, error } = await adminClient().from("shopping_check").select("line_key").eq("user_id", userId);
@@ -204,10 +218,12 @@ function watchErrors(page: Page): string[] {
 const siteLine = (page: Page) => page.getByTestId("site-line").filter({ visible: true });
 const bytButton = (page: Page) => page.getByRole("button", { name: "Byt lager för listan" }).filter({ visible: true });
 const switchSheet = (page: Page) => page.getByRole("dialog", { name: "Räkna listan mot" });
-const placeRow = (page: Page, name: "Hemma" | "Stugan") => switchSheet(page).getByRole("radio", { name, exact: true });
+const placeRow = (page: Page, name: "Hemma" | "Stugan") => switchSheet(page).getByRole("button", { name, exact: true });
 const lineCheck = (page: Page, label: "Ketchup" | "Senap" | "Korv" | "Kaffe") =>
   page.getByRole("checkbox", { name: new RegExp(`^${label}\\b`) }).filter({ visible: true });
-const toast = (page: Page) => page.getByTestId("toast");
+const toast = (page: Page, text: string) => page.getByTestId("toast").filter({ hasText: text });
+/** The confirmation strip, whatever it says. */
+const anyToast = (page: Page) => page.getByTestId("toast");
 const listAnnouncement = (page: Page) => page.getByTestId("list-announcement").filter({ visible: true });
 const summary = (page: Page) => page.getByTestId("list-summary").filter({ visible: true });
 const putButton = (page: Page) => page.getByRole("button", { name: "Lägg i lagret", exact: true }).filter({ visible: true });
@@ -217,14 +233,21 @@ const tab = (page: Page, name: "Lista" | "Hemma") =>
 const placePill = (page: Page, name: "Hemma" | "Stugan") =>
   page.getByRole("radiogroup", { name: "Ställe" }).filter({ visible: true }).getByRole("radio", { name, exact: true });
 
-/** "Byt", then `name` in "Räkna listan mot": the sheet closes and the confirmation says so. */
+/**
+ * "Byt", then `name` in "Räkna listan mot": the sheet closes and the
+ * confirmation says so. A confirmation from before goes first, so the one
+ * seen is this switch's.
+ */
 async function countAgainst(page: Page, name: "Hemma" | "Stugan") {
+  await expect(anyToast(page)).toHaveCount(0, { timeout: 10_000 });
   await expect(bytButton(page)).toBeEnabled();
   await bytButton(page).click();
   await expect(switchSheet(page)).toBeVisible();
   await placeRow(page, name).click();
   await expect(switchSheet(page)).toHaveCount(0);
-  await expect(toast(page)).toHaveText(`Listan räknas nu mot ${name}.`);
+  await expect(toast(page, `Listan räknas nu mot ${name}.`)).toBeVisible();
+  // Said once, by the confirmation: the list's own announcement stays empty (read at once, no retries).
+  expect(await listAnnouncement(page).textContent()).toBe("");
   await expect(siteLine(page)).toHaveText(`Lager: ${name}`);
 }
 
@@ -250,18 +273,18 @@ test("Byt counts the list against Stugan: ketchup instead of senap, and Hemma sh
 
   await bytButton(page).click();
   const sheet = switchSheet(page);
-  await expect(sheet.getByRole("radiogroup", { name: "Räkna listan mot" })).toBeVisible();
-  await expect(placeRow(page, "Hemma")).toBeChecked();
-  await expect(placeRow(page, "Stugan")).not.toBeChecked();
+  await expect(sheet.getByRole("list", { name: "Räkna listan mot" })).toBeVisible();
+  await expect(placeRow(page, "Hemma")).toHaveAttribute("aria-current", "true");
+  await expect(placeRow(page, "Stugan")).not.toHaveAttribute("aria-current");
   await placeRow(page, "Stugan").click();
   await expect(sheet).toHaveCount(0);
-  await expect(toast(page)).toHaveText("Listan räknas nu mot Stugan.");
+  await expect(toast(page, "Listan räknas nu mot Stugan.")).toBeVisible();
+  // Only the confirmation is said: the list's own recount stays silent for a switch made in the sheet.
+  expect(await listAnnouncement(page).textContent()).toBe("");
   await expect(siteLine(page)).toHaveText("Lager: Stugan");
   await expect(lineCheck(page, "Ketchup")).toBeVisible();
   await expect(lineCheck(page, "Korv")).toBeVisible();
   await expect(lineCheck(page, "Senap")).toHaveCount(0);
-  // Only the confirmation is said: the list's own recount stays silent for a switch of place.
-  await expect(listAnnouncement(page)).toHaveText("");
   // Focus goes back to Byt.
   await expect(bytButton(page)).toBeFocused();
   await expectNoHorizontalScroll(page);
@@ -325,8 +348,60 @@ test("senap checked off against Hemma leaves the list against Stugan, and is che
 
   await countAgainst(page, "Hemma");
   await expect(lineCheck(page, "Senap")).toBeChecked();
-  await expect(listAnnouncement(page)).toHaveText("");
   expect(errors).toEqual([]);
+});
+
+test("Lägg i lagret against Stugan puts only what was checked off there, and keeps the senap checked against Hemma", async ({
+  page,
+}) => {
+  const errors = watchErrors(page);
+  await page.goto("/lista");
+  await lineCheck(page, "Senap").click();
+  await expect(lineCheck(page, "Senap")).toBeChecked();
+  await expect.poll(storedChecks).toEqual([lineKey("Senap", "förp")]);
+
+  await countAgainst(page, "Stugan");
+  await lineCheck(page, "Korv").click();
+  await expect(lineCheck(page, "Korv")).toBeChecked();
+  await expect(putButton(page)).toBeEnabled();
+  await putButton(page).click();
+  await expect(toast(page, "Lagt 1 vara i lagret för Stugan.")).toBeVisible();
+  await expect(lineCheck(page, "Korv")).toHaveCount(0);
+
+  // Exactly the korv went to Stugan, beside the senap that was there; Hemma is untouched.
+  await expect.poll(async () => pantryOn(stugan)).toEqual(
+    (
+      [
+        { ingredient_id: ids.get("Korv"), location: "Kyl", amount: 4, unit: "st" },
+        { ingredient_id: ids.get("Senap"), location: "Skafferi", amount: 1, unit: "förp" },
+      ] as PantryRow[]
+    ).sort(byIngredient),
+  );
+  expect(await pantryOn(hemma)).toEqual([{ ingredient_id: ids.get("Ketchup"), location: "Skafferi", amount: 1, unit: "förp" }]);
+  // The senap's check, counted against Hemma, stays for when the list is counted there again.
+  expect(await storedChecks()).toEqual([lineKey("Senap", "förp")]);
+  expect(errors).toEqual([]);
+});
+
+test("a place removed elsewhere while the sheet is open is gone when tapped: a toast says so and the list is counted against Hemma", async ({
+  page,
+}) => {
+  const errors = watchErrors(page);
+  await page.goto("/lista");
+  await expect(bytButton(page)).toBeEnabled();
+  await bytButton(page).click();
+  await expect(placeRow(page, "Stugan")).toBeVisible();
+  // Another device empties Stugan and removes it, with Hemma selected.
+  await removeStugan();
+  await placeRow(page, "Stugan").click();
+  await expect(toast(page, "Stället finns inte längre. Välj ett annat ställe.")).toBeVisible();
+  // Hemma is the only place: no line, no sheet, and focus on the page heading rather than nowhere.
+  await expect(switchSheet(page)).toHaveCount(0);
+  await expect(siteLine(page)).toHaveCount(0);
+  await expect(page.getByRole("heading", { level: 1, name: "Inköpslista" }).filter({ visible: true })).toBeFocused();
+  await expect(lineCheck(page, "Senap")).toBeVisible();
+  expect((await sites()).map((site) => site.id)).toEqual([hemma]);
+  expect(errors.filter((text) => !text.includes("pantry_site_gone"))).toEqual([]);
 });
 
 test("the empty list names Stugan when everything is in stock there", async ({ page }) => {
@@ -348,7 +423,7 @@ test("Skicka till ICA against Stugan copies the export of Stugan's list, in the 
   await countAgainst(page, "Stugan");
   await expect(lineCheck(page, "Ketchup")).toBeVisible();
   await sendButton(page).click();
-  await expect(toast(page)).toHaveText("Inköpslistan är kopierad. Klistra in den i Claude i Chrome på ICA Handla.");
+  await expect(toast(page, "Inköpslistan är kopierad. Klistra in den i Claude i Chrome på ICA Handla.")).toBeVisible();
   const text = await page.evaluate(() => navigator.clipboard.readText());
   expect(text.startsWith("Matkoll varukorgsexport v1\n")).toBe(true);
   expect(text).toContain("- Ketchup\n");

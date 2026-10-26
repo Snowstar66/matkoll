@@ -33,6 +33,7 @@ import {
   hiddenLinesButtonText,
   recountedText,
   sendButtonText,
+  siteRecountedText,
   skippedDishesText,
 } from "../domain/list-text";
 import { CustomItemSheet } from "./custom-item-sheet";
@@ -109,13 +110,24 @@ export type ShoppingListProps = {
   /**
    * The place the list is counted against (getShoppingList, AD-24); "Lägg i
    * lagret" puts the items there. `null` when there is none or it could not
-   * be read: then the place selected when Pontus taps. Only data for the
-   * list's texts (Story 8.5): the empty list names it with more than one
-   * place, and a list counted against another place is not announced as a
-   * recount. The line "Lager: Stugan" and "Byt" are the page's
-   * (pantry/ui ListSiteLine, AD-24).
+   * be read: then the place selected when Pontus taps. Data for the list's
+   * texts too (Story 8.5): the empty list names it with more than one place,
+   * and a list counted against another place says so. The line "Lager:
+   * Stugan" and "Byt" are the page's (pantry/ui ListSiteLine, AD-24).
    */
   site?: SelectedSite | null;
+  /**
+   * Whether a list now counted against `siteId` comes from a switch made in
+   * the list's own sheet (the page has it from ListSiteLine): then it is not
+   * announced, since the switch's confirmation says so. Asked once, when the
+   * place changes; asking settles it. Without it, every switch is announced.
+   */
+  isQuietSwitch?: (siteId: string | null) => boolean;
+  /**
+   * Told whether the list is saving something ("Lägg i lagret", or a check
+   * on its way), so the page can let "Byt" wait.
+   */
+  onBusyChange?: (busy: boolean) => void;
   /** The choices could not be read: the detail's section Produktval says so. */
   productChoicesUnavailable?: boolean;
   /** The catalog ingredients whose stored choice cannot be read: their section says so. */
@@ -154,18 +166,25 @@ function signatureOf(lines: readonly ShoppingLine[], planId: string | null, touc
  * while the list is shown, and clears the text again after announcementMs and
  * when the list is hidden. The list as it is when it is shown (on first load,
  * or when Pontus comes back to the tab, since Next keeps the page mounted but
- * hidden) is never announced. Nor is a list counted against another place
- * than the one shown last (`siteId`, Story 8.5): the switch's own
- * confirmation ("Listan räknas nu mot Stugan.") says so, and a screen reader
- * hears one text, not two. What is shown is updated all the same, so the
- * next recount is compared with the new place's list.
+ * hidden) is never announced.
+ *
+ * A list counted against another place than the one shown last (Story 8.5)
+ * says "Listan räknas nu mot Hemma. N varor kvar." (with more than one
+ * place; else the recount text when the lines changed), unless the switch
+ * was made from the list's own sheet (`isQuietSwitch`): its confirmation
+ * ("Listan räknas nu mot Stugan.") says so, and a screen reader hears one
+ * text, not two. That silence holds for the one render where the place
+ * changes; the next recount on the new place is announced as before.
  */
 function useRecountAnnouncement(
   lines: readonly ShoppingLine[],
   planId: string | null,
   touched: ReadonlySet<string>,
-  siteId: string | null,
+  site: SelectedSite | null,
+  isQuietSwitch: ((siteId: string | null) => boolean) | undefined,
 ): { text: string; count: number } {
+  const siteId = site?.id ?? null;
+  const siteName = shownSiteName(site);
   const latest = useRef({ lines, touched, siteId });
   /**
    * The lines last shown, the lines touched then and the place they were
@@ -196,12 +215,24 @@ function useRecountAnnouncement(
     const before = shown.current;
     if (before === null) return;
     const either = new Set([...before.touched, ...touched]);
-    if (before.siteId === siteId && signatureOf(before.lines, planId, either) !== signatureOf(lines, planId, either)) {
+    const recounted = signatureOf(before.lines, planId, either) !== signatureOf(lines, planId, either);
+    let text: string | null = null;
+    if (before.siteId !== siteId) {
+      // Another place: said by the sheet's confirmation when the switch was made there.
+      if (!isQuietSwitch?.(siteId)) {
+        if (siteName !== null) text = siteRecountedText(siteName, left);
+        else if (recounted) text = recountedText(left);
+      }
+    } else if (recounted) {
+      text = recountedText(left);
+    }
+    if (text !== null) {
+      const said = text;
       // A new count each time, so the same text is announced again.
-      setAnnouncement((previous) => ({ text: recountedText(left), count: previous.count + 1 }));
+      setAnnouncement((previous) => ({ text: said, count: previous.count + 1 }));
     }
     shown.current = { lines, touched, siteId };
-  }, [lines, left, planId, touched, siteId]);
+  }, [lines, left, planId, touched, siteId, siteName, isQuietSwitch]);
 
   useEffect(() => {
     if (!announcement.text) return;
@@ -429,6 +460,8 @@ export function ShoppingList({
   productChoicesUnavailable = false,
   unreadableChoices = noUnreadable,
   site = null,
+  isQuietSwitch,
+  onBusyChange,
 }: ShoppingListProps) {
   const planId = plan?.id ?? null;
   const { checks, toggle, notice, saving } = useChecks(planId, savedLines);
@@ -448,7 +481,12 @@ export function ShoppingList({
   // The sets are new each render; one set per content, so the announcement's effect runs only on a change.
   const touchedIds = [...new Set([...removal.touched, ...own.touched])].sort().join("\n");
   const touched = useMemo(() => new Set(touchedIds ? touchedIds.split("\n") : []), [touchedIds]);
-  const announcement = useRecountAnnouncement(lines, planId, touched, site?.id ?? null);
+  const announcement = useRecountAnnouncement(lines, planId, touched, site, isQuietSwitch);
+  // "Lägg i lagret", or a check on its way: the page lets "Byt" wait, so the list is not switched under it.
+  const busy = pantry.pending || saving;
+  useEffect(() => {
+    onBusyChange?.(busy);
+  }, [busy, onBusyChange]);
   const hasDishes = plan !== null && plan.dishCount > 0;
   const hasLines = lines.length > 0;
   const rootRef = useRef<HTMLDivElement>(null);

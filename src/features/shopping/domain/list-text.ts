@@ -74,6 +74,16 @@ export function recountedText(left: number): string {
 }
 
 /**
+ * Announced when the list is counted against another place while it is
+ * open, and the switch was not made from its own sheet (another device,
+ * Hemma, or a place that was gone): "Listan räknas nu mot Hemma. 3 varor
+ * kvar." (Story 8.5).
+ */
+export function siteRecountedText(siteName: string, left: number): string {
+  return `Listan räknas nu mot ${siteName}. ${itemsLeftText(left)}.`;
+}
+
+/**
  * "från Krämig kycklinggryta, Linssoppa": the dishes a line comes from, each
  * title once (the same recipe can be on the plan twice), in plan order.
  * `null` when no title is known.

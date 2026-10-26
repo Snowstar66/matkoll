@@ -271,9 +271,40 @@ describe("ShoppingListContent", () => {
     expect(screen.getByText("Allt finns i lagret för Stugan.")).toBeInTheDocument();
   });
 
-  it("throws what is not a pantry error when the places are read", async () => {
-    listPantrySites.mockRejectedValue(new Error("bug"));
+  it("shows the list without a line, and logs only the error's name, when the places fail unexpectedly", async () => {
+    const log = vi.spyOn(console, "error").mockImplementation(() => {});
+    listPantrySites.mockRejectedValue(new TypeError("Stugan broke"));
+    vi.mocked(getShoppingList).mockResolvedValue(allInStock({ id: stuganSite.id, name: "Stugan", siteCount: 2 }));
+    render(<ToastProvider>{await ShoppingListContent()}</ToastProvider>);
+    expect(screen.queryByTestId("site-line")).toBeNull();
+    expect(screen.getByText("Allt finns i lagret för Stugan.")).toBeInTheDocument();
+    expect(log).toHaveBeenCalledWith("pantry_sites_unavailable", { reason: "TypeError" });
+    log.mockRestore();
+  });
+
+  it("does not log a pantry error from the places, which the list has logged already", async () => {
+    const log = vi.spyOn(console, "error").mockImplementation(() => {});
+    listPantrySites.mockRejectedValue(new FakePantryDataError("read_failed"));
     vi.mocked(getShoppingList).mockResolvedValue(allInStock(null));
-    await expect(ShoppingListContent()).rejects.toThrow("bug");
+    render(<ToastProvider>{await ShoppingListContent()}</ToastProvider>);
+    expect(log).not.toHaveBeenCalled();
+    log.mockRestore();
+  });
+
+  it("shows the line from the places when the list has no place, so the list can be switched away from it", async () => {
+    listPantrySites.mockResolvedValue([
+      { ...hemmaSite, isSelected: false },
+      { ...stuganSite, isSelected: true },
+    ]);
+    vi.mocked(getShoppingList).mockResolvedValue(allInStock(null));
+    render(<ToastProvider>{await ShoppingListContent()}</ToastProvider>);
+    expect(screen.getByTestId("site-line")).toHaveTextContent("Lager: Stugan");
+    expect(screen.getByRole("button", { name: "Byt lager för listan" })).toBeInTheDocument();
+  });
+
+  it("reads the list first: a session that ended sends Pontus to the login page whatever the places did", async () => {
+    listPantrySites.mockRejectedValue(new Error("bug"));
+    vi.mocked(getShoppingList).mockResolvedValue(fail("unauthorized"));
+    await expect(ShoppingListContent()).rejects.toThrow("redirect /logga-in?next=%2Flista");
   });
 });

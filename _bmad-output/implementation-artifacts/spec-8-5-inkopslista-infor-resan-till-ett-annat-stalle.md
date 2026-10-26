@@ -2,7 +2,7 @@
 title: 'Story 8.5: Inköpslista inför resan till ett annat ställe'
 type: 'feature'
 created: '2026-10-26'
-status: 'in-progress'
+status: 'done'
 baseline_commit: 'c6b2f84706215a2e5c3ad722a862849ad13ff7a7'
 route: 'dispatch'
 context:
@@ -159,16 +159,59 @@ context:
 
 ### Vid bygget
 
-- **Besluten (förslag) godkändes som de står.** Ingen migration.
-- **Arket stänger i en transition efter svaret.** `setSheetOpen(false)` och bekräftelsen görs i `startTransition` (från `react`), medan bytets egen transition (`useTransition`) fortfarande pågår. React lägger då ihop dem med routerns transition för den revaliderade sidan, så att arket stänger samtidigt som den omräknade listan visas. Ett andra anrop till samma `useTransition` inifrån den asynkrona funktionen blev aldrig klart i testmiljön, så det används inte. Fel visas direkt i arket, och `router.refresh()` läser om sidan vid alla fel (borttaget ställe, nekat eller inget svar) som i 8.2.
-- **Raderna i arket är knappar med `role="radio"` i en `radiogroup`.** Bara valt ställe ligger i tabbordningen. Piltangenterna, Home och End flyttar fokus utan att välja, eftersom ett val sparar och stänger arket. Mellanslag eller Enter väljer. Arkets knapp i rubriken heter "Avbryt", eftersom den stänger utan att ändra något.
-- **Raden ligger under rubriken med `-mt-4 mb-4`.** `ShoppingList` drar upp sin sammanfattning med `-mt-4`, så raden lägger tillbaka samma avstånd under sig. Då ligger knappens tryckyta på 44 px aldrig under sammanfattningen, och `ShoppingList` behöver inte veta om raden. "Byt" har storleken för textknappar, inte `{typography.meta}`, eftersom `cx` inte slår ihop klasser.
-- **"Byt" väntar på hydreringen** (`useHydrated`), som pillren i Hemma.
-- **`ShoppingListContent` läser ställena med `listPantrySites()` parallellt med `getShoppingList()`.** Läsningen är memoiserad per förfrågan, och `getShoppingList` läser valt ställe ur samma läsning (`getPantryForStatus` → `getSelectedSite`), så raden och listan gäller samma ställe. Ett fel där loggas inte en gång till, eftersom `getShoppingList` redan loggar det som `pantry_unavailable` och ger `site: null`.
-- **Ett borttaget ställe med bara två ställen:** när Stugan har tagits bort i en annan flik visar arket "Stället finns inte längre. Välj ett annat ställe.", och sidan läses om. Med ett enda ställe kvar finns ingen rad, så raden och arket försvinner, och listan räknas mot Hemma som i 1.0. Med tre eller fler ställen står arket kvar med meddelandet, och det borttagna stället försvinner ur arket.
-- **E2E:** "Dolda varor" prövas med ketchup, som är täckt på Hemma och dold. Mot Stugan saknas den, men den står kvar som dold ("Dolda varor (1)"). Specen seedar också butiken Maxi ICA Stormarknad Östersund för "Skicka till ICA", och bockar, överstyrningar och egna varor läggs in med service role.
+- **Besluten (förslag) godkändes som de står,** utom ett tryck på valt ställe, som ändrades efter granskningen (se nedan). Ingen migration.
+- **Arket stänger i en transition efter svaret.** `setSheetOpen(false)` och bekräftelsen görs i `startTransition` (från `react`), medan bytets egen transition fortfarande pågår. React lägger då ihop dem med routerns transition för den revaliderade sidan, så att arket stänger samtidigt som den omräknade listan visas. Ett andra anrop till samma `useTransition` inifrån den asynkrona funktionen blev aldrig klart i testmiljön, så det används inte. Vad som sparas hålls i ett eget tillstånd (`savingId`), inte i transitionens `isPending`, så att arket aldrig låses av en transition som inte blir klar.
+- **Raderna i arket är vanliga knappar i en lista,** inte radioknappar som Boundaries säger (efter granskningen). Ett val sparar och stänger arket, så radioknappssemantik med piltangenter blev fel. Valt ställe har `aria-current="true"` och bocken, och alla rader ligger i den vanliga tabbordningen. Arkets knapp i rubriken heter "Avbryt", eftersom den stänger utan att ändra något.
+- **Ett tryck på valt ställe sparar också** (efter granskningen), i stället för att bara stänga arket som matrisen och beslutet säger. Sidan kan vara inaktuell efter ett byte på en annan enhet, och `selectPantrySite` gör samma sak två gånger utan skada. Bekräftelsen säger då "Listan räknas nu mot Hemma.".
+- **Raden ligger under rubriken med `-mt-4 mb-4`.** `ShoppingList` drar upp sin sammanfattning med `-mt-4`, så raden lägger tillbaka samma avstånd under sig. Då ligger knappens tryckyta på 44 px aldrig under sammanfattningen. "Byt" har storleken för textknappar, inte `{typography.meta}`, eftersom `cx` inte slår ihop klasser.
+- **"Byt" väntar på hydreringen** (`useHydrated`), som pillren i Hemma, och på det listan sparar (efter granskningen).
+- **`ShoppingListView` i `src/app/(app)/lista/`** (efter granskningen) är en klientkomponent som sidan renderar. Den sätter ihop `ListSiteLine` (`pantry/ui`) och `ShoppingList` (`shopping/ui`), som fortfarande aldrig importerar varandra (AD-24). Genom den får `ShoppingList` två saker utöver `site`, vilket Boundaries inte nämner:
+  - `onBusyChange`, så att "Byt" väntar medan "Lägg i lagret" eller en bock sparas;
+  - `isQuietSwitch`, så att listan bara tiger om ett byte som gjordes i arket.
+- **`ShoppingListContent` läser ställena med `listPantrySites()` bredvid `getShoppingList()`** med `Promise.allSettled`. Listan hanteras först, också omdirigeringen vid `unauthorized`. Ett fel när ställena läses ger aldrig ett fel på sidan, bara ingen rad. Ett `PantryDataError` loggas inte en gång till, eftersom `getShoppingList` redan loggar det som `pantry_unavailable`, men andra fel loggas som `pantry_sites_unavailable` med bara felets namn.
+- **Raden och arket visar samma ställe:** listans ställe, med antalet ställen från `sites`. När listan saknar ställe men ställena gick att läsa, visas valt ställe ur `sites`, så att listan kan bytas bort från ett ställe vars lager inte går att läsa. Om listan och ställena inte stämmer överens läses sidan om, en gång.
+- **Ett borttaget ställe:** med tre eller fler ställen står arket kvar med "Stället finns inte längre. Välj ett annat ställe.", och det borttagna stället försvinner ur arket när sidan har lästs om. Med bara ett ställe kvar försvinner raden och arket. Meddelandet kommer då som kort bekräftelse (`role="alert"`), och fokus går till sidrubriken.
+- **E2E:**
+  - "Dolda varor" prövas med ketchup, som är täckt på Hemma och dold. Mot Stugan saknas den, men den står kvar som dold ("Dolda varor (1)").
+  - Specen seedar också butiken Maxi ICA Stormarknad Östersund för "Skicka till ICA". Bockar, överstyrningar och egna varor läggs in med service role.
 
 ## Review Triage Log
+
+Iteration 1. Tre granskare gick igenom 0d022e8. Ingen migration.
+
+**Patch:**
+- **Arket följer raden:** när raden försvinner, för att stället inte går att läsa eller för att bara ett ställe är kvar efter en omläsning, stängs arket och dess meddelande glöms. Arket öppnas aldrig igen av sig självt. Försvann raden för att det valda stället var borttaget, kommer meddelandet som kort bekräftelse, och fokus går till sidrubriken, aldrig till `<body>`.
+- **Svar som inte kommer:**
+  - Kastar anropet, eller kommer inget svar inom 20 sekunder (`selectTimeoutMs`), läses sidan om. Visar den då det tryckta stället har valet sparats: meddelandet glöms, arket stänger och bekräftelsen visas. Annars visas `pantry_site_failed`.
+  - Läses sidan inte om inom 10 sekunder (`refreshWaitMs`) visas felet ändå, så att arket aldrig blir låst och "Avbryt" fungerar igen.
+- **Listan gömd under sparandet:** ett fel kommer då som kort bekräftelse (`role="alert"`). En lyckad växling bekräftas inte på en annan sida.
+- **Alltid spara:** ett tryck på det ställe som visas som valt anropar också `selectPantrySite`, eftersom sidan kan vara inaktuell.
+- **Vanliga knappar:** raderna är knappar i en lista, med `aria-current="true"` och bocken på valt ställe, och utan egen hantering av piltangenter. Raden som sparas visar "Sparar …", och alla rader väntar. En spärr som sätts direkt vid trycket gör att ett andra tryck eller Enter inte ger ett andra anrop.
+- **"Byt" väntar på "Lägg i lagret"** och på bockar som sparas (`ShoppingListView`, `onBusyChange`).
+- **Läsningen av ställena stoppar aldrig listan:** `Promise.allSettled`, med listan först. Varje fel ger ingen rad, och oväntade fel loggas. Raden visar valt ställe ur `sites` när listan saknar ställe.
+- **Annonseringen:** listan tiger bara om ett byte som gjordes i arket (`isQuietSwitch`, en gång per byte). Ett byte någon annanstans, alltså på en annan enhet, i Hemma eller efter ett borttaget ställe, annonseras som "Listan räknas nu mot Hemma. 2 varor kvar." (`siteRecountedText`).
+- **`unauthorized`:** arket stängs innan sidan läses om.
+- **Nya tester:**
+  - ett kontraktstest att `revalidateFor("pantry_site")` revaliderar `/lista`;
+  - `ListSiteLine`:
+    - svar som går förlorade;
+    - tidsgränserna;
+    - borttaget ställe med två och tre ställen;
+    - dubbeltryck och Enter;
+    - gömd lista;
+    - raden som försvinner och kommer tillbaka;
+    - listan och ställena som inte stämmer överens;
+  - `ShoppingListView`: ett byte från arket annonseras en gång, ett byte någon annanstans annonseras, och "Byt" väntar på en bock;
+  - e2e:
+    - ett ställe som tas bort med service role medan arket är öppet;
+    - senap avbockad mot Hemma, sedan byte till Stugan och "Lägg i lagret", med exakt vad som hamnar i Stugans lager.
+- **E2E-specen:** bekräftelserna hittas på sin text (`filter({ hasText })`), och en tidigare bekräftelse får försvinna före nästa byte. Den tomma annonseringen läses direkt efter bekräftelsen, utan nya försök.
+
+**Avvisat:**
+- Kopplingen mellan radens `-mt-4 mb-4` och sammanfattningens `-mt-4` i `ShoppingList`. Den är kosmetisk och täcks av e2e-kontrollen att sidan inte scrollar i sidled.
+
+**Kvar som känd begränsning:**
+- Om en ändring från en annan enhet, till exempel en rättad mängd, råkar komma i samma rendering som ett byte från arket, annonseras den inte. Listan räknas då om mot ett annat lager, och det går inte att skilja ändringarna åt. Tystnaden gäller bara den rendering där stället byts.
 
 ## Verification
 
