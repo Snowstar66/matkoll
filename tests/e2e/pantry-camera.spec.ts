@@ -270,12 +270,14 @@ test("the cards come first, then their numbers, and the large photo has the same
     const dot = (await markers.nth(5).boundingBox())!;
     return [(dot.x + dot.width / 2 - box.x) / box.width, (dot.y + dot.height / 2 - box.y) / box.height];
   };
-  for (const share of await markerAt()) expect(share).toBeCloseTo(0.193, 2);
+  // Polled: the sheet slides in and the frame takes the decoded size after load, so one early read can be off.
+  const markerOffset = async () => Math.max(...(await markerAt()).map((share) => Math.abs(share - 0.193)));
+  await expect.poll(markerOffset).toBeLessThan(0.005);
   const fullSize = photoSheet.getByRole("button", { name: "Visa i full storlek" });
   await fullSize.click();
   await expect(fullSize).toHaveAttribute("aria-pressed", "true");
-  expect((await frame.boundingBox())!.width).toBeCloseTo(720, 0);
-  for (const share of await markerAt()) expect(share).toBeCloseTo(0.193, 2);
+  await expect.poll(async () => (await frame.boundingBox())!.width).toBeCloseTo(720, 0);
+  await expect.poll(markerOffset).toBeLessThan(0.005);
   expect(await page.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth)).toBe(true);
   await photoSheet.getByRole("button", { name: "Stäng" }).click();
   await expect(photoSheet).toBeHidden();
