@@ -125,6 +125,23 @@
       transform: translateX(300%);
     }
   }
+
+  /*
+   * Stegbyte in the step mode: the new step slides in a little from the side
+   * it comes from (--step-from, set by the step mode) and fades in. Only used
+   * with motion-safe, so "Minska rörelse" changes the step without it.
+   */
+  --animate-step-in: step-in 180ms ease-out;
+  @keyframes step-in {
+    from {
+      opacity: 0;
+      transform: translateX(var(--step-from, 0));
+    }
+    to {
+      opacity: 1;
+      transform: none;
+    }
+  }
 }
 
 @theme inline {

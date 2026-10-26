@@ -1,13 +1,16 @@
 "use client";
 
-import { useMemo, useState } from "react";
+import { useLayoutEffect, useMemo, useRef, useState } from "react";
+import { Button } from "@/components/button";
 import { FixedAction } from "@/components/fixed-action";
 import { Stepper } from "@/components/stepper";
 import { clampServings, maxServings } from "@/features/mealplan";
 import { atHomeSummaryText, recipeStatusForFactor, type PantrySnapshot } from "@/features/pantry";
+import { cookSteps } from "../domain/cook-steps";
 import type { SavedRecipe } from "../domain/saved-recipe";
 import { scaleFactor, scaleLines } from "../domain/scale";
 import { AddToPlanButton, type AddToPlan } from "./add-to-plan-button";
+import { CookMode } from "./cook-mode";
 import { IngredientRow, lineCoverage } from "./ingredient-row";
 import { RecipeStatusBadge } from "./recipe-status-badge";
 
@@ -25,7 +28,8 @@ export type RecipeBodyProps = {
 /**
  * The recipe view's part that follows the chosen servings (FR-20): the
  * portion selector, the badge and "X av Y hemma", the ingredients scaled
- * with recipes.scaleLines, the steps, and "Lägg på matsedeln". The servings
+ * with recipes.scaleLines, the steps, "Lägg på matsedeln" and "Laga nu",
+ * which opens the step mode (FR-21) with the same lines and status. The servings
  * start at the recipe's own, within 1–1000 as a dish's (a recipe for 1200
  * starts at 1000), and are kept only while the page is open: − and + change
  * what is shown and call nothing on the server. The status is counted here
@@ -34,6 +38,14 @@ export type RecipeBodyProps = {
  * as the server's does. The page keys this part on the recipe's servings and
  * amounts, so a saved edit of them starts again from the recipe's servings,
  * while the heart or a pantry change keeps the choice.
+ *
+ * "Laga nu" (secondary) is beside "Lägg på matsedeln" (primary), which takes
+ * the rest of the row; with large text they wrap onto a row each. It is there
+ * without "Lägg på matsedeln" too, but never for a recipe without steps, and
+ * it waits while a dish is being added, so the confirmation is not hidden
+ * behind the step mode. The step mode always opens at step 1 with the
+ * servings shown, and closing it leaves the servings and the scroll as they
+ * were. It closes if the steps go while it is open (a re-read after "Ändra").
  */
 export function RecipeBody({ recipe, snapshot, addToPlan }: RecipeBodyProps) {
   const [servings, setServings] = useState(() => clampServings(recipe.servings));
@@ -43,6 +55,18 @@ export function RecipeBody({ recipe, snapshot, addToPlan }: RecipeBodyProps) {
     () => (snapshot ? recipeStatusForFactor(recipe.lines, factor, snapshot) : null),
     [recipe.lines, factor, snapshot],
   );
+  const steps = useMemo(() => cookSteps(recipe.steps, lines), [recipe.steps, lines]);
+  const canCook = steps.length > 0;
+  const [cooking, setCooking] = useState(false);
+  const [adding, setAdding] = useState(false);
+  const cookButtonRef = useRef<HTMLButtonElement>(null);
+  // A client navigation hides this page (Activity) instead of unmounting it:
+  // the step mode closes then, so it is not open when Pontus comes back.
+  useLayoutEffect(() => () => setCooking(false), []);
+  // Without steps there is nothing to show, and it must not open again by
+  // itself if they come back. Adjusted while rendering, as React recommends
+  // over an effect (react-hooks/set-state-in-effect).
+  if (cooking && !canCook) setCooking(false);
 
   return (
     <>
@@ -103,11 +127,44 @@ export function RecipeBody({ recipe, snapshot, addToPlan }: RecipeBodyProps) {
         </section>
       </div>
 
-      {/* Room for "Laga nu" beside it in Story 4.2. */}
-      {addToPlan ? (
+      {addToPlan || canCook ? (
         <FixedAction>
-          <AddToPlanButton recipeId={recipe.id} addToPlan={addToPlan} servings={servings} />
+          <div className="flex flex-wrap gap-2">
+            {addToPlan ? (
+              <AddToPlanButton
+                recipeId={recipe.id}
+                addToPlan={addToPlan}
+                servings={servings}
+                fullWidth={false}
+                className="grow-[999] basis-auto"
+                onPendingChange={setAdding}
+              />
+            ) : null}
+            {canCook ? (
+              <Button
+                ref={cookButtonRef}
+                variant="secondary"
+                disabled={adding}
+                onClick={() => setCooking(true)}
+                className="grow basis-auto"
+              >
+                Laga nu
+              </Button>
+            ) : null}
+          </div>
         </FixedAction>
+      ) : null}
+
+      {cooking && canCook ? (
+        <CookMode
+          title={recipe.title}
+          servings={servings}
+          steps={steps}
+          status={status}
+          factor={factor}
+          onClose={() => setCooking(false)}
+          returnFocusRef={cookButtonRef}
+        />
       ) : null}
     </>
   );

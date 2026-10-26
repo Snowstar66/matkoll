@@ -15,7 +15,7 @@ import { RecipeBody } from "./recipe-body";
 // under it, and then the part that follows the chosen servings (RecipeBody):
 // the portion selector with the status and "X av Y hemma", the ingredients
 // with a tick or ring each (Story 2.4), the steps and "Lägg på matsedeln"
-// (Story 3.1). "Laga nu" arrives in Story 4.2.
+// (Story 3.1) and "Laga nu", which opens the step mode (Story 4.2).
 
 export type RecipeViewProps = {
   recipe: SavedRecipe;

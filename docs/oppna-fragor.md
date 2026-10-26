@@ -42,3 +42,4 @@ Saker som testerna inte kan visa och som behöver en riktig iPhone:
 - Svep vänster på en lagervara i Hemma: knappen "Ta bort" ska visas utan att Safari går bakåt. Prova att svepa nära skärmkanten och mitt på raden.
 - VoiceOver på en lagervara: knappen "Ta bort Mjölk" ska gå att nå och aktivera, och raden ska inte öppna arket i stället.
 - Fotoimport av ett recept med kameran (Story 1.9) och engångslänken i Mail-appen (Story 1.2).
+- Stegläget (Story 4.2), efter driftsättningen via https: tryck "Laga nu" och låt telefonen ligga orörd längre än skärmsläckningstiden. Skärmen ska hållas tänd. Byt till en annan app och tillbaka: skärmen ska hållas tänd igen, och raden "Skärmen kan släckas i den här webbläsaren." ska inte visas. Prova också att svepa åt höger nära vänsterkanten: Safari kan gå bakåt i stället för att byta steg, vilket är godtaget i v1 eftersom knapparna finns.

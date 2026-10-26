@@ -2,6 +2,35 @@
 
 Beslut som fattats under bygget: vad, varför och vilka alternativ som fanns. Nyaste överst.
 
+## 2026-10-26 – Stegläge med tänd skärm (Story 4.2)
+
+- **Beslut:**
+  - Stegläget är en native modal `<dialog>` i helskärm i receptvyn, utan egen adress. Valt antal portioner och scrollpositionen finns kvar när det stängs. Sidan bakom blir inert och scrollar inte medan stegläget är öppet. Webbläsarens bakåt lämnar receptet som vanligt. Om sidan göms av en navigering i appen stängs stegläget och låset släpps, utan att fokus flyttas, så att det inte är öppet när Pontus kommer tillbaka.
+  - Stegläget öppnas alltid på steg 1 och minns inte var Pontus var mellan öppningarna. Om receptet läses om medan det är öppet stannar det på samma steg (efter stegets id), och om steget har tagits bort stannar det på samma plats. Om receptet tappar alla steg stängs stegläget.
+  - "Laga nu" visas inte när receptet saknar steg, men visas även utan "Lägg på matsedeln". Den väntar medan en rätt läggs på matsedeln, så att bekräftelsen inte döljs bakom stegläget.
+  - En rad visas på sitt första steg (`stepId`, beslut 2026-10-25). Stegen visas i ordning efter position.
+  - **Ändrat efter granskningen:** rader utan steg, eller vars steg har tagits bort, visas på steg 1 under rubriken "Övriga ingredienser", efter stegets egna rader. Om ingen rad har något steg (AI:n kopplade inga) visar steg 1 alla rader, utan rubriken. Det ersätter förslaget att inte visa dem i stegläget, eftersom en rad annars kunde saknas helt där.
+  - Stegraderna ser ut som i receptvyn: bock eller ring, mängd i `sky-ink` när den saknas och "hemma: …", i brödtext. Bara stegtexten är 24 px.
+  - Wake Lock:
+    - Stödet kontrolleras med `"wakeLock" in navigator`.
+    - Saknat stöd och en nekad begäran visar båda raden "Skärmen kan släckas i den här webbläsaren." överst, som text i `meta` och `ink-2` utan ikon och utan `role="alert"`. Raden döljs när ett senare försök lyckas.
+    - En begäran som nekas medan sidan är dold visar inte raden. Nästa `visibilitychange` försöker igen.
+    - Om sidan blir synlig medan en begäran pågår görs ett nytt försök när den är klar, om den inte gav något lås.
+    - Om systemet släpper låset medan sidan är synlig (till exempel vid strömsparläge) görs ett nytt försök. Om det misslyckas, eller om låset släpps igen innan sidan visas nästa gång, visas raden.
+    - Ett lås som kommer efter att stegläget stängts släpps direkt. Inget loggas.
+  - Svep: ett pekardrag som först rör sig mer än 8 px vågrätt än lodrätt räknas som svep, och ett svep på minst 48 px byter steg. Ett lodrätt drag scrollar steget. Svepet gäller stegets innehåll, inte knapparna. Ett drag med musen som markerade text byter inte steg. Ett drag som aldrig fick sitt slut glöms när en ny pekare börjar, när ingen knapp är nedtryckt eller när pekaren lämnar steget.
+  - Tangenter: ArrowLeft och ArrowRight byter steg var fokus än är, också efter ett tryck på stegtexten. En nedhållen tangent byter bara ett steg. Med Alt, Ctrl, Cmd eller Skift görs inget, så att webbläsarens kortkommandon fungerar.
+  - Föregående och Nästa blir `aria-disabled` vid gränserna i stället för att Nästa blir "Klar" på sista steget. "Stäng", Esc och webbläsarens egen stängning är vägarna ut, och då går fokus tillbaka till "Laga nu".
+  - "Steg N av M" får fokus när stegläget öppnas. Vid varje stegbyte läses "Steg N av M: <stegtext>" upp från en dold live-region, och fokus stannar där det är. Stegbytet är en kort övergång (180 ms) som bara körs utan "Minska rörelse".
+  - "Lägg på matsedeln" (primär) och "Laga nu" (sekundär) ligger i samma rad i den fasta åtgärdsknappen, och "Lägg på matsedeln" tar resten av bredden. Med stor text bryts de till en rad var, och utrymmet längst ned på sidan mäts så att det räcker för båda raderna. "Lägg på matsedeln" behåller sin bredd medan rätten läggs på. Föregående och Nästa bryts på samma sätt.
+- **Varför:** EXPERIENCE.md säger att "Stäng" går tillbaka till receptvyn och att valet av portioner bara gäller visningen, så en egen adress skulle kräva att portionerna gick via den. Ett steg utan kopplade rader ska bara visa texten, men granskningen visade att rader utan steg annars inte syntes alls i stegläget. Raden om skärmen är inget fel enligt EXPERIENCE.md. DESIGN.md tillåter en primärknapp per vy. Granskningen av 4.2 visade också att piltangenterna slutade fungera efter ett tryck på texten och att ett avbrutet drag kunde ligga kvar.
+- **Alternativ:**
+  - `/recept/[id]/laga?portioner=6`, så att bakåt stänger stegläget.
+  - Inte visa rader utan steg i stegläget (det första förslaget).
+  - En svepgräns som andel av bredden (20 %), utöver 48 px.
+  - "Klar" på sista steget, som också stänger.
+  - En blå meddelanderuta när skärmen kan släckas.
+
 ## 2026-10-26 – Sammanslagning till main med Vercel kopplat
 
 - **Beslut (Pontus):** epic-PR:erna slås ihop till `main` även nu när repot är kopplat till Vercel-projektet `matkoll`.

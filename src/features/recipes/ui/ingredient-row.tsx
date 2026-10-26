@@ -7,7 +7,7 @@ import type { SavedRecipeLine } from "../domain/saved-recipe";
 import { factorText } from "../domain/scale";
 
 // Ingrediensrad (EXPERIENCE.md): one recipe line with its mark against the
-// pantry, in the recipe view, and in the step mode to come (Story 4.2).
+// pantry, in the recipe view and in the step mode (Story 4.2).
 
 /** Lines whose missing coverage is logged already: once per line, not on every render. */
 const loggedMissing = new Set<string>();
