@@ -437,6 +437,9 @@ isOneToOne: false
 "pantry_owner_lock":
 { Args: { "owner": string }; Returns: undefined
                            },
+"pantry_photo_orphans":
+{ Args: { "min_age": string }; Returns: string[]
+                           },
 "pantry_photo_points_valid":
 { Args: { "points": Json,"reading": Json }; Returns: boolean
                            },
