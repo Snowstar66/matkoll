@@ -52,6 +52,8 @@ export default async function globalSetup(config: FullConfig) {
   const { error } = await adminClient().auth.admin.createUser({ email: outsiderEmail, email_confirm: true });
   if (error && error.code !== "email_exists") throw error;
 
+  // Every E2E user but coreFlowEmail gets a saved session: core-flow.spec.ts
+  // signs in through /logga-in and Mailpit itself.
   mkdirSync("tests/e2e/.auth", { recursive: true });
   const browser = await chromium.launch();
   try {

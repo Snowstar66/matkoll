@@ -2,6 +2,24 @@
 
 Beslut som fattats under bygget: vad, varför och vilka alternativ som fanns. Nyaste överst.
 
+## 2026-10-26 – Säkerhetskopia och återställning (Story 3.8)
+
+- **Beslut:**
+  - `backup.yml` körs måndag och torsdag 03:17 UTC och för hand, bara på `main`. Den dumpar schema (`supabase db dump`) och data (`--data-only --use-copy`) och skriver `manifest.txt` (commit, CLI-version, körda migrationer) och `counts.txt` (`scripts/backup-counts.sql`). Datadumpen tar redan med `auth` (även `auth.users`), så schemat behöver inte läggas till. Utelämnas gör `storage.buckets_vectors` och `storage.vector_indexes` (som i Supabase egen guide; `postgres` får inte skriva till dem vid återläsning) och `auth.sessions`, `auth.refresh_tokens`, `auth.mfa_amr_claims`, `auth.one_time_tokens`, `auth.flow_state` och `auth.audit_log_entries`. `mfa_amr_claims` pekar på sessionerna och följer därför med dem ut. Roller dumpas inte: Matkoll har inga egna, och rolldumpen gick inte att läsa in.
+  - Repovariabeln `BACKUP_ENABLED`: utan den hoppar en körning utan hemligheter över med en notis och blir grön; med `true` blir den röd. Lösenfrasen måste ha minst 32 tecken och ingen radbrytning, och `SUPABASE_DB_URL` måste ha lösenord. Felen nämner bara problemet.
+  - Lösenordet i `SUPABASE_DB_URL` maskeras (som det står och avkodat). CLI:t och `psql` får adressen utan lösenord och lösenordet i `PGPASSWORD`, som båda läser. Lösenfrasen ges till `gpg` på stdin från `printf` (inbyggt i skalet).
+  - Innan uppladdningen kontrolleras att filerna har innehåll och att `data.sql` har `auth.users`, och varje `.gpg`-fil dekrypteras och jämförs med originalet (`--no-symkey-cache`, så att jämförelsen inte bygger på en sparad lösenfras). Artefakterna sparas i 90 dagar; Pontus laddar ner en kopia i månaden.
+  - Återställning sker till ett nytt projekt med `supabase db push` från en commit vars migrationer stämmer med manifestet, sedan `data.sql` med `psql` och `session_replication_role = replica`, en jämförelse med `counts.txt` och till sist `db push` från `main`. `schema.sql` används bara som jämförelse.
+  - `SUPABASE_DB_URL` ska vara Session pooler-strängen.
+  - Preview i Vercel får `SITE_URL` och `AI_PROVIDER=mock` men inga Supabase-variabler. Kontrollerat lokalt: bygget lyckas och sidorna svarar 503. Om förhandsversionerna ska finnas kvar avgör Pontus (öppen fråga 4).
+  - Actions pinnas på huvudversion som i `ci.yml`, inte på commit-SHA; SHA-pinning är en senare härdning.
+- **Varför:** provat lokalt mot en andra, tillfällig Supabase-stack: återläsning av `schema.sql` gav `anon` rättigheter till alla tabeller (dumpen saknar migrationernas `revoke`) och ingen migrationshistorik, medan `db push` plus data gav samma radantal, policyer och rättigheter som originalet, fungerande inloggning och RLS. Granskningen av 3.8: en tyst överhoppning efter att molnet satts upp, en svag lösenfras, en okontrollerad dump och okrypterade sessioner i säkerhetskopian skulle inte märkas förrän vid en återställning. GitHubs maskiner saknar IPv6, som Supabase direkta anslutning kräver.
+- **Alternativ:**
+  - Återläsa `schema.sql` direkt och rätta rättigheterna efteråt.
+  - Ta med en rolldump, som i Supabase guide.
+  - Läsa `BACKUP_ENABLED` som hemlighet, eller låta saknade hemligheter alltid ge rött.
+  - Stänga av förhandsversioner i Vercel helt.
+
 ## 2026-10-26 – Lägg i lagret efter granskningen
 
 - **Beslut:**

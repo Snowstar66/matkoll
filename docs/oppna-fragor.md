@@ -9,6 +9,7 @@ Frågor och osäkerheter som samlas under bygget och presenteras för Pontus nä
 | 1 | Behöver inköpslistan fungera utan nät i butiken? | Nej i v1; nät krävs | PRD, 2026-10-25 |
 | 2 | Vilka recept och kylskåpsfoton ska ingå i AI-testuppsättningen? Fem påhittade recept finns nu i `tests/fixtures/ai/` (kycklinggryta, ugnspannkaka, linssoppa, kladdkaka, fiskgratäng). | 10–20 recept från koket.se och tasteline.com tas fram av utvecklingen; Pontus bekräftar och bidrar med några egna kylskåpsfoton | PRD, 2026-10-25 |
 | 3 | Molnleverantör för AI när appen ska användas av fler | Den billigaste som klarar testuppsättningen; avgörs senare | Brief |
+| 4 | Ska Vercel bygga förhandsversioner av grenar? De får ingen databas och svarar 503, så de är bara en byggkontroll. | Behåll dem med `SITE_URL` och `AI_PROVIDER=mock` i Preview; stäng av dem om de bara stör (se `docs/drift.md`, steg 9) | Story 3.8 |
 
 ## Tekniska osäkerheter (utredas under bygget)
 
@@ -21,11 +22,16 @@ Frågor och osäkerheter som samlas under bygget och presenteras för Pontus nä
 
 ## Checklista för Pontus (när molnet sätts upp, efter Epic 1–3)
 
-- Skapa Vercel-projektet `matkoll` (region `arn1`) och Supabase-projektet `matkoll` (region `eu-north-1`), och lägg in miljövariablerna enligt `.env.example`.
-- I Supabase: stäng av registrering, sätt Site URL och redirect-URL, lägg in e-postmallen för engångslänken, och överväg egen SMTP (Supabase inbyggda e-post har låg gräns).
-- Kör `pnpm users:sync` mot molnet så att din e-post finns som användare.
-- Lägg in hemligheten för säkerhetskopians lösenfras i GitHub.
-- Sätt upp Cloudflare Tunnel och Access (kräver domän) och lägg in tokenvariablerna.
+Varje punkt beskrivs steg för steg, med var värdet hämtas och hur det kontrolleras, i [`docs/drift.md`](drift.md).
+
+- Skapa Vercel-projektet `matkoll` (region `arn1`, produktion bara från `main`) och Supabase-projektet `matkoll` (region `eu-north-1`).
+- I Supabase: stäng av registrering, sätt Site URL och redirect-URL (`<adress>/auth/confirm**`), lägg in e-postmallen för engångslänken från `supabase/templates/magic-link.html`, och överväg egen SMTP (Supabase inbyggda e-post har låg gräns).
+- Kör `supabase link` och `supabase db push` från din terminal, och sedan före varje koddriftsättning med nya migrationer.
+- Kör `pnpm users:sync` mot molnet så att din e-post finns som användare (`SUPABASE_SERVICE_ROLE_KEY` bara tillfälligt i terminalen, aldrig i Vercel).
+- Sätt upp Cloudflare Tunnel och Access med tjänstetoken för LM Studio (kräver domän): `LMSTUDIO_BASE_URL`, `CF_ACCESS_CLIENT_ID`, `CF_ACCESS_CLIENT_SECRET`.
+- Lägg in miljövariablerna i Vercel enligt `.env.example`; Supabase-variablerna bara i Production, inte i Preview.
+- Välj för förhandsversionerna i Vercel: behåll dem som byggkontroll (Preview får bara `SITE_URL` och `AI_PROVIDER=mock`; de bygger men svarar 503 utan databas, kontrollerat lokalt) eller stäng av dem under **Settings → Git**.
+- Lägg in GitHub-hemligheterna för säkerhetskopian: `SUPABASE_DB_URL` (Session pooler-strängen) och `BACKUP_PASSPHRASE` (minst 32 tecken; spara den i din lösenordshanterare), och repovariabeln `BACKUP_ENABLED=true`. Kör sedan flödet Backup en gång för hand. Kontrollera att mejl om misslyckade flöden går till dig, och ladda ner den senaste säkerhetskopian en gång i månaden.
 - Godkänn första publiceringen i produktion.
 
 ## Att prova på riktig telefon (när Pontus har tid)
