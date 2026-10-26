@@ -2,7 +2,8 @@
 title: 'Story 11.6: Matkoll på hemskärmen'
 type: 'feature'
 created: '2026-10-26'
-status: 'draft'
+status: 'done'
+baseline_commit: '22a0febb5a37b5120ee9ebe41fe517877d340851'
 route: 'dispatch'
 context:
   - '{project-root}/_bmad-output/implementation-artifacts/epic-11-context.md'
@@ -87,19 +88,19 @@ context:
 ## Tasks & Acceptance
 
 **Execution:**
-- [ ] `src/app/manifest.ts` (+ test) -- manifestet enligt Boundaries -- FR-44, AD-27
-- [ ] `src/app/icon.tsx`, `src/app/apple-icon.tsx` (+ test), `src/app/theme-colors.ts` -- ikonerna och färgerna, med test mot `globals.css` -- AD-17, UX-DR27
-- [ ] `src/app/layout.tsx` -- `appleWebApp`
-- [ ] `src/proxy.ts` (+ test) -- `matcher` enligt Boundaries
-- [ ] `supabase/templates/magic-link.html` -- koden. Lokalt startas `auth` om för att läsa in mallen (inte `supabase db reset`)
-- [ ] `src/features/auth/actions/verify-email-code.ts` (+ test), `src/lib/errors.ts` -- `verifyEmailCode` och `auth_code_invalid` -- FR-1, AD-3
-- [ ] `src/features/auth/ui/` (+ test) -- kodfältet efter "Skicka länk"
-- [ ] `src/components/app-shell/page-header.tsx` och sidorna (+ tester) -- "Tillbaka" där den saknas
-- [ ] `src/features/settings/ui/` (+ test) -- hemskärmsraden
-- [ ] `tests/e2e/app-install.spec.ts` (+ `support.ts`, `global-setup.ts`) -- egen e2e-användare `e2e-utseende-app@matkoll.test`: manifestet och ikonerna utan kakor, `/recept` omdirigeras, `head`, inloggning med kod (koden från Mailpit eller `auth.admin.generateLink`, som `global-setup.ts`), fel kod, tillbakaknapparna
-- [ ] `docs/oppna-fragor.md` -- checklistan för molnet: mallen läggs in med koden. "Att prova på riktig telefon": lägg på hemskärmen och logga in med koden
-- [ ] `docs/drift.md` -- mallen med koden
-- [ ] `docs/beslutslogg.md` -- en post för storyn
+- [x] `src/app/manifest.ts` (+ test) -- manifestet enligt Boundaries -- FR-44, AD-27
+- [x] `src/app/icon.tsx`, `src/app/apple-icon.tsx` (+ test), `src/app/theme-colors.ts` -- ikonerna och färgerna, med test mot `globals.css` -- AD-17, UX-DR27
+- [x] `src/app/layout.tsx` -- `appleWebApp`
+- [x] `src/proxy.ts` (+ test) -- `matcher` enligt Boundaries
+- [x] `supabase/templates/magic-link.html` -- koden. Lokalt startas `auth` om för att läsa in mallen (inte `supabase db reset`)
+- [x] `src/features/auth/actions/verify-email-code.ts` (+ test), `src/lib/errors.ts` -- `verifyEmailCode` och `auth_code_invalid` -- FR-1, AD-3
+- [x] `src/features/auth/ui/` (+ test) -- kodfältet efter "Skicka länk"
+- [x] `src/components/app-shell/page-header.tsx` och sidorna (+ tester) -- "Tillbaka" där den saknas
+- [x] `src/features/settings/ui/` (+ test) -- hemskärmsraden
+- [x] `tests/e2e/app-install.spec.ts` (+ `support.ts`, `global-setup.ts`) -- egen e2e-användare `e2e-utseende-app@matkoll.test`: manifestet och ikonerna utan kakor, `/recept` omdirigeras, `head`, inloggning med kod (koden från Mailpit eller `auth.admin.generateLink`, som `global-setup.ts`), fel kod, tillbakaknapparna
+- [x] `docs/oppna-fragor.md` -- checklistan för molnet: mallen läggs in med koden. "Att prova på riktig telefon": lägg på hemskärmen och logga in med koden
+- [x] `docs/drift.md` -- mallen med koden
+- [x] `docs/beslutslogg.md` -- en post för storyn
 
 **Acceptance Criteria:**
 - Given `pnpm lint && pnpm typecheck && pnpm test && pnpm test:integration && AI_PROVIDER=mock pnpm build && CI=1 pnpm test:e2e`, when de körs, then lyckas alla.
@@ -118,7 +119,60 @@ context:
 
 ## Spec Change Log
 
+### Vid bygget
+
+- **Byggd på `22a0feb`** (`baseline_commit`), kursändringen för Epic 11, i grenen `story/11-6` från `epic/11-nytt-utseende`. 11.1–11.5 finns inte i grenen än. Storyn behöver bara tokens som redan finns (`bg`, `accent`, `sand`, `sand-ink`).
+- **Next.js 16.4.3-dokumentationen lästes först:** `manifest.md`, `app-icons.md`, `generate-image-metadata.md`, `image-response.md`, `progressive-web-apps.md`, `generate-metadata.md` (`appleWebApp`) och `proxy.md` (`matcher` och testverktygen). `capable: true` ger `<meta name="mobile-web-app-capable" content="yes">` i Next 16, inte `apple-mobile-web-app-capable`.
+- **Ikonerna genereras med `ImageResponse`** och byggs statiskt också med `cacheComponents` (`○ /apple-icon`, `● /icon/192`, `/icon/512`, `/icon/maskable`). Reservvägen med PNG behövdes inte. `icon.tsx` har `generateImageMetadata` med id:n `192`, `512` och `maskable`. Teckningen ligger i `src/app/app-icon-image.tsx` (SVG i 100 × 100), och storlekarna och motivets skala (0,84, och 0,72 för maskable så att motivet ryms i den säkra cirkeln) i `src/app/app-info.ts`, som manifestet läser utan att dra in `next/og`. Namnet och beskrivningen ligger också där och delas med `layout.tsx`.
+- **Motivet:** moroten i `sand-ink` med räfflor i `sand` och blast i `accent`, på en rund platta i `sand`, på `bg`. Avvikelse från "en morot i accent och sand": `sand` syns knappt mot `bg`, så moroten själv fick `sand-ink`. `appIconColors` i `theme-colors.ts` testas mot `globals.css` i `contrast.test.ts`.
+- **Manifestets färg:** `rgbToHex(themeColors.light)` ger `#F5F7F4`. Testet av `rgbToHex` ligger i `tests/design/theme-colors.test.ts`, eftersom `no-hex.test.ts` inte tillåter färgvärden i `src/` utanför `globals.css` och `theme-colors.ts`.
+- **Proxyn:** `matcher` utesluter `(?:apple-)?icon(?:/[a-zA-Z0-9_-]+)?$` utöver det som redan var undantaget. `/manifest.webmanifest` släpptes redan igenom av regeln för filändelser. `src/proxy.test.ts` går igenom sökvägarna med `unstable_doesMiddlewareMatch` (dokumentationen nämner `unstable_doesProxyMatch`, men den finns inte i 16.4.3), bland dem efterapningar som `/icons`, `/icon/192/extra` och `/recept/icon`, som ska gå genom proxyn.
+- **Koden:** `verifyEmailCode({ email, code, next })` i `auth/actions/verify-email-code.ts` anropar `verifyEmailCode` i `auth/data/auth.ts`, som gör `verifyOtp({ email, token, type: 'email' })` med sessionsklienten och loggar ut direkt om `ALLOWED_EMAILS` inte har adressen (som `verifyEmailLink`). Zod-schemat är `emailCodeSchema` i `login-schema.ts` (`[0-9]{6}`, mellanslag runt koden tas bort). Supabases felkod (till exempel `otp_expired`) loggas på nivån info som `auth_code_refused`, aldrig koden eller adressen. Startdatan efter inloggning (AD-21) flyttades till `ensureStartData()`, som länken och koden delar.
+- **Koden och länken är samma engångstoken:** när koden har använts leder länken med samma token till `/logga-in?fel=lank`. E2E-testet visar det, och mallen säger att ingen av dem går att använda igen. Livslängden är en timme (`otp_expiry = 3600`), och Supabase begränsar antalet försök (`[auth.rate_limit] token_verifications = 30` per fem minuter och IP lokalt).
+- **Inloggningssidan:** "Skicka länk" blir sekundär när kodfältet visas, så att "Logga in" är den enda primära knappen. E-postfältet är kontrollerat, så adressen står kvar när formuläret skickas. Svaret om en fel kod döljs när koden ändras. Inledningen säger nu "… en inloggningslänk och en kod."
+- **Mallen lokalt:** Kong läser `supabase/templates/magic-link.html` från huvudmappen, och Auth behåller mallen den läste tills den startas om. Att starta om den delade Auth-containern gjordes inte (andra grenar testar mot samma stack), så Mailpit har inte koden förrän mallen finns i huvudmappen och Auth har startats om. E2E-testet tar därför koden från `auth.admin.generateLink` (spec-tillåtet), efter att ha kontrollerat att Supabase skickade mejlet. `tests/design/email-template.test.ts` visar att mallen har länken först och koden efter texten, och att `otp_length` och `otp_expiry` är 6 och 3600. I CI startas Supabase från repot, så där har mejlet koden. Omstarten står i `docs/oppna-fragor.md`.
+- **Tillbaka syns på alla bredder,** också på dator (förut `desktop:hidden`), eftersom en hemskärmsapp på iPad saknar bakåtknapp. `PageHeader` hade redan "Tillbaka" i Inställningar, Tidigare matsedlar och en tidigare matsedel. Receptvyn hade bara en rund pil med `aria-label`, nu en knapp med pil och texten "Tillbaka". Båda har `min-h-tap` och `min-w-tap`.
+- **Hemskärmsraden** (`settings/ui/home-screen-hint.tsx`) läser `display-mode: standalone` och `navigator.standalone` med `useSyncExternalStore`, och visas inte vid serverrenderingen, så den blinkar aldrig fram i appen. Den står ovanför "Logga ut".
+- **E2E:** `appInstallEmail` (`e2e-utseende-app@matkoll.test`) finns i `e2eEmails` men får ingen sparad session, som `coreFlowEmail`. Testerna gör om användaren med `recreateE2eUser`. `auth.spec.ts` och `core-flow.spec.ts` har den nya texten "Vi har skickat en länk och en kod till din e-post.".
+- **Integrationstesterna och `recipe.spec.ts` mot den delade databasen:** två integrationstester (`catalog.test.ts`, "Saffran", och `pantry-site.test.ts`, `label` och `created_at` i svaret) och ett e2e-test i `recipe.spec.ts` ("Torskfilé") misslyckas, eftersom den lokala databasen har fyra migrationer från andra grenar (bland dem `pantry_item.label` från 11.2) som inte finns i den här grenen. Storyn ändrar ingen migration och inget av det som testerna läser.
+
 ## Review Triage Log
+
+Iteration 1. Tre granskare gick igenom `9ea6f34`. Grenen ombaserades först på `epic/11-nytt-utseende` (`2789f7d`, med Epic 10 och namnen Lagersaldo och Inköpslista). Ingen migration behövdes.
+
+**Patch:**
+- Gissning av koden:
+  - Supabase räknar kodkontroller per IP, men `verifyOtp` körs från Next-servern. Webbläsarens IP (första giltiga i `x-forwarded-for`, annars `x-real-ip`, `src/lib/client-ip.ts`) skickas därför till Supabase som `Sb-Forwarded-For` (`createClient({ forwardedFor })`). Rubriken finns i Supabase Auth sedan december 2025 bakom `GOTRUE_SECURITY_SB_FORWARDED_FOR_ENABLED` (supabase/auth, "Sb-Forwarded-For"); om den gäller i molnet är öppen fråga T7. Ett test visar att rubriken skickas.
+  - Appens egen gräns före Supabase: högst 5 fel koder per adress (sha256) och IP på 15 minuter, sedan `auth_code_rate_limited` ("För många försök. Vänta en stund eller skicka en ny länk.") utan anrop. I minnet (`domain/code-attempts.ts`, en `Map` med tidsgräns och högst 10 000 nycklar), alltså per serverinstans. Varje `auth_code_invalid` räknas, också fel format och en adress utanför listan, så att gränsen inte avslöjar listan. En lyckad inloggning nollställer. En gräns i databasen skulle kräva en funktion som `anon` får anropa (AD-4) och är öppen fråga 17.
+- Tillåtelselistan kontrolleras före `verifyOtp`: en adress utanför listan ger `auth_code_invalid` utan anrop till Supabase. Kontrollen efter `verifyOtp` står kvar som ett andra lager. E2E visar att Supabase inte registrerar någon inloggning för en sådan adress.
+- Utloggningen efter en nekad adress kontrolleras: misslyckas `signOut` tas alla delar av `sb-*-auth-token` bort direkt (`removeSessionCookies`), och `auth_code_signout_failed` (eller `auth_link_signout_failed` för länken) loggas med bara orsaken.
+- Supabases `over_request_rate_limit` (eller status 429) ger `auth_code_rate_limited`, inte "Koden stämmer inte".
+- Loggning: `auth_code_not_allowed` och `auth_code_rate_limited` (`by: "app"` eller `"supabase"`) på nivån warn, med 8 tecken av IP-adressens hash. Aldrig adressen eller koden.
+- Länkskanner i e-posten: `/auth/confirm` är nu en sida (`page.tsx`) som bara visar "Logga in". Först knappen (Server Action `confirmEmailLinkForm`, POST) använder token. `next` hanteras som förut, och en länk utan token går till `/logga-in?fel=lank`. En Route Handler och en sida kan inte dela segment i Next 16, så route.ts togs bort. Sidan har `referrer: no-referrer`. E2E-testerna som följer länken trycker på knappen (`openMagicLink` i `support.ts`), och ett nytt test visar att två GET inte använder upp länken.
+- `safeNextPath` löser med `https://x.invalid`, godtar bara sökvägar med ett enda inledande "/", och kontrollerar samma sak efter procentavkodning, så `/%2F/evil`, `/%5Cevil` och `/%09/evil` avvisas. Högst 512 tecken, och `next` över gränsen släpps i Zod-schemat (`.catch(undefined)`) i stället för att ge ett fel i formuläret. Tester för `/\t/evil`, `/\n/evil`, `%2F%2Fevil`, `/%5Cevil`, `javascript:` och ett långt värde.
+- Ikonerna och proxyn:
+  - Ett okänt id (`/icon/zzz`) ger `notFound()` och 404 (e2e). `dynamicParams` finns inte med Cache Components, så kontrollen ligger i `icon.tsx`.
+  - `matcher` släpper inte längre igenom alla sökvägar med punkt, bara `/favicon.ico`, `/manifest.webmanifest`, `/robots.txt`, `/sitemap.xml` och ikonerna. `/recept/x.json` och `/api/pantry/photo.png` går genom proxyn (test). Det finns ingen `public/`.
+  - Alla sex Route Handlers under `/api` anropar `requireUserForRoute()` själva (kontrollerat).
+- Registrering: lokalt `enable_signup = false` (Auth har `GOTRUE_DISABLE_SIGNUP=true`) och `shouldCreateUser: false`. `docs/drift.md` steg 3 säger redan att den stängs av i molnet, och steg 5 säger nu att varken länken eller koden kan skapa användare.
+- Kodformuläret:
+  - Adressen som länken gick till fryses (`codeStep.email`) och koden kontrolleras mot den. Fältet är skrivskyddat medan kodsteget visas, med "Byt adress".
+  - Kodformuläret har en nyckel per utskick, så att ett nytt utskick tar bort gamla fel.
+  - Kodsteget sparas i `sessionStorage` (`{ sent, email, at }`, i `try/catch`, högst en timme) och visas igen efter en omladdning i samma flik. Det tas bort när koden skickas och sparas igen om koden nekades.
+  - "Jag har redan en kod" öppnar kodsteget utan nytt mejl.
+- Koden normaliseras (NFKC, mellanslag och bindestreck bort), så "123 456", "123-456" och helbreddssiffror godtas.
+- "Tillbaka" i receptvyn går bakåt i historiken när sidan nåddes inom Matkoll (`BackLink`, och `ScrollMemory` räknar navigeringarna), annars till `/recept`. Öppnad från Matsedel går den tillbaka till Matsedel (e2e).
+- Hemskärmsraden visar Safaris steg bara på iPhone och iPad (också iPadOS som säger "Macintosh"), "välj Installera appen i webbläsarens meny" på Android och inget på en dator.
+- Manifestet har `id: "/"`.
+- AD-3 i `ARCHITECTURE-SPINE.md` beskriver sidan med knappen, gränsen och `Sb-Forwarded-For`.
+
+**Avvisat:**
+- `[auth.email] enable_signup = false` i `config.toml`. Den inställningen styr hela e-postinloggningen (`GOTRUE_EXTERNAL_EMAIL_ENABLED`), inte registreringen, som redan är avstängd med `[auth] enable_signup = false`.
+- Att jämna ut svarstiden mellan en adress utanför listan (inget anrop) och en tillåten adress (ett anrop). "Skicka länk" har samma skillnad sedan 1.2, och gränsen gäller lika för båda.
+- En gräns per adress oberoende av IP. Den skulle låta vem som helst stänga ute Pontus genom att gissa fel fem gånger.
+
+**Kvar efter granskningen:**
+- Integrationstestet `pantry-site.test.ts` ("empty_pantry_place") misslyckas mot den delade databasen, som har 11.2:s migration (`pantry_item.label`) men grenen inte. Storyn rör ingen migration.
 
 ## Verification
 

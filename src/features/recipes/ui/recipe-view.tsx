@@ -1,5 +1,5 @@
-import Link from "next/link";
 import type { ReactNode } from "react";
+import { BackLink } from "@/components/app-shell/back-link";
 import { ChevronLeftIcon } from "@/components/icons";
 import { RecipeImage } from "@/components/recipe-image";
 import type { PantrySnapshot, SelectedSite } from "@/features/pantry";
@@ -47,15 +47,15 @@ export function RecipeView({ recipe, snapshot, site = null, menu, addToPlan }: R
     <article className="flex flex-col gap-6 pb-gutter">
       <div className="relative -mx-page desktop:mx-0 desktop:mt-10">
         <RecipeImage src={recipe.imageUrl} className="h-[260px] desktop:rounded-lg" />
-        {/* On desktop the side menu is always there, so no back link. */}
-        <Link
-          href="/recept"
-          scroll={false}
-          aria-label="Tillbaka till recepten"
-          className="absolute top-[max(var(--header-top-mobile),calc(env(safe-area-inset-top)+12px))] left-page flex size-tap items-center justify-center rounded-full bg-surface text-ink desktop:hidden"
+        {/* At every width: Matkoll on the home screen has no browser back button (AD-27).
+            Back in history when opened within Matkoll (from Matsedel, say), else to Recept. */}
+        <BackLink
+          fallbackHref="/recept"
+          className="absolute top-[max(var(--header-top-mobile),calc(env(safe-area-inset-top)+12px))] left-page flex min-h-tap min-w-tap items-center gap-1 rounded-full bg-surface pr-4 pl-2.5 text-body text-ink desktop:top-3 desktop:left-3"
         >
           <ChevronLeftIcon size={20} />
-        </Link>
+          Tillbaka
+        </BackLink>
       </div>
 
       <header className="flex flex-col gap-1.5">

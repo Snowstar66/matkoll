@@ -6,6 +6,7 @@ import { Skeleton } from "@/components/skeleton";
 import { requireUserOrRedirect } from "@/features/auth/server";
 import { SignOutButton } from "@/features/auth/ui/sign-out-button";
 import { listRecipeSites, SettingsDataError } from "@/features/settings/server";
+import { HomeScreenHint } from "@/features/settings/ui/home-screen-hint";
 import { RecipeSites } from "@/features/settings/ui/recipe-sites";
 import { errorMessages } from "@/lib/errors";
 import { StoreContent } from "./store-content";
@@ -13,7 +14,8 @@ import { StoreContent } from "./store-content";
 export const metadata: Metadata = { title: "Inställningar" };
 
 // Inställningar (FR7, FR-28, UX-DR16): the approved recipe sites, the store
-// under them and "Logga ut" at the bottom. The sites and the stores are read
+// under them, how to put Matkoll on the home screen (Story 11.6, only in the
+// browser) and "Logga ut" at the bottom. The sites and the stores are read
 // inside a <Suspense> each (AD-18), so a failure in one shows only in its own
 // section; "Logga ut" sits outside both, so it works even when neither can be
 // read.
@@ -28,7 +30,8 @@ export default function SettingsPage() {
         <Suspense fallback={<Skeleton rows={2} />}>
           <StoreContent />
         </Suspense>
-        <div className="mt-auto">
+        <div className="mt-auto flex flex-col gap-6">
+          <HomeScreenHint />
           <SignOutButton />
         </div>
       </div>
