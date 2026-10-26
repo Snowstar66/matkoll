@@ -22,7 +22,7 @@ export function formatPortions(n: number): string {
 }
 
 const stepButton =
-  "flex size-tap items-center justify-center rounded-full text-accent aria-disabled:cursor-not-allowed aria-disabled:text-ink-3";
+  "flex size-tap shrink-0 items-center justify-center rounded-full text-accent aria-disabled:cursor-not-allowed aria-disabled:text-ink-3";
 
 /** Portionsväljare: − and + in steps of 1, never below 1 (or `min`) nor above `max`. */
 export function Stepper({
@@ -43,7 +43,7 @@ export function Stepper({
   const atMax = shown >= ceiling;
 
   return (
-    <div className={cx("inline-flex h-tap items-center rounded-full bg-surface", className)}>
+    <div className={cx("inline-flex min-h-tap max-w-full items-center rounded-full bg-surface", className)}>
       {/* aria-disabled instead of disabled keeps the button in the tab order and focused. */}
       <button
         type="button"
@@ -56,7 +56,7 @@ export function Stepper({
       >
         <MinusIcon size={20} />
       </button>
-      <output aria-live="polite" className="min-w-24 px-1 text-center text-body font-semibold text-ink">
+      <output aria-live="polite" className="min-w-0 px-1 min-[22rem]:min-w-24 text-center text-body font-semibold break-words text-ink">
         {format(shown)}
       </output>
       <button

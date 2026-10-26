@@ -175,7 +175,7 @@ function watchErrors(page: Page): string[] {
 // locator is scoped to what is visible.
 const siteLine = (page: Page) => page.getByTestId("site-line").filter({ visible: true });
 const view = (page: Page) => page.getByRole("article").filter({ visible: true });
-const rows = (page: Page) => page.getByTestId("recipe-row").filter({ visible: true });
+const rows = (page: Page) => page.getByTestId("recipe-card").filter({ visible: true });
 const pill = (page: Page, name: "Alla" | "Favoriter" | "Kan lagas nu") =>
   page.getByRole("radio", { name }).filter({ visible: true });
 const dish = (page: Page) => page.getByTestId("plan-dish").filter({ visible: true });
@@ -224,14 +224,14 @@ test("with Stugan selected, the recipe view, the library with Kan lagas nu and t
 
   await page.goto("/matsedel");
   await expect(siteLine(page)).toHaveText("Lager: Stugan");
-  await expect(dish(page).getByText("Saknar 1 vara", { exact: true })).toBeVisible();
+  await expect(dish(page).getByText("1 av 2 hemma", { exact: true })).toBeVisible();
   await expectNoHorizontalScroll(page);
 
   // Back to Hemma: everything follows.
   await selectSite(hemma);
   await page.goto("/matsedel");
   await expect(siteLine(page)).toHaveText("Lager: Hemma");
-  await expect(dish(page).getByText("Kan lagas nu", { exact: true })).toBeVisible();
+  await expect(dish(page).getByText("Allt finns hemma", { exact: true })).toBeVisible();
   await page.goto(`/recept/${recipeId}`);
   await expect(view(page).getByText("Kan lagas nu", { exact: true })).toBeVisible();
   await expect(siteLine(page)).toHaveText("Lager: Hemma");
@@ -256,7 +256,7 @@ test("a switch with the picker in Lagersaldo reaches the recipe view, Kan lagas 
   await expect(rows(page).filter({ hasText: title }).getByText("Saknar 1 vara", { exact: true })).toBeVisible();
   await tab(page, "Matsedel").click();
   await expect(siteLine(page)).toHaveText("Lager: Stugan");
-  await expect(dish(page).getByText("Saknar 1 vara", { exact: true })).toBeVisible();
+  await expect(dish(page).getByText("1 av 2 hemma", { exact: true })).toBeVisible();
 
   // Lagersaldo with the real picker (Story 8.2).
   await tab(page, "Lagersaldo").click();
@@ -282,7 +282,7 @@ test("a switch with the picker in Lagersaldo reaches the recipe view, Kan lagas 
   await tab(page, "Matsedel").click();
   await expect(page).toHaveURL(/\/matsedel$/);
   await expect(siteLine(page)).toHaveText("Lager: Hemma");
-  await expect(dish(page).getByText("Kan lagas nu", { exact: true })).toBeVisible();
+  await expect(dish(page).getByText("Allt finns hemma", { exact: true })).toBeVisible();
 
   expect(await page.evaluate(() => (window as unknown as { siteStatusNoReload?: boolean }).siteStatusNoReload)).toBe(true);
   expect(errors).toEqual([]);

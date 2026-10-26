@@ -10,6 +10,7 @@ import { nameInSentence, normalizeIngredientText } from "@/features/catalog";
 import { suggestErrorMessage, suggestRetryCodes } from "@/features/suggestions";
 import { recipeMetaText } from "../domain/recipe-list";
 import { AiSuggestionSheet } from "./ai-suggestion-sheet";
+import { RecipeCard } from "./recipe-card";
 import type { DishSuggestionsState, ShownSuggestion } from "./use-dish-suggestions";
 
 // AI-förslag at the bottom of the filter Kan lagas nu (FR-23, EXPERIENCE.md,
@@ -90,7 +91,7 @@ export function AiSuggestions({ dishes, searchIngredients, offerButton = true }:
           <h2 id={headingId} ref={headingRef} tabIndex={-1} className="text-section-label text-ink-2">
             AI-förslag
           </h2>
-          <ul className="flex flex-col gap-3">
+          <ul className="grid gap-3 desktop:grid-cols-2">
             {suggestions.map((suggestion) => (
               <SuggestionCard key={suggestion.key} suggestion={suggestion} onSave={() => setOpened(suggestion)} />
             ))}
@@ -144,22 +145,29 @@ function cardNames({ draft, ingredientNames }: ShownSuggestion): string[] {
 }
 
 /**
- * Kort för ett AI-förslag: title, "35 min · 4 portioner", the AI label, "Med:
- * " and at most five ingredient names, and "Spara". The card is no link: a
+ * Kort för ett AI-förslag, a recipe card (Epic 11): the image (the mint
+ * placeholder, since an AI suggestion has none) with the AI label on it in
+ * place of a status and no heart, the title, "35 min · 4 portioner", "Med: "
+ * and at most five ingredient names, and "Spara". The card is no link: a
  * suggestion has no recipe view until it is saved.
  */
 function SuggestionCard({ suggestion, onSave }: { suggestion: ShownSuggestion; onSave: () => void }) {
   const { draft } = suggestion;
   return (
-    <li data-testid="ai-suggestion" className="flex flex-col items-start gap-2 rounded-lg bg-surface p-4">
-      <h3 className="text-row-title break-words text-ink">{draft.title}</h3>
-      <p className="text-meta text-ink-3">{recipeMetaText(draft.totalMinutes, draft.servings)}</p>
-      <AiBadge />
-      <p className="text-body break-words text-ink-2">Med: {cardNames(suggestion).join(", ")}</p>
-      <Button variant="secondary" onClick={onSave} aria-label={`Spara ${draft.title}`}>
-        Spara
-      </Button>
-    </li>
+    <RecipeCard
+      data-testid="ai-suggestion"
+      title={draft.title}
+      imageUrl={draft.imageUrl}
+      meta={recipeMetaText(draft.totalMinutes, draft.servings)}
+      badge={<AiBadge />}
+    >
+      <div className="mt-1 flex flex-col items-start gap-2">
+        <p className="text-body break-words text-ink-2">Med: {cardNames(suggestion).join(", ")}</p>
+        <Button variant="secondary" onClick={onSave} aria-label={`Spara ${draft.title}`}>
+          Spara
+        </Button>
+      </div>
+    </RecipeCard>
   );
 }
 

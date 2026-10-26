@@ -2,7 +2,8 @@
 title: 'Story 11.5: Recept och Matsedel i nytt utseende'
 type: 'feature'
 created: '2026-10-26'
-status: 'draft'
+status: 'in-progress'
+baseline_commit: 'd9a1b01'
 route: 'dispatch'
 context:
   - '{project-root}/_bmad-output/implementation-artifacts/epic-11-context.md'
@@ -87,13 +88,13 @@ context:
 ## Tasks & Acceptance
 
 **Execution:**
-- [ ] `src/features/recipes/ui/recipe-card.tsx` (+ test) -- receptkortet enligt Boundaries, med plattan `overlay` för etiketten och hjärtat -- UX-DR26
-- [ ] `src/features/recipes/ui/recipe-list.tsx`, `library.tsx`, `ai-suggestions.tsx` (+ tester) -- korten och två kolumner från 1024 px. `recipe-row.tsx` står kvar för arket "Lägg till rätt"
-- [ ] `src/features/mealplan/domain/meal-plan.ts` (+ test) -- `dishProgress(status)`: `{ text, value }` med "6 av 8 hemma", "Allt finns hemma" och andelen -- FR-13
-- [ ] `src/features/mealplan/ui/meal-plan-list.tsx` (+ test) -- rättkortet och "Visa inköpslistan" -- UX-DR26
-- [ ] Befintliga e2e-specar -- uppdatera de som är beroende av receptradens eller matsedelns utseende
-- [ ] `tests/e2e/recipes-look.spec.ts` (+ `support.ts`, `global-setup.ts`) -- egen e2e-användare `e2e-utseende-recept@matkoll.test`: kortet med etikett och hjärta, att hjärtat inte navigerar, två kolumner vid 1280 px, rättkortet med "6 av 8 hemma" och portionsväljaren, och "Visa inköpslistan"
-- [ ] `docs/beslutslogg.md` -- en post för storyn
+- [x] `src/features/recipes/ui/recipe-card.tsx` (+ test) -- receptkortet enligt Boundaries, med plattan `overlay` för etiketten och hjärtat -- UX-DR26
+- [x] `src/features/recipes/ui/recipe-list.tsx`, `library.tsx`, `ai-suggestions.tsx` (+ tester) -- korten och två kolumner från 1024 px. `recipe-row.tsx` står kvar för arket "Lägg till rätt"
+- [x] `src/features/mealplan/domain/meal-plan.ts` (+ test) -- `dishProgress(status)`: `{ text, value }` med "6 av 8 hemma", "Allt finns hemma" och andelen -- FR-13
+- [x] `src/features/mealplan/ui/meal-plan-list.tsx` (+ test) -- rättkortet och "Visa inköpslistan" -- UX-DR26
+- [x] Befintliga e2e-specar -- uppdatera de som är beroende av receptradens eller matsedelns utseende
+- [x] `tests/e2e/recipes-look.spec.ts` (+ `support.ts`, `global-setup.ts`) -- egen e2e-användare `e2e-utseende-recept@matkoll.test`: kortet med etikett och hjärta, att hjärtat inte navigerar, två kolumner vid 1280 px, rättkortet med "6 av 8 hemma" och portionsväljaren, och "Visa inköpslistan"
+- [x] `docs/beslutslogg.md` -- en post för storyn
 
 **Acceptance Criteria:**
 - Given `pnpm lint && pnpm typecheck && pnpm test && pnpm test:integration && AI_PROVIDER=mock pnpm build && CI=1 pnpm test:e2e`, when de körs, then lyckas alla.
@@ -108,6 +109,23 @@ context:
 - **Risk: kontrast på etiketten.** Plattan i `overlay` gör texten läsbar på alla bilder. Kontrollera i mörkt läge.
 
 ## Spec Change Log
+
+### Vid bygget
+
+- **Byggd på `d9a1b01`** (`baseline_commit`): Epic 11 med granskningsrättelserna för 11.1 och Story 11.6. Storyn påbörjades på `a566fa1` och flyttades upp innan den checkades in.
+- **Besluten (förslag) är godkända som de står:** portionsväljaren står kvar i rättkortet, "Visa inköpslistan" har inget antal, och arket "Lägg till rätt" behåller sina kompakta rader.
+- **`recipe-row.tsx` togs bort i stället för att stå kvar.** Arket "Lägg till rätt" har haft egna rader (`dish-choice`, knappar som lägger till rätten) sedan 3.1 och har aldrig använt `RecipeRow`. Efter bytet till receptkort använde ingen filen. Arket är oförändrat. E2E- och komponenttesterna letar nu efter `recipe-card` i stället för `recipe-row` (`library`, `cookable`, `pantry-status`, `site-status`, `ai-suggestions` och `app-install` från 11.6).
+- **`RecipeCard`** (`recipes/ui/recipe-card.tsx`) tar `title`, `imageUrl`, `meta`, `href?`, `badge?`, `favorite?` och `children`. Utan `href` är titeln ett `h3` och kortet ingen länk, som AI-förslagen behöver. Texten står först i koden och bilden överst med `order-first`, så VoiceOver läser titel, tid, status och sist "Favorit, av, knapp". Länken är utsträckt över kortet med `after:z-1`, och hjärtat ligger över den med `z-10`. Etiketten ligger under länken, så ett tryck på etiketten öppnar receptet. Playwright vägrar klicka på ett element som täcks av länken, så e2e-testet trycker på etikettens plats med musen.
+- **`StatusBadge` fick `onImage`** (statusfärgen som text på `bg-overlay`), och `RecipeStatusBadge` skickar vidare det. AI-etiketten står kvar i sand på bilden. Kontrasttestet för plattan kom med granskningsrättelserna för 11.1 och täcker etiketterna (4,5:1) och hjärtat (3:1). Min egen version av testet slängdes vid rebasen.
+- **AI-förslagen är receptkort** med platshållaren i mint (de har ingen bild), AI-etiketten på bilden, inget hjärta och ingen länk. "Med: …" och "Spara" står under tiden.
+- **Rättkortet:** "6 av 8 hemma" eller "Allt finns hemma" (`dishProgress`, också när receptet saknar katalogingredienser) och `Meter` (liten). Statusetiketten "Kan lagas nu"/"Saknar N varor" finns inte längre i rättkortet. Tiden visas bara när lagret inte kunde läsas, eftersom det då inte finns någon status att visa. Titeln radbryts utan `line-clamp`, eftersom textkolumnen är smal. E2E-specarna `mealplan` och `site-status` letar nu efter "Allt finns hemma", "0 av 1 hemma" och "1 av 2 hemma".
+- **"Lägg till rätt" under rätterna är nytt.** Specen och EXPERIENCE.md sätter "Visa inköpslistan" under "Lägg till rätt", men knappen fanns tidigare bara som "+" i rubriken och i den tomma matsedeln. Nu står en primärknapp i full bredd (`AddDishButton` fick `fullWidth`) och under den sekundärlänken "Visa inköpslistan" till `/lista`. `meal-plan-content.test.tsx` klickar nu på "+" i rubriken, eftersom två knappar heter "Lägg till rätt".
+- **200 % text (187 px) i delade komponenter:**
+  - `PageHeader` bryter raden (`flex-wrap`, `ml-auto`), så "Tidigare" och "+" eller "+" och kugghjulet hamnar på en egen rad i stället för att ge vågrät scroll. Det gällde redan före storyn.
+  - `Stepper` blir aldrig bredare än sin behållare. − och + har `shrink-0` och är alltid 44 × 44 px. Värdet har sin minsta bredd på 96 px från 22rem bredd, så vid 375 px är portionsväljaren exakt som förut (mätt till 184 px). Under 22rem får värdet radbrytas ("4 / por / tio / ner"), vilket inte är vackert men går att läsa.
+  - Rättkortets nedre rad bryts, och "Ta bort" hamnar under portionsväljaren. Allt mättes i webbläsaren före och efter.
+- **Kontrollerna:** `pnpm lint`, `pnpm typecheck` och `pnpm test` (214 filer, 4 284 tester) lyckas. `AI_PROVIDER=mock pnpm build` och sedan `CI=1 pnpm test:e2e` (hela sviten, under `scripts/with-test-lock.sh`) ger 272 av 272. `pnpm test:integration` ger 426 av 427: `empty_pantry_place` i `pantry-site.test.ts` får `label` och `created_at`, eftersom den lokala databasen redan har migrationen från 11.2 (samma som i 11.1). Storyn ändrar ingenting i databasen.
+- **Skärmbilder** av Recept och Matsedel vid 375 px, 1280 px och 187 px, i ljust och mörkt läge, togs med en tillfällig Playwright-spec (inte incheckad) och sparades utanför repot. Uppbyggnaden är skissens: kort med bilden överst, etiketten nere till vänster och hjärtat nere till höger, och rättkort med bild, "6 av 8 hemma", mätare och portionsväljare. Skillnader mot skissen enligt specen: inget antal på "Visa inköpslistan", inga gnistor, och statusen heter "Kan lagas nu" som förut, inte "Allt finns".
 
 ## Review Triage Log
 

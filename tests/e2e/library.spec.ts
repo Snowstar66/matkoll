@@ -36,7 +36,7 @@ function watchErrors(page: Page): string[] {
 }
 
 const sheet = (page: Page) => page.getByRole("dialog", { name: "Importera recept" });
-const rows = (page: Page) => page.getByTestId("recipe-row");
+const rows = (page: Page) => page.getByTestId("recipe-card");
 const row = (page: Page, title: string) => rows(page).filter({ hasText: title });
 const heart = (row: Locator) => row.getByRole("button", { name: /^Favorit/ });
 const searchField = (page: Page) => page.getByRole("searchbox", { name: "Sök recept" });
@@ -86,10 +86,12 @@ test("saved recipes are listed newest first with time and servings, and a row op
   await expectTitles(page, [soppa, gryta]);
   await expect(row(page, soppa).getByText("30 min · 6 portioner")).toBeVisible();
   await expect(row(page, gryta).getByText("40 min · 4 portioner")).toBeVisible();
-  // No image address from pasted text: the placeholder.
+  // No image address from pasted text: the placeholder, across the top of the card (Story 11.5).
   await expect(row(page, gryta).getByTestId("recipe-image-placeholder")).toBeVisible();
   const image = await row(page, gryta).getByTestId("recipe-image-placeholder").boundingBox();
-  expect(image?.width).toBe(72);
+  const card = await row(page, gryta).boundingBox();
+  expect(image?.height).toBe(120);
+  expect(image?.width).toBeCloseTo(card!.width, 0);
   await expect(pill(page, "Alla")).toBeChecked();
 
   // A tap on the row, not only on the title, opens the recipe.

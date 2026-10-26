@@ -160,7 +160,10 @@ describe("AiSuggestions", () => {
     const first = within(cards()[0]);
     expect(first.getByRole("heading", { level: 3, name: "Kycklinggryta" })).toBeInTheDocument();
     expect(first.getByText("35 min · 4 portioner")).toBeInTheDocument();
-    expect(first.getByText("AI-förslag")).toBeInTheDocument();
+    expect(first.getByText("AI-förslag")).toHaveClass("bg-sand", "text-sand-ink");
+    // A recipe card: the mint placeholder on top with the AI label on it, and no heart.
+    expect(first.getByTestId("recipe-image-placeholder").parentElement).toHaveClass("h-card-image");
+    expect(first.queryByRole("button", { name: /Favorit/ })).not.toBeInTheDocument();
     // The catalog's name for a linked line, the AI's otherwise; at most five, each once.
     expect(first.getByText("Med: gul lök, kycklingfilé, grädde, krossade tomater, ris")).toBeInTheDocument();
     expect(first.getByRole("button", { name: "Spara Kycklinggryta" })).toHaveTextContent("Spara");

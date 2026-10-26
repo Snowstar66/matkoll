@@ -253,7 +253,7 @@ test.describe("Tillbaka on every page under a tab", () => {
   test("the recipe view leads back to Recept with the filter kept", async ({ page }) => {
     await page.getByRole("radio", { name: "Favoriter" }).click();
     await expect(page.getByRole("radio", { name: "Favoriter" })).toBeChecked();
-    await page.getByTestId("recipe-row").filter({ hasText: title }).getByRole("link").click();
+    await page.getByTestId("recipe-card").filter({ hasText: title }).getByRole("link").click();
     await expect(page.getByRole("heading", { level: 1, name: title })).toBeVisible();
     await goBack(page);
     await expect(page).toHaveURL(/\/recept$/);

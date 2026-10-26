@@ -100,7 +100,7 @@ describe("MealPlanList", () => {
     expect(screen.getAllByRole("button", { name: "Lägg till rätt" })).toHaveLength(2);
   });
 
-  it("shows each dish with its servings and its status in words for those servings", async () => {
+  it("shows each dish card with what is at home for its servings, a hidden meter and the portion selector", async () => {
     const user = userEvent.setup();
     // The save revalidates Matsedel: the server's plan has the new servings.
     setServings.mockImplementation(async (change) => {
@@ -109,12 +109,19 @@ describe("MealPlanList", () => {
     });
     render(<Matsedel initial={[pasta, soppa]} />);
     expect(screen.getByTestId("plan-name")).toHaveTextContent("Vecka 44");
-    expect(within(card("Pasta")).getByText("4 portioner")).toBeInTheDocument();
-    expect(within(card("Pasta")).getByText("Kan lagas nu")).toBeInTheDocument();
+    const pastaCard = () => within(card("Pasta"));
+    expect(pastaCard().getByText("4 portioner")).toBeInTheDocument();
+    expect(pastaCard().getByText("Allt finns hemma")).toBeInTheDocument();
+    expect(pastaCard().getByRole("link", { name: "Pasta" })).toHaveAttribute("href", `/recept/${pasta.recipeId}`);
+    const meter = pastaCard().getByTestId("meter");
+    expect(meter).toHaveAttribute("aria-hidden", "true");
+    expect(meter.firstElementChild).toHaveStyle({ width: "100%" });
+    expect(pastaCard().getByTestId("recipe-image-placeholder").parentElement).toHaveClass("size-dish-thumb");
 
     await user.click(screen.getByRole("button", { name: "Fler portioner, Pasta" }));
-    expect(within(card("Pasta")).getByText("5 portioner")).toBeInTheDocument();
-    expect(within(card("Pasta")).getByText("Saknar 1 vara")).toBeInTheDocument();
+    expect(pastaCard().getByText("5 portioner")).toBeInTheDocument();
+    expect(pastaCard().getByText("0 av 1 hemma")).toBeInTheDocument();
+    expect(pastaCard().getByTestId("meter").firstElementChild).toHaveStyle({ width: "0%" });
     expect(setServings).toHaveBeenCalledWith({ id: pasta.id, servings: 5 });
   });
 
@@ -160,7 +167,40 @@ describe("MealPlanList", () => {
   it("shows a dish whose recipe is gone by its title, without status", () => {
     render(<Matsedel initial={[dish(3, "Gammal gryta", { recipeId: null, recipe: null })]} />);
     expect(within(card("Gammal gryta")).getByText("Borttaget recept")).toBeInTheDocument();
-    expect(within(card("Gammal gryta")).queryByText(/Kan lagas nu|Saknar/)).toBeNull();
+    expect(within(card("Gammal gryta")).queryByText(/hemma/)).toBeNull();
+    expect(within(card("Gammal gryta")).queryByTestId("meter")).toBeNull();
+  });
+
+  it("shows the time instead of the meter when the pantry could not be read", () => {
+    render(
+      <ToastProvider>
+        <AddDishProvider recipes={[]} searchRecipes={searchRecipes}>
+          <MealPlanList planName="Vecka 44" dishes={[pasta]} snapshot={null} />
+        </AddDishProvider>
+      </ToastProvider>,
+    );
+    expect(within(card("Pasta")).getByText("30 min")).toBeInTheDocument();
+    expect(within(card("Pasta")).queryByText(/hemma/)).toBeNull();
+    expect(within(card("Pasta")).queryByTestId("meter")).toBeNull();
+  });
+
+  it("has Lägg till rätt and Visa inköpslistan under the dishes, and Visa inköpslistan only with dishes", async () => {
+    const user = userEvent.setup();
+    const { unmount } = render(<Matsedel initial={[pasta]} />);
+    const list = screen.getByRole("list", { name: "Matsedelsrätter" });
+    const show = screen.getByRole("link", { name: "Visa inköpslistan" });
+    expect(show).toHaveAttribute("href", "/lista");
+    // No count on it (outside Epic 11).
+    expect(show).toHaveTextContent(/^Visa inköpslistan$/);
+    const add = screen.getAllByRole("button", { name: "Lägg till rätt" }).find((b) => b.textContent === "Lägg till rätt")!;
+    expect(list.compareDocumentPosition(add) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
+    expect(add.compareDocumentPosition(show) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
+    await user.click(add);
+    expect(screen.getByRole("dialog", { name: "Lägg till rätt" })).toBeInTheDocument();
+    unmount();
+
+    render(<Matsedel initial={[]} />);
+    expect(screen.queryByRole("link", { name: "Visa inköpslistan" })).toBeNull();
   });
 });
 

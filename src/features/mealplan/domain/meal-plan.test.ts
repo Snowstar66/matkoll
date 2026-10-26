@@ -7,6 +7,7 @@ import {
   deletePlanQuestion,
   dishCountText,
   leftOutText,
+  dishProgress,
   dishStatus,
   isoWeek,
   isoWeekName,
@@ -108,6 +109,40 @@ describe("dishStatus", () => {
   it("has no status without a pantry or a recipe", () => {
     expect(dishStatus(recipe, 4, null)).toBeNull();
     expect(dishStatus(null, 4, snapshot)).toBeNull();
+  });
+});
+
+describe("dishProgress", () => {
+  it.each([
+    [6, 8, "6 av 8 hemma", 0.75],
+    [0, 3, "0 av 3 hemma", 0],
+    [3, 5, "3 av 5 hemma", 0.6],
+    [8, 8, "Allt finns hemma", 1],
+    [1, 1, "Allt finns hemma", 1],
+    // A recipe without catalog ingredients needs nothing from the pantry.
+    [0, 0, "Allt finns hemma", 1],
+  ])("%i of %i at home: %s, meter %d", (atHomeCount, ingredientCount, text, value) => {
+    expect(dishProgress({ atHomeCount, ingredientCount })).toEqual({ text, value });
+  });
+
+  it("follows the dish's servings through dishStatus", () => {
+    const milk = id(7);
+    const egg = id(8);
+    const recipe: DishRecipe = {
+      imageUrl: null,
+      totalMinutes: null,
+      originalServings: 4,
+      lines: [
+        { id: id(1), ingredientId: milk, amount: 4, unit: "dl", isVague: false },
+        { id: id(2), ingredientId: egg, amount: 2, unit: "st", isVague: false },
+      ],
+    };
+    const snapshot = toSnapshot([
+      { ingredientId: milk, amount: 4, unit: "dl" },
+      { ingredientId: egg, amount: 6, unit: "st" },
+    ]);
+    expect(dishProgress(dishStatus(recipe, 4, snapshot)!)).toEqual({ text: "Allt finns hemma", value: 1 });
+    expect(dishProgress(dishStatus(recipe, 5, snapshot)!)).toEqual({ text: "1 av 2 hemma", value: 0.5 });
   });
 });
 

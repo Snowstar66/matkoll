@@ -2,6 +2,17 @@
 
 Beslut som fattats under bygget: vad, varför och vilka alternativ som fanns. Nyaste överst.
 
+## 2026-10-27 – Recept och Matsedel i nytt utseende (Story 11.5)
+
+- **Specens tre förslag är godkända som de står:** portionsväljaren står kvar i rättkortet, "Visa inköpslistan" har inget antal, och arket "Lägg till rätt" behåller sina kompakta rader.
+- **Receptkortet** (`recipes/ui/recipe-card.tsx`) har texten först i koden och bilden överst med `order-first`. VoiceOver läser då titel, tid, status och sist "Favorit". Länken är utsträckt över kortet. Hjärtat ligger ovanför länken (`z-10` över länkens `z-1`), och etiketten ligger under den, så ett tryck på etiketten öppnar receptet. Alternativ: bilden först i koden, men då läses etiketten och hjärtat före titeln.
+- **Etiketten på bilden** är `StatusBadge` med `onImage`: statusfärgen som text på plattan `overlay`, som i skissen. AI-förslagens etikett står kvar i sand, eftersom den redan är ogenomskinlig.
+- **AI-förslagen är också receptkort,** med platshållaren i mint (de har ingen bild), AI-etiketten på bilden, inget hjärta och ingen länk. "Med: …" och "Spara" står under tiden, som förut.
+- **`Receptrad` (`recipe-row.tsx`) togs bort.** Specen utgick från att arket "Lägg till rätt" använder den, men arket har haft egna rader (knappar som lägger till rätten) sedan Story 3.1. Utan biblioteket hade filen inte använts någonstans. Arkets rader är oförändrade.
+- **Rättkortets rad** är "6 av 8 hemma" eller "Allt finns hemma" (`dishProgress`), med X och Y från `recipeStatus`. "Allt finns hemma" gäller när X = Y och också när receptet saknar katalogingredienser (Y = 0), med full mätare. Tiden visas bara när lagret inte kunde läsas, eftersom raden annars blir för lång i mobilen. Statusetiketten "Kan lagas nu"/"Saknar N varor" finns inte längre i rättkortet. Raden säger mer, och skissen har den inte.
+- **"Lägg till rätt" och "Visa inköpslistan" står under rätterna** som en primärknapp och en sekundärknapp i full bredd. "Lägg till rätt" fanns tidigare bara som "+" i rubriken (och i den tomma matsedeln). EXPERIENCE.md och specen sätter "Visa inköpslistan" under den.
+- **200 % text (187 px):** sidrubriken bryter raden, så "Tidigare", "+" och kugghjulet hamnar på en egen rad i stället för att ge vågrät scroll. Portionsväljaren blir aldrig bredare än kortet, och dess − och + är alltid 44 × 44 px. Under 22rem bredd får värdet radbrytas. Från 22rem är allt som förut. Rättkortets titel radbryts, och "Ta bort" hamnar under portionsväljaren.
+
 ## 2026-10-27 – Gemensam grund för nytt utseende (Story 11.1)
 
 - **Kategorierna** räknas fram av `displayCategory(section, name)` i `catalog/domain/categories.ts` och sparas aldrig (AD-12). `SAUCE_WORDS` har epic-kontextens ord och några till som annars hamnar i Skafferi: "sauce", "oelek" (Sambal oelek), "chili", "chilipulver", "lökpulver", "buljongtärning(ar)", "harissa", "wasabi", "chutney", "masala" och vanliga torkade kryddor (kardemumma, muskot, nejlika, ingefära, lagerblad, saffran, basilika, rosmarin, mejram, dragon, dill, kummin). "Pulver" och "tärning" ensamma är inte med, eftersom bakpulver och kakaopulver inte är smaksättare. Varje ord står i tabelltestet. Alternativ: bara epic-kontextens lista.

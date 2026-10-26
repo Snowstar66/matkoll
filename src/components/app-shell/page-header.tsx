@@ -29,9 +29,10 @@ export function PageHeader({ title, action, backHref }: PageHeaderProps) {
           Tillbaka
         </Link>
       ) : null}
-      <div className="flex items-end justify-between gap-3">
-        <h1 className="text-page-title text-ink">{title}</h1>
-        {action ? <div className="flex shrink-0 items-center gap-1">{action}</div> : null}
+      {/* With 200 % text on a phone the actions wrap onto a row of their own, at the right. */}
+      <div className="flex flex-wrap items-end justify-between gap-x-3">
+        <h1 className="min-w-0 text-page-title break-words text-ink">{title}</h1>
+        {action ? <div className="ml-auto flex shrink-0 items-center gap-1">{action}</div> : null}
       </div>
     </header>
   );

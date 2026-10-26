@@ -159,6 +159,12 @@ export const sitePhotoEmail = "e2e-stalle-foto@matkoll.test";
  */
 export const photoSaveEmail = "e2e-foto-spara@matkoll.test";
 /**
+ * The E2E user of recipes-look.spec.ts alone (Story 11.5): each test seeds
+ * its recipes, pantry and meal plan with the service role, so the recipe
+ * cards and dish cards depend on nothing else.
+ */
+export const recipesLookEmail = "e2e-utseende-recept@matkoll.test";
+/**
  * The E2E user of core-flow.spec.ts alone (Story 3.8): it signs in itself
  * through /logga-in and the link in Mailpit, so it has no storage state.
  */
@@ -197,6 +203,7 @@ export const e2eEmails = [
   siteListEmail,
   sitePhotoEmail,
   photoSaveEmail,
+  recipesLookEmail,
   coreFlowEmail,
   appInstallEmail,
 ] as const;
@@ -229,6 +236,7 @@ export const siteStatusStorageState = "tests/e2e/.auth/site-status.json";
 export const siteListStorageState = "tests/e2e/.auth/site-list.json";
 export const sitePhotoStorageState = "tests/e2e/.auth/site-photo.json";
 export const photoSaveStorageState = "tests/e2e/.auth/photo-save.json";
+export const recipesLookStorageState = "tests/e2e/.auth/recipes-look.json";
 export const outsiderStorageState = "tests/e2e/.auth/outsider.json";
 
 export const mailpitUrl = "http://127.0.0.1:54324";

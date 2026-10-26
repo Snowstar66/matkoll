@@ -97,7 +97,7 @@ function renderLibrary(recipes: RecipeListItem[] = [gryta, soppa], options: Rend
   );
 }
 
-const titles = () => screen.queryAllByTestId("recipe-row").map((row) => within(row).getByRole("link").textContent);
+const titles = () => screen.queryAllByTestId("recipe-card").map((row) => within(row).getByRole("link").textContent);
 const pill = (name: string) => screen.getByRole("radio", { name });
 
 beforeEach(() => {
@@ -251,12 +251,12 @@ describe("Library", () => {
   it("shows the rows in the server's order with image, title, time and servings and a heart beside the link", () => {
     renderLibrary();
     expect(titles()).toEqual(["Krämig kycklinggryta", "Linssoppa"]);
-    const [first, second] = screen.getAllByTestId("recipe-row");
+    const [first, second] = screen.getAllByTestId("recipe-card");
     expect(within(first).getByRole("link")).toHaveAttribute("href", `/recept/${gryta.id}`);
     expect(within(first).getByText("35 min · 4 portioner")).toBeInTheDocument();
     expect(within(second).getByText("1 portion")).toBeInTheDocument();
-    expect(within(first).getByText("Kan lagas nu")).toHaveClass("bg-mint", "text-mint-ink");
-    expect(within(second).getByText("Saknar 2 varor")).toHaveClass("bg-sky", "text-sky-ink");
+    expect(within(first).getByText("Kan lagas nu")).toHaveClass("bg-overlay", "text-mint-ink");
+    expect(within(second).getByText("Saknar 2 varor")).toHaveClass("bg-overlay", "text-sky-ink");
     expect(within(first).getByTestId("recipe-image-placeholder")).toBeInTheDocument();
     const heart = within(first).getByRole("button", { name: "Favorit, Krämig kycklinggryta", pressed: true });
     expect(heart.closest("a")).toBeNull();
@@ -265,7 +265,7 @@ describe("Library", () => {
 
   it("shows a row without status when the pantry could not be read", () => {
     renderLibrary([recipe(3, "Pannkakor", { missingCount: null })]);
-    const [row] = screen.getAllByTestId("recipe-row");
+    const [row] = screen.getAllByTestId("recipe-card");
     expect(within(row).queryByText(/^Kan lagas nu$|^Saknar/)).not.toBeInTheDocument();
     expect(within(row).getByText("35 min · 4 portioner")).toBeInTheDocument();
   });
@@ -283,7 +283,7 @@ describe("Library", () => {
     expect(titles()).toEqual(["Krämig kycklinggryta", "Linssoppa"]);
     await user.type(screen.getByRole("searchbox"), "xyz");
     await screen.findByText("Inga recept matchar.");
-    expect(screen.queryAllByTestId("recipe-row")).toHaveLength(0);
+    expect(screen.queryAllByTestId("recipe-card")).toHaveLength(0);
 
     await user.click(screen.getByRole("button", { name: "Visa alla recept" }));
     expect(screen.getByRole("searchbox")).toHaveValue("");
@@ -428,7 +428,7 @@ describe("Library", () => {
     expect(titles()).toEqual(["Krämig kycklinggryta", "Fiskgratäng", "Pannkakor", "Linssoppa"]);
     act(() => rerenderServer?.(ranking.map((item) => (item.id === soppa.id ? { ...item, missingCount: 0 } : item))));
     expect(titles()).toEqual(["Linssoppa", "Krämig kycklinggryta", "Fiskgratäng", "Pannkakor"]);
-    const [first] = screen.getAllByTestId("recipe-row");
+    const [first] = screen.getAllByTestId("recipe-card");
     expect(within(first).getByText("Kan lagas nu")).toBeInTheDocument();
   });
 
@@ -493,7 +493,7 @@ describe("Library", () => {
     expect(screen.queryByRole("button", { name: "Föreslå rätter med AI" })).not.toBeInTheDocument();
     await user.click(pill("Kan lagas nu"));
     expect(titles()).toEqual(["Pannkakor", "Linssoppa"]);
-    for (const row of screen.getAllByTestId("recipe-row")) expect(within(row).queryByText("Kan lagas nu")).toBeNull();
+    for (const row of screen.getAllByTestId("recipe-card")) expect(within(row).queryByText("Kan lagas nu")).toBeNull();
     const button = screen.getByRole("button", { name: "Föreslå rätter med AI" });
     expect(button).toHaveAttribute("type", "button");
     // After the list.
@@ -589,7 +589,7 @@ describe("Library", () => {
     // Over the rows, and the list does not claim a ranking it lacks.
     const list = screen.getByRole("list", { name: "Recept" });
     expect(notice.compareDocumentPosition(list) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
-    for (const row of screen.getAllByTestId("recipe-row")) {
+    for (const row of screen.getAllByTestId("recipe-card")) {
       expect(within(row).queryByText(/^Kan lagas nu$|^Saknar/)).not.toBeInTheDocument();
     }
 

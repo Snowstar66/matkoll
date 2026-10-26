@@ -282,8 +282,11 @@ export function AddDishProvider({ recipes, searchRecipes, children }: AddDishPro
   );
 }
 
-/** Opens Lägg till rätt: the round "+" for the page header, or a primary button. */
-export function AddDishButton({ variant }: { variant: "icon" | "primary" }) {
+/**
+ * Opens Lägg till rätt: the round "+" for the page header, or a primary
+ * button (`fullWidth` under the dishes).
+ */
+export function AddDishButton({ variant, fullWidth = false }: { variant: "icon" | "primary"; fullWidth?: boolean }) {
   const { open } = useAddDish();
   if (variant === "icon") {
     return (
@@ -297,5 +300,9 @@ export function AddDishButton({ variant }: { variant: "icon" | "primary" }) {
       </button>
     );
   }
-  return <Button onClick={open}>Lägg till rätt</Button>;
+  return (
+    <Button onClick={open} fullWidth={fullWidth}>
+      Lägg till rätt
+    </Button>
+  );
 }

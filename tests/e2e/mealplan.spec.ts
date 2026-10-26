@@ -163,7 +163,7 @@ test("a favourite is on the plan after two taps, with its own servings", async (
   await expect(dishes(page)).toHaveCount(1);
   await expect(page.getByTestId("plan-name")).toHaveText(/^Vecka \d{1,2}$/);
   await expect(dish(page, gryta).getByText("4 portioner")).toBeVisible();
-  await expect(dish(page, gryta).getByText("Kan lagas nu", { exact: true })).toBeVisible();
+  await expect(dish(page, gryta).getByText("Allt finns hemma", { exact: true })).toBeVisible();
   expect(errors).toEqual([]);
 });
 
@@ -177,7 +177,7 @@ test("a search in Lägg till rätt finds a recipe by its ingredient and adds it"
   await expect(addSheet(page)).toHaveCount(0);
 
   await expect(dishes(page)).toHaveCount(2);
-  await expect(dish(page, soppa).getByText("Saknar 1 vara", { exact: true })).toBeVisible();
+  await expect(dish(page, soppa).getByText("0 av 1 hemma", { exact: true })).toBeVisible();
   expect(errors).toEqual([]);
 });
 
@@ -205,7 +205,7 @@ test("more servings are saved and the status follows them", async ({ page }) => 
   );
   await expect(first.getByText("5 portioner")).toBeVisible();
   // 2 dl grädde is enough for 4 portions, not for 5.
-  await expect(first.getByText("Saknar 1 vara", { exact: true })).toBeVisible();
+  await expect(first.getByText("0 av 1 hemma", { exact: true })).toBeVisible();
 
   await page.reload();
   await expect(dish(page, gryta).first().getByText("5 portioner")).toBeVisible();
@@ -214,7 +214,7 @@ test("more servings are saved and the status follows them", async ({ page }) => 
   await actionsAnswered(page, 1, () =>
     dish(page, gryta).first().getByRole("button", { name: `Färre portioner, ${gryta}` }).click(),
   );
-  await expect(dish(page, gryta).first().getByText("Kan lagas nu", { exact: true })).toBeVisible();
+  await expect(dish(page, gryta).first().getByText("Allt finns hemma", { exact: true })).toBeVisible();
   expect(errors).toEqual([]);
 });
 
