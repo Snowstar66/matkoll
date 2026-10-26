@@ -118,10 +118,11 @@ test("confirm, correct, reject and Bekräfta alla save only what Pontus confirme
 
   // Five cards, each with its three buttons, and Bekräfta alla; smör matches the fridge and is only counted.
   // Story 6.5: the title is the label on the package; the buttons keep the catalog name.
-  await expect(cardNames(page)).toHaveText(cardTitles(["Vispgrädde 3 dl", "gurka", "ketchup", "ägg", "Mellanmjölk 1,5 %"]));
+  await expect(cardNames(page)).toHaveText(cardTitles(["Vispgrädde 3 dl", "Gurka", "Ketchup", "Ägg", "Mellanmjölk 1,5 %"]));
   await expect(section(page).getByText("1 vara stämmer med lagret.")).toBeVisible();
   await expect(cards(page).filter({ hasText: "mjölk" }).getByText("nu: 2 förp → bilden: 1 förp")).toBeVisible();
-  for (const name of ["grädde", "gurka", "ketchup", "ägg", "mjölk"]) {
+  // Story 10.4: new catalog names start with a capital; mjölk is seeded as it was before.
+  for (const name of ["Grädde", "Gurka", "Ketchup", "Ägg", "mjölk"]) {
     const card = cards(page).filter({ has: page.getByRole("button", { name: `Bekräfta ${name}`, exact: true }) });
     await expect(card).toContainText("· Kyl");
     for (const verb of ["Bekräfta", "Rätta", "Avvisa"]) {
@@ -137,15 +138,15 @@ test("confirm, correct, reject and Bekräfta alla save only what Pontus confirme
   // Bekräfta mjölk: set to 1 förp, not added to; Kyl has as many items as before.
   await section(page).getByRole("button", { name: "Bekräfta mjölk" }).click();
   await expect(toast(page)).toHaveText("mjölk är sparad i kylen.");
-  await expect(cardNames(page)).toHaveText(cardTitles(["Vispgrädde 3 dl", "gurka", "ketchup", "ägg"]));
+  await expect(cardNames(page)).toHaveText(cardTitles(["Vispgrädde 3 dl", "Gurka", "Ketchup", "Ägg"]));
   // mjölk was the last card: focus goes to the one before it.
-  await expect(section(page).getByRole("button", { name: "Bekräfta ägg" })).toBeFocused();
+  await expect(section(page).getByRole("button", { name: "Bekräfta Ägg" })).toBeFocused();
   await expect(rows(page).filter({ hasText: "mjölk" })).toHaveText([/^mjölk\s*1 förp$/]);
   await expect(kylCard(page)).toHaveText(/^Kyl\s*2 varor$/);
 
   // Rätta grädde: the sheet filled in; another new ingredient, 2 dl, and Bekräfta.
-  await section(page).getByRole("button", { name: "Rätta grädde" }).click();
-  await expect(sheet(page).getByTestId("pantry-sheet-ingredient")).toHaveText("grädde");
+  await section(page).getByRole("button", { name: "Rätta Grädde" }).click();
+  await expect(sheet(page).getByTestId("pantry-sheet-ingredient")).toHaveText("Grädde");
   await expect(sheet(page).getByLabel("Mängd")).toHaveValue("1");
   await expect(sheet(page).getByLabel("Enhet")).toHaveValue("förp");
   await expect(sheet(page).getByRole("radio", { name: "Kyl" })).toHaveAttribute("aria-checked", "true");
@@ -154,26 +155,26 @@ test("confirm, correct, reject and Bekräfta alla save only what Pontus confirme
   await sheet(page).getByRole("searchbox", { name: "Sök ingrediens" }).fill("matlagningsgrädde");
   // New on a first run; already in the catalog on a retry.
   await sheet(page)
-    .getByRole("button", { name: "Lägg till matlagningsgrädde som ny" })
-    .or(sheet(page).getByRole("button", { name: "matlagningsgrädde", exact: true }))
+    .getByRole("button", { name: "Lägg till Matlagningsgrädde som ny" })
+    .or(sheet(page).getByRole("button", { name: "Matlagningsgrädde", exact: true }))
     .click();
   await sheet(page).getByLabel("Mängd").fill("2");
   await sheet(page).getByLabel("Enhet").selectOption("dl");
   await sheet(page).getByRole("button", { name: "Bekräfta" }).click();
   await expect(sheet(page)).toHaveCount(0);
-  await expect(toast(page)).toHaveText("matlagningsgrädde är sparad i kylen.");
-  await expect(cardNames(page)).toHaveText(cardTitles(["gurka", "ketchup", "ägg"]));
-  await expect(rows(page).filter({ hasText: "matlagningsgrädde" })).toHaveText([/^matlagningsgrädde\s*2 dl$/]);
+  await expect(toast(page)).toHaveText("Matlagningsgrädde är sparad i kylen.");
+  await expect(cardNames(page)).toHaveText(cardTitles(["Gurka", "Ketchup", "Ägg"]));
+  await expect(rows(page).filter({ hasText: "matlagningsgrädde" })).toHaveText([/^Matlagningsgrädde\s*2 dl$/]);
   await expect(kylCard(page)).toHaveText(/^Kyl\s*3 varor$/);
 
   // Avvisa ketchup, Ångra, and Avvisa again: nothing asks the server.
-  await section(page).getByRole("button", { name: "Avvisa ketchup" }).click();
-  await expect(toast(page)).toContainText("ketchup är avvisad.");
-  await expect(cardNames(page)).toHaveText(cardTitles(["gurka", "ägg"]));
+  await section(page).getByRole("button", { name: "Avvisa Ketchup" }).click();
+  await expect(toast(page)).toContainText("Ketchup är avvisad.");
+  await expect(cardNames(page)).toHaveText(cardTitles(["Gurka", "Ägg"]));
   await toast(page).getByRole("button", { name: "Ångra" }).click();
-  await expect(cardNames(page)).toHaveText(cardTitles(["gurka", "ketchup", "ägg"]));
-  await section(page).getByRole("button", { name: "Avvisa ketchup" }).click();
-  await expect(cardNames(page)).toHaveText(cardTitles(["gurka", "ägg"]));
+  await expect(cardNames(page)).toHaveText(cardTitles(["Gurka", "Ketchup", "Ägg"]));
+  await section(page).getByRole("button", { name: "Avvisa Ketchup" }).click();
+  await expect(cardNames(page)).toHaveText(cardTitles(["Gurka", "Ägg"]));
 
   // Bekräfta alla: the two left in one call; smör, which matches, is left as it is.
   await section(page).getByRole("button", { name: "Bekräfta alla" }).click();
@@ -184,8 +185,8 @@ test("confirm, correct, reject and Bekräfta alla save only what Pontus confirme
   await expect(tags(page)).toHaveText(["smör"]);
 
   expect(await saved()).toEqual({
-    catalog: ["gurka Kyl", "matlagningsgrädde Kyl", "mjölk Kyl", "smör Kyl", "ägg Kyl"].sort(),
-    pantry: ["gurka 2 st Kyl", "matlagningsgrädde 2 dl Kyl", "mjölk 1 förp Kyl", "smör - - Kyl", "ägg 6 st Kyl"].sort(),
+    catalog: ["Gurka Kyl", "Matlagningsgrädde Kyl", "mjölk Kyl", "smör Kyl", "Ägg Kyl"].sort(),
+    pantry: ["Gurka 2 st Kyl", "Matlagningsgrädde 2 dl Kyl", "mjölk 1 förp Kyl", "smör - - Kyl", "Ägg 6 st Kyl"].sort(),
     synonyms: 0,
   });
   expect(errors).toEqual([]);
@@ -194,7 +195,7 @@ test("confirm, correct, reject and Bekräfta alla save only what Pontus confirme
 test("a confirmation that gets no answer keeps the suggestions with a notice, and trying again saves them", async ({ page }) => {
   // The plain list of Story 6.2: Skafferi has nothing to compare with.
   await photographPantry(page);
-  await expect(cardNames(page, 3)).toHaveText(cardTitles(["Vispgrädde 3 dl", "gurka", "ketchup", "Mellanmjölk 1,5 %", "Smör 500 g", "ägg"]));
+  await expect(cardNames(page, 3)).toHaveText(cardTitles(["Vispgrädde 3 dl", "Gurka", "Ketchup", "Mellanmjölk 1,5 %", "Smör 500 g", "Ägg"]));
   await expect(section(page).getByRole("heading", { name: "Nytt" })).toHaveCount(0);
   const before = await saved();
 
@@ -207,22 +208,22 @@ test("a confirmation that gets no answer keeps the suggestions with a notice, an
   expect(await saved()).toEqual(before);
 
   await page.unroute("**/hemma**");
-  await section(page).getByRole("button", { name: "Avvisa grädde" }).click();
-  await section(page).getByRole("button", { name: "Avvisa ketchup" }).click();
+  await section(page).getByRole("button", { name: "Avvisa Grädde" }).click();
+  await section(page).getByRole("button", { name: "Avvisa Ketchup" }).click();
   await section(page).getByRole("button", { name: "Bekräfta alla" }).click();
   await expect(toast(page)).toHaveText("Lagt 4 varor i lagret.");
   await expect(section(page)).toHaveCount(0);
   await expect(skafferiCard(page)).toHaveText(/^Skafferi\s*4 varor$/);
   const after = await saved();
-  expect(after.catalog.filter((name) => /^(grädde|ketchup) /.test(name))).toEqual([]);
+  expect(after.catalog.filter((name) => /^(grädde|ketchup) /i.test(name))).toEqual([]);
   expect(after.pantry).toEqual(
     [
-      "gurka 2 st Skafferi",
+      "Gurka 2 st Skafferi",
       "mjölk 1 förp Skafferi",
       "mjölk 2 förp Kyl",
       "smör - - Kyl",
       "smör 1 förp Skafferi",
-      "ägg 6 st Skafferi",
+      "Ägg 6 st Skafferi",
     ].sort(),
   );
   expect(after.synonyms).toBe(0);

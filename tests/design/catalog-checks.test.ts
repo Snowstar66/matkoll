@@ -41,3 +41,29 @@ describe("catalog check constraints", () => {
     expect(checkList(catalogSql(), constraint, column)).toEqual([...values]);
   });
 });
+
+// Story 10.4: the migration that gives existing catalog names an uppercase
+// first letter (catalogName in catalog/domain/name.ts does it for new ones)
+// changes only `name`, and names its collation, so upper() maps å, ä and ö
+// whatever the database's own collation is. Its result was checked against
+// the local database when it was applied (spec-10-4).
+describe("catalog_name_capital", () => {
+  const files = readdirSync(migrations).filter((name) => /^\d+_catalog_name_capital\.sql$/.test(name));
+  const sql = () =>
+    readFileSync(join(migrations, files[0]), "utf8")
+      .split("\n")
+      .filter((line) => !line.startsWith("--"))
+      .join("\n");
+
+  it("is one migration that updates only ingredient.name", () => {
+    expect(files).toHaveLength(1);
+    expect(sql()).toMatch(/^\s*update public\.ingredient\s+set name = [^;]*;\s*$/);
+    expect(sql()).not.toMatch(/normalized_name|delete|insert/i);
+  });
+
+  it("gives every upper() and lower() the built-in Unicode collation", () => {
+    const calls = [...sql().matchAll(/\b(upper|lower)\(([^()]*\([^()]*\)[^()]*)\)/g)];
+    expect(calls.length).toBeGreaterThan(0);
+    for (const [, , argument] of calls) expect(argument).toContain('collate "pg_c_utf8"');
+  });
+});

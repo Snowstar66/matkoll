@@ -228,7 +228,7 @@ const listAnnouncement = (page: Page) => page.getByTestId("list-announcement").f
 const summary = (page: Page) => page.getByTestId("list-summary").filter({ visible: true });
 const putButton = (page: Page) => page.getByRole("button", { name: "Lägg i lagret", exact: true }).filter({ visible: true });
 const sendButton = (page: Page) => page.getByRole("button", { name: "Skicka till ICA", exact: true }).filter({ visible: true });
-const tab = (page: Page, name: "Lista" | "Hemma") =>
+const tab = (page: Page, name: "Inköpslista" | "Lagersaldo") =>
   page.getByRole("navigation", { name: "Huvudmeny" }).getByRole("link", { name });
 const placePill = (page: Page, name: "Hemma" | "Stugan") =>
   page.getByRole("radiogroup", { name: "Ställe" }).filter({ visible: true }).getByRole("radio", { name, exact: true });
@@ -290,9 +290,9 @@ test("Byt counts the list against Stugan: ketchup instead of senap, and Hemma sh
   await expectNoHorizontalScroll(page);
   await expect.poll(async () => (await sites()).find((site) => site.is_selected)?.id).toBe(stugan);
 
-  // The same selection as in Hemma.
-  await tab(page, "Hemma").click();
-  await expect(page.getByRole("heading", { level: 1, name: "Hemma" })).toBeVisible();
+  // The same selection as in Lagersaldo.
+  await tab(page, "Lagersaldo").click();
+  await expect(page.getByRole("heading", { level: 1, name: "Lagersaldo" })).toBeVisible();
   await expect(placePill(page, "Stugan")).toBeChecked();
   await expect(placePill(page, "Hemma")).not.toBeChecked();
   expect(errors).toEqual([]);

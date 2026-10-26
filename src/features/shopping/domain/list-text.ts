@@ -1,4 +1,4 @@
-import { formatQuantity, SECTIONS, type Section, type Unit } from "@/features/catalog";
+import { formatQuantity, nameInSentence, SECTIONS, type Section, type Unit } from "@/features/catalog";
 import { dishCountText } from "@/features/mealplan";
 import type { Store } from "@/features/settings";
 import type { ShoppingLine } from "./compute-list";
@@ -58,13 +58,15 @@ export function listSummaryText(planName: string, dishCount: number, left: numbe
 
 /**
  * When "Ångra" could not put own items back: "Det gick inte att ångra
- * diskmedel.", "… diskmedel och Kaffe.", "… 3 varor."; without names the
- * plain "Det gick inte att ångra." (shopping_restore_failed).
+ * diskmedel.", "… diskmedel och kaffe.", "… 3 varor."; without names the
+ * plain "Det gick inte att ångra." (shopping_restore_failed). The names are
+ * inside the sentence, so they start in lower case (Story 10.4).
  */
 export function restoreFailedText(labels: readonly string[]): string {
+  const [first = "", second = ""] = labels.map(nameInSentence);
   if (labels.length === 0) return "Det gick inte att ångra.";
-  if (labels.length === 1) return `Det gick inte att ångra ${labels[0]}.`;
-  if (labels.length === 2) return `Det gick inte att ångra ${labels[0]} och ${labels[1]}.`;
+  if (labels.length === 1) return `Det gick inte att ångra ${first}.`;
+  if (labels.length === 2) return `Det gick inte att ångra ${first} och ${second}.`;
   return `Det gick inte att ångra ${labels.length} varor.`;
 }
 

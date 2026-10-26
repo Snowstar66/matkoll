@@ -233,7 +233,7 @@ describe("removing an item on Hemma", () => {
     await tapRemove("Mjölk");
     expect(toast()).toHaveTextContent("Mjölk är borttagen.");
     await tapRemove("Smör");
-    expect(toast()).toHaveTextContent("Mjölk och Smör är borttagna.");
+    expect(toast()).toHaveTextContent("Mjölk och smör är borttagna.");
     await tapRemove("Ägg");
     expect(toast()).toHaveTextContent("3 varor är borttagna.");
     expect(rowNames()).toEqual([]);

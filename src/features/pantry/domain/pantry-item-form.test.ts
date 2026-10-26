@@ -171,13 +171,16 @@ describe("pantryNewIngredientName", () => {
   it("offers what was typed, trimmed with single spaces, amounts and units included", () => {
     expect(pantryNewIngredientName("  Saffran ", [])).toBe("Saffran");
     expect(pantryNewIngredientName("7up", [])).toBe("7up");
+    // Story 10.4: with an uppercase first letter, as the catalog stores it.
+    expect(pantryNewIngredientName("bregott", [])).toBe("Bregott");
+    expect(pantryNewIngredientName("ägg", [])).toBe("Ägg");
     expect(pantryNewIngredientName("Coca-Cola  Zero 33 cl", [{ id: "1", name: "Coca-Cola" }])).toBe("Coca-Cola Zero 33 cl");
   });
 
   it("offers nothing when a hit is the ingredient by name or synonym", () => {
     expect(pantryNewIngredientName("gul LÖK", [{ id: "1", name: "Gul lök" }])).toBeNull();
     expect(pantryNewIngredientName("rödlök", [{ id: "2", name: "Röd lök", exact: true }])).toBeNull();
-    expect(pantryNewIngredientName("rödlö", [{ id: "2", name: "Röd lök", exact: false }])).toBe("rödlö");
+    expect(pantryNewIngredientName("rödlö", [{ id: "2", name: "Röd lök", exact: false }])).toBe("Rödlö");
   });
 
   it("offers nothing for a name the catalog cannot store", () => {

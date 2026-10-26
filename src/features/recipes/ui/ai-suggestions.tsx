@@ -6,6 +6,7 @@ import { AiBadge } from "@/components/badges";
 import { Button, buttonClasses } from "@/components/button";
 import type { SearchIngredients } from "@/components/ingredient-picker";
 import { Notice } from "@/components/notice";
+import { nameInSentence } from "@/features/catalog";
 import { suggestErrorMessage, suggestRetryCodes } from "@/features/suggestions";
 import { recipeMetaText } from "../domain/recipe-list";
 import { AiSuggestionSheet } from "./ai-suggestion-sheet";
@@ -67,7 +68,7 @@ export function AiSuggestions({ dishes, searchIngredients, offerButton = true }:
     const action =
       error.code === "suggest_empty_pantry" ? (
         <Link href="/hemma" className={buttonClasses("text")}>
-          Öppna Hemma
+          Öppna Lagersaldo
         </Link>
       ) : suggestRetryCodes.has(error.code) ? (
         <Button variant="text" onClick={suggest}>
@@ -121,12 +122,16 @@ export function AiSuggestions({ dishes, searchIngredients, offerButton = true }:
   );
 }
 
-/** The names a card shows: the catalog's name for a linked line, otherwise the AI's, each once. */
+/**
+ * The names a card shows: the catalog's name for a linked line, otherwise the
+ * AI's, each once. They run on after "Med: ", so each starts in lower case
+ * (Story 10.4: catalog names start with a capital).
+ */
 function cardNames({ draft, ingredientNames }: ShownSuggestion): string[] {
   const names = draft.lines.map((line) => {
     const { ingredient } = line;
     const linked = ingredient.kind === "match" || ingredient.kind === "chosen" ? ingredientNames[ingredient.ingredientId] : undefined;
-    return (linked ?? line.hint?.name ?? line.originalText).trim();
+    return nameInSentence((linked ?? line.hint?.name ?? line.originalText).trim());
   });
   return [...new Set(names.filter(Boolean))].slice(0, maxCardNames);
 }

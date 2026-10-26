@@ -14,6 +14,7 @@ export {
 export { SECTIONS, sectionSchema, toSection, type Section } from "./domain/sections";
 export { LOCATIONS, locationSchema, toLocation, type Location } from "./domain/locations";
 export { cleanIngredientText, normalizeIngredientText } from "./domain/normalize";
+export { catalogName, nameInSentence } from "./domain/name";
 export {
   ingredientProposalSchema,
   ingredientMatchSchema,

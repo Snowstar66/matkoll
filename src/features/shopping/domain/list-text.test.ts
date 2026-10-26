@@ -56,7 +56,7 @@ describe("list texts", () => {
   it("names the items Ångra could not put back", () => {
     expect(restoreFailedText([])).toBe("Det gick inte att ångra.");
     expect(restoreFailedText(["diskmedel"])).toBe("Det gick inte att ångra diskmedel.");
-    expect(restoreFailedText(["diskmedel", "Kaffe"])).toBe("Det gick inte att ångra diskmedel och Kaffe.");
+    expect(restoreFailedText(["diskmedel", "Kaffe"])).toBe("Det gick inte att ångra diskmedel och kaffe.");
     expect(restoreFailedText(["a", "b", "c"])).toBe("Det gick inte att ångra 3 varor.");
   });
 

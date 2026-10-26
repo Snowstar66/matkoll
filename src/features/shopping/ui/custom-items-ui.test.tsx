@@ -239,7 +239,7 @@ describe("removing an own item", () => {
     await user.click(screen.getByRole("button", { name: "Ta bort diskmedel" }));
     await screen.findAllByText("diskmedel är borttagen.");
     await user.click(screen.getByRole("button", { name: "Ta bort Kaffe" }));
-    expect((await screen.findAllByText("diskmedel och Kaffe är borttagna.")).length).toBeGreaterThan(0);
+    expect((await screen.findAllByText("diskmedel och kaffe är borttagna.")).length).toBeGreaterThan(0);
     await user.click(screen.getByRole("button", { name: "Ångra" }));
     await waitFor(() => expect(restoreCustomItem).toHaveBeenCalledTimes(2));
     expect(await screen.findByText("Kaffe")).toBeInTheDocument();

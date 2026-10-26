@@ -68,7 +68,7 @@ describe("savedItemText", () => {
 describe("removedItemsText", () => {
   it("names one or two items, and counts more", () => {
     expect(removedItemsText(["Mjölk"])).toBe("Mjölk är borttagen.");
-    expect(removedItemsText(["Mjölk", "Smör"])).toBe("Mjölk och Smör är borttagna.");
+    expect(removedItemsText(["Mjölk", "Smör"])).toBe("Mjölk och smör är borttagna.");
     expect(removedItemsText(["Mjölk", "Smör", "Salt"])).toBe("3 varor är borttagna.");
   });
 });

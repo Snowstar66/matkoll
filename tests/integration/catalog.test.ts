@@ -220,6 +220,24 @@ describe("commitIngredients", () => {
     expect(await countRows("ingredient_synonym", user.id)).toBe(0);
   });
 
+  it("stores a new name with an uppercase first letter, and normalized_name in lower case (Story 10.4)", async () => {
+    const user = await createTestUser("capital");
+    const ids = await commitIngredients(user.db, [
+      newChoice("bregott", { name: "bregott", section: "Mejeri", location: "Kyl", defaultUnit: "förp" }),
+      newChoice("ägg", { name: " ägg ", section: "Mejeri", location: "Kyl", defaultUnit: "st" }),
+    ]);
+    const { data } = await user.db.from("ingredient").select("id, name, normalized_name").in("id", ids as string[]);
+    expect(new Map(data?.map((row) => [row.id, [row.name, row.normalized_name]]))).toEqual(
+      new Map([
+        [ids[0], ["Bregott", "bregott"]],
+        [ids[1], ["Ägg", "ägg"]],
+      ]),
+    );
+    // Matching is unaffected: the lowercase text finds it by its normalised name.
+    const [match] = await matchIngredientsIn(user.db, [{ text: "2 st ägg" }]);
+    expect(match).toEqual({ kind: "match", ingredientId: ids[1], confidence: "exact" });
+  });
+
   it("keeps lines with the same text apart", async () => {
     const user = await createTestUser("same-text");
     const salt = await addIngredient(user.db, "salt", "Skafferi");

@@ -1,5 +1,6 @@
 import { z } from "zod";
 import {
+  catalogName,
   displayAmount,
   formatQuantity,
   locationSchema,
@@ -395,9 +396,9 @@ export function suggestionTitle(suggestion: Pick<PantrySuggestion, "name" | "lab
   return { title: labels.join(", "), ingredientName: suggestion.name };
 }
 
-/** Under a card's label, when the catalog ingredient differs from it: "Sparas som: vispgrädde". */
+/** Under a card's label, when the catalog ingredient differs from it: "Sparas som: Vispgrädde", as the catalog stores it (Story 10.4). */
 export function savedAsText(name: string): string {
-  return `Sparas som: ${name}`;
+  return `Sparas som: ${catalogName(name)}`;
 }
 
 /** The badge on a suggestion the model was unsure of (Story 6.5). */

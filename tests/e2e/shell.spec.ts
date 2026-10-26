@@ -8,8 +8,8 @@ test.use({ storageState: userStorageState });
 const surfaces = [
   { tab: "Recept", path: "/recept", title: "Recept", empty: "Inga recept än. Klistra in en länk till ett recept du gillar." },
   { tab: "Matsedel", path: "/matsedel", title: "Matsedel", empty: "Ingen rätt på matsedeln än." },
-  { tab: "Lista", path: "/lista", title: "Inköpslista", empty: "Lägg rätter på matsedeln så räknas listan fram." },
-  { tab: "Hemma", path: "/hemma", title: "Hemma", empty: "Inget i kylen än." },
+  { tab: "Inköpslista", path: "/lista", title: "Inköpslista", empty: "Lägg rätter på matsedeln så räknas listan fram." },
+  { tab: "Lagersaldo", path: "/hemma", title: "Lagersaldo", empty: "Inget i kylen än." },
 ] as const;
 
 const mobile = { width: 390, height: 844 };
@@ -44,7 +44,7 @@ test.describe("mobile, 390 × 844", () => {
     const errors = watchErrors(page);
     await page.goto("/recept");
     await expect(mainMenu(page)).toHaveCount(1);
-    await expect(mainMenu(page).getByRole("link")).toHaveText(["Recept", "Matsedel", "Lista", "Hemma"]);
+    await expect(mainMenu(page).getByRole("link")).toHaveText(["Recept", "Matsedel", "Inköpslista", "Lagersaldo"]);
 
     // The tab bar sits at the bottom of the screen and is 84 px high.
     const box = await mainMenu(page).boundingBox();
@@ -114,7 +114,7 @@ test.describe("desktop, 1280 × 800", () => {
     const errors = watchErrors(page);
     await page.goto("/recept");
     await expect(mainMenu(page)).toHaveCount(1);
-    await expect(mainMenu(page).getByRole("link")).toHaveText(["Recept", "Matsedel", "Lista", "Hemma", "Inställningar"]);
+    await expect(mainMenu(page).getByRole("link")).toHaveText(["Recept", "Matsedel", "Inköpslista", "Lagersaldo", "Inställningar"]);
 
     const menu = await mainMenu(page).boundingBox();
     expect(menu).toMatchObject({ x: 0, y: 0, width: 240, height: desktop.height });
@@ -181,5 +181,45 @@ test.describe("dark mode from the start", () => {
     // The visible main menu: the tab bar at this width.
     const tabBar = await mainMenu(page).evaluate((el) => getComputedStyle(el).backgroundColor);
     expect({ body, title, tabBar }).toEqual({ body: "rgb(18, 23, 20)", title: "rgb(232, 237, 234)", tabBar: "rgb(27, 33, 30)" });
+  });
+});
+
+/** Each tab's label: its box and how far its text reaches, so a clipped or overflowing label shows. */
+async function tabLabels(page: Page) {
+  return mainMenu(page)
+    .getByRole("link")
+    .evaluateAll((links) =>
+      links.map((link) => {
+        const label = link.querySelector("span")!;
+        const box = link.getBoundingClientRect();
+        const text = label.getBoundingClientRect();
+        return {
+          name: link.textContent,
+          fits: label.scrollWidth <= label.clientWidth && text.left >= box.left && text.right <= box.right && text.bottom <= box.bottom,
+          lines: Math.round(text.height / parseFloat(getComputedStyle(label).lineHeight)),
+        };
+      }),
+    );
+}
+
+test.describe("tab labels (Story 10.4)", () => {
+  test("Inköpslista and Lagersaldo fit on one line at 375 px", async ({ page }) => {
+    await page.setViewportSize(mobile);
+    await page.goto("/recept");
+    const labels = await tabLabels(page);
+    expect(labels.map(({ name }) => name)).toEqual(["Recept", "Matsedel", "Inköpslista", "Lagersaldo"]);
+    expect(labels.filter(({ fits, lines }) => !fits || lines !== 1)).toEqual([]);
+  });
+
+  // 187 px wide is a 375 px phone at 200 % zoom (as in cook-mode.spec.ts).
+  test("at 200 % zoom every label fits its tab, the long ones on two lines between their parts", async ({ page }) => {
+    await page.setViewportSize({ width: 187, height: 406 });
+    await page.goto("/recept");
+    const labels = await tabLabels(page);
+    expect(labels.filter(({ fits, lines }) => !fits || lines > 2)).toEqual([]);
+    // The tab bar itself never scrolls sideways.
+    expect(await mainMenu(page).evaluate((nav) => nav.scrollWidth <= nav.clientWidth)).toBe(true);
+    const box = await mainMenu(page).boundingBox();
+    expect(box?.height).toBe(84);
   });
 });

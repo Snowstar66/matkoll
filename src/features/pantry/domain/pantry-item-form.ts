@@ -1,5 +1,6 @@
 import { z } from "zod";
 import {
+  catalogName,
   locationSchema,
   normalizeIngredientText,
   parseQuantity,
@@ -39,8 +40,10 @@ export type PantrySearchHit = IngredientSearchHit & { exact?: boolean };
 
 /**
  * The name to offer as a new catalog ingredient in the sheet Lagervara: what
- * Pontus typed, trimmed with single spaces. Amounts and units stay, since the
- * sheet has fields of its own for them ("7up", "Coca-Cola Zero 33 cl"). None
+ * Pontus typed, trimmed with single spaces and with an uppercase first letter
+ * as the catalog stores it ("bregott" → "Bregott", Story 10.4). Amounts and
+ * units stay, since the sheet has fields of its own for them ("7up",
+ * "Coca-Cola Zero 33 cl"). None
  * when the name has nothing the catalog can store, or when a hit already is
  * the ingredient: its name or a synonym is the typed text, normalised.
  */
@@ -49,7 +52,7 @@ export function pantryNewIngredientName(query: string, hits: readonly PantrySear
   const normalized = normalizeIngredientText(name);
   if (!normalized || name.length > maxIngredientNameLength) return null;
   const taken = hits.some((hit) => hit.exact || normalizeIngredientText(hit.name) === normalized);
-  return taken ? null : name;
+  return taken ? null : catalogName(name);
 }
 
 /**

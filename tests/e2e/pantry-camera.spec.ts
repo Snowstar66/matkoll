@@ -152,19 +152,20 @@ test("a photo of the fridge gives six suggestions, writes nothing, and they stay
   // Story 6.5: a card's title is the label on the package, with the catalog ingredient under it when it differs.
   await expect(cards(page).getByRole("heading", { level: 4 })).toHaveText(cardTitles([
     "Vispgrädde 3 dl",
-    "gurka",
-    "ketchup",
+    "Gurka",
+    "Ketchup",
     "Smör 500 g",
-    "ägg",
+    "Ägg",
     "Mellanmjölk 1,5 %",
   ]));
   const expected: [string, string | null, string, boolean, string | null][] = [
-    ["Vispgrädde 3 dl", "grädde", "1 förp · Kyl", true, null],
-    ["gurka", null, "2 st · Kyl", true, null],
-    ["ketchup", null, "Finns hemma · Kyl", true, null],
-    ["Smör 500 g", "smör", "1 förp · Kyl", true, null],
-    ["ägg", null, "6 st · Kyl", true, null],
-    ["Mellanmjölk 1,5 %", "mjölk", "1 förp · Kyl", false, "nu: 2 förp → bilden: 1 förp"],
+    ["Vispgrädde 3 dl", "Grädde", "1 förp · Kyl", true, null],
+    ["Gurka", null, "2 st · Kyl", true, null],
+    ["Ketchup", null, "Finns hemma · Kyl", true, null],
+    ["Smör 500 g", "Smör", "1 förp · Kyl", true, null],
+    ["Ägg", null, "6 st · Kyl", true, null],
+    // Story 10.4: "Sparas som" shows the name as the catalog stores it, with a capital.
+    ["Mellanmjölk 1,5 %", "Mjölk", "1 förp · Kyl", false, "nu: 2 förp → bilden: 1 förp"],
   ];
   for (const [index, [title, name, amount, isNew, now]] of expected.entries()) {
     const shown = cards(page).nth(index);
@@ -244,10 +245,10 @@ test("the cards come first, then their numbers, and the large photo has the same
   await expect(section(page).getByText("Numren på korten visar var varorna är på fotot.")).toBeVisible();
   const expected = [
     ["Vispgrädde 3 dl", 2],
-    ["gurka", 5],
-    ["ketchup", 6],
+    ["Gurka", 5],
+    ["Ketchup", 6],
     ["Smör 500 g", 3],
-    ["ägg", 4],
+    ["Ägg", 4],
     ["Mellanmjölk 1,5 %", 1],
   ] as const;
   for (const [index, [title, number]] of expected.entries()) {
@@ -283,7 +284,7 @@ test("the cards come first, then their numbers, and the large photo has the same
   await expect(photoSheet).toBeHidden();
 
   // A card handled takes its number off the photo; nothing was saved by the lookup.
-  await section(page).getByRole("button", { name: "Avvisa gurka" }).click();
+  await section(page).getByRole("button", { name: "Avvisa Gurka" }).click();
   await expect(cards(page)).toHaveCount(5);
   await section(page).getByRole("button", { name: "Fotot av kylen, visa större" }).click();
   await expect(photoSheet.getByTestId("pantry-photo-marker")).toHaveText(["2", "6", "3", "4", "1"]);
@@ -307,7 +308,7 @@ test("a lookup that fails leaves the cards without numbers and without an error 
   await expect(page.getByRole("dialog", { name: "Fotot av kylen" }).getByTestId("pantry-photo-marker")).toHaveCount(0);
 });
 
-test("the suggestions go when Hemma is left through the tab bar and opened again", async ({ page }) => {
+test("the suggestions go when Lagersaldo is left through the tab bar and opened again", async ({ page }) => {
   await page.goto("/hemma");
   await photograph(page, "Fotografera kylen", kyl);
   await expect(cards(page)).toHaveCount(6);
@@ -315,7 +316,7 @@ test("the suggestions go when Hemma is left through the tab bar and opened again
   const tabs = page.getByRole("navigation", { name: "Huvudmeny" }).filter({ visible: true });
   await tabs.getByRole("link", { name: "Recept" }).click();
   await expect(page).toHaveURL(/\/recept$/);
-  await tabs.getByRole("link", { name: "Hemma" }).click();
+  await tabs.getByRole("link", { name: "Lagersaldo" }).click();
   await expect(page).toHaveURL(/\/hemma/);
   await expect(cameraButton(page, "Fotografera kylen")).toBeVisible();
   await expect(section(page)).toHaveCount(0);

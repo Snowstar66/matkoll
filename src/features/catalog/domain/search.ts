@@ -1,4 +1,5 @@
 import { z } from "zod";
+import { catalogName } from "./name";
 import { cleanIngredientText, normalizeIngredientText } from "./normalize";
 
 // Searching the catalog while typing (AD-1: the search* exception), e.g. when
@@ -58,5 +59,5 @@ export function newIngredientName(query: string, hits: readonly IngredientSearch
   const name = cleanIngredientText(query) || query.trim();
   if (!name) return null;
   const normalized = normalizeIngredientText(name);
-  return hits.some((hit) => normalizeIngredientText(hit.name) === normalized) ? null : name;
+  return hits.some((hit) => normalizeIngredientText(hit.name) === normalized) ? null : catalogName(name);
 }

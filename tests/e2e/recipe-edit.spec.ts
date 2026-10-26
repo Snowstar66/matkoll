@@ -77,10 +77,10 @@ test("Ändra changes the title, a line's ingredient and the steps, and stays in 
 
   // Relink the leek line to smör.
   const leek = sheet.getByTestId("recipe-line").filter({ hasText: "1 purjolök" });
-  await leek.getByRole("button", { name: /^purjolök/ }).click();
+  await leek.getByRole("button", { name: /^purjolök/i }).click();
   await sheet.getByLabel("Sök ingrediens").fill("smör");
-  await sheet.getByRole("list", { name: "Träffar" }).getByRole("button", { name: "smör", exact: true }).click();
-  await expect(leek.getByRole("button", { name: /^smör/ })).toBeVisible();
+  await sheet.getByRole("list", { name: "Träffar" }).getByRole("button", { name: /^smör$/i }).click();
+  await expect(leek.getByRole("button", { name: /^smör/i })).toBeVisible();
 
   // Remove the last step, and add one.
   await sheet.getByRole("button", { name: "Ta bort steg 6" }).click();
@@ -100,7 +100,7 @@ test("Ändra changes the title, a line's ingredient and the steps, and stays in 
 
   const lines = page.getByRole("region", { name: "Ingredienser" }).getByTestId("recipe-view-line");
   await expect(lines).toHaveCount(8);
-  await expect(lines.filter({ hasText: "1 purjolök" })).toHaveText(/^smör\s*1 purjolök\s*1$/);
+  await expect(lines.filter({ hasText: "1 purjolök" })).toHaveText(/^smör\s*1 purjolök\s*1$/i);
   const steps = page.getByRole("region", { name: "Steg" }).getByRole("listitem");
   await expect(steps).toHaveCount(6);
   await expect(steps.last()).toHaveText(/^6\s*Servera med kokt potatis\.$/);
