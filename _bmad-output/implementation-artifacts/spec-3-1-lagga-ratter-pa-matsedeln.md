@@ -2,9 +2,10 @@
 title: 'Story 3.1: Lägga rätter på matsedeln'
 type: 'feature'
 created: '2026-10-26'
-status: 'draft'
+status: 'in-progress'
 route: 'dispatch'
 review_loop_iteration: 0
+baseline_commit: 'ce36da849de0e389156d12d587d8aafd5a0708f0'
 context:
   - '{project-root}/_bmad-output/implementation-artifacts/epic-3-context.md'
   - '{project-root}/_bmad-output/planning-artifacts/ux-designs/ux-Matkoll-2026-10-25/EXPERIENCE.md'
