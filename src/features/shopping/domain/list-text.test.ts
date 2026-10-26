@@ -1,6 +1,7 @@
 import { describe, expect, it } from "vitest";
 import type { ShoppingLine } from "./compute-list";
 import {
+  checkLabel,
   groupBySection,
   itemsLeft,
   itemsLeftText,
@@ -90,5 +91,15 @@ describe("list texts", () => {
       ["Mejeri", ["a", "c"]],
       ["Övrigt", ["d"]],
     ]);
+  });
+
+  it("names the check by the line's name and what it shows to the right", () => {
+    expect(checkLabel(line({ label: "Paprika, röd", amount: 1, unit: "st" }))).toBe("Paprika, röd, 1 st");
+    expect(checkLabel(line({ label: "Mjöl", amount: 2, unit: "dl", pantryNote: "hemma: 1 kg" }))).toBe(
+      "Mjöl, 2 dl (hemma: 1 kg)",
+    );
+    expect(checkLabel(line({ label: "Salt", amount: null, unit: null, isVague: true }))).toBe("Salt, finns hemma?");
+    expect(checkLabel(line({ label: "En näve persilja", amount: null, unit: null }))).toBe("En näve persilja");
+    expect(checkLabel(line({ label: "2 citroner", amount: null, unit: null, multiplier: 2 }))).toBe("2 citroner, ×2");
   });
 });

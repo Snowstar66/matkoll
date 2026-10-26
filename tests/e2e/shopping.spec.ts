@@ -2,7 +2,7 @@ import { expect, type Page, type Response, test } from "@playwright/test";
 import { adminClient, e2eUserId, shoppingEmail, shoppingStorageState } from "./support";
 
 // Story 3.3: Inköpslista, counted from the current meal plan, its recipes and
-// the pantry every time it is read. The spec has an E2E user of its own
+// the pantry every time it is read. Story 3.4: checking lines off, saved at once. The spec has an E2E user of its own
 // (shoppingEmail), which the later list stories share; everything is made
 // with the service role before the tests. Two recipes for 4 portions:
 // Krämig kycklinggryta (2 dl grädde, 1 paprika, salt efter smak) and Paj
@@ -110,6 +110,27 @@ test.beforeAll(async () => {
   await addPantry("Mjöl", 1, "kg", "Skafferi");
 });
 
+/**
+ * Sets the current plan's checks to exactly these lines (by ingredient and
+ * unit) with the service role, so each test starts from a known state.
+ */
+async function seedChecks(checked: [ingredient: string, unit: string][]) {
+  const admin = adminClient();
+  const removed = await admin.from("shopping_check").delete().eq("user_id", userId);
+  if (removed.error) throw removed.error;
+  if (checked.length === 0) return;
+  const plan = await admin.from("meal_plan").select("id").eq("user_id", userId).eq("is_current", true).single();
+  if (plan.error) throw plan.error;
+  const { error } = await admin.from("shopping_check").insert(
+    checked.map(([ingredient, unit]) => ({
+      user_id: userId,
+      meal_plan_id: (plan.data as { id: string }).id,
+      line_key: `r:${ids.get(ingredient)}:${unit}`,
+    })),
+  );
+  if (error) throw error;
+}
+
 /** Collects console errors and uncaught exceptions for the page. */
 function watchErrors(page: Page): string[] {
   const errors: string[] = [];
@@ -126,6 +147,7 @@ const lines = (page: Page) => page.getByTestId("shopping-line").filter({ visible
 const lineOf = (page: Page, label: string) => lines(page).filter({ has: page.getByText(label, { exact: true }) });
 const summary = (page: Page) => page.getByTestId("list-summary").filter({ visible: true });
 const sectionHeadings = (page: Page) => page.getByRole("heading", { level: 2 }).filter({ visible: true });
+const check = (page: Page, name: string) => page.getByRole("checkbox", { name, exact: true }).filter({ visible: true });
 const tab = (page: Page, name: "Matsedel" | "Lista") =>
   page.getByRole("navigation", { name: "Huvudmeny" }).getByRole("link", { name });
 
@@ -169,6 +191,7 @@ test("the list groups the lines by section, with från [rätt], the pantry besid
     })),
   );
   if (dishes.error) throw dishes.error;
+  await seedChecks([]);
 
   const errors = watchErrors(page);
   await page.goto("/lista");
@@ -190,7 +213,43 @@ test("the list groups the lines by section, with från [rätt], the pantry besid
   expect(errors).toEqual([]);
 });
 
+test("a check is saved at once, stays after a reload, keeps the line in its place and comes off again", async ({ page }) => {
+  await seedChecks([]);
+  const errors = watchErrors(page);
+  await page.goto("/lista");
+  await expect(summary(page)).toHaveText("Vecka 44 · 2 rätter · 5 varor kvar");
+  const order = await lines(page).evaluateAll((rows) => rows.map((row) => row.getAttribute("data-line-key")));
+  // The check's name is the line and what it shows; the state is read out beside it.
+  await expect(check(page, "Salt, finns hemma?")).not.toBeChecked();
+  await expect(check(page, "Mjöl, 2 dl (hemma: 1 kg)")).not.toBeChecked();
+
+  await actionsAnswered(page, 1, () => check(page, "Paprika, 1 st").click());
+  await expect(check(page, "Paprika, 1 st")).toBeChecked();
+  await expect(summary(page)).toHaveText("Vecka 44 · 2 rätter · 4 varor kvar");
+  await expect(lineOf(page, "Paprika").getByText("Paprika", { exact: true })).toHaveCSS("text-decoration-line", "line-through");
+  // The tap target is 44 × 44 px.
+  const box = await check(page, "Paprika, 1 st").boundingBox();
+  expect(box?.width).toBeGreaterThanOrEqual(44);
+  expect(box?.height).toBeGreaterThanOrEqual(44);
+
+  await page.reload();
+  await expect(check(page, "Paprika, 1 st")).toBeChecked();
+  await expect(summary(page)).toHaveText("Vecka 44 · 2 rätter · 4 varor kvar");
+  expect(await lines(page).evaluateAll((rows) => rows.map((row) => row.getAttribute("data-line-key")))).toEqual(order);
+
+  await actionsAnswered(page, 1, () => check(page, "Paprika, 1 st").click());
+  await expect(check(page, "Paprika, 1 st")).not.toBeChecked();
+  await page.reload();
+  await expect(check(page, "Paprika, 1 st")).not.toBeChecked();
+  await expect(summary(page)).toHaveText("Vecka 44 · 2 rätter · 5 varor kvar");
+
+  await actionsAnswered(page, 1, () => check(page, "Grädde, 3 dl").click());
+  await expect(check(page, "Grädde, 3 dl")).toBeChecked();
+  expect(errors).toEqual([]);
+});
+
 test("more servings on Matsedel count the list again", async ({ page }) => {
+  await seedChecks([["Grädde", "dl"]]);
   const errors = watchErrors(page);
   await page.goto("/lista");
   await expect(lineOf(page, "Grädde")).toContainText("3 dl");
@@ -205,8 +264,9 @@ test("more servings on Matsedel count the list again", async ({ page }) => {
 
   await tab(page, "Lista").click();
   await expect(page).toHaveURL(/\/lista$/);
-  // 2 dl for 4 is 3 dl for 6, and 1 dl from Paj.
+  // 2 dl for 4 is 3 dl for 6, and 1 dl from Paj: the same line, still checked.
   await expect(lineOf(page, "Grädde")).toContainText("4 dl");
+  await expect(check(page, "Grädde, 4 dl")).toBeChecked();
   // 1.5 paprikor are bought as 2.
   await expect(lineOf(page, "Paprika")).toContainText("2 st");
   // Coming back to the list is not a recount while it is open: nothing is announced.
@@ -218,16 +278,26 @@ test("more servings on Matsedel count the list again", async ({ page }) => {
 test("what is at home is taken off when the pantry changes", async ({ page }) => {
   await addPantry("Grädde", 3, "dl");
   await addPantry("Salt", null, null, "Skafferi");
+  await seedChecks([["Grädde", "dl"]]);
   const errors = watchErrors(page);
   await page.goto("/lista");
-  // 4 dl needed, 3 dl at home; salt is at home.
+  // 4 dl needed, 3 dl at home; salt is at home. Grädde is checked, so not left.
   await expect(lineOf(page, "Grädde")).toContainText("1 dl");
+  await expect(check(page, "Grädde, 1 dl")).toBeChecked();
   await expect(lineOf(page, "Salt")).toHaveCount(0);
-  await expect(summary(page)).toHaveText("Vecka 44 · 2 rätter · 4 varor kvar");
+  await expect(summary(page)).toHaveText("Vecka 44 · 2 rätter · 3 varor kvar");
 
   await addPantry("Grädde", 1, "dl", "Frys");
   await page.reload();
   await expect(lineOf(page, "Grädde")).toHaveCount(0);
+
+  // The check stays without its line, and applies again when the line comes back.
+  const admin = adminClient();
+  const frys = await admin.from("pantry_item").delete().eq("user_id", userId).eq("location", "Frys");
+  if (frys.error) throw frys.error;
+  await page.reload();
+  await expect(check(page, "Grädde, 1 dl")).toBeChecked();
+  await addPantry("Grädde", 1, "dl", "Frys");
   expect(errors).toEqual([]);
 });
 
@@ -236,6 +306,7 @@ test("the list says everything is at home when nothing is short", async ({ page 
   await addPantry("Mjöl", 5, "dl", "Skafferi");
   const { error } = await adminClient().from("recipe_ingredient").delete().eq("id", persiljaLineId);
   if (error) throw error;
+  await seedChecks([]);
 
   const errors = watchErrors(page);
   await page.goto("/lista");

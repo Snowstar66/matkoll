@@ -179,6 +179,26 @@ isOneToOne: false
       referencedColumns: ["id","user_id"]
     }
                   ]
+                },"shopping_check": {
+                  Row: {
+                    "created_at": string,"id": string,"line_key": string,"meal_plan_id": string,"user_id": string
+                  }
+                  ComputedFields: never
+                  Insert: {
+                    "created_at"?: string,"id"?: string,"line_key": string,"meal_plan_id": string,"user_id"?: string
+                  }
+                  Update: {
+                    "created_at"?: string,"id"?: string,"line_key"?: string,"meal_plan_id"?: string,"user_id"?: string
+                  }
+                  Relationships: [
+                    {
+      foreignKeyName: "shopping_check_meal_plan_fkey"
+      columns: ["meal_plan_id","user_id"]
+isOneToOne: false
+      referencedRelation: "meal_plan"
+      referencedColumns: ["id","user_id"]
+    }
+                  ]
                 }
           }
           Views: {
@@ -288,6 +308,9 @@ isOneToOne: false
         isOneToOne: false
         isSetofReturn: true
       } },
+"set_shopping_check":
+{ Args: { "checked": boolean,"line_key": string,"plan_id": string }; Returns: undefined
+                           },
 "update_recipe":
 { Args: { "expected_updated_at": string,"id": string,"lines": Json,"recipe": Json,"steps": Json }; Returns: string
                            }

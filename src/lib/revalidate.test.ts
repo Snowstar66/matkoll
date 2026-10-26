@@ -49,4 +49,9 @@ describe("revalidateFor", () => {
       expect(revalidatePath.mock.calls, table).toContainEqual(["/lista", "page"]);
     }
   });
+
+  it("revalidates only the shopping list after a check", () => {
+    revalidateFor("shopping_check");
+    expect(revalidatePath.mock.calls).toEqual([["/lista", "page"]]);
+  });
 });

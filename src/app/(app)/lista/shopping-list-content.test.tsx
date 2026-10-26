@@ -9,7 +9,8 @@ vi.mock("@/features/shopping/server", () => ({ getShoppingList: vi.fn() }));
 const redirect = vi.fn((url: string) => {
   throw new Error(`redirect ${url}`);
 });
-vi.mock("next/navigation", () => ({ redirect: (url: string) => redirect(url) }));
+vi.mock("next/navigation", () => ({ redirect: (url: string) => redirect(url), useRouter: () => ({ refresh: vi.fn() }) }));
+vi.mock("@/features/shopping/actions/set-checked", () => ({ setChecked: vi.fn() }));
 
 describe("ShoppingListContent", () => {
   it("shows shopping_unavailable in a notice when the list cannot be read", async () => {
@@ -29,6 +30,7 @@ describe("ShoppingListContent", () => {
         plan: { id: "plan", name: "Vecka 44", dishCount: 1, skippedCount: 0, dishTitles: {} },
         lines: [],
         pantryUnavailable: false,
+        checksUnavailable: false,
       }),
     );
     render(await ShoppingListContent());

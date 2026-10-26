@@ -1,19 +1,22 @@
 import { randomUUID } from "node:crypto";
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
-import type { Section, Unit } from "@/features/catalog";
+import { UNITS, type Section, type Unit } from "@/features/catalog";
 import { loadIngredientDefaults, loadIngredientNames } from "@/features/catalog/data/queries";
 import { getCurrentPlanIn } from "@/features/mealplan/data/queries";
-import { addToCurrentPlanIn, setServingsIn } from "@/features/mealplan/data/write";
+import { addToCurrentPlanIn, deletePlanIn, setCurrentPlanIn, setServingsIn } from "@/features/mealplan/data/write";
 import { loadPantrySnapshot } from "@/features/pantry/data/queries";
 import { getRecipesByIdsIn } from "@/features/recipes/data/queries";
+import { recipeLineKey } from "@/features/shopping";
+import { listChecksIn, setCheckIn } from "@/features/shopping/data/checks";
 import { loadShoppingList, type ShoppingSources } from "@/features/shopping/data/queries";
 import { localSupabaseUrl } from "../local-supabase";
-import { createTestUser, deleteTestUsers, type Db, type TestUser } from "./support";
+import { adminClient, anonClient, countRows, createTestUser, deleteTestUsers, expectRlsIsolation, type Db, type TestUser } from "./support";
 
 // The shopping list against local Supabase (FR-15, AD-8): counted from a real
 // meal plan, recipes, pantry and catalog through the modules' read functions,
-// with the user's session client, as getShoppingList does it. Nothing is
-// stored. NFR7: 10 dishes against 200 pantry items within a second.
+// with the user's session client, as getShoppingList does it. The list is
+// never stored; only the checks are (Story 3.4, shopping_check). NFR7: 10
+// dishes against 200 pantry items within a second.
 
 /** The modules' read functions with the test user's client, as the server entries give them. */
 const sources = (db: Db): ShoppingSources => ({
@@ -22,6 +25,7 @@ const sources = (db: Db): ShoppingSources => ({
   pantry: () => loadPantrySnapshot(db),
   ingredientNames: (ids) => loadIngredientNames(db, ids),
   ingredientDefaults: (ids) => loadIngredientDefaults(db, ids),
+  checks: (planId) => listChecksIn(db, planId),
 });
 
 async function addIngredients(db: Db, items: { name: string; section: Section }[]): Promise<string[]> {
@@ -117,7 +121,12 @@ describe("loadShoppingList", () => {
 
   it("gives no plan and no lines before anything is on the plan", async () => {
     const empty = await createTestUser("shopping-empty");
-    expect(await loadShoppingList(sources(empty.db))).toEqual({ plan: null, lines: [], pantryUnavailable: false });
+    expect(await loadShoppingList(sources(empty.db))).toEqual({
+      plan: null,
+      lines: [],
+      pantryUnavailable: false,
+      checksUnavailable: false,
+    });
   });
 
   it("scales, merges, takes the pantry off and groups by section", async () => {
@@ -235,5 +244,169 @@ describe("loadShoppingList", () => {
     expect(list.plan?.dishCount).toBe(10);
     expect(list.lines.length).toBeGreaterThan(50);
     expect(elapsed).toBeLessThan(1000);
+  });
+});
+
+describe("shopping_check", () => {
+  /** A current plan with one dish (2 dl grädde for 4) and the key of its line. */
+  async function planWithLine(user: TestUser): Promise<{ planId: string; key: string; dishId: string }> {
+    const [gradde] = await addIngredients(user.db, [{ name: "Grädde", section: "Mejeri" }]);
+    const recipeId = await addRecipe(user.db, "Gryta", 4, [{ text: "2 dl grädde", ingredientId: gradde, amount: 2, unit: "dl" }]);
+    const dishId = await addDish(user.db, recipeId, "Gryta", 4);
+    const plan = await getCurrentPlanIn(user.db);
+    return { planId: plan!.id, key: `r:${gradde}:dl`, dishId };
+  }
+
+  async function addPlan(db: Db, isCurrent = true): Promise<string> {
+    const { data, error } = await db.from("meal_plan").insert({ name: "Vecka 44", is_current: isCurrent }).select("id").single();
+    if (error) throw error;
+    return data.id;
+  }
+
+  /** One user and plan for the refused keys. */
+  let keyUser: TestUser | undefined;
+  let keyPlanId: string | undefined;
+
+  it("isolates shopping_check", async () => {
+    await expectRlsIsolation("shopping_check", async (owner) => ({
+      meal_plan_id: await addPlan(owner),
+      line_key: "r:11111111-1111-4111-8111-111111111111:dl",
+    }));
+  });
+
+  it("marks a checked line, keeps it through a recount with the same key, and takes the check off", async () => {
+    const user = await createTestUser("shopping-check");
+    const { planId, key, dishId } = await planWithLine(user);
+    expect(await setCheckIn(user.db, planId, key, true)).toBe("saved");
+    expect((await loadShoppingList(sources(user.db))).lines.map((line) => [line.key, line.amount, line.checked])).toEqual([
+      [key, 2, true],
+    ]);
+    // Grädde 2 dl becomes 3 dl: the same key, still checked.
+    await setServingsIn(user.db, user.id, dishId, 6);
+    expect((await loadShoppingList(sources(user.db))).lines.map((line) => [line.key, line.amount, line.checked])).toEqual([
+      [key, 3, true],
+    ]);
+    expect(await setCheckIn(user.db, planId, key, false)).toBe("saved");
+    expect((await loadShoppingList(sources(user.db))).lines.map((line) => line.checked)).toEqual([false]);
+    // Taking off a check that is not there changes nothing.
+    expect(await setCheckIn(user.db, planId, key, false)).toBe("saved");
+    expect(await countRows("shopping_check", user.id)).toBe(0);
+  });
+
+  it("keeps a check whose line is covered by the pantry, and applies it when the line comes back", async () => {
+    const user = await createTestUser("shopping-check-covered");
+    const { planId, key } = await planWithLine(user);
+    await setCheckIn(user.db, planId, key, true);
+    const [gradde] = key.slice(2).split(":");
+    await setPantry(user.db, [{ ingredientId: gradde, amount: 2, unit: "dl" }]);
+    expect((await loadShoppingList(sources(user.db))).lines).toEqual([]);
+    expect(await listChecksIn(user.db, planId)).toEqual([key]);
+    const { error } = await user.db.from("pantry_item").delete().eq("ingredient_id", gradde);
+    if (error) throw error;
+    expect((await loadShoppingList(sources(user.db))).lines.map((line) => line.checked)).toEqual([true]);
+  });
+
+  it("is one row per plan and key: checking twice changes nothing, a plain second insert is refused", async () => {
+    const user = await createTestUser("shopping-check-unique");
+    const { planId, key } = await planWithLine(user);
+    await Promise.all([setCheckIn(user.db, planId, key, true), setCheckIn(user.db, planId, key, true)]);
+    await setCheckIn(user.db, planId, key, true);
+    expect(await countRows("shopping_check", user.id)).toBe(1);
+    const again = await user.db.from("shopping_check").insert({ meal_plan_id: planId, line_key: key });
+    expect(again.error?.code).toBe("23505");
+  });
+
+  it.each([
+    ["an unknown kind", "x:abc"],
+    ["an ingredient that is not an id", "r:paprika:st"],
+    ["an unknown unit", "r:11111111-1111-4111-8111-111111111111:liter"],
+    ["an own item that is not an id", "c:paprika"],
+    ["a text with spaces around it", "t: salt "],
+    ["a text that is too long", `t:${"a".repeat(301)}`],
+    ["an upper-case ingredient id", "r:AAAAAAAA-1111-4111-8111-111111111111:dl"],
+    ["an upper-case own item id", "c:AAAAAAAA-2222-4222-8222-222222222222"],
+    ["a text with doubled spaces", "t:en  näve"],
+    ["a text with a tab", "t:en\tnäve"],
+  ])("refuses a key with %s", async (_, lineKey) => {
+    keyUser ??= await createTestUser("shopping-check-key");
+    keyPlanId ??= await addPlan(keyUser.db);
+    const [user, planId] = [keyUser, keyPlanId];
+    const { error } = await user.db.from("shopping_check").insert({ meal_plan_id: planId, line_key: lineKey });
+    expect(error?.code).toBe("23514");
+  });
+
+  it("takes every key line-key.ts builds", async () => {
+    const user = await createTestUser("shopping-check-keys");
+    const planId = await addPlan(user.db);
+    const keys = [
+      ...UNITS.map((unit) => recipeLineKey("11111111-1111-4111-8111-111111111111", unit)),
+      recipeLineKey("11111111-1111-4111-8111-111111111111", null),
+      "c:22222222-2222-4222-8222-222222222222",
+      "t:en näve persilja",
+      `t:${"å".repeat(300)}`,
+    ];
+    const { error } = await user.db.from("shopping_check").insert(keys.map((lineKey) => ({ meal_plan_id: planId, line_key: lineKey })));
+    expect(error).toBeNull();
+    expect((await listChecksIn(user.db, planId)).sort()).toEqual([...keys].sort());
+  });
+
+  it("refuses a check on another user's plan (the composite foreign key)", async () => {
+    const owner = await createTestUser("shopping-check-fk-owner");
+    const other = await createTestUser("shopping-check-fk-other");
+    const planId = await addPlan(owner.db);
+    const { error } = await other.db
+      .from("shopping_check")
+      .insert({ meal_plan_id: planId, line_key: "r:11111111-1111-4111-8111-111111111111:dl" });
+    expect(error?.code).toBe("23503");
+    // Through set_shopping_check: not the caller's current plan, so nothing is written.
+    expect(await setCheckIn(other.db, planId, "r:11111111-1111-4111-8111-111111111111:dl", true)).toBe("plan_changed");
+    expect(await countRows("shopping_check", owner.id)).toBe(0);
+  });
+
+  it("leaves the checks with their plan when another plan becomes current, and deletes them with the plan", async () => {
+    const user = await createTestUser("shopping-check-plans");
+    const { planId, key } = await planWithLine(user);
+    await setCheckIn(user.db, planId, key, true);
+
+    // "Använd igen": the new plan's list has the same line, unchecked; A keeps its check.
+    const reused = await setCurrentPlanIn(user.db, { id: randomUUID(), name: "Vecka 45", sourceId: planId });
+    const list = await loadShoppingList(sources(user.db));
+    expect(list.plan?.id).toBe(reused.id);
+    expect(list.lines.map((line) => [line.key, line.checked])).toEqual([[key, false]]);
+    expect(await listChecksIn(user.db, planId)).toEqual([key]);
+
+    // Deleting the earlier plan (Story 3.2) deletes its checks.
+    expect(await deletePlanIn(user.db, planId)).toBe(true);
+    const { count, error } = await adminClient()
+      .from("shopping_check")
+      .select("*", { count: "exact", head: true })
+      .eq("meal_plan_id", planId);
+    if (error) throw error;
+    expect(count).toBe(0);
+    // A check on the deleted plan is refused.
+    expect(await setCheckIn(user.db, planId, key, true)).toBe("plan_changed");
+  });
+
+  it("writes nothing when the plan was switched just before the check", async () => {
+    const user = await createTestUser("shopping-check-switched");
+    const { planId, key } = await planWithLine(user);
+    await setCheckIn(user.db, planId, key, true);
+    // Another tab: "Ny matsedel", while this list still shows the old plan.
+    const fresh = await setCurrentPlanIn(user.db, { id: randomUUID(), name: "Vecka 45" });
+    expect(await setCheckIn(user.db, planId, `r:${key.split(":")[1]}:st`, true)).toBe("plan_changed");
+    expect(await setCheckIn(user.db, planId, key, false)).toBe("plan_changed");
+    expect(await listChecksIn(user.db, planId)).toEqual([key]);
+    expect(await listChecksIn(user.db, fresh.id)).toEqual([]);
+    expect(await countRows("shopping_check", user.id)).toBe(1);
+  });
+
+  it("lets only a signed-in user run set_shopping_check, and refuses a key line-key.ts does not build", async () => {
+    const user = await createTestUser("shopping-check-rpc");
+    const { planId } = await planWithLine(user);
+    const anon = await anonClient().rpc("set_shopping_check", { plan_id: planId, line_key: "t:salt", checked: true });
+    expect(anon.error?.code).toBe("42501");
+    const bad = await user.db.rpc("set_shopping_check", { plan_id: planId, line_key: "t:  salt", checked: true });
+    expect(bad.error?.code).toBe("23514");
+    expect(await countRows("shopping_check", user.id)).toBe(0);
   });
 });

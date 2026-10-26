@@ -1,6 +1,7 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import { toSnapshot } from "@/features/pantry";
 import { fail, ok } from "@/lib/errors";
+import { ShoppingDataError } from "./data/client";
 
 // getShoppingList with the other modules' server entries stubbed: the list is
 // counted from them, a pantry that cannot be read leaves nothing taken off,
@@ -46,6 +47,11 @@ vi.mock("@/features/catalog/server", () => ({
   getIngredientDefaults: (ids: string[]) => getIngredientDefaults(ids),
 }));
 
+const db = { session: true };
+vi.mock("@/lib/supabase/server", () => ({ createClient: async () => db }));
+const listChecksIn = vi.fn();
+vi.mock("./data/checks", () => ({ listChecksIn: (...args: unknown[]) => listChecksIn(...args) }));
+
 const { getShoppingList } = await import("./server");
 
 const recipeId = "11111111-1111-4111-8111-111111111111";
@@ -72,6 +78,7 @@ beforeEach(() => {
   getPantrySnapshot.mockReset().mockResolvedValue(toSnapshot([{ ingredientId: gradde, amount: 1, unit: "dl" }]));
   getIngredientNames.mockReset().mockResolvedValue({ [gradde]: "Grädde" });
   getIngredientDefaults.mockReset().mockResolvedValue({ [gradde]: { section: "Mejeri", location: "Kyl", defaultUnit: "dl" } });
+  listChecksIn.mockReset().mockResolvedValue([]);
   log?.mockRestore();
   log = vi.spyOn(console, "error").mockImplementation(() => {});
 });
@@ -93,18 +100,29 @@ describe("getShoppingList", () => {
           expect.objectContaining({ key: `r:${gradde}:dl`, label: "Grädde", amount: 2, unit: "dl", section: "Mejeri", origins: ["d1"] }),
         ],
         pantryUnavailable: false,
+        checksUnavailable: false,
       }),
     );
     expect(getRecipesByIds).toHaveBeenCalledWith([recipeId]);
     expect(getIngredientNames).toHaveBeenCalledWith([gradde]);
   });
 
+  it("marks the plan's checked lines, read with the session client", async () => {
+    listChecksIn.mockResolvedValue([`r:${gradde}:dl`, "r:00000000-0000-4000-8000-000000000000:st"]);
+    const result = await getShoppingList();
+    expect(listChecksIn).toHaveBeenCalledWith(db, "plan");
+    expect(result.ok && result.data.lines.map((line) => [line.key, line.checked])).toEqual([[`r:${gradde}:dl`, true]]);
+  });
+
   it("gives no plan and no lines without a current plan, and reads no recipes and no pantry", async () => {
     getCurrentPlan.mockResolvedValue(null);
     getPantrySnapshot.mockRejectedValue(new PantryDataError("query_failed 08006"));
-    expect(await getShoppingList()).toEqual(ok({ plan: null, lines: [], pantryUnavailable: false }));
+    expect(await getShoppingList()).toEqual(
+      ok({ plan: null, lines: [], pantryUnavailable: false, checksUnavailable: false }),
+    );
     expect(getRecipesByIds).not.toHaveBeenCalled();
     expect(getPantrySnapshot).not.toHaveBeenCalled();
+    expect(listChecksIn).not.toHaveBeenCalled();
   });
 
   it("reads no pantry for a plan whose dishes all lost their recipe", async () => {
@@ -112,6 +130,16 @@ describe("getShoppingList", () => {
     const result = await getShoppingList();
     expect(result.ok && result.data.plan).toMatchObject({ dishCount: 0, skippedCount: 1 });
     expect(getPantrySnapshot).not.toHaveBeenCalled();
+    // The checks are read for any plan (own items need no dish, Story 3.5).
+    expect(listChecksIn).toHaveBeenCalledWith(db, "plan");
+  });
+
+  it("shows the list without checks, and says so, when the checks cannot be read", async () => {
+    listChecksIn.mockRejectedValue(new ShoppingDataError("list_checks_failed 08006"));
+    const result = await getShoppingList();
+    expect(result.ok && result.data.checksUnavailable).toBe(true);
+    expect(result.ok && result.data.lines.map((line) => [line.label, line.checked])).toEqual([["Grädde", false]]);
+    expect(log).toHaveBeenCalledWith("shopping_checks_unavailable", { reason: "list_checks_failed 08006" });
   });
 
   it("takes nothing off when the pantry cannot be read, and says so", async () => {

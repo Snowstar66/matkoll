@@ -1,8 +1,21 @@
 import { act, render, screen, within } from "@testing-library/react";
-import { Activity } from "react";
-import { afterEach, describe, expect, it, vi } from "vitest";
+import userEvent from "@testing-library/user-event";
+import { Activity, useEffect, useState } from "react";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
+import { fail, ok, type Result } from "@/lib/errors";
+import type { CheckChange } from "../domain/check";
 import type { ShoppingLine } from "../domain/compute-list";
-import { announcementMs, ShoppingList, type ShoppingListProps } from "./shopping-list";
+import { announcementMs, checkTimeoutMs, ShoppingList, type ShoppingListProps } from "./shopping-list";
+
+const setChecked = vi.fn<(change: CheckChange) => Promise<Result<CheckChange>>>();
+vi.mock("../actions/set-checked", () => ({ setChecked: (change: CheckChange) => setChecked(change) }));
+const refresh = vi.fn();
+vi.mock("next/navigation", () => ({ useRouter: () => ({ refresh }) }));
+
+beforeEach(() => {
+  setChecked.mockReset().mockImplementation(async (change) => ok(change));
+  refresh.mockReset();
+});
 
 afterEach(() => {
   vi.useRealTimers();
@@ -23,7 +36,8 @@ const line = (overrides: Partial<ShoppingLine> & Pick<ShoppingLine, "key" | "lab
   ...overrides,
 });
 
-const plan: ShoppingListProps["plan"] = {
+const plan: NonNullable<ShoppingListProps["plan"]> = {
+  id: "33333333-3333-4333-8333-333333333333",
   name: "Vecka 44",
   dishCount: 2,
   skippedCount: 0,
@@ -163,5 +177,201 @@ describe("ShoppingList", () => {
     expect(screen.getByTestId("list-announcement")).toHaveTextContent("");
     rerender(view("visible", lines.slice(3)));
     expect(screen.getByTestId("list-announcement")).toHaveTextContent("Inköpslistan är omräknad. 3 varor kvar.");
+  });
+});
+
+/** The list as the server gives it; setChecked's stub saves a check here, as the server's revalidation would. */
+const server: { save: (change: CheckChange) => void } = { save: () => {} };
+const saveOnServer = (change: CheckChange) => server.save(change);
+function ServerList({ initial }: { initial: ShoppingLine[] }) {
+  const [shown, setShown] = useState(initial);
+  useEffect(() => {
+    server.save = ({ key, checked }) =>
+      setShown((before) => before.map((item) => (item.key === key ? { ...item, checked } : item)));
+  }, []);
+  return <ShoppingList plan={plan} lines={shown} pantryUnavailable={false} />;
+}
+
+describe("ShoppingList checks", () => {
+  beforeEach(() => {
+    setChecked.mockImplementation(async (change) => {
+      saveOnServer(change);
+      return ok(change);
+    });
+  });
+
+  it("names each check by the line and what it shows, with its state", () => {
+    render(<ShoppingList plan={plan} lines={[...lines, { ...lines[0], key: "r:x:st", label: "X", checked: true }]} pantryUnavailable={false} />);
+    expect(screen.getByRole("checkbox", { name: "Paprika, 1 st" })).not.toBeChecked();
+    expect(screen.getByRole("checkbox", { name: "Mjöl, 2 dl (hemma: 1 kg)" })).not.toBeChecked();
+    expect(screen.getByRole("checkbox", { name: "Salt, finns hemma?" })).not.toBeChecked();
+    expect(screen.getByRole("checkbox", { name: "En näve persilja" })).not.toBeChecked();
+    expect(screen.getByRole("checkbox", { name: "X, 1 st" })).toBeChecked();
+    // A checked line does not count as left.
+    expect(screen.getByTestId("list-summary")).toHaveTextContent("Vecka 44 · 2 rätter · 6 varor kvar");
+  });
+
+  it("checks a line off at once, keeps it in its place struck through, and takes the check off again", async () => {
+    const user = userEvent.setup();
+    render(<ServerList initial={lines} />);
+    const order = () => screen.getAllByTestId("shopping-line").map((row) => row.getAttribute("data-line-key"));
+    const before = order();
+    const box = screen.getByRole("checkbox", { name: "Grädde, 3 dl" });
+
+    await user.click(box);
+    expect(box).toBeChecked();
+    expect(setChecked).toHaveBeenCalledWith({ planId: plan.id, key: "r:gradde:dl", checked: true });
+    expect(screen.getByTestId("list-summary")).toHaveTextContent("Vecka 44 · 2 rätter · 5 varor kvar");
+    expect(order()).toEqual(before);
+    const row = screen.getAllByTestId("shopping-line").find((item) => item.dataset.lineKey === "r:gradde:dl")!;
+    expect(within(row).getByText("Grädde")).toHaveClass("line-through", "text-ink-3");
+    expect(within(row).getByText("3 dl")).toHaveClass("line-through", "text-ink-3");
+    // Pontus's own check is not a recount.
+    expect(screen.getByTestId("list-announcement")).toHaveTextContent("");
+
+    await user.click(box);
+    expect(box).not.toBeChecked();
+    expect(setChecked).toHaveBeenLastCalledWith({ planId: plan.id, key: "r:gradde:dl", checked: false });
+    expect(screen.getByTestId("list-summary")).toHaveTextContent("Vecka 44 · 2 rätter · 6 varor kvar");
+    expect(within(row).getByText("Grädde")).not.toHaveClass("line-through");
+  });
+
+  it("does not check the line from its name, a tap target of its own", async () => {
+    const user = userEvent.setup();
+    render(<ServerList initial={lines} />);
+    await user.click(screen.getByText("Grädde"));
+    expect(setChecked).not.toHaveBeenCalled();
+    expect(screen.getByRole("checkbox", { name: "Grädde, 3 dl" })).not.toBeChecked();
+  });
+
+  it("puts the check back and says so in a notice when it cannot be saved, until a check is saved", async () => {
+    const user = userEvent.setup();
+    setChecked.mockResolvedValueOnce(fail("shopping_check_failed"));
+    render(<ServerList initial={lines} />);
+    const box = screen.getByRole("checkbox", { name: "Paprika, 1 st" });
+    await user.click(box);
+    expect(box).not.toBeChecked();
+    expect(screen.getByRole("alert")).toHaveTextContent("Det gick inte att spara bocken.");
+    expect(screen.getByTestId("list-summary")).toHaveTextContent("6 varor kvar");
+    expect(refresh).not.toHaveBeenCalled();
+
+    await user.click(box);
+    expect(box).toBeChecked();
+    expect(screen.queryByRole("alert")).not.toBeInTheDocument();
+  });
+
+  it("puts the check back when the action gets no answer", async () => {
+    const user = userEvent.setup();
+    setChecked.mockRejectedValueOnce(new TypeError("Failed to fetch"));
+    render(<ServerList initial={lines} />);
+    const box = screen.getByRole("checkbox", { name: "Paprika, 1 st" });
+    await user.click(box);
+    expect(box).not.toBeChecked();
+    expect(screen.getByRole("alert")).toHaveTextContent("Det gick inte att spara bocken.");
+  });
+
+  it("reads the list again and says so when the plan was switched elsewhere", async () => {
+    const user = userEvent.setup();
+    setChecked.mockResolvedValueOnce(fail("shopping_plan_changed"));
+    render(<ServerList initial={lines} />);
+    await user.click(screen.getByRole("checkbox", { name: "Paprika, 1 st" }));
+    expect(screen.getByRole("alert")).toHaveTextContent("Matsedeln har bytts. Listan är uppdaterad.");
+    expect(refresh).toHaveBeenCalled();
+  });
+
+  it("reads the list again, without a notice, when the session has ended", async () => {
+    const user = userEvent.setup();
+    setChecked.mockResolvedValueOnce(fail("unauthorized"));
+    render(<ServerList initial={lines} />);
+    await user.click(screen.getByRole("checkbox", { name: "Paprika, 1 st" }));
+    expect(refresh).toHaveBeenCalled();
+    expect(screen.queryByRole("alert")).not.toBeInTheDocument();
+  });
+
+  it("saves a line's taps one at a time, ending with the last state", async () => {
+    const user = userEvent.setup();
+    const answers: (() => void)[] = [];
+    setChecked.mockImplementation(
+      (change) =>
+        new Promise((resolve) => {
+          answers.push(() => {
+            saveOnServer(change);
+            resolve(ok(change));
+          });
+        }),
+    );
+    render(<ServerList initial={lines} />);
+    const box = screen.getByRole("checkbox", { name: "Paprika, 1 st" });
+    await user.click(box);
+    await user.click(box);
+    expect(box).not.toBeChecked();
+    // The second write waits for the first.
+    expect(setChecked.mock.calls.map(([change]) => change.checked)).toEqual([true]);
+    await act(async () => answers.shift()!());
+    expect(setChecked.mock.calls.map(([change]) => change.checked)).toEqual([true, false]);
+    await act(async () => answers.shift()!());
+    expect(box).not.toBeChecked();
+    expect(screen.getByTestId("list-summary")).toHaveTextContent("6 varor kvar");
+  });
+
+  it("keeps a failure's notice when another line is saved, and announces a repeated failure again", async () => {
+    const user = userEvent.setup();
+    setChecked.mockResolvedValueOnce(fail("shopping_check_failed"));
+    render(<ServerList initial={lines} />);
+    await user.click(screen.getByRole("checkbox", { name: "Paprika, 1 st" }));
+    const first = screen.getByRole("alert");
+    await user.click(screen.getByRole("checkbox", { name: "Grädde, 3 dl" }));
+    expect(screen.getByRole("checkbox", { name: "Grädde, 3 dl" })).toBeChecked();
+    expect(screen.getByRole("alert")).toBe(first);
+
+    setChecked.mockResolvedValueOnce(fail("shopping_check_failed"));
+    await user.click(screen.getByRole("checkbox", { name: "Paprika, 1 st" }));
+    // A new element, so screen readers announce the same text again.
+    expect(screen.getByRole("alert")).toHaveTextContent("Det gick inte att spara bocken.");
+    expect(screen.getByRole("alert")).not.toBe(first);
+  });
+
+  it("gives up on a check without an answer after a while, so later taps are not stuck behind it", async () => {
+    vi.useFakeTimers({ shouldAdvanceTime: true });
+    const user = userEvent.setup({ advanceTimers: vi.advanceTimersByTime });
+    setChecked.mockImplementationOnce(() => new Promise(() => {}));
+    render(<ServerList initial={lines} />);
+    const box = screen.getByRole("checkbox", { name: "Paprika, 1 st" });
+    await user.click(box);
+    expect(box).toBeChecked();
+    await act(async () => vi.advanceTimersByTimeAsync(checkTimeoutMs));
+    expect(box).not.toBeChecked();
+    expect(screen.getByRole("alert")).toHaveTextContent("Det gick inte att spara bocken.");
+    expect(refresh).toHaveBeenCalled();
+
+    await user.click(box);
+    expect(setChecked).toHaveBeenCalledTimes(2);
+    expect(box).toBeChecked();
+    expect(screen.queryByRole("alert")).not.toBeInTheDocument();
+  });
+
+  it("ignores the answer for a plan the list no longer shows", async () => {
+    const user = userEvent.setup();
+    let answer: (result: Result<CheckChange>) => void = () => {};
+    setChecked.mockImplementationOnce(() => new Promise((resolve) => (answer = resolve)));
+    const { rerender } = render(<ShoppingList plan={plan} lines={lines} pantryUnavailable={false} />);
+    await user.click(screen.getByRole("checkbox", { name: "Paprika, 1 st" }));
+    const other = { ...plan, id: "44444444-4444-4444-8444-444444444444" };
+    rerender(<ShoppingList plan={other} lines={lines} pantryUnavailable={false} />);
+    await act(async () => answer(fail("shopping_check_failed")));
+    expect(screen.queryByRole("alert")).not.toBeInTheDocument();
+    expect(screen.getByRole("checkbox", { name: "Paprika, 1 st" })).not.toBeChecked();
+  });
+
+  it("shows the list without checks, and checking off, when the checks could not be read", async () => {
+    const user = userEvent.setup();
+    render(<ShoppingList plan={plan} lines={lines} pantryUnavailable={false} checksUnavailable />);
+    const notice = screen.getByText("Det gick inte att läsa bockarna, så det går inte att bocka av just nu.");
+    expect(notice).toHaveAttribute("role", "status");
+    const box = screen.getByRole("checkbox", { name: "Paprika, 1 st" });
+    expect(box).toBeDisabled();
+    await user.click(box);
+    expect(setChecked).not.toHaveBeenCalled();
+    expect(screen.getByTestId("list-summary")).toHaveTextContent("6 varor kvar");
   });
 });

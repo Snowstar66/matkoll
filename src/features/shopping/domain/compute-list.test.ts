@@ -359,6 +359,42 @@ describe("computeList", () => {
       ["r:salt:-", true],
     ]);
   });
+
+  it("keeps a check when the list is counted again and the key stays the same", () => {
+    const overlay = { ...emptyOverlay, checks: ["r:gradde:dl", "t:en näve persilja"] };
+    const lines = (servings: number) =>
+      list(
+        [dish("d1", "gryta", servings)],
+        [recipe("gryta", [amount("gradde", 3, "dl"), amount(null, 1, null, "En näve persilja")], 6)],
+        [],
+        { overlay },
+      );
+    expect(lines(6).map((line) => [line.label, line.amount, line.checked])).toEqual([
+      ["Grädde", 3, true],
+      ["En näve persilja", null, true],
+    ]);
+    // 3 dl for 6 is 4 dl for 8: the same line, still checked.
+    expect(lines(8).map((line) => [line.label, line.amount, line.checked])).toEqual([
+      ["Grädde", 4, true],
+      ["En näve persilja", null, true],
+    ]);
+  });
+
+  it("ignores a check without a line, and applies it again when the line comes back", () => {
+    const overlay = { ...emptyOverlay, checks: ["r:gradde:dl", "r:mjol:dl", "c:00000000-0000-4000-8000-000000000000"] };
+    const input = (pantry: PantryAmountRow[]) =>
+      list([dish("d1", "gryta")], [recipe("gryta", [amount("gradde", 2, "dl"), amount("lok", 1, "st")])], pantry, {
+        overlay,
+      });
+    // Covered by the pantry: no line, and the checks without a line change nothing.
+    expect(input([{ ingredientId: "gradde", amount: 2, unit: "dl" }]).map((line) => [line.key, line.checked])).toEqual([
+      ["r:lok:st", false],
+    ]);
+    expect(input([]).map((line) => [line.key, line.checked])).toEqual([
+      ["r:lok:st", false],
+      ["r:gradde:dl", true],
+    ]);
+  });
 });
 
 function baseInput(): ShoppingListInput {

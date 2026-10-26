@@ -17,6 +17,9 @@ export const askAtHomeText = "Finns hemma?";
 /** Above the list when the pantry could not be read, so nothing is taken off. */
 export const pantryUnreadText = "Det gick inte att läsa lagret, så inget är avdraget från listan.";
 
+/** Above the list when the checks could not be read: none is shown, and checking is off. */
+export const checksUnreadText = "Det gick inte att läsa bockarna, så det går inte att bocka av just nu.";
+
 /** Dishes whose recipe is deleted (or could not be read), which the list leaves out. */
 export function skippedDishesText(count: number): string {
   return count === 1
@@ -66,6 +69,19 @@ export function lineAmountText(
   if (line.multiplier !== undefined && line.multiplier !== 1) return `×${formatQuantity(line.multiplier, null)}`;
   const amount = formatQuantity(line.amount, line.unit);
   return line.pantryNote && amount ? `${amount} (${line.pantryNote})` : amount;
+}
+
+/**
+ * The check's name for screen readers, which read its state (avbockad or
+ * not) beside it: the line's name and what it shows to the right, "Paprika,
+ * röd, 1 st", "Mjöl, 2 dl (hemma: 1 kg)", "Salt, finns hemma?".
+ */
+export function checkLabel(
+  line: Pick<ShoppingLine, "label" | "amount" | "unit" | "isVague" | "pantryNote" | "multiplier">,
+): string {
+  if (line.isVague) return `${line.label}, ${askAtHomeText.toLocaleLowerCase("sv-SE")}`;
+  const amount = lineAmountText(line);
+  return amount ? `${line.label}, ${amount}` : line.label;
 }
 
 /**

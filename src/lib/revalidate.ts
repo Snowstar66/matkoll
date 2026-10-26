@@ -42,6 +42,8 @@ const routesByTable = {
     { path: "/lista", type: "page" },
     { path: "/recept", type: "layout" },
   ],
+  // The checks on the shopping list (Story 3.4); only the list shows them.
+  shopping_check: [{ path: "/lista", type: "page" }],
 } satisfies Partial<Record<TableName, readonly Route[]>>;
 
 export type RevalidatedTable = keyof typeof routesByTable;

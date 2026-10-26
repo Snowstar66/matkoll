@@ -20,6 +20,8 @@ export async function ShoppingListContent() {
     if (result.error.code === "unauthorized") redirect(`/logga-in?${new URLSearchParams({ next })}`);
     return <Notice role="alert">{result.error.message}</Notice>;
   }
-  const { plan, lines, pantryUnavailable } = result.data;
-  return <ShoppingList plan={plan} lines={lines} pantryUnavailable={pantryUnavailable} />;
+  const { plan, lines, pantryUnavailable, checksUnavailable } = result.data;
+  return (
+    <ShoppingList plan={plan} lines={lines} pantryUnavailable={pantryUnavailable} checksUnavailable={checksUnavailable} />
+  );
 }

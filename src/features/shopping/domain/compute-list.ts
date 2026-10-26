@@ -70,11 +70,15 @@ export type ListRecipe = { id: string; originalServings: number; lines: readonly
 
 /**
  * What the list keeps per meal plan: checks (Story 3.4), corrected amounts
- * and hidden lines (3.6) and Pontus's own items (3.5). Empty until those
- * stories add their tables.
+ * and hidden lines (3.6) and Pontus's own items (3.5). Overrides and own
+ * items are empty until those stories add their tables.
  */
 export type Overlay = {
-  /** The keys of checked lines. */
+  /**
+   * The keys of checked lines (shopping_check). A line whose key is here is
+   * checked, whatever its amount now; a key without a line is ignored and
+   * kept, so the check applies again if the line comes back.
+   */
   checks: readonly string[];
   overrides: readonly never[];
   customItems: readonly never[];

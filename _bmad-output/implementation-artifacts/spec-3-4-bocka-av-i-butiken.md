@@ -2,9 +2,10 @@
 title: 'Story 3.4: Bocka av i butiken'
 type: 'feature'
 created: '2026-10-26'
-status: 'draft'
+status: 'done'
 route: 'dispatch'
-review_loop_iteration: 0
+review_loop_iteration: 1
+baseline_commit: '122aa4903ad6e720cbf586af8fc6de5e4594f6ef'
 context:
   - '{project-root}/_bmad-output/implementation-artifacts/epic-3-context.md'
   - '{project-root}/_bmad-output/planning-artifacts/ux-designs/ux-Matkoll-2026-10-25/EXPERIENCE.md'
@@ -55,15 +56,15 @@ context:
 ## Tasks & Acceptance
 
 **Execution:**
-- [ ] `supabase/migrations/<tid>_shopping_check.sql` (`supabase migration new … < /dev/null`, `supabase migration up`) och `pnpm db:types` -- `shopping_check` enligt Boundaries, index på `(user_id, meal_plan_id)` -- AD-4, AD-8, AD-20
-- [ ] `src/features/shopping/data/checks.ts` (+ `queries.ts`) -- `listChecks(planId)` för överlägget, `setCheck(planId, key)` och `clearCheck(planId, key)` -- AD-1
-- [ ] `src/features/shopping/domain/compute-list.ts` (+ test) -- `overlay.checks` sätter `checked`; bock utan post ignoreras -- AD-8
-- [ ] `src/features/shopping/actions/set-checked.ts` (+ test) -- `setChecked({ planId, key, checked })`: `requireUser`, `lineKeySchema`, aktuell matsedel via `mealplan`, skrivning, `revalidateFor('shopping_check')` -- AD-2, AD-22
-- [ ] `src/lib/revalidate.ts` -- `shopping_check` → `/lista` -- AD-18
-- [ ] `src/lib/errors.ts` -- `shopping_check_failed` ("Det gick inte att spara bocken."), `shopping_plan_changed` ("Matsedeln har bytts. Listan är uppdaterad.") -- AD-13
-- [ ] `src/features/shopping/ui/` -- bocken i `ShoppingLineRow` med `useOptimistic`, genomstruken text i `ink-3`, skärmläsarnamn, "varor kvar" räknar bara poster som inte är avbockade; tryck på bocken och varunamnet är skilda tryckytor -- FR16, UX-DR9
-- [ ] `tests/integration/shopping.test.ts` (utökad) -- `expectRlsIsolation('shopping_check', …)`; unik nyckel; `check` nekar felaktig nyckel; FK nekar annans matsedel; cascade när matsedeln raderas -- AD-4
-- [ ] `tests/e2e/shopping.spec.ts` (utökad) -- bocka av, ladda om, ta bort bock, bocken står kvar efter ändrade portioner -- matrisen
+- [x] `supabase/migrations/<tid>_shopping_check.sql` (`supabase migration new … < /dev/null`, `supabase migration up`) och `pnpm db:types` -- `shopping_check` enligt Boundaries, index på `(user_id, meal_plan_id)` -- AD-4, AD-8, AD-20
+- [x] `src/features/shopping/data/checks.ts` (+ `queries.ts`) -- `listChecks(planId)` för överlägget, `setCheck(planId, key)` och `clearCheck(planId, key)` -- AD-1
+- [x] `src/features/shopping/domain/compute-list.ts` (+ test) -- `overlay.checks` sätter `checked`; bock utan post ignoreras -- AD-8
+- [x] `src/features/shopping/actions/set-checked.ts` (+ test) -- `setChecked({ planId, key, checked })`: `requireUser`, `lineKeySchema`, aktuell matsedel via `mealplan`, skrivning, `revalidateFor('shopping_check')` -- AD-2, AD-22
+- [x] `src/lib/revalidate.ts` -- `shopping_check` → `/lista` -- AD-18
+- [x] `src/lib/errors.ts` -- `shopping_check_failed` ("Det gick inte att spara bocken."), `shopping_plan_changed` ("Matsedeln har bytts. Listan är uppdaterad.") -- AD-13
+- [x] `src/features/shopping/ui/` -- bocken i `ShoppingLineRow` med `useOptimistic`, genomstruken text i `ink-3`, skärmläsarnamn, "varor kvar" räknar bara poster som inte är avbockade; tryck på bocken och varunamnet är skilda tryckytor -- FR16, UX-DR9
+- [x] `tests/integration/shopping.test.ts` (utökad) -- `expectRlsIsolation('shopping_check', …)`; unik nyckel; `check` nekar felaktig nyckel; FK nekar annans matsedel; cascade när matsedeln raderas -- AD-4
+- [x] `tests/e2e/shopping.spec.ts` (utökad) -- bocka av, ladda om, ta bort bock, bocken står kvar efter ändrade portioner -- matrisen
 
 **Acceptance Criteria:**
 - Given `pnpm lint && pnpm typecheck && pnpm test && pnpm test:integration && AI_PROVIDER=mock pnpm build && CI=1 pnpm test:e2e`, when de körs, then lyckas alla.
@@ -72,7 +73,33 @@ context:
 
 ## Spec Change Log
 
+- Checken på `line_key` släpper också igenom `t:<text>`-nycklar, som infördes i 3.3 (AD-8 är ändrad). Annars går receptrader utan katalogingrediens inte att bocka av.
+- Datafunktionerna heter `listChecksIn`, `setCheckIn` och `clearCheckIn`, enligt modulens konvention med `…In(db, …)`.
+- Skärmläsarnamnet är "<namn>, <mängd>". Om posten är avbockad eller inte läses upp via `aria-checked`, enligt hur `CheckCircle` redan fungerar.
+- En bock räknas inte som en omräkning i live-regionen. Pontus egen bock ska inte annonseras som "omräknad".
+
 ## Review Triage Log
+
+Iteration 1. Granskare: Blind Hunter, Edge Case Hunter och Verification Gap.
+- **Patch:**
+  - En RPC, `set_shopping_check`, kontrollerar under låset att matsedeln är aktuell.
+  - Strängare constraint och borttaget överflödigt index.
+  - Designtest och integrationstest för alla enheter.
+  - En upprepad notis läses upp igen och försvinner bara när samma rad lyckas.
+  - Tidsgräns på 15 s.
+  - Det optimistiska läget gäller per matsedel.
+  - Om bockarna inte går att läsa visas listan ändå, men utan bockar.
+  - Bockarna läses så fort en matsedel finns.
+  - Isolerade e2e-tester.
+- **Defer:**
+  - en offlinekö (PRD F1: offline krävs inte i v1)
+  - en revalidering per serie av tryck i stället för per tryck
+  - att bockar från en annan enhet läses upp
+- **Reject:**
+  - att spara mängden som bockades (specen säger att bocken står kvar på samma nyckel, FR18)
+  - att bocken nollställs när lagret täcker raden (matrisen behåller den)
+  - hash av långa `t:`-nycklar
+  - en notis vid `unauthorized` (sidan skickar ändå till inloggningen)
 
 ## Verification
 

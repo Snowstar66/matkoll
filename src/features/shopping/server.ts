@@ -6,13 +6,18 @@ import type { PantrySnapshot } from "@/features/pantry";
 import { getPantrySnapshot, PantryDataError } from "@/features/pantry/server";
 import { getRecipesByIds, RecipeDataError } from "@/features/recipes/server";
 import { fail, ok, type Result } from "@/lib/errors";
+import { createClient } from "@/lib/supabase/server";
+import { listChecksIn } from "./data/checks";
+import { ShoppingDataError } from "./data/client";
 import { loadShoppingList, type ShoppingList } from "./data/queries";
 
 // Server-only entry (AD-1). The list is counted when it is read and never
 // stored (AD-8): from the current meal plan (mealplan), its recipes
 // (recipes), the pantry (pantry) and the catalog's names and sections
-// (catalog), each through that module's server.ts, with the signed-in user's
-// session client, so RLS limits every read to the user's own rows.
+// (catalog), each through that module's server.ts, and the plan's checks
+// (Story 3.4), with the signed-in user's session client, so RLS limits every
+// read to the user's own rows. Checking a line off is the Server Action in
+// ./actions, used by this module's own ui.
 
 export type { ShoppingList } from "./data/queries";
 
@@ -32,11 +37,27 @@ async function pantrySnapshotOrNull(): Promise<PantrySnapshot | null> {
 }
 
 /**
+ * The plan's checks, or `null` when they cannot be read (logged as
+ * `shopping_checks_unavailable`): the list is then shown without checks,
+ * and checking is off, rather than no list at all. Other errors are thrown.
+ */
+async function checksOrNull(planId: string): Promise<string[] | null> {
+  try {
+    return await listChecksIn(await createClient(), planId);
+  } catch (error) {
+    if (!(error instanceof ShoppingDataError)) throw error;
+    console.error("shopping_checks_unavailable", { reason: error.detail });
+    return null;
+  }
+}
+
+/**
  * Inköpslista's data (FR-15): the current plan's name and number of dishes,
  * each dish's title, and the list's lines from computeList, sorted by section
  * and name. For the page, inside <Suspense> (AD-18). `unauthorized` without a
  * signed-in user; `shopping_unavailable` (logged) when the plan, the recipes
- * or the catalog cannot be read. A pantry that cannot be read gives the list
+ * or the catalog cannot be read. Checks that cannot be read give the list
+ * without them and `checksUnavailable`. A pantry that cannot be read gives the list
  * with nothing taken off and `pantryUnavailable`. Other errors are thrown.
  */
 export async function getShoppingList(): Promise<Result<ShoppingList>> {
@@ -50,6 +71,7 @@ export async function getShoppingList(): Promise<Result<ShoppingList>> {
         pantry: pantrySnapshotOrNull,
         ingredientNames: getIngredientNames,
         ingredientDefaults: getIngredientDefaults,
+        checks: checksOrNull,
       }),
     );
   } catch (error) {
