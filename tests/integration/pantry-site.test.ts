@@ -75,8 +75,17 @@ function sql<Row>(statement: string): Row[] {
     encoding: "utf8",
     stdio: ["ignore", "pipe", "pipe"],
   });
-  // A statement without rows (DO) prints only its command tag.
-  return out.trimStart().startsWith("{") ? ((JSON.parse(out) as { rows?: Row[] }).rows ?? []) : [];
+  // A statement without rows (DO) prints only its command tag. The rows come as a plain JSON
+  // array, or wrapped as { rows } when the CLI detects an AI agent in its environment.
+  const text = out.trim();
+  if (!text.startsWith("[") && !text.startsWith("{")) {
+    if (/^\s*select\b/i.test(statement)) throw new Error(`supabase db query gave no JSON: ${text.slice(0, 500)}`);
+    return [];
+  }
+  const json = JSON.parse(text) as Row[] | { rows?: Row[] };
+  const rows = Array.isArray(json) ? json : json.rows;
+  if (!Array.isArray(rows)) throw new Error(`supabase db query gave no rows: ${text.slice(0, 500)}`);
+  return rows;
 }
 
 /** Runs `statements` in one transaction, checking the deferred constraints at its end, and expects SQLSTATE `code` ("none": success, committed). */
