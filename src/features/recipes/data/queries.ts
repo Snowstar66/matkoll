@@ -1,8 +1,9 @@
 import "server-only";
 import { unitSchema } from "@/features/catalog";
+import type { StatusLine } from "@/features/pantry";
 import { containsPattern } from "@/lib/like-pattern";
 import { sourceKindSchema } from "../domain/recipe-draft";
-import type { RecipeListItem } from "../domain/recipe-list";
+import type { RecipeListRow } from "../domain/recipe-list";
 import type { SavedRecipe } from "../domain/saved-recipe";
 import { RecipeDataError, type RecipesDb } from "./client";
 
@@ -76,7 +77,12 @@ export async function getRecipe(
   };
 }
 
+/** The library row's own columns. */
 const listColumns = "id, title, image_url, total_minutes, original_servings, is_favorite, created_at";
+/** A recipe line's columns for the status (pantry.recipeStatus). */
+const lineColumns = "id, ingredient_id, amount, unit, is_vague";
+
+type LineRow = { id: string; ingredient_id: string | null; amount: number | null; unit: string | null; is_vague: boolean };
 
 type ListRow = {
   id: string;
@@ -94,7 +100,22 @@ function newestFirst(a: ListRow, b: ListRow): number {
   return a.id < b.id ? -1 : a.id > b.id ? 1 : 0;
 }
 
-function toListItem(row: ListRow): RecipeListItem {
+/**
+ * A line for the status. The database's unit check equals UNITS
+ * (tests/design/recipe-checks.test.ts); should a unit still not parse, the
+ * line is logged and left out of the status (no catalog ingredient) rather
+ * than failing the whole library.
+ */
+function toStatusLine(line: LineRow): StatusLine {
+  const unit = unitSchema.nullable().safeParse(line.unit);
+  if (!unit.success) {
+    console.error("recipe_line_invalid", { reason: "unit", lineId: line.id });
+    return { id: line.id, ingredientId: null, amount: line.amount, unit: null, isVague: line.is_vague };
+  }
+  return { id: line.id, ingredientId: line.ingredient_id, amount: line.amount, unit: unit.data, isVague: line.is_vague };
+}
+
+function toListRow(row: ListRow, lines: readonly LineRow[]): RecipeListRow {
   return {
     id: row.id,
     title: row.title,
@@ -102,6 +123,7 @@ function toListItem(row: ListRow): RecipeListItem {
     totalMinutes: row.total_minutes,
     originalServings: row.original_servings,
     isFavorite: row.is_favorite,
+    lines: lines.map(toStatusLine),
   };
 }
 
@@ -124,24 +146,47 @@ async function allPages<Row>(page: (from: number, to: number) => Page<Row>): Pro
 export type ListOptions = { favoritesOnly?: boolean };
 
 /**
- * The signed-in user's recipes as library rows, newest first (the index
- * recipe (user_id, created_at desc)); only favourites with `favoritesOnly`.
+ * The signed-in user's recipes as library rows with their lines, newest first
+ * (the index recipe (user_id, created_at desc)); only favourites with
+ * `favoritesOnly`.
  * No paging for the caller in v1 (one user); the rows are fetched in pages of
  * the API's row limit. Throws RecipeDataError.
  */
-export async function listRecipes(db: RecipesDb, { favoritesOnly = false }: ListOptions = {}): Promise<RecipeListItem[]> {
+export async function listRecipes(db: RecipesDb, { favoritesOnly = false }: ListOptions = {}): Promise<RecipeListRow[]> {
+  // The lines come embedded, so the whole library is one request per page.
   const rows = await allPages((from, to) => {
-    const query = db.from("recipe").select(listColumns);
+    const query = db.from("recipe").select(`${listColumns}, lines:recipe_ingredient(${lineColumns})`);
     return (favoritesOnly ? query.eq("is_favorite", true) : query)
       .order("created_at", { ascending: false })
       .order("id")
       .range(from, to);
   });
-  return rows.map(toListItem);
+  return rows.map(({ lines, ...row }) => toListRow(row, lines));
 }
 
 /** Values per `.in(...)` filter, so a long id list never makes an over-long request URL. */
 const idChunkSize = 100;
+
+/** `values` in chunks of idChunkSize. */
+function chunked(values: readonly string[]): string[][] {
+  const chunks: string[][] = [];
+  for (let start = 0; start < values.length; start += idChunkSize) chunks.push(values.slice(start, start + idChunkSize));
+  return chunks;
+}
+
+/** The lines of the recipes `recipeIds` by recipe id, read once per chunk of ids and in pages. */
+async function linesOf(db: RecipesDb, recipeIds: readonly string[]): Promise<Map<string, LineRow[]>> {
+  const byRecipe = new Map<string, LineRow[]>(recipeIds.map((id) => [id, []]));
+  const pages = await Promise.all(
+    chunked(recipeIds).map((chunk) =>
+      allPages((from, to) =>
+        db.from("recipe_ingredient").select(`recipe_id, ${lineColumns}`).in("recipe_id", chunk).order("id").range(from, to),
+      ),
+    ),
+  );
+  for (const { recipe_id, ...line } of pages.flat()) byRecipe.get(recipe_id)?.push(line);
+  return byRecipe;
+}
 
 export type SearchOptions = ListOptions & {
   /** The search text, already normalised (lower case, single spaces). */
@@ -154,13 +199,14 @@ export type SearchOptions = ListOptions & {
  * The signed-in user's recipes whose title contains `text`, or that have a
  * line whose original text contains it or whose ingredient is one of
  * `ingredientIds`; newest first, only favourites with `favoritesOnly`. `%`,
- * `_` and `\` in the text match themselves. Text without anything to search
+ * `_` and `\` in the text match themselves. Each recipe comes with all its
+ * lines, read once for the found recipes. Text without anything to search
  * for gives no recipes. Throws RecipeDataError.
  */
 export async function searchRecipesIn(
   db: RecipesDb,
   { text, ingredientIds, favoritesOnly = false }: SearchOptions,
-): Promise<RecipeListItem[]> {
+): Promise<RecipeListRow[]> {
   const pattern = containsPattern(text);
   if (!pattern) return [];
 
@@ -177,14 +223,11 @@ export async function searchRecipesIn(
     const query = db.from("recipe").select(`${listColumns}, recipe_ingredient!inner()`);
     return favoritesOnly ? query.eq("is_favorite", true) : query;
   };
-  const ids = [...new Set(ingredientIds)];
-  const chunks: string[][] = [];
-  for (let start = 0; start < ids.length; start += idChunkSize) chunks.push(ids.slice(start, start + idChunkSize));
 
   const results = await Promise.all([
     allPages<ListRow>((from, to) => byTitle().range(from, to)),
     allPages<ListRow>((from, to) => ordered(byLines().ilike("recipe_ingredient.original_text", pattern)).range(from, to)),
-    ...chunks.map((chunk) =>
+    ...chunked([...new Set(ingredientIds)]).map((chunk) =>
       allPages<ListRow>((from, to) => ordered(byLines().in("recipe_ingredient.ingredient_id", chunk)).range(from, to)),
     ),
   ]);
@@ -196,5 +239,8 @@ export async function searchRecipesIn(
       found.set(id, { id, title, image_url, total_minutes, original_servings, is_favorite, created_at });
     }
   }
-  return [...found.values()].sort(newestFirst).map(toListItem);
+  if (found.size === 0) return [];
+  // All the found recipes' lines, read once for the status, not only the matching ones.
+  const lines = await linesOf(db, [...found.keys()]);
+  return [...found.values()].sort(newestFirst).map((row) => toListRow(row, lines.get(row.id) ?? []));
 }

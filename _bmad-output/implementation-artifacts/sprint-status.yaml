@@ -54,7 +54,7 @@ development_status:
   2-1-se-lagret-per-plats: review
   2-2-lägga-till-och-ändra-lagervaror: review
   2-3-ta-bort-lagervara-med-ångra: review
-  2-4-lagningsstatus-i-receptbiblioteket: backlog
+  2-4-lagningsstatus-i-receptbiblioteket: review
   epic-2-retrospective: optional
 
   epic-3: backlog

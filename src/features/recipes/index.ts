@@ -50,7 +50,9 @@ export {
   recipeMetaText,
   parseRecipeFilter,
   filterRecipes,
+  withStatus,
   type RecipeListItem,
+  type RecipeListRow,
   type RecipeFilter,
   type FavoriteChange,
 } from "./domain/recipe-list";

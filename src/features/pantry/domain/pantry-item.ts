@@ -43,6 +43,15 @@ const unitOrder = (unit: Unit) => UNITS.indexOf(unit);
 const sumPrecision = 1e6;
 
 /**
+ * A sum of amounts rounded to 1e-6, which drops binary noise (0.1 + 0.2 is
+ * 0.3). The snapshot and aggregateNeeds round alike, so their sums compare
+ * exactly; rounding for display is formatQuantity's alone.
+ */
+export function roundSum(amount: number): number {
+  return Math.round(amount * sumPrecision) / sumPrecision;
+}
+
+/**
  * Sums `rows` per ingredient and unit over all locations: Mjölk 1 l in Kyl and
  * 1 l in Frys is `{ unlimited: false, amounts: [{ unit: "l", amount: 2 }] }`.
  * An ingredient with a row without amount is `unlimited`; its rows with an
@@ -67,7 +76,7 @@ export function toSnapshot(rows: readonly PantryAmountRow[]): PantrySnapshot {
   const snapshot: PantrySnapshot = new Map();
   for (const [ingredientId, { unlimited, byUnit }] of sums) {
     const amounts = [...byUnit]
-      .map(([unit, amount]) => ({ unit, amount: Math.round(amount * sumPrecision) / sumPrecision }))
+      .map(([unit, amount]) => ({ unit, amount: roundSum(amount) }))
       .sort((a, b) => unitOrder(a.unit) - unitOrder(b.unit));
     snapshot.set(ingredientId, { unlimited, amounts });
   }

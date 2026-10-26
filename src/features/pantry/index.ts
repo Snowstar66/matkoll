@@ -22,3 +22,13 @@ export {
   type PantryItemSet,
   type PantryRow,
 } from "./domain/pantry-item-form";
+export { aggregateNeeds, needKey, lineNeedKey, type Need, type NeedLine } from "./domain/aggregate-needs";
+export { coverage, isShort, atHomeText, type Coverage } from "./domain/coverage";
+export {
+  recipeStatus,
+  recipeStatusText,
+  type LineCoverage,
+  type RecipeStatus,
+  type StatusLine,
+  type StatusRecipe,
+} from "./domain/recipe-status";

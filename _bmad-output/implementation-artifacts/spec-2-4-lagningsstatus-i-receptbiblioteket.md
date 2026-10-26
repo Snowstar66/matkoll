@@ -2,9 +2,10 @@
 title: 'Story 2.4: Lagningsstatus i receptbiblioteket'
 type: 'feature'
 created: '2026-10-26'
-status: 'draft'
+status: 'done'
 route: 'dispatch'
-review_loop_iteration: 0
+review_loop_iteration: 1
+baseline_commit: '0bf04186387f5e26094e8dc4cfbab299e844cd45'
 context:
   - '{project-root}/_bmad-output/implementation-artifacts/epic-2-context.md'
   - '{project-root}/_bmad-output/planning-artifacts/architecture/architecture-Matkoll-2026-10-25/ARCHITECTURE-SPINE.md'
@@ -52,24 +53,54 @@ context:
 ## Tasks & Acceptance
 
 **Execution:**
-- [ ] `src/features/pantry/domain/coverage.ts`, `aggregate-needs.ts`, `recipe-status.ts` (+ tester) -- enligt Boundaries och matrisen; tester för varje utfall, summering, vaga och okopplade rader, obegränsad -- AD-7
-- [ ] `src/features/recipes/data/queries.ts` -- listan och sökningen hämtar receptraderna (ingredientId, amount, unit, isVague) per recept i samma frågor eller en extra fråga, utan att bryta svarstiden -- NFR7
-- [ ] `src/features/recipes/server.ts` eller sidan -- räknar `recipeStatus` med `getPantrySnapshot()` per förfrågan och skickar status till listan och vyn -- AD-1
-- [ ] `src/features/recipes/ui/recipe-row.tsx`, `recipe-view.tsx` -- `StatusBadge` med "Kan lagas nu"/"Saknar N varor"/"Saknar 1 vara"; i vyn bock eller ring per rad, "hemma: …" vid annan enhet, neutral markering för okopplad rad -- UX-DR8
-- [ ] `docs/beslutslogg.md` -- beslutet om okopplade rader -- spårbarhet
-- [ ] `tests/integration/recipes.test.ts` eller `pantry.test.ts` -- status för riktiga recept mot riktigt lager; 200 recept med status inom tidsgränsen -- NFR7
-- [ ] `tests/e2e/pantry-status.spec.ts` -- egen e2e-användare: spara ett recept, se "Saknar N varor", lägg till varor i Hemma, se "Kan lagas nu" i biblioteket och bockar i receptvyn -- matrisen
+- [x] `src/features/pantry/domain/coverage.ts`, `aggregate-needs.ts`, `recipe-status.ts` (+ tester) -- enligt Boundaries och matrisen; tester för varje utfall, summering, vaga och okopplade rader, obegränsad -- AD-7
+- [x] `src/features/recipes/data/queries.ts` -- listan och sökningen hämtar receptraderna (ingredientId, amount, unit, isVague) per recept i samma frågor eller en extra fråga, utan att bryta svarstiden -- NFR7
+- [x] `src/features/recipes/server.ts` eller sidan -- räknar `recipeStatus` med `getPantrySnapshot()` per förfrågan och skickar status till listan och vyn -- AD-1
+- [x] `src/features/recipes/ui/recipe-row.tsx`, `recipe-view.tsx` -- `StatusBadge` med "Kan lagas nu"/"Saknar N varor"/"Saknar 1 vara"; i vyn bock eller ring per rad, "hemma: …" vid annan enhet, neutral markering för okopplad rad -- UX-DR8
+- [x] `docs/beslutslogg.md` -- beslutet om okopplade rader -- spårbarhet
+- [x] `tests/integration/recipes.test.ts` eller `pantry.test.ts` -- status för riktiga recept mot riktigt lager; 200 recept med status inom tidsgränsen -- NFR7
+- [x] `tests/e2e/pantry-status.spec.ts` -- egen e2e-användare: spara ett recept, se "Saknar N varor", lägg till varor i Hemma, se "Kan lagas nu" i biblioteket och bockar i receptvyn -- matrisen
 
 **Acceptance Criteria:**
 - Given `pnpm lint && pnpm typecheck && pnpm test && pnpm test:integration && AI_PROVIDER=mock pnpm build && CI=1 pnpm test:e2e`, when de körs, then lyckas alla.
 
 ## Implementation Notes
 
+- Ett recept vars enda saknade rader saknar katalogingrediens, eller som inte har några rader alls, visar "Kan lagas nu". Det följer av beslutet om okopplade rader.
+- Två rader som summeras till samma behov visar båda det summerade resultatet.
+- `recipeStatus` räknar om portioner till en faktor (AD-7). Biblioteket använder faktorn 1.
+- Skärmläsarnamnet "jämförs inte med lagret" för okopplade rader är ny text som inte står i UX-dokumenten.
+
 - En receptrad med mängd men utan enhet jämförs som `st` (beslut 2026-10-26).
 
 ## Spec Change Log
 
 ## Review Triage Log
+
+Iteration 1. Granskare: Blind Hunter, Edge Case Hunter och Verification Gap.
+
+**Patch:**
+- Fel i lagret:
+  - Om lagret inte går att läsa visas biblioteket, sökningen och receptvyn utan status, i stället för en felsida.
+- Läsning och prestanda:
+  - Receptvyn hämtar recept och lager parallellt.
+  - Sökningen läser raderna en gång för de unika träffarna och hoppar över lagret när det inte finns några träffar.
+- Robusthet:
+  - Ogiltiga portioner ger faktorn 1.
+  - Täckningen kopplas till rad-id, inte till ordningen.
+  - En rad med okänd enhet fäller inte hela listan.
+- Visning:
+  - Delvis täckta rader visar "hemma: …".
+  - Rader utan ingrediensnamn visar ändå mängd och färg.
+- Nya tester:
+  - badgefärgerna
+  - e2e efter att en vara tagits bort och efter att ett recept ändrats
+  - e2e-seeden använder receptets egna ingrediens-id
+
+**Reject:**
+- en egen markering för vaga och okopplade rader eller rader i annan enhet, eftersom matrisen föreskriver ring och "saknas"
+- en rad som inte är vag men saknar mängd, eftersom en DB-check gör den omöjlig
+- mängden 0, eftersom DB-checkar kräver mängd > 0
 
 ## Verification
 

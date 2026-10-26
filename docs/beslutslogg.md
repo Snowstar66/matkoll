@@ -2,6 +2,12 @@
 
 Beslut som fattats under bygget: vad, varför och vilka alternativ som fanns. Nyaste överst.
 
+## 2026-10-26 – Receptrader utan katalogingrediens i lagningsstatus
+
+- **Beslut:** en receptrad som saknar katalogingrediens (`ingredientId = null`) jämförs inte med lagret och räknas inte i N i "Saknar N varor". Receptvyn visar raden med originaltexten och en neutral markering, ett grått streck som skärmläsaren läser som "jämförs inte med lagret", i stället för bock eller ring. Ett recept vars övriga rader finns hemma visas som "Kan lagas nu" (Story 2.4).
+- **Varför:** lagervaror pekar alltid på en katalogingrediens, så en rad utan koppling har inget att jämföras med. Om raden räknades som saknad skulle receptet visa "Saknar 1 vara" som Pontus aldrig kan åtgärda i Hemma.
+- **Alternativ:** räkna raden som saknad, så att receptet aldrig blir "Kan lagas nu" förrän raden kopplas; eller jämföra originaltexten med lagervarornas namn, vilket bryter mot att bara katalogen matchar (AD-6).
+
 ## 2026-10-26 – Mängd utan enhet räknas som styck
 
 - **Beslut:** en mängd utan enhet, till exempel receptraden "1 purjolök", räknas som `st`. I lagret får en mängd alltid en enhet: utan vald enhet sparas `st`. Lagningsstatus och inköpslistan jämför receptrader utan enhet som `st`, och listnyckeln blir `r:<id>:st`.

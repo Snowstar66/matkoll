@@ -6,15 +6,18 @@ import { requireUser } from "@/features/auth/server";
 import { fail, ok, type Result } from "@/lib/errors";
 import { createClient } from "@/lib/supabase/server";
 import { RecipeDataError } from "../data/client";
+import { pantrySnapshotOrNull } from "../data/pantry-snapshot";
 import { searchRecipesIn } from "../data/queries";
-import { recipeSearchSchema, type RecipeListItem } from "../domain/recipe-list";
+import { recipeSearchSchema, withStatus, type RecipeListItem } from "../domain/recipe-list";
 
 /**
  * Searches the signed-in user's recipe library while Pontus types (AD-1: a
  * read action, allowed for search*): by title, by the lines' original text,
  * and by the catalog ingredients whose name or synonym contains the text.
- * Newest first. The library filters Favoriter itself, and shows its server
- * list for empty text; empty text gives no recipes here. Fails with
+ * Newest first, each with its status against the pantry, as on the server
+ * list (none when the pantry cannot be read; the pantry is not read when
+ * nothing is found). The library filters Favoriter itself, and shows its
+ * server list for empty text; empty text gives no recipes here. Fails with
  * `unauthorized`, `validation` or `recipe_search_failed`.
  */
 export async function searchRecipes(query: string): Promise<Result<RecipeListItem[]>> {
@@ -26,7 +29,10 @@ export async function searchRecipes(query: string): Promise<Result<RecipeListIte
 
   try {
     const ingredientIds = await findIngredientIds(text);
-    return ok(await searchRecipesIn(await createClient(), { text, ingredientIds }));
+    const rows = await searchRecipesIn(await createClient(), { text, ingredientIds });
+    if (rows.length === 0) return ok([]);
+    // A pantry that cannot be read gives the recipes without status, never a failed search.
+    return ok(withStatus(rows, await pantrySnapshotOrNull()));
   } catch (error) {
     if (error instanceof CatalogDataError) {
       console.error("recipe_search_failed", { reason: `catalog_${error.code}` });
