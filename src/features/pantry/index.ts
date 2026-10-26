@@ -10,7 +10,16 @@ export {
   type PantryStock,
   type PantrySnapshot,
 } from "./domain/pantry-item";
-export { placeSlug, placeFromSlug, itemCountText, emptyPlaceText, savedItemText, removedItemsText } from "./domain/places";
+export {
+  placeSlug,
+  placeFromSlug,
+  itemCountText,
+  emptyPlaceText,
+  savedItemText,
+  removedItemsText,
+  confirmedItemsText,
+  rejectedItemText,
+} from "./domain/places";
 export {
   analyzeResultSchema,
   pantrySuggestionSchema,
@@ -26,7 +35,19 @@ export {
   analyzeErrorMessage,
   analyzeRetryCodes,
   maxPantrySuggestions,
+  confirmSuggestionsSchema,
+  mergeConfirmations,
+  confirmItemFromSuggestion,
+  confirmItemFromForm,
+  maxConfirmItems,
+  mergePantrySets,
+  withConfirmedStock,
+  isConfirmable,
+  suggestionInvalidText,
+  suggestionGoneText,
   type AiPantryItemLike,
+  type ConfirmItem,
+  type ConfirmItemInput,
   type AnalyzeResult,
   type DroppedItems,
   type PantrySuggestion,

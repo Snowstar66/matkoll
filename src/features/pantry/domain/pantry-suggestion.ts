@@ -15,7 +15,14 @@ import {
 } from "@/features/catalog";
 import type { AppError, ErrorCode } from "@/lib/errors";
 import { roundSum, type PantryAmountRow } from "./pantry-item";
-import { collapseName, maxIngredientNameLength, maxPantryAmount, unitWithoutUnit } from "./pantry-item-form";
+import {
+  collapseName,
+  maxIngredientNameLength,
+  maxPantryAmount,
+  unitWithoutUnit,
+  type PantryItemForm,
+  type PantryItemSet,
+} from "./pantry-item-form";
 import { definite } from "./places";
 
 // Lagerförslag (FR-24, AD-6, AD-12, AD-19): what a photo of a place at home
@@ -342,3 +349,187 @@ export const analyzeRetryCodes: ReadonlySet<ErrorCode> = new Set<ErrorCode>([
   "ai_rejected",
   "catalog_unavailable",
 ]);
+
+/** At most this many items in one confirmation: more than one photo's suggestions, never a whole pantry. */
+export const maxConfirmItems = 40;
+
+/**
+ * The catalog ingredient of a confirmed suggestion: one in the catalog (its
+ * id is checked against the user's catalog by commitIngredients), or a new
+ * one, created only now (AD-6). A new name is collapsed to single spaces,
+ * must have something to normalise and has at most maxIngredientNameLength
+ * characters. `proposalId` is the suggestion's (6.1), taken but not needed:
+ * the same new name is one ingredient anyway.
+ */
+export const confirmIngredientSchema = z.discriminatedUnion("kind", [
+  z.object({ kind: z.literal("existing"), ingredientId: z.uuid() }),
+  z.object({
+    kind: z.literal("new"),
+    proposalId: z.string().min(1).max(40).optional(),
+    name: z
+      .string()
+      .max(maxIngredientNameLength * 2)
+      .transform(collapseName)
+      .refine((name) => normalizeIngredientText(name) !== "")
+      .refine((name) => name.length <= maxIngredientNameLength),
+    section: sectionSchema,
+    /** The new ingredient's default place. */
+    location: locationSchema,
+    defaultUnit: unitSchema.nullable(),
+  }),
+]);
+export type ConfirmIngredient = z.infer<typeof confirmIngredientSchema>;
+
+/**
+ * One confirmed suggestion, as confirmPantrySuggestions takes it: the
+ * ingredient, the place, and an amount below maxPantryAmount with its unit,
+ * or neither (unlimited).
+ */
+export const confirmItemSchema = z
+  .object({
+    ingredient: confirmIngredientSchema,
+    location: locationSchema,
+    amount: z.number().positive().lt(maxPantryAmount).nullable(),
+    unit: unitSchema.nullable(),
+  })
+  .refine(amountHasUnit, { path: ["unit"] });
+export type ConfirmItem = z.infer<typeof confirmItemSchema>;
+export type ConfirmItemInput = z.input<typeof confirmItemSchema>;
+
+/** What confirmPantrySuggestions takes: 1–40 items. */
+export const confirmSuggestionsSchema = z.array(confirmItemSchema).min(1).max(maxConfirmItems);
+
+/** The ingredient's key: its id, or its new name normalised (commitIngredients makes one ingredient of a name). */
+const ingredientKey = (ingredient: ConfirmIngredient) =>
+  ingredient.kind === "existing" ? `id:${ingredient.ingredientId}` : `new:${normalizeIngredientText(ingredient.name)}`;
+
+/**
+ * The items as set_pantry_items can take them in one call (AD-19), in the
+ * order they first came:
+ * - one item per ingredient (id, or normalised new name), place and unit,
+ *   with the amounts summed and kept below maxPantryAmount (999 999,999);
+ * - an ingredient and place with an amount in some item drop the items
+ *   without amount, since one place has it either unlimited or with amounts,
+ *   and set_pantry_items would let the later item remove the earlier;
+ * - a new ingredient keeps its first item's name, section, default place and
+ *   unit, so every item creates the same one.
+ */
+export function mergeConfirmations(items: readonly ConfirmItem[]): ConfirmItem[] {
+  const ingredients = new Map<string, ConfirmIngredient>();
+  const withAmount = new Set<string>();
+  for (const item of items) {
+    const key = ingredientKey(item.ingredient);
+    if (!ingredients.has(key)) ingredients.set(key, item.ingredient);
+    if (item.amount !== null) withAmount.add(`${key}|${item.location}`);
+  }
+  const merged = new Map<string, ConfirmItem>();
+  for (const item of items) {
+    const key = ingredientKey(item.ingredient);
+    const place = `${key}|${item.location}`;
+    if (item.amount === null && withAmount.has(place)) continue;
+    const at = `${place}|${item.unit ?? ""}`;
+    const earlier = merged.get(at);
+    if (earlier && earlier.amount !== null && item.amount !== null) {
+      merged.set(at, { ...earlier, amount: clampAmount(earlier.amount + item.amount) });
+    } else if (!earlier) {
+      merged.set(at, { ...item, ingredient: ingredients.get(key)! });
+    }
+  }
+  return [...merged.values()];
+}
+
+/** A suggestion as it is confirmed: its ingredient, place, amount and unit. */
+export function confirmItemFromSuggestion(suggestion: PantrySuggestion): ConfirmItemInput {
+  const { ingredient, location, amount, unit } = suggestion;
+  return { ingredient, location, amount, unit };
+}
+
+/**
+ * A suggestion corrected in the sheet Lagervara, as it is confirmed: the
+ * form's ingredient, place, amount and unit. A new ingredient gets the form's
+ * place as its default place, unless it is still the suggestion's own new
+ * ingredient (the same name): then it keeps the suggestion's proposal id,
+ * default place and unit, with the form's section, so Rätta and then
+ * Bekräfta create the same catalog ingredient as Bekräfta alone.
+ */
+export function confirmItemFromForm(form: PantryItemForm, suggestion?: PantrySuggestion): ConfirmItemInput {
+  const { ingredient, location, amount, unit } = form;
+  const own = suggestion?.ingredient;
+  let confirmed: ConfirmItemInput["ingredient"];
+  if (ingredient.kind === "existing") {
+    confirmed = { kind: "existing", ingredientId: ingredient.ingredientId };
+  } else if (own?.kind === "new" && collapseName(own.name) === collapseName(ingredient.name)) {
+    confirmed = { ...own, section: ingredient.section };
+  } else {
+    confirmed = { kind: "new", name: ingredient.name, section: ingredient.section, location, defaultUnit: ingredient.defaultUnit };
+  }
+  return { ingredient: confirmed, location, amount, unit };
+}
+
+/**
+ * Items for setPantryItems once every ingredient has its id: merged again on
+ * (ingredient id, place, unit) as mergeConfirmations does, since a new name
+ * and an existing id can turn out to be the same ingredient ("gurka").
+ */
+export function mergePantrySets(items: readonly PantryItemSet[]): PantryItemSet[] {
+  return mergeConfirmations(
+    items.map(({ ingredientId, location, amount, unit }) => ({
+      ingredient: { kind: "existing", ingredientId },
+      location,
+      amount,
+      unit,
+    })),
+  ).flatMap(({ ingredient, location, amount, unit }) =>
+    ingredient.kind === "existing" ? [{ ingredientId: ingredient.ingredientId, location, amount, unit }] : [],
+  );
+}
+
+/**
+ * The suggestions left after a confirmation, with "I kylen nu" as the place
+ * has it now: for each confirmed item (merged as the server merges them), an
+ * amount replaces the same unit's and makes the ingredient no longer
+ * unlimited there, and an unlimited item leaves only "finns hemma". Matched
+ * by catalog id, or by the new ingredient's normalised name, and the place.
+ * Items that would not pass the schema change nothing.
+ */
+export function withConfirmedStock(
+  suggestions: readonly PantrySuggestion[],
+  confirmed: readonly ConfirmItemInput[],
+): PantrySuggestion[] {
+  const valid = confirmed.flatMap((item) => {
+    const parsed = confirmItemSchema.safeParse(item);
+    return parsed.success ? [parsed.data] : [];
+  });
+  const items = mergeConfirmations(valid);
+  if (items.length === 0) return [...suggestions];
+  return suggestions.map((suggestion) => {
+    const key = ingredientKey(suggestion.ingredient);
+    const mine = items.filter((item) => ingredientKey(item.ingredient) === key && item.location === suggestion.location);
+    if (mine.length === 0) return suggestion;
+    let current: PlaceStock = suggestion.current ?? { unlimited: false, amounts: [] };
+    for (const { amount, unit } of mine) {
+      if (amount === null || unit === null) {
+        current = { unlimited: true, amounts: [] };
+      } else {
+        current = {
+          unlimited: false,
+          amounts: [...current.amounts.filter((other) => other.unit !== unit), { amount, unit }].sort(
+            (a, b) => unitOrder(a.unit) - unitOrder(b.unit),
+          ),
+        };
+      }
+    }
+    return { ...suggestion, current };
+  });
+}
+
+/** On a card whose suggestion cannot be confirmed as it is; "Bekräfta alla" leaves it out. */
+export const suggestionInvalidText = "Förslaget går inte att spara som det är. Rätta eller avvisa det.";
+
+/** When the sheet's suggestion was replaced by a newer photo's, or is gone, before Bekräfta or Avvisa. */
+export const suggestionGoneText = "Förslaget finns inte längre.";
+
+/** Whether a suggestion can be confirmed as it is (confirmItemSchema). */
+export function isConfirmable(suggestion: PantrySuggestion): boolean {
+  return confirmItemSchema.safeParse(confirmItemFromSuggestion(suggestion)).success;
+}

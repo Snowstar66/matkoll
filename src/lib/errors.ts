@@ -34,6 +34,10 @@ export const errorMessages = {
   // "Lägg i lagret" (Story 3.7) before or while the pantry is written: nothing
   // is added, and the checks stay.
   pantry_add_failed: "Det gick inte att lägga varorna i lagret. Försök igen.",
+  // Confirming lagerförslag (Story 6.2): the catalog or the pantry refused.
+  // The suggestions stay; new catalog ingredients may stay too, and trying
+  // again uses them.
+  pantry_confirm_failed: "Det gick inte att lägga förslagen i lagret. Försök igen.",
   // Matsedel (Story 3.1). After failed servings the selector shows the saved
   // value again; after a failed remove the dish is back on the plan.
   mealplan_unavailable: "Det gick inte att läsa matsedeln. Försök igen.",

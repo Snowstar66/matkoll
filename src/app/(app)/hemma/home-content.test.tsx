@@ -23,6 +23,10 @@ vi.mock("@/features/pantry/actions/search-ingredients", () => ({ searchPantryIng
 vi.mock("next/navigation", () => ({ useRouter: () => ({ refresh: vi.fn() }) }));
 vi.mock("@/features/pantry/actions/remove-pantry-item", () => ({ removePantryItem: vi.fn() }));
 vi.mock("@/features/pantry/actions/restore-pantry-item", () => ({ restorePantryItem: vi.fn() }));
+const confirmPantrySuggestions = vi.fn();
+vi.mock("@/features/pantry/actions/confirm-pantry-suggestions", () => ({
+  confirmPantrySuggestions: (...args: unknown[]) => confirmPantrySuggestions(...args),
+}));
 
 // The camera's analysis, answered by the test.
 let answers: ((result: AiCallResult<unknown>) => void)[] = [];
@@ -88,7 +92,7 @@ describe("HomeContent", () => {
     expect(screen.getByRole("button", { name: "Fotografera frysen" })).toBeInTheDocument();
   });
 
-  it("shows the camera's suggestions under the notice when the pantry cannot be read", async () => {
+  it("shows the camera's suggestions with their buttons under the notice when the pantry cannot be read", async () => {
     vi.mocked(countPantryItems).mockResolvedValue({ Kyl: 0, Frys: 0, Skafferi: 0 });
     vi.mocked(listPantry).mockRejectedValue(new PantryDataError("query_failed 500"));
     render(await HomeContent({ location: "Kyl", next: "/hemma" }));
@@ -110,6 +114,16 @@ describe("HomeContent", () => {
     expect(within(section).getByTestId("pantry-suggestion")).toHaveTextContent("gurkaNy2 st · Kyl");
     const notice = screen.getByRole("alert");
     expect(notice.compareDocumentPosition(section) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
+    for (const name of ["Bekräfta alla", "Bekräfta gurka", "Rätta gurka", "Avvisa gurka"]) {
+      expect(within(section).getByRole("button", { name })).toBeEnabled();
+    }
+
+    // Confirming still works: the suggestion goes, and the notice stays.
+    confirmPantrySuggestions.mockResolvedValue(ok({ count: 1 }));
+    await act(async () => fireEvent.click(within(section).getByRole("button", { name: "Bekräfta gurka" })));
+    expect(confirmPantrySuggestions).toHaveBeenCalledTimes(1);
+    await waitFor(() => expect(screen.queryByRole("region")).toBeNull());
+    expect(screen.getByRole("alert")).toHaveTextContent(unavailable);
   });
 
   it("shows a notice when the catalog's names cannot be read, and logs code and detail", async () => {

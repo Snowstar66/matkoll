@@ -17,7 +17,10 @@ export const metadata: Metadata = { title: "Hemma" };
 // Lagervara (Story 2.2); a new item starts in the chosen location. A swipe on
 // a row or "Ta bort" in the sheet removes an item, with "Ångra" (Story 2.3).
 // The camera button under the cards photographs the chosen location and shows
-// lagerförslag, which nothing saves yet (Story 6.1).
+// lagerförslag (Story 6.1); each is saved only when Pontus confirms it, or
+// corrects it in the sheet Lagervara and confirms it there, and rejected ones
+// are never saved (Story 6.2). The suggestions' provider is above the sheet's,
+// which takes its "Bekräfta" and "Avvisa" from it.
 export default function HomePage({ searchParams }: PageProps<"/hemma">) {
   return (
     <Suspense

@@ -7,11 +7,18 @@ import {
   analyzeResultSchema,
   analyzeRetryCodes,
   cameraButtonText,
+  confirmItemFromForm,
+  confirmItemFromSuggestion,
+  confirmSuggestionsSchema,
   currentAmountText,
   isUsableNewName,
   maxPantrySuggestions,
   maxSuggestionAmount,
+  isConfirmable,
+  mergeConfirmations,
+  mergePantrySets,
   noSuggestionsText,
+  withConfirmedStock,
   pantrySuggestionSchema,
   suggestionAmountText,
   suggestionsArrivedText,
@@ -19,8 +26,11 @@ import {
   toPantrySuggestions,
   unreadableItemsText,
   type AiPantryItemLike,
+  type ConfirmItem,
+  type ConfirmItemInput,
   type PantrySuggestion,
 } from "./pantry-suggestion";
+import { pantryItemFormSchema, type PantryItemFormInput } from "./pantry-item-form";
 
 const id = (n: number) => `6f1c1b7e-3c1a-4c55-9a59-0f3f2b8f2a0${n}`;
 const mjolk = id(1);
@@ -341,5 +351,257 @@ describe("texts", () => {
     expect([...analyzeRetryCodes].sort()).toEqual(["ai_invalid", "ai_rejected", "ai_unavailable", "catalog_unavailable"]);
     expect(analyzeRetryCodes.has("image_unsupported")).toBe(false);
     expect(analyzeRetryCodes.has("image_too_large")).toBe(false);
+  });
+});
+
+describe("confirmSuggestionsSchema", () => {
+  const existing = (change: Partial<ConfirmItemInput> = {}): ConfirmItemInput => ({
+    ingredient: { kind: "existing", ingredientId: mjolk },
+    location: "Kyl",
+    amount: 1,
+    unit: "förp",
+    ...change,
+  });
+  const fresh = (name: string): ConfirmItemInput => ({
+    ingredient: { kind: "new", proposalId: "n1", name, section: "Mejeri", location: "Kyl", defaultUnit: "st" },
+    location: "Kyl",
+    amount: 6,
+    unit: "st",
+  });
+  const parse = (items: unknown) => confirmSuggestionsSchema.safeParse(items);
+
+  it("takes 1 to 40 items, unlimited ones and amounts just below 1 000 000", () => {
+    expect(parse([existing()]).success).toBe(true);
+    expect(parse(Array.from({ length: 40 }, () => existing())).success).toBe(true);
+    expect(parse([existing({ amount: null, unit: null })]).success).toBe(true);
+    expect(parse([existing({ amount: 999_999.999 })]).success).toBe(true);
+    expect(parse([]).success).toBe(false);
+    expect(parse(Array.from({ length: 41 }, () => existing())).success).toBe(false);
+  });
+
+  it("takes a new ingredient with or without its proposal id, and collapses its name", () => {
+    const parsed = parse([fresh("  gul   lök ")]);
+    expect(parsed.success && parsed.data[0].ingredient).toEqual({
+      kind: "new",
+      proposalId: "n1",
+      name: "gul lök",
+      section: "Mejeri",
+      location: "Kyl",
+      defaultUnit: "st",
+    });
+    const withoutId = { ...(fresh("ägg").ingredient as Extract<ConfirmItemInput["ingredient"], { kind: "new" }>), proposalId: undefined };
+    expect(parse([{ ...fresh("ägg"), ingredient: withoutId }]).success).toBe(true);
+    expect(parse([fresh("a".repeat(100))]).success).toBe(true);
+  });
+
+  it.each([
+    ["an amount without unit", existing({ unit: null })],
+    ["a unit without amount", existing({ amount: null })],
+    ["a zero amount", existing({ amount: 0 })],
+    ["a negative amount", existing({ amount: -2 })],
+    ["an amount of 1 000 000", existing({ amount: 1_000_000 })],
+    ["an unknown unit", existing({ unit: "tub" as never })],
+    ["an unknown place", existing({ location: "Källare" as never })],
+    ["an id that is not a uuid", existing({ ingredient: { kind: "existing", ingredientId: "mjölk" } })],
+    ["a new name with nothing to store", fresh("!!!")],
+    ["a new name over 100 characters", fresh("a".repeat(101))],
+    ["an empty new name", fresh("   ")],
+  ])("refuses %s", (_name, item) => {
+    expect(parse([item]).success).toBe(false);
+  });
+});
+
+describe("mergeConfirmations", () => {
+  const fresh = (name: string, section: "Mejeri" | "Övrigt" = "Mejeri", defaultUnit: "st" | "förp" | null = "st") =>
+    ({ kind: "new", name, section, location: "Kyl", defaultUnit }) as const;
+  const at = (ingredient: ConfirmItem["ingredient"], amount: number | null, unit: ConfirmItem["unit"], location: ConfirmItem["location"] = "Kyl"): ConfirmItem => ({
+    ingredient,
+    location,
+    amount,
+    unit,
+  });
+  const mjolkIngredient = { kind: "existing", ingredientId: mjolk } as const;
+  const smorIngredient = { kind: "existing", ingredientId: smor } as const;
+
+  it("keeps items that differ in ingredient, place or unit, in their order", () => {
+    const items = [
+      at(smorIngredient, null, null),
+      at(mjolkIngredient, 1, "förp"),
+      at(mjolkIngredient, 1, "l"),
+      at(mjolkIngredient, 2, "förp", "Frys"),
+      at(fresh("ägg"), 6, "st"),
+    ];
+    expect(mergeConfirmations(items)).toEqual(items);
+  });
+
+  it("sums the same ingredient, place and unit, below 1 000 000", () => {
+    expect(mergeConfirmations([at(mjolkIngredient, 1, "förp"), at(mjolkIngredient, 1.5, "förp")])).toEqual([
+      at(mjolkIngredient, 2.5, "förp"),
+    ]);
+    expect(mergeConfirmations([at(mjolkIngredient, 0.1, "l"), at(mjolkIngredient, 0.2, "l")])).toEqual([at(mjolkIngredient, 0.3, "l")]);
+    expect(mergeConfirmations([at(mjolkIngredient, 999_999, "förp"), at(mjolkIngredient, 999_999, "förp")])).toEqual([
+      at(mjolkIngredient, maxSuggestionAmount, "förp"),
+    ]);
+  });
+
+  it("never mixes unlimited and amounts for an ingredient in a place: the amounts win", () => {
+    expect(
+      mergeConfirmations([at(mjolkIngredient, null, null), at(mjolkIngredient, 2, "förp"), at(mjolkIngredient, null, null)]),
+    ).toEqual([at(mjolkIngredient, 2, "förp")]);
+    // In another place the unlimited item stays.
+    expect(mergeConfirmations([at(mjolkIngredient, null, null, "Frys"), at(mjolkIngredient, 2, "förp")])).toEqual([
+      at(mjolkIngredient, null, null, "Frys"),
+      at(mjolkIngredient, 2, "förp"),
+    ]);
+    expect(mergeConfirmations([at(smorIngredient, null, null), at(smorIngredient, null, null)])).toEqual([at(smorIngredient, null, null)]);
+  });
+
+  it("makes new ingredients with the same normalised name one, keeping the first one's name, section and unit", () => {
+    expect(
+      mergeConfirmations([at(fresh("Ägg", "Mejeri", "st"), 6, "st"), at(fresh("ägg", "Övrigt", null), 4, "st"), at(fresh("ägg", "Övrigt", null), 1, "förp")]),
+    ).toEqual([at(fresh("Ägg", "Mejeri", "st"), 10, "st"), at(fresh("Ägg", "Mejeri", "st"), 1, "förp")]);
+  });
+
+  it("gives nothing for nothing", () => {
+    expect(mergeConfirmations([])).toEqual([]);
+  });
+});
+
+describe("confirmItemFromSuggestion and confirmItemFromForm", () => {
+  it("confirms a suggestion as it is: ingredient, place, amount and unit", () => {
+    const suggestion: PantrySuggestion = {
+      id: "s1",
+      name: "ägg",
+      ingredient: { kind: "new", proposalId: "n1", name: "ägg", section: "Mejeri", location: "Kyl", defaultUnit: "st" },
+      location: "Kyl",
+      amount: 6,
+      unit: "st",
+      current: null,
+    };
+    expect(confirmItemFromSuggestion(suggestion)).toEqual({
+      ingredient: suggestion.ingredient,
+      location: "Kyl",
+      amount: 6,
+      unit: "st",
+    });
+    expect(confirmSuggestionsSchema.safeParse([confirmItemFromSuggestion(suggestion)]).success).toBe(true);
+  });
+
+  const form = (input: PantryItemFormInput) => pantryItemFormSchema.parse(input);
+
+  it("confirms the sheet's form, a new ingredient with the form's place as its default place", () => {
+    const corrected = form({
+      ingredient: { kind: "new", name: "matlagningsgrädde", section: "Mejeri", location: "Kyl" },
+      amount: "2",
+      unit: "dl",
+      location: "Frys",
+      replaceId: null,
+    });
+    expect(confirmItemFromForm(corrected)).toEqual({
+      ingredient: { kind: "new", name: "matlagningsgrädde", section: "Mejeri", location: "Frys", defaultUnit: "dl" },
+      location: "Frys",
+      amount: 2,
+      unit: "dl",
+    });
+  });
+
+  it("confirms an existing ingredient from the form, unlimited without an amount and in st without a unit", () => {
+    const base = { ingredient: { kind: "existing", ingredientId: mjolk }, location: "Kyl", replaceId: null } as const;
+    expect(confirmItemFromForm(form({ ...base, amount: "", unit: "förp" }))).toEqual({
+      ingredient: { kind: "existing", ingredientId: mjolk },
+      location: "Kyl",
+      amount: null,
+      unit: null,
+    });
+    expect(confirmItemFromForm(form({ ...base, amount: "1,5", unit: "" }))).toMatchObject({ amount: 1.5, unit: "st" });
+  });
+});
+
+describe("review patches", () => {
+  const form = (input: PantryItemFormInput) => pantryItemFormSchema.parse(input);
+  const gurka: PantrySuggestion = {
+    id: "s1",
+    name: "gurka",
+    ingredient: { kind: "new", proposalId: "n1", name: "gurka", section: "Frukt och grönt", location: "Kyl", defaultUnit: "st" },
+    location: "Kyl",
+    amount: 2,
+    unit: "st",
+    current: null,
+  };
+  const mjolkSuggestion = (id: string, amount: number | null, unit: Unit | null): PantrySuggestion => ({
+    id,
+    name: "mjölk",
+    ingredient: { kind: "existing", ingredientId: mjolk },
+    location: "Kyl",
+    amount,
+    unit,
+    current: { unlimited: false, amounts: [{ amount: 2, unit: "förp" }, { amount: 1, unit: "l" }] },
+  });
+
+  it("keeps a new suggestion's proposal, default place and unit through the sheet while its name is the same", () => {
+    const corrected = form({
+      ingredient: { kind: "new", name: "gurka", section: "Övrigt", location: "Frys" },
+      amount: "3",
+      unit: "",
+      location: "Frys",
+      replaceId: null,
+    });
+    expect(confirmItemFromForm(corrected, gurka)).toEqual({
+      ingredient: { ...gurka.ingredient, section: "Övrigt" },
+      location: "Frys",
+      amount: 3,
+      unit: "st",
+    });
+    // Another new ingredient is the form's own.
+    const other = form({ ingredient: { kind: "new", name: "slanggurka", section: "Övrigt", location: "Frys" }, amount: "1", unit: "st", location: "Frys", replaceId: null });
+    expect(confirmItemFromForm(other, gurka).ingredient).toEqual({
+      kind: "new",
+      name: "slanggurka",
+      section: "Övrigt",
+      location: "Frys",
+      defaultUnit: "st",
+    });
+  });
+
+  it("merges again on resolved ids", () => {
+    expect(
+      mergePantrySets([
+        { ingredientId: mjolk, location: "Kyl", amount: 2, unit: "st" },
+        { ingredientId: mjolk, location: "Kyl", amount: null, unit: null },
+        { ingredientId: mjolk, location: "Kyl", amount: 1, unit: "st" },
+        { ingredientId: smor, location: "Kyl", amount: null, unit: null },
+      ]),
+    ).toEqual([
+      { ingredientId: mjolk, location: "Kyl", amount: 3, unit: "st" },
+      { ingredientId: smor, location: "Kyl", amount: null, unit: null },
+    ]);
+  });
+
+  it("updates what the place has now on the suggestions left, by ingredient and place", () => {
+    const left = [mjolkSuggestion("s2", 1, "l"), { ...mjolkSuggestion("s3", 1, "l"), location: "Frys" as const }, gurka];
+    const after = withConfirmedStock(left, [
+      { ingredient: { kind: "existing", ingredientId: mjolk }, location: "Kyl", amount: 3, unit: "förp" },
+    ]);
+    expect(after[0].current).toEqual({ unlimited: false, amounts: [{ amount: 1, unit: "l" }, { amount: 3, unit: "förp" }] });
+    // Another place, another ingredient: as they were.
+    expect(after[1]).toEqual(left[1]);
+    expect(after[2]).toEqual(gurka);
+
+    expect(
+      withConfirmedStock(left, [{ ingredient: { kind: "existing", ingredientId: mjolk }, location: "Kyl", amount: null, unit: null }])[0].current,
+    ).toEqual({ unlimited: true, amounts: [] });
+    // A new ingredient by its name; the first stock it has.
+    const gurkaInLiters = { ...gurka, id: "s9", amount: 1, unit: "l" as const };
+    expect(withConfirmedStock([gurkaInLiters], [confirmItemFromSuggestion(gurka)])[0].current).toEqual({
+      unlimited: false,
+      amounts: [{ amount: 2, unit: "st" }],
+    });
+    expect(withConfirmedStock(left, [])).toEqual(left);
+  });
+
+  it("tells a suggestion that can be confirmed as it is", () => {
+    expect(isConfirmable(gurka)).toBe(true);
+    expect(isConfirmable({ ...gurka, amount: 1_000_000 })).toBe(false);
+    expect(isConfirmable({ ...gurka, unit: null })).toBe(false);
   });
 });

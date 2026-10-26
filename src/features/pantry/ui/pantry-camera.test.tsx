@@ -29,6 +29,7 @@ vi.mock("../actions/set-pantry-item", () => ({ savePantryItem: vi.fn() }));
 vi.mock("../actions/search-ingredients", () => ({ searchPantryIngredients: vi.fn() }));
 vi.mock("../actions/remove-pantry-item", () => ({ removePantryItem: vi.fn() }));
 vi.mock("../actions/restore-pantry-item", () => ({ restorePantryItem: vi.fn() }));
+vi.mock("../actions/confirm-pantry-suggestions", () => ({ confirmPantrySuggestions: vi.fn() }));
 
 /** A phone (coarse pointer) or a desktop, as matchMedia says. */
 function pointer(coarse: boolean) {

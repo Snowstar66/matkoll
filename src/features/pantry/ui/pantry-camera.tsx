@@ -38,6 +38,7 @@ export function PantryCamera({ location }: PantryCameraProps) {
     announcement,
     cameraAreaRef,
     cameraButtonRef,
+    flushFocus,
     analyze,
     retry,
     cancel,
@@ -49,6 +50,9 @@ export function PantryCamera({ location }: PantryCameraProps) {
   // card) does not take focus for an "Avbryt" that came earlier.
   const handledCancels = useRef(cancels);
   const handledSettles = useRef(settles);
+
+  // Mounted anew (another location card): a focus move the lagerförslag asked for meanwhile happens now.
+  useEffect(() => flushFocus(), [flushFocus]);
 
   // "Avbryt": the camera button is back, with focus.
   useEffect(() => {

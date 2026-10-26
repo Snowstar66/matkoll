@@ -2,7 +2,7 @@
 title: 'Story 6.2: Bekräfta, rätta eller avvisa lagerförslag'
 type: 'feature'
 created: '2026-10-26'
-status: 'draft'
+status: 'done'
 route: 'dispatch'
 context:
   - '{project-root}/_bmad-output/implementation-artifacts/epic-6-context.md'
@@ -97,7 +97,7 @@ context:
 ## Tasks & Acceptance
 
 **Execution:**
-- [ ] `src/features/pantry/domain/pantry-suggestion.ts` (+ test), `index.ts` -- domänen för bekräftelse:
+- [x] `src/features/pantry/domain/pantry-suggestion.ts` (+ test), `index.ts` -- domänen för bekräftelse:
   - `confirmSuggestionsSchema` är en lista med 1–40 poster. Varje post har:
     - `ingredient`: `{ kind: "existing", ingredientId: uuid }` eller `{ kind: "new", name, section, location, defaultUnit }`, där `name` går genom `collapseName`, inte får normaliseras till tom text och har högst 100 tecken;
     - `location`, `amount` (positivt och under `maxPantryAmount`, eller `null`) och `unit` (`unitSchema` eller `null`), där mängd och enhet är båda `null` eller båda satta.
@@ -110,9 +110,9 @@ context:
 
   Testerna täcker gränser, sammanslagning, att obegränsad och mängd inte blandas och att posterna behåller sin ordning
   -- AD-6, AD-12, AD-19
-- [ ] `src/features/pantry/domain/places.ts` (+ test) -- `confirmedItemsText(n)` ("Lagt 1 vara i lagret." eller "Lagt 4 varor i lagret.") och `rejectedItemText(name)` ("ketchup är avvisad.") -- EXPERIENCE.md, Kort bekräftelse
-- [ ] `src/lib/errors.ts` -- ny kod `pantry_confirm_failed` med texten "Det gick inte att lägga förslagen i lagret. Försök igen." -- AD-13
-- [ ] `src/features/pantry/actions/confirm-pantry-suggestions.ts` (+ test) -- `confirmPantrySuggestions(items)` är en Server Action (`"use server"`). Den gör i tur och ordning:
+- [x] `src/features/pantry/domain/places.ts` (+ test) -- `confirmedItemsText(n)` ("Lagt 1 vara i lagret." eller "Lagt 4 varor i lagret.") och `rejectedItemText(name)` ("ketchup är avvisad.") -- EXPERIENCE.md, Kort bekräftelse
+- [x] `src/lib/errors.ts` -- ny kod `pantry_confirm_failed` med texten "Det gick inte att lägga förslagen i lagret. Försök igen." -- AD-13
+- [x] `src/features/pantry/actions/confirm-pantry-suggestions.ts` (+ test) -- `confirmPantrySuggestions(items)` är en Server Action (`"use server"`). Den gör i tur och ordning:
   1. `requireUser`;
   2. `confirmSuggestionsSchema.safeParse` (`validation`);
   3. `mergeConfirmations`;
@@ -129,7 +129,7 @@ context:
   - att revalidering bara sker efter lyckad sparning.
 
   -- FR-25, AD-1, AD-2, AD-6, AD-19
-- [ ] `src/features/pantry/ui/pantry-suggestions.tsx` (+ test) -- providern får:
+- [x] `src/features/pantry/ui/pantry-suggestions.tsx` (+ test) -- providern får:
   - `confirm(ids)`, som anropar `confirmPantrySuggestions` med `confirmItemFromSuggestion`, tar bort förslagen vid `ok` och visar `savedItemText` för ett förslag eller `confirmedItemsText` för flera;
   - `confirmCorrected(id, form)` för arket;
   - `reject(id)`, som tar bort förslaget lokalt och visar `rejectedItemText` med "Ångra", som sätter tillbaka förslaget på sitt index;
@@ -137,8 +137,8 @@ context:
 
   Ett anrop i taget. `unauthorized` ger `router.refresh()`
   -- FR-25
-- [ ] `src/features/pantry/ui/pantry-suggestion-list.tsx` (+ test) -- varje kort får en rad med knappar som får radbrytas: Bekräfta (`Button` primary), Rätta och Avvisa (`Button` text), med `aria-label` "Bekräfta <namn>", "Rätta <namn>" och "Avvisa <namn>". Under rubriken finns "Bekräfta alla" (secondary). En `Notice` med `role="alert"` för `error` står överst i sektionen. Knapparna är inaktiva medan `saving` gäller, och det berörda kortet visar "Sparar …". Efter Bekräfta eller Avvisa går fokus till nästa korts Bekräfta, annars föregående korts, annars kameraknappen (via ref från `PantryCamera`). Efter "Bekräfta alla" går fokus till kameraknappen -- UX-DR11
-- [ ] `src/features/pantry/ui/pantry-item-sheet.tsx` (+ test) -- arket får målet `PantrySheetTarget` `{ kind: "suggestion"; suggestion: PantrySuggestion }`.
+- [x] `src/features/pantry/ui/pantry-suggestion-list.tsx` (+ test) -- varje kort får en rad med knappar som får radbrytas: Bekräfta (`Button` primary), Rätta och Avvisa (`Button` text), med `aria-label` "Bekräfta <namn>", "Rätta <namn>" och "Avvisa <namn>". Under rubriken finns "Bekräfta alla" (secondary). En `Notice` med `role="alert"` för `error` står överst i sektionen. Knapparna är inaktiva medan `saving` gäller, och det berörda kortet visar "Sparar …". Efter Bekräfta eller Avvisa går fokus till nästa korts Bekräfta, annars föregående korts, annars kameraknappen (via ref från `PantryCamera`). Efter "Bekräfta alla" går fokus till kameraknappen -- UX-DR11
+- [x] `src/features/pantry/ui/pantry-item-sheet.tsx` (+ test) -- arket får målet `PantrySheetTarget` `{ kind: "suggestion"; suggestion: PantrySuggestion }`.
   - `initialValues` fyller i ingrediensen (befintlig med namn, eller ny med namn och avdelning), mängden med decimalkomma, enheten och platsen.
   - `choose` ändrar inte platsen för ett förslag, på samma sätt som för en befintlig vara.
   - Foten har "Bekräfta" (primär, "Sparar …" under anropet) och "Avvisa" (text, utan fråga).
@@ -146,8 +146,8 @@ context:
   - `usePantrySheet` får `openSuggestion(suggestion)`. `PantrySheetProvider` ligger inuti `PantrySuggestionsProvider` och får `confirmCorrected` och `reject` därifrån.
 
   -- FR-25, EXPERIENCE.md, Lagerförslag
-- [ ] `src/app/(app)/hemma/page.tsx`, `home-content.tsx` (+ test) -- providerordningen `PantrySuggestionsProvider` › `PantrySheetProvider` (från 6.1) behålls. Felvägen visar förslagen med knappar
-- [ ] `tests/e2e/pantry-suggestions.spec.ts` (+ `support.ts`, `global-setup.ts`) -- egen e2e-användare `e2e-lagerforslag@matkoll.test`, med `AI_PROVIDER=mock` och fixturen `kyl.png` från 6.1. Med service role seedar testet katalogingredienserna "mjölk" (Mejeri, Kyl, förp) och "smör" och lagervarorna "mjölk 2 förp" och "smör" (obegränsad) i Kyl. Det kontrollerar:
+- [x] `src/app/(app)/hemma/page.tsx`, `home-content.tsx` (+ test) -- providerordningen `PantrySuggestionsProvider` › `PantrySheetProvider` (från 6.1) behålls. Felvägen visar förslagen med knappar
+- [x] `tests/e2e/pantry-suggestions.spec.ts` (+ `support.ts`, `global-setup.ts`) -- egen e2e-användare `e2e-lagerforslag@matkoll.test`, med `AI_PROVIDER=mock` och fixturen `kyl.png` från 6.1. Med service role seedar testet katalogingredienserna "mjölk" (Mejeri, Kyl, förp) och "smör" och lagervarorna "mjölk 2 förp" och "smör" (obegränsad) i Kyl. Det kontrollerar:
   - sex kort med namn, mängd, "Kyl" och Bekräfta, Rätta och Avvisa, samt "Bekräfta alla";
   - Bekräfta mjölk, som ger raden "mjölk 1 förp", bekräftelsen och att Kyl fortfarande visar "2 varor";
   - Rätta grädde, som ger arket förifyllt med "1", förp och Kyl, där Pontus väljer den nya ingrediensen "matlagningsgrädde" med 2 dl och trycker "Bekräfta", vilket ger raden "matlagningsgrädde 2 dl" och "3 varor";
@@ -185,6 +185,28 @@ context:
 ## Spec Change Log
 
 ## Review Triage Log
+
+Iteration 1. Granskare: Blind Hunter, Edge Case Hunter och Verification Gap.
+
+**Patch:**
+- Sammanslagningen görs om på de faktiska ingrediens-id:na efter att katalogen har skrivits.
+- Arket är bundet till sitt förslag. Ett förslag som har försvunnit ger en egen toast.
+- Skydd mot dubbeltryck.
+- "Rätta" behåller förslagets standardvärden.
+- Ångra:
+  - lägger tillbaka förslaget bredvid sina grannar
+  - väntar medan en sparning pågår
+- Generationen kontrolleras innan toast visas.
+- "I kylen nu" uppdateras efter en bekräftelse.
+- Validering per förslag före "Bekräfta alla".
+- Fokus hanteras utanför den nycklade Suspense-gränsen.
+- Typade props.
+- Tidsgräns på 30 s.
+- Loggning, test av sökvägen `missing_rows` och katalogtest för synonymer.
+
+**Defer:** att ett foto ska räknas som inventering av alla enheter.
+
+**Reject:** att räkna toasten utifrån sammanslagna rader.
 
 ## Verification
 

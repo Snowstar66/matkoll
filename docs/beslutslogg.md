@@ -2,6 +2,47 @@
 
 Beslut som fattats under bygget: vad, varför och vilka alternativ som fanns. Nyaste överst.
 
+## 2026-10-26 – Bekräfta, rätta eller avvisa lagerförslag (Story 6.2)
+
+- **Beslut:**
+  - Varje tryck sparar direkt. Bekräfta, "Bekräfta alla" och arkets "Bekräfta" anropar Server Actionen `confirmPantrySuggestions` på en gång, och det finns ingen separat knapp för att spara. Det passar Flöde 3, där Pontus står framför den öppna kylen, och ger färre steg (SM-C2).
+  - Ett bekräftat förslag sätter mängden exakt (`setPantryItems`, AD-19) för ingrediens, plats och enhet. Ett foto visar vad som finns nu, så det är en inventering och inget tillskott. Raden "I kylen nu: 2 förp" från 6.1 visar vad som skrivs över. En annan enhet för samma vara på platsen står kvar som en egen rad, eftersom enheter aldrig räknas om (AD-7).
+  - Inga synonymer sparas från lagerförslag, inte heller när Pontus väljer en annan ingrediens i Rätta. `label` är AI:ns gissning, inte text som Pontus har skrivit. Befintliga id skickas som `{ kind: "match", confidence: "exact" }` till `commitIngredients`, som kontrollerar att de finns i katalogen (`unknown_ingredient`), och en ny ingrediens skickas med sitt eget namn som text, så att ingen synonym uppstår.
+  - Rätta sparar via `confirmPantrySuggestions`, inte via `savePantryItem`, så att samma regel om synonymer och samma felkod gäller. Arket använder samma formulär och samma validering (`pantryItemFormSchema`). En ny ingrediens från arket får formulärets plats som standardplats.
+  - Dubbletter slås ihop på servern (`mergeConfirmations`) per ingrediens (id eller normaliserat nytt namn), plats och enhet, med summerad mängd (högst 999 999,999). En post med mängd vinner över en post utan mängd för samma ingrediens och plats, annars skulle `set_pantry_items` låta den senare ta bort den förra. En ny ingrediens behåller den första postens namn, avdelning, standardplats och standardenhet. Schemat tar emot `proposalId` från 6.1 men behöver det inte, eftersom samma normaliserade namn ändå blir en ingrediens.
+  - Ny felkod `pantry_confirm_failed`: "Det gick inte att lägga förslagen i lagret. Försök igen." Den loggas med orsak (`catalog_<kod>` eller lagrets felkod), aldrig med namn eller mängder. Nya katalogingredienser kan finnas kvar efter ett sparfel i lagret, och ett nytt försök återanvänder dem (`on conflict` i `commit_ingredients`). Ett anrop utan svar ger samma text i klienten.
+  - Avvisa tar bort förslaget ur klientens tillstånd utan fråga och visar "ketchup är avvisad." med "Ångra" i 5 s. En ny bekräftelse ersätter den, och "Ångra" gäller bara den senaste. "Ångra" sätter tillbaka förslaget på sitt index i listan som den ser ut nu och ger dess Bekräfta fokus. Avvisade förslag skickas aldrig till servern.
+  - Bekräfta är primär på varje kort (DESIGN.md, Lagerförslag), trots "högst en primärknapp per vy". "Bekräfta alla" är därför sekundär och ligger under rubriken. Den visas så länge det finns förslag, också när bara ett är kvar, och skickar alla som inte har avvisats.
+  - Ett anrop i taget. Alla knappar för förslag är inaktiva medan en bekräftelse sparas, och de kort som sparas visar "Sparar …" i stället för "Bekräfta". Spärren är en ref, så att ett dubbeltryck inte hinner skicka två anrop.
+  - Arket för ett förslag har "Bekräfta" (primär) och "Avvisa" (text, utan fråga) i stället för "Lägg till vara" och "Ta bort". Titeln är fortfarande "Lagervara", och arket är samma ark som "+" öppnar.
+  - **Tillagt vid bygget:**
+    - Fel visas i en `Notice` (`role="alert"`) överst i sektionen "Lagerförslag", och fokus går tillbaka till knappen som trycktes. Felet försvinner vid nästa bekräftelse eller avvisning och när nya förslag kommer. I arket stannar felet i arket.
+    - Förslagen har en generation som byts när ett nytt svar ersätter dem och när Hemma lämnas. En bekräftelse som svarar efter det, eller ett "Ångra" efter det, ändrar inte de nya förslagen.
+    - `confirmCorrected(id, form, onSaved)` tar en tredje parameter: arket stängs i samma uppdatering som kortet försvinner, så att arket först lämnar tillbaka fokus och listan sedan flyttar det till nästa korts Bekräfta.
+    - Felets namn i providern är `confirmError`, eftersom `error` redan är analysens fel.
+    - Bekräftelsen efter flera förslag räknar förslagen som bekräftades ("Lagt 4 varor i lagret."), efter ett förslag `savedItemText` med förslagets namn och plats.
+  - **Ändrat efter granskningen:**
+    - Servern slår ihop posterna igen efter `commitIngredients`, på de id:n katalogen gav (`mergePantrySets`). Ett nytt namn som visar sig vara en ingrediens som redan finns i anropet ("gurka") blir alltså en rad med summerad mängd, och regeln om antingen obegränsad eller mängd gäller också då.
+    - Arket är bundet till sitt förslag: Rätta sparar förslagens generation i arkets mål. Om ett nyare foto har ersatt förslagen när Pontus trycker "Bekräfta" eller "Avvisa" stängs arket med "Förslaget finns inte längre.", och inget skickas eller tas bort.
+    - Dubbeltryck: arket har en egen spärr, och en krock med en annan bekräftelse gör ingenting (inget fel). Arkets knappar är inaktiva medan en bekräftelse sparas. Om Avvisa inte gjorde något står arket kvar.
+    - Rätta behåller förvalen: så länge en ny ingrediens har samma namn som i förslaget behåller den förslagets `proposalId`, standardplats och standardenhet, med arkets avdelning. Rätta och sedan Bekräfta skapar alltså samma katalogingrediens som Bekräfta direkt.
+    - "Ångra" sätter tillbaka förslaget efter det förslag som låg före, annars före det som låg efter, annars på samma plats. Ett "Ångra" medan en bekräftelse sparas görs när den har svarat. En bekräftelse som svarar efter att nya förslag har kommit tar inget ur listan, visar ingen ruta om förslag som inte längre finns och ger bara den neutrala bekräftelsen "Lagt 1 vara i lagret." (eller fler).
+    - Efter en bekräftelse uppdateras raden "I kylen nu" på de förslag som är kvar för samma ingrediens och plats.
+    - Varje förslag kontrolleras i klienten mot bekräftelsens schema. Ett förslag som inte klarar det, eller som servern nekar (`validation` med förslagets index i `fields`), får texten "Förslaget går inte att spara som det är. Rätta eller avvisa det." på kortet, och dess Bekräfta är inaktiv. "Bekräfta alla" hoppar över det, så att ett trasigt förslag aldrig stoppar resten.
+    - Providern flyttar fokus, inte listan. En flytt som inte kan göras medan listan och kameraknappen är borta (ett annat platskort laddas) görs när de monteras igen, om fokus då inte är någon annanstans.
+    - Ett anrop som inte har svarat inom 30 s räknas som misslyckat, så att knapparna fungerar igen. Ett sent svar ändrar inget; att sätta samma mängd igen ger samma resultat.
+    - Sparfel i lagret loggas med `reason` (felets meddelande) och `detail`.
+  - **Inte gjort, efter granskningen:** att behandla ett foto som en inventering av alla enheter (rader i andra enheter syns redan i "I kylen nu"; en senare idé), och att räkna bekräftelsen efter sammanslagna rader (den räknar de förslag Pontus bekräftade).
+- **Varför:** FR-25 (inget sparas utan ett tryck), AD-2 (en väg för ändringar, Zod och `requireUser`), AD-6 (katalogen skrivs bara av `catalog`, och AI:ns text blir aldrig synonym), AD-19 (`set_pantry_items` med `pantry_lock()` och regeln om antingen obegränsad eller mängd) och EXPERIENCE.md (borttagningar ångras i den korta bekräftelsen, ingen fråga i förväg).
+- **Alternativ:**
+  - Markera förslag och spara allt med en knapp (ett steg till, och markeringarna försvinner om Pontus lämnar sidan).
+  - `addToPantry`, som ökar och skulle dubbelräkna varje gång kylen fotograferas igen.
+  - Spara rättelsen som synonym, som förhandsgranskningen av recept gör.
+  - Rätta via `savePantryItem`.
+  - Återanvända `pantry_save_failed`, som talar om en vara.
+  - Bekräfta som sekundär och "Bekräfta alla" som den enda primärknappen.
+  - En fråga före Avvisa.
+
 ## 2026-10-26 – Fotografera en plats och få lagerförslag (Story 6.1)
 
 - **Beslut:**

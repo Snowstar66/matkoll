@@ -8,7 +8,7 @@ import type { AnalyzeResult, PantrySuggestion } from "../domain/pantry-suggestio
 import { PantryCamera } from "./pantry-camera";
 import { PantrySheetProvider } from "./pantry-item-sheet";
 import { PantrySuggestionList } from "./pantry-suggestion-list";
-import { PantrySuggestionsProvider } from "./pantry-suggestions";
+import { focusAfter, PantrySuggestionsProvider, putBack } from "./pantry-suggestions";
 
 // The analysis as Hemma holds it (PantrySuggestionsProvider with the camera
 // and the section), with the photo's resizing (downscaleImage) and
@@ -44,6 +44,7 @@ vi.mock("../actions/set-pantry-item", () => ({ savePantryItem: vi.fn() }));
 vi.mock("../actions/search-ingredients", () => ({ searchPantryIngredients: vi.fn() }));
 vi.mock("../actions/remove-pantry-item", () => ({ removePantryItem: vi.fn() }));
 vi.mock("../actions/restore-pantry-item", () => ({ restorePantryItem: vi.fn() }));
+vi.mock("../actions/confirm-pantry-suggestions", () => ({ confirmPantrySuggestions: vi.fn() }));
 
 const mjolkId = "6f1c1b7e-3c1a-4c55-9a59-0f3f2b8f2a01";
 const suggestion = (id: string, name: string, change: Partial<PantrySuggestion> = {}): PantrySuggestion => ({
@@ -327,5 +328,31 @@ describe("PantrySuggestionsProvider", () => {
     await resize();
     unmount();
     expect(lastCall().signal.aborted).toBe(true);
+  });
+});
+
+describe("focusAfter", () => {
+  const list = ["s1", "s2", "s3", "s4"].map((id) => suggestion(id, id));
+
+  it("goes to the next card that stays, else the previous one, else the camera button", () => {
+    expect(focusAfter(list, "s2", new Set(["s2"]))).toEqual({ kind: "confirm", id: "s3" });
+    expect(focusAfter(list, "s2", new Set(["s2", "s3"]))).toEqual({ kind: "confirm", id: "s4" });
+    expect(focusAfter(list, "s4", new Set(["s4"]))).toEqual({ kind: "confirm", id: "s3" });
+    expect(focusAfter(list, "s4", new Set(["s3", "s4"]))).toEqual({ kind: "confirm", id: "s2" });
+    expect(focusAfter(list, "s1", new Set(["s1", "s2", "s3", "s4"]))).toEqual({ kind: "camera" });
+    expect(focusAfter([], "s1", new Set(["s1"]))).toEqual({ kind: "camera" });
+  });
+});
+
+describe("putBack", () => {
+  const [s1, s2, s3, s4] = ["s1", "s2", "s3", "s4"].map((id) => suggestion(id, id));
+  const names = (list: PantrySuggestion[]) => list.map(({ id }) => id);
+
+  it("puts a suggestion back after the one before it, else before the one after it, else where it was", () => {
+    expect(names(putBack([s1, s3, s4], s2, { before: "s1", after: "s3", index: 1 }))).toEqual(["s1", "s2", "s3", "s4"]);
+    expect(names(putBack([s3, s4], s2, { before: "s1", after: "s3", index: 1 }))).toEqual(["s2", "s3", "s4"]);
+    expect(names(putBack([s4], s2, { before: "s1", after: "s3", index: 1 }))).toEqual(["s4", "s2"]);
+    expect(names(putBack([s3, s4], s1, { before: null, after: "s2", index: 0 }))).toEqual(["s1", "s3", "s4"]);
+    expect(names(putBack([s1, s2], s2, { before: "s1", after: null, index: 1 }))).toEqual(["s1", "s2"]);
   });
 });

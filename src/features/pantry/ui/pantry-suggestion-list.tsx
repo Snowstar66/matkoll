@@ -2,13 +2,17 @@
 
 import { useEffect, useId, useRef } from "react";
 import { Badge } from "@/components/badges";
+import { Button } from "@/components/button";
+import { Notice } from "@/components/notice";
 import {
   currentAmountText,
   suggestionAmountText,
   suggestionsArrivedText,
+  suggestionInvalidText,
   suggestionsHeading,
   type PantrySuggestion,
 } from "../domain/pantry-suggestion";
+import { usePantrySheet } from "./pantry-item-sheet";
 import { usePantrySuggestions } from "./pantry-suggestions";
 import { focusIsFree } from "./use-pantry-analysis";
 
@@ -18,16 +22,44 @@ import { focusIsFree } from "./use-pantry-analysis";
 // card. Each card, like a recipe row, shows the name, the amount ("1 förp",
 // "Finns hemma") and the place, "Ny" when the catalog ingredient will be
 // created, and what the place has now ("I kylen nu: 2 förp"), since
-// confirming sets the amount exactly. Confirm, correct and reject come with
-// Story 6.2. Nothing here is saved.
+// confirming sets the amount exactly. Story 6.2: each card has Bekräfta
+// (primary), Rätta and Avvisa (text buttons), and "Bekräfta alla" sits under
+// the heading; nothing is saved without one of them, or the sheet's
+// "Bekräfta" after Rätta. While a confirmation is saved every button here is
+// disabled and the cards being saved say "Sparar …"; a failure shows in a
+// notice at the top of the section, and the suggestions stay. After a card
+// is confirmed or rejected focus goes to the next card's Bekräfta, else the
+// previous card's, else the camera button; after "Bekräfta alla" to the
+// camera button (moved by the provider). A suggestion that cannot be
+// confirmed as it is says so on its card, where only Rätta and Avvisa work,
+// and "Bekräfta alla" leaves it out.
 
 export function PantrySuggestionList() {
   const headingId = useId();
   const headingRef = useRef<HTMLHeadingElement>(null);
-  const { result, arrivals, announce, cameraAreaRef } = usePantrySuggestions();
+  const {
+    result,
+    arrivals,
+    announce,
+    cameraAreaRef,
+    saving,
+    savingIds,
+    savingAll,
+    confirmError,
+    invalidIds,
+    confirm,
+    reject,
+    confirmButtonRef,
+    confirmAllRef,
+    flushFocus,
+  } = usePantrySuggestions();
+  const { openSuggestion } = usePantrySheet();
   // What this mount has already moved focus for: a remount (another location
   // card) does not take focus for suggestions that came earlier.
   const handledArrivals = useRef(arrivals);
+
+  // Mounted anew (another location card): a focus move asked for meanwhile happens now.
+  useEffect(() => flushFocus(), [flushFocus]);
 
   // New suggestions: focus on the heading, so they are read out from the
   // start, while focus is still in the camera area (or nowhere). When Pontus
@@ -41,21 +73,65 @@ export function PantrySuggestionList() {
   }, [arrivals, result, announce, cameraAreaRef]);
 
   if (!result || result.suggestions.length === 0) return null;
+  const confirmable = result.suggestions.filter((suggestion) => !invalidIds.has(suggestion.id));
   return (
     <section aria-labelledby={headingId} data-testid="pantry-suggestions" className="flex flex-col gap-3">
+      {confirmError ? <Notice role="alert">{confirmError.message}</Notice> : null}
       <h2 id={headingId} ref={headingRef} tabIndex={-1} className="text-section-label text-ink-2">
         {suggestionsHeading(result.location)}
       </h2>
+      <Button
+        ref={confirmAllRef}
+        variant="secondary"
+        disabled={saving || confirmable.length === 0}
+        onClick={() => confirm(confirmable.map((suggestion) => suggestion.id), { all: true })}
+        className="self-start"
+      >
+        {savingAll ? "Sparar …" : "Bekräfta alla"}
+      </Button>
       <ul className="flex flex-col gap-3">
         {result.suggestions.map((suggestion) => (
-          <SuggestionCard key={suggestion.id} suggestion={suggestion} />
+          <SuggestionCard
+            key={suggestion.id}
+            suggestion={suggestion}
+            disabled={saving}
+            saving={savingIds.has(suggestion.id)}
+            invalid={invalidIds.has(suggestion.id)}
+            confirmRef={confirmButtonRef(suggestion.id)}
+            onConfirm={() => confirm([suggestion.id])}
+            onCorrect={() => openSuggestion(suggestion)}
+            onReject={() => reject(suggestion.id)}
+          />
         ))}
       </ul>
     </section>
   );
 }
 
-function SuggestionCard({ suggestion }: { suggestion: PantrySuggestion }) {
+type SuggestionCardProps = {
+  suggestion: PantrySuggestion;
+  /** A confirmation is being saved: no button works. */
+  disabled: boolean;
+  /** This suggestion is being saved. */
+  saving: boolean;
+  /** It cannot be confirmed as it is: only Rätta and Avvisa. */
+  invalid: boolean;
+  confirmRef: (button: HTMLButtonElement) => () => void;
+  onConfirm: () => void;
+  onCorrect: () => void;
+  onReject: () => void;
+};
+
+function SuggestionCard({
+  suggestion,
+  disabled,
+  saving,
+  invalid,
+  confirmRef,
+  onConfirm,
+  onCorrect,
+  onReject,
+}: SuggestionCardProps) {
   const { name, ingredient, location, current } = suggestion;
   return (
     <li data-testid="pantry-suggestion" className="flex flex-col gap-1 rounded-lg bg-surface p-4">
@@ -71,6 +147,24 @@ function SuggestionCard({ suggestion }: { suggestion: PantrySuggestion }) {
         <span>{suggestionAmountText(suggestion)}</span> · <span>{location}</span>
       </p>
       {current ? <p className="text-meta text-ink-2">{currentAmountText(location, current)}</p> : null}
+      {invalid ? <p className="text-meta text-ink-2">{suggestionInvalidText}</p> : null}
+      {/* The buttons wrap at 200 % text; the names say which suggestion they are for. */}
+      <div className="mt-2 flex flex-wrap items-center gap-x-2 gap-y-1">
+        <Button
+          ref={confirmRef}
+          disabled={disabled || invalid}
+          onClick={onConfirm}
+          {...(saving ? {} : { "aria-label": `Bekräfta ${name}` })}
+        >
+          {saving ? "Sparar …" : "Bekräfta"}
+        </Button>
+        <Button variant="text" disabled={disabled} onClick={onCorrect} aria-label={`Rätta ${name}`}>
+          Rätta
+        </Button>
+        <Button variant="text" disabled={disabled} onClick={onReject} aria-label={`Avvisa ${name}`}>
+          Avvisa
+        </Button>
+      </div>
     </li>
   );
 }

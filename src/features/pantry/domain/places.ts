@@ -43,3 +43,13 @@ export function removedItemsText(names: readonly string[]): string {
   if (names.length === 2) return `${names[0]} och ${names[1]} är borttagna.`;
   return `${names.length} varor är borttagna.`;
 }
+
+/** The short confirmation after confirming several lagerförslag at once: "Lagt 1 vara i lagret.", "Lagt 4 varor i lagret." */
+export function confirmedItemsText(count: number): string {
+  return `Lagt ${itemCountText(count)} i lagret.`;
+}
+
+/** The short confirmation, with "Ångra", after rejecting a lagerförslag: "ketchup är avvisad." */
+export function rejectedItemText(name: string): string {
+  return `${name} är avvisad.`;
+}

@@ -301,6 +301,20 @@ describe("commitIngredients", () => {
     expect(await synonymsOf(user)).toEqual([{ normalized: "charlottenlök", ingredient_id: schalottenlok }]);
   });
 
+  it("saves no synonym for an exact match with empty text, as confirmed lagerförslag send it", async () => {
+    const user = await createTestUser("exact-empty-text");
+    const gurka = await addIngredient(user.db, "gurka");
+    await addSynonym(user.db, "slanggurka", gurka);
+    const ids = await commitIngredients(user.db, [
+      { text: "", ingredient: { kind: "match", ingredientId: gurka, confidence: "exact" } },
+      newChoice("ägg", { name: "ägg", section: "Mejeri", location: "Kyl", defaultUnit: "st" }),
+    ]);
+    expect(ids[0]).toBe(gurka);
+    expect(ids[1]).toEqual(expect.any(String));
+    // Only the synonym that was there; none for the empty text or the new name.
+    expect(await synonymsOf(user)).toEqual([{ normalized: "slanggurka", ingredient_id: gurka }]);
+  });
+
   it("saves no synonym that is redundant or could never win", async () => {
     const user = await createTestUser("useless-synonyms");
     const gulLok = await addIngredient(user.db, "gul lök");

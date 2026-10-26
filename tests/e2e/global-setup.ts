@@ -37,6 +37,8 @@ import {
   shoppingStorageState,
   statusEmail,
   statusStorageState,
+  suggestionsEmail,
+  suggestionsStorageState,
   userStorageState,
 } from "./support";
 
@@ -82,6 +84,7 @@ export default async function globalSetup(config: FullConfig) {
       [cookableEmail, cookableStorageState],
       [aiSuggestionsEmail, aiSuggestionsStorageState],
       [cameraEmail, cameraStorageState],
+      [suggestionsEmail, suggestionsStorageState],
     ] as const) {
       const user = await browser.newContext({ baseURL });
       const page = await user.newPage();

@@ -6,13 +6,19 @@ import type { Location } from "@/features/catalog";
 import { postAiForm, type AiCallResult } from "@/lib/ai-client";
 import { downscaleImage } from "@/lib/downscale-image";
 import { fail, type AppError, type Result } from "@/lib/errors";
-import { analyzeResultSchema, analyzeRetryCodes, type AnalyzeResult } from "../domain/pantry-suggestion";
+import {
+  analyzeResultSchema,
+  analyzeRetryCodes,
+  type AnalyzeResult,
+  type PantrySuggestion,
+} from "../domain/pantry-suggestion";
 
 // The state of "Fotografera kylen" (FR-24, AD-2, AD-15, AD-18), held by
 // PantrySuggestionsProvider above Hemma's keyed <Suspense>, so the
 // suggestions stay while the location cards change, as long as Hemma is
 // open. They live only here: never on the server, in localStorage,
-// sessionStorage or the address, until Pontus confirms them (Story 6.2). The
+// sessionStorage or the address, until Pontus confirms them (Story 6.2,
+// PantrySuggestionsProvider), which takes them out one by one. The
 // resized photo is kept in memory only while an error that "Försök igen" can
 // help with is shown. The AI is only asked when Pontus has taken or chosen a
 // photo.
@@ -54,6 +60,18 @@ export type PantryAnalysis = {
   retry: () => void;
   /** "Avbryt": stops the analysis; nothing is shown for it, and the suggestions from before stay. */
   cancel: () => void;
+  /**
+   * Which suggestions `result` holds: changes when an answer replaces them
+   * and when Hemma is left, never when one is taken out or put back. A change
+   * that waited (a save, "Ångra") applies only while it is the same.
+   */
+  generation: () => number;
+  /** `generation()` as of this render. */
+  resultGeneration: number;
+  /** The suggestions as they are now (not as last rendered), or `null` when `generation` is no longer the one given. */
+  latestSuggestions: (generation: number) => readonly PantrySuggestion[] | null;
+  /** Changes the suggestions, unless `generation` is no longer the one given; returns whether it did. */
+  editSuggestions: (generation: number, edit: (suggestions: PantrySuggestion[]) => PantrySuggestion[]) => boolean;
 };
 
 /** Focus is still in the camera area, or on nothing: an answer may take it. Elsewhere (a sheet, the list), it stays. */
@@ -64,7 +82,11 @@ export function focusIsFree(area: HTMLElement | null): boolean {
 
 export function usePantryAnalysis(): PantryAnalysis {
   const router = useRouter();
-  const [result, setResult] = useState<AnalyzeResult | null>(null);
+  const [result, setResultState] = useState<AnalyzeResult | null>(null);
+  /** `result` as it is now, for changes that waited; every change goes through setResult. */
+  const latest = useRef<AnalyzeResult | null>(null);
+  const generation = useRef(0);
+  const [resultGeneration, setResultGeneration] = useState(0);
   const [analyzing, setAnalyzing] = useState(false);
   const [error, setError] = useState<AppError | null>(null);
   const [empty, setEmpty] = useState<EmptyAnswer | null>(null);
@@ -78,6 +100,23 @@ export function usePantryAnalysis(): PantryAnalysis {
   const cameraAreaRef = useRef<HTMLDivElement | null>(null);
   const cameraButtonRef = useRef<HTMLButtonElement | null>(null);
 
+  /** New suggestions (or none): a new generation. */
+  function setResult(next: AnalyzeResult | null) {
+    generation.current += 1;
+    latest.current = next;
+    setResultState(next);
+    setResultGeneration(generation.current);
+  }
+
+  function editSuggestions(expected: number, edit: (suggestions: PantrySuggestion[]) => PantrySuggestion[]): boolean {
+    const current = latest.current;
+    if (generation.current !== expected || !current) return false;
+    const next = { ...current, suggestions: edit(current.suggestions) };
+    latest.current = next;
+    setResultState(next);
+    return true;
+  }
+
   // Leaving Hemma, also when the page is only hidden after a navigation:
   // the analysis on its way is stopped, and the suggestions and the photo go.
   useEffect(
@@ -85,7 +124,10 @@ export function usePantryAnalysis(): PantryAnalysis {
       request.current?.abort();
       request.current = null;
       setAnalyzing(false);
-      setResult(null);
+      generation.current += 1;
+      latest.current = null;
+      setResultState(null);
+      setResultGeneration(generation.current);
       setError(null);
       setEmpty(null);
       setPhoto(null);
@@ -210,5 +252,10 @@ export function usePantryAnalysis(): PantryAnalysis {
     analyze: (file, location) => void analyze(file, location),
     retry,
     cancel,
+    generation: () => generation.current,
+    resultGeneration,
+    latestSuggestions: (expected) =>
+      generation.current === expected && latest.current ? latest.current.suggestions : null,
+    editSuggestions,
   };
 }

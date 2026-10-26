@@ -33,22 +33,42 @@ import { searchPantryIngredients, type PantryIngredientHit } from "../actions/se
 import { savePantryItem } from "../actions/set-pantry-item";
 import type { PantryItem } from "../domain/pantry-item";
 import {
+  type PantryItemForm,
   formFieldErrors,
   pantryItemFormSchema,
   pantryNewIngredientName,
   parseAmountField,
   type PantryItemFormInput,
 } from "../domain/pantry-item-form";
-import { savedItemText } from "../domain/places";
+import { suggestionGoneText, type PantrySuggestion } from "../domain/pantry-suggestion";
+import { confirmedItemsText, savedItemText } from "../domain/places";
 import { PantryRemovalProvider, usePantryRemoval } from "./pantry-removal";
+import { type CorrectOutcome, type RejectOutcome, usePantrySuggestions } from "./pantry-suggestions";
 
 // Lagervara (FR-11, Story 2.2): the sheet that adds an item to the pantry or
 // changes one. "+" in Hemma's header, "Lägg till vara" in an empty location
-// and a tap on an item open it; PantrySheetProvider holds the one sheet for
-// the page, so they all open the same (sheets never stack).
+// and a tap on an item open it, and so does Rätta on a lagerförslag (Story
+// 6.2); PantrySheetProvider holds the one sheet for the page, so they all
+// open the same (sheets never stack).
 
-/** What the sheet is for: a new item in a location, or an item already in the pantry. */
-export type PantrySheetTarget = { kind: "new"; location: Location } | { kind: "edit"; item: PantryItem };
+/** What the sheet is for: a new item in a location, an item already in the pantry, or a lagerförslag to correct. */
+export type PantrySheetTarget =
+  | { kind: "new"; location: Location }
+  | { kind: "edit"; item: PantryItem }
+  | SuggestionTarget;
+
+/** A lagerförslag to correct, and the generation of suggestions it belongs to (a newer photo replaces them). */
+export type SuggestionTarget = { kind: "suggestion"; suggestion: PantrySuggestion; generation: number };
+
+/** What the sheet does for a lagerförslag, from PantrySuggestionsProvider. */
+export type SuggestionReview = {
+  /** "Bekräfta": saves the corrected suggestion; `onSaved` closes the sheet as the card goes. */
+  confirm: (id: string, generation: number, form: PantryItemForm, onSaved: () => void) => Promise<CorrectOutcome>;
+  /** "Avvisa". */
+  reject: (id: string, generation: number) => RejectOutcome;
+  /** A confirmation is being saved (here or from a card): "Bekräfta" and "Avvisa" wait. */
+  saving: boolean;
+};
 
 type ChosenIngredient =
   | { kind: "existing"; ingredientId: string; name: string }
@@ -62,16 +82,39 @@ type FormValues = {
   location: Location;
 };
 
+/** The sheet's primary button. */
+const submitLabel: Record<PantrySheetTarget["kind"], string> = {
+  new: "Lägg till vara",
+  edit: "Spara ändringar",
+  suggestion: "Bekräfta",
+};
+
 /** A new catalog ingredient's section until Pontus picks one. */
 const defaultSection: Section = "Övrigt";
 
+/** An amount as the field shows it: exact, with a decimal comma (0,333 stays 0,333 when only the location changes). */
+const amountField = (amount: number | null) => (amount === null ? "" : String(amount).replace(".", ","));
+
 function initialValues(target: PantrySheetTarget): FormValues {
   if (target.kind === "new") return { ingredient: null, amount: "", unit: "", location: target.location };
+  if (target.kind === "suggestion") {
+    const { suggestion } = target;
+    const { ingredient } = suggestion;
+    return {
+      ingredient:
+        ingredient.kind === "existing"
+          ? { kind: "existing", ingredientId: ingredient.ingredientId, name: suggestion.name }
+          : { kind: "new", name: ingredient.name, section: ingredient.section },
+      amount: amountField(suggestion.amount),
+      unit: suggestion.unit ?? "",
+      location: suggestion.location,
+    };
+  }
   const { item } = target;
   return {
     ingredient: { kind: "existing", ingredientId: item.ingredientId, name: item.name },
-    // The exact amount, not formatQuantity's rounding: 0,333 must stay 0,333 when only the location changes.
-    amount: item.amount === null ? "" : String(item.amount).replace(".", ","),
+    // The exact amount, not formatQuantity's rounding.
+    amount: amountField(item.amount),
     unit: item.unit ?? "",
     location: item.location,
   };
@@ -106,10 +149,9 @@ function toInput(values: FormValues, ingredient: ChosenIngredient, target: Pantr
   };
 }
 
-export type PantryItemSheetProps = {
+type SheetBaseProps = {
   open: boolean;
   onClose: () => void;
-  target: PantrySheetTarget;
   /**
    * Increases each time the sheet opens: the form then starts afresh from
    * `target`. (The sheet itself stays mounted; a sheet mounted already open
@@ -118,6 +160,11 @@ export type PantryItemSheetProps = {
   session: number;
 };
 
+/** A lagerförslag needs its review; the other targets have none. */
+export type PantryItemSheetProps =
+  | (SheetBaseProps & { target: Exclude<PantrySheetTarget, SuggestionTarget> })
+  | (SheetBaseProps & { target: SuggestionTarget; review: SuggestionReview });
+
 /**
  * Arket Lagervara: a new item starts in the catalog search with the field in
  * focus and the chosen location preselected; choosing an ingredient suggests
@@ -125,10 +172,14 @@ export type PantryItemSheetProps = {
  * the new ingredient's section. Then amount (optional: without one the item
  * is unlimited), unit and location. An item already in the pantry opens on
  * the form; changing its location or unit moves it, and "Ta bort" removes it
- * at once (the short confirmation offers "Ångra"). Unsaved changes ask
- * "Släng ändringarna?" before the sheet closes, but not before "Ta bort".
+ * at once (the short confirmation offers "Ångra"). A lagerförslag opens on
+ * the form filled in from it, with "Bekräfta", which saves it as corrected,
+ * and "Avvisa". Unsaved changes ask "Släng ändringarna?" before the sheet
+ * closes, but not before "Ta bort" or "Avvisa".
  */
-export function PantryItemSheet({ open, onClose, target, session }: PantryItemSheetProps) {
+export function PantryItemSheet(props: PantryItemSheetProps) {
+  const { open, onClose, target, session } = props;
+  const review = "review" in props ? props.review : null;
   const [formSession, setFormSession] = useState(session);
   const [initial, setInitial] = useState(() => initialValues(target));
   const [values, setValues] = useState(initial);
@@ -140,6 +191,10 @@ export function PantryItemSheet({ open, onClose, target, session }: PantryItemSh
   /** The amount's own error shows once Pontus has left the field or tried to save, not while typing. */
   const [amountTouched, setAmountTouched] = useState(false);
   const [attempted, setAttempted] = useState(false);
+  /** A corrected lagerförslag is being confirmed. */
+  const [confirming, setConfirming] = useState(false);
+  /** The same, at once: a double tap sends one confirmation. */
+  const confirmingNow = useRef(false);
   const amountRef = useRef<HTMLInputElement>(null);
   const { showToast } = useToast();
   const { removeItem } = usePantryRemoval();
@@ -158,7 +213,7 @@ export function PantryItemSheet({ open, onClose, target, session }: PantryItemSh
     setAttempted(false);
   }
 
-  const [, save, saving] = useActionState(
+  const [, save, actionSaving] = useActionState(
     async (_previous: null, { input, name }: { input: PantryItemFormInput; name: string }) => {
       let result: Result<{ id: string }>;
       try {
@@ -180,6 +235,52 @@ export function PantryItemSheet({ open, onClose, target, session }: PantryItemSh
     },
     null,
   );
+  const saving = actionSaving || confirming || (review?.saving ?? false);
+
+  /** The suggestion is gone (a newer photo replaced it): the sheet closes and says so. */
+  function gone() {
+    onClose();
+    showToast(suggestionGoneText);
+  }
+
+  /**
+   * The sheet's "Bekräfta" for a lagerförslag: on success the sheet closes
+   * and the card goes; on failure the form stays. Another confirmation being
+   * saved makes it do nothing.
+   */
+  async function confirmSuggestion(suggestionTarget: SuggestionTarget, form: PantryItemForm, name: string) {
+    if (!review || confirmingNow.current) return;
+    confirmingNow.current = true;
+    setConfirming(true);
+    let outcome: CorrectOutcome;
+    try {
+      // Closed as the card goes, in one update: the sheet gives focus back first, then focus moves on.
+      outcome = await review.confirm(suggestionTarget.suggestion.id, suggestionTarget.generation, form, () => {
+        onClose();
+        showToast(savedItemText(name, form.location));
+      });
+    } catch {
+      outcome = { kind: "failed", error: fail("pantry_confirm_failed").error };
+    }
+    confirmingNow.current = false;
+    setConfirming(false);
+    switch (outcome.kind) {
+      case "failed":
+        // The server names a refused item by its index; the sheet has one.
+        setError(outcome.error.fields?.["0"] ?? outcome.error.message);
+        break;
+      case "savedStale":
+        onClose();
+        showToast(confirmedItemsText(1));
+        break;
+      case "gone":
+        gone();
+        break;
+      default:
+        // Saved (the sheet is closed), or another confirmation was being saved.
+        break;
+    }
+  }
 
   const { ingredient } = values;
   const input = ingredient ? toInput(values, ingredient, target) : null;
@@ -228,8 +329,21 @@ export function PantryItemSheet({ open, onClose, target, session }: PantryItemSh
       return;
     }
     setError(null);
+    if (target.kind === "suggestion") {
+      void confirmSuggestion(target, parsed.data, ingredient.name);
+      return;
+    }
     const payload = { input, name: ingredient.name };
     startTransition(() => save(payload));
+  }
+
+  /** "Avvisa": no question first, even with unsaved changes; the confirmation offers "Ångra". */
+  function rejectSuggestion() {
+    if (target.kind !== "suggestion" || !review || saving) return;
+    const outcome = review.reject(target.suggestion.id, target.generation);
+    // "busy": nothing happened, so the sheet stays open.
+    if (outcome === "rejected") onClose();
+    else if (outcome === "gone") gone();
   }
 
   /** "Ta bort": no question first, even with unsaved changes; the confirmation offers "Ångra" (Story 2.3). */
@@ -247,11 +361,16 @@ export function PantryItemSheet({ open, onClose, target, session }: PantryItemSh
         {formError ? <Notice role="alert">{formError}</Notice> : null}
         {/* Enabled while the form is invalid, so a tap shows why instead of doing nothing. */}
         <Button type="submit" form={formId} fullWidth disabled={saving}>
-          {saving ? "Sparar …" : target.kind === "new" ? "Lägg till vara" : "Spara ändringar"}
+          {saving ? "Sparar …" : submitLabel[target.kind]}
         </Button>
         {target.kind === "edit" ? (
           <Button variant="text" fullWidth disabled={saving} onClick={remove}>
             Ta bort
+          </Button>
+        ) : null}
+        {target.kind === "suggestion" ? (
+          <Button variant="text" fullWidth disabled={saving} onClick={rejectSuggestion}>
+            Avvisa
           </Button>
         ) : null}
       </>
@@ -379,6 +498,8 @@ type PantrySheetApi = {
   openNew: () => void;
   /** Opens the sheet for an item in the pantry. */
   openItem: (item: PantryItem) => void;
+  /** Rätta: opens the sheet for a lagerförslag, filled in from it. */
+  openSuggestion: (suggestion: PantrySuggestion) => void;
 };
 
 const PantrySheetContext = createContext<PantrySheetApi | null>(null);
@@ -394,9 +515,13 @@ export function usePantrySheet(): PantrySheetApi {
  * Holds the sheet Lagervara for Hemma, so "+", "Lägg till vara" and a tap on
  * an item all open the same sheet, and the removals with "Ångra" that the
  * list and the sheet share (PantryRemovalProvider). `location` is the chosen
- * location: a new item starts there. Needs a ToastProvider above.
+ * location: a new item starts there. The sheet's "Bekräfta" and "Avvisa" for
+ * a lagerförslag come from PantrySuggestionsProvider. Needs a ToastProvider
+ * and a PantrySuggestionsProvider above.
  */
 export function PantrySheetProvider({ location, children }: { location: Location; children: ReactNode }) {
+  const { confirmCorrected, reject, saving, generation } = usePantrySuggestions();
+  const review: SuggestionReview = { confirm: confirmCorrected, reject, saving };
   const [sheet, setSheet] = useState<{ open: boolean; session: number; target: PantrySheetTarget }>({
     open: false,
     session: 0,
@@ -404,20 +529,26 @@ export function PantrySheetProvider({ location, children }: { location: Location
   });
   const openWith = (target: PantrySheetTarget) =>
     setSheet((current) => ({ open: true, session: current.session + 1, target }));
+  const sheetProps: SheetBaseProps = {
+    open: sheet.open,
+    session: sheet.session,
+    onClose: () => setSheet((current) => ({ ...current, open: false })),
+  };
   const api: PantrySheetApi = {
     openNew: () => openWith({ kind: "new", location }),
     openItem: (item) => openWith({ kind: "edit", item }),
+    openSuggestion: (suggestion) => openWith({ kind: "suggestion", suggestion, generation: generation() }),
   };
   return (
     <PantryRemovalProvider>
       <PantrySheetContext.Provider value={api}>
         {children}
-        <PantryItemSheet
-          open={sheet.open}
-          session={sheet.session}
-          target={sheet.target}
-          onClose={() => setSheet((current) => ({ ...current, open: false }))}
-        />
+        {/* One sheet, mounted in the same place for every target. */}
+        {sheet.target.kind === "suggestion" ? (
+          <PantryItemSheet {...sheetProps} target={sheet.target} review={review} />
+        ) : (
+          <PantryItemSheet {...sheetProps} target={sheet.target} />
+        )}
       </PantrySheetContext.Provider>
     </PantryRemovalProvider>
   );
