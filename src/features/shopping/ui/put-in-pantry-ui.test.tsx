@@ -131,6 +131,8 @@ describe("Lägg i lagret", () => {
     const user = userEvent.setup();
     render(<ServerList initial={lines} />);
     await user.click(screen.getByRole("checkbox", { name: "Grädde, 3 dl" }));
+    // "Lägg i lagret" is off until the check's save has settled.
+    await waitFor(() => expect(button()).toBeEnabled());
     await user.click(button()!);
     expect(putCheckedInPantry).toHaveBeenCalledWith({ planId: plan.id });
     expect(await screen.findByTestId("toast")).toHaveTextContent("Lagt 1 vara i lagret.");

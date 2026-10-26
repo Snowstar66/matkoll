@@ -1,4 +1,4 @@
-import { act, fireEvent, render, screen, within } from "@testing-library/react";
+import { act, fireEvent, render, screen, waitFor, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { useEffect, useState } from "react";
 import { beforeEach, describe, expect, it, vi } from "vitest";
@@ -196,7 +196,8 @@ describe("Lägg till rätt", () => {
 
     await user.click(within(favorites).getByRole("button", { name: /Krämig kycklinggryta/ }));
     expect(addToCurrentPlan).toHaveBeenCalledWith({ recipeId: gryta.id, id: expect.stringMatching(/^[0-9a-f-]{36}$/) });
-    expect(screen.queryByRole("dialog", { name: "Lägg till rätt" })).toBeNull();
+    // The sheet closes, and the toast shows, once the answer has settled.
+    await waitFor(() => expect(screen.queryByRole("dialog", { name: "Lägg till rätt" })).toBeNull());
     expect(toast()).toHaveTextContent("Lagt på matsedeln.");
   });
 
@@ -219,7 +220,7 @@ describe("Lägg till rätt", () => {
     await user.click(screen.getAllByRole("button", { name: "Lägg till rätt" })[0]);
     const sheet = screen.getByRole("dialog", { name: "Lägg till rätt" });
     await user.click(within(sheet).getByRole("button", { name: /Krämig kycklinggryta/ }));
-    expect(within(sheet).getByRole("alert")).toHaveTextContent("Det gick inte att lägga rätten på matsedeln.");
+    expect(await within(sheet).findByRole("alert")).toHaveTextContent("Det gick inte att lägga rätten på matsedeln.");
   });
 
   it("tries again with the same dish id, so a lost answer never adds the dish twice", async () => {
@@ -228,7 +229,7 @@ describe("Lägg till rätt", () => {
     render(<Matsedel initial={[]} recipes={[gryta, lasagne]} />);
     const sheet = await openSheet(user);
     await user.click(within(sheet).getByRole("button", { name: /Krämig kycklinggryta/ }));
-    expect(within(sheet).getByRole("alert")).toHaveTextContent("Det gick inte att lägga rätten på matsedeln.");
+    expect(await within(sheet).findByRole("alert")).toHaveTextContent("Det gick inte att lägga rätten på matsedeln.");
     await user.click(within(sheet).getByRole("button", { name: /Krämig kycklinggryta/ }));
     const [first, retry] = addToCurrentPlan.mock.calls.map(([input]) => input.id);
     expect(retry).toBe(first);
@@ -247,7 +248,7 @@ describe("Lägg till rätt", () => {
     await user.type(within(sheet).getByRole("searchbox", { name: "Sök recept" }), "lasagne{Enter}");
     await within(sheet).findByRole("region", { name: "Sökresultat" });
     await user.click(within(sheet).getByRole("button", { name: /Krämig kycklinggryta/ }));
-    expect(within(sheet).getByRole("alert")).toBeInTheDocument();
+    expect(await within(sheet).findByRole("alert")).toBeInTheDocument();
     await user.click(within(sheet).getByRole("button", { name: "Klar" }));
 
     sheet = await openSheet(user);
