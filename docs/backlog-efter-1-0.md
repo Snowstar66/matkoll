@@ -41,5 +41,5 @@ Pontus idéer 2026-10-26, bedömda och ordnade. Version 1.0 är Epic 1–7 enlig
 
 1. Gör klart 1.0, alltså Epic 4–7 som planerat. Epic 7 får en butiksmodell som klarar flera butiker.
 2. 1.1: flera ställen, och därefter att spara senaste fotot per plats.
-3. 1.2: erbjudanden i den enkla versionen, med inklistrad eller fotograferad reklam.
+3. 1.2: erbjudanden i den enkla versionen, med inklistrad eller fotograferad reklam. Planerad som Epic 9 (grenen `epic/9-erbjudanden`), men **vilar** sedan 2026-10-26: Pontus vill först finslipa det som finns.
 4. Utredning, och därefter 1.3: butiksjämförelse.

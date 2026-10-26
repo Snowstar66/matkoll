@@ -2,6 +2,11 @@
 
 Beslut som fattats under bygget: vad, varför och vilka alternativ som fanns. Nyaste överst.
 
+## 2026-10-26 – Epic 9 (veckans erbjudanden) vilar
+
+- **Beslut:** Epic 9 byggs inte nu. Planeringen ligger kvar på grenen `epic/9-erbjudanden` och korten #55–58 står i Backlog. Först finslipas det som finns: Epic 8 (flera ställen) och bildtolkningen (6.6 och det som kommer ur testerna). Beslutat av Pontus.
+- **Konsekvens:** efter Epic 8 tas finslipning och nya idéer från Pontus tester före Epic 9. Storyn "Spara senaste fotot per plats" ligger kvar efter Epic 8.
+
 ## 2026-10-26 – Stabil bildtolkning och fotot under granskningen (snabbfix efter 6.5)
 
 - **Underlag:** Pontus såg att samma foto gav mycket olika förslag varje gång. Mätt med Pontus foto av kylen, förminskat till 2048 px, med appens prompt mot Qwen3.6 i LM Studio, tre körningar per inställning:
