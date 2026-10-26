@@ -73,9 +73,9 @@ development_status:
   4-2-stegläge-med-tänd-skärm: done
   epic-4-retrospective: optional
 
-  epic-5: in-progress
-  5-1-kan-lagas-nu-rangordnat: review
-  5-2-ai-förslag-utifrån-lagret: review
+  epic-5: done
+  5-1-kan-lagas-nu-rangordnat: done
+  5-2-ai-förslag-utifrån-lagret: done
   epic-5-retrospective: optional
 
   epic-6: backlog
