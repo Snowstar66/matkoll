@@ -73,6 +73,8 @@ context:
 
 ## Implementation Notes
 
+- Enligt 3.2 raderar `set_current_meal_plan` en tom aktuell matsedel vid byte. Räkna en matsedel som tom bara om den saknar både rätter och egna varor. Uppdatera funktionen med `create or replace` i en ny migration, och lägg till ett integrationstest för det.
+
 ## Spec Change Log
 
 ## Review Triage Log

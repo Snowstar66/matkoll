@@ -21,6 +21,11 @@ export type SheetProps = {
   footer?: ReactNode;
   /** While true (e.g. while saving), nothing closes the sheet and the header button is disabled. */
   preventClose?: boolean;
+  /**
+   * `close`: focus starts on the header button ("Avbryt"), e.g. for a question
+   * before something is deleted. Otherwise the browser picks the first control.
+   */
+  initialFocus?: "close";
 };
 
 type SheetEntry = {
@@ -61,6 +66,7 @@ export function Sheet({
   closeLabel = "Klar",
   footer,
   preventClose = false,
+  initialFocus,
 }: SheetProps) {
   const dialogRef = useRef<HTMLDialogElement>(null);
   const closeButtonRef = useRef<HTMLButtonElement>(null);
@@ -74,10 +80,10 @@ export function Sheet({
   const restoreFocusAfterConfirm = useRef(false);
 
   // Latest props for event handlers and the registry.
-  const latest = useRef({ onClose, isDirty, preventClose });
+  const latest = useRef({ onClose, isDirty, preventClose, initialFocus });
   useEffect(() => {
-    latest.current = { onClose, isDirty, preventClose };
-  }, [onClose, isDirty, preventClose]);
+    latest.current = { onClose, isDirty, preventClose, initialFocus };
+  }, [onClose, isDirty, preventClose, initialFocus]);
 
   function askConfirm() {
     focusBeforeConfirm.current = focusable(document.activeElement);
@@ -131,6 +137,7 @@ export function Sheet({
       if (!active) return;
       shownSheet = me;
       if (!dialog.open) dialog.showModal();
+      if (latest.current.initialFocus === "close") closeButtonRef.current?.focus();
     };
 
     const previous = shownSheet;

@@ -4,10 +4,15 @@ import {
   addToPlanSchema,
   clampServings,
   comparePlanRecipes,
+  deletePlanQuestion,
+  dishCountText,
+  leftOutText,
   dishStatus,
   isoWeek,
   isoWeekName,
+  planDateText,
   planRecipeRowSchema,
+  planSummaryText,
   removedDishesText,
   servingsChangeSchema,
   toPlanDishes,
@@ -124,5 +129,31 @@ describe("clampServings", () => {
     [Number.NaN, 1],
   ])("makes %s servings %s", (servings, clamped) => {
     expect(clampServings(servings)).toBe(clamped);
+  });
+});
+
+describe("Tidigare", () => {
+  it("writes the creation date in Stockholm with a fixed month abbreviation", () => {
+    expect(planDateText("2026-10-26T10:00:00Z")).toBe("26 okt 2026");
+    expect(planDateText("2027-03-05T10:00:00Z")).toBe("5 mars 2027");
+    // 23:30 UTC on New Year's Eve is already 1 January in Stockholm.
+    expect(planDateText("2026-12-31T23:30:00Z")).toBe("1 jan 2027");
+    expect(planDateText("2026-12-31T23:30:00Z", "UTC")).toBe("31 dec 2026");
+  });
+
+  it("says how many dishes and when the plan was made", () => {
+    expect(dishCountText(1)).toBe("1 rätt");
+    expect(dishCountText(0)).toBe("0 rätter");
+    expect(planSummaryText({ dishCount: 3, createdAt: "2026-10-26T10:00:00Z" })).toBe("3 rätter · skapad 26 okt 2026");
+  });
+
+  it("says how many dishes with deleted recipes do not come along", () => {
+    expect(leftOutText(0)).toBeNull();
+    expect(leftOutText(1)).toBe("1 rätt med borttaget recept följer inte med.");
+    expect(leftOutText(3)).toBe("3 rätter med borttagna recept följer inte med.");
+  });
+
+  it("asks before a plan is deleted", () => {
+    expect(deletePlanQuestion("Vecka 42")).toBe("Ta bort Vecka 42? Det går inte att ångra.");
   });
 });

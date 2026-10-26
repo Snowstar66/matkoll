@@ -4,6 +4,7 @@ import { requireUserOrRedirect } from "@/features/auth/server";
 import { getMealPlanView, MealPlanDataError, type MealPlanView } from "@/features/mealplan/server";
 import { AddDishButton, AddDishProvider } from "@/features/mealplan/ui/add-dish-sheet";
 import { MealPlanList } from "@/features/mealplan/ui/meal-plan-list";
+import { PreviousPlansLink } from "@/features/mealplan/ui/previous-plans-link";
 import type { RecipeListItem } from "@/features/recipes";
 import { listRecipes, RecipeDataError, searchRecipes } from "@/features/recipes/server";
 import { errorMessages } from "@/lib/errors";
@@ -43,7 +44,7 @@ export async function MealPlanContent() {
     console.error("mealplan_unavailable", { reason: error.detail });
     return (
       <>
-        <PageHeader title="Matsedel" />
+        <PageHeader title="Matsedel" action={<PreviousPlansLink />} />
         <Notice role="alert">{errorMessages.mealplan_unavailable}</Notice>
       </>
     );
@@ -51,7 +52,15 @@ export async function MealPlanContent() {
 
   return (
     <AddDishProvider recipes={recipes} searchRecipes={searchRecipes}>
-      <PageHeader title="Matsedel" action={<AddDishButton variant="icon" />} />
+      <PageHeader
+        title="Matsedel"
+        action={
+          <>
+            <PreviousPlansLink />
+            <AddDishButton variant="icon" />
+          </>
+        }
+      />
       <MealPlanList planName={view.plan?.name ?? null} dishes={view.dishes} snapshot={view.snapshot} />
     </AddDishProvider>
   );

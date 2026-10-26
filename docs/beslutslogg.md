@@ -2,6 +2,18 @@
 
 Beslut som fattats under bygget: vad, varför och vilka alternativ som fanns. Nyaste överst.
 
+## 2026-10-26 – Tidigare matsedlar
+
+- **Beslut:** "Ny matsedel" är en sekundärknapp överst i Tidigare och visar, liksom "Använd igen", "Matsedeln är skapad." på Matsedel. Ingen av dem frågar i förväg, eftersom den förra matsedeln finns kvar som tidigare. En tidigare matsedel visas utan bild och status, med titel (länk till receptet) och portioner. Efter "Ta bort matsedel" hamnar Pontus i Tidigare med "Matsedeln är borttagen.". Den aktuella matsedeln går inte att ta bort därifrån, och dess adress under Tidigare leder till Matsedel. "Använd igen" kopierar rätternas sparade titlar, som när en rätt läggs till, och läser inte recepten igen. Datumet i listan skrivs med fasta svenska månadsförkortningar ("26 okt 2026"), så att servern och webbläsarna skriver likadant (Story 3.2).
+- **Varför:** underlaget säger inte var "Ny matsedel" ligger eller vad som visas efter borttagning. Förhandsbekräftelse krävs bara för det som inte går att ångra (EXPERIENCE.md). `set_current_meal_plan` arbetar i databasen, och modulen läser inte recepttabellerna (AD-1).
+- **Alternativ:** "Ny matsedel" i Matsedel-rubriken; nya titlar via `recipes.getRecipesByIds` vid "Använd igen"; `Intl` med "okt." som månadsförkortning.
+
+## 2026-10-26 – Tidigare matsedlar efter granskningen
+
+- **Beslut:** en aktuell matsedel utan rätter tas bort i stället för att bli tidigare när en ny blir aktuell. "Använd igen" går inte att trycka på när ingen rätt har kvar sitt recept, och databasen nekar en sådan källa. En tidigare matsedel tas bort under matsedelslåset, och en som redan är borta räknas som borttagen. Ett nytt försök med ett id som hunnit bli en tidigare matsedel nekas. Nya texter: "Matsedeln finns inte längre.", "Matsedlarna har ändrats.", "1 rätt med borttaget recept följer inte med." / "N rätter med borttagna recept följer inte med." och "Alla recept på matsedeln är borttagna, så den går inte att använda igen." (Story 3.2).
+- **Varför:** granskningen av 3.2. Tomma matsedlar i Tidigare går inte att använda igen och gör listan svårläst. "Använd igen" och "Ta bort" av samma matsedel ska aldrig krocka.
+- **Alternativ:** behålla tomma matsedlar; skapa en tom matsedel när inget går att använda igen.
+
 ## 2026-10-26 – Matsedelsrätten och arket Lägg till rätt
 
 - **Beslut:** en matsedelsrätt har en synlig textknapp "Ta bort" bredvid portionsväljaren, utöver svep vänster. Arket Lägg till rätt visar Favoriter, sökfältet och under det övriga recept (de som inte är favoriter) tills Pontus söker; då visas sökträffarna i stället. Ett tryck på ett recept stänger arket och visar "Lagt på matsedeln.", som i receptvyn. Statusen på en rätt räknas i webbläsaren med `recipeStatus`, så att den följer portionsväljaren direkt (Story 3.1).

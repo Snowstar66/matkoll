@@ -207,6 +207,9 @@ isOneToOne: false
               "id": string,"normalized_name": string
             }[]
                            },
+"delete_meal_plan":
+{ Args: { "plan_id": string }; Returns: boolean
+                           },
 "detach_recipe_from_current_plan":
 { Args: { "detached_recipe_id": string }; Returns: number
                            },
@@ -255,6 +258,20 @@ isOneToOne: false
 "save_recipe":
 { Args: { "lines": Json,"recipe": Json,"steps": Json }; Returns: string
                            },
+"set_current_meal_plan":
+{ Args: { "new_plan_id": string,"plan_name": string,"source_id"?: string }; Returns: {
+              "created_at": string,
+"id": string,
+"is_current": boolean,
+"name": string,
+"user_id": string
+            }
+                          SetofOptions: {
+        from: "*"
+        to: "meal_plan"
+        isOneToOne: true
+        isSetofReturn: false
+      } },
 "set_pantry_items":
 { Args: { "items": Json,"replace_id"?: string }; Returns: {
               "amount": number | null,

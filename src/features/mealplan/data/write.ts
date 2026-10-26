@@ -100,3 +100,53 @@ export async function detachRecipeIn(db: MealPlanDb, recipeId: string): Promise<
   if (error) throw new MealPlanDataError(`detach_failed ${error.code}`);
   return data;
 }
+
+/** What setCurrentPlanIn makes: the new plan's id (made by the client), its name and, for "Använd igen", the plan to copy. */
+export type NewPlan = {
+  id: string;
+  /** "Vecka 44". */
+  name: string;
+  /** The plan whose dishes the new plan gets; none for an empty plan. */
+  sourceId?: string;
+};
+
+/**
+ * "Använd igen" and "Ny matsedel" (AD-22): makes a new current meal plan in
+ * one transaction under the meal plan lock (set_current_meal_plan). The plan
+ * that was current becomes an earlier plan, or is deleted when it has no
+ * dishes. With `sourceId` the new plan gets that plan's dishes and servings
+ * in the same order, except those whose recipe is deleted. A plan id that is
+ * the user's current plan already returns that plan, so a retry makes the
+ * plan once. Throws MealPlanDataError: `invalid_id` before anything is
+ * written, or `set_current_failed <code>` with `code`: P0002 no such source
+ * plan; 22023 no dish in it has its recipe left; 55000 the id is an earlier
+ * plan now; 23505 the id is taken; 23514 the name is refused.
+ */
+export async function setCurrentPlanIn(db: MealPlanDb, plan: NewPlan): Promise<{ id: string; name: string }> {
+  if (!idSchema.safeParse(plan.id).success) throw new MealPlanDataError("invalid_id");
+  if (plan.sourceId !== undefined && !idSchema.safeParse(plan.sourceId).success) {
+    throw new MealPlanDataError("invalid_id");
+  }
+  const { data, error } = await db.rpc("set_current_meal_plan", {
+    new_plan_id: plan.id,
+    plan_name: plan.name,
+    ...(plan.sourceId ? { source_id: plan.sourceId } : {}),
+  });
+  if (error) throw new MealPlanDataError(`set_current_failed ${error.code}`, error.code);
+  return { id: data.id, name: data.name };
+}
+
+/**
+ * Deletes an earlier meal plan for good, with its dishes and everything the
+ * shopping list keeps for it (on delete cascade), under the meal plan lock
+ * (delete_meal_plan), so it never races "Använd igen" of the same plan.
+ * `false` when the user has no plan with the id: gone already, or another
+ * user's. Throws MealPlanDataError: `invalid_id`, or `delete_failed <code>`
+ * (55000: the current plan, which is never deleted).
+ */
+export async function deletePlanIn(db: MealPlanDb, id: string): Promise<boolean> {
+  if (!idSchema.safeParse(id).success) throw new MealPlanDataError("invalid_id");
+  const { data, error } = await db.rpc("delete_meal_plan", { plan_id: id });
+  if (error) throw new MealPlanDataError(`delete_failed ${error.code}`, error.code);
+  return data;
+}

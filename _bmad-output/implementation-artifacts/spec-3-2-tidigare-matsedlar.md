@@ -2,9 +2,10 @@
 title: 'Story 3.2: Tidigare matsedlar'
 type: 'feature'
 created: '2026-10-26'
-status: 'draft'
+status: 'done'
 route: 'dispatch'
-review_loop_iteration: 0
+review_loop_iteration: 1
+baseline_commit: '3922da45aaf6568f807e229997afc7d668ae7ed4'
 context:
   - '{project-root}/_bmad-output/implementation-artifacts/epic-3-context.md'
 ---
@@ -46,11 +47,11 @@ context:
 ## Tasks & Acceptance
 
 **Execution:**
-- [ ] ny migration (+ `pnpm db:types`) -- `set_current_meal_plan(source_id uuid null)`: med källa kopieras rätterna (utan borttagna recept) till en ny aktuell matsedel; utan källa skapas en tom; den förra aktuella sätts till `is_current = false` först -- AD-22
-- [ ] `src/features/mealplan/data/`, `actions/` (+ tester) -- `listPreviousPlans()`, `getPlan(id)`, `reusePlan(id)`, `newPlan()`, `deletePlan(id)` -- AD-22
-- [ ] `src/app/(app)/matsedel/tidigare/page.tsx`, `src/app/(app)/matsedel/tidigare/[id]/page.tsx`, `src/features/mealplan/ui/` -- listan, detaljen, "Använd igen", "Ny matsedel", "Ta bort matsedel" med bekräftelse; "Tidigare" i Matsedel-rubriken -- UX
-- [ ] `tests/integration/mealplan.test.ts` (utökad) -- byte av aktuell i en transaktion, kopiering utan borttagna recept, högst en aktuell, radering med cascade, RLS -- matrisen
-- [ ] `tests/e2e/mealplan.spec.ts` (utökad) -- tidigare lista, använd igen, ny matsedel, ta bort med bekräftelse -- matrisen
+- [x] ny migration (+ `pnpm db:types`) -- `set_current_meal_plan(source_id uuid null)`: med källa kopieras rätterna (utan borttagna recept) till en ny aktuell matsedel; utan källa skapas en tom; den förra aktuella sätts till `is_current = false` först -- AD-22
+- [x] `src/features/mealplan/data/`, `actions/` (+ tester) -- `listPreviousPlans()`, `getPlan(id)`, `reusePlan(id)`, `newPlan()`, `deletePlan(id)` -- AD-22
+- [x] `src/app/(app)/matsedel/tidigare/page.tsx`, `src/app/(app)/matsedel/tidigare/[id]/page.tsx`, `src/features/mealplan/ui/` -- listan, detaljen, "Använd igen", "Ny matsedel", "Ta bort matsedel" med bekräftelse; "Tidigare" i Matsedel-rubriken -- UX
+- [x] `tests/integration/mealplan.test.ts` (utökad) -- byte av aktuell i en transaktion, kopiering utan borttagna recept, högst en aktuell, radering med cascade, RLS -- matrisen
+- [x] `tests/e2e/mealplan.spec.ts` (utökad) -- tidigare lista, använd igen, ny matsedel, ta bort med bekräftelse -- matrisen
 
 **Acceptance Criteria:**
 - Given `pnpm lint && pnpm typecheck && pnpm test && pnpm test:integration && AI_PROVIDER=mock pnpm build && CI=1 pnpm test:e2e`, when de körs, then lyckas alla.
@@ -66,7 +67,31 @@ context:
 
 ## Spec Change Log
 
+- `set_current_meal_plan(new_plan_id, plan_name, source_id)` tar emot id och namn. Det gör att ett nytt försök inte ger en dubblett (samma princip som i 3.1) och att namnet bara räknas fram av `isoWeekName`. Actions: `reusePlan(id, newPlanId?)` och `newPlan(newPlanId?)`.
+
 ## Review Triage Log
+
+Iteration 1. Granskare: Blind Hunter, Edge Case Hunter och Verification Gap.
+- **Patch:**
+  - Ett nytt försök med ett id som inte längre är aktuellt nekas (55000).
+  - Radering går via `delete_meal_plan` med låset. En matsedel som redan är borttagen räknas som borttagen.
+  - Permanenta fel nollställer id:t och skickar Pontus vidare.
+  - "Använd igen" är avstängt när ingen rätt kan följa med. En notis visar hur många rätter med borttaget recept som inte följer med.
+  - En tom aktuell matsedel raderas vid byte i stället för att sparas som tidigare.
+  - Skydd mot dubbelklick.
+  - Detaljsidan har rubrik i laddningsläget.
+  - `generateMetadata` fångar bara `MealPlanDataError`.
+  - Fokus på "Avbryt" i bekräftelsen.
+  - `set_current_meal_plan` sätter `user_id` uttryckligen.
+  - Nya tester för routing, felvägar och radering.
+- **Defer:**
+  - sidindelning av Tidigare
+  - att skilja två matsedlar åt som har samma namn och samma dag
+- **Reject:**
+  - `user_id`-filter vid läsning (RLS räcker, samma som i resten av appen)
+  - mjuk 404 inuti Suspense (samma mönster som receptsidorna)
+  - röd knapp (appen använder inte rött)
+  - att återkalla direkta skrivningar av `is_current`
 
 ## Verification
 

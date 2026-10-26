@@ -47,6 +47,8 @@ describe("MealPlanContent", () => {
     render(<ToastProvider>{await MealPlanContent()}</ToastProvider>);
     expect(screen.getByRole("alert")).toHaveTextContent("Det gick inte att läsa matsedeln. Försök igen.");
     expect(logged).toHaveBeenCalledWith("mealplan_unavailable", { reason: "query_failed 08006" });
+    // The earlier plans can still be reached.
+    expect(screen.getByRole("link", { name: "Tidigare" })).toHaveAttribute("href", "/matsedel/tidigare");
   });
 
   it("shows the plan when the library cannot be read, and the sheet says so", async () => {
@@ -55,6 +57,10 @@ describe("MealPlanContent", () => {
     vi.mocked(listRecipes).mockRejectedValue(new RecipeDataError("query_failed 08006"));
     render(<ToastProvider>{await MealPlanContent()}</ToastProvider>);
     expect(screen.getByTestId("plan-dish")).toHaveTextContent("Pasta");
+    expect(within(screen.getByRole("banner")).getByRole("link", { name: "Tidigare" })).toHaveAttribute(
+      "href",
+      "/matsedel/tidigare",
+    );
     await user.click(screen.getByRole("button", { name: "Lägg till rätt" }));
     const sheet = screen.getByRole("dialog", { name: "Lägg till rätt" });
     expect(within(sheet).getByRole("alert")).toHaveTextContent("Det gick inte att läsa recepten. Försök igen.");

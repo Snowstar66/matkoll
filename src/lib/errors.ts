@@ -35,6 +35,16 @@ export const errorMessages = {
   mealplan_servings_failed: "Det gick inte att spara portionerna.",
   mealplan_remove_failed: "Det gick inte att ta bort rätten.",
   mealplan_restore_failed: "Det gick inte att ångra.",
+  // Tidigare matsedlar (Story 3.2). After a failed "Använd igen" or "Ny
+  // matsedel" the current plan is as it was; after a failed delete the plan stays.
+  mealplan_previous_unavailable: "Det gick inte att läsa tidigare matsedlar. Försök igen.",
+  mealplan_create_failed: "Det gick inte att skapa matsedeln. Försök igen.",
+  // "Använd igen" of a plan deleted elsewhere: back to Tidigare.
+  mealplan_plan_gone: "Matsedeln finns inte längre.",
+  // A new plan that cannot be made as asked, because the plans changed
+  // elsewhere (or the recipes did): the page is read again.
+  mealplan_plans_changed: "Matsedlarna har ändrats.",
+  mealplan_delete_failed: "Det gick inte att ta bort matsedeln. Försök igen.",
   // Recipe sites in Inställningar (FR7). The sentence with the site's name,
   // "koket.se finns redan.", is in `fields.domain`.
   settings_invalid_domain: "Ange en giltig webbadress, t.ex. koket.se.",

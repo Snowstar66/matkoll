@@ -141,3 +141,73 @@ export function removedDishesText(titles: readonly string[]): string {
 
 /** The short confirmation after a dish was added: "Lagt på matsedeln." */
 export const addedToPlanText = "Lagt på matsedeln.";
+
+// Tidigare matsedlar (FR-14, Story 3.2).
+
+/** An earlier meal plan as Tidigare lists it. */
+export type PlanSummary = {
+  id: string;
+  name: string;
+  /** When the plan was made (ISO 8601). */
+  createdAt: string;
+  dishCount: number;
+};
+
+/** A meal plan with its dishes in order, as its own page shows it. */
+export type PlanDetail = MealPlan & {
+  isCurrent: boolean;
+  /** When the plan was made (ISO 8601). */
+  createdAt: string;
+};
+
+/** The month abbreviations, fixed so the server and every browser write the same. */
+const shortMonths = ["jan", "feb", "mars", "apr", "maj", "juni", "juli", "aug", "sep", "okt", "nov", "dec"];
+
+/** The date in Stockholm, so two "Vecka 44" from different years can be told apart: "26 okt 2026". */
+export function planDateText(createdAt: string, timeZone: string = planTimeZone): string {
+  const parts = new Intl.DateTimeFormat("en-US", { timeZone, year: "numeric", month: "numeric", day: "numeric" })
+    .formatToParts(new Date(createdAt))
+    .reduce<Record<string, number>>((all, part) => ({ ...all, [part.type]: Number(part.value) }), {});
+  return `${parts.day} ${shortMonths[parts.month - 1]} ${parts.year}`;
+}
+
+/** "1 rätt", "3 rätter". */
+export function dishCountText(count: number): string {
+  return count === 1 ? "1 rätt" : `${count} rätter`;
+}
+
+/** An earlier plan's line in Tidigare: "3 rätter · skapad 26 okt 2026". */
+export function planSummaryText(plan: Pick<PlanSummary, "createdAt" | "dishCount">): string {
+  return `${dishCountText(plan.dishCount)} · skapad ${planDateText(plan.createdAt)}`;
+}
+
+/** The question before an earlier plan is deleted: "Ta bort Vecka 42? Det går inte att ångra." */
+export function deletePlanQuestion(name: string): string {
+  return `Ta bort ${name}? Det går inte att ångra.`;
+}
+
+/**
+ * Under an earlier plan whose dishes include deleted recipes: "1 rätt med
+ * borttaget recept följer inte med." or "2 rätter med borttagna recept följer
+ * inte med."; `null` when there are none.
+ */
+export function leftOutText(count: number): string | null {
+  if (count <= 0) return null;
+  if (count === 1) return "1 rätt med borttaget recept följer inte med.";
+  return `${count} rätter med borttagna recept följer inte med.`;
+}
+
+/** Why "Använd igen" is unavailable when every dish's recipe is deleted. */
+export const nothingToReuseText = "Alla recept på matsedeln är borttagna, så den går inte att använda igen.";
+
+/** An earlier plan without dishes, which "Använd igen" cannot use either. */
+export const noDishesText = "Matsedeln har inga rätter.";
+
+/** The short confirmation on Matsedel after "Använd igen" or "Ny matsedel". */
+export const planCreatedText = "Matsedeln är skapad.";
+
+/** The short confirmation in Tidigare after a plan was deleted. */
+export const planDeletedText = "Matsedeln är borttagen.";
+
+/** A plan id: the plan to use again or delete, or a new plan's id made by the client. */
+export const planIdSchema = z.uuid();

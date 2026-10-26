@@ -1,12 +1,14 @@
 import { randomUUID } from "node:crypto";
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
 import { MealPlanDataError } from "@/features/mealplan/data/client";
-import { getCurrentPlanIn } from "@/features/mealplan/data/queries";
+import { getCurrentPlanIn, getPlanIn, listPreviousPlansIn } from "@/features/mealplan/data/queries";
 import {
   addToCurrentPlanIn,
+  deletePlanIn,
   detachRecipeIn,
   removePlanRecipeIn,
   restorePlanRecipeIn,
+  setCurrentPlanIn,
   setServingsIn,
   type NewDish,
 } from "@/features/mealplan/data/write";
@@ -19,7 +21,8 @@ import { adminClient, anonClient, createTestUser, deleteTestUsers, expectRlsIsol
 // tables, one current plan per user, add_to_current_plan creating the plan
 // and adding dishes, the recipe's title kept when the recipe is deleted
 // (on delete set null (recipe_id)), detachRecipe, and removing a dish with
-// "Ångra" (same id).
+// "Ångra" (same id). Story 3.2: set_current_meal_plan ("Använd igen" and "Ny
+// matsedel"), the earlier plans and deleting one.
 
 async function addRecipe(db: Db, title = "Linssoppa", servings = 4): Promise<string> {
   const { data, error } = await db
@@ -334,3 +337,262 @@ describe("getRecipesByIds", () => {
     expect(await getRecipesByIdsIn(owner.db, [])).toEqual([]);
   });
 });
+
+async function plansOf(userId: string) {
+  const { data, error } = await adminClient()
+    .from("meal_plan")
+    .select("id, name, is_current")
+    .eq("user_id", userId)
+    .order("created_at");
+  if (error) throw error;
+  return data;
+}
+
+/** A plan made at a given time, so the order of the earlier plans is known. */
+async function setCreatedAt(planId: string, createdAt: string) {
+  const { error } = await adminClient().from("meal_plan").update({ created_at: createdAt }).eq("id", planId);
+  if (error) throw error;
+}
+
+describe("set_current_meal_plan", () => {
+  it("Använd igen: a new current plan with the same dishes and servings in order, without deleted recipes", async () => {
+    const user = await createTestUser("mealplan-reuse");
+    const soppa = await addRecipe(user.db, "Linssoppa");
+    const gryta = await addRecipe(user.db, "Kycklinggryta");
+    const borta = await addRecipe(user.db, "Borttagen paj");
+    const first = await addToCurrentPlanIn(user.db, dish(soppa, { servings: 2 }));
+    await addToCurrentPlanIn(user.db, dish(borta, { recipeTitle: "Borttagen paj" }));
+    await addToCurrentPlanIn(user.db, dish(gryta, { recipeTitle: "Kycklinggryta", servings: 6 }));
+    await addToCurrentPlanIn(user.db, dish(soppa, { servings: 3 }));
+    const source = first.mealPlanId;
+    // The source becomes an earlier plan with a new current one, then its recipe is deleted.
+    await setCurrentPlanIn(user.db, { id: randomUUID(), name: "Vecka 45" });
+    expect(await deleteRecipeIn(user.db, user.id, borta)).toBe(true);
+
+    const reused = await setCurrentPlanIn(user.db, { id: randomUUID(), name: "Vecka 46", sourceId: source });
+    const current = await getCurrentPlanIn(user.db);
+    expect(current?.id).toBe(reused.id);
+    expect(current?.name).toBe("Vecka 46");
+    expect(current?.recipes.map(({ recipeId, recipeTitle, servings, position }) => ({ recipeId, recipeTitle, servings, position }))).toEqual([
+      { recipeId: soppa, recipeTitle: "Linssoppa", servings: 2, position: 0 },
+      { recipeId: gryta, recipeTitle: "Kycklinggryta", servings: 6, position: 1 },
+      { recipeId: soppa, recipeTitle: "Linssoppa", servings: 3, position: 2 },
+    ]);
+    // New dishes; the source keeps its own, the deleted recipe's as "Borttaget recept".
+    const sourcePlan = await getPlanIn(user.db, source);
+    expect(sourcePlan?.recipes).toHaveLength(4);
+    expect(sourcePlan?.recipes[1]).toMatchObject({ recipeId: null, recipeTitle: "Borttagen paj" });
+    const sourceIds = new Set(sourcePlan?.recipes.map(({ id }) => id));
+    expect(current?.recipes.some(({ id }) => sourceIds.has(id))).toBe(false);
+    // Exactly one current plan; the source is an earlier plan, and the empty
+    // Vecka 45 was deleted instead of kept.
+    expect((await plansOf(user.id)).map(({ name, is_current }) => [name, is_current])).toEqual([
+      ["Vecka 44", false],
+      ["Vecka 46", true],
+    ]);
+  });
+
+  it("Ny matsedel: an empty current plan, and the one that was current becomes an earlier plan", async () => {
+    const user = await createTestUser("mealplan-new");
+    const added = await addToCurrentPlanIn(user.db, dish(await addRecipe(user.db)));
+    const created = await setCurrentPlanIn(user.db, { id: randomUUID(), name: "Vecka 45" });
+    expect(await getCurrentPlanIn(user.db)).toEqual({ id: created.id, name: "Vecka 45", recipes: [] });
+    expect(await getPlanIn(user.db, added.mealPlanId)).toMatchObject({ isCurrent: false, recipes: [{ id: added.id }] });
+    // A new dish goes onto the new plan.
+    const next = await addToCurrentPlanIn(user.db, dish(await addRecipe(user.db)));
+    expect(next.mealPlanId).toBe(created.id);
+  });
+
+  it("makes the first plan when there is none", async () => {
+    const user = await createTestUser("mealplan-new-first");
+    const created = await setCurrentPlanIn(user.db, { id: randomUUID(), name: "Vecka 44" });
+    expect((await getCurrentPlanIn(user.db))?.id).toBe(created.id);
+  });
+
+  it("makes a plan id once: a retry returns the same plan and switches nothing", async () => {
+    const user = await createTestUser("mealplan-new-retry");
+    const plan = { id: randomUUID(), name: "Vecka 44" };
+    const first = await setCurrentPlanIn(user.db, plan);
+    expect(await setCurrentPlanIn(user.db, plan)).toEqual(first);
+    expect(await plansOf(user.id)).toHaveLength(1);
+  });
+
+  it("is all or nothing: a refused name or an unknown source leaves the current plan as it was", async () => {
+    const owner = await createTestUser("mealplan-reuse-refused");
+    const other = await createTestUser("mealplan-reuse-refused-other");
+    const added = await addToCurrentPlanIn(owner.db, dish(await addRecipe(owner.db)));
+    await expect(setCurrentPlanIn(owner.db, { id: randomUUID(), name: "  " })).rejects.toThrow("set_current_failed 23514");
+    await expect(
+      setCurrentPlanIn(owner.db, { id: randomUUID(), name: "Vecka 45", sourceId: randomUUID() }),
+    ).rejects.toThrow("set_current_failed P0002");
+    // Another user's plan is no source.
+    const theirs = await addToCurrentPlanIn(other.db, dish(await addRecipe(other.db)));
+    await expect(
+      setCurrentPlanIn(owner.db, { id: randomUUID(), name: "Vecka 45", sourceId: theirs.mealPlanId }),
+    ).rejects.toThrow("set_current_failed P0002");
+    expect(await plansOf(owner.id)).toEqual([{ id: added.mealPlanId, name: "Vecka 44", is_current: true }]);
+    expect(await plansOf(other.id)).toEqual([{ id: theirs.mealPlanId, name: "Vecka 44", is_current: true }]);
+  });
+
+  it("keeps one current plan when two switches run at once", async () => {
+    const user = await createTestUser("mealplan-new-concurrent");
+    const added = await addToCurrentPlanIn(user.db, dish(await addRecipe(user.db)));
+    await Promise.all([
+      setCurrentPlanIn(user.db, { id: randomUUID(), name: "Vecka 45" }),
+      setCurrentPlanIn(user.db, { id: randomUUID(), name: "Vecka 45", sourceId: added.mealPlanId }),
+    ]);
+    // Whichever ran first, there is one current plan and the first plan is an earlier one.
+    const plans = await plansOf(user.id);
+    expect(plans.filter(({ is_current }) => is_current)).toHaveLength(1);
+    expect(plans.find(({ id }) => id === added.mealPlanId)?.is_current).toBe(false);
+  });
+
+  it("puts a removed dish back only onto the current plan, not after Använd igen", async () => {
+    const user = await createTestUser("mealplan-reuse-restore");
+    const recipeId = await addRecipe(user.db);
+    await addToCurrentPlanIn(user.db, dish(recipeId));
+    const added = await addToCurrentPlanIn(user.db, dish(recipeId));
+    const removed = await removePlanRecipeIn(user.db, user.id, added.id);
+    if (!removed) throw new Error("not removed");
+    await setCurrentPlanIn(user.db, { id: randomUUID(), name: "Vecka 45", sourceId: added.mealPlanId });
+    await expect(restorePlanRecipeIn(user.db, removed)).rejects.toThrow("restore_failed 55000");
+  });
+
+  it("refuses a retry with an id that is an earlier plan now", async () => {
+    const user = await createTestUser("mealplan-retry-earlier");
+    const plan = { id: randomUUID(), name: "Vecka 44" };
+    await setCurrentPlanIn(user.db, plan);
+    await addToCurrentPlanIn(user.db, dish(await addRecipe(user.db)));
+    const next = await setCurrentPlanIn(user.db, { id: randomUUID(), name: "Vecka 45" });
+    await expect(setCurrentPlanIn(user.db, plan)).rejects.toThrow("set_current_failed 55000");
+    expect((await getCurrentPlanIn(user.db))?.id).toBe(next.id);
+  });
+
+  it("refuses to use again a plan where every dish's recipe is deleted, and changes nothing", async () => {
+    const user = await createTestUser("mealplan-reuse-nothing");
+    const recipeId = await addRecipe(user.db, "Borttagen soppa");
+    const gone = await addToCurrentPlanIn(user.db, dish(recipeId, { recipeTitle: "Borttagen soppa" }));
+    const current = await setCurrentPlanIn(user.db, { id: randomUUID(), name: "Vecka 45" });
+    await addToCurrentPlanIn(user.db, dish(await addRecipe(user.db)));
+    await deleteRecipeIn(user.db, user.id, recipeId);
+    await expect(
+      setCurrentPlanIn(user.db, { id: randomUUID(), name: "Vecka 46", sourceId: gone.mealPlanId }),
+    ).rejects.toThrow("set_current_failed 22023");
+    expect((await getCurrentPlanIn(user.db))?.id).toBe(current.id);
+    expect(await plansOf(user.id)).toHaveLength(2);
+  });
+
+  it("deletes an empty current plan instead of keeping it as an earlier plan", async () => {
+    const user = await createTestUser("mealplan-empty-current");
+    const added = await addToCurrentPlanIn(user.db, dish(await addRecipe(user.db)));
+    const empty = await setCurrentPlanIn(user.db, { id: randomUUID(), name: "Vecka 45" });
+    const again = await setCurrentPlanIn(user.db, { id: randomUUID(), name: "Vecka 45" });
+    const reused = await setCurrentPlanIn(user.db, { id: randomUUID(), name: "Vecka 46", sourceId: added.mealPlanId });
+    const plans = await plansOf(user.id);
+    expect(plans.map(({ id, is_current }) => [id, is_current])).toEqual([
+      [added.mealPlanId, false],
+      [reused.id, true],
+    ]);
+    expect([empty.id, again.id].some((id) => plans.some((plan) => plan.id === id))).toBe(false);
+    expect(await listPreviousPlansIn(user.db)).toHaveLength(1);
+  });
+
+  it("never races a delete of the same plan: Använd igen either copies it or finds it gone", async () => {
+    for (let round = 0; round < 5; round += 1) {
+      const user = await createTestUser(`mealplan-delete-reuse-${round}`);
+      const recipeId = await addRecipe(user.db);
+      const source = await addToCurrentPlanIn(user.db, dish(recipeId));
+      await addToCurrentPlanIn(user.db, dish(recipeId));
+      const current = await setCurrentPlanIn(user.db, { id: randomUUID(), name: "Vecka 45" });
+      await addToCurrentPlanIn(user.db, dish(recipeId));
+      const [deleted, reused] = await Promise.allSettled([
+        deletePlanIn(user.db, source.mealPlanId),
+        setCurrentPlanIn(user.db, { id: randomUUID(), name: "Vecka 46", sourceId: source.mealPlanId }),
+      ]);
+      expect(deleted).toEqual({ status: "fulfilled", value: true });
+      expect(await getPlanIn(user.db, source.mealPlanId)).toBeNull();
+      const now = await getCurrentPlanIn(user.db);
+      if (reused.status === "fulfilled") {
+        expect(now?.id).toBe(reused.value.id);
+        expect(now?.recipes).toHaveLength(2);
+      } else {
+        expect(String(reused.reason)).toContain("set_current_failed P0002");
+        expect(now?.id).toBe(current.id);
+      }
+    }
+  });
+
+  it("refuses anonymous callers, and another user's plan id", async () => {
+    const owner = await createTestUser("mealplan-new-owner");
+    const other = await createTestUser("mealplan-new-other");
+    const taken = await setCurrentPlanIn(owner.db, { id: randomUUID(), name: "Vecka 44" });
+    await expect(setCurrentPlanIn(other.db, { id: taken.id, name: "Vecka 44" })).rejects.toThrow(
+      "set_current_failed 23505",
+    );
+    expect(await getCurrentPlanIn(other.db)).toBeNull();
+    const anon = await anonClient().rpc("set_current_meal_plan", { new_plan_id: randomUUID(), plan_name: "Vecka 44" });
+    expect(anon.error?.code).toBe("42501");
+  });
+});
+
+describe("earlier plans", () => {
+  it("lists the earlier plans newest first with their number of dishes, never the current one or another user's", async () => {
+    const user = await createTestUser("mealplan-previous");
+    const other = await createTestUser("mealplan-previous-other");
+    const recipeId = await addRecipe(user.db);
+    const oldest = await addToCurrentPlanIn(user.db, dish(recipeId));
+    await addToCurrentPlanIn(user.db, dish(recipeId));
+    const middle = await setCurrentPlanIn(user.db, { id: randomUUID(), name: "Vecka 44" });
+    await addToCurrentPlanIn(user.db, dish(recipeId));
+    const current = await setCurrentPlanIn(user.db, { id: randomUUID(), name: "Vecka 45", sourceId: oldest.mealPlanId });
+    await setCreatedAt(oldest.mealPlanId, "2025-10-27T10:00:00Z");
+    await setCreatedAt(middle.id, "2026-10-26T10:00:00Z");
+    await setPlanWith(other);
+
+    const previous = await listPreviousPlansIn(user.db);
+    expect(previous).toEqual([
+      { id: middle.id, name: "Vecka 44", createdAt: expect.stringMatching(/^2026-10-26T10:00:00/), dishCount: 1 },
+      { id: oldest.mealPlanId, name: "Vecka 44", createdAt: expect.stringMatching(/^2025-10-27T10:00:00/), dishCount: 2 },
+    ]);
+    expect(previous.some(({ id }) => id === current.id)).toBe(false);
+    expect(await listPreviousPlansIn(other.db)).toHaveLength(1);
+  });
+
+  it("reads one of the user's plans, and nothing for another user's or an id that is not one", async () => {
+    const owner = await createTestUser("mealplan-get");
+    const other = await createTestUser("mealplan-get-other");
+    const added = await addToCurrentPlanIn(owner.db, dish(await addRecipe(owner.db), { servings: 5 }));
+    expect(await getPlanIn(owner.db, added.mealPlanId)).toEqual({
+      id: added.mealPlanId,
+      name: "Vecka 44",
+      isCurrent: true,
+      createdAt: expect.any(String),
+      recipes: [{ id: added.id, recipeId: added.recipeId, recipeTitle: "Linssoppa", servings: 5, position: 0 }],
+    });
+    expect(await getPlanIn(other.db, added.mealPlanId)).toBeNull();
+    expect(await getPlanIn(owner.db, "inte-ett-id")).toBeNull();
+  });
+
+  it("deletes an earlier plan with its dishes, never the current one or another user's", async () => {
+    const owner = await createTestUser("mealplan-delete");
+    const other = await createTestUser("mealplan-delete-other");
+    const added = await addToCurrentPlanIn(owner.db, dish(await addRecipe(owner.db)));
+    await expect(deletePlanIn(owner.db, added.mealPlanId), "the current plan").rejects.toThrow("delete_failed 55000");
+    const current = await setCurrentPlanIn(owner.db, { id: randomUUID(), name: "Vecka 45", sourceId: added.mealPlanId });
+    expect(await deletePlanIn(other.db, added.mealPlanId), "another user's").toBe(false);
+    expect(await deletePlanIn(owner.db, added.mealPlanId)).toBe(true);
+    expect(await dishRow(added.id)).toBeNull();
+    expect(await deletePlanIn(owner.db, added.mealPlanId), "gone already").toBe(false);
+    const anon = await anonClient().rpc("delete_meal_plan", { plan_id: added.mealPlanId });
+    expect(anon.error?.code).toBe("42501");
+    // The new current plan and its copied dishes are untouched.
+    expect((await getCurrentPlanIn(owner.db))?.recipes).toHaveLength(1);
+    expect((await getCurrentPlanIn(owner.db))?.id).toBe(current.id);
+  });
+});
+
+/** Gives `user` one earlier plan and a current one. */
+async function setPlanWith(user: { db: Db }) {
+  await addToCurrentPlanIn(user.db, dish(await addRecipe(user.db)));
+  await setCurrentPlanIn(user.db, { id: randomUUID(), name: "Vecka 45" });
+}

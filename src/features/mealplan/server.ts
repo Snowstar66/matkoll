@@ -6,16 +6,24 @@ import type { RecipeListRow } from "@/features/recipes";
 import { getRecipesByIds, RecipeDataError } from "@/features/recipes/server";
 import { revalidateFor } from "@/lib/revalidate";
 import { createClient } from "@/lib/supabase/server";
-import { getCurrentPlanIn } from "./data/queries";
+import { getCurrentPlanIn, getPlanIn, listPreviousPlansIn } from "./data/queries";
 import { detachRecipeIn } from "./data/write";
-import { toPlanDishes, type DishRecipe, type MealPlan, type PlanDish } from "./domain/meal-plan";
+import {
+  toPlanDishes,
+  type DishRecipe,
+  type MealPlan,
+  type PlanDetail,
+  type PlanDish,
+  type PlanSummary,
+} from "./domain/meal-plan";
 
 // Server-only entry (AD-1). The functions use the signed-in user's session
 // client, so RLS limits them to the user's own rows. The read functions are
 // for pages, after requireUserOrRedirect, inside <Suspense> (AD-18), and for
 // other modules' server code; detachRecipe is for recipes.deleteRecipe only.
-// Setting servings, removing a dish and "Ångra" are the Server Actions in
-// ./actions, used by this module's own ui.
+// Setting servings, removing a dish, "Ångra", "Använd igen", "Ny matsedel"
+// and deleting a plan are the Server Actions in ./actions, used by this
+// module's own ui.
 
 /** What the functions below throw when Supabase fails; never user data. */
 export { MealPlanDataError } from "./data/client";
@@ -34,6 +42,23 @@ export { addToCurrentPlan } from "./actions/add-to-current-plan";
  */
 export const getCurrentPlan = cache(async (): Promise<MealPlan | null> => {
   return getCurrentPlanIn(await createClient());
+});
+
+/**
+ * The signed-in user's earlier meal plans, newest first, with their number of
+ * dishes (FR-14); never the current one. Throws MealPlanDataError.
+ */
+export async function listPreviousPlans(): Promise<PlanSummary[]> {
+  return listPreviousPlansIn(await createClient());
+}
+
+/**
+ * One of the signed-in user's meal plans with its dishes in order, or `null`
+ * when the user has none with the id. A dish whose recipe is deleted has
+ * `recipeId: null` and keeps its title. Memoised per request. Throws MealPlanDataError.
+ */
+export const getPlan = cache(async (id: string): Promise<PlanDetail | null> => {
+  return getPlanIn(await createClient(), id);
 });
 
 /** What Matsedel shows: the plan's name and dishes, and the pantry for their status. */
