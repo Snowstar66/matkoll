@@ -35,19 +35,19 @@ project_key: NOKEY
 tracking_system: file-system
 story_location: _bmad-output/implementation-artifacts
 development_status:
-  epic-1: in-progress
-  1-1-projektgrund-med-kontroller: review
-  1-2-inloggning-med-engångslänk: review
-  1-3-app-skal-navigering-och-designtokens: review
-  1-4-ai-tjänsten-med-testleverantör-och-lokal-modell: review
-  1-5-ingredienskatalog-enheter-och-avdelningar: review
-  1-6-importera-recept-från-inklistrad-text: review
-  1-7-spara-recept-och-visa-receptet: review
-  1-8-importera-recept-från-länk: review
-  1-9-importera-recept-från-foto: review
-  1-10-receptbiblioteket-med-sökning-och-favoriter: review
-  1-11-ändra-och-ta-bort-recept: review
-  1-12-inställningar-för-receptsajter: review
+  epic-1: done
+  1-1-projektgrund-med-kontroller: done
+  1-2-inloggning-med-engångslänk: done
+  1-3-app-skal-navigering-och-designtokens: done
+  1-4-ai-tjänsten-med-testleverantör-och-lokal-modell: done
+  1-5-ingredienskatalog-enheter-och-avdelningar: done
+  1-6-importera-recept-från-inklistrad-text: done
+  1-7-spara-recept-och-visa-receptet: done
+  1-8-importera-recept-från-länk: done
+  1-9-importera-recept-från-foto: done
+  1-10-receptbiblioteket-med-sökning-och-favoriter: done
+  1-11-ändra-och-ta-bort-recept: done
+  1-12-inställningar-för-receptsajter: done
   epic-1-retrospective: optional
 
   epic-2: backlog
