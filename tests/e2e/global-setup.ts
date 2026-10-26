@@ -6,6 +6,8 @@ import {
   adminClient,
   aiSuggestionsEmail,
   aiSuggestionsStorageState,
+  basketExportEmail,
+  basketExportStorageState,
   cameraEmail,
   cameraStorageState,
   cookableEmail,
@@ -97,6 +99,7 @@ export default async function globalSetup(config: FullConfig) {
       [inventoryEmail, inventoryStorageState],
       [storeEmail, storeStorageState],
       [productChoiceEmail, productChoiceStorageState],
+      [basketExportEmail, basketExportStorageState],
     ] as const) {
       const user = await browser.newContext({ baseURL });
       const page = await user.newPage();

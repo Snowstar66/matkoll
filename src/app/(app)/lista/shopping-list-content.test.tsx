@@ -110,4 +110,49 @@ describe("ShoppingListContent", () => {
     const detail = await screen.findByRole("dialog", { name: "Grädde" });
     expect(detail).toHaveTextContent("Arla Matlagningsgrädde 15 % · 5 dl");
   });
+
+  it("passes the choices that cannot be read on to the line's detail, and shows Skicka till ICA", async () => {
+    const graddeId = "11111111-1111-4111-8111-111111111111";
+    vi.mocked(getShoppingList).mockResolvedValue(
+      ok({
+        plan: { id: "plan", name: "Vecka 44", dishCount: 1, skippedCount: 0, dishTitles: {} },
+        lines: [
+          {
+            key: `r:${graddeId}:dl`,
+            ingredientId: graddeId,
+            label: "Grädde",
+            amount: 3,
+            unit: "dl" as const,
+            isVague: false,
+            coverage: { kind: "missing" as const },
+            section: "Mejeri" as const,
+            origins: [],
+            checked: false,
+            isCustom: false,
+          },
+        ],
+        hiddenLines: [],
+        pantryUnavailable: false,
+        checksUnavailable: false,
+        pendingClear: 0,
+        ...noChoices,
+        store: {
+          id: "22222222-2222-4222-8222-222222222222",
+          name: "Maxi ICA Stormarknad Östersund",
+          chain: "ICA" as const,
+          externalStoreId: "1003733",
+          address: null,
+          url: null,
+          isSelected: true,
+        },
+        unreadableChoices: [graddeId],
+      }),
+    );
+    const user = userEvent.setup();
+    render(<ToastProvider>{await ShoppingListContent()}</ToastProvider>);
+    expect(screen.getByRole("button", { name: "Skicka till ICA" })).toBeInTheDocument();
+    await user.click(screen.getByRole("button", { name: /^Grädde/ }));
+    const detail = await screen.findByRole("dialog", { name: "Grädde" });
+    expect(detail).toHaveTextContent("Det gick inte att läsa produktvalet.");
+  });
 });

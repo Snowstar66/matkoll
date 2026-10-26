@@ -45,3 +45,10 @@ export {
   type ProductChoiceForm,
   type ProductChoiceFormInput,
 } from "./domain/product-choice";
+export {
+  basketExportHeader,
+  basketInstruction,
+  type BasketStore,
+  exportableLines,
+  exportBasket,
+} from "./domain/export-basket";

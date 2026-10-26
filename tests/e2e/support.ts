@@ -116,6 +116,12 @@ export const storeEmail = "e2e-butik@matkoll.test";
  */
 export const productChoiceEmail = "e2e-produktval@matkoll.test";
 /**
+ * The E2E user of basket-export.spec.ts alone ("Skicka till ICA", Story
+ * 7.3): each test sets its meal plan, own items, store and product choices
+ * with the service role, so the copied export depends on nothing else.
+ */
+export const basketExportEmail = "e2e-varukorg@matkoll.test";
+/**
  * The E2E user of core-flow.spec.ts alone (Story 3.8): it signs in itself
  * through /logga-in and the link in Mailpit, so it has no storage state.
  */
@@ -141,6 +147,7 @@ export const e2eEmails = [
   inventoryEmail,
   storeEmail,
   productChoiceEmail,
+  basketExportEmail,
   coreFlowEmail,
 ] as const;
 /** A real Supabase user whose address is not in ALLOWED_EMAILS. */
@@ -165,6 +172,7 @@ export const emptyPlaceStorageState = "tests/e2e/.auth/empty-place.json";
 export const inventoryStorageState = "tests/e2e/.auth/inventory.json";
 export const storeStorageState = "tests/e2e/.auth/store.json";
 export const productChoiceStorageState = "tests/e2e/.auth/product-choice.json";
+export const basketExportStorageState = "tests/e2e/.auth/basket-export.json";
 export const outsiderStorageState = "tests/e2e/.auth/outsider.json";
 
 export const mailpitUrl = "http://127.0.0.1:54324";

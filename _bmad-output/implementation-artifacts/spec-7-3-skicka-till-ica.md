@@ -2,7 +2,7 @@
 title: 'Story 7.3: Skicka till ICA'
 type: 'feature'
 created: '2026-10-26'
-status: 'draft'
+status: 'done'
 route: 'dispatch'
 context:
   - '{project-root}/_bmad-output/implementation-artifacts/epic-7-context.md'
@@ -91,7 +91,7 @@ context:
 ## Tasks & Acceptance
 
 **Execution:**
-- [ ] `src/features/shopping/domain/export-basket.ts` (+ `export-basket.test.ts`), `index.ts`:
+- [x] `src/features/shopping/domain/export-basket.ts` (+ `export-basket.test.ts`), `index.ts`:
   - `basketExportHeader = "Matkoll varukorgsexport v1"` och `basketInstruction` (texten under Implementation Notes, ordagrant).
   - `exportableLines(lines)` ger poster som inte är `checked` och inte `isVague`.
   - `exportBasket(lines, store, choices)` skriver:
@@ -112,8 +112,8 @@ context:
     - en annan kedja.
 
   -- FR-26, AD-8, AD-16
-- [ ] `tests/fixtures/export/varukorgsexport-v1.txt` -- golden file. Fiktiv butiksadress ("Testgatan 1, 123 45 Teststad") och fiktiva produktlänkar på `example.com`, så att fixturen aldrig pekar på ICA -- AD-16
-- [ ] `docs/varukorgsexport.md` -- dokumentationen av `Matkoll varukorgsexport v1`. Den innehåller:
+- [x] `tests/fixtures/export/varukorgsexport-v1.txt` -- golden file. Fiktiv butiksadress ("Testgatan 1, 123 45 Teststad") och fiktiva produktlänkar på `example.com`, så att fixturen aldrig pekar på ICA -- AD-16
+- [x] `docs/varukorgsexport.md` -- dokumentationen av `Matkoll varukorgsexport v1`. Den innehåller:
   - syftet (Claude in Chrome i Pontus webbläsare, eller för hand);
   - att Matkoll aldrig gör något i butiken;
   - fälten och reglerna för poster (vilka som tas med, mängd, produktval);
@@ -123,9 +123,9 @@ context:
   - hur Pontus använder exporten: logga in på ICA Handla själv, öppna Claude in Chrome, klistra in, granska varukorgen och beställ själv eller låt bli.
 
   -- AD-16
-- [ ] `src/features/shopping/domain/list-text.ts` (+ test) -- `sendButtonText(store)` ger "Skicka till ICA" för kedjan ICA, "Skicka till Willys" och så vidare, och "Skicka till butiken" för Annan eller `null`. `copiedText(store, { withoutChoices })` ger "Inköpslistan är kopierad. Klistra in den i Claude i Chrome på ICA Handla." för ICA och "… på butikens webbplats." för andra, och "kopierad utan produktval" när valen saknas. Dessutom `copyFailedText` och `exportSheetTitle = "Inköpslistan"` -- FR-26, UX-DR15
-- [ ] `src/lib/errors.ts` -- `shopping_export_store_missing`: "Det gick inte att läsa butiken. Öppna inställningarna och försök igen." -- AD-13
-- [ ] `src/features/shopping/ui/send-basket.tsx` (+ test) -- `useSendBasket({ lines, store, storeUnavailable, productChoices, productChoicesUnavailable })` ger `send()`. Den gör i tur och ordning:
+- [x] `src/features/shopping/domain/list-text.ts` (+ test) -- `sendButtonText(store)` ger "Skicka till ICA" för kedjan ICA, "Skicka till Willys" och så vidare, och "Skicka till butiken" för Annan eller `null`. `copiedText(store, { withoutChoices })` ger "Inköpslistan är kopierad. Klistra in den i Claude i Chrome på ICA Handla." för ICA och "… på butikens webbplats." för andra, och "kopierad utan produktval" när valen saknas. Dessutom `copyFailedText` och `exportSheetTitle = "Inköpslistan"` -- FR-26, UX-DR15
+- [x] `src/lib/errors.ts` -- `shopping_export_store_missing`: "Det gick inte att läsa butiken. Öppna inställningarna och försök igen." -- AD-13
+- [x] `src/features/shopping/ui/send-basket.tsx` (+ test) -- `useSendBasket({ lines, store, storeUnavailable, productChoices, productChoicesUnavailable })` ger `send()`. Den gör i tur och ordning:
   1. bygger texten med `exportBasket(exportableLines(lines), store, choices)`;
   2. anropar `navigator.clipboard.writeText(text)` i samma anrop. Om `navigator.clipboard` saknas öppnas arket direkt;
   3. visar `copiedText` med `showToast` när kopieringen lyckas;
@@ -139,14 +139,14 @@ context:
   - texten när kopieringen nekas igen.
 
   -- FR-26, UX-DR4, UX-DR5
-- [ ] `src/features/shopping/ui/shopping-list.tsx`, `put-in-pantry.tsx` (+ tester):
+- [x] `src/features/shopping/ui/shopping-list.tsx`, `put-in-pantry.tsx` (+ tester):
   - En `ListActions` renderar en enda `FixedAction`. Där står "Lägg i lagret" (primär) när den visas i dag. Under den står "Skicka till ICA" (`sendButtonText`), sekundär när "Lägg i lagret" visas och annars primär.
   - "Skicka till ICA" visas när det finns en matsedel och `exportableLines(lines)` inte är tom.
   - `PutInPantryButton` blir en knapp utan egen `FixedAction`.
   - `ShoppingList` skickar `lines` som de visas (med bockar som inte sparats) till `useSendBasket`.
 
   -- FR-26, UX-DR3
-- [ ] `tests/e2e/basket-export.spec.ts` (+ `support.ts`, `global-setup.ts`) -- egen e2e-användare `e2e-varukorg@matkoll.test`, med `context.grantPermissions(["clipboard-read", "clipboard-write"])`. Med service role seedas en matsedel med "grädde 3 dl", "gul lök 2 st", "salt efter smak" (vag, saknas hemma) och "2 citroner", samt den egna varan "Diskmedel" och ett produktval för grädde i Maxi ICA. Specen kontrollerar:
+- [x] `tests/e2e/basket-export.spec.ts` (+ `support.ts`, `global-setup.ts`) -- egen e2e-användare `e2e-varukorg@matkoll.test`, med `context.grantPermissions(["clipboard-read", "clipboard-write"])`. Med service role seedas en matsedel med "grädde 3 dl", "gul lök 2 st", "salt efter smak" (vag, saknas hemma) och "2 citroner", samt den egna varan "Diskmedel" och ett produktval för grädde i Maxi ICA. Specen kontrollerar:
   - att knappen "Skicka till ICA" finns och att urklippet (`navigator.clipboard.readText()`) börjar med `Matkoll varukorgsexport v1`, har butikens rader, "Arla", inte har salt och slutar med instruktionen;
   - den korta bekräftelsens text;
   - att en avbockad gul lök saknas i nästa export, och att "Lägg i lagret" då står ovanför "Skicka till ICA";
@@ -154,7 +154,7 @@ context:
   - att inga förfrågningar till servern görs vid trycket (`page.on("request")` efter att sidan laddats), att ingen förfrågan går till en adress som slutar på `ica.se` och att ingen ny sida öppnas (`context.on("page")`).
 
   -- matrisen
-- [ ] `docs/oppna-fragor.md`:
+- [x] `docs/oppna-fragor.md`:
   - T2 får hänvisningen "Checklista: se 'Prova Skicka till ICA med Claude in Chrome' nedan."
   - En ny sektion "Prova Skicka till ICA med Claude in Chrome (efter Epic 7)" med punkterna:
     1. Kontrollera butiken i Inställningar (URL och adress).
@@ -203,6 +203,28 @@ context:
 ## Spec Change Log
 
 ## Review Triage Log
+
+Iteration 1. Granskare: Blind Hunter, Edge Case Hunter och Verification Gap.
+
+**Patch – skydd mot promptinjektion** (exporten läses av en AI-agent i Pontus inloggade webbläsare):
+- Ingress först och datablocket mellan fasta markörer. Fritext kan inte skapa markörer eller fältnamn.
+- Texten kortas till 80 tecken. Fler osynliga tecken tas bort, och texten normaliseras till NFC.
+- Butikens URL tas bara med som https, och för ICA bara på ica.se. Produktlänkar tas bara med om de ligger på butikens värd.
+- Instruktionen säger dessutom:
+  - besök bara butikens webbplats
+  - stanna om URL saknas
+  - rapportera orimliga mängder i stället för att lägga dem i varukorgen
+  - ändra aldrig leverans, betalning eller kontouppgifter
+
+**Patch – korrekthet och användargränssnitt:**
+- `exportBasket` filtrerar själv vilka rader som tas med.
+- Samma ingrediens slås ihop till en post.
+- Bekräftelsen varnar när bockarna eller enskilda produktval inte gick att läsa.
+- Knappen är spärrad medan en bock sparas.
+- Butiksnotisen nollställs.
+- Token mot inaktuella anrop.
+- Markeringen på iOS fungerar som reserv.
+- Nya tester med fientliga indata.
 
 ## Verification
 

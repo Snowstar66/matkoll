@@ -36,6 +36,7 @@ export async function ShoppingListContent() {
     storeUnavailable,
     productChoices,
     productChoicesUnavailable,
+    unreadableChoices,
   } = result.data;
   return (
     <ShoppingList
@@ -50,6 +51,7 @@ export async function ShoppingListContent() {
       storeUnavailable={storeUnavailable}
       productChoices={productChoices}
       productChoicesUnavailable={productChoicesUnavailable}
+      unreadableChoices={unreadableChoices}
     />
   );
 }

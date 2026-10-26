@@ -1,11 +1,13 @@
 "use client";
 
+import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { type ReactNode, type RefObject, useEffect, useId, useMemo, useOptimistic, useRef, useState, useTransition } from "react";
-import { Button } from "@/components/button";
+import { Button, buttonClasses } from "@/components/button";
 import { CheckCircle } from "@/components/check-circle";
 import { cx } from "@/components/cx";
 import { EmptyState } from "@/components/empty-state";
+import { FixedAction } from "@/components/fixed-action";
 import type { SearchIngredients } from "@/components/ingredient-picker";
 import { Notice } from "@/components/notice";
 import { SwipeRow } from "@/components/swipe-row";
@@ -15,6 +17,7 @@ import { errorMessages, fail, ok, type Result } from "@/lib/errors";
 import { setChecked } from "../actions/set-checked";
 import type { CheckChange } from "../domain/check";
 import type { ShoppingLine } from "../domain/compute-list";
+import { exportableLines } from "../domain/export-basket";
 import {
   allAtHomeText,
   checkLabel,
@@ -28,6 +31,7 @@ import {
   checksUnreadText,
   hiddenLinesButtonText,
   recountedText,
+  sendButtonText,
   skippedDishesText,
 } from "../domain/list-text";
 import { CustomItemSheet } from "./custom-item-sheet";
@@ -35,10 +39,11 @@ import { HiddenLinesSheet } from "./hidden-lines-sheet";
 import { LineDetailSheet } from "./line-detail-sheet";
 import { useLineRemoval } from "./line-removal";
 import { useOwnChanges } from "./own-changes";
-import type { ProductChoice, ProductChoiceContext } from "../domain/product-choice";
+import { openSettingsText, type ProductChoice, type ProductChoiceContext } from "../domain/product-choice";
 import { ProductChoiceSheet } from "./product-choice-sheet";
 import { canPutInPantry } from "../domain/put-in-pantry";
 import { PutInPantryButton, usePutInPantry } from "./put-in-pantry";
+import { ExportSheet, useSendBasket } from "./send-basket";
 
 // Inköpslista (FR-15, UX-DR9): the current plan's name, number of dishes and
 // items left under the title, then the lines per store section in the fixed
@@ -57,6 +62,9 @@ import { PutInPantryButton, usePutInPantry } from "./put-in-pantry";
 // line with a catalog ingredient shows the selected store's product choice
 // for it, and its button replaces the detail with the sheet Produktval
 // (Story 7.2); the choices sit beside the list and never change its count.
+// "Skicka till ICA" (named after the store's chain) is pinned above the tab
+// bar while there is something to send, under "Lägg i lagret" when that
+// shows; it copies the basket export of the lines as shown (Story 7.3).
 
 export type ShoppingListProps = {
   /**
@@ -481,6 +489,17 @@ export function ShoppingList({
       store,
     }));
   };
+  // "Skicka till ICA": the export is built from the lines as shown, a check not yet saved included.
+  const basket = useSendBasket({
+    lines,
+    store,
+    storeUnavailable,
+    productChoices,
+    productChoicesUnavailable,
+    unreadableChoices,
+    checksUnavailable,
+  });
+  const canSend = plan !== null && exportableLines(lines).length > 0;
   const [hiddenSheet, setHiddenSheet] = useState(false);
   // Nothing hidden any more: the sheet closes.
   if (hiddenSheet && hiddenLines.length === 0) setHiddenSheet(false);
@@ -519,6 +538,20 @@ export function ShoppingList({
       {pantry.notice ? (
         <Notice key={`pantry-${pantry.notice.id}`} role="alert">
           {pantry.notice.text}
+        </Notice>
+      ) : null}
+      {/* "Skicka till ICA" without a store that can be read: nothing was copied. */}
+      {basket.storeNotice !== null ? (
+        <Notice
+          key={`store-${basket.storeNotice}`}
+          role="alert"
+          action={
+            <Link href="/installningar" className={buttonClasses("text")}>
+              {openSettingsText}
+            </Link>
+          }
+        >
+          {errorMessages.shopping_export_store_missing}
         </Notice>
       ) : null}
       {plan === null ? (
@@ -570,14 +603,24 @@ export function ShoppingList({
             searchIngredients={searchIngredients}
             onClose={() => setSheet((current) => ({ ...current, open: false }))}
           />
-          {/* Shown while a line is checked off (as shown, before the check is saved), and while the flow runs. */}
-          {/* Also for checks an interrupted run left behind (pendingClear), so the retry stays reachable. */}
-          {!checksUnavailable && (toPantry.length > 0 || pendingClear > 0 || pantry.pending) ? (
-            <PutInPantryButton
-              disabled={pantry.pending || saving}
-              busy={pantry.pending}
-              onPut={() => void pantry.put(toPantry)}
-            />
+          <ListActions
+            putInPantry={
+              // Shown while a line is checked off (as shown, before the check is saved), and while the flow runs.
+              // Also for checks an interrupted run left behind (pendingClear), so the retry stays reachable.
+              !checksUnavailable && (toPantry.length > 0 || pendingClear > 0 || pantry.pending) ? (
+                <PutInPantryButton
+                  disabled={pantry.pending || saving}
+                  busy={pantry.pending}
+                  onPut={() => void pantry.put(toPantry)}
+                />
+              ) : null
+            }
+            // Off while a check is being saved: a check that goes back must not leave an item out.
+            send={canSend ? { text: sendButtonText(store), onSend: basket.send, disabled: saving } : null}
+          />
+          {/* Mounted from the first refused copy, and kept, so it can close with its animation. */}
+          {basket.sheet ? (
+            <ExportSheet state={basket.sheet} onCopy={basket.copyAgain} onClose={basket.closeSheet} />
           ) : null}
           {/* Mounted from the first tap on a name, and kept, so it can close with its animation. */}
           {detail ? (
@@ -611,6 +654,33 @@ export function ShoppingList({
         </>
       )}
     </div>
+  );
+}
+
+/**
+ * The list's Fast åtgärdsknapp (UX-DR3): one FixedAction with "Lägg i
+ * lagret" (primary) on top when it shows, and "Skicka till ICA" under it,
+ * secondary then and primary alone; one primary button per view. Nothing
+ * when neither shows.
+ */
+function ListActions({
+  putInPantry,
+  send,
+}: {
+  putInPantry: ReactNode;
+  /** The button's text, what a tap does and whether it is off; `null` when there is nothing to send. */
+  send: { text: string; onSend: () => void; disabled: boolean } | null;
+}) {
+  if (!putInPantry && !send) return null;
+  return (
+    <FixedAction>
+      {putInPantry}
+      {send ? (
+        <Button variant={putInPantry ? "secondary" : "primary"} fullWidth disabled={send.disabled} onClick={send.onSend}>
+          {send.text}
+        </Button>
+      ) : null}
+    </FixedAction>
   );
 }
 

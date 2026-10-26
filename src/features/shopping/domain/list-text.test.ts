@@ -3,6 +3,9 @@ import type { ShoppingLine } from "./compute-list";
 import {
   checkLabel,
   computedAmountText,
+  copiedText,
+  copyFailedText,
+  exportSheetTitle,
   hiddenLinesButtonText,
   detailOriginsText,
   groupBySection,
@@ -14,6 +17,7 @@ import {
   putInPantryText,
   recountedText,
   restoreFailedText,
+  sendButtonText,
   skippedDishesText,
 } from "./list-text";
 
@@ -150,5 +154,48 @@ describe("putInPantryText", () => {
     expect(putInPantryText(0, 1)).toBe("Tog bort 1 vara från listan.");
     expect(putInPantryText(0, 2)).toBe("Tog bort 2 varor från listan.");
     expect(putInPantryText(0, 0)).toBeNull();
+  });
+});
+
+describe("the basket export's texts (Story 7.3)", () => {
+  it("names the button after the store's chain, and the store for Annan or none", () => {
+    expect(sendButtonText({ chain: "ICA" })).toBe("Skicka till ICA");
+    expect(sendButtonText({ chain: "Willys" })).toBe("Skicka till Willys");
+    expect(sendButtonText({ chain: "City Gross" })).toBe("Skicka till City Gross");
+    expect(sendButtonText({ chain: "Annan" })).toBe("Skicka till butiken");
+    expect(sendButtonText(null)).toBe("Skicka till butiken");
+  });
+
+  it("says where to paste: ICA Handla for ICA, the store's site for another chain", () => {
+    expect(copiedText({ chain: "ICA" })).toBe("Inköpslistan är kopierad. Klistra in den i Claude i Chrome på ICA Handla.");
+    expect(copiedText({ chain: "Willys" })).toBe(
+      "Inköpslistan är kopierad. Klistra in den i Claude i Chrome på butikens webbplats.",
+    );
+    expect(copiedText({ chain: "Annan" })).toBe(
+      "Inköpslistan är kopierad. Klistra in den i Claude i Chrome på butikens webbplats.",
+    );
+  });
+
+  it("says when the export has no product choices", () => {
+    expect(copiedText({ chain: "ICA" }, { withoutChoices: true })).toBe(
+      "Inköpslistan är kopierad utan produktval. Klistra in den i Claude i Chrome på ICA Handla.",
+    );
+  });
+
+  it("says when some product choices are missing, and when the checks could not be read", () => {
+    expect(copiedText({ chain: "ICA" }, { partialChoices: true })).toBe(
+      "Inköpslistan är kopierad utan alla produktval. Klistra in den i Claude i Chrome på ICA Handla.",
+    );
+    expect(copiedText({ chain: "ICA" }, { checksUnread: true })).toBe(
+      "Inköpslistan är kopierad, men bockarna gick inte att läsa. Kontrollera varukorgen.",
+    );
+    expect(copiedText({ chain: "Willys" }, { withoutChoices: true, checksUnread: true })).toBe(
+      "Inköpslistan är kopierad utan produktval, men bockarna gick inte att läsa. Kontrollera varukorgen.",
+    );
+  });
+
+  it("names the sheet and says what to do when copying is refused again", () => {
+    expect(exportSheetTitle).toBe("Inköpslistan");
+    expect(copyFailedText).toBe("Det gick inte att kopiera. Markera texten och kopiera den själv.");
   });
 });

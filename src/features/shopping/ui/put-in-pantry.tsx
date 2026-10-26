@@ -3,7 +3,6 @@
 import { useRouter } from "next/navigation";
 import { useRef, useState } from "react";
 import { Button } from "@/components/button";
-import { FixedAction } from "@/components/fixed-action";
 import { useToast } from "@/components/toast";
 import { type Result } from "@/lib/errors";
 import { putCheckedInPantry, type PutInPantryResult } from "../actions/put-checked-in-pantry";
@@ -17,7 +16,8 @@ import {
 import type { OwnChanges } from "./own-changes";
 
 // "Lägg i lagret" (FR-19, UX-DR9): the list's primary button, pinned above the
-// tab bar while a line that can go to the pantry is checked off. One tap puts
+// tab bar while a line that can go to the pantry is checked off, with
+// "Skicka till ICA" under it (Story 7.3). One tap puts
 // every such line in the pantry and takes it off the list, without asking
 // first; the short confirmation ("Lagt 8 varor i lagret.") sits above the
 // button. A failure is a blue Notice above the list, and trying again adds
@@ -90,13 +90,15 @@ export function usePutInPantry(planId: string | null, lines: readonly ShoppingLi
   return { put, pending, notice };
 }
 
-/** "Lägg i lagret" as the primary button in FixedAction; disabled while the flow or a check's save runs. */
+/**
+ * "Lägg i lagret" as the primary button; the list puts it in its FixedAction,
+ * above "Skicka till ICA" (ListActions). Disabled while the flow or a check's
+ * save runs.
+ */
 export function PutInPantryButton({ disabled, busy, onPut }: { disabled: boolean; busy: boolean; onPut: () => void }) {
   return (
-    <FixedAction>
-      <Button fullWidth disabled={disabled} aria-busy={busy || undefined} onClick={onPut}>
-        {putInPantryButtonText}
-      </Button>
-    </FixedAction>
+    <Button fullWidth disabled={disabled} aria-busy={busy || undefined} onClick={onPut}>
+      {putInPantryButtonText}
+    </Button>
   );
 }

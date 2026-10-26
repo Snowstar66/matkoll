@@ -95,6 +95,10 @@ export const errorMessages = {
   shopping_product_choice_changed: "Produktvalet har ändrats på annat håll. Uppgifterna är uppdaterade.",
   // The store or the catalog ingredient is not there any more (23503): the list is read again.
   shopping_product_choice_target_gone: "Butiken eller varan finns inte längre.",
+  // "Skicka till ICA" (Story 7.3) when the selected store cannot be read, or
+  // none is selected: nothing is copied, since the export would not say where
+  // to fill the basket. A notice above the list, with "Öppna inställningar".
+  shopping_export_store_missing: "Det gick inte att läsa butiken. Öppna inställningarna och försök igen.",
   // Recipe sites in Inställningar (FR7). The sentence with the site's name,
   // "koket.se finns redan.", is in `fields.domain`.
   settings_invalid_domain: "Ange en giltig webbadress, t.ex. koket.se.",
