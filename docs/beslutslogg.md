@@ -2,6 +2,33 @@
 
 Beslut som fattats under bygget: vad, varför och vilka alternativ som fanns. Nyaste överst.
 
+## 2026-10-26 – Ställen i lagret med Hemma som första ställe (Story 8.1)
+
+- **Underlag:** specen `spec-8-1-stallen-i-lagret-med-hemma-som-forsta-stalle.md`, där besluten nedan var förslag som godkändes som de stod, och AD-24.
+- **Beslut:**
+  - **Migrationen bara lägger till, i en transaktion** (`*_pantry_site.sql`). Den skapar `pantry_site`, ger varje användare "Hemma" som valt ställe, lägger `site_id` på varje rad i `pantry_item` och i `pantry_removal.removed_rows` och byter den unika nyckeln till `(user_id, site_id, ingredient_id, location, unit)`. Inga rader tas bort och inga id byts. `scripts/pantry-site-check.sql` visar det före och efter (`docs/drift.md`, steg 6).
+  - **De sju pantry-funktionerna tas bort och skapas igen med `site uuid default null` sist.** `create or replace` med en ny parameter skulle ge en överlagring, och då blir 1.0:s anrop utan `site` tvetydiga. PostgREST matchar på parameternamn, så 1.0-koden når de nya funktionerna med `site = null`, som betyder valt ställe.
+  - **Hjälpfunktionerna:**
+    - `pantry_selected_site(owner)` ger ägarens valda ställe. Den skapar "Hemma" som valt när ägaren saknar ställen, så att en skrivning aldrig misslyckas för en användare som inte har loggat in sedan migreringen. Efter granskningen skapar den "Hemma" under ägarens lager-lås (`pantry_owner_lock`), och grenen som valde det äldsta stället är borta, eftersom databasen nu håller ett valt ställe. Bara skrivningar anropar den.
+    - `pantry_target_site(site)` ger valt ställe för `null` och kontrollerar annars att stället är anroparens.
+    - `pantry_session_site()` ger den inloggades valda ställe utan att skapa något och är standardvärdet för `pantry_item.site_id`.
+  - **En `before insert`-trigger (`pantry_item_fill_site`) fyller `site_id` när den saknas,** med ägarens valda ställe. Den finns för testernas seeds med service role och för direkta insättningar under driftsättningen. Funktionerna sätter alltid `site_id` själva. Alternativet var en hjälpare i alla e2e-seeds.
+  - **Felkoden `MK410` betyder att stället inte finns** (en annan användares, eller borttaget), i samma familj som `MK409`. Inget skrivs då. Data-lagret översätter den till `pantry_site_gone` från och med 8.2.
+  - **"Ångra" sätter tillbaka på radens eget ställe.** `restore_pantry_removal` hoppar över en rad vars ställe har tagits bort och räknar den i `skipped`, och `restore_pantry_item` ger `MK410`.
+  - **Normaliseringen av ställets namn görs bara i `pantry/domain/site.ts`** (`normalizeSiteName`: en rad, NFC och svenska gemener). SQL jämför aldrig namn själv, eftersom `lower()` beror på databasens kollation. De bokstavliga `'Hemma'` och `'hemma'` i migrationen är låsta mot domänen med `tests/design/pantry-site-checks.test.ts`.
+  - **Läsningarna gäller ett ställe och summerar aldrig över ställen.** `getPantrySnapshot`, `listPantry` och `countPantryItems` tar `siteId?` och använder annars valt ställe. En användare utan ställen har ett tomt lager, och `getSelectedSite()` ger `null`. Läsningarna skapar aldrig något.
+  - **`ensure_pantry_defaults()` anropas av `auth/confirm` efter `ensure_user_defaults()`,** i ett eget `try`. Ett fel loggas som `pantry_defaults_failed` och stoppar varken den andra startdatan eller inloggningen.
+- **Vid bygget:** `site_id` fick ett standardvärde i en andra migration (`*_pantry_site_default.sql`). Utan det krävde de genererade typerna `site_id` vid varje insättning, och integrationstesternas direkta insättningar slutade typkontrolleras, fast triggern fyller värdet. Den första migrationen var redan körd lokalt och ändras därför inte.
+- **Efter granskningen** (en tredje migration, `*_pantry_site_hardening.sql`):
+  - **"En användare med ställen har exakt ett valt" hålls av databasen** med en uppskjuten constraint-trigger (`pantry_site_one_selected`), som kontrollerar varje berörd användare vid commit. Ett brott ger `23514` (check_violation), samma kod som tabellens andra kontroller, med villkorets namn. Att slå av ett ställe och på ett annat i samma transaktion går, och när en användare tas bort försvinner alla ställen, vilket också går. Triggern hoppar över en roll som inte får läsa `pantry_site`, vilket bara inloggningstjänstens kaskad från `auth.users` är.
+  - **`pantry_owner_lock(owner)`** tar samma lås som `pantry_lock()` för en given ägare. En inloggad användare får bara ta sitt eget lås (`42501`), och service role (testernas seeds via triggern) får ta vilket som helst.
+  - **`pantry_target_site` håller stället med `for key share`** till transaktionens slut, så att en borttagning väntar och skrivningen aldrig får `23503` i stället för `MK410`.
+  - **`restore_pantry_removal` letar upp ett reservställe först när en rad saknar `site_id`.** Ett gammalt eller borttaget `site` stoppar aldrig rader som har ett eget ställe, och en rad utan ställe att gå till räknas i `skipped`.
+  - **`empty_pantry_place` läser den sparade posten före stället.** En upprepning ger posten som förut, också när stället har tagits bort, och en upprepning med ett annat `site` ger `MK409`.
+  - **`pantry_item_site_fkey` är `on delete no action`** i stället för `restrict`. Ett ställe med varor kan fortfarande inte tas bort, men kontrollen görs i slutet av satsen, så kaskaden från `auth.users` beror aldrig på i vilken ordning den tar bort ställen och varor.
+  - **"Ångra" för en enskild vara bär med sig radens ställe:** `removePantryItem` lämnar `siteId`, och `restorePantryItem` skickar det som `site_id`.
+  - **Varje läsning av `pantry_item` i `src/` filtrerar på ställe, och ingen kod skriver tabellen direkt.** Två designtester låser det (`tests/design/pantry-site-reads.test.ts`). Ett `siteId` som inte är ett uuid ger `invalid_site`.
+
 ## 2026-10-26 – Bättre bildtolkning (Story 6.5)
 
 - **Underlag:** ett experiment med Pontus foto av kylen mot Qwen3.6 35B-A3B (MLX, 4 bit, kontext 8 192) i LM Studio på den här datorn, med 33 körningar.

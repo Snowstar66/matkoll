@@ -6,12 +6,23 @@ import { PantryDataError, type PantryDb } from "./client";
 
 const idSchema = z.uuid();
 
-type DbRow = { id: string; ingredient_id: string; location: string; amount: number | null; unit: string | null };
+type DbRow = {
+  id: string;
+  site_id?: string;
+  ingredient_id: string;
+  location: string;
+  amount: number | null;
+  unit: string | null;
+};
 
-/** A row from the database as the domain's PantryRow; the check lists equal the domain's. */
+/**
+ * A row from the database as the domain's PantryRow, with its place when the
+ * database gave it; the check lists equal the domain's.
+ */
 function toPantryRow(row: DbRow): PantryRow {
   const parsed = pantryRowSchema.safeParse({
     id: row.id,
+    ...(row.site_id === undefined ? {} : { siteId: row.site_id }),
     ingredientId: row.ingredient_id,
     location: row.location,
     amount: row.amount === null ? null : Number(row.amount),
@@ -46,7 +57,7 @@ export async function removePantryItemIn(db: PantryDb, userId: string, id: strin
     .delete()
     .eq("id", id)
     .eq("user_id", userId)
-    .select("id, ingredient_id, location, amount, unit");
+    .select("id, site_id, ingredient_id, location, amount, unit");
   if (error) throw new PantryDataError(`remove_failed ${error.code}`);
   const [row] = data;
   if (!row) return null;
@@ -60,7 +71,8 @@ export async function removePantryItemIn(db: PantryDb, userId: string, id: strin
 
 /**
  * restorePantryItem (AD-19, AD-20) for the signed-in user: puts a removed
- * row back with the same id, amount, unit and location (restore_pantry_item).
+ * row back with the same id, amount, unit and location (restore_pantry_item),
+ * on its own place when the row has `siteId`, otherwise on the selected one.
  * Refused, with nothing changed, when the location has the item again (a row
  * with the same key, or one of the other kind: unlimited or amounts) or a
  * row has the id.
@@ -71,9 +83,9 @@ export async function removePantryItemIn(db: PantryDb, userId: string, id: strin
 export async function restorePantryItemIn(db: PantryDb, row: PantryRow): Promise<PantryRow> {
   const parsed = pantryRowSchema.safeParse(row);
   if (!parsed.success) throw new PantryDataError("invalid_row");
-  const { id, ingredientId, location, amount, unit } = parsed.data;
+  const { id, siteId, ingredientId, location, amount, unit } = parsed.data;
   const { data, error } = await db.rpc("restore_pantry_item", {
-    item: { id, ingredient_id: ingredientId, location, amount, unit },
+    item: { id, ...(siteId ? { site_id: siteId } : {}), ingredient_id: ingredientId, location, amount, unit },
   });
   if (error) throw new PantryDataError(`restore_failed ${error.code}`);
   return toPantryRow(data);

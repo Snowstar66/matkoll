@@ -136,9 +136,12 @@ export type PantryItemSet = z.infer<typeof pantryItemSetSchema>;
 
 /**
  * A pantry row as removePantryItem returns it and restorePantryItem takes it
- * back, with the same id (AD-19, AD-20).
+ * back, with the same id (AD-19, AD-20), and with its place (`siteId`, AD-24)
+ * when the database gave it, so "Ångra" puts it back on its own place.
  */
-export const pantryRowSchema = pantryItemSetShape.extend({ id: z.uuid() }).refine(amountHasUnit, { path: ["unit"] });
+export const pantryRowSchema = pantryItemSetShape
+  .extend({ id: z.uuid(), siteId: z.uuid().optional() })
+  .refine(amountHasUnit, { path: ["unit"] });
 export type PantryRow = z.infer<typeof pantryRowSchema>;
 
 /**

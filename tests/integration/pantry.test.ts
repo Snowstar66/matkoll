@@ -484,12 +484,12 @@ describe("removePantryItem and restorePantryItem", () => {
     const before = await rowsOf(user.id);
 
     for (const row of [inFrys, unlimited]) {
-      expect(await removePantryItemIn(user.db, user.id, row.id)).toEqual({ row });
+      expect(await removePantryItemIn(user.db, user.id, row.id)).toEqual({ row: { ...row, siteId: expect.any(String) } });
     }
     expect(await rowsOf(user.id)).toEqual([]);
 
     for (const row of [inFrys, unlimited]) {
-      expect(await restorePantryItemIn(user.db, row)).toEqual(row);
+      expect(await restorePantryItemIn(user.db, row)).toEqual({ ...row, siteId: expect.any(String) });
     }
     expect(await rowsOf(user.id)).toEqual(before);
   });
@@ -538,7 +538,7 @@ describe("removePantryItem and restorePantryItem", () => {
       { ingredientId: mjolk, location: "Kyl", amount: 5, unit: "dl" },
       { ingredientId: mjolk, location: "Frys", amount: 1, unit: "l" },
     ]);
-    expect(await restorePantryItemIn(user.db, row)).toEqual(row);
+    expect(await restorePantryItemIn(user.db, row)).toEqual({ ...row, siteId: expect.any(String) });
     await expect(restorePantryItemIn(user.db, row)).rejects.toThrow(new PantryDataError("restore_failed 23505"));
     expect(await rowsOf(user.id)).toHaveLength(3);
   });
