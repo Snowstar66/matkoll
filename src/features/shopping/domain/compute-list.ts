@@ -17,7 +17,8 @@ import {
   type PantrySnapshot,
 } from "@/features/pantry";
 import { scaleFactor, scaleLines } from "@/features/recipes";
-import { recipeLineKey, textLineKey } from "./line-key";
+import type { CustomListItem } from "./custom-item";
+import { customLineKey, recipeLineKey, textLineKey } from "./line-key";
 
 // The shopping list (FR-15, AD-8): counted from the current meal plan, its
 // recipes, the pantry and the catalog every time it is read; nothing is
@@ -41,7 +42,11 @@ export type ShoppingLine = {
   unit: Unit | null;
   /** A vague line ("salt efter smak") whose ingredient is not at home: shown as "Finns hemma?". */
   isVague: boolean;
-  /** How the pantry covers the need; `unlinked` for a line without a catalog ingredient. */
+  /**
+   * How the pantry covers the need; `unlinked` for a line that is not
+   * compared with the pantry: a recipe line without a catalog ingredient, or
+   * an own item (Story 3.5).
+   */
   coverage: LineCoverage;
   /** What is at home in other units, beside the amount: "hemma: 1 kg". */
   pantryNote?: string;
@@ -70,8 +75,8 @@ export type ListRecipe = { id: string; originalServings: number; lines: readonly
 
 /**
  * What the list keeps per meal plan: checks (Story 3.4), corrected amounts
- * and hidden lines (3.6) and Pontus's own items (3.5). Overrides and own
- * items are empty until those stories add their tables.
+ * and hidden lines (3.6) and Pontus's own items (3.5). Overrides are empty
+ * until Story 3.6 adds its table.
  */
 export type Overlay = {
   /**
@@ -81,7 +86,11 @@ export type Overlay = {
    */
   checks: readonly string[];
   overrides: readonly never[];
-  customItems: readonly never[];
+  /**
+   * Pontus's own items (shopping_custom_item), in the order read. Each is a
+   * line of its own, keyed `c:<id>`, never merged with the recipes' lines.
+   */
+  customItems: readonly CustomListItem[];
 };
 
 export const emptyOverlay: Overlay = { checks: [], overrides: [], customItems: [] };
@@ -95,7 +104,9 @@ export type ShoppingListInput = {
   snapshot: PantrySnapshot;
   /**
    * The catalog ingredients' names (catalog.getIngredientNames) and sections
-   * (catalog.getIngredientDefaults), by id. A section outside SECTIONS is Övrigt.
+   * (catalog.getIngredientDefaults), by id: the recipes' ingredients, and the
+   * sections of the ingredients own items point at. A section outside
+   * SECTIONS is Övrigt.
    */
   catalog: {
     names: Readonly<Record<string, string>>;
@@ -191,9 +202,51 @@ export function countedDishIds(plan: ShoppingListInput["plan"], recipes: readonl
  *   dishes' scale factors (decision 2026-10-26).
  * - A section not in SECTIONS is Övrigt. Without a catalog name, a line is
  *   named by its text without amount and unit, else "Okänd vara".
+ * - Each of Pontus's own items (overlay.customItems, Story 3.5) is a line of
+ *   its own, keyed `c:<id>`, with his text, amount and unit as given, under
+ *   its catalog ingredient's section, else Övrigt. It is never merged with a
+ *   recipe line of the same ingredient and never compared with the pantry
+ *   (AD-8). It is there with a plan even without dishes.
+ * - A line is checked when its key is in overlay.checks.
  */
 export function computeList({ plan, recipes, snapshot, catalog, overlay }: ShoppingListInput): ShoppingLine[] {
   if (!plan) return [];
+  const checks = new Set(overlay.checks);
+  return [...recipeLines({ plan, recipes, snapshot, catalog }, checks), ...customLines(overlay.customItems, catalog, checks)].sort(
+    compareShoppingLines,
+  );
+}
+
+/** Pontus's own items as lines: never merged, never compared with the pantry (AD-8). */
+function customLines(
+  items: readonly CustomListItem[],
+  catalog: ShoppingListInput["catalog"],
+  checks: ReadonlySet<string>,
+): ShoppingLine[] {
+  return items.map((item) => {
+    const key = customLineKey(item.id);
+    const hasAmount = item.amount !== null && item.unit !== null;
+    return {
+      key,
+      ...(item.ingredientId ? { ingredientId: item.ingredientId } : {}),
+      label: collapse(item.label) || unknownItemLabel,
+      amount: hasAmount ? item.amount : null,
+      unit: hasAmount ? item.unit : null,
+      isVague: false,
+      coverage: { kind: "unlinked" },
+      section: item.ingredientId ? knownSection(catalog.defaults[item.ingredientId]?.section) : "Övrigt",
+      origins: [],
+      checked: checks.has(key),
+      isCustom: true,
+    };
+  });
+}
+
+/** The lines the plan's recipes give, unsorted; see computeList. */
+function recipeLines(
+  { plan, recipes, snapshot, catalog }: Omit<ShoppingListInput, "overlay" | "plan"> & { plan: NonNullable<ShoppingListInput["plan"]> },
+  checks: ReadonlySet<string>,
+): ShoppingLine[] {
   const recipesById = new Map(recipes.map((recipe) => [recipe.id, recipe]));
   const dishOrder = new Map(plan.recipes.map((dish, index) => [dish.id, index]));
   const linked: OriginLine[] = [];
@@ -226,7 +279,6 @@ export function computeList({ plan, recipes, snapshot, catalog, overlay }: Shopp
     }
   }
 
-  const checks = new Set(overlay.checks);
   const lines: ShoppingLine[] = [];
   /** The ingredients' first line with an amount, which a missing vague line of the same ingredient joins. */
   const withAmount = new Map<string, ShoppingLine>();
@@ -284,5 +336,5 @@ export function computeList({ plan, recipes, snapshot, catalog, overlay }: Shopp
       isCustom: false,
     });
   }
-  return lines.filter((line) => !folded.has(line)).sort(compareShoppingLines);
+  return lines.filter((line) => !folded.has(line));
 }

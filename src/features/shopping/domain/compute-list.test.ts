@@ -406,3 +406,96 @@ function baseInput(): ShoppingListInput {
     overlay: emptyOverlay,
   };
 }
+
+describe("computeList with own items (Story 3.5)", () => {
+  const diskmedel = "11111111-1111-4111-8111-111111111111";
+  const kaffe = "22222222-2222-4222-8222-222222222222";
+  const ownGradde = "33333333-3333-4333-8333-333333333333";
+  const own = (id: string, label: string, ingredientId: string | null = null, value: number | null = null, unit: Unit | null = null) => ({
+    id,
+    label,
+    ingredientId,
+    amount: value,
+    unit,
+  });
+
+  it("gives each own item a line of its own, keyed c:<id>, under Övrigt without a catalog ingredient", () => {
+    const lines = list([], [], [], {
+      overlay: { ...emptyOverlay, customItems: [own(diskmedel, "diskmedel", null, 2, "förp")] },
+    });
+    expect(lines).toEqual([
+      {
+        key: `c:${diskmedel}`,
+        label: "diskmedel",
+        amount: 2,
+        unit: "förp",
+        isVague: false,
+        coverage: { kind: "unlinked" },
+        section: "Övrigt",
+        origins: [],
+        checked: false,
+        isCustom: true,
+      },
+    ]);
+  });
+
+  it("puts a linked item under its ingredient's section, and an unknown section under Övrigt", () => {
+    const lines = list([], [], [], {
+      catalog: { names: {}, defaults: { kaffe: { section: "Skafferi" }, okand: { section: "Kläder" } } },
+      overlay: { ...emptyOverlay, customItems: [own(kaffe, "Kaffe", "kaffe"), own(diskmedel, "Strumpor", "okand")] },
+    });
+    expect(lines.map((line) => [line.label, line.section, line.ingredientId, line.amount])).toEqual([
+      ["Kaffe", "Skafferi", "kaffe", null],
+      ["Strumpor", "Övrigt", "okand", null],
+    ]);
+  });
+
+  it("never merges an own item with a recipe line of the same ingredient, nor takes the pantry off it", () => {
+    const lines = list(
+      [dish("d1", "gryta")],
+      [recipe("gryta", [amount("gradde", 3, "dl")])],
+      [{ ingredientId: "gradde", amount: 5, unit: "dl" }],
+      { overlay: { ...emptyOverlay, customItems: [own(ownGradde, "Grädde", "gradde", 3, "dl")] } },
+    );
+    // The recipe's 3 dl are at home; the own item stays as Pontus wrote it.
+    expect(lines.map((line) => [line.key, line.label, line.amount, line.unit, line.isCustom])).toEqual([
+      [`c:${ownGradde}`, "Grädde", 3, "dl", true],
+    ]);
+    const missing = list([dish("d1", "gryta")], [recipe("gryta", [amount("gradde", 3, "dl")])], [], {
+      overlay: { ...emptyOverlay, customItems: [own(ownGradde, "Grädde", "gradde", 3, "dl")] },
+    });
+    // Two lines with the same name: ordered by key.
+    expect(missing.map((line) => [line.key, line.amount, line.isCustom])).toEqual([
+      [`c:${ownGradde}`, 3, true],
+      ["r:gradde:dl", 3, false],
+    ]);
+  });
+
+  it("checks an own item by c:<id>, and keeps it unchanged when the recipes are counted again", () => {
+    const overlay = { ...emptyOverlay, checks: [`c:${diskmedel}`], customItems: [own(diskmedel, "diskmedel")] };
+    const lines = (servings: number) =>
+      list([dish("d1", "gryta", servings)], [recipe("gryta", [amount("gradde", 2, "dl")])], [], { overlay });
+    const custom = (servings: number) => lines(servings).find((line) => line.isCustom);
+    expect(custom(4)).toMatchObject({ key: `c:${diskmedel}`, checked: true, amount: null });
+    expect(custom(8)).toEqual(custom(4));
+  });
+
+  it("sorts own items with the recipe lines by section and name, and gives none without a plan", () => {
+    const customItems = [own(diskmedel, "diskmedel"), own(kaffe, "Bröd", "mjol")];
+    const lines = list([dish("d1", "gryta")], [recipe("gryta", [amount("gradde", 2, "dl"), amount("mjol", 1, "dl")])], [], {
+      overlay: { ...emptyOverlay, customItems },
+    });
+    expect(lines.map((line) => [line.section, line.label])).toEqual([
+      ["Mejeri", "Grädde"],
+      ["Skafferi", "Bröd"],
+      ["Skafferi", "Mjöl"],
+      ["Övrigt", "diskmedel"],
+    ]);
+    expect(computeList({ ...baseInput(), overlay: { ...emptyOverlay, customItems } })).toEqual([]);
+  });
+
+  it("names an item without text Okänd vara and leaves an amount without a unit out", () => {
+    const lines = list([], [], [], { overlay: { ...emptyOverlay, customItems: [own(diskmedel, "  ", null, 2, null)] } });
+    expect(lines.map((line) => [line.label, line.amount, line.unit])).toEqual([["Okänd vara", null, null]]);
+  });
+});

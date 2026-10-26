@@ -50,8 +50,8 @@ describe("revalidateFor", () => {
     }
   });
 
-  it("revalidates only the shopping list after a check", () => {
-    revalidateFor("shopping_check");
+  it.each(["shopping_check", "shopping_custom_item"] as const)("revalidates only the shopping list after a write to %s", (table) => {
+    revalidateFor(table);
     expect(revalidatePath.mock.calls).toEqual([["/lista", "page"]]);
   });
 });

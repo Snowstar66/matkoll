@@ -1,11 +1,15 @@
-import { act, render, screen, within } from "@testing-library/react";
+import { act, render as renderBare, type RenderOptions, screen, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
-import { Activity, useEffect, useState } from "react";
+import { Activity, type ReactElement, useEffect, useState } from "react";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { fail, ok, type Result } from "@/lib/errors";
 import type { CheckChange } from "../domain/check";
 import type { ShoppingLine } from "../domain/compute-list";
+import { ToastProvider } from "@/components/toast";
 import { announcementMs, checkTimeoutMs, ShoppingList, type ShoppingListProps } from "./shopping-list";
+
+/** The list needs a ToastProvider above, as the app layout gives it. */
+const render = (ui: ReactElement, options?: RenderOptions) => renderBare(ui, { wrapper: ToastProvider, ...options });
 
 const setChecked = vi.fn<(change: CheckChange) => Promise<Result<CheckChange>>>();
 vi.mock("../actions/set-checked", () => ({ setChecked: (change: CheckChange) => setChecked(change) }));

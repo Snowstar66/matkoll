@@ -2,6 +2,20 @@
 
 Beslut som fattats under bygget: vad, varför och vilka alternativ som fanns. Nyaste överst.
 
+## 2026-10-26 – Egna varor på inköpslistan
+
+- **Beslut:**
+  - "Lägg till egen vara" är en sekundärknapp under listan. Den visas så fort det finns en aktuell matsedel, även utan rätter, men inte utan matsedel. Efter "Lägg till" stängs arket utan kort bekräftelse, och posten syns i listan.
+  - Arket har fältet "Vara" med upp till fem katalogförslag under sig, 200 ms efter att Pontus slutat skriva. Ett valt förslag fyller fältet med ingrediensens namn och visar "Kopplad till Kaffe" och textknappen "Ta bort kopplingen". Texten går att ändra efteråt utan att kopplingen försvinner. Medan varan är kopplad visas inga förslag, och om sökningen misslyckas står "Förslag går inte att visa just nu." under fältet.
+  - Listan skriver aldrig till katalogen. En kopplad egen vara sparar bara `ingredient_id` till en ingrediens som redan finns, och ingen synonym sparas, även om texten skiljer sig från namnet. Det avviker från AD-6 och arkitekturen, som låter `addCustomItem` anropa `commitIngredients` (beslut efter granskningen av 3.5).
+  - En egen varas id behålls bara så länge formuläret är oförändrat. Ändras ett fält efter ett misslyckat försök blir det ett nytt id, och databasen nekar ett nytt försök med samma id men annat innehåll.
+  - Mängd utan enhet ger "Välj en enhet." vid Enhet, och enhet utan mängd ger "Ange ett tal större än 0." vid Mängd. Mängden ska vara under 1 000 000 ("Ange ett tal under 1 000 000.") och texten högst 200 tecken ("Texten får vara högst 200 tecken.").
+  - Bara egna varor kan svepas bort. En egen vara visar ingen "från [rätt]". När "Ångra" bara lyckas för en del av flera varor namnger felet de andra: "Det gick inte att ångra diskmedel.". En matsedel utan rätter men med egna varor visar "Vecka 44 · 1 vara kvar". Att lägga till eller ta bort en egen vara annonseras inte som en omräkning i live-regionen, eftersom borttagningen har en egen bekräftelse.
+  - Egna varor läggs till, tas bort och ångras bara på den aktuella matsedeln, under matsedelslåset. Annars visas "Matsedeln har bytts. Listan är uppdaterad." och listan läses om. En matsedel med bara egna varor räknas inte som tom, så den blir en tidigare matsedel vid byte, och egna varor följer inte med vid "Använd igen".
+  - Om egna varor inte går att läsa visas `shopping_unavailable` (Story 3.5).
+- **Varför:** specen säger inte var knappen ligger, vad ett valt förslag gör med texten eller vad enhet utan mängd ger. Ett förslag träffar oftast på en del av namnet ("kaff"), så namnet är en bättre text än det Pontus hunnit skriva. Utan synlig koppling skulle en ändrad text tyst hamna under fel avdelning. En synonym från en fritext i butiken kan peka om en befintlig synonym och påverka hur recept matchas, och den sparades före kontrollen av matsedeln. Ett återanvänt id för en ändrad vara skulle tyst ge tillbaka den gamla varan.
+- **Alternativ:** behålla Pontus text när ett förslag väljs; ta bort kopplingen när texten ändras; spara texten som synonym via `commitIngredients` (AD-6 som skriven); visa listan utan egna varor när de inte går att läsa.
+
 ## 2026-10-26 – Inköpslistans poster: hela styck, vaga rader och okopplade rader
 
 - **Beslut:**

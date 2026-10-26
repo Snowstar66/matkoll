@@ -51,6 +51,12 @@ export const errorMessages = {
   shopping_check_failed: "Det gick inte att spara bocken.",
   // A check from a page whose plan is no longer the current one: the list is read again.
   shopping_plan_changed: "Matsedeln har bytts. Listan är uppdaterad.",
+  // Own items (Story 3.5). A failed add keeps the sheet as it was; after a
+  // failed remove the item is back on the list; after a failed "Ångra" it
+  // stays removed.
+  shopping_save_failed: "Det gick inte att spara varan. Försök igen.",
+  shopping_remove_failed: "Det gick inte att ta bort varan.",
+  shopping_restore_failed: "Det gick inte att ångra.",
   // Recipe sites in Inställningar (FR7). The sentence with the site's name,
   // "koket.se finns redan.", is in `fields.domain`.
   settings_invalid_domain: "Ange en giltig webbadress, t.ex. koket.se.",

@@ -36,39 +36,38 @@ export type IngredientPickerProps<Hit extends IngredientHit> = {
 /** The answer for one query. */
 type Answer<Hit> = { query: string; hits: Hit[] } | { query: string; error: AppError };
 
+/** What useIngredientSearch gives: the answer for the query searched last, once it is there. */
+export type IngredientSearch<Hit extends IngredientHit> = {
+  /** The text searched last. */
+  query: string;
+  /** The hits for `query`; `null` while it is empty, on its way or failed. */
+  hits: Hit[] | null;
+  /** Why the search for `query` failed, or `null`. */
+  error: AppError | null;
+  /** Searches the catalog for `text`; empty text clears the answer. */
+  search: (text: string) => Promise<void>;
+  /**
+   * Forgets the query and its answer, e.g. when a sheet opens anew; an answer
+   * still on its way is never shown, since it belongs to an older query.
+   * Safe to call while rendering.
+   */
+  reset: () => void;
+};
+
 /**
- * Ingrediensväljare: searches the catalog by name and synonym while Pontus
- * types (Sökfält, 200 ms) and lists the hits; unless a hit has exactly the
- * typed name, "Lägg till … som ny" uses the name for a new ingredient. Only
- * the latest search shows its answer. The search field has focus from the
- * start. Shown in place of a form inside the same sheet (sheets never stack).
+ * The search part of Ingrediensväljare, for a module's own suggestion field
+ * (e.g. the shopping list's own items): calls `searchIngredients` and keeps
+ * only the latest search's answer, so a slow answer never replaces a newer
+ * one. A search that throws counts as `catalog_unavailable`. The caller waits
+ * for the pause after typing (searchDelayMs) before calling `search`.
  */
-export function IngredientPicker<Hit extends IngredientHit>({
-  searchIngredients,
-  onChoose,
-  newName,
-  onNew,
-  onCancel,
-  header,
-  label = "Sök ingrediens",
-}: IngredientPickerProps<Hit>) {
-  const rootRef = useRef<HTMLDivElement>(null);
+export function useIngredientSearch<Hit extends IngredientHit>(
+  searchIngredients: SearchIngredients<Hit>,
+): IngredientSearch<Hit> {
   const [query, setQuery] = useState("");
   const [answer, setAnswer] = useState<Answer<Hit> | null>(null);
   // Only the latest search may show its answer.
   const latest = useRef(0);
-
-  useEffect(() => {
-    // After the current commit: a sheet opening with the picker in it calls
-    // showModal later in the same commit, which moves focus to its first control.
-    let active = true;
-    queueMicrotask(() => {
-      if (active) rootRef.current?.querySelector<HTMLInputElement>("input[type=search]")?.focus();
-    });
-    return () => {
-      active = false;
-    };
-  }, []);
 
   async function search(text: string) {
     const id = ++latest.current;
@@ -87,6 +86,53 @@ export function IngredientPicker<Hit extends IngredientHit>({
     setAnswer(result.ok ? { query: text, hits: result.data } : { query: text, error: result.error });
   }
 
+  function reset() {
+    setQuery("");
+    setAnswer(null);
+  }
+
+  // Only what belongs to the query searched last is shown.
+  const current = answer && answer.query === query ? answer : null;
+  return {
+    query,
+    hits: current && "hits" in current ? current.hits : null,
+    error: current && "error" in current ? current.error : null,
+    search,
+    reset,
+  };
+}
+
+/**
+ * Ingrediensväljare: searches the catalog by name and synonym while Pontus
+ * types (Sökfält, 200 ms) and lists the hits; unless a hit has exactly the
+ * typed name, "Lägg till … som ny" uses the name for a new ingredient. Only
+ * the latest search shows its answer. The search field has focus from the
+ * start. Shown in place of a form inside the same sheet (sheets never stack).
+ */
+export function IngredientPicker<Hit extends IngredientHit>({
+  searchIngredients,
+  onChoose,
+  newName,
+  onNew,
+  onCancel,
+  header,
+  label = "Sök ingrediens",
+}: IngredientPickerProps<Hit>) {
+  const rootRef = useRef<HTMLDivElement>(null);
+  const { query, hits, error, search } = useIngredientSearch(searchIngredients);
+
+  useEffect(() => {
+    // After the current commit: a sheet opening with the picker in it calls
+    // showModal later in the same commit, which moves focus to its first control.
+    let active = true;
+    queueMicrotask(() => {
+      if (active) rootRef.current?.querySelector<HTMLInputElement>("input[type=search]")?.focus();
+    });
+    return () => {
+      active = false;
+    };
+  }, []);
+
   function onKeyDown(event: KeyboardEvent<HTMLDivElement>) {
     if (event.key !== "Escape" || !onCancel) return;
     // Esc leaves the search, not the whole sheet.
@@ -95,16 +141,13 @@ export function IngredientPicker<Hit extends IngredientHit>({
     onCancel();
   }
 
-  // Only what belongs to the query in the field is shown.
-  const current = answer && answer.query === query ? answer : null;
-  const hits = current && "hits" in current ? current.hits : null;
   const name = hits ? newName(query, hits) : null;
 
   return (
     <div ref={rootRef} onKeyDown={onKeyDown} className="flex flex-col gap-3">
       {header}
       <SearchField label={label} placeholder={label} onSearch={search} />
-      {current && "error" in current ? <Notice role="alert">{current.error.message}</Notice> : null}
+      {error ? <Notice role="alert">{error.message}</Notice> : null}
       {hits && hits.length > 0 ? (
         <ul aria-label="Träffar" className="flex flex-col">
           {hits.map((hit) => (

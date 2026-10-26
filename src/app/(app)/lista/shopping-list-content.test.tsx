@@ -1,5 +1,6 @@
 import { render, screen } from "@testing-library/react";
 import { describe, expect, it, vi } from "vitest";
+import { ToastProvider } from "@/components/toast";
 import { getShoppingList } from "@/features/shopping/server";
 import { fail, ok } from "@/lib/errors";
 import { ShoppingListContent } from "./shopping-list-content";
@@ -11,6 +12,10 @@ const redirect = vi.fn((url: string) => {
 });
 vi.mock("next/navigation", () => ({ redirect: (url: string) => redirect(url), useRouter: () => ({ refresh: vi.fn() }) }));
 vi.mock("@/features/shopping/actions/set-checked", () => ({ setChecked: vi.fn() }));
+vi.mock("@/features/shopping/actions/add-custom-item", () => ({ addCustomItem: vi.fn() }));
+vi.mock("@/features/shopping/actions/remove-custom-item", () => ({ removeCustomItem: vi.fn() }));
+vi.mock("@/features/shopping/actions/restore-custom-item", () => ({ restoreCustomItem: vi.fn() }));
+vi.mock("@/features/catalog/server", () => ({ searchIngredients: vi.fn() }));
 
 describe("ShoppingListContent", () => {
   it("shows shopping_unavailable in a notice when the list cannot be read", async () => {
@@ -33,7 +38,8 @@ describe("ShoppingListContent", () => {
         checksUnavailable: false,
       }),
     );
-    render(await ShoppingListContent());
+    render(<ToastProvider>{await ShoppingListContent()}</ToastProvider>);
     expect(screen.getByText("Allt finns hemma.")).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "Lägg till egen vara" })).toBeInTheDocument();
   });
 });

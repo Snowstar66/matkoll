@@ -9,6 +9,7 @@ import {
   listSummaryText,
   originsText,
   recountedText,
+  restoreFailedText,
   skippedDishesText,
 } from "./list-text";
 
@@ -37,6 +38,15 @@ describe("list texts", () => {
   it("sums up the plan under the title", () => {
     expect(listSummaryText("Vecka 44", 3, 12)).toBe("Vecka 44 · 3 rätter · 12 varor kvar");
     expect(listSummaryText("Vecka 44", 1, 1)).toBe("Vecka 44 · 1 rätt · 1 vara kvar");
+    // Only own items: no dish part.
+    expect(listSummaryText("Vecka 44", 0, 1)).toBe("Vecka 44 · 1 vara kvar");
+  });
+
+  it("names the items Ångra could not put back", () => {
+    expect(restoreFailedText([])).toBe("Det gick inte att ångra.");
+    expect(restoreFailedText(["diskmedel"])).toBe("Det gick inte att ångra diskmedel.");
+    expect(restoreFailedText(["diskmedel", "Kaffe"])).toBe("Det gick inte att ångra diskmedel och Kaffe.");
+    expect(restoreFailedText(["a", "b", "c"])).toBe("Det gick inte att ångra 3 varor.");
   });
 
   it("announces a recount with the items left", () => {

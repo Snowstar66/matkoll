@@ -52,3 +52,35 @@ describe("shopping_check line key constraint", () => {
     expect(Number(limit![1])).toBe(maxLineKeyChars);
   });
 });
+
+// AD-12, AD-19: an own item's unit is one of UNITS. The check list in the
+// shopping_custom_item migration must be exactly UNITS, in the same order.
+describe("shopping_custom_item unit constraint", () => {
+  it("lists exactly UNITS", () => {
+    const files = readdirSync(migrations).filter((name) => /^\d+_shopping_custom_item\.sql$/.test(name));
+    expect(files, "supabase/migrations/<time>_shopping_custom_item.sql").toHaveLength(1);
+    const sql = readFileSync(join(migrations, files[0]), "utf8");
+    const match = /constraint shopping_custom_item_unit_check check \(\s*unit in \(([^)]*)\)\s*\)/.exec(sql);
+    expect(match, "shopping_custom_item_unit_check").not.toBeNull();
+    expect([...match![1].matchAll(/'([^']*)'/g)].map((value) => value[1])).toEqual([...UNITS]);
+  });
+});
+
+// AD-22, Story 3.5: set_current_meal_plan deletes an empty current plan on a
+// switch, and a plan counts as empty only without dishes and own items. The
+// function is rewritten by whole-body migrations, so the newest one that
+// defines it must still look at shopping_custom_item.
+describe("set_current_meal_plan", () => {
+  it("counts own items in the newest definition's emptiness rule", () => {
+    const defining = readdirSync(migrations)
+      .filter((name) => name.endsWith(".sql"))
+      .sort()
+      .map((file) => ({ file, sql: readFileSync(join(migrations, file), "utf8") }))
+      .filter(({ sql }) => /create (or replace )?function public\.set_current_meal_plan\(/.test(sql));
+    const latest = defining.at(-1);
+    expect(latest, "a migration defining set_current_meal_plan").toBeDefined();
+    const start = latest!.sql.search(/create (or replace )?function public\.set_current_meal_plan\(/);
+    const body = latest!.sql.slice(start, latest!.sql.indexOf("$$;", start));
+    expect(body, latest!.file).toMatch(/exists \(select 1 from public\.shopping_custom_item/);
+  });
+});

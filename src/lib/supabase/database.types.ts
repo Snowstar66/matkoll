@@ -199,13 +199,56 @@ isOneToOne: false
       referencedColumns: ["id","user_id"]
     }
                   ]
+                },"shopping_custom_item": {
+                  Row: {
+                    "amount": number | null,"created_at": string,"id": string,"ingredient_id": string | null,"label": string,"meal_plan_id": string,"unit": string | null,"user_id": string
+                  }
+                  ComputedFields: never
+                  Insert: {
+                    "amount"?: number | null,"created_at"?: string,"id"?: string,"ingredient_id"?: string | null,"label": string,"meal_plan_id": string,"unit"?: string | null,"user_id"?: string
+                  }
+                  Update: {
+                    "amount"?: number | null,"created_at"?: string,"id"?: string,"ingredient_id"?: string | null,"label"?: string,"meal_plan_id"?: string,"unit"?: string | null,"user_id"?: string
+                  }
+                  Relationships: [
+                    {
+      foreignKeyName: "shopping_custom_item_ingredient_fkey"
+      columns: ["ingredient_id","user_id"]
+isOneToOne: false
+      referencedRelation: "ingredient"
+      referencedColumns: ["id","user_id"]
+    },{
+      foreignKeyName: "shopping_custom_item_meal_plan_fkey"
+      columns: ["meal_plan_id","user_id"]
+isOneToOne: false
+      referencedRelation: "meal_plan"
+      referencedColumns: ["id","user_id"]
+    }
+                  ]
                 }
           }
           Views: {
             [_ in never]: never
           }
           Functions: {
-            "add_to_current_plan":
+            "add_shopping_custom_item":
+{ Args: { "item": Json }; Returns: {
+              "amount": number | null,
+"created_at": string,
+"id": string,
+"ingredient_id": string | null,
+"label": string,
+"meal_plan_id": string,
+"unit": string | null,
+"user_id": string
+            }
+                          SetofOptions: {
+        from: "*"
+        to: "shopping_custom_item"
+        isOneToOne: true
+        isSetofReturn: false
+      } },
+"add_to_current_plan":
 { Args: { "dish_id": string,"dish_recipe_id": string,"dish_recipe_title": string,"dish_servings": number,"plan_name": string }; Returns: {
               "created_at": string,
 "id": string,
@@ -242,6 +285,23 @@ isOneToOne: false
 "pantry_lock":
 { Args: Record<PropertyKey, never>; Returns: undefined
                            },
+"remove_shopping_custom_item":
+{ Args: { "item_id": string }; Returns: {
+              "amount": number | null,
+"created_at": string,
+"id": string,
+"ingredient_id": string | null,
+"label": string,
+"meal_plan_id": string,
+"unit": string | null,
+"user_id": string
+            }[]
+                          SetofOptions: {
+        from: "*"
+        to: "shopping_custom_item"
+        isOneToOne: false
+        isSetofReturn: true
+      } },
 "restore_pantry_item":
 { Args: { "item": Json }; Returns: {
               "amount": number | null,

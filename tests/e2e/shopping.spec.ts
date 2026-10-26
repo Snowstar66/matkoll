@@ -1,8 +1,10 @@
-import { expect, type Page, type Response, test } from "@playwright/test";
+import { expect, type Locator, type Page, type Response, test } from "@playwright/test";
 import { adminClient, e2eUserId, shoppingEmail, shoppingStorageState } from "./support";
 
 // Story 3.3: Inköpslista, counted from the current meal plan, its recipes and
-// the pantry every time it is read. Story 3.4: checking lines off, saved at once. The spec has an E2E user of its own
+// the pantry every time it is read. Story 3.4: checking lines off, saved at
+// once. Story 3.5: Pontus's own items, added, checked, removed and put back
+// with "Ångra". The spec has an E2E user of its own
 // (shoppingEmail), which the later list stories share; everything is made
 // with the service role before the tests. Two recipes for 4 portions:
 // Krämig kycklinggryta (2 dl grädde, 1 paprika, salt efter smak) and Paj
@@ -313,5 +315,184 @@ test("the list says everything is at home when nothing is short", async ({ page 
   await expect(page.getByText("Allt finns hemma.").filter({ visible: true })).toBeVisible();
   await expect(summary(page)).toHaveText("Vecka 44 · 2 rätter · 0 varor kvar");
   await expect(lines(page)).toHaveCount(0);
+  expect(errors).toEqual([]);
+});
+
+// Story 3.5: Pontus's own items. Each test sets the current plan's own items
+// and checks itself; the plan, its dishes and the pantry are as the tests
+// above left them (everything the dishes need is at home).
+
+/** Sets the current plan's own items to exactly these, with the service role; returns their ids by text. */
+async function seedCustomItems(
+  items: { label: string; ingredient?: string; amount?: number; unit?: string }[],
+): Promise<Map<string, string>> {
+  const admin = adminClient();
+  const removed = await admin.from("shopping_custom_item").delete().eq("user_id", userId);
+  if (removed.error) throw removed.error;
+  if (items.length === 0) return new Map();
+  const plan = await admin.from("meal_plan").select("id").eq("user_id", userId).eq("is_current", true).single();
+  if (plan.error) throw plan.error;
+  const { data, error } = await admin
+    .from("shopping_custom_item")
+    .insert(
+      items.map(({ label, ingredient, amount, unit }) => ({
+        user_id: userId,
+        meal_plan_id: (plan.data as { id: string }).id,
+        label,
+        ingredient_id: ingredient ? ids.get(ingredient) : null,
+        amount: amount ?? null,
+        unit: unit ?? null,
+      })),
+    )
+    .select("id, label");
+  if (error) throw error;
+  return new Map((data as { id: string; label: string }[]).map((row) => [row.label, row.id]));
+}
+
+const customSheet = (page: Page) => page.getByRole("dialog", { name: "Lägg till egen vara" });
+const addCustomButton = (page: Page) => page.getByRole("button", { name: "Lägg till egen vara" }).filter({ visible: true });
+const region = (page: Page, name: string) => page.getByRole("region", { name }).filter({ visible: true });
+const toast = (page: Page) => page.getByTestId("toast");
+// An own item's row also holds its "Ta bort", behind the row until it is swiped.
+
+/** Swipes the row to the left from its text with the mouse, which sends the same pointer events as a finger. */
+async function swipeLeft(page: Page, row: Locator, distance = 150) {
+  const box = await row.boundingBox();
+  if (!box) throw new Error("no row");
+  const x = box.x + box.width * 0.7;
+  const y = box.y + box.height / 2;
+  await page.mouse.move(x, y);
+  await page.mouse.down();
+  await page.mouse.move(x - distance, y + 4, { steps: 12 });
+  await page.mouse.up();
+}
+
+/** The current plan's own items with the service role, by text. */
+async function storedCustomItems(): Promise<{ id: string; label: string; ingredient_id: string | null }[]> {
+  const { data, error } = await adminClient()
+    .from("shopping_custom_item")
+    .select("id, label, ingredient_id")
+    .eq("user_id", userId)
+    .order("label");
+  if (error) throw error;
+  return data as { id: string; label: string; ingredient_id: string | null }[];
+}
+
+test("an own item without a catalog ingredient goes under Övrigt, and shows although everything else is at home", async ({
+  page,
+}) => {
+  await seedCustomItems([]);
+  await seedChecks([]);
+  const errors = watchErrors(page);
+  await page.goto("/lista");
+  await expect(page.getByText("Allt finns hemma.").filter({ visible: true })).toBeVisible();
+
+  await addCustomButton(page).click();
+  const sheet = customSheet(page);
+  await expect(sheet.getByRole("textbox", { name: "Vara" })).toBeFocused();
+  // Nothing typed: nothing is saved.
+  await sheet.getByRole("button", { name: "Lägg till" }).click();
+  await expect(sheet.getByText("Skriv vad du vill lägga till.")).toBeVisible();
+  await sheet.getByRole("textbox", { name: "Vara" }).fill("diskmedel");
+  await actionsAnswered(page, 1, () => sheet.getByRole("button", { name: "Lägg till" }).click());
+
+  await expect(customSheet(page)).toHaveCount(0);
+  await expect(region(page, "Övrigt").getByTestId("shopping-line")).toHaveText([/^diskmedel\s*Ta bort$/]);
+  await expect(page.getByText("Allt finns hemma.").filter({ visible: true })).toHaveCount(0);
+  await expect(summary(page)).toHaveText("Vecka 44 · 2 rätter · 1 vara kvar");
+  await page.reload();
+  await expect(region(page, "Övrigt").getByTestId("shopping-line")).toHaveText([/^diskmedel\s*Ta bort$/]);
+  expect((await storedCustomItems()).map((item) => [item.label, item.ingredient_id])).toEqual([["diskmedel", null]]);
+  expect(errors).toEqual([]);
+});
+
+test("a suggestion links the own item to its catalog ingredient's section, never merged with the recipe line", async ({
+  page,
+}) => {
+  await seedCustomItems([]);
+  await seedChecks([]);
+  // 4 dl grädde needed and only the 3 dl in Kyl at home: the recipe line "Grädde 1 dl".
+  const frys = await adminClient().from("pantry_item").delete().eq("user_id", userId).eq("location", "Frys");
+  if (frys.error) throw frys.error;
+  try {
+    const errors = watchErrors(page);
+    await page.goto("/lista");
+    await expect(region(page, "Mejeri").getByTestId("shopping-line")).toHaveCount(1);
+
+    await addCustomButton(page).click();
+    const sheet = customSheet(page);
+    await sheet.getByRole("textbox", { name: "Vara" }).pressSequentially("grädd");
+    await sheet.getByRole("list", { name: "Förslag" }).getByRole("button", { name: "Grädde" }).click();
+    await expect(sheet.getByRole("textbox", { name: "Vara" })).toHaveValue("Grädde");
+    await expect(sheet.getByText("Kopplad till Grädde")).toBeVisible();
+    await sheet.getByRole("textbox", { name: "Mängd" }).fill("2");
+    await sheet.getByRole("combobox", { name: "Enhet" }).selectOption("förp");
+    await actionsAnswered(page, 1, () => sheet.getByRole("button", { name: "Lägg till" }).click());
+
+    await expect(customSheet(page)).toHaveCount(0);
+    const mejeri = region(page, "Mejeri").getByTestId("shopping-line");
+    await expect(mejeri).toHaveCount(2);
+    await expect(mejeri.filter({ hasText: "2 förp" })).toHaveText(/^Grädde\s*2 förp\s*Ta bort$/);
+    await expect(mejeri.filter({ hasText: "1 dl" })).toContainText(`från ${gryta}, ${paj}`);
+    expect((await storedCustomItems()).map((item) => [item.label, item.ingredient_id])).toEqual([["Grädde", ids.get("Grädde")]]);
+    expect(errors).toEqual([]);
+  } finally {
+    // The later tests expect the Frys row back.
+    await addPantry("Grädde", 1, "dl", "Frys");
+  }
+});
+
+test("an own item is checked off, removed by swipe and put back with Ångra, with the same id and check", async ({ page }) => {
+  const seeded = await seedCustomItems([{ label: "diskmedel" }, { label: "Kaffe", ingredient: "Mjöl" }]);
+  await seedChecks([]);
+  const errors = watchErrors(page);
+  await page.goto("/lista");
+  await expect(region(page, "Övrigt").getByTestId("shopping-line")).toHaveText([/^diskmedel\s*Ta bort$/]);
+  await expect(region(page, "Skafferi").getByTestId("shopping-line")).toHaveText([/^Kaffe\s*Ta bort$/]);
+
+  await actionsAnswered(page, 1, () => check(page, "diskmedel").click());
+  await expect(check(page, "diskmedel")).toBeChecked();
+  const { data, error } = await adminClient().from("shopping_check").select("line_key").eq("user_id", userId);
+  if (error) throw error;
+  expect(data).toEqual([{ line_key: `c:${seeded.get("diskmedel")}` }]);
+
+  const row = region(page, "Övrigt").getByTestId("shopping-line");
+  await swipeLeft(page, row);
+  await expect(row.getByTestId("swipe-row-front")).toHaveCSS("transform", "matrix(1, 0, 0, 1, -96, 0)");
+  await actionsAnswered(page, 1, () => page.getByRole("button", { name: "Ta bort diskmedel" }).click());
+  await expect(region(page, "Övrigt")).toHaveCount(0);
+  await expect(toast(page)).toContainText("diskmedel är borttagen.");
+  await expect.poll(async () => (await storedCustomItems()).map((item) => item.label)).toEqual(["Kaffe"]);
+
+  await actionsAnswered(page, 1, () => toast(page).getByRole("button", { name: "Ångra" }).click());
+  await expect(region(page, "Övrigt").getByTestId("shopping-line")).toHaveText([/^diskmedel\s*Ta bort$/]);
+  await expect(check(page, "diskmedel")).toBeChecked();
+  expect((await storedCustomItems()).map((item) => [item.label, item.id])).toEqual([
+    ["diskmedel", seeded.get("diskmedel")],
+    ["Kaffe", seeded.get("Kaffe")],
+  ]);
+  await page.reload();
+  await expect(check(page, "diskmedel")).toBeChecked();
+  expect(errors).toEqual([]);
+});
+
+test("own items stay as they are when the servings change", async ({ page }) => {
+  await seedCustomItems([{ label: "diskmedel", amount: 2, unit: "förp" }]);
+  await seedChecks([]);
+  const errors = watchErrors(page);
+  await page.goto("/lista");
+  await expect(region(page, "Övrigt").getByTestId("shopping-line")).toHaveText([/^diskmedel\s*2 förp\s*Ta bort$/]);
+
+  await tab(page, "Matsedel").click();
+  await expect(page).toHaveURL(/\/matsedel$/);
+  const dish = page.getByTestId("plan-dish").filter({ visible: true }).filter({ hasText: gryta });
+  await actionsAnswered(page, 1, () => dish.getByRole("button", { name: `Fler portioner, ${gryta}` }).click());
+  await expect(dish.getByText("7 portioner")).toBeVisible();
+
+  await tab(page, "Lista").click();
+  await expect(page).toHaveURL(/\/lista$/);
+  // 3,5 dl grädde for 7, and 1 dl from Paj, against 4 dl at home: the recipes need more now.
+  await expect(region(page, "Mejeri").getByTestId("shopping-line")).toContainText(["Grädde"]);
+  await expect(region(page, "Övrigt").getByTestId("shopping-line")).toHaveText([/^diskmedel\s*2 förp\s*Ta bort$/]);
   expect(errors).toEqual([]);
 });

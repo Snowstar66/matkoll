@@ -37,9 +37,26 @@ export function itemsLeft(lines: readonly Pick<ShoppingLine, "checked">[]): numb
   return lines.filter((line) => !line.checked).length;
 }
 
-/** The line under the title: "Vecka 44 · 3 rätter · 12 varor kvar". */
+/**
+ * The line under the title: "Vecka 44 · 3 rätter · 12 varor kvar". Without
+ * dishes (only own items) the dishes are left out: "Vecka 44 · 1 vara kvar".
+ */
 export function listSummaryText(planName: string, dishCount: number, left: number): string {
-  return `${planName} · ${dishCountText(dishCount)} · ${itemsLeftText(left)}`;
+  return dishCount > 0
+    ? `${planName} · ${dishCountText(dishCount)} · ${itemsLeftText(left)}`
+    : `${planName} · ${itemsLeftText(left)}`;
+}
+
+/**
+ * When "Ångra" could not put own items back: "Det gick inte att ångra
+ * diskmedel.", "… diskmedel och Kaffe.", "… 3 varor."; without names the
+ * plain "Det gick inte att ångra." (shopping_restore_failed).
+ */
+export function restoreFailedText(labels: readonly string[]): string {
+  if (labels.length === 0) return "Det gick inte att ångra.";
+  if (labels.length === 1) return `Det gick inte att ångra ${labels[0]}.`;
+  if (labels.length === 2) return `Det gick inte att ångra ${labels[0]} och ${labels[1]}.`;
+  return `Det gick inte att ångra ${labels.length} varor.`;
 }
 
 /** Announced when the list is counted again while it is open: "Inköpslistan är omräknad. 12 varor kvar." */

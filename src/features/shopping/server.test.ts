@@ -51,6 +51,8 @@ const db = { session: true };
 vi.mock("@/lib/supabase/server", () => ({ createClient: async () => db }));
 const listChecksIn = vi.fn();
 vi.mock("./data/checks", () => ({ listChecksIn: (...args: unknown[]) => listChecksIn(...args) }));
+const listCustomItemsIn = vi.fn();
+vi.mock("./data/custom-items", () => ({ listCustomItemsIn: (...args: unknown[]) => listCustomItemsIn(...args) }));
 
 const { getShoppingList } = await import("./server");
 
@@ -79,6 +81,7 @@ beforeEach(() => {
   getIngredientNames.mockReset().mockResolvedValue({ [gradde]: "Grädde" });
   getIngredientDefaults.mockReset().mockResolvedValue({ [gradde]: { section: "Mejeri", location: "Kyl", defaultUnit: "dl" } });
   listChecksIn.mockReset().mockResolvedValue([]);
+  listCustomItemsIn.mockReset().mockResolvedValue([]);
   log?.mockRestore();
   log = vi.spyOn(console, "error").mockImplementation(() => {});
 });
@@ -123,6 +126,7 @@ describe("getShoppingList", () => {
     expect(getRecipesByIds).not.toHaveBeenCalled();
     expect(getPantrySnapshot).not.toHaveBeenCalled();
     expect(listChecksIn).not.toHaveBeenCalled();
+    expect(listCustomItemsIn).not.toHaveBeenCalled();
   });
 
   it("reads no pantry for a plan whose dishes all lost their recipe", async () => {
@@ -142,6 +146,36 @@ describe("getShoppingList", () => {
     expect(log).toHaveBeenCalledWith("shopping_checks_unavailable", { reason: "list_checks_failed 08006" });
   });
 
+  it("adds the plan's own items, each under its ingredient's section or Övrigt, also without dishes", async () => {
+    const kaffe = "33333333-3333-4333-8333-333333333333";
+    const own = "44444444-4444-4444-8444-444444444444";
+    const disk = "55555555-5555-4555-8555-555555555555";
+    listCustomItemsIn.mockResolvedValue([
+      { id: own, label: "Kaffe", ingredientId: kaffe, amount: null, unit: null },
+      { id: disk, label: "diskmedel", ingredientId: null, amount: 2, unit: "förp" },
+    ]);
+    getIngredientDefaults.mockImplementation(async (ids: string[]) =>
+      Object.fromEntries(ids.map((id) => [id, { section: id === kaffe ? "Skafferi" : "Mejeri" }])),
+    );
+    listChecksIn.mockResolvedValue([`c:${disk}`]);
+    const result = await getShoppingList();
+    expect(listCustomItemsIn).toHaveBeenCalledWith(db, "plan");
+    // The own item's ingredient gives its section; its name is Pontus's text.
+    expect(getIngredientDefaults).toHaveBeenCalledWith([gradde, kaffe]);
+    expect(getIngredientNames).toHaveBeenCalledWith([gradde]);
+    expect(result.ok && result.data.lines.map((line) => [line.section, line.key, line.label, line.checked])).toEqual([
+      ["Mejeri", `r:${gradde}:dl`, "Grädde", false],
+      ["Skafferi", `c:${own}`, "Kaffe", false],
+      ["Övrigt", `c:${disk}`, "diskmedel", true],
+    ]);
+
+    getCurrentPlan.mockResolvedValue({ ...plan, recipes: [] });
+    getIngredientNames.mockClear();
+    const only = await getShoppingList();
+    expect(only.ok && only.data.lines.map((line) => line.label)).toEqual(["Kaffe", "diskmedel"]);
+    expect(getIngredientNames).not.toHaveBeenCalled();
+  });
+
   it("takes nothing off when the pantry cannot be read, and says so", async () => {
     getPantrySnapshot.mockRejectedValue(new PantryDataError("query_failed 08006"));
     const result = await getShoppingList();
@@ -153,6 +187,11 @@ describe("getShoppingList", () => {
   it.each([
     ["the plan", () => getCurrentPlan.mockRejectedValue(new MealPlanDataError("query_failed 08006")), { reason: "query_failed 08006" }],
     ["the recipes", () => getRecipesByIds.mockRejectedValue(new RecipeDataError("query_failed 08006")), { reason: "query_failed 08006" }],
+    [
+      "the own items",
+      () => listCustomItemsIn.mockRejectedValue(new ShoppingDataError("list_custom_items_failed 08006")),
+      { reason: "list_custom_items_failed 08006" },
+    ],
     [
       "the catalog",
       () => getIngredientDefaults.mockRejectedValue(new CatalogDataError("query_failed", "08006")),
