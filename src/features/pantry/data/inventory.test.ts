@@ -121,4 +121,30 @@ describe("applyPantryInventoryIn", () => {
     await expect(applyPantryInventoryIn(db, { ...request, siteId: "stugan" })).rejects.toThrow(new PantryDataError("invalid_items"));
     expect(rpc).not.toHaveBeenCalled();
   });
+
+  it("sends an item's label only when it has one, and reads the rows' labels and times (Story 11.2)", async () => {
+    const added = "2026-10-20T08:15:00.123456+00:00";
+    const { db, rpc } = fakeRpc({
+      data: {
+        set: [{ id: otherRowId, site_id: stugan, ingredient_id: mjolk, location: "Kyl", amount: 1, unit: "förp", label: "Arla", created_at: added }],
+        removed: [{ id: rowId, site_id: stugan, ingredient_id: yoghurt, location: "Kyl", amount: 2, unit: "förp", label: null, created_at: added }],
+        replaced: 1,
+        undoable: 1,
+      },
+      error: null,
+    });
+    const labelled = { ...request, items: [...request.items.map((item) => ({ ...item, label: "Arla" })), { ingredientId: yoghurt, location: "Kyl" as const, amount: null, unit: null }] };
+    const applied = await applyPantryInventoryIn(db, labelled);
+    expect(rpc.mock.calls[0]).toEqual([
+      "apply_pantry_inventory",
+      expect.objectContaining({
+        items: [
+          { ingredient_id: mjolk, location: "Kyl", amount: 1, unit: "förp", label: "Arla" },
+          { ingredient_id: yoghurt, location: "Kyl", amount: null, unit: null },
+        ],
+      }),
+    ]);
+    expect(applied.set[0]).toMatchObject({ label: "Arla" });
+    expect(applied.removed[0]).toMatchObject({ label: null, createdAt: added });
+  });
 });

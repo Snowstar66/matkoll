@@ -2,7 +2,8 @@
 title: 'Story 11.2: Märke och tid på lagervaror'
 type: 'feature'
 created: '2026-10-26'
-status: 'draft'
+status: 'in-progress'
+baseline_commit: '22a0febb5a37b5120ee9ebe41fe517877d340851'
 route: 'dispatch'
 context:
   - '{project-root}/_bmad-output/implementation-artifacts/epic-11-context.md'
@@ -90,16 +91,16 @@ context:
 ## Tasks & Acceptance
 
 **Execution:**
-- [ ] `supabase/migrations/<tid>_pantry_label.sql` (via `supabase migration new`) -- kolumnen med `check`, nya versioner av funktionerna enligt Boundaries, med samma signaturer, `security invoker`, `pantry_lock()` och grants som förut. Provas först i en transaktion som rullas tillbaka. Säkerhetskopia av data och `scripts/pantry-site-check.sql` före och efter. Sedan `pnpm db:types` -- AD-5, AD-19, AD-20
-- [ ] `tests/design/pantry-checks.test.ts` -- låser 60 mot domänens `maxPantryLabelLength`
-- [ ] `src/features/pantry/domain/pantry-item.ts`, `pantry-item-form.ts` (+ tester) -- `label` och `createdAt` på `PantryItem`, `pantryLabelSchema`, `toPantryLabel(raw)` (trim, tom blir `null`, avkortning) -- FR-42
-- [ ] `src/features/pantry/domain/pantry-suggestion.ts` (+ test) -- `suggestionLabel(suggestion)`: `toPantryLabel(labels?.[0])`
-- [ ] `src/features/pantry/data/queries.ts` (+ test) -- `listPantryIn` ger `label`, `createdAt` och `section` (via catalog, utan att läsa `ingredient` direkt, AD-1)
-- [ ] `src/features/pantry/actions/*` (+ tester) -- `setPantryItem` tar `label`, bekräftelserna skickar `suggestionLabel`, borttagningen och "Ångra" bär `label` och `createdAt` -- FR-42
-- [ ] `src/features/pantry/ui/pantry-item-sheet.tsx` (+ test) -- fältet "Märke eller sort", förifyllt vid Rätta och för en befintlig vara
-- [ ] `tests/integration/pantry-label.test.ts` -- matrisens rader mot lokal Supabase, med RLS för en annan användare
-- [ ] `tests/e2e/pantry-label.spec.ts` (+ `support.ts`, `global-setup.ts`) -- egen e2e-användare `e2e-utseende-marke@matkoll.test`, `AI_PROVIDER=mock`, `kyl.png`: bekräfta ett förslag och se märket i arket, ändra och töm märket, ta bort och ångra med samma märke
-- [ ] `docs/beslutslogg.md` -- en post för storyn
+- [x] `supabase/migrations/<tid>_pantry_label.sql` (via `supabase migration new`) -- kolumnen med `check`, nya versioner av funktionerna enligt Boundaries, med samma signaturer, `security invoker`, `pantry_lock()` och grants som förut. Provas först i en transaktion som rullas tillbaka. Säkerhetskopia av data och `scripts/pantry-site-check.sql` före och efter. Sedan `pnpm db:types` -- AD-5, AD-19, AD-20
+- [x] `tests/design/pantry-checks.test.ts` -- låser 60 mot domänens `maxPantryLabelLength`
+- [x] `src/features/pantry/domain/pantry-item.ts`, `pantry-item-form.ts` (+ tester) -- `label` och `createdAt` på `PantryItem`, `pantryLabelSchema`, `toPantryLabel(raw)` (trim, tom blir `null`, avkortning) -- FR-42
+- [x] `src/features/pantry/domain/pantry-suggestion.ts` (+ test) -- `suggestionLabel(suggestion)`: `toPantryLabel(labels?.[0])`
+- [x] `src/features/pantry/data/queries.ts` (+ test) -- `listPantryIn` ger `label`, `createdAt` och `section` (via catalog, utan att läsa `ingredient` direkt, AD-1)
+- [x] `src/features/pantry/actions/*` (+ tester) -- `setPantryItem` tar `label`, bekräftelserna skickar `suggestionLabel`, borttagningen och "Ångra" bär `label` och `createdAt` -- FR-42
+- [x] `src/features/pantry/ui/pantry-item-sheet.tsx` (+ test) -- fältet "Märke eller sort", förifyllt vid Rätta och för en befintlig vara
+- [x] `tests/integration/pantry-label.test.ts` -- matrisens rader mot lokal Supabase, med RLS för en annan användare
+- [x] `tests/e2e/pantry-label.spec.ts` (+ `support.ts`, `global-setup.ts`) -- egen e2e-användare `e2e-utseende-marke@matkoll.test`, `AI_PROVIDER=mock`, `kyl.png`: bekräfta ett förslag och se märket i arket, ändra och töm märket, ta bort och ångra med samma märke
+- [x] `docs/beslutslogg.md` -- en post för storyn
 
 **Acceptance Criteria:**
 - Given `pnpm lint && pnpm typecheck && pnpm test && pnpm test:integration && AI_PROVIDER=mock pnpm build && CI=1 pnpm test:e2e`, when de körs, then lyckas alla.
@@ -107,14 +108,35 @@ context:
 
 ## Implementation Notes
 
-- **Beslut (förslag): märket i en kolumn på `pantry_item`,** inte i en egen tabell. Det hör till raden, följer med vid ersättning och "Ångra", och RLS gäller redan.
-- **Beslut (förslag): förslagets första etikett,** som är kortets rubrik i 6.5. Den kan innehålla storlek ("1,5 l"), vilket också är användbart.
-- **Beslut (förslag): `created_at` får betyda "tillagd"** i stället för en ny `updated_at`. En ändrad mängd är inte en ny vara.
+- **Beslut (godkänt): märket i en kolumn på `pantry_item`,** inte i en egen tabell. Det hör till raden, följer med vid ersättning och "Ångra", och RLS gäller redan.
+- **Beslut (godkänt): förslagets första etikett,** som är kortets rubrik i 6.5. Den kan innehålla storlek ("1,5 l"), vilket också är användbart.
+- **Beslut (godkänt): `created_at` får betyda "tillagd"** i stället för en ny `updated_at`. En ändrad mängd är inte en ny vara.
 - **Risk: funktionerna har många versioner.** Utgå från den senaste definitionen av varje funktion (`grep -n "create or replace function public.<namn>"` i `supabase/migrations/`), och låt `pantry-checks.test.ts` låsa värdena.
 - **Risk: mockens förslag saknar etiketter.** Kontrollera `src/server/ai/test-support.ts` och mockens svar för `kyl.png`. Saknas etiketter läggs de till i mocken, inte i appen.
 - Loggar innehåller aldrig märket.
 
 ## Spec Change Log
+
+### Vid bygget
+
+- **Byggd på `22a0feb`** (`baseline_commit`), kursändringen för Epic 11, och flyttad till `2789f7d` (Story 10.4 ihopslagen i epicgrenen) före commit. Flytten gick utan konflikter.
+- **Besluten (förslag) är godkända** som de stod.
+- **Migrationen lokalt:** den lokala databasen hade redan 10.4:s migrationer (`catalog_name_capital`, `catalog_name_rule`) och `pantry_photo_sweep`, som då inte fanns i grenen, så `supabase migration up --local` hade vägrat. En säkerhetskopia av bara data (`public`, `auth`, `supabase_migrations`) togs först, utanför repot. Under testlåset provades migrationen i en transaktion som rullades tillbaka, och sedan kördes den med `psql` i en transaktion som också lade in versionen i `supabase_migrations.schema_migrations`, som i 10.4. `scripts/pantry-site-check.sql` före och efter gav tom `diff` (112 rader i `pantry_item`, 7 poster i `pantry_removal`), och eftervillkoren håller. `supabase db reset` kördes aldrig.
+- **Filverktyget skrev om `\u`-escapes till riktiga osynliga tecken** i migrationens `check`. `tests/design/invisible-characters.test.ts` hittade det. Filen fick escapes igen, och den lokala `check` och raden i `schema_migrations` byttes mot filens text under testlåset.
+- **`scripts/pantry-site-check.sql` skriver också `created_at`,** så att `diff` visar att tiden står kvar. `docs/drift.md` säger det.
+- **`restore_pantry_items` finns inte längre** (borttagen i `20261026122008_pantry_removal.sql`), så den ändrades inte. "Töm kylen" och inventeringen går genom `pantry_removal` och `restore_pantry_removal`.
+- **`pantry_item_label_check` vägrar också `refusedCodePoints`** (kontrolltecken, radbrytningar och osynliga tecken), som namnet på ett ställe. `pantryLabelSchema` har samma regel: inget blanksteg först eller sist (som `btrim`), 1–60 tecken räknade som `char_length` och inga vägrade tecken. `tests/design/pantry-checks.test.ts` låser 60, `btrim` och hakparentesen mot domänen.
+- **Avkortningen** (`toPantryLabel`): texten läggs på en rad (`oneLine`), kapas vid det sista blanksteget inom 60 tecken (annars mitt i), och `…`, blanksteg, punkt, komma, kolon och bindestreck i slutet tas bort. Arkets fält kapas aldrig: mer än 60 tecken ger "Skriv högst 60 tecken." vid fältet (`validation`).
+- **`suggestionLabel` hoppar över en etikett som bara är namnet** ("Ägg" för ägg), som `suggestionTitle` gör. Annars skulle 11.3 visa "Ägg" under Ägg i stället för "Tillagd …". Funktionen ligger i `pantry-item-form.ts` och exporteras också från `pantry-suggestion.ts`, eftersom `place-inventory.ts` (inventeringens "Bekräfta alla") behöver den och `pantry-suggestion.ts` redan importerar därifrån.
+- **Rätta med tomt fält skickar inget märke,** så varan behåller sitt. Arket visar förslagets etikett, aldrig radens eget märke, så ett tomt fält där betyder inte "ta bort". För en befintlig vara tar ett tömt fält bort märket, som specen säger.
+- **Ersättning ger också tid och märke i två fall till:** när `set_pantry_items` tar bort raden av det andra slaget (obegränsad mot mängd) för samma vara och plats, och när `apply_pantry_inventory` ersätter en rad i en annan enhet ("Ändrat"). Flera ersatta rader ger den äldsta tiden. Med `replace_id` får varorna i anropet den ersattas tid också när ingrediensen byttes i arket, eftersom det är samma vara i kylen. Arket skickar alltid ett märke, så då gäller fältets.
+- **Avdelningen till `listPantry`:** katalogen har `getIngredientSummaries` (`loadIngredientSummaries`, namn och avdelning i en läsning). Typen `IngredientNames` i `pantry/data/queries.ts` heter nu `IngredientSummaries`. "I kylen nu" i analysen läser samma sak.
+- **`PantryItem` har `label`, `createdAt` och `section` som obligatoriska fält,** så testernas exempel fick dem.
+- **Fältet "Märke eller sort" ligger sist i arket,** efter Plats, i den ordning 11.3 räknar upp arket ("mängd, enhet, plats och märke").
+- **"Ångra" för en rad utan märke eller tid** (en klient från före storyn) skickar `label: null` och ingen tid, så raden kommer tillbaka utan märke och med `now()`.
+- **Typerna:** före flytten hade den lokala databasen funktioner från andra grenar (`catalog_display_name`, `pantry_photo_orphans`), som togs bort ur den genererade filen för hand. Efter flytten är databasen och grenen lika: `pnpm db:types` gav samma fil två gånger, och den skiljer sig från epicgrenen bara med `label`.
+- **E2E före flytten:** fem specar föll lokalt, eftersom databasen hade 10.4:s trigger (stor bokstav) men grenen 10.3:s texter. Efter flytten gick alla nio berörda specar (59 test). `pantry-label.spec.ts` jämför namn utan hänsyn till stor bokstav.
+- **Manuella kontroller** (iPhone mot LM Studio, VoiceOver) är inte gjorda. De står i `docs/oppna-fragor.md` under "Att prova på riktig telefon".
 
 ## Review Triage Log
 

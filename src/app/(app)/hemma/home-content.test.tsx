@@ -58,7 +58,7 @@ const render = (element: ReactElement) =>
   );
 
 const unavailable = "Det gick inte att läsa lagret. Försök igen.";
-const mjolk: PantryItem = { id: "1", siteId: site.id, ingredientId: "m", name: "Mjölk", location: "Kyl", amount: 1, unit: "l" };
+const mjolk: PantryItem = { id: "1", siteId: site.id, ingredientId: "m", name: "Mjölk", location: "Kyl", amount: 1, unit: "l", label: null, createdAt: "2026-10-20T10:00:00+00:00", section: "Mejeri" };
 
 let logged: ReturnType<typeof vi.spyOn>;
 beforeEach(() => {

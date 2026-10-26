@@ -43,6 +43,13 @@ describe("restorePantryItem", () => {
     expect(revalidateFor).toHaveBeenCalledWith("pantry_item");
   });
 
+  it("passes the row's label and time, so it comes back as it was (Story 11.2)", async () => {
+    const labelled = { ...row, label: "Arla", createdAt: "2026-10-20T08:15:00.123456+00:00" };
+    expect(await restorePantryItem(labelled)).toEqual(ok(labelled));
+    expect(restorePantryItemIn).toHaveBeenCalledWith(db, labelled);
+    expect(await restorePantryItem({ ...row, label: "a".repeat(61) })).toEqual(fail("validation"));
+  });
+
   it("passes the row's own place, so it goes back there also when another is selected", async () => {
     await restorePantryItem(row);
     expect(restorePantryItemIn.mock.calls[0]![1]).toMatchObject({ siteId: stugan });

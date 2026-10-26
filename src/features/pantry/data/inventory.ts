@@ -60,6 +60,8 @@ const answerRowSchema = z.object({
   location: z.string(),
   amount: z.union([z.number(), z.string()]).nullable(),
   unit: z.string().nullable(),
+  label: z.string().nullable().optional(),
+  created_at: z.string().optional(),
 });
 
 const answerSchema = z.object({
@@ -80,6 +82,8 @@ function asRow(value: unknown): PantryRow | null {
     location: row.data.location,
     amount: row.data.amount === null ? null : Number(row.data.amount),
     unit: row.data.unit,
+    ...(row.data.label === undefined ? {} : { label: row.data.label }),
+    ...(row.data.created_at === undefined ? {} : { createdAt: row.data.created_at }),
   });
   return parsed.success ? parsed.data : null;
 }
@@ -113,6 +117,8 @@ export async function applyPantryInventoryIn(db: PantryDb, request: ApplyInvento
       location: item.location,
       amount: item.amount,
       unit: item.unit,
+      // Story 11.2: left out, the row keeps its label.
+      ...(item.label === undefined ? {} : { label: item.label }),
     })),
     replace_ids: replaceRowIds,
     remove_ids: removeRowIds,

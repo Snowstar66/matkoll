@@ -20,6 +20,8 @@ import {
   collapseName,
   maxIngredientNameLength,
   maxPantryAmount,
+  pantryLabelSchema,
+  suggestionLabel,
   unitWithoutUnit,
   type PantryItemForm,
   type PantryItemSet,
@@ -117,6 +119,8 @@ const amountHasUnit = (item: { amount: number | null; unit: string | null }) =>
   (item.amount === null) === (item.unit === null);
 
 export { placeStockSchema, type PlaceStock } from "./place-inventory";
+/** Story 11.2: the label a confirmed suggestion gives its pantry item. */
+export { suggestionLabel } from "./pantry-item-form";
 
 export const pantrySuggestionSchema = z
   .object({
@@ -596,7 +600,9 @@ export type ConfirmIngredient = z.infer<typeof confirmIngredientSchema>;
 /**
  * One confirmed suggestion, as confirmPantrySuggestions takes it: the
  * ingredient, the place, and an amount below maxPantryAmount with its unit,
- * or neither (unlimited).
+ * or neither (unlimited). Story 11.2: `label` sets the item's label (the
+ * suggestion's first label, or the sheet's field after Rätta), `null`
+ * removes it, and leaving it out keeps the label the item has.
  */
 export const confirmItemSchema = z
   .object({
@@ -604,6 +610,7 @@ export const confirmItemSchema = z
     location: locationSchema,
     amount: z.number().positive().lt(maxPantryAmount).nullable(),
     unit: unitSchema.nullable(),
+    label: pantryLabelSchema.nullable().optional(),
   })
   .refine(amountHasUnit, { path: ["unit"] });
 export type ConfirmItem = z.infer<typeof confirmItemSchema>;
@@ -697,19 +704,27 @@ export function mergeConfirmations(items: readonly ConfirmItem[]): ConfirmItem[]
     if (item.amount === null && withAmount.has(place)) continue;
     const at = `${place}|${item.unit ?? ""}`;
     const earlier = merged.get(at);
-    if (earlier && earlier.amount !== null && item.amount !== null) {
-      merged.set(at, { ...earlier, amount: clampAmount(earlier.amount + item.amount) });
-    } else if (!earlier) {
+    if (!earlier) {
       merged.set(at, { ...item, ingredient: ingredients.get(key)! });
+      continue;
     }
+    // Story 11.2: the first item's label, or the first label a later item has.
+    const label = earlier.label ?? item.label;
+    const amount = earlier.amount !== null && item.amount !== null ? clampAmount(earlier.amount + item.amount) : earlier.amount;
+    merged.set(at, { ...earlier, amount, ...(label === undefined ? {} : { label }) });
   }
   return [...merged.values()];
 }
 
-/** A suggestion as it is confirmed: its ingredient, place, amount and unit. */
+/**
+ * A suggestion as it is confirmed: its ingredient, place, amount and unit,
+ * and its label (suggestionLabel) when it has one; without one the item
+ * keeps the label it has.
+ */
 export function confirmItemFromSuggestion(suggestion: PantrySuggestion): ConfirmItemInput {
   const { ingredient, location, amount, unit } = suggestion;
-  return { ingredient, location, amount, unit };
+  const label = suggestionLabel(suggestion);
+  return { ingredient, location, amount, unit, ...(label === null ? {} : { label }) };
 }
 
 /**
@@ -718,10 +733,13 @@ export function confirmItemFromSuggestion(suggestion: PantrySuggestion): Confirm
  * place as its default place, unless it is still the suggestion's own new
  * ingredient (the same name, compared normalised): then it keeps the suggestion's proposal id,
  * default place and unit, with the form's section, so Rätta and then
- * Bekräfta create the same catalog ingredient as Bekräfta alone.
+ * Bekräfta create the same catalog ingredient as Bekräfta alone. The
+ * label is the form's field "Märke eller sort", filled in from the
+ * suggestion (Story 11.2): emptied, it removes the item's label.
  */
 export function confirmItemFromForm(form: PantryItemForm, suggestion?: PantrySuggestion): ConfirmItemInput {
   const { ingredient, location, amount, unit } = form;
+  const label = "label" in form ? form.label : undefined;
   const own = suggestion?.ingredient;
   let confirmed: ConfirmItemInput["ingredient"];
   if (ingredient.kind === "existing") {
@@ -731,7 +749,7 @@ export function confirmItemFromForm(form: PantryItemForm, suggestion?: PantrySug
   } else {
     confirmed = { kind: "new", name: ingredient.name, section: ingredient.section, location, defaultUnit: ingredient.defaultUnit };
   }
-  return { ingredient: confirmed, location, amount, unit };
+  return { ingredient: confirmed, location, amount, unit, ...(label === undefined ? {} : { label }) };
 }
 
 /**
@@ -741,14 +759,17 @@ export function confirmItemFromForm(form: PantryItemForm, suggestion?: PantrySug
  */
 export function mergePantrySets(items: readonly PantryItemSet[]): PantryItemSet[] {
   return mergeConfirmations(
-    items.map(({ ingredientId, location, amount, unit }) => ({
+    items.map(({ ingredientId, location, amount, unit, label }) => ({
       ingredient: { kind: "existing", ingredientId },
       location,
       amount,
       unit,
+      ...(label === undefined ? {} : { label }),
     })),
-  ).flatMap(({ ingredient, location, amount, unit }) =>
-    ingredient.kind === "existing" ? [{ ingredientId: ingredient.ingredientId, location, amount, unit }] : [],
+  ).flatMap(({ ingredient, location, amount, unit, label }) =>
+    ingredient.kind === "existing"
+      ? [{ ingredientId: ingredient.ingredientId, location, amount, unit, ...(label === undefined ? {} : { label }) }]
+      : [],
   );
 }
 

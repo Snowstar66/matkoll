@@ -3,7 +3,7 @@ import { cache } from "react";
 import { z } from "zod";
 import { requireUser } from "@/features/auth/server";
 import type { Location } from "@/features/catalog";
-import { CatalogDataError, getIngredientDefaults, getIngredientNames } from "@/features/catalog/server";
+import { CatalogDataError, getIngredientDefaults, getIngredientSummaries } from "@/features/catalog/server";
 import { fail, ok, type Result } from "@/lib/errors";
 import { createClient } from "@/lib/supabase/server";
 import { addToPantryIn, findPantryAdditionsIn, forgetPantryAdditionsIn } from "./data/add";
@@ -90,7 +90,7 @@ async function placeToRead(siteId: string | undefined): Promise<string | null> {
 }
 
 const listPantryOn = cache(async (location: Location, siteId: string): Promise<PantryItem[]> => {
-  return listPantryIn(await createClient(), location, getIngredientNames, siteId);
+  return listPantryIn(await createClient(), location, getIngredientSummaries, siteId);
 });
 
 const countPantryOn = cache(async (siteId: string): Promise<Record<Location, number>> => {

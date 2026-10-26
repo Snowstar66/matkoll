@@ -158,6 +158,12 @@ export const sitePhotoEmail = "e2e-stalle-foto@matkoll.test";
  */
 export const photoSaveEmail = "e2e-foto-spara@matkoll.test";
 /**
+ * The E2E user of pantry-label.spec.ts alone (Story 11.2): each test seeds
+ * its catalog and pantry with the service role, so the labels and times
+ * depend on nothing else.
+ */
+export const labelEmail = "e2e-utseende-marke@matkoll.test";
+/**
  * The E2E user of core-flow.spec.ts alone (Story 3.8): it signs in itself
  * through /logga-in and the link in Mailpit, so it has no storage state.
  */
@@ -190,6 +196,7 @@ export const e2eEmails = [
   siteListEmail,
   sitePhotoEmail,
   photoSaveEmail,
+  labelEmail,
   coreFlowEmail,
 ] as const;
 /** A real Supabase user whose address is not in ALLOWED_EMAILS. */
@@ -221,6 +228,7 @@ export const siteStatusStorageState = "tests/e2e/.auth/site-status.json";
 export const siteListStorageState = "tests/e2e/.auth/site-list.json";
 export const sitePhotoStorageState = "tests/e2e/.auth/site-photo.json";
 export const photoSaveStorageState = "tests/e2e/.auth/photo-save.json";
+export const labelStorageState = "tests/e2e/.auth/label.json";
 export const outsiderStorageState = "tests/e2e/.auth/outsider.json";
 
 export const mailpitUrl = "http://127.0.0.1:54324";

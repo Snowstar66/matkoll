@@ -64,6 +64,33 @@ describe("savePantryItem", () => {
     expect(setPantryItemsIn).toHaveBeenLastCalledWith(db, [{ ingredientId: mjolk, location: "Kyl", amount: 2, unit: "st" }], null, stugan);
   });
 
+  it("sets the label from the field, removes it for an empty field, and keeps it without one (Story 11.2)", async () => {
+    await savePantryItem(form({ label: "  Arla  laktosfri " }));
+    expect(setPantryItemsIn).toHaveBeenLastCalledWith(
+      db,
+      [{ ingredientId: mjolk, location: "Kyl", amount: 1.5, unit: "l", label: "Arla laktosfri" }],
+      null,
+      stugan,
+    );
+    await savePantryItem(form({ label: "   " }));
+    expect(setPantryItemsIn).toHaveBeenLastCalledWith(
+      db,
+      [{ ingredientId: mjolk, location: "Kyl", amount: 1.5, unit: "l", label: null }],
+      null,
+      stugan,
+    );
+    // A client of before the story sends no label: the row keeps its own.
+    await savePantryItem(form());
+    expect(setPantryItemsIn).toHaveBeenLastCalledWith(db, [{ ingredientId: mjolk, location: "Kyl", amount: 1.5, unit: "l" }], null, stugan);
+  });
+
+  it("refuses a label over 60 characters with the field's message and saves nothing", async () => {
+    expect(await savePantryItem(form({ label: "a".repeat(61) }))).toEqual(
+      fail("validation", { label: "Skriv högst 60 tecken." }),
+    );
+    expect(setPantryItemsIn).not.toHaveBeenCalled();
+  });
+
   it("passes the row being changed, so a new location or unit moves it", async () => {
     await savePantryItem(form({ location: "Frys", replaceId: row }));
     expect(setPantryItemsIn).toHaveBeenCalledWith(db, [{ ingredientId: mjolk, location: "Frys", amount: 1.5, unit: "l" }], row, stugan);

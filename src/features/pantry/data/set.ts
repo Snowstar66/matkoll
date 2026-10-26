@@ -50,6 +50,8 @@ export async function setPantryItemsIn(
       location: item.location,
       amount: item.amount,
       unit: item.unit,
+      // Story 11.2: left out, the row keeps its label.
+      ...(item.label === undefined ? {} : { label: item.label }),
     })),
     ...(parsedReplaceId.data ? { replace_id: parsedReplaceId.data } : {}),
     ...(parsedSiteId.data ? { site: parsedSiteId.data } : {}),
@@ -62,6 +64,7 @@ export async function setPantryItemsIn(
       location: row.location,
       amount: row.amount === null ? null : Number(row.amount),
       unit: row.unit,
+      label: row.label,
     });
     if (!parsed.success) throw new PantryDataError("invalid_row");
     return { id: row.id, siteId: row.site_id, ...parsed.data };

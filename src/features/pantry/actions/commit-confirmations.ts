@@ -42,6 +42,12 @@ export async function commitConfirmations(items: readonly ConfirmItem[]): Promis
     throw new CatalogDataError("query_failed", "missing_id");
   }
   return mergePantrySets(
-    merged.map(({ location, amount, unit }, index) => ({ ingredientId: ids[index]!, location, amount, unit })),
+    merged.map(({ location, amount, unit, label }, index) => ({
+      ingredientId: ids[index]!,
+      location,
+      amount,
+      unit,
+      ...(label === undefined ? {} : { label }),
+    })),
   );
 }

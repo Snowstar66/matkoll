@@ -95,14 +95,14 @@ isOneToOne: false
                   ]
                 },"pantry_item": {
                   Row: {
-                    "amount": number | null,"created_at": string,"id": string,"ingredient_id": string,"location": string,"site_id": string,"unit": string | null,"user_id": string
+                    "amount": number | null,"created_at": string,"id": string,"ingredient_id": string,"label": string | null,"location": string,"site_id": string,"unit": string | null,"user_id": string
                   }
                   ComputedFields: never
                   Insert: {
-                    "amount"?: number | null,"created_at"?: string,"id"?: string,"ingredient_id": string,"location": string,"site_id"?: string,"unit"?: string | null,"user_id"?: string
+                    "amount"?: number | null,"created_at"?: string,"id"?: string,"ingredient_id": string,"label"?: string | null,"location": string,"site_id"?: string,"unit"?: string | null,"user_id"?: string
                   }
                   Update: {
-                    "amount"?: number | null,"created_at"?: string,"id"?: string,"ingredient_id"?: string,"location"?: string,"site_id"?: string,"unit"?: string | null,"user_id"?: string
+                    "amount"?: number | null,"created_at"?: string,"id"?: string,"ingredient_id"?: string,"label"?: string | null,"location"?: string,"site_id"?: string,"unit"?: string | null,"user_id"?: string
                   }
                   Relationships: [
                     {
@@ -489,6 +489,7 @@ isOneToOne: false
 "created_at": string,
 "id": string,
 "ingredient_id": string,
+"label": string | null,
 "location": string,
 "site_id": string,
 "unit": string | null,
@@ -620,6 +621,7 @@ isOneToOne: false
 "created_at": string,
 "id": string,
 "ingredient_id": string,
+"label": string | null,
 "location": string,
 "site_id": string,
 "unit": string | null,
