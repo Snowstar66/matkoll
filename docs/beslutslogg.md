@@ -2,6 +2,26 @@
 
 Beslut som fattats under bygget: vad, varför och vilka alternativ som fanns. Nyaste överst.
 
+## 2026-10-26 – Stabil bildtolkning och fotot under granskningen (snabbfix efter 6.5)
+
+- **Underlag:** Pontus såg att samma foto gav mycket olika förslag varje gång. Mätt med Pontus foto av kylen, förminskat till 2048 px, med appens prompt mot Qwen3.6 i LM Studio, tre körningar per inställning:
+  - Med `temperature` 0,7 (Qwens rekommendation från Story 6.5) var varunamnen parvis bara 0,13–0,24 lika (Jaccard), och körningarna gav 14, 14 och 25 varor.
+  - Med `temperature` 0,2 var de 0,25–0,44 lika.
+  - Med ett fast frö (`seed` 42) och 0,7 var de 0,33 lika. LM Studio följer inte fröet.
+  - Med `temperature` 0, och `top_p` 0,8, `top_k` 20 och `presence_penalty` 1,5 kvar, var alla tre svaren identiska byte för byte: 20 varor på ungefär 30 s, avslutade normalt (`finish=stop`) och utan upprepningsslingor.
+- **Beslut (Claude, på Pontus begäran; allt går att ändra):**
+  - **`analyzeImage` mot en Qwen-modell i LM Studio skickar `temperature` 0** (`lmStudioImageSampling`). Samma foto ska ge samma tolkning, annars går det inte att lita på korten. `presence_penalty` 1,5 står kvar, eftersom den fortfarande skyddar mot slingor när modellen alltid väljer det mest sannolika ordet. `top_p` och `top_k` gör ingenting vid 0 och står kvar som Qwens värden. `parseRecipe` och `suggestDishes` ändras inte. Stabiliteten gäller bara LM Studio med en Qwen-modell och exakt samma bild: andra modeller och leverantörer behåller sina standardvärden, och ett nytt foto av samma plats är en annan bild.
+  - **Ett nytt försök efter ett ogiltigt svar använder `temperature` 0,3** när det första försöket hade 0 (`retryTemperature` i `run.ts`). Vid 0 ger samma indata samma svar, så ett nytt försök som också väljer det mest sannolika ordet kan bli ogiltigt på samma sätt.
+  - **Utvärderingen visar om körningarna är överens.** Rapporten får avsnittet "Samma varor mellan körningar" med en rad per fotofil: samma varunamn i alla körningar, eller den lägsta parvisa likheten (Jaccard). Med bara en körning står det "en körning, inget att jämföra". Det fäller aldrig en körning.
+  - **Fotot visas ovanför förslagen medan Pontus granskar dem,** så att Pontus kan jämföra korten med bilden. Under rubriken "Lagerförslag från kylen" står en miniatyr med "Fotot av kylen" och "Visa större", och ett tryck öppnar fotot större i ett ark med "Stäng". Ett tryck på fotot i arket växlar mellan att passa skärmen och full storlek, som går att skrolla i arket, så att små etiketter går att läsa. Fokus går tillbaka till miniatyren när arket stängs. Ett foto som inte går att visa ersätts av texten "Fotot kunde inte visas.".
+  - **AD-15 gäller fortfarande: fotot sparas inte.** Det är den förminskade bild som skickades för analys, som en objekt-URL i webbläsarens minne. Den skickas aldrig någon annanstans och hamnar aldrig i localStorage eller IndexedDB. AD-15 förbjuder att fotot sparas, inte att det finns i minnet, så fotot finns kvar lika länge som svaret. När alla kort är hanterade döljs miniatyren, och ett "Ångra" ger tillbaka korten med fotot. URL:en släpps först när ett nytt svar har ersatt fotot och när Hemma lämnas. Är arket öppet när det sista kortet sparas, står det kvar tills Pontus stänger det, och fokus flyttas vidare först då. Ett svar utan kort visar inget foto.
+  - **Att spara senaste fotot per plats blir en egen story efter Epic 8** (`docs/backlog-efter-1-0.md`). Den börjar med en kursändring av AD-15.
+- **Varför:** Pontus vill kunna lita på tolkningen och kontrollera den mot fotot, FR-24, FR-25 och AD-15.
+- **Alternativ:**
+  - `temperature` 0,2, som fortfarande gav olika varor mellan körningarna.
+  - Ett fast frö, som LM Studio inte följer.
+  - Att spara fotot redan nu, vilket kräver en ändring av AD-15 och väntar på sin egen story.
+
 ## 2026-10-26 – Ställen i lagret med Hemma som första ställe (Story 8.1)
 
 - **Underlag:** specen `spec-8-1-stallen-i-lagret-med-hemma-som-forsta-stalle.md`, där besluten nedan var förslag som godkändes som de stod, och AD-24.

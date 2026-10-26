@@ -1,5 +1,6 @@
 import { act, fireEvent, render, screen, waitFor, within } from "@testing-library/react";
-import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
+import { StrictMode } from "react";
+import { afterEach, beforeEach, describe, expect, it, type MockInstance, vi } from "vitest";
 import { ToastProvider } from "@/components/toast";
 import type { Location } from "@/features/catalog";
 import type { AiCallResult } from "@/lib/ai-client";
@@ -106,10 +107,10 @@ function Hemma({ location = "Kyl", away = false }: { location?: Location; away?:
 }
 
 /** Chooses a photo; resolves once its analysis has been sent, with the function that answers it. */
-async function startPhoto() {
+async function startPhoto(file: File = new File(["x"], "IMG_1.jpg", { type: "image/jpeg" })) {
   const sent = answers.length;
   const inputs = screen.getByTestId("pantry-camera").querySelectorAll<HTMLInputElement>('input[type="file"]');
-  fireEvent.change(inputs[inputs.length - 1], { target: { files: [new File(["x"], "IMG_1.jpg", { type: "image/jpeg" })] } });
+  fireEvent.change(inputs[inputs.length - 1], { target: { files: [file] } });
   await waitFor(() => expect(answers.length).toBe(sent + 1));
   const answer = answers[sent];
   return async (result: AnalyzeResult) => act(async () => answer(ok(result)));
@@ -226,7 +227,11 @@ describe("Bekräfta", () => {
     const saving = cards()[0];
     expect(within(saving).getByRole("button", { name: "Sparar …" })).toBeDisabled();
     expect(within(cards()[1]).getByRole("button", { name: "Bekräfta ketchup" })).toHaveTextContent("Bekräfta");
-    for (const shown of within(section()).getAllByRole("button")) expect(shown).toBeDisabled();
+    for (const shown of within(section()).getAllByRole("button")) {
+      // Only the photo can still be looked at: it changes nothing.
+      if (shown.dataset.testid === "pantry-analyzed-photo") expect(shown).toBeEnabled();
+      else expect(shown).toBeDisabled();
+    }
     // A second tap saves nothing more.
     fireEvent.click(within(cards()[1]).getByRole("button", { name: "Bekräfta ketchup" }));
     fireEvent.click(within(saving).getByRole("button", { name: "Sparar …" }));
@@ -644,5 +649,211 @@ describe("Story 6.5: labels and unsure suggestions", () => {
     expect(cardNames()).toEqual(["Gul flaska, troligen senap"]);
     expect(toast()).toHaveTextContent(/^Lagt 3 varor i lagret\.$/);
     await waitFor(() => expect(cameraButton()).toHaveFocus());
+  });
+});
+
+describe("the photo during review", () => {
+  // jsdom's object URLs stand in as blob:photo-1, blob:photo-2, …; every revoked one is remembered.
+  let created: string[] = [];
+  let revoked = new Set<string>();
+  let create: MockInstance<typeof URL.createObjectURL>;
+  let revoke: MockInstance<typeof URL.revokeObjectURL>;
+  beforeEach(() => {
+    created = [];
+    revoked = new Set();
+    create = vi.spyOn(URL, "createObjectURL").mockImplementation(() => {
+      const url = `blob:photo-${created.length + 1}`;
+      created.push(url);
+      return url;
+    });
+    revoke = vi.spyOn(URL, "revokeObjectURL").mockImplementation((url) => {
+      revoked.add(url);
+    });
+  });
+
+  /** No image in the document shows a URL that has been revoked. */
+  const expectNoRevokedImage = () => {
+    for (const image of document.querySelectorAll("img")) expect(revoked.has(image.getAttribute("src") ?? "")).toBe(false);
+  };
+  const thumbnail = () => within(section()).getByRole("button", { name: "Fotot av kylen, visa större" });
+  const thumbnailSrc = () => thumbnail().querySelector("img")?.getAttribute("src");
+  const photoSheet = () => screen.getByRole("dialog", { name: "Fotot av kylen" });
+  const ketchupOnly = { ...fridge, suggestions: fridge.suggestions.slice(1, 2) };
+
+  /** A PNG of `width` × `height` px as far as its header goes, which is all the size is read from. */
+  const pngOf = (width: number, height: number) => {
+    const bytes = new Uint8Array(33);
+    bytes.set([0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a, 0, 0, 0, 13, 0x49, 0x48, 0x44, 0x52]);
+    new DataView(bytes.buffer).setUint32(16, width);
+    new DataView(bytes.buffer).setUint32(20, height);
+    return new File([bytes], "IMG_2.png", { type: "image/png" });
+  };
+
+  it("shows a thumbnail of the analysed photo under the heading once the suggestions are here", async () => {
+    render(<Hemma />);
+    const answer = await startPhoto();
+    expect(screen.queryByTestId("pantry-analyzed-photo")).toBeNull();
+    await answer(fridge);
+    expect(create).toHaveBeenCalledTimes(1);
+    expect(create.mock.calls[0][0]).toBeInstanceOf(Blob);
+    expect(thumbnail()).toHaveAttribute("aria-haspopup", "dialog");
+    expect(thumbnailSrc()).toBe("blob:photo-1");
+    // Right under the heading, before "Bekräfta alla".
+    expect(within(section()).getByRole("heading", { level: 2 }).nextElementSibling).toBe(thumbnail());
+    expectNoRevokedImage();
+  });
+
+  it("shows no thumbnail for an answer without cards, and makes no URL for it", async () => {
+    render(<Hemma />);
+    await analyze({ ...fridge, suggestions: [] });
+    expect(screen.queryByTestId("pantry-analyzed-photo")).toBeNull();
+    expect(create).not.toHaveBeenCalled();
+  });
+
+  it("opens the photo larger in a sheet, which closes with Stäng and Esc and gives focus back to the thumbnail", async () => {
+    render(<Hemma />);
+    await analyze();
+    fireEvent.click(thumbnail());
+    expect(photoSheet()).toHaveAccessibleDescription("Jämför förslagen med fotot. Det sparas inte.");
+    expect(within(photoSheet()).getByRole("img", { name: "Fotot av kylen som förslagen kommer från" })).toHaveAttribute(
+      "src",
+      "blob:photo-1",
+    );
+    fireEvent.click(within(photoSheet()).getByRole("button", { name: "Stäng" }));
+    await waitFor(() => expect(screen.queryByRole("dialog")).toBeNull());
+    expect(thumbnail()).toHaveFocus();
+
+    fireEvent.click(thumbnail());
+    fireEvent.keyDown(photoSheet(), { key: "Escape" });
+    await waitFor(() => expect(screen.queryByRole("dialog")).toBeNull());
+    expect(thumbnail()).toHaveFocus();
+    expectNoRevokedImage();
+  });
+
+  it("switches the large photo between fitting the screen and full size, with its size known before it is decoded", async () => {
+    render(<Hemma />);
+    await (await startPhoto(pngOf(1536, 2048)))(fridge);
+    fireEvent.click(thumbnail());
+    const toggle = within(photoSheet()).getByRole("button", { name: "Visa i full storlek" });
+    const image = within(photoSheet()).getByRole("img", { name: "Fotot av kylen som förslagen kommer från" });
+    expect(toggle).toHaveAttribute("aria-pressed", "false");
+    expect(image).toHaveAttribute("width", "1536");
+    expect(image).toHaveAttribute("height", "2048");
+    expect(image.style.aspectRatio).toBe("1536 / 2048");
+    fireEvent.click(toggle);
+    expect(toggle).toHaveAttribute("aria-pressed", "true");
+    expect(image.style.width).toBe("1536px");
+    expect(image.style.height).toBe("2048px");
+    fireEvent.click(toggle);
+    expect(toggle).toHaveAttribute("aria-pressed", "false");
+    // Closed and opened again: fitted.
+    fireEvent.click(toggle);
+    fireEvent.click(within(photoSheet()).getByRole("button", { name: "Stäng" }));
+    await waitFor(() => expect(screen.queryByRole("dialog")).toBeNull());
+    fireEvent.click(thumbnail());
+    expect(within(photoSheet()).getByRole("button", { name: "Visa i full storlek" })).toHaveAttribute("aria-pressed", "false");
+  });
+
+  it("says so in text when the photo cannot be shown", async () => {
+    render(<Hemma />);
+    await analyze();
+    fireEvent.click(thumbnail());
+    fireEvent.error(within(photoSheet()).getByRole("img"));
+    expect(within(photoSheet()).getByText("Fotot kunde inte visas.")).toBeVisible();
+    expect(within(photoSheet()).queryByRole("img")).toBeNull();
+    fireEvent.click(within(photoSheet()).getByRole("button", { name: "Stäng" }));
+    await waitFor(() => expect(screen.queryByRole("dialog")).toBeNull());
+    fireEvent.error(thumbnail().querySelector("img")!);
+    expect(within(section()).getByText("Fotot kunde inte visas.")).toBeVisible();
+    expect(screen.queryByTestId("pantry-analyzed-photo")).toBeNull();
+  });
+
+  it("hides the photo with the last card without revoking it, and Ångra brings it back with the card", async () => {
+    render(<Hemma />);
+    await analyze(ketchupOnly);
+    fireEvent.click(button("Avvisa ketchup"));
+    expect(screen.queryByTestId("pantry-analyzed-photo")).toBeNull();
+    expect(revoke).not.toHaveBeenCalled();
+    fireEvent.click(within(toast()).getByRole("button", { name: "Ångra" }));
+    expect(cardNames()).toEqual(["ketchup"]);
+    expect(thumbnailSrc()).toBe("blob:photo-1");
+    expectNoRevokedImage();
+  });
+
+  it("keeps the sheet open while the last card's save ends, and moves focus on once it is closed", async () => {
+    render(<Hemma />);
+    await analyze(ketchupOnly);
+    fireEvent.click(button("Bekräfta ketchup"));
+    // The photo can still be looked at while the card is being saved.
+    fireEvent.click(thumbnail());
+    expect(photoSheet()).toBeInTheDocument();
+    await answerConfirm();
+    expect(screen.queryByTestId("pantry-suggestion")).toBeNull();
+    expect(photoSheet()).toBeInTheDocument();
+    expect(within(photoSheet()).getByRole("img")).toHaveAttribute("src", "blob:photo-1");
+    expect(cameraButton()).not.toHaveFocus();
+    expect(revoke).not.toHaveBeenCalled();
+    fireEvent.click(within(photoSheet()).getByRole("button", { name: "Stäng" }));
+    await waitFor(() => expect(screen.queryByRole("dialog")).toBeNull());
+    // The move to the camera button that waited for the sheet.
+    await waitFor(() => expect(cameraButton()).toHaveFocus());
+  });
+
+  it("revokes the photo's URL after a new photo's suggestions have replaced it, and shows the new one", async () => {
+    render(<Hemma />);
+    await analyze();
+    const answer = await startPhoto();
+    // The suggestions from before, and their photo, stay while the new photo is analysed.
+    expect(thumbnailSrc()).toBe("blob:photo-1");
+    expect(revoke).not.toHaveBeenCalled();
+    await answer({ ...fridge, suggestions: fridge.suggestions.slice(2) });
+    expect(revoke).toHaveBeenCalledExactlyOnceWith("blob:photo-1");
+    expect(thumbnailSrc()).toBe("blob:photo-2");
+    expectNoRevokedImage();
+  });
+
+  it("closes an open sheet when a new photo's suggestions arrive, and never shows the new photo in it", async () => {
+    render(<Hemma />);
+    await analyze();
+    const answer = await startPhoto();
+    fireEvent.click(thumbnail());
+    expect(within(photoSheet()).getByRole("img")).toHaveAttribute("src", "blob:photo-1");
+    await answer({ ...fridge, suggestions: fridge.suggestions.slice(2) });
+    expect(screen.queryByRole("dialog")).toBeNull();
+    expect(thumbnailSrc()).toBe("blob:photo-2");
+    expectNoRevokedImage();
+  });
+
+  it("revokes the photo's URL when an answer without cards replaces it", async () => {
+    render(<Hemma />);
+    await analyze();
+    await analyze({ ...fridge, suggestions: [] });
+    expect(revoke).toHaveBeenCalledExactlyOnceWith("blob:photo-1");
+    expect(screen.queryByTestId("pantry-analyzed-photo")).toBeNull();
+    expect(created).toEqual(["blob:photo-1"]);
+    expectNoRevokedImage();
+  });
+
+  it("revokes the photo's URL when Hemma is left", async () => {
+    const { unmount } = render(<Hemma />);
+    await analyze();
+    unmount();
+    expect(revoke).toHaveBeenCalledExactlyOnceWith("blob:photo-1");
+  });
+
+  it("revokes every URL it made exactly once under StrictMode", async () => {
+    const { unmount } = render(
+      <StrictMode>
+        <Hemma />
+      </StrictMode>,
+    );
+    await analyze();
+    expectNoRevokedImage();
+    await analyze({ ...fridge, suggestions: fridge.suggestions.slice(2) });
+    expectNoRevokedImage();
+    expect(thumbnailSrc()).toBe("blob:photo-2");
+    unmount();
+    expect(created).toEqual(["blob:photo-1", "blob:photo-2"]);
+    expect(revoke.mock.calls.map(([url]) => url)).toEqual(created);
   });
 });

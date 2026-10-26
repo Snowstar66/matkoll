@@ -24,9 +24,22 @@ const providerName = "lmstudio";
  * passed on in the request body. The other calls keep LM Studio's defaults:
  * nothing has been measured for them. Only for a Qwen model (isQwenModel):
  * the values are Qwen's, so another model keeps its own defaults.
+ *
+ * Temperature is 0, not Qwen's 0.7: the same photo must give the same
+ * reading. Measured on 2026-10-26 with a real fridge photo at 2048 px, three
+ * runs each: at 0.7 the item names overlapped by only 0.13-0.24 (Jaccard)
+ * and the count varied from 14 to 25; a fixed seed did not help (LM Studio
+ * ignores it); at 0 all three answers were byte-identical, in about 30 s,
+ * without repetition loops. presencePenalty stays, since it still guards
+ * against loops at greedy decoding; topP and top_k do nothing at 0 and stay
+ * as Qwen's values. The stability is only this: LM Studio with a Qwen model
+ * and byte-identical input. Other models and providers keep their defaults,
+ * and a photo taken again is other bytes, so it may read differently. A new
+ * attempt after an invalid answer samples at retryTemperature (run.ts), so a
+ * deterministic failure can come out differently.
  */
 export const lmStudioImageSampling: Sampling = {
-  temperature: 0.7,
+  temperature: 0,
   topP: 0.8,
   presencePenalty: 1.5,
   providerOptions: { [providerName]: { top_k: 20 } },

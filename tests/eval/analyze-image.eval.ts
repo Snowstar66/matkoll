@@ -29,7 +29,10 @@ import { parseEnv } from "@/server/env-schema";
 // port left out as invalid, the repeats it merged, whether that was a loop,
 // the hits (expected items the model named), the misses and the wrong guesses
 // (items it named that were not expected). A run fails on an error, a loop
-// (one label minLoopRepeats extra times or more) or more than maxRunSeconds. Refuses to run
+// (one label minLoopRepeats extra times or more) or more than maxRunSeconds. For
+// each photo the report also says whether its runs gave the same item names
+// (the lowest pairwise Jaccard when not), which never fails a run: at
+// temperature 0 they should agree (2026-10-26). Refuses to run
 // against the mock. Photos of a home only go to a model on this computer (LM
 // Studio on localhost); another provider needs EVAL_ALLOW_REMOTE_PHOTOS=1.
 // With no photos it says so and skips. Nothing of the photo is printed.
@@ -37,6 +40,8 @@ import { parseEnv } from "@/server/env-schema";
 type Expected = { place: AnalyzePlace; items: string[] };
 type CaseResult = {
   name: string;
+  /** The photo's file name, with its extension: two photos may share a name. */
+  file: string;
   run: number;
   place: AnalyzePlace;
   seconds: number;
@@ -49,7 +54,7 @@ type CaseResult = {
   items?: AiPantryItem[];
 };
 
-/** How many times each photo is sent: EVAL_RUNS, default 3 (Story 6.5: the model samples, so one run says little). */
+/** How many times each photo is sent: EVAL_RUNS, default 3 (Story 6.5), so the report shows whether the runs agree. */
 const runs = Math.max(1, Number.parseInt(process.env.EVAL_RUNS ?? "3", 10) || 3);
 /** The AI port's attempt budget (AD-9): a run that takes longer would fail in the app. */
 const maxRunSeconds = 100;
@@ -168,7 +173,7 @@ describe(`analyzeImage mot ${env.AI_PROVIDER}`, () => {
     const photo = preparePhoto(file);
     let entry: CaseResult;
     if ("error" in photo) {
-      entry = { name, run, place: expected.place, seconds: 0, error: photo.error, hits: [], misses: expected.items, wrong: [] };
+      entry = { name, file, run, place: expected.place, seconds: 0, error: photo.error, hits: [], misses: expected.items, wrong: [] };
     } else {
       const started = performance.now();
       const result = await service.analyzeImage({ image: photo, place: expected.place }, AbortSignal.timeout(120_000));
@@ -176,6 +181,7 @@ describe(`analyzeImage mot ${env.AI_PROVIDER}`, () => {
       entry = result.ok
         ? {
             name,
+            file,
             run,
             place: expected.place,
             seconds,
@@ -184,7 +190,7 @@ describe(`analyzeImage mot ${env.AI_PROVIDER}`, () => {
             repeated: result.data.repeated,
             items: result.data.items,
           }
-        : { name, run, place: expected.place, seconds, error: result.error.code, hits: [], misses: expected.items, wrong: [] };
+        : { name, file, run, place: expected.place, seconds, error: result.error.code, hits: [], misses: expected.items, wrong: [] };
     }
     results.push(entry);
     expect(entry.error).toBeUndefined();
@@ -238,6 +244,10 @@ function renderReport(): string {
         .concat(" |"),
     ),
     "",
+    "## Samma varor mellan körningar",
+    "",
+    ...agreementLines(),
+    "",
   ];
   for (const result of results.filter((entry) => entry.items)) {
     lines.push(
@@ -254,6 +264,33 @@ function renderReport(): string {
     lines.push("");
   }
   return `${lines.join("\n")}\n`;
+}
+
+/** The item names of a run as a set: the labels as they are seen, normalised. */
+function itemNames(result: CaseResult): Set<string> {
+  return new Set((result.items ?? []).map((item) => normalizeIngredientText(item.label)));
+}
+
+function jaccard(a: Set<string>, b: Set<string>): number {
+  const union = new Set([...a, ...b]);
+  if (union.size === 0) return 1;
+  return [...a].filter((name) => b.has(name)).length / union.size;
+}
+
+/** One line per photo file: whether its runs without error gave the same item names, else the lowest pairwise Jaccard. Reported only. */
+function agreementLines(): string[] {
+  const files = [...new Set(results.map((result) => result.file))];
+  return files.map((file) => {
+    const sets = results.filter((result) => result.file === file && result.items).map(itemNames);
+    if (sets.length < 2) return `- ${escapeCell(file)}: en körning, inget att jämföra`;
+    let lowest = 1;
+    for (let i = 0; i < sets.length; i += 1) {
+      for (let j = i + 1; j < sets.length; j += 1) lowest = Math.min(lowest, jaccard(sets[i], sets[j]));
+    }
+    return lowest === 1
+      ? `- ${escapeCell(file)}: samma varunamn i alla ${sets.length} körningar`
+      : `- ${escapeCell(file)}: olika varunamn mellan körningarna (lägsta Jaccard ${lowest.toFixed(2)})`;
+  });
 }
 
 function escapeCell(value: string) {

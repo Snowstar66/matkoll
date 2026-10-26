@@ -604,7 +604,7 @@ describe("analyzeImage on a model", () => {
 
   it("passes the target's image sampling to the model, and none without it", async () => {
     const model = fakeModel(answer());
-    const sampling = { temperature: 0.7, topP: 0.8, presencePenalty: 1.5 };
+    const sampling = { temperature: 0, topP: 0.8, presencePenalty: 1.5 };
     await createModelAiService({ model, imageSampling: sampling }, limits).analyzeImage(input, signal());
     expect(model.doGenerateCalls[0]).toMatchObject(sampling);
     const plain = fakeModel(answer());
@@ -619,8 +619,9 @@ describe("analyzeImage on a model", () => {
     expect(result).toEqual({ ok: true, data: { items, invalid: 0, repeated: 0 } });
     const body = JSON.parse(String(server.requests[1].init?.body));
     expect(body.max_tokens).toBe(inputLimits.analyze.maxOutputTokens);
-    // Story 6.5: Qwen's sampling against repetition loops, with thinking still off.
-    expect(body).toMatchObject({ temperature: 0.7, top_p: 0.8, top_k: 20, presence_penalty: 1.5, reasoning_effort: "none" });
+    // Story 6.5: Qwen's sampling against repetition loops, with thinking still off, at temperature 0 so
+    // the same photo gives the same reading (2026-10-26).
+    expect(body).toMatchObject({ temperature: 0, top_p: 0.8, top_k: 20, presence_penalty: 1.5, reasoning_effort: "none" });
     expect(body.chat_template_kwargs).toEqual({ enable_thinking: false });
     const userContent = body.messages.find((message: { role: string }) => message.role === "user").content;
     expect(userContent).toContainEqual({ type: "text", text: "Bilden visar kylen." });

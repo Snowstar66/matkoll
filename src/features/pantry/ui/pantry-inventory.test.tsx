@@ -314,7 +314,11 @@ describe("Bekräfta on a compared photo", () => {
       operationId: null,
     });
     expect(within(section()).getByRole("button", { name: "Sparar …" })).toBeDisabled();
-    for (const shown of within(section()).getAllByRole("button")) expect(shown).toBeDisabled();
+    for (const shown of within(section()).getAllByRole("button")) {
+      // Only the photo can still be looked at: it changes nothing.
+      if (shown.dataset.testid === "pantry-analyzed-photo") expect(shown).toBeEnabled();
+      else expect(shown).toBeDisabled();
+    }
     await answerSave(answered({ set: 1 }));
     expect(groupNames("Ändrat")).toEqual([]);
     expect(toast()).toHaveTextContent("mjölk är sparad i kylen.");

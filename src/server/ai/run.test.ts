@@ -2,7 +2,15 @@ import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { createLmStudioTarget } from "./adapters/lmstudio";
 import { createOpenAiTarget } from "./adapters/openai";
 import { lmStudioImageSampling } from "./adapters/lmstudio";
-import { defaultLimits, mergeProviderOptions, runStructured, schemaFeedback, type Limits, type ModelTarget } from "./run";
+import {
+  defaultLimits,
+  mergeProviderOptions,
+  retryTemperature,
+  runStructured,
+  schemaFeedback,
+  type Limits,
+  type ModelTarget,
+} from "./run";
 import { aiRecipe } from "./schemas";
 import { createModelAiService } from "./service";
 import {
@@ -130,6 +138,25 @@ describe("runStructured with a fake model", () => {
     expect(call).toMatchObject({ temperature: 0.7, topP: 0.8, presencePenalty: 1.5 });
   });
 
+  it("samples a new attempt at retryTemperature when the call asked for temperature 0, and keeps the rest", async () => {
+    const model = fakeModel(invalid, invalid, valid);
+    const sampling = { temperature: 0, topP: 0.8, presencePenalty: 1.5 };
+    const result = await runStructured({ model }, { ...request, sampling }, signal(), limits);
+    expect(result.ok).toBe(true);
+    expect(model.doGenerateCalls.map((call) => call.temperature)).toEqual([0, retryTemperature, retryTemperature]);
+    for (const call of model.doGenerateCalls) expect(call).toMatchObject({ topP: 0.8, presencePenalty: 1.5 });
+    expect(retryTemperature).toBe(0.3);
+  });
+
+  it("keeps any other temperature, and none, on a new attempt", async () => {
+    const warm = fakeModel(invalid, valid);
+    await runStructured({ model: warm }, { ...request, sampling: { temperature: 0.7 } }, signal(), limits);
+    expect(warm.doGenerateCalls.map((call) => call.temperature)).toEqual([0.7, 0.7]);
+    const plain = fakeModel(invalid, valid);
+    await runStructured({ model: plain }, request, signal(), limits);
+    expect(plain.doGenerateCalls.map((call) => call.temperature)).toEqual([undefined, undefined]);
+  });
+
   it("merges the call's provider options into the target's per provider", () => {
     expect(mergeProviderOptions({ a: { x: 1 } }, undefined)).toEqual({ a: { x: 1 } });
     expect(mergeProviderOptions(undefined, { a: { y: 2 } })).toEqual({ a: { y: 2 } });
@@ -222,7 +249,7 @@ describe("LM Studio adapter against a fake server", () => {
     expect(target.imageSampling).toBe(lmStudioImageSampling);
     await runStructured(target, { ...request, sampling: target.imageSampling }, signal(), limits);
     const body = JSON.parse(String(server.requests[1].init?.body));
-    expect(body).toMatchObject({ temperature: 0.7, top_p: 0.8, top_k: 20, presence_penalty: 1.5 });
+    expect(body).toMatchObject({ temperature: 0, top_p: 0.8, top_k: 20, presence_penalty: 1.5 });
     expect(body.reasoning_effort).toBe("none");
     expect(body.chat_template_kwargs).toEqual({ enable_thinking: false });
   });

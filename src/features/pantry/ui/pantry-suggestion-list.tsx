@@ -1,6 +1,6 @@
 "use client";
 
-import { type ReactNode, useEffect, useId, useRef } from "react";
+import { type ReactNode, useEffect, useId, useRef, useState } from "react";
 import { Badge } from "@/components/badges";
 import { Button } from "@/components/button";
 import { Notice } from "@/components/notice";
@@ -24,6 +24,7 @@ import {
   type PantrySuggestion,
 } from "../domain/pantry-suggestion";
 import { groupSuggestions, type MissingItem } from "../domain/place-inventory";
+import { AnalyzedPhotoButton, AnalyzedPhotoSheet } from "./analyzed-photo";
 import { usePantrySheet } from "./pantry-item-sheet";
 import { usePantrySuggestions } from "./pantry-suggestions";
 import { focusIsFree } from "./use-pantry-analysis";
@@ -63,12 +64,21 @@ import { focusIsFree } from "./use-pantry-analysis";
 // unsure of has the badge "Osäker" and a line that "Bekräfta alla" leaves it
 // out: it needs its own Bekräfta or Rätta, and after "Bekräfta alla" focus
 // goes to the first unsure card left.
+//
+// Quick fix after Story 6.5: under the heading, a thumbnail of the photo the
+// suggestions were read from ("Fotot av kylen", AnalyzedPhotoButton), which
+// opens larger (AnalyzedPhotoSheet), so Pontus can check the reading; it is
+// never stored (AD-15). The thumbnail goes with the last card and comes back
+// with "Ångra". The sheet sits beside the section, so it stays open when the
+// last card goes while it shows, until Pontus closes it; a focus move asked
+// for meanwhile happens once it has closed.
 
 export function PantrySuggestionList() {
   const headingId = useId();
   const headingRef = useRef<HTMLHeadingElement>(null);
   const {
     result,
+    reviewPhoto,
     arrivals,
     announce,
     cameraAreaRef,
@@ -92,6 +102,17 @@ export function PantrySuggestionList() {
   const groups = result ? groupSuggestions(result) : null;
   const cardCount = groups ? groups.added.length + groups.changed.length + groups.missing.length : 0;
 
+  // Which photo's sheet is open: a new photo's starts closed.
+  const [openPhotoUrl, setOpenPhotoUrl] = useState<string | null>(null);
+  const photoOpen = reviewPhoto !== null && openPhotoUrl === reviewPhoto.url;
+  const photoWasOpen = useRef(false);
+
+  // The photo's sheet has closed and given focus back: a focus move that waited for it happens now.
+  useEffect(() => {
+    if (photoWasOpen.current && !photoOpen) flushFocus({ afterSheet: true });
+    photoWasOpen.current = photoOpen;
+  }, [photoOpen, flushFocus]);
+
   // Mounted anew (another location card): a focus move asked for meanwhile happens now.
   useEffect(() => flushFocus(), [flushFocus]);
 
@@ -106,7 +127,25 @@ export function PantrySuggestionList() {
     else if (result) announce(suggestionsArrivedText(result.location, cardCount));
   }, [arrivals, result, cardCount, announce, cameraAreaRef]);
 
-  if (!result || !groups || cardCount === 0) return null;
+  // Always in the same place of the tree, with or without the section, so an open sheet stays open.
+  const photoSheet =
+    reviewPhoto && result ? (
+      <AnalyzedPhotoSheet
+        key={reviewPhoto.url}
+        photo={reviewPhoto}
+        location={result.location}
+        open={photoOpen}
+        onClose={() => setOpenPhotoUrl(null)}
+      />
+    ) : null;
+  if (!result || !groups || cardCount === 0) {
+    return (
+      <>
+        {null}
+        {photoSheet}
+      </>
+    );
+  }
   const { added, changed, unchanged, missing, compared, incomplete } = groups;
   // "Bekräfta alla" never takes a suggestion the model was unsure of (Story 6.5).
   const confirmable = [...added, ...changed].filter(
@@ -127,57 +166,67 @@ export function PantrySuggestionList() {
     />
   );
   return (
-    <section aria-labelledby={headingId} data-testid="pantry-suggestions" className="flex flex-col gap-3">
-      {confirmError ? <Notice role="alert">{confirmError.message}</Notice> : null}
-      <h2 id={headingId} ref={headingRef} tabIndex={-1} className="text-section-label text-ink-2">
-        {suggestionsHeading(result.location)}
-      </h2>
-      <Button
-        ref={confirmAllRef}
-        variant="secondary"
-        // An incomplete comparison removes nothing with "Bekräfta alla".
-        disabled={saving || (confirmable.length === 0 && (missing.length === 0 || incomplete))}
-        onClick={() => confirm(confirmable.map((suggestion) => suggestion.id), { all: true })}
-        className="self-start"
-      >
-        {savingAll ? "Sparar …" : "Bekräfta alla"}
-      </Button>
-      {compared && unchanged > 0 ? <p className="text-body text-ink-2">{unchangedCountText(unchanged)}</p> : null}
-      {result.inventory.kind === "unread" ? (
-        <p className="text-body text-ink-2">
-          {result.inventory.changed ? changedPlaceText(result.location) : unreadPlaceText(result.location)}
-        </p>
-      ) : null}
-      {compared ? (
-        <>
-          <Group title="Nytt" hidden={added.length === 0}>
-            {added.map((suggestion) => card(suggestion, 4))}
-          </Group>
-          <Group title="Ändrat" hidden={changed.length === 0}>
-            {changed.map((suggestion) => card(suggestion, 4))}
-          </Group>
-          <Group
-            title="Syns inte längre"
-            hidden={missing.length === 0}
-            note={incomplete ? incompleteComparisonText : null}
-          >
-            {missing.map((item) => (
-              <MissingCard
-                key={item.id}
-                item={item}
-                disabled={saving}
-                saving={savingIds.has(item.id)}
-                removeRef={confirmButtonRef(item.id)}
-                onRemove={() => removeMissing(item.id)}
-                onKeep={() => keepMissing(item.id)}
-              />
-            ))}
-          </Group>
-        </>
-      ) : (
-        <ul className="flex flex-col gap-3">{added.map((suggestion) => card(suggestion, 3))}</ul>
-      )}
-    </section>
+    <>
+      <section aria-labelledby={headingId} data-testid="pantry-suggestions" className="flex flex-col gap-3">
+        {confirmError ? <Notice role="alert">{confirmError.message}</Notice> : null}
+        <h2 id={headingId} ref={headingRef} tabIndex={-1} className="text-section-label text-ink-2">
+          {suggestionsHeading(result.location)}
+        </h2>
+        {reviewPhoto ? (
+          <AnalyzedPhotoButton
+            photo={reviewPhoto}
+            location={result.location}
+            onOpen={() => setOpenPhotoUrl(reviewPhoto.url)}
+          />
+        ) : null}
+        <Button
+          ref={confirmAllRef}
+          variant="secondary"
+          // An incomplete comparison removes nothing with "Bekräfta alla".
+          disabled={saving || (confirmable.length === 0 && (missing.length === 0 || incomplete))}
+          onClick={() => confirm(confirmable.map((suggestion) => suggestion.id), { all: true })}
+          className="self-start"
+        >
+          {savingAll ? "Sparar …" : "Bekräfta alla"}
+        </Button>
+        {compared && unchanged > 0 ? <p className="text-body text-ink-2">{unchangedCountText(unchanged)}</p> : null}
+        {result.inventory.kind === "unread" ? (
+          <p className="text-body text-ink-2">
+            {result.inventory.changed ? changedPlaceText(result.location) : unreadPlaceText(result.location)}
+          </p>
+        ) : null}
+        {compared ? (
+          <>
+            <Group title="Nytt" hidden={added.length === 0}>
+              {added.map((suggestion) => card(suggestion, 4))}
+            </Group>
+            <Group title="Ändrat" hidden={changed.length === 0}>
+              {changed.map((suggestion) => card(suggestion, 4))}
+            </Group>
+            <Group
+              title="Syns inte längre"
+              hidden={missing.length === 0}
+              note={incomplete ? incompleteComparisonText : null}
+            >
+              {missing.map((item) => (
+                <MissingCard
+                  key={item.id}
+                  item={item}
+                  disabled={saving}
+                  saving={savingIds.has(item.id)}
+                  removeRef={confirmButtonRef(item.id)}
+                  onRemove={() => removeMissing(item.id)}
+                  onKeep={() => keepMissing(item.id)}
+                />
+              ))}
+            </Group>
+          </>
+        ) : (
+          <ul className="flex flex-col gap-3">{added.map((suggestion) => card(suggestion, 3))}</ul>
+        )}
+      </section>
+      {photoSheet}
+    </>
   );
 }
 

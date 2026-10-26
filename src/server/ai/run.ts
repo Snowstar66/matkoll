@@ -70,6 +70,14 @@ export const defaultLimits: Limits = {
   minRetryMs: 20_000,
 };
 
+/**
+ * The temperature of a new attempt after an invalid answer, when the call
+ * asked for 0: at 0 the same input gives the same answer, so a new attempt
+ * that also decodes greedily could fail the same way (quick fix after Story
+ * 6.5). The feedback message changes the input, but not always enough.
+ */
+export const retryTemperature = 0.3;
+
 export type StructuredRequest<SCHEMA extends z.ZodType> = {
   schema: SCHEMA;
   system: string;
@@ -131,6 +139,7 @@ export async function runStructured<SCHEMA extends z.ZodType>(
         providerOptions,
         maxOutputTokens: request.maxOutputTokens,
         ...sampling,
+        ...(attempt > 1 && sampling.temperature === 0 ? { temperature: retryTemperature } : {}),
         // The port decides about new attempts; the SDK never retries on its own.
         maxRetries: 0,
         abortSignal: attemptSignal,

@@ -374,6 +374,28 @@ export function suggestionsHeading(location: Location): string {
   return `Lagerförslag från ${definite[location]}`;
 }
 
+/** The photo the suggestions were read from, during review: "Fotot av kylen". */
+export function analyzedPhotoTitle(location: Location): string {
+  return `Fotot av ${definite[location]}`;
+}
+
+/** The large photo's alt text: "Fotot av kylen som förslagen kommer från". */
+export function analyzedPhotoAlt(location: Location): string {
+  return `Fotot av ${definite[location]} som förslagen kommer från`;
+}
+
+/** Under the photo's thumbnail: it opens larger. */
+export const analyzedPhotoOpenText = "Visa större";
+
+/** Under the large photo's title: it is not kept (AD-15). */
+export const analyzedPhotoNoteText = "Jämför förslagen med fotot. Det sparas inte.";
+
+/** Instead of the photo, when the browser cannot show it. */
+export const analyzedPhotoErrorText = "Fotot kunde inte visas.";
+
+/** The large photo as a toggle: pressed, it shows in full size, so the labels can be read. */
+export const analyzedPhotoFullSizeText = "Visa i full storlek";
+
 /** What the place has now: "I kylen nu: 2 förp", "I kylen nu: 1 l, 2 förp" or "I kylen nu: finns hemma". */
 export function currentAmountText(location: Location, current: PlaceStock): string {
   const amounts = current.unlimited

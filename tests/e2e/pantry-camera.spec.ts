@@ -175,7 +175,28 @@ test("a photo of the fridge gives six suggestions, writes nothing, and they stay
     if (now) await expect(shown.getByText(now, { exact: true })).toBeVisible();
     else await expect(shown.getByText(/ nu: /)).toHaveCount(0);
   }
-  // The camera button is back, and nothing was saved.
+  // The photo that was read sits under the heading as an object URL in the browser only (AD-15), and opens larger.
+  const photo = section(page).getByRole("button", { name: "Fotot av kylen, visa större" });
+  await expect(photo).toBeVisible();
+  await expect(photo.locator("img")).toHaveAttribute("src", /^blob:/);
+  // At 375 px the thumbnail fits inside the viewport.
+  expect(page.viewportSize()?.width).toBe(375);
+  const photoBox = await photo.boundingBox();
+  expect(photoBox!.x).toBeGreaterThanOrEqual(0);
+  expect(photoBox!.x + photoBox!.width).toBeLessThanOrEqual(375);
+  await photo.click();
+  const photoSheet = page.getByRole("dialog", { name: "Fotot av kylen" });
+  await expect(photoSheet.getByRole("img", { name: "Fotot av kylen som förslagen kommer från" })).toBeVisible();
+  expect(await page.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth)).toBe(true);
+  // A tap shows it in full size, scrolling inside the sheet and never the page.
+  const fullSize = photoSheet.getByRole("button", { name: "Visa i full storlek" });
+  await fullSize.click();
+  await expect(fullSize).toHaveAttribute("aria-pressed", "true");
+  expect(await page.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth)).toBe(true);
+  await photoSheet.getByRole("button", { name: "Stäng" }).click();
+  await expect(photoSheet).toBeHidden();
+  await expect(photo).toBeFocused();
+  // The camera button is back, and nothing was saved or sent again.
   await expect(cameraButton(page, "Fotografera kylen")).toBeVisible();
   expect(analyses()).toBe(1);
   expect(await rowCounts()).toEqual(before);

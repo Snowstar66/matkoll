@@ -129,8 +129,12 @@ export type PantryReview = {
   confirmButtonRef: (id: string) => (button: HTMLButtonElement) => () => void;
   /** "Bekräfta alla". */
   confirmAllRef: RefObject<HTMLButtonElement | null>;
-  /** Moves focus asked for while the list or camera button was away; for their mount, only while focus is free. */
-  flushFocus: () => void;
+  /**
+   * Moves focus asked for while the list or camera button was away (for
+   * their mount, only while focus is free), or while a sheet was showing
+   * (`afterSheet`, called once the photo's sheet has closed and given focus back).
+   */
+  flushFocus: (options?: { afterSheet?: boolean }) => void;
 };
 
 export type PantrySuggestions = PantryAnalysis & PantryReview;
@@ -265,10 +269,14 @@ function usePantryReview(analysis: PantryAnalysis): PantryReview {
     setFocusRequests((count) => count + 1);
   };
 
-  /** Moves focus to the target, or the camera button when the target is gone; waits while neither is there. */
+  /**
+   * Moves focus to the target, or the camera button when the target is gone;
+   * waits while neither is there, and while a modal sheet shows (everything
+   * behind it is inert, so the move would be lost).
+   */
   const applyFocus = useCallback(() => {
     const target = focusTarget.current;
-    if (!target) return;
+    if (!target || document.querySelector("dialog[open]")) return;
     const button =
       target.kind === "confirm"
         ? confirmButtons.current.get(target.id)
@@ -286,9 +294,12 @@ function usePantryReview(analysis: PantryAnalysis): PantryReview {
     if (focusRequests > 0) applyFocus();
   }, [focusRequests, applyFocus]);
 
-  const flushFocus = useCallback(() => {
-    if (focusTarget.current && focusIsFree(null)) applyFocus();
-  }, [applyFocus]);
+  const flushFocus = useCallback(
+    (options?: { afterSheet?: boolean }) => {
+      if (focusTarget.current && (options?.afterSheet || focusIsFree(null))) applyFocus();
+    },
+    [applyFocus],
+  );
 
   const confirmButtonRef = useCallback(
     (id: string) => (button: HTMLButtonElement) => {

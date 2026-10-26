@@ -6,7 +6,7 @@ import type { Location } from "@/features/catalog";
 import { postAiForm, type AiCallResult } from "@/lib/ai-client";
 import { downscaleImage } from "@/lib/downscale-image";
 import { fail, type AppError, type Result } from "@/lib/errors";
-import { maxPlacePhotoSide } from "@/lib/images";
+import { imageSizeOf, maxPlacePhotoSide, type ImageSize } from "@/lib/images";
 import {
   analyzeResultSchema,
   analyzeRetryCodes,
@@ -21,12 +21,25 @@ import { groupSuggestions, type MissingItem } from "../domain/place-inventory";
 // open. They live only here: never on the server, in localStorage,
 // sessionStorage or the address, until Pontus confirms them (Story 6.2,
 // PantrySuggestionsProvider), which takes them out one by one. The
-// resized photo is kept in memory only while an error that "Försök igen" can
-// help with is shown. The AI is only asked when Pontus has taken or chosen a
+// resized photo is kept for "Försök igen" only while an error it can help
+// with is shown. The AI is only asked when Pontus has taken or chosen a
 // photo.
+//
+// The photo during review (quick fix after Story 6.5): the resized photo
+// that was sent for an answer with cards is kept as an object URL
+// (reviewPhoto), so Pontus can check the reading against it. It stays in this
+// browser's memory only (AD-15 forbids storing it, not holding it): never
+// uploaded again, never in localStorage or IndexedDB. It lives as long as the
+// answer: when every card is handled it is only hidden, so "Ångra" brings the
+// cards back with it. Its URL is revoked once a new answer has replaced it
+// (after React has committed the new one, so no <img> shows a revoked URL)
+// and when Hemma is left, both by the effect keyed on it.
 
-/** A resized photo and the place it shows. */
-type KeptPhoto = { image: Blob; location: Location };
+/** A resized photo, the place it shows and its size in pixels when it can be read from the file. */
+type KeptPhoto = { image: Blob; location: Location; size: ImageSize | null };
+
+/** The photo an answer was read from, as an object URL, with its size in pixels when known. */
+export type ReviewPhoto = { url: string; size: ImageSize | null };
 
 /**
  * Why an analysis gave no cards: the photo showed no food, its items could
@@ -39,6 +52,12 @@ export type EmptyAnswer = "none" | "unreadable" | "unchanged" | "partlyUnchanged
 export type PantryAnalysis = {
   /** The latest suggestions and the place they are from, or `null` before any. */
   result: AnalyzeResult | null;
+  /**
+   * The resized photo `result` was read from, when that answer had cards;
+   * `null` otherwise. It stays when the cards are all handled (Hemma hides
+   * it then), and goes with the next answer.
+   */
+  reviewPhoto: ReviewPhoto | null;
   /** A photo is being resized or analysed. */
   analyzing: boolean;
   /** Why the last photo failed; the suggestions from before stay. */
@@ -87,6 +106,15 @@ export type PantryAnalysis = {
   editResult: (generation: number, edit: (result: AnalyzeResult) => AnalyzeResult) => boolean;
 };
 
+/** The size of the resized photo from its header (a JPEG from the canvas, or a stripped PNG: no EXIF turn), or `null`. */
+async function photoSizeOf(image: Blob): Promise<ImageSize | null> {
+  try {
+    return imageSizeOf(new Uint8Array(await image.slice(0, 128 * 1024).arrayBuffer()));
+  } catch {
+    return null;
+  }
+}
+
 /** Focus is still in the camera area, or on nothing: an answer may take it. Elsewhere (a sheet, the list), it stays. */
 export function focusIsFree(area: HTMLElement | null): boolean {
   const active = document.activeElement;
@@ -104,6 +132,7 @@ export function usePantryAnalysis(): PantryAnalysis {
   const [error, setError] = useState<AppError | null>(null);
   const [empty, setEmpty] = useState<EmptyAnswer | null>(null);
   const [photo, setPhoto] = useState<KeptPhoto | null>(null);
+  const [reviewPhoto, setReviewPhotoState] = useState<ReviewPhoto | null>(null);
   const [arrivals, setArrivals] = useState(0);
   const [cancels, setCancels] = useState(0);
   const [settles, setSettles] = useState(0);
@@ -112,6 +141,20 @@ export function usePantryAnalysis(): PantryAnalysis {
   const request = useRef<AbortController | null>(null);
   const cameraAreaRef = useRef<HTMLDivElement | null>(null);
   const cameraButtonRef = useRef<HTMLButtonElement | null>(null);
+
+  /** The photo of a new answer, or none: the one before is revoked by the effect below once this is committed. */
+  function setReviewPhoto(kept: KeptPhoto | null) {
+    // A browser without object URLs shows the suggestions without the photo.
+    const url = kept && typeof URL.createObjectURL === "function" ? URL.createObjectURL(kept.image) : null;
+    setReviewPhotoState(url ? { url, size: kept?.size ?? null } : null);
+  }
+
+  // Each URL is revoked exactly once: after the commit that replaced it, or when Hemma is left.
+  const reviewUrl = reviewPhoto?.url ?? null;
+  useEffect(() => {
+    if (!reviewUrl) return;
+    return () => URL.revokeObjectURL(reviewUrl);
+  }, [reviewUrl]);
 
   /** New suggestions (or none): a new generation. */
   function setResult(next: AnalyzeResult | null) {
@@ -154,6 +197,7 @@ export function usePantryAnalysis(): PantryAnalysis {
       setError(null);
       setEmpty(null);
       setPhoto(null);
+      setReviewPhotoState(null);
       setAnnouncement("");
     },
     [],
@@ -211,11 +255,14 @@ export function usePantryAnalysis(): PantryAnalysis {
         failWith(fail("ai_invalid").error, kept);
         return;
       }
-      // New suggestions replace the old ones only now that they are here. The photo is not needed any more.
+      // New suggestions replace the old ones only now that they are here. The photo is no longer kept
+      // for "Försök igen"; it is shown with the cards while they are reviewed, and not without them.
       setResult(parsed.data);
       setPhoto(null);
       const groups = groupSuggestions(parsed.data);
-      if (groups.added.length + groups.changed.length + groups.missing.length > 0) {
+      const hasCards = groups.added.length + groups.changed.length + groups.missing.length > 0;
+      setReviewPhoto(hasCards ? kept : null);
+      if (hasCards) {
         // Cards to show, also "Syns inte längre" alone for a photo without usable items of a place with items (Story 6.4).
         setArrivals((count) => count + 1);
       } else if (parsed.data.suggestions.length === 0) {
@@ -248,7 +295,9 @@ export function usePantryAnalysis(): PantryAnalysis {
       failWith(prepared.error, null);
       return;
     }
-    await send(controller, { image: prepared.data, location });
+    const size = await photoSizeOf(prepared.data);
+    if (!isCurrent(controller)) return;
+    await send(controller, { image: prepared.data, location, size });
   }
 
   function retry() {
@@ -267,6 +316,7 @@ export function usePantryAnalysis(): PantryAnalysis {
 
   return {
     result,
+    reviewPhoto,
     analyzing,
     error,
     empty,
