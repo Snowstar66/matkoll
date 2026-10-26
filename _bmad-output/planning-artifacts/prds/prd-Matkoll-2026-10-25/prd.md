@@ -361,6 +361,7 @@ Pontus kan ändra butik i inställningarna (namn, kedja, butiks-id, adress), äv
 ### 8.3 Efter 1.0
 
 - **Version 1.1, Flera ställen (Epic 8):** lagret delas på ställen, till exempel Hemma och Stugan, och inköpslistan räknas mot det valda stället. Kraven FR-29–FR-33 och NFR-9, och de avgränsningar av befintliga krav som 1.1 ger, står i `addendum.md` under "Version 1.1: Flera ställen".
+- **Senaste fotot per plats (Epic 10, tillägg till 1.1):** det senaste fotot av varje plats sparas privat när det har lett till en ändring i lagret och kan visas i Hemma med AI:ns avläsning och numren, i högst 30 dagar. Kraven FR-37–FR-39 och NFR-11 står i `addendum.md` under "Tillägg till 1.1: Senaste fotot per plats".
 
 ## 9. Effektmål
 

@@ -8,6 +8,7 @@ sources:
   - docs/ux/ux-spec.md
   - docs/ux/skisser/
   - _bmad-output/planning-artifacts/prds/prd-Matkoll-2026-10-25/addendum.md (version 1.1)
+  - _bmad-output/planning-artifacts/sprint-change-proposal-2026-10-26-spara-foto.md (Epic 10)
 ---
 
 # Matkoll – upplevelse
@@ -44,6 +45,8 @@ Begreppen följer PRD:ns ordlista (§3) ordagrant: recept, receptbibliotek, mats
 | Ställesväljare (1.1) | I Hemma, ovanför platskorten, när det finns fler än ett ställe | Välja ställe: vilket lager Hemma visar och vad allt räknas mot | FR-30, FR-31 | Ställesväljare |
 | Ställen (ark, 1.1) | "Ställen" i ställesväljaren, eller "Lägg till ställe" längst ned i Hemma när det bara finns ett ställe | Lägga till, byta namn och ta bort tomma ställen | FR-29 | Ark, Ställen |
 | Byt ställe (ark, 1.1) | "Byt" på raden "Lager: Stugan" i Inköpslistan | Välja vilket ställe listan räknas mot. Det är samma val som i Hemma. | FR-32 | Ark, Flöde 6 |
+| Senaste foto (rad, Epic 10) | I Hemma, direkt under kameraknappen, när platsen har ett sparat foto | Visa när platsen senast fotograferades, och öppna fotot | FR-38 | Senaste foto |
+| Fotot av kylen (ark, Epic 10) | "Visa" på raden Senaste foto | Det sparade fotot med numren och AI:ns avläsning; ta bort fotot | FR-38, FR-39 | Ark, Fotoark |
 | Inställningar | Kugghjul i Recept-rubriken (mobil), längst ned i sidomenyn (dator) | Godkända receptsajter, butik, logga ut | FR-7, FR-28 | Settings |
 
 Ytor utan skiss (Matsedel, Stegläge, ark, inställningar och mörkt läge) byggs från tabellerna här och komponenterna i `DESIGN.md`.
@@ -73,6 +76,14 @@ Knappar är verb: "Spara recept", "Lägg på matsedeln", "Laga nu", "Skicka till
 
 Matkoll skriver aldrig att Pontus *är* på ett ställe, bara vilket lager som gäller.
 
+**Foton i texter (Epic 10):** tiden skrivs "idag 15:42", "igår 09:10" eller "24 okt 15:42", i svensk tid. Platsen står i bestämd form som i 1.0 ("fotot av kylen"), och stället nämns inte, eftersom Hemma redan visar vilket ställe som gäller. Texterna säger vad AI:n läste av, aldrig att den "såg" eller "förstod" något.
+
+| Gör | Gör inte |
+| --- | --- |
+| "Senaste foto av kylen: idag 15:42" | "Din senaste kylbild 📷" |
+| "AI:n läste av:" | "Det här såg AI:n" |
+| "Ta bort fotot av kylen? Det går inte att ångra." | "Är du säker?" |
+
 ## Component Patterns
 
 Beteende. Utseendet beskrivs under Components i `DESIGN.md`, med samma namn och ordning. Komponenter som bara har beteende (Matsedelsrätt, Stegläge) står sist.
@@ -94,6 +105,8 @@ Beteende. Utseendet beskrivs under Components i `DESIGN.md`, med samma namn och 
 | Ställen (ark, 1.1) | Hemma | En rad per ställe med namn, antal varor ("12 varor") och "Valt" för valt ställe. Ett tryck på namnet ger ett textfält för nytt namn och "Spara". "Ta bort" finns bara för ett tomt ställe som inte är valt. Det tas bort direkt, utan fråga och utan "Ångra", eftersom inget går förlorat, och bekräftelsen säger "Tog bort Stugan.". Under listan finns fältet "Nytt ställe" (platshållare "Till exempel Stugan") och knappen "Lägg till". Ett nytt ställe väljs inte automatiskt, och bekräftelsen säger "Lade till Stugan. Välj det för att se och fylla dess lager.". |
 | Raden "Lager" (1.1) | Inköpslista, Matsedel, receptvy, Recept med filtret "Kan lagas nu" | Visas bara när det finns fler än ett ställe: "Lager: Stugan" i `{typography.meta}` under sidrubriken (i receptvyn under "X av Y hemma"). I Inköpslistan finns textknappen "Byt" bredvid, och den öppnar arket Byt ställe. Raden annonseras inte när sidan laddas. |
 | Byt ställe (ark, 1.1) | Inköpslista | Rubriken "Räkna listan mot". En rad per ställe, och valt ställe är markerat med bock. Ett tryck väljer stället (samma som i Hemma), stänger arket och visar "Listan räknas nu mot Stugan.". Listan räknas om. Bockar, rättade mängder, dolda poster och egna varor står kvar. |
+| Senaste foto (Epic 10) | Hemma | Visas direkt under kameraknappen när platsen på det ställe Hemma visar har ett sparat foto som är yngre än 30 dagar: "Senaste foto av kylen: idag 15:42" i `{typography.meta}` och textknappen "Visa" (namn för skärmläsare: "Visa senaste foto av kylen"). Ingen miniatyr: fotot hämtas först vid "Visa". Raden följer vald plats och valt ställe. Saknas fotot visas ingen rad. Raden annonseras inte när sidan laddas. |
+| Fotoark (Epic 10) | Hemma | Samma ark som fotot under granskningen (6.6): rubriken "Fotot av kylen", fotot som passar skärmen och växlar till full storlek vid tryck, och en numrerad markör på varje vara som fick en punkt. Underrubriken säger "Taget idag 15:42. Numren visar vad AI:n läste av.", eller bara "Taget idag 15:42." när punkterna saknas. Under fotot står "AI:n läste av:" och en numrerad lista med avläsningen, så att varje markör har en text. Sist textknappen "Ta bort fotot", som ersätter arket med frågan "Ta bort fotot av kylen? Det går inte att ångra." och knapparna "Ta bort" och "Avbryt". Efter borttagningen stängs arket, raden försvinner, och den korta bekräftelsen säger "Fotot av kylen är borttaget.". Arket stängs med "Stäng", Esc, svep nedåt eller tryck utanför, och fokus går tillbaka till "Visa". |
 | Etikett för obegränsad vara | Hemma | Tryck öppnar arket Lagervara. |
 | Kameraknapp | Hemma | Texten följer platsen: "Fotografera kylen / frysen / skafferiet". Öppnar bakre kameran på mobil och filväljaren på dator. |
 | Fast åtgärdsknapp | Inköpslista, receptvy | Syns alltid. I inköpslistan blir "Lägg i lagret" primärknapp ovanför "Skicka till ICA" när minst en post är avbockad. |
@@ -143,6 +156,12 @@ Gemensamma tillstånd först, sedan per yta i IA-ordning.
 | Stället kan inte tas bort (1.1) | Ställen | Ingen "Ta bort". För valt ställe står "Valt", och för ett ställe med varor står antalet. Raden förklarar inget mer. |
 | Tom inköpslista med flera ställen (1.1) | Inköpslista | Med matsedel: "Allt finns i lagret för Stugan." |
 | Lagt i lagret med flera ställen (1.1) | Inköpslista | "Lagt 8 varor i lagret för Stugan." |
+| Fotot under granskningen (Epic 10) | Lagerförslag | Underrubriken i fotoarket säger "Jämför förslagen med fotot. Det sparas som senaste foto när du bekräftar något." i stället för "… Det sparas inte.". |
+| Fotot sparas (Epic 10) | Lagerförslag | Inget syns. Fotot sparas i bakgrunden efter den första bekräftelsen, och raden Senaste foto visas när Hemma läses om. Misslyckas sparandet visas inget fel. |
+| Inget sparat foto (Epic 10) | Hemma | Ingen rad. Det gäller också en plats vars foto är äldre än 30 dagar. |
+| Fotot finns inte längre (Epic 10) | Fotoark | I stället för fotot: "Fotot finns inte längre.". Raden försvinner när Hemma läses om. |
+| Fotot laddas (Epic 10) | Fotoark | Arket har fotots storlek från början, så att det inte hoppar. Markörerna visas när fotot är laddat. |
+| Fotot kan inte tas bort (Epic 10) | Fotoark | Meddelanderuta i arket: "Det gick inte att ta bort fotot. Försök igen.". Fotot står kvar. |
 | Töm en plats med flera ställen (1.1) | Hemma | Frågan: "Ta bort alla 14 varor i kylen för Stugan?". Bekräftelsen: "Tog bort 14 varor ur kylen för Stugan." |
 
 ## Interaction Primitives
@@ -243,6 +262,19 @@ iPhone Safari är huvudmålet. Innehållet håller sig innanför säkerhetsmargi
 7. På söndagen väljer hen Hemma i ställesväljaren igen.
 
 **Variant, se stugans lager hemifrån:** i Hemma trycker Pontus på pillret Stugan, ser att kaffet är slut i skafferiet och trycker på Hemma igen. Valet gäller hela appen tills det byts, så raden "Lager: Stugan" syns i listan, matsedeln och receptvyn under tiden.
+
+### Flöde 8 – Läste den rätt? (UJ-8, Epic 10, Pontus vid köksbänken)
+
+Flöde 7 hör till Epic 9 (veckans erbjudanden), som vilar.
+
+1. På lördagen fotograferar Pontus kylen, trycker "Bekräfta alla" och går vidare.
+2. Ett par dagar senare ser Pontus "cappuccino" under Kyl i Hemma, fast det inte finns någon.
+3. Under "Fotografera kylen" står "Senaste foto av kylen: 24 okt 15:42". Pontus trycker "Visa".
+4. Fotot öppnas med numren. Under fotot står "AI:n läste av:" och listan. Nummer 7 sitter på en burk Schysst Käk, och i listan står "7 cappuccino".
+5. **Klimax:** Pontus ser var felet kom ifrån, stänger arket och tar bort cappuccinon, eller rättar den till rätt vara.
+6. Nästa gång Pontus fotograferar kylen och bekräftar något ersätter det nya fotot det gamla.
+
+**Variant, ta bort fotot:** någon syns på fotot. Pontus trycker "Ta bort fotot" i arket och "Ta bort" i frågan. "Fotot av kylen är borttaget.", och raden försvinner.
 
 ## Settings
 

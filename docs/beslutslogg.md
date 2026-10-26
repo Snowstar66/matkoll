@@ -2,6 +2,37 @@
 
 Beslut som fattats under bygget: vad, varför och vilka alternativ som fanns. Nyaste överst.
 
+## 2026-10-26 – Kursändring för senaste fotot per plats (Epic 10)
+
+- **Underlag:** Pontus bad om att det analyserade fotot sparas, "då får vi enklare att se om den tolkat rätt", och valde "Båda": snabbfixen (klar, fotot visas bara i webbläsaren under granskningen) och en story efter Epic 8 där det senaste fotot av varje plats sparas privat. `docs/backlog-efter-1-0.md` listade vad kursändringen skulle avgöra. Supabase Storage kontrollerades mot dokumentationen och mot den lokala stacken (Storage API 1.84.19).
+- **Beslut (Claude, headless enligt `docs/autonomi.md`; allt går att ändra):**
+  - **Kursändringen görs som en ny Epic 10 med tre stories** (alternativ 1, direkt justering): 10.1 spara, 10.2 visa, 10.3 gallra och städa. Förslaget står i `_bmad-output/planning-artifacts/sprint-change-proposal-2026-10-26-spara-foto.md`. Epic 10 byggs före Epic 9, som vilar.
+  - **Numren hoppar över Epic 9:s:** FR-37–FR-39, NFR-11, SM-C5, UJ-8, AD-26, UX-DR21–UX-DR22, Flöde 8 och öppna frågor 11–13. FR-34–FR-36, NFR-10, SM-C4, UJ-7, AD-25, UX-DR19–UX-DR20, Flöde 7 och frågorna 8–10 finns på grenen `epic/9-erbjudanden`.
+  - **AD-15 får ett undantag, och bara ett:** det senaste fotot av en plats sparas när det har lett till en ändring i lagret. Foton av kokbokssidor, och i Epic 9 av reklamblad, sparas fortfarande aldrig. Ny AD-26, "Platsfoton", och tillägg i AD-2, AD-4, AD-18, AD-20 och AD-23.
+  - **Fotot sparas när den första skrivningen från dess förslag har lyckats** (Bekräfta, Rätta, "Bekräfta alla" eller "Ta bort" i inventeringen), en gång per foto. Ett foto vars förslag bara avvisas sparas inte. Det är det som lagret bygger på som ska gå att kontrollera, och ett avvisat foto ska inte ersätta det.
+  - **Lagring:** den privata bucketen `pantry-photo` och tabellen `pantry_photo`, som båda ägs av `pantry`. Sökvägen är `<user_id>/<site_id>/<plats>/<foto-id>.jpg`, med en ny sökväg per foto, eftersom Supabase avråder från att skriva över. Policyer på `storage.objects` för `select`, `insert` och `delete` med användarens id som första mapp. Ett foto per plats och ställe (unik nyckel), och raden försvinner med sitt ställe (`on delete cascade`).
+  - **Avläsningen och punkterna ligger i tabellen,** inte i objektets metadata, så att Hemma läser dem i en fråga och samma RLS och Zod gäller.
+  - **Bilden skickas igen från klienten till `POST /api/pantry/photo`,** den enda Route Handler som skriver (tillägg i AD-2). En Server Action tar högst 1 MB, och fotot kan vara 1,5 MB.
+  - **Servern tar alltid bort metadata** med `stripJpegMetadata` eller `stripPngMetadata`, också när klientens canvas redan har gjort det, och ett test låser att EXIF och GPS är borta.
+  - **Ingen länk:** bilden strömmas av `GET /api/pantry/photo/[id]` efter inloggningskontroll, med `Cache-Control: private, no-store`. En signerad URL går inte att återkalla.
+  - **Högst 30 dagar.** Ett äldre foto visas aldrig och tas bort av `sweepPlacePhotos` när Hemma ser att det behövs, och efter varje sparande. Inget schemalagt jobb, eftersom det skulle behöva en ny nyckel och service role.
+  - **"Töm kylen" tar inte bort fotot.** Ett borttaget ställe tar bort sina foton, och `pnpm users:sync --prune` tar bort användarens filer först, eftersom `storage.objects` saknar främmande nyckel till `auth.users` och Supabase stoppar SQL-radering i `storage.objects`.
+  - **Visning:** raden "Senaste foto av kylen: idag 15:42" med "Visa" under kameraknappen, utan miniatyr. Arket från 6.6 med markörerna, listan "AI:n läste av:" och "Ta bort fotot" med kontrollfråga. Hemma visar fotona för det ställe som visas.
+  - **Säkerhetskopian tar aldrig med foton:** `storage.objects` och `pantry_photo` utesluts, och återställningen kör fotomigrationen igen, eftersom bucketen och policyerna ligger i schemat `storage`.
+  - **CI startar `storage-api`,** som hittills var utesluten.
+  - **Ingen ny miljövariabel och ingen ändring av AI-porten.** Ett sparat foto skickas aldrig till AI-tjänsten igen.
+- **Varför:** Pontus vill kunna lita på bildanalysen och kontrollera den i efterhand (FR-24, FR-25). Det är foton av Pontus hem, så det enklaste som uppfyller syftet med minst sparat är valt: ett foto per plats, bara när det har ändrat lagret, utan metadata, utan länkar och i högst 30 dagar.
+- **Alternativ:**
+  - Att spara fotot vid lyckad analys, vilket sparar foton som Pontus avvisade och låter dem ersätta det foto som lagret bygger på.
+  - Avläsningen i objektets metadata.
+  - En Server Action med höjd gräns för storleken (bara under `experimental`), eller uppladdning direkt till Storage med en signerad uppladdnings-URL, vilket går förbi serverns rensning av metadata.
+  - Signerade URL:er med kort livstid.
+  - En fast sökväg per plats med `upsert`.
+  - Ingen tidsgräns, eller 7 eller 90 dagar.
+  - Ett schemalagt jobb för gallringen.
+  - Att "Töm kylen" tar bort fotot.
+  - En enda story i stället för tre.
+
 ## 2026-10-26 – Foto, inventering och tömning per ställe (Story 8.4)
 
 - **Fotot binds till stället när det tas, inte när svaret kommer.** Klienten skickar ställets id med fotot till `/api/ai/analyze`, och svaret har stället (`site`, id och namn). Bekräfta, Rätta, "Bekräfta alla", "Ta bort" och inventeringen skickar det stället, också när Pontus har valt ett annat under analysen eller medan förslagen visas. Varför: analysen kan ta upp till 100 s med den lokala modellen, och fotot gäller det kylskåp som fotograferades (FR-33, AD-24). Alternativ: stället som är valt när svaret kommer, vilket kan lägga stugans mjölk hemma.

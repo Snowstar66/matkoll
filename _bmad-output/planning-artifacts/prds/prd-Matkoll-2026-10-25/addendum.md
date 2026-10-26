@@ -163,3 +163,89 @@ SM-1 (mindre matsvinn, inga dubbelköp) gäller också i stugan. Nytt motmått: 
 | pantry_item | Får `site_id` (inte null) | pantry_site |
 
 Detaljerna står i arkitekturens AD-24.
+
+## Tillägg till 1.1: Senaste fotot per plats (Epic 10)
+
+Beslutat av Pontus 2026-10-26: Pontus ville att det analyserade fotot sparas, "då får vi enklare att se om den tolkat rätt", och valde "Båda" av två alternativ: en snabbfix direkt, där fotot visas ovanför förslagen bara i webbläsaren (klar, AD-15 gällde), och en story efter Epic 8 där det senaste fotot av varje plats sparas privat och kan visas senare. Underlag: `docs/backlog-efter-1-0.md`, avsnittet "Spara senaste fotot per plats", och kursändringen `_bmad-output/planning-artifacts/sprint-change-proposal-2026-10-26-spara-foto.md`. Byggs som Epic 10, efter Epic 8 och före Epic 9. Kraven i `prd.md` och i avsnittet om 1.1 gäller som förut, med de ändringar som står nedan.
+
+FR-34–FR-36, NFR-10, SM-C4 och UJ-7 är reserverade för Epic 9 (veckans erbjudanden), som vilar på grenen `epic/9-erbjudanden`. Därför börjar numren här på FR-37, NFR-11, SM-C5 och UJ-8.
+
+### Mål
+
+Pontus kan i efterhand se fotot som lagret uppdaterades från, med AI:ns avläsning och numren på fotot, och avgöra om bilden tolkades rätt. Fotot är privat, och bara det senaste fotot av varje plats sparas.
+
+**Användarresa UJ-8. Vad läste den egentligen?** Ett par dagar senare ser Pontus "cappuccino" i kylen under Hemma, fast det inte finns någon. Under kameraknappen står "Senaste foto av kylen: 24 okt 15:42" och "Visa". Pontus trycker "Visa" och ser fotot med numren. Nummer 7 sitter på en burk Schysst Käk, och listan under fotot säger "7 cappuccino". Pontus stänger arket och tar bort cappuccinon. **Kantfall:** fotot är äldre än 30 dagar. Då står ingen rad, och fotot är borttaget.
+
+### Ordlista (tillägg)
+
+- **Senaste foto:** det foto av en plats på ett ställe som senast ledde till en ändring i lagret. Det finns högst ett per plats och ställe.
+- **Avläsning:** det AI:n läste av på fotot, varorna i den ordning de lästes (Story 6.5). Numren på fotot är varornas nummer i avläsningen (Story 6.6).
+
+### Nya krav
+
+#### FR-37: Spara senaste fotot per plats
+
+När Pontus har sparat något i lagret från ett fotos lagerförslag sparas fotot som senaste foto av den platsen.
+
+**Konsekvenser (testbara):**
+- Fotot sparas när den första skrivningen från fotots förslag har lyckats: Bekräfta, Rätta, "Bekräfta alla" eller "Ta bort" i inventeringen. Ett foto vars förslag bara avvisas, eller som inte gav några förslag, sparas inte.
+- Det som sparas är samma förminskade bild som AI:n fick, utan EXIF, GPS och annan metadata, med tiden då fotot togs, avläsningen och punkterna för numren, när de har kommit.
+- Ett nytt foto av samma plats på samma ställe ersätter det förra. Det finns aldrig mer än ett foto per plats och ställe.
+- Fotot sparas på det ställe och den plats som det togs för, också om Pontus har valt ett annat ställe under tiden (FR-33).
+- Sparandet sker i bakgrunden. Misslyckas det syns inget fel, och lagret påverkas inte.
+
+#### FR-38: Visa senaste fotot i Hemma
+
+Pontus kan se det senaste fotot av den plats Hemma visar, med numren och avläsningen.
+
+**Konsekvenser (testbara):**
+- När platsen har ett sparat foto står "Senaste foto av kylen: idag 15:42" och textknappen "Visa" under kameraknappen i Hemma.
+- "Visa" öppnar fotot i samma ark som under granskningen (6.6), med en numrerad markör på varje vara som fick en punkt och en numrerad lista med avläsningen under fotot.
+- Fotot visas för det ställe Hemma visar. Väljer Pontus Stugan visas stugans foton.
+- Fotot hämtas bara när Pontus trycker "Visa".
+
+#### FR-39: Fotot försvinner när det inte behövs
+
+Ett sparat foto finns inte kvar längre än det behövs.
+
+**Konsekvenser (testbara):**
+- Ett foto som är äldre än 30 dagar visas inte och tas bort.
+- Pontus kan ta bort fotot i arket, efter en kontrollfråga: "Ta bort fotot av kylen? Det går inte att ångra.".
+- När ett ställe tas bort försvinner dess foton. När en användare tas bort försvinner användarens foton.
+- "Töm kylen" (6.3) tar inte bort fotot. Nästa foto som sparar något ersätter det.
+
+#### NFR-11: Integritet för platsfoton
+
+- Fotona är privata: bara ägaren kan ladda upp, läsa och ta bort dem, och det visas med RLS-tester. Det finns ingen publik eller signerad länk till ett foto.
+- Ett sparat foto har ingen metadata (EXIF, GPS, XMP), visat med ett test.
+- Ett sparat foto skickas aldrig till en AI-tjänst igen, oavsett `AI_PROVIDER`.
+- Foton finns aldrig i repot, i loggar eller i säkerhetskopian.
+- Fotona ryms i Supabase gratisnivå (1 GB lagring): högst tre foton per ställe och högst 1,5 MB per foto, alltså högst 45 MB med tio ställen.
+
+### Ändrade konsekvenser för befintliga krav
+
+| Krav | Med Epic 10 |
+| --- | --- |
+| FR-24 | Fotot sparas inte vid analysen. Det sparas först när något från förslagen har sparats i lagret (FR-37). |
+| FR-25 | Den första bekräftelsen, rättningen eller borttagningen från ett foto sparar också fotot. Avvisade förslag sparar inget foto. |
+| FR-29 | Ett ställe som tas bort tar med sig sina foton. Ett ställe som bara har foton och inga lagervaror räknas som tomt. |
+
+### Effektmål
+
+SM-1 och SM-C2 gäller som förut. Fotot gör det lättare att lita på bildanalysen, så att Pontus använder den. Nytt motmått: **SM-C5 Fotoarkiv:** Matkoll sparar aldrig mer än det senaste fotot per plats, och aldrig längre än 30 dagar. Fler foton skulle ge mer att skydda men ingen bättre kontroll av tolkningen.
+
+### Utanför Epic 10
+
+- En historik med flera foton per plats.
+- Att analysera ett sparat foto igen, eller att be om nya nummer på det.
+- Att visa ett annat ställes foto utan att välja stället (jämför öppen fråga 6).
+- Foton av kokbokssidor (Story 1.9) och, i Epic 9, av reklamblad: de sparas fortfarande aldrig.
+- Att dela ett foto eller ladda ner det från appen.
+
+### Datamodell (tillägg)
+
+| Tabell | Innehåll | Kopplas till |
+| --- | --- | --- |
+| pantry_photo | Plats, sökväg till filen, bildtyp och storlek, när fotot togs, avläsning och punkter; ett per plats och ställe | pantry_site |
+
+Filen ligger i den privata Storage-bucketen `pantry-photo`. Detaljerna står i arkitekturens AD-26.

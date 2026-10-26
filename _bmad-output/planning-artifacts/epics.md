@@ -15,7 +15,7 @@ inputDocuments:
 
 ## Översikt
 
-Det här dokumentet delar upp kraven i PRD:n, UX-dokumenten (`DESIGN.md`, `EXPERIENCE.md`) och arkitekturen (`ARCHITECTURE-SPINE.md`, AD-1–AD-24) i epics och stories som går att bygga var för sig. Story-rubrikerna läses av `scripts/board.mjs` och blir kort på boarden. Epic 1–7 är version 1.0. Epic 8 är version 1.1, "Flera ställen", som kom till genom kursändringen `sprint-change-proposal-2026-10-26-flera-stallen.md`. Dess krav står i PRD-addendumet under "Version 1.1: Flera ställen".
+Det här dokumentet delar upp kraven i PRD:n, UX-dokumenten (`DESIGN.md`, `EXPERIENCE.md`) och arkitekturen (`ARCHITECTURE-SPINE.md`, AD-1–AD-24 och AD-26) i epics och stories som går att bygga var för sig. Story-rubrikerna läses av `scripts/board.mjs` och blir kort på boarden. Epic 1–7 är version 1.0. Epic 8 är version 1.1, "Flera ställen", som kom till genom kursändringen `sprint-change-proposal-2026-10-26-flera-stallen.md`. Dess krav står i PRD-addendumet under "Version 1.1: Flera ställen". Epic 10, "Senaste fotot per plats", är ett tillägg till 1.1 som kom till genom kursändringen `sprint-change-proposal-2026-10-26-spara-foto.md`. Dess krav står i addendumet under "Tillägg till 1.1: Senaste fotot per plats". Epic 9 (veckans erbjudanden, FR34–FR36, NFR10, AD-25, UX-DR19–UX-DR20) är planerad men vilar på grenen `epic/9-erbjudanden`, så de numren är reserverade.
 
 ## Requirements Inventory
 
@@ -57,6 +57,9 @@ Version 1.1 (addendum, "Version 1.1: Flera ställen"):
 - FR31: Lagret på vilket ställe som helst kan ses och ändras på distans.
 - FR32: Inköpslistan drar av lagret för valt ställe, visar "Lager: <namn>" med "Byt" när det finns flera ställen och behåller bockar, överstyrningar och egna varor vid byte. "Lägg i lagret" lägger på listans ställe.
 - FR33: En skrivning hamnar på det ställe som vyn visade, och "Ångra" sätter tillbaka på samma ställe.
+- FR37: När något från ett fotos lagerförslag har sparats i lagret sparas fotot som senaste foto av platsen på det ställe det togs för: den förminskade bilden utan metadata, tiden, avläsningen och punkterna. Ett nytt foto ersätter det förra, och ett foto vars förslag bara avvisas sparas inte.
+- FR38: Hemma visar "Senaste foto av kylen: idag 15:42" med "Visa" för platsen på det ställe som visas. "Visa" öppnar fotot i arket från 6.6 med numrerade markörer och avläsningen som numrerad lista.
+- FR39: Ett foto som är äldre än 30 dagar visas inte och tas bort. Pontus kan ta bort fotot efter en kontrollfråga, och foton försvinner med sitt ställe och sin användare. "Töm kylen" tar inte bort fotot.
 
 ### NonFunctional Requirements
 
@@ -69,6 +72,7 @@ Version 1.1 (addendum, "Version 1.1: Flera ställen"):
 - NFR7 Svarstider: lista, lager och bibliotek inom en sekund; import och bildanalys visar förlopp och kan avbrytas eller göras om.
 - NFR8 Tvingande kontroller: hemlighetsskanning, RLS-tester, test av domänbegränsning, lint och kodgranskning blockerar sammanslagning.
 - NFR9 (1.1) Migrering och svarstider för ställen: en migration som bara lägger till, fungerar med 1.0-koden och visas i ett test lämna lagret oförändrat. Byte av ställe svarar inom en sekund.
+- NFR11 (Epic 10) Integritet för platsfoton: privat bucket med RLS-tester, ingen publik eller signerad länk, ingen metadata i sparade foton (test), aldrig till AI-tjänsten igen, aldrig i repot, loggar eller säkerhetskopian, och inom Supabase gratisnivå.
 
 ### Additional Requirements
 
@@ -123,6 +127,8 @@ Från `DESIGN.md` och `EXPERIENCE.md`:
 - UX-DR16: Inställningar: godkända receptsajter, butik, logga ut.
 - UX-DR17 (1.1): Ställesväljare med filterpiller ovanför platskorten och "Ställen" när det finns flera ställen, annars bara "Lägg till ställe" längst ned i Hemma. Arket Ställen (lägg till, byt namn, ta bort ett tomt ställe). Raden "Lager: <namn>" i listan (med "Byt" och arket "Räkna listan mot"), matsedeln, receptvyn och biblioteket med "Kan lagas nu", bara när det finns flera ställen.
 - UX-DR18 (1.1): Texter för ställen enligt EXPERIENCE.md, Voice and Tone: inga ställesnamn när det bara finns ett ställe, och annars mönstren "Lager: Stugan" och "… för Stugan.".
+- UX-DR21 (Epic 10): Raden "Senaste foto av kylen: idag 15:42" med textknappen "Visa" direkt under kameraknappen i Hemma, och fotoarket från 6.6 med numrerade markörer, "AI:n läste av:" med en numrerad lista och "Ta bort fotot" med kontrollfråga.
+- UX-DR22 (Epic 10): Texter för foton enligt EXPERIENCE.md: tiden som "idag 15:42", "igår 09:10" eller "24 okt 15:42", "Taget idag 15:42. Numren visar vad AI:n läste av.", "Fotot finns inte längre.", "Fotot av kylen är borttaget." och den nya underrubriken under granskningen.
 
 ### FR Coverage Map
 
@@ -159,6 +165,9 @@ Från `DESIGN.md` och `EXPERIENCE.md`:
 - FR31: Epic 8 – se ett ställes lager på distans
 - FR32: Epic 8 – inköpslistan räknas mot valt ställe
 - FR33: Epic 8 – skrivningar på det ställe vyn visade
+- FR37: Epic 10 – spara senaste fotot per plats
+- FR38: Epic 10 – visa senaste fotot i Hemma
+- FR39: Epic 10 – gallring och borttagning av foton
 
 ## Epic List
 
@@ -193,6 +202,10 @@ Pontus kan välja butik, spara vilka produkter hen brukar köpa och skicka inkö
 ### Epic 8: Flera ställen
 Version 1.1. Pontus kan ha lager på flera ställen, till exempel Hemma och Stugan, välja vilket ställe som gäller och se ett ställes lager på distans. Lagningsstatusen, AI-förslagen, inköpslistans avdrag, "Lägg i lagret" och bildanalysen följer valt ställe, så att Pontus handlar rätt inför resan till stugan.
 **FRs covered:** FR29, FR30, FR31, FR32, FR33, NFR9 (och avgränsningar av FR8, FR11–FR13, FR15, FR19, FR20, FR22–FR25 till valt ställe)
+
+### Epic 10: Senaste fotot per plats
+Tillägg till 1.1. Det senaste fotot av varje plats sparas privat när det har lett till en ändring i lagret, så att Pontus i efterhand kan se fotot med AI:ns avläsning och numren och avgöra om bilden tolkades rätt. Fotot finns i högst 30 dagar och försvinner med sitt ställe.
+**FRs covered:** FR37, FR38, FR39, NFR11 (och ändringar av FR24, FR25 och FR29)
 
 ## Epic 1: Receptimport och receptbibliotek
 
@@ -1312,3 +1325,117 @@ så att jag varken köper två ketchup eller glömmer senapen.
 **Givet** listan räknad mot Stugan
 **När** Pontus trycker "Skicka till ICA"
 **Så** innehåller exporten listans poster för Stugan, och formatet `Matkoll varukorgsexport v1` är oförändrat (FR26, AD-16)
+
+## Epic 10: Senaste fotot per plats
+
+Tillägg till 1.1. Pontus bad om att det analyserade fotot sparas, "då får vi enklare att se om den tolkat rätt". Det senaste fotot av varje plats (Kyl, Frys och Skafferi, per ställe) sparas privat när det har lett till en ändring i lagret, och kan visas i Hemma med AI:ns avläsning och numren från 6.6. Fotot finns i högst 30 dagar, och bara det senaste per plats. Arkitekturen står i AD-26, och AD-15 är ändrad. Storyna byggs i ordning.
+
+### Story 10.1: Spara senaste fotot per plats
+
+Som Pontus,
+vill jag att fotot som lagret uppdaterades från sparas,
+så att jag senare kan se vad AI:n läste av.
+
+**Acceptance Criteria:**
+
+**Givet** migrationen för bucketen `pantry-photo` (privat, högst 1,5 MB, JPEG och PNG), dess policyer på `storage.objects` och tabellen `pantry_photo` (unik på `user_id, site_id, location`)
+**När** RLS-testerna körs
+**Så** kan varken en anonym klient eller en annan användare ladda upp, läsa, lista eller ta bort ett foto eller läsa och skriva raden (AD-4, AD-26, NFR11)
+
+**Givet** lagerförslag från ett foto av kylen på Stugan
+**När** Pontus bekräftar det första förslaget och det sparas i lagret
+**Så** skickar klienten samma förminskade bild, stället, platsen, tiden, avläsningen och punkterna (om de har kommit) till `POST /api/pantry/photo`, och fotot sparas som senaste foto av stugans kyl (FR37)
+**Och** fler bekräftelser från samma foto sparar det inte igen
+
+**Givet** ett foto vars förslag Pontus bara avvisar, eller ett foto utan förslag
+**När** granskningen är klar
+**Så** sparas inget foto
+
+**Givet** en bild med EXIF och GPS
+**När** den sparas
+**Så** har den sparade filen ingen metadata (inga APP1–APP15- eller COM-segment i en JPEG och inga extra chunks i en PNG), visat med ett test (AD-15, NFR11)
+
+**Givet** ett sparat foto av kylen
+**När** ett nytt foto av samma kyl sparas
+**Så** finns bara det nya fotot kvar, både som rad och som fil, och det förra är borttaget med Storage-API:t
+
+**Givet** att punkterna kommer efter att fotot har sparats
+**När** de kommer
+**Så** läggs de till på fotots rad med `savePlacePhotoPoints`
+
+**Givet** att valt ställe byts medan förslagen visas
+**När** Pontus bekräftar
+**Så** sparas fotot på det ställe det togs för (FR33)
+
+**Givet** att sparandet misslyckas (Storage nås inte, stället är borttaget)
+**När** Pontus bekräftar
+**Så** sparas förslaget i lagret som vanligt, inget fel visas, och bara felkoden loggas
+
+### Story 10.2: Visa senaste fotot i Hemma
+
+Som Pontus,
+vill jag öppna det senaste fotot av kylen med numren och avläsningen,
+så att jag kan se om bilden tolkades rätt.
+
+**Acceptance Criteria:**
+
+**Givet** ett sparat foto av kylen på det ställe Hemma visar
+**När** Hemma visas med kortet Kyl valt
+**Så** står "Senaste foto av kylen: idag 15:42" och textknappen "Visa" direkt under kameraknappen (FR38, UX-DR21)
+**Och** utan sparat foto står ingen rad
+
+**Givet** raden Senaste foto
+**När** Pontus trycker "Visa"
+**Så** öppnas arket "Fotot av kylen" med fotot från `GET /api/pantry/photo/[id]`, underrubriken "Taget idag 15:42. Numren visar vad AI:n läste av.", en numrerad markör på varje vara som fick en punkt och listan "AI:n läste av:" med avläsningen i nummerordning (UX-DR22)
+
+**Givet** ett foto utan punkter
+**När** arket öppnas
+**Så** visas fotot utan markörer, underrubriken "Taget idag 15:42." och listan
+
+**Givet** Stugan vald i Hemma
+**När** Pontus byter till Hemma
+**Så** visar raden fotot av hemmets kyl, eller ingen rad
+
+**Givet** `GET /api/pantry/photo/[id]`
+**När** den anropas utan inloggning, för en annan användares foto eller för ett foto som är borta
+**Så** svarar den 401 eller 404 utan bild, och ett svar med bild har `Cache-Control: private, no-store` (NFR11)
+
+**Givet** att fotot har tagits bort på en annan enhet
+**När** Pontus trycker "Visa"
+**Så** står "Fotot finns inte längre." i arket
+
+**Givet** fotoarket
+**När** Pontus trycker "Ta bort fotot" och sedan "Ta bort" i frågan "Ta bort fotot av kylen? Det går inte att ångra."
+**Så** tas fotot och filen bort, arket stängs, raden försvinner och den korta bekräftelsen säger "Fotot av kylen är borttaget." (FR39)
+
+### Story 10.3: Gallring och städning av foton
+
+Som Pontus,
+vill jag att gamla foton och foton som inte hör till något försvinner av sig själva,
+så att inga bilder av mitt hem ligger kvar i onödan.
+
+**Acceptance Criteria:**
+
+**Givet** ett foto som är äldre än 30 dagar
+**När** Hemma visas
+**Så** står ingen rad för det, och `sweepPlacePhotos` tar bort raden och filen (FR39)
+
+**Givet** en fil i bucketen utan rad i `pantry_photo` (till exempel efter en avbruten ersättning)
+**När** gallringen körs
+**Så** tas filen bort, och andra användares filer berörs aldrig
+
+**Givet** ett ställe utan lagervaror men med foton
+**När** Pontus tar bort stället i arket Ställen
+**Så** tas ställets rader och filer bort (AD-20, AD-26)
+
+**Givet** `pnpm users:sync --prune` och en användare som inte längre är tillåten
+**När** användaren tas bort
+**Så** tas användarens filer i bucketen bort först, och raderna försvinner med användaren
+
+**Givet** "Töm kylen"
+**När** kylen töms
+**Så** står fotot kvar
+
+**Givet** säkerhetskopian
+**När** den körs
+**Så** innehåller den inga foton och inga rader från `storage.objects` eller `pantry_photo`, och `docs/drift.md` beskriver hur bucketen och policyerna kommer tillbaka vid en återställning, provat i en tillfällig lokal stack (AD-23)

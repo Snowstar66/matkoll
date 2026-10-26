@@ -100,3 +100,9 @@ development_status:
   8-4-foto-inventering-och-tömning-per-ställe: done
   8-5-inköpslista-inför-resan-till-ett-annat-ställe: done
   epic-8-retrospective: optional
+
+  epic-10: backlog
+  10-1-spara-senaste-fotot-per-plats: backlog
+  10-2-visa-senaste-fotot-i-hemma: backlog
+  10-3-gallring-och-städning-av-foton: backlog
+  epic-10-retrospective: optional
