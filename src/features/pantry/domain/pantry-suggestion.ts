@@ -33,7 +33,9 @@ import {
   withoutComparison,
   type PlaceStock,
 } from "./place-inventory";
+import { readingSchema } from "./photo-numbers";
 import { definite } from "./places";
+import { photoSiteSchema } from "./site";
 
 // Lagerförslag (FR-24, AD-6, AD-12, AD-19): what a photo of a place at home
 // suggests for the pantry, before Pontus has confirmed anything. Each
@@ -49,10 +51,17 @@ import { definite } from "./places";
  */
 export type AiPantryItemLike = {
   label: string;
+  /** Story 6.5: "osäker" for the model's likely guess; missing counts as "säker". */
+  confidence?: "säker" | "osäker";
   amount: number | null;
   unit: string | null;
   hint: IngredientHint;
 };
+
+/** At most this many of the model's labels on one suggestion: its card's title. */
+export const maxSuggestionLabels = 3;
+/** The longest label kept from the model (the AI port's maxPantryItemTextChars). */
+export const maxSuggestionLabelChars = 200;
 
 /** At most this many suggestions from one photo; the server keeps the AI's first 25 items (the AI port's inputLimits.analyze.maxItems). */
 export const maxPantrySuggestions = 25;
@@ -127,6 +136,20 @@ export const pantrySuggestionSchema = z
     replaces: z.array(z.uuid()).max(maxReplaces),
     /** All the place's rows of the ingredient, when compared: the sheet replaces them when it changes the unit. */
     placeRowIds: z.array(z.uuid()).max(maxReplaces).optional(),
+    /**
+     * Story 6.5: the model's labels for the items behind the suggestion (brand,
+     * sort and size as on the package), different ones in the model's order;
+     * the card's title. Text from the model, only ever shown as text.
+     */
+    labels: z.array(z.string().trim().min(1).max(maxSuggestionLabelChars)).max(maxSuggestionLabels).optional(),
+    /** Story 6.5: some item behind it was the model's guess ("osäker"): "Bekräfta alla" leaves it out. */
+    uncertain: z.boolean().optional(),
+    /**
+     * Story 6.6: the numbers of the items behind the suggestion in the
+     * reading (`reading` of the answer, from 1), in order; the first is the
+     * card's number on the photo.
+     */
+    itemNumbers: z.array(z.number().int().min(1).max(maxPantrySuggestions)).max(maxPantrySuggestions).optional(),
   })
   .refine(amountHasUnit, { path: ["unit"] });
 export type PantrySuggestion = z.infer<typeof pantrySuggestionSchema>;
@@ -139,11 +162,27 @@ export type PantrySuggestion = z.infer<typeof pantrySuggestionSchema>;
  * read, not that it had none.
  */
 export const analyzeResultSchema = z.object({
+  /**
+   * Story 8.4: the place the photo was taken for, as /api/ai/analyze read it
+   * (FR-33, AD-24). Every write from the suggestions sends its id, also when
+   * Hemma shows another place by then. `null` only for a user without places
+   * yet (before ensure_pantry_defaults): the writes then go to the selected
+   * place, which the server allows only while the user has none. Missing in
+   * an answer from a server of before Story 8.4 (a deploy): `null` here, and
+   * the client puts the place it sent instead (usePantryAnalysis).
+   */
+  site: photoSiteSchema.nullable().default(null),
   location: locationSchema,
   suggestions: z.array(pantrySuggestionSchema).max(maxPantrySuggestions),
   dropped: z.number().int().min(0),
   /** How the photo compares with what the place has (Story 6.4). */
   inventory: placeInventorySchema,
+  /**
+   * Story 6.6: the AI's items in reading order, as one-line labels: item n is
+   * reading[n − 1], also the ones left out of the suggestions. Sent back with
+   * the photo to /api/ai/locate for the numbers on the photo.
+   */
+  reading: readingSchema.optional(),
 });
 export type AnalyzeResult = z.infer<typeof analyzeResultSchema>;
 
@@ -182,7 +221,25 @@ type Group = {
   byUnit: Map<Unit, number>;
   /** Some item had an amount that cannot be kept: the suggestion is unlimited rather than undercounted. */
   unknown: boolean;
+  /** The items' different labels, in order, at most maxSuggestionLabels. */
+  labels: string[];
+  /** Some item was the model's guess. */
+  uncertain: boolean;
+  /** Story 6.6: the items' numbers in the reading (index + 1), in order. */
+  itemNumbers: number[];
+  /** Story 6.6: the numbers of the items with an amount, per unit, for the card of each unit. */
+  numbersByUnit: Map<Unit, number[]>;
 };
+
+/** A label as compared with the others of a suggestion: lower case, one space between words. */
+const labelKey = (label: string) => label.normalize("NFC").toLowerCase().replace(/\s+/g, " ").trim();
+
+/** Adds the item's label to the group's, unless it is there already, empty, too long or one too many. */
+function addLabel(group: Group, label: string) {
+  const text = label.replace(/\s+/g, " ").trim();
+  if (!text || text.length > maxSuggestionLabelChars || group.labels.length >= maxSuggestionLabels) return;
+  if (!group.labels.some((other) => labelKey(other) === labelKey(text))) group.labels.push(text);
+}
 
 /** How many of the AI's items toPantrySuggestions left out, and why. */
 export type DroppedItems = {
@@ -219,6 +276,13 @@ export type ToSuggestionsOptions = {
  * - an ingredient unlimited at the place stays unlimited (as addToPantry
  *   does), and one without amount whose place has it in exactly one unit gets
  *   that amount, so confirming never turns "mjölk 2 förp" into "Finns hemma";
+ * - Story 6.5: the items' different labels (at most maxSuggestionLabels) for
+ *   the card's title, and `uncertain` when any of its items was the model's
+ *   guess, since the summed amount then rests on it too;
+ * - Story 6.6: the numbers of its items in `items` (index + 1, the reading
+ *   order), so the card and the photo can show the same number; split by
+ *   unit, each card has its own items' numbers (the first also those without
+ *   amount), so two cards never share one;
  * - sorted by name (Swedish order), with the ids s1, s2 ….
  */
 export function toPantrySuggestions(
@@ -259,23 +323,45 @@ export function toPantrySuggestions(
     }
     let group = groups.get(key);
     if (!group) {
-      group = { name, ingredient: ingredient(), byUnit: new Map<Unit, number>(), unknown: false };
+      group = {
+        name,
+        ingredient: ingredient(),
+        byUnit: new Map<Unit, number>(),
+        unknown: false,
+        labels: [],
+        uncertain: false,
+        itemNumbers: [],
+        numbersByUnit: new Map<Unit, number[]>(),
+      };
       groups.set(key, group);
     }
+    addLabel(group, item.label);
+    group.itemNumbers.push(index + 1);
+    if (item.confidence === "osäker") group.uncertain = true;
     const amount = readAmount(item);
     if (amount.kind === "unknown") group.unknown = true;
-    else if (amount.kind === "amount") group.byUnit.set(amount.unit, (group.byUnit.get(amount.unit) ?? 0) + amount.amount);
+    else if (amount.kind === "amount") {
+      group.byUnit.set(amount.unit, (group.byUnit.get(amount.unit) ?? 0) + amount.amount);
+      group.numbersByUnit.set(amount.unit, [...(group.numbersByUnit.get(amount.unit) ?? []), index + 1]);
+    }
   });
 
   const stocks = current ? stockByIngredient(current) : new Map<string, PlaceStock>();
   const suggestions: Omit<PantrySuggestion, "id">[] = [];
-  for (const { name, ingredient, byUnit, unknown } of groups.values()) {
+  for (const { name, ingredient, byUnit, unknown, labels, uncertain, itemNumbers, numbersByUnit } of groups.values()) {
     const stock = ingredient.kind === "existing" ? (stocks.get(ingredient.ingredientId) ?? null) : null;
-    const base = { name, ingredient, location, current: stock, change: null, replaces: [] };
+    const base = { name, ingredient, location, current: stock, change: null, replaces: [], labels, uncertain, itemNumbers };
     if (stock?.unlimited || unknown) {
       suggestions.push({ ...base, ...unlimited });
     } else if (byUnit.size > 0) {
-      for (const [unit, sum] of byUnit) suggestions.push({ ...base, amount: clampAmount(sum), unit });
+      // Story 6.6: each unit's card has the numbers of its own items, and the first also those without amount, so
+      // two cards never share a number.
+      const withAmount = new Set([...numbersByUnit.values()].flat());
+      const withoutAmount = itemNumbers.filter((n) => !withAmount.has(n));
+      [...byUnit].forEach(([unit, sum], index) => {
+        const numbers = [...(numbersByUnit.get(unit) ?? []), ...(index === 0 ? withoutAmount : [])].sort((a, b) => a - b);
+        suggestions.push({ ...base, amount: clampAmount(sum), unit, itemNumbers: numbers });
+      });
     } else if (stock && stock.amounts.length === 1) {
       const [{ amount, unit }] = stock.amounts;
       suggestions.push({ ...base, amount: clampAmount(amount), unit });
@@ -291,6 +377,45 @@ export function toPantrySuggestions(
   };
 }
 
+/**
+ * A card's title and the catalog ingredient under it (Story 6.5): the
+ * model's labels ("Arla mellanmjölk 1,5 l"), separated by commas, with the
+ * catalog name under them; just the name when there are no labels, or when
+ * the only one is the name ("Ägg" for "ägg").
+ */
+export function suggestionTitle(suggestion: Pick<PantrySuggestion, "name" | "labels">): {
+  title: string;
+  ingredientName: string | null;
+} {
+  const labels = suggestion.labels ?? [];
+  if (labels.length === 0) return { title: suggestion.name, ingredientName: null };
+  if (labels.length === 1 && normalizeIngredientText(labels[0]) === normalizeIngredientText(suggestion.name)) {
+    return { title: suggestion.name, ingredientName: null };
+  }
+  return { title: labels.join(", "), ingredientName: suggestion.name };
+}
+
+/** Under a card's label, when the catalog ingredient differs from it: "Sparas som: vispgrädde". */
+export function savedAsText(name: string): string {
+  return `Sparas som: ${name}`;
+}
+
+/** The badge on a suggestion the model was unsure of (Story 6.5). */
+export const uncertainBadgeText = "Osäker";
+
+/** On a card the model was unsure of, under the amount. */
+export const uncertainSuggestionText = "AI:n är osäker på varan, så Bekräfta alla tar inte med den.";
+
+/** After "Bekräfta alla" when unsure suggestions are left: "1 osäker vara är kvar att bekräfta eller rätta." */
+export function uncertainLeftText(count: number): string {
+  return `${count} ${count === 1 ? "osäker vara är" : "osäkra varor är"} kvar att bekräfta eller rätta.`;
+}
+
+/** Whether "Bekräfta alla" takes the suggestion: never one the model was unsure of (Story 6.5). */
+export function isBulkConfirmable(suggestion: Pick<PantrySuggestion, "uncertain">): boolean {
+  return suggestion.uncertain !== true;
+}
+
 /** The camera button: "Fotografera kylen", "Fotografera frysen" or "Fotografera skafferiet". */
 export function cameraButtonText(location: Location): string {
   return `Fotografera ${definite[location]}`;
@@ -300,6 +425,28 @@ export function cameraButtonText(location: Location): string {
 export function suggestionsHeading(location: Location): string {
   return `Lagerförslag från ${definite[location]}`;
 }
+
+/** The photo the suggestions were read from, during review: "Fotot av kylen". */
+export function analyzedPhotoTitle(location: Location): string {
+  return `Fotot av ${definite[location]}`;
+}
+
+/** The large photo's alt text: "Fotot av kylen som förslagen kommer från". */
+export function analyzedPhotoAlt(location: Location): string {
+  return `Fotot av ${definite[location]} som förslagen kommer från`;
+}
+
+/** Under the photo's thumbnail: it opens larger. */
+export const analyzedPhotoOpenText = "Visa större";
+
+/** Under the large photo's title: it is not kept (AD-15). */
+export const analyzedPhotoNoteText = "Jämför förslagen med fotot. Det sparas inte.";
+
+/** Instead of the photo, when the browser cannot show it. */
+export const analyzedPhotoErrorText = "Fotot kunde inte visas.";
+
+/** The large photo as a toggle: pressed, it shows in full size, so the labels can be read. */
+export const analyzedPhotoFullSizeText = "Visa i full storlek";
 
 /** What the place has now: "I kylen nu: 2 förp", "I kylen nu: 1 l, 2 förp" or "I kylen nu: finns hemma". */
 export function currentAmountText(location: Location, current: PlaceStock): string {
@@ -397,12 +544,19 @@ export function analyzeErrorMessage(error: Pick<AppError, "code" | "message">): 
   return error.code === "ai_rejected" ? analyzeRejectedMessage : error.message;
 }
 
-/** The errors "Försök igen" (the same photo again) may help with; never for a photo that cannot be read or is too large. */
+/**
+ * The errors "Försök igen" (the same photo again) may help with; never for a
+ * photo that cannot be read or is too large, nor for a place that is gone
+ * (`pantry_site_gone`, Story 8.4: the same place fails again). The places
+ * that could not be read before the AI was asked (`pantry_unavailable`,
+ * Story 8.4) may be read the next time.
+ */
 export const analyzeRetryCodes: ReadonlySet<ErrorCode> = new Set<ErrorCode>([
   "ai_unavailable",
   "ai_invalid",
   "ai_rejected",
   "catalog_unavailable",
+  "pantry_unavailable",
 ]);
 
 /** At most this many items in one confirmation: more than one photo's suggestions, never a whole pantry. */
@@ -451,8 +605,31 @@ export const confirmItemSchema = z
 export type ConfirmItem = z.infer<typeof confirmItemSchema>;
 export type ConfirmItemInput = z.input<typeof confirmItemSchema>;
 
-/** What confirmPantrySuggestions takes: 1–40 items. */
-export const confirmSuggestionsSchema = z.array(confirmItemSchema).min(1).max(maxConfirmItems);
+/**
+ * The place a confirmation writes to (Story 8.4): the photo's place, or
+ * `null`, which the actions allow only for a user without places.
+ */
+const confirmSiteSchema = z.uuid().nullable();
+
+/** 1–40 confirmed suggestions. */
+const confirmItemsSchema = z.array(confirmItemSchema).min(1).max(maxConfirmItems);
+
+/**
+ * What confirmPantrySuggestions takes: the photo's place (`siteId`, Story
+ * 8.4) and 1–40 items.
+ */
+export const confirmSuggestionsSchema = z.object({
+  siteId: confirmSiteSchema,
+  items: confirmItemsSchema,
+});
+export type ConfirmSuggestionsInput = z.input<typeof confirmSuggestionsSchema>;
+
+/**
+ * What a client of before Story 8.4 sends during a deploy: the items alone,
+ * for the selected place. The action takes it only from a user with one
+ * place at most (version skew, AD-5).
+ */
+export const legacyConfirmSuggestionsSchema = confirmItemsSchema;
 
 /** At most this many rows one inventory replaces ("Ändrat" in other units); inventoryRequest keeps to it. */
 export const maxInventoryReplaces = maxRequestReplaces;
@@ -460,18 +637,27 @@ export const maxInventoryReplaces = maxRequestReplaces;
 export const maxInventoryRemovals = 1000;
 
 /**
- * What confirmPantryInventory takes (Story 6.4): the photographed place,
- * 0–40 items, the rows they replace and the rows to remove, at least one
- * item or removal, and an operation id (the client's, for "Ångra") with any
- * removal. The limits equal apply_pantry_inventory's.
+ * What confirmPantryInventory takes (Story 6.4): the photo's place (`siteId`,
+ * Story 8.4) and location, 0–40 items, the rows they replace and the rows to
+ * remove, at least one item or removal, and an operation id (the client's,
+ * for "Ångra") with any removal. The limits equal apply_pantry_inventory's.
  */
 export const inventoryConfirmSchema = z
   .object({
+    siteId: confirmSiteSchema,
     location: locationSchema,
     items: z.array(confirmItemSchema).max(maxConfirmItems),
     replaceRowIds: z.array(z.uuid()).max(maxInventoryReplaces),
     removeRowIds: z.array(z.uuid()).max(maxInventoryRemovals),
     operationId: z.uuid().nullable(),
+    /**
+     * Story 8.4: the operation id is one the client expects the removals to
+     * join (a confirmation with "Ångra" that shows, or an earlier removal
+     * without an answer). When it is taken (MK409), the action then fails
+     * instead of trying with a new id, so the removals never leave the
+     * batch they were meant for.
+     */
+    joinsOperation: z.boolean().optional(),
   })
   .refine(({ items, removeRowIds }) => items.length + removeRowIds.length > 0, { path: ["items"] })
   .refine(({ removeRowIds, operationId }) => removeRowIds.length === 0 || operationId !== null, { path: ["operationId"] });
@@ -604,6 +790,32 @@ export function withConfirmedStock(
 /** On a card whose suggestion cannot be confirmed as it is; "Bekräfta alla" leaves it out. */
 export const suggestionInvalidText = "Förslaget går inte att spara som det är. Rätta eller avvisa det.";
 
+/**
+ * Story 8.4: above the suggestions while Hemma shows another place than the
+ * photo's: "Förslagen gäller Stugan."
+ */
+export function suggestionsSiteText(name: string): string {
+  return `Förslagen gäller ${name}.`;
+}
+
+/**
+ * Whether `result` is from a photo of the place `siteId` (Story 8.4). A
+ * result without a place is of no place: nothing done on a place changes it.
+ */
+export function isPhotoOfSite(result: Pick<AnalyzeResult, "site">, siteId: string): boolean {
+  return result.site !== null && result.site.id === siteId;
+}
+
+/**
+ * The place every write from `result` goes to (Story 8.4, FR-33): the
+ * photo's, never the one Hemma shows by the time of the tap; `null` only for
+ * a photo of a user without places. The one source for Bekräfta, Rätta,
+ * "Bekräfta alla", "Ta bort" and the sheet Lagervara's target.
+ */
+export function photoSiteId(result: Pick<AnalyzeResult, "site">): string | null {
+  return result.site?.id ?? null;
+}
+
 /** When the sheet's suggestion was replaced by a newer photo's, or is gone, before Bekräfta or Avvisa. */
 export const suggestionGoneText = "Förslaget finns inte längre.";
 
@@ -629,9 +841,11 @@ export function withoutStock(suggestions: readonly PantrySuggestion[], location:
  * the location is empty, so its suggestions lose "I kylen nu" and their
  * place in the comparison, and a comparison with the emptied location
  * becomes `empty`: the suggestions are a plain list, as for an empty place,
- * and "Syns inte längre" goes.
+ * and "Syns inte längre" goes. Story 8.4: only when the emptied location is
+ * on the photo's place (`siteId`); emptying another place changes nothing.
  */
-export function withoutPlace(result: AnalyzeResult, location: Location): AnalyzeResult {
+export function withoutPlace(result: AnalyzeResult, siteId: string, location: Location): AnalyzeResult {
+  if (!isPhotoOfSite(result, siteId)) return result;
   return {
     ...result,
     suggestions: withoutStock(result.suggestions, location),
@@ -643,10 +857,13 @@ export function withoutPlace(result: AnalyzeResult, location: Location): Analyze
  * After "Ångra" for an emptied location: the photographed location has items
  * again, but not the ones the photo was compared with, so its comparison is
  * `unread` with `changed` ("Lagret i kylen har ändrats sedan bilden togs."),
- * and the suggestions stay a plain list.
+ * and the suggestions stay a plain list. Story 8.4: only for the photo's
+ * place (`siteId`).
  */
-export function withRestoredPlace(result: AnalyzeResult, location: Location): AnalyzeResult {
-  return result.location === location ? { ...result, inventory: { kind: "unread", changed: true } } : result;
+export function withRestoredPlace(result: AnalyzeResult, siteId: string, location: Location): AnalyzeResult {
+  return isPhotoOfSite(result, siteId) && result.location === location
+    ? { ...result, inventory: { kind: "unread", changed: true } }
+    : result;
 }
 
 /**

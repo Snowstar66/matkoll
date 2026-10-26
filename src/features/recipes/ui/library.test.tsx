@@ -3,6 +3,7 @@ import userEvent from "@testing-library/user-event";
 import { useEffect, useState } from "react";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { ToastProvider } from "@/components/toast";
+import type { SelectedSite } from "@/features/pantry";
 import { fail, ok, type Result } from "@/lib/errors";
 import type { FavoriteChange, RecipeListItem } from "../domain/recipe-list";
 import { Library } from "./library";
@@ -15,10 +16,12 @@ import { recipeFilterStorageKey, resetRecipeFilterStore } from "./recipe-filter-
 
 const searchRecipes = vi.fn<(query: string) => Promise<Result<RecipeListItem[]>>>();
 let searchPantryUnavailable = false;
+/** The place searchLibrary's answer was counted against. */
+let searchSite: SelectedSite | null = null;
 vi.mock("../actions/search-recipes", () => ({
   searchLibrary: async (query: string) => {
     const result = await searchRecipes(query);
-    return result.ok ? ok({ recipes: result.data, pantryUnavailable: searchPantryUnavailable }) : result;
+    return result.ok ? ok({ recipes: result.data, pantryUnavailable: searchPantryUnavailable, site: searchSite }) : result;
   },
 }));
 const refresh = vi.fn();
@@ -58,22 +61,35 @@ const ranking = [soppa, gryta, pannkakor, fisk];
 
 let serverRecipes: RecipeListItem[] = [];
 let rerenderServer: ((recipes: RecipeListItem[]) => void) | undefined;
+/** Renders the "server" list again with another place, as a place selected elsewhere does. */
+let rerenderSite: ((site: SelectedSite | null) => void) | undefined;
 let serverPantryUnavailable = false;
+let serverSite: SelectedSite | null = null;
 const searchIngredients = vi.fn(async () => ok([]));
 
 function Server() {
   const [recipes, setRecipes] = useState(serverRecipes);
+  const [site, setSite] = useState(serverSite);
   useEffect(() => {
     rerenderServer = setRecipes;
+    rerenderSite = setSite;
   }, []);
-  return <Library recipes={recipes} pantryUnavailable={serverPantryUnavailable} searchIngredients={searchIngredients} />;
+  return (
+    <Library
+      recipes={recipes}
+      pantryUnavailable={serverPantryUnavailable}
+      site={site}
+      searchIngredients={searchIngredients}
+    />
+  );
 }
 
-type RenderOptions = { pantryUnavailable?: boolean };
+type RenderOptions = { pantryUnavailable?: boolean; site?: SelectedSite | null };
 
 function renderLibrary(recipes: RecipeListItem[] = [gryta, soppa], options: RenderOptions = {}) {
   serverRecipes = recipes;
   serverPantryUnavailable = options.pantryUnavailable ?? false;
+  serverSite = options.site ?? null;
   return render(
     <ToastProvider>
       <Server />
@@ -90,6 +106,7 @@ beforeEach(() => {
   refresh.mockReset();
   postAi.mockReset().mockReturnValue(new Promise(() => {}));
   searchPantryUnavailable = false;
+  searchSite = null;
   searchRecipes.mockReset().mockResolvedValue(ok([]));
   setFavorite.mockReset().mockImplementation(async (change) => {
     serverRecipes = serverRecipes.map((item) => (item.id === change.id ? { ...item, isFavorite: change.isFavorite } : item));
@@ -100,6 +117,134 @@ beforeEach(() => {
 
 afterEach(() => {
   vi.restoreAllMocks();
+});
+
+const stugan: SelectedSite = { id: "55555555-5555-4555-8555-555555555555", name: "Stugan", siteCount: 2 };
+
+describe("Library, the line Lager", () => {
+  it("says which place Kan lagas nu counts against, only in Kan lagas nu", async () => {
+    const user = userEvent.setup();
+    renderLibrary(ranking, { site: stugan });
+    expect(screen.queryByText("Lager: Stugan")).not.toBeInTheDocument();
+    await user.click(pill("Kan lagas nu"));
+    const line = screen.getByText("Lager: Stugan");
+    expect(line).toHaveClass("text-meta", "text-ink-2");
+    // Metadata, not announced: outside every live region.
+    expect(line.closest("[aria-live], [role=status], [role=alert]")).toBeNull();
+    await user.click(pill("Favoriter"));
+    expect(screen.queryByText("Lager: Stugan")).not.toBeInTheDocument();
+    await user.click(pill("Alla"));
+    expect(screen.queryByText("Lager: Stugan")).not.toBeInTheDocument();
+    // The badges are counted against Stugan all the same.
+    expect(screen.getAllByText("Kan lagas nu", { selector: "span" }).length).toBeGreaterThan(0);
+  });
+
+  it("has no line with one place", async () => {
+    const user = userEvent.setup();
+    renderLibrary(ranking, { site: { ...stugan, name: "Hemma", siteCount: 1 } });
+    await user.click(pill("Kan lagas nu"));
+    expect(screen.queryByText(/^Lager:/)).not.toBeInTheDocument();
+  });
+
+  it("has no line when the pantry could not be read", async () => {
+    const user = userEvent.setup();
+    renderLibrary(ranking, { pantryUnavailable: true, site: null });
+    await user.click(pill("Kan lagas nu"));
+    expect(screen.queryByText(/^Lager:/)).not.toBeInTheDocument();
+  });
+
+  it("names the search answer's place while its recipes are shown, also when it differs from the server's", async () => {
+    const user = userEvent.setup();
+    renderLibrary(ranking, { site: stugan });
+    await user.click(pill("Kan lagas nu"));
+    searchSite = { ...stugan, name: "Hemma" };
+    searchRecipes.mockResolvedValueOnce(ok([soppa]));
+    await user.type(screen.getByRole("searchbox", { name: "Sök recept" }), "lin{Enter}");
+    await waitFor(() => expect(titles()).toEqual(["Linssoppa"]));
+    expect(screen.getByText("Lager: Hemma")).toBeInTheDocument();
+    expect(screen.queryByText("Lager: Stugan")).not.toBeInTheDocument();
+    // Back to the server's list: the server's place.
+    await user.clear(screen.getByRole("searchbox"));
+    expect(await screen.findByText("Lager: Stugan")).toBeInTheDocument();
+  });
+
+  it("has no line on no hits, after a failed search, or when the search could not read the pantry", async () => {
+    const user = userEvent.setup();
+    renderLibrary(ranking, { site: stugan });
+    await user.click(pill("Kan lagas nu"));
+    const field = screen.getByRole("searchbox", { name: "Sök recept" });
+
+    searchSite = stugan;
+    searchRecipes.mockResolvedValueOnce(ok([]));
+    await user.type(field, "xyz{Enter}");
+    await screen.findByText("Inga recept matchar.");
+    expect(screen.queryByText(/^Lager:/)).not.toBeInTheDocument();
+
+    searchRecipes.mockResolvedValueOnce(fail("recipe_search_failed"));
+    await user.clear(field);
+    await user.type(field, "lin{Enter}");
+    await screen.findByRole("alert");
+    expect(screen.queryByText(/^Lager:/)).not.toBeInTheDocument();
+
+    searchPantryUnavailable = true;
+    searchRecipes.mockResolvedValueOnce(ok([{ ...soppa, missingCount: null }]));
+    await user.clear(field);
+    await user.type(field, "sop{Enter}");
+    await waitFor(() => expect(titles()).toEqual(["Linssoppa"]));
+    expect(screen.queryByText(/^Lager:/)).not.toBeInTheDocument();
+  });
+
+  it("follows the search answer when the server list had no status", async () => {
+    const user = userEvent.setup();
+    renderLibrary(ranking, { pantryUnavailable: true, site: null });
+    await user.click(pill("Kan lagas nu"));
+    searchSite = stugan;
+    searchRecipes.mockResolvedValueOnce(ok([soppa]));
+    await user.type(screen.getByRole("searchbox", { name: "Sök recept" }), "lin{Enter}");
+    expect(await screen.findByText("Lager: Stugan")).toBeInTheDocument();
+  });
+});
+
+describe("Library, AI-förslag and the place", () => {
+  const draft = {
+    title: "Ugnsomelett",
+    servings: 4,
+    totalMinutes: 40,
+    imageUrl: null,
+    sourceKind: "ai",
+    sourceUrl: null,
+    steps: ["Grädda."],
+    lines: [],
+  };
+  const suggestion = () => screen.queryByRole("heading", { level: 3, name: "Ugnsomelett" });
+
+  it("hides the suggestions while the library shows another place than they were made from, and shows them again", async () => {
+    const user = userEvent.setup();
+    const hemma: SelectedSite = { ...stugan, id: "66666666-6666-4666-8666-666666666666", name: "Hemma" };
+    postAi.mockResolvedValueOnce(ok({ suggestions: [{ draft, ingredientNames: {} }], siteId: stugan.id }));
+    renderLibrary(ranking, { site: stugan });
+    await user.click(pill("Kan lagas nu"));
+    await user.click(screen.getByRole("button", { name: "Föreslå rätter med AI" }));
+    expect(await screen.findByRole("heading", { level: 3, name: "Ugnsomelett" })).toBeInTheDocument();
+
+    act(() => rerenderSite?.(hemma));
+    expect(suggestion()).not.toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "Föreslå rätter med AI" })).toBeInTheDocument();
+
+    act(() => rerenderSite?.(stugan));
+    expect(suggestion()).toBeInTheDocument();
+  });
+
+  it("keeps the suggestions when the library's place is not known", async () => {
+    const user = userEvent.setup();
+    postAi.mockResolvedValueOnce(ok({ suggestions: [{ draft, ingredientNames: {} }], siteId: stugan.id }));
+    renderLibrary(ranking, { site: stugan });
+    await user.click(pill("Kan lagas nu"));
+    await user.click(screen.getByRole("button", { name: "Föreslå rätter med AI" }));
+    expect(await screen.findByRole("heading", { level: 3, name: "Ugnsomelett" })).toBeInTheDocument();
+    act(() => rerenderSite?.(null));
+    expect(suggestion()).toBeInTheDocument();
+  });
 });
 
 describe("Library", () => {

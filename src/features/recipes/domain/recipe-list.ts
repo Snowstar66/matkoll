@@ -1,5 +1,5 @@
 import { z } from "zod";
-import { recipeStatus, type PantrySnapshot, type StatusLine } from "@/features/pantry";
+import { recipeStatus, type PantrySnapshot, type SelectedSite, type StatusLine } from "@/features/pantry";
 
 // The recipe library (FR-8, FR-9, FR-22): what a recipe row shows, the search
 // text and the filters Alla, Favoriter and Kan lagas nu. Pure, so it is tested
@@ -49,15 +49,21 @@ export function withStatus(rows: readonly RecipeListRow[], snapshot: PantrySnaps
 
 /**
  * The library as the Recept page and its search get it: the rows with their
- * status, and whether the pantry could not be read (`pantrySnapshotOrNull`
+ * status, and whether the pantry could not be read (pantry.getPantryForStatus
  * gave `null`), in which case no row has a status and Kan lagas nu cannot
- * rank them.
+ * rank them. `site` is the place the status was counted against, for the
+ * line "Lager: Stugan" in Kan lagas nu (AD-24); `null` without a status, or
+ * when the place could not be read.
  */
-export type RecipeLibrary = { recipes: RecipeListItem[]; pantryUnavailable: boolean };
+export type RecipeLibrary = { recipes: RecipeListItem[]; pantryUnavailable: boolean; site: SelectedSite | null };
 
-/** withStatus, with whether the pantry could not be read. */
-export function toLibrary(rows: readonly RecipeListRow[], snapshot: PantrySnapshot | null): RecipeLibrary {
-  return { recipes: withStatus(rows, snapshot), pantryUnavailable: snapshot === null };
+/** withStatus, with whether the pantry could not be read and the place it is of (none without a status). */
+export function toLibrary(
+  rows: readonly RecipeListRow[],
+  snapshot: PantrySnapshot | null,
+  site: SelectedSite | null,
+): RecipeLibrary {
+  return { recipes: withStatus(rows, snapshot), pantryUnavailable: snapshot === null, site: snapshot ? site : null };
 }
 
 /** What searchRecipes takes: the text typed so far, at most 100 characters. */

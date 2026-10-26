@@ -1,12 +1,13 @@
 ---
 name: Matkoll
 status: final
-updated: 2026-10-25
+updated: 2026-10-26
 sources:
   - _bmad-output/planning-artifacts/prds/prd-Matkoll-2026-10-25/prd.md
   - docs/brief.md
   - docs/ux/ux-spec.md
   - docs/ux/skisser/
+  - _bmad-output/planning-artifacts/prds/prd-Matkoll-2026-10-25/addendum.md (version 1.1)
 ---
 
 # Matkoll – upplevelse
@@ -17,7 +18,7 @@ Den här filen och `DESIGN.md` gäller före skisserna i `docs/ux/skisser/` när
 
 Matkoll är en webbapp, mobil först (från 375 px), som också fungerar på dator. Ingen native app. Inget komponentbibliotek; komponenterna byggs från tokens i `DESIGN.md` (teknikvalet står i `docs/autonomi.md`). Gränssnittet är på svenska och används av en person, Pontus. Ljust och mörkt läge följer systemets inställning.
 
-Begreppen följer PRD:ns ordlista (§3) ordagrant: recept, receptbibliotek, matsedel, matsedelsrätt, inköpslista, listpost, lager, lagervara, plats, stegläge, AI-förslag, lagerförslag med flera.
+Begreppen följer PRD:ns ordlista (§3) ordagrant: recept, receptbibliotek, matsedel, matsedelsrätt, inköpslista, listpost, lager, lagervara, plats, stegläge, AI-förslag, lagerförslag med flera. Från version 1.1 kommer **ställe** och **valt ställe** från addendumet ("Version 1.1: Flera ställen"). Ett ställe (Hemma, Stugan) har platserna Kyl, Frys och Skafferi, och ordet "plats" betyder fortfarande bara dem.
 
 ## Information Architecture
 
@@ -40,6 +41,9 @@ Begreppen följer PRD:ns ordlista (§3) ordagrant: recept, receptbibliotek, mats
 | Lagervara (ark) | "+" i Hemma eller tryck på en vara | Sök katalogingrediens, mängd, enhet, plats; ta bort | FR-11 | Ark |
 | Fotografera plats | Kameraknappen i Hemma | Kamera eller bildval → bildanalys | FR-24 | Flöde 3 |
 | Lagerförslag | Efter bildanalys | Bekräfta, rätta eller avvisa varje förslag | FR-25 | Lagerförslag (komponent), Flöde 3 |
+| Ställesväljare (1.1) | I Hemma, ovanför platskorten, när det finns fler än ett ställe | Välja ställe: vilket lager Hemma visar och vad allt räknas mot | FR-30, FR-31 | Ställesväljare |
+| Ställen (ark, 1.1) | "Ställen" i ställesväljaren, eller "Lägg till ställe" längst ned i Hemma när det bara finns ett ställe | Lägga till, byta namn och ta bort tomma ställen | FR-29 | Ark, Ställen |
+| Byt ställe (ark, 1.1) | "Byt" på raden "Lager: Stugan" i Inköpslistan | Välja vilket ställe listan räknas mot. Det är samma val som i Hemma. | FR-32 | Ark, Flöde 6 |
 | Inställningar | Kugghjul i Recept-rubriken (mobil), längst ned i sidomenyn (dator) | Godkända receptsajter, butik, logga ut | FR-7, FR-28 | Settings |
 
 Ytor utan skiss (Matsedel, Stegläge, ark, inställningar och mörkt läge) byggs från tabellerna här och komponenterna i `DESIGN.md`.
@@ -58,8 +62,16 @@ Kort, saklig och vänlig svenska. Du-tilltal. Inga utropstecken, inga emojis, in
 | "Ta bort Krämig kycklinggryta? Det går inte att ångra." | "Är du säker?" |
 | "Lagt 8 varor i lagret." | "Åtgärden lyckades" |
 | "AI-förslag" som etikett | "Magi", "Smart", gnistor |
+| "Lager: Stugan" | "Du befinner dig i Stugan" |
+| "Lagt 8 varor i lagret för Stugan." | "Varorna har flyttats till stugan!" |
 
 Knappar är verb: "Spara recept", "Lägg på matsedeln", "Laga nu", "Skicka till ICA", "Lägg i lagret", "Fotografera kylen".
+
+**Ställen i texter (1.1):** när det bara finns ett ställe nämns det aldrig, och alla texter är som i 1.0. När det finns fler än ett ställe används två mönster, så att texten fungerar med vilket namn som helst (också "Hemma") utan böjning:
+- en etikett med kolon: "Lager: Stugan";
+- "för" + namnet: "Lagt 8 varor i lagret för Stugan.", "Ta bort alla 14 varor i kylen för Stugan?".
+
+Matkoll skriver aldrig att Pontus *är* på ett ställe, bara vilket lager som gäller.
 
 ## Component Patterns
 
@@ -77,7 +89,11 @@ Beteende. Utseendet beskrivs under Components i `DESIGN.md`, med samma namn och 
 | Portionsväljare | Receptvy, Matsedelsrätt | − och + i steg om 1, minst 1. Mängder skalas direkt. I receptvyn påverkar valet bara visningen; i en matsedelsrätt sparas det. |
 | Ingrediensrad | Receptvy, förhandsgranskning, stegläge | Visar bock (finns) eller ring (saknas). Vag mängd visar originaltexten, t.ex. "efter behov". I förhandsgranskningen får en osäker katalogkoppling ring och "Kontrollera", och en ny katalogingrediens märks "Ny". Rättad koppling sparas som synonym till katalogingrediensen. |
 | Listpost | Inköpslista | Ett tryck på bocken bockar av posten, och det sparas direkt (FR-16). Ett tryck på texten öppnar listpostdetaljen. Avbockade poster stannar på sin plats tills de läggs i lagret. Varianter: **olika enheter** visar lagret bredvid, "mjöl 2 dl (hemma: 1 kg)" (FR-15); **vag mängd** vars vara saknas i lagret visas utan mängd med texten "Finns hemma?", och en avbockning betyder "har köpt den eller har den redan". |
-| Platskort | Hemma | Tryck väljer plats. Listan, kameraknappens text och förvald plats för "+" och lagerförslag följer vald plats. |
+| Platskort | Hemma | Tryck väljer plats. Listan, kameraknappens text och förvald plats för "+" och lagerförslag följer vald plats. Från 1.1 gäller korten och antalen valt ställe. |
+| Ställesväljare (1.1) | Hemma | Visas när det finns fler än ett ställe: en rad med filterpiller med ställenas namn i den ordning de skapades, ovanför platskorten, och sist textknappen "Ställen". Valt ställe är fyllt. Ett tryck väljer stället direkt (optimistiskt), sparar valet på servern och visar dess platser. Vald plats (`?plats=`) behålls. Live-regionen säger "Valt ställe: Stugan.". Om valet inte går att spara går pillret tillbaka, och meddelanderutan visas. Raden radbryts och scrollar aldrig i sidled. Med ett enda ställe visas ingen väljare, utan textknappen "Lägg till ställe" längst ned i Hemma, under "Töm kylen". |
+| Ställen (ark, 1.1) | Hemma | En rad per ställe med namn, antal varor ("12 varor") och "Valt" för valt ställe. Ett tryck på namnet ger ett textfält för nytt namn och "Spara". "Ta bort" finns bara för ett tomt ställe som inte är valt. Det tas bort direkt, utan fråga och utan "Ångra", eftersom inget går förlorat, och bekräftelsen säger "Tog bort Stugan.". Under listan finns fältet "Nytt ställe" (platshållare "Till exempel Stugan") och knappen "Lägg till". Ett nytt ställe väljs inte automatiskt, och bekräftelsen säger "Lade till Stugan. Välj det för att se och fylla dess lager.". |
+| Raden "Lager" (1.1) | Inköpslista, Matsedel, receptvy, Recept med filtret "Kan lagas nu" | Visas bara när det finns fler än ett ställe: "Lager: Stugan" i `{typography.meta}` under sidrubriken (i receptvyn under "X av Y hemma"). I Inköpslistan finns textknappen "Byt" bredvid, och den öppnar arket Byt ställe. Raden annonseras inte när sidan laddas. |
+| Byt ställe (ark, 1.1) | Inköpslista | Rubriken "Räkna listan mot". En rad per ställe, och valt ställe är markerat med bock. Ett tryck väljer stället (samma som i Hemma), stänger arket och visar "Listan räknas nu mot Stugan.". Listan räknas om. Bockar, rättade mängder, dolda poster och egna varor står kvar. |
 | Etikett för obegränsad vara | Hemma | Tryck öppnar arket Lagervara. |
 | Kameraknapp | Hemma | Texten följer platsen: "Fotografera kylen / frysen / skafferiet". Öppnar bakre kameran på mobil och filväljaren på dator. |
 | Fast åtgärdsknapp | Inköpslista, receptvy | Syns alltid. I inköpslistan blir "Lägg i lagret" primärknapp ovanför "Skicka till ICA" när minst en post är avbockad. |
@@ -118,6 +134,16 @@ Gemensamma tillstånd först, sedan per yta i IA-ordning.
 | Tom plats | Hemma | "Inget i kylen än." + "Lägg till vara" och "Fotografera kylen". |
 | Bildanalys pågår | Lagerförslag | "Tittar på bilden …" + "Avbryt". |
 | Inga lagerförslag | Lagerförslag | "Hittade inga varor på bilden. Prova ett ljusare foto eller lägg till för hand." |
+| Ett ställe (1.1) | Alla | Som i 1.0. Ingen ställesväljare, ingen rad "Lager" och inga ställesnamn i texterna. Bara "Lägg till ställe" längst ned i Hemma. |
+| Nytt, tomt ställe (1.1) | Hemma | Platskorten visar "0 varor", och den tomma platsen visar som förut "Inget i kylen än." med "Lägg till vara" och "Fotografera kylen". |
+| Valt ställe har bytts på en annan enhet (1.1) | Alla | Nästa sidladdning visar det nya stället. En skrivning som startades i den gamla vyn sparas ändå på det ställe vyn visade (FR-33). |
+| Stället finns inte längre (1.1) | Hemma, Inköpslista, Lagerförslag | Meddelanderuta: "Stället finns inte längre. Välj ett annat ställe." Inget sparas. |
+| Namnet finns redan (1.1) | Ställen | Under fältet: "Det finns redan ett ställe som heter Stugan." |
+| För många ställen (1.1) | Ställen | Under fältet: "Du kan ha högst 10 ställen." Fältet och "Lägg till" är inaktiva. |
+| Stället kan inte tas bort (1.1) | Ställen | Ingen "Ta bort". För valt ställe står "Valt", och för ett ställe med varor står antalet. Raden förklarar inget mer. |
+| Tom inköpslista med flera ställen (1.1) | Inköpslista | Med matsedel: "Allt finns i lagret för Stugan." |
+| Lagt i lagret med flera ställen (1.1) | Inköpslista | "Lagt 8 varor i lagret för Stugan." |
+| Töm en plats med flera ställen (1.1) | Hemma | Frågan: "Ta bort alla 14 varor i kylen för Stugan?". Bekräftelsen: "Tog bort 14 varor ur kylen för Stugan." |
 
 ## Interaction Primitives
 
@@ -206,6 +232,18 @@ iPhone Safari är huvudmålet. Innehållet håller sig innanför säkerhetsmargi
 4. Tre förslag visas, alla märkta "AI-förslag".
 5. **Klimax:** hen trycker "Spara" på ett förslag, granskar det i förhandsgranskningen och det läggs i biblioteket med etiketten "Kan lagas nu".
 
+### Flöde 6 – Handla inför resan till stugan (UJ-6, version 1.1, fredag eftermiddag)
+
+1. Pontus lägger helgens tre rätter på matsedeln som vanligt.
+2. Under Lista står "Lager: Hemma · Byt". Hen trycker "Byt" och väljer Stugan i arket "Räkna listan mot".
+3. "Listan räknas nu mot Stugan." Ketchup försvinner från listan, eftersom den finns i stugans kyl, och senap kommer med, eftersom den är slut där.
+4. Pontus handlar på vägen och bockar av.
+5. I stugan trycker hen "Lägg i lagret". "Lagt 9 varor i lagret för Stugan."
+6. **Klimax:** under Hemma står Stugan som valt ställe, och i kylen finns det hen just köpte. Lagret hemma är orört.
+7. På söndagen väljer hen Hemma i ställesväljaren igen.
+
+**Variant, se stugans lager hemifrån:** i Hemma trycker Pontus på pillret Stugan, ser att kaffet är slut i skafferiet och trycker på Hemma igen. Valet gäller hela appen tills det byts, så raden "Lager: Stugan" syns i listan, matsedeln och receptvyn under tiden.
+
 ## Settings
 
 | Inställning | Beteende |
@@ -215,3 +253,5 @@ iPhone Safari är huvudmålet. Innehållet håller sig innanför säkerhetsmargi
 | Logga ut | Textknapp längst ned. |
 
 Produktval (FR-27) anges per vara i listpostdetaljen och gäller för den katalogingrediensen i vald butik.
+
+Ställen (1.1, FR-29) hanteras i Hemma, i arket Ställen, och inte i Inställningar, eftersom de hör till lagret.

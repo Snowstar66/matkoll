@@ -34,8 +34,22 @@ vi.mock("@/features/catalog/server", () => ({
   matchIngredients: (items: readonly MatchItem[]) => matchIngredients(items),
   getIngredientNames: (ids: readonly string[]) => getIngredientNames(ids),
 }));
-const getPantrySnapshot = vi.fn<() => Promise<PantrySnapshot>>();
-vi.mock("@/features/pantry/server", () => ({ PantryDataError, getPantrySnapshot: () => getPantrySnapshot() }));
+const getPantrySnapshot = vi.fn<(siteId?: string) => Promise<PantrySnapshot>>();
+/** The selected place. */
+const stugan = { id: "55555555-5555-4555-8555-555555555555", name: "Stugan", siteCount: 2 };
+// pantry.getPantryForStatus as pantry/server.test.ts shows it: the selected
+// place, then that place's pantry, and neither when one cannot be read.
+vi.mock("@/features/pantry/server", () => ({
+  getPantryForStatus: async () => {
+    try {
+      return { site: stugan, snapshot: await getPantrySnapshot(stugan.id) };
+    } catch (error) {
+      if (!(error instanceof PantryDataError)) throw error;
+      console.error("pantry_unavailable", { reason: error.detail });
+      return { site: null, snapshot: null };
+    }
+  },
+}));
 
 const ai = withInputValidation(createMockAiService());
 const suggestDishes = vi.fn(ai.suggestDishes);
@@ -132,6 +146,13 @@ describe("suggestFromPantry", () => {
     expect(suggestions[2].ingredientNames).toEqual({ [ids.lok]: "Gul lök", [ids.ost]: "Riven ost" });
   });
 
+  it("reads the selected place's pantry as the library does, and says which place the dishes are from (AD-24)", async () => {
+    const result = await suggestFromPantry({ avoidTitles: [] }, { signal: signal() });
+    expect(getPantrySnapshot).toHaveBeenCalledTimes(1);
+    expect(getPantrySnapshot).toHaveBeenCalledWith(stugan.id);
+    expect(result.ok && result.data.siteId).toBe(stugan.id);
+  });
+
   it("gives unauthorized without reading anything", async () => {
     requireUser.mockResolvedValue(fail("unauthorized"));
     expect(await suggestFromPantry({ avoidTitles: [] }, { signal: signal() })).toEqual(fail("unauthorized"));
@@ -151,7 +172,7 @@ describe("suggestFromPantry", () => {
     await expect(suggestFromPantry({ avoidTitles: [] }, { signal: signal() })).rejects.toThrow("bug");
   });
 
-  it("gives suggest_empty_pantry without asking the AI when nothing is at home", async () => {
+  it("gives suggest_empty_pantry without asking the AI when nothing is at home, also on an empty place such as Stugan", async () => {
     getPantrySnapshot.mockResolvedValue(new Map());
     expect(await suggestFromPantry({ avoidTitles: [] }, { signal: signal() })).toEqual(fail("suggest_empty_pantry"));
     expect(getIngredientNames).not.toHaveBeenCalled();

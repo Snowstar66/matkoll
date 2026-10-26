@@ -71,7 +71,7 @@ beforeEach(() => {
   });
   putCheckedInPantry.mockReset().mockImplementation(async () => {
     server.put();
-    return ok({ added: 1, removed: 0, skipped: 0 });
+    return ok({ added: 1, removed: 0, skipped: 0, siteName: null });
   });
   refresh.mockReset();
 });
@@ -108,12 +108,34 @@ describe("Lägg i lagret", () => {
     const user = userEvent.setup();
     render(<ShoppingList plan={plan} lines={lines} pantryUnavailable={false} pendingClear={1} />);
     await user.click(button()!);
-    expect(putCheckedInPantry).toHaveBeenCalledWith({ planId: plan.id });
+    expect(putCheckedInPantry).toHaveBeenCalledWith({ planId: plan.id, siteId: null });
+  });
+
+  it("sends the place the list is counted against, so the items go there", async () => {
+    const user = userEvent.setup();
+    const stugan = { id: "55555555-5555-4555-8555-555555555555", name: "Stugan", siteCount: 2 };
+    putCheckedInPantry.mockResolvedValue(ok({ added: 1, removed: 0, skipped: 0, siteName: "Stugan" }));
+    render(<ShoppingList plan={plan} lines={[{ ...lines[0]!, checked: true }]} pantryUnavailable={false} site={stugan} />);
+    await user.click(button()!);
+    expect(putCheckedInPantry).toHaveBeenCalledWith({ planId: plan.id, siteId: stugan.id });
+    expect(await screen.findByTestId("toast")).toHaveTextContent("Lagt 1 vara i lagret för Stugan.");
+  });
+
+  it("keeps the checks when the place is gone, and reads the list again", async () => {
+    const user = userEvent.setup();
+    putCheckedInPantry.mockResolvedValue(fail("pantry_site_gone", { site: "Hemma" }));
+    render(<ShoppingList plan={plan} lines={[{ ...lines[0]!, checked: true }]} pantryUnavailable={false} />);
+    await user.click(button()!);
+    expect(await screen.findByRole("alert")).toHaveTextContent(
+      "Stället finns inte längre. Listan har räknats om mot Hemma. Tryck Lägg i lagret igen.",
+    );
+    expect(screen.getByRole("checkbox", { name: "Grädde, 3 dl" })).toBeChecked();
+    expect(refresh).toHaveBeenCalledTimes(1);
   });
 
   it("says what could not go to the pantry beside the confirmation", async () => {
     const user = userEvent.setup();
-    putCheckedInPantry.mockResolvedValue(ok({ added: 1, removed: 0, skipped: 1 }));
+    putCheckedInPantry.mockResolvedValue(ok({ added: 1, removed: 0, skipped: 1, siteName: null }));
     render(<ShoppingList plan={plan} lines={[{ ...lines[0]!, checked: true }]} pantryUnavailable={false} />);
     await user.click(button()!);
     expect(await screen.findByTestId("toast")).toHaveTextContent("Lagt 1 vara i lagret.");
@@ -134,7 +156,7 @@ describe("Lägg i lagret", () => {
     // "Lägg i lagret" is off until the check's save has settled.
     await waitFor(() => expect(button()).toBeEnabled());
     await user.click(button()!);
-    expect(putCheckedInPantry).toHaveBeenCalledWith({ planId: plan.id });
+    expect(putCheckedInPantry).toHaveBeenCalledWith({ planId: plan.id, siteId: null });
     expect(await screen.findByTestId("toast")).toHaveTextContent("Lagt 1 vara i lagret.");
     expect(screen.queryByText("Grädde")).not.toBeInTheDocument();
     expect(button()).not.toBeInTheDocument();
@@ -143,9 +165,10 @@ describe("Lägg i lagret", () => {
   });
 
   it.each([
-    [{ added: 8, removed: 1, skipped: 0 }, "Lagt 8 varor i lagret."],
-    [{ added: 0, removed: 1, skipped: 0 }, "Tog bort 1 vara från listan."],
-    [{ added: 0, removed: 2, skipped: 0 }, "Tog bort 2 varor från listan."],
+    [{ added: 8, removed: 1, skipped: 0, siteName: null }, "Lagt 8 varor i lagret."],
+    [{ added: 8, removed: 0, skipped: 0, siteName: "Stugan" }, "Lagt 8 varor i lagret för Stugan."],
+    [{ added: 0, removed: 1, skipped: 0, siteName: null }, "Tog bort 1 vara från listan."],
+    [{ added: 0, removed: 2, skipped: 0, siteName: null }, "Tog bort 2 varor från listan."],
   ])("confirms %j with %s", async (answer, text) => {
     const user = userEvent.setup();
     putCheckedInPantry.mockResolvedValue(ok(answer));
@@ -163,7 +186,7 @@ describe("Lägg i lagret", () => {
     expect(button()).toBeDisabled();
     await user.click(button()!);
     expect(putCheckedInPantry).toHaveBeenCalledTimes(1);
-    await act(async () => answer(ok({ added: 1, removed: 0, skipped: 0 })));
+    await act(async () => answer(ok({ added: 1, removed: 0, skipped: 0, siteName: null })));
     expect(button()).toBeEnabled();
   });
 
@@ -172,6 +195,12 @@ describe("Lägg i lagret", () => {
     [fail("shopping_put_in_pantry_failed"), "Det gick inte att lägga allt i lagret. Försök igen.", false],
     [fail("shopping_plan_changed"), "Matsedeln har bytts. Listan är uppdaterad.", true],
     [fail("shopping_put_in_pantry_plan_changed"), "Varorna är lagda i lagret, men matsedeln har bytts.", true],
+    [fail("pantry_site_gone"), "Stället finns inte längre. Listan har räknats om. Tryck Lägg i lagret igen.", true],
+    [
+      fail("pantry_site_gone", { site: "Hemma" }),
+      "Stället finns inte längre. Listan har räknats om mot Hemma. Tryck Lägg i lagret igen.",
+      true,
+    ],
   ])("shows a blue notice for %j", async (result, text, reads) => {
     const user = userEvent.setup();
     putCheckedInPantry.mockResolvedValue(result);
@@ -189,7 +218,7 @@ describe("Lägg i lagret", () => {
     await user.click(button()!);
     expect(await screen.findByRole("alert")).toHaveTextContent("Det gick inte att nå servern. Försök igen.");
     expect(refresh).toHaveBeenCalled();
-    putCheckedInPantry.mockResolvedValue(ok({ added: 1, removed: 0, skipped: 0 }));
+    putCheckedInPantry.mockResolvedValue(ok({ added: 1, removed: 0, skipped: 0, siteName: null }));
     await user.click(button()!);
     await waitFor(() => expect(screen.queryByRole("alert")).not.toBeInTheDocument());
   });

@@ -4,14 +4,15 @@ type: architecture-spine
 purpose: build-substrate
 altitude: feature
 paradigm: 'Modulär monolit: feature-moduler med inre lager, externa tjänster bakom portar (ports and adapters)'
-scope: 'Matkoll v1, hela appen (Epic 1–7)'
+scope: 'Matkoll v1 och 1.1, hela appen (Epic 1–8)'
 status: final
 created: '2026-10-25'
-updated: '2026-10-25'
-binds: [FR-1, FR-2, FR-3, FR-4, FR-5, FR-6, FR-7, FR-8, FR-9, FR-10, FR-11, FR-12, FR-13, FR-14, FR-15, FR-16, FR-17, FR-18, FR-19, FR-20, FR-21, FR-22, FR-23, FR-24, FR-25, FR-26, FR-27, FR-28, NFR-1, NFR-2, NFR-3, NFR-4, NFR-5, NFR-6, NFR-7, NFR-8]
+updated: '2026-10-26'
+binds: [FR-1, FR-2, FR-3, FR-4, FR-5, FR-6, FR-7, FR-8, FR-9, FR-10, FR-11, FR-12, FR-13, FR-14, FR-15, FR-16, FR-17, FR-18, FR-19, FR-20, FR-21, FR-22, FR-23, FR-24, FR-25, FR-26, FR-27, FR-28, FR-29, FR-30, FR-31, FR-32, FR-33, NFR-1, NFR-2, NFR-3, NFR-4, NFR-5, NFR-6, NFR-7, NFR-8, NFR-9]
 sources:
   - _bmad-output/planning-artifacts/prds/prd-Matkoll-2026-10-25/prd.md
   - _bmad-output/planning-artifacts/prds/prd-Matkoll-2026-10-25/addendum.md
+  - _bmad-output/planning-artifacts/sprint-change-proposal-2026-10-26-flera-stallen.md
   - _bmad-output/planning-artifacts/ux-designs/ux-Matkoll-2026-10-25/DESIGN.md
   - _bmad-output/planning-artifacts/ux-designs/ux-Matkoll-2026-10-25/EXPERIENCE.md
   - docs/brief.md
@@ -41,7 +42,7 @@ Feature-moduler och deras tabeller:
 | `auth` | – (Supabase Auth) |
 | `catalog` | `ingredient`, `ingredient_synonym` |
 | `recipes` | `recipe`, `recipe_step`, `recipe_ingredient` |
-| `pantry` | `pantry_item` |
+| `pantry` | `pantry_item`, `pantry_site` (1.1, AD-24), `pantry_addition`, `pantry_removal` |
 | `mealplan` | `meal_plan`, `meal_plan_recipe` |
 | `shopping` | `shopping_check`, `shopping_line_override`, `shopping_custom_item`, `product_choice` |
 | `suggestions` | – (läser via andra moduler) |
@@ -122,6 +123,7 @@ Pilarna är de enda tillåtna beroendena. En annan modul nås bara via dess `ind
   - `coverage(need, snapshot)` är den enda jämförelsen mot lagret och returnerar `covered`, `partial` (kvarvarande mängd), `other-unit` (lagrets mängder), `missing` eller `vague-missing`. En vag rad är täckt om ingrediensen finns i lagret i någon form.
   - `recipeStatus(recipe, servings, snapshot)` ger lagningsstatus, "X av Y hemma" och "Saknar N". N är antalet distinkta katalogingredienser med `missing`, `partial` eller `other-unit`; vaga rader räknas inte. Varje recept jämförs mot hela lagret, utan att lagret fördelas mellan rätter. Att en matsedelsrätt visar "Kan lagas nu" medan listan föreslår samma vara är avsiktligt.
   - Skalning efter portioner sker bara i `recipes/domain/scale.ts`. Enheter räknas aldrig om.
+  - Tillägg (1.1, AD-24): snapshoten gäller valt ställe. Lagret summeras aldrig över ställen, och ett recept jämförs aldrig mot två ställen på en gång.
 
 ### AD-8 – Inköpslistan räknas fram vid läsning
 
@@ -133,6 +135,8 @@ Pilarna är de enda tillåtna beroendena. En annan modul nås bara via dess `ind
   - `shopping_custom_item` för egna varor, som aldrig slås ihop med receptposter och grupperas under katalogingrediensens avdelning eller Övrigt.
 
   `ShoppingLine = { key, ingredientId?, label, amount, unit, isVague, coverage, pantryNote?, section, origins: mealPlanRecipeId[], checked, isCustom }`. "Lägg i lagret" (`shopping/actions/putCheckedInPantry`) skickar avbockade poster till `pantry.addToPantry` (vag post blir obegränsad lagervara), tar bort egna varor utan katalogkoppling och rensar sedan bockarna och överstyrningarna för de nycklarna. Upprepas flödet blir resultatet detsamma.
+
+  Tillägg (1.1, AD-24): `input.snapshot` är snapshoten för valt ställe. Stället ingår aldrig i listnyckeln, överlägget, produktvalen eller exporten. Ett byte av ställe räknar om listan, och bockar och överstyrningar står kvar under sina nycklar. `getShoppingList` lämnar `site` bredvid listan, och "Lägg i lagret" lägger på det ställe som listan räknades mot (`putCheckedInPantry(siteId)`).
 
 ### AD-9 – AI-tjänsten är en port
 
@@ -184,7 +188,7 @@ Pilarna är de enda tillåtna beroendena. En annan modul nås bara via dess `ind
 
 - **Binds:** FR-4, FR-8, FR-24
 - **Prevents:** lagrade privata foton, uppladdningar som stoppas av Vercels gräns på 4,5 MB, och trasiga receptbilder.
-- **Rule:** Foton av kokbokssidor och platser förminskas i klienten till högst 1600 px och 1,5 MB (JPEG) före uppladdning, kontrolleras på servern (`image_too_large`), skickas till AI-tjänsten och sparas aldrig. Receptbilder sparas som URL och visas med `<img referrerPolicy="no-referrer">` och en platshållare vid fel. Ingen CSP i v1.
+- **Rule:** Foton av kokbokssidor och platser förminskas i klienten till högst 1600 px för en kokbokssida och 2048 px för en plats (Story 6.5, `maxPlacePhotoSide`), och högst 1,5 MB (JPEG), före uppladdning, kontrolleras på servern (`image_too_large`), skickas till AI-tjänsten och sparas aldrig. Receptbilder sparas som URL och visas med `<img referrerPolicy="no-referrer">` och en platshållare vid fel. Ingen CSP i v1.
 
 ### AD-16 – Varukorgsexporten
 
@@ -202,7 +206,7 @@ Pilarna är de enda tillåtna beroendena. En annan modul nås bara via dess `ind
 
 - **Binds:** alla sidor och actions
 - **Prevents:** byggfel från sessionsläsning utanför `<Suspense>`, cachad användardata och inaktuella härledda vyer.
-- **Rule:** `cacheComponents: true` behålls som i startmallen. Allt som läser sessionen eller användardata renderas i en komponent inuti `<Suspense>`; en layout gör aldrig `await` på sessionen på toppnivå. Ingen `'use cache'` på användardata i v1. Route segment config begränsas till `maxDuration`. Efter en skrivning anropar actionen `revalidateFor(table)` från `src/lib/revalidate.ts`, som mappar tabell till alla rutter som visar den eller något härlett ur den (t.ex. `pantry_item` → `/hemma`, `/recept`, `/recept/[id]`, `/matsedel`, `/lista`). `revalidatePath` anropas inte direkt. Klientkomponenter med effekter (t.ex. Wake Lock i stegläget) städar upp i effektens cleanup och återtar resurser vid `visibilitychange`.
+- **Rule:** `cacheComponents: true` behålls som i startmallen. Allt som läser sessionen eller användardata renderas i en komponent inuti `<Suspense>`; en layout gör aldrig `await` på sessionen på toppnivå. Ingen `'use cache'` på användardata i v1. Route segment config begränsas till `maxDuration`. Efter en skrivning anropar actionen `revalidateFor(table)` från `src/lib/revalidate.ts`, som mappar tabell till alla rutter som visar den eller något härlett ur den (t.ex. `pantry_item` → `/hemma`, `/recept`, `/recept/[id]`, `/matsedel`, `/lista`). `revalidatePath` anropas inte direkt. Tillägg (1.1, AD-24): `pantry_site` → `/hemma`, `/recept`, `/matsedel`, `/lista`, eftersom ett byte av ställe ändrar allt som räknas mot lagret. Klientkomponenter med effekter (t.ex. Wake Lock i stegläget) städar upp i effektens cleanup och återtar resurser vid `visibilitychange`.
 
 ### AD-19 – Lagervarans identitet och skrivoperationer
 
@@ -215,6 +219,8 @@ Pilarna är de enda tillåtna beroendena. En annan modul nås bara via dess `ind
 
   Läsning sker med `getPantrySnapshot(): Map<ingredientId, { unlimited, amounts: { unit, amount }[] }>`, summerad över platser, och `listPantry(location)` för vyn. `coverage` tar bara emot snapshot.
 
+  Ändrat (1.1, AD-24): den unika nyckeln är `(user_id, site_id, ingredient_id, location, unit)` med `nulls not distinct`. Varje skrivoperation tar `siteId` från vyn. `getPantrySnapshot(siteId?)`, `listPantry(location, siteId?)` och `countPantryItems(siteId?)` gäller ett ställe (valt ställe om inget anges), summerat över ställets platser och aldrig över ställen. Skrivoperationerna från Epic 6 (`emptyPantryPlace`, `restorePantryRemoval`, `confirmPantryInventory`) och `confirmPantrySuggestions` hör också hit.
+
 ### AD-20 – Referenser och borttagning
 
 - **Binds:** FR-10, FR-14, alla främmande nycklar
@@ -225,7 +231,7 @@ Pilarna är de enda tillåtna beroendena. En annan modul nås bara via dess `ind
 
 - **Binds:** FR-7, FR-28
 - **Prevents:** att import saknar godkända sajter i molnet, och startdata som skapas på flera sätt.
-- **Rule:** Postgres-funktionen `ensure_user_defaults()` (ägs av `settings`, `security invoker`, idempotent med `on conflict do nothing`) lägger in `koket.se` och `tasteline.com` i `recipe_site` och Maxi ICA Stormarknad Östersund (ICA Handla, butiks-id 1003733) som vald `store`. Den anropas av `auth/confirm` efter lyckad inloggning och av testernas setup. `seed.sql` skapar bara lokala testanvändare.
+- **Rule:** Postgres-funktionen `ensure_user_defaults()` (ägs av `settings`, `security invoker`, idempotent med `on conflict do nothing`) lägger in `koket.se` och `tasteline.com` i `recipe_site` och Maxi ICA Stormarknad Östersund (ICA Handla, butiks-id 1003733) som vald `store`. Den anropas av `auth/confirm` efter lyckad inloggning och av testernas setup. `seed.sql` skapar bara lokala testanvändare. Tillägg (1.1, AD-24): `pantry` har en egen funktion för sin startdata, `ensure_pantry_defaults()` (`security invoker`, idempotent), som skapar stället "Hemma" som valt. `auth/confirm` anropar den efter `ensure_user_defaults()`, och testernas setup anropar båda. En modul skriver aldrig en annan moduls startdata (AD-1).
 
 ### AD-22 – Aktuell matsedel
 
@@ -244,6 +250,67 @@ Pilarna är de enda tillåtna beroendena. En annan modul nås bara via dess `ind
   - Produktion byggs bara från `main`. Förhandsdriftsättningar saknar Supabase-variabler. `supabase db push` körs före koddriftsättningen. Första publiceringen i produktion kräver Pontus godkännande.
   - Vercel och Supabase ligger i Stockholm (Vercel `arn1`, Supabase `eu-north-1`).
   - Ett schemalagt GitHub Actions-flöde gör varje vecka en krypterad `supabase db dump` (lösenfras som hemlighet) och sparar den som artefakt. Det håller också gratisprojektet aktivt.
+
+### AD-24 – Ställen i lagret
+
+- **Binds:** FR-29, FR-30, FR-31, FR-32, FR-33, NFR-9, och i 1.1 också FR-8, FR-11, FR-12, FR-13, FR-15, FR-19, FR-20, FR-22, FR-23, FR-24 och FR-25
+- **Prevents:**
+  - lager som summeras över ställen;
+  - moduler som själva avgör vilket ställe som gäller;
+  - skrivningar som hamnar på fel ställe när stället byts mitt i ett flöde;
+  - en migrering som tappar, flyttar eller dubblerar lagervaror.
+- **Rule:**
+  - **Data:**
+    - `pantry` äger `pantry_site` (`id`, `user_id`, `name`, `normalized_name`, `is_selected`, `created_at`).
+      - Den är unik på `(id, user_id)` för sammansatta nycklar och på `(user_id, normalized_name)`.
+      - Ett partiellt unikt index, `(user_id) where is_selected`, ger högst ett valt ställe.
+      - En `check` begränsar namnet till 1–40 tecken.
+      - Normaliseringen görs bara av `pantry/domain/site.ts`: trimmat, gemener och enkla mellanslag.
+      - RLS, grants och RLS-test enligt AD-4.
+    - `pantry_item.site_id uuid not null` refererar `pantry_site (id, user_id)` via `(site_id, user_id)` med `on delete restrict`, så ett ställe med varor kan inte tas bort.
+    - Den unika nyckeln blir `(user_id, site_id, ingredient_id, location, unit) nulls not distinct` (AD-19), och indexet `(user_id, site_id, location)` ersätter `(user_id, location)`. Regeln "obegränsad eller mängder" gäller per ställe och plats.
+    - Raderna som sparas i `pantry_removal.removed_rows` har `site_id`. `pantry_addition` ändras inte.
+    - Platserna (Kyl, Frys, Skafferi, AD-12) är desamma på alla ställen. Ett ställe är aldrig en plats.
+  - **Valt ställe:**
+    - Varje användare med ställen har exakt ett valt ställe.
+    - Bara Postgres-funktionen `select_pantry_site(site_id)` byter valt ställe. Den låser användarens ställen och slår av det gamla och på det nya i en transaktion (samma mönster som `select_store`).
+    - `save_pantry_site(id, name)` skapar ett ställe eller byter namn på det, och nekar fler än 10 ställen per användare.
+    - `delete_pantry_site(id)` nekar valt ställe, ett ställe med varor och det sista stället.
+    - Alla tre tar `pantry_lock()`.
+    - Matkoll byter aldrig ställe på egen hand.
+  - **Läsning:**
+    - `pantry/server.ts` exporterar `getSelectedSite(): { id, name, siteCount } | null`, `listPantrySites()`, `getPantrySnapshot(siteId?)`, `listPantry(location, siteId?)` och `countPantryItems(siteId?)`.
+    - Utan `siteId` gäller valt ställe.
+    - Funktionerna memoiseras per förfrågan med React `cache`, så att en sida läser valt ställe en gång och alla delar av sidan visar samma ställe.
+    - Ingen funktion summerar lagret över ställen.
+    - En användare utan ställen (före `ensure_pantry_defaults`) har ett tomt lager, och `getSelectedSite()` ger `null`.
+  - **Skrivning:**
+    - Pantry-skrivningarna (`setPantryItems`, `addToPantry`, `removePantryItem`, `restorePantryItem`, `confirmPantrySuggestions`, `confirmPantryInventory`, `emptyPantryPlace` och `restorePantryRemoval`) tar ställets id från den vy som klienten visade (FR-33), aldrig det ställe som är valt när anropet kommer fram.
+    - Postgres-funktionerna får parametern `site uuid default null` sist. `null` betyder valt ställe. Det finns bara för att 1.0-koden ska fungera under driftsättningen (AD-5). Ny kod skickar alltid `site`.
+    - Saknar användaren ställen skapar skrivfunktionen "Hemma" som valt, via hjälpfunktionen `pantry_selected_site()`.
+    - "Ångra" (`restore_pantry_item` och `restore_pantry_removal`) sätter tillbaka på radens eget `site_id`.
+    - Ett ställe som har tagits bort ger felkoden `pantry_site_gone` och ingen skrivning.
+  - **Andra moduler:**
+    - `recipes`, `mealplan`, `suggestions` och `shopping` anropar `getPantrySnapshot()` utan argument, alltså för valt ställe, och `getSelectedSite()` när de visar raden "Lager: <namn>".
+    - `shopping.getShoppingList` lämnar `site` bredvid listan, som `store`. `putCheckedInPantry(siteId)` skickar listans ställe vidare till `addToPantry`.
+    - Ställets id ingår aldrig i listnycklar, bockar, överstyrningar, egna varor, produktval eller exporten (AD-8, AD-16).
+    - `/api/ai/analyze` tar emot `site` och `location` och läser platsen på det stället. AI-porten får bara platsen (AD-9 är oförändrad).
+    - Ingen annan modul läser eller skriver `pantry_site` (AD-1).
+  - **UI:**
+    - Ställesväljaren, arket Ställen och arket Byt ställe är komponenter i `pantry/ui`, och `selectPantrySite`, `savePantrySite` och `deletePantrySite` är Server Actions i `pantry/actions`.
+    - Sidorna `/hemma` och `/lista` renderar komponenterna (route → ui). `shopping/ui` importerar dem inte.
+    - Valt ställe lagras inte i adressen. `?plats=` i Hemma är oförändrad.
+  - **Startdata:** `ensure_pantry_defaults()` (AD-21).
+  - **Migrering (Story 8.1):** en migration i en transaktion som bara lägger till.
+    1. Skapa `pantry_site`.
+    2. Lägg in "Hemma" som valt ställe för varje användare i `auth.users`.
+    3. Lägg till `pantry_item.site_id`, fyll den med användarens "Hemma", sätt `not null` och lägg till den sammansatta nyckeln.
+    4. Byt den unika nyckeln och indexet.
+    5. Lägg `site_id` på raderna i `pantry_removal.removed_rows`.
+    6. Ersätt pantry-funktionerna med versioner som har parametern `site`. Pantry-läsningarna i 1.0-koden går via PostgREST och läser alla rader, vilket är detsamma som "Hemma" så länge det är det enda stället.
+
+    Ett integrationstest visar att lagret har samma rader, mängder och id före och efter, och att 1.0:s anrop utan `site` fortfarande fungerar.
+  - **Rendering:** `revalidateFor('pantry_site')` (AD-18).
 
 ## Consistency Conventions
 
@@ -319,6 +386,7 @@ erDiagram
   ingredient ||--o{ ingredient_synonym : "har"
   ingredient ||--o{ recipe_ingredient : "kopplas"
   ingredient ||--o{ pantry_item : "kopplas"
+  pantry_site ||--o{ pantry_item : "har (1.1)"
   ingredient |o--o{ shopping_custom_item : "kopplas (valfritt)"
   ingredient ||--o{ product_choice : "har"
   recipe ||--o{ recipe_step : "har"
@@ -340,7 +408,10 @@ erDiagram
 | `recipe` | `title`, `original_servings`, `total_minutes`, `image_url`, `source_kind`, `source_url`, `is_favorite` |
 | `recipe_step` | `recipe_id`, `position`, `text` |
 | `recipe_ingredient` | `recipe_id`, `ingredient_id`, `step_id` (valfri), `position`, `original_text`, `amount`, `unit`, `is_vague` |
-| `pantry_item` | `ingredient_id`, `location`, `amount`, `unit` |
+| `pantry_item` | `ingredient_id`, `site_id` (1.1), `location`, `amount`, `unit` |
+| `pantry_site` (1.1) | `name`, `normalized_name` (unik), `is_selected` (högst ett per användare) |
+| `pantry_addition` | `key` (unik): kvitto för "Lägg i lagret" |
+| `pantry_removal` | `id` (operations-id), `removed_rows` (med `site_id` från 1.1): underlag för "Ångra" |
 | `meal_plan` | `name`, `is_current` |
 | `meal_plan_recipe` | `meal_plan_id`, `recipe_id` (null efter borttagning), `recipe_title`, `servings`, `position` |
 | `shopping_check` | `meal_plan_id`, `line_key` |
@@ -390,6 +461,7 @@ Molnmiljön kräver Pontus konton och läggs på hens checklista i `docs/autonom
 | FR-22, FR-23 Förslag | `suggestions`, `app/api/ai/suggest` | AD-7, AD-9, AD-10 |
 | FR-24, FR-25 Bildanalys | `pantry`, `app/api/ai/analyze` | AD-2, AD-6, AD-9, AD-15, AD-19 |
 | FR-26–FR-28 Varukorgsexport | `shopping`, `settings` | AD-16 |
+| FR-29–FR-33, NFR-9 Flera ställen (1.1) | `pantry` (äger `pantry_site`), läses av `recipes`, `mealplan`, `suggestions`, `shopping`; `app/hemma`, `app/lista`, `app/api/ai/analyze` | AD-1, AD-5, AD-7, AD-8, AD-18, AD-19, AD-21, AD-24 |
 | NFR-1, NFR-2 Säkerhet, utbytbar AI | `src/server`, `auth` | AD-3, AD-4, AD-9, AD-11, AD-14 |
 | NFR-3–NFR-6 Responsiv, tillgänglig, utseende, svenska | `src/components`, `globals.css`, `src/lib/errors.ts` | AD-13, AD-17 |
 | NFR-7 Svarstider | regioner, AI-budget | AD-9, AD-23 |
@@ -403,4 +475,5 @@ Molnmiljön kräver Pontus konton och läggs på hens checklista i `docs/autonom
 - **Sammanslagning av katalogingredienser:** ingår inte i v1. Kräver ett nytt beslut om omkoppling i alla moduler innan det byggs.
 - **Domän och Cloudflare-uppsättning:** kräver Pontus domän; påverkar bara miljövariabler.
 - **Övervakning i molnet:** Vercels inbyggda loggar räcker för en användare.
+- **Ställen efter 1.1:** att flytta eller kopiera varor mellan ställen, att välja ställe efter position och att listan har ett eget ställe, skilt från valt ställe (alternativ B i kursändringen). AD-24 tillåter alla tre utan ombyggnad: varan har redan `site_id`, och `putCheckedInPantry` tar redan emot ett ställe.
 - **Vercel Hobby och fler användare:** Hobby gäller icke-kommersiellt bruk; plan och upphovsrätt för receptinnehåll prövas innan appen öppnas för andra.

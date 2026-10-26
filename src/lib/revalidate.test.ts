@@ -18,6 +18,23 @@ describe("revalidateFor", () => {
     ]);
   });
 
+  it("revalidates everything counted against the pantry after a place is selected, added, renamed or deleted", () => {
+    revalidateFor("pantry_site");
+    expect(revalidatePath.mock.calls).toEqual([
+      ["/hemma", "page"],
+      ["/recept", "layout"],
+      ["/matsedel", "layout"],
+      ["/lista", "page"],
+    ]);
+  });
+
+  it("revalidates Inköpslista's page when a place is selected, which the sheet Räkna listan mot waits for (Story 8.5)", () => {
+    // ListSiteLine closes its sheet on selectPantrySite's answer, trusting that
+    // the same response carries the list counted against the new place.
+    revalidateFor("pantry_site");
+    expect(revalidatePath).toHaveBeenCalledWith("/lista", "page");
+  });
+
   it("revalidates the meal plan, the shopping list and the recipes after a meal plan write", () => {
     revalidateFor("meal_plan_recipe");
     revalidateFor("meal_plan");

@@ -1,7 +1,8 @@
 import "server-only";
 import type { Location } from "@/features/catalog";
 import { addToPantryItemsSchema, maxAdditionKeyChars, type AddToPantryItem } from "../domain/add-to-pantry";
-import { PantryDataError, type PantryDb } from "./client";
+import { PantryDataError, pantryWriteError, type PantryDb } from "./client";
+import { checkedSiteId } from "./queries";
 
 /** The catalog ingredients' locations by id (catalog.getIngredientDefaults); ids not in the catalog are left out. */
 export type IngredientLocations = (ids: readonly string[]) => Promise<Record<string, { location: Location }>>;
@@ -18,18 +19,27 @@ export type IngredientLocations = (ids: readonly string[]) => Promise<Record<str
  * (add_to_pantry): all or nothing. Returns the number of items handled, i.e.
  * without those skipped for their key.
  *
- * Throws PantryDataError: `invalid_items` or `unknown_ingredient` (an
- * ingredient the catalog does not return for the user, also with a location
- * given) before anything is written, or `add_failed <code>` when
- * Postgres refuses. What `locations` throws is passed on.
+ * Everything goes to one place (AD-24): `siteId`, or the selected place when
+ * it is `null` (add_to_pantry creates Hemma for a user without places). The
+ * receipts are per user, not per place: a key added on one place is skipped
+ * on every place, since the item was bought once.
+ *
+ * Throws PantryDataError: `invalid_items`, `invalid_site` (not a uuid) or
+ * `unknown_ingredient` (an ingredient the catalog does not return for the
+ * user, also with a location given) before anything is written,
+ * `site_gone` when the place is removed or not the user's (MK410), or
+ * `add_failed <code>` when Postgres refuses. What `locations` throws is
+ * passed on.
  */
 export async function addToPantryIn(
   db: PantryDb,
   items: readonly AddToPantryItem[],
   locations: IngredientLocations,
+  siteId: string | null = null,
 ): Promise<number> {
   const parsed = addToPantryItemsSchema.safeParse(items);
   if (!parsed.success) throw new PantryDataError("invalid_items");
+  const site = siteId === null ? null : checkedSiteId(siteId);
 
   const defaults = await locations([...new Set(parsed.data.map((item) => item.ingredientId))]);
   const rows = parsed.data.map((item) => {
@@ -39,8 +49,8 @@ export async function addToPantryIn(
     return { key: item.key, ingredient_id: item.ingredientId, location, amount: item.amount, unit: item.unit };
   });
 
-  const { data, error } = await db.rpc("add_to_pantry", { items: rows });
-  if (error) throw new PantryDataError(`add_failed ${error.code}`);
+  const { data, error } = await db.rpc("add_to_pantry", site === null ? { items: rows } : { items: rows, site });
+  if (error) throw pantryWriteError("add_failed", error.code);
   return data;
 }
 

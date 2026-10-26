@@ -19,8 +19,15 @@ vi.mock("@/features/catalog/server", async (importOriginal) => ({
 }));
 const setPantryItemsIn = vi.fn();
 vi.mock("../data/set", () => ({ setPantryItemsIn: (...args: unknown[]) => setPantryItemsIn(...args) }));
+const loadPantrySitesIn = vi.fn();
+vi.mock("../data/sites", () => ({ loadPantrySitesIn: (...args: unknown[]) => loadPantrySitesIn(...args) }));
 
-const { confirmPantrySuggestions } = await import("./confirm-pantry-suggestions");
+const { confirmPantrySuggestions: confirmOn } = await import("./confirm-pantry-suggestions");
+
+/** The photo's place (Story 8.4). */
+const stugan = "55555555-5555-4555-8555-555555555555";
+/** A confirmation of `items` from a photo of Stugan. */
+const confirmPantrySuggestions = (items: readonly ConfirmItemInput[]) => confirmOn({ siteId: stugan, items: [...items] });
 
 const mjolk = "11111111-1111-4111-8111-111111111111";
 const smor = "11111111-1111-4111-8111-111111111112";
@@ -50,12 +57,14 @@ let log: ReturnType<typeof vi.spyOn>;
 beforeEach(() => {
   requireUser.mockReset().mockResolvedValue(ok({ id: "user", email: "pontus@example.com" }));
   commitIngredients.mockReset().mockImplementation(async (choices) => commitIds(choices));
+  loadPantrySitesIn.mockReset().mockResolvedValue([{ id: stugan, name: "Stugan", isSelected: true }]);
   setPantryItemsIn.mockReset().mockImplementation(async (_db, items: { ingredientId: string }[]) =>
     items.map((item, index) => ({ id: `row-${index}`, ...item })),
   );
   revalidateFor.mockReset();
   log?.mockRestore();
   log = vi.spyOn(console, "error").mockImplementation(() => {});
+  vi.spyOn(console, "info").mockImplementation(() => {});
 });
 
 describe("confirmPantrySuggestions", () => {
@@ -74,7 +83,7 @@ describe("confirmPantrySuggestions", () => {
       { ingredientId: mjolk, location: "Kyl", amount: 1, unit: "förp" },
       { ingredientId: agg, location: "Kyl", amount: 6, unit: "st" },
       { ingredientId: smor, location: "Kyl", amount: null, unit: null },
-    ]);
+    ], null, stugan);
     expect(revalidateFor).toHaveBeenCalledExactlyOnceWith("pantry_item");
     expect(setPantryItemsIn.mock.invocationCallOrder[0]).toBeGreaterThan(commitIngredients.mock.invocationCallOrder[0]);
     expect(revalidateFor.mock.invocationCallOrder[0]).toBeGreaterThan(setPantryItemsIn.mock.invocationCallOrder[0]);
@@ -108,7 +117,7 @@ describe("confirmPantrySuggestions", () => {
     expect(setPantryItemsIn).toHaveBeenCalledWith(db, [
       { ingredientId: mjolk, location: "Kyl", amount: 3, unit: "förp" },
       { ingredientId: agg, location: "Kyl", amount: 10, unit: "st" },
-    ]);
+    ], null, stugan);
   });
 
   it("returns unauthorized without an allowed user, and writes nothing", async () => {
@@ -127,14 +136,14 @@ describe("confirmPantrySuggestions", () => {
       fresh("gurka", { amount: 1, unit: "st" }),
     ]);
     expect(commitIngredients.mock.calls[0][0]).toHaveLength(2);
-    expect(setPantryItemsIn).toHaveBeenCalledWith(db, [{ ingredientId: gurka, location: "Kyl", amount: 3, unit: "st" }]);
+    expect(setPantryItemsIn).toHaveBeenCalledWith(db, [{ ingredientId: gurka, location: "Kyl", amount: 3, unit: "st" }], null, stugan);
     expect(result).toEqual(ok({ count: 1 }));
   });
 
   it("applies amounts over unlimited again on the ids the catalog gives", async () => {
     commitIngredients.mockResolvedValue([mjolk, mjolk]);
     await confirmPantrySuggestions([existing(mjolk, { amount: null, unit: null }), fresh("Mjölk", { amount: 2, unit: "förp" })]);
-    expect(setPantryItemsIn).toHaveBeenCalledWith(db, [{ ingredientId: mjolk, location: "Kyl", amount: 2, unit: "förp" }]);
+    expect(setPantryItemsIn).toHaveBeenCalledWith(db, [{ ingredientId: mjolk, location: "Kyl", amount: 2, unit: "förp" }], null, stugan);
   });
 
   it("names each item that is not valid by its index, so the client can leave it out", async () => {
@@ -226,5 +235,67 @@ describe("confirmPantrySuggestions", () => {
   it("lets other errors through", async () => {
     setPantryItemsIn.mockRejectedValue(new Error("boom"));
     await expect(confirmPantrySuggestions([existing(mjolk)])).rejects.toThrow("boom");
+  });
+});
+
+describe("confirmPantrySuggestions on the photo's place (Story 8.4)", () => {
+  it("sends the photo's place to set_pantry_items, without reading the places", async () => {
+    await confirmOn({ siteId: stugan, items: [existing(mjolk)] });
+    expect(setPantryItemsIn).toHaveBeenLastCalledWith(db, [expect.objectContaining({ ingredientId: mjolk })], null, stugan);
+    expect(loadPantrySitesIn).not.toHaveBeenCalled();
+  });
+
+  it("never falls back to the selected place: no place from a user with places is pantry_site_gone, and nothing is written", async () => {
+    expect(await confirmOn({ siteId: null, items: [existing(mjolk)] })).toEqual(fail("pantry_site_gone"));
+    expect(commitIngredients).not.toHaveBeenCalled();
+    expect(setPantryItemsIn).not.toHaveBeenCalled();
+    expect(revalidateFor).toHaveBeenCalledExactlyOnceWith("pantry_site");
+  });
+
+  it("sends null for a user without places, the only case it is allowed", async () => {
+    loadPantrySitesIn.mockResolvedValue([]);
+    expect(await confirmOn({ siteId: null, items: [existing(mjolk)] })).toEqual(ok({ count: 1 }));
+    expect(setPantryItemsIn).toHaveBeenLastCalledWith(db, [expect.objectContaining({ ingredientId: mjolk })], null, null);
+  });
+
+  it("takes the bare list of a client of before Story 8.4 for the one place there is, and refuses it with several", async () => {
+    expect(await confirmOn([existing(mjolk)])).toEqual(ok({ count: 1 }));
+    expect(setPantryItemsIn).toHaveBeenLastCalledWith(db, [expect.objectContaining({ ingredientId: mjolk })], null, stugan);
+    loadPantrySitesIn.mockResolvedValue([]);
+    expect(await confirmOn([existing(mjolk)])).toEqual(ok({ count: 1 }));
+    expect(setPantryItemsIn).toHaveBeenLastCalledWith(db, [expect.objectContaining({ ingredientId: mjolk })], null, null);
+    loadPantrySitesIn.mockResolvedValue([
+      { id: stugan, name: "Stugan", isSelected: true },
+      { id: mjolk, name: "Hemma", isSelected: false },
+    ]);
+    setPantryItemsIn.mockClear();
+    expect(await confirmOn([existing(mjolk)])).toEqual(fail("validation"));
+    expect(setPantryItemsIn).not.toHaveBeenCalled();
+  });
+
+  it("stays pantry_site_gone when revalidating fails, and logs it", async () => {
+    setPantryItemsIn.mockRejectedValue(new PantryDataError("site_gone"));
+    revalidateFor.mockImplementation(() => {
+      throw new TypeError("no store");
+    });
+    expect(await confirmPantrySuggestions([existing(mjolk)])).toEqual(fail("pantry_site_gone"));
+    expect(log).toHaveBeenCalledWith("pantry_revalidate_failed", { reason: "TypeError" });
+  });
+
+  it.each([
+    ["a place that is not a uuid", { siteId: "stugan", items: [existing(mjolk)] }],
+    ["no place", { items: [existing(mjolk)] }],
+  ])("refuses %s with validation, and writes nothing", async (_case, input) => {
+    expect(await confirmOn(input as never)).toEqual(fail("validation"));
+    expect(commitIngredients).not.toHaveBeenCalled();
+    expect(setPantryItemsIn).not.toHaveBeenCalled();
+  });
+
+  it("gives pantry_site_gone for a place that is gone, reads the page again, and revalidates no pantry", async () => {
+    setPantryItemsIn.mockRejectedValue(new PantryDataError("site_gone"));
+    expect(await confirmPantrySuggestions([existing(mjolk)])).toEqual(fail("pantry_site_gone"));
+    expect(revalidateFor).toHaveBeenCalledExactlyOnceWith("pantry_site");
+    expect(console.info).toHaveBeenCalledWith("pantry_site_gone", { reason: "MK410" });
+    expect(log).not.toHaveBeenCalledWith("pantry_site_gone", expect.anything());
   });
 });

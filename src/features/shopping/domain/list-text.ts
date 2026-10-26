@@ -9,8 +9,16 @@ import type { ShoppingLine } from "./compute-list";
 /** The empty list without a meal plan, or with a plan without dishes. */
 export const emptyPlanText = "Lägg rätter på matsedeln så räknas listan fram.";
 
-/** The empty list with dishes on the plan: everything is at home. */
-export const allAtHomeText = "Allt finns hemma.";
+/**
+ * The empty list with dishes on the plan: everything is in the pantry it is
+ * counted against. "Allt finns i lagret för Stugan." with the place's name
+ * (pantry.shownSiteName, with more than one place), also for Hemma, so the
+ * text works with any name without inflection; "Allt finns hemma." without
+ * one, as in 1.0 (UX-DR17, Story 8.5).
+ */
+export function allInStockText(siteName: string | null): string {
+  return siteName === null ? "Allt finns hemma." : `Allt finns i lagret för ${siteName}.`;
+}
 
 /** A vague line's ingredient is not at home: buy it, or check first. */
 export const askAtHomeText = "Finns hemma?";
@@ -63,6 +71,16 @@ export function restoreFailedText(labels: readonly string[]): string {
 /** Announced when the list is counted again while it is open: "Inköpslistan är omräknad. 12 varor kvar." */
 export function recountedText(left: number): string {
   return `Inköpslistan är omräknad. ${itemsLeftText(left)}.`;
+}
+
+/**
+ * Announced when the list is counted against another place while it is
+ * open, and the switch was not made from its own sheet (another device,
+ * Hemma, or a place that was gone): "Listan räknas nu mot Hemma. 3 varor
+ * kvar." (Story 8.5).
+ */
+export function siteRecountedText(siteName: string, left: number): string {
+  return `Listan räknas nu mot ${siteName}. ${itemsLeftText(left)}.`;
 }
 
 /**
@@ -169,13 +187,26 @@ export const putInPantryButtonText = "Lägg i lagret";
  * were checked, "Tog bort 1 vara från listan.", "Tog bort 2 varor från
  * listan."; `null` when nothing was put in the pantry or taken off the list
  * (only lines without a catalog ingredient were checked, and their checks
- * are cleared).
+ * are cleared). With `siteName`, the place the items went to when the user
+ * has more than one (putCheckedInPantry): "Lagt 8 varor i lagret för
+ * Stugan." (EXPERIENCE.md, Voice and Tone).
  */
-export function putInPantryText(added: number, removed: number): string | null {
+export function putInPantryText(added: number, removed: number, siteName: string | null = null): string | null {
   const items = (count: number) => `${count} ${count === 1 ? "vara" : "varor"}`;
-  if (added > 0) return `Lagt ${items(added)} i lagret.`;
+  if (added > 0) return `Lagt ${items(added)} i lagret${siteName ? ` för ${siteName}` : ""}.`;
   if (removed > 0) return `Tog bort ${items(removed)} från listan.`;
   return null;
+}
+
+/**
+ * After "Lägg i lagret" when the list's place was removed elsewhere
+ * (`pantry_site_gone`): nothing was added, the checks stay, and the list is
+ * read again against the place selected now, named when the user has more
+ * than one (putCheckedInPantry's `fields.site`).
+ */
+export function siteGoneText(selectedName: string | null): string {
+  const recounted = selectedName ? `Listan har räknats om mot ${selectedName}.` : "Listan har räknats om.";
+  return `Stället finns inte längre. ${recounted} Tryck Lägg i lagret igen.`;
 }
 
 /** After "Lägg i lagret" when some checked lines could not go to the pantry; they keep their checks. */

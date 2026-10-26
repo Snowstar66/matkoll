@@ -11,6 +11,7 @@ import {
   maybeEmptiedText,
   notRestoredText,
   removedCountText,
+  restoredElsewhereText,
   itemCountText,
   placeFromSlug,
   placeSlug,
@@ -21,6 +22,9 @@ import {
   alreadyRemovedText,
   inventoryAppliedText,
 } from "./places";
+
+const onlyHemma = { name: "Hemma", siteCount: 1 };
+const stugan = { name: "Stugan", siteCount: 2 };
 
 describe("placeSlug and placeFromSlug", () => {
   it("round-trips every location", () => {
@@ -86,17 +90,17 @@ describe("the texts for emptying a location", () => {
   });
 
   it("asks about all items, or the one item", () => {
-    expect(emptyPlaceQuestion("Kyl", 14)).toBe("Ta bort alla 14 varor i kylen?");
-    expect(emptyPlaceQuestion("Frys", 2)).toBe("Ta bort alla 2 varor i frysen?");
-    expect(emptyPlaceQuestion("Kyl", 1)).toBe("Ta bort 1 vara i kylen?");
-    expect(emptyPlaceQuestion("Skafferi", 1)).toBe("Ta bort 1 vara i skafferiet?");
+    expect(emptyPlaceQuestion("Kyl", 14, null)).toBe("Ta bort alla 14 varor i kylen?");
+    expect(emptyPlaceQuestion("Frys", 2, null)).toBe("Ta bort alla 2 varor i frysen?");
+    expect(emptyPlaceQuestion("Kyl", 1, null)).toBe("Ta bort 1 vara i kylen?");
+    expect(emptyPlaceQuestion("Skafferi", 1, null)).toBe("Ta bort 1 vara i skafferiet?");
     expect(emptyPlaceUndoHint).toBe("Du kan ångra direkt efteråt.");
   });
 
   it("confirms with the number removed and the location", () => {
-    expect(emptiedPlaceText("Kyl", 14)).toBe("Tog bort 14 varor ur kylen.");
-    expect(emptiedPlaceText("Kyl", 1)).toBe("Tog bort 1 vara ur kylen.");
-    expect(emptiedPlaceText("Skafferi", 3)).toBe("Tog bort 3 varor ur skafferiet.");
+    expect(emptiedPlaceText("Kyl", 14, null)).toBe("Tog bort 14 varor ur kylen.");
+    expect(emptiedPlaceText("Kyl", 1, null)).toBe("Tog bort 1 vara ur kylen.");
+    expect(emptiedPlaceText("Skafferi", 3, null)).toBe("Tog bort 3 varor ur skafferiet.");
   });
 
   it("says when the location was empty already, in the location's gender", () => {
@@ -108,9 +112,27 @@ describe("the texts for emptying a location", () => {
   });
 
   it("counts removals undone together, with the location when there is one", () => {
-    expect(removedCountText(15, ["Kyl", "Kyl"])).toBe("Tog bort 15 varor ur kylen.");
-    expect(removedCountText(17, ["Kyl", "Frys"])).toBe("Tog bort 17 varor.");
-    expect(removedCountText(1, [])).toBe("Tog bort 1 vara.");
+    expect(removedCountText(15, ["Kyl", "Kyl"], onlyHemma)).toBe("Tog bort 15 varor ur kylen.");
+    expect(removedCountText(17, ["Kyl", "Frys"], onlyHemma)).toBe("Tog bort 17 varor.");
+    expect(removedCountText(1, [], onlyHemma)).toBe("Tog bort 1 vara.");
+  });
+
+  it("names the place from two places, and never with one (Story 8.4)", () => {
+    expect(emptyPlaceQuestion("Kyl", 14, stugan)).toBe("Ta bort alla 14 varor i kylen för Stugan?");
+    expect(emptyPlaceQuestion("Kyl", 1, stugan)).toBe("Ta bort 1 vara i kylen för Stugan?");
+    expect(emptyPlaceQuestion("Kyl", 14, onlyHemma)).toBe("Ta bort alla 14 varor i kylen?");
+    expect(emptiedPlaceText("Kyl", 14, stugan)).toBe("Tog bort 14 varor ur kylen för Stugan.");
+    expect(emptiedPlaceText("Frys", 1, onlyHemma)).toBe("Tog bort 1 vara ur frysen.");
+    expect(removedCountText(15, ["Kyl", "Kyl"], stugan)).toBe("Tog bort 15 varor ur kylen för Stugan.");
+    // From more than one place: no location and no place.
+    expect(removedCountText(15, ["Kyl", "Kyl"], null)).toBe("Tog bort 15 varor.");
+  });
+
+  it("says where Ångra put rows back that the list does not show (Story 8.4)", () => {
+    expect(restoredElsewhereText(14, ["Kyl"], stugan)).toBe("Lade tillbaka 14 varor i kylen för Stugan.");
+    expect(restoredElsewhereText(1, ["Frys", "Frys"], stugan)).toBe("Lade tillbaka 1 vara i frysen för Stugan.");
+    expect(restoredElsewhereText(3, ["Kyl", "Frys"], stugan)).toBe("Lade tillbaka 3 varor.");
+    expect(restoredElsewhereText(3, ["Kyl"], null)).toBe("Lade tillbaka 3 varor.");
   });
 
   it("says a location may have been emptied when the answer was lost", () => {

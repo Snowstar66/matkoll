@@ -8,6 +8,9 @@ import { PantrySheetProvider } from "./pantry-item-sheet";
 import { PantryList } from "./pantry-list";
 import { PantrySuggestionsProvider } from "./pantry-suggestions";
 
+/** The place Hemma shows (Story 8.2). */
+const testSite = { id: "55555555-5555-4555-8555-555555555555" };
+
 vi.mock("../actions/set-pantry-item", () => ({ savePantryItem: vi.fn() }));
 vi.mock("../actions/search-ingredients", () => ({ searchPantryIngredients: vi.fn() }));
 vi.mock("next/navigation", () => ({ useRouter: () => ({ refresh: vi.fn() }) }));
@@ -25,12 +28,13 @@ const render = (element: ReactElement) =>
   renderElement(
     <ToastProvider>
       <PantrySuggestionsProvider>
-        <PantrySheetProvider location="Kyl">{element}</PantrySheetProvider>
+        <PantrySheetProvider location="Kyl" site={testSite}>{element}</PantrySheetProvider>
       </PantrySuggestionsProvider>
     </ToastProvider>,
   );
 
 const item = (overrides: Partial<PantryItem> & Pick<PantryItem, "id" | "name">): PantryItem => ({
+  siteId: testSite.id,
   ingredientId: `ingredient-${overrides.id}`,
   location: "Kyl",
   amount: null,

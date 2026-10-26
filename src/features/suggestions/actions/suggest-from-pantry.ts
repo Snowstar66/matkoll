@@ -2,7 +2,7 @@ import "server-only";
 import { requireUser } from "@/features/auth/server";
 import { CatalogDataError, getIngredientNames, matchIngredients } from "@/features/catalog/server";
 import type { PantrySnapshot } from "@/features/pantry";
-import { getPantrySnapshot, PantryDataError } from "@/features/pantry/server";
+import { getPantryForStatus } from "@/features/pantry/server";
 import { fromAiRecipe, recipeDraftSchema, type RecipeDraft } from "@/features/recipes";
 import { fail, ok, type Result } from "@/lib/errors";
 import { getAiService } from "@/server/ai";
@@ -43,15 +43,14 @@ async function fromCatalog<T>(read: () => Promise<T>): Promise<Result<T>> {
   }
 }
 
-/** The user's pantry; a failed query becomes `pantry_unavailable`. */
-async function readPantry(): Promise<Result<PantrySnapshot>> {
-  try {
-    return ok(await getPantrySnapshot());
-  } catch (error) {
-    if (!(error instanceof PantryDataError)) throw error;
-    console.error("pantry_unavailable", { reason: error.detail });
-    return fail("pantry_unavailable");
-  }
+/**
+ * The selected place's pantry and the place's id, read as the library reads
+ * them for its status (pantry.getPantryForStatus, AD-24); a place or pantry
+ * that cannot be read (logged there) becomes `pantry_unavailable`.
+ */
+async function readPantry(): Promise<Result<{ snapshot: PantrySnapshot; siteId: string | null }>> {
+  const { site, snapshot } = await getPantryForStatus();
+  return snapshot ? ok({ snapshot, siteId: site?.id ?? null }) : fail("pantry_unavailable");
 }
 
 /** The request went away ("Avbryt", a newer run): nobody reads the answer, so nothing more is done. */
@@ -74,8 +73,9 @@ export type SuggestOptions = {
 };
 
 /**
- * Three dishes from what is at home, each as a RecipeDraft with
- * `sourceKind: "ai"` and the names of its matched catalog ingredients. In
+ * Three dishes from what is at home on the selected place, each as a
+ * RecipeDraft with `sourceKind: "ai"` and the names of its matched catalog
+ * ingredients, and the id of the place they were suggested from. In
  * order: the user (a run of theirs still on its way is stopped), the pantry
  * (`pantry_unavailable`; empty is `suggest_empty_pantry`, and the AI is not
  * asked in either case), the pantry's names (`catalog_unavailable`, also
@@ -108,14 +108,15 @@ async function suggest(
   signal: AbortSignal,
   deadline: number | undefined,
 ): Promise<Result<DishSuggestions>> {
-  const snapshot = await readPantry();
-  if (!snapshot.ok) return snapshot;
+  const pantry = await readPantry();
+  if (!pantry.ok) return pantry;
+  const snapshot = pantry.data.snapshot;
   if (signal.aborted) return stopped();
-  if (snapshot.data.size === 0) return fail("suggest_empty_pantry");
+  if (snapshot.size === 0) return fail("suggest_empty_pantry");
 
-  const pantryNames = await fromCatalog(() => getIngredientNames([...snapshot.data.keys()]));
+  const pantryNames = await fromCatalog(() => getIngredientNames([...snapshot.keys()]));
   if (!pantryNames.ok) return pantryNames;
-  const { input, dropped } = toSuggestInput(snapshot.data, pantryNames.data, request.avoidTitles);
+  const { input, dropped } = toSuggestInput(snapshot, pantryNames.data, request.avoidTitles);
   if (input.pantry.length === 0) {
     // There is something at home, but none of it could be named: a catalog read gone wrong, worth another try.
     console.error("catalog_unavailable", { reason: "no_names" });
@@ -145,7 +146,7 @@ async function suggest(
       console.error("ai_invalid", { reason: "draft", index, issues });
       return;
     }
-    const count = new Set(linkedIds(draft.data).filter((id) => snapshot.data.has(id))).size;
+    const count = new Set(linkedIds(draft.data).filter((id) => snapshot.has(id))).size;
     if (count < minPantryIngredients) {
       console.error("ai_invalid", { reason: "pantry", index, count });
       return;
@@ -159,6 +160,7 @@ async function suggest(
   const names = ids.length > 0 ? await fromCatalog(() => getIngredientNames(ids)) : ok<Record<string, string>>({});
   if (!names.ok) return names;
   return ok({
+    siteId: pantry.data.siteId,
     suggestions: drafts.map((draft) => ({
       draft,
       ingredientNames: Object.fromEntries(

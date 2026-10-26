@@ -1,7 +1,16 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { createLmStudioTarget } from "./adapters/lmstudio";
 import { createOpenAiTarget } from "./adapters/openai";
-import { defaultLimits, runStructured, schemaFeedback, type Limits, type ModelTarget } from "./run";
+import { lmStudioImageSampling } from "./adapters/lmstudio";
+import {
+  defaultLimits,
+  mergeProviderOptions,
+  retryTemperature,
+  runStructured,
+  schemaFeedback,
+  type Limits,
+  type ModelTarget,
+} from "./run";
 import { aiRecipe } from "./schemas";
 import { createModelAiService } from "./service";
 import {
@@ -122,6 +131,47 @@ describe("runStructured with a fake model", () => {
     expect(call.abortSignal).toBeInstanceOf(AbortSignal);
   });
 
+  it("passes the call's sampling to the model", async () => {
+    const model = fakeModel(valid);
+    await runStructured({ model }, { ...request, sampling: { temperature: 0.7, topP: 0.8, presencePenalty: 1.5 } }, signal(), limits);
+    const call = model.doGenerateCalls[0];
+    expect(call).toMatchObject({ temperature: 0.7, topP: 0.8, presencePenalty: 1.5 });
+  });
+
+  it("samples a new attempt at retryTemperature when the call asked for temperature 0, and keeps the rest", async () => {
+    const model = fakeModel(invalid, invalid, valid);
+    const sampling = { temperature: 0, topP: 0.8, presencePenalty: 1.5 };
+    const result = await runStructured({ model }, { ...request, sampling }, signal(), limits);
+    expect(result.ok).toBe(true);
+    expect(model.doGenerateCalls.map((call) => call.temperature)).toEqual([0, retryTemperature, retryTemperature]);
+    for (const call of model.doGenerateCalls) expect(call).toMatchObject({ topP: 0.8, presencePenalty: 1.5 });
+    expect(retryTemperature).toBe(0.3);
+  });
+
+  it("keeps any other temperature, and none, on a new attempt", async () => {
+    const warm = fakeModel(invalid, valid);
+    await runStructured({ model: warm }, { ...request, sampling: { temperature: 0.7 } }, signal(), limits);
+    expect(warm.doGenerateCalls.map((call) => call.temperature)).toEqual([0.7, 0.7]);
+    const plain = fakeModel(invalid, valid);
+    await runStructured({ model: plain }, request, signal(), limits);
+    expect(plain.doGenerateCalls.map((call) => call.temperature)).toEqual([undefined, undefined]);
+  });
+
+  it("merges the call's provider options into the target's per provider", () => {
+    expect(mergeProviderOptions({ a: { x: 1 } }, undefined)).toEqual({ a: { x: 1 } });
+    expect(mergeProviderOptions(undefined, { a: { y: 2 } })).toEqual({ a: { y: 2 } });
+    expect(mergeProviderOptions({ a: { x: 1, y: 1 }, b: { z: 1 } }, { a: { y: 2 } })).toEqual({ a: { x: 1, y: 2 }, b: { z: 1 } });
+  });
+
+  it("never loses the thinking settings when the sampling adds top_k for the same provider", () => {
+    const thinkingOff = { lmstudio: { reasoningEffort: "none", chat_template_kwargs: { enable_thinking: false } } };
+    expect(mergeProviderOptions(thinkingOff, { lmstudio: { top_k: 20 } })).toEqual({
+      lmstudio: { reasoningEffort: "none", chat_template_kwargs: { enable_thinking: false }, top_k: 20 },
+    });
+    // The target's options are not changed.
+    expect(thinkingOff).toEqual({ lmstudio: { reasoningEffort: "none", chat_template_kwargs: { enable_thinking: false } } });
+  });
+
   it("aborts an attempt that uses up the attempt budget", async () => {
     const { model, signals } = hangingModel();
     const result = await runStructured({ model }, request, signal(), { ...limits, attemptMs: 20 });
@@ -184,6 +234,38 @@ describe("LM Studio adapter against a fake server", () => {
     expect(body.chat_template_kwargs).toEqual({ enable_thinking: false });
     // LM Studio only turns thinking off with reasoning_effort "none" (smoke test, Story 1.4).
     expect(body.reasoning_effort).toBe("none");
+  });
+
+  it("sends no sampling settings unless the call asks for them", async () => {
+    const server = fakeServer({ chat: [Response.json(chatCompletion(valid))] });
+    await runStructured(lmStudio(server), request, signal(), limits);
+    const body = JSON.parse(String(server.requests[1].init?.body));
+    for (const key of ["temperature", "top_p", "top_k", "presence_penalty"]) expect(body).not.toHaveProperty(key);
+  });
+
+  it("sends the image sampling with thinking still off when the call asks for it (Story 6.5)", async () => {
+    const server = fakeServer({ chat: [Response.json(chatCompletion(valid))] });
+    const target = lmStudio(server);
+    expect(target.imageSampling).toBe(lmStudioImageSampling);
+    await runStructured(target, { ...request, sampling: target.imageSampling }, signal(), limits);
+    const body = JSON.parse(String(server.requests[1].init?.body));
+    expect(body).toMatchObject({ temperature: 0, top_p: 0.8, top_k: 20, presence_penalty: 1.5 });
+    expect(body.reasoning_effort).toBe("none");
+    expect(body.chat_template_kwargs).toEqual({ enable_thinking: false });
+  });
+
+  it("sends Qwen's image sampling only to a Qwen model: another model keeps its defaults (Story 6.5)", async () => {
+    const server = fakeServer({
+      models: Response.json({ object: "list", data: [{ id: "google/gemma-3-27b", object: "model" }] }),
+      chat: [Response.json(chatCompletion(valid))],
+    });
+    const other = createLmStudioTarget({ baseURL: "http://localhost:1234/v1", model: "google/gemma-3-27b", fetch: server.fetch });
+    expect(other.imageSampling).toBeUndefined();
+    await runStructured(other, { ...request, sampling: other.imageSampling }, signal(), limits);
+    const body = JSON.parse(String(server.requests[1].init?.body));
+    for (const key of ["temperature", "top_p", "top_k", "presence_penalty"]) expect(body).not.toHaveProperty(key);
+    expect(body.reasoning_effort).toBe("none");
+    expect(createLmStudioTarget({ baseURL: "http://localhost:1234/v1", model: "Qwen/Qwen3-VL-8B" }).imageSampling).toBe(lmStudioImageSampling);
   });
 
   it("sends the Cloudflare Access headers when they are set", async () => {

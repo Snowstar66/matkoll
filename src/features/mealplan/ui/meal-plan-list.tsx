@@ -89,6 +89,12 @@ export type MealPlanListProps = {
   dishes: readonly PlanDish[];
   /** The whole pantry for the status, or `null` when it could not be read: no status then. */
   snapshot: PantrySnapshot | null;
+  /**
+   * "Lager: Stugan" (pantry.siteLineText), the place the status is counted
+   * against, shown first while a shown dish has a status; `null` with one
+   * place or without a status.
+   */
+  siteLine?: string | null;
 };
 
 /**
@@ -102,7 +108,7 @@ export type MealPlanListProps = {
  * or the card's button, focus goes to the next dish, else the one before,
  * else "Lägg till rätt".
  */
-export function MealPlanList({ planName, dishes, snapshot }: MealPlanListProps) {
+export function MealPlanList({ planName, dishes, snapshot, siteLine = null }: MealPlanListProps) {
   const router = useRouter();
   const { showToast } = useToast();
   const [entries, setEntries] = useState<ReadonlyMap<string, Entry>>(() => new Map());
@@ -320,6 +326,13 @@ export function MealPlanList({ planName, dishes, snapshot }: MealPlanListProps) 
 
   return (
     <div ref={rootRef} className="flex flex-col gap-2">
+      {/* Metadata under the page title, never announced: the dishes' badges are what changes.
+          Only above a dish with a status: a recipe, and a pantry to count it against. */}
+      {siteLine && snapshot && shown.some((dish) => dish.recipe !== null) ? (
+        <p className="text-meta break-words text-ink-2" data-testid="site-line">
+          {siteLine}
+        </p>
+      ) : null}
       {planName ? (
         <h2 data-testid="plan-name" className="text-section-label text-ink-2">
           {planName}

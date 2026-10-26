@@ -40,3 +40,7 @@
 ## Från 6.4 (2026-10-26)
 
 - **Instabilt integrationstest:** "Lägg i lagret … double tap" i `tests/integration/shopping.test.ts` föll en gång i en full körning och gick sedan igenom 3 gånger i rad. Utred tidsberoendet om det faller i CI.
+
+## Från 6.5 (2026-10-26)
+
+- **Kontextbudget vid 2048 px:** bildtoken för ett platsfoto på 2048 px är inte uppmätta mot LM Studios kontextfönster. Mät dem (eller sänk gränsen) om svar börjar kortas av.

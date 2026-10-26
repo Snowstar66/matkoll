@@ -144,6 +144,9 @@ function sameStock(photo: PlaceStock, place: PlaceStock): boolean {
  *   unlimited, or an amount per unit) are compared with the place's after
  *   roundSum: the same is `unchanged`, anything else `changed`; a photo
  *   without an amount is `unchanged`, never "finns hemma" over measured rows;
+ * - Story 6.5: an ingredient with a suggestion the AI was unsure of is never
+ *   `unchanged`, so it is a card with the badge "Osäker"; when its stock is
+ *   the same as the place's it is `changed` without replacing any row;
  * - `replaces` is, for every suggestion of a changed ingredient, the ids of
  *   the place's rows of it in a unit the photo does not have for it (also an
  *   unlimited row), and `placeRowIds` all its rows in the place, for the
@@ -188,11 +191,13 @@ export function compareWithPlace(
       own.map(({ amount, unit }) => (unlimited ? { ingredientId, amount: null, unit: null } : { ingredientId, amount, unit })),
     ).get(ingredientId)!;
     const ofIngredient = rows.filter((row) => row.ingredientId === ingredientId);
-    const change = sameStock(photo, place) ? "unchanged" : "changed";
+    const same = sameStock(photo, place);
+    // Story 6.5: a suggestion the AI was unsure of is never "stämmer med lagret": it is a card Pontus confirms.
+    const change = same && !own.some((suggestion) => suggestion.uncertain) ? "unchanged" : "changed";
     compared.set(ingredientId, {
       change,
       replaces:
-        change === "changed"
+        change === "changed" && !same
           ? ofIngredient
               .filter((row) => row.unit === null || !units.has(row.unit))
               .map((row) => row.id)

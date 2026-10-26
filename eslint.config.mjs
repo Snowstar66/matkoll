@@ -208,6 +208,8 @@ const eslintConfig = defineConfig([
     "test-results/**",
     // Lint-rule fixtures contain forbidden imports on purpose; tests/lint lints them explicitly.
     "src/features/example/**",
+    // Git worktrees of stories built in parallel; each is linted in its own checkout.
+    ".claude/worktrees/**",
   ]),
 ]);
 

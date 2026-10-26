@@ -11,6 +11,8 @@ export type FilterPillsProps<T extends string> = {
   options: readonly FilterOption<T>[];
   value: T;
   onChange: (value: T) => void;
+  /** Every pill unavailable, e.g. before hydration, when a tap would do nothing. */
+  disabled?: boolean;
   className?: string;
 };
 
@@ -21,7 +23,14 @@ const nextKeys: Record<string, number> = { ArrowRight: 1, ArrowDown: 1, ArrowLef
  * chosen pill is in the tab order; the arrow keys (and Home/End) move the choice.
  * The visible pill is 34 px, the tap area 44 px.
  */
-export function FilterPills<T extends string>({ label, options, value, onChange, className }: FilterPillsProps<T>) {
+export function FilterPills<T extends string>({
+  label,
+  options,
+  value,
+  onChange,
+  disabled = false,
+  className,
+}: FilterPillsProps<T>) {
   const refs = useRef<(HTMLButtonElement | null)[]>([]);
   const chosenIndex = Math.max(
     0,
@@ -60,9 +69,10 @@ export function FilterPills<T extends string>({ label, options, value, onChange,
             role="radio"
             aria-checked={selected}
             tabIndex={selected ? 0 : -1}
+            disabled={disabled}
             onClick={() => choose(index)}
             onKeyDown={(event) => onKeyDown(event, index)}
-            className="flex min-h-tap items-center rounded-pill"
+            className="flex min-h-tap items-center rounded-pill disabled:cursor-not-allowed disabled:opacity-60"
           >
             <span
               className={cx(

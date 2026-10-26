@@ -8,6 +8,11 @@ import { PantryCamera } from "./pantry-camera";
 import { PantrySheetProvider } from "./pantry-item-sheet";
 import { PantrySuggestionsProvider } from "./pantry-suggestions";
 
+/** The place Hemma shows (Story 8.2). */
+const testSite = { id: "55555555-5555-4555-8555-555555555555" };
+/** The place a photo was taken for (Story 8.4): the one Hemma shows. */
+const photoSite = { id: testSite.id, name: "Hemma" };
+
 // Kameraknappen on Hemma: its text per location, the camera on a phone and
 // the file picker on a desktop, the progress with "Avbryt", and the notices
 // for errors and an empty answer. /api/ai/analyze and the resizing are stubbed.
@@ -21,8 +26,12 @@ vi.mock("@/lib/ai-client", () => ({
       signal.addEventListener("abort", () => resolve({ ok: false, aborted: true }), { once: true });
     }),
 }));
+const downscaled = vi.hoisted(() => [] as { maxSide?: number }[]);
 vi.mock("@/lib/downscale-image", () => ({
-  downscaleImage: async (file: Blob): Promise<Result<Blob>> => ok(file),
+  downscaleImage: async (file: Blob, options: { maxSide?: number } = {}): Promise<Result<Blob>> => {
+    downscaled.push(options);
+    return ok(file);
+  },
 }));
 vi.mock("next/navigation", () => ({ useRouter: () => ({ refresh: vi.fn() }) }));
 vi.mock("../actions/set-pantry-item", () => ({ savePantryItem: vi.fn() }));
@@ -51,9 +60,9 @@ function Hemma({ location = "Kyl" }: { location?: Location }) {
   return (
     <ToastProvider>
       <PantrySuggestionsProvider>
-        <PantrySheetProvider location={location}>
+        <PantrySheetProvider location={location} site={testSite}>
           {/* Keyed like Hemma's <Suspense>: another card mounts it anew under the same provider. */}
-          <PantryCamera key={location} location={location} />
+          <PantryCamera key={location} site={photoSite} location={location} />
         </PantrySheetProvider>
       </PantrySuggestionsProvider>
     </ToastProvider>
@@ -75,6 +84,7 @@ async function photograph() {
 
 beforeEach(() => {
   calls = [];
+  downscaled.length = 0;
   pointer(false);
 });
 afterEach(() => {
@@ -118,6 +128,12 @@ describe("PantryCamera", () => {
     expect(cameraClick).toHaveBeenCalledTimes(1);
     fireEvent.click(screen.getByRole("button", { name: "Välj bild" }));
     expect(libraryClick).toHaveBeenCalledTimes(1);
+  });
+
+  it("resizes the photo of a place to at most 2048 px (Story 6.5)", async () => {
+    render(<Hemma />);
+    await photograph();
+    expect(downscaled).toEqual([{ maxSide: 2048 }]);
   });
 
   it("shows Tittar på bilden … with Avbryt in the button's place, and the button takes focus after Avbryt", async () => {
@@ -173,7 +189,7 @@ describe("PantryCamera", () => {
   it("says when the photo shows no food, with Lägg till vara opening the sheet Lagervara", async () => {
     render(<Hemma />);
     await photograph();
-    await answer(ok({ location: "Kyl", suggestions: [], dropped: 0, inventory: { kind: "unread" } }));
+    await answer(ok({ site: photoSite, location: "Kyl", suggestions: [], dropped: 0, inventory: { kind: "unread" } }));
     const status = within(area())
       .getAllByRole("status")
       .find((element) => element.textContent !== "");

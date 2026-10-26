@@ -1,0 +1,46 @@
+{
+  "items": [
+    {
+      "label": "Lantmejeriet vispgrädde 36 % 3 dl",
+      "confidence": "säker",
+      "amount": 1,
+      "unit": "förp",
+      "hint": { "name": "vispgrädde", "section": "Mejeri", "location": "Kyl", "defaultUnit": "förp" }
+    },
+    {
+      "label": "Solgården apelsinjuice 1 l",
+      "confidence": "säker",
+      "amount": 1,
+      "unit": "förp",
+      "hint": { "name": "apelsinjuice", "section": "Dryck", "location": "Kyl", "defaultUnit": "förp" }
+    },
+    {
+      "label": "Lantmejeriet vispgrädde 36 % 3 dl",
+      "confidence": "säker",
+      "amount": 1,
+      "unit": "förp",
+      "hint": { "name": "vispgrädde", "section": "Mejeri", "location": "Kyl", "defaultUnit": "förp" }
+    },
+    {
+      "label": "Lantmejeriet vispgrädde 36 % 3 dl",
+      "confidence": "säker",
+      "amount": 1,
+      "unit": "förp",
+      "hint": { "name": "vispgrädde", "section": "Mejeri", "location": "Kyl", "defaultUnit": "förp" }
+    },
+    {
+      "label": "Gul flaska, troligen senap",
+      "confidence": "osäker",
+      "amount": 1,
+      "unit": "förp",
+      "hint": { "name": "senap", "section": "Skafferi", "location": "Kyl", "defaultUnit": "förp" }
+    },
+    {
+      "label": "Lantmejeriet vispgrädde 36 % 3 dl",
+      "confidence": "säker",
+      "amount": 1,
+      "unit": "förp",
+      "hint": { "name": "vispgrädde", "section": "Mejeri", "location": "Kyl", "defaultUnit": "förp" }
+    }
+  ]
+}

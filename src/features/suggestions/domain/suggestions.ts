@@ -26,10 +26,14 @@ export type SuggestRequest = z.infer<typeof suggestRequestSchema>;
 /**
  * The answer: one to three drafts with `sourceKind: "ai"`, each with the names
  * of the catalog ingredients its lines are matched to (as for an import).
- * Fewer than three when a draft did not pass recipeDraftSchema. Nothing is saved.
+ * Fewer than three when a draft did not pass recipeDraftSchema. Nothing is
+ * saved. `siteId` is the place whose pantry the dishes were suggested from
+ * (AD-24), so the library can hide them once it shows another place; `null`
+ * for a user without places (and from a server before Story 8.3).
  */
 export const dishSuggestionsSchema = z.object({
   suggestions: z.array(recipeImportSchema).min(1).max(3),
+  siteId: z.uuid().nullable().default(null),
 });
 export type DishSuggestions = z.infer<typeof dishSuggestionsSchema>;
 export type DishSuggestion = DishSuggestions["suggestions"][number];

@@ -81,6 +81,25 @@ Kör `supabase db push` **före varje koddriftsättning** som har nya filer i `s
 
 **Kontroll:** `pnpm exec supabase migration list` visar samma versioner under Local och Remote.
 
+### Lagret före och efter ställena (1.1, Story 8.1)
+
+Migrationen `*_pantry_site.sql` lägger alla befintliga lagervaror på stället "Hemma" (NFR-9, AD-24). Den lägger bara till och får inte ändra, flytta eller ta bort någon vara. Kontrollera det med `scripts/pantry-site-check.sql` före och efter `supabase db push`, i samma terminal:
+
+```bash
+psql "<Session pooler-strängen utan lösenord>" -X -q -A -t -F ' ' -v ON_ERROR_STOP=1 -f scripts/pantry-site-check.sql > ~/matkoll-pantry-fore.txt
+pnpm exec supabase db push
+psql "<Session pooler-strängen utan lösenord>" -X -q -A -t -F ' ' -v ON_ERROR_STOP=1 -f scripts/pantry-site-check.sql > ~/matkoll-pantry-efter.txt
+diff ~/matkoll-pantry-fore.txt ~/matkoll-pantry-efter.txt
+```
+
+Skriptet skriver varje rad i `pantry_item` (`id`, användare, katalogvara, plats, mängd och enhet, sorterade på `id`) och antalet rader. Efter migreringen kontrollerar det också eftervillkoren: varje vara ligger på ett ställe som tillhör samma användare, varje användare har exakt ett valt ställe, och varje sparad rad för "Ångra" har sitt ställe. Eftervillkoren skriver inget till filen, bara `NOTICE: pantry-site-check: the postconditions hold`, och ett brutet villkor stoppar skriptet med ett fel.
+
+Skriptet skriver också varje post i `pantry_removal` (underlaget för "Ångra") med raderna i samma ordning men utan `site_id`, och stoppar om `removed_rows` inte är en lista.
+
+1.0-koden fungerar mot det nya schemat under driftsättningen: den läser `pantry_item` via PostgREST och skriver bara via Postgres-funktionerna, som utan `site` gäller valt ställe. Koden i 1.0 (`93c5301`) är genomsökt efter `.upsert(` och `onConflict` mot `pantry_item`, och det finns inga, så den gamla unika nyckeln behövs inte. Att rulla tillbaka koden till 1.0 är däremot **inte säkert när ett andra ställe finns** (från Story 8.2): 1.0 läser alla rader och skulle summera lagret över ställena. Rulla i så fall bara tillbaka till en version från Epic 8.
+
+**Kontroll:** `diff` visar inga skillnader. Använd inte appen mellan de två körningarna, eftersom en vara som läggs till eller tas bort då syns som en skillnad. Lokalt körs samma kontroll före och efter `supabase migration up`, med `docker exec -i supabase_db_matkoll psql -U postgres -d postgres` i stället för `psql "<...>"` och skriptet på standard in (`< scripts/pantry-site-check.sql`).
+
 ## 7. Användarna: `pnpm users:sync`
 
 `pnpm users:sync` skapar användarna i `ALLOWED_EMAILS` (AD-3). Mot molnet behövs projektets hemliga nyckel. Den används bara här, tillfälligt i terminalen; den läggs aldrig i Vercel, aldrig i `.env.local` och aldrig i repot.

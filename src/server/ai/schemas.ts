@@ -1,4 +1,5 @@
 import { z } from "zod";
+import { labelKey } from "@/lib/label-key";
 import { normalizeTitle } from "@/lib/suggest-input";
 
 // Response schemas for the AI port (AD-9, AD-10). The model's answer is
@@ -150,8 +151,28 @@ const pantryHintDescriptions = {
  * whole answer invalid. Each item is then checked on its own against
  * aiPantryItem (parseAnalyzeItems).
  */
+/** How sure the model is of an item (Story 6.5): "osäker" for a likely guess, e.g. a package partly hidden. */
+export const pantryItemConfidences = ["säker", "osäker"] as const;
+const confidenceDescription = "säker när du ser vad varan är, osäker när det är en trolig gissning";
+/** What reads as sure; anything else, or nothing, is "osäker". */
+const sureWords = new Set(["säker", "saker", "sure", "certain"]);
+
+/**
+ * The confidence as the port keeps it: "säker" for säker, saker, sure or
+ * certain (trimmed, any case), "osäker" for anything else or nothing. The
+ * JSON schema still asks for the enum, so a strict provider decodes one of
+ * the two, but an odd value or a missing field never makes an answer or an
+ * item invalid: it only makes the item unsure.
+ */
+const confidence = () =>
+  z.preprocess(
+    (value) => (typeof value === "string" && sureWords.has(value.trim().toLowerCase()) ? "säker" : "osäker"),
+    z.enum(pantryItemConfidences),
+  );
+
 const aiPantryItemShape = z.object({
-  label: z.string().describe("Varan som den syns, t.ex. Arla mellanmjölk"),
+  label: z.string().describe("Varan som den står på förpackningen, med märke, sort och storlek, t.ex. Arla mellanmjölk 1,5 l"),
+  confidence: confidence().describe(confidenceDescription),
   amount: z
     .number()
     .nullable()
@@ -173,7 +194,7 @@ const aiPantryItemShape = z.object({
  * the wrong type) is invalid and retried.
  */
 export const analyzeImageAnswer = z.object({
-  items: z.array(aiPantryItemShape).describe("Matvarorna som syns tydligt, tom lista om inga syns"),
+  items: z.array(aiPantryItemShape).describe("Matvarorna som syns på bilden, tom lista om inga syns"),
 });
 
 /**
@@ -184,6 +205,7 @@ export const analyzeImageAnswer = z.object({
  */
 export const aiPantryItem = z.object({
   label: itemText(),
+  confidence: confidence(),
   amount: z
     .number()
     .min(0)
@@ -193,14 +215,114 @@ export const aiPantryItem = z.object({
   hint: z.object({ name: itemText(), section: itemText(), location: itemText(), defaultUnit: itemText() }),
 });
 
-/** The items of an answer that pass aiPantryItem, in order, and how many did not. */
-export function parseAnalyzeItems(items: readonly unknown[]): { items: AiPantryItem[]; invalid: number } {
-  const valid: AiPantryItem[] = [];
+/** Repeats of one label from which an answer counts as a repetition loop: the label three times or more. */
+export const minLoopRepeats = 2;
+
+/** Whether two units are the same as the model wrote them (trimmed, any case; none equals none). */
+const sameUnit = (a: string | null, b: string | null) => (a ?? "").trim().toLowerCase() === (b ?? "").trim().toLowerCase();
+
+/**
+ * One item for copies with the same label key (labelKey): the first copy's
+ * label and hint, "osäker" when any copy is, and its amount:
+ * - a single duplicate (two copies) adds the amounts when both have one in
+ *   the same unit, since it may be two packages;
+ * - a loop (minLoopRepeats repeats or more) keeps one amount, never the sum:
+ *   "Grädde" twelve times is the model repeating itself, not twelve packages;
+ * - otherwise, and in a loop, the first copy's amount, or the first one that
+ *   has an amount when the first has none.
+ */
+function mergeCopies(copies: readonly AiPantryItem[]): AiPantryItem {
+  const [first] = copies;
+  if (copies.length === 1) return first;
+  const merged: AiPantryItem = { ...first, confidence: copies.some((copy) => copy.confidence === "osäker") ? "osäker" : "säker" };
+  const [, second] = copies;
+  if (copies.length === 2 && first.amount !== null && second.amount !== null && sameUnit(first.unit, second.unit)) {
+    return { ...merged, amount: first.amount + second.amount };
+  }
+  if (first.amount !== null) return merged;
+  const measured = copies.find((copy) => copy.amount !== null);
+  return measured ? { ...merged, amount: measured.amount, unit: measured.unit } : merged;
+}
+
+/**
+ * The items of an answer that pass aiPantryItem, in order, how many did not
+ * (`invalid`), and how often the model repeated one label (`repeated`, Story
+ * 6.5: the most extra copies of one label key). Copies with the same
+ * labelKey are one item (mergeCopies), at the first copy's place. A single
+ * duplicate (`repeated` 1) is merged quietly; from minLoopRepeats it is a
+ * repetition loop, and the caller decides what that means.
+ */
+export function parseAnalyzeItems(items: readonly unknown[]): { items: AiPantryItem[]; invalid: number; repeated: number } {
+  const byKey = new Map<string, AiPantryItem[]>();
+  let invalid = 0;
   for (const item of items) {
     const parsed = aiPantryItem.safeParse(item);
-    if (parsed.success) valid.push(parsed.data);
+    if (!parsed.success) {
+      invalid++;
+      continue;
+    }
+    const key = labelKey(parsed.data.label);
+    const copies = byKey.get(key);
+    if (copies) copies.push(parsed.data);
+    else byKey.set(key, [parsed.data]);
   }
-  return { items: valid, invalid: items.length - valid.length };
+  const groups = [...byKey.values()];
+  const repeated = groups.reduce((most, copies) => Math.max(most, copies.length - 1), 0);
+  return { items: groups.map(mergeCopies), invalid, repeated };
+}
+
+/** The coordinate range of a point on the photo, in thousandths of its width and height (Story 6.6). */
+export const maxPositionCoordinate = 1000;
+
+/**
+ * What the model answers to locateItems (Story 6.6): one point per numbered
+ * label, `n` the label's number and `position` [x, y] for the item's middle
+ * in thousandths (0–1000) from the photo's top left corner. Types only, so
+ * strict JSON schemas take it, and one bad point never makes the whole
+ * answer invalid: each is checked on its own (parseItemPositions).
+ */
+export const locateItemsAnswer = z.object({
+  positions: z
+    .array(
+      z.object({
+        n: z.number().describe("Varans nummer i listan"),
+        position: z.array(z.number()).describe("[x, y] för varans mitt, i tusendelar (0–1000)"),
+      }),
+    )
+    .describe("En post per nummer i listan, i samma ordning"),
+});
+
+/** One item's point as the port returns it: its number in the list and the point in thousandths. */
+export type ItemPosition = { n: number; x: number; y: number };
+
+const coordinate = z.number().min(0).max(maxPositionCoordinate);
+
+/**
+ * The points of an answer that are valid for `count` labels, sorted by
+ * number, and how many were not (`invalid`): `n` must be a whole number from
+ * 1 to `count` and `position` exactly two numbers from 0 to 1000. A second
+ * point for the same number is invalid too; the first one is kept.
+ */
+export function parseItemPositions(
+  entries: readonly unknown[],
+  count: number,
+): { positions: ItemPosition[]; invalid: number } {
+  const entry = z.object({
+    n: z.number().int().min(1).max(count),
+    position: z.tuple([coordinate, coordinate]),
+  });
+  const byNumber = new Map<number, ItemPosition>();
+  let invalid = 0;
+  for (const candidate of entries) {
+    const parsed = entry.safeParse(candidate);
+    if (!parsed.success || byNumber.has(parsed.data.n)) {
+      invalid++;
+      continue;
+    }
+    const [x, y] = parsed.data.position;
+    byNumber.set(parsed.data.n, { n: parsed.data.n, x, y });
+  }
+  return { positions: [...byNumber.values()].sort((a, b) => a.n - b.n), invalid };
 }
 
 export type AiIngredientHint = z.infer<typeof aiIngredientHint>;
@@ -209,4 +331,6 @@ export type AiRecipe = z.infer<typeof aiRecipe>;
 export type ParseRecipeAnswer = z.infer<typeof parseRecipeAnswer>;
 export type SuggestDishesAnswer = z.infer<typeof suggestDishesAnswer>;
 export type AiPantryItem = z.output<typeof aiPantryItem>;
+export type PantryItemConfidence = (typeof pantryItemConfidences)[number];
 export type AnalyzeImageAnswer = z.infer<typeof analyzeImageAnswer>;
+export type LocateItemsAnswer = z.infer<typeof locateItemsAnswer>;

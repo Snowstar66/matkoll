@@ -15,12 +15,14 @@ import {
 
 const mjolkId = "11111111-1111-4111-8111-111111111111";
 const rowId = "22222222-2222-4222-8222-222222222222";
+const siteId = "44444444-4444-4444-8444-444444444444";
 
 const form = (overrides: Partial<PantryItemFormInput> = {}): PantryItemFormInput => ({
   ingredient: { kind: "existing", ingredientId: mjolkId },
   amount: "",
   unit: null,
   location: "Kyl",
+  siteId,
   replaceId: null,
   ...overrides,
 });
@@ -50,6 +52,7 @@ describe("pantryItemFormSchema", () => {
       location: "Kyl",
       amount: 1.5,
       unit: "l",
+      siteId,
       replaceId: null,
     });
   });
@@ -117,6 +120,8 @@ describe("pantryItemFormSchema", () => {
     ["an ingredient id that is not a uuid", { ingredient: { kind: "existing", ingredientId: "1" } }],
     ["a new ingredient with an unknown section", { ingredient: { kind: "new", name: "Saffran", section: "Kryddhylla", location: "Kyl" } }],
     ["a replaced id that is not a uuid", { replaceId: "rad-1" }],
+    ["a place that is not an id", { siteId: "Stugan" }],
+    ["no place", { siteId: undefined }],
   ])("refuses %s, without a field message", (_name, overrides) => {
     const parsed = pantryItemFormSchema.safeParse({ ...form({ amount: "1" }), ...overrides });
     expect(parsed.success).toBe(false);

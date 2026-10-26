@@ -61,6 +61,13 @@ describe("dishSuggestionsSchema", () => {
     expect(dishSuggestionsSchema.safeParse({ suggestions: [one, one, one, one] }).success).toBe(false);
     expect(dishSuggestionsSchema.safeParse({ suggestions: [{ ...one, draft: { ...draft, title: "" } }] }).success).toBe(false);
   });
+
+  it("has the place the dishes were suggested from, null when the answer has none", () => {
+    const stugan = "55555555-5555-4555-8555-555555555555";
+    expect(dishSuggestionsSchema.parse({ suggestions: [one], siteId: stugan }).siteId).toBe(stugan);
+    expect(dishSuggestionsSchema.parse({ suggestions: [one] }).siteId).toBeNull();
+    expect(dishSuggestionsSchema.safeParse({ suggestions: [one], siteId: "Stugan" }).success).toBe(false);
+  });
 });
 
 describe("suggestErrorMessage", () => {

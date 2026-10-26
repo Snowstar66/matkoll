@@ -1,4 +1,5 @@
 import "server-only";
+import { z } from "zod";
 import { LOCATIONS, locationSchema, unitSchema, type Location, type Unit } from "@/features/catalog";
 import {
   comparePantryItems,
@@ -8,6 +9,17 @@ import {
   type PantrySnapshot,
 } from "../domain/pantry-item";
 import { PantryDataError, type PantryDb } from "./client";
+import { loadSelectedSiteIdIn } from "./sites";
+
+// Every read below is of one place (AD-19, AD-24): `siteId`, or the selected
+// place when it is not given. The pantry is never summed over places. A user
+// without a selected place (before ensure_pantry_defaults) has an empty
+// pantry: the place filter is never left out. Every pantry_item read in src/
+// goes through these functions (tests/design/pantry-site-reads.test.ts).
+//
+// They need the signed-in user's session client, never an admin client: RLS
+// limits the rows to the user's own, and the selected place is the session
+// user's.
 
 /**
  * The catalog's names for ingredient ids. Passed in, because only the catalog
@@ -35,6 +47,29 @@ async function allPages<Row>(page: (from: number, to: number) => Page<Row>): Pro
   }
 }
 
+const siteIdSchema = z.uuid();
+
+/**
+ * `siteId` checked as a uuid; PantryDataError `invalid_site` otherwise.
+ * Whether the place is the user's is not checked here: RLS gives another
+ * user's place no rows. pantry/server.ts checks it against the user's places
+ * first, and gives `site_gone` (pantry_site_gone, Story 8.2).
+ */
+export function checkedSiteId(siteId: string): string {
+  if (!siteIdSchema.safeParse(siteId).success) throw new PantryDataError("invalid_site");
+  return siteId;
+}
+
+/** The place to read: `siteId`, or the selected place; null when the user has none. */
+async function placeToRead(db: PantryDb, siteId: string | undefined): Promise<string | null> {
+  return siteId === undefined ? await loadSelectedSiteIdIn(db) : checkedSiteId(siteId);
+}
+
+/** Every location with no items: what an empty pantry counts. */
+export function zeroCounts(): Record<Location, number> {
+  return Object.fromEntries(LOCATIONS.map((location) => [location, 0])) as Record<Location, number>;
+}
+
 type AmountColumns = { amount: number | null; unit: string | null };
 
 /**
@@ -51,20 +86,24 @@ function amountOf(row: AmountColumns): { amount: number | null; unit: Unit | nul
 }
 
 /**
- * The signed-in user's pantry items in `location` (RLS limits the rows to the
- * user's own) with their catalog ingredients' names, sorted by name
- * (comparePantryItems). Throws PantryDataError when a query fails or a row's
- * ingredient has no name.
+ * The signed-in user's pantry items in `location` on one place (`siteId`, or
+ * the selected place; RLS limits the rows to the user's own) with their
+ * catalog ingredients' names, sorted by name (comparePantryItems). Throws
+ * PantryDataError when a query fails or a row's ingredient has no name.
  */
 export async function listPantryIn(
   db: PantryDb,
   location: Location,
   ingredientNames: IngredientNames,
+  siteId?: string,
 ): Promise<PantryItem[]> {
+  const place = await placeToRead(db, siteId);
+  if (place === null) return [];
   const rows = await allPages((from, to) =>
     db
       .from("pantry_item")
-      .select("id, ingredient_id, location, amount, unit")
+      .select("id, site_id, ingredient_id, location, amount, unit")
+      .eq("site_id", place)
       .eq("location", location)
       .order("id")
       .range(from, to),
@@ -78,18 +117,31 @@ export async function listPantryIn(
     const place = locationSchema.safeParse(row.location);
     // The foreign key keeps the ingredient in the user's catalog (AD-20).
     if (name === undefined || !place.success) throw new PantryDataError("invalid_row");
-    return { id: row.id, ingredientId: row.ingredient_id, name, location: place.data, ...amountOf(row) };
+    return {
+      id: row.id,
+      siteId: row.site_id,
+      ingredientId: row.ingredient_id,
+      name,
+      location: place.data,
+      ...amountOf(row),
+    };
   });
   return items.sort(comparePantryItems);
 }
 
-/** The number of the signed-in user's pantry items in each location, counted by the database. */
-export async function countPantryIn(db: PantryDb): Promise<Record<Location, number>> {
+/**
+ * The number of the signed-in user's pantry items in each location of one
+ * place (`siteId`, or the selected place), counted by the database.
+ */
+export async function countPantryIn(db: PantryDb, siteId?: string): Promise<Record<Location, number>> {
+  const place = await placeToRead(db, siteId);
+  if (place === null) return zeroCounts();
   const counts = await Promise.all(
     LOCATIONS.map(async (location) => {
       const { count, error } = await db
         .from("pantry_item")
         .select("id", { count: "exact", head: true })
+        .eq("site_id", place)
         .eq("location", location);
       if (error) throw new PantryDataError(`query_failed ${error.code}`);
       return [location, count ?? 0] as const;
@@ -99,12 +151,20 @@ export async function countPantryIn(db: PantryDb): Promise<Record<Location, numb
 }
 
 /**
- * The signed-in user's whole pantry per ingredient, summed over locations
- * (toSnapshot, AD-19). Throws PantryDataError.
+ * The signed-in user's pantry on one place (`siteId`, or the selected place)
+ * per ingredient, summed over the place's locations and never over places
+ * (toSnapshot, AD-19, AD-24). Throws PantryDataError.
  */
-export async function loadPantrySnapshot(db: PantryDb): Promise<PantrySnapshot> {
+export async function loadPantrySnapshot(db: PantryDb, siteId?: string): Promise<PantrySnapshot> {
+  const place = await placeToRead(db, siteId);
+  if (place === null) return toSnapshot([]);
   const rows = await allPages((from, to) =>
-    db.from("pantry_item").select("id, ingredient_id, amount, unit").order("id").range(from, to),
+    db
+      .from("pantry_item")
+      .select("id, ingredient_id, amount, unit")
+      .eq("site_id", place)
+      .order("id")
+      .range(from, to),
   );
   return toSnapshot(rows.map((row): PantryAmountRow => ({ ingredientId: row.ingredient_id, ...amountOf(row) })));
 }

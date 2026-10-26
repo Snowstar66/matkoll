@@ -29,7 +29,7 @@
 # - Dev moves story to 'review', then runs code-review (fresh context, different LLM recommended)
 # - Retrospective appends its action items to action_items; the status view surfaces open ones
 generated: 10-25-2026 18:16
-last_updated: 10-26-2026 00:39
+last_updated: 10-26-2026 15:18
 project: Matkoll
 project_key: NOKEY
 tracking_system: file-system
@@ -78,11 +78,13 @@ development_status:
   5-2-ai-förslag-utifrån-lagret: done
   epic-5-retrospective: optional
 
-  epic-6: done
+  epic-6: in-progress
   6-1-fotografera-en-plats-och-få-lagerförslag: done
   6-2-bekräfta-rätta-eller-avvisa-lagerförslag: done
   6-3-töm-en-plats: done
   6-4-inventera-en-plats-med-foto: done
+  6-5-bättre-bildtolkning: done
+  6-6-nummer-på-fotot: in-progress
   epic-6-retrospective: optional
 
   epic-7: done
@@ -90,3 +92,11 @@ development_status:
   7-2-produktval-per-vara: done
   7-3-skicka-till-ica: done
   epic-7-retrospective: optional
+
+  epic-8: done
+  8-1-ställen-i-lagret-med-hemma-som-första-ställe: done
+  8-2-välja-och-hantera-ställen-i-hemma: done
+  8-3-lagningsstatus-förslag-och-lägg-i-lagret-följer-valt-ställe: done
+  8-4-foto-inventering-och-tömning-per-ställe: done
+  8-5-inköpslista-inför-resan-till-ett-annat-ställe: done
+  epic-8-retrospective: optional

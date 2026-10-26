@@ -10,6 +10,7 @@ import type { SearchIngredients } from "@/components/ingredient-picker";
 import { Notice } from "@/components/notice";
 import { SearchField, type SearchFieldHandle } from "@/components/search-field";
 import { Skeleton } from "@/components/skeleton";
+import { siteLineText, type SelectedSite } from "@/features/pantry";
 import { errorMessages, fail, type AppError, type Result } from "@/lib/errors";
 import { searchLibrary } from "../actions/search-recipes";
 import { filterRecipes, type RecipeFilter, type RecipeLibrary, type RecipeListItem } from "../domain/recipe-list";
@@ -27,7 +28,9 @@ import { useFavorites } from "./use-favorites";
 // Each row's status ("Kan lagas nu" or "Saknar N varor") comes with it from
 // the server; Kan lagas nu ranks the rows by it (fewest missing first) without
 // a request, and has AI-förslag at the bottom (AiSuggestions). Their state is
-// held here, so the suggestions stay while the pills change.
+// held here, so the suggestions stay while the pills change. With more than
+// one place, Kan lagas nu says which place the status is counted against
+// ("Lager: Stugan", AD-24), under the pills, so the pill tapped never moves.
 
 const filterOptions: readonly FilterOption<RecipeFilter>[] = [
   { value: "all", label: "Alla" },
@@ -43,21 +46,34 @@ const maxSearchChars = 100;
 
 type Search =
   | { kind: "none" }
-  | { kind: "done"; query: string; results: RecipeListItem[]; pantryUnavailable: boolean }
+  | {
+      kind: "done";
+      query: string;
+      results: RecipeListItem[];
+      pantryUnavailable: boolean;
+      /** The place the answer's status was counted against. */
+      site: SelectedSite | null;
+    }
   | { kind: "failed"; query: string; error: AppError };
 
 export type LibraryProps = {
   recipes: RecipeListItem[];
   /** The pantry could not be read for `recipes` (listLibrary): no row has a status. */
   pantryUnavailable: boolean;
+  /**
+   * The place the status of `recipes` was counted against (listLibrary), for
+   * the line "Lager: Stugan" in Kan lagas nu; `null` without a status.
+   */
+  site: SelectedSite | null;
   /** The catalog search for the preview of an AI suggestion; the page passes it (AD-1). */
   searchIngredients: SearchIngredients;
 };
 
-export function Library({ recipes, pantryUnavailable, searchIngredients }: LibraryProps) {
+export function Library({ recipes, pantryUnavailable, site, searchIngredients }: LibraryProps) {
   const router = useRouter();
   const [filter, setFilter] = useRecipeFilter();
-  const dishes = useDishSuggestions();
+  // AI-förslag are of the place the server's list is counted against.
+  const dishes = useDishSuggestions(site?.id ?? null);
   const [search, setSearch] = useState<Search>({ kind: "none" });
   const [busy, setBusy] = useState(false);
   const searchField = useRef<SearchFieldHandle>(null);
@@ -87,6 +103,7 @@ export function Library({ recipes, pantryUnavailable, searchIngredients }: Libra
         query: text,
         results: result.data.recipes,
         pantryUnavailable: result.data.pantryUnavailable,
+        site: result.data.site,
       });
       return;
     }
@@ -121,6 +138,15 @@ export function Library({ recipes, pantryUnavailable, searchIngredients }: Libra
   // status while the pantry was read is ranked last, without the notice.
   const statusUnavailable = pantryUnavailable && (search.kind !== "done" || search.pantryUnavailable);
   const notRanked = cookable && statusUnavailable && search.kind !== "failed" && visible.length > 0;
+  // "Lager: Stugan", only in Kan lagas nu and with more than one place: the
+  // search answer's place while its recipes are shown, else the server
+  // list's. Never on no hits, a failed search, or without a status.
+  let siteLine: string | null = null;
+  if (cookable && search.kind === "done") {
+    siteLine = search.results.length > 0 && !search.pantryUnavailable ? siteLineText(search.site) : null;
+  } else if (cookable && search.kind === "none") {
+    siteLine = pantryUnavailable ? null : siteLineText(site);
+  }
 
   let content;
   if (search.kind === "failed") {
@@ -175,6 +201,12 @@ export function Library({ recipes, pantryUnavailable, searchIngredients }: Libra
         onSearch={runSearch}
       />
       <FilterPills label="Filter" options={filterOptions} value={filter} onChange={setFilter} />
+      {/* Metadata, never announced: the badges are what changes. */}
+      {siteLine ? (
+        <p className="text-meta break-words text-ink-2" data-testid="site-line">
+          {siteLine}
+        </p>
+      ) : null}
       {/* While a search is on its way, the current rows stay, dimmed. */}
       <div
         data-testid="library-results"

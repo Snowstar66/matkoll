@@ -95,14 +95,14 @@ isOneToOne: false
                   ]
                 },"pantry_item": {
                   Row: {
-                    "amount": number | null,"created_at": string,"id": string,"ingredient_id": string,"location": string,"unit": string | null,"user_id": string
+                    "amount": number | null,"created_at": string,"id": string,"ingredient_id": string,"location": string,"site_id": string,"unit": string | null,"user_id": string
                   }
                   ComputedFields: never
                   Insert: {
-                    "amount"?: number | null,"created_at"?: string,"id"?: string,"ingredient_id": string,"location": string,"unit"?: string | null,"user_id"?: string
+                    "amount"?: number | null,"created_at"?: string,"id"?: string,"ingredient_id": string,"location": string,"site_id"?: string,"unit"?: string | null,"user_id"?: string
                   }
                   Update: {
-                    "amount"?: number | null,"created_at"?: string,"id"?: string,"ingredient_id"?: string,"location"?: string,"unit"?: string | null,"user_id"?: string
+                    "amount"?: number | null,"created_at"?: string,"id"?: string,"ingredient_id"?: string,"location"?: string,"site_id"?: string,"unit"?: string | null,"user_id"?: string
                   }
                   Relationships: [
                     {
@@ -110,6 +110,12 @@ isOneToOne: false
       columns: ["ingredient_id","user_id"]
 isOneToOne: false
       referencedRelation: "ingredient"
+      referencedColumns: ["id","user_id"]
+    },{
+      foreignKeyName: "pantry_item_site_fkey"
+      columns: ["site_id","user_id"]
+isOneToOne: false
+      referencedRelation: "pantry_site"
       referencedColumns: ["id","user_id"]
     }
                   ]
@@ -123,6 +129,20 @@ isOneToOne: false
                   }
                   Update: {
                     "created_at"?: string,"id"?: string,"removed_rows"?: NonNullable<Json>,"user_id"?: string
+                  }
+                  Relationships: [
+                    
+                  ]
+                },"pantry_site": {
+                  Row: {
+                    "created_at": string,"id": string,"is_selected": boolean,"name": string,"normalized_name": string,"user_id": string
+                  }
+                  ComputedFields: never
+                  Insert: {
+                    "created_at"?: string,"id"?: string,"is_selected"?: boolean,"name": string,"normalized_name": string,"user_id"?: string
+                  }
+                  Update: {
+                    "created_at"?: string,"id"?: string,"is_selected"?: boolean,"name"?: string,"normalized_name"?: string,"user_id"?: string
                   }
                   Relationships: [
                     
@@ -354,10 +374,10 @@ isOneToOne: false
         isSetofReturn: false
       } },
 "add_to_pantry":
-{ Args: { "items": Json }; Returns: number
+{ Args: { "items": Json,"site"?: string }; Returns: number
                            },
 "apply_pantry_inventory":
-{ Args: { "items": Json,"operation_id"?: string,"place": string,"remove_ids": (string)[],"replace_ids": (string)[] }; Returns: Json
+{ Args: { "items": Json,"operation_id"?: string,"place": string,"remove_ids": (string)[],"replace_ids": (string)[],"site"?: string }; Returns: Json
                            },
 "clear_put_in_pantry":
 { Args: { "check_ids": (string)[],"custom_item_ids": (string)[],"override_keys": (string)[],"plan_id": string }; Returns: number
@@ -370,11 +390,17 @@ isOneToOne: false
 "delete_meal_plan":
 { Args: { "plan_id": string }; Returns: boolean
                            },
+"delete_pantry_site":
+{ Args: { "site_id": string }; Returns: boolean
+                           },
 "detach_recipe_from_current_plan":
 { Args: { "detached_recipe_id": string }; Returns: number
                            },
 "empty_pantry_place":
-{ Args: { "operation_id": string,"place": string }; Returns: Json
+{ Args: { "operation_id": string,"place": string,"site"?: string }; Returns: Json
+                           },
+"ensure_pantry_defaults":
+{ Args: Record<PropertyKey, never>; Returns: undefined
                            },
 "ensure_user_defaults":
 { Args: Record<PropertyKey, never>; Returns: undefined
@@ -388,8 +414,25 @@ isOneToOne: false
 "pantry_lock":
 { Args: Record<PropertyKey, never>; Returns: undefined
                            },
+"pantry_owner_lock":
+{ Args: { "owner": string }; Returns: undefined
+                           },
 "pantry_place_has_item":
-{ Args: { "ingredient": string,"item_unit": string,"place": string }; Returns: boolean
+{ Args: { "ingredient": string,"item_unit": string,"place": string,"site"?: string }; Returns: boolean
+                           },
+"pantry_selected_site":
+{ Args: { "owner"?: string }; Returns: string
+                           },
+"pantry_session_site":
+{ Args: Record<PropertyKey, never>; Returns: string
+                           },
+"pantry_site_item_counts":
+{ Args: Record<PropertyKey, never>; Returns: {
+              "item_count": number,"site_id": string
+            }[]
+                           },
+"pantry_target_site":
+{ Args: { "site": string }; Returns: string
                            },
 "remove_shopping_custom_item":
 { Args: { "item_id": string }; Returns: {
@@ -409,12 +452,13 @@ isOneToOne: false
         isSetofReturn: true
       } },
 "restore_pantry_item":
-{ Args: { "item": Json }; Returns: {
+{ Args: { "item": Json,"site"?: string }; Returns: {
               "amount": number | null,
 "created_at": string,
 "id": string,
 "ingredient_id": string,
 "location": string,
+"site_id": string,
 "unit": string | null,
 "user_id": string
             }
@@ -425,7 +469,7 @@ isOneToOne: false
         isSetofReturn: false
       } },
 "restore_pantry_removal":
-{ Args: { "operation_id": string }; Returns: Json
+{ Args: { "operation_id": string,"site"?: string }; Returns: Json
                            },
 "restore_plan_recipe":
 { Args: { "dish": Json }; Returns: {
@@ -447,6 +491,21 @@ isOneToOne: false
 "restore_shopping_line":
 { Args: { "hidden_updated_at"?: string,"line_key": string,"plan_id": string,"previous": Json }; Returns: undefined
                            },
+"save_pantry_site":
+{ Args: { "mode": string,"site_id": string,"site_name": string,"site_normalized_name": string }; Returns: {
+              "created_at": string,
+"id": string,
+"is_selected": boolean,
+"name": string,
+"normalized_name": string,
+"user_id": string
+            }
+                          SetofOptions: {
+        from: "*"
+        to: "pantry_site"
+        isOneToOne: true
+        isSetofReturn: false
+      } },
 "save_product_choice":
 { Args: { "choice": Json,"expected_id": string,"expected_updated_at": string }; Returns: {
               "created_at": string,
@@ -486,6 +545,21 @@ isOneToOne: false
         isOneToOne: true
         isSetofReturn: false
       } },
+"select_pantry_site":
+{ Args: { "site_id": string }; Returns: {
+              "created_at": string,
+"id": string,
+"is_selected": boolean,
+"name": string,
+"normalized_name": string,
+"user_id": string
+            }
+                          SetofOptions: {
+        from: "*"
+        to: "pantry_site"
+        isOneToOne: true
+        isSetofReturn: false
+      } },
 "select_store":
 { Args: { "store_id": string }; Returns: undefined
                            },
@@ -504,12 +578,13 @@ isOneToOne: false
         isSetofReturn: false
       } },
 "set_pantry_items":
-{ Args: { "items": Json,"replace_id"?: string }; Returns: {
+{ Args: { "items": Json,"replace_id"?: string,"site"?: string }; Returns: {
               "amount": number | null,
 "created_at": string,
 "id": string,
 "ingredient_id": string,
 "location": string,
+"site_id": string,
 "unit": string | null,
 "user_id": string
             }[]

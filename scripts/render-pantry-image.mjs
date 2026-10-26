@@ -3,12 +3,15 @@
 // fixtures (tests/fixtures/ai/<name>.png): CSS shapes with printed labels,
 // never a real photo, since the repo is public. "kyl" is an open fridge with
 // mellanmjölk, vispgrädde, smör, six eggs, two cucumbers and ketchup (the six
-// items in kyl.analyze.json); "tom-hylla" is an empty shelf. Both stay well
-// under 1600 px and 1.5 MB, so the client sends them unchanged and the mock
+// items in kyl.analyze.json); "tom-hylla" is an empty shelf; "kyl-dorr"
+// (Story 6.5) is a fridge door with a branded cream carton, a juice carton and
+// a yellow bottle half hidden behind it, without a readable label (the items
+// in kyl-dorr.analyze.json, where the model also repeats the cream). All stay
+// well under 1600 px and 1.5 MB, so the client sends them unchanged and the mock
 // knows them by their bytes. Rendering again changes the bytes: the mock then
 // answers them anew, but update nothing else.
 //
-//   node scripts/render-pantry-image.mjs [kyl|tom-hylla]   # default: both
+//   node scripts/render-pantry-image.mjs [kyl|tom-hylla|kyl-dorr]   # default: all
 //
 // Needs Playwright's Chromium (`pnpm exec playwright install chromium`).
 
@@ -37,6 +40,11 @@ const style = `
   .ketchup { width: 90px; height: 220px; background: #c62828; border-radius: 30px 30px 10px 10px; color: #fff;
              font-size: 20px; display: flex; align-items: center; justify-content: center; }
   .note { font-size: 15px; font-weight: normal; }
+  .door { gap: 0; }
+  .juice { background: #ffb347; border: 3px solid #c7701a; color: #5a3000; font-size: 20px; }
+  .bottle { width: 80px; height: 200px; background: #f2d21b; border-radius: 26px 26px 8px 8px; border: 3px solid #b39a0a;
+            margin-right: -40px; }
+  .front { position: relative; }
 `;
 
 const scenes = {
@@ -53,6 +61,15 @@ const scenes = {
     <div class="shelf">
       <div class="ketchup label">Ketchup</div>
     </div>`,
+  "kyl-dorr": `
+    <div class="shelf door">
+      <div class="bottle"></div>
+      <div class="carton cream label front">Lantmejeriet<br>Vispgrädde<br><span class="note">36 % · 3 dl</span></div>
+    </div>
+    <div class="shelf">
+      <div class="carton juice label">Solgården<br>Apelsinjuice<br><span class="note">1 liter</span></div>
+    </div>
+    <div class="shelf"></div>`,
   "tom-hylla": `
     <div class="shelf"></div>
     <div class="shelf"></div>

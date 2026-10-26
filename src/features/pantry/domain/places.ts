@@ -1,4 +1,8 @@
 import { LOCATIONS, type Location } from "@/features/catalog";
+import { siteSuffix, type SelectedSite } from "./site";
+
+/** What the texts for "Töm kylen" need of a place (Story 8.4). */
+type NamedSite = Pick<SelectedSite, "name" | "siteCount">;
 
 // The locations as Hemma names them (UX: Platskort): the address
 // (`/hemma?plats=frys`), the count on a card and the empty state.
@@ -61,18 +65,26 @@ export function emptyPlaceButtonText(location: Location): string {
   return `Töm ${definite[location]}`;
 }
 
-/** The sheet's question: "Ta bort alla 14 varor i kylen?" or "Ta bort 1 vara i kylen?" */
-export function emptyPlaceQuestion(location: Location, count: number): string {
+/**
+ * The sheet's question: "Ta bort alla 14 varor i kylen?" or "Ta bort 1 vara
+ * i kylen?"; with more than one place (Story 8.4) "Ta bort alla 14 varor i
+ * kylen för Stugan?" (siteSuffix).
+ */
+export function emptyPlaceQuestion(location: Location, count: number, site: NamedSite | null): string {
   const what = count === 1 ? "1 vara" : `alla ${itemCountText(count)}`;
-  return `Ta bort ${what} i ${definite[location]}?`;
+  return `Ta bort ${what} i ${definite[location]}${siteSuffix(site)}?`;
 }
 
 /** Under the question: emptying can be undone, so no "Det går inte att ångra." */
 export const emptyPlaceUndoHint = "Du kan ångra direkt efteråt.";
 
-/** The short confirmation, with "Ångra": "Tog bort 14 varor ur kylen." or "Tog bort 1 vara ur kylen." */
-export function emptiedPlaceText(location: Location, count: number): string {
-  return `Tog bort ${itemCountText(count)} ur ${definite[location]}.`;
+/**
+ * The short confirmation, with "Ångra": "Tog bort 14 varor ur kylen." or
+ * "Tog bort 1 vara ur kylen."; with more than one place (Story 8.4) "Tog
+ * bort 14 varor ur kylen för Stugan." (siteSuffix).
+ */
+export function emptiedPlaceText(location: Location, count: number, site: NamedSite | null): string {
+  return `Tog bort ${itemCountText(count)} ur ${definite[location]}${siteSuffix(site)}.`;
 }
 
 const alreadyEmpty: Record<Location, string> = {
@@ -94,12 +106,28 @@ export function notRestoredText(count: number): string {
 /**
  * The short confirmation, with "Ångra", for removals undone together: an
  * emptied location with single items removed meanwhile, or several
- * locations. "Tog bort 15 varor ur kylen." when they are all from one
- * location, else "Tog bort 17 varor."
+ * locations. "Tog bort 15 varor ur kylen." (with " för Stugan" from two
+ * places, Story 8.4) when they are all from one location of one place
+ * (`site`), else "Tog bort 17 varor." `site` is `null` when they are from
+ * more than one place.
  */
-export function removedCountText(count: number, locations: readonly Location[]): string {
+export function removedCountText(count: number, locations: readonly Location[], site: NamedSite | null): string {
   const [only, ...others] = new Set(locations);
-  return only !== undefined && others.length === 0 ? emptiedPlaceText(only, count) : `Tog bort ${itemCountText(count)}.`;
+  return only !== undefined && others.length === 0 && site !== null
+    ? emptiedPlaceText(only, count, site)
+    : `Tog bort ${itemCountText(count)}.`;
+}
+
+/**
+ * After "Ångra" put rows back on another place than the one Hemma shows
+ * (Story 8.4), so the list does not show them: "Lade tillbaka 14 varor i
+ * kylen för Stugan." With more than one location, or more than one place
+ * (`site` null), "Lade tillbaka 15 varor.".
+ */
+export function restoredElsewhereText(count: number, locations: readonly Location[], site: NamedSite | null): string {
+  const [only, ...others] = new Set(locations);
+  const where = only !== undefined && others.length === 0 && site !== null ? ` i ${definite[only]}${siteSuffix(site)}` : "";
+  return `Lade tillbaka ${itemCountText(count)}${where}.`;
 }
 
 const maybeEmptied: Record<Location, string> = {

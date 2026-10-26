@@ -12,6 +12,11 @@ import { PantrySheetProvider } from "./pantry-item-sheet";
 import { PantrySuggestionList } from "./pantry-suggestion-list";
 import { PantrySuggestionsProvider } from "./pantry-suggestions";
 
+/** The place Hemma shows (Story 8.2). */
+const testSite = { id: "55555555-5555-4555-8555-555555555555" };
+/** The place a photo was taken for (Story 8.4): the one Hemma shows. */
+const photoSite = { id: testSite.id, name: "Hemma" };
+
 // Story 6.4: a photo compared with a place that has items. The section with
 // the groups Nytt, Ändrat and Syns inte längre, filled through the camera
 // with /api/ai/analyze and the resizing stubbed, and confirmed, removed,
@@ -92,6 +97,7 @@ const known = (
 
 /** The matrix's fridge: kyl.png against mjölk 2 förp, smör, ägg 6 st, yoghurt 2 förp and senap. */
 const fridge: AnalyzeResult = {
+  site: photoSite,
   location: "Kyl",
   dropped: 0,
   suggestions: [
@@ -136,14 +142,14 @@ const fridge: AnalyzeResult = {
   },
 };
 
-function Hemma({ location = "Kyl" }: { location?: Location }) {
+function Hemma({ location = "Kyl", shownSite = photoSite }: { location?: Location; shownSite?: { id: string; name: string } }) {
   return (
     <ToastProvider>
       <PantrySuggestionsProvider>
-        <PantrySheetProvider location={location}>
+        <PantrySheetProvider location={location} site={testSite}>
           <div key={location}>
-            <PantryCamera location={location} />
-            <PantrySuggestionList />
+            <PantryCamera site={shownSite} location={location} />
+            <PantrySuggestionList siteId={shownSite.id} />
           </div>
         </PantrySheetProvider>
       </PantrySuggestionsProvider>
@@ -307,14 +313,20 @@ describe("Bekräfta on a compared photo", () => {
     fireEvent.click(button("Bekräfta mjölk"));
     await waitFor(() => expect(saves).toHaveLength(1));
     expect(lastSave().input).toEqual({
+      siteId: photoSite.id,
       location: "Kyl",
       items: [{ ingredient: { kind: "existing", ingredientId: mjolkId }, location: "Kyl", amount: 1, unit: "förp" }],
       replaceRowIds: [mjolkLiterRow],
       removeRowIds: [],
       operationId: null,
+      joinsOperation: false,
     });
     expect(within(section()).getByRole("button", { name: "Sparar …" })).toBeDisabled();
-    for (const shown of within(section()).getAllByRole("button")) expect(shown).toBeDisabled();
+    for (const shown of within(section()).getAllByRole("button")) {
+      // Only the photo can still be looked at: it changes nothing.
+      if (shown.dataset.testid === "pantry-analyzed-photo") expect(shown).toBeEnabled();
+      else expect(shown).toBeDisabled();
+    }
     await answerSave(answered({ set: 1 }));
     expect(groupNames("Ändrat")).toEqual([]);
     expect(toast()).toHaveTextContent("mjölk är sparad i kylen.");
@@ -370,6 +382,90 @@ describe("Bekräfta on a compared photo", () => {
     fireEvent.click(within(moved).getByRole("button", { name: "Bekräfta" }));
     await waitFor(() => expect(saves).toHaveLength(2));
     expect(lastSave().input).toMatchObject({ items: [{ location: "Frys" }], replaceRowIds: [] });
+  });
+});
+
+describe("the photo's place (Story 8.4)", () => {
+  const stugan = { id: "66666666-6666-4666-8666-666666666666", name: "Stugan" };
+
+  it("saves Rätta's Bekräfta, Ta bort and Bekräfta alla on the photo's place while Hemma shows another", async () => {
+    const { rerender } = render(<Hemma shownSite={stugan} />);
+    await analyze({ ...fridge, site: stugan });
+    rerender(<Hemma shownSite={photoSite} />);
+    expect(screen.getByTestId("pantry-suggestions-site")).toHaveTextContent("Förslagen gäller Stugan.");
+
+    fireEvent.click(button("Rätta mjölk"));
+    const sheet = screen.getByRole("dialog", { name: "Lagervara" });
+    fireEvent.click(within(sheet).getByRole("button", { name: "Bekräfta" }));
+    await waitFor(() => expect(saves).toHaveLength(1));
+    expect(lastSave().input.siteId).toBe(stugan.id);
+    await answerSave(answered({ set: 1 }));
+    await waitFor(() => expect(screen.queryByRole("dialog")).toBeNull());
+
+    fireEvent.click(button("Ta bort yoghurt"));
+    await waitFor(() => expect(saves).toHaveLength(2));
+    expect(lastSave().input).toMatchObject({ siteId: stugan.id, removeRowIds: [yoghurtRow] });
+  });
+
+  it("never sends the operation id of one place's failed removal with another place's", async () => {
+    const { rerender } = render(<Hemma shownSite={stugan} />);
+    await analyze({ ...fridge, site: stugan });
+    fireEvent.click(button("Ta bort yoghurt"));
+    await waitFor(() => expect(saves).toHaveLength(1));
+    const stuganOperation = lastSave().input.operationId;
+    // No answer: the id is kept for the next removal on the same place and location only.
+    await answerSave(fail("pantry_inventory_failed"));
+
+    rerender(<Hemma shownSite={photoSite} />);
+    await analyze({ ...fridge, site: photoSite });
+    fireEvent.click(button("Ta bort yoghurt"));
+    await waitFor(() => expect(saves).toHaveLength(2));
+    expect(lastSave().input.siteId).toBe(testSite.id);
+    expect(lastSave().input.operationId).not.toBe(stuganOperation);
+  });
+
+  it("keeps separate batches per place: a Hemma photo's removal never joins Stugan's confirmation that shows", async () => {
+    const { rerender } = render(<Hemma shownSite={stugan} />);
+    await analyze({ ...fridge, site: stugan });
+    fireEvent.click(button("Ta bort yoghurt"));
+    await waitFor(() => expect(saves).toHaveLength(1));
+    const stuganOperation = lastSave().input.operationId;
+    expect(lastSave().input.joinsOperation).toBe(false);
+    await answerSave(answered({ removed: [removedRow(yoghurtRow, yoghurtId)], removedCount: 1, undoable: 1, operationId: stuganOperation }));
+    // Stugan's confirmation with Ångra still shows.
+    expect(within(toast()).getByRole("button", { name: "Ångra" })).toBeInTheDocument();
+
+    rerender(<Hemma shownSite={photoSite} />);
+    await analyze({ ...fridge, site: photoSite });
+    fireEvent.click(button("Ta bort yoghurt"));
+    await waitFor(() => expect(saves).toHaveLength(2));
+    expect(lastSave().input).toMatchObject({ siteId: photoSite.id, joinsOperation: false });
+    expect(lastSave().input.operationId).not.toBe(stuganOperation);
+  });
+
+  it("sends the batch it joins with joinsOperation, so a taken id is never swapped in silence", async () => {
+    render(<Hemma />);
+    await analyze();
+    fireEvent.click(button("Ta bort yoghurt"));
+    await waitFor(() => expect(saves).toHaveLength(1));
+    const operation = lastSave().input.operationId;
+    await answerSave(answered({ removed: [removedRow(yoghurtRow, yoghurtId)], removedCount: 1, undoable: 1, operationId: operation }));
+    fireEvent.click(button("Ta bort senap"));
+    await waitFor(() => expect(saves).toHaveLength(2));
+    expect(lastSave().input).toMatchObject({ operationId: operation, joinsOperation: true });
+  });
+
+  it("drops the suggestions when their place is gone, and says so in the camera area", async () => {
+    render(<Hemma />);
+    await analyze();
+    fireEvent.click(button("Ta bort yoghurt"));
+    await waitFor(() => expect(saves).toHaveLength(1));
+    await answerSave(fail("pantry_site_gone"));
+    await waitFor(() => expect(screen.queryByTestId("pantry-suggestions")).toBeNull());
+    expect(within(screen.getByTestId("pantry-camera")).getByRole("alert")).toHaveTextContent(
+      "Stället finns inte längre. Välj ett annat ställe.",
+    );
+    await waitFor(() => expect(cameraButton()).toHaveFocus());
   });
 });
 
@@ -543,6 +639,34 @@ describe("review patches", () => {
     expect(screen.queryByText(/Det gick inte att tolka varorna på bilden/)).toBeNull();
     // Only Ta bort removes from an incomplete comparison.
     expect(button("Bekräfta alla")).toBeDisabled();
+  });
+
+  it("leaves an unsure Ändrat card out of Bekräfta alla, with its badge, and says it is left (Story 6.5)", async () => {
+    render(<Hemma />);
+    const unsure = { ...fridge.suggestions[3], labels: ["Vit förpackning, troligen mjölk"], uncertain: true };
+    await analyze({ ...fridge, suggestions: [...fridge.suggestions.slice(0, 3), unsure, ...fridge.suggestions.slice(4)] });
+    expect(groupNames("Ändrat")).toEqual(["Vit förpackning, troligen mjölk"]);
+    expect(within(section()).getByText("Osäker")).toBeInTheDocument();
+    fireEvent.click(button("Bekräfta alla"));
+    await waitFor(() => expect(saves).toHaveLength(1));
+    const { input } = lastSave();
+    expect(input.items.map((item) => item.ingredient)).toEqual(fridge.suggestions.slice(0, 3).map(({ ingredient }) => ingredient));
+    // The unsure card's rows in other units are not replaced either.
+    expect(input.replaceRowIds).toEqual([]);
+    expect(input.removeRowIds).toEqual([senapRow, yoghurtRow]);
+    await answerSave(
+      answered({
+        set: 3,
+        removed: [removedRow(senapRow, senapId), removedRow(yoghurtRow, yoghurtId)],
+        removedCount: 2,
+        undoable: 2,
+      }),
+    );
+    expect(toast()).toHaveTextContent(
+      "Kylen är uppdaterad: 3 nya och 2 borttagna. 1 osäker vara är kvar att bekräfta eller rätta.",
+    );
+    expect(groupNames("Ändrat")).toEqual(["Vit förpackning, troligen mjölk"]);
+    await waitFor(() => expect(button("Bekräfta mjölk")).toHaveFocus());
   });
 
   it("leaves the removals out of Bekräfta alla when the comparison is incomplete", async () => {

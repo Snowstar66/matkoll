@@ -8,6 +8,8 @@ import { UNITS, type Location, type Unit } from "@/features/catalog";
 /** A pantry item as Hemma shows it, with the catalog ingredient's name. */
 export type PantryItem = {
   id: string;
+  /** The place the item is on (AD-24): every write from Hemma sends it, so it lands where the view showed it (FR-33). */
+  siteId: string;
   ingredientId: string;
   /** The catalog ingredient's name (catalog.getIngredientNames). */
   name: string;

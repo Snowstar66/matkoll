@@ -16,6 +16,16 @@ const { SettingsDataError } = vi.hoisted(() => ({
 const ensureUserDefaults = vi.fn();
 vi.mock("@/features/settings/server", () => ({ SettingsDataError, ensureUserDefaults: () => ensureUserDefaults() }));
 
+const { PantryDataError } = vi.hoisted(() => ({
+  PantryDataError: class PantryDataError extends Error {
+    constructor(readonly detail: string) {
+      super(`pantry_data: ${detail}`);
+    }
+  },
+}));
+const ensurePantryDefaults = vi.fn();
+vi.mock("@/features/pantry/server", () => ({ PantryDataError, ensurePantryDefaults: () => ensurePantryDefaults() }));
+
 vi.mock("@/server/env", () => ({ env: { ALLOWED_EMAILS: ["pontus@example.com"] } }));
 
 const { confirmEmailLink } = await import("./confirm-email-link");
@@ -23,6 +33,7 @@ const { confirmEmailLink } = await import("./confirm-email-link");
 beforeEach(() => {
   verifyEmailLink.mockReset();
   ensureUserDefaults.mockReset().mockResolvedValue(undefined);
+  ensurePantryDefaults.mockReset().mockResolvedValue(undefined);
 });
 
 describe("confirmEmailLink", () => {
@@ -44,6 +55,35 @@ describe("confirmEmailLink", () => {
     verifyEmailLink.mockResolvedValue(result);
     expect(await confirmEmailLink("hash")).toBe(result);
     expect(ensureUserDefaults).not.toHaveBeenCalled();
+    expect(ensurePantryDefaults).not.toHaveBeenCalled();
+  });
+
+  it("ensures the pantry's start data after the settings' (AD-21)", async () => {
+    const order: string[] = [];
+    ensureUserDefaults.mockImplementation(async () => void order.push("settings"));
+    ensurePantryDefaults.mockImplementation(async () => void order.push("pantry"));
+    verifyEmailLink.mockResolvedValue("signed_in");
+    expect(await confirmEmailLink("hash")).toBe("signed_in");
+    expect(order).toEqual(["settings", "pantry"]);
+  });
+
+  it("ensures the pantry's start data even when the settings' fail, and the other way round", async () => {
+    const log = vi.spyOn(console, "error").mockImplementation(() => {});
+    verifyEmailLink.mockResolvedValue("signed_in");
+    ensureUserDefaults.mockRejectedValue(new SettingsDataError("ensure_user_defaults 08006"));
+    expect(await confirmEmailLink("hash")).toBe("signed_in");
+    expect(ensurePantryDefaults).toHaveBeenCalledTimes(1);
+
+    ensureUserDefaults.mockReset().mockResolvedValue(undefined);
+    ensurePantryDefaults.mockRejectedValue(new PantryDataError("ensure_pantry_defaults 42501"));
+    expect(await confirmEmailLink("hash")).toBe("signed_in");
+    expect(ensureUserDefaults).toHaveBeenCalledTimes(1);
+    expect(log).toHaveBeenLastCalledWith("pantry_defaults_failed", { reason: "ensure_pantry_defaults 42501" });
+
+    ensurePantryDefaults.mockRejectedValue(new Error("secret@example.com"));
+    expect(await confirmEmailLink("hash")).toBe("signed_in");
+    expect(log).toHaveBeenLastCalledWith("pantry_defaults_failed", { reason: "unknown" });
+    log.mockRestore();
   });
 
   it("signs in even when the start data fails, and logs only the reason", async () => {

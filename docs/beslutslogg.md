@@ -2,6 +2,254 @@
 
 Beslut som fattats under bygget: vad, varför och vilka alternativ som fanns. Nyaste överst.
 
+## 2026-10-26 – Foto, inventering och tömning per ställe (Story 8.4)
+
+- **Fotot binds till stället när det tas, inte när svaret kommer.** Klienten skickar ställets id med fotot till `/api/ai/analyze`, och svaret har stället (`site`, id och namn). Bekräfta, Rätta, "Bekräfta alla", "Ta bort" och inventeringen skickar det stället, också när Pontus har valt ett annat under analysen eller medan förslagen visas. Varför: analysen kan ta upp till 100 s med den lokala modellen, och fotot gäller det kylskåp som fotograferades (FR-33, AD-24). Alternativ: stället som är valt när svaret kommer, vilket kan lägga stugans mjölk hemma.
+- **Förslagen står kvar när stället byts, och raden "Förslagen gäller Stugan." står under rubriken** så länge Hemma visar ett annat ställe än förslagens. Med ett ställe, eller när Hemma visar förslagens ställe, syns ingen rad, och bekräftelserna är oförändrade. Varför: samma regel som när platskortet byts (6.1). Den tillfälliga lösningen från 8.2, där förslagen försvann vid ett byte, är borta. Alternativ: "… för Stugan." i varje bekräftelse.
+- **"Töm kylen" tömmer det ställe som Hemma visade när arket öppnades,** och med fler än ett ställe säger texterna "Ta bort alla 14 varor i kylen för Stugan?" och "Tog bort 14 varor ur kylen för Stugan.". Med ett ställe är texterna som i 1.0. "Ångra" sätter tillbaka på radernas eget ställe, också efter ett byte. "Kylen kan ha tömts." erbjuds bara när Hemma fortfarande visar samma ställe.
+- **Stället kontrolleras före AI-anropet.** Ett ställe som inte finns, eller som är en annan användares, ger `pantry_site_gone` (409) utan AI-anrop och utan "Försök igen", och sidan läses om. Varför: en läsning av ställena är billig jämfört med en analys på 20–100 s, och ett foto av ett ställe som är borta går inte att spara ändå. Går ställena inte att läsa ges `pantry_unavailable` med "Försök igen". En klient utan fältet `site` (1.0 under driftsättningen) får valt ställe.
+- AI-porten, prompten och mocken är oförändrade: modellen får platsen som förut och aldrig stället (AD-9).
+- **Efter granskningen:**
+  - **Ingen skrivning faller tillbaka på valt ställe i tysthet.** En skrivning från förslagen utan ställe ger `pantry_site_gone` när användaren har ställen, och "Töm kylen" kräver ett ställe.
+  - **Ett "Ångra" rymmer ett ställe.** `apply_pantry_inventory` ger `MK409` för ett operations-id vars post har rader från ett annat ställe (en migration), och actionen byter bara id när klienten inte väntar sig att gå med i en batch.
+  - **Förslag vars ställe är borta tas bort.** Kameraytan säger "Stället finns inte längre. Välj ett annat ställe.", så att inga kort står kvar som inte går att bekräfta.
+  - **"Ångra" efter ett byte säger var raderna hamnade:** "Lade tillbaka 2 varor i kylen för Hemma.".
+
+## 2026-10-26 – Inköpslista inför resan till ett annat ställe (Story 8.5)
+
+- **Underlag:** specen `spec-8-5-inkopslista-infor-resan-till-ett-annat-stalle.md`, där besluten var förslag, och AD-24.
+- **Beslut:**
+  - **Arket "Räkna listan mot" väntar på svaret innan det stänger,** i stället för att välja optimistiskt som pillren i Hemma. `selectPantrySite` revaliderar `/lista` i samma anrop (`revalidateFor("pantry_site")`), så när svaret kommer är listan redan omräknad, och Pontus ser aldrig "Lager: Stugan" ovanför en lista som är räknad mot Hemma. Raden som sparas visar "Sparar …", och de andra raderna väntar så länge.
+  - **Listans annonsering "Inköpslistan är omräknad. …" görs inte när det som ändrats är stället.** Bekräftelsen "Listan räknas nu mot Stugan." säger det i stället, så att skärmläsaren får en text och inte två. Antalet varor står i listans sammanfattning. Nästa omräkning på samma ställe annonseras som förut.
+  - **Knappen "Byt" har `aria-label` "Byt lager för listan".** Den synliga texten är bara "Byt", som är otydlig för en skärmläsare utan raden bredvid.
+  - **Raden "Lager: Hemma" och "Byt" renderas av sidan, inte av `ShoppingList`** (`ListSiteLine` i `pantry/ui`, AD-24). Sidan läser ställena i samma förfrågan som listan, och `ShoppingList` får bara `site` som data för sina texter.
+  - **"Allt finns hemma." står kvar med ett ställe.** Med flera ställen blir det "Allt finns i lagret för Stugan.", också för Hemma, så att texten fungerar med alla namn utan böjning.
+- **Efter granskningen:**
+  - **Ett tryck på valt ställe sparar också,** i stället för att bara stänga arket. Sidan kan vara inaktuell efter ett byte på en annan enhet, och valet kan göras två gånger utan skada.
+  - **Raderna i arket är vanliga knappar,** med `aria-current` och bocken på valt ställe, inte radioknappar. Ett val sparar och stänger arket.
+  - **Ett svar som inte kommer** (inom 20 sekunder) läser om sidan. Visar den det tryckta stället har valet sparats. Annars visas felet, så att arket aldrig blir låst.
+  - **Listan tiger bara om byten som gjordes i arket.** Ett byte på en annan enhet, i Hemma eller efter ett borttaget ställe annonseras: "Listan räknas nu mot Hemma. 2 varor kvar.".
+  - **"Byt" väntar** medan "Lägg i lagret" eller en bock sparas. Sidan sätter ihop raden och listan i `ShoppingListView`, så att `pantry/ui` och `shopping/ui` fortfarande inte importerar varandra.
+  - **Läsningen av ställena stoppar aldrig listan.** Ett fel ger bara ingen rad. Saknar listan ställe, visas valt ställe ur ställena, så att listan kan bytas bort från ett ställe vars lager inte går att läsa.
+  - **När raden försvinner med arket öppet** (bara ett ställe kvar) går fokus till sidrubriken, och ett borttaget ställe sägs i en kort bekräftelse.
+
+## 2026-10-26 – Nummer på fotot (Story 6.6)
+
+- **Underlag:** Pontus ville se ett nummer på varje vara på fotot och samma nummer på kortet, för att kunna kontrollera vad modellen har läst av. Experimentet med Pontus foto (2048 px, temperatur 0, appens prompt) mot Qwen3.6 i LM Studio:
+  - Att be om positioner i samma anrop som avläsningen gjorde avläsningen sämre. Med punkter blev 20 varor 25, modellen upprepade tidigare varor med allmänna namn, och tiden gick från ungefär 30 s till ungefär 55 s. Med rutor dubblerade den varor.
+  - Ett separat andra anrop efter avläsningen, med samma bild och de numrerade etiketterna, lämnar avläsningen identisk byte för byte. Det tog ungefär 10 s varmt på Pontus foto (20 varor, 390 token svar), 24 s vid det första, kalla anropet och 3–5 s på de syntetiska bilderna, och varje svar var giltigt och komplett. Punkterna hamnade på rätt varor på `kyl.png` och `kyl-dorr.png`, och Pontus bekräftade att de hamnar rätt på det riktiga fotot.
+  - Utvärderingen i appen (`pnpm eval:ai` med tiden för avläsningen, tiden för punkterna och summan per körning): mätning mot LM Studio väntar.
+- **Beslut (Claude, på Pontus begäran; allt går att ändra):**
+  - **Punkterna kommer från ett separat anrop, `locateItems`, efter avläsningen.** Avläsningen ändras inte. Anropet har samma bildsampling som `analyzeImage` (temperatur 0), en egen prompt och ett eget schema, och en egen budget: ett försök på högst 30 s efter hälsokontrollen, utan nytt försök. Numren är extra, så det är bättre att ge upp snabbt än att hålla modellen upptagen.
+  - **Punkter, inte rutor,** som Pontus valde. En punkt är `[x, y]` i tusendelar av bildens bredd och höjd. Varje punkt kontrolleras för sig, och en dålig punkt tas bort utan att svaret underkänns.
+  - **Bara en modell som är tränad för punkter i tusendelar tillfrågas:** LM Studio med en Qwen-modell (och mocken i testerna). Med en annan leverantör visas inga nummer, och fotot skickas aldrig en andra gång dit (efter granskningen).
+  - **Korten väntar aldrig på numren.** Klienten skickar samma förminskade bild och avläsningens etiketter till `/api/ai/locate` när korten visas. Under miniatyren står "Letar upp varorna på fotot …" och sedan "Numren på korten visar var varorna är på fotot.". Misslyckas uppslaget visas inga nummer och inget fel. Fotot sparas fortfarande inte (AD-15). Det skickas en gång till, till samma AI-port.
+  - **Kortets nummer är numret på dess första vara i avläsningen.** Ett kort som samlar flera varor har markörer med sitt nummer på alla sina varor. Bara kort som visas har nummer, så varje markör har ett kort. "Syns inte längre" och oförändrade varor har inga.
+  - **Markörerna finns bara på det stora fotot.** På miniatyren (72 px) går numren inte att läsa. Markörerna är dolda för skärmläsare, och kortets nummer läses som "Nummer 3 på fotot".
+  - **En analys vinner över ett uppslag.** Låset per användare har sorten: en ny analys stoppar allt före den, och ett uppslag under en analys svarar `ai_superseded` direkt i stället för att stoppa analysen.
+- **Varför:** Pontus vill kunna kontrollera tolkningen mot fotot utan att den blir sämre (FR-24, FR-25, AD-9, AD-15).
+- **Alternativ:**
+  - Positioner i samma anrop, som gjorde avläsningen sämre och långsammare.
+  - Rutor, som dubblerade varor i experimentet.
+  - Att vänta med korten tills numren finns, vilket skulle göra varje foto ungefär 10 s långsammare.
+
+## 2026-10-26 – Lagningsstatus, förslag och Lägg i lagret följer valt ställe (Story 8.3)
+
+- **Underlag:** specen `spec-8-3-lagningsstatus-forslag-och-lagg-i-lagret-foljer-valt-stalle.md`, där besluten var förslag, och AD-24.
+- **Beslut:**
+  - **Raden "Lager: Stugan" skrivs bara av `siteLineText` i `pantry/domain/site.ts`,** så att alla moduler skriver den likadant. Den ger `null` med ett ställe, och då är allt som i 1.0. `siteSuffix` ger " för Stugan" för texter som "Lagt 8 varor i lagret för Stugan.".
+  - **Var raden visas:**
+    - i receptvyn under "X av Y hemma", utanför live-regionen, så att den inte läses upp när portionerna ändras;
+    - i Matsedel under sidrubriken, när matsedeln har rätter;
+    - i Recept bara med filtret "Kan lagas nu", direkt under filterpillren, så att pillret som trycks inte flyttar sig.
+
+    Raden visas aldrig utan status. `recipes` och `mealplan` läser `getSelectedSite()` och `getPantrySnapshot()` i samma förfrågan. Båda är memoiserade och läser samma valda ställe. Går lagret inte att läsa, visas varken status eller rad.
+  - **"Lägg i lagret" räknar om listan mot listans ställe och lägger varorna där.** Klienten skickar `site.id` från `getShoppingList`. Ett ställe som väljs på en annan enhet efter att listan visades ändrar ingenting. Ett ställe som har tagits bort, eller som är en annan användares, ger `pantry_site_gone` (`MK410`). Då skrivs inget, bockarna står kvar och listan läses om. `siteId` får vara `null` när listan saknade ställe, och då gäller valt ställe.
+  - **Kvittona i `pantry_addition` gäller per användare, inte per ställe** (frågan från granskningen av 8.1). Nyckeln är bockens id. Kvittot glöms när bocken har rensats, och en ny bock får ett nytt id. Samma nyckel kan därför bara komma igen när ett avbrutet försök görs om. Då har varan redan köpts och lagts på det första stället, och det är rätt att den inte läggs till på det andra. Ett integrationstest låser det (`tests/integration/put-in-pantry-site.test.ts`).
+  - **Bekräftelsen namnger stället efter skrivningen** (`siteName` från `listPantrySites()`). Ett fel där ger texten från 1.0 och loggas bara.
+  - **AI-förslagen ändras inte.** De läser `getPantrySnapshot()` utan argument, alltså valt ställe, och ett test låser det.
+- **Efter granskningen:**
+  - **`getPantryForStatus()` i `pantry/server`** läser valt ställe en gång och sedan lagret för just det stället, också i en Server Action, där React `cache` inte memoiserar. Går något av dem inte att läsa, är båda `null`: ingen status och ingen rad. `recipes`, `mealplan`, `shopping` och `suggestions` använder den.
+  - **I biblioteket följer raden sökningens ställe medan sökträffar visas,** annars serverns. Ingen rad vid noll träffar, efter en misslyckad sökning eller utan status. I Matsedel visas raden bara ovanför rätter med status.
+  - **"Lägg i lagret" utan `siteId`** (också från en klient från bygget före 8.3) läser valt ställe en gång när åtgärden börjar och använder det både för listan och för skrivningen. Bekräftelsen namnger stället bara när lagret tog emot något i just det anropet, och läsningen av namnet kastar aldrig efter skrivningen.
+  - **AI-förslagen bär med sig stället de gjordes från** (`siteId`), och biblioteket döljer dem medan det visar ett annat ställe.
+  - **Ett borttaget ställe i Inköpslistan** ger "Stället finns inte längre. Listan har räknats om mot Hemma. Tryck Lägg i lagret igen.", utan namnet med ett ställe.
+- **Vid bygget:** e2e-specen `site-status.spec.ts` väljer ställe med service role, eftersom väljaren i Hemma kommer i 8.2. Den gör en upsert av alla ställen i en sats, med det valda sist, så att det partiella unika indexet och `pantry_site_one_selected` håller. Specen laddar därför om sidorna efter ett byte. Kontrollen att ett byte syns utan omladdning kräver väljaren och läggs till när 8.2 finns på grenen.
+- **Vid sammanslagningen med 8.2:**
+  - **En enda tolkning av `MK410`:** `pantryWriteError` i `pantry/data/client.ts` ger detaljen `site_gone` (`siteGoneDetail`) för `MK410` från alla skrivningar (Lägg i lagret, arket Lagervara och "Ångra"), och läsningen av ett ställe som inte är användarens ger samma detalj. `isSiteGone`, och `isPantrySiteGone` i `pantry/server`, avgör det överallt: i `addToPantry`, i actionerna i Hemma, i Hemmas läsning och i Inköpslistan.
+  - **`getPantryForStatus()` läser lagret för stället den just läste** utan att läsa ställena en gång till, eftersom stället redan är ett av användarens.
+  - **Ett e2e-test byter ställe med väljaren i Hemma** och går tillbaka med appens egna länkar: receptvyn, Recept med "Kan lagas nu" och Matsedel visar Hemmas status och raden "Lager: Hemma" utan omladdning. De andra testerna väljer fortfarande ställe med service role, eftersom de tittar på det ställe som är valt innan sidan laddas.
+
+## 2026-10-26 – Välja och hantera ställen i Hemma (Story 8.2)
+
+- **Underlag:** specen `spec-8-2-valja-och-hantera-stallen-i-hemma.md`, där besluten nedan var förslag som godkändes som de stod, EXPERIENCE.md (Ställesväljare och arket Ställen) och AD-24.
+- **Beslut:**
+  - **Tre Postgres-funktioner, alla `security invoker` med `pantry_lock()` först** (`*_pantry_site_manage.sql`):
+    - `save_pantry_site(site_id, site_name, site_normalized_name, mode)` lägger till (`add`) eller byter namn (`rename`). Id:t väljs i klienten när arket öppnas och behålls tills namnet ändras, så ett nytt försök efter ett förlorat svar ger aldrig två ställen. Ett namnbyte på ett ställe som har försvunnit ger `MK410` och skapar inget.
+    - `select_pantry_site(site_id)` slår av de andra ställena och sedan på det valda, i en transaktion. Två val samtidigt körs efter varandra, och det sista vinner.
+    - `delete_pantry_site(site_id)` tar bara bort ett tomt ställe som inte är valt och inte det sista (`MK423` annars). Ett ställe som redan är borta ger `false`, och actionen svarar `ok`.
+  - **Ett nytt ställe väljs inte automatiskt.** Bekräftelsen säger "Lade till Stugan. Välj det för att se och fylla dess lager.", så att Pontus vet vad nästa steg är. Matkoll byter aldrig ställe på egen hand.
+  - **Gränsen 10 ställen hålls av en trigger på tabellen** (`pantry_site_check_limit`, `MK422`) och inte bara i funktionen, eftersom en skrivning kan gå direkt via PostgREST. Ett designtest låser gränsen mot `maxSites`.
+  - **Det normaliserade namnet skickas från domänen** (`normalizeSiteName`). Tabellens kontroll av namnet gäller ändå. En förfalskad normalisering kan bara ge användaren själv två ställen som ser lika ut, och det är en accepterad risk.
+  - **Texterna:** "Ange ett namn på stället.", "Namnet får vara högst 40 tecken.", "Det finns redan ett ställe som heter Stugan." (med namnet som det är sparat), "Du kan ha högst 10 ställen.", "Stället heter nu Vinterstugan.", "Tog bort Stugan." och "Valt ställe: Stugan." i live-regionen. Bekräftelserna i arket Ställen står i arket, eftersom arket ligger kvar öppet och en kort bekräftelse under det inte syns.
+  - **Vyn är `inert` med `aria-busy` medan ett byte pågår.** Pillret byts direkt, men listan visar det förra stället tills servern har svarat. Platskorten, kameran, listan, "Töm kylen" och "+" i rubriken går då inte att använda, så ingen skrivning startar i en vy som blandar två ställen. `<Suspense>` har nyckeln ställe och plats, så det nya stället visar skelettrader tills det är läst.
+  - **Skrivningarna från Hemma skickar ställets id** (FR-33): arket Lagervara behåller det ställe det öppnades för, också om Hemma byter ställe medan det är öppet, och "Ångra" sätter tillbaka på radens eget ställe. En återställd rad visas bara i listan om den hör till det ställe och den plats som visas.
+  - **Ny felkod `pantry_site_in_use`:** "Stället har varor eller är valt och kan inte tas bort." Den kommer bara när en annan flik har ändrat stället, eftersom "Ta bort" bara visas när borttagningen är möjlig. `pantry_site_failed` talar om att spara och passar inte för en borttagning.
+  - **En läsning av ett ställe som inte är användarens ger `pantry_site_gone`** och aldrig ett tomt lager (`site_gone` i `pantry/server.ts`).
+- **Efter granskningen** (en tredje migration, `*_pantry_site_manage_review.sql`):
+  - **Förslagen, arket Lagervara och borttagningarna börjar om för varje ställe** (nycklade på valt ställe), så att ett fotos förslag eller en väntande borttagning aldrig bekräftas på ett annat ställe. Det som måste överleva ett byte ligger i `SiteSwitchProvider`.
+  - **"Ta bort" väntar medan ett "Ångra" för ställets rader visas,** eftersom raderna annars inte hade något ställe att gå tillbaka till.
+  - **Ett nytt försök att lägga till ett ställe tar aldrig tillbaka ett namnbyte:** samma id ändras bara vid samma normaliserade namn, annars `MK424`.
+  - **Antalet varor per ställe räknas i en grupperad fråga och är bästa möjliga.** Arket visas utan antal och utan "Ta bort" om de inte går att läsa.
+  - **Ett namn måste ha minst ett synligt tecken.**
+- **Avgränsning:** lagerförslag, inventering och "Töm kylen" sparar fortfarande på det ställe som är valt när anropet kommer fram, tills 8.4. Epicen slås ihop med `main` i en PR, så mellanversionen når aldrig produktion.
+
+## 2026-10-26 – Epic 9 (veckans erbjudanden) vilar
+
+- **Beslut:** Epic 9 byggs inte nu. Planeringen ligger kvar på grenen `epic/9-erbjudanden` och korten #55–58 står i Backlog. Först finslipas det som finns: Epic 8 (flera ställen) och bildtolkningen (6.6 och det som kommer ur testerna). Beslutat av Pontus.
+- **Konsekvens:** efter Epic 8 tas finslipning och nya idéer från Pontus tester före Epic 9. Storyn "Spara senaste fotot per plats" ligger kvar efter Epic 8.
+
+## 2026-10-26 – Stabil bildtolkning och fotot under granskningen (snabbfix efter 6.5)
+
+- **Underlag:** Pontus såg att samma foto gav mycket olika förslag varje gång. Mätt med Pontus foto av kylen, förminskat till 2048 px, med appens prompt mot Qwen3.6 i LM Studio, tre körningar per inställning:
+  - Med `temperature` 0,7 (Qwens rekommendation från Story 6.5) var varunamnen parvis bara 0,13–0,24 lika (Jaccard), och körningarna gav 14, 14 och 25 varor.
+  - Med `temperature` 0,2 var de 0,25–0,44 lika.
+  - Med ett fast frö (`seed` 42) och 0,7 var de 0,33 lika. LM Studio följer inte fröet.
+  - Med `temperature` 0, och `top_p` 0,8, `top_k` 20 och `presence_penalty` 1,5 kvar, var alla tre svaren identiska byte för byte: 20 varor på ungefär 30 s, avslutade normalt (`finish=stop`) och utan upprepningsslingor.
+- **Beslut (Claude, på Pontus begäran; allt går att ändra):**
+  - **`analyzeImage` mot en Qwen-modell i LM Studio skickar `temperature` 0** (`lmStudioImageSampling`). Samma foto ska ge samma tolkning, annars går det inte att lita på korten. `presence_penalty` 1,5 står kvar, eftersom den fortfarande skyddar mot slingor när modellen alltid väljer det mest sannolika ordet. `top_p` och `top_k` gör ingenting vid 0 och står kvar som Qwens värden. `parseRecipe` och `suggestDishes` ändras inte. Stabiliteten gäller bara LM Studio med en Qwen-modell och exakt samma bild: andra modeller och leverantörer behåller sina standardvärden, och ett nytt foto av samma plats är en annan bild.
+  - **Ett nytt försök efter ett ogiltigt svar använder `temperature` 0,3** när det första försöket hade 0 (`retryTemperature` i `run.ts`). Vid 0 ger samma indata samma svar, så ett nytt försök som också väljer det mest sannolika ordet kan bli ogiltigt på samma sätt.
+  - **Utvärderingen visar om körningarna är överens.** Rapporten får avsnittet "Samma varor mellan körningar" med en rad per fotofil: samma varunamn i alla körningar, eller den lägsta parvisa likheten (Jaccard). Med bara en körning står det "en körning, inget att jämföra". Det fäller aldrig en körning.
+  - **Fotot visas ovanför förslagen medan Pontus granskar dem,** så att Pontus kan jämföra korten med bilden. Under rubriken "Lagerförslag från kylen" står en miniatyr med "Fotot av kylen" och "Visa större", och ett tryck öppnar fotot större i ett ark med "Stäng". Ett tryck på fotot i arket växlar mellan att passa skärmen och full storlek, som går att skrolla i arket, så att små etiketter går att läsa. Fokus går tillbaka till miniatyren när arket stängs. Ett foto som inte går att visa ersätts av texten "Fotot kunde inte visas.".
+  - **AD-15 gäller fortfarande: fotot sparas inte.** Det är den förminskade bild som skickades för analys, som en objekt-URL i webbläsarens minne. Den skickas aldrig någon annanstans och hamnar aldrig i localStorage eller IndexedDB. AD-15 förbjuder att fotot sparas, inte att det finns i minnet, så fotot finns kvar lika länge som svaret. När alla kort är hanterade döljs miniatyren, och ett "Ångra" ger tillbaka korten med fotot. URL:en släpps först när ett nytt svar har ersatt fotot och när Hemma lämnas. Är arket öppet när det sista kortet sparas, står det kvar tills Pontus stänger det, och fokus flyttas vidare först då. Ett svar utan kort visar inget foto.
+  - **Att spara senaste fotot per plats blir en egen story efter Epic 8** (`docs/backlog-efter-1-0.md`). Den börjar med en kursändring av AD-15.
+- **Varför:** Pontus vill kunna lita på tolkningen och kontrollera den mot fotot, FR-24, FR-25 och AD-15.
+- **Alternativ:**
+  - `temperature` 0,2, som fortfarande gav olika varor mellan körningarna.
+  - Ett fast frö, som LM Studio inte följer.
+  - Att spara fotot redan nu, vilket kräver en ändring av AD-15 och väntar på sin egen story.
+
+## 2026-10-26 – Ställen i lagret med Hemma som första ställe (Story 8.1)
+
+- **Underlag:** specen `spec-8-1-stallen-i-lagret-med-hemma-som-forsta-stalle.md`, där besluten nedan var förslag som godkändes som de stod, och AD-24.
+- **Beslut:**
+  - **Migrationen bara lägger till, i en transaktion** (`*_pantry_site.sql`). Den skapar `pantry_site`, ger varje användare "Hemma" som valt ställe, lägger `site_id` på varje rad i `pantry_item` och i `pantry_removal.removed_rows` och byter den unika nyckeln till `(user_id, site_id, ingredient_id, location, unit)`. Inga rader tas bort och inga id byts. `scripts/pantry-site-check.sql` visar det före och efter (`docs/drift.md`, steg 6).
+  - **De sju pantry-funktionerna tas bort och skapas igen med `site uuid default null` sist.** `create or replace` med en ny parameter skulle ge en överlagring, och då blir 1.0:s anrop utan `site` tvetydiga. PostgREST matchar på parameternamn, så 1.0-koden når de nya funktionerna med `site = null`, som betyder valt ställe.
+  - **Hjälpfunktionerna:**
+    - `pantry_selected_site(owner)` ger ägarens valda ställe. Den skapar "Hemma" som valt när ägaren saknar ställen, så att en skrivning aldrig misslyckas för en användare som inte har loggat in sedan migreringen. Efter granskningen skapar den "Hemma" under ägarens lager-lås (`pantry_owner_lock`), och grenen som valde det äldsta stället är borta, eftersom databasen nu håller ett valt ställe. Bara skrivningar anropar den.
+    - `pantry_target_site(site)` ger valt ställe för `null` och kontrollerar annars att stället är anroparens.
+    - `pantry_session_site()` ger den inloggades valda ställe utan att skapa något och är standardvärdet för `pantry_item.site_id`.
+  - **En `before insert`-trigger (`pantry_item_fill_site`) fyller `site_id` när den saknas,** med ägarens valda ställe. Den finns för testernas seeds med service role och för direkta insättningar under driftsättningen. Funktionerna sätter alltid `site_id` själva. Alternativet var en hjälpare i alla e2e-seeds.
+  - **Felkoden `MK410` betyder att stället inte finns** (en annan användares, eller borttaget), i samma familj som `MK409`. Inget skrivs då. Data-lagret översätter den till `pantry_site_gone` från och med 8.2.
+  - **"Ångra" sätter tillbaka på radens eget ställe.** `restore_pantry_removal` hoppar över en rad vars ställe har tagits bort och räknar den i `skipped`, och `restore_pantry_item` ger `MK410`.
+  - **Normaliseringen av ställets namn görs bara i `pantry/domain/site.ts`** (`normalizeSiteName`: en rad, NFC och svenska gemener). SQL jämför aldrig namn själv, eftersom `lower()` beror på databasens kollation. De bokstavliga `'Hemma'` och `'hemma'` i migrationen är låsta mot domänen med `tests/design/pantry-site-checks.test.ts`.
+  - **Läsningarna gäller ett ställe och summerar aldrig över ställen.** `getPantrySnapshot`, `listPantry` och `countPantryItems` tar `siteId?` och använder annars valt ställe. En användare utan ställen har ett tomt lager, och `getSelectedSite()` ger `null`. Läsningarna skapar aldrig något.
+  - **`ensure_pantry_defaults()` anropas av `auth/confirm` efter `ensure_user_defaults()`,** i ett eget `try`. Ett fel loggas som `pantry_defaults_failed` och stoppar varken den andra startdatan eller inloggningen.
+- **Vid bygget:** `site_id` fick ett standardvärde i en andra migration (`*_pantry_site_default.sql`). Utan det krävde de genererade typerna `site_id` vid varje insättning, och integrationstesternas direkta insättningar slutade typkontrolleras, fast triggern fyller värdet. Den första migrationen var redan körd lokalt och ändras därför inte.
+- **Efter granskningen** (en tredje migration, `*_pantry_site_hardening.sql`):
+  - **"En användare med ställen har exakt ett valt" hålls av databasen** med en uppskjuten constraint-trigger (`pantry_site_one_selected`), som kontrollerar varje berörd användare vid commit. Ett brott ger `23514` (check_violation), samma kod som tabellens andra kontroller, med villkorets namn. Att slå av ett ställe och på ett annat i samma transaktion går, och när en användare tas bort försvinner alla ställen, vilket också går. Triggern hoppar över en roll som inte får läsa `pantry_site`, vilket bara inloggningstjänstens kaskad från `auth.users` är.
+  - **`pantry_owner_lock(owner)`** tar samma lås som `pantry_lock()` för en given ägare. En inloggad användare får bara ta sitt eget lås (`42501`), och service role (testernas seeds via triggern) får ta vilket som helst.
+  - **`pantry_target_site` håller stället med `for key share`** till transaktionens slut, så att en borttagning väntar och skrivningen aldrig får `23503` i stället för `MK410`.
+  - **`restore_pantry_removal` letar upp ett reservställe först när en rad saknar `site_id`.** Ett gammalt eller borttaget `site` stoppar aldrig rader som har ett eget ställe, och en rad utan ställe att gå till räknas i `skipped`.
+  - **`empty_pantry_place` läser den sparade posten före stället.** En upprepning ger posten som förut, också när stället har tagits bort, och en upprepning med ett annat `site` ger `MK409`.
+  - **`pantry_item_site_fkey` är `on delete no action`** i stället för `restrict`. Ett ställe med varor kan fortfarande inte tas bort, men kontrollen görs i slutet av satsen, så kaskaden från `auth.users` beror aldrig på i vilken ordning den tar bort ställen och varor.
+  - **"Ångra" för en enskild vara bär med sig radens ställe:** `removePantryItem` lämnar `siteId`, och `restorePantryItem` skickar det som `site_id`.
+  - **Varje läsning av `pantry_item` i `src/` filtrerar på ställe, och ingen kod skriver tabellen direkt.** Två designtester låser det (`tests/design/pantry-site-reads.test.ts`). Ett `siteId` som inte är ett uuid ger `invalid_site`.
+
+## 2026-10-26 – Bättre bildtolkning (Story 6.5)
+
+- **Underlag:** ett experiment med Pontus foto av kylen mot Qwen3.6 35B-A3B (MLX, 4 bit, kontext 8 192) i LM Studio på den här datorn, med 33 körningar.
+  - Med 1600 px och LM Studios standardinställningar för sampling fastnade 3 av 8 körningar i en upprepningsslinga ("Grädde" 12 gånger, "Vispgrädde" 22 gånger och en gul flaska 10 gånger), och en fjärde gav bara en vara.
+  - Med Qwens sampling gav 5 av 5 körningar inga slingor (2 med 1600 px och 3 med 2048 px). Med 2048 px och standardinställningarna gav 4 av 4 körningar inga slingor.
+  - Med tänkläget påslaget gick det strukturerade svaret sönder i 5 av 5 körningar.
+  - Med 2048 px, Qwens sampling och den skärpta prompten gav alla tre körningarna giltiga svar. De hade 13–22 varor med märke och storlek och tog 21–62 s.
+  - Resultaten finns bara som text i sessionens scratchpad, aldrig i repot.
+- **Beslut (Claude, headless enligt `docs/autonomi.md`; allt går att ändra):**
+  - **Ett foto av en plats förminskas till högst 2048 px** (`maxPlacePhotoSide`), och servern kontrollerar samma gräns för `/api/ai/analyze`. En kokbokssida stannar på 1600 px, eftersom inget är mätt för recept. Taket på 1,5 MB behålls, eftersom en JPEG på 2048 px med kvalitet 0,85 är ungefär 0,7 MB. **AD-15 får tillägget** att gränsen är 2048 px för en plats.
+  - **`analyzeImage` mot en Qwen-modell i LM Studio skickar Qwens sampling uttryckligen** (modellens id matchar `/qwen/i`, och en annan modell behåller sina standardvärden; ändrat efter granskningen): `temperature` 0,7, `top_p` 0,8, `top_k` 20 och `presence_penalty` 1,5. Tänkläget är fortfarande avstängt (`reasoning_effort: "none"`). Samplingen ligger i LM Studio-adaptern (`imageSampling`) och går genom `runStructured` som `sampling`. `top_k` skickas via `providerOptions.lmstudio`, eftersom AI SDK:s openai-compatible-adapter släpper `topK` med en varning men skickar okända fält under leverantörens nyckel vidare.
+  - **`parseRecipe` och `suggestDishes` behåller standardinställningarna,** och Anthropic och OpenAI ändras inte. Det saknas mätningar för de andra anropen, och resonerande modeller kan neka `temperature`. Om en slinga syns i ett recept läggs frågan i `docs/oppna-fragor.md`.
+  - **Prompten är experimentets** (`prompt-e2`), med tillägget att modellen tar de tydligaste varorna först om det finns fler än 25. Den går igenom bilden hylla för hylla, uppifrån och ned, med dörrens hyllor och lådor, och läser märke, sort, fetthalt och storlek. Den tar med delvis synliga varor som "osäker", hittar aldrig på och upprepar aldrig en post. Storleken står i `label` och inte i `unit`, och `hint.name` är grundformen utan märke.
+  - **AI-schemat får `confidence: "säker" | "osäker"`.** JSON-schemat ber om en `enum`, men tolkningen är förlåtande: "säker", "saker", "sure" och "certain" (utan hänsyn till skiftläge och mellanslag) blir säker, och allt annat eller inget alls blir osäker. Ett udda värde gör aldrig svaret eller varan ogiltig. (Ändrat efter granskningen.)
+  - **Porten slår ihop poster med samma etikettnyckel** (`labelKey` i `src/lib/label-key.ts`, som också förslagen använder). Nyckeln är NFC och gemener med ett mellanslag mellan orden, och punkt och mängd med enhet sist tas bort, så "Grädde 3 dl", "Grädde." och "grädde" är samma etikett. Den behållna posten blir osäker om någon kopia är det och får den första mängden som finns. `repeated` är det högsta antalet extra kopior av en etikett. Mocken går genom samma tolkning. (Ändrat efter granskningen.)
+    - En **enda dubblett** (`repeated` 1) slås ihop i tysthet. Mängderna adderas när båda har en mängd i samma enhet, eftersom det kan vara två förpackningar.
+    - En **slinga** (`repeated` ≥ `minLoopRepeats`, alltså samma etikett tre gånger eller fler) behåller en mängd och adderar aldrig, eftersom "Grädde" tolv gånger är modellen som upprepar sig.
+  - **En slinga gör jämförelsen med platsen ofullständig** (6.4), men en enda dubblett gör det inte. En slinga betyder att modellen kan ha slutat titta på resten av bilden, så "Bekräfta alla" tar då inte med borttagningarna.
+  - **Ett förslag är osäkert när någon av dess varor är osäker,** eftersom förslag summeras per katalogvara och enhet (6.1). Ett osäkert förslag har märket "Osäker" (blått, "kontrollera det här") och texten "AI:n är osäker på varan, så Bekräfta alla tar inte med den.". "Bekräfta alla" hoppar över det, kortet står kvar, och bekräftelsen lägger till "1 osäker vara är kvar att bekräfta eller rätta.". Ett eget Bekräfta eller Rätta sparar det som förut. Bekräftelsen räknar bara osäkra kort som går att bekräfta och som servern inte har nekat. Efter "Bekräfta alla" går fokus till det första osäkra kortet som är kvar. (Ändrat efter granskningen.)
+  - **Ett osäkert förslag räknas aldrig som "stämmer med lagret".** Det visas alltid som ett kort med "Osäker", så att Pontus bekräftar det. När mängden är densamma som platsens är det "Ändrat", utan att någon rad ersätts. (Ändrat efter granskningen.)
+  - **Ett osäkert förslag skyddar en rad från "Syns inte längre".** Något på bilden liknar varan, och att samtidigt föreslå att den tas bort vore motsägelsefullt. Felet åt det hållet är det ofarliga, eftersom en rad bara står kvar.
+  - **Kortets rubrik är etiketterna** (högst tre olika, i AI:ns ordning, med komma emellan), och katalogvaran står under som "Sparas som: vispgrädde". När den enda etiketten är katalogvarans namn ("Ägg" för "ägg") visas namnet en gång. Knapparnas namn och bekräftelserna använder katalogvaran ("Bekräfta mjölk", "mjölk är sparad i kylen."), eftersom det är den som sparas.
+  - **`maxOutputTokens` är 3 000 och taket 25 varor,** som förut. Kommentaren i `service.ts` är rättad. LM Studio rapporterar ungefär 1 000 prompt-token både för 1600 och 2048 px, så bilden ingår inte i den siffran. Bildens andel av kontexten är alltså inte mätt, och den uppskattas till ungefär 3 100 token för 2048 × 1536 px.
+  - **Utvärderingen skickar varje foto tre gånger** (`EVAL_RUNS`). Rapporten visar tid, antal varor, osäkra, ogiltiga, upprepningar och slinga per körning. En körning fallerar vid fel, vid en slinga (samma etikett tre gånger eller fler) och vid över 100 s. Fotot förminskas som i klienten till högst 2048 px och kvalitet 85, aldrig uppåt, utan metadata, och skickas bara till LM Studio på den här datorn.
+  - **Mockens nya foto `kyl-dorr.png`** (syntetiskt, ritat av `render-pantry-image.mjs`) har ett märke som modellen upprepar fyra gånger, en juice och en osäker gul flaska. E2E-specen `pantry-image-reading.spec.ts` har en egen användare, `e2e-bildtolkning@matkoll.test`.
+- **Mätt med appens kod (`pnpm eval:ai tests/eval/analyze-image.eval.ts`, 2026-10-26, tre körningar per foto):**
+  - **Pontus foto** (`IMG_5673`, 4284 × 5712 px förminskat till 1536 × 2048):
+    - Alla tre körningarna gav giltiga svar med 12 varor, utan ogiltiga varor och utan upprepningar.
+    - Tiderna var 50,8 s (den första, när modellen var kall), 19,4 s och 19,7 s.
+    - 0, 1 och 3 varor var osäkra.
+    - De fem varor som körningarna i experimentet var överens om hittades alla gånger: vispgrädde, matlagningsgrädde, senap, mellanmjölk och Pepsi.
+    - `hint.name` var en grundform utan märke i alla körningar ("mjölk", "läsk", "steaksås").
+    - Felläsningar finns kvar, till exempel "Schysst Kak" som cappuccino och "Glutenfritt" som vin.
+  - **De syntetiska bilderna** gav alla sex varor varje gång på 13–26 s, och den tomma hyllan gav inga varor på 5 s.
+  - Ingen av de 12 körningarna hade fel eller slinga.
+- **Varför:** Pontus vill att fotot tolkas lika bra som när Pontus frågar Qwen direkt, FR-24, FR-25 (inget sparas utan ett tryck), AD-9 och AD-15.
+- **Alternativ:**
+  - 2048 px också för kokbokssidor.
+  - Samma sampling för alla anrop och alla leverantörer.
+  - Att summera upprepningar, vilket skulle göra "Grädde" tolv gånger till "grädde 12 förp".
+  - Att låta en osäker vara ge både ett förslag och "Syns inte längre".
+  - Att bara märka ett förslag osäkert när alla dess varor är osäkra.
+  - Tänkläget påslaget, som gav bättre text men trasiga svar.
+
+## 2026-10-26 – Kursändring för version 1.1, Flera ställen (Epic 8)
+
+- **Beslut (Claude, headless enligt `docs/autonomi.md`; allt går att ändra):**
+  - **Kursändringen görs som en ny Epic 8 med fem stories** (alternativ 1, direkt justering). 1.0:s stories ändras inte. Förslaget står i `_bmad-output/planning-artifacts/sprint-change-proposal-2026-10-26-flera-stallen.md`.
+  - **Ett valt ställe styr allt (modell A).** Varje användare har exakt ett valt ställe, `pantry_site.is_selected`, som sparas på servern och gäller alla enheter. Det styr Hemma, lagningsstatusen, rangordningen, AI-förslagen, inköpslistans avdrag, "Lägg i lagret" och bildanalysen. Det är Pontus egen beskrivning, och samma mönster som vald butik (`select_store`).
+  - **Lagret summeras aldrig över ställen,** och Matkoll byter aldrig ställe på egen hand (motmåttet SM-C3).
+  - **Pontus tittar på ett annat ställes lager genom att välja det** i Hemma. Det finns ingen separat visning via adressen.
+  - **"Byt" i inköpslistan är samma val som i Hemma.** Listan har inget eget ställe.
+  - **Termer:** "ställe" och "valt ställe". "Plats" betyder fortfarande Kyl, Frys och Skafferi. Det första stället heter "Hemma", och sidan och fliken Hemma behåller sitt namn.
+  - **Ny AD-24 i arkitekturen:**
+    - `pantry` äger `pantry_site`.
+    - `pantry_item.site_id` är `not null`, med en sammansatt nyckel och `on delete restrict`.
+    - Den unika nyckeln är `(user_id, site_id, ingredient_id, location, unit)`.
+    - `getPantrySnapshot(siteId?)` gäller valt ställe.
+    - Skrivningar tar ställets id från vyn (FR-33).
+    - SQL-funktionerna får parametern `site uuid default null`, där `null` betyder valt ställe, för bakåtkompatibilitet (AD-5).
+    - `ensure_pantry_defaults()` ägs av `pantry` (AD-21).
+    - `revalidateFor('pantry_site')`.
+
+    AD-7, AD-8, AD-18, AD-19 och AD-21 får tillägg, och inga AD-id ändras.
+  - **Migreringen bara lägger till:** "Hemma" läggs in för varje användare i `auth.users`, och alla befintliga rader flyttas dit med samma id. Inget tas bort.
+  - **Gränser:** namnet har 1–40 tecken och är unikt utan hänsyn till stora och små bokstäver, och det får finnas högst 10 ställen. Ett ställe kan tas bort bara om det är tomt och inte valt, och det sista aldrig. Borttagningen görs utan fråga och utan "Ångra", eftersom inget går förlorat.
+  - **Ställesväljaren:** med ett ställe visas bara "Lägg till ställe" längst ned i Hemma. Med flera visas filterpiller ovanför platskorten och "Ställen". Ett nytt ställe väljs inte automatiskt.
+  - **Texter:** ställets namn nämns bara när det finns fler än ett ställe, med mönstren "Lager: Stugan" och "… för Stugan.", så att alla namn fungerar utan böjning, också "Hemma".
+  - **Stället ingår aldrig i listnycklar, bockar, överstyrningar, egna varor, produktval eller exporten.** Ett byte räknar om listan, och överlägget står kvar.
+  - **Utanför 1.1:**
+    - att flytta eller kopiera varor mellan ställen;
+    - att välja ställe efter position;
+    - att summera lagret över ställen;
+    - en matsedel per ställe;
+    - delade ställen.
+  - **Story-ordning:**
+    1. 8.1, datamodell och migrering;
+    2. 8.2, välja och hantera ställen;
+    3. 8.3, status, förslag och "Lägg i lagret";
+    4. 8.4, foto, inventering och tömning;
+    5. 8.5, inköpslistan inför resan.
+  - **Städat i `epics.md`:** Story 6.3 och 6.4 låg under Epic List och står nu under Epic 6, och rubriken för Epic 7 i Epic List har rätt nivå. Innehållet är oförändrat.
+- **Varför:**
+  - Det är Pontus mål med 1.1 (`docs/backlog-efter-1-0.md`, punkt 1): att handla rätt inför resan till stugan, att se stugans lager på distans och att "Lägg i lagret" lägger på det valda stället.
+  - Ett begrepp och en inställning är det enklaste som uppfyller målet.
+  - Den sammansatta nyckeln och `restrict` gör att ingen vara kan hamna på en annan användares ställe eller försvinna med ett ställe.
+- **Alternativ:**
+  - Ett eget ställe för listan eller matsedeln, skilt från valt ställe (modell B).
+  - Att Hemma visar ett ställe via `?stalle=` utan att byta valt ställe (modell C).
+  - Ställe som en del av `location` ("Stugan/Kyl", modell D), som bryter AD-12.
+  - Valt ställe i en cookie per enhet, där mobilen och datorn skulle kunna räkna mot olika lager.
+  - Ett ställe som väljs automatiskt när det skapas.
+  - Att tabellen ägs av `settings` som `store`. Den hör till lagret, och `pantry` måste kunna låsa den med `pantry_lock()`.
+
 ## 2026-10-26 – Skicka till ICA (Story 7.3)
 
 - **Beslut:**

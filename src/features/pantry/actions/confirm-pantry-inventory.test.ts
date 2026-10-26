@@ -20,6 +20,8 @@ vi.mock("@/features/catalog/server", async (importOriginal) => ({
 }));
 const applyPantryInventoryIn = vi.fn();
 vi.mock("../data/inventory", () => ({ applyPantryInventoryIn: (...args: unknown[]) => applyPantryInventoryIn(...args) }));
+const loadPantrySitesIn = vi.fn();
+vi.mock("../data/sites", () => ({ loadPantrySitesIn: (...args: unknown[]) => loadPantrySitesIn(...args) }));
 
 const { confirmPantryInventory } = await import("./confirm-pantry-inventory");
 
@@ -44,7 +46,10 @@ const fresh = (name: string, change: Partial<ConfirmItemInput> = {}): ConfirmIte
   unit: "st",
   ...change,
 });
+/** The photo's place (Story 8.4). */
+const stugan = "55555555-5555-4555-8555-555555555555";
 const input = (change: Partial<InventoryConfirmInput> = {}): InventoryConfirmInput => ({
+  siteId: stugan,
   location: "Kyl",
   items: [existing(mjolk), fresh("ägg")],
   replaceRowIds: [otherRowId],
@@ -62,6 +67,7 @@ beforeEach(() => {
     .mockImplementation(async (choices: { ingredient: { kind: string; ingredientId?: string } }[]) =>
       choices.map(({ ingredient }) => (ingredient.kind === "new" ? agg : ingredient.ingredientId!)),
     );
+  loadPantrySitesIn.mockReset().mockResolvedValue([{ id: stugan, name: "Stugan", isSelected: true }]);
   applyPantryInventoryIn
     .mockReset()
     .mockImplementation(async (_db, request: { items: { ingredientId: string }[]; removeRowIds: string[] }) => ({
@@ -101,6 +107,7 @@ describe("confirmPantryInventory", () => {
       replaceRowIds: [otherRowId],
       removeRowIds: [rowId],
       operationId: operation,
+      siteId: stugan,
     });
     expect(applyPantryInventoryIn.mock.invocationCallOrder[0]).toBeGreaterThan(commitIngredients.mock.invocationCallOrder[0]);
     expect(revalidateFor).toHaveBeenCalledExactlyOnceWith("pantry_item");
@@ -119,6 +126,7 @@ describe("confirmPantryInventory", () => {
       replaceRowIds: [],
       removeRowIds: [rowId],
       operationId: operation,
+      siteId: stugan,
     });
   });
 
@@ -151,6 +159,8 @@ describe("confirmPantryInventory", () => {
     ["removals without an operation id", input({ operationId: null })],
     ["an operation id that is not a uuid", input({ operationId: "op-1" })],
     ["an unknown place", input({ location: "Källare" as never })],
+    ["a place that is not a uuid", input({ siteId: "stugan" })],
+    ["no place", { ...input(), siteId: undefined } as never],
     ["no object", "mjölk" as never],
   ])("refuses %s with validation, and writes nothing", async (_case, wrong) => {
     expect(await confirmPantryInventory(wrong)).toMatchObject({ ok: false, error: { code: "validation" } });
@@ -216,6 +226,8 @@ describe("confirmPantryInventory", () => {
     const retried = applyPantryInventoryIn.mock.calls[1][1].operationId;
     expect(retried).toMatch(/^[0-9a-f-]{36}$/);
     expect(retried).not.toBe(operation);
+    // The retry keeps the photo's place (Story 8.4).
+    expect(applyPantryInventoryIn.mock.calls[1][1].siteId).toBe(stugan);
     expect(result).toMatchObject({ ok: true, data: { operationId: retried } });
 
     applyPantryInventoryIn.mockRejectedValueOnce(new PantryDataError("apply_failed MK409"));
@@ -234,5 +246,30 @@ describe("confirmPantryInventory", () => {
   it("lets other errors through", async () => {
     applyPantryInventoryIn.mockRejectedValue(new Error("boom"));
     await expect(confirmPantryInventory(input())).rejects.toThrow("boom");
+  });
+
+  it("sends null only for a user without places, and gives pantry_site_gone for no place from a user with places (Story 8.4)", async () => {
+    expect(await confirmPantryInventory(input({ siteId: null }))).toEqual(fail("pantry_site_gone"));
+    expect(commitIngredients).not.toHaveBeenCalled();
+    expect(applyPantryInventoryIn).not.toHaveBeenCalled();
+    loadPantrySitesIn.mockResolvedValue([]);
+    expect((await confirmPantryInventory(input({ siteId: null }))).ok).toBe(true);
+    expect(applyPantryInventoryIn.mock.calls[0][1].siteId).toBeNull();
+  });
+
+  it("never tries a new id for a batch the client expects to join (Story 8.4)", async () => {
+    applyPantryInventoryIn.mockRejectedValueOnce(new PantryDataError("apply_failed MK409"));
+    expect(await confirmPantryInventory(input({ joinsOperation: true }))).toEqual(fail("pantry_inventory_failed"));
+    expect(applyPantryInventoryIn).toHaveBeenCalledTimes(1);
+    expect(revalidateFor).not.toHaveBeenCalled();
+  });
+
+  it("gives pantry_site_gone for a place that is gone, reads the page again, and revalidates no pantry (Story 8.4)", async () => {
+    applyPantryInventoryIn.mockRejectedValueOnce(new PantryDataError("site_gone"));
+    expect(await confirmPantryInventory(input())).toEqual(fail("pantry_site_gone"));
+    expect(applyPantryInventoryIn).toHaveBeenCalledTimes(1);
+    expect(revalidateFor).toHaveBeenCalledExactlyOnceWith("pantry_site");
+    expect(console.info).toHaveBeenCalledWith("pantry_site_gone", { reason: "MK410" });
+    expect(log).not.toHaveBeenCalledWith("pantry_site_gone", expect.anything());
   });
 });

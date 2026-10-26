@@ -90,9 +90,10 @@ export type PutInPantryOutcome =
   /**
    * `added`: the items put in the pantry; `removed`: the own items without a
    * link taken off the list; `skipped`: checked lines that could not go to
-   * the pantry and keep their checks.
+   * the pantry and keep their checks; `handled`: the items the pantry took in
+   * this run, without those it skipped for a receipt from an earlier one.
    */
-  | { kind: "done"; added: number; removed: number; skipped: number; pantryWritten: boolean }
+  | { kind: "done"; added: number; removed: number; skipped: number; pantryWritten: boolean; handled: number }
   /** The plan is no longer the current one: the list must be read again. */
   | { kind: "plan_changed"; pantryWritten: boolean }
   /** addToPantry failed: nothing was added, and the list is as it was. */
@@ -154,14 +155,16 @@ export async function putInPantryWith(deps: PutInPantryDeps, planId: string): Pr
   };
   const done = { kind: "done" as const, added: plan.items.length, removed: plan.removed, skipped: plan.skipped };
   if (toClear.checkIds.length === 0 && toClear.customItemIds.length === 0) {
-    return { ...done, added: 0, pantryWritten: false };
+    return { ...done, added: 0, pantryWritten: false, handled: 0 };
   }
 
   let pantryWritten = false;
+  let handled = 0;
   if (plan.items.length > 0) {
     const added = await deps.addToPantry(plan.items);
     if (!added.ok) return { kind: "pantry_failed", error: added.error };
     pantryWritten = true;
+    handled = added.data.added;
   }
 
   let failure = "";
@@ -178,5 +181,5 @@ export async function putInPantryWith(deps: PutInPantryDeps, planId: string): Pr
   }
   if (failure) return { kind: "clear_failed", detail: failure, pantryWritten };
   await deps.forgetAdditions(toClear.checkIds);
-  return { ...done, pantryWritten };
+  return { ...done, pantryWritten, handled };
 }

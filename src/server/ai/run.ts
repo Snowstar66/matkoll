@@ -22,12 +22,33 @@ export type ProviderOptions = NonNullable<Parameters<typeof generateText>[0]["pr
 
 export type HealthResult = "ok" | "unreachable" | "model_not_loaded";
 
+/**
+ * Sampling for one kind of call. Fields left out keep the provider's
+ * defaults. `providerOptions` carries what the AI SDK has no shared setting
+ * for (LM Studio's top_k), merged per provider with the target's own.
+ */
+export type Sampling = {
+  temperature?: number;
+  topP?: number;
+  presencePenalty?: number;
+  providerOptions?: ProviderOptions;
+};
+
 /** A configured model from one of the adapters. */
 export type ModelTarget = {
   model: LanguageModel;
   providerOptions?: ProviderOptions;
   /** Checks that the model server answers and has the model; called before the first attempt. */
   healthCheck?: (signal: AbortSignal) => Promise<HealthResult>;
+  /** Sampling for analyzeImage (Story 6.5); without it, the provider's defaults. */
+  imageSampling?: Sampling;
+  /**
+   * Story 6.6: the model is trained to point at things on a photo in
+   * thousandths (0–1000), as Qwen's vision models are, so locateItems may ask
+   * it. Without it, locateItems answers ai_unavailable at once and the photo
+   * is never sent a second time.
+   */
+  supportsGrounding?: boolean;
 };
 
 export type Limits = {
@@ -56,11 +77,23 @@ export const defaultLimits: Limits = {
   minRetryMs: 20_000,
 };
 
+/**
+ * The temperature of a new attempt after an invalid answer, when the call
+ * asked for 0: at 0 the same input gives the same answer, so a new attempt
+ * that also decodes greedily could fail the same way (quick fix after Story
+ * 6.5). The feedback message changes the input, but not always enough.
+ */
+export const retryTemperature = 0.3;
+
 export type StructuredRequest<SCHEMA extends z.ZodType> = {
   schema: SCHEMA;
   system: string;
   messages: ModelMessage[];
   maxOutputTokens?: number;
+  /** Sampling for this call; without it, the provider's defaults. */
+  sampling?: Sampling;
+  /** Called when the model stopped at maxOutputTokens (finish reason `length`), with or without a valid answer. */
+  onTruncated?: () => void;
 };
 
 type FailCode = "ai_unavailable" | "ai_invalid" | "ai_rejected";
@@ -97,6 +130,9 @@ export async function runStructured<SCHEMA extends z.ZodType>(
     }
   }
 
+  const { providerOptions: samplingOptions, ...sampling } = request.sampling ?? {};
+  const providerOptions = mergeProviderOptions(target.providerOptions, samplingOptions);
+
   let feedback: ModelMessage | undefined;
   for (let attempt = 1; attempt <= limits.maxAttempts; attempt++) {
     if (total.aborted) break;
@@ -109,15 +145,19 @@ export async function runStructured<SCHEMA extends z.ZodType>(
         system: request.system,
         messages: feedback ? [...request.messages, feedback] : request.messages,
         output: Output.object({ schema: request.schema }),
-        providerOptions: target.providerOptions,
+        providerOptions,
         maxOutputTokens: request.maxOutputTokens,
+        ...sampling,
+        ...(attempt > 1 && sampling.temperature === 0 ? { temperature: retryTemperature } : {}),
         // The port decides about new attempts; the SDK never retries on its own.
         maxRetries: 0,
         abortSignal: attemptSignal,
       });
+      if (result.finishReason === "length") request.onTruncated?.();
       return ok(result.output as z.infer<SCHEMA>);
     } catch (error) {
       if (attemptSignal.aborted) return failWith("ai_unavailable", stopReason());
+      if (NoObjectGeneratedError.isInstance(error) && error.finishReason === "length") request.onTruncated?.();
       if (APICallError.isInstance(error)) {
         const status = error.statusCode;
         // The provider refused this request (bad key, rate limit, too long, unknown model).
@@ -133,6 +173,17 @@ export async function runStructured<SCHEMA extends z.ZodType>(
 
   if (total.aborted) return failWith("ai_unavailable", stopReason());
   return failWith("ai_invalid", "invalid");
+}
+
+/** The target's provider options with the call's added, per provider (the call's win on the same key). */
+export function mergeProviderOptions(
+  base: ProviderOptions | undefined,
+  extra: ProviderOptions | undefined,
+): ProviderOptions | undefined {
+  if (!extra) return base;
+  const merged: ProviderOptions = { ...base };
+  for (const [provider, options] of Object.entries(extra)) merged[provider] = { ...merged[provider], ...options };
+  return merged;
 }
 
 /** The model answered, but its text is not JSON matching the schema. */

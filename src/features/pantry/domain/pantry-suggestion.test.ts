@@ -38,8 +38,17 @@ import {
   suggestionAmountText,
   suggestionsArrivedText,
   suggestionsHeading,
+  isPhotoOfSite,
+  photoSiteId,
+  suggestionsSiteText,
   toPantrySuggestions,
   unreadableItemsText,
+  isBulkConfirmable,
+  maxSuggestionLabels,
+  suggestionTitle,
+  uncertainBadgeText,
+  uncertainLeftText,
+  uncertainSuggestionText,
   type AiPantryItemLike,
   type ConfirmItem,
   type ConfirmItemInput,
@@ -50,6 +59,8 @@ import { pantryItemFormSchema, type PantryItemFormInput } from "./pantry-item-fo
 const id = (n: number) => `6f1c1b7e-3c1a-4c55-9a59-0f3f2b8f2a0${n}`;
 const mjolk = id(1);
 const smor = id(2);
+/** The place a photo was taken for (Story 8.4). */
+const photoSite = { id: "55555555-5555-4555-8555-555555555555", name: "Stugan" };
 
 const hint = (name: string, location = "Kyl") => ({ name, section: "Mejeri", location, defaultUnit: "förp" });
 const item = (label: string, amount: number | null, unit: string | null, hintName = label.toLowerCase()): AiPantryItemLike => ({
@@ -122,6 +133,9 @@ describe("toPantrySuggestions", () => {
       // Compared with the place later (compareWithPlace).
       change: null,
       replaces: [],
+      labels: ["Arla mellanmjölk"],
+      uncertain: false,
+      itemNumbers: [1],
     });
     expect(suggestions[1].ingredient).toEqual({
       kind: "new",
@@ -133,6 +147,30 @@ describe("toPantrySuggestions", () => {
     });
     // Only an ingredient the place has shows what it has.
     expect(suggestions.filter((suggestion) => suggestion.current !== null).map(({ name }) => name)).toEqual(["mjölk"]);
+    for (const suggestion of suggestions) expect(pantrySuggestionSchema.safeParse(suggestion).success).toBe(true);
+  });
+
+  it("gives each suggestion the numbers of its items in reading order, and each unit's card only its own (Story 6.6)", () => {
+    const items = [
+      item("Arla mellanmjölk", 1, "förp", "mjölk"),
+      item("?", 1, "st"),
+      item("Smör", 1, "förp"),
+      item("ICA mellanmjölk", 1, "l", "mjölk"),
+      item("Mjölk", null, null, "mjölk"),
+      item("Garant mjölk", 1, "förp", "mjölk"),
+    ];
+    const suggestions = suggest(items, [match(mjolk), { kind: "unmatched" }, match(smor), match(mjolk), match(mjolk), match(mjolk)]);
+    // The item without amount goes with the first unit's card, as its amount does; no number is on two cards.
+    expect(suggestions.map(({ name, unit, itemNumbers }) => [name, unit, itemNumbers])).toEqual([
+      ["mjölk", "förp", [1, 5, 6]],
+      ["mjölk", "l", [4]],
+      ["smör", "förp", [3]],
+    ]);
+    const all = suggestions.flatMap(({ itemNumbers }) => itemNumbers ?? []);
+    expect(new Set(all).size).toBe(all.length);
+    // Unlimited: one card with every number.
+    const [unlimited] = suggest([item("Smör", 1, "förp"), item("Smör", 1, "tub")], [match(smor), match(smor)]);
+    expect(unlimited).toMatchObject({ amount: null, itemNumbers: [1, 2] });
     for (const suggestion of suggestions) expect(pantrySuggestionSchema.safeParse(suggestion).success).toBe(true);
   });
 
@@ -280,6 +318,37 @@ describe("toPantrySuggestions", () => {
     expect(suggestions.map(({ name }) => name)).toEqual(["ost", "ål", "ägg", "äpple"]);
   });
 
+  it("keeps the items' different labels in order, at most three, for the card's title (Story 6.5)", () => {
+    const items = [
+      item("Arla mellanmjölk 1,5 l", 1, "förp", "mjölk"),
+      item("ICA mellanmjölk", 1, "förp", "mjölk"),
+      item("arla  MELLANMJÖLK 1,5 l", 1, "förp", "mjölk"),
+      item("Garant mellanmjölk", 1, "förp", "mjölk"),
+      item("Skånemejerier mellanmjölk", 1, "förp", "mjölk"),
+    ];
+    const [suggestion] = suggest(items, items.map(() => match(mjolk)));
+    expect(maxSuggestionLabels).toBe(3);
+    expect(suggestion.labels).toEqual(["Arla mellanmjölk 1,5 l", "ICA mellanmjölk", "Garant mellanmjölk"]);
+    // Different labels are different packages: the amounts are summed as before.
+    expect(brief([suggestion])).toEqual([["mjölk", 5, "förp"]]);
+    expect(pantrySuggestionSchema.safeParse(suggestion).success).toBe(true);
+  });
+
+  it("marks a suggestion unsure when any of its items was the model's guess, and sure without confidence (Story 6.5)", () => {
+    const sure = { ...item("Johnny's senap", 1, "förp", "senap"), confidence: "säker" as const };
+    const guess = { ...item("Gul flaska, troligen senap", 1, "förp", "senap"), confidence: "osäker" as const };
+    const plain = item("Smör", 1, "förp");
+    const suggestions = suggest([sure, guess, plain], [fresh("senap"), fresh("senap"), match(smor)]);
+    expect(suggestions.map(({ name, uncertain, amount }) => [name, uncertain, amount])).toEqual([
+      ["senap", true, 2],
+      ["smör", false, 1],
+    ]);
+    expect(isBulkConfirmable(suggestions[0])).toBe(false);
+    expect(isBulkConfirmable(suggestions[1])).toBe(true);
+    // A suggestion without the field (before Story 6.5) is sure.
+    expect(isBulkConfirmable({})).toBe(true);
+  });
+
   it("gives nothing for no items", () => {
     expect(toPantrySuggestions([], [], { location: "Kyl", names, current: [] })).toEqual({
       suggestions: [],
@@ -303,12 +372,24 @@ describe("analyzeResultSchema", () => {
 
   it("takes an empty list and up to 25 suggestions, with the count of items left out", () => {
     expect(maxPantrySuggestions).toBe(25);
-    expect(analyzeResultSchema.safeParse({ location: "Kyl", suggestions: [], dropped: 3, inventory: { kind: "unread" } }).success).toBe(true);
+    expect(analyzeResultSchema.safeParse({ site: null, location: "Kyl", suggestions: [], dropped: 3, inventory: { kind: "unread" } }).success).toBe(true);
     const all = Array.from({ length: 25 }, (_, index) => ({ ...suggestion, id: `s${index + 1}` }));
-    expect(analyzeResultSchema.safeParse({ location: "Frys", suggestions: all, dropped: 0, inventory: { kind: "empty" } }).success).toBe(true);
+    expect(analyzeResultSchema.safeParse({ site: photoSite, location: "Frys", suggestions: all, dropped: 0, inventory: { kind: "empty" } }).success).toBe(true);
     expect(analyzeResultSchema.safeParse({ location: "Frys", suggestions: [...all, suggestion], dropped: 0 }).success).toBe(false);
     expect(analyzeResultSchema.safeParse({ location: "Frys", suggestions: [] }).success).toBe(false);
     expect(analyzeResultSchema.safeParse({ location: "Frys", suggestions: [], dropped: -1 }).success).toBe(false);
+  });
+
+  it("has the photo's place, or null for a user without places (Story 8.4)", () => {
+    const empty = { location: "Kyl", suggestions: [], dropped: 0, inventory: { kind: "empty" } };
+    expect(analyzeResultSchema.safeParse({ ...empty, site: photoSite }).success).toBe(true);
+    expect(analyzeResultSchema.safeParse({ ...empty, site: { ...photoSite, name: "s".repeat(40) } }).success).toBe(true);
+    // An answer without a place (a server of before Story 8.4) reads as null; the client puts the place it sent.
+    expect(analyzeResultSchema.parse(empty).site).toBeNull();
+    expect(analyzeResultSchema.safeParse({ ...empty, site: { ...photoSite, id: "stugan" } }).success).toBe(false);
+    expect(analyzeResultSchema.safeParse({ ...empty, site: { ...photoSite, name: "" } }).success).toBe(false);
+    expect(analyzeResultSchema.safeParse({ ...empty, site: { ...photoSite, name: "s".repeat(41) } }).success).toBe(false);
+    expect(suggestionsSiteText("Stugan")).toBe("Förslagen gäller Stugan.");
   });
 
   it.each([
@@ -326,7 +407,100 @@ describe("analyzeResultSchema", () => {
   });
 });
 
+describe("pantrySuggestionSchema labels and uncertain (Story 6.5)", () => {
+  const suggestion = {
+    id: "s1",
+    name: "mjölk",
+    ingredient: { kind: "existing", ingredientId: mjolk },
+    location: "Kyl",
+    amount: 1,
+    unit: "förp",
+    current: null,
+    change: null,
+    replaces: [],
+  };
+
+  it("takes up to three labels and the flag, and a suggestion without them", () => {
+    expect(pantrySuggestionSchema.safeParse(suggestion).success).toBe(true);
+    expect(pantrySuggestionSchema.safeParse({ ...suggestion, labels: ["a", "b", "c"], uncertain: true }).success).toBe(true);
+  });
+
+  it.each([
+    ["four labels", { labels: ["a", "b", "c", "d"] }],
+    ["an empty label", { labels: [" "] }],
+    ["a label over 200 characters", { labels: ["x".repeat(201)] }],
+    ["a flag that is not a boolean", { uncertain: "osäker" }],
+  ])("refuses %s", (_name, change) => {
+    expect(pantrySuggestionSchema.safeParse({ ...suggestion, ...change }).success).toBe(false);
+  });
+});
+
+describe("item numbers and the reading (Story 6.6)", () => {
+  const suggestion = {
+    id: "s1",
+    name: "mjölk",
+    ingredient: { kind: "existing", ingredientId: mjolk },
+    location: "Kyl",
+    amount: 1,
+    unit: "förp",
+    current: null,
+    change: null,
+    replaces: [],
+  };
+  const result = { site: null, location: "Kyl", suggestions: [], dropped: 0, inventory: { kind: "empty" } };
+
+  it("takes a suggestion's item numbers 1 to 25, and none", () => {
+    expect(pantrySuggestionSchema.safeParse({ ...suggestion, itemNumbers: [1, 25] }).success).toBe(true);
+    expect(pantrySuggestionSchema.safeParse({ ...suggestion, itemNumbers: [] }).success).toBe(true);
+  });
+
+  it.each([
+    ["number 0", [0]],
+    ["number 26", [26]],
+    ["a fraction", [1.5]],
+    ["26 numbers", Array.from({ length: 26 }, () => 1)],
+  ])("refuses item numbers with %s", (_name, itemNumbers) => {
+    expect(pantrySuggestionSchema.safeParse({ ...suggestion, itemNumbers }).success).toBe(false);
+  });
+
+  it("takes a reading of up to 25 one-line labels, and an answer without one", () => {
+    expect(analyzeResultSchema.safeParse(result).success).toBe(true);
+    expect(analyzeResultSchema.safeParse({ ...result, reading: Array.from({ length: 25 }, () => "Mjölk") }).success).toBe(true);
+  });
+
+  it.each([
+    ["26 labels", Array.from({ length: 26 }, () => "Mjölk")],
+    ["an empty label", [""]],
+    ["a line break", ["Arla\nmjölk"]],
+    ["spaces around", [" Mjölk"]],
+    ["a label over 200 characters", ["x".repeat(201)]],
+  ])("refuses a reading with %s", (_name, reading) => {
+    expect(analyzeResultSchema.safeParse({ ...result, reading }).success).toBe(false);
+  });
+});
+
 describe("texts", () => {
+  it("titles a card with the labels and the catalog name under them, or the name alone (Story 6.5)", () => {
+    expect(suggestionTitle({ name: "vispgrädde", labels: ["ICA vispgrädde 36 %"] })).toEqual({
+      title: "ICA vispgrädde 36 %",
+      ingredientName: "vispgrädde",
+    });
+    expect(suggestionTitle({ name: "mjölk", labels: ["Arla mellanmjölk", "ICA mellanmjölk"] })).toEqual({
+      title: "Arla mellanmjölk, ICA mellanmjölk",
+      ingredientName: "mjölk",
+    });
+    expect(suggestionTitle({ name: "ägg", labels: ["Ägg"] })).toEqual({ title: "ägg", ingredientName: null });
+    expect(suggestionTitle({ name: "ägg", labels: [] })).toEqual({ title: "ägg", ingredientName: null });
+    expect(suggestionTitle({ name: "ägg" })).toEqual({ title: "ägg", ingredientName: null });
+  });
+
+  it("says when the AI was unsure, and how many unsure suggestions are left (Story 6.5)", () => {
+    expect(uncertainBadgeText).toBe("Osäker");
+    expect(uncertainSuggestionText).toBe("AI:n är osäker på varan, så Bekräfta alla tar inte med den.");
+    expect(uncertainLeftText(1)).toBe("1 osäker vara är kvar att bekräfta eller rätta.");
+    expect(uncertainLeftText(2)).toBe("2 osäkra varor är kvar att bekräfta eller rätta.");
+  });
+
   it("names the place on the camera button and the heading", () => {
     expect(cameraButtonText("Kyl")).toBe("Fotografera kylen");
     expect(cameraButtonText("Frys")).toBe("Fotografera frysen");
@@ -368,7 +542,9 @@ describe("texts", () => {
   });
 
   it("offers Försök igen for the AI and the catalog, never for a photo that cannot be read", () => {
-    expect([...analyzeRetryCodes].sort()).toEqual(["ai_invalid", "ai_rejected", "ai_unavailable", "catalog_unavailable"]);
+    expect([...analyzeRetryCodes].sort()).toEqual(["ai_invalid", "ai_rejected", "ai_unavailable", "catalog_unavailable", "pantry_unavailable"]);
+    // Story 8.4: a place that is gone fails again.
+    expect(analyzeRetryCodes.has("pantry_site_gone")).toBe(false);
     expect(analyzeRetryCodes.has("image_unsupported")).toBe(false);
     expect(analyzeRetryCodes.has("image_too_large")).toBe(false);
   });
@@ -388,7 +564,7 @@ describe("confirmSuggestionsSchema", () => {
     amount: 6,
     unit: "st",
   });
-  const parse = (items: unknown) => confirmSuggestionsSchema.safeParse(items);
+  const parse = (items: unknown) => confirmSuggestionsSchema.safeParse({ siteId: photoSite.id, items });
 
   it("takes 1 to 40 items, unlimited ones and amounts just below 1 000 000", () => {
     expect(parse([existing()]).success).toBe(true);
@@ -401,7 +577,7 @@ describe("confirmSuggestionsSchema", () => {
 
   it("takes a new ingredient with or without its proposal id, and collapses its name", () => {
     const parsed = parse([fresh("  gul   lök ")]);
-    expect(parsed.success && parsed.data[0].ingredient).toEqual({
+    expect(parsed.success && parsed.data.items[0].ingredient).toEqual({
       kind: "new",
       proposalId: "n1",
       name: "gul lök",
@@ -506,10 +682,12 @@ describe("confirmItemFromSuggestion and confirmItemFromForm", () => {
       amount: 6,
       unit: "st",
     });
-    expect(confirmSuggestionsSchema.safeParse([confirmItemFromSuggestion(suggestion)]).success).toBe(true);
+    expect(confirmSuggestionsSchema.safeParse({ siteId: null, items: [confirmItemFromSuggestion(suggestion)] }).success).toBe(true);
   });
 
-  const form = (input: PantryItemFormInput) => pantryItemFormSchema.parse(input);
+  // The place does not reach a confirmation: confirmPantrySuggestions sends none until Story 8.4.
+  const form = (input: Omit<PantryItemFormInput, "siteId">) =>
+    pantryItemFormSchema.parse({ ...input, siteId: "44444444-4444-4444-8444-444444444444" });
 
   it("confirms the sheet's form, a new ingredient with the form's place as its default place", () => {
     const corrected = form({
@@ -540,7 +718,9 @@ describe("confirmItemFromSuggestion and confirmItemFromForm", () => {
 });
 
 describe("review patches", () => {
-  const form = (input: PantryItemFormInput) => pantryItemFormSchema.parse(input);
+  // The place does not reach a confirmation: confirmPantrySuggestions sends none until Story 8.4.
+  const form = (input: Omit<PantryItemFormInput, "siteId">) =>
+    pantryItemFormSchema.parse({ ...input, siteId: "44444444-4444-4444-8444-444444444444" });
   const gurka: PantrySuggestion = {
     id: "s1",
     name: "gurka",
@@ -707,7 +887,7 @@ describe("Inventera en plats med foto: texts, schema and Töm", () => {
 
   it("takes 0–40 items, at most 50 rows to replace and 1 000 to remove, something to do, and an operation id with removals", () => {
     const item = { ingredient: { kind: "existing" as const, ingredientId: mjolk }, location: "Kyl" as const, amount: 1, unit: "förp" as const };
-    const base = { location: "Kyl" as const, items: [item], replaceRowIds: [], removeRowIds: [], operationId: null };
+    const base = { siteId: photoSite.id, location: "Kyl" as const, items: [item], replaceRowIds: [], removeRowIds: [], operationId: null };
     expect(inventoryConfirmSchema.safeParse(base).success).toBe(true);
     expect(inventoryConfirmSchema.safeParse({ ...base, items: [], removeRowIds: [rowId], operationId: operation }).success).toBe(true);
     for (const wrong of [
@@ -718,6 +898,8 @@ describe("Inventera en plats med foto: texts, schema and Töm", () => {
       { ...base, removeRowIds: [rowId] },
       { ...base, removeRowIds: ["yoghurt"], operationId: operation },
       { ...base, location: "Källare" },
+      { ...base, siteId: "stugan" },
+      { ...base, siteId: undefined },
     ]) {
       expect(inventoryConfirmSchema.safeParse(wrong).success).toBe(false);
     }
@@ -736,20 +918,30 @@ describe("Inventera en plats med foto: texts, schema and Töm", () => {
       replaces: [rowId],
     };
     const result = {
+      site: photoSite,
       location: "Kyl" as const,
       dropped: 0,
       suggestions: [suggestion],
       inventory: { kind: "compared" as const, incomplete: false, missing: [] },
     };
-    expect(withoutPlace(result, "Kyl")).toEqual({
+    expect(withoutPlace(result, photoSite.id, "Kyl")).toEqual({
       ...result,
       suggestions: [{ ...suggestion, current: null, change: null, replaces: [] }],
       inventory: { kind: "empty" },
     });
-    expect(withoutPlace(result, "Frys")).toEqual(result);
+    expect(withoutPlace(result, photoSite.id, "Frys")).toEqual(result);
+    // Story 8.4: emptying another place's location changes nothing.
+    expect(withoutPlace(result, mjolk, "Kyl")).toEqual(result);
+    expect(withRestoredPlace(result, mjolk, "Kyl")).toEqual(result);
+    // A photo without a place is of no place: emptying a place never changes it.
+    expect(withoutPlace({ ...result, site: null }, mjolk, "Kyl")).toEqual({ ...result, site: null });
+    expect(isPhotoOfSite({ site: null }, mjolk)).toBe(false);
+    expect(isPhotoOfSite(result, photoSite.id)).toBe(true);
+    expect(photoSiteId(result)).toBe(photoSite.id);
+    expect(photoSiteId({ site: null })).toBeNull();
     // After "Ångra" for the emptied place, the photo no longer matches it.
-    expect(withRestoredPlace(withoutPlace(result, "Kyl"), "Kyl").inventory).toEqual({ kind: "unread", changed: true });
-    expect(withRestoredPlace(result, "Frys")).toEqual(result);
+    expect(withRestoredPlace(withoutPlace(result, photoSite.id, "Kyl"), photoSite.id, "Kyl").inventory).toEqual({ kind: "unread", changed: true });
+    expect(withRestoredPlace(result, photoSite.id, "Frys")).toEqual(result);
   });
 
   it("has texts for a changed place, a partial match, changes left and the removals' undo", () => {

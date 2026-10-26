@@ -47,7 +47,7 @@ export default function RecipesPage() {
 
 async function RecipesContent() {
   await requireUserOrRedirect("/recept");
-  const { recipes, pantryUnavailable } = await listLibrary();
+  const { recipes, pantryUnavailable, site } = await listLibrary();
   if (recipes.length === 0) {
     return (
       <EmptyState action={<ImportRecipeButton variant="primary" />}>
@@ -55,5 +55,12 @@ async function RecipesContent() {
       </EmptyState>
     );
   }
-  return <Library recipes={recipes} pantryUnavailable={pantryUnavailable} searchIngredients={searchIngredients} />;
+  return (
+    <Library
+      recipes={recipes}
+      pantryUnavailable={pantryUnavailable}
+      site={site}
+      searchIngredients={searchIngredients}
+    />
+  );
 }

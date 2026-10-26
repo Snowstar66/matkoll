@@ -1,13 +1,14 @@
 import "server-only";
 import { z } from "zod";
 import { pantryItemSetSchema, type PantryItemSet } from "../domain/pantry-item-form";
-import { PantryDataError, type PantryDb } from "./client";
+import { PantryDataError, pantryWriteError, type PantryDb } from "./client";
 
 const itemsSchema = z.array(pantryItemSetSchema).min(1);
 const replaceIdSchema = z.uuid().nullable();
+const siteIdSchema = z.uuid().nullish();
 
-/** A row as set_pantry_items left it. */
-export type SetPantryRow = PantryItemSet & { id: string };
+/** A row as set_pantry_items left it, with its place (Story 8.4) when the answer had it. */
+export type SetPantryRow = PantryItemSet & { id: string; siteId?: string };
 
 /**
  * setPantryItems (AD-19) for the signed-in user (RLS limits it to their
@@ -19,18 +20,29 @@ export type SetPantryRow = PantryItemSet & { id: string };
  * the row when one of them changed. One transaction (set_pantry_items): all
  * or nothing. Returns the rows set, in order.
  *
- * Throws PantryDataError: `invalid_items` before anything is written, or
- * `set_failed <code>` when Postgres refuses (e.g. 23503 for an ingredient
- * that is not in the user's catalog).
+ * `siteId` is the place to set on (AD-24, FR-33): the place the sheet was
+ * opened for, or the photo's place for confirmed lagerförslag (Story 8.4),
+ * also with `replaceId`, which is removed only from that place. Without it,
+ * set_pantry_items uses the place selected when the call arrives: only for a
+ * photo of a user without places.
+ *
+ * Throws PantryDataError: `invalid_items` before anything is written,
+ * `site_gone` for a place that is gone (MK410), or `set_failed <code>` when
+ * Postgres refuses otherwise (e.g. 23503 for an ingredient that is not in
+ * the user's catalog).
  */
 export async function setPantryItemsIn(
   db: PantryDb,
   items: readonly PantryItemSet[],
   replaceId: string | null = null,
+  siteId?: string | null,
 ): Promise<SetPantryRow[]> {
   const parsedItems = itemsSchema.safeParse(items);
   const parsedReplaceId = replaceIdSchema.safeParse(replaceId);
-  if (!parsedItems.success || !parsedReplaceId.success) throw new PantryDataError("invalid_items");
+  const parsedSiteId = siteIdSchema.safeParse(siteId);
+  if (!parsedItems.success || !parsedReplaceId.success || !parsedSiteId.success) {
+    throw new PantryDataError("invalid_items");
+  }
 
   const { data, error } = await db.rpc("set_pantry_items", {
     items: parsedItems.data.map((item) => ({
@@ -40,8 +52,9 @@ export async function setPantryItemsIn(
       unit: item.unit,
     })),
     ...(parsedReplaceId.data ? { replace_id: parsedReplaceId.data } : {}),
+    ...(parsedSiteId.data ? { site: parsedSiteId.data } : {}),
   });
-  if (error) throw new PantryDataError(`set_failed ${error.code}`);
+  if (error) throw pantryWriteError("set_failed", error.code);
 
   return data.map((row) => {
     const parsed = pantryItemSetSchema.safeParse({
@@ -51,6 +64,6 @@ export async function setPantryItemsIn(
       unit: row.unit,
     });
     if (!parsed.success) throw new PantryDataError("invalid_row");
-    return { id: row.id, ...parsed.data };
+    return { id: row.id, siteId: row.site_id, ...parsed.data };
   });
 }

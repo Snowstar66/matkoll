@@ -2,10 +2,7 @@ import type { Metadata } from "next";
 import { Suspense } from "react";
 import { PageHeader } from "@/components/app-shell/page-header";
 import { Skeleton } from "@/components/skeleton";
-import { placeFromSlug, placeSlug } from "@/features/pantry";
-import { AddPantryItemButton, PantrySheetProvider } from "@/features/pantry/ui/pantry-item-sheet";
-import { PantrySuggestionsProvider } from "@/features/pantry/ui/pantry-suggestions";
-import { HomeContent } from "./home-content";
+import { HomePlace } from "./home-place";
 
 export const metadata: Metadata = { title: "Hemma" };
 
@@ -22,6 +19,12 @@ export const metadata: Metadata = { title: "Hemma" };
 // are never saved (Story 6.2). The suggestions' provider is above the sheet's,
 // which takes its "Bekräfta" and "Avvisa" from it. "Töm kylen" under the list
 // empties the chosen location after a question, with "Ångra" (Story 6.3).
+//
+// Places (Story 8.2, FR-29–FR-31, FR-33, AD-24): Hemma shows the selected
+// place, read on the server; the title stays "Hemma". With two or more places
+// the site switch above the cards selects another; with one, "Lägg till
+// ställe" at the bottom opens the sheet Ställen. Every write from the page
+// sends the id of the place it showed.
 export default function HomePage({ searchParams }: PageProps<"/hemma">) {
   return (
     <Suspense
@@ -35,28 +38,5 @@ export default function HomePage({ searchParams }: PageProps<"/hemma">) {
     >
       <HomePlace searchParams={searchParams} />
     </Suspense>
-  );
-}
-
-/**
- * Reads the location from the address; "+" in the header needs it. The
- * data's <Suspense> is keyed on the location, so choosing another location
- * shows the skeleton rows (after 300 ms) instead of the old location's items
- * while the new ones load. The camera's suggestions are held above it,
- * without a key, so they stay when another location is chosen.
- */
-async function HomePlace({ searchParams }: Pick<PageProps<"/hemma">, "searchParams">) {
-  const { plats } = await searchParams;
-  const location = placeFromSlug(plats);
-  const next = plats === undefined ? "/hemma" : `/hemma?plats=${placeSlug(location)}`;
-  return (
-    <PantrySuggestionsProvider>
-      <PantrySheetProvider location={location}>
-        <PageHeader title="Hemma" action={<AddPantryItemButton variant="icon" />} />
-        <Suspense key={location} fallback={<Skeleton rows={3} />}>
-          <HomeContent location={location} next={next} />
-        </Suspense>
-      </PantrySheetProvider>
-    </PantrySuggestionsProvider>
   );
 }

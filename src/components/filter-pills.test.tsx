@@ -81,4 +81,13 @@ describe("FilterPills", () => {
     await user.click(radio("Alla"));
     expect(onChange).not.toHaveBeenCalled();
   });
+
+  it("reports nothing while disabled", async () => {
+    const user = userEvent.setup();
+    const onChange = vi.fn();
+    render(<FilterPills label="Filter" options={options} value="all" onChange={onChange} disabled />);
+    for (const pill of screen.getAllByRole("radio")) expect(pill).toBeDisabled();
+    await user.click(radio("Favoriter"));
+    expect(onChange).not.toHaveBeenCalled();
+  });
 });

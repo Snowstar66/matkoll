@@ -6,13 +6,16 @@ import type { Location } from "@/features/catalog";
 import { postAiForm, type AiCallResult } from "@/lib/ai-client";
 import { downscaleImage } from "@/lib/downscale-image";
 import { fail, type AppError, type Result } from "@/lib/errors";
+import { imageSizeOf, maxPlacePhotoSide, type ImageSize } from "@/lib/images";
 import {
   analyzeResultSchema,
   analyzeRetryCodes,
   type AnalyzeResult,
   type PantrySuggestion,
 } from "../domain/pantry-suggestion";
+import { hasNumberableCards, locateResultSchema, pointsByNumber, type PhotoNumbers } from "../domain/photo-numbers";
 import { groupSuggestions, type MissingItem } from "../domain/place-inventory";
+import type { PhotoSite } from "../domain/site";
 
 // The state of "Fotografera kylen" (FR-24, AD-2, AD-15, AD-18), held by
 // PantrySuggestionsProvider above Hemma's keyed <Suspense>, so the
@@ -20,12 +23,55 @@ import { groupSuggestions, type MissingItem } from "../domain/place-inventory";
 // open. They live only here: never on the server, in localStorage,
 // sessionStorage or the address, until Pontus confirms them (Story 6.2,
 // PantrySuggestionsProvider), which takes them out one by one. The
-// resized photo is kept in memory only while an error that "Försök igen" can
-// help with is shown. The AI is only asked when Pontus has taken or chosen a
+// resized photo is kept for "Försök igen" only while an error it can help
+// with is shown. The AI is only asked when Pontus has taken or chosen a
 // photo.
+//
+// Places (Story 8.4, FR-33, AD-24): a photo is bound to the place Hemma shows
+// when it is taken. Its id goes with the photo to /api/ai/analyze, and the
+// answer has the place (`result.site`), which every write from the
+// suggestions sends. An answer for another place than the one sent is
+// `ai_invalid`; one without a place (a server of before 8.4) keeps the place
+// sent. The suggestions stay, with the same generation, when Hemma switches
+// place, as when another location card is chosen. When a write finds the
+// place gone, they go (dropForGoneSite).
+//
+// The photo during review (quick fix after Story 6.5): the resized photo
+// that was sent for an answer with cards is kept as an object URL
+// (reviewPhoto), so Pontus can check the reading against it. It stays in this
+// browser's memory only (AD-15 forbids storing it, not holding it): never in
+// localStorage or IndexedDB. It lives as long as the answer: when every card
+// is handled it is only hidden, so "Ångra" brings the cards back with it. Its
+// URL is revoked once a new answer has replaced it (after React has committed
+// the new one, so no <img> shows a revoked URL) and when Hemma is left, both
+// by the effect keyed on it.
+//
+// Nummer på fotot (Story 6.6): once the cards are shown, the same resized
+// photo is sent once more, with the answer's `reading`, to /api/ai/locate in
+// the background, and the points that come back are the photo's numbers
+// (ReviewPhoto.numbers), which the cards and the large photo show. The cards
+// never wait for them. A new photo and leaving Hemma stop the lookup; a
+// lookup that fails or is stopped leaves the photo without numbers, and
+// nothing is shown for it.
 
-/** A resized photo and the place it shows. */
-type KeptPhoto = { image: Blob; location: Location };
+/**
+ * A resized photo, the location it shows, the place (pantry_site) Hemma
+ * showed when it was taken (Story 8.4, so "Försök igen" is for the same
+ * place) and its size in pixels when it can be read from the file.
+ */
+type KeptPhoto = { image: Blob; location: Location; site: PhotoSite; size: ImageSize | null };
+
+/**
+ * The photo an answer was read from, as an object URL, with its size in
+ * pixels when known, and its numbers (Story 6.6): being looked up, none, or
+ * the points by item number.
+ */
+export type ReviewPhoto = { url: string; size: ImageSize | null; numbers: PhotoNumbers };
+
+const noNumbers: PhotoNumbers = { kind: "none" };
+
+/** A lookup of the numbers (Story 6.6): the photo as it was sent for the analysis, its reading and its URL. */
+type Lookup = { kept: KeptPhoto; labels: readonly string[]; url: string };
 
 /**
  * Why an analysis gave no cards: the photo showed no food, its items could
@@ -38,6 +84,12 @@ export type EmptyAnswer = "none" | "unreadable" | "unchanged" | "partlyUnchanged
 export type PantryAnalysis = {
   /** The latest suggestions and the place they are from, or `null` before any. */
   result: AnalyzeResult | null;
+  /**
+   * The resized photo `result` was read from, when that answer had cards;
+   * `null` otherwise. It stays when the cards are all handled (Hemma hides
+   * it then), and goes with the next answer.
+   */
+  reviewPhoto: ReviewPhoto | null;
   /** A photo is being resized or analysed. */
   analyzing: boolean;
   /** Why the last photo failed; the suggestions from before stay. */
@@ -60,8 +112,17 @@ export type PantryAnalysis = {
   cameraAreaRef: RefObject<HTMLDivElement | null>;
   /** The camera button, for focus after "Avbryt" (and after the last suggestion is handled, Story 6.2). */
   cameraButtonRef: RefObject<HTMLButtonElement | null>;
-  /** A photo from the camera or the file picker: resized, then analysed for `location`. */
-  analyze: (file: Blob, location: Location) => void;
+  /**
+   * A photo from the camera or the file picker: resized, then analysed for
+   * `location` of the place `site`, the one Hemma shows as it is taken
+   * (Story 8.4): the answer and every write from it stay with that place.
+   */
+  analyze: (file: Blob, location: Location, site: PhotoSite) => void;
+  /**
+   * Story 8.4: drops the suggestions of `generation`, whose place is gone,
+   * and says so in the camera area; returns whether they were still there.
+   */
+  dropForGoneSite: (generation: number) => boolean;
   /** "Försök igen": the kept photo again, for its own place. */
   retry: () => void;
   /** "Avbryt": stops the analysis; nothing is shown for it, and the suggestions from before stay. */
@@ -84,7 +145,18 @@ export type PantryAnalysis = {
   editMissing: (generation: number, edit: (missing: MissingItem[]) => MissingItem[]) => boolean;
   /** Changes the whole answer (suggestions and comparison), like editSuggestions. */
   editResult: (generation: number, edit: (result: AnalyzeResult) => AnalyzeResult) => boolean;
+  /** Story 6.6: the photo at this URL cannot be shown, so its numbers go (`none`) and are not looked up again. */
+  dropPhotoNumbers: (url: string) => void;
 };
+
+/** The size of the resized photo from its header (a JPEG from the canvas, or a stripped PNG: no EXIF turn), or `null`. */
+async function photoSizeOf(image: Blob): Promise<ImageSize | null> {
+  try {
+    return imageSizeOf(new Uint8Array(await image.slice(0, 128 * 1024).arrayBuffer()));
+  } catch {
+    return null;
+  }
+}
 
 /** Focus is still in the camera area, or on nothing: an answer may take it. Elsewhere (a sheet, the list), it stays. */
 export function focusIsFree(area: HTMLElement | null): boolean {
@@ -103,6 +175,7 @@ export function usePantryAnalysis(): PantryAnalysis {
   const [error, setError] = useState<AppError | null>(null);
   const [empty, setEmpty] = useState<EmptyAnswer | null>(null);
   const [photo, setPhoto] = useState<KeptPhoto | null>(null);
+  const [reviewPhoto, setReviewPhotoState] = useState<ReviewPhoto | null>(null);
   const [arrivals, setArrivals] = useState(0);
   const [cancels, setCancels] = useState(0);
   const [settles, setSettles] = useState(0);
@@ -111,6 +184,119 @@ export function usePantryAnalysis(): PantryAnalysis {
   const request = useRef<AbortController | null>(null);
   const cameraAreaRef = useRef<HTMLDivElement | null>(null);
   const cameraButtonRef = useRef<HTMLButtonElement | null>(null);
+  /** The lookup of the numbers on the photo on its way (Story 6.6); `null` once it has answered or been stopped. */
+  const locateRequest = useRef<AbortController | null>(null);
+  /** The latest lookup for the photo shown: what to send again if it was stopped while its cards stay. */
+  const lookup = useRef<Lookup | null>(null);
+  /** A lookup stopped while its cards stayed (a new photo on its way, every card handled): sent again when they are back. */
+  const resume = useRef<Lookup | null>(null);
+
+  /**
+   * The photo of a new answer, or none: the one before is revoked by the
+   * effect below once this is committed, and a lookup for it is stopped.
+   * Its numbers start as `numbers`. Returns its URL, or `null` when there is
+   * no photo to show.
+   */
+  function setReviewPhoto(kept: KeptPhoto | null, numbers: PhotoNumbers = noNumbers): string | null {
+    stopLocating();
+    lookup.current = null;
+    resume.current = null;
+    // A browser without object URLs shows the suggestions without the photo.
+    const url = kept && typeof URL.createObjectURL === "function" ? URL.createObjectURL(kept.image) : null;
+    setReviewPhotoState(url ? { url, size: kept?.size ?? null, numbers } : null);
+    return url;
+  }
+
+  /** Sets the numbers of the photo at `url`, unless another photo has taken its place. */
+  function setNumbers(url: string, numbers: PhotoNumbers) {
+    setReviewPhotoState((current) => (current && current.url === url ? { ...current, numbers } : current));
+  }
+
+  /** Stops the lookup on its way, if any, and says whether there was one; a photo still waiting for it gets no numbers. */
+  function stopLocating(): boolean {
+    const controller = locateRequest.current;
+    if (!controller) return false;
+    controller.abort();
+    locateRequest.current = null;
+    setReviewPhotoState((current) => (current?.numbers.kind === "pending" ? { ...current, numbers: noNumbers } : current));
+    return true;
+  }
+
+  /** Sends a lookup that was stopped while its cards stayed again, now that they are shown without a newer photo on its way. */
+  function resumeLocating() {
+    const job = resume.current;
+    resume.current = null;
+    if (!job || request.current) return;
+    void locate(job);
+  }
+
+  /**
+   * Story 6.6: the same photo and the answer's reading to /api/ai/locate, in
+   * the background, stopping a lookup still on its way. The points become
+   * the numbers of the photo at `job.url`; a placeholder item's point is
+   * never used. Any failure (the model, the time, a newer run, an answer the
+   * schema refuses) leaves it without numbers; nothing is shown for it.
+   */
+  async function locate(job: Lookup) {
+    locateRequest.current?.abort();
+    const controller = new AbortController();
+    locateRequest.current = controller;
+    lookup.current = job;
+    setNumbers(job.url, { kind: "pending" });
+    const form = new FormData();
+    form.append("image", job.kept.image, "photo");
+    form.append("labels", JSON.stringify(job.labels));
+    let answer: AiCallResult<unknown>;
+    try {
+      answer = await postAiForm<unknown>("/api/ai/locate", form, controller.signal);
+    } catch {
+      answer = fail("ai_unavailable");
+    }
+    // Stopped by a new photo, a newer lookup or leaving Hemma: the one that stopped it has set the numbers.
+    if (locateRequest.current !== controller || controller.signal.aborted) return;
+    locateRequest.current = null;
+    const parsed = answer.ok ? locateResultSchema.safeParse(answer.data) : null;
+    setNumbers(job.url, parsed?.success ? { kind: "ready", points: pointsByNumber(parsed.data, job.labels) } : noNumbers);
+  }
+
+  /**
+   * Story 8.4: a write from the suggestions of `expected` found their place
+   * gone. They could never be saved, so they go with their photo, and the
+   * camera area says why ("Stället finns inte längre. Välj ett annat
+   * ställe.", as an alert). Returns whether they went.
+   */
+  function dropForGoneSite(expected: number): boolean {
+    if (generation.current !== expected || !latest.current) return false;
+    locateRequest.current?.abort();
+    locateRequest.current = null;
+    lookup.current = null;
+    resume.current = null;
+    setResult(null);
+    setReviewPhotoState(null);
+    setEmpty(null);
+    setPhoto(null);
+    setError(fail("pantry_site_gone").error);
+    setSettles((count) => count + 1);
+    return true;
+  }
+
+  /** The photo at `url` cannot be shown (Story 6.6): its numbers go, and are not looked up again. */
+  function dropPhotoNumbers(url: string) {
+    if (lookup.current?.url === url) {
+      locateRequest.current?.abort();
+      locateRequest.current = null;
+      lookup.current = null;
+      resume.current = null;
+    }
+    setNumbers(url, noNumbers);
+  }
+
+  // Each URL is revoked exactly once: after the commit that replaced it, or when Hemma is left.
+  const reviewUrl = reviewPhoto?.url ?? null;
+  useEffect(() => {
+    if (!reviewUrl) return;
+    return () => URL.revokeObjectURL(reviewUrl);
+  }, [reviewUrl]);
 
   /** New suggestions (or none): a new generation. */
   function setResult(next: AnalyzeResult | null) {
@@ -126,6 +312,9 @@ export function usePantryAnalysis(): PantryAnalysis {
     const next = edit(current);
     latest.current = next;
     setResultState(next);
+    // Story 6.6: with no card left to number (all handled), the lookup stops; "Ångra" that brings one back sends it again.
+    if (hasNumberableCards(groupSuggestions(next), next.reading ?? [])) resumeLocating();
+    else if (stopLocating()) resume.current = lookup.current;
     return true;
   }
 
@@ -145,6 +334,10 @@ export function usePantryAnalysis(): PantryAnalysis {
     () => () => {
       request.current?.abort();
       request.current = null;
+      locateRequest.current?.abort();
+      locateRequest.current = null;
+      lookup.current = null;
+      resume.current = null;
       setAnalyzing(false);
       generation.current += 1;
       latest.current = null;
@@ -153,14 +346,17 @@ export function usePantryAnalysis(): PantryAnalysis {
       setError(null);
       setEmpty(null);
       setPhoto(null);
+      setReviewPhotoState(null);
       setAnnouncement("");
     },
     [],
   );
 
-  /** Starts a new analysis, stopping the one before: a new photo wins. */
+  /** Starts a new analysis, stopping the one before and the lookup of numbers: a new photo wins. */
   function start(): AbortController {
     request.current?.abort();
+    // The old cards stay until the new answer is here: a lookup stopped now is sent again if none comes.
+    if (stopLocating()) resume.current = lookup.current;
     const controller = new AbortController();
     request.current = controller;
     setAnalyzing(true);
@@ -183,12 +379,14 @@ export function usePantryAnalysis(): PantryAnalysis {
     setError(appError);
     setPhoto(kept && analyzeRetryCodes.has(appError.code) ? kept : null);
     setSettles((count) => count + 1);
+    resumeLocating();
   }
 
   async function send(controller: AbortController, kept: KeptPhoto) {
     const form = new FormData();
     form.append("image", kept.image, "photo");
     form.append("location", kept.location);
+    form.append("site", kept.site.id);
     let answer: AiCallResult<unknown>;
     try {
       answer = await postAiForm<unknown>("/api/ai/analyze", form, controller.signal);
@@ -201,20 +399,34 @@ export function usePantryAnalysis(): PantryAnalysis {
     // A newer analysis of the same person (another tab) took over: like Avbryt, nothing is shown.
     if (!answer.ok && ("aborted" in answer || answer.error.code === "ai_superseded")) {
       setPhoto(null);
+      resumeLocating();
       return;
     }
 
     if (answer.ok) {
       const parsed = analyzeResultSchema.safeParse(answer.data);
-      if (!parsed.success) {
+      // Story 8.4: an answer for another place than the one sent is not this photo's.
+      if (!parsed.success || (parsed.data.site !== null && parsed.data.site.id !== kept.site.id)) {
         failWith(fail("ai_invalid").error, kept);
         return;
       }
-      // New suggestions replace the old ones only now that they are here. The photo is not needed any more.
-      setResult(parsed.data);
+      // A server of before Story 8.4 (a deploy) sends no place: the suggestions keep the one sent.
+      const sentNoSite = typeof answer.data === "object" && answer.data !== null && !("site" in answer.data);
+      const data = sentNoSite ? { ...parsed.data, site: kept.site } : parsed.data;
+      // New suggestions replace the old ones only now that they are here. The photo is no longer kept
+      // for "Försök igen"; it is shown with the cards while they are reviewed, and not without them.
+      setResult(data);
       setPhoto(null);
       const groups = groupSuggestions(parsed.data);
-      if (groups.added.length + groups.changed.length + groups.missing.length > 0) {
+      const hasCards = groups.added.length + groups.changed.length + groups.missing.length > 0;
+      // Story 6.6: numbers only for the cards shown that come from the reading, and only for a photo whose size is
+      // known, since the markers are placed on it.
+      const reading = parsed.data.reading ?? [];
+      const numbered = hasNumberableCards(groups, reading) && kept.size !== null;
+      const url = setReviewPhoto(hasCards ? kept : null);
+      // The cards first: the lookup starts only now that they are on their way to the screen.
+      if (url && numbered) void locate({ kept, labels: reading, url });
+      if (hasCards) {
         // Cards to show, also "Syns inte längre" alone for a photo without usable items of a place with items (Story 6.4).
         setArrivals((count) => count + 1);
       } else if (parsed.data.suggestions.length === 0) {
@@ -227,17 +439,18 @@ export function usePantryAnalysis(): PantryAnalysis {
       }
       return;
     }
-    // An expired session: the page sends Pontus to sign in.
-    if (answer.error.code === "unauthorized") router.refresh();
+    // An expired session: the page sends Pontus to sign in. A place that is
+    // gone (Story 8.4): the page is read again, so Hemma shows one that is there.
+    if (answer.error.code === "unauthorized" || answer.error.code === "pantry_site_gone") router.refresh();
     failWith(answer.error, kept);
   }
 
   /** Resizes the photo (AD-15) and sends it. A photo that cannot be read or made small enough is never sent. */
-  async function analyze(file: Blob, location: Location) {
+  async function analyze(file: Blob, location: Location, site: PhotoSite) {
     const controller = start();
     let prepared: Result<Blob>;
     try {
-      prepared = await downscaleImage(file);
+      prepared = await downscaleImage(file, { maxSide: maxPlacePhotoSide });
     } catch {
       prepared = fail("image_unsupported");
     }
@@ -247,7 +460,9 @@ export function usePantryAnalysis(): PantryAnalysis {
       failWith(prepared.error, null);
       return;
     }
-    await send(controller, { image: prepared.data, location });
+    const size = await photoSizeOf(prepared.data);
+    if (!isCurrent(controller)) return;
+    await send(controller, { image: prepared.data, location, site: { id: site.id, name: site.name }, size });
   }
 
   function retry() {
@@ -262,10 +477,12 @@ export function usePantryAnalysis(): PantryAnalysis {
     setAnalyzing(false);
     setPhoto(null);
     setCancels((count) => count + 1);
+    resumeLocating();
   }
 
   return {
     result,
+    reviewPhoto,
     analyzing,
     error,
     empty,
@@ -277,7 +494,8 @@ export function usePantryAnalysis(): PantryAnalysis {
     announce: setAnnouncement,
     cameraAreaRef,
     cameraButtonRef,
-    analyze: (file, location) => void analyze(file, location),
+    analyze: (file, location, site) => void analyze(file, location, site),
+    dropForGoneSite,
     retry,
     cancel,
     generation: () => generation.current,
@@ -288,5 +506,6 @@ export function usePantryAnalysis(): PantryAnalysis {
     editSuggestions,
     editMissing,
     editResult,
+    dropPhotoNumbers,
   };
 }

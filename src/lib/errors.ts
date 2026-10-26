@@ -45,6 +45,17 @@ export const errorMessages = {
   // changed and removed is one transaction, so nothing changed. The
   // suggestions stay; new catalog ingredients may stay too.
   pantry_inventory_failed: "Det gick inte att uppdatera lagret. Försök igen.",
+  // Places in the pantry (Story 8.2, AD-24). A place deleted elsewhere, or not
+  // the user's (MK410): nothing is written, and the view is read again.
+  pantry_site_gone: "Stället finns inte längre. Välj ett annat ställe.",
+  // The field shows siteNameTakenText with the name ("… som heter Stugan.").
+  pantry_site_name_taken: "Det finns redan ett ställe med det namnet.",
+  pantry_site_limit: "Du kan ha högst 10 ställen.",
+  // Adding, renaming or selecting a place failed; the selection goes back.
+  pantry_site_failed: "Det gick inte att spara stället. Försök igen.",
+  // "Ta bort" on a place that another tab has filled or selected meanwhile:
+  // nothing is deleted, and the sheet is read again.
+  pantry_site_in_use: "Stället har varor eller är valt och kan inte tas bort.",
   // Matsedel (Story 3.1). After failed servings the selector shows the saved
   // value again; after a failed remove the dish is back on the plan.
   mealplan_unavailable: "Det gick inte att läsa matsedeln. Försök igen.",

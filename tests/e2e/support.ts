@@ -104,6 +104,12 @@ export const emptyPlaceEmail = "e2e-tom-plats@matkoll.test";
  */
 export const inventoryEmail = "e2e-inventering@matkoll.test";
 /**
+ * The E2E user of pantry-image-reading.spec.ts alone ("Bättre bildtolkning",
+ * Story 6.5): each test empties its pantry with the service role, so the
+ * photo of the fridge door is a plain list of labelled and unsure cards.
+ */
+export const imageReadingEmail = "e2e-bildtolkning@matkoll.test";
+/**
  * The E2E user of store.spec.ts alone (Butik in Inställningar, Story 7.1):
  * each test sets its stores with the service role, so which store is
  * selected depends on nothing else.
@@ -121,6 +127,30 @@ export const productChoiceEmail = "e2e-produktval@matkoll.test";
  * with the service role, so the copied export depends on nothing else.
  */
 export const basketExportEmail = "e2e-varukorg@matkoll.test";
+/**
+ * The E2E user of pantry-sites.spec.ts alone (choosing and managing places
+ * in Hemma, Story 8.2): each test sets its places and pantry with the
+ * service role, so which place is selected depends on nothing else.
+ */
+export const sitesEmail = "e2e-stallen@matkoll.test";
+/**
+ * The E2E user of site-status.spec.ts alone (Story 8.3): each test sets its
+ * places, pantry, recipe and meal plan with the service role, and selects
+ * the place with it too.
+ */
+export const siteStatusEmail = "e2e-stalle-status@matkoll.test";
+/**
+ * The E2E user of site-list.spec.ts alone (Story 8.5, the list before a trip
+ * to Stugan, with ketchup and senap): each test sets its places, pantry,
+ * recipe, meal plan and store with the service role, with Hemma selected.
+ */
+export const siteListEmail = "e2e-stalle-lista@matkoll.test";
+/**
+ * The E2E user of site-photo.spec.ts alone (Story 8.4): each test sets its
+ * places and pantry with the service role, with Hemma selected, so what a
+ * photo is compared with and where it is saved depends on nothing else.
+ */
+export const sitePhotoEmail = "e2e-stalle-foto@matkoll.test";
 /**
  * The E2E user of core-flow.spec.ts alone (Story 3.8): it signs in itself
  * through /logga-in and the link in Mailpit, so it has no storage state.
@@ -145,9 +175,14 @@ export const e2eEmails = [
   suggestionsEmail,
   emptyPlaceEmail,
   inventoryEmail,
+  imageReadingEmail,
   storeEmail,
   productChoiceEmail,
   basketExportEmail,
+  sitesEmail,
+  siteStatusEmail,
+  siteListEmail,
+  sitePhotoEmail,
   coreFlowEmail,
 ] as const;
 /** A real Supabase user whose address is not in ALLOWED_EMAILS. */
@@ -170,9 +205,14 @@ export const cameraStorageState = "tests/e2e/.auth/camera.json";
 export const suggestionsStorageState = "tests/e2e/.auth/suggestions.json";
 export const emptyPlaceStorageState = "tests/e2e/.auth/empty-place.json";
 export const inventoryStorageState = "tests/e2e/.auth/inventory.json";
+export const imageReadingStorageState = "tests/e2e/.auth/image-reading.json";
 export const storeStorageState = "tests/e2e/.auth/store.json";
 export const productChoiceStorageState = "tests/e2e/.auth/product-choice.json";
 export const basketExportStorageState = "tests/e2e/.auth/basket-export.json";
+export const sitesStorageState = "tests/e2e/.auth/sites.json";
+export const siteStatusStorageState = "tests/e2e/.auth/site-status.json";
+export const siteListStorageState = "tests/e2e/.auth/site-list.json";
+export const sitePhotoStorageState = "tests/e2e/.auth/site-photo.json";
 export const outsiderStorageState = "tests/e2e/.auth/outsider.json";
 
 export const mailpitUrl = "http://127.0.0.1:54324";
@@ -296,4 +336,13 @@ export async function mailHtml(id: string): Promise<string> {
   if (!response.ok) throw new Error(`Mailpit answered ${response.status} for message ${id}`);
   const body = (await response.json()) as { HTML: string };
   return body.HTML;
+}
+
+/**
+ * The titles of suggestion cards as their headings read them (Story 6.6): the
+ * title, and once the numbers on the photo have come, "Nummer 3 på fotot" for
+ * screen readers after it.
+ */
+export function cardTitles(titles: readonly string[]): RegExp[] {
+  return titles.map((title) => new RegExp(`^${title.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")}(\\s?Nummer \\d+ på fotot)?$`));
 }

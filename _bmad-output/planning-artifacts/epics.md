@@ -15,7 +15,7 @@ inputDocuments:
 
 ## Översikt
 
-Det här dokumentet delar upp kraven i PRD:n, UX-dokumenten (`DESIGN.md`, `EXPERIENCE.md`) och arkitekturen (`ARCHITECTURE-SPINE.md`, AD-1–AD-23) i epics och stories som går att bygga var för sig. Story-rubrikerna läses av `scripts/board.mjs` och blir kort på boarden.
+Det här dokumentet delar upp kraven i PRD:n, UX-dokumenten (`DESIGN.md`, `EXPERIENCE.md`) och arkitekturen (`ARCHITECTURE-SPINE.md`, AD-1–AD-24) i epics och stories som går att bygga var för sig. Story-rubrikerna läses av `scripts/board.mjs` och blir kort på boarden. Epic 1–7 är version 1.0. Epic 8 är version 1.1, "Flera ställen", som kom till genom kursändringen `sprint-change-proposal-2026-10-26-flera-stallen.md`. Dess krav står i PRD-addendumet under "Version 1.1: Flera ställen".
 
 ## Requirements Inventory
 
@@ -50,6 +50,14 @@ Det här dokumentet delar upp kraven i PRD:n, UX-dokumenten (`DESIGN.md`, `EXPER
 - FR27: Produktval (namn, förpackningsstorlek, ev. länk) kan sparas per katalogingrediens och följer med i exporten.
 - FR28: Butik kan ändras i inställningarna (namn, kedja, butiks-id, adress), även till andra kedjor.
 
+Version 1.1 (addendum, "Version 1.1: Flera ställen"):
+
+- FR29: Ställen kan läggas till, byta namn och tas bort när de är tomma och inte valda. Namnet har 1–40 tecken och är unikt, och det får finnas högst 10 ställen. Befintligt lager hamnar på "Hemma", som är valt.
+- FR30: Pontus väljer ställe med ett tryck i Hemma. Valet sparas på servern, gäller alla enheter och styr Hemma, lagningsstatusen, rangordningen, AI-förslagen, inköpslistans avdrag, "Lägg i lagret" och bildanalysen. Lagret summeras aldrig över ställen.
+- FR31: Lagret på vilket ställe som helst kan ses och ändras på distans.
+- FR32: Inköpslistan drar av lagret för valt ställe, visar "Lager: <namn>" med "Byt" när det finns flera ställen och behåller bockar, överstyrningar och egna varor vid byte. "Lägg i lagret" lägger på listans ställe.
+- FR33: En skrivning hamnar på det ställe som vyn visade, och "Ångra" sätter tillbaka på samma ställe.
+
 ### NonFunctional Requirements
 
 - NFR1 Säkerhet: all hämtning från receptsajter och alla AI-anrop sker på servern; nycklar bara på servern; hämtning bara från godkända receptsajter, testat automatiskt.
@@ -60,6 +68,7 @@ Det här dokumentet delar upp kraven i PRD:n, UX-dokumenten (`DESIGN.md`, `EXPER
 - NFR6 Språk: gränssnittet på svenska.
 - NFR7 Svarstider: lista, lager och bibliotek inom en sekund; import och bildanalys visar förlopp och kan avbrytas eller göras om.
 - NFR8 Tvingande kontroller: hemlighetsskanning, RLS-tester, test av domänbegränsning, lint och kodgranskning blockerar sammanslagning.
+- NFR9 (1.1) Migrering och svarstider för ställen: en migration som bara lägger till, fungerar med 1.0-koden och visas i ett test lämna lagret oförändrat. Byte av ställe svarar inom en sekund.
 
 ### Additional Requirements
 
@@ -83,6 +92,14 @@ Från arkitekturen (`ARCHITECTURE-SPINE.md`):
 - Exportformat `Matkoll varukorgsexport v1`, dokumenterat i `docs/varukorgsexport.md` med golden-file-test (AD-16).
 - CI i GitHub Actions: lint, typkontroll, Vitest, typdrift, RLS-tester, domänbegränsning, Playwright med mock, gitleaks; skyddad `main`; en gren per epic (AD-23).
 - Veckovis krypterad databasdump och driftsättning till Vercel och Supabase i Stockholm efter Epic 1–3 (AD-23; kräver Pontus konton).
+- (1.1) Ställen i lagret (AD-24):
+  - `pantry_site`, som ägs av `pantry`, med högst ett valt ställe;
+  - `pantry_item.site_id` och en unik nyckel per ställe;
+  - `getPantrySnapshot(siteId?)` för valt ställe, och skrivningar med ställets id från vyn;
+  - parametern `site uuid default null` i pantry-funktionerna;
+  - `ensure_pantry_defaults()`;
+  - en migrering till "Hemma" som bara lägger till;
+  - `revalidateFor('pantry_site')`.
 
 ### UX Design Requirements
 
@@ -104,6 +121,8 @@ Från `DESIGN.md` och `EXPERIENCE.md`:
 - UX-DR14: Tillgänglighet: namn och tillstånd för skärmläsare, status aldrig bara med färg, synlig fokusram, logisk tabbordning, "Minska rörelse", 200 % textförstoring utan vågrät scroll, inmatningsfält minst 16 px text.
 - UX-DR15: Svenska texter enligt Voice and Tone, inklusive alla tillstånd i State Patterns (tomma lägen, fel, laddning, AI otillgänglig, utan nät).
 - UX-DR16: Inställningar: godkända receptsajter, butik, logga ut.
+- UX-DR17 (1.1): Ställesväljare med filterpiller ovanför platskorten och "Ställen" när det finns flera ställen, annars bara "Lägg till ställe" längst ned i Hemma. Arket Ställen (lägg till, byt namn, ta bort ett tomt ställe). Raden "Lager: <namn>" i listan (med "Byt" och arket "Räkna listan mot"), matsedeln, receptvyn och biblioteket med "Kan lagas nu", bara när det finns flera ställen.
+- UX-DR18 (1.1): Texter för ställen enligt EXPERIENCE.md, Voice and Tone: inga ställesnamn när det bara finns ett ställe, och annars mönstren "Lager: Stugan" och "… för Stugan.".
 
 ### FR Coverage Map
 
@@ -135,6 +154,11 @@ Från `DESIGN.md` och `EXPERIENCE.md`:
 - FR26: Epic 7 – Skicka till ICA
 - FR27: Epic 7 – produktval
 - FR28: Epic 7 – byta butik
+- FR29: Epic 8 – hantera ställen
+- FR30: Epic 8 – välja ställe
+- FR31: Epic 8 – se ett ställes lager på distans
+- FR32: Epic 8 – inköpslistan räknas mot valt ställe
+- FR33: Epic 8 – skrivningar på det ställe vyn visade
 
 ## Epic List
 
@@ -162,53 +186,13 @@ Pontus kan se vad som går att laga med det som finns hemma, rangordnat efter hu
 Pontus kan fotografera kylen, frysen eller skafferiet och bekräfta, rätta eller avvisa de varor AI:n föreslår innan något sparas.
 **FRs covered:** FR24, FR25
 
-#### Story 6.3: Töm en plats
-
-Som Pontus,
-vill jag kunna tömma kylen, frysen eller skafferiet med ett tryck,
-så att jag kan börja om och fylla platsen på nytt med ett foto.
-
-**Acceptance Criteria:**
-
-**Givet** en plats med varor
-**När** Pontus trycker "Töm kylen" (respektive frysen eller skafferiet)
-**Så** visas en kontrollfråga med antalet varor ("Ta bort alla 14 varor i kylen?"), och först efter bekräftelse tas alla varor på platsen bort i en transaktion
-
-**Givet** en tömd plats
-**När** bekräftelsen visas
-**Så** kan Pontus ångra i 5 s, och då kommer alla varor tillbaka med samma id, mängd och enhet
-
-**Givet** en tom plats
-**När** Hemma visas
-**Så** finns ingen töm-knapp för den platsen
-
-### Story 6.4: Inventera en plats med foto
-
-Som Pontus,
-vill jag att ett nytt foto av en plats jämförs med det som redan finns där,
-så att lagret uppdateras med nya varor, ändrade mängder och varor som inte längre finns.
-
-**Acceptance Criteria:**
-
-**Givet** en plats med varor i lagret och ett nytt foto av den
-**När** analysen är klar
-**Så** visas förslagen i tre grupper: "Nytt" (på bilden men inte i lagret), "Ändrat" (i lagret med annan mängd) och "Syns inte längre" (i lagret men inte på bilden)
-
-**Givet** ett förslag i gruppen "Syns inte längre"
-**När** Pontus bekräftar det
-**Så** tas varan bort från platsen. Ingenting tas bort utan ett tryck, eftersom AI:n kan missa varor som är skymda
-
-**Givet** förslag i alla tre grupperna
-**När** Pontus trycker "Bekräfta alla"
-**Så** sparas tilläggen, ändringarna och borttagningarna i en transaktion, och borttagningarna kan ångras i 5 s
-
-**Givet** en obegränsad vara ("Finns hemma") som inte syns på bilden
-**När** förslagen visas
-**Så** föreslås den också i "Syns inte längre"
-
-## Epic 7: Varukorg
+### Epic 7: Varukorg
 Pontus kan välja butik, spara vilka produkter hen brukar köpa och skicka inköpslistan till ICA Handla via en export som Claude in Chrome fyller varukorgen från.
 **FRs covered:** FR26, FR27, FR28
+
+### Epic 8: Flera ställen
+Version 1.1. Pontus kan ha lager på flera ställen, till exempel Hemma och Stugan, välja vilket ställe som gäller och se ett ställes lager på distans. Lagningsstatusen, AI-förslagen, inköpslistans avdrag, "Lägg i lagret" och bildanalysen följer valt ställe, så att Pontus handlar rätt inför resan till stugan.
+**FRs covered:** FR29, FR30, FR31, FR32, FR33, NFR9 (och avgränsningar av FR8, FR11–FR13, FR15, FR19, FR20, FR22–FR25 till valt ställe)
 
 ## Epic 1: Receptimport och receptbibliotek
 
@@ -988,6 +972,98 @@ så att lagret inte fylls med AI:ns felgissningar.
 **Så** anropar `confirmPantrySuggestions` `commitIngredients` och `setPantryItems`, och platskortets antal uppdateras (FR25, AD-19)
 **Och** avvisade förslag sparas inte, och inga katalogingredienser skapas för dem (AD-6)
 
+### Story 6.3: Töm en plats
+
+Som Pontus,
+vill jag kunna tömma kylen, frysen eller skafferiet med ett tryck,
+så att jag kan börja om och fylla platsen på nytt med ett foto.
+
+**Acceptance Criteria:**
+
+**Givet** en plats med varor
+**När** Pontus trycker "Töm kylen" (respektive frysen eller skafferiet)
+**Så** visas en kontrollfråga med antalet varor ("Ta bort alla 14 varor i kylen?"), och först efter bekräftelse tas alla varor på platsen bort i en transaktion
+
+**Givet** en tömd plats
+**När** bekräftelsen visas
+**Så** kan Pontus ångra i 5 s, och då kommer alla varor tillbaka med samma id, mängd och enhet
+
+**Givet** en tom plats
+**När** Hemma visas
+**Så** finns ingen töm-knapp för den platsen
+
+### Story 6.4: Inventera en plats med foto
+
+Som Pontus,
+vill jag att ett nytt foto av en plats jämförs med det som redan finns där,
+så att lagret uppdateras med nya varor, ändrade mängder och varor som inte längre finns.
+
+**Acceptance Criteria:**
+
+**Givet** en plats med varor i lagret och ett nytt foto av den
+**När** analysen är klar
+**Så** visas förslagen i tre grupper: "Nytt" (på bilden men inte i lagret), "Ändrat" (i lagret med annan mängd) och "Syns inte längre" (i lagret men inte på bilden)
+
+**Givet** ett förslag i gruppen "Syns inte längre"
+**När** Pontus bekräftar det
+**Så** tas varan bort från platsen. Ingenting tas bort utan ett tryck, eftersom AI:n kan missa varor som är skymda
+
+**Givet** förslag i alla tre grupperna
+**När** Pontus trycker "Bekräfta alla"
+**Så** sparas tilläggen, ändringarna och borttagningarna i en transaktion, och borttagningarna kan ångras i 5 s
+
+**Givet** en obegränsad vara ("Finns hemma") som inte syns på bilden
+**När** förslagen visas
+**Så** föreslås den också i "Syns inte längre"
+
+### Story 6.5: Bättre bildtolkning
+
+Som Pontus,
+vill jag att fotot av kylen tolkas lika bra som när jag frågar Qwen direkt,
+så att lagerförslagen får rätt varor och märken.
+
+**Acceptance Criteria:**
+
+**Givet** ett foto av en plats
+**När** det skickas till AI:n
+**Så** är bilden högst 2048 px på längsta sidan och anropet har uttryckliga sampling-inställningar (temperatur, top_p, top_k, presence penalty) med tänkläget avstängt
+
+**Givet** AI:ns svar
+**När** samma vara upprepas
+**Så** slås upprepningarna ihop, och svaret avbryts aldrig av en upprepningsslinga
+
+**Givet** varor som bara delvis syns
+**När** förslagen visas
+**Så** är de markerade "osäker", inte förvalda för "Bekräfta alla", och kortet visar märket som rubrik med katalogvaran under
+
+**Givet** utvärderingen mot ett riktigt foto
+**När** den körs tre gånger
+**Så** ger varje körning giltigt svar utan upprepningsslinga inom 100 s
+
+### Story 6.6: Nummer på fotot
+
+Som Pontus,
+vill jag se ett nummer på varje vara på fotot och samma nummer på förslagets kort,
+så att jag kan kontrollera vad AI:n har läst av och var.
+
+**Acceptance Criteria:**
+
+**Givet** att förslagen från ett foto har kommit
+**När** korten visas
+**Så** visas de direkt, och AI:n får i ett separat anrop samma bild och de numrerade varorna och svarar med en punkt per vara, utan att avläsningen ändras
+
+**Givet** att punkterna har kommit
+**När** Pontus öppnar fotot större
+**Så** har varje vara en numrerad markör på fotot, kortet har samma nummer ("Nummer 3 på fotot"), och markörerna följer med när fotot visas i full storlek
+
+**Givet** att anropet för punkterna misslyckas, tar för lång tid eller ersätts av ett nytt foto
+**När** korten visas
+**Så** visas inga nummer och inget fel, och Bekräfta fungerar som förut
+
+**Givet** utvärderingen mot ett riktigt foto
+**När** den körs tre gånger
+**Så** visar rapporten tiden för avläsningen, tiden för punkterna och summan per körning, och om alla varor fick en punkt
+
 ## Epic 7: Varukorg
 
 Pontus kan välja butik, spara vilka produkter hen brukar köpa och skicka inköpslistan till ICA Handla via en export som Claude in Chrome fyller varukorgen från.
@@ -1051,3 +1127,188 @@ så att jag slipper lägga varorna i varukorgen för hand.
 **Givet** appen
 **När** exporten skapats
 **Så** gör appen aldrig något i butiken själv
+
+## Epic 8: Flera ställen
+
+Version 1.1. Pontus kan ha lager på flera ställen, till exempel Hemma och Stugan, och välja vilket ställe som gäller. Valet styr Hemma, lagningsstatusen, AI-förslagen, inköpslistans avdrag, "Lägg i lagret" och bildanalysen. Huvudsyftet är att Pontus handlar rätt inför resan till stugan, utan två ketchup och utan att glömma senapen. Arkitekturen står i AD-24. Storyna byggs i ordning.
+
+### Story 8.1: Ställen i lagret med Hemma som första ställe
+
+Som Pontus,
+vill jag att lagret delas på ställen utan att det jag redan har fört in ändras,
+så att jag kan lägga till stugan sedan utan att börja om.
+
+**Acceptance Criteria:**
+
+**Givet** migrationen för `pantry_site` (unik på `user_id, normalized_name`, högst ett `is_selected` per användare, namn på 1–40 tecken) med RLS och grants
+**När** RLS-testerna körs
+**Så** kan varken en anonym klient eller en annan användare läsa eller skriva ställen (AD-4)
+
+**Givet** ett lager med varor på alla tre platserna före migreringen
+**När** migreringen körs
+**Så** ligger alla lagervaror med samma id, mängd och enhet på stället "Hemma", som är valt, och `pantry_item.site_id` är `not null` med en sammansatt främmande nyckel och `on delete restrict` (NFR9, AD-24)
+
+**Givet** den nya unika nyckeln `(user_id, site_id, ingredient_id, location, unit)`
+**När** samma ingrediens sparas i kylen på två ställen
+**Så** blir det två rader, och regeln "obegränsad eller mängder" gäller per ställe och plats (AD-19)
+
+**Givet** pantry-funktionerna med den nya parametern `site uuid default null`
+**När** de anropas som i 1.0, utan `site`
+**Så** gäller anropet valt ställe, och alla befintliga tester passerar (AD-5)
+
+**Givet** `getPantrySnapshot`, `listPantry` och `countPantryItems`
+**När** användaren har varor på två ställen
+**Så** gäller de bara valt ställe, eller det ställe som anges, och summerar aldrig över ställen (AD-24)
+
+**Givet** en ny användare utan ställen
+**När** användaren loggar in
+**Så** skapar `ensure_pantry_defaults()` "Hemma" som valt ställe, och ett andra anrop ändrar inget (AD-21)
+
+**Givet** appen efter storyn
+**När** Pontus använder den
+**Så** ser allt ut och fungerar som i 1.0
+
+### Story 8.2: Välja och hantera ställen i Hemma
+
+Som Pontus,
+vill jag lägga till Stugan och byta mellan ställena i Hemma,
+så att jag kan se och fylla stugans kyl, frys och skafferi, också hemifrån.
+
+**Acceptance Criteria:**
+
+**Givet** Hemma med ett enda ställe
+**När** sidan visas
+**Så** finns ingen ställesväljare, bara textknappen "Lägg till ställe" längst ned (UX-DR17)
+
+**Givet** arket Ställen
+**När** Pontus skriver "Stugan" och trycker "Lägg till"
+**Så** skapas stället utan att väljas, och bekräftelsen säger "Lade till Stugan. Välj det för att se och fylla dess lager." (FR29)
+
+**Givet** ett namn som redan finns (oavsett stora och små bokstäver), ett tomt namn, ett namn på fler än 40 tecken eller ett elfte ställe
+**När** Pontus sparar
+**Så** sparas inget, och texten under fältet säger varför
+
+**Givet** två eller fler ställen
+**När** Hemma visas
+**Så** finns filterpiller med ställenas namn ovanför platskorten och textknappen "Ställen", och valt ställe är fyllt
+
+**Givet** ställesväljaren
+**När** Pontus trycker på Stugan
+**Så** väljs stället och sparas på servern (`select_pantry_site`)
+**Och** platskorten och listan visar stugans lager, med samma plats vald som förut
+**Och** live-regionen säger "Valt ställe: Stugan." (FR30, FR31)
+
+**Givet** Stugan vald på mobilen
+**När** Pontus öppnar Matkoll på datorn
+**Så** är Stugan vald där också
+
+**Givet** arket Ställen
+**När** Pontus byter namn på ett ställe, eller tar bort ett tomt ställe som inte är valt
+**Så** sparas ändringen direkt
+**Och** "Ta bort" saknas för valt ställe, för ett ställe med varor och för det sista stället (FR29)
+
+**Givet** Stugan vald i Hemma
+**När** Pontus lägger till, ändrar eller tar bort en lagervara, eller trycker "Ångra"
+**Så** sparas ändringen på Stugan, också om valt ställe har bytts på en annan enhet under tiden (FR33)
+
+### Story 8.3: Lagningsstatus, förslag och Lägg i lagret följer valt ställe
+
+Som Pontus,
+vill jag att det som kan lagas och det jag lägger i lagret gäller det ställe jag har valt,
+så att stugans och hemmets lager aldrig blandas ihop.
+
+**Acceptance Criteria:**
+
+**Givet** ketchup bara hemma och Stugan vald
+**När** Pontus öppnar ett recept med ketchup
+**Så** räknas ketchup som saknad i "X av Y hemma", i lagningsstatusen i biblioteket och på matsedeln och i filtret "Kan lagas nu" (FR8, FR13, FR20, FR22, AD-7)
+
+**Givet** Stugan vald
+**När** Pontus ber om AI-förslag
+**Så** utgår förslagen från stugans lager (FR23)
+
+**Givet** två eller fler ställen
+**När** receptbiblioteket med filtret "Kan lagas nu", receptvyn eller matsedeln visas
+**Så** står "Lager: Stugan" som metadata
+**Och** med ett enda ställe syns ingen sådan rad (UX-DR17)
+
+**Givet** ett byte av valt ställe
+**När** bytet är sparat
+**Så** revalideras Hemma, Recept, Matsedel och Lista (`revalidateFor('pantry_site')`, AD-18)
+
+**Givet** inköpslistan räknad mot Stugan, med avbockade poster
+**När** Pontus trycker "Lägg i lagret"
+**Så** läggs varorna på katalogingrediensens plats på Stugan (`putCheckedInPantry(siteId)` till `addToPantry`), och bekräftelsen säger "Lagt 8 varor i lagret för Stugan." (FR19, FR32, FR33)
+
+**Givet** att valt ställe byts på en annan enhet efter att listan visades
+**När** Pontus trycker "Lägg i lagret"
+**Så** hamnar varorna på det ställe listan räknades mot
+**Och** ett avbrutet "Lägg i lagret" som görs om lägger aldrig något två gånger (AD-8, AD-24)
+
+### Story 8.4: Foto, inventering och tömning per ställe
+
+Som Pontus,
+vill jag fotografera och tömma stugans kyl på samma sätt som hemma,
+så att stugans lager är lika aktuellt som hemmets.
+
+**Acceptance Criteria:**
+
+**Givet** Stugan vald och kylen vald
+**När** Pontus fotograferar
+**Så** skickas stället och platsen till `/api/ai/analyze`, och "I kylen nu" och jämförelsen från 6.4 gäller stugans kyl (FR24, AD-24)
+
+**Givet** lagerförslag från ett foto av stugans kyl
+**När** Pontus bekräftar, rättar eller trycker "Bekräfta alla"
+**Så** sparas förslagen på Stugan, och "Syns inte längre" tar bara bort rader i stugans kyl (FR25, FR33)
+
+**Givet** att valt ställe byts medan förslagen visas
+**När** Pontus bekräftar
+**Så** sparas förslagen på det ställe fotot gällde, och raden "Förslagen gäller Stugan." visas ovanför dem
+
+**Givet** två eller fler ställen
+**När** Pontus trycker "Töm kylen"
+**Så** frågar arket "Ta bort alla 14 varor i kylen för Stugan?"
+**Och** bara stugans kyl töms, och bekräftelsen säger "Tog bort 14 varor ur kylen för Stugan." (6.3)
+
+**Givet** en tömning eller inventering på Stugan
+**När** Pontus trycker "Ångra", också efter att ha valt Hemma
+**Så** kommer raderna tillbaka på Stugan med samma id (AD-20, AD-24)
+
+**Givet** `apply_pantry_inventory`, `empty_pantry_place` och `restore_pantry_removal`
+**När** integrationstesterna körs med samma ingrediens på två ställen
+**Så** ändras bara det angivna stället, och `pantry_lock()` gäller fortfarande alla användarens skrivningar
+
+### Story 8.5: Inköpslista inför resan till ett annat ställe
+
+Som Pontus,
+vill jag räkna inköpslistan mot stugans lager innan jag åker dit,
+så att jag varken köper två ketchup eller glömmer senapen.
+
+**Acceptance Criteria:**
+
+**Givet** två eller fler ställen
+**När** inköpslistan visas
+**Så** står "Lager: Hemma" och textknappen "Byt" under rubriken
+**Och** med ett enda ställe syns ingen sådan rad (FR32, UX-DR17)
+
+**Givet** "Byt"
+**När** Pontus väljer Stugan i arket "Räkna listan mot"
+**Så** väljs Stugan, samma val som i Hemma, och arket stängs
+**Och** "Listan räknas nu mot Stugan." visas, och listan drar av stugans lager (FR30, FR32)
+
+**Givet** ketchup hemma men inte i stugan, och senap i stugan men inte hemma
+**När** listan räknas mot Stugan
+**Så** står ketchup på listan men inte senap, och mot Hemma är det tvärtom (e2e)
+
+**Givet** avbockade poster, rättade mängder, dolda poster och egna varor
+**När** Pontus byter ställe
+**Så** står de kvar
+**Och** en avbockad post som blir täckt försvinner från listan, men är avbockad igen om den kommer tillbaka (FR18, AD-8)
+
+**Givet** att allt på matsedeln finns i stugan
+**När** listan visas
+**Så** står "Allt finns i lagret för Stugan."
+
+**Givet** listan räknad mot Stugan
+**När** Pontus trycker "Skicka till ICA"
+**Så** innehåller exporten listans poster för Stugan, och formatet `Matkoll varukorgsexport v1` är oförändrat (FR26, AD-16)
