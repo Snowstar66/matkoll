@@ -2,7 +2,7 @@
 title: 'Story 4.1: Portioner och "X av Y hemma" i receptvyn'
 type: 'feature'
 created: '2026-10-26'
-status: 'draft'
+status: 'done'
 route: 'dispatch'
 context:
   - '{project-root}/_bmad-output/implementation-artifacts/epic-4-context.md'
@@ -81,12 +81,12 @@ context:
 ## Tasks & Acceptance
 
 **Execution:**
-- [ ] `src/features/pantry/domain/recipe-status.ts`, `index.ts` (+ tester) -- `RecipeStatus` får `ingredientCount` (Y) och `atHomeCount` (X), räknade enligt Implementation Notes, och `atHomeSummaryText(x, y)` ger "7 av 9 hemma". Tester täcker: skalade behov över och under gränsen, vag rad som finns och saknas, samma ingrediens på två rader (vag och med mängd), okopplade rader, Y = 0 och att N är oförändrat -- AD-7
-- [ ] `src/features/recipes/server.ts`, `src/app/(app)/recept/[id]/page.tsx` -- `getRecipeWithPantry(id)` läser receptet och `pantrySnapshotOrNull()` parallellt och ger `{ recipe, snapshot }`. Sidan skickar ögonblicksbilden till vyn, och `getRecipeWithStatus` tas bort när den inte längre används -- AD-1, AD-18
-- [ ] `src/features/recipes/ui/recipe-view.tsx` och en ny klientdel (till exempel `recipe-body.tsx`, `"use client"`) -- klientdelen håller valt antal portioner (startvärdet är receptets portioner) och har nyckeln `recipe.updatedAt`. Den skalar raderna med `scaleLines(recipe.lines, scaleFactor(servings, recipe.servings))` och räknar `recipeStatus` med ögonblicksbilden. Den visar `Stepper` (min 1, max `max(maxServings, recipe.servings)`) och "X av Y hemma" i en rad under metaraden. Etiketten följer portionerna. `IngredientRow` får de skalade raderna. En okopplad rad med mängd visar "×faktor" när faktorn inte är 1. Metaraden visar bara tiden -- FR-20, UX-DR3, UX-DR8
-- [ ] `src/features/recipes/ui/add-to-plan-button.tsx` -- `AddToPlan` får `servings?`, som skickas bara när valt antal skiljer sig från receptets. Knappen ligger kvar i `FixedAction` och förbereder plats för "Laga nu" (4.2) -- FR-13, FR-20
-- [ ] `src/features/recipes/ui/recipe-view.test.tsx` -- + och − skalar mängderna, en vag och en okopplad rad skalas inte, "×2" visas, gränsen 1 gäller, etiketten, X och färgen ändras när gränsen passeras, inget visas utan ögonblicksbild, "Lägg på matsedeln" skickar valda portioner och ingen action anropas vid − och + -- matrisen
-- [ ] `tests/e2e/recipe-servings.spec.ts` (+ `support.ts`, `global-setup.ts`) -- egen e2e-användare `e2e-receptvy@matkoll.test`. Testet seedar ett recept och lagervaror, ändrar portionerna och ser mängder, "X av Y hemma", etikett och `sky-ink` ändras. Vid 1280 px ligger ingredienser och steg sida vid sida, och vid 375 px ligger ingredienserna ovanför stegen. Det lägger på matsedeln med valda portioner och ser dem på Matsedel -- matrisen
+- [x] `src/features/pantry/domain/recipe-status.ts`, `index.ts` (+ tester) -- `RecipeStatus` får `ingredientCount` (Y) och `atHomeCount` (X), räknade enligt Implementation Notes, och `atHomeSummaryText(x, y)` ger "7 av 9 hemma". Tester täcker: skalade behov över och under gränsen, vag rad som finns och saknas, samma ingrediens på två rader (vag och med mängd), okopplade rader, Y = 0 och att N är oförändrat -- AD-7
+- [x] `src/features/recipes/server.ts`, `src/app/(app)/recept/[id]/page.tsx` -- `getRecipeWithPantry(id)` läser receptet och `pantrySnapshotOrNull()` parallellt och ger `{ recipe, snapshot }`. Sidan skickar ögonblicksbilden till vyn, och `getRecipeWithStatus` tas bort när den inte längre används -- AD-1, AD-18
+- [x] `src/features/recipes/ui/recipe-view.tsx` och en ny klientdel (till exempel `recipe-body.tsx`, `"use client"`) -- klientdelen håller valt antal portioner (startvärdet är receptets portioner) och har nyckeln `recipe.updatedAt`. Den skalar raderna med `scaleLines(recipe.lines, scaleFactor(servings, recipe.servings))` och räknar `recipeStatus` med ögonblicksbilden. Den visar `Stepper` (min 1, max `max(maxServings, recipe.servings)`) och "X av Y hemma" i en rad under metaraden. Etiketten följer portionerna. `IngredientRow` får de skalade raderna. En okopplad rad med mängd visar "×faktor" när faktorn inte är 1. Metaraden visar bara tiden -- FR-20, UX-DR3, UX-DR8
+- [x] `src/features/recipes/ui/add-to-plan-button.tsx` -- `AddToPlan` får `servings?`, som skickas bara när valt antal skiljer sig från receptets. Knappen ligger kvar i `FixedAction` och förbereder plats för "Laga nu" (4.2) -- FR-13, FR-20
+- [x] `src/features/recipes/ui/recipe-view.test.tsx` -- + och − skalar mängderna, en vag och en okopplad rad skalas inte, "×2" visas, gränsen 1 gäller, etiketten, X och färgen ändras när gränsen passeras, inget visas utan ögonblicksbild, "Lägg på matsedeln" skickar valda portioner och ingen action anropas vid − och + -- matrisen
+- [x] `tests/e2e/recipe-servings.spec.ts` (+ `support.ts`, `global-setup.ts`) -- egen e2e-användare `e2e-receptvy@matkoll.test`. Testet seedar ett recept och lagervaror, ändrar portionerna och ser mängder, "X av Y hemma", etikett och `sky-ink` ändras. Vid 1280 px ligger ingredienser och steg sida vid sida, och vid 375 px ligger ingredienserna ovanför stegen. Det lägger på matsedeln med valda portioner och ser dem på Matsedel -- matrisen
 
 **Acceptance Criteria:**
 - Given `pnpm lint && pnpm typecheck && pnpm test && pnpm test:integration && AI_PROVIDER=mock pnpm build && CI=1 pnpm test:e2e`, when de körs, then lyckas alla.
@@ -112,7 +112,31 @@ context:
 
 ## Spec Change Log
 
+- Efter granskningen:
+  - Ett recept med fler än 1000 portioner visar 1000 portioner från början, och mängderna skalas efter det.
+  - Täckningen jämförs med samma precision som visas, två decimaler. Det påverkar också inköpslistan: en rest under 0,01 blir ingen post.
+- `getRecipeWithStatus` ersätts av `getRecipeWithPantry`. Ögonblicksbilden filtreras till receptets egna ingredienser.
+
 ## Review Triage Log
+
+Iteration 1. Granskare: Blind Hunter, Edge Case Hunter och Verification Gap.
+
+**Patch:**
+- Valt antal portioner ska inte nollställas när Pontus markerar receptet som favorit. Klientdelen får en nyckel som bara ändras när portionerna eller raderna ändras, i stället för `updatedAt`.
+- Ett nytt försök med andra portioner får ett nytt id.
+- Matsedeln får alltid de portioner som visas.
+  - Portionsväljaren går högst till 1000. Ett recept med fler portioner börjar på 1000.
+  - Ett ogiltigt startvärde blir 1.
+- Mängder och status räknas med samma faktor.
+- Bara lagrets rader för receptets ingredienser skickas till klienten.
+- Status och "X av Y hemma" läses upp av skärmläsare (`aria-live`).
+- Faktorn visas med högst två decimaler och aldrig som "×0".
+- Avrundningen är densamma i visning och jämförelse.
+- Felet för en rad utan status loggas en gång per rad.
+- Ett ogiltigt id kontrolleras innan lagret läses.
+- E2E-filen körs seriellt, kontrollerar att inga RSC-anrop görs och använder appens normalisering.
+
+**Reject:** att räkna bort vaga ingredienser ur "X av Y". Det är ett antaget beslut enligt UX-skissen, och radmarkeringarna förklarar skillnaden.
 
 ## Verification
 

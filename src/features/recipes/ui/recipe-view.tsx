@@ -1,31 +1,30 @@
 import Link from "next/link";
 import type { ReactNode } from "react";
-import { cx } from "@/components/cx";
-import { CheckIcon, ChevronLeftIcon, MinusIcon, RingIcon } from "@/components/icons";
-import { formatQuantity, normalizeIngredientText } from "@/features/catalog";
-import { atHomeText, isShort, type LineCoverage, type RecipeStatus } from "@/features/pantry";
-import { recipeMetaText } from "../domain/recipe-list";
-import type { SavedRecipe, SavedRecipeLine } from "../domain/saved-recipe";
-import { sourceLabel } from "../domain/source-label";
-import { AddToPlanButton, type AddToPlan } from "./add-to-plan-button";
-import { FavoriteButton } from "./favorite-button";
+import { ChevronLeftIcon } from "@/components/icons";
 import { RecipeImage } from "@/components/recipe-image";
-import { RecipeStatusBadge } from "./recipe-status-badge";
+import type { PantrySnapshot } from "@/features/pantry";
+import { recipeTimeText } from "../domain/recipe-list";
+import type { SavedRecipe } from "../domain/saved-recipe";
+import { sourceLabel } from "../domain/source-label";
+import type { AddToPlan } from "./add-to-plan-button";
+import { FavoriteButton } from "./favorite-button";
+import { RecipeBody } from "./recipe-body";
 
-// Receptvy (FR-20, the base): the same look whatever the source, with the
-// heart (FR-9) and the menu (⋯, Story 1.11) beside the title, the status
-// against the pantry under the meta line, and a tick or ring on every
-// ingredient (Story 2.4), and "Lägg på matsedeln" (Story 3.1). The portion
-// selector, "X av Y hemma" and "Laga nu" arrive in later stories.
+// Receptvy (FR-20): the same look whatever the source, with the heart (FR-9)
+// and the menu (⋯, Story 1.11) beside the title, the time and the source
+// under it, and then the part that follows the chosen servings (RecipeBody):
+// the portion selector with the status and "X av Y hemma", the ingredients
+// with a tick or ring each (Story 2.4), the steps and "Lägg på matsedeln"
+// (Story 3.1). "Laga nu" arrives in Story 4.2.
 
 export type RecipeViewProps = {
   recipe: SavedRecipe;
   /**
-   * The recipe's status against the pantry for its own servings, with each
-   * line's coverage by line id; `null` when the pantry could not be read, and
-   * the recipe is shown without badge and marks.
+   * The whole pantry, for the status for the chosen servings, counted in the
+   * browser; `null` when the pantry could not be read, and the recipe is
+   * shown without badge, marks and "X av Y hemma".
    */
-  status: RecipeStatus | null;
+  snapshot: PantrySnapshot | null;
   /** The menu (⋯) with "Ändra", from the page, which has what its form needs. */
   menu?: ReactNode;
   /**
@@ -35,8 +34,10 @@ export type RecipeViewProps = {
   addToPlan?: AddToPlan;
 };
 
-export function RecipeView({ recipe, status, menu, addToPlan }: RecipeViewProps) {
+export function RecipeView({ recipe, snapshot, menu, addToPlan }: RecipeViewProps) {
   const source = sourceLabel(recipe.sourceKind, recipe.sourceUrl);
+  // The portion selector shows the servings, so the meta line is only the time.
+  const time = recipeTimeText(recipe.totalMinutes);
   return (
     <article className="flex flex-col gap-6 pb-gutter">
       <div className="relative -mx-page desktop:mx-0 desktop:mt-10">
@@ -60,10 +61,11 @@ export function RecipeView({ recipe, status, menu, addToPlan }: RecipeViewProps)
             {menu}
           </div>
         </div>
-        <p className="text-meta text-ink-2" data-testid="recipe-meta">
-          {recipeMetaText(recipe.totalMinutes, recipe.servings)}
-        </p>
-        {status ? <RecipeStatusBadge missingCount={status.missingCount} /> : null}
+        {time ? (
+          <p className="text-meta text-ink-2" data-testid="recipe-meta">
+            {time}
+          </p>
+        ) : null}
         <p className="text-meta text-ink-2">
           Källa:{" "}
           {recipe.sourceKind === "url" && recipe.sourceUrl ? (
@@ -76,135 +78,18 @@ export function RecipeView({ recipe, status, menu, addToPlan }: RecipeViewProps)
         </p>
       </header>
 
-      {/* Mobile: ingredients above the steps. Desktop: side by side. */}
-      <div className="flex flex-col gap-6 desktop:grid desktop:grid-cols-[2fr_3fr] desktop:items-start">
-        <section aria-labelledby="ingredienser" className="flex flex-col gap-1 rounded-lg bg-surface px-4 py-3">
-          <h2 id="ingredienser" className="text-section-label text-ink-2">
-            Ingredienser
-          </h2>
-          {recipe.lines.length > 0 ? (
-            <ul className="flex flex-col">
-              {recipe.lines.map((line) => (
-                <IngredientRow key={line.id} line={line} coverage={status ? lineCoverage(status, line.id) : null} />
-              ))}
-            </ul>
-          ) : (
-            <p className="py-2 text-body text-ink-2">Receptet har inga ingredienser.</p>
-          )}
-        </section>
-
-        <section aria-labelledby="steg" className="flex flex-col gap-3">
-          <h2 id="steg" className="text-section-label text-ink-2">
-            Steg
-          </h2>
-          {recipe.steps.length > 0 ? (
-            <ol className="flex flex-col gap-4">
-              {recipe.steps.map((step, index) => (
-                <li key={step.id} className="flex gap-3">
-                  <span aria-hidden="true" className="w-6 shrink-0 text-row-title text-accent">
-                    {index + 1}
-                  </span>
-                  <p className="text-body text-ink">{step.text}</p>
-                </li>
-              ))}
-            </ol>
-          ) : (
-            <p className="text-body text-ink-2">Receptet har inga steg.</p>
-          )}
-        </section>
-      </div>
-      {addToPlan ? <AddToPlanButton recipeId={recipe.id} addToPlan={addToPlan} /> : null}
+      <RecipeBody key={servingsVersion(recipe)} recipe={recipe} snapshot={snapshot} addToPlan={addToPlan} />
     </article>
   );
 }
 
 /**
- * The line's coverage. recipeStatus gives every line one, so a missing entry
- * is a bug: it is logged, and the line is shown neutrally.
+ * What the chosen servings are counted from: the recipe's servings and its
+ * lines' amounts. A saved edit of either starts the portion selector again
+ * from the recipe's own servings; anything else that changes the recipe (the
+ * heart, the title, the steps, a new updatedAt) or the pantry keeps the choice.
  */
-function lineCoverage(status: RecipeStatus, lineId: string): LineCoverage {
-  const coverage = status.lines[lineId];
-  if (coverage) return coverage;
-  console.error("recipe_line_status_missing", { lineId });
-  return { kind: "unlinked" };
-}
-
-/**
- * The line's mark, with a name for screen readers, since status never rests
- * on colour alone: a tick in accent when the ingredient is at home, a ring in
- * sky-ink when it is short (a vague line too, though it never counts in N), and
- * a neutral dash for a line without a catalog ingredient, which is not
- * compared with the pantry.
- */
-function LineMark({ coverage }: { coverage: LineCoverage }) {
-  if (coverage.kind === "covered") {
-    return (
-      <Mark label="finns hemma" className="text-accent">
-        <CheckIcon size={18} />
-      </Mark>
-    );
-  }
-  if (coverage.kind === "unlinked") {
-    return (
-      <Mark label="jämförs inte med lagret" className="text-ink-3">
-        <MinusIcon size={18} />
-      </Mark>
-    );
-  }
-  return (
-    <Mark label="saknas" className="text-sky-ink">
-      <RingIcon size={18} />
-    </Mark>
-  );
-}
-
-function Mark({ label, className, children }: { label: string; className: string; children: ReactNode }) {
-  return (
-    <span role="img" aria-label={label} className={cx("flex h-6 w-5 shrink-0 items-center justify-center", className)}>
-      {children}
-    </span>
-  );
-}
-
-/**
- * A line with a catalog ingredient and an amount shows the name and "1,5 dl",
- * and under them the original text when it says more than the name ("Lök,
- * finhackad" for Rödlök); without the ingredient's name, the original text
- * and the amount. A vague line, or one without an ingredient, shows its
- * original text. The mark in front says whether the ingredient is at home;
- * a short amount is in sky-ink, with what is at home under it when there is
- * some ("hemma: 2 dl, 1 l"). Without a status (`coverage` null) there is no
- * mark and no colour.
- */
-function IngredientRow({ line, coverage }: { line: SavedRecipeLine; coverage: LineCoverage | null }) {
-  const name = !line.isVague ? line.ingredientName : null;
-  const withAmount = !line.isVague && line.ingredientId !== null;
-  const showOriginal =
-    name !== null && normalizeIngredientText(line.originalText) !== normalizeIngredientText(name);
-  const short = coverage !== null && coverage.kind !== "unlinked" && isShort(coverage);
-  const atHome = coverage?.kind === "partial" || coverage?.kind === "other-unit" ? coverage.amounts : null;
-  return (
-    <li
-      data-testid="recipe-view-line"
-      className="flex min-h-10 items-start gap-3 border-t border-hairline py-2 first:border-t-0"
-    >
-      {coverage ? <LineMark coverage={coverage} /> : null}
-      {withAmount ? (
-        <span className="flex min-w-0 flex-1 items-baseline justify-between gap-3">
-          <span className="flex min-w-0 flex-col">
-            <span className="text-body text-ink">{name ?? line.originalText}</span>
-            {showOriginal ? <span className="text-meta text-ink-2">{line.originalText}</span> : null}
-          </span>
-          <span className="flex shrink-0 flex-col items-end">
-            <span className={cx("text-body", short ? "text-sky-ink" : "text-ink-2")}>
-              {formatQuantity(line.amount, line.unit)}
-            </span>
-            {atHome ? <span className="text-meta text-ink-2">{atHomeText(atHome)}</span> : null}
-          </span>
-        </span>
-      ) : (
-        <span className="min-w-0 flex-1 text-body text-ink">{line.originalText}</span>
-      )}
-    </li>
-  );
+function servingsVersion(recipe: SavedRecipe): string {
+  const lines = recipe.lines.map((line) => [line.id, line.ingredientId, line.amount, line.unit, line.isVague]);
+  return JSON.stringify([recipe.servings, lines]);
 }

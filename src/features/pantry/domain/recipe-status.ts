@@ -31,6 +31,18 @@ export type RecipeStatus = {
    * catalog ingredient never count. 0 is "Kan lagas nu".
    */
   missingCount: number;
+  /**
+   * Y in "X av Y hemma": the distinct catalog ingredients of the recipe, also
+   * those with only vague lines. Lines without a catalog ingredient never
+   * count (decision 2026-10-26).
+   */
+  ingredientCount: number;
+  /**
+   * X in "X av Y hemma": the catalog ingredients every need of which is
+   * covered, as the ticks show them. A vague line whose ingredient is not at
+   * home keeps its ingredient out of X, though it never counts in N.
+   */
+  atHomeCount: number;
   /** Each line's coverage by line id. */
   lines: Record<string, LineCoverage>;
 };
@@ -39,25 +51,55 @@ const isServings = (value: number) => Number.isFinite(value) && value > 0;
 
 /**
  * The recipe's status against the whole pantry for `servings` (the recipe's
- * own servings in the library): needs summed with aggregateNeeds, each
- * compared with coverage. When either servings is not a positive number the
- * recipe's own amounts are compared (factor 1), never NaN or Infinity.
+ * own servings in the library, the chosen ones on a dish): as
+ * recipeStatusForFactor with servings over the recipe's own. When either
+ * servings is not a positive number the recipe's own amounts are compared
+ * (factor 1), never NaN or Infinity, as recipes.scaleFactor does.
  */
 export function recipeStatus(recipe: StatusRecipe, servings: number, snapshot: PantrySnapshot): RecipeStatus {
   const factor = isServings(servings) && isServings(recipe.servings) ? servings / recipe.servings : 1;
+  return recipeStatusForFactor(recipe.lines, factor, snapshot);
+}
+
+/**
+ * The status of the recipe's `lines` (its own amounts) times `factor`
+ * against the whole pantry: needs summed with aggregateNeeds, each compared
+ * with coverage. The recipe view passes the factor it scales its lines with
+ * (recipes.scaleFactor), so the status and the amounts shown never differ.
+ * A factor that is not a positive number is 1.
+ */
+export function recipeStatusForFactor(
+  lines: readonly StatusLine[],
+  factor: number,
+  snapshot: PantrySnapshot,
+): RecipeStatus {
   const byKey = new Map<string, Coverage>();
+  const ingredients = new Set<string>();
   const short = new Set<string>();
-  for (const need of aggregateNeeds(recipe.lines, factor)) {
+  const notAtHome = new Set<string>();
+  for (const need of aggregateNeeds(lines, isServings(factor) ? factor : 1)) {
     const covered = coverage(need, snapshot);
     byKey.set(needKey(need), covered);
+    ingredients.add(need.ingredientId);
     if (isShort(covered)) short.add(need.ingredientId);
+    if (covered.kind !== "covered") notAtHome.add(need.ingredientId);
   }
-  const lines: Record<string, LineCoverage> = {};
-  for (const line of recipe.lines) {
+  const byLine: Record<string, LineCoverage> = {};
+  for (const line of lines) {
     const key = lineNeedKey(line);
-    lines[line.id] = (key !== null && byKey.get(key)) || { kind: "unlinked" };
+    byLine[line.id] = (key !== null && byKey.get(key)) || { kind: "unlinked" };
   }
-  return { missingCount: short.size, lines };
+  return {
+    missingCount: short.size,
+    ingredientCount: ingredients.size,
+    atHomeCount: ingredients.size - notAtHome.size,
+    lines: byLine,
+  };
+}
+
+/** "7 av 9 hemma": X of the recipe's Y catalog ingredients are at home for the chosen servings. */
+export function atHomeSummaryText(atHomeCount: number, ingredientCount: number): string {
+  return `${atHomeCount} av ${ingredientCount} hemma`;
 }
 
 /** The status in words: "Kan lagas nu", "Saknar 1 vara" or "Saknar 3 varor". */

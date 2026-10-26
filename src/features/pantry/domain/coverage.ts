@@ -1,4 +1,4 @@
-import { formatQuantity } from "@/features/catalog";
+import { displayAmount, formatQuantity } from "@/features/catalog";
 import type { Need } from "./aggregate-needs";
 import { roundSum, type PantryAmount, type PantrySnapshot } from "./pantry-item";
 
@@ -29,7 +29,10 @@ export function isShort(coverage: Coverage): boolean {
 /**
  * How the pantry covers `need`. An unlimited item is always enough; a vague
  * need is covered by the ingredient in any form; an amount is compared only
- * with the pantry's amount in the same unit.
+ * with the pantry's amount in the same unit, both as they are shown
+ * (catalog.displayAmount): 3,333 dl needed with 3,33 dl at home is covered,
+ * so a line never reads "3,33 dl" short beside "hemma: 3,33 dl", and the
+ * shopping list never asks for "<0,01 dl".
  */
 export function coverage(need: Need, snapshot: PantrySnapshot): Coverage {
   const stock = snapshot.get(need.ingredientId);
@@ -40,7 +43,7 @@ export function coverage(need: Need, snapshot: PantrySnapshot): Coverage {
 
   const same = stock.amounts.find((amount) => amount.unit === need.unit);
   if (!same) return { kind: "other-unit", amounts: stock.amounts };
-  if (same.amount >= need.amount) return { kind: "covered" };
+  if (displayAmount(same.amount) >= displayAmount(need.amount)) return { kind: "covered" };
   return { kind: "partial", remaining: roundSum(need.amount - same.amount), amounts: stock.amounts };
 }
 

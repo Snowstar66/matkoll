@@ -2,7 +2,7 @@ import "server-only";
 import { cache } from "react";
 import { z } from "zod";
 import { getIngredientNames } from "@/features/catalog/server";
-import { recipeStatus, type RecipeStatus } from "@/features/pantry";
+import { snapshotFor, type PantrySnapshot } from "@/features/pantry";
 import { createClient } from "@/lib/supabase/server";
 import { pantrySnapshotOrNull } from "./data/pantry-snapshot";
 import {
@@ -53,18 +53,25 @@ export async function listRecipes(options?: ListOptions): Promise<RecipeListItem
 }
 
 /**
- * The recipe (as getRecipe) and its status against the signed-in user's
- * pantry for its own servings: N and each line's coverage by line id (AD-7).
- * The recipe and the pantry are read in parallel; `status` is `null` when the
- * pantry cannot be read, and the recipe is shown without it. `null` for a
- * recipe getRecipe does not find. For the recipe view. Throws RecipeDataError.
+ * The recipe (as getRecipe) and the signed-in user's pantry for its
+ * ingredients, for the recipe view, which counts the status for the chosen
+ * servings in the browser (AD-7); only the recipe's own ingredients go to the
+ * browser. An id that is not a uuid is `null` at once, without reading
+ * anything; for a uuid the recipe and the pantry are read in parallel.
+ * `snapshot` is `null` when the pantry cannot be read (logged as
+ * `pantry_unavailable`): the recipe is shown without status. `null` for a
+ * recipe getRecipe does not find. Throws RecipeDataError.
  */
-export async function getRecipeWithStatus(
+export async function getRecipeWithPantry(
   id: string,
-): Promise<{ recipe: SavedRecipe; status: RecipeStatus | null } | null> {
+): Promise<{ recipe: SavedRecipe; snapshot: PantrySnapshot | null } | null> {
+  if (!recipeIdSchema.safeParse(id).success) return null;
   const [recipe, snapshot] = await Promise.all([getRecipe(id), pantrySnapshotOrNull()]);
   if (!recipe) return null;
-  return { recipe, status: snapshot ? recipeStatus(recipe, recipe.servings, snapshot) : null };
+  return {
+    recipe,
+    snapshot: snapshot ? snapshotFor(snapshot, recipe.lines.map((line) => line.ingredientId)) : null,
+  };
 }
 
 /**

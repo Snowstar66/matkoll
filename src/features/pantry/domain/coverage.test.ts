@@ -71,6 +71,17 @@ describe("coverage", () => {
     expect(coverage({ ingredientId: "peppar", amount: null, unit: null }, snapshot)).toEqual({ kind: "vague-missing" });
   });
 
+  it("compares amounts as they are shown, so a short line never reads the same as what is at home", () => {
+    const thirds = toSnapshot([{ ingredientId: "gradde", amount: 3.33, unit: "dl" }]);
+    // 1 dl for 3 portions, scaled to 10: 3,333… dl reads 3,33 dl.
+    expect(coverage({ ingredientId: "gradde", amount: 10 / 3, unit: "dl" }, thirds)).toEqual({ kind: "covered" });
+    expect(coverage({ ingredientId: "gradde", amount: 3.335, unit: "dl" }, thirds)).toEqual({
+      kind: "partial",
+      remaining: 0.005,
+      amounts: [{ unit: "dl", amount: 3.33 }],
+    });
+  });
+
   it("treats an empty pantry as missing", () => {
     expect(coverage({ ingredientId: "gradde", amount: 1, unit: "dl" }, new Map())).toEqual({ kind: "missing" });
   });

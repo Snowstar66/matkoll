@@ -2,6 +2,35 @@
 
 Beslut som fattats under bygget: vad, varför och vilka alternativ som fanns. Nyaste överst.
 
+## 2026-10-26 – Sammanslagning till main med Vercel kopplat
+
+- **Beslut (Pontus):** epic-PR:erna slås ihop till `main` även nu när repot är kopplat till Vercel-projektet `matkoll`.
+- **Varför det är ofarligt:** Production saknar miljövariabler, så produktionsbygget misslyckas och inget publiceras. Den första riktiga publiceringen sker när Pontus lägger in variablerna enligt `docs/drift.md`.
+- **Alternativ:** att vänta och bygga vidare på grenar ovanpå varandra. Det ger stora PR:er.
+
+## 2026-10-26 – Portioner och "X av Y hemma" i receptvyn (Story 4.1)
+
+- **Beslut:**
+  - Valt antal portioner gäller bara medan sidan är öppen. Det sparas inte per recept, på enheten eller i adressen, och väljaren börjar på receptets egna portioner när sidan öppnas igen. Väljaren börjar om bara när receptets portioner eller radernas mängder sparas om med "Ändra". Hjärtat, titeln, stegen och lagret behåller valet, fast hjärtat ger receptet en ny `updated_at`.
+  - "X av Y hemma" räknas per katalogingrediens, som bockarna. Y är antalet distinkta katalogingredienser i receptet, även de som bara har vaga rader. X är de ingredienser där varje behov täcks för valda portioner. Rader utan katalogingrediens räknas inte. En vag rad vars vara saknas räknas därför i Y men inte i X, fast den inte räknas i N. Sammanfattningen visas inte när Y är 0 eller när lagret inte går att läsa.
+  - "Lägg på matsedeln" skickar alltid de portioner som visas, även när de är receptets egna. Om portionerna ändras efter ett misslyckat försök får nästa försök ett nytt id för rätten.
+  - Ingen avrundning till hela styck i receptvyn: "0,25 st" visas som det står. Avrundningen uppåt gäller bara inköpslistan.
+  - En rad utan katalogingrediens men med mängd visar originaltexten oskalad och "×faktor" till höger när faktorn inte är 1, som inköpslistans textposter. Faktorn visas med högst två decimaler och aldrig mindre än "×0,01".
+  - Metaraden i receptvyn visar bara tiden ("35 min"), eftersom portionsväljaren visar portionerna. Utan tid finns ingen metarad. Biblioteket och matsedeln behåller "35 min · 4 portioner".
+  - Portionsväljaren går från 1 till 1000, samma gräns som matsedelsrätten. Ett recept för fler än 1000 portioner börjar på 1000, med mängderna skalade till det.
+  - Statusen och de skalade raderna räknas med samma faktor (`recipes.scaleFactor` och `pantry.recipeStatusForFactor`).
+  - En mängd jämförs med lagret med samma avrundning som den visas med (två decimaler, `catalog.displayAmount`). En rad som behöver 3,333 dl när 3,33 dl finns hemma räknas som täckt, så att raden aldrig visar "3,33 dl" som saknad bredvid "hemma: 3,33 dl". Det gäller också inköpslistan, som inte längre ber om "<0,01 dl".
+  - Sidan skickar bara lagret för receptets egna ingredienser till webbläsaren.
+  - Statusetiketten och "X av Y hemma" står bredvid portionsväljaren, under källan, eftersom båda följer portionerna. De läses upp tillsammans när de ändras (`aria-live="polite"`). "X av Y hemma" är vanlig text i `ink-2`, inte en etikett, så att den inte blandas ihop med statusetiketten.
+- **Varför:** EXPERIENCE.md säger att valet i receptvyn bara påverkar visningen. Siffran ska motsvara bockarna i listan, och skiss 2 räknar "olivolja efter behov" som en av nio. Ett aktivt val i receptvyn går före förvalet i FR-13. Fritext kan inte skalas utan tolkning. Granskningen av 4.1 visade att hjärtat nollställde valet och att en rad kunde stå som saknad bredvid samma mängd hemma.
+- **Alternativ:**
+  - `?portioner=6` i adressen, så att valet följer med vid omladdning och delning.
+  - Räkna bort ingredienser med bara vaga rader ur Y, så att Y − X alltid är N.
+  - Alltid lägga på matsedeln med receptets egna portioner.
+  - Låta väljaren gå över 1000 för ett större recept. Då skulle matsedeln inte kunna ta emot de portioner som visas.
+  - Visa det som fattas ("saknas 0,01 dl") i stället för att jämföra med visad avrundning.
+  - Visa "X av Y hemma" som en mintfärgad etikett, som i skiss 2.
+
 ## 2026-10-26 – Ordning för tilläggen efter 1.0
 
 - **Beslut (Pontus):** först görs version 1.0 klar (Epic 1–7). Därefter kommer:

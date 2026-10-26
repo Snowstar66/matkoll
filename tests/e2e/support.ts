@@ -52,6 +52,13 @@ export const shoppingEmail = "e2e-lista@matkoll.test";
  */
 export const putInPantryEmail = "e2e-lagg-i-lagret@matkoll.test";
 /**
+ * The E2E user of recipe-servings.spec.ts alone (the portion selector and "X
+ * av Y hemma" in the recipe view, Story 4.1): each test makes its recipe,
+ * catalog ingredients and pantry with the service role and empties its meal
+ * plan, so what the view shows depends on nothing else.
+ */
+export const recipeViewEmail = "e2e-receptvy@matkoll.test";
+/**
  * The E2E user of core-flow.spec.ts alone (Story 3.8): it signs in itself
  * through /logga-in and the link in Mailpit, so it has no storage state.
  */
@@ -67,6 +74,7 @@ export const e2eEmails = [
   mealplanEmail,
   shoppingEmail,
   putInPantryEmail,
+  recipeViewEmail,
   coreFlowEmail,
 ] as const;
 /** A real Supabase user whose address is not in ALLOWED_EMAILS. */
@@ -81,6 +89,7 @@ export const statusStorageState = "tests/e2e/.auth/status.json";
 export const mealplanStorageState = "tests/e2e/.auth/mealplan.json";
 export const shoppingStorageState = "tests/e2e/.auth/shopping.json";
 export const putInPantryStorageState = "tests/e2e/.auth/put-in-pantry.json";
+export const recipeViewStorageState = "tests/e2e/.auth/recipe-view.json";
 export const outsiderStorageState = "tests/e2e/.auth/outsider.json";
 
 export const mailpitUrl = "http://127.0.0.1:54324";

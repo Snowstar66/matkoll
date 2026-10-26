@@ -4,7 +4,7 @@ import { Suspense } from "react";
 import { requireUserOrRedirect } from "@/features/auth/server";
 import { searchIngredients } from "@/features/catalog/server";
 import { addToCurrentPlan } from "@/features/mealplan/server";
-import { getRecipe, getRecipeWithStatus } from "@/features/recipes/server";
+import { getRecipe, getRecipeWithPantry } from "@/features/recipes/server";
 import { RecipeMenu } from "@/features/recipes/ui/recipe-menu";
 import { RecipeView } from "@/features/recipes/ui/recipe-view";
 
@@ -19,11 +19,13 @@ export async function generateMetadata({ params }: PageProps<"/recept/[id]">): P
   }
 }
 
-// Receptvy, with the recipe's status against the pantry. The id and the
+// Receptvy, with the portion selector and the status against the pantry for
+// the chosen servings, counted in the browser from the pantry snapshot. A
+// pantry that cannot be read leaves the recipe without status. The id and the
 // session are read inside <Suspense> (AD-18). An id that is not a uuid, or
 // not one of the user's recipes, is "Sidan finns inte." The menu (⋯) opens
 // Ändra recept, which searches the catalog. "Lägg på matsedeln" adds the
-// recipe to the current meal plan (Story 3.1).
+// recipe to the current meal plan with the chosen servings (Story 3.1, 4.1).
 export default function RecipePage({ params }: PageProps<"/recept/[id]">) {
   return (
     <Suspense fallback={null}>
@@ -35,13 +37,13 @@ export default function RecipePage({ params }: PageProps<"/recept/[id]">) {
 async function RecipeContent({ params }: Pick<PageProps<"/recept/[id]">, "params">) {
   const { id } = await params;
   await requireUserOrRedirect(`/recept/${encodeURIComponent(id)}`);
-  const found = await getRecipeWithStatus(id);
+  const found = await getRecipeWithPantry(id);
   if (!found) notFound();
-  const { recipe, status } = found;
+  const { recipe, snapshot } = found;
   return (
     <RecipeView
       recipe={recipe}
-      status={status}
+      snapshot={snapshot}
       menu={<RecipeMenu recipe={recipe} searchIngredients={searchIngredients} />}
       addToPlan={addToCurrentPlan}
     />

@@ -48,6 +48,7 @@ export {
   recipeSearchSchema,
   favoriteChangeSchema,
   recipeMetaText,
+  recipeTimeText,
   parseRecipeFilter,
   filterRecipes,
   withStatus,
@@ -66,4 +67,4 @@ export {
   type SavedRecipeStep,
   type SaveRecipeArgs,
 } from "./domain/saved-recipe";
-export { scaleFactor, scaleLines, type ScalableLine } from "./domain/scale";
+export { scaleFactor, scaleLines, factorText, type ScalableLine } from "./domain/scale";

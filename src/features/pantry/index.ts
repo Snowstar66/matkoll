@@ -1,6 +1,7 @@
 // Client-safe entry: types and domain (AD-1).
 export {
   toSnapshot,
+  snapshotFor,
   comparePantryItems,
   splitPantryItems,
   type PantryItem,
@@ -35,7 +36,9 @@ export {
 export { coverage, isShort, atHomeText, type Coverage } from "./domain/coverage";
 export {
   recipeStatus,
+  recipeStatusForFactor,
   recipeStatusText,
+  atHomeSummaryText,
   type LineCoverage,
   type RecipeStatus,
   type StatusLine,

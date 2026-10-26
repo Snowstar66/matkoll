@@ -20,6 +20,8 @@ import {
   putInPantryStorageState,
   recipesEmail,
   recipesStorageState,
+  recipeViewEmail,
+  recipeViewStorageState,
   sessionCookiesFor,
   settingsEmail,
   settingsStorageState,
@@ -67,6 +69,7 @@ export default async function globalSetup(config: FullConfig) {
       [mealplanEmail, mealplanStorageState],
       [shoppingEmail, shoppingStorageState],
       [putInPantryEmail, putInPantryStorageState],
+      [recipeViewEmail, recipeViewStorageState],
     ] as const) {
       const user = await browser.newContext({ baseURL });
       const page = await user.newPage();

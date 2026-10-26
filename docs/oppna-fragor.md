@@ -10,6 +10,7 @@ Frågor och osäkerheter som samlas under bygget och presenteras för Pontus nä
 | 2 | Vilka recept och kylskåpsfoton ska ingå i AI-testuppsättningen? Fem påhittade recept finns nu i `tests/fixtures/ai/` (kycklinggryta, ugnspannkaka, linssoppa, kladdkaka, fiskgratäng). | 10–20 recept från koket.se och tasteline.com tas fram av utvecklingen; Pontus bekräftar och bidrar med några egna kylskåpsfoton | PRD, 2026-10-25 |
 | 3 | Molnleverantör för AI när appen ska användas av fler | Den billigaste som klarar testuppsättningen; avgörs senare | Brief |
 | 4 | Ska Vercel bygga förhandsversioner av grenar? De får ingen databas och svarar 503, så de är bara en byggkontroll. | Behåll dem med `SITE_URL` och `AI_PROVIDER=mock` i Preview; stäng av dem om de bara stör (se `docs/drift.md`, steg 9) | Story 3.8 |
+| 5 | ~~Får en sammanslagning till `main` driftsätta i produktion?~~ **Besvarad 2026-10-26 (Pontus): ja.** Epic-PR:erna slås ihop till `main` som tidigare. Så länge Production i Vercel saknar miljövariabler misslyckas produktionsbygget och inget publiceras. Den första riktiga publiceringen görs när Pontus följer `docs/drift.md`. | Lägg inte in miljövariabler i Production förrän Supabase i molnet finns | 2026-10-26, PR #41 |
 
 ## Tekniska osäkerheter (utredas under bygget)
 
