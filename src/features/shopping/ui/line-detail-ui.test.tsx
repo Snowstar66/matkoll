@@ -193,7 +193,8 @@ describe("Listpostdetalj for a recipe line", () => {
     await user.click(within(sheet).getByRole("button", { name: "Spara" }));
     expect(await within(sheet).findByRole("alert")).toHaveTextContent("Det gick inte att spara varan. Försök igen.");
     expect(within(sheet).getByRole("textbox", { name: "Mängd" })).toHaveValue("3,5");
-    await user.click(within(sheet).getByRole("button", { name: "Spara" }));
+    // The button reads "Sparar …" until the failed save has settled.
+    await user.click(await within(sheet).findByRole("button", { name: "Spara" }));
     expect(await within(sheet).findByRole("alert")).toHaveTextContent("Matsedeln har bytts. Listan är uppdaterad.");
     expect(refresh).toHaveBeenCalled();
   });
