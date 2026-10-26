@@ -1,0 +1,1 @@
+Feature modules, one folder per module (`auth`, `catalog`, `recipes`, …) with `ui/`, `actions/`, `domain/`, `data/`, a client-safe `index.ts` and a `server-only` `server.ts`; other modules import only those two entries (AD-1).

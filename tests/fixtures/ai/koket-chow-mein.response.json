@@ -1,0 +1,305 @@
+{
+  "title": "Chow mein med lövbiff",
+  "servings": 4,
+  "totalMinutes": 45,
+  "ingredients": [
+    {
+      "originalText": "400 g lövbiff, tunt strimlad",
+      "amount": 400,
+      "unit": "g",
+      "isVague": false,
+      "hint": {
+        "name": "lövbiff",
+        "section": "Kött och fisk",
+        "location": "Kyl",
+        "defaultUnit": "g"
+      },
+      "stepIndexes": [
+        3
+      ]
+    },
+    {
+      "originalText": "1 tsk bikarbonat",
+      "amount": 1,
+      "unit": "tsk",
+      "isVague": false,
+      "hint": {
+        "name": "bikarbonat",
+        "section": "Skafferi",
+        "location": "Skafferi",
+        "defaultUnit": "tsk"
+      },
+      "stepIndexes": [
+        0
+      ]
+    },
+    {
+      "originalText": "2 msk vatten",
+      "amount": 2,
+      "unit": "msk",
+      "isVague": false,
+      "hint": {
+        "name": "vatten",
+        "section": "Övrigt",
+        "location": "Kyl",
+        "defaultUnit": "dl"
+      },
+      "stepIndexes": [
+        0
+      ]
+    },
+    {
+      "originalText": "300 g äggnudlar",
+      "amount": 300,
+      "unit": "g",
+      "isVague": false,
+      "hint": {
+        "name": "äggnudlar",
+        "section": "Bröd",
+        "location": "Skafferi",
+        "defaultUnit": "g"
+      },
+      "stepIndexes": [
+        1,
+        5
+      ]
+    },
+    {
+      "originalText": "rapsolja (till stekning)",
+      "amount": null,
+      "unit": null,
+      "isVague": true,
+      "hint": {
+        "name": "rapsolja",
+        "section": "Skafferi",
+        "location": "Skafferi",
+        "defaultUnit": "dl"
+      },
+      "stepIndexes": [
+        3,
+        4
+      ]
+    },
+    {
+      "originalText": "salt",
+      "amount": null,
+      "unit": null,
+      "isVague": true,
+      "hint": {
+        "name": "salt",
+        "section": "Övrigt",
+        "location": "Skafferi",
+        "defaultUnit": "g"
+      },
+      "stepIndexes": [
+        3
+      ]
+    },
+    {
+      "originalText": "vitpeppar",
+      "amount": null,
+      "unit": null,
+      "isVague": true,
+      "hint": {
+        "name": "vitpeppar",
+        "section": "Övrigt",
+        "location": "Skafferi",
+        "defaultUnit": "g"
+      },
+      "stepIndexes": [
+        3
+      ]
+    },
+    {
+      "originalText": "1 broccoli, skuren i små buketter (liten)",
+      "amount": 1,
+      "unit": "st",
+      "isVague": false,
+      "hint": {
+        "name": "broccoli",
+        "section": "Frukt och grönt",
+        "location": "Kyl",
+        "defaultUnit": "st"
+      },
+      "stepIndexes": [
+        4
+      ]
+    },
+    {
+      "originalText": "1 burk minimajs, avrunnen och delad",
+      "amount": 1,
+      "unit": "burk",
+      "isVague": false,
+      "hint": {
+        "name": "minimajs",
+        "section": "Frys",
+        "location": "Frys",
+        "defaultUnit": "förp"
+      },
+      "stepIndexes": [
+        4
+      ]
+    },
+    {
+      "originalText": "1 morot, skuren i tunna stavar",
+      "amount": 1,
+      "unit": "st",
+      "isVague": false,
+      "hint": {
+        "name": "morot",
+        "section": "Frukt och grönt",
+        "location": "Kyl",
+        "defaultUnit": "st"
+      },
+      "stepIndexes": [
+        4
+      ]
+    },
+    {
+      "originalText": "2 klyftor vitlök, finhackade",
+      "amount": 2,
+      "unit": "klyfta",
+      "isVague": false,
+      "hint": {
+        "name": "vitlök",
+        "section": "Frukt och grönt",
+        "location": "Kyl",
+        "defaultUnit": "klyfta"
+      },
+      "stepIndexes": [
+        4
+      ]
+    },
+    {
+      "originalText": "2 dl böngroddar",
+      "amount": 2,
+      "unit": "dl",
+      "isVague": false,
+      "hint": {
+        "name": "böngroddar",
+        "section": "Frys",
+        "location": "Frys",
+        "defaultUnit": "dl"
+      },
+      "stepIndexes": [
+        7
+      ]
+    },
+    {
+      "originalText": "4 salladslökar, skurna i sneda bitar",
+      "amount": 4,
+      "unit": "st",
+      "isVague": false,
+      "hint": {
+        "name": "salladslök",
+        "section": "Frukt och grönt",
+        "location": "Kyl",
+        "defaultUnit": "st"
+      },
+      "stepIndexes": [
+        7
+      ]
+    },
+    {
+      "originalText": "4 msk japansk soja",
+      "amount": 4,
+      "unit": "msk",
+      "isVague": false,
+      "hint": {
+        "name": "japansk soja",
+        "section": "Skafferi",
+        "location": "Skafferi",
+        "defaultUnit": "msk"
+      },
+      "stepIndexes": [
+        2
+      ]
+    },
+    {
+      "originalText": "3 msk ostronsås",
+      "amount": 3,
+      "unit": "msk",
+      "isVague": false,
+      "hint": {
+        "name": "ostronsås",
+        "section": "Skafferi",
+        "location": "Skafferi",
+        "defaultUnit": "msk"
+      },
+      "stepIndexes": [
+        2
+      ]
+    },
+    {
+      "originalText": "1 msk sesamolja",
+      "amount": 1,
+      "unit": "msk",
+      "isVague": false,
+      "hint": {
+        "name": "sesamolja",
+        "section": "Skafferi",
+        "location": "Skafferi",
+        "defaultUnit": "msk"
+      },
+      "stepIndexes": [
+        2
+      ]
+    },
+    {
+      "originalText": "2 tsk strösocker",
+      "amount": 2,
+      "unit": "tsk",
+      "isVague": false,
+      "hint": {
+        "name": "strösocker",
+        "section": "Skafferi",
+        "location": "Skafferi",
+        "defaultUnit": "tsk"
+      },
+      "stepIndexes": [
+        2
+      ]
+    },
+    {
+      "originalText": "1 dl vatten",
+      "amount": 1,
+      "unit": "dl",
+      "isVague": false,
+      "hint": {
+        "name": "vatten",
+        "section": "Övrigt",
+        "location": "Kyl",
+        "defaultUnit": "dl"
+      },
+      "stepIndexes": [
+        2
+      ]
+    },
+    {
+      "originalText": "2 tsk majsstärkelse",
+      "amount": 2,
+      "unit": "tsk",
+      "isVague": false,
+      "hint": {
+        "name": "majsstärkelse",
+        "section": "Skafferi",
+        "location": "Skafferi",
+        "defaultUnit": "tsk"
+      },
+      "stepIndexes": [
+        2
+      ]
+    }
+  ],
+  "steps": [
+    "Blanda den strimlade lövbiffen med bikarbonat och vatten. Låt vila i 15–30 minuter.",
+    "Skölj köttet noggrant och torka det torrt.",
+    "Koka äggnudlarna al dente enligt förpackningen. Skölj dem i kallt vatten och låt rinna av.",
+    "Blanda japansk soja, ostronsås, sesamolja, strösocker, vatten och majsstärkelse till en sås.",
+    "Hetta upp rapsolja i en wok eller stekpanna. Stek lövbiffen hastigt på hög värme tills den får fin färg. Krydda med salt och vitpeppar. Lyft upp köttet och lägg åt sidan.",
+    "Tillsätt mer olja i pannan och stek broccoli, minimajs och morot på hög värme i ett par minuter. Tillsätt vitlöken mot slutet och låt fräsa kort.",
+    "Tillsätt nudlarna och stek ytterligare någon minut.",
+    "Häll över såsen och vänd runt tills den tjocknar och fördelar sig jämnt. Lägg tillbaka lövbiffen och tillsätt böngroddar och salladslök. Woka hastigt tills allt är varmt.",
+    "Servera direkt, gärna toppad med extra salladslök."
+  ]
+}

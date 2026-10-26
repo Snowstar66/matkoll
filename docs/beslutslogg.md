@@ -2,6 +2,42 @@
 
 Beslut som fattats under bygget: vad, varför och vilka alternativ som fanns. Nyaste överst.
 
+## 2026-10-26 – Receptrader utan katalogingrediens på inköpslistan
+
+- **Beslut:** en receptrad som saknar katalogingrediens blir en post under Övrigt med radens originaltext. Mängden räknas inte om och lagret dras inte av. Listnyckeln är `t:<normaliserad text>`, så samma text från flera rätter slås ihop. I lagningsstatus räknas raden fortfarande inte (Story 2.4).
+- **Varför:** en rad som faller bort tyst kan betyda att något saknas när Pontus kommer hem från butiken. Att visa den neutralt är bättre.
+- **Alternativ:** ingen post, vilket är enklare men gör att det kan saknas varor; eller kräva att varje rad kopplas till en katalogingrediens innan receptet sparas.
+
+## 2026-10-26 – Logga ut gäller bara den här enheten
+
+- **Beslut:** "Logga ut" i Inställningar avslutar sessionen i den här webbläsaren (`scope: "local"`). Pontus är fortfarande inloggad på andra enheter.
+- **Varför:** att logga ut på datorn ska inte logga ut telefonen mitt i handlingen.
+- **Alternativ:** global utloggning av alla enheter. Kan läggas till som en egen knapp om det behövs.
+
+## 2026-10-25 – Receptsajter stängs av, raderas inte
+
+- **Beslut:** en godkänd receptsajt tas aldrig bort ur `recipe_site`; Pontus stänger av den (`is_active = false`). `ensure_user_defaults()` lägger bara till saknade sajter och aktiverar aldrig en avstängd. Story 1.12 bygger inställningarna så.
+- **Varför:** annars skulle en borttagen standardsajt komma tillbaka vid nästa inloggning.
+- **Alternativ:** radering med en "borttagen"-markering; mer komplext.
+
+## 2026-10-25 – Längre tidsgräns för AI-tolkning
+
+- **Beslut:** varje AI-försök får 100 s och hela tolkningen 115 s (tidigare 45 s respektive 110 s). Ett nytt försök vid ogiltigt svar görs bara om tiden räcker.
+- **Varför:** Qwen3.6 i LM Studio (ca 45 token/s) behövde 40–56 s för fulla recept från koket.se, ica.se och arla.se; med 45 s fick ungefär hälften `ai_unavailable`. 115 s ryms i routens `maxDuration` (120 s) och Vercels gräns (300 s).
+- **Alternativ:** kortare AI-svar eller snabbare modell; kan prövas senare.
+
+## 2026-10-25 – En ingrediensrad kopplas till ett steg
+
+- **Beslut:** en receptrad sparar bara sitt första steg (`recipe_ingredient.step_id`), även om AI:n kopplar raden till flera steg. Stegläget (Epic 4) visar raden vid första användningen.
+- **Varför:** datamodellen har ett `step_id`, och det räcker för att visa vad som behövs när.
+- **Alternativ:** en kopplingstabell rad–steg; tas upp om stegläget behöver det.
+
+## 2026-10-25 – Grenskydd på main
+
+- **Beslut:** `main` är skyddad. Lint, typecheck, test, e2e och gitleaks måste passera, grenen måste vara à jour, allt går via PR och skyddet gäller även administratörer. Force push och radering är avstängda. Inga godkännanden krävs på GitHub (en användare); kodgranskningen görs av BMAD:s granskningssteg (AD-23).
+- **Följd:** även dokumentändringar går via en gren och PR. Planeringsdokumenten committades till `main` innan skyddet sattes.
+- **Alternativ:** skydd utan att gälla administratörer – då kan en push gå förbi kontrollerna utan att det märks.
+
 ## 2026-10-25 – Epics och stories
 
 Epics och stories: `_bmad-output/planning-artifacts/epics.md` (7 epics, 33 stories). Beslut:

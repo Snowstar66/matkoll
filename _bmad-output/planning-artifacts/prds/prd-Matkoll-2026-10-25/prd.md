@@ -35,11 +35,11 @@ En enda användare: Pontus. Inga delade hushåll, inga andra användare, ingen p
 
 ### 2.3 Användarresor
 
-- **UJ-1. Pontus sparar ett recept han hittat.** På mobilen hittar Pontus ett recept på koket.se, kopierar länken och klistrar in den under Recept. Matkoll visar det tolkade receptet i enhetligt format; han rättar en ingrediens som kopplats fel och sparar. Receptet ligger nu i biblioteket med status "Saknar 3 varor". **Kantfall:** sajten blockerar hämtningen. Matkoll säger det rakt ut och erbjuder att klistra in recepttexten i stället.
-- **UJ-2. Pontus planerar veckan och handlar.** På söndagen öppnar Pontus Matsedel, lägger till två favoriter (två tryck var) och ett nytt recept, och ändrar portionerna på ett av dem. Under Lista finns en inköpslista grupperad per butiksavdelning, där det som finns hemma redan är avdraget. Han lägger till "diskmedel" som egen vara, trycker "Skicka till ICA" och låter Claude in Chrome fylla varukorgen, eller handlar i butiken och bockar av med en hand. Hemma trycker han "Lägg i lagret" och de avbockade varorna hamnar i lagret.
-- **UJ-3. Pontus uppdaterar lagret.** Under Hemma väljer Pontus kortet Kyl och trycker "Fotografera kylen". Matkoll föreslår sex varor; han bekräftar fyra, rättar en och avvisar en. Smör och salt ligger redan som "Finns hemma" utan mängd.
+- **UJ-1. Pontus sparar ett recept hen hittat.** På mobilen hittar Pontus ett recept på koket.se, kopierar länken och klistrar in den under Recept. Matkoll visar det tolkade receptet i enhetligt format; hen rättar en ingrediens som kopplats fel och sparar. Receptet ligger nu i biblioteket med status "Saknar 3 varor". **Kantfall:** sajten blockerar hämtningen. Matkoll säger det rakt ut och erbjuder att klistra in recepttexten i stället.
+- **UJ-2. Pontus planerar veckan och handlar.** På söndagen öppnar Pontus Matsedel, lägger till två favoriter (två tryck var) och ett nytt recept, och ändrar portionerna på ett av dem. Under Lista finns en inköpslista grupperad per butiksavdelning, där det som finns hemma redan är avdraget. Hen lägger till "diskmedel" som egen vara, trycker "Skicka till ICA" och låter Claude in Chrome fylla varukorgen, eller handlar i butiken och bockar av med en hand. Hemma trycker hen "Lägg i lagret" och de avbockade varorna hamnar i lagret.
+- **UJ-3. Pontus uppdaterar lagret.** Under Hemma väljer Pontus kortet Kyl och trycker "Fotografera kylen". Matkoll föreslår sex varor; hen bekräftar fyra, rättar en och avvisar en. Smör och salt ligger redan som "Finns hemma" utan mängd.
 - **UJ-4. Pontus lagar mat.** Pontus öppnar ett recept, väljer fyra portioner och trycker "Laga nu". Ett steg i taget visas med stor text och stegets ingredienser; skärmen håller sig tänd.
-- **UJ-5. Pontus vet inte vad han ska laga.** Pontus filtrerar biblioteket på "Kan lagas nu" och ser rätterna rangordnade efter hur lite som saknas. Inget passar, så han ber om AI-förslag utifrån lagret, får tre tydligt märkta förslag och sparar ett i biblioteket.
+- **UJ-5. Pontus vet inte vad hen ska laga.** Pontus filtrerar biblioteket på "Kan lagas nu" och ser rätterna rangordnade efter hur lite som saknas. Inget passar, så hen ber om AI-förslag utifrån lagret, får tre tydligt märkta förslag och sparar ett i biblioteket.
 
 ## 3. Ordlista
 
@@ -314,7 +314,7 @@ Pontus kan trycka "Skicka till ICA" längst ned i inköpslistan.
 
 #### FR-27: Produktval
 
-Pontus kan spara vilken produkt han brukar köpa för en katalogingrediens (namn, förpackningsstorlek, ev. länk). Produktvalet följer med i varukorgsexporten.
+Pontus kan spara vilken produkt hen brukar köpa för en katalogingrediens (namn, förpackningsstorlek, ev. länk). Produktvalet följer med i varukorgsexporten.
 
 #### FR-28: Byta butik
 

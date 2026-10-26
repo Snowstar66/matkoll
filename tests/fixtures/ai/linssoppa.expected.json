@@ -1,0 +1,42 @@
+{
+  "title": "Röd linssoppa med kokosmjölk",
+  "servings": 6,
+  "totalMinutes": 30,
+  "ingredientCount": 12,
+  "keyIngredients": [
+    {
+      "name": "gul lök",
+      "amount": 2,
+      "unit": null
+    },
+    {
+      "name": [
+        "röda linser",
+        "linser"
+      ],
+      "amount": 3,
+      "unit": "dl"
+    },
+    {
+      "name": "kokosmjölk",
+      "amount": 1,
+      "unit": "burk"
+    },
+    {
+      "name": "tomatpuré",
+      "amount": 1.5,
+      "unit": "msk"
+    },
+    {
+      "name": [
+        "morot",
+        "morötter"
+      ],
+      "amount": 2,
+      "unit": null
+    }
+  ],
+  "vagueLines": [
+    "en näve färsk koriander"
+  ]
+}

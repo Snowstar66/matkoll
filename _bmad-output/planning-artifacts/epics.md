@@ -163,7 +163,7 @@ Pontus kan fotografera kylen, frysen eller skafferiet och bekräfta, rätta elle
 **FRs covered:** FR24, FR25
 
 ### Epic 7: Varukorg
-Pontus kan välja butik, spara vilka produkter han brukar köpa och skicka inköpslistan till ICA Handla via en export som Claude in Chrome fyller varukorgen från.
+Pontus kan välja butik, spara vilka produkter hen brukar köpa och skicka inköpslistan till ICA Handla via en export som Claude in Chrome fyller varukorgen från.
 **FRs covered:** FR26, FR27, FR28
 
 ## Epic 1: Receptimport och receptbibliotek
@@ -214,8 +214,8 @@ så att ingen annan kommer åt mina recept eller AI:n på min dator.
 **Så** finns varje tillåten adress som användare och inga andra
 
 **Givet** att Pontus inte är inloggad
-**När** han öppnar valfri sida
-**Så** omdirigeras han till `/logga-in` med parametern `next` (bara relativa sökvägar som inte börjar med `//` godtas)
+**När** hen öppnar valfri sida
+**Så** omdirigeras hen till `/logga-in` med parametern `next` (bara relativa sökvägar som inte börjar med `//` godtas)
 
 **Givet** inloggningssidan
 **När** Pontus anger en tillåten adress
@@ -224,8 +224,8 @@ så att ingen annan kommer åt mina recept eller AI:n på min dator.
 
 **Givet** engångslänken
 **När** Pontus öppnar den, även i en annan webbläsare än där den begärdes
-**Så** verifierar `auth/confirm` länken med `verifyOtp`, sätter sessionscookies och skickar honom till `next` eller `/recept`
-**Och** sessionen förnyas av `src/proxy.ts` med `getClaims()` så att han förblir inloggad
+**Så** verifierar `auth/confirm` länken med `verifyOtp`, sätter sessionscookies och skickar hen till `next` eller `/recept`
+**Och** sessionen förnyas av `src/proxy.ts` med `getClaims()` så att hen förblir inloggad
 
 **Givet** en giltig session för en e-postadress som inte finns i `ALLOWED_EMAILS`
 **När** en sida, action eller Route Handler anropas
@@ -946,7 +946,7 @@ så att lagret inte fylls med AI:ns felgissningar.
 
 ## Epic 7: Varukorg
 
-Pontus kan välja butik, spara vilka produkter han brukar köpa och skicka inköpslistan till ICA Handla via en export som Claude in Chrome fyller varukorgen från.
+Pontus kan välja butik, spara vilka produkter hen brukar köpa och skicka inköpslistan till ICA Handla via en export som Claude in Chrome fyller varukorgen från.
 
 ### Story 7.1: Välja butik
 

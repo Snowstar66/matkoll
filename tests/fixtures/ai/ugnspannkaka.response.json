@@ -1,0 +1,119 @@
+{
+  "title": "Ugnspannkaka med bacon",
+  "servings": 4,
+  "totalMinutes": 45,
+  "ingredients": [
+    {
+      "originalText": "140 g bacon",
+      "amount": 140,
+      "unit": "g",
+      "isVague": false,
+      "hint": {
+        "name": "bacon",
+        "section": "Chark",
+        "location": "Kyl",
+        "defaultUnit": "g"
+      },
+      "stepIndexes": [
+        1
+      ]
+    },
+    {
+      "originalText": "3 ägg",
+      "amount": 3,
+      "unit": null,
+      "isVague": false,
+      "hint": {
+        "name": "ägg",
+        "section": "Mejeri",
+        "location": "Kyl",
+        "defaultUnit": "st"
+      },
+      "stepIndexes": [
+        2
+      ]
+    },
+    {
+      "originalText": "6 dl mjölk",
+      "amount": 6,
+      "unit": "dl",
+      "isVague": false,
+      "hint": {
+        "name": "mjölk",
+        "section": "Mejeri",
+        "location": "Kyl",
+        "defaultUnit": "dl"
+      },
+      "stepIndexes": [
+        2
+      ]
+    },
+    {
+      "originalText": "2 1/2 dl vetemjöl",
+      "amount": 2.5,
+      "unit": "dl",
+      "isVague": false,
+      "hint": {
+        "name": "vetemjöl",
+        "section": "Skafferi",
+        "location": "Skafferi",
+        "defaultUnit": "dl"
+      },
+      "stepIndexes": [
+        2
+      ]
+    },
+    {
+      "originalText": "1/2 tsk salt",
+      "amount": 0.5,
+      "unit": "tsk",
+      "isVague": false,
+      "hint": {
+        "name": "salt",
+        "section": "Skafferi",
+        "location": "Skafferi",
+        "defaultUnit": "krm"
+      },
+      "stepIndexes": [
+        2
+      ]
+    },
+    {
+      "originalText": "smör till formen",
+      "amount": null,
+      "unit": null,
+      "isVague": true,
+      "hint": {
+        "name": "smör",
+        "section": "Mejeri",
+        "location": "Kyl",
+        "defaultUnit": "g"
+      },
+      "stepIndexes": [
+        0
+      ]
+    },
+    {
+      "originalText": "lingonsylt till servering",
+      "amount": null,
+      "unit": null,
+      "isVague": true,
+      "hint": {
+        "name": "lingonsylt",
+        "section": "Skafferi",
+        "location": "Skafferi",
+        "defaultUnit": "förp"
+      },
+      "stepIndexes": [
+        4
+      ]
+    }
+  ],
+  "steps": [
+    "Sätt ugnen på 225 grader och smörj en ugnsform, ca 25 x 35 cm.",
+    "Skär baconet i bitar och stek det knaprigt i en torr stekpanna. Lägg det i formen.",
+    "Vispa mjöl och hälften av mjölken till en slät smet. Vispa i resten av mjölken, äggen och saltet.",
+    "Häll smeten över baconet och grädda mitt i ugnen i 25–30 minuter, tills pannkakan är gyllenbrun och stelnad.",
+    "Låt svalna några minuter, skär i bitar och servera med lingonsylt."
+  ]
+}

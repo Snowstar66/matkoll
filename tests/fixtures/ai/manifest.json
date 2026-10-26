@@ -1,0 +1,74 @@
+{
+  "$comment": [
+    "Test set for the AI port. Each case: <name>.txt (input text), <name>.response.json (the mock's answer),",
+    "<name>.expected.json (what pnpm eval:ai checks), optionally <name>.jsonld.json (JSON-LD sent with the text)",
+    "and <name>.png (the same recipe as an image). 'default' is the mock's answer for unknown input.",
+    "'reserved' inputs make the mock fail with that error code, for tests of the error messages.",
+    "'reservedImages' do the same for a photo: the mock keys them on the image bytes, so a PNG that the client sends as it is (it already fits) reaches the mock unchanged.",
+    "koket-* and tasteline-* are the saved pages in tests/fixtures/sites/ as the import flow reads them (extractRecipePage); extract.test.ts keeps them in step."
+  ],
+  "default": "kycklinggryta",
+  "cases": [
+    {
+      "name": "kycklinggryta"
+    },
+    {
+      "name": "ugnspannkaka",
+      "image": true
+    },
+    {
+      "name": "linssoppa"
+    },
+    {
+      "name": "kladdkaka",
+      "jsonLd": true
+    },
+    {
+      "name": "fiskgratang"
+    },
+    {
+      "name": "koket-chow-mein",
+      "jsonLd": true
+    },
+    {
+      "name": "tasteline-bakad-fetaost",
+      "jsonLd": true
+    }
+  ],
+  "reserved": [
+    {
+      "text": "matkoll-mock: ai_unavailable",
+      "code": "ai_unavailable"
+    },
+    {
+      "text": "matkoll-mock: ai_invalid",
+      "code": "ai_invalid"
+    },
+    {
+      "text": "matkoll-mock: ai_rejected",
+      "code": "ai_rejected"
+    },
+    {
+      "text": "matkoll-mock: import_no_recipe",
+      "code": "import_no_recipe"
+    }
+  ],
+  "reservedImages": [
+    {
+      "image": "reserved-ai_unavailable.png",
+      "code": "ai_unavailable"
+    },
+    {
+      "image": "reserved-ai_invalid.png",
+      "code": "ai_invalid"
+    },
+    {
+      "image": "reserved-ai_rejected.png",
+      "code": "ai_rejected"
+    },
+    {
+      "image": "reserved-import_no_recipe.png",
+      "code": "import_no_recipe"
+    }
+  ]
+}

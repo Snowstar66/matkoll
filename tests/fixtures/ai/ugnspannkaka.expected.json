@@ -1,0 +1,31 @@
+{
+  "title": "Ugnspannkaka med bacon",
+  "servings": 4,
+  "totalMinutes": 45,
+  "ingredientCount": 7,
+  "keyIngredients": [
+    {
+      "name": "bacon",
+      "amount": 140,
+      "unit": "g"
+    },
+    {
+      "name": "ägg",
+      "amount": 3,
+      "unit": null
+    },
+    {
+      "name": "mjölk",
+      "amount": 6,
+      "unit": "dl"
+    },
+    {
+      "name": "vetemjöl",
+      "amount": 2.5,
+      "unit": "dl"
+    }
+  ],
+  "vagueLines": [
+    "smör till formen"
+  ]
+}
