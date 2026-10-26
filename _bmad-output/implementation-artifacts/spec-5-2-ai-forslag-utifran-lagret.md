@@ -201,6 +201,10 @@ context:
 - AI-etiketten följer med "tills receptet sparats" (EXPERIENCE.md). Därför bestämmer anroparen om `RecipePreview` visar den. `sourceKind: "ai"` finns kvar på det sparade receptet och ger källan "AI-förslag" i receptvyn.
 - Loggning sker bara med felkod och orsak, aldrig med lagervaror, prompt eller svar (`run.ts` gör redan så).
 
+- **Från granskningen av 5.1:**
+  - 5.2 skickar `onSuggest` till `AiSuggestions`. Utan den prop:en visas ingen knapp.
+  - 5.2 avgör vad knappen gör när biblioteket är tomt eller lagret inte går att läsa. Biblioteket har en flagga, `pantryUnavailable`, att utgå från.
+
 ## Spec Change Log
 
 ## Review Triage Log

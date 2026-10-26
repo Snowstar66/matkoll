@@ -2,7 +2,7 @@
 title: 'Story 5.1: Kan lagas nu, rangordnat'
 type: 'feature'
 created: '2026-10-26'
-status: 'draft'
+status: 'done'
 route: 'dispatch'
 context:
   - '{project-root}/_bmad-output/implementation-artifacts/epic-5-context.md'
@@ -76,12 +76,12 @@ context:
 ## Tasks & Acceptance
 
 **Execution:**
-- [ ] `src/features/recipes/domain/recipe-list.ts` (+ test) -- `RECIPE_FILTERS` blir `["all", "favorites", "cookable"]`, och `parseRecipeFilter` godtar `"cookable"`. `filterRecipes` sorterar för `"cookable"` stabilt på `missingCount`, minst först. Rader med `missingCount: null` står kvar i sin ordning efter de rangordnade. Tester täcker: ordningen, lika N (stabil), alla N ≥ 1, alla `null`, blandat `null` och tal, okänt sparat värde som blir Alla och att indata inte ändras -- FR-22, AD-7
-- [ ] `src/features/recipes/ui/library.tsx` -- `filterOptions` får `{ value: "cookable", label: "Kan lagas nu" }`. I filtret visas, efter listan eller tomläget för sökningen, sektionen `AiSuggestions` med knappen "Föreslå rätter med AI" (sekundär, full bredd). När alla synliga rader har `missingCount: null` står en `Notice` med `role="status"` överst: "Det gick inte att läsa lagret, så recepten är inte rangordnade." Kommentaren högst upp uppdateras -- FR-8, FR-22
-- [ ] `src/features/recipes/ui/ai-suggestions.tsx` (ny, `"use client"`) -- i 5.1 bara knappen "Föreslå rätter med AI", som inte gör något. 5.2 fyller komponenten -- FR-23 (förberedelse)
-- [ ] `src/features/recipes/ui/recipe-list.tsx` -- listans `aria-label` blir "Recept, minst saknat först" i filtret "Kan lagas nu" och "Recept" annars
-- [ ] `src/features/recipes/ui/library.test.tsx`, `recipe-filter-store.test.tsx` -- tre piller, att "Kan lagas nu" rangordnar och sparas, piltangenter, knappen bara i filtret, sökträffar i rangordning, knappen vid ingen träff och `Notice` utan status. Befintliga tester som räknar pillren uppdateras -- matrisen
-- [ ] `tests/e2e/cookable.spec.ts` (+ `support.ts`, `global-setup.ts`) -- egen e2e-användare `e2e-kan-lagas@matkoll.test`. Testet seedar tre recept med mockens fixtures och ett lager med service role (som `pantry-status.spec.ts`), så att N blir 0, 1 och 2 i en annan ordning än nyast först. Det väljer "Kan lagas nu" och ser ordningen och knappen längst ned. Efter omladdning är filtret kvar. Det lägger till en vara i Hemma, går tillbaka och ser att ordningen ändras. Det tömmer lagret och ser att listan visas i rangordning med knappen, utan något som kan lagas nu. Vid 375 px och 1280 px finns ingen vågrät scroll -- matrisen
+- [x] `src/features/recipes/domain/recipe-list.ts` (+ test) -- `RECIPE_FILTERS` blir `["all", "favorites", "cookable"]`, och `parseRecipeFilter` godtar `"cookable"`. `filterRecipes` sorterar för `"cookable"` stabilt på `missingCount`, minst först. Rader med `missingCount: null` står kvar i sin ordning efter de rangordnade. Tester täcker: ordningen, lika N (stabil), alla N ≥ 1, alla `null`, blandat `null` och tal, okänt sparat värde som blir Alla och att indata inte ändras -- FR-22, AD-7
+- [x] `src/features/recipes/ui/library.tsx` -- `filterOptions` får `{ value: "cookable", label: "Kan lagas nu" }`. I filtret visas, efter listan eller tomläget för sökningen, sektionen `AiSuggestions` med knappen "Föreslå rätter med AI" (sekundär, full bredd). När alla synliga rader har `missingCount: null` står en `Notice` med `role="status"` överst: "Det gick inte att läsa lagret, så recepten är inte rangordnade." Kommentaren högst upp uppdateras -- FR-8, FR-22
+- [x] `src/features/recipes/ui/ai-suggestions.tsx` (ny, `"use client"`) -- i 5.1 bara knappen "Föreslå rätter med AI", som inte gör något. 5.2 fyller komponenten -- FR-23 (förberedelse)
+- [x] `src/features/recipes/ui/recipe-list.tsx` -- listans `aria-label` blir "Recept, minst saknat först" i filtret "Kan lagas nu" och "Recept" annars
+- [x] `src/features/recipes/ui/library.test.tsx`, `recipe-filter-store.test.tsx` -- tre piller, att "Kan lagas nu" rangordnar och sparas, piltangenter, knappen bara i filtret, sökträffar i rangordning, knappen vid ingen träff och `Notice` utan status. Befintliga tester som räknar pillren uppdateras -- matrisen
+- [x] `tests/e2e/cookable.spec.ts` (+ `support.ts`, `global-setup.ts`) -- egen e2e-användare `e2e-kan-lagas@matkoll.test`. Testet seedar tre recept med mockens fixtures och ett lager med service role (som `pantry-status.spec.ts`), så att N blir 0, 1 och 2 i en annan ordning än nyast först. Det väljer "Kan lagas nu" och ser ordningen och knappen längst ned. Efter omladdning är filtret kvar. Det lägger till en vara i Hemma, går tillbaka och ser att ordningen ändras. Det tömmer lagret och ser att listan visas i rangordning med knappen, utan något som kan lagas nu. Vid 375 px och 1280 px finns ingen vågrät scroll -- matrisen
 
 **Acceptance Criteria:**
 - Given `pnpm lint && pnpm typecheck && pnpm test && pnpm test:integration && AI_PROVIDER=mock pnpm build && CI=1 pnpm test:e2e`, when de körs, then lyckas alla.
@@ -101,7 +101,30 @@ context:
 
 ## Spec Change Log
 
+- Receptsidan och dess sökning använder `listLibrary()` och `searchLibrary()`, som ger `{ recipes, pantryUnavailable }`. `listRecipes` och `searchRecipes` är oförändrade, eftersom Matsedel också använder dem.
+
 ## Review Triage Log
+
+Iteration 1. Granskare: Blind Hunter, Edge Case Hunter och Verification Gap.
+
+**Patch:**
+- AI-knappen visas inte förrän 5.2 kopplar in den.
+- Servern skickar `pantryUnavailable`. Notisen och listans skärmläsarnamn utgår från den flaggan och inte från att alla rader saknar status. Rader som saknar status hamnar sist.
+- Sorteringen avgör lika antal saknade varor med datum. Sorteringen normaliseras och memoiseras.
+- Status-containern finns kvar på sidan, och den extra omslutande div:en visas bara när notisen behövs.
+- Nya tester:
+  - en lista där vissa rader har status och andra saknar
+  - AI-knappens placering utanför resultatytan
+  - e2e-sökningen väntar på svaret, och städningen sker i ordning efter främmande nycklar
+
+**Defer:**
+- att behålla fokus när listan rangordnas om
+- tester som kontrollerar klasser
+
+**Reject:**
+- att flytta ner recept med okopplade rader, eftersom ett tidigare beslut säger att de inte räknas
+- att ge favoriter förtur
+- AI-knappen när biblioteket är tomt eller lagret inte går att läsa (avgörs i 5.2)
 
 ## Verification
 

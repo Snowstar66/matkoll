@@ -23,6 +23,19 @@ describe("useRecipeFilter", () => {
     expect(window.localStorage.getItem(recipeFilterStorageKey)).toBe("all");
   });
 
+  it("keeps Kan lagas nu under the same key, and reads an unknown value as Alla", () => {
+    const { result } = renderHook(() => useRecipeFilter());
+    act(() => result.current[1]("cookable"));
+    expect(result.current[0]).toBe("cookable");
+    expect(window.localStorage.getItem(recipeFilterStorageKey)).toBe("cookable");
+    const { result: again } = renderHook(() => useRecipeFilter());
+    expect(again.current[0]).toBe("cookable");
+
+    window.localStorage.setItem(recipeFilterStorageKey, "kan-lagas-nu");
+    act(() => window.dispatchEvent(new StorageEvent("storage", { key: recipeFilterStorageKey })));
+    expect(result.current[0]).toBe("all");
+  });
+
   it("keeps the choice in memory when storage refuses it, and uses storage again once it works", () => {
     const setItem = blockWrites();
     const { result } = renderHook(() => useRecipeFilter());

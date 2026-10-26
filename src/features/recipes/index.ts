@@ -52,6 +52,8 @@ export {
   parseRecipeFilter,
   filterRecipes,
   withStatus,
+  toLibrary,
+  type RecipeLibrary,
   type RecipeListItem,
   type RecipeListRow,
   type RecipeRowLine,

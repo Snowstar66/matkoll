@@ -4,6 +4,8 @@ import { chromium, type FullConfig } from "@playwright/test";
 import { localSupabaseUrl } from "../local-supabase";
 import {
   adminClient,
+  cookableEmail,
+  cookableStorageState,
   cookModeEmail,
   cookModeStorageState,
   deleteE2eUsers,
@@ -73,6 +75,7 @@ export default async function globalSetup(config: FullConfig) {
       [putInPantryEmail, putInPantryStorageState],
       [recipeViewEmail, recipeViewStorageState],
       [cookModeEmail, cookModeStorageState],
+      [cookableEmail, cookableStorageState],
     ] as const) {
       const user = await browser.newContext({ baseURL });
       const page = await user.newPage();

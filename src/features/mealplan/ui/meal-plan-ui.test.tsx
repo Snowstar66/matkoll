@@ -172,6 +172,7 @@ describe("Lägg till rätt", () => {
     totalMinutes: 20,
     originalServings: 2,
     isFavorite,
+    createdAt: "2026-10-01T08:00:00+00:00",
     missingCount: 0,
   });
   const gryta = recipe("aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa", "Krämig kycklinggryta", true);

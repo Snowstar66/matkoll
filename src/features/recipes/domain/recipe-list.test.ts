@@ -4,9 +4,11 @@ import {
   favoriteChangeSchema,
   filterRecipes,
   parseRecipeFilter,
+  RECIPE_FILTERS,
   recipeMetaText,
   recipeTimeText,
   recipeSearchSchema,
+  toLibrary,
   withStatus,
   type RecipeListRow,
 } from "./recipe-list";
@@ -31,19 +33,23 @@ describe("recipeTimeText", () => {
 });
 
 describe("parseRecipeFilter", () => {
-  it("knows Favoriter and makes everything else Alla", () => {
+  it("knows Favoriter and Kan lagas nu and makes everything else Alla", () => {
+    expect(RECIPE_FILTERS).toEqual(["all", "favorites", "cookable"]);
     expect(parseRecipeFilter("favorites")).toBe("favorites");
+    expect(parseRecipeFilter("cookable")).toBe("cookable");
     expect(parseRecipeFilter("all")).toBe("all");
     expect(parseRecipeFilter(null)).toBe("all");
     expect(parseRecipeFilter("kan-lagas")).toBe("all");
+    expect(parseRecipeFilter("Cookable")).toBe("all");
+    expect(parseRecipeFilter(1)).toBe("all");
   });
 });
 
 describe("filterRecipes", () => {
   const recipes = [
-    { id: "a", isFavorite: true },
-    { id: "b", isFavorite: false },
-    { id: "c", isFavorite: true },
+    { id: "a", isFavorite: true, createdAt: "2026-10-03", missingCount: 0 },
+    { id: "b", isFavorite: false, createdAt: "2026-10-02", missingCount: 0 },
+    { id: "c", isFavorite: true, createdAt: "2026-10-01", missingCount: 0 },
   ];
 
   it("keeps all for Alla, and only favourites, in order, for Favoriter", () => {
@@ -54,6 +60,90 @@ describe("filterRecipes", () => {
 
   it("asks whether a recipe is a favourite now, not what the row says", () => {
     expect(filterRecipes(recipes, "favorites", ({ id }) => id === "b").map(({ id }) => id)).toEqual(["b"]);
+  });
+});
+
+describe("filterRecipes for Kan lagas nu", () => {
+  /** Recipes newest first, as the server gives them, with N; r0 is the newest. */
+  const list = (...counts: (number | null)[]) =>
+    counts.map((missingCount, index) => ({
+      id: `r${index}`,
+      isFavorite: false,
+      createdAt: `2026-10-${String(20 - index).padStart(2, "0")}T08:00:00+00:00`,
+      missingCount,
+    }));
+  type Row = ReturnType<typeof list>[number];
+  const cookable = (recipes: readonly Row[]) =>
+    filterRecipes(recipes, "cookable", () => false).map(({ id, missingCount }) => `${id}:${missingCount}`);
+
+  it("keeps every recipe, fewest missing first, the cookable ones newest first", () => {
+    expect(cookable(list(2, 0, 1, 0))).toEqual(["r1:0", "r3:0", "r2:1", "r0:2"]);
+  });
+
+  it("puts the newest first among equal N, whatever order the rows come in, then sorts by id", () => {
+    const [newest, middle, oldest] = list(1, 1, 1);
+    expect(cookable([oldest, newest, middle])).toEqual(["r0:1", "r1:1", "r2:1"]);
+    const twin = { ...middle, id: "r1-twin" };
+    expect(cookable([twin, oldest, middle, newest])).toEqual(["r0:1", "r1:1", "r1-twin:1", "r2:1"]);
+  });
+
+  it("ranks the list when nothing can be cooked now", () => {
+    expect(cookable(list(3, 1, 2))).toEqual(["r1:1", "r2:2", "r0:3"]);
+  });
+
+  it("keeps newest first when no row has a status", () => {
+    const [a, b, c] = list(null, null, null);
+    expect(cookable([c, a, b])).toEqual(["r0:null", "r1:null", "r2:null"]);
+  });
+
+  it("puts rows without a status last, newest first among them, after the ranked ones", () => {
+    expect(cookable(list(null, 2, null, 0))).toEqual(["r3:0", "r1:2", "r0:null", "r2:null"]);
+  });
+
+  it("treats a count that is not a finite number of at least 0 as no status", () => {
+    const rows = list(1, 0, null, null, null, null).map((row, index) =>
+      index < 2 ? row : { ...row, missingCount: [-1, Number.NaN, Number.POSITIVE_INFINITY, "2" as unknown as number][index - 2] },
+    );
+    expect(filterRecipes(rows, "cookable", () => false).map(({ id }) => id)).toEqual(["r1", "r0", "r2", "r3", "r4", "r5"]);
+  });
+
+  it("does not change the input", () => {
+    const recipes = list(2, 0, 1);
+    const before = structuredClone(recipes);
+    const ranked = filterRecipes(recipes, "cookable", () => false);
+    expect(recipes).toEqual(before);
+    expect(ranked).not.toBe(recipes);
+    expect(filterRecipes(recipes, "all", () => false)).not.toBe(recipes);
+  });
+
+  it("ignores favourites", () => {
+    const recipes = list(1, 0);
+    expect(filterRecipes(recipes, "cookable", ({ id }) => id === "r0").map(({ id }) => id)).toEqual(["r1", "r0"]);
+  });
+});
+
+describe("toLibrary", () => {
+  const row: RecipeListRow = {
+    id: "soppa",
+    title: "soppa",
+    imageUrl: null,
+    totalMinutes: null,
+    originalServings: 2,
+    isFavorite: false,
+    createdAt: "2026-10-01T08:00:00+00:00",
+    lines: [{ id: "l1", ingredientId: "gradde", amount: 3, unit: "dl", isVague: false, originalText: "3 dl grädde" }],
+  };
+
+  it("gives the rows with status and says the pantry was read", () => {
+    const library = toLibrary([row], toSnapshot([{ ingredientId: "gradde", amount: 3, unit: "dl" }]));
+    expect(library.pantryUnavailable).toBe(false);
+    expect(library.recipes.map(({ missingCount }) => missingCount)).toEqual([0]);
+  });
+
+  it("says the pantry could not be read without a snapshot", () => {
+    const library = toLibrary([row], null);
+    expect(library.pantryUnavailable).toBe(true);
+    expect(library.recipes.map(({ missingCount }) => missingCount)).toEqual([null]);
   });
 });
 
@@ -80,6 +170,7 @@ describe("withStatus", () => {
     totalMinutes: null,
     originalServings: servings,
     isFavorite: false,
+    createdAt: "2026-10-01T08:00:00+00:00",
     lines: lines.map((line) => ({ ...line, originalText: line.id })),
   });
 
@@ -97,15 +188,15 @@ describe("withStatus", () => {
       snapshot,
     );
     expect(items).toEqual([
-      { id: "soppa", title: "soppa", imageUrl: null, totalMinutes: null, originalServings: 2, isFavorite: false, missingCount: 1 },
-      { id: "gryta", title: "gryta", imageUrl: null, totalMinutes: null, originalServings: 4, isFavorite: false, missingCount: 0 },
+      { id: "soppa", title: "soppa", imageUrl: null, totalMinutes: null, originalServings: 2, isFavorite: false, createdAt: "2026-10-01T08:00:00+00:00", missingCount: 1 },
+      { id: "gryta", title: "gryta", imageUrl: null, totalMinutes: null, originalServings: 4, isFavorite: false, createdAt: "2026-10-01T08:00:00+00:00", missingCount: 0 },
     ]);
   });
 
   it("gives no status without a snapshot, when the pantry could not be read", () => {
     const items = withStatus([row("soppa", 2, [{ id: "l1", ingredientId: "gradde", amount: 3, unit: "dl", isVague: false }])], null);
     expect(items).toEqual([
-      { id: "soppa", title: "soppa", imageUrl: null, totalMinutes: null, originalServings: 2, isFavorite: false, missingCount: null },
+      { id: "soppa", title: "soppa", imageUrl: null, totalMinutes: null, originalServings: 2, isFavorite: false, createdAt: "2026-10-01T08:00:00+00:00", missingCount: null },
     ]);
   });
 });

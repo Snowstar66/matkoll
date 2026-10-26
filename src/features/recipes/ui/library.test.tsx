@@ -10,9 +10,17 @@ import { recipeFilterStorageKey, resetRecipeFilterStore } from "./recipe-filter-
 
 // The library with both Server Actions stubbed. A saved heart makes the
 // "server" render the list again, as revalidateFor does in the app.
+// `searchRecipes` stubs the recipes searchLibrary answers with, and
+// `searchPantryUnavailable` whether its pantry could be read.
 
 const searchRecipes = vi.fn<(query: string) => Promise<Result<RecipeListItem[]>>>();
-vi.mock("../actions/search-recipes", () => ({ searchRecipes: (query: string) => searchRecipes(query) }));
+let searchPantryUnavailable = false;
+vi.mock("../actions/search-recipes", () => ({
+  searchLibrary: async (query: string) => {
+    const result = await searchRecipes(query);
+    return result.ok ? ok({ recipes: result.data, pantryUnavailable: searchPantryUnavailable }) : result;
+  },
+}));
 const refresh = vi.fn();
 vi.mock("next/navigation", () => ({ useRouter: () => ({ refresh }) }));
 const setFavorite = vi.fn<(change: FavoriteChange) => Promise<Result<FavoriteChange>>>();
@@ -25,26 +33,44 @@ const recipe = (id: number, title: string, overrides: Partial<RecipeListItem> = 
   totalMinutes: 35,
   originalServings: 4,
   isFavorite: false,
+  createdAt: `2026-10-0${id}T08:00:00+00:00`,
   missingCount: 0,
   ...overrides,
 });
 
-const gryta = recipe(1, "Krämig kycklinggryta", { isFavorite: true });
-const soppa = recipe(2, "Linssoppa", { totalMinutes: null, originalServings: 1, missingCount: 2 });
+const gryta = recipe(1, "Krämig kycklinggryta", { isFavorite: true, createdAt: "2026-10-03T08:00:00+00:00" });
+const soppa = recipe(2, "Linssoppa", {
+  totalMinutes: null,
+  originalServings: 1,
+  missingCount: 2,
+  createdAt: "2026-10-04T08:00:00+00:00",
+});
+const pannkakor = recipe(3, "Pannkakor", { missingCount: 1, createdAt: "2026-10-02T08:00:00+00:00" });
+const fisk = recipe(4, "Fiskgratäng", { missingCount: 0, createdAt: "2026-10-01T08:00:00+00:00" });
+/** Newest first, as the server gives them: N = 2, 0, 1 and 0. */
+const ranking = [soppa, gryta, pannkakor, fisk];
 
 let serverRecipes: RecipeListItem[] = [];
 let rerenderServer: ((recipes: RecipeListItem[]) => void) | undefined;
+let serverPantryUnavailable = false;
+/** What Story 5.2 passes for "Föreslå rätter med AI"; without it there is no button. */
+let onSuggestDishes: (() => void) | undefined;
+const suggest = vi.fn();
 
 function Server() {
   const [recipes, setRecipes] = useState(serverRecipes);
   useEffect(() => {
     rerenderServer = setRecipes;
   }, []);
-  return <Library recipes={recipes} />;
+  return <Library recipes={recipes} pantryUnavailable={serverPantryUnavailable} onSuggestDishes={onSuggestDishes} />;
 }
 
-function renderLibrary(recipes: RecipeListItem[] = [gryta, soppa]) {
+type RenderOptions = { pantryUnavailable?: boolean; withSuggest?: boolean };
+
+function renderLibrary(recipes: RecipeListItem[] = [gryta, soppa], options: RenderOptions = {}) {
   serverRecipes = recipes;
+  serverPantryUnavailable = options.pantryUnavailable ?? false;
+  onSuggestDishes = options.withSuggest ? suggest : undefined;
   return render(
     <ToastProvider>
       <Server />
@@ -59,6 +85,8 @@ beforeEach(() => {
   window.localStorage.clear();
   resetRecipeFilterStore();
   refresh.mockReset();
+  suggest.mockReset();
+  searchPantryUnavailable = false;
   searchRecipes.mockReset().mockResolvedValue(ok([]));
   setFavorite.mockReset().mockImplementation(async (change) => {
     serverRecipes = serverRecipes.map((item) => (item.id === change.id ? { ...item, isFavorite: change.isFavorite } : item));
@@ -220,6 +248,197 @@ describe("Library", () => {
     expect(pill("Favoriter")).toBeChecked();
     await user.click(pill("Alla"));
     expect(pill("Alla")).toBeChecked();
+  });
+
+  it("has three pills, Alla first", () => {
+    renderLibrary();
+    expect(screen.getAllByRole("radio").map((radio) => radio.textContent)).toEqual(["Alla", "Favoriter", "Kan lagas nu"]);
+    expect(screen.getByRole("list", { name: "Recept" })).toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: "Föreslå rätter med AI" })).not.toBeInTheDocument();
+  });
+
+  it("ranks every recipe on Kan lagas nu, fewest missing first and newest first within, and keeps the choice", async () => {
+    const user = userEvent.setup();
+    const { unmount } = renderLibrary(ranking);
+    expect(titles()).toEqual(["Linssoppa", "Krämig kycklinggryta", "Pannkakor", "Fiskgratäng"]);
+    await user.click(pill("Kan lagas nu"));
+    expect(pill("Kan lagas nu")).toBeChecked();
+    expect(titles()).toEqual(["Krämig kycklinggryta", "Fiskgratäng", "Pannkakor", "Linssoppa"]);
+    expect(screen.getByRole("list", { name: "Recept, minst saknat först" })).toBeInTheDocument();
+    expect(window.localStorage.getItem(recipeFilterStorageKey)).toBe("cookable");
+    unmount();
+
+    renderLibrary(ranking);
+    expect(pill("Kan lagas nu")).toBeChecked();
+    expect(titles()).toEqual(["Krämig kycklinggryta", "Fiskgratäng", "Pannkakor", "Linssoppa"]);
+  });
+
+  it("ranks again when the server list comes back with new statuses (the pantry changed)", async () => {
+    const user = userEvent.setup();
+    renderLibrary(ranking);
+    await user.click(pill("Kan lagas nu"));
+    expect(titles()).toEqual(["Krämig kycklinggryta", "Fiskgratäng", "Pannkakor", "Linssoppa"]);
+    act(() => rerenderServer?.(ranking.map((item) => (item.id === soppa.id ? { ...item, missingCount: 0 } : item))));
+    expect(titles()).toEqual(["Linssoppa", "Krämig kycklinggryta", "Fiskgratäng", "Pannkakor"]);
+    const [first] = screen.getAllByTestId("recipe-row");
+    expect(within(first).getByText("Kan lagas nu")).toBeInTheDocument();
+  });
+
+  it("chooses Kan lagas nu with the right arrow from Favoriter", async () => {
+    const user = userEvent.setup();
+    renderLibrary(ranking);
+    await user.click(pill("Favoriter"));
+    expect(pill("Favoriter")).toHaveFocus();
+    await user.keyboard("{ArrowRight}");
+    expect(pill("Kan lagas nu")).toBeChecked();
+    expect(pill("Kan lagas nu")).toHaveFocus();
+    expect(titles()).toEqual(["Krämig kycklinggryta", "Fiskgratäng", "Pannkakor", "Linssoppa"]);
+  });
+
+  it("shows no Föreslå rätter med AI until Story 5.2 passes what it does", async () => {
+    const user = userEvent.setup();
+    renderLibrary(ranking);
+    await user.click(pill("Kan lagas nu"));
+    expect(titles()).toEqual(["Krämig kycklinggryta", "Fiskgratäng", "Pannkakor", "Linssoppa"]);
+    expect(screen.queryByRole("button", { name: "Föreslå rätter med AI" })).not.toBeInTheDocument();
+  });
+
+  it("has Föreslå rätter med AI at the bottom only on Kan lagas nu, also when nothing can be cooked now", async () => {
+    const user = userEvent.setup();
+    renderLibrary([soppa, pannkakor], { withSuggest: true });
+    expect(screen.queryByRole("button", { name: "Föreslå rätter med AI" })).not.toBeInTheDocument();
+    await user.click(pill("Kan lagas nu"));
+    expect(titles()).toEqual(["Pannkakor", "Linssoppa"]);
+    for (const row of screen.getAllByTestId("recipe-row")) expect(within(row).queryByText("Kan lagas nu")).toBeNull();
+    const button = screen.getByRole("button", { name: "Föreslå rätter med AI" });
+    expect(button).toHaveAttribute("type", "button");
+    // After the list.
+    const list = screen.getByRole("list", { name: "Recept, minst saknat först" });
+    expect(list.compareDocumentPosition(button) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
+    await user.click(button);
+    expect(suggest).toHaveBeenCalledTimes(1);
+    expect(searchRecipes).not.toHaveBeenCalled();
+
+    await user.click(pill("Alla"));
+    expect(titles()).toEqual(["Linssoppa", "Pannkakor"]);
+    expect(screen.queryByRole("button", { name: "Föreslå rätter med AI" })).not.toBeInTheDocument();
+    await user.click(pill("Favoriter"));
+    expect(screen.queryByRole("button", { name: "Föreslå rätter med AI" })).not.toBeInTheDocument();
+  });
+
+  it("keeps the AI button outside the dimmed results while a search is on its way", async () => {
+    const user = userEvent.setup();
+    renderLibrary(ranking, { withSuggest: true });
+    await user.click(pill("Kan lagas nu"));
+    let answer: (result: Result<RecipeListItem[]>) => void = () => {};
+    searchRecipes.mockImplementationOnce(() => new Promise((resolve) => (answer = resolve)));
+    await user.type(screen.getByRole("searchbox"), "so{Enter}");
+    const results = screen.getByTestId("library-results");
+    expect(results).toHaveAttribute("aria-busy", "true");
+    const button = screen.getByRole("button", { name: "Föreslå rätter med AI" });
+    expect(results).not.toContainElement(button);
+    expect(button).toBeEnabled();
+    await act(async () => answer(ok([soppa])));
+    expect(results).toHaveAttribute("aria-busy", "false");
+    expect(screen.getByRole("button", { name: "Föreslå rätter med AI" })).toBeInTheDocument();
+  });
+
+  it("ranks the search hits on Kan lagas nu, with the button under them", async () => {
+    const user = userEvent.setup();
+    renderLibrary(ranking, { withSuggest: true });
+    await user.click(pill("Kan lagas nu"));
+    searchRecipes.mockResolvedValueOnce(ok([soppa, pannkakor, fisk]));
+    await user.type(screen.getByRole("searchbox"), "lök{Enter}");
+    await waitFor(() => expect(titles()).toEqual(["Fiskgratäng", "Pannkakor", "Linssoppa"]));
+    expect(searchRecipes).toHaveBeenCalledWith("lök");
+    expect(screen.getByRole("button", { name: "Föreslå rätter med AI" })).toBeInTheDocument();
+  });
+
+  it("keeps the button under no hit, but not under a failed search", async () => {
+    const user = userEvent.setup();
+    renderLibrary(ranking, { withSuggest: true });
+    await user.click(pill("Kan lagas nu"));
+    searchRecipes.mockResolvedValueOnce(ok([]));
+    await user.type(screen.getByRole("searchbox"), "xyz{Enter}");
+    expect(await screen.findByText("Inga recept matchar.")).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "Visa alla recept" })).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "Föreslå rätter med AI" })).toBeInTheDocument();
+
+    searchRecipes.mockResolvedValueOnce(fail("recipe_search_failed"));
+    await user.type(screen.getByRole("searchbox"), "z{Enter}");
+    expect(await screen.findByRole("alert")).toHaveTextContent("Det gick inte att söka bland recepten. Försök igen.");
+    expect(screen.getByRole("button", { name: "Försök igen" })).toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: "Föreslå rätter med AI" })).not.toBeInTheDocument();
+  });
+
+  const notRanked = "Det gick inte att läsa lagret, så recepten är inte rangordnade.";
+
+  it("shows the recipes in the usual order with a notice on Kan lagas nu when the pantry could not be read", async () => {
+    const user = userEvent.setup();
+    const unread = ranking.map((item) => ({ ...item, missingCount: null }));
+    renderLibrary(unread, { pantryUnavailable: true });
+    expect(screen.queryByText(notRanked)).not.toBeInTheDocument();
+    await user.click(pill("Kan lagas nu"));
+    expect(titles()).toEqual(["Linssoppa", "Krämig kycklinggryta", "Pannkakor", "Fiskgratäng"]);
+    const notice = screen.getByText(notRanked);
+    expect(notice.closest('[role="status"]')).toBeInTheDocument();
+    expect(screen.queryByRole("alert")).not.toBeInTheDocument();
+    // Over the rows, and the list does not claim a ranking it lacks.
+    const list = screen.getByRole("list", { name: "Recept" });
+    expect(notice.compareDocumentPosition(list) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
+    for (const row of screen.getAllByTestId("recipe-row")) {
+      expect(within(row).queryByText(/^Kan lagas nu$|^Saknar/)).not.toBeInTheDocument();
+    }
+
+    await user.click(pill("Alla"));
+    expect(screen.queryByText(notRanked)).not.toBeInTheDocument();
+  });
+
+  it("keeps the status region in Kan lagas nu and fills it only when the pantry could not be read", async () => {
+    const user = userEvent.setup();
+    renderLibrary(ranking);
+    const results = screen.getByTestId("library-results");
+    expect(within(results).queryByRole("status")).not.toBeInTheDocument();
+    await user.click(pill("Kan lagas nu"));
+    expect(within(results).getByRole("status")).toBeEmptyDOMElement();
+  });
+
+  it("ranks rows without a status last, without the notice, when the pantry was read", async () => {
+    const user = userEvent.setup();
+    // Newest first: no status, 2, no status, 0.
+    const mixed = [
+      { ...soppa, missingCount: null },
+      { ...gryta, missingCount: 2 },
+      { ...pannkakor, missingCount: null },
+      fisk,
+    ];
+    renderLibrary(mixed);
+    await user.click(pill("Kan lagas nu"));
+    expect(titles()).toEqual(["Fiskgratäng", "Krämig kycklinggryta", "Linssoppa", "Pannkakor"]);
+    expect(screen.getByRole("list", { name: "Recept, minst saknat först" })).toBeInTheDocument();
+    expect(screen.queryByText(notRanked)).not.toBeInTheDocument();
+  });
+
+  it("shows the notice for a search only when neither the list nor the search could read the pantry", async () => {
+    const user = userEvent.setup();
+    const unread = ranking.map((item) => ({ ...item, missingCount: null }));
+    renderLibrary(unread, { pantryUnavailable: true });
+    await user.click(pill("Kan lagas nu"));
+    searchPantryUnavailable = true;
+    searchRecipes.mockResolvedValueOnce(ok([unread[0], unread[2]]));
+    await user.type(screen.getByRole("searchbox"), "a{Enter}");
+    await waitFor(() => expect(titles()).toEqual(["Linssoppa", "Pannkakor"]));
+    expect(screen.getByText(notRanked)).toBeInTheDocument();
+    expect(screen.getByRole("list", { name: "Recept" })).toBeInTheDocument();
+
+    // A recipe saved since the page was rendered, found with a readable pantry.
+    searchPantryUnavailable = false;
+    const nytt = recipe(5, "Omelett", { missingCount: 1 });
+    searchRecipes.mockResolvedValueOnce(ok([unread[0], nytt]));
+    await user.type(screen.getByRole("searchbox"), "b{Enter}");
+    await waitFor(() => expect(titles()).toEqual(["Omelett", "Linssoppa"]));
+    expect(screen.queryByText(notRanked)).not.toBeInTheDocument();
+    expect(screen.getByRole("list", { name: "Recept, minst saknat först" })).toBeInTheDocument();
   });
 
   it("toggles a heart at once and saves it", async () => {

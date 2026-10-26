@@ -2,6 +2,27 @@
 
 Beslut som fattats under bygget: vad, varför och vilka alternativ som fanns. Nyaste överst.
 
+## 2026-10-26 – Kan lagas nu, rangordnat (Story 5.1)
+
+- **Beslut:**
+  - Filtret "Kan lagas nu" visar alla recept, inte bara de som kan lagas nu, sorterade på `missingCount` (N från `recipeStatus`), minst först. Pillrets namn beskriver vad som står överst. Inget recept döljs, och listan har inga rubriker eller grupper. Listans skärmläsarnamn är "Recept, minst saknat först".
+  - Lika N står nyast först (`createdAt` fallande) och sedan efter id, som servern ordnar biblioteket. Ordningen står uttryckligen i jämförelsen och bygger inte på att sorteringen är stabil. Ett `missingCount` som inte är ett ändligt tal ≥ 0 räknas som saknad status.
+  - Rangordningen görs i `filterRecipes` i `recipes/domain`, inte i modulen `suggestions`. Biblioteket äger filtervalet och `missingCount`, och sorteringen görs på ett värde som redan finns i klienten, utan nytt anrop. Modulen `suggestions` skapas i 5.2 för serverdelen av AI-förslag.
+  - "Föreslå rätter med AI" hör till filtret och ska stå längst ned, inte bara när inget kan lagas nu, och också efter en sökning, även utan träffar. Den visas inte när sökningen misslyckades, eftersom felrutan då är vägen vidare. Knappen är en sekundärknapp i full bredd, eftersom biblioteket inte har någon primärknapp. Den ligger utanför resultatytan, så den tonas inte ned medan en sökning pågår.
+  - **Ändrat efter granskningen:** knappen visas inte i 5.1. `AiSuggestions` visar den bara när den får `onSuggest`, och biblioteket skickar den först i 5.2. Det ersätter förslaget att visa en knapp som inte gör något, så att en död knapp aldrig syns, inte ens i epicgrenen.
+  - **Ändrat efter granskningen:** servern säger om lagret gick att läsa. `listLibrary` (för Recept) och `searchLibrary` (sökningen i biblioteket) ger `pantryUnavailable` när `pantrySnapshotOrNull` gav `null`. `listRecipes` och `searchRecipes` är oförändrade, så att Matsedel inte påverkas. Biblioteket gissar alltså inte utifrån att raderna saknar status.
+  - När lagret inte går att läsa visas recepten i vanlig ordning, med texten "Det gick inte att läsa lagret, så recepten är inte rangordnade." överst. Den visas bara i filtret "Kan lagas nu", i en `role="status"`-yta som finns kvar så länge filtret är valt, så att texten läses upp när den kommer. Listans skärmläsarnamn är då "Recept", så att det inte påstår en rangordning som inte finns. Vid en sökning visas texten bara när varken listan eller sökningen kunde läsa lagret, eftersom raderna tar status från listan när den har receptet.
+  - Rader som saknar status fast lagret gick att läsa (till exempel ett nytt recept som bara finns i sökningens svar) hamnar sist, utan texten, och listan räknas som rangordnad.
+  - Valet sparas som `"cookable"` under samma nyckel, `matkoll.recept.filter`. Ett gammalt eller okänt värde blir Alla.
+- **Varför:** AC säger att recepten sorteras "med 'Kan lagas nu' överst" och att listan visas i rangordning även när inget kan lagas. I Flöde 5 finns det recept, men inget lockar, så knappen behövs också när något kan lagas nu. DESIGN.md tillåter högst en primärknapp per vy.
+- **Alternativ:**
+  - Bara recept med N = 0, med de övriga under en egen rubrik.
+  - Favoriter först, eller färst rader först, inom samma N.
+  - Rangordningen i `suggestions/domain/rank.ts`, importerad via `suggestions/index.ts` enligt Capability Map.
+  - Visa knappen redan i 5.1 utan funktion (det första förslaget).
+  - Gissa att lagret inte gick att läsa när alla synliga rader saknar status (det första förslaget).
+  - Samma text som annars när lagret inte går att läsa ("Det gick inte att läsa lagret. Försök igen.") med "Försök igen" som laddar om sidan.
+
 ## 2026-10-26 – Stegläge med tänd skärm (Story 4.2)
 
 - **Beslut:**

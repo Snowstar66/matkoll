@@ -7,7 +7,7 @@ import { SettingsIcon } from "@/components/icons";
 import { Skeleton } from "@/components/skeleton";
 import { requireUserOrRedirect } from "@/features/auth/server";
 import { searchIngredients } from "@/features/catalog/server";
-import { listRecipes } from "@/features/recipes/server";
+import { listLibrary } from "@/features/recipes/server";
 import { ImportRecipeButton, ImportRecipeProvider } from "@/features/recipes/ui/import-sheet";
 import { Library } from "@/features/recipes/ui/library";
 
@@ -45,7 +45,7 @@ export default function RecipesPage() {
 
 async function RecipesContent() {
   await requireUserOrRedirect("/recept");
-  const recipes = await listRecipes();
+  const { recipes, pantryUnavailable } = await listLibrary();
   if (recipes.length === 0) {
     return (
       <EmptyState action={<ImportRecipeButton variant="primary" />}>
@@ -53,5 +53,5 @@ async function RecipesContent() {
       </EmptyState>
     );
   }
-  return <Library recipes={recipes} />;
+  return <Library recipes={recipes} pantryUnavailable={pantryUnavailable} />;
 }

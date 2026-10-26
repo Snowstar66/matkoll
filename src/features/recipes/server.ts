@@ -11,7 +11,13 @@ import {
   listRecipes as listRecipesIn,
   type ListOptions,
 } from "./data/queries";
-import { withStatus, type RecipeListItem, type RecipeListRow } from "./domain/recipe-list";
+import {
+  toLibrary,
+  withStatus,
+  type RecipeLibrary,
+  type RecipeListItem,
+  type RecipeListRow,
+} from "./domain/recipe-list";
 import type { SavedRecipe } from "./domain/saved-recipe";
 
 // Server-only entry (AD-1): read functions and server functions for AI flows.
@@ -50,6 +56,17 @@ export const getRecipe = cache(async (id: string): Promise<SavedRecipe | null> =
 export async function listRecipes(options?: ListOptions): Promise<RecipeListItem[]> {
   const [rows, snapshot] = await Promise.all([listRecipesIn(await createClient(), options), pantrySnapshotOrNull()]);
   return withStatus(rows, snapshot);
+}
+
+/**
+ * The library for the Recept page: listRecipes' rows, and whether the pantry
+ * could not be read, so Kan lagas nu can say why it does not rank them. For
+ * pages, after requireUserOrRedirect, inside <Suspense> (AD-18). Throws
+ * RecipeDataError.
+ */
+export async function listLibrary(): Promise<RecipeLibrary> {
+  const [rows, snapshot] = await Promise.all([listRecipesIn(await createClient()), pantrySnapshotOrNull()]);
+  return toLibrary(rows, snapshot);
 }
 
 /**
