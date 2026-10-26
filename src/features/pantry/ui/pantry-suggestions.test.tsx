@@ -9,6 +9,7 @@ import { PantryCamera } from "./pantry-camera";
 import { PantrySheetProvider } from "./pantry-item-sheet";
 import { PantrySuggestionList } from "./pantry-suggestion-list";
 import { focusAfter, PantrySuggestionsProvider, putBack } from "./pantry-suggestions";
+import type { PhotoPostAnswer } from "./photo-post";
 
 /** The place Hemma shows (Story 8.2). */
 const testSite = { id: "55555555-5555-4555-8555-555555555555" };
@@ -56,6 +57,12 @@ vi.mock("../actions/confirm-pantry-suggestions", () => ({
   confirmPantrySuggestions: (...args: unknown[]) => confirmPantrySuggestions(...args),
 }));
 vi.mock("../actions/confirm-pantry-inventory", () => ({ confirmPantryInventory: vi.fn() }));
+vi.mock("../actions/save-place-photo-points", () => ({ savePlacePhotoPoints: vi.fn() }));
+/** Story 10.1: the photo saves, which answer when the test says. */
+let photoPostCalls: { form: FormData; answer: (result: PhotoPostAnswer) => void }[] = [];
+vi.mock("./photo-post", () => ({
+  postPlacePhoto: (form: FormData) => new Promise<PhotoPostAnswer>((answer) => photoPostCalls.push({ form, answer })),
+}));
 
 const mjolkId = "6f1c1b7e-3c1a-4c55-9a59-0f3f2b8f2a01";
 const suggestion = (id: string, name: string, change: Partial<PantrySuggestion> = {}): PantrySuggestion => ({
@@ -129,6 +136,7 @@ async function analyzeWith(result: AiCallResult<unknown> = ok(fridge)) {
 
 beforeEach(() => {
   calls = [];
+  photoPostCalls = [];
   resizes = [];
   refresh.mockReset();
 });
@@ -442,5 +450,131 @@ describe("the photo's place (Story 8.4)", () => {
     await waitFor(() => expect(cardNames()).toEqual([]));
     expect(within(screen.getByTestId("pantry-camera")).getByRole("alert")).toHaveTextContent(errorMessages.pantry_site_gone);
     expect(screen.queryByRole("button", { name: "Försök igen" })).toBeNull();
+  });
+});
+
+describe("Senaste foto (Story 10.1)", () => {
+  const stugan = { id: "77777777-7777-4777-8777-777777777777", name: "Stugan" };
+  const reading = ["Vispgrädde 3 dl", "Mellanmjölk 1,5 %"];
+  const photoPosts = () => photoPostCalls;
+  const analyses = () => calls.filter((call) => call.path === "/api/ai/analyze");
+
+  beforeEach(() => {
+    confirmPantrySuggestions.mockReset().mockResolvedValue(ok({ count: 1 }));
+  });
+
+  it("saves the photo as analysed after the first Bekräfta that succeeds, with its place, location, time and reading", async () => {
+    vi.useFakeTimers({ toFake: ["Date"] });
+    vi.setSystemTime(new Date("2026-10-26T15:42:00.000Z"));
+    render(<Hemma />);
+    choose();
+    vi.setSystemTime(new Date("2026-10-26T15:43:00.000Z"));
+    await resize(ok(resized("analysed")));
+    await answer(ok({ ...fridge, reading }));
+    vi.useRealTimers();
+    // Nothing is saved at the analysis.
+    expect(photoPosts()).toHaveLength(0);
+
+    fireEvent.click(screen.getByRole("button", { name: "Bekräfta grädde" }));
+    await waitFor(() => expect(photoPosts()).toHaveLength(1));
+    const { form } = photoPosts()[0];
+    expect(await (form.get("image") as Blob).text()).toBe("analysed");
+    expect(form.get("site")).toBe(photoSite.id);
+    expect(form.get("location")).toBe("Kyl");
+    // The time the photo was chosen, not when it was confirmed.
+    expect(form.get("takenAt")).toBe("2026-10-26T15:42:00.000Z");
+    expect(JSON.parse(String(form.get("reading")))).toEqual(reading);
+    expect(form.get("points")).toBeNull();
+
+    await screen.findByRole("button", { name: "Bekräfta mjölk" });
+    fireEvent.click(screen.getByRole("button", { name: "Bekräfta mjölk" }));
+    await waitFor(() => expect(confirmPantrySuggestions).toHaveBeenCalledTimes(2));
+    expect(photoPosts()).toHaveLength(1);
+  });
+
+  it("saves once with Bekräfta alla", async () => {
+    render(<Hemma />);
+    await analyzeWith();
+    fireEvent.click(screen.getByRole("button", { name: "Bekräfta alla" }));
+    await waitFor(() => expect(photoPosts()).toHaveLength(1));
+  });
+
+  it("saves nothing for a photo whose suggestions are only rejected", async () => {
+    render(<Hemma />);
+    await analyzeWith();
+    fireEvent.click(screen.getByRole("button", { name: "Avvisa grädde" }));
+    fireEvent.click(await screen.findByRole("button", { name: "Avvisa mjölk" }));
+    await waitFor(() => expect(cardNames()).toEqual([]));
+    expect(photoPosts()).toHaveLength(0);
+  });
+
+  it("saves nothing for an answer without cards", async () => {
+    render(<Hemma />);
+    await analyzeWith(ok({ ...fridge, suggestions: [] }));
+    expect(photoPosts()).toHaveLength(0);
+  });
+
+  it("saves nothing after a write that failed, and saves at the next that succeeds", async () => {
+    confirmPantrySuggestions.mockResolvedValueOnce(fail("pantry_confirm_failed"));
+    render(<Hemma />);
+    await analyzeWith();
+    fireEvent.click(screen.getByRole("button", { name: "Bekräfta grädde" }));
+    await screen.findByText(errorMessages.pantry_confirm_failed);
+    expect(photoPosts()).toHaveLength(0);
+
+    fireEvent.click(screen.getByRole("button", { name: "Bekräfta grädde" }));
+    await waitFor(() => expect(photoPosts()).toHaveLength(1));
+  });
+
+  it("saves on the photo's place when Hemma has switched to another", async () => {
+    const { rerender } = render(<Hemma shownSite={stugan} />);
+    await analyzeWith(ok({ ...fridge, site: stugan }));
+    rerender(<Hemma shownSite={photoSite} />);
+    fireEvent.click(screen.getByRole("button", { name: "Bekräfta grädde" }));
+    await waitFor(() => expect(photoPosts()).toHaveLength(1));
+    expect(photoPosts()[0].form.get("site")).toBe(stugan.id);
+  });
+
+  it("never stops a started save: not for a new photo, Avbryt or Hemma going away", async () => {
+    const { unmount } = render(<Hemma />);
+    await analyzeWith();
+    fireEvent.click(screen.getByRole("button", { name: "Bekräfta grädde" }));
+    await waitFor(() => expect(photoPosts()).toHaveLength(1));
+
+    choose();
+    await resize();
+    expect(analyses()).toHaveLength(2);
+    fireEvent.click(screen.getByRole("button", { name: "Avbryt" }));
+    unmount();
+    // The save has no signal of its own here (only its 60 s, in postPlacePhoto): its answer is still taken.
+    await act(async () => photoPosts()[0].answer({ kind: "saved", id: "99999999-9999-4999-8999-999999999999" }));
+    expect(photoPosts()).toHaveLength(1);
+  });
+
+  it("sends the photo once more at the next write after no answer, and not after a refusal", async () => {
+    render(<Hemma />);
+    await analyzeWith();
+    fireEvent.click(screen.getByRole("button", { name: "Bekräfta grädde" }));
+    await waitFor(() => expect(photoPosts()).toHaveLength(1));
+    await act(async () => photoPosts()[0].answer({ kind: "retry" }));
+    fireEvent.click(await screen.findByRole("button", { name: "Bekräfta mjölk" }));
+    await waitFor(() => expect(photoPosts()).toHaveLength(2));
+    await act(async () => photoPosts()[1].answer({ kind: "final" }));
+  });
+
+  it("saves the photo of a write that succeeds after newer suggestions came, with its own place", async () => {
+    let finish: (result: Result<unknown>) => void = () => {};
+    confirmPantrySuggestions.mockReturnValueOnce(new Promise((resolve) => (finish = resolve)));
+    render(<Hemma />);
+    await analyzeWith(ok({ ...fridge, site: photoSite }));
+    fireEvent.click(screen.getByRole("button", { name: "Bekräfta grädde" }));
+    await waitFor(() => expect(confirmPantrySuggestions).toHaveBeenCalledTimes(1));
+    // A new photo's answer replaces the suggestions while the write is on its way.
+    choose(photo("IMG_2.jpg"));
+    await resize(ok(resized("second")));
+    await answer(ok(freezer));
+    await act(async () => finish(ok({ count: 1 })));
+    await waitFor(() => expect(photoPosts()).toHaveLength(1));
+    expect(await (photoPosts()[0].form.get("image") as Blob).text()).toBe("small");
   });
 });

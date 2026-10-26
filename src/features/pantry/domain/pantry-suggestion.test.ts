@@ -4,6 +4,7 @@ import { errorMessages, fail } from "@/lib/errors";
 import type { PantryAmountRow } from "./pantry-item";
 import {
   allUnchangedText,
+  analyzedPhotoNoteText,
   analyzeErrorMessage,
   analyzeResultSchema,
   changeSpokenText,
@@ -952,5 +953,11 @@ describe("Inventera en plats med foto: texts, schema and Töm", () => {
     expect(changesLeftText(1)).toBe("1 ändring är kvar att bekräfta.");
     expect(changesLeftText(3)).toBe("3 ändringar är kvar att bekräfta.");
     expect(undoRemovalLabel).toBe("Ångra borttagning");
+  });
+});
+
+describe("the photo during review (Story 10.1)", () => {
+  it("says the photo is kept as the latest photo once something is confirmed", () => {
+    expect(analyzedPhotoNoteText).toBe("Jämför förslagen med fotot. Det sparas som senaste foto när du bekräftar något.");
   });
 });

@@ -439,8 +439,11 @@ export function analyzedPhotoAlt(location: Location): string {
 /** Under the photo's thumbnail: it opens larger. */
 export const analyzedPhotoOpenText = "Visa större";
 
-/** Under the large photo's title: it is not kept (AD-15). */
-export const analyzedPhotoNoteText = "Jämför förslagen med fotot. Det sparas inte.";
+/**
+ * Under the large photo's title during review: it is kept as the place's
+ * latest photo once something from it is confirmed (Story 10.1, UX-DR22).
+ */
+export const analyzedPhotoNoteText = "Jämför förslagen med fotot. Det sparas som senaste foto när du bekräftar något.";
 
 /** Instead of the photo, when the browser cannot show it. */
 export const analyzedPhotoErrorText = "Fotot kunde inte visas.";

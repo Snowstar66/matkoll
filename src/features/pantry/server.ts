@@ -47,6 +47,13 @@ export { analyzePlace } from "./actions/analyze-place";
 export { locatePlaceItems } from "./actions/locate-place-items";
 
 /**
+ * The latest photo of a place (Story 10.1, AD-26), for the Route Handler
+ * POST /api/pantry/photo (not a Server Action: the photo may be 1.5 MB). The
+ * only Route Handler that writes (AD-2). Never asks the AI port.
+ */
+export { savePlacePhoto } from "./actions/save-place-photo";
+
+/**
  * The signed-in user's places, in the order they were created. Memoised per
  * request. Throws PantryDataError.
  */

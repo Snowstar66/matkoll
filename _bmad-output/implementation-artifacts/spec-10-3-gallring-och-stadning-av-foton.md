@@ -106,6 +106,10 @@ context:
 - **Risk: `--exclude` för en tabell i `storage`.** Kontrollera med `supabase db dump --dry-run` mot den lokala stacken att flaggan tar bort raderna, som den gör för `storage.buckets_vectors`.
 - **Risk: rekursiv listning.** Storage-API:ts `list` går en mapp i taget. Skriptet går igenom `<user_id>/<site_id>/<plats>/`, eller läser namnen från `storage.objects` med service role och tar bort dem med `remove`.
 - Loggar innehåller bara felkoder och antal.
+- **Från granskningen av 10.1:**
+  - Kaskaden tar bara bort raderna när ett ställe eller en användare tas bort. Filerna ligger kvar och tas bort här: av `deletePantrySite`, `users:sync --prune` och gallringen.
+  - Listningen i gallringen och i e2e-städningen (`removePlacePhotos` i `tests/e2e/support.ts`) ska vara rekursiv och gå igenom alla sidor. `list` ger högst 100 poster per anrop som standard, och i dag läser städningen bara den första sidan per mapp.
+  - En förra fil som inte gick att ta bort (`pantry_photo_remove_failed`) har ingen rad. Gallringen hittar den genom listningen, som en fil utan rad. Ingen tabell för filer att ta bort.
 
 ## Spec Change Log
 

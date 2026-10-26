@@ -56,6 +56,12 @@ export const errorMessages = {
   // "Ta bort" on a place that another tab has filled or selected meanwhile:
   // nothing is deleted, and the sheet is read again.
   pantry_site_in_use: "Stället har varor eller är valt och kan inte tas bort.",
+  // The latest photo of a place (Epic 10, AD-26). Saving it is never shown to
+  // Pontus: the code is only logged and sent to the client, which shows
+  // nothing for it. The other two are shown in the photo's sheet (Story 10.2).
+  pantry_photo_failed: "Det gick inte att spara fotot.",
+  pantry_photo_gone: "Fotot finns inte längre.",
+  pantry_photo_remove_failed: "Det gick inte att ta bort fotot. Försök igen.",
   // Matsedel (Story 3.1). After failed servings the selector shows the saved
   // value again; after a failed remove the dish is back on the plan.
   mealplan_unavailable: "Det gick inte att läsa matsedeln. Försök igen.",

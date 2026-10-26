@@ -32,6 +32,8 @@ import {
   outsiderStorageState,
   pantryEmail,
   pantryStorageState,
+  photoSaveEmail,
+  photoSaveStorageState,
   productChoiceEmail,
   productChoiceStorageState,
   putInPantryEmail,
@@ -115,6 +117,7 @@ export default async function globalSetup(config: FullConfig) {
       [siteStatusEmail, siteStatusStorageState],
       [siteListEmail, siteListStorageState],
       [sitePhotoEmail, sitePhotoStorageState],
+      [photoSaveEmail, photoSaveStorageState],
     ] as const) {
       const user = await browser.newContext({ baseURL });
       const page = await user.newPage();

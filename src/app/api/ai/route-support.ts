@@ -4,7 +4,8 @@ import { env } from "@/server/env";
 
 // Shared by the AI Route Handlers (AD-9): the checks that only the app itself
 // may start a run, which can keep the local model busy for up to 115 s, and
-// the HTTP status for each result.
+// the HTTP status for each result. Also by POST /api/pantry/photo (Story
+// 10.1, AD-26), which reads a photo of a place the same way.
 
 const statusFor: Partial<Record<ErrorCode, number>> = {
   unauthorized: 401,
@@ -20,6 +21,9 @@ const statusFor: Partial<Record<ErrorCode, number>> = {
   pantry_unavailable: 503,
   // Story 8.4: the photo's place is removed, or not the user's; the AI was not asked.
   pantry_site_gone: 409,
+  // Story 10.1: the latest photo of a place could not be saved; Story 10.2: it is gone.
+  pantry_photo_failed: 500,
+  pantry_photo_gone: 404,
   settings_unavailable: 503,
   fetch_invalid_url: 422,
   fetch_domain_not_allowed: 422,
@@ -110,7 +114,7 @@ export type ImageForm<Field extends string> =
 
 /**
  * Reads a multipart/form-data body with a photo in the field `image` (AD-15):
- * at most maxImageBodyBytes (413 `image_too_large`), parsed as a form (400
+ * at most maxImageBodyBytes, or `maxBodyBytes` when given (413 `image_too_large`), parsed as a form (400
  * `validation` when it is not one, or has no image), the image at most 1.5 MB
  * (413), a JPEG, PNG or WebP by its first bytes (415 `image_unsupported`) and
  * at most `maxSide` (maxImageSide, 1600, unless given; with
@@ -121,11 +125,11 @@ export type ImageForm<Field extends string> =
 export async function readImageForm<Field extends string>(
   request: Request,
   fields: readonly Field[] = [],
-  { maxSide = maxImageSide }: { maxSide?: number } = {},
+  { maxSide = maxImageSide, maxBodyBytes = maxImageBodyBytes }: { maxSide?: number; maxBodyBytes?: number } = {},
 ): Promise<ImageForm<Field>> {
   const failed = (response: Response) => ({ ok: false as const, response });
   // The photo is all that makes a request this large.
-  const read = await readCapped(request, maxImageBodyBytes);
+  const read = await readCapped(request, maxBodyBytes);
   if (!read.ok) return failed(read.reason === "too_large" ? respond(fail("image_too_large")) : unreadBody(read.reason));
 
   let form: FormData;

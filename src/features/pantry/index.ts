@@ -55,6 +55,20 @@ export {
   type PhotoPoint,
 } from "./domain/photo-numbers";
 export {
+  clampTakenAt,
+  placePhotoBucket,
+  placePhotoFolder,
+  placePhotoPath,
+  placePhotoFormSchema,
+  placePhotoPointsSchema,
+  readPlacePhotoForm,
+  maxPlacePhotoBodyBytes,
+  maxPlacePhotoJsonChars,
+  placePhotoMediaTypes,
+  type PlacePhotoForm,
+  type PlacePhotoMediaType,
+} from "./domain/place-photo";
+export {
   analyzeResultSchema,
   pantrySuggestionSchema,
   toPantrySuggestions,

@@ -35,6 +35,11 @@ describe("revalidateFor", () => {
     expect(revalidatePath).toHaveBeenCalledWith("/lista", "page");
   });
 
+  it("revalidates only Hemma after the latest photo of a place is saved (Story 10.1)", () => {
+    revalidateFor("pantry_photo");
+    expect(revalidatePath.mock.calls).toEqual([["/hemma", "page"]]);
+  });
+
   it("revalidates the meal plan, the shopping list and the recipes after a meal plan write", () => {
     revalidateFor("meal_plan_recipe");
     revalidateFor("meal_plan");

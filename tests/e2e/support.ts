@@ -152,6 +152,12 @@ export const siteListEmail = "e2e-stalle-lista@matkoll.test";
  */
 export const sitePhotoEmail = "e2e-stalle-foto@matkoll.test";
 /**
+ * The E2E user of place-photo-save.spec.ts alone (Story 10.1): each test
+ * seeds its places and catalog, and removes its photos (rows and files),
+ * with the service role, so what is saved depends on nothing else.
+ */
+export const photoSaveEmail = "e2e-foto-spara@matkoll.test";
+/**
  * The E2E user of core-flow.spec.ts alone (Story 3.8): it signs in itself
  * through /logga-in and the link in Mailpit, so it has no storage state.
  */
@@ -183,6 +189,7 @@ export const e2eEmails = [
   siteStatusEmail,
   siteListEmail,
   sitePhotoEmail,
+  photoSaveEmail,
   coreFlowEmail,
 ] as const;
 /** A real Supabase user whose address is not in ALLOWED_EMAILS. */
@@ -213,6 +220,7 @@ export const sitesStorageState = "tests/e2e/.auth/sites.json";
 export const siteStatusStorageState = "tests/e2e/.auth/site-status.json";
 export const siteListStorageState = "tests/e2e/.auth/site-list.json";
 export const sitePhotoStorageState = "tests/e2e/.auth/site-photo.json";
+export const photoSaveStorageState = "tests/e2e/.auth/photo-save.json";
 export const outsiderStorageState = "tests/e2e/.auth/outsider.json";
 
 export const mailpitUrl = "http://127.0.0.1:54324";
@@ -243,6 +251,8 @@ export async function deleteE2eUsers(): Promise<void> {
   if (error) throw error;
   const emails = new Set<string>(e2eEmails);
   for (const user of data.users.filter((candidate) => candidate.email && emails.has(candidate.email))) {
+    // Story 10.1: no foreign key takes a user's photo files with the user.
+    await removePlacePhotos(user.id);
     const deleted = await adminClient().auth.admin.deleteUser(user.id);
     if (deleted.error) throw deleted.error;
   }
@@ -345,4 +355,30 @@ export async function mailHtml(id: string): Promise<string> {
  */
 export function cardTitles(titles: readonly string[]): RegExp[] {
   return titles.map((title) => new RegExp(`^${title.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")}(\\s?Nummer \\d+ på fotot)?$`));
+}
+
+/** The private bucket of the latest photo per place (Story 10.1, AD-26). */
+export const placePhotoBucket = "pantry-photo";
+
+/**
+ * Removes every file of `userId` in the bucket pantry-photo
+ * (`<user_id>/<site_id>/<location>/<photo>`), with the service role: no
+ * foreign key takes them with a user or a place. Only against local Supabase.
+ */
+export async function removePlacePhotos(userId: string): Promise<void> {
+  localSupabaseUrl();
+  const bucket = adminClient().storage.from(placePhotoBucket);
+  const sites = await bucket.list(userId);
+  if (sites.error) throw sites.error;
+  const paths: string[] = [];
+  for (const site of sites.data) {
+    for (const location of ["kyl", "frys", "skafferi"]) {
+      const files = await bucket.list(`${userId}/${site.name}/${location}`);
+      if (files.error) throw files.error;
+      paths.push(...files.data.filter((file) => file.id !== null).map((file) => `${userId}/${site.name}/${location}/${file.name}`));
+    }
+  }
+  if (paths.length === 0) return;
+  const removed = await bucket.remove(paths);
+  if (removed.error) throw removed.error;
 }

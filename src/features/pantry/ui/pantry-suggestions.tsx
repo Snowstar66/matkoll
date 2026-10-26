@@ -77,6 +77,12 @@ import { focusIsFree, type PantryAnalysis, usePantryAnalysis } from "./use-pantr
 // them (Bekräfta, the sheet's "Bekräfta", "Bekräfta alla", "Ta bort") sends
 // the photo's place (`result.site`), never the one Hemma shows by then, and an
 // operation id is sent again only for the same place and location.
+//
+// Senaste foto (Story 10.1, FR-37): the first of those writes that succeeds
+// saves the photo behind the suggestions as the latest of its place and
+// location, in the background (analysis.photoSaver). Rejecting, "Behåll" and a
+// failed write save nothing; a later write that succeeds does. Nothing about
+// the save is shown, and it never holds up a write or "Ångra".
 
 /** How long a confirmation may take before it counts as failed, so the buttons work again. */
 export const confirmTimeoutMs = 30_000;
@@ -341,20 +347,29 @@ function usePantryReview(analysis: PantryAnalysis): PantryReview {
     setRefused(next);
   }
 
-  /** Runs `call` for the cards `ids`; `unauthorized` reads the page again, which sends Pontus to sign in. */
+  /**
+   * Runs `call` for the cards `ids` of `generation`; `unauthorized` reads the
+   * page again, which sends Pontus to sign in. Once a call succeeds, the photo
+   * behind the suggestions is saved (Story 10.1), the first time only; its
+   * save is taken before the call, so it is the photo's also when newer
+   * suggestions come meanwhile.
+   */
   async function save<T>(
+    generation: number,
     ids: readonly string[],
     all: boolean,
     call: () => Promise<Result<T>>,
     code: ErrorCode,
   ): Promise<{ result: Result<T>; lost: boolean }> {
+    const photo = analysis.photoSaver(generation);
     busy.current = true;
     setPending({ ids: new Set(ids), all });
     setError(null);
     const answer = await within(call, code);
     busy.current = false;
     setPending(null);
-    if (!answer.result.ok && answer.result.error.code === "unauthorized") router.refresh();
+    if (answer.result.ok) photo?.written();
+    else if (answer.result.error.code === "unauthorized") router.refresh();
     return answer;
   }
 
@@ -445,6 +460,7 @@ function usePantryReview(analysis: PantryAnalysis): PantryReview {
    * was sent, if it still shows.
    */
   async function saveInventory(
+    generation: number,
     ids: readonly string[],
     all: boolean,
     siteId: string | null,
@@ -473,7 +489,7 @@ function usePantryReview(analysis: PantryAnalysis): PantryReview {
       operationId: sent,
       joinsOperation,
     };
-    const { result } = await save(ids, all, () => confirmPantryInventory(input), "pantry_inventory_failed");
+    const { result } = await save(generation, ids, all, () => confirmPantryInventory(input), "pantry_inventory_failed");
     if (!result.ok) {
       // A new id is kept for the next removal; a confirmation's id is used again only while it shows.
       if (removes && sent && sent !== showing?.id) spareOperation.current = { id: sent, siteId, location: request.location };
@@ -605,7 +621,7 @@ function usePantryReview(analysis: PantryAnalysis): PantryReview {
     const saved = chosen.filter((suggestion) => request.included.includes(suggestion.id));
     const savedIds = saved.map((suggestion) => suggestion.id);
     const siteId = photoSiteId(result);
-    const answer = await saveInventory([...savedIds, ...missing.map(({ id }) => id)], all, siteId, request);
+    const answer = await saveInventory(generation, [...savedIds, ...missing.map(({ id }) => id)], all, siteId, request);
     const current = analysis.generation() === generation;
     if (!answer.result.ok) {
       if (current) {
@@ -663,6 +679,7 @@ function usePantryReview(analysis: PantryAnalysis): PantryReview {
     const chosenIds = chosen.map((suggestion) => suggestion.id);
     const items = chosen.map(confirmItemFromSuggestion);
     const { result } = await save(
+      generation,
       chosenIds,
       all,
       () => confirmPantrySuggestions({ siteId, items }),
@@ -715,12 +732,12 @@ function usePantryReview(analysis: PantryAnalysis): PantryReview {
         replaceRowIds: own ? [...(unitChanged ? (suggestion.placeRowIds ?? suggestion.replaces) : suggestion.replaces)] : [],
         removeRowIds: [],
       };
-      const saved = await saveInventory([id], false, siteId, request);
+      const saved = await saveInventory(generation, [id], false, siteId, request);
       answer = saved.result;
       if (saved.result.ok) setIngredientIds = saved.result.data.setIngredientIds;
     } else {
       answer = (
-        await save([id], false, () => confirmPantrySuggestions({ siteId, items: [item] }), "pantry_confirm_failed")
+        await save(generation, [id], false, () => confirmPantrySuggestions({ siteId, items: [item] }), "pantry_confirm_failed")
       ).result;
     }
     let outcome: CorrectOutcome;
@@ -776,7 +793,7 @@ function usePantryReview(analysis: PantryAnalysis): PantryReview {
     if (!result || !item) return;
     const request = inventoryRequest({ location: result.location, suggestions: [], missing: [item] });
     const siteId = photoSiteId(result);
-    const answer = await saveInventory([id], false, siteId, request);
+    const answer = await saveInventory(generation, [id], false, siteId, request);
     const current = analysis.generation() === generation;
     if (!answer.result.ok) {
       if (current) failed(generation, answer.result.error, [], { kind: "confirm", id });

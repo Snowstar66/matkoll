@@ -119,6 +119,26 @@ isOneToOne: false
       referencedColumns: ["id","user_id"]
     }
                   ]
+                },"pantry_photo": {
+                  Row: {
+                    "created_at": string,"height": number,"id": string,"location": string,"media_type": string,"object_path": string,"points": Json | null,"reading": NonNullable<Json>,"site_id": string,"taken_at": string,"user_id": string,"width": number
+                  }
+                  ComputedFields: never
+                  Insert: {
+                    "created_at"?: string,"height": number,"id": string,"location": string,"media_type": string,"object_path": string,"points"?: Json | null,"reading": NonNullable<Json>,"site_id": string,"taken_at": string,"user_id"?: string,"width": number
+                  }
+                  Update: {
+                    "created_at"?: string,"height"?: number,"id"?: string,"location"?: string,"media_type"?: string,"object_path"?: string,"points"?: Json | null,"reading"?: NonNullable<Json>,"site_id"?: string,"taken_at"?: string,"user_id"?: string,"width"?: number
+                  }
+                  Relationships: [
+                    {
+      foreignKeyName: "pantry_photo_site_fkey"
+      columns: ["site_id","user_id"]
+isOneToOne: false
+      referencedRelation: "pantry_site"
+      referencedColumns: ["id","user_id"]
+    }
+                  ]
                 },"pantry_removal": {
                   Row: {
                     "created_at": string,"id": string,"removed_rows": NonNullable<Json>,"user_id": string
@@ -417,6 +437,12 @@ isOneToOne: false
 "pantry_owner_lock":
 { Args: { "owner": string }; Returns: undefined
                            },
+"pantry_photo_points_valid":
+{ Args: { "points": Json,"reading": Json }; Returns: boolean
+                           },
+"pantry_photo_reading_valid":
+{ Args: { "reading": Json }; Returns: boolean
+                           },
 "pantry_place_has_item":
 { Args: { "ingredient": string,"item_unit": string,"place": string,"site"?: string }; Returns: boolean
                            },
@@ -490,6 +516,11 @@ isOneToOne: false
       } },
 "restore_shopping_line":
 { Args: { "hidden_updated_at"?: string,"line_key": string,"plan_id": string,"previous": Json }; Returns: undefined
+                           },
+"save_pantry_photo":
+{ Args: { "photo_height": number,"photo_id": string,"photo_path": string,"photo_points"?: Json,"photo_reading": Json,"photo_taken_at": string,"photo_type": string,"photo_width": number,"place": string,"site": string }; Returns: {
+              "outcome": string,"previous_path": string
+            }[]
                            },
 "save_pantry_site":
 { Args: { "mode": string,"site_id": string,"site_name": string,"site_normalized_name": string }; Returns: {
@@ -594,6 +625,9 @@ isOneToOne: false
         isOneToOne: false
         isSetofReturn: true
       } },
+"set_pantry_photo_points":
+{ Args: { "photo_id": string,"photo_points": Json }; Returns: boolean
+                           },
 "set_shopping_check":
 { Args: { "checked": boolean,"line_key": string,"plan_id": string }; Returns: undefined
                            },
