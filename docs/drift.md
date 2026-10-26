@@ -27,7 +27,7 @@ Vercel-projektet skapas först men fylls med variabler i steg 9, när värdena f
 1. Vercel → **Add New → Project** → importera GitHub-repot och ge projektet namnet `matkoll`. Ramverket känns igen som Next.js; ändra inte bygg- eller startkommandot. Lägg inte in några variabler än, och avbryt eller strunta i den första automatiska driftsättningen (den misslyckas utan `SITE_URL` och `AI_PROVIDER`, vilket är väntat).
 2. **Settings → Git → Production Branch:** `main`. Produktion byggs bara från `main` (AD-23).
 3. **Settings → Functions → Function Region:** Stockholm, `arn1` (samma stad som databasen).
-4. Repot har ingen `vercel.json`; inställningarna ovan görs i Vercel. Importvägarna har `maxDuration = 120`, vilket ryms i Hobby-planen.
+4. Inställningarna ovan görs i Vercel. Repots `vercel.json` har bara `"ignoreCommand": "exit 0"`, som gör att Vercel hoppar över varje bygge tills molnet är uppsatt, så att inga misslyckade byggen och mejl kommer (2026-10-26). Den tas bort i steg 11. Importvägarna har `maxDuration = 120`, vilket ryms i Hobby-planen.
 
 **Kontroll:** projektet heter `matkoll`, Production Branch är `main` och regionen är `arn1`.
 
@@ -268,6 +268,7 @@ Alla okrypterade filer, också `nu.sql` nedan, ligger i en egen mapp utanför re
 Den första publiceringen i produktion kräver Pontus godkännande (AD-23), så den görs för hand när steg 1–10 är klara:
 
 1. Kontrollera att `supabase db push` är körd (steg 6) och att variablerna finns (steg 9).
+   - Ta bort `ignoreCommand` ur `vercel.json` (eller hela filen) i en PR till `main`. Annars hoppar Vercel över bygget.
 2. Vercel → **Deployments** → senaste driftsättningen från `main` → **Redeploy** (eller **Create Deployment** med grenen `main`). Därefter driftsätter Vercel varje sammanslagning till `main` av sig själv.
 3. Kontrollera i produktion:
    - `<adress>` leder till `/logga-in`.
