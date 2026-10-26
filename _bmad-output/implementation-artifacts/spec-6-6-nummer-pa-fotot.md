@@ -2,7 +2,7 @@
 title: 'Story 6.6: Nummer på fotot'
 type: 'feature'
 created: '2026-10-26'
-status: 'in-progress'
+status: 'done'
 route: 'dispatch'
 baseline_commit: '8b1d2e39b5a8aa7af6f869f806864f3be114d1c7'
 context:
@@ -116,7 +116,7 @@ Ett experiment med Pontus foto (2048 px, temperatur 0, appens prompt) mot Qwen3.
 - [x] `src/features/pantry/ui/analyzed-photo.tsx`, `pantry-suggestion-list.tsx` (+ test) -- markörerna på det stora fotot (procent på en ruta med fotots proportioner, `aria-hidden`), numret på korten och statusen under miniaturen
 - [x] `tests/e2e/pantry-camera.spec.ts` -- korten får numren och arket markörerna med `kyl.png`
 - [x] `tests/eval/analyze-image.eval.ts` -- tiden för `locateItems` efter `analyzeImage` per körning, summan och om alla varor fick en punkt
-- [ ] Kör utvärderingen mot LM Studio på 127.0.0.1 med `EVAL_RUNS=3`, och skriv in siffrorna här, i beslutsloggen och i T6. Mätning mot LM Studio väntar: Pontus använder modellen, så den görs i en egen commit efteråt
+- [x] Kör utvärderingen mot LM Studio på 127.0.0.1 med `EVAL_RUNS=3`, och skriv in siffrorna här, i beslutsloggen och i T6. Mätt 2026-10-26 kl. 20.58–21.04 med `EVAL_RUNS=3 pnpm eval:ai tests/eval/analyze-image.eval.ts` mot Qwen3.6 i LM Studio på den här datorn, med Pontus foto och tre syntetiska bilder, tre körningar per foto. Alla 12 körningar gav giltiga avläsningar utan slingor, och alla 9 uppslag lyckades. **Pontus kylfoto:** avläsning 64,7 s (kall modell), 35,9 s och 19,7 s; punkter 20,2 s, 6,4 s och 6,5 s; summa 84,8 s, 42,4 s och 26,2 s. Alla tre avläsningarna gav samma 13 varor, och 12 av 13 fick en punkt varje gång (en punkt var ogiltig och togs bort). **`syntetisk-kyl`:** avläsning 13,1–13,3 s, punkter 5,2 s, summa 18,2–18,5 s, alla 6 varor fick en punkt. **`syntetisk-kyl-stor`:** avläsning 18,2–18,3 s, punkter 10,0–10,1 s, summa 28,2–28,4 s, alla 6 varor fick en punkt. **`syntetisk-tom-hylla`:** avläsning 4,6–4,7 s och inget uppslag, eftersom bilden inte har några varor. Med varm modell lägger numren alltså till ungefär 5–10 s efter att korten har visats, inom budgeten på 30 s.
 
 **Acceptance Criteria:**
 - Given `pnpm lint && pnpm typecheck && pnpm test`, och `pnpm test:integration`, `AI_PROVIDER=mock pnpm build` och `CI=1 pnpm test:e2e` genom `scripts/with-test-lock.sh`, when de körs, then lyckas alla.
@@ -142,7 +142,7 @@ Ett experiment med Pontus foto (2048 px, temperatur 0, appens prompt) mot Qwen3.
   - **Fotots storlek ligger på en ruta runt bilden** (`pantry-photo-frame`), som markörerna placeras på i procent. Bilden fyller rutan. Testet för växlingen till full storlek läser storleken från rutan i stället för bilden. Utan känd storlek visas bilden som förut, utan markörer.
   - **Ett kort utan punkt för någon av sina varor har inget nummer.** Om bara en senare vara har en punkt har kortet ändå den första varans nummer, och markören står på den senare varan.
   - **Utvärderingen:** ett misslyckat uppslag fäller körningen, men en vara utan punkt gör det inte. Rapporten visar "alla 20" eller "18 av 20". Varje fall får 170 s i stället för 130 s, så att avläsningen och uppslaget ryms.
-  - **Mätningen:** mätning mot LM Studio väntar. Storyn committas utan den, så att 8.4 kan bygga vidare, och siffrorna kommer i en egen commit.
+  - **Mätningen** gjordes i en egen commit efter att storyn hade gått in, när Pontus inte längre använde modellen. Siffrorna står under Tasks.
   - **`kyl-dorr.locate.json`** kommer från ett anrop mot Qwen3.6 i LM Studio med fixturens tre varor (efter sammanslagningen). Punkterna är kontrollerade mot bilden. Tiden från det anropet räknas inte som mätning.
 
 - Efter granskningen (iteration 1):
