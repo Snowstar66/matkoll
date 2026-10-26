@@ -20,6 +20,12 @@ describe("Epic 11 tokens", () => {
     expect(css).toContain(`${mapped}: var(--${token});`);
   });
 
+  it("--tile-icon is 17px and mapped as the text size of the tile's emoji", () => {
+    expect(lengthTokens(css)["tile-icon"]).toBe(17);
+    expect(css).toContain("--text-tile-icon: var(--tile-icon);");
+    expect(lengthTokens(css)["tile-icon"]).toBeLessThan(lengthTokens(css)["tile-size"]);
+  });
+
   it("--overlay is surface at 92 %, mapped as a colour, and follows surface in dark mode", () => {
     expect(rootToken("overlay", css)).toBe("color-mix(in srgb, var(--surface) 92%, transparent)");
     expect(css).toContain("--color-overlay: var(--overlay);");

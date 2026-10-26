@@ -24,6 +24,8 @@ export function ListGroup({ children, labelledBy, label, className, ...data }: L
   return (
     <ul
       {...data}
+      // Preflight's list-style: none makes VoiceOver in Safari drop the list; the role puts it back.
+      role="list"
       aria-labelledby={labelledBy}
       aria-label={labelledBy ? undefined : label}
       className={cx("flex flex-col divide-y divide-hairline overflow-hidden rounded-lg bg-surface", className)}

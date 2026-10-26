@@ -2,7 +2,7 @@
 title: 'Story 11.1: Gemensam grund för nytt utseende'
 type: 'feature'
 created: '2026-10-26'
-status: 'in-progress'
+status: 'done'
 baseline_commit: '2789f7d'
 route: 'dispatch'
 context:
@@ -130,6 +130,37 @@ context:
 - **Skärmbilder:** en tillfällig sida med alla byggstenar (inte incheckad) fotograferades med Playwright vid 375 px och 1280 px i ljust och mörkt läge, utanför repot. Soptunnan mättes till 44 × 44 px och raden till minst 56 px. Vid 188 px bredd (375 px med 200 % zoom) fick byggstenarna plats utan vågrät scroll; bara testsidans egen rubrik ("Byggstenar", ett långt ord i 34 px) gick utanför.
 
 ## Review Triage Log
+
+Iteration 1. Granskare: två granskare (snabb variant). Ändringarna ligger i en andra commit, "fix: review fixes for Story 11.1". 11.4 och 11.5 byggs samtidigt ovanpå `a566fa1`, så alla ändringar i byggstenarnas API är tillägg eller bakåtkompatibla: inga exporterade namn har bytt namn eller tagits bort, och inga standardvärden har ändrats.
+
+**Patch:**
+- Kategorierna (`categories.ts`):
+  - Förpackningsstorlekar tas bort före orden: "Sojasås 150 ml", "Flingsalt 250g" och "Coca-Cola Zero 33 cl".
+  - Är det första ordet ett ord i `SAUCE_WORDS` är varan en sås eller smaksättare: "Senap grov", "Ketchup Heinz", "Peppar svart hel", "Buljong grönsak", "Soja japansk" och "Senap med honung". Undantag: "con" ("Chili con carne" är en rätt).
+  - Delen före ett kommatecken prövas också: "Senap, söt", "Peppar, svart".
+  - Ett bindeord före sista ordet (" i ", " med ", " och ", " & ", " con ") stoppar regeln om sista ordet: "Makrill i tomatsås", "Bönor i tomatsås", "Krossade tomater med basilika" och "Kidneybönor i chilisås" är Skafferi. Snacks med smaken sist är också Skafferi: "Chips dill", "Jordnötter chili", "Nötmix salt", "Cashewnötter salt" och "Popcorn salt" (första ordet slutar på chips, nötter, nötmix, popcorn, ostbågar, kex, crackers, mandlar, pinnar eller snacks).
+  - Fler ord: såser, pepparkorn, svartpepparkorn, gurkmeja, kurkuma, koriander, anis, stjärnanis, mirin, miso, teriyaki, vanilj, chiliflingor, kanelstänger, fondkoncentrat, buljongkoncentrat och fänkålsfrö. Mönstret `(lök|vitlök|curry|ingefära|buljong|chili|paprika)s?pulver` (också "ingefärspulver"). Bakpulver och kakaopulver är kvar i Skafferi.
+  - Jämförelsen bortser från diakritiska tecken på båda sidor, så "Sojasas" träffar "sås".
+  - Den skrivna avdelningen prövas före `toSection`: en kategoris eget namn ("Mejeri & ägg", "Kött, fisk & chark", "Såser & smaksättare" …) ger den kategorin, och "kryddor", "krydda", "såser", "sås" och "smaksättare" ger Såser & smaksättare. "Skafferi" går fortfarande genom regeln för såser.
+  - `compareCategories` sorterar en okänd kategori sist. Parametrarna tar nu också `string`.
+  - Tabelltestet har alla fallen ovan (108 namn).
+- Byggstenarna:
+  - `ListGroup` har `role="list"`, eftersom VoiceOver i Safari tappar listan när `list-style` är `none`.
+  - `CategoryHeader`: valfri `level` (2, 3 eller 4, standard 2); en okänd kategori får Övrigts platta i stället för ett fel; antalet blir ett heltal på minst 0; antalet är också rubrikens beskrivning (`aria-describedby`), så det hörs när man går mellan rubriker; emojins storlek är token `--tile-icon` (17 px, `text-tile-icon`), som `sizes.test.ts` kontrollerar.
+  - `ListRow`: raden under får två rader med "…" (`line-clamp-2`) i stället för en; den visas för allt utom `null`, `undefined` och `""`, så 0 syns; ett tomt `href` ger vanlig text; valfria `srStatus` (till exempel "i korgen", bara för skärmläsare) och `pressRef`; `pressProps` tar också `aria-expanded`, `aria-controls`, `aria-current`, `aria-label` och `prefetch` (bara för länkar); kontrollerna till vänster och höger ritar fokusramen inuti sig.
+  - `TrashButton`: `aria-labelledby` och `title` går inte att skicka in; fokusramen ritas inuti knappen; ett andra tryck på någon soptunna inom 400 ms (`trashPressGuardMs`) räknas inte, eftersom nästa rads soptunna glider upp under fingret och tar bort utan fråga. `onPress` får soptunnan som argument, vilket är bakåtkompatibelt.
+  - Ny `focusAfterRemoval(soptunnaEllerRad, root?)`: fokus till nästa soptunna, annars den föregående, annars listans rubrik, annars sidans `h1`. En rubrik får `tabindex="-1"` och fokuseras nästa bildruta, när raden och en tömd kategori är borta.
+  - `Meter`: Infinity ger 1 och andra icke-ändliga värden 0; spåret får en ram och fyllningen systemets markeringsfärg i tvingade färger. Den inbyggda bredden står kvar, med en kommentar om att v1 saknar CSP.
+- README-mönstret: varje kategori ligger i en vanlig `div`, och bara listan namnges av rubriken, så det blir inget landmärke per kategori. Två rader med samma namn får raden under med i soptunnans namn ("Ta bort Mjölk, Arla"), och exemplet visar `focusAfterRemoval`.
+- Kontrasten: statusetiketterna (`mint-ink`, `sky-ink`) och hjärtat (`accent`, `ink-3`) på `--overlay` kontrolleras med plattan lagd över svart och över vitt, i båda lägena. Etiketterna klarar 4,5:1 (minst 6,0:1). Hjärtat är en grafik och prövas mot 3:1 (WCAG 1.4.11): `accent` får 4,1:1 och `ink-3` 3,9:1 i ljust läge över svart, och 4,5:1 skulle kräva en nästan helt täckande platta. Opaciteten står kvar på 92 %.
+
+**Avvikelser från listan:**
+- Varningen i `ListRow` (både `onPress` och `href`, eller ett tryckmål utan namn) skrivs alltid, inte bara under utveckling, eftersom `process.env` är förbjudet i `src/` (AD-14). Den skrivs bara när en anropare gör fel.
+- Antalet står kvar som dold text i flödet och är dessutom rubrikens beskrivning, så att det inte går förlorat om VoiceOver inte läser beskrivningar.
+
+**Avfärdat:** inget.
+
+**Kontrollerna efter granskningen** (under `scripts/with-test-lock.sh`, med produktionsbygge): `pnpm lint`, `pnpm typecheck` och `pnpm test` (199 filer, 4 090 tester) lyckas, `AI_PROVIDER=mock pnpm build` lyckas och `CI=1 pnpm test:e2e` med `shell`, `smoke`, `pantry` och `shopping` ger 44 av 44. `pnpm test:integration` ger 426 av 427, med samma fel som vid bygget: den lokala databasen har migrationen från 11.2.
 
 ## Verification
 

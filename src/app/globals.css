@@ -86,6 +86,8 @@
   --fixed-action-gap: 12px;
   /* Epic 11: category tile, list row, recipe card image, dish card image and meter heights. */
   --tile-size: 30px;
+  /* The emoji in a category tile; px, like the tile, so it never outgrows it at 200 % text. */
+  --tile-icon: 17px;
   --row-min: 56px;
   --card-image: 120px;
   --dish-thumb: 56px;
@@ -207,6 +209,7 @@
   --text-badge--font-weight: var(--badge-weight);
   --text-tab-label: var(--tab-label-size);
   --text-tab-label--font-weight: var(--tab-label-weight);
+  --text-tile-icon: var(--tile-icon);
 
   --radius-sm: var(--rounded-sm);
   --radius-md: var(--rounded-md);

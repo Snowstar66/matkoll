@@ -35,6 +35,11 @@ describe("compareCategories", () => {
     ]);
     expect(compareCategories("Bröd", "Bröd")).toBe(0);
   });
+
+  it("sorts an unknown category last, after Övrigt", () => {
+    expect(["Okänd", "Övrigt", "Bröd"].sort(compareCategories)).toEqual(["Bröd", "Övrigt", "Okänd"]);
+    expect(compareCategories("Övrigt", "Okänd")).toBeLessThan(0);
+  });
 });
 
 describe("displayCategory", () => {
@@ -106,6 +111,72 @@ describe("displayCategory", () => {
     ["Mejerivaror", "Smör", "Mejeri & ägg"],
     [null, "x", "Övrigt"],
     ["Okänd hylla", "Sojasås", "Övrigt"],
+    // Review of Story 11.1. Package sizes are dropped.
+    ["Skafferi", "Sojasås 150 ml", "Såser & smaksättare"],
+    ["Skafferi", "Flingsalt 250g", "Såser & smaksättare"],
+    ["Skafferi", "Ketchup 1,5 kg", "Såser & smaksättare"],
+    ["Skafferi", "Pasta 500 g", "Skafferi"],
+    ["Dryck", "Coca-Cola Zero 33 cl", "Dryck"],
+    // A sauce word first.
+    ["Skafferi", "Senap grov", "Såser & smaksättare"],
+    ["Skafferi", "Ketchup Heinz", "Såser & smaksättare"],
+    ["Skafferi", "Peppar svart hel", "Såser & smaksättare"],
+    ["Skafferi", "Buljong grönsak", "Såser & smaksättare"],
+    ["Skafferi", "Soja japansk", "Såser & smaksättare"],
+    ["Skafferi", "Senap med honung", "Såser & smaksättare"],
+    ["Skafferi", "Chili con carne", "Skafferi"],
+    // The part before a comma.
+    ["Skafferi", "Senap, söt", "Såser & smaksättare"],
+    ["Skafferi", "Peppar, svart", "Såser & smaksättare"],
+    ["Skafferi", "Tomater, krossade", "Skafferi"],
+    // A connective before the last word: a dish with a sauce, not a sauce.
+    ["Skafferi", "Makrill i tomatsås", "Skafferi"],
+    ["Skafferi", "Bönor i tomatsås", "Skafferi"],
+    ["Skafferi", "Krossade tomater med basilika", "Skafferi"],
+    ["Skafferi", "Kidneybönor i chilisås", "Skafferi"],
+    ["Skafferi", "Tonfisk & chili", "Skafferi"],
+    ["Skafferi", "Oliver och vitlök", "Skafferi"],
+    // Snacks with a flavour last.
+    ["Skafferi", "Chips dill", "Skafferi"],
+    ["Skafferi", "Jordnötter chili", "Skafferi"],
+    ["Skafferi", "Nötmix salt", "Skafferi"],
+    ["Skafferi", "Cashewnötter salt", "Skafferi"],
+    ["Skafferi", "Popcorn salt", "Skafferi"],
+    // More spices and compound powders.
+    ["Skafferi", "Svartpepparkorn", "Såser & smaksättare"],
+    ["Skafferi", "Gurkmeja", "Såser & smaksättare"],
+    ["Skafferi", "Kurkuma", "Såser & smaksättare"],
+    ["Skafferi", "Malen koriander", "Såser & smaksättare"],
+    ["Skafferi", "Stjärnanis", "Såser & smaksättare"],
+    ["Skafferi", "Mirin", "Såser & smaksättare"],
+    ["Skafferi", "Vitlökspulver", "Såser & smaksättare"],
+    ["Skafferi", "Currypulver", "Såser & smaksättare"],
+    ["Skafferi", "Ingefärspulver", "Såser & smaksättare"],
+    ["Skafferi", "Buljongpulver", "Såser & smaksättare"],
+    ["Skafferi", "Chilipulver", "Såser & smaksättare"],
+    ["Skafferi", "Paprikapulver", "Såser & smaksättare"],
+    ["Skafferi", "Chiliflingor", "Såser & smaksättare"],
+    ["Skafferi", "Kanelstänger", "Såser & smaksättare"],
+    ["Skafferi", "Kalvfondkoncentrat", "Såser & smaksättare"],
+    ["Skafferi", "Buljongkoncentrat", "Såser & smaksättare"],
+    ["Skafferi", "Fänkålsfrö", "Såser & smaksättare"],
+    ["Skafferi", "Asiatiska såser", "Såser & smaksättare"],
+    ["Skafferi", "Bakpulver", "Skafferi"],
+    ["Skafferi", "Kakaopulver", "Skafferi"],
+    ["Skafferi", "Vaniljsocker", "Skafferi"],
+    // Diacritics are folded on both sides.
+    ["Skafferi", "Sojasas", "Såser & smaksättare"],
+    ["Skafferi", "Attika", "Såser & smaksättare"],
+    ["Skafferi", "Majonnas", "Såser & smaksättare"],
+    // The written section wins when it already names a category.
+    ["Mejeri & ägg", "Ost", "Mejeri & ägg"],
+    ["Kött, fisk & chark", "Lax", "Kött, fisk & chark"],
+    ["Såser & smaksättare", "Ajvar", "Såser & smaksättare"],
+    ["Frukt & grönt", "Äpple", "Frukt & grönt"],
+    ["kryddor", "Allkrydda", "Såser & smaksättare"],
+    ["Kryddor", "Lagerblad", "Såser & smaksättare"],
+    ["såser", "Ajvar", "Såser & smaksättare"],
+    ["Skafferi", "Majs", "Skafferi"],
   ])("(%j, %j) is %s", (section, name, category) => {
     expect(displayCategory(section, name)).toBe(category);
   });

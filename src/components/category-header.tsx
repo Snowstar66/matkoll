@@ -1,3 +1,4 @@
+import { useId } from "react";
 import { cx } from "./cx";
 
 /**
@@ -28,49 +29,67 @@ export const categoryTiles = {
 /** A display category: the same names as `Category` in `@/features/catalog`. */
 export type CategoryName = keyof typeof categoryTiles;
 
+/** A count that can be shown: a whole number, at least 0; anything else is 0. */
+function itemCount(count: number): number {
+  return Number.isFinite(count) && count > 0 ? Math.floor(count) : 0;
+}
+
 /** "1 vara", "3 varor": how many items a category has, in words. */
 function itemCountText(count: number): string {
   return `${count} ${count === 1 ? "vara" : "varor"}`;
 }
 
 export type CategoryHeaderProps = {
-  /** From `displayCategory` in `@/features/catalog`. */
+  /** From `displayCategory` in `@/features/catalog`. An unknown name gets Övrigt's tile. */
   category: CategoryName;
-  /** How many items are under the heading; shown as a number, read as "3 varor". */
+  /** How many items are under the heading; shown as a number, read as "3 varor". Not a whole number ≥ 0: 0. */
   count: number;
-  /** The heading's id, for `aria-labelledby` on the section and the ListGroup below it. */
+  /** The heading's id, for `aria-labelledby` on the ListGroup below it. */
   id?: string;
+  /** The heading level; 2 (default) under the page title, 3 or 4 when the categories sit under another heading. */
+  level?: 2 | 3 | 4;
   className?: string;
 };
 
 /**
  * Kategorirubrik (DESIGN.md, category-header and category-tile; UX-DR23): the
- * category's tile with its icon, its name as an `h2` in section-label type and
- * the count to the right, both in ink-2 straight on the page background.
- * Screen readers skip the tile and hear "Mejeri & ägg, heading level 2", then
- * "3 varor". The tile has a fixed size, so the row holds at 200 % text; a long
- * name wraps instead.
+ * category's tile with its icon, its name as a heading (`h2` by default) in
+ * section-label type and the count to the right, both in ink-2 straight on
+ * the page background. Screen readers skip the tile and hear "Mejeri & ägg,
+ * heading level 2", then "3 varor". The count is also the heading's
+ * description, so it is heard when moving by headings. The tile and its
+ * emoji have fixed sizes, so the row holds at 200 % text; a long name wraps
+ * instead.
  */
-export function CategoryHeader({ category, count, id, className }: CategoryHeaderProps) {
-  const { icon, tile } = categoryTiles[category];
+export function CategoryHeader({ category, count, id, level = 2, className }: CategoryHeaderProps) {
+  const countId = useId();
+  const { icon, tile } = (categoryTiles as Record<string, { icon: string; tile: string }>)[category] ?? categoryTiles["Övrigt"];
+  const shown = itemCount(count);
+  const Heading = `h${level}` as const;
   return (
     <div className={cx("flex items-center gap-3 px-1", className)}>
       <span
         aria-hidden="true"
         data-testid="category-tile"
         className={cx(
-          "flex size-tile shrink-0 items-center justify-center rounded-sm text-[17px] leading-none select-none",
+          "flex size-tile shrink-0 items-center justify-center rounded-sm text-tile-icon leading-none select-none",
           tile,
         )}
       >
         {icon}
       </span>
-      <h2 id={id} className="min-w-0 flex-1 text-section-label wrap-break-word text-ink-2">
+      <Heading
+        id={id}
+        aria-describedby={countId}
+        className="min-w-0 flex-1 text-section-label wrap-break-word text-ink-2"
+      >
         {category}
-      </h2>
+      </Heading>
       <span className="shrink-0 text-meta text-ink-2 tabular-nums">
-        <span aria-hidden="true">{count}</span>
-        <span className="sr-only">{itemCountText(count)}</span>
+        <span aria-hidden="true">{shown}</span>
+        <span id={countId} className="sr-only">
+          {itemCountText(shown)}
+        </span>
       </span>
     </div>
   );

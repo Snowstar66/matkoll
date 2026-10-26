@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import { themeColors } from "@/app/theme-colors";
-import { colorTokens } from "./tokens";
+import { colorTokens, rootToken } from "./tokens";
 
 // NFR4: every text pair in DESIGN.md reaches 4.5:1 in light and dark mode.
 
@@ -100,5 +100,46 @@ describe.each([
 
   it.each(categoryTiles)("category tile: %s stands apart from bg", (tile) => {
     expect(contrast(tokens[tile], tokens.bg)).toBeGreaterThanOrEqual(1.05);
+  });
+});
+
+/**
+ * Epic 11: the badge and the heart on a recipe image sit on --overlay,
+ * surface at 92 % over any photo. The pairs are checked with the overlay
+ * laid over black and over white, the two extremes of a photo. Badge text
+ * needs 4.5:1; the heart is a graphic and needs 3:1 (WCAG 1.4.11).
+ */
+const overlayShare = Number(/var\(--surface\) (\d+)%/.exec(rootToken("overlay") ?? "")?.[1]) / 100;
+
+/** `top` at `share` opacity over `under`, as hex. */
+function composite(top: string, under: string, share: number): string {
+  const channel = (hex: string, i: number) => parseInt(hex.slice(i, i + 2), 16);
+  return `#${[1, 3, 5]
+    .map((i) => Math.round(channel(top, i) * share + channel(under, i) * (1 - share)))
+    .map((value) => value.toString(16).padStart(2, "0"))
+    .join("")}`;
+}
+
+/** [colour on the overlay, minimum ratio, where] */
+const overlayPairs: [string, number, string][] = [
+  ["mint-ink", 4.5, "status badge Kan lagas nu on a recipe image"],
+  ["sky-ink", 4.5, "status badge Saknar N varor on a recipe image"],
+  ["accent", 3, "filled heart on a recipe image"],
+  ["ink-3", 3, "outlined heart on a recipe image"],
+];
+
+describe.each([
+  ["light", light],
+  ["dark", dark],
+])("on the image overlay in %s mode", (_mode, tokens) => {
+  it("the overlay is surface at 92 %", () => {
+    expect(overlayShare).toBe(0.92);
+  });
+
+  it.each(["#000000", "#FFFFFF"])("over %s, every badge and heart colour is readable", (photo) => {
+    const plate = composite(tokens.surface, photo, overlayShare);
+    for (const [color, minimum, where] of overlayPairs) {
+      expect(contrast(tokens[color], plate), where).toBeGreaterThanOrEqual(minimum);
+    }
   });
 });

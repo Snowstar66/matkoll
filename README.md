@@ -52,7 +52,7 @@ De gemensamma byggstenarna ligger i `src/components/` och följer Component Patt
 | `RecipeImage` (receptets bild utan referrer, platshållare utan bild; receptrad, receptvy, matsedelsrätt) | `recipe-image.tsx` |
 | `CategoryHeader` (kategorirubrik: platta med emoji, `h2`, antal som läses "3 varor"; kartan kategori → ikon och platta finns bara här) | `category-header.tsx` |
 | `ListGroup` (vitt kort som lista, avdelare i `hairline`) och `ListRow` (minst 56 px, namnet och raden under med "…", kontroll till vänster och höger, `onPress` eller `href`) | `list-group.tsx`, `list-row.tsx` |
-| `TrashButton` (grå soptunna, 44 × 44 px, tar bort direkt) och `Meter` (mätare 0–1, `default` eller `small`, `aria-hidden`) | `trash-button.tsx`, `meter.tsx` |
+| `TrashButton` (grå soptunna, 44 × 44 px, tar bort direkt, ett andra tryck inom 400 ms räknas inte), `focusAfterRemoval` (fokus till nästa soptunna efter en borttagning) och `Meter` (mätare 0–1, `default` eller `small`, `aria-hidden`) | `trash-button.tsx`, `meter.tsx` |
 | Ikoner (egna SVG, `aria-hidden`) | `icons.tsx` |
 | `useCoarsePointer` (mobil med grov pekare: kameraknapp; dator: filväljare) | `use-coarse-pointer.ts` |
 

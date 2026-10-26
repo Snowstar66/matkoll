@@ -1,4 +1,5 @@
 import { fireEvent, render, screen, within } from "@testing-library/react";
+import { createRef } from "react";
 import { describe, expect, it, vi } from "vitest";
 import { CategoryHeader } from "./category-header";
 import { CheckCircle } from "./check-circle";
@@ -30,6 +31,15 @@ describe("ListGroup", () => {
       </ListGroup>,
     );
     expect(screen.getByRole("list", { name: "I korgen" })).toBeInTheDocument();
+  });
+
+  it("has role list, which VoiceOver drops from a ul without list style", () => {
+    render(
+      <ListGroup label="Kyl">
+        <ListRow title="Gurka" />
+      </ListGroup>,
+    );
+    expect(screen.getByRole("list", { name: "Kyl" })).toHaveAttribute("role", "list");
   });
 });
 
@@ -71,7 +81,7 @@ describe("ListRow", () => {
     expect(screen.getByRole("listitem")).toHaveTextContent("Gurka Tillagd idag");
   });
 
-  it("cuts the line under with '…' on screen only and lets the name wrap", () => {
+  it("stops the line under at two lines with '…' on screen only and lets the name wrap", () => {
     const meta = "Arla laktosfri mellanmjölk 1,5 % i stor förpackning från fotot i kylen";
     const title = "Mycket lång vara med ett namn som inte får plats på en rad";
     render(
@@ -80,7 +90,8 @@ describe("ListRow", () => {
       </ListGroup>,
     );
     const metaLine = screen.getByText(meta);
-    expect(metaLine).toHaveClass("truncate", "text-meta", "text-ink-3");
+    expect(metaLine).toHaveClass("line-clamp-2", "wrap-break-word", "text-meta", "text-ink-3");
+    expect(metaLine).not.toHaveClass("truncate");
     expect(metaLine.textContent).toBe(meta);
     expect(screen.getByText(title)).toHaveClass("text-row-title", "wrap-break-word");
     expect(screen.getByRole("button", { name: `${title} ${meta}` })).toHaveClass("min-w-0", "flex-1");
@@ -141,5 +152,98 @@ describe("ListRow", () => {
     );
     expect(screen.getByTestId("row").tagName).toBe("DIV");
     expect(screen.getAllByRole("listitem")).toHaveLength(1);
+  });
+
+  it("shows a meta of 0 but not an empty one", () => {
+    const { rerender } = render(
+      <ListGroup label="Kyl">
+        <ListRow title="Ägg" meta={0} />
+      </ListGroup>,
+    );
+    expect(screen.getByRole("listitem")).toHaveTextContent("Ägg 0");
+    rerender(
+      <ListGroup label="Kyl">
+        <ListRow title="Ägg" meta="" />
+      </ListGroup>,
+    );
+    expect(screen.getByRole("listitem").querySelectorAll("span")).toHaveLength(1);
+  });
+
+  it("is plain text with an empty href", () => {
+    render(
+      <ListGroup label="Recept">
+        <ListRow title="Korv stroganoff" href="" />
+      </ListGroup>,
+    );
+    expect(screen.queryByRole("link")).not.toBeInTheDocument();
+  });
+
+  it("warns when both onPress and href are set, and when a press target has no name", () => {
+    const warn = vi.spyOn(console, "warn").mockImplementation(() => {});
+    const both = { onPress: () => {}, href: "/recept/1" } as unknown as { onPress: () => void };
+    render(
+      <ListGroup label="Recept">
+        <ListRow title="Korv stroganoff" {...both} />
+        <ListRow title="" onPress={() => {}} />
+        <ListRow title="" onPress={() => {}} pressProps={{ "aria-label": "Öppna varan" }} />
+      </ListGroup>,
+    );
+    expect(warn).toHaveBeenCalledWith(expect.stringContaining("both onPress and href"));
+    expect(warn).toHaveBeenCalledWith(expect.stringContaining("needs a title"));
+    expect(warn).toHaveBeenCalledTimes(2);
+    expect(screen.getByRole("button", { name: "Öppna varan" })).toBeInTheDocument();
+    warn.mockRestore();
+  });
+
+  it("reads a state after the name for screen readers only", () => {
+    render(
+      <ListGroup label="I korgen">
+        <ListRow title="Citron" meta="Korv stroganoff" crossedOut srStatus="i korgen" onPress={() => {}} />
+      </ListGroup>,
+    );
+    expect(screen.getByRole("button", { name: "Citron i korgen Korv stroganoff" })).toBeInTheDocument();
+    expect(screen.getByText("i korgen")).toHaveClass("sr-only");
+  });
+
+  it("passes pressRef and more attributes to the button or link", () => {
+    const buttonRef = createRef<HTMLElement>();
+    const linkRef = createRef<HTMLElement>();
+    render(
+      <ListGroup label="Lista">
+        <ListRow
+          title="I korgen"
+          onPress={() => {}}
+          pressRef={buttonRef}
+          pressProps={{ "aria-expanded": false, "aria-controls": "korgen", prefetch: false }}
+        />
+        <ListRow title="Lagersaldo" href="/hemma" pressRef={linkRef} pressProps={{ "aria-current": "page", prefetch: false }} />
+      </ListGroup>,
+    );
+    const button = screen.getByRole("button", { name: "I korgen" });
+    expect(buttonRef.current).toBe(button);
+    expect(button).toHaveAttribute("aria-expanded", "false");
+    expect(button).toHaveAttribute("aria-controls", "korgen");
+    expect(button).not.toHaveAttribute("prefetch");
+    const link = screen.getByRole("link", { name: "Lagersaldo" });
+    expect(linkRef.current).toBe(link);
+    expect(link).toHaveAttribute("aria-current", "page");
+  });
+
+  it("draws the focus ring inside the text and the controls", () => {
+    render(
+      <ListGroup label="Kyl">
+        <ListRow
+          title="Gurka"
+          onPress={() => {}}
+          leading={<CheckCircle checked={false} onCheckedChange={() => {}} label="Gurka" />}
+          trailing={<TrashButton label="Ta bort Gurka" onPress={() => {}} />}
+        />
+      </ListGroup>,
+    );
+    expect(screen.getByRole("button", { name: "Gurka" })).toHaveClass("focus-visible:-outline-offset-2");
+    expect(screen.getByRole("checkbox").parentElement).toHaveClass("[&_*:focus-visible]:-outline-offset-2");
+    expect(screen.getByRole("button", { name: "Ta bort Gurka" }).parentElement).toHaveClass(
+      "[&_*:focus-visible]:-outline-offset-2",
+    );
   });
 });

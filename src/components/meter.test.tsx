@@ -14,6 +14,12 @@ describe("Meter", () => {
     expect(fill().style.width).toBe("43%");
   });
 
+  it("shows the track and fill in forced colours", () => {
+    render(<Meter value={0.5} />);
+    expect(screen.getByTestId("meter")).toHaveClass("forced-colors:border", "forced-colors:border-[CanvasText]");
+    expect(fill()).toHaveClass("forced-colors:bg-[Highlight]", "forced-colors:forced-color-adjust-none");
+  });
+
   it("has a small size for dish cards", () => {
     render(<Meter value={0.75} size="small" />);
     expect(screen.getByTestId("meter")).toHaveClass("h-meter-small");
@@ -27,6 +33,7 @@ describe("Meter", () => {
     [1.7, "100%"],
     [Number.NaN, "0%"],
     [Number.POSITIVE_INFINITY, "100%"],
+    [Number.NEGATIVE_INFINITY, "0%"],
   ])("clamps %s to %s", (value, width) => {
     render(<Meter value={value} />);
     expect(fill().style.width).toBe(width);
