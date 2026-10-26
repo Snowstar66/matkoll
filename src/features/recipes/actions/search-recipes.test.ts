@@ -27,7 +27,7 @@ vi.mock("../data/pantry-snapshot", () => ({ pantrySnapshotOrNull: () => pantrySn
 const searchRecipesIn = vi.fn();
 vi.mock("../data/queries", () => ({ searchRecipesIn: (...args: unknown[]) => searchRecipesIn(...args) }));
 
-const { searchRecipes } = await import("./search-recipes");
+const { searchLibrary, searchRecipes } = await import("./search-recipes");
 
 const row = {
   id: "11111111-1111-4111-8111-111111111111",
@@ -36,6 +36,7 @@ const row = {
   totalMinutes: 35,
   originalServings: 4,
   isFavorite: true,
+  createdAt: "2026-10-01T08:00:00+00:00",
   lines: [
     { id: "line-1", ingredientId: "gradde-id", amount: 3, unit: "dl", isVague: false },
     { id: "line-2", ingredientId: "lok-id", amount: 1, unit: null, isVague: false },
@@ -49,6 +50,7 @@ const gryta = {
   totalMinutes: 35,
   originalServings: 4,
   isFavorite: true,
+  createdAt: row.createdAt,
   missingCount: 1,
 };
 
@@ -113,5 +115,28 @@ describe("searchRecipes", () => {
     searchRecipesIn.mockResolvedValue([row]);
     pantrySnapshotOrNull.mockRejectedValue(new TypeError("pantry bug"));
     await expect(searchRecipes("lök")).rejects.toThrow("pantry bug");
+  });
+});
+
+describe("searchLibrary", () => {
+  it("gives the same recipes, with whether the pantry could be read", async () => {
+    expect(await searchLibrary("gryta")).toEqual(ok({ recipes: [gryta], pantryUnavailable: false }));
+    pantrySnapshotOrNull.mockResolvedValue(null);
+    expect(await searchLibrary("gryta")).toEqual(
+      ok({ recipes: [{ ...gryta, missingCount: null }], pantryUnavailable: true }),
+    );
+  });
+
+  it("says the pantry was readable when nothing is found, since it is not read", async () => {
+    searchRecipesIn.mockResolvedValue([]);
+    expect(await searchLibrary("xyz")).toEqual(ok({ recipes: [], pantryUnavailable: false }));
+    expect(pantrySnapshotOrNull).not.toHaveBeenCalled();
+  });
+
+  it("fails as searchRecipes does", async () => {
+    requireUser.mockResolvedValue(fail("unauthorized"));
+    expect(await searchLibrary("gryta")).toEqual(fail("unauthorized"));
+    requireUser.mockResolvedValue(ok({ id: "user", email: "pontus@example.com" }));
+    expect(await searchLibrary("a".repeat(101))).toEqual(fail("validation"));
   });
 });

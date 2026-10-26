@@ -138,6 +138,7 @@ function toListRow(row: ListRow, lines: readonly LineRow[]): RecipeListRow {
     totalMinutes: row.total_minutes,
     originalServings: row.original_servings,
     isFavorite: row.is_favorite,
+    createdAt: row.created_at,
     // In the recipe's order, so whatever reads "the first line" reads the same one every time.
     lines: [...lines].sort((a, b) => a.position - b.position).map(toStatusLine),
   };

@@ -9,7 +9,11 @@ vi.mock("@/features/catalog/server", () => ({ getIngredientNames: vi.fn() }));
 vi.mock("./actions/import-recipe", () => ({ importRecipe: vi.fn() }));
 vi.mock("./actions/search-recipes", () => ({ searchRecipes: vi.fn() }));
 const getRecipeIn = vi.fn();
-vi.mock("./data/queries", () => ({ getRecipe: (...args: unknown[]) => getRecipeIn(...args) }));
+const listRecipesIn = vi.fn();
+vi.mock("./data/queries", () => ({
+  getRecipe: (...args: unknown[]) => getRecipeIn(...args),
+  listRecipes: (...args: unknown[]) => listRecipesIn(...args),
+}));
 const { PantryDataError } = vi.hoisted(() => ({
   PantryDataError: class extends Error {
     constructor(readonly detail: string) {
@@ -20,15 +24,30 @@ const { PantryDataError } = vi.hoisted(() => ({
 const getPantrySnapshot = vi.fn();
 vi.mock("@/features/pantry/server", () => ({ PantryDataError, getPantrySnapshot: () => getPantrySnapshot() }));
 
-const { getRecipeWithPantry } = await import("./server");
+const { getRecipeWithPantry, listLibrary } = await import("./server");
 
 const id = "11111111-1111-4111-8111-111111111111";
 const line = (ingredientId: string | null) => ({ id: `line-${ingredientId}`, ingredientId, amount: 1, unit: "dl", isVague: false });
 const recipe = { id, title: "Pasta", servings: 4, lines: [line("gradde"), line(null)], steps: [] };
 
+const libraryRow = {
+  id,
+  title: "Pasta",
+  imageUrl: null,
+  totalMinutes: 20,
+  originalServings: 4,
+  isFavorite: false,
+  createdAt: "2026-10-01T08:00:00+00:00",
+  lines: [line("gradde")],
+};
+
+/** The library row as the page gets it, without its lines. */
+const libraryItem = Object.fromEntries(Object.entries(libraryRow).filter(([key]) => key !== "lines"));
+
 let log: ReturnType<typeof vi.spyOn>;
 beforeEach(() => {
   getRecipeIn.mockReset().mockResolvedValue(recipe);
+  listRecipesIn.mockReset().mockResolvedValue([libraryRow]);
   getPantrySnapshot.mockReset().mockResolvedValue(toSnapshot([]));
   log?.mockRestore();
   log = vi.spyOn(console, "error").mockImplementation(() => {});
@@ -63,5 +82,18 @@ describe("getRecipeWithPantry", () => {
     expect(await getRecipeWithPantry("inte-ett-id")).toBeNull();
     expect(getRecipeIn).not.toHaveBeenCalled();
     expect(getPantrySnapshot).not.toHaveBeenCalled();
+  });
+});
+
+describe("listLibrary", () => {
+  it("gives the rows with their status and says the pantry was read", async () => {
+    getPantrySnapshot.mockResolvedValue(toSnapshot([{ ingredientId: "gradde", amount: 2, unit: "dl" }]));
+    expect(await listLibrary()).toEqual({ recipes: [{ ...libraryItem, missingCount: 0 }], pantryUnavailable: false });
+  });
+
+  it("gives the rows without status and pantryUnavailable when the pantry cannot be read", async () => {
+    getPantrySnapshot.mockRejectedValue(new PantryDataError("query_failed 08006"));
+    expect(await listLibrary()).toEqual({ recipes: [{ ...libraryItem, missingCount: null }], pantryUnavailable: true });
+    expect(log).toHaveBeenCalledWith("pantry_unavailable", { reason: "query_failed 08006" });
   });
 });

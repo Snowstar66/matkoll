@@ -50,6 +50,11 @@ export type RecipePreviewProps = {
   backLabel?: string;
   /** Shown at the bottom of the form, not while an ingredient is being picked ("Ta bort recept"). */
   end?: ReactNode;
+  /**
+   * Shown at the top, e.g. the AI label on an AI suggestion until it is saved.
+   * The caller decides, not `sourceKind`, so "Ändra" on a saved AI recipe has none.
+   */
+  badge?: ReactNode;
 };
 
 const textareaClasses =
@@ -85,6 +90,7 @@ export function RecipePreview({
   onBack,
   backLabel = "Tillbaka till texten",
   end,
+  badge,
 }: RecipePreviewProps) {
   const [picking, setPicking] = useState<number | null>(null);
   /** The key of the line whose amount editor is open. */
@@ -195,6 +201,7 @@ export function RecipePreview({
 
   return (
     <div className="flex flex-col gap-5">
+      {badge ? <div className="flex">{badge}</div> : null}
       {onBack || draft.sourceKind === "url" || draft.sourceKind === "photo" ? (
         <div className="flex flex-col gap-1">
           {onBack ? (

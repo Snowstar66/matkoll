@@ -7,7 +7,7 @@ import { SettingsIcon } from "@/components/icons";
 import { Skeleton } from "@/components/skeleton";
 import { requireUserOrRedirect } from "@/features/auth/server";
 import { searchIngredients } from "@/features/catalog/server";
-import { listRecipes } from "@/features/recipes/server";
+import { listLibrary } from "@/features/recipes/server";
 import { ImportRecipeButton, ImportRecipeProvider } from "@/features/recipes/ui/import-sheet";
 import { Library } from "@/features/recipes/ui/library";
 
@@ -16,6 +16,8 @@ export const metadata: Metadata = { title: "Recept" };
 // Receptbiblioteket. The list is read inside <Suspense> (AD-18), with skeleton
 // rows while it loads; without recipes the page shows the empty state. "+" in
 // the header and "Importera recept" in the empty state open the same sheet.
+// AI-förslag are in the library's filter Kan lagas nu, so an empty library
+// offers import only.
 export default function RecipesPage() {
   return (
     <ImportRecipeProvider searchIngredients={searchIngredients}>
@@ -45,7 +47,7 @@ export default function RecipesPage() {
 
 async function RecipesContent() {
   await requireUserOrRedirect("/recept");
-  const recipes = await listRecipes();
+  const { recipes, pantryUnavailable } = await listLibrary();
   if (recipes.length === 0) {
     return (
       <EmptyState action={<ImportRecipeButton variant="primary" />}>
@@ -53,5 +55,5 @@ async function RecipesContent() {
       </EmptyState>
     );
   }
-  return <Library recipes={recipes} />;
+  return <Library recipes={recipes} pantryUnavailable={pantryUnavailable} searchIngredients={searchIngredients} />;
 }

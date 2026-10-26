@@ -1,0 +1,316 @@
+{
+  "suggestions": [
+    {
+      "title": "Pyttipanna med stekt ägg",
+      "servings": 4,
+      "totalMinutes": 30,
+      "ingredients": [
+        {
+          "originalText": "800 g potatis",
+          "amount": 800,
+          "unit": "g",
+          "isVague": false,
+          "hint": {
+            "name": "potatis",
+            "section": "Frukt och grönt",
+            "location": "Skafferi",
+            "defaultUnit": "kg"
+          },
+          "stepIndexes": [
+            0,
+            1
+          ]
+        },
+        {
+          "originalText": "1 gul lök",
+          "amount": 1,
+          "unit": null,
+          "isVague": false,
+          "hint": {
+            "name": "gul lök",
+            "section": "Frukt och grönt",
+            "location": "Skafferi",
+            "defaultUnit": "st"
+          },
+          "stepIndexes": [
+            0,
+            1
+          ]
+        },
+        {
+          "originalText": "4 ägg",
+          "amount": 4,
+          "unit": null,
+          "isVague": false,
+          "hint": {
+            "name": "ägg",
+            "section": "Mejeri",
+            "location": "Kyl",
+            "defaultUnit": "st"
+          },
+          "stepIndexes": [
+            2
+          ]
+        },
+        {
+          "originalText": "2 msk smör",
+          "amount": 2,
+          "unit": "msk",
+          "isVague": false,
+          "hint": {
+            "name": "smör",
+            "section": "Mejeri",
+            "location": "Kyl",
+            "defaultUnit": "g"
+          },
+          "stepIndexes": [
+            1,
+            2
+          ]
+        },
+        {
+          "originalText": "salt",
+          "amount": null,
+          "unit": null,
+          "isVague": true,
+          "hint": {
+            "name": "salt",
+            "section": "Skafferi",
+            "location": "Skafferi",
+            "defaultUnit": "krm"
+          },
+          "stepIndexes": [
+            1
+          ]
+        },
+        {
+          "originalText": "svartpeppar",
+          "amount": null,
+          "unit": null,
+          "isVague": true,
+          "hint": {
+            "name": "svartpeppar",
+            "section": "Skafferi",
+            "location": "Skafferi",
+            "defaultUnit": "krm"
+          },
+          "stepIndexes": [
+            1
+          ]
+        }
+      ],
+      "steps": [
+        "Skala och tärna potatisen. Hacka löken.",
+        "Stek potatisen och löken i smöret i 15 minuter. Smaka av med salt och peppar.",
+        "Stek äggen i smör och servera dem på pyttipannan."
+      ]
+    },
+    {
+      "title": "Stekt ris med kyckling och morot",
+      "servings": 4,
+      "totalMinutes": 30,
+      "ingredients": [
+        {
+          "originalText": "4 dl ris",
+          "amount": 4,
+          "unit": "dl",
+          "isVague": false,
+          "hint": {
+            "name": "ris",
+            "section": "Skafferi",
+            "location": "Skafferi",
+            "defaultUnit": "dl"
+          },
+          "stepIndexes": [
+            0
+          ]
+        },
+        {
+          "originalText": "400 g kycklingfilé",
+          "amount": 400,
+          "unit": "g",
+          "isVague": false,
+          "hint": {
+            "name": "kycklingfilé",
+            "section": "Kött och fisk",
+            "location": "Kyl",
+            "defaultUnit": "g"
+          },
+          "stepIndexes": [
+            1
+          ]
+        },
+        {
+          "originalText": "2 morötter",
+          "amount": 2,
+          "unit": null,
+          "isVague": false,
+          "hint": {
+            "name": "morot",
+            "section": "Frukt och grönt",
+            "location": "Skafferi",
+            "defaultUnit": "st"
+          },
+          "stepIndexes": [
+            1
+          ]
+        },
+        {
+          "originalText": "2 ägg",
+          "amount": 2,
+          "unit": null,
+          "isVague": false,
+          "hint": {
+            "name": "ägg",
+            "section": "Mejeri",
+            "location": "Kyl",
+            "defaultUnit": "st"
+          },
+          "stepIndexes": [
+            2
+          ]
+        },
+        {
+          "originalText": "2 msk olivolja",
+          "amount": 2,
+          "unit": "msk",
+          "isVague": false,
+          "hint": {
+            "name": "olivolja",
+            "section": "Skafferi",
+            "location": "Skafferi",
+            "defaultUnit": "msk"
+          },
+          "stepIndexes": [
+            1
+          ]
+        },
+        {
+          "originalText": "salt",
+          "amount": null,
+          "unit": null,
+          "isVague": true,
+          "hint": {
+            "name": "salt",
+            "section": "Skafferi",
+            "location": "Skafferi",
+            "defaultUnit": "krm"
+          },
+          "stepIndexes": [
+            2
+          ]
+        }
+      ],
+      "steps": [
+        "Koka riset enligt anvisningen på förpackningen och låt det svalna.",
+        "Skär kycklingen och morötterna i bitar och stek dem i olivoljan i 8 minuter.",
+        "Lägg i riset och äggen och rör tills äggen har stelnat. Smaka av med salt."
+      ]
+    },
+    {
+      "title": "Morotssoppa med vitlök",
+      "servings": 4,
+      "totalMinutes": 35,
+      "ingredients": [
+        {
+          "originalText": "6 morötter",
+          "amount": 6,
+          "unit": null,
+          "isVague": false,
+          "hint": {
+            "name": "morot",
+            "section": "Frukt och grönt",
+            "location": "Skafferi",
+            "defaultUnit": "st"
+          },
+          "stepIndexes": [
+            0,
+            1
+          ]
+        },
+        {
+          "originalText": "1 gul lök",
+          "amount": 1,
+          "unit": null,
+          "isVague": false,
+          "hint": {
+            "name": "gul lök",
+            "section": "Frukt och grönt",
+            "location": "Skafferi",
+            "defaultUnit": "st"
+          },
+          "stepIndexes": [
+            0,
+            1
+          ]
+        },
+        {
+          "originalText": "2 vitlöksklyftor",
+          "amount": 2,
+          "unit": "klyfta",
+          "isVague": false,
+          "hint": {
+            "name": "vitlök",
+            "section": "Frukt och grönt",
+            "location": "Skafferi",
+            "defaultUnit": "klyfta"
+          },
+          "stepIndexes": [
+            0,
+            1
+          ]
+        },
+        {
+          "originalText": "1 dl grädde",
+          "amount": 1,
+          "unit": "dl",
+          "isVague": false,
+          "hint": {
+            "name": "grädde",
+            "section": "Mejeri",
+            "location": "Kyl",
+            "defaultUnit": "dl"
+          },
+          "stepIndexes": [
+            2
+          ]
+        },
+        {
+          "originalText": "1 msk smör",
+          "amount": 1,
+          "unit": "msk",
+          "isVague": false,
+          "hint": {
+            "name": "smör",
+            "section": "Mejeri",
+            "location": "Kyl",
+            "defaultUnit": "g"
+          },
+          "stepIndexes": [
+            1
+          ]
+        },
+        {
+          "originalText": "salt",
+          "amount": null,
+          "unit": null,
+          "isVague": true,
+          "hint": {
+            "name": "salt",
+            "section": "Skafferi",
+            "location": "Skafferi",
+            "defaultUnit": "krm"
+          },
+          "stepIndexes": [
+            2
+          ]
+        }
+      ],
+      "steps": [
+        "Skala och skiva morötterna, löken och vitlöken.",
+        "Fräs grönsakerna i smöret, täck med vatten och koka i 20 minuter.",
+        "Mixa soppan slät, rör ner grädden och smaka av med salt."
+      ]
+    }
+  ]
+}

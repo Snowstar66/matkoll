@@ -12,6 +12,8 @@ export const errorMessages = {
   ai_invalid: "Det gick inte att tolka svaret. Försök igen.",
   ai_rejected: "AI-tjänsten tog inte emot förfrågan. Prova med en kortare text eller försök igen senare.",
   import_no_recipe: "Det gick inte att hitta något recept i texten.",
+  // AI-förslag (Story 5.2) with nothing at home: the AI is not asked.
+  suggest_empty_pantry: "Lagret är tomt. Lägg till varor i Hemma, så kan AI:n föreslå rätter.",
   catalog_unavailable: "Det gick inte att läsa ingredienskatalogen. Försök igen.",
   recipe_save_failed: "Det gick inte att spara receptet. Försök igen.",
   recipe_delete_failed: "Det gick inte att ta bort receptet. Försök igen.",

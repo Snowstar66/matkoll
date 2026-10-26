@@ -1,4 +1,5 @@
 import { z } from "zod";
+import { normalizeTitle } from "@/lib/suggest-input";
 
 // Response schemas for the AI port (AD-9, AD-10). The model's answer is
 // validated against these; an answer that does not pass is retried, then
@@ -76,7 +77,57 @@ export const parseRecipeAnswer = z
     path: ["recipe"],
   });
 
+/** How many dishes suggestDishes answers with. */
+export const suggestionCount = 3;
+
+/**
+ * What the model answers to suggestDishes: exactly three dishes with titles of
+ * their own, none of them one of `avoidTitles`. Titles are compared
+ * normalized (normalizeTitle). The count is checked here rather than with
+ * `.length(3)`, because strict JSON schemas (OpenAI, Anthropic) do not take
+ * minItems or maxItems over 1; the path in each issue lets schemaFeedback tell
+ * the model what to fix. The JSON schema is the same for every `avoidTitles`.
+ */
+export function suggestDishesAnswerFor(avoidTitles: readonly string[]) {
+  const avoided = new Set(avoidTitles.map(normalizeTitle));
+  return z
+    .object({
+      suggestions: z.array(aiRecipe).describe("Exakt tre olika rätter"),
+    })
+    .superRefine((answer, context) => {
+      if (answer.suggestions.length !== suggestionCount) {
+        context.addIssue({
+          code: "custom",
+          message: `Give exactly ${suggestionCount} suggestions, not ${answer.suggestions.length}`,
+          path: ["suggestions"],
+        });
+      }
+      const titles = new Set<string>();
+      answer.suggestions.forEach((recipe, index) => {
+        const title = normalizeTitle(recipe.title);
+        if (avoided.has(title)) {
+          context.addIssue({
+            code: "custom",
+            message: "This title was suggested before; suggest another dish",
+            path: ["suggestions", index, "title"],
+          });
+        } else if (titles.has(title)) {
+          context.addIssue({
+            code: "custom",
+            message: "Each suggestion needs a title of its own",
+            path: ["suggestions", index, "title"],
+          });
+        }
+        titles.add(title);
+      });
+    });
+}
+
+/** suggestDishesAnswer with nothing to avoid, e.g. for the mock's fixtures. */
+export const suggestDishesAnswer = suggestDishesAnswerFor([]);
+
 export type AiIngredientHint = z.infer<typeof aiIngredientHint>;
 export type AiRecipeIngredient = z.infer<typeof aiRecipeIngredient>;
 export type AiRecipe = z.infer<typeof aiRecipe>;
 export type ParseRecipeAnswer = z.infer<typeof parseRecipeAnswer>;
+export type SuggestDishesAnswer = z.infer<typeof suggestDishesAnswer>;

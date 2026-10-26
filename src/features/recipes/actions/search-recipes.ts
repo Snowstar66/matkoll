@@ -8,7 +8,7 @@ import { createClient } from "@/lib/supabase/server";
 import { RecipeDataError } from "../data/client";
 import { pantrySnapshotOrNull } from "../data/pantry-snapshot";
 import { searchRecipesIn } from "../data/queries";
-import { recipeSearchSchema, withStatus, type RecipeListItem } from "../domain/recipe-list";
+import { recipeSearchSchema, toLibrary, type RecipeLibrary, type RecipeListItem } from "../domain/recipe-list";
 
 /**
  * Searches the signed-in user's recipe library while Pontus types (AD-1: a
@@ -21,6 +21,20 @@ import { recipeSearchSchema, withStatus, type RecipeListItem } from "../domain/r
  * `unauthorized`, `validation` or `recipe_search_failed`.
  */
 export async function searchRecipes(query: string): Promise<Result<RecipeListItem[]>> {
+  const found = await search(query);
+  return found.ok ? ok(found.data.recipes) : found;
+}
+
+/**
+ * searchRecipes for the Recept page's library: the same recipes, and whether
+ * the pantry could not be read (never when nothing is found, since the pantry
+ * is not read then), so Kan lagas nu can say why it does not rank them.
+ */
+export async function searchLibrary(query: string): Promise<Result<RecipeLibrary>> {
+  return search(query);
+}
+
+async function search(query: string): Promise<Result<RecipeLibrary>> {
   const user = await requireUser();
   if (!user.ok) return user;
   const parsed = recipeSearchSchema.safeParse(query);
@@ -30,9 +44,9 @@ export async function searchRecipes(query: string): Promise<Result<RecipeListIte
   try {
     const ingredientIds = await findIngredientIds(text);
     const rows = await searchRecipesIn(await createClient(), { text, ingredientIds });
-    if (rows.length === 0) return ok([]);
+    if (rows.length === 0) return ok({ recipes: [], pantryUnavailable: false });
     // A pantry that cannot be read gives the recipes without status, never a failed search.
-    return ok(withStatus(rows, await pantrySnapshotOrNull()));
+    return ok(toLibrary(rows, await pantrySnapshotOrNull()));
   } catch (error) {
     if (error instanceof CatalogDataError) {
       console.error("recipe_search_failed", { reason: `catalog_${error.code}` });

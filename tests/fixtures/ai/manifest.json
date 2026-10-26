@@ -5,7 +5,8 @@
     "and <name>.png (the same recipe as an image). 'default' is the mock's answer for unknown input.",
     "'reserved' inputs make the mock fail with that error code, for tests of the error messages.",
     "'reservedImages' do the same for a photo: the mock keys them on the image bytes, so a PNG that the client sends as it is (it already fits) reaches the mock unchanged.",
-    "koket-* and tasteline-* are the saved pages in tests/fixtures/sites/ as the import flow reads them (extractRecipePage); extract.test.ts keeps them in step."
+    "koket-* and tasteline-* are the saved pages in tests/fixtures/sites/ as the import flow reads them (extractRecipePage); extract.test.ts keeps them in step.",
+    "'suggest' is the case suggestDishes answers with: suggest-dishes.response.json (the model's answer, three recipes), suggest-dishes.pantry.json (the input pnpm eval:ai sends) and suggest-dishes.expected.json (what it checks). Whatever is at home, the mock answers the first of 'suggest' and 'suggestAlternatives' (suggest-dishes-andra.response.json) that has none of the titles to avoid, else ai_invalid; a pantry item named like a 'reserved' text (ai_unavailable, ai_invalid, ai_rejected) makes it fail with that code."
   ],
   "default": "kycklinggryta",
   "cases": [
@@ -70,5 +71,9 @@
       "image": "reserved-import_no_recipe.png",
       "code": "import_no_recipe"
     }
+  ],
+  "suggest": "suggest-dishes",
+  "suggestAlternatives": [
+    "suggest-dishes-andra"
   ]
 }

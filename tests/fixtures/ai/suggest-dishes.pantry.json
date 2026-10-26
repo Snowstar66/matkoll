@@ -1,0 +1,90 @@
+{
+  "pantry": [
+    {
+      "name": "ägg",
+      "amount": 6,
+      "unit": "st"
+    },
+    {
+      "name": "fryst spenat",
+      "amount": 250,
+      "unit": "g"
+    },
+    {
+      "name": "grädde",
+      "amount": 3,
+      "unit": "dl"
+    },
+    {
+      "name": "gul lök",
+      "amount": 3,
+      "unit": "st"
+    },
+    {
+      "name": "krossade tomater",
+      "amount": 2,
+      "unit": "förp"
+    },
+    {
+      "name": "kycklingfilé",
+      "amount": 600,
+      "unit": "g"
+    },
+    {
+      "name": "mjölk",
+      "amount": 1.5,
+      "unit": "l"
+    },
+    {
+      "name": "morot",
+      "amount": 4,
+      "unit": "st"
+    },
+    {
+      "name": "olivolja",
+      "amount": null,
+      "unit": null
+    },
+    {
+      "name": "pasta",
+      "amount": 500,
+      "unit": "g"
+    },
+    {
+      "name": "potatis",
+      "amount": 1,
+      "unit": "kg"
+    },
+    {
+      "name": "ris",
+      "amount": 1,
+      "unit": "kg"
+    },
+    {
+      "name": "riven ost",
+      "amount": 200,
+      "unit": "g"
+    },
+    {
+      "name": "salt",
+      "amount": null,
+      "unit": null
+    },
+    {
+      "name": "smör",
+      "amount": 250,
+      "unit": "g"
+    },
+    {
+      "name": "svartpeppar",
+      "amount": null,
+      "unit": null
+    },
+    {
+      "name": "vitlök",
+      "amount": 6,
+      "unit": "klyfta"
+    }
+  ],
+  "avoidTitles": []
+}

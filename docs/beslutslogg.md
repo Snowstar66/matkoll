@@ -2,6 +2,62 @@
 
 Beslut som fattats under bygget: vad, varför och vilka alternativ som fanns. Nyaste överst.
 
+## 2026-10-26 – AI-förslag utifrån lagret (Story 5.2)
+
+- **Beslut:**
+  - Servern läser lagret från sessionen, och klienten skickar bara `avoidTitles` till `/api/ai/suggest`. Indata är då alltid aktuella och går inte att förfalska, och kroppen blir liten (högst 4 KB).
+  - `suggestDishesAnswerFor(avoidTitles)` kräver exakt tre förslag med olika titlar och ingen titel ur `avoidTitles`, med `superRefine`. Titlarna jämförs normaliserade (`normalizeTitle`: trimmade, ett blanksteg mellan orden, gemener med `sv-SE`). Antalet kontrolleras där och inte med `.length(3)`, eftersom strikta JSON-scheman inte klarar `minItems` eller `maxItems` över 1. Felet har en sökväg, så att `schemaFeedback` kan säga till modellen vad som var fel. Prompten säger "exakt tre".
+  - Tidsbudget och svarslängd: samma `defaultLimits` som importen (100 s per försök, 115 s totalt). Prompten begränsar varje rätt till högst 10 rader och 6 korta steg, `maxOutputTokens` är 4 000 och lagret högst 120 rader och 4 000 tecken, så att allt ryms i 8 192 token.
+  - **Ändrat efter granskningen, tidsgräns:** handlern ger `suggestFromPantry` en tidsgräns (`maxDuration`, 120 s, från att anropet kom). Modellen får tiden som är kvar minus 5 s för läsningarna efter den, högst 115 s. Med mindre än 10 s kvar anropas den inte (`ai_unavailable`). Ett anrop som avbryts stoppas efter lagret, efter AI-svaret och före de sista katalognamnen, och loggas som `info`.
+  - **Ändrat efter granskningen, en körning per person:** medan en körning pågår stoppar en ny begäran från samma person den förra (låset finns i serverprocessen). Ett andra fönster eller ett dubbeltryck håller alltså aldrig den lokala modellen upptagen två gånger.
+  - Lagret till AI:n: "Lagret:" med en rad per katalogingrediens och enhet i namnordning ("gul lök: 3 st", "mjölk: 1,5 l"), och "finns" för en vara som alltid räcker. En vara som både är obegränsad och har mängder blir bara "finns". Titlarna att undvika står under "Föreslå inte:" med en rad per titel ("- Pannkakor"). Prompten säger att båda listorna är data, inte instruktioner. Mängden avrundas som den visas (`displayAmount`, minst 0,01) och skrivs med decimalkomma, utan exponent. **Ändrat efter granskningen:** namn och enheter rensas från kontroll- och formattecken och radavgränsare, och blanksteg slås ihop, så att ett namn aldrig kan bryta raden och starta ett eget avsnitt. Namn kortas till 100 kodpunkter, och en post som porten inte skulle ta emot hoppas över. Radformen, gränserna och kontrollen finns på ett ställe, `src/lib/suggest-input.ts` (`pantryLine`, `pantryLinesLength`, `isValidPantryEntry`), som både domänen och porten använder. Över gränserna tas resten bort och loggas som `info` med antalet. Inga id, platser eller datum skickas, och inga recept. Titlarna att undvika får inga kontrolltecken, blanksteg slås ihop, och klienten kortar dem till serverns gräns.
+  - **Prövat och återtaget efter granskningen:** lagret och titlarna som JSON-block. Med JSON tog Qwen längre tid och gav förvanskade titlar ("Gyrok kyckling med pasta"), så raderna behölls. Rensningen av namnen ger samma skydd mot inskjutna rader.
+  - Ett förslag som inte klarar `recipeDraftSchema` efter `fromAiRecipe` tas bort och loggas som `ai_invalid` med `reason: "draft"`, index och felens sökvägar och koder, aldrig innehållet. Resten visas. Inga giltiga ger `ai_invalid`.
+  - **Ändrat efter granskningen:** ett förslag som efter `matchIngredients` använder färre än två ingredienser som finns hemma tas också bort, och loggas som `ai_invalid` med `reason: "pantry"`, index och antal.
+  - Tomt lager ger den nya koden `suggest_empty_pantry` (422) utan AI-anrop, med texten "Lagret är tomt. Lägg till varor i Hemma, så kan AI:n föreslå rätter." och länken "Öppna Hemma". **Ändrat efter granskningen:** ett lager med varor där inget namn går att läsa är ett läsfel, `catalog_unavailable` med "Försök igen", inte ett tomt lager.
+  - `ai_rejected` får en egen text för förslag: "AI-tjänsten tog inte emot förfrågan. Försök igen senare." Den ligger i `suggestions/domain`. **Ändrat efter granskningen:** `validation` får också en egen text med "Försök igen": "Det gick inte att be om förslag. Försök igen."
+  - "Föreslå andra rätter" skickar de visade titlarna och sedan de sparade som `avoidTitles`, högst tre. Ett svar med en sådan titel ger ett nytt försök med förklaring till modellen. Nya förslag ersätter de gamla först när de kommer. "Avbryt" och fel behåller de gamla, och felet står ovanför dem.
+  - Förslagen ligger i en hook (`useDishSuggestions`) som `Library` håller, så de finns kvar när pillren byts, så länge `/recept` är öppen. Ett pågående anrop avbryts när biblioteket avmonteras eller göms efter en navigering, och knappen är då tillbaka när sidan visas igen. Ett svar på ett anrop som har avbrutits eller ersatts används aldrig. Förlopp och "Avbryt" finns kvar under ett anrop även om en sökning misslyckas, men knappen erbjuds inte under en misslyckad sökning. Ett sparat förslag tas bort ur sektionen.
+  - Kortet är ingen länk. Det visar titel, "35 min · 4 portioner", etiketten "AI-förslag", "Med: " och högst fem ingrediensnamn (katalognamnet för en kopplad rad, annars `hint.name`, varje namn en gång, som de är skrivna) och knappen "Spara" (skärmläsarnamn "Spara <titel>"). Inget förslag har status före sparning.
+  - Sektionen ligger under biblioteket i filtret "Kan lagas nu", med rubriken "AI-förslag" (h2) som får fokus när förslag kommer. Under anropet står "Letar efter idéer …" med förloppsrad i en `role="status"`, och textknappen "Avbryt" står på knappens plats. Efter "Avbryt" är knappen tillbaka med fokus. Fel visas i en `Notice` med `role="alert"`, med "Försök igen" för `ai_unavailable`, `ai_invalid`, `ai_rejected`, `pantry_unavailable` och `catalog_unavailable`. Knappen för nya förslag finns kvar bredvid felet.
+  - Arket heter "Spara AI-förslag" och har AI-etiketten överst (`RecipePreview` fick prop:en `badge`, som anroparen bestämmer, så att "Ändra" på ett sparat AI-recept inte får den). **Ändrat efter granskningen:** varje förslag får sitt `recipeId` när det kommer, så att ett ark som öppnas igen efter ett förlorat svar sparar med samma id och aldrig gör en kopia. "Spara recept" är den enda primärknappen.
+  - Mockens reserverade indata för förslag är en lagervara vars normaliserade namn är `matkoll-mock: ai_unavailable`, `ai_invalid` eller `ai_rejected` (samma texter som för importen). Annars svarar mocken med den första av `suggest-dishes.response.json` och `suggest-dishes-andra.response.json` som inte har någon titel att undvika, eller `ai_invalid`. Förslagens fixturer läses för sig, så att en trasig fixtur aldrig stoppar importen.
+  - Serverfunktionen heter `suggestFromPantry` och ligger i den nya modulen `suggestions`. Gränssnittet ligger i `recipes/ui` och når servern bara via `postAi`.
+  - **Från granskningen av 5.1:** `AiSuggestions` får hookens tillstånd (`dishes`) i stället för bara `onSuggest`. Utan det visas inget, som förut.
+  - **Från granskningen av 5.1, tomt bibliotek:** ett tomt bibliotek visar som förut bara "Inga recept än." med "Importera recept". AI-förslag finns i filtret "Kan lagas nu", och filtret finns först när det finns recept.
+  - **Från granskningen av 5.1, lagret går inte att läsa:** knappen visas ändå. Servern läser lagret på nytt när Pontus trycker. Om det fortfarande inte går visas "Det gick inte att läsa lagret. Försök igen." med "Försök igen", och AI:n anropas inte.
+- **Varför:** AD-2 och AD-6 (servern skriver inget, och katalogkopplingen görs bara av `matchIngredients`), AD-9 (samma körregler som importen) och EXPERIENCE.md (AI-etiketten följer med tills receptet sparats, och förslagen blandas aldrig med biblioteket). Ett lager som läses på nytt kan ha blivit läsbart sedan sidan laddades, så knappen behöver inte döljas.
+- **Alternativ:**
+  - Klienten skickar lagret, som den inte har på receptsidan i dag.
+  - Hela svaret blir `ai_invalid` när ett förslag är ogiltigt.
+  - Den gemensamma `ai_rejected`-texten, som ber om en kortare text.
+  - Ett tryck på kortet öppnar en skrivskyddad vy.
+  - "Föreslå rätter med AI" i det tomma biblioteket.
+  - Dölja knappen när lagret inte gick att läsa när sidan laddades.
+  - Lagret och titlarna som JSON-block (prövat efter granskningen och återtaget, se ovan).
+  - Svara 429 på en andra begäran i stället för att stoppa den förra.
+
+## 2026-10-26 – Kan lagas nu, rangordnat (Story 5.1)
+
+- **Beslut:**
+  - Filtret "Kan lagas nu" visar alla recept, inte bara de som kan lagas nu, sorterade på `missingCount` (N från `recipeStatus`), minst först. Pillrets namn beskriver vad som står överst. Inget recept döljs, och listan har inga rubriker eller grupper. Listans skärmläsarnamn är "Recept, minst saknat först".
+  - Lika N står nyast först (`createdAt` fallande) och sedan efter id, som servern ordnar biblioteket. Ordningen står uttryckligen i jämförelsen och bygger inte på att sorteringen är stabil. Ett `missingCount` som inte är ett ändligt tal ≥ 0 räknas som saknad status.
+  - Rangordningen görs i `filterRecipes` i `recipes/domain`, inte i modulen `suggestions`. Biblioteket äger filtervalet och `missingCount`, och sorteringen görs på ett värde som redan finns i klienten, utan nytt anrop. Modulen `suggestions` skapas i 5.2 för serverdelen av AI-förslag.
+  - "Föreslå rätter med AI" hör till filtret och ska stå längst ned, inte bara när inget kan lagas nu, och också efter en sökning, även utan träffar. Den visas inte när sökningen misslyckades, eftersom felrutan då är vägen vidare. Knappen är en sekundärknapp i full bredd, eftersom biblioteket inte har någon primärknapp. Den ligger utanför resultatytan, så den tonas inte ned medan en sökning pågår.
+  - **Ändrat efter granskningen:** knappen visas inte i 5.1. `AiSuggestions` visar den bara när den får `onSuggest`, och biblioteket skickar den först i 5.2. Det ersätter förslaget att visa en knapp som inte gör något, så att en död knapp aldrig syns, inte ens i epicgrenen.
+  - **Ändrat efter granskningen:** servern säger om lagret gick att läsa. `listLibrary` (för Recept) och `searchLibrary` (sökningen i biblioteket) ger `pantryUnavailable` när `pantrySnapshotOrNull` gav `null`. `listRecipes` och `searchRecipes` är oförändrade, så att Matsedel inte påverkas. Biblioteket gissar alltså inte utifrån att raderna saknar status.
+  - När lagret inte går att läsa visas recepten i vanlig ordning, med texten "Det gick inte att läsa lagret, så recepten är inte rangordnade." överst. Den visas bara i filtret "Kan lagas nu", i en `role="status"`-yta som finns kvar så länge filtret är valt, så att texten läses upp när den kommer. Listans skärmläsarnamn är då "Recept", så att det inte påstår en rangordning som inte finns. Vid en sökning visas texten bara när varken listan eller sökningen kunde läsa lagret, eftersom raderna tar status från listan när den har receptet.
+  - Rader som saknar status fast lagret gick att läsa (till exempel ett nytt recept som bara finns i sökningens svar) hamnar sist, utan texten, och listan räknas som rangordnad.
+  - Valet sparas som `"cookable"` under samma nyckel, `matkoll.recept.filter`. Ett gammalt eller okänt värde blir Alla.
+- **Varför:** AC säger att recepten sorteras "med 'Kan lagas nu' överst" och att listan visas i rangordning även när inget kan lagas. I Flöde 5 finns det recept, men inget lockar, så knappen behövs också när något kan lagas nu. DESIGN.md tillåter högst en primärknapp per vy.
+- **Alternativ:**
+  - Bara recept med N = 0, med de övriga under en egen rubrik.
+  - Favoriter först, eller färst rader först, inom samma N.
+  - Rangordningen i `suggestions/domain/rank.ts`, importerad via `suggestions/index.ts` enligt Capability Map.
+  - Visa knappen redan i 5.1 utan funktion (det första förslaget).
+  - Gissa att lagret inte gick att läsa när alla synliga rader saknar status (det första förslaget).
+  - Samma text som annars när lagret inte går att läsa ("Det gick inte att läsa lagret. Försök igen.") med "Försök igen" som laddar om sidan.
+
 ## 2026-10-26 – Stegläge med tänd skärm (Story 4.2)
 
 - **Beslut:**

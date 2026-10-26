@@ -566,6 +566,7 @@ describe("the library: listRecipes, searchRecipesIn and setFavoriteIn", () => {
       totalMinutes: 35,
       originalServings: 4,
       isFavorite: true,
+      createdAt: expect.any(String),
       lines: expect.arrayContaining([
         {
           id: expect.any(String),
