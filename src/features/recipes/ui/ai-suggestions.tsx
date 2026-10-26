@@ -6,6 +6,7 @@ import { AiBadge } from "@/components/badges";
 import { Button, buttonClasses } from "@/components/button";
 import type { SearchIngredients } from "@/components/ingredient-picker";
 import { Notice } from "@/components/notice";
+import { nameInSentence, normalizeIngredientText } from "@/features/catalog";
 import { suggestErrorMessage, suggestRetryCodes } from "@/features/suggestions";
 import { recipeMetaText } from "../domain/recipe-list";
 import { AiSuggestionSheet } from "./ai-suggestion-sheet";
@@ -67,7 +68,7 @@ export function AiSuggestions({ dishes, searchIngredients, offerButton = true }:
     const action =
       error.code === "suggest_empty_pantry" ? (
         <Link href="/hemma" className={buttonClasses("text")}>
-          Öppna Hemma
+          Öppna Lagersaldo
         </Link>
       ) : suggestRetryCodes.has(error.code) ? (
         <Button variant="text" onClick={suggest}>
@@ -121,14 +122,25 @@ export function AiSuggestions({ dishes, searchIngredients, offerButton = true }:
   );
 }
 
-/** The names a card shows: the catalog's name for a linked line, otherwise the AI's, each once. */
+/**
+ * The names a card shows: the catalog's name for a linked line, otherwise the
+ * AI's, each once (compared normalised, so "Grädde" and "grädde" are one).
+ * They run on after "Med: ", so a catalog name, which starts with a capital
+ * (Story 10.4), starts in lower case; the AI's own text is shown as written.
+ */
 function cardNames({ draft, ingredientNames }: ShownSuggestion): string[] {
-  const names = draft.lines.map((line) => {
+  const seen = new Set<string>();
+  const names: string[] = [];
+  for (const line of draft.lines) {
     const { ingredient } = line;
     const linked = ingredient.kind === "match" || ingredient.kind === "chosen" ? ingredientNames[ingredient.ingredientId] : undefined;
-    return (linked ?? line.hint?.name ?? line.originalText).trim();
-  });
-  return [...new Set(names.filter(Boolean))].slice(0, maxCardNames);
+    const name = linked !== undefined ? nameInSentence(linked.trim()) : (line.hint?.name ?? line.originalText).trim();
+    const key = normalizeIngredientText(name) || name;
+    if (!name || seen.has(key)) continue;
+    seen.add(key);
+    names.push(name);
+  }
+  return names.slice(0, maxCardNames);
 }
 
 /**

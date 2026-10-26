@@ -2,6 +2,32 @@
 
 Beslut som fattats under bygget: vad, varför och vilka alternativ som fanns. Nyaste överst.
 
+## 2026-10-26 – Lagersaldo och stor bokstav (Story 10.4)
+
+- **Sidan Hemma heter Lagersaldo,** både i menyn (flikfältet och sidomenyn), i rubriken och i sidans titel. Beslutat av Pontus. Varför: det första stället heter också Hemma (Epic 8), och "Hemma" i menyn gick inte att skilja från stället. Adressen `/hemma` är kvar, så att bokmärken fungerar. Stället Hemma behåller sitt namn (`defaultSiteName`), och texter som "Lager: Hemma" och "… för Hemma." gäller stället. Felet `suggest_empty_pantry` säger nu "Lägg till varor i Lagersaldo" med länken "Öppna Lagersaldo". Kodens kommentarer och tidigare stories säger fortfarande Hemma om sidan.
+- **Menyvalet "Lista" heter "Inköpslista",** i sidomenyn och i flikfältet. Beslutat av Pontus. Adressen `/lista` är kvar, och rubriken och `<title>` sa redan "Inköpslista". I flikfältet är en flik ungefär 47 px bred vid 375 px med 200 % zoom, och där fick varken "Inköpslista", "Lagersaldo" eller det befintliga "Matsedel" plats på en rad. En lång etikett bryts därför mellan sina orddelar med `<wbr>` (Mat/sedel, Inköps/lista, Lager/saldo), aldrig mitt i en del, och två rader ryms i flikfältet. Vid vanlig storlek står alla på en rad. Flikfältet har en minsta höjd i stället för en fast, så att det växer hellre än låter en etikett gå in i säkerhetsområdet. Alternativ: kortare ord eller mindre text, som Pontus inte bad om och som är svårare att läsa.
+- **Katalogens namn börjar med stor bokstav,** för nya och befintliga varor. Beslutat av Pontus. `normalized_name`, matchningen och sökningen är oförändrade.
+  - **Regeln** (efter granskningen) är densamma i TS och SQL:
+    - Den första bokstaven blir stor, efter citattecken, parenteser och emoji: "bregott" blir "Bregott" och "(eko) mjölk" blir "(Eko) mjölk". Ett namn som börjar med en siffra ("7up") står kvar.
+    - Ett första ord med blandade versaler ("iPhone-laddare", "pH-neutral") står kvar.
+    - Bara den bokstaven ändras, och namnet normaliseras inte.
+    - En bokstav som saknar en enkel stor bokstav ("ß"), eller vars stora bokstav skulle ändra det normaliserade namnet ("ı", "ſ"), står kvar.
+  - **Var regeln finns:**
+    - `catalogName` i `catalog/domain/name.ts` (`toLocaleUpperCase("sv-SE")`) används av `commitIngredients` och av förslagen, så att "Sparas som: …" och "Lägg till … som ny" visar namnet som det sparas.
+    - I databasen är regeln funktionen `catalog_display_name`. En trigger på `ingredient` använder den vid varje insättning och namnändring, också för `commit_ingredients` direkt, äldre klienter och testdata.
+    - Samma fall testas mot båda. Varför: databasen ska hålla regeln också när koden går förbi domänen.
+  - **Befintliga namn:**
+    - Migrationen `catalog_name_capital` gav dem stor första bokstav. `catalog_name_rule` lägger på den förfinade regeln och ändrar bara rader vars resultat skiljer sig.
+    - Båda anger kollationen `pg_c_utf8`, som följer Unicode oberoende av databasens kollation. Lokalt är databasens kollation ICU `en-US`, och med `C` hade å, ä och ö inte ändrats.
+    - `pg_c_utf8` finns från PostgreSQL 17. Därför stoppar båda migrationerna under version 17, och molnprojektet måste ha Postgres 17 eller senare (`docs/drift.md`).
+  - **Namn inne i en mening:**
+    - Ett katalognamn börjar med liten bokstav: "Med: gul lök, grädde", "Produktval för grädde", det andra namnet i "Mjölk och smör är borttagna.".
+    - Ett ord med blandade versaler, en förkortning ("ICA:s", "BBQ-sås") eller en bokstav före bindestreck ("D-vitamin", "A-fil") står kvar.
+    - Egna varor och recepttext står alltid som de skrevs. En mening som börjar med ett namn får stor bokstav: "Diskmedel är borttagen.".
+    - Knappar och etiketter som nämner en vara behåller katalogens skrivning ("Lägg till Palsternacka som ny", "Bekräfta Senap"), eftersom namnet där är varans namn och inte en del av en mening.
+    - Exporten (`varukorgsexport v1`) hade redan stor bokstav, så formatet är oförändrat.
+  - **Alternativ:** att bara göra det i domänen. Då skulle namn som skrivs förbi `commitIngredients` få liten bokstav.
+
 ## 2026-10-26 – Spara senaste fotot per plats (Story 10.1)
 
 - **Fotot sparas efter den första lyckade skrivningen från dess förslag,** i bakgrunden: Bekräfta, arkets "Bekräfta" efter Rätta, "Bekräfta alla" eller "Ta bort" i inventeringen. Alla skrivningar går genom samma hjälpfunktion i klienten, som tar fotots sparande innan anropet och sparar när svaret är lyckat. Ett foto vars förslag bara avvisas eller behålls, eller som inte gav några kort, sparas aldrig. En misslyckad skrivning sparar inget, och nästa lyckade gör det. Fotot sparas en gång per svar, också om fler skrivningar lyckas, och ett misslyckat sparande försöks inte igen. Varför: det är det som lagret bygger på som ska gå att kontrollera (AD-26).

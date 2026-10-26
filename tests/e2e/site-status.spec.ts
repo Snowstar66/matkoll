@@ -182,7 +182,7 @@ const dish = (page: Page) => page.getByTestId("plan-dish").filter({ visible: tru
 const ketchupCheck = (page: Page) => page.getByRole("checkbox", { name: /^Ketchup/ }).filter({ visible: true });
 const putButton = (page: Page) => page.getByRole("button", { name: "Lägg i lagret", exact: true }).filter({ visible: true });
 const toast = (page: Page) => page.getByTestId("toast");
-const tab = (page: Page, name: "Recept" | "Matsedel" | "Lista" | "Hemma") =>
+const tab = (page: Page, name: "Recept" | "Matsedel" | "Inköpslista" | "Lagersaldo") =>
   page.getByRole("navigation", { name: "Huvudmeny" }).getByRole("link", { name });
 const placePill = (page: Page, name: "Hemma" | "Stugan") =>
   page.getByRole("radiogroup", { name: "Ställe" }).filter({ visible: true }).getByRole("radio", { name, exact: true });
@@ -238,7 +238,7 @@ test("with Stugan selected, the recipe view, the library with Kan lagas nu and t
   expect(errors).toEqual([]);
 });
 
-test("a switch with the picker in Hemma reaches the recipe view, Kan lagas nu and Matsedel without a reload", async ({
+test("a switch with the picker in Lagersaldo reaches the recipe view, Kan lagas nu and Matsedel without a reload", async ({
   page,
 }) => {
   const errors = watchErrors(page);
@@ -258,9 +258,9 @@ test("a switch with the picker in Hemma reaches the recipe view, Kan lagas nu an
   await expect(siteLine(page)).toHaveText("Lager: Stugan");
   await expect(dish(page).getByText("Saknar 1 vara", { exact: true })).toBeVisible();
 
-  // Hemma with the real picker (Story 8.2).
-  await tab(page, "Hemma").click();
-  await expect(page.getByRole("heading", { level: 1, name: "Hemma" })).toBeVisible();
+  // Lagersaldo with the real picker (Story 8.2).
+  await tab(page, "Lagersaldo").click();
+  await expect(page.getByRole("heading", { level: 1, name: "Lagersaldo" })).toBeVisible();
   await expect(page.getByRole("button", { name: "Ställen", exact: true }).filter({ visible: true })).toBeEnabled();
   await placePill(page, "Hemma").click();
   await expect(page.getByTestId("site-announcement").filter({ visible: true })).toHaveText("Valt ställe: Hemma.");

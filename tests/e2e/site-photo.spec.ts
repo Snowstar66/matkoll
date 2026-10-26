@@ -1,4 +1,5 @@
 import { expect, type Page, test } from "@playwright/test";
+import { normalizeIngredientText } from "@/features/catalog";
 import { adminClient, cardTitles, e2eUserId, sitePhotoEmail, sitePhotoStorageState } from "./support";
 
 // Story 8.4: a photo, its inventory and "Töm kylen" stay with the place they
@@ -7,7 +8,7 @@ import { adminClient, cardTitles, e2eUserId, sitePhotoEmail, sitePhotoStorageSta
 // user of its own (sitePhotoEmail). Before each test the service role
 // removes the user's pantry, removal records and places, and adds Hemma
 // (selected) and Stugan in one statement, the catalog ingredients of the
-// photo plus "yoghurt" and "senap" (so the comparison is complete), and:
+// photo plus "Yoghurt" and "Senap" (so the comparison is complete), and:
 // - Hemma's fridge: mjölk 1 l and yoghurt 2 förp, and Hemma's freezer: ärtor;
 // - Stugan's fridge: mjölk 2 förp and senap (unlimited); Stugan's freezer is empty.
 // The tests run in order, since they share the user.
@@ -52,19 +53,19 @@ test.beforeEach(async () => {
     .from("ingredient")
     .upsert(
       [
-        ["mjölk", "Mejeri", "Kyl", "förp"],
-        ["smör", "Mejeri", "Kyl", "förp"],
-        ["ägg", "Mejeri", "Kyl", "st"],
-        ["yoghurt", "Mejeri", "Kyl", "förp"],
-        ["senap", "Skafferi", "Kyl", "förp"],
-        ["grädde", "Mejeri", "Kyl", "förp"],
-        ["gurka", "Frukt och grönt", "Kyl", "st"],
-        ["ketchup", "Skafferi", "Skafferi", "förp"],
-        ["ärtor", "Frys", "Frys", "förp"],
+        ["Mjölk", "Mejeri", "Kyl", "förp"],
+        ["Smör", "Mejeri", "Kyl", "förp"],
+        ["Ägg", "Mejeri", "Kyl", "st"],
+        ["Yoghurt", "Mejeri", "Kyl", "förp"],
+        ["Senap", "Skafferi", "Kyl", "förp"],
+        ["Grädde", "Mejeri", "Kyl", "förp"],
+        ["Gurka", "Frukt och grönt", "Kyl", "st"],
+        ["Ketchup", "Skafferi", "Skafferi", "förp"],
+        ["Ärtor", "Frys", "Frys", "förp"],
       ].map(([name, section, location, unit]) => ({
         user_id: userId,
         name,
-        normalized_name: name,
+        normalized_name: name.toLocaleLowerCase("sv-SE"),
         section,
         location,
         default_unit: unit,
@@ -73,13 +74,15 @@ test.beforeEach(async () => {
     )
     .select("id, name");
   if (catalog.error) throw catalog.error;
-  const id = (name: string) => catalog.data.find((row) => row.name === name)!.id;
+  // Story 10.4: the catalog stores the name with a capital, so it is found normalised.
+  const id = (name: string) =>
+    catalog.data.find((row) => normalizeIngredientText(row.name) === normalizeIngredientText(name))!.id;
   const inserted = await admin.from("pantry_item").insert([
-    { user_id: userId, site_id: sites.Hemma, ingredient_id: id("mjölk"), location: "Kyl", amount: 1, unit: "l" },
-    { user_id: userId, site_id: sites.Hemma, ingredient_id: id("yoghurt"), location: "Kyl", amount: 2, unit: "förp" },
-    { user_id: userId, site_id: sites.Hemma, ingredient_id: id("ärtor"), location: "Frys", amount: 1, unit: "förp" },
-    { user_id: userId, site_id: sites.Stugan, ingredient_id: id("mjölk"), location: "Kyl", amount: 2, unit: "förp" },
-    { user_id: userId, site_id: sites.Stugan, ingredient_id: id("senap"), location: "Kyl", amount: null, unit: null },
+    { user_id: userId, site_id: sites.Hemma, ingredient_id: id("Mjölk"), location: "Kyl", amount: 1, unit: "l" },
+    { user_id: userId, site_id: sites.Hemma, ingredient_id: id("Yoghurt"), location: "Kyl", amount: 2, unit: "förp" },
+    { user_id: userId, site_id: sites.Hemma, ingredient_id: id("Ärtor"), location: "Frys", amount: 1, unit: "förp" },
+    { user_id: userId, site_id: sites.Stugan, ingredient_id: id("Mjölk"), location: "Kyl", amount: 2, unit: "förp" },
+    { user_id: userId, site_id: sites.Stugan, ingredient_id: id("Senap"), location: "Kyl", amount: null, unit: null },
   ]);
   if (inserted.error) throw inserted.error;
 });
@@ -191,8 +194,8 @@ test("a photo of Stugan's fridge is compared with Stugan's fridge, and the reque
   expect(await analyzeSites(page)).toEqual([sites.Stugan]);
   await expect(group(page, "Ändrat")).toHaveText(cardTitles(["Mellanmjölk 1,5 %"]));
   await expect(section(page).getByText("nu: 2 förp → bilden: 1 förp")).toBeVisible();
-  await expect(group(page, "Syns inte längre")).toHaveText(["senap"]);
-  await expect(section(page).getByText("yoghurt")).toHaveCount(0);
+  await expect(group(page, "Syns inte längre")).toHaveText(["Senap"]);
+  await expect(section(page).getByText("Yoghurt")).toHaveCount(0);
   // Hemma shows the photo's place: no line about another.
   await expect(placeLine(page)).toHaveCount(0);
   expect(await pantry()).toEqual(before);
@@ -212,10 +215,10 @@ test("Bekräfta alla changes only Stugan's rows, and Hemma's keep their ids, amo
   const after = await pantry();
   expect(on(after, "Hemma")).toEqual(on(before, "Hemma"));
   const stugan = on(after, "Stugan").filter((row) => row.location === "Kyl");
-  expect(stugan.find((row) => row.name === "mjölk")).toMatchObject({ amount: 1, unit: "förp" });
+  expect(stugan.find((row) => row.name === "Mjölk")).toMatchObject({ amount: 1, unit: "förp" });
   // mjölk is changed in its own row, and senap is gone.
-  expect(stugan.find((row) => row.name === "mjölk")!.id).toBe(before.find((row) => row.site === "Stugan" && row.name === "mjölk")!.id);
-  expect(stugan.find((row) => row.name === "senap")).toBeUndefined();
+  expect(stugan.find((row) => row.name === "Mjölk")!.id).toBe(before.find((row) => row.site === "Stugan" && row.name === "Mjölk")!.id);
+  expect(stugan.find((row) => row.name === "Senap")).toBeUndefined();
   expect(errors).toEqual([]);
 });
 
@@ -230,15 +233,15 @@ test("selecting Hemma while Stugan's suggestions show says so, and Bekräfta sti
   await choose(page, "Hemma");
   await expect(placeLine(page)).toHaveText("Förslagen gäller Stugan.");
   await expect(group(page, "Ändrat")).toHaveText(cardTitles(["Mellanmjölk 1,5 %"]));
-  await section(page).getByRole("button", { name: "Bekräfta mjölk" }).click();
-  await expect(toast(page)).toContainText("mjölk är sparad i kylen.");
+  await section(page).getByRole("button", { name: "Bekräfta Mjölk" }).click();
+  await expect(toast(page)).toContainText("Mjölk är sparad i kylen.");
   await expect(group(page, "Ändrat")).toHaveCount(0);
 
   const after = await pantry();
   expect(on(after, "Hemma")).toEqual(on(before, "Hemma"));
-  expect(on(after, "Stugan").find((row) => row.name === "mjölk")).toMatchObject({ amount: 1, unit: "förp" });
+  expect(on(after, "Stugan").find((row) => row.name === "Mjölk")).toMatchObject({ amount: 1, unit: "förp" });
   // Hemma's list is Hemma's: 1 l, never Stugan's 1 förp.
-  await expect(rows(page).filter({ hasText: "mjölk" })).toHaveText([/^mjölk\s*1 l$/]);
+  await expect(rows(page).filter({ hasText: "Mjölk" })).toHaveText([/^Mjölk\s*1 l$/]);
   expect(errors).toEqual([]);
 });
 
@@ -263,7 +266,7 @@ test("Töm kylen on Stugan asks with its name, empties only Stugan, and Ångra a
   await expect.poll(async () => on(await pantry(), "Stugan")).toEqual(on(before, "Stugan"));
   expect(on(await pantry(), "Hemma")).toEqual(on(before, "Hemma"));
   // Hemma's list never shows Stugan's rows.
-  await expect(rows(page)).toHaveText([/^mjölk\s*1 l$/, /^yoghurt\s*2 förp$/]);
+  await expect(rows(page)).toHaveText([/^Mjölk\s*1 l$/, /^Yoghurt\s*2 förp$/]);
   expect(errors).toEqual([]);
 });
 
@@ -284,7 +287,7 @@ test("an empty freezer on Stugan gives the plain list, although Hemma's freezer 
     await expect(section(page).getByRole("heading", { level: 3, name: title, exact: true })).toHaveCount(0);
   }
   await expect(section(page).getByTestId("pantry-missing")).toHaveCount(0);
-  await expect(section(page).getByText("ärtor")).toHaveCount(0);
+  await expect(section(page).getByText("Ärtor")).toHaveCount(0);
 
   await section(page).getByRole("button", { name: "Bekräfta alla" }).click();
   await expect(section(page)).toHaveCount(0);

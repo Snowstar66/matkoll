@@ -135,6 +135,11 @@ describe("proposalFrom", () => {
     });
   });
 
+  it("starts the name with a capital, from the hint or the text (Story 10.4)", () => {
+    expect(proposalFrom({ text: "x", hint: hint("mellanmjölk", "mejeri", "kyl", "l") })?.name).toBe("Mellanmjölk");
+    expect(proposalFrom({ text: "2 st ägg" })?.name).toBe("Ägg");
+  });
+
   it("puts dairy in the fridge when the hint has no location", () => {
     expect(proposalFrom({ text: "x", hint: hint("Grädde", "mejeri", "?", "dl") })?.location).toBe("Kyl");
   });

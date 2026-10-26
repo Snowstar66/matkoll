@@ -56,7 +56,11 @@ describe("list texts", () => {
   it("names the items Ångra could not put back", () => {
     expect(restoreFailedText([])).toBe("Det gick inte att ångra.");
     expect(restoreFailedText(["diskmedel"])).toBe("Det gick inte att ångra diskmedel.");
-    expect(restoreFailedText(["diskmedel", "Kaffe"])).toBe("Det gick inte att ångra diskmedel och Kaffe.");
+    expect(restoreFailedText(["Mjölk", "Kaffe"])).toBe("Det gick inte att ångra mjölk och kaffe.");
+    // Story 10.4: the user's own items are shown as written.
+    expect(restoreFailedText([{ text: "diskmedel", own: true }, { text: "Kaffe Zoégas", own: true }])).toBe(
+      "Det gick inte att ångra diskmedel och Kaffe Zoégas.",
+    );
     expect(restoreFailedText(["a", "b", "c"])).toBe("Det gick inte att ångra 3 varor.");
   });
 

@@ -16,7 +16,7 @@ export const errorMessages = {
   ai_superseded: "En nyare bild analyseras.",
   import_no_recipe: "Det gick inte att hitta något recept i texten.",
   // AI-förslag (Story 5.2) with nothing at home: the AI is not asked.
-  suggest_empty_pantry: "Lagret är tomt. Lägg till varor i Hemma, så kan AI:n föreslå rätter.",
+  suggest_empty_pantry: "Lagret är tomt. Lägg till varor i Lagersaldo, så kan AI:n föreslå rätter.",
   catalog_unavailable: "Det gick inte att läsa ingredienskatalogen. Försök igen.",
   recipe_save_failed: "Det gick inte att spara receptet. Försök igen.",
   recipe_delete_failed: "Det gick inte att ta bort receptet. Försök igen.",

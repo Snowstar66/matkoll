@@ -133,7 +133,7 @@ test("pasted text becomes a preview that can be edited, and closing asks before 
   // "1 bit" is not a catalog unit: a vague line, shown as its original text without amount.
   const ginger = line(page, "1 bit färsk ingefära, ca 3 cm");
   await expect(ginger.getByText("1 bit färsk ingefära, ca 3 cm")).toBeVisible();
-  await expect(ginger).toHaveText(/^ingefära/);
+  await expect(ginger).toHaveText(/^Ingefära/);
 
   // Edit title, servings, time, amount and unit.
   await sheet(page).getByLabel("Titel").fill("Linssoppa");
@@ -166,11 +166,11 @@ test("pasted text becomes a preview that can be edited, and closing asks before 
   await expect(onion.getByText("Kontrollera")).toHaveCount(0);
 
   // No hit: a new ingredient with the typed name.
-  await carrots.getByRole("button", { name: /^morot/ }).click();
+  await carrots.getByRole("button", { name: /^Morot/ }).click();
   await sheet(page).getByLabel("Sök ingrediens").fill("palsternacka");
   await expect(sheet(page).getByText("Ingen ingrediens hittades.")).toBeVisible();
-  await sheet(page).getByRole("button", { name: "Lägg till palsternacka som ny" }).click();
-  await expect(carrots.getByRole("button", { name: /^palsternacka/ })).toBeVisible();
+  await sheet(page).getByRole("button", { name: "Lägg till Palsternacka som ny" }).click();
+  await expect(carrots.getByRole("button", { name: /^Palsternacka/ })).toBeVisible();
   await expect(carrots.getByText("Ny", { exact: true })).toBeVisible();
 
   // Esc asks first; "Fortsätt ändra" keeps the changes.

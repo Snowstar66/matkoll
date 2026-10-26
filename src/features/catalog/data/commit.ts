@@ -1,6 +1,7 @@
 import "server-only";
 import { z } from "zod";
 import { ingredientChoiceSchema, type IngredientChoice } from "../domain/match";
+import { catalogName } from "../domain/name";
 import { normalizeIngredientText } from "../domain/normalize";
 import { CatalogDataError, type CatalogDb } from "./client";
 import { existingIngredientIds, loadCatalogSnapshot } from "./queries";
@@ -56,7 +57,8 @@ export async function commitIngredients(
     nameOf.set(index, normalized);
     if (!newIngredients.has(normalized)) {
       newIngredients.set(normalized, {
-        name: ingredient.proposal.name.trim(),
+        // Story 10.4: stored with an uppercase first letter, whatever the source.
+        name: catalogName(ingredient.proposal.name),
         normalized_name: normalized,
         section: ingredient.proposal.section,
         location: ingredient.proposal.location,

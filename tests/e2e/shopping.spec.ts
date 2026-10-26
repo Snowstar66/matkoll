@@ -151,7 +151,7 @@ const lineOf = (page: Page, label: string) => lines(page).filter({ has: page.get
 const summary = (page: Page) => page.getByTestId("list-summary").filter({ visible: true });
 const sectionHeadings = (page: Page) => page.getByRole("heading", { level: 2 }).filter({ visible: true });
 const check = (page: Page, name: string) => page.getByRole("checkbox", { name, exact: true }).filter({ visible: true });
-const tab = (page: Page, name: "Matsedel" | "Lista") =>
+const tab = (page: Page, name: "Matsedel" | "Inköpslista") =>
   page.getByRole("navigation", { name: "Huvudmeny" }).getByRole("link", { name });
 
 /** Waits until `count` Server Action calls started after this point have answered. */
@@ -266,7 +266,7 @@ test("more servings on Matsedel count the list again", async ({ page }) => {
     await expect(dish.getByText(`${servings} portioner`)).toBeVisible();
   }
 
-  await tab(page, "Lista").click();
+  await tab(page, "Inköpslista").click();
   await expect(page).toHaveURL(/\/lista$/);
   // 2 dl for 4 is 3 dl for 6, and 1 dl from Paj: the same line, still checked.
   await expect(lineOf(page, "Grädde")).toContainText("4 dl");
@@ -463,7 +463,7 @@ test("an own item is checked off, removed by swipe and put back with Ångra, wit
   await expect(row.getByTestId("swipe-row-front")).toHaveCSS("transform", "matrix(1, 0, 0, 1, -96, 0)");
   await actionsAnswered(page, 1, () => page.getByRole("button", { name: "Ta bort diskmedel" }).click());
   await expect(region(page, "Övrigt")).toHaveCount(0);
-  await expect(toast(page)).toContainText("diskmedel är borttagen.");
+  await expect(toast(page)).toContainText("Diskmedel är borttagen.");
   await expect.poll(async () => (await storedCustomItems()).map((item) => item.label)).toEqual(["Kaffe"]);
 
   await actionsAnswered(page, 1, () => toast(page).getByRole("button", { name: "Ångra" }).click());
@@ -491,7 +491,7 @@ test("own items stay as they are when the servings change", async ({ page }) => 
   await actionsAnswered(page, 1, () => dish.getByRole("button", { name: `Fler portioner, ${gryta}` }).click());
   await expect(dish.getByText("7 portioner")).toBeVisible();
 
-  await tab(page, "Lista").click();
+  await tab(page, "Inköpslista").click();
   await expect(page).toHaveURL(/\/lista$/);
   // 3,5 dl grädde for 7, and 1 dl from Paj, against 4 dl at home: the recipes need more now.
   await expect(region(page, "Mejeri").getByTestId("shopping-line")).toContainText(["Grädde"]);
@@ -599,7 +599,7 @@ test("a corrected amount is saved, stays when the servings change, and goes back
     await actionsAnswered(page, 1, () => dish.getByRole("button", { name: `Fler portioner, ${gryta}` }).click());
     await expect(dish.getByText(`${servings} portioner`)).toBeVisible();
   }
-  await tab(page, "Lista").click();
+  await tab(page, "Inköpslista").click();
   await expect(page).toHaveURL(/\/lista$/);
   // 3 dl + 1 dl counted now; the correction stays on the same key, and the row says the count has changed.
   await expect(lineOf(page, "Grädde")).toContainText("2 dl (beräknat 4 dl)");

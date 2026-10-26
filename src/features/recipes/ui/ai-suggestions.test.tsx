@@ -162,7 +162,7 @@ describe("AiSuggestions", () => {
     expect(first.getByText("35 min · 4 portioner")).toBeInTheDocument();
     expect(first.getByText("AI-förslag")).toBeInTheDocument();
     // The catalog's name for a linked line, the AI's otherwise; at most five, each once.
-    expect(first.getByText("Med: Gul lök, kycklingfilé, Grädde, krossade tomater, ris")).toBeInTheDocument();
+    expect(first.getByText("Med: gul lök, kycklingfilé, grädde, krossade tomater, ris")).toBeInTheDocument();
     expect(first.getByRole("button", { name: "Spara Kycklinggryta" })).toHaveTextContent("Spara");
     expect(within(cards()[2]).getByText("4 portioner")).toBeInTheDocument();
     // No status before saving, and no link: a suggestion has no recipe view.
@@ -261,14 +261,14 @@ describe("AiSuggestions", () => {
     expect(screen.getByRole("button", { name: "Försök igen" })).toBeInTheDocument();
   });
 
-  it("says the pantry is empty with Öppna Hemma and no Försök igen", async () => {
+  it("says the pantry is empty with Öppna Lagersaldo and no Försök igen", async () => {
     const user = userEvent.setup();
     renderSuggestions();
     await suggestWith(user, fail("suggest_empty_pantry"));
     expect(screen.getByRole("alert")).toHaveTextContent(
-      "Lagret är tomt. Lägg till varor i Hemma, så kan AI:n föreslå rätter.",
+      "Lagret är tomt. Lägg till varor i Lagersaldo, så kan AI:n föreslå rätter.",
     );
-    expect(screen.getByRole("link", { name: "Öppna Hemma" })).toHaveAttribute("href", "/hemma");
+    expect(screen.getByRole("link", { name: "Öppna Lagersaldo" })).toHaveAttribute("href", "/hemma");
     expect(screen.queryByRole("button", { name: "Försök igen" })).not.toBeInTheDocument();
   });
 
