@@ -34,6 +34,7 @@ describe("ShoppingListContent", () => {
       ok({
         plan: { id: "plan", name: "Vecka 44", dishCount: 1, skippedCount: 0, dishTitles: {} },
         lines: [],
+        hiddenLines: [],
         pantryUnavailable: false,
         checksUnavailable: false,
       }),

@@ -24,11 +24,15 @@ import {
   originsText,
   pantryUnreadText,
   checksUnreadText,
+  hiddenLinesButtonText,
   recountedText,
   skippedDishesText,
 } from "../domain/list-text";
-import { useCustomItemRemoval } from "./custom-item-removal";
 import { CustomItemSheet } from "./custom-item-sheet";
+import { HiddenLinesSheet } from "./hidden-lines-sheet";
+import { LineDetailSheet } from "./line-detail-sheet";
+import { useLineRemoval } from "./line-removal";
+import { useOwnChanges } from "./own-changes";
 
 // Inköpslista (FR-15, UX-DR9): the current plan's name, number of dishes and
 // items left under the title, then the lines per store section in the fixed
@@ -37,8 +41,11 @@ import { CustomItemSheet } from "./custom-item-sheet";
 // server every time it is read; when it changes while it is open, a live
 // region says so. A check shows at once and is saved with setChecked (FR-16);
 // a checked line stays in its place, struck through. "Lägg till egen vara"
-// under the list adds Pontus's own item (FR-17); a swipe to the left removes
-// one, with "Ångra" in the short confirmation.
+// under the list adds Pontus's own item (FR-17). A tap on a line's name opens
+// Listpostdetalj (Story 3.6), where Pontus corrects a recipe line's amount or
+// changes an own item; a swipe to the left removes a line (an own item) or
+// hides it (a recipe line), with "Ångra" in the short confirmation. "Dolda
+// varor (N)" under the list shows the hidden lines, with "Visa igen".
 
 export type ShoppingListProps = {
   /**
@@ -56,6 +63,8 @@ export type ShoppingListProps = {
   } | null;
   /** computeList's lines, sorted by section and name. */
   lines: readonly ShoppingLine[];
+  /** The lines Pontus has hidden, as counted without being hidden (Dolda varor, Story 3.6). */
+  hiddenLines?: readonly ShoppingLine[];
   /** The pantry could not be read, so nothing is taken off. */
   pantryUnavailable: boolean;
   /** The checks could not be read: no line is shown checked, and checking is off. */
@@ -73,16 +82,19 @@ export const announcementMs = 5000;
 
 /**
  * Everything a line shows, so any visible change counts as a recount; except
- * its check, which Pontus sets and the check itself reads out, and his own
- * items, which he adds and removes himself (the removal has its own
- * confirmation).
+ * what Pontus does: its check, which the check itself reads out, their
+ * own items, which they add, change and remove, and the lines they are
+ * removing, putting back, correcting or showing again (`touched`, by
+ * `${planId} ${key}`, until the server's list shows the change).
  */
-function signatureOf(lines: readonly ShoppingLine[]): string {
+function signatureOf(lines: readonly ShoppingLine[], planId: string | null, touched: ReadonlySet<string>): string {
   return JSON.stringify(
-    lines.filter((line) => !line.isCustom).map((line) => [
+    lines.filter((line) => !line.isCustom && !touched.has(`${planId} ${line.key}`)).map((line) => [
       line.key,
       line.label,
       line.amount,
+      line.computedAmount ?? null,
+      line.computedChanged ?? false,
       line.unit,
       line.pantryNote ?? null,
       line.isVague,
@@ -99,16 +111,23 @@ function signatureOf(lines: readonly ShoppingLine[]): string {
  * or when Pontus comes back to the tab, since Next keeps the page mounted but
  * hidden) is never announced.
  */
-function useRecountAnnouncement(lines: readonly ShoppingLine[]): { text: string; count: number } {
-  const signature = signatureOf(lines);
-  const latest = useRef(signature);
-  /** The lines last shown; `null` while the page is hidden. */
-  const shown = useRef<string | null>(null);
+function useRecountAnnouncement(
+  lines: readonly ShoppingLine[],
+  planId: string | null,
+  touched: ReadonlySet<string>,
+): { text: string; count: number } {
+  const latest = useRef({ lines, touched });
+  /**
+   * The lines last shown and the lines touched then; `null` while the page
+   * is hidden. A line touched then or now is left out of both sides, so a
+   * line that stops being touched is never announced.
+   */
+  const shown = useRef<{ lines: readonly ShoppingLine[]; touched: ReadonlySet<string> } | null>(null);
   const [announcement, setAnnouncement] = useState({ text: "", count: 0 });
   const left = itemsLeft(lines);
 
   useEffect(() => {
-    latest.current = signature;
+    latest.current = { lines, touched };
   });
 
   // Runs when the list is shown, and its cleanup when it is hidden.
@@ -121,12 +140,15 @@ function useRecountAnnouncement(lines: readonly ShoppingLine[]): { text: string;
   }, []);
 
   useEffect(() => {
-    if (shown.current !== null && shown.current !== signature) {
+    const before = shown.current;
+    if (before === null) return;
+    const either = new Set([...before.touched, ...touched]);
+    if (signatureOf(before.lines, planId, either) !== signatureOf(lines, planId, either)) {
       // A new count each time, so the same text is announced again.
-      setAnnouncement((before) => ({ text: recountedText(left), count: before.count + 1 }));
+      setAnnouncement((previous) => ({ text: recountedText(left), count: previous.count + 1 }));
     }
-    if (shown.current !== null) shown.current = signature;
-  }, [signature, left]);
+    shown.current = { lines, touched };
+  }, [lines, left, planId, touched]);
 
   useEffect(() => {
     if (!announcement.text) return;
@@ -279,14 +301,16 @@ function useChecks(planId: string | null, lines: readonly ShoppingLine[]) {
   return { checks, toggle, notice };
 }
 
+/** No hidden lines: for a list rendered without them. */
+const noLines: readonly ShoppingLine[] = [];
+
 /** No suggestions: for a list rendered without the catalog's search. */
 const noSuggestions: SearchIngredients = async () => ok([]);
 
 /**
- * Focus after an own item was removed with the keyboard: the next line's
- * check, else the one before; when that check is disabled (the checks could
- * not be read), the line's "Ta bort", if it is an own item; else "Lägg till
- * egen vara".
+ * Focus after a line was removed with the keyboard or from its detail: the
+ * next line's check, else the one before; when that check is disabled (the
+ * checks could not be read), the line's "Ta bort"; else "Lägg till egen vara".
  */
 function useFocusAfterRemoval(
   rootRef: RefObject<HTMLDivElement | null>,
@@ -306,10 +330,10 @@ function useFocusAfterRemoval(
             (element) => element.dataset.lineKey === target,
           )
         : undefined;
-      // The row's check; when checking is off, the row's "Ta bort"; else "Lägg till egen vara".
+      // The row's check; when checking is off, the row's "Ta bort" (its last button); else "Lägg till egen vara".
       const element =
         row?.querySelector<HTMLElement>("[role=checkbox]:not([disabled])") ??
-        row?.querySelector<HTMLElement>("button:not([role=checkbox]):not([disabled])") ??
+        [...(row?.querySelectorAll<HTMLElement>("button:not([role=checkbox]):not([disabled])") ?? [])].at(-1) ??
         rootRef.current?.querySelector<HTMLElement>("[data-add-custom-item]");
       element?.focus();
       focusAfterRef.current = null;
@@ -321,13 +345,14 @@ function useFocusAfterRemoval(
 export function ShoppingList({
   plan,
   lines: savedLines,
+  hiddenLines = noLines,
   pantryUnavailable,
   checksUnavailable = false,
   searchIngredients = noSuggestions,
 }: ShoppingListProps) {
   const planId = plan?.id ?? null;
   const { checks, toggle, notice } = useChecks(planId, savedLines);
-  const removal = useCustomItemRemoval(planId, savedLines);
+  const removal = useLineRemoval(planId, savedLines);
   const lines = useMemo(
     () =>
       removal.shown.map((line) => {
@@ -336,7 +361,11 @@ export function ShoppingList({
       }),
     [planId, removal.shown, checks],
   );
-  const announcement = useRecountAnnouncement(lines);
+  const own = useOwnChanges(savedLines);
+  // The sets are new each render; one set per content, so the announcement's effect runs only on a change.
+  const touchedIds = [...new Set([...removal.touched, ...own.touched])].sort().join("\n");
+  const touched = useMemo(() => new Set(touchedIds ? touchedIds.split("\n") : []), [touchedIds]);
+  const announcement = useRecountAnnouncement(lines, planId, touched);
   const hasDishes = plan !== null && plan.dishCount > 0;
   const hasLines = lines.length > 0;
   const rootRef = useRef<HTMLDivElement>(null);
@@ -346,6 +375,19 @@ export function ShoppingList({
     lines.map((line) => line.key),
   );
   const [sheet, setSheet] = useState({ open: false, session: 0 });
+  /** Listpostdetalj: the line as it was when its name was tapped, on the plan it was shown for. */
+  const [detail, setDetail] = useState<{ open: boolean; session: number; line: ShoppingLine; planId: string } | null>(null);
+  const openDetail = (line: ShoppingLine) => {
+    if (planId === null) return;
+    setDetail((current) => ({ open: true, session: (current?.session ?? 0) + 1, line, planId }));
+  };
+  // The line is gone from the list while its detail is open (counted again elsewhere): the detail closes.
+  if (detail?.open && !lines.some((line) => line.key === detail.line.key)) {
+    setDetail({ ...detail, open: false });
+  }
+  const [hiddenSheet, setHiddenSheet] = useState(false);
+  // Nothing hidden any more: the sheet closes.
+  if (hiddenSheet && hiddenLines.length === 0) setHiddenSheet(false);
 
   return (
     <div ref={rootRef} className="flex flex-col gap-6">
@@ -393,6 +435,7 @@ export function ShoppingList({
                 dishTitles={plan.dishTitles}
                 onCheckedChange={toggle}
                 onRemove={removal.remove}
+                onOpen={openDetail}
                 checkingOff={checksUnavailable}
               />
             ))
@@ -406,6 +449,18 @@ export function ShoppingList({
           >
             Lägg till egen vara
           </Button>
+          {hiddenLines.length > 0 ? (
+            <Button variant="text" fullWidth aria-haspopup="dialog" onClick={() => setHiddenSheet(true)}>
+              {hiddenLinesButtonText(hiddenLines.length)}
+            </Button>
+          ) : null}
+          <HiddenLinesSheet
+            open={hiddenSheet}
+            planId={plan.id}
+            lines={hiddenLines}
+            onShow={own.track}
+            onClose={() => setHiddenSheet(false)}
+          />
           <CustomItemSheet
             open={sheet.open}
             session={sheet.session}
@@ -413,6 +468,20 @@ export function ShoppingList({
             searchIngredients={searchIngredients}
             onClose={() => setSheet((current) => ({ ...current, open: false }))}
           />
+          {/* Mounted from the first tap on a name, and kept, so it can close with its animation. */}
+          {detail ? (
+            <LineDetailSheet
+              open={detail.open && detail.planId === plan.id}
+              session={detail.session}
+              planId={detail.planId}
+              line={detail.line}
+              dishTitles={plan.dishTitles}
+              searchIngredients={searchIngredients}
+              onRemove={removal.remove}
+              onChange={own.track}
+              onClose={() => setDetail((current) => (current ? { ...current, open: false } : current))}
+            />
+          ) : null}
         </>
       )}
     </div>
@@ -425,14 +494,17 @@ function ListSection({
   dishTitles,
   onCheckedChange,
   onRemove,
+  onOpen,
   checkingOff,
 }: {
   section: string;
   lines: readonly ShoppingLine[];
   dishTitles: Readonly<Record<string, string>>;
   onCheckedChange: (key: string, checked: boolean) => void;
-  /** Removes an own item; `moveFocus` when it came from the keyboard. */
+  /** Removes an own item or hides a recipe line; `moveFocus` when it came from the keyboard. */
   onRemove: (line: ShoppingLine, moveFocus: boolean) => void;
+  /** Opens the line's Listpostdetalj. */
+  onOpen: (line: ShoppingLine) => void;
   /** Checking is off: the saved checks could not be read. */
   checkingOff: boolean;
 }) {
@@ -449,7 +521,8 @@ function ListSection({
             line={line}
             dishTitles={dishTitles}
             onCheckedChange={(checked) => onCheckedChange(line.key, checked)}
-            onRemove={line.isCustom ? (moveFocus) => onRemove(line, moveFocus) : undefined}
+            onRemove={(moveFocus) => onRemove(line, moveFocus)}
+            onOpen={() => onOpen(line)}
             checkingOff={checkingOff}
           />
         ))}
@@ -462,23 +535,26 @@ function ListSection({
  * One listpost: the check (CheckCircle, 44 × 44 px) to the left, the name
  * with "från [rätt]" under it, and the amount to the right. Checked, the
  * check is filled with accent and the text is struck through in ink-3; the
- * line stays in its place. The check and the name are separate tap targets
- * (the name opens Listpostdetalj in a later story). With `onRemove` (an own
- * item), swiping the row to the left reveals "Ta bort" (SwipeRow), also
- * reached with Tab after the row.
+ * line stays in its place. The check and the name are separate tap targets:
+ * with `onOpen`, the name (with "från [rätt]") is a button that opens
+ * Listpostdetalj. With `onRemove`, swiping the row to the left reveals "Ta
+ * bort" (SwipeRow), also reached with Tab after the row.
  */
 export function ShoppingLineRow({
   line,
   dishTitles,
   onCheckedChange,
   onRemove,
+  onOpen,
   checkingOff = false,
 }: {
   line: ShoppingLine;
   dishTitles: Readonly<Record<string, string>>;
   onCheckedChange: (checked: boolean) => void;
-  /** Removes the line (an own item); `moveFocus` when it came from the keyboard. */
+  /** Removes or hides the line; `moveFocus` when it came from the keyboard. */
   onRemove?: (moveFocus: boolean) => void;
+  /** Opens the line's Listpostdetalj. */
+  onOpen?: () => void;
   /** Checking is off: the saved checks could not be read. */
   checkingOff?: boolean;
 }) {
@@ -486,7 +562,13 @@ export function ShoppingLineRow({
     // The divider is inset like the card's padding, and moves with the row.
     <div className="px-4">
       <div className="flex min-h-tap items-center gap-3 border-t border-hairline py-2 group-first:border-t-0">
-        <LineContent line={line} dishTitles={dishTitles} onCheckedChange={onCheckedChange} checkingOff={checkingOff} />
+        <LineContent
+          line={line}
+          dishTitles={dishTitles}
+          onCheckedChange={onCheckedChange}
+          onOpen={onOpen}
+          checkingOff={checkingOff}
+        />
       </div>
     </div>
   );
@@ -507,16 +589,24 @@ function LineContent({
   line,
   dishTitles,
   onCheckedChange,
+  onOpen,
   checkingOff,
 }: {
   line: ShoppingLine;
   dishTitles: Readonly<Record<string, string>>;
   onCheckedChange: (checked: boolean) => void;
+  onOpen?: () => void;
   checkingOff: boolean;
 }): ReactNode {
   const from = originsText(line.origins, dishTitles);
   const amount = lineAmountText(line);
   const { checked } = line;
+  const name = (
+    <>
+      <span className={cx("text-body", checked ? "text-ink-3 line-through" : "text-ink")}>{line.label}</span>
+      {from ? <span className={cx("text-meta", checked ? "text-ink-3" : "text-ink-2")}> {from}</span> : null}
+    </>
+  );
   return (
     <>
       {/* The visible circle lines up with the list's padding; the tap area reaches into it. */}
@@ -528,10 +618,19 @@ function LineContent({
         className="-ml-[9px]"
       />
       {/* The spaces keep the words apart for screen readers. */}
-      <span className="flex min-w-0 flex-1 flex-col">
-        <span className={cx("text-body", checked ? "text-ink-3 line-through" : "text-ink")}>{line.label}</span>
-        {from ? <span className={cx("text-meta", checked ? "text-ink-3" : "text-ink-2")}> {from}</span> : null}
-      </span>
+      {onOpen ? (
+        <button
+          type="button"
+          aria-haspopup="dialog"
+          data-testid="shopping-line-name"
+          onClick={onOpen}
+          className="flex min-h-tap min-w-0 flex-1 flex-col justify-center rounded-sm text-left"
+        >
+          {name}
+        </button>
+      ) : (
+        <span className="flex min-w-0 flex-1 flex-col">{name}</span>
+      )}
       {amount ? (
         <span className={cx("shrink-0 text-right text-body", checked ? "text-ink-3 line-through" : "text-ink-2")}>
           {" "}

@@ -5,6 +5,7 @@ import {
   computeList,
   countedDishIds,
   emptyOverlay,
+  hiddenLines,
   type ListDish,
   type ListRecipe,
   type ListRecipeLine,
@@ -427,6 +428,7 @@ describe("computeList with own items (Story 3.5)", () => {
       {
         key: `c:${diskmedel}`,
         label: "diskmedel",
+        customLabel: "diskmedel",
         amount: 2,
         unit: "förp",
         isVague: false,
@@ -497,5 +499,156 @@ describe("computeList with own items (Story 3.5)", () => {
   it("names an item without text Okänd vara and leaves an amount without a unit out", () => {
     const lines = list([], [], [], { overlay: { ...emptyOverlay, customItems: [own(diskmedel, "  ", null, 2, null)] } });
     expect(lines.map((line) => [line.label, line.amount, line.unit])).toEqual([["Okänd vara", null, null]]);
+  });
+});
+
+describe("computeList with overrides (Story 3.6)", () => {
+  const corrected = (key: string, value: number | null, hidden = false, baseAmount: number | null = null) => ({
+    key,
+    amount: value,
+    baseAmount,
+    hidden,
+  });
+  const withOverrides = (overrides: ReturnType<typeof corrected>[], servings = 6, pantry: PantryAmountRow[] = []) =>
+    list(
+      [dish("d1", "gryta", servings)],
+      [recipe("gryta", [amount("gradde", 2, "dl"), vague("salt"), amount(null, 2, null, "2 citroner")])],
+      pantry,
+      { overlay: { ...emptyOverlay, overrides } },
+    );
+
+  it("replaces the counted amount with the corrected one in the line's unit, keeping the counted one", () => {
+    const lines = withOverrides([corrected("r:gradde:dl", 2)]);
+    expect(lines.find((line) => line.key === "r:gradde:dl")).toMatchObject({ amount: 2, unit: "dl", computedAmount: 3 });
+    // Without a correction, no computedAmount.
+    expect(withOverrides([]).find((line) => line.key === "r:gradde:dl")).not.toHaveProperty("computedAmount");
+  });
+
+  it("keeps the correction when the list is counted again with the same key", () => {
+    const at = (servings: number, pantry: PantryAmountRow[] = []) =>
+      withOverrides([corrected("r:gradde:dl", 2)], servings, pantry).find((line) => line.key === "r:gradde:dl");
+    expect(at(8)).toMatchObject({ amount: 2, computedAmount: 4 });
+    expect(at(8, [{ ingredientId: "gradde", amount: 1, unit: "dl" }])).toMatchObject({ amount: 2, computedAmount: 3 });
+  });
+
+  it("leaves a hidden line out, keeping a hidden line's correction for later", () => {
+    const lines = withOverrides([corrected("r:gradde:dl", 2, true), corrected("r:salt:-", null, true)]);
+    expect(lines.map((line) => line.key)).toEqual(["t:2 citroner"]);
+    expect(withOverrides([corrected("t:2 citroner", null, true)]).map((line) => line.key)).toEqual([
+      "r:gradde:dl",
+      "r:salt:-",
+    ]);
+  });
+
+  it("uses a corrected amount as written in a unit that counts things, and keeps the pantry note", () => {
+    const lines = list(
+      [dish("d1", "gryta", 6)],
+      [recipe("gryta", [amount("paprika", 1, "st"), amount("mjol", 2, "dl")])],
+      [{ ingredientId: "mjol", amount: 1, unit: "kg" }],
+      { overlay: { ...emptyOverlay, overrides: [corrected("r:paprika:st", 1.5), corrected("r:mjol:dl", 1)] } },
+    );
+    expect(lines.find((line) => line.key === "r:paprika:st")).toMatchObject({ amount: 1.5, computedAmount: 2 });
+    expect(lines.find((line) => line.key === "r:mjol:dl")).toMatchObject({
+      amount: 1,
+      computedAmount: 3,
+      pantryNote: "hemma: 1 kg",
+      coverage: { kind: "other-unit" },
+    });
+  });
+
+  it("ignores a corrected amount on a line without one", () => {
+    const lines = withOverrides([corrected("r:salt:-", 2), corrected("t:2 citroner", 2)]);
+    expect(lines.find((line) => line.key === "r:salt:-")).toMatchObject({ amount: null, isVague: true });
+    expect(lines.find((line) => line.key === "t:2 citroner")).toMatchObject({ amount: null });
+    expect(lines.some((line) => "computedAmount" in line)).toBe(false);
+  });
+
+  it("ignores an override without a line, and applies it again when the key comes back", () => {
+    const overrides = [corrected("r:gradde:dl", 2), corrected("r:mjol:dl", null, true)];
+    // The pantry covers the cream: no line, and the override does nothing.
+    const covered = withOverrides(overrides, 6, [{ ingredientId: "gradde", amount: 5, unit: "dl" }]);
+    expect(covered.map((line) => line.key)).toEqual(["r:salt:-", "t:2 citroner"]);
+    expect(withOverrides(overrides).find((line) => line.key === "r:gradde:dl")).toMatchObject({ amount: 2 });
+
+    // The need is in g now: the new key shows, the hidden dl key stays hidden.
+    const flour = (unit: Unit) =>
+      list([dish("d1", "kaka")], [recipe("kaka", [amount("mjol", 3, unit)])], [], {
+        overlay: { ...emptyOverlay, overrides },
+      });
+    expect(flour("g").map((line) => [line.key, line.amount])).toEqual([["r:mjol:g", 3]]);
+    expect(flour("dl")).toEqual([]);
+  });
+
+  it("never applies an override to an own item", () => {
+    const id = "11111111-1111-4111-8111-111111111111";
+    const lines = list([], [], [], {
+      overlay: {
+        ...emptyOverlay,
+        customItems: [{ id, label: "diskmedel", ingredientId: null, amount: 2, unit: "förp" }],
+        overrides: [{ key: `c:${id}`, amount: 5, baseAmount: null, hidden: true }],
+      },
+    });
+    expect(lines.map((line) => [line.key, line.amount])).toEqual([[`c:${id}`, 2]]);
+  });
+
+  it("gives an own item its catalog ingredient's name for the detail", () => {
+    const id = "11111111-1111-4111-8111-111111111111";
+    const lines = list([], [], [], {
+      overlay: { ...emptyOverlay, customItems: [{ id, label: "grädde eko", ingredientId: "gradde", amount: null, unit: null }] },
+    });
+    expect(lines[0]).toMatchObject({ label: "grädde eko", linkedName: "Grädde", customLabel: "grädde eko" });
+  });
+
+  it("keeps an own item's text as stored beside the list's name for it", () => {
+    const id = "11111111-1111-4111-8111-111111111111";
+    const lines = list([], [], [], {
+      overlay: { ...emptyOverlay, customItems: [{ id, label: "  ", ingredientId: null, amount: null, unit: null }] },
+    });
+    expect(lines[0]).toMatchObject({ label: "Okänd vara", customLabel: "  " });
+    expect(lines[0]).not.toHaveProperty("linkedName");
+  });
+
+  it("says when the counted amount has changed since the correction was saved", () => {
+    const at = (servings: number, base: number | null) =>
+      withOverrides([corrected("r:gradde:dl", 2, false, base)], servings).find((line) => line.key === "r:gradde:dl");
+    // Saved when 3 dl was counted: unchanged at 6 servings, changed at 8.
+    expect(at(6, 3)).not.toHaveProperty("computedChanged");
+    expect(at(8, 3)).toMatchObject({ amount: 2, computedAmount: 4, computedChanged: true });
+    // Without the amount counted then, nothing is said.
+    expect(at(8, null)).not.toHaveProperty("computedChanged");
+  });
+
+  it("hides the vague line folded into a hidden line of the same ingredient", () => {
+    const lines = list(
+      [dish("d1", "gryta"), dish("d2", "soppa")],
+      [recipe("gryta", [vague("salt")]), recipe("soppa", [amount("salt", 1, "tsk")])],
+      [],
+      { overlay: { ...emptyOverlay, overrides: [corrected("r:salt:tsk", null, true)] } },
+    );
+    expect(lines).toEqual([]);
+  });
+
+  it("lists the hidden lines for Dolda varor as counted without being hidden, leaving out keys without a line", () => {
+    const input = (overrides: ReturnType<typeof corrected>[], pantry: PantryAmountRow[] = []): ShoppingListInput => ({
+      plan: { recipes: [dish("d1", "gryta", 6)] },
+      recipes: [recipe("gryta", [amount("gradde", 2, "dl"), vague("salt"), amount("mjol", 1, "dl")])],
+      snapshot: toSnapshot(pantry),
+      catalog: { names, defaults: Object.fromEntries(Object.entries(sections).map(([id, section]) => [id, { section }])) },
+      overlay: {
+        ...emptyOverlay,
+        overrides,
+        customItems: [{ id: "11111111-1111-4111-8111-111111111111", label: "x", ingredientId: null, amount: null, unit: null }],
+      },
+    });
+    const hidden = [corrected("r:gradde:dl", 2, true), corrected("r:salt:-", null, true), corrected("r:lok:st", null, true)];
+    expect(hiddenLines(input(hidden)).map((line) => [line.key, line.label, line.amount])).toEqual([
+      ["r:gradde:dl", "Grädde", 2],
+      ["r:salt:-", "Salt", null],
+    ]);
+    // Covered by the pantry: no line, so not listed.
+    expect(hiddenLines(input(hidden, [{ ingredientId: "gradde", amount: 9, unit: "dl" }])).map((line) => line.key)).toEqual([
+      "r:salt:-",
+    ]);
+    expect(hiddenLines(input([corrected("r:gradde:dl", 2)]))).toEqual([]);
   });
 });

@@ -39,6 +39,15 @@ export function labelLength(text: string): number {
 }
 
 /**
+ * An amount as a form field shows it to change: exact, with a decimal comma
+ * and never in exponent form, "0,3333333333333333", "1500000".
+ */
+export function exactAmountText(amount: number | null): string {
+  if (amount === null || !Number.isFinite(amount)) return "";
+  return amount.toLocaleString("sv-SE", { useGrouping: false, maximumFractionDigits: 20 }).replace("\u2212", "-");
+}
+
+/**
  * The amount in the field as typed: empty is `null`; otherwise a positive
  * quantity read by parseQuantity ("1,5", "½") below maxCustomAmount, or the
  * message to show at the field. A range ("1-2") is not one amount.

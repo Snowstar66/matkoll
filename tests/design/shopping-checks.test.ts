@@ -84,3 +84,39 @@ describe("set_current_meal_plan", () => {
     expect(body, latest!.file).toMatch(/exists \(select 1 from public\.shopping_custom_item/);
   });
 });
+
+// AD-8, AD-12, Story 3.6: shopping_line_override takes a recipe line's key
+// (`r:` with UNITS or `-`, or `t:` up to maxLineKeyChars), and an amount only
+// on a key with one of UNITS. Read from the latest migration that defines each.
+describe("shopping_line_override constraints", () => {
+  function body(name: string): { file: string; body: string } {
+    const defining = readdirSync(migrations)
+      .filter((file) => file.endsWith(".sql"))
+      .sort()
+      .map((file) => ({ file, sql: readFileSync(join(migrations, file), "utf8") }))
+      .filter(({ sql }) => sql.includes(`constraint ${name} check (`));
+    const latest = defining.at(-1);
+    if (!latest) throw new Error(`No migration defines ${name}`);
+    const start = latest.sql.lastIndexOf(`constraint ${name} check (`);
+    let depth = 0;
+    for (let index = latest.sql.indexOf("(", start); index < latest.sql.length; index += 1) {
+      if (latest.sql[index] === "(") depth += 1;
+      if (latest.sql[index] === ")") depth -= 1;
+      if (depth === 0) return { file: latest.file, body: latest.sql.slice(start, index + 1) };
+    }
+    throw new Error(`Unbalanced ${name}`);
+  }
+  const units = (sql: string) => /'\^r:[^']*:\(([^)]*)\)\$'/.exec(sql)?.[1].split("|");
+
+  it("takes a recipe line's key with exactly UNITS and -, and a text key up to maxLineKeyChars, never c:", () => {
+    const { file, body: sql } = body("shopping_line_override_line_key_check");
+    expect(units(sql), file).toEqual([...UNITS, "-"]);
+    expect(Number(/char_length\(line_key\) <= (\d+)/.exec(sql)?.[1]), file).toBe(maxLineKeyChars);
+    expect(sql, file).not.toContain("'^c:");
+  });
+
+  it("takes an amount only on a key with exactly UNITS", () => {
+    const { file, body: sql } = body("shopping_line_override_amount_key_check");
+    expect(units(sql), file).toEqual([...UNITS]);
+  });
+});

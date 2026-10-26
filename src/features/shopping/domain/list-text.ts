@@ -1,4 +1,4 @@
-import { formatQuantity, SECTIONS, type Section } from "@/features/catalog";
+import { formatQuantity, SECTIONS, type Section, type Unit } from "@/features/catalog";
 import { dishCountText } from "@/features/mealplan";
 import type { ShoppingLine } from "./compute-list";
 
@@ -75,17 +75,43 @@ export function originsText(origins: readonly string[], dishTitles: Readonly<Rec
 }
 
 /**
- * What a line shows to the right: "3 dl", "2 dl (hemma: 1 kg)" or "Finns
- * hemma?". A line without a catalog ingredient, whose text says how much,
+ * In Listpostdetalj: "Från Krämig kycklinggryta, Linssoppa", the dishes a line
+ * comes from as in originsText. `null` when no title is known.
+ */
+export function detailOriginsText(origins: readonly string[], dishTitles: Readonly<Record<string, string>>): string | null {
+  const text = originsText(origins, dishTitles);
+  return text === null ? null : `F${text.slice(1)}`;
+}
+
+/** In Listpostdetalj beside a corrected amount: "Beräknat: 3 dl", the amount the list counted. */
+export function computedAmountText(amount: number, unit: Unit | null): string {
+  return `Beräknat: ${formatQuantity(amount, unit)}`;
+}
+
+/** The text button that takes a corrected amount off. */
+export const backToComputedText = "Använd beräknad mängd";
+
+/**
+ * What a line shows to the right: "3 dl", "2 dl (hemma: 1 kg)", "2 dl
+ * (beräknat 4 dl)" for a correction whose counted amount has changed since,
+ * or "Finns hemma?". A line without a catalog ingredient, whose text says how much,
  * shows its multiplier when it is not 1 ("×2", "×1,5"), else nothing.
  */
 export function lineAmountText(
-  line: Pick<ShoppingLine, "amount" | "unit" | "isVague" | "pantryNote" | "multiplier">,
+  line: Pick<ShoppingLine, "amount" | "unit" | "isVague" | "pantryNote" | "multiplier" | "computedAmount" | "computedChanged">,
 ): string {
   if (line.isVague) return askAtHomeText;
   if (line.multiplier !== undefined && line.multiplier !== 1) return `×${formatQuantity(line.multiplier, null)}`;
   const amount = formatQuantity(line.amount, line.unit);
-  return line.pantryNote && amount ? `${amount} (${line.pantryNote})` : amount;
+  if (!amount) return amount;
+  // A correction whose counted amount has changed since it was saved says so (Story 3.6).
+  const notes = [
+    ...(line.computedChanged && line.computedAmount !== undefined
+      ? [`beräknat ${formatQuantity(line.computedAmount, line.unit)}`]
+      : []),
+    ...(line.pantryNote ? [line.pantryNote] : []),
+  ];
+  return notes.length > 0 ? `${amount} (${notes.join(", ")})` : amount;
 }
 
 /**
@@ -94,7 +120,10 @@ export function lineAmountText(
  * röd, 1 st", "Mjöl, 2 dl (hemma: 1 kg)", "Salt, finns hemma?".
  */
 export function checkLabel(
-  line: Pick<ShoppingLine, "label" | "amount" | "unit" | "isVague" | "pantryNote" | "multiplier">,
+  line: Pick<
+    ShoppingLine,
+    "label" | "amount" | "unit" | "isVague" | "pantryNote" | "multiplier" | "computedAmount" | "computedChanged"
+  >,
 ): string {
   if (line.isVague) return `${line.label}, ${askAtHomeText.toLocaleLowerCase("sv-SE")}`;
   const amount = lineAmountText(line);
@@ -120,3 +149,12 @@ export function groupBySection(lines: readonly ShoppingLine[]): { section: Secti
     return group ? [{ section, lines: group }] : [];
   });
 }
+
+/** Under the list when lines are hidden: "Dolda varor (2)". */
+export function hiddenLinesButtonText(count: number): string {
+  return `Dolda varor (${count})`;
+}
+
+/** The sheet with the hidden lines, and its button that shows one again. */
+export const hiddenLinesTitle = "Dolda varor";
+export const showAgainText = "Visa igen";

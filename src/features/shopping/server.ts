@@ -10,15 +10,17 @@ import { createClient } from "@/lib/supabase/server";
 import { listChecksIn } from "./data/checks";
 import { ShoppingDataError } from "./data/client";
 import { listCustomItemsIn } from "./data/custom-items";
+import { listOverridesIn } from "./data/overrides";
 import { loadShoppingList, type ShoppingList } from "./data/queries";
 
 // Server-only entry (AD-1). The list is counted when it is read and never
 // stored (AD-8): from the current meal plan (mealplan), its recipes
 // (recipes), the pantry (pantry) and the catalog's names and sections
 // (catalog), each through that module's server.ts, and the plan's checks
-// (Story 3.4) and own items (Story 3.5), with the signed-in user's session
-// client, so RLS limits every read to the user's own rows. Checking a line
-// off and adding or removing an own item are the Server Actions in ./actions,
+// (Story 3.4), own items (Story 3.5) and overrides (Story 3.6), with the
+// signed-in user's session client, so RLS limits every read to the user's own
+// rows. Checking a line off, adding, changing or removing an own item, and
+// correcting, hiding or restoring a line are the Server Actions in ./actions,
 // used by this module's own ui.
 
 export type { ShoppingList } from "./data/queries";
@@ -58,7 +60,7 @@ async function checksOrNull(planId: string): Promise<string[] | null> {
  * each dish's title, and the list's lines from computeList, sorted by section
  * and name. For the page, inside <Suspense> (AD-18). `unauthorized` without a
  * signed-in user; `shopping_unavailable` (logged) when the plan, the recipes,
- * the own items or the catalog cannot be read. Checks that cannot be read give the list
+ * the own items, the overrides or the catalog cannot be read. Checks that cannot be read give the list
  * without them and `checksUnavailable`. A pantry that cannot be read gives the list
  * with nothing taken off and `pantryUnavailable`. Other errors are thrown.
  */
@@ -75,6 +77,7 @@ export async function getShoppingList(): Promise<Result<ShoppingList>> {
         ingredientDefaults: getIngredientDefaults,
         checks: checksOrNull,
         customItems: async (planId) => listCustomItemsIn(await createClient(), planId),
+        overrides: async (planId) => listOverridesIn(await createClient(), planId),
       }),
     );
   } catch (error) {

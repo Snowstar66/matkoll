@@ -46,6 +46,8 @@ const routesByTable = {
   shopping_check: [{ path: "/lista", type: "page" }],
   // Pontus's own items on the shopping list (Story 3.5); only the list shows them.
   shopping_custom_item: [{ path: "/lista", type: "page" }],
+  // Corrected amounts and hidden lines on the shopping list (Story 3.6); only the list shows them.
+  shopping_line_override: [{ path: "/lista", type: "page" }],
 } satisfies Partial<Record<TableName, readonly Route[]>>;
 
 export type RevalidatedTable = keyof typeof routesByTable;

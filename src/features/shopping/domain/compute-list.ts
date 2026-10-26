@@ -19,6 +19,7 @@ import {
 import { scaleFactor, scaleLines } from "@/features/recipes";
 import type { CustomListItem } from "./custom-item";
 import { customLineKey, recipeLineKey, textLineKey } from "./line-key";
+import type { LineOverride } from "./line-override";
 
 // The shopping list (FR-15, AD-8): counted from the current meal plan, its
 // recipes, the pantry and the catalog every time it is read; nothing is
@@ -37,9 +38,22 @@ export type ShoppingLine = {
   ingredientId?: string;
   /** The catalog ingredient's name, or the recipe line's own text when it has no catalog ingredient. */
   label: string;
-  /** What to buy, in `unit`; `null` for a vague line and a line without a catalog ingredient. */
+  /**
+   * What to buy, in `unit`; `null` for a vague line and a line without a
+   * catalog ingredient. Pontus's corrected amount when they have one (Story 3.6).
+   */
   amount: number | null;
   unit: Unit | null;
+  /**
+   * The counted amount, when a corrected one replaces it (Story 3.6): the
+   * detail's "Beräknat: 3 dl". Missing without a correction.
+   */
+  computedAmount?: number;
+  /**
+   * The counted amount has changed since the correction was saved (Story
+   * 3.6): the row shows it beside the corrected one, "2 dl (beräknat 4 dl)".
+   */
+  computedChanged?: true;
   /** A vague line ("salt efter smak") whose ingredient is not at home: shown as "Finns hemma?". */
   isVague: boolean;
   /**
@@ -62,6 +76,10 @@ export type ShoppingLine = {
   checked: boolean;
   /** Pontus's own item (Story 3.5); never merged with recipe lines. */
   isCustom: boolean;
+  /** An own item's catalog ingredient's name, for its detail's "Kopplad till Kaffe" (Story 3.6). */
+  linkedName?: string;
+  /** An own item's text as stored, for its detail's form; `label` is never empty. */
+  customLabel?: string;
 };
 
 /** A matsedelsrätt as the list reads it; mealplan.getCurrentPlan gives these. */
@@ -75,8 +93,7 @@ export type ListRecipe = { id: string; originalServings: number; lines: readonly
 
 /**
  * What the list keeps per meal plan: checks (Story 3.4), corrected amounts
- * and hidden lines (3.6) and Pontus's own items (3.5). Overrides are empty
- * until Story 3.6 adds its table.
+ * and hidden lines (3.6) and Pontus's own items (3.5).
  */
 export type Overlay = {
   /**
@@ -85,7 +102,12 @@ export type Overlay = {
    * kept, so the check applies again if the line comes back.
    */
   checks: readonly string[];
-  overrides: readonly never[];
+  /**
+   * Corrected amounts and hidden lines (shopping_line_override), by recipe
+   * line key. An override whose key has no line is ignored and kept, so it
+   * applies again if the line comes back with the same key.
+   */
+  overrides: readonly LineOverride[];
   /**
    * Pontus's own items (shopping_custom_item), in the order read. Each is a
    * line of its own, keyed `c:<id>`, never merged with the recipes' lines.
@@ -105,8 +127,8 @@ export type ShoppingListInput = {
   /**
    * The catalog ingredients' names (catalog.getIngredientNames) and sections
    * (catalog.getIngredientDefaults), by id: the recipes' ingredients, and the
-   * sections of the ingredients own items point at. A section outside
-   * SECTIONS is Övrigt.
+   * ingredients own items point at (their sections, and their names for the
+   * detail). A section outside SECTIONS is Övrigt.
    */
   catalog: {
     names: Readonly<Record<string, string>>;
@@ -203,17 +225,64 @@ export function countedDishIds(plan: ShoppingListInput["plan"], recipes: readonl
  * - A section not in SECTIONS is Övrigt. Without a catalog name, a line is
  *   named by its text without amount and unit, else "Okänd vara".
  * - Each of Pontus's own items (overlay.customItems, Story 3.5) is a line of
- *   its own, keyed `c:<id>`, with his text, amount and unit as given, under
+ *   its own, keyed `c:<id>`, with their text, amount and unit as given, under
  *   its catalog ingredient's section, else Övrigt. It is never merged with a
  *   recipe line of the same ingredient and never compared with the pantry
  *   (AD-8). It is there with a plan even without dishes.
  * - A line is checked when its key is in overlay.checks.
+ * - Pontus's overrides (overlay.overrides, Story 3.6) apply to recipe lines
+ *   by key, after everything above: a hidden line is left out (also a line a
+ *   vague line was folded into), and a corrected amount replaces what to buy
+ *   in the line's unit, which is the key's and never changes (AD-12). The
+ *   corrected amount is used as Pontus wrote it, not rounded up in a unit that
+ *   counts things, and the line keeps its coverage and "hemma: 1 kg"; the
+ *   counted amount stays in `computedAmount`, and `computedChanged` says that
+ *   it differs from what was counted when the correction was saved. A corrected amount on a line
+ *   without one (vague, or without a catalog ingredient) is ignored. An
+ *   override whose key has no line, because the pantry covers it or the need
+ *   is in another unit now, does nothing until the key is back (decision
+ *   2026-10-26).
  */
 export function computeList({ plan, recipes, snapshot, catalog, overlay }: ShoppingListInput): ShoppingLine[] {
   if (!plan) return [];
   const checks = new Set(overlay.checks);
-  return [...recipeLines({ plan, recipes, snapshot, catalog }, checks), ...customLines(overlay.customItems, catalog, checks)].sort(
-    compareShoppingLines,
+  return [
+    ...applyOverrides(recipeLines({ plan, recipes, snapshot, catalog }, checks), overlay.overrides),
+    ...customLines(overlay.customItems, catalog, checks),
+  ].sort(compareShoppingLines);
+}
+
+/** The recipe lines with Pontus's corrected amounts, without their hidden ones; see computeList. */
+function applyOverrides(lines: ShoppingLine[], overrides: readonly LineOverride[]): ShoppingLine[] {
+  if (overrides.length === 0) return lines;
+  const byKey = new Map(overrides.map((override) => [override.key, override]));
+  return lines.flatMap((line) => {
+    const override = byKey.get(line.key);
+    if (!override) return [line];
+    if (override.hidden) return [];
+    if (override.amount === null || line.amount === null || line.unit === null || line.isVague) return [line];
+    const changed = override.baseAmount !== null && !sameAmount(override.baseAmount, line.amount);
+    return [{ ...line, amount: override.amount, computedAmount: line.amount, ...(changed ? { computedChanged: true as const } : {}) }];
+  });
+}
+
+/** Equal amounts, allowing for binary noise in the counted one. */
+function sameAmount(a: number, b: number): boolean {
+  return Math.abs(a - b) <= 1e-9 * Math.max(1, Math.abs(a), Math.abs(b));
+}
+
+/**
+ * Dolda varor (Story 3.6): the recipe lines Pontus has hidden, as they would
+ * be counted without being hidden (with a corrected amount), sorted like the
+ * list. A hidden key that gives no line now (the pantry covers it, or the
+ * need is in another unit) is left out (decision 2026-10-26).
+ */
+export function hiddenLines(input: ShoppingListInput): ShoppingLine[] {
+  const hidden = new Set(input.overlay.overrides.flatMap((override) => (override.hidden ? [override.key] : [])));
+  if (hidden.size === 0) return [];
+  const overrides = input.overlay.overrides.map((override) => ({ ...override, hidden: false }));
+  return computeList({ ...input, overlay: { ...input.overlay, customItems: [], overrides } }).filter((line) =>
+    hidden.has(line.key),
   );
 }
 
@@ -230,6 +299,8 @@ function customLines(
       key,
       ...(item.ingredientId ? { ingredientId: item.ingredientId } : {}),
       label: collapse(item.label) || unknownItemLabel,
+      customLabel: item.label,
+      ...(item.ingredientId && catalog.names[item.ingredientId] ? { linkedName: catalog.names[item.ingredientId] } : {}),
       amount: hasAmount ? item.amount : null,
       unit: hasAmount ? item.unit : null,
       isVague: false,

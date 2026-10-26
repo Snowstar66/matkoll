@@ -2,6 +2,38 @@
 
 Beslut som fattats under bygget: vad, varför och vilka alternativ som fanns. Nyaste överst.
 
+## 2026-10-26 – Dolda varor och rättelser efter granskningen
+
+- **Beslut:**
+  - När den aktuella matsedeln har dolda poster visar listan textknappen "Dolda varor (N)" under "Lägg till egen vara". Den öppnar arket "Dolda varor". Där står varje dold post med namn och mängd, räknade som om de inte var dolda och med en eventuell rättad mängd, tillsammans med "Visa igen". "Visa igen" visar posten igen och behåller den rättade mängden. Arket stängs när inget längre är dolt.
+  - En dold nyckel som inte ger någon post just nu visas inte. Det gäller när lagret räcker eller när behovet har bytt enhet. Den räknas inte i N och ligger kvar dold tills nyckeln kommer tillbaka.
+  - En rättelse sparar också den mängd som listan räknade fram då. Om den framräknade mängden senare ändras visar posten båda: "2 dl (beräknat 4 dl)", och med lager i annan enhet "2 dl (beräknat 4 dl, hemma: 1 kg)".
+  - "Ångra" efter att en post dolts:
+    - Om raden har ändrats efter döljningen, till exempel rättats i en annan flik, sätts bara den dolda flaggan tillbaka och den nya mängden står kvar.
+    - En post som döljs en gång till ger alltid "Ångra" som visar den igen.
+    - Ett förlorat svar vid döljning prövas en gång till.
+    - Om raden före inte går att läsa visas bekräftelsen utan "Ångra".
+  - Om en egen vara har tagits bort någon annanstans medan detaljen var öppen stängs arket, listan läses om och "Varan finns inte längre." visas (`shopping_item_gone`). En koppling utan känt namn visas som "Kopplad till okänd ingrediens".
+  - Mängdfältet i detaljen fylls med den exakta mängden. Om Pontus skriver in den framräknade mängden tas en rättelse bort, och finns ingen rättelse stängs bara arket. Om posten försvinner från listan medan detaljen är öppen stängs arket.
+- **Varför:** granskningen av 3.6. Specen saknade en väg tillbaka till en dold post utom "Ångra" och en ny matsedel. En dold post utan behov har ingen mängd att visa, och den skulle bara förvirra.
+- **Alternativ:**
+  - Visa dolda nycklar utan post med sitt senast kända namn.
+  - Skriva över en samtidig rättelse vid "Ångra".
+  - Inte visa att den framräknade mängden har ändrats.
+
+## 2026-10-26 – Rättad mängd och dolda listposter
+
+- **Beslut:**
+  - En rättad mängd ersätter den beräknade i postens enhet och används som Pontus skrev den. Den avrundas inte uppåt i en enhet som räknar hela saker, så "1,5 st" står kvar som 1,5 st. Posten behåller täckningen och "hemma: 1 kg". Detaljen visar den beräknade mängden som "Beräknat: 3 dl" och textknappen "Använd beräknad mängd", som tar bort rättelsen direkt och stänger arket.
+  - En överstyrning utan post gör ingenting och ligger kvar. Det gäller när lagret räcker eller när behovet har bytt enhet och därmed nyckel. Den gäller igen om nyckeln kommer tillbaka. Den raderas med matsedeln, och 3.7 rensar den för avbockade nycklar. En dold post som en vag rad har vikts in i döljer också den vaga raden.
+  - Receptrader utan katalogingrediens (`t:`) och vaga poster går att dölja men inte att rätta. Databasens check släpper därför igenom både `r:`- och `t:`-nycklar men nekar `c:`. En mängd tillåts bara på en `r:`-nyckel med enhet. Specen nämner bara `r:`, men en `t:`-post är också en receptpost och ska kunna tas bort.
+  - Alla poster kan svepas. En receptpost döljs och en egen vara tas bort. "Ta bort" finns även i detaljen, och båda ger samma bekräftelse med "Ångra". Poster som tas bort medan bekräftelsen visas slås ihop i den.
+  - Detaljen har varans namn som rubrik. En receptpost med mängd har fältet "Mängd" med enheten bredvid, "Spara", "Ta bort" och "Avbryt". En post utan mängd har bara ursprung, "Ta bort" och "Klar". "Spara" med oförändrad mängd stänger bara arket. Ursprunget skrivs "Från Krämig kycklinggryta, Linssoppa", och "(hemma: 1 kg)" visas när det finns annan enhet hemma. Fel vid sparande ger `shopping_save_failed`.
+  - En egen varas detalj är samma formulär som "Lägg till egen vara", med "Spara" och "Ta bort". Varan behåller sitt id och därmed sin bock, och textfältet får inte fokus direkt.
+  - Live-regionen annonserar inte en rättad mängd. Den annonserar inte heller en post som Pontus själv tagit bort eller ångrat, så länge listan visas (Story 3.6).
+- **Varför:** specen bestämmer inte hur rättelsen förhåller sig till avrundningen och lagret eller vad som händer när nyckeln försvinner. En rättelse är Pontus egen mängd och ska inte ändras av appen. En `t:`-post som inte går att ta bort skulle bli kvar på listan för alltid.
+- **Alternativ:** avrunda även rättade mängder uppåt; ta bort överstyrningar vars nyckel saknas; bara `r:`-nycklar, enligt specens text.
+
 ## 2026-10-26 – Egna varor på inköpslistan
 
 - **Beslut:**

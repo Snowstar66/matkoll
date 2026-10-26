@@ -9,7 +9,20 @@ import { getRecipesByIdsIn } from "@/features/recipes/data/queries";
 import { recipeLineKey } from "@/features/shopping";
 import { listChecksIn, setCheckIn } from "@/features/shopping/data/checks";
 import { ShoppingDataError } from "@/features/shopping/data/client";
-import { addCustomItemIn, listCustomItemsIn, removeCustomItemIn } from "@/features/shopping/data/custom-items";
+import {
+  addCustomItemIn,
+  listCustomItemsIn,
+  removeCustomItemIn,
+  updateCustomItemIn,
+} from "@/features/shopping/data/custom-items";
+import {
+  hideLineIn,
+  listOverridesIn,
+  restoreLineIn,
+  setLineAmountIn,
+  showLineIn,
+} from "@/features/shopping/data/overrides";
+import type { HiddenLine } from "@/features/shopping";
 import { loadShoppingList, type ShoppingSources } from "@/features/shopping/data/queries";
 import { localSupabaseUrl } from "../local-supabase";
 import { adminClient, anonClient, countRows, createTestUser, deleteTestUsers, expectRlsIsolation, type Db, type TestUser } from "./support";
@@ -17,8 +30,9 @@ import { adminClient, anonClient, countRows, createTestUser, deleteTestUsers, ex
 // The shopping list against local Supabase (FR-15, AD-8): counted from a real
 // meal plan, recipes, pantry and catalog through the modules' read functions,
 // with the user's session client, as getShoppingList does it. The list is
-// never stored; only the checks (Story 3.4, shopping_check) and Pontus's own
-// items (Story 3.5, shopping_custom_item) are. NFR7: 10 dishes against 200
+// never stored; only the checks (Story 3.4, shopping_check), Pontus's own
+// items (Story 3.5, shopping_custom_item) and their corrected amounts and hidden
+// lines (Story 3.6, shopping_line_override) are. NFR7: 10 dishes against 200
 // pantry items within a second.
 
 /** The modules' read functions with the test user's client, as the server entries give them. */
@@ -30,6 +44,7 @@ const sources = (db: Db): ShoppingSources => ({
   ingredientDefaults: (ids) => loadIngredientDefaults(db, ids),
   checks: (planId) => listChecksIn(db, planId),
   customItems: (planId) => listCustomItemsIn(db, planId),
+  overrides: (planId) => listOverridesIn(db, planId),
 });
 
 async function addIngredients(db: Db, items: { name: string; section: Section }[]): Promise<string[]> {
@@ -128,6 +143,7 @@ describe("loadShoppingList", () => {
     expect(await loadShoppingList(sources(empty.db))).toEqual({
       plan: null,
       lines: [],
+      hiddenLines: [],
       pantryUnavailable: false,
       checksUnavailable: false,
     });
@@ -676,5 +692,327 @@ describe("shopping_custom_item", () => {
     expect(add.error?.code).toBe("42501");
     const remove = await anon.rpc("remove_shopping_custom_item", { item_id: randomUUID() });
     expect(remove.error?.code).toBe("42501");
+  });
+});
+
+describe("shopping_line_override", () => {
+  async function addPlan(db: Db, isCurrent = true): Promise<string> {
+    const { data, error } = await db.from("meal_plan").insert({ name: "Vecka 44", is_current: isCurrent }).select("id").single();
+    if (error) throw error;
+    return data.id;
+  }
+
+  /** A current plan with one dish ("2 dl grädde" and "salt efter smak" for 4), and the keys of its lines. */
+  async function planWithLines(user: TestUser) {
+    const [gradde, salt] = await addIngredients(user.db, [
+      { name: "Grädde", section: "Mejeri" },
+      { name: "Salt", section: "Skafferi" },
+    ]);
+    const recipeId = await addRecipe(user.db, "Gryta", 4, [
+      { text: "2 dl grädde", ingredientId: gradde, amount: 2, unit: "dl" },
+      { text: "salt efter smak", ingredientId: salt, amount: null, unit: null, vague: true },
+      { text: "2 citroner", ingredientId: null, amount: 2, unit: "st" },
+    ]);
+    const dishId = await addDish(user.db, recipeId, "Gryta", 4);
+    const planId = (await getCurrentPlanIn(user.db))!.id;
+    return { planId, dishId, gradde, key: `r:${gradde}:dl`, vagueKey: `r:${salt}:-`, textKey: "t:2 citroner" };
+  }
+
+  const shown = async (db: Db) =>
+    (await loadShoppingList(sources(db))).lines.map((line) => [line.key, line.amount, line.computedAmount ?? null]);
+
+  it("isolates shopping_line_override", async () => {
+    await expectRlsIsolation("shopping_line_override", async (owner) => ({
+      meal_plan_id: await addPlan(owner),
+      line_key: "r:11111111-1111-4111-8111-111111111111:dl",
+      amount: 2,
+    }));
+  });
+
+  it("corrects an amount, keeps it through a recount with the same key, and goes back to the counted one", async () => {
+    const user = await createTestUser("shopping-override-amount");
+    const { planId, dishId, key, vagueKey, textKey } = await planWithLines(user);
+    expect(await setLineAmountIn(user.db, planId, key, 1.5)).toBe("saved");
+    expect(await shown(user.db)).toEqual([
+      [key, 1.5, 2],
+      [vagueKey, null, null],
+      [textKey, null, null],
+    ]);
+    // 2 dl becomes 3 dl: the correction stays.
+    await setServingsIn(user.db, user.id, dishId, 6);
+    expect((await shown(user.db))[0]).toEqual([key, 1.5, 3]);
+    // Saving again is one row.
+    expect(await setLineAmountIn(user.db, planId, key, 1)).toBe("saved");
+    expect(await countRows("shopping_line_override", user.id)).toBe(1);
+    expect(await setLineAmountIn(user.db, planId, key, null)).toBe("saved");
+    expect((await shown(user.db))[0]).toEqual([key, 3, null]);
+    // Neither an amount nor hidden: no row left. Clearing again changes nothing.
+    expect(await countRows("shopping_line_override", user.id)).toBe(0);
+    expect(await setLineAmountIn(user.db, planId, key, null)).toBe("saved");
+  });
+
+  it("hides a line keeping its correction, and Ångra puts the same row back", async () => {
+    const user = await createTestUser("shopping-override-hide");
+    const { planId, key, vagueKey, textKey } = await planWithLines(user);
+    await setLineAmountIn(user.db, planId, key, 1.5);
+    const before = await user.db.from("shopping_line_override").select("id, updated_at").single();
+    if (before.error) throw before.error;
+
+    const hidden = await hideLineIn(user.db, planId, key);
+    expect(hidden).toEqual({
+      previous: { id: before.data.id, planId, key, amount: 1.5, baseAmount: null, hidden: false },
+      hiddenUpdatedAt: expect.any(String),
+    });
+    expect((await shown(user.db)).map(([one]) => one)).toEqual([vagueKey, textKey]);
+    // Hiding keeps the corrected amount, on the same row, and updated_at follows.
+    const after = await user.db.from("shopping_line_override").select("id, amount, hidden, updated_at").single();
+    expect(after.data).toMatchObject({ id: before.data.id, amount: 1.5, hidden: true });
+    expect(after.data!.updated_at > before.data.updated_at).toBe(true);
+
+    const { previous, hiddenUpdatedAt } = hidden as HiddenLine;
+    expect(await restoreLineIn(user.db, planId, key, previous, hiddenUpdatedAt)).toBe("saved");
+    expect(await restoreLineIn(user.db, planId, key, previous, hiddenUpdatedAt)).toBe("saved");
+    expect((await shown(user.db))[0]).toEqual([key, 1.5, 2]);
+    const restored = await user.db.from("shopping_line_override").select("id, amount, hidden");
+    expect(restored.data).toEqual([{ id: before.data.id, amount: 1.5, hidden: false }]);
+
+    // A line without an override: hiding gives null, and Ångra deletes the row.
+    const vague = (await hideLineIn(user.db, planId, vagueKey)) as HiddenLine;
+    expect(vague.previous).toBeNull();
+    const text = (await hideLineIn(user.db, planId, textKey)) as HiddenLine;
+    expect(text.previous).toBeNull();
+    expect((await shown(user.db)).map(([one]) => one)).toEqual([key]);
+    expect(await restoreLineIn(user.db, planId, vagueKey, null, vague.hiddenUpdatedAt)).toBe("saved");
+    expect(await restoreLineIn(user.db, planId, textKey, null, text.hiddenUpdatedAt)).toBe("saved");
+    expect(await countRows("shopping_line_override", user.id)).toBe(1);
+  });
+
+  it("keeps a hidden line hidden through a recount, and shows a new key for the same ingredient", async () => {
+    const user = await createTestUser("shopping-override-recount");
+    const { planId, dishId, gradde, key } = await planWithLines(user);
+    await hideLineIn(user.db, planId, key);
+    await setServingsIn(user.db, user.id, dishId, 8);
+    expect((await shown(user.db)).map(([one]) => one)).not.toContain(key);
+    const recipeId = await addRecipe(user.db, "Paj", 4, [{ text: "100 g grädde", ingredientId: gradde, amount: 100, unit: "g" }]);
+    await addDish(user.db, recipeId, "Paj", 4);
+    const keys = (await shown(user.db)).map(([one]) => one);
+    expect(keys).toContain(`r:${gradde}:g`);
+    expect(keys).not.toContain(key);
+  });
+
+  it("is one row per plan and key, and refuses an own item's key or an amount on a line without a unit", async () => {
+    const user = await createTestUser("shopping-override-checks");
+    const { planId, key, vagueKey, textKey } = await planWithLines(user);
+    const first = await user.db.from("shopping_line_override").insert({ meal_plan_id: planId, line_key: key, hidden: true });
+    expect(first.error).toBeNull();
+    const second = await user.db.from("shopping_line_override").insert({ meal_plan_id: planId, line_key: key, amount: 2 });
+    expect(second.error?.code).toBe("23505");
+
+    const refused = [
+      { line_key: `c:${randomUUID()}`, hidden: true },
+      { line_key: "x:1", hidden: true },
+      { line_key: `r:${randomUUID().toUpperCase()}:dl`, hidden: true },
+      { line_key: "t: två  citroner", hidden: true },
+      { line_key: vagueKey, amount: 2 },
+      { line_key: textKey, amount: 2 },
+      { line_key: `r:${randomUUID()}:dl`, amount: 0 },
+      { line_key: `r:${randomUUID()}:dl`, amount: 1_000_000 },
+    ];
+    for (const row of refused) {
+      const result = await user.db.from("shopping_line_override").insert({ meal_plan_id: planId, ...row });
+      expect(result.error?.code, row.line_key).toBe("23514");
+    }
+    for (const unit of [...UNITS, "-"]) {
+      const result = await user.db
+        .from("shopping_line_override")
+        .insert({ meal_plan_id: planId, line_key: `r:${randomUUID()}:${unit}`, hidden: true });
+      expect(result.error, unit).toBeNull();
+    }
+    // Through the functions as well.
+    await expect(setLineAmountIn(user.db, planId, vagueKey, 2)).rejects.toThrow(ShoppingDataError);
+    await expect(hideLineIn(user.db, planId, `c:${randomUUID()}`)).rejects.toThrow(ShoppingDataError);
+  });
+
+  it("refuses another user's plan, and another line's row on Ångra", async () => {
+    const owner = await createTestUser("shopping-override-fk-owner");
+    const other = await createTestUser("shopping-override-fk-other");
+    const ownerPlan = await addPlan(owner.db);
+    const onPlan = await other.db
+      .from("shopping_line_override")
+      .insert({ meal_plan_id: ownerPlan, line_key: "r:11111111-1111-4111-8111-111111111111:dl", hidden: true });
+    expect(onPlan.error?.code).toBe("23503");
+    expect(await hideLineIn(other.db, ownerPlan, "r:11111111-1111-4111-8111-111111111111:dl")).toBe("plan_changed");
+
+    const { planId, key } = await planWithLines(owner);
+    await setLineAmountIn(owner.db, planId, key, 2);
+    const hidden = await hideLineIn(owner.db, planId, key);
+    if (hidden === "plan_changed" || hidden === "unrestorable" || !hidden.previous) throw new Error("expected the row before");
+    const { previous } = hidden;
+    const otherKey = `r:${randomUUID()}:dl`;
+    await expect(restoreLineIn(owner.db, planId, otherKey, { ...previous, key: otherKey })).rejects.toThrow(ShoppingDataError);
+    await expect(restoreLineIn(owner.db, planId, key, { ...previous, key: otherKey })).rejects.toThrow(ShoppingDataError);
+  });
+
+  it("writes nothing on a plan that is no longer the current one, and deletes the overrides with the plan", async () => {
+    const user = await createTestUser("shopping-override-switched");
+    const { planId, key } = await planWithLines(user);
+    await setLineAmountIn(user.db, planId, key, 2);
+    // Another tab: "Ny matsedel", while this list still shows the old plan.
+    await setCurrentPlanIn(user.db, { id: randomUUID(), name: "Vecka 45" });
+    expect(await setLineAmountIn(user.db, planId, key, 3)).toBe("plan_changed");
+    expect(await setLineAmountIn(user.db, planId, key, null)).toBe("plan_changed");
+    expect(await hideLineIn(user.db, planId, key)).toBe("plan_changed");
+    expect(await restoreLineIn(user.db, planId, key, null)).toBe("plan_changed");
+    expect(await showLineIn(user.db, planId, key)).toBe("plan_changed");
+    expect(await listOverridesIn(user.db, planId)).toEqual([{ key, amount: 2, baseAmount: null, hidden: false }]);
+    // A plan that is gone.
+    expect(await setLineAmountIn(user.db, randomUUID(), key, 3)).toBe("plan_changed");
+
+    expect(await deletePlanIn(user.db, planId)).toBe(true);
+    expect(await countRows("shopping_line_override", user.id)).toBe(0);
+  });
+
+  it("changes an own item in place, keeping its id and check, only on the current plan", async () => {
+    const user = await createTestUser("shopping-custom-update");
+    const [kaffe] = await addIngredients(user.db, [{ name: "Kaffe", section: "Skafferi" }]);
+    const planId = await addPlan(user.db);
+    const disk = { id: randomUUID(), planId, label: "diskmedel", ingredientId: null, amount: null, unit: null };
+    await addCustomItemIn(user.db, disk);
+    await setCheckIn(user.db, planId, `c:${disk.id}`, true);
+
+    const changed = { ...disk, label: "Kaffe bryggmalet", ingredientId: kaffe, amount: 2, unit: "förp" as const };
+    expect(await updateCustomItemIn(user.db, changed)).toEqual(changed);
+    expect(await updateCustomItemIn(user.db, changed)).toEqual(changed);
+    expect(
+      (await loadShoppingList(sources(user.db))).lines.map((line) => [line.key, line.label, line.section, line.linkedName, line.checked]),
+    ).toEqual([[`c:${disk.id}`, "Kaffe bryggmalet", "Skafferi", "Kaffe", true]]);
+
+    expect(await updateCustomItemIn(user.db, { ...changed, id: randomUUID() })).toBe("not_found");
+    expect(await updateCustomItemIn(user.db, { ...changed, planId: randomUUID() })).toBe("plan_changed");
+    const other = await createTestUser("shopping-custom-update-other");
+    expect(await updateCustomItemIn(other.db, changed)).toBe("not_found");
+    const otherKaffe = (await addIngredients(other.db, [{ name: "Kaffe", section: "Skafferi" }]))[0];
+    await expect(updateCustomItemIn(user.db, { ...changed, ingredientId: otherKaffe })).rejects.toThrow(ShoppingDataError);
+
+    await setCurrentPlanIn(user.db, { id: randomUUID(), name: "Vecka 45" });
+    expect(await updateCustomItemIn(user.db, { ...changed, label: "te" })).toBe("plan_changed");
+    expect((await listCustomItemsIn(user.db, planId))[0].label).toBe("Kaffe bryggmalet");
+  });
+
+  it("lets only a signed-in user run the functions", async () => {
+    const anon = anonClient();
+    const key = "r:11111111-1111-4111-8111-111111111111:dl";
+    const results = await Promise.all([
+      anon.rpc("set_shopping_line_amount", { plan_id: randomUUID(), line_key: key, amount: 2 }),
+      anon.rpc("hide_shopping_line", { plan_id: randomUUID(), line_key: key }),
+      anon.rpc("restore_shopping_line", { plan_id: randomUUID(), line_key: key, previous: null }),
+      anon.rpc("show_shopping_line", { plan_id: randomUUID(), line_key: key }),
+      anon.rpc("update_shopping_custom_item", { item: { id: randomUUID(), meal_plan_id: randomUUID(), label: "a" } }),
+    ]);
+    expect(results.map((result) => result.error?.code)).toEqual(["42501", "42501", "42501", "42501", "42501"]);
+  });
+
+  it("brings the line back with Ångra after a second hide, and leaves no empty row", async () => {
+    const user = await createTestUser("shopping-override-double-hide");
+    const { planId, key, vagueKey } = await planWithLines(user);
+    await setLineAmountIn(user.db, planId, key, 1.5);
+    const first = (await hideLineIn(user.db, planId, key)) as HiddenLine;
+    // A second hide (another tap, or a retry after a lost answer) gives the row as not hidden.
+    const second = (await hideLineIn(user.db, planId, key)) as HiddenLine;
+    expect(second.previous).toMatchObject({ id: first.previous!.id, amount: 1.5, hidden: false });
+    expect(await restoreLineIn(user.db, planId, key, second.previous, second.hiddenUpdatedAt)).toBe("saved");
+    expect((await shown(user.db))[0]).toEqual([key, 1.5, 2]);
+
+    // A line without an override, hidden twice: Ångra leaves no row with neither an amount nor hidden.
+    await hideLineIn(user.db, planId, vagueKey);
+    const again = (await hideLineIn(user.db, planId, vagueKey)) as HiddenLine;
+    expect(again.previous).toMatchObject({ amount: null, hidden: false });
+    expect(await restoreLineIn(user.db, planId, vagueKey, again.previous, again.hiddenUpdatedAt)).toBe("saved");
+    expect(await listOverridesIn(user.db, planId)).toEqual([{ key, amount: 1.5, baseAmount: null, hidden: false }]);
+  });
+
+  it("keeps a correction made after the hide when Ångra comes, and only shows the line again", async () => {
+    const user = await createTestUser("shopping-override-concurrent");
+    const { planId, key } = await planWithLines(user);
+    const hidden = (await hideLineIn(user.db, planId, key)) as HiddenLine;
+    expect(hidden.previous).toBeNull();
+    // Another tab corrects the hidden line before "Ångra".
+    expect(await setLineAmountIn(user.db, planId, key, 5, 2)).toBe("saved");
+    expect(await restoreLineIn(user.db, planId, key, hidden.previous, hidden.hiddenUpdatedAt)).toBe("saved");
+    expect(await listOverridesIn(user.db, planId)).toEqual([{ key, amount: 5, baseAmount: 2, hidden: false }]);
+    expect((await shown(user.db))[0]).toEqual([key, 5, 2]);
+
+    // With a row before: a change after the hide keeps the new amount, not the old one.
+    const again = (await hideLineIn(user.db, planId, key)) as HiddenLine;
+    expect(await setLineAmountIn(user.db, planId, key, 7, 2)).toBe("saved");
+    expect(await restoreLineIn(user.db, planId, key, again.previous, again.hiddenUpdatedAt)).toBe("saved");
+    expect(await listOverridesIn(user.db, planId)).toEqual([{ key, amount: 7, baseAmount: 2, hidden: false }]);
+
+    // Cleared elsewhere after the hide: the line is shown already, and nothing comes back.
+    const third = (await hideLineIn(user.db, planId, key)) as HiddenLine;
+    await showLineIn(user.db, planId, key);
+    await setLineAmountIn(user.db, planId, key, null);
+    expect(await restoreLineIn(user.db, planId, key, third.previous, third.hiddenUpdatedAt)).toBe("saved");
+    expect(await listOverridesIn(user.db, planId)).toEqual([]);
+  });
+
+  it("stores the counted amount beside a correction, and the list says when it has changed", async () => {
+    const user = await createTestUser("shopping-override-base");
+    const { planId, dishId, key } = await planWithLines(user);
+    expect(await setLineAmountIn(user.db, planId, key, 1.5, 2)).toBe("saved");
+    expect(await listOverridesIn(user.db, planId)).toEqual([{ key, amount: 1.5, baseAmount: 2, hidden: false }]);
+    let line = (await loadShoppingList(sources(user.db))).lines[0];
+    expect(line).toMatchObject({ amount: 1.5, computedAmount: 2 });
+    expect(line).not.toHaveProperty("computedChanged");
+    await setServingsIn(user.db, user.id, dishId, 6);
+    line = (await loadShoppingList(sources(user.db))).lines[0];
+    expect(line).toMatchObject({ amount: 1.5, computedAmount: 3, computedChanged: true });
+    // Back to the counted amount: the base goes with it.
+    await setLineAmountIn(user.db, planId, key, null);
+    expect(await countRows("shopping_line_override", user.id)).toBe(0);
+    const refused = await user.db
+      .from("shopping_line_override")
+      .insert({ meal_plan_id: planId, line_key: key, hidden: true, base_amount: 2 });
+    expect(refused.error?.code).toBe("23514");
+  });
+
+  it("lists hidden lines for Dolda varor and shows one again with its correction", async () => {
+    const user = await createTestUser("shopping-override-show");
+    const { planId, key, vagueKey, textKey } = await planWithLines(user);
+    await setLineAmountIn(user.db, planId, key, 1.5, 2);
+    await hideLineIn(user.db, planId, key);
+    await hideLineIn(user.db, planId, vagueKey);
+    const list = await loadShoppingList(sources(user.db));
+    expect(list.lines.map((line) => line.key)).toEqual([textKey]);
+    expect(list.hiddenLines.map((line) => [line.key, line.label, line.amount])).toEqual([
+      [key, "Grädde", 1.5],
+      [vagueKey, "Salt", null],
+    ]);
+
+    expect(await showLineIn(user.db, planId, key)).toBe("saved");
+    expect(await showLineIn(user.db, planId, vagueKey)).toBe("saved");
+    expect(await showLineIn(user.db, planId, vagueKey)).toBe("saved");
+    const after = await loadShoppingList(sources(user.db));
+    expect(after.lines.map((line) => [line.key, line.amount])).toEqual([
+      [key, 1.5],
+      [vagueKey, null],
+      [textKey, null],
+    ]);
+    expect(after.hiddenLines).toEqual([]);
+    // The vague line's row had nothing but hidden: it is gone.
+    expect(await listOverridesIn(user.db, planId)).toEqual([{ key, amount: 1.5, baseAmount: 2, hidden: false }]);
+  });
+
+  it("reads every override of a plan, page by page", async () => {
+    const user = await createTestUser("shopping-override-pages");
+    const planId = await addPlan(user.db);
+    const rows = Array.from({ length: 1005 }, () => ({
+      meal_plan_id: planId,
+      line_key: `r:${randomUUID()}:dl`,
+      hidden: true,
+    }));
+    const { error } = await user.db.from("shopping_line_override").insert(rows);
+    if (error) throw error;
+    expect(await listOverridesIn(user.db, planId)).toHaveLength(1005);
   });
 });

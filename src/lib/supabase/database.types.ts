@@ -225,6 +225,26 @@ isOneToOne: false
       referencedColumns: ["id","user_id"]
     }
                   ]
+                },"shopping_line_override": {
+                  Row: {
+                    "amount": number | null,"base_amount": number | null,"created_at": string,"hidden": boolean,"id": string,"line_key": string,"meal_plan_id": string,"updated_at": string,"user_id": string
+                  }
+                  ComputedFields: never
+                  Insert: {
+                    "amount"?: number | null,"base_amount"?: number | null,"created_at"?: string,"hidden"?: boolean,"id"?: string,"line_key": string,"meal_plan_id": string,"updated_at"?: string,"user_id"?: string
+                  }
+                  Update: {
+                    "amount"?: number | null,"base_amount"?: number | null,"created_at"?: string,"hidden"?: boolean,"id"?: string,"line_key"?: string,"meal_plan_id"?: string,"updated_at"?: string,"user_id"?: string
+                  }
+                  Relationships: [
+                    {
+      foreignKeyName: "shopping_line_override_meal_plan_fkey"
+      columns: ["meal_plan_id","user_id"]
+isOneToOne: false
+      referencedRelation: "meal_plan"
+      referencedColumns: ["id","user_id"]
+    }
+                  ]
                 }
           }
           Views: {
@@ -278,6 +298,9 @@ isOneToOne: false
                            },
 "ensure_user_defaults":
 { Args: Record<PropertyKey, never>; Returns: undefined
+                           },
+"hide_shopping_line":
+{ Args: { "line_key": string,"plan_id": string }; Returns: Json
                            },
 "meal_plan_lock":
 { Args: Record<PropertyKey, never>; Returns: undefined
@@ -335,6 +358,9 @@ isOneToOne: false
         isOneToOne: true
         isSetofReturn: false
       } },
+"restore_shopping_line":
+{ Args: { "hidden_updated_at"?: string,"line_key": string,"plan_id": string,"previous": Json }; Returns: undefined
+                           },
 "save_recipe":
 { Args: { "lines": Json,"recipe": Json,"steps": Json }; Returns: string
                            },
@@ -371,9 +397,32 @@ isOneToOne: false
 "set_shopping_check":
 { Args: { "checked": boolean,"line_key": string,"plan_id": string }; Returns: undefined
                            },
+"set_shopping_line_amount":
+{ Args: { "amount": number,"base_amount"?: number,"line_key": string,"plan_id": string }; Returns: undefined
+                           },
+"show_shopping_line":
+{ Args: { "line_key": string,"plan_id": string }; Returns: undefined
+                           },
 "update_recipe":
 { Args: { "expected_updated_at": string,"id": string,"lines": Json,"recipe": Json,"steps": Json }; Returns: string
-                           }
+                           },
+"update_shopping_custom_item":
+{ Args: { "item": Json }; Returns: {
+              "amount": number | null,
+"created_at": string,
+"id": string,
+"ingredient_id": string | null,
+"label": string,
+"meal_plan_id": string,
+"unit": string | null,
+"user_id": string
+            }
+                          SetofOptions: {
+        from: "*"
+        to: "shopping_custom_item"
+        isOneToOne: true
+        isSetofReturn: false
+      } }
           }
           Enums: {
             [_ in never]: never

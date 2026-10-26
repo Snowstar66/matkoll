@@ -20,3 +20,11 @@ export {
   maxLineKeyChars,
   type ParsedLineKey,
 } from "./domain/line-key";
+export {
+  isAmountKey,
+  isOverridableKey,
+  lineAmountFormSchema,
+  type HiddenLine,
+  type LineOverride,
+  type LineOverrideRow,
+} from "./domain/line-override";

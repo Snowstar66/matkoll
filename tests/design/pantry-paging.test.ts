@@ -2,6 +2,7 @@ import { readFileSync } from "node:fs";
 import { fileURLToPath } from "node:url";
 import { describe, expect, it } from "vitest";
 import { pantryPageSize } from "@/features/pantry/data/queries";
+import { overridePageSize } from "@/features/shopping/data/overrides";
 
 // The pantry's reads fetch pages of pantryPageSize rows and stop at the first
 // shorter page. If the API's row limit (max_rows) were smaller, every page
@@ -22,5 +23,12 @@ function apiMaxRows(): number {
 describe("pantry paging", () => {
   it("asks for at most the API's row limit per page", () => {
     expect(apiMaxRows()).toBeGreaterThanOrEqual(pantryPageSize);
+  });
+});
+
+// Story 3.6: the shopping list's overrides are read the same way.
+describe("shopping_line_override paging", () => {
+  it("asks for at most the API's row limit per page", () => {
+    expect(apiMaxRows()).toBeGreaterThanOrEqual(overridePageSize);
   });
 });

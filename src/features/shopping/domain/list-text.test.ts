@@ -2,6 +2,9 @@ import { describe, expect, it } from "vitest";
 import type { ShoppingLine } from "./compute-list";
 import {
   checkLabel,
+  computedAmountText,
+  hiddenLinesButtonText,
+  detailOriginsText,
   groupBySection,
   itemsLeft,
   itemsLeftText,
@@ -111,5 +114,30 @@ describe("list texts", () => {
     expect(checkLabel(line({ label: "Salt", amount: null, unit: null, isVague: true }))).toBe("Salt, finns hemma?");
     expect(checkLabel(line({ label: "En näve persilja", amount: null, unit: null }))).toBe("En näve persilja");
     expect(checkLabel(line({ label: "2 citroner", amount: null, unit: null, multiplier: 2 }))).toBe("2 citroner, ×2");
+  });
+});
+
+describe("Listpostdetalj's texts (Story 3.6)", () => {
+  it("says where a line comes from with a capital F, and what the list counted", () => {
+    expect(detailOriginsText(["d1", "d2"], { d1: "Krämig kycklinggryta", d2: "Linssoppa" })).toBe(
+      "Från Krämig kycklinggryta, Linssoppa",
+    );
+    expect(detailOriginsText(["okänd"], {})).toBeNull();
+    expect(computedAmountText(3, "dl")).toBe("Beräknat: 3 dl");
+    expect(computedAmountText(1.5, "st")).toBe("Beräknat: 1,5 st");
+  });
+});
+
+describe("a correction whose counted amount has changed, and Dolda varor (Story 3.6)", () => {
+  it("shows the counted amount beside the corrected one, and what is at home after it", () => {
+    const corrected = line({ amount: 2, unit: "dl", computedAmount: 4, computedChanged: true });
+    expect(lineAmountText(corrected)).toBe("2 dl (beräknat 4 dl)");
+    expect(lineAmountText({ ...corrected, pantryNote: "hemma: 1 kg" })).toBe("2 dl (beräknat 4 dl, hemma: 1 kg)");
+    expect(checkLabel({ ...corrected, label: "Grädde" })).toBe("Grädde, 2 dl (beräknat 4 dl)");
+    expect(lineAmountText({ ...corrected, computedChanged: undefined })).toBe("2 dl");
+  });
+
+  it("counts the hidden lines", () => {
+    expect(hiddenLinesButtonText(2)).toBe("Dolda varor (2)");
   });
 });

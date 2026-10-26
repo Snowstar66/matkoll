@@ -127,3 +127,30 @@ export async function removeCustomItemIn(
     return { row: null };
   }
 }
+
+/**
+ * updateCustomItem (AD-20, AD-22): changes the item's text, catalog
+ * ingredient, amount and unit, keeping its id and so its check, under the
+ * meal plan lock (update_shopping_custom_item). Idempotent. `not_found` when
+ * the user has no item with the id (removed meanwhile, or another user's);
+ * `plan_changed`, with nothing written, when `row.planId` is not the item's
+ * plan or no longer the user's current plan. Throws ShoppingDataError
+ * otherwise: `update_failed <code>` (23503 for another user's ingredient).
+ */
+export async function updateCustomItemIn(
+  db: ShoppingDb,
+  row: CustomItemRow,
+): Promise<CustomItemRow | "plan_changed" | "not_found"> {
+  const parsed = customItemRowSchema.safeParse(row);
+  if (!parsed.success) throw new ShoppingDataError("invalid_custom_item");
+  const { id, planId, label, ingredientId, amount, unit } = parsed.data;
+  const { data, error } = await db.rpc("update_shopping_custom_item", {
+    item: { id, meal_plan_id: planId, label, ingredient_id: ingredientId, amount, unit },
+  });
+  if (error) {
+    if (error.code === "P0002") return "not_found";
+    if (error.code === "55000") return "plan_changed";
+    throw new ShoppingDataError(`update_failed ${error.code}`, error.code);
+  }
+  return toRow(data);
+}

@@ -4,7 +4,8 @@ import { adminClient, e2eUserId, shoppingEmail, shoppingStorageState } from "./s
 // Story 3.3: Inköpslista, counted from the current meal plan, its recipes and
 // the pantry every time it is read. Story 3.4: checking lines off, saved at
 // once. Story 3.5: Pontus's own items, added, checked, removed and put back
-// with "Ångra". The spec has an E2E user of its own
+// with "Ångra". Story 3.6: Listpostdetalj, corrected amounts and hidden
+// lines. The spec has an E2E user of its own
 // (shoppingEmail), which the later list stories share; everything is made
 // with the service role before the tests. Two recipes for 4 portions:
 // Krämig kycklinggryta (2 dl grädde, 1 paprika, salt efter smak) and Paj
@@ -211,7 +212,8 @@ test("the list groups the lines by section, with från [rätt], the pantry besid
   await expect(lineOf(page, "Salt")).toContainText("Finns hemma?");
   // A line without a catalog ingredient, with its own text, under Övrigt.
   const other = page.getByRole("region", { name: "Övrigt" }).filter({ visible: true });
-  await expect(other.getByTestId("shopping-line")).toHaveText([`En näve persilja från ${paj}`]);
+  // Every line's row also holds its "Ta bort", behind the row until it is swiped (Story 3.6).
+  await expect(other.getByTestId("shopping-line")).toHaveText([new RegExp(`^En näve persilja från ${paj}\\s*Ta bort$`)]);
   expect(errors).toEqual([]);
 });
 
@@ -494,5 +496,216 @@ test("own items stay as they are when the servings change", async ({ page }) => 
   // 3,5 dl grädde for 7, and 1 dl from Paj, against 4 dl at home: the recipes need more now.
   await expect(region(page, "Mejeri").getByTestId("shopping-line")).toContainText(["Grädde"]);
   await expect(region(page, "Övrigt").getByTestId("shopping-line")).toHaveText([/^diskmedel\s*2 förp\s*Ta bort$/]);
+  expect(errors).toEqual([]);
+});
+
+// Story 3.6: Listpostdetalj, corrected amounts and hidden lines. Each test
+// sets the pantry, the servings, the checks, the own items and the overrides
+// itself: Krämig kycklinggryta and Paj for 4 with 1 kg mjöl at home give
+// Paprika 1 st, Grädde 3 dl, Mjöl 2 dl (hemma: 1 kg) and Salt – Finns hemma?.
+
+/** The current plan's id, with the service role. */
+async function currentPlanId(): Promise<string> {
+  const plan = await adminClient().from("meal_plan").select("id").eq("user_id", userId).eq("is_current", true).single();
+  if (plan.error) throw plan.error;
+  return (plan.data as { id: string }).id;
+}
+
+/** Sets the current plan's overrides to exactly these, with the service role. */
+async function seedOverrides(rows: { ingredient: string; unit: string; amount?: number; hidden?: boolean }[]) {
+  const admin = adminClient();
+  const removed = await admin.from("shopping_line_override").delete().eq("user_id", userId);
+  if (removed.error) throw removed.error;
+  if (rows.length === 0) return;
+  const planId = await currentPlanId();
+  const { error } = await admin.from("shopping_line_override").insert(
+    rows.map(({ ingredient, unit, amount, hidden }) => ({
+      user_id: userId,
+      meal_plan_id: planId,
+      line_key: `r:${ids.get(ingredient)}:${unit}`,
+      amount: amount ?? null,
+      hidden: hidden ?? false,
+    })),
+  );
+  if (error) throw error;
+}
+
+/** The overrides with the service role. */
+async function storedOverrides(): Promise<{ id: string; line_key: string; amount: number | null; hidden: boolean }[]> {
+  const { data, error } = await adminClient()
+    .from("shopping_line_override")
+    .select("id, line_key, amount, hidden")
+    .eq("user_id", userId)
+    .order("line_key");
+  if (error) throw error;
+  return (data as { id: string; line_key: string; amount: number | null; hidden: boolean }[]).map((row) => ({
+    ...row,
+    amount: row.amount === null ? null : Number(row.amount),
+  }));
+}
+
+/** Both dishes for 4 servings, 1 kg mjöl at home, and no checks, own items or overrides. */
+async function seedListState(overrides: Parameters<typeof seedOverrides>[0] = []) {
+  const admin = adminClient();
+  const pantry = await admin.from("pantry_item").delete().eq("user_id", userId);
+  if (pantry.error) throw pantry.error;
+  await addPantry("Mjöl", 1, "kg", "Skafferi");
+  const servings = await admin.from("meal_plan_recipe").update({ servings: 4 }).eq("user_id", userId);
+  if (servings.error) throw servings.error;
+  await seedChecks([]);
+  await seedCustomItems([]);
+  await seedOverrides(overrides);
+}
+
+const detailSheet = (page: Page, title: string) => page.getByRole("dialog", { name: title });
+/** The line's name, a button that opens Listpostdetalj. */
+const nameOf = (page: Page, label: string) => lineOf(page, label).getByRole("button", { name: new RegExp(`^${label}`) });
+
+test("a corrected amount is saved, stays when the servings change, and goes back to the counted one", async ({ page }) => {
+  await seedListState();
+  const errors = watchErrors(page);
+  await page.goto("/lista");
+  await expect(lineOf(page, "Grädde")).toContainText("3 dl");
+
+  // The check and the name are separate: the check does not open the detail.
+  await nameOf(page, "Grädde").click();
+  const sheet = detailSheet(page, "Grädde");
+  const amount = sheet.getByRole("textbox", { name: "Mängd" });
+  await expect(amount).toHaveValue("3");
+  await expect(sheet.getByTestId("line-detail-unit")).toHaveText("dl");
+  await expect(sheet.getByTestId("line-detail-origins")).toHaveText(`Från ${gryta}, ${paj}`);
+  await expect(sheet.getByRole("button", { name: "Ta bort" })).toBeVisible();
+
+  await amount.fill("två");
+  await sheet.getByRole("button", { name: "Spara" }).click();
+  await expect(sheet.getByText("Ange ett tal större än 0.")).toBeVisible();
+  await amount.fill("2");
+  await actionsAnswered(page, 1, () => sheet.getByRole("button", { name: "Spara" }).click());
+  await expect(detailSheet(page, "Grädde")).toHaveCount(0);
+  await expect(lineOf(page, "Grädde")).toContainText("2 dl");
+  expect((await storedOverrides()).map((row) => [row.line_key, row.amount, row.hidden])).toEqual([
+    [`r:${ids.get("Grädde")}:dl`, 2, false],
+  ]);
+
+  await nameOf(page, "Grädde").click();
+  await expect(detailSheet(page, "Grädde").getByTestId("line-detail-computed")).toHaveText("Beräknat: 3 dl");
+  await detailSheet(page, "Grädde").getByRole("button", { name: "Avbryt" }).click();
+  await expect(detailSheet(page, "Grädde")).toHaveCount(0);
+
+  await tab(page, "Matsedel").click();
+  await expect(page).toHaveURL(/\/matsedel$/);
+  const dish = page.getByTestId("plan-dish").filter({ visible: true }).filter({ hasText: gryta });
+  for (const servings of [5, 6]) {
+    await actionsAnswered(page, 1, () => dish.getByRole("button", { name: `Fler portioner, ${gryta}` }).click());
+    await expect(dish.getByText(`${servings} portioner`)).toBeVisible();
+  }
+  await tab(page, "Lista").click();
+  await expect(page).toHaveURL(/\/lista$/);
+  // 3 dl + 1 dl counted now; the correction stays on the same key, and the row says the count has changed.
+  await expect(lineOf(page, "Grädde")).toContainText("2 dl (beräknat 4 dl)");
+  await nameOf(page, "Grädde").click();
+  const again = detailSheet(page, "Grädde");
+  await expect(again.getByTestId("line-detail-computed")).toHaveText("Beräknat: 4 dl");
+  await actionsAnswered(page, 1, () => again.getByRole("button", { name: "Använd beräknad mängd" }).click());
+  await expect(detailSheet(page, "Grädde")).toHaveCount(0);
+  await expect(lineOf(page, "Grädde")).toContainText("4 dl");
+  expect(await storedOverrides()).toEqual([]);
+  expect(errors).toEqual([]);
+});
+
+test("a recipe line is hidden by swipe and comes back with Ångra, with its corrected amount and the same row", async ({
+  page,
+}) => {
+  await seedListState([{ ingredient: "Grädde", unit: "dl", amount: 2 }]);
+  const [seeded] = await storedOverrides();
+  const errors = watchErrors(page);
+  await page.goto("/lista");
+  await expect(summary(page)).toHaveText("Vecka 44 · 2 rätter · 4 varor kvar");
+  await expect(lineOf(page, "Grädde")).toContainText("2 dl");
+
+  const row = lineOf(page, "Grädde");
+  await swipeLeft(page, row);
+  await expect(row.getByTestId("swipe-row-front")).toHaveCSS("transform", "matrix(1, 0, 0, 1, -96, 0)");
+  await actionsAnswered(page, 1, () => page.getByRole("button", { name: "Ta bort Grädde" }).click());
+  await expect(lineOf(page, "Grädde")).toHaveCount(0);
+  await expect(toast(page)).toContainText("Grädde är borttagen.");
+  // "varor kvar" leaves the hidden line out.
+  await expect(summary(page)).toHaveText("Vecka 44 · 2 rätter · 3 varor kvar");
+  expect(await storedOverrides()).toEqual([{ ...seeded, hidden: true }]);
+
+  await actionsAnswered(page, 1, () => toast(page).getByRole("button", { name: "Ångra" }).click());
+  await expect(lineOf(page, "Grädde")).toContainText("2 dl");
+  await expect(summary(page)).toHaveText("Vecka 44 · 2 rätter · 4 varor kvar");
+  expect(await storedOverrides()).toEqual([seeded]);
+  await page.reload();
+  await expect(lineOf(page, "Grädde")).toContainText("2 dl");
+  expect(errors).toEqual([]);
+});
+
+test("Ta bort in the detail hides a line, which stays hidden when the list is counted again", async ({ page }) => {
+  await seedListState();
+  const errors = watchErrors(page);
+  await page.goto("/lista");
+
+  // A vague line has no amount to correct.
+  await nameOf(page, "Salt").click();
+  const salt = detailSheet(page, "Salt");
+  await expect(salt.getByTestId("line-detail-origins")).toHaveText(`Från ${gryta}`);
+  await expect(salt.getByRole("textbox")).toHaveCount(0);
+  await salt.getByRole("button", { name: "Klar" }).click();
+  await expect(detailSheet(page, "Salt")).toHaveCount(0);
+
+  await nameOf(page, "Grädde").click();
+  await actionsAnswered(page, 1, () => detailSheet(page, "Grädde").getByRole("button", { name: "Ta bort" }).click());
+  await expect(detailSheet(page, "Grädde")).toHaveCount(0);
+  await expect(lineOf(page, "Grädde")).toHaveCount(0);
+  await expect(toast(page)).toContainText("Grädde är borttagen.");
+  await expect(summary(page)).toHaveText("Vecka 44 · 2 rätter · 3 varor kvar");
+
+  // More servings: the same key, still hidden; the other lines are counted again.
+  const servings = await adminClient().from("meal_plan_recipe").update({ servings: 8 }).eq("user_id", userId);
+  if (servings.error) throw servings.error;
+  await page.reload();
+  await expect(lineOf(page, "Paprika")).toContainText("2 st");
+  await expect(lineOf(page, "Grädde")).toHaveCount(0);
+  expect((await storedOverrides()).map((row) => [row.line_key, row.amount, row.hidden])).toEqual([
+    [`r:${ids.get("Grädde")}:dl`, null, true],
+  ]);
+
+  // Dolda varor: the way back.
+  await page.getByRole("button", { name: "Dolda varor (1)" }).filter({ visible: true }).click();
+  const hidden = detailSheet(page, "Dolda varor");
+  await expect(hidden.getByTestId("hidden-line")).toHaveText([/^Grädde\s*6 dl\s*Visa igen$/]);
+  await actionsAnswered(page, 1, () => hidden.getByRole("button", { name: "Visa igen Grädde" }).click());
+  await expect(detailSheet(page, "Dolda varor")).toHaveCount(0);
+  await expect(lineOf(page, "Grädde")).toContainText("6 dl");
+  await expect(page.getByRole("button", { name: /^Dolda varor/ }).filter({ visible: true })).toHaveCount(0);
+  expect(await storedOverrides()).toEqual([]);
+  expect(errors).toEqual([]);
+});
+
+test("an own item's detail changes it in place, keeping its id and check", async ({ page }) => {
+  await seedListState();
+  const seeded = await seedCustomItems([{ label: "diskmedel" }]);
+  const { error } = await adminClient()
+    .from("shopping_check")
+    .insert({ user_id: userId, meal_plan_id: await currentPlanId(), line_key: `c:${seeded.get("diskmedel")}` });
+  if (error) throw error;
+  const errors = watchErrors(page);
+  await page.goto("/lista");
+  await expect(check(page, "diskmedel")).toBeChecked();
+
+  await nameOf(page, "diskmedel").click();
+  const sheet = detailSheet(page, "diskmedel");
+  await expect(sheet.getByRole("textbox", { name: "Vara" })).toHaveValue("diskmedel");
+  await sheet.getByRole("textbox", { name: "Vara" }).fill("diskmedel eko");
+  await sheet.getByRole("textbox", { name: "Mängd" }).fill("2");
+  await sheet.getByRole("combobox", { name: "Enhet" }).selectOption("förp");
+  await actionsAnswered(page, 1, () => sheet.getByRole("button", { name: "Spara" }).click());
+  await expect(detailSheet(page, "diskmedel")).toHaveCount(0);
+
+  await expect(region(page, "Övrigt").getByTestId("shopping-line")).toHaveText([/^diskmedel eko\s*2 förp\s*Ta bort$/]);
+  await expect(check(page, "diskmedel eko, 2 förp")).toBeChecked();
+  expect((await storedCustomItems()).map((item) => [item.id, item.label])).toEqual([[seeded.get("diskmedel"), "diskmedel eko"]]);
   expect(errors).toEqual([]);
 });

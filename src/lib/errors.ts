@@ -57,6 +57,8 @@ export const errorMessages = {
   shopping_save_failed: "Det gick inte att spara varan. Försök igen.",
   shopping_remove_failed: "Det gick inte att ta bort varan.",
   shopping_restore_failed: "Det gick inte att ångra.",
+  // An own item changed in its detail after it was removed elsewhere (Story 3.6): the sheet closes and the list is read again.
+  shopping_item_gone: "Varan finns inte längre.",
   // Recipe sites in Inställningar (FR7). The sentence with the site's name,
   // "koket.se finns redan.", is in `fields.domain`.
   settings_invalid_domain: "Ange en giltig webbadress, t.ex. koket.se.",

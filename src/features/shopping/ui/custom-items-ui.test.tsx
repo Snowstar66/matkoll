@@ -208,11 +208,11 @@ describe("Lägg till egen vara", () => {
 describe("removing an own item", () => {
   const lines = [gradde, coffee, disk];
 
-  it("offers Ta bort only on own items", () => {
+  it("offers Ta bort on own items, and on recipe lines too since Story 3.6", () => {
     render(<ShoppingList plan={plan} lines={lines} pantryUnavailable={false} />);
     expect(screen.getByRole("button", { name: "Ta bort diskmedel" })).toBeInTheDocument();
     expect(screen.getByRole("button", { name: "Ta bort Kaffe" })).toBeInTheDocument();
-    expect(screen.queryByRole("button", { name: "Ta bort Grädde" })).not.toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "Ta bort Grädde" })).toBeInTheDocument();
   });
 
   it("removes the item at once, and Ångra puts it back with the same row and check", async () => {

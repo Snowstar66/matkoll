@@ -1,4 +1,4 @@
-import { act, render as renderBare, type RenderOptions, screen, within } from "@testing-library/react";
+import { act, fireEvent, render as renderBare, type RenderOptions, screen, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { Activity, type ReactElement, useEffect, useState } from "react";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
@@ -72,7 +72,8 @@ const lines: ShoppingLine[] = [
   }),
 ];
 
-const rowText = (row: HTMLElement) => row.textContent;
+/** What a row shows, without the "Ta bort" a swipe reveals. */
+const rowText = (row: HTMLElement) => (row.querySelector('[data-testid="swipe-row-front"]') ?? row).textContent;
 
 describe("ShoppingList", () => {
   it("shows the summary and the lines per section in the fixed order", () => {
@@ -336,19 +337,24 @@ describe("ShoppingList checks", () => {
   });
 
   it("gives up on a check without an answer after a while, so later taps are not stuck behind it", async () => {
-    vi.useFakeTimers({ shouldAdvanceTime: true });
-    const user = userEvent.setup({ advanceTimers: vi.advanceTimersByTime });
+    // Time moves only when the test moves it. fireEvent, not user-event, whose
+    // async wrapper waits for a real timer that fake timers never run.
+    vi.useFakeTimers();
+    const flush = () => act(async () => void (await vi.advanceTimersByTimeAsync(0)));
     setChecked.mockImplementationOnce(() => new Promise(() => {}));
     render(<ServerList initial={lines} />);
     const box = screen.getByRole("checkbox", { name: "Paprika, 1 st" });
-    await user.click(box);
+    act(() => void fireEvent.click(box));
+    await flush();
     expect(box).toBeChecked();
-    await act(async () => vi.advanceTimersByTimeAsync(checkTimeoutMs));
+    await act(async () => void (await vi.advanceTimersByTimeAsync(checkTimeoutMs)));
+    await flush();
     expect(box).not.toBeChecked();
     expect(screen.getByRole("alert")).toHaveTextContent("Det gick inte att spara bocken.");
     expect(refresh).toHaveBeenCalled();
 
-    await user.click(box);
+    act(() => void fireEvent.click(box));
+    await flush();
     expect(setChecked).toHaveBeenCalledTimes(2);
     expect(box).toBeChecked();
     expect(screen.queryByRole("alert")).not.toBeInTheDocument();

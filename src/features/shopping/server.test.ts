@@ -53,6 +53,8 @@ const listChecksIn = vi.fn();
 vi.mock("./data/checks", () => ({ listChecksIn: (...args: unknown[]) => listChecksIn(...args) }));
 const listCustomItemsIn = vi.fn();
 vi.mock("./data/custom-items", () => ({ listCustomItemsIn: (...args: unknown[]) => listCustomItemsIn(...args) }));
+const listOverridesIn = vi.fn();
+vi.mock("./data/overrides", () => ({ listOverridesIn: (...args: unknown[]) => listOverridesIn(...args) }));
 
 const { getShoppingList } = await import("./server");
 
@@ -82,6 +84,7 @@ beforeEach(() => {
   getIngredientDefaults.mockReset().mockResolvedValue({ [gradde]: { section: "Mejeri", location: "Kyl", defaultUnit: "dl" } });
   listChecksIn.mockReset().mockResolvedValue([]);
   listCustomItemsIn.mockReset().mockResolvedValue([]);
+  listOverridesIn.mockReset().mockResolvedValue([]);
   log?.mockRestore();
   log = vi.spyOn(console, "error").mockImplementation(() => {});
 });
@@ -102,6 +105,7 @@ describe("getShoppingList", () => {
         lines: [
           expect.objectContaining({ key: `r:${gradde}:dl`, label: "Grädde", amount: 2, unit: "dl", section: "Mejeri", origins: ["d1"] }),
         ],
+        hiddenLines: [],
         pantryUnavailable: false,
         checksUnavailable: false,
       }),
@@ -121,12 +125,13 @@ describe("getShoppingList", () => {
     getCurrentPlan.mockResolvedValue(null);
     getPantrySnapshot.mockRejectedValue(new PantryDataError("query_failed 08006"));
     expect(await getShoppingList()).toEqual(
-      ok({ plan: null, lines: [], pantryUnavailable: false, checksUnavailable: false }),
+      ok({ plan: null, lines: [], hiddenLines: [], pantryUnavailable: false, checksUnavailable: false }),
     );
     expect(getRecipesByIds).not.toHaveBeenCalled();
     expect(getPantrySnapshot).not.toHaveBeenCalled();
     expect(listChecksIn).not.toHaveBeenCalled();
     expect(listCustomItemsIn).not.toHaveBeenCalled();
+    expect(listOverridesIn).not.toHaveBeenCalled();
   });
 
   it("reads no pantry for a plan whose dishes all lost their recipe", async () => {
@@ -160,9 +165,9 @@ describe("getShoppingList", () => {
     listChecksIn.mockResolvedValue([`c:${disk}`]);
     const result = await getShoppingList();
     expect(listCustomItemsIn).toHaveBeenCalledWith(db, "plan");
-    // The own item's ingredient gives its section; its name is Pontus's text.
+    // The own item's ingredient gives its section, and its name for the detail; the line's name is Pontus's text.
     expect(getIngredientDefaults).toHaveBeenCalledWith([gradde, kaffe]);
-    expect(getIngredientNames).toHaveBeenCalledWith([gradde]);
+    expect(getIngredientNames).toHaveBeenCalledWith([gradde, kaffe]);
     expect(result.ok && result.data.lines.map((line) => [line.section, line.key, line.label, line.checked])).toEqual([
       ["Mejeri", `r:${gradde}:dl`, "Grädde", false],
       ["Skafferi", `c:${own}`, "Kaffe", false],
@@ -173,7 +178,31 @@ describe("getShoppingList", () => {
     getIngredientNames.mockClear();
     const only = await getShoppingList();
     expect(only.ok && only.data.lines.map((line) => line.label)).toEqual(["Kaffe", "diskmedel"]);
+    expect(getIngredientNames).toHaveBeenCalledWith([kaffe]);
+
+    listCustomItemsIn.mockResolvedValue([]);
+    getIngredientNames.mockClear();
+    getIngredientDefaults.mockClear();
+    expect(await getShoppingList()).toEqual(ok(expect.objectContaining({ lines: [] })));
     expect(getIngredientNames).not.toHaveBeenCalled();
+    expect(getIngredientDefaults).not.toHaveBeenCalled();
+  });
+
+  it("applies the plan's corrected amounts and hidden lines, read with the session client", async () => {
+    listOverridesIn.mockResolvedValue([{ key: `r:${gradde}:dl`, amount: 1.5, baseAmount: 2, hidden: false }]);
+    const result = await getShoppingList();
+    expect(listOverridesIn).toHaveBeenCalledWith(db, "plan");
+    expect(result.ok && result.data.lines).toEqual([
+      expect.objectContaining({ key: `r:${gradde}:dl`, amount: 1.5, computedAmount: 2 }),
+    ]);
+
+    listOverridesIn.mockResolvedValue([{ key: `r:${gradde}:dl`, amount: 1.5, baseAmount: 2, hidden: true }]);
+    const hidden = await getShoppingList();
+    expect(hidden.ok && hidden.data.lines).toEqual([]);
+    // Dolda varor: the hidden line as counted without being hidden, with its correction.
+    expect(hidden.ok && hidden.data.hiddenLines).toEqual([
+      expect.objectContaining({ key: `r:${gradde}:dl`, label: "Grädde", amount: 1.5, computedAmount: 2 }),
+    ]);
   });
 
   it("takes nothing off when the pantry cannot be read, and says so", async () => {
@@ -191,6 +220,11 @@ describe("getShoppingList", () => {
       "the own items",
       () => listCustomItemsIn.mockRejectedValue(new ShoppingDataError("list_custom_items_failed 08006")),
       { reason: "list_custom_items_failed 08006" },
+    ],
+    [
+      "the overrides",
+      () => listOverridesIn.mockRejectedValue(new ShoppingDataError("list_overrides_failed 08006")),
+      { reason: "list_overrides_failed 08006" },
     ],
     [
       "the catalog",

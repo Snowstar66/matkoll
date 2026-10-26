@@ -5,18 +5,22 @@ import { type RefObject, useCallback, useEffect, useRef, useState } from "react"
 import { useToast } from "@/components/toast";
 import { removedItemsText } from "@/features/pantry";
 import { fail, type Result } from "@/lib/errors";
+import { hideLine } from "../actions/hide-line";
 import { removeCustomItem } from "../actions/remove-custom-item";
 import { restoreCustomItem } from "../actions/restore-custom-item";
+import { restoreLine } from "../actions/restore-line";
 import { compareShoppingLines, type ShoppingLine } from "../domain/compute-list";
-import type { CustomItemRow } from "../domain/custom-item";
 import { parseLineKey } from "../domain/line-key";
 import { restoreFailedText } from "../domain/list-text";
 
-// Removing an own item with "Ångra" (FR-17, Story 3.5, AD-20): no question
-// first (EXPERIENCE.md, Interaction Primitives). The line leaves the list at
-// once and the short confirmation offers "Ångra" for 5 s, which puts the item
-// back with the same id, so under the same section and with the same check.
-// The same pattern as the pantry (Story 2.3) and the meal plan (Story 3.1).
+// "Ta bort" on a list line with "Ångra" (FR-17, AD-20): no question first
+// (EXPERIENCE.md, Interaction Primitives). The line leaves the list at once
+// and the short confirmation offers "Ångra" for 5 s. An own item (Story 3.5)
+// is deleted for good and "Ångra" puts it back with the same id, so under the
+// same section and with the same check. A recipe line (Story 3.6) is hidden
+// for as long as it keeps its key, and "Ångra" puts its override back as it
+// was, so it comes back with the corrected amount it had. The same pattern
+// as the pantry (Story 2.3) and the meal plan (Story 3.1).
 
 /** A removal or "Ångra" the list shows before the server's list has it. */
 type Entry = {
@@ -61,36 +65,48 @@ export function applyRemovals(lines: readonly ShoppingLine[], entries: Iterable<
   return added ? shown.sort(compareShoppingLines) : shown;
 }
 
-type Removed = { line: ShoppingLine; row: CustomItemRow };
+/** A removed line and how "Ångra" puts it back on the plan it was removed from. */
+type Removed = { line: ShoppingLine; planId: string; undo: () => Promise<Result<unknown>> };
 
-export type CustomItemRemoval = {
+export type LineRemoval = {
   /** `lines` with the removals and "Ångra" not yet in the server's list. */
   shown: readonly ShoppingLine[];
   /**
-   * Removes the own item at once; the short confirmation offers "Ångra".
-   * `moveFocus` (keyboard): focus goes to the next line afterwards.
+   * Removes the line at once (an own item) or hides it (a recipe line); the
+   * short confirmation offers "Ångra". `moveFocus` (keyboard, or "Ta bort"
+   * in the detail): focus goes to the next line afterwards.
    */
   remove: (line: ShoppingLine, moveFocus: boolean) => void;
   /** The key of a line just removed with `moveFocus`, until the list has moved focus. */
   focusAfterRef: RefObject<string | null>;
+  /**
+   * The lines Pontus is removing or putting back on this list, by
+   * `${planId} ${key}`, until the server's list shows it: what Pontus
+   * does is never announced as a recount.
+   */
+  touched: ReadonlySet<string>;
 };
 
 /**
- * Holds the removals of own items for the list of `planId`. A removed line is
- * gone while removeCustomItem runs and stays gone until the server's list no
+ * Holds the removals for the list of `planId`. A removed line is gone while
+ * removeCustomItem or hideLine runs and stays gone until the server's list no
  * longer has it, so it never flashes back; "Ångra" shows it again until the
- * server's list has it. Items removed while the confirmation shows join it
- * ("diskmedel och Kaffe är borttagna."), and "Ångra" puts them all back. A
+ * server's list has it. Lines removed while the confirmation shows join it
+ * ("Grädde och diskmedel är borttagna."), and "Ångra" puts them all back. A
  * failed removal brings the line back, and a failed "Ångra" takes it away
  * again, each with a short confirmation announced as an alert; when only
  * some of several could be put back, the alert names the others. A lost
- * answer, or a plan switched elsewhere, reads the list again.
+ * answer, or a plan switched elsewhere, reads the list again; hiding a recipe
+ * line is tried once more first, since it is idempotent and its answer is
+ * what "Ångra" needs. A line already being removed is not removed again.
  */
-export function useCustomItemRemoval(planId: string | null, lines: readonly ShoppingLine[]): CustomItemRemoval {
+export function useLineRemoval(planId: string | null, lines: readonly ShoppingLine[]): LineRemoval {
   const router = useRouter();
   const { showToast } = useToast();
   const [entries, setEntries] = useState<ReadonlyMap<string, Entry>>(() => new Map());
   const focusAfterRef = useRef<string | null>(null);
+  /** The lines whose removal is on its way, so a second tap does nothing. */
+  const removing = useRef(new Set<string>());
   const nextToken = useRef(0);
   const serverLines = useRef(lines);
   /** The items removed under the confirmation showing now; a new object per confirmation. */
@@ -153,35 +169,81 @@ export function useCustomItemRemoval(planId: string | null, lines: readonly Shop
     if (lost || result.error.code === "shopping_plan_changed") router.refresh();
   }
 
-  async function remove(line: ShoppingLine, moveFocus: boolean) {
+  /**
+   * Removes the line on the server: an own item for good, a recipe line
+   * hidden. Gives how "Ångra" puts it back, `null` when it is gone but cannot
+   * be put back, or the failure. Hiding is idempotent, so a lost answer is
+   * tried once more; a second lost answer throws.
+   */
+  async function removeOnServer(
+    line: ShoppingLine,
+    plan: string,
+  ): Promise<{ result: Result<unknown>; undo?: Removed["undo"] | null }> {
     const parsed = parseLineKey(line.key);
-    if (planId === null || parsed?.kind !== "custom") return;
+    if (parsed?.kind === "custom") {
+      const result = await removeCustomItem(parsed.id);
+      if (!result.ok) return { result };
+      const row = result.data;
+      return { result, undo: row && (() => restoreCustomItem(row)) };
+    }
+    const ref = { planId: plan, key: line.key };
+    let result: Awaited<ReturnType<typeof hideLine>>;
+    try {
+      result = await hideLine(ref);
+    } catch {
+      result = await hideLine(ref);
+    }
+    if (!result.ok) return { result };
+    const hidden = result.data;
+    return {
+      result,
+      undo:
+        hidden &&
+        (() => restoreLine({ ...ref, previous: hidden.previous, hiddenUpdatedAt: hidden.hiddenUpdatedAt })),
+    };
+  }
+
+  async function remove(line: ShoppingLine, moveFocus: boolean) {
+    if (planId === null || parseLineKey(line.key) === null) return;
     const plan = planId;
     const id = entryId(plan, line.key);
+    const existing = entries.get(id);
+    if (removing.current.has(id) || (existing?.kind === "remove" && !(existing.settled && serverHas(existing, lines)))) {
+      return;
+    }
+    removing.current.add(id);
+    try {
+      await removeLine(line, plan, id, moveFocus);
+    } finally {
+      removing.current.delete(id);
+    }
+  }
+
+  async function removeLine(line: ShoppingLine, plan: string, id: string, moveFocus: boolean) {
     const token = begin("remove", plan, line);
     if (moveFocus) focusAfterRef.current = line.key;
-    let result: Result<CustomItemRow | null>;
+    let removed: Awaited<ReturnType<typeof removeOnServer>>;
     let lost = false;
     try {
-      result = await removeCustomItem(parsed.id);
+      removed = await removeOnServer(line, plan);
     } catch {
       // No answer (e.g. no connection): the line comes back until the list is read again.
-      result = fail("shopping_remove_failed");
+      removed = { result: fail("shopping_remove_failed") };
       lost = true;
     }
-    if (!result.ok) {
+    if (!removed.result.ok) {
       drop(id, token);
       if (focusAfterRef.current === line.key) focusAfterRef.current = null;
-      failed(result, lost);
+      failed(removed.result, lost);
       return;
     }
     settle(id, token);
-    if (result.data === null) {
+    if (!removed.undo) {
       // Gone, but it cannot be put back.
       showOther(removedItemsText([line.label]));
       return;
     }
-    confirmRemoved({ line, row: result.data });
+    confirmRemoved({ line, planId: plan, undo: removed.undo });
   }
 
   function confirmRemoved(removed: Removed) {
@@ -202,11 +264,11 @@ export function useCustomItemRemoval(planId: string | null, lines: readonly Shop
 
   async function restoreAll(removed: readonly Removed[]) {
     const results = await Promise.all(
-      removed.map(async ({ line, row }) => {
-        const id = entryId(row.planId, line.key);
-        const token = begin("restore", row.planId, line);
+      removed.map(async ({ line, planId: plan, undo }) => {
+        const id = entryId(plan, line.key);
+        const token = begin("restore", plan, line);
         try {
-          const result = await restoreCustomItem(row);
+          const result = await undo();
           if (result.ok) settle(id, token);
           else drop(id, token);
           return { result, lost: false };
@@ -230,5 +292,6 @@ export function useCustomItemRemoval(planId: string | null, lines: readonly Shop
       ? []
       : [...entries.values()].filter((entry) => entry.planId === planId && !(entry.settled && serverHas(entry, lines)));
   const shown = pending.length === 0 ? lines : applyRemovals(lines, pending);
-  return { shown, remove: (line, moveFocus) => void remove(line, moveFocus), focusAfterRef };
+  const touched = new Set(pending.map((entry) => entryId(entry.planId, entry.line.key)));
+  return { shown, remove: (line, moveFocus) => void remove(line, moveFocus), focusAfterRef, touched };
 }

@@ -8,12 +8,15 @@ import { type IngredientHit, type SearchIngredients, useIngredientSearch } from 
 import { Notice } from "@/components/notice";
 import { searchDelayMs } from "@/components/search-field";
 import { Sheet } from "@/components/sheet";
+import { useToast } from "@/components/toast";
 import { UNITS, type Unit } from "@/features/catalog";
 import { fail, type Result } from "@/lib/errors";
 import { addCustomItem } from "../actions/add-custom-item";
+import { updateCustomItem } from "../actions/update-custom-item";
 import {
   customItemFieldErrors,
   customItemFormSchema,
+  exactAmountText,
   maxCustomAmountChars,
   maxCustomLabelLength,
   type CustomItemFormInput,
@@ -21,11 +24,13 @@ import {
 } from "../domain/custom-item";
 
 // Lägg till egen vara (FR-17, Story 3.5): the sheet that adds Pontus's own
-// item to the list. He writes what he wants; while he types (after the
+// item to the list. They write what they want; while they type (after the
 // Sökfält pause, 200 ms) the catalog suggests ingredients, and choosing one
 // links the item to it, so it goes under that ingredient's section, else
 // under Övrigt. Amount and unit are optional, both or neither. Nothing is
-// ever written to the catalog from here: only the link is stored.
+// ever written to the catalog from here: only the link is stored. The same
+// sheet is an own item's Listpostdetalj (Story 3.6), where "Spara" changes the
+// item and "Ta bort" removes it.
 
 /** How many suggestions show under the field. */
 export const maxSuggestions = 5;
@@ -44,8 +49,43 @@ type FormValues = {
 
 const emptyValues: FormValues = { label: "", link: null, amount: "", unit: "" };
 
-function isFormDirty(values: FormValues): boolean {
-  return values.label.trim() !== "" || values.link !== null || values.amount.trim() !== "" || values.unit !== "";
+/** "Kopplad till okänd ingrediens": a link whose catalog name could not be read. */
+export const unknownIngredientName = "okänd ingrediens";
+
+/** An own item as its detail opens it: the line's text, link, amount and unit. */
+export type CustomItemSheetItem = {
+  id: string;
+  label: string;
+  ingredientId: string | null;
+  /** The catalog ingredient's name, for "Kopplad till Kaffe"; `null` when it is not known. */
+  linkedName: string | null;
+  amount: number | null;
+  unit: Unit | null;
+};
+
+/** The form for `item`, or empty for a new item. */
+function valuesOf(item: CustomItemSheetItem | undefined): FormValues {
+  if (!item) return emptyValues;
+  return {
+    label: item.label,
+    link: item.ingredientId ? { id: item.ingredientId, name: item.linkedName ?? unknownIngredientName } : null,
+    // The exact amount, not formatQuantity's rounding, so an unchanged amount saves as it was.
+    amount: exactAmountText(item.amount),
+    unit: item.unit ?? "",
+  };
+}
+
+/** Unsaved changes: a new item with anything typed, or an item with any field changed. */
+function isFormDirty(values: FormValues, initial: FormValues): boolean {
+  if (initial === emptyValues) {
+    return values.label.trim() !== "" || values.link !== null || values.amount.trim() !== "" || values.unit !== "";
+  }
+  return (
+    values.label !== initial.label ||
+    (values.link?.id ?? null) !== (initial.link?.id ?? null) ||
+    values.amount !== initial.amount ||
+    values.unit !== initial.unit
+  );
 }
 
 export type CustomItemSheetProps = {
@@ -57,9 +97,15 @@ export type CustomItemSheetProps = {
   searchIngredients: SearchIngredients;
   /**
    * Increases each time the sheet opens: the form then starts empty, with a
-   * new id for the item. (The sheet stays mounted; see PantryItemSheet.)
+   * new id for the item, or from `item`. (The sheet stays mounted; see PantryItemSheet.)
    */
   session: number;
+  /** An own item to change (its Listpostdetalj, Story 3.6); without it, the sheet adds a new item. */
+  item?: CustomItemSheetItem;
+  /** The title for an item to change: its text as the line showed it. */
+  title?: string;
+  /** "Ta bort" in an item's detail: removes it, with "Ångra" (Story 3.5). */
+  onRemove?: () => void;
 };
 
 /**
@@ -74,10 +120,20 @@ export type CustomItemSheetProps = {
  * so a changed item is never sent with an id already used. Unsaved text asks
  * "Släng ändringarna?" before the sheet closes.
  */
-export function CustomItemSheet({ open, onClose, planId, searchIngredients, session }: CustomItemSheetProps) {
+export function CustomItemSheet({
+  open,
+  onClose,
+  planId,
+  searchIngredients,
+  session,
+  item,
+  title,
+  onRemove,
+}: CustomItemSheetProps) {
   const router = useRouter();
   const [formSession, setFormSession] = useState(session);
-  const [values, setValues] = useState(emptyValues);
+  const [initial, setInitial] = useState(() => valuesOf(item));
+  const [values, setValues] = useState(initial);
   const [itemId, setItemId] = useState<string | null>(null);
   /** Why saving failed; the form stays as it was. Cleared when a field changes. */
   const [error, setError] = useState<{ text: string; id: number } | null>(null);
@@ -86,6 +142,9 @@ export function CustomItemSheet({ open, onClose, planId, searchIngredients, sess
   /** The form's own errors show after a save attempt, not while typing. */
   const [attempted, setAttempted] = useState(false);
   const labelRef = useRef<HTMLInputElement>(null);
+  /** "Ta bort" has been pressed in this opening: a second press does nothing. */
+  const removing = useRef(false);
+  const { showToast } = useToast();
   const amountRef = useRef<HTMLInputElement>(null);
   const unitRef = useRef<HTMLSelectElement>(null);
   const nextError = useRef(0);
@@ -93,10 +152,12 @@ export function CustomItemSheet({ open, onClose, planId, searchIngredients, sess
   const { query, hits, error: searchError, search, reset: resetSearch } = useIngredientSearch(searchIngredients);
   const ids = useId();
 
-  // A new session: the form starts empty (state adjusted while rendering).
+  // A new session: the form starts empty, or from the item (state adjusted while rendering).
   if (session !== formSession) {
+    const fresh = valuesOf(item);
     setFormSession(session);
-    setValues(emptyValues);
+    setInitial(fresh);
+    setValues(fresh);
     setItemId(null);
     setError(null);
     setServerFields({});
@@ -109,10 +170,11 @@ export function CustomItemSheet({ open, onClose, planId, searchIngredients, sess
   // A search the last opening was waiting for never runs in this one.
   useEffect(() => () => clearTimeout(timer.current), [session]);
 
-  // The text field has focus from the start. After the commit: the sheet's
-  // showModal moves focus to its first control (see IngredientPicker).
+  // The text field has focus from the start for a new item. After the commit:
+  // the sheet's showModal moves focus to its first control (see IngredientPicker).
+  const editing = item !== undefined;
   useEffect(() => {
-    if (!open) return;
+    if (!open || editing) return;
     let active = true;
     queueMicrotask(() => {
       if (active) labelRef.current?.focus();
@@ -120,24 +182,35 @@ export function CustomItemSheet({ open, onClose, planId, searchIngredients, sess
     return () => {
       active = false;
     };
+  }, [open, session, editing]);
+
+  useEffect(() => {
+    if (open) removing.current = false;
   }, [open, session]);
 
-  const [, save, saving] = useActionState(async (_previous: null, input: CustomItemFormInput) => {
+  const [, save, saving] = useActionState(async (_previous: null, { input, change }: { input: CustomItemFormInput; change: boolean }) => {
     let result: Result<CustomItemRow>;
     try {
-      result = await addCustomItem(input);
+      result = await (change ? updateCustomItem(input) : addCustomItem(input));
     } catch {
       // No answer (e.g. no connection): the form stays, with the same id for the next try.
       result = fail("shopping_save_failed");
     }
     if (result.ok) {
-      // The action revalidated the list, so the list behind shows the item.
+      // The action revalidated the list, so the list behind shows the item as saved.
       onClose();
       return null;
     }
     const { code, fields } = result.error;
     if (code === "unauthorized") {
       router.refresh();
+      return null;
+    }
+    if (code === "shopping_item_gone") {
+      // Removed elsewhere: there is nothing to change any more.
+      onClose();
+      router.refresh();
+      showToast(result.error.message);
       return null;
     }
     if (fields && Object.keys(fields).length > 0) {
@@ -172,7 +245,7 @@ export function CustomItemSheet({ open, onClose, planId, searchIngredients, sess
 
   /**
    * A change to any field: the last save's errors no longer apply, and the
-   * next save is a new item with a new id (AD-20).
+   * next save of a new item has a new id (AD-20).
    */
   const update = (changes: Partial<FormValues>) => {
     setError(null);
@@ -218,11 +291,29 @@ export function CustomItemSheet({ open, onClose, planId, searchIngredients, sess
       return;
     }
     setError(null);
+    if (item) {
+      // Unchanged: nothing to save. Saving the same again changes nothing, so a retry is safe.
+      if (!isFormDirty(values, initial)) {
+        onClose();
+        return;
+      }
+      const payload = { input: { ...input, id: item.id }, change: true };
+      startTransition(() => save(payload));
+      return;
+    }
     // One id per opening: a retry after a lost answer adds the item once (AD-20).
     const id = itemId ?? crypto.randomUUID();
     if (!itemId) setItemId(id);
-    const payload = { ...input, id };
+    const payload = { input: { ...input, id }, change: false };
     startTransition(() => save(payload));
+  }
+
+  /** "Ta bort": no question first, even with unsaved changes; the confirmation offers "Ångra" (Story 3.5). */
+  function remove() {
+    if (saving || !onRemove || removing.current) return;
+    removing.current = true;
+    onClose();
+    onRemove();
   }
 
   // The latest answer stays while Pontus types on, until the next one comes.
@@ -237,9 +328,9 @@ export function CustomItemSheet({ open, onClose, planId, searchIngredients, sess
     <Sheet
       open={open}
       onClose={onClose}
-      title="Lägg till egen vara"
+      title={item ? (title ?? item.label) : "Lägg till egen vara"}
       closeLabel="Avbryt"
-      isDirty={isFormDirty(values)}
+      isDirty={isFormDirty(values, initial)}
       preventClose={saving}
       footer={
         <>
@@ -251,8 +342,13 @@ export function CustomItemSheet({ open, onClose, planId, searchIngredients, sess
           {formError ? <Notice role="alert">{formError}</Notice> : null}
           {/* Enabled while the form is invalid, so a tap shows why instead of doing nothing. */}
           <Button type="submit" form={formId} fullWidth disabled={saving}>
-            {saving ? "Sparar …" : "Lägg till"}
+            {saving ? "Sparar …" : item ? "Spara" : "Lägg till"}
           </Button>
+          {item && onRemove ? (
+            <Button variant="text" fullWidth disabled={saving} onClick={remove}>
+              Ta bort
+            </Button>
+          ) : null}
         </>
       }
     >
