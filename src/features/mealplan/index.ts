@@ -1,0 +1,23 @@
+// Client-safe entry: types and domain (AD-1).
+export {
+  addToPlanSchema,
+  servingsSchema,
+  servingsChangeSchema,
+  planRecipeRowSchema,
+  maxServings,
+  clampServings,
+  comparePlanRecipes,
+  toPlanDishes,
+  dishStatus,
+  isoWeek,
+  isoWeekName,
+  removedDishesText,
+  addedToPlanText,
+  type AddToPlanInput,
+  type DishRecipe,
+  type MealPlan,
+  type PlanDish,
+  type PlanRecipe,
+  type PlanRecipeRow,
+  type ServingsChange,
+} from "./domain/meal-plan";

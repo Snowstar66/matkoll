@@ -26,6 +26,15 @@ export const errorMessages = {
   // the list; after a failed "Ångra" it stays removed.
   pantry_remove_failed: "Det gick inte att ta bort varan.",
   pantry_restore_failed: "Det gick inte att ångra.",
+  // Matsedel (Story 3.1). After failed servings the selector shows the saved
+  // value again; after a failed remove the dish is back on the plan.
+  mealplan_unavailable: "Det gick inte att läsa matsedeln. Försök igen.",
+  // In Lägg till rätt when the library cannot be read; the plan is still shown.
+  mealplan_recipes_unavailable: "Det gick inte att läsa recepten. Försök igen.",
+  mealplan_add_failed: "Det gick inte att lägga rätten på matsedeln. Försök igen.",
+  mealplan_servings_failed: "Det gick inte att spara portionerna.",
+  mealplan_remove_failed: "Det gick inte att ta bort rätten.",
+  mealplan_restore_failed: "Det gick inte att ångra.",
   // Recipe sites in Inställningar (FR7). The sentence with the site's name,
   // "koket.se finns redan.", is in `fields.domain`.
   settings_invalid_domain: "Ange en giltig webbadress, t.ex. koket.se.",

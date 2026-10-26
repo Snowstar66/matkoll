@@ -54,4 +54,21 @@ describe("Stepper", () => {
     await user.click(screen.getByRole("button", { name: "Färre portioner" }));
     expect(screen.getByText("1 st")).toBeInTheDocument();
   });
+
+  it("never goes above max, and shows a value above it as max", async () => {
+    const user = userEvent.setup();
+    const onChange = vi.fn();
+    const { rerender } = render(<Stepper value={9} onChange={onChange} max={10} />);
+    const more = screen.getByRole("button", { name: "Fler portioner" });
+    await user.click(more);
+    expect(onChange).toHaveBeenLastCalledWith(10);
+    rerender(<Stepper value={10} onChange={onChange} max={10} />);
+    expect(more).toHaveAttribute("aria-disabled", "true");
+    await user.click(more);
+    expect(onChange).toHaveBeenCalledTimes(1);
+    rerender(<Stepper value={12} onChange={onChange} max={10} />);
+    expect(screen.getByText("10 portioner")).toBeInTheDocument();
+    await user.click(screen.getByRole("button", { name: "Färre portioner" }));
+    expect(onChange).toHaveBeenLastCalledWith(9);
+  });
 });

@@ -7,15 +7,16 @@ import { atHomeText, isShort, type LineCoverage, type RecipeStatus } from "@/fea
 import { recipeMetaText } from "../domain/recipe-list";
 import type { SavedRecipe, SavedRecipeLine } from "../domain/saved-recipe";
 import { sourceLabel } from "../domain/source-label";
+import { AddToPlanButton, type AddToPlan } from "./add-to-plan-button";
 import { FavoriteButton } from "./favorite-button";
-import { RecipeImage } from "./recipe-image";
+import { RecipeImage } from "@/components/recipe-image";
 import { RecipeStatusBadge } from "./recipe-status-badge";
 
 // Receptvy (FR-20, the base): the same look whatever the source, with the
 // heart (FR-9) and the menu (⋯, Story 1.11) beside the title, the status
 // against the pantry under the meta line, and a tick or ring on every
-// ingredient (Story 2.4). The portion selector, "X av Y hemma" and the
-// buttons arrive in later stories.
+// ingredient (Story 2.4), and "Lägg på matsedeln" (Story 3.1). The portion
+// selector, "X av Y hemma" and "Laga nu" arrive in later stories.
 
 export type RecipeViewProps = {
   recipe: SavedRecipe;
@@ -27,9 +28,14 @@ export type RecipeViewProps = {
   status: RecipeStatus | null;
   /** The menu (⋯) with "Ändra", from the page, which has what its form needs. */
   menu?: ReactNode;
+  /**
+   * mealplan.addToCurrentPlan from the page (AD-1): with it, the view has
+   * "Lägg på matsedeln" pinned to the bottom (Story 3.1).
+   */
+  addToPlan?: AddToPlan;
 };
 
-export function RecipeView({ recipe, status, menu }: RecipeViewProps) {
+export function RecipeView({ recipe, status, menu, addToPlan }: RecipeViewProps) {
   const source = sourceLabel(recipe.sourceKind, recipe.sourceUrl);
   return (
     <article className="flex flex-col gap-6 pb-gutter">
@@ -107,6 +113,7 @@ export function RecipeView({ recipe, status, menu }: RecipeViewProps) {
           )}
         </section>
       </div>
+      {addToPlan ? <AddToPlanButton recipeId={recipe.id} addToPlan={addToPlan} /> : null}
     </article>
   );
 }

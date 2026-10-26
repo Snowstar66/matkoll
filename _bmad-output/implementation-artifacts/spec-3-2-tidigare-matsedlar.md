@@ -57,6 +57,13 @@ context:
 
 ## Implementation Notes
 
+- Namnet förblir "Vecka <ISO-vecka>" enligt specen. I listan "Tidigare" visas också datumet då matsedeln skapades, till exempel "skapad 26 okt 2026", så att två "Vecka 44" från olika år går att skilja åt (från granskningen av 3.1).
+- Bygg vidare på 3.1:
+  - `meal_plan_lock()`
+  - `restore_plan_recipe` (återställer bara till den aktuella matsedeln)
+  - dish-id som skapas i klienten
+  - portionsgränsen 1–1000 i databasen
+
 ## Spec Change Log
 
 ## Review Triage Log

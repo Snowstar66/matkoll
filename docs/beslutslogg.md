@@ -2,6 +2,12 @@
 
 Beslut som fattats under bygget: vad, varför och vilka alternativ som fanns. Nyaste överst.
 
+## 2026-10-26 – Matsedelsrätten och arket Lägg till rätt
+
+- **Beslut:** en matsedelsrätt har en synlig textknapp "Ta bort" bredvid portionsväljaren, utöver svep vänster. Arket Lägg till rätt visar Favoriter, sökfältet och under det övriga recept (de som inte är favoriter) tills Pontus söker; då visas sökträffarna i stället. Ett tryck på ett recept stänger arket och visar "Lagt på matsedeln.", som i receptvyn. Statusen på en rätt räknas i webbläsaren med `recipeStatus`, så att den följer portionsväljaren direkt (Story 3.1).
+- **Varför:** svepet är en genväg och åtgärden ska finnas på ett annat sätt också (EXPERIENCE.md), men en matsedelsrätt har inget detaljark. Utan en lista under sökfältet hittar Pontus inga recept i arket utan favoriter och utan att minnas namnet.
+- **Alternativ:** ett detaljark för matsedelsrätten med "Ta bort"; bara sökfältet under favoriterna.
+
 ## 2026-10-26 – Receptrader utan katalogingrediens i lagningsstatus
 
 - **Beslut:** en receptrad som saknar katalogingrediens (`ingredientId = null`) jämförs inte med lagret och räknas inte i N i "Saknar N varor". Receptvyn visar raden med originaltexten och en neutral markering, ett grått streck som skärmläsaren läser som "jämförs inte med lagret", i stället för bock eller ring. Ett recept vars övriga rader finns hemma visas som "Kan lagas nu" (Story 2.4).

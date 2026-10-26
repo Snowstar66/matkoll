@@ -8,6 +8,8 @@ export type StepperProps = {
   onChange: (value: number) => void;
   /** Lowest value; never below 1. */
   min?: number;
+  /** Highest value, if any; + is unavailable there. */
+  max?: number;
   /** The value in words; defaults to "1 portion" / "N portioner". */
   format?: (value: number) => string;
   decreaseLabel?: string;
@@ -22,20 +24,23 @@ export function formatPortions(n: number): string {
 const stepButton =
   "flex size-tap items-center justify-center rounded-full text-accent aria-disabled:cursor-not-allowed aria-disabled:text-ink-3";
 
-/** Portionsväljare: − and + in steps of 1, never below 1. */
+/** Portionsväljare: − and + in steps of 1, never below 1 (or `min`) nor above `max`. */
 export function Stepper({
   value,
   onChange,
   min = 1,
+  max,
   format = formatPortions,
   decreaseLabel = "Färre portioner",
   increaseLabel = "Fler portioner",
   className,
 }: StepperProps) {
   const floor = Math.max(1, Number.isFinite(min) ? Math.floor(min) : 1);
-  // A value below the floor (0, negative, NaN) is shown, and stepped from, as the floor.
-  const shown = Number.isFinite(value) ? Math.max(floor, value) : floor;
+  const ceiling = max !== undefined && Number.isFinite(max) ? Math.max(floor, Math.floor(max)) : Infinity;
+  // A value outside the range (0, negative, NaN, above max) is shown, and stepped from, as its nearest end.
+  const shown = Number.isFinite(value) ? Math.min(ceiling, Math.max(floor, value)) : floor;
   const atMin = shown <= floor;
+  const atMax = shown >= ceiling;
 
   return (
     <div className={cx("inline-flex h-tap items-center rounded-full bg-surface", className)}>
@@ -54,7 +59,15 @@ export function Stepper({
       <output aria-live="polite" className="min-w-24 px-1 text-center text-body font-semibold text-ink">
         {format(shown)}
       </output>
-      <button type="button" aria-label={increaseLabel} onClick={() => onChange(shown + 1)} className={stepButton}>
+      <button
+        type="button"
+        aria-label={increaseLabel}
+        aria-disabled={atMax || undefined}
+        onClick={() => {
+          if (!atMax) onChange(Math.min(ceiling, shown + 1));
+        }}
+        className={stepButton}
+      >
         <PlusIcon size={20} />
       </button>
     </div>

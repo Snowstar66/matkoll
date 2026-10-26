@@ -39,6 +39,46 @@ isOneToOne: false
       referencedColumns: ["id","user_id"]
     }
                   ]
+                },"meal_plan": {
+                  Row: {
+                    "created_at": string,"id": string,"is_current": boolean,"name": string,"user_id": string
+                  }
+                  ComputedFields: never
+                  Insert: {
+                    "created_at"?: string,"id"?: string,"is_current"?: boolean,"name": string,"user_id"?: string
+                  }
+                  Update: {
+                    "created_at"?: string,"id"?: string,"is_current"?: boolean,"name"?: string,"user_id"?: string
+                  }
+                  Relationships: [
+                    
+                  ]
+                },"meal_plan_recipe": {
+                  Row: {
+                    "created_at": string,"id": string,"meal_plan_id": string,"position": number,"recipe_id": string | null,"recipe_title": string,"servings": number,"user_id": string
+                  }
+                  ComputedFields: never
+                  Insert: {
+                    "created_at"?: string,"id"?: string,"meal_plan_id": string,"position": number,"recipe_id"?: string | null,"recipe_title": string,"servings": number,"user_id"?: string
+                  }
+                  Update: {
+                    "created_at"?: string,"id"?: string,"meal_plan_id"?: string,"position"?: number,"recipe_id"?: string | null,"recipe_title"?: string,"servings"?: number,"user_id"?: string
+                  }
+                  Relationships: [
+                    {
+      foreignKeyName: "meal_plan_recipe_meal_plan_fkey"
+      columns: ["meal_plan_id","user_id"]
+isOneToOne: false
+      referencedRelation: "meal_plan"
+      referencedColumns: ["id","user_id"]
+    },{
+      foreignKeyName: "meal_plan_recipe_recipe_fkey"
+      columns: ["recipe_id","user_id"]
+isOneToOne: false
+      referencedRelation: "recipe"
+      referencedColumns: ["id","user_id"]
+    }
+                  ]
                 },"pantry_item": {
                   Row: {
                     "amount": number | null,"created_at": string,"id": string,"ingredient_id": string,"location": string,"unit": string | null,"user_id": string
@@ -145,12 +185,35 @@ isOneToOne: false
             [_ in never]: never
           }
           Functions: {
-            "commit_ingredients":
+            "add_to_current_plan":
+{ Args: { "dish_id": string,"dish_recipe_id": string,"dish_recipe_title": string,"dish_servings": number,"plan_name": string }; Returns: {
+              "created_at": string,
+"id": string,
+"meal_plan_id": string,
+"position": number,
+"recipe_id": string | null,
+"recipe_title": string,
+"servings": number,
+"user_id": string
+            }
+                          SetofOptions: {
+        from: "*"
+        to: "meal_plan_recipe"
+        isOneToOne: true
+        isSetofReturn: false
+      } },
+"commit_ingredients":
 { Args: { "new_ingredients": Json,"synonyms": Json }; Returns: {
               "id": string,"normalized_name": string
             }[]
                            },
+"detach_recipe_from_current_plan":
+{ Args: { "detached_recipe_id": string }; Returns: number
+                           },
 "ensure_user_defaults":
+{ Args: Record<PropertyKey, never>; Returns: undefined
+                           },
+"meal_plan_lock":
 { Args: Record<PropertyKey, never>; Returns: undefined
                            },
 "pantry_lock":
@@ -169,6 +232,23 @@ isOneToOne: false
                           SetofOptions: {
         from: "*"
         to: "pantry_item"
+        isOneToOne: true
+        isSetofReturn: false
+      } },
+"restore_plan_recipe":
+{ Args: { "dish": Json }; Returns: {
+              "created_at": string,
+"id": string,
+"meal_plan_id": string,
+"position": number,
+"recipe_id": string | null,
+"recipe_title": string,
+"servings": number,
+"user_id": string
+            }
+                          SetofOptions: {
+        from: "*"
+        to: "meal_plan_recipe"
         isOneToOne: true
         isSetofReturn: false
       } },

@@ -244,3 +244,27 @@ export async function searchRecipesIn(
   const lines = await linesOf(db, [...found.keys()]);
   return [...found.values()].sort(newestFirst).map((row) => toListRow(row, lines.get(row.id) ?? []));
 }
+
+/**
+ * The signed-in user's recipes among `ids` as library rows with their lines,
+ * for the meal plan and the shopping list (AD-1); ids that are not the
+ * user's recipes are left out, and the order is not kept. Read once per chunk
+ * of ids, with the lines embedded. Throws RecipeDataError.
+ */
+export async function getRecipesByIdsIn(db: RecipesDb, ids: readonly string[]): Promise<RecipeListRow[]> {
+  const unique = [...new Set(ids)];
+  if (unique.length === 0) return [];
+  const pages = await Promise.all(
+    chunked(unique).map((chunk) =>
+      allPages((from, to) =>
+        db
+          .from("recipe")
+          .select(`${listColumns}, lines:recipe_ingredient(${lineColumns})`)
+          .in("id", chunk)
+          .order("id")
+          .range(from, to),
+      ),
+    ),
+  );
+  return pages.flat().map(({ lines, ...row }) => toListRow(row, lines));
+}
