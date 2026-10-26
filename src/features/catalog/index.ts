@@ -22,10 +22,12 @@ export {
   type IngredientMatch,
   type ChosenIngredient,
   type IngredientChoice,
+  type IngredientDefaults,
 } from "./domain/match";
 export {
   ingredientSearchSchema,
   maxSearchHits,
   searchText,
+  newIngredientName,
   type IngredientSearchHit,
 } from "./domain/search";

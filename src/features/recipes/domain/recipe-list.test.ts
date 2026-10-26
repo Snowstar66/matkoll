@@ -1,10 +1,13 @@
 import { describe, expect, it } from "vitest";
+import { toSnapshot } from "@/features/pantry";
 import {
   favoriteChangeSchema,
   filterRecipes,
   parseRecipeFilter,
   recipeMetaText,
   recipeSearchSchema,
+  withStatus,
+  type RecipeListRow,
 } from "./recipe-list";
 
 describe("recipeMetaText", () => {
@@ -57,5 +60,43 @@ describe("schemas", () => {
     expect(favoriteChangeSchema.safeParse({ id, isFavorite: true }).success).toBe(true);
     expect(favoriteChangeSchema.safeParse({ id: "x", isFavorite: true }).success).toBe(false);
     expect(favoriteChangeSchema.safeParse({ id, isFavorite: "ja" }).success).toBe(false);
+  });
+});
+
+describe("withStatus", () => {
+  const row = (id: string, servings: number, lines: RecipeListRow["lines"]): RecipeListRow => ({
+    id,
+    title: id,
+    imageUrl: null,
+    totalMinutes: null,
+    originalServings: servings,
+    isFavorite: false,
+    lines,
+  });
+
+  it("gives each row N for its own servings, keeps the order and drops the lines", () => {
+    const snapshot = toSnapshot([{ ingredientId: "gradde", amount: 2, unit: "dl" }]);
+    const items = withStatus(
+      [
+        row("soppa", 2, [{ id: "l1", ingredientId: "gradde", amount: 3, unit: "dl", isVague: false }]),
+        row("gryta", 4, [
+          { id: "l2", ingredientId: "gradde", amount: 2, unit: "dl", isVague: false },
+          { id: "l3", ingredientId: null, amount: 600, unit: "g", isVague: false },
+          { id: "l4", ingredientId: "salt", amount: null, unit: null, isVague: true },
+        ]),
+      ],
+      snapshot,
+    );
+    expect(items).toEqual([
+      { id: "soppa", title: "soppa", imageUrl: null, totalMinutes: null, originalServings: 2, isFavorite: false, missingCount: 1 },
+      { id: "gryta", title: "gryta", imageUrl: null, totalMinutes: null, originalServings: 4, isFavorite: false, missingCount: 0 },
+    ]);
+  });
+
+  it("gives no status without a snapshot, when the pantry could not be read", () => {
+    const items = withStatus([row("soppa", 2, [{ id: "l1", ingredientId: "gradde", amount: 3, unit: "dl", isVague: false }])], null);
+    expect(items).toEqual([
+      { id: "soppa", title: "soppa", imageUrl: null, totalMinutes: null, originalServings: 2, isFavorite: false, missingCount: null },
+    ]);
   });
 });

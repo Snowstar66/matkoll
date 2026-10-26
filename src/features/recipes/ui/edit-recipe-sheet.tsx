@@ -13,7 +13,7 @@ import { savedIngredientNames, toEditableDraft } from "../domain/editable-draft"
 import { isDraftDirty, isShownField } from "../domain/preview";
 import { validateDraft, type PendingFieldText, type RecipeDraft } from "../domain/recipe-draft";
 import type { SavedRecipe } from "../domain/saved-recipe";
-import type { SearchIngredients } from "./ingredient-picker";
+import type { SearchIngredients } from "@/components/ingredient-picker";
 import { RecipePreview } from "./recipe-preview";
 
 // Ändra recept (FR-6, FR-10, Story 1.11): the preview's form for a saved

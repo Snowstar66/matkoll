@@ -4,8 +4,9 @@ import { type ReactNode, useEffect, useId, useRef, useState } from "react";
 import { Badge } from "@/components/badges";
 import { Button } from "@/components/button";
 import { FieldError, FieldLabel, Input, inputClasses } from "@/components/field";
+import { IngredientPicker, type SearchIngredients } from "@/components/ingredient-picker";
 import { Stepper } from "@/components/stepper";
-import { UNITS, formatQuantity, type Unit } from "@/features/catalog";
+import { UNITS, formatQuantity, newIngredientName, type Unit } from "@/features/catalog";
 import {
   ingredientLabel,
   needsCheck,
@@ -31,7 +32,6 @@ import {
   type RecipeStep,
 } from "../domain/recipe-draft";
 import { sourceLabel } from "../domain/source-label";
-import { IngredientPicker, type SearchIngredients } from "./ingredient-picker";
 
 export type RecipePreviewProps = {
   draft: RecipeDraft;
@@ -167,8 +167,19 @@ export function RecipePreview({
     const line = draft.lines[picking];
     return (
       <IngredientPicker
-        originalText={line.originalText}
         searchIngredients={searchIngredients}
+        newName={newIngredientName}
+        header={
+          <>
+            <div className="flex items-center justify-between gap-3">
+              <h3 className="text-row-title text-ink">Byt ingrediens</h3>
+              <Button variant="text" onClick={closePicker} className="-mr-3">
+                Avbryt
+              </Button>
+            </div>
+            <p className="text-meta text-ink-2">Receptraden: {line.originalText}</p>
+          </>
+        }
         onChoose={(hit) => {
           updateLine(picking, withChosenIngredient(line, hit.id), { ...names, [hit.id]: hit.name });
           closePicker();

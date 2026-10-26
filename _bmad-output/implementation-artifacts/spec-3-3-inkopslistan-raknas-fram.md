@@ -84,6 +84,8 @@ context:
 
 ## Implementation Notes
 
+- En receptrad med mängd men utan enhet räknas som `st`, och nyckeln blir `r:<id>:st`. `-` används bara för vaga rader (beslut 2026-10-26).
+
 ## Spec Change Log
 
 ## Review Triage Log

@@ -20,7 +20,9 @@ import { useFavorites } from "./use-favorites";
 // Alla and Favoriter, and the recipe rows. The first list, every recipe newest
 // first, comes from the server; a search asks searchRecipes for the matching
 // recipes, and the filter is applied here, so switching pills needs no request
-// and a heart that changes shows at once. "Kan lagas nu" arrives in Epic 2.
+// and a heart that changes shows at once. Each row's status ("Kan lagas nu"
+// or "Saknar N varor") comes with it from the server; the filter Kan lagas nu
+// arrives in Epic 5.
 
 const filterOptions: readonly FilterOption<RecipeFilter>[] = [
   { value: "all", label: "Alla" },

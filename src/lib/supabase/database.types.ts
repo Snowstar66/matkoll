@@ -39,6 +39,26 @@ isOneToOne: false
       referencedColumns: ["id","user_id"]
     }
                   ]
+                },"pantry_item": {
+                  Row: {
+                    "amount": number | null,"created_at": string,"id": string,"ingredient_id": string,"location": string,"unit": string | null,"user_id": string
+                  }
+                  ComputedFields: never
+                  Insert: {
+                    "amount"?: number | null,"created_at"?: string,"id"?: string,"ingredient_id": string,"location": string,"unit"?: string | null,"user_id"?: string
+                  }
+                  Update: {
+                    "amount"?: number | null,"created_at"?: string,"id"?: string,"ingredient_id"?: string,"location"?: string,"unit"?: string | null,"user_id"?: string
+                  }
+                  Relationships: [
+                    {
+      foreignKeyName: "pantry_item_ingredient_fkey"
+      columns: ["ingredient_id","user_id"]
+isOneToOne: false
+      referencedRelation: "ingredient"
+      referencedColumns: ["id","user_id"]
+    }
+                  ]
                 },"recipe": {
                   Row: {
                     "created_at": string,"id": string,"image_url": string | null,"is_favorite": boolean,"original_servings": number,"source_kind": string,"source_url": string | null,"title": string,"total_minutes": number | null,"updated_at": string,"user_id": string
@@ -133,9 +153,44 @@ isOneToOne: false
 "ensure_user_defaults":
 { Args: Record<PropertyKey, never>; Returns: undefined
                            },
+"pantry_lock":
+{ Args: Record<PropertyKey, never>; Returns: undefined
+                           },
+"restore_pantry_item":
+{ Args: { "item": Json }; Returns: {
+              "amount": number | null,
+"created_at": string,
+"id": string,
+"ingredient_id": string,
+"location": string,
+"unit": string | null,
+"user_id": string
+            }
+                          SetofOptions: {
+        from: "*"
+        to: "pantry_item"
+        isOneToOne: true
+        isSetofReturn: false
+      } },
 "save_recipe":
 { Args: { "lines": Json,"recipe": Json,"steps": Json }; Returns: string
                            },
+"set_pantry_items":
+{ Args: { "items": Json,"replace_id"?: string }; Returns: {
+              "amount": number | null,
+"created_at": string,
+"id": string,
+"ingredient_id": string,
+"location": string,
+"unit": string | null,
+"user_id": string
+            }[]
+                          SetofOptions: {
+        from: "*"
+        to: "pantry_item"
+        isOneToOne: false
+        isSetofReturn: true
+      } },
 "update_recipe":
 { Args: { "expected_updated_at": string,"id": string,"lines": Json,"recipe": Json,"steps": Json }; Returns: string
                            }

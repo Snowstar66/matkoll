@@ -25,11 +25,12 @@ const recipe = (id: number, title: string, overrides: Partial<RecipeListItem> = 
   totalMinutes: 35,
   originalServings: 4,
   isFavorite: false,
+  missingCount: 0,
   ...overrides,
 });
 
 const gryta = recipe(1, "Krämig kycklinggryta", { isFavorite: true });
-const soppa = recipe(2, "Linssoppa", { totalMinutes: null, originalServings: 1 });
+const soppa = recipe(2, "Linssoppa", { totalMinutes: null, originalServings: 1, missingCount: 2 });
 
 let serverRecipes: RecipeListItem[] = [];
 let rerenderServer: ((recipes: RecipeListItem[]) => void) | undefined;
@@ -78,10 +79,19 @@ describe("Library", () => {
     expect(within(first).getByRole("link")).toHaveAttribute("href", `/recept/${gryta.id}`);
     expect(within(first).getByText("35 min · 4 portioner")).toBeInTheDocument();
     expect(within(second).getByText("1 portion")).toBeInTheDocument();
+    expect(within(first).getByText("Kan lagas nu")).toHaveClass("bg-mint", "text-mint-ink");
+    expect(within(second).getByText("Saknar 2 varor")).toHaveClass("bg-sky", "text-sky-ink");
     expect(within(first).getByTestId("recipe-image-placeholder")).toBeInTheDocument();
     const heart = within(first).getByRole("button", { name: "Favorit, Krämig kycklinggryta", pressed: true });
     expect(heart.closest("a")).toBeNull();
     expect(pill("Alla")).toBeChecked();
+  });
+
+  it("shows a row without status when the pantry could not be read", () => {
+    renderLibrary([recipe(3, "Pannkakor", { missingCount: null })]);
+    const [row] = screen.getAllByTestId("recipe-row");
+    expect(within(row).queryByText(/^Kan lagas nu$|^Saknar/)).not.toBeInTheDocument();
+    expect(within(row).getByText("35 min · 4 portioner")).toBeInTheDocument();
   });
 
   it("searches after the pause and shows the answer; no hit offers Visa alla recept, which empties the field", async () => {

@@ -144,6 +144,15 @@ export function CheckIcon(props: IconProps) {
   );
 }
 
+/** An open ring: something is missing (beside CheckIcon, so status never rests on colour alone). */
+export function RingIcon(props: IconProps) {
+  return (
+    <Icon strokeWidth={2.2} {...props}>
+      <circle cx="12" cy="12" r="7" />
+    </Icon>
+  );
+}
+
 export function CloseIcon(props: IconProps) {
   return (
     <Icon strokeWidth={2.2} {...props}>

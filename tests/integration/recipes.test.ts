@@ -8,10 +8,13 @@ import {
   toEditableDraft,
   type RecipeDraft,
   type RecipeLine,
-  type RecipeListItem,
+  withStatus,
   type SaveRecipeArgs,
   type UpdateRecipeArgs,
 } from "@/features/recipes";
+import { recipeStatus } from "@/features/pantry";
+import { loadPantrySnapshot } from "@/features/pantry/data/queries";
+import { setPantryItemsIn } from "@/features/pantry/data/set";
 import { setFavoriteIn } from "@/features/recipes/data/favorite";
 import { getRecipe, listRecipes, searchRecipesIn } from "@/features/recipes/data/queries";
 import { saveRecipeIn } from "@/features/recipes/data/save";
@@ -529,7 +532,7 @@ describe("the library: listRecipes, searchRecipesIn and setFavoriteIn", () => {
 
   const search = (db: Db, text: string, favoritesOnly = false) =>
     findIngredientIdsIn(db, text).then((ingredientIds) => searchRecipesIn(db, { text, ingredientIds, favoritesOnly }));
-  const idsOf = (items: RecipeListItem[]) => items.map(({ id }) => id);
+  const idsOf = (items: { id: string }[]) => items.map(({ id }) => id);
 
   beforeAll(async () => {
     user = await createTestUser("library");
@@ -563,7 +566,12 @@ describe("the library: listRecipes, searchRecipesIn and setFavoriteIn", () => {
       totalMinutes: 35,
       originalServings: 4,
       isFavorite: true,
+      lines: expect.arrayContaining([
+        { id: expect.any(String), ingredientId: gulLok, amount: null, unit: null, isVague: true },
+        { id: expect.any(String), ingredientId: null, amount: null, unit: null, isVague: true },
+      ]),
     });
+    expect(all.at(-1)?.lines).toHaveLength(2);
     expect(idsOf(await listRecipes(user.db, { favoritesOnly: true }))).toEqual([ids.gryta]);
   });
 
@@ -574,6 +582,14 @@ describe("the library: listRecipes, searchRecipesIn and setFavoriteIn", () => {
 
   it("finds recipes by a line's original text and its catalog ingredient, each recipe once, newest first", async () => {
     expect(idsOf(await search(user.db, "lök"))).toEqual([ids.soppa, ids.gryta]);
+  });
+
+  it("gives every line of a found recipe for the status, not only the lines that match", async () => {
+    const [gryta] = await search(user.db, "kycklinglår");
+    expect(gryta.id).toBe(ids.gryta);
+    expect(gryta.lines).toHaveLength(2);
+    const [byIngredient] = await searchRecipesIn(user.db, { text: "qqq", ingredientIds: [gulLok] });
+    expect(byIngredient.lines).toHaveLength(2);
   });
 
   it("finds recipes through a synonym of the line's ingredient", async () => {
@@ -642,6 +658,164 @@ describe("the library: listRecipes, searchRecipesIn and setFavoriteIn", () => {
     console.info(`listRecipes, 200 recipes: ${listMs.toFixed(0)} ms; searchRecipesIn: ${searchMs.toFixed(0)} ms`);
     expect(listed).toHaveLength(200);
     expect(found.length).toBeGreaterThan(100);
+    expect(listMs).toBeLessThan(1000);
+    expect(searchMs).toBeLessThan(1000);
+  });
+});
+
+describe("lagningsstatus: recipes against the pantry (Story 2.4)", () => {
+  let user: TestUser;
+  const ing: Record<"gradde" | "mjol" | "salt" | "agg" | "lok" | "peppar", string> = {
+    gradde: "",
+    mjol: "",
+    salt: "",
+    agg: "",
+    lok: "",
+    peppar: "",
+  };
+  let canCook = "";
+  let short = "";
+
+  type Line = SaveRecipeArgs["lines"][number];
+  const amountLine = (position: number, text: string, ingredientId: string | null, amount: number, unit: Line["unit"]): Line => ({
+    position,
+    original_text: text,
+    amount,
+    unit,
+    is_vague: false,
+    ingredient_id: ingredientId,
+    step_position: null,
+  });
+  const vagueLine = (position: number, text: string, ingredientId: string | null): Line => ({
+    position,
+    original_text: text,
+    amount: null,
+    unit: null,
+    is_vague: true,
+    ingredient_id: ingredientId,
+    step_position: null,
+  });
+
+  async function save(db: Db, title: string, lines: Line[]): Promise<string> {
+    const args = saveArgs(lines);
+    const { data, error } = await db.rpc("save_recipe", { ...args, recipe: { ...args.recipe, title } });
+    if (error) throw error;
+    return data;
+  }
+
+  /** The library's rows with their status, as recipes/server.ts makes them. */
+  async function library(db: Db) {
+    const [rows, snapshot] = await Promise.all([listRecipes(db), loadPantrySnapshot(db)]);
+    return Object.fromEntries(withStatus(rows, snapshot).map((item) => [item.id, item.missingCount]));
+  }
+
+  beforeAll(async () => {
+    user = await createTestUser("status");
+    for (const [key, name] of Object.entries({ gradde: "Grädde", mjol: "Vetemjöl", salt: "Salt", agg: "Ägg", lok: "Gul lök", peppar: "Svartpeppar" })) {
+      ing[key as keyof typeof ing] = await addIngredient(user.db, name);
+    }
+    await setPantryItemsIn(user.db, [
+      { ingredientId: ing.gradde, location: "Kyl", amount: 2, unit: "dl" },
+      { ingredientId: ing.mjol, location: "Skafferi", amount: 1, unit: "kg" },
+      { ingredientId: ing.salt, location: "Skafferi", amount: null, unit: null },
+      { ingredientId: ing.lok, location: "Skafferi", amount: 2, unit: "st" },
+    ]);
+
+    canCook = await save(user.db, "Allt finns", [
+      amountLine(0, "2 dl grädde", ing.gradde, 2, "dl"),
+      vagueLine(1, "salt efter smak", ing.salt),
+      // An amount without unit is compared as st.
+      amountLine(2, "1 gul lök", ing.lok, 1, null),
+      // Unlimited is enough whatever the amount.
+      amountLine(3, "2 msk salt", ing.salt, 2, "msk"),
+    ]);
+    short = await save(user.db, "Saknar", [
+      amountLine(0, "1 dl grädde", ing.gradde, 1, "dl"),
+      amountLine(1, "2 dl grädde", ing.gradde, 2, "dl"),
+      amountLine(2, "2 dl vetemjöl", ing.mjol, 2, "dl"),
+      amountLine(3, "3 ägg", ing.agg, 3, "st"),
+      vagueLine(4, "peppar efter smak", ing.peppar),
+      amountLine(5, "2 nävar spenat", null, 2, null),
+    ]);
+  });
+
+  it("gives Kan lagas nu or N for each recipe in the library", async () => {
+    // Cream 1 + 2 dl against 2 dl is partial, flour in dl against kg is
+    // another unit, eggs are missing; the vague pepper and the spinach without
+    // a catalog ingredient do not count.
+    expect(await library(user.db)).toEqual({ [canCook]: 0, [short]: 3 });
+  });
+
+  it("gives each line of the recipe view its coverage", async () => {
+    const recipe = await getRecipe(user.db, short, (ids) => loadIngredientNames(user.db, ids));
+    const status = recipeStatus(recipe!, recipe!.servings, await loadPantrySnapshot(user.db));
+    expect({ missingCount: status.missingCount, lines: recipe!.lines.map((line) => status.lines[line.id]) }).toEqual({
+      missingCount: 3,
+      lines: [
+        { kind: "partial", remaining: 1, amounts: [{ unit: "dl", amount: 2 }] },
+        { kind: "partial", remaining: 1, amounts: [{ unit: "dl", amount: 2 }] },
+        { kind: "other-unit", amounts: [{ unit: "kg", amount: 1 }] },
+        { kind: "missing" },
+        { kind: "vague-missing" },
+        { kind: "unlinked" },
+      ],
+    });
+  });
+
+  it("counts again when the pantry changes", async () => {
+    await setPantryItemsIn(user.db, [
+      { ingredientId: ing.gradde, location: "Kyl", amount: 3, unit: "dl" },
+      { ingredientId: ing.mjol, location: "Skafferi", amount: 5, unit: "dl" },
+      { ingredientId: ing.agg, location: "Kyl", amount: null, unit: null },
+    ]);
+    // Enough cream now, flour also in dl (beside the kg) and eggs unlimited.
+    expect(await library(user.db)).toEqual({ [canCook]: 0, [short]: 0 });
+  });
+
+  it("lists 200 recipes with their status well within a second (NFR7)", async () => {
+    const many = await createTestUser("status-200");
+    const ids = await Promise.all(Array.from({ length: 20 }, (_, index) => addIngredient(many.db, `Vara ${index}`)));
+    await setPantryItemsIn(
+      many.db,
+      ids.slice(0, 10).map((ingredientId) => ({ ingredientId, location: "Kyl" as const, amount: 1, unit: "kg" as const })),
+    );
+    const recipes = await many.db
+      .from("recipe")
+      .insert(Array.from({ length: 200 }, (_, index) => ({ title: `Recept ${index}`, original_servings: 4, source_kind: "text" })))
+      .select("id");
+    if (recipes.error) throw recipes.error;
+    const lines = recipes.data.flatMap(({ id }, recipeIndex) =>
+      Array.from({ length: 12 }, (_, position) => ({
+        recipe_id: id,
+        position,
+        original_text: `${position} rad`,
+        ingredient_id: position < 10 ? ids[(recipeIndex + position) % ids.length] : null,
+        amount: position % 4 === 3 ? null : 500,
+        unit: position % 4 === 3 ? null : "g",
+        is_vague: position % 4 === 3,
+      })),
+    );
+    const inserted = await many.db.from("recipe_ingredient").insert(lines);
+    if (inserted.error) throw inserted.error;
+
+    const started = performance.now();
+    const [rows, snapshot] = await Promise.all([listRecipes(many.db), loadPantrySnapshot(many.db)]);
+    const listed = withStatus(rows, snapshot);
+    const listMs = performance.now() - started;
+    const searchStarted = performance.now();
+    // As searchRecipes does it: the recipes with their lines, then the pantry.
+    const found = await searchRecipesIn(many.db, { text: "vara", ingredientIds: await findIngredientIdsIn(many.db, "vara") });
+    const searched = withStatus(found, await loadPantrySnapshot(many.db));
+    const searchMs = performance.now() - searchStarted;
+    console.info(`listRecipes with status, 200 recipes: ${listMs.toFixed(0)} ms; search with status: ${searchMs.toFixed(0)} ms`);
+
+    expect(listed).toHaveLength(200);
+    expect(rows.every((row) => row.lines.length === 12)).toBe(true);
+    // The kg in the pantry never covers a need in g: units are not converted.
+    expect(listed.every((item) => (item.missingCount ?? 0) > 0)).toBe(true);
+    expect(searched).toHaveLength(200);
+    expect(found.every((row) => row.lines.length === 12)).toBe(true);
+    expect(searched.map(({ missingCount }) => missingCount)).toEqual(listed.map(({ missingCount }) => missingCount));
     expect(listMs).toBeLessThan(1000);
     expect(searchMs).toBeLessThan(1000);
   });

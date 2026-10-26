@@ -31,3 +31,8 @@
 - source_spec: `_bmad-output/implementation-artifacts/spec-1-9-importera-recept-fran-foto.md`
   summary: E2E som avbryter (Avbryt eller stängning) medan bilden förminskas och visar att inget skickas.
   evidence: Nuvarande test avbryter först när förfrågan är skickad; kräver att `createImageBitmap`/`toBlob` görs långsamma i testet.
+
+## Från Epic 2
+
+- **Kvarlämnade testanvändare (`pantry-many-…`):** e2e-förberedelsen varnar för integrationstestanvändare som blir kvar. Troligen tar det för lång tid att radera användaren med 1001 ingredienser med cascade. Utred `deleteTestUsers` (vänta längre, eller radera lagret och katalogen först med SQL) när det stör.
+- **Svep nära skärmkanten och VoiceOver på lagervaror:** måste kontrolleras på riktig iPhone (checklistan i `docs/oppna-fragor.md`).

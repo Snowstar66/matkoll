@@ -30,6 +30,9 @@ export const ingredientProposalSchema = z.object({
 });
 export type IngredientProposal = z.infer<typeof ingredientProposalSchema>;
 
+/** What the catalog suggests for one of its ingredients: where it is kept and its usual unit. */
+export type IngredientDefaults = Pick<IngredientProposal, "section" | "location" | "defaultUnit">;
+
 export const ingredientMatchSchema = z.discriminatedUnion("kind", [
   z.object({
     kind: z.literal("match"),

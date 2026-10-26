@@ -1,4 +1,5 @@
 import { z } from "zod";
+import { cleanIngredientText, normalizeIngredientText } from "./normalize";
 
 // Searching the catalog while typing (AD-1: the search* exception), e.g. when
 // Pontus swaps the ingredient of a recipe line. Names and synonyms are stored
@@ -45,4 +46,17 @@ export function rankSearchHits(text: string, candidates: readonly SearchCandidat
     .sort((a, b) => a.rank - b.rank || collator.compare(a.name, b.name))
     .slice(0, maxSearchHits)
     .map(({ id, name }) => ({ id, name }));
+}
+
+/**
+ * The name to offer as a new catalog ingredient for what Pontus typed, given
+ * the hits for it: the typed text without amount and unit ("2 dl
+ * Schalottenlök" → "Schalottenlök"), or `null` when nothing is left or a hit
+ * already has that name (compared normalised: "gul LÖK" is "Gul lök").
+ */
+export function newIngredientName(query: string, hits: readonly IngredientSearchHit[]): string | null {
+  const name = cleanIngredientText(query) || query.trim();
+  if (!name) return null;
+  const normalized = normalizeIngredientText(name);
+  return hits.some((hit) => normalizeIngredientText(hit.name) === normalized) ? null : name;
 }

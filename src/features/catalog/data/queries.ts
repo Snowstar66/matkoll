@@ -1,6 +1,9 @@
 import "server-only";
 import { containsPattern } from "@/lib/like-pattern";
-import type { CatalogSnapshot } from "../domain/match";
+import { locationSchema } from "../domain/locations";
+import type { CatalogSnapshot, IngredientDefaults } from "../domain/match";
+import { sectionSchema } from "../domain/sections";
+import { unitSchema } from "../domain/units";
 import {
   maxSearchHits,
   rankSearchHits,
@@ -60,6 +63,35 @@ export async function loadIngredientNames(db: CatalogDb, ids: readonly string[])
     }),
   );
   return names;
+}
+
+/**
+ * The section, location and default unit of the ingredients among `ids` in
+ * the signed-in user's catalog, by id. Ids not found are left out. The
+ * table's checks equal the domain's lists; a row outside them is
+ * `query_failed` with the detail `invalid_row`.
+ */
+export async function loadIngredientDefaults(
+  db: CatalogDb,
+  ids: readonly string[],
+): Promise<Record<string, IngredientDefaults>> {
+  const defaults: Record<string, IngredientDefaults> = {};
+  await Promise.all(
+    chunks([...new Set(ids)]).map(async (chunk) => {
+      const { data, error } = await db.from("ingredient").select("id, section, location, default_unit").in("id", chunk);
+      if (error) throw new CatalogDataError("query_failed", error.code);
+      for (const row of data) {
+        const section = sectionSchema.safeParse(row.section);
+        const location = locationSchema.safeParse(row.location);
+        const defaultUnit = unitSchema.nullable().safeParse(row.default_unit);
+        if (!section.success || !location.success || !defaultUnit.success) {
+          throw new CatalogDataError("query_failed", "invalid_row");
+        }
+        defaults[row.id] = { section: section.data, location: location.data, defaultUnit: defaultUnit.data };
+      }
+    }),
+  );
+  return defaults;
 }
 
 /**
