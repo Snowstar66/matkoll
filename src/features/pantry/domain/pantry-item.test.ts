@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { comparePantryItems, splitPantryItems, toSnapshot, type PantryItem } from "./pantry-item";
+import { comparePantryItems, snapshotFor, splitPantryItems, toSnapshot, type PantryItem } from "./pantry-item";
 
 const item = (overrides: Partial<PantryItem> & Pick<PantryItem, "id" | "name">): PantryItem => ({
   ingredientId: `ingredient-${overrides.name}`,
@@ -87,5 +87,18 @@ describe("splitPantryItems", () => {
     const salt = item({ id: "2", name: "Salt" });
     const smor = item({ id: "3", name: "Smör", amount: 250, unit: "g" });
     expect(splitPantryItems([mjolk, salt, smor])).toEqual({ withAmount: [mjolk, smor], unlimited: [salt] });
+  });
+});
+
+describe("snapshotFor", () => {
+  it("keeps only the ingredients asked for that are at home", () => {
+    const snapshot = toSnapshot([
+      { ingredientId: "gradde", amount: 2, unit: "dl" },
+      { ingredientId: "salt", amount: null, unit: null },
+      { ingredientId: "mjol", amount: 1, unit: "kg" },
+    ]);
+    const part = snapshotFor(snapshot, ["gradde", "salt", null, "agg", "gradde"]);
+    expect([...part.keys()]).toEqual(["gradde", "salt"]);
+    expect(part.get("gradde")).toEqual(snapshot.get("gradde"));
   });
 });

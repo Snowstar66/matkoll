@@ -34,6 +34,19 @@ export type PantryStock = {
  */
 export type PantrySnapshot = Map<string, PantryStock>;
 
+/**
+ * The part of the snapshot for `ingredientIds`, for a page that sends it to
+ * the browser: only what the status of those ingredients reads.
+ */
+export function snapshotFor(snapshot: PantrySnapshot, ingredientIds: Iterable<string | null>): PantrySnapshot {
+  const part: PantrySnapshot = new Map();
+  for (const id of ingredientIds) {
+    const stock = id === null ? undefined : snapshot.get(id);
+    if (id !== null && stock) part.set(id, stock);
+  }
+  return part;
+}
+
 /** The part of a pantry row the snapshot needs. */
 export type PantryAmountRow = Pick<PantryItem, "ingredientId" | "amount" | "unit">;
 

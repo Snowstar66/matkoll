@@ -68,9 +68,9 @@ development_status:
   3-8-förbered-molndrift: done
   epic-3-retrospective: optional
 
-  epic-4: backlog
-  4-1-portioner-och-x-av-y-hemma-i-receptvyn: backlog
-  4-2-stegläge-med-tänd-skärm: backlog
+  epic-4: done
+  4-1-portioner-och-x-av-y-hemma-i-receptvyn: done
+  4-2-stegläge-med-tänd-skärm: done
   epic-4-retrospective: optional
 
   epic-5: backlog

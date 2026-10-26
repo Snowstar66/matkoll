@@ -2,7 +2,7 @@
 title: 'Story 4.2: Stegläge med tänd skärm'
 type: 'feature'
 created: '2026-10-26'
-status: 'draft'
+status: 'done'
 route: 'dispatch'
 context:
   - '{project-root}/_bmad-output/implementation-artifacts/epic-4-context.md'
@@ -82,18 +82,18 @@ context:
 ## Tasks & Acceptance
 
 **Execution:**
-- [ ] `src/features/recipes/domain/cook-steps.ts` (+ test) -- `cookSteps(steps, scaledLines)` ger för varje steg dess text och raderna med `stepId === step.id` i receptets ordning. Rader utan steg, eller med ett `stepId` som inte finns, hamnar inte i något steg. Ren funktion -- FR-21
-- [ ] `src/features/recipes/ui/use-wake-lock.ts` (+ test) -- `useWakeLock(active)` ger `{ unavailable: boolean }`. Hooken begär låset när den blir aktiv, släpper det i cleanup och begär det igen vid `visibilitychange` till `visible`. Den hanterar svar som kommer efter cleanup, och saknat stöd eller nekad begäran ger `unavailable` -- AD-18
-- [ ] `src/features/recipes/ui/cook-mode.tsx` (+ test) -- native modal `<dialog>` i helskärm med `aria-label` "Stegläge: <titel>":
+- [x] `src/features/recipes/domain/cook-steps.ts` (+ test) -- `cookSteps(steps, scaledLines)` ger för varje steg dess text och raderna med `stepId === step.id` i receptets ordning. Rader utan steg, eller med ett `stepId` som inte finns, hamnar inte i något steg. Ren funktion -- FR-21
+- [x] `src/features/recipes/ui/use-wake-lock.ts` (+ test) -- `useWakeLock(active)` ger `{ unavailable: boolean }`. Hooken begär låset när den blir aktiv, släpper det i cleanup och begär det igen vid `visibilitychange` till `visible`. Den hanterar svar som kommer efter cleanup, och saknat stöd eller nekad begäran ger `unavailable` -- AD-18
+- [x] `src/features/recipes/ui/cook-mode.tsx` (+ test) -- native modal `<dialog>` i helskärm med `aria-label` "Stegläge: <titel>":
   - överst eventuellt raden om Wake Lock, "Stäng", receptets titel och "N portioner" som metadata;
   - "Steg N av M" i en live-region, stegets `IngredientRow`-rader och stegtexten i `text-step`;
   - Föregående (sekundär) och Nästa (primär) i tumzonen innanför säkerhetsmarginalen;
   - svep med slop och tröskel, ArrowLeft och ArrowRight, Esc och "Stäng", fokus tillbaka till "Laga nu";
   - animationen vid stegbyte går bara utan "Minska rörelse"
   -- FR-21, UX-DR12
-- [ ] `src/features/recipes/ui/recipe-view.tsx`, klientdelen, `add-to-plan-button.tsx` -- `FixedAction` med "Lägg på matsedeln" (primär) och "Laga nu" (sekundär) i en rad som bryts vid stor text. "Laga nu" visas också utan `addToPlan` men inte utan steg. Stegläget öppnas alltid på steg 1 med valt antal portioner -- FR-20, FR-21
-- [ ] `src/features/recipes/ui/*.test.tsx` -- öppna och stänga, "Steg 1 av N", rader per steg och skalade, steg utan rader, gränserna, piltangenter, svep (pekarhändelser), Esc, fokus tillbaka. Wake Lock testas med en fejkad `navigator.wakeLock`: begäran, släpp vid stängning, ny begäran vid `visibilitychange`, raden vid saknat stöd och vid nekad begäran, och svar efter stängning -- matrisen
-- [ ] `tests/e2e/cook-mode.spec.ts` (+ `support.ts`, `global-setup.ts`) -- egen e2e-användare `e2e-steglage@matkoll.test`. Testet seedar ett recept med steg och kopplade rader, väljer portioner och trycker "Laga nu". Det ser "Steg 1 av N" och skalade rader, byter steg med Nästa, Föregående och piltangenter och stänger. Wake Lock stubbas med `page.addInitScript`: en körning registrerar begäran och släpp, och en körning utan stöd visar raden -- matrisen
+- [x] `src/features/recipes/ui/recipe-view.tsx`, klientdelen, `add-to-plan-button.tsx` -- `FixedAction` med "Lägg på matsedeln" (primär) och "Laga nu" (sekundär) i en rad som bryts vid stor text. "Laga nu" visas också utan `addToPlan` men inte utan steg. Stegläget öppnas alltid på steg 1 med valt antal portioner -- FR-20, FR-21
+- [x] `src/features/recipes/ui/*.test.tsx` -- öppna och stänga, "Steg 1 av N", rader per steg och skalade, steg utan rader, gränserna, piltangenter, svep (pekarhändelser), Esc, fokus tillbaka. Wake Lock testas med en fejkad `navigator.wakeLock`: begäran, släpp vid stängning, ny begäran vid `visibilitychange`, raden vid saknat stöd och vid nekad begäran, och svar efter stängning -- matrisen
+- [x] `tests/e2e/cook-mode.spec.ts` (+ `support.ts`, `global-setup.ts`) -- egen e2e-användare `e2e-steglage@matkoll.test`. Testet seedar ett recept med steg och kopplade rader, väljer portioner och trycker "Laga nu". Det ser "Steg 1 av N" och skalade rader, byter steg med Nästa, Föregående och piltangenter och stänger. Wake Lock stubbas med `page.addInitScript`: en körning registrerar begäran och släpp, och en körning utan stöd visar raden -- matrisen
 
 **Acceptance Criteria:**
 - Given `pnpm lint && pnpm typecheck && pnpm test && pnpm test:integration && AI_PROVIDER=mock pnpm build && CI=1 pnpm test:e2e`, when de körs, then lyckas alla.
@@ -124,7 +124,29 @@ context:
 
 ## Spec Change Log
 
+- Efter granskningen visas rader utan steg på steg 1 under "Övriga ingredienser" i stället för att utelämnas. Om AI:n inte lyckades koppla raderna till steg skulle de annars inte synas alls i stegläget.
+
 ## Review Triage Log
+
+Iteration 1. Granskare: Blind Hunter, Edge Case Hunter och Verification Gap.
+- **Patch:**
+  - Piltangenterna lyssnar på hela dokumentet, och en nedhållen tangent byter bara ett steg.
+  - Svepet nollställs korrekt, och textmarkering räknas inte som svep. Tröskeln är 48 px.
+  - Skärmlåset (Wake Lock):
+    - ny begäran om sidan blir synlig medan en begäran pågår
+    - ett nej medan sidan är dold visar ingen rad
+    - ett nytt försök när systemet släpper låset
+  - Stegläget stängs när receptet inte längre har några steg.
+  - Steget följs med id, och stegen sorteras efter position.
+  - Rader utan steg visas på steg 1.
+  - Fokus går tillbaka bara när Pontus själv stänger.
+  - Nya tester för stängning via close-händelsen och för att scrollen börjar om.
+  - Sidan bakom kan inte scrollas.
+  - "Laga nu" är avstängd medan rätten läggs på matsedeln.
+  - Skärmläsare får "Steg N av M" och stegets text.
+  - Explicit `fullWidth`, och utrymmet under FixedAction räcker för två rader.
+- **Defer:** Playwright-test med `reducedMotion` i stället för kontroll av klasser.
+- **Reject:** att flytta `useWakeLock` till en gemensam mapp.
 
 ## Verification
 

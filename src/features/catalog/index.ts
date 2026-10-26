@@ -7,6 +7,7 @@ export {
   normalizeUnit,
   parseQuantity,
   formatQuantity,
+  displayAmount,
   type Unit,
   type NormalizedUnit,
 } from "./domain/units";

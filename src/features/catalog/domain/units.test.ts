@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { COUNT_UNITS, formatQuantity, isCountUnit, normalizeUnit, parseQuantity, UNITS, unitSchema } from "./units";
+import { COUNT_UNITS, displayAmount, formatQuantity, isCountUnit, normalizeUnit, parseQuantity, UNITS, unitSchema } from "./units";
 
 describe("UNITS", () => {
   it("is the fixed list from AD-12", () => {
@@ -87,6 +87,14 @@ describe("isCountUnit", () => {
     expect(UNITS.filter(isCountUnit)).toEqual([...COUNT_UNITS]);
     expect(isCountUnit(null)).toBe(false);
     expect(isCountUnit("dl")).toBe(false);
+  });
+});
+
+describe("displayAmount", () => {
+  it("rounds to two decimals, half up, as formatQuantity shows it", () => {
+    expect(displayAmount(10 / 3)).toBe(3.33);
+    expect(displayAmount(1.005)).toBe(1.01);
+    expect(displayAmount(2)).toBe(2);
   });
 });
 

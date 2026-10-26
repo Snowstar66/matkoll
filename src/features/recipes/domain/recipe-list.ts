@@ -51,10 +51,16 @@ export const recipeSearchSchema = z.string().max(100);
 export const favoriteChangeSchema = z.object({ id: z.uuid(), isFavorite: z.boolean() });
 export type FavoriteChange = z.infer<typeof favoriteChangeSchema>;
 
+/** "35 min", or `null` when the recipe has no time (or 0). */
+export function recipeTimeText(totalMinutes: number | null): string | null {
+  return totalMinutes ? `${totalMinutes} min` : null;
+}
+
 /** "35 min · 4 portioner", without the time when the recipe has none (or 0). */
 export function recipeMetaText(totalMinutes: number | null, servings: number): string {
   const portions = `${servings} ${servings === 1 ? "portion" : "portioner"}`;
-  return totalMinutes ? `${totalMinutes} min · ${portions}` : portions;
+  const time = recipeTimeText(totalMinutes);
+  return time ? `${time} · ${portions}` : portions;
 }
 
 export const RECIPE_FILTERS = ["all", "favorites"] as const;

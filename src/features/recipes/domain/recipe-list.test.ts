@@ -5,6 +5,7 @@ import {
   filterRecipes,
   parseRecipeFilter,
   recipeMetaText,
+  recipeTimeText,
   recipeSearchSchema,
   withStatus,
   type RecipeListRow,
@@ -18,6 +19,14 @@ describe("recipeMetaText", () => {
   it("leaves out a missing or zero time and says portion for one", () => {
     expect(recipeMetaText(null, 4)).toBe("4 portioner");
     expect(recipeMetaText(0, 1)).toBe("1 portion");
+  });
+});
+
+describe("recipeTimeText", () => {
+  it("gives the time alone, and nothing without one", () => {
+    expect(recipeTimeText(35)).toBe("35 min");
+    expect(recipeTimeText(null)).toBeNull();
+    expect(recipeTimeText(0)).toBeNull();
   });
 });
 

@@ -73,8 +73,9 @@ test("Spara recept saves the recipe and opens the recipe view", async ({ page })
   await expect(page.getByRole("heading", { level: 1, name: title })).toBeVisible();
   await expect(page).toHaveTitle(`${title} – Matkoll`);
   await expectReceptCurrent(page);
-  // The recipe has no time, so only the servings.
-  await expect(page.getByTestId("recipe-meta")).toHaveText("4 portioner");
+  // The recipe has no time, so no meta line; the portion selector shows the servings.
+  await expect(page.getByTestId("recipe-meta")).toHaveCount(0);
+  await expect(page.getByRole("article").filter({ visible: true }).getByText("4 portioner", { exact: true })).toBeVisible();
   await expect(page.getByText("Källa: Inklistrad text")).toBeVisible();
   // No image address from pasted text: the placeholder takes its place. The
   // library stays mounted but hidden after navigation, so only visible ones count.

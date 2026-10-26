@@ -152,17 +152,26 @@ export function parseQuantity(text: string | null | undefined): number | null {
 }
 
 /**
+ * The amount as it is shown: at most two decimals, rounded half up, so 1.005
+ * is 1.01. The one display rounding (AD-12): formatQuantity shows it, and
+ * pantry.coverage compares at it, so a line is never short while its amount
+ * and what is at home read the same.
+ */
+export function displayAmount(amount: number): number {
+  // The relative epsilon lifts binary near-misses such as 1.005 (stored as
+  // 1.00499…) to the half they were written as.
+  return Math.round(amount * 100 * (1 + 1e-12)) / 100;
+}
+
+/**
  * An amount with its unit for display, with Swedish decimal comma and at most
- * two decimals, rounded half up: (1.5, "dl") → "1,5 dl", (0.333, "dl") →
- * "0,33 dl", (1.005, "dl") → "1,01 dl". A positive amount that would round to
- * 0 shows as "<0,01". The only place amounts are rounded (AD-12). Missing
- * amount gives "".
+ * two decimals, rounded half up (displayAmount): (1.5, "dl") → "1,5 dl",
+ * (0.333, "dl") → "0,33 dl", (1.005, "dl") → "1,01 dl". A positive amount that
+ * would round to 0 shows as "<0,01". Missing amount gives "".
  */
 export function formatQuantity(amount: number | null | undefined, unit: Unit | null | undefined): string {
   if (amount === null || amount === undefined || !Number.isFinite(amount)) return "";
-  // The relative epsilon lifts binary near-misses such as 1.005 (stored as
-  // 1.00499…) to the half they were written as.
-  const rounded = Math.round(amount * 100 * (1 + 1e-12)) / 100;
+  const rounded = displayAmount(amount);
   const number = amount > 0 && rounded === 0 ? "<0,01" : String(rounded === 0 ? 0 : rounded).replace(".", ",");
   return unit ? `${number} ${unit}` : number;
 }

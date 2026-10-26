@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import { toSnapshot } from "./pantry-item";
-import { recipeStatus, recipeStatusText, type LineCoverage, type StatusLine } from "./recipe-status";
+import { atHomeSummaryText, recipeStatus, recipeStatusForFactor, recipeStatusText, type LineCoverage, type StatusLine } from "./recipe-status";
 
 let lineId = 0;
 const line = (overrides: Partial<StatusLine> & Pick<StatusLine, "ingredientId">): StatusLine => ({
@@ -117,7 +117,92 @@ describe("recipeStatus", () => {
   });
 
   it("can cook a recipe without lines", () => {
-    expect(recipeStatus({ servings: 2, lines: [] }, 2, snapshot)).toEqual({ missingCount: 0, lines: {} });
+    expect(recipeStatus({ servings: 2, lines: [] }, 2, snapshot)).toEqual({
+      missingCount: 0,
+      ingredientCount: 0,
+      atHomeCount: 0,
+      lines: {},
+    });
+  });
+});
+
+describe("recipeStatus: X av Y hemma", () => {
+  /** N, X and Y for `servings` of a recipe for 4. */
+  function counts(lines: StatusLine[], servings = 4) {
+    const { missingCount, atHomeCount, ingredientCount } = recipeStatus({ servings: 4, lines }, servings, snapshot);
+    return { missingCount, atHomeCount, ingredientCount };
+  }
+
+  it("counts each catalog ingredient once in Y, and in X when all its needs are covered", () => {
+    expect(
+      counts([
+        line({ ingredientId: "gradde", amount: 1, unit: "dl" }),
+        line({ ingredientId: "gradde", amount: 1, unit: "dl" }),
+        line({ ingredientId: "lok", amount: 1, unit: "st" }),
+        line({ ingredientId: "agg", amount: 2, unit: "st" }),
+      ]),
+    ).toEqual({ missingCount: 1, atHomeCount: 2, ingredientCount: 3 });
+  });
+
+  it("follows the chosen servings over and under what is at home", () => {
+    // 2 dl cream at home; the recipe needs 1 dl for 4.
+    const lines = [line({ ingredientId: "gradde", amount: 1, unit: "dl" }), line({ ingredientId: "salt", amount: 1, unit: "tsk" })];
+    expect(counts(lines, 8)).toEqual({ missingCount: 0, atHomeCount: 2, ingredientCount: 2 });
+    expect(counts(lines, 10)).toEqual({ missingCount: 1, atHomeCount: 1, ingredientCount: 2 });
+    expect(counts(lines, 1)).toEqual({ missingCount: 0, atHomeCount: 2, ingredientCount: 2 });
+  });
+
+  it("counts an ingredient with only vague lines in Y, and in X only when it is at home; never in N", () => {
+    expect(counts([vague("salt")])).toEqual({ missingCount: 0, atHomeCount: 1, ingredientCount: 1 });
+    expect(counts([vague("peppar")])).toEqual({ missingCount: 0, atHomeCount: 0, ingredientCount: 1 });
+  });
+
+  it("keeps an ingredient with a vague line and an amount out of X when the amount is short", () => {
+    const lines = [vague("gradde"), line({ ingredientId: "gradde", amount: 1, unit: "dl" })];
+    expect(counts(lines)).toEqual({ missingCount: 0, atHomeCount: 1, ingredientCount: 1 });
+    expect(counts(lines, 12)).toEqual({ missingCount: 1, atHomeCount: 0, ingredientCount: 1 });
+    const missing = [vague("agg"), line({ ingredientId: "agg", amount: 1, unit: "st" })];
+    expect(counts(missing)).toEqual({ missingCount: 1, atHomeCount: 0, ingredientCount: 1 });
+  });
+
+  it("never counts a line without a catalog ingredient in X or Y", () => {
+    expect(counts([line({ ingredientId: null, amount: 2, unit: "st" }), vague(null), vague("salt")])).toEqual({
+      missingCount: 0,
+      atHomeCount: 1,
+      ingredientCount: 1,
+    });
+    expect(counts([line({ ingredientId: null, amount: 2, unit: "st" })])).toEqual({
+      missingCount: 0,
+      atHomeCount: 0,
+      ingredientCount: 0,
+    });
+  });
+
+  it("leaves N as it was: X and Y only add to it", () => {
+    const lines = [
+      line({ ingredientId: "gradde", amount: 3, unit: "dl" }),
+      line({ ingredientId: "mjol", amount: 2, unit: "dl" }),
+      line({ ingredientId: "agg", amount: 3, unit: "st" }),
+      vague("peppar"),
+    ];
+    expect(counts(lines)).toEqual({ missingCount: 3, atHomeCount: 0, ingredientCount: 4 });
+  });
+});
+
+describe("recipeStatusForFactor", () => {
+  it("is recipeStatus for the same factor, and compares the own amounts for a factor that is not positive", () => {
+    const lines = [line({ ingredientId: "gradde", amount: 1, unit: "dl" }), vague("salt")];
+    expect(recipeStatusForFactor(lines, 2.5, snapshot)).toEqual(recipeStatus({ servings: 4, lines }, 10, snapshot));
+    for (const factor of [0, -1, Number.NaN, Number.POSITIVE_INFINITY]) {
+      expect(recipeStatusForFactor(lines, factor, snapshot)).toEqual(recipeStatusForFactor(lines, 1, snapshot));
+    }
+  });
+});
+
+describe("atHomeSummaryText", () => {
+  it("says X av Y hemma", () => {
+    expect(atHomeSummaryText(7, 9)).toBe("7 av 9 hemma");
+    expect(atHomeSummaryText(0, 1)).toBe("0 av 1 hemma");
   });
 });
 

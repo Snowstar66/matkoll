@@ -2,6 +2,64 @@
 
 Beslut som fattats under bygget: vad, varför och vilka alternativ som fanns. Nyaste överst.
 
+## 2026-10-26 – Stegläge med tänd skärm (Story 4.2)
+
+- **Beslut:**
+  - Stegläget är en native modal `<dialog>` i helskärm i receptvyn, utan egen adress. Valt antal portioner och scrollpositionen finns kvar när det stängs. Sidan bakom blir inert och scrollar inte medan stegläget är öppet. Webbläsarens bakåt lämnar receptet som vanligt. Om sidan göms av en navigering i appen stängs stegläget och låset släpps, utan att fokus flyttas, så att det inte är öppet när Pontus kommer tillbaka.
+  - Stegläget öppnas alltid på steg 1 och minns inte var Pontus var mellan öppningarna. Om receptet läses om medan det är öppet stannar det på samma steg (efter stegets id), och om steget har tagits bort stannar det på samma plats. Om receptet tappar alla steg stängs stegläget.
+  - "Laga nu" visas inte när receptet saknar steg, men visas även utan "Lägg på matsedeln". Den väntar medan en rätt läggs på matsedeln, så att bekräftelsen inte döljs bakom stegläget.
+  - En rad visas på sitt första steg (`stepId`, beslut 2026-10-25). Stegen visas i ordning efter position.
+  - **Ändrat efter granskningen:** rader utan steg, eller vars steg har tagits bort, visas på steg 1 under rubriken "Övriga ingredienser", efter stegets egna rader. Om ingen rad har något steg (AI:n kopplade inga) visar steg 1 alla rader, utan rubriken. Det ersätter förslaget att inte visa dem i stegläget, eftersom en rad annars kunde saknas helt där.
+  - Stegraderna ser ut som i receptvyn: bock eller ring, mängd i `sky-ink` när den saknas och "hemma: …", i brödtext. Bara stegtexten är 24 px.
+  - Wake Lock:
+    - Stödet kontrolleras med `"wakeLock" in navigator`.
+    - Saknat stöd och en nekad begäran visar båda raden "Skärmen kan släckas i den här webbläsaren." överst, som text i `meta` och `ink-2` utan ikon och utan `role="alert"`. Raden döljs när ett senare försök lyckas.
+    - En begäran som nekas medan sidan är dold visar inte raden. Nästa `visibilitychange` försöker igen.
+    - Om sidan blir synlig medan en begäran pågår görs ett nytt försök när den är klar, om den inte gav något lås.
+    - Om systemet släpper låset medan sidan är synlig (till exempel vid strömsparläge) görs ett nytt försök. Om det misslyckas, eller om låset släpps igen innan sidan visas nästa gång, visas raden.
+    - Ett lås som kommer efter att stegläget stängts släpps direkt. Inget loggas.
+  - Svep: ett pekardrag som först rör sig mer än 8 px vågrätt än lodrätt räknas som svep, och ett svep på minst 48 px byter steg. Ett lodrätt drag scrollar steget. Svepet gäller stegets innehåll, inte knapparna. Ett drag med musen som markerade text byter inte steg. Ett drag som aldrig fick sitt slut glöms när en ny pekare börjar, när ingen knapp är nedtryckt eller när pekaren lämnar steget.
+  - Tangenter: ArrowLeft och ArrowRight byter steg var fokus än är, också efter ett tryck på stegtexten. En nedhållen tangent byter bara ett steg. Med Alt, Ctrl, Cmd eller Skift görs inget, så att webbläsarens kortkommandon fungerar.
+  - Föregående och Nästa blir `aria-disabled` vid gränserna i stället för att Nästa blir "Klar" på sista steget. "Stäng", Esc och webbläsarens egen stängning är vägarna ut, och då går fokus tillbaka till "Laga nu".
+  - "Steg N av M" får fokus när stegläget öppnas. Vid varje stegbyte läses "Steg N av M: <stegtext>" upp från en dold live-region, och fokus stannar där det är. Stegbytet är en kort övergång (180 ms) som bara körs utan "Minska rörelse".
+  - "Lägg på matsedeln" (primär) och "Laga nu" (sekundär) ligger i samma rad i den fasta åtgärdsknappen, och "Lägg på matsedeln" tar resten av bredden. Med stor text bryts de till en rad var, och utrymmet längst ned på sidan mäts så att det räcker för båda raderna. "Lägg på matsedeln" behåller sin bredd medan rätten läggs på. Föregående och Nästa bryts på samma sätt.
+- **Varför:** EXPERIENCE.md säger att "Stäng" går tillbaka till receptvyn och att valet av portioner bara gäller visningen, så en egen adress skulle kräva att portionerna gick via den. Ett steg utan kopplade rader ska bara visa texten, men granskningen visade att rader utan steg annars inte syntes alls i stegläget. Raden om skärmen är inget fel enligt EXPERIENCE.md. DESIGN.md tillåter en primärknapp per vy. Granskningen av 4.2 visade också att piltangenterna slutade fungera efter ett tryck på texten och att ett avbrutet drag kunde ligga kvar.
+- **Alternativ:**
+  - `/recept/[id]/laga?portioner=6`, så att bakåt stänger stegläget.
+  - Inte visa rader utan steg i stegläget (det första förslaget).
+  - En svepgräns som andel av bredden (20 %), utöver 48 px.
+  - "Klar" på sista steget, som också stänger.
+  - En blå meddelanderuta när skärmen kan släckas.
+
+## 2026-10-26 – Sammanslagning till main med Vercel kopplat
+
+- **Beslut (Pontus):** epic-PR:erna slås ihop till `main` även nu när repot är kopplat till Vercel-projektet `matkoll`.
+- **Varför det är ofarligt:** Production saknar miljövariabler, så produktionsbygget misslyckas och inget publiceras. Den första riktiga publiceringen sker när Pontus lägger in variablerna enligt `docs/drift.md`.
+- **Alternativ:** att vänta och bygga vidare på grenar ovanpå varandra. Det ger stora PR:er.
+
+## 2026-10-26 – Portioner och "X av Y hemma" i receptvyn (Story 4.1)
+
+- **Beslut:**
+  - Valt antal portioner gäller bara medan sidan är öppen. Det sparas inte per recept, på enheten eller i adressen, och väljaren börjar på receptets egna portioner när sidan öppnas igen. Väljaren börjar om bara när receptets portioner eller radernas mängder sparas om med "Ändra". Hjärtat, titeln, stegen och lagret behåller valet, fast hjärtat ger receptet en ny `updated_at`.
+  - "X av Y hemma" räknas per katalogingrediens, som bockarna. Y är antalet distinkta katalogingredienser i receptet, även de som bara har vaga rader. X är de ingredienser där varje behov täcks för valda portioner. Rader utan katalogingrediens räknas inte. En vag rad vars vara saknas räknas därför i Y men inte i X, fast den inte räknas i N. Sammanfattningen visas inte när Y är 0 eller när lagret inte går att läsa.
+  - "Lägg på matsedeln" skickar alltid de portioner som visas, även när de är receptets egna. Om portionerna ändras efter ett misslyckat försök får nästa försök ett nytt id för rätten.
+  - Ingen avrundning till hela styck i receptvyn: "0,25 st" visas som det står. Avrundningen uppåt gäller bara inköpslistan.
+  - En rad utan katalogingrediens men med mängd visar originaltexten oskalad och "×faktor" till höger när faktorn inte är 1, som inköpslistans textposter. Faktorn visas med högst två decimaler och aldrig mindre än "×0,01".
+  - Metaraden i receptvyn visar bara tiden ("35 min"), eftersom portionsväljaren visar portionerna. Utan tid finns ingen metarad. Biblioteket och matsedeln behåller "35 min · 4 portioner".
+  - Portionsväljaren går från 1 till 1000, samma gräns som matsedelsrätten. Ett recept för fler än 1000 portioner börjar på 1000, med mängderna skalade till det.
+  - Statusen och de skalade raderna räknas med samma faktor (`recipes.scaleFactor` och `pantry.recipeStatusForFactor`).
+  - En mängd jämförs med lagret med samma avrundning som den visas med (två decimaler, `catalog.displayAmount`). En rad som behöver 3,333 dl när 3,33 dl finns hemma räknas som täckt, så att raden aldrig visar "3,33 dl" som saknad bredvid "hemma: 3,33 dl". Det gäller också inköpslistan, som inte längre ber om "<0,01 dl".
+  - Sidan skickar bara lagret för receptets egna ingredienser till webbläsaren.
+  - Statusetiketten och "X av Y hemma" står bredvid portionsväljaren, under källan, eftersom båda följer portionerna. De läses upp tillsammans när de ändras (`aria-live="polite"`). "X av Y hemma" är vanlig text i `ink-2`, inte en etikett, så att den inte blandas ihop med statusetiketten.
+- **Varför:** EXPERIENCE.md säger att valet i receptvyn bara påverkar visningen. Siffran ska motsvara bockarna i listan, och skiss 2 räknar "olivolja efter behov" som en av nio. Ett aktivt val i receptvyn går före förvalet i FR-13. Fritext kan inte skalas utan tolkning. Granskningen av 4.1 visade att hjärtat nollställde valet och att en rad kunde stå som saknad bredvid samma mängd hemma.
+- **Alternativ:**
+  - `?portioner=6` i adressen, så att valet följer med vid omladdning och delning.
+  - Räkna bort ingredienser med bara vaga rader ur Y, så att Y − X alltid är N.
+  - Alltid lägga på matsedeln med receptets egna portioner.
+  - Låta väljaren gå över 1000 för ett större recept. Då skulle matsedeln inte kunna ta emot de portioner som visas.
+  - Visa det som fattas ("saknas 0,01 dl") i stället för att jämföra med visad avrundning.
+  - Visa "X av Y hemma" som en mintfärgad etikett, som i skiss 2.
+
 ## 2026-10-26 – Ordning för tilläggen efter 1.0
 
 - **Beslut (Pontus):** först görs version 1.0 klar (Epic 1–7). Därefter kommer:
