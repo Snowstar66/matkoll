@@ -1,0 +1,45 @@
+import { render, screen } from "@testing-library/react";
+import { describe, expect, it } from "vitest";
+import { CategoryHeader, type CategoryName, categoryTiles } from "./category-header";
+
+describe("CategoryHeader", () => {
+  it("is an h2 with the name, a hidden tile and the count read as '3 varor'", () => {
+    render(<CategoryHeader category="Mejeri & ägg" count={3} id="kategori-mejeri" />);
+    const heading = screen.getByRole("heading", { level: 2, name: "Mejeri & ägg" });
+    expect(heading).toHaveAttribute("id", "kategori-mejeri");
+    // Upper case on screen only (section-label); the text stays as written for screen readers.
+    expect(heading).toHaveClass("text-section-label", "text-ink-2");
+
+    const tile = screen.getByTestId("category-tile");
+    expect(tile).toHaveAttribute("aria-hidden", "true");
+    expect(tile).toHaveTextContent("🥛");
+    expect(tile).toHaveClass("bg-sky", "size-tile", "rounded-sm");
+
+    expect(screen.getByText("3 varor")).toHaveClass("sr-only");
+    expect(screen.getByText("3")).toHaveAttribute("aria-hidden", "true");
+  });
+
+  it("reads one item as '1 vara' and none as '0 varor'", () => {
+    const { rerender } = render(<CategoryHeader category="Bröd" count={1} />);
+    expect(screen.getByText("1 vara")).toBeInTheDocument();
+    rerender(<CategoryHeader category="Bröd" count={0} />);
+    expect(screen.getByText("0 varor")).toBeInTheDocument();
+  });
+
+  it("keeps the emoji out of the heading and the count", () => {
+    render(<CategoryHeader category="Frys" count={2} />);
+    expect(screen.getByRole("heading")).toHaveTextContent(/^Frys$/);
+    expect(screen.getByText("2 varor")).toHaveTextContent(/^2 varor$/);
+  });
+
+  it.each(Object.entries(categoryTiles) as [CategoryName, (typeof categoryTiles)[CategoryName]][])(
+    "%s has its icon and tile",
+    (category, { icon, tile }) => {
+      render(<CategoryHeader category={category} count={4} />);
+      expect(screen.getByRole("heading", { level: 2, name: category })).toBeInTheDocument();
+      const plate = screen.getByTestId("category-tile");
+      expect(plate).toHaveTextContent(icon);
+      expect(plate).toHaveClass(tile);
+    },
+  );
+});

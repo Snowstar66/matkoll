@@ -33,3 +33,19 @@ export function colorTokens(css = readFileSync(globalsCssPath, "utf8")) {
   const dark = hexTokens(blockBody(darkMedia, darkMedia.search(/:root\s*\{/), ":root inside the dark @media"));
   return { light, dark };
 }
+
+/** The px lengths in `:root` (light; sizes do not change in dark mode), e.g. `{ "tile-size": 30 }`. */
+export function lengthTokens(css = readFileSync(globalsCssPath, "utf8")): Record<string, number> {
+  const body = blockBody(css, css.search(/^:root\s*\{/m), ":root");
+  const tokens: Record<string, number> = {};
+  for (const match of body.matchAll(/--([a-z0-9-]+)\s*:\s*(\d+(?:\.\d+)?)px\s*;/g)) {
+    tokens[match[1]] = Number(match[2]);
+  }
+  return tokens;
+}
+
+/** The value of a custom property in `:root`, as written, or undefined. */
+export function rootToken(name: string, css = readFileSync(globalsCssPath, "utf8")): string | undefined {
+  const body = blockBody(css, css.search(/^:root\s*\{/m), ":root");
+  return new RegExp(`--${name}\\s*:\\s*([^;]+);`).exec(body)?.[1].trim();
+}

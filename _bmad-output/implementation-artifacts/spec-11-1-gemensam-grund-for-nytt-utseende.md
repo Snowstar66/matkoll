@@ -2,7 +2,8 @@
 title: 'Story 11.1: Gemensam grund för nytt utseende'
 type: 'feature'
 created: '2026-10-26'
-status: 'draft'
+status: 'in-progress'
+baseline_commit: '2789f7d'
 route: 'dispatch'
 context:
   - '{project-root}/_bmad-output/implementation-artifacts/epic-11-context.md'
@@ -88,15 +89,15 @@ context:
 ## Tasks & Acceptance
 
 **Execution:**
-- [ ] `src/features/catalog/domain/categories.ts` (+ test) -- `CATEGORIES`, `Category`, `categorySchema`, `SAUCE_WORDS`, `displayCategory(section, name)` och `compareCategories(a, b)` (ordningen). Exporteras från `catalog/index.ts`. Testet är en tabell med minst 40 namn, bland dem varje ord i `SAUCE_WORDS` och fallgroparna i matrisen -- FR-40, AD-12
-- [ ] `src/app/globals.css`, `tests/design/tokens.ts`, `tests/design/contrast.test.ts` -- `--tile-clay`, `--tile-lilac` (ljus och mörk), `--overlay`, `--tile-size`, `--row-min`, `--card-image`, `--dish-thumb`, `--meter-height`, `--meter-height-small`, mappade i `@theme inline`. Kontrasttestet tar med `ink-2` på `bg` för rubriken och `sky-ink` på `sky` för produktetiketten (11.4) -- AD-17, UX-DR23
-- [ ] `src/components/category-header.tsx` (+ test) -- `CategoryHeader({ category, count, id? })`: plattan, ikonen, `h2` och antalet enligt matrisen. Kartan kategori → ikon och platta ligger här -- UX-DR23
-- [ ] `src/components/list-group.tsx`, `list-row.tsx` (+ test) -- `ListGroup` (vitt kort, `rounded-lg`, avdelare i `hairline`) och `ListRow({ title, meta?, leading?, trailing?, onPress? | href? })` med raden under på en rad och hela texten för skärmläsare -- UX-DR24, UX-DR25
-- [ ] `src/components/trash-button.tsx` (+ test) -- `TrashButton({ label, onPress, disabled? })` och en ny `TrashIcon` i `icons.tsx` -- UX-DR24
-- [ ] `src/components/meter.tsx` (+ test) -- `Meter({ value, size: 'default' | 'small' })` -- UX-DR25, UX-DR26
-- [ ] `src/components/icons.tsx`, `app-shell/destinations.ts` (+ test) -- `CartIcon` för Inköpslista och `FridgeIcon` (finns) för Lagersaldo. Etiketterna är de som 10.4 satte
-- [ ] `src/components/README.md` -- de nya byggstenarna
-- [ ] `docs/beslutslogg.md` -- en post för storyn
+- [x] `src/features/catalog/domain/categories.ts` (+ test) -- `CATEGORIES`, `Category`, `categorySchema`, `SAUCE_WORDS`, `displayCategory(section, name)` och `compareCategories(a, b)` (ordningen). Exporteras från `catalog/index.ts`. Testet är en tabell med minst 40 namn, bland dem varje ord i `SAUCE_WORDS` och fallgroparna i matrisen -- FR-40, AD-12
+- [x] `src/app/globals.css`, `tests/design/tokens.ts`, `tests/design/contrast.test.ts` -- `--tile-clay`, `--tile-lilac` (ljus och mörk), `--overlay`, `--tile-size`, `--row-min`, `--card-image`, `--dish-thumb`, `--meter-height`, `--meter-height-small`, mappade i `@theme inline`. Kontrasttestet tar med `ink-2` på `bg` för rubriken och `sky-ink` på `sky` för produktetiketten (11.4) -- AD-17, UX-DR23
+- [x] `src/components/category-header.tsx` (+ test) -- `CategoryHeader({ category, count, id? })`: plattan, ikonen, `h2` och antalet enligt matrisen. Kartan kategori → ikon och platta ligger här -- UX-DR23
+- [x] `src/components/list-group.tsx`, `list-row.tsx` (+ test) -- `ListGroup` (vitt kort, `rounded-lg`, avdelare i `hairline`) och `ListRow({ title, meta?, leading?, trailing?, onPress? | href? })` med raden under på en rad och hela texten för skärmläsare -- UX-DR24, UX-DR25
+- [x] `src/components/trash-button.tsx` (+ test) -- `TrashButton({ label, onPress, disabled? })` och en ny `TrashIcon` i `icons.tsx` -- UX-DR24
+- [x] `src/components/meter.tsx` (+ test) -- `Meter({ value, size: 'default' | 'small' })` -- UX-DR25, UX-DR26
+- [x] `src/components/icons.tsx`, `app-shell/destinations.ts` (+ test) -- `CartIcon` för Inköpslista och `FridgeIcon` (finns) för Lagersaldo. Etiketterna är de som 10.4 satte
+- [x] `src/components/README.md` -- de nya byggstenarna
+- [x] `docs/beslutslogg.md` -- en post för storyn
 
 **Acceptance Criteria:**
 - Given `pnpm lint && pnpm typecheck && pnpm test && pnpm test:integration && AI_PROVIDER=mock pnpm build && CI=1 pnpm test:e2e`, when de körs, then lyckas alla.
@@ -112,6 +113,21 @@ context:
 - Läs `node_modules/next/dist/docs/` före kod som rör Next.js. `node_modules` finns i huvudmappen, inte i en worktree.
 
 ## Spec Change Log
+
+### Vid bygget
+
+- **Byggd på `2789f7d`** (`baseline_commit`): Epic 11:s plan med Epic 10 ihopslagen, alltså med namnen Lagersaldo och Inköpslista från 10.4.
+- **`SAUCE_WORDS` är längre än epic-kontextens lista** ("Listan börjar med"): "sauce", "oelek", "chili", "chilipulver", "lökpulver", "buljongtärning", "buljongtärningar", "harissa", "wasabi", "chutney", "masala", "kardemumma", "muskot", "muskotnöt", "nejlika", "nejlikor", "ingefära", "lagerblad", "saffran", "basilika", "rosmarin", "mejram", "dragon", "dill" och "kummin". Annars hamnar till exempel "Sambal oelek", "Buljongtärningar" och "Kardemumma" i Skafferi. "Pulver" och "tärning" ensamma är inte med (bakpulver, kakaopulver). Testet har 50 namn i tabellen och varje ord i `SAUCE_WORDS`, i Skafferi, med ett ord före och utanför Skafferi.
+- **`category-header.tsx` importerar inte `Category`:** ESLint-regeln för AD-1 stoppar alla importer från `src/features` i `src/components`, också typer. Kartan har därför egna nycklar och typen `CategoryName`, och `tests/design/category-tiles.test.ts` kontrollerar att nycklarna är `CATEGORIES` i samma ordning (`expectTypeOf<CategoryName>().toEqualTypeOf<Category>()`), att plattorna är `DESIGN.md`:s och att varje kategori har en egen emoji. Kartan exporteras som `categoryTiles` för det testet.
+- **Antalet** är en synlig siffra med `aria-hidden` och dold text ("3 varor", "1 vara") bredvid, i stället för `aria-label` på ett `span`, som skärmläsare inte läser pålitligt. Siffran är `text-meta` i `ink-2` (skissen har 13 px i `ink-3`, men `ink-3` når bara 4,3:1 mot `bg`).
+- **`ListRow` har några valfria props utöver specens** för 11.3–11.5: `crossedOut` (I korgen), `as="div"` (inuti `<li><SwipeRow>` i 11.4), `pressProps` (`data-*`, `aria-haspopup`, `aria-describedby` på knappen eller länken) och `data-*` på raden. `TrashButton` tar `ref`, `className` och `data-*`, så att fokus kan flyttas till nästa soptunna. `ListGroup` tar `label` när ingen rubrik namnger listan.
+- **Listradens namn för skärmläsare** är "Mellanmjölk Arla laktosfri", utan kommatecken. Ett dolt kommatecken gav "Mellanmjölk , Arla laktosfri" i Chrome. De två raderna är block, så VoiceOver pausar mellan dem, som i de befintliga listraderna.
+- **Avdelarna** ligger på listans `li` (`divide-y`) och går kant i kant som i skisserna. Listgruppen klipper hörnen (`overflow-hidden`), så knappen i raden ritar fokusramen inuti sig (`-outline-offset-2`).
+- **Flikfältet:** `CartIcon` (ny) och `FridgeIcon` (finns, samma som platskortet Kyl). `ListIcon` och `HomeIcon` användes inte längre och togs bort. `shell.spec` letar inte efter ikonerna och behövde ingen ändring. Testet för flikfältet och sidomenyn ligger i `app-shell/destinations.test.tsx`.
+- **Tokens:** mappningen i `@theme inline` ger klasserna `bg-tile-clay`, `bg-tile-lilac`, `bg-overlay`, `size-tile`, `min-h-row`, `h-card-image`, `size-dish-thumb`, `h-meter` och `h-meter-small`. `tests/design/tokens.ts` fick `lengthTokens` och `rootToken`, och `tests/design/sizes.test.ts` kontrollerar måtten, `--overlay` och mappningen. Kontrasttestet har `tile-clay` och `tile-lilac` i båda lägena, nämner kategorirubriken (`ink-2` på `bg`) och produktetiketten (`sky-ink` på `sky`) och kontrollerar att varje platta skiljer sig från `bg` (minst 1,05:1; plattorna är dekor, så inget krav på 3:1).
+- **Emoji med variantväljare** (Frys och Övrigt) står som `\u`-koder, eftersom U+FE0F är osynligt.
+- **Kontrollerna** (alla under `scripts/with-test-lock.sh`): `pnpm lint`, `pnpm typecheck` och `pnpm test` (199 filer, 3 968 tester) lyckas. `AI_PROVIDER=mock pnpm build` lyckas, och `CI=1 pnpm test:e2e` med de berörda specarna `shell`, `smoke`, `pantry` och `shopping` ger 44 av 44. `pnpm test:integration` ger 426 av 427: `empty_pantry_place` i `pantry-site.test.ts` får `label` och `created_at` på de borttagna raderna, eftersom den lokala databasen redan har migrationen från 11.2 (byggs parallellt i en annan worktree). Storyn ändrar ingenting i databasen, och testet uppdateras i 11.2. Hela e2e-sviten kördes inte, eftersom bara flikfältets ikoner ändrades i vyerna.
+- **Skärmbilder:** en tillfällig sida med alla byggstenar (inte incheckad) fotograferades med Playwright vid 375 px och 1280 px i ljust och mörkt läge, utanför repot. Soptunnan mättes till 44 × 44 px och raden till minst 56 px. Vid 188 px bredd (375 px med 200 % zoom) fick byggstenarna plats utan vågrät scroll; bara testsidans egen rubrik ("Byggstenar", ett långt ord i 34 px) gick utanför.
 
 ## Review Triage Log
 

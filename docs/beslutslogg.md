@@ -2,6 +2,15 @@
 
 Beslut som fattats under bygget: vad, varför och vilka alternativ som fanns. Nyaste överst.
 
+## 2026-10-27 – Gemensam grund för nytt utseende (Story 11.1)
+
+- **Kategorierna** räknas fram av `displayCategory(section, name)` i `catalog/domain/categories.ts` och sparas aldrig (AD-12). `SAUCE_WORDS` har epic-kontextens ord och några till som annars hamnar i Skafferi: "sauce", "oelek" (Sambal oelek), "chili", "chilipulver", "lökpulver", "buljongtärning(ar)", "harissa", "wasabi", "chutney", "masala" och vanliga torkade kryddor (kardemumma, muskot, nejlika, ingefära, lagerblad, saffran, basilika, rosmarin, mejram, dragon, dill, kummin). "Pulver" och "tärning" ensamma är inte med, eftersom bakpulver och kakaopulver inte är smaksättare. Varje ord står i tabelltestet. Alternativ: bara epic-kontextens lista.
+- **Byggstenarna importerar inte `catalog`,** eftersom gemensamma komponenter aldrig importerar en feature-modul (AD-1, ESLint-regeln). `category-header.tsx` har därför egna nycklar (`CategoryName`), och `tests/design/category-tiles.test.ts` kontrollerar att de är samma som `CATEGORIES`, i samma ordning och med samma typ.
+- **Listraden heter för skärmläsare "Mellanmjölk Arla laktosfri",** utan kommatecken. Ett dolt kommatecken gav "Mellanmjölk , Arla laktosfri" i Chrome. Raderna är två block, så VoiceOver gör ändå en paus mellan dem, som de befintliga listraderna.
+- **Avdelarna i listgruppen går kant i kant,** som i skisserna, och ligger på listans rader, så att de står still när en rad sveps (11.4). Fokusramen ritas inuti raden, eftersom kortet klipper hörnen.
+- **Flikfältet** har en kundvagn för Inköpslista och ett kylskåp (`FridgeIcon`, samma som platskortet Kyl) för Lagersaldo. `ListIcon` och `HomeIcon` användes inte längre och togs bort.
+- **Emoji med variantväljare** (för Frys och Övrigt) skrivs som `\u`-koder i koden, eftersom osynliga tecken aldrig står i källkoden.
+
 ## 2026-10-26 – Kursändring för nytt utseende (Epic 11)
 
 - **Underlag:** Pontus bad om "betydligt trevligare ux. Som ser proffsigare ut.", ville ha lagervarorna i kategorier ("Kanske protein, mejeri, grönsaker osv. Du får vara lite kreativ. Kanske nån ikon."), ingen mängd i listan ("men fyll på med mer info om du har ngn"), "en soptunna på varje iaf som raderar utan kontrollfråga", en inköpslista som "behöver också lyftas" och "hela look and feel som det kommer se ut i mobilen". Pontus godkände tre skisser: Lagersaldo ("ja mycket snyggare enl din skiss"), Inköpslista ("inköpslistan börjar bli mkt bättre") och hela appen ("ja nu börjar du verkligen hitta ux som app. bravo. håll den stilen"). Skisserna ligger i `_bmad-output/planning-artifacts/ux-designs/ux-Matkoll-2026-10-25/mockups/`. Koden lästes på `epic/10-spara-foto` (`4ceb250`), och Next.js 16.4.3-dokumentationen om manifest, ikoner och `appleWebApp` lästes i `node_modules/next/dist/docs/`.

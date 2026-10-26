@@ -19,19 +19,19 @@ const { light, dark } = colorTokens();
 
 const colorNames = [
   "bg", "surface", "ink", "ink-2", "ink-3", "hairline", "border", "accent", "on-accent",
-  "mint", "mint-ink", "sky", "sky-ink", "sand", "sand-ink",
+  "mint", "mint-ink", "sky", "sky-ink", "sand", "sand-ink", "tile-clay", "tile-lilac",
 ];
 
 /** [text, background, where it is used] */
 const textPairs: [string, string, string][] = [
   ["ink", "bg", "titles on the page"],
-  ["ink-2", "bg", "body text and empty states on the page"],
+  ["ink-2", "bg", "body text and empty states on the page, category header name and count"],
   ["ink", "surface", "titles in cards"],
   ["ink-2", "surface", "body text in cards"],
   ["ink-3", "surface", "metadata, inactive tabs"],
   ["on-accent", "accent", "primary button, chosen pill"],
   ["mint-ink", "mint", "Kan lagas nu, active side-menu item"],
-  ["sky-ink", "sky", "Saknar N varor, notice, secondary button"],
+  ["sky-ink", "sky", "Saknar N varor, notice, secondary button, product chip"],
   ["sand-ink", "sand", "AI-förslag"],
   ["sky-ink", "bg", "field error on /logga-in"],
   // Pairs the shell and building blocks add on top of DESIGN.md's list:
@@ -73,6 +73,13 @@ describe("design tokens", () => {
   });
 });
 
+/**
+ * Category tiles (Epic 11) are decoration: the category's name always stands
+ * beside them, so no contrast ratio applies. They must still be told apart
+ * from the page, in both modes.
+ */
+const categoryTiles = ["mint", "sky", "sand", "tile-clay", "tile-lilac", "border"];
+
 /** WCAG 1.4.11: borders that show where a control is need 3:1. [border, background, where] */
 const controlBorderPairs: [string, string, string][] = [
   ["ink-3", "surface", "unticked check circle, text field border in a sheet"],
@@ -89,5 +96,9 @@ describe.each([
 
   it.each(controlBorderPairs)("control border: %s on %s (%s) is at least 3:1", (border, background) => {
     expect(contrast(tokens[border], tokens[background])).toBeGreaterThanOrEqual(3);
+  });
+
+  it.each(categoryTiles)("category tile: %s stands apart from bg", (tile) => {
+    expect(contrast(tokens[tile], tokens.bg)).toBeGreaterThanOrEqual(1.05);
   });
 });

@@ -25,8 +25,13 @@
   --sky-ink: #2E5A85;
   --sand: #F1ECE2;
   --sand-ink: #6E5B3E;
+  /* Category tiles only (Epic 11): clay for Kött, fisk & chark, lilac for Dryck. Decoration, never text. */
+  --tile-clay: #F1E3DD;
+  --tile-lilac: #E6E1F2;
   /* Veil behind sheets and dialogs: 40 % ink (DESIGN.md, Elevation & Depth). */
   --scrim: color-mix(in srgb, var(--ink) 40%, transparent);
+  /* Light plate for a badge or the heart on a recipe image (image-badge, Epic 11); follows --surface in dark mode. */
+  --overlay: color-mix(in srgb, var(--surface) 92%, transparent);
 
   /* Typography */
   --font-family: -apple-system, BlinkMacSystemFont, "SF Pro Text", Inter, "Helvetica Neue", Arial, sans-serif;
@@ -79,6 +84,13 @@
   --thumb-list: 72px;
   --button-height: 52px;
   --fixed-action-gap: 12px;
+  /* Epic 11: category tile, list row, recipe card image, dish card image and meter heights. */
+  --tile-size: 30px;
+  --row-min: 56px;
+  --card-image: 120px;
+  --dish-thumb: 56px;
+  --meter-height: 8px;
+  --meter-height-small: 5px;
 }
 
 @media (prefers-color-scheme: dark) {
@@ -98,6 +110,8 @@
     --sky-ink: #A9C9EA;
     --sand: #3A3326;
     --sand-ink: #DCC9A6;
+    --tile-clay: #3B2C27;
+    --tile-lilac: #2C2840;
     /* Dark ink is light, so the veil darkens with black instead. */
     --scrim: color-mix(in srgb, #000000 60%, transparent);
   }
@@ -160,6 +174,9 @@
   --color-sky-ink: var(--sky-ink);
   --color-sand: var(--sand);
   --color-sand-ink: var(--sand-ink);
+  --color-tile-clay: var(--tile-clay);
+  --color-tile-lilac: var(--tile-lilac);
+  --color-overlay: var(--overlay);
 
   --font-sans: var(--font-family);
 
@@ -206,6 +223,12 @@
   --spacing-thumb: var(--thumb-list);
   --spacing-button: var(--button-height);
   --spacing-fixed-gap: var(--fixed-action-gap);
+  --spacing-tile: var(--tile-size);
+  --spacing-row: var(--row-min);
+  --spacing-card-image: var(--card-image);
+  --spacing-dish-thumb: var(--dish-thumb);
+  --spacing-meter: var(--meter-height);
+  --spacing-meter-small: var(--meter-height-small);
 
   --container-content: var(--content-max);
   --container-dialog: var(--dialog-max);

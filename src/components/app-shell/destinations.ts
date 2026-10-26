@@ -1,5 +1,5 @@
 import type { ComponentType } from "react";
-import { HomeIcon, type IconProps, ListIcon, MealPlanIcon, RecipesIcon, SettingsIcon } from "../icons";
+import { CartIcon, FridgeIcon, type IconProps, MealPlanIcon, RecipesIcon, SettingsIcon } from "../icons";
 
 export type Destination = {
   href: string;
@@ -19,8 +19,9 @@ export const mainDestinations: readonly Destination[] = [
   { href: "/matsedel", label: "Matsedel", labelParts: ["Mat", "sedel"], Icon: MealPlanIcon },
   // Story 10.4: "Inköpslista" (was "Lista") and "Lagersaldo" (was "Hemma",
   // the name of the first place too). The routes stay, so bookmarks work.
-  { href: "/lista", label: "Inköpslista", labelParts: ["Inköps", "lista"], Icon: ListIcon },
-  { href: "/hemma", label: "Lagersaldo", labelParts: ["Lager", "saldo"], Icon: HomeIcon },
+  // Story 11.1: a cart for Inköpslista and a fridge for Lagersaldo; line icons, never emoji.
+  { href: "/lista", label: "Inköpslista", labelParts: ["Inköps", "lista"], Icon: CartIcon },
+  { href: "/hemma", label: "Lagersaldo", labelParts: ["Lager", "saldo"], Icon: FridgeIcon },
 ];
 
 /** Settings: the gear in the Recept header on mobile, the bottom of the side menu on desktop. */
