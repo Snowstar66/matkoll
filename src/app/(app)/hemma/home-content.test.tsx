@@ -1,8 +1,11 @@
-import { render, screen, within } from "@testing-library/react";
+import { render as renderElement, screen, within } from "@testing-library/react";
+import type { ReactElement } from "react";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
+import { ToastProvider } from "@/components/toast";
 import { CatalogDataError } from "@/features/catalog/server";
 import type { PantryItem } from "@/features/pantry";
 import { countPantryItems, listPantry, PantryDataError } from "@/features/pantry/server";
+import { PantrySheetProvider } from "@/features/pantry/ui/pantry-item-sheet";
 import { HomeContent } from "./home-content";
 
 vi.mock("@/features/auth/server", () => ({ requireUserOrRedirect: vi.fn(async () => ({ id: "user" })) }));
@@ -11,6 +14,17 @@ vi.mock("@/features/pantry/server", async (importOriginal) => ({
   countPantryItems: vi.fn(),
   listPantry: vi.fn(),
 }));
+
+vi.mock("@/features/pantry/actions/set-pantry-item", () => ({ savePantryItem: vi.fn() }));
+vi.mock("@/features/pantry/actions/search-ingredients", () => ({ searchPantryIngredients: vi.fn() }));
+
+/** The list opens the sheet Lagervara, which the page provides. */
+const render = (element: ReactElement) =>
+  renderElement(
+    <ToastProvider>
+      <PantrySheetProvider location="Kyl">{element}</PantrySheetProvider>
+    </ToastProvider>,
+  );
 
 const unavailable = "Det gick inte att läsa lagret. Försök igen.";
 const mjolk: PantryItem = { id: "1", ingredientId: "m", name: "Mjölk", location: "Kyl", amount: 1, unit: "l" };

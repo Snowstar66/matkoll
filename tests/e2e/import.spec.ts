@@ -209,6 +209,32 @@ test("an unchanged preview closes without asking, and the text is still there be
   await expect(sheet(page)).toBeHidden();
 });
 
+test("the ingredient search goes back to the unchanged preview with Esc or Avbryt, without asking", async ({ page }) => {
+  const errors = watchErrors(page);
+  await openImport(page);
+  await parse(page, linssoppa);
+  const onion = line(page, "2 gula lökar");
+
+  await onion.getByRole("button", { name: /^Gul lök/ }).click();
+  await expect(sheet(page).getByRole("heading", { name: "Byt ingrediens" })).toBeVisible();
+  await expect(sheet(page).getByText("Receptraden: 2 gula lökar")).toBeVisible();
+  await expect(sheet(page).getByLabel("Sök ingrediens")).toBeFocused();
+  await page.keyboard.press("Escape");
+  await expect(sheet(page).getByText("Släng ändringarna?")).toHaveCount(0);
+  await expect(onion.getByRole("button", { name: /^Gul lök/ })).toBeFocused();
+
+  await onion.getByRole("button", { name: /^Gul lök/ }).click();
+  await sheet(page).getByRole("button", { name: "Avbryt" }).click();
+  await expect(sheet(page).getByText("Släng ändringarna?")).toHaveCount(0);
+  await expect(sheet(page).getByRole("heading", { name: "Byt ingrediens" })).toHaveCount(0);
+  await expect(sheet(page).getByLabel("Titel")).toHaveValue("Röd linssoppa med kokosmjölk");
+
+  // Nothing changed, so the sheet closes without asking.
+  await page.keyboard.press("Escape");
+  await expect(sheet(page)).toBeHidden();
+  expect(errors).toEqual([]);
+});
+
 test("Avbryt stops the import and goes back to the text without an error", async ({ page }) => {
   const errors = watchErrors(page);
   // Hold the request, so "Läser receptet …" stays until Avbryt.

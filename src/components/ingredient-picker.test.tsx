@@ -1,10 +1,9 @@
 import { act, fireEvent, render, screen } from "@testing-library/react";
 import { describe, expect, it, vi } from "vitest";
-import type { IngredientSearchHit } from "@/features/catalog";
 import { errorMessages, ok, type Result } from "@/lib/errors";
-import { IngredientPicker, type SearchIngredients } from "./ingredient-picker";
+import { IngredientPicker, type IngredientHit, type SearchIngredients } from "./ingredient-picker";
 
-type Pending = { query: string; resolve: (result: Result<IngredientSearchHit[]>) => void; reject: (error: unknown) => void };
+type Pending = { query: string; resolve: (result: Result<IngredientHit[]>) => void; reject: (error: unknown) => void };
 
 /** A searchIngredients whose answers the test hands out, in any order. */
 function controlledSearch() {
@@ -19,11 +18,24 @@ function controlledSearch() {
 /** Keys that reached the element around the picker (in the app, the sheet). */
 const outerKeys: string[] = [];
 
-function setup(search: SearchIngredients) {
+/** Offers the typed text, trimmed, unless a hit has it (in the app, catalog.newIngredientName). */
+const newName = (query: string, hits: readonly IngredientHit[]) => {
+  const name = query.trim();
+  return name && !hits.some((hit) => hit.name.toLowerCase() === name.toLowerCase()) ? name : null;
+};
+
+function setup(search: SearchIngredients, { withCancel = true } = {}) {
   const props = { onChoose: vi.fn(), onNew: vi.fn(), onCancel: vi.fn() };
   render(
     <div onKeyDown={(event) => outerKeys.push(event.key)}>
-      <IngredientPicker originalText="2 gula lökar" searchIngredients={search} {...props} />
+      <IngredientPicker
+        searchIngredients={search}
+        newName={newName}
+        onChoose={props.onChoose}
+        onNew={props.onNew}
+        onCancel={withCancel ? props.onCancel : undefined}
+        header={<h3>Byt ingrediens</h3>}
+      />
     </div>,
   );
   return props;
@@ -39,9 +51,12 @@ const gulLok = { id: "1", name: "Gul lök" };
 const rodlok = { id: "2", name: "Rödlök" };
 
 describe("IngredientPicker", () => {
-  it("focuses the search field", () => {
-    setup(controlledSearch().search);
+  it("focuses the search field and shows the header", async () => {
+    await act(async () => {
+      setup(controlledSearch().search);
+    });
     expect(screen.getByRole("searchbox", { name: "Sök ingrediens" })).toHaveFocus();
+    expect(screen.getByRole("heading", { name: "Byt ingrediens" })).toBeInTheDocument();
   });
 
   it("shows hits and chooses one", async () => {
@@ -75,10 +90,10 @@ describe("IngredientPicker", () => {
     expect(screen.queryByRole("button", { name: /som ny$/ })).not.toBeInTheDocument();
   });
 
-  it("offers the cleaned name as a new ingredient when no hit has exactly that name", async () => {
+  it("offers the name newName gives as a new ingredient", async () => {
     const { search, calls } = controlledSearch();
     const props = setup(search);
-    type("2 dl Schalottenlök");
+    type(" Schalottenlök ");
     await act(async () => calls[0].resolve(ok([rodlok])));
     expect(screen.queryByText("Ingen ingrediens hittades.")).not.toBeInTheDocument();
     fireEvent.click(screen.getByRole("button", { name: "Lägg till Schalottenlök som ny" }));
@@ -108,5 +123,12 @@ describe("IngredientPicker", () => {
     fireEvent.keyDown(screen.getByRole("searchbox"), { key: "Escape" });
     expect(props.onCancel).toHaveBeenCalledTimes(1);
     expect(outerKeys).toEqual([]);
+  });
+
+  it("leaves Esc to the sheet without onCancel", () => {
+    setup(controlledSearch().search, { withCancel: false });
+    outerKeys.length = 0;
+    fireEvent.keyDown(screen.getByRole("searchbox"), { key: "Escape" });
+    expect(outerKeys).toEqual(["Escape"]);
   });
 });

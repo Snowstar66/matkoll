@@ -26,3 +26,8 @@ const definite: Record<Location, string> = { Kyl: "kylen", Frys: "frysen", Skaff
 export function emptyPlaceText(location: Location): string {
   return `Inget i ${definite[location]} än.`;
 }
+
+/** The short confirmation after saving an item: "Mjölk är sparad i kylen." */
+export function savedItemText(name: string, location: Location): string {
+  return `${name} är sparad i ${definite[location]}.`;
+}

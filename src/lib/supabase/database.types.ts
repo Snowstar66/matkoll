@@ -156,6 +156,22 @@ isOneToOne: false
 "save_recipe":
 { Args: { "lines": Json,"recipe": Json,"steps": Json }; Returns: string
                            },
+"set_pantry_items":
+{ Args: { "items": Json,"replace_id"?: string }; Returns: {
+              "amount": number | null,
+"created_at": string,
+"id": string,
+"ingredient_id": string,
+"location": string,
+"unit": string | null,
+"user_id": string
+            }[]
+                          SetofOptions: {
+        from: "*"
+        to: "pantry_item"
+        isOneToOne: false
+        isSetofReturn: true
+      } },
 "update_recipe":
 { Args: { "expected_updated_at": string,"id": string,"lines": Json,"recipe": Json,"steps": Json }; Returns: string
                            }

@@ -37,7 +37,7 @@ import {
 import { isDraftDirty } from "../domain/preview";
 import { validateDraft, type PendingFieldText, type RecipeDraft } from "../domain/recipe-draft";
 import { downscaleImage } from "./downscale-image";
-import type { SearchIngredients } from "./ingredient-picker";
+import type { SearchIngredients } from "@/components/ingredient-picker";
 import { RecipePreview } from "./recipe-preview";
 
 // Importera recept (FR-3, FR-4): a sheet with the tabs Länk, Text and Foto,

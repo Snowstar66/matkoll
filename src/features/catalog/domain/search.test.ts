@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { maxSearchHits, rankSearchHits, searchText } from "./search";
+import { maxSearchHits, newIngredientName, rankSearchHits, searchText } from "./search";
 
 describe("searchText", () => {
   it("is lower case, composed and has single spaces", () => {
@@ -32,5 +32,17 @@ describe("rankSearchHits", () => {
       matchedTexts: [`lök ${index}`],
     }));
     expect(rankSearchHits("lök", candidates)).toHaveLength(maxSearchHits);
+  });
+});
+
+describe("newIngredientName", () => {
+  it("offers the typed name without amount and unit", () => {
+    expect(newIngredientName("2 dl Schalottenlök", [{ id: "1", name: "Rödlök" }])).toBe("Schalottenlök");
+    expect(newIngredientName("  Saffran ", [])).toBe("Saffran");
+  });
+
+  it("offers nothing when a hit has the name, or nothing is typed", () => {
+    expect(newIngredientName("gul LÖK", [{ id: "1", name: "Gul lök" }])).toBeNull();
+    expect(newIngredientName("   ", [])).toBeNull();
   });
 });

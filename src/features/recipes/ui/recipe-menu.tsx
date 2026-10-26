@@ -4,7 +4,7 @@ import { type KeyboardEvent, useEffect, useId, useRef, useState } from "react";
 import { MoreIcon } from "@/components/icons";
 import type { SavedRecipe } from "../domain/saved-recipe";
 import { EditRecipeSheet } from "./edit-recipe-sheet";
-import type { SearchIngredients } from "./ingredient-picker";
+import type { SearchIngredients } from "@/components/ingredient-picker";
 
 /**
  * The recipe view's menu (⋯) with "Ändra", which opens Ändra recept

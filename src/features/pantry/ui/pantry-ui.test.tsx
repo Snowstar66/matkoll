@@ -1,8 +1,22 @@
-import { render, screen, within } from "@testing-library/react";
-import { describe, expect, it } from "vitest";
+import { fireEvent, render as renderElement, screen, within } from "@testing-library/react";
+import type { ReactElement } from "react";
+import { describe, expect, it, vi } from "vitest";
+import { ToastProvider } from "@/components/toast";
 import type { PantryItem } from "../domain/pantry-item";
 import { LocationCards } from "./location-cards";
+import { PantrySheetProvider } from "./pantry-item-sheet";
 import { PantryList } from "./pantry-list";
+
+vi.mock("../actions/set-pantry-item", () => ({ savePantryItem: vi.fn() }));
+vi.mock("../actions/search-ingredients", () => ({ searchPantryIngredients: vi.fn() }));
+
+/** PantryList opens the sheet Lagervara, so it needs the providers Hemma has. */
+const render = (element: ReactElement) =>
+  renderElement(
+    <ToastProvider>
+      <PantrySheetProvider location="Kyl">{element}</PantrySheetProvider>
+    </ToastProvider>,
+  );
 
 const item = (overrides: Partial<PantryItem> & Pick<PantryItem, "id" | "name">): PantryItem => ({
   ingredientId: `ingredient-${overrides.id}`,
@@ -55,9 +69,29 @@ describe("PantryList", () => {
     expect(screen.queryByRole("heading", { name: "Finns hemma" })).toBeNull();
   });
 
-  it("names the location when it is empty", () => {
+  it("names the location when it is empty and offers to add an item", () => {
     render(<PantryList location="Skafferi" items={[]} />);
     expect(screen.getByText("Inget i skafferiet än.")).toBeInTheDocument();
     expect(screen.queryByRole("list")).toBeNull();
+    fireEvent.click(screen.getByRole("button", { name: "Lägg till vara" }));
+    expect(screen.getByRole("searchbox", { name: "Sök ingrediens" })).toBeInTheDocument();
+  });
+
+  it("opens the sheet for an item on a tap on its row or tag", () => {
+    render(
+      <PantryList
+        location="Kyl"
+        items={[item({ id: "1", name: "Mjölk", amount: 1.5, unit: "l" }), item({ id: "2", name: "Salt" })]}
+      />,
+    );
+    fireEvent.click(screen.getByRole("button", { name: "Mjölk 1,5 l" }));
+    expect(screen.getByTestId("pantry-sheet-ingredient")).toHaveTextContent("Mjölk");
+    expect(screen.getByLabelText("Mängd")).toHaveValue("1,5");
+    expect(screen.getByLabelText("Enhet")).toHaveValue("l");
+
+    fireEvent.click(screen.getByRole("button", { name: "Avbryt" }));
+    fireEvent.click(screen.getByRole("button", { name: "Salt" }));
+    expect(screen.getByTestId("pantry-sheet-ingredient")).toHaveTextContent("Salt");
+    expect(screen.getByLabelText("Mängd")).toHaveValue("");
   });
 });

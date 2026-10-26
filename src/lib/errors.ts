@@ -21,6 +21,7 @@ export const errorMessages = {
   recipe_favorite_failed: "Det gick inte att spara favoriten.",
   settings_unavailable: "Det gick inte att läsa inställningarna. Försök igen.",
   pantry_unavailable: "Det gick inte att läsa lagret. Försök igen.",
+  pantry_save_failed: "Det gick inte att spara varan. Försök igen.",
   // Recipe sites in Inställningar (FR7). The sentence with the site's name,
   // "koket.se finns redan.", is in `fields.domain`.
   settings_invalid_domain: "Ange en giltig webbadress, t.ex. koket.se.",

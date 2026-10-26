@@ -15,6 +15,12 @@ const routesByTable = {
   // The list of approved recipe sites in Inställningar. Import reads the sites
   // on every request, so it needs nothing here.
   recipe_site: [{ path: "/installningar", type: "page" }],
+  // Hemma, and the cooking status in the library and every recipe view
+  // (Story 2.4). /matsedel and /lista join when they show the pantry.
+  pantry_item: [
+    { path: "/hemma", type: "page" },
+    { path: "/recept", type: "layout" },
+  ],
 } satisfies Partial<Record<TableName, readonly Route[]>>;
 
 export type RevalidatedTable = keyof typeof routesByTable;

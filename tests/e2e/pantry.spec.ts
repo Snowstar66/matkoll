@@ -1,20 +1,21 @@
 import { expect, type Page, test } from "@playwright/test";
 import { adminClient, e2eUserId, pantryEmail, pantryStorageState } from "./support";
 
-// Story 2.1: Hemma with the location cards and the chosen location's items.
-// The spec has an E2E user of its own (pantryEmail), whose catalog
-// ingredients and pantry rows are made with the service role before the
-// tests: 3 items in Kyl (two with an amount, Salt unlimited), 1 in Frys and
-// none in Skafferi. Nothing in the app writes to the pantry yet.
+// Stories 2.1 and 2.2: Hemma with the location cards and the chosen
+// location's items, and the sheet Lagervara that adds and changes items. The
+// spec has an E2E user of its own (pantryEmail), whose catalog ingredients
+// and pantry rows are made with the service role before each test: 3 items
+// in Kyl (two with an amount, Salt unlimited), 1 in Frys and none in
+// Skafferi. The tests run in order, since they share the user.
 
 const mobile = { width: 375, height: 812 };
 const desktop = { width: 1280, height: 800 };
 
 const ingredients = [
-  { name: "Mjölk", section: "Mejeri", location: "Kyl" },
-  { name: "Smör", section: "Mejeri", location: "Kyl" },
-  { name: "Salt", section: "Skafferi", location: "Skafferi" },
-  { name: "Ärtor", section: "Frys", location: "Frys" },
+  { name: "Mjölk", section: "Mejeri", location: "Kyl", defaultUnit: null },
+  { name: "Smör", section: "Mejeri", location: "Kyl", defaultUnit: "g" },
+  { name: "Salt", section: "Skafferi", location: "Skafferi", defaultUnit: null },
+  { name: "Ärtor", section: "Frys", location: "Frys", defaultUnit: null },
 ] as const;
 type Name = (typeof ingredients)[number]["name"];
 
@@ -37,6 +38,7 @@ async function seedPantry(userId: string) {
         normalized_name: ingredient.name.toLocaleLowerCase("sv-SE"),
         section: ingredient.section,
         location: ingredient.location,
+        default_unit: ingredient.defaultUnit,
       })),
       { onConflict: "user_id,normalized_name" },
     )
@@ -86,8 +88,12 @@ async function expectChosen(page: Page, name: "Kyl" | "Frys" | "Skafferi") {
 test.use({ storageState: pantryStorageState });
 test.describe.configure({ mode: "serial" });
 
+let userId: string;
 test.beforeAll(async () => {
-  await seedPantry(await e2eUserId(pantryEmail));
+  userId = await e2eUserId(pantryEmail);
+});
+test.beforeEach(async () => {
+  await seedPantry(userId);
 });
 
 test.describe("on a phone", () => {
@@ -169,6 +175,183 @@ test.describe("on a computer", () => {
     await expect(page).toHaveURL(/\/hemma\?plats=kyl$/);
     await expect(rows(page)).toHaveText([/^Mjölk\s*1 l$/, /^Smör\s*250 g$/]);
     await expect(tags(page)).toHaveText(["Salt"]);
+    expect(errors).toEqual([]);
+  });
+});
+
+// Story 2.2: the sheet Lagervara.
+const sheet = (page: Page) => page.getByRole("dialog", { name: "Lagervara" });
+const addButton = (page: Page) => page.getByRole("button", { name: "Lägg till vara" }).filter({ visible: true }).first();
+const row = (page: Page, name: string) => rows(page).filter({ hasText: name }).getByRole("button");
+const place = (page: Page, name: "Kyl" | "Frys" | "Skafferi") => sheet(page).getByRole("radio", { name });
+const amountField = (page: Page) => sheet(page).getByLabel("Mängd");
+
+/**
+ * Lowercase letters only, and new in every attempt, so a retry still sees
+ * "Lägg till … som ny". The ingredients cannot be removed afterwards: the
+ * catalog is never deleted from, not even with the service role (AD-20,
+ * 20261025200024_catalog_atomic_commit.sql); global-setup deletes the E2E
+ * user, and its catalog with it, before each run.
+ */
+function letters(count: number): string {
+  return Array.from({ length: count }, () => String.fromCharCode(97 + Math.floor(Math.random() * 26))).join("");
+}
+
+test.describe("the sheet Lagervara", () => {
+  test.use({ viewport: mobile });
+
+  test("adds an ingredient from the catalog with an amount, setting the row that is there", async ({ page }) => {
+    const errors = watchErrors(page);
+    await page.goto("/hemma");
+    await expect(rows(page)).toHaveCount(2);
+
+    await addButton(page).click();
+    const search = sheet(page).getByRole("searchbox", { name: "Sök ingrediens" });
+    await expect(search).toBeFocused();
+    await search.fill("mjö");
+    await sheet(page).getByRole("button", { name: "Mjölk" }).click();
+    // The catalog keeps Mjölk in Kyl.
+    await expect(place(page, "Kyl")).toHaveAttribute("aria-checked", "true");
+    await amountField(page).fill("1,5");
+    await sheet(page).getByLabel("Enhet").selectOption("l");
+    await sheet(page).getByRole("button", { name: "Lägg till vara" }).click();
+
+    await expect(sheet(page)).toHaveCount(0);
+    await expect(page.getByTestId("toast")).toHaveText("Mjölk är sparad i kylen.");
+    // Set, not added to: 1,5 l on the same row.
+    await expect(rows(page)).toHaveText([/^Mjölk\s*1,5 l$/, /^Smör\s*250 g$/]);
+    await expect(card(page, "Kyl")).toHaveText(/^Kyl\s*3 varor$/);
+    expect(errors).toEqual([]);
+  });
+
+  test("adds a new catalog ingredient without amount in the chosen location", async ({ page }) => {
+    const errors = watchErrors(page);
+    const name = `Saffran ${letters(6)}`;
+    await page.goto("/hemma?plats=frys");
+    await expect(rows(page)).toHaveCount(1);
+
+    await addButton(page).click();
+    await sheet(page).getByRole("searchbox", { name: "Sök ingrediens" }).fill(name);
+    await sheet(page).getByRole("button", { name: `Lägg till ${name} som ny` }).click();
+    await expect(sheet(page).getByText("Ny", { exact: true })).toBeVisible();
+    await sheet(page).getByLabel("Avdelning").selectOption("Skafferi");
+    // Frys was chosen on Hemma, so it is preselected.
+    await expect(place(page, "Frys")).toHaveAttribute("aria-checked", "true");
+    await sheet(page).getByRole("button", { name: "Lägg till vara" }).click();
+
+    await expect(sheet(page)).toHaveCount(0);
+    await expect(heading(page, "Finns hemma")).toBeVisible();
+    await expect(tags(page)).toHaveText([name]);
+    await expect(card(page, "Frys")).toHaveText(/^Frys\s*2 varor$/);
+
+    // The new ingredient is in the catalog now: the search finds it.
+    await addButton(page).click();
+    await sheet(page).getByRole("searchbox", { name: "Sök ingrediens" }).fill(name);
+    await expect(sheet(page).getByRole("button", { name, exact: true })).toBeVisible();
+    await expect(sheet(page).getByRole("button", { name: /som ny$/ })).toHaveCount(0);
+    expect(errors).toEqual([]);
+  });
+
+  test("changes the amount of an item, and makes one unlimited", async ({ page }) => {
+    const errors = watchErrors(page);
+    await page.goto("/hemma");
+
+    await row(page, "Mjölk").click();
+    await expect(amountField(page)).toHaveValue("1");
+    await expect(sheet(page).getByLabel("Enhet")).toHaveValue("l");
+    await amountField(page).fill("2");
+    await sheet(page).getByRole("button", { name: "Spara ändringar" }).click();
+    await expect(sheet(page)).toHaveCount(0);
+    await expect(rows(page)).toHaveText([/^Mjölk\s*2 l$/, /^Smör\s*250 g$/]);
+
+    // Without an amount, Smör is unlimited and shows as a tag.
+    await row(page, "Smör").click();
+    await amountField(page).fill("");
+    await sheet(page).getByRole("button", { name: "Spara ändringar" }).click();
+    await expect(sheet(page)).toHaveCount(0);
+    await expect(rows(page)).toHaveText([/^Mjölk\s*2 l$/]);
+    await expect(tags(page)).toHaveText(["Salt", "Smör"]);
+
+    // A tap on a tag opens the sheet too.
+    await tags(page).filter({ hasText: "Salt" }).getByRole("button").click();
+    await expect(sheet(page).getByTestId("pantry-sheet-ingredient")).toHaveText("Salt");
+    await expect(amountField(page)).toHaveValue("");
+    expect(errors).toEqual([]);
+  });
+
+  test("moves an item to another location", async ({ page }) => {
+    const errors = watchErrors(page);
+    await page.goto("/hemma");
+
+    await row(page, "Mjölk").click();
+    await place(page, "Frys").click();
+    await sheet(page).getByRole("button", { name: "Spara ändringar" }).click();
+    await expect(sheet(page)).toHaveCount(0);
+    await expect(page.getByTestId("toast")).toHaveText("Mjölk är sparad i frysen.");
+    await expect(rows(page)).toHaveText([/^Smör\s*250 g$/]);
+    await expect(card(page, "Kyl")).toHaveText(/^Kyl\s*2 varor$/);
+    await expect(card(page, "Frys")).toHaveText(/^Frys\s*2 varor$/);
+
+    await card(page, "Frys").click();
+    await expect(rows(page)).toHaveText([/^Mjölk\s*1 l$/, /^Ärtor\s*500 g$/]);
+    expect(errors).toEqual([]);
+  });
+
+  test("refuses an amount that is not a number above 0, and asks before throwing changes away", async ({ page }) => {
+    const errors = watchErrors(page);
+    await page.goto("/hemma");
+
+    await row(page, "Mjölk").click();
+    const save = sheet(page).getByRole("button", { name: "Spara ändringar" });
+    const message = sheet(page).getByText("Ange ett tal större än 0.");
+    // Not while typing; on Spara, which saves nothing, or when leaving the field.
+    await amountField(page).fill("två");
+    await expect(message).toHaveCount(0);
+    for (const amount of ["två", "0", "-1", "1-2"]) {
+      await amountField(page).fill(amount);
+      await save.click();
+      await expect(message).toBeVisible();
+      await expect(amountField(page)).toHaveAttribute("aria-invalid", "true");
+      await expect(amountField(page)).toBeFocused();
+      await expect(sheet(page)).toBeVisible();
+    }
+    await amountField(page).fill("2");
+    await expect(message).toHaveCount(0);
+
+    await sheet(page).getByRole("button", { name: "Avbryt" }).click();
+    await expect(sheet(page).getByText("Släng ändringarna?")).toBeVisible();
+    await sheet(page).getByRole("button", { name: "Släng ändringarna" }).click();
+    await expect(sheet(page)).toHaveCount(0);
+    await expect(rows(page)).toHaveText([/^Mjölk\s*1 l$/, /^Smör\s*250 g$/]);
+
+    // An empty location offers "Lägg till vara" too, with the location preselected.
+    await card(page, "Skafferi").click();
+    await page.getByRole("button", { name: "Lägg till vara" }).filter({ visible: true }).last().click();
+    await sheet(page).getByRole("searchbox", { name: "Sök ingrediens" }).fill("salt");
+    await sheet(page).getByRole("button", { name: "Salt" }).click();
+    await expect(place(page, "Skafferi")).toHaveAttribute("aria-checked", "true");
+    await page.keyboard.press("Escape");
+    await expect(sheet(page).getByText("Släng ändringarna?")).toBeVisible();
+    expect(errors).toEqual([]);
+  });
+
+  test("suggests the catalog's location and default unit for the chosen ingredient", async ({ page }) => {
+    const errors = watchErrors(page);
+    await page.goto("/hemma");
+    await expectChosen(page, "Kyl");
+
+    // Salt is kept in Skafferi in the catalog, although Kyl is chosen.
+    await addButton(page).click();
+    await sheet(page).getByRole("searchbox", { name: "Sök ingrediens" }).fill("salt");
+    await sheet(page).getByRole("button", { name: "Salt" }).click();
+    await expect(place(page, "Skafferi")).toHaveAttribute("aria-checked", "true");
+    await expect(sheet(page).getByLabel("Enhet")).toHaveValue("");
+
+    // Smör has the default unit g.
+    await sheet(page).getByRole("button", { name: "Byt ingrediens" }).click();
+    await sheet(page).getByRole("searchbox", { name: "Sök ingrediens" }).fill("smör");
+    await sheet(page).getByRole("button", { name: "Smör" }).click();
+    await expect(sheet(page).getByLabel("Enhet")).toHaveValue("g");
     expect(errors).toEqual([]);
   });
 });
