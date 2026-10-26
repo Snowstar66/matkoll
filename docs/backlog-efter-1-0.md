@@ -27,6 +27,22 @@ Pontus idéer 2026-10-26, bedömda och ordnade. Version 1.0 är Epic 1–7 enlig
 - **Enkel första version:** Pontus klistrar in en länk till butikens erbjudanden, eller fotograferar reklambladet. AI:n plockar ut erbjudandena, med samma teknik som receptimport och bildanalys, och förslagen tar hänsyn till dem.
 - **Svårare variant:** att hämta erbjudandena automatiskt varje vecka från ICA, Willys, Coop och Lidl. Det kräver att varje kedjas webbplats utreds, och det kan gå sönder när de ändrar sina sidor.
 - **Svårighet:** låg till medel i den enkla versionen, hög i den automatiska.
+- **Planerad som Epic 9, andra planen (2026-10-26):** Pontus vill hellre "ladda in veckans erbjudanden via en länk … lägga in dom i inställningar för de affärer jag har konfigurerade". Förstudien (`docs/erbjudanden-lankar.md`) visar att ICA:s erbjudandesida per butik går att läsa med en hämtning, men inte Willys, Hemköp, Coop och Lidl. Epic 9 har nu tio stories:
+  1. 9.1, länk per butik och hämtning med ett tryck;
+  2. 9.2, etiketten på inköpslistan ("Falukorv 29 kr");
+  3. 9.3, filtret Erbjudanden i Recept;
+  4. 9.4, "Fyll på lagret";
+  5. 9.5, AI-förslag med erbjudanden;
+  6. 9.6, förslag till veckans matsedel;
+  7. 9.7 och 9.8, text och foto som reserver;
+  8. 9.9, ta bort;
+  9. 9.10, AI-koppling till katalogen, bara om den behövs.
+
+  Underlag: `_bmad-output/planning-artifacts/sprint-change-proposal-2026-10-26-erbjudanden-v2.md` och `_bmad-output/implementation-artifacts/epic-9-context.md`. Byggs efter Epic 12, i grenen `epic/9-erbjudanden-v2`.
+- **Väntar, efter Epic 9:**
+  - **Automatisk hämtning:** veckans erbjudanden hämtas av sig själv, till exempel på söndag morgon, utan att Pontus trycker. Det kräver ett schemalagt jobb med egen nyckel (inte Pontus session), regler för hur ofta butiken får anropas och att felen syns för Pontus utan att någon tittar. Öppen fråga 9.
+  - **Bevakningar med aviseringar:** Pontus väljer varor ("säg till när kaffe är på erbjudande"), och Matkoll säger till när de är det. Det kräver automatisk hämtning och pushaviseringar (service worker, AD-27, och tillstånd på iPhone).
+  - **Fler kedjor med länk:** Willys, Hemköp, Coop och Lidl bygger erbjudandena i webbläsaren. Deras interna API:er används inte. Prövas igen om de får sidor som går att läsa.
 
 ## 3. Jämföra butiker för en färdig inköpslista (föreslås som 1.3, med en utredning först)
 
@@ -42,5 +58,5 @@ Pontus idéer 2026-10-26, bedömda och ordnade. Version 1.0 är Epic 1–7 enlig
 
 1. Gör klart 1.0, alltså Epic 4–7 som planerat. Epic 7 får en butiksmodell som klarar flera butiker.
 2. 1.1: flera ställen, och därefter att spara senaste fotot per plats (planerad som Epic 10).
-3. 1.2: erbjudanden i den enkla versionen, med inklistrad eller fotograferad reklam. Planerad som Epic 9 (grenen `epic/9-erbjudanden`), men **vilar** sedan 2026-10-26: Pontus vill först finslipa det som finns.
+3. 1.2: erbjudanden. Planerad som Epic 9 med länk per butik, och text och foto som reserver (andra planen, grenen `epic/9-erbjudanden-v2`). Byggs efter Epic 10–12, som finslipar det som finns.
 4. Utredning, och därefter 1.3: butiksjämförelse.

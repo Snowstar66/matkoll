@@ -478,3 +478,141 @@ Inga nya. SM-2 (inköpslistan på under 10 minuter) och SM-3 (hela veckan i appe
 | ai_job | Sort, läge, nyckel mot dubbla jobb, sammanhang (ställe och plats, källa), resultat eller felkod, tider (skapad, startad, klar, sista tid och sett) | – |
 
 Indata sparas aldrig. Detaljerna står i arkitekturens AD-28.
+
+## Version 1.2: Veckans erbjudanden (Epic 9)
+
+Beslutat av Pontus 2026-10-26: "Jag vill helst kunna ladda in veckans erbjudanden via en länk … lägga in dom i inställningar för de affärer jag har konfigurerade." Pontus valde sedan funktionerna som använder erbjudandena och godkände rekommendationen i stort. Underlag: kursändringen `_bmad-output/planning-artifacts/sprint-change-proposal-2026-10-26-erbjudanden-v2.md`, som ersätter den första planen, och förstudien `docs/erbjudanden-lankar.md`. Byggs som Epic 9, efter Epic 12. Kraven i `prd.md` och i de tidigare avsnitten gäller som förut, med de ändringar som står nedan.
+
+Epic 9 behåller de nummer som var reserverade (FR-34–FR-36, NFR-10, UJ-7). De nya kraven fortsätter efter Epic 12: FR-51–FR-54.
+
+### Mål
+
+Matkoll vet vad som är på erbjudande i Pontus butik den här veckan, utan att Pontus skriver av något, och använder det där det gör nytta: på inköpslistan, i Recept, för att fylla på lagret, i AI-förslagen och i ett förslag till veckans matsedel. För ICA hämtas erbjudandena från butikens egen sida med ett tryck. För andra kedjor klistrar Pontus in texten eller fotograferar reklambladet.
+
+**Användarresa UJ-7. Pontus planerar veckan efter erbjudandena.**
+
+1. På söndagen öppnar Pontus Inköpslistan, trycker "Erbjudanden" och sedan "Hämta veckans erbjudanden".
+2. Efter några sekunder står 91 erbjudanden från Maxi ICA Stormarknad Östersund i kategorier. Överst under "Fyll på lagret" står kaffe: "49 kr · Finns i Hemma, inte i Stugan". Pontus trycker "Lägg på listan", eftersom resan till stugan är nästa helg.
+3. I Matsedel trycker Pontus "Föreslå veckans matsedel" och går till Recept under tiden.
+4. Förslaget kommer: fem rätter, tre ur biblioteket och två nya, med etiketter som "Falukorv 29 kr". Pontus lägger tre på matsedeln och sparar en av de nya.
+5. I Inköpslistan står "Falukorv 29 kr" under falukorven.
+
+**Kantfall:** ica.se svarar inte eller har ändrat sidan. Matkoll säger det, gör inget nytt försök och erbjuder "Öppna sidan" och "Klistra in text".
+
+### Ordlista (tillägg)
+
+- **Erbjudande:** en vara som en butik säljer till ett särskilt pris under en vecka. Det har namnet som butiken skrev det, varan i grundform och priset och villkoren som text ("2 för 119 kr", "Stammis", "Max 1 köp/hushåll"). Ett erbjudande kopplas till en katalogingrediens när det går, annars bara till varans namn.
+- **Veckans erbjudanden:** de erbjudanden som gäller för vald butik och en vecka (måndag–söndag, svensk tid). Det är den senaste vecka som har lagts in och som inte är slut.
+- **Länk till erbjudanden:** adressen till butikens erbjudandesida, sparad per butik i Inställningar. I 1.2 bara ica.se.
+- **Basvara:** en vara som finns i lagret på något ställe, eller som har ett produktval i butiken.
+- **Erbjudandeetikett:** den lilla etiketten "Falukorv 29 kr" på en listpost, ett receptkort eller ett AI-förslag.
+
+### Nya krav
+
+#### FR-34: Lägga in veckans erbjudanden
+
+Pontus kan spara en länk till butikens erbjudandesida och hämta veckans erbjudanden med ett tryck. Utan länk kan Pontus klistra in text eller fotografera reklambladet.
+
+**Konsekvenser (testbara):**
+- Länken sparas per butik i Inställningar. I 1.2 godkänns bara erbjudandesidor på ica.se (`/erbjudanden/<butik>-<id>/`), och för andra kedjor visas ingen länk.
+- "Hämta veckans erbjudanden" hämtar sidan en gång per tryck. Bara mat sparas, för butiken och veckan. Matkoll hämtar aldrig av sig själv.
+- En ny hämtning för samma vecka ersätter de förra hämtade erbjudandena, och erbjudanden från text eller foto står kvar.
+- Om butiken nekar, inte svarar eller har ändrat sidan sparas inget, och Matkoll säger det med "Öppna sidan" utan att försöka igen.
+- Text och foto läses av AI-tjänsten i ett AI-jobb. Pontus granskar listan och tar bort det som inte ska med, och inget sparas förrän Pontus trycker "Spara". Flera inläsningar för samma vecka läggs ihop.
+- Erbjudanden skapar aldrig nya katalogingredienser.
+
+#### FR-35: Se och ta bort veckans erbjudanden
+
+Pontus kan se de erbjudanden som gäller för vald butik och vecka, ta bort ett och ta bort alla.
+
+**Konsekvenser (testbara):**
+- Erbjudandena står i kategorier som i Lagersaldo, med pris och villkor som butiken skrev dem.
+- En borttagning kan ångras i den korta bekräftelsen. Ett borttaget erbjudande från länken kommer tillbaka vid nästa hämtning.
+- Erbjudanden för en vecka som är slut, eller vars sista dag har passerat, används aldrig.
+
+#### FR-36: AI-förslag med veckans erbjudanden
+
+AI-förslagen (FR-23) prioriterar rätter som använder varor på erbjudande i vald butik den här veckan.
+
+**Konsekvenser (testbara):**
+- Utan erbjudanden är AI-förslagen som förut.
+- Med erbjudanden får AI-tjänsten varornas namn bredvid lagret, aldrig priser. Ett förslag som använder varor på erbjudande har erbjudandeetiketter.
+- Förslagen utgår fortfarande från lagret på valt ställe, med minst två varor hemma per förslag.
+- Om erbjudandena inte går att läsa visas förslagen ändå, utan erbjudanden.
+
+#### FR-51: Erbjudanden på inköpslistan
+
+En listpost vars vara är på erbjudande i vald butik den här veckan får en erbjudandeetikett.
+
+**Konsekvenser (testbara):**
+- Etiketten säger vara och pris ("Falukorv 29 kr") och läses "På erbjudande: Falukorv 29 kr" av skärmläsaren.
+- Listpostdetaljen visar alla erbjudanden på varan.
+- Listans poster, mängder, ordning och bockar och varukorgsexporten är oförändrade.
+
+#### FR-52: Filtret Erbjudanden i Recept
+
+Pontus kan se de recept som använder veckans erbjudanden.
+
+**Konsekvenser (testbara):**
+- Filtret "Erbjudanden" visar recept där minst en huvudvara är på erbjudande. Kryddor, såser och vaga rader räknas inte.
+- Recepten står med flest erbjudanden först och sedan minst saknat, och korten har erbjudandeetiketter.
+- De andra filtren, lagningsstatusen och rangordningen är oförändrade.
+
+#### FR-53: Fyll på lagret
+
+Pontus ser när basvaror är på erbjudande och var de finns.
+
+**Konsekvenser (testbara):**
+- Avsnittet "Fyll på lagret" visar erbjudanden på basvaror, med var varan finns och saknas ("Finns i Hemma, inte i Stugan").
+- "Lägg på listan" lägger varan som egen vara på inköpslistan, en gång också vid dubbeltryck.
+- Lagret summeras aldrig över ställen.
+
+#### FR-54: Förslag till veckans matsedel
+
+Pontus kan be om ett förslag till veckans matsedel utifrån erbjudandena och lagret.
+
+**Konsekvenser (testbara):**
+- Förslaget är ett AI-jobb (FR-46) och har fem rätter, i första hand ur receptbiblioteket och högst två nya.
+- Pontus väljer vilka rätter ur biblioteket som läggs på matsedeln. En ny rätt sparas via förhandsgranskningen som andra AI-förslag.
+- Inget läggs på matsedeln eller sparas utan Pontus tryck.
+- Ett förslag som togs fram för ett annat ställe visas med "Förslaget bygger på lagret för Hemma." och "Föreslå igen".
+
+#### NFR-10: Hämtning från butiker
+
+- Matkoll hämtar bara från godkända erbjudandesajter, en fast lista i koden (i 1.2 www.ica.se), och bara den adress Pontus har sparat.
+- En hämtning per tryck, med samma kontroller som receptimporten (https, domän, DNS, tidsgräns 10 s, högst 3 MB) och en ärlig User-Agent. Matkoll låtsas aldrig vara en webbläsare och skickar inga kakor.
+- Ett nej från butiken (403, 429) ger en reserv, aldrig ett nytt försök.
+- Sidan läses deterministiskt, utan AI och utan att kod från sidan körs. Bara erbjudandena sparas. Sidans sessionsdata (nycklar, kakor, interna adresser) sparas och loggas aldrig.
+- Tester anropar aldrig en butik. De använder sparade, nedbantade sidor med påhittade varor.
+- Text och bilder från reklamblad är data, aldrig instruktioner till AI-tjänsten. Foton förminskas i klienten och sparas aldrig (AD-15).
+
+### Ändrade konsekvenser för befintliga krav
+
+| Krav | Med Epic 9 |
+| --- | --- |
+| FR-23 | AI-förslagen får veckans erbjudanden som indata och visar erbjudandeetiketter (FR-36). |
+| FR-28 | Butiken i Inställningar får fältet "Länk till veckans erbjudanden". |
+| FR-8, FR-22 | Oförändrade. Filtret "Erbjudanden" är ett fjärde filter och påverkar inte lagningsstatusen eller rangordningen i de andra. |
+| FR-15, FR-26 | Oförändrade. Etiketten på listposten är bara visning, och exporten är densamma. |
+
+### Effektmål
+
+SM-5 (variation) och SM-3 (hela veckan i appen) får stöd. Motmått **SM-C4 Fullständighet i erbjudanden** gäller som i den första planen: Matkoll jagar inte alla erbjudanden eller exakta priser, räknar aldrig om priser och lovar aldrig att något blir billigare.
+
+### Utanför 1.2
+
+- Automatisk hämtning varje vecka, utan tryck (`docs/backlog-efter-1-0.md`).
+- Bevakningar med aviseringar ("säg till när kaffe är på erbjudande") (`docs/backlog-efter-1-0.md`).
+- Länkar för Willys, Hemköp, Coop och Lidl. Deras sidor kräver JavaScript, och deras interna API:er används inte.
+- En historik över köp för att hitta basvaror bättre (öppen fråga 23).
+- Prisjämförelse mellan butiker och kostnadsberäkning (1.3, PRD §7).
+- Erbjudanden från flera butiker på en gång. Allt gäller vald butik.
+
+### Datamodell (tillägg)
+
+| Tabell | Innehåll | Kopplas till |
+| --- | --- | --- |
+| store | Får `offers_url` (länk till erbjudandesidan, valfri) | – |
+| store_offer | Vecka (måndagens datum), namn som butiken skrev det, vara i grundform, avdelning, pris och villkor som text, Stammis, sista dag, källa (länk, text, foto) | store, ingredient (valfritt) |
+
+Detaljerna står i arkitekturens AD-25.
