@@ -1,10 +1,19 @@
-import { mkdtempSync, readFileSync, rmSync } from "node:fs";
+import { cpSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { afterEach, describe, expect, it, vi } from "vitest";
 import { compare, type Expected } from "../../../../tests/eval/compare";
-import { aiRecipe } from "../schemas";
-import { createMockAiService, defaultFixturesDir, mockErrorCodes, mockKey, normalizeInputText } from "./mock";
+import { checkSuggestions, type SuggestExpected } from "../../../../tests/eval/suggest-checks";
+import { aiRecipe, suggestDishesAnswer } from "../schemas";
+import type { SuggestDishesInput } from "../service";
+import {
+  createMockAiService,
+  defaultFixturesDir,
+  mockErrorCodes,
+  mockKey,
+  mockSuggestErrorCodes,
+  normalizeInputText,
+} from "./mock";
 
 const dir = defaultFixturesDir;
 const read = (file: string) => readFileSync(join(dir, file), "utf8");
@@ -14,6 +23,8 @@ type Manifest = {
   cases: { name: string; jsonLd?: boolean; image?: boolean }[];
   reserved: { text: string; code: string }[];
   reservedImages: { image: string; code: string }[];
+  suggest: string;
+  suggestAlternatives: string[];
 };
 const manifest = JSON.parse(read("manifest.json")) as Manifest;
 const signal = () => new AbortController().signal;
@@ -116,6 +127,83 @@ describe("mock AI service", () => {
       expect(JSON.stringify(errors.mock.calls)).not.toContain(empty);
     } finally {
       rmSync(empty, { recursive: true, force: true });
+    }
+  });
+});
+
+describe("mock suggestDishes", () => {
+  const service = createMockAiService();
+  const pantryInput = JSON.parse(read(`${manifest.suggest}.pantry.json`)) as SuggestDishesInput;
+  const setOf = (name: string) => suggestDishesAnswer.parse(JSON.parse(read(`${name}.response.json`))).suggestions;
+  const suggestions = () => setOf(manifest.suggest);
+  const alternative = () => setOf(manifest.suggestAlternatives[0]);
+
+  it("answers the three fixture recipes, whatever is at home", async () => {
+    expect(await service.suggestDishes(pantryInput, signal())).toEqual({ ok: true, data: suggestions() });
+    const other = { pantry: [{ name: "havregryn", amount: 1, unit: "kg" }], avoidTitles: ["Gröt"] };
+    expect(await service.suggestDishes(other, signal())).toEqual({ ok: true, data: suggestions() });
+  });
+
+  it.each(mockSuggestErrorCodes.map((code) => [code]))(
+    "fails with %s for a pantry item with its reserved name",
+    async (code) => {
+      const text = manifest.reserved.find((entry) => entry.code === code)!.text;
+      const input = { pantry: [...pantryInput.pantry, { name: `  ${text.toUpperCase()} `, amount: null, unit: null }], avoidTitles: [] };
+      expect(await service.suggestDishes(input, signal())).toMatchObject({ ok: false, error: { code } });
+    },
+  );
+
+  it("treats the reserved text for import_no_recipe as an ordinary pantry item", async () => {
+    const text = manifest.reserved.find((entry) => entry.code === "import_no_recipe")!.text;
+    const result = await service.suggestDishes({ pantry: [{ name: text, amount: null, unit: null }], avoidTitles: [] }, signal());
+    expect(result.ok).toBe(true);
+  });
+
+  it("returns a copy, so a caller cannot change the fixture", async () => {
+    const first = await service.suggestDishes(pantryInput, signal());
+    if (!first.ok) throw new Error("expected ok");
+    first.data[0].title = "Ändrad";
+    const second = await service.suggestDishes(pantryInput, signal());
+    expect(second.ok && second.data[0].title).toBe("Kycklinggryta med tomat och grädde");
+  });
+
+  it("gives ai_unavailable when the signal is aborted", async () => {
+    const controller = new AbortController();
+    controller.abort();
+    const result = await service.suggestDishes(pantryInput, controller.signal);
+    expect(result).toMatchObject({ ok: false, error: { code: "ai_unavailable" } });
+  });
+
+  it("answers the other set when every title of the first is to be avoided, and ai_invalid when all are", async () => {
+    const titles = (set: { title: string }[]) => set.map((recipe) => recipe.title);
+    const some = { ...pantryInput, avoidTitles: [titles(suggestions())[0]] };
+    expect(await service.suggestDishes(some, signal())).toEqual({ ok: true, data: alternative() });
+    const first = { ...pantryInput, avoidTitles: titles(suggestions()).map((title) => `  ${title.toUpperCase()} `) };
+    expect(await service.suggestDishes(first, signal())).toEqual({ ok: true, data: alternative() });
+    const second = { ...pantryInput, avoidTitles: titles(alternative()) };
+    expect(await service.suggestDishes(second, signal())).toEqual({ ok: true, data: suggestions() });
+    const both = { ...pantryInput, avoidTitles: [titles(suggestions())[0], titles(alternative())[0]] };
+    expect(await service.suggestDishes(both, signal())).toMatchObject({ ok: false, error: { code: "ai_invalid" } });
+  });
+
+  it("meets its own expectations for the eval's pantry, in both sets", () => {
+    const expected = JSON.parse(read(`${manifest.suggest}.expected.json`)) as SuggestExpected;
+    for (const set of [suggestions(), alternative()]) {
+      expect(checkSuggestions(set, pantryInput, expected).filter((check) => !check.ok)).toEqual([]);
+    }
+  });
+
+  it("keeps imports working when the suggest fixture is broken", async () => {
+    vi.spyOn(console, "error").mockImplementation(() => {});
+    const copy = mkdtempSync(join(tmpdir(), "matkoll-mock-"));
+    try {
+      cpSync(dir, copy, { recursive: true });
+      writeFileSync(join(copy, `${manifest.suggest}.response.json`), "{ broken");
+      const broken = createMockAiService(copy);
+      expect(await broken.suggestDishes(pantryInput, signal())).toMatchObject({ ok: false, error: { code: "ai_unavailable" } });
+      expect(await broken.parseRecipe({ text: read("linssoppa.txt") }, signal())).toEqual({ ok: true, data: response("linssoppa") });
+    } finally {
+      rmSync(copy, { recursive: true, force: true });
     }
   });
 });

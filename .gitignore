@@ -54,3 +54,4 @@ tests/e2e/.auth/
 
 # Written by `pnpm eval:ai`
 tests/eval/report.md
+tests/eval/suggest-report.md

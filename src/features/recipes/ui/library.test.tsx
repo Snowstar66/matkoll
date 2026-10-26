@@ -22,7 +22,13 @@ vi.mock("../actions/search-recipes", () => ({
   },
 }));
 const refresh = vi.fn();
-vi.mock("next/navigation", () => ({ useRouter: () => ({ refresh }) }));
+vi.mock("next/navigation", () => ({ useRouter: () => ({ refresh, push: vi.fn() }) }));
+/** /api/ai/suggest, behind "Föreslå rätter med AI" (ai-suggestions.test.tsx has the rest). */
+const postAi = vi.fn<(path: string, body: unknown, signal: AbortSignal) => Promise<unknown>>();
+vi.mock("@/lib/ai-client", () => ({
+  postAi: (path: string, body: unknown, signal: AbortSignal) => postAi(path, body, signal),
+}));
+vi.mock("../actions/save-recipe", () => ({ saveRecipe: vi.fn() }));
 const setFavorite = vi.fn<(change: FavoriteChange) => Promise<Result<FavoriteChange>>>();
 vi.mock("../actions/set-favorite", () => ({ setFavorite: (change: FavoriteChange) => setFavorite(change) }));
 
@@ -53,24 +59,21 @@ const ranking = [soppa, gryta, pannkakor, fisk];
 let serverRecipes: RecipeListItem[] = [];
 let rerenderServer: ((recipes: RecipeListItem[]) => void) | undefined;
 let serverPantryUnavailable = false;
-/** What Story 5.2 passes for "Föreslå rätter med AI"; without it there is no button. */
-let onSuggestDishes: (() => void) | undefined;
-const suggest = vi.fn();
+const searchIngredients = vi.fn(async () => ok([]));
 
 function Server() {
   const [recipes, setRecipes] = useState(serverRecipes);
   useEffect(() => {
     rerenderServer = setRecipes;
   }, []);
-  return <Library recipes={recipes} pantryUnavailable={serverPantryUnavailable} onSuggestDishes={onSuggestDishes} />;
+  return <Library recipes={recipes} pantryUnavailable={serverPantryUnavailable} searchIngredients={searchIngredients} />;
 }
 
-type RenderOptions = { pantryUnavailable?: boolean; withSuggest?: boolean };
+type RenderOptions = { pantryUnavailable?: boolean };
 
 function renderLibrary(recipes: RecipeListItem[] = [gryta, soppa], options: RenderOptions = {}) {
   serverRecipes = recipes;
   serverPantryUnavailable = options.pantryUnavailable ?? false;
-  onSuggestDishes = options.withSuggest ? suggest : undefined;
   return render(
     <ToastProvider>
       <Server />
@@ -85,7 +88,7 @@ beforeEach(() => {
   window.localStorage.clear();
   resetRecipeFilterStore();
   refresh.mockReset();
-  suggest.mockReset();
+  postAi.mockReset().mockReturnValue(new Promise(() => {}));
   searchPantryUnavailable = false;
   searchRecipes.mockReset().mockResolvedValue(ok([]));
   setFavorite.mockReset().mockImplementation(async (change) => {
@@ -295,17 +298,53 @@ describe("Library", () => {
     expect(titles()).toEqual(["Krämig kycklinggryta", "Fiskgratäng", "Pannkakor", "Linssoppa"]);
   });
 
-  it("shows no Föreslå rätter med AI until Story 5.2 passes what it does", async () => {
+  it("offers Föreslå rätter med AI when the pantry could not be read too, since the server reads it again", async () => {
+    const user = userEvent.setup();
+    renderLibrary(ranking, { pantryUnavailable: true });
+    await user.click(pill("Kan lagas nu"));
+    expect(screen.getByRole("button", { name: "Föreslå rätter med AI" })).toBeInTheDocument();
+  });
+
+  it("asks the AI only when the button is pressed, never on a pill or a render", async () => {
     const user = userEvent.setup();
     renderLibrary(ranking);
     await user.click(pill("Kan lagas nu"));
-    expect(titles()).toEqual(["Krämig kycklinggryta", "Fiskgratäng", "Pannkakor", "Linssoppa"]);
-    expect(screen.queryByRole("button", { name: "Föreslå rätter med AI" })).not.toBeInTheDocument();
+    await user.click(pill("Alla"));
+    await user.click(pill("Kan lagas nu"));
+    expect(postAi).not.toHaveBeenCalled();
+  });
+
+  it("keeps the AI suggestions while the pills change", async () => {
+    const user = userEvent.setup();
+    const draft = {
+      title: "Ugnsomelett",
+      servings: 4,
+      totalMinutes: 40,
+      imageUrl: null,
+      sourceKind: "ai",
+      sourceUrl: null,
+      steps: ["Grädda."],
+      lines: [],
+    };
+    postAi.mockResolvedValueOnce(ok({ suggestions: [{ draft, ingredientNames: {} }] }));
+    renderLibrary(ranking);
+    await user.click(pill("Kan lagas nu"));
+    await user.click(screen.getByRole("button", { name: "Föreslå rätter med AI" }));
+    expect(await screen.findByRole("heading", { level: 3, name: "Ugnsomelett" })).toBeInTheDocument();
+    await user.click(pill("Alla"));
+    expect(screen.queryByRole("region", { name: "AI-förslag" })).not.toBeInTheDocument();
+    await user.click(pill("Kan lagas nu"));
+    expect(within(screen.getByRole("region", { name: "AI-förslag" })).getByRole("heading", { name: "Ugnsomelett" })).toBeInTheDocument();
+    // Shown again, the section does not take focus from the pill.
+    expect(pill("Kan lagas nu")).toHaveFocus();
+    // The suggestion is not a row of the library.
+    expect(titles()).not.toContain("Ugnsomelett");
+    expect(postAi).toHaveBeenCalledTimes(1);
   });
 
   it("has Föreslå rätter med AI at the bottom only on Kan lagas nu, also when nothing can be cooked now", async () => {
     const user = userEvent.setup();
-    renderLibrary([soppa, pannkakor], { withSuggest: true });
+    renderLibrary([soppa, pannkakor]);
     expect(screen.queryByRole("button", { name: "Föreslå rätter med AI" })).not.toBeInTheDocument();
     await user.click(pill("Kan lagas nu"));
     expect(titles()).toEqual(["Pannkakor", "Linssoppa"]);
@@ -316,19 +355,20 @@ describe("Library", () => {
     const list = screen.getByRole("list", { name: "Recept, minst saknat först" });
     expect(list.compareDocumentPosition(button) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
     await user.click(button);
-    expect(suggest).toHaveBeenCalledTimes(1);
+    expect(postAi).toHaveBeenCalledWith("/api/ai/suggest", { avoidTitles: [] }, expect.any(AbortSignal));
     expect(searchRecipes).not.toHaveBeenCalled();
 
     await user.click(pill("Alla"));
     expect(titles()).toEqual(["Linssoppa", "Pannkakor"]);
     expect(screen.queryByRole("button", { name: "Föreslå rätter med AI" })).not.toBeInTheDocument();
+    expect(screen.queryByText("Letar efter idéer …")).not.toBeInTheDocument();
     await user.click(pill("Favoriter"));
     expect(screen.queryByRole("button", { name: "Föreslå rätter med AI" })).not.toBeInTheDocument();
   });
 
   it("keeps the AI button outside the dimmed results while a search is on its way", async () => {
     const user = userEvent.setup();
-    renderLibrary(ranking, { withSuggest: true });
+    renderLibrary(ranking);
     await user.click(pill("Kan lagas nu"));
     let answer: (result: Result<RecipeListItem[]>) => void = () => {};
     searchRecipes.mockImplementationOnce(() => new Promise((resolve) => (answer = resolve)));
@@ -345,7 +385,7 @@ describe("Library", () => {
 
   it("ranks the search hits on Kan lagas nu, with the button under them", async () => {
     const user = userEvent.setup();
-    renderLibrary(ranking, { withSuggest: true });
+    renderLibrary(ranking);
     await user.click(pill("Kan lagas nu"));
     searchRecipes.mockResolvedValueOnce(ok([soppa, pannkakor, fisk]));
     await user.type(screen.getByRole("searchbox"), "lök{Enter}");
@@ -356,7 +396,7 @@ describe("Library", () => {
 
   it("keeps the button under no hit, but not under a failed search", async () => {
     const user = userEvent.setup();
-    renderLibrary(ranking, { withSuggest: true });
+    renderLibrary(ranking);
     await user.click(pill("Kan lagas nu"));
     searchRecipes.mockResolvedValueOnce(ok([]));
     await user.type(screen.getByRole("searchbox"), "xyz{Enter}");
@@ -368,6 +408,24 @@ describe("Library", () => {
     await user.type(screen.getByRole("searchbox"), "z{Enter}");
     expect(await screen.findByRole("alert")).toHaveTextContent("Det gick inte att söka bland recepten. Försök igen.");
     expect(screen.getByRole("button", { name: "Försök igen" })).toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: "Föreslå rätter med AI" })).not.toBeInTheDocument();
+  });
+
+  it("keeps the progress and Avbryt of a call on its way when a search fails", async () => {
+    const user = userEvent.setup();
+    renderLibrary(ranking);
+    await user.click(pill("Kan lagas nu"));
+    await user.click(screen.getByRole("button", { name: "Föreslå rätter med AI" }));
+    searchRecipes.mockResolvedValueOnce(fail("recipe_search_failed"));
+    await user.type(screen.getByRole("searchbox"), "z{Enter}");
+    expect(await screen.findByRole("alert")).toHaveTextContent("Det gick inte att söka bland recepten. Försök igen.");
+
+    const section = screen.getByTestId("ai-suggestions");
+    expect(within(section).getByRole("status")).toHaveTextContent("Letar efter idéer …");
+    await user.click(within(section).getByRole("button", { name: "Avbryt" }));
+    expect(postAi.mock.calls[0][2].aborted).toBe(true);
+    expect(within(section).getByRole("status")).toBeEmptyDOMElement();
+    // Under the failed search, the button is not offered.
     expect(screen.queryByRole("button", { name: "Föreslå rätter med AI" })).not.toBeInTheDocument();
   });
 

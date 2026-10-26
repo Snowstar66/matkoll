@@ -1,29 +1,164 @@
 "use client";
 
-import { Button } from "@/components/button";
+import Link from "next/link";
+import { useEffect, useId, useRef, useState } from "react";
+import { AiBadge } from "@/components/badges";
+import { Button, buttonClasses } from "@/components/button";
+import type { SearchIngredients } from "@/components/ingredient-picker";
+import { Notice } from "@/components/notice";
+import { suggestErrorMessage, suggestRetryCodes } from "@/features/suggestions";
+import { recipeMetaText } from "../domain/recipe-list";
+import { AiSuggestionSheet } from "./ai-suggestion-sheet";
+import type { DishSuggestionsState, ShownSuggestion } from "./use-dish-suggestions";
 
 // AI-förslag at the bottom of the filter Kan lagas nu (FR-23, EXPERIENCE.md,
-// Flöde 5). Story 5.1 places the component; Story 5.2 fills it (the call to
-// /api/ai/suggest, the progress, the errors and the section with the
-// suggestions) and passes `onSuggest`. Without it nothing is shown, so the
-// library never has a button that does nothing.
+// Flöde 5): "Föreslå rätter med AI" asks /api/ai/suggest, with "Letar efter
+// idéer …" and "Avbryt" in the button's place while it runs. The suggestions
+// come in a section of their own under the library, each marked "AI-förslag",
+// never mixed with the recipes and without a status until saved. "Spara" opens
+// the preview (AiSuggestionSheet). Errors show in a notice here, so the
+// library keeps working. The state comes from the library (useDishSuggestions).
+
+/** At most this many ingredient names on a card, after "Med: ". */
+const maxCardNames = 5;
 
 export type AiSuggestionsProps = {
-  /** Asks the AI for dishes; until Story 5.2 passes it, the button is not shown. */
-  onSuggest?: () => void;
+  /** The suggestions and the calls (useDishSuggestions); without it nothing is shown. */
+  dishes?: DishSuggestionsState;
+  searchIngredients: SearchIngredients;
+  /**
+   * Whether "Föreslå rätter med AI" is offered (not under a failed search,
+   * whose notice is the way forward). A call on its way keeps its progress
+   * and "Avbryt" either way, and the suggestions stay.
+   */
+  offerButton?: boolean;
 };
 
-/**
- * "Föreslå rätter med AI", a secondary button across the full width: the
- * library has no primary button, and DESIGN.md allows at most one.
- */
-export function AiSuggestions({ onSuggest }: AiSuggestionsProps) {
-  if (!onSuggest) return null;
+export function AiSuggestions({ dishes, searchIngredients, offerButton = true }: AiSuggestionsProps) {
+  const headingId = useId();
+  const headingRef = useRef<HTMLHeadingElement>(null);
+  const buttonRef = useRef<HTMLButtonElement>(null);
+  const [opened, setOpened] = useState<ShownSuggestion | null>(null);
+  // What this mount has already moved focus for: a remount (a pill changed
+  // back) does not take focus for suggestions that came earlier.
+  const handledArrivals = useRef(dishes?.arrivals ?? 0);
+  const handledCancels = useRef(dishes?.cancels ?? 0);
+  const arrivals = dishes?.arrivals ?? 0;
+  const cancels = dishes?.cancels ?? 0;
+
+  // New suggestions: focus on the section's heading, so they are read out from the start.
+  useEffect(() => {
+    if (arrivals === handledArrivals.current) return;
+    handledArrivals.current = arrivals;
+    headingRef.current?.focus();
+  }, [arrivals]);
+  // "Avbryt": the button is back, with focus.
+  useEffect(() => {
+    if (cancels === handledCancels.current) return;
+    handledCancels.current = cancels;
+    buttonRef.current?.focus();
+  }, [cancels]);
+
+  if (!dishes) return null;
+  const { suggestions, loading, error, suggest, cancel, remove } = dishes;
+
+  let notice = null;
+  if (error && !loading) {
+    const action =
+      error.code === "suggest_empty_pantry" ? (
+        <Link href="/hemma" className={buttonClasses("text")}>
+          Öppna Hemma
+        </Link>
+      ) : suggestRetryCodes.has(error.code) ? (
+        <Button variant="text" onClick={suggest}>
+          Försök igen
+        </Button>
+      ) : undefined;
+    notice = (
+      <Notice role="alert" action={action}>
+        {suggestErrorMessage(error)}
+      </Notice>
+    );
+  }
+
   return (
-    <div data-testid="ai-suggestions">
-      <Button type="button" variant="secondary" fullWidth onClick={onSuggest}>
-        Föreslå rätter med AI
+    <div data-testid="ai-suggestions" className="flex flex-col gap-3">
+      {notice}
+      {suggestions.length > 0 ? (
+        <section aria-labelledby={headingId} className="flex flex-col gap-3">
+          <h2 id={headingId} ref={headingRef} tabIndex={-1} className="text-section-label text-ink-2">
+            AI-förslag
+          </h2>
+          <ul className="flex flex-col gap-3">
+            {suggestions.map((suggestion) => (
+              <SuggestionCard key={suggestion.key} suggestion={suggestion} onSave={() => setOpened(suggestion)} />
+            ))}
+          </ul>
+        </section>
+      ) : null}
+      {/* Mounted empty, so the text is announced when it appears. */}
+      <div role="status">{loading ? <Thinking /> : null}</div>
+      {loading ? (
+        <Button variant="text" onClick={cancel} className="-ml-3 self-start">
+          Avbryt
+        </Button>
+      ) : offerButton ? (
+        <Button ref={buttonRef} type="button" variant="secondary" fullWidth onClick={suggest}>
+          {suggestions.length > 0 ? "Föreslå andra rätter" : "Föreslå rätter med AI"}
+        </Button>
+      ) : null}
+      <AiSuggestionSheet
+        key={opened?.key ?? "stängt"}
+        suggestion={opened}
+        onClose={() => setOpened(null)}
+        onSaved={(key) => {
+          setOpened(null);
+          remove(key);
+        }}
+        searchIngredients={searchIngredients}
+      />
+    </div>
+  );
+}
+
+/** The names a card shows: the catalog's name for a linked line, otherwise the AI's, each once. */
+function cardNames({ draft, ingredientNames }: ShownSuggestion): string[] {
+  const names = draft.lines.map((line) => {
+    const { ingredient } = line;
+    const linked = ingredient.kind === "match" || ingredient.kind === "chosen" ? ingredientNames[ingredient.ingredientId] : undefined;
+    return (linked ?? line.hint?.name ?? line.originalText).trim();
+  });
+  return [...new Set(names.filter(Boolean))].slice(0, maxCardNames);
+}
+
+/**
+ * Kort för ett AI-förslag: title, "35 min · 4 portioner", the AI label, "Med:
+ * " and at most five ingredient names, and "Spara". The card is no link: a
+ * suggestion has no recipe view until it is saved.
+ */
+function SuggestionCard({ suggestion, onSave }: { suggestion: ShownSuggestion; onSave: () => void }) {
+  const { draft } = suggestion;
+  return (
+    <li data-testid="ai-suggestion" className="flex flex-col items-start gap-2 rounded-lg bg-surface p-4">
+      <h3 className="text-row-title break-words text-ink">{draft.title}</h3>
+      <p className="text-meta text-ink-3">{recipeMetaText(draft.totalMinutes, draft.servings)}</p>
+      <AiBadge />
+      <p className="text-body break-words text-ink-2">Med: {cardNames(suggestion).join(", ")}</p>
+      <Button variant="secondary" onClick={onSave} aria-label={`Spara ${draft.title}`}>
+        Spara
       </Button>
+    </li>
+  );
+}
+
+/** "Letar efter idéer …" with a progress bar (EXPERIENCE.md, AI-förslag hämtas). */
+function Thinking() {
+  return (
+    <div className="flex flex-col gap-2">
+      <p className="text-body text-ink">Letar efter idéer …</p>
+      <div aria-hidden="true" className="h-1 overflow-hidden rounded-full bg-hairline">
+        <div className="h-full w-1/3 rounded-full bg-accent motion-safe:animate-progress" />
+      </div>
     </div>
   );
 }

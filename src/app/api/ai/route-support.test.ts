@@ -108,6 +108,8 @@ describe("respond", () => {
   it.each([
     ["image_too_large", 413],
     ["image_unsupported", 415],
+    ["suggest_empty_pantry", 422],
+    ["pantry_unavailable", 503],
   ] as const)("answers %s with %i", (code, status) => {
     expect(respond(fail(code)).status).toBe(status);
   });

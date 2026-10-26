@@ -1,0 +1,391 @@
+{
+  "suggestions": [
+    {
+      "title": "Kycklinggryta med tomat och grädde",
+      "servings": 4,
+      "totalMinutes": 35,
+      "ingredients": [
+        {
+          "originalText": "600 g kycklingfilé",
+          "amount": 600,
+          "unit": "g",
+          "isVague": false,
+          "hint": {
+            "name": "kycklingfilé",
+            "section": "Kött och fisk",
+            "location": "Kyl",
+            "defaultUnit": "g"
+          },
+          "stepIndexes": [
+            1
+          ]
+        },
+        {
+          "originalText": "1 gul lök",
+          "amount": 1,
+          "unit": null,
+          "isVague": false,
+          "hint": {
+            "name": "gul lök",
+            "section": "Frukt och grönt",
+            "location": "Skafferi",
+            "defaultUnit": "st"
+          },
+          "stepIndexes": [
+            0,
+            1
+          ]
+        },
+        {
+          "originalText": "2 vitlöksklyftor",
+          "amount": 2,
+          "unit": "klyfta",
+          "isVague": false,
+          "hint": {
+            "name": "vitlök",
+            "section": "Frukt och grönt",
+            "location": "Skafferi",
+            "defaultUnit": "klyfta"
+          },
+          "stepIndexes": [
+            0,
+            1
+          ]
+        },
+        {
+          "originalText": "1 förp krossade tomater",
+          "amount": 1,
+          "unit": "förp",
+          "isVague": false,
+          "hint": {
+            "name": "krossade tomater",
+            "section": "Skafferi",
+            "location": "Skafferi",
+            "defaultUnit": "förp"
+          },
+          "stepIndexes": [
+            2
+          ]
+        },
+        {
+          "originalText": "2 dl grädde",
+          "amount": 2,
+          "unit": "dl",
+          "isVague": false,
+          "hint": {
+            "name": "grädde",
+            "section": "Mejeri",
+            "location": "Kyl",
+            "defaultUnit": "dl"
+          },
+          "stepIndexes": [
+            2
+          ]
+        },
+        {
+          "originalText": "4 dl ris",
+          "amount": 4,
+          "unit": "dl",
+          "isVague": false,
+          "hint": {
+            "name": "ris",
+            "section": "Skafferi",
+            "location": "Skafferi",
+            "defaultUnit": "dl"
+          },
+          "stepIndexes": [
+            3
+          ]
+        },
+        {
+          "originalText": "1 msk olivolja",
+          "amount": 1,
+          "unit": "msk",
+          "isVague": false,
+          "hint": {
+            "name": "olivolja",
+            "section": "Skafferi",
+            "location": "Skafferi",
+            "defaultUnit": "msk"
+          },
+          "stepIndexes": [
+            1
+          ]
+        },
+        {
+          "originalText": "salt",
+          "amount": null,
+          "unit": null,
+          "isVague": true,
+          "hint": {
+            "name": "salt",
+            "section": "Skafferi",
+            "location": "Skafferi",
+            "defaultUnit": "krm"
+          },
+          "stepIndexes": [
+            2
+          ]
+        },
+        {
+          "originalText": "svartpeppar",
+          "amount": null,
+          "unit": null,
+          "isVague": true,
+          "hint": {
+            "name": "svartpeppar",
+            "section": "Skafferi",
+            "location": "Skafferi",
+            "defaultUnit": "krm"
+          },
+          "stepIndexes": [
+            2
+          ]
+        }
+      ],
+      "steps": [
+        "Hacka löken och vitlöken.",
+        "Skär kycklingen i bitar och bryn den i olivoljan med löken och vitlöken.",
+        "Häll i krossade tomater och grädde. Smaka av med salt och peppar och låt sjuda i 15 minuter.",
+        "Koka riset enligt anvisningen på förpackningen och servera till grytan."
+      ]
+    },
+    {
+      "title": "Krämig pasta med spenat",
+      "servings": 4,
+      "totalMinutes": 20,
+      "ingredients": [
+        {
+          "originalText": "400 g pasta",
+          "amount": 400,
+          "unit": "g",
+          "isVague": false,
+          "hint": {
+            "name": "pasta",
+            "section": "Skafferi",
+            "location": "Skafferi",
+            "defaultUnit": "g"
+          },
+          "stepIndexes": [
+            0,
+            2
+          ]
+        },
+        {
+          "originalText": "250 g fryst spenat",
+          "amount": 250,
+          "unit": "g",
+          "isVague": false,
+          "hint": {
+            "name": "fryst spenat",
+            "section": "Frys",
+            "location": "Frys",
+            "defaultUnit": "g"
+          },
+          "stepIndexes": [
+            1
+          ]
+        },
+        {
+          "originalText": "2 dl grädde",
+          "amount": 2,
+          "unit": "dl",
+          "isVague": false,
+          "hint": {
+            "name": "grädde",
+            "section": "Mejeri",
+            "location": "Kyl",
+            "defaultUnit": "dl"
+          },
+          "stepIndexes": [
+            1
+          ]
+        },
+        {
+          "originalText": "1 dl riven ost",
+          "amount": 1,
+          "unit": "dl",
+          "isVague": false,
+          "hint": {
+            "name": "riven ost",
+            "section": "Mejeri",
+            "location": "Kyl",
+            "defaultUnit": "g"
+          },
+          "stepIndexes": [
+            2
+          ]
+        },
+        {
+          "originalText": "2 vitlöksklyftor",
+          "amount": 2,
+          "unit": "klyfta",
+          "isVague": false,
+          "hint": {
+            "name": "vitlök",
+            "section": "Frukt och grönt",
+            "location": "Skafferi",
+            "defaultUnit": "klyfta"
+          },
+          "stepIndexes": [
+            1
+          ]
+        },
+        {
+          "originalText": "1 msk smör",
+          "amount": 1,
+          "unit": "msk",
+          "isVague": false,
+          "hint": {
+            "name": "smör",
+            "section": "Mejeri",
+            "location": "Kyl",
+            "defaultUnit": "g"
+          },
+          "stepIndexes": [
+            1
+          ]
+        },
+        {
+          "originalText": "salt",
+          "amount": null,
+          "unit": null,
+          "isVague": true,
+          "hint": {
+            "name": "salt",
+            "section": "Skafferi",
+            "location": "Skafferi",
+            "defaultUnit": "krm"
+          },
+          "stepIndexes": [
+            2
+          ]
+        }
+      ],
+      "steps": [
+        "Koka pastan enligt anvisningen på förpackningen.",
+        "Fräs vitlöken i smöret, lägg i spenaten och häll på grädden. Låt sjuda i 5 minuter.",
+        "Rör ner osten, smaka av med salt och vänd ner pastan."
+      ]
+    },
+    {
+      "title": "Ugnsomelett med potatis och lök",
+      "servings": 4,
+      "totalMinutes": 40,
+      "ingredients": [
+        {
+          "originalText": "6 ägg",
+          "amount": 6,
+          "unit": null,
+          "isVague": false,
+          "hint": {
+            "name": "ägg",
+            "section": "Mejeri",
+            "location": "Kyl",
+            "defaultUnit": "st"
+          },
+          "stepIndexes": [
+            2
+          ]
+        },
+        {
+          "originalText": "3 dl mjölk",
+          "amount": 3,
+          "unit": "dl",
+          "isVague": false,
+          "hint": {
+            "name": "mjölk",
+            "section": "Mejeri",
+            "location": "Kyl",
+            "defaultUnit": "dl"
+          },
+          "stepIndexes": [
+            2
+          ]
+        },
+        {
+          "originalText": "500 g potatis",
+          "amount": 500,
+          "unit": "g",
+          "isVague": false,
+          "hint": {
+            "name": "potatis",
+            "section": "Frukt och grönt",
+            "location": "Skafferi",
+            "defaultUnit": "kg"
+          },
+          "stepIndexes": [
+            0,
+            1
+          ]
+        },
+        {
+          "originalText": "1 gul lök",
+          "amount": 1,
+          "unit": null,
+          "isVague": false,
+          "hint": {
+            "name": "gul lök",
+            "section": "Frukt och grönt",
+            "location": "Skafferi",
+            "defaultUnit": "st"
+          },
+          "stepIndexes": [
+            1
+          ]
+        },
+        {
+          "originalText": "1 dl riven ost",
+          "amount": 1,
+          "unit": "dl",
+          "isVague": false,
+          "hint": {
+            "name": "riven ost",
+            "section": "Mejeri",
+            "location": "Kyl",
+            "defaultUnit": "g"
+          },
+          "stepIndexes": [
+            3
+          ]
+        },
+        {
+          "originalText": "1 msk smör",
+          "amount": 1,
+          "unit": "msk",
+          "isVague": false,
+          "hint": {
+            "name": "smör",
+            "section": "Mejeri",
+            "location": "Kyl",
+            "defaultUnit": "g"
+          },
+          "stepIndexes": [
+            1
+          ]
+        },
+        {
+          "originalText": "salt",
+          "amount": null,
+          "unit": null,
+          "isVague": true,
+          "hint": {
+            "name": "salt",
+            "section": "Skafferi",
+            "location": "Skafferi",
+            "defaultUnit": "krm"
+          },
+          "stepIndexes": [
+            2
+          ]
+        }
+      ],
+      "steps": [
+        "Sätt ugnen på 200 grader. Skala och skiva potatisen.",
+        "Stek potatisen och löken i smöret i 10 minuter och lägg dem i en ugnsform.",
+        "Vispa ihop ägg, mjölk och salt och häll över potatisen.",
+        "Strö över osten och grädda i mitten av ugnen i 20 minuter."
+      ]
+    }
+  ]
+}

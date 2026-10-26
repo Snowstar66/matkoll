@@ -6,6 +6,7 @@ import { Button } from "@/components/button";
 import { cx } from "@/components/cx";
 import { EmptyState } from "@/components/empty-state";
 import { FilterPills, type FilterOption } from "@/components/filter-pills";
+import type { SearchIngredients } from "@/components/ingredient-picker";
 import { Notice } from "@/components/notice";
 import { SearchField, type SearchFieldHandle } from "@/components/search-field";
 import { Skeleton } from "@/components/skeleton";
@@ -15,6 +16,7 @@ import { filterRecipes, type RecipeFilter, type RecipeLibrary, type RecipeListIt
 import { AiSuggestions } from "./ai-suggestions";
 import { useRecipeFilter } from "./recipe-filter-store";
 import { RecipeList } from "./recipe-list";
+import { useDishSuggestions } from "./use-dish-suggestions";
 import { useFavorites } from "./use-favorites";
 
 // Receptbiblioteket (FR-8, FR-9, FR-22, UX-DR7): the search field, the filter
@@ -24,7 +26,8 @@ import { useFavorites } from "./use-favorites";
 // switching pills needs no request and a heart that changes shows at once.
 // Each row's status ("Kan lagas nu" or "Saknar N varor") comes with it from
 // the server; Kan lagas nu ranks the rows by it (fewest missing first) without
-// a request, and has "Föreslå rätter med AI" at the bottom (AiSuggestions).
+// a request, and has AI-förslag at the bottom (AiSuggestions). Their state is
+// held here, so the suggestions stay while the pills change.
 
 const filterOptions: readonly FilterOption<RecipeFilter>[] = [
   { value: "all", label: "Alla" },
@@ -47,13 +50,14 @@ export type LibraryProps = {
   recipes: RecipeListItem[];
   /** The pantry could not be read for `recipes` (listLibrary): no row has a status. */
   pantryUnavailable: boolean;
-  /** Asks the AI for dishes (Story 5.2); until then "Föreslå rätter med AI" is not shown. */
-  onSuggestDishes?: () => void;
+  /** The catalog search for the preview of an AI suggestion; the page passes it (AD-1). */
+  searchIngredients: SearchIngredients;
 };
 
-export function Library({ recipes, pantryUnavailable, onSuggestDishes }: LibraryProps) {
+export function Library({ recipes, pantryUnavailable, searchIngredients }: LibraryProps) {
   const router = useRouter();
   const [filter, setFilter] = useRecipeFilter();
+  const dishes = useDishSuggestions();
   const [search, setSearch] = useState<Search>({ kind: "none" });
   const [busy, setBusy] = useState(false);
   const searchField = useRef<SearchFieldHandle>(null);
@@ -183,8 +187,12 @@ export function Library({ recipes, pantryUnavailable, onSuggestDishes }: Library
         ) : null}
         {content}
       </div>
-      {/* Not after a failed search: the notice there is the way forward. */}
-      {cookable && search.kind !== "failed" ? <AiSuggestions onSuggest={onSuggestDishes} /> : null}
+      {/* No button after a failed search: the notice there is the way forward; a call on its
+          way and the suggestions stay. AI-förslag are offered when the pantry could not be
+          read too: the server reads it again. */}
+      {cookable ? (
+        <AiSuggestions dishes={dishes} searchIngredients={searchIngredients} offerButton={search.kind !== "failed"} />
+      ) : null}
     </div>
   );
 }

@@ -71,6 +71,13 @@ export const cookModeEmail = "e2e-steglage@matkoll.test";
  */
 export const cookableEmail = "e2e-kan-lagas@matkoll.test";
 /**
+ * The E2E user of ai-suggestions.spec.ts alone (AI-förslag, Story 5.2): each
+ * test makes its recipe, catalog ingredients and pantry with the service
+ * role, so what the mock is asked with and what a saved suggestion's status
+ * is depend on nothing else.
+ */
+export const aiSuggestionsEmail = "e2e-ai-forslag@matkoll.test";
+/**
  * The E2E user of core-flow.spec.ts alone (Story 3.8): it signs in itself
  * through /logga-in and the link in Mailpit, so it has no storage state.
  */
@@ -89,6 +96,7 @@ export const e2eEmails = [
   recipeViewEmail,
   cookModeEmail,
   cookableEmail,
+  aiSuggestionsEmail,
   coreFlowEmail,
 ] as const;
 /** A real Supabase user whose address is not in ALLOWED_EMAILS. */
@@ -106,6 +114,7 @@ export const putInPantryStorageState = "tests/e2e/.auth/put-in-pantry.json";
 export const recipeViewStorageState = "tests/e2e/.auth/recipe-view.json";
 export const cookModeStorageState = "tests/e2e/.auth/cook-mode.json";
 export const cookableStorageState = "tests/e2e/.auth/cookable.json";
+export const aiSuggestionsStorageState = "tests/e2e/.auth/ai-suggestions.json";
 export const outsiderStorageState = "tests/e2e/.auth/outsider.json";
 
 export const mailpitUrl = "http://127.0.0.1:54324";

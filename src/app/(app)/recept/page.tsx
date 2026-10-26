@@ -16,6 +16,8 @@ export const metadata: Metadata = { title: "Recept" };
 // Receptbiblioteket. The list is read inside <Suspense> (AD-18), with skeleton
 // rows while it loads; without recipes the page shows the empty state. "+" in
 // the header and "Importera recept" in the empty state open the same sheet.
+// AI-förslag are in the library's filter Kan lagas nu, so an empty library
+// offers import only.
 export default function RecipesPage() {
   return (
     <ImportRecipeProvider searchIngredients={searchIngredients}>
@@ -53,5 +55,5 @@ async function RecipesContent() {
       </EmptyState>
     );
   }
-  return <Library recipes={recipes} pantryUnavailable={pantryUnavailable} />;
+  return <Library recipes={recipes} pantryUnavailable={pantryUnavailable} searchIngredients={searchIngredients} />;
 }
