@@ -2,6 +2,16 @@
 
 Beslut som fattats under bygget: vad, varför och vilka alternativ som fanns. Nyaste överst.
 
+## 2026-10-26 – Ordning för tilläggen efter 1.0
+
+- **Beslut (Pontus):** först görs version 1.0 klar (Epic 1–7). Därefter kommer:
+  - 1.1: flera ställen, till exempel hemmet och vinterstugan, med inköpslistan räknad mot det ställe Pontus ska till.
+  - 1.2: menyförslag utifrån veckans erbjudanden, i en enkel version med inklistrad eller fotograferad reklam.
+  - 1.3: jämförelse mellan butiker, med en utredning först.
+
+  Detaljerna står i `docs/backlog-efter-1-0.md`.
+- **Följd för Epic 7:** butiksmodellen ska klara flera butiker och produktval per butik, så att jämförelsen inte kräver ombyggnad.
+
 ## 2026-10-26 – Säkerhetskopia och återställning (Story 3.8)
 
 - **Beslut:**

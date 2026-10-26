@@ -57,15 +57,15 @@ development_status:
   2-4-lagningsstatus-i-receptbiblioteket: done
   epic-2-retrospective: optional
 
-  epic-3: in-progress
-  3-1-lägga-rätter-på-matsedeln: review
-  3-2-tidigare-matsedlar: review
-  3-3-inköpslistan-räknas-fram: review
-  3-4-bocka-av-i-butiken: review
-  3-5-egna-varor: review
-  3-6-rätta-mängd-och-dölja-listposter: review
-  3-7-lägg-i-lagret-efter-handlingen: review
-  3-8-förbered-molndrift: review
+  epic-3: done
+  3-1-lägga-rätter-på-matsedeln: done
+  3-2-tidigare-matsedlar: done
+  3-3-inköpslistan-räknas-fram: done
+  3-4-bocka-av-i-butiken: done
+  3-5-egna-varor: done
+  3-6-rätta-mängd-och-dölja-listposter: done
+  3-7-lägg-i-lagret-efter-handlingen: done
+  3-8-förbered-molndrift: done
   epic-3-retrospective: optional
 
   epic-4: backlog
