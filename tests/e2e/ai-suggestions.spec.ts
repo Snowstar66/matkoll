@@ -51,9 +51,16 @@ async function seedIngredients(names: string[]): Promise<Map<string, string>> {
       })),
       { onConflict: "user_id,normalized_name" },
     )
-    .select("id, name");
+    .select("id, normalized_name");
   if (error) throw error;
-  const ids = new Map((data as { id: string; name: string }[]).map((row) => [row.name, row.id]));
+  // Story 10.4: the catalog stores "Gul lök" for "gul lök", so the rows are found by their normalised name.
+  const byNormalized = new Map((data as { id: string; normalized_name: string }[]).map((row) => [row.normalized_name, row.id]));
+  const ids = new Map(
+    names.flatMap((name) => {
+      const id = byNormalized.get(normalizeIngredientText(name));
+      return id === undefined ? [] : [[name, id] as const];
+    }),
+  );
   const missing = names.filter((name) => !ids.has(name));
   if (missing.length > 0) throw new Error(`The catalog upsert did not return ${missing.join(", ")}`);
   return ids;

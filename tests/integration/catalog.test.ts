@@ -2,7 +2,16 @@ import { afterAll, beforeAll, describe, expect, it } from "vitest";
 import { matchIngredientsIn } from "@/features/catalog/actions/match-ingredients";
 import { commitIngredients } from "@/features/catalog/data/commit";
 import { findIngredientIdsIn, loadIngredientNames, searchCatalog } from "@/features/catalog/data/queries";
-import { LOCATIONS, SECTIONS, UNITS, type IngredientChoice, type IngredientProposal } from "@/features/catalog";
+import {
+  catalogName,
+  LOCATIONS,
+  normalizeIngredientText,
+  SECTIONS,
+  UNITS,
+  type IngredientChoice,
+  type IngredientProposal,
+} from "@/features/catalog";
+import { catalogNameCases } from "../fixtures/catalog-name-cases";
 import { localSupabaseUrl } from "../local-supabase";
 import {
   adminClient,
@@ -270,7 +279,8 @@ describe("commitIngredients", () => {
     expect(ids).toEqual([existing, existing]);
     expect(await countRows("ingredient", user.id)).toBe(1);
     const { data } = await user.db.from("ingredient").select("name, section").eq("id", existing).single();
-    expect(data).toEqual({ name: "saffran", section: "Övrigt" });
+    // Added as "saffran"; the trigger stores it as "Saffran" (Story 10.4), and the commit leaves it.
+    expect(data).toEqual({ name: "Saffran", section: "Övrigt" });
   });
 
   it("saves a new ingredient's text as a synonym, so the next import matches it", async () => {
@@ -501,5 +511,60 @@ describe("searchIngredients", () => {
       [vitlok]: "Vitlök",
     });
     expect(await loadIngredientNames(user.db, [])).toEqual({});
+  });
+});
+
+describe("the capital first letter in the database (Story 10.4)", () => {
+  it("catalog_display_name gives the same result as catalogName for every case", async () => {
+    const user = await createTestUser("name-rule");
+    for (const [input, stored] of catalogNameCases) {
+      const { data, error } = await user.db.rpc("catalog_display_name", { name_text: input });
+      if (error) throw error;
+      expect([input, data]).toEqual([input, stored]);
+      expect(catalogName(input)).toBe(stored);
+    }
+  });
+
+  it("the trigger stores every insert and change of name by the rule, and leaves normalized_name as it is", async () => {
+    const user = await createTestUser("name-trigger");
+    const cases = catalogNameCases.filter(([input]) => normalizeIngredientText(input) !== "");
+    const { data, error } = await user.db
+      .from("ingredient")
+      .insert(
+        cases.map(([input], index) => ({
+          name: input,
+          normalized_name: `${normalizeIngredientText(input)} ${index}`,
+          section: "Övrigt",
+          location: "Skafferi",
+        })),
+      )
+      .select("name, normalized_name");
+    if (error) throw error;
+    expect(data.map(({ name }) => name)).toEqual(cases.map(([, stored]) => stored));
+    expect(data.map(({ normalized_name }) => normalized_name)).toEqual(
+      cases.map(([input], index) => `${normalizeIngredientText(input)} ${index}`),
+    );
+
+    // A change of name goes through the rule too, also with the service role.
+    const id = await addIngredient(user.db, "lingon");
+    const renamed = await adminClient().from("ingredient").update({ name: "blåbär" }).eq("id", id).select("name").single();
+    expect(renamed.data?.name).toBe("Blåbär");
+    // commit_ingredients called directly, as an older client would.
+    const direct = await user.db.rpc("commit_ingredients", {
+      new_ingredients: [{ name: "hallon", normalized_name: "hallon", section: "Frukt och grönt", location: "Kyl", default_unit: null }],
+      synonyms: [],
+    });
+    if (direct.error) throw direct.error;
+    const { data: hallon } = await user.db.from("ingredient").select("name").eq("normalized_name", "hallon").single();
+    expect(hallon?.name).toBe("Hallon");
+  });
+
+  it("search finds capitalised names by lower-case text, in Swedish order", async () => {
+    const user = await createTestUser("name-search");
+    for (const name of ["bregott", "ägg", "ölsås", "ärtsås", "ålsås", "bärsås"]) await addIngredient(user.db, name);
+    expect((await searchCatalog(user.db, "bre")).map(({ name }) => name)).toEqual(["Bregott"]);
+    expect((await searchCatalog(user.db, "ägg")).map(({ name }) => name)).toEqual(["Ägg"]);
+    // å, ä and ö come last, in that order, with capitals as without.
+    expect((await searchCatalog(user.db, "sås")).map(({ name }) => name)).toEqual(["Bärsås", "Ålsås", "Ärtsås", "Ölsås"]);
   });
 });

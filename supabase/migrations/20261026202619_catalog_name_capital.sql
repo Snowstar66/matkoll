@@ -11,6 +11,17 @@
 --   whatever the database's own collation is, so å, ä and ö become Å, Ä
 --   and Ö also where the database collation is "C".
 -- - Runs as the migration owner, so RLS does not limit it to one user.
+-- - 20261026210016_catalog_name_rule.sql refines the rule (first letter,
+--   mixed case) and keeps it with a trigger.
+
+do $$
+begin
+  if current_setting('server_version_num')::int < 170000 then
+    raise exception 'catalog_name_capital needs PostgreSQL 17 or later for the collation pg_c_utf8 (this is %)',
+      current_setting('server_version');
+  end if;
+end;
+$$;
 
 update public.ingredient
 set name = upper(left(name, 1) collate "pg_c_utf8") || substr(name, 2)

@@ -1,4 +1,4 @@
-import { LOCATIONS, nameInSentence, type Location } from "@/features/catalog";
+import { LOCATIONS, nameInText, type Location, type NameInText } from "@/features/catalog";
 import { siteSuffix, type SelectedSite } from "./site";
 
 /** What the texts for "Töm kylen" need of a place (Story 8.4). */
@@ -40,12 +40,13 @@ export function savedItemText(name: string, location: Location): string {
 /**
  * The short confirmation, with "Ångra", for every item removed while the same
  * confirmation has shown: "Mjölk är borttagen.", "Mjölk och smör är
- * borttagna." or "3 varor är borttagna." The second name is inside the
- * sentence, so it starts in lower case (Story 10.4).
+ * borttagna." or "3 varor är borttagna." Story 10.4: the first name starts
+ * the sentence with a capital; the second is inside it, so a catalog name
+ * starts in lower case and the user's own text stays as written (NameInText).
  */
-export function removedItemsText(names: readonly string[]): string {
-  if (names.length === 1) return `${names[0]} är borttagen.`;
-  if (names.length === 2) return `${names[0]} och ${nameInSentence(names[1])} är borttagna.`;
+export function removedItemsText(names: readonly NameInText[]): string {
+  if (names.length === 1) return `${nameInText(names[0], "start")} är borttagen.`;
+  if (names.length === 2) return `${nameInText(names[0], "start")} och ${nameInText(names[1], "inside")} är borttagna.`;
   return `${names.length} varor är borttagna.`;
 }
 

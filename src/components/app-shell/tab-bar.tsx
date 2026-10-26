@@ -27,9 +27,10 @@ function TabBarNav({ pathname }: { pathname: string | null }) {
   return (
     <nav
       aria-label="Huvudmeny"
-      className="fixed inset-x-0 bottom-0 z-30 h-tab-bar border-t border-border bg-surface pb-[max(env(safe-area-inset-bottom),24px)] desktop:hidden"
+      className="fixed inset-x-0 bottom-0 z-30 flex min-h-tab-bar flex-col border-t border-border bg-surface pb-[max(env(safe-area-inset-bottom),24px)] desktop:hidden"
     >
-      <ul className="grid h-full grid-cols-4">
+      {/* Story 10.4: at least the bar's height; it grows rather than let a label run into the safe area. */}
+      <ul className="grid flex-1 grid-cols-4">
         {mainDestinations.map(({ href, label, labelParts, Icon }) => {
           const current = currentState(pathname, href);
           return (

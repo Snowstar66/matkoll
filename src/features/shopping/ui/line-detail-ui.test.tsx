@@ -416,7 +416,7 @@ describe("Listpostdetalj for an own item", () => {
     await user.click(within(detail("diskmedel")).getByRole("button", { name: "Ta bort" }));
     await waitFor(() => expect(screen.queryByRole("dialog")).not.toBeInTheDocument());
     expect(removeCustomItem).toHaveBeenCalledWith(diskId);
-    expect((await screen.findAllByText("diskmedel är borttagen.")).length).toBeGreaterThan(0);
+    expect((await screen.findAllByText("Diskmedel är borttagen.")).length).toBeGreaterThan(0);
     expect(hideLine).not.toHaveBeenCalled();
   });
 

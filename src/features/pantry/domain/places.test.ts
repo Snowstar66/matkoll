@@ -71,6 +71,14 @@ describe("removedItemsText", () => {
     expect(removedItemsText(["Mjölk", "Smör"])).toBe("Mjölk och smör är borttagna.");
     expect(removedItemsText(["Mjölk", "Smör", "Salt"])).toBe("3 varor är borttagna.");
   });
+
+  it("starts the sentence with a capital, and keeps the user's own text as written inside it (Story 10.4)", () => {
+    expect(removedItemsText([{ text: "diskmedel", own: true }])).toBe("Diskmedel är borttagen.");
+    expect(removedItemsText([{ text: "diskmedel", own: true }, { text: "Kaffe Zoégas", own: true }])).toBe(
+      "Diskmedel och Kaffe Zoégas är borttagna.",
+    );
+    expect(removedItemsText(["Mjölk", "D-vitamin"])).toBe("Mjölk och D-vitamin är borttagna.");
+  });
 });
 
 describe("confirmedItemsText and rejectedItemText", () => {

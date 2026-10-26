@@ -463,7 +463,7 @@ test("an own item is checked off, removed by swipe and put back with Ångra, wit
   await expect(row.getByTestId("swipe-row-front")).toHaveCSS("transform", "matrix(1, 0, 0, 1, -96, 0)");
   await actionsAnswered(page, 1, () => page.getByRole("button", { name: "Ta bort diskmedel" }).click());
   await expect(region(page, "Övrigt")).toHaveCount(0);
-  await expect(toast(page)).toContainText("diskmedel är borttagen.");
+  await expect(toast(page)).toContainText("Diskmedel är borttagen.");
   await expect.poll(async () => (await storedCustomItems()).map((item) => item.label)).toEqual(["Kaffe"]);
 
   await actionsAnswered(page, 1, () => toast(page).getByRole("button", { name: "Ångra" }).click());

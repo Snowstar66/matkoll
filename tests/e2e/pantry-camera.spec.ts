@@ -7,7 +7,7 @@ import { adminClient, cardTitles, cameraEmail, cameraStorageState, e2eUserId } f
 // them by their bytes: kyl.png gives six items (kyl.analyze.json),
 // tom-hylla.png none, and the reserved PNGs an error code. The spec has an E2E
 // user of its own (cameraEmail): before each test the service role makes the
-// catalog ingredient "mjölk" and the pantry item "mjölk 2 förp" in Kyl, and
+// catalog ingredient "Mjölk" and the pantry item "Mjölk 2 förp" in Kyl, and
 // nothing else, so a photo of Kyl is compared with it (Story 6.4): mjölk is
 // "Ändrat" and the other five "Nytt". The tests run in order, since they
 // share the user. Story 6.6: the mock answers /api/ai/locate for kyl.png with
@@ -31,7 +31,7 @@ test.beforeEach(async () => {
   const catalog = await admin
     .from("ingredient")
     .upsert(
-      { user_id: userId, name: "mjölk", normalized_name: "mjölk", section: "Mejeri", location: "Kyl", default_unit: "förp" },
+      { user_id: userId, name: "Mjölk", normalized_name: "mjölk", section: "Mejeri", location: "Kyl", default_unit: "förp" },
       { onConflict: "user_id,normalized_name" },
     )
     .select("id")
@@ -379,7 +379,7 @@ test("a photo without food of the fridge lists what it has under Syns inte läng
   await photograph(page, "Fotografera kylen", emptyShelf);
   await expect(section(page).getByRole("heading", { level: 3 })).toHaveText(["Syns inte längre"]);
   await expect(section(page).getByTestId("pantry-missing")).toHaveCount(1);
-  await expect(section(page).getByTestId("pantry-missing")).toContainText("mjölk");
+  await expect(section(page).getByTestId("pantry-missing")).toContainText("Mjölk");
   await expect(
     section(page).getByText("Några varor på bilden gick inte att tolka. Kontrollera innan du tar bort."),
   ).toBeVisible();
@@ -397,7 +397,7 @@ test("the AI out of reach: the text and Försök igen with the same photo, while
   await expect(alert).toHaveText("AI-tjänsten svarar inte just nu. Är datorn med modellen igång?");
 
   // The rest of Hemma works.
-  await expect(page.getByTestId("pantry-row").filter({ visible: true })).toHaveText([/^mjölk\s*2 förp$/]);
+  await expect(page.getByTestId("pantry-row").filter({ visible: true })).toHaveText([/^Mjölk\s*2 förp$/]);
   await page.getByRole("button", { name: "Lägg till vara" }).first().click();
   const sheet = page.getByRole("dialog", { name: "Lagervara" });
   await expect(sheet).toBeVisible();

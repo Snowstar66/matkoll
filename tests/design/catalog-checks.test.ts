@@ -42,28 +42,72 @@ describe("catalog check constraints", () => {
   });
 });
 
-// Story 10.4: the migration that gives existing catalog names an uppercase
-// first letter (catalogName in catalog/domain/name.ts does it for new ones)
-// changes only `name`, and names its collation, so upper() maps å, ä and ö
-// whatever the database's own collation is. Its result was checked against
-// the local database when it was applied (spec-10-4).
-describe("catalog_name_capital", () => {
-  const files = readdirSync(migrations).filter((name) => /^\d+_catalog_name_capital\.sql$/.test(name));
-  const sql = () =>
-    readFileSync(join(migrations, files[0]), "utf8")
-      .split("\n")
-      .filter((line) => !line.startsWith("--"))
-      .join("\n");
+// Story 10.4: the migrations that give catalog names an uppercase first
+// letter. catalog_name_capital changed the names of the time; catalog_name_rule
+// adds the rule as public.catalog_display_name (the same as catalogName in
+// catalog/domain/name.ts, run on the same cases in
+// tests/integration/catalog.test.ts), a trigger that keeps it for every write,
+// and applies it to the names before it. Both change only `name`, need
+// PostgreSQL 17 for the collation pg_c_utf8, and name it wherever case is
+// mapped, so å, ä and ö work whatever the database's own collation is.
+// Their results were checked against the local database (spec-10-4).
 
-  it("is one migration that updates only ingredient.name", () => {
-    expect(files).toHaveLength(1);
-    expect(sql()).toMatch(/^\s*update public\.ingredient\s+set name = [^;]*;\s*$/);
-    expect(sql()).not.toMatch(/normalized_name|delete|insert/i);
+/** The one migration whose name ends in `suffix`, without comment lines. */
+function migrationSql(suffix: string): string {
+  const files = readdirSync(migrations).filter((name) => name.endsWith(`_${suffix}.sql`));
+  if (files.length !== 1) throw new Error(`Expected one supabase/migrations/<time>_${suffix}.sql, found ${files.length}`);
+  return readFileSync(join(migrations, files[0]), "utf8")
+    .split("\n")
+    .filter((line) => !line.trimStart().startsWith("--"))
+    .join("\n");
+}
+
+/** The SQL with runs of white space as one space. */
+const flat = (sql: string) => sql.replace(/\s+/g, " ").trim();
+
+const pg17Guard = flat(`if current_setting('server_version_num')::int < 170000 then raise exception`);
+
+describe("catalog_name_capital", () => {
+  it("stops below PostgreSQL 17", () => {
+    expect(flat(migrationSql("catalog_name_capital"))).toContain(pg17Guard);
   });
 
-  it("gives every upper() and lower() the built-in Unicode collation", () => {
-    const calls = [...sql().matchAll(/\b(upper|lower)\(([^()]*\([^()]*\)[^()]*)\)/g)];
-    expect(calls.length).toBeGreaterThan(0);
-    for (const [, , argument] of calls) expect(argument).toContain('collate "pg_c_utf8"');
+  it("changes only the first character of name, where it is a lower-case letter", () => {
+    const update = flat(migrationSql("catalog_name_capital")).replace(/^.*?(?=update )/, "");
+    expect(update).toBe(
+      flat(`update public.ingredient
+        set name = upper(left(name, 1) collate "pg_c_utf8") || substr(name, 2)
+        where left(name, 1) collate "pg_c_utf8" <> upper(left(name, 1) collate "pg_c_utf8")
+          and left(name, 1) collate "pg_c_utf8" = lower(left(name, 1) collate "pg_c_utf8");`),
+    );
+  });
+});
+
+describe("catalog_name_rule", () => {
+  const sql = () => flat(migrationSql("catalog_name_rule"));
+
+  it("stops below PostgreSQL 17, and reads the name in the collation pg_c_utf8", () => {
+    expect(sql()).toContain(pg17Guard);
+    expect(sql()).toContain(`value text := name_text collate "pg_c_utf8";`);
+  });
+
+  it("keeps the rule with a trigger on every insert and change of name", () => {
+    expect(sql()).toContain(
+      flat(`create trigger ingredient_display_name
+        before insert or update of name on public.ingredient
+        for each row
+        execute function public.ingredient_display_name();`),
+    );
+    expect(sql()).toContain("new.name := public.catalog_display_name(new.name);");
+  });
+
+  it("changes only the names whose result differs, and nothing else", () => {
+    const update = sql().replace(/^.*(?=update public\.ingredient)/, "");
+    expect(update).toBe(
+      flat(`update public.ingredient
+        set name = public.catalog_display_name(name)
+        where name <> public.catalog_display_name(name);`),
+    );
+    expect(sql()).not.toMatch(/normalized_name|delete from|insert into/i);
   });
 });

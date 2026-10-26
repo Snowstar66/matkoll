@@ -1,4 +1,4 @@
-import { formatQuantity, nameInSentence, SECTIONS, type Section, type Unit } from "@/features/catalog";
+import { formatQuantity, nameInText, SECTIONS, type NameInText, type Section, type Unit } from "@/features/catalog";
 import { dishCountText } from "@/features/mealplan";
 import type { Store } from "@/features/settings";
 import type { ShoppingLine } from "./compute-list";
@@ -60,14 +60,24 @@ export function listSummaryText(planName: string, dishCount: number, left: numbe
  * When "Ångra" could not put own items back: "Det gick inte att ångra
  * diskmedel.", "… diskmedel och kaffe.", "… 3 varor."; without names the
  * plain "Det gick inte att ångra." (shopping_restore_failed). The names are
- * inside the sentence, so they start in lower case (Story 10.4).
+ * inside the sentence: a catalog name starts in lower case, and the user's
+ * own text stays as written (lineName, Story 10.4).
  */
-export function restoreFailedText(labels: readonly string[]): string {
-  const [first = "", second = ""] = labels.map(nameInSentence);
+export function restoreFailedText(labels: readonly NameInText[]): string {
+  const [first = "", second = ""] = labels.map((label) => nameInText(label, "inside"));
   if (labels.length === 0) return "Det gick inte att ångra.";
   if (labels.length === 1) return `Det gick inte att ångra ${first}.`;
   if (labels.length === 2) return `Det gick inte att ångra ${first} och ${second}.`;
   return `Det gick inte att ångra ${labels.length} varor.`;
+}
+
+/**
+ * A line's name for a text (Story 10.4): the catalog name of a recipe line
+ * with a catalog ingredient, otherwise the user's own item or the recipe
+ * line's text, which is shown as written.
+ */
+export function lineName(line: Pick<ShoppingLine, "label" | "ingredientId" | "isCustom">): NameInText {
+  return line.ingredientId !== undefined && !line.isCustom ? line.label : { text: line.label, own: true };
 }
 
 /** Announced when the list is counted again while it is open: "Inköpslistan är omräknad. 12 varor kvar." */
