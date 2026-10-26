@@ -1,0 +1,203 @@
+import { act, render as renderBare, type RenderOptions, screen, waitFor } from "@testing-library/react";
+import userEvent from "@testing-library/user-event";
+import { type ReactElement, useEffect, useState } from "react";
+import { beforeEach, describe, expect, it, vi } from "vitest";
+import { ToastProvider } from "@/components/toast";
+import { fail, ok, type Result } from "@/lib/errors";
+import type { PutInPantryInput, PutInPantryResult } from "../actions/put-checked-in-pantry";
+import type { CheckChange } from "../domain/check";
+import type { ShoppingLine } from "../domain/compute-list";
+import { ShoppingList, type ShoppingListProps } from "./shopping-list";
+
+// "Lägg i lagret" in Inköpslista (Story 3.7): the primary button shows while
+// a line is checked off, puts the checked lines in the pantry with one tap,
+// is off while that runs, confirms with a short confirmation, and shows a
+// blue notice on failure.
+
+const render = (ui: ReactElement, options?: RenderOptions) => renderBare(ui, { wrapper: ToastProvider, ...options });
+
+const setChecked = vi.fn<(change: CheckChange) => Promise<Result<CheckChange>>>();
+vi.mock("../actions/set-checked", () => ({ setChecked: (change: CheckChange) => setChecked(change) }));
+const putCheckedInPantry = vi.fn<(input: PutInPantryInput) => Promise<Result<PutInPantryResult>>>();
+vi.mock("../actions/put-checked-in-pantry", () => ({
+  putCheckedInPantry: (input: PutInPantryInput) => putCheckedInPantry(input),
+}));
+const refresh = vi.fn();
+vi.mock("next/navigation", () => ({ useRouter: () => ({ refresh }) }));
+
+const line = (overrides: Partial<ShoppingLine> & Pick<ShoppingLine, "key" | "label">): ShoppingLine => ({
+  amount: null,
+  unit: null,
+  isVague: false,
+  coverage: { kind: "missing" },
+  section: "Övrigt",
+  origins: ["d1"],
+  checked: false,
+  isCustom: false,
+  ...overrides,
+});
+
+const plan: NonNullable<ShoppingListProps["plan"]> = {
+  id: "33333333-3333-4333-8333-333333333333",
+  name: "Vecka 44",
+  dishCount: 1,
+  skippedCount: 0,
+  dishTitles: { d1: "Krämig kycklinggryta" },
+};
+const lines = [
+  line({ key: "r:gradde:dl", ingredientId: "gradde", label: "Grädde", section: "Mejeri", amount: 3, unit: "dl" }),
+  line({ key: "r:paprika:st", ingredientId: "paprika", label: "Paprika", section: "Frukt och grönt", amount: 2, unit: "st" }),
+];
+const textLine = line({ key: "t:en näve persilja", label: "En näve persilja", coverage: { kind: "unlinked" } });
+
+/** The list as the server gives it: a saved check shows, and "Lägg i lagret" takes the checked lines off. */
+const server: { save: (change: CheckChange) => void; put: () => void } = { save: () => {}, put: () => {} };
+function ServerList({ initial }: { initial: ShoppingLine[] }) {
+  const [shown, setShown] = useState(initial);
+  useEffect(() => {
+    server.save = ({ key, checked }) =>
+      setShown((before) => before.map((item) => (item.key === key ? { ...item, checked } : item)));
+    server.put = () => setShown((before) => before.filter((item) => !item.checked));
+  }, []);
+  return <ShoppingList plan={plan} lines={shown} pantryUnavailable={false} />;
+}
+
+const button = () => screen.queryByRole("button", { name: "Lägg i lagret" });
+
+beforeEach(() => {
+  setChecked.mockReset().mockImplementation(async (change) => {
+    server.save(change);
+    return ok(change);
+  });
+  putCheckedInPantry.mockReset().mockImplementation(async () => {
+    server.put();
+    return ok({ added: 1, removed: 0, skipped: 0 });
+  });
+  refresh.mockReset();
+});
+
+describe("Lägg i lagret", () => {
+  it("shows the button only while a line is checked off, from the tap on", async () => {
+    const user = userEvent.setup();
+    render(<ServerList initial={lines} />);
+    expect(button()).not.toBeInTheDocument();
+    await user.click(screen.getByRole("checkbox", { name: "Grädde, 3 dl" }));
+    expect(button()).toBeInTheDocument();
+    await user.click(screen.getByRole("checkbox", { name: "Grädde, 3 dl" }));
+    expect(button()).not.toBeInTheDocument();
+  });
+
+  it("shows the button from the tap on, off until the check is saved", async () => {
+    const user = userEvent.setup();
+    setChecked.mockImplementation(() => new Promise(() => {}));
+    render(<ServerList initial={lines} />);
+    await user.click(screen.getByRole("checkbox", { name: "Grädde, 3 dl" }));
+    expect(screen.getByRole("checkbox", { name: "Grädde, 3 dl" })).toBeChecked();
+    expect(button()).toBeInTheDocument();
+    expect(button()).toBeDisabled();
+    await user.click(button()!);
+    expect(putCheckedInPantry).not.toHaveBeenCalled();
+  });
+
+  it("does not show the button for a checked text line, which cannot go to the pantry", () => {
+    render(<ShoppingList plan={plan} lines={[{ ...textLine, checked: true }]} pantryUnavailable={false} />);
+    expect(button()).not.toBeInTheDocument();
+  });
+
+  it("shows the button for checks an interrupted run left behind, without a checked line", async () => {
+    const user = userEvent.setup();
+    render(<ShoppingList plan={plan} lines={lines} pantryUnavailable={false} pendingClear={1} />);
+    await user.click(button()!);
+    expect(putCheckedInPantry).toHaveBeenCalledWith({ planId: plan.id });
+  });
+
+  it("says what could not go to the pantry beside the confirmation", async () => {
+    const user = userEvent.setup();
+    putCheckedInPantry.mockResolvedValue(ok({ added: 1, removed: 0, skipped: 1 }));
+    render(<ShoppingList plan={plan} lines={[{ ...lines[0]!, checked: true }]} pantryUnavailable={false} />);
+    await user.click(button()!);
+    expect(await screen.findByTestId("toast")).toHaveTextContent("Lagt 1 vara i lagret.");
+    expect(screen.getByRole("alert")).toHaveTextContent("Det gick inte att lägga allt i lagret.");
+  });
+
+  it("does not show the button when the checks could not be read", () => {
+    render(
+      <ShoppingList plan={plan} lines={[{ ...lines[0]!, checked: true }]} pantryUnavailable={false} checksUnavailable />,
+    );
+    expect(button()).not.toBeInTheDocument();
+  });
+
+  it("puts the checked lines in the pantry for the plan, and confirms", async () => {
+    const user = userEvent.setup();
+    render(<ServerList initial={lines} />);
+    await user.click(screen.getByRole("checkbox", { name: "Grädde, 3 dl" }));
+    await user.click(button()!);
+    expect(putCheckedInPantry).toHaveBeenCalledWith({ planId: plan.id });
+    expect(await screen.findByTestId("toast")).toHaveTextContent("Lagt 1 vara i lagret.");
+    expect(screen.queryByText("Grädde")).not.toBeInTheDocument();
+    expect(button()).not.toBeInTheDocument();
+    // The confirmation says it: the lines going is not announced as a recount.
+    expect(screen.getByTestId("list-announcement")).toHaveTextContent("");
+  });
+
+  it.each([
+    [{ added: 8, removed: 1, skipped: 0 }, "Lagt 8 varor i lagret."],
+    [{ added: 0, removed: 1, skipped: 0 }, "Tog bort 1 vara från listan."],
+    [{ added: 0, removed: 2, skipped: 0 }, "Tog bort 2 varor från listan."],
+  ])("confirms %j with %s", async (answer, text) => {
+    const user = userEvent.setup();
+    putCheckedInPantry.mockResolvedValue(ok(answer));
+    render(<ShoppingList plan={plan} lines={[{ ...lines[0]!, checked: true }]} pantryUnavailable={false} />);
+    await user.click(button()!);
+    expect(await screen.findByTestId("toast")).toHaveTextContent(text);
+  });
+
+  it("is off while the flow runs, so a second tap does nothing", async () => {
+    const user = userEvent.setup();
+    let answer: (result: Result<PutInPantryResult>) => void = () => {};
+    putCheckedInPantry.mockImplementation(() => new Promise((resolve) => (answer = resolve)));
+    render(<ShoppingList plan={plan} lines={[{ ...lines[0]!, checked: true }]} pantryUnavailable={false} />);
+    await user.click(button()!);
+    expect(button()).toBeDisabled();
+    await user.click(button()!);
+    expect(putCheckedInPantry).toHaveBeenCalledTimes(1);
+    await act(async () => answer(ok({ added: 1, removed: 0, skipped: 0 })));
+    expect(button()).toBeEnabled();
+  });
+
+  it.each([
+    [fail("pantry_add_failed"), "Det gick inte att lägga varorna i lagret. Försök igen.", false],
+    [fail("shopping_put_in_pantry_failed"), "Det gick inte att lägga allt i lagret. Försök igen.", false],
+    [fail("shopping_plan_changed"), "Matsedeln har bytts. Listan är uppdaterad.", true],
+    [fail("shopping_put_in_pantry_plan_changed"), "Varorna är lagda i lagret, men matsedeln har bytts.", true],
+  ])("shows a blue notice for %j", async (result, text, reads) => {
+    const user = userEvent.setup();
+    putCheckedInPantry.mockResolvedValue(result);
+    render(<ShoppingList plan={plan} lines={[{ ...lines[0]!, checked: true }]} pantryUnavailable={false} />);
+    await user.click(button()!);
+    expect(await screen.findByRole("alert")).toHaveTextContent(text);
+    expect(refresh).toHaveBeenCalledTimes(reads ? 1 : 0);
+    expect(button()).toBeEnabled();
+  });
+
+  it("reads the list again after a failure without an answer, and takes the notice away after a success", async () => {
+    const user = userEvent.setup();
+    putCheckedInPantry.mockRejectedValueOnce(new TypeError("Failed to fetch"));
+    render(<ShoppingList plan={plan} lines={[{ ...lines[0]!, checked: true }]} pantryUnavailable={false} />);
+    await user.click(button()!);
+    expect(await screen.findByRole("alert")).toHaveTextContent("Det gick inte att nå servern. Försök igen.");
+    expect(refresh).toHaveBeenCalled();
+    putCheckedInPantry.mockResolvedValue(ok({ added: 1, removed: 0, skipped: 0 }));
+    await user.click(button()!);
+    await waitFor(() => expect(screen.queryByRole("alert")).not.toBeInTheDocument());
+  });
+
+  it("reads the list again, without a notice, when the session has ended", async () => {
+    const user = userEvent.setup();
+    putCheckedInPantry.mockResolvedValue(fail("unauthorized"));
+    render(<ShoppingList plan={plan} lines={[{ ...lines[0]!, checked: true }]} pantryUnavailable={false} />);
+    await user.click(button()!);
+    await waitFor(() => expect(refresh).toHaveBeenCalled());
+    expect(screen.queryByRole("alert")).not.toBeInTheDocument();
+  });
+});

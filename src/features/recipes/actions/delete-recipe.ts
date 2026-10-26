@@ -2,6 +2,7 @@
 
 import { z } from "zod";
 import { requireUser } from "@/features/auth/server";
+import { detachRecipe, MealPlanDataError } from "@/features/mealplan/server";
 import { fail, ok, type Result } from "@/lib/errors";
 import { revalidateFor } from "@/lib/revalidate";
 import { createClient } from "@/lib/supabase/server";
@@ -14,9 +15,10 @@ const recipeIdSchema = z.uuid();
  * "Ta bort recept" (FR-10, Story 1.11), after Pontus has confirmed it: deletes
  * the recipe with its steps and lines, for good. The catalog stays. Another
  * user's recipe, or one already gone, changes nothing and counts as done.
- * Epic 3 adds
- * mealplan.detachRecipe before the delete. Fails with `unauthorized`,
- * `validation` or `recipe_delete_failed`.
+ * First mealplan.detachRecipe takes the recipe off the current meal plan
+ * (AD-20); earlier plans keep the dish, without the recipe. When that fails,
+ * the recipe is not deleted. Fails with `unauthorized`, `validation` or
+ * `recipe_delete_failed`.
  */
 export async function deleteRecipe(id: string): Promise<Result<{ id: string }>> {
   const user = await requireUser();
@@ -27,11 +29,12 @@ export async function deleteRecipe(id: string): Promise<Result<{ id: string }>> 
     // No row for this user is success too: the recipe is gone either way, so a
     // retry after a lost answer ends where Pontus wanted, and another user's
     // recipe is never touched (the delete filters on the user).
+    await detachRecipe(id);
     await deleteRecipeIn(await createClient(), user.data.id, id);
     revalidateFor("recipe");
     return ok({ id });
   } catch (error) {
-    if (!(error instanceof RecipeDataError)) throw error;
+    if (!(error instanceof RecipeDataError || error instanceof MealPlanDataError)) throw error;
     console.error("recipe_delete_failed", { reason: error.detail });
     return fail("recipe_delete_failed");
   }

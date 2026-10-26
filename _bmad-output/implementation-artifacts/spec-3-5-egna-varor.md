@@ -2,9 +2,10 @@
 title: 'Story 3.5: Egna varor'
 type: 'feature'
 created: '2026-10-26'
-status: 'draft'
+status: 'done'
 route: 'dispatch'
-review_loop_iteration: 0
+review_loop_iteration: 1
+baseline_commit: '66a365c3c0bd54bf8e6036dab2d481185e689231'
 context:
   - '{project-root}/_bmad-output/implementation-artifacts/epic-3-context.md'
   - '{project-root}/_bmad-output/planning-artifacts/ux-designs/ux-Matkoll-2026-10-25/EXPERIENCE.md'
@@ -57,25 +58,50 @@ context:
 ## Tasks & Acceptance
 
 **Execution:**
-- [ ] `supabase/migrations/<tid>_shopping_custom_item.sql` och `pnpm db:types` -- tabellen enligt Boundaries, index på `(user_id, meal_plan_id)` -- AD-4, AD-6, AD-20
-- [ ] `tests/design/` -- `unit`-listan i migrationen är exakt `UNITS` -- drift
-- [ ] `src/features/shopping/domain/custom-item.ts` (+ test) -- `customItemFormSchema` (text trimmad och inte tom, valfri `ingredientId`, mängd via `parseQuantity` > 0 eller tom, enhet i `UNITS`; mängd och enhet anges båda eller ingen, annars "Välj en enhet." vid fältet) -- AD-12
-- [ ] `src/features/shopping/domain/compute-list.ts` (+ test) -- `overlay.customItems` ger poster med `c:<id>`, avdelning från katalogen eller Övrigt, aldrig sammanslagna; bock via `c:<id>` -- AD-8
-- [ ] `src/features/shopping/data/`, `actions/add-custom-item.ts`, `remove-custom-item.ts`, `restore-custom-item.ts` (+ tester) -- `requireUser`, Zod, aktuell matsedel via `mealplan` (`shopping_plan_changed` som i 3.4), `commitIngredients` vid koppling, `revalidateFor('shopping_custom_item')` -- AD-2, AD-6, AD-20
-- [ ] `src/lib/revalidate.ts` -- `shopping_custom_item` → `/lista` -- AD-18
-- [ ] `src/lib/errors.ts` -- `shopping_save_failed` ("Det gick inte att spara varan. Försök igen."), `shopping_remove_failed`, `shopping_restore_failed` -- AD-13
-- [ ] `src/features/shopping/ui/` -- knappen "Lägg till egen vara" under listan, arket med textfält (minst 16 px) och förslag, valfri mängd och enhet, `isDirty` och "Släng ändringarna?"; svep vänster med "Ta bort" och Ångra på egna varor -- FR17, UX-DR13
-- [ ] `tests/integration/shopping.test.ts` (utökad) -- `expectRlsIsolation('shopping_custom_item', …)`; FK nekar annans ingrediens; cascade med matsedeln; `restore` med samma id -- AD-4
-- [ ] `tests/e2e/shopping.spec.ts` (utökad) -- lägg till "diskmedel" under Övrigt, koppla till en katalogingrediens och se avdelningen, bocka av, ta bort och ångra, står kvar efter ändrade portioner -- matrisen
+- [x] `supabase/migrations/<tid>_shopping_custom_item.sql` och `pnpm db:types` -- tabellen enligt Boundaries, index på `(user_id, meal_plan_id)` -- AD-4, AD-6, AD-20
+- [x] `tests/design/` -- `unit`-listan i migrationen är exakt `UNITS` -- drift
+- [x] `src/features/shopping/domain/custom-item.ts` (+ test) -- `customItemFormSchema` (text trimmad och inte tom, valfri `ingredientId`, mängd via `parseQuantity` > 0 eller tom, enhet i `UNITS`; mängd och enhet anges båda eller ingen, annars "Välj en enhet." vid fältet) -- AD-12
+- [x] `src/features/shopping/domain/compute-list.ts` (+ test) -- `overlay.customItems` ger poster med `c:<id>`, avdelning från katalogen eller Övrigt, aldrig sammanslagna; bock via `c:<id>` -- AD-8
+- [x] `src/features/shopping/data/`, `actions/add-custom-item.ts`, `remove-custom-item.ts`, `restore-custom-item.ts` (+ tester) -- `requireUser`, Zod, aktuell matsedel via `mealplan` (`shopping_plan_changed` som i 3.4), `commitIngredients` vid koppling, `revalidateFor('shopping_custom_item')` -- AD-2, AD-6, AD-20
+- [x] `src/lib/revalidate.ts` -- `shopping_custom_item` → `/lista` -- AD-18
+- [x] `src/lib/errors.ts` -- `shopping_save_failed` ("Det gick inte att spara varan. Försök igen."), `shopping_remove_failed`, `shopping_restore_failed` -- AD-13
+- [x] `src/features/shopping/ui/` -- knappen "Lägg till egen vara" under listan, arket med textfält (minst 16 px) och förslag, valfri mängd och enhet, `isDirty` och "Släng ändringarna?"; svep vänster med "Ta bort" och Ångra på egna varor -- FR17, UX-DR13
+- [x] `tests/integration/shopping.test.ts` (utökad) -- `expectRlsIsolation('shopping_custom_item', …)`; FK nekar annans ingrediens; cascade med matsedeln; `restore` med samma id -- AD-4
+- [x] `tests/e2e/shopping.spec.ts` (utökad) -- lägg till "diskmedel" under Övrigt, koppla till en katalogingrediens och se avdelningen, bocka av, ta bort och ångra, står kvar efter ändrade portioner -- matrisen
 
 **Acceptance Criteria:**
 - Given `pnpm lint && pnpm typecheck && pnpm test && pnpm test:integration && AI_PROVIDER=mock pnpm build && CI=1 pnpm test:e2e`, when de körs, then lyckas alla.
 
 ## Implementation Notes
 
+- Enligt 3.2 raderar `set_current_meal_plan` en tom aktuell matsedel vid byte. Räkna en matsedel som tom bara om den saknar både rätter och egna varor. Uppdatera funktionen med `create or replace` i en ny migration, och lägg till ett integrationstest för det.
+
 ## Spec Change Log
 
 ## Review Triage Log
+
+Iteration 1. Granskare: Blind Hunter, Edge Case Hunter och Verification Gap.
+- **Patch:**
+  - Kopplingen sparar ingen synonym i katalogen. Katalogen skrivs aldrig från listan.
+  - Ett nytt försök jämför innehållet, och en ändring efter ett fel ger ett nytt id.
+  - DB-checken för etiketten stämmer med domänen.
+  - Ett designtest skyddar regeln i `set_current_meal_plan` att en matsedel som bara har egna varor räknas som tom.
+  - Ångra:
+    - Batchen nollställs.
+    - Det framgår vilka varor som inte gick att ångra.
+  - Arket nollställer sökningen och visar fel i förslagen.
+  - Mängdfältet har en längdgräns.
+  - Sammanfattningen visas utan rätter.
+  - Fokus har en reserv.
+  - E2E-tillståndet är isolerat.
+  - Nya tester för fel- och kantfall.
+- **Reject:**
+  - Att stänga av "Använd igen" för en matsedel med bara egna varor. 3.2 stänger redan av "Använd igen" och visar varför.
+  - Att återkalla grants, eftersom funktionerna är `security invoker`.
+  - `on delete set null`, eftersom det inte går att radera i katalogen i v1.
+  - En token för Ångra.
+  - Att städa bort `c:`-bockar, eftersom de raderas med cascade.
+  - Att skicka sök-actionen som prop, eftersom den redan är en egen "use server"-modul.
 
 ## Verification
 

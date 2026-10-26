@@ -1,0 +1,177 @@
+name: Backup
+
+# Encrypted dump of the cloud database twice a week (AD-23); it also keeps the
+# free Supabase project active. GitHub runs schedules only from the default
+# branch, so this starts once the file is on main. Not a required check: it
+# never runs on pull requests. docs/drift.md describes the secrets, the
+# BACKUP_ENABLED variable and the restore.
+on:
+  schedule:
+    # Mondays and Thursdays 03:17 UTC, off the hour when scheduled runs pile up.
+    - cron: "17 3 * * 1,4"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: backup
+  cancel-in-progress: false
+
+env:
+  # Same version as ci.yml and the `supabase` dev dependency.
+  SUPABASE_CLI_VERSION: 2.122.0
+
+jobs:
+  backup:
+    # Only main has the migrations that match the cloud database.
+    if: github.ref == 'refs/heads/main'
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      # Before the cloud is set up the secrets are missing: the run is skipped with
+      # a notice and stays green. Once the repository variable BACKUP_ENABLED is
+      # "true", a missing secret fails the run instead. The secrets are read only
+      # here and in the dump step, through env, and never printed; the database
+      # password is masked in the log before anything else runs.
+      - name: Check the secrets
+        id: secrets
+        env:
+          SUPABASE_DB_URL: ${{ secrets.SUPABASE_DB_URL }}
+          BACKUP_PASSPHRASE: ${{ secrets.BACKUP_PASSPHRASE }}
+          BACKUP_ENABLED: ${{ vars.BACKUP_ENABLED }}
+        run: |
+          missing=()
+          [ -n "$SUPABASE_DB_URL" ] || missing+=(SUPABASE_DB_URL)
+          [ -n "$BACKUP_PASSPHRASE" ] || missing+=(BACKUP_PASSPHRASE)
+          if [ "${#missing[@]}" -gt 0 ]; then
+            if [ "${#missing[@]}" -eq 1 ]; then
+              what="hemligheten ${missing[0]} saknas"
+            else
+              what="hemligheterna ${missing[0]} och ${missing[1]} saknas"
+            fi
+            if [ "$BACKUP_ENABLED" = "true" ]; then
+              message="Säkerhetskopian är påslagen med BACKUP_ENABLED, men $what. Se docs/drift.md."
+              echo "::error title=Säkerhetskopia::$message"
+              echo "$message" >> "$GITHUB_STEP_SUMMARY"
+              exit 1
+            fi
+            message="Säkerhetskopian hoppades över: $what. Se docs/drift.md."
+            echo "::notice title=Säkerhetskopia::$message"
+            echo "$message" >> "$GITHUB_STEP_SUMMARY"
+            echo "ready=false" >> "$GITHUB_OUTPUT"
+            exit 0
+          fi
+
+          # The password, as written in the URL and percent-decoded, is masked.
+          decode() { local value="${1//\\/\\\\}"; printf '%b' "${value//%/\\x}"; }
+          rest="${SUPABASE_DB_URL#*://}"
+          userinfo="${rest%@*}"
+          problems=()
+          case "$SUPABASE_DB_URL" in
+            postgres://*@* | postgresql://*@*) ;;
+            *) problems+=("SUPABASE_DB_URL har inte formen postgresql://användare:lösenord@värd:port/databas") ;;
+          esac
+          if [[ "$userinfo" == *:?* ]]; then
+            password="${userinfo#*:}"
+            echo "::add-mask::$password"
+            decoded="$(decode "$password")"
+            [ "$decoded" = "$password" ] || echo "::add-mask::$decoded"
+          else
+            problems+=("SUPABASE_DB_URL saknar lösenord")
+          fi
+          [ "${#BACKUP_PASSPHRASE}" -ge 32 ] || problems+=("BACKUP_PASSPHRASE är kortare än 32 tecken")
+          case "$BACKUP_PASSPHRASE" in *$'\n'* | *$'\r'*) problems+=("BACKUP_PASSPHRASE innehåller en radbrytning") ;; esac
+          if [ "${#problems[@]}" -gt 0 ]; then
+            for problem in "${problems[@]}"; do
+              echo "::error title=Säkerhetskopia::$problem. Se docs/drift.md."
+              echo "$problem. Se docs/drift.md." >> "$GITHUB_STEP_SUMMARY"
+            done
+            exit 1
+          fi
+          echo "ready=true" >> "$GITHUB_OUTPUT"
+
+      - uses: actions/checkout@v7
+        if: steps.secrets.outputs.ready == 'true'
+        with:
+          persist-credentials: false
+
+      - uses: supabase/setup-cli@v3
+        if: steps.secrets.outputs.ready == 'true'
+        with:
+          version: ${{ env.SUPABASE_CLI_VERSION }}
+
+      # Schema and data (the data includes auth.users, which every row references
+      # through user_id), a manifest with the applied migrations, and row counts.
+      # The URL on the command line has no password; the password is in PGPASSWORD,
+      # which the CLI and psql read. The plain files stay in a private folder that is
+      # removed when the step ends; only the encrypted files are uploaded, each one
+      # decrypted again and compared first. The passphrase goes to gpg on stdin from
+      # a shell builtin, never as an argument.
+      - name: Dump and encrypt
+        id: dump
+        if: steps.secrets.outputs.ready == 'true'
+        env:
+          SUPABASE_DB_URL: ${{ secrets.SUPABASE_DB_URL }}
+          BACKUP_PASSPHRASE: ${{ secrets.BACKUP_PASSPHRASE }}
+        run: |
+          set -euo pipefail
+          umask 077
+          plain="$RUNNER_TEMP/backup-plain"
+          encrypted="$RUNNER_TEMP/backup"
+          mkdir -p "$plain" "$encrypted"
+          trap 'rm -rf "$plain"' EXIT
+          echo "date=$(date -u +%F)" >> "$GITHUB_OUTPUT"
+
+          decode() { local value="${1//\\/\\\\}"; printf '%b' "${value//%/\\x}"; }
+          rest="${SUPABASE_DB_URL#*://}"
+          userinfo="${rest%@*}"
+          db_url="postgresql://${userinfo%%:*}@${rest##*@}"
+          PGPASSWORD="$(decode "${userinfo#*:}")"
+          export PGPASSWORD
+          sql() { psql "$db_url" -X -q -A -t -v ON_ERROR_STOP=1 "$@"; }
+
+          {
+            echo "commit $GITHUB_SHA"
+            echo "cli $(supabase --version)"
+            echo "migrations"
+            sql -c "select version from supabase_migrations.schema_migrations order by version"
+          } > "$plain/manifest.txt"
+          sql -F ' ' -f scripts/backup-counts.sql > "$plain/counts.txt"
+
+          supabase db dump --db-url "$db_url" --file "$plain/schema.sql"
+          # The two storage tables cannot be written back by the postgres role (as in
+          # Supabase's own restore guide); Matkoll stores no files. Sessions, tokens,
+          # sign-in flows and the auth audit log are left out: they are not needed to
+          # restore, and a new project does not accept them anyway.
+          supabase db dump --db-url "$db_url" --data-only --use-copy \
+            --exclude storage.buckets_vectors --exclude storage.vector_indexes \
+            --exclude auth.sessions --exclude auth.refresh_tokens --exclude auth.mfa_amr_claims \
+            --exclude auth.one_time_tokens --exclude auth.flow_state --exclude auth.audit_log_entries \
+            --file "$plain/data.sql"
+
+          files=(schema.sql data.sql manifest.txt counts.txt)
+          for name in "${files[@]}"; do
+            [ -s "$plain/$name" ] || { echo "::error title=Säkerhetskopia::$name är tom."; exit 1; }
+          done
+          grep -q '^COPY "auth"."users" ' "$plain/data.sql" \
+            || { echo "::error title=Säkerhetskopia::data.sql saknar auth.users."; exit 1; }
+
+          for name in "${files[@]}"; do
+            printf '%s' "$BACKUP_PASSPHRASE" | gpg --batch --yes --quiet --no-symkey-cache --pinentry-mode loopback \
+              --passphrase-fd 0 --symmetric --cipher-algo AES256 \
+              --output "$encrypted/$name.gpg" "$plain/$name"
+            printf '%s' "$BACKUP_PASSPHRASE" | gpg --batch --quiet --no-symkey-cache --pinentry-mode loopback \
+              --passphrase-fd 0 --decrypt "$encrypted/$name.gpg" | cmp --silent - "$plain/$name" \
+              || { echo "::error title=Säkerhetskopia::$name.gpg ger inte tillbaka samma innehåll."; exit 1; }
+          done
+
+      - uses: actions/upload-artifact@v7
+        if: steps.secrets.outputs.ready == 'true'
+        with:
+          name: matkoll-backup-${{ steps.dump.outputs.date }}
+          path: ${{ runner.temp }}/backup/*.gpg
+          if-no-files-found: error
+          retention-days: 90
+          # Encrypted files do not compress.
+          compression-level: 0

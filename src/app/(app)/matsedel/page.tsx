@@ -1,25 +1,37 @@
 import type { Metadata } from "next";
 import { Suspense } from "react";
 import { PageHeader } from "@/components/app-shell/page-header";
-import { EmptyState } from "@/components/empty-state";
 import { Skeleton } from "@/components/skeleton";
-import { requireUserOrRedirect } from "@/features/auth/server";
+import { PreviousPlansLink } from "@/features/mealplan/ui/previous-plans-link";
+import { MealPlanContent } from "./meal-plan-content";
 
 export const metadata: Metadata = { title: "Matsedel" };
 
-// The meal plan arrives in Epic 3; "Lägg till rätt" comes with it.
+// Matsedel (FR-13): the current meal plan's dishes with servings and status,
+// and "+" in the header (or "Lägg till rätt" in the empty plan), which opens
+// Lägg till rätt with the favourites first. Everything is read inside
+// <Suspense> (AD-18), with skeleton rows while it loads. "Tidigare" in the
+// header leads to the earlier plans (Story 3.2).
 export default function MealPlanPage() {
   return (
-    <>
-      <PageHeader title="Matsedel" />
-      <Suspense fallback={<Skeleton />}>
-        <MealPlanContent />
-      </Suspense>
-    </>
+    <Suspense
+      fallback={
+        <>
+          <PageHeader
+            title="Matsedel"
+            action={
+              <>
+                <PreviousPlansLink />
+                {/* The size of "+", so the header does not move when it arrives. */}
+                <span aria-hidden="true" inert className="size-tap" />
+              </>
+            }
+          />
+          <Skeleton rows={3} />
+        </>
+      }
+    >
+      <MealPlanContent />
+    </Suspense>
   );
-}
-
-async function MealPlanContent() {
-  await requireUserOrRedirect("/matsedel");
-  return <EmptyState>Ingen rätt på matsedeln än.</EmptyState>;
 }

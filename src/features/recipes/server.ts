@@ -5,12 +5,24 @@ import { getIngredientNames } from "@/features/catalog/server";
 import { recipeStatus, type RecipeStatus } from "@/features/pantry";
 import { createClient } from "@/lib/supabase/server";
 import { pantrySnapshotOrNull } from "./data/pantry-snapshot";
-import { getRecipe as getRecipeIn, listRecipes as listRecipesIn, type ListOptions } from "./data/queries";
-import { withStatus, type RecipeListItem } from "./domain/recipe-list";
+import {
+  getRecipe as getRecipeIn,
+  getRecipesByIdsIn,
+  listRecipes as listRecipesIn,
+  type ListOptions,
+} from "./data/queries";
+import { withStatus, type RecipeListItem, type RecipeListRow } from "./domain/recipe-list";
 import type { SavedRecipe } from "./domain/saved-recipe";
 
 // Server-only entry (AD-1): read functions and server functions for AI flows.
 export { importRecipe } from "./actions/import-recipe";
+
+/**
+ * Server Action for searching the library while typing. A page passes it to a
+ * client component of another module (Lägg till rätt in Matsedel), which
+ * cannot import this module's actions (AD-1).
+ */
+export { searchRecipes } from "./actions/search-recipes";
 
 /** What getRecipe throws when Supabase fails; never user data. */
 export { RecipeDataError } from "./data/client";
@@ -53,4 +65,15 @@ export async function getRecipeWithStatus(
   const [recipe, snapshot] = await Promise.all([getRecipe(id), pantrySnapshotOrNull()]);
   if (!recipe) return null;
   return { recipe, status: snapshot ? recipeStatus(recipe, recipe.servings, snapshot) : null };
+}
+
+/**
+ * The signed-in user's recipes among `ids`, each with its title, image, time,
+ * own servings and the lines its status is counted from (`ingredientId`,
+ * `amount`, `unit`, `isVague`), for the meal plan and the shopping list
+ * (AD-1). Ids that are not the user's recipes are left out; the order is not
+ * kept. Throws RecipeDataError.
+ */
+export async function getRecipesByIds(ids: readonly string[]): Promise<RecipeListRow[]> {
+  return getRecipesByIdsIn(await createClient(), ids);
 }

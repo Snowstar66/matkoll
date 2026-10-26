@@ -8,19 +8,22 @@ export type CheckCircleProps = {
   onCheckedChange: (checked: boolean) => void;
   /** What is ticked off, e.g. "Paprika, röd, 1 st". The state is read out as checked / not checked. */
   label: string;
+  /** Cannot be ticked now (e.g. the saved state could not be read); still named and shown. */
+  disabled?: boolean;
   className?: string;
 };
 
 /** The round tick of a list item: 26 px visible circle in a 44 px tap area. */
-export function CheckCircle({ checked, onCheckedChange, label, className }: CheckCircleProps) {
+export function CheckCircle({ checked, onCheckedChange, label, disabled, className }: CheckCircleProps) {
   return (
     <button
       type="button"
       role="checkbox"
       aria-checked={checked}
       aria-label={label}
+      disabled={disabled}
       onClick={() => onCheckedChange(!checked)}
-      className={cx("flex size-tap shrink-0 items-center justify-center rounded-full", className)}
+      className={cx("flex size-tap shrink-0 items-center justify-center rounded-full disabled:opacity-50", className)}
     >
       <span
         className={cx(

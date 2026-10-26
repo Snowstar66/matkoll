@@ -3,7 +3,7 @@
 import Link from "next/link";
 import { HeartToggle } from "@/components/heart-toggle";
 import { recipeMetaText, type RecipeListItem } from "../domain/recipe-list";
-import { RecipeImage } from "./recipe-image";
+import { RecipeImage } from "@/components/recipe-image";
 import { RecipeStatusBadge } from "./recipe-status-badge";
 
 export type RecipeRowProps = {

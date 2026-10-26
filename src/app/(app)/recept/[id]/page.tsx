@@ -3,6 +3,7 @@ import { notFound } from "next/navigation";
 import { Suspense } from "react";
 import { requireUserOrRedirect } from "@/features/auth/server";
 import { searchIngredients } from "@/features/catalog/server";
+import { addToCurrentPlan } from "@/features/mealplan/server";
 import { getRecipe, getRecipeWithStatus } from "@/features/recipes/server";
 import { RecipeMenu } from "@/features/recipes/ui/recipe-menu";
 import { RecipeView } from "@/features/recipes/ui/recipe-view";
@@ -21,7 +22,8 @@ export async function generateMetadata({ params }: PageProps<"/recept/[id]">): P
 // Receptvy, with the recipe's status against the pantry. The id and the
 // session are read inside <Suspense> (AD-18). An id that is not a uuid, or
 // not one of the user's recipes, is "Sidan finns inte." The menu (⋯) opens
-// Ändra recept, which searches the catalog.
+// Ändra recept, which searches the catalog. "Lägg på matsedeln" adds the
+// recipe to the current meal plan (Story 3.1).
 export default function RecipePage({ params }: PageProps<"/recept/[id]">) {
   return (
     <Suspense fallback={null}>
@@ -41,6 +43,7 @@ async function RecipeContent({ params }: Pick<PageProps<"/recept/[id]">, "params
       recipe={recipe}
       status={status}
       menu={<RecipeMenu recipe={recipe} searchIngredients={searchIngredients} />}
+      addToPlan={addToCurrentPlan}
     />
   );
 }

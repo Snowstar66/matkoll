@@ -39,6 +39,60 @@ isOneToOne: false
       referencedColumns: ["id","user_id"]
     }
                   ]
+                },"meal_plan": {
+                  Row: {
+                    "created_at": string,"id": string,"is_current": boolean,"name": string,"user_id": string
+                  }
+                  ComputedFields: never
+                  Insert: {
+                    "created_at"?: string,"id"?: string,"is_current"?: boolean,"name": string,"user_id"?: string
+                  }
+                  Update: {
+                    "created_at"?: string,"id"?: string,"is_current"?: boolean,"name"?: string,"user_id"?: string
+                  }
+                  Relationships: [
+                    
+                  ]
+                },"meal_plan_recipe": {
+                  Row: {
+                    "created_at": string,"id": string,"meal_plan_id": string,"position": number,"recipe_id": string | null,"recipe_title": string,"servings": number,"user_id": string
+                  }
+                  ComputedFields: never
+                  Insert: {
+                    "created_at"?: string,"id"?: string,"meal_plan_id": string,"position": number,"recipe_id"?: string | null,"recipe_title": string,"servings": number,"user_id"?: string
+                  }
+                  Update: {
+                    "created_at"?: string,"id"?: string,"meal_plan_id"?: string,"position"?: number,"recipe_id"?: string | null,"recipe_title"?: string,"servings"?: number,"user_id"?: string
+                  }
+                  Relationships: [
+                    {
+      foreignKeyName: "meal_plan_recipe_meal_plan_fkey"
+      columns: ["meal_plan_id","user_id"]
+isOneToOne: false
+      referencedRelation: "meal_plan"
+      referencedColumns: ["id","user_id"]
+    },{
+      foreignKeyName: "meal_plan_recipe_recipe_fkey"
+      columns: ["recipe_id","user_id"]
+isOneToOne: false
+      referencedRelation: "recipe"
+      referencedColumns: ["id","user_id"]
+    }
+                  ]
+                },"pantry_addition": {
+                  Row: {
+                    "created_at": string,"id": string,"key": string,"user_id": string
+                  }
+                  ComputedFields: never
+                  Insert: {
+                    "created_at"?: string,"id"?: string,"key": string,"user_id"?: string
+                  }
+                  Update: {
+                    "created_at"?: string,"id"?: string,"key"?: string,"user_id"?: string
+                  }
+                  Relationships: [
+                    
+                  ]
                 },"pantry_item": {
                   Row: {
                     "amount": number | null,"created_at": string,"id": string,"ingredient_id": string,"location": string,"unit": string | null,"user_id": string
@@ -139,23 +193,158 @@ isOneToOne: false
       referencedColumns: ["id","user_id"]
     }
                   ]
+                },"shopping_check": {
+                  Row: {
+                    "created_at": string,"id": string,"line_key": string,"meal_plan_id": string,"user_id": string
+                  }
+                  ComputedFields: never
+                  Insert: {
+                    "created_at"?: string,"id"?: string,"line_key": string,"meal_plan_id": string,"user_id"?: string
+                  }
+                  Update: {
+                    "created_at"?: string,"id"?: string,"line_key"?: string,"meal_plan_id"?: string,"user_id"?: string
+                  }
+                  Relationships: [
+                    {
+      foreignKeyName: "shopping_check_meal_plan_fkey"
+      columns: ["meal_plan_id","user_id"]
+isOneToOne: false
+      referencedRelation: "meal_plan"
+      referencedColumns: ["id","user_id"]
+    }
+                  ]
+                },"shopping_custom_item": {
+                  Row: {
+                    "amount": number | null,"created_at": string,"id": string,"ingredient_id": string | null,"label": string,"meal_plan_id": string,"unit": string | null,"user_id": string
+                  }
+                  ComputedFields: never
+                  Insert: {
+                    "amount"?: number | null,"created_at"?: string,"id"?: string,"ingredient_id"?: string | null,"label": string,"meal_plan_id": string,"unit"?: string | null,"user_id"?: string
+                  }
+                  Update: {
+                    "amount"?: number | null,"created_at"?: string,"id"?: string,"ingredient_id"?: string | null,"label"?: string,"meal_plan_id"?: string,"unit"?: string | null,"user_id"?: string
+                  }
+                  Relationships: [
+                    {
+      foreignKeyName: "shopping_custom_item_ingredient_fkey"
+      columns: ["ingredient_id","user_id"]
+isOneToOne: false
+      referencedRelation: "ingredient"
+      referencedColumns: ["id","user_id"]
+    },{
+      foreignKeyName: "shopping_custom_item_meal_plan_fkey"
+      columns: ["meal_plan_id","user_id"]
+isOneToOne: false
+      referencedRelation: "meal_plan"
+      referencedColumns: ["id","user_id"]
+    }
+                  ]
+                },"shopping_line_override": {
+                  Row: {
+                    "amount": number | null,"base_amount": number | null,"created_at": string,"hidden": boolean,"id": string,"line_key": string,"meal_plan_id": string,"updated_at": string,"user_id": string
+                  }
+                  ComputedFields: never
+                  Insert: {
+                    "amount"?: number | null,"base_amount"?: number | null,"created_at"?: string,"hidden"?: boolean,"id"?: string,"line_key": string,"meal_plan_id": string,"updated_at"?: string,"user_id"?: string
+                  }
+                  Update: {
+                    "amount"?: number | null,"base_amount"?: number | null,"created_at"?: string,"hidden"?: boolean,"id"?: string,"line_key"?: string,"meal_plan_id"?: string,"updated_at"?: string,"user_id"?: string
+                  }
+                  Relationships: [
+                    {
+      foreignKeyName: "shopping_line_override_meal_plan_fkey"
+      columns: ["meal_plan_id","user_id"]
+isOneToOne: false
+      referencedRelation: "meal_plan"
+      referencedColumns: ["id","user_id"]
+    }
+                  ]
                 }
           }
           Views: {
             [_ in never]: never
           }
           Functions: {
-            "commit_ingredients":
+            "add_shopping_custom_item":
+{ Args: { "item": Json }; Returns: {
+              "amount": number | null,
+"created_at": string,
+"id": string,
+"ingredient_id": string | null,
+"label": string,
+"meal_plan_id": string,
+"unit": string | null,
+"user_id": string
+            }
+                          SetofOptions: {
+        from: "*"
+        to: "shopping_custom_item"
+        isOneToOne: true
+        isSetofReturn: false
+      } },
+"add_to_current_plan":
+{ Args: { "dish_id": string,"dish_recipe_id": string,"dish_recipe_title": string,"dish_servings": number,"plan_name": string }; Returns: {
+              "created_at": string,
+"id": string,
+"meal_plan_id": string,
+"position": number,
+"recipe_id": string | null,
+"recipe_title": string,
+"servings": number,
+"user_id": string
+            }
+                          SetofOptions: {
+        from: "*"
+        to: "meal_plan_recipe"
+        isOneToOne: true
+        isSetofReturn: false
+      } },
+"add_to_pantry":
+{ Args: { "items": Json }; Returns: number
+                           },
+"clear_put_in_pantry":
+{ Args: { "check_ids": (string)[],"custom_item_ids": (string)[],"override_keys": (string)[],"plan_id": string }; Returns: number
+                           },
+"commit_ingredients":
 { Args: { "new_ingredients": Json,"synonyms": Json }; Returns: {
               "id": string,"normalized_name": string
             }[]
                            },
+"delete_meal_plan":
+{ Args: { "plan_id": string }; Returns: boolean
+                           },
+"detach_recipe_from_current_plan":
+{ Args: { "detached_recipe_id": string }; Returns: number
+                           },
 "ensure_user_defaults":
+{ Args: Record<PropertyKey, never>; Returns: undefined
+                           },
+"hide_shopping_line":
+{ Args: { "line_key": string,"plan_id": string }; Returns: Json
+                           },
+"meal_plan_lock":
 { Args: Record<PropertyKey, never>; Returns: undefined
                            },
 "pantry_lock":
 { Args: Record<PropertyKey, never>; Returns: undefined
                            },
+"remove_shopping_custom_item":
+{ Args: { "item_id": string }; Returns: {
+              "amount": number | null,
+"created_at": string,
+"id": string,
+"ingredient_id": string | null,
+"label": string,
+"meal_plan_id": string,
+"unit": string | null,
+"user_id": string
+            }[]
+                          SetofOptions: {
+        from: "*"
+        to: "shopping_custom_item"
+        isOneToOne: false
+        isSetofReturn: true
+      } },
 "restore_pantry_item":
 { Args: { "item": Json }; Returns: {
               "amount": number | null,
@@ -172,9 +361,43 @@ isOneToOne: false
         isOneToOne: true
         isSetofReturn: false
       } },
+"restore_plan_recipe":
+{ Args: { "dish": Json }; Returns: {
+              "created_at": string,
+"id": string,
+"meal_plan_id": string,
+"position": number,
+"recipe_id": string | null,
+"recipe_title": string,
+"servings": number,
+"user_id": string
+            }
+                          SetofOptions: {
+        from: "*"
+        to: "meal_plan_recipe"
+        isOneToOne: true
+        isSetofReturn: false
+      } },
+"restore_shopping_line":
+{ Args: { "hidden_updated_at"?: string,"line_key": string,"plan_id": string,"previous": Json }; Returns: undefined
+                           },
 "save_recipe":
 { Args: { "lines": Json,"recipe": Json,"steps": Json }; Returns: string
                            },
+"set_current_meal_plan":
+{ Args: { "new_plan_id": string,"plan_name": string,"source_id"?: string }; Returns: {
+              "created_at": string,
+"id": string,
+"is_current": boolean,
+"name": string,
+"user_id": string
+            }
+                          SetofOptions: {
+        from: "*"
+        to: "meal_plan"
+        isOneToOne: true
+        isSetofReturn: false
+      } },
 "set_pantry_items":
 { Args: { "items": Json,"replace_id"?: string }; Returns: {
               "amount": number | null,
@@ -191,9 +414,35 @@ isOneToOne: false
         isOneToOne: false
         isSetofReturn: true
       } },
+"set_shopping_check":
+{ Args: { "checked": boolean,"line_key": string,"plan_id": string }; Returns: undefined
+                           },
+"set_shopping_line_amount":
+{ Args: { "amount": number,"base_amount"?: number,"line_key": string,"plan_id": string }; Returns: undefined
+                           },
+"show_shopping_line":
+{ Args: { "line_key": string,"plan_id": string }; Returns: undefined
+                           },
 "update_recipe":
 { Args: { "expected_updated_at": string,"id": string,"lines": Json,"recipe": Json,"steps": Json }; Returns: string
-                           }
+                           },
+"update_shopping_custom_item":
+{ Args: { "item": Json }; Returns: {
+              "amount": number | null,
+"created_at": string,
+"id": string,
+"ingredient_id": string | null,
+"label": string,
+"meal_plan_id": string,
+"unit": string | null,
+"user_id": string
+            }
+                          SetofOptions: {
+        from: "*"
+        to: "shopping_custom_item"
+        isOneToOne: true
+        isSetofReturn: false
+      } }
           }
           Enums: {
             [_ in never]: never

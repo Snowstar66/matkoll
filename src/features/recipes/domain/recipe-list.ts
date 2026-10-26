@@ -20,8 +20,15 @@ export type RecipeListItem = {
   missingCount: number | null;
 };
 
+/**
+ * A recipe line as the queries read it: what the status is counted from, and
+ * the written text, which the shopping list shows for a line without a
+ * catalog ingredient (decision 2026-10-26).
+ */
+export type RecipeRowLine = StatusLine & { originalText: string };
+
 /** A library row as the queries read it: without status, with the lines the status is counted from. */
-export type RecipeListRow = Omit<RecipeListItem, "missingCount"> & { lines: StatusLine[] };
+export type RecipeListRow = Omit<RecipeListItem, "missingCount"> & { lines: RecipeRowLine[] };
 
 /**
  * The rows with their status against the whole pantry, for the recipes' own

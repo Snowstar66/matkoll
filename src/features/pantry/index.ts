@@ -22,7 +22,16 @@ export {
   type PantryItemSet,
   type PantryRow,
 } from "./domain/pantry-item-form";
-export { aggregateNeeds, needKey, lineNeedKey, type Need, type NeedLine } from "./domain/aggregate-needs";
+export {
+  aggregateNeeds,
+  aggregateNeedsWithOrigins,
+  needKey,
+  lineNeedKey,
+  type Need,
+  type NeedLine,
+  type NeedWithOrigins,
+  type OriginLine,
+} from "./domain/aggregate-needs";
 export { coverage, isShort, atHomeText, type Coverage } from "./domain/coverage";
 export {
   recipeStatus,
@@ -32,3 +41,9 @@ export {
   type StatusLine,
   type StatusRecipe,
 } from "./domain/recipe-status";
+export {
+  addToPantryItemSchema,
+  addToPantryItemsSchema,
+  maxAdditionKeyChars,
+  type AddToPantryItem,
+} from "./domain/add-to-pantry";

@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { toSnapshot } from "@/features/pantry";
+import { toSnapshot, type StatusLine } from "@/features/pantry";
 import {
   favoriteChangeSchema,
   filterRecipes,
@@ -64,14 +64,14 @@ describe("schemas", () => {
 });
 
 describe("withStatus", () => {
-  const row = (id: string, servings: number, lines: RecipeListRow["lines"]): RecipeListRow => ({
+  const row = (id: string, servings: number, lines: StatusLine[]): RecipeListRow => ({
     id,
     title: id,
     imageUrl: null,
     totalMinutes: null,
     originalServings: servings,
     isFavorite: false,
-    lines,
+    lines: lines.map((line) => ({ ...line, originalText: line.id })),
   });
 
   it("gives each row N for its own servings, keeps the order and drops the lines", () => {

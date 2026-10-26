@@ -2,9 +2,10 @@
 title: 'Story 3.8: Förbered molndrift'
 type: 'chore'
 created: '2026-10-26'
-status: 'draft'
+status: 'done'
 route: 'dispatch'
-review_loop_iteration: 0
+review_loop_iteration: 1
+baseline_commit: '04f519bb868fc833b99ae58e90cbdc790492c285'
 context:
   - '{project-root}/_bmad-output/implementation-artifacts/epic-3-context.md'
   - '{project-root}/_bmad-output/planning-artifacts/architecture/architecture-Matkoll-2026-10-25/ARCHITECTURE-SPINE.md'
@@ -53,12 +54,12 @@ context:
 ## Tasks & Acceptance
 
 **Execution:**
-- [ ] `.github/workflows/backup.yml` -- flödet enligt Boundaries: kontrollsteg som sätter en output, `if` på övriga steg, `supabase db dump --db-url` för schema och `--data-only` för data, kryptering, uppladdning -- AD-23
-- [ ] `tests/lint/backup-workflow.test.ts` -- läser flödesfilen: schema och `workflow_dispatch` finns, actions pinnade på huvudversion, kontrollsteget finns, inga hemligheter i `run`-rader utanför `env`, bara `.gpg` laddas upp -- AD-23
-- [ ] `docs/drift.md` -- stegen i matrisen i ordning, med vad Pontus gör, var värdet hämtas och hur det kontrolleras; återställning av säkerhetskopian; länk till checklistan -- AD-3, AD-14, AD-23
-- [ ] `docs/oppna-fragor.md` -- checklistan länkar till `docs/drift.md` och nämner hemligheterna `SUPABASE_DB_URL` och `BACKUP_PASSPHRASE` -- spårbarhet
-- [ ] `tests/e2e/support.ts`, `global-setup.ts` -- `coreFlowEmail` ("e2e-karna@matkoll.test") i `e2eEmails`; ingen storage state, testet loggar in själv -- egen e2e-användare
-- [ ] `tests/e2e/core-flow.spec.ts` -- kärnflödet i matrisen med mock och riktig inloggning -- Epic 1–3
+- [x] `.github/workflows/backup.yml` -- flödet enligt Boundaries: kontrollsteg som sätter en output, `if` på övriga steg, `supabase db dump --db-url` för schema och `--data-only` för data, kryptering, uppladdning -- AD-23
+- [x] `tests/lint/backup-workflow.test.ts` -- läser flödesfilen: schema och `workflow_dispatch` finns, actions pinnade på huvudversion, kontrollsteget finns, inga hemligheter i `run`-rader utanför `env`, bara `.gpg` laddas upp -- AD-23
+- [x] `docs/drift.md` -- stegen i matrisen i ordning, med vad Pontus gör, var värdet hämtas och hur det kontrolleras; återställning av säkerhetskopian; länk till checklistan -- AD-3, AD-14, AD-23
+- [x] `docs/oppna-fragor.md` -- checklistan länkar till `docs/drift.md` och nämner hemligheterna `SUPABASE_DB_URL` och `BACKUP_PASSPHRASE` -- spårbarhet
+- [x] `tests/e2e/support.ts`, `global-setup.ts` -- `coreFlowEmail` ("e2e-karna@matkoll.test") i `e2eEmails`; ingen storage state, testet loggar in själv -- egen e2e-användare
+- [x] `tests/e2e/core-flow.spec.ts` -- kärnflödet i matrisen med mock och riktig inloggning -- Epic 1–3
 
 **Acceptance Criteria:**
 - Given `pnpm lint && pnpm typecheck && pnpm test && pnpm test:integration && AI_PROVIDER=mock pnpm build && CI=1 pnpm test:e2e`, when de körs, then lyckas alla.
@@ -67,7 +68,30 @@ context:
 
 ## Spec Change Log
 
+- Artefakten innehåller flera krypterade filer: `schema.sql.gpg`, `data.sql.gpg`, `manifest.txt.gpg` och `counts.txt.gpg`. Datadumpen utesluter två lagringstabeller som inte går att läsa in igen, och auth-tabeller med sessioner och tokens.
+- Repovariabeln `BACKUP_ENABLED` styr vad som händer när en hemlighet saknas. Är den satt till `true` misslyckas körningen, annars hoppas den över med en notis.
+
 ## Review Triage Log
+
+Iteration 1. Granskare: Blind Hunter, Edge Case Hunter och Verification Gap.
+- **Patch:**
+  - `BACKUP_ENABLED` och kontroll av lösenfrasen (längd och radbrytning).
+  - Dumpen kontrolleras och dekrypteras som test innan den laddas upp.
+  - Manifest med migreringsversioner och radantal.
+  - Sessioner och tokens tas inte med.
+  - Lösenordet maskeras i loggen.
+  - Körning två gånger i veckan, och bara från main.
+  - drift.md:
+    - att GitHub stänger av schemalagda flöden efter 60 dagar utan aktivitet
+    - vem som får mejl när en körning misslyckas
+    - en egen mapp för återställningen, utanför repot
+    - `db push` från main efter återställning
+    - reservplan om auth-schemat har en annan version
+    - månadsvis nedladdning av säkerhetskopian
+  - Förhandsbyggen är kontrollerade.
+  - E2E-testet för kärnflödet är robust vid omkörning.
+  - Lint-testet kör skriptet på riktigt.
+- **Defer:** att låsa actions till commit-SHA. Vi följer `ci.yml` med huvudversioner tills vidare.
 
 ## Verification
 

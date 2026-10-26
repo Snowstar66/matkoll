@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { formatQuantity, normalizeUnit, parseQuantity, UNITS, unitSchema } from "./units";
+import { COUNT_UNITS, formatQuantity, isCountUnit, normalizeUnit, parseQuantity, UNITS, unitSchema } from "./units";
 
 describe("UNITS", () => {
   it("is the fixed list from AD-12", () => {
@@ -80,6 +80,14 @@ describe("parseQuantity", () => {
       expect(parseQuantity(text)).toBeNull();
     },
   );
+});
+
+describe("isCountUnit", () => {
+  it("is true for the units that count whole things only", () => {
+    expect(UNITS.filter(isCountUnit)).toEqual([...COUNT_UNITS]);
+    expect(isCountUnit(null)).toBe(false);
+    expect(isCountUnit("dl")).toBe(false);
+  });
 });
 
 describe("formatQuantity", () => {

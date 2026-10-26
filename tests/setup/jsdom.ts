@@ -29,3 +29,9 @@ if (typeof HTMLDialogElement !== "undefined" && !HTMLDialogElement.prototype.req
     if (this.dispatchEvent(new Event("cancel", { cancelable: true }))) this.close();
   };
 }
+// FixedAction measures itself; jsdom has no ResizeObserver.
+globalThis.ResizeObserver ??= class {
+  observe() {}
+  disconnect() {}
+  unobserve() {}
+};

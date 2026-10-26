@@ -2,9 +2,10 @@
 title: 'Story 3.7: Lägg i lagret efter handlingen'
 type: 'feature'
 created: '2026-10-26'
-status: 'draft'
+status: 'done'
 route: 'dispatch'
-review_loop_iteration: 0
+review_loop_iteration: 1
+baseline_commit: '7db83788be4446b4369b228bde9df265f1683867'
 context:
   - '{project-root}/_bmad-output/implementation-artifacts/epic-3-context.md'
   - '{project-root}/_bmad-output/planning-artifacts/architecture/architecture-Matkoll-2026-10-25/ARCHITECTURE-SPINE.md'
@@ -65,18 +66,18 @@ context:
 ## Tasks & Acceptance
 
 **Execution:**
-- [ ] `supabase/migrations/<tid>_pantry_add.sql` och `pnpm db:types` -- `pantry_addition` enligt Boundaries; `add_to_pantry(items jsonb)` (`security invoker`, en transaktion): kvitto `on conflict do nothing returning`, sedan hoppa över om obegränsad, obegränsad rad för post utan mängd, annars `insert … on conflict (user_id, ingredient_id, location, unit) do update set amount = pantry_item.amount + excluded.amount`; returnerar antal behandlade poster; städar gamla kvitton -- AD-1, AD-4, AD-19
-- [ ] `src/features/pantry/domain/` (+ test) -- `addToPantryItemSchema` (`key`, `ingredientId`, `amount` > 0 eller null, `unit` i `UNITS` eller null, `location` i `LOCATIONS` eller saknas) -- AD-12
-- [ ] `src/features/pantry/data/`, `server.ts` (+ test) -- `addToPantry(items)`: `requireUser`, Zod, plats från `catalog.getIngredientDefaults` när den saknas, anropar `add_to_pantry`; exporteras från `pantry/server.ts` -- AD-19
-- [ ] `supabase/migrations/<tid>_shopping_clear.sql` och `pnpm db:types` -- `clear_put_in_pantry(plan_id uuid, keys text[], custom_item_ids uuid[])` (`security invoker`): tar bort egna varor, bockar och överstyrningar för nycklarna i en transaktion -- AD-1, AD-8
-- [ ] `src/features/shopping/actions/put-checked-in-pantry.ts` (+ test) -- flödet enligt Boundaries; returnerar `{ added, removed }` för bekräftelsen -- AD-8, AD-19, FR19
-- [ ] `src/lib/errors.ts` -- `pantry_add_failed` ("Det gick inte att lägga varorna i lagret. Försök igen."), `shopping_put_in_pantry_failed` ("Det gick inte att lägga allt i lagret. Försök igen.") -- AD-13
-- [ ] `src/features/shopping/ui/` -- "Lägg i lagret" i `FixedAction` när minst en post är avbockad (räknat på optimistiska bockar), inaktiv under flödet, bekräftelse "Lagt N varor i lagret." / "Lagt 1 vara i lagret." / "Tog bort N varor från listan.", `Notice` vid fel -- UX
-- [ ] `docs/beslutslogg.md` -- besluten i Implementation Notes -- spårbarhet
-- [ ] `tests/integration/pantry.test.ts` (utökad) -- `expectRlsIsolation('pantry_addition', …)`; `add_to_pantry` ökar, skapar, lämnar obegränsad orörd, gör vag post obegränsad; samma nyckel två gånger ger en ökning -- AD-19
-- [ ] `tests/integration/shopping.test.ts` (utökad) -- hela flödet mot riktiga tabeller; körning, avbrott efter lagret (rensningen misslyckas) och ny körning ger samma lager som en körning -- AD-8
-- [ ] `tests/e2e/support.ts`, `global-setup.ts` -- `putInPantryEmail` ("e2e-lagg-i-lagret@matkoll.test") i `e2eEmails` med egen storage state -- egen e2e-användare
-- [ ] `tests/e2e/put-in-pantry.spec.ts` -- egen e2e-användare; data med service role: knappen syns först efter en bock, "Lägg i lagret" med receptpost, vag post, kopplad och okopplad egen vara, bekräftelsen, posterna borta, Hemma visar varorna, receptet visar "Kan lagas nu" -- matrisen
+- [x] `supabase/migrations/<tid>_pantry_add.sql` och `pnpm db:types` -- `pantry_addition` enligt Boundaries; `add_to_pantry(items jsonb)` (`security invoker`, en transaktion): kvitto `on conflict do nothing returning`, sedan hoppa över om obegränsad, obegränsad rad för post utan mängd, annars `insert … on conflict (user_id, ingredient_id, location, unit) do update set amount = pantry_item.amount + excluded.amount`; returnerar antal behandlade poster; städar gamla kvitton -- AD-1, AD-4, AD-19
+- [x] `src/features/pantry/domain/` (+ test) -- `addToPantryItemSchema` (`key`, `ingredientId`, `amount` > 0 eller null, `unit` i `UNITS` eller null, `location` i `LOCATIONS` eller saknas) -- AD-12
+- [x] `src/features/pantry/data/`, `server.ts` (+ test) -- `addToPantry(items)`: `requireUser`, Zod, plats från `catalog.getIngredientDefaults` när den saknas, anropar `add_to_pantry`; exporteras från `pantry/server.ts` -- AD-19
+- [x] `supabase/migrations/<tid>_shopping_clear.sql` och `pnpm db:types` -- `clear_put_in_pantry(plan_id uuid, keys text[], custom_item_ids uuid[])` (`security invoker`): tar bort egna varor, bockar och överstyrningar för nycklarna i en transaktion -- AD-1, AD-8
+- [x] `src/features/shopping/actions/put-checked-in-pantry.ts` (+ test) -- flödet enligt Boundaries; returnerar `{ added, removed }` för bekräftelsen -- AD-8, AD-19, FR19
+- [x] `src/lib/errors.ts` -- `pantry_add_failed` ("Det gick inte att lägga varorna i lagret. Försök igen."), `shopping_put_in_pantry_failed` ("Det gick inte att lägga allt i lagret. Försök igen.") -- AD-13
+- [x] `src/features/shopping/ui/` -- "Lägg i lagret" i `FixedAction` när minst en post är avbockad (räknat på optimistiska bockar), inaktiv under flödet, bekräftelse "Lagt N varor i lagret." / "Lagt 1 vara i lagret." / "Tog bort N varor från listan.", `Notice` vid fel -- UX
+- [x] `docs/beslutslogg.md` -- besluten i Implementation Notes -- spårbarhet
+- [x] `tests/integration/pantry.test.ts` (utökad) -- `expectRlsIsolation('pantry_addition', …)`; `add_to_pantry` ökar, skapar, lämnar obegränsad orörd, gör vag post obegränsad; samma nyckel två gånger ger en ökning -- AD-19
+- [x] `tests/integration/shopping.test.ts` (utökad) -- hela flödet mot riktiga tabeller; körning, avbrott efter lagret (rensningen misslyckas) och ny körning ger samma lager som en körning -- AD-8
+- [x] `tests/e2e/support.ts`, `global-setup.ts` -- `putInPantryEmail` ("e2e-lagg-i-lagret@matkoll.test") i `e2eEmails` med egen storage state -- egen e2e-användare
+- [x] `tests/e2e/put-in-pantry.spec.ts` -- egen e2e-användare; data med service role: knappen syns först efter en bock, "Lägg i lagret" med receptpost, vag post, kopplad och okopplad egen vara, bekräftelsen, posterna borta, Hemma visar varorna, receptet visar "Kan lagas nu" -- matrisen
 
 **Acceptance Criteria:**
 - Given `pnpm lint && pnpm typecheck && pnpm test && pnpm test:integration && AI_PROVIDER=mock pnpm build && CI=1 pnpm test:e2e`, when de körs, then lyckas alla.
@@ -86,9 +87,67 @@ context:
 - **Beslut (redan taget):** en avbockad egen vara som är kopplad till en katalogingrediens läggs i lagret som en receptpost, på ingrediensens standardplats (med sin mängd och enhet, eller som obegränsad om den saknar mängd), och tas sedan bort från listan. En egen vara utan katalogkoppling tas bara bort. Underlaget (AD-8, epic-3-context) lämnade frågan öppen. Beslutet ska skrivas in i `docs/beslutslogg.md` när storyn byggs.
 - **Idempotens:** kvittotabellen `pantry_addition` med bockens id som nyckel är den här specens förslag på hur AD-1:s krav på idempotens uppfylls. Utan den ökar en ny körning efter ett avbrott lagret två gånger när en rättad mängd är mindre än behovet. Skriv in mekanismen i `docs/beslutslogg.md` tillsammans med beslutet ovan.
 
+- **Regler från Epic 2:**
+  - `add_to_pantry` tar `pantry_lock()`.
+  - Regeln från 2.2 ska hålla: en ingrediens på en plats är antingen obegränsad eller har mängder.
+  - En vag post blir obegränsad bara om ingrediensen saknas helt, vilket är det enda fallet då listan visar "Finns hemma?".
+  - Om raderna med mängd ändå finns på platsen följer funktionen `set_pantry_items` regel: den obegränsade raden ersätter dem.
+- **Regler från 3.3–3.6:**
+  - Mängden som läggs i lagret är postens köpmängd. För styckenheter är den avrundad uppåt (3.3), och en rättad mängd används som den står (3.6).
+  - Textposter (`t:`) saknar katalogingrediens. De läggs inte i lagret, men deras bockar och överstyrningar rensas.
+  - Egna varor kopplas utan synonymer (3.5).
+  - Alla skrivande funktioner i `shopping` tar `meal_plan_lock()` och kontrollerar att matsedeln är aktuell.
+- **Efter granskningen (beslut):**
+  - Textposter (`t:`) kan inte läggas i lagret. Deras bockar rensas inte utan står kvar, och en avbockad textpost räknas inte när knappen ska visas. Det ersätter regeln ovan om att deras bockar och överstyrningar rensas.
+  - Bockar rensas på id, inte på listnyckel: de skickade postens bockar och bockar med kvitto vars post inte längre syns. Överstyrningar rensas bara för receptposter som skickades i körningen, så en dold post förblir dold.
+  - Kvittot lever lika länge som bocken: `pantry.forgetPantryAdditions(keys)` tar bort kvittona efter en lyckad rensning. Gallringen efter 30 dagar finns kvar som skyddsnät. `authenticated` får inte uppdatera `pantry_addition`.
+  - En misslyckad rensning prövas en gång till innan `shopping_put_in_pantry_failed`. `getShoppingList` ger `pendingClear`, antalet bockar med kvitto vars post inte syns, och knappen visas även då.
+  - En summa över lagrets maxgräns kapas strax under den (999 999,999), både i `add_to_pantry` och innan posten skickas. En post som ändå inte kan skickas (okänd ingrediens, ogiltig enhet) hoppas över och behåller sin bock, och resten läggs i. Då visas "Det gick inte att lägga allt i lagret.".
+  - `add_to_pantry` nekar mängd ≤ 0, mängd utan enhet eller enhet utan mängd, och okänd enhet eller plats med 22023. `addToPantryIn` slår upp varje ingrediens i katalogen, även när platsen är given.
+  - Byts matsedeln efter att lagret skrivits visas "Varorna är lagda i lagret, men matsedeln har bytts." (`shopping_put_in_pantry_plan_changed`). Kommer inget svar visas "Det gick inte att nå servern. Försök igen.". Knappen är inaktiv medan en bock sparas.
+- **Görs inte (från granskningen):**
+  - Bekräftelsen räknar inte med RPC:ns antal behandlade poster. Den säger vad Pontus skickade.
+  - En befintlig rads plats föredras inte framför katalogens plats, eftersom matrisen anger katalogens plats.
+  - En vara kan läggas i två gånger om Pontus tar bort och sätter bocken igen mellan en misslyckad körning och omförsöket, eftersom kvittot följer bocken. Det är ovanligt.
+  - Två körningar exakt samtidigt kan lägga i en vara två gånger, om den andra läste bockarna före den förstas rensning men når lagret först efter att kvittona glömts. Det kräver tryck från två enheter i samma ögonblick.
+
 ## Spec Change Log
 
+- `pantry_addition` har en primärnyckel `id`, som AD-4 och `expectRlsIsolation` kräver.
+- Ny läsfunktion `pantry.findPantryAdditions(keys)`. Vid en ny körning efter ett avbrott kan en post som lagret nu täcker ha försvunnit från listan. Dess bock rensas ändå, eftersom den har ett kvitto.
+- `addToPantry` ger ett `Result` i stället för att kasta.
+- Läsfel innan något har skrivits ger `pantry_add_failed`.
+
 ## Review Triage Log
+
+Iteration 1. Granskare: Blind Hunter, Edge Case Hunter och Verification Gap.
+
+**Patch:**
+- Rensningen:
+  - Bockar rensas på id, inte på nyckel.
+  - Överstyrningar rensas bara för de nycklar som skickades, så att döljningar behålls.
+- Kvitton:
+  - Kvitton glöms när rensningen har lyckats (`forgetPantryAdditions`).
+  - Det går inte längre att uppdatera kvitton.
+- Om rensningen misslyckas:
+  - Rensningen görs om en gång automatiskt.
+  - Knappen visas också när det finns `pendingClear`.
+- Mängder:
+  - Mängder begränsas till maxvärdet.
+  - En post som inte går att lägga i lagret hoppas över och behåller sin bock.
+- Indatakontroll i `add_to_pantry`, och alla ingredienser kontrolleras mot katalogen.
+- Meddelanden:
+  - Ett eget meddelande när lagret skrevs men matsedeln byttes.
+  - Ett neutralt meddelande när svaret försvinner.
+- Knappen är avstängd medan bockar sparas.
+- `t:`-bockar lämnas orörda. Det ändrar den tidigare anteckningen: textposter kan inte hamna i lagret, så de förblir avbockade.
+- Städning av död kod.
+- Nya tester.
+
+**Reject:**
+- Att räkna med RPC:ns antal hanterade poster. Bekräftelsen räknar det Pontus skickade.
+- Att föredra platsen där en befintlig rad ligger. Matrisen säger katalogens plats.
+- Att skydda mot dubbel ökning när Pontus avmarkerar och bockar om mellan ett avbrutet försök och nästa. Det är sällsynt, och kvittot följer bocken.
 
 ## Verification
 

@@ -15,7 +15,7 @@ context:
 
 ## Intent
 
-**Problem:** Pontus ser inte i biblioteket vilka rätter han kan laga med det han har hemma.
+**Problem:** Pontus ser inte i biblioteket vilka rätter hen kan laga med det hen har hemma.
 
 **Approach:** Mängdlogiken i `pantry/domain` (`aggregateNeeds`, `coverage`, `recipeStatus`, AD-7) jämför varje recept mot lagrets ögonblicksbild. Receptraderna och biblioteket visar "Kan lagas nu" eller "Saknar N varor", och receptvyn visar bock eller ring per rad. Statusen räknas om när lagret ändras.
 

@@ -2,6 +2,146 @@
 
 Beslut som fattats under bygget: vad, varför och vilka alternativ som fanns. Nyaste överst.
 
+## 2026-10-26 – Ordning för tilläggen efter 1.0
+
+- **Beslut (Pontus):** först görs version 1.0 klar (Epic 1–7). Därefter kommer:
+  - 1.1: flera ställen, till exempel hemmet och vinterstugan, med inköpslistan räknad mot det ställe Pontus ska till.
+  - 1.2: menyförslag utifrån veckans erbjudanden, i en enkel version med inklistrad eller fotograferad reklam.
+  - 1.3: jämförelse mellan butiker, med en utredning först.
+
+  Detaljerna står i `docs/backlog-efter-1-0.md`.
+- **Följd för Epic 7:** butiksmodellen ska klara flera butiker och produktval per butik, så att jämförelsen inte kräver ombyggnad.
+
+## 2026-10-26 – Säkerhetskopia och återställning (Story 3.8)
+
+- **Beslut:**
+  - `backup.yml` körs måndag och torsdag 03:17 UTC och för hand, bara på `main`. Den dumpar schema (`supabase db dump`) och data (`--data-only --use-copy`) och skriver `manifest.txt` (commit, CLI-version, körda migrationer) och `counts.txt` (`scripts/backup-counts.sql`). Datadumpen tar redan med `auth` (även `auth.users`), så schemat behöver inte läggas till. Utelämnas gör `storage.buckets_vectors` och `storage.vector_indexes` (som i Supabase egen guide; `postgres` får inte skriva till dem vid återläsning) och `auth.sessions`, `auth.refresh_tokens`, `auth.mfa_amr_claims`, `auth.one_time_tokens`, `auth.flow_state` och `auth.audit_log_entries`. `mfa_amr_claims` pekar på sessionerna och följer därför med dem ut. Roller dumpas inte: Matkoll har inga egna, och rolldumpen gick inte att läsa in.
+  - Repovariabeln `BACKUP_ENABLED`: utan den hoppar en körning utan hemligheter över med en notis och blir grön; med `true` blir den röd. Lösenfrasen måste ha minst 32 tecken och ingen radbrytning, och `SUPABASE_DB_URL` måste ha lösenord. Felen nämner bara problemet.
+  - Lösenordet i `SUPABASE_DB_URL` maskeras (som det står och avkodat). CLI:t och `psql` får adressen utan lösenord och lösenordet i `PGPASSWORD`, som båda läser. Lösenfrasen ges till `gpg` på stdin från `printf` (inbyggt i skalet).
+  - Innan uppladdningen kontrolleras att filerna har innehåll och att `data.sql` har `auth.users`, och varje `.gpg`-fil dekrypteras och jämförs med originalet (`--no-symkey-cache`, så att jämförelsen inte bygger på en sparad lösenfras). Artefakterna sparas i 90 dagar; Pontus laddar ner en kopia i månaden.
+  - Återställning sker till ett nytt projekt med `supabase db push` från en commit vars migrationer stämmer med manifestet, sedan `data.sql` med `psql` och `session_replication_role = replica`, en jämförelse med `counts.txt` och till sist `db push` från `main`. `schema.sql` används bara som jämförelse.
+  - `SUPABASE_DB_URL` ska vara Session pooler-strängen.
+  - Preview i Vercel får `SITE_URL` och `AI_PROVIDER=mock` men inga Supabase-variabler. Kontrollerat lokalt: bygget lyckas och sidorna svarar 503. Om förhandsversionerna ska finnas kvar avgör Pontus (öppen fråga 4).
+  - Actions pinnas på huvudversion som i `ci.yml`, inte på commit-SHA; SHA-pinning är en senare härdning.
+- **Varför:** provat lokalt mot en andra, tillfällig Supabase-stack: återläsning av `schema.sql` gav `anon` rättigheter till alla tabeller (dumpen saknar migrationernas `revoke`) och ingen migrationshistorik, medan `db push` plus data gav samma radantal, policyer och rättigheter som originalet, fungerande inloggning och RLS. Granskningen av 3.8: en tyst överhoppning efter att molnet satts upp, en svag lösenfras, en okontrollerad dump och okrypterade sessioner i säkerhetskopian skulle inte märkas förrän vid en återställning. GitHubs maskiner saknar IPv6, som Supabase direkta anslutning kräver.
+- **Alternativ:**
+  - Återläsa `schema.sql` direkt och rätta rättigheterna efteråt.
+  - Ta med en rolldump, som i Supabase guide.
+  - Läsa `BACKUP_ENABLED` som hemlighet, eller låta saknade hemligheter alltid ge rött.
+  - Stänga av förhandsversioner i Vercel helt.
+
+## 2026-10-26 – Lägg i lagret efter granskningen
+
+- **Beslut:**
+  - Textposter (`t:`) kan inte läggas i lagret, så deras bockar rensas inte. De står kvar avbockade och räknas inte när knappen ska visas. Det ersätter beslutet nedan om att deras bockar rensas.
+  - Bockar rensas på id: de skickade posternas bockar och bockar med kvitto vars post inte längre syns. En bock som satts på en annan enhet under tiden har ett nytt id och står kvar. Överstyrningar rensas bara för receptposter som skickades i körningen, så en dold post förblir dold.
+  - Kvittot lever lika länge som bocken. Efter en lyckad rensning tas kvittona för de rensade bockarna bort (`pantry.forgetPantryAdditions`). Gallringen efter 30 dagar finns kvar som skyddsnät. Kvitton kan inte ändras, bara skrivas och tas bort.
+  - En misslyckad rensning prövas en gång till. Om lagret är skrivet men listan inte rensad visar listan knappen även utan avbockad post (`pendingClear`), så att omförsöket alltid går att nå.
+  - En summa över lagrets maxgräns kapas till 999 999,999. En post som ändå inte kan läggas i (okänd ingrediens, ogiltig enhet) hoppas över och behåller sin bock. Resten läggs i, och listan visar "Det gick inte att lägga allt i lagret.". Postgres-funktionen nekar själv ogiltiga mängder, enheter och platser.
+  - Om matsedeln byts efter att lagret skrivits visas "Varorna är lagda i lagret, men matsedeln har bytts.". Om inget svar kommer visas "Det gick inte att nå servern. Försök igen.". Knappen är inaktiv medan en bock sparas, så att servern ser samma bockar som Pontus.
+- **Varför:** granskningen av 3.7. Rensning på nyckel kunde ta bort en bock eller en döljning som körningen inte gällde. Kvitton som bara gallrades efter 30 dagar höll kvar nycklar som inte längre skyddade något. Efter ett avbrott där alla poster täcktes av lagret fanns ingen knapp att trycka på igen.
+- **Alternativ:**
+  - Rensa på listnyckel enligt AD-8:s ordalydelse.
+  - Låta kvitton leva i 30 dagar. Det stänger också ett smalt fönster där två enheter som trycker i samma ögonblick kan lägga i en vara två gånger.
+  - Låta hela körningen misslyckas när en post inte kan läggas i.
+
+## 2026-10-26 – Lägg i lagret: kopplade egna varor och idempotens
+
+- **Beslut:**
+  - En avbockad egen vara som är kopplad till en katalogingrediens läggs i lagret som en receptpost, på ingrediensens standardplats. Den läggs i med sin mängd och enhet, eller som obegränsad lagervara om den saknar mängd. Sedan tas den bort från listan. En egen vara utan katalogkoppling tas bara bort från listan.
+  - Flödet går över två moduler och är idempotent i stället för atomärt (AD-1). `pantry.addToPantry` skriver ett kvitto i tabellen `pantry_addition` för varje post, i samma transaktion som ökningen. Kvittot är unikt på `(user_id, key)`, och nyckeln är id:t på postens bock i `shopping_check`, som är stabilt tills bocken rensas. En post vars nyckel redan har ett kvitto hoppas över, så en ny körning efter ett avbrott, ett dubbeltryck eller ett tryck från en annan enhet ökar lagret en gång. Kvitton äldre än 30 dagar tas bort när funktionen körs.
+  - Lagret skrivs alltid först och listan rensas sedan, i en egen transaktion i `shopping` (`clear_put_in_pantry`). Om rensningen misslyckas står bockarna kvar, och nästa körning hoppar över posterna med kvitto och rensar dem. En bock vars post inte längre finns på listan (lagret räcker nu) rensas också om lagret har ett kvitto för den. Då blir både lagret och listan desamma som efter en körning.
+  - Posten läggs i med den mängd listan visar: köpmängden, avrundad uppåt i styckenheter, eller den rättade mängden som den står. En vag post blir obegränsad. Om ingrediensen redan är obegränsad på någon plats ändras inget, men posten räknas ändå som lagd. Följer en obegränsad post på en plats där det finns rader med mängd ersätter den raderna där, enligt regeln i `set_pantry_items`.
+  - Receptrader utan katalogingrediens (`t:`) läggs inte i lagret. Deras bockar och överstyrningar rensas, så de står kvar på listan utan bock. (Ändrat efter granskningen, se ovan: bockarna står kvar.)
+  - Bekräftelsen räknar posterna som gick till lagret: "Lagt 8 varor i lagret." / "Lagt 1 vara i lagret.". Om bara okopplade egna varor var avbockade blir den "Tog bort N varor från listan.". Knappen "Lägg i lagret" behåller sin text och är inaktiv medan flödet pågår.
+  - Ett fel innan lagret skrivits, även när listan eller lagret inte går att läsa, ger "Det gick inte att lägga varorna i lagret. Försök igen." (`pantry_add_failed`). Ett fel efter att lagret skrivits ger "Det gick inte att lägga allt i lagret. Försök igen." (`shopping_put_in_pantry_failed`). Båda visas i en blå `Notice` ovanför listan.
+- **Varför:** underlaget (AD-8, epic-3-context) lämnade öppet vad som händer med en kopplad egen vara. En kopplad vara har en ingrediens och en plats, så den hör hemma i lagret som en receptpost. Utan kvitto skulle en ny körning efter ett avbrott öka lagret två gånger, till exempel när en rättad mängd är mindre än behovet och posten kommer tillbaka. Bockens id är stabilt och unikt per avbockning. Utan kontrollen av kvitton för bockar som inte längre syns på listan skulle en sådan bock ligga kvar och gälla igen om posten kom tillbaka.
+- **Alternativ:**
+  - Behandla alla egna varor som okopplade och bara ta bort dem.
+  - Idempotensnyckel från listnyckeln och matsedeln i stället för bockens id. Den skulle hindra att samma vara läggs i igen efter en ny avbockning på samma matsedel.
+  - Ett atomärt flöde i en enda Postgres-funktion som skriver båda modulernas tabeller (bryter mot AD-1).
+
+## 2026-10-26 – Dolda varor och rättelser efter granskningen
+
+- **Beslut:**
+  - När den aktuella matsedeln har dolda poster visar listan textknappen "Dolda varor (N)" under "Lägg till egen vara". Den öppnar arket "Dolda varor". Där står varje dold post med namn och mängd, räknade som om de inte var dolda och med en eventuell rättad mängd, tillsammans med "Visa igen". "Visa igen" visar posten igen och behåller den rättade mängden. Arket stängs när inget längre är dolt.
+  - En dold nyckel som inte ger någon post just nu visas inte. Det gäller när lagret räcker eller när behovet har bytt enhet. Den räknas inte i N och ligger kvar dold tills nyckeln kommer tillbaka.
+  - En rättelse sparar också den mängd som listan räknade fram då. Om den framräknade mängden senare ändras visar posten båda: "2 dl (beräknat 4 dl)", och med lager i annan enhet "2 dl (beräknat 4 dl, hemma: 1 kg)".
+  - "Ångra" efter att en post dolts:
+    - Om raden har ändrats efter döljningen, till exempel rättats i en annan flik, sätts bara den dolda flaggan tillbaka och den nya mängden står kvar.
+    - En post som döljs en gång till ger alltid "Ångra" som visar den igen.
+    - Ett förlorat svar vid döljning prövas en gång till.
+    - Om raden före inte går att läsa visas bekräftelsen utan "Ångra".
+  - Om en egen vara har tagits bort någon annanstans medan detaljen var öppen stängs arket, listan läses om och "Varan finns inte längre." visas (`shopping_item_gone`). En koppling utan känt namn visas som "Kopplad till okänd ingrediens".
+  - Mängdfältet i detaljen fylls med den exakta mängden. Om Pontus skriver in den framräknade mängden tas en rättelse bort, och finns ingen rättelse stängs bara arket. Om posten försvinner från listan medan detaljen är öppen stängs arket.
+- **Varför:** granskningen av 3.6. Specen saknade en väg tillbaka till en dold post utom "Ångra" och en ny matsedel. En dold post utan behov har ingen mängd att visa, och den skulle bara förvirra.
+- **Alternativ:**
+  - Visa dolda nycklar utan post med sitt senast kända namn.
+  - Skriva över en samtidig rättelse vid "Ångra".
+  - Inte visa att den framräknade mängden har ändrats.
+
+## 2026-10-26 – Rättad mängd och dolda listposter
+
+- **Beslut:**
+  - En rättad mängd ersätter den beräknade i postens enhet och används som Pontus skrev den. Den avrundas inte uppåt i en enhet som räknar hela saker, så "1,5 st" står kvar som 1,5 st. Posten behåller täckningen och "hemma: 1 kg". Detaljen visar den beräknade mängden som "Beräknat: 3 dl" och textknappen "Använd beräknad mängd", som tar bort rättelsen direkt och stänger arket.
+  - En överstyrning utan post gör ingenting och ligger kvar. Det gäller när lagret räcker eller när behovet har bytt enhet och därmed nyckel. Den gäller igen om nyckeln kommer tillbaka. Den raderas med matsedeln, och 3.7 rensar den för avbockade nycklar. En dold post som en vag rad har vikts in i döljer också den vaga raden.
+  - Receptrader utan katalogingrediens (`t:`) och vaga poster går att dölja men inte att rätta. Databasens check släpper därför igenom både `r:`- och `t:`-nycklar men nekar `c:`. En mängd tillåts bara på en `r:`-nyckel med enhet. Specen nämner bara `r:`, men en `t:`-post är också en receptpost och ska kunna tas bort.
+  - Alla poster kan svepas. En receptpost döljs och en egen vara tas bort. "Ta bort" finns även i detaljen, och båda ger samma bekräftelse med "Ångra". Poster som tas bort medan bekräftelsen visas slås ihop i den.
+  - Detaljen har varans namn som rubrik. En receptpost med mängd har fältet "Mängd" med enheten bredvid, "Spara", "Ta bort" och "Avbryt". En post utan mängd har bara ursprung, "Ta bort" och "Klar". "Spara" med oförändrad mängd stänger bara arket. Ursprunget skrivs "Från Krämig kycklinggryta, Linssoppa", och "(hemma: 1 kg)" visas när det finns annan enhet hemma. Fel vid sparande ger `shopping_save_failed`.
+  - En egen varas detalj är samma formulär som "Lägg till egen vara", med "Spara" och "Ta bort". Varan behåller sitt id och därmed sin bock, och textfältet får inte fokus direkt.
+  - Live-regionen annonserar inte en rättad mängd. Den annonserar inte heller en post som Pontus själv tagit bort eller ångrat, så länge listan visas (Story 3.6).
+- **Varför:** specen bestämmer inte hur rättelsen förhåller sig till avrundningen och lagret eller vad som händer när nyckeln försvinner. En rättelse är Pontus egen mängd och ska inte ändras av appen. En `t:`-post som inte går att ta bort skulle bli kvar på listan för alltid.
+- **Alternativ:** avrunda även rättade mängder uppåt; ta bort överstyrningar vars nyckel saknas; bara `r:`-nycklar, enligt specens text.
+
+## 2026-10-26 – Egna varor på inköpslistan
+
+- **Beslut:**
+  - "Lägg till egen vara" är en sekundärknapp under listan. Den visas så fort det finns en aktuell matsedel, även utan rätter, men inte utan matsedel. Efter "Lägg till" stängs arket utan kort bekräftelse, och posten syns i listan.
+  - Arket har fältet "Vara" med upp till fem katalogförslag under sig, 200 ms efter att Pontus slutat skriva. Ett valt förslag fyller fältet med ingrediensens namn och visar "Kopplad till Kaffe" och textknappen "Ta bort kopplingen". Texten går att ändra efteråt utan att kopplingen försvinner. Medan varan är kopplad visas inga förslag, och om sökningen misslyckas står "Förslag går inte att visa just nu." under fältet.
+  - Listan skriver aldrig till katalogen. En kopplad egen vara sparar bara `ingredient_id` till en ingrediens som redan finns, och ingen synonym sparas, även om texten skiljer sig från namnet. Det avviker från AD-6 och arkitekturen, som låter `addCustomItem` anropa `commitIngredients` (beslut efter granskningen av 3.5).
+  - En egen varas id behålls bara så länge formuläret är oförändrat. Ändras ett fält efter ett misslyckat försök blir det ett nytt id, och databasen nekar ett nytt försök med samma id men annat innehåll.
+  - Mängd utan enhet ger "Välj en enhet." vid Enhet, och enhet utan mängd ger "Ange ett tal större än 0." vid Mängd. Mängden ska vara under 1 000 000 ("Ange ett tal under 1 000 000.") och texten högst 200 tecken ("Texten får vara högst 200 tecken.").
+  - Bara egna varor kan svepas bort. En egen vara visar ingen "från [rätt]". När "Ångra" bara lyckas för en del av flera varor namnger felet de andra: "Det gick inte att ångra diskmedel.". En matsedel utan rätter men med egna varor visar "Vecka 44 · 1 vara kvar". Att lägga till eller ta bort en egen vara annonseras inte som en omräkning i live-regionen, eftersom borttagningen har en egen bekräftelse.
+  - Egna varor läggs till, tas bort och ångras bara på den aktuella matsedeln, under matsedelslåset. Annars visas "Matsedeln har bytts. Listan är uppdaterad." och listan läses om. En matsedel med bara egna varor räknas inte som tom, så den blir en tidigare matsedel vid byte, och egna varor följer inte med vid "Använd igen".
+  - Om egna varor inte går att läsa visas `shopping_unavailable` (Story 3.5).
+- **Varför:** specen säger inte var knappen ligger, vad ett valt förslag gör med texten eller vad enhet utan mängd ger. Ett förslag träffar oftast på en del av namnet ("kaff"), så namnet är en bättre text än det Pontus hunnit skriva. Utan synlig koppling skulle en ändrad text tyst hamna under fel avdelning. En synonym från en fritext i butiken kan peka om en befintlig synonym och påverka hur recept matchas, och den sparades före kontrollen av matsedeln. Ett återanvänt id för en ändrad vara skulle tyst ge tillbaka den gamla varan.
+- **Alternativ:** behålla Pontus text när ett förslag väljs; ta bort kopplingen när texten ändras; spara texten som synonym via `commitIngredients` (AD-6 som skriven); visa listan utan egna varor när de inte går att läsa.
+
+## 2026-10-26 – Inköpslistans poster: hela styck, vaga rader och okopplade rader
+
+- **Beslut:**
+  - I en enhet som räknar hela saker (st, förp, klyfta, kruka, knippe, skiva) avrundas det som ska köpas uppåt till ett heltal, så 1,5 st blir 2 st. Jämförelsen med lagret använder det exakta behovet, och listnyckeln ändras inte.
+  - Om en ingrediens saknas och har både en vag rad och en rad med mängd blir det en enda post: posten med mängd. Den vaga radens rätter läggs till i "från [rätt]", och ingen "Finns hemma?"-post visas.
+  - En receptrad utan katalogingrediens skalas aldrig. Posten får i stället en faktor som är summan av rätternas skalfaktorer, avrundad till en decimal, och den visas när den inte är 1: "2 citroner ×2", "×1,5".
+  - När katalogen saknar namn heter posten som radens text utan mängd och enhet. Som sista utväg heter den "Okänd vara".
+  - En rätt vars recept är borttaget räknas inte, och listan säger "1 rätt med borttaget recept räknas inte." / "N rätter med borttagna recept räknas inte.". Räknas ingen rätt visas texten för tom matsedel (Story 3.3).
+- **Varför:** man köper inte en halv paprika. "Salt 1 tsk" och "Salt – Finns hemma?" på samma lista säger samma sak två gånger. En okopplad rad som "2 citroner" ser annars likadan ut för 4 som för 8 portioner. "Allt finns hemma." får inte visas när ingen rätt har räknats (granskningen av 3.3).
+- **Alternativ:** visa decimaler i alla enheter; behålla den vaga posten bredvid posten med mängd; skala texten i den okopplade raden, vilket kräver tolkning av fritext.
+
+## 2026-10-26 – Inköpslistan när lagret inte går att läsa, och omräkning medan listan är öppen
+
+- **Beslut:** om lagret inte går att läsa visas inköpslistan ändå, med hela behovet och utan avdrag. Överst står en blå `Notice` med `role="status"` och texten "Det gick inte att läsa lagret, så inget är avdraget från listan.". Den visas bara när någon rätt räknas. Utan aktuell matsedel läses lagret inte alls. Om matsedeln, recepten eller katalogen inte går att läsa visas bara `shopping_unavailable`. När listan räknas om medan den visas annonserar en live-region "Inköpslistan är omräknad. N varor kvar.". Texten töms efter 5 s och när listan döljs. Listan som visas när Pontus öppnar fliken annonseras inte. "från [rätt]" visar varje rätts titel en gång, även när samma recept står två gånger på matsedeln (Story 3.3).
+- **Varför:** i butiken är en lista utan avdrag bättre än ingen lista, men den får inte se avdragen ut. Matrisen säger inte vad live-regionen säger. En rätt som står två gånger ska inte ge "från Linssoppa, Linssoppa".
+- **Alternativ:** `shopping_unavailable` även när bara lagret fattas; ingen text i live-regionen, bara uppdaterad rubrikrad.
+
+## 2026-10-26 – Tidigare matsedlar
+
+- **Beslut:** "Ny matsedel" är en sekundärknapp överst i Tidigare och visar, liksom "Använd igen", "Matsedeln är skapad." på Matsedel. Ingen av dem frågar i förväg, eftersom den förra matsedeln finns kvar som tidigare. En tidigare matsedel visas utan bild och status, med titel (länk till receptet) och portioner. Efter "Ta bort matsedel" hamnar Pontus i Tidigare med "Matsedeln är borttagen.". Den aktuella matsedeln går inte att ta bort därifrån, och dess adress under Tidigare leder till Matsedel. "Använd igen" kopierar rätternas sparade titlar, som när en rätt läggs till, och läser inte recepten igen. Datumet i listan skrivs med fasta svenska månadsförkortningar ("26 okt 2026"), så att servern och webbläsarna skriver likadant (Story 3.2).
+- **Varför:** underlaget säger inte var "Ny matsedel" ligger eller vad som visas efter borttagning. Förhandsbekräftelse krävs bara för det som inte går att ångra (EXPERIENCE.md). `set_current_meal_plan` arbetar i databasen, och modulen läser inte recepttabellerna (AD-1).
+- **Alternativ:** "Ny matsedel" i Matsedel-rubriken; nya titlar via `recipes.getRecipesByIds` vid "Använd igen"; `Intl` med "okt." som månadsförkortning.
+
+## 2026-10-26 – Tidigare matsedlar efter granskningen
+
+- **Beslut:** en aktuell matsedel utan rätter tas bort i stället för att bli tidigare när en ny blir aktuell. "Använd igen" går inte att trycka på när ingen rätt har kvar sitt recept, och databasen nekar en sådan källa. En tidigare matsedel tas bort under matsedelslåset, och en som redan är borta räknas som borttagen. Ett nytt försök med ett id som hunnit bli en tidigare matsedel nekas. Nya texter: "Matsedeln finns inte längre.", "Matsedlarna har ändrats.", "1 rätt med borttaget recept följer inte med." / "N rätter med borttagna recept följer inte med." och "Alla recept på matsedeln är borttagna, så den går inte att använda igen." (Story 3.2).
+- **Varför:** granskningen av 3.2. Tomma matsedlar i Tidigare går inte att använda igen och gör listan svårläst. "Använd igen" och "Ta bort" av samma matsedel ska aldrig krocka.
+- **Alternativ:** behålla tomma matsedlar; skapa en tom matsedel när inget går att använda igen.
+
+## 2026-10-26 – Matsedelsrätten och arket Lägg till rätt
+
+- **Beslut:** en matsedelsrätt har en synlig textknapp "Ta bort" bredvid portionsväljaren, utöver svep vänster. Arket Lägg till rätt visar Favoriter, sökfältet och under det övriga recept (de som inte är favoriter) tills Pontus söker; då visas sökträffarna i stället. Ett tryck på ett recept stänger arket och visar "Lagt på matsedeln.", som i receptvyn. Statusen på en rätt räknas i webbläsaren med `recipeStatus`, så att den följer portionsväljaren direkt (Story 3.1).
+- **Varför:** svepet är en genväg och åtgärden ska finnas på ett annat sätt också (EXPERIENCE.md), men en matsedelsrätt har inget detaljark. Utan en lista under sökfältet hittar Pontus inga recept i arket utan favoriter och utan att minnas namnet.
+- **Alternativ:** ett detaljark för matsedelsrätten med "Ta bort"; bara sökfältet under favoriterna.
+
 ## 2026-10-26 – Receptrader utan katalogingrediens i lagningsstatus
 
 - **Beslut:** en receptrad som saknar katalogingrediens (`ingredientId = null`) jämförs inte med lagret och räknas inte i N i "Saknar N varor". Receptvyn visar raden med originaltexten och en neutral markering, ett grått streck som skärmläsaren läser som "jämförs inte med lagret", i stället för bock eller ring. Ett recept vars övriga rader finns hemma visas som "Kan lagas nu" (Story 2.4).

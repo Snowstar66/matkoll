@@ -1,25 +1,22 @@
 import type { Metadata } from "next";
 import { Suspense } from "react";
 import { PageHeader } from "@/components/app-shell/page-header";
-import { EmptyState } from "@/components/empty-state";
 import { Skeleton } from "@/components/skeleton";
-import { requireUserOrRedirect } from "@/features/auth/server";
+import { ShoppingListContent } from "./shopping-list-content";
 
 export const metadata: Metadata = { title: "Inköpslista" };
 
-// The shopping list arrives in a later epic.
+// Inköpslista (FR-15): counted from the current meal plan, its recipes and
+// the pantry every time it is read (AD-8), grouped by store section, with
+// what is at home taken off. Everything is read inside <Suspense> (AD-18),
+// with skeleton rows while it loads.
 export default function ShoppingListPage() {
   return (
     <>
       <PageHeader title="Inköpslista" />
-      <Suspense fallback={<Skeleton />}>
+      <Suspense fallback={<Skeleton rows={4} />}>
         <ShoppingListContent />
       </Suspense>
     </>
   );
-}
-
-async function ShoppingListContent() {
-  await requireUserOrRedirect("/lista");
-  return <EmptyState>Lägg rätter på matsedeln så räknas listan fram.</EmptyState>;
 }

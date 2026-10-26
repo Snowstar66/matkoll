@@ -32,8 +32,43 @@ export const pantryEmail = "e2e-hemma@matkoll.test";
  * its pantry, so the status it expects depends on nothing else.
  */
 export const statusEmail = "e2e-status@matkoll.test";
+/**
+ * The E2E user of mealplan.spec.ts alone: its recipes, catalog ingredients
+ * and pantry are made with the service role before the tests, and its meal
+ * plan is emptied, so what the plan shows depends on nothing else.
+ */
+export const mealplanEmail = "e2e-matsedel@matkoll.test";
+/**
+ * The E2E user of the shopping list (shopping.spec.ts, and the specs of
+ * Stories 3.4–3.6, which run in order with it): its recipes, catalog
+ * ingredients, meal plan and pantry are made with the service role, so the
+ * list depends on nothing else.
+ */
+export const shoppingEmail = "e2e-lista@matkoll.test";
+/**
+ * The E2E user of put-in-pantry.spec.ts alone ("Lägg i lagret", Story 3.7):
+ * each test makes its recipe, meal plan, own items and pantry with the
+ * service role, so what goes to the pantry depends on nothing else.
+ */
+export const putInPantryEmail = "e2e-lagg-i-lagret@matkoll.test";
+/**
+ * The E2E user of core-flow.spec.ts alone (Story 3.8): it signs in itself
+ * through /logga-in and the link in Mailpit, so it has no storage state.
+ */
+export const coreFlowEmail = "e2e-karna@matkoll.test";
 /** Every address in ALLOWED_EMAILS for the E2E server (see playwright.config.ts). */
-export const e2eEmails = [e2eEmail, recipesEmail, libraryEmail, settingsEmail, pantryEmail, statusEmail] as const;
+export const e2eEmails = [
+  e2eEmail,
+  recipesEmail,
+  libraryEmail,
+  settingsEmail,
+  pantryEmail,
+  statusEmail,
+  mealplanEmail,
+  shoppingEmail,
+  putInPantryEmail,
+  coreFlowEmail,
+] as const;
 /** A real Supabase user whose address is not in ALLOWED_EMAILS. */
 export const outsiderEmail = "utanfor@matkoll.test";
 
@@ -43,6 +78,9 @@ export const libraryStorageState = "tests/e2e/.auth/library.json";
 export const settingsStorageState = "tests/e2e/.auth/settings.json";
 export const pantryStorageState = "tests/e2e/.auth/pantry.json";
 export const statusStorageState = "tests/e2e/.auth/status.json";
+export const mealplanStorageState = "tests/e2e/.auth/mealplan.json";
+export const shoppingStorageState = "tests/e2e/.auth/shopping.json";
+export const putInPantryStorageState = "tests/e2e/.auth/put-in-pantry.json";
 export const outsiderStorageState = "tests/e2e/.auth/outsider.json";
 
 export const mailpitUrl = "http://127.0.0.1:54324";
@@ -76,6 +114,27 @@ export async function deleteE2eUsers(): Promise<void> {
     const deleted = await adminClient().auth.admin.deleteUser(user.id);
     if (deleted.error) throw deleted.error;
   }
+}
+
+/**
+ * Deletes the E2E user `email` and creates it again, as users:sync does, and
+ * returns the new id. Everything the user owned goes with it (on delete
+ * cascade), and so does Auth's per-address limit on new magic links, so a
+ * spec that signs in itself can run again at once, also on a retry. Only
+ * against local Supabase, and only for an address in e2eEmails.
+ */
+export async function recreateE2eUser(email: (typeof e2eEmails)[number]): Promise<string> {
+  localSupabaseUrl();
+  const { data, error } = await adminClient().auth.admin.listUsers({ perPage: 1000 });
+  if (error) throw error;
+  const existing = data.users.find((candidate) => candidate.email === email);
+  if (existing) {
+    const deleted = await adminClient().auth.admin.deleteUser(existing.id);
+    if (deleted.error) throw deleted.error;
+  }
+  const created = await adminClient().auth.admin.createUser({ email, email_confirm: true });
+  if (created.error) throw created.error;
+  return created.data.user.id;
 }
 
 /** The id of an E2E user; global-setup has created it. */

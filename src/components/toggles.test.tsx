@@ -64,4 +64,15 @@ describe("CheckCircle", () => {
     expect(box.className).toContain("size-tap");
     expect(box.firstElementChild?.className).toContain("size-[26px]");
   });
+
+  it("can be disabled, keeping its name and state", async () => {
+    const user = userEvent.setup();
+    const onCheckedChange = vi.fn();
+    render(<CheckCircle checked onCheckedChange={onCheckedChange} label="Mjölk" disabled />);
+    const box = screen.getByRole("checkbox", { name: "Mjölk" });
+    expect(box).toBeDisabled();
+    expect(box).toBeChecked();
+    await user.click(box);
+    expect(onCheckedChange).not.toHaveBeenCalled();
+  });
 });

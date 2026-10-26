@@ -24,6 +24,16 @@ export const UNITS = [
 export const unitSchema = z.enum(UNITS);
 export type Unit = z.infer<typeof unitSchema>;
 
+/** Units that count whole things: what is bought in them is a whole number (decision 2026-10-26). */
+export const COUNT_UNITS = ["st", "förp", "klyfta", "kruka", "knippe", "skiva"] as const satisfies readonly Unit[];
+
+const countUnits: ReadonlySet<Unit> = new Set(COUNT_UNITS);
+
+/** Whether `unit` counts whole things (COUNT_UNITS). */
+export function isCountUnit(unit: Unit | null | undefined): boolean {
+  return unit !== null && unit !== undefined && countUnits.has(unit);
+}
+
 /** Spellings that mean a unit, in lower case and without a trailing period. */
 const unitAliases = new Map<string, Unit>([
   ...UNITS.map((unit) => [unit, unit] as const),

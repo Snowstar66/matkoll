@@ -4,7 +4,7 @@
 
 ## Goal
 
-Pontus kan planera veckan med portioner och få en inköpslista per butiksavdelning där det som finns hemma redan är avdraget. Han kan bocka av med en hand i butiken, lägga till egna varor och lägga allt avbockat i lagret med ett tryck. Epicen bygger modulerna `mealplan` (`meal_plan`, `meal_plan_recipe`) och `shopping` (`shopping_check`, `shopping_line_override`, `shopping_custom_item`) och bygger `pantry.addToPantry`. Efter epicen fungerar kärnan (Epic 1–3) end-to-end lokalt, och molndriften är förberedd så att Pontus bara behöver skapa konton och följa en checklista. Epic 2 (lager och mängdlogik) är planerad men inte byggd, så epicen bygger på det API som Epic 2:s specar beskriver. "Skicka till ICA", produktval och `product_choice` hör till Epic 7.
+Pontus kan planera veckan med portioner och få en inköpslista per butiksavdelning där det som finns hemma redan är avdraget. Hen kan bocka av med en hand i butiken, lägga till egna varor och lägga allt avbockat i lagret med ett tryck. Epicen bygger modulerna `mealplan` (`meal_plan`, `meal_plan_recipe`) och `shopping` (`shopping_check`, `shopping_line_override`, `shopping_custom_item`) och bygger `pantry.addToPantry`. Efter epicen fungerar kärnan (Epic 1–3) end-to-end lokalt, och molndriften är förberedd så att Pontus bara behöver skapa konton och följa en checklista. Epic 2 (lager och mängdlogik) är planerad men inte byggd, så epicen bygger på det API som Epic 2:s specar beskriver. "Skicka till ICA", produktval och `product_choice` hör till Epic 7.
 
 ## Stories
 

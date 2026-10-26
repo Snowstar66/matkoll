@@ -10,15 +10,21 @@ import {
   libraryEmail,
   libraryStorageState,
   magicLinkPath,
+  mealplanEmail,
+  mealplanStorageState,
   outsiderEmail,
   outsiderStorageState,
   pantryEmail,
   pantryStorageState,
+  putInPantryEmail,
+  putInPantryStorageState,
   recipesEmail,
   recipesStorageState,
   sessionCookiesFor,
   settingsEmail,
   settingsStorageState,
+  shoppingEmail,
+  shoppingStorageState,
   statusEmail,
   statusStorageState,
   userStorageState,
@@ -46,6 +52,8 @@ export default async function globalSetup(config: FullConfig) {
   const { error } = await adminClient().auth.admin.createUser({ email: outsiderEmail, email_confirm: true });
   if (error && error.code !== "email_exists") throw error;
 
+  // Every E2E user but coreFlowEmail gets a saved session: core-flow.spec.ts
+  // signs in through /logga-in and Mailpit itself.
   mkdirSync("tests/e2e/.auth", { recursive: true });
   const browser = await chromium.launch();
   try {
@@ -56,6 +64,9 @@ export default async function globalSetup(config: FullConfig) {
       [settingsEmail, settingsStorageState],
       [pantryEmail, pantryStorageState],
       [statusEmail, statusStorageState],
+      [mealplanEmail, mealplanStorageState],
+      [shoppingEmail, shoppingStorageState],
+      [putInPantryEmail, putInPantryStorageState],
     ] as const) {
       const user = await browser.newContext({ baseURL });
       const page = await user.newPage();

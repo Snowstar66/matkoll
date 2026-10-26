@@ -13,6 +13,9 @@ next-env.d.ts
 # Environment and secrets
 .env
 .env*.local
+# Database dumps at the root (plain backups, docs/drift.md)
+/*.sql
+/*.sql.gpg
 
 # Logs
 *.log

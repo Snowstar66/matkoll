@@ -26,6 +26,48 @@ export const errorMessages = {
   // the list; after a failed "Ångra" it stays removed.
   pantry_remove_failed: "Det gick inte att ta bort varan.",
   pantry_restore_failed: "Det gick inte att ångra.",
+  // "Lägg i lagret" (Story 3.7) before or while the pantry is written: nothing
+  // is added, and the checks stay.
+  pantry_add_failed: "Det gick inte att lägga varorna i lagret. Försök igen.",
+  // Matsedel (Story 3.1). After failed servings the selector shows the saved
+  // value again; after a failed remove the dish is back on the plan.
+  mealplan_unavailable: "Det gick inte att läsa matsedeln. Försök igen.",
+  // In Lägg till rätt when the library cannot be read; the plan is still shown.
+  mealplan_recipes_unavailable: "Det gick inte att läsa recepten. Försök igen.",
+  mealplan_add_failed: "Det gick inte att lägga rätten på matsedeln. Försök igen.",
+  mealplan_servings_failed: "Det gick inte att spara portionerna.",
+  mealplan_remove_failed: "Det gick inte att ta bort rätten.",
+  mealplan_restore_failed: "Det gick inte att ångra.",
+  // Tidigare matsedlar (Story 3.2). After a failed "Använd igen" or "Ny
+  // matsedel" the current plan is as it was; after a failed delete the plan stays.
+  mealplan_previous_unavailable: "Det gick inte att läsa tidigare matsedlar. Försök igen.",
+  mealplan_create_failed: "Det gick inte att skapa matsedeln. Försök igen.",
+  // "Använd igen" of a plan deleted elsewhere: back to Tidigare.
+  mealplan_plan_gone: "Matsedeln finns inte längre.",
+  // A new plan that cannot be made as asked, because the plans changed
+  // elsewhere (or the recipes did): the page is read again.
+  mealplan_plans_changed: "Matsedlarna har ändrats.",
+  mealplan_delete_failed: "Det gick inte att ta bort matsedeln. Försök igen.",
+  // Inköpslista (Story 3.3): the plan, its recipes or the catalog cannot be read.
+  shopping_unavailable: "Det gick inte att läsa inköpslistan. Försök igen.",
+  // A check that could not be saved (Story 3.4): the check goes back.
+  shopping_check_failed: "Det gick inte att spara bocken.",
+  // A check from a page whose plan is no longer the current one: the list is read again.
+  shopping_plan_changed: "Matsedeln har bytts. Listan är uppdaterad.",
+  // Own items (Story 3.5). A failed add keeps the sheet as it was; after a
+  // failed remove the item is back on the list; after a failed "Ångra" it
+  // stays removed.
+  shopping_save_failed: "Det gick inte att spara varan. Försök igen.",
+  shopping_remove_failed: "Det gick inte att ta bort varan.",
+  shopping_restore_failed: "Det gick inte att ångra.",
+  // An own item changed in its detail after it was removed elsewhere (Story 3.6): the sheet closes and the list is read again.
+  shopping_item_gone: "Varan finns inte längre.",
+  // "Lägg i lagret" (Story 3.7) after the pantry was written: the list could
+  // not be cleared. Trying again clears it without adding anything twice.
+  shopping_put_in_pantry_failed: "Det gick inte att lägga allt i lagret. Försök igen.",
+  // "Lägg i lagret" whose plan was switched elsewhere after the pantry was
+  // written: the items are at home, the list is read again.
+  shopping_put_in_pantry_plan_changed: "Varorna är lagda i lagret, men matsedeln har bytts.",
   // Recipe sites in Inställningar (FR7). The sentence with the site's name,
   // "koket.se finns redan.", is in `fields.domain`.
   settings_invalid_domain: "Ange en giltig webbadress, t.ex. koket.se.",

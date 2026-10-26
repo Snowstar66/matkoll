@@ -1,0 +1,180 @@
+import { expect, type Page, test } from "@playwright/test";
+import { adminClient, e2eUserId, putInPantryEmail, putInPantryStorageState } from "./support";
+
+// Story 3.7: "Lägg i lagret". The spec has an E2E user of its own
+// (putInPantryEmail), and each test makes its state with the service role:
+// Krämig kycklinggryta for 4 portions (3 dl grädde, 2 paprikor, salt efter
+// smak) on the current plan, 1 dl grädde in the pantry, and the own items
+// "kaffe" (linked to Kaffe) and "diskmedel". The list is then Grädde 2 dl,
+// Paprika 2 st and Salt "Finns hemma?", with the two own items.
+
+const mobile = { width: 375, height: 812 };
+const gryta = "Krämig kycklinggryta";
+
+test.use({ storageState: putInPantryStorageState, viewport: mobile });
+test.describe.configure({ mode: "serial" });
+
+let userId = "";
+let ids = new Map<string, string>();
+let recipeId = "";
+
+const catalog = [
+  { name: "Grädde", section: "Mejeri", location: "Kyl" },
+  { name: "Paprika", section: "Frukt och grönt", location: "Kyl" },
+  { name: "Salt", section: "Skafferi", location: "Skafferi" },
+  { name: "Kaffe", section: "Skafferi", location: "Skafferi" },
+];
+
+test.beforeAll(async () => {
+  userId = await e2eUserId(putInPantryEmail);
+  // Catalog ingredients are never deleted: upserted, so a retry finds the same ones.
+  const { data, error } = await adminClient()
+    .from("ingredient")
+    .upsert(
+      catalog.map((item) => ({ user_id: userId, normalized_name: item.name.toLocaleLowerCase("sv-SE"), ...item })),
+      { onConflict: "user_id,normalized_name" },
+    )
+    .select("id, name");
+  if (error) throw error;
+  ids = new Map((data as { id: string; name: string }[]).map((row) => [row.name, row.id]));
+});
+
+/** Starts each test from the same plan, recipe, own items and pantry. */
+async function seed() {
+  const admin = adminClient();
+  for (const table of ["meal_plan", "pantry_item", "recipe"] as const) {
+    const { error } = await admin.from(table).delete().eq("user_id", userId);
+    if (error) throw error;
+  }
+  const recipe = await admin
+    .from("recipe")
+    .insert({ user_id: userId, title: gryta, original_servings: 4, total_minutes: 30, source_kind: "text" })
+    .select("id")
+    .single();
+  if (recipe.error) throw recipe.error;
+  recipeId = (recipe.data as { id: string }).id;
+  const lines = await admin.from("recipe_ingredient").insert(
+    [
+      { text: "3 dl grädde", ingredient: "Grädde", amount: 3, unit: "dl" },
+      { text: "2 paprikor", ingredient: "Paprika", amount: 2, unit: "st" },
+      { text: "salt efter smak", ingredient: "Salt", amount: null, unit: null },
+    ].map((line, position) => ({
+      user_id: userId,
+      recipe_id: recipeId,
+      position,
+      original_text: line.text,
+      amount: line.amount,
+      unit: line.unit,
+      is_vague: line.amount === null,
+      ingredient_id: ids.get(line.ingredient),
+    })),
+  );
+  if (lines.error) throw lines.error;
+  const plan = await admin.from("meal_plan").insert({ user_id: userId, name: "Vecka 44", is_current: true }).select("id").single();
+  if (plan.error) throw plan.error;
+  const planId = (plan.data as { id: string }).id;
+  const dish = await admin.from("meal_plan_recipe").insert({
+    user_id: userId,
+    meal_plan_id: planId,
+    recipe_id: recipeId,
+    recipe_title: gryta,
+    servings: 4,
+    position: 0,
+  });
+  if (dish.error) throw dish.error;
+  const own = await admin.from("shopping_custom_item").insert([
+    { user_id: userId, meal_plan_id: planId, label: "kaffe", ingredient_id: ids.get("Kaffe") },
+    { user_id: userId, meal_plan_id: planId, label: "diskmedel" },
+  ]);
+  if (own.error) throw own.error;
+  const pantry = await admin
+    .from("pantry_item")
+    .insert({ user_id: userId, ingredient_id: ids.get("Grädde"), location: "Kyl", amount: 1, unit: "dl" });
+  if (pantry.error) throw pantry.error;
+}
+
+/** Collects console errors and uncaught exceptions for the page. */
+function watchErrors(page: Page): string[] {
+  const errors: string[] = [];
+  page.on("console", (message) => {
+    if (message.type() === "error") errors.push(message.text());
+  });
+  page.on("pageerror", (error) => errors.push(error.message));
+  return errors;
+}
+
+// Earlier routes stay mounted but hidden after a client navigation, so every
+// locator is scoped to what is visible.
+const lines = (page: Page) => page.getByTestId("shopping-line").filter({ visible: true });
+const check = (page: Page, name: string) => page.getByRole("checkbox", { name, exact: true }).filter({ visible: true });
+const putButton = (page: Page) => page.getByRole("button", { name: "Lägg i lagret", exact: true }).filter({ visible: true });
+const toast = (page: Page) => page.getByTestId("toast");
+const tab = (page: Page, name: "Recept" | "Hemma" | "Lista") =>
+  page.getByRole("navigation", { name: "Huvudmeny" }).getByRole("link", { name });
+
+test.beforeEach(async () => {
+  await seed();
+});
+
+test("the button shows once a line is checked off, and goes when the check comes off", async ({ page }) => {
+  const errors = watchErrors(page);
+  await page.goto("/lista");
+  await expect(lines(page)).toHaveCount(5);
+  await expect(putButton(page)).toHaveCount(0);
+  await check(page, "Grädde, 2 dl").click();
+  await expect(putButton(page)).toBeVisible();
+  await check(page, "Grädde, 2 dl").click();
+  await expect(putButton(page)).toHaveCount(0);
+  expect(errors).toEqual([]);
+});
+
+test("Lägg i lagret puts the checked lines in the pantry, takes them off the list, and the recipe can be cooked", async ({
+  page,
+}) => {
+  const errors = watchErrors(page);
+  await page.goto("/lista");
+  for (const name of ["Grädde, 2 dl", "Paprika, 2 st", "Salt, finns hemma?", "kaffe", "diskmedel"]) {
+    await check(page, name).click();
+    await expect(check(page, name)).toBeChecked();
+  }
+  await putButton(page).click();
+  await expect(toast(page)).toHaveText("Lagt 4 varor i lagret.");
+  await expect(lines(page)).toHaveCount(0);
+  await expect(page.getByText("Allt finns hemma.").filter({ visible: true })).toBeVisible();
+  await expect(putButton(page)).toHaveCount(0);
+
+  // Hemma: the catalog's locations, increased or created, and unlimited for salt and kaffe.
+  await tab(page, "Hemma").click();
+  await expect(page).toHaveURL(/\/hemma/);
+  const rows = page.getByTestId("pantry-row").filter({ visible: true });
+  await expect(rows.filter({ hasText: "Grädde" })).toHaveText(/Grädde\s*3 dl/);
+  await expect(rows.filter({ hasText: "Paprika" })).toHaveText(/Paprika\s*2 st/);
+  await page.goto("/hemma?plats=skafferi");
+  const tags = page.getByTestId("pantry-tag").filter({ visible: true });
+  await expect(tags.filter({ hasText: "Salt" })).toBeVisible();
+  await expect(tags.filter({ hasText: "Kaffe" })).toBeVisible();
+
+  // The status is counted again.
+  await page.goto(`/recept/${recipeId}`);
+  await expect(page.getByRole("article").filter({ visible: true }).getByText("Kan lagas nu", { exact: true })).toBeVisible();
+  expect(errors).toEqual([]);
+});
+
+test("only own items without a catalog ingredient are taken off the list, and the rest stays", async ({ page }) => {
+  const errors = watchErrors(page);
+  await page.goto("/lista");
+  await check(page, "diskmedel").click();
+  await expect(check(page, "diskmedel")).toBeChecked();
+  await putButton(page).click();
+  await expect(toast(page)).toHaveText("Tog bort 1 vara från listan.");
+  await expect(lines(page)).toHaveCount(4);
+  await expect(lines(page).filter({ hasText: "diskmedel" })).toHaveCount(0);
+  for (const name of ["Grädde, 2 dl", "Paprika, 2 st", "Salt, finns hemma?", "kaffe"]) {
+    await expect(check(page, name)).not.toBeChecked();
+  }
+  // Nothing went to the pantry.
+  const { data, error } = await adminClient().from("pantry_item").select("amount").eq("user_id", userId);
+  if (error) throw error;
+  expect(data).toEqual([{ amount: 1 }]);
+  expect(errors).toEqual([]);
+});

@@ -8,20 +8,50 @@ const { revalidateFor } = await import("./revalidate");
 beforeEach(() => revalidatePath.mockReset());
 
 describe("revalidateFor", () => {
-  it("revalidates Hemma and the recipes, with every recipe view, after a pantry write", () => {
+  it("revalidates Hemma, the recipes, with every recipe view, the meal plan and the list after a pantry write", () => {
     revalidateFor("pantry_item");
     expect(revalidatePath.mock.calls).toEqual([
       ["/hemma", "page"],
       ["/recept", "layout"],
+      ["/matsedel", "layout"],
+      ["/lista", "page"],
     ]);
   });
 
-  it("revalidates the library and recipe views after a recipe write, and Inställningar after a site write", () => {
+  it("revalidates the meal plan, the shopping list and the recipes after a meal plan write", () => {
+    revalidateFor("meal_plan_recipe");
+    revalidateFor("meal_plan");
+    const routes = [
+      ["/matsedel", "layout"],
+      ["/lista", "page"],
+      ["/recept", "layout"],
+    ];
+    expect(revalidatePath.mock.calls).toEqual([...routes, ...routes]);
+  });
+
+  it("revalidates the library, recipe views, meal plan and list after a recipe write, and Inställningar after a site write", () => {
     revalidateFor("recipe");
     revalidateFor("recipe_site");
     expect(revalidatePath.mock.calls).toEqual([
       ["/recept", "layout"],
+      ["/matsedel", "layout"],
+      ["/lista", "page"],
       ["/installningar", "page"],
     ]);
+  });
+
+  it("revalidates the shopping list after a write to anything it is counted from", () => {
+    // The catalog's ingredient table has no entry: its names and sections only
+    // change through recipe and pantry writes, which revalidate the list.
+    for (const table of ["recipe", "pantry_item", "meal_plan", "meal_plan_recipe"] as const) {
+      revalidatePath.mockReset();
+      revalidateFor(table);
+      expect(revalidatePath.mock.calls, table).toContainEqual(["/lista", "page"]);
+    }
+  });
+
+  it.each(["shopping_check", "shopping_custom_item"] as const)("revalidates only the shopping list after a write to %s", (table) => {
+    revalidateFor(table);
+    expect(revalidatePath.mock.calls).toEqual([["/lista", "page"]]);
   });
 });

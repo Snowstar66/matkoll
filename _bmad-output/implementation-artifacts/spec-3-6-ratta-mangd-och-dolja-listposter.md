@@ -2,9 +2,10 @@
 title: 'Story 3.6: Rätta mängd och dölja listposter'
 type: 'feature'
 created: '2026-10-26'
-status: 'draft'
+status: 'done'
 route: 'dispatch'
-review_loop_iteration: 0
+review_loop_iteration: 1
+baseline_commit: 'f135422b7c154c4a6ddf615382db3ebf20ed65b8'
 context:
   - '{project-root}/_bmad-output/implementation-artifacts/epic-3-context.md'
   - '{project-root}/_bmad-output/planning-artifacts/ux-designs/ux-Matkoll-2026-10-25/EXPERIENCE.md'
@@ -56,22 +57,56 @@ context:
 ## Tasks & Acceptance
 
 **Execution:**
-- [ ] `supabase/migrations/<tid>_shopping_line_override.sql` och `pnpm db:types` -- tabellen enligt Boundaries, `updated_at` sätts vid update -- AD-4, AD-8, AD-20
-- [ ] `src/features/shopping/domain/` (+ test) -- `lineAmountFormSchema` (mängd via `parseQuantity` > 0); `computeList` tillämpar `overlay.overrides` (rättad mängd ersätter, dold tas bort, `computedAmount` med för detaljens "Beräknat") -- AD-8
-- [ ] `src/features/shopping/data/`, `actions/set-line-amount.ts`, `clear-line-amount.ts`, `hide-line.ts`, `restore-line.ts`, `update-custom-item.ts` (+ tester) -- `requireUser`, Zod, aktuell matsedel via `mealplan`, upsert på `(meal_plan_id, line_key)`, `revalidateFor` -- AD-2, AD-20
-- [ ] `src/lib/revalidate.ts` -- `shopping_line_override` → `/lista` -- AD-18
-- [ ] `src/features/shopping/ui/line-detail-sheet.tsx` -- arket Listpostdetalj enligt matrisen, `useActionState`; tryck på varunamnet öppnar det; svep vänster med "Ta bort" på receptposter -- UX, UX-DR13
-- [ ] `tests/integration/shopping.test.ts` (utökad) -- `expectRlsIsolation('shopping_line_override', …)`; unik nyckel; `check` nekar `c:`-nyckel; dölj och återställ med samma id; cascade med matsedeln -- AD-4
-- [ ] `tests/e2e/shopping.spec.ts` (utökad) -- rätta mängd och se den efter ändrade portioner, återställ, dölj med svep och ångra, dölj via detaljen och se posten dold efter omräkning, ändra en egen vara -- matrisen
+- [x] `supabase/migrations/<tid>_shopping_line_override.sql` och `pnpm db:types` -- tabellen enligt Boundaries, `updated_at` sätts vid update -- AD-4, AD-8, AD-20
+- [x] `src/features/shopping/domain/` (+ test) -- `lineAmountFormSchema` (mängd via `parseQuantity` > 0); `computeList` tillämpar `overlay.overrides` (rättad mängd ersätter, dold tas bort, `computedAmount` med för detaljens "Beräknat") -- AD-8
+- [x] `src/features/shopping/data/`, `actions/set-line-amount.ts`, `clear-line-amount.ts`, `hide-line.ts`, `restore-line.ts`, `update-custom-item.ts` (+ tester) -- `requireUser`, Zod, aktuell matsedel via `mealplan`, upsert på `(meal_plan_id, line_key)`, `revalidateFor` -- AD-2, AD-20
+- [x] `src/lib/revalidate.ts` -- `shopping_line_override` → `/lista` -- AD-18
+- [x] `src/features/shopping/ui/line-detail-sheet.tsx` -- arket Listpostdetalj enligt matrisen, `useActionState`; tryck på varunamnet öppnar det; svep vänster med "Ta bort" på receptposter -- UX, UX-DR13
+- [x] `tests/integration/shopping.test.ts` (utökad) -- `expectRlsIsolation('shopping_line_override', …)`; unik nyckel; `check` nekar `c:`-nyckel; dölj och återställ med samma id; cascade med matsedeln -- AD-4
+- [x] `tests/e2e/shopping.spec.ts` (utökad) -- rätta mängd och se den efter ändrade portioner, återställ, dölj med svep och ångra, dölj via detaljen och se posten dold efter omräkning, ändra en egen vara -- matrisen
 
 **Acceptance Criteria:**
 - Given `pnpm lint && pnpm typecheck && pnpm test && pnpm test:integration && AI_PROVIDER=mock pnpm build && CI=1 pnpm test:e2e`, when de körs, then lyckas alla.
 
 ## Implementation Notes
 
+- `shopping_line_override_line_key_check` släpper igenom `r:`- och `t:`-nycklar och nekar `c:`. En `t:`-post kan då döljas, på samma sätt som 3.4 lät den bockas av. En mängd tillåts bara på `r:<id>:<enhet>` (`shopping_line_override_amount_key_check`). Designtestet låser enheterna och längden.
+- En rättad mängd avrundas inte uppåt i styckenheter, och posten behåller täckning och `pantryNote`. En överstyrning utan post ligger kvar och gäller igen när nyckeln kommer tillbaka (beslutsloggen 2026-10-26).
+- Skrivningarna är RPC:er under `meal_plan_lock()` som kontrollerar att matsedeln är aktuell: `set_shopping_line_amount` (null = beräknad), `hide_shopping_line`, `restore_shopping_line` och `update_shopping_custom_item`. `restoreLine` tar `{ planId, key, previous }`.
+- `ShoppingLine` fick `computedAmount?` och `linkedName?`. `custom-item-removal.ts` heter nu `line-removal.ts` och tar bort båda sorterna av poster.
+
 ## Spec Change Log
 
+- Checken på `shopping_line_override.line_key` godtar både `r:`- och `t:`-nycklar, men inte `c:`. Annars går en receptrad utan katalogingrediens inte att dölja (samma ändring som i 3.4).
+- "Dolda varor (N)" med "Visa igen" läggs till efter granskningen. En dold rad ska kunna komma tillbaka även efter att Ångra-tiden gått ut.
+
 ## Review Triage Log
+
+Iteration 1. Granskare: Blind Hunter, Edge Case Hunter och Verification Gap.
+
+**Patch:**
+- "Dolda varor (N)" med "Visa igen".
+- Ångra efter ett dubbelt döljande.
+- Skydd mot dubbeltryck.
+- Ett döljande som sparats men inte gick att tolka ger "borttagen" utan Ångra.
+- Ett nytt försök när svaret försvinner.
+- Ångra behåller en samtidig rättning.
+- En rättad mängd visar avvikelse mot `base_amount`.
+- Mängdfältet:
+  - använder det exakta värdet
+  - en mängd som är lika med den beräknade tar bort rättningen
+- Detaljen stängs när posten försvinner.
+- Redigeringen av en egen vara utgår från den sparade texten.
+- Felet `shopping_item_gone`.
+- Live-regionen nollställer `touched`.
+- Sidindelning eller designtest för `max_rows`.
+- Det instabila timertestet görs deterministiskt.
+- Ett test för en dold vag rad som slagits ihop.
+
+**Reject:**
+- ett tak för antal rader per matsedel
+- en kontroll av att `r:`-nycklar hör till matsedeln
+- att behålla dolda rader som inte går att läsa
 
 ## Verification
 

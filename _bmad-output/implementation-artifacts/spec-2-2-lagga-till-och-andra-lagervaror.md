@@ -15,7 +15,7 @@ context:
 
 ## Intent
 
-**Problem:** Pontus kan se lagret men inte föra in något. Han behöver lägga till och ändra varor, med eller utan mängd, kopplade till katalogen.
+**Problem:** Pontus kan se lagret men inte föra in något. Hen behöver lägga till och ändra varor, med eller utan mängd, kopplade till katalogen.
 
 **Approach:** Arket Lagervara öppnas med "+" eller ett tryck på en vara. Det söker i katalogen (namn och synonymer) eller skapar en ny katalogingrediens, tar valfri mängd och enhet och en plats som föreslås från katalogen. Sparningen går via `setPantryItems` (AD-19) och `commitIngredients` för nya ingredienser (AD-6).
 

@@ -1,8 +1,8 @@
 "use client";
 
 import { useEffect, useRef, useState } from "react";
-import { cx } from "@/components/cx";
-import { RecipesIcon } from "@/components/icons";
+import { cx } from "./cx";
+import { RecipesIcon } from "./icons";
 
 export type RecipeImageProps = {
   /** The recipe's image address, or null when it has none. */
@@ -38,6 +38,10 @@ export function RecipeImage({ src, iconSize = 48, className }: RecipeImageProps)
           src={src}
           alt=""
           referrerPolicy="no-referrer"
+          loading="lazy"
+          decoding="async"
+          // Never dragged out, so a swipe on a card with the image moves the card.
+          draggable={false}
           onError={() => setFailedSrc(src)}
           className="size-full object-cover"
         />
