@@ -209,7 +209,7 @@ const unnamed = (id: string, siteId: string, location: Location): PantryItem => 
   amount: null,
   unit: null,
   label: null,
-  createdAt: "",
+  createdAt: null,
   section: "Övrigt",
 });
 

@@ -19,8 +19,12 @@ export type PantryItem = {
   unit: Unit | null;
   /** Story 11.2 (FR-42): the brand or kind ("Arla laktosfri"), 1–60 characters, or `null`. */
   label: string | null;
-  /** When the item was added (`created_at`, ISO 8601): kept when the amount changes, the row is replaced, and after "Ångra". */
-  createdAt: string;
+  /**
+   * When the item was added (`created_at`, ISO 8601): kept when the amount
+   * changes, the row is replaced, and after "Ångra". `null` only on a
+   * placeholder for a row the list never showed (pantry-removal.tsx).
+   */
+  createdAt: string | null;
   /** The catalog ingredient's section, so the view can work out its category (AD-12). */
   section: Section;
 };

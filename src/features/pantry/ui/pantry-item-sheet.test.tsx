@@ -113,10 +113,26 @@ describe("PantryItemSheet, a new item", () => {
       location: "Skafferi",
       siteId: hemma.id,
       replaceId: null,
-      label: "",
     });
     expect(screen.queryByRole("dialog")).toBeNull();
     expect(screen.getByRole("status")).toHaveTextContent("Gul lök är sparad i skafferiet.");
+  });
+
+  it("sends a typed label for a new item, and none when the field is empty (Story 11.2)", async () => {
+    setup("Frys");
+    fireEvent.click(screen.getByRole("button", { name: "Lägg till vara" }));
+    await search("gul");
+    fireEvent.click(within(sheet()).getByRole("button", { name: "Gul lök" }));
+    fireEvent.change(within(sheet()).getByRole("textbox", { name: "Märke eller sort" }), { target: { value: "Svenska" } });
+    await save("Lägg till vara");
+    expect(savePantryItem).toHaveBeenLastCalledWith(expect.objectContaining({ label: "Svenska" }));
+
+    fireEvent.click(screen.getByRole("button", { name: "Lägg till vara" }));
+    await search("gul");
+    fireEvent.click(within(sheet()).getByRole("button", { name: "Gul lök" }));
+    await save("Lägg till vara");
+    // Empty: a row the item lands on keeps its label.
+    expect("label" in savePantryItem.mock.lastCall![0]).toBe(false);
   });
 
   it("asks for the section of a new ingredient, keeps it where the item is, and saves without amount", async () => {
@@ -137,7 +153,6 @@ describe("PantryItemSheet, a new item", () => {
       location: "Skafferi",
       siteId: hemma.id,
       replaceId: null,
-      label: "",
     });
   });
 
@@ -326,11 +341,12 @@ describe("PantryItemSheet, an item in the pantry", () => {
       return within(sheet()).getByRole("textbox", { name: "Märke eller sort" });
     }
 
-    it("is an optional text field with the item's label, a placeholder, at most 60 characters", () => {
+    it("is an optional text field with the item's label and a placeholder, which counts its limit in characters", () => {
       const field = openLabelled("Arla laktosfri");
       expect(field).toHaveValue("Arla laktosfri");
       expect(field).toHaveAttribute("placeholder", "Till exempel Arla laktosfri");
-      expect(field).toHaveAttribute("maxLength", "60");
+      // No maxLength: it would count UTF-16 units, not characters (parseLabelField counts them).
+      expect(field).not.toHaveAttribute("maxLength");
       expect(field).not.toBeRequired();
     });
 
@@ -353,7 +369,6 @@ describe("PantryItemSheet, an item in the pantry", () => {
 
     it("refuses more than 60 characters at the field and saves nothing", async () => {
       const field = openLabelled(null);
-      // Past maxLength, as a script can.
       fireEvent.change(field, { target: { value: "a".repeat(61) } });
       expect(field).toHaveAttribute("aria-invalid", "true");
       expect(within(sheet()).getByText("Skriv högst 60 tecken.")).toBeInTheDocument();
@@ -522,6 +537,19 @@ describe("PantryItemSheet, a lagerförslag (Rätta)", () => {
     fireEvent.change(field, { target: { value: "Arla" } });
     await act(async () => fireEvent.click(within(sheet()).getByRole("button", { name: "Bekräfta" })));
     expect(onConfirm.mock.calls[0]![2]).toMatchObject({ label: "Arla" });
+  });
+
+  it("leaves the photo's label as filled in out of the form, so it only fills an item without a label", async () => {
+    open({ ...mjolkSuggestion, labels: ["Arla Mellanmjölk laktosfri 1,5 l"] });
+    await act(async () => fireEvent.click(within(sheet()).getByRole("button", { name: "Bekräfta" })));
+    expect("label" in onConfirm.mock.calls[0]![2]).toBe(false);
+  });
+
+  it("shows the label the item has rather than the photo's, and keeps it as it is", async () => {
+    open({ ...mjolkSuggestion, labels: ["Arla Mellanmjölk laktosfri 1,5 l"], currentLabel: "Garant" });
+    expect(within(sheet()).getByRole("textbox", { name: "Märke eller sort" })).toHaveValue("Garant");
+    await act(async () => fireEvent.click(within(sheet()).getByRole("button", { name: "Bekräfta" })));
+    expect("label" in onConfirm.mock.calls[0]![2]).toBe(false);
   });
 
   it("leaves the label out when the field is empty, so the item keeps its own", async () => {

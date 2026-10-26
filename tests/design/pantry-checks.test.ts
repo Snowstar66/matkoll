@@ -3,7 +3,7 @@ import { join } from "node:path";
 import { fileURLToPath } from "node:url";
 import { describe, expect, it } from "vitest";
 import { LOCATIONS, UNITS } from "@/features/catalog";
-import { maxPantryLabelLength } from "@/features/pantry/domain/pantry-item-form";
+import { blankLabelCodePoints, maxPantryLabelLength } from "@/features/pantry/domain/pantry-item-form";
 import { maxConfirmItems, maxInventoryRemovals, maxInventoryReplaces } from "@/features/pantry/domain/pantry-suggestion";
 import { refusedCodePoints } from "@/lib/one-line";
 
@@ -154,5 +154,14 @@ describe("pantry_item_label_check", () => {
       )
       .join("");
     expect(bracket![1], file).toBe(expected);
+  });
+
+  it("refuses exactly blankLabelCodePoints, and a label of only white space (after review)", () => {
+    const { file, body } = labelCheck();
+    const brackets = [...body.matchAll(/label !~ '\[([^\]]*)\]'/g)].map((match) => match[1]);
+    expect(brackets, file).toHaveLength(2);
+    // Written as \u escapes, also below U+0100.
+    expect(brackets[1], file).toBe(blankLabelCodePoints.map((point) => `${"\\"}u${point.toString(16).padStart(4, "0")}`).join(""));
+    expect(body, file).toContain("label ~ '[^[:space:]]'");
   });
 });

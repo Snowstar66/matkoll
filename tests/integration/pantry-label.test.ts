@@ -190,7 +190,7 @@ describe("pantry_item.label", () => {
     const listed = await listPantryIn(user.db, "Skafferi", (ids) => loadIngredientSummaries(user.db, ids));
     const item = listed.find(({ id }) => id === row.id)!;
     expect(item).toMatchObject({ label: "Lindahls", section: "Mejeri" });
-    sameTime(item.createdAt, (await rowOf(user.db, row.id))!.created_at);
+    sameTime(item.createdAt!, (await rowOf(user.db, row.id))!.created_at);
   });
 });
 
@@ -331,5 +331,218 @@ describe("RLS on the label", () => {
     });
     expect(error).not.toBeNull();
     expect(await rowOf(user.db, row.id)).toMatchObject({ label: "Arla" });
+  });
+});
+
+describe("after review: a label is never lost", () => {
+  it("keeps a row's label when a new item lands on it without one, also with an explicit null", async () => {
+    const mjolk = await addIngredient(user.db, uniqueName("Mjölk"));
+    const [row] = await setPantryItemsIn(user.db, [kyl(mjolk, 1, "l", "Arla")]);
+    // The sheet for a new item with an empty field sends no label.
+    await setPantryItemsIn(user.db, [kyl(mjolk, 2, "l")]);
+    expect(await rowOf(user.db, row.id)).toMatchObject({ amount: 2, label: "Arla" });
+    // A null from anything but an edit of that row keeps it too.
+    await setPantryItemsIn(user.db, [kyl(mjolk, 3, "l", null)]);
+    expect(await rowOf(user.db, row.id)).toMatchObject({ amount: 3, label: "Arla" });
+  });
+
+  it("lets a photo's label fill only a row without one", async () => {
+    const mjolk = await addIngredient(user.db, uniqueName("Mjölk"));
+    const gradde = await addIngredient(user.db, uniqueName("Grädde"));
+    const [labelled, bare] = await setPantryItemsIn(user.db, [kyl(mjolk, 1, "l", "Arla"), kyl(gradde, 1, "förp")]);
+    await setPantryItemsIn(user.db, [
+      { ...kyl(mjolk, 1, "l"), photoLabel: "Mellanmjölk 1,5 %" },
+      { ...kyl(gradde, 1, "förp"), photoLabel: "Vispgrädde 3 dl" },
+    ]);
+    expect(await rowOf(user.db, labelled.id)).toMatchObject({ label: "Arla" });
+    expect(await rowOf(user.db, bare.id)).toMatchObject({ label: "Vispgrädde 3 dl" });
+
+    // The same through an inventory.
+    const fil = await addIngredient(user.db, uniqueName("Fil"));
+    const [filRow] = await setPantryItemsIn(user.db, [kyl(fil, 1, "förp", "Arla filmjölk")]);
+    await applyPantryInventoryIn(user.db, {
+      siteId: null,
+      place: "Kyl",
+      items: [{ ...kyl(fil, 2, "förp"), photoLabel: "Filmjölk 3 %" }],
+      replaceRowIds: [],
+      removeRowIds: [],
+      operationId: null,
+    });
+    expect(await rowOf(user.db, filRow.id)).toMatchObject({ amount: 2, label: "Arla filmjölk" });
+  });
+
+  it("merges a row moved onto an occupied unit with the oldest time and the label it had", async () => {
+    const mjol = await addIngredient(user.db, uniqueName("Mjöl"));
+    const [kg, dl] = await setPantryItemsIn(user.db, [kyl(mjol, 1, "kg", "Kungsörnen"), kyl(mjol, 10, "dl")]);
+    const added = await age(user.db, kg.id, 5);
+    await age(user.db, dl.id, 1);
+    // The sheet edits the kg row to dl, where a row is already.
+    const [merged] = await setPantryItemsIn(user.db, [kyl(mjol, 15, "dl")], kg.id);
+    expect(merged.id).toBe(dl.id);
+    expect(await rowOf(user.db, kg.id)).toBeNull();
+    const stored = (await rowOf(user.db, dl.id))!;
+    expect(stored).toMatchObject({ amount: 15, label: "Kungsörnen" });
+    sameTime(stored.created_at, added);
+
+    // An explicit null from that edit keeps the label of the row it lands on.
+    const [other] = await setPantryItemsIn(user.db, [{ ...kyl(mjol, 1, "kg", "Eget") }]);
+    await setPantryItemsIn(user.db, [kyl(mjol, 20, "dl", null)], other.id);
+    expect(await rowOf(user.db, dl.id)).toMatchObject({ amount: 20, label: "Kungsörnen" });
+  });
+
+  it("gives the replaced row's time and label only to the item of its own ingredient", async () => {
+    const smor = await addIngredient(user.db, uniqueName("Smör"));
+    const ost = await addIngredient(user.db, uniqueName("Ost"));
+    const [row] = await setPantryItemsIn(user.db, [kyl(smor, 1, "förp", "Bregott")]);
+    const added = await age(user.db, row.id, 8);
+    const before = Date.now();
+    const [moved, cheese] = await setPantryItemsIn(user.db, [{ ...kyl(smor, 1, "förp"), location: "Frys" }, kyl(ost, 1, "st")], row.id);
+    const storedSmor = (await rowOf(user.db, moved.id))!;
+    expect(storedSmor.label).toBe("Bregott");
+    sameTime(storedSmor.created_at, added);
+    const storedOst = (await rowOf(user.db, cheese.id))!;
+    expect(storedOst.label).toBeNull();
+    expect(new Date(storedOst.created_at).getTime()).toBeGreaterThanOrEqual(before - 5_000);
+  });
+
+  it("gives an inventory's replaced row to the first item of its ingredient in the place only", async () => {
+    const inv = await createTestUser("pantry-label-inventory-heir");
+    const mjolk = await addIngredient(inv.db, uniqueName("Mjölk"));
+    const [dl] = await setPantryItemsIn(inv.db, [kyl(mjolk, 5, "dl", "Arla")]);
+    const added = await age(inv.db, dl.id, 9);
+    const before = Date.now();
+    await applyPantryInventoryIn(inv.db, {
+      siteId: null,
+      place: "Kyl",
+      items: [kyl(mjolk, 1, "förp"), kyl(mjolk, 1, "l")],
+      replaceRowIds: [dl.id],
+      removeRowIds: [],
+      operationId: null,
+    });
+    const rows = await rowsFor(inv.db, mjolk);
+    const forp = rows.find((row) => row.unit === "förp")!;
+    const liter = rows.find((row) => row.unit === "l")!;
+    expect(forp.label).toBe("Arla");
+    sameTime(forp.created_at, added);
+    expect(liter.label).toBeNull();
+    expect(new Date(liter.created_at).getTime()).toBeGreaterThanOrEqual(before - 5_000);
+  });
+
+  it("keeps add_to_pantry from touching a labelled unlimited row, and passes amounts' time and label to an unlimited one", async () => {
+    const salt = await addIngredient(user.db, uniqueName("Salt"));
+    const [unlimited] = await setPantryItemsIn(user.db, [kyl(salt, null, null, "Falksalt")]);
+    const saltAdded = await age(user.db, unlimited.id, 4);
+    let { error } = await user.db.rpc("add_to_pantry", {
+      items: [{ key: randomUUID(), ingredient_id: salt, location: "Kyl", amount: 500, unit: "g" }],
+    });
+    expect(error).toBeNull();
+    expect(await rowsFor(user.db, salt)).toEqual([expect.objectContaining({ id: unlimited.id, amount: null, label: "Falksalt" })]);
+    sameTime((await rowOf(user.db, unlimited.id))!.created_at, saltAdded);
+
+    const peppar = await addIngredient(user.db, uniqueName("Peppar"));
+    const [grams] = await setPantryItemsIn(user.db, [kyl(peppar, 50, "g", "Santa Maria")]);
+    const pepparAdded = await age(user.db, grams.id, 6);
+    ({ error } = await user.db.rpc("add_to_pantry", {
+      items: [{ key: randomUUID(), ingredient_id: peppar, location: "Kyl", amount: null, unit: null }],
+    }));
+    expect(error).toBeNull();
+    const [nowUnlimited] = await rowsFor(user.db, peppar);
+    expect(nowUnlimited).toMatchObject({ amount: null, unit: null, label: "Santa Maria" });
+    sameTime(nowUnlimited.created_at, pepparAdded);
+  });
+});
+
+describe("after review: Ångra is robust", () => {
+  async function storeRemoval(db: Db, rows: unknown[]): Promise<string> {
+    const operation = randomUUID();
+    const { error } = await db.from("pantry_removal").insert({ id: operation, removed_rows: rows as never });
+    if (error) throw error;
+    return operation;
+  }
+
+  async function siteOf(db: Db, id: string): Promise<string> {
+    return (await db.from("pantry_item").select("site_id").eq("id", id).single()).data!.site_id;
+  }
+
+  it("skips a malformed stored row and puts the others back", async () => {
+    const mjolk = await addIngredient(user.db, uniqueName("Mjölk"));
+    const smor = await addIngredient(user.db, uniqueName("Smör"));
+    const [row] = await setPantryItemsIn(user.db, [kyl(mjolk, 1, "l", "Arla")]);
+    const siteId = await siteOf(user.db, row.id);
+    await removePantryItemIn(user.db, user.id, row.id);
+    const good = { id: row.id, site_id: siteId, ingredient_id: mjolk, location: "Kyl", amount: 1, unit: "l", label: "Arla" };
+    const operation = await storeRemoval(user.db, [
+      { ...good, id: "inte-ett-id", ingredient_id: smor },
+      { ...good, id: randomUUID(), ingredient_id: smor, created_at: "igår" },
+      { ...good, id: randomUUID(), ingredient_id: smor, location: "Frys", amount: "många" },
+      { ...good, id: randomUUID(), ingredient_id: smor, location: "Skafferi", created_at: "infinity" },
+      { ...good, site_id: "inte-ett-ställe" },
+      good,
+    ]);
+    const restored = await restorePantryRemovalIn(user.db, operation);
+    expect(restored.restoredIds).toEqual([row.id]);
+    expect(restored.skipped).toBe(5);
+    expect(await rowOf(user.db, row.id)).toMatchObject({ label: "Arla" });
+  });
+
+  it("puts a row whose label the check refuses now back without it", async () => {
+    const mjolk = await addIngredient(user.db, uniqueName("Mjölk"));
+    const [row] = await setPantryItemsIn(user.db, [kyl(mjolk, 1, "l")]);
+    const siteId = await siteOf(user.db, row.id);
+    await removePantryItemIn(user.db, user.id, row.id);
+    const operation = await storeRemoval(user.db, [
+      { id: row.id, site_id: siteId, ingredient_id: mjolk, location: "Kyl", amount: 1, unit: "l", label: " Arla" },
+    ]);
+    expect((await restorePantryRemovalIn(user.db, operation)).restoredIds).toEqual([row.id]);
+    expect(await rowOf(user.db, row.id)).toMatchObject({ amount: 1, label: null });
+  });
+
+  it("makes a stored time in the future now, and one before 2000 the first of 2000", async () => {
+    const mjolk = await addIngredient(user.db, uniqueName("Mjölk"));
+    const smor = await addIngredient(user.db, uniqueName("Smör"));
+    const [a, b] = await setPantryItemsIn(user.db, [kyl(mjolk, 1, "l"), kyl(smor, 1, "förp")]);
+    const siteId = await siteOf(user.db, a.id);
+    await removePantryItemIn(user.db, user.id, a.id);
+    await removePantryItemIn(user.db, user.id, b.id);
+    const inAYear = new Date(Date.now() + 365 * 24 * 60 * 60 * 1000).toISOString();
+    const operation = await storeRemoval(user.db, [
+      { id: a.id, site_id: siteId, ingredient_id: mjolk, location: "Kyl", amount: 1, unit: "l", created_at: inAYear },
+      { id: b.id, site_id: siteId, ingredient_id: smor, location: "Kyl", amount: 1, unit: "förp", created_at: "1900-01-01T00:00:00Z" },
+    ]);
+    const before = Date.now();
+    await restorePantryRemovalIn(user.db, operation);
+    const future = new Date((await rowOf(user.db, a.id))!.created_at).getTime();
+    expect(future).toBeGreaterThanOrEqual(before - 5_000);
+    expect(future).toBeLessThanOrEqual(Date.now() + 1_000);
+    sameTime((await rowOf(user.db, b.id))!.created_at, "2000-01-01T00:00:00Z");
+  });
+
+  it("refuses a time that is not finite in restore_pantry_item", async () => {
+    const mjolk = await addIngredient(user.db, uniqueName("Mjölk"));
+    const [row] = await setPantryItemsIn(user.db, [kyl(mjolk, 1, "l")]);
+    await removePantryItemIn(user.db, user.id, row.id);
+    for (const time of ["infinity", "-infinity"]) {
+      const { error } = await user.db.rpc("restore_pantry_item", {
+        item: { id: row.id, ingredient_id: mjolk, location: "Kyl", amount: 1, unit: "l", created_at: time },
+      });
+      expect(error?.code, time).toBe("22023");
+    }
+    expect(await rowOf(user.db, row.id)).toBeNull();
+  });
+});
+
+describe("after review: the label's check", () => {
+  it("refuses blank-looking characters and a label of only white space", async () => {
+    const mjolk = await addIngredient(user.db, uniqueName("Mjölk"));
+    for (const point of [0x00ad, 0x034f, 0x115f, 0x2060, 0x3164]) {
+      const { error } = await user.db.rpc("set_pantry_items", {
+        items: [{ ingredient_id: mjolk, location: "Kyl", amount: 1, unit: "l", label: `Arla${String.fromCodePoint(point)}` }],
+      });
+      expect(error?.code, point.toString(16)).toBe("23514");
+    }
+    const { error } = await user.db.rpc("set_pantry_items", {
+      items: [{ ingredient_id: mjolk, location: "Kyl", amount: 1, unit: "l", label: String.fromCodePoint(0x3000) }],
+    });
+    expect(error?.code).toBe("23514");
   });
 });

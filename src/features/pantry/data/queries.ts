@@ -95,6 +95,19 @@ function amountOf(row: AmountColumns): { amount: number | null; unit: Unit | nul
 }
 
 /**
+ * A row's label as the domain reads it (pantryLabelSchema), or `null` when
+ * it has none or the domain cannot read it: the database's check is a little
+ * wider (pantry_item_label_check). An unreadable label is logged, without
+ * the text, and never makes the place unreadable.
+ */
+function readableLabel(label: string | null): string | null {
+  if (label === null) return null;
+  if (pantryLabelSchema.safeParse(label).success) return label;
+  console.error("pantry_label_unreadable", { reason: "invalid_label" });
+  return null;
+}
+
+/**
  * The signed-in user's pantry items in `location` on one place (`siteId`, or
  * the selected place; RLS limits the rows to the user's own) with their
  * catalog ingredients' names and sections, labels and the times they were
@@ -125,10 +138,8 @@ export async function listPantryIn(
   const items = rows.map((row): PantryItem => {
     const summary = summaries[row.ingredient_id];
     const place = locationSchema.safeParse(row.location);
-    // The table's check is pantryLabelSchema's rule (tests/design/pantry-checks.test.ts).
-    const label = pantryLabelSchema.nullable().safeParse(row.label);
     // The foreign key keeps the ingredient in the user's catalog (AD-20).
-    if (summary === undefined || !place.success || !label.success) throw new PantryDataError("invalid_row");
+    if (summary === undefined || !place.success) throw new PantryDataError("invalid_row");
     return {
       id: row.id,
       siteId: row.site_id,
@@ -136,7 +147,7 @@ export async function listPantryIn(
       name: summary.name,
       location: place.data,
       ...amountOf(row),
-      label: label.data,
+      label: readableLabel(row.label),
       createdAt: row.created_at,
       section: summary.section,
     };

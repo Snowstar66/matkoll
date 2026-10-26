@@ -2,7 +2,7 @@
 title: 'Story 11.2: Märke och tid på lagervaror'
 type: 'feature'
 created: '2026-10-26'
-status: 'in-progress'
+status: 'done'
 baseline_commit: '22a0febb5a37b5120ee9ebe41fe517877d340851'
 route: 'dispatch'
 context:
@@ -128,8 +128,8 @@ context:
 - **`pantry_item_label_check` vägrar också `refusedCodePoints`** (kontrolltecken, radbrytningar och osynliga tecken), som namnet på ett ställe. `pantryLabelSchema` har samma regel: inget blanksteg först eller sist (som `btrim`), 1–60 tecken räknade som `char_length` och inga vägrade tecken. `tests/design/pantry-checks.test.ts` låser 60, `btrim` och hakparentesen mot domänen.
 - **Avkortningen** (`toPantryLabel`): texten läggs på en rad (`oneLine`), kapas vid det sista blanksteget inom 60 tecken (annars mitt i), och `…`, blanksteg, punkt, komma, kolon och bindestreck i slutet tas bort. Arkets fält kapas aldrig: mer än 60 tecken ger "Skriv högst 60 tecken." vid fältet (`validation`).
 - **`suggestionLabel` hoppar över en etikett som bara är namnet** ("Ägg" för ägg), som `suggestionTitle` gör. Annars skulle 11.3 visa "Ägg" under Ägg i stället för "Tillagd …". Funktionen ligger i `pantry-item-form.ts` och exporteras också från `pantry-suggestion.ts`, eftersom `place-inventory.ts` (inventeringens "Bekräfta alla") behöver den och `pantry-suggestion.ts` redan importerar därifrån.
-- **Rätta med tomt fält skickar inget märke,** så varan behåller sitt. Arket visar förslagets etikett, aldrig radens eget märke, så ett tomt fält där betyder inte "ta bort". För en befintlig vara tar ett tömt fält bort märket, som specen säger.
-- **Ersättning ger också tid och märke i två fall till:** när `set_pantry_items` tar bort raden av det andra slaget (obegränsad mot mängd) för samma vara och plats, och när `apply_pantry_inventory` ersätter en rad i en annan enhet ("Ändrat"). Flera ersatta rader ger den äldsta tiden. Med `replace_id` får varorna i anropet den ersattas tid också när ingrediensen byttes i arket, eftersom det är samma vara i kylen. Arket skickar alltid ett märke, så då gäller fältets.
+- **Rätta med tomt fält skickar inget märke,** så varan behåller sitt. Arket visar förslagets etikett, aldrig radens eget märke, så ett tomt fält där betyder inte "ta bort". För en befintlig vara tar ett tömt fält bort märket, som specen säger. Efter granskningen visar arket radens märke när det finns (se Review Triage Log).
+- **Ersättning ger också tid och märke i två fall till:** när `set_pantry_items` tar bort raden av det andra slaget (obegränsad mot mängd) för samma vara och plats, och när `apply_pantry_inventory` ersätter en rad i en annan enhet ("Ändrat"). Flera ersatta rader ger den äldsta tiden. Med `replace_id` får varorna i anropet den ersattas tid också när ingrediensen byttes i arket, eftersom det är samma vara i kylen. Arket skickar alltid ett märke, så då gäller fältets. Ändrat efter granskningen: bara den första varan av samma ingrediens får den (se Review Triage Log).
 - **Avdelningen till `listPantry`:** katalogen har `getIngredientSummaries` (`loadIngredientSummaries`, namn och avdelning i en läsning). Typen `IngredientNames` i `pantry/data/queries.ts` heter nu `IngredientSummaries`. "I kylen nu" i analysen läser samma sak.
 - **`PantryItem` har `label`, `createdAt` och `section` som obligatoriska fält,** så testernas exempel fick dem.
 - **Fältet "Märke eller sort" ligger sist i arket,** efter Plats, i den ordning 11.3 räknar upp arket ("mängd, enhet, plats och märke").
@@ -139,6 +139,44 @@ context:
 - **Manuella kontroller** (iPhone mot LM Studio, VoiceOver) är inte gjorda. De står i `docs/oppna-fragor.md` under "Att prova på riktig telefon".
 
 ## Review Triage Log
+
+Iteration 1. Tre granskare gick igenom `c9a5510`. Ändringarna i SQL ligger i en andra migration, `pantry_label_hardening`. Den kördes med `supabase migration up --local`, efter en säkerhetskopia av bara data, en provkörning i en transaktion som rullades tillbaka och `scripts/pantry-site-check.sql` före och efter under testlåset. `diff` var tom (96 rader i `pantry_item`, 7 poster i `pantry_removal`). Grenen flyttades först till `a566fa1` (11.1), med konflikter bara i `sprint-status.yaml` och `docs/beslutslogg.md`.
+
+**Patch:**
+- Ett märke försvinner aldrig:
+  - Arket för en ny vara skickar inget märke när fältet är tomt.
+  - I `set_pantry_items` behåller en rad sitt märke när varan landar på den, utom när varan har ett märke. `null` tar bort märket bara från raden som redigeras (`replace_id`).
+  - Ett märke från fotot (`photoLabel`, `label_if_empty` i anropet) fyller bara en rad utan märke. Bekräfta, Bekräfta alla och inventeringen skickar fotots märke så.
+  - Analysen ger förslaget radens märke (`currentLabel`), och arket visar det vid Rätta i stället för fotots. Ett fält som står som det fylldes i, eller töms, skickar inget märke, så raden behåller sitt.
+- Tid och märke vid ersättning:
+  - En rad som flyttas till en enhet eller plats där en rad redan finns ger den raden den äldsta tiden och sitt märke, om raden saknar ett.
+  - Raden `replace_id` tar bort ger tid och märke bara till den första varan av samma ingrediens, aldrig till andra varor i samma anrop. Ett byte av ingrediens i arket ger alltså en ny tid.
+  - `apply_pantry_inventory` ger en ersatt rads tid och märke bara till den första varan av samma ingrediens på platsen, genom `set_pantry_items` (`inherit_created_at`, `inherit_label`). Klientens egna sådana nycklar tas bort.
+  - `add_to_pantry` ger en obegränsad rad som ersätter rader med mängd deras äldsta tid och första märke. Den sätter fortfarande aldrig något märke.
+- Ångra:
+  - `restore_pantry_removal` läser varje sparad rad i ett eget block. En trasig rad (id, mängd, tid eller ställe) räknas som hoppad över, och resten kommer tillbaka.
+  - Ett märke som `check` vägrar i dag lägger tillbaka raden utan märke.
+  - En tid från en anropare går genom `pantry_added_time`: aldrig senare än nu, aldrig före 2000-01-01, och en oändlig tid vägras (`22023`). Det gäller båda funktionerna för Ångra.
+- Validering och visning:
+  - `toPantryLabel` ger bara märken som `pantryLabelSchema` tar, annars `null`.
+  - Kontrolltecken byts mot blanksteg, och de tomma formattecknen U+00AD, U+034F, U+115F, U+2060 och U+3164 tas bort. Schemat och `check` vägrar dem, och ett märke måste ha något som syns (bokstav, siffra, symbol eller skiljetecken). Databasens "syns" är bredare (allt utom blanksteg).
+  - Ett långt märke kapas vid en grafemgräns (`Intl.Segmenter`).
+  - Fältet har ingen `maxLength`, som räknar UTF-16-enheter. `parseLabelField` räknar tecken och ger "Skriv högst 60 tecken." eller "Skriv bokstäver, siffror eller tecken.".
+  - `listPantryIn`, borttagningen, Ångra och svaret från en inventering läser ett märke som domänen inte tar som inget märke, och listan loggar `pantry_label_unreadable` utan texten. Platsen blir aldrig oläslig.
+  - `suggestionLabel` tar den första etiketten som är mer än namnet.
+  - `mergeConfirmations` behåller ett uttryckligt `null` och ger en struken obegränsad varas märke till varan som behålls, om den saknar ett.
+  - Platshållaren i `pantry-removal.tsx` har `createdAt: null`, och `PantryItem.createdAt` kan vara `null`.
+- Nya tester:
+  - ett märkt radens märke står kvar efter en ny vara med tomt fält och efter `null` från annat än en redigering;
+  - fotots märke fyller bara en rad utan märke, också i en inventering;
+  - `replace_id` till en upptagen enhet;
+  - ett anrop med flera varor och en inventering med två varor av samma ingrediens;
+  - `add_to_pantry` åt båda hållen;
+  - trasiga sparade rader, ett vägrat märke, en tid i framtiden och före 2000 i `restore_pantry_removal`;
+  - en oändlig tid i `restore_pantry_item`;
+  - de nya tecknen i `check`, grafemgränsen och designtestet för de två hakparenteserna.
+
+**Avvisat:** en sparad post på servern för Ångra av en enda rad. Utanför storyn; begränsningen av tiden räcker.
 
 ## Verification
 

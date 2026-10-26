@@ -1,7 +1,7 @@
 import "server-only";
 import { z } from "zod";
 import { locationSchema, type Location } from "@/features/catalog";
-import { pantryRowSchema, type PantryRow } from "../domain/pantry-item-form";
+import { pantryLabelSchema, pantryRowSchema, type PantryRow } from "../domain/pantry-item-form";
 import { PantryDataError, pantryWriteError, type PantryDb } from "./client";
 
 const idSchema = z.uuid();
@@ -22,9 +22,10 @@ type DbRow = {
  * database gave them. A time is ISO 8601 with an offset, as PostgREST and
  * to_jsonb write a timestamptz.
  */
-function labelAndTime(row: { label?: string | null; created_at?: string }): Pick<PantryRow, "label" | "createdAt"> {
+export function labelAndTime(row: { label?: string | null; created_at?: string }): Pick<PantryRow, "label" | "createdAt"> {
   return {
-    ...(row.label === undefined ? {} : { label: row.label }),
+    // A label the domain cannot read (the database's check is a little wider) goes as none.
+    ...(row.label === undefined ? {} : { label: pantryLabelSchema.safeParse(row.label).success ? row.label : null }),
     ...(row.created_at === undefined ? {} : { createdAt: row.created_at }),
   };
 }

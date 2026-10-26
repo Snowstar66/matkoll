@@ -9,6 +9,7 @@ Beslut som fattats under bygget: vad, varför och vilka alternativ som fanns. Ny
 - **`created_at` betyder "tillagd".** En ändrad mängd ändrar den inte. När en rad ersätts (ny enhet eller plats, obegränsad mot mängd, eller "Ändrat" i en inventering) får den nya raden den gamlas tid och, om inget nytt märke anges, dess märke. "Ångra" sätter tillbaka båda. En tid i framtiden blir nu. Alternativ: en ny `updated_at`, som inte svarar på "när kom den hem".
 - **Samma regel för märket i databasen och domänen:** inget blanksteg först eller sist, 1–60 tecken och inga osynliga tecken eller radbrytningar, som ställets namn. Ett test låser regeln mot domänen.
 - **Migrationen är bakåtkompatibel:** samma signaturer, och en anropare utan `label` får samma beteende som förut, utom att tiden nu står kvar.
+- **Efter granskningen: ett märke försvinner aldrig av misstag.** Fotots märke fyller bara en vara utan märke, så modellen skriver aldrig över det Pontus skrev. Ett tomt fält tar bort märket bara på varan som redigeras. Rätta visar varans eget märke när det finns. Ångra hoppar över en trasig sparad rad i stället för att stoppa, och en tid begränsas till mellan 2000 och nu. Alternativ: att det senaste märket alltid vinner, som var enklare men kunde radera ett märke Pontus skrivit.
 
 ## 2026-10-27 – Gemensam grund för nytt utseende (Story 11.1)
 

@@ -35,66 +35,117 @@ export const nameTooLongMessage = `Namnet får vara högst ${maxIngredientNameLe
 export const maxPantryLabelLength = 60;
 /** Under the field "Märke eller sort" when the text is too long. */
 export const labelTooLongMessage = `Skriv högst ${maxPantryLabelLength} tecken.`;
+/** Under the field "Märke eller sort" when nothing in it can be seen (only combining marks, for example). */
+export const labelUnusableMessage = "Skriv bokstäver, siffror eller tecken.";
 
 /**
- * A pantry item's brand or kind as stored (Story 11.2, FR-42, AD-19): the
- * same rule as pantry_item_label_check. 1–60 characters (code points, as
- * char_length counts them), no space at either end (btrim), and none of the
- * characters one-line texts never hold (refusedCodePoints). toPantryLabel
- * makes any text into one.
+ * Format characters that look blank and that a label never holds, besides
+ * refusedCodePoints (src/lib/one-line.ts): the soft hyphen, the combining
+ * grapheme joiner, the Hangul fillers and the word joiner. Built from code
+ * points, so no invisible character is ever written in the source
+ * (tests/design/invisible-characters.test.ts); pantry_item_label_check
+ * refuses the same ones (tests/design/pantry-checks.test.ts).
+ */
+export const blankLabelCodePoints: readonly number[] = [0x00ad, 0x034f, 0x115f, 0x2060, 0x3164];
+const blankLabelCharacters = blankLabelCodePoints.map((point) => String.fromCodePoint(point)).join("");
+const blankInLabel = new RegExp(`[${blankLabelCharacters}]`, "u");
+const blankInLabelEverywhere = new RegExp(`[${blankLabelCharacters}]`, "gu");
+/** Something that can be seen: a letter, a digit, a symbol or punctuation. */
+const visibleInLabel = /[\p{L}\p{N}\p{S}\p{P}]/u;
+
+/**
+ * A pantry item's brand or kind as stored (Story 11.2, FR-42, AD-19), the
+ * rule of pantry_item_label_check: 1–60 characters (code points, as
+ * char_length counts them), no space at either end (btrim), none of
+ * refusedCodePoints or blankLabelCodePoints, and at least one character that
+ * can be seen. The database's "can be seen" is wider (anything but white
+ * space), so a row the database takes and this refuses is read without its
+ * label (listPantryIn). toPantryLabel makes any text into one, or null.
  */
 export const pantryLabelSchema = z
   .string()
   .refine((label) => !/^ | $/.test(label))
   .refine((label) => charLength(label) >= 1 && charLength(label) <= maxPantryLabelLength)
-  .refine((label) => !hasRefusedCodePoint(label));
+  .refine((label) => !hasRefusedCodePoint(label) && !blankInLabel.test(label))
+  .refine((label) => visibleInLabel.test(label));
+
+/** A text on one line, without the blank-looking format characters: what both ways in start from. */
+function normalizeLabel(raw: string): string {
+  return oneLine(oneLine(raw).replace(blankInLabelEverywhere, ""));
+}
 
 /** What toPantryLabel removes from the end of a label: spaces, an ellipsis, and a dash or comma left by a cut. */
 const labelTail = /[\s….,;:\-–—]+$/u;
 
+const graphemes = new Intl.Segmenter("sv", { granularity: "grapheme" });
+
 /**
- * A text as a pantry item's label, or `null` when nothing is left: on one
- * line (oneLine), and cut to maxPantryLabelLength characters at the last
- * space when there is one, otherwise in the middle of the word. An ellipsis,
- * spaces and a dash or comma at the end are removed, never added. For the
- * model's labels ("Arla Mellanmjölk laktosfri 1,5 l"); the sheet's field is
- * refused instead when it is too long (labelTooLongMessage).
+ * The text cut to maxPantryLabelLength characters at a grapheme boundary, so
+ * an emoji or a letter with its accent is never split: at the last space
+ * when there is one, otherwise after the last whole grapheme that fits.
+ */
+function cutLabel(text: string): string {
+  if (charLength(text) <= maxPantryLabelLength) return text;
+  let kept = "";
+  let count = 0;
+  let lastSpace = -1;
+  let endsOnWord = false;
+  for (const { segment } of graphemes.segment(text)) {
+    const length = charLength(segment);
+    if (count + length > maxPantryLabelLength) {
+      endsOnWord = segment === " ";
+      break;
+    }
+    if (segment === " ") lastSpace = kept.length;
+    kept += segment;
+    count += length;
+  }
+  if (endsOnWord || lastSpace <= 0) return kept;
+  return kept.slice(0, lastSpace);
+}
+
+/**
+ * A text as a pantry item's label, or `null` when nothing usable is left: on
+ * one line without blank-looking characters, cut to maxPantryLabelLength
+ * characters at a grapheme boundary (cutLabel), with an ellipsis, spaces and
+ * a dash or comma at the end removed, never added, and checked with
+ * pantryLabelSchema. For the model's labels ("Arla Mellanmjölk laktosfri
+ * 1,5 l"); the sheet's field is refused instead when it is too long
+ * (parseLabelField).
  */
 export function toPantryLabel(raw: string | null | undefined): string | null {
-  const characters = [...oneLine(raw ?? "")];
-  let kept = characters;
-  if (characters.length > maxPantryLabelLength) {
-    // A space at index 60 means the first 60 characters end on a whole word.
-    const space = characters.lastIndexOf(" ", maxPantryLabelLength);
-    kept = characters.slice(0, space > 0 ? space : maxPantryLabelLength);
-  }
-  const label = kept.join("").replace(labelTail, "");
-  return label === "" ? null : label;
+  const label = cutLabel(normalizeLabel(raw ?? "")).replace(labelTail, "");
+  return pantryLabelSchema.safeParse(label).success ? label : null;
 }
 
 /**
  * The label a confirmed lagerförslag gives its pantry item (Story 11.2,
- * FR-42): the model's first label, the card's title (Story 6.5), as
- * toPantryLabel makes it. `null` when there is none, or when it only is the
- * item's name ("Ägg" for "ägg"), which says nothing more. Here rather than
- * in pantry-suggestion.ts, so place-inventory.ts can use it too; that file
- * exports it as well.
+ * FR-42): the first of the model's labels (Story 6.5) that is more than the
+ * item's name ("Ägg" for "ägg" says nothing more), as toPantryLabel makes it,
+ * or `null`. Here rather than in pantry-suggestion.ts, so place-inventory.ts
+ * can use it too; that file exports it as well.
  */
 export function suggestionLabel(suggestion: { name: string; labels?: readonly string[] }): string | null {
-  const label = toPantryLabel(suggestion.labels?.[0]);
-  if (label === null || normalizeIngredientText(label) === normalizeIngredientText(suggestion.name)) return null;
-  return label;
+  const name = normalizeIngredientText(suggestion.name);
+  for (const raw of suggestion.labels ?? []) {
+    const label = toPantryLabel(raw);
+    if (label !== null && normalizeIngredientText(label) !== name) return label;
+  }
+  return null;
 }
 
 /**
- * The field "Märke eller sort" as typed: on one line, and `null` when
- * empty, so an emptied field removes the label. Too long is the message to
- * show under the field.
+ * The field "Märke eller sort" as typed: on one line without blank-looking
+ * characters, and `null` when empty, so an emptied field removes the label.
+ * Too long, or nothing that can be seen, is the message to show under the
+ * field. The field has no maxLength, which would count UTF-16 units: the
+ * limit is counted here, in characters.
  */
 export function parseLabelField(text: string): { label: string | null } | { error: string } {
-  const label = oneLine(text);
+  const label = normalizeLabel(text);
   if (label === "") return { label: null };
   if (charLength(label) > maxPantryLabelLength) return { error: labelTooLongMessage };
+  if (!pantryLabelSchema.safeParse(label).success) return { error: labelUnusableMessage };
   return { label };
 }
 
@@ -215,8 +266,9 @@ export type PantryItemForm = z.output<typeof pantryItemFormSchema>;
 /**
  * One item for setPantryItems (AD-19): the amount is set exactly for the
  * ingredient, location and unit. Amount and unit are both null (unlimited)
- * or both set. `label` (Story 11.2): a text sets the item's label, `null`
- * removes it, and leaving it out keeps the label the row has.
+ * or both set. `label` (Story 11.2): a text sets the item's label, and
+ * leaving it out keeps the label the row has. `null` removes it only from
+ * the row being edited (`replaceId`); on any other row it keeps the label.
  */
 const pantryItemSetShape = z.object({
   ingredientId: z.uuid(),
@@ -228,7 +280,15 @@ const pantryItemSetShape = z.object({
 const amountHasUnit = (item: { amount: number | null; unit: string | null }) =>
   (item.amount === null) === (item.unit === null);
 
-export const pantryItemSetSchema = pantryItemSetShape.refine(amountHasUnit, { path: ["unit"] });
+/**
+ * `photoLabel` (Story 11.2, after review): a label from a photo (the model's,
+ * suggestionLabel). It fills the row's label only when the row has none, so
+ * a label Pontus wrote is never replaced by the model's. `label` wins when an
+ * item has both.
+ */
+export const pantryItemSetSchema = pantryItemSetShape
+  .extend({ photoLabel: pantryLabelSchema.optional() })
+  .refine(amountHasUnit, { path: ["unit"] });
 export type PantryItemSet = z.infer<typeof pantryItemSetSchema>;
 
 /**

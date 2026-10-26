@@ -158,6 +158,16 @@ describe("confirmPantrySuggestions", () => {
     );
   });
 
+  it("passes a photo's label on as a photo label, which fills only an item without one", async () => {
+    await confirmPantrySuggestions([existing(mjolk, { photoLabel: "Mellanmjölk 1,5 %" })]);
+    expect(setPantryItemsIn).toHaveBeenCalledWith(
+      db,
+      [{ ingredientId: mjolk, location: "Kyl", amount: 1, unit: "förp", photoLabel: "Mellanmjölk 1,5 %" }],
+      null,
+      stugan,
+    );
+  });
+
   it("refuses a label the table would not take, by the item's index", async () => {
     const result = await confirmPantrySuggestions([existing(mjolk), existing(smor, { label: "a".repeat(61) })]);
     expect(result.ok).toBe(false);

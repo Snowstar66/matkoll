@@ -147,4 +147,27 @@ describe("applyPantryInventoryIn", () => {
     expect(applied.set[0]).toMatchObject({ label: "Arla" });
     expect(applied.removed[0]).toMatchObject({ label: null, createdAt: added });
   });
+
+  it("sends a photo's label as label_if_empty, and reads a label the domain refuses as none", async () => {
+    const { db, rpc } = fakeRpc({
+      data: {
+        set: [{ id: otherRowId, site_id: stugan, ingredient_id: mjolk, location: "Kyl", amount: 1, unit: "förp", label: " bad", created_at: "2026-10-20T08:15:00+00:00" }],
+        removed: [],
+        replaced: 0,
+        undoable: 0,
+      },
+      error: null,
+    });
+    const applied = await applyPantryInventoryIn(db, {
+      ...request,
+      removeRowIds: [],
+      items: [{ ingredientId: mjolk, location: "Kyl", amount: 1, unit: "förp", photoLabel: "Arla" }],
+    });
+    expect(rpc.mock.calls[0]).toEqual([
+      "apply_pantry_inventory",
+      expect.objectContaining({ items: [{ ingredient_id: mjolk, location: "Kyl", amount: 1, unit: "förp", label: "Arla", label_if_empty: true }] }),
+    ]);
+    expect(applied.set[0]).toMatchObject({ id: otherRowId, label: null });
+    expect(applied.unreadable).toBe(false);
+  });
 });

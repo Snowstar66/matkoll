@@ -36,7 +36,6 @@ import type { PantryItem } from "../domain/pantry-item";
 import {
   type PantryItemForm,
   formFieldErrors,
-  maxPantryLabelLength,
   pantryItemFormSchema,
   pantryNewIngredientName,
   parseAmountField,
@@ -127,8 +126,8 @@ function initialValues(target: PantrySheetTarget): FormValues {
       amount: amountField(suggestion.amount),
       unit: suggestion.unit ?? "",
       location: suggestion.location,
-      // The label the card's Bekräfta would save (Story 11.2).
-      label: suggestionLabel(suggestion) ?? "",
+      // Story 11.2: the label the place's row has, or else the one the card's Bekräfta would save.
+      label: suggestion.currentLabel ?? suggestionLabel(suggestion) ?? "",
     };
   }
   const { item } = target;
@@ -163,6 +162,22 @@ function isFormDirty(values: FormValues, initial: FormValues): boolean {
   );
 }
 
+/**
+ * "Märke eller sort" as the sheet sends it (Story 11.2): an item in the
+ * pantry always sends the field, so an emptied one removes its label. A new
+ * item sends nothing when the field is empty, so a row it lands on keeps its
+ * label. A lagerförslag sends the field only when Pontus changed it to
+ * something: as filled in, the photo's label goes as a photo label
+ * (confirmItemFromForm) and the row's own needs nothing, and empty keeps the
+ * row's label.
+ */
+function labelInput(label: string, target: PantrySheetTarget): Pick<PantryItemFormInput, "label"> {
+  if (target.kind === "edit") return { label };
+  if (label.trim() === "") return {};
+  if (target.kind === "suggestion" && label.trim() === initialValues(target).label.trim()) return {};
+  return { label };
+}
+
 /** What savePantryItem takes; a new ingredient is kept where the item is. */
 function toInput(values: FormValues, ingredient: ChosenIngredient, target: PantrySheetTarget): PantryItemFormInput {
   return {
@@ -175,9 +190,7 @@ function toInput(values: FormValues, ingredient: ChosenIngredient, target: Pantr
     location: values.location,
     siteId: target.kind === "edit" ? target.item.siteId : target.siteId,
     replaceId: target.kind === "edit" ? target.item.id : null,
-    // Story 11.2: an empty field removes an item's label. For a lagerförslag it
-    // leaves the label as it is, since the sheet never showed the item's own.
-    ...(target.kind === "suggestion" && values.label.trim() === "" ? {} : { label: values.label }),
+    ...labelInput(values.label, target),
   };
 }
 
@@ -528,7 +541,6 @@ export function PantryItemSheet(props: PantryItemSheetProps) {
               id={`${ids}-label`}
               autoComplete="off"
               placeholder="Till exempel Arla laktosfri"
-              maxLength={maxPantryLabelLength}
               value={values.label}
               onChange={(event) => update({ label: event.target.value })}
               {...(labelError ? { "aria-invalid": true, "aria-describedby": `${ids}-label-error` } : {})}

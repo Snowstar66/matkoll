@@ -434,6 +434,9 @@ isOneToOne: false
 "meal_plan_lock":
 { Args: Record<PropertyKey, never>; Returns: undefined
                            },
+"pantry_added_time":
+{ Args: { "value": string }; Returns: string
+                           },
 "pantry_lock":
 { Args: Record<PropertyKey, never>; Returns: undefined
                            },

@@ -330,9 +330,9 @@ export function inventoryRequest({
     location,
     items: included.map((suggestion) => {
       const { ingredient, location: place, amount, unit } = suggestion;
-      // Story 11.2: the first label, as confirmItemFromSuggestion gives it.
-      const label = suggestionLabel(suggestion);
-      return { ingredient, location: place, amount, unit, ...(label === null ? {} : { label }) };
+      // Story 11.2: the photo's label, as confirmItemFromSuggestion gives it: it fills only an item without one.
+      const photoLabel = suggestionLabel(suggestion);
+      return { ingredient, location: place, amount, unit, ...(photoLabel === null ? {} : { photoLabel }) };
     }),
     replaceRowIds: [...replaces],
     removeRowIds: missing.flatMap((item) => item.rows.map((row) => row.id)),
