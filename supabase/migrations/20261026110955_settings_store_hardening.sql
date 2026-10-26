@@ -31,7 +31,7 @@ alter table public.store add constraint store_name_check check (
   btrim(name) <> ''
   and name = btrim(name)
   and char_length(name) <= 100
-  and name !~ '[\x01-\x1f\x7f-\x9f  ‪-‮⁦-⁩]'
+  and name !~ '[\x01-\x1f\x7f-\x9f\u2028\u2029\u202a-\u202e\u2066-\u2069]'
 );
 
 alter table public.store drop constraint store_external_store_id_check;
@@ -39,7 +39,7 @@ alter table public.store add constraint store_external_store_id_check check (
   btrim(external_store_id) <> ''
   and external_store_id = btrim(external_store_id)
   and char_length(external_store_id) <= 40
-  and external_store_id !~ '[\x01-\x1f\x7f-\x9f  ‪-‮⁦-⁩]'
+  and external_store_id !~ '[\x01-\x1f\x7f-\x9f\u2028\u2029\u202a-\u202e\u2066-\u2069]'
 );
 
 alter table public.store drop constraint store_address_check;
@@ -47,14 +47,14 @@ alter table public.store add constraint store_address_check check (
   btrim(address) <> ''
   and address = btrim(address)
   and char_length(address) <= 200
-  and address !~ '[\x01-\x1f\x7f-\x9f  ‪-‮⁦-⁩]'
+  and address !~ '[\x01-\x1f\x7f-\x9f\u2028\u2029\u202a-\u202e\u2066-\u2069]'
 );
 
 alter table public.store drop constraint store_url_check;
 alter table public.store add constraint store_url_check check (
   char_length(url) <= 2048
   and url ~ '^https://[^/?#]'
-  and url !~ '[[:space:]\x01-\x1f\x7f-\x9f  ‪-‮⁦-⁩]'
+  and url !~ '[[:space:]\x01-\x1f\x7f-\x9f\u2028\u2029\u202a-\u202e\u2066-\u2069]'
 );
 
 -- The lock both functions take first: one per user, until the transaction ends.

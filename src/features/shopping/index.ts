@@ -28,3 +28,20 @@ export {
   type LineOverride,
   type LineOverrideRow,
 } from "./domain/line-override";
+export {
+  canHaveProductChoice,
+  type ExpectedProductChoice,
+  maxPackageSizeLength,
+  maxProductNameLength,
+  maxProductUrlLength,
+  noProductChoiceText,
+  productChoiceFieldErrors,
+  productChoiceFormSchema,
+  productChoiceSchema,
+  productChoiceText,
+  productChoiceTitle,
+  type ProductChoice,
+  type ProductChoiceContext,
+  type ProductChoiceForm,
+  type ProductChoiceFormInput,
+} from "./domain/product-choice";

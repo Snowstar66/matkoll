@@ -50,6 +50,11 @@ describe("revalidateFor", () => {
     }
   });
 
+  it("revalidates only the shopping list after a product choice write", () => {
+    revalidateFor("product_choice");
+    expect(revalidatePath.mock.calls).toEqual([["/lista", "page"]]);
+  });
+
   it("revalidates Inställningar and the shopping list after a store write", () => {
     revalidateFor("store");
     expect(revalidatePath.mock.calls).toEqual([

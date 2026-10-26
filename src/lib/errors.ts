@@ -77,6 +77,17 @@ export const errorMessages = {
   // "Lägg i lagret" whose plan was switched elsewhere after the pantry was
   // written: the items are at home, the list is read again.
   shopping_put_in_pantry_plan_changed: "Varorna är lagda i lagret, men matsedeln har bytts.",
+  // Produktval (Story 7.2). A failed save keeps the sheet with its fields;
+  // a failed remove keeps the sheet with the choice. When the choices cannot
+  // be read, only the detail's section Produktval says so; the list works.
+  shopping_product_choice_save_failed: "Det gick inte att spara produktvalet. Försök igen.",
+  shopping_product_choice_remove_failed: "Det gick inte att ta bort produktvalet. Försök igen.",
+  shopping_product_choices_unavailable: "Det gick inte att läsa produktvalen. Försök igen.",
+  // A save from a sheet whose choice was saved, changed or removed elsewhere
+  // meanwhile: nothing is written, and the sheet shows the choice as it is now.
+  shopping_product_choice_changed: "Produktvalet har ändrats på annat håll. Uppgifterna är uppdaterade.",
+  // The store or the catalog ingredient is not there any more (23503): the list is read again.
+  shopping_product_choice_target_gone: "Butiken eller varan finns inte längre.",
   // Recipe sites in Inställningar (FR7). The sentence with the site's name,
   // "koket.se finns redan.", is in `fields.domain`.
   settings_invalid_domain: "Ange en giltig webbadress, t.ex. koket.se.",

@@ -5,9 +5,11 @@ import { ShoppingDataError } from "./data/client";
 
 // getShoppingList with the other modules' server entries stubbed: the list is
 // counted from them, a pantry that cannot be read leaves nothing taken off,
-// and any other source that fails gives shopping_unavailable.
+// and any other source that fails gives shopping_unavailable. The selected
+// store and its product choices (Story 7.2) come beside the list, and when
+// they cannot be read the list is given all the same.
 
-const { CatalogDataError, MealPlanDataError, PantryDataError, RecipeDataError } = vi.hoisted(() => {
+const { CatalogDataError, MealPlanDataError, PantryDataError, RecipeDataError, SettingsDataError } = vi.hoisted(() => {
   class DataError extends Error {
     constructor(readonly detail: string) {
       super(detail);
@@ -26,6 +28,7 @@ const { CatalogDataError, MealPlanDataError, PantryDataError, RecipeDataError } 
     MealPlanDataError: class extends DataError {},
     PantryDataError: class extends DataError {},
     RecipeDataError: class extends DataError {},
+    SettingsDataError: class extends DataError {},
   };
 });
 const requireUser = vi.fn();
@@ -52,6 +55,9 @@ vi.mock("@/features/catalog/server", () => ({
   getIngredientDefaults: (ids: string[]) => getIngredientDefaults(ids),
 }));
 
+const getSelectedStore = vi.fn();
+vi.mock("@/features/settings/server", () => ({ SettingsDataError, getSelectedStore: () => getSelectedStore() }));
+
 const db = { session: true };
 vi.mock("@/lib/supabase/server", () => ({ createClient: async () => db }));
 const listChecksIn = vi.fn();
@@ -64,6 +70,8 @@ const listCustomItemsIn = vi.fn();
 vi.mock("./data/custom-items", () => ({ listCustomItemsIn: (...args: unknown[]) => listCustomItemsIn(...args) }));
 const listOverridesIn = vi.fn();
 vi.mock("./data/overrides", () => ({ listOverridesIn: (...args: unknown[]) => listOverridesIn(...args) }));
+const listProductChoicesIn = vi.fn();
+vi.mock("./data/product-choices", () => ({ listProductChoicesIn: (...args: unknown[]) => listProductChoicesIn(...args) }));
 
 const { getShoppingList } = await import("./server");
 
@@ -83,6 +91,28 @@ const recipe = {
   lines: [{ id: "l1", ingredientId: gradde, amount: 2, unit: "dl", isVague: false, originalText: "2 dl grädde" }],
 };
 
+const store = {
+  id: "66666666-6666-4666-8666-666666666666",
+  name: "Maxi ICA Stormarknad Östersund",
+  chain: "ICA",
+  externalStoreId: "1003733",
+  address: null,
+  url: "https://handlaprivatkund.ica.se/stores/1003733",
+  isSelected: true,
+};
+const choice = {
+  id: "77777777-7777-4777-8777-777777777777",
+  ingredientId: gradde,
+  storeId: store.id,
+  productName: "Arla Matlagningsgrädde 15 %",
+  packageSize: "5 dl",
+  url: null,
+  updatedAt: "2026-10-26T11:23:47.123456+00:00",
+};
+/** What the list gets beside it when the store has no choices. */
+const withStore = { store, storeUnavailable: false, productChoices: {}, productChoicesUnavailable: false, unreadableChoices: [] };
+const listed = (choices: Record<string, unknown> = {}, unreadable: string[] = []) => ({ choices, unreadable });
+
 let log: ReturnType<typeof vi.spyOn>;
 beforeEach(() => {
   requireUser.mockReset().mockResolvedValue(ok({ id: "user" }));
@@ -95,6 +125,8 @@ beforeEach(() => {
   findPantryAdditions.mockReset().mockResolvedValue([]);
   listCustomItemsIn.mockReset().mockResolvedValue([]);
   listOverridesIn.mockReset().mockResolvedValue([]);
+  getSelectedStore.mockReset().mockResolvedValue(store);
+  listProductChoicesIn.mockReset().mockResolvedValue(listed());
   log?.mockRestore();
   log = vi.spyOn(console, "error").mockImplementation(() => {});
 });
@@ -119,6 +151,7 @@ describe("getShoppingList", () => {
         pantryUnavailable: false,
         checksUnavailable: false,
         pendingClear: 0,
+        ...withStore,
       }),
     );
     expect(getRecipesByIds).toHaveBeenCalledWith([recipeId]);
@@ -136,7 +169,15 @@ describe("getShoppingList", () => {
     getCurrentPlan.mockResolvedValue(null);
     getPantrySnapshot.mockRejectedValue(new PantryDataError("query_failed 08006"));
     expect(await getShoppingList()).toEqual(
-      ok({ plan: null, lines: [], hiddenLines: [], pantryUnavailable: false, checksUnavailable: false, pendingClear: 0 }),
+      ok({
+        plan: null,
+        lines: [],
+        hiddenLines: [],
+        pantryUnavailable: false,
+        checksUnavailable: false,
+        pendingClear: 0,
+        ...withStore,
+      }),
     );
     expect(getRecipesByIds).not.toHaveBeenCalled();
     expect(getPantrySnapshot).not.toHaveBeenCalled();
@@ -277,5 +318,102 @@ describe("getShoppingList", () => {
     requireUser.mockResolvedValue(fail("unauthorized"));
     expect(await getShoppingList()).toEqual(fail("unauthorized"));
     expect(getCurrentPlan).not.toHaveBeenCalled();
+  });
+});
+
+describe("getShoppingList: the store and its product choices (Story 7.2)", () => {
+  it("gives the selected store and its choices by ingredient beside the list, read with the session client", async () => {
+    listProductChoicesIn.mockResolvedValue(listed({ [gradde]: choice }, ["88888888-8888-4888-8888-888888888888"]));
+    const result = await getShoppingList();
+    expect(listProductChoicesIn).toHaveBeenCalledWith(db, store.id);
+    expect(result).toEqual(
+      ok(
+        expect.objectContaining({
+          store,
+          storeUnavailable: false,
+          productChoices: { [gradde]: choice },
+          productChoicesUnavailable: false,
+          unreadableChoices: ["88888888-8888-4888-8888-888888888888"],
+        }),
+      ),
+    );
+    // Never in the list's lines.
+    expect(result.ok && result.data.lines[0]).not.toHaveProperty("productChoice");
+  });
+
+  it("reads the store alongside the list, not after it", async () => {
+    let releasePlan: () => void = () => {};
+    getCurrentPlan.mockReturnValue(new Promise((resolve) => (releasePlan = () => resolve(plan))));
+    const result = getShoppingList();
+    await vi.waitFor(() => expect(getSelectedStore).toHaveBeenCalled());
+    await vi.waitFor(() => expect(listProductChoicesIn).toHaveBeenCalled());
+    releasePlan();
+    expect((await result).ok).toBe(true);
+  });
+
+  it("gives no store and no choices when none is selected", async () => {
+    getSelectedStore.mockResolvedValue(null);
+    const result = await getShoppingList();
+    expect(result).toEqual(
+      ok(expect.objectContaining({ store: null, storeUnavailable: false, productChoices: {}, productChoicesUnavailable: false })),
+    );
+    expect(listProductChoicesIn).not.toHaveBeenCalled();
+  });
+
+  it("gives the list, with storeUnavailable, when the store cannot be read", async () => {
+    getSelectedStore.mockRejectedValue(new SettingsDataError("query_failed 08006"));
+    const result = await getShoppingList();
+    expect(result).toEqual(
+      ok(expect.objectContaining({ store: null, storeUnavailable: true, productChoices: {}, productChoicesUnavailable: false })),
+    );
+    expect(result.ok && result.data.lines).toHaveLength(1);
+    expect(log).toHaveBeenCalledWith("settings_store_unavailable", { reason: "query_failed 08006" });
+    expect(listProductChoicesIn).not.toHaveBeenCalled();
+  });
+
+  it("gives the list, with productChoicesUnavailable, when the choices cannot be read", async () => {
+    listProductChoicesIn.mockRejectedValue(new ShoppingDataError("list_product_choices_failed 08006"));
+    const result = await getShoppingList();
+    expect(result).toEqual(
+      ok(expect.objectContaining({ store, storeUnavailable: false, productChoices: {}, productChoicesUnavailable: true })),
+    );
+    expect(result.ok && result.data.lines).toHaveLength(1);
+    expect(log).toHaveBeenCalledWith("shopping_product_choices_unavailable", { reason: "list_product_choices_failed 08006" });
+  });
+
+  it("still gives shopping_unavailable when the list itself cannot be read", async () => {
+    getCurrentPlan.mockRejectedValue(new MealPlanDataError("query_failed 08006"));
+    expect(await getShoppingList()).toEqual(fail("shopping_unavailable"));
+  });
+
+  it("throws other errors from the store, which are bugs", async () => {
+    getSelectedStore.mockRejectedValue(new TypeError("bug"));
+    await expect(getShoppingList()).rejects.toThrow("bug");
+    getSelectedStore.mockResolvedValue(store);
+    listProductChoicesIn.mockRejectedValue(new TypeError("bug in choices"));
+    await expect(getShoppingList()).rejects.toThrow("bug in choices");
+  });
+
+  it("throws a bug from the store even when the list itself could not be read, and waits for both", async () => {
+    getCurrentPlan.mockRejectedValue(new MealPlanDataError("query_failed 08006"));
+    getSelectedStore.mockRejectedValue(new TypeError("bug in store"));
+    await expect(getShoppingList()).rejects.toThrow("bug in store");
+
+    // A list that fails while the store is still being read: the store's read settles first.
+    let releaseStore: (value: unknown) => void = () => {};
+    getSelectedStore.mockReturnValue(new Promise((resolve) => (releaseStore = resolve)));
+    const result = getShoppingList();
+    let settled = false;
+    void result.then(() => (settled = true));
+    await new Promise((resolve) => setTimeout(resolve, 0));
+    expect(settled).toBe(false);
+    releaseStore(store);
+    expect(await result).toEqual(fail("shopping_unavailable"));
+  });
+
+  it("reads no store without a signed-in user", async () => {
+    requireUser.mockResolvedValue(fail("unauthorized"));
+    await getShoppingList();
+    expect(getSelectedStore).not.toHaveBeenCalled();
   });
 });

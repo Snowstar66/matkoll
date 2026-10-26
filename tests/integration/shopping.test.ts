@@ -18,6 +18,15 @@ import {
   updateCustomItemIn,
 } from "@/features/shopping/data/custom-items";
 import {
+  listProductChoicesIn,
+  removeProductChoiceIn,
+  restoreProductChoiceIn,
+  upsertProductChoiceIn,
+} from "@/features/shopping/data/product-choices";
+import { oneLine } from "@/features/settings";
+import { productChoiceFormSchema, type ProductChoice, type ProductChoiceForm } from "@/features/shopping";
+import { refusedCodePoints } from "@/lib/one-line";
+import {
   hideLineIn,
   listOverridesIn,
   restoreLineIn,
@@ -36,7 +45,9 @@ import { adminClient, anonClient, countRows, createTestUser, deleteTestUsers, ex
 // with the user's session client, as getShoppingList does it. The list is
 // never stored; only the checks (Story 3.4, shopping_check), Pontus's own
 // items (Story 3.5, shopping_custom_item) and their corrected amounts and hidden
-// lines (Story 3.6, shopping_line_override) are. NFR7: 10 dishes against 200
+// lines (Story 3.6, shopping_line_override) are, and beside the list the
+// product choices per catalog ingredient and store (Story 7.2,
+// product_choice). NFR7: 10 dishes against 200
 // pantry items within a second. "Lägg i lagret" (Story 3.7) runs the whole
 // flow against the real tables: pantry.addToPantry, then clear_put_in_pantry.
 
@@ -1304,5 +1315,327 @@ describe("Lägg i lagret", () => {
     expect(await countRows("shopping_check", user.id)).toBe(6);
     expect(await countRows("shopping_custom_item", user.id)).toBe(2);
     expect(await countRows("shopping_line_override", user.id)).toBe(1);
+  });
+});
+
+describe("product_choice", () => {
+  const char = (code: number) => String.fromCodePoint(code);
+  const hex = (code: number) => `U+${code.toString(16).toUpperCase().padStart(4, "0")}`;
+  /** Every code point the one-line checks refuse (src/lib/one-line.ts). */
+  const refused = refusedCodePoints.flatMap(([from, to]) => Array.from({ length: to - from + 1 }, (_, i) => from + i));
+
+  async function addStore(db: Db, name = "Maxi ICA Stormarknad Östersund", chain = "ICA"): Promise<string> {
+    const { data, error } = await db.from("store").insert({ name, chain }).select("id").single();
+    if (error) throw error;
+    return data.id;
+  }
+
+  const form = (ingredientId: string, storeId: string, changes: Partial<ProductChoiceForm> = {}): ProductChoiceForm => ({
+    ingredientId,
+    storeId,
+    productName: "Arla Matlagningsgrädde 15 %",
+    packageSize: "5 dl",
+    url: null,
+    expected: null,
+    ...changes,
+  });
+
+  /** Saves `choice` and returns the stored choice; fails the test on any other outcome. */
+  async function save(db: Db, choice: ProductChoiceForm): Promise<ProductChoice> {
+    const outcome = await upsertProductChoiceIn(db, choice);
+    if (outcome.kind !== "saved" || !outcome.choice) throw new Error(`not saved: ${JSON.stringify(outcome)}`);
+    return outcome.choice;
+  }
+
+  const expecting = (choice: ProductChoice) => ({ id: choice.id, updatedAt: choice.updatedAt });
+
+  /** One user, ingredient and store for the refused rows. */
+  let checkUser: TestUser | undefined;
+  let checkRow: { ingredient_id: string; store_id: string } | undefined;
+  async function checkTarget() {
+    checkUser ??= await createTestUser("product-choice-check");
+    if (!checkRow) {
+      const [gradde] = await addIngredients(checkUser.db, [{ name: "Grädde", section: "Mejeri" }]);
+      checkRow = { ingredient_id: gradde, store_id: await addStore(checkUser.db) };
+    }
+    return { user: checkUser, row: checkRow };
+  }
+
+  it("isolates product_choice", async () => {
+    await expectRlsIsolation("product_choice", async (owner) => {
+      const [gradde] = await addIngredients(owner, [{ name: "Grädde", section: "Mejeri" }]);
+      return { ingredient_id: gradde, store_id: await addStore(owner), product_name: "Arla Matlagningsgrädde 15 %" };
+    });
+  });
+
+  it("saves one choice per ingredient and store: a change keeps the row's id, and updated_at follows", async () => {
+    const user = await createTestUser("product-choice-save");
+    const [gradde, kaffe] = await addIngredients(user.db, [
+      { name: "Grädde", section: "Mejeri" },
+      { name: "Kaffe", section: "Skafferi" },
+    ]);
+    const maxi = await addStore(user.db);
+    const saved = await save(user.db, form(gradde, maxi));
+    expect(saved).toEqual({
+      id: expect.any(String),
+      ingredientId: gradde,
+      storeId: maxi,
+      productName: "Arla Matlagningsgrädde 15 %",
+      packageSize: "5 dl",
+      url: null,
+      updatedAt: expect.any(String),
+    });
+
+    // A double tap, or a retry after a lost answer: the same fields give the same row, unwritten.
+    expect(await save(user.db, form(gradde, maxi))).toEqual(saved);
+    expect(await save(user.db, form(gradde, maxi, { expected: expecting(saved) }))).toEqual(saved);
+
+    const changed = await save(
+      user.db,
+      form(gradde, maxi, { packageSize: null, url: "https://www.arla.se/produkter/matlagningsgradde", expected: expecting(saved) }),
+    );
+    expect(changed).toEqual({
+      ...saved,
+      packageSize: null,
+      url: "https://www.arla.se/produkter/matlagningsgradde",
+      updatedAt: expect.any(String),
+    });
+    expect(new Date(changed.updatedAt).getTime()).toBeGreaterThan(new Date(saved.updatedAt).getTime());
+    expect(await countRows("product_choice", user.id)).toBe(1);
+
+    const coffee = await save(user.db, form(kaffe, maxi, { productName: "Zoégas Skånerost", packageSize: "450 g" }));
+    expect(await listProductChoicesIn(user.db, maxi)).toEqual({ choices: { [gradde]: changed, [kaffe]: coffee }, unreadable: [] });
+  });
+
+  it("writes nothing when the stored choice is not the expected one", async () => {
+    const user = await createTestUser("product-choice-stale");
+    const [gradde] = await addIngredients(user.db, [{ name: "Grädde", section: "Mejeri" }]);
+    const maxi = await addStore(user.db);
+    const first = await save(user.db, form(gradde, maxi));
+    const second = await save(user.db, form(gradde, maxi, { packageSize: "2 dl", expected: expecting(first) }));
+
+    // A sheet opened before the second save, or one that expected no choice.
+    expect(await upsertProductChoiceIn(user.db, form(gradde, maxi, { packageSize: "1 l", expected: expecting(first) }))).toEqual({
+      kind: "changed",
+    });
+    expect(await upsertProductChoiceIn(user.db, form(gradde, maxi, { packageSize: "1 l" }))).toEqual({ kind: "changed" });
+    // A sheet whose choice was removed elsewhere.
+    await removeProductChoiceIn(user.db, second.id);
+    expect(await upsertProductChoiceIn(user.db, form(gradde, maxi, { packageSize: "1 l", expected: expecting(second) }))).toEqual({
+      kind: "changed",
+    });
+    expect(await countRows("product_choice", user.id)).toBe(0);
+  });
+
+  it("saves one of two new choices at once, under the per-user lock, and refuses the other", async () => {
+    const user = await createTestUser("product-choice-race");
+    const [gradde] = await addIngredients(user.db, [{ name: "Grädde", section: "Mejeri" }]);
+    const maxi = await addStore(user.db);
+    const outcomes = await Promise.all([
+      upsertProductChoiceIn(user.db, form(gradde, maxi, { productName: "Arla" })),
+      upsertProductChoiceIn(user.db, form(gradde, maxi, { productName: "Garant" })),
+    ]);
+    expect(outcomes.map((outcome) => outcome.kind).sort()).toEqual(["changed", "saved"]);
+    expect(await countRows("product_choice", user.id)).toBe(1);
+  });
+
+  it("lets the same ingredient have a choice in each of two stores, and lists each store's own", async () => {
+    const user = await createTestUser("product-choice-stores");
+    const [gradde] = await addIngredients(user.db, [{ name: "Grädde", section: "Mejeri" }]);
+    const maxi = await addStore(user.db);
+    const willys = await addStore(user.db, "Willys Lindhagen", "Willys");
+    await save(user.db, form(gradde, maxi));
+    await save(user.db, form(gradde, willys, { productName: "Garant Matlagningsgrädde", packageSize: "2 dl" }));
+    expect(await countRows("product_choice", user.id)).toBe(2);
+    expect((await listProductChoicesIn(user.db, maxi)).choices[gradde].productName).toBe("Arla Matlagningsgrädde 15 %");
+    expect((await listProductChoicesIn(user.db, willys)).choices[gradde].productName).toBe("Garant Matlagningsgrädde");
+    // A store without choices.
+    expect(await listProductChoicesIn(user.db, await addStore(user.db, "Coop Forum", "Coop"))).toEqual({ choices: {}, unreadable: [] });
+  });
+
+  it("keeps one choice per ingredient and store (23505)", async () => {
+    const user = await createTestUser("product-choice-unique");
+    const [gradde] = await addIngredients(user.db, [{ name: "Grädde", section: "Mejeri" }]);
+    const row = { ingredient_id: gradde, store_id: await addStore(user.db), product_name: "Arla" };
+    expect((await user.db.from("product_choice").insert(row)).error).toBeNull();
+    const again = await user.db.from("product_choice").insert({ ...row, product_name: "Garant" });
+    expect(again.error?.code).toBe("23505");
+    expect(again.error?.message).toContain("product_choice_user_id_ingredient_id_store_id_key");
+  });
+
+  it("refuses another user's ingredient or store (23503), and the save gives target_gone", async () => {
+    const owner = await createTestUser("product-choice-fk-owner");
+    const other = await createTestUser("product-choice-fk-other");
+    const [ownerGradde] = await addIngredients(owner.db, [{ name: "Grädde", section: "Mejeri" }]);
+    const [otherGradde] = await addIngredients(other.db, [{ name: "Grädde", section: "Mejeri" }]);
+    const ownerStore = await addStore(owner.db);
+    const otherStore = await addStore(other.db);
+
+    const theirIngredient = await other.db.from("product_choice").insert({ ingredient_id: ownerGradde, store_id: otherStore, product_name: "Arla" });
+    expect(theirIngredient.error?.code).toBe("23503");
+    const theirStore = await other.db.from("product_choice").insert({ ingredient_id: otherGradde, store_id: ownerStore, product_name: "Arla" });
+    expect(theirStore.error?.code).toBe("23503");
+    expect(await upsertProductChoiceIn(other.db, form(ownerGradde, otherStore))).toEqual({ kind: "target_gone" });
+    expect(await upsertProductChoiceIn(other.db, form(otherGradde, ownerStore))).toEqual({ kind: "target_gone" });
+    expect(await countRows("product_choice", other.id)).toBe(0);
+    expect(await countRows("product_choice", owner.id)).toBe(0);
+  });
+
+  it("lets only a signed-in user save through the function", async () => {
+    const saved = await anonClient().rpc("save_product_choice", {
+      choice: { ingredient_id: randomUUID(), store_id: randomUUID(), product_name: "Arla" },
+      expected_id: null as unknown as string,
+      expected_updated_at: null as unknown as string,
+    });
+    expect(saved.error?.code).toBe("42501");
+  });
+
+  it.each([
+    ["an empty name", { product_name: "" }],
+    ["a name of spaces", { product_name: "   " }],
+    ["an untrimmed name", { product_name: " Arla" }],
+    ["a name over 200 characters", { product_name: "a".repeat(201) }],
+    ["an empty package size", { product_name: "Arla", package_size: "" }],
+    ["a package size over 40 characters", { product_name: "Arla", package_size: "a".repeat(41) }],
+    ["a link over 2048 characters", { product_name: "Arla", url: `https://arla.se/${"a".repeat(2048)}` }],
+  ])("refuses %s (23514)", async (_, fields) => {
+    const { user, row } = await checkTarget();
+    const { error } = await user.db.from("product_choice").insert({ ...row, ...fields });
+    expect(error?.code).toBe("23514");
+  });
+
+  it("refuses every refused character in the name, the package size and the link (23514), as the domain does", async () => {
+    const { user, row } = await checkTarget();
+    for (const code of refused) {
+      for (const fields of [
+        { product_name: `Arla${char(code)}grädde` },
+        { product_name: "Arla", package_size: `5${char(code)}dl` },
+        { product_name: "Arla", url: `https://www.arla.se/a${char(code)}b` },
+      ]) {
+        const { error } = await user.db.from("product_choice").insert({ ...row, ...fields });
+        expect(error?.code, `${hex(code)} ${Object.keys(fields).join(",")}`).toBe("23514");
+      }
+    }
+  });
+
+  it.each(["arla.se/produkter", "http://www.arla.se/", "javascript:alert(1)", "data:text/html,x", "https://", "https:///produkter", "https://?q=1", "https://#x", "https://www.arla.se/a b"])(
+    "refuses the link %s in product_choice and store (23514)",
+    async (url) => {
+      const { user, row } = await checkTarget();
+      expect((await user.db.from("product_choice").insert({ ...row, product_name: "Arla", url })).error?.code).toBe("23514");
+      expect((await user.db.from("store").insert({ name: "Maxi", chain: "ICA", url })).error?.code).toBe("23514");
+    },
+  );
+
+  it("refuses every refused character in a store's name, id, address and URL (23514)", async () => {
+    const { user } = await checkTarget();
+    for (const code of refused) {
+      for (const fields of [
+        { name: `Maxi${char(code)}ICA` },
+        { name: "Maxi", external_store_id: `10${char(code)}03` },
+        { name: "Maxi", address: `Gatan${char(code)}1` },
+        { name: "Maxi", url: `https://butik.example/a${char(code)}b` },
+      ]) {
+        const { error } = await user.db.from("store").insert({ chain: "Annan", ...fields });
+        expect(error?.code, `${hex(code)} ${Object.keys(fields).join(",")}`).toBe("23514");
+      }
+    }
+  });
+
+  it("stores what the form's schema leaves of any text, counted in characters", async () => {
+    const { user, row } = await checkTarget();
+    const parsed = productChoiceFormSchema.parse({
+      ingredientId: row.ingredient_id,
+      storeId: row.store_id,
+      productName: `${char(0x202e)} Arla${char(0x2028)}Mat${char(0x07)}gr${char(0x200b)}ädde ${"🥛".repeat(150)} `,
+      packageSize: `5${char(0x0a)}${char(0x2066)}${char(0xfeff)}dl`,
+      url: " Https://www.arla.se/produkter ",
+      expected: null,
+    });
+    expect(parsed.productName).toBe(oneLine(parsed.productName));
+    const outcome = await upsertProductChoiceIn(user.db, parsed);
+    expect(outcome).toEqual({
+      kind: "saved",
+      choice: expect.objectContaining({ productName: expect.stringMatching(/^Arla Mat grädde /), packageSize: "5 dl", url: "https://www.arla.se/produkter" }),
+    });
+    // 200 emoji are 200 characters.
+    const emoji = await user.db
+      .from("product_choice")
+      .update({ product_name: "🥛".repeat(200) })
+      .eq("ingredient_id", row.ingredient_id)
+      .select("id");
+    expect(emoji.error).toBeNull();
+  });
+
+  it("removes a choice and puts the same row back with Ångra; Ångra twice puts it back once", async () => {
+    const user = await createTestUser("product-choice-undo");
+    const [gradde] = await addIngredients(user.db, [{ name: "Grädde", section: "Mejeri" }]);
+    const maxi = await addStore(user.db);
+    const saved = await save(user.db, form(gradde, maxi, { url: "https://www.arla.se/" }));
+
+    expect(await removeProductChoiceIn(user.db, saved.id)).toEqual({ row: saved });
+    expect(await countRows("product_choice", user.id)).toBe(0);
+    // Gone already: nothing to remove.
+    expect(await removeProductChoiceIn(user.db, saved.id)).toBeNull();
+
+    const same = { ...saved, updatedAt: expect.any(String) };
+    expect(await restoreProductChoiceIn(user.db, saved)).toEqual(same);
+    expect(await restoreProductChoiceIn(user.db, saved)).toEqual(same);
+    expect((await listProductChoicesIn(user.db, maxi)).choices).toEqual({ [gradde]: same });
+  });
+
+  it("keeps a choice saved after the removal, and gives conflict for Ångra", async () => {
+    const user = await createTestUser("product-choice-undo-conflict");
+    const [gradde] = await addIngredients(user.db, [{ name: "Grädde", section: "Mejeri" }]);
+    const maxi = await addStore(user.db);
+    const saved = await save(user.db, form(gradde, maxi));
+    await removeProductChoiceIn(user.db, saved.id);
+    const newer = await save(user.db, form(gradde, maxi, { productName: "Garant", packageSize: null }));
+    expect(await restoreProductChoiceIn(user.db, saved)).toBe("conflict");
+    expect((await listProductChoicesIn(user.db, maxi)).choices).toEqual({ [gradde]: newer });
+  });
+
+  it("gives conflict for Ångra with an id another user has, and touches nothing of theirs", async () => {
+    const owner = await createTestUser("product-choice-undo-owner");
+    const other = await createTestUser("product-choice-undo-other");
+    const [ownerGradde] = await addIngredients(owner.db, [{ name: "Grädde", section: "Mejeri" }]);
+    const [otherGradde] = await addIngredients(other.db, [{ name: "Grädde", section: "Mejeri" }]);
+    const saved = await save(owner.db, form(ownerGradde, await addStore(owner.db)));
+    const otherStore = await addStore(other.db);
+    expect(await restoreProductChoiceIn(other.db, { ...saved, ingredientId: otherGradde, storeId: otherStore })).toBe("conflict");
+    expect(await removeProductChoiceIn(other.db, saved.id)).toBeNull();
+    expect(await countRows("product_choice", owner.id)).toBe(1);
+    expect(await countRows("product_choice", other.id)).toBe(0);
+  });
+
+  it("keeps the store and the ingredient while a choice points at them, and goes with the user", async () => {
+    const user = await createTestUser("product-choice-restrict");
+    const [gradde] = await addIngredients(user.db, [{ name: "Grädde", section: "Mejeri" }]);
+    const maxi = await addStore(user.db);
+    await save(user.db, form(gradde, maxi));
+
+    // The store: refused by the restrict foreign key (stores are never deleted in v1 either).
+    const store = await adminClient().from("store").delete().eq("id", maxi);
+    expect(store.error?.code).toBe("23503");
+    expect(store.error?.message).toContain("product_choice_store_fkey");
+    // The ingredient: catalog ingredients cannot be deleted at all in v1 (no
+    // grant, 42501), so this may not reach the restrict foreign key; it shows
+    // the delete is refused.
+    const ingredient = await adminClient().from("ingredient").delete().eq("id", gradde);
+    expect(["42501", "23503"]).toContain(ingredient.error?.code);
+    expect(await countRows("product_choice", user.id)).toBe(1);
+
+    // Deleting the user takes the choice, the store and the catalog with it.
+    const gone = await adminClient().auth.admin.deleteUser(user.id);
+    expect(gone.error).toBeNull();
+    expect(await countRows("product_choice", user.id)).toBe(0);
+    expect(await countRows("store", user.id)).toBe(0);
+    expect(await countRows("ingredient", user.id)).toBe(0);
+  });
+
+  it("refuses a store id that is not an id before asking Postgres", async () => {
+    const { user } = await checkTarget();
+    await expect(listProductChoicesIn(user.db, "maxi")).rejects.toThrow(ShoppingDataError);
+    await expect(removeProductChoiceIn(user.db, "x")).rejects.toThrow(ShoppingDataError);
   });
 });

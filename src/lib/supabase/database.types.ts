@@ -113,6 +113,32 @@ isOneToOne: false
       referencedColumns: ["id","user_id"]
     }
                   ]
+                },"product_choice": {
+                  Row: {
+                    "created_at": string,"id": string,"ingredient_id": string,"package_size": string | null,"product_name": string,"store_id": string,"updated_at": string,"url": string | null,"user_id": string
+                  }
+                  ComputedFields: never
+                  Insert: {
+                    "created_at"?: string,"id"?: string,"ingredient_id": string,"package_size"?: string | null,"product_name": string,"store_id": string,"updated_at"?: string,"url"?: string | null,"user_id"?: string
+                  }
+                  Update: {
+                    "created_at"?: string,"id"?: string,"ingredient_id"?: string,"package_size"?: string | null,"product_name"?: string,"store_id"?: string,"updated_at"?: string,"url"?: string | null,"user_id"?: string
+                  }
+                  Relationships: [
+                    {
+      foreignKeyName: "product_choice_ingredient_fkey"
+      columns: ["ingredient_id","user_id"]
+isOneToOne: false
+      referencedRelation: "ingredient"
+      referencedColumns: ["id","user_id"]
+    },{
+      foreignKeyName: "product_choice_store_fkey"
+      columns: ["store_id","user_id"]
+isOneToOne: false
+      referencedRelation: "store"
+      referencedColumns: ["id","user_id"]
+    }
+                  ]
                 },"recipe": {
                   Row: {
                     "created_at": string,"id": string,"image_url": string | null,"is_favorite": boolean,"original_servings": number,"source_kind": string,"source_url": string | null,"title": string,"total_minutes": number | null,"updated_at": string,"user_id": string
@@ -395,6 +421,24 @@ isOneToOne: false
 "restore_shopping_line":
 { Args: { "hidden_updated_at"?: string,"line_key": string,"plan_id": string,"previous": Json }; Returns: undefined
                            },
+"save_product_choice":
+{ Args: { "choice": Json,"expected_id": string,"expected_updated_at": string }; Returns: {
+              "created_at": string,
+"id": string,
+"ingredient_id": string,
+"package_size": string | null,
+"product_name": string,
+"store_id": string,
+"updated_at": string,
+"url": string | null,
+"user_id": string
+            }
+                          SetofOptions: {
+        from: "*"
+        to: "product_choice"
+        isOneToOne: true
+        isSetofReturn: false
+      } },
 "save_recipe":
 { Args: { "lines": Json,"recipe": Json,"steps": Json }; Returns: string
                            },

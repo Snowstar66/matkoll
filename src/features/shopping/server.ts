@@ -5,14 +5,17 @@ import { getCurrentPlan, MealPlanDataError } from "@/features/mealplan/server";
 import type { PantrySnapshot } from "@/features/pantry";
 import { findPantryAdditions, getPantrySnapshot, PantryDataError } from "@/features/pantry/server";
 import { getRecipesByIds, RecipeDataError } from "@/features/recipes/server";
+import { getSelectedStore, SettingsDataError } from "@/features/settings/server";
 import { fail, ok, type Result } from "@/lib/errors";
 import { createClient } from "@/lib/supabase/server";
 import { listCheckRowsIn } from "./data/checks";
 import { ShoppingDataError } from "./data/client";
 import { listCustomItemsIn } from "./data/custom-items";
 import { listOverridesIn } from "./data/overrides";
+import { listProductChoicesIn } from "./data/product-choices";
 import { receiptedChecks } from "./data/put-in-pantry";
 import { loadShoppingList, type ShoppingList as CountedList } from "./data/queries";
+import type { ProductChoiceContext } from "./domain/product-choice";
 import type { CheckRow } from "./domain/put-in-pantry";
 
 // Server-only entry (AD-1). The list is counted when it is read and never
@@ -21,17 +24,56 @@ import type { CheckRow } from "./domain/put-in-pantry";
 // (catalog), each through that module's server.ts, and the plan's checks
 // (Story 3.4), own items (Story 3.5) and overrides (Story 3.6), with the
 // signed-in user's session client, so RLS limits every read to the user's own
-// rows. Checking a line off, adding, changing or removing an own item, and
-// correcting, hiding or restoring a line are the Server Actions in ./actions,
-// used by this module's own ui.
+// rows. Beside the list, never in it, come the selected store (settings) and
+// its product choices (Story 7.2). Checking a line off, adding, changing or
+// removing an own item, correcting, hiding or restoring a line, and saving or
+// removing a product choice are the Server Actions in ./actions, used by this
+// module's own ui.
 
 /**
  * Inköpslista as getShoppingList gives it: the counted list, and
  * `pendingClear`, the checks of lines no longer on the list that an
  * interrupted "Lägg i lagret" already put in the pantry (Story 3.7), so the
- * button stays reachable to clear them.
+ * button stays reachable to clear them; beside it, the selected store and its
+ * product choices by catalog ingredient (Story 7.2), which never change how
+ * the list is counted.
  */
-export type ShoppingList = CountedList & { pendingClear: number };
+export type ShoppingList = CountedList & { pendingClear: number } & ProductChoiceContext;
+
+/**
+ * The selected store (settings.getSelectedStore) and then its product
+ * choices. When the store cannot be read (logged as
+ * `settings_store_unavailable`), or its choices cannot (logged as
+ * `shopping_product_choices_unavailable`), the list is shown all the same and
+ * only the detail's section Produktval says so. No store selected: no choices.
+ * Other errors are bugs and are thrown.
+ */
+async function storeAndChoices(): Promise<ProductChoiceContext> {
+  const none: ProductChoiceContext = {
+    store: null,
+    storeUnavailable: false,
+    productChoices: {},
+    productChoicesUnavailable: false,
+    unreadableChoices: [],
+  };
+  let store;
+  try {
+    store = await getSelectedStore();
+  } catch (error) {
+    if (!(error instanceof SettingsDataError)) throw error;
+    console.error("settings_store_unavailable", { reason: error.detail });
+    return { ...none, storeUnavailable: true };
+  }
+  if (!store) return none;
+  try {
+    const { choices, unreadable } = await listProductChoicesIn(await createClient(), store.id);
+    return { ...none, store, productChoices: choices, unreadableChoices: unreadable };
+  } catch (error) {
+    if (!(error instanceof ShoppingDataError)) throw error;
+    console.error("shopping_product_choices_unavailable", { reason: error.detail });
+    return { ...none, store, productChoicesUnavailable: true };
+  }
+}
 
 /**
  * The pantry for the list, or `null` when it cannot be read (logged as
@@ -94,14 +136,18 @@ async function pendingClearOf(list: CountedList, checks: readonly CheckRow[] | n
  * the own items, the overrides or the catalog cannot be read. Checks that cannot be read give the list
  * without them and `checksUnavailable`. A pantry that cannot be read gives the list
  * with nothing taken off and `pantryUnavailable`. `pendingClear` counts the
- * checks an interrupted "Lägg i lagret" left behind. Other errors are thrown.
+ * checks an interrupted "Lägg i lagret" left behind. The selected store and
+ * its product choices are read alongside (storeAndChoices); when they cannot
+ * be read, the list is given all the same. Other errors are thrown.
  */
 export async function getShoppingList(): Promise<Result<ShoppingList>> {
   const user = await requireUser();
   if (!user.ok) return fail("unauthorized");
-  try {
-    let checks: CheckRow[] | null = null;
-    const list = await loadShoppingList({
+  let checks: CheckRow[] | null = null;
+  // The store and its choices are read alongside the list; both settle
+  // before either is used, so neither is left running unobserved.
+  const [counted, choices] = await Promise.allSettled([
+    loadShoppingList({
       currentPlan: getCurrentPlan,
       recipesByIds: getRecipesByIds,
       pantry: pantrySnapshotOrNull,
@@ -113,8 +159,15 @@ export async function getShoppingList(): Promise<Result<ShoppingList>> {
       },
       customItems: async (planId) => listCustomItemsIn(await createClient(), planId),
       overrides: async (planId) => listOverridesIn(await createClient(), planId),
-    });
-    return ok({ ...list, pendingClear: await pendingClearOf(list, checks) });
+    }),
+    storeAndChoices(),
+  ]);
+  // storeAndChoices handles every expected error: what it throws is a bug.
+  if (choices.status === "rejected") throw choices.reason;
+  try {
+    if (counted.status === "rejected") throw counted.reason;
+    const list = counted.value;
+    return ok({ ...list, pendingClear: await pendingClearOf(list, checks), ...choices.value });
   } catch (error) {
     if (error instanceof MealPlanDataError || error instanceof RecipeDataError || error instanceof ShoppingDataError) {
       console.error("shopping_unavailable", { reason: error.detail });

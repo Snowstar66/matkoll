@@ -12,6 +12,8 @@ export type SheetProps = {
   /** Called when the sheet should close; the caller sets `open` to false. */
   onClose: () => void;
   title: string;
+  /** A line under the title, e.g. the store a product choice is for; it also describes the dialog. */
+  subtitle?: string;
   children: ReactNode;
   /** Unsaved changes: closing first asks "Släng ändringarna?". */
   isDirty?: boolean;
@@ -61,6 +63,7 @@ export function Sheet({
   open,
   onClose,
   title,
+  subtitle,
   children,
   isDirty = false,
   closeLabel = "Klar",
@@ -73,6 +76,7 @@ export function Sheet({
   const pointerDownOnBackdrop = useRef(false);
   const swipeStartY = useRef<number | null>(null);
   const titleId = useId();
+  const subtitleId = useId();
   const [confirming, setConfirming] = useState(false);
   // A sheet waiting to replace this one, while "Släng ändringarna?" is showing.
   const pendingReplace = useRef<{ discard: () => void; keep: () => void } | null>(null);
@@ -210,6 +214,7 @@ export function Sheet({
     <dialog
       ref={dialogRef}
       aria-labelledby={titleId}
+      aria-describedby={subtitle ? subtitleId : undefined}
       onKeyDown={(event) => {
         // Handled here rather than only in `cancel`, so a dirty sheet can always ask first.
         if (event.key === "Escape") {
@@ -280,6 +285,11 @@ export function Sheet({
                 </Button>
               )}
             </div>
+            {subtitle ? (
+              <p id={subtitleId} className="-mt-1 text-meta break-words text-ink-2">
+                {subtitle}
+              </p>
+            ) : null}
           </div>
           {confirming ? (
             <div className="flex flex-col gap-3 px-page pt-2 pb-[calc(env(safe-area-inset-bottom)+var(--gutter-mobile))]">

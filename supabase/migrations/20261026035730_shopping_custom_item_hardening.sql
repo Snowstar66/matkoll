@@ -13,7 +13,7 @@
 -- The characters JavaScript's \s matches (WhiteSpace and LineTerminator).
 alter table public.shopping_custom_item drop constraint shopping_custom_item_label_check;
 alter table public.shopping_custom_item add constraint shopping_custom_item_label_check check (
-  label ~ '[^\t\n\v\f\r    -     　﻿]'
+  label ~ '[^\t\n\v\f\r \u00a0\u1680\u2000-\u200a\u2028\u2029\u202f\u205f\u3000\ufeff]'
   and char_length(label) <= 200
 );
 

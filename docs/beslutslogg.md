@@ -2,6 +2,57 @@
 
 Beslut som fattats under bygget: vad, varför och vilka alternativ som fanns. Nyaste överst.
 
+## 2026-10-26 – Uppdatera lagret med foto (Story 6.3 och 6.4)
+
+- **Beslut (Pontus):** två nya stories byggs direkt efter Story 7.2 och före 7.3:
+  - 6.3, "Töm en plats": kontrollfråga och Ångra.
+  - 6.4, "Inventera en plats med foto": förslag i grupperna Nytt, Ändrat och Syns inte längre.
+- **Varför:** Pontus behöver ett enkelt sätt att hålla kyl, frys och skafferi aktuella, och den bästa vägen dit är ett nytt foto.
+- **Princip:** inget tas bort utan ett tryck, eftersom AI:n kan missa varor som är skymda. "Bekräfta alla" sparar allt i en transaktion och borttagningarna kan ångras.
+- **Följd:** epic 6 öppnas igen. Stories 6.3 och 6.4 byggs på grenen `epic/7-varukorg` och följer med i PR #45.
+
+## 2026-10-26 – Produktval per vara (Story 7.2)
+
+- **Beslut:**
+  - **Produktvalet gäller katalogingrediensen, inte listposten.** Två poster för samma ingrediens i olika enheter (`r:<grädde>:dl` och `r:<grädde>:förp`) visar samma val. Listnyckeln innehåller enheten men inte butiken, och det ändras inte (AD-8).
+  - **Produktvalen lämnas bredvid listan och läggs inte in i `ShoppingLine`.** `getShoppingList` ger `store`, `storeUnavailable`, `productChoices` (per katalogingrediens) och `productChoicesUnavailable` bredvid listan. Listan räknas inte om när ett produktval ändras, och butiken hålls utanför `computeList`, så att en senare jämförelse kan anropa exporten (`exportBasket(lines, store, choices)`, 7.3) med en annan butik och dess val.
+  - **Arket Produktval ersätter detaljen** i stället för att lägga ett andra formulär i den (ark staplas aldrig, UX-DR4). Efter "Spara" stängs arket och Pontus är tillbaka i listan.
+  - **Förpackningen är fritext och valfri** ("5 dl", "500 g", "2-pack"). Den tolkas aldrig och räknas aldrig om (AD-7, AD-12).
+  - **Sparandet är en upsert på ingrediens och butik,** så ett dubbeltryck eller ett nytt försök efter ett förlorat svar ger samma rad, och en ändring behåller radens id. Inget id behövs från klienten. "Ångra" efter borttagning sätter tillbaka raden med samma id (AD-20). Om ett nytt val har sparats under tiden står det nya kvar, och "Ångra" säger "Det gick inte att ångra.".
+  - **Butikens id följer med från när listan lästes.** Arket visar butikens namn under titeln, och valet sparas för den butiken även om en annan butik har valts sedan dess. Listan läses om efter sparandet.
+  - **Vaga poster kan få produktval**, eftersom de har en katalogingrediens. Exporten (7.3) tar ändå inte med vaga poster.
+  - **En okopplad egen vara får en förklaring i stället för sektionen:** "Koppla varan till en ingrediens för att spara ett produktval." Listan skapar aldrig katalogingredienser (AD-6). En kopplad egen vara visar sektionen för den sparade kopplingen, också medan en ändrad koppling i formuläret inte är sparad.
+  - **Produktvalet visas bara i detaljen, inte i listraden.**
+  - **Länken heter "Öppna produkten" och öppnas i en ny flik** (`rel="noopener noreferrer"`). Matkoll hämtar den aldrig och kontrollerar inte att den leder till butiken.
+  - **Tillagt vid bygget:**
+    - Tabellen `product_choice` har `on delete restrict` mot både `ingredient` och `store`, så en butik med produktval går inte att ta bort. `updated_at` sätts av en trigger vid varje ändring, så upserten behöver inte skicka den.
+    - Produktnamn och förpackning sparas på en rad med samma regler som butikens texter. `oneLine` och https-kontrollen ligger nu i `src/lib/one-line.ts` och används av både `settings` och `shopping`, och tabellens kontroller nekar kontrolltecken, U+2028/U+2029 och bidi-tecken, så att exportens radformat (7.3) aldrig bryts. Ett designtest låser längdgränserna (200, 40 och 2048) mot domänen.
+    - Ny felkod `shopping_product_choice_remove_failed`: "Det gick inte att ta bort produktvalet. Försök igen." Arket står kvar med valet medan borttagningen sparas och visar felet i arket om den misslyckas. Ett val som redan var borttaget ger bekräftelsen utan "Ångra".
+    - Arkets "Spara" med ett oförändrat val stänger bara arket.
+    - `Sheet` har fått en valfri undertitel (`subtitle`), som också beskriver dialogen för skärmläsare. Arket Produktval visar butikens namn där.
+  - **Ändrat efter granskningen** (migrationen `*_shopping_product_choice_hardening.sql`):
+    - **Undantag från "ändra aldrig en körd migration":** tre migrationer (`*_shopping_custom_item_hardening.sql`, `*_settings_store_hardening.sql`, `*_shopping_product_choice.sql`) hade osynliga tecken (U+00A0, U+2028, U+202A med flera) skrivna direkt i reguljära uttryck. De är omskrivna på plats till synliga `\uXXXX`. Ändringen ändrar inte vad kontrollerna gör: den gamla och den nya texten gav samma svar för alla tecken från U+0001 till U+10FFFF i lokal Postgres. Den lokala databasen har redan samma kontroller, och CI kör migrationerna från början. Samma sak gäller den nya migrationen `*_shopping_product_choice_hardening.sql`, som skrevs om till `\uXXXX` efter att den hade körts lokalt. Ett designtest (`tests/design/invisible-characters.test.ts`) misslyckas om sådana tecken skrivs direkt i `supabase/migrations`, `src` eller `tests`.
+    - `oneLine` tar också bort nollbreddstecken och riktningsmarkeringar (U+061C, U+200B–U+200F, U+FEFF), så att ett namn av bara osynliga tecken räknas som tomt. Kontrollerna för `product_choice` och `store` nekar samma tecken, och rader som redan fanns fick dem borttagna. Den nekade mängden ligger på ett ställe (`refusedCodePoints` i `src/lib/one-line.ts`). Designtestet låser kontrollerna mot den, och integrationstestet visar att varje tecken nekas vid insättning (`23514`) i båda tabellerna.
+    - **Sparandet kräver det val som arket öppnades med.** Arket skickar valets id och `updated_at`, eller inget val. `save_product_choice` (`security invoker`, lås per användare med prefixet `product_choice:`) skriver bara när det sparade valet är det väntade. Annars skriver den inget (`MK409`), och arket säger "Produktvalet har ändrats på annat håll. Uppgifterna är uppdaterade." och visar valet som det är efter omläsningen. Samma uppgifter igen ger det sparade valet utan att skriva, så ett dubbeltryck och ett nytt försök efter ett förlorat svar är fortfarande ofarliga. Detta ersätter upserten via PostgREST.
+    - Om listan läses om medan arket är öppet, och butiken har bytts eller valen inte går att läsa, stängs arket med "Butiken har bytts. Öppna produktvalet igen." eller med felet om produktvalen.
+    - `23503` (butiken eller varan finns inte) har en egen kod, `shopping_product_choice_target_gone`: "Butiken eller varan finns inte längre." Arket stängs och listan läses om.
+    - En rad som domänen inte kan läsa döljs inte. Detaljen visar "Det gick inte att läsa produktvalet." i stället för "Inget produktval", utan knapp, så att inget sparas över raden. En rad som tas bort eller sparas men inte går att läsa tillbaka räknas som borttagen eller sparad och loggas. Den borttagna raden ger då ingen "Ångra". Om valet redan var borttaget säger arket "Produktvalet fanns inte längre." och listan läses om.
+    - En krock vid "Ångra" loggas som info, inte som fel.
+    - Det överflödiga indexet `product_choice_user_id_store_id_idx` är borttaget.
+    - `on delete restrict` mot `store` och `ingredient` står kvar. En framtida story som tar bort butiker eller ingredienser måste hantera `23503` från `product_choice`.
+    - I en egen varas detalj är "Ange/Ändra produktval" inaktiv medan formuläret har osparade ändringar, med hjälptexten "Spara varan först.".
+    - Arkets titel ändrar bara första bokstaven till gemen, och inte alls när den andra också är versal ("Produktval för ICA-kaffe").
+    - Länken "Öppna produkten" har namnet "Öppna produkten [produkt] (öppnas i en ny flik)" för skärmläsare.
+    - `getShoppingList` väntar in både listan och butiken med `Promise.allSettled` och kastar vidare oväntade fel från butiken och valen.
+  - **Inte gjort, efter granskningen:** ångra-token från servern (RLS begränsar "Ångra" till användarens egna rader, som i tidigare stories), och att behålla `created_at` vid "Ångra".
+- **Varför:** FR-27, beslutet "Ordning för tilläggen efter 1.0" (produktval per butik, så att jämförelsen inte kräver ombyggnad), AD-1 (bara `shopping` läser och skriver `product_choice`, butiken läses via `settings/server.ts`), AD-4, AD-8, AD-16, AD-18, AD-20 och PRD 6 (länken hämtas aldrig).
+- **Alternativ:**
+  - Produktval per listpost (med enheten), som skulle ge olika val för samma vara.
+  - Produktvalet i `ShoppingLine`, som skulle räkna om listan vid varje ändring.
+  - Ett fält i detaljen, som skulle ge två "Spara" i samma ark.
+  - Förpackning som mängd och enhet i tal.
+  - Läsa den valda butiken på servern vid sparandet, vilket kan spara i en annan butik än den arket visade.
+
 ## 2026-10-26 – Välja butik (Story 7.1)
 
 - **Beslut:**

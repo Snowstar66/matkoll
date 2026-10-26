@@ -9,7 +9,9 @@ import { EmptyState } from "@/components/empty-state";
 import type { SearchIngredients } from "@/components/ingredient-picker";
 import { Notice } from "@/components/notice";
 import { SwipeRow } from "@/components/swipe-row";
-import { fail, ok, type Result } from "@/lib/errors";
+import type { Store } from "@/features/settings";
+import { useToast } from "@/components/toast";
+import { errorMessages, fail, ok, type Result } from "@/lib/errors";
 import { setChecked } from "../actions/set-checked";
 import type { CheckChange } from "../domain/check";
 import type { ShoppingLine } from "../domain/compute-list";
@@ -33,6 +35,8 @@ import { HiddenLinesSheet } from "./hidden-lines-sheet";
 import { LineDetailSheet } from "./line-detail-sheet";
 import { useLineRemoval } from "./line-removal";
 import { useOwnChanges } from "./own-changes";
+import type { ProductChoice, ProductChoiceContext } from "../domain/product-choice";
+import { ProductChoiceSheet } from "./product-choice-sheet";
 import { canPutInPantry } from "../domain/put-in-pantry";
 import { PutInPantryButton, usePutInPantry } from "./put-in-pantry";
 
@@ -49,7 +53,10 @@ import { PutInPantryButton, usePutInPantry } from "./put-in-pantry";
 // hides it (a recipe line), with "Ångra" in the short confirmation. "Dolda
 // varor (N)" under the list shows the hidden lines, with "Visa igen". While
 // a line is checked off, "Lägg i lagret" above the tab bar puts every checked
-// line in the pantry and takes it off the list (Story 3.7).
+// line in the pantry and takes it off the list (Story 3.7). The detail of a
+// line with a catalog ingredient shows the selected store's product choice
+// for it, and its button replaces the detail with the sheet Produktval
+// (Story 7.2); the choices sit beside the list and never change its count.
 
 export type ShoppingListProps = {
   /**
@@ -84,6 +91,16 @@ export type ShoppingListProps = {
    * it, the sheet suggests nothing.
    */
   searchIngredients?: SearchIngredients;
+  /** The selected store (Story 7.2), as the list was read; `null` when none is selected. */
+  store?: Store | null;
+  /** The store could not be read: the detail's section Produktval says so. */
+  storeUnavailable?: boolean;
+  /** The store's product choices by catalog ingredient id. */
+  productChoices?: Readonly<Record<string, ProductChoice>>;
+  /** The choices could not be read: the detail's section Produktval says so. */
+  productChoicesUnavailable?: boolean;
+  /** The catalog ingredients whose stored choice cannot be read: their section says so. */
+  unreadableChoices?: readonly string[];
 };
 
 /** How long an announcement stays in the live region before it is cleared. */
@@ -320,6 +337,22 @@ const noLines: readonly ShoppingLine[] = [];
 /** No suggestions: for a list rendered without the catalog's search. */
 const noSuggestions: SearchIngredients = async () => ok([]);
 
+/** No product choices: for a list rendered without them. */
+const noChoices: Readonly<Record<string, ProductChoice>> = {};
+const noUnreadable: readonly string[] = [];
+
+/** When the sheet Produktval closes by itself: the store it was opened for is no longer the one the list shows. */
+export const storeChangedText = "Butiken har bytts. Öppna produktvalet igen.";
+
+/** The sheet Produktval: the line and store it opened with, kept while it closes. */
+type ChoiceSheet = {
+  open: boolean;
+  session: number;
+  label: string;
+  ingredientId: string;
+  store: Store;
+};
+
 /**
  * Focus after a line was removed with the keyboard or from its detail: the
  * next line's check, else the one before; when that check is disabled (the
@@ -363,6 +396,11 @@ export function ShoppingList({
   checksUnavailable = false,
   pendingClear = 0,
   searchIngredients = noSuggestions,
+  store = null,
+  storeUnavailable = false,
+  productChoices = noChoices,
+  productChoicesUnavailable = false,
+  unreadableChoices = noUnreadable,
 }: ShoppingListProps) {
   const planId = plan?.id ?? null;
   const { checks, toggle, notice, saving } = useChecks(planId, savedLines);
@@ -402,6 +440,47 @@ export function ShoppingList({
   if (detail?.open && !lines.some((line) => line.key === detail.line.key)) {
     setDetail({ ...detail, open: false });
   }
+  const choiceContext = useMemo<ProductChoiceContext>(
+    () => ({ store, storeUnavailable, productChoices, productChoicesUnavailable, unreadableChoices }),
+    [store, storeUnavailable, productChoices, productChoicesUnavailable, unreadableChoices],
+  );
+  const [choiceSheet, setChoiceSheet] = useState<ChoiceSheet | null>(null);
+  const { showToast } = useToast();
+  // The list is read again while the sheet Produktval is open, and the
+  // store it was opened for is no longer the selected one, or the choices
+  // cannot be read now: the sheet closes and says why, rather than save
+  // against a store or choice it cannot show.
+  const sheetStoreId = choiceSheet?.open ? choiceSheet.store.id : null;
+  const sheetStale = sheetStoreId !== null && (storeUnavailable || productChoicesUnavailable || store?.id !== sheetStoreId);
+  /** Why the sheet closed by itself; a new id each time, so the same text is shown again. */
+  const [staleNotice, setStaleNotice] = useState<{ text: string; id: number } | null>(null);
+  if (sheetStale && choiceSheet) {
+    // State adjusted while rendering: the sheet closes, and the toast follows in an effect.
+    setChoiceSheet({ ...choiceSheet, open: false });
+    const text = storeUnavailable || productChoicesUnavailable ? errorMessages.shopping_product_choices_unavailable : storeChangedText;
+    setStaleNotice((before) => ({ text, id: (before?.id ?? 0) + 1 }));
+  }
+  useEffect(() => {
+    if (staleNotice) showToast(staleNotice.text, { role: "alert" });
+  }, [staleNotice, showToast]);
+  /**
+   * "Ange produktval" / "Ändra produktval" in the detail: the sheet
+   * Produktval opens for the line's catalog ingredient, with the store and
+   * choice as the list was read. The detail is not closed here: the sheet
+   * replaces it, and asks "Släng ändringarna?" first when the detail has
+   * changes (Sheet); "Fortsätt ändra" keeps the detail and closes this one.
+   */
+  const openProductChoice = (line: ShoppingLine) => {
+    if (!store || !line.ingredientId || unreadableChoices.includes(line.ingredientId)) return;
+    const { ingredientId } = line;
+    setChoiceSheet((current) => ({
+      open: true,
+      session: (current?.session ?? 0) + 1,
+      label: line.label,
+      ingredientId,
+      store,
+    }));
+  };
   const [hiddenSheet, setHiddenSheet] = useState(false);
   // Nothing hidden any more: the sheet closes.
   if (hiddenSheet && hiddenLines.length === 0) setHiddenSheet(false);
@@ -511,7 +590,22 @@ export function ShoppingList({
               searchIngredients={searchIngredients}
               onRemove={removal.remove}
               onChange={own.track}
+              productChoices={choiceContext}
+              onProductChoice={openProductChoice}
               onClose={() => setDetail((current) => (current ? { ...current, open: false } : current))}
+            />
+          ) : null}
+          {/* Mounted from the first "Ange produktval", and kept, so it can close with its animation. */}
+          {choiceSheet ? (
+            <ProductChoiceSheet
+              open={choiceSheet.open}
+              session={choiceSheet.session}
+              label={choiceSheet.label}
+              ingredientId={choiceSheet.ingredientId}
+              store={choiceSheet.store}
+              // The choice as the list has it now, so a refused save can take it up.
+              choice={sheetStale ? null : (productChoices[choiceSheet.ingredientId] ?? null)}
+              onClose={() => setChoiceSheet((current) => (current ? { ...current, open: false } : current))}
             />
           ) : null}
         </>

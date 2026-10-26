@@ -1,4 +1,5 @@
 import { z } from "zod";
+import { charLength as length, normalizeHttpsUrl, oneLine } from "@/lib/one-line";
 
 // Pontus's stores (FR-28, Story 7.1): several stores, in several chains and
 // several in one chain, are the normal case (docs/beslutslogg.md,
@@ -67,30 +68,12 @@ export function compareStores(a: Store, b: Store): number {
   return a.name.localeCompare(b.name, "sv") || (a.id < b.id ? -1 : a.id > b.id ? 1 : 0);
 }
 
-/** The text's length in characters (code points), as Postgres's char_length counts it. */
-function length(text: string): number {
-  return [...text].length;
-}
-
-/** Bidi controls (U+202A–U+202E, U+2066–U+2069), which can make a line read in another order. */
-const bidiControls = /[\u202a-\u202e\u2066-\u2069]/g;
-/** What the table's checks refuse in a text: control characters, U+2028/U+2029 and bidi controls. */
-const refusedInText = /[\u0001-\u001f\u007f-\u009f\u2028\u2029\u202a-\u202e\u2066-\u2069]/;
-
 /**
- * A one-line text as typed: bidi controls are removed, control characters,
- * line and paragraph separators and runs of whitespace become one space, and
- * the ends are trimmed. Stored names, ids and addresses never break the
- * export's line format (7.3), and the table's checks refuse what is left out
- * here (supabase/migrations/*_settings_store_hardening.sql).
+ * A one-line text as typed (src/lib/one-line.ts): stored names, ids and
+ * addresses never break the export's line format (7.3), and the table's
+ * checks refuse what is left out (supabase/migrations/*_settings_store_hardening.sql).
  */
-export function oneLine(text: string): string {
-  return text
-    .replace(bidiControls, "")
-    .replace(/[\u0000-\u001f\u007f-\u009f]/g, " ")
-    .replace(/\s+/g, " ")
-    .trim();
-}
+export { oneLine };
 
 /**
  * A new id for a store, chosen in the client (AD-20): crypto.randomUUID, or a
@@ -111,17 +94,7 @@ export function newStoreId(): string {
  * is not an https address with a host, or has whitespace in it.
  */
 export function normalizeStoreUrl(text: string): string | null {
-  const trimmed = text.trim();
-  if (!/^https:\/\//i.test(trimmed) || /\s/.test(trimmed) || refusedInText.test(trimmed)) return null;
-  const url = `https://${trimmed.slice("https://".length)}`;
-  try {
-    const parsed = new URL(url);
-    if (parsed.protocol !== "https:" || !parsed.hostname) return null;
-  } catch {
-    return null;
-  }
-  // A host right after the scheme, as store_url_check requires.
-  return /^https:\/\/[^/?#]/.test(url) ? url : null;
+  return normalizeHttpsUrl(text);
 }
 
 /**

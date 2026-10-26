@@ -1,7 +1,7 @@
 "use client";
 
 import { useRouter } from "next/navigation";
-import { type FormEvent, startTransition, useActionState, useEffect, useId, useRef, useState } from "react";
+import { type FormEvent, type ReactNode, startTransition, useActionState, useEffect, useId, useRef, useState } from "react";
 import { Button } from "@/components/button";
 import { FieldError, FieldLabel, Input, inputClasses } from "@/components/field";
 import { type IngredientHit, type SearchIngredients, useIngredientSearch } from "@/components/ingredient-picker";
@@ -106,6 +106,11 @@ export type CustomItemSheetProps = {
   title?: string;
   /** "Ta bort" in an item's detail: removes it, with "Ångra" (Story 3.5). */
   onRemove?: () => void;
+  /**
+   * Under the form in an item's detail: the section Produktval (Story 7.2),
+   * given whether the form is saving and whether it has unsaved changes.
+   */
+  renderAfterForm?: (saving: boolean, dirty: boolean) => ReactNode;
 };
 
 /**
@@ -129,6 +134,7 @@ export function CustomItemSheet({
   item,
   title,
   onRemove,
+  renderAfterForm,
 }: CustomItemSheetProps) {
   const router = useRouter();
   const [formSession, setFormSession] = useState(session);
@@ -436,6 +442,11 @@ export function CustomItemSheet({
           {unitError ? <FieldError id={`${ids}-unit-error`}>{unitError}</FieldError> : null}
         </div>
       </form>
+      {item && renderAfterForm ? (
+        <div inert={saving} className="pt-6">
+          {renderAfterForm(saving, isFormDirty(values, initial))}
+        </div>
+      ) : null}
     </Sheet>
   );
 }
