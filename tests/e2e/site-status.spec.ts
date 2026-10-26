@@ -12,8 +12,10 @@ import { adminClient, e2eUserId, siteStatusEmail, siteStatusStorageState } from 
 // - a meal plan with the dish.
 //
 // So against Hemma the recipe can be cooked now, and against Stugan it
-// misses the ketchup. The place is selected with the service role: the
-// picker in Hemma is Story 8.2's.
+// misses the ketchup. Most tests select the place with the service role,
+// since the place selected before a page loads is what they look at. One
+// selects it with the picker in Hemma (Story 8.2) and goes back with the
+// app's own links, to see the views follow without a reload.
 
 const mobile = { width: 375, height: 812 };
 const title = "Korv med ketchup";
@@ -180,6 +182,10 @@ const dish = (page: Page) => page.getByTestId("plan-dish").filter({ visible: tru
 const ketchupCheck = (page: Page) => page.getByRole("checkbox", { name: /^Ketchup/ }).filter({ visible: true });
 const putButton = (page: Page) => page.getByRole("button", { name: "Lägg i lagret", exact: true }).filter({ visible: true });
 const toast = (page: Page) => page.getByTestId("toast");
+const tab = (page: Page, name: "Recept" | "Matsedel" | "Lista" | "Hemma") =>
+  page.getByRole("navigation", { name: "Huvudmeny" }).getByRole("link", { name });
+const placePill = (page: Page, name: "Hemma" | "Stugan") =>
+  page.getByRole("radiogroup", { name: "Ställe" }).filter({ visible: true }).getByRole("radio", { name, exact: true });
 
 async function expectNoHorizontalScroll(page: Page) {
   expect(await page.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth)).toBe(true);
@@ -229,6 +235,56 @@ test("with Stugan selected, the recipe view, the library with Kan lagas nu and t
   await page.goto(`/recept/${recipeId}`);
   await expect(view(page).getByText("Kan lagas nu", { exact: true })).toBeVisible();
   await expect(siteLine(page)).toHaveText("Lager: Hemma");
+  expect(errors).toEqual([]);
+});
+
+test("a switch with the picker in Hemma reaches the recipe view, Kan lagas nu and Matsedel without a reload", async ({
+  page,
+}) => {
+  const errors = watchErrors(page);
+  await selectSite(stugan);
+  await page.goto(`/recept/${recipeId}`);
+  await expect(view(page).getByText("Saknar 1 vara", { exact: true })).toBeVisible();
+  await expect(siteLine(page)).toHaveText("Lager: Stugan");
+  // Set once; a reload would clear it.
+  await page.evaluate(() => Object.assign(window, { siteStatusNoReload: true }));
+
+  await tab(page, "Recept").click();
+  await expect(page).toHaveURL(/\/recept$/);
+  await pill(page, "Kan lagas nu").click();
+  await expect(siteLine(page)).toHaveText("Lager: Stugan");
+  await expect(rows(page).filter({ hasText: title }).getByText("Saknar 1 vara", { exact: true })).toBeVisible();
+  await tab(page, "Matsedel").click();
+  await expect(siteLine(page)).toHaveText("Lager: Stugan");
+  await expect(dish(page).getByText("Saknar 1 vara", { exact: true })).toBeVisible();
+
+  // Hemma with the real picker (Story 8.2).
+  await tab(page, "Hemma").click();
+  await expect(page.getByRole("heading", { level: 1, name: "Hemma" })).toBeVisible();
+  await expect(page.getByRole("button", { name: "Ställen", exact: true }).filter({ visible: true })).toBeEnabled();
+  await placePill(page, "Hemma").click();
+  await expect(page.getByTestId("site-announcement").filter({ visible: true })).toHaveText("Valt ställe: Hemma.");
+  await expect(page.getByTestId("site-content").filter({ visible: true })).not.toHaveAttribute("aria-busy");
+  await expect.poll(async () => (await sites()).find((site) => site.is_selected)?.id).toBe(hemma);
+
+  // Back with the app's links: the library, still on Kan lagas nu, counts against Hemma.
+  await tab(page, "Recept").click();
+  await expect(page).toHaveURL(/\/recept$/);
+  await expect(pill(page, "Kan lagas nu")).toBeChecked();
+  await expect(siteLine(page)).toHaveText("Lager: Hemma");
+  await expect(rows(page).filter({ hasText: title }).getByText("Kan lagas nu", { exact: true })).toBeVisible();
+  await rows(page).filter({ hasText: title }).getByRole("link").first().click();
+  await expect(page).toHaveURL(new RegExp(`/recept/${recipeId}$`));
+  await expect(view(page).getByText("Kan lagas nu", { exact: true })).toBeVisible();
+  await expect(view(page).getByTestId("recipe-at-home")).toHaveText("2 av 2 hemma");
+  await expect(siteLine(page)).toHaveText("Lager: Hemma");
+
+  await tab(page, "Matsedel").click();
+  await expect(page).toHaveURL(/\/matsedel$/);
+  await expect(siteLine(page)).toHaveText("Lager: Hemma");
+  await expect(dish(page).getByText("Kan lagas nu", { exact: true })).toBeVisible();
+
+  expect(await page.evaluate(() => (window as unknown as { siteStatusNoReload?: boolean }).siteStatusNoReload)).toBe(true);
   expect(errors).toEqual([]);
 });
 

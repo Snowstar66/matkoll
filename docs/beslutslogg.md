@@ -27,6 +27,7 @@ Beslut som fattats under bygget: vad, varför och vilka alternativ som fanns. Ny
 - **Vid sammanslagningen med 8.2:**
   - **En enda tolkning av `MK410`:** `pantryWriteError` i `pantry/data/client.ts` ger detaljen `site_gone` (`siteGoneDetail`) för `MK410` från alla skrivningar (Lägg i lagret, arket Lagervara och "Ångra"), och läsningen av ett ställe som inte är användarens ger samma detalj. `isSiteGone`, och `isPantrySiteGone` i `pantry/server`, avgör det överallt: i `addToPantry`, i actionerna i Hemma, i Hemmas läsning och i Inköpslistan.
   - **`getPantryForStatus()` läser lagret för stället den just läste** utan att läsa ställena en gång till, eftersom stället redan är ett av användarens.
+  - **Ett e2e-test byter ställe med väljaren i Hemma** och går tillbaka med appens egna länkar: receptvyn, Recept med "Kan lagas nu" och Matsedel visar Hemmas status och raden "Lager: Hemma" utan omladdning. De andra testerna väljer fortfarande ställe med service role, eftersom de tittar på det ställe som är valt innan sidan laddas.
 
 ## 2026-10-26 – Välja och hantera ställen i Hemma (Story 8.2)
 
