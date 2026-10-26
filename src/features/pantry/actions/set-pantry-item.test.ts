@@ -25,12 +25,14 @@ const { savePantryItem } = await import("./set-pantry-item");
 const mjolk = "11111111-1111-4111-8111-111111111111";
 const saffran = "33333333-3333-4333-8333-333333333333";
 const row = "22222222-2222-4222-8222-222222222222";
+const stugan = "44444444-4444-4444-8444-444444444444";
 
 const form = (overrides: Partial<PantryItemFormInput> = {}): PantryItemFormInput => ({
   ingredient: { kind: "existing", ingredientId: mjolk },
   amount: "1,5",
   unit: "l",
   location: "Kyl",
+  siteId: stugan,
   replaceId: null,
   ...overrides,
 });
@@ -50,21 +52,21 @@ beforeEach(() => {
 describe("savePantryItem", () => {
   it("sets the amount for an existing ingredient and revalidates", async () => {
     expect(await savePantryItem(form())).toEqual(ok({ id: row }));
-    expect(setPantryItemsIn).toHaveBeenCalledWith(db, [{ ingredientId: mjolk, location: "Kyl", amount: 1.5, unit: "l" }], null);
+    expect(setPantryItemsIn).toHaveBeenCalledWith(db, [{ ingredientId: mjolk, location: "Kyl", amount: 1.5, unit: "l" }], null, stugan);
     expect(commitIngredients).not.toHaveBeenCalled();
     expect(revalidateFor).toHaveBeenCalledWith("pantry_item");
   });
 
   it("saves an item without amount as unlimited, and an amount without unit as st", async () => {
     await savePantryItem(form({ amount: "", unit: "l" }));
-    expect(setPantryItemsIn).toHaveBeenLastCalledWith(db, [{ ingredientId: mjolk, location: "Kyl", amount: null, unit: null }], null);
+    expect(setPantryItemsIn).toHaveBeenLastCalledWith(db, [{ ingredientId: mjolk, location: "Kyl", amount: null, unit: null }], null, stugan);
     await savePantryItem(form({ amount: "2", unit: "" }));
-    expect(setPantryItemsIn).toHaveBeenLastCalledWith(db, [{ ingredientId: mjolk, location: "Kyl", amount: 2, unit: "st" }], null);
+    expect(setPantryItemsIn).toHaveBeenLastCalledWith(db, [{ ingredientId: mjolk, location: "Kyl", amount: 2, unit: "st" }], null, stugan);
   });
 
   it("passes the row being changed, so a new location or unit moves it", async () => {
     await savePantryItem(form({ location: "Frys", replaceId: row }));
-    expect(setPantryItemsIn).toHaveBeenCalledWith(db, [{ ingredientId: mjolk, location: "Frys", amount: 1.5, unit: "l" }], row);
+    expect(setPantryItemsIn).toHaveBeenCalledWith(db, [{ ingredientId: mjolk, location: "Frys", amount: 1.5, unit: "l" }], row, stugan);
   });
 
   it("creates a new catalog ingredient first, and sets the item for it", async () => {
@@ -78,7 +80,7 @@ describe("savePantryItem", () => {
         ingredient: { kind: "new", proposal: { name: "Saffran", section: "Skafferi", location: "Skafferi", defaultUnit: "förp" } },
       },
     ]);
-    expect(setPantryItemsIn).toHaveBeenCalledWith(db, [{ ingredientId: saffran, location: "Skafferi", amount: 1, unit: "förp" }], null);
+    expect(setPantryItemsIn).toHaveBeenCalledWith(db, [{ ingredientId: saffran, location: "Skafferi", amount: 1, unit: "förp" }], null, stugan);
   });
 
   it("gives a new ingredient no default unit for an amount without unit, or an unlimited item", async () => {
@@ -145,6 +147,25 @@ describe("savePantryItem", () => {
     expect(await savePantryItem(form())).toEqual(fail("pantry_save_failed"));
     expect(log).toHaveBeenCalledWith("pantry_save_failed", { reason: "set_failed 23503" });
     expect(revalidateFor).not.toHaveBeenCalled();
+  });
+
+  it("saves on the place the sheet was opened for, also with the row being changed", async () => {
+    await savePantryItem(form({ replaceId: row }));
+    expect(setPantryItemsIn.mock.calls[0]![3]).toBe(stugan);
+    expect(setPantryItemsIn.mock.calls[0]![2]).toBe(row);
+  });
+
+  it("refuses a form without a place, or with a place that is not an id", async () => {
+    expect(await savePantryItem({ ...form(), siteId: undefined } as unknown as PantryItemFormInput)).toEqual(fail("validation"));
+    expect(await savePantryItem(form({ siteId: "Stugan" }))).toEqual(fail("validation"));
+    expect(setPantryItemsIn).not.toHaveBeenCalled();
+  });
+
+  it("gives pantry_site_gone for a place that was deleted (MK410), and revalidates the places", async () => {
+    setPantryItemsIn.mockRejectedValue(new PantryDataError("set_failed MK410"));
+    expect(await savePantryItem(form())).toEqual(fail("pantry_site_gone"));
+    expect(log).toHaveBeenCalledWith("pantry_site_gone", { reason: "set_failed MK410" });
+    expect(revalidateFor).toHaveBeenCalledWith("pantry_site");
   });
 
   it("throws other errors, which are bugs", async () => {

@@ -45,6 +45,8 @@ import {
   settingsStorageState,
   shoppingEmail,
   shoppingStorageState,
+  sitesEmail,
+  sitesStorageState,
   statusEmail,
   statusStorageState,
   storeEmail,
@@ -103,6 +105,7 @@ export default async function globalSetup(config: FullConfig) {
       [storeEmail, storeStorageState],
       [productChoiceEmail, productChoiceStorageState],
       [basketExportEmail, basketExportStorageState],
+      [sitesEmail, sitesStorageState],
     ] as const) {
       const user = await browser.newContext({ baseURL });
       const page = await user.newPage();

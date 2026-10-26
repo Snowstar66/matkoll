@@ -72,13 +72,16 @@ export async function removePantryItemIn(db: PantryDb, userId: string, id: strin
 /**
  * restorePantryItem (AD-19, AD-20) for the signed-in user: puts a removed
  * row back with the same id, amount, unit and location (restore_pantry_item),
- * on its own place when the row has `siteId`, otherwise on the selected one.
+ * on its own place when the row has `siteId` (sent as the row's site_id and
+ * as `site`), otherwise on the selected one; also when another place has
+ * been selected since (FR-33). A place that is gone is MK410.
  * Refused, with nothing changed, when the location has the item again (a row
  * with the same key, or one of the other kind: unlimited or amounts) or a
  * row has the id.
  *
  * Throws PantryDataError: `invalid_row` before anything is written, or
- * `restore_failed <code>` when Postgres refuses (23505 for the cases above).
+ * `restore_failed <code>` when Postgres refuses (23505 for the cases above,
+ * MK410 for a place that is gone).
  */
 export async function restorePantryItemIn(db: PantryDb, row: PantryRow): Promise<PantryRow> {
   const parsed = pantryRowSchema.safeParse(row);
@@ -86,6 +89,7 @@ export async function restorePantryItemIn(db: PantryDb, row: PantryRow): Promise
   const { id, siteId, ingredientId, location, amount, unit } = parsed.data;
   const { data, error } = await db.rpc("restore_pantry_item", {
     item: { id, ...(siteId ? { site_id: siteId } : {}), ingredient_id: ingredientId, location, amount, unit },
+    ...(siteId ? { site: siteId } : {}),
   });
   if (error) throw new PantryDataError(`restore_failed ${error.code}`);
   return toPantryRow(data);

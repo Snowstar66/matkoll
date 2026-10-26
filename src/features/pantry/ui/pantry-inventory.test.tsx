@@ -12,6 +12,9 @@ import { PantrySheetProvider } from "./pantry-item-sheet";
 import { PantrySuggestionList } from "./pantry-suggestion-list";
 import { PantrySuggestionsProvider } from "./pantry-suggestions";
 
+/** The place Hemma shows (Story 8.2). */
+const testSite = { id: "55555555-5555-4555-8555-555555555555" };
+
 // Story 6.4: a photo compared with a place that has items. The section with
 // the groups Nytt, Ändrat and Syns inte längre, filled through the camera
 // with /api/ai/analyze and the resizing stubbed, and confirmed, removed,
@@ -140,7 +143,7 @@ function Hemma({ location = "Kyl" }: { location?: Location }) {
   return (
     <ToastProvider>
       <PantrySuggestionsProvider>
-        <PantrySheetProvider location={location}>
+        <PantrySheetProvider location={location} site={testSite}>
           <div key={location}>
             <PantryCamera location={location} />
             <PantrySuggestionList />

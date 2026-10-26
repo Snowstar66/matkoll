@@ -86,8 +86,10 @@ export type PantryIngredient = z.infer<typeof pantryIngredientSchema>;
 
 /**
  * What the sheet sends: the ingredient, the amount as typed (empty for
- * unlimited), the unit (null or "" for none), the location, and the id of
- * the row being changed, if any. A new ingredient gets a default unit only
+ * unlimited), the unit (null or "" for none), the location, the place the
+ * sheet was opened for (`siteId`, FR-33: the item is saved there, also when
+ * Hemma has selected another place since), and the id of the row being
+ * changed, if any. A new ingredient gets a default unit only
  * when Pontus chose one for an amount; never the `st` of an amount without
  * unit, and never from an unlimited item.
  */
@@ -97,6 +99,7 @@ export const pantryItemFormSchema = z
     amount: z.string().max(40),
     unit: z.union([unitSchema, z.literal(""), z.null()]),
     location: locationSchema,
+    siteId: z.uuid(),
     replaceId: z.uuid().nullable(),
   })
   .transform((form, context) => {
@@ -112,7 +115,7 @@ export const pantryItemFormSchema = z
       form.ingredient.kind === "new"
         ? { ...form.ingredient, defaultUnit: amount === null ? null : form.unit || null }
         : form.ingredient;
-    return { ingredient, location: form.location, amount, unit, replaceId: form.replaceId };
+    return { ingredient, location: form.location, amount, unit, siteId: form.siteId, replaceId: form.replaceId };
   });
 export type PantryItemFormInput = z.input<typeof pantryItemFormSchema>;
 export type PantryItemForm = z.output<typeof pantryItemFormSchema>;

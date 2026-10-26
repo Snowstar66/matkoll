@@ -5,8 +5,17 @@ import { loadIngredientNames } from "@/features/catalog/data/queries";
 import { PantryDataError } from "@/features/pantry/data/client";
 import { insertPantryDefaults } from "@/features/pantry/data/defaults";
 import { countPantryIn, listPantryIn, loadPantrySnapshot } from "@/features/pantry/data/queries";
-import { loadPantrySitesIn, loadSelectedSiteIdIn } from "@/features/pantry/data/sites";
-import { defaultSiteName, normalizeSiteName } from "@/features/pantry/domain/site";
+import { restorePantryItemIn } from "@/features/pantry/data/remove";
+import { setPantryItemsIn } from "@/features/pantry/data/set";
+import {
+  deleteSiteIn,
+  loadPantrySitesIn,
+  loadSiteItemCountsIn,
+  loadSelectedSiteIdIn,
+  saveSiteIn,
+  selectSiteIn,
+} from "@/features/pantry/data/sites";
+import { defaultSiteName, maxSites, normalizeSiteName, siteFormSchema } from "@/features/pantry/domain/site";
 import { refusedCodePoints } from "@/lib/one-line";
 import { localSupabaseUrl } from "../local-supabase";
 import {
@@ -25,7 +34,10 @@ import {
 // two places, MK410 for a place that is not the caller's, the reads per place,
 // one selected place per user (pantry_site_one_selected), the functions'
 // grants, and the migration's postconditions. The 1.0 calls without `site` are
-// tests/integration/pantry.test.ts, unchanged.
+// tests/integration/pantry.test.ts, unchanged. Story 8.2: save_pantry_site,
+// select_pantry_site and delete_pantry_site, the limit of 10 places, the data
+// layer's outcomes, the place sent with every write from Hemma, and
+// pantry_site_gone for a read of a place that is not the user's.
 
 // pantry/server.ts with the session client replaced by the test user's, so
 // getSelectedSite and listPantrySites run as they do in a request.
@@ -259,6 +271,10 @@ describe("pantry_site: schema and RLS", () => {
         operation_id: madeUpId,
         site: madeUpId,
       }),
+      anon.rpc("save_pantry_site", { site_id: madeUpId, site_name: "Stugan", site_normalized_name: "stugan", mode: "add" }),
+      anon.rpc("select_pantry_site", { site_id: madeUpId }),
+      anon.rpc("delete_pantry_site", { site_id: madeUpId }),
+      anon.rpc("pantry_site_item_counts"),
     ];
     for (const [index, call] of calls.entries()) {
       expect((await call).error?.code, `call ${index}`).toBe("42501");
@@ -281,6 +297,11 @@ describe("pantry_site: schema and RLS", () => {
       "pantry_session_site",
       "pantry_item_fill_site",
       "pantry_site_check_selected",
+      "save_pantry_site",
+      "select_pantry_site",
+      "delete_pantry_site",
+      "pantry_site_check_limit",
+      "pantry_site_item_counts",
     ];
     const rows = sql<{ name: string; definer: boolean; acl: string | null }>(
       `select p.proname as name, p.prosecdef as definer, p.proacl::text as acl
@@ -308,6 +329,10 @@ describe("pantry_site: schema and RLS", () => {
     expect(executableBy("pantry_session_site")).toEqual(["authenticated", "service_role"]);
     expect(executableBy("pantry_item_fill_site")).toEqual([]);
     expect(executableBy("pantry_site_check_selected")).toEqual([]);
+    for (const name of ["save_pantry_site", "select_pantry_site", "delete_pantry_site", "pantry_site_item_counts"]) {
+      expect(executableBy(name), name).toEqual(["authenticated"]);
+    }
+    expect(executableBy("pantry_site_check_limit")).toEqual([]);
   });
 
   it("refuses an empty name, more than 40 characters, spaces at the ends and every refused character", async () => {
@@ -900,5 +925,300 @@ describe("the reads per place", () => {
     await selectSite(user.id, stugan);
     expect(await countPantryIn(user.db)).toEqual({ Kyl: 1, Frys: 1, Skafferi: 1 });
     expect(await pantryServer.getSelectedSite()).toEqual({ id: stugan, name: "Stugan", siteCount: 2 });
+  });
+});
+
+// Story 8.2: choosing and managing places.
+
+/** The form the sheet Ställen sends, as savePantrySite reads it. */
+const siteForm = (id: string, name: string, mode: "add" | "rename") => siteFormSchema.parse({ id, name, mode });
+
+/** save_pantry_site as the app calls it, with the domain's normalized name. */
+const savePlace = (db: Db, id: string, name: string, mode: "add" | "rename") =>
+  db.rpc("save_pantry_site", { site_id: id, site_name: name, site_normalized_name: normalizeSiteName(name), mode });
+
+describe("save_pantry_site", () => {
+  it("adds a place, not selected, and a retry with the same id renames it instead of adding another", async () => {
+    const user = await createTestUser("pantry-site-save-add");
+    const id = randomUUID();
+    const added = await savePlace(user.db, id, "Stugan", "add");
+    expect(added.error).toBeNull();
+    expect(added.data).toMatchObject({ id, name: "Stugan", normalized_name: "stugan", is_selected: false });
+    // A user without places got Hemma first, selected.
+    expect((await sitesOf(user.id)).map((site) => [site.name, site.is_selected])).toEqual([
+      ["Hemma", true],
+      ["Stugan", false],
+    ]);
+
+    const retried = await savePlace(user.db, id, "STUGAN", "add");
+    expect(retried.error).toBeNull();
+    // A true retry (the same normalized name) gets the name as typed now.
+    expect(retried.data).toMatchObject({ id, name: "STUGAN" });
+    expect(await sitesOf(user.id)).toHaveLength(2);
+  });
+
+  it("gives MK424 for a retried add whose place was renamed since, and keeps the rename", async () => {
+    const user = await createTestUser("pantry-site-save-stale");
+    const id = randomUUID();
+    expect((await savePlace(user.db, id, "Stugan", "add")).error).toBeNull();
+    // Another device renames it, then the first device retries its add.
+    expect((await savePlace(user.db, id, "Vinterstugan", "rename")).error).toBeNull();
+    const stale = await savePlace(user.db, id, "Stugan", "add");
+    expect(stale.error?.code).toBe("MK424");
+    expect((await sitesOf(user.id)).find((site) => site.id === id)).toMatchObject({
+      name: "Vinterstugan",
+      normalized_name: "vinterstugan",
+    });
+    expect(await saveSiteIn(user.db, siteForm(id, "Stugan", "add"))).toEqual({ kind: "stale" });
+  });
+
+  it("renames the caller's place, and gives MK410 for one that is gone or another user's", async () => {
+    const { user, stugan } = await twoPlaces("pantry-site-save-rename");
+    const other = await createTestUser("pantry-site-save-rename-other");
+    const othersPlace = await addSite(other.id, "Torpet", true);
+
+    expect((await savePlace(user.db, stugan, "Vinterstugan", "rename")).data).toMatchObject({ id: stugan, name: "Vinterstugan" });
+    expect((await savePlace(user.db, madeUpId, "Vinterstugan", "rename")).error?.code).toBe("MK410");
+    expect((await savePlace(user.db, othersPlace, "Mitt", "rename")).error?.code).toBe("MK410");
+    expect(await sitesOf(other.id)).toMatchObject([{ id: othersPlace, name: "Torpet" }]);
+    // Adding with another user's id is refused on the primary key, and adds nothing.
+    const taken = await savePlace(user.db, othersPlace, "Annexet", "add");
+    expect(taken.error?.code).toBe("23505");
+    expect(taken.error?.message).toContain("pantry_site_pkey");
+    expect(await sitesOf(user.id)).toHaveLength(2);
+  });
+
+  it("refuses a name another of the caller's places has, whatever the case, and the table's checks", async () => {
+    const { user, stugan } = await twoPlaces("pantry-site-save-duplicate");
+    const duplicate = await savePlace(user.db, randomUUID(), "STUGAN", "add");
+    expect(duplicate.error?.code).toBe("23505");
+    expect(duplicate.error?.message).toContain("pantry_site_user_id_normalized_name_key");
+    expect((await savePlace(user.db, stugan, "Hemma", "rename")).error?.code).toBe("23505");
+    // A forged call with a name the domain would refuse meets the table's checks.
+    const forged = await user.db.rpc("save_pantry_site", {
+      site_id: randomUUID(),
+      site_name: "a".repeat(41),
+      site_normalized_name: "a".repeat(41),
+      mode: "add",
+    });
+    expect(forged.error?.code).toBe("23514");
+    expect(await sitesOf(user.id)).toHaveLength(2);
+  });
+
+  it("refuses missing values and an unknown mode", async () => {
+    const user = await createTestUser("pantry-site-save-invalid");
+    const id = randomUUID();
+    const calls = [
+      user.db.rpc("save_pantry_site", { site_id: id, site_name: "Stugan", site_normalized_name: "stugan", mode: "change" }),
+      user.db.rpc("save_pantry_site", { site_id: id, site_name: null as unknown as string, site_normalized_name: "stugan", mode: "add" }),
+      user.db.rpc("save_pantry_site", { site_id: null as unknown as string, site_name: "Stugan", site_normalized_name: "stugan", mode: "add" }),
+    ];
+    for (const [index, call] of calls.entries()) expect((await call).error?.code, `call ${index}`).toBe("22023");
+  });
+
+  it(`gives MK422 for place ${maxSites + 1}, through the function and through a direct insert`, async () => {
+    const user = await createTestUser("pantry-site-limit");
+    expect((await user.db.rpc("ensure_pantry_defaults")).error).toBeNull();
+    for (let index = 2; index <= maxSites; index += 1) {
+      expect((await savePlace(user.db, randomUUID(), `Ställe ${index}`, "add")).error, `place ${index}`).toBeNull();
+    }
+    expect(await sitesOf(user.id)).toHaveLength(maxSites);
+
+    expect((await savePlace(user.db, randomUUID(), "Elfte", "add")).error?.code).toBe("MK422");
+    const direct = await user.db.from("pantry_site").insert({ name: "Elfte", normalized_name: "elfte" });
+    expect(direct.error?.code).toBe("MK422");
+    const admin = await adminClient().from("pantry_site").insert({ user_id: user.id, name: "Elfte", normalized_name: "elfte" });
+    expect(admin.error?.code).toBe("MK422");
+    // A rename is no new place.
+    const [, second] = await sitesOf(user.id);
+    expect((await savePlace(user.db, second.id, "Andra", "rename")).error).toBeNull();
+    expect(await sitesOf(user.id)).toHaveLength(maxSites);
+  });
+
+  it("gives the data layer's outcomes: saved, name_taken, limit, gone", async () => {
+    const { user, stugan } = await twoPlaces("pantry-site-save-outcomes");
+    const id = randomUUID();
+    expect(await saveSiteIn(user.db, siteForm(id, " Torpet ", "add"))).toEqual({
+      kind: "saved",
+      site: { id, name: "Torpet", isSelected: false },
+    });
+    expect(await saveSiteIn(user.db, siteForm(randomUUID(), " STUGAN ", "add"))).toEqual({ kind: "name_taken", name: "Stugan" });
+    expect(await saveSiteIn(user.db, siteForm(madeUpId, "Annexet", "rename"))).toEqual({ kind: "gone" });
+    for (let index = 4; index <= maxSites; index += 1) await saveSiteIn(user.db, siteForm(randomUUID(), `Ställe ${index}`, "add"));
+    expect(await saveSiteIn(user.db, siteForm(randomUUID(), "Elfte", "add"))).toEqual({ kind: "limit" });
+    expect(await saveSiteIn(user.db, siteForm(stugan, "Stugan", "rename"))).toMatchObject({ kind: "saved" });
+    await expect(saveSiteIn(anonClient(), siteForm(randomUUID(), "Annexet", "add"))).rejects.toThrow(
+      new PantryDataError("failed 42501"),
+    );
+  });
+});
+
+describe("select_pantry_site", () => {
+  it("selects the place, clears the others, and leaves exactly one selected", async () => {
+    const { user, hemma, stugan } = await twoPlaces("pantry-site-select");
+    const selected = await user.db.rpc("select_pantry_site", { site_id: stugan });
+    expect(selected.error).toBeNull();
+    expect(selected.data).toMatchObject({ id: stugan, is_selected: true });
+    expect(await sitesOf(user.id)).toMatchObject([
+      { id: hemma, is_selected: false },
+      { id: stugan, is_selected: true },
+    ]);
+    // Selecting the selected place changes nothing.
+    expect((await user.db.rpc("select_pantry_site", { site_id: stugan })).error).toBeNull();
+    expect((await sitesOf(user.id)).filter((site) => site.is_selected).map((site) => site.id)).toEqual([stugan]);
+
+    expect(await selectSiteIn(user.db, hemma)).toEqual({ kind: "selected", site: { id: hemma, name: "Hemma", isSelected: true } });
+    expect(await selectSiteIn(user.db, madeUpId)).toEqual({ kind: "gone" });
+  });
+
+  it("runs two selections at once one after the other: exactly one place is selected after", async () => {
+    const { user, hemma, stugan } = await twoPlaces("pantry-site-select-race");
+    const torpet = await addSite(user.id, "Torpet");
+    for (let round = 0; round < 5; round += 1) {
+      const answers = await Promise.all([
+        user.db.rpc("select_pantry_site", { site_id: stugan }),
+        user.db.rpc("select_pantry_site", { site_id: torpet }),
+        user.db.rpc("select_pantry_site", { site_id: hemma }),
+      ]);
+      expect(answers.map((answer) => answer.error)).toEqual([null, null, null]);
+      expect((await sitesOf(user.id)).filter((site) => site.is_selected)).toHaveLength(1);
+    }
+  });
+
+  it("gives MK410 for another user's place, and changes nothing", async () => {
+    const { user, hemma } = await twoPlaces("pantry-site-select-other");
+    const other = await createTestUser("pantry-site-select-other-other");
+    const othersPlace = await addSite(other.id, "Torpet", true);
+    expect((await user.db.rpc("select_pantry_site", { site_id: othersPlace })).error?.code).toBe("MK410");
+    expect((await sitesOf(user.id)).filter((site) => site.is_selected).map((site) => site.id)).toEqual([hemma]);
+    expect(await sitesOf(other.id)).toMatchObject([{ id: othersPlace, is_selected: true }]);
+  });
+});
+
+describe("delete_pantry_site", () => {
+  it("refuses the selected place, a place with items and the last place (MK423), and deletes an empty one", async () => {
+    const { user, hemma, stugan, mjolk } = await twoPlaces("pantry-site-delete");
+    const torpet = await addSite(user.id, "Torpet");
+    await seed(user.id, [{ site_id: torpet, ingredient_id: mjolk, location: "Kyl", amount: 1, unit: "l" }]);
+
+    expect((await user.db.rpc("delete_pantry_site", { site_id: hemma })).error?.code).toBe("MK423");
+    expect((await user.db.rpc("delete_pantry_site", { site_id: torpet })).error?.code).toBe("MK423");
+    const deleted = await user.db.rpc("delete_pantry_site", { site_id: stugan });
+    expect(deleted.error).toBeNull();
+    expect(deleted.data).toBe(true);
+    // Gone already, or never the caller's: false, and nothing changes.
+    expect((await user.db.rpc("delete_pantry_site", { site_id: stugan })).data).toBe(false);
+    expect((await user.db.rpc("delete_pantry_site", { site_id: madeUpId })).data).toBe(false);
+    expect((await sitesOf(user.id)).map((site) => site.id)).toEqual([hemma, torpet]);
+
+    const alone = await createTestUser("pantry-site-delete-last");
+    expect((await alone.db.rpc("ensure_pantry_defaults")).error).toBeNull();
+    const [only] = await sitesOf(alone.id);
+    expect((await alone.db.rpc("delete_pantry_site", { site_id: only.id })).error?.code).toBe("MK423");
+    expect(await sitesOf(alone.id)).toHaveLength(1);
+  });
+
+  it("never deletes another user's place", async () => {
+    const user = await createTestUser("pantry-site-delete-other");
+    const other = await createTestUser("pantry-site-delete-other-other");
+    await addSite(other.id, "Hemma", true);
+    const othersPlace = await addSite(other.id, "Stugan");
+    expect((await user.db.rpc("delete_pantry_site", { site_id: othersPlace })).data).toBe(false);
+    expect(await sitesOf(other.id)).toHaveLength(2);
+  });
+
+  it("keeps a removal record whose rows were on the place, and its Ångra skips them", async () => {
+    const { user, stugan, mjolk } = await twoPlaces("pantry-site-delete-removal");
+    await seed(user.id, [{ site_id: stugan, ingredient_id: mjolk, location: "Kyl", amount: 1, unit: "l" }]);
+    const operation = randomUUID();
+    expect((await user.db.rpc("empty_pantry_place", { place: "Kyl", operation_id: operation, site: stugan })).error).toBeNull();
+    expect((await user.db.rpc("delete_pantry_site", { site_id: stugan })).data).toBe(true);
+    const undone = await user.db.rpc("restore_pantry_removal", { operation_id: operation });
+    expect(undone.data).toEqual({ restored: [], skipped: 1 });
+  });
+
+  it("gives the data layer's outcomes: deleted, in_use", async () => {
+    const { user, hemma, stugan } = await twoPlaces("pantry-site-delete-outcomes");
+    expect(await deleteSiteIn(user.db, hemma)).toEqual({ kind: "in_use" });
+    expect(await deleteSiteIn(user.db, stugan)).toEqual({ kind: "deleted", removed: true });
+    expect(await deleteSiteIn(user.db, stugan)).toEqual({ kind: "deleted", removed: false });
+  });
+});
+
+describe("Hemma's reads and writes on a chosen place (Story 8.2)", () => {
+  it("counts the items per place in one query, and the server lists the places with their counts", async () => {
+    const { user, hemma, stugan, mjolk } = await twoPlaces("pantry-site-counts");
+    const torpet = await addSite(user.id, "Torpet");
+    await seed(user.id, [
+      { site_id: hemma, ingredient_id: mjolk, location: "Kyl", amount: 1, unit: "l" },
+      { site_id: hemma, ingredient_id: mjolk, location: "Frys", amount: 1, unit: "l" },
+      { site_id: stugan, ingredient_id: mjolk, location: "Skafferi", amount: 2, unit: "l" },
+    ]);
+    // One grouped query, of the user's own rows only; a place without items has no count.
+    const other = await createTestUser("pantry-site-counts-other");
+    await seed(other.id, [{ site_id: await addSite(other.id, "Hemma", true), ingredient_id: await addIngredient(other.db, uniqueName("Mjölk")), location: "Kyl" }]);
+    expect(await loadSiteItemCountsIn(user.db)).toEqual({ [hemma]: 2, [stugan]: 1 });
+    await expect(loadSiteItemCountsIn(anonClient())).rejects.toThrow(new PantryDataError("query_failed 42501"));
+
+    sessionDb = user.db;
+    expect(await pantryServer.listPantrySitesWithCounts()).toEqual([
+      { id: hemma, name: "Hemma", isSelected: true, itemCount: 2 },
+      { id: stugan, name: "Stugan", isSelected: false, itemCount: 1 },
+      { id: torpet, name: "Torpet", isSelected: false, itemCount: 0 },
+    ]);
+  });
+
+  it("gives site_gone, never an empty pantry, for a read of a place that is gone or another user's", async () => {
+    const { user, stugan } = await twoPlaces("pantry-site-read-gone");
+    const other = await createTestUser("pantry-site-read-gone-other");
+    const othersPlace = await addSite(other.id, "Torpet", true);
+    sessionDb = user.db;
+    for (const site of [othersPlace, madeUpId]) {
+      await expect(pantryServer.listPantry("Kyl", site)).rejects.toThrow(new PantryDataError("site_gone"));
+      await expect(pantryServer.countPantryItems(site)).rejects.toThrow(new PantryDataError("site_gone"));
+      await expect(pantryServer.getPantrySnapshot(site)).rejects.toThrow(new PantryDataError("site_gone"));
+    }
+    expect(await pantryServer.countPantryItems(stugan)).toEqual({ Kyl: 0, Frys: 0, Skafferi: 0 });
+  });
+
+  it("saves on the place sent, also with the row being changed, and MK410 for a place that is gone", async () => {
+    const { user, hemma, stugan, mjolk } = await twoPlaces("pantry-site-write-sent");
+    const [row] = await setPantryItemsIn(user.db, [{ ingredientId: mjolk, location: "Kyl", amount: 1, unit: "l" }], null, stugan);
+    expect(await onSite(user.id, stugan)).toEqual([{ ingredient_id: mjolk, location: "Kyl", amount: 1, unit: "l" }]);
+    expect(await onSite(user.id, hemma)).toEqual([]);
+
+    // Hemma is selected; the sheet opened on Stugan moves the row there, on Stugan.
+    await setPantryItemsIn(user.db, [{ ingredientId: mjolk, location: "Frys", amount: 1, unit: "l" }], row!.id, stugan);
+    expect(await onSite(user.id, stugan)).toEqual([{ ingredient_id: mjolk, location: "Frys", amount: 1, unit: "l" }]);
+    expect(await onSite(user.id, hemma)).toEqual([]);
+
+    await expect(
+      setPantryItemsIn(user.db, [{ ingredientId: mjolk, location: "Kyl", amount: 1, unit: "l" }], null, madeUpId),
+    ).rejects.toThrow(new PantryDataError("set_failed MK410"));
+  });
+
+  it("puts a removed row back on its own place after another is selected, and MK410 when that place is gone", async () => {
+    const { user, hemma, stugan, mjolk } = await twoPlaces("pantry-site-restore-sent");
+    await selectSiteIn(user.db, stugan);
+    const [id] = await seed(user.id, [{ site_id: stugan, ingredient_id: mjolk, location: "Kyl", amount: 1, unit: "l" }]);
+    const removed = await user.db.from("pantry_item").delete().eq("id", id!).select("id").single();
+    expect(removed.error).toBeNull();
+    await selectSiteIn(user.db, hemma);
+
+    const restored = await restorePantryItemIn(user.db, {
+      id: id!,
+      siteId: stugan,
+      ingredientId: mjolk,
+      location: "Kyl",
+      amount: 1,
+      unit: "l",
+    });
+    expect(restored).toMatchObject({ id, siteId: stugan });
+    expect(await onSite(user.id, hemma)).toEqual([]);
+
+    await user.db.from("pantry_item").delete().eq("id", id!);
+    await expect(
+      restorePantryItemIn(user.db, { id: id!, siteId: madeUpId, ingredientId: mjolk, location: "Kyl", amount: 1, unit: "l" }),
+    ).rejects.toThrow(new PantryDataError("restore_failed MK410"));
   });
 });

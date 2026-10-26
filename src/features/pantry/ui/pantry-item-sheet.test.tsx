@@ -1,5 +1,5 @@
 import { act, fireEvent, render, screen, waitFor, within } from "@testing-library/react";
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import { ToastProvider } from "@/components/toast";
 import type { Location } from "@/features/catalog";
@@ -33,6 +33,9 @@ vi.mock("@/lib/downscale-image", () => ({ downscaleImage: vi.fn() }));
 const gulLokId = "11111111-1111-4111-8111-111111111111";
 const mjolkId = "22222222-2222-4222-8222-222222222222";
 const rowId = "33333333-3333-4333-8333-333333333333";
+/** The places (Story 8.2): Hemma, which the page shows, and Stugan, where Mjölk is. */
+const hemma = { id: "44444444-4444-4444-8444-444444444444" };
+const stugan = { id: "55555555-5555-4555-8555-555555555555" };
 
 const gulLok: PantryIngredientHit = {
   id: gulLokId,
@@ -40,7 +43,7 @@ const gulLok: PantryIngredientHit = {
   defaults: { section: "Frukt och grönt", location: "Skafferi", defaultUnit: "st" },
   exact: false,
 };
-const mjolk: PantryItem = { id: rowId, ingredientId: mjolkId, name: "Mjölk", location: "Kyl", amount: 1, unit: "l" };
+const mjolk: PantryItem = { id: rowId, siteId: stugan.id, ingredientId: mjolkId, name: "Mjölk", location: "Kyl", amount: 1, unit: "l" };
 
 function OpenItem({ item }: { item: PantryItem }) {
   const { openItem } = usePantrySheet();
@@ -51,7 +54,7 @@ function setup(location: Location = "Frys") {
   render(
     <ToastProvider>
       <PantrySuggestionsProvider>
-        <PantrySheetProvider location={location}>
+        <PantrySheetProvider location={location} site={hemma}>
           <AddPantryItemButton variant="icon" />
           <OpenItem item={mjolk} />
         </PantrySheetProvider>
@@ -108,6 +111,7 @@ describe("PantryItemSheet, a new item", () => {
       amount: "3",
       unit: "st",
       location: "Skafferi",
+      siteId: hemma.id,
       replaceId: null,
     });
     expect(screen.queryByRole("dialog")).toBeNull();
@@ -130,6 +134,7 @@ describe("PantryItemSheet, a new item", () => {
       amount: "",
       unit: "",
       location: "Skafferi",
+      siteId: hemma.id,
       replaceId: null,
     });
   });
@@ -226,6 +231,64 @@ describe("PantryItemSheet, a new item", () => {
   });
 });
 
+describe("PantryItemSheet and the place (Story 8.2, FR-33)", () => {
+  /** Hemma, whose shown place a test can switch while the sheet is open, as a selection would. */
+  let switchTo: (site: { id: string }) => void = () => {};
+  function SwitchingHemma() {
+    const [site, setSite] = useState(hemma);
+    useEffect(() => {
+      switchTo = setSite;
+    }, []);
+    return (
+      <ToastProvider>
+        <PantrySuggestionsProvider>
+          <PantrySheetProvider location="Kyl" site={site}>
+            <AddPantryItemButton variant="icon" />
+            <OpenItem item={mjolk} />
+          </PantrySheetProvider>
+        </PantrySuggestionsProvider>
+      </ToastProvider>
+    );
+  }
+
+  it("keeps the place it opened for when Hemma selects another place while it is open", async () => {
+    render(<SwitchingHemma />);
+    fireEvent.click(screen.getByRole("button", { name: "Lägg till vara" }));
+    await search("gul");
+    fireEvent.click(within(sheet()).getByRole("button", { name: "Gul lök" }));
+    act(() => switchTo(stugan));
+    await save("Lägg till vara");
+    expect(savePantryItem).toHaveBeenCalledWith(expect.objectContaining({ siteId: hemma.id }));
+
+    // Opened again after the switch: the place shown now.
+    await waitFor(() => expect(screen.queryByRole("dialog")).toBeNull());
+    fireEvent.click(screen.getByRole("button", { name: "Lägg till vara" }));
+    await search("gul");
+    fireEvent.click(within(sheet()).getByRole("button", { name: "Gul lök" }));
+    await save("Lägg till vara");
+    expect(savePantryItem).toHaveBeenLastCalledWith(expect.objectContaining({ siteId: stugan.id }));
+  });
+
+  it("saves a changed item on its own place, whatever place Hemma shows", async () => {
+    render(<SwitchingHemma />);
+    fireEvent.click(screen.getByRole("button", { name: "Öppna Mjölk" }));
+    fireEvent.change(within(sheet()).getByLabelText("Mängd"), { target: { value: "2" } });
+    await save("Spara ändringar");
+    expect(savePantryItem).toHaveBeenCalledWith(expect.objectContaining({ siteId: stugan.id, replaceId: rowId }));
+  });
+
+  it("shows pantry_site_gone in the sheet and keeps the form", async () => {
+    savePantryItem.mockResolvedValue(fail("pantry_site_gone"));
+    setup();
+    fireEvent.click(screen.getByRole("button", { name: "Lägg till vara" }));
+    await search("gul");
+    fireEvent.click(within(sheet()).getByRole("button", { name: "Gul lök" }));
+    await save("Lägg till vara");
+    expect(await within(sheet()).findByRole("alert")).toHaveTextContent("Stället finns inte längre. Välj ett annat ställe.");
+    expect(within(sheet()).getByTestId("pantry-sheet-ingredient")).toHaveTextContent("Gul lök");
+  });
+});
+
 describe("PantryItemSheet, an item in the pantry", () => {
   it("opens on the form with the item and saves a new amount for the same row", async () => {
     setup();
@@ -239,6 +302,7 @@ describe("PantryItemSheet, an item in the pantry", () => {
       amount: "2",
       unit: "l",
       location: "Kyl",
+      siteId: stugan.id,
       replaceId: rowId,
     });
     expect(screen.getByRole("status")).toHaveTextContent("Mjölk är sparad i kylen.");
@@ -251,7 +315,7 @@ describe("PantryItemSheet, an item in the pantry", () => {
     render(
       <ToastProvider>
         <PantrySuggestionsProvider>
-          <PantrySheetProvider location="Kyl">
+          <PantrySheetProvider location="Kyl" site={hemma}>
             <OpenItem item={{ ...mjolk, amount, unit: "kg" }} />
           </PantrySheetProvider>
         </PantrySuggestionsProvider>
@@ -344,7 +408,7 @@ describe("PantryItemSheet, a lagerförslag (Rätta)", () => {
         <PantryItemSheet
           open={sheet.open}
           session={sheet.session}
-          target={{ kind: "suggestion", suggestion, generation: 7 }}
+          target={{ kind: "suggestion", suggestion, generation: 7, siteId: hemma.id }}
           onClose={() => setSheet((current) => ({ ...current, open: false }))}
           review={{ confirm: onConfirm, reject: onReject, saving: reviewSaving }}
         />
@@ -426,6 +490,7 @@ describe("PantryItemSheet, a lagerförslag (Rätta)", () => {
         location: "Frys",
         amount: 2,
         unit: "dl",
+        siteId: hemma.id,
         replaceId: null,
       },
       expect.any(Function),

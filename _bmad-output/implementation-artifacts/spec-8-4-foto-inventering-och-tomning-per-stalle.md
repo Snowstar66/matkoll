@@ -194,6 +194,10 @@ context:
 - **Risk: mockens `kyl.png`.** Om 6.5 ändrar `tests/fixtures/ai/kyl.analyze.json` (till exempel med `confidence`) följer e2e-specen fixturen, men grupperna i matrisen ska vara desamma.
 - Loggar innehåller bara felkoder, orsaker och antal, aldrig ställenas namn, varunamn eller AI-svar.
 - **Från granskningen av 8.1:** `analyzePlace` lämnar id:t för det ställe som analyserades, och `apply_pantry_inventory` och `add_to_pantry` får det som `site`, så att en bekräftelse aldrig hamnar på ett ställe som valts under tiden.
+- **Från granskningen av 8.2:**
+  - "Töm kylen" skickar det ställe som visas: `emptyPantryPlace({ siteId, … })` ger `site` till `empty_pantry_place`. Gränssnittet nycklar redan väntande tömningar på ställe och plats (`emptyPlace(siteId, …)` i `pantry-removal.tsx`).
+  - Bildanalysen behåller det ställe som fotot togs för. Bekräfta, Rätta (i dag ignorerar `confirmCorrected` `form.siteId`) och inventeringen skickar det stället, så att ett byte på två enheter aldrig kan skriva ett ställes foto på ett annat.
+  - I 8.2 nycklas `PantrySuggestionsProvider` på valt ställe i `hemma/home-place.tsx`, så att förslagen och väntande borttagningar försvinner vid ett byte. När förslagen bär sitt ställe tas nyckeln bort, så att beslutet ovan ("förslagen står kvar när stället byts") gäller. Det som ska överleva ett byte ligger redan i `SiteSwitchProvider` ovanför nyckeln.
 
 ## Spec Change Log
 

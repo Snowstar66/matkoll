@@ -597,7 +597,9 @@ describe("confirmItemFromSuggestion and confirmItemFromForm", () => {
     expect(confirmSuggestionsSchema.safeParse([confirmItemFromSuggestion(suggestion)]).success).toBe(true);
   });
 
-  const form = (input: PantryItemFormInput) => pantryItemFormSchema.parse(input);
+  // The place does not reach a confirmation: confirmPantrySuggestions sends none until Story 8.4.
+  const form = (input: Omit<PantryItemFormInput, "siteId">) =>
+    pantryItemFormSchema.parse({ ...input, siteId: "44444444-4444-4444-8444-444444444444" });
 
   it("confirms the sheet's form, a new ingredient with the form's place as its default place", () => {
     const corrected = form({
@@ -628,7 +630,9 @@ describe("confirmItemFromSuggestion and confirmItemFromForm", () => {
 });
 
 describe("review patches", () => {
-  const form = (input: PantryItemFormInput) => pantryItemFormSchema.parse(input);
+  // The place does not reach a confirmation: confirmPantrySuggestions sends none until Story 8.4.
+  const form = (input: Omit<PantryItemFormInput, "siteId">) =>
+    pantryItemFormSchema.parse({ ...input, siteId: "44444444-4444-4444-8444-444444444444" });
   const gurka: PantrySuggestion = {
     id: "s1",
     name: "gurka",

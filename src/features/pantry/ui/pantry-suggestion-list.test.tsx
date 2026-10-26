@@ -12,6 +12,9 @@ import { PantrySheetProvider } from "./pantry-item-sheet";
 import { PantrySuggestionList } from "./pantry-suggestion-list";
 import { PantrySuggestionsProvider } from "./pantry-suggestions";
 
+/** The place Hemma shows (Story 8.2). */
+const testSite = { id: "55555555-5555-4555-8555-555555555555" };
+
 // Lagerförslag: the section with one card per suggestion, filled through the
 // camera with /api/ai/analyze and the resizing stubbed, and confirmed,
 // corrected in the sheet Lagervara or rejected (Story 6.2) with
@@ -90,7 +93,7 @@ function Hemma({ location = "Kyl", away = false }: { location?: Location; away?:
   return (
     <ToastProvider>
       <PantrySuggestionsProvider>
-        <PantrySheetProvider location={location}>
+        <PantrySheetProvider location={location} site={testSite}>
           {/* Keyed like Hemma's <Suspense>: another card mounts them anew under the same provider. `away`: its fallback. */}
           {away ? (
             <p>Laddar</p>

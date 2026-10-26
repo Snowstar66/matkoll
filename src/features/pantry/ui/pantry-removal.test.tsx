@@ -10,6 +10,7 @@ import { AddPantryItemButton, PantrySheetProvider } from "./pantry-item-sheet";
 import { PantrySuggestionsProvider } from "./pantry-suggestions";
 import { PantryPlace } from "./pantry-place";
 import { applyPantryChanges } from "./pantry-removal";
+import { SiteSwitchProvider, useLiveUndo } from "./site-switching";
 
 // Removing items on Hemma with "Ångra" (Story 2.3). The actions are stubbed;
 // `serverUpdate` changes the server's items, as a revalidation would.
@@ -36,8 +37,13 @@ vi.mock("../actions/search-ingredients", () => ({ searchPantryIngredients: vi.fn
 const refresh = vi.fn();
 vi.mock("next/navigation", () => ({ useRouter: () => ({ refresh }) }));
 
+/** The places (Story 8.2): Hemma, shown unless a test switches, and Stugan. */
+const hemmaSite = { id: "99999999-9999-4999-8999-999999999999", name: "Hemma", siteCount: 2 };
+const stuganSite = { id: "77777777-7777-4777-8777-777777777777", name: "Stugan", siteCount: 2 };
+
 const item = (id: string, name: string, overrides: Partial<PantryItem> = {}): PantryItem => ({
   id,
+  siteId: hemmaSite.id,
   ingredientId: `${id.slice(0, 8)}-aaaa-4aaa-8aaa-aaaaaaaaaaaa`,
   name,
   location: "Kyl",
@@ -51,8 +57,9 @@ const salt = item("33333333-3333-4333-8333-333333333333", "Salt", { amount: null
 const agg = item("44444444-4444-4444-8444-444444444444", "Ägg", { amount: 6 });
 const everything = [mjolk, smor, salt, agg];
 
-const rowOf = ({ id, ingredientId, location, amount, unit }: PantryItem): PantryRow => ({
+const rowOf = ({ id, siteId, ingredientId, location, amount, unit }: PantryItem): PantryRow => ({
   id,
+  siteId,
   ingredientId,
   location,
   amount,
@@ -65,13 +72,21 @@ let serverUpdate: (update: (items: PantryItem[]) => PantryItem[]) => void = () =
 const serverRemoves = (id: string) => act(() => serverUpdate((items) => items.filter((other) => other.id !== id)));
 const serverAdds = (added: PantryItem) => act(() => serverUpdate((items) => [...items, added].sort(byName)));
 
+/** Switches the place the page shows, with its items, as the page would after a selection. */
+let serverSwitch: (site: typeof hemmaSite, items: PantryItem[]) => void = () => {};
+
 /** The server's items for Kyl as last rendered. */
 let serverItems: readonly PantryItem[] = [];
 
-function Hemma({ initial }: { initial: PantryItem[] }) {
+function Hemma({ initial, initialSite = hemmaSite }: { initial: PantryItem[]; initialSite?: typeof hemmaSite }) {
   const [items, setItems] = useState(initial);
+  const [site, setSite] = useState(initialSite);
   useEffect(() => {
     serverUpdate = (update) => setItems(update);
+    serverSwitch = (next, nextItems) => {
+      setSite(next);
+      setItems(nextItems);
+    };
   }, []);
   useEffect(() => {
     serverItems = items;
@@ -79,9 +94,9 @@ function Hemma({ initial }: { initial: PantryItem[] }) {
   return (
     <ToastProvider>
       <PantrySuggestionsProvider>
-        <PantrySheetProvider location="Kyl">
+        <PantrySheetProvider location="Kyl" site={site}>
           <AddPantryItemButton variant="icon" />
-          <PantryPlace location="Kyl" counts={{ Kyl: items.length, Frys: 2, Skafferi: 0 }} items={items} />
+          <PantryPlace site={site} location="Kyl" counts={{ Kyl: items.length, Frys: 2, Skafferi: 0 }} items={items} />
         </PantrySheetProvider>
       </PantrySuggestionsProvider>
     </ToastProvider>
@@ -142,22 +157,29 @@ const removals = new Map<string, PantryRow[]>();
 
 describe("applyPantryChanges", () => {
   it("leaves out removed items and puts restored ones of the location back in order", () => {
-    expect(applyPantryChanges([mjolk, smor], "Kyl", [])).toEqual([mjolk, smor]);
-    expect(applyPantryChanges([mjolk, smor], "Kyl", [{ kind: "remove", item: mjolk }])).toEqual([smor]);
-    expect(applyPantryChanges([smor], "Kyl", [{ kind: "restore", item: mjolk }])).toEqual([mjolk, smor]);
+    expect(applyPantryChanges([mjolk, smor], hemmaSite.id, "Kyl", [])).toEqual([mjolk, smor]);
+    expect(applyPantryChanges([mjolk, smor], hemmaSite.id, "Kyl", [{ kind: "remove", item: mjolk }])).toEqual([smor]);
+    expect(applyPantryChanges([smor], hemmaSite.id, "Kyl", [{ kind: "restore", item: mjolk }])).toEqual([mjolk, smor]);
     // Already back from the server, or of another location: nothing to add.
-    expect(applyPantryChanges([mjolk, smor], "Kyl", [{ kind: "restore", item: mjolk }])).toEqual([mjolk, smor]);
-    expect(applyPantryChanges([smor], "Frys", [{ kind: "restore", item: mjolk }])).toEqual([smor]);
+    expect(applyPantryChanges([mjolk, smor], hemmaSite.id, "Kyl", [{ kind: "restore", item: mjolk }])).toEqual([mjolk, smor]);
+    expect(applyPantryChanges([smor], hemmaSite.id, "Frys", [{ kind: "restore", item: mjolk }])).toEqual([smor]);
   });
 
   it("does not restore over a row the location has now: the same unit, or either one unlimited", () => {
     const mjolkAgain = { ...mjolk, id: "55555555-5555-4555-8555-555555555555", amount: 3 };
     const mjolkUnlimited = { ...mjolkAgain, amount: null, unit: null };
     const mjolkInDl = { ...mjolkAgain, unit: "dl" as const };
-    expect(applyPantryChanges([mjolkAgain], "Kyl", [{ kind: "restore", item: mjolk }])).toEqual([mjolkAgain]);
-    expect(applyPantryChanges([mjolkUnlimited], "Kyl", [{ kind: "restore", item: mjolk }])).toEqual([mjolkUnlimited]);
-    expect(applyPantryChanges([mjolk], "Kyl", [{ kind: "restore", item: mjolkUnlimited }])).toEqual([mjolk]);
-    expect(applyPantryChanges([mjolkInDl], "Kyl", [{ kind: "restore", item: mjolk }])).toEqual([mjolkInDl, mjolk]);
+    expect(applyPantryChanges([mjolkAgain], hemmaSite.id, "Kyl", [{ kind: "restore", item: mjolk }])).toEqual([mjolkAgain]);
+    expect(applyPantryChanges([mjolkUnlimited], hemmaSite.id, "Kyl", [{ kind: "restore", item: mjolk }])).toEqual([mjolkUnlimited]);
+    expect(applyPantryChanges([mjolk], hemmaSite.id, "Kyl", [{ kind: "restore", item: mjolkUnlimited }])).toEqual([mjolk]);
+    expect(applyPantryChanges([mjolkInDl], hemmaSite.id, "Kyl", [{ kind: "restore", item: mjolk }])).toEqual([mjolkInDl, mjolk]);
+  });
+
+  it("shows a restored row only on its own place, and hides a removed one by id on any place", () => {
+    const stuganMjolk = { ...mjolk, siteId: stuganSite.id };
+    expect(applyPantryChanges([smor], hemmaSite.id, "Kyl", [{ kind: "restore", item: stuganMjolk }])).toEqual([smor]);
+    expect(applyPantryChanges([], stuganSite.id, "Kyl", [{ kind: "restore", item: stuganMjolk }])).toEqual([stuganMjolk]);
+    expect(applyPantryChanges([stuganMjolk], stuganSite.id, "Kyl", [{ kind: "remove", item: stuganMjolk }])).toEqual([]);
   });
 });
 
@@ -267,6 +289,71 @@ describe("removing an item on Hemma", () => {
     expect(within(toast()).queryByRole("button", { name: "Ångra" })).toBeNull();
   });
 
+});
+
+describe("removing on one place and Ångra after another is selected (Story 8.2)", () => {
+  it("puts the row back on its own place, and the list of the place shown now never shows it", async () => {
+    const stuganMjolk = { ...mjolk, siteId: stuganSite.id };
+    const hemmaSmor = { ...smor };
+    removePantryItem.mockImplementation(async () => ok(rowOf(stuganMjolk)));
+    restorePantryItem.mockImplementation(async (row) => ok(row));
+    render(<Hemma initial={[stuganMjolk]} initialSite={stuganSite} />);
+
+    await tapRemove("Mjölk");
+    expect(rowNames()).toEqual([]);
+    // Hemma is selected now; its list is what the server gives for Hemma.
+    act(() => serverSwitch(hemmaSite, [hemmaSmor]));
+    expect(rowNames()).toEqual(["Smör 250 g"]);
+
+    await undo();
+    await waitFor(() => expect(restorePantryItem).toHaveBeenCalledWith(expect.objectContaining({ siteId: stuganSite.id })));
+    expect(rowNames()).toEqual(["Smör 250 g"]);
+    expect(kylCard()).toHaveTextContent("Kyl 1 vara");
+  });
+
+  it("says so as an alert when the row's place is gone", async () => {
+    restorePantryItem.mockResolvedValue(fail("pantry_site_gone"));
+    render(<Hemma initial={[mjolk, smor]} />);
+    await tapRemove("Mjölk");
+    await undo();
+    await waitFor(() => expect(toast()).toHaveTextContent("Stället finns inte längre. Välj ett annat ställe."));
+    expect(rowNames()).toEqual(["Smör 250 g"]);
+  });
+});
+
+describe("the places a live Ångra needs (Story 8.2)", () => {
+  function Probe() {
+    const { liveUndoSites } = useLiveUndo();
+    return <p data-testid="live-undo">{[...liveUndoSites].join(",")}</p>;
+  }
+
+  it("marks the row's place while its confirmation shows, and releases it once Ångra has answered", async () => {
+    render(
+      <SiteSwitchProvider>
+        <Hemma initial={[mjolk, smor]} />
+        <Probe />
+      </SiteSwitchProvider>,
+    );
+    expect(screen.getByTestId("live-undo")).toHaveTextContent("");
+    await tapRemove("Mjölk");
+    await waitFor(() => expect(screen.getByTestId("live-undo")).toHaveTextContent(hemmaSite.id));
+    await undo();
+    await waitFor(() => expect(screen.getByTestId("live-undo")).toHaveTextContent(""));
+  });
+
+  it("marks the place of an emptied location too", async () => {
+    render(
+      <SiteSwitchProvider>
+        <Hemma initial={[mjolk, smor]} />
+        <Probe />
+      </SiteSwitchProvider>,
+    );
+    fireEvent.click(screen.getByRole("button", { name: "Töm kylen" }));
+    await act(async () =>
+      fireEvent.click(within(screen.getByRole("dialog", { name: "Töm kylen" })).getByRole("button", { name: "Töm kylen" })),
+    );
+    await waitFor(() => expect(screen.getByTestId("live-undo")).toHaveTextContent(hemmaSite.id));
+  });
 });
 
 describe("Ta bort in the sheet", () => {

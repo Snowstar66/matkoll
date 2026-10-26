@@ -65,9 +65,10 @@ const smor = "6f1c1b7e-3c1a-4c55-9a59-0f3f2b8f2a02";
 /** The catalog knows these by the AI's hint; everything else is new. */
 const known: Record<string, string> = { mjölk: mjolk, smör: smor };
 const catalogNames: Record<string, string> = { [mjolk]: "Mjölk", [smor]: "Smör" };
+const hemma = "5a1c1b7e-3c1a-4c55-9a59-0f3f2b8f2a00";
 const atHome: PantryItem[] = [
-  { id: "7a1c1b7e-3c1a-4c55-9a59-0f3f2b8f2a01", ingredientId: mjolk, name: "Mjölk", location: "Kyl", amount: 2, unit: "förp" },
-  { id: "7a1c1b7e-3c1a-4c55-9a59-0f3f2b8f2a02", ingredientId: smor, name: "Smör", location: "Kyl", amount: null, unit: null },
+  { id: "7a1c1b7e-3c1a-4c55-9a59-0f3f2b8f2a01", siteId: hemma, ingredientId: mjolk, name: "Mjölk", location: "Kyl", amount: 2, unit: "förp" },
+  { id: "7a1c1b7e-3c1a-4c55-9a59-0f3f2b8f2a02", siteId: hemma, ingredientId: smor, name: "Smör", location: "Kyl", amount: null, unit: null },
 ];
 const signal = () => new AbortController().signal;
 const user = (userId = "user") => ok({ id: userId, email: "pontus@example.com" });
@@ -223,6 +224,7 @@ describe("analyzePlace", () => {
     const yoghurt = "6f1c1b7e-3c1a-4c55-9a59-0f3f2b8f2a03";
     const yoghurtRow: PantryItem = {
       id: "7a1c1b7e-3c1a-4c55-9a59-0f3f2b8f2a03",
+      siteId: hemma,
       ingredientId: yoghurt,
       name: "Yoghurt",
       location: "Kyl",
@@ -321,7 +323,7 @@ describe("analyzePlace", () => {
       );
       getIngredientNames.mockResolvedValueOnce({ [senap]: "senap" });
       listPantryIn.mockResolvedValueOnce([
-        { id: "7a1c1b7e-3c1a-4c55-9a59-0f3f2b8f2a09", ingredientId: senap, name: "senap", location: "Kyl", amount: 1, unit: "förp" },
+        { id: "7a1c1b7e-3c1a-4c55-9a59-0f3f2b8f2a09", siteId: hemma, ingredientId: senap, name: "senap", location: "Kyl", amount: 1, unit: "förp" },
       ]);
       const result = await analyzePlace({ image: photo("kyl-dorr.png"), location: "Kyl" }, { signal: signal() });
       if (!result.ok) throw new Error(result.error.code);

@@ -23,7 +23,8 @@ const { restorePantryItem } = await import("./restore-pantry-item");
 
 const rowId = "22222222-2222-4222-8222-222222222222";
 const mjolk = "11111111-1111-4111-8111-111111111111";
-const row: PantryRow = { id: rowId, ingredientId: mjolk, location: "Kyl", amount: 1, unit: "l" };
+const stugan = "44444444-4444-4444-8444-444444444444";
+const row: PantryRow = { id: rowId, siteId: stugan, ingredientId: mjolk, location: "Kyl", amount: 1, unit: "l" };
 
 let log: ReturnType<typeof vi.spyOn>;
 beforeEach(() => {
@@ -40,6 +41,18 @@ describe("restorePantryItem", () => {
     expect(await restorePantryItem(row)).toEqual(ok(row));
     expect(restorePantryItemIn).toHaveBeenCalledWith(db, row);
     expect(revalidateFor).toHaveBeenCalledWith("pantry_item");
+  });
+
+  it("passes the row's own place, so it goes back there also when another is selected", async () => {
+    await restorePantryItem(row);
+    expect(restorePantryItemIn.mock.calls[0]![1]).toMatchObject({ siteId: stugan });
+  });
+
+  it("gives pantry_site_gone when the row's place was deleted (MK410), and revalidates the places", async () => {
+    restorePantryItemIn.mockRejectedValue(new PantryDataError("restore_failed MK410"));
+    expect(await restorePantryItem(row)).toEqual(fail("pantry_site_gone"));
+    expect(log).toHaveBeenCalledWith("pantry_site_gone", { reason: "restore_failed MK410" });
+    expect(revalidateFor).toHaveBeenCalledWith("pantry_site");
   });
 
   it("restores an unlimited row", async () => {
@@ -64,6 +77,7 @@ describe("restorePantryItem", () => {
     { ...row, id: "rad-1" },
     { ...row, amount: 1, unit: null },
     { ...row, location: "Garage" },
+    { ...row, siteId: "Stugan" },
     null,
   ])("refuses the row %j", async (invalid) => {
     expect(await restorePantryItem(invalid as unknown as PantryRow)).toEqual(fail("validation"));

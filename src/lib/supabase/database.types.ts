@@ -390,6 +390,9 @@ isOneToOne: false
 "delete_meal_plan":
 { Args: { "plan_id": string }; Returns: boolean
                            },
+"delete_pantry_site":
+{ Args: { "site_id": string }; Returns: boolean
+                           },
 "detach_recipe_from_current_plan":
 { Args: { "detached_recipe_id": string }; Returns: number
                            },
@@ -422,6 +425,11 @@ isOneToOne: false
                            },
 "pantry_session_site":
 { Args: Record<PropertyKey, never>; Returns: string
+                           },
+"pantry_site_item_counts":
+{ Args: Record<PropertyKey, never>; Returns: {
+              "item_count": number,"site_id": string
+            }[]
                            },
 "pantry_target_site":
 { Args: { "site": string }; Returns: string
@@ -483,6 +491,21 @@ isOneToOne: false
 "restore_shopping_line":
 { Args: { "hidden_updated_at"?: string,"line_key": string,"plan_id": string,"previous": Json }; Returns: undefined
                            },
+"save_pantry_site":
+{ Args: { "mode": string,"site_id": string,"site_name": string,"site_normalized_name": string }; Returns: {
+              "created_at": string,
+"id": string,
+"is_selected": boolean,
+"name": string,
+"normalized_name": string,
+"user_id": string
+            }
+                          SetofOptions: {
+        from: "*"
+        to: "pantry_site"
+        isOneToOne: true
+        isSetofReturn: false
+      } },
 "save_product_choice":
 { Args: { "choice": Json,"expected_id": string,"expected_updated_at": string }; Returns: {
               "created_at": string,
@@ -519,6 +542,21 @@ isOneToOne: false
                           SetofOptions: {
         from: "*"
         to: "store"
+        isOneToOne: true
+        isSetofReturn: false
+      } },
+"select_pantry_site":
+{ Args: { "site_id": string }; Returns: {
+              "created_at": string,
+"id": string,
+"is_selected": boolean,
+"name": string,
+"normalized_name": string,
+"user_id": string
+            }
+                          SetofOptions: {
+        from: "*"
+        to: "pantry_site"
         isOneToOne: true
         isSetofReturn: false
       } },

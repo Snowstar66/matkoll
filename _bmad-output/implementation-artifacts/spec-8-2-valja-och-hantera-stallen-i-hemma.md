@@ -2,7 +2,8 @@
 title: 'Story 8.2: Välja och hantera ställen i Hemma'
 type: 'feature'
 created: '2026-10-26'
-status: 'draft'
+status: 'done'
+baseline_commit: 'e540216bf3225de75595212c9d90754111568816'
 route: 'dispatch'
 context:
   - '{project-root}/_bmad-output/implementation-artifacts/epic-8-context.md'
@@ -113,7 +114,7 @@ context:
 ## Tasks & Acceptance
 
 **Execution:**
-- [ ] `supabase/migrations/<ts>_pantry_site_manage.sql` (`supabase migration new pantry_site_manage`), `database.types.ts` (`pnpm db:types`). Funktionerna, alla `security invoker`, med `set search_path = ''`, `pantry_lock()` först och execute bara för `authenticated`:
+- [x] `supabase/migrations/<ts>_pantry_site_manage.sql` (`supabase migration new pantry_site_manage`), `database.types.ts` (`pnpm db:types`). Funktionerna, alla `security invoker`, med `set search_path = ''`, `pantry_lock()` först och execute bara för `authenticated`:
   1. `save_pantry_site(site_id uuid, site_name text, site_normalized_name text, mode text) returns public.pantry_site`:
      - Den nekar `null`-anropare (`42501`) och saknade värden eller ett okänt läge (`22023`).
      - Den anropar `pantry_selected_site()`, så att Hemma finns.
@@ -124,7 +125,7 @@ context:
   3. `delete_pantry_site(site_id uuid) returns boolean`: ett ställe som anroparen saknar ger `false` (redan borttaget). Valt ställe, ett ställe med varor och det sista stället ger `MK423`. Annars tas stället bort och `true` returneras. Poster i `pantry_removal` med rader på stället får stå kvar. Deras "Ångra" hoppar över raderna (8.1).
 
   -- AD-4, AD-24, FR-29, FR-30
-- [ ] `src/features/pantry/domain/site.ts` (+ test), `index.ts`:
+- [x] `src/features/pantry/domain/site.ts` (+ test), `index.ts`:
   - `siteFormSchema`: `id` som `z.guid()`, `name` med `oneLine` och 1–40 tecken, och `mode: "add" | "rename"`.
   - `siteFieldErrors(error)`.
   - Texterna:
@@ -141,14 +142,14 @@ context:
   - `PantrySite` får `itemCount`.
 
   -- FR-29, EXPERIENCE.md, Voice and Tone
-- [ ] `tests/design/pantry-site-checks.test.ts` (från 8.1) -- låser också gränsen 10 i `save_pantry_site` mot `maxSites` -- AD-12-mönstret
-- [ ] `src/features/pantry/data/sites.ts` (+ integrationstest), `server.ts`:
+- [x] `tests/design/pantry-site-checks.test.ts` (från 8.1) -- låser också gränsen 10 i `save_pantry_site` mot `maxSites` -- AD-12-mönstret
+- [x] `src/features/pantry/data/sites.ts` (+ integrationstest), `server.ts`:
   - `saveSiteIn(db, form)`, `selectSiteIn(db, id)` och `deleteSiteIn(db, id)` anropar funktionerna. De översätter `MK410` till `gone`, `23505` på namnnyckeln till `name_taken`, `MK422` till `limit` och `MK423` till `in_use`, och allt annat till `failed <code>` (`PantryDataError`).
   - `countSiteItemsIn(db, siteIds)` räknar varor per ställe med en `head`-fråga per ställe, parallellt (högst 10).
   - `server.ts` exporterar `listPantrySitesWithCounts()`. Den kastar `PantryDataError`.
 
   -- AD-1
-- [ ] `src/features/pantry/actions/select-pantry-site.ts`, `save-pantry-site.ts`, `delete-pantry-site.ts` (+ tester):
+- [x] `src/features/pantry/actions/select-pantry-site.ts`, `save-pantry-site.ts`, `delete-pantry-site.ts` (+ tester):
   - `selectPantrySite({ id })` ger `ok({ site: { id, name } })`, `pantry_site_gone` eller `pantry_site_failed`.
   - `savePantrySite(previous, formData)` är för `useActionState`. Den ger `ok({ site, mode })`, `validation` (fältfel), `pantry_site_name_taken` (fältet `name`, med `siteNameTakenText`), `pantry_site_limit` (fältet `name`), `pantry_site_gone` eller `pantry_site_failed`.
   - `deletePantrySite({ id })` ger `ok({ removed: boolean })`, `pantry_site_in_use` eller `pantry_site_failed`.
@@ -156,7 +157,7 @@ context:
   - Loggarna har bara felkoden och Postgres-koden, aldrig namn.
 
   -- AD-2, AD-13, AD-18
-- [ ] `src/lib/errors.ts` -- nya koder:
+- [x] `src/lib/errors.ts` -- nya koder:
   - `pantry_site_gone`: "Stället finns inte längre. Välj ett annat ställe.";
   - `pantry_site_name_taken`: "Det finns redan ett ställe med det namnet." Fältet visar `siteNameTakenText` med namnet;
   - `pantry_site_limit`: "Du kan ha högst 10 ställen.";
@@ -164,8 +165,8 @@ context:
   - `pantry_site_in_use`: "Stället har varor eller är valt och kan inte tas bort.".
 
   -- AD-13
-- [ ] `src/lib/revalidate.ts` -- `pantry_site: [{ path: "/hemma", type: "page" }, { path: "/recept", type: "layout" }, { path: "/matsedel", type: "layout" }, { path: "/lista", type: "page" }]`, med en kommentar om att ett byte ändrar allt som räknas mot lagret -- AD-18
-- [ ] Skrivningarna från Hemma får ställets id (FR-33):
+- [x] `src/lib/revalidate.ts` -- `pantry_site: [{ path: "/hemma", type: "page" }, { path: "/recept", type: "layout" }, { path: "/matsedel", type: "layout" }, { path: "/lista", type: "page" }]`, med en kommentar om att ett byte ändrar allt som räknas mot lagret -- AD-18
+- [x] Skrivningarna från Hemma får ställets id (FR-33):
   - `pantryItemFormSchema` får `siteId: z.uuid()`.
   - `PantryItem` och `PantryRow` får `siteId`.
   - `listPantryIn`, `removePantryItemIn` och `toPantryRow` läser `site_id`.
@@ -178,16 +179,16 @@ context:
   - att `confirmPantrySuggestions` och `confirmPantryInventory` går igenom oförändrade (8.4 ändrar dem).
 
   -- FR-33, AD-19, AD-24
-- [ ] `src/features/pantry/ui/pantry-removal.tsx` (+ test) -- väntande ändringar och `report` gäller ställe och plats. `applyPantryChanges(items, siteId, location, changes)` visar en återställd rad bara när den hör till det ställe och den plats som visas, och en borttagen rad döljs på id som förut -- FR-33, AD-20
-- [ ] `src/features/pantry/ui/pantry-item-sheet.tsx` (+ test) -- `PantrySheetProvider` får `site`. Arket sparar sitt id i målet när det öppnas och skickar det med "Lägg till vara" och "Spara ändringar", också om Hemma byter ställe medan arket är öppet. Ett `pantry_site_gone` visas i arket, och sidan läses om -- FR-33
-- [ ] `src/features/pantry/ui/site-switch.tsx` (+ test) -- `SiteSwitch({ sites, selected, children })` (klient):
+- [x] `src/features/pantry/ui/pantry-removal.tsx` (+ test) -- väntande ändringar och `report` gäller ställe och plats. `applyPantryChanges(items, siteId, location, changes)` visar en återställd rad bara när den hör till det ställe och den plats som visas, och en borttagen rad döljs på id som förut -- FR-33, AD-20
+- [x] `src/features/pantry/ui/pantry-item-sheet.tsx` (+ test) -- `PantrySheetProvider` får `site`. Arket sparar sitt id i målet när det öppnas och skickar det med "Lägg till vara" och "Spara ändringar", också om Hemma byter ställe medan arket är öppet. Ett `pantry_site_gone` visas i arket, och sidan läses om -- FR-33
+- [x] `src/features/pantry/ui/site-switch.tsx` (+ test) -- `SiteSwitch({ sites, selected, children })` (klient):
   - Med fler än ett ställe visas `FilterPills` (etikett "Ställe") med ställenas namn och sist textknappen "Ställen".
   - Ett tryck gör ett optimistiskt val (`useOptimistic` i en transition), anropar `selectPantrySite` och säger `selectedSiteText` i live-regionen. Vid fel går pillret tillbaka, och `Notice` visar felet.
   - Medan valet pågår är `children` `inert` med `aria-busy="true"`.
   - Ett svar som kommer efter ett senare tryck ignoreras.
 
   -- FR-30, FR-31, UX-DR17
-- [ ] `src/features/pantry/ui/sites-sheet.tsx` (+ test), `add-site-button.tsx` -- arket Ställen (`Sheet`, titel "Ställen"):
+- [x] `src/features/pantry/ui/sites-sheet.tsx` (+ test), `add-site-button.tsx` -- arket Ställen (`Sheet`, titel "Ställen"):
   - En rad per ställe i skapad ordning. Raden har namnet som knapp (`aria-label="Byt namn på Stugan"`), `itemCountText` och märket "Valt" för valt ställe.
   - Ett tryck på namnet ger fältet "Namn" med "Spara" och "Avbryt" (`useActionState`, läget `rename`). Ett namn i taget kan ändras.
   - "Ta bort" (textknapp, `aria-label="Ta bort Stugan"`) finns bara när `canRemoveSite` gäller. Bekräftelsen säger `removedSiteText`.
@@ -198,7 +199,7 @@ context:
   - `AddSiteButton` är textknappen "Lägg till ställe" som öppnar arket när det bara finns ett ställe.
 
   -- FR-29, UX-DR16
-- [ ] `src/app/(app)/hemma/page.tsx`, `home-content.tsx` -- `HomePlace` gör så här:
+- [x] `src/app/(app)/hemma/page.tsx`, `home-content.tsx` -- `HomePlace` gör så här:
   - Den anropar `requireUserOrRedirect(next)` och läser `listPantrySitesWithCounts()`.
   - Valt ställe skickas till `PantrySheetProvider` och `HomeContent`.
   - `SiteSwitch` hamnar under sidrubriken, runt ``<Suspense key={`${site.id}:${location}`}>``. Ett byte visar alltså skelettrader i stället för det förra ställets varor.
@@ -208,7 +209,7 @@ context:
   - Om ställena inte går att läsa visas `pantry_unavailable` som förut, utan väljare.
 
   -- AD-18, FR-12, FR-31
-- [ ] `tests/integration/pantry-site.test.ts` (utökad):
+- [x] `tests/integration/pantry-site.test.ts` (utökad):
   - `save_pantry_site` i båda lägena: ett nytt försök med samma id, gränsen 10 (`MK422`), dubbletten och `MK410`;
   - `select_pantry_site`: exakt ett valt efteråt, också med två samtidiga anrop;
   - `MK410` för en annan användares ställe;
@@ -216,7 +217,7 @@ context:
   - att `anon` nekas.
 
   -- AD-4, AD-24
-- [ ] `tests/e2e/pantry-sites.spec.ts` (+ `support.ts`, `global-setup.ts`) -- egen e2e-användare `e2e-stallen@matkoll.test` (`sitesEmail`, i `e2eEmails`, med storage state). Före varje test tar service role bort användarens varor och alla ställen utom Hemma, och väljer Hemma. Testerna kontrollerar:
+- [x] `tests/e2e/pantry-sites.spec.ts` (+ `support.ts`, `global-setup.ts`) -- egen e2e-användare `e2e-stallen@matkoll.test` (`sitesEmail`, i `e2eEmails`, med storage state). Före varje test tar service role bort användarens varor och alla ställen utom Hemma, och väljer Hemma. Testerna kontrollerar:
   - att det inte finns någon väljare med ett ställe, och att "Lägg till ställe" finns;
   - att "Stugan" läggs till med bekräftelsen, att den inte är vald och att pillren syns;
   - texterna för dubblett, tomt, 41 tecken och det elfte stället (nio ställen seedade);
@@ -227,7 +228,7 @@ context:
   - att namnbyte och borttagning av ett tomt ställe fungerar, och att "Ta bort" saknas för valt ställe, ett ställe med varor och det sista stället.
 
   -- matrisen
-- [ ] `docs/beslutslogg.md` -- en post för storyn: att ett nytt ställe inte väljs, texterna, att vyn är `inert` under bytet och den nya felkoden `pantry_site_in_use`.
+- [x] `docs/beslutslogg.md` -- en post för storyn: att ett nytt ställe inte väljs, texterna, att vyn är `inert` under bytet och den nya felkoden `pantry_site_in_use`.
 
 **Acceptance Criteria:**
 - Given `pnpm lint && pnpm typecheck && pnpm test && pnpm test:integration && AI_PROVIDER=mock pnpm build && CI=1 pnpm test:e2e`, when de körs, then lyckas alla.
@@ -254,7 +255,81 @@ context:
 
 ## Spec Change Log
 
+### Vid bygget
+
+- **Tre migrationer:**
+  - `20261026162631_pantry_site_manage.sql` har de tre funktionerna och triggern för gränsen.
+  - `20261026164841_pantry_site_manage_order.sql` ersätter `save_pantry_site`, så att ett nytt ställe får `created_at = clock_timestamp()`. För en användare utan ställen skapas Hemma i samma transaktion, och med `now()` fick båda samma tid, så att ordningen avgjordes slumpmässigt av id:t. Integrationstestet hittade det.
+  - `20261026165953_pantry_site_manage_review.sql` kommer från granskningen: läget `add` ändrar ett befintligt id bara när det normaliserade namnet är detsamma (`MK424` annars), och `pantry_site_item_counts()` räknar varorna per ställe.
+
+  De tidigare migrationerna var redan körda lokalt och ändrades inte.
+- **Gränsen 10 hålls av triggern `pantry_site_check_limit`** (`before insert`, `MK422`, under ägarens lås `pantry_owner_lock`), som noten från 8.1:s granskning säger. `save_pantry_site` kontrollerar samma gräns först. Designtestet låser `max_places` i båda mot `maxSites`.
+- **`PantrySite` är oförändrad, och antalet ligger i en ny typ, `PantrySiteWithCount`** (`PantrySite & { itemCount: number | null }`). `listPantrySites()` och `getSelectedSite()` räknar inga varor, så ett obligatoriskt `itemCount` på `PantrySite` hade krävt räkning överallt. `canRemoveSite` och arket Ställen tar `PantrySiteWithCount`.
+- **Antalet varor räknas i en grupperad fråga** (`pantry_site_item_counts()`, efter granskningen), inte med en `head`-fråga per ställe. Valt ställe får alltså inte längre sitt antal från platskorten. Antalen är bästa möjliga: om de inte går att läsa får varje ställe `itemCount: null`, arket visar inga antal och ingen "Ta bort", och Hemma fungerar ändå (`pantry_site_counts_unavailable` i loggen).
+- **Alla ställe-id kontrolleras med `z.uuid()`** (efter granskningen), också i `siteFormSchema`, där specen säger `z.guid()`. Läsningarna och `pantrySiteRowSchema` använde redan `z.uuid()`.
+- **`PantryRow.siteId` är fortfarande valfritt i schemat** (från 8.1). Raderna från `removePantryItem` har det alltid, men svaren från inventeringen och "Ångra" för en tömning bygger rader utan det, och de ändras först i 8.4. `PantryItem.siteId` är obligatoriskt.
+- **Dubblettexten använder det sparade namnet.** Matrisen säger "Det finns redan ett ställe som heter Stugan." för "stugan" och " STUGAN ". Efter `23505` läser `saveSiteIn` namnet på stället med samma normaliserade namn, och utfallet `name_taken` bär det. Det skrivna namnet används bara om stället inte går att läsa.
+- **Bekräftelserna i arket Ställen står i arket,** i en live-region under fältet "Nytt ställe" (`sites-status`), och inte som kort bekräftelse. Arket ligger kvar öppet efter en ändring, och en kort bekräftelse under ett modalt ark syns inte på mobilen. Live-regionen finns alltid, och bara texten ändras. Fel står under fältet eller i en `Notice` överst, som specen säger.
+- **Live-regionen säger "Valt ställe: Stugan." när servern har sparat valet,** inte vid trycket. Ett val som misslyckas annonseras alltså aldrig som gjort. Pillret byts fortfarande direkt.
+- **"+" i rubriken och "Ställen" väntar också under ett byte.** Rubriken ligger utanför `SiteSwitch`, så bytets transition ligger i `SiteSwitchProvider`, och `AddPantryItemButton` läser `useSiteSwitching()`.
+  - `SiteSwitchProvider` ligger överst i `HomePlace`, ovanför det som nycklas på valt ställe. Där finns det som måste överleva ett byte: transitionen, live-regionen för "Valt ställe: Stugan.", det senaste trycket och de ställen som ett levande "Ångra" behöver.
+  - `SiteSwitch` kräver providern ovanför sig.
+  - Kontexterna ligger i `site-switching.tsx`, så att arket Lagervara, borttagningarna och `AddSiteButton` inte importerar väljaren och dess actions.
+  - Pillren, "Ställen" och "Lägg till ställe" väntar på hydreringen. `FilterPills` har fått `disabled`.
+- **En läsning med ett `siteId` som inte är användarens ger `PantryDataError("site_gone")` i `pantry/server.ts`** (från granskningen av 8.1). Ställets id kontrolleras mot `listPantrySites()`, som redan är memoiserad. `HomeContent` visar då `pantry_site_gone` i stället för `pantry_unavailable`. Funktionerna i `data/` ger som förut ett tomt resultat genom RLS.
+- **`HomePlace` ligger i en egen fil,** `hemma/home-place.tsx`, så att reservvägen kan testas. En sidfil får bara exportera Next:s egna namn.
+- **Förslagen, arket Lagervara och borttagningarna nycklas på valt ställe** (`PantrySuggestionsProvider key={site.id}`, efter granskningen). Förslagen från ett foto och väntande borttagningar från ett ställe kan alltså aldrig bekräftas på ett annat på samma enhet. 8.4 tar bort nyckeln när förslagen bär sitt eget ställe (se 8.4:s Implementation Notes).
+- **Hemma utan valt ställe:** om ställena inte går att läsa, eller om användaren saknar ställen (före `ensure_pantry_defaults`), visar Hemma rubriken utan "+" och `pantry_unavailable`, utan väljare. Det andra fallet loggas som `no_selected_site`. En inloggning skapar Hemma.
+- **`savePantryItem` och `restorePantryItem` anropar `revalidateFor("pantry_site")` vid `pantry_site_gone`,** så att sidan läses om. `deleteSiteIn` tolkar också `23503` som `in_use`, för en vara som kom med en direkt skrivning.
+- **`setPantryItemsIn(db, items, replaceId, siteId?)`:** stället är valfritt, så att `confirmPantrySuggestions` går igenom oförändrad till 8.4. `restorePantryItemIn` skickar radens ställe både som `site_id` i raden och som `site`.
+- **Borttagningarna nycklas på ställe och plats också för "Töm kylen":** `emptyPlace`, `isPending` och `EmptyPlaceButton` får ställets id för det som väntar. Actionen `emptyPantryPlace` skickar inget ställe förrän 8.4.
+- **E2E:** "service role väljer Hemma" görs av en andra webbläsarkontext med samma session, som trycker på pillret Hemma, alltså "en annan enhet". Med service role går ett byte inte att göra i en sats via PostgREST, eftersom det partiella unika indexet kontrolleras per rad och regeln om ett valt ställe vid commit. Före varje test tar service role bort varorna och alla ställen och lägger in de ställen testet behöver i en sats.
+- **Före och efter lokalt:** `scripts/pantry-site-check.sql` gav ingen skillnad runt någon av de två migrationerna (`diff` tom, 25 rader och 4 poster i `pantry_removal` före den första). Mellan körningarna ändrades bara testanvändare och Pontus lokala användare, som lade till varor i appen. Runt den tredje migrationen körde en annan worktree e2e samtidigt, och två e2e-användares rader ändrades. Utan e2e-användarnas rader var `diff` tom, och migrationen ändrar inga rader.
+
 ## Review Triage Log
+
+Iteration 1. Granskare: Blind Hunter, Edge Case Hunter och Verification Gap. Ändringarna i SQL ligger i en tredje migration, `pantry_site_manage_review`.
+
+**Patch:**
+- Byte av ställe:
+  - Förslagen, arket Lagervara och borttagningarna nycklas på valt ställe, så att förslag och väntande borttagningar från ett ställe aldrig bekräftas på ett annat på samma enhet. Det som ska överleva ett byte ligger i `SiteSwitchProvider` ovanför nyckeln.
+  - Pillren väntar på hydreringen, och "Ställen" väntar under ett byte.
+- Arket Ställen:
+  - "Ta bort" väntar medan ett "Ångra" för ställets rader visas, alltså en borttagning eller "Töm kylen".
+  - Efter ett förlorat svar läses ställena om. För "Lägg till" behålls id:t, också när namnet ändras, tills listan visar om stället finns, så att ett nytt försök aldrig ger två ställen.
+  - Fälten är aldrig `inert` och behåller fokus. De är skrivskyddade medan de sparas, och knapparna har `aria-disabled`.
+  - Efter ett namnbyte eller "Avbryt" går fokus till radens "Byt namn på …", och efter "Lägg till" till "Nytt ställe".
+  - Live-regionen finns alltid, och bara texten ändras.
+  - Vid 10 ställen står orsaken som synlig text före fältet.
+  - Namnfältet nycklas på ställets id och namn, så att ett namnbyte på en annan enhet når ett orört fält.
+- `save_pantry_site` i läget `add` ändrar ett befintligt id bara vid samma normaliserade namn. Annars ges `MK424`, som blir `pantry_site_failed`, så att ett gammalt nytt försök aldrig tar tillbaka ett namnbyte, och "Lade till" sägs aldrig för det.
+- `savePantrySite` läser om ställena också vid `name_taken` och `limit`.
+- Ett namn måste ha minst ett synligt tecken. Formattecken, utfyllnadstecken, mjuka bindestreck och liknande ger "Ange ett namn på stället.".
+- Antalen räknas i en grupperad fråga och är bästa möjliga (`itemCount: null`). Hemma visar aldrig `pantry_unavailable` för att antalen saknas.
+- Alla ställe-id kontrolleras med `z.uuid()`.
+- "Lägg till ställe" finns också i felvägen i `home-content` när det bara finns ett ställe.
+- Kommentaren om `MK410` i `set-pantry-item` säger att en ny katalogvara kan stå kvar.
+- `pantry_site_limit` är låst mot `siteLimitText` i designtestet.
+- Nya tester:
+  - "+" väntar under ett fördröjt byte (e2e med `page.route`);
+  - förslagen försvinner vid ett byte (e2e);
+  - reservvägen i `HomePlace`;
+  - fältfel och fokus vid namnbyte;
+  - `unauthorized` för att lägga till, byta namn och ta bort;
+  - `deleteSiteIn` med `23503`;
+  - `MK424`;
+  - antal som inte går att läsa;
+  - "Ta bort" som väntar på "Ångra";
+  - namn som bara ser tomma ut.
+
+**Uppskjutet till 8.4** (står i 8.4:s Implementation Notes):
+- "Töm kylen" skickar det ställe som visas till `empty_pantry_place`.
+- Bildanalysen behåller fotots ställe, och Bekräfta, Rätta och inventeringen skickar det.
+
+**Avvisat:**
+- Att ta bort direkta skrivrättigheter på `pantry_site`. Funktionerna är `security invoker` och behöver dem, och RLS begränsar skrivningarna till användarens egna rader.
+- Att kontrollera `normalized_name` i SQL. Det är en accepterad risk sedan 8.1.
+- Att låta triggern för gränsen gälla vid en ändring av `user_id`. RLS tillåter inte att den ändras.
 
 ## Verification
 

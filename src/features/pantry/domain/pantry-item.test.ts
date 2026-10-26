@@ -2,6 +2,7 @@ import { describe, expect, it } from "vitest";
 import { comparePantryItems, snapshotFor, splitPantryItems, toSnapshot, type PantryItem } from "./pantry-item";
 
 const item = (overrides: Partial<PantryItem> & Pick<PantryItem, "id" | "name">): PantryItem => ({
+  siteId: "hemma",
   ingredientId: `ingredient-${overrides.name}`,
   location: "Kyl",
   amount: null,

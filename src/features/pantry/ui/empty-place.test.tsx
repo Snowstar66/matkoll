@@ -45,8 +45,12 @@ vi.mock("@/lib/downscale-image", () => ({
   downscaleImage: async () => ok(new Blob(["small"], { type: "image/jpeg" })),
 }));
 
+/** The place Hemma shows; two places, so PantryPlace has no "Lägg till ställe" (it needs a SiteSwitch). */
+const hemma = { id: "55555555-5555-4555-8555-555555555555", name: "Hemma", siteCount: 2 };
+
 const item = (n: number, location: Location = "Kyl"): PantryItem => ({
   id: `${String(n).padStart(8, "0")}-1111-4111-8111-111111111111`,
+  siteId: hemma.id,
   ingredientId: `${String(n).padStart(8, "0")}-aaaa-4aaa-8aaa-aaaaaaaaaaaa`,
   name: `Vara ${String(n).padStart(2, "0")}`,
   location,
@@ -60,8 +64,8 @@ function Hemma({ location = "Kyl", initial }: { location?: Location; initial: Pa
   return (
     <ToastProvider>
       <PantrySuggestionsProvider>
-        <PantrySheetProvider location={location}>
-          <PantryPlace location={location} counts={{ Kyl: 0, Frys: 3, Skafferi: 0, [location]: initial.length }} items={initial} />
+        <PantrySheetProvider location={location} site={hemma}>
+          <PantryPlace site={hemma} location={location} counts={{ Kyl: 0, Frys: 3, Skafferi: 0, [location]: initial.length }} items={initial} />
         </PantrySheetProvider>
       </PantrySuggestionsProvider>
     </ToastProvider>

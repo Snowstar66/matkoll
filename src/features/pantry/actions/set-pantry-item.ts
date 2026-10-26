@@ -20,11 +20,15 @@ import { formFieldErrors, pantryItemFormSchema, type PantryItemFormInput } from 
  * catalog returns the id of an ingredient with the same normalised name
  * instead of creating another (commit_ingredients' on conflict). `replaceId` is the row being
  * edited: a changed location, unit or ingredient moves it, all or nothing.
- * Revalidates Hemma and the recipes (AD-18).
+ * `siteId` is the place the sheet was opened for (FR-33, AD-24): the item is
+ * saved there, also when another place has been selected since. Revalidates
+ * Hemma and the recipes (AD-18).
  *
  * Returns the id of the row set. Fails with `unauthorized`, `validation`
- * (the form's message in `fields.amount` or `fields.ingredient`) or
- * `pantry_save_failed`.
+ * (the form's message in `fields.amount` or `fields.ingredient`),
+ * `pantry_site_gone` (the place was deleted: the item is not set, though a
+ * new catalog ingredient created first stays in the catalog, and the page is
+ * read again) or `pantry_save_failed`.
  */
 export async function savePantryItem(form: PantryItemFormInput): Promise<Result<{ id: string }>> {
   const user = await requireUser();
@@ -34,7 +38,7 @@ export async function savePantryItem(form: PantryItemFormInput): Promise<Result<
     const fields = formFieldErrors(parsed.error);
     return Object.keys(fields).length > 0 ? fail("validation", fields) : fail("validation");
   }
-  const { ingredient, location, amount, unit, replaceId } = parsed.data;
+  const { ingredient, location, amount, unit, siteId, replaceId } = parsed.data;
 
   let ingredientId: string;
   if (ingredient.kind === "new") {
@@ -65,12 +69,22 @@ export async function savePantryItem(form: PantryItemFormInput): Promise<Result<
   }
 
   try {
-    const [row] = await setPantryItemsIn(await createClient(), [{ ingredientId, location, amount, unit }], replaceId);
+    const [row] = await setPantryItemsIn(
+      await createClient(),
+      [{ ingredientId, location, amount, unit }],
+      replaceId,
+      siteId,
+    );
     if (!row) throw new PantryDataError("no_row");
     revalidateFor("pantry_item");
     return ok({ id: row.id });
   } catch (error) {
     if (!(error instanceof PantryDataError)) throw error;
+    if (error.detail === "set_failed MK410") {
+      console.error("pantry_site_gone", { reason: error.detail });
+      revalidateFor("pantry_site");
+      return fail("pantry_site_gone");
+    }
     console.error("pantry_save_failed", { reason: error.detail });
     return fail("pantry_save_failed");
   }

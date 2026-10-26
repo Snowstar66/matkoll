@@ -2,6 +2,30 @@
 
 Beslut som fattats under bygget: vad, varför och vilka alternativ som fanns. Nyaste överst.
 
+## 2026-10-26 – Välja och hantera ställen i Hemma (Story 8.2)
+
+- **Underlag:** specen `spec-8-2-valja-och-hantera-stallen-i-hemma.md`, där besluten nedan var förslag som godkändes som de stod, EXPERIENCE.md (Ställesväljare och arket Ställen) och AD-24.
+- **Beslut:**
+  - **Tre Postgres-funktioner, alla `security invoker` med `pantry_lock()` först** (`*_pantry_site_manage.sql`):
+    - `save_pantry_site(site_id, site_name, site_normalized_name, mode)` lägger till (`add`) eller byter namn (`rename`). Id:t väljs i klienten när arket öppnas och behålls tills namnet ändras, så ett nytt försök efter ett förlorat svar ger aldrig två ställen. Ett namnbyte på ett ställe som har försvunnit ger `MK410` och skapar inget.
+    - `select_pantry_site(site_id)` slår av de andra ställena och sedan på det valda, i en transaktion. Två val samtidigt körs efter varandra, och det sista vinner.
+    - `delete_pantry_site(site_id)` tar bara bort ett tomt ställe som inte är valt och inte det sista (`MK423` annars). Ett ställe som redan är borta ger `false`, och actionen svarar `ok`.
+  - **Ett nytt ställe väljs inte automatiskt.** Bekräftelsen säger "Lade till Stugan. Välj det för att se och fylla dess lager.", så att Pontus vet vad nästa steg är. Matkoll byter aldrig ställe på egen hand.
+  - **Gränsen 10 ställen hålls av en trigger på tabellen** (`pantry_site_check_limit`, `MK422`) och inte bara i funktionen, eftersom en skrivning kan gå direkt via PostgREST. Ett designtest låser gränsen mot `maxSites`.
+  - **Det normaliserade namnet skickas från domänen** (`normalizeSiteName`). Tabellens kontroll av namnet gäller ändå. En förfalskad normalisering kan bara ge användaren själv två ställen som ser lika ut, och det är en accepterad risk.
+  - **Texterna:** "Ange ett namn på stället.", "Namnet får vara högst 40 tecken.", "Det finns redan ett ställe som heter Stugan." (med namnet som det är sparat), "Du kan ha högst 10 ställen.", "Stället heter nu Vinterstugan.", "Tog bort Stugan." och "Valt ställe: Stugan." i live-regionen. Bekräftelserna i arket Ställen står i arket, eftersom arket ligger kvar öppet och en kort bekräftelse under det inte syns.
+  - **Vyn är `inert` med `aria-busy` medan ett byte pågår.** Pillret byts direkt, men listan visar det förra stället tills servern har svarat. Platskorten, kameran, listan, "Töm kylen" och "+" i rubriken går då inte att använda, så ingen skrivning startar i en vy som blandar två ställen. `<Suspense>` har nyckeln ställe och plats, så det nya stället visar skelettrader tills det är läst.
+  - **Skrivningarna från Hemma skickar ställets id** (FR-33): arket Lagervara behåller det ställe det öppnades för, också om Hemma byter ställe medan det är öppet, och "Ångra" sätter tillbaka på radens eget ställe. En återställd rad visas bara i listan om den hör till det ställe och den plats som visas.
+  - **Ny felkod `pantry_site_in_use`:** "Stället har varor eller är valt och kan inte tas bort." Den kommer bara när en annan flik har ändrat stället, eftersom "Ta bort" bara visas när borttagningen är möjlig. `pantry_site_failed` talar om att spara och passar inte för en borttagning.
+  - **En läsning av ett ställe som inte är användarens ger `pantry_site_gone`** och aldrig ett tomt lager (`site_gone` i `pantry/server.ts`).
+- **Efter granskningen** (en tredje migration, `*_pantry_site_manage_review.sql`):
+  - **Förslagen, arket Lagervara och borttagningarna börjar om för varje ställe** (nycklade på valt ställe), så att ett fotos förslag eller en väntande borttagning aldrig bekräftas på ett annat ställe. Det som måste överleva ett byte ligger i `SiteSwitchProvider`.
+  - **"Ta bort" väntar medan ett "Ångra" för ställets rader visas,** eftersom raderna annars inte hade något ställe att gå tillbaka till.
+  - **Ett nytt försök att lägga till ett ställe tar aldrig tillbaka ett namnbyte:** samma id ändras bara vid samma normaliserade namn, annars `MK424`.
+  - **Antalet varor per ställe räknas i en grupperad fråga och är bästa möjliga.** Arket visas utan antal och utan "Ta bort" om de inte går att läsa.
+  - **Ett namn måste ha minst ett synligt tecken.**
+- **Avgränsning:** lagerförslag, inventering och "Töm kylen" sparar fortfarande på det ställe som är valt när anropet kommer fram, tills 8.4. Epicen slås ihop med `main` i en PR, så mellanversionen når aldrig produktion.
+
 ## 2026-10-26 – Epic 9 (veckans erbjudanden) vilar
 
 - **Beslut:** Epic 9 byggs inte nu. Planeringen ligger kvar på grenen `epic/9-erbjudanden` och korten #55–58 står i Backlog. Först finslipas det som finns: Epic 8 (flera ställen) och bildtolkningen (6.6 och det som kommer ur testerna). Beslutat av Pontus.

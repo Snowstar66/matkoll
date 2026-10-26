@@ -1,5 +1,26 @@
 import { describe, expect, it } from "vitest";
-import { defaultSiteName, maxSiteNameChars, maxSites, normalizeSiteName, pantrySiteRowSchema } from "./site";
+import {
+  addedSiteText,
+  canRemoveSite,
+  defaultSiteName,
+  emptySiteNameText,
+  hasVisibleCharacter,
+  maxSiteNameChars,
+  maxSites,
+  normalizeSiteName,
+  pantrySiteRowSchema,
+  type PantrySiteWithCount,
+  readSiteForm,
+  removedSiteText,
+  renamedSiteText,
+  selectedSiteLabel,
+  selectedSiteText,
+  siteFieldErrors,
+  siteFormSchema,
+  siteLimitText,
+  siteNameTakenText,
+  siteNameTooLongText,
+} from "./site";
 
 describe("normalizeSiteName", () => {
   it.each([
@@ -48,5 +69,111 @@ describe("pantrySiteRowSchema", () => {
     { id, name: "Stugan", is_selected: null },
   ])("refuses %j", (row) => {
     expect(pantrySiteRowSchema.safeParse(row).success).toBe(false);
+  });
+});
+
+describe("the texts of Story 8.2", () => {
+  it("follow EXPERIENCE.md", () => {
+    expect(emptySiteNameText).toBe("Ange ett namn på stället.");
+    expect(siteNameTooLongText).toBe("Namnet får vara högst 40 tecken.");
+    expect(siteNameTakenText("Stugan")).toBe("Det finns redan ett ställe som heter Stugan.");
+    expect(siteLimitText).toBe("Du kan ha högst 10 ställen.");
+    expect(addedSiteText("Stugan")).toBe("Lade till Stugan. Välj det för att se och fylla dess lager.");
+    expect(renamedSiteText("Vinterstugan")).toBe("Stället heter nu Vinterstugan.");
+    expect(removedSiteText("Stugan")).toBe("Tog bort Stugan.");
+    expect(selectedSiteText("Stugan")).toBe("Valt ställe: Stugan.");
+    expect(selectedSiteLabel).toBe("Valt");
+  });
+});
+
+describe("siteFormSchema", () => {
+  const id = "11111111-1111-4111-8111-111111111111";
+  const parse = (name: string, mode = "add") => siteFormSchema.safeParse({ id, name, mode });
+  const messages = (name: string) => {
+    const parsed = parse(name);
+    return parsed.success ? {} : siteFieldErrors(parsed.error);
+  };
+
+  it("makes the name one line and gives its normalized form", () => {
+    expect(parse("  Stugan\tvid  sjön ").data).toEqual({
+      id,
+      name: "Stugan vid sjön",
+      normalizedName: "stugan vid sjön",
+      mode: "add",
+    });
+    expect(parse("Vinterstugan", "rename").data?.mode).toBe("rename");
+  });
+
+  it("refuses an empty name, only spaces and only invisible characters", () => {
+    for (const name of ["", "   ", "\u200b\u2066\ufeff"]) {
+      expect(messages(name), JSON.stringify(name)).toEqual({ name: emptySiteNameText });
+    }
+  });
+
+  it("refuses names that only look empty: format characters, fillers, soft hyphens and blank marks", () => {
+    for (const name of [
+      "\u00ad",
+      "\u3164\u3164",
+      "\u115f\u1160",
+      "\uffa0",
+      "\u2800",
+      "\u034f",
+      "\u180e",
+      "\ufe0f",
+      "\u{e0101}",
+      "\u2060\u00a0\u3000",
+    ]) {
+      expect(messages(name), JSON.stringify(name)).toEqual({ name: emptySiteNameText });
+    }
+  });
+
+  it("keeps a name with a visible character among invisible ones", () => {
+    expect(hasVisibleCharacter("Stu\u00adgan")).toBe(true);
+    expect(hasVisibleCharacter("\u3164a")).toBe(true);
+    expect(hasVisibleCharacter("🏠")).toBe(true);
+    expect(parse("Stu\u00adgan").success).toBe(true);
+  });
+
+  it("allows 40 characters, counted as code points, and refuses 41", () => {
+    expect(parse("å".repeat(maxSiteNameChars)).success).toBe(true);
+    expect(parse("🏠".repeat(maxSiteNameChars)).success).toBe(true);
+    expect(messages("a".repeat(maxSiteNameChars + 1))).toEqual({ name: siteNameTooLongText });
+  });
+
+  it("refuses an id that is not one and an unknown mode, without a message for a field", () => {
+    expect(siteFormSchema.safeParse({ id: "x", name: "Stugan", mode: "add" }).success).toBe(false);
+    const mode = siteFormSchema.safeParse({ id, name: "Stugan", mode: "change" });
+    expect(mode.success).toBe(false);
+    expect(mode.success ? {} : siteFieldErrors(mode.error)).toEqual({});
+  });
+
+  it("reads the fields from FormData", () => {
+    const formData = new FormData();
+    formData.set("id", id);
+    formData.set("name", "Stugan");
+    formData.set("mode", "add");
+    expect(readSiteForm(formData)).toEqual({ id, name: "Stugan", mode: "add" });
+    expect(readSiteForm(new FormData())).toEqual({ id: "", name: "", mode: "" });
+  });
+});
+
+describe("canRemoveSite", () => {
+  const site = (id: string, itemCount: number, isSelected = false): PantrySiteWithCount => ({
+    id,
+    name: id,
+    isSelected,
+    itemCount,
+  });
+
+  it("offers Ta bort only for an empty place that is not selected and not the last", () => {
+    const hemma = site("Hemma", 12, true);
+    const stugan = site("Stugan", 0);
+    const torpet = site("Torpet", 3);
+    const sites = [hemma, stugan, torpet];
+    expect(canRemoveSite(stugan, sites)).toBe(true);
+    expect(canRemoveSite(hemma, sites)).toBe(false);
+    expect(canRemoveSite(torpet, sites)).toBe(false);
+    expect(canRemoveSite(site("Hemma", 0, true), [site("Hemma", 0, true)])).toBe(false);
+    expect(canRemoveSite(stugan, [stugan])).toBe(false);
   });
 });

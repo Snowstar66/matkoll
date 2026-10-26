@@ -10,6 +10,9 @@ import { PantrySheetProvider } from "./pantry-item-sheet";
 import { PantrySuggestionList } from "./pantry-suggestion-list";
 import { focusAfter, PantrySuggestionsProvider, putBack } from "./pantry-suggestions";
 
+/** The place Hemma shows (Story 8.2). */
+const testSite = { id: "55555555-5555-4555-8555-555555555555" };
+
 // The analysis as Hemma holds it (PantrySuggestionsProvider with the camera
 // and the section), with the photo's resizing (downscaleImage) and
 // /api/ai/analyze (postAiForm) stubbed: the client rows of Story 6.1's matrix.
@@ -80,7 +83,7 @@ function Hemma({ location = "Kyl" }: { location?: Location }) {
   return (
     <ToastProvider>
       <PantrySuggestionsProvider>
-        <PantrySheetProvider location={location}>
+        <PantrySheetProvider location={location} site={testSite}>
           {/* Keyed like Hemma's <Suspense>: another card mounts them anew under the same provider. */}
           <div key={location}>
             <PantryCamera location={location} />

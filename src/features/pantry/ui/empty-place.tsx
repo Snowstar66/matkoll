@@ -24,6 +24,8 @@ import { usePantrySuggestions } from "./pantry-suggestions";
 // left while it asks.
 
 export type EmptyPlaceButtonProps = {
+  /** The place Hemma shows (Story 8.2): what is pending and emptied is kept per place. */
+  siteId: string;
   location: Location;
   /** The number of items shown, as the location card counts them; no button for 0. */
   count: number;
@@ -31,7 +33,7 @@ export type EmptyPlaceButtonProps = {
   items: readonly PantryItem[];
 };
 
-export function EmptyPlaceButton({ location, count, items }: EmptyPlaceButtonProps) {
+export function EmptyPlaceButton({ siteId, location, count, items }: EmptyPlaceButtonProps) {
   const { emptyPlace, isPending } = usePantryRemoval();
   const { cameraButtonRef } = usePantrySuggestions();
   /** The open sheet's operation id, kept for "Försök igen"; `null` while it is closed. */
@@ -43,7 +45,7 @@ export function EmptyPlaceButton({ location, count, items }: EmptyPlaceButtonPro
   /** Increases when the location is emptied, so the camera button can take focus. */
   const [emptied, setEmptied] = useState(0);
   const text = emptyPlaceButtonText(location);
-  const pending = isPending(location);
+  const pending = isPending(siteId, location);
 
   // Nothing left to ask about (emptied elsewhere, or by an answer that was lost): the sheet closes.
   if (operationId !== null && count === 0 && !emptying) setOperationId(null);
@@ -64,7 +66,7 @@ export function EmptyPlaceButton({ location, count, items }: EmptyPlaceButtonPro
     setEmptying(true);
     setError(null);
     try {
-      const result = await emptyPlace(location, items, operationId);
+      const result = await emptyPlace(siteId, location, items, operationId);
       if (!result.ok) {
         setError(result.error.message);
         return;

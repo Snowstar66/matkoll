@@ -5,6 +5,7 @@ import { PantryDataError, type PantryDb } from "./client";
 
 const itemsSchema = z.array(pantryItemSetSchema).min(1);
 const replaceIdSchema = z.uuid().nullable();
+const siteIdSchema = z.uuid().optional();
 
 /** A row as set_pantry_items left it. */
 export type SetPantryRow = PantryItemSet & { id: string };
@@ -19,18 +20,27 @@ export type SetPantryRow = PantryItemSet & { id: string };
  * the row when one of them changed. One transaction (set_pantry_items): all
  * or nothing. Returns the rows set, in order.
  *
+ * `siteId` is the place to set on (AD-24, FR-33), also with `replaceId`,
+ * which is removed only from that place. Without it, set_pantry_items uses
+ * the place selected when the call arrives: only for the callers that do not
+ * send a place yet (confirmed lagerförslag, until Story 8.4).
+ *
  * Throws PantryDataError: `invalid_items` before anything is written, or
  * `set_failed <code>` when Postgres refuses (e.g. 23503 for an ingredient
- * that is not in the user's catalog).
+ * that is not in the user's catalog, MK410 for a place that is gone).
  */
 export async function setPantryItemsIn(
   db: PantryDb,
   items: readonly PantryItemSet[],
   replaceId: string | null = null,
+  siteId?: string,
 ): Promise<SetPantryRow[]> {
   const parsedItems = itemsSchema.safeParse(items);
   const parsedReplaceId = replaceIdSchema.safeParse(replaceId);
-  if (!parsedItems.success || !parsedReplaceId.success) throw new PantryDataError("invalid_items");
+  const parsedSiteId = siteIdSchema.safeParse(siteId);
+  if (!parsedItems.success || !parsedReplaceId.success || !parsedSiteId.success) {
+    throw new PantryDataError("invalid_items");
+  }
 
   const { data, error } = await db.rpc("set_pantry_items", {
     items: parsedItems.data.map((item) => ({
@@ -40,6 +50,7 @@ export async function setPantryItemsIn(
       unit: item.unit,
     })),
     ...(parsedReplaceId.data ? { replace_id: parsedReplaceId.data } : {}),
+    ...(parsedSiteId.data ? { site: parsedSiteId.data } : {}),
   });
   if (error) throw new PantryDataError(`set_failed ${error.code}`);
 

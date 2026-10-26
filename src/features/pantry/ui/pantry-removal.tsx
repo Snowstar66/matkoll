@@ -21,6 +21,7 @@ import {
   removedItemsText,
 } from "../domain/places";
 import { usePantrySuggestions } from "./pantry-suggestions";
+import { useLiveUndo } from "./site-switching";
 
 // Removing a pantry item with "Ångra" (FR-11, Story 2.3): no question first
 // (EXPERIENCE.md, Interaction Primitives). The item leaves the list at once
@@ -30,6 +31,14 @@ import { usePantrySuggestions } from "./pantry-suggestions";
 // its sheet has asked: one call empties the location under an operation id,
 // the server keeps the removed rows, and "Ångra" puts them all back by that
 // id in one call.
+//
+// Places (Story 8.2, FR-33, AD-24): the changes are kept per place and
+// location. A removal is by the row's id, which is unique over all places,
+// and "Ångra" puts the row back on its own place, also when Hemma shows
+// another place by then; the list shows a restored row only when it is on
+// the place and in the location shown. While a confirmation with "Ångra"
+// shows, its places are marked (useLiveUndo), so the sheet Ställen offers no
+// "Ta bort" for a place the rows could not go back to.
 
 /** A change the list shows before the server's list has it. */
 export type PantryChange = { kind: "remove" | "restore"; item: PantryItem };
@@ -43,13 +52,20 @@ function conflicts(a: PantryItem, b: PantryItem): boolean {
   );
 }
 
+/** The key of a place's location, for what the removals keep per place and location. */
+function placeKey(siteId: string, location: Location): string {
+  return `${siteId}:${location}`;
+}
+
 /**
- * `items` of `location` with the pending changes applied, in Hemma's order: a
- * removed item is left out, a restored one of this location is back in,
- * unless the list has it already or has a row it would conflict with.
+ * `items` of `location` on the place `siteId` with the pending changes
+ * applied, in Hemma's order: a removed item is left out (by id), a restored
+ * one of this place and location is back in, unless the list has it already
+ * or has a row it would conflict with.
  */
 export function applyPantryChanges(
   items: readonly PantryItem[],
+  siteId: string,
   location: Location,
   changes: readonly PantryChange[],
 ): readonly PantryItem[] {
@@ -58,7 +74,11 @@ export function applyPantryChanges(
   for (const { kind, item } of changes) {
     if (kind === "remove") {
       shown = shown.filter((other) => other.id !== item.id);
-    } else if (item.location === location && !shown.some((other) => other.id === item.id || conflicts(other, item))) {
+    } else if (
+      item.siteId === siteId &&
+      item.location === location &&
+      !shown.some((other) => other.id === item.id || conflicts(other, item))
+    ) {
       shown = [...shown, item].sort(comparePantryItems);
     }
   }
@@ -73,12 +93,12 @@ type Entry = PantryChange & {
   token: number;
   /** The action has answered. */
   settled: boolean;
-  /** The server's items of the item's location when the action answered. */
+  /** The server's items of the item's place and location when the action answered. */
   seen?: readonly PantryItem[];
 };
 
 /**
- * Whether the server's `items` of the entry's location show the change, so
+ * Whether the server's `items` of the entry's place and location show the change, so
  * the entry can go: a removed item is no longer there; a restored one is
  * there, or the items have been read again since (it may have been changed
  * in the meantime).
@@ -97,21 +117,27 @@ type PantryRemovalApi = {
    */
   removeItem: (item: PantryItem, options?: { moveFocus?: boolean }) => void;
   /**
-   * "Töm kylen" after the sheet has asked: empties `location` on the server
-   * under `operationId` (not optimistically), then hides its rows at once and
+   * "Töm kylen" after the sheet has asked: empties `location` of the place
+   * Hemma shows (`siteId`) on the server under `operationId` (not
+   * optimistically), then hides its rows at once and
    * confirms with "Ångra". `items` are the rows the list shows, for their
    * names. A failure is returned for the sheet to show; nothing is removed
    * then. When the answer is lost, the page is read again, and if the
    * location then looks empty, "Kylen kan ha tömts." offers "Ångra" by the
    * operation id. The same id again is a safe retry.
    */
-  emptyPlace: (location: Location, items: readonly PantryItem[], operationId: string) => Promise<Result<{ removed: number }>>;
-  /** A removal, "Ångra" or emptying of the location is on its way: "Töm kylen" waits. */
-  isPending: (location: Location) => boolean;
+  emptyPlace: (
+    siteId: string,
+    location: Location,
+    items: readonly PantryItem[],
+    operationId: string,
+  ) => Promise<Result<{ removed: number }>>;
+  /** A removal, "Ångra" or emptying of the place's location is on its way: "Töm kylen" waits. */
+  isPending: (siteId: string, location: Location) => boolean;
   /** The changes waiting for the server's list; see applyPantryChanges. */
   changes: readonly PantryChange[];
-  /** Tells the removals the server's items of a location, as Hemma shows them. */
-  report: (location: Location, items: readonly PantryItem[]) => void;
+  /** Tells the removals the server's items of a place's location, as Hemma shows them. */
+  report: (siteId: string, location: Location, items: readonly PantryItem[]) => void;
   /** The id of an item just removed with `moveFocus`, until the list has moved focus. */
   focusAfter: string | null;
   focusMoved: () => void;
@@ -129,9 +155,10 @@ export function usePantryRemoval(): PantryRemovalApi {
 /** A single item removed, and its row as it was. */
 type Removed = { item: PantryItem; row: PantryRow };
 
-/** An emptied location, whose rows the server keeps under the operation id. */
+/** An emptied location of a place, whose rows the server keeps under the operation id. */
 type Operation = {
   id: string;
+  siteId: string;
   location: Location;
   /** How many rows it removed; `null` when the answer was lost. */
   count: number | null;
@@ -158,9 +185,10 @@ function batchText({ singles, operations }: Batch): string {
   return removedCountText(count, [...operations.map(({ location }) => location), ...singles.map(({ item }) => item.location)]);
 }
 
-/** A row removed from `location` that the list did not show: only its id counts. */
-const unnamed = (id: string, location: Location): PantryItem => ({
+/** A row removed from `location` of the place that the list did not show: only its id counts. */
+const unnamed = (id: string, siteId: string, location: Location): PantryItem => ({
   id,
+  siteId,
   ingredientId: "",
   name: "",
   location,
@@ -187,19 +215,20 @@ export function PantryRemovalProvider({ children }: { children: ReactNode }) {
   const { showToast } = useToast();
   const router = useRouter();
   const { editResult, editSuggestions, generation } = usePantrySuggestions();
+  const { holdUndo } = useLiveUndo();
   const [entries, setEntries] = useState<ReadonlyMap<string, Entry>>(() => new Map());
   const [focusAfter, setFocusAfter] = useState<string | null>(null);
-  /** Emptying and "Ångra" by operation on their way, per location. */
-  const [inFlight, setInFlight] = useState<ReadonlyMap<Location, number>>(() => new Map());
+  /** Emptying and "Ångra" by operation on their way, per place and location (placeKey). */
+  const [inFlight, setInFlight] = useState<ReadonlyMap<string, number>>(() => new Map());
   const nextToken = useRef(0);
-  /** The server's items per location, as last reported. */
-  const serverItems = useRef(new Map<Location, readonly PantryItem[]>());
+  /** The server's items per place and location (placeKey), as last reported. */
+  const serverItems = useRef(new Map<string, readonly PantryItem[]>());
   /** What the confirmation showing now puts back; a new object per confirmation. */
   const batch = useRef<Batch | null>(null);
   /** An emptying whose answer was lost, until the location's items are read again. */
   const lostEmpty = useRef<{ operation: Operation; at: number } | null>(null);
   /** What `report` does besides keeping the server's items; set after each render. */
-  const onReport = useRef<(location: Location, items: readonly PantryItem[]) => void>(() => {});
+  const onReport = useRef<(siteId: string, location: Location, items: readonly PantryItem[]) => void>(() => {});
 
   const begin = useCallback((kind: Entry["kind"], item: PantryItem): number => {
     nextToken.current += 1;
@@ -223,7 +252,7 @@ export function PantryRemovalProvider({ children }: { children: ReactNode }) {
     setEntries((current) => {
       const entry = current.get(id);
       if (entry?.token !== token) return current;
-      const items = serverItems.current.get(entry.item.location);
+      const items = serverItems.current.get(placeKey(entry.item.siteId, entry.item.location));
       const next = new Map(current);
       const settled: Entry = { ...entry, settled: true, seen: items };
       if (items && serverHas({ ...settled, seen: undefined }, items)) next.delete(id);
@@ -243,22 +272,24 @@ export function PantryRemovalProvider({ children }: { children: ReactNode }) {
     });
   }, []);
 
-  const report = useCallback((location: Location, items: readonly PantryItem[]) => {
-    serverItems.current.set(location, items);
+  const report = useCallback((siteId: string, location: Location, items: readonly PantryItem[]) => {
+    serverItems.current.set(placeKey(siteId, location), items);
     setEntries((current) => {
       const done = [...current.values()].filter(
-        (entry) => entry.settled && entry.item.location === location && serverHas(entry, items),
+        (entry) =>
+          entry.settled && entry.item.siteId === siteId && entry.item.location === location && serverHas(entry, items),
       );
       if (done.length === 0) return current;
       const next = new Map(current);
       for (const entry of done) next.delete(entry.item.id);
       return next;
     });
-    onReport.current(location, items);
+    onReport.current(siteId, location, items);
   }, []);
 
-  function markInFlight(location: Location, change: 1 | -1) {
-    setInFlight((current) => new Map(current).set(location, (current.get(location) ?? 0) + change));
+  function markInFlight(siteId: string, location: Location, change: 1 | -1) {
+    const key = placeKey(siteId, location);
+    setInFlight((current) => new Map(current).set(key, (current.get(key) ?? 0) + change));
   }
 
   function failed(message: string, lost: boolean) {
@@ -289,7 +320,7 @@ export function PantryRemovalProvider({ children }: { children: ReactNode }) {
    * the list never showed.
    */
   async function restoreOperation(operation: Operation): Promise<Outcome> {
-    markInFlight(operation.location, 1);
+    markInFlight(operation.siteId, operation.location, 1);
     const tokens = new Map(operation.known.map((item) => [item.id, begin("restore", item)]));
     let result: Awaited<ReturnType<typeof restorePantryRemoval>>;
     let lost = false;
@@ -299,7 +330,7 @@ export function PantryRemovalProvider({ children }: { children: ReactNode }) {
       result = fail("pantry_restore_failed");
       lost = true;
     } finally {
-      markInFlight(operation.location, -1);
+      markInFlight(operation.siteId, operation.location, -1);
     }
     if (!result.ok) {
       for (const [id, token] of tokens) drop(id, token);
@@ -330,18 +361,27 @@ export function PantryRemovalProvider({ children }: { children: ReactNode }) {
     if (skipped > 0) showToast(notRestoredText(skipped), { role: "alert" });
   }
 
-  /** Shows the confirmation for `next`, whose "Ångra" puts everything in it back. */
+  /**
+   * Shows the confirmation for `next`, whose "Ångra" puts everything in it
+   * back. Its places stay marked until the confirmation goes, or until
+   * "Ångra" has answered.
+   */
   function showBatch(next: Batch) {
     batch.current = next;
+    const sites = [...next.singles.map(({ item }) => item.siteId), ...next.operations.map(({ siteId }) => siteId)];
+    const release = holdUndo([...new Set(sites)]);
     const forget = () => {
       if (batch.current === next) batch.current = null;
     };
     showToast(batchText(next), {
       onUndo: () => {
         forget();
-        void undo(next);
+        void undo(next).finally(release);
       },
-      onClose: forget,
+      onClose: () => {
+        forget();
+        release();
+      },
     });
   }
 
@@ -379,12 +419,15 @@ export function PantryRemovalProvider({ children }: { children: ReactNode }) {
     showBatch({ singles, operations: batch.current?.operations ?? [] });
   }
 
+  // The place is the one Hemma shows; emptyPantryPlace sends it from Story 8.4
+  // on, and until then empties the place selected when the call arrives.
   async function emptyPlace(
+    siteId: string,
     location: Location,
     items: readonly PantryItem[],
     operationId: string,
   ): Promise<Result<{ removed: number }>> {
-    markInFlight(location, 1);
+    markInFlight(siteId, location, 1);
     let result: Awaited<ReturnType<typeof emptyPantryPlace>>;
     let lost = false;
     try {
@@ -393,12 +436,12 @@ export function PantryRemovalProvider({ children }: { children: ReactNode }) {
       result = fail("pantry_empty_failed");
       lost = true;
     } finally {
-      markInFlight(location, -1);
+      markInFlight(siteId, location, -1);
     }
     if (lost) {
       // No answer (e.g. no connection): it may have been emptied. The page is
       // read again, and `report` offers "Ångra" if the location is empty then.
-      lostEmpty.current = { operation: { id: operationId, location, count: null, known: items }, at: Date.now() };
+      lostEmpty.current = { operation: { id: operationId, siteId, location, count: null, known: items }, at: Date.now() };
       router.refresh();
       return result;
     }
@@ -411,11 +454,17 @@ export function PantryRemovalProvider({ children }: { children: ReactNode }) {
     const { removed, removedIds } = result.data;
     const shown = new Map(items.map((item) => [item.id, item]));
     // The list is empty at once, also of rows another tab added (only the id counts for them).
-    for (const id of removedIds) settle(id, begin("remove", shown.get(id) ?? unnamed(id, location)));
+    for (const id of removedIds) settle(id, begin("remove", shown.get(id) ?? unnamed(id, siteId, location)));
     editResult(generation(), (result) => withoutPlace(result, location));
     if (removed > 0) {
       const ids = new Set(removedIds);
-      confirmOperation({ id: operationId, location, count: removed, known: items.filter((item) => ids.has(item.id)) });
+      confirmOperation({
+        id: operationId,
+        siteId,
+        location,
+        count: removed,
+        known: items.filter((item) => ids.has(item.id)),
+      });
     } else if (!batch.current) {
       // Nothing to undo; a confirmation with "Ångra" that shows stays.
       showToast(alreadyEmptyText(location));
@@ -425,9 +474,9 @@ export function PantryRemovalProvider({ children }: { children: ReactNode }) {
 
   // After a lost answer to "Töm kylen": the location's items as read again tell whether it was emptied.
   useEffect(() => {
-    onReport.current = (location, items) => {
+    onReport.current = (siteId, location, items) => {
       const lost = lostEmpty.current;
-      if (!lost || lost.operation.location !== location) return;
+      if (!lost || lost.operation.siteId !== siteId || lost.operation.location !== location) return;
       lostEmpty.current = null;
       if (items.length > 0 || Date.now() - lost.at > lostEmptyWindowMs) return;
       editResult(generation(), (result) => withoutPlace(result, location));
@@ -437,16 +486,16 @@ export function PantryRemovalProvider({ children }: { children: ReactNode }) {
 
   const changes = useMemo(() => [...entries.values()].map(({ kind, item }) => ({ kind, item })), [entries]);
   const pending = useMemo(() => {
-    const locations = new Set<Location>();
-    for (const [location, count] of inFlight) if (count > 0) locations.add(location);
-    for (const entry of entries.values()) if (!entry.settled) locations.add(entry.item.location);
-    return locations;
+    const places = new Set<string>();
+    for (const [key, count] of inFlight) if (count > 0) places.add(key);
+    for (const entry of entries.values()) if (!entry.settled) places.add(placeKey(entry.item.siteId, entry.item.location));
+    return places;
   }, [entries, inFlight]);
   const focusMoved = useCallback(() => setFocusAfter(null), []);
   const api: PantryRemovalApi = {
     removeItem: (item, options) => void removeItem(item, options),
     emptyPlace,
-    isPending: (location) => pending.has(location),
+    isPending: (siteId, location) => pending.has(placeKey(siteId, location)),
     changes,
     report,
     focusAfter,

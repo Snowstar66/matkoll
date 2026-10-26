@@ -44,21 +44,34 @@ import { suggestionGoneText, type PantrySuggestion } from "../domain/pantry-sugg
 import { confirmedItemsText, savedItemText } from "../domain/places";
 import { PantryRemovalProvider, usePantryRemoval } from "./pantry-removal";
 import { type CorrectOutcome, type RejectOutcome, usePantrySuggestions } from "./pantry-suggestions";
+import { useSiteSwitching } from "./site-switching";
 
 // Lagervara (FR-11, Story 2.2): the sheet that adds an item to the pantry or
 // changes one. "+" in Hemma's header, "Lägg till vara" in an empty location
 // and a tap on an item open it, and so does Rätta on a lagerförslag (Story
 // 6.2); PantrySheetProvider holds the one sheet for the page, so they all
 // open the same (sheets never stack).
+//
+// Places (Story 8.2, FR-33): the target keeps the place the sheet was opened
+// for (an item's own place, or the place Hemma showed), and "Lägg till vara"
+// and "Spara ändringar" save there, also when Hemma selects another place
+// while the sheet is open. A place deleted meanwhile is `pantry_site_gone`,
+// shown in the sheet; the action has the page read again.
 
-/** What the sheet is for: a new item in a location, an item already in the pantry, or a lagerförslag to correct. */
+/**
+ * What the sheet is for: a new item in a location of a place, an item
+ * already in the pantry (on its own place), or a lagerförslag to correct.
+ */
 export type PantrySheetTarget =
-  | { kind: "new"; location: Location }
+  | { kind: "new"; location: Location; siteId: string }
   | { kind: "edit"; item: PantryItem }
   | SuggestionTarget;
 
-/** A lagerförslag to correct, and the generation of suggestions it belongs to (a newer photo replaces them). */
-export type SuggestionTarget = { kind: "suggestion"; suggestion: PantrySuggestion; generation: number };
+/**
+ * A lagerförslag to correct, the generation of suggestions it belongs to (a
+ * newer photo replaces them), and the place Hemma showed when it opened.
+ */
+export type SuggestionTarget = { kind: "suggestion"; suggestion: PantrySuggestion; generation: number; siteId: string };
 
 /** What the sheet does for a lagerförslag, from PantrySuggestionsProvider. */
 export type SuggestionReview = {
@@ -145,6 +158,7 @@ function toInput(values: FormValues, ingredient: ChosenIngredient, target: Pantr
     amount: values.amount,
     unit: values.unit,
     location: values.location,
+    siteId: target.kind === "edit" ? target.item.siteId : target.siteId,
     replaceId: target.kind === "edit" ? target.item.id : null,
   };
 }
@@ -493,6 +507,9 @@ export function PantryItemSheet(props: PantryItemSheetProps) {
   );
 }
 
+/** The place Hemma shows; a new item is saved there (FR-33). */
+export type PantrySheetSite = { id: string };
+
 type PantrySheetApi = {
   /** Opens the sheet for a new item in the chosen location. */
   openNew: () => void;
@@ -516,16 +533,25 @@ export function usePantrySheet(): PantrySheetApi {
  * an item all open the same sheet, and the removals with "Ångra" that the
  * list and the sheet share (PantryRemovalProvider). `location` is the chosen
  * location: a new item starts there. The sheet's "Bekräfta" and "Avvisa" for
- * a lagerförslag come from PantrySuggestionsProvider. Needs a ToastProvider
- * and a PantrySuggestionsProvider above.
+ * a lagerförslag come from PantrySuggestionsProvider. `site` is the place
+ * Hemma shows: the sheet keeps it from the moment it opens (FR-33). Needs a
+ * ToastProvider and a PantrySuggestionsProvider above.
  */
-export function PantrySheetProvider({ location, children }: { location: Location; children: ReactNode }) {
+export function PantrySheetProvider({
+  location,
+  site,
+  children,
+}: {
+  location: Location;
+  site: PantrySheetSite;
+  children: ReactNode;
+}) {
   const { confirmCorrected, reject, saving, generation } = usePantrySuggestions();
   const review: SuggestionReview = { confirm: confirmCorrected, reject, saving };
   const [sheet, setSheet] = useState<{ open: boolean; session: number; target: PantrySheetTarget }>({
     open: false,
     session: 0,
-    target: { kind: "new", location },
+    target: { kind: "new", location, siteId: site.id },
   });
   const openWith = (target: PantrySheetTarget) =>
     setSheet((current) => ({ open: true, session: current.session + 1, target }));
@@ -535,9 +561,10 @@ export function PantrySheetProvider({ location, children }: { location: Location
     onClose: () => setSheet((current) => ({ ...current, open: false })),
   };
   const api: PantrySheetApi = {
-    openNew: () => openWith({ kind: "new", location }),
+    openNew: () => openWith({ kind: "new", location, siteId: site.id }),
     openItem: (item) => openWith({ kind: "edit", item }),
-    openSuggestion: (suggestion) => openWith({ kind: "suggestion", suggestion, generation: generation() }),
+    openSuggestion: (suggestion) =>
+      openWith({ kind: "suggestion", suggestion, generation: generation(), siteId: site.id }),
   };
   return (
     <PantryRemovalProvider>
@@ -554,23 +581,30 @@ export function PantrySheetProvider({ location, children }: { location: Location
   );
 }
 
-/** Opens the sheet for a new item: the round "+" for the page header, a primary button, or a text button (in a notice). */
+/**
+ * Opens the sheet for a new item: the round "+" for the page header, a
+ * primary button, or a text button (in a notice). Unavailable while Hemma
+ * switches place (useSiteSwitching), so nothing is added to the place being
+ * left while the pill shows the new one.
+ */
 export function AddPantryItemButton({ variant }: { variant: "icon" | "primary" | "text" }) {
   const { openNew } = usePantrySheet();
+  const switching = useSiteSwitching();
   if (variant === "icon") {
     return (
       <button
         type="button"
         aria-label="Lägg till vara"
+        disabled={switching}
         onClick={openNew}
-        className="flex size-tap items-center justify-center rounded-full text-accent"
+        className="flex size-tap items-center justify-center rounded-full text-accent disabled:cursor-not-allowed disabled:opacity-60"
       >
         <PlusIcon size={26} />
       </button>
     );
   }
   return (
-    <Button variant={variant} onClick={openNew}>
+    <Button variant={variant} disabled={switching} onClick={openNew}>
       Lägg till vara
     </Button>
   );

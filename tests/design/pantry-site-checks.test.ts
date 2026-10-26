@@ -2,15 +2,18 @@ import { readdirSync, readFileSync } from "node:fs";
 import { join } from "node:path";
 import { fileURLToPath } from "node:url";
 import { describe, expect, it } from "vitest";
-import { defaultSiteName, maxSiteNameChars, normalizeSiteName } from "@/features/pantry/domain/site";
+import { defaultSiteName, maxSiteNameChars, maxSites, normalizeSiteName, siteLimitText } from "@/features/pantry/domain/site";
+import { errorMessages } from "@/lib/errors";
 import { refusedCodePoints } from "@/lib/one-line";
 
-// AD-12 pattern, AD-24, Story 8.1: pantry_site_name_check has the domain's
+// AD-12 pattern, AD-24, Stories 8.1 and 8.2: pantry_site_name_check has the domain's
 // length limit and refuses exactly refusedCodePoints (src/lib/one-line.ts),
 // and the literal 'Hemma' and 'hemma' that the migration and
 // pantry_selected_site() store are defaultSiteName and its normalized name,
 // the only names SQL writes itself (normalizeSiteName is the only
-// normalization). Each is read from the latest migration that defines it;
+// normalization), and the limit of places in save_pantry_site and in the
+// trigger pantry_site_check_limit is maxSites. Each is read from the latest
+// migration that defines it;
 // tests/integration/pantry-site.test.ts covers the same rules against the
 // table.
 
@@ -108,4 +111,37 @@ describe("the default place's name in SQL", () => {
       expect(literals.length, file).toBe(pairs.length * 2);
     },
   );
+});
+
+/** The body of the latest definition of the function `name`, from `create … function` to its closing `$$;`. */
+function latestFunction(name: string): { file: string; body: string } {
+  const pattern = new RegExp(`create (or replace )?function public\\.${name}\\(`);
+  const { file, sql } = latest(pattern);
+  const starts = [...sql.matchAll(new RegExp(pattern, "g"))];
+  const start = starts.at(-1)!.index;
+  const end = sql.indexOf("$$;", sql.indexOf("$$", start) + 2);
+  return { file, body: sql.slice(start, end) };
+}
+
+describe("the limit of places in SQL", () => {
+  it.each(["save_pantry_site", "pantry_site_check_limit"])("is maxSites in %s", (name) => {
+    const { file, body } = latestFunction(name);
+    const limits = [...body.matchAll(/max_places constant integer := (\d+);/g)].map((match) => Number(match[1]));
+    expect(limits, file).toEqual([maxSites]);
+    // The constant is what the checks use, never a number of its own.
+    expect(body, file).toContain("places >= max_places");
+    expect(body.replace(/--.*$/gm, ""), file).not.toMatch(/>=\s*\d/);
+  });
+
+  it("holds for every insert into pantry_site, not only save_pantry_site", () => {
+    const { file, sql } = latest(/create trigger pantry_site_check_limit/);
+    expect(sql, file).toMatch(/create trigger pantry_site_check_limit\s+before insert on public\.pantry_site\s+for each row/);
+  });
+});
+
+describe("the limit of places in the texts", () => {
+  it("is maxSites in pantry_site_limit, which src/lib cannot build from the pantry's domain", () => {
+    expect(errorMessages.pantry_site_limit).toBe(siteLimitText);
+    expect(siteLimitText).toContain(String(maxSites));
+  });
 });

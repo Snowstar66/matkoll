@@ -10,11 +10,11 @@ import { PantryDataError } from "./data/client";
 import { insertPantryDefaults } from "./data/defaults";
 import { checkedSiteId, countPantryIn, listPantryIn, loadPantrySnapshot, zeroCounts } from "./data/queries";
 import { setPantryItemsIn, type SetPantryRow } from "./data/set";
-import { loadPantrySitesIn } from "./data/sites";
+import { loadPantrySitesIn, loadSiteItemCountsIn } from "./data/sites";
 import { addToPantryItemsSchema, type AddToPantryItem } from "./domain/add-to-pantry";
 import { toSnapshot, type PantryItem, type PantrySnapshot } from "./domain/pantry-item";
 import type { PantryItemSet } from "./domain/pantry-item-form";
-import type { PantrySite, SelectedSite } from "./domain/site";
+import type { PantrySite, PantrySiteWithCount, SelectedSite } from "./domain/site";
 
 // Server-only entry (AD-1). The functions use the signed-in user's session
 // client, so RLS limits them to the user's own rows. They are for pages,
@@ -62,11 +62,17 @@ export const getSelectedSite = cache(async (): Promise<SelectedSite | null> => {
 /**
  * The place a read is of: `siteId` (checked as a uuid, PantryDataError
  * `invalid_site` otherwise), or the selected place; null when the user has
- * none. Resolved before the memoised reads below, so a read without
- * `siteId` and one with the selected place's id share one query.
+ * none. A `siteId` that is not one of the user's places (another user's, or
+ * deleted) is PantryDataError `site_gone`, which callers show as
+ * `pantry_site_gone` (Story 8.2), never as an empty pantry. Resolved before
+ * the memoised reads below, so a read without `siteId` and one with the
+ * selected place's id share one query.
  */
 async function placeToRead(siteId: string | undefined): Promise<string | null> {
-  return siteId === undefined ? ((await getSelectedSite())?.id ?? null) : checkedSiteId(siteId);
+  if (siteId === undefined) return (await getSelectedSite())?.id ?? null;
+  const place = checkedSiteId(siteId);
+  if (!(await listPantrySites()).some((site) => site.id === place)) throw new PantryDataError("site_gone");
+  return place;
 }
 
 const listPantryOn = cache(async (location: Location, siteId: string): Promise<PantryItem[]> => {
@@ -100,6 +106,28 @@ export async function countPantryItems(siteId?: string): Promise<Record<Location
   const place = await placeToRead(siteId);
   return place === null ? zeroCounts() : countPantryOn(place);
 }
+
+/**
+ * The signed-in user's places, in the order they were created, each with the
+ * number of items on it over its three locations: for the sheet Ställen in
+ * Hemma (Story 8.2). The places are read first, then the counts in one
+ * grouped query. The counts are a help, not the page: when they cannot be
+ * read (logged as `pantry_site_counts_unavailable`), every place has
+ * `itemCount: null`, and Hemma works without them. Memoised per request.
+ * Throws PantryDataError only when the places cannot be read.
+ */
+export const listPantrySitesWithCounts = cache(async (): Promise<PantrySiteWithCount[]> => {
+  const sites = await listPantrySites();
+  let counts: Record<string, number> | null;
+  try {
+    counts = await loadSiteItemCountsIn(await createClient());
+  } catch (error) {
+    if (!(error instanceof PantryDataError)) throw error;
+    console.error("pantry_site_counts_unavailable", { reason: error.detail });
+    counts = null;
+  }
+  return sites.map((site) => ({ ...site, itemCount: counts ? (counts[site.id] ?? 0) : null }));
+});
 
 /**
  * The signed-in user's pantry on one place (`siteId`, or the selected place)

@@ -8,6 +8,9 @@ import { PantryCamera } from "./pantry-camera";
 import { PantrySheetProvider } from "./pantry-item-sheet";
 import { PantrySuggestionsProvider } from "./pantry-suggestions";
 
+/** The place Hemma shows (Story 8.2). */
+const testSite = { id: "55555555-5555-4555-8555-555555555555" };
+
 // Kameraknappen on Hemma: its text per location, the camera on a phone and
 // the file picker on a desktop, the progress with "Avbryt", and the notices
 // for errors and an empty answer. /api/ai/analyze and the resizing are stubbed.
@@ -55,7 +58,7 @@ function Hemma({ location = "Kyl" }: { location?: Location }) {
   return (
     <ToastProvider>
       <PantrySuggestionsProvider>
-        <PantrySheetProvider location={location}>
+        <PantrySheetProvider location={location} site={testSite}>
           {/* Keyed like Hemma's <Suspense>: another card mounts it anew under the same provider. */}
           <PantryCamera key={location} location={location} />
         </PantrySheetProvider>

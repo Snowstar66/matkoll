@@ -52,7 +52,8 @@ const siteIdSchema = z.uuid();
 /**
  * `siteId` checked as a uuid; PantryDataError `invalid_site` otherwise.
  * Whether the place is the user's is not checked here: RLS gives another
- * user's place no rows (pantry_site_gone comes with Story 8.2).
+ * user's place no rows. pantry/server.ts checks it against the user's places
+ * first, and gives `site_gone` (pantry_site_gone, Story 8.2).
  */
 export function checkedSiteId(siteId: string): string {
   if (!siteIdSchema.safeParse(siteId).success) throw new PantryDataError("invalid_site");
@@ -101,7 +102,7 @@ export async function listPantryIn(
   const rows = await allPages((from, to) =>
     db
       .from("pantry_item")
-      .select("id, ingredient_id, location, amount, unit")
+      .select("id, site_id, ingredient_id, location, amount, unit")
       .eq("site_id", place)
       .eq("location", location)
       .order("id")
@@ -116,7 +117,14 @@ export async function listPantryIn(
     const place = locationSchema.safeParse(row.location);
     // The foreign key keeps the ingredient in the user's catalog (AD-20).
     if (name === undefined || !place.success) throw new PantryDataError("invalid_row");
-    return { id: row.id, ingredientId: row.ingredient_id, name, location: place.data, ...amountOf(row) };
+    return {
+      id: row.id,
+      siteId: row.site_id,
+      ingredientId: row.ingredient_id,
+      name,
+      location: place.data,
+      ...amountOf(row),
+    };
   });
   return items.sort(comparePantryItems);
 }
