@@ -26,6 +26,18 @@ describe("SearchField", () => {
     expect(onSearch).toHaveBeenCalledWith("kyc");
   });
 
+  it("searches on every change without a pause when delayMs is 0", () => {
+    const onSearch = vi.fn();
+    render(<SearchField label="Sök i kylen" onSearch={onSearch} delayMs={0} />);
+    const field = screen.getByRole("searchbox", { name: "Sök i kylen" });
+    fireEvent.change(field, { target: { value: "m" } });
+    expect(onSearch).toHaveBeenLastCalledWith("m");
+    fireEvent.change(field, { target: { value: "mjö" } });
+    expect(onSearch).toHaveBeenLastCalledWith("mjö");
+    act(() => vi.advanceTimersByTime(500));
+    expect(onSearch).toHaveBeenCalledTimes(2);
+  });
+
   it("clears at once with 'Rensa sökning'", () => {
     const onSearch = vi.fn();
     render(<SearchField label="Sök recept" onSearch={onSearch} defaultValue="lax" />);

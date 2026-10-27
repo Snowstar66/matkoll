@@ -1,41 +1,60 @@
 "use client";
 
-import { useEffect, useId, useRef } from "react";
+import { useEffect, useId, useRef, useState } from "react";
+import { CategoryHeader } from "@/components/category-header";
 import { EmptyState } from "@/components/empty-state";
-import { SwipeRow } from "@/components/swipe-row";
-import { formatQuantity, type Location } from "@/features/catalog";
-import { splitPantryItems, type PantryItem } from "../domain/pantry-item";
+import { ListGroup } from "@/components/list-group";
+import { ListRow } from "@/components/list-row";
+import type { SearchFieldHandle } from "@/components/search-field";
+import { focusAfterRemoval, TrashButton } from "@/components/trash-button";
+import type { Location } from "@/features/catalog";
+import type { PantryItem } from "../domain/pantry-item";
+import { filterPantry, groupPantryByCategory, pantryMetaText, type PantryCategoryGroup } from "../domain/pantry-meta";
 import { emptyPlaceText } from "../domain/places";
 import { AddPantryItemButton, usePantrySheet } from "./pantry-item-sheet";
 import { usePantryRemoval } from "./pantry-removal";
+import { PantryNoMatch, PantrySearchField } from "./pantry-search";
 
 export type PantryListProps = {
   location: Location;
-  /** The location's items, in the order to show them (listPantry sorts by name). */
+  /** The location's items (listPantry sorts by name; the list groups them itself). */
   items: readonly PantryItem[];
 };
 
+/** Marks a row's press target, so focus can go back to an item after a removal in the sheet. */
+const itemAttribute = "data-pantry-item";
+
 /**
- * One location's items: under "Med mängd" a row per item with the amount to
- * the right, under "Finns hemma" a round mint tag per unlimited item
- * (DESIGN.md, pantry-tag). A section without items is left out; a location
- * without items shows "Inget i kylen än." (or frysen, skafferiet) and "Lägg
- * till vara". A tap on a row or tag opens the sheet Lagervara for the item
- * (needs a PantrySheetProvider above). Swiping a row to the left reveals "Ta
- * bort" (Story 2.3), also reached with Tab after the row; an unlimited item is
- * removed in the sheet. After a removal with the keyboard or in the sheet,
- * focus goes to the next item, else the one before, else "Lägg till vara".
+ * One location's items in the new look (Story 11.3, FR-40, FR-41): "Sök i
+ * kylen" at the top, then the items under their category headings
+ * (CategoryHeader, ListGroup) in the store's order, one ListRow per item with
+ * the brand or "Tillagd …" under the name and never the amount. A tap on a
+ * row opens the sheet Lagervara (needs a PantrySheetProvider above). The bin
+ * at the end of a row removes the item at once, without a question; the
+ * confirmation offers "Ångra" (PantryRemovalProvider). There is no swipe.
+ *
+ * Focus after a removal (EXPERIENCE.md, Soptunna): after a bin, to the next
+ * item's bin, else the one before (focusAfterRemoval, before the row leaves);
+ * after the last one shown, to the search field when the location still has
+ * items, else to "Lägg till vara". After "Ta bort" in the sheet, to the next
+ * item's row, else the one before, else the same.
+ *
+ * A location without items shows "Inget i kylen än." and "Lägg till vara",
+ * without a search field; a search without a match shows "Inget i kylen
+ * matchar." and "Rensa sökning". Lagersaldo keys the list on the place and the
+ * location, so the search starts empty for each.
  */
 export function PantryList({ location, items }: PantryListProps) {
-  const withAmountId = useId();
-  const unlimitedId = useId();
-  const { openItem } = usePantrySheet();
   const { removeItem, focusAfter, focusMoved } = usePantryRemoval();
+  const [query, setQuery] = useState("");
+  const searchRef = useRef<SearchFieldHandle>(null);
   const rootRef = useRef<HTMLDivElement>(null);
-  const { withAmount, unlimited } = splitPantryItems(items);
-  // The items in the order focus moves through them: rows, then tags.
-  const order = [...withAmount, ...unlimited].map((item) => item.id);
+  const shown = filterPantry(items, query);
+  const groups = groupPantryByCategory(shown);
+  // The items in the order focus moves through them.
+  const order = groups.flatMap((group) => group.items.map((item) => item.id));
   const lastOrder = useRef<readonly string[]>(order);
+  const now = new Date();
 
   useEffect(() => {
     if (focusAfter !== null && !order.includes(focusAfter)) {
@@ -45,13 +64,30 @@ export function PantryList({ location, items }: PantryListProps) {
       const target = neighbours.find((id) => order.includes(id));
       const root = rootRef.current;
       const element = target
-        ? root?.querySelector<HTMLElement>(`[data-pantry-item="${target}"]`)
-        : root?.querySelector<HTMLElement>("button");
+        ? root?.querySelector<HTMLElement>(`[${itemAttribute}="${target}"]`)
+        : (root?.querySelector<HTMLElement>('input[type="search"]') ?? root?.querySelector<HTMLElement>("button"));
       element?.focus();
       focusMoved();
     }
     lastOrder.current = order;
   });
+
+  /** A bin was pressed: focus moves on before the row leaves, unless it was the last bin. */
+  function removeWithBin(item: PantryItem, bin: HTMLButtonElement) {
+    const root = rootRef.current;
+    const others = root
+      ? [...root.querySelectorAll<HTMLButtonElement>("[data-trash-button]")].some(
+          (other) => other !== bin && !other.disabled,
+        )
+      : false;
+    if (others && root) {
+      focusAfterRemoval(bin, root);
+      removeItem(item);
+    } else {
+      // The search field or "Lägg till vara" exists only once the row is gone.
+      removeItem(item, { moveFocus: true });
+    }
+  }
 
   if (items.length === 0) {
     return (
@@ -61,63 +97,53 @@ export function PantryList({ location, items }: PantryListProps) {
     );
   }
   return (
-    <div ref={rootRef} className="flex flex-col gap-6">
-      {withAmount.length > 0 ? (
-        <section aria-labelledby={withAmountId} className="flex flex-col gap-2">
-          <h2 id={withAmountId} className="text-section-label text-ink-2">
-            Med mängd
-          </h2>
-          <ul aria-labelledby={withAmountId} className="flex flex-col overflow-hidden rounded-lg bg-surface">
-            {withAmount.map((item) => (
-              <li key={item.id} className="group">
-                <SwipeRow
-                  actionLabel="Ta bort"
-                  actionName={`Ta bort ${item.name}`}
-                  onAction={(via) => removeItem(item, { moveFocus: via === "keyboard" })}
-                >
-                  {/* The divider is inset like the card's padding, and moves with the row. */}
-                  <div className="px-4">
-                    <button
-                      type="button"
-                      data-testid="pantry-row"
-                      data-pantry-item={item.id}
-                      onClick={() => openItem(item)}
-                      className="flex min-h-tap w-full items-center justify-between gap-3 border-t border-hairline py-2 text-left group-first:border-t-0"
-                    >
-                      <span className="min-w-0 text-body text-ink">{item.name}</span>{" "}
-                      <span className="shrink-0 text-body text-ink-2">{formatQuantity(item.amount, item.unit)}</span>
-                    </button>
-                  </div>
-                </SwipeRow>
-              </li>
-            ))}
-          </ul>
-        </section>
-      ) : null}
-      {unlimited.length > 0 ? (
-        <section aria-labelledby={unlimitedId} className="flex flex-col gap-2">
-          <h2 id={unlimitedId} className="text-section-label text-ink-2">
-            Finns hemma
-          </h2>
-          <ul aria-labelledby={unlimitedId} className="flex flex-wrap gap-2">
-            {unlimited.map((item) => (
-              <li key={item.id} data-testid="pantry-tag">
-                {/* 44 px tap area around the visible pill (DESIGN.md, pantry-tag). */}
-                <button
-                  type="button"
-                  data-pantry-item={item.id}
-                  onClick={() => openItem(item)}
-                  className="flex min-h-tap items-center rounded-full"
-                >
-                  <span className="rounded-full bg-mint px-[14px] py-2 text-meta font-semibold text-mint-ink">
-                    {item.name}
-                  </span>
-                </button>
-              </li>
-            ))}
-          </ul>
-        </section>
-      ) : null}
+    <div ref={rootRef} className="flex flex-col gap-5">
+      <PantrySearchField location={location} query={query} onQueryChange={setQuery} fieldRef={searchRef} />
+      {groups.length === 0 ? (
+        <PantryNoMatch location={location} fieldRef={searchRef} />
+      ) : (
+        groups.map((group) => (
+          <CategoryGroup key={group.category} group={group} now={now} onRemove={removeWithBin} />
+        ))
+      )}
+    </div>
+  );
+}
+
+/** One category: its heading with the count, and its items in one list group. */
+function CategoryGroup({
+  group,
+  now,
+  onRemove,
+}: {
+  group: PantryCategoryGroup;
+  now: Date;
+  onRemove: (item: PantryItem, bin: HTMLButtonElement) => void;
+}) {
+  const headingId = useId();
+  const { openItem } = usePantrySheet();
+  const names = group.items.map((item) => item.name);
+  return (
+    <div className="flex flex-col gap-2" data-testid="pantry-category">
+      <CategoryHeader id={headingId} category={group.category} count={group.items.length} />
+      <ListGroup labelledBy={headingId}>
+        {group.items.map((item) => {
+          const meta = pantryMetaText(item, now);
+          // Two rows with the same name: the line under it tells the bins apart.
+          const twice = names.indexOf(item.name) !== names.lastIndexOf(item.name);
+          const name = twice && meta ? `${item.name}, ${meta}` : item.name;
+          return (
+            <ListRow
+              key={item.id}
+              title={item.name}
+              meta={meta}
+              onPress={() => openItem(item)}
+              pressProps={{ "data-testid": "pantry-row", [itemAttribute]: item.id, "aria-haspopup": "dialog" }}
+              trailing={<TrashButton label={`Ta bort ${name}`} onPress={(bin) => onRemove(item, bin)} />}
+            />
+          );
+        })}
+      </ListGroup>
     </div>
   );
 }

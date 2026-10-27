@@ -97,6 +97,13 @@ test("sign in, import a recipe, plan it, check a line off and put it in the pant
   await tab(page, "Lagersaldo").click();
   await expect(page).toHaveURL(/\/hemma/);
   const rows = page.getByTestId("pantry-row").filter({ visible: true });
-  await expect(rows.filter({ hasText: /kycklinglårfilé/i })).toHaveText(/kycklinglårfilé\s*600 g/i);
+  // Story 11.3: the row says when it was added; the sheet Lagervara has the amount.
+  await expect(rows.filter({ hasText: /kycklinglårfilé/i })).toHaveText(/^kycklinglårfilé Tillagd idag$/i);
+  await rows.filter({ hasText: /kycklinglårfilé/i }).click();
+  const itemSheet = page.getByRole("dialog", { name: "Lagervara" });
+  await expect(itemSheet.getByLabel("Mängd")).toHaveValue("600");
+  await expect(itemSheet.getByLabel("Enhet")).toHaveValue("g");
+  await page.keyboard.press("Escape");
+  await expect(itemSheet).toHaveCount(0);
   expect(errors).toEqual([]);
 });

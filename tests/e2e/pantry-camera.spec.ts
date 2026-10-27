@@ -397,7 +397,7 @@ test("the AI out of reach: the text and Försök igen with the same photo, while
   await expect(alert).toHaveText("AI-tjänsten svarar inte just nu. Är datorn med modellen igång?");
 
   // The rest of Hemma works.
-  await expect(page.getByTestId("pantry-row").filter({ visible: true })).toHaveText([/^Mjölk\s*2 förp$/]);
+  await expect(page.getByTestId("pantry-row").filter({ visible: true })).toHaveText([/^Mjölk /]);
   await page.getByRole("button", { name: "Lägg till vara" }).first().click();
   const sheet = page.getByRole("dialog", { name: "Lagervara" });
   await expect(sheet).toBeVisible();

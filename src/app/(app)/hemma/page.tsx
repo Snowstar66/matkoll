@@ -11,8 +11,10 @@ export const metadata: Metadata = { title: "Lagersaldo" };
 // frys, skafferi; anything else is Kyl). Everything is read inside
 // <Suspense> (AD-18), with skeleton rows while it loads. "+" in the header,
 // "Lägg till vara" in an empty location and a tap on an item open the sheet
-// Lagervara (Story 2.2); a new item starts in the chosen location. A swipe on
-// a row or "Ta bort" in the sheet removes an item, with "Ångra" (Story 2.3).
+// Lagervara (Story 2.2); a new item starts in the chosen location. The bin on
+// a row or "Ta bort" in the sheet removes an item, with "Ångra" (Story 2.3,
+// Story 11.3: the items under their categories, without amounts, and "Sök i
+// kylen" at the top of the list).
 // The camera button under the cards photographs the chosen location and shows
 // lagerförslag (Story 6.1); each is saved only when Pontus confirms it, or
 // corrects it in the sheet Lagervara and confirms it there, and rejected ones

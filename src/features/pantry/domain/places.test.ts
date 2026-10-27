@@ -17,6 +17,7 @@ import {
   placeSlug,
   rejectedItemText,
   removedItemsText,
+  removedItemText,
   savedItemText,
   keptItemText,
   alreadyRemovedText,
@@ -62,6 +63,13 @@ describe("savedItemText", () => {
     expect(savedItemText("Mjölk", "Kyl")).toBe("Mjölk är sparad i kylen.");
     expect(savedItemText("Ärtor", "Frys")).toBe("Ärtor är sparad i frysen.");
     expect(savedItemText("Salt", "Skafferi")).toBe("Salt är sparad i skafferiet.");
+  });
+});
+
+describe("removedItemText", () => {
+  it("names the item as the list shows it (Story 11.3)", () => {
+    expect(removedItemText("Gräddfil")).toBe("Tog bort Gräddfil.");
+    expect(removedItemText("Coca-Cola Zero")).toBe("Tog bort Coca-Cola Zero.");
   });
 });
 

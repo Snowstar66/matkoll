@@ -19,6 +19,7 @@ import {
   notRestoredText,
   removedCountText,
   removedItemsText,
+  removedItemText,
   restoredElsewhereText,
 } from "../domain/places";
 import type { SelectedSite } from "../domain/site";
@@ -27,9 +28,10 @@ import { useLiveUndo } from "./site-switching";
 
 // Removing a pantry item with "Ångra" (FR-11, Story 2.3): no question first
 // (EXPERIENCE.md, Interaction Primitives). The item leaves the list at once
-// and the short confirmation offers "Ångra" for 5 s, which puts the row back
-// with the same id (AD-20). A swipe on a row and "Ta bort" in the sheet
-// Lagervara both come here. "Töm kylen" (Story 6.3) comes here too, after
+// and the short confirmation ("Tog bort Gräddfil.", Story 11.3) offers
+// "Ångra" for 5 s, which puts the row back with the same id, time and brand
+// (AD-20). The bin on a row and "Ta bort" in the sheet Lagervara both come
+// here. A new removal replaces the confirmation; the earlier one stays removed. "Töm kylen" (Story 6.3) comes here too, after
 // its sheet has asked: one call empties the location under an operation id,
 // the server keeps the removed rows, and "Ångra" puts them all back by that
 // id in one call.
@@ -184,7 +186,9 @@ export const lostEmptyWindowMs = 30_000;
 
 /** The confirmation's text for what "Ångra" would put back. */
 function batchText({ singles, operations }: Batch): string {
-  if (operations.length === 0) return removedItemsText(singles.map(({ item }) => item.name));
+  if (operations.length === 0) {
+    return singles.length === 1 ? removedItemText(singles[0].item.name) : removedItemsText(singles.map(({ item }) => item.name));
+  }
   const unknown = operations.find((operation) => operation.count === null);
   if (unknown) return maybeEmptiedText(unknown.location);
   const [first] = operations;
@@ -217,10 +221,10 @@ const unnamed = (id: string, siteId: string, location: Location): PantryItem => 
  * Holds the removals for Hemma. The list follows at once: a removed item is
  * gone while removePantryItem runs and stays gone until the server's list no
  * longer has it, so it never flashes back; "Ångra" shows it again until the
- * server's list has it. Removals while the confirmation shows join it
- * ("Mjölk och Smör är borttagna."), also an emptied location and single
- * items together ("Tog bort 15 varor ur kylen."), and "Ångra" puts them all
- * back. A failed removal brings the item back, and a failed "Ångra" takes it
+ * server's list has it. A single removal replaces the confirmation ("Tog
+ * bort Ägg."), and the item before it stays removed (Story 11.3). An emptied
+ * location joins the confirmation showing ("Tog bort 15 varor ur kylen."),
+ * and "Ångra" puts everything in it back. A failed removal brings the item back, and a failed "Ångra" takes it
  * away again, each with a short confirmation announced as an alert, since
  * the toasts outlive a change of location. When an action gets no answer,
  * the page is read again so the list shows what is saved. Needs a
@@ -451,12 +455,11 @@ export function PantryRemovalProvider({ children }: { children: ReactNode }) {
     settle(item.id, token);
     if (result.data === null) {
       // Gone, but it cannot be put back.
-      showToast(removedItemsText([item.name]));
+      showToast(removedItemText(item.name));
       return;
     }
-    const removed = { item, row: result.data };
-    const singles = [...(batch.current?.singles ?? []).filter((other) => other.item.id !== item.id), removed];
-    showBatch({ singles, operations: batch.current?.operations ?? [] });
+    // Story 11.3: a new removal replaces the confirmation, and the earlier removals stay.
+    showBatch({ singles: [{ item, row: result.data }], operations: [] });
   }
 
   // The place is the one Hemma showed when the sheet opened (Story 8.4):

@@ -97,8 +97,10 @@ const camera = (page: Page) => page.getByTestId("pantry-camera").filter({ visibl
 const section = (page: Page) => page.getByTestId("pantry-suggestions").filter({ visible: true });
 const placeCard = (page: Page, name: "Kyl" | "Frys") =>
   page.getByRole("navigation", { name: "Platser" }).getByRole("link", { name: new RegExp(`^${name}`) });
+// Story 11.3: one row per item, with or without an amount, and no amount shown; pantry() reads the amounts.
 const rows = (page: Page) => page.getByTestId("pantry-row").filter({ visible: true });
-const tags = (page: Page) => page.getByTestId("pantry-tag").filter({ visible: true });
+/** The visible rows' names, in the list's order. */
+const rowNames = (page: Page) => rows(page).evaluateAll((targets) => targets.map((target) => target.firstElementChild?.textContent));
 const toast = (page: Page) => page.getByTestId("toast");
 /** The cards' names under a group heading ("Nytt", "Ändrat", "Syns inte längre"). */
 const group = (page: Page, title: string) =>
@@ -174,9 +176,8 @@ test("Bekräfta alla adds, changes and removes in one go, and Ångra puts back t
   await expect(section(page)).toHaveCount(0);
   await expect(camera(page).getByRole("button", { name: "Fotografera kylen" })).toBeFocused();
   await expect(placeCard(page, "Kyl")).toHaveText(/^Kyl\s*6 varor$/);
-  await expect(rows(page).filter({ hasText: "Mjölk" })).toHaveText([/^Mjölk\s*1 förp$/]);
+  await expect.poll(() => rowNames(page)).toEqual(["Gurka", "Grädde", "Mjölk", "Smör", "Ägg", "Ketchup"]);
   await expect(page.getByText("Yoghurt").filter({ visible: true })).toHaveCount(0);
-  await expect(tags(page)).toHaveText(["Ketchup", "Smör"]);
   const after = await pantry();
   expect(after.map(({ name, amount, unit }) => [name, amount, unit])).toEqual([
     ["Grädde", 1, "förp"],
@@ -193,9 +194,9 @@ test("Bekräfta alla adds, changes and removes in one go, and Ångra puts back t
   await toast(page).getByRole("button", { name: "Ångra borttagning" }).click();
   await expect(placeCard(page, "Kyl")).toHaveText(/^Kyl\s*8 varor$/);
   await expect(group(page, "Syns inte längre")).toHaveText(["Senap", "Yoghurt"]);
-  await expect(tags(page)).toHaveText(["Ketchup", "Senap", "Smör"]);
-  await expect(rows(page).filter({ hasText: "Yoghurt" })).toHaveText([/^Yoghurt\s*2 förp$/]);
-  await expect(rows(page).filter({ hasText: "Mjölk" })).toHaveText([/^Mjölk\s*1 förp$/]);
+  await expect
+    .poll(() => rowNames(page))
+    .toEqual(["Gurka", "Grädde", "Mjölk", "Smör", "Yoghurt", "Ägg", "Ketchup", "Senap"]);
   await expect
     .poll(async () => (await pantry()).filter((row) => row.name === "Senap" || row.name === "Yoghurt"))
     .toEqual(removedBefore);
@@ -215,7 +216,7 @@ test("Ta bort removes one item at once, and Ångra puts the row back with the sa
 
   await toast(page).getByRole("button", { name: "Ångra" }).click();
   await expect(placeCard(page, "Kyl")).toHaveText(/^Kyl\s*5 varor$/);
-  await expect(rows(page).filter({ hasText: "Yoghurt" })).toHaveText([/^Yoghurt\s*2 förp$/]);
+  await expect(rows(page).filter({ hasText: /^Yoghurt / })).toHaveCount(1);
   // The card is back too, while the suggestions are the same.
   await expect(group(page, "Syns inte längre")).toHaveText(["Senap", "Yoghurt"]);
   await expect.poll(async () => (await pantry()).find((row) => row.name === "Yoghurt")).toEqual(yoghurt);

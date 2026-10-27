@@ -199,7 +199,7 @@ test("removing an item in Lagersaldo makes the library and the recipe view say S
   await milk.click();
   await sheet(page).getByRole("button", { name: "Ta bort" }).click();
   await expect(sheet(page)).toHaveCount(0);
-  await expect(page.getByTestId("toast")).toContainText(/mjölk är borttagen/i);
+  await expect(page.getByTestId("toast")).toContainText(/Tog bort mjölk\./i);
   await expect(milk).toHaveCount(0);
 
   await tab(page, "Recept").click();
