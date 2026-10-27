@@ -207,6 +207,28 @@ const region = (page: Page, name: string) => page.getByRole("list", { name, exac
 const check = (page: Page, name: string) => page.getByRole("checkbox", { name, exact: true }).filter({ visible: true });
 const basketRow = (page: Page) => page.getByTestId("basket-row").filter({ visible: true });
 const button = (page: Page, name: string) => page.getByRole("button", { name, exact: true }).filter({ visible: true });
+/** The basket row's "Visa", named "Visa I korgen (5 varor)" for screen readers. */
+const showButton = (page: Page) => page.getByRole("button", { name: /^Visa I korgen \(\d+ (vara|varor)\)$/ }).filter({ visible: true });
+const fixedBar = (page: Page) => page.getByTestId("fixed-action").filter({ visible: true });
+/** The focused element's top and bottom, and the fixed buttons' top, in the viewport. */
+const focusAndBar = (page: Page) =>
+  page.evaluate(() => {
+    const focused = document.activeElement!.getBoundingClientRect();
+    const bar = document.querySelector('[data-testid="fixed-action"]')!.getBoundingClientRect();
+    return { top: focused.top, bottom: focused.bottom, barTop: bar.top };
+  });
+/** The WCAG contrast of two computed colours, "rgb(r, g, b)". */
+function contrast(a: string, b: string): number {
+  const luminance = (color: string) => {
+    const [r, g, bl] = (color.match(/[\d.]+/g) ?? []).slice(0, 3).map((part) => {
+      const c = Number(part) / 255;
+      return c <= 0.03928 ? c / 12.92 : ((c + 0.055) / 1.055) ** 2.4;
+    });
+    return 0.2126 * r! + 0.7152 * g! + 0.0722 * bl!;
+  };
+  const [light, dark] = [luminance(a), luminance(b)].sort((x, y) => y - x);
+  return (light! + 0.05) / (dark! + 0.05);
+}
 const announcement = (page: Page) => page.getByTestId("check-announcement").filter({ visible: true });
 const tab = (page: Page, name: "Recept" | "Inköpslista") =>
   page.getByRole("navigation", { name: "Huvudmeny" }).getByRole("link", { name });
@@ -270,12 +292,12 @@ test("a check moves the line to I korgen at once, and a check there takes it bac
   await page.reload();
   await expect(basketRow(page)).toContainText("1 vara i korgen");
   await expect(check(page, "Gul lök, 1 st")).toHaveCount(0);
-  const show = button(page, "Visa");
+  const show = showButton(page);
   await expect(show).toHaveAttribute("aria-expanded", "false");
   await show.click();
-  await expect(button(page, "Dölj")).toHaveAttribute("aria-expanded", "true");
+  await expect(button(page, "Dölj I korgen")).toHaveAttribute("aria-expanded", "true");
   const basket = region(page, "I korgen");
-  await expect(page.getByRole("heading", { level: 2, name: "I korgen" }).filter({ visible: true })).toBeVisible();
+  await expect(page.getByRole("heading", { level: 2, name: "I korgen", exact: true }).filter({ visible: true })).toBeVisible();
   await expect(basket.getByText("Gul lök", { exact: true }).locator("..")).toHaveCSS("text-decoration-line", "line-through");
 
   await actionsAnswered(page, 1, () => basket.getByRole("checkbox", { name: "Gul lök, 1 st" }).click());
@@ -294,13 +316,14 @@ test("everything checked off: Allt ligger i korgen, no categories, and I korgen 
   await expect(progress(page)).toHaveText(/^1 vara kvar\s*4 av 5 i korgen$/);
   await actionsAnswered(page, 1, () => check(page, "Diskmedel").click());
   await expect(progress(page)).toHaveText("Allt ligger i korgen");
-  await expect(headings(page)).toHaveCount(0);
+  // No category; the folded basket row is a heading, so heading navigation finds it.
+  await expect(headings(page)).toHaveText(["5 varor i korgen"]);
   // The last line left: focus on the basket row's "Visa".
-  await expect(button(page, "Visa")).toBeFocused();
+  await expect(showButton(page)).toBeFocused();
   await expect(basketRow(page)).toContainText("5 varor i korgen");
   await expect(button(page, "Lägg i lagret")).toBeVisible();
 
-  await button(page, "Visa").click();
+  await showButton(page).click();
   await expect(region(page, "I korgen").getByTestId("shopping-line")).toHaveCount(5);
   await tab(page, "Recept").click();
   await expect(page).toHaveURL(/\/recept$/);
@@ -308,7 +331,7 @@ test("everything checked off: Allt ligger i korgen, no categories, and I korgen 
   await expect(page).toHaveURL(/\/lista$/);
   // Kept while the page was hidden (Activity).
   await expect(region(page, "I korgen")).toBeVisible();
-  await expect(button(page, "Dölj")).toBeVisible();
+  await expect(button(page, "Dölj I korgen")).toBeVisible();
   expect(errors).toEqual([]);
 });
 
@@ -325,5 +348,77 @@ test("at 200 % text the buttons stack with Lägg i lagret on top, the chip is cu
   const chip = lineOf(page, "Falukorv").getByTestId("product-chip");
   expect(await chip.evaluate((element) => element.scrollWidth > element.clientWidth)).toBe(true);
   expect(await noSideScroll(page)).toBe(true);
+  // Two stacked buttons would take more than a quarter of this window: they stand at the end of the list.
+  await expect(page.locator("[data-fixed-action-inline]").filter({ visible: true })).toHaveCount(1);
   expect(errors).toEqual([]);
+});
+
+test("with the page's text at 200 % the buttons and labels stay inside 375 px", async ({ page }) => {
+  await seed([lineKey("Gul lök", "st")]);
+  const errors = watchErrors(page);
+  await page.goto("/lista");
+  await page.addStyleTag({ content: "html { font-size: 200%; }" });
+  await expect(progress(page)).toHaveText(/^4 varor kvar/);
+  for (const name of ["Skicka till ICA", "Lägg i lagret"]) {
+    const box = await button(page, name).boundingBox();
+    expect(box!.x).toBeGreaterThanOrEqual(0);
+    expect(box!.x + box!.width).toBeLessThanOrEqual(375);
+    expect(await button(page, name).evaluate((element) => element.scrollWidth <= element.clientWidth)).toBe(true);
+  }
+  expect(await noSideScroll(page)).toBe(true);
+  expect(errors).toEqual([]);
+});
+
+test("from the keyboard, focus stays above the fixed buttons, and a held Enter checks one line", async ({ page }) => {
+  await seed();
+  // A short window, so the next line's check can be under the fixed buttons.
+  await page.setViewportSize({ width: 375, height: 600 });
+  const errors = watchErrors(page);
+  await page.goto("/lista");
+  await expect(progress(page)).toHaveText(/^5 varor kvar/);
+  await expect(fixedBar(page)).toBeVisible();
+
+  // A held Enter repeats its keydown: only the first one counts.
+  await check(page, "Gul lök, 1 st").focus();
+  await page.keyboard.down("Enter");
+  await page.keyboard.down("Enter");
+  await page.keyboard.down("Enter");
+  await page.keyboard.up("Enter");
+  await expect(progress(page)).toHaveText(/^4 varor kvar\s*1 av 5 i korgen$/);
+  await expect.poll(storedChecks).toEqual([lineKey("Gul lök", "st")]);
+
+  await check(page, "Senap").focus();
+  for (const left of [3, 2]) {
+    await page.keyboard.press("Space");
+    await expect(progress(page)).toHaveText(new RegExp(`^${left} varor kvar`));
+    const { top, bottom, barTop } = await focusAndBar(page);
+    expect(top).toBeGreaterThanOrEqual(0);
+    expect(bottom).toBeLessThanOrEqual(barTop);
+  }
+  expect(errors).toEqual([]);
+});
+
+test("in dark mode the progress row and the product chip keep their contrast", async ({ page }) => {
+  await seed([lineKey("Gul lök", "st")]);
+  await page.emulateMedia({ colorScheme: "dark" });
+  await page.goto("/lista");
+  await expect(progress(page)).toHaveText(/^4 varor kvar/);
+  const colours = await page.evaluate(() => {
+    const style = (selector: string) => getComputedStyle(document.querySelector(selector)!);
+    const row = document.querySelector('[data-testid="list-progress"]')!;
+    return {
+      surface: style('[data-testid="list-progress"]').backgroundColor,
+      left: getComputedStyle(row.querySelector("p > span")!).color,
+      basket: getComputedStyle(row.querySelectorAll("p > span")[1]!).color,
+      page: getComputedStyle(document.body).backgroundColor,
+      chip: style('[data-testid="product-chip"]').backgroundColor,
+      chipText: style('[data-testid="product-chip"]').color,
+    };
+  });
+  // The dark surface, not the light one.
+  expect(contrast(colours.surface, "rgb(0, 0, 0)")).toBeLessThan(3);
+  expect(colours.surface).not.toBe(colours.page);
+  expect(contrast(colours.left, colours.surface)).toBeGreaterThanOrEqual(4.5);
+  expect(contrast(colours.basket, colours.surface)).toBeGreaterThanOrEqual(4.5);
+  expect(contrast(colours.chipText, colours.chip)).toBeGreaterThanOrEqual(4.5);
 });

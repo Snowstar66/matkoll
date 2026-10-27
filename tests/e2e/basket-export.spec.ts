@@ -239,7 +239,7 @@ test("a gul lök checked off is not in the next export, and Lägg i lagret stand
   await openList(page);
   await check(page, "Gul lök, 2 st").click();
   // Moved to I korgen (Story 11.4).
-  await page.getByRole("button", { name: "Visa", exact: true }).filter({ visible: true }).click();
+  await page.getByRole("button", { name: /^Visa I korgen/ }).filter({ visible: true }).click();
   await expect(check(page, "Gul lök, 2 st")).toBeChecked();
   await expect(putButton(page)).toBeEnabled();
   // Off while the check was saved; on again now.

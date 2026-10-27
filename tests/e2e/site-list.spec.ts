@@ -228,7 +228,7 @@ const listAnnouncement = (page: Page) => page.getByTestId("list-announcement").f
 const summary = (page: Page) => page.getByTestId("list-summary").filter({ visible: true });
 const progress = (page: Page) => page.getByTestId("list-progress").filter({ visible: true });
 /** Unfolds I korgen, where the checked lines are (Story 11.4). */
-const showBasket = (page: Page) => page.getByRole("button", { name: "Visa", exact: true }).filter({ visible: true }).click();
+const showBasket = (page: Page) => page.getByRole("button", { name: /^Visa I korgen/ }).filter({ visible: true }).click();
 const putButton = (page: Page) => page.getByRole("button", { name: "Lägg i lagret", exact: true }).filter({ visible: true });
 const sendButton = (page: Page) => page.getByRole("button", { name: "Skicka till ICA", exact: true }).filter({ visible: true });
 const tab = (page: Page, name: "Inköpslista" | "Lagersaldo") =>

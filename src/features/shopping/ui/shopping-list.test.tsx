@@ -85,6 +85,9 @@ const lines: ShoppingLine[] = [
 /** What a row shows, without the "Ta bort" a swipe reveals. */
 const rowText = (row: HTMLElement) => (row.querySelector('[data-testid="swipe-row-front"]') ?? row).textContent;
 
+/** Waits until a click on another line counts again (the double tap guard also covers a mouse). */
+const pastGuard = () => act(() => new Promise<void>((resolve) => setTimeout(resolve, doubleTapGuardMs + 20)));
+
 describe("ShoppingList", () => {
   it("shows the summary, the progress row and the lines per category in the store's order", () => {
     render(<ShoppingList plan={plan} lines={lines} pantryUnavailable={false} />);
@@ -299,7 +302,7 @@ describe("ShoppingList and the place it is counted against (Story 8.5)", () => {
     const user = userEvent.setup();
     const checked = lines.map((item) => (item.key === "r:paprika:st" ? { ...item, checked: true } : item));
     const { rerender } = render(<ShoppingList plan={plan} lines={checked} pantryUnavailable={false} site={hemma} />);
-    await user.click(screen.getByRole("button", { name: "Visa" }));
+    await user.click(screen.getByRole("button", { name: /^Visa I korgen/ }));
     expect(screen.getByRole("checkbox", { name: /^Paprika/ })).toBeChecked();
     // On Stugan the paprika is covered: the line is gone, its check stays on the server.
     rerender(<ShoppingList plan={plan} lines={checked.slice(1)} pantryUnavailable={false} site={stugan} />);
@@ -307,7 +310,7 @@ describe("ShoppingList and the place it is counted against (Story 8.5)", () => {
     expect(screen.queryByTestId("basket-row")).not.toBeInTheDocument();
     rerender(<ShoppingList plan={plan} lines={checked} pantryUnavailable={false} site={hemma} />);
     // Back in I korgen, which folded when it was empty.
-    await user.click(screen.getByRole("button", { name: "Visa" }));
+    await user.click(screen.getByRole("button", { name: /^Visa I korgen/ }));
     expect(screen.getByRole("checkbox", { name: /^Paprika/ })).toBeChecked();
   });
 
@@ -351,7 +354,7 @@ describe("ShoppingList checks", () => {
     expect(screen.getByRole("checkbox", { name: "En näve persilja" })).not.toBeChecked();
     // A checked line does not count as left, and is in I korgen.
     expect(screen.getByTestId("list-progress")).toHaveTextContent("6 varor kvar 1 av 7 i korgen");
-    await user.click(screen.getByRole("button", { name: "Visa" }));
+    await user.click(screen.getByRole("button", { name: /^Visa I korgen/ }));
     expect(screen.getByRole("checkbox", { name: "X, 1 st" })).toBeChecked();
   });
 
@@ -366,14 +369,16 @@ describe("ShoppingList checks", () => {
     expect(mejeri()).not.toBeInTheDocument();
     expect(screen.getByTestId("list-progress")).toHaveTextContent("5 varor kvar 1 av 6 i korgen");
     expect(screen.getByTestId("basket-row")).toHaveTextContent("1 vara i korgen");
-    expect(screen.getByTestId("check-announcement")).toHaveTextContent("Grädde i korgen.");
+    // Said a moment after focus has moved, so a screen reader reads both.
+    expect(screen.getByTestId("check-announcement")).toHaveTextContent("");
+    await waitFor(() => expect(screen.getByTestId("check-announcement")).toHaveTextContent("Grädde i korgen."));
     // Pontus's own check is not a recount.
     expect(screen.getByTestId("list-announcement")).toHaveTextContent("");
 
-    const show = screen.getByRole("button", { name: "Visa" });
+    const show = screen.getByRole("button", { name: /^Visa I korgen/ });
     expect(show).toHaveAttribute("aria-expanded", "false");
     await user.click(show);
-    expect(screen.getByRole("button", { name: "Dölj" })).toHaveAttribute("aria-expanded", "true");
+    expect(screen.getByRole("button", { name: "Dölj I korgen" })).toHaveAttribute("aria-expanded", "true");
     const basket = within(screen.getByRole("list", { name: "I korgen" }));
     expect(screen.getByRole("heading", { level: 2, name: "I korgen" })).toBeInTheDocument();
     const box = basket.getByRole("checkbox", { name: "Grädde, 3 dl" });
@@ -385,7 +390,7 @@ describe("ShoppingList checks", () => {
     await user.click(box);
     expect(setChecked).toHaveBeenLastCalledWith({ planId: plan.id, key: "r:gradde:dl", checked: false });
     expect(within(mejeri()!).getByRole("checkbox", { name: "Grädde, 3 dl" })).not.toBeChecked();
-    expect(screen.getByTestId("check-announcement")).toHaveTextContent("Grädde tillbaka på listan.");
+    await waitFor(() => expect(screen.getByTestId("check-announcement")).toHaveTextContent("Grädde tillbaka på listan."));
     expect(screen.getByTestId("list-progress")).toHaveTextContent("6 varor kvar 0 av 6 i korgen");
     // The basket is empty: no basket row, and it is folded again.
     expect(screen.queryByTestId("basket-row")).not.toBeInTheDocument();
@@ -458,7 +463,7 @@ describe("ShoppingList checks", () => {
     render(<ServerList initial={lines} />);
     await user.click(screen.getByRole("checkbox", { name: "Paprika, 1 st" }));
     // Taken back from I korgen before the first write has answered.
-    await user.click(screen.getByRole("button", { name: "Visa" }));
+    await user.click(screen.getByRole("button", { name: /^Visa I korgen/ }));
     await user.click(screen.getByRole("checkbox", { name: "Paprika, 1 st" }));
     expect(screen.getByRole("checkbox", { name: "Paprika, 1 st" })).not.toBeChecked();
     // The second write waits for the first.
@@ -476,12 +481,14 @@ describe("ShoppingList checks", () => {
     render(<ServerList initial={lines} />);
     await user.click(screen.getByRole("checkbox", { name: "Paprika, 1 st" }));
     const first = await screen.findByRole("alert");
+    await pastGuard();
     await user.click(screen.getByRole("checkbox", { name: "Grädde, 3 dl" }));
     expect(screen.queryByRole("checkbox", { name: "Grädde, 3 dl" })).not.toBeInTheDocument();
     expect(screen.getByTestId("basket-row")).toHaveTextContent("1 vara i korgen");
     expect(screen.getByRole("alert")).toBe(first);
 
     setChecked.mockResolvedValueOnce(fail("shopping_check_failed"));
+    await pastGuard();
     await user.click(await screen.findByRole("checkbox", { name: "Paprika, 1 st" }));
     // A new element, so screen readers announce the same text again (once the failure has settled).
     await waitFor(() => expect(screen.getByRole("alert")).not.toBe(first));
@@ -575,13 +582,15 @@ describe("ShoppingList in the new look (Story 11.4)", () => {
       "Kött, fisk & chark",
       "Skafferi",
       "Såser & smaksättare",
+      // The folded basket row is a heading too, so heading navigation finds it.
+      "6 varor i korgen",
     ]);
     expect(
       within(screen.getByRole("list", { name: "Kött, fisk & chark" })).getAllByTestId("shopping-line").map((row) => row.dataset.lineKey),
     ).toEqual(["r:falukorv:g", "r:lax:g"]);
     expect(screen.getAllByTestId("shopping-line")).toHaveLength(8);
     expect(screen.getByTestId("basket-row")).toHaveTextContent("6 varor i korgen");
-    expect(screen.getByRole("button", { name: "Visa" })).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: /^Visa I korgen/ })).toBeInTheDocument();
     // Plain text: no emoji in the basket row.
     expect(screen.getByTestId("basket-row").textContent).toMatch(/^[\p{L}\p{N} ]+$/u);
   });
@@ -589,8 +598,9 @@ describe("ShoppingList in the new look (Story 11.4)", () => {
   it("says Allt ligger i korgen with every line checked off, and shows no categories", () => {
     render(<ShoppingList plan={plan} lines={fourteen.map((item) => ({ ...item, checked: true }))} pantryUnavailable={false} />);
     expect(screen.getByTestId("list-progress")).toHaveTextContent(/^Allt ligger i korgen$/);
-    expect(screen.queryAllByRole("heading", { level: 2 })).toEqual([]);
-    expect(screen.getByTestId("basket-row")).toHaveTextContent("14 varor i korgen");
+    // No category, only the basket row's heading.
+    expect(screen.getAllByRole("heading", { level: 2 }).map((heading) => heading.textContent)).toEqual(["14 varor i korgen"]);
+    expect(screen.getByRole("button", { name: "Visa I korgen (14 varor)" })).toHaveAttribute("aria-expanded", "false");
     expect(screen.getByRole("button", { name: "Lägg i lagret" })).toBeInTheDocument();
   });
 
@@ -641,14 +651,20 @@ describe("ShoppingList in the new look (Story 11.4)", () => {
     await user.click(screen.getByRole("checkbox", { name: "Paprika, 1 st" }));
     expect(screen.getByRole("checkbox", { name: "Grädde, 3 dl" })).toHaveFocus();
     // Grädde was the last line left: the basket row's Visa.
+    await pastGuard();
     await user.click(screen.getByRole("checkbox", { name: "Grädde, 3 dl" }));
-    await waitFor(() => expect(screen.getByRole("button", { name: "Visa" })).toHaveFocus());
+    await waitFor(() => expect(screen.getByRole("button", { name: /^Visa I korgen/ })).toHaveFocus());
     expect(screen.getByTestId("list-progress")).toHaveTextContent("Allt ligger i korgen");
 
-    // From I korgen: the next checked line, else the one before, else the line back in its category.
+    // From I korgen, in the list's category order: the next checked line, else the one before, else the line back.
     await user.keyboard("{Enter}");
+    expect(
+      within(screen.getByRole("list", { name: "I korgen" })).getAllByRole("checkbox").map((box) => box.getAttribute("aria-label")),
+    ).toEqual(["Paprika, 1 st", "Grädde, 3 dl"]);
+    await pastGuard();
     await user.click(screen.getByRole("checkbox", { name: "Paprika, 1 st" }));
     expect(within(screen.getByRole("list", { name: "I korgen" })).getByRole("checkbox", { name: "Grädde, 3 dl" })).toHaveFocus();
+    await pastGuard();
     await user.click(screen.getByRole("checkbox", { name: "Grädde, 3 dl" }));
     await waitFor(() =>
       expect(within(screen.getByRole("list", { name: "Mejeri & ägg" })).getByRole("checkbox", { name: "Grädde, 3 dl" })).toHaveFocus(),
@@ -663,36 +679,145 @@ describe("ShoppingList in the new look (Story 11.4)", () => {
       </Activity>
     );
     const { rerender } = render(view("visible"));
-    await user.click(screen.getByRole("button", { name: "Visa" }));
+    await user.click(screen.getByRole("button", { name: /^Visa I korgen/ }));
     expect(screen.getByRole("list", { name: "I korgen" })).toBeInTheDocument();
     await act(async () => rerender(view("hidden")));
     await act(async () => rerender(view("visible")));
     expect(screen.getByRole("list", { name: "I korgen" })).toBeInTheDocument();
-    expect(screen.getByRole("button", { name: "Dölj" })).toHaveAttribute("aria-expanded", "true");
-    await user.click(screen.getByRole("button", { name: "Dölj" }));
+    expect(screen.getByRole("button", { name: "Dölj I korgen" })).toHaveAttribute("aria-expanded", "true");
+    await user.click(screen.getByRole("button", { name: "Dölj I korgen" }));
     expect(screen.queryByRole("list", { name: "I korgen" })).not.toBeInTheDocument();
   });
 
-  it("ignores a finger's second tap of a double tap, which would land on the line that moved up", async () => {
+  /** An event with a fixed timeStamp (and more), fired on `element` in act, with the save it starts. */
+  const fire = async (element: HTMLElement, event: Event, fields: Record<string, unknown>) => {
+    for (const [name, value] of Object.entries(fields)) Object.defineProperty(event, name, { value });
+    await act(async () => void fireEvent(element, event));
+  };
+  /** A press with `pointerType` at `at` ms, then its click 50 ms later. */
+  const tap = async (element: HTMLElement, at: number, pointerType = "touch", detail = 1) => {
+    await fire(element, createEvent.pointerDown(element), { pointerType, timeStamp: at });
+    await fire(element, createEvent.click(element, { detail }), { timeStamp: at + 50 });
+  };
+
+  it("ignores a finger's second tap of a double tap, which would land on the line that moved up, with a cue", async () => {
     render(<ServerList initial={lines} />);
-    /** A tap with a finger at `at` ms: the pointer down the list reads, then the click, and the save it starts. */
-    const tap = async (element: HTMLElement, at: number) => {
-      const down = createEvent.pointerDown(element);
-      Object.defineProperty(down, "pointerType", { value: "touch" });
-      Object.defineProperty(down, "timeStamp", { value: at });
-      await act(async () => {
-        fireEvent(element, down);
-        fireEvent.click(element);
-      });
-    };
     await tap(screen.getByRole("checkbox", { name: "Paprika, 1 st" }), 1000);
     // 200 ms later, where Paprika was: Grädde has moved up under the finger.
     await tap(screen.getByRole("checkbox", { name: "Grädde, 3 dl" }), 1200);
     expect(setChecked).toHaveBeenCalledTimes(1);
-    expect(screen.getByRole("checkbox", { name: "Grädde, 3 dl" })).not.toBeChecked();
+    const gradde = screen.getByRole("checkbox", { name: "Grädde, 3 dl" });
+    expect(gradde).not.toBeChecked();
+    // The ignored tap's short cue, still with "Minska rörelse".
+    expect(gradde).toHaveClass("motion-safe:animate-ignored-tap", "motion-reduce:outline-2");
     // A deliberate tap a moment later counts.
     await tap(screen.getByRole("checkbox", { name: "Grädde, 3 dl" }), 1000 + doubleTapGuardMs + 50);
     expect(setChecked).toHaveBeenCalledTimes(2);
     expect(setChecked).toHaveBeenLastCalledWith({ planId: plan.id, key: "r:gradde:dl", checked: true });
+  });
+
+  it("guards a pen and a mouse double click too", async () => {
+    render(<ServerList initial={lines} />);
+    await tap(screen.getByRole("checkbox", { name: "Paprika, 1 st" }), 1000, "mouse");
+    await tap(screen.getByRole("checkbox", { name: "Grädde, 3 dl" }), 1150, "mouse", 2);
+    await tap(screen.getByRole("checkbox", { name: "Grädde, 3 dl" }), 1300, "pen");
+    expect(setChecked).toHaveBeenCalledTimes(1);
+  });
+
+  it("lets a click without a fresh pointer press through: VoiceOver, Voice Control, Switch Control", async () => {
+    render(<ServerList initial={lines} />);
+    await tap(screen.getByRole("checkbox", { name: "Paprika, 1 st" }), 1000);
+    // A click with no pointer press after the touch, e.g. VoiceOver's double tap on the next line.
+    await fire(screen.getByRole("checkbox", { name: "Grädde, 3 dl" }), createEvent.click(document.body, { detail: 0 }), {
+      timeStamp: 1100,
+    });
+    // An earlier pointer press that is no longer fresh does not count either.
+    await fire(screen.getByRole("checkbox", { name: "Mjöl, 2 dl (hemma: 1 kg)" }), createEvent.pointerDown(document.body), {
+      pointerType: "touch",
+      timeStamp: 1150,
+    });
+    await fire(screen.getByRole("checkbox", { name: "Mjöl, 2 dl (hemma: 1 kg)" }), createEvent.click(document.body), {
+      timeStamp: 1150 + 1500,
+    });
+    expect(setChecked.mock.calls.map(([change]) => change.key)).toEqual(["r:paprika:st", "r:gradde:dl", "r:mjol:dl"]);
+  });
+
+  it("does not repeat a held Enter on a check", async () => {
+    render(<ServerList initial={lines} />);
+    const paprika = screen.getByRole("checkbox", { name: "Paprika, 1 st" });
+    const held = createEvent.keyDown(paprika, { key: "Enter", repeat: true });
+    await act(async () => void fireEvent(paprika, held));
+    expect(held.defaultPrevented).toBe(true);
+    const first = createEvent.keyDown(paprika, { key: "Enter" });
+    await act(async () => void fireEvent(paprika, first));
+    expect(first.defaultPrevented).toBe(false);
+  });
+
+  it("describes each check with the line under its name and its product", () => {
+    const store = { id: "s", name: "ICA Maxi", chain: "ICA" as const, externalStoreId: null, address: null, url: null, isSelected: true };
+    const choice = { id: "c", ingredientId: "falukorv", storeId: "s", productName: "Scan Falukorv 800 g", packageSize: null, url: null, updatedAt: "x" };
+    render(<ShoppingList plan={plan} lines={fourteen} pantryUnavailable={false} store={store} productChoices={{ falukorv: choice }} />);
+    expect(screen.getByRole("checkbox", { name: "Falukorv, 800 g" })).toHaveAccessibleDescription(
+      "Krämig kycklinggryta Scan Falukorv 800 g",
+    );
+    expect(screen.getByRole("checkbox", { name: "Sojasås" })).toHaveAccessibleDescription("Saknas i lagret · Krämig kycklinggryta");
+  });
+
+  it("says Saknas in Dolda varor for a hidden vague line, which has no amount", async () => {
+    const user = userEvent.setup();
+    const salt = lines.find((item) => item.key === "r:salt:-")!;
+    render(<ShoppingList plan={plan} lines={lines.slice(0, 2)} hiddenLines={[salt]} pantryUnavailable={false} />);
+    await user.click(screen.getByRole("button", { name: "Dolda varor (1)" }));
+    expect(await screen.findByTestId("hidden-line")).toHaveTextContent(/^Salt\s*Saknas i lagret\s*Visa igen$/);
+  });
+
+  it("says nothing is missing when the pantry could not be read", () => {
+    render(<ShoppingList plan={plan} lines={lines} pantryUnavailable />);
+    const salt = screen.getAllByTestId("shopping-line").find((row) => row.dataset.lineKey === "r:salt:-")!;
+    expect(rowText(salt)).toBe("Salt Krämig kycklinggryta");
+  });
+});
+
+describe("ShoppingList when a check goes back (Story 11.4 review)", () => {
+  it("keeps a line in I korgen through a recount while its check is saved, without an announcement", async () => {
+    const user = userEvent.setup();
+    let answer: (result: Result<CheckChange>) => void = () => {};
+    setChecked.mockImplementationOnce(() => new Promise((resolve) => (answer = resolve)));
+    const { rerender } = render(<ShoppingList plan={plan} lines={lines} pantryUnavailable={false} />);
+    await user.click(screen.getByRole("checkbox", { name: "Paprika, 1 st" }));
+    // Counted again (a dish added elsewhere), before the save has answered: the server does not have the check yet.
+    const recounted = [...lines, line({ key: "r:lok:st", label: "Gul lök", section: "Frukt och grönt", amount: 1, unit: "st" })];
+    rerender(<ShoppingList plan={plan} lines={recounted} pantryUnavailable={false} />);
+    expect(screen.queryByRole("checkbox", { name: "Paprika, 1 st" })).toBeNull();
+    expect(screen.getByTestId("basket-row")).toHaveTextContent("1 vara i korgen");
+    // The save answers and the server's list has the check.
+    rerender(<ShoppingList plan={plan} lines={recounted.map((item) => (item.key === "r:paprika:st" ? { ...item, checked: true } : item))} pantryUnavailable={false} />);
+    await act(async () => answer(ok({ planId: plan.id, key: "r:paprika:st", checked: true })));
+    await waitFor(() => expect(screen.getByTestId("check-announcement")).toHaveTextContent("Paprika i korgen."));
+    await act(() => new Promise<void>((resolve) => setTimeout(resolve, 300)));
+    expect(screen.getByTestId("check-announcement")).toHaveTextContent("Paprika i korgen.");
+    expect(screen.queryByRole("checkbox", { name: "Paprika, 1 st" })).toBeNull();
+  });
+
+  it("says a line went back, and focuses its check, when the server's list disagrees after the save", async () => {
+    const user = userEvent.setup();
+    // Saved, but the list read afterwards does not have the check (e.g. taken off on another device).
+    render(<ShoppingList plan={plan} lines={lines} pantryUnavailable={false} />);
+    await user.click(screen.getByRole("checkbox", { name: "Paprika, 1 st" }));
+    await waitFor(() => expect(screen.getByTestId("check-announcement")).toHaveTextContent("Paprika tillbaka på listan."));
+    expect(screen.getByRole("checkbox", { name: "Paprika, 1 st" })).toHaveFocus();
+  });
+
+  it("puts a line back in I korgen, opened, when taking it back fails", async () => {
+    const user = userEvent.setup();
+    setChecked.mockResolvedValueOnce(fail("shopping_check_failed"));
+    render(<ShoppingList plan={plan} lines={lines.map((item) => (item.key === "r:paprika:st" ? { ...item, checked: true } : item))} pantryUnavailable={false} />);
+    await user.click(screen.getByRole("button", { name: /^Visa I korgen/ }));
+    await user.click(screen.getByRole("checkbox", { name: "Paprika, 1 st" }));
+    expect(await screen.findByRole("alert")).toHaveTextContent("Det gick inte att spara bocken.");
+    await waitFor(() => expect(screen.getByTestId("check-announcement")).toHaveTextContent("Paprika i korgen."));
+    const back = within(screen.getByRole("list", { name: "I korgen" })).getByRole("checkbox", { name: "Paprika, 1 st" });
+    expect(back).toBeChecked();
+    expect(back).toHaveFocus();
   });
 });

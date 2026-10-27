@@ -153,7 +153,7 @@ const summary = (page: Page) => page.getByTestId("list-summary").filter({ visibl
 const progress = (page: Page) => page.getByTestId("list-progress").filter({ visible: true });
 const sectionHeadings = (page: Page) => page.getByRole("heading", { level: 2 }).filter({ visible: true });
 /** Unfolds I korgen, where the checked lines are (Story 11.4). */
-const showBasket = (page: Page) => page.getByRole("button", { name: "Visa", exact: true }).filter({ visible: true }).click();
+const showBasket = (page: Page) => page.getByRole("button", { name: /^Visa I korgen/ }).filter({ visible: true }).click();
 const check = (page: Page, name: string) => page.getByRole("checkbox", { name, exact: true }).filter({ visible: true });
 const tab = (page: Page, name: "Matsedel" | "Inköpslista") =>
   page.getByRole("navigation", { name: "Huvudmeny" }).getByRole("link", { name });
@@ -291,7 +291,7 @@ test("more servings on Matsedel count the list again", async ({ page }) => {
   await expect(page).toHaveURL(/\/lista$/);
   // 2 dl for 4 is 3 dl for 6, and 1 dl from Paj: the same line, still checked,
   // and I korgen still open from before the switch of tab (Activity).
-  await expect(page.getByRole("button", { name: "Dölj", exact: true }).filter({ visible: true })).toBeVisible();
+  await expect(page.getByRole("button", { name: "Dölj I korgen", exact: true }).filter({ visible: true })).toBeVisible();
   await expect(lineOf(page, "Grädde")).toContainText("4 dl");
   await expect(check(page, "Grädde, 4 dl")).toBeChecked();
   // 1.5 paprikor are bought as 2.

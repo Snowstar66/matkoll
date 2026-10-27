@@ -220,7 +220,7 @@ describe("removing an own item", () => {
     const user = userEvent.setup();
     render(<ShoppingList plan={plan} lines={[gradde, coffee, { ...disk, checked: true }]} pantryUnavailable={false} />);
     // Checked off, it is in I korgen (Story 11.4).
-    await user.click(screen.getByRole("button", { name: "Visa" }));
+    await user.click(screen.getByRole("button", { name: /^Visa I korgen/ }));
     await user.click(screen.getByRole("button", { name: "Ta bort diskmedel" }));
     expect(removeCustomItem).toHaveBeenCalledWith(diskId);
     expect(screen.queryByText("diskmedel")).not.toBeInTheDocument();
@@ -230,7 +230,7 @@ describe("removing an own item", () => {
     expect(restoreCustomItem).toHaveBeenCalledWith(diskRow);
     // The basket folded when it was empty: the item is back in it, still checked.
     expect(await screen.findByText("1 vara i korgen")).toBeInTheDocument();
-    await user.click(screen.getByRole("button", { name: "Visa" }));
+    await user.click(screen.getByRole("button", { name: /^Visa I korgen/ }));
     const back = screen.getByRole("checkbox", { name: "diskmedel" });
     expect(back).toBeChecked();
     expect(within(screen.getByRole("list", { name: "I korgen" })).getByText("diskmedel")).toBeInTheDocument();

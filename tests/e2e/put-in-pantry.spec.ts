@@ -110,7 +110,7 @@ const check = (page: Page, name: string) => page.getByRole("checkbox", { name, e
 const putButton = (page: Page) => page.getByRole("button", { name: "Lägg i lagret", exact: true }).filter({ visible: true });
 const toast = (page: Page) => page.getByTestId("toast");
 /** Unfolds I korgen, where the checked lines are (Story 11.4). */
-const showBasket = (page: Page) => page.getByRole("button", { name: "Visa", exact: true }).filter({ visible: true }).click();
+const showBasket = (page: Page) => page.getByRole("button", { name: /^Visa I korgen/ }).filter({ visible: true }).click();
 const tab = (page: Page, name: "Recept" | "Lagersaldo" | "Inköpslista") =>
   page.getByRole("navigation", { name: "Huvudmeny" }).getByRole("link", { name });
 
@@ -138,7 +138,8 @@ test("Lägg i lagret puts the checked lines in the pantry, takes them off the li
   const errors = watchErrors(page);
   await page.goto("/lista");
   for (const name of ["Grädde, 2 dl", "Paprika, 2 st", "Salt", "kaffe", "diskmedel"]) {
-    await check(page, name).click();
+    // From the keyboard: clicks on other lines in quick succession would be taken as a double click (Story 11.4).
+    await check(page, name).press("Space");
     // Moved to I korgen at once (Story 11.4).
     await expect(check(page, name)).toHaveCount(0);
   }

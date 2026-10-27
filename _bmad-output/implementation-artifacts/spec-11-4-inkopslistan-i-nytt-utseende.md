@@ -2,7 +2,7 @@
 title: 'Story 11.4: Inköpslistan i nytt utseende'
 type: 'feature'
 created: '2026-10-26'
-status: 'in-progress'
+status: 'done'
 baseline_commit: 'a566fa1'
 route: 'dispatch'
 context:
@@ -125,7 +125,7 @@ context:
 - **Byggd på `a566fa1`** (`baseline_commit`) och ombaserad före commit på `fbe221d` (granskningsfixarna för 11.1, Story 11.6 och Story 11.2). Besluten ovan godkändes som de var skrivna: Pontus gav fritt mandat för natten.
 - **Kategorierna är vanliga `div` utan landmärke,** som i `src/components/README.md` efter granskningen av 11.1: rubriken (`CategoryHeader`, `h2`) namnger listgruppen (`ul role="list"`). Detsamma gäller "I korgen", vars `h2` namnger listan med de avbockade posterna. Testerna letar därför efter listan ("Mejeri & ägg"), inte en region.
 - **Avbockade rader har `srStatus="i korgen"`** (ListRow), så att överstrykningen också sägs.
-- **Ett andra tryck med fingret inom 400 ms** på en annan bock räknas inte (`doubleTapGuardMs`), eftersom nästa post glider upp under tummen när den första flyttas. Samma gräns som soptunnan i 11.1. Mus och tangentbord räknas alltid, och posten flyttas fortfarande direkt (ingen fördröjning). Tidsstämpeln kommer från händelsen (`pointerdown`), inte från `performance.now()`, som React Compiler inte tillåter.
+- **Ett andra tryck med fingret inom 400 ms** på en annan bock räknas inte (`doubleTapGuardMs`), eftersom nästa post glider upp under tummen när den första flyttas. Samma gräns som soptunnan i 11.1. Mus och tangentbord räknas alltid, och posten flyttas fortfarande direkt (ingen fördröjning). Efter granskningen gäller spärren också mus och penna; se Review Triage Log. Tidsstämpeln kommer från händelsen (`pointerdown`), inte från `performance.now()`, som React Compiler inte tillåter.
 - **Fokus:** från listan till nästa posts bock, annars den föregående, annars korgradens "Visa", som i specen. Från I korgen (specen säger inget) till nästa avbockade posts bock, annars den föregående, annars posten själv tillbaka i sin kategori. Fokus flyttas före bocken när målet redan finns, annars efter nästa rendering.
 - **Live-regionen för en bock** är en egen (`check-announcement`) bredvid omräkningens (`list-announcement`), så att Pontus egen bock aldrig räknas som en omräkning.
 - **"Finns hemma?" är borta också ur bockens namn:** en vag post heter bara "Salt" (förut "Salt, finns hemma?"). Raden under säger "Saknas i lagret", och `lineAmountText` ger ingen mängd för en vag post, också i arket Dolda varor.
@@ -139,6 +139,60 @@ context:
 - **Skärmbilder** vid 375 px i ljust och mörkt läge (överst, och nederst med I korgen utfälld) ligger utanför repot, i agentens scratchpad.
 
 ## Review Triage Log
+
+Iteration 1. Två granskare. Allt i listan godtogs och åtgärdades i commiten `fix: review fixes for Story 11.4`, med `origin/epic/11-nytt-utseende` (11.3) ihopslagen i grenen.
+
+**Patch:**
+- Spärren mot dubbeltryck:
+  - Trycket och klicket läses en gång och nollställs sedan (`lastPress`, `lastClick`). Spärren gäller bara när klickets egen `timeStamp` ligger inom 1 000 ms efter ett `pointerdown`, och klickets tid jämförs med förra flyttens klick.
+  - En aktivering utan färskt `pointerdown` släpps igenom: VoiceOver, Voice Control, Switch Control och programmatiska klick.
+  - Spärren gäller alla pekare: finger, penna och mus, också dubbelklick (`detail > 1`).
+  - Ett hållet Enter eller mellanslag på en bock (`event.repeat`) stoppas i `onKeyDownCapture`, så att listan inte töms en rad i taget.
+  - Ett ignorerat tryck ger en kort ring runt bocken (`animate-ignored-tap`, en kontur som tonar bort, ingen skugga). Med "Minska rörelse" står ringen still.
+- Fokus och uppläsning:
+  - Fokus flyttas med `preventScroll` efter ett tryck. Från tangentbordet rullas målet in med `scrollIntoView({ block: "nearest" })`.
+  - `FixedAction` sätter `scroll-padding-bottom` från knapparnas överkant och nedåt, flikfältet inräknat, så att fokus aldrig hamnar under dem.
+  - Fokus som väntar (`pendingFocus`) har sitt område ("list" eller "basket") och söker bara där. Det prövas i den första commit som visar flytten, och släpps när Pontus trycker eller fokuserar något annat.
+  - En bock som inte sparas, eller som serverns lista inte har när allt är sparat, ger "Citron tillbaka på listan." (eller "Citron i korgen."). Fokus går till radens bock, och I korgen fälls ut om raden hamnar där.
+  - Flyttens text sägs 150 ms efter fokusflytten, så att VoiceOver läser båda.
+- Korgraden:
+  - Knappen heter "Visa I korgen (6 varor)" eller "Dölj I korgen" för skärmläsare, med `aria-expanded`. Den synliga texten står först i namnet.
+  - "6 varor i korgen" är en `h2`, så att rubriknavigering hittar korgen också hopfälld.
+- Bocken beskrivs (`aria-describedby`) av raden under namnet och av produktetiketten. `CheckCircle` fick `describedBy`, och det är ett tillägg.
+- Layout:
+  - `FixedAction` lägger knapparna i en rad när de får plats på en rad var. Annars står de ovanpå varandra med "Lägg i lagret" överst, och först i DOM:en.
+  - Etiketterna radbryts inne i knappen (`*:max-w-full`, `h-auto`, `min-h-button`).
+  - Tar fältet mer än 25 % av fönstret står det sist i listan i stället för fast.
+  - Listan håller plats för båda knapparna medan den har rader (`reserve`), så att sidans slut inte flyttar sig när den första bocken lägger till "Lägg i lagret" ovanpå.
+  - Korgradens knapp har en negativ marginal i px (`-mr-[12px]`), så att den aldrig sticker ut med större rotstorlek.
+- I korgen står i samma kategoriordning som listan (`groupByCategory`), och fokusgrannarna följer den.
+- Innehåll:
+  - "Saknas i lagret" eller "Saknas i Stugan" sägs bara när lagret gick att läsa (`missingText`, `pantryRead`).
+  - Arket Dolda varor visar den texten för en vag post, som saknar mängd.
+- Den dubbla tomraden togs bort.
+- Nya tester:
+  - en omräkning medan bocken sparas, utan extra uppläsning;
+  - serverns lista som inte har bocken efter sparandet;
+  - en misslyckad bock tillbaka till I korgen;
+  - en aktivering utan pekartryck;
+  - penna och dubbelklick;
+  - hållet Enter;
+  - beskrivningen av bocken;
+  - Dolda varor;
+  - `FixedAction` i rad, staplad och i flödet.
+- Nya e2e-tester:
+  - fokus ovanför de fasta knapparna och hållet Enter;
+  - `html { font-size: 200% }` vid 375 px;
+  - kontrasten i framstegsraden och etiketten i mörkt läge;
+  - fältet i flödet vid 188 px.
+
+**Tolkat:**
+- "Reservera båda knapparnas höjd medan korgen inte är tom": utrymmet hålls medan listan har rader och bockar går att sätta. Då flyttar sig inte sidans slut vid den första bocken, när "Lägg i lagret" tillkommer. Med en enda knapp som redan tar mer än halva bredden räknas det som om två skulle staplas.
+- Spärren gäller nu också musen. E2E-specarna bockar därför flera rader i rad från tangentbordet, och enhetstesterna väntar ut spärren mellan klick på olika rader.
+
+**Uppskjutet:** inget.
+
+**Avvisat:** inget.
 
 ## Verification
 

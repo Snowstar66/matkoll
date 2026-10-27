@@ -29,7 +29,9 @@ import {
   backOnListAnnouncement,
   basketText,
   basketTitle,
+  basketToggleText,
   checkLabel,
+  missingText,
   emptyPlanText,
   groupByCategory,
   inBasketAnnouncement,
@@ -157,12 +159,17 @@ export type ShoppingListProps = {
 export const announcementMs = 5000;
 
 /**
- * After a check moved a line away, a tap with a finger on another line's
+ * After a check moved a line away, a click from a fresh press of a finger,
+ * pen or mouse (or the second click of a double click) on another line's
  * check within this time is taken as the second half of a double tap, which
- * would land on the line that moved up under the thumb, and is ignored.
- * Taps with a mouse or a key are never ignored.
+ * would land on the line that moved up under the pointer, and is ignored.
+ * Keys, and activations without a pointer press (VoiceOver, Voice Control,
+ * Switch Control), are never ignored. The same limit as the bin (11.1).
  */
 export const doubleTapGuardMs = 400;
+
+/** How long an ignored tap's check shows its cue. */
+const ignoredCueMs = 400;
 
 /**
  * Everything a line shows, so any visible change counts as a recount; except
@@ -327,9 +334,19 @@ const checkId = (planId: string, key: string) => `${planId} ${key}`;
  * back and gives `notice`, which goes when the same line is saved later or
  * the list is hidden; `shopping_plan_changed` and a lost answer also read
  * the list again. An answer for a plan the list no longer shows is ignored.
+ * `onSettled` hears how the latest tap of a line ended (`saved` or not), so
+ * the list can say so when the line goes back.
  */
-function useChecks(planId: string | null, lines: readonly ShoppingLine[]) {
+function useChecks(
+  planId: string | null,
+  lines: readonly ShoppingLine[],
+  onSettled?: (key: string, checked: boolean, saved: boolean) => void,
+) {
   const router = useRouter();
+  const settled = useRef(onSettled);
+  useEffect(() => {
+    settled.current = onSettled;
+  });
   const saved = useMemo(
     () => (planId === null ? {} : Object.fromEntries(lines.map((line) => [checkId(planId, line.key), line.checked]))),
     [planId, lines],
@@ -338,7 +355,7 @@ function useChecks(planId: string | null, lines: readonly ShoppingLine[]) {
     ...state,
     [change.id]: change.checked,
   }));
-  const [, startTransition] = useTransition();
+  const [transitionPending, startTransition] = useTransition();
   /** The number of the latest tap per checkId, so only its failure is reported. */
   const latestTap = useRef(new Map<string, number>());
   /** Per checkId, the writes of a burst of taps, one at a time; see save. */
@@ -401,30 +418,44 @@ function useChecks(planId: string | null, lines: readonly ShoppingLine[]) {
       if (latestTap.current.get(id) !== tap || shownPlan.current !== planId) return;
       if (result.ok) {
         setNotice((before) => (before?.key === key ? null : before));
+        settled.current?.(key, checked, true);
         return;
       }
       if (result.error.code === "unauthorized") {
         router.refresh();
         return;
       }
+      settled.current?.(key, checked, false);
       nextNotice.current += 1;
       setNotice({ text: result.error.message, id: nextNotice.current, key });
       if (lost || result.error.code === "shopping_plan_changed") router.refresh();
     });
   }
 
-  return { checks, toggle, notice, saving: saving > 0 };
+  // `settling` until every save has answered and the list shows the server's checks again.
+  return { checks, toggle, notice, saving: saving > 0, settling: saving > 0 || transitionPending };
 }
+
+/** How long a move's announcement waits after focus has moved, so VoiceOver reads both the new focus and the text. */
+export const moveAnnouncementDelayMs = 150;
 
 /**
  * What a check that moved a line says ("Citron i korgen."), in a live region
- * of its own beside the recount's. A new count each time, so the same text
- * is announced again; cleared after announcementMs and when the list is
- * hidden.
+ * of its own beside the recount's, moveAnnouncementDelayMs after the move. A
+ * new count each time, so the same text is announced again; a newer text
+ * replaces one still waiting. Cleared after announcementMs and when the list
+ * is hidden.
  */
 function useMoveAnnouncement() {
   const [announcement, setAnnouncement] = useState({ text: "", count: 0 });
-  useEffect(() => () => setAnnouncement((before) => (before.text ? { ...before, text: "" } : before)), []);
+  const waiting = useRef<ReturnType<typeof setTimeout> | undefined>(undefined);
+  useEffect(
+    () => () => {
+      clearTimeout(waiting.current);
+      setAnnouncement((before) => (before.text ? { ...before, text: "" } : before));
+    },
+    [],
+  );
   useEffect(() => {
     if (!announcement.text) return;
     const { count } = announcement;
@@ -434,20 +465,44 @@ function useMoveAnnouncement() {
     );
     return () => clearTimeout(timer);
   }, [announcement]);
-  const announce = (text: string) => setAnnouncement((before) => ({ text, count: before.count + 1 }));
+  const announce = (text: string) => {
+    clearTimeout(waiting.current);
+    waiting.current = setTimeout(
+      () => setAnnouncement((before) => ({ text, count: before.count + 1 })),
+      moveAnnouncementDelayMs,
+    );
+  };
   return { announcement, announce };
 }
 
 /** Where focus goes after a check moved a line: a line's check, or the basket row's "Visa". */
 type FocusTarget = { kind: "check"; key: string } | { kind: "basket-toggle" };
+/** Where a line's check is looked for: among the lines left, or in I korgen. */
+type FocusArea = "list" | "basket";
 
-/** The element a focus target stands for in the list, if it is shown. */
-function focusElement(root: HTMLElement | null, target: FocusTarget): HTMLElement | null {
+/** The element a focus target stands for, if it is shown: a check only inside `area`. */
+function focusElement(root: HTMLElement | null, target: FocusTarget, area: FocusArea): HTMLElement | null {
   if (!root) return null;
   if (target.kind === "basket-toggle") return root.querySelector<HTMLElement>("[data-basket-toggle]");
-  const row = [...root.querySelectorAll<HTMLElement>("[data-line-key]")].find((element) => element.dataset.lineKey === target.key);
+  const container = root.querySelector<HTMLElement>(area === "list" ? "[data-list-lines]" : "[data-testid=basket]");
+  const row = [...(container?.querySelectorAll<HTMLElement>("[data-line-key]") ?? [])].find(
+    (element) => element.dataset.lineKey === target.key,
+  );
   return row?.querySelector<HTMLElement>("[role=checkbox]:not([disabled])") ?? null;
 }
+
+/**
+ * Moves focus without scrolling the page under a finger; from the keyboard
+ * the element is scrolled into view only as far as needed, and the page's
+ * scroll-padding (FixedAction) keeps it above the fixed buttons.
+ */
+function moveFocus(element: HTMLElement, viaPointer: boolean) {
+  element.focus({ preventScroll: true });
+  if (!viaPointer) element.scrollIntoView?.({ block: "nearest" });
+}
+
+/** How long after a pointer went down its click still counts as that press (a VoiceOver or Switch Control activation has none). */
+const pressFreshMs = 1000;
 
 /** No hidden lines: for a list rendered without them. */
 const noLines: readonly ShoppingLine[] = [];
@@ -524,7 +579,7 @@ export function ShoppingList({
   onBusyChange,
 }: ShoppingListProps) {
   const planId = plan?.id ?? null;
-  const { checks, toggle, notice, saving } = useChecks(planId, savedLines);
+  const { checks, toggle, notice, saving, settling } = useChecks(planId, savedLines, handleSettled);
   const removal = useLineRemoval(planId, savedLines);
   const lines = useMemo(
     () =>
@@ -550,65 +605,138 @@ export function ShoppingList({
   const hasDishes = plan !== null && plan.dishCount > 0;
   const hasLines = lines.length > 0;
   const siteName = shownSiteName(site);
-  // The lines left, per category; the checked ones are in I korgen, in the list's order.
+  // The lines left, per category; the checked ones are in I korgen, in the same category order.
   const groups = useMemo(() => groupByCategory(lines.filter((line) => !line.checked)), [lines]);
   const leftKeys = groups.flatMap(({ lines: categoryLines }) => categoryLines.map((line) => line.key));
-  const inBasket = lines.filter((line) => line.checked);
+  const inBasket = useMemo(
+    () => groupByCategory(lines.filter((line) => line.checked)).flatMap(({ lines: categoryLines }) => categoryLines),
+    [lines],
+  );
+  const basketKeys = inBasket.map((line) => line.key);
   /** I korgen unfolded; folded from the start, kept while the page is hidden (Activity), not after a reload. */
   const [basketOpen, setBasketOpen] = useState(false);
   // Nothing in the basket any more ("Lägg i lagret", or the last check taken back): it folds.
   if (basketOpen && inBasket.length === 0) setBasketOpen(false);
+  /** A line whose check could not be taken back: I korgen opens once it is there again. */
+  const [reopenFor, setReopenFor] = useState<string | null>(null);
+  if (reopenFor !== null && inBasket.some((line) => line.key === reopenFor)) {
+    setReopenFor(null);
+    setBasketOpen(true);
+  }
   const basketShown = basketOpen && inBasket.length > 0;
   const rootRef = useRef<HTMLDivElement>(null);
-  useFocusAfterRemoval(rootRef, removal.focusAfterRef, [...leftKeys, ...(basketShown ? inBasket.map((line) => line.key) : [])]);
+  useFocusAfterRemoval(rootRef, removal.focusAfterRef, [...leftKeys, ...(basketShown ? basketKeys : [])]);
   const { announcement: moveAnnouncement, announce } = useMoveAnnouncement();
-  /** Focus to move once the target is shown (the basket row's "Visa" after the first check, a line back in its category). */
-  const pendingFocus = useRef<FocusTarget | null>(null);
+  /**
+   * Focus to move once the line has moved (the basket row's "Visa" after the
+   * first check, a line back in its category, a line that went back): tried
+   * once, in the first commit that shows `key` as `checked`, and dropped when
+   * Pontus presses or focuses anything else first.
+   */
+  const pendingFocus = useRef<{ target: FocusTarget; area: FocusArea; key: string; checked: boolean; viaPointer: boolean } | null>(
+    null,
+  );
   useEffect(() => {
-    const target = pendingFocus.current;
-    if (target === null) return;
-    const element = focusElement(rootRef.current, target);
-    if (element) {
-      pendingFocus.current = null;
-      element.focus();
-    }
+    const pending = pendingFocus.current;
+    if (pending === null) return;
+    const line = lines.find((item) => item.key === pending.key);
+    if (line && line.checked !== pending.checked) return;
+    pendingFocus.current = null;
+    const element = focusElement(rootRef.current, pending.target, pending.area);
+    if (element) moveFocus(element, pending.viaPointer);
   });
   /**
    * How and when the last press began ("touch", "mouse", "pen" or
-   * "keyboard", at the event's timeStamp), and the press that last moved a
+   * "keyboard", at the event's timeStamp; `repeat` for a held key), the last
+   * click (its timeStamp and click count), and the click that last moved a
    * line, for the double tap guard.
    */
-  const lastPress = useRef<{ type: string; at: number } | null>(null);
+  const lastPress = useRef<{ type: string; at: number; repeat: boolean } | null>(null);
+  const lastClick = useRef<{ at: number; detail: number } | null>(null);
   const lastMove = useRef<{ key: string; at: number } | null>(null);
+  /** A tap the double tap guard ignored, for a short cue on its check; a new id each time. */
+  const [ignored, setIgnored] = useState<{ key: string; id: number } | null>(null);
+  useEffect(() => {
+    if (!ignored) return;
+    const timer = setTimeout(() => setIgnored((before) => (before?.id === ignored.id ? null : before)), ignoredCueMs);
+    return () => clearTimeout(timer);
+  }, [ignored]);
   /**
-   * A check from the list (`checked`) or from I korgen (not `checked`): focus
-   * moves first, to the next line's check in the same place, else the one
+   * A check from the list (`checked`) or from I korgen (not `checked`). The
+   * press and click are read once. The second click of a double tap or
+   * double click, on another line within doubleTapGuardMs of the last move,
+   * is ignored with a short cue; an activation without a fresh pointer press
+   * (VoiceOver, Voice Control, Switch Control, a key) always counts. Then
+   * focus moves, to the next line's check in the same place, else the one
    * before, else the basket row's "Visa" (from the list) or the line itself
-   * back in its category (from I korgen); then the line moves and the move is
-   * announced. A finger's second tap of a double tap is ignored (doubleTapGuardMs).
+   * back in its category (from I korgen); the line moves, and the move is
+   * announced.
    */
   const moveLine = (line: ShoppingLine, checked: boolean) => {
     const press = lastPress.current;
+    const click = lastClick.current;
+    lastPress.current = null;
+    lastClick.current = null;
+    const clickAt = click?.at ?? null;
+    const viaPointer =
+      press !== null && press.type !== "keyboard" && clickAt !== null && clickAt >= press.at && clickAt - press.at < pressFreshMs;
+    const guarded = clickAt !== null && (viaPointer || (click?.detail ?? 0) > 1);
     const previous = lastMove.current;
-    if (press?.type === "touch" && previous && previous.key !== line.key && press.at - previous.at < doubleTapGuardMs) {
+    if (guarded && previous && previous.key !== line.key && clickAt - previous.at < doubleTapGuardMs) {
+      setIgnored((before) => ({ key: line.key, id: (before?.id ?? 0) + 1 }));
       return;
     }
-    if (press) lastMove.current = { key: line.key, at: press.at };
-    const order = checked ? leftKeys : inBasket.map((item) => item.key);
+    lastMove.current = guarded ? { key: line.key, at: clickAt } : null;
+    const order = checked ? leftKeys : basketKeys;
+    const area: FocusArea = checked ? "list" : "basket";
     const index = order.indexOf(line.key);
     const neighbour = index === -1 ? undefined : (order[index + 1] ?? order[index - 1]);
-    const target: FocusTarget = neighbour
-      ? { kind: "check", key: neighbour }
-      : checked
-        ? { kind: "basket-toggle" }
-        : { kind: "check", key: line.key };
+    const target: FocusTarget = neighbour ? { kind: "check", key: neighbour } : checked ? { kind: "basket-toggle" } : { kind: "check", key: line.key };
+    const targetArea: FocusArea = neighbour ? area : "list";
     // Before the line leaves, so focus never falls back to the page.
-    const element = target.kind === "check" && target.key === line.key ? null : focusElement(rootRef.current, target);
-    if (element) element.focus();
-    else pendingFocus.current = target;
+    const element = target.kind === "check" && target.key === line.key ? null : focusElement(rootRef.current, target, targetArea);
+    if (element) {
+      pendingFocus.current = null;
+      moveFocus(element, viaPointer);
+    } else {
+      pendingFocus.current = { target, area: targetArea, key: line.key, checked, viaPointer };
+    }
     toggle(line.key, checked);
     announce(checked ? inBasketAnnouncement(lineName(line)) : backOnListAnnouncement(lineName(line)));
   };
+  /** The saved checks of the latest taps, by line, to compare with the list once every save has settled. */
+  const savedChecks = useRef(new Map<string, boolean>());
+  /**
+   * A line that went back where it was: its check was not saved, or the
+   * server's list disagrees once the save has settled. The move's text is
+   * replaced by where the line is now, focus goes to its check, and I korgen
+   * opens when the line lands there.
+   */
+  function lineWentBack(key: string, intended: boolean) {
+    const line = lines.find((item) => item.key === key) ?? savedLines.find((item) => item.key === key);
+    if (!line) return;
+    const back = !intended;
+    if (back) setReopenFor(key);
+    pendingFocus.current = { target: { kind: "check", key }, area: back ? "basket" : "list", key, checked: back, viaPointer: true };
+    announce(back ? inBasketAnnouncement(lineName(line)) : backOnListAnnouncement(lineName(line)));
+  }
+  function handleSettled(key: string, checked: boolean, saved: boolean) {
+    if (saved) savedChecks.current.set(key, checked);
+    else {
+      savedChecks.current.delete(key);
+      lineWentBack(key, checked);
+    }
+  }
+  // Once nothing is being saved, the list shows the server's checks: one that differs from its save went back.
+  useEffect(() => {
+    if (settling || savedChecks.current.size === 0) return;
+    const expected = [...savedChecks.current];
+    savedChecks.current.clear();
+    for (const [key, checked] of expected) {
+      const shown = lines.find((item) => item.key === key);
+      if (shown && shown.checked !== checked) lineWentBack(key, checked);
+    }
+  });
   const [sheet, setSheet] = useState({ open: false, session: 0 });
   /** Listpostdetalj: the line as it was when its name was tapped, on the plan it was shown for. */
   const [detail, setDetail] = useState<{ open: boolean; session: number; line: ShoppingLine; planId: string } | null>(null);
@@ -675,16 +803,40 @@ export function ShoppingList({
   const [hiddenSheet, setHiddenSheet] = useState(false);
   // Nothing hidden any more: the sheet closes.
   if (hiddenSheet && hiddenLines.length === 0) setHiddenSheet(false);
+  /** A line's row, the same among the lines left and in I korgen. */
+  const lineRow = (line: ShoppingLine) => (
+    <ShoppingLineRow
+      key={line.key}
+      line={line}
+      meta={lineMetaText(line, plan?.dishTitles ?? {}, siteName, !pantryUnavailable)}
+      chip={chipChoice(line, store !== null, productChoices)?.productName ?? null}
+      onCheckedChange={(checked) => moveLine(line, checked)}
+      onRemove={(moveFocus) => removal.remove(line, moveFocus)}
+      onOpen={() => openDetail(line)}
+      checkingOff={checksUnavailable}
+      ignoredTap={ignored?.key === line.key ? ignored.id : null}
+    />
+  );
 
   return (
     <div
       ref={rootRef}
       // How a press began, for the double tap guard: a finger's taps only.
+      // How a press began, for the double tap guard; any press of Pontus's own drops a focus still waiting.
       onPointerDownCapture={(event) => {
-        lastPress.current = { type: event.pointerType, at: event.timeStamp };
+        lastPress.current = { type: event.pointerType, at: event.timeStamp, repeat: false };
+        pendingFocus.current = null;
       }}
       onKeyDownCapture={(event) => {
-        lastPress.current = { type: "keyboard", at: event.timeStamp };
+        lastPress.current = { type: "keyboard", at: event.timeStamp, repeat: event.repeat };
+        pendingFocus.current = null;
+        // A held Enter repeats its click: on a check it would empty the list one line at a time.
+        if (event.repeat && (event.key === "Enter" || event.key === " ") && (event.target as HTMLElement).getAttribute("role") === "checkbox") {
+          event.preventDefault();
+        }
+      }}
+      onClickCapture={(event) => {
+        lastClick.current = { at: event.timeStamp, detail: event.detail };
       }}
       className="flex flex-col gap-6"
     >
@@ -748,22 +900,11 @@ export function ShoppingList({
             // "Allt finns hemma." (or "… i lagret för Stugan.") only when the list has no lines at all, own items included.
             <EmptyState>{hasDishes ? allInStockText(siteName) : emptyPlanText}</EmptyState>
           ) : (
-            <div className="flex flex-col gap-4">
+            <div data-list-lines className="flex flex-col gap-4">
               <ProgressRow left={itemsLeft(lines)} checked={inBasket.length} total={lines.length} />
               {groups.map(({ category, lines: categoryLines }) => (
                 <CategorySection key={category} category={category}>
-                  {categoryLines.map((line) => (
-                    <ShoppingLineRow
-                      key={line.key}
-                      line={line}
-                      meta={lineMetaText(line, plan.dishTitles, siteName)}
-                      chip={chipChoice(line, store !== null, productChoices)?.productName ?? null}
-                      onCheckedChange={(checked) => moveLine(line, checked)}
-                      onRemove={(moveFocus) => removal.remove(line, moveFocus)}
-                      onOpen={() => openDetail(line)}
-                      checkingOff={checksUnavailable}
-                    />
-                  ))}
+                  {categoryLines.map(lineRow)}
                 </CategorySection>
               ))}
             </div>
@@ -779,18 +920,7 @@ export function ShoppingList({
           </Button>
           {inBasket.length > 0 ? (
             <Basket open={basketShown} onOpenChange={setBasketOpen} count={inBasket.length}>
-              {inBasket.map((line) => (
-                <ShoppingLineRow
-                  key={line.key}
-                  line={line}
-                  meta={lineMetaText(line, plan.dishTitles, siteName)}
-                  chip={chipChoice(line, store !== null, productChoices)?.productName ?? null}
-                  onCheckedChange={(checked) => moveLine(line, checked)}
-                  onRemove={(moveFocus) => removal.remove(line, moveFocus)}
-                  onOpen={() => openDetail(line)}
-                  checkingOff={checksUnavailable}
-                />
-              ))}
+              {inBasket.map(lineRow)}
             </Basket>
           ) : null}
           {hiddenLines.length > 0 ? (
@@ -803,6 +933,7 @@ export function ShoppingList({
             planId={plan.id}
             lines={hiddenLines}
             onShow={own.track}
+            vagueText={missingText(siteName, !pantryUnavailable)}
             onClose={() => setHiddenSheet(false)}
           />
           <CustomItemSheet
@@ -813,6 +944,8 @@ export function ShoppingList({
             onClose={() => setSheet((current) => ({ ...current, open: false }))}
           />
           <ListActions
+            // Room for both buttons while the list has lines, so the page does not move when the first check adds one.
+            reserve={hasLines && !checksUnavailable ? 2 : 1}
             putInPantry={
               // Shown while a line is checked off (as shown, before the check is saved), and while the flow runs.
               // Also for checks an interrupted run left behind (pendingClear), so the retry stays reachable.
@@ -866,7 +999,6 @@ export function ShoppingList({
   );
 }
 
-
 /**
  * The list's Fast åtgärdsknapp (UX-DR3, Story 11.4): one FixedAction with
  * "Skicka till ICA" (secondary) alone, or with "Lägg i lagret" (primary)
@@ -876,14 +1008,17 @@ export function ShoppingList({
 function ListActions({
   putInPantry,
   send,
+  reserve,
 }: {
   putInPantry: ReactNode;
   /** The button's text, what a tap does and whether it is off; `null` when there is nothing to send. */
   send: { text: string; onSend: () => void; disabled: boolean } | null;
+  /** How many buttons to keep room for (FixedAction). */
+  reserve: number;
 }) {
   if (!putInPantry && !send) return null;
   return (
-    <FixedAction>
+    <FixedAction reserve={reserve}>
       {send ? (
         <Button variant="secondary" disabled={send.disabled} onClick={send.onSend}>
           {send.text}
@@ -936,9 +1071,11 @@ function CategorySection({ category, children }: { category: Category; children:
 }
 
 /**
- * I korgen (DESIGN.md, basket-row; FR-43): the basket row "6 varor i korgen"
- * with the text button "Visa", which unfolds the heading "I korgen" and the
- * checked lines under it, struck through, and becomes "Dölj".
+ * I korgen (DESIGN.md, basket-row; FR-43): the basket row "6 varor i korgen",
+ * a heading so that heading navigation finds the basket also when it is
+ * folded, with the text button "Visa" ("Visa I korgen (6 varor)" for screen
+ * readers), which unfolds the heading "I korgen" and the checked lines under
+ * it, struck through, and becomes "Dölj".
  */
 function Basket({
   open,
@@ -957,15 +1094,17 @@ function Basket({
   return (
     <>
       <div data-testid="basket-row" className="flex items-center justify-between gap-3 pl-1">
-        <p className="min-w-0 text-body text-ink-2">{basketText(count)}</p>
+        <h2 className="min-w-0 text-body text-ink-2">{basketText(count)}</h2>
         <Button
           variant="text"
           data-basket-toggle
+          aria-label={basketToggleText(open, count)}
           aria-expanded={open}
           // Only while the region is there, so it never points at nothing.
           aria-controls={open ? regionId : undefined}
           onClick={() => onOpenChange(!open)}
-          className="-mr-3 shrink-0"
+          // In px like the page's gutter, so a larger root font never pushes it past the edge.
+          className="-mr-[12px] shrink-0"
         >
           {open ? "Dölj" : "Visa"}
         </Button>
@@ -999,6 +1138,7 @@ export function ShoppingLineRow({
   onRemove,
   onOpen,
   checkingOff = false,
+  ignoredTap = null,
 }: {
   line: ShoppingLine;
   /** The line under the name (lineMetaText), or `null`. */
@@ -1012,7 +1152,11 @@ export function ShoppingLineRow({
   onOpen?: () => void;
   /** Checking is off: the saved checks could not be read. */
   checkingOff?: boolean;
+  /** A tap on the check was ignored (doubleTapGuardMs): a new number each time, for a short cue; `null` for none. */
+  ignoredTap?: number | null;
 }) {
+  const metaId = useId();
+  const chipId = useId();
   const amount = lineAmountText(line);
   const title = (
     <>
@@ -1030,14 +1174,27 @@ export function ShoppingLineRow({
   const shared = {
     as: "div" as const,
     title,
-    meta,
+    // An id, so the check is described by it ("Saknas i Stugan · Korv stroganoff").
+    meta: meta ? <span id={metaId}>{meta}</span> : null,
     crossedOut: line.checked,
     // The strike-through, said: "Grädde 3 dl, i korgen".
     srStatus: line.checked ? "i korgen" : undefined,
     leading: (
-      <CheckCircle checked={line.checked} onCheckedChange={onCheckedChange} label={checkLabel(line)} disabled={checkingOff} />
+      <CheckCircle
+        checked={line.checked}
+        onCheckedChange={onCheckedChange}
+        label={checkLabel(line)}
+        disabled={checkingOff}
+        describedBy={[meta ? metaId : null, chip ? chipId : null].filter(Boolean).join(" ")}
+        // The ignored tap's cue: a ring that fades, without motion when "Minska rörelse" is on.
+        className={
+          ignoredTap === null || ignoredTap === undefined
+            ? undefined
+            : "motion-safe:animate-ignored-tap motion-reduce:outline-2 motion-reduce:-outline-offset-2 motion-reduce:outline-accent"
+        }
+      />
     ),
-    trailing: chip ? <ProductChip name={chip} /> : undefined,
+    trailing: chip ? <ProductChip name={chip} id={chipId} /> : undefined,
   };
   const row = onOpen ? (
     <ListRow

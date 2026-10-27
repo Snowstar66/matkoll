@@ -204,7 +204,7 @@ describe("Skicka till ICA", () => {
     render(<ServerList />);
     await user.click(screen.getByRole("checkbox", { name: "Gul lök, 2 st" }));
     await waitFor(() => expect(sendButton()).toBeEnabled());
-    await user.click(screen.getByRole("button", { name: "Visa" }));
+    await user.click(screen.getByRole("button", { name: /^Visa I korgen/ }));
     expect(screen.getByRole("checkbox", { name: "Gul lök, 2 st" })).toBeChecked();
 
     const put = screen.getByRole("button", { name: "Lägg i lagret" });

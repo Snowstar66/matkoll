@@ -84,7 +84,7 @@ describe("Lägg i lagret", () => {
     await user.click(screen.getByRole("checkbox", { name: "Grädde, 3 dl" }));
     expect(button()).toBeInTheDocument();
     // The checked line is in I korgen (Story 11.4); a check there takes it back.
-    await user.click(screen.getByRole("button", { name: "Visa" }));
+    await user.click(screen.getByRole("button", { name: /^Visa I korgen/ }));
     await user.click(screen.getByRole("checkbox", { name: "Grädde, 3 dl" }));
     expect(button()).not.toBeInTheDocument();
   });
@@ -94,7 +94,7 @@ describe("Lägg i lagret", () => {
     setChecked.mockImplementation(() => new Promise(() => {}));
     render(<ServerList initial={lines} />);
     await user.click(screen.getByRole("checkbox", { name: "Grädde, 3 dl" }));
-    await user.click(screen.getByRole("button", { name: "Visa" }));
+    await user.click(screen.getByRole("button", { name: /^Visa I korgen/ }));
     expect(screen.getByRole("checkbox", { name: "Grädde, 3 dl" })).toBeChecked();
     expect(button()).toBeInTheDocument();
     expect(button()).toBeDisabled();
@@ -133,7 +133,7 @@ describe("Lägg i lagret", () => {
       "Stället finns inte längre. Listan har räknats om mot Hemma. Tryck Lägg i lagret igen.",
     );
     expect(screen.getByText("1 vara i korgen")).toBeInTheDocument();
-    await user.click(screen.getByRole("button", { name: "Visa" }));
+    await user.click(screen.getByRole("button", { name: /^Visa I korgen/ }));
     expect(screen.getByRole("checkbox", { name: "Grädde, 3 dl" })).toBeChecked();
     expect(refresh).toHaveBeenCalledTimes(1);
   });

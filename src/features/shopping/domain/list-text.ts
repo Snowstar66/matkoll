@@ -78,6 +78,14 @@ export function basketText(count: number): string {
   return `${count} ${count === 1 ? "vara" : "varor"} i korgen`;
 }
 
+/**
+ * The basket row's button for screen readers, starting with its visible
+ * text ("Visa", "Dölj"): "Visa I korgen (6 varor)", "Dölj I korgen".
+ */
+export function basketToggleText(open: boolean, count: number): string {
+  return open ? "Dölj I korgen" : `Visa I korgen (${count} ${count === 1 ? "vara" : "varor"})`;
+}
+
 /** The heading of the checked lines when "Visa" opens them. */
 export const basketTitle = "I korgen";
 
@@ -154,16 +162,28 @@ export const customItemMetaText = "Egen vara";
  * stroganoff · Kycklinggryta"), without "från"; for a vague line whose
  * ingredient is not in the pantry, "Saknas i lagret" first, or "Saknas i
  * Stugan" with the place's name (pantry.shownSiteName, with more than one
- * place). `null` when there is nothing to say.
+ * place). Only when the pantry was read (`pantryRead`): when it could not
+ * be, nothing is known to be missing, and only the dishes are said. `null`
+ * when there is nothing to say.
  */
 export function lineMetaText(
   line: Pick<ShoppingLine, "isCustom" | "isVague" | "origins">,
   dishTitles: Readonly<Record<string, string>>,
   siteName: string | null,
+  pantryRead = true,
 ): string | null {
   if (line.isCustom) return customItemMetaText;
-  const parts = [...(line.isVague ? [`Saknas i ${siteName ?? "lagret"}`] : []), ...dishTitlesOf(line.origins, dishTitles)];
+  const missing = line.isVague ? missingText(siteName, pantryRead) : null;
+  const parts = [...(missing ? [missing] : []), ...dishTitlesOf(line.origins, dishTitles)];
   return parts.length > 0 ? parts.join(" · ") : null;
+}
+
+/**
+ * What a vague line says about the pantry: "Saknas i lagret", or "Saknas i
+ * Stugan" with the place's name; `null` when the pantry could not be read.
+ */
+export function missingText(siteName: string | null, pantryRead = true): string | null {
+  return pantryRead ? `Saknas i ${siteName ?? "lagret"}` : null;
 }
 
 /**

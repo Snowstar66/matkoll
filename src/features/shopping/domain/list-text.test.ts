@@ -5,6 +5,8 @@ import {
   backOnListAnnouncement,
   basketText,
   basketTitle,
+  basketToggleText,
+  missingText,
   checkLabel,
   groupByCategory,
   inBasketAnnouncement,
@@ -87,6 +89,18 @@ describe("list texts", () => {
     expect(lineMetaText(line({ origins: ["d1"], isVague: true }), titles, "Stugan")).toBe("Saknas i Stugan · Korv stroganoff");
     expect(lineMetaText(line({ origins: ["okänd"], isVague: true }), titles, null)).toBe("Saknas i lagret");
     expect(lineMetaText(line({ origins: ["okänd"] }), titles, null)).toBeNull();
+    // The pantry could not be read: nothing is known to be missing.
+    expect(lineMetaText(line({ origins: ["d1"], isVague: true }), titles, "Stugan", false)).toBe("Korv stroganoff");
+    expect(lineMetaText(line({ origins: [], isVague: true }), titles, null, false)).toBeNull();
+    expect(missingText(null)).toBe("Saknas i lagret");
+    expect(missingText("Stugan")).toBe("Saknas i Stugan");
+    expect(missingText("Stugan", false)).toBeNull();
+  });
+
+  it("names the basket row's button with its visible text first", () => {
+    expect(basketToggleText(false, 6)).toBe("Visa I korgen (6 varor)");
+    expect(basketToggleText(false, 1)).toBe("Visa I korgen (1 vara)");
+    expect(basketToggleText(true, 6)).toBe("Dölj I korgen");
   });
 
   it("names the items Ångra could not put back", () => {

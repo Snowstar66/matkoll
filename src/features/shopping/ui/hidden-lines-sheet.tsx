@@ -26,9 +26,15 @@ export type HiddenLinesSheetProps = {
   lines: readonly ShoppingLine[];
   /** Tracks the change, so the list's live region does not announce it. */
   onShow: OwnChanges["track"];
+  /**
+   * What a vague line shows in place of an amount ("Saknas i Stugan",
+   * list-text missingText), since it has none; `null` when the pantry could
+   * not be read.
+   */
+  vagueText?: string | null;
 };
 
-export function HiddenLinesSheet({ open, onClose, planId, lines, onShow }: HiddenLinesSheetProps) {
+export function HiddenLinesSheet({ open, onClose, planId, lines, onShow, vagueText = null }: HiddenLinesSheetProps) {
   const router = useRouter();
   /** The lines being shown again; their buttons wait. */
   const [busy, setBusy] = useState<ReadonlySet<string>>(() => new Set());
@@ -75,7 +81,7 @@ export function HiddenLinesSheet({ open, onClose, planId, lines, onShow }: Hidde
         ) : null}
         <ul aria-label={hiddenLinesTitle} className="flex flex-col">
           {lines.map((line) => {
-            const amount = lineAmountText(line);
+            const amount = line.isVague ? vagueText : lineAmountText(line);
             return (
               <li
                 key={line.key}

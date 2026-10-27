@@ -23,9 +23,10 @@ export function chipChoice(
  * readers. Plain text, not a control: the choice is changed in the line's
  * detail.
  */
-export function ProductChip({ name }: { name: string }) {
+export function ProductChip({ name, id }: { name: string; /** For the check's aria-describedby. */ id?: string }) {
   return (
     <span
+      id={id}
       data-testid="product-chip"
       className="block max-w-[40cqw] truncate rounded-sm bg-sky px-2 py-0.5 text-badge text-sky-ink"
     >
