@@ -26,6 +26,8 @@ export type SearchFieldProps = {
    * (Lagersaldo, Story 11.3).
    */
   delayMs?: number;
+  /** Whether the cross "Rensa sökning" shows while the field has text; false when the page offers its own (Lagersaldo without a match). */
+  clearable?: boolean;
   /** The most characters the field takes, e.g. the action's limit. */
   maxLength?: number;
   className?: string;
@@ -39,6 +41,7 @@ export function SearchField({
   onSearch,
   maxLength,
   delayMs = searchDelayMs,
+  clearable = true,
   className,
   ref,
 }: SearchFieldProps) {
@@ -105,7 +108,7 @@ export function SearchField({
         }}
         className="h-full min-w-0 flex-1 bg-transparent text-body text-ink outline-none placeholder:text-ink-3 [&::-webkit-search-cancel-button]:appearance-none"
       />
-      {value ? (
+      {value && clearable ? (
         <button
           type="button"
           onClick={clear}

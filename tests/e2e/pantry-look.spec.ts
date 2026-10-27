@@ -12,8 +12,19 @@ import { adminClient, e2eUserId, pantryLookEmail, pantryLookStorageState } from 
 test.use({ storageState: pantryLookStorageState, viewport: { width: 375, height: 812 } });
 test.describe.configure({ mode: "serial" });
 
-const dayMs = 24 * 60 * 60 * 1000;
-const daysAgo = (days: number) => new Date(Date.now() - days * dayMs).toISOString();
+/**
+ * Noon in Stockholm `days` calendar days back (11:00 UTC is 12:00 or 13:00
+ * there), so the day holds whatever the time of the run and over the change
+ * to summer or winter time. Today's noon, if it has not come yet, is now.
+ */
+function stockholmNoon(days: number): string {
+  const [year, month, day] = new Intl.DateTimeFormat("en-CA", { timeZone: "Europe/Stockholm" })
+    .format(new Date())
+    .split("-")
+    .map(Number);
+  const noon = new Date(Date.UTC(year, month - 1, day - days, 11, 0));
+  return (noon.getTime() > Date.now() ? new Date() : noon).toISOString();
+}
 
 type Seed = {
   name: string;
@@ -93,7 +104,7 @@ async function reset(places: string[], items: Seed[]): Promise<{ sites: Record<s
         amount: item.amount,
         unit: item.unit,
         label: item.label,
-        created_at: daysAgo(item.days),
+        created_at: stockholmNoon(item.days),
       })),
     )
     .select("id, ingredient_id");
@@ -221,9 +232,10 @@ test("the bin removes at once, focus goes to the next bin, and Ångra brings the
   expect(errors).toEqual([]);
 });
 
-test("a second removal replaces the confirmation, and the first item stays removed", async ({ page }) => {
+test("a second removal joins the confirmation, and one Ångra puts back both", async ({ page }) => {
   const errors = watchErrors(page);
   const { ids } = await reset(["Hemma"], fridge);
+  const before = await stored();
   await page.goto("/hemma");
 
   await bin(page, "Gräddfil").click();
@@ -231,12 +243,12 @@ test("a second removal replaces the confirmation, and the first item stays remov
   await pastGuard(page);
   await bin(page, "Ägg").click();
   await expect(toast(page)).toHaveCount(1);
-  await expect(toast(page)).toContainText("Tog bort Ägg.");
+  await expect(toast(page)).toContainText("Tog bort Gräddfil och Ägg.");
+  await expect.poll(async () => (await stored()).has(ids["Ägg"])).toBe(false);
   await toast(page).getByRole("button", { name: "Ångra" }).click();
   await expect(row(page, "Ägg")).toHaveCount(1);
-  await expect(row(page, "Gräddfil")).toHaveCount(0);
-  const rowsNow = await stored();
-  expect(rowsNow.has(ids["Gräddfil"])).toBe(false);
+  await expect(row(page, "Gräddfil")).toHaveText(/^Gräddfil\s*Tillagd för 6 dagar sedan$/);
+  await expect.poll(async () => (await stored()).get(ids["Gräddfil"])).toEqual(before.get(ids["Gräddfil"]));
   await expect.poll(async () => (await stored()).has(ids["Ägg"])).toBe(true);
   expect(errors).toEqual([]);
 });
@@ -258,18 +270,30 @@ test("Sök i kylen filters on name and brand, says when nothing matches, and sta
   const field = search(page);
   await expect(field).toHaveAttribute("placeholder", "Sök i kylen");
   expect(await field.evaluate((input) => Number.parseFloat(getComputedStyle(input).fontSize))).toBeGreaterThanOrEqual(16);
+  await expect(page.getByRole("button", { name: "Töm kylen" }).filter({ visible: true })).toBeVisible();
   await field.fill("mjö");
   expect(await shownCategories(page)).toEqual([["Mejeri & ägg", "1", ["Mellanmjölk | Arla laktosfri"]]]);
-  // The card counts the whole fridge, not the matches.
+  // The card counts the whole fridge, not the matches, and Töm kylen hides while only matches show.
   await expect(places(page).getByRole("link", { name: /^Kyl/ })).toContainText("6 varor");
+  await expect(page.getByRole("button", { name: "Töm kylen" }).filter({ visible: true })).toHaveCount(0);
+  // Screen readers hear how many match, once the search has rested.
+  await expect(page.getByTestId("pantry-search-status").filter({ visible: true })).toHaveText("1 träff");
+
+  // Each word against the name and the brand, without regard to marks or curly apostrophes.
+  await field.fill("mjölk arla");
+  await expect(rows(page)).toHaveCount(1);
+  await field.fill("johnny\u2019s");
+  await expect(rows(page)).toHaveCount(1);
 
   await field.fill("johnny");
   expect(await shownCategories(page)).toEqual([["Såser & smaksättare", "1", ["Senap | Johnny's"]]]);
 
   await field.fill("xyz");
-  await expect(page.getByText("Inget i kylen matchar.")).toBeVisible();
+  await expect(page.locator("p").filter({ hasText: "Inget i kylen matchar." })).toBeVisible();
   await expect(categories(page)).toHaveCount(0);
-  await page.getByRole("button", { name: "Rensa sökning" }).filter({ hasText: "Rensa sökning" }).click();
+  // One control by that name: the field's cross is left out.
+  await expect(page.getByRole("button", { name: "Rensa sökning" })).toHaveCount(1);
+  await page.getByRole("button", { name: "Rensa sökning" }).click();
   await expect(field).toHaveValue("");
   await expect(field).toBeFocused();
   await expect(categories(page)).toHaveCount(4);

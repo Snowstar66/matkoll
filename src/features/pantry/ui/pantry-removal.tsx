@@ -18,7 +18,6 @@ import {
   maybeEmptiedText,
   notRestoredText,
   removedCountText,
-  removedItemsText,
   removedItemText,
   restoredElsewhereText,
 } from "../domain/places";
@@ -31,7 +30,8 @@ import { useLiveUndo } from "./site-switching";
 // and the short confirmation ("Tog bort Gräddfil.", Story 11.3) offers
 // "Ångra" for 5 s, which puts the row back with the same id, time and brand
 // (AD-20). The bin on a row and "Ta bort" in the sheet Lagervara both come
-// here. A new removal replaces the confirmation; the earlier one stays removed. "Töm kylen" (Story 6.3) comes here too, after
+// here. A removal while the confirmation shows joins it ("Tog bort Gräddfil
+// och Mjölk."), so one "Ångra" puts back everything since it appeared. "Töm kylen" (Story 6.3) comes here too, after
 // its sheet has asked: one call empties the location under an operation id,
 // the server keeps the removed rows, and "Ångra" puts them all back by that
 // id in one call.
@@ -114,12 +114,20 @@ function serverHas(entry: Entry, items: readonly PantryItem[] | undefined): bool
   return listed || (entry.seen !== undefined && entry.seen !== items);
 }
 
+type RemoveOptions = {
+  /** Keyboard, screen reader or the sheet: focus goes to the next item once the row is gone. */
+  moveFocus?: boolean;
+  /** The removal failed and the item is back, e.g. to give its bin focus again. */
+  onFailed?: () => void;
+};
+
 type PantryRemovalApi = {
   /**
-   * Removes the item at once; the short confirmation offers "Ångra".
-   * `moveFocus` (keyboard, sheet): focus goes to the next item afterwards.
+   * Removes the item at once; the short confirmation offers "Ångra". Returns
+   * false when the item is being removed already: nothing happens, and the
+   * caller moves no focus.
    */
-  removeItem: (item: PantryItem, options?: { moveFocus?: boolean }) => void;
+  removeItem: (item: PantryItem, options?: RemoveOptions) => boolean;
   /**
    * "Töm kylen" after the sheet has asked: empties `location` of the place
    * Hemma showed when the sheet opened (`site`, Story 8.4) on the server
@@ -157,8 +165,8 @@ export function usePantryRemoval(): PantryRemovalApi {
   return api;
 }
 
-/** A single item removed, and its row as it was. */
-type Removed = { item: PantryItem; row: PantryRow };
+/** A single item removed, its row as it was, and its tap's place in the order (`seq`). */
+type Removed = { item: PantryItem; row: PantryRow; seq: number };
 
 /** An emptied location of a place, whose rows the server keeps under the operation id. */
 type Operation = {
@@ -172,8 +180,15 @@ type Operation = {
   known: readonly PantryItem[];
 };
 
-/** Everything one confirmation's "Ångra" puts back. */
-type Batch = { singles: readonly Removed[]; operations: readonly Operation[] };
+/**
+ * Everything one confirmation names: what its "Ångra" puts back (`singles`,
+ * `operations`), and items removed while it showed that cannot be put back
+ * (`gone`), which only its text counts.
+ */
+type Batch = { singles: readonly Removed[]; operations: readonly Operation[]; gone: readonly Gone[] };
+
+/** A removed item that cannot be put back, with its tap's place in the order. */
+type Gone = { item: PantryItem; seq: number };
 
 /** Rows put back on a place and location: their place's name is known for an emptied location. */
 type Restored = { siteId: string; site: SelectedSite | null; location: Location; count: number };
@@ -185,20 +200,20 @@ type Outcome = { ok: true; skipped: number; restored: Restored[] } | { ok: false
 export const lostEmptyWindowMs = 30_000;
 
 /** The confirmation's text for what "Ångra" would put back. */
-function batchText({ singles, operations }: Batch): string {
-  if (operations.length === 0) {
-    return singles.length === 1 ? removedItemText(singles[0].item.name) : removedItemsText(singles.map(({ item }) => item.name));
-  }
+function batchText({ singles, operations, gone }: Batch): string {
+  // In the order they were tapped, whichever answer came first.
+  const items = [...singles, ...gone].sort((a, b) => a.seq - b.seq).map(({ item }) => item);
+  if (operations.length === 0) return removedItemText(items.map(({ name }) => name));
   const unknown = operations.find((operation) => operation.count === null);
   if (unknown) return maybeEmptiedText(unknown.location);
   const [first] = operations;
-  if (singles.length === 0 && operations.length === 1) return emptiedPlaceText(first.location, first.count ?? 0, first.site);
-  const count = operations.reduce((sum, operation) => sum + (operation.count ?? 0), singles.length);
+  if (items.length === 0 && operations.length === 1) return emptiedPlaceText(first.location, first.count ?? 0, first.site);
+  const count = operations.reduce((sum, operation) => sum + (operation.count ?? 0), items.length);
   // One place's name only when everything is from that place (Story 8.4).
-  const sites = new Set([...operations.map(({ site }) => site.id), ...singles.map(({ item }) => item.siteId)]);
+  const sites = new Set([...operations.map(({ site }) => site.id), ...items.map(({ siteId }) => siteId)]);
   return removedCountText(
     count,
-    [...operations.map(({ location }) => location), ...singles.map(({ item }) => item.location)],
+    [...operations.map(({ location }) => location), ...items.map(({ location }) => location)],
     sites.size === 1 ? first.site : null,
   );
 }
@@ -221,10 +236,11 @@ const unnamed = (id: string, siteId: string, location: Location): PantryItem => 
  * Holds the removals for Hemma. The list follows at once: a removed item is
  * gone while removePantryItem runs and stays gone until the server's list no
  * longer has it, so it never flashes back; "Ångra" shows it again until the
- * server's list has it. A single removal replaces the confirmation ("Tog
- * bort Ägg."), and the item before it stays removed (Story 11.3). An emptied
- * location joins the confirmation showing ("Tog bort 15 varor ur kylen."),
- * and "Ångra" puts everything in it back. A failed removal brings the item back, and a failed "Ångra" takes it
+ * server's list has it. Removals while the confirmation shows join it ("Tog
+ * bort Gräddfil och Mjölk.", "Tog bort 3 varor."), also an emptied location
+ * and single items together ("Tog bort 15 varor ur kylen."), and "Ångra"
+ * puts them all back. Answers that come out of order keep the taps' order,
+ * and an item that cannot be put back only joins the text. A failed removal brings the item back, and a failed "Ångra" takes it
  * away again, each with a short confirmation announced as an alert, since
  * the toasts outlive a change of location. When an action gets no answer,
  * the page is read again so the list shows what is saved. Needs a
@@ -246,6 +262,10 @@ export function PantryRemovalProvider({ children }: { children: ReactNode }) {
   const serverItems = useRef(new Map<string, readonly PantryItem[]>());
   /** What the confirmation showing now puts back; a new object per confirmation. */
   const batch = useRef<Batch | null>(null);
+  /** The items whose removal is on its way: a second press on the same one does nothing. */
+  const removing = useRef(new Set<string>());
+  /** Counts the taps that remove an item, so answers that come out of order keep the taps' order. */
+  const tapSeq = useRef(0);
   /** An emptying whose answer was lost, until the location's items are read again. */
   const lostEmpty = useRef<{ operation: Operation; at: number } | null>(null);
   /** The place Hemma shows, as last reported: "Ångra" says where rows went that it does not show (Story 8.4). */
@@ -432,12 +452,26 @@ export function PantryRemovalProvider({ children }: { children: ReactNode }) {
   /** `operation` joins the confirmation showing now, replacing an earlier one with the same id. */
   function confirmOperation(operation: Operation) {
     const others = (batch.current?.operations ?? []).filter((other) => other.id !== operation.id);
-    showBatch({ singles: batch.current?.singles ?? [], operations: [...others, operation] });
+    showBatch({ singles: batch.current?.singles ?? [], operations: [...others, operation], gone: batch.current?.gone ?? [] });
   }
 
-  async function removeItem(item: PantryItem, options?: { moveFocus?: boolean }) {
+  /**
+   * Starts removing `item`; false when it is being removed already (a second
+   * press), so the caller moves no focus. The answer joins the confirmation
+   * showing, whatever came between (Story 11.3).
+   */
+  function removeItem(item: PantryItem, options?: RemoveOptions): boolean {
+    if (removing.current.has(item.id)) return false;
+    removing.current.add(item.id);
+    tapSeq.current += 1;
+    const seq = tapSeq.current;
     const token = begin("remove", item);
     if (options?.moveFocus) setFocusAfter(item.id);
+    void finishRemoval(item, seq, token, options).finally(() => removing.current.delete(item.id));
+    return true;
+  }
+
+  async function finishRemoval(item: PantryItem, seq: number, token: number, options?: RemoveOptions) {
     let result: Result<PantryRow | null>;
     let lost = false;
     try {
@@ -450,16 +484,24 @@ export function PantryRemovalProvider({ children }: { children: ReactNode }) {
     if (!result.ok) {
       drop(item.id, token);
       failed(result.error.message, lost);
+      options?.onFailed?.();
       return;
     }
     settle(item.id, token);
+    const current = batch.current;
     if (result.data === null) {
-      // Gone, but it cannot be put back.
-      showToast(removedItemText(item.name));
+      // Gone, but it cannot be put back: a confirmation with "Ångra" that shows keeps its "Ångra" and names it too.
+      if (current) showBatch({ ...current, gone: [...current.gone, { item, seq }] });
+      else showToast(removedItemText([item.name]));
       return;
     }
-    // Story 11.3: a new removal replaces the confirmation, and the earlier removals stay.
-    showBatch({ singles: [{ item, row: result.data }], operations: [] });
+    // Story 11.3: every removal joins the confirmation showing, so one "Ångra" puts back all of it,
+    // also an emptied location; an answer that comes late takes its place by its tap (`seq`).
+    const removed: Removed = { item, row: result.data, seq };
+    const singles = [...(current?.singles ?? []).filter((other) => other.item.id !== item.id), removed].sort(
+      (a, b) => a.seq - b.seq,
+    );
+    showBatch({ singles, operations: current?.operations ?? [], gone: current?.gone ?? [] });
   }
 
   // The place is the one Hemma showed when the sheet opened (Story 8.4):
@@ -547,7 +589,7 @@ export function PantryRemovalProvider({ children }: { children: ReactNode }) {
   }, [entries, inFlight]);
   const focusMoved = useCallback(() => setFocusAfter(null), []);
   const api: PantryRemovalApi = {
-    removeItem: (item, options) => void removeItem(item, options),
+    removeItem,
     emptyPlace,
     isPending: (siteId, location) => pending.has(placeKey(siteId, location)),
     changes,

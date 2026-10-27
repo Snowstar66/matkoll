@@ -68,8 +68,10 @@ describe("savedItemText", () => {
 
 describe("removedItemText", () => {
   it("names the item as the list shows it (Story 11.3)", () => {
-    expect(removedItemText("Gräddfil")).toBe("Tog bort Gräddfil.");
-    expect(removedItemText("Coca-Cola Zero")).toBe("Tog bort Coca-Cola Zero.");
+    expect(removedItemText(["Gräddfil"])).toBe("Tog bort Gräddfil.");
+    expect(removedItemText(["Coca-Cola Zero"])).toBe("Tog bort Coca-Cola Zero.");
+    expect(removedItemText(["Gräddfil", "Mjölk"])).toBe("Tog bort Gräddfil och Mjölk.");
+    expect(removedItemText(["Gräddfil", "Mjölk", "Ägg"])).toBe("Tog bort 3 varor.");
   });
 });
 

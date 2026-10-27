@@ -433,24 +433,24 @@ test.describe("removing an item", () => {
     expect(errors).toEqual([]);
   });
 
-  test("a second removal replaces the confirmation, and its Ångra puts back only that item", async ({ page }) => {
+  test("a second removal joins the confirmation, and one Ångra puts back both", async ({ page }) => {
     const errors = watchErrors(page);
-    const smor = await rowId(userId, "Smör", "Kyl");
+    const ids = [await rowId(userId, "Mjölk", "Kyl"), await rowId(userId, "Smör", "Kyl")];
     await page.goto("/hemma");
     await bin(page, "Mjölk").click();
     await expect(toast(page)).toContainText("Tog bort Mjölk.");
     // Past the bins' double-tap guard (400 ms), as between two real taps.
     await page.waitForTimeout(450);
     await bin(page, "Smör").click();
-    await expect(toast(page)).toContainText("Tog bort Smör.");
+    await expect(toast(page)).toContainText("Tog bort Mjölk och Smör.");
     await expect(rows(page)).toHaveText([today("Salt")]);
     await expect(card(page, "Kyl")).toHaveText(/^Kyl\s*1 vara$/);
 
-    await undoAndWait(page);
+    await undoAndWait(page, 2);
     await expect(toast(page)).toHaveCount(0);
-    await expect(rows(page)).toHaveText([today("Smör"), today("Salt")]);
-    expect(await rowId(userId, "Smör", "Kyl")).toBe(smor);
-    expect(await rowId(userId, "Mjölk", "Kyl")).toBeNull();
+    await expect(rows(page)).toHaveText([today("Mjölk"), today("Smör"), today("Salt")]);
+    await expect(card(page, "Kyl")).toHaveText(/^Kyl\s*3 varor$/);
+    expect([await rowId(userId, "Mjölk", "Kyl"), await rowId(userId, "Smör", "Kyl")]).toEqual(ids);
     expect(errors).toEqual([]);
   });
 
