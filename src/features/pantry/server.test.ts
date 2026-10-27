@@ -42,7 +42,18 @@ vi.mock("./data/queries", async (importOriginal) => ({
   loadPantrySnapshot: (...args: unknown[]) => loadPantrySnapshot(...args),
 }));
 
-const { addToPantry, getPantryForStatus } = await import("./server");
+const loadPlacePhotosIn = vi.fn();
+const loadPlacePhotoIn = vi.fn();
+const downloadPlacePhoto = vi.fn();
+const placePhotoFileExists = vi.fn();
+vi.mock("./data/photos", () => ({
+  placePhotoFileExists: (...args: unknown[]) => placePhotoFileExists(...args),
+  loadPlacePhotosIn: (...args: unknown[]) => loadPlacePhotosIn(...args),
+  loadPlacePhotoIn: (...args: unknown[]) => loadPlacePhotoIn(...args),
+  downloadPlacePhoto: (...args: unknown[]) => downloadPlacePhoto(...args),
+}));
+
+const { addToPantry, getPantryForStatus, hasPlacePhoto, listPlacePhotos, readPlacePhotoImage } = await import("./server");
 
 const item = {
   key: "33333333-3333-4333-8333-333333333333",
@@ -151,5 +162,98 @@ describe("getPantryForStatus", () => {
   it("throws what it does not expect", async () => {
     loadPantrySnapshot.mockRejectedValue(new TypeError("bug"));
     await expect(getPantryForStatus()).rejects.toThrow("bug");
+  });
+});
+
+describe("listPlacePhotos (Story 10.2)", () => {
+  const hemma = { id: "44444444-4444-4444-8444-444444444444", name: "Hemma", isSelected: true };
+  const stuganSite = { id: stugan, name: "Stugan", isSelected: false };
+  const photo = { id: "66666666-6666-4666-8666-666666666666", location: "Kyl" };
+
+  beforeEach(() => {
+    loadPantrySitesIn.mockReset().mockResolvedValue([hemma, stuganSite]);
+    loadPlacePhotosIn.mockReset().mockResolvedValue([photo]);
+  });
+
+  it("reads the photos of the place given, or of the selected place, at the time now", async () => {
+    expect(await listPlacePhotos(stugan)).toEqual({ photos: [photo] });
+    expect(loadPlacePhotosIn).toHaveBeenCalledWith(db, stugan, expect.any(Date));
+    await listPlacePhotos();
+    expect(loadPlacePhotosIn).toHaveBeenLastCalledWith(db, hemma.id, expect.any(Date));
+  });
+
+  it("gives none to a user without places", async () => {
+    loadPantrySitesIn.mockResolvedValue([]);
+    expect(await listPlacePhotos()).toEqual({ photos: [] });
+    expect(loadPlacePhotosIn).not.toHaveBeenCalled();
+  });
+
+  it("gives none, logged with the reason only, when the photos or the place cannot be read", async () => {
+    loadPlacePhotosIn.mockRejectedValue(new PantryDataError("query_failed 08006"));
+    expect(await listPlacePhotos(stugan)).toEqual({ photos: [] });
+    expect(log).toHaveBeenCalledWith("pantry_photos_unavailable", { reason: "query_failed 08006" });
+    // Another user's place, or one deleted meanwhile.
+    expect(await listPlacePhotos("77777777-7777-4777-8777-777777777777")).toEqual({ photos: [] });
+    expect(log).toHaveBeenLastCalledWith("pantry_photos_unavailable", { reason: "site_gone" });
+  });
+
+  it("gives none for a bug too, logged with the error's name only, so the line never breaks Lagersaldo", async () => {
+    loadPlacePhotosIn.mockRejectedValue(new TypeError("user/site/kyl/photo.jpg"));
+    expect(await listPlacePhotos(stugan)).toEqual({ photos: [] });
+    expect(log).toHaveBeenCalledWith("pantry_photos_unavailable", { reason: "unexpected TypeError" });
+    expect(JSON.stringify(log.mock.calls)).not.toContain("photo.jpg");
+  });
+});
+
+describe("readPlacePhotoImage (Story 10.2)", () => {
+  const id = "66666666-6666-4666-8666-666666666666";
+  const file = { objectPath: "user/site/kyl/photo.jpg", mediaType: "image/jpeg" };
+
+  beforeEach(() => {
+    loadPlacePhotoIn.mockReset().mockResolvedValue(file);
+    downloadPlacePhoto.mockReset();
+  });
+
+  it("reads the row, then its file, with the session client", async () => {
+    const blob = new Blob([new Uint8Array([1])]);
+    downloadPlacePhoto.mockResolvedValue(blob);
+    expect(await readPlacePhotoImage(id)).toEqual({ data: blob, mediaType: "image/jpeg" });
+    expect(loadPlacePhotoIn).toHaveBeenCalledWith(db, id, expect.any(Date));
+    expect(downloadPlacePhoto).toHaveBeenCalledWith(db, file.objectPath);
+  });
+
+  it("gives null without the row, without asking Storage, and without the file", async () => {
+    loadPlacePhotoIn.mockResolvedValue(null);
+    expect(await readPlacePhotoImage(id)).toBeNull();
+    expect(downloadPlacePhoto).not.toHaveBeenCalled();
+    loadPlacePhotoIn.mockResolvedValue(file);
+    downloadPlacePhoto.mockResolvedValue(null);
+    expect(await readPlacePhotoImage(id)).toBeNull();
+  });
+});
+
+describe("hasPlacePhoto (Story 10.2)", () => {
+  const id = "66666666-6666-4666-8666-666666666666";
+  const file = { objectPath: "user/site/kyl/photo.jpg", mediaType: "image/jpeg" };
+
+  beforeEach(() => {
+    loadPlacePhotoIn.mockReset().mockResolvedValue(file);
+    placePhotoFileExists.mockReset().mockResolvedValue(true);
+    downloadPlacePhoto.mockReset();
+  });
+
+  it("checks the row and then the file, never downloading it", async () => {
+    expect(await hasPlacePhoto(id)).toBe(true);
+    expect(loadPlacePhotoIn).toHaveBeenCalledWith(db, id, expect.any(Date));
+    expect(placePhotoFileExists).toHaveBeenCalledWith(db, file.objectPath);
+    placePhotoFileExists.mockResolvedValue(false);
+    expect(await hasPlacePhoto(id)).toBe(false);
+    expect(downloadPlacePhoto).not.toHaveBeenCalled();
+  });
+
+  it("gives false without the row, without asking Storage", async () => {
+    loadPlacePhotoIn.mockResolvedValue(null);
+    expect(await hasPlacePhoto(id)).toBe(false);
+    expect(placePhotoFileExists).not.toHaveBeenCalled();
   });
 });

@@ -2,9 +2,10 @@ import { Notice } from "@/components/notice";
 import { requireUserOrRedirect } from "@/features/auth/server";
 import type { Location } from "@/features/catalog";
 import { CatalogDataError } from "@/features/catalog/server";
-import type { PantryItem, SelectedSite } from "@/features/pantry";
-import { countPantryItems, isPantrySiteGone, listPantry, PantryDataError } from "@/features/pantry/server";
+import { photoTimeText, type PantryItem, type SelectedSite } from "@/features/pantry";
+import { countPantryItems, isPantrySiteGone, listPantry, listPlacePhotos, PantryDataError } from "@/features/pantry/server";
 import { AddSiteButton } from "@/features/pantry/ui/add-site-button";
+import { LatestPhoto, type ShownPlacePhoto } from "@/features/pantry/ui/latest-photo";
 import { PantryCamera } from "@/features/pantry/ui/pantry-camera";
 import { PantryPlace } from "@/features/pantry/ui/pantry-place";
 import { PantrySuggestionList } from "@/features/pantry/ui/pantry-suggestion-list";
@@ -28,10 +29,21 @@ export type HomeContentProps = {
  * and the suggestions under it (a photo needs no list); a place deleted in
  * the meantime says so too (`pantry_site_gone`). With one place, "Lägg till
  * ställe" is there in both cases. Other errors go to the error boundary.
+ *
+ * Story 10.2: the latest photo of the chosen location on the place, younger
+ * than 30 days, is read with them (its row only, never the image), and its
+ * line "Senaste foto av kylen: idag 15:42" comes right under the camera
+ * button, also when the pantry could not be read. The time is written here,
+ * on the server, in Swedish time. Without a photo, or when the photos could
+ * not be read (listPlacePhotos logs it), there is no line.
  */
 export async function HomeContent({ site, location, next }: HomeContentProps) {
   await requireUserOrRedirect(next);
 
+  // Started first, so it is read alongside the pantry, and is there for the notice below too.
+  const photoRead = latestPhoto(site.id, location);
+  // Awaited below, unless the pantry fails with a bug, which goes to the error boundary without it.
+  photoRead.catch(() => {});
   let counts: Record<Location, number>;
   let items: PantryItem[];
   try {
@@ -51,6 +63,7 @@ export async function HomeContent({ site, location, next }: HomeContentProps) {
       <div className="flex flex-col gap-6">
         <Notice role="alert">{message}</Notice>
         <PantryCamera site={site} location={location} />
+        <LatestPhoto photo={await photoRead} location={location} />
         <PantrySuggestionList siteId={site.id} />
         {/* With one place, the sheet Ställen is reached only from here (needs a SiteSwitch above). */}
         {site.siteCount === 1 ? <AddSiteButton /> : null}
@@ -58,5 +71,15 @@ export async function HomeContent({ site, location, next }: HomeContentProps) {
     );
   }
 
-  return <PantryPlace site={site} location={location} counts={counts} items={items} />;
+  return <PantryPlace site={site} location={location} counts={counts} items={items} photo={await photoRead} />;
+}
+
+/**
+ * The latest photo of `location` on the place `siteId` (listPlacePhotos),
+ * with the time it was taken as the line writes it, or `null` for none.
+ */
+async function latestPhoto(siteId: string, location: Location): Promise<ShownPlacePhoto | null> {
+  const { photos } = await listPlacePhotos(siteId);
+  const photo = photos.find((candidate) => candidate.location === location);
+  return photo ? { ...photo, time: photoTimeText(photo.takenAt, new Date()) } : null;
 }
