@@ -166,6 +166,12 @@ export const photoSaveEmail = "e2e-foto-spara@matkoll.test";
  */
 export const labelEmail = "e2e-utseende-marke@matkoll.test";
 /**
+ * The E2E user of recipes-look.spec.ts alone (Story 11.5): each test seeds
+ * its recipes, pantry and meal plan with the service role, so the recipe
+ * cards and dish cards depend on nothing else.
+ */
+export const recipesLookEmail = "e2e-utseende-recept@matkoll.test";
+/**
  * The E2E user of shopping-look.spec.ts alone (Story 11.4, Inköpslistan in
  * the new look): each test sets its places, catalog, recipes, meal plan,
  * checks, store and product choices with the service role.
@@ -223,6 +229,7 @@ export const e2eEmails = [
   sitePhotoEmail,
   photoSaveEmail,
   labelEmail,
+  recipesLookEmail,
   shoppingLookEmail,
   pantryLookEmail,
   photoSweepEmail,
@@ -259,6 +266,7 @@ export const siteListStorageState = "tests/e2e/.auth/site-list.json";
 export const sitePhotoStorageState = "tests/e2e/.auth/site-photo.json";
 export const photoSaveStorageState = "tests/e2e/.auth/photo-save.json";
 export const labelStorageState = "tests/e2e/.auth/label.json";
+export const recipesLookStorageState = "tests/e2e/.auth/recipes-look.json";
 export const shoppingLookStorageState = "tests/e2e/.auth/shopping-look.json";
 export const pantryLookStorageState = "tests/e2e/.auth/pantry-look.json";
 export const photoSweepStorageState = "tests/e2e/.auth/photo-sweep.json";

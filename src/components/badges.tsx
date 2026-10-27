@@ -8,14 +8,27 @@ export type StatusBadgeProps = {
   status: "ok" | "missing";
   /** The status in words; colour never carries it alone. */
   children: ReactNode;
+  /**
+   * On a recipe image (image-badge, Epic 11): the status colour as text on
+   * the light `overlay` plate, so it reads on any picture.
+   */
+  onImage?: boolean;
   className?: string;
 };
 
-export function StatusBadge({ status, children, className }: StatusBadgeProps) {
+const statusColors: Record<StatusBadgeProps["status"], string> = {
+  ok: "bg-mint text-mint-ink",
+  missing: "bg-sky text-sky-ink",
+};
+
+const statusColorsOnImage: Record<StatusBadgeProps["status"], string> = {
+  ok: "bg-overlay text-mint-ink",
+  missing: "bg-overlay text-sky-ink",
+};
+
+export function StatusBadge({ status, children, onImage = false, className }: StatusBadgeProps) {
   return (
-    <span className={cx(badge, status === "ok" ? "bg-mint text-mint-ink" : "bg-sky text-sky-ink", className)}>
-      {children}
-    </span>
+    <span className={cx(badge, (onImage ? statusColorsOnImage : statusColors)[status], className)}>{children}</span>
   );
 }
 

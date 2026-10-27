@@ -144,7 +144,7 @@ function countSuggestCalls(page: Page): () => number {
 // Earlier routes stay mounted but hidden after a client navigation, so every
 // locator is scoped to what is visible.
 const visible = (page: Page) => page.locator("main").filter({ visible: true });
-const rows = (page: Page) => page.getByTestId("recipe-row").filter({ visible: true });
+const rows = (page: Page) => page.getByTestId("recipe-card").filter({ visible: true });
 const pill = (page: Page, name: "Alla" | "Kan lagas nu") => page.getByRole("radio", { name }).filter({ visible: true });
 const section = (page: Page) => page.getByRole("region", { name: "AI-förslag" }).filter({ visible: true });
 const cards = (page: Page) => section(page).getByRole("listitem");

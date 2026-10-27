@@ -2,6 +2,17 @@
 
 Beslut som fattats under bygget: vad, varför och vilka alternativ som fanns. Nyaste överst.
 
+## 2026-10-27 – Recept och Matsedel i nytt utseende (Story 11.5)
+
+- **Specens tre förslag är godkända som de står:** portionsväljaren står kvar i rättkortet, "Visa inköpslistan" har inget antal, och arket "Lägg till rätt" behåller sina kompakta rader.
+- **Receptkortet** (`recipes/ui/recipe-card.tsx`) har texten först i koden och bilden överst med `order-first`. VoiceOver läser då titel, tid, status och sist "Favorit". Länken är utsträckt över kortet. Hjärtat ligger ovanför länken (`z-10` över länkens `z-1`), och etiketten ligger under den, så ett tryck på etiketten öppnar receptet. Alternativ: bilden först i koden, men då läses etiketten och hjärtat före titeln.
+- **Etiketten på bilden** är `StatusBadge` med `onImage`: statusfärgen som text på plattan `overlay`, som i skissen. AI-förslagens etikett står kvar i sand, eftersom den redan är ogenomskinlig.
+- **AI-förslagen är också receptkort,** med en kort mintremsa (`h-16`) och AI-etiketten på den, inget hjärta och ingen länk. Etiketten läses före "Spara". En bildadress från modellen laddas aldrig. Recept utan bild får samma korta remsa.
+- **`Receptrad` (`recipe-row.tsx`) togs bort.** Specen utgick från att arket "Lägg till rätt" använder den, men arket har haft egna rader (knappar som lägger till rätten) sedan Story 3.1. Utan biblioteket hade filen inte använts någonstans. Arkets rader är oförändrade.
+- **Rättkortets rad** är "35 min · 6 av 8 hemma" eller "35 min · Allt finns hemma" (`dishProgress`, `dishMetaText`) med en mätare. "Allt finns hemma" gäller när ingenting saknas (`missingCount` 0), samma källa som "Kan lagas nu" i biblioteket, så att Recept och Matsedel aldrig säger emot varandra. Utan katalogingredienser visas bara tiden, utan mätare. Statusetiketten finns inte längre i rättkortet: raden säger mer, och skissen har den inte. Om "hemma" ska betyda "räcker till portionerna" är öppen fråga 20.
+- **"Lägg till rätt" och "Visa inköpslistan" står under rätterna** som en primärknapp och en sekundärknapp i full bredd. "Lägg till rätt" fanns tidigare bara som "+" i rubriken (och i den tomma matsedeln). EXPERIENCE.md och specen sätter "Visa inköpslistan" under den.
+- **200 % text (187 px):** sidrubriken radbryts mellan orden bredvid knapparna. Bara när rubrikens längsta ord och knapparna inte får plats bredvid varandra hamnar knapparna på en egen rad. Portionsväljaren är alltid 11.5rem bred, så att + står still, och den blir aldrig bredare än sin plats. Under 11rem visar den bara siffran, och hela värdet läses upp. − och + är alltid 44 × 44 px. Titlarna kapas aldrig. Alternativ: en fast minsta bredd på rubriken (12rem), men då fick inte ens "Matsedel" med "Tidigare" och "+" plats vid 375 px.
+
 ## 2026-10-27 – Inköpslistan i nytt utseende (Story 11.4)
 
 - **En avbockad post flyttas direkt** till "I korgen" längst ned, som är hopfälld från början. Framstegsraden och live-regionen ("Citron i korgen.") säger vad som hände, och fokus går till nästa posts bock. Alternativ: en kort fördröjning (öppen fråga 16). Besluten i specen godkändes som de var skrivna, eftersom Pontus gav fritt mandat för natten.

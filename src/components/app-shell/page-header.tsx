@@ -29,9 +29,14 @@ export function PageHeader({ title, action, backHref }: PageHeaderProps) {
           Tillbaka
         </Link>
       ) : null}
-      <div className="flex items-end justify-between gap-3">
-        <h1 className="text-page-title text-ink">{title}</h1>
-        {action ? <div className="flex shrink-0 items-center gap-1">{action}</div> : null}
+      {/* The title takes the room the actions leave and wraps between its words there. Only
+          when its longest word and the actions cannot share the row (a phone at 200 % zoom)
+          do the actions move to a row of their own; a word wider than the page breaks. */}
+      <div className="flex flex-wrap items-end justify-between gap-x-3 gap-y-2">
+        <h1 className="max-w-full min-w-0 flex-[1_1_min-content] text-page-title break-words text-ink">
+          {title}
+        </h1>
+        {action ? <div className="ml-auto flex shrink-0 items-center gap-1">{action}</div> : null}
       </div>
     </header>
   );

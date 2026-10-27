@@ -22,9 +22,24 @@ export function formatPortions(n: number): string {
 }
 
 const stepButton =
-  "flex size-tap items-center justify-center rounded-full text-accent aria-disabled:cursor-not-allowed aria-disabled:text-ink-3";
+  "flex size-tap shrink-0 items-center justify-center rounded-full text-accent aria-disabled:cursor-not-allowed aria-disabled:text-ink-3";
 
-/** Portionsväljare: − and + in steps of 1, never below 1 (or `min`) nor above `max`. */
+/** The number at the start of a formatted value ("4" in "4 portioner"), or the whole text without a space. */
+export function stepperNumber(text: string): string {
+  const space = text.indexOf(" ");
+  return space === -1 ? text : text.slice(0, space);
+}
+
+/**
+ * Portionsväljare: − and + in steps of 1, never below 1 (or `min`) nor above `max`.
+ *
+ * The selector is always 11.5rem wide (184 px), so − and + stand still while
+ * the value changes; in a narrower container (a phone at 200 % zoom) it
+ * shrinks to fit, and the buttons keep 44 × 44 px. It is a size container:
+ * below 11rem only the number shows ("4"), and the whole value ("4
+ * portioner") is read out from the visually hidden `output`. Words never
+ * break mid-way.
+ */
 export function Stepper({
   value,
   onChange,
@@ -41,9 +56,13 @@ export function Stepper({
   const shown = Number.isFinite(value) ? Math.min(ceiling, Math.max(floor, value)) : floor;
   const atMin = shown <= floor;
   const atMax = shown >= ceiling;
+  const text = format(shown);
 
   return (
-    <div className={cx("inline-flex h-tap items-center rounded-full bg-surface", className)}>
+    <div
+      data-testid="stepper"
+      className={cx("@container inline-flex min-h-tap w-[11.5rem] max-w-full items-center rounded-full bg-surface", className)}
+    >
       {/* aria-disabled instead of disabled keeps the button in the tab order and focused. */}
       <button
         type="button"
@@ -56,9 +75,16 @@ export function Stepper({
       >
         <MinusIcon size={20} />
       </button>
-      <output aria-live="polite" className="min-w-24 px-1 text-center text-body font-semibold text-ink">
-        {format(shown)}
+      <output
+        aria-live="polite"
+        className="sr-only text-center text-body font-semibold break-normal text-ink @[11rem]:not-sr-only @[11rem]:min-w-0 @[11rem]:flex-1"
+      >
+        {text}
       </output>
+      {/* Only in a narrow selector: the number, which the output above says in full. */}
+      <span aria-hidden="true" className="min-w-0 flex-1 text-center text-body font-semibold text-ink @[11rem]:hidden">
+        {stepperNumber(text)}
+      </span>
       <button
         type="button"
         aria-label={increaseLabel}
