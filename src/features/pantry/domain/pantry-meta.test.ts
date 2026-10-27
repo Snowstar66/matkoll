@@ -3,6 +3,9 @@ import type { PantryItem } from "./pantry-item";
 import {
   addedText,
   filterPantry,
+  msUntilStockholmMidnight,
+  pantrySearchText,
+  stockholmDayKey,
   groupPantryByCategory,
   noMatchText,
   pantryMetaText,
@@ -64,6 +67,9 @@ describe("pantryMetaText", () => {
     expect(pantryMetaText({ label: "Arla laktosfri", createdAt: "2026-10-21T06:00:00Z" }, now)).toBe("Arla laktosfri");
     expect(pantryMetaText({ label: null, createdAt: "2026-10-21T06:00:00Z" }, now)).toBe("Tillagd för 6 dagar sedan");
     expect(pantryMetaText({ label: null, createdAt: null }, now)).toBeNull();
+    // A brand of only spaces is none.
+    expect(pantryMetaText({ label: "   ", createdAt: "2026-10-21T06:00:00Z" }, now)).toBe("Tillagd för 6 dagar sedan");
+    expect(pantryMetaText({ label: " Arla ", createdAt: null }, now)).toBe("Arla");
   });
 });
 
@@ -124,6 +130,26 @@ describe("filterPantry", () => {
     expect(filterPantry(items, "mjo")).toEqual([]);
   });
 
+  it("matches every word of the search against the name and the brand together", () => {
+    expect(filterPantry(items, "mjölk arla")).toEqual([mellanmjolk]);
+    expect(filterPantry(items, "arla mjölk")).toEqual([mellanmjolk]);
+    expect(filterPantry(items, "mjölk garant")).toEqual([]);
+  });
+
+  it("takes marks off other letters than å, ä and ö, and reads curly apostrophes as straight", () => {
+    const creme = item({ id: "8", name: "Crème fraiche" });
+    const jalapeno = item({ id: "9", name: "Jalapeño" });
+    const more = [...items, creme, jalapeno];
+    expect(filterPantry(more, "creme")).toEqual([creme]);
+    expect(filterPantry(more, "CRÈME")).toEqual([creme]);
+    expect(filterPantry(more, "jalapeno")).toEqual([jalapeno]);
+    expect(filterPantry(more, "johnny\u2019s")).toEqual([senap]);
+    expect(filterPantry(more, "johnny\u02BCs")).toEqual([senap]);
+    // An ö written as o and a combining mark (NFD) is still ö.
+    expect(filterPantry(more, "mjo\u0308")).toEqual([mellanmjolk]);
+    expect(pantrySearchText("  Smör\u0301 ")).toBe("smör");
+  });
+
   it("keeps every item for an empty search", () => {
     expect(filterPantry(items, "")).toBe(items);
     expect(filterPantry(items, "   ")).toBe(items);
@@ -137,5 +163,21 @@ describe("the search texts", () => {
     expect(pantrySearchLabel("Skafferi")).toBe("Sök i skafferiet");
     expect(noMatchText("Kyl")).toBe("Inget i kylen matchar.");
     expect(noMatchText("Skafferi")).toBe("Inget i skafferiet matchar.");
+  });
+});
+
+describe("the day in Stockholm", () => {
+  it("gives the calendar day in Stockholm, also around midnight", () => {
+    expect(stockholmDayKey(new Date("2026-10-26T23:30:00Z"))).toBe("2026-10-27");
+    expect(stockholmDayKey(new Date("2026-10-26T22:30:00Z"))).toBe("2026-10-26");
+    // Summer time: UTC+2.
+    expect(stockholmDayKey(new Date("2026-07-01T22:30:00Z"))).toBe("2026-07-02");
+  });
+
+  it("counts the time to the next midnight in Stockholm", () => {
+    // 10:00 in Stockholm (CET): 14 hours left.
+    expect(msUntilStockholmMidnight(new Date("2026-10-27T09:00:00Z"))).toBe(14 * 60 * 60 * 1000);
+    // 23:59:59.5: at least a second.
+    expect(msUntilStockholmMidnight(new Date("2026-10-27T22:59:59.500Z"))).toBe(1000);
   });
 });

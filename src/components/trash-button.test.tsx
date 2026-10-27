@@ -39,11 +39,11 @@ describe("TrashButton", () => {
     const button = screen.getByRole("button", { name: "Ta bort Gräddfil" });
     fireEvent.click(button);
     expect(onPress).toHaveBeenCalledTimes(1);
-    expect(onPress).toHaveBeenCalledWith(button);
+    expect(onPress).toHaveBeenCalledWith(button, { pointer: false });
     expect(screen.queryByRole("dialog")).not.toBeInTheDocument();
   });
 
-  it("ignores a second press on any bin within the guard, and takes one after it", () => {
+  it("ignores a second pointer press on any bin within the guard, and takes one after it", () => {
     const first = vi.fn();
     const second = vi.fn();
     render(
@@ -52,15 +52,34 @@ describe("TrashButton", () => {
         <TrashButton label="Ta bort Ägg" onPress={second} />
       </>,
     );
-    fireEvent.click(screen.getByRole("button", { name: "Ta bort Gräddfil" }));
+    // A tap: a click with a pointer has a detail.
+    fireEvent.click(screen.getByRole("button", { name: "Ta bort Gräddfil" }), { detail: 1 });
+    expect(first).toHaveBeenCalledWith(screen.getByRole("button", { name: "Ta bort Gräddfil" }), { pointer: true });
     clock += trashPressGuardMs - 1;
     // The next row's bin has slid under the finger.
-    fireEvent.click(screen.getByRole("button", { name: "Ta bort Ägg" }));
+    fireEvent.click(screen.getByRole("button", { name: "Ta bort Ägg" }), { detail: 1 });
     expect(second).not.toHaveBeenCalled();
     clock += 1;
-    fireEvent.click(screen.getByRole("button", { name: "Ta bort Ägg" }));
+    fireEvent.click(screen.getByRole("button", { name: "Ta bort Ägg" }), { detail: 1 });
     expect(first).toHaveBeenCalledTimes(1);
     expect(second).toHaveBeenCalledTimes(1);
+  });
+
+  it("never ignores a press from the keyboard or a screen reader, also right after a tap", () => {
+    const first = vi.fn();
+    const second = vi.fn();
+    render(
+      <>
+        <TrashButton label="Ta bort Gräddfil" onPress={first} />
+        <TrashButton label="Ta bort Ägg" onPress={second} />
+      </>,
+    );
+    fireEvent.click(screen.getByRole("button", { name: "Ta bort Gräddfil" }), { detail: 1 });
+    fireEvent.click(screen.getByRole("button", { name: "Ta bort Ägg" }), { detail: 0 });
+    fireEvent.click(screen.getByRole("button", { name: "Ta bort Ägg" }), { detail: 0 });
+    expect(first).toHaveBeenCalledTimes(1);
+    expect(second).toHaveBeenCalledTimes(2);
+    expect(second).toHaveBeenLastCalledWith(screen.getByRole("button", { name: "Ta bort Ägg" }), { pointer: false });
   });
 
   it("does nothing when disabled", () => {

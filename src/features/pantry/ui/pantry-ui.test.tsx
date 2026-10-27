@@ -1,6 +1,7 @@
 import { fireEvent, render as renderElement, screen, within } from "@testing-library/react";
 import type { ReactElement } from "react";
-import { describe, expect, it, vi } from "vitest";
+import { act } from "react";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { ToastProvider } from "@/components/toast";
 import type { PantryItem } from "../domain/pantry-item";
 import { LocationCards } from "./location-cards";
@@ -65,13 +66,21 @@ describe("LocationCards", () => {
 });
 
 describe("PantryList", () => {
-  // The spec's fridge; times relative to now, so "Tillagd …" holds on any day.
-  const daysAgo = (days: number) => new Date(Date.now() - days * 24 * 60 * 60 * 1000).toISOString();
+  // A fixed now, Tuesday 27 October 2026 at 12:00 in Stockholm, two days
+  // after the change to winter time: only Date is faked, so React's timers run.
+  beforeEach(() => {
+    vi.useFakeTimers({ toFake: ["Date"] });
+    vi.setSystemTime(new Date("2026-10-27T11:00:00Z"));
+  });
+  afterEach(() => {
+    vi.useRealTimers();
+  });
+  // The spec's fridge, added at noon in Stockholm.
   const kyl = [
     item({ id: "1", name: "Mellanmjölk", label: "Arla laktosfri", amount: 1, unit: "l" }),
-    item({ id: "2", name: "Gräddfil", createdAt: daysAgo(6), amount: 3, unit: "dl" }),
-    item({ id: "3", name: "Ägg", createdAt: new Date().toISOString(), amount: 6, unit: "st" }),
-    item({ id: "4", name: "Kycklingfilé", section: "Kött och fisk", createdAt: daysAgo(1), amount: 500, unit: "g" }),
+    item({ id: "2", name: "Gräddfil", createdAt: "2026-10-21T10:00:00Z", amount: 3, unit: "dl" }),
+    item({ id: "3", name: "Ägg", createdAt: "2026-10-27T11:00:00Z", amount: 6, unit: "st" }),
+    item({ id: "4", name: "Kycklingfilé", section: "Kött och fisk", createdAt: "2026-10-26T11:00:00Z", amount: 500, unit: "g" }),
     item({ id: "5", name: "Senap", section: "Skafferi", label: "Johnny's" }),
   ];
   /** Each category's heading, with its rows' names and the line under each. */
@@ -113,6 +122,37 @@ describe("PantryList", () => {
     ]);
   });
 
+  it("tells two rows apart by the amount when the name and the line under them are the same", () => {
+    render(
+      <PantryList
+        location="Kyl"
+        items={[
+          item({ id: "1", name: "Mjölk", amount: 1, unit: "l", createdAt: "2026-10-27T08:00:00Z" }),
+          item({ id: "2", name: "Mjölk", amount: 2, unit: "förp", createdAt: "2026-10-27T09:00:00Z" }),
+        ]}
+      />,
+    );
+    expect(screen.getByRole("button", { name: "Ta bort Mjölk, Tillagd idag, 1 l" })).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "Ta bort Mjölk, Tillagd idag, 2 förp" })).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "Mjölk 1 l Tillagd idag" })).toBeInTheDocument();
+  });
+
+  it("tells rows with the same name apart over the categories too", () => {
+    render(
+      <PantryList
+        location="Kyl"
+        items={[item({ id: "1", name: "Majs", label: "Felix" }), item({ id: "2", name: "Majs", section: "Frys", label: "Findus" })]}
+      />,
+    );
+    expect(screen.getByRole("button", { name: "Ta bort Majs, Felix" })).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "Ta bort Majs, Findus" })).toBeInTheDocument();
+  });
+
+  it("shows the time instead of a brand of only spaces", () => {
+    render(<PantryList location="Kyl" items={[item({ id: "1", name: "Ägg", label: "  ", createdAt: "2026-10-26T11:00:00Z" })]} />);
+    expect(screen.getByRole("button", { name: "Ägg Tillagd igår" })).toBeInTheDocument();
+  });
+
   it("puts the line under the name in the bin's name when two rows share a name", () => {
     render(
       <PantryList
@@ -142,13 +182,39 @@ describe("PantryList", () => {
     render(<PantryList location="Kyl" items={kyl} />);
     const field = screen.getByRole("searchbox", { name: "Sök i kylen" });
     fireEvent.change(field, { target: { value: "xyz" } });
-    expect(screen.getByText("Inget i kylen matchar.")).toBeInTheDocument();
+    expect(screen.getByText("Inget i kylen matchar.", { selector: "p" })).toBeInTheDocument();
     expect(screen.queryByTestId("pantry-category")).toBeNull();
-    const clear = screen.getAllByRole("button", { name: "Rensa sökning" }).find((button) => button.textContent === "Rensa sökning");
-    fireEvent.click(clear!);
+    // One control by that name: the field leaves out its cross.
+    expect(screen.getAllByRole("button", { name: "Rensa sökning" })).toHaveLength(1);
+    fireEvent.click(screen.getByRole("button", { name: "Rensa sökning" }));
     expect(field).toHaveValue("");
     expect(field).toHaveFocus();
     expect(screen.getAllByTestId("pantry-category")).toHaveLength(3);
+  });
+
+  it("says how many match in a polite status once the search has rested, and nothing without a search", async () => {
+    vi.useFakeTimers();
+    vi.setSystemTime(new Date("2026-10-27T11:00:00Z"));
+    render(<PantryList location="Kyl" items={kyl} />);
+    const status = screen.getByTestId("pantry-search-status");
+    expect(status).toHaveAttribute("aria-live", "polite");
+    const field = screen.getByRole("searchbox", { name: "Sök i kylen" });
+    fireEvent.change(field, { target: { value: "m" } });
+    fireEvent.change(field, { target: { value: "mjö" } });
+    act(() => vi.advanceTimersByTime(499));
+    expect(status).toBeEmptyDOMElement();
+    act(() => vi.advanceTimersByTime(1));
+    expect(status).toHaveTextContent("1 träff");
+    fireEvent.change(field, { target: { value: "e" } });
+    act(() => vi.advanceTimersByTime(500));
+    // Mellanmjölk, Kycklingfilé (é is e) and Senap.
+    expect(status).toHaveTextContent("3 träffar");
+    fireEvent.change(field, { target: { value: "xyz" } });
+    act(() => vi.advanceTimersByTime(500));
+    expect(status).toHaveTextContent("Inget i kylen matchar.");
+    fireEvent.change(field, { target: { value: "" } });
+    act(() => vi.advanceTimersByTime(0));
+    expect(status).toBeEmptyDOMElement();
   });
 
   it("names the location when it is empty and offers to add an item, without a search field", () => {

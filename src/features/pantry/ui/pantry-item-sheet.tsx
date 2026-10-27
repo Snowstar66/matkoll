@@ -197,6 +197,8 @@ function toInput(values: FormValues, ingredient: ChosenIngredient, target: Pantr
 type SheetBaseProps = {
   open: boolean;
   onClose: () => void;
+  /** An item was saved from the sheet (Story 11.3: Lagersaldo's search is emptied, so it never hides the item). */
+  onSaved?: () => void;
   /**
    * Increases each time the sheet opens: the form then starts afresh from
    * `target`. (The sheet itself stays mounted; a sheet mounted already open
@@ -223,7 +225,7 @@ export type PantryItemSheetProps =
  * closes, but not before "Ta bort" or "Avvisa".
  */
 export function PantryItemSheet(props: PantryItemSheetProps) {
-  const { open, onClose, target, session } = props;
+  const { open, onClose, onSaved, target, session } = props;
   const review = "review" in props ? props.review : null;
   const [formSession, setFormSession] = useState(session);
   const [initial, setInitial] = useState(() => initialValues(target));
@@ -275,6 +277,7 @@ export function PantryItemSheet(props: PantryItemSheetProps) {
       }
       // The action revalidated Hemma, so the list behind shows the change.
       onClose();
+      onSaved?.();
       showToast(savedItemText(name, input.location));
       return null;
     },
@@ -302,6 +305,7 @@ export function PantryItemSheet(props: PantryItemSheetProps) {
       // Closed as the card goes, in one update: the sheet gives focus back first, then focus moves on.
       outcome = await review.confirm(suggestionTarget.suggestion.id, suggestionTarget.generation, form, () => {
         onClose();
+        onSaved?.();
         showToast(savedItemText(name, form.location));
       });
     } catch {
@@ -316,6 +320,7 @@ export function PantryItemSheet(props: PantryItemSheetProps) {
         break;
       case "savedStale":
         onClose();
+        onSaved?.();
         showToast(confirmedItemsText(1));
         break;
       case "gone":
@@ -563,6 +568,8 @@ type PantrySheetApi = {
   openItem: (item: PantryItem) => void;
   /** Rätta: opens the sheet for a lagerförslag, filled in from it. */
   openSuggestion: (suggestion: PantrySuggestion) => void;
+  /** How many times an item has been saved from the sheet; Lagersaldo's search empties when it grows. */
+  saves: number;
 };
 
 const PantrySheetContext = createContext<PantrySheetApi | null>(null);
@@ -599,12 +606,14 @@ export function PantrySheetProvider({
     session: 0,
     target: { kind: "new", location, siteId: site.id },
   });
+  const [saves, setSaves] = useState(0);
   const openWith = (target: PantrySheetTarget) =>
     setSheet((current) => ({ open: true, session: current.session + 1, target }));
   const sheetProps: SheetBaseProps = {
     open: sheet.open,
     session: sheet.session,
     onClose: () => setSheet((current) => ({ ...current, open: false })),
+    onSaved: () => setSaves((count) => count + 1),
   };
   const api: PantrySheetApi = {
     openNew: () => openWith({ kind: "new", location, siteId: site.id }),
@@ -616,6 +625,7 @@ export function PantrySheetProvider({
       const photoSite = photo ? photoSiteId(photo) : null;
       openWith({ kind: "suggestion", suggestion, generation: current, siteId: photoSite ?? site.id });
     },
+    saves,
   };
   return (
     <PantryRemovalProvider>

@@ -84,6 +84,11 @@ describe("SearchField", () => {
     expect(onSearch).toHaveBeenCalledTimes(1);
   });
 
+  it("leaves out its own Rensa sökning when it is not clearable", () => {
+    render(<SearchField label="Sök i kylen" onSearch={() => {}} defaultValue="xyz" clearable={false} />);
+    expect(screen.queryByRole("button", { name: "Rensa sökning" })).toBeNull();
+  });
+
   it("passes maxLength on to the input", () => {
     render(<SearchField label="Sök recept" onSearch={() => {}} maxLength={100} />);
     expect(screen.getByRole("searchbox")).toHaveAttribute("maxlength", "100");
