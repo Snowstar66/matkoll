@@ -1,6 +1,6 @@
 import { describe, expect, it, vi } from "vitest";
 import { PantryDataError, type PantryDb } from "./client";
-import { emptyPantryPlaceIn, removePantryItemIn, restorePantryRemovalIn } from "./remove";
+import { emptyPantryPlaceIn, removePantryItemIn, restorePantryItemIn, restorePantryRemovalIn } from "./remove";
 
 // removePantryItemIn, emptyPantryPlaceIn and restorePantryRemovalIn with a fake client: what the delete gives back. The
 // database itself is tested in tests/integration/pantry.test.ts.
@@ -158,5 +158,60 @@ describe("restorePantryRemovalIn", () => {
     await expect(restorePantryRemovalIn(fakeRpc({ data: null, error: { code: "P0002" } }).db, operation)).rejects.toThrow(
       new PantryDataError("restore_failed P0002"),
     );
+  });
+});
+
+describe("the label and time on a removed and restored row (Story 11.2)", () => {
+  const added = "2026-10-20T08:15:00.123456+00:00";
+
+  it("reads them back from the delete, so Ångra can put them back", async () => {
+    const select = vi.fn(async () => ({ data: [dbRow(rowId, { label: "Arla", created_at: added })], error: null }));
+    const query = { delete: () => query, eq: () => query, select };
+    const db = { from: () => query } as unknown as PantryDb;
+    expect(await removePantryItemIn(db, "user", rowId)).toEqual({
+      row: { id: rowId, ingredientId: mjolk, location: "Kyl", amount: 2, unit: "förp", label: "Arla", createdAt: added },
+    });
+    expect(select).toHaveBeenCalledWith("id, site_id, ingredient_id, location, amount, unit, label, created_at");
+  });
+
+  it("sends them to restore_pantry_item, and null and no time for a row without them", async () => {
+    const { db, rpc } = fakeRpc({ data: dbRow(rowId, { site_id: stugan, label: "Arla", created_at: added }), error: null });
+    const row = { id: rowId, siteId: stugan, ingredientId: mjolk, location: "Kyl", amount: 2, unit: "förp" } as const;
+    expect(await restorePantryItemIn(db, { ...row, label: "Arla", createdAt: added })).toEqual({
+      ...row,
+      label: "Arla",
+      createdAt: added,
+    });
+    expect(rpc).toHaveBeenLastCalledWith("restore_pantry_item", {
+      item: { id: rowId, site_id: stugan, ingredient_id: mjolk, location: "Kyl", amount: 2, unit: "förp", label: "Arla", created_at: added },
+      site: stugan,
+    });
+
+    await restorePantryItemIn(db, row);
+    expect(rpc).toHaveBeenLastCalledWith("restore_pantry_item", {
+      item: { id: rowId, site_id: stugan, ingredient_id: mjolk, location: "Kyl", amount: 2, unit: "förp", label: null },
+      site: stugan,
+    });
+  });
+
+  it("refuses a time that is not one before calling", async () => {
+    const { db, rpc } = fakeRpc({ data: null, error: null });
+    const row = { id: rowId, ingredientId: mjolk, location: "Kyl", amount: 2, unit: "förp", createdAt: "igår" } as const;
+    await expect(restorePantryItemIn(db, row)).rejects.toThrow(new PantryDataError("invalid_row"));
+    expect(rpc).not.toHaveBeenCalled();
+  });
+
+  it("gives the rows a removal put back with their labels and times", async () => {
+    const { db } = fakeRpc({
+      data: {
+        restored: [dbRow(rowId, { label: "Arla", created_at: added }), dbRow(otherId, { label: null, created_at: added })],
+        skipped: 0,
+      },
+      error: null,
+    });
+    expect((await restorePantryRemovalIn(db, operation)).rows).toEqual([
+      { id: rowId, ingredientId: mjolk, location: "Kyl", amount: 2, unit: "förp", label: "Arla", createdAt: added },
+      { id: otherId, ingredientId: mjolk, location: "Kyl", amount: 2, unit: "förp", label: null, createdAt: added },
+    ]);
   });
 });

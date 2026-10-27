@@ -2,13 +2,21 @@ import { describe, expect, it } from "vitest";
 import {
   amountErrorMessage,
   amountTooLargeMessage,
+  blankLabelCodePoints,
   formFieldErrors,
+  labelTooLongMessage,
+  labelUnusableMessage,
+  maxPantryLabelLength,
   nameTooLongMessage,
   parseAmountField,
+  parseLabelField,
   pantryItemFormSchema,
   pantryItemSetSchema,
+  pantryLabelSchema,
   pantryRowSchema,
   pantryNewIngredientName,
+  suggestionLabel,
+  toPantryLabel,
   unusableNameMessage,
   type PantryItemFormInput,
 } from "./pantry-item-form";
@@ -187,5 +195,194 @@ describe("pantryNewIngredientName", () => {
     expect(pantryNewIngredientName("!!!", [])).toBeNull();
     expect(pantryNewIngredientName("   ", [])).toBeNull();
     expect(pantryNewIngredientName("a".repeat(101), [])).toBeNull();
+  });
+});
+
+// Story 11.2 (FR-42): the label of a pantry item.
+const zeroWidthSpace = String.fromCodePoint(0x200b);
+const rightToLeftMark = String.fromCodePoint(0x200f);
+
+describe("pantryLabelSchema", () => {
+  it.each(["Arla laktosfri", "Ä", "a".repeat(maxPantryLabelLength), "Coca-Cola  Zero"])("takes %j", (label) => {
+    expect(pantryLabelSchema.safeParse(label).success).toBe(true);
+  });
+
+  it("counts characters as Postgres does, so 60 emoji are one label", () => {
+    expect(pantryLabelSchema.safeParse(String.fromCodePoint(0x1f95b).repeat(maxPantryLabelLength)).success).toBe(true);
+    expect(pantryLabelSchema.safeParse(String.fromCodePoint(0x1f95b).repeat(maxPantryLabelLength + 1)).success).toBe(false);
+  });
+
+  it.each([
+    ["empty", ""],
+    ["a space first", " Arla"],
+    ["a space last", "Arla "],
+    ["61 characters", "a".repeat(maxPantryLabelLength + 1)],
+    ["a line break", "Arla\nlaktosfri"],
+    ["a zero-width space", `Arla${zeroWidthSpace}`],
+    ["a right-to-left mark", `${rightToLeftMark}Arla`],
+  ])("refuses %s", (_case, label) => {
+    expect(pantryLabelSchema.safeParse(label).success).toBe(false);
+  });
+});
+
+describe("toPantryLabel", () => {
+  it("keeps a short label as it is", () => {
+    expect(toPantryLabel("Arla Mellanmjölk laktosfri 1,5 l")).toBe("Arla Mellanmjölk laktosfri 1,5 l");
+  });
+
+  it.each([null, undefined, "", "   ", "…", zeroWidthSpace])("is null for %j", (raw) => {
+    expect(toPantryLabel(raw)).toBeNull();
+  });
+
+  it("puts the label on one line without invisible marks", () => {
+    expect(toPantryLabel(`  Arla\n  laktosfri${zeroWidthSpace} `)).toBe("Arla laktosfri");
+  });
+
+  it("cuts a long label at the last whole word within 60 characters, without an ellipsis", () => {
+    const words = "Arla Ko ekologisk mellanmjölk laktosfri 1,5 % fetthalt i kartong om en och en halv liter";
+    const label = toPantryLabel(words)!;
+    expect(label).toBe("Arla Ko ekologisk mellanmjölk laktosfri 1,5 % fetthalt i");
+    expect(label.length).toBeLessThanOrEqual(maxPantryLabelLength);
+    expect(words.startsWith(label)).toBe(true);
+    expect(pantryLabelSchema.safeParse(label).success).toBe(true);
+  });
+
+  it("keeps the first 60 characters when they end on a whole word", () => {
+    const sixty = `${"a".repeat(29)} ${"b".repeat(30)}`;
+    expect(toPantryLabel(`${sixty} cccc`)).toBe(sixty);
+  });
+
+  it("cuts in the middle of a word when there is no space to cut at", () => {
+    expect(toPantryLabel("x".repeat(120))).toBe("x".repeat(maxPantryLabelLength));
+  });
+
+  it("removes an ellipsis, a dash or a comma left at the end", () => {
+    expect(toPantryLabel("Arla mjölk …")).toBe("Arla mjölk");
+    expect(toPantryLabel(`${"a".repeat(55)}, - ${"b".repeat(10)}`)).toBe("a".repeat(55));
+  });
+
+  it("counts characters, not UTF-16 units", () => {
+    const label = toPantryLabel(String.fromCodePoint(0x1f95b).repeat(70))!;
+    expect([...label]).toHaveLength(maxPantryLabelLength);
+    expect(pantryLabelSchema.safeParse(label).success).toBe(true);
+  });
+});
+
+describe("the label after review (Story 11.2)", () => {
+  const blank = (point: number) => String.fromCodePoint(point);
+
+  it.each(blankLabelCodePoints.map((point) => [point.toString(16)]))("refuses U+%s, and toPantryLabel removes it", (hex) => {
+    const character = blank(Number.parseInt(hex, 16));
+    expect(pantryLabelSchema.safeParse(`Arla${character}`).success).toBe(false);
+    expect(toPantryLabel(`Ar${character}la`)).toBe("Arla");
+    expect(toPantryLabel(character)).toBeNull();
+  });
+
+  it.each([0x01, 0x08, 0x0e, 0x1f, 0x7f, 0x85, 0x9f])("refuses the control character U+%s, which toPantryLabel makes a space", (point) => {
+    expect(pantryLabelSchema.safeParse(`Arla${String.fromCodePoint(point)}ko`).success).toBe(false);
+    expect(toPantryLabel(`Arla${String.fromCodePoint(point)}ko`)).toBe("Arla ko");
+  });
+
+  it("wants something that can be seen", () => {
+    const combining = String.fromCodePoint(0x0301);
+    expect(pantryLabelSchema.safeParse(combining).success).toBe(false);
+    expect(toPantryLabel(combining)).toBeNull();
+    expect(parseLabelField(combining)).toEqual({ error: labelUnusableMessage });
+    expect(pantryLabelSchema.safeParse("1,5 l").success).toBe(true);
+    expect(pantryLabelSchema.safeParse("%").success).toBe(true);
+  });
+
+  it("cuts at a grapheme boundary, never inside an emoji or between a letter and its accent", () => {
+    // A thumb with a skin tone: two code points, one grapheme.
+    const thumb = String.fromCodePoint(0x1f44d, 0x1f3fd);
+    expect(toPantryLabel(`${"a".repeat(59)}${thumb}`)).toBe("a".repeat(59));
+    expect(toPantryLabel(`${"a".repeat(58)}${thumb}x`)).toBe(`${"a".repeat(58)}${thumb}`);
+    const accented = `e${String.fromCodePoint(0x0301)}`;
+    const cut = toPantryLabel(`${"b".repeat(59)}${accented}x`)!;
+    expect(cut).toBe("b".repeat(59));
+    expect(pantryLabelSchema.safeParse(cut).success).toBe(true);
+  });
+
+  it("gives only labels the schema takes, or null", () => {
+    for (const raw of ["Arla", " ", "…", "a".repeat(200), `${blank(0x3164)} ${blank(0x115f)}`, String.fromCodePoint(0x0301).repeat(3)]) {
+      const label = toPantryLabel(raw);
+      if (label !== null) expect(pantryLabelSchema.safeParse(label).success).toBe(true);
+    }
+  });
+
+  it("removes the blank-looking characters from the field too", () => {
+    expect(parseLabelField(`Arla${blank(0x2060)} laktosfri`)).toEqual({ label: "Arla laktosfri" });
+    expect(parseLabelField(blank(0x00ad))).toEqual({ label: null });
+  });
+
+  it("takes a photo label on an item to set, which must be a label too", () => {
+    const item = { ingredientId: mjolkId, location: "Kyl", amount: 1, unit: "l" } as const;
+    expect(pantryItemSetSchema.parse({ ...item, photoLabel: "Arla" })).toEqual({ ...item, photoLabel: "Arla" });
+    expect(pantryItemSetSchema.safeParse({ ...item, photoLabel: null }).success).toBe(false);
+    expect(pantryItemSetSchema.safeParse({ ...item, photoLabel: "" }).success).toBe(false);
+  });
+});
+
+describe("parseLabelField", () => {
+  it("gives the text on one line, and null for an empty field", () => {
+    expect(parseLabelField("  Arla   laktosfri ")).toEqual({ label: "Arla laktosfri" });
+    expect(parseLabelField("   ")).toEqual({ label: null });
+    expect(parseLabelField("")).toEqual({ label: null });
+  });
+
+  it("refuses more than 60 characters instead of cutting them", () => {
+    expect(parseLabelField("a".repeat(maxPantryLabelLength))).toEqual({ label: "a".repeat(maxPantryLabelLength) });
+    expect(parseLabelField("a".repeat(maxPantryLabelLength + 1))).toEqual({ error: labelTooLongMessage });
+  });
+});
+
+describe("suggestionLabel", () => {
+  it("is the first label, made a pantry label", () => {
+    expect(suggestionLabel({ name: "Mellanmjölk", labels: ["Arla Mellanmjölk laktosfri 1,5 l", "Mjölk"] })).toBe(
+      "Arla Mellanmjölk laktosfri 1,5 l",
+    );
+    expect(suggestionLabel({ name: "Mjölk", labels: ["x".repeat(120)] })).toBe("x".repeat(maxPantryLabelLength));
+  });
+
+  it("is null without labels, or when the first only is the name", () => {
+    expect(suggestionLabel({ name: "Mjölk" })).toBeNull();
+    expect(suggestionLabel({ name: "Mjölk", labels: [] })).toBeNull();
+    expect(suggestionLabel({ name: "ägg", labels: ["Ägg"] })).toBeNull();
+  });
+});
+
+describe("pantryItemFormSchema's label", () => {
+  it("sets the field's text, removes the label when empty, and keeps it when left out", () => {
+    expect(pantryItemFormSchema.parse(form({ label: " Arla " }))).toMatchObject({ label: "Arla" });
+    expect(pantryItemFormSchema.parse(form({ label: "" }))).toMatchObject({ label: null });
+    expect("label" in pantryItemFormSchema.parse(form())).toBe(false);
+  });
+
+  it("refuses 61 characters with the field's message", () => {
+    const parsed = pantryItemFormSchema.safeParse(form({ label: "a".repeat(maxPantryLabelLength + 1) }));
+    expect(parsed.success).toBe(false);
+    expect(formFieldErrors(parsed.error!)).toEqual({ label: labelTooLongMessage });
+  });
+
+  it("gives both fields' messages at once", () => {
+    const parsed = pantryItemFormSchema.safeParse(form({ amount: "två", label: "a".repeat(maxPantryLabelLength + 1) }));
+    expect(formFieldErrors(parsed.error!)).toEqual({ amount: amountErrorMessage, label: labelTooLongMessage });
+  });
+});
+
+describe("the label and time on a set item and a row", () => {
+  const item = { ingredientId: mjolkId, location: "Kyl", amount: 1, unit: "l" } as const;
+
+  it("takes a label, null or none on an item", () => {
+    expect(pantryItemSetSchema.parse({ ...item, label: "Arla" })).toEqual({ ...item, label: "Arla" });
+    expect(pantryItemSetSchema.parse({ ...item, label: null })).toEqual({ ...item, label: null });
+    expect(pantryItemSetSchema.parse(item)).toEqual(item);
+    expect(pantryItemSetSchema.safeParse({ ...item, label: " Arla" }).success).toBe(false);
+  });
+
+  it("takes a row's time as the database writes it", () => {
+    const row = { ...item, id: rowId, label: "Arla", createdAt: "2026-10-20T08:15:00.123456+00:00" };
+    expect(pantryRowSchema.parse(row)).toEqual(row);
+    expect(pantryRowSchema.safeParse({ ...row, createdAt: "igår" }).success).toBe(false);
   });
 });

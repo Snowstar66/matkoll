@@ -41,7 +41,7 @@ import {
   parseAmountField,
   type PantryItemFormInput,
 } from "../domain/pantry-item-form";
-import { photoSiteId, suggestionGoneText, type PantrySuggestion } from "../domain/pantry-suggestion";
+import { photoSiteId, suggestionGoneText, suggestionLabel, type PantrySuggestion } from "../domain/pantry-suggestion";
 import { confirmedItemsText, savedItemText } from "../domain/places";
 import { PantryRemovalProvider, usePantryRemoval } from "./pantry-removal";
 import { type CorrectOutcome, type RejectOutcome, usePantrySuggestions } from "./pantry-suggestions";
@@ -96,6 +96,8 @@ type FormValues = {
   amount: string;
   unit: Unit | "";
   location: Location;
+  /** Story 11.2: "Märke eller sort" as typed; empty for none. */
+  label: string;
 };
 
 /** The sheet's primary button. */
@@ -112,7 +114,7 @@ const defaultSection: Section = "Övrigt";
 const amountField = (amount: number | null) => (amount === null ? "" : String(amount).replace(".", ","));
 
 function initialValues(target: PantrySheetTarget): FormValues {
-  if (target.kind === "new") return { ingredient: null, amount: "", unit: "", location: target.location };
+  if (target.kind === "new") return { ingredient: null, amount: "", unit: "", location: target.location, label: "" };
   if (target.kind === "suggestion") {
     const { suggestion } = target;
     const { ingredient } = suggestion;
@@ -124,6 +126,8 @@ function initialValues(target: PantrySheetTarget): FormValues {
       amount: amountField(suggestion.amount),
       unit: suggestion.unit ?? "",
       location: suggestion.location,
+      // Story 11.2: the label the place's row has, or else the one the card's Bekräfta would save.
+      label: suggestion.currentLabel ?? suggestionLabel(suggestion) ?? "",
     };
   }
   const { item } = target;
@@ -133,6 +137,7 @@ function initialValues(target: PantrySheetTarget): FormValues {
     amount: amountField(item.amount),
     unit: item.unit ?? "",
     location: item.location,
+    label: item.label ?? "",
   };
 }
 
@@ -152,8 +157,25 @@ function isFormDirty(values: FormValues, initial: FormValues): boolean {
     !sameIngredient(values.ingredient, initial.ingredient) ||
     values.amount.trim() !== initial.amount.trim() ||
     values.unit !== initial.unit ||
-    values.location !== initial.location
+    values.location !== initial.location ||
+    values.label.trim() !== initial.label.trim()
   );
+}
+
+/**
+ * "Märke eller sort" as the sheet sends it (Story 11.2): an item in the
+ * pantry always sends the field, so an emptied one removes its label. A new
+ * item sends nothing when the field is empty, so a row it lands on keeps its
+ * label. A lagerförslag sends the field only when Pontus changed it to
+ * something: as filled in, the photo's label goes as a photo label
+ * (confirmItemFromForm) and the row's own needs nothing, and empty keeps the
+ * row's label.
+ */
+function labelInput(label: string, target: PantrySheetTarget): Pick<PantryItemFormInput, "label"> {
+  if (target.kind === "edit") return { label };
+  if (label.trim() === "") return {};
+  if (target.kind === "suggestion" && label.trim() === initialValues(target).label.trim()) return {};
+  return { label };
 }
 
 /** What savePantryItem takes; a new ingredient is kept where the item is. */
@@ -168,6 +190,7 @@ function toInput(values: FormValues, ingredient: ChosenIngredient, target: Pantr
     location: values.location,
     siteId: target.kind === "edit" ? target.item.siteId : target.siteId,
     replaceId: target.kind === "edit" ? target.item.id : null,
+    ...labelInput(values.label, target),
   };
 }
 
@@ -311,6 +334,8 @@ export function PantryItemSheet(props: PantryItemSheetProps) {
   const amount = parseAmountField(values.amount);
   const liveAmountError = "error" in amount && (amountTouched || attempted) ? amount.error : null;
   const amountError = serverFields.amount ?? liveAmountError;
+  // maxLength keeps the field short; a longer text (set by a script) shows why at once.
+  const labelError = serverFields.label ?? fieldErrors.label ?? null;
   // A new ingredient's name is not typed here, so its problem shows at once.
   const ingredientError = serverFields.ingredient ?? fieldErrors.ingredient ?? null;
   /** Shown after a save attempt when the form is invalid without a field to point at. */
@@ -508,6 +533,19 @@ export function PantryItemSheet(props: PantryItemSheetProps) {
               value={values.location}
               onChange={(location) => update({ location })}
             />
+          </div>
+
+          <div className="flex flex-col gap-1.5">
+            <FieldLabel htmlFor={`${ids}-label`}>Märke eller sort</FieldLabel>
+            <Input
+              id={`${ids}-label`}
+              autoComplete="off"
+              placeholder="Till exempel Arla laktosfri"
+              value={values.label}
+              onChange={(event) => update({ label: event.target.value })}
+              {...(labelError ? { "aria-invalid": true, "aria-describedby": `${ids}-label-error` } : {})}
+            />
+            {labelError ? <FieldError id={`${ids}-label-error`}>{labelError}</FieldError> : null}
           </div>
         </form>
       )}

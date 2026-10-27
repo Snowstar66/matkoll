@@ -3,7 +3,7 @@ title: 'Story 11.5: Recept och Matsedel i nytt utseende'
 type: 'feature'
 created: '2026-10-26'
 status: 'in-progress'
-baseline_commit: 'd9a1b01'
+baseline_commit: 'fbe221d'
 route: 'dispatch'
 context:
   - '{project-root}/_bmad-output/implementation-artifacts/epic-11-context.md'
@@ -112,7 +112,7 @@ context:
 
 ### Vid bygget
 
-- **Byggd på `d9a1b01`** (`baseline_commit`): Epic 11 med granskningsrättelserna för 11.1 och Story 11.6. Storyn påbörjades på `a566fa1` och flyttades upp innan den checkades in.
+- **Byggd på `fbe221d`** (`baseline_commit`): Epic 11 med granskningsrättelserna för 11.1 och Story 11.6 och 11.2. Storyn påbörjades på `a566fa1` och flyttades upp två gånger. Den sista gången kom 11.2 med, och konflikterna var bara listor (beslutsloggen och e2e-användarna).
 - **Besluten (förslag) är godkända som de står:** portionsväljaren står kvar i rättkortet, "Visa inköpslistan" har inget antal, och arket "Lägg till rätt" behåller sina kompakta rader.
 - **`recipe-row.tsx` togs bort i stället för att stå kvar.** Arket "Lägg till rätt" har haft egna rader (`dish-choice`, knappar som lägger till rätten) sedan 3.1 och har aldrig använt `RecipeRow`. Efter bytet till receptkort använde ingen filen. Arket är oförändrat. E2E- och komponenttesterna letar nu efter `recipe-card` i stället för `recipe-row` (`library`, `cookable`, `pantry-status`, `site-status`, `ai-suggestions` och `app-install` från 11.6).
 - **`RecipeCard`** (`recipes/ui/recipe-card.tsx`) tar `title`, `imageUrl`, `meta`, `href?`, `badge?`, `favorite?` och `children`. Utan `href` är titeln ett `h3` och kortet ingen länk, som AI-förslagen behöver. Texten står först i koden och bilden överst med `order-first`, så VoiceOver läser titel, tid, status och sist "Favorit, av, knapp". Länken är utsträckt över kortet med `after:z-1`, och hjärtat ligger över den med `z-10`. Etiketten ligger under länken, så ett tryck på etiketten öppnar receptet. Playwright vägrar klicka på ett element som täcks av länken, så e2e-testet trycker på etikettens plats med musen.
@@ -124,7 +124,7 @@ context:
   - `PageHeader` bryter raden (`flex-wrap`, `ml-auto`), så "Tidigare" och "+" eller "+" och kugghjulet hamnar på en egen rad i stället för att ge vågrät scroll. Det gällde redan före storyn.
   - `Stepper` blir aldrig bredare än sin behållare. − och + har `shrink-0` och är alltid 44 × 44 px. Värdet har sin minsta bredd på 96 px från 22rem bredd, så vid 375 px är portionsväljaren exakt som förut (mätt till 184 px). Under 22rem får värdet radbrytas ("4 / por / tio / ner"), vilket inte är vackert men går att läsa.
   - Rättkortets nedre rad bryts, och "Ta bort" hamnar under portionsväljaren. Allt mättes i webbläsaren före och efter.
-- **Kontrollerna:** `pnpm lint`, `pnpm typecheck` och `pnpm test` (214 filer, 4 284 tester) lyckas. `AI_PROVIDER=mock pnpm build` och sedan `CI=1 pnpm test:e2e` (hela sviten, under `scripts/with-test-lock.sh`) ger 272 av 272. `pnpm test:integration` ger 426 av 427: `empty_pantry_place` i `pantry-site.test.ts` får `label` och `created_at`, eftersom den lokala databasen redan har migrationen från 11.2 (samma som i 11.1). Storyn ändrar ingenting i databasen.
+- **Kontrollerna på `fbe221d`:** `pnpm lint`, `pnpm typecheck` och `pnpm test` (214 filer, 4 372 tester) lyckas. `pnpm test:integration` ger 455 av 455. `AI_PROVIDER=mock pnpm build` och sedan `CI=1 pnpm test:e2e` ger 275 av 275 för hela sviten. Integration och e2e kördes under `scripts/with-test-lock.sh`. Storyn ändrar ingenting i databasen.
 - **Skärmbilder** av Recept och Matsedel vid 375 px, 1280 px och 187 px, i ljust och mörkt läge, togs med en tillfällig Playwright-spec (inte incheckad) och sparades utanför repot. Uppbyggnaden är skissens: kort med bilden överst, etiketten nere till vänster och hjärtat nere till höger, och rättkort med bild, "6 av 8 hemma", mätare och portionsväljare. Skillnader mot skissen enligt specen: inget antal på "Visa inköpslistan", inga gnistor, och statusen heter "Kan lagas nu" som förut, inte "Allt finns".
 
 ## Review Triage Log

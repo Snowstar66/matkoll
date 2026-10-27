@@ -159,6 +159,12 @@ export const sitePhotoEmail = "e2e-stalle-foto@matkoll.test";
  */
 export const photoSaveEmail = "e2e-foto-spara@matkoll.test";
 /**
+ * The E2E user of pantry-label.spec.ts alone (Story 11.2): each test seeds
+ * its catalog and pantry with the service role, so the labels and times
+ * depend on nothing else.
+ */
+export const labelEmail = "e2e-utseende-marke@matkoll.test";
+/**
  * The E2E user of recipes-look.spec.ts alone (Story 11.5): each test seeds
  * its recipes, pantry and meal plan with the service role, so the recipe
  * cards and dish cards depend on nothing else.
@@ -203,6 +209,7 @@ export const e2eEmails = [
   siteListEmail,
   sitePhotoEmail,
   photoSaveEmail,
+  labelEmail,
   recipesLookEmail,
   coreFlowEmail,
   appInstallEmail,
@@ -236,6 +243,7 @@ export const siteStatusStorageState = "tests/e2e/.auth/site-status.json";
 export const siteListStorageState = "tests/e2e/.auth/site-list.json";
 export const sitePhotoStorageState = "tests/e2e/.auth/site-photo.json";
 export const photoSaveStorageState = "tests/e2e/.auth/photo-save.json";
+export const labelStorageState = "tests/e2e/.auth/label.json";
 export const recipesLookStorageState = "tests/e2e/.auth/recipes-look.json";
 export const outsiderStorageState = "tests/e2e/.auth/outsider.json";
 

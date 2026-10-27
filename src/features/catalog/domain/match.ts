@@ -34,6 +34,9 @@ export type IngredientProposal = z.infer<typeof ingredientProposalSchema>;
 /** What the catalog suggests for one of its ingredients: where it is kept and its usual unit. */
 export type IngredientDefaults = Pick<IngredientProposal, "section" | "location" | "defaultUnit">;
 
+/** An ingredient's name and section, as the pantry's list shows them (Story 11.2): the view works out its category (AD-12). */
+export type IngredientSummary = Pick<IngredientProposal, "name" | "section">;
+
 export const ingredientMatchSchema = z.discriminatedUnion("kind", [
   z.object({
     kind: z.literal("match"),

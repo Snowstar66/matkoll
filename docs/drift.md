@@ -101,7 +101,7 @@ psql "<Session pooler-strängen utan lösenord>" -X -q -A -t -F ' ' -v ON_ERROR_
 diff ~/matkoll-pantry-fore.txt ~/matkoll-pantry-efter.txt
 ```
 
-Skriptet skriver varje rad i `pantry_item` (`id`, användare, katalogvara, plats, mängd och enhet, sorterade på `id`) och antalet rader. Efter migreringen kontrollerar det också eftervillkoren: varje vara ligger på ett ställe som tillhör samma användare, varje användare har exakt ett valt ställe, och varje sparad rad för "Ångra" har sitt ställe. Eftervillkoren skriver inget till filen, bara `NOTICE: pantry-site-check: the postconditions hold`, och ett brutet villkor stoppar skriptet med ett fel.
+Skriptet skriver varje rad i `pantry_item` (`id`, användare, katalogvara, plats, mängd, enhet och `created_at`, sorterade på `id`) och antalet rader. Efter migreringen kontrollerar det också eftervillkoren: varje vara ligger på ett ställe som tillhör samma användare, varje användare har exakt ett valt ställe, och varje sparad rad för "Ångra" har sitt ställe. Eftervillkoren skriver inget till filen, bara `NOTICE: pantry-site-check: the postconditions hold`, och ett brutet villkor stoppar skriptet med ett fel.
 
 Skriptet skriver också varje post i `pantry_removal` (underlaget för "Ångra") med raderna i samma ordning men utan `site_id`, och stoppar om `removed_rows` inte är en lista.
 

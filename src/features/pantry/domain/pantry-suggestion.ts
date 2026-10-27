@@ -20,6 +20,8 @@ import {
   collapseName,
   maxIngredientNameLength,
   maxPantryAmount,
+  pantryLabelSchema,
+  suggestionLabel,
   unitWithoutUnit,
   type PantryItemForm,
   type PantryItemSet,
@@ -117,6 +119,8 @@ const amountHasUnit = (item: { amount: number | null; unit: string | null }) =>
   (item.amount === null) === (item.unit === null);
 
 export { placeStockSchema, type PlaceStock } from "./place-inventory";
+/** Story 11.2: the label a confirmed suggestion gives its pantry item. */
+export { suggestionLabel } from "./pantry-item-form";
 
 export const pantrySuggestionSchema = z
   .object({
@@ -143,6 +147,12 @@ export const pantrySuggestionSchema = z
      * the card's title. Text from the model, only ever shown as text.
      */
     labels: z.array(z.string().trim().min(1).max(maxSuggestionLabelChars)).max(maxSuggestionLabels).optional(),
+    /**
+     * Story 11.2: the label the place's row of the ingredient has now, so Rätta
+     * shows it in "Märke eller sort" instead of the photo's; none when the
+     * place has no labelled row of it or could not be read.
+     */
+    currentLabel: pantryLabelSchema.optional(),
     /** Story 6.5: some item behind it was the model's guess ("osäker"): "Bekräfta alla" leaves it out. */
     uncertain: z.boolean().optional(),
     /**
@@ -258,7 +268,7 @@ export type ToSuggestionsOptions = {
   /** The catalog names of the matched ingredients, by id (catalog.getIngredientNames). */
   names: Readonly<Record<string, string>>;
   /** The place's pantry rows (listPantry), or `null` when they could not be read: no "I kylen nu" then. */
-  current: readonly PantryAmountRow[] | null;
+  current: readonly (PantryAmountRow & { label?: string | null })[] | null;
 };
 
 /**
@@ -348,10 +358,27 @@ export function toPantrySuggestions(
   });
 
   const stocks = current ? stockByIngredient(current) : new Map<string, PlaceStock>();
+  // Story 11.2: the first label among the place's rows of each ingredient.
+  const currentLabels = new Map<string, string>();
+  for (const row of current ?? []) {
+    if (row.label && !currentLabels.has(row.ingredientId)) currentLabels.set(row.ingredientId, row.label);
+  }
   const suggestions: Omit<PantrySuggestion, "id">[] = [];
   for (const { name, ingredient, byUnit, unknown, labels, uncertain, itemNumbers, numbersByUnit } of groups.values()) {
     const stock = ingredient.kind === "existing" ? (stocks.get(ingredient.ingredientId) ?? null) : null;
-    const base = { name, ingredient, location, current: stock, change: null, replaces: [], labels, uncertain, itemNumbers };
+    const currentLabel = ingredient.kind === "existing" ? currentLabels.get(ingredient.ingredientId) : undefined;
+    const base = {
+      name,
+      ingredient,
+      location,
+      current: stock,
+      change: null,
+      replaces: [],
+      labels,
+      uncertain,
+      itemNumbers,
+      ...(currentLabel === undefined ? {} : { currentLabel }),
+    };
     if (stock?.unlimited || unknown) {
       suggestions.push({ ...base, ...unlimited });
     } else if (byUnit.size > 0) {
@@ -596,7 +623,11 @@ export type ConfirmIngredient = z.infer<typeof confirmIngredientSchema>;
 /**
  * One confirmed suggestion, as confirmPantrySuggestions takes it: the
  * ingredient, the place, and an amount below maxPantryAmount with its unit,
- * or neither (unlimited).
+ * or neither (unlimited). Story 11.2: `label` is one Pontus wrote in the
+ * sheet after Rätta, which sets the item's label; `photoLabel` is the
+ * photo's (suggestionLabel), which fills it only when the item has none.
+ * Without either the item keeps its label. A `label` of null keeps it too,
+ * since a confirmation never edits a row of its own (set_pantry_items).
  */
 export const confirmItemSchema = z
   .object({
@@ -604,6 +635,8 @@ export const confirmItemSchema = z
     location: locationSchema,
     amount: z.number().positive().lt(maxPantryAmount).nullable(),
     unit: unitSchema.nullable(),
+    label: pantryLabelSchema.nullable().optional(),
+    photoLabel: pantryLabelSchema.optional(),
   })
   .refine(amountHasUnit, { path: ["unit"] });
 export type ConfirmItem = z.infer<typeof confirmItemSchema>;
@@ -671,6 +704,27 @@ export type InventoryConfirmInput = z.input<typeof inventoryConfirmSchema>;
 const ingredientKey = (ingredient: ConfirmIngredient) =>
   ingredient.kind === "existing" ? `id:${ingredient.ingredientId}` : `new:${normalizeIngredientText(ingredient.name)}`;
 
+/** An item's labels (Story 11.2): the one Pontus wrote, if any, and the photo's. */
+type ItemLabels = Pick<ConfirmItem, "label" | "photoLabel">;
+
+/** The labels to keep when `later` merges into `earlier`: an explicit one (also null) first, then the first photo label. */
+function mergedLabels(earlier: ItemLabels, later: ItemLabels): ItemLabels {
+  const label = earlier.label !== undefined ? earlier.label : later.label;
+  const photoLabel = earlier.photoLabel ?? later.photoLabel;
+  return { ...(label === undefined ? {} : { label }), ...(photoLabel === undefined ? {} : { photoLabel }) };
+}
+
+/** Whether an item says anything about its label. */
+const hasLabels = (item: ItemLabels) => item.label !== undefined || item.photoLabel !== undefined;
+
+/** The item without its labels, so mergedLabels can put back the ones to keep. */
+function withoutLabels(item: ConfirmItem): ConfirmItem {
+  const rest = { ...item };
+  delete rest.label;
+  delete rest.photoLabel;
+  return rest;
+}
+
 /**
  * The items as set_pantry_items can take them in one call (AD-19), in the
  * order they first came:
@@ -680,7 +734,11 @@ const ingredientKey = (ingredient: ConfirmIngredient) =>
  *   without amount, since one place has it either unlimited or with amounts,
  *   and set_pantry_items would let the later item remove the earlier;
  * - a new ingredient keeps its first item's name, section, default place and
- *   unit, so every item creates the same one.
+ *   unit, so every item creates the same one;
+ * - Story 11.2: the first item's label, also an explicit null, or the first
+ *   label a later item has, and the first photo label. A dropped item
+ *   without amount gives its labels to the first kept item of the place
+ *   when that one has none.
  */
 export function mergeConfirmations(items: readonly ConfirmItem[]): ConfirmItem[] {
   const ingredients = new Map<string, ConfirmIngredient>();
@@ -691,25 +749,41 @@ export function mergeConfirmations(items: readonly ConfirmItem[]): ConfirmItem[]
     if (item.amount !== null) withAmount.add(`${key}|${item.location}`);
   }
   const merged = new Map<string, ConfirmItem>();
+  /** The labels of the dropped items without amount, per ingredient and place. */
+  const dropped = new Map<string, ItemLabels>();
   for (const item of items) {
     const key = ingredientKey(item.ingredient);
     const place = `${key}|${item.location}`;
-    if (item.amount === null && withAmount.has(place)) continue;
+    if (item.amount === null && withAmount.has(place)) {
+      if (hasLabels(item)) dropped.set(place, mergedLabels(dropped.get(place) ?? {}, item));
+      continue;
+    }
     const at = `${place}|${item.unit ?? ""}`;
     const earlier = merged.get(at);
-    if (earlier && earlier.amount !== null && item.amount !== null) {
-      merged.set(at, { ...earlier, amount: clampAmount(earlier.amount + item.amount) });
-    } else if (!earlier) {
+    if (!earlier) {
       merged.set(at, { ...item, ingredient: ingredients.get(key)! });
+      continue;
     }
+    const amount = earlier.amount !== null && item.amount !== null ? clampAmount(earlier.amount + item.amount) : earlier.amount;
+    merged.set(at, { ...withoutLabels(earlier), amount, ...mergedLabels(earlier, item) });
   }
-  return [...merged.values()];
+  const result = [...merged.values()];
+  for (const [place, labels] of dropped) {
+    const index = result.findIndex((item) => `${ingredientKey(item.ingredient)}|${item.location}` === place);
+    if (index !== -1 && !hasLabels(result[index])) result[index] = { ...result[index], ...labels };
+  }
+  return result;
 }
 
-/** A suggestion as it is confirmed: its ingredient, place, amount and unit. */
+/**
+ * A suggestion as it is confirmed: its ingredient, place, amount and unit,
+ * and its label from the photo (suggestionLabel) when it has one, which
+ * fills the item's label only when the item has none (Story 11.2).
+ */
 export function confirmItemFromSuggestion(suggestion: PantrySuggestion): ConfirmItemInput {
   const { ingredient, location, amount, unit } = suggestion;
-  return { ingredient, location, amount, unit };
+  const photoLabel = suggestionLabel(suggestion);
+  return { ingredient, location, amount, unit, ...(photoLabel === null ? {} : { photoLabel }) };
 }
 
 /**
@@ -718,10 +792,15 @@ export function confirmItemFromSuggestion(suggestion: PantrySuggestion): Confirm
  * place as its default place, unless it is still the suggestion's own new
  * ingredient (the same name, compared normalised): then it keeps the suggestion's proposal id,
  * default place and unit, with the form's section, so Rätta and then
- * Bekräfta create the same catalog ingredient as Bekräfta alone.
+ * Bekräfta create the same catalog ingredient as Bekräfta alone. Story
+ * 11.2: the form's label is one Pontus wrote in "Märke eller sort" (the
+ * sheet leaves it out when the field is empty or as it was filled in), and
+ * the suggestion's photo label still fills an item without one.
  */
 export function confirmItemFromForm(form: PantryItemForm, suggestion?: PantrySuggestion): ConfirmItemInput {
   const { ingredient, location, amount, unit } = form;
+  const label = "label" in form ? form.label : undefined;
+  const photoLabel = suggestion ? suggestionLabel(suggestion) : null;
   const own = suggestion?.ingredient;
   let confirmed: ConfirmItemInput["ingredient"];
   if (ingredient.kind === "existing") {
@@ -731,7 +810,14 @@ export function confirmItemFromForm(form: PantryItemForm, suggestion?: PantrySug
   } else {
     confirmed = { kind: "new", name: ingredient.name, section: ingredient.section, location, defaultUnit: ingredient.defaultUnit };
   }
-  return { ingredient: confirmed, location, amount, unit };
+  return {
+    ingredient: confirmed,
+    location,
+    amount,
+    unit,
+    ...(label === undefined ? {} : { label }),
+    ...(photoLabel === null ? {} : { photoLabel }),
+  };
 }
 
 /**
@@ -741,14 +827,27 @@ export function confirmItemFromForm(form: PantryItemForm, suggestion?: PantrySug
  */
 export function mergePantrySets(items: readonly PantryItemSet[]): PantryItemSet[] {
   return mergeConfirmations(
-    items.map(({ ingredientId, location, amount, unit }) => ({
+    items.map(({ ingredientId, location, amount, unit, label, photoLabel }) => ({
       ingredient: { kind: "existing", ingredientId },
       location,
       amount,
       unit,
+      ...(label === undefined ? {} : { label }),
+      ...(photoLabel === undefined ? {} : { photoLabel }),
     })),
-  ).flatMap(({ ingredient, location, amount, unit }) =>
-    ingredient.kind === "existing" ? [{ ingredientId: ingredient.ingredientId, location, amount, unit }] : [],
+  ).flatMap(({ ingredient, location, amount, unit, label, photoLabel }) =>
+    ingredient.kind === "existing"
+      ? [
+          {
+            ingredientId: ingredient.ingredientId,
+            location,
+            amount,
+            unit,
+            ...(label === undefined ? {} : { label }),
+            ...(photoLabel === undefined ? {} : { photoLabel }),
+          },
+        ]
+      : [],
   );
 }
 

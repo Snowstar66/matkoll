@@ -2,12 +2,18 @@ import "server-only";
 import { createClient } from "@/lib/supabase/server";
 import { matchIngredientsIn } from "./actions/match-ingredients";
 import { commitIngredients as commitIngredientsIn } from "./data/commit";
-import { findIngredientIdsIn, loadIngredientDefaults, loadIngredientNames } from "./data/queries";
+import { findIngredientIdsIn, loadIngredientDefaults, loadIngredientNames, loadIngredientSummaries } from "./data/queries";
 import { searchText } from "./domain/search";
 
 /** What the catalog functions throw when Supabase fails; `code` says why, never user data. */
 export { CatalogDataError } from "./data/client";
-import type { IngredientChoice, IngredientDefaults, IngredientMatch, MatchItem } from "./domain/match";
+import type {
+  IngredientChoice,
+  IngredientDefaults,
+  IngredientMatch,
+  IngredientSummary,
+  MatchItem,
+} from "./domain/match";
 
 // Server-only entry (AD-1). Everything here uses the signed-in user's session
 // client, so RLS limits it to the user's catalog. The functions below are not
@@ -31,6 +37,16 @@ export async function commitIngredients(choices: readonly IngredientChoice[]): P
 /** The names of the ingredients among `ids` in the user's catalog, by id. Ids not found are left out. */
 export async function getIngredientNames(ids: readonly string[]): Promise<Record<string, string>> {
   return loadIngredientNames(await createClient(), ids);
+}
+
+/**
+ * The names and sections of the ingredients among `ids` in the user's
+ * catalog, by id; ids not found are left out. The pantry's list shows the
+ * name and works out the category from the section (Story 11.2, AD-12).
+ * Throws CatalogDataError.
+ */
+export async function getIngredientSummaries(ids: readonly string[]): Promise<Record<string, IngredientSummary>> {
+  return loadIngredientSummaries(await createClient(), ids);
 }
 
 /**
