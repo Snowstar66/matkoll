@@ -123,25 +123,30 @@ export function FixedAction({ children, reserve = 1 }: FixedActionProps) {
     </div>
   );
 
-  if (layout.inline) {
-    return (
-      <div data-fixed-action-inline className="mt-2">
-        {bar}
-      </div>
-    );
-  }
+  // The same elements pinned and inline, only other classes: a switch (the
+  // first measure after hydration, a turned phone, larger text) keeps the
+  // buttons' DOM nodes, their state and their focus.
   return (
     <>
+      {layout.inline ? null : (
+        <div
+          aria-hidden="true"
+          style={{
+            height:
+              layout.height === null
+                ? "calc(var(--button-height) + var(--fixed-action-gap) * 2)"
+                : `calc(${layout.height + layout.extra}px + var(--fixed-action-gap) * 2)`,
+          }}
+        />
+      )}
       <div
-        aria-hidden="true"
-        style={{
-          height:
-            layout.height === null
-              ? "calc(var(--button-height) + var(--fixed-action-gap) * 2)"
-              : `calc(${layout.height + layout.extra}px + var(--fixed-action-gap) * 2)`,
-        }}
-      />
-      <div className="fixed inset-x-0 bottom-[calc(var(--tab-bar-height)+var(--fixed-action-gap))] z-20 px-page desktop:bottom-[calc(env(safe-area-inset-bottom)+var(--fixed-action-gap))] desktop:left-side-menu">
+        data-fixed-action-inline={layout.inline ? "true" : undefined}
+        className={
+          layout.inline
+            ? "mt-2"
+            : "fixed inset-x-0 bottom-[calc(var(--tab-bar-height)+var(--fixed-action-gap))] z-20 px-page desktop:bottom-[calc(env(safe-area-inset-bottom)+var(--fixed-action-gap))] desktop:left-side-menu"
+        }
+      >
         {bar}
       </div>
     </>

@@ -75,6 +75,20 @@ describe("FixedAction", () => {
     expect(document.documentElement.style.getPropertyValue("scroll-padding-bottom")).toBe("");
   });
 
+  it("keeps the same buttons, and their focus, when it moves to the end of the page", async () => {
+    fakeLayout({ width: 140, barWidth: 343 });
+    const { rerender } = render(twoButtons);
+    const button = screen.getByRole("button", { name: "Lägg i lagret" });
+    button.focus();
+    // Larger text: the bar is now too tall to be pinned.
+    fakeLayout({ width: 200, barWidth: 343, barHeight: 260, top: 400 });
+    window.dispatchEvent(new Event("resize"));
+    rerender(twoButtons);
+    await waitFor(() => expect(screen.getByTestId("fixed-action").parentElement).toHaveAttribute("data-fixed-action-inline"));
+    expect(screen.getByRole("button", { name: "Lägg i lagret" })).toBe(button);
+    expect(button).toHaveFocus();
+  });
+
   it("keeps focus above the buttons with scroll-padding, and tells the toast how far up they reach", () => {
     fakeLayout({ width: 140, barWidth: 343 });
     const { unmount } = render(twoButtons);
