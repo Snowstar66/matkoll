@@ -2,6 +2,18 @@
 
 Beslut som fattats under bygget: vad, varför och vilka alternativ som fanns. Nyaste överst.
 
+## 2026-10-27 – AI-tiderna och LM Studios inställningar (Story 12.1)
+
+- **Underlag:** mätning natten till 2026-10-27 kl. 22.39–03.36 med `pnpm eval:ai` och den nya gemensamma tidmätningen (`tests/eval/timing.ts`) mot Qwen3.6 35B A3B (MLX, 4 bit) i LM Studio på Pontus Mac (32 GB). Flöden: bildanalys och nummer (Pontus kylfoto och `syntetisk-kyl`), AI-förslag och "andra rätter", import av text (`kycklinggryta`), länk (den sparade sidan `koket-chow-mein`) och foto (`ugnspannkaka`). Lägen: varm (tre körningar), kall (minst 15 minuter utan anrop, och en gång efter 5 och 30 minuter), två anrop samtidigt, PARALLEL 4 och 1 och PARALLEL 1 med `--speculative-draft-mtp`. `lms ps` före: kontext 8 192, PARALLEL 4, ingen TTL; samma efter återställningen. Allt står i `docs/lm-studio.md`.
+- **Siffrorna (median, varm med PARALLEL 4 → kall):** bildanalys av Pontus foto 19,9 → 82,1 s, nummer 6,4 → 14,6 s, AI-förslag 45,9 → 80,3 s, import av text 30,0 → 55,0 s, av länk 47,7 → 74,1 s och av foto 21,2 → 75,6 s. Modellen skriver ungefär 44 token per sekund i alla lägen. PARALLEL 1 och spekulativ avkodning gav samma varma tider inom en sekund. Två anrop samtidigt: med PARALLEL 4 blev 1 av 12 anrop ogiltigt (ett AI-förslag över 100 s), med PARALLEL 1 4 av 12 (alla tre uppslag av numren gav upp efter 30 s i LM Studios kö, och ett "andra rätter" över 115 s).
+- **Kall modell (T9):** macOS komprimerar modellens minne redan efter 5 minuter utan anrop (12–17 GB i minneskompressorn före ett kallt anrop, 1–3 GB efter). Det kostar 18–66 s per flöde.
+- **Beslut (Claude, headless enligt `docs/autonomi.md`; Pontus väljer, öppen fråga 20):**
+  - **Rekommendationen är att behålla kontext 8 192, PARALLEL 4 och ingen TTL, utan spekulativ avkodning.** Hypotesen före mätningen var PARALLEL 1, men den gav ingen fart för ett ensamt anrop och klarade krockar sämre. Spekulativ avkodning laddade utan fel men gav ingen mätbar skillnad. Alternativ: PARALLEL 1, som gör att ett anrop aldrig delar fart men får vänta i LM Studios kö.
+  - **LM Studio är återställt** till inställningarna före mätningen.
+  - **Fart vinns i appen:** kortare AI-förslag (12.3), eftersom tiden följer svarets längd, och väckningen (12.2), eftersom modellen blir kall efter några minuter. Väckningens gräns på fem minuter stämmer med mätningen.
+  - **Utvärderingen mäter token genom att läsa `usage` i svaren** via en egen `fetch` i utvärderingen, så att AI-porten inte ändras för mätningens skull.
+- **Varför:** samma mått för alla flöden behövs för att visa om 12.2, 12.3 och 12.7 hjälper. Rekommendationen följer siffrorna, inte hypotesen.
+
 ## 2026-10-26 – Kursändring för snabbare och asynkron AI (Epic 12)
 
 - **Underlag:** Pontus skrev "Vi borde få till prestandan i qwen kommandona om det går. Kanske göra dem asynkrona om det går, och att man kan fortsätta klicka runt i appen och göra fler asynkrona anrop som ramlar in när dom är klara. Om det inte riskerar ngt." och godkände planen ("ja planera det så"): först fart, mätt före och efter, sedan AI-jobb i bakgrunden i en kö. Koden lästes på `epic/11-nytt-utseende` (`22a0feb`): AI-porten (`run.ts`, `service.ts`, `adapters/lmstudio.ts`), rutterna i `src/app/api/ai/`, låset i `pantry/actions/ai-runs.ts` och kartan i `suggestFromPantry`. Next.js 16.4.3-dokumentationen om `after()` och `maxDuration` lästes i `node_modules/next/dist/docs/`, AI SDK 7.0.153 om `Output.array` och `elementStream` i `node_modules/ai/docs/` och på ai-sdk.dev, och Vercels tak (300 s på Hobby med Fluid compute) på vercel.com. `lms load --help` visar `--parallel`, `--ttl` och `--speculative-draft-mtp`. LM Studio ändrades inte.

@@ -2,8 +2,9 @@
 title: 'Story 12.1: Mät AI-tiderna och ställ in LM Studio'
 type: 'chore'
 created: '2026-10-26'
-status: 'draft'
+status: 'in-progress'
 route: 'dispatch'
+baseline_commit: '39ee83dd3d0061aee89fc45dd1611a69e59fc814'
 context:
   - '{project-root}/_bmad-output/implementation-artifacts/epic-12-context.md'
   - '{project-root}/_bmad-output/implementation-artifacts/spec-5-2-ai-forslag-utifran-lagret.md'
@@ -66,12 +67,12 @@ context:
 ## Tasks & Acceptance
 
 **Execution:**
-- [ ] `tests/eval/timing.ts` (+ test) -- gemensam rapportrad (flöde, läge, tid, token in och ut, token per sekund, giltig) och en sammanfattning med median per flöde och läge
-- [ ] `tests/eval/*.eval.ts` -- använder `timing.ts`, läser `EVAL_LABEL` (till exempel `parallel-1-varm`) och `EVAL_RUNS`, och skriver rapporten till `tests/eval/reports/` (git ignorerar mappen)
-- [ ] Mätningen mot LM Studio enligt Boundaries, med `lms ps` före och efter
-- [ ] `docs/lm-studio.md` -- mätningen, rekommendationen och kommandona
-- [ ] `docs/oppna-fragor.md` -- T5 och T6 får de nya siffrorna, T9 svaret om kall modell
-- [ ] `docs/beslutslogg.md` -- en post med siffrorna och rekommendationen
+- [x] `tests/eval/timing.ts` (+ test) -- gemensam rapportrad (flöde, läge, tid, token in och ut, token per sekund, giltig) och en sammanfattning med median per flöde och läge
+- [x] `tests/eval/*.eval.ts` -- använder `timing.ts`, läser `EVAL_LABEL` (till exempel `parallel-1-varm`) och `EVAL_RUNS`, och skriver rapporten till `tests/eval/reports/` (git ignorerar mappen)
+- [x] Mätningen mot LM Studio enligt Boundaries, med `lms ps` före och efter
+- [x] `docs/lm-studio.md` -- mätningen, rekommendationen och kommandona
+- [x] `docs/oppna-fragor.md` -- T5 och T6 får de nya siffrorna, T9 svaret om kall modell
+- [x] `docs/beslutslogg.md` -- en post med siffrorna och rekommendationen
 
 **Acceptance Criteria:**
 - Given `pnpm lint && pnpm typecheck && pnpm test`, when de körs, then lyckas alla.
@@ -88,6 +89,19 @@ context:
 - Loggar och rapporter innehåller aldrig foton eller svarstext, bara siffror och flödets namn.
 
 ## Spec Change Log
+
+- Vid bygget:
+  - **Hypoteserna (förslag) prövades och godkändes som de stod; mätningen avgjorde.** PARALLEL 1 gav ingen fart för ett ensamt anrop och klarade två samtidiga anrop sämre, så rekommendationen är PARALLEL 4 (det Pontus har). Spekulativ avkodning (`--speculative-draft-mtp`) laddade utan fel men gav ingen mätbar skillnad i fart eller giltighet.
+  - **Token mäts utan att porten ändras:** `installUsageMeter` i `timing.ts` byter den globala `fetch` i utvärderingen och läser `usage` (och `prompt_tokens_details.cached_tokens` när det finns) ur kopian av varje svar från `/chat/completions`. Ett anrop med flera försök summeras, och raden har antalet anrop och tiden för det första.
+  - **Varje rad har också vilad tid och minne:** sekunder sedan modellen användes (`lastUsedTime` i `lms ps --json`), macOS fria minne (`memory_pressure`) och komprimerat minne (`vm_stat`), lästa före anropet. Utan `lms` eller på annat än macOS blir de "–".
+  - **De gamla rapporterna ligger kvar** (`tests/eval/report.md`, `suggest-report.md`, `analyze-report.md`) med en kolumn för körningen. Tidrapporterna är nya filer i `tests/eval/reports/` (Markdown och JSON per fil och läge) och `reports/sammanfattning.md` över alla.
+  - **`EVAL_RUNS` gäller nu alla tre utvärderingarna:** förslagen kör paret (förslag, andra rätter) så många gånger, och importen varje fall så många gånger.
+  - **Mätningen kördes per fil och fall** med `-t` (Pontus foto och `syntetisk-kyl`; `kycklinggryta (text)`, `koket-chow-mein (text)` och `ugnspannkaka (bild)`), inte hela `pnpm eval:ai`, så att bara flödena i Boundaries kördes. Importen av foto (`ugnspannkaka`) kom med eftersom import av foto är ett av flödena i 12.6.
+  - **Kalla körningar:** tre för bildanalysen och AI-förslagen och en per import med PARALLEL 4, och en för bildanalysen med PARALLEL 1, eftersom varje kall körning kräver 15 minuters vila. Den första kalla bildanalysen hade vilat 49 minuter och den första kalla förslagskörningen 69 minuter (rapporten säger exakt hur länge). Numren efter en kall avläsning räknas som kalla, men modellen hade då nyss använts.
+  - **Två samtidigt** var bildanalysen av Pontus foto (med nummer) och AI-förslagen (med andra rätter), tre körningar var i två processer.
+  - **Spekulativ avkodning mättes bara med PARALLEL 1,** eftersom den inte gav något där.
+  - **Pontus foto** lästes i arbetskatalogen via en symbolisk länk till `tests/eval/photos/` i huvudkatalogen. Länken togs bort efteråt, och inga kopior gjordes.
+  - **Ogiltiga körningar** i importen (fel antal rader enligt testfallet) och förslagen (för långa svar, nya försök som inte hann) har inget med inställningarna att göra; de står i `docs/lm-studio.md`.
 
 ## Review Triage Log
 
