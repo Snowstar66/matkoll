@@ -50,6 +50,15 @@ export function removedItemsText(names: readonly NameInText[]): string {
   return `${names.length} varor är borttagna.`;
 }
 
+/**
+ * The short confirmation, with "Ångra", after one item is removed in
+ * Lagersaldo (Story 11.3, EXPERIENCE.md, Soptunna): "Tog bort Gräddfil." The
+ * name is written as the list shows it.
+ */
+export function removedItemText(name: string): string {
+  return `Tog bort ${name}.`;
+}
+
 /** The short confirmation after confirming several lagerförslag at once: "Lagt 1 vara i lagret.", "Lagt 4 varor i lagret." */
 export function confirmedItemsText(count: number): string {
   return `Lagt ${itemCountText(count)} i lagret.`;

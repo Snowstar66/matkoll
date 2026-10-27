@@ -241,7 +241,8 @@ test("selecting Hemma while Stugan's suggestions show says so, and Bekräfta sti
   expect(on(after, "Hemma")).toEqual(on(before, "Hemma"));
   expect(on(after, "Stugan").find((row) => row.name === "Mjölk")).toMatchObject({ amount: 1, unit: "förp" });
   // Hemma's list is Hemma's: 1 l, never Stugan's 1 förp.
-  await expect(rows(page).filter({ hasText: "Mjölk" })).toHaveText([/^Mjölk\s*1 l$/]);
+  // Story 11.3: the rows show no amount; on(after, "Hemma") above holds the 1 l.
+  await expect(rows(page).filter({ hasText: /^Mjölk / })).toHaveCount(1);
   expect(errors).toEqual([]);
 });
 
@@ -266,7 +267,7 @@ test("Töm kylen on Stugan asks with its name, empties only Stugan, and Ångra a
   await expect.poll(async () => on(await pantry(), "Stugan")).toEqual(on(before, "Stugan"));
   expect(on(await pantry(), "Hemma")).toEqual(on(before, "Hemma"));
   // Hemma's list never shows Stugan's rows.
-  await expect(rows(page)).toHaveText([/^Mjölk\s*1 l$/, /^Yoghurt\s*2 förp$/]);
+  await expect(rows(page)).toHaveText([/^Mjölk /, /^Yoghurt /]);
   expect(errors).toEqual([]);
 });
 

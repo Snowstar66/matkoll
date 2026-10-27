@@ -124,14 +124,3 @@ export function comparePantryItems(a: PantryItem, b: PantryItem): number {
     (a.id < b.id ? -1 : a.id > b.id ? 1 : 0)
   );
 }
-
-/** The items of one location split as Hemma shows them: rows with an amount and tags for unlimited items. */
-export function splitPantryItems(items: readonly PantryItem[]): {
-  withAmount: PantryItem[];
-  unlimited: PantryItem[];
-} {
-  return {
-    withAmount: items.filter((item) => item.amount !== null),
-    unlimited: items.filter((item) => item.amount === null),
-  };
-}

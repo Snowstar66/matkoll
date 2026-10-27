@@ -76,8 +76,8 @@ const card = (page: Page, name: string) =>
 const emptyButton = (page: Page, name = "Töm kylen") =>
   page.getByRole("button", { name, exact: true }).filter({ visible: true });
 const sheet = (page: Page) => page.getByRole("dialog", { name: "Töm kylen" });
+// Story 11.3: one row per item, with or without an amount, and no amount shown.
 const rows = (page: Page) => page.getByTestId("pantry-row").filter({ visible: true });
-const tags = (page: Page) => page.getByTestId("pantry-tag").filter({ visible: true });
 const toast = (page: Page) => page.getByTestId("toast");
 
 test("an empty location has no button to empty it", async ({ page }) => {
@@ -105,8 +105,7 @@ test("Töm kylen asks first, with focus on Avbryt, and Avbryt removes nothing", 
   await sheet(page).getByRole("button", { name: "Avbryt" }).click();
   await expect(sheet(page)).toBeHidden();
   await expect(emptyButton(page)).toBeFocused();
-  await expect(rows(page)).toHaveCount(2);
-  await expect(tags(page)).toHaveCount(1);
+  await expect(rows(page)).toHaveCount(3);
   expect(await rowsIn("Kyl")).toHaveLength(3);
   expect(errors).toEqual([]);
 });
@@ -124,7 +123,6 @@ test("Töm kylen removes every item in Kyl, and Ångra puts them back with the s
   await expect(sheet(page)).toBeHidden();
   await expect(page.getByText("Inget i kylen än.")).toBeVisible();
   await expect(rows(page)).toHaveCount(0);
-  await expect(tags(page)).toHaveCount(0);
   await expect(card(page, "Kyl")).toHaveText(/^Kyl\s*0 varor$/);
   await expect(card(page, "Frys")).toHaveText(/^Frys\s*1 vara$/);
   await expect(emptyButton(page)).toHaveCount(0);
@@ -134,8 +132,7 @@ test("Töm kylen removes every item in Kyl, and Ångra puts them back with the s
 
   await toast(page).getByRole("button", { name: "Ångra" }).click();
   await expect(card(page, "Kyl")).toHaveText(/^Kyl\s*3 varor$/);
-  await expect(rows(page)).toHaveText([/^Mjölk\s*2 förp$/, /^Ost\s*1 förp$/]);
-  await expect(tags(page)).toHaveText(["Smör"]);
+  await expect(rows(page)).toHaveText([/^Mjölk /, /^Ost /, /^Smör /]);
   await expect(emptyButton(page)).toBeVisible();
   await expect.poll(() => rowsIn("Kyl")).toEqual(before);
   expect(await rowsIn("Frys")).toHaveLength(1);
@@ -169,7 +166,6 @@ test("Ångra skips an item added again meanwhile and says so, and puts the other
   ].sort((a, b) => a.id.localeCompare(b.id));
   await expect.poll(() => rowsIn("Kyl")).toEqual(expected);
   await expect(card(page, "Kyl")).toHaveText(/^Kyl\s*3 varor$/);
-  await expect(rows(page)).toHaveText([/^Mjölk\s*1 förp$/, /^Ost\s*1 förp$/]);
-  await expect(tags(page)).toHaveText(["Smör"]);
+  await expect(rows(page)).toHaveText([/^Mjölk /, /^Ost /, /^Smör /]);
   expect(errors).toEqual([]);
 });

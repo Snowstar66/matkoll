@@ -146,13 +146,29 @@ test("Lägg i lagret puts the checked lines in the pantry, takes them off the li
   // Lagersaldo: the catalog's locations, increased or created, and unlimited for salt and kaffe.
   await tab(page, "Lagersaldo").click();
   await expect(page).toHaveURL(/\/hemma/);
+  // Story 11.3: the rows show "Tillagd …" and no amount, so the amounts are read from the table.
   const rows = page.getByTestId("pantry-row").filter({ visible: true });
-  await expect(rows.filter({ hasText: "Grädde" })).toHaveText(/Grädde\s*3 dl/);
-  await expect(rows.filter({ hasText: "Paprika" })).toHaveText(/Paprika\s*2 st/);
+  await expect(rows.filter({ hasText: "Grädde" })).toBeVisible();
+  await expect(rows.filter({ hasText: "Paprika" })).toBeVisible();
   await page.goto("/hemma?plats=skafferi");
-  const tags = page.getByTestId("pantry-tag").filter({ visible: true });
-  await expect(tags.filter({ hasText: "Salt" })).toBeVisible();
-  await expect(tags.filter({ hasText: "Kaffe" })).toBeVisible();
+  await expect(rows.filter({ hasText: "Salt" })).toBeVisible();
+  await expect(rows.filter({ hasText: "Kaffe" })).toBeVisible();
+  const stored = await adminClient()
+    .from("pantry_item")
+    .select("location, amount, unit, ingredient!inner(name)")
+    .eq("user_id", userId);
+  if (stored.error) throw stored.error;
+  const amounts = Object.fromEntries(
+    (stored.data as unknown as { location: string; amount: number | null; unit: string | null; ingredient: { name: string } }[]).map(
+      (row) => [row.ingredient.name, `${row.location} ${row.amount === null ? "obegränsad" : `${Number(row.amount)} ${row.unit}`}`],
+    ),
+  );
+  expect(amounts).toMatchObject({
+    Grädde: "Kyl 3 dl",
+    Paprika: "Kyl 2 st",
+    Salt: "Skafferi obegränsad",
+    Kaffe: "Skafferi obegränsad",
+  });
 
   // The status is counted again.
   await page.goto(`/recept/${recipeId}`);

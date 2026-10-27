@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { comparePantryItems, snapshotFor, splitPantryItems, toSnapshot, type PantryItem } from "./pantry-item";
+import { comparePantryItems, snapshotFor, toSnapshot, type PantryItem } from "./pantry-item";
 
 const item = (overrides: Partial<PantryItem> & Pick<PantryItem, "id" | "name">): PantryItem => ({
   siteId: "hemma",
@@ -82,15 +82,6 @@ describe("comparePantryItems", () => {
       item({ id: "0", name: "mjölk", amount: 1, unit: "l" }),
     ];
     expect([...items].sort(comparePantryItems).map((entry) => entry.id)).toEqual(["0", "3", "5", "4", "2", "6", "7", "1"]);
-  });
-});
-
-describe("splitPantryItems", () => {
-  it("puts items with an amount in rows and unlimited items in tags, keeping the order", () => {
-    const mjolk = item({ id: "1", name: "Mjölk", amount: 1, unit: "l" });
-    const salt = item({ id: "2", name: "Salt" });
-    const smor = item({ id: "3", name: "Smör", amount: 250, unit: "g" });
-    expect(splitPantryItems([mjolk, salt, smor])).toEqual({ withAmount: [mjolk, smor], unlimited: [salt] });
   });
 });
 
