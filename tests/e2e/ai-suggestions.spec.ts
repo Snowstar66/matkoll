@@ -51,9 +51,16 @@ async function seedIngredients(names: string[]): Promise<Map<string, string>> {
       })),
       { onConflict: "user_id,normalized_name" },
     )
-    .select("id, name");
+    .select("id, normalized_name");
   if (error) throw error;
-  const ids = new Map((data as { id: string; name: string }[]).map((row) => [row.name, row.id]));
+  // Story 10.4: the catalog stores "Gul lök" for "gul lök", so the rows are found by their normalised name.
+  const byNormalized = new Map((data as { id: string; normalized_name: string }[]).map((row) => [row.normalized_name, row.id]));
+  const ids = new Map(
+    names.flatMap((name) => {
+      const id = byNormalized.get(normalizeIngredientText(name));
+      return id === undefined ? [] : [[name, id] as const];
+    }),
+  );
   const missing = names.filter((name) => !ids.has(name));
   if (missing.length > 0) throw new Error(`The catalog upsert did not return ${missing.join(", ")}`);
   return ids;
@@ -137,13 +144,13 @@ function countSuggestCalls(page: Page): () => number {
 // Earlier routes stay mounted but hidden after a client navigation, so every
 // locator is scoped to what is visible.
 const visible = (page: Page) => page.locator("main").filter({ visible: true });
-const rows = (page: Page) => page.getByTestId("recipe-row").filter({ visible: true });
+const rows = (page: Page) => page.getByTestId("recipe-card").filter({ visible: true });
 const pill = (page: Page, name: "Alla" | "Kan lagas nu") => page.getByRole("radio", { name }).filter({ visible: true });
 const section = (page: Page) => page.getByRole("region", { name: "AI-förslag" }).filter({ visible: true });
 const cards = (page: Page) => section(page).getByRole("listitem");
 const suggestButton = (page: Page) => page.getByRole("button", { name: "Föreslå rätter med AI" }).filter({ visible: true });
 const sheet = (page: Page) => page.getByRole("dialog", { name: "Spara AI-förslag" });
-const tab = (page: Page, name: "Recept" | "Hemma") =>
+const tab = (page: Page, name: "Recept" | "Lagersaldo") =>
   page.getByRole("navigation", { name: "Huvudmeny" }).getByRole("link", { name });
 
 async function expectNoHorizontalScroll(page: Page) {
@@ -269,7 +276,7 @@ test("the AI out of reach: the text and Försök igen, while the library works",
   expect(errors.filter((error) => !error.includes("Failed to load resource"))).toEqual([]);
 });
 
-test("an empty pantry: the text with Öppna Hemma, and the AI is not asked", async ({ page }) => {
+test("an empty pantry: the text with Öppna Lagersaldo, and the AI is not asked", async ({ page }) => {
   const { error } = await adminClient().from("pantry_item").delete().eq("user_id", userId);
   if (error) throw error;
 
@@ -279,9 +286,9 @@ test("an empty pantry: the text with Öppna Hemma, and the AI is not asked", asy
   await suggestButton(page).click();
   expect((await answered).status()).toBe(422);
   await expect(visible(page).getByRole("alert")).toHaveText(
-    "Lagret är tomt. Lägg till varor i Hemma, så kan AI:n föreslå rätter.",
+    "Lagret är tomt. Lägg till varor i Lagersaldo, så kan AI:n föreslå rätter.",
   );
   await expect(visible(page).getByRole("button", { name: "Försök igen" })).toHaveCount(0);
-  await visible(page).getByRole("link", { name: "Öppna Hemma" }).click();
+  await visible(page).getByRole("link", { name: "Öppna Lagersaldo" }).click();
   await expect(page).toHaveURL(/\/hemma$/);
 });

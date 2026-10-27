@@ -3,9 +3,17 @@ import { describe, expect, it } from "vitest";
 import {
   exifSegment,
   jpegHeader,
+  jpegMarkers,
+  jpegWithMetadata,
+  jpegWithThumbnail,
+  madeUpPosition,
   pngChunk,
+  pngChunkTypes,
   pngFile,
   pngHeader,
+  pngWithMetadata,
+  progressiveJpeg,
+  withTrailer,
   webpVp8Header,
   webpVp8lHeader,
   webpVp8xHeader,
@@ -103,8 +111,22 @@ describe("stripPngMetadata", () => {
   const idat = pngChunk("IDAT", [1, 2, 3, 4]);
 
   it("keeps a PNG with only image chunks as it is", () => {
-    const png = pngFile(720, 900, { chunks: [pngChunk("sRGB", [0]), idat] });
+    const png = pngFile(720, 900, { chunks: [pngChunk("PLTE", [0, 0, 0]), pngChunk("tRNS", [0]), idat] });
     expect(stripPngMetadata(png)).toEqual(png);
+  });
+
+  it("keeps only IHDR, PLTE, tRNS, IDAT and IEND: colour chunks go too (a whitelist)", () => {
+    const png = pngFile(720, 900, { chunks: [pngChunk("sRGB", [0]), pngChunk("gAMA", [0, 0, 0, 1]), idat] });
+    expect(stripPngMetadata(png)).toEqual(pngFile(720, 900, { chunks: [idat] }));
+  });
+
+  it("stops at IEND and leaves out what comes after it, and the text and EXIF before it", () => {
+    const kyl = fixture("kyl.png");
+    const stripped = stripPngMetadata(withTrailer(pngWithMetadata(kyl)))!;
+    expect(pngChunkTypes(stripped).every((type) => ["IHDR", "PLTE", "tRNS", "IDAT", "IEND"].includes(type))).toBe(true);
+    expect(pngChunkTypes(stripped).at(-1)).toBe("IEND");
+    expect(Buffer.from(stripped).includes(madeUpPosition)).toBe(false);
+    expect(Buffer.from(stripped).includes("ftyp")).toBe(false);
   });
 
   it("removes text, EXIF, time, physical size and colour profile chunks", () => {
@@ -128,6 +150,15 @@ describe("stripPngMetadata", () => {
     ["a JPEG", jpegHeader(10, 10)],
     ["a PNG cut off before IEND", pngFile(10, 10).subarray(0, 40)],
     ["a PNG whose chunks cannot be walked", pngHeader(10, 10, 200)],
+    ["a PNG whose chunk runs past the end", (() => {
+      const png = pngFile(10, 10);
+      const broken = new Uint8Array(png);
+      broken.set([0, 0x10, 0, 0], 33);
+      return broken;
+    })()],
+    ["a PNG that does not start with IHDR", new Uint8Array([...pngFile(10, 10).subarray(0, 8), ...pngChunk("tEXt", [1]), ...pngFile(10, 10).subarray(8)])],
+    ["a PNG without image data", pngFile(10, 10, { chunks: [] })],
+    ["a PNG with a critical chunk not known here", pngFile(10, 10, { chunks: [pngChunk("ABCD", [1]), pngChunk("IDAT", [1])] })],
   ])("gives null for %s", (_name, bytes) => {
     expect(stripPngMetadata(bytes)).toBeNull();
   });
@@ -143,9 +174,48 @@ describe("stripJpegMetadata", () => {
     expect(jpegOrientation(stripJpegMetadata(withExif)!)).toBe(1);
   });
 
+  it("keeps the image's own segments byte for byte, and drops EXIF with GPS, XMP, ICC and the comment", () => {
+    const stripped = stripJpegMetadata(jpegWithMetadata(1536, 2048))!;
+    expect(stripped).toEqual(jpegWithMetadata(1536, 2048, { metadata: false }));
+    expect(jpegMarkers(stripped)).toEqual([0xe0, 0xdb, 0xc0, 0xda]);
+    expect(Buffer.from(stripped).includes(madeUpPosition)).toBe(false);
+  });
+
+  it("drops APP1 and comments between the scans of a progressive JPEG, and keeps the scans and tables", () => {
+    const stripped = stripJpegMetadata(progressiveJpeg())!;
+    expect(stripped).toEqual(progressiveJpeg({ metadata: false }));
+    expect(Buffer.from(stripped).includes(madeUpPosition)).toBe(false);
+    expect(imageSizeOf(stripped)).toEqual({ width: 800, height: 600 });
+  });
+
+  it("stops at EOI and leaves out a trailer after it (a video)", () => {
+    expect(stripJpegMetadata(withTrailer(jpegWithMetadata(64, 48)))).toEqual(jpegWithMetadata(64, 48, { metadata: false }));
+    expect(stripJpegMetadata(withTrailer(progressiveJpeg()))).toEqual(progressiveJpeg({ metadata: false }));
+  });
+
+  it.each([
+    ["a JFIF APP0 with a thumbnail", "jfif"],
+    ["a JFXX APP0 with a thumbnail", "jfxx"],
+  ] as const)("drops %s", (_name, kind) => {
+    const stripped = stripJpegMetadata(jpegWithThumbnail(kind))!;
+    expect(jpegMarkers(stripped)).toEqual([0xe0, 0xdb, 0xc0, 0xda]);
+    expect(stripped).toEqual(jpegWithMetadata(64, 48, { metadata: false }));
+  });
+
+  const clean = () => jpegWithMetadata(64, 48, { metadata: false });
   it.each([
     ["a PNG", pngFile(10, 10)],
     ["a JPEG without a start of scan", jpegHeader(10, 10, { size: 0 })],
+    ["a JPEG without EOI", clean().subarray(0, clean().length - 2)],
+    ["a segment of length 0", bytes(0xff, 0xd8, 0xff, 0xdb, 0, 0, 1, 2, 3)],
+    ["a segment of length 1", bytes(0xff, 0xd8, 0xff, 0xe1, 0, 1, 1, 2, 3)],
+    ["a segment that runs past the end", bytes(0xff, 0xd8, 0xff, 0xe1, 0x10, 0, 1, 2, 3)],
+    ["a segment cut off in its length", bytes(0xff, 0xd8, 0xff, 0xe1, 0x10)],
+    ["a scan before a frame", bytes(0xff, 0xd8, 0xff, 0xda, 0, 2, 1, 0xff, 0xd9)],
+    ["an arithmetic-coded frame (SOF9)", bytes(0xff, 0xd8, 0xff, 0xc9, 0, 2, 0xff, 0xda, 0, 2, 1, 0xff, 0xd9)],
+    ["two frames", bytes(0xff, 0xd8, 0xff, 0xc0, 0, 2, 0xff, 0xc0, 0, 2, 0xff, 0xda, 0, 2, 1, 0xff, 0xd9)],
+    ["a stray restart marker", bytes(0xff, 0xd8, 0xff, 0xd0, 0xff, 0xd9)],
+    ["only SOI and EOI", bytes(0xff, 0xd8, 0xff, 0xd9)],
   ])("gives null for %s", (_name, bytes) => {
     expect(stripJpegMetadata(bytes)).toBeNull();
   });

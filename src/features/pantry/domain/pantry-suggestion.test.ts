@@ -4,6 +4,7 @@ import { errorMessages, fail } from "@/lib/errors";
 import type { PantryAmountRow } from "./pantry-item";
 import {
   allUnchangedText,
+  analyzedPhotoNoteText,
   analyzeErrorMessage,
   analyzeResultSchema,
   changeSpokenText,
@@ -45,6 +46,7 @@ import {
   unreadableItemsText,
   isBulkConfirmable,
   maxSuggestionLabels,
+  savedAsText,
   suggestionTitle,
   uncertainBadgeText,
   uncertainLeftText,
@@ -492,6 +494,9 @@ describe("texts", () => {
     expect(suggestionTitle({ name: "ägg", labels: ["Ägg"] })).toEqual({ title: "ägg", ingredientName: null });
     expect(suggestionTitle({ name: "ägg", labels: [] })).toEqual({ title: "ägg", ingredientName: null });
     expect(suggestionTitle({ name: "ägg" })).toEqual({ title: "ägg", ingredientName: null });
+    // Story 10.4: a label that is the catalog name in other case is the name; no "Sparas som".
+    expect(suggestionTitle({ name: "Gurka", labels: ["gurka"] })).toEqual({ title: "Gurka", ingredientName: null });
+    expect(savedAsText("vispgrädde")).toBe("Sparas som: Vispgrädde");
   });
 
   it("says when the AI was unsure, and how many unsure suggestions are left (Story 6.5)", () => {
@@ -714,6 +719,102 @@ describe("confirmItemFromSuggestion and confirmItemFromForm", () => {
       unit: null,
     });
     expect(confirmItemFromForm(form({ ...base, amount: "1,5", unit: "" }))).toMatchObject({ amount: 1.5, unit: "st" });
+  });
+
+  describe("the label (Story 11.2)", () => {
+    const mellanmjolk: PantrySuggestion = {
+      id: "s1",
+      name: "Mellanmjölk",
+      ingredient: { kind: "existing", ingredientId: mjolk },
+      location: "Kyl",
+      amount: 1,
+      unit: "förp",
+      current: null,
+      change: null,
+      replaces: [],
+      labels: ["Arla Mellanmjölk laktosfri 1,5 l", "Mjölk"],
+    };
+
+    it("confirms a suggestion with its first label as a photo label, which fills only an item without one", () => {
+      expect(confirmItemFromSuggestion(mellanmjolk)).toMatchObject({ photoLabel: "Arla Mellanmjölk laktosfri 1,5 l" });
+      expect("label" in confirmItemFromSuggestion(mellanmjolk)).toBe(false);
+      expect(confirmSuggestionsSchema.safeParse({ siteId: null, items: [confirmItemFromSuggestion(mellanmjolk)] }).success).toBe(
+        true,
+      );
+    });
+
+    it("cuts a long label to 60 characters at a word", () => {
+      const long = { ...mellanmjolk, labels: [`Arla ${"mellanmjölk ".repeat(10)}`] };
+      expect(confirmItemFromSuggestion(long).photoLabel).toBe("Arla mellanmjölk mellanmjölk mellanmjölk mellanmjölk");
+      expect(confirmSuggestionsSchema.safeParse({ siteId: null, items: [confirmItemFromSuggestion(long)] }).success).toBe(true);
+    });
+
+    it("takes the first label that is more than the name", () => {
+      expect(confirmItemFromSuggestion({ ...mellanmjolk, labels: ["mellanmjölk", "Arla"] })).toMatchObject({ photoLabel: "Arla" });
+    });
+
+    it("leaves the label out without labels, so the item keeps its own", () => {
+      expect("photoLabel" in confirmItemFromSuggestion({ ...mellanmjolk, labels: undefined })).toBe(false);
+      expect("photoLabel" in confirmItemFromSuggestion({ ...mellanmjolk, labels: ["mellanmjölk"] })).toBe(false);
+    });
+
+    it("confirms the sheet's label after Rätta, with the photo's label as well", () => {
+      const base = { ingredient: { kind: "existing", ingredientId: mjolk }, location: "Kyl", replaceId: null, amount: "1", unit: "förp" } as const;
+      expect(confirmItemFromForm(form({ ...base, label: "Arla" }), mellanmjolk)).toMatchObject({
+        label: "Arla",
+        photoLabel: "Arla Mellanmjölk laktosfri 1,5 l",
+      });
+      const asFilledIn = confirmItemFromForm(form(base), mellanmjolk);
+      expect("label" in asFilledIn).toBe(false);
+      expect(asFilledIn.photoLabel).toBe("Arla Mellanmjölk laktosfri 1,5 l");
+    });
+
+    const item = (labels: Pick<ConfirmItem, "label" | "photoLabel"> = {}, amount: number | null = 1): ConfirmItem => ({
+      ingredient: { kind: "existing", ingredientId: mjolk },
+      location: "Kyl",
+      amount,
+      unit: amount === null ? null : "förp",
+      ...labels,
+    });
+
+    it("keeps the first item's label when items merge, also an explicit null, or the first a later item has", () => {
+      expect(mergeConfirmations([item({ label: "Arla" }), item({ label: "Garant" })])).toEqual([{ ...item({ label: "Arla" }), amount: 2 }]);
+      expect(mergeConfirmations([item(), item({ label: "Garant" })])).toEqual([{ ...item({ label: "Garant" }), amount: 2 }]);
+      expect(mergeConfirmations([item({ label: null }), item({ label: "Garant" })])).toEqual([{ ...item({ label: null }), amount: 2 }]);
+      expect(mergeConfirmations([item(), item({ photoLabel: "Arla" })])).toEqual([{ ...item({ photoLabel: "Arla" }), amount: 2 }]);
+      expect(mergeConfirmations([item(), item()])).toEqual([{ ...item(), amount: 2 }]);
+    });
+
+    it("gives a dropped item without amount's label to the kept item when it has none", () => {
+      expect(mergeConfirmations([item({ photoLabel: "Arla" }, null), item()])).toEqual([item({ photoLabel: "Arla" })]);
+      expect(mergeConfirmations([item({ photoLabel: "Arla" }, null), item({ label: "Garant" })])).toEqual([item({ label: "Garant" })]);
+    });
+
+    it("keeps both labels through mergePantrySets", () => {
+      expect(mergePantrySets([{ ingredientId: mjolk, location: "Kyl", amount: 1, unit: "l", label: "Arla", photoLabel: "Arla ko" }])).toEqual([
+        { ingredientId: mjolk, location: "Kyl", amount: 1, unit: "l", label: "Arla", photoLabel: "Arla ko" },
+      ]);
+    });
+  });
+
+  describe("the place's own label (Story 11.2)", () => {
+    const items: AiPantryItemLike[] = [
+      { label: "Arla mellanmjölk", amount: 1, unit: "förp", hint: { name: "mjölk", section: "Mejeri", location: "Kyl", defaultUnit: "förp" } },
+    ];
+    const matches: IngredientMatch[] = [{ kind: "match", ingredientId: mjolk, confidence: "exact" }];
+
+    it("gives a suggestion the label its row has, for Rätta", () => {
+      const current = [{ ingredientId: mjolk, amount: 2, unit: "förp" as const, label: "Garant" }];
+      const [suggestion] = toPantrySuggestions(items, matches, { location: "Kyl", names: { [mjolk]: "Mjölk" }, current }).suggestions;
+      expect(suggestion.currentLabel).toBe("Garant");
+      expect(pantrySuggestionSchema.safeParse({ ...suggestion, id: "s1" }).success).toBe(true);
+    });
+
+    it("gives none when the row has no label or the place could not be read", () => {
+      const current = [{ ingredientId: mjolk, amount: 2, unit: "förp" as const, label: null }];
+      expect("currentLabel" in toPantrySuggestions(items, matches, { location: "Kyl", names: { [mjolk]: "Mjölk" }, current }).suggestions[0]).toBe(false);
+      expect("currentLabel" in toPantrySuggestions(items, matches, { location: "Kyl", names: { [mjolk]: "Mjölk" }, current: null }).suggestions[0]).toBe(false);
+    });
   });
 });
 
@@ -952,5 +1053,11 @@ describe("Inventera en plats med foto: texts, schema and Töm", () => {
     expect(changesLeftText(1)).toBe("1 ändring är kvar att bekräfta.");
     expect(changesLeftText(3)).toBe("3 ändringar är kvar att bekräfta.");
     expect(undoRemovalLabel).toBe("Ångra borttagning");
+  });
+});
+
+describe("the photo during review (Story 10.1)", () => {
+  it("says the photo is kept as the latest photo once something is confirmed", () => {
+    expect(analyzedPhotoNoteText).toBe("Jämför förslagen med fotot. Det sparas som senaste foto när du bekräftar något.");
   });
 });

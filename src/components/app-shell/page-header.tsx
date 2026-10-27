@@ -6,7 +6,12 @@ export type PageHeaderProps = {
   title: string;
   /** A round 44 px button or link at the right, e.g. the gear or "+". */
   action?: ReactNode;
-  /** A "Tillbaka" link above the title on mobile, for pages without a tab (Inställningar). */
+  /**
+   * A "Tillbaka" link above the title to the page above, for every page under a
+   * tab (Inställningar, Tidigare matsedlar, an earlier plan). Shown at every
+   * width: Matkoll on the home screen has no browser back button (AD-27), on an
+   * iPad as on a phone.
+   */
   backHref?: string;
 };
 
@@ -15,19 +20,23 @@ export function PageHeader({ title, action, backHref }: PageHeaderProps) {
   return (
     <header className="flex flex-col pt-[max(var(--header-top-mobile),calc(env(safe-area-inset-top)+12px))] pb-4 desktop:pt-10">
       {backHref ? (
-        // On desktop the side menu is always there, so no back link.
         <Link
           href={backHref}
           scroll={false}
-          className="-mt-tap mb-1 -ml-2 flex min-h-tap items-center gap-1 self-start rounded-md px-2 text-body text-accent desktop:hidden"
+          className="-mt-tap mb-1 -ml-2 flex min-h-tap min-w-tap items-center gap-1 self-start rounded-md px-2 text-body text-accent desktop:mt-0"
         >
           <ChevronLeftIcon size={20} />
           Tillbaka
         </Link>
       ) : null}
-      <div className="flex items-end justify-between gap-3">
-        <h1 className="text-page-title text-ink">{title}</h1>
-        {action ? <div className="flex shrink-0 items-center gap-1">{action}</div> : null}
+      {/* The title takes the room the actions leave and wraps between its words there. Only
+          when its longest word and the actions cannot share the row (a phone at 200 % zoom)
+          do the actions move to a row of their own; a word wider than the page breaks. */}
+      <div className="flex flex-wrap items-end justify-between gap-x-3 gap-y-2">
+        <h1 className="max-w-full min-w-0 flex-[1_1_min-content] text-page-title break-words text-ink">
+          {title}
+        </h1>
+        {action ? <div className="ml-auto flex shrink-0 items-center gap-1">{action}</div> : null}
       </div>
     </header>
   );

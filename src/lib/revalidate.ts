@@ -47,6 +47,8 @@ const routesByTable = {
     { path: "/matsedel", type: "layout" },
     { path: "/lista", type: "page" },
   ],
+  // The latest photo of each place (Epic 10, AD-26); only Hemma shows it.
+  pantry_photo: [{ path: "/hemma", type: "page" }],
   // The meal plan, the shopping list counted from it, and the recipes, which
   // may show what is on the plan (AD-18). Both tables, so either can be named.
   meal_plan: [

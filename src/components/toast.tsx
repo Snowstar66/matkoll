@@ -114,7 +114,8 @@ export function ToastProvider({ children }: { children: ReactNode }) {
     <ToastContext.Provider value={api}>
       {children}
       <div role="status" aria-live="polite" aria-atomic="true" className="sr-only">
-        {toast?.role === "status" ? toast.message : null}
+        {/* Keyed per toast, so the same text again ("Tog bort Mjölk.") is a change and is announced again. */}
+        {toast?.role === "status" ? <span key={toast.id}>{toast.message}</span> : null}
       </div>
       {/* An alert is announced when it appears, so it is only in the page while it shows. */}
       {toast?.role === "alert" ? (

@@ -6,12 +6,22 @@
 //   pnpm users:sync            create missing users, warn about others
 //   pnpm users:sync --prune    also delete users not in ALLOWED_EMAILS
 //
+// `--prune` bans a user, removes its photo files in the bucket pantry-photo,
+// deletes it and removes what is left (Story 10.3, AD-26, pruneExtraUsers):
+// the rows go with the user, the files do not. When the files cannot be
+// removed, the user is kept (banned); a failure for one user does not stop
+// the others, and the script ends with an error. Every run, with or without
+// `--prune`, also removes the files of users that no longer exist, such as a
+// user deleted in the Supabase dashboard (removeDeletedUsersFiles): the app's
+// sweep runs as a signed-in user and never reaches another user's folder.
+// Only user ids and counts are printed for photos, never a path.
+//
 // Reads NEXT_PUBLIC_SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY and ALLOWED_EMAILS
 // from the environment (`pnpm users:sync` loads .env.local). Uses the service
 // role, which is allowed only in scripts/ and tests/ (AD-4).
 
 import { createClient } from "@supabase/supabase-js";
-import { parseAllowedEmails, planUserSync } from "./users-sync-plan.mjs";
+import { parseAllowedEmails, planUserSync, pruneExtraUsers, removeDeletedUsersFiles } from "./users-sync-plan.mjs";
 
 const prune = process.argv.slice(2).includes("--prune");
 
@@ -57,12 +67,20 @@ for (const email of plan.create) {
   console.log(`created  ${email}`);
 }
 for (const user of plan.keep) console.log(`exists   ${user.email}`);
-for (const user of plan.extra) {
-  if (prune) {
-    const { error } = await supabase.auth.admin.deleteUser(user.id);
-    if (error) fail(`could not delete ${user.email ?? user.id} (${error.code ?? error.status ?? "error"})`);
-    console.log(`deleted  ${user.email ?? user.id}`);
-  } else {
+if (!prune) {
+  for (const user of plan.extra) {
     console.warn(`warning: ${user.email ?? user.id} is not in ALLOWED_EMAILS (kept; --prune deletes it)`);
   }
 }
+
+function print({ lines, ok }) {
+  for (const { level, text } of lines) {
+    if (level === "error") console.error(`users:sync: ${text}`);
+    else console.log(text);
+  }
+  return ok;
+}
+
+const pruned = prune ? print(await pruneExtraUsers(plan, supabase)) : true;
+const swept = print(await removeDeletedUsersFiles(supabase));
+if (!pruned || !swept) process.exit(1);

@@ -26,17 +26,30 @@ import {
   libraryEmail,
   libraryStorageState,
   magicLinkPath,
+  openMagicLink,
   mealplanEmail,
   mealplanStorageState,
   outsiderEmail,
   outsiderStorageState,
   pantryEmail,
   pantryStorageState,
+  photoSaveEmail,
+  photoSaveStorageState,
+  labelEmail,
+  labelStorageState,
+  pantryLookEmail,
+  pantryLookStorageState,
+  photoSweepEmail,
+  photoSweepStorageState,
+  photoViewEmail,
+  photoViewStorageState,
   productChoiceEmail,
   productChoiceStorageState,
   putInPantryEmail,
   putInPantryStorageState,
   recipesEmail,
+  recipesLookEmail,
+  recipesLookStorageState,
   recipesStorageState,
   recipeViewEmail,
   recipeViewStorageState,
@@ -44,6 +57,8 @@ import {
   settingsEmail,
   settingsStorageState,
   shoppingEmail,
+  shoppingLookEmail,
+  shoppingLookStorageState,
   shoppingStorageState,
   siteListEmail,
   siteListStorageState,
@@ -84,8 +99,9 @@ export default async function globalSetup(config: FullConfig) {
   const { error } = await adminClient().auth.admin.createUser({ email: outsiderEmail, email_confirm: true });
   if (error && error.code !== "email_exists") throw error;
 
-  // Every E2E user but coreFlowEmail gets a saved session: core-flow.spec.ts
-  // signs in through /logga-in and Mailpit itself.
+  // Every E2E user but coreFlowEmail and appInstallEmail gets a saved session:
+  // core-flow.spec.ts and app-install.spec.ts sign in through /logga-in and
+  // Mailpit themselves.
   mkdirSync("tests/e2e/.auth", { recursive: true });
   const browser = await chromium.launch();
   try {
@@ -115,10 +131,17 @@ export default async function globalSetup(config: FullConfig) {
       [siteStatusEmail, siteStatusStorageState],
       [siteListEmail, siteListStorageState],
       [sitePhotoEmail, sitePhotoStorageState],
+      [photoSaveEmail, photoSaveStorageState],
+      [labelEmail, labelStorageState],
+      [recipesLookEmail, recipesLookStorageState],
+      [shoppingLookEmail, shoppingLookStorageState],
+      [pantryLookEmail, pantryLookStorageState],
+      [photoSweepEmail, photoSweepStorageState],
+      [photoViewEmail, photoViewStorageState],
     ] as const) {
       const user = await browser.newContext({ baseURL });
       const page = await user.newPage();
-      await page.goto(await magicLinkPath(email, "/recept"));
+      await openMagicLink(page, await magicLinkPath(email, "/recept"));
       await page.waitForURL(/\/recept$/);
       await user.storageState({ path });
       await user.close();

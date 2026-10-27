@@ -3,7 +3,6 @@ export {
   toSnapshot,
   snapshotFor,
   comparePantryItems,
-  splitPantryItems,
   type PantryItem,
   type PantryAmount,
   type PantryAmountRow,
@@ -17,6 +16,7 @@ export {
   emptyPlaceText,
   savedItemText,
   removedItemsText,
+  removedItemText,
   confirmedItemsText,
   rejectedItemText,
   emptyPlaceButtonText,
@@ -54,6 +54,27 @@ export {
   type LocateResult,
   type PhotoPoint,
 } from "./domain/photo-numbers";
+export {
+  clampTakenAt,
+  placePhotoBucket,
+  placePhotoFolder,
+  placePhotoPath,
+  placePhotoFormSchema,
+  placePhotoPointsSchema,
+  readPlacePhotoForm,
+  maxPlacePhotoBodyBytes,
+  maxPlacePhotoJsonChars,
+  placePhotoMediaTypes,
+  placePhotoMaxAgeMs,
+  photoTimeText,
+  latestPhotoText,
+  removedPhotoText,
+  removePhotoQuestion,
+  type PlacePhoto,
+  type PlacePhotoForm,
+  type PlacePhotoMediaType,
+} from "./domain/place-photo";
+export { photoOrphanMinAgeMs, placePhotoSaveDeadlineMs } from "./domain/photo-sweep";
 export {
   analyzeResultSchema,
   pantrySuggestionSchema,
@@ -177,3 +198,12 @@ export {
   type PantrySiteWithCount,
   type SelectedSite,
 } from "./domain/site";
+export {
+  addedText,
+  pantryMetaText,
+  groupPantryByCategory,
+  filterPantry,
+  pantrySearchLabel,
+  noMatchText,
+  type PantryCategoryGroup,
+} from "./domain/pantry-meta";

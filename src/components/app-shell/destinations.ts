@@ -1,18 +1,27 @@
 import type { ComponentType } from "react";
-import { HomeIcon, type IconProps, ListIcon, MealPlanIcon, RecipesIcon, SettingsIcon } from "../icons";
+import { CartIcon, FridgeIcon, type IconProps, MealPlanIcon, RecipesIcon, SettingsIcon } from "../icons";
 
 export type Destination = {
   href: string;
   label: string;
+  /**
+   * Where the tab bar may break a long label onto two lines when the tab is
+   * narrow (a 375 px phone at 200 % zoom). Joined, the parts are `label`.
+   */
+  labelParts?: readonly string[];
   Icon: ComponentType<IconProps>;
 };
 
 /** The four main surfaces, in tab order (EXPERIENCE.md, Information Architecture). */
 export const mainDestinations: readonly Destination[] = [
   { href: "/recept", label: "Recept", Icon: RecipesIcon },
-  { href: "/matsedel", label: "Matsedel", Icon: MealPlanIcon },
-  { href: "/lista", label: "Lista", Icon: ListIcon },
-  { href: "/hemma", label: "Hemma", Icon: HomeIcon },
+  // At 200 % zoom even "Matsedel" is wider than its tab, so it breaks too.
+  { href: "/matsedel", label: "Matsedel", labelParts: ["Mat", "sedel"], Icon: MealPlanIcon },
+  // Story 10.4: "Inköpslista" (was "Lista") and "Lagersaldo" (was "Hemma",
+  // the name of the first place too). The routes stay, so bookmarks work.
+  // Story 11.1: a cart for Inköpslista and a fridge for Lagersaldo; line icons, never emoji.
+  { href: "/lista", label: "Inköpslista", labelParts: ["Inköps", "lista"], Icon: CartIcon },
+  { href: "/hemma", label: "Lagersaldo", labelParts: ["Lager", "saldo"], Icon: FridgeIcon },
 ];
 
 /** Settings: the gear in the Recept header on mobile, the bottom of the side menu on desktop. */

@@ -84,7 +84,11 @@ const gryta: DishSuggestion = {
   ]),
   ingredientNames: { [lokId]: "Gul lök", [graddeId]: "Grädde" },
 };
-const pasta: DishSuggestion = { draft: draft("Krämig pasta", [fresh("400 g pasta", "pasta")], 20), ingredientNames: {} };
+// An image address from the model, which a card must never load.
+const pasta: DishSuggestion = {
+  draft: { ...draft("Krämig pasta", [fresh("400 g pasta", "pasta")], 20), imageUrl: "https://www.koket.se/fran-modellen.jpg" },
+  ingredientNames: {},
+};
 const omelett: DishSuggestion = { draft: draft("Ugnsomelett", [fresh("6 ägg", "ägg")], null), ingredientNames: {} };
 const three = { suggestions: [gryta, pasta, omelett] };
 
@@ -160,9 +164,18 @@ describe("AiSuggestions", () => {
     const first = within(cards()[0]);
     expect(first.getByRole("heading", { level: 3, name: "Kycklinggryta" })).toBeInTheDocument();
     expect(first.getByText("35 min · 4 portioner")).toBeInTheDocument();
-    expect(first.getByText("AI-förslag")).toBeInTheDocument();
+    expect(first.getByText("AI-förslag")).toHaveClass("bg-sand", "text-sand-ink");
+    // A recipe card: a short mint strip on top with the AI label on it, and no heart.
+    expect(first.getByTestId("recipe-image-placeholder").parentElement).toHaveClass("h-16");
+    expect(first.queryByRole("button", { name: /Favorit/ })).not.toBeInTheDocument();
+    // The label is read before "Spara", and no card loads an address from the model.
+    expect(
+      first.getByText("AI-förslag").compareDocumentPosition(first.getByRole("button", { name: "Spara Kycklinggryta" })) &
+        Node.DOCUMENT_POSITION_FOLLOWING,
+    ).toBeTruthy();
+    expect(section().querySelector("img")).toBeNull();
     // The catalog's name for a linked line, the AI's otherwise; at most five, each once.
-    expect(first.getByText("Med: Gul lök, kycklingfilé, Grädde, krossade tomater, ris")).toBeInTheDocument();
+    expect(first.getByText("Med: gul lök, kycklingfilé, grädde, krossade tomater, ris")).toBeInTheDocument();
     expect(first.getByRole("button", { name: "Spara Kycklinggryta" })).toHaveTextContent("Spara");
     expect(within(cards()[2]).getByText("4 portioner")).toBeInTheDocument();
     // No status before saving, and no link: a suggestion has no recipe view.
@@ -261,14 +274,14 @@ describe("AiSuggestions", () => {
     expect(screen.getByRole("button", { name: "Försök igen" })).toBeInTheDocument();
   });
 
-  it("says the pantry is empty with Öppna Hemma and no Försök igen", async () => {
+  it("says the pantry is empty with Öppna Lagersaldo and no Försök igen", async () => {
     const user = userEvent.setup();
     renderSuggestions();
     await suggestWith(user, fail("suggest_empty_pantry"));
     expect(screen.getByRole("alert")).toHaveTextContent(
-      "Lagret är tomt. Lägg till varor i Hemma, så kan AI:n föreslå rätter.",
+      "Lagret är tomt. Lägg till varor i Lagersaldo, så kan AI:n föreslå rätter.",
     );
-    expect(screen.getByRole("link", { name: "Öppna Hemma" })).toHaveAttribute("href", "/hemma");
+    expect(screen.getByRole("link", { name: "Öppna Lagersaldo" })).toHaveAttribute("href", "/hemma");
     expect(screen.queryByRole("button", { name: "Försök igen" })).not.toBeInTheDocument();
   });
 

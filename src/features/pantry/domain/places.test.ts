@@ -17,6 +17,7 @@ import {
   placeSlug,
   rejectedItemText,
   removedItemsText,
+  removedItemText,
   savedItemText,
   keptItemText,
   alreadyRemovedText,
@@ -65,11 +66,28 @@ describe("savedItemText", () => {
   });
 });
 
+describe("removedItemText", () => {
+  it("names the item as the list shows it (Story 11.3)", () => {
+    expect(removedItemText(["Gräddfil"])).toBe("Tog bort Gräddfil.");
+    expect(removedItemText(["Coca-Cola Zero"])).toBe("Tog bort Coca-Cola Zero.");
+    expect(removedItemText(["Gräddfil", "Mjölk"])).toBe("Tog bort Gräddfil och Mjölk.");
+    expect(removedItemText(["Gräddfil", "Mjölk", "Ägg"])).toBe("Tog bort 3 varor.");
+  });
+});
+
 describe("removedItemsText", () => {
   it("names one or two items, and counts more", () => {
     expect(removedItemsText(["Mjölk"])).toBe("Mjölk är borttagen.");
-    expect(removedItemsText(["Mjölk", "Smör"])).toBe("Mjölk och Smör är borttagna.");
+    expect(removedItemsText(["Mjölk", "Smör"])).toBe("Mjölk och smör är borttagna.");
     expect(removedItemsText(["Mjölk", "Smör", "Salt"])).toBe("3 varor är borttagna.");
+  });
+
+  it("starts the sentence with a capital, and keeps the user's own text as written inside it (Story 10.4)", () => {
+    expect(removedItemsText([{ text: "diskmedel", own: true }])).toBe("Diskmedel är borttagen.");
+    expect(removedItemsText([{ text: "diskmedel", own: true }, { text: "Kaffe Zoégas", own: true }])).toBe(
+      "Diskmedel och Kaffe Zoégas är borttagna.",
+    );
+    expect(removedItemsText(["Mjölk", "D-vitamin"])).toBe("Mjölk och D-vitamin är borttagna.");
   });
 });
 

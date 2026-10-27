@@ -1,0 +1,176 @@
+<!doctype html>
+<html lang="sv">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Matkoll i mobilen – skiss</title>
+<style>
+  :root {
+    --bg:#F5F7F4; --surface:#FFFFFF; --ink:#1B2420; --ink2:#56635D; --ink3:#6B7872;
+    --hair:#EEF1EF; --border:#E3E8E4; --accent:#3E7C62; --mint:#DDEFE5; --mintink:#2C5E48;
+    --sky:#DCE9F6; --skyink:#2E5A85; --sand:#F1ECE2; --sandink:#6E5B3E;
+    font-family: -apple-system, BlinkMacSystemFont, 'SF Pro Text', Inter, 'Helvetica Neue', Arial, sans-serif;
+  }
+  * { box-sizing:border-box; }
+  body { margin:0; background:#E2E7E3; color:var(--ink); }
+  header.intro { max-width:1200px; margin:28px auto 0; padding:0 16px; color:var(--ink2); font-size:15px; line-height:1.5; }
+  header.intro h1 { color:var(--ink); font-size:24px; margin:0 0 6px; }
+  .wrap { display:flex; gap:28px; justify-content:center; padding:24px 16px 48px; flex-wrap:wrap; }
+  .col { display:flex; flex-direction:column; align-items:center; gap:10px; }
+  .label { font-size:13px; font-weight:600; letter-spacing:.4px; text-transform:uppercase; color:var(--ink2); }
+  .phone { width:340px; height:720px; background:var(--bg); border-radius:40px; box-shadow:0 20px 50px rgba(27,36,32,.2); position:relative; overflow:hidden; border:8px solid #1B2420; }
+  .status { height:34px; display:flex; justify-content:space-between; align-items:center; padding:0 22px; font-size:13px; font-weight:600; }
+  .scroll { position:absolute; top:34px; bottom:78px; left:0; right:0; overflow:hidden; padding:4px 14px 0; }
+  .tabs { position:absolute; left:0; right:0; bottom:0; height:78px; background:rgba(255,255,255,.94); border-top:1px solid var(--hair); display:grid; grid-template-columns:repeat(4,1fr); padding:8px 4px 0; }
+  .tab { text-align:center; font-size:10.5px; font-weight:500; color:var(--ink3); }
+  .tab i { display:block; font-style:normal; font-size:21px; margin-bottom:3px; filter:grayscale(1); opacity:.7; }
+  .tab.on { color:var(--accent); font-weight:600; }
+  .tab.on i { filter:none; opacity:1; }
+  h2.t { font-size:30px; font-weight:700; letter-spacing:-.5px; margin:6px 0 10px; display:flex; justify-content:space-between; align-items:center; }
+  h2.t .plus { color:var(--accent); font-weight:400; font-size:28px; }
+  .search { background:var(--surface); border-radius:12px; padding:10px 13px; color:var(--ink3); font-size:14px; margin-bottom:10px; }
+  .pills { display:flex; gap:6px; margin-bottom:12px; flex-wrap:wrap; align-items:center; }
+  .pill { padding:7px 13px; border-radius:999px; background:var(--surface); color:var(--ink2); font-size:13.5px; font-weight:600; }
+  .pill.on { background:var(--accent); color:#fff; }
+  .link { color:var(--accent); font-weight:600; font-size:13.5px; }
+  .meta { font-size:12.5px; color:var(--ink3); }
+  /* recipes */
+  .rcard { background:var(--surface); border-radius:16px; overflow:hidden; margin-bottom:10px; }
+  .rimg { height:92px; background-size:cover; display:flex; align-items:flex-end; justify-content:space-between; padding:8px; }
+  .rimg .badge { background:rgba(255,255,255,.92); border-radius:8px; padding:3px 8px; font-size:11.5px; font-weight:600; }
+  .rimg .badge.ok { color:var(--mintink); }
+  .rimg .badge.miss { color:var(--skyink); }
+  .rimg .heart { background:rgba(255,255,255,.92); border-radius:50%; width:28px; height:28px; display:grid; place-items:center; font-size:14px; }
+  .rbody { padding:10px 12px 12px; }
+  .rbody b { font-size:16px; }
+  .ai { background:var(--sky); color:var(--skyink); border-radius:14px; padding:12px; text-align:center; font-weight:600; font-size:14.5px; }
+  /* meal plan */
+  .week { font-size:13px; color:var(--ink3); margin:-4px 0 12px; }
+  .dish { background:var(--surface); border-radius:16px; padding:10px; display:flex; gap:10px; align-items:center; margin-bottom:8px; }
+  .thumb { width:56px; height:56px; border-radius:12px; background-size:cover; flex:none; }
+  .dish .txt { flex:1; min-width:0; }
+  .dish b { font-size:15.5px; display:block; }
+  .meter { height:5px; border-radius:99px; background:var(--hair); margin-top:6px; overflow:hidden; }
+  .meter i { display:block; height:100%; background:var(--accent); }
+  .cta { background:var(--accent); color:#fff; border-radius:14px; padding:12px; text-align:center; font-weight:600; font-size:14.5px; margin-top:4px; }
+  /* list rows */
+  .cathead { display:flex; align-items:center; gap:8px; margin:4px 2px 6px; }
+  .catic { width:26px; height:26px; border-radius:8px; display:grid; place-items:center; font-size:15px; }
+  .cathead .n { font-size:11.5px; font-weight:600; letter-spacing:.4px; text-transform:uppercase; color:var(--ink2); flex:1; }
+  .cathead .c { font-size:12px; color:var(--ink3); }
+  .list { background:var(--surface); border-radius:14px; overflow:hidden; margin-bottom:10px; }
+  .row { display:flex; align-items:center; gap:10px; padding:9px 10px 9px 12px; border-top:1px solid var(--hair); min-height:50px; }
+  .row:first-child { border-top:0; }
+  .row .tx { flex:1; min-width:0; }
+  .row .tt { font-size:15px; font-weight:600; }
+  .row .tt span { font-weight:400; color:var(--ink2); }
+  .check { width:23px; height:23px; border-radius:50%; border:2px solid var(--border); flex:none; }
+  .trash { width:36px; height:36px; display:grid; place-items:center; color:var(--ink3); font-size:15px; }
+  .progress { background:var(--surface); border-radius:14px; padding:11px 12px; margin-bottom:12px; }
+  .progress .top { display:flex; justify-content:space-between; font-size:14px; font-weight:600; margin-bottom:8px; }
+  .progress .top span:last-child { color:var(--ink3); font-weight:400; }
+  .bar { height:7px; border-radius:99px; background:var(--hair); overflow:hidden; }
+  .bar i { display:block; height:100%; width:43%; background:var(--accent); }
+  .sub { display:flex; justify-content:space-between; font-size:13px; color:var(--ink3); margin:-4px 0 10px; }
+  .fixed { position:absolute; left:14px; right:14px; bottom:88px; display:flex; gap:6px; }
+  .btn { flex:1; text-align:center; padding:12px; border-radius:13px; font-weight:600; font-size:14px; }
+  .btn.p { background:var(--accent); color:#fff; }
+  .btn.s { background:var(--sky); color:var(--skyink); }
+  .places { display:grid; grid-template-columns:repeat(3,1fr); gap:6px; margin-bottom:10px; }
+  .place { border-radius:14px; padding:9px; font-weight:600; font-size:13.5px; }
+  .place small { display:block; font-weight:400; font-size:11.5px; }
+  .place .ic { font-size:17px; display:block; margin-bottom:3px; }
+  .kyl { background:var(--mint); color:var(--mintink); outline:2px solid var(--accent); }
+  .frys { background:var(--sky); color:var(--skyink); }
+  .skaf { background:var(--sand); color:var(--sandink); }
+  .camera { background:var(--sky); color:var(--skyink); border-radius:13px; padding:11px; text-align:center; font-weight:600; font-size:14px; margin-bottom:4px; }
+  .lastphoto { font-size:12px; color:var(--ink3); text-align:center; margin-bottom:10px; }
+  .lastphoto b { color:var(--accent); }
+  /* home screen */
+  .home { background:linear-gradient(160deg,#3E7C62,#2C5E48 60%,#1B2420); }
+  .apps { display:grid; grid-template-columns:repeat(4,1fr); gap:18px 10px; padding:40px 18px; }
+  .app { text-align:center; color:#fff; font-size:11px; }
+  .app span { display:block; width:58px; height:58px; margin:0 auto 5px; border-radius:15px; background:rgba(255,255,255,.18); }
+  .app.mk span { background:#F5F7F4; display:grid; place-items:center; font-size:30px; box-shadow:0 4px 12px rgba(0,0,0,.25); }
+  .splashnote { position:absolute; left:16px; right:16px; bottom:40px; background:rgba(255,255,255,.95); border-radius:16px; padding:12px; font-size:13px; color:var(--ink2); line-height:1.45; }
+  .splashnote b { color:var(--ink); }
+</style>
+</head>
+<body>
+<header class="intro">
+  <h1>Matkoll i mobilen: hela utseendet</h1>
+  Samma lugna grågröna stil överallt, med kategorier och ikoner, större bilder och tydligare status. Det är en app som fungerar både i mobilen och på datorn: i mobilen har den flikarna längst ner, och på datorn menyn till vänster. Längst till höger syns Matkoll som app på hemskärmen.
+</header>
+<div class="wrap">
+
+  <div class="col"><div class="label">Recept</div>
+  <div class="phone"><div class="status"><span>9:41</span><span>●●● 🔋</span></div>
+    <div class="scroll">
+      <h2 class="t">Recept <span class="plus">+</span></h2>
+      <div class="search">🔍&nbsp; Sök titel eller ingrediens</div>
+      <div class="pills"><span class="pill">Alla</span><span class="pill">♥ Favoriter</span><span class="pill on">Kan lagas nu</span></div>
+      <div class="meta" style="margin:-4px 0 10px">🏠 Lager: Hemma</div>
+      <div class="rcard"><div class="rimg" style="background-image:linear-gradient(135deg,#C9783E,#8F4A22)"><span class="badge ok">✓ Allt finns</span><span class="heart">♡</span></div><div class="rbody"><b>Korv stroganoff</b><div class="meta">15 min · 4 portioner</div></div></div>
+      <div class="rcard"><div class="rimg" style="background-image:linear-gradient(135deg,#E2C36B,#9C7B2B)"><span class="badge miss">Saknar 2 varor</span><span class="heart">♥</span></div><div class="rbody"><b>Kycklinggryta med curry</b><div class="meta">35 min · 4 portioner</div></div></div>
+      <div class="ai">✨ Föreslå rätter med AI</div>
+    </div>
+    <div class="tabs"><div class="tab on"><i>📖</i>Recept</div><div class="tab"><i>📅</i>Matsedel</div><div class="tab"><i>🛒</i>Inköpslista</div><div class="tab"><i>🧊</i>Lagersaldo</div></div>
+  </div></div>
+
+  <div class="col"><div class="label">Matsedel</div>
+  <div class="phone"><div class="status"><span>9:41</span><span>●●● 🔋</span></div>
+    <div class="scroll">
+      <h2 class="t">Matsedel <span class="plus">+</span></h2>
+      <div class="week">Vecka 44 · 4 rätter · 🏠 Lager: Hemma</div>
+      <div class="dish"><span class="thumb" style="background-image:linear-gradient(135deg,#C9783E,#8F4A22)"></span><div class="txt"><b>Korv stroganoff</b><div class="meta">4 portioner · allt finns hemma</div><div class="meter"><i style="width:100%"></i></div></div></div>
+      <div class="dish"><span class="thumb" style="background-image:linear-gradient(135deg,#E2C36B,#9C7B2B)"></span><div class="txt"><b>Kycklinggryta</b><div class="meta">4 portioner · 6 av 8 hemma</div><div class="meter"><i style="width:75%"></i></div></div></div>
+      <div class="dish"><span class="thumb" style="background-image:linear-gradient(135deg,#7FA36B,#3E6B3A)"></span><div class="txt"><b>Pasta pesto</b><div class="meta">2 portioner · 3 av 5 hemma</div><div class="meter"><i style="width:60%"></i></div></div></div>
+      <div class="dish"><span class="thumb" style="background-image:linear-gradient(135deg,#B9C7D6,#5C7A99)"></span><div class="txt"><b>Fiskgratäng</b><div class="meta">4 portioner · 2 av 7 hemma</div><div class="meter"><i style="width:28%"></i></div></div></div>
+      <div class="cta">🛒 Visa inköpslistan · 8 varor</div>
+    </div>
+    <div class="tabs"><div class="tab"><i>📖</i>Recept</div><div class="tab on"><i>📅</i>Matsedel</div><div class="tab"><i>🛒</i>Inköpslista</div><div class="tab"><i>🧊</i>Lagersaldo</div></div>
+  </div></div>
+
+  <div class="col"><div class="label">Inköpslista</div>
+  <div class="phone"><div class="status"><span>9:41</span><span>●●● 🔋</span></div>
+    <div class="scroll">
+      <h2 class="t">Inköpslista <span class="plus">+</span></h2>
+      <div class="sub"><span>🏠 Lager: Duved</span><span class="link">Byt</span></div>
+      <div class="progress"><div class="top"><span>8 varor kvar</span><span>6 av 14 i korgen</span></div><div class="bar"><i></i></div></div>
+      <div class="cathead"><span class="catic" style="background:#DDEFE5">🥦</span><span class="n">Frukt &amp; grönt</span><span class="c">2</span></div>
+      <div class="list"><div class="row"><span class="check"></span><div class="tx"><div class="tt">Gul lök <span>2 st</span></div><div class="meta">Korv stroganoff</div></div></div><div class="row"><span class="check"></span><div class="tx"><div class="tt">Vitlök <span>1 st</span></div><div class="meta">Kycklinggryta</div></div></div></div>
+      <div class="cathead"><span class="catic" style="background:#F1E3DD">🥩</span><span class="n">Kött, fisk &amp; chark</span><span class="c">2</span></div>
+      <div class="list"><div class="row"><span class="check"></span><div class="tx"><div class="tt">Falukorv <span>800 g</span></div><div class="meta">Korv stroganoff</div></div></div><div class="row"><span class="check"></span><div class="tx"><div class="tt">Kycklingfilé <span>600 g</span></div><div class="meta">Kycklinggryta</div></div></div></div>
+    </div>
+    <div class="fixed"><span class="btn s">Skicka till ICA</span><span class="btn p">Lägg i lagret</span></div>
+    <div class="tabs"><div class="tab"><i>📖</i>Recept</div><div class="tab"><i>📅</i>Matsedel</div><div class="tab on"><i>🛒</i>Inköpslista</div><div class="tab"><i>🧊</i>Lagersaldo</div></div>
+  </div></div>
+
+  <div class="col"><div class="label">Lagersaldo</div>
+  <div class="phone"><div class="status"><span>9:41</span><span>●●● 🔋</span></div>
+    <div class="scroll">
+      <h2 class="t">Lagersaldo <span class="plus">+</span></h2>
+      <div class="pills"><span class="pill on">Hemma</span><span class="pill">Duved</span><span class="link">Ställen</span></div>
+      <div class="places"><div class="place kyl"><span class="ic">🧊</span>Kyl<small>14 varor</small></div><div class="place frys"><span class="ic">❄️</span>Frys<small>6 varor</small></div><div class="place skaf"><span class="ic">🫙</span>Skafferi<small>11 varor</small></div></div>
+      <div class="camera">📷&nbsp; Fotografera kylen</div>
+      <div class="lastphoto">Senaste foto: idag 15:42 · <b>Visa</b></div>
+      <div class="cathead"><span class="catic" style="background:#DCE9F6">🥛</span><span class="n">Mejeri &amp; ägg</span><span class="c">3</span></div>
+      <div class="list"><div class="row"><div class="tx"><div class="tt">Mellanmjölk</div><div class="meta">Arla laktosfri</div></div><span class="trash">🗑</span></div><div class="row"><div class="tx"><div class="tt">Bregott</div><div class="meta">Normalsaltat</div></div><span class="trash">🗑</span></div><div class="row"><div class="tx"><div class="tt">Ägg</div><div class="meta">Tillagd för 4 dagar sedan</div></div><span class="trash">🗑</span></div></div>
+      <div class="cathead"><span class="catic" style="background:#F1ECE2">🥫</span><span class="n">Såser &amp; smaksättare</span><span class="c">2</span></div>
+      <div class="list"><div class="row"><div class="tx"><div class="tt">Senap</div><div class="meta">Johnny's</div></div><span class="trash">🗑</span></div></div>
+    </div>
+    <div class="tabs"><div class="tab"><i>📖</i>Recept</div><div class="tab"><i>📅</i>Matsedel</div><div class="tab"><i>🛒</i>Inköpslista</div><div class="tab on"><i>🧊</i>Lagersaldo</div></div>
+  </div></div>
+
+  <div class="col"><div class="label">Som app på hemskärmen</div>
+  <div class="phone home"><div class="status" style="color:#fff"><span>9:41</span><span>●●● 🔋</span></div>
+    <div class="apps">
+      <div class="app"><span></span>Kalender</div><div class="app"><span></span>Foton</div><div class="app"><span></span>Kamera</div><div class="app"><span></span>Kartor</div>
+      <div class="app mk"><span>🥕</span>Matkoll</div><div class="app"><span></span>Väder</div><div class="app"><span></span>Musik</div><div class="app"><span></span>Inställn.</div>
+    </div>
+    <div class="splashnote"><b>Lägg till på hemskärmen</b> i Safari, så öppnas Matkoll i helskärm som en vanlig app: egen ikon, inga webbläsarfält och appens gröna färg i statusraden. Samma app på datorn öppnas i webbläsaren med menyn till vänster.</div>
+  </div></div>
+
+</div>
+</body>
+</html>

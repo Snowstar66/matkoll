@@ -11,6 +11,7 @@ import { PantryCamera } from "./pantry-camera";
 import { PantrySheetProvider } from "./pantry-item-sheet";
 import { PantrySuggestionList } from "./pantry-suggestion-list";
 import { PantrySuggestionsProvider } from "./pantry-suggestions";
+import type { PhotoPostAnswer } from "./photo-post";
 
 /** The place Hemma shows (Story 8.2). */
 const testSite = { id: "55555555-5555-4555-8555-555555555555" };
@@ -26,6 +27,15 @@ let answers: ((result: AiCallResult<unknown>) => void)[] = [];
 /** The lookups of the numbers on the photo (Story 6.6), kept apart from the analyses. */
 type Locate = { form: FormData; signal: AbortSignal; answer: (result: AiCallResult<unknown>) => void };
 let locates: Locate[] = [];
+/** Story 10.1: the saves of the photo, kept apart too. */
+let photoPosts: { form: FormData; answer: (result: PhotoPostAnswer) => void }[] = [];
+vi.mock("./photo-post", () => ({
+  postPlacePhoto: (form: FormData) => new Promise<PhotoPostAnswer>((answer) => photoPosts.push({ form, answer })),
+}));
+const savePlacePhotoPoints = vi.fn();
+vi.mock("../actions/save-place-photo-points", () => ({
+  savePlacePhotoPoints: (input: unknown) => savePlacePhotoPoints(input),
+}));
 vi.mock("@/lib/ai-client", () => ({
   postAiForm: (path: string, form: FormData, signal: AbortSignal) =>
     new Promise<AiCallResult<unknown>>((resolve) => {
@@ -146,6 +156,8 @@ const cards = () => within(section()).getAllByTestId("pantry-suggestion");
 beforeEach(() => {
   answers = [];
   locates = [];
+  photoPosts = [];
+  savePlacePhotoPoints.mockReset().mockResolvedValue(ok({ saved: true }));
   confirms = [];
   refresh.mockReset();
   searchPantryIngredients.mockReset().mockResolvedValue(ok([]));
@@ -446,6 +458,22 @@ describe("Rätta", () => {
     await waitFor(() => expect(button("Bekräfta smör")).toHaveFocus());
   });
 
+  it("saves the photo once on the photo's place and location after Rätta's Bekräfta, also when the item moves to Frys (Story 10.1)", async () => {
+    render(<Hemma />);
+    await analyze();
+    fireEvent.click(button("Rätta mjölk"));
+    fireEvent.click(within(sheet()).getByRole("radio", { name: "Frys" }));
+    fireEvent.click(within(sheet()).getByRole("button", { name: "Bekräfta" }));
+    expect(photoPosts).toHaveLength(0);
+    await answerConfirm();
+    await waitFor(() => expect(photoPosts).toHaveLength(1));
+    expect(photoPosts[0].form.get("site")).toBe(photoSite.id);
+    expect(photoPosts[0].form.get("location")).toBe("Kyl");
+    fireEvent.click(button("Bekräfta smör"));
+    await answerConfirm();
+    expect(photoPosts).toHaveLength(1);
+  });
+
   it("swaps a new suggestion for another new ingredient, saved as new with the form's place", async () => {
     searchPantryIngredients.mockResolvedValue(ok([]));
     render(<Hemma />);
@@ -456,18 +484,18 @@ describe("Rätta", () => {
     const field = within(sheet()).getByRole("searchbox", { name: "Sök ingrediens" });
     fireEvent.change(field, { target: { value: "slanggurka" } });
     await act(async () => fireEvent.keyDown(field, { key: "Enter" }));
-    fireEvent.click(within(sheet()).getByRole("button", { name: "Lägg till slanggurka som ny" }));
+    fireEvent.click(within(sheet()).getByRole("button", { name: "Lägg till Slanggurka som ny" }));
     fireEvent.click(within(sheet()).getByRole("button", { name: "Bekräfta" }));
     expect(lastConfirm().items).toEqual([
       {
-        ingredient: { kind: "new", name: "slanggurka", section: "Övrigt", location: "Kyl", defaultUnit: "st" },
+        ingredient: { kind: "new", name: "Slanggurka", section: "Övrigt", location: "Kyl", defaultUnit: "st" },
         location: "Kyl",
         amount: 2,
         unit: "st",
       },
     ]);
     await answerConfirm();
-    expect(toast()).toHaveTextContent("slanggurka är sparad i kylen.");
+    expect(toast()).toHaveTextContent("Slanggurka är sparad i kylen.");
   });
 
   it("keeps the sheet and the suggestion after a failure, with the text in the sheet", async () => {
@@ -627,9 +655,9 @@ describe("Story 6.5: labels and unsure suggestions", () => {
     const [gurka, senap, mjolk] = cards();
     expect(gurka.textContent).toBe("gurkaNy2 st · KylBekräftaRättaAvvisa");
     expect(within(senap).getByText("Osäker")).toHaveClass("bg-sky");
-    expect(within(senap).getByText("Sparas som: senap")).toBeInTheDocument();
+    expect(within(senap).getByText("Sparas som: Senap")).toBeInTheDocument();
     expect(senap).toHaveTextContent("AI:n är osäker på varan, så Bekräfta alla tar inte med den.");
-    expect(within(mjolk).getByText("Sparas som: mjölk")).toBeInTheDocument();
+    expect(within(mjolk).getByText("Sparas som: Mjölk")).toBeInTheDocument();
     expect(within(mjolk).queryByText("Osäker")).toBeNull();
     // The buttons keep the catalog name: it is what is saved.
     expect(button("Bekräfta senap")).toBeEnabled();
@@ -740,7 +768,9 @@ describe("the photo during review", () => {
     render(<Hemma />);
     await analyze();
     fireEvent.click(thumbnail());
-    expect(photoSheet()).toHaveAccessibleDescription("Jämför förslagen med fotot. Det sparas inte.");
+    expect(photoSheet()).toHaveAccessibleDescription(
+      "Jämför förslagen med fotot. Det sparas som senaste foto när du bekräftar något.",
+    );
     expect(within(photoSheet()).getByRole("img", { name: "Fotot av kylen som förslagen kommer från" })).toHaveAttribute(
       "src",
       "blob:photo-1",
@@ -1218,5 +1248,49 @@ describe("numbers on the photo (Story 6.6)", () => {
     decode();
     // Smör (item 2) is unchanged: it has a point, but no card and so no marker.
     expect(markers().map((marker) => marker.textContent)).toEqual(["3"]);
+  });
+
+  describe("with the saved photo (Story 10.1)", () => {
+    const photoId = "88888888-8888-4888-8888-888888888888";
+    const confirmGurka = async () => {
+      fireEvent.click(button("Bekräfta gurka"));
+      await waitFor(() => expect(confirms).toHaveLength(1));
+      await act(async () => confirms[0].answer(ok({ count: 1 })));
+      await waitFor(() => expect(photoPosts).toHaveLength(1));
+    };
+
+    it("saves the photo without points while they are looked up, and adds them once when they come", async () => {
+      render(<Hemma />);
+      await analyzeNumbered();
+      await confirmGurka();
+      expect(photoPosts[0].form.get("points")).toBeNull();
+      expect(JSON.parse(String(photoPosts[0].form.get("reading")))).toEqual(reading);
+      await act(async () => photoPosts[0].answer({ kind: "saved", id: photoId }));
+
+      await answerLocate(ok(located));
+      await waitFor(() => expect(savePlacePhotoPoints).toHaveBeenCalledTimes(1));
+      expect(savePlacePhotoPoints).toHaveBeenCalledWith({ id: photoId, points: located });
+    });
+
+    it("sends the points with the photo when they came before the first confirmation", async () => {
+      render(<Hemma />);
+      await analyzeNumbered();
+      await answerLocate(ok(located));
+      await waitFor(() => expect(badges()).toEqual(["3", "4", "1", "2"]));
+      await confirmGurka();
+      expect(JSON.parse(String(photoPosts[0].form.get("points")))).toEqual(located);
+      await act(async () => photoPosts[0].answer({ kind: "saved", id: photoId }));
+      expect(savePlacePhotoPoints).not.toHaveBeenCalled();
+    });
+
+    it("saves the photo without points, and sends nothing more, when the lookup fails", async () => {
+      render(<Hemma />);
+      await analyzeNumbered();
+      await answerLocate(fail("ai_unavailable"));
+      await confirmGurka();
+      expect(photoPosts[0].form.get("points")).toBeNull();
+      await act(async () => photoPosts[0].answer({ kind: "saved", id: photoId }));
+      expect(savePlacePhotoPoints).not.toHaveBeenCalled();
+    });
   });
 });

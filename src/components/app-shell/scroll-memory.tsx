@@ -3,6 +3,7 @@
 import { usePathname } from "next/navigation";
 import { Suspense, useEffect, useLayoutEffect, useRef } from "react";
 import { shellPaths } from "./destinations";
+import { noteInAppNavigation } from "./in-app-history";
 
 /** How long to keep trying while the page below streams in and grows. */
 const restoreForMs = 1500;
@@ -40,6 +41,7 @@ function PathScrollMemory() {
   useLayoutEffect(() => {
     if (currentPath.current === pathname) return;
     currentPath.current = pathname;
+    noteInAppNavigation();
     if (!shellPaths.includes(pathname)) return;
 
     const target = positions.current.get(pathname) ?? 0;

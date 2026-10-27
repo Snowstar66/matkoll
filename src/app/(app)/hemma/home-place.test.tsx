@@ -29,7 +29,7 @@ describe("HomePlace without places to show", () => {
   it("shows pantry_unavailable without a switch or + when the places cannot be read", async () => {
     listPantrySitesWithCounts.mockRejectedValue(new PantryDataError("query_failed 08006"));
     render(await HomePlace({ searchParams: searchParams("frys") } as Parameters<typeof HomePlace>[0]));
-    expect(screen.getByRole("heading", { level: 1, name: "Hemma" })).toBeInTheDocument();
+    expect(screen.getByRole("heading", { level: 1, name: "Lagersaldo" })).toBeInTheDocument();
     expect(screen.getByRole("alert")).toHaveTextContent("Det gick inte att läsa lagret. Försök igen.");
     expect(screen.queryByRole("radiogroup")).toBeNull();
     expect(screen.queryByRole("button", { name: "Lägg till vara" })).toBeNull();

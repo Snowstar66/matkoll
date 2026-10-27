@@ -162,32 +162,8 @@ export function jpegOrientation(bytes: Uint8Array): number {
   return 1;
 }
 
-/**
- * The PNG chunks a photo keeps on its way to the AI port: the image itself
- * and what changes how it looks. Everything else (text, EXIF, time, physical
- * size, colour profiles and the like) is metadata and is left out (AD-15).
- */
-const keptPngChunks = new Set(["IHDR", "PLTE", "tRNS", "IDAT", "IEND", "gAMA", "cHRM", "sRGB"]);
-
-/**
- * The PNG without its ancillary chunks (keptPngChunks), or `null` when the
- * bytes are not a PNG whose chunks can be walked to IEND. A PNG that has
- * nothing to remove comes back with the same bytes.
- */
-export function stripPngMetadata(bytes: Uint8Array): Uint8Array | null {
-  if (!startsWith(bytes, pngSignature)) return null;
-  const parts: Uint8Array[] = [bytes.subarray(0, pngSignature.length)];
-  let at = pngSignature.length;
-  for (;;) {
-    if (at + 12 > bytes.length) return null;
-    const length = u32be(bytes, at);
-    const end = at + 12 + length;
-    if (end > bytes.length) return null;
-    const type = String.fromCharCode(...bytes.subarray(at + 4, at + 8));
-    if (keptPngChunks.has(type)) parts.push(bytes.subarray(at, end));
-    at = end;
-    if (type === "IEND") break;
-  }
+/** Joins the parts into one array. */
+function joined(parts: readonly Uint8Array[]): Uint8Array {
   const out = new Uint8Array(parts.reduce((sum, part) => sum + part.length, 0));
   let offset = 0;
   for (const part of parts) {
@@ -198,39 +174,152 @@ export function stripPngMetadata(bytes: Uint8Array): Uint8Array | null {
 }
 
 /**
- * The JPEG without its metadata segments before the image data: APP1–APP15
- * (EXIF with GPS, XMP, ICC) and comments. JFIF (APP0) and the segments that
- * decode the image stay. `null` when the bytes are not a JPEG whose segments
- * can be walked to the start of scan.
+ * The PNG chunks a photo keeps (AD-15, Story 10.1): the critical chunks that
+ * make the image, and tRNS for its transparency. Everything else (text,
+ * EXIF, time, physical size, colour profiles, animation and any chunk not
+ * known here) is left out: a whitelist, so nothing new slips through.
  */
-export function stripJpegMetadata(bytes: Uint8Array): Uint8Array | null {
-  if (imageTypeOf(bytes) !== "image/jpeg") return null;
+const keptPngChunks = new Set(["IHDR", "PLTE", "tRNS", "IDAT", "IEND"]);
+
+/** A chunk type whose first letter is upper case is critical: a decoder cannot skip it. */
+const isCriticalPngChunk = (type: string) => type.charCodeAt(0) >= 0x41 && type.charCodeAt(0) <= 0x5a;
+
+function stripPng(bytes: Uint8Array): Uint8Array | null {
+  if (!startsWith(bytes, pngSignature)) return null;
+  const parts: Uint8Array[] = [bytes.subarray(0, pngSignature.length)];
+  let at = pngSignature.length;
+  let first = true;
+  let hasData = false;
+  for (;;) {
+    if (at + 12 > bytes.length) return null;
+    const length = u32be(bytes, at);
+    const end = at + 12 + length;
+    if (end > bytes.length) return null;
+    const type = String.fromCharCode(...bytes.subarray(at + 4, at + 8));
+    if (first && type !== "IHDR") return null;
+    first = false;
+    if (keptPngChunks.has(type)) parts.push(bytes.subarray(at, end));
+    // A critical chunk that is not known here would change the image if it were left out.
+    else if (isCriticalPngChunk(type)) return null;
+    if (type === "IDAT") hasData = true;
+    at = end;
+    // Anything after IEND (a trailer of another file) is left out.
+    if (type === "IEND") break;
+  }
+  return hasData ? joined(parts) : null;
+}
+
+/**
+ * The PNG with only the chunks that make the image (keptPngChunks), up to and
+ * with IEND, or `null` when the bytes are not a PNG whose chunks can be walked
+ * from IHDR to IEND, when it has a critical chunk not known here, or when
+ * anything goes wrong while reading it: `null` means it could not be cleaned,
+ * and it is never stored or sent as it is.
+ */
+export function stripPngMetadata(bytes: Uint8Array): Uint8Array | null {
+  try {
+    return stripPng(bytes);
+  } catch {
+    return null;
+  }
+}
+
+/** Frame headers kept: baseline, extended, progressive and lossless Huffman (SOF0–SOF3, SOF5–SOF7). */
+const isHuffmanFrame = (marker: number) => (marker >= 0xc0 && marker <= 0xc3) || (marker >= 0xc5 && marker <= 0xc7);
+
+/** A bare JFIF APP0 segment: "JFIF\0", version, units, densities and no thumbnail (14 bytes after the length). */
+function isBareJfif(bytes: Uint8Array, at: number, length: number): boolean {
+  return length === 16 && startsWith(bytes, [...ascii("JFIF"), 0], at + 4) && bytes[at + 16] === 0 && bytes[at + 17] === 0;
+}
+
+/**
+ * The end of the entropy-coded data that starts at `at`: the first marker
+ * that is not a stuffed byte (FF 00), a restart marker (RST0–7) or fill
+ * (FF FF). `null` when the data runs to the end of the file.
+ */
+function scanEnd(bytes: Uint8Array, at: number): number | null {
+  let index = at;
+  while (index + 1 < bytes.length) {
+    if (bytes[index] !== 0xff) {
+      index += 1;
+      continue;
+    }
+    const next = bytes[index + 1];
+    if (next === 0x00 || (next >= 0xd0 && next <= 0xd7)) index += 2;
+    else if (next === 0xff) index += 1;
+    else return index;
+  }
+  return null;
+}
+
+function stripJpeg(bytes: Uint8Array): Uint8Array | null {
+  if (!startsWith(bytes, [0xff, 0xd8])) return null;
   const parts: Uint8Array[] = [bytes.subarray(0, 2)];
   let at = 2;
+  let hasFrame = false;
+  let hasScan = false;
   for (;;) {
-    if (at + 4 > bytes.length || bytes[at] !== 0xff) return null;
+    if (at + 2 > bytes.length || bytes[at] !== 0xff) return null;
     const marker = bytes[at + 1];
     if (marker === 0xff) {
       at += 1;
       continue;
     }
-    if (marker === 0xda) {
-      // Start of scan: the image data follows, up to the end.
-      parts.push(bytes.subarray(at));
-      break;
+    if (marker === 0xd9) {
+      // The end of the image, after the last scan. Anything after it (a video, a second image) is left out.
+      if (!hasScan) return null;
+      parts.push(bytes.subarray(at, at + 2));
+      return joined(parts);
     }
-    if (marker === 0xd8 || marker === 0xd9) return null;
-    const end = at + 2 + u16be(bytes, at + 2);
-    if (end > bytes.length) return null;
-    const metadata = (marker >= 0xe1 && marker <= 0xef) || marker === 0xfe;
-    if (!metadata) parts.push(bytes.subarray(at, end));
+    if (at + 4 > bytes.length) return null;
+    const length = u16be(bytes, at + 2);
+    const end = at + 2 + length;
+    if (length < 2 || end > bytes.length) return null;
+
+    if (marker === 0xda) {
+      if (!hasFrame) return null;
+      const dataEnd = scanEnd(bytes, end);
+      if (dataEnd === null) return null;
+      parts.push(bytes.subarray(at, dataEnd));
+      hasScan = true;
+      at = dataEnd;
+      continue;
+    }
+    if (isHuffmanFrame(marker)) {
+      if (hasFrame) return null;
+      hasFrame = true;
+      parts.push(bytes.subarray(at, end));
+    } else if (marker === 0xdb || marker === 0xc4 || marker === 0xdd) {
+      // DQT, DHT and DRI: how the image is decoded.
+      parts.push(bytes.subarray(at, end));
+    } else if (marker === 0xe0) {
+      if (isBareJfif(bytes, at, length)) parts.push(bytes.subarray(at, end));
+    } else if ((marker >= 0xe1 && marker <= 0xef) || marker === 0xfe) {
+      // APP1–APP15 (EXIF with GPS, XMP, ICC, maker notes) and comments are left out, also between scans.
+    } else {
+      // Anything else (arithmetic coding, hierarchical frames, a stray SOI or restart marker) is not cleaned.
+      return null;
+    }
     at = end;
   }
-  const out = new Uint8Array(parts.reduce((sum, part) => sum + part.length, 0));
-  let offset = 0;
-  for (const part of parts) {
-    out.set(part, offset);
-    offset += part.length;
+}
+
+/**
+ * The JPEG with only what makes the image (AD-15, Story 10.1), a whitelist:
+ * SOI, DQT, DHT, DRI, one Huffman frame header (SOF0–3, SOF5–7), every scan
+ * with its entropy-coded data (and the tables between progressive scans), and
+ * EOI, where it stops. APP0 stays only as a bare JFIF segment without a
+ * thumbnail. APP1–APP15 (EXIF with GPS, XMP, ICC) and comments go wherever
+ * they are, and so does anything after EOI. `null` when the bytes are not a
+ * JPEG whose segments can be walked to EOI after a scan, when a segment's
+ * length is under 2 or runs past the end, when it has a segment not known
+ * here, or when anything goes wrong while reading it: `null` means it could
+ * not be cleaned, and it is never stored or sent as it is.
+ */
+export function stripJpegMetadata(bytes: Uint8Array): Uint8Array | null {
+  try {
+    return stripJpeg(bytes);
+  } catch {
+    return null;
   }
-  return out;
 }

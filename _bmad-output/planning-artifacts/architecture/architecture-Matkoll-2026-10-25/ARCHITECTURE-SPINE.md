@@ -4,15 +4,18 @@ type: architecture-spine
 purpose: build-substrate
 altitude: feature
 paradigm: 'Modulär monolit: feature-moduler med inre lager, externa tjänster bakom portar (ports and adapters)'
-scope: 'Matkoll v1 och 1.1, hela appen (Epic 1–8)'
+scope: 'Matkoll v1 och 1.1, hela appen (Epic 1–8, Epic 10 och Epic 11)'
 status: final
 created: '2026-10-25'
 updated: '2026-10-26'
-binds: [FR-1, FR-2, FR-3, FR-4, FR-5, FR-6, FR-7, FR-8, FR-9, FR-10, FR-11, FR-12, FR-13, FR-14, FR-15, FR-16, FR-17, FR-18, FR-19, FR-20, FR-21, FR-22, FR-23, FR-24, FR-25, FR-26, FR-27, FR-28, FR-29, FR-30, FR-31, FR-32, FR-33, NFR-1, NFR-2, NFR-3, NFR-4, NFR-5, NFR-6, NFR-7, NFR-8, NFR-9]
+binds: [FR-1, FR-2, FR-3, FR-4, FR-5, FR-6, FR-7, FR-8, FR-9, FR-10, FR-11, FR-12, FR-13, FR-14, FR-15, FR-16, FR-17, FR-18, FR-19, FR-20, FR-21, FR-22, FR-23, FR-24, FR-25, FR-26, FR-27, FR-28, FR-29, FR-30, FR-31, FR-32, FR-33, FR-37, FR-38, FR-39, FR-40, FR-41, FR-42, FR-43, FR-44, NFR-1, NFR-2, NFR-3, NFR-4, NFR-5, NFR-6, NFR-7, NFR-8, NFR-9, NFR-11, NFR-12]
 sources:
   - _bmad-output/planning-artifacts/prds/prd-Matkoll-2026-10-25/prd.md
   - _bmad-output/planning-artifacts/prds/prd-Matkoll-2026-10-25/addendum.md
   - _bmad-output/planning-artifacts/sprint-change-proposal-2026-10-26-flera-stallen.md
+  - _bmad-output/planning-artifacts/sprint-change-proposal-2026-10-26-spara-foto.md
+  - _bmad-output/planning-artifacts/sprint-change-proposal-2026-10-26-nytt-utseende.md
+  - _bmad-output/planning-artifacts/ux-designs/ux-Matkoll-2026-10-25/mockups/
   - _bmad-output/planning-artifacts/ux-designs/ux-Matkoll-2026-10-25/DESIGN.md
   - _bmad-output/planning-artifacts/ux-designs/ux-Matkoll-2026-10-25/EXPERIENCE.md
   - docs/brief.md
@@ -42,7 +45,7 @@ Feature-moduler och deras tabeller:
 | `auth` | – (Supabase Auth) |
 | `catalog` | `ingredient`, `ingredient_synonym` |
 | `recipes` | `recipe`, `recipe_step`, `recipe_ingredient` |
-| `pantry` | `pantry_item`, `pantry_site` (1.1, AD-24), `pantry_addition`, `pantry_removal` |
+| `pantry` | `pantry_item`, `pantry_site` (1.1, AD-24), `pantry_addition`, `pantry_removal`, `pantry_photo` och Storage-bucketen `pantry-photo` (Epic 10, AD-26) |
 | `mealplan` | `meal_plan`, `meal_plan_recipe` |
 | `shopping` | `shopping_check`, `shopping_line_override`, `shopping_custom_item`, `product_choice` |
 | `suggestions` | – (läser via andra moduler) |
@@ -84,19 +87,19 @@ Pilarna är de enda tillåtna beroendena. En annan modul nås bara via dess `ind
 
 - **Binds:** alla skrivningar, FR-6, FR-16, FR-18, FR-25, NFR-1
 - **Prevents:** skrivvägar som kringgår validering och inloggning, och AI-flöden som sparar utan bekräftelse.
-- **Rule:** Webbläsaren använder aldrig Supabase-klienten. Läsning sker i Server Components via `server.ts`. Skrivning sker bara via Server Actions som börjar med `requireUser()` och validerar med Zod. Route Handlers under `src/app/api/ai/*` skriver aldrig till databasen; de anropar bara skrivfria funktioner, och resultatet lever i klienten tills Pontus sparar eller bekräftar via en Server Action.
+- **Rule:** Webbläsaren använder aldrig Supabase-klienten. Läsning sker i Server Components via `server.ts`. Skrivning sker bara via Server Actions som börjar med `requireUser()` och validerar med Zod. Route Handlers under `src/app/api/ai/*` skriver aldrig till databasen; de anropar bara skrivfria funktioner, och resultatet lever i klienten tills Pontus sparar eller bekräftar via en Server Action. Undantag (Epic 10, AD-26): `POST /api/pantry/photo` sparar en plats senaste foto, eftersom en Server Action tar emot högst 1 MB och fotot kan vara 1,5 MB. Den är den enda Route Handler som skriver, och den gör samma kontroller som en Server Action: `isCrossSite`, `requireUserForRoute()`, `readImageForm` för bilden och Zod för övriga fält.
 
 ### AD-3 – Inloggning och tillåtelselista
 
 - **Binds:** FR-1, NFR-1
 - **Prevents:** konton utanför tillåtelselistan, sidor som bara skyddas av proxyn, och öppna omdirigeringar.
-- **Rule:** Supabase Auth med engångslänk och `@supabase/ssr`-cookies. Registrering är avstängd (`enable_signup = false` lokalt och i molnet), `signInWithOtp` anropas med `shouldCreateUser: false`, och de tillåtna användarna skapas av skriptet `pnpm users:sync` (service role) från `ALLOWED_EMAILS`. Länken går till `src/app/auth/confirm/route.ts`, som anropar `verifyOtp({ token_hash, type: 'email' })`; e-postmallen ligger i `supabase/config.toml` och sätts likadant i molnet. `src/proxy.ts` förnyar sessionen med `getClaims()` och omdirigerar till `/logga-in` (optimistisk kontroll). Den auktoritativa kontrollen är `requireUser()`: `getClaims()` plus att e-postadressen finns i `ALLOWED_EMAILS`, memoiserad per förfrågan med React `cache`. Den anropas i varje action, Route Handler och läsfunktion och ger `unauthorized` (401 i Route Handlers). Parametern `next` får bara vara en sökväg som börjar med `/` men inte `//`. Svaret på inloggningssidan är detsamma oavsett om adressen är tillåten.
+- **Rule:** Supabase Auth med engångslänk och `@supabase/ssr`-cookies. Registrering är avstängd (`enable_signup = false` lokalt och i molnet), `signInWithOtp` anropas med `shouldCreateUser: false`, och de tillåtna användarna skapas av skriptet `pnpm users:sync` (service role) från `ALLOWED_EMAILS`. Länken går till sidan `src/app/auth/confirm/page.tsx`, som bara visar knappen "Logga in"; först knappen (Server Action `confirmEmailLinkForm`, POST) anropar `verifyOtp({ token_hash, type: 'email' })`, så att en länkskanner i e-posten inte använder upp länken (Story 11.6); e-postmallen ligger i `supabase/config.toml` och sätts likadant i molnet. `src/proxy.ts` förnyar sessionen med `getClaims()` och omdirigerar till `/logga-in` (optimistisk kontroll). Den auktoritativa kontrollen är `requireUser()`: `getClaims()` plus att e-postadressen finns i `ALLOWED_EMAILS`, memoiserad per förfrågan med React `cache`. Den anropas i varje action, Route Handler och läsfunktion och ger `unauthorized` (401 i Route Handlers). Parametern `next` får bara vara en sökväg som börjar med `/` men inte `//`. Svaret på inloggningssidan är detsamma oavsett om adressen är tillåten. Tillägg (Epic 11, AD-27): samma mejl har också en sexsiffrig kod (`{{ .Token }}` i mallen, `otp_length = 6`). Server Action `verifyEmailCode(email, code, next)` i `auth` anropar `verifyOtp({ email, token, type: 'email' })` med sessionsklienten och kontrollerar sedan `ALLOWED_EMAILS` som `auth/confirm` gör. Fel kod, gammal kod och en adress som inte är tillåten ger samma svar. Koden behövs eftersom en app på iPhones hemskärm inte delar kakor med Safari, där länken öppnas. Före `verifyOtp` gäller appens egen gräns (5 fel koder per adress och klient-IP på 15 minuter, i minnet per serverinstans, `auth_code_rate_limited`) och tillåtelselistan; webbläsarens IP skickas till Supabase som `Sb-Forwarded-For`, och Supabases egen gräns ger också `auth_code_rate_limited`. Misslyckas utloggningen av en adress utanför listan tas sessionskakorna bort direkt.
 
 ### AD-4 – Dataisolering med RLS och grants
 
 - **Binds:** FR-2, NFR-1, NFR-8, alla tabeller
 - **Prevents:** tabeller utan skydd, skillnad mellan lokal miljö och moln, och rader som pekar på en annan användares data.
-- **Rule:** Varje tabell i `public` har `user_id uuid not null default auth.uid() references auth.users on delete cascade`, RLS påslaget och en policy `user_id = (select auth.uid())` för select, insert, update och delete. Varje migration som skapar en tabell ger `grant select, insert, update, delete` till `authenticated` och `service_role`, aldrig till `anon`. `supabase/config.toml` har `[api] auto_expose_new_tables = false`. Barntabeller refererar föräldern med sammansatt främmande nyckel `(parent_id, user_id)`. Serverkod i förfrågningar använder användarens sessionsklient, aldrig service role; service role används bara i tester och skript. Varje ny tabell får ett RLS-test där en anonym klient och en annan användare varken kan läsa eller skriva (`42501` eller tomt resultat godtas).
+- **Rule:** Varje tabell i `public` har `user_id uuid not null default auth.uid() references auth.users on delete cascade`, RLS påslaget och en policy `user_id = (select auth.uid())` för select, insert, update och delete. Varje migration som skapar en tabell ger `grant select, insert, update, delete` till `authenticated` och `service_role`, aldrig till `anon`. `supabase/config.toml` har `[api] auto_expose_new_tables = false`. Barntabeller refererar föräldern med sammansatt främmande nyckel `(parent_id, user_id)`. Serverkod i förfrågningar använder användarens sessionsklient, aldrig service role; service role används bara i tester och skript. Varje ny tabell får ett RLS-test där en anonym klient och en annan användare varken kan läsa eller skriva (`42501` eller tomt resultat godtas). Tillägg (Epic 10, AD-26): en Storage-bucket är privat och skyddas av policyer på `storage.objects` med bucketens id och användarens id som första mapp i sökvägen. Den får samma slags RLS-test: en anonym klient och en annan användare kan varken ladda upp, läsa, lista eller ta bort.
 
 ### AD-5 – Schemaändringar
 
@@ -171,6 +174,7 @@ Pilarna är de enda tillåtna beroendena. En annan modul nås bara via dess `ind
   - `locations.ts`: Kyl, Frys, Skafferi.
 
   Alla tre är Zod-enum som AI-scheman, formulär och listans gruppering använder, och `text`-kolumner med `check` i databasen. Mängd lagras som `numeric`, `null` för vag rad (`is_vague = true`) och obegränsad lagervara. Avrundning sker bara i `formatQuantity`.
+  - Tillägg (Epic 11): `categories.ts` med `CATEGORIES` (Frukt & grönt, Bröd, Mejeri & ägg, Kött, fisk & chark, Frys, Skafferi, Såser & smaksättare, Dryck, Övrigt, i den ordningen) och `displayCategory(section, name): Category`, den enda regeln för vilken kategori en vara visas under. Kött och fisk och Chark blir en kategori, och en vara i Skafferi vars normaliserade namn är eller slutar på ett ord i listan `SAUCE_WORDS` (sås, senap, ketchup, majonnäs, dressing, vinäger, buljong, fond, salt, peppar, krydda, kryddor …) blir Såser & smaksättare. Kategorin är ren visning: den sparas aldrig, AI-scheman och promptar använder fortfarande avdelningarna, och exporten (AD-16) grupperar fortfarande per avdelning. Ikon och platta per kategori väljs bara i `src/components/category-header.tsx`.
 
 ### AD-13 – Resultat och fel
 
@@ -186,9 +190,10 @@ Pilarna är de enda tillåtna beroendena. En annan modul nås bara via dess `ind
 
 ### AD-15 – Bilder
 
-- **Binds:** FR-4, FR-8, FR-24
-- **Prevents:** lagrade privata foton, uppladdningar som stoppas av Vercels gräns på 4,5 MB, och trasiga receptbilder.
+- **Binds:** FR-4, FR-8, FR-24, FR-37
+- **Prevents:** lagrade privata foton utanför den enda regeln nedan, uppladdningar som stoppas av Vercels gräns på 4,5 MB, och trasiga receptbilder.
 - **Rule:** Foton av kokbokssidor och platser förminskas i klienten till högst 1600 px för en kokbokssida och 2048 px för en plats (Story 6.5, `maxPlacePhotoSide`), och högst 1,5 MB (JPEG), före uppladdning, kontrolleras på servern (`image_too_large`), skickas till AI-tjänsten och sparas aldrig. Receptbilder sparas som URL och visas med `<img referrerPolicy="no-referrer">` och en platshållare vid fel. Ingen CSP i v1.
+- **Ändrat (Epic 10, AD-26):** ett undantag, och bara ett. Det senaste fotot av en plats (Kyl, Frys eller Skafferi på ett ställe) sparas när det har lett till en ändring i lagret, alltså när den första skrivningen från fotots lagerförslag har lyckats. Det som sparas är den förminskade bild som AI-tjänsten fick, utan metadata (EXIF, GPS, XMP, ICC och kommentarer tas bort på servern), i en privat bucket och med avläsningen och punkterna från 6.5 och 6.6. Högst ett foto per plats, och aldrig äldre än 30 dagar. Foton av kokbokssidor sparas fortfarande aldrig, inte heller ett platsfoto vars förslag bara avvisades. Ett sparat foto skickas aldrig till AI-tjänsten igen. Detaljerna står i AD-26.
 
 ### AD-16 – Varukorgsexporten
 
@@ -200,13 +205,13 @@ Pilarna är de enda tillåtna beroendena. En annan modul nås bara via dess `ind
 
 - **Binds:** NFR-3, NFR-4, NFR-5, all UI
 - **Prevents:** hårdkodade färger och mått som glider från `DESIGN.md`.
-- **Rule:** Tokens från `DESIGN.md` definieras som CSS-variabler i `:root` i `src/app/globals.css` och mappas med Tailwind `@theme inline`. Mörkt läge byter variablerna i `@media (prefers-color-scheme: dark)`. Tailwind körs via `@tailwindcss/turbopack` som i startmallen, utan PostCSS-konfiguration. Komponenter använder bara tokenklasser, aldrig hex-värden.
+- **Rule:** Tokens från `DESIGN.md` definieras som CSS-variabler i `:root` i `src/app/globals.css` och mappas med Tailwind `@theme inline`. Mörkt läge byter variablerna i `@media (prefers-color-scheme: dark)`. Tailwind körs via `@tailwindcss/turbopack` som i startmallen, utan PostCSS-konfiguration. Komponenter använder bara tokenklasser, aldrig hex-värden. Tillägg (Epic 11): plattornas färger `tile-clay` och `tile-lilac` är tokens som de andra, med mörka värden. Emoji används bara som ikon i kategoriplattorna, med `aria-hidden`, och aldrig i texter (`src/lib/errors.ts`, knappar, bekräftelser). Appikonens färger läses från `src/app/theme-colors.ts`, som ett test jämför med `globals.css`, så att ingen hex finns utanför `globals.css`.
 
 ### AD-18 – Rendering och cache
 
 - **Binds:** alla sidor och actions
 - **Prevents:** byggfel från sessionsläsning utanför `<Suspense>`, cachad användardata och inaktuella härledda vyer.
-- **Rule:** `cacheComponents: true` behålls som i startmallen. Allt som läser sessionen eller användardata renderas i en komponent inuti `<Suspense>`; en layout gör aldrig `await` på sessionen på toppnivå. Ingen `'use cache'` på användardata i v1. Route segment config begränsas till `maxDuration`. Efter en skrivning anropar actionen `revalidateFor(table)` från `src/lib/revalidate.ts`, som mappar tabell till alla rutter som visar den eller något härlett ur den (t.ex. `pantry_item` → `/hemma`, `/recept`, `/recept/[id]`, `/matsedel`, `/lista`). `revalidatePath` anropas inte direkt. Tillägg (1.1, AD-24): `pantry_site` → `/hemma`, `/recept`, `/matsedel`, `/lista`, eftersom ett byte av ställe ändrar allt som räknas mot lagret. Klientkomponenter med effekter (t.ex. Wake Lock i stegläget) städar upp i effektens cleanup och återtar resurser vid `visibilitychange`.
+- **Rule:** `cacheComponents: true` behålls som i startmallen. Allt som läser sessionen eller användardata renderas i en komponent inuti `<Suspense>`; en layout gör aldrig `await` på sessionen på toppnivå. Ingen `'use cache'` på användardata i v1. Route segment config begränsas till `maxDuration`. Efter en skrivning anropar actionen `revalidateFor(table)` från `src/lib/revalidate.ts`, som mappar tabell till alla rutter som visar den eller något härlett ur den (t.ex. `pantry_item` → `/hemma`, `/recept`, `/recept/[id]`, `/matsedel`, `/lista`). `revalidatePath` anropas inte direkt. Tillägg (1.1, AD-24): `pantry_site` → `/hemma`, `/recept`, `/matsedel`, `/lista`, eftersom ett byte av ställe ändrar allt som räknas mot lagret. Tillägg (Epic 10, AD-26): `pantry_photo` → `/hemma`, eftersom fotot bara visas där. Klientkomponenter med effekter (t.ex. Wake Lock i stegläget) städar upp i effektens cleanup och återtar resurser vid `visibilitychange`.
 
 ### AD-19 – Lagervarans identitet och skrivoperationer
 
@@ -221,11 +226,13 @@ Pilarna är de enda tillåtna beroendena. En annan modul nås bara via dess `ind
 
   Ändrat (1.1, AD-24): den unika nyckeln är `(user_id, site_id, ingredient_id, location, unit)` med `nulls not distinct`. Varje skrivoperation tar `siteId` från vyn. `getPantrySnapshot(siteId?)`, `listPantry(location, siteId?)` och `countPantryItems(siteId?)` gäller ett ställe (valt ställe om inget anges), summerat över ställets platser och aldrig över ställen. Skrivoperationerna från Epic 6 (`emptyPantryPlace`, `restorePantryRemoval`, `confirmPantryInventory`) och `confirmPantrySuggestions` hör också hit.
 
+  Tillägg (Epic 11): `pantry_item.label` är varans märke eller sort (`text`, `null` eller 1–60 tecken efter trim). Det ingår inte i den unika nyckeln. `setPantryItems` tar `label` per vara: saknas fältet står märket kvar, `null` tar bort det och en text sätter det. `confirmPantrySuggestions` och `confirmPantryInventory` skickar förslagets första etikett (6.5), avkortad till 60 tecken, när förslaget har en. `addToPantry` rör aldrig märket. `created_at` betyder "tillagd": en ändrad mängd ändrar den inte, och när `setPantryItems` ersätter en rad (ny enhet eller plats, `replace_id`) får den nya raden den ersattas `created_at` och `label`. `listPantry` ger `label`, `createdAt` och katalogingrediensens avdelning, så att vyn kan räkna kategorin (AD-12).
+
 ### AD-20 – Referenser och borttagning
 
 - **Binds:** FR-10, FR-14, alla främmande nycklar
 - **Prevents:** borttagningar som tyst raderar data i andra moduler eller misslyckas med generiska fel, och "Ångra" som ger nya id.
-- **Rule:** Främmande nycklar mellan moduler är `on delete restrict`. Inom ett aggregat (recept med steg och rader, matsedel med rätter och överlägg) är de `cascade`. Undantag: `meal_plan_recipe.recipe_id` är `on delete set null`, och raden har `recipe_title` som ögonblicksbild, så tidigare matsedlar visar "Borttaget recept". `recipes.deleteRecipe` anropar först `mealplan.detachRecipe(recipeId)`, som tar bort rätten från den aktuella matsedeln. Katalogingredienser tas inte bort och slås inte ihop i v1. All radering är hård; "Ångra" anropar `restore*(row)` med samma id, och create-actions tar emot ett valfritt id för det.
+- **Rule:** Främmande nycklar mellan moduler är `on delete restrict`. Inom ett aggregat (recept med steg och rader, matsedel med rätter och överlägg) är de `cascade`. Undantag: `meal_plan_recipe.recipe_id` är `on delete set null`, och raden har `recipe_title` som ögonblicksbild, så tidigare matsedlar visar "Borttaget recept". `recipes.deleteRecipe` anropar först `mealplan.detachRecipe(recipeId)`, som tar bort rätten från den aktuella matsedeln. Katalogingredienser tas inte bort och slås inte ihop i v1. All radering är hård; "Ångra" anropar `restore*(row)` med samma id, och create-actions tar emot ett valfritt id för det. Tillägg (Epic 10, AD-26): `pantry_photo` hör till ställets aggregat, så `pantry_photo (site_id, user_id)` är `on delete cascade` mot `pantry_site`. Filen i Storage följer inte med en kaskad i databasen, så den som tar bort raden tar också bort filen via Storage-API:t. Ett foto går inte att ångra, så "Ta bort fotot" har en kontrollfråga. Tillägg (Epic 11): "Ångra" sätter tillbaka allt på raden, också `created_at` och `label`. `restore_pantry_item` tar emot dem, och `pantry_removal.removed_rows` sparar dem för `restore_pantry_removal`. En `created_at` i framtiden blir `now()`.
 
 ### AD-21 – Startdata per användare
 
@@ -250,6 +257,7 @@ Pilarna är de enda tillåtna beroendena. En annan modul nås bara via dess `ind
   - Produktion byggs bara från `main`. Förhandsdriftsättningar saknar Supabase-variabler. `supabase db push` körs före koddriftsättningen. Första publiceringen i produktion kräver Pontus godkännande.
   - Vercel och Supabase ligger i Stockholm (Vercel `arn1`, Supabase `eu-north-1`).
   - Ett schemalagt GitHub Actions-flöde gör varje vecka en krypterad `supabase db dump` (lösenfras som hemlighet) och sparar den som artefakt. Det håller också gratisprojektet aktivt.
+  - Tillägg (Epic 10, AD-26): CI startar Supabase med `storage-api` (det står inte längre i `SUPABASE_EXCLUDE`), eftersom migrationen skapar en bucket och RLS-testerna och e2e behöver Storage. Säkerhetskopian tar aldrig med foton: filerna finns inte i en databasdump, och raderna i `storage.objects` och `pantry_photo` utesluts. Bucketen och dess policyer ligger i schemat `storage`, som dumpen inte tar med, så återställningen kör fotomigrationen igen (`docs/drift.md`).
 
 ### AD-24 – Ställen i lagret
 
@@ -312,6 +320,75 @@ Pilarna är de enda tillåtna beroendena. En annan modul nås bara via dess `ind
     Ett integrationstest visar att lagret har samma rader, mängder och id före och efter, och att 1.0:s anrop utan `site` fortfarande fungerar.
   - **Rendering:** `revalidateFor('pantry_site')` (AD-18).
 
+AD-25 hör till Epic 9 (veckans erbjudanden), som är planerad men vilar på grenen `epic/9-erbjudanden`. Numret är reserverat.
+
+### AD-26 – Platsfoton
+
+- **Binds:** FR-37, FR-38, FR-39, NFR-11, och i Epic 10 också FR-24, FR-25, FR-29 och FR-33
+- **Prevents:**
+  - foton som någon annan än ägaren kan läsa, också genom en länk som har läckt;
+  - foton med EXIF, GPS eller annan metadata;
+  - fler foton än det senaste per plats, och foton som ligger kvar när fotot, stället eller användaren är borta;
+  - ett sparat foto som skickas till AI-tjänsten igen;
+  - foton i säkerhetskopior, loggar eller repot.
+- **Rule:**
+  - **Ägare:**
+    - `pantry` äger Storage-bucketen `pantry-photo` och tabellen `pantry_photo`. Ingen annan modul läser eller skriver dem (AD-1).
+    - All kod mot Storage ligger i `pantry/data/photos.ts` och använder användarens sessionsklient, så att RLS gäller. Service role används bara i `scripts/users-sync.mjs` och i tester (AD-4).
+    - Ingen ny miljövariabel (AD-14). Lokalt är Storage redan påslaget i `supabase/config.toml` (`[storage] enabled = true`).
+  - **Bucket:**
+    - Migrationen skapar den med `insert into storage.buckets (id, name, public, file_size_limit, allowed_mime_types) values ('pantry-photo', 'pantry-photo', false, 1572864, '{image/jpeg,image/png}') on conflict (id) do nothing`. Taket är `maxImageBytes` (1,5 MB).
+    - Bucketen är privat. Koden anropar aldrig `getPublicUrl` eller `createSignedUrl`: en signerad URL går inte att återkalla före sitt slut.
+  - **Objekt:**
+    - Sökvägen är `<user_id>/<site_id>/<plats>/<foto-id>.<jpg|png>`, där platsen är `kyl`, `frys` eller `skafferi`.
+    - Varje foto får en ny sökväg och laddas upp med `upsert: false`. Supabase avråder från att skriva över en fil, eftersom en cache kan visa den gamla.
+    - Policyer på `storage.objects` för `authenticated`: `select`, `insert` och `delete` med `bucket_id = 'pantry-photo' and (storage.foldername(name))[1] = (select auth.uid())::text`. Ingen policy för `update` och ingen för `anon`. RLS-test enligt AD-4.
+    - En rad i `storage.objects` tas aldrig bort med SQL. Supabase stoppar det (`storage.protect_delete()`), och filen skulle ligga kvar. Filer tas bort med Storage-API:t (`remove`).
+  - **Tabell:**
+    - `pantry_photo`: `id` (fotots id, samma som i sökvägen), `user_id`, `site_id`, `location`, `object_path` (unik), `media_type` (`image/jpeg` eller `image/png`), `width`, `height`, `taken_at`, `reading` (jsonb: avläsningens etiketter i ordning, högst 25), `points` (jsonb: punkterna från 6.6, eller `null`) och `created_at`.
+    - Unik på `(user_id, site_id, location)`: ett foto per plats.
+    - `(site_id, user_id)` refererar `pantry_site (id, user_id)` med `on delete cascade`, eftersom fotot hör till ställets aggregat (AD-20).
+    - RLS, grants och RLS-test enligt AD-4.
+    - Avläsningen och punkterna ligger i tabellen och inte i objektets metadata. Då läser Hemma tiden, avläsningen och punkterna i en fråga utan att anropa Storage, Zod validerar dem, och de skyddas av samma RLS som resten av lagret.
+  - **När ett foto sparas:**
+    - När den första skrivningen från fotots lagerförslag har lyckats: Bekräfta, Rätta, "Bekräfta alla" eller "Ta bort" i inventeringen (6.2, 6.4). Det sparas en gång per foto.
+    - Ett foto som inte gav några kort, eller vars förslag bara avvisades, sparas aldrig.
+    - Fotot sparas på det ställe och den plats som det togs för (FR-33), också om Pontus har valt ett annat ställe under tiden.
+  - **Hur ett foto sparas:**
+    1. Klienten skickar samma förminskade bild som analyserades, fotots ställe och plats, tiden då fotot togs, avläsningen och punkterna, om de har kommit, till `POST /api/pantry/photo` (AD-2).
+    2. Servern kontrollerar bilden med `readImageForm` och tar bort all metadata med `stripJpegMetadata` eller `stripPngMetadata`. En bild som inte går att rensa, eller som är WebP, sparas inte.
+    3. Bilden laddas upp till en ny sökväg.
+    4. Postgres-funktionen `save_pantry_photo` (`security invoker`, `pantry_lock()`) byter raden för platsen och lämnar den förra sökvägen.
+    5. Den förra filen tas bort med Storage-API:t. Går det inte, blir den kvar utan rad och tas bort vid nästa gallring.
+
+    Misslyckas något före steg 4 tas den nya filen bort, och den förra raden står kvar. Punkter som kommer efter sparandet läggs till med Server Action `savePlacePhotoPoints`. Sparandet syns inte för Pontus och påverkar aldrig lagret. Ett fel loggas bara med felkod.
+  - **Läsning:**
+    - `pantry/server.ts` exporterar `listPlacePhotos(siteId?)`, memoiserad med React `cache`. Den ger raderna utan bild, bara de som är yngre än 30 dagar, och `needsSweep` när det finns något att gallra.
+    - Bilden visas från `GET /api/pantry/photo/[id]`. Den börjar med `requireUserForRoute()`, hämtar filen med sessionsklienten (`download`, RLS) och svarar med `Cache-Control: private, no-store`, `X-Content-Type-Options: nosniff` och radens `media_type`. Ett foto som inte finns, är äldre än 30 dagar eller är en annan användares ger 404.
+  - **Gallring:**
+    - Högst ett foto per plats. Ett foto som är äldre än 30 dagar visas aldrig och tas bort.
+    - `sweepPlacePhotos` (Server Action) tar bort användarens för gamla foton och filer utan rad som är äldre än 10 minuter, så att ett sparande som pågår aldrig förlorar sin fil. Den anropas av Hemma när `needsSweep` är sant, och i slutet av varje sparande.
+    - "Ta bort fotot" (`removePlacePhoto`), ett borttaget ställe (`deletePantrySite`) och `pnpm users:sync --prune` tar bort filerna med Storage-API:t. Raderna försvinner med raden, stället eller användaren.
+    - "Töm kylen" (6.3) tar inte bort fotot.
+  - **Aldrig:**
+    - Ett sparat foto skickas aldrig till AI-tjänsten. Det finns ingen ny analys eller nya nummer från ett sparat foto, och `src/server/ai` importerar aldrig `pantry` (AD-1).
+    - Fotot, avläsningen och sökvägen finns aldrig i loggar (bara felkoder och antal), i repot (testfixturerna är ritade bilder) eller i `localStorage`.
+    - Säkerhetskopian tar aldrig med foton (AD-23).
+  - **Rendering:** `revalidateFor('pantry_photo')` → `/hemma` (AD-18).
+
+### AD-27 – Appen på hemskärmen
+
+- **Binds:** FR-1, FR-44, NFR-12
+- **Prevents:** en hemskärmsapp som inte kan logga in, ikoner och manifest bakom inloggningen, en service worker som cachar användardata och sidor som saknar väg tillbaka i helskärm.
+- **Rule:** Matkoll är fortfarande en webbapp (Epic 11). Det som gör den till en app på hemskärmen:
+  - `src/app/manifest.ts` (`MetadataRoute.Manifest`, enligt `node_modules/next/dist/docs/01-app/03-api-reference/03-file-conventions/01-metadata/manifest.md`): `name` och `short_name` "Matkoll", `lang: 'sv'`, `start_url: '/recept'`, `scope: '/'`, `display: 'standalone'`, `background_color` och `theme_color` från `themeColors.light` och ikonerna 192 och 512 px (`purpose: 'any'`) och 512 px (`purpose: 'maskable'`).
+  - Ikonerna genereras med kod (`ImageResponse` från `next/og`) i `src/app/icon.tsx` och `src/app/apple-icon.tsx` (180 px), eller ligger som PNG i `public/` om genereringen inte fungerar i bygget. Motivet och färgerna står i `DESIGN.md` (`app-icon`), och färgerna läses från `theme-colors.ts` (AD-17).
+  - `metadata.appleWebApp` i `src/app/layout.tsx`: `title: 'Matkoll'`, `capable: true` och `statusBarStyle: 'default'`. `viewport.themeColor` gäller som förut, med ljus och mörk bakgrund.
+  - `src/proxy.ts` släpper igenom `/manifest.webmanifest`, `/icon` och `/apple-icon` (med Next.js hash-parametrar) utan session, i `matcher`. Inget annat blir publikt. Ett e2e-test utan kakor visar det.
+  - Ingen service worker, ingen offline och inga startbilder. Inget i appen cachas av webbläsaren utöver det Next.js redan gör.
+  - Varje sida under en flik har en synlig tillbakaknapp (`PageHeader`), eftersom helskärmen saknar webbläsarens bakåtknapp.
+  - Inloggningen i hemskärmsappen sker med koden i AD-3.
+
 ## Consistency Conventions
 
 | Område | Konvention |
@@ -358,7 +435,7 @@ Pilarna är de enda tillåtna beroendena. En annan modul nås bara via dess `ind
 ```text
 matkoll/
   src/
-    app/                  # (app)/recept, matsedel, lista, hemma, installningar; logga-in; auth/confirm; api/ai/{import,analyze,suggest}
+    app/                  # (app)/recept, matsedel, lista, hemma, installningar; logga-in; auth/confirm; api/ai/{import,analyze,locate,suggest}; api/pantry/photo (Epic 10); manifest.ts, icon.tsx, apple-icon.tsx (Epic 11)
     features/
       auth/ catalog/ recipes/ pantry/ mealplan/ shopping/ suggestions/ settings/
         ui/ actions/ domain/ data/ index.ts server.ts
@@ -387,6 +464,7 @@ erDiagram
   ingredient ||--o{ recipe_ingredient : "kopplas"
   ingredient ||--o{ pantry_item : "kopplas"
   pantry_site ||--o{ pantry_item : "har (1.1)"
+  pantry_site ||--o{ pantry_photo : "har (Epic 10)"
   ingredient |o--o{ shopping_custom_item : "kopplas (valfritt)"
   ingredient ||--o{ product_choice : "har"
   recipe ||--o{ recipe_step : "har"
@@ -408,10 +486,11 @@ erDiagram
 | `recipe` | `title`, `original_servings`, `total_minutes`, `image_url`, `source_kind`, `source_url`, `is_favorite` |
 | `recipe_step` | `recipe_id`, `position`, `text` |
 | `recipe_ingredient` | `recipe_id`, `ingredient_id`, `step_id` (valfri), `position`, `original_text`, `amount`, `unit`, `is_vague` |
-| `pantry_item` | `ingredient_id`, `site_id` (1.1), `location`, `amount`, `unit` |
+| `pantry_item` | `ingredient_id`, `site_id` (1.1), `location`, `amount`, `unit`, `label` (Epic 11, valfri) |
 | `pantry_site` (1.1) | `name`, `normalized_name` (unik), `is_selected` (högst ett per användare) |
 | `pantry_addition` | `key` (unik): kvitto för "Lägg i lagret" |
-| `pantry_removal` | `id` (operations-id), `removed_rows` (med `site_id` från 1.1): underlag för "Ångra" |
+| `pantry_removal` | `id` (operations-id), `removed_rows` (med `site_id` från 1.1, och `label` och `created_at` från Epic 11): underlag för "Ångra" |
+| `pantry_photo` (Epic 10) | `site_id`, `location`, `object_path` (unik), `media_type`, `width`, `height`, `taken_at`, `reading`, `points`; unik på `(user_id, site_id, location)`. Filen ligger i Storage-bucketen `pantry-photo` (AD-26). |
 | `meal_plan` | `name`, `is_current` |
 | `meal_plan_recipe` | `meal_plan_id`, `recipe_id` (null efter borttagning), `recipe_title`, `servings`, `position` |
 | `shopping_check` | `meal_plan_id`, `line_key` |
@@ -462,6 +541,8 @@ Molnmiljön kräver Pontus konton och läggs på hens checklista i `docs/autonom
 | FR-24, FR-25 Bildanalys | `pantry`, `app/api/ai/analyze` | AD-2, AD-6, AD-9, AD-15, AD-19 |
 | FR-26–FR-28 Varukorgsexport | `shopping`, `settings` | AD-16 |
 | FR-29–FR-33, NFR-9 Flera ställen (1.1) | `pantry` (äger `pantry_site`), läses av `recipes`, `mealplan`, `suggestions`, `shopping`; `app/hemma`, `app/lista`, `app/api/ai/analyze` | AD-1, AD-5, AD-7, AD-8, AD-18, AD-19, AD-21, AD-24 |
+| FR-37–FR-39, NFR-11 Senaste fotot per plats (Epic 10) | `pantry` (äger `pantry_photo` och bucketen `pantry-photo`); `app/hemma`, `app/api/pantry/photo`; `scripts/users-sync.mjs`, `.github/workflows/backup.yml` | AD-1, AD-2, AD-4, AD-15, AD-18, AD-20, AD-23, AD-26 |
+| FR-40–FR-44, NFR-12 Nytt utseende (Epic 11) | `catalog/domain/categories.ts`, `src/components` (kategorirubrik, listrad, soptunna, mätare, kort), `pantry` (`label`), `shopping/ui`, `recipes/ui`, `mealplan/ui`, `auth` (kod), `app/manifest.ts`, `app/icon.tsx`, `src/proxy.ts` | AD-3, AD-12, AD-17, AD-19, AD-20, AD-27 |
 | NFR-1, NFR-2 Säkerhet, utbytbar AI | `src/server`, `auth` | AD-3, AD-4, AD-9, AD-11, AD-14 |
 | NFR-3–NFR-6 Responsiv, tillgänglig, utseende, svenska | `src/components`, `globals.css`, `src/lib/errors.ts` | AD-13, AD-17 |
 | NFR-7 Svarstider | regioner, AI-budget | AD-9, AD-23 |
@@ -476,4 +557,6 @@ Molnmiljön kräver Pontus konton och läggs på hens checklista i `docs/autonom
 - **Domän och Cloudflare-uppsättning:** kräver Pontus domän; påverkar bara miljövariabler.
 - **Övervakning i molnet:** Vercels inbyggda loggar räcker för en användare.
 - **Ställen efter 1.1:** att flytta eller kopiera varor mellan ställen, att välja ställe efter position och att listan har ett eget ställe, skilt från valt ställe (alternativ B i kursändringen). AD-24 tillåter alla tre utan ombyggnad: varan har redan `site_id`, och `putCheckedInPantry` tar redan emot ett ställe.
+- **Platsfoton efter Epic 10:** fler än ett foto per plats (en historik), att visa ett annat ställes foto utan att byta valt ställe och en gallring som körs utan att Pontus öppnar Hemma (ett schemalagt jobb med egen nyckel). AD-26 tillåter alla tre utan ombyggnad: varje foto har en egen sökväg, raden har stället, och gallringen är en egen funktion.
+- **Utseendet efter Epic 11:** en egen avdelning för såser i katalogen (kräver migration, promptar och omklassning), märke från produktvalet vid "Lägg i lagret", egna linjeikoner i stället för emoji, offline med service worker och push. AD-12 och AD-27 tillåter alla utan ombyggnad: kategorin räknas på ett ställe, och manifestet kan få en service worker senare.
 - **Vercel Hobby och fler användare:** Hobby gäller icke-kommersiellt bruk; plan och upphovsrätt för receptinnehåll prövas innan appen öppnas för andra.

@@ -15,7 +15,7 @@ inputDocuments:
 
 ## Översikt
 
-Det här dokumentet delar upp kraven i PRD:n, UX-dokumenten (`DESIGN.md`, `EXPERIENCE.md`) och arkitekturen (`ARCHITECTURE-SPINE.md`, AD-1–AD-24) i epics och stories som går att bygga var för sig. Story-rubrikerna läses av `scripts/board.mjs` och blir kort på boarden. Epic 1–7 är version 1.0. Epic 8 är version 1.1, "Flera ställen", som kom till genom kursändringen `sprint-change-proposal-2026-10-26-flera-stallen.md`. Dess krav står i PRD-addendumet under "Version 1.1: Flera ställen".
+Det här dokumentet delar upp kraven i PRD:n, UX-dokumenten (`DESIGN.md`, `EXPERIENCE.md`) och arkitekturen (`ARCHITECTURE-SPINE.md`, AD-1–AD-24, AD-26 och AD-27) i epics och stories som går att bygga var för sig. Story-rubrikerna läses av `scripts/board.mjs` och blir kort på boarden. Epic 1–7 är version 1.0. Epic 8 är version 1.1, "Flera ställen", som kom till genom kursändringen `sprint-change-proposal-2026-10-26-flera-stallen.md`. Dess krav står i PRD-addendumet under "Version 1.1: Flera ställen". Epic 10, "Senaste fotot per plats", är ett tillägg till 1.1 som kom till genom kursändringen `sprint-change-proposal-2026-10-26-spara-foto.md`. Dess krav står i addendumet under "Tillägg till 1.1: Senaste fotot per plats". Epic 11, "Nytt utseende", kom till genom kursändringen `sprint-change-proposal-2026-10-26-nytt-utseende.md` efter att Pontus godkände tre mobilskisser. Dess krav står i addendumet under "Tillägg till 1.1: Nytt utseende", och skisserna ligger i `ux-designs/ux-Matkoll-2026-10-25/mockups/`. Epic 11 byggs efter Epic 10. Epic 9 (veckans erbjudanden, FR34–FR36, NFR10, AD-25, UX-DR19–UX-DR20) är planerad men vilar på grenen `epic/9-erbjudanden`, så de numren är reserverade.
 
 ## Requirements Inventory
 
@@ -57,6 +57,17 @@ Version 1.1 (addendum, "Version 1.1: Flera ställen"):
 - FR31: Lagret på vilket ställe som helst kan ses och ändras på distans.
 - FR32: Inköpslistan drar av lagret för valt ställe, visar "Lager: <namn>" med "Byt" när det finns flera ställen och behåller bockar, överstyrningar och egna varor vid byte. "Lägg i lagret" lägger på listans ställe.
 - FR33: En skrivning hamnar på det ställe som vyn visade, och "Ångra" sätter tillbaka på samma ställe.
+- FR37: När något från ett fotos lagerförslag har sparats i lagret sparas fotot som senaste foto av platsen på det ställe det togs för: den förminskade bilden utan metadata, tiden, avläsningen och punkterna. Ett nytt foto ersätter det förra, och ett foto vars förslag bara avvisas sparas inte.
+- FR38: Hemma visar "Senaste foto av kylen: idag 15:42" med "Visa" för platsen på det ställe som visas. "Visa" öppnar fotot i arket från 6.6 med numrerade markörer och avläsningen som numrerad lista.
+- FR39: Ett foto som är äldre än 30 dagar visas inte och tas bort. Pontus kan ta bort fotot efter en kontrollfråga, och foton försvinner med sitt ställe och sin användare. "Töm kylen" tar inte bort fotot.
+
+Epic 11 (addendum, "Tillägg till 1.1: Nytt utseende"):
+
+- FR40: Lagervaror och listposter visas i nio kategorier med ikon och antal, i butikens ordning. Kategorin räknas fram ur avdelningen (Kött och fisk och Chark blir en, och såser och smaksättare skiljs från Skafferi på namnet) och sparas aldrig. Exporten och avdelningarna är oförändrade.
+- FR41: Lagersaldo visar varje lagervara som en rad utan mängd, med märket eller "Tillagd …" under namnet, en soptunna som tar bort direkt med "Ångra" i 5 s och ett sökfält för platsen. Mängderna finns kvar i arket och för lagningsstatusen.
+- FR42: En lagervara har ett valfritt märke (från fotots första etikett eller fältet "Märke eller sort") och vet när den lades till. "Ångra" sätter tillbaka märket och tiden.
+- FR43: Inköpslistan visar "8 varor kvar" och "6 av 14 i korgen" med en mätare, flyttar avbockade poster till en hopfälld "I korgen", visar rätterna, "Egen vara" eller "Saknas i <ställe>" under posten och produktvalet som etikett, och har "Skicka till ICA" och "Lägg i lagret" fast längst ned.
+- FR44: Matkoll kan läggas på hemskärmen och öppnas i helskärm (manifest, appikoner, temafärg), loggas in med en sexsiffrig kod från samma mejl som länken, och har en synlig tillbakaknapp på varje sida under en flik.
 
 ### NonFunctional Requirements
 
@@ -69,6 +80,8 @@ Version 1.1 (addendum, "Version 1.1: Flera ställen"):
 - NFR7 Svarstider: lista, lager och bibliotek inom en sekund; import och bildanalys visar förlopp och kan avbrytas eller göras om.
 - NFR8 Tvingande kontroller: hemlighetsskanning, RLS-tester, test av domänbegränsning, lint och kodgranskning blockerar sammanslagning.
 - NFR9 (1.1) Migrering och svarstider för ställen: en migration som bara lägger till, fungerar med 1.0-koden och visas i ett test lämna lagret oförändrat. Byte av ställe svarar inom en sekund.
+- NFR11 (Epic 10) Integritet för platsfoton: privat bucket med RLS-tester, ingen publik eller signerad länk, ingen metadata i sparade foton (test), aldrig till AI-tjänsten igen, aldrig i repot, loggar eller säkerhetskopian, och inom Supabase gratisnivå.
+- NFR12 (Epic 11) Utseendet håller tillgänglighetsgolvet: 375 px och 1280 px, ljust och mörkt läge, 200 % text utan vågrät scroll, VoiceOver och tangentbord, tryckytor minst 44 × 44 px, och ikoner, plattor och mätare säger aldrig något som inte står i text. Inget rött, inga skuggor, inga gradienter.
 
 ### Additional Requirements
 
@@ -123,6 +136,14 @@ Från `DESIGN.md` och `EXPERIENCE.md`:
 - UX-DR16: Inställningar: godkända receptsajter, butik, logga ut.
 - UX-DR17 (1.1): Ställesväljare med filterpiller ovanför platskorten och "Ställen" när det finns flera ställen, annars bara "Lägg till ställe" längst ned i Hemma. Arket Ställen (lägg till, byt namn, ta bort ett tomt ställe). Raden "Lager: <namn>" i listan (med "Byt" och arket "Räkna listan mot"), matsedeln, receptvyn och biblioteket med "Kan lagas nu", bara när det finns flera ställen.
 - UX-DR18 (1.1): Texter för ställen enligt EXPERIENCE.md, Voice and Tone: inga ställesnamn när det bara finns ett ställe, och annars mönstren "Lager: Stugan" och "… för Stugan.".
+- UX-DR21 (Epic 10): Raden "Senaste foto av kylen: idag 15:42" med textknappen "Visa" direkt under kameraknappen i Hemma, och fotoarket från 6.6 med numrerade markörer, "AI:n läste av:" med en numrerad lista och "Ta bort fotot" med kontrollfråga.
+- UX-DR22 (Epic 10): Texter för foton enligt EXPERIENCE.md: tiden som "idag 15:42", "igår 09:10" eller "24 okt 15:42", "Taget idag 15:42. Numren visar vad AI:n läste av.", "Fotot finns inte längre.", "Fotot av kylen är borttaget." och den nya underrubriken under granskningen.
+- UX-DR23 (Epic 11): Kategorirubrik med ikonplatta (emoji, dold för skärmläsare), kategorins namn och antal, i butikens ordning, i Lagersaldo och Inköpslista. Plattornas färger och tokens enligt DESIGN.md (`category-tile`, `tile-clay`, `tile-lilac`).
+- UX-DR24 (Epic 11): Lagersaldo enligt skissen `mockups/lagersaldo.html`: listgrupper med listrader utan mängd, raden under med märket eller "Tillagd …", en grå soptunna utan fråga och "Tog bort Gräddfil." med "Ångra" i 5 s, inget svep, och sökfältet "Sök i kylen".
+- UX-DR25 (Epic 11): Inköpslistan enligt skissen `mockups/inkopslista.html`: framstegsraden, runda bockar, mängden efter namnet, raden under, produktetiketten, korgraden "6 varor i korgen" med "Visa" och de två fasta knapparna i en rad.
+- UX-DR26 (Epic 11): Receptkort med bilden överst och statusetiketten och hjärtat på bilden (en kolumn i mobilen, två från 1024 px), rättkort med 56 px bild, "6 av 8 hemma" och mätare, och "Visa inköpslistan" längst ned i Matsedel, enligt `mockups/matkoll-mobil.html`.
+- UX-DR27 (Epic 11): Matkoll på hemskärmen: appikonen (morot), helskärm med appens bakgrund bakom statusraden, tillbakaknappar, inloggning med koden och raden om hemskärmen i Inställningar.
+- UX-DR28 (Epic 11): Texter enligt EXPERIENCE.md, Voice and Tone och State Patterns för Epic 11 ("Tillagd …", "Tog bort …", "8 varor kvar", "Saknas i Stugan", "Egen vara", "Allt ligger i korgen", "Koden stämmer inte eller har gått ut. Skicka en ny länk."). Emoji bara i kategoriplattorna.
 
 ### FR Coverage Map
 
@@ -159,6 +180,14 @@ Från `DESIGN.md` och `EXPERIENCE.md`:
 - FR31: Epic 8 – se ett ställes lager på distans
 - FR32: Epic 8 – inköpslistan räknas mot valt ställe
 - FR33: Epic 8 – skrivningar på det ställe vyn visade
+- FR37: Epic 10 – spara senaste fotot per plats
+- FR38: Epic 10 – visa senaste fotot i Hemma
+- FR39: Epic 10 – gallring och borttagning av foton
+- FR40: Epic 11 – kategorier med ikon (11.1, används i 11.3 och 11.4)
+- FR41: Epic 11 – Lagersaldo utan mängder (11.3)
+- FR42: Epic 11 – märke och tid på lagervaran (11.2, visas i 11.3)
+- FR43: Epic 11 – inköpslistan i butiken (11.4)
+- FR44: Epic 11 – Matkoll på hemskärmen (11.6)
 
 ## Epic List
 
@@ -193,6 +222,14 @@ Pontus kan välja butik, spara vilka produkter hen brukar köpa och skicka inkö
 ### Epic 8: Flera ställen
 Version 1.1. Pontus kan ha lager på flera ställen, till exempel Hemma och Stugan, välja vilket ställe som gäller och se ett ställes lager på distans. Lagningsstatusen, AI-förslagen, inköpslistans avdrag, "Lägg i lagret" och bildanalysen följer valt ställe, så att Pontus handlar rätt inför resan till stugan.
 **FRs covered:** FR29, FR30, FR31, FR32, FR33, NFR9 (och avgränsningar av FR8, FR11–FR13, FR15, FR19, FR20, FR22–FR25 till valt ställe)
+
+### Epic 10: Senaste fotot per plats
+Tillägg till 1.1. Det senaste fotot av varje plats sparas privat när det har lett till en ändring i lagret, så att Pontus i efterhand kan se fotot med AI:ns avläsning och numren och avgöra om bilden tolkades rätt. Fotot finns i högst 30 dagar och försvinner med sitt ställe.
+**FRs covered:** FR37, FR38, FR39, NFR11 (och ändringar av FR24, FR25 och FR29)
+
+### Epic 11: Nytt utseende
+Tillägg till 1.1. Matkoll ser ut och känns som en app i mobilen, enligt tre skisser som Pontus godkände: varorna i kategorier med ikon, Lagersaldo utan mängder men med märke eller tid och en soptunna, en inköpslista med framsteg och "I korgen", kort i Recept och Matsedel, och Matkoll på hemskärmen med inloggning med kod.
+**FRs covered:** FR40, FR41, FR42, FR43, FR44, NFR12 (och ändringar av FR1, FR12, FR13 och FR16)
 
 ## Epic 1: Receptimport och receptbibliotek
 
@@ -1312,3 +1349,333 @@ så att jag varken köper två ketchup eller glömmer senapen.
 **Givet** listan räknad mot Stugan
 **När** Pontus trycker "Skicka till ICA"
 **Så** innehåller exporten listans poster för Stugan, och formatet `Matkoll varukorgsexport v1` är oförändrat (FR26, AD-16)
+
+## Epic 10: Senaste fotot per plats
+
+Tillägg till 1.1. Pontus bad om att det analyserade fotot sparas, "då får vi enklare att se om den tolkat rätt". Det senaste fotot av varje plats (Kyl, Frys och Skafferi, per ställe) sparas privat när det har lett till en ändring i lagret, och kan visas i Hemma med AI:ns avläsning och numren från 6.6. Fotot finns i högst 30 dagar, och bara det senaste per plats. Arkitekturen står i AD-26, och AD-15 är ändrad. Storyna byggs i ordning.
+
+### Story 10.1: Spara senaste fotot per plats
+
+Som Pontus,
+vill jag att fotot som lagret uppdaterades från sparas,
+så att jag senare kan se vad AI:n läste av.
+
+**Acceptance Criteria:**
+
+**Givet** migrationen för bucketen `pantry-photo` (privat, högst 1,5 MB, JPEG och PNG), dess policyer på `storage.objects` och tabellen `pantry_photo` (unik på `user_id, site_id, location`)
+**När** RLS-testerna körs
+**Så** kan varken en anonym klient eller en annan användare ladda upp, läsa, lista eller ta bort ett foto eller läsa och skriva raden (AD-4, AD-26, NFR11)
+
+**Givet** lagerförslag från ett foto av kylen på Stugan
+**När** Pontus bekräftar det första förslaget och det sparas i lagret
+**Så** skickar klienten samma förminskade bild, stället, platsen, tiden, avläsningen och punkterna (om de har kommit) till `POST /api/pantry/photo`, och fotot sparas som senaste foto av stugans kyl (FR37)
+**Och** fler bekräftelser från samma foto sparar det inte igen
+
+**Givet** ett foto vars förslag Pontus bara avvisar, eller ett foto utan förslag
+**När** granskningen är klar
+**Så** sparas inget foto
+
+**Givet** en bild med EXIF och GPS
+**När** den sparas
+**Så** har den sparade filen ingen metadata (inga APP1–APP15- eller COM-segment i en JPEG och inga extra chunks i en PNG), visat med ett test (AD-15, NFR11)
+
+**Givet** ett sparat foto av kylen
+**När** ett nytt foto av samma kyl sparas
+**Så** finns bara det nya fotot kvar, både som rad och som fil, och det förra är borttaget med Storage-API:t
+
+**Givet** att punkterna kommer efter att fotot har sparats
+**När** de kommer
+**Så** läggs de till på fotots rad med `savePlacePhotoPoints`
+
+**Givet** att valt ställe byts medan förslagen visas
+**När** Pontus bekräftar
+**Så** sparas fotot på det ställe det togs för (FR33)
+
+**Givet** att sparandet misslyckas (Storage nås inte, stället är borttaget)
+**När** Pontus bekräftar
+**Så** sparas förslaget i lagret som vanligt, inget fel visas, och bara felkoden loggas
+
+### Story 10.2: Visa senaste fotot i Hemma
+
+Som Pontus,
+vill jag öppna det senaste fotot av kylen med numren och avläsningen,
+så att jag kan se om bilden tolkades rätt.
+
+**Acceptance Criteria:**
+
+**Givet** ett sparat foto av kylen på det ställe Hemma visar
+**När** Hemma visas med kortet Kyl valt
+**Så** står "Senaste foto av kylen: idag 15:42" och textknappen "Visa" direkt under kameraknappen (FR38, UX-DR21)
+**Och** utan sparat foto står ingen rad
+
+**Givet** raden Senaste foto
+**När** Pontus trycker "Visa"
+**Så** öppnas arket "Fotot av kylen" med fotot från `GET /api/pantry/photo/[id]`, underrubriken "Taget idag 15:42. Numren visar vad AI:n läste av.", en numrerad markör på varje vara som fick en punkt och listan "AI:n läste av:" med avläsningen i nummerordning (UX-DR22)
+
+**Givet** ett foto utan punkter
+**När** arket öppnas
+**Så** visas fotot utan markörer, underrubriken "Taget idag 15:42." och listan
+
+**Givet** Stugan vald i Hemma
+**När** Pontus byter till Hemma
+**Så** visar raden fotot av hemmets kyl, eller ingen rad
+
+**Givet** `GET /api/pantry/photo/[id]`
+**När** den anropas utan inloggning, för en annan användares foto eller för ett foto som är borta
+**Så** svarar den 401 eller 404 utan bild, och ett svar med bild har `Cache-Control: private, no-store` (NFR11)
+
+**Givet** att fotot har tagits bort på en annan enhet
+**När** Pontus trycker "Visa"
+**Så** står "Fotot finns inte längre." i arket
+
+**Givet** fotoarket
+**När** Pontus trycker "Ta bort fotot" och sedan "Ta bort" i frågan "Ta bort fotot av kylen? Det går inte att ångra."
+**Så** tas fotot och filen bort, arket stängs, raden försvinner och den korta bekräftelsen säger "Fotot av kylen är borttaget." (FR39)
+
+### Story 10.3: Gallring och städning av foton
+
+Som Pontus,
+vill jag att gamla foton och foton som inte hör till något försvinner av sig själva,
+så att inga bilder av mitt hem ligger kvar i onödan.
+
+**Acceptance Criteria:**
+
+**Givet** ett foto som är äldre än 30 dagar
+**När** Hemma visas
+**Så** står ingen rad för det, och `sweepPlacePhotos` tar bort raden och filen (FR39)
+
+**Givet** en fil i bucketen utan rad i `pantry_photo` (till exempel efter en avbruten ersättning)
+**När** gallringen körs
+**Så** tas filen bort, och andra användares filer berörs aldrig
+
+**Givet** ett ställe utan lagervaror men med foton
+**När** Pontus tar bort stället i arket Ställen
+**Så** tas ställets rader och filer bort (AD-20, AD-26)
+
+**Givet** `pnpm users:sync --prune` och en användare som inte längre är tillåten
+**När** användaren tas bort
+**Så** tas användarens filer i bucketen bort först, och raderna försvinner med användaren
+
+**Givet** "Töm kylen"
+**När** kylen töms
+**Så** står fotot kvar
+
+**Givet** säkerhetskopian
+**När** den körs
+**Så** innehåller den inga foton och inga rader från `storage.objects` eller `pantry_photo`, och `docs/drift.md` beskriver hur bucketen och policyerna kommer tillbaka vid en återställning, provat i en tillfällig lokal stack (AD-23)
+
+### Story 10.4: Lagersaldo och stor bokstav
+
+En snabbfix som Pontus bad om under Epic 10. Lagersidan hette Hemma, samma sak som det första stället (Epic 8), och sparade varunamn började ibland med liten bokstav.
+
+Som Pontus,
+vill jag att lagersidan heter Lagersaldo och att varornas namn börjar med stor bokstav,
+så att sidan inte förväxlas med stället Hemma och namnen ser likadana ut överallt.
+
+**Acceptance Criteria:**
+
+**Givet** menyn på mobil och dator
+**När** Pontus ser den
+**Så** heter lagersidan "Lagersaldo", rubriken och sidans titel är "Lagersaldo", och adressen är fortfarande `/hemma`
+
+**Givet** menyn på mobil och dator
+**När** Pontus ser den
+**Så** heter menyvalet för inköpslistan "Inköpslista" i stället för "Lista", adressen är fortfarande `/lista`, och ingen etikett i flikfältet klipps vid 375 px med 200 % textförstoring
+
+**Givet** stället Hemma
+**När** det visas i väljaren, i arket Ställen, i raden "Lager: Hemma" eller i en bekräftelse som "Tog bort 2 varor ur kylen för Hemma."
+**Så** heter stället fortfarande Hemma
+
+**Givet** en ny vara från ett foto, ett recept, AI-förslag eller arket Lagervara, till exempel "bregott"
+**När** den sparas i katalogen
+**Så** är namnet "Bregott", medan det normaliserade namnet, matchningen och sökningen är oförändrade
+
+**Givet** varor som redan finns i katalogen med liten första bokstav, till exempel "mellanmjölk" och "ägg"
+**När** migrationen har körts
+**Så** heter de "Mellanmjölk" och "Ägg", och inga andra kolumner eller rader har ändrats
+
+## Epic 11: Nytt utseende
+
+Tillägg till 1.1. Pontus bad om "betydligt trevligare ux. Som ser proffsigare ut." och godkände tre skisser: Lagersaldo ("ja mycket snyggare enl din skiss"), Inköpslista ("inköpslistan börjar bli mkt bättre") och hela appen i mobilen ("ja nu börjar du verkligen hitta ux som app. bravo. håll den stilen"). Skisserna ligger i `ux-designs/ux-Matkoll-2026-10-25/mockups/`, och `DESIGN.md` och `EXPERIENCE.md` gäller när de inte stämmer överens. Epic 11 byggs efter Epic 10, där Story 10.4 redan byter namn till Lagersaldo och Inköpslista. Arkitekturen står i AD-27 och i tillägg till AD-3, AD-12, AD-17, AD-19 och AD-20. Storyna byggs i ordning, och varje story håller tillgänglighetsgolvet (NFR12): 44 px tryckytor, 200 % text, 375 px bredd, mörkt läge, VoiceOver och React Activity.
+
+### Story 11.1: Gemensam grund för nytt utseende
+
+Som Pontus,
+vill jag att varor visas i tydliga kategorier med ikon i samma stil överallt,
+så att appen ser ut och känns som en app.
+
+**Acceptance Criteria:**
+
+**Givet** katalogens avdelningar och en varas namn
+**När** `displayCategory(section, name)` anropas
+**Så** ger den en av nio kategorier i butikens ordning (Frukt & grönt, Bröd, Mejeri & ägg, Kött, fisk & chark, Frys, Skafferi, Såser & smaksättare, Dryck, Övrigt), Kött och fisk och Chark ger samma kategori, och en vara i Skafferi som heter till exempel "senap", "sojasås" eller "svartpeppar" ger Såser & smaksättare, visat med ett tabelltest (FR40, AD-12)
+**Och** ingenting sparas, och exporten och avdelningarna är oförändrade
+
+**Givet** tokens i `DESIGN.md`
+**När** `globals.css` läses
+**Så** finns `tile-clay` och `tile-lilac` i ljust och mörkt läge och de nya måtten, och testet för tokens och kontrast passerar utan hex utanför `globals.css` (AD-17, UX-DR23)
+
+**Givet** komponenterna Kategorirubrik, Listgrupp, Listrad, Soptunna och Mätare i `src/components`
+**När** de renderas vid 375 px, med 200 % text och i mörkt läge
+**Så** ser de ut som i skisserna, ikonen och mätaren är dolda för skärmläsare, rubriken är ett `h2` med antalet som text, och soptunnan har en tryckyta på 44 × 44 px och namnet "Ta bort <vara>" (NFR12)
+
+**Givet** flikfältet
+**När** det visas
+**Så** har Inköpslista en kundvagn och Lagersaldo ett kylskåp som ikon, och aktiv flik är markerad som förut
+
+### Story 11.2: Märke och tid på lagervaror
+
+Som Pontus,
+vill jag att en lagervara kommer ihåg märket och när den lades till,
+så att listan kan visa något mer användbart än mängden.
+
+**Acceptance Criteria:**
+
+**Givet** migrationen som lägger till `pantry_item.label`
+**När** den körs på ett lager med varor
+**Så** står alla rader kvar med samma id, mängd och `created_at`, `label` är `null`, och RLS-testerna passerar (AD-4, AD-5, AD-19)
+
+**Givet** ett lagerförslag från ett foto med etiketten "Arla Mellanmjölk laktosfri 1,5 l"
+**När** Pontus bekräftar eller rättar det
+**Så** sparas etiketten som märke, avkortad till 60 tecken (FR42)
+
+**Givet** arket Lagervara
+**När** Pontus skriver i fältet "Märke eller sort" och sparar, eller tömmer det
+**Så** sparas märket, eller tas bort
+
+**Givet** en lagervara som lades till för fyra dagar sedan
+**När** Pontus ändrar mängden, enheten eller platsen
+**Så** står `created_at` kvar
+
+**Givet** en borttagen vara, en tömd plats eller en inventering
+**När** Pontus trycker "Ångra"
+**Så** kommer raderna tillbaka med samma id, märke och `created_at` (AD-20)
+
+**Givet** "Lägg i lagret" från inköpslistan
+**När** en ny vara läggs till
+**Så** får den inget märke, och en befintlig varas märke står kvar
+
+### Story 11.3: Lagersaldo i nytt utseende
+
+Som Pontus,
+vill jag se lagret i kategorier utan mängder och ta bort en vara med ett tryck,
+så att det går snabbt att hålla lagret rätt.
+
+**Acceptance Criteria:**
+
+**Givet** kylen med Mellanmjölk (märket "Arla laktosfri"), Gräddfil (tillagd för sex dagar sedan), Kycklingfilé och Senap
+**När** Lagersaldo visas
+**Så** står varorna under Mejeri & ägg, Kött, fisk & chark och Såser & smaksättare i butikens ordning, med antal i rubriken, och under namnen "Arla laktosfri" och "Tillagd för 6 dagar sedan" (FR40, FR41, UX-DR24)
+**Och** ingen mängd syns i listan, och obegränsade varor är rader som de andra
+
+**Givet** en rad
+**När** Pontus trycker på raden
+**Så** öppnas arket Lagervara med mängd, enhet, plats och märke
+
+**Givet** soptunnan vid Gräddfil
+**När** Pontus trycker på den
+**Så** försvinner varan direkt utan fråga, "Tog bort Gräddfil." visas med "Ångra" i 5 s, och fokus går till nästa varas soptunna
+**Och** "Ångra" sätter tillbaka varan med samma rad under
+
+**Givet** kylen med 14 varor
+**När** Pontus skriver "mjö" i "Sök i kylen"
+**Så** visas bara Mellanmjölk under Mejeri & ägg, och med "xyz" visas "Inget i kylen matchar." och "Rensa sökning"
+**Och** sökningen töms när Pontus byter plats eller ställe, men står kvar när Pontus byter flik och kommer tillbaka
+
+**Givet** Lagersaldo vid 375 px och 1280 px, i ljust och mörkt läge och med 200 % text
+**När** sidan visas och används med VoiceOver
+**Så** radbryts allt utan vågrät scroll, kategorierna går att hoppa mellan som rubriker, och raden läses som "Mellanmjölk, Arla laktosfri" (NFR12)
+
+### Story 11.4: Inköpslistan i nytt utseende
+
+Som Pontus,
+vill jag se hur mycket som är kvar och få det som redan ligger i korgen ur vägen,
+så att det går fort i butiken.
+
+**Acceptance Criteria:**
+
+**Givet** en lista med 14 poster varav 6 avbockade
+**När** Inköpslistan visas
+**Så** står "8 varor kvar" och "6 av 14 i korgen" med en mätare överst, posterna står under sina kategorier i butikens ordning, och "6 varor i korgen" med "Visa" står under listan (FR43, UX-DR25)
+
+**Givet** posten Citron
+**När** Pontus bockar av den
+**Så** flyttas den direkt till I korgen, bocken sparas som förut, live-regionen säger "Citron i korgen.", och fokus går till nästa posts bock
+**Och** en bock under I korgen tar tillbaka posten till sin kategori
+
+**Givet** posten Matlagningsgrädde från två rätter, en egen vara och en vag post (senap) som saknas i stugans lager
+**När** listan räknas mot Stugan
+**Så** står "Korv stroganoff · Kycklinggryta", "Egen vara" och "Saknas i Stugan · Korv stroganoff" under posterna, och mängden står efter namnet
+
+**Givet** ett produktval "Scan Falukorv" för falukorv i vald butik
+**När** listan visas
+**Så** står "Scan Falukorv" som en ljusblå etikett på raden (FR27)
+
+**Givet** att minst en post är avbockad
+**När** listan visas
+**Så** ligger "Skicka till ICA" och "Lägg i lagret" i en rad längst ned, och med 200 % text ovanpå varandra
+**Och** utan avbockade poster finns bara "Skicka till ICA"
+
+**Givet** listan vid 375 px och 1280 px, i ljust och mörkt läge, med 200 % text och VoiceOver
+**När** Pontus handlar
+**Så** fungerar allt utan vågrät scroll, bockarna har 44 × 44 px och namnet "Citron, 1 st, inte avbockad", och mätaren är dold för skärmläsare (NFR12)
+
+### Story 11.5: Recept och Matsedel i nytt utseende
+
+Som Pontus,
+vill jag se recepten och matsedeln som kort med stora bilder,
+så att det är lätt att välja vad vi ska äta.
+
+**Acceptance Criteria:**
+
+**Givet** receptbiblioteket
+**När** det visas
+**Så** är varje recept ett kort med bilden överst, "Kan lagas nu" eller "Saknar 2 varor" nere till vänster och hjärtat nere till höger på bilden, och titeln och "35 min · 4 portioner" under (UX-DR26)
+**Och** ett tryck på kortet öppnar receptet, ett tryck på hjärtat växlar favorit utan att öppna det, och ett recept utan bild får platshållaren
+
+**Givet** en skärm som är minst 1024 px bred
+**När** Recept visas
+**Så** står korten i två kolumner
+
+**Givet** en matsedel med Kycklinggryta (6 av 8 hemma)
+**När** Matsedel visas
+**Så** har rätten ett kort med 56 px bild, "6 av 8 hemma" och en mätare till tre fjärdedelar, och portionsväljaren står kvar och räknar om (FR13)
+**Och** "Visa inköpslistan" längst ned går till Inköpslistan
+
+**Givet** Recept och Matsedel vid 375 px, i mörkt läge, med 200 % text och VoiceOver
+**När** de används
+**Så** finns ingen vågrät scroll, hjärtat har 44 × 44 px, status står som text och mätaren är dold för skärmläsare (NFR12)
+
+### Story 11.6: Matkoll på hemskärmen
+
+Som Pontus,
+vill jag lägga Matkoll på hemskärmen och öppna den som en app,
+så att den känns som en riktig app i mobilen.
+
+**Acceptance Criteria:**
+
+**Givet** appen
+**När** `/manifest.webmanifest` hämtas utan inloggning
+**Så** svarar den med namnet Matkoll, `display: standalone`, `start_url: /recept`, appens bakgrundsfärg och ikoner på 192 och 512 px, och ikonerna och Apple-ikonen (180 px) nås också utan inloggning (FR44, AD-27)
+**Och** ingen annan sida eller data nås utan inloggning
+
+**Givet** sidans `head`
+**När** den renderas
+**Så** finns `apple-mobile-web-app-title` "Matkoll", `apple-mobile-web-app-status-bar-style` och länkarna till manifestet och Apple-ikonen
+
+**Givet** mejlet med engångslänken
+**När** Pontus skriver in koden på inloggningssidan
+**Så** loggas Pontus in och kommer till sidan i `next`, och en fel eller gammal kod ger "Koden stämmer inte eller har gått ut. Skicka en ny länk." (FR1, AD-3)
+**Och** en adress som inte är tillåten får samma svar och ingen session
+
+**Givet** receptvyn, en tidigare matsedel och Inställningar
+**När** de visas
+**Så** har de en synlig "Tillbaka"
+
+**Givet** Inställningar i Safari på iPhone, utanför hemskärmsappen
+**När** sidan visas
+**Så** står en rad om hur Matkoll läggs på hemskärmen, och i hemskärmsappen syns den inte
+
+**Givet** en riktig iPhone
+**När** Pontus lägger Matkoll på hemskärmen och öppnar den
+**Så** öppnas appen i helskärm med moroten som ikon och appens bakgrund bakom statusraden, i ljust och mörkt läge (Flöde 9, manuellt prov)

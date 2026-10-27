@@ -324,7 +324,7 @@ Pontus kan ändra butik i inställningarna (namn, kedja, butiks-id, adress), äv
 
 - **NFR-1 Säkerhet:** All hämtning från receptsajter och alla anrop till AI-tjänsten sker i serverfunktioner. Nycklar finns bara på servern. Serverfunktionen hämtar bara från godkända receptsajter, och det testas automatiskt.
 - **NFR-2 Utbytbar AI:** AI-tjänsten kan byta leverantör (lokal modell, Anthropic, OpenAI) via konfiguration, utan kodändring i funktionerna. Det finns en testleverantör (mock) så att tester körs utan modell.
-- **NFR-3 Responsiv:** Alla vyer fungerar på mobil (från 375 px bredd) och dator. Mobil har fyra flikar längst ned (Recept, Matsedel, Lista, Hemma), dator en sidomeny.
+- **NFR-3 Responsiv:** Alla vyer fungerar på mobil (från 375 px bredd) och dator. Mobil har fyra flikar längst ned (Recept, Matsedel, Inköpslista, Lagersaldo; flikarna hette Lista och Hemma före Story 10.4), dator en sidomeny.
 - **NFR-4 Tillgänglighet:** Tryckytor minst 44 px och läsbar kontrast i både ljust och mörkt läge.
 - **NFR-5 Utseende:** Designtokens och skärmregler från `docs/ux/ux-spec.md`. Inget rött. Ljust och mörkt läge.
 - **NFR-6 Språk:** Gränssnittet är på svenska.
@@ -361,6 +361,8 @@ Pontus kan ändra butik i inställningarna (namn, kedja, butiks-id, adress), äv
 ### 8.3 Efter 1.0
 
 - **Version 1.1, Flera ställen (Epic 8):** lagret delas på ställen, till exempel Hemma och Stugan, och inköpslistan räknas mot det valda stället. Kraven FR-29–FR-33 och NFR-9, och de avgränsningar av befintliga krav som 1.1 ger, står i `addendum.md` under "Version 1.1: Flera ställen".
+- **Senaste fotot per plats (Epic 10, tillägg till 1.1):** det senaste fotot av varje plats sparas privat när det har lett till en ändring i lagret och kan visas i Hemma med AI:ns avläsning och numren, i högst 30 dagar. Kraven FR-37–FR-39 och NFR-11 står i `addendum.md` under "Tillägg till 1.1: Senaste fotot per plats".
+- **Nytt utseende (Epic 11, tillägg till 1.1):** appen ser ut och känns som en app i mobilen enligt tre skisser som Pontus godkände: kategorier med ikon, Lagersaldo utan mängder men med märke eller tid och en soptunna, en inköpslista med framsteg och "I korgen", kort i Recept och Matsedel, och Matkoll på hemskärmen med inloggning med kod. Kraven FR-40–FR-44 och NFR-12 står i `addendum.md` under "Tillägg till 1.1: Nytt utseende".
 
 ## 9. Effektmål
 

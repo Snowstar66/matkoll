@@ -3,8 +3,14 @@ import type { ReactElement } from "react";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { ToastProvider } from "@/components/toast";
 import { CatalogDataError } from "@/features/catalog/server";
-import type { PantryItem } from "@/features/pantry";
-import { countPantryItems, listPantry, PantryDataError } from "@/features/pantry/server";
+import type { PantryItem, PlacePhoto } from "@/features/pantry";
+import {
+  countPantryItems,
+  listPantry,
+  listPlacePhotos,
+  needsPlacePhotoSweep,
+  PantryDataError,
+} from "@/features/pantry/server";
 import { PantrySheetProvider } from "@/features/pantry/ui/pantry-item-sheet";
 import { PantrySuggestionsProvider } from "@/features/pantry/ui/pantry-suggestions";
 import { SiteSwitch, SiteSwitchProvider } from "@/features/pantry/ui/site-switch";
@@ -17,7 +23,10 @@ vi.mock("@/features/pantry/server", async (importOriginal) => ({
   ...(await importOriginal<typeof import("@/features/pantry/server")>()),
   countPantryItems: vi.fn(),
   listPantry: vi.fn(),
+  needsPlacePhotoSweep: vi.fn(async () => false),
+  listPlacePhotos: vi.fn(async () => ({ photos: [] })),
 }));
+vi.mock("@/features/pantry/actions/remove-place-photo", () => ({ removePlacePhoto: vi.fn() }));
 
 vi.mock("@/features/pantry/actions/set-pantry-item", () => ({ savePantryItem: vi.fn() }));
 vi.mock("@/features/pantry/actions/search-ingredients", () => ({ searchPantryIngredients: vi.fn() }));
@@ -29,6 +38,11 @@ vi.mock("@/features/pantry/actions/restore-pantry-item", () => ({ restorePantryI
 vi.mock("@/features/pantry/actions/select-pantry-site", () => ({ selectPantrySite: vi.fn() }));
 vi.mock("@/features/pantry/actions/save-pantry-site", () => ({ savePantrySite: vi.fn() }));
 vi.mock("@/features/pantry/actions/delete-pantry-site", () => ({ deletePantrySite: vi.fn() }));
+const sweepPlacePhotos = vi.fn();
+vi.mock("@/features/pantry/actions/sweep-place-photos", () => ({ sweepPlacePhotos: () => sweepPlacePhotos() }));
+// The gate is an async Server Component (photo-sweep-gate.test.tsx); here it only says it was rendered.
+const photoSweepGate = vi.fn(() => null);
+vi.mock("./photo-sweep-gate", () => ({ PhotoSweepGate: () => photoSweepGate() }));
 const confirmPantrySuggestions = vi.fn();
 vi.mock("@/features/pantry/actions/confirm-pantry-inventory", () => ({ confirmPantryInventory: vi.fn() }));
 vi.mock("@/features/pantry/actions/confirm-pantry-suggestions", () => ({
@@ -58,7 +72,7 @@ const render = (element: ReactElement) =>
   );
 
 const unavailable = "Det gick inte att läsa lagret. Försök igen.";
-const mjolk: PantryItem = { id: "1", siteId: site.id, ingredientId: "m", name: "Mjölk", location: "Kyl", amount: 1, unit: "l" };
+const mjolk: PantryItem = { id: "1", siteId: site.id, ingredientId: "m", name: "Mjölk", location: "Kyl", amount: 1, unit: "l", label: null, createdAt: "2026-10-20T10:00:00+00:00", section: "Mejeri" };
 
 let logged: ReturnType<typeof vi.spyOn>;
 beforeEach(() => {
@@ -197,9 +211,79 @@ describe("HomeContent", () => {
     expect(screen.queryByRole("button", { name: "Lägg till ställe" })).toBeNull();
   });
 
+  it("never waits for the photo sweep's check: the gate is rendered beside the list, in a boundary of its own (Story 10.3)", async () => {
+    vi.mocked(countPantryItems).mockResolvedValue({ Kyl: 1, Frys: 0, Skafferi: 0 });
+    vi.mocked(listPantry).mockResolvedValue([mjolk]);
+
+    render(await HomeContent({ site, location: "Kyl", next: "/hemma" }));
+    // HomeContent itself never reads whether there is something to sweep.
+    expect(needsPlacePhotoSweep).not.toHaveBeenCalled();
+    await screen.findByText("Mjölk");
+    expect(photoSweepGate).toHaveBeenCalled();
+    expect(sweepPlacePhotos).not.toHaveBeenCalled();
+  });
+
+  it("renders no sweep when the pantry cannot be read (Story 10.3)", async () => {
+    vi.mocked(countPantryItems).mockRejectedValue(new PantryDataError("query_failed 08006"));
+    vi.mocked(listPantry).mockResolvedValue([]);
+    render(await HomeContent({ site, location: "Kyl", next: "/hemma" }));
+    await screen.findByRole("alert");
+    expect(photoSweepGate).not.toHaveBeenCalled();
+  });
+
   it("lets other errors through to the error boundary", async () => {
     vi.mocked(countPantryItems).mockRejectedValue(new Error("boom"));
     vi.mocked(listPantry).mockResolvedValue([]);
     await expect(HomeContent({ site, location: "Kyl", next: "/hemma" })).rejects.toThrow("boom");
+  });
+});
+
+describe("HomeContent: Senaste foto (Story 10.2)", () => {
+  const photo = (location: "Kyl" | "Frys", takenAt: Date): PlacePhoto => ({
+    id: location === "Kyl" ? "66666666-6666-4666-8666-666666666666" : "77777777-7777-4777-8777-777777777777",
+    location,
+    takenAt,
+    width: 720,
+    height: 900,
+    reading: ["Mellanmjölk"],
+    points: null,
+  });
+
+  beforeEach(() => {
+    vi.useFakeTimers({ toFake: ["Date"] });
+    vi.setSystemTime(new Date("2026-10-26T16:00:00+01:00"));
+  });
+  afterEach(() => vi.useRealTimers());
+
+  it("reads the place's photos and shows the chosen location's line right under the camera button", async () => {
+    vi.mocked(countPantryItems).mockResolvedValue({ Kyl: 1, Frys: 0, Skafferi: 0 });
+    vi.mocked(listPantry).mockResolvedValue([mjolk]);
+    vi.mocked(listPlacePhotos).mockResolvedValue({
+      photos: [photo("Frys", new Date("2026-10-25T09:10:00+02:00")), photo("Kyl", new Date("2026-10-26T15:42:00+01:00"))],
+    });
+    render(await HomeContent({ site, location: "Kyl", next: "/hemma" }));
+    expect(listPlacePhotos).toHaveBeenCalledWith(site.id);
+    const line = screen.getByTestId("pantry-latest-photo");
+    expect(line).toHaveTextContent("Senaste foto av kylen: idag 15:42");
+    expect(within(line).getByRole("button", { name: "Visa senaste foto av kylen" })).toBeInTheDocument();
+    // Directly after the camera area.
+    expect(screen.getByTestId("pantry-camera").nextElementSibling).toBe(line);
+  });
+
+  it("has no line for a location without a photo", async () => {
+    vi.mocked(countPantryItems).mockResolvedValue({ Kyl: 1, Frys: 0, Skafferi: 0 });
+    vi.mocked(listPantry).mockResolvedValue([]);
+    vi.mocked(listPlacePhotos).mockResolvedValue({ photos: [photo("Kyl", new Date("2026-10-26T15:42:00+01:00"))] });
+    render(await HomeContent({ site, location: "Frys", next: "/hemma" }));
+    expect(screen.queryByTestId("pantry-latest-photo")).toBeNull();
+  });
+
+  it("keeps the line under the camera button when the pantry cannot be read", async () => {
+    vi.mocked(countPantryItems).mockRejectedValue(new PantryDataError("query_failed"));
+    vi.mocked(listPantry).mockResolvedValue([]);
+    vi.mocked(listPlacePhotos).mockResolvedValue({ photos: [photo("Kyl", new Date("2026-10-25T09:10:00+01:00"))] });
+    render(await HomeContent({ site, location: "Kyl", next: "/hemma" }));
+    expect(screen.getByText(unavailable)).toBeInTheDocument();
+    expect(screen.getByTestId("pantry-latest-photo")).toHaveTextContent("Senaste foto av kylen: igår 09:10");
   });
 });

@@ -16,6 +16,7 @@ import {
 import { hasNumberableCards, locateResultSchema, pointsByNumber, type PhotoNumbers } from "../domain/photo-numbers";
 import { groupSuggestions, type MissingItem } from "../domain/place-inventory";
 import type { PhotoSite } from "../domain/site";
+import { photoSave, type PhotoSave } from "./place-photo-save";
 
 // The state of "Fotografera kylen" (FR-24, AD-2, AD-15, AD-18), held by
 // PantrySuggestionsProvider above Hemma's keyed <Suspense>, so the
@@ -53,13 +54,20 @@ import type { PhotoSite } from "../domain/site";
 // never wait for them. A new photo and leaving Hemma stop the lookup; a
 // lookup that fails or is stopped leaves the photo without numbers, and
 // nothing is shown for it.
+//
+// Senaste foto (Story 10.1, FR-37, AD-26): an answer with cards for a place
+// gets a PhotoSave (photoSaver), which the first write from its suggestions
+// that succeeds uses to save the photo as the latest of its place and
+// location: the photo as analysed, the place and location of the answer, the
+// time the analysis started, the reading and the points, when they have come.
+// The save is never stopped once started, and nothing is shown for it.
 
 /**
  * A resized photo, the location it shows, the place (pantry_site) Hemma
  * showed when it was taken (Story 8.4, so "Försök igen" is for the same
  * place) and its size in pixels when it can be read from the file.
  */
-type KeptPhoto = { image: Blob; location: Location; site: PhotoSite; size: ImageSize | null };
+type KeptPhoto = { image: Blob; location: Location; site: PhotoSite; size: ImageSize | null; takenAt: Date };
 
 /**
  * The photo an answer was read from, as an object URL, with its size in
@@ -70,8 +78,12 @@ export type ReviewPhoto = { url: string; size: ImageSize | null; numbers: PhotoN
 
 const noNumbers: PhotoNumbers = { kind: "none" };
 
-/** A lookup of the numbers (Story 6.6): the photo as it was sent for the analysis, its reading and its URL. */
-type Lookup = { kept: KeptPhoto; labels: readonly string[]; url: string };
+/**
+ * A lookup of the numbers (Story 6.6): the photo as it was sent for the
+ * analysis, its reading, its URL, and its save (Story 10.1), which gets the
+ * points too.
+ */
+type Lookup = { kept: KeptPhoto; labels: readonly string[]; url: string; save: PhotoSave | null };
 
 /**
  * Why an analysis gave no cards: the photo showed no food, its items could
@@ -147,6 +159,13 @@ export type PantryAnalysis = {
   editResult: (generation: number, edit: (result: AnalyzeResult) => AnalyzeResult) => boolean;
   /** Story 6.6: the photo at this URL cannot be shown, so its numbers go (`none`) and are not looked up again. */
   dropPhotoNumbers: (url: string) => void;
+  /**
+   * Story 10.1: the save of the photo behind the suggestions of `generation`,
+   * while they are the current ones, or `null` (no photo, no place, or newer
+   * suggestions). A write takes it before it starts and calls `written` once
+   * it has succeeded, also when newer suggestions came meanwhile.
+   */
+  photoSaver: (generation: number) => PhotoSave | null;
 };
 
 /** The size of the resized photo from its header (a JPEG from the canvas, or a stripped PNG: no EXIF turn), or `null`. */
@@ -190,6 +209,8 @@ export function usePantryAnalysis(): PantryAnalysis {
   const lookup = useRef<Lookup | null>(null);
   /** A lookup stopped while its cards stayed (a new photo on its way, every card handled): sent again when they are back. */
   const resume = useRef<Lookup | null>(null);
+  /** Story 10.1: the save of the current suggestions' photo, with their generation. */
+  const currentSave = useRef<{ generation: number; save: PhotoSave } | null>(null);
 
   /**
    * The photo of a new answer, or none: the one before is revoked by the
@@ -256,7 +277,10 @@ export function usePantryAnalysis(): PantryAnalysis {
     if (locateRequest.current !== controller || controller.signal.aborted) return;
     locateRequest.current = null;
     const parsed = answer.ok ? locateResultSchema.safeParse(answer.data) : null;
-    setNumbers(job.url, parsed?.success ? { kind: "ready", points: pointsByNumber(parsed.data, job.labels) } : noNumbers);
+    const points = parsed?.success ? pointsByNumber(parsed.data, job.labels) : null;
+    setNumbers(job.url, points ? { kind: "ready", points } : noNumbers);
+    // Story 10.1: the points go with the saved photo too.
+    if (points) job.save?.located([...points.values()]);
   }
 
   /**
@@ -298,8 +322,9 @@ export function usePantryAnalysis(): PantryAnalysis {
     return () => URL.revokeObjectURL(reviewUrl);
   }, [reviewUrl]);
 
-  /** New suggestions (or none): a new generation. */
+  /** New suggestions (or none): a new generation, whose photo has no save until one is made for it. */
   function setResult(next: AnalyzeResult | null) {
+    currentSave.current = null;
     generation.current += 1;
     latest.current = next;
     setResultState(next);
@@ -338,6 +363,8 @@ export function usePantryAnalysis(): PantryAnalysis {
       locateRequest.current = null;
       lookup.current = null;
       resume.current = null;
+      // A save that has started goes on (Story 10.1); no new one starts from here.
+      currentSave.current = null;
       setAnalyzing(false);
       generation.current += 1;
       latest.current = null;
@@ -424,8 +451,14 @@ export function usePantryAnalysis(): PantryAnalysis {
       const reading = parsed.data.reading ?? [];
       const numbered = hasNumberableCards(groups, reading) && kept.size !== null;
       const url = setReviewPhoto(hasCards ? kept : null);
+      // Story 10.1: only a photo with cards can change the pantry, and only one for a place is saved.
+      const save =
+        hasCards && data.site !== null
+          ? photoSave({ image: kept.image, siteId: data.site.id, location: data.location, takenAt: kept.takenAt, reading })
+          : null;
+      if (save) currentSave.current = { generation: generation.current, save };
       // The cards first: the lookup starts only now that they are on their way to the screen.
-      if (url && numbered) void locate({ kept, labels: reading, url });
+      if (url && numbered) void locate({ kept, labels: reading, url, save });
       if (hasCards) {
         // Cards to show, also "Syns inte längre" alone for a photo without usable items of a place with items (Story 6.4).
         setArrivals((count) => count + 1);
@@ -447,6 +480,8 @@ export function usePantryAnalysis(): PantryAnalysis {
 
   /** Resizes the photo (AD-15) and sends it. A photo that cannot be read or made small enough is never sent. */
   async function analyze(file: Blob, location: Location, site: PhotoSite) {
+    // Story 10.1: the time Pontus recognises for the photo is when it was taken or chosen.
+    const takenAt = new Date();
     const controller = start();
     let prepared: Result<Blob>;
     try {
@@ -462,7 +497,7 @@ export function usePantryAnalysis(): PantryAnalysis {
     }
     const size = await photoSizeOf(prepared.data);
     if (!isCurrent(controller)) return;
-    await send(controller, { image: prepared.data, location, site: { id: site.id, name: site.name }, size });
+    await send(controller, { image: prepared.data, location, site: { id: site.id, name: site.name }, size, takenAt });
   }
 
   function retry() {
@@ -507,5 +542,6 @@ export function usePantryAnalysis(): PantryAnalysis {
     editMissing,
     editResult,
     dropPhotoNumbers,
+    photoSaver: (expected) => (currentSave.current?.generation === expected ? currentSave.current.save : null),
   };
 }

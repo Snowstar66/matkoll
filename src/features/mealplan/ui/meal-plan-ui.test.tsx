@@ -100,7 +100,7 @@ describe("MealPlanList", () => {
     expect(screen.getAllByRole("button", { name: "Lägg till rätt" })).toHaveLength(2);
   });
 
-  it("shows each dish with its servings and its status in words for those servings", async () => {
+  it("shows each dish card with what is at home for its servings, a hidden meter and the portion selector", async () => {
     const user = userEvent.setup();
     // The save revalidates Matsedel: the server's plan has the new servings.
     setServings.mockImplementation(async (change) => {
@@ -109,12 +109,19 @@ describe("MealPlanList", () => {
     });
     render(<Matsedel initial={[pasta, soppa]} />);
     expect(screen.getByTestId("plan-name")).toHaveTextContent("Vecka 44");
-    expect(within(card("Pasta")).getByText("4 portioner")).toBeInTheDocument();
-    expect(within(card("Pasta")).getByText("Kan lagas nu")).toBeInTheDocument();
+    const pastaCard = () => within(card("Pasta"));
+    expect(pastaCard().getByText("4 portioner")).toBeInTheDocument();
+    expect(pastaCard().getByTestId("dish-meta")).toHaveTextContent(/^30 min · Allt finns hemma$/);
+    expect(pastaCard().getByRole("link", { name: "Pasta" })).toHaveAttribute("href", `/recept/${pasta.recipeId}`);
+    const meter = pastaCard().getByTestId("meter");
+    expect(meter).toHaveAttribute("aria-hidden", "true");
+    expect(meter.firstElementChild).toHaveStyle({ width: "100%" });
+    expect(pastaCard().getByTestId("recipe-image-placeholder").parentElement).toHaveClass("size-dish-thumb");
 
     await user.click(screen.getByRole("button", { name: "Fler portioner, Pasta" }));
-    expect(within(card("Pasta")).getByText("5 portioner")).toBeInTheDocument();
-    expect(within(card("Pasta")).getByText("Saknar 1 vara")).toBeInTheDocument();
+    expect(pastaCard().getByText("5 portioner")).toBeInTheDocument();
+    expect(pastaCard().getByTestId("dish-meta")).toHaveTextContent(/^30 min · 0 av 1 hemma$/);
+    expect(pastaCard().getByTestId("meter").firstElementChild).toHaveStyle({ width: "0%" });
     expect(setServings).toHaveBeenCalledWith({ id: pasta.id, servings: 5 });
   });
 
@@ -160,7 +167,64 @@ describe("MealPlanList", () => {
   it("shows a dish whose recipe is gone by its title, without status", () => {
     render(<Matsedel initial={[dish(3, "Gammal gryta", { recipeId: null, recipe: null })]} />);
     expect(within(card("Gammal gryta")).getByText("Borttaget recept")).toBeInTheDocument();
-    expect(within(card("Gammal gryta")).queryByText(/Kan lagas nu|Saknar/)).toBeNull();
+    expect(within(card("Gammal gryta")).queryByText(/hemma/)).toBeNull();
+    expect(within(card("Gammal gryta")).queryByTestId("meter")).toBeNull();
+  });
+
+  it("shows the time alone, without a meter, for a recipe with no catalog ingredient to count", () => {
+    const free = dish(5, "Fri soppa", { recipe: { ...pasta.recipe!, lines: [] } });
+    render(<Matsedel initial={[free]} />);
+    expect(within(card("Fri soppa")).getByTestId("dish-meta")).toHaveTextContent(/^30 min$/);
+    expect(within(card("Fri soppa")).queryByTestId("meter")).toBeNull();
+  });
+
+  it("shows the time alone, without a meter, when the pantry could not be read", () => {
+    render(
+      <ToastProvider>
+        <AddDishProvider recipes={[]} searchRecipes={searchRecipes}>
+          <MealPlanList planName="Vecka 44" dishes={[pasta]} snapshot={null} />
+        </AddDishProvider>
+      </ToastProvider>,
+    );
+    expect(within(card("Pasta")).getByText("30 min")).toBeInTheDocument();
+    expect(within(card("Pasta")).queryByText(/hemma/)).toBeNull();
+    expect(within(card("Pasta")).queryByTestId("meter")).toBeNull();
+  });
+
+  it("has Lägg till rätt and Visa inköpslistan under the dishes, and Visa inköpslistan only with dishes", async () => {
+    const user = userEvent.setup();
+    const { unmount } = render(<Matsedel initial={[pasta]} />);
+    const list = screen.getByRole("list", { name: "Matsedelsrätter" });
+    const show = screen.getByRole("link", { name: "Visa inköpslistan" });
+    expect(show).toHaveAttribute("href", "/lista");
+    // No count on it (outside Epic 11).
+    expect(show).toHaveTextContent(/^Visa inköpslistan$/);
+    const add = screen.getAllByRole("button", { name: "Lägg till rätt" }).find((b) => b.textContent === "Lägg till rätt")!;
+    expect(list.compareDocumentPosition(add) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
+    expect(add.compareDocumentPosition(show) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
+    await user.click(add);
+    expect(screen.getByRole("dialog", { name: "Lägg till rätt" })).toBeInTheDocument();
+    unmount();
+
+    render(<Matsedel initial={[]} />);
+    expect(screen.queryByRole("link", { name: "Visa inköpslistan" })).toBeNull();
+  });
+
+  it("gives focus back to whichever Lägg till rätt opened the sheet, also when a tap did not focus it (Safari)", async () => {
+    const user = userEvent.setup();
+    render(<Matsedel initial={[pasta]} />);
+    const [plus, bottom] = screen.getAllByRole("button", { name: "Lägg till rätt" });
+    expect(bottom).toHaveTextContent("Lägg till rätt");
+    for (const opener of [bottom, plus]) {
+      // fireEvent.click, unlike user.click, does not move focus first, as a tap in Safari.
+      act(() => {
+        (document.activeElement as HTMLElement | null)?.blur();
+        fireEvent.click(opener);
+      });
+      const sheet = await screen.findByRole("dialog", { name: "Lägg till rätt" });
+      await user.click(within(sheet).getByRole("button", { name: "Klar" }));
+      await waitFor(() => expect(opener).toHaveFocus());
+    }
   });
 });
 

@@ -7,6 +7,11 @@ export const errorMessages = {
   validation: "Kontrollera uppgifterna och försök igen.",
   auth_link_invalid: "Länken har gått ut eller redan använts. Be om en ny.",
   auth_not_allowed: "Adressen har inte åtkomst till Matkoll.",
+  // The code from the e-mail (Story 11.6): a wrong, expired or used code and an
+  // address outside ALLOWED_EMAILS all give this, so the allowlist is never revealed.
+  auth_code_invalid: "Koden stämmer inte eller har gått ut. Skicka en ny länk.",
+  // Too many wrong codes from one address and IP (the app's limit) or Supabase's own limit.
+  auth_code_rate_limited: "För många försök. Vänta en stund eller skicka en ny länk.",
   auth_sign_out_failed: "Det gick inte att logga ut. Försök igen.",
   ai_unavailable: "AI-tjänsten svarar inte just nu. Är datorn med modellen igång?",
   ai_invalid: "Det gick inte att tolka svaret. Försök igen.",
@@ -16,7 +21,7 @@ export const errorMessages = {
   ai_superseded: "En nyare bild analyseras.",
   import_no_recipe: "Det gick inte att hitta något recept i texten.",
   // AI-förslag (Story 5.2) with nothing at home: the AI is not asked.
-  suggest_empty_pantry: "Lagret är tomt. Lägg till varor i Hemma, så kan AI:n föreslå rätter.",
+  suggest_empty_pantry: "Lagret är tomt. Lägg till varor i Lagersaldo, så kan AI:n föreslå rätter.",
   catalog_unavailable: "Det gick inte att läsa ingredienskatalogen. Försök igen.",
   recipe_save_failed: "Det gick inte att spara receptet. Försök igen.",
   recipe_delete_failed: "Det gick inte att ta bort receptet. Försök igen.",
@@ -56,6 +61,12 @@ export const errorMessages = {
   // "Ta bort" on a place that another tab has filled or selected meanwhile:
   // nothing is deleted, and the sheet is read again.
   pantry_site_in_use: "Stället har varor eller är valt och kan inte tas bort.",
+  // The latest photo of a place (Epic 10, AD-26). Saving it is never shown to
+  // Pontus: the code is only logged and sent to the client, which shows
+  // nothing for it. The other two are shown in the photo's sheet (Story 10.2).
+  pantry_photo_failed: "Det gick inte att spara fotot.",
+  pantry_photo_gone: "Fotot finns inte längre.",
+  pantry_photo_remove_failed: "Det gick inte att ta bort fotot. Försök igen.",
   // Matsedel (Story 3.1). After failed servings the selector shows the saved
   // value again; after a failed remove the dish is back on the plan.
   mealplan_unavailable: "Det gick inte att läsa matsedeln. Försök igen.",

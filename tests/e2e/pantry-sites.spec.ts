@@ -137,7 +137,7 @@ const itemSheet = (page: Page) => page.getByRole("dialog", { name: "Lagervara" }
 /** Hemma, once React runs: the switch's text button (or "Lägg till ställe" with one place) is enabled. */
 async function openHemma(page: Page, path = "/hemma") {
   await page.goto(path);
-  await expect(page.getByRole("heading", { level: 1, name: "Hemma" })).toBeVisible();
+  await expect(page.getByRole("heading", { level: 1, name: "Lagersaldo" })).toBeVisible();
   const ready = (await storedPlaces()).length > 1 ? sitesButton(page) : addSiteButton(page);
   await expect(ready).toBeEnabled();
 }
@@ -213,7 +213,7 @@ test("Lägg till ställe adds Stugan, not selected, and Hemma shows the pills an
   await expect(pill(page, "Stugan")).toHaveAttribute("aria-checked", "false");
   await expect(sitesButton(page)).toBeVisible();
   await expect(addSiteButton(page)).toHaveCount(0);
-  await expect(page.getByRole("heading", { level: 1 })).toHaveText("Hemma");
+  await expect(page.getByRole("heading", { level: 1 })).toHaveText("Lagersaldo");
   for (const target of [pill(page, "Hemma"), pill(page, "Stugan"), sitesButton(page)]) await expectTapSize(target);
   await noHorizontalScroll(page);
   expect(errors).toEqual([]);
@@ -266,7 +266,7 @@ test("a tap on Stugan selects it, keeps Frys chosen, says so, and shows its empt
   for (const name of ["Kyl", "Frys", "Skafferi"] as const) await expect(card(page, name)).toHaveText(new RegExp(`^${name}\\s*0 varor$`));
   await expect(page.getByText("Inget i frysen än.").filter({ visible: true })).toBeVisible();
   await expect(page.getByRole("button", { name: "Fotografera frysen" }).filter({ visible: true })).toBeVisible();
-  await expect(page.getByRole("heading", { level: 1 })).toHaveText("Hemma");
+  await expect(page.getByRole("heading", { level: 1 })).toHaveText("Lagersaldo");
   expect(await selectedPlace()).toBe("Stugan");
   expect(errors).toEqual([]);
 });
@@ -303,7 +303,7 @@ test("milk added with Stugan selected is on Stugan, and Hemma's fridge is as it 
   await itemSheet(page).getByLabel("Enhet").selectOption("l");
   await itemSheet(page).getByRole("button", { name: "Lägg till vara" }).click();
   await expect(toast(page)).toHaveText("Mjölk är sparad i kylen.");
-  await expect(rows(page)).toHaveText([/^Mjölk\s*1 l$/]);
+  await expect(rows(page)).toHaveText([/^Mjölk Tillagd idag$/]);
 
   const after = await storedItems();
   expect(after.filter((item) => item.site_id === sites.Stugan)).toMatchObject([
@@ -322,7 +322,7 @@ test("a view showing Stugan still writes on Stugan after Hemma was selected on a
   try {
     // A change in the old view.
     await openHemma(page);
-    await expect(rows(page)).toHaveText([/^Mjölk\s*1 l$/, /^Smör\s*250 g$/]);
+    await expect(rows(page)).toHaveText([/^Mjölk /, /^Smör /]);
     await openHemma(other);
     await choose(other, "Hemma");
     expect(await selectedPlace()).toBe("Hemma");
@@ -350,7 +350,7 @@ test("a view showing Stugan still writes on Stugan after Hemma was selected on a
 
     await rows(page).filter({ hasText: "Mjölk" }).click();
     await itemSheet(page).getByRole("button", { name: "Ta bort" }).click();
-    await expect(toast(page)).toContainText("Mjölk är borttagen.");
+    await expect(toast(page)).toContainText("Tog bort Mjölk.");
     await expect.poll(async () => (await storedItems()).some((item) => item.id === mjolk.id)).toBe(false);
     await toast(page).getByRole("button", { name: "Ångra" }).click();
     await expect.poll(async () => (await storedItems()).find((item) => item.id === mjolk.id)?.site_id).toBe(sites.Stugan);

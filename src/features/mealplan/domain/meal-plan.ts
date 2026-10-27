@@ -1,5 +1,11 @@
 import { z } from "zod";
-import { recipeStatus, type PantrySnapshot, type RecipeStatus, type StatusLine } from "@/features/pantry";
+import {
+  atHomeSummaryText,
+  recipeStatus,
+  type PantrySnapshot,
+  type RecipeStatus,
+  type StatusLine,
+} from "@/features/pantry";
 
 // Matsedel (FR-13, AD-22): the current meal plan with its dishes, what the
 // actions take, and the plan's name. Pure, so it is tested without a database.
@@ -105,6 +111,53 @@ export function dishStatus(
 ): RecipeStatus | null {
   if (!recipe || !snapshot) return null;
   return recipeStatus({ servings: recipe.originalServings, lines: recipe.lines }, servings, snapshot);
+}
+
+/** What a dish card says about its status, and how full its meter is. */
+export type DishProgress = {
+  /** "6 av 8 hemma", or "Allt finns hemma" when every catalog ingredient is at home. */
+  text: string;
+  /** The share at home, from 0 to 1, for the meter beside the text. */
+  value: number;
+};
+
+/** The dish card's line when every catalog ingredient is at home for its servings. */
+export const allAtHomeText = "Allt finns hemma";
+
+/**
+ * The dish card's line and meter (Epic 11, FR-13, AD-7): "Allt finns
+ * hemma" with a full meter when nothing is missing for the chosen servings
+ * (`missingCount` 0, the same as "Kan lagas nu" in the library, so Recept and
+ * Matsedel never disagree), else "6 av 8 hemma" (atHomeSummaryText) with
+ * the meter at 0.75. `null` when the recipe has no catalog ingredient to
+ * count, or the counts are not numbers: the card then shows the time only,
+ * without a meter.
+ */
+export function dishProgress(
+  status: Pick<RecipeStatus, "missingCount" | "atHomeCount" | "ingredientCount">,
+): DishProgress | null {
+  const { missingCount, atHomeCount, ingredientCount } = status;
+  if (!Number.isFinite(ingredientCount) || ingredientCount < 1) return null;
+  if (missingCount === 0) return { text: allAtHomeText, value: 1 };
+  // Something is missing, so never "8 av 8 hemma" with a full meter.
+  const atHome = Number.isFinite(atHomeCount) ? Math.min(ingredientCount - 1, Math.max(0, Math.floor(atHomeCount))) : 0;
+  return { text: atHomeSummaryText(atHome, ingredientCount), value: atHome / ingredientCount };
+}
+
+/**
+ * The line under a dish card's title: the time and what is at home, "35 min
+ * · 6 av 8 hemma", or either alone; "Borttaget recept" for a deleted recipe;
+ * `null` when there is nothing to say.
+ */
+export function dishMetaText(
+  recipeId: string | null,
+  totalMinutes: number | null | undefined,
+  progress: DishProgress | null,
+): string | null {
+  if (!recipeId) return "Borttaget recept";
+  const time = totalMinutes && Number.isFinite(totalMinutes) && totalMinutes > 0 ? `${totalMinutes} min` : null;
+  const parts = [time, progress?.text ?? null].filter((part): part is string => part !== null);
+  return parts.length > 0 ? parts.join(" · ") : null;
 }
 
 /** The time zone the week is counted in: Pontus's. */

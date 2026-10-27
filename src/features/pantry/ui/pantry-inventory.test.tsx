@@ -28,6 +28,12 @@ let answers: ((result: AiCallResult<unknown>) => void)[] = [];
 vi.mock("@/lib/ai-client", () => ({
   postAiForm: () => new Promise<AiCallResult<unknown>>((resolve) => answers.push(resolve)),
 }));
+/** Story 10.1: the forms of the photo saves, which never answer here. */
+let photoPosts: FormData[] = [];
+vi.mock("./photo-post", () => ({
+  postPlacePhoto: (form: FormData) => new Promise(() => photoPosts.push(form)),
+}));
+vi.mock("../actions/save-place-photo-points", () => ({ savePlacePhotoPoints: vi.fn() }));
 vi.mock("@/lib/downscale-image", () => ({ downscaleImage: async (file: Blob): Promise<Result<Blob>> => ok(file) }));
 const refresh = vi.fn();
 vi.mock("next/navigation", () => ({ useRouter: () => ({ refresh }) }));
@@ -193,6 +199,7 @@ async function answerSave(result: Result<ConfirmedInventory> = answered()) {
 
 beforeEach(() => {
   answers = [];
+  photoPosts = [];
   saves = [];
   refresh.mockReset();
   confirmPantrySuggestions.mockReset();
@@ -481,7 +488,7 @@ describe("Ta bort, Behåll and Ångra", () => {
     expect(within(section()).getByRole("button", { name: "Sparar …" })).toBeDisabled();
     await answerSave(answered({ removed: [removedRow(yoghurtRow, yoghurtId)], removedCount: 1, undoable: 1 }));
     expect(groupNames("Syns inte längre")).toEqual(["senap"]);
-    expect(toast()).toHaveTextContent("yoghurt är borttagen.");
+    expect(toast()).toHaveTextContent("Yoghurt är borttagen.");
 
     restorePantryRemoval.mockResolvedValueOnce(ok({ restoredIds: [yoghurtRow], rows: [], skipped: 0 }));
     fireEvent.click(within(toast()).getByRole("button", { name: "Ångra" }));
@@ -500,7 +507,7 @@ describe("Ta bort, Behåll and Ångra", () => {
     await waitFor(() => expect(saves).toHaveLength(2));
     expect(saves[1].input.operationId).toBe(saves[0].input.operationId);
     await answerSave(answered({ removed: [removedRow(senapRow, senapId)], removedCount: 1, undoable: 2 }));
-    expect(toast()).toHaveTextContent("yoghurt och senap är borttagna.");
+    expect(toast()).toHaveTextContent("Yoghurt och senap är borttagna.");
     restorePantryRemoval.mockResolvedValueOnce(ok({ restoredIds: [yoghurtRow], rows: [], skipped: 1 }));
     fireEvent.click(within(toast()).getByRole("button", { name: "Ångra" }));
     await waitFor(() => expect(screen.getByRole("alert")).toHaveTextContent("1 vara gick inte att ångra."));
@@ -533,7 +540,7 @@ describe("Ta bort, Behåll and Ångra", () => {
     expect(saves[1].input.operationId).toBe(saves[0].input.operationId);
     // The rows went with the first call: nothing more now, but the server keeps them for Ångra.
     await answerSave(answered({ undoable: 1 }));
-    expect(toast()).toHaveTextContent("yoghurt är borttagen.");
+    expect(toast()).toHaveTextContent("Yoghurt är borttagen.");
     expect(within(toast()).getByRole("button", { name: "Ångra" })).toBeInTheDocument();
   });
 
@@ -786,5 +793,77 @@ describe("review patches", () => {
     expect(toast()).toHaveTextContent("Kylen är uppdaterad: 3 nya och 1 ändrad.");
     fireEvent.click(within(toast()).getByRole("button", { name: "Ångra borttagning" }));
     await waitFor(() => expect(restorePantryRemoval).toHaveBeenCalledExactlyOnceWith(saves[0].input.operationId));
+  });
+});
+
+describe("Senaste foto (Story 10.1)", () => {
+  const stugan = { id: "66666666-6666-4666-8666-666666666666", name: "Stugan" };
+
+  it("saves the photo on its place when Ta bort is the first write, once", async () => {
+    const { rerender } = render(<Hemma shownSite={stugan} />);
+    await analyze({ ...fridge, site: stugan });
+    rerender(<Hemma shownSite={photoSite} />);
+    fireEvent.click(button("Ta bort yoghurt"));
+    await waitFor(() => expect(saves).toHaveLength(1));
+    expect(photoPosts).toHaveLength(0);
+    await answerSave(answered({ removed: [removedRow(yoghurtRow, yoghurtId)], removedCount: 1, undoable: 1 }));
+    await waitFor(() => expect(photoPosts).toHaveLength(1));
+    expect(photoPosts[0].get("site")).toBe(stugan.id);
+    expect(photoPosts[0].get("location")).toBe("Kyl");
+
+    fireEvent.click(button("Ta bort senap"));
+    await waitFor(() => expect(saves).toHaveLength(2));
+    await answerSave(answered({ removed: [removedRow(senapRow, senapId)], removedCount: 1, undoable: 2 }));
+    expect(photoPosts).toHaveLength(1);
+  });
+
+  it("saves the photo when Rätta's Bekräfta is the first write", async () => {
+    render(<Hemma />);
+    await analyze();
+    fireEvent.click(button("Rätta mjölk"));
+    const sheet = screen.getByRole("dialog", { name: "Lagervara" });
+    fireEvent.click(within(sheet).getByRole("button", { name: "Bekräfta" }));
+    await waitFor(() => expect(saves).toHaveLength(1));
+    await answerSave(answered({ set: 1 }));
+    await waitFor(() => expect(photoPosts).toHaveLength(1));
+    expect(photoPosts[0].get("site")).toBe(photoSite.id);
+  });
+
+  it("saves the photo once on its place and location after a compared photo's Bekräfta", async () => {
+    render(<Hemma />);
+    await analyze();
+    fireEvent.click(button("Bekräfta grädde"));
+    await waitFor(() => expect(saves).toHaveLength(1));
+    await answerSave(answered({ set: 1 }));
+    await waitFor(() => expect(photoPosts).toHaveLength(1));
+    expect(photoPosts[0].get("site")).toBe(photoSite.id);
+    expect(photoPosts[0].get("location")).toBe("Kyl");
+    fireEvent.click(button("Bekräfta gurka"));
+    await waitFor(() => expect(saves).toHaveLength(2));
+    await answerSave(answered({ set: 1 }));
+    expect(photoPosts).toHaveLength(1);
+  });
+
+  it("saves the photo once on its place and location after a compared photo's Bekräfta alla", async () => {
+    const { rerender } = render(<Hemma shownSite={stugan} />);
+    await analyze({ ...fridge, site: stugan });
+    rerender(<Hemma shownSite={photoSite} />);
+    fireEvent.click(button("Bekräfta alla"));
+    await waitFor(() => expect(saves).toHaveLength(1));
+    await answerSave(answered({ set: 4, removed: [removedRow(senapRow, senapId), removedRow(yoghurtRow, yoghurtId)], removedCount: 2, undoable: 2 }));
+    await waitFor(() => expect(photoPosts).toHaveLength(1));
+    expect(photoPosts[0].get("site")).toBe(stugan.id);
+    expect(photoPosts[0].get("location")).toBe("Kyl");
+  });
+
+  it("saves nothing for Behåll, nor after a removal that failed", async () => {
+    render(<Hemma />);
+    await analyze();
+    fireEvent.click(button("Behåll senap"));
+    fireEvent.click(button("Ta bort yoghurt"));
+    await waitFor(() => expect(saves).toHaveLength(1));
+    await answerSave(fail("pantry_inventory_failed"));
+    await screen.findByText(errorMessages.pantry_inventory_failed);
+    expect(photoPosts).toHaveLength(0);
   });
 });

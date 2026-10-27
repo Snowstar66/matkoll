@@ -112,6 +112,16 @@ describe("RecipeView", () => {
     expect(screen.getByRole("link", { name: "koket.se" })).toHaveAttribute("href", recipe.sourceUrl);
   });
 
+  it("has a visible Tillbaka with an arrow to Recept, at every width (Story 11.6)", () => {
+    render(<RecipeView recipe={recipe} snapshot={allHome} />);
+    const back = screen.getByRole("link", { name: "Tillbaka" });
+    expect(back).toHaveAttribute("href", "/recept");
+    expect(back).toHaveTextContent(/^Tillbaka$/);
+    expect(back.querySelector("svg")).toHaveAttribute("aria-hidden", "true");
+    expect(back).toHaveClass("min-h-tap", "min-w-tap");
+    expect(back.className).not.toMatch(/\bhidden\b/);
+  });
+
   it("says portion for one and has no meta line without a time", () => {
     render(<RecipeView recipe={{ ...recipe, servings: 1, totalMinutes: 0 }} snapshot={allHome} />);
     expect(stepper.value()).toHaveTextContent(/^1 portion$/);

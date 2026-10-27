@@ -22,6 +22,7 @@ import { Sheet } from "@/components/sheet";
 import { useToast } from "@/components/toast";
 import {
   LOCATIONS,
+  normalizeIngredientText,
   SECTIONS,
   UNITS,
   type Location,
@@ -40,7 +41,7 @@ import {
   parseAmountField,
   type PantryItemFormInput,
 } from "../domain/pantry-item-form";
-import { photoSiteId, suggestionGoneText, type PantrySuggestion } from "../domain/pantry-suggestion";
+import { photoSiteId, suggestionGoneText, suggestionLabel, type PantrySuggestion } from "../domain/pantry-suggestion";
 import { confirmedItemsText, savedItemText } from "../domain/places";
 import { PantryRemovalProvider, usePantryRemoval } from "./pantry-removal";
 import { type CorrectOutcome, type RejectOutcome, usePantrySuggestions } from "./pantry-suggestions";
@@ -95,6 +96,8 @@ type FormValues = {
   amount: string;
   unit: Unit | "";
   location: Location;
+  /** Story 11.2: "Märke eller sort" as typed; empty for none. */
+  label: string;
 };
 
 /** The sheet's primary button. */
@@ -111,7 +114,7 @@ const defaultSection: Section = "Övrigt";
 const amountField = (amount: number | null) => (amount === null ? "" : String(amount).replace(".", ","));
 
 function initialValues(target: PantrySheetTarget): FormValues {
-  if (target.kind === "new") return { ingredient: null, amount: "", unit: "", location: target.location };
+  if (target.kind === "new") return { ingredient: null, amount: "", unit: "", location: target.location, label: "" };
   if (target.kind === "suggestion") {
     const { suggestion } = target;
     const { ingredient } = suggestion;
@@ -123,6 +126,8 @@ function initialValues(target: PantrySheetTarget): FormValues {
       amount: amountField(suggestion.amount),
       unit: suggestion.unit ?? "",
       location: suggestion.location,
+      // Story 11.2: the label the place's row has, or else the one the card's Bekräfta would save.
+      label: suggestion.currentLabel ?? suggestionLabel(suggestion) ?? "",
     };
   }
   const { item } = target;
@@ -132,13 +137,19 @@ function initialValues(target: PantrySheetTarget): FormValues {
     amount: amountField(item.amount),
     unit: item.unit ?? "",
     location: item.location,
+    label: item.label ?? "",
   };
 }
 
 function sameIngredient(a: ChosenIngredient | null, b: ChosenIngredient | null): boolean {
   if (a === null || b === null) return a === b;
   if (a.kind === "existing" && b.kind === "existing") return a.ingredientId === b.ingredientId;
-  return a.kind === "new" && b.kind === "new" && a.name === b.name && a.section === b.section;
+  return (
+    a.kind === "new" &&
+    b.kind === "new" &&
+    normalizeIngredientText(a.name) === normalizeIngredientText(b.name) &&
+    a.section === b.section
+  );
 }
 
 function isFormDirty(values: FormValues, initial: FormValues): boolean {
@@ -146,8 +157,25 @@ function isFormDirty(values: FormValues, initial: FormValues): boolean {
     !sameIngredient(values.ingredient, initial.ingredient) ||
     values.amount.trim() !== initial.amount.trim() ||
     values.unit !== initial.unit ||
-    values.location !== initial.location
+    values.location !== initial.location ||
+    values.label.trim() !== initial.label.trim()
   );
+}
+
+/**
+ * "Märke eller sort" as the sheet sends it (Story 11.2): an item in the
+ * pantry always sends the field, so an emptied one removes its label. A new
+ * item sends nothing when the field is empty, so a row it lands on keeps its
+ * label. A lagerförslag sends the field only when Pontus changed it to
+ * something: as filled in, the photo's label goes as a photo label
+ * (confirmItemFromForm) and the row's own needs nothing, and empty keeps the
+ * row's label.
+ */
+function labelInput(label: string, target: PantrySheetTarget): Pick<PantryItemFormInput, "label"> {
+  if (target.kind === "edit") return { label };
+  if (label.trim() === "") return {};
+  if (target.kind === "suggestion" && label.trim() === initialValues(target).label.trim()) return {};
+  return { label };
 }
 
 /** What savePantryItem takes; a new ingredient is kept where the item is. */
@@ -162,12 +190,15 @@ function toInput(values: FormValues, ingredient: ChosenIngredient, target: Pantr
     location: values.location,
     siteId: target.kind === "edit" ? target.item.siteId : target.siteId,
     replaceId: target.kind === "edit" ? target.item.id : null,
+    ...labelInput(values.label, target),
   };
 }
 
 type SheetBaseProps = {
   open: boolean;
   onClose: () => void;
+  /** An item was saved from the sheet (Story 11.3: Lagersaldo's search is emptied, so it never hides the item). */
+  onSaved?: () => void;
   /**
    * Increases each time the sheet opens: the form then starts afresh from
    * `target`. (The sheet itself stays mounted; a sheet mounted already open
@@ -194,7 +225,7 @@ export type PantryItemSheetProps =
  * closes, but not before "Ta bort" or "Avvisa".
  */
 export function PantryItemSheet(props: PantryItemSheetProps) {
-  const { open, onClose, target, session } = props;
+  const { open, onClose, onSaved, target, session } = props;
   const review = "review" in props ? props.review : null;
   const [formSession, setFormSession] = useState(session);
   const [initial, setInitial] = useState(() => initialValues(target));
@@ -246,6 +277,7 @@ export function PantryItemSheet(props: PantryItemSheetProps) {
       }
       // The action revalidated Hemma, so the list behind shows the change.
       onClose();
+      onSaved?.();
       showToast(savedItemText(name, input.location));
       return null;
     },
@@ -273,6 +305,7 @@ export function PantryItemSheet(props: PantryItemSheetProps) {
       // Closed as the card goes, in one update: the sheet gives focus back first, then focus moves on.
       outcome = await review.confirm(suggestionTarget.suggestion.id, suggestionTarget.generation, form, () => {
         onClose();
+        onSaved?.();
         showToast(savedItemText(name, form.location));
       });
     } catch {
@@ -287,6 +320,7 @@ export function PantryItemSheet(props: PantryItemSheetProps) {
         break;
       case "savedStale":
         onClose();
+        onSaved?.();
         showToast(confirmedItemsText(1));
         break;
       case "gone":
@@ -305,6 +339,8 @@ export function PantryItemSheet(props: PantryItemSheetProps) {
   const amount = parseAmountField(values.amount);
   const liveAmountError = "error" in amount && (amountTouched || attempted) ? amount.error : null;
   const amountError = serverFields.amount ?? liveAmountError;
+  // maxLength keeps the field short; a longer text (set by a script) shows why at once.
+  const labelError = serverFields.label ?? fieldErrors.label ?? null;
   // A new ingredient's name is not typed here, so its problem shows at once.
   const ingredientError = serverFields.ingredient ?? fieldErrors.ingredient ?? null;
   /** Shown after a save attempt when the form is invalid without a field to point at. */
@@ -503,6 +539,19 @@ export function PantryItemSheet(props: PantryItemSheetProps) {
               onChange={(location) => update({ location })}
             />
           </div>
+
+          <div className="flex flex-col gap-1.5">
+            <FieldLabel htmlFor={`${ids}-label`}>Märke eller sort</FieldLabel>
+            <Input
+              id={`${ids}-label`}
+              autoComplete="off"
+              placeholder="Till exempel Arla laktosfri"
+              value={values.label}
+              onChange={(event) => update({ label: event.target.value })}
+              {...(labelError ? { "aria-invalid": true, "aria-describedby": `${ids}-label-error` } : {})}
+            />
+            {labelError ? <FieldError id={`${ids}-label-error`}>{labelError}</FieldError> : null}
+          </div>
         </form>
       )}
     </Sheet>
@@ -519,6 +568,8 @@ type PantrySheetApi = {
   openItem: (item: PantryItem) => void;
   /** Rätta: opens the sheet for a lagerförslag, filled in from it. */
   openSuggestion: (suggestion: PantrySuggestion) => void;
+  /** How many times an item has been saved from the sheet; Lagersaldo's search empties when it grows. */
+  saves: number;
 };
 
 const PantrySheetContext = createContext<PantrySheetApi | null>(null);
@@ -555,12 +606,14 @@ export function PantrySheetProvider({
     session: 0,
     target: { kind: "new", location, siteId: site.id },
   });
+  const [saves, setSaves] = useState(0);
   const openWith = (target: PantrySheetTarget) =>
     setSheet((current) => ({ open: true, session: current.session + 1, target }));
   const sheetProps: SheetBaseProps = {
     open: sheet.open,
     session: sheet.session,
     onClose: () => setSheet((current) => ({ ...current, open: false })),
+    onSaved: () => setSaves((count) => count + 1),
   };
   const api: PantrySheetApi = {
     openNew: () => openWith({ kind: "new", location, siteId: site.id }),
@@ -572,6 +625,7 @@ export function PantrySheetProvider({
       const photoSite = photo ? photoSiteId(photo) : null;
       openWith({ kind: "suggestion", suggestion, generation: current, siteId: photoSite ?? site.id });
     },
+    saves,
   };
   return (
     <PantryRemovalProvider>

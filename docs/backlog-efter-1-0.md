@@ -19,6 +19,7 @@ Pontus idéer 2026-10-26, bedömda och ordnade. Version 1.0 är Epic 1–7 enlig
 - **Varför en egen story:** AD-15 säger att foton aldrig sparas. Storyn börjar därför med en kursändring (BMAD correct-course) som ändrar AD-15 och bestämmer lagring (privat bucket i Supabase Storage med RLS), hur länge fotot sparas, att EXIF tas bort och vad som händer när stället eller platsen töms.
 - **Redan nu (snabbfix):** fotot visas ovanför förslagen medan Pontus granskar dem, bara i telefonen och utan att sparas. Det följer AD-15.
 - **Ordning:** efter Epic 8, före 1.2.
+- **Planerad som Epic 10 (2026-10-26):** tre stories, 10.1 spara, 10.2 visa och 10.3 gallra och städa. Fotot sparas i en privat bucket i Supabase Storage när något från dess förslag har sparats i lagret, utan metadata, högst ett per plats och ställe och högst 30 dagar, och det visas i Hemma med numren och avläsningen. AD-15 är ändrad, och AD-26 är ny. Underlag: `_bmad-output/planning-artifacts/sprint-change-proposal-2026-10-26-spara-foto.md` och `_bmad-output/implementation-artifacts/epic-10-context.md`. Byggs i grenen `epic/10-spara-foto`, före Epic 9.
 
 ## 2. Menyförslag utifrån veckans erbjudanden (föreslås som 1.2)
 
@@ -40,6 +41,6 @@ Pontus idéer 2026-10-26, bedömda och ordnade. Version 1.0 är Epic 1–7 enlig
 ## Föreslagen väg
 
 1. Gör klart 1.0, alltså Epic 4–7 som planerat. Epic 7 får en butiksmodell som klarar flera butiker.
-2. 1.1: flera ställen, och därefter att spara senaste fotot per plats.
+2. 1.1: flera ställen, och därefter att spara senaste fotot per plats (planerad som Epic 10).
 3. 1.2: erbjudanden i den enkla versionen, med inklistrad eller fotograferad reklam. Planerad som Epic 9 (grenen `epic/9-erbjudanden`), men **vilar** sedan 2026-10-26: Pontus vill först finslipa det som finns.
 4. Utredning, och därefter 1.3: butiksjämförelse.

@@ -1,5 +1,7 @@
+import type { Page } from "@playwright/test";
 import { createServerClient } from "@supabase/ssr";
 import { createClient, type SupabaseClient } from "@supabase/supabase-js";
+import { placePhotoBucket as sharedPlacePhotoBucket, removeUserPlacePhotos } from "../../scripts/pantry-photo-files.mjs";
 import { localSupabaseUrl } from "../local-supabase";
 
 // Shared by global-setup and the specs. The service role is allowed in tests (AD-4).
@@ -152,10 +154,58 @@ export const siteListEmail = "e2e-stalle-lista@matkoll.test";
  */
 export const sitePhotoEmail = "e2e-stalle-foto@matkoll.test";
 /**
+ * The E2E user of place-photo-save.spec.ts alone (Story 10.1): each test
+ * seeds its places and catalog, and removes its photos (rows and files),
+ * with the service role, so what is saved depends on nothing else.
+ */
+export const photoSaveEmail = "e2e-foto-spara@matkoll.test";
+/**
+ * The E2E user of pantry-label.spec.ts alone (Story 11.2): each test seeds
+ * its catalog and pantry with the service role, so the labels and times
+ * depend on nothing else.
+ */
+export const labelEmail = "e2e-utseende-marke@matkoll.test";
+/**
+ * The E2E user of recipes-look.spec.ts alone (Story 11.5): each test seeds
+ * its recipes, pantry and meal plan with the service role, so the recipe
+ * cards and dish cards depend on nothing else.
+ */
+export const recipesLookEmail = "e2e-utseende-recept@matkoll.test";
+/**
+ * The E2E user of shopping-look.spec.ts alone (Story 11.4, Inköpslistan in
+ * the new look): each test sets its places, catalog, recipes, meal plan,
+ * checks, store and product choices with the service role.
+ */
+export const shoppingLookEmail = "e2e-utseende-lista@matkoll.test";
+/**
+ * The E2E user of pantry-look.spec.ts alone (Lagersaldo in the new look,
+ * Story 11.3): each test seeds its catalog and pantry, with brands and the
+ * times the items were added, with the service role.
+ */
+export const pantryLookEmail = "e2e-utseende-lager@matkoll.test";
+/**
+ * The E2E user of place-photo-sweep.spec.ts alone (Story 10.3): each test
+ * seeds its places, photos (rows and files) and pantry with the service role,
+ * so what the sweep removes depends on nothing else.
+ */
+export const photoSweepEmail = "e2e-foto-gallra@matkoll.test";
+/**
+ * The E2E user of place-photo-view.spec.ts alone (Story 10.2): each test
+ * seeds its places and photos (rows and drawn files) with the service role,
+ * so what Hemma shows depends on nothing else.
+ */
+export const photoViewEmail = "e2e-foto-visa@matkoll.test";
+/**
  * The E2E user of core-flow.spec.ts alone (Story 3.8): it signs in itself
  * through /logga-in and the link in Mailpit, so it has no storage state.
  */
 export const coreFlowEmail = "e2e-karna@matkoll.test";
+/**
+ * The E2E user of app-install.spec.ts alone (Matkoll på hemskärmen, Story
+ * 11.6): it signs in with the code from the e-mail in Mailpit, and is made
+ * again before each such test, so it has no storage state.
+ */
+export const appInstallEmail = "e2e-utseende-app@matkoll.test";
 /** Every address in ALLOWED_EMAILS for the E2E server (see playwright.config.ts). */
 export const e2eEmails = [
   e2eEmail,
@@ -183,7 +233,15 @@ export const e2eEmails = [
   siteStatusEmail,
   siteListEmail,
   sitePhotoEmail,
+  photoSaveEmail,
+  labelEmail,
+  recipesLookEmail,
+  shoppingLookEmail,
+  pantryLookEmail,
+  photoSweepEmail,
+  photoViewEmail,
   coreFlowEmail,
+  appInstallEmail,
 ] as const;
 /** A real Supabase user whose address is not in ALLOWED_EMAILS. */
 export const outsiderEmail = "utanfor@matkoll.test";
@@ -213,6 +271,13 @@ export const sitesStorageState = "tests/e2e/.auth/sites.json";
 export const siteStatusStorageState = "tests/e2e/.auth/site-status.json";
 export const siteListStorageState = "tests/e2e/.auth/site-list.json";
 export const sitePhotoStorageState = "tests/e2e/.auth/site-photo.json";
+export const photoSaveStorageState = "tests/e2e/.auth/photo-save.json";
+export const labelStorageState = "tests/e2e/.auth/label.json";
+export const recipesLookStorageState = "tests/e2e/.auth/recipes-look.json";
+export const shoppingLookStorageState = "tests/e2e/.auth/shopping-look.json";
+export const pantryLookStorageState = "tests/e2e/.auth/pantry-look.json";
+export const photoSweepStorageState = "tests/e2e/.auth/photo-sweep.json";
+export const photoViewStorageState = "tests/e2e/.auth/photo-view.json";
 export const outsiderStorageState = "tests/e2e/.auth/outsider.json";
 
 export const mailpitUrl = "http://127.0.0.1:54324";
@@ -243,6 +308,8 @@ export async function deleteE2eUsers(): Promise<void> {
   if (error) throw error;
   const emails = new Set<string>(e2eEmails);
   for (const user of data.users.filter((candidate) => candidate.email && emails.has(candidate.email))) {
+    // Story 10.1: no foreign key takes a user's photo files with the user.
+    await removePlacePhotos(user.id);
     const deleted = await adminClient().auth.admin.deleteUser(user.id);
     if (deleted.error) throw deleted.error;
   }
@@ -287,6 +354,16 @@ export async function magicLinkPath(email: string, next = "/recept"): Promise<st
   if (error) throw error;
   const params = new URLSearchParams({ token_hash: data.properties.hashed_token, type: "email", next });
   return `/auth/confirm?${params}`;
+}
+
+/**
+ * Opens a magic link (from the e-mail or magicLinkPath) and presses "Logga
+ * in", as Pontus does: the link is used only when the button posts (Story
+ * 11.6), so a mail scanner that fetches it uses nothing up.
+ */
+export async function openMagicLink(page: Page, path: string): Promise<void> {
+  await page.goto(path);
+  await page.getByRole("main").getByRole("button", { name: "Logga in" }).click();
 }
 
 /**
@@ -345,4 +422,19 @@ export async function mailHtml(id: string): Promise<string> {
  */
 export function cardTitles(titles: readonly string[]): RegExp[] {
   return titles.map((title) => new RegExp(`^${title.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")}(\\s?Nummer \\d+ på fotot)?$`));
+}
+
+/** The private bucket of the latest photo per place (Story 10.1, AD-26). */
+export const placePhotoBucket = sharedPlacePhotoBucket;
+
+/**
+ * Removes every file of `userId` in the bucket pantry-photo
+ * (`<user_id>/<site_id>/<location>/<photo>`), with the service role: no
+ * foreign key takes them with a user or a place. Lists every folder under the
+ * user's and every page of each (Story 10.3, the same as users:sync --prune).
+ * Only against local Supabase.
+ */
+export async function removePlacePhotos(userId: string): Promise<void> {
+  localSupabaseUrl();
+  await removeUserPlacePhotos(adminClient().storage, userId);
 }
