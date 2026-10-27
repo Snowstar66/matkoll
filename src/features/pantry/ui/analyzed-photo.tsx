@@ -1,6 +1,6 @@
 "use client";
 
-import { type CSSProperties, useState } from "react";
+import { type CSSProperties, type ReactNode, useState } from "react";
 import { cx } from "@/components/cx";
 import { Sheet } from "@/components/sheet";
 import type { Location } from "@/features/catalog";
@@ -90,7 +90,8 @@ export function AnalyzedPhotoButton({ photo, location, onOpen, onPhotoError }: A
  */
 const numberClasses =
   "inline-flex shrink-0 items-center justify-center rounded-full bg-accent text-badge leading-none text-on-accent";
-const badgeClasses = cx(numberClasses, "min-h-7 min-w-7 px-1.5 py-1");
+/** A card's number; Story 10.2's list of the reading has the same. */
+export const badgeClasses = cx(numberClasses, "min-h-7 min-w-7 px-1.5 py-1");
 const markerClasses = cx(numberClasses, "min-h-6 min-w-6 px-1 py-0.5");
 /** Half a marker and its border, at 200 % text: a marker is kept this far inside the photo's edges. */
 const markerInset = "14px";
@@ -118,7 +119,8 @@ export function PhotoNumberText({ number }: { number: number }) {
 }
 
 export type AnalyzedPhotoSheetProps = {
-  photo: ReviewPhoto;
+  /** The photo's URL, and its size when known (it lays out the box the markers sit on). */
+  photo: Pick<ReviewPhoto, "url" | "size">;
   location: Location;
   open: boolean;
   onClose: () => void;
@@ -126,6 +128,14 @@ export type AnalyzedPhotoSheetProps = {
   markers?: readonly PhotoMarker[];
   /** Story 6.6: the photo cannot be shown, so its numbers go. */
   onPhotoError?: () => void;
+  /** Story 10.2: the line under the title; during review it is analyzedPhotoNoteText. */
+  subtitle?: string;
+  /** Story 10.2: the photo's alt text; during review it is analyzedPhotoAlt. */
+  alt?: string;
+  /** Story 10.2: what is said when the photo cannot be shown; analyzedPhotoErrorText unless given. */
+  errorText?: string;
+  /** Story 10.2: what comes under the photo (the reading and "Ta bort fotot"); nothing during review. */
+  children?: ReactNode;
 };
 
 /**
@@ -140,8 +150,23 @@ export type AnalyzedPhotoSheetProps = {
  * package under it shows. They are hidden from screen readers: the cards
  * carry the numbers. Without a size in the header there is no such box, and
  * no markers.
+ *
+ * Story 10.2: the same sheet shows the latest saved photo of a place, with
+ * its own subtitle and alt text, and the reading and "Ta bort fotot" under
+ * the photo (`children`).
  */
-export function AnalyzedPhotoSheet({ photo, location, open, onClose, markers = [], onPhotoError }: AnalyzedPhotoSheetProps) {
+export function AnalyzedPhotoSheet({
+  photo,
+  location,
+  open,
+  onClose,
+  markers = [],
+  onPhotoError,
+  subtitle = analyzedPhotoNoteText,
+  alt = analyzedPhotoAlt(location),
+  errorText = analyzedPhotoErrorText,
+  children,
+}: AnalyzedPhotoSheetProps) {
   const [failed, setFailed] = useState(false);
   const [fullSize, setFullSize] = useState(false);
   const [decoded, setDecoded] = useState<ImageSize | null>(null);
@@ -168,11 +193,11 @@ export function AnalyzedPhotoSheet({ photo, location, open, onClose, markers = [
         onClose();
       }}
       title={analyzedPhotoTitle(location)}
-      subtitle={analyzedPhotoNoteText}
+      subtitle={subtitle}
       closeLabel="Stäng"
     >
       {failed ? (
-        <p className="text-body text-ink-2">{analyzedPhotoErrorText}</p>
+        <p className="text-body text-ink-2">{errorText}</p>
       ) : (
         <button
           type="button"
@@ -187,7 +212,7 @@ export function AnalyzedPhotoSheet({ photo, location, open, onClose, markers = [
               {/* eslint-disable-next-line @next/next/no-img-element */}
               <img
                 src={photo.url}
-                alt={analyzedPhotoAlt(location)}
+                alt={alt}
                 width={size.width}
                 height={size.height}
                 draggable={false}
@@ -223,7 +248,7 @@ export function AnalyzedPhotoSheet({ photo, location, open, onClose, markers = [
             // eslint-disable-next-line @next/next/no-img-element
             <img
               src={photo.url}
-              alt={analyzedPhotoAlt(location)}
+              alt={alt}
               draggable={false}
               onError={failWith}
               className={cx("block rounded-md", fullSize ? "max-w-none" : "mx-auto max-h-[70dvh] w-auto max-w-full")}
@@ -231,6 +256,7 @@ export function AnalyzedPhotoSheet({ photo, location, open, onClose, markers = [
           )}
         </button>
       )}
+      {children}
     </Sheet>
   );
 }

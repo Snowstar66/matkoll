@@ -9,12 +9,14 @@ import { createClient } from "@/lib/supabase/server";
 import { addToPantryIn, findPantryAdditionsIn, forgetPantryAdditionsIn } from "./data/add";
 import { isSiteGone, PantryDataError, siteGoneCode, siteGoneDetail } from "./data/client";
 import { insertPantryDefaults } from "./data/defaults";
+import { downloadPlacePhoto, loadPlacePhotoIn, loadPlacePhotosIn } from "./data/photos";
 import { checkedSiteId, countPantryIn, listPantryIn, loadPantrySnapshot, zeroCounts } from "./data/queries";
 import { setPantryItemsIn, type SetPantryRow } from "./data/set";
 import { loadPantrySitesIn, loadSiteItemCountsIn } from "./data/sites";
 import { addToPantryItemsSchema, type AddToPantryItem } from "./domain/add-to-pantry";
 import { toSnapshot, type PantryItem, type PantrySnapshot } from "./domain/pantry-item";
 import type { PantryItemSet } from "./domain/pantry-item-form";
+import type { PlacePhoto, PlacePhotoMediaType } from "./domain/place-photo";
 import type { PantrySite, PantrySiteWithCount, SelectedSite } from "./domain/site";
 
 // Server-only entry (AD-1). The functions use the signed-in user's session
@@ -154,6 +156,51 @@ export const listPantrySitesWithCounts = cache(async (): Promise<PantrySiteWithC
 export async function getPantrySnapshot(siteId?: string): Promise<PantrySnapshot> {
   const place = await placeToRead(siteId);
   return place === null ? toSnapshot([]) : snapshotOn(place);
+}
+
+const placePhotosOn = cache(async (siteId: string): Promise<PlacePhoto[]> => {
+  return loadPlacePhotosIn(await createClient(), siteId, new Date());
+});
+
+/** The latest photos of a place, as Lagersaldo shows them; see listPlacePhotos. */
+export type PlacePhotos = { photos: PlacePhoto[] };
+
+/**
+ * The signed-in user's latest photo of each location on one place (`siteId`,
+ * or the selected place) that was taken within the last 30 days (Story 10.2,
+ * FR-38, AD-26): the rows only, never the images, for the line "Senaste
+ * foto" in Lagersaldo. The photos are a help, not the page: when they cannot be
+ * read (logged as `pantry_photos_unavailable`, with the reason only), there
+ * are none, and Lagersaldo works without them. Memoised per request and place.
+ */
+export async function listPlacePhotos(siteId?: string): Promise<PlacePhotos> {
+  try {
+    const place = await placeToRead(siteId);
+    return { photos: place === null ? [] : await placePhotosOn(place) };
+  } catch (error) {
+    if (!(error instanceof PantryDataError)) throw error;
+    console.error("pantry_photos_unavailable", { reason: error.detail });
+    return { photos: [] };
+  }
+}
+
+/** A saved photo's image as GET /api/pantry/photo/[id] sends it. */
+export type PlacePhotoImage = { data: Blob; mediaType: PlacePhotoMediaType };
+
+/**
+ * The image of the signed-in user's photo `id` (a uuid, checked by the
+ * caller) and its type, for the Route Handler GET /api/pantry/photo/[id]
+ * (Story 10.2, AD-26), after it has checked the user. Read with the session
+ * client, so RLS and the bucket's policies give only the user's own. `null`
+ * for a photo that is gone, taken more than 30 days ago, or not the user's.
+ * Never sent to the AI port. Throws PantryDataError.
+ */
+export async function readPlacePhotoImage(id: string): Promise<PlacePhotoImage | null> {
+  const db = await createClient();
+  const file = await loadPlacePhotoIn(db, id, new Date());
+  if (!file) return null;
+  const data = await downloadPlacePhoto(db, file.objectPath);
+  return data ? { data, mediaType: file.mediaType } : null;
 }
 
 /** The pantry a view counts its status against, and the place it is of; see getPantryForStatus. */
