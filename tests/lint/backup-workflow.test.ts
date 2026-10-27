@@ -338,20 +338,16 @@ describe("backup.yml", () => {
     expect(workflow).not.toMatch(/supabase link|db push|--linked|vercel/i);
   });
 
-  it("leaves storage vectors, the photos and sensitive auth data out of the data dump", () => {
+  it("dumps the data of public and auth only, without the photos and sensitive auth data", () => {
     const data = dumpCommands.split("\n").find((line) => line.includes("--data-only"))!;
+    // An allowlist (Story 10.3): nothing of the schema storage, so no bucket, path or upload.
+    expect([...data.matchAll(/--schema (\S+)/g)].map((match) => match[1])).toEqual(["public,auth"]);
+    expect(data).not.toMatch(/\bstorage\b/);
     const excluded = [...data.matchAll(/--exclude (\S+)/g)].map((match) => match[1]).sort();
     expect(excluded).toEqual(
       [
-        "storage.buckets_vectors",
-        "storage.vector_indexes",
-        // The photos (Story 10.3): their rows, the paths of their files, and the
-        // bucket, which the photo migration creates again on a restore.
+        // The photos' rows (Story 10.3).
         "public.pantry_photo",
-        "storage.objects",
-        "storage.s3_multipart_uploads",
-        "storage.s3_multipart_uploads_parts",
-        "storage.buckets",
         "auth.sessions",
         "auth.refresh_tokens",
         "auth.mfa_amr_claims",
@@ -361,6 +357,45 @@ describe("backup.yml", () => {
       ].sort(),
     );
     expect(data).not.toMatch(/auth\.users|auth\.identities/);
+  });
+
+  describe("the check that data.sql has no photos, before anything is encrypted (Story 10.3)", () => {
+    const guard = dumpStep?.run.map((line) => line.trim()).find((line) => line.startsWith("if grep -qE ") && line.includes("pantry_photo"));
+
+    function runGuard(data: string) {
+      const dir = mkdtempSync(join(tmp, "guard-"));
+      writeFileSync(join(dir, "data.sql"), data);
+      const result = spawnSync("bash", ["-c", `set -euo pipefail\nplain=${JSON.stringify(dir)}\n${guard}\necho passed`], {
+        encoding: "utf8",
+      });
+      return { status: result.status, output: `${result.stdout}${result.stderr}` };
+    }
+
+    const users = 'COPY "auth"."users" ("id") FROM stdin;\n1\n\\.\n';
+
+    it("comes after the dumps and before the first encryption", () => {
+      expect(guard).toBeDefined();
+      const script = dumpStep!.run.map((line) => line.trim());
+      expect(script.indexOf(guard!)).toBeGreaterThan(script.findIndex((line) => line.includes("--data-only")));
+      expect(script.indexOf(guard!)).toBeLessThan(script.findIndex((line) => line.includes("--symmetric")));
+    });
+
+    it("passes a dump of public and auth without photos", () => {
+      expect(runGuard(`${users}COPY "public"."pantry_item" ("id") FROM stdin;\n2\n\\.\n`)).toEqual({ status: 0, output: "passed\n" });
+    });
+
+    it.each([
+      ['COPY "storage"."objects" ("name") FROM stdin;', "a row of storage.objects"],
+      ["COPY storage.buckets (id) FROM stdin;", "a row of storage.buckets, unquoted"],
+      ['COPY "public"."pantry_photo" ("id") FROM stdin;', "a row of pantry_photo"],
+      ["COPY public.pantry_photo (id) FROM stdin;", "a row of pantry_photo, unquoted"],
+      ["x\tpantry-photo\ty", "the bucket's id anywhere"],
+    ])("fails, printing no line of the data, for %j (%s)", (line) => {
+      const result = runGuard(`${users}${line}\n`);
+      expect(result.status).toBe(1);
+      expect(result.output).toContain("::error title=Säkerhetskopia::");
+      expect(result.output).not.toContain(line);
+    });
   });
 
   it("never counts the photos' rows (Story 10.3), which the backup leaves out", () => {

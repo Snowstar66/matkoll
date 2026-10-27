@@ -137,24 +137,34 @@ export async function placePhotoReadingLengthIn(db: PantryDb, id: string): Promi
   });
 }
 
+/** What removePlacePhotoFiles did: the paths Storage says it removed, and the first failure, if any. */
+export type RemovedPlacePhotoFiles = { removed: string[]; failed: string | null };
+
 /**
  * Removes the files at `paths` from the bucket with the Storage API (AD-26),
- * at most photoSweepBatchSize (100) names per call to Storage, and returns
- * how many were removed. A file that is gone already, or not the user's, is
- * not counted. Throws PantryDataError `remove_failed <status>` or
- * `remove_threw` at the first batch that fails; the batches before it are
- * removed.
+ * at most photoSweepBatchSize (100) names per call to Storage, and says which
+ * paths Storage removed. A file that is gone already, or not the user's, is
+ * not among them. Never throws: a batch that fails is skipped, its reason
+ * (`remove_failed <status>` or `remove_threw`) is `failed` (the first one if
+ * several fail), and the other batches are still removed.
  */
-export async function removePlacePhotoFiles(db: PantryDb, paths: readonly string[]): Promise<number> {
-  let removed = 0;
+export async function removePlacePhotoFiles(db: PantryDb, paths: readonly string[]): Promise<RemovedPlacePhotoFiles> {
+  const removed: string[] = [];
+  let failed: string | null = null;
   for (const batch of inBatches(paths)) {
-    removed += await guarded("remove", async () => {
-      const { data, error } = await db.storage.from(placePhotoBucket).remove(batch);
-      if (error) throw new PantryDataError(`remove_failed ${statusOf(error)}`);
-      return data?.length ?? 0;
-    });
+    try {
+      const names = await guarded("remove", async () => {
+        const { data, error } = await db.storage.from(placePhotoBucket).remove(batch);
+        if (error) throw new PantryDataError(`remove_failed ${statusOf(error)}`);
+        return (data ?? []).map((file) => file.name);
+      });
+      const asked = new Set(batch);
+      removed.push(...names.filter((name) => typeof name === "string" && asked.has(name)));
+    } catch (error) {
+      failed ??= error instanceof PantryDataError ? error.detail : "remove_threw";
+    }
   }
-  return removed;
+  return { removed, failed };
 }
 
 /** A photo the sweep removes: its row's id and its file (Story 10.3). */
@@ -206,18 +216,72 @@ export async function loadPlacePhotoOrphansIn(db: PantryDb, minAgeMs: number): P
 }
 
 /**
- * Deletes the user's photo rows `ids` and returns how many went (a row that
- * is gone already is not counted). Only the rows: their files are removed
- * with removePlacePhotoFiles. Throws PantryDataError `delete_failed <code>`
- * or `delete_threw`.
+ * Deletes the user's photo rows `ids` (at most photoSweepBatchSize) that
+ * were taken before `before` and whose file is no longer in the bucket
+ * (delete_expired_pantry_photos), and returns the ids it deleted. So a row
+ * never points at a missing file, a row whose file is still there stays, and
+ * a row replaced since it was read (a new id, or taken later) stays. Throws
+ * PantryDataError `delete_failed <code>`, `delete_threw` or `invalid_answer`.
  */
-export async function deletePlacePhotoRowsIn(db: PantryDb, ids: readonly string[]): Promise<number> {
-  if (ids.length === 0) return 0;
+export async function deleteExpiredPlacePhotoRowsIn(db: PantryDb, ids: readonly string[], before: Date): Promise<string[]> {
+  if (ids.length === 0) return [];
   return guarded("delete", async () => {
-    const { data, error } = await db.from("pantry_photo").delete().in("id", [...ids]).select("id");
+    const { data, error } = await db.rpc("delete_expired_pantry_photos", {
+      photo_ids: [...ids],
+      taken_before: before.toISOString(),
+    });
     if (error) throw new PantryDataError(`delete_failed ${error.code}`);
-    return data?.length ?? 0;
+    const deleted: unknown[] = Array.isArray(data) ? data : [];
+    if (!deleted.every((id): id is string => typeof id === "string")) throw new PantryDataError("invalid_answer");
+    return deleted;
   });
+}
+
+/** The most folder levels below the starting folder the walk goes into: a photo is at `<site>/<location>/<file>`. */
+export const photoWalkMaxDepth = 4;
+
+/** The most folders one walk lists, so a listing never runs away. */
+export const photoWalkMaxFolders = 1_000;
+
+/**
+ * Every file under `folder` in the bucket (such as `<user_id>/<site_id>`), in
+ * all folders below it, at most photoWalkMaxDepth levels deep, and on every
+ * page of each (Storage's list() goes one folder at a time and gives at most
+ * photoSweepBatchSize entries per call). A folder is an entry without an id.
+ * Throws PantryDataError `list_failed <status>`, `list_threw`, `list_too_deep`
+ * or `list_too_many_folders`, never with a path.
+ */
+export async function listPlacePhotoFilesIn(db: PantryDb, folder: string): Promise<string[]> {
+  const files: string[] = [];
+  const folders: { path: string; depth: number }[] = [{ path: folder, depth: 0 }];
+  let visited = 0;
+  while (folders.length > 0) {
+    const current = folders.shift()!;
+    visited += 1;
+    if (visited > photoWalkMaxFolders) throw new PantryDataError("list_too_many_folders");
+    for (let offset = 0; ; offset += photoSweepBatchSize) {
+      const entries = await guarded("list", async () => {
+        const { data, error } = await db.storage.from(placePhotoBucket).list(current.path, {
+          limit: photoSweepBatchSize,
+          offset,
+          sortBy: { column: "name", order: "asc" },
+        });
+        if (error) throw new PantryDataError(`list_failed ${statusOf(error)}`);
+        return data ?? [];
+      });
+      for (const entry of entries) {
+        const path = `${current.path}/${entry.name}`;
+        if (entry.id !== null && entry.id !== undefined) {
+          files.push(path);
+        } else {
+          if (current.depth + 1 > photoWalkMaxDepth) throw new PantryDataError("list_too_deep");
+          folders.push({ path, depth: current.depth + 1 });
+        }
+      }
+      if (entries.length < photoSweepBatchSize) break;
+    }
+  }
+  return files;
 }
 
 /**

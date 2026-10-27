@@ -32,6 +32,9 @@ vi.mock("@/features/pantry/actions/save-pantry-site", () => ({ savePantrySite: v
 vi.mock("@/features/pantry/actions/delete-pantry-site", () => ({ deletePantrySite: vi.fn() }));
 const sweepPlacePhotos = vi.fn();
 vi.mock("@/features/pantry/actions/sweep-place-photos", () => ({ sweepPlacePhotos: () => sweepPlacePhotos() }));
+// The gate is an async Server Component (photo-sweep-gate.test.tsx); here it only says it was rendered.
+const photoSweepGate = vi.fn(() => null);
+vi.mock("./photo-sweep-gate", () => ({ PhotoSweepGate: () => photoSweepGate() }));
 const confirmPantrySuggestions = vi.fn();
 vi.mock("@/features/pantry/actions/confirm-pantry-inventory", () => ({ confirmPantryInventory: vi.fn() }));
 vi.mock("@/features/pantry/actions/confirm-pantry-suggestions", () => ({
@@ -200,21 +203,24 @@ describe("HomeContent", () => {
     expect(screen.queryByRole("button", { name: "Lägg till ställe" })).toBeNull();
   });
 
-  it("starts the photo sweep once, showing nothing, only when there is something to sweep (Story 10.3)", async () => {
+  it("never waits for the photo sweep's check: the gate is rendered beside the list, in a boundary of its own (Story 10.3)", async () => {
     vi.mocked(countPantryItems).mockResolvedValue({ Kyl: 1, Frys: 0, Skafferi: 0 });
     vi.mocked(listPantry).mockResolvedValue([mjolk]);
-    sweepPlacePhotos.mockResolvedValue(ok({ removed: 1 }));
 
-    const quiet = render(await HomeContent({ site, location: "Kyl", next: "/hemma" }));
-    expect(needsPlacePhotoSweep).toHaveBeenCalled();
-    await screen.findByText("Mjölk");
-    expect(sweepPlacePhotos).not.toHaveBeenCalled();
-    quiet.unmount();
-
-    vi.mocked(needsPlacePhotoSweep).mockResolvedValueOnce(true);
     render(await HomeContent({ site, location: "Kyl", next: "/hemma" }));
-    await waitFor(() => expect(sweepPlacePhotos).toHaveBeenCalledTimes(1));
-    expect(screen.getByText("Mjölk")).toBeInTheDocument();
+    // HomeContent itself never reads whether there is something to sweep.
+    expect(needsPlacePhotoSweep).not.toHaveBeenCalled();
+    await screen.findByText("Mjölk");
+    expect(photoSweepGate).toHaveBeenCalled();
+    expect(sweepPlacePhotos).not.toHaveBeenCalled();
+  });
+
+  it("renders no sweep when the pantry cannot be read (Story 10.3)", async () => {
+    vi.mocked(countPantryItems).mockRejectedValue(new PantryDataError("query_failed 08006"));
+    vi.mocked(listPantry).mockResolvedValue([]);
+    render(await HomeContent({ site, location: "Kyl", next: "/hemma" }));
+    await screen.findByRole("alert");
+    expect(photoSweepGate).not.toHaveBeenCalled();
   });
 
   it("lets other errors through to the error boundary", async () => {

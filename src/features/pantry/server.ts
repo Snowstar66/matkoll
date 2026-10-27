@@ -186,10 +186,10 @@ export async function getPantryForStatus(): Promise<PantryForStatus> {
 
 /**
  * Whether the signed-in user has photos to sweep (Story 10.3, FR-39): a photo
- * older than 30 days, or a file in the bucket without a row that is older
- * than 10 minutes. Hemma then renders PhotoSweep, which calls the Server
- * Action sweepPlacePhotos once. Only reads (AD-2); memoised per request.
- * Over all the user's places, since the sweep is. When it cannot be read
+ * older than 30 days. Lagersaldo then renders PhotoSweep, which calls the
+ * Server Action sweepPlacePhotos; the sweep also looks for files without a
+ * row, which this cheap read leaves out. Only reads (AD-2); memoised per
+ * request. Over all the user's places, since the sweep is. When it cannot be read
  * (logged as `pantry_photo_sweep_unavailable`, with the reason only), it is
  * `false`, and Hemma works without it.
  */

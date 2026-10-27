@@ -1,7 +1,8 @@
 import { describe, expect, it, vi } from "vitest";
 import { PantryDataError, siteGoneDetail, type PantryDb } from "./client";
 import {
-  deletePlacePhotoRowsIn,
+  deleteExpiredPlacePhotoRowsIn,
+  listPlacePhotoFilesIn,
   loadExpiredPlacePhotosIn,
   loadPlacePhotoOrphansIn,
   loadSitePhotoPathsIn,
@@ -80,43 +81,96 @@ describe("uploadPlacePhoto", () => {
 });
 
 describe("removePlacePhotoFiles", () => {
-  it("removes with the Storage API and counts what went", async () => {
+  it("removes with the Storage API and says which paths went", async () => {
     const { db, remove } = fakeStorage({ data: [{ name: path }], error: null });
-    expect(await removePlacePhotoFiles(db, [path])).toBe(1);
+    expect(await removePlacePhotoFiles(db, [path])).toEqual({ removed: [path], failed: null });
     expect(remove).toHaveBeenCalledWith([path]);
   });
 
   it("asks nothing for no paths", async () => {
     const { db, remove } = fakeStorage({ data: [], error: null });
-    expect(await removePlacePhotoFiles(db, [])).toBe(0);
+    expect(await removePlacePhotoFiles(db, [])).toEqual({ removed: [], failed: null });
     expect(remove).not.toHaveBeenCalled();
   });
 
-  it("throws remove_failed with the status", async () => {
+  it("gives remove_failed with the status, never throwing and never the path", async () => {
     const { db } = fakeStorage({ data: null, error: { message: path, status: 500 } });
-    await expect(removePlacePhotoFiles(db, [path])).rejects.toThrow(new PantryDataError("remove_failed 500"));
+    expect(await removePlacePhotoFiles(db, [path])).toEqual({ removed: [], failed: "remove_failed 500" });
   });
 
-  it("removes 150 files in two calls, 100 and 50, and counts them all (Story 10.3)", async () => {
+  it("gives remove_threw when the client throws", async () => {
+    const remove = vi.fn(async () => {
+      throw new Error(`fetch failed for ${path}`);
+    });
+    const db = { storage: { from: () => ({ remove }) } } as unknown as PantryDb;
+    expect(await removePlacePhotoFiles(db, [path])).toEqual({ removed: [], failed: "remove_threw" });
+  });
+
+  it("does not count a file Storage did not remove (gone already), nor a name it was not asked for", async () => {
+    const other = `${user}/${site}/frys/${photo}.jpg`;
+    const { db } = fakeStorage({ data: [{ name: other }], error: null });
+    expect(await removePlacePhotoFiles(db, [path])).toEqual({ removed: [], failed: null });
+  });
+
+  it("removes 150 files in two calls, 100 and 50, and gives them all (Story 10.3)", async () => {
     const paths = Array.from({ length: 150 }, (_, index) => `${user}/${site}/kyl/${index}.jpg`);
     const remove = vi.fn(async (batch: string[]) => ({ data: batch.map((name) => ({ name })), error: null }));
     const db = { storage: { from: () => ({ remove }) } } as unknown as PantryDb;
-    expect(await removePlacePhotoFiles(db, paths)).toBe(150);
+    expect(await removePlacePhotoFiles(db, paths)).toEqual({ removed: paths, failed: null });
     expect(remove.mock.calls.map(([batch]) => batch.length)).toEqual([100, 50]);
     expect(remove.mock.calls.flatMap(([batch]) => batch)).toEqual(paths);
   });
 
-  it("stops at the first batch that fails", async () => {
+  it("goes on after a batch that fails, and says which paths went", async () => {
     const paths = Array.from({ length: 150 }, (_, index) => `${user}/${site}/kyl/${index}.jpg`);
     const remove = vi
       .fn()
       .mockResolvedValueOnce({ data: [], error: { message: paths[0], statusCode: "503" } })
-      .mockResolvedValue({ data: [], error: null });
+      .mockImplementation(async (batch: string[]) => ({ data: batch.map((name) => ({ name })), error: null }));
     const db = { storage: { from: () => ({ remove }) } } as unknown as PantryDb;
-    const error = await removePlacePhotoFiles(db, paths).catch((thrown: unknown) => thrown);
-    expect(error).toEqual(new PantryDataError("remove_failed 503"));
-    expect(String((error as Error).message)).not.toContain(user);
-    expect(remove).toHaveBeenCalledTimes(1);
+    const result = await removePlacePhotoFiles(db, paths);
+    expect(result).toEqual({ removed: paths.slice(100), failed: "remove_failed 503" });
+    expect(remove).toHaveBeenCalledTimes(2);
+  });
+});
+
+describe("listPlacePhotoFilesIn (Story 10.3)", () => {
+  type Entry = { name: string; id: string | null };
+  /** A bucket in memory that answers list() one folder and one page at a time. */
+  function memoryList(paths: string[]) {
+    const list = vi.fn(async (folder: string, { limit, offset }: { limit: number; offset: number }) => {
+      const entries = new Map<string, Entry>();
+      for (const file of paths) {
+        if (!file.startsWith(`${folder}/`)) continue;
+        const [name, ...rest] = file.slice(folder.length + 1).split("/");
+        entries.set(name, { name, id: rest.length > 0 ? null : `id-${file}` });
+      }
+      const sorted = [...entries.values()].sort((a, b) => a.name.localeCompare(b.name));
+      return { data: sorted.slice(offset, offset + limit), error: null };
+    });
+    return { db: { storage: { from: () => ({ list }) } } as unknown as PantryDb, list };
+  }
+
+  it("walks every folder and page under the place's folder, and nothing beside it", async () => {
+    const mine = [
+      ...Array.from({ length: 130 }, (_, index) => `${user}/${site}/kyl/${index}.jpg`),
+      `${user}/${site}/frys/${photo}.png`,
+    ];
+    const { db, list } = memoryList([...mine, `${user}/other-site/kyl/${photo}.jpg`]);
+    expect((await listPlacePhotoFilesIn(db, `${user}/${site}`)).sort()).toEqual([...mine].sort());
+    expect(list).toHaveBeenCalledWith(`${user}/${site}/kyl`, expect.objectContaining({ limit: 100, offset: 100 }));
+  });
+
+  it("stops at folders deeper than four levels, without the path", async () => {
+    const { db } = memoryList([`${user}/${site}/a/b/c/d/e/f.jpg`]);
+    const error = await listPlacePhotoFilesIn(db, `${user}/${site}`).catch((thrown: unknown) => thrown);
+    expect(error).toEqual(new PantryDataError("list_too_deep"));
+  });
+
+  it("gives list_failed with the status", async () => {
+    const list = vi.fn(async () => ({ data: null, error: { message: path, statusCode: "500" } }));
+    const db = { storage: { from: () => ({ list }) } } as unknown as PantryDb;
+    await expect(listPlacePhotoFilesIn(db, `${user}/${site}`)).rejects.toThrow(new PantryDataError("list_failed 500"));
   });
 });
 
@@ -184,19 +238,28 @@ describe("loadPlacePhotoOrphansIn (Story 10.3)", () => {
   });
 });
 
-describe("deletePlacePhotoRowsIn (Story 10.3)", () => {
-  it("deletes the rows by id and counts what went", async () => {
-    const { db, calls } = fakeQuery({ data: [{ id: photo }], error: null });
-    expect(await deletePlacePhotoRowsIn(db, [photo])).toBe(1);
-    expect(calls).toEqual([["delete"], ["in", "id", [photo]], ["select", "id"]]);
+describe("deleteExpiredPlacePhotoRowsIn (Story 10.3)", () => {
+  const before = new Date("2026-09-26T15:42:00.000Z");
+  function fakeRpc(answer: { data: unknown; error: { code: string } | null }) {
+    const rpc = vi.fn(async () => answer);
+    return { db: { rpc } as unknown as PantryDb, rpc };
+  }
+
+  it("asks delete_expired_pantry_photos with the ids and the time read, and gives the ids it deleted", async () => {
+    const { db, rpc } = fakeRpc({ data: [photo], error: null });
+    expect(await deleteExpiredPlacePhotoRowsIn(db, [photo], before)).toEqual([photo]);
+    expect(rpc).toHaveBeenCalledWith("delete_expired_pantry_photos", { photo_ids: [photo], taken_before: before.toISOString() });
   });
 
-  it("asks nothing for no ids, and throws delete_failed with the code", async () => {
-    const { db, from } = fakeQuery({ data: [], error: null });
-    expect(await deletePlacePhotoRowsIn(db, [])).toBe(0);
-    expect(from).not.toHaveBeenCalled();
-    await expect(deletePlacePhotoRowsIn(fakeQuery({ data: null, error: { code: "08006" } }).db, [photo])).rejects.toThrow(
+  it("asks nothing for no ids, and throws delete_failed with the code or invalid_answer", async () => {
+    const { db, rpc } = fakeRpc({ data: [], error: null });
+    expect(await deleteExpiredPlacePhotoRowsIn(db, [], before)).toEqual([]);
+    expect(rpc).not.toHaveBeenCalled();
+    await expect(deleteExpiredPlacePhotoRowsIn(fakeRpc({ data: null, error: { code: "08006" } }).db, [photo], before)).rejects.toThrow(
       new PantryDataError("delete_failed 08006"),
+    );
+    await expect(deleteExpiredPlacePhotoRowsIn(fakeRpc({ data: [1], error: null }).db, [photo], before)).rejects.toThrow(
+      new PantryDataError("invalid_answer"),
     );
   });
 });

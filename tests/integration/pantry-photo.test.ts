@@ -1,14 +1,22 @@
+import { execFileSync } from "node:child_process";
 import { readFileSync } from "node:fs";
 import { randomUUID } from "node:crypto";
 import { afterAll, beforeAll, describe, expect, it, vi } from "vitest";
 import { PantryDataError, siteGoneDetail } from "@/features/pantry/data/client";
-import { loadPlacePhotoOrphansIn, savePantryPhotoIn, setPlacePhotoPointsIn, type PantryPhotoRow } from "@/features/pantry/data/photos";
+import {
+  deleteExpiredPlacePhotoRowsIn,
+  loadExpiredPlacePhotosIn,
+  loadPlacePhotoOrphansIn,
+  savePantryPhotoIn,
+  setPlacePhotoPointsIn,
+  type PantryPhotoRow,
+} from "@/features/pantry/data/photos";
 import { placePhotoBucket, placePhotoPath } from "@/features/pantry/domain/place-photo";
 import { normalizeSiteName } from "@/features/pantry/domain/site";
 import { ok } from "@/lib/errors";
 import { stripPngMetadata } from "@/lib/images";
 import { removeUserPlacePhotos } from "../../scripts/pantry-photo-files.mjs";
-import { pruneUser } from "../../scripts/users-sync-plan.mjs";
+import { pruneExtraUsers, removeDeletedUsersFiles } from "../../scripts/users-sync-plan.mjs";
 import { localSupabaseUrl } from "../local-supabase";
 import {
   jpegMarkers,
@@ -34,9 +42,14 @@ import { adminClient, anonClient, createTestUser, deleteTestUsers, expectRlsIsol
 // files without a row; sweepPlacePhotosIn removes photos older than 30 days
 // (row and file) and files without a row, and leaves younger photos, files
 // younger than 10 minutes and other users' files; deletePantrySite removes
-// the place's files; and users:sync --prune (pruneUser with
-// removeUserPlacePhotos) removes a user's files, in every folder and on every
-// page of the listing, before the user.
+// the place's files, also one without a row; users:sync --prune
+// (pruneExtraUsers) removes a user's files, in every folder and on every
+// page of the listing, before the user, and users:sync removes the files of a
+// user deleted elsewhere (removeDeletedUsersFiles). After review: a photo's
+// row is deleted only when its file is gone and it is still the row read
+// (delete_expired_pantry_photos), 120 files without a row go as 100 and 20,
+// a file with its row is never an orphan however old, and a photo just saved
+// is never swept.
 
 // savePlacePhoto with the session client replaced by the test user's, as in a request.
 let sessionDb: Db | undefined;
@@ -471,6 +484,19 @@ describe("savePlacePhoto", () => {
     expect(await filesIn(`${owner.id}/${hemma}/frys`)).toEqual([rows[0].object_path]);
   });
 
+  it("never sweeps the photo just saved, also when the client says it was taken 31 days ago (Story 10.3)", async () => {
+    const place = await addSite(owner.id, "Lekstugan");
+    const png = { data: stripPngMetadata(kylPng)!, mediaType: "image/png" as const };
+    const result = await savePlacePhoto(
+      input(png, { siteId: place, location: "Kyl", takenAt: new Date(Date.now() - 31 * 24 * 60 * 60 * 1000) }),
+    );
+    expect(result.ok).toBe(true);
+    const id = (result as { data: { id: string } }).data.id;
+    const rows = (await photoRows(owner.id)).filter((photo) => photo.site_id === place);
+    expect(rows.map((photo) => photo.id)).toEqual([id]);
+    expect(await fileAt(rows[0].object_path)).not.toBeNull();
+  });
+
   it("leaves no file and no row for a place that is gone", async () => {
     const place = await addSite(owner.id, "Husbilen");
     await adminClient().from("pantry_site").delete().eq("id", place);
@@ -561,7 +587,7 @@ describe("the sweep (Story 10.3)", () => {
     expect(await fileAt(othersOrphan)).not.toBeNull();
 
     // Idempotent: nothing more to do.
-    expect(await sweepPlacePhotosIn(owner.db, { now, orphanMinAgeMs: 0 })).toEqual({ removed: 0, failed: null });
+    expect(await sweepPlacePhotosIn(owner.db, { now, orphanMinAgeMs: 0 })).toEqual({ removed: 0, more: false, failed: null });
   });
 
   it("deletePantrySite removes the place's files, and a place in use keeps its photos", async () => {
@@ -570,9 +596,12 @@ describe("the sweep (Story 10.3)", () => {
     const place = await addSite(owner.id, "Stugan vid sjön");
     const kyl = await photoOf(owner, place, { location: "Kyl" });
     const frys = await photoOf(owner, place, { location: "Frys" });
+    // A file without a row in the place's folder (a replaced photo's that could not be removed) goes too.
+    const orphan = await orphanOf(owner, place);
 
     expect(await deletePantrySite({ id: place })).toEqual({ ok: true, data: { removed: true } });
     expect((await photoRows(owner.id)).some((photo) => photo.site_id === place)).toBe(false);
+    expect(await fileAt(orphan)).toBeNull();
     expect(await fileAt(kyl.objectPath)).toBeNull();
     expect(await fileAt(frys.objectPath)).toBeNull();
 
@@ -602,11 +631,8 @@ describe("the sweep (Story 10.3)", () => {
       );
     }
 
-    const result = await pruneUser(leaving, {
-      removePhotos: (userId) => removeUserPlacePhotos(adminClient().storage, userId),
-      deleteUser: (userId) => adminClient().auth.admin.deleteUser(userId),
-    });
-    expect(result).toEqual({ ok: true, removedPhotos: 108 });
+    const result = await pruneExtraUsers({ remove: [{ id: leaving.id }] }, adminClient() as never);
+    expect(result).toEqual({ ok: true, lines: [{ level: "info", text: `deleted  ${leaving.id} and 108 photo file(s)` }] });
     for (const photo of photos) expect(await fileAt(photo.objectPath)).toBeNull();
     expect(await filesIn(folder)).toEqual([]);
     expect(await photoRows(leaving.id)).toEqual([]);
@@ -615,4 +641,117 @@ describe("the sweep (Story 10.3)", () => {
     // The other users' files are where they were.
     expect((await loadPlacePhotoOrphansIn(other.db, 0)).length).toBeGreaterThan(0);
   });
+
+  it("users:sync removes the files of a user deleted elsewhere, and nobody else's", async () => {
+    const leaving = await createTestUser("photo-dashboard");
+    const place = await addSite(leaving.id, "Hemma", true);
+    const photo = await photoOf(leaving, place, { location: "Kyl" });
+    const orphan = await orphanOf(leaving, place);
+    // Deleted as in the Supabase dashboard: the rows go with the user, the files stay.
+    const deleted = await adminClient().auth.admin.deleteUser(leaving.id);
+    if (deleted.error) throw deleted.error;
+    expect(await fileAt(photo.objectPath)).not.toBeNull();
+
+    const result = await removeDeletedUsersFiles(adminClient() as never);
+    expect(result.ok).toBe(true);
+    expect(result.lines).toContainEqual({ level: "info", text: `removed  2 photo file(s) of the deleted user ${leaving.id}` });
+    expect(await fileAt(photo.objectPath)).toBeNull();
+    expect(await fileAt(orphan)).toBeNull();
+    expect(JSON.stringify(result.lines)).not.toContain(owner.id);
+    expect((await loadPlacePhotoOrphansIn(other.db, 0)).length).toBeGreaterThan(0);
+  });
+
+  it("pantry_photo_orphans never gives a file that has its row, however old; and gives an old one without", async () => {
+    const place = await addSite(owner.id, "Garaget");
+    const kept = await photoOf(owner, place, { location: "Frys" });
+    const orphan = await orphanOf(owner, place);
+    backdate(kept.objectPath);
+    backdate(orphan);
+    const old = await loadPlacePhotoOrphansIn(owner.db, 600_000);
+    expect(old).toContain(orphan);
+    expect(old).not.toContain(kept.objectPath);
+    expect(await loadPlacePhotoOrphansIn(owner.db, 0)).not.toContain(kept.objectPath);
+  });
+
+  it("gives 120 files without a row as 100, then 20: the sweep says more, and takes the rest on its next call", async () => {
+    const many = await createTestUser("photo-many");
+    try {
+      const place = await addSite(many.id, "Hemma", true);
+      const paths = Array.from({ length: 120 }, () => placePhotoPath(many.id, place, "Kyl", randomUUID(), "image/png"));
+      for (let start = 0; start < paths.length; start += 15) {
+        await Promise.all(
+          paths.slice(start, start + 15).map(async (path) => {
+            const uploaded = await bucket(many.db).upload(path, png(), { contentType: "image/png", upsert: false });
+            if (uploaded.error) throw uploaded.error;
+          }),
+        );
+      }
+      expect(await loadPlacePhotoOrphansIn(many.db, 0)).toHaveLength(100);
+      expect(await sweepPlacePhotosIn(many.db, { orphanMinAgeMs: 0 })).toEqual({ removed: 100, more: true, failed: null });
+      expect(await loadPlacePhotoOrphansIn(many.db, 0)).toHaveLength(20);
+      expect(await sweepPlacePhotosIn(many.db, { orphanMinAgeMs: 0 })).toEqual({ removed: 20, more: false, failed: null });
+      expect(await loadPlacePhotoOrphansIn(many.db, 0)).toEqual([]);
+    } finally {
+      await removeUserFiles(many.id);
+    }
+  });
+
+  it("deletes an old photo's row only when its file is gone, and never a row replaced since it was read", async () => {
+    // A user of its own: the owner has its ten places already.
+    const mine = await createTestUser("photo-rows");
+    const place = await addSite(mine.id, "Friggeboden", true);
+    const now = new Date();
+    const before = new Date(now.getTime() - 30 * day);
+
+    // The file is still there: the row stays, so it never points at a missing file.
+    const old = await photoOf(mine, place, { location: "Kyl", takenAt: new Date(now.getTime() - 31 * day) });
+    expect(await deleteExpiredPlacePhotoRowsIn(mine.db, [old.id], before)).toEqual([]);
+    await bucket(mine.db).remove([old.objectPath]);
+    expect(await deleteExpiredPlacePhotoRowsIn(mine.db, [old.id], before)).toEqual([old.id]);
+
+    // Read as old, then replaced by a new photo of the place before the delete: the new row stays.
+    const read = await photoOf(mine, place, { location: "Frys", takenAt: new Date(now.getTime() - 31 * day) });
+    expect((await loadExpiredPlacePhotosIn(mine.db, before)).map((photo) => photo.id)).toContain(read.id);
+    const replacement = await photoOf(mine, place, { location: "Frys" });
+    await bucket(mine.db).remove([read.objectPath]);
+    expect(await deleteExpiredPlacePhotoRowsIn(mine.db, [read.id, replacement.id], before)).toEqual([]);
+    expect((await photoRows(mine.id)).map((photo) => photo.id)).toContain(replacement.id);
+
+    // The same row, taken later since it was read (the cutoff is part of the delete): it stays.
+    const moved = await photoOf(mine, place, { location: "Skafferi", takenAt: new Date(now.getTime() - 31 * day) });
+    const updated = await adminClient().from("pantry_photo").update({ taken_at: now.toISOString() }).eq("id", moved.id);
+    if (updated.error) throw updated.error;
+    await bucket(mine.db).remove([moved.objectPath]);
+    expect(await deleteExpiredPlacePhotoRowsIn(mine.db, [moved.id], before)).toEqual([]);
+    await removeUserFiles(mine.id);
+
+    // Another user's row is never deleted, and the service role deletes nothing.
+    const othersPlace = await addSite(other.id, "Bryggan");
+    const theirs = await photoOf(other, othersPlace, { takenAt: new Date(now.getTime() - 31 * day) });
+    await bucket(other.db).remove([theirs.objectPath]);
+    expect(await deleteExpiredPlacePhotoRowsIn(mine.db, [theirs.id], before)).toEqual([]);
+    const admin = await adminClient().rpc("delete_expired_pantry_photos", { photo_ids: [theirs.id], taken_before: before.toISOString() });
+    expect(admin.data).toEqual([]);
+    expect((await photoRows(other.id)).map((photo) => photo.id)).toContain(theirs.id);
+    const anon = await anonClient().rpc("delete_expired_pantry_photos", { photo_ids: [theirs.id], taken_before: before.toISOString() });
+    expect(anon.error?.code).toBe("42501");
+  });
 });
+
+/**
+ * Sets the upload time of the file at `path` back a day, as the superuser
+ * through the Supabase CLI (storage.objects is not in the Data API).
+ */
+function backdate(path: string): void {
+  if (!/^[0-9a-f-]+\/[0-9a-f-]+\/(kyl|frys|skafferi)\/[0-9a-f-]+\.(png|jpg)$/.test(path)) throw new Error("not a photo's path");
+  execFileSync(
+    "node_modules/.bin/supabase",
+    [
+      "db",
+      "query",
+      "--local",
+      `update storage.objects set created_at = now() - interval '1 day' where bucket_id = 'pantry-photo' and name = '${path}'`,
+    ],
+    { stdio: ["ignore", "pipe", "pipe"] },
+  );
+}

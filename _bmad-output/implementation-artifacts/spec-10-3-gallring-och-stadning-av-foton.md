@@ -2,7 +2,7 @@
 title: 'Story 10.3: Gallring och städning av foton'
 type: 'feature'
 created: '2026-10-26'
-status: 'in-progress'
+status: 'done'
 baseline_commit: '4ceb250512d84a7b566f62d98d9ff0d8b7c55b49'
 route: 'dispatch'
 context:
@@ -83,7 +83,7 @@ context:
 **Execution:**
 - [x] `supabase/migrations/<tid>_pantry_photo_sweep.sql` -- `pantry_photo_orphans(min_age interval)` (`security invoker`, `stable`, högst 100 namn) med `grant execute` till `authenticated` och `service_role`. Sedan `supabase gen types` -- AD-26
 - [x] `src/features/pantry/data/photos.ts` (+ test) -- `loadExpiredPlacePhotosIn`, `loadPlacePhotoOrphansIn`, `deletePlacePhotoRowsIn` och `removePlacePhotoFiles` i omgångar om högst 100 -- AD-26
-- [ ] `src/features/pantry/server.ts` (+ test) -- `listPlacePhotos` ger `needsSweep` -- FR-39
+- [x] `src/features/pantry/server.ts` (+ test) -- `listPlacePhotos` ger `needsSweep` -- FR-39 (som `needsPlacePhotoSweep()`, se Vid bygget; slås ihop med `listPlacePhotos` när 10.2 förs samman)
 - [x] `src/features/pantry/actions/sweep-place-photos.ts` (+ test) -- `sweepPlacePhotos()`: `requireUser()`, tar bort gamla rader och deras filer och filer utan rad, `revalidateFor('pantry_photo')` bara när något togs bort. Returnerar antal. `savePlacePhoto` (10.1) anropar den efter ett lyckat sparande -- FR-39
 - [x] `src/features/pantry/ui/photo-sweep.tsx` (+ test), `src/app/(app)/hemma/home-content.tsx` -- en klientkomponent som anropar `sweepPlacePhotos` en gång när `needsSweep` är sant. Inget syns -- FR-39
 - [x] `src/features/pantry/actions/delete-pantry-site.ts` (+ test) -- läser ställets sökvägar, tar bort stället och sedan filerna. Fel med filerna loggas -- AD-20, AD-26
@@ -140,6 +140,46 @@ context:
 - **E2E:** `place-photo-sweep.spec.ts` kan inte visa att "Hemma visar bara det nya", eftersom raden Senaste foto kommer i 10.2. Testet visar i stället, med service role, att det gamla fotot (rad och fil) är borta efter visningen och att fotot från igår och ett på 29 dagar står kvar. Kontrollen av raden läggs till när 10.2 är ihopslagen. Körningen med de berörda specarna gav först 41 av 42: testet för "Töm kylen" väntade sig fel text i toasten (med två ställen står "för Hemma"). Efter rättelsen och flytten till Epic 11 (produktionsbygge, `CI=1`, under testlåset): `place-photo-sweep`, `pantry-sites`, `empty-place`, `place-photo-save`, `site-photo` och `pantry-look` 33 av 33, `place-photo-sweep` fyra gånger i rad med en arbetare 16 av 16, och hela e2e-sviten 286 av 286. Med `--repeat-each` och flera arbetare krockar kopiorna, eftersom de delar specens användare. Det beror på körningen, inte på koden.
 
 ## Review Triage Log
+
+Iteration 1. Tre granskare gick igenom `61ad66c`. Ändringen i SQL ligger i en ny migration, `20261027005600_pantry_photo_sweep_rows.sql`, körd lokalt efter en säkerhetskopia av data och med `scripts/pantry-site-check.sql` före och efter under testlåset (ingen skillnad). `pantry_photo_orphans` lästes om och ändrades inte: mappen kontrolleras mot `auth.uid()`, `created_at` är tiden för uppladdningen (en fil skrivs aldrig över), jämförelsen mot `object_path` går mot dess unika index under anroparens RLS, och bara `authenticated` och `service_role` får köra den.
+
+**Patch:**
+- Filer från användare som tagits bort utan `--prune`:
+  - Kommentaren i domänen och beslutsloggen sa att gallringen tar dem. Den når bara den inloggades egen mapp, och texterna är rättade.
+  - Varje `pnpm users:sync` tar nu bort filerna för användare som inte längre finns (`removeDeletedUsersFiles`, `removeDeletedUsersPhotos`). Den listar mapparna överst i bucketen och tömmer en mapp bara när Supabase Auth svarar att användaren inte finns. Testat med en bucket i minnet och mot Supabase.
+- `--prune`:
+  - Användaren spärras först (`ban_duration`), sedan tas fotona bort, sedan användaren, och mappen listas och töms en gång till.
+  - Misslyckas borttagningen av användaren när filerna är borta tas användarens fotorader bort, och skriptet säger det.
+  - Loopen ligger i `pruneExtraUsers` i `users-sync-plan.mjs`, som ger raderna att skriva ut och om körningen lyckades. Fel samlas, de andra användarna fortsätter, och skriptet avslutas med fel på slutet. Utdata har användarnas id, inte adresser. Testerna visar att fotona tas bort före användaren och att ett fel med fotona behåller användaren och fäller körningen.
+- Rader och filer:
+  - `removePlacePhotoFiles` ger `{ removed, failed }` med de sökvägar Storage tog bort, och kastar aldrig mitt i.
+  - Raderna tas bort med `delete_expired_pantry_photos(photo_ids, taken_before)`: bara de rader som lästes, bara om de fortfarande är tagna före gränsen, och bara när filen inte längre finns i `storage.objects`. En rad som bytts ut sedan läsningen står kvar. Det tar också hand om en rad vars fil redan var borta.
+- Ett nyss sparat foto gallras aldrig: `clampTakenAt` begränsar tiden till det senaste dygnet. Ett integrationstest sparar ett foto som sägs vara taget för 31 dagar sedan, och raden och filen står kvar.
+- Filer utan rad och uppladdningen: tidsgränsen valdes. Route Handlern har nu `maxDuration = 60`, och `authenticated` har `statement_timeout` 8 sekunder, så ett sparande tar högst 68 sekunder (`placePhotoSaveDeadlineMs`). Tio minuter är mer än fem gånger så mycket, och ett test låser båda. Varför inte en kontroll i `save_pantry_photo` beskrivs i beslutsloggen.
+- Gallring som fastnar:
+  - Tar en gallring bort färre än den valde ger den `remove_partial`, som loggas.
+  - Filer utan rad gallras också när steget med gamla foton misslyckades.
+  - `PhotoSweep` gör inte om en gallring under sessionen när den inte tog bort något, misslyckades eller inte fick svar (`sessionStorage`, inom try/catch).
+  - Ger gallringen `more` (en full omgång) anropas den igen i samma visning, högst fem gånger (`photoSweepMaxRounds`).
+- Lagersaldo väntar inte på gallringen: `needsPlacePhotoSweep` är borta ur `Promise.all` och läses i `PhotoSweepGate`, i en egen Suspense-gräns. Den läser bara om något foto är äldre än 30 dagar; sökningen efter filer utan rad görs i gallringen.
+- Ett borttaget ställe: efter `deleteSiteIn` listas mappen `<user_id>/<site_id>/` med sessionsklienten, med samma begränsade genomgång (`listPlacePhotoFilesIn`), och allt där tas bort, också när läsningen av sökvägarna misslyckades.
+- Säkerhetskopian:
+  - Datadumpen tar bara `public` och `auth` (`--schema public,auth`), så inget ur `storage` kommer med.
+  - Före krypteringen stoppar flödet om `data.sql` har `COPY storage.`, `COPY public.pantry_photo` eller `pantry-photo`, med eller utan citattecken, utan att skriva ut någon rad. Kontrollen ligger i dumpsteget, där de okrypterade filerna tas bort när steget slutar, i stället för i ett eget steg.
+  - `tests/lint/backup-workflow.test.ts` låser flaggorna och kör kontrollen med bash mot en ren dump och fem dumpar som ska stoppas. Den nya dumpen provades mot den lokala stacken: bara `public` och `auth`, `auth.users` finns, och kontrollen godkänner den.
+- Listningen i `scripts/pantry-photo-files.mjs` kräver en sidstorlek större än 0 och går högst fyra nivåer ned och genom högst 10 000 mappar. En användares mapp listas och töms i högst tre varv innan det som finns kvar är ett fel.
+- `docs/drift.md` säger att ett foto som är äldre än 30 dagar gallras nästa gång Lagersaldo öppnas eller ett foto sparas. Säkerhetskopior från före 10.1 finns inte, eftersom molnet inte är uppsatt.
+- Nya integrationstester:
+  - en fil med sin rad ges aldrig av `pantry_photo_orphans`, inte ens när den bakdaterats;
+  - 120 filer utan rad ges som 100 och sedan 20, och gallringen säger `more`;
+  - en rad som bytts ut mellan läsningen och borttagningen står kvar;
+  - en rad vars fil finns kvar står kvar;
+  - ett borttaget ställe tar också en fil utan rad i sin mapp;
+  - `users:sync` tar bort filerna för en användare som tagits bort i panelen.
+
+**Uppskjutet:** inget. `needsSweep` ligger kvar i `needsPlacePhotoSweep()` och slås ihop med `listPlacePhotos` när 10.2 förs samman.
+
+**Avvisat:** inget.
 
 ## Verification
 

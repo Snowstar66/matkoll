@@ -410,6 +410,9 @@ isOneToOne: false
               "id": string,"normalized_name": string
             }[]
                            },
+"delete_expired_pantry_photos":
+{ Args: { "photo_ids": (string)[],"taken_before": string }; Returns: string[]
+                           },
 "delete_meal_plan":
 { Args: { "plan_id": string }; Returns: boolean
                            },

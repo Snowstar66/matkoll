@@ -68,6 +68,7 @@ export {
   type PlacePhotoForm,
   type PlacePhotoMediaType,
 } from "./domain/place-photo";
+export { photoOrphanMinAgeMs, placePhotoSaveDeadlineMs } from "./domain/photo-sweep";
 export {
   analyzeResultSchema,
   pantrySuggestionSchema,

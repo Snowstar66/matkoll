@@ -37,7 +37,7 @@ Vercel-projektet skapas först men fylls med variabler i steg 9, när värdena f
 2. Anteckna `<ref>` (syns i projektets adress, `https://<ref>.supabase.co`).
 3. Om projektet erbjuder att automatiskt exponera nya tabeller i Data API kan du stänga av det, som `auto_expose_new_tables = false` lokalt. Det är inte nödvändigt: migrationerna tar själva bort standardrättigheterna och ger varje tabell sina egna (AD-4).
 4. Projektet måste ha **PostgreSQL 17 eller senare**, som lokalt (`major_version = 17` i `supabase/config.toml`). Migrationerna `catalog_name_capital` och `catalog_name_rule` (Story 10.4) använder kollationen `pg_c_utf8`, som finns från version 17, och stoppar med ett tydligt fel på en äldre version.
-5. Storage behöver inte slås på. Det ingår i gratisnivån (1 GB), och Matkoll sparar högst ett foto per plats och ställe, högst 1,5 MB och aldrig äldre än 30 dagar (Epic 10). Den privata bucketen `pantry-photo` och dess policyer skapas av `supabase db push` i steg 6, inte i panelen.
+5. Storage behöver inte slås på. Det ingår i gratisnivån (1 GB), och Matkoll sparar högst ett foto per plats och ställe, högst 1,5 MB (Epic 10). Ett foto som är äldre än 30 dagar visas aldrig, och det gallras nästa gång Lagersaldo öppnas eller ett foto sparas. Den privata bucketen `pantry-photo` och dess policyer skapas av `supabase db push` i steg 6, inte i panelen.
 
 **Kontroll:** **Project Settings → General** visar regionen `eu-north-1`, och **Project Settings → Infrastructure** visar Postgres 17 eller senare.
 
@@ -123,7 +123,16 @@ unset SUPABASE_SERVICE_ROLE_KEY
 
 Nyckeln finns under **Project Settings → API Keys → Secret keys** (`sb_secret_…`). Variablerna i terminalen går före `.env.local`, så den lokala filen ändras inte. `ALLOWED_EMAILS` ska ha samma adresser som i Vercel (steg 9). Kör om kommandot när listan ändras; `--prune` tar bort användare som inte längre står i den.
 
-Ta bara bort en användare med `pnpm users:sync --prune`. Det tar först bort användarens foton i bucketen `pantry-photo` och sedan användaren, vars rader följer med. Går fotona inte att ta bort står användaren kvar, och skriptet avslutas med ett fel. Utdata visar bara antal, aldrig sökvägar. En borttagning under **Authentication → Users** i Supabase-panelen tar bara raderna och lämnar filerna kvar i bucketen (Story 10.3).
+Ta helst bort en användare med `pnpm users:sync --prune` (Story 10.3). För varje användare som inte står i `ALLOWED_EMAILS` gör skriptet så här:
+
+1. Användaren spärras, så att ingen ny inloggning kan ladda upp ett foto medan filerna tas bort.
+2. Användarens foton i bucketen `pantry-photo` tas bort.
+3. Användaren tas bort, och raderna följer med.
+4. Användarens mapp listas en gång till, och det som finns kvar tas bort.
+
+Går fotona inte att ta bort står användaren kvar, spärrad. Går användaren inte att ta bort när filerna redan är borta tas användarens fotorader bort, så att ingen rad pekar på en fil som saknas. En användare som misslyckas stoppar inte de andra, och skriptet avslutas med ett fel på slutet. Utdata visar bara användarnas id och antal, aldrig adresser till de borttagna eller sökvägar.
+
+En borttagning under **Authentication → Users** i Supabase-panelen tar bara raderna och lämnar filerna kvar i bucketen. Appens gallring når dem inte, eftersom den körs som den inloggade användaren. Därför tar varje körning av `pnpm users:sync`, med eller utan `--prune`, också bort filerna för användare som inte längre finns. En mapp tas bara bort när Supabase Auth svarar att användaren inte finns.
 
 **Kontroll:** **Authentication → Users** visar din adress, och utdata har inga fel.
 
@@ -205,15 +214,14 @@ Att tänka på med schemalagda flöden:
 
 Kontrollerat 2026-10-26 med samma CLI-version mot den lokala stacken: `supabase db dump --dry-run`, verkliga dumpar och en återläsning i en separat, tillfällig lokal stack. Provat igen samma dag med sparade foton i databasen (Story 10.3).
 
-**Foton tas aldrig med** (AD-26, NFR-11). Filerna ligger i Storage och inte i databasen, och dumpen utesluter fotonas rader och filernas sökvägar. Efter en återställning finns inga foton. De går inte att få tillbaka, men ett nytt foto tas nästa gång Pontus fotograferar platsen, och ett foto sparas ändå bara i 30 dagar.
+**Foton tas aldrig med** (AD-26, NFR-11). Filerna ligger i Storage och inte i databasen, och dumpen utesluter fotonas rader och filernas sökvägar. Efter en återställning finns inga foton. De går inte att få tillbaka, men ett nytt foto tas nästa gång Pontus fotograferar platsen, och ett foto visas ändå bara i 30 dagar.
 
 - `schema.sql` (`supabase db dump`): det egna schemat, främst `public` med tabeller, funktioner, RLS-policyer och rättigheter. `auth`, `storage` och andra scheman som Supabase sköter tas inte med; ett nytt projekt har dem redan. Matkolls enda objekt där, bucketen `pantry-photo` och dess policyer på `storage.objects`, skapas av fotomigrationerna när schemat läses in med `supabase db push` (punkt 3 under Återställning).
-- `data.sql` (`supabase db dump --data-only`): data i alla scheman utom Supabase interna, alltså även `auth.users` och `auth.identities`, som alla rader refererar via `user_id`. `auth` behöver inte läggas till. Utelämnas gör:
-  - `storage.buckets_vectors` och `storage.vector_indexes`, eftersom rollen `postgres` inte får skriva till dem vid återläsning;
-  - fotona (Story 10.3): `public.pantry_photo` (raderna med avläsningen) och `storage.objects` med `storage.s3_multipart_uploads` och `storage.s3_multipart_uploads_parts` (filernas sökvägar). Också `storage.buckets`, eftersom fotomigrationen skapar bucketen igen; med den i `data.sql` stoppar återläsningen på att bucketen redan finns (`buckets_pkey`);
+- `data.sql` (`supabase db dump --data-only --schema public,auth`): bara data i schemana `public` och `auth`, alltså även `auth.users` och `auth.identities`, som alla rader refererar via `user_id`. Inget ur schemat `storage` tas med (Story 10.3): varken bucketen, filernas sökvägar eller uppladdningarna. Fotomigrationen skapar bucketen igen vid en återställning. Utelämnas gör också:
+  - fotonas rader, `public.pantry_photo` (med avläsningen);
   - inloggningarnas tillfälliga och känsliga data: `auth.sessions`, `auth.refresh_tokens`, `auth.mfa_amr_claims` (hör till sessionerna), `auth.one_time_tokens`, `auth.flow_state` och `auth.audit_log_entries`. De behövs inte för en återställning; efteråt loggar alla in på nytt.
 
-  Migrationshistoriken (`supabase_migrations`) ingår inte.
+  Innan något krypteras kontrollerar flödet att `data.sql` inte har någon rad ur `storage` eller `pantry_photo` och inte bucketens id `pantry-photo`. Annars stoppar körningen med ett fel, som inte visar någon rad ur dumpen. Migrationshistoriken (`supabase_migrations`) ingår inte.
 - `manifest.txt`: commiten som körningen gjordes från, CLI-versionen och de migrationer som är körda i molnet (från `supabase_migrations.schema_migrations`).
 - `counts.txt`: antal rader i `auth.users` och i varje tabell i `public` utom `pantry_photo`, från `scripts/backup-counts.sql`, räknade strax före dumpen.
 - Roller dumpas inte: Matkoll skapar inga egna roller, och Supabase standardroller finns i varje nytt projekt.

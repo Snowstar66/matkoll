@@ -19,28 +19,28 @@ const { sweepPlacePhotos } = await import("./sweep-place-photos");
 let log: ReturnType<typeof vi.spyOn>;
 beforeEach(() => {
   requireUser.mockReset().mockResolvedValue(ok({ id: "user", email: "pontus@example.com" }));
-  sweepPlacePhotosIn.mockReset().mockResolvedValue({ removed: 2, failed: null });
+  sweepPlacePhotosIn.mockReset().mockResolvedValue({ removed: 2, more: true, failed: null });
   revalidateFor.mockReset();
   log?.mockRestore();
   log = vi.spyOn(console, "error").mockImplementation(() => {});
 });
 
 describe("sweepPlacePhotos", () => {
-  it("sweeps with the session client and revalidates Hemma when something went", async () => {
-    expect(await sweepPlacePhotos()).toEqual(ok({ removed: 2 }));
+  it("sweeps with the session client and revalidates Lagersaldo when something went", async () => {
+    expect(await sweepPlacePhotos()).toEqual(ok({ removed: 2, more: true }));
     expect(sweepPlacePhotosIn).toHaveBeenCalledWith(db);
     expect(revalidateFor).toHaveBeenCalledWith("pantry_photo");
     expect(log).not.toHaveBeenCalled();
   });
 
   it("revalidates nothing when nothing went", async () => {
-    sweepPlacePhotosIn.mockResolvedValue({ removed: 0, failed: null });
-    expect(await sweepPlacePhotos()).toEqual(ok({ removed: 0 }));
+    sweepPlacePhotosIn.mockResolvedValue({ removed: 0, more: false, failed: null });
+    expect(await sweepPlacePhotos()).toEqual(ok({ removed: 0, more: false }));
     expect(revalidateFor).not.toHaveBeenCalled();
   });
 
   it("logs the reason and fails, keeping what went revalidated", async () => {
-    sweepPlacePhotosIn.mockResolvedValue({ removed: 1, failed: "remove_failed 503" });
+    sweepPlacePhotosIn.mockResolvedValue({ removed: 1, more: false, failed: "remove_failed 503" });
     expect(await sweepPlacePhotos()).toEqual(fail("pantry_photo_remove_failed"));
     expect(log).toHaveBeenCalledWith("pantry_photo_remove_failed", { reason: "remove_failed 503" });
     expect(revalidateFor).toHaveBeenCalledWith("pantry_photo");

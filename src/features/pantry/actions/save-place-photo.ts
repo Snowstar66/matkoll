@@ -64,15 +64,19 @@ function withoutMetadata(image: SavePlacePhotoInput["image"]): { data: Uint8Arra
 
 /** Removes a file this save uploaded and did not keep; a failure only leaves it for the sweep (Story 10.3). */
 async function removeNewFile(db: PantryDb, path: string): Promise<void> {
-  try {
-    await removePlacePhotoFiles(db, [path]);
-  } catch (error) {
-    console.error("pantry_photo_remove_failed", { reason: error instanceof PantryDataError ? error.detail : "unknown" });
-  }
+  await removeFile(db, path);
+}
+
+/** Removes one file; a failure is only logged, with its reason, and the file is left for the sweep (Story 10.3). */
+async function removeFile(db: PantryDb, path: string): Promise<void> {
+  const { failed } = await removePlacePhotoFiles(db, [path]);
+  if (failed !== null) console.error("pantry_photo_remove_failed", { reason: failed });
 }
 
 /**
  * The sweep after a save (Story 10.3): old photos and files without a row go.
+ * Never the photo just saved: its time is clamped to the last day
+ * (clampTakenAt), with the same `now` as the sweep's 30 days.
  * The photo is saved already, so nothing here may change the answer: a
  * failure is only logged, with its reason.
  */
@@ -194,13 +198,7 @@ export async function savePlacePhoto(
     }
     committed = true;
 
-    if (outcome.previous !== null) {
-      try {
-        await removePlacePhotoFiles(db, [outcome.previous]);
-      } catch (error) {
-        console.error("pantry_photo_remove_failed", { reason: error instanceof PantryDataError ? error.detail : "unknown" });
-      }
-    }
+    if (outcome.previous !== null) await removeFile(db, outcome.previous);
     await sweepAfterSave(db, now);
     revalidateFor("pantry_photo");
     return ok({ id });

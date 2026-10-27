@@ -24,8 +24,10 @@ vi.mock("../data/sites", () => ({
 const steps: string[] = [];
 const loadSitePhotoPathsIn = vi.fn();
 const removePlacePhotoFiles = vi.fn();
+const listPlacePhotoFilesIn = vi.fn();
 vi.mock("../data/photos", () => ({
   loadSitePhotoPathsIn: (...args: unknown[]) => (steps.push("paths"), loadSitePhotoPathsIn(...args)),
+  listPlacePhotoFilesIn: (...args: unknown[]) => (steps.push("list"), listPlacePhotoFilesIn(...args)),
   removePlacePhotoFiles: (...args: unknown[]) => (steps.push("remove"), removePlacePhotoFiles(...args)),
 }));
 
@@ -50,7 +52,8 @@ beforeEach(() => {
   deleteSiteIn.mockReset().mockImplementation(async () => (steps.push("delete"), { kind: "deleted", removed: true }));
   steps.length = 0;
   loadSitePhotoPathsIn.mockReset().mockResolvedValue([]);
-  removePlacePhotoFiles.mockReset().mockImplementation(async (_db: unknown, paths: string[]) => paths.length);
+  removePlacePhotoFiles.mockReset().mockImplementation(async (_db: unknown, paths: string[]) => ({ removed: paths, failed: null }));
+  listPlacePhotoFilesIn.mockReset().mockResolvedValue([]);
   revalidateFor.mockReset();
   log?.mockRestore();
   log = vi.spyOn(console, "error").mockImplementation(() => {});
@@ -218,18 +221,29 @@ describe("deletePantrySite", () => {
   describe("the place's photos (Story 10.3)", () => {
     const paths = [`user/${stugan}/kyl/a.jpg`, `user/${stugan}/frys/b.png`];
 
-    it("reads the paths first, deletes the place, then removes the files", async () => {
+    it("reads the paths first, deletes the place, lists its folder, then removes the files", async () => {
       loadSitePhotoPathsIn.mockResolvedValue(paths);
+      const left = `user/${stugan}/kyl/left.jpg`;
+      listPlacePhotoFilesIn.mockResolvedValue([paths[0], left]);
       expect(await deletePantrySite({ id: stugan })).toEqual(ok({ removed: true }));
-      expect(steps).toEqual(["paths", "delete", "remove"]);
+      expect(steps).toEqual(["paths", "delete", "list", "remove"]);
       expect(loadSitePhotoPathsIn).toHaveBeenCalledWith(db, stugan);
-      expect(removePlacePhotoFiles).toHaveBeenCalledWith(db, paths);
+      // The user's own folder of the place, from the session's user.
+      expect(listPlacePhotoFilesIn).toHaveBeenCalledWith(db, `user/${stugan}`);
+      expect(removePlacePhotoFiles).toHaveBeenCalledWith(db, [...paths, left]);
+    });
+
+    it("removes nothing when the place had no files", async () => {
+      expect(await deletePantrySite({ id: stugan })).toEqual(ok({ removed: true }));
+      expect(listPlacePhotoFilesIn).toHaveBeenCalled();
+      expect(removePlacePhotoFiles).not.toHaveBeenCalled();
     });
 
     it("keeps the photos of a place in use", async () => {
       loadSitePhotoPathsIn.mockResolvedValue(paths);
       deleteSiteIn.mockResolvedValue({ kind: "in_use" });
       expect(await deletePantrySite({ id: stugan })).toEqual(fail("pantry_site_in_use"));
+      expect(listPlacePhotoFilesIn).not.toHaveBeenCalled();
       expect(removePlacePhotoFiles).not.toHaveBeenCalled();
     });
 
@@ -242,18 +256,27 @@ describe("deletePantrySite", () => {
 
     it("still deletes the place when the files cannot be removed, logging only the reason", async () => {
       loadSitePhotoPathsIn.mockResolvedValue(paths);
-      removePlacePhotoFiles.mockRejectedValue(new PantryDataError("remove_failed 503"));
+      removePlacePhotoFiles.mockResolvedValue({ removed: [], failed: "remove_failed 503" });
       expect(await deletePantrySite({ id: stugan })).toEqual(ok({ removed: true }));
       expect(log).toHaveBeenCalledWith("pantry_photo_remove_failed", { reason: "remove_failed 503" });
       expect(JSON.stringify(log.mock.calls)).not.toContain(stugan);
     });
 
-    it("still deletes the place when the paths cannot be read, logging only the reason", async () => {
+    it("still lists and removes the folder's files when the paths cannot be read, logging only the reason", async () => {
       loadSitePhotoPathsIn.mockRejectedValue(new PantryDataError("query_failed 08006"));
+      listPlacePhotoFilesIn.mockResolvedValue(paths);
       expect(await deletePantrySite({ id: stugan })).toEqual(ok({ removed: true }));
       expect(deleteSiteIn).toHaveBeenCalled();
       expect(log).toHaveBeenCalledWith("pantry_photo_remove_failed", { reason: "query_failed 08006" });
-      expect(removePlacePhotoFiles).toHaveBeenCalledWith(db, []);
+      expect(removePlacePhotoFiles).toHaveBeenCalledWith(db, paths);
+    });
+
+    it("still removes the paths read when the folder cannot be listed", async () => {
+      loadSitePhotoPathsIn.mockResolvedValue(paths);
+      listPlacePhotoFilesIn.mockRejectedValue(new PantryDataError("list_failed 503"));
+      expect(await deletePantrySite({ id: stugan })).toEqual(ok({ removed: true }));
+      expect(log).toHaveBeenCalledWith("pantry_photo_remove_failed", { reason: "list_failed 503" });
+      expect(removePlacePhotoFiles).toHaveBeenCalledWith(db, paths);
     });
   });
 });

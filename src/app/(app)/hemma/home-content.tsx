@@ -1,21 +1,16 @@
+import { Suspense } from "react";
 import { Notice } from "@/components/notice";
 import { requireUserOrRedirect } from "@/features/auth/server";
 import type { Location } from "@/features/catalog";
 import { CatalogDataError } from "@/features/catalog/server";
 import type { PantryItem, SelectedSite } from "@/features/pantry";
-import {
-  countPantryItems,
-  isPantrySiteGone,
-  listPantry,
-  needsPlacePhotoSweep,
-  PantryDataError,
-} from "@/features/pantry/server";
+import { countPantryItems, isPantrySiteGone, listPantry, PantryDataError } from "@/features/pantry/server";
 import { AddSiteButton } from "@/features/pantry/ui/add-site-button";
 import { PantryCamera } from "@/features/pantry/ui/pantry-camera";
 import { PantryPlace } from "@/features/pantry/ui/pantry-place";
-import { PhotoSweep } from "@/features/pantry/ui/photo-sweep";
 import { PantrySuggestionList } from "@/features/pantry/ui/pantry-suggestion-list";
 import { errorMessages } from "@/lib/errors";
+import { PhotoSweepGate } from "./photo-sweep-gate";
 
 export type HomeContentProps = {
   /** The place Hemma shows: the selected one, as page.tsx read it (Story 8.2). */
@@ -36,21 +31,17 @@ export type HomeContentProps = {
  * the meantime says so too (`pantry_site_gone`). With one place, "Lägg till
  * ställe" is there in both cases. Other errors go to the error boundary.
  *
- * When the user has photos to sweep (Story 10.3: older than 30 days, or
- * files without a row), PhotoSweep calls the sweep once; nothing is shown.
+ * When the user has photos older than 30 days (Story 10.3), PhotoSweepGate
+ * renders PhotoSweep, which has them swept; nothing is shown. It is read in a
+ * Suspense boundary of its own, so the page never waits for it.
  */
 export async function HomeContent({ site, location, next }: HomeContentProps) {
   await requireUserOrRedirect(next);
 
   let counts: Record<Location, number>;
   let items: PantryItem[];
-  let needsSweep: boolean;
   try {
-    [counts, items, needsSweep] = await Promise.all([
-      countPantryItems(site.id),
-      listPantry(location, site.id),
-      needsPlacePhotoSweep(),
-    ]);
+    [counts, items] = await Promise.all([countPantryItems(site.id), listPantry(location, site.id)]);
   } catch (error) {
     let message: string = errorMessages.pantry_unavailable;
     if (error instanceof PantryDataError) {
@@ -75,7 +66,9 @@ export async function HomeContent({ site, location, next }: HomeContentProps) {
 
   return (
     <>
-      {needsSweep ? <PhotoSweep /> : null}
+      <Suspense fallback={null}>
+        <PhotoSweepGate />
+      </Suspense>
       <PantryPlace site={site} location={location} counts={counts} items={items} />
     </>
   );

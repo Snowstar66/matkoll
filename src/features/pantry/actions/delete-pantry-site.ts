@@ -6,7 +6,7 @@ import { fail, ok, type Result } from "@/lib/errors";
 import { revalidateFor } from "@/lib/revalidate";
 import { createClient } from "@/lib/supabase/server";
 import { PantryDataError, type PantryDb } from "../data/client";
-import { loadSitePhotoPathsIn, removePlacePhotoFiles } from "../data/photos";
+import { listPlacePhotoFilesIn, loadSitePhotoPathsIn, removePlacePhotoFiles } from "../data/photos";
 import { deleteSiteIn } from "../data/sites";
 
 const deleteSchema = z.object({ id: z.uuid() });
@@ -21,12 +21,14 @@ const deleteSchema = z.object({ id: z.uuid() });
  * again.
  *
  * The place's photos (Story 10.3, AD-20, AD-26): the cascade takes their
- * rows, not their files, so the files' paths are read first and the files
- * removed with the Storage API once the place is deleted. A place in use
- * keeps its photos. When the paths cannot be read or the files cannot be
- * removed, that is logged as `pantry_photo_remove_failed` with the reason
- * only, the place is deleted all the same, and the sweep takes the files
- * later (they have no row).
+ * rows, not their files, so the files' paths are read first, and once the
+ * place is deleted everything in its folder (`<user_id>/<site_id>`) is
+ * listed too, whether or not that read worked, and all of it is removed with
+ * the Storage API. So a file without a row there (a replaced photo whose file
+ * could not be removed) goes too. A place in use keeps its photos. When the
+ * files cannot be read or removed, that is logged as
+ * `pantry_photo_remove_failed` with the reason only, the place is deleted all
+ * the same, and the sweep takes the files later (they have no row).
  *
  * Fails with `unauthorized`, `validation`, `pantry_site_in_use` (selected,
  * with items or the last; another tab changed it meanwhile) or
@@ -44,7 +46,7 @@ export async function deletePantrySite(input: { id: string }): Promise<Result<{ 
     const outcome = await deleteSiteIn(db, parsed.data.id);
     revalidateFor("pantry_site");
     if (outcome.kind === "in_use") return fail("pantry_site_in_use");
-    await removeSitePhotos(db, photoPaths);
+    await removeSitePhotos(db, photoPaths, `${user.data.id}/${parsed.data.id}`);
     return ok({ removed: outcome.removed });
   } catch (error) {
     if (!(error instanceof PantryDataError)) throw error;
@@ -64,12 +66,20 @@ async function sitePhotoPaths(db: PantryDb, siteId: string): Promise<string[]> {
   }
 }
 
-/** Removes the deleted place's photo files; a failure is logged and left to the sweep. */
-async function removeSitePhotos(db: PantryDb, paths: readonly string[]): Promise<void> {
+/**
+ * Removes the deleted place's photo files: `paths`, read before, and every
+ * file listed under its folder now. A failure is logged and left to the sweep.
+ */
+async function removeSitePhotos(db: PantryDb, paths: readonly string[], folder: string): Promise<void> {
+  let listed: string[] = [];
   try {
-    await removePlacePhotoFiles(db, paths);
+    listed = await listPlacePhotoFilesIn(db, folder);
   } catch (error) {
     if (!(error instanceof PantryDataError)) throw error;
     console.error("pantry_photo_remove_failed", { reason: error.detail });
   }
+  const files = [...new Set([...paths, ...listed])];
+  if (files.length === 0) return;
+  const { failed } = await removePlacePhotoFiles(db, files);
+  if (failed !== null) console.error("pantry_photo_remove_failed", { reason: failed });
 }
