@@ -266,11 +266,19 @@ test("the route sends the photo privately, and the same 404 for another user's p
   expect(ownHead.status()).toBe(200);
   expect(ownHead.headers()["cache-control"]).toBe("private, no-store");
 
-  // A place of its own for the outsider, so nothing else of theirs is touched.
+  // A place of its own for the outsider, so nothing else of theirs is touched. A user with
+  // places must have exactly one selected, so it is the selected one when the outsider has
+  // none yet (a fresh database in CI); deleting it again leaves the outsider with no places.
   const name = `Foto ${randomUUID().slice(0, 8)}`;
+  const selected = await adminClient()
+    .from("pantry_site")
+    .select("id", { count: "exact", head: true })
+    .eq("user_id", outsiderId)
+    .eq("is_selected", true);
+  if (selected.error) throw selected.error;
   const outsiderSite = await adminClient()
     .from("pantry_site")
-    .insert({ user_id: outsiderId, name, normalized_name: name.toLocaleLowerCase("sv"), is_selected: false })
+    .insert({ user_id: outsiderId, name, normalized_name: name.toLocaleLowerCase("sv"), is_selected: selected.count === 0 })
     .select("id")
     .single();
   if (outsiderSite.error) throw outsiderSite.error;
