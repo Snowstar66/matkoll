@@ -6,6 +6,7 @@ import {
   loadPlacePhotoIn,
   loadPlacePhotosIn,
   photoRowExistsIn,
+  placePhotoFileExists,
   placePhotoReadingLengthIn,
   removePlacePhotoFiles,
   savePantryPhotoIn,
@@ -260,9 +261,16 @@ describe("loadPlacePhotosIn", () => {
     expect(String(select[1])).not.toContain("object_path");
   });
 
-  it("leaves out a row that is not a photo's", async () => {
-    const { db } = fakeQuery({ data: [stored, { ...stored, location: "Källare" }], error: null });
-    expect(await loadPlacePhotosIn(db, site, now)).toHaveLength(1);
+  it("leaves out a row that is not a photo's, and logs invalid_row without the row", async () => {
+    const log = vi.spyOn(console, "error").mockImplementation(() => {});
+    try {
+      const { db } = fakeQuery({ data: [stored, { ...stored, location: "Källare" }], error: null });
+      expect(await loadPlacePhotosIn(db, site, now)).toHaveLength(1);
+      expect(log).toHaveBeenCalledTimes(1);
+      expect(log).toHaveBeenCalledWith("pantry_photos_unavailable", { reason: "invalid_row" });
+    } finally {
+      log.mockRestore();
+    }
   });
 
   it("throws query_failed with the code", async () => {
@@ -287,6 +295,34 @@ describe("loadPlacePhotoIn", () => {
     await expect(
       loadPlacePhotoIn(fakeQuery({ data: { object_path: path, media_type: "image/webp" }, error: null }).db, photo, now),
     ).rejects.toThrow(new PantryDataError("invalid_row"));
+  });
+});
+
+describe("placePhotoFileExists", () => {
+  function fakeExists(exists: () => Promise<unknown>) {
+    const check = vi.fn(exists);
+    const download = vi.fn();
+    const from = vi.fn(() => ({ exists: check, download }));
+    return { db: { storage: { from } } as unknown as PantryDb, from, check, download };
+  }
+
+  it("asks the bucket pantry-photo with HEAD, never downloading", async () => {
+    const { db, from, check, download } = fakeExists(async () => ({ data: true, error: null }));
+    expect(await placePhotoFileExists(db, path)).toBe(true);
+    expect(from).toHaveBeenCalledWith("pantry-photo");
+    expect(check).toHaveBeenCalledWith(path);
+    expect(download).not.toHaveBeenCalled();
+  });
+
+  it("gives false for a missing or hidden file, and exists_threw without the path for another failure", async () => {
+    expect(await placePhotoFileExists(fakeExists(async () => ({ data: false, error: { status: 404 } })).db, path)).toBe(false);
+    const error = await placePhotoFileExists(
+      fakeExists(async () => {
+        throw new Error(`Failed for ${path}`);
+      }).db,
+      path,
+    ).catch((thrown: unknown) => thrown);
+    expect(error).toEqual(new PantryDataError("exists_threw"));
   });
 });
 

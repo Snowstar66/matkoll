@@ -166,6 +166,11 @@ describe("photoTimeText", () => {
     expect(photoTimeText(new Date("2026-07-01T10:00:00Z"), new Date("2026-07-01T20:00:00Z"))).toBe("idag 12:00");
   });
 
+  it("says idag for a photo taken after now, on a later day too (a clock that runs fast)", () => {
+    expect(photoTimeText(new Date("2026-10-26T16:05:00+01:00"), now)).toBe("idag 16:05");
+    expect(photoTimeText(new Date("2026-10-27T00:10:00+01:00"), now)).toBe("idag 00:10");
+  });
+
   it("writes midnight as 00 and every month the same way everywhere", () => {
     expect(photoTimeText(new Date("2026-03-03T00:00:00+01:00"), now)).toBe("3 mars 00:00");
     expect(photoTimeText(new Date("2026-06-15T12:00:00+02:00"), now)).toBe("15 juni 12:00");

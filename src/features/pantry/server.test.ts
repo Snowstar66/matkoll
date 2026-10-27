@@ -45,13 +45,15 @@ vi.mock("./data/queries", async (importOriginal) => ({
 const loadPlacePhotosIn = vi.fn();
 const loadPlacePhotoIn = vi.fn();
 const downloadPlacePhoto = vi.fn();
+const placePhotoFileExists = vi.fn();
 vi.mock("./data/photos", () => ({
+  placePhotoFileExists: (...args: unknown[]) => placePhotoFileExists(...args),
   loadPlacePhotosIn: (...args: unknown[]) => loadPlacePhotosIn(...args),
   loadPlacePhotoIn: (...args: unknown[]) => loadPlacePhotoIn(...args),
   downloadPlacePhoto: (...args: unknown[]) => downloadPlacePhoto(...args),
 }));
 
-const { addToPantry, getPantryForStatus, listPlacePhotos, readPlacePhotoImage } = await import("./server");
+const { addToPantry, getPantryForStatus, hasPlacePhoto, listPlacePhotos, readPlacePhotoImage } = await import("./server");
 
 const item = {
   key: "33333333-3333-4333-8333-333333333333",
@@ -195,9 +197,11 @@ describe("listPlacePhotos (Story 10.2)", () => {
     expect(log).toHaveBeenLastCalledWith("pantry_photos_unavailable", { reason: "site_gone" });
   });
 
-  it("lets a bug through", async () => {
-    loadPlacePhotosIn.mockRejectedValue(new Error("bug"));
-    await expect(listPlacePhotos(stugan)).rejects.toThrow("bug");
+  it("gives none for a bug too, logged with the error's name only, so the line never breaks Lagersaldo", async () => {
+    loadPlacePhotosIn.mockRejectedValue(new TypeError("user/site/kyl/photo.jpg"));
+    expect(await listPlacePhotos(stugan)).toEqual({ photos: [] });
+    expect(log).toHaveBeenCalledWith("pantry_photos_unavailable", { reason: "unexpected TypeError" });
+    expect(JSON.stringify(log.mock.calls)).not.toContain("photo.jpg");
   });
 });
 
@@ -225,5 +229,31 @@ describe("readPlacePhotoImage (Story 10.2)", () => {
     loadPlacePhotoIn.mockResolvedValue(file);
     downloadPlacePhoto.mockResolvedValue(null);
     expect(await readPlacePhotoImage(id)).toBeNull();
+  });
+});
+
+describe("hasPlacePhoto (Story 10.2)", () => {
+  const id = "66666666-6666-4666-8666-666666666666";
+  const file = { objectPath: "user/site/kyl/photo.jpg", mediaType: "image/jpeg" };
+
+  beforeEach(() => {
+    loadPlacePhotoIn.mockReset().mockResolvedValue(file);
+    placePhotoFileExists.mockReset().mockResolvedValue(true);
+    downloadPlacePhoto.mockReset();
+  });
+
+  it("checks the row and then the file, never downloading it", async () => {
+    expect(await hasPlacePhoto(id)).toBe(true);
+    expect(loadPlacePhotoIn).toHaveBeenCalledWith(db, id, expect.any(Date));
+    expect(placePhotoFileExists).toHaveBeenCalledWith(db, file.objectPath);
+    placePhotoFileExists.mockResolvedValue(false);
+    expect(await hasPlacePhoto(id)).toBe(false);
+    expect(downloadPlacePhoto).not.toHaveBeenCalled();
+  });
+
+  it("gives false without the row, without asking Storage", async () => {
+    loadPlacePhotoIn.mockResolvedValue(null);
+    expect(await hasPlacePhoto(id)).toBe(false);
+    expect(placePhotoFileExists).not.toHaveBeenCalled();
   });
 });

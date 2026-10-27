@@ -2,7 +2,7 @@
 title: 'Story 10.2: Visa senaste fotot i Hemma'
 type: 'feature'
 created: '2026-10-26'
-status: 'in-progress'
+status: 'done'
 baseline_commit: 'b58da786a99e0344ac5fa7e826bb2e4fb58fab0e'
 route: 'dispatch'
 context:
@@ -149,6 +149,27 @@ Storyn pausades efter det första bygget (`bb7f9f8` på `story/10-2`, aldrig gra
 - **Kontroller:** `pnpm lint`, `pnpm typecheck`, `pnpm test` (4487), `pnpm test:integration` (458) och `AI_PROVIDER=mock pnpm build`, och under testlåset de berörda e2e-specarna (`place-photo-view`, `place-photo-save`, `pantry`, `pantry-camera`, `pantry-suggestions`, `pantry-inventory`, `pantry-image-reading`, `site-photo`, `empty-place`, `pantry-sites`, `pantry-look`, `pantry-label`): 79 gick igenom, och ett test i `pantry-label` ("Ta bort and Ångra …") var instabilt när fem arbetare körde samtidigt (`pantry_restore_failed 23505`). Det rör inte fotot, och `pantry-label` och `place-photo-view` gick igenom tre gånger i rad med en arbetare.
 
 ## Review Triage Log
+
+Iteration 1. En samlad granskare gick igenom `e684743` (Pontus bad om en sparsam loop). Ingen migration.
+
+**Patch:**
+- Arket och borttagningen:
+  - "Visa" fryser fotot den öppnar (`openPhoto`). Arket, frågan och "Ta bort" använder bara dess id. Kommer ett foto med ett annat id medan arket eller frågan är öppen (ett nytt foto sparat i bakgrunden) stängs båda, så att "Ta bort" aldrig tar det nya. Blir fotot borta (`null`) står arket kvar och säger "Fotot finns inte längre.".
+  - `ok({ removed: false })` stänger arket och säger "Fotot finns inte längre." i stället för "Fotot av kylen är borttaget.".
+  - Svarar routen 404 på `HEAD` läses sidan om (`router.refresh()`), så att raden försvinner.
+  - Texten i arket när fotot inte går att visa står i en `role="status"` som är monterad från början, så att VoiceOver läser den, också när den byts till "Fotot finns inte längre.". Det gäller fotoarket under granskningen (6.6) också.
+- Routen:
+  - En egen `HEAD` kontrollerar inloggning, uuid, raden och filen (`exists`, ett `HEAD` mot Storage) utan att ladda ner filen (`hasPlacePhoto`, `placePhotoFileExists`).
+  - Alla svar har `Cache-Control: private, no-store` och `X-Content-Type-Options: nosniff`, också 401 och fel. Ett oväntat fel ger 500 utan kropp och loggas med felets namn, aldrig meddelandet.
+- Läsningen:
+  - `listPlacePhotos` fångar alla fel, också buggar, loggar bara orsaken och ger inga foton, så att raden aldrig stoppar Lagersaldo.
+  - `loadPlacePhotosIn` loggar `pantry_photos_unavailable` (orsak `invalid_row`) för en rad den hoppar över.
+- Tiden:
+  - `photoTimeText` säger "idag" för en tid efter nu (`daysAgo <= 0`), till exempel med en klocka som går före.
+  - Raden och underrubriken skriver tiden i webbläsaren efter första renderingen, från `takenAt`, och igen när sidan blir synlig (`visibilitychange`). Första renderingen har serverns text, så att den stämmer med HTML:en.
+- Nya tester: ett foto B som sparas medan A är öppet tas aldrig bort, `removed: false`, `router.refresh()` och `role="status"`, `HEAD` och huvudena i routen (enhet och e2e), tiden efter nu och vid `visibilitychange`, loggen för en ogiltig rad, och `placePhotoFileExists` mot riktig Storage (ägare, annan användare, ingen session, fil som saknas).
+
+**Kontroller:** `pnpm lint`, `pnpm typecheck`, `pnpm test`, `pnpm test:integration` och `AI_PROVIDER=mock pnpm build`, och under testlåset e2e-specarna `place-photo-view`, `place-photo-save` och `pantry-look`: alla gick igenom.
 
 ## Verification
 

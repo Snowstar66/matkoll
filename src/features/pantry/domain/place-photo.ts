@@ -232,7 +232,8 @@ export function photoTimeText(takenAt: Date, now: Date): string {
   const taken = stockholmParts(takenAt);
   const time = `${String(taken.hour).padStart(2, "0")}:${String(taken.minute).padStart(2, "0")}`;
   const daysAgo = dayNumber(stockholmParts(now)) - dayNumber(taken);
-  if (daysAgo === 0) return `idag ${time}`;
+  // A photo a little in the future (a clock that runs fast) is today too.
+  if (daysAgo <= 0) return `idag ${time}`;
   if (daysAgo === 1) return `igår ${time}`;
   return `${taken.day} ${shortMonths[taken.month - 1]} ${time}`;
 }

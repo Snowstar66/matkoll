@@ -17,7 +17,8 @@ const removePlacePhoto = vi.fn<(input: { id: string }) => Promise<Result<{ remov
 vi.mock("../actions/remove-place-photo", () => ({ removePlacePhoto: (input: { id: string }) => removePlacePhoto(input) }));
 vi.mock("@/lib/ai-client", () => ({ postAiForm: vi.fn() }));
 vi.mock("@/lib/downscale-image", () => ({ downscaleImage: vi.fn() }));
-vi.mock("next/navigation", () => ({ useRouter: () => ({ refresh: vi.fn() }) }));
+const refresh = vi.fn();
+vi.mock("next/navigation", () => ({ useRouter: () => ({ refresh }) }));
 vi.mock("../actions/set-pantry-item", () => ({ savePantryItem: vi.fn() }));
 vi.mock("../actions/search-ingredients", () => ({ searchPantryIngredients: vi.fn() }));
 vi.mock("../actions/remove-pantry-item", () => ({ removePantryItem: vi.fn() }));
@@ -42,6 +43,13 @@ const photo: ShownPlacePhoto = {
     { n: 1, x: 250, y: 500 },
     { n: 3, x: 750, y: 100 },
   ],
+};
+
+const photoB: ShownPlacePhoto = {
+  ...photo,
+  id: "77777777-7777-4777-8777-777777777777",
+  takenAt: new Date("2026-10-26T15:55:00+01:00"),
+  time: "idag 15:55",
 };
 
 function Hemma({ shown = photo, location = "Kyl" }: { shown?: ShownPlacePhoto | null; location?: Location }) {
@@ -72,12 +80,16 @@ const decode = () => {
 
 let fetchSpy: ReturnType<typeof vi.fn>;
 beforeEach(() => {
+  // Only Date: the line writes its time again in the browser, counted from this.
+  vi.useFakeTimers({ now: new Date("2026-10-26T16:00:00+01:00"), toFake: ["Date"] });
+  refresh.mockReset();
   removePlacePhoto.mockReset().mockResolvedValue(ok({ removed: true }));
   fetchSpy = vi.fn(async () => new Response(null, { status: 404 }));
   vi.stubGlobal("fetch", fetchSpy);
 });
 afterEach(() => {
   vi.unstubAllGlobals();
+  vi.useRealTimers();
 });
 
 describe("LatestPhoto", () => {
@@ -138,11 +150,18 @@ describe("LatestPhoto", () => {
   });
 
   it("says the photo is gone when the route answers 404", async () => {
-    render(<Hemma />);
+    const { rerender } = render(<Hemma />);
     fireEvent.click(visa());
     fireEvent.error(largePhoto());
     expect(await within(photoSheet()).findByText(errorMessages.pantry_photo_gone)).toBeInTheDocument();
     expect(fetchSpy).toHaveBeenCalledWith(`/api/pantry/photo/${id}`, expect.objectContaining({ method: "HEAD" }));
+    // Said by VoiceOver, and the dead line goes when the page is read again.
+    expect(within(photoSheet()).getByRole("status")).toHaveTextContent(errorMessages.pantry_photo_gone);
+    expect(refresh).toHaveBeenCalledTimes(1);
+    // Read again without the photo, the sheet stays and still says so.
+    rerender(<Hemma shown={null} />);
+    expect(within(photoSheet()).getByRole("status")).toHaveTextContent(errorMessages.pantry_photo_gone);
+    expect(line()).toBeNull();
   });
 
   it("says the photo cannot be shown when the route has it but the browser cannot show it", async () => {
@@ -154,6 +173,7 @@ describe("LatestPhoto", () => {
     await waitFor(() => expect(fetchSpy).toHaveBeenCalled());
     expect(within(photoSheet()).queryByText(errorMessages.pantry_photo_gone)).toBeNull();
     expect(markers()).toEqual([]);
+    expect(refresh).not.toHaveBeenCalled();
   });
 
   it("asks before removing, and Avbryt brings the photo back", async () => {
@@ -183,6 +203,67 @@ describe("LatestPhoto", () => {
     await waitFor(() => expect(screen.getByRole("button", { name: "Fotografera kylen" })).toHaveFocus());
   });
 
+  it("says the photo is gone, not removed, when it was gone already", async () => {
+    removePlacePhoto.mockResolvedValue(ok({ removed: false }));
+    render(<Hemma />);
+    fireEvent.click(visa());
+    fireEvent.click(within(photoSheet()).getByRole("button", { name: "Ta bort fotot" }));
+    await act(async () => {
+      fireEvent.click(within(question()).getByRole("button", { name: "Ta bort" }));
+    });
+    expect(screen.queryByRole("dialog")).toBeNull();
+    expect(line()).toBeNull();
+    expect(await screen.findByTestId("toast")).toHaveTextContent(errorMessages.pantry_photo_gone);
+    expect(screen.getByTestId("toast")).not.toHaveTextContent("borttaget");
+  });
+
+  it("closes the sheet and the question when a newer photo comes, and never removes it", async () => {
+    const { rerender } = render(<Hemma />);
+    fireEvent.click(visa());
+    // A photo saved in the background while the sheet is open: the page is read again.
+    rerender(<Hemma shown={photoB} />);
+    expect(screen.queryByRole("dialog")).toBeNull();
+    expect(line()).toHaveTextContent("Senaste foto av kylen: idag 15:55");
+
+    rerender(<Hemma />);
+    fireEvent.click(visa());
+    fireEvent.click(within(photoSheet()).getByRole("button", { name: "Ta bort fotot" }));
+    rerender(<Hemma shown={photoB} />);
+    expect(screen.queryByRole("dialog")).toBeNull();
+    expect(removePlacePhoto).not.toHaveBeenCalled();
+
+    // Opened again, the sheet shows B and removes B.
+    fireEvent.click(visa());
+    expect(largePhoto()).toHaveAttribute("src", `/api/pantry/photo/${photoB.id}`);
+    fireEvent.click(within(photoSheet()).getByRole("button", { name: "Ta bort fotot" }));
+    await act(async () => {
+      fireEvent.click(within(question()).getByRole("button", { name: "Ta bort" }));
+    });
+    expect(removePlacePhoto.mock.calls).toEqual([[{ id: photoB.id }]]);
+  });
+
+  it("removes the photo it opened, also when the same photo is read again meanwhile", async () => {
+    const { rerender } = render(<Hemma />);
+    fireEvent.click(visa());
+    fireEvent.click(within(photoSheet()).getByRole("button", { name: "Ta bort fotot" }));
+    rerender(<Hemma shown={{ ...photo }} />);
+    await act(async () => {
+      fireEvent.click(within(question()).getByRole("button", { name: "Ta bort" }));
+    });
+    expect(removePlacePhoto.mock.calls).toEqual([[{ id }]]);
+  });
+
+  it("writes the time again in the browser, and when the page becomes visible", async () => {
+    render(<Hemma />);
+    // The server's text first, as rendered on the server.
+    expect(line()).toHaveTextContent("idag 15:42");
+    vi.setSystemTime(new Date("2026-10-27T08:00:00+01:00"));
+    act(() => {
+      document.dispatchEvent(new Event("visibilitychange"));
+    });
+    await waitFor(() => expect(line()).toHaveTextContent("Senaste foto av kylen: igår 15:42"));
+  });
+
   it("keeps the photo and says so in the question when removing fails", async () => {
     removePlacePhoto.mockResolvedValue(fail("pantry_photo_remove_failed"));
     render(<Hemma />);
@@ -207,7 +288,12 @@ describe("LatestPhoto", () => {
   });
 
   it("names the location everywhere: frysen", () => {
-    render(<Hemma shown={{ ...photo, location: "Frys", time: "24 okt 15:42" }} location="Frys" />);
+    render(
+      <Hemma
+        shown={{ ...photo, location: "Frys", takenAt: new Date("2026-10-24T15:42:00+02:00"), time: "24 okt 15:42" }}
+        location="Frys"
+      />,
+    );
     expect(line()).toHaveTextContent("Senaste foto av frysen: 24 okt 15:42");
     fireEvent.click(screen.getByRole("button", { name: "Visa senaste foto av frysen" }));
     expect(screen.getByRole("dialog", { name: "Fotot av frysen" })).toBeInTheDocument();

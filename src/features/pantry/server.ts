@@ -9,7 +9,7 @@ import { createClient } from "@/lib/supabase/server";
 import { addToPantryIn, findPantryAdditionsIn, forgetPantryAdditionsIn } from "./data/add";
 import { isSiteGone, PantryDataError, siteGoneCode, siteGoneDetail } from "./data/client";
 import { insertPantryDefaults } from "./data/defaults";
-import { downloadPlacePhoto, loadPlacePhotoIn, loadPlacePhotosIn } from "./data/photos";
+import { downloadPlacePhoto, loadPlacePhotoIn, loadPlacePhotosIn, placePhotoFileExists } from "./data/photos";
 import { checkedSiteId, countPantryIn, listPantryIn, loadPantrySnapshot, zeroCounts } from "./data/queries";
 import { setPantryItemsIn, type SetPantryRow } from "./data/set";
 import { loadPantrySitesIn, loadSiteItemCountsIn } from "./data/sites";
@@ -170,16 +170,18 @@ export type PlacePhotos = { photos: PlacePhoto[] };
  * or the selected place) that was taken within the last 30 days (Story 10.2,
  * FR-38, AD-26): the rows only, never the images, for the line "Senaste
  * foto" in Lagersaldo. The photos are a help, not the page: when they cannot be
- * read (logged as `pantry_photos_unavailable`, with the reason only), there
- * are none, and Lagersaldo works without them. Memoised per request and place.
+ * read, for any reason, also a bug (logged as `pantry_photos_unavailable`,
+ * with the reason only), there are none, and Lagersaldo works without them.
+ * Memoised per request and place.
  */
 export async function listPlacePhotos(siteId?: string): Promise<PlacePhotos> {
   try {
     const place = await placeToRead(siteId);
     return { photos: place === null ? [] : await placePhotosOn(place) };
   } catch (error) {
-    if (!(error instanceof PantryDataError)) throw error;
-    console.error("pantry_photos_unavailable", { reason: error.detail });
+    // Never the message, which may hold an id or a path.
+    const reason = error instanceof PantryDataError ? error.detail : `unexpected ${error instanceof Error ? error.name : typeof error}`;
+    console.error("pantry_photos_unavailable", { reason });
     return { photos: [] };
   }
 }
@@ -201,6 +203,18 @@ export async function readPlacePhotoImage(id: string): Promise<PlacePhotoImage |
   if (!file) return null;
   const data = await downloadPlacePhoto(db, file.objectPath);
   return data ? { data, mediaType: file.mediaType } : null;
+}
+
+/**
+ * Whether the signed-in user's photo `id` (a uuid, checked by the caller)
+ * can be sent: its row, younger than 30 days, and its file, checked without
+ * downloading it. For HEAD /api/pantry/photo/[id] (Story 10.2), which the
+ * photo sheet asks when the image cannot be shown. Throws PantryDataError.
+ */
+export async function hasPlacePhoto(id: string): Promise<boolean> {
+  const db = await createClient();
+  const file = await loadPlacePhotoIn(db, id, new Date());
+  return file ? placePhotoFileExists(db, file.objectPath) : false;
 }
 
 /** The pantry a view counts its status against, and the place it is of; see getPantryForStatus. */

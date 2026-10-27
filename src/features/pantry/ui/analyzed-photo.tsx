@@ -196,9 +196,9 @@ export function AnalyzedPhotoSheet({
       subtitle={subtitle}
       closeLabel="Stäng"
     >
-      {failed ? (
-        <p className="text-body text-ink-2">{errorText}</p>
-      ) : (
+      {/* Mounted empty, so VoiceOver says the text when the photo fails, and again if it changes to "Fotot finns inte längre.". */}
+      <div role="status">{failed ? <p className="text-body text-ink-2">{errorText}</p> : null}</div>
+      {failed ? null : (
         <button
           type="button"
           aria-pressed={fullSize}

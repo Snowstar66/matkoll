@@ -187,7 +187,8 @@ export async function setPlacePhotoPointsIn(db: PantryDb, id: string, points: re
 /**
  * The user's photos of the place `siteId` taken within the last 30 days at
  * `now` (at most one per location), as Lagersaldo shows them. A row that does not
- * pass placePhotoRowSchema is left out. Throws PantryDataError
+ * pass placePhotoRowSchema is left out and logged as `pantry_photos_unavailable`
+ * (reason `invalid_row`, never the row). Throws PantryDataError
  * `query_failed <code>` or `query_threw`.
  */
 export async function loadPlacePhotosIn(db: PantryDb, siteId: string, now: Date): Promise<PlacePhoto[]> {
@@ -200,7 +201,9 @@ export async function loadPlacePhotosIn(db: PantryDb, siteId: string, now: Date)
     if (error) throw new PantryDataError(`query_failed ${error.code}`);
     return (data ?? []).flatMap((row) => {
       const parsed = placePhotoRowSchema.safeParse(row);
-      return parsed.success ? [toPlacePhoto(parsed.data)] : [];
+      if (parsed.success) return [toPlacePhoto(parsed.data)];
+      console.error("pantry_photos_unavailable", { reason: "invalid_row" });
+      return [];
     });
   });
 }
@@ -248,6 +251,21 @@ export async function downloadPlacePhoto(db: PantryDb, path: string): Promise<Bl
       throw new PantryDataError(`download_failed ${status}`);
     }
     return data;
+  });
+}
+
+/**
+ * Whether the user has a file at `path` in the bucket, read through the
+ * bucket's policies with a HEAD request, so the file is never downloaded
+ * (the route's HEAD, Story 10.2). Storage's 400 and 404 (a missing or
+ * hidden object) give `false`; any other failure throws PantryDataError
+ * `exists_threw`.
+ */
+export async function placePhotoFileExists(db: PantryDb, path: string): Promise<boolean> {
+  return guarded("exists", async () => {
+    // exists answers 400 and 404 with `false` and throws anything else, which guarded turns into exists_threw.
+    const { data } = await db.storage.from(placePhotoBucket).exists(path);
+    return data === true;
   });
 }
 

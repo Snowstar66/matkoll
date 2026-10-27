@@ -258,6 +258,10 @@ test("the route sends the photo privately, and the same 404 for another user's p
   expect(own.headers()["cache-control"]).toBe("private, no-store");
   expect(own.headers()["x-content-type-options"]).toBe("nosniff");
   expect(new Uint8Array(await own.body())).toEqual(kyl);
+  // HEAD checks without sending the file.
+  const ownHead = await page.request.head(`/api/pantry/photo/${photos.hemmaKyl.id}`);
+  expect(ownHead.status()).toBe(200);
+  expect(ownHead.headers()["cache-control"]).toBe("private, no-store");
 
   // A place of its own for the outsider, so nothing else of theirs is touched.
   const name = `Foto ${randomUUID().slice(0, 8)}`;
@@ -280,6 +284,7 @@ test("the route sends the photo privately, and the same 404 for another user's p
     const answer = await page.request.get(path);
     expect(answer.status(), path).toBe(404);
     expect((await answer.body()).length, path).toBe(0);
+    expect((await page.request.head(path)).status(), path).toBe(404);
   }
 
   // Without a session: 401, and no image.
@@ -288,6 +293,8 @@ test("the route sends the photo privately, and the same 404 for another user's p
     const answer = await anonymous.get(`/api/pantry/photo/${photos.hemmaKyl.id}`);
     expect(answer.status()).toBe(401);
     expect(answer.headers()["content-type"]).not.toMatch(/^image\//);
+    expect(answer.headers()["cache-control"]).toBe("private, no-store");
+    expect(answer.headers()["x-content-type-options"]).toBe("nosniff");
   } finally {
     await anonymous.dispose();
   }
@@ -334,4 +341,6 @@ test("a photo removed elsewhere says it is gone", async ({ page }) => {
   await visa(page).click();
   await expect(photoSheet(page).getByText("Fotot finns inte längre.")).toBeVisible();
   await expect(markers(page)).toHaveCount(0);
+  // The page is read again, so the dead line goes.
+  await expect(line(page)).toHaveCount(0);
 });

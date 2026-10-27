@@ -7,6 +7,7 @@ import {
   downloadPlacePhoto,
   loadPlacePhotoIn,
   loadPlacePhotosIn,
+  placePhotoFileExists,
   savePantryPhotoIn,
   setPlacePhotoPointsIn,
   type PantryPhotoRow,
@@ -557,6 +558,11 @@ describe("Visa senaste fotot (Story 10.2)", () => {
     expect(await downloadPlacePhoto(anonClient(), fresh.objectPath)).toBeNull();
     // A file that is gone.
     expect(await downloadPlacePhoto(owner.db, `${owner.id}/${place}/kyl/${randomUUID()}.png`)).toBeNull();
+    // The HEAD check (the route's HEAD): the owner's file is there; another user, no session or no file, not.
+    expect(await placePhotoFileExists(owner.db, fresh.objectPath)).toBe(true);
+    expect(await placePhotoFileExists(other.db, fresh.objectPath)).toBe(false);
+    expect(await placePhotoFileExists(anonClient(), fresh.objectPath)).toBe(false);
+    expect(await placePhotoFileExists(owner.db, `${owner.id}/${place}/kyl/${randomUUID()}.png`)).toBe(false);
   });
 
   it("removes the row and the file, and never another user's", async () => {
