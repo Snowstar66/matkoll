@@ -165,6 +165,10 @@ Iteration 1. Två granskare. Grenen fick först `origin/epic/11-nytt-utseende` (
 
 **Utanför storyn (noterat):**
 - I förhandsgranskningen vid 187 px går ingrediensknappen ("Matlagningsgrädde, byt ingrediens") 10 px utanför arket. Det gällde före storyn och rör inte portionsväljaren.
+- I receptvyn vid 187 px skriver en lång ingrediens över mängden ("Kokosmjölk" och "4 dl"). Ingrediensraden ändras inte i storyn.
+- Efter sammanslagningen med 11.4 (`b58da78`, ny `FixedAction`) togs skärmbilder av receptvyn vid 375 px och 187 px och med rottexten 200 %, i ljust och mörkt läge. Knappen "Lägg på matsedeln" står ovanför flikfältet och täcker inte slutet av sidan, och ingen vy scrollar i sidled.
+
+**Kontrollerna på `b58da78`** (sammanslagen): `pnpm lint`, `pnpm typecheck` och `pnpm test` (219 filer, 4 468 tester) lyckas. `pnpm test:integration` ger 455 av 455. `AI_PROVIDER=mock pnpm build` och sedan `CI=1 pnpm test:e2e` ger 293 av 293 för hela sviten. Integration och e2e kördes under `scripts/with-test-lock.sh`.
 
 ## Verification
 
