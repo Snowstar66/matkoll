@@ -2,6 +2,16 @@
 
 Beslut som fattats under bygget: vad, varför och vilka alternativ som fanns. Nyaste överst.
 
+## 2026-10-27 – Visa senaste fotot i Lagersaldo (Story 10.2)
+
+- **Byggd om på Epic 11** (`epic/11-nytt-utseende`): bygget från 26 oktober flyttades över till det nya utseendet innan det granskades. Beteendet är detsamma, bara utseendet och orden ändrades.
+- **Specens förslag godkändes som de stod** (Claude, headless enligt `docs/autonomi.md`): raden står under kameraknappen och inte på platskortet, ingen miniatyr, listan med avläsningen står under fotot, `validation` ger 404 i `GET`, och "Ta bort fotot" har en kontrollfråga utan "Ångra".
+- **Raden** "Senaste foto av kylen: idag 15:42 · Visa" (namn för skärmläsare: "Visa senaste foto av kylen") står centrerad direkt under "Fotografera kylen", som i skissen `lagersaldo.html`, också när lagret inte gick att läsa. Texten är metatext i `ink-2`, eftersom raden ligger på sidans bakgrund där `ink-3` inte når 4,5:1, och "Visa" är en textknapp i metastorlek med 44 px tryckyta. Lagersaldo läser bara fotonas rader (`listPlacePhotos`, memoiserad) för stället som visas, och tiden skrivs på servern i svensk tid. Ett läsfel ger ingen rad och loggas som `pantry_photos_unavailable` med orsaken. Bilden hämtas först vid "Visa".
+- **Fotot strömmas av `GET /api/pantry/photo/[id]`** efter `requireUserForRoute()`. Raden och filen läses med sessionsklienten, så RLS och bucketens policyer ger bara användarens egna. Svaret har radens typ, `Cache-Control: private, no-store` och `X-Content-Type-Options: nosniff`. Ett foto som inte finns, som togs för mer än 30 dagar sedan, som är någon annans, och ett id som inte är ett uuid, ger samma 404 utan kropp. Inga publika eller signerade länkar, och fotot skickas aldrig till AI:n.
+- **Arket är fotoarket från 6.6** med en egen underrubrik ("Taget idag 15:42. Numren visar vad AI:n läste av." eller "Taget idag 15:42.") och en egen alt-text ("Senaste fotot av kylen"). Under fotot står "AI:n läste av:" som sektionsetikett, som kategorierna i Lagersaldo, och avläsningen som numrerad lista med hårfina avdelare. En markör per sparad punkt, med numret i avläsningen. När bilden inte går att visa frågar arket routen en gång med `HEAD`, eftersom en `<img>` inte ser statusen: 404 ger "Fotot finns inte längre.", annars "Fotot kunde inte visas.".
+- **"Ta bort fotot" frågar först**, till skillnad från soptunnorna i Lagersaldo (11.3) som tar bort direkt med "Ångra": filen går inte att få tillbaka. Knappen ersätter arket med frågan och tar bort raden och sedan filen. Ett foto som redan är borta ger `ok`. Går raden inte att ta bort står fotot kvar och arket säger "Det gick inte att ta bort fotot. Försök igen.". Är raden borttagen men inte filen, är fotot borta för Pontus, orsaken loggas och gallringen i 10.3 tar filen, som den förra filen i 10.1. Varför: raden är det som visar fotot, och en fil utan rad går aldrig att visa.
+- **E2E:** egen användare `e2e-foto-visa@matkoll.test`. Fotona seedas med service role och ritade `kyl.png`, och en annan användares foto seedas för den användare som inte är tillåten, på ett eget ställe som tas bort efteråt.
+
 ## 2026-10-27 – Recept och Matsedel i nytt utseende (Story 11.5)
 
 - **Specens tre förslag är godkända som de står:** portionsväljaren står kvar i rättkortet, "Visa inköpslistan" har inget antal, och arket "Lägg till rätt" behåller sina kompakta rader.
@@ -116,6 +126,7 @@ Beslut som fattats under bygget: vad, varför och vilka alternativ som fanns. Ny
     - Knappar och etiketter som nämner en vara behåller katalogens skrivning ("Lägg till Palsternacka som ny", "Bekräfta Senap"), eftersom namnet där är varans namn och inte en del av en mening.
     - Exporten (`varukorgsexport v1`) hade redan stor bokstav, så formatet är oförändrat.
   - **Alternativ:** att bara göra det i domänen. Då skulle namn som skrivs förbi `commitIngredients` få liten bokstav.
+
 ## 2026-10-26 – Gallring och städning av foton (Story 10.3)
 
 Ändrat efter granskningen 2026-10-27; posten beskriver hur det är nu.

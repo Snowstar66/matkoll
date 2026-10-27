@@ -3,8 +3,14 @@ import type { ReactElement } from "react";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { ToastProvider } from "@/components/toast";
 import { CatalogDataError } from "@/features/catalog/server";
-import type { PantryItem } from "@/features/pantry";
-import { countPantryItems, listPantry, needsPlacePhotoSweep, PantryDataError } from "@/features/pantry/server";
+import type { PantryItem, PlacePhoto } from "@/features/pantry";
+import {
+  countPantryItems,
+  listPantry,
+  listPlacePhotos,
+  needsPlacePhotoSweep,
+  PantryDataError,
+} from "@/features/pantry/server";
 import { PantrySheetProvider } from "@/features/pantry/ui/pantry-item-sheet";
 import { PantrySuggestionsProvider } from "@/features/pantry/ui/pantry-suggestions";
 import { SiteSwitch, SiteSwitchProvider } from "@/features/pantry/ui/site-switch";
@@ -18,7 +24,9 @@ vi.mock("@/features/pantry/server", async (importOriginal) => ({
   countPantryItems: vi.fn(),
   listPantry: vi.fn(),
   needsPlacePhotoSweep: vi.fn(async () => false),
+  listPlacePhotos: vi.fn(async () => ({ photos: [] })),
 }));
+vi.mock("@/features/pantry/actions/remove-place-photo", () => ({ removePlacePhoto: vi.fn() }));
 
 vi.mock("@/features/pantry/actions/set-pantry-item", () => ({ savePantryItem: vi.fn() }));
 vi.mock("@/features/pantry/actions/search-ingredients", () => ({ searchPantryIngredients: vi.fn() }));
@@ -227,5 +235,55 @@ describe("HomeContent", () => {
     vi.mocked(countPantryItems).mockRejectedValue(new Error("boom"));
     vi.mocked(listPantry).mockResolvedValue([]);
     await expect(HomeContent({ site, location: "Kyl", next: "/hemma" })).rejects.toThrow("boom");
+  });
+});
+
+describe("HomeContent: Senaste foto (Story 10.2)", () => {
+  const photo = (location: "Kyl" | "Frys", takenAt: Date): PlacePhoto => ({
+    id: location === "Kyl" ? "66666666-6666-4666-8666-666666666666" : "77777777-7777-4777-8777-777777777777",
+    location,
+    takenAt,
+    width: 720,
+    height: 900,
+    reading: ["Mellanmjölk"],
+    points: null,
+  });
+
+  beforeEach(() => {
+    vi.useFakeTimers({ toFake: ["Date"] });
+    vi.setSystemTime(new Date("2026-10-26T16:00:00+01:00"));
+  });
+  afterEach(() => vi.useRealTimers());
+
+  it("reads the place's photos and shows the chosen location's line right under the camera button", async () => {
+    vi.mocked(countPantryItems).mockResolvedValue({ Kyl: 1, Frys: 0, Skafferi: 0 });
+    vi.mocked(listPantry).mockResolvedValue([mjolk]);
+    vi.mocked(listPlacePhotos).mockResolvedValue({
+      photos: [photo("Frys", new Date("2026-10-25T09:10:00+02:00")), photo("Kyl", new Date("2026-10-26T15:42:00+01:00"))],
+    });
+    render(await HomeContent({ site, location: "Kyl", next: "/hemma" }));
+    expect(listPlacePhotos).toHaveBeenCalledWith(site.id);
+    const line = screen.getByTestId("pantry-latest-photo");
+    expect(line).toHaveTextContent("Senaste foto av kylen: idag 15:42");
+    expect(within(line).getByRole("button", { name: "Visa senaste foto av kylen" })).toBeInTheDocument();
+    // Directly after the camera area.
+    expect(screen.getByTestId("pantry-camera").nextElementSibling).toBe(line);
+  });
+
+  it("has no line for a location without a photo", async () => {
+    vi.mocked(countPantryItems).mockResolvedValue({ Kyl: 1, Frys: 0, Skafferi: 0 });
+    vi.mocked(listPantry).mockResolvedValue([]);
+    vi.mocked(listPlacePhotos).mockResolvedValue({ photos: [photo("Kyl", new Date("2026-10-26T15:42:00+01:00"))] });
+    render(await HomeContent({ site, location: "Frys", next: "/hemma" }));
+    expect(screen.queryByTestId("pantry-latest-photo")).toBeNull();
+  });
+
+  it("keeps the line under the camera button when the pantry cannot be read", async () => {
+    vi.mocked(countPantryItems).mockRejectedValue(new PantryDataError("query_failed"));
+    vi.mocked(listPantry).mockResolvedValue([]);
+    vi.mocked(listPlacePhotos).mockResolvedValue({ photos: [photo("Kyl", new Date("2026-10-25T09:10:00+01:00"))] });
+    render(await HomeContent({ site, location: "Kyl", next: "/hemma" }));
+    expect(screen.getByText(unavailable)).toBeInTheDocument();
+    expect(screen.getByTestId("pantry-latest-photo")).toHaveTextContent("Senaste foto av kylen: igår 09:10");
   });
 });

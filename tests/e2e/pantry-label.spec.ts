@@ -1,4 +1,4 @@
-import { expect, type Page, type Response, test } from "@playwright/test";
+import { expect, type Page, test } from "@playwright/test";
 import { adminClient, e2eUserId, labelEmail, labelStorageState } from "./support";
 
 // Story 11.2 (FR-42): the brand or kind of a pantry item and the time it was
@@ -76,18 +76,6 @@ async function photographFridge(page: Page) {
   await expect(cards(page)).toHaveCount(6);
 }
 
-/** Waits for the answers to the Server Action calls `action` makes. */
-async function andWait(page: Page, action: () => Promise<void>) {
-  let answered = 0;
-  const count = (response: Response) => {
-    if (response.request().method() === "POST" && "next-action" in response.request().headers()) answered += 1;
-  };
-  page.on("response", count);
-  await action();
-  await expect.poll(() => answered).toBeGreaterThanOrEqual(1);
-  page.off("response", count);
-}
-
 test("a confirmed suggestion keeps its first label, which the sheet shows and Pontus can change and remove", async ({ page }) => {
   const errors = watchErrors(page);
   await photographFridge(page);
@@ -152,8 +140,10 @@ test("Ta bort and Ångra put the item back with the same id, label and time", as
   await expect(rows(page)).toHaveCount(0);
   await expect.poll(async () => (await saved(/^mjölk$/i)).length).toBe(0);
 
-  await andWait(page, () => toast(page).getByRole("button", { name: "Ångra" }).click());
+  await toast(page).getByRole("button", { name: "Ångra" }).click();
   await expect(rows(page).filter({ hasText: /mjölk/i })).toHaveCount(1);
+  // The list shows the row before the server has it back, so the test waits for the row itself.
+  await expect.poll(async () => (await saved(/^mjölk$/i)).length).toBe(1);
   const [restored] = await saved(/^mjölk$/i);
   expect(restored).toMatchObject({ id: inserted.data.id, label: "Arla", amount: 1 });
   expect(new Date(restored.created_at).getTime()).toBe(new Date(inserted.data.created_at).getTime());

@@ -65,6 +65,12 @@ export {
   maxPlacePhotoBodyBytes,
   maxPlacePhotoJsonChars,
   placePhotoMediaTypes,
+  placePhotoMaxAgeMs,
+  photoTimeText,
+  latestPhotoText,
+  removedPhotoText,
+  removePhotoQuestion,
+  type PlacePhoto,
   type PlacePhotoForm,
   type PlacePhotoMediaType,
 } from "./domain/place-photo";

@@ -190,6 +190,12 @@ export const pantryLookEmail = "e2e-utseende-lager@matkoll.test";
  */
 export const photoSweepEmail = "e2e-foto-gallra@matkoll.test";
 /**
+ * The E2E user of place-photo-view.spec.ts alone (Story 10.2): each test
+ * seeds its places and photos (rows and drawn files) with the service role,
+ * so what Hemma shows depends on nothing else.
+ */
+export const photoViewEmail = "e2e-foto-visa@matkoll.test";
+/**
  * The E2E user of core-flow.spec.ts alone (Story 3.8): it signs in itself
  * through /logga-in and the link in Mailpit, so it has no storage state.
  */
@@ -233,6 +239,7 @@ export const e2eEmails = [
   shoppingLookEmail,
   pantryLookEmail,
   photoSweepEmail,
+  photoViewEmail,
   coreFlowEmail,
   appInstallEmail,
 ] as const;
@@ -270,6 +277,7 @@ export const recipesLookStorageState = "tests/e2e/.auth/recipes-look.json";
 export const shoppingLookStorageState = "tests/e2e/.auth/shopping-look.json";
 export const pantryLookStorageState = "tests/e2e/.auth/pantry-look.json";
 export const photoSweepStorageState = "tests/e2e/.auth/photo-sweep.json";
+export const photoViewStorageState = "tests/e2e/.auth/photo-view.json";
 export const outsiderStorageState = "tests/e2e/.auth/outsider.json";
 
 export const mailpitUrl = "http://127.0.0.1:54324";
