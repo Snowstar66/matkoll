@@ -17,6 +17,7 @@ import { restorePlanRecipe } from "../actions/restore-plan-recipe";
 import { setServings } from "../actions/set-servings";
 import {
   comparePlanRecipes,
+  dishMetaText,
   dishProgress,
   dishStatus,
   maxServings,
@@ -374,19 +375,19 @@ type DishCardProps = {
 
 /**
  * Rättkort (Epic 11, DESIGN.md dish-card): the recipe's image on
- * `dish-thumb`, its title (a link to the recipe), how much is at home for the
- * chosen servings ("6 av 8 hemma" or "Allt finns hemma") with a small meter
- * hidden from screen readers, then the portion selector and "Ta bort". Without
- * a pantry the line under the title is the time, as before. A dish whose
- * recipe is gone keeps its title, says "Borttaget recept" and has no meter;
- * one whose recipe could not be read shows its stored title only.
+ * `dish-thumb`, its title (a link to the recipe), the time and how much is
+ * at home for the chosen servings ("35 min · 6 av 8 hemma" or "35 min ·
+ * Allt finns hemma") with a small meter hidden from screen readers, then the
+ * portion selector and "Ta bort". Without a pantry, or a catalog ingredient
+ * to count, the line is the time alone and there is no meter. A dish whose
+ * recipe is gone keeps its title and says "Borttaget recept"; one whose
+ * recipe could not be read shows its stored title only.
  */
 function DishCard({ dish, servings, snapshot, onServingsChange, onRemove }: DishCardProps) {
   const { recipe, recipeTitle: title } = dish;
   const status = dishStatus(recipe, servings, snapshot);
   const progress = status ? dishProgress(status) : null;
-  // Without a recipe id the recipe is deleted; with one but no recipe it could not be read.
-  const meta = recipe?.totalMinutes ? `${recipe.totalMinutes} min` : dish.recipeId ? null : "Borttaget recept";
+  const meta = dishMetaText(dish.recipeId, recipe?.totalMinutes, progress);
   return (
     <li data-testid="plan-dish" data-dish={dish.id}>
       <SwipeRow
@@ -416,16 +417,12 @@ function DishCard({ dish, servings, snapshot, onServingsChange, onRemove }: Dish
               ) : (
                 <p className="text-row-title break-words text-ink">{title}</p>
               )}
-              {progress ? (
-                <>
-                  <p data-testid="dish-progress" className="text-meta break-words text-ink-2">
-                    {progress.text}
-                  </p>
-                  <Meter value={progress.value} size="small" className="mt-1" />
-                </>
-              ) : meta ? (
-                <p className="text-meta text-ink-3">{meta}</p>
+              {meta ? (
+                <p data-testid="dish-meta" className="text-meta break-words text-ink-2">
+                  {meta}
+                </p>
               ) : null}
+              {progress ? <Meter value={progress.value} size="small" className="mt-1" /> : null}
             </div>
           </div>
           <div className="flex flex-wrap items-center justify-between gap-x-3 gap-y-1">

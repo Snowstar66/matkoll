@@ -109,7 +109,7 @@ describe("MealPlanContent", () => {
         Node.DOCUMENT_POSITION_FOLLOWING,
     ).toBeTruthy();
     expect(siteLine.compareDocumentPosition(screen.getByTestId("plan-name")) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
-    expect(within(screen.getByTestId("plan-dish")).getByText("1 av 2 hemma")).toBeInTheDocument();
+    expect(within(screen.getByTestId("plan-dish")).getByTestId("dish-meta")).toHaveTextContent("15 min · 1 av 2 hemma");
   });
 
   it("has no line above dishes without a status: their recipes deleted or not read", async () => {

@@ -10,6 +10,7 @@ export {
   toPlanDishes,
   dishStatus,
   dishProgress,
+  dishMetaText,
   allAtHomeText,
   isoWeek,
   isoWeekName,

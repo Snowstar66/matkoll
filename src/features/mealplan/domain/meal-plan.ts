@@ -125,16 +125,39 @@ export type DishProgress = {
 export const allAtHomeText = "Allt finns hemma";
 
 /**
- * The dish card's line and meter (Epic 11, FR-13, AD-7): "6 av 8 hemma"
- * (atHomeSummaryText) with the meter at 0.75, or "Allt finns hemma" with a
- * full meter when every catalog ingredient is covered for the chosen
- * servings, and when the recipe has none to count.
+ * The dish card's line and meter (Epic 11, FR-13, AD-7): "Allt finns
+ * hemma" with a full meter when nothing is missing for the chosen servings
+ * (`missingCount` 0, the same as "Kan lagas nu" in the library, so Recept and
+ * Matsedel never disagree), else "6 av 8 hemma" (atHomeSummaryText) with
+ * the meter at 0.75. `null` when the recipe has no catalog ingredient to
+ * count, or the counts are not numbers: the card then shows the time only,
+ * without a meter.
  */
-export function dishProgress(status: Pick<RecipeStatus, "atHomeCount" | "ingredientCount">): DishProgress {
-  const { atHomeCount, ingredientCount } = status;
-  if (ingredientCount <= 0 || atHomeCount >= ingredientCount) return { text: allAtHomeText, value: 1 };
-  const atHome = Math.max(0, atHomeCount);
+export function dishProgress(
+  status: Pick<RecipeStatus, "missingCount" | "atHomeCount" | "ingredientCount">,
+): DishProgress | null {
+  const { missingCount, atHomeCount, ingredientCount } = status;
+  if (!Number.isFinite(ingredientCount) || ingredientCount < 1) return null;
+  if (missingCount === 0) return { text: allAtHomeText, value: 1 };
+  // Something is missing, so never "8 av 8 hemma" with a full meter.
+  const atHome = Number.isFinite(atHomeCount) ? Math.min(ingredientCount - 1, Math.max(0, Math.floor(atHomeCount))) : 0;
   return { text: atHomeSummaryText(atHome, ingredientCount), value: atHome / ingredientCount };
+}
+
+/**
+ * The line under a dish card's title: the time and what is at home, "35 min
+ * · 6 av 8 hemma", or either alone; "Borttaget recept" for a deleted recipe;
+ * `null` when there is nothing to say.
+ */
+export function dishMetaText(
+  recipeId: string | null,
+  totalMinutes: number | null | undefined,
+  progress: DishProgress | null,
+): string | null {
+  if (!recipeId) return "Borttaget recept";
+  const time = totalMinutes && Number.isFinite(totalMinutes) && totalMinutes > 0 ? `${totalMinutes} min` : null;
+  const parts = [time, progress?.text ?? null].filter((part): part is string => part !== null);
+  return parts.length > 0 ? parts.join(" · ") : null;
 }
 
 /** The time zone the week is counted in: Pontus's. */

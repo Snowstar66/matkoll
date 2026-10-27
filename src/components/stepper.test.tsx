@@ -2,7 +2,7 @@ import { render, screen } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { useState } from "react";
 import { describe, expect, it, vi } from "vitest";
-import { Stepper } from "./stepper";
+import { Stepper, stepperNumber } from "./stepper";
 
 function Harness({ start }: { start: number }) {
   const [value, setValue] = useState(start);
@@ -70,5 +70,33 @@ describe("Stepper", () => {
     expect(screen.getByText("10 portioner")).toBeInTheDocument();
     await user.click(screen.getByRole("button", { name: "Färre portioner" }));
     expect(onChange).toHaveBeenLastCalledWith(9);
+  });
+
+  it("has a fixed width, never wider than its container, and buttons that never shrink", () => {
+    render(<Stepper value={4} onChange={vi.fn()} />);
+    expect(screen.getByTestId("stepper")).toHaveClass("@container", "w-[11.5rem]", "max-w-full");
+    for (const name of ["Färre portioner", "Fler portioner"]) {
+      expect(screen.getByRole("button", { name })).toHaveClass("size-tap", "shrink-0");
+    }
+  });
+
+  it("says the whole value in the output, and shows only the number when narrow, never breaking a word", () => {
+    render(<Stepper value={4} onChange={vi.fn()} />);
+    const output = screen.getByText("4 portioner");
+    expect(output.tagName).toBe("OUTPUT");
+    expect(output).toHaveAttribute("aria-live", "polite");
+    expect(output).toHaveClass("sr-only", "@[11rem]:not-sr-only", "break-normal");
+    const number = screen.getByText("4");
+    expect(number).toHaveAttribute("aria-hidden", "true");
+    expect(number).toHaveClass("@[11rem]:hidden");
+  });
+
+  it.each([
+    ["4 portioner", "4"],
+    ["1 portion", "1"],
+    ["12 st", "12"],
+    ["7", "7"],
+  ])("stepperNumber(%s) is %s", (text, number) => {
+    expect(stepperNumber(text)).toBe(number);
   });
 });

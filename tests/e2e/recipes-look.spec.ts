@@ -6,8 +6,8 @@ import { adminClient, e2eUserId, recipesLookEmail, recipesLookStorageState } fro
 // cards (the image on top, the status bottom left and the heart bottom right
 // on the light plate, the title and "35 min · 4 portioner" under it; two
 // columns from 1024 px), and Matsedel shows dish cards (a 56 px image, the
-// title, "6 av 8 hemma" and a meter, the portion selector under it) with
-// "Visa inköpslistan" at the bottom. The spec has an E2E user of its own
+// title, "35 min · 6 av 8 hemma" and a meter, the portion selector under it)
+// with "Visa inköpslistan" at the bottom. The spec has an E2E user of its own
 // (recipesLookEmail). Before each test the meal plan, the pantry and the
 // recipes are emptied and made again with the service role:
 //
@@ -15,7 +15,8 @@ import { adminClient, e2eUserId, recipesLookEmail, recipesLookStorageState } fro
 // - Kycklinggryta, 35 min, a favourite: eight ingredients, six at home
 //   (kycklingfilé and kokosmjölk are not), so "Saknar 2 varor" and "6 av 8
 //   hemma". 1 msk curry at home is just enough for 4 portions, not for 5.
-// - Fiskgratäng, whose image answers 404, and Pannkakor without an image.
+// - Fiskgratäng, whose image answers 404, and Pannkakor (with a long title,
+//   which must never be cut short) without an image.
 //
 // The meal plan has Kycklinggryta and Korv stroganoff, 4 portions each. The
 // images come from a made-up recipe site that the browser's route answers.
@@ -25,7 +26,7 @@ const desktop = { width: 1280, height: 900 };
 const korv = "Korv stroganoff";
 const gryta = "Kycklinggryta";
 const fisk = "Fiskgratäng";
-const pannkakor = "Pannkakor";
+const pannkakor = "Pannkakor med lingonsylt, vispad grädde och rostade mandelflingor";
 const imageSite = "https://bilder.matkoll.test";
 
 test.use({ storageState: recipesLookStorageState, viewport: mobile });
@@ -103,8 +104,20 @@ async function seedRecipe({ title, minutes, createdAt, imageUrl, isFavorite = fa
 test.beforeEach(async () => {
   userId = await e2eUserId(recipesLookEmail);
   const admin = adminClient();
-  // Children before parents, so nothing relies on the cascades.
-  for (const table of ["meal_plan", "pantry_item", "recipe_ingredient", "recipe_step", "recipe"] as const) {
+  // Children before parents, so nothing relies on the cascades: the meal plan's
+  // dishes and the shopping list's rows before the plan, the lines before the recipes.
+  const tables = [
+    "shopping_check",
+    "shopping_custom_item",
+    "shopping_line_override",
+    "meal_plan_recipe",
+    "meal_plan",
+    "pantry_item",
+    "recipe_ingredient",
+    "recipe_step",
+    "recipe",
+  ] as const;
+  for (const table of tables) {
     const { error } = await admin.from(table).delete().eq("user_id", userId);
     if (error) throw error;
   }
@@ -335,7 +348,7 @@ test("Matsedel shows dish cards with what is at home, a meter and the portion se
   await serveImages(page);
   await page.goto("/matsedel");
   const grytaDish = dish(page, gryta);
-  await expect(grytaDish.getByText("6 av 8 hemma", { exact: true })).toBeVisible();
+  await expect(grytaDish.getByTestId("dish-meta")).toHaveText("35 min · 6 av 8 hemma");
   await expect(grytaDish.getByText("4 portioner", { exact: true })).toBeVisible();
   const meter = grytaDish.getByTestId("meter");
   await expect(meter).toHaveAttribute("aria-hidden", "true");
@@ -345,7 +358,7 @@ test("Matsedel shows dish cards with what is at home, a meter and the portion se
   expect(thumb.height).toBe(56);
 
   const korvDish = dish(page, korv);
-  await expect(korvDish.getByText("Allt finns hemma", { exact: true })).toBeVisible();
+  await expect(korvDish.getByTestId("dish-meta")).toHaveText("15 min · Allt finns hemma");
   await expect(korvDish.getByTestId("meter").locator("div")).toHaveAttribute("style", /width: ?100%/);
 
   // 1 msk curry is not enough for 5 portions: 5 of 8 at home, and the meter follows.
@@ -353,7 +366,7 @@ test("Matsedel shows dish cards with what is at home, a meter and the portion se
   await grytaDish.getByRole("button", { name: `Fler portioner, ${gryta}` }).click();
   await answered;
   await expect(grytaDish.getByText("5 portioner", { exact: true })).toBeVisible();
-  await expect(grytaDish.getByText("5 av 8 hemma", { exact: true })).toBeVisible();
+  await expect(grytaDish.getByTestId("dish-meta")).toHaveText("35 min · 5 av 8 hemma");
   await expect(meter.locator("div")).toHaveAttribute("style", /width: ?62\.5%/);
   await expectNoHorizontalScroll(page);
   expect(errors).toEqual([]);
@@ -395,8 +408,103 @@ test.describe("with large text", () => {
     }
     await expectNoHorizontalScroll(page);
 
+    // The long title is shown in full, wrapped, never cut short.
+    const long = card(page, pannkakor).getByRole("link", { name: pannkakor });
+    await expect(long).toHaveText(pannkakor);
+    expect(await long.evaluate((el) => el.scrollHeight <= el.clientHeight + 1 && el.scrollWidth <= el.clientWidth + 1)).toBe(
+      true,
+    );
+    expect((await box(long)).height).toBeGreaterThan(60);
+
     await page.goto("/matsedel");
-    await expect(dish(page, gryta).getByText("6 av 8 hemma", { exact: true })).toBeVisible();
+    await expect(dish(page, gryta).getByTestId("dish-meta")).toHaveText("35 min · 6 av 8 hemma");
+    await expectStepperFits(page, dish(page, gryta), gryta);
     await expectNoHorizontalScroll(page);
   });
+
+  test("the recipe view's portion selector fits, with the number alone and 44 px buttons", async ({ page }) => {
+    await serveImages(page);
+    await page.goto(`/recept/${recipeIds[gryta]}`);
+    await expect(page.getByRole("heading", { level: 1, name: gryta })).toBeVisible();
+    await expectStepperFits(page, page.getByRole("main"));
+    await expectNoHorizontalScroll(page);
+  });
+});
+
+/**
+ * The portion selector in `scope` fits its place: − and + are 44 × 44 px and
+ * inside the viewport, and only the number shows (the whole value is read out).
+ */
+async function expectStepperFits(page: Page, scope: Locator, title?: string) {
+  const suffix = title ? `, ${title}` : "";
+  const fewer = scope.getByRole("button", { name: `Färre portioner${suffix}` }).first();
+  const more = scope.getByRole("button", { name: `Fler portioner${suffix}` }).first();
+  const viewport = page.viewportSize()!;
+  for (const button of [fewer, more]) {
+    const found = await box(button);
+    expect(found.width).toBeGreaterThanOrEqual(44);
+    expect(found.height).toBeGreaterThanOrEqual(44);
+    expect(found.x + found.width).toBeLessThanOrEqual(viewport.width);
+  }
+  const stepper = scope.getByTestId("stepper").first();
+  await expect(stepper.locator("span[aria-hidden=true]")).toBeVisible();
+  await expect(stepper.locator("output")).toHaveText(/\d+ portion(er)?/);
+}
+
+test.describe("with the root text at 200 %", () => {
+  test("the badge stays on the image, clear of the heart", async ({ page }) => {
+    await serveImages(page);
+    await page.goto("/recept");
+    await page.addStyleTag({ content: "html { font-size: 200%; }" });
+    const grytaCard = card(page, gryta);
+    const imageBox = await box(grytaCard.locator("img"));
+    const heartBox = await box(heart(grytaCard, gryta));
+    const plate = await box(grytaCard.locator(".text-badge"));
+    expect(plate.x).toBeGreaterThanOrEqual(imageBox.x);
+    expect(plate.x + plate.width).toBeLessThanOrEqual(heartBox.x);
+    expect(plate.y).toBeGreaterThanOrEqual(imageBox.y);
+    expect(plate.y + plate.height).toBeLessThanOrEqual(imageBox.y + imageBox.height + 0.5);
+    await expectNoHorizontalScroll(page);
+  });
+});
+
+test.describe("on a small phone", () => {
+  test.use({ viewport: { width: 320, height: 640 } });
+
+  test("+ stands still while the portions change", async ({ page }) => {
+    await serveImages(page);
+    await page.goto("/matsedel");
+    const grytaDish = dish(page, gryta);
+    const more = grytaDish.getByRole("button", { name: `Fler portioner, ${gryta}` });
+    const positions = [(await box(more)).x];
+    for (const servings of [5, 6]) {
+      const answered = actionAnswer(page);
+      await more.click();
+      await answered;
+      await expect(grytaDish.getByText(`${servings} portioner`, { exact: true })).toBeAttached();
+      positions.push((await box(more)).x);
+    }
+    expect(new Set(positions).size).toBe(1);
+    await expectNoHorizontalScroll(page);
+  });
+});
+
+test("a long page title keeps the header's actions beside it at 375 px", async ({ page }) => {
+  await serveImages(page);
+  await page.goto("/matsedel");
+  const header = page.locator("header").filter({ visible: true });
+  const title = header.getByRole("heading", { level: 1 });
+  const previous = header.getByRole("link", { name: "Tidigare" });
+  for (const text of ["Matsedel", "Matsedel för hela veckan med släkten"]) {
+    await title.evaluate((el, value) => (el.textContent = value), text);
+    const titleBox = await box(title);
+    const actionBox = await box(previous);
+    // On the title's row (aligned to its last line), to its right; a wrapped
+    // row would put the link's middle below the title.
+    const middle = actionBox.y + actionBox.height / 2;
+    expect(middle).toBeGreaterThan(titleBox.y);
+    expect(middle).toBeLessThan(titleBox.y + titleBox.height);
+    expect(actionBox.x).toBeGreaterThan(titleBox.x + titleBox.width - 1);
+  }
+  await expectNoHorizontalScroll(page);
 });

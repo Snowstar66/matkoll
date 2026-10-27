@@ -84,7 +84,11 @@ const gryta: DishSuggestion = {
   ]),
   ingredientNames: { [lokId]: "Gul lök", [graddeId]: "Grädde" },
 };
-const pasta: DishSuggestion = { draft: draft("Krämig pasta", [fresh("400 g pasta", "pasta")], 20), ingredientNames: {} };
+// An image address from the model, which a card must never load.
+const pasta: DishSuggestion = {
+  draft: { ...draft("Krämig pasta", [fresh("400 g pasta", "pasta")], 20), imageUrl: "https://www.koket.se/fran-modellen.jpg" },
+  ingredientNames: {},
+};
 const omelett: DishSuggestion = { draft: draft("Ugnsomelett", [fresh("6 ägg", "ägg")], null), ingredientNames: {} };
 const three = { suggestions: [gryta, pasta, omelett] };
 
@@ -161,9 +165,15 @@ describe("AiSuggestions", () => {
     expect(first.getByRole("heading", { level: 3, name: "Kycklinggryta" })).toBeInTheDocument();
     expect(first.getByText("35 min · 4 portioner")).toBeInTheDocument();
     expect(first.getByText("AI-förslag")).toHaveClass("bg-sand", "text-sand-ink");
-    // A recipe card: the mint placeholder on top with the AI label on it, and no heart.
-    expect(first.getByTestId("recipe-image-placeholder").parentElement).toHaveClass("h-card-image");
+    // A recipe card: a short mint strip on top with the AI label on it, and no heart.
+    expect(first.getByTestId("recipe-image-placeholder").parentElement).toHaveClass("h-16");
     expect(first.queryByRole("button", { name: /Favorit/ })).not.toBeInTheDocument();
+    // The label is read before "Spara", and no card loads an address from the model.
+    expect(
+      first.getByText("AI-förslag").compareDocumentPosition(first.getByRole("button", { name: "Spara Kycklinggryta" })) &
+        Node.DOCUMENT_POSITION_FOLLOWING,
+    ).toBeTruthy();
+    expect(section().querySelector("img")).toBeNull();
     // The catalog's name for a linked line, the AI's otherwise; at most five, each once.
     expect(first.getByText("Med: gul lök, kycklingfilé, grädde, krossade tomater, ris")).toBeInTheDocument();
     expect(first.getByRole("button", { name: "Spara Kycklinggryta" })).toHaveTextContent("Spara");

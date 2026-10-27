@@ -1,7 +1,7 @@
 "use client";
 
 import { useRouter } from "next/navigation";
-import { createContext, type ReactNode, useContext, useId, useRef, useState } from "react";
+import { createContext, type MouseEvent, type ReactNode, useContext, useId, useRef, useState } from "react";
 import { StatusBadge } from "@/components/badges";
 import { Button } from "@/components/button";
 import { cx } from "@/components/cx";
@@ -284,10 +284,16 @@ export function AddDishProvider({ recipes, searchRecipes, children }: AddDishPro
 
 /**
  * Opens Lägg till rätt: the round "+" for the page header, or a primary
- * button (`fullWidth` under the dishes).
+ * button (`fullWidth` under the dishes). The button takes focus first, since
+ * Safari does not focus a tapped button: the sheet gives focus back to what
+ * had it when it opened, so it returns to the button that opened it.
  */
 export function AddDishButton({ variant, fullWidth = false }: { variant: "icon" | "primary"; fullWidth?: boolean }) {
-  const { open } = useAddDish();
+  const { open: openSheet } = useAddDish();
+  const open = (event: MouseEvent<HTMLButtonElement>) => {
+    event.currentTarget.focus();
+    openSheet();
+  };
   if (variant === "icon") {
     return (
       <button

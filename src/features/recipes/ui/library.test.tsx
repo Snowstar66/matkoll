@@ -255,8 +255,8 @@ describe("Library", () => {
     expect(within(first).getByRole("link")).toHaveAttribute("href", `/recept/${gryta.id}`);
     expect(within(first).getByText("35 min · 4 portioner")).toBeInTheDocument();
     expect(within(second).getByText("1 portion")).toBeInTheDocument();
-    expect(within(first).getByText("Kan lagas nu")).toHaveClass("bg-overlay", "text-mint-ink");
-    expect(within(second).getByText("Saknar 2 varor")).toHaveClass("bg-overlay", "text-sky-ink");
+    expect(within(first).getByText("Kan lagas nu").closest(".text-badge")).toHaveClass("bg-overlay", "text-mint-ink");
+    expect(within(second).getByText("Saknar 2 varor").closest(".text-badge")).toHaveClass("bg-overlay", "text-sky-ink");
     expect(within(first).getByTestId("recipe-image-placeholder")).toBeInTheDocument();
     const heart = within(first).getByRole("button", { name: "Favorit, Krämig kycklinggryta", pressed: true });
     expect(heart.closest("a")).toBeNull();

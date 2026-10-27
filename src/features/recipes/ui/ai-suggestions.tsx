@@ -145,11 +145,12 @@ function cardNames({ draft, ingredientNames }: ShownSuggestion): string[] {
 }
 
 /**
- * Kort för ett AI-förslag, a recipe card (Epic 11): the image (the mint
- * placeholder, since an AI suggestion has none) with the AI label on it in
- * place of a status and no heart, the title, "35 min · 4 portioner", "Med: "
- * and at most five ingredient names, and "Spara". The card is no link: a
- * suggestion has no recipe view until it is saved.
+ * Kort för ett AI-förslag, a recipe card (Epic 11): a short mint strip with
+ * the AI label on it in place of a status and no heart, the title, "35 min ·
+ * 4 portioner", "Med: " and at most five ingredient names, and "Spara"; the
+ * label is read before "Spara". The card is no link: a suggestion has no
+ * recipe view until it is saved. Never an image: an address from the model
+ * is not loaded (AD-15 loads only recipe sites' own images).
  */
 function SuggestionCard({ suggestion, onSave }: { suggestion: ShownSuggestion; onSave: () => void }) {
   const { draft } = suggestion;
@@ -157,16 +158,14 @@ function SuggestionCard({ suggestion, onSave }: { suggestion: ShownSuggestion; o
     <RecipeCard
       data-testid="ai-suggestion"
       title={draft.title}
-      imageUrl={draft.imageUrl}
+      imageUrl={null}
       meta={recipeMetaText(draft.totalMinutes, draft.servings)}
       badge={<AiBadge />}
     >
-      <div className="mt-1 flex flex-col items-start gap-2">
-        <p className="text-body break-words text-ink-2">Med: {cardNames(suggestion).join(", ")}</p>
-        <Button variant="secondary" onClick={onSave} aria-label={`Spara ${draft.title}`}>
-          Spara
-        </Button>
-      </div>
+      <p className="text-body break-words text-ink-2">Med: {cardNames(suggestion).join(", ")}</p>
+      <Button variant="secondary" onClick={onSave} aria-label={`Spara ${draft.title}`}>
+        Spara
+      </Button>
     </RecipeCard>
   );
 }
