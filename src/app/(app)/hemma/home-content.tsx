@@ -3,10 +3,17 @@ import { requireUserOrRedirect } from "@/features/auth/server";
 import type { Location } from "@/features/catalog";
 import { CatalogDataError } from "@/features/catalog/server";
 import type { PantryItem, SelectedSite } from "@/features/pantry";
-import { countPantryItems, isPantrySiteGone, listPantry, PantryDataError } from "@/features/pantry/server";
+import {
+  countPantryItems,
+  isPantrySiteGone,
+  listPantry,
+  needsPlacePhotoSweep,
+  PantryDataError,
+} from "@/features/pantry/server";
 import { AddSiteButton } from "@/features/pantry/ui/add-site-button";
 import { PantryCamera } from "@/features/pantry/ui/pantry-camera";
 import { PantryPlace } from "@/features/pantry/ui/pantry-place";
+import { PhotoSweep } from "@/features/pantry/ui/photo-sweep";
 import { PantrySuggestionList } from "@/features/pantry/ui/pantry-suggestion-list";
 import { errorMessages } from "@/lib/errors";
 
@@ -28,14 +35,22 @@ export type HomeContentProps = {
  * and the suggestions under it (a photo needs no list); a place deleted in
  * the meantime says so too (`pantry_site_gone`). With one place, "Lägg till
  * ställe" is there in both cases. Other errors go to the error boundary.
+ *
+ * When the user has photos to sweep (Story 10.3: older than 30 days, or
+ * files without a row), PhotoSweep calls the sweep once; nothing is shown.
  */
 export async function HomeContent({ site, location, next }: HomeContentProps) {
   await requireUserOrRedirect(next);
 
   let counts: Record<Location, number>;
   let items: PantryItem[];
+  let needsSweep: boolean;
   try {
-    [counts, items] = await Promise.all([countPantryItems(site.id), listPantry(location, site.id)]);
+    [counts, items, needsSweep] = await Promise.all([
+      countPantryItems(site.id),
+      listPantry(location, site.id),
+      needsPlacePhotoSweep(),
+    ]);
   } catch (error) {
     let message: string = errorMessages.pantry_unavailable;
     if (error instanceof PantryDataError) {
@@ -58,5 +73,10 @@ export async function HomeContent({ site, location, next }: HomeContentProps) {
     );
   }
 
-  return <PantryPlace site={site} location={location} counts={counts} items={items} />;
+  return (
+    <>
+      {needsSweep ? <PhotoSweep /> : null}
+      <PantryPlace site={site} location={location} counts={counts} items={items} />
+    </>
+  );
 }

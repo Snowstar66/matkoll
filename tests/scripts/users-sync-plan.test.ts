@@ -1,5 +1,5 @@
-import { describe, expect, it } from "vitest";
-import { parseAllowedEmails, planUserSync } from "../../scripts/users-sync-plan.mjs";
+import { describe, expect, it, vi } from "vitest";
+import { parseAllowedEmails, planUserSync, pruneUser } from "../../scripts/users-sync-plan.mjs";
 
 describe("parseAllowedEmails", () => {
   it("trims, lower-cases, drops empty entries and duplicates", () => {
@@ -53,5 +53,36 @@ describe("planUserSync", () => {
 
   it("matches addresses without regard to case", () => {
     expect(planUserSync(["old@example.com"], existing).create).toEqual([]);
+  });
+});
+
+describe("pruneUser (Story 10.3)", () => {
+  const user = { id: "11111111-1111-4111-8111-111111111111", email: "old@example.com" };
+
+  it("removes the user's photo files first, then the user", async () => {
+    const steps: string[] = [];
+    const removePhotos = vi.fn(async () => (steps.push("photos"), 3));
+    const deleteUser = vi.fn(async () => (steps.push("user"), { error: null }));
+    expect(await pruneUser(user, { removePhotos, deleteUser })).toEqual({ ok: true, removedPhotos: 3 });
+    expect(steps).toEqual(["photos", "user"]);
+    expect(removePhotos).toHaveBeenCalledWith(user.id);
+    expect(deleteUser).toHaveBeenCalledWith(user.id);
+  });
+
+  it("keeps the user when the files cannot be removed, and says why without a path", async () => {
+    const deleteUser = vi.fn(async () => ({ error: null }));
+    const removePhotos = vi.fn(async () => {
+      throw Object.assign(new Error("remove failed (503)"), { code: "503" });
+    });
+    expect(await pruneUser(user, { removePhotos, deleteUser })).toEqual({ ok: false, step: "photos", code: "503" });
+    expect(deleteUser).not.toHaveBeenCalled();
+  });
+
+  it("says when the user cannot be deleted after the files went", async () => {
+    const result = await pruneUser(user, {
+      removePhotos: async () => 0,
+      deleteUser: async () => ({ error: { status: 500 } }),
+    });
+    expect(result).toEqual({ ok: false, step: "user", code: "500" });
   });
 });

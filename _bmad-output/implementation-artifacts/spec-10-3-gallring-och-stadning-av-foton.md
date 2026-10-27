@@ -2,7 +2,8 @@
 title: 'Story 10.3: Gallring och städning av foton'
 type: 'feature'
 created: '2026-10-26'
-status: 'draft'
+status: 'in-progress'
+baseline_commit: '4ceb250512d84a7b566f62d98d9ff0d8b7c55b49'
 route: 'dispatch'
 context:
   - '{project-root}/_bmad-output/implementation-artifacts/epic-10-context.md'
@@ -80,19 +81,19 @@ context:
 ## Tasks & Acceptance
 
 **Execution:**
-- [ ] `supabase/migrations/<tid>_pantry_photo_sweep.sql` -- `pantry_photo_orphans(min_age interval)` (`security invoker`, `stable`, högst 100 namn) med `grant execute` till `authenticated` och `service_role`. Sedan `supabase gen types` -- AD-26
-- [ ] `src/features/pantry/data/photos.ts` (+ test) -- `loadExpiredPlacePhotosIn`, `loadPlacePhotoOrphansIn`, `deletePlacePhotoRowsIn` och `removePlacePhotoFiles` i omgångar om högst 100 -- AD-26
+- [x] `supabase/migrations/<tid>_pantry_photo_sweep.sql` -- `pantry_photo_orphans(min_age interval)` (`security invoker`, `stable`, högst 100 namn) med `grant execute` till `authenticated` och `service_role`. Sedan `supabase gen types` -- AD-26
+- [x] `src/features/pantry/data/photos.ts` (+ test) -- `loadExpiredPlacePhotosIn`, `loadPlacePhotoOrphansIn`, `deletePlacePhotoRowsIn` och `removePlacePhotoFiles` i omgångar om högst 100 -- AD-26
 - [ ] `src/features/pantry/server.ts` (+ test) -- `listPlacePhotos` ger `needsSweep` -- FR-39
-- [ ] `src/features/pantry/actions/sweep-place-photos.ts` (+ test) -- `sweepPlacePhotos()`: `requireUser()`, tar bort gamla rader och deras filer och filer utan rad, `revalidateFor('pantry_photo')` bara när något togs bort. Returnerar antal. `savePlacePhoto` (10.1) anropar den efter ett lyckat sparande -- FR-39
-- [ ] `src/features/pantry/ui/photo-sweep.tsx` (+ test), `src/app/(app)/hemma/home-content.tsx` -- en klientkomponent som anropar `sweepPlacePhotos` en gång när `needsSweep` är sant. Inget syns -- FR-39
-- [ ] `src/features/pantry/actions/delete-pantry-site.ts` (+ test) -- läser ställets sökvägar, tar bort stället och sedan filerna. Fel med filerna loggas -- AD-20, AD-26
-- [ ] `scripts/users-sync.mjs` (+ `tests/scripts/…`) -- med `--prune`: listar `<user_id>/` rekursivt i `pantry-photo` och tar bort allt före `deleteUser`. Skriver antal, aldrig sökvägar -- AD-26
-- [ ] `.github/workflows/backup.yml`, `scripts/backup-counts.sql`, `tests/lint/backup-workflow.test.ts` -- `--exclude storage.objects --exclude public.pantry_photo` i datadumpen, och `pantry_photo` utesluten ur räkningen -- AD-23
-- [ ] `docs/drift.md` -- i "Vad säkerhetskopian innehåller": att foton aldrig tas med. I "Återställning": att fotomigrationen körs med `psql -f` efter `schema.sql` och `data.sql`, och att den tål att köras igen. En rad om att en användare bara tas bort med `pnpm users:sync --prune`, eftersom en borttagning i Supabase-panelen lämnar filerna kvar. Under steg 2: att Storage ingår i gratisnivån (1 GB) och att bucketen skapas av `supabase db push`
-- [ ] `tests/integration/pantry-photo.test.ts` (utökad) -- gamla rader och filer tas bort, filer utan rad som är yngre än 10 minuter står kvar, en annan användares filer berörs inte, ett borttaget ställe tar bort sina filer, och `pantry_photo_orphans` ger bara egna namn
-- [ ] `tests/e2e/place-photo-sweep.spec.ts` (+ `support.ts`, `global-setup.ts`) -- egen e2e-användare `e2e-foto-gallra@matkoll.test`. Service role seedar ett foto från 31 dagar sedan och ett från igår. Hemma visar bara det nya, och efter visningen är det gamla borta (service role). Ett tomt ställe med foto tas bort i arket Ställen, och filen är borta. "Töm kylen" lämnar fotot -- matrisen
-- [ ] Återställningen provas i en tillfällig lokal stack enligt `docs/drift.md`, och resultatet skrivs i beslutsloggen
-- [ ] `docs/beslutslogg.md` -- en post för storyn
+- [x] `src/features/pantry/actions/sweep-place-photos.ts` (+ test) -- `sweepPlacePhotos()`: `requireUser()`, tar bort gamla rader och deras filer och filer utan rad, `revalidateFor('pantry_photo')` bara när något togs bort. Returnerar antal. `savePlacePhoto` (10.1) anropar den efter ett lyckat sparande -- FR-39
+- [x] `src/features/pantry/ui/photo-sweep.tsx` (+ test), `src/app/(app)/hemma/home-content.tsx` -- en klientkomponent som anropar `sweepPlacePhotos` en gång när `needsSweep` är sant. Inget syns -- FR-39
+- [x] `src/features/pantry/actions/delete-pantry-site.ts` (+ test) -- läser ställets sökvägar, tar bort stället och sedan filerna. Fel med filerna loggas -- AD-20, AD-26
+- [x] `scripts/users-sync.mjs` (+ `tests/scripts/…`) -- med `--prune`: listar `<user_id>/` rekursivt i `pantry-photo` och tar bort allt före `deleteUser`. Skriver antal, aldrig sökvägar -- AD-26
+- [x] `.github/workflows/backup.yml`, `scripts/backup-counts.sql`, `tests/lint/backup-workflow.test.ts` -- `--exclude storage.objects --exclude public.pantry_photo` i datadumpen, och `pantry_photo` utesluten ur räkningen -- AD-23
+- [x] `docs/drift.md` -- i "Vad säkerhetskopian innehåller": att foton aldrig tas med. I "Återställning": att fotomigrationen körs med `psql -f` efter `schema.sql` och `data.sql`, och att den tål att köras igen. En rad om att en användare bara tas bort med `pnpm users:sync --prune`, eftersom en borttagning i Supabase-panelen lämnar filerna kvar. Under steg 2: att Storage ingår i gratisnivån (1 GB) och att bucketen skapas av `supabase db push`
+- [x] `tests/integration/pantry-photo.test.ts` (utökad) -- gamla rader och filer tas bort, filer utan rad som är yngre än 10 minuter står kvar, en annan användares filer berörs inte, ett borttaget ställe tar bort sina filer, och `pantry_photo_orphans` ger bara egna namn
+- [x] `tests/e2e/place-photo-sweep.spec.ts` (+ `support.ts`, `global-setup.ts`) -- egen e2e-användare `e2e-foto-gallra@matkoll.test`. Service role seedar ett foto från 31 dagar sedan och ett från igår. Hemma visar bara det nya, och efter visningen är det gamla borta (service role). Ett tomt ställe med foto tas bort i arket Ställen, och filen är borta. "Töm kylen" lämnar fotot -- matrisen
+- [x] Återställningen provas i en tillfällig lokal stack enligt `docs/drift.md`, och resultatet skrivs i beslutsloggen
+- [x] `docs/beslutslogg.md` -- en post för storyn
 
 **Acceptance Criteria:**
 - Given `pnpm lint && pnpm typecheck && pnpm test && pnpm test:integration && AI_PROVIDER=mock pnpm build && CI=1 pnpm test:e2e`, when de körs, then lyckas alla.
@@ -112,6 +113,31 @@ context:
   - En förra fil som inte gick att ta bort (`pantry_photo_remove_failed`) har ingen rad. Gallringen hittar den genom listningen, som en fil utan rad. Ingen tabell för filer att ta bort.
 
 ## Spec Change Log
+
+### Vid bygget
+
+**Pausad 2026-10-26** (grenen `wip/10-3`): Pontus väntar med 10.2 och 10.3 tills den nya UX:en (Epic 11) är klar. Kvar: `listPlacePhotos` med `needsSweep` (uppgiften i `server.ts`, se nedan), att köra om `place-photo-sweep.spec.ts` efter rättelsen av toasten, och granskningen.
+
+**Återupptagen 2026-10-27** på grenen `story/10-3-v2`, byggd på `origin/epic/11-nytt-utseende` (`b58da78`) med `wip/10-3` (`155f8df`) plockad ovanpå.
+
+- **Konflikterna** gällde bara listor där båda sidor lagt till något: e2e-användarna i `tests/e2e/support.ts` och `global-setup.ts` (Epic 11:s tre och `e2e-foto-gallra`), posterna i `docs/beslutslogg.md`, steg 2 i `docs/drift.md` (Postgres 17 från 10.4 blev punkt 4 och Storage punkt 5) och `sprint-status.yaml`. `home-content.tsx` slogs ihop utan konflikt. Lagersaldo (11.3) använder fortfarande `HomeContent`, så `PhotoSweep` startas på samma ställe.
+- **Ingen ny migration.** Alla migrationer, också `pantry_photo_sweep` och Epic 11:s `pantry_label`, var redan körda lokalt, och `pnpm db:types` gav samma `database.types.ts` som sammanslagningen.
+- **`needsSweep` är fortfarande `needsPlacePhotoSweep()`,** så att 10.3 inte beror på 10.2, som byggs samtidigt. Uppgiften i `server.ts` står kvar som öppen och slås ihop med `listPlacePhotos` när 10.2 och 10.3 förs samman.
+- **Toasten i "Töm kylen":** testet med den rättade texten ("Tog bort 1 vara ur kylen för Hemma.") och "Ångra" går igenom. `pantry_restore_failed 23505`, som syntes en gång förut, kommer inte från 10.3. Den kommer från `pantry.spec.ts`, "Ångra fails when the location has the item again", som framkallar den med avsikt (ett enskilt "Ångra" när platsen har varan igen). "Töm kylen" använder i stället `restorePantryRemoval`. I körningarna nedan syntes den bara i den fullständiga körningen, från det testet.
+
+- **Byggd på `4ceb250`** (`baseline_commit`), Story 10.1 klar.
+- **Migrationen lokalt:** `20261026202113_pantry_photo_sweep.sql` är körd mot den lokala databasen. Först en säkerhetskopia av bara data (utanför repot), sedan under testlåset `scripts/pantry-site-check.sql`, `supabase migration up --local` och kontrollen igen. `diff` var tom (45 rader i `pantry_item`), och eftervillkoren håller. Migrationen provades först i en transaktion som rullades tillbaka. `pnpm db:types` gav samma fil tre gånger.
+- **`pantry_photo_orphans(min_age)`** tar åldern som parameter. Gallringen skickar 10 minuter (`photoOrphanMinAgeMs`), och integrationstesterna 0. En ålder som är `null` eller negativ ger inget. Funktionen kontrollerar mappen själv också, så service role får ett tomt svar. Den skapas med `create or replace` och tål att köras igen.
+- **`needsSweep` är en egen läsning, `needsPlacePhotoSweep()` i `server.ts`,** inte ett fält i `listPlacePhotos`. `listPlacePhotos` byggs i 10.2 samtidigt. Gallringen gäller alla användarens ställen, medan `listPlacePhotos` gäller ett. Vid sammanslagningen med 10.2 kan `listPlacePhotos` ge `needsSweep` från `needsPlacePhotoSweep()`, eller så får Hemma läsa båda. Ett läsfel ger `false` och loggas som `pantry_photo_sweep_unavailable`.
+- **Gallringens kärna** ligger i `pantry/actions/photo-sweep.ts` (`sweepPlacePhotosIn`, `placePhotosNeedSweepIn`, `server-only`, inte en Server Action), så att `savePlacePhoto` och `sweepPlacePhotos` delar den. Den ger `{ removed, failed }`. `removed` räknar borttagna rader och filer utan rad, och Hemma revalideras när den är större än 0, också när ett senare steg misslyckades. 30 dagar räknas från `taken_at`. Konstanterna ligger i `domain/photo-sweep.ts` (10.2 behöver samma 30 dagar).
+- **Fel i gallringen** ger `pantry_photo_remove_failed`, utan ny felkod. Inget visas.
+- **`removePlacePhotoFiles`** tar bort i omgångar om 100.
+- **`deletePantrySite`:** testerna ligger i `pantry-site-actions.test.ts`, där de andra actions för ställen testas. Kan sökvägarna inte läsas tas stället ändå bort, och felet loggas.
+- **`users:sync --prune`:** listningen och borttagningen ligger i `scripts/pantry-photo-files.mjs` (`listFilesUnder`, `removeFiles`, `removeUserPlacePhotos`), och ordningen i `pruneUser` i `users-sync-plan.mjs`. `removeUserPlacePhotos` listar igen efteråt och ger fel om något är kvar, och den tar bara emot ett uuid, så den listar aldrig hela bucketen. `removePlacePhotos` i `tests/e2e/support.ts` och städningen i integrationstestet använder samma kod. Integrationstestet tar bort 108 filer, varav 105 i en mapp, med `pruneUser`. Skriptet har inte körts med `--prune` mot den lokala databasen, eftersom det tar bort alla användare som inte står i `ALLOWED_EMAILS`.
+- **Säkerhetskopian utesluter också `storage.buckets`, `storage.s3_multipart_uploads` och `storage.s3_multipart_uploads_parts`.** Med bara spec:ens två stoppade återläsningen på `buckets_pkey`, eftersom migrationerna redan har skapat bucketen. S3-tabellerna kan innehålla sökvägar. `supabase db dump --dry-run` med flaggorna från `backup.yml` visar dem som `--exclude-table`, och en riktig dump hade inga rader från `storage` eller `pantry_photo` och inga sökvägar.
+- **`docs/drift.md` och fotomigrationen:** återställningen i `docs/drift.md` läser in schemat med `supabase db push` och inte från `schema.sql`, så fotomigrationerna har redan skapat bucketen och policyerna när datan läses in. Därför säger `docs/drift.md` inte att migrationen körs med `psql -f`. I stället kontrolleras bucketen, policyerna och att `pantry_photo` är tom efter punkt 5. Migrationerna från 10.1 tål inte att köras om i sin helhet (`create table`, `create function`), trots kommentaren i dem. Bara bucketen och policyerna gör det.
+- **Återställningen provades** i en tillfällig lokal stack (`project_id` `matkoll_restore`, portarna 553xx), med räkningen och dumpen tagna direkt efter varandra under testlåset. Radantalen var desamma, bucketen och policyerna fanns, och `pantry_photo` var tom. 421 av 427 integrationstester gick igenom mot den. De sex andra beror på testmiljön (`supabase db query --local` går till huvudstacken, och Mailpit var inte startad). Stacken och de okrypterade filerna är borttagna.
+- **E2E:** `place-photo-sweep.spec.ts` kan inte visa att "Hemma visar bara det nya", eftersom raden Senaste foto kommer i 10.2. Testet visar i stället, med service role, att det gamla fotot (rad och fil) är borta efter visningen och att fotot från igår och ett på 29 dagar står kvar. Kontrollen av raden läggs till när 10.2 är ihopslagen. Körningen med de berörda specarna gav först 41 av 42: testet för "Töm kylen" väntade sig fel text i toasten (med två ställen står "för Hemma"). Efter rättelsen och flytten till Epic 11 (produktionsbygge, `CI=1`, under testlåset): `place-photo-sweep`, `pantry-sites`, `empty-place`, `place-photo-save`, `site-photo` och `pantry-look` 33 av 33, `place-photo-sweep` fyra gånger i rad med en arbetare 16 av 16, och hela e2e-sviten 286 av 286. Med `--repeat-each` och flera arbetare krockar kopiorna, eftersom de delar specens användare. Det beror på körningen, inte på koden.
 
 ## Review Triage Log
 

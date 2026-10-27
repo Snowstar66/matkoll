@@ -103,6 +103,8 @@ jobs:
 
       # Schema and data (the data includes auth.users, which every row references
       # through user_id), a manifest with the applied migrations, and row counts.
+      # Photos are never in it (Story 10.3, AD-26, NFR-11): the files are not in the
+      # database, and their rows and paths are left out of the data.
       # The URL on the command line has no password; the password is in PGPASSWORD,
       # which the CLI and psql read. The plain files stay in a private folder that is
       # removed when the step ends; only the encrypted files are uploaded, each one
@@ -140,12 +142,18 @@ jobs:
           sql -F ' ' -f scripts/backup-counts.sql > "$plain/counts.txt"
 
           supabase db dump --db-url "$db_url" --file "$plain/schema.sql"
-          # The two storage tables cannot be written back by the postgres role (as in
-          # Supabase's own restore guide); Matkoll stores no files. Sessions, tokens,
-          # sign-in flows and the auth audit log are left out: they are not needed to
-          # restore, and a new project does not accept them anyway.
+          # The two storage vector tables cannot be written back by the postgres role
+          # (as in Supabase's own restore guide). The photos (Story 10.3) are left out:
+          # their rows (public.pantry_photo) and the paths of their files
+          # (storage.objects, and the S3 uploads' tables). So is the bucket
+          # (storage.buckets), which the photo migration creates again on a restore.
+          # Sessions, tokens, sign-in flows and the auth audit log are left out: they
+          # are not needed to restore, and a new project does not accept them anyway.
           supabase db dump --db-url "$db_url" --data-only --use-copy \
             --exclude storage.buckets_vectors --exclude storage.vector_indexes \
+            --exclude storage.buckets --exclude storage.objects \
+            --exclude storage.s3_multipart_uploads --exclude storage.s3_multipart_uploads_parts \
+            --exclude public.pantry_photo \
             --exclude auth.sessions --exclude auth.refresh_tokens --exclude auth.mfa_amr_claims \
             --exclude auth.one_time_tokens --exclude auth.flow_state --exclude auth.audit_log_entries \
             --file "$plain/data.sql"

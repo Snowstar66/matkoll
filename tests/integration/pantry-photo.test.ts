@@ -2,11 +2,13 @@ import { readFileSync } from "node:fs";
 import { randomUUID } from "node:crypto";
 import { afterAll, beforeAll, describe, expect, it, vi } from "vitest";
 import { PantryDataError, siteGoneDetail } from "@/features/pantry/data/client";
-import { savePantryPhotoIn, setPlacePhotoPointsIn, type PantryPhotoRow } from "@/features/pantry/data/photos";
+import { loadPlacePhotoOrphansIn, savePantryPhotoIn, setPlacePhotoPointsIn, type PantryPhotoRow } from "@/features/pantry/data/photos";
 import { placePhotoBucket, placePhotoPath } from "@/features/pantry/domain/place-photo";
 import { normalizeSiteName } from "@/features/pantry/domain/site";
 import { ok } from "@/lib/errors";
 import { stripPngMetadata } from "@/lib/images";
+import { removeUserPlacePhotos } from "../../scripts/pantry-photo-files.mjs";
+import { pruneUser } from "../../scripts/users-sync-plan.mjs";
 import { localSupabaseUrl } from "../local-supabase";
 import {
   jpegMarkers,
@@ -27,6 +29,14 @@ import { adminClient, anonClient, createTestUser, deleteTestUsers, expectRlsIsol
 // deleted place, and savePlacePhoto end to end: the stored file has no
 // metadata, a new photo replaces the row and the file, and a place that is
 // gone leaves nothing. Only drawn test images, never a photo of a home.
+//
+// The sweep (Story 10.3): pantry_photo_orphans gives only the caller's own
+// files without a row; sweepPlacePhotosIn removes photos older than 30 days
+// (row and file) and files without a row, and leaves younger photos, files
+// younger than 10 minutes and other users' files; deletePantrySite removes
+// the place's files; and users:sync --prune (pruneUser with
+// removeUserPlacePhotos) removes a user's files, in every folder and on every
+// page of the listing, before the user.
 
 // savePlacePhoto with the session client replaced by the test user's, as in a request.
 let sessionDb: Db | undefined;
@@ -42,6 +52,8 @@ vi.mock("@/features/auth/server", () => ({
 }));
 vi.mock("@/lib/revalidate", () => ({ revalidateFor: vi.fn() }));
 const { savePlacePhoto } = await import("@/features/pantry/actions/save-place-photo");
+const { sweepPlacePhotosIn } = await import("@/features/pantry/actions/photo-sweep");
+const { deletePantrySite } = await import("@/features/pantry/actions/delete-pantry-site");
 
 const kylPng = new Uint8Array(readFileSync(new URL("../fixtures/ai/kyl.png", import.meta.url)));
 
@@ -90,12 +102,7 @@ async function photoRows(userId: string) {
 
 /** Removes every file the test users left in the bucket (no foreign key takes them, AD-26). */
 async function removeUserFiles(userId: string) {
-  const paths: string[] = [];
-  const { data: sites } = await bucket(adminClient()).list(userId);
-  for (const site of sites ?? []) {
-    for (const location of ["kyl", "frys", "skafferi"]) paths.push(...(await filesIn(`${userId}/${site.name}/${location}`)));
-  }
-  if (paths.length > 0) await bucket(adminClient()).remove(paths);
+  await removeUserPlacePhotos(adminClient().storage, userId);
 }
 
 function row(userId: string, siteId: string, overrides: Partial<PantryPhotoRow> = {}): PantryPhotoRow {
@@ -471,5 +478,141 @@ describe("savePlacePhoto", () => {
     expect(result).toEqual({ ok: false, error: { code: "pantry_site_gone", message: expect.any(String) } });
     expect(await filesIn(`${owner.id}/${place}/frys`)).toEqual([]);
     expect((await photoRows(owner.id)).some((photo) => photo.site_id === place)).toBe(false);
+  });
+});
+
+describe("the sweep (Story 10.3)", () => {
+  const png = () => stripPngMetadata(kylPng)!;
+  const day = 24 * 60 * 60 * 1000;
+
+  /** A photo of `user` on `site`, its row saved with save_pantry_photo and its file uploaded as the user. */
+  async function photoOf(user: TestUser, site: string, overrides: Partial<PantryPhotoRow> = {}): Promise<PantryPhotoRow> {
+    const photo = row(user.id, site, overrides);
+    const uploaded = await bucket(user.db).upload(photo.objectPath, png(), { contentType: "image/png", upsert: false });
+    if (uploaded.error) throw uploaded.error;
+    const saved = await savePantryPhotoIn(user.db, photo);
+    expect(saved.kind).toBe("saved");
+    return photo;
+  }
+
+  /** A file of `user` without a row, uploaded as the user. */
+  async function orphanOf(user: TestUser, site: string): Promise<string> {
+    const path = placePhotoPath(user.id, site, "Skafferi", randomUUID(), "image/png");
+    const uploaded = await bucket(user.db).upload(path, png(), { contentType: "image/png", upsert: false });
+    if (uploaded.error) throw uploaded.error;
+    return path;
+  }
+
+  it("pantry_photo_orphans gives only the caller's own files without a row, older than the age asked for", async () => {
+    const place = await addSite(owner.id, "Vedboden");
+    const kept = await photoOf(owner, place);
+    const mine = await orphanOf(owner, place);
+    const theirs = await orphanOf(other, othersSite);
+
+    const all = await loadPlacePhotoOrphansIn(owner.db, 0);
+    expect(all).toContain(mine);
+    expect(all).not.toContain(kept.objectPath);
+    expect(all).not.toContain(theirs);
+    expect(all.every((name) => name.startsWith(`${owner.id}/`))).toBe(true);
+    // Uploaded just now: not older than 10 minutes, so a save in progress keeps its file.
+    expect(await loadPlacePhotoOrphansIn(owner.db, 600_000)).not.toContain(mine);
+    expect(await loadPlacePhotoOrphansIn(other.db, 0)).toContain(theirs);
+
+    // The service role has no auth.uid(), and anon may not call it.
+    const admin = await adminClient().rpc("pantry_photo_orphans", { min_age: "0 seconds" });
+    expect(admin.error).toBeNull();
+    expect(admin.data).toEqual([]);
+    const anon = await anonClient().rpc("pantry_photo_orphans", { min_age: "0 seconds" });
+    expect(anon.error?.code).toBe("42501");
+    // A negative age gives nothing, never the files of a save in progress.
+    const negative = await owner.db.rpc("pantry_photo_orphans", { min_age: "-1 hours" });
+    expect(negative.data).toEqual([]);
+  });
+
+  it("removes photos older than 30 days with their files, and files without a row, and nothing of another user's", async () => {
+    const place = await addSite(owner.id, "Jaktstugan");
+    const now = new Date();
+    const old = await photoOf(owner, place, { location: "Kyl", takenAt: new Date(now.getTime() - 31 * day) });
+    const young = await photoOf(owner, place, { location: "Frys", takenAt: new Date(now.getTime() - 29 * day) });
+    const orphan = await orphanOf(owner, place);
+    const othersPlace = await addSite(other.id, "Sommarhuset");
+    const othersOld = await photoOf(other, othersPlace, { takenAt: new Date(now.getTime() - 31 * day) });
+    const othersOrphan = await orphanOf(other, othersPlace);
+
+    // Uploaded just now: with the sweep's 10 minutes the file without a row stays.
+    const first = await sweepPlacePhotosIn(owner.db, { now });
+    expect(first.failed).toBeNull();
+    expect(await fileAt(orphan)).not.toBeNull();
+    expect(await fileAt(old.objectPath)).toBeNull();
+    expect((await photoRows(owner.id)).map((photo) => photo.id)).not.toContain(old.id);
+
+    // Treated as older than 10 minutes, it goes too.
+    const second = await sweepPlacePhotosIn(owner.db, { now, orphanMinAgeMs: 0 });
+    expect(second.failed).toBeNull();
+    expect(second.removed).toBeGreaterThanOrEqual(1);
+    expect(await fileAt(orphan)).toBeNull();
+
+    // The photo of 29 days stays, row and file.
+    expect((await photoRows(owner.id)).map((photo) => photo.id)).toContain(young.id);
+    expect(await fileAt(young.objectPath)).not.toBeNull();
+    // Another user's old photo and file without a row are untouched.
+    expect((await photoRows(other.id)).map((photo) => photo.id)).toContain(othersOld.id);
+    expect(await fileAt(othersOld.objectPath)).not.toBeNull();
+    expect(await fileAt(othersOrphan)).not.toBeNull();
+
+    // Idempotent: nothing more to do.
+    expect(await sweepPlacePhotosIn(owner.db, { now, orphanMinAgeMs: 0 })).toEqual({ removed: 0, failed: null });
+  });
+
+  it("deletePantrySite removes the place's files, and a place in use keeps its photos", async () => {
+    sessionDb = owner.db;
+    sessionUser = { id: owner.id, email: owner.email };
+    const place = await addSite(owner.id, "Stugan vid sjön");
+    const kyl = await photoOf(owner, place, { location: "Kyl" });
+    const frys = await photoOf(owner, place, { location: "Frys" });
+
+    expect(await deletePantrySite({ id: place })).toEqual({ ok: true, data: { removed: true } });
+    expect((await photoRows(owner.id)).some((photo) => photo.site_id === place)).toBe(false);
+    expect(await fileAt(kyl.objectPath)).toBeNull();
+    expect(await fileAt(frys.objectPath)).toBeNull();
+
+    // The selected place cannot be deleted (Story 8.2): its photo stays.
+    const selected = await photoOf(owner, hemma, { location: "Skafferi" });
+    expect(await deletePantrySite({ id: hemma })).toEqual({ ok: false, error: { code: "pantry_site_in_use", message: expect.any(String) } });
+    expect(await fileAt(selected.objectPath)).not.toBeNull();
+  });
+
+  it("users:sync --prune removes a user's files in every folder and on every page, then the user", async () => {
+    const leaving = await createTestUser("photo-leaving");
+    const places = [await addSite(leaving.id, "Hemma", true), await addSite(leaving.id, "Stugan")];
+    const photos = [
+      await photoOf(leaving, places[0], { location: "Kyl" }),
+      await photoOf(leaving, places[0], { location: "Frys" }),
+      await photoOf(leaving, places[1], { location: "Skafferi" }),
+    ];
+    // More files in one folder than list() gives in one call (100), as a sweep would leave them.
+    const folder = `${leaving.id}/${places[1]}/kyl`;
+    const extra = Array.from({ length: 105 }, () => `${folder}/${randomUUID()}.png`);
+    for (let start = 0; start < extra.length; start += 15) {
+      await Promise.all(
+        extra.slice(start, start + 15).map(async (path) => {
+          const uploaded = await bucket(adminClient()).upload(path, png(), { contentType: "image/png" });
+          if (uploaded.error) throw uploaded.error;
+        }),
+      );
+    }
+
+    const result = await pruneUser(leaving, {
+      removePhotos: (userId) => removeUserPlacePhotos(adminClient().storage, userId),
+      deleteUser: (userId) => adminClient().auth.admin.deleteUser(userId),
+    });
+    expect(result).toEqual({ ok: true, removedPhotos: 108 });
+    for (const photo of photos) expect(await fileAt(photo.objectPath)).toBeNull();
+    expect(await filesIn(folder)).toEqual([]);
+    expect(await photoRows(leaving.id)).toEqual([]);
+    const gone = await adminClient().auth.admin.getUserById(leaving.id);
+    expect(gone.data.user).toBeNull();
+    // The other users' files are where they were.
+    expect((await loadPlacePhotoOrphansIn(other.db, 0)).length).toBeGreaterThan(0);
   });
 });

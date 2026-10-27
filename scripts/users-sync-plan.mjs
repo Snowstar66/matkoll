@@ -36,3 +36,30 @@ export function planUserSync(allowed, existing, { prune = false } = {}) {
   const extra = existing.filter((user) => !allowedSet.has((user.email ?? "").toLowerCase()));
   return { create, keep, extra, remove: prune ? extra : [] };
 }
+
+/**
+ * Deletes one user that is not in ALLOWED_EMAILS (`--prune`), in order: the
+ * user's photo files first (`removePhotos`, Story 10.3: no foreign key takes
+ * them with the user, AD-26), then the user (`deleteUser`), whose rows go with
+ * it (on delete cascade). When the files cannot be removed, the user is kept,
+ * so nothing is left that no user owns. Returns how many files went, or the
+ * step that failed and its code; never a path.
+ * @param {{ id: string }} user
+ * @param {{
+ *   removePhotos: (userId: string) => Promise<number>,
+ *   deleteUser: (userId: string) => Promise<{ error: { code?: string, status?: number } | null }>,
+ * }} actions
+ * @returns {Promise<{ ok: true, removedPhotos: number } | { ok: false, step: "photos" | "user", code: string }>}
+ */
+export async function pruneUser(user, { removePhotos, deleteUser }) {
+  let removedPhotos;
+  try {
+    removedPhotos = await removePhotos(user.id);
+  } catch (error) {
+    const code = /** @type {{ code?: unknown }} */ (error ?? {}).code;
+    return { ok: false, step: "photos", code: typeof code === "string" ? code : "error" };
+  }
+  const { error } = await deleteUser(user.id);
+  if (error) return { ok: false, step: "user", code: String(error.code ?? error.status ?? "error") };
+  return { ok: true, removedPhotos };
+}
