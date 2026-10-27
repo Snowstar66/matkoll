@@ -181,6 +181,8 @@ const pill = (page: Page, name: "Alla" | "Favoriter" | "Kan lagas nu") =>
 const dish = (page: Page) => page.getByTestId("plan-dish").filter({ visible: true });
 const ketchupCheck = (page: Page) => page.getByRole("checkbox", { name: /^Ketchup/ }).filter({ visible: true });
 const putButton = (page: Page) => page.getByRole("button", { name: "Lägg i lagret", exact: true }).filter({ visible: true });
+/** Unfolds I korgen, where the checked lines are (Story 11.4). */
+const showBasket = (page: Page) => page.getByRole("button", { name: /^Visa I korgen/ }).filter({ visible: true }).click();
 const toast = (page: Page) => page.getByTestId("toast");
 const tab = (page: Page, name: "Recept" | "Matsedel" | "Inköpslista" | "Lagersaldo") =>
   page.getByRole("navigation", { name: "Huvudmeny" }).getByRole("link", { name });
@@ -311,6 +313,7 @@ test("Lägg i lagret with Stugan selected puts the ketchup on Stugan and says so
   const hemmaBefore = await pantryOn(hemma);
   await page.goto("/lista");
   await ketchupCheck(page).click();
+  await showBasket(page);
   await expect(ketchupCheck(page)).toBeChecked();
   await putButton(page).click();
   await expect(toast(page)).toHaveText("Lagt 1 vara i lagret för Stugan.");
@@ -339,6 +342,7 @@ test("Lägg i lagret for a place removed elsewhere writes nothing, keeps the che
   const korvCheck = page.getByRole("checkbox", { name: /^Korv/ }).filter({ visible: true });
   await expect(korvCheck).toHaveCount(0);
   await ketchupCheck(page).click();
+  await showBasket(page);
   await expect(ketchupCheck(page)).toBeChecked();
   await expect(putButton(page)).toBeEnabled();
 
@@ -377,6 +381,7 @@ test("Lägg i lagret puts the ketchup on the list's place when Hemma is selected
   const hemmaBefore = await pantryOn(hemma);
   await page.goto("/lista");
   await ketchupCheck(page).click();
+  await showBasket(page);
   await expect(ketchupCheck(page)).toBeChecked();
   // The check is saved (and the list read again, against Stugan) once the button is on.
   await expect(putButton(page)).toBeEnabled();

@@ -10,17 +10,20 @@ export type CheckCircleProps = {
   label: string;
   /** Cannot be ticked now (e.g. the saved state could not be read); still named and shown. */
   disabled?: boolean;
+  /** Ids of what the screen reader reads after the name and state, e.g. the line under the item's name. */
+  describedBy?: string;
   className?: string;
 };
 
 /** The round tick of a list item: 26 px visible circle in a 44 px tap area. */
-export function CheckCircle({ checked, onCheckedChange, label, disabled, className }: CheckCircleProps) {
+export function CheckCircle({ checked, onCheckedChange, label, disabled, describedBy, className }: CheckCircleProps) {
   return (
     <button
       type="button"
       role="checkbox"
       aria-checked={checked}
       aria-label={label}
+      aria-describedby={describedBy || undefined}
       disabled={disabled}
       onClick={() => onCheckedChange(!checked)}
       className={cx("flex size-tap shrink-0 items-center justify-center rounded-full disabled:opacity-50", className)}

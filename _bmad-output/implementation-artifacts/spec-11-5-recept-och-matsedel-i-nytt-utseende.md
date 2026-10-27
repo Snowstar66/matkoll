@@ -146,7 +146,7 @@ Iteration 1. Två granskare. Grenen fick först `origin/epic/11-nytt-utseende` (
     - Det finns ett test med en vag rad vars vara inte finns hemma ("Allt finns hemma", som "Kan lagas nu").
     - Ett test kontrollerar skydd mot `NaN`, `Infinity` och negativa tal.
     - När något saknas kan raden aldrig bli "8 av 8 hemma".
-  - Orden "N av M hemma" står kvar, som i skissen. Frågan om "hemma" ska betyda "räcker till portionerna" är öppen fråga 18.
+  - Orden "N av M hemma" står kvar, som i skissen. Frågan om "hemma" ska betyda "räcker till portionerna" är öppen fråga 20.
   - Tiden står kvar i rättkortet: "35 min · 6 av 8 hemma" (`dishMetaText`). Raden radbryts vid 187 px.
   - "Lägg till rätt" tar fokus vid trycket, eftersom Safari inte flyttar fokus till en knapp vid tryck. Arket ger därför tillbaka fokus till den knapp som öppnade det, "+" eller knappen under rätterna. Det finns ett test för båda.
 - Receptkortet:
