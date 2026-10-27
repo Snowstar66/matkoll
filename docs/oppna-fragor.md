@@ -34,6 +34,7 @@ Frågor och osäkerheter som samlas under bygget och presenteras för Pontus nä
 | T2 | Hur stabilt fyller Claude in Chrome varukorgen på ICA Handla? | Pontus testar efter Epic 7. Checklista: se 'Prova Skicka till ICA med Claude in Chrome' nedan. | Brief |
 | T3 | ~~Klarar Qwen3.6-35B-A3B i LM Studio både bild och JSON-schema, och stängs tänkläget av?~~ **Besvarad 2026-10-25:** ja. Röktestet ger 5 av 6: text, bild, JSON-LD och strikt JSON-schema fungerar, och försök att smuggla in instruktioner ignoreras. Tänkläget stängs av med `reasoning_effort: "none"`. Kvar: Qwen uppskattar en total tid när receptet saknar sådan. | Ingen åtgärd; tiden visas bara som information | Arkitektur, Story 1.4 |
 | T7 | Tar Supabase i molnet emot klientens IP i `Sb-Forwarded-For`? Kodkontrollen (`verifyOtp`) körs från Next-servern, så utan rubriken räknar Supabase alla försök på serverns IP. Rubriken finns i Supabase Auth sedan december 2025 men styrs av `GOTRUE_SECURITY_SB_FORWARDED_FOR_ENABLED`, och det är inte dokumenterat om den är på i molnet. | Appen skickar alltid rubriken (IP:t från Vercels `x-forwarded-for`), och har en egen gräns i minnet (fråga 17). Kontrollera i Supabase support eller dokumentationen när molnet sätts upp; om den inte stöds räknar Supabase fortfarande per server-IP. Lokalt används den inte. | Granskning av Story 11.6, 2026-10-27 |
+| T8 | Platskorten i Lagersaldo går 59 px utanför skärmen vid 188 px bredd (375 px med 200 % zoom): "Skafferi" och "0 varor" får inte plats i tre kolumner. Listan under, med kategorier och soptunnor, radbryts och håller sig inom skärmen. | Inte ändrat i Story 11.3, som behåller platskorten. Förslag: korten under varandra (eller två kolumner) när de inte får plats, i en senare story eller granskningen av Epic 11 | Story 11.3, 2026-10-27 |
 
 ## Checklista för Pontus (när molnet sätts upp, efter Epic 1–3)
 
@@ -68,7 +69,7 @@ Exportens format och instruktion beskrivs i [`docs/varukorgsexport.md`](varukorg
 
 Saker som testerna inte kan visa och som behöver en riktig iPhone:
 
-- Svep vänster på en lagervara i Lagersaldo: knappen "Ta bort" ska visas utan att Safari går bakåt. Prova att svepa nära skärmkanten och mitt på raden.
+- Soptunnan i Lagersaldo (Story 11.3): tryck på soptunnan vid en vara och sedan "Ångra". Varan ska komma tillbaka med samma rad under (märket eller "Tillagd …"). Tryck på soptunnan nära skärmkanten: Safari ska inte gå bakåt. Tryck två gånger snabbt: bara en vara ska försvinna. Med VoiceOver: kategorierna under Rubriker i rotorn, raden "Mellanmjölk, Arla laktosfri, knapp", "Ta bort Gräddfil, knapp" och bekräftelsen med "Ångra".
 - VoiceOver på en lagervara: knappen "Ta bort Mjölk" ska gå att nå och aktivera, och raden ska inte öppna arket i stället.
 - Fotoimport av ett recept med kameran (Story 1.9) och engångslänken i Mail-appen (Story 1.2).
 - Kameraknappen i Lagersaldo (Story 6.1): "Fotografera kylen" ska öppna bakre kameran direkt, och "Välj bild" under den ska öppna bildbiblioteket. Ta ett foto av den öppna kylen mot LM Studio och se att "Tittar på bilden …" och "Avbryt" visas och att lagerförslagen kommer. Prova också med LM Studio avstängt: "AI-tjänsten svarar inte just nu. Är datorn med modellen igång?" ska visas inom ungefär 5 s, och resten av Lagersaldo ska fungera.

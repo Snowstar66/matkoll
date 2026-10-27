@@ -26,7 +26,7 @@ export type PantryPlaceProps = {
 /**
  * Hemma's location cards, the camera button and the suggestions from the
  * latest photo (needs a PantrySuggestionsProvider above), and the chosen
- * location's items on the place, with removals and "Ångra" that the server's
+ * location's items on the place (with "Sök i kylen", Story 11.3), with removals and "Ångra" that the server's
  * items do not show yet already applied (usePantryRemoval), and "Töm kylen"
  * under them while there are any. The chosen card counts the items shown, so
  * card, list and the question in "Töm kylen" never disagree. While Pontus has
@@ -43,7 +43,8 @@ export function PantryPlace({ site, location, counts, items }: PantryPlaceProps)
       <LocationCards selected={location} counts={{ ...counts, [location]: shown.length }} />
       <PantryCamera site={site} location={location} />
       <PantrySuggestionList siteId={site.id} />
-      <PantryList location={location} items={shown} />
+      {/* Keyed, so the search starts empty on another place or location (Story 11.3). */}
+      <PantryList key={`${site.id}:${location}`} location={location} items={shown} />
       <EmptyPlaceButton site={site} location={location} count={shown.length} items={shown} />
       {site.siteCount === 1 ? <AddSiteButton /> : null}
     </div>

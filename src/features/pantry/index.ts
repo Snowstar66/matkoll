@@ -3,7 +3,6 @@ export {
   toSnapshot,
   snapshotFor,
   comparePantryItems,
-  splitPantryItems,
   type PantryItem,
   type PantryAmount,
   type PantryAmountRow,
@@ -17,6 +16,7 @@ export {
   emptyPlaceText,
   savedItemText,
   removedItemsText,
+  removedItemText,
   confirmedItemsText,
   rejectedItemText,
   emptyPlaceButtonText,
@@ -191,3 +191,12 @@ export {
   type PantrySiteWithCount,
   type SelectedSite,
 } from "./domain/site";
+export {
+  addedText,
+  pantryMetaText,
+  groupPantryByCategory,
+  filterPantry,
+  pantrySearchLabel,
+  noMatchText,
+  type PantryCategoryGroup,
+} from "./domain/pantry-meta";

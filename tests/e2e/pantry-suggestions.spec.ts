@@ -92,8 +92,8 @@ const cardNames = (page: Page, level: 3 | 4 = 4) => cards(page).getByRole("headi
 const kylCard = (page: Page) => page.getByRole("navigation", { name: "Platser" }).getByRole("link", { name: /^Kyl/ });
 const skafferiCard = (page: Page) =>
   page.getByRole("navigation", { name: "Platser" }).getByRole("link", { name: /^Skafferi/ });
+// Story 11.3: one row per item, with or without an amount, and no amount shown; saved() reads the amounts.
 const rows = (page: Page) => page.getByTestId("pantry-row").filter({ visible: true });
-const tags = (page: Page) => page.getByTestId("pantry-tag").filter({ visible: true });
 const sheet = (page: Page) => page.getByRole("dialog", { name: "Lagervara" });
 const toast = (page: Page) => page.getByTestId("toast");
 
@@ -144,7 +144,7 @@ test("confirm, correct, reject and Bekräfta alla save only what Pontus confirme
   await expect(cardNames(page)).toHaveText(cardTitles(["Vispgrädde 3 dl", "Gurka", "Ketchup", "Ägg"]));
   // mjölk was the last card: focus goes to the one before it.
   await expect(section(page).getByRole("button", { name: "Bekräfta Ägg" })).toBeFocused();
-  await expect(rows(page).filter({ hasText: "Mjölk" })).toHaveText([/^Mjölk\s*1 förp$/]);
+  await expect(rows(page).filter({ hasText: /^Mjölk / })).toHaveCount(1);
   await expect(kylCard(page)).toHaveText(/^Kyl\s*2 varor$/);
 
   // Rätta grädde: the sheet filled in; another new ingredient, 2 dl, and Bekräfta.
@@ -167,7 +167,7 @@ test("confirm, correct, reject and Bekräfta alla save only what Pontus confirme
   await expect(sheet(page)).toHaveCount(0);
   await expect(toast(page)).toHaveText("Matlagningsgrädde är sparad i kylen.");
   await expect(cardNames(page)).toHaveText(cardTitles(["Gurka", "Ketchup", "Ägg"]));
-  await expect(rows(page).filter({ hasText: "Matlagningsgrädde" })).toHaveText([/^Matlagningsgrädde\s*2 dl$/]);
+  await expect(rows(page).filter({ hasText: /^Matlagningsgrädde / })).toHaveCount(1);
   await expect(kylCard(page)).toHaveText(/^Kyl\s*3 varor$/);
 
   // Avvisa ketchup, Ångra, and Avvisa again: nothing asks the server.
@@ -185,7 +185,7 @@ test("confirm, correct, reject and Bekräfta alla save only what Pontus confirme
   await expect(section(page)).toHaveCount(0);
   await expect(cameraButton(page)).toBeFocused();
   await expect(kylCard(page)).toHaveText(/^Kyl\s*5 varor$/);
-  await expect(tags(page)).toHaveText(["Smör"]);
+  await expect(rows(page).filter({ hasText: /^Smör / })).toHaveCount(1);
 
   expect(await saved()).toEqual({
     catalog: ["Gurka Kyl", "Matlagningsgrädde Kyl", "Mjölk Kyl", "Smör Kyl", "Ägg Kyl"].sort(),

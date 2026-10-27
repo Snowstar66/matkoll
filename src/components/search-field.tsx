@@ -18,8 +18,14 @@ export type SearchFieldProps = {
   label: string;
   placeholder?: string;
   defaultValue?: string;
-  /** Called 200 ms after typing stops, and at once on Enter or when the field becomes empty. */
+  /** Called 200 ms (`delayMs`) after typing stops, and at once on Enter or when the field becomes empty. */
   onSearch: (query: string) => void;
+  /**
+   * The pause after the last keystroke, `searchDelayMs` by default; 0 calls
+   * `onSearch` on every change, for a list that is already on the page
+   * (Lagersaldo, Story 11.3).
+   */
+  delayMs?: number;
   /** The most characters the field takes, e.g. the action's limit. */
   maxLength?: number;
   className?: string;
@@ -32,6 +38,7 @@ export function SearchField({
   defaultValue = "",
   onSearch,
   maxLength,
+  delayMs = searchDelayMs,
   className,
   ref,
 }: SearchFieldProps) {
@@ -53,12 +60,12 @@ export function SearchField({
 
   function change(next: string) {
     setValue(next);
-    if (next === "") {
-      searchNow("");
+    if (next === "" || delayMs <= 0) {
+      searchNow(next);
       return;
     }
     clearTimeout(timer.current);
-    timer.current = setTimeout(() => onSearchRef.current(next), searchDelayMs);
+    timer.current = setTimeout(() => onSearchRef.current(next), delayMs);
   }
 
   function clear() {

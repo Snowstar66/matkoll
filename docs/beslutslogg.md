@@ -12,6 +12,14 @@ Beslut som fattats under bygget: vad, varför och vilka alternativ som fanns. Ny
 - **De fasta knapparna** står i en rad, "Skicka till ICA" (sekundär) till vänster och "Lägg i lagret" (primär) till höger. Får de inte plats bredvid varandra radbryts de uppåt (`flex-wrap-reverse`), så att "Lägg i lagret" hamnar överst och tabbordningen följer raden. "Skicka till ICA" döljs som förut när inget återstår att skicka (öppen fråga 18).
 - **Exporten, `computeList`, nycklarna och "Lägg i lagret" är oförändrade.** Exporten grupperar fortfarande per avdelning med `groupBySection`; listan visar kategorier med `groupByCategory`.
 
+## 2026-10-27 – Lagersaldo i nytt utseende (Story 11.3)
+
+- **Butikens ordning också i Lagersaldo.** Kategorierna står i samma ordning som i Inköpslistan (Frukt & grönt först), fast skissen visade Mejeri först i kylen. Varför: en ordning överallt är lättare att lära sig. Alternativ: en egen ordning per plats.
+- **Märket före tiden.** Raden under namnet är märket, annars "Tillagd …" i svensk tid. Varför: en rad räcker, och tiden syns för varor som lades till för hand.
+- **Ingen mängd i listan, och inget svep.** Mängden finns kvar i arket Lagervara och räknas som förut. Soptunnan tar bort direkt med "Tog bort Gräddfil." och "Ångra". Varför: Pontus egna ord ("ta bort mängd i listan", "en soptunna på varje"), och svepet kunde få Safari att gå bakåt nära kanten.
+- **En ny borttagning ersätter bekräftelsen,** och varan före står kvar som borttagen. Förut samlades flera borttagningar i en bekräftelse ("Mjölk och smör är borttagna."). "Töm kylen" samlar fortfarande en enskild borttagning som visas, så att den inte går förlorad. Alternativ: att samla allt, som gav en längre text för ett tryck i taget.
+- **Sökningen filtrerar i klienten, utan fördröjning.** Platsens varor finns redan i sidan, och en plats har sällan fler än 50. `SearchField` fick `delayMs` (0 i Lagersaldo, 200 ms som förut överallt annars).
+
 ## 2026-10-27 – Märke och tid på lagervaror (Story 11.2)
 
 - **Märket är en kolumn på lagervaran,** `pantry_item.label` (1–60 tecken eller inget). Varför: det hör till raden, följer med när raden ersätts och vid "Ångra", och RLS gäller redan. Alternativ: en egen tabell.

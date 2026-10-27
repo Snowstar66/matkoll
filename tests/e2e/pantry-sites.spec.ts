@@ -303,7 +303,7 @@ test("milk added with Stugan selected is on Stugan, and Hemma's fridge is as it 
   await itemSheet(page).getByLabel("Enhet").selectOption("l");
   await itemSheet(page).getByRole("button", { name: "Lägg till vara" }).click();
   await expect(toast(page)).toHaveText("Mjölk är sparad i kylen.");
-  await expect(rows(page)).toHaveText([/^Mjölk\s*1 l$/]);
+  await expect(rows(page)).toHaveText([/^Mjölk Tillagd idag$/]);
 
   const after = await storedItems();
   expect(after.filter((item) => item.site_id === sites.Stugan)).toMatchObject([
@@ -322,7 +322,7 @@ test("a view showing Stugan still writes on Stugan after Hemma was selected on a
   try {
     // A change in the old view.
     await openHemma(page);
-    await expect(rows(page)).toHaveText([/^Mjölk\s*1 l$/, /^Smör\s*250 g$/]);
+    await expect(rows(page)).toHaveText([/^Mjölk /, /^Smör /]);
     await openHemma(other);
     await choose(other, "Hemma");
     expect(await selectedPlace()).toBe("Hemma");
@@ -350,7 +350,7 @@ test("a view showing Stugan still writes on Stugan after Hemma was selected on a
 
     await rows(page).filter({ hasText: "Mjölk" }).click();
     await itemSheet(page).getByRole("button", { name: "Ta bort" }).click();
-    await expect(toast(page)).toContainText("Mjölk är borttagen.");
+    await expect(toast(page)).toContainText("Tog bort Mjölk.");
     await expect.poll(async () => (await storedItems()).some((item) => item.id === mjolk.id)).toBe(false);
     await toast(page).getByRole("button", { name: "Ångra" }).click();
     await expect.poll(async () => (await storedItems()).find((item) => item.id === mjolk.id)?.site_id).toBe(sites.Stugan);

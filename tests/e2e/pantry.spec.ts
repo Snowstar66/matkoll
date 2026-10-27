@@ -3,11 +3,12 @@ import { adminClient, e2eUserId, pantryEmail, pantryStorageState } from "./suppo
 
 // Stories 2.1, 2.2 and 2.3: Hemma with the location cards and the chosen
 // location's items, the sheet Lagervara that adds and changes items, and
-// removing items by swipe or in the sheet, with "Ångra". The
-// spec has an E2E user of its own (pantryEmail), whose catalog ingredients
-// and pantry rows are made with the service role before each test: 3 items
-// in Kyl (two with an amount, Salt unlimited), 1 in Frys and none in
-// Skafferi. The tests run in order, since they share the user.
+// removing items with the bin or in the sheet, with "Ångra" (Story 11.3: the
+// rows show no amount, and the swipe is gone). The spec has an E2E user of
+// its own (pantryEmail), whose catalog ingredients and pantry rows are made
+// with the service role before each test: 3 items in Kyl (two with an
+// amount, Salt unlimited), 1 in Frys and none in Skafferi. The tests run in
+// order, since they share the user.
 
 const mobile = { width: 375, height: 812 };
 const desktop = { width: 1280, height: 800 };
@@ -76,8 +77,9 @@ function watchErrors(page: Page): string[] {
 const places = (page: Page) => page.getByRole("navigation", { name: "Platser" });
 const card = (page: Page, name: "Kyl" | "Frys" | "Skafferi") => places(page).getByRole("link", { name: new RegExp(`^${name}`) });
 const rows = (page: Page) => page.getByTestId("pantry-row").filter({ visible: true });
-const tags = (page: Page) => page.getByTestId("pantry-tag").filter({ visible: true });
 const heading = (page: Page, name: string) => page.getByRole("heading", { level: 2, name });
+/** A row added today, as Lagersaldo shows it (Story 11.3): the name, and "Tillagd idag" under it. */
+const today = (name: string) => new RegExp(`^${name} Tillagd idag$`);
 
 async function expectChosen(page: Page, name: "Kyl" | "Frys" | "Skafferi") {
   for (const other of ["Kyl", "Frys", "Skafferi"] as const) {
@@ -100,7 +102,7 @@ test.beforeEach(async () => {
 test.describe("on a phone", () => {
   test.use({ viewport: mobile });
 
-  test("shows the three location cards with counts, and Kyl's rows and tags", async ({ page }) => {
+  test("shows the three location cards with counts, and Kyl's items under their categories", async ({ page }) => {
     const errors = watchErrors(page);
     await page.goto("/hemma");
     await expect(page.getByRole("heading", { level: 1, name: "Lagersaldo" })).toBeVisible();
@@ -118,43 +120,42 @@ test.describe("on a phone", () => {
     for (const box of boxes) expect(box.height).toBeGreaterThanOrEqual(44);
     expect(await page.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth)).toBe(true);
 
-    await expect(heading(page, "Med mängd")).toBeVisible();
-    await expect(rows(page)).toHaveText([/^Mjölk\s*1 l$/, /^Smör\s*250 g$/]);
-    await expect(heading(page, "Finns hemma")).toBeVisible();
-    await expect(tags(page)).toHaveText(["Salt"]);
+    await expect(heading(page, "Mejeri & ägg")).toBeVisible();
+    await expect(heading(page, "Såser & smaksättare")).toBeVisible();
+    await expect(rows(page)).toHaveText([today("Mjölk"), today("Smör"), today("Salt")]);
+    await expect(heading(page, "Med mängd")).toHaveCount(0);
+    await expect(heading(page, "Finns hemma")).toHaveCount(0);
     expect(errors).toEqual([]);
   });
 
   test("a tap on a card chooses the location, and the choice is in the address", async ({ page }) => {
     const errors = watchErrors(page);
     await page.goto("/hemma");
-    await expect(rows(page)).toHaveCount(2);
+    await expect(rows(page)).toHaveCount(3);
 
     await card(page, "Frys").click();
     await expect(page).toHaveURL(/\/hemma\?plats=frys$/);
     await expectChosen(page, "Frys");
-    await expect(rows(page)).toHaveText([/^Ärtor\s*500 g$/]);
-    await expect(tags(page)).toHaveCount(0);
-    await expect(heading(page, "Finns hemma")).toHaveCount(0);
+    await expect(rows(page)).toHaveText([today("Ärtor")]);
+    await expect(heading(page, "Frys")).toBeVisible();
 
     await card(page, "Skafferi").click();
     await expect(page).toHaveURL(/\/hemma\?plats=skafferi$/);
     await expectChosen(page, "Skafferi");
     await expect(page.getByText("Inget i skafferiet än.")).toBeVisible();
     await expect(rows(page)).toHaveCount(0);
-    await expect(tags(page)).toHaveCount(0);
 
     await card(page, "Kyl").click();
     await expect(page).toHaveURL(/\/hemma\?plats=kyl$/);
     await expectChosen(page, "Kyl");
-    await expect(tags(page)).toHaveText(["Salt"]);
+    await expect(rows(page)).toHaveText([today("Mjölk"), today("Smör"), today("Salt")]);
     expect(errors).toEqual([]);
   });
 
   test("an unknown location in the address shows Kyl", async ({ page }) => {
     await page.goto("/hemma?plats=garage");
     await expectChosen(page, "Kyl");
-    await expect(rows(page)).toHaveText([/^Mjölk\s*1 l$/, /^Smör\s*250 g$/]);
+    await expect(rows(page)).toHaveText([today("Mjölk"), today("Smör"), today("Salt")]);
   });
 });
 
@@ -165,7 +166,7 @@ test.describe("on a computer", () => {
     const errors = watchErrors(page);
     await page.goto("/hemma?plats=frys");
     await expectChosen(page, "Frys");
-    await expect(rows(page)).toHaveText([/^Ärtor\s*500 g$/]);
+    await expect(rows(page)).toHaveText([today("Ärtor")]);
 
     const boxes = await places(page).getByRole("link").evaluateAll((links) =>
       links.map((link) => link.getBoundingClientRect().toJSON() as DOMRect),
@@ -174,8 +175,7 @@ test.describe("on a computer", () => {
 
     await card(page, "Kyl").click();
     await expect(page).toHaveURL(/\/hemma\?plats=kyl$/);
-    await expect(rows(page)).toHaveText([/^Mjölk\s*1 l$/, /^Smör\s*250 g$/]);
-    await expect(tags(page)).toHaveText(["Salt"]);
+    await expect(rows(page)).toHaveText([today("Mjölk"), today("Smör"), today("Salt")]);
     expect(errors).toEqual([]);
   });
 });
@@ -183,7 +183,20 @@ test.describe("on a computer", () => {
 // Story 2.2: the sheet Lagervara.
 const sheet = (page: Page) => page.getByRole("dialog", { name: "Lagervara" });
 const addButton = (page: Page) => page.getByRole("button", { name: "Lägg till vara" }).filter({ visible: true }).first();
-const row = (page: Page, name: string) => rows(page).filter({ hasText: name });
+const row = (page: Page, name: string) => rows(page).filter({ hasText: new RegExp(`^${name} `) });
+
+/** The amounts of the user's rows of the item, by location, with the service role: the list shows none (Story 11.3). */
+async function amounts(userId: string, name: string): Promise<Record<string, string>> {
+  const { data, error } = await adminClient()
+    .from("pantry_item")
+    .select("location, amount, unit, ingredient!inner(name)")
+    .eq("user_id", userId)
+    .eq("ingredient.name", name);
+  if (error) throw error;
+  return Object.fromEntries(
+    data.map((one) => [one.location, one.amount === null ? "obegränsad" : `${Number(one.amount)} ${one.unit}`]),
+  );
+}
 const place = (page: Page, name: "Kyl" | "Frys" | "Skafferi") => sheet(page).getByRole("radio", { name });
 const amountField = (page: Page) => sheet(page).getByLabel("Mängd");
 
@@ -204,7 +217,7 @@ test.describe("the sheet Lagervara", () => {
   test("adds an ingredient from the catalog with an amount, setting the row that is there", async ({ page }) => {
     const errors = watchErrors(page);
     await page.goto("/hemma");
-    await expect(rows(page)).toHaveCount(2);
+    await expect(rows(page)).toHaveCount(3);
 
     await addButton(page).click();
     const search = sheet(page).getByRole("searchbox", { name: "Sök ingrediens" });
@@ -220,7 +233,8 @@ test.describe("the sheet Lagervara", () => {
     await expect(sheet(page)).toHaveCount(0);
     await expect(page.getByTestId("toast")).toHaveText("Mjölk är sparad i kylen.");
     // Set, not added to: 1,5 l on the same row.
-    await expect(rows(page)).toHaveText([/^Mjölk\s*1,5 l$/, /^Smör\s*250 g$/]);
+    await expect(rows(page)).toHaveText([today("Mjölk"), today("Smör"), today("Salt")]);
+    await expect.poll(() => amounts(userId, "Mjölk")).toEqual({ Kyl: "1.5 l" });
     await expect(card(page, "Kyl")).toHaveText(/^Kyl\s*3 varor$/);
     expect(errors).toEqual([]);
   });
@@ -241,8 +255,9 @@ test.describe("the sheet Lagervara", () => {
     await sheet(page).getByRole("button", { name: "Lägg till vara" }).click();
 
     await expect(sheet(page)).toHaveCount(0);
-    await expect(heading(page, "Finns hemma")).toBeVisible();
-    await expect(tags(page)).toHaveText([name]);
+    // "Saffran" is a seasoning: Såser & smaksättare, after Frys in the store's order.
+    await expect(heading(page, "Såser & smaksättare")).toBeVisible();
+    await expect(rows(page)).toHaveText([today("Ärtor"), today(name)]);
     await expect(card(page, "Frys")).toHaveText(/^Frys\s*2 varor$/);
 
     // The new ingredient is in the catalog now: the search finds it.
@@ -263,18 +278,19 @@ test.describe("the sheet Lagervara", () => {
     await amountField(page).fill("2");
     await sheet(page).getByRole("button", { name: "Spara ändringar" }).click();
     await expect(sheet(page)).toHaveCount(0);
-    await expect(rows(page)).toHaveText([/^Mjölk\s*2 l$/, /^Smör\s*250 g$/]);
+    await expect.poll(() => amounts(userId, "Mjölk")).toEqual({ Kyl: "2 l" });
+    await expect(rows(page)).toHaveText([today("Mjölk"), today("Smör"), today("Salt")]);
 
-    // Without an amount, Smör is unlimited and shows as a tag.
+    // Without an amount, Smör is unlimited, and stays a row like the others.
     await row(page, "Smör").click();
     await amountField(page).fill("");
     await sheet(page).getByRole("button", { name: "Spara ändringar" }).click();
     await expect(sheet(page)).toHaveCount(0);
-    await expect(rows(page)).toHaveText([/^Mjölk\s*2 l$/]);
-    await expect(tags(page)).toHaveText(["Salt", "Smör"]);
+    await expect.poll(() => amounts(userId, "Smör")).toEqual({ Kyl: "obegränsad" });
+    await expect(rows(page)).toHaveText([today("Mjölk"), today("Smör"), today("Salt")]);
 
-    // A tap on a tag opens the sheet too.
-    await tags(page).filter({ hasText: "Salt" }).getByRole("button").click();
+    // An unlimited item's row opens the sheet too.
+    await row(page, "Salt").click();
     await expect(sheet(page).getByTestId("pantry-sheet-ingredient")).toHaveText("Salt");
     await expect(amountField(page)).toHaveValue("");
     expect(errors).toEqual([]);
@@ -289,12 +305,13 @@ test.describe("the sheet Lagervara", () => {
     await sheet(page).getByRole("button", { name: "Spara ändringar" }).click();
     await expect(sheet(page)).toHaveCount(0);
     await expect(page.getByTestId("toast")).toHaveText("Mjölk är sparad i frysen.");
-    await expect(rows(page)).toHaveText([/^Smör\s*250 g$/]);
+    await expect(rows(page)).toHaveText([today("Smör"), today("Salt")]);
     await expect(card(page, "Kyl")).toHaveText(/^Kyl\s*2 varor$/);
     await expect(card(page, "Frys")).toHaveText(/^Frys\s*2 varor$/);
 
+    // Mejeri & ägg comes before Frys in the store's order.
     await card(page, "Frys").click();
-    await expect(rows(page)).toHaveText([/^Mjölk\s*1 l$/, /^Ärtor\s*500 g$/]);
+    await expect(rows(page)).toHaveText([today("Mjölk"), today("Ärtor")]);
     expect(errors).toEqual([]);
   });
 
@@ -323,7 +340,7 @@ test.describe("the sheet Lagervara", () => {
     await expect(sheet(page).getByText("Släng ändringarna?")).toBeVisible();
     await sheet(page).getByRole("button", { name: "Släng ändringarna" }).click();
     await expect(sheet(page)).toHaveCount(0);
-    await expect(rows(page)).toHaveText([/^Mjölk\s*1 l$/, /^Smör\s*250 g$/]);
+    await expect.poll(() => amounts(userId, "Mjölk")).toEqual({ Kyl: "1 l" });
 
     // An empty location offers "Lägg till vara" too, with the location preselected.
     await card(page, "Skafferi").click();
@@ -372,32 +389,8 @@ async function rowId(userId: string, name: Name, location: string): Promise<stri
   return data[0]?.id ?? null;
 }
 
-/** The part of the row that slides; the action is behind it. */
-const front = (page: Page, name: string) =>
-  page.getByTestId("swipe-row-front").filter({ visible: true }).filter({ has: page.getByTestId("pantry-row").filter({ hasText: name }) });
-const slidOpen = "matrix(1, 0, 0, 1, -96, 0)";
-
-/**
- * Swipes the row to the left from its middle with the mouse, which sends the
- * same pointer events as a finger.
- */
-async function swipeLeft(page: Page, name: string, distance = 150) {
-  const box = await row(page, name).boundingBox();
-  if (!box) throw new Error(`no row ${name}`);
-  const x = box.x + box.width / 2;
-  const y = box.y + box.height / 2;
-  await page.mouse.move(x, y);
-  await page.mouse.down();
-  await page.mouse.move(x - distance, y + 4, { steps: 12 });
-  await page.mouse.up();
-}
-
-/** Removes the row by swipe and a tap on Ta bort. */
-async function swipeAndRemove(page: Page, name: string) {
-  await swipeLeft(page, name);
-  await expect(front(page, name)).toHaveCSS("transform", slidOpen);
-  await page.getByRole("button", { name: `Ta bort ${name}` }).click();
-}
+/** The row's bin (Story 11.3). */
+const bin = (page: Page, name: string) => page.getByRole("button", { name: `Ta bort ${name}`, exact: true }).filter({ visible: true });
 
 /** Taps Ångra and waits for the answers to the Server Action calls it makes. */
 async function undoAndWait(page: Page, calls = 1) {
@@ -414,71 +407,64 @@ async function undoAndWait(page: Page, calls = 1) {
 test.describe("removing an item", () => {
   test.use({ viewport: mobile });
 
-  test("a swipe to the left shows Ta bort, which removes the row at once, and Ångra puts it back with the same id", async ({
-    page,
-  }) => {
+  test("the bin removes the row at once, without a question, and Ångra puts it back with the same id", async ({ page }) => {
     const errors = watchErrors(page);
     const id = await rowId(userId, "Mjölk", "Kyl");
     await page.goto("/hemma");
-    await expect(rows(page)).toHaveCount(2);
+    await expect(rows(page)).toHaveCount(3);
 
-    const remove = page.getByRole("button", { name: "Ta bort Mjölk" });
-    // A short swipe slides back.
-    await swipeLeft(page, "Mjölk", 30);
-    await expect(front(page, "Mjölk")).toHaveCSS("transform", "none");
-    await swipeLeft(page, "Mjölk");
-    await expect(front(page, "Mjölk")).toHaveCSS("transform", slidOpen);
-    // The click that ended the swipe did not open the sheet.
+    await bin(page, "Mjölk").click();
     await expect(sheet(page)).toHaveCount(0);
-    await remove.click();
-
-    await expect(rows(page)).toHaveText([/^Smör\s*250 g$/]);
+    await expect(rows(page)).toHaveText([today("Smör"), today("Salt")]);
     await expect(card(page, "Kyl")).toHaveText(/^Kyl\s*2 varor$/);
-    await expect(toast(page)).toContainText("Mjölk är borttagen.");
+    await expect(toast(page)).toContainText("Tog bort Mjölk.");
     await expect.poll(() => rowId(userId, "Mjölk", "Kyl")).toBeNull();
 
     await undoAndWait(page);
     // Settled: the action has answered and the page has the server's list.
     await expect(toast(page)).toHaveCount(0);
-    await expect(rows(page)).toHaveText([/^Mjölk\s*1 l$/, /^Smör\s*250 g$/]);
+    await expect(rows(page)).toHaveText([today("Mjölk"), today("Smör"), today("Salt")]);
     await expect(card(page, "Kyl")).toHaveText(/^Kyl\s*3 varor$/);
     expect(await rowId(userId, "Mjölk", "Kyl")).toBe(id);
-    // Still there after a reload: the server has it.
+    // Still there after a reload, with its amount: the server has it.
     await page.reload();
-    await expect(rows(page)).toHaveText([/^Mjölk\s*1 l$/, /^Smör\s*250 g$/]);
+    await expect(rows(page)).toHaveText([today("Mjölk"), today("Smör"), today("Salt")]);
+    expect(await amounts(userId, "Mjölk")).toEqual({ Kyl: "1 l" });
     expect(errors).toEqual([]);
   });
 
-  test("items removed while the confirmation shows join it, and one Ångra puts them all back", async ({ page }) => {
+  test("a second removal replaces the confirmation, and its Ångra puts back only that item", async ({ page }) => {
     const errors = watchErrors(page);
-    const ids = [await rowId(userId, "Mjölk", "Kyl"), await rowId(userId, "Smör", "Kyl")];
+    const smor = await rowId(userId, "Smör", "Kyl");
     await page.goto("/hemma");
-    await swipeAndRemove(page, "Mjölk");
-    await expect(toast(page)).toContainText("Mjölk är borttagen.");
-    await swipeAndRemove(page, "Smör");
-    await expect(toast(page)).toContainText("Mjölk och smör är borttagna.");
-    await expect(rows(page)).toHaveCount(0);
+    await bin(page, "Mjölk").click();
+    await expect(toast(page)).toContainText("Tog bort Mjölk.");
+    // Past the bins' double-tap guard (400 ms), as between two real taps.
+    await page.waitForTimeout(450);
+    await bin(page, "Smör").click();
+    await expect(toast(page)).toContainText("Tog bort Smör.");
+    await expect(rows(page)).toHaveText([today("Salt")]);
     await expect(card(page, "Kyl")).toHaveText(/^Kyl\s*1 vara$/);
 
-    await undoAndWait(page, 2);
+    await undoAndWait(page);
     await expect(toast(page)).toHaveCount(0);
-    await expect(rows(page)).toHaveText([/^Mjölk\s*1 l$/, /^Smör\s*250 g$/]);
-    await expect(card(page, "Kyl")).toHaveText(/^Kyl\s*3 varor$/);
-    expect([await rowId(userId, "Mjölk", "Kyl"), await rowId(userId, "Smör", "Kyl")]).toEqual(ids);
+    await expect(rows(page)).toHaveText([today("Smör"), today("Salt")]);
+    expect(await rowId(userId, "Smör", "Kyl")).toBe(smor);
+    expect(await rowId(userId, "Mjölk", "Kyl")).toBeNull();
     expect(errors).toEqual([]);
   });
 
   test("Ta bort in the sheet removes an unlimited item, and the sheet closes", async ({ page }) => {
     const errors = watchErrors(page);
     await page.goto("/hemma");
-    await expect(tags(page)).toHaveText(["Salt"]);
+    await expect(rows(page)).toHaveText([today("Mjölk"), today("Smör"), today("Salt")]);
 
-    await tags(page).filter({ hasText: "Salt" }).getByRole("button").click();
+    await row(page, "Salt").click();
     await sheet(page).getByRole("button", { name: "Ta bort" }).click();
     await expect(sheet(page)).toHaveCount(0);
-    await expect(tags(page)).toHaveCount(0);
-    await expect(heading(page, "Finns hemma")).toHaveCount(0);
-    await expect(toast(page)).toContainText("Salt är borttagen.");
+    await expect(rows(page)).toHaveText([today("Mjölk"), today("Smör")]);
+    await expect(heading(page, "Såser & smaksättare")).toHaveCount(0);
+    await expect(toast(page)).toContainText("Tog bort Salt.");
     await expect.poll(() => rowId(userId, "Salt", "Kyl")).toBeNull();
     expect(errors).toEqual([]);
   });
@@ -486,8 +472,8 @@ test.describe("removing an item", () => {
   test("Ångra fails when the location has the item again, and the item stays removed", async ({ page }) => {
     const errors = watchErrors(page);
     await page.goto("/hemma");
-    await swipeAndRemove(page, "Smör");
-    await expect(toast(page)).toContainText("Smör är borttagen.");
+    await bin(page, "Smör").click();
+    await expect(toast(page)).toContainText("Tog bort Smör.");
 
     // Meanwhile Smör in g is back in Kyl, as a new row.
     const { data: ingredient, error } = await adminClient()
@@ -508,40 +494,31 @@ test.describe("removing an item", () => {
     // A short confirmation, announced as an alert; the row that is there now shows.
     await expect(toast(page)).toHaveText("Det gick inte att ångra.");
     await expect(page.getByRole("alert").filter({ hasText: "Det gick inte att ångra." })).toBeAttached();
-    await expect(rows(page)).toHaveText([/^Mjölk\s*1 l$/, /^Smör\s*500 g$/]);
+    await expect(rows(page)).toHaveText([today("Mjölk"), today("Smör"), today("Salt")]);
     await expect.poll(() => rowId(userId, "Smör", "Kyl")).toBe(inserted.data.id);
+    expect(await amounts(userId, "Smör")).toEqual({ Kyl: "500 g" });
     expect(errors).toEqual([]);
+  });
+
+  test("has no swipe in Lagersaldo (Story 11.3)", async ({ page }) => {
+    await page.goto("/hemma");
+    await expect(page.getByTestId("swipe-row-front")).toHaveCount(0);
   });
 });
 
 test.describe("removing an item with the keyboard", () => {
   test.use({ viewport: desktop });
 
-  test("Tab after a row reaches Ta bort without a swipe", async ({ page }) => {
+  test("Tab after a row reaches its bin; Enter removes, and focus goes to the next bin", async ({ page }) => {
     const errors = watchErrors(page);
     await page.goto("/hemma");
     await row(page, "Mjölk").focus();
     await page.keyboard.press("Tab");
-    const remove = page.getByRole("button", { name: "Ta bort Mjölk" });
-    await expect(remove).toBeFocused();
-    // The row slid aside, so the button is not covered.
-    await expect(front(page, "Mjölk")).toHaveCSS("transform", slidOpen);
-    const box = await remove.boundingBox();
-    if (!box) throw new Error("no button");
-    const center = { x: box.x + box.width / 2, y: box.y + box.height / 2 };
-    expect(await page.evaluate(({ x, y }) => document.elementFromPoint(x, y)?.textContent, center)).toBe("Ta bort");
-
-    // Esc slides it back with focus on the row; Tab and Enter remove.
-    await page.keyboard.press("Escape");
-    await expect(front(page, "Mjölk")).toHaveCSS("transform", "none");
-    await expect(row(page, "Mjölk")).toBeFocused();
-    await page.keyboard.press("Tab");
-    await expect(remove).toBeFocused();
+    await expect(bin(page, "Mjölk")).toBeFocused();
     await page.keyboard.press("Enter");
-    await expect(rows(page)).toHaveText([/^Smör\s*250 g$/]);
-    await expect(toast(page)).toContainText("Mjölk är borttagen.");
-    // Focus moves on to the next item.
-    await expect(row(page, "Smör")).toBeFocused();
+    await expect(rows(page)).toHaveText([today("Smör"), today("Salt")]);
+    await expect(toast(page)).toContainText("Tog bort Mjölk.");
+    await expect(bin(page, "Smör")).toBeFocused();
     expect(errors).toEqual([]);
   });
 });
