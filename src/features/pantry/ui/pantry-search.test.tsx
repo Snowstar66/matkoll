@@ -1,4 +1,4 @@
-import { fireEvent, render, screen } from "@testing-library/react";
+import { act, fireEvent, render, screen, waitFor } from "@testing-library/react";
 import { Activity, type ReactNode } from "react";
 import { describe, expect, it, vi } from "vitest";
 import { ToastProvider } from "@/components/toast";
@@ -12,7 +12,7 @@ import { PantrySuggestionsProvider } from "./pantry-suggestions";
 // Sök i platsen (Story 11.3): the field, and that the search starts empty on
 // another place or location but stays while the page is hidden (Activity).
 
-vi.mock("../actions/set-pantry-item", () => ({ savePantryItem: vi.fn() }));
+vi.mock("../actions/set-pantry-item", () => ({ savePantryItem: vi.fn(async () => ({ ok: true, data: { id: "1" } })) }));
 vi.mock("../actions/search-ingredients", () => ({ searchPantryIngredients: vi.fn() }));
 vi.mock("next/navigation", () => ({ useRouter: () => ({ refresh: vi.fn() }) }));
 vi.mock("../actions/remove-pantry-item", () => ({ removePantryItem: vi.fn() }));
@@ -103,10 +103,40 @@ describe("the search in Lagersaldo", () => {
     expect(rowCount()).toBe(1);
   });
 
-  it("keeps the counts on the location cards for the whole location", () => {
+  it("keeps the counts on the location cards for the whole location, and hides Töm kylen while it searches", () => {
     render(providers(<Page />));
+    expect(screen.getByRole("button", { name: "Töm kylen" })).toBeInTheDocument();
     fireEvent.change(field(), { target: { value: "mjö" } });
     expect(screen.getByRole("link", { name: /^Kyl/ })).toHaveTextContent("Kyl 2 varor");
+    expect(screen.queryByRole("button", { name: "Töm kylen" })).toBeNull();
+    fireEvent.change(field(), { target: { value: "" } });
     expect(screen.getByRole("button", { name: "Töm kylen" })).toBeInTheDocument();
+  });
+
+  it("empties when the location has nothing left, so items that come back all show", () => {
+    const { rerender } = render(providers(<Page />));
+    fireEvent.change(field(), { target: { value: "mjö" } });
+    rerender(providers(<Page items={[]} />));
+    expect(screen.getByText("Inget i kylen än.")).toBeInTheDocument();
+    rerender(providers(<Page />));
+    expect(field()).toHaveValue("");
+    expect(rowCount()).toBe(2);
+  });
+
+  it("empties when an item is saved from the sheet, so it never hides the item", async () => {
+    // Ids the form takes (uuids).
+    const saved = kyl.map((one, index) => ({
+      ...one,
+      id: `${index + 1}1111111-1111-4111-8111-111111111111`,
+      ingredientId: `${index + 1}2222222-2222-4222-8222-222222222222`,
+    }));
+    render(providers(<Page items={saved} />));
+    fireEvent.change(field(), { target: { value: "mjö" } });
+    fireEvent.click(screen.getByRole("button", { name: /^Mellanmjölk / }));
+    fireEvent.change(screen.getByLabelText("Mängd"), { target: { value: "2" } });
+    fireEvent.change(screen.getByLabelText("Enhet"), { target: { value: "l" } });
+    await act(async () => fireEvent.click(screen.getByRole("button", { name: "Spara ändringar" })));
+    await waitFor(() => expect(field()).toHaveValue(""));
+    expect(rowCount()).toBe(2);
   });
 });

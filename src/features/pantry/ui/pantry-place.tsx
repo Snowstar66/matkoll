@@ -28,7 +28,7 @@ export type PantryPlaceProps = {
  * latest photo (needs a PantrySuggestionsProvider above), and the chosen
  * location's items on the place (with "Sök i kylen", Story 11.3), with removals and "Ångra" that the server's
  * items do not show yet already applied (usePantryRemoval), and "Töm kylen"
- * under them while there are any. The chosen card counts the items shown, so
+ * under them while there are any and no search is on. The chosen card counts the items shown, so
  * card, list and the question in "Töm kylen" never disagree. While Pontus has
  * only one place, "Lägg till ställe" comes last (needs a SiteSwitch above);
  * with more, the site switch above has "Ställen".
@@ -44,8 +44,13 @@ export function PantryPlace({ site, location, counts, items }: PantryPlaceProps)
       <PantryCamera site={site} location={location} />
       <PantrySuggestionList siteId={site.id} />
       {/* Keyed, so the search starts empty on another place or location (Story 11.3). */}
-      <PantryList key={`${site.id}:${location}`} location={location} items={shown} />
-      <EmptyPlaceButton site={site} location={location} count={shown.length} items={shown} />
+      <PantryList
+        key={`${site.id}:${location}`}
+        location={location}
+        items={shown}
+        // "Töm kylen" acts on the whole location, so it hides while a search shows only matches.
+        after={<EmptyPlaceButton site={site} location={location} count={shown.length} items={shown} />}
+      />
       {site.siteCount === 1 ? <AddSiteButton /> : null}
     </div>
   );

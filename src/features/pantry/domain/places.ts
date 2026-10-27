@@ -51,12 +51,15 @@ export function removedItemsText(names: readonly NameInText[]): string {
 }
 
 /**
- * The short confirmation, with "Ångra", after one item is removed in
- * Lagersaldo (Story 11.3, EXPERIENCE.md, Soptunna): "Tog bort Gräddfil." The
- * name is written as the list shows it.
+ * The short confirmation, with "Ångra", for the items removed one by one in
+ * Lagersaldo while it shows (Story 11.3, EXPERIENCE.md, Soptunna): "Tog bort
+ * Gräddfil.", "Tog bort Gräddfil och Mjölk." or "Tog bort 3 varor." The names
+ * are written as the list shows them.
  */
-export function removedItemText(name: string): string {
-  return `Tog bort ${name}.`;
+export function removedItemText(names: readonly string[]): string {
+  if (names.length === 1) return `Tog bort ${names[0]}.`;
+  if (names.length === 2) return `Tog bort ${names[0]} och ${names[1]}.`;
+  return `Tog bort ${itemCountText(names.length)}.`;
 }
 
 /** The short confirmation after confirming several lagerförslag at once: "Lagt 1 vara i lagret.", "Lagt 4 varor i lagret." */

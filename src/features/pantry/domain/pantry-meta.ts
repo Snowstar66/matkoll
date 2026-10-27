@@ -1,4 +1,4 @@
-import { compareCategories, displayCategory, searchText, type Category, type Location } from "@/features/catalog";
+import { compareCategories, displayCategory, type Category, type Location } from "@/features/catalog";
 import { comparePantryItems, type PantryItem } from "./pantry-item";
 import { definite } from "./places";
 
@@ -28,6 +28,31 @@ function stockholmDay(date: Date): { year: number; month: number; day: number } 
 
 const dayMs = 24 * 60 * 60 * 1000;
 
+/** The calendar day of `date` in Stockholm as "2026-10-27": two times on the same day give the same key. */
+export function stockholmDayKey(date: Date): string {
+  const { year, month, day } = stockholmDay(date);
+  return `${year}-${String(month).padStart(2, "0")}-${String(day).padStart(2, "0")}`;
+}
+
+/**
+ * How long until the next midnight in Stockholm, at least a second. On the
+ * days the clocks change it may be an hour off; the caller checks the day
+ * again when it fires.
+ */
+export function msUntilStockholmMidnight(now: Date): number {
+  const parts = new Intl.DateTimeFormat("en-GB", {
+    timeZone: pantryTimeZone,
+    hour: "numeric",
+    minute: "numeric",
+    second: "numeric",
+    hourCycle: "h23",
+  })
+    .formatToParts(now)
+    .reduce<Record<string, number>>((all, part) => ({ ...all, [part.type]: Number(part.value) }), {});
+  const passed = ((parts.hour * 60 + parts.minute) * 60 + parts.second) * 1000 + now.getMilliseconds();
+  return Math.max(1000, dayMs - passed);
+}
+
 /**
  * When an item was added, from `createdAt` (ISO 8601) and `now`, by calendar
  * days in Stockholm: "Tillagd idag", "Tillagd igår", "Tillagd för 6 dagar
@@ -56,7 +81,9 @@ export function addedText(createdAt: string, now: Date): string | null {
  * neither, as a placeholder row without a time.
  */
 export function pantryMetaText(item: Pick<PantryItem, "label" | "createdAt">, now: Date): string | null {
-  if (item.label) return item.label;
+  // A brand of only spaces is none.
+  const label = item.label?.trim();
+  if (label) return label;
   return item.createdAt ? addedText(item.createdAt, now) : null;
 }
 
@@ -82,15 +109,35 @@ export function groupPantryByCategory(items: readonly PantryItem[]): PantryCateg
     .map(([category, grouped]) => ({ category, items: grouped.sort(comparePantryItems) }));
 }
 
+/** The letters that keep their marks: in Swedish they are letters of their own. */
+const ownLetters = new Set(["å", "ä", "ö"]);
+
 /**
- * The items whose name or brand holds `query`, without regard to upper and
- * lower case; å, ä and ö are letters of their own, as in Swedish. An empty
- * query (or only spaces) keeps every item.
+ * Text as the search compares it: composed (NFC), in Swedish lower case,
+ * with single spaces, curly apostrophes as "'" and the marks taken off every
+ * letter but å, ä and ö ("Crème" is "creme", "jalapeño" "jalapeno").
+ */
+export function pantrySearchText(text: string): string {
+  const folded = [...text.normalize("NFC").toLocaleLowerCase("sv-SE")]
+    .map((char) => (ownLetters.has(char) ? char : char.normalize("NFD").replace(/\p{M}/gu, "")))
+    .join("");
+  return folded.replace(/[\u2018\u2019\u02BC]/g, "'").replace(/\s+/g, " ").trim();
+}
+
+/**
+ * The items whose name and brand hold every word of `query`, in any order
+ * ("mjölk arla"), compared with pantrySearchText: without regard to case or
+ * marks, but å, ä and ö are letters of their own. An empty query (or only
+ * spaces) keeps every item.
  */
 export function filterPantry(items: readonly PantryItem[], query: string): readonly PantryItem[] {
-  const text = searchText(query);
+  const text = pantrySearchText(query);
   if (text === "") return items;
-  return items.filter((item) => searchText(item.name).includes(text) || searchText(item.label ?? "").includes(text));
+  const words = text.split(" ");
+  return items.filter((item) => {
+    const haystack = pantrySearchText(`${item.name} ${item.label ?? ""}`);
+    return words.every((word) => haystack.includes(word));
+  });
 }
 
 /** The search field's name and placeholder: "Sök i kylen", "Sök i frysen" or "Sök i skafferiet". */

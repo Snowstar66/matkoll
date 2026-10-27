@@ -1,6 +1,6 @@
 "use client";
 
-import type { Ref, RefObject } from "react";
+import { type Ref, type RefObject, useEffect, useState } from "react";
 import { Button } from "@/components/button";
 import { EmptyState } from "@/components/empty-state";
 import { SearchField, type SearchFieldHandle } from "@/components/search-field";
@@ -24,10 +24,12 @@ export type PantrySearchFieldProps = {
   onQueryChange: (query: string) => void;
   /** For "Rensa sökning" in PantryNoMatch. */
   fieldRef?: Ref<SearchFieldHandle>;
+  /** Nothing matches: the field leaves out its own "Rensa sökning", so the page has one control by that name. */
+  noMatch?: boolean;
 };
 
 /** "Sök i kylen" (frysen, skafferiet): the name and the placeholder follow the location. */
-export function PantrySearchField({ location, query, onQueryChange, fieldRef }: PantrySearchFieldProps) {
+export function PantrySearchField({ location, query, onQueryChange, fieldRef, noMatch = false }: PantrySearchFieldProps) {
   const label = pantrySearchLabel(location);
   return (
     <SearchField
@@ -38,6 +40,7 @@ export function PantrySearchField({ location, query, onQueryChange, fieldRef }: 
       delayMs={0}
       onSearch={onQueryChange}
       maxLength={maxPantrySearchChars}
+      clearable={!noMatch}
     />
   );
 }
@@ -60,5 +63,34 @@ export function PantryNoMatch({ location, fieldRef }: PantryNoMatchProps) {
     >
       {noMatchText(location)}
     </EmptyState>
+  );
+}
+
+/** How long the search rests before its result is announced, so not every keystroke is read out. */
+export const searchStatusDelayMs = 500;
+
+/** "1 träff", "3 träffar", or "Inget i kylen matchar."; nothing without a search. */
+export function searchStatusText(location: Location, query: string, count: number): string {
+  if (query.trim() === "") return "";
+  if (count === 0) return noMatchText(location);
+  return `${count} ${count === 1 ? "träff" : "träffar"}`;
+}
+
+/**
+ * A polite live region, hidden from sight, that says how many items match
+ * ("3 träffar", "Inget i kylen matchar.") once the search has rested for
+ * searchStatusDelayMs. The list itself filters at once.
+ */
+export function PantrySearchStatus({ location, query, count }: { location: Location; query: string; count: number }) {
+  const text = searchStatusText(location, query, count);
+  const [announced, setAnnounced] = useState("");
+  useEffect(() => {
+    const timer = setTimeout(() => setAnnounced(text), text === "" ? 0 : searchStatusDelayMs);
+    return () => clearTimeout(timer);
+  }, [text]);
+  return (
+    <div role="status" aria-live="polite" aria-atomic="true" className="sr-only" data-testid="pantry-search-status">
+      {announced}
+    </div>
   );
 }
