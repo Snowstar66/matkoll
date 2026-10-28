@@ -166,3 +166,40 @@ export function connectionRefused(): Error {
   const cause = Object.assign(new Error("connect ECONNREFUSED 127.0.0.1:1234"), { code: "ECONNREFUSED" });
   return new TypeError("fetch failed", { cause });
 }
+
+/**
+ * A streamed chat completion (server-sent events) with `pieces` of text, one
+ * event each. A piece may be a function: it runs when the stream gets to it
+ * (and may wait), so a test can see what happened before the rest came.
+ */
+export function chatStream(pieces: (string | (() => Promise<void> | void))[], finishReason = "stop"): Response {
+  const encoder = new TextEncoder();
+  const event = (delta: object, finish: string | null) =>
+    encoder.encode(
+      `data: ${JSON.stringify({
+        id: "chatcmpl-1",
+        object: "chat.completion.chunk",
+        created: 1_761_400_000,
+        model: testModelId,
+        choices: [{ index: 0, delta, finish_reason: finish }],
+      })}\n\n`,
+    );
+  const body = new ReadableStream<Uint8Array>({
+    async start(controller) {
+      controller.enqueue(event({ role: "assistant", content: "" }, null));
+      for (const piece of pieces) {
+        if (typeof piece === "function") await piece();
+        else controller.enqueue(event({ content: piece }, null));
+      }
+      controller.enqueue(event({}, finishReason));
+      controller.enqueue(encoder.encode("data: [DONE]\n\n"));
+      controller.close();
+    },
+  });
+  return new Response(body, { headers: { "content-type": "text/event-stream" } });
+}
+
+/** The pieces of a streamed answer `{"elements":[…]}`: the opening, each dish with its comma, and the closing. */
+export function elementPieces(...dishes: unknown[]): string[] {
+  return ['{"elements":[', ...dishes.map((dish, i) => JSON.stringify(dish) + (i < dishes.length - 1 ? "," : "")), "]}"];
+}

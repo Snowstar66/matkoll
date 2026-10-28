@@ -9,6 +9,8 @@ import suggestDishesPrompt from "./prompts/suggest-dishes.md?raw";
 export const prompts = {
   parseRecipe: parseRecipePrompt,
   suggestDishes: suggestDishesPrompt,
+  // Story 12.7: the answer is streamed as an array, which the AI SDK asks for as { "elements": [ … ] }.
+  suggestDishesStream: suggestDishesPrompt.replace('{ "suggestions": [ … ] }', '{ "elements": [ … ] }'),
   analyzeImage: analyzeImagePrompt,
   locateItems: locateItemsPrompt,
 } as const;

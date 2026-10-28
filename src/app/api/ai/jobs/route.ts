@@ -95,8 +95,9 @@ export async function POST(request: Request): Promise<Response> {
   // A job that was given back (a double tap, another tab) is run by the request that made it.
   if (created) {
     after(() =>
-      runAiJob(db, job, { startBy }, async (signal, deadline): Promise<Result<Json>> => {
-        const result = await suggestFromPantry({ avoidTitles }, { signal, deadline });
+      runAiJob(db, job, { startBy }, async (signal, deadline, report): Promise<Result<Json>> => {
+        // Story 12.7: each dish is reported as it comes, so the client shows the first one at once.
+        const result = await suggestFromPantry({ avoidTitles }, { signal, deadline, report });
         // The drafts are plain data; the job keeps them as JSON until Pontus saves one.
         return result.ok ? ok(JSON.parse(JSON.stringify(result.data)) as Json) : result;
       }),
