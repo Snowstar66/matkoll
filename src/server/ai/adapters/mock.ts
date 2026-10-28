@@ -253,9 +253,10 @@ function wait(ms: number, signal: AbortSignal): Promise<boolean> {
 
 export type MockOptions = {
   /**
-   * Time every AI-förslag call takes (AI_MOCK_DELAY_MS, Story 12.4), so the
-   * queue and the job row can be tried in the end-to-end tests. The other
-   * calls answer at once until they are jobs too (Stories 12.5, 12.6).
+   * Time every AI-förslag call and every recipe import takes (AI_MOCK_DELAY_MS,
+   * Stories 12.4 and 12.6), so the queue and the job row can be tried in the
+   * end-to-end tests. The other calls answer at once until they are jobs too
+   * (Story 12.5).
    */
   delayMs?: number;
 };
@@ -275,7 +276,7 @@ export function createMockAiService(dir: string = defaultFixturesDir, { delayMs 
 
   return {
     async parseRecipe(input, signal) {
-      if (signal.aborted) return fail("ai_unavailable");
+      if (!(await wait(Math.min(Math.max(delayMs, 0), maxMockDelayMs), signal))) return fail("ai_unavailable");
       const current = logged(fixtures());
       if (!current) return fail("ai_unavailable");
       const key = mockKey(input);

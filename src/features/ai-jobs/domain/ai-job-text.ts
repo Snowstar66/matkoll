@@ -4,15 +4,21 @@ import { isActive, type AiJob, type AiJobKind } from "@/lib/ai-job-shape";
 // Patterns, Epic 12). The job is named after what it is about, never after
 // the technique, and the word "jobb" is only in the job row and the sheet.
 
-/** What the AI is doing, for the job row: "Letar efter rättförslag". */
-export function doingText(kind: AiJobKind): string {
+/** The domain a link import reads from, kept in the job's context ("koket.se"); null for other jobs. */
+export function importDomain(job: Pick<AiJob, "kind" | "context">): string | null {
+  const domain = job.kind === "import" ? job.context.domain : undefined;
+  return typeof domain === "string" && domain !== "" ? domain : null;
+}
+
+/** What the AI is doing, for the job row: "Letar efter rättförslag", "Läser receptet från koket.se". */
+export function doingText(kind: AiJobKind, domain: string | null = null): string {
   switch (kind) {
     case "suggest":
       return "Letar efter rättförslag";
     case "analyze":
       return "Tittar på fotot av kylen";
     case "import":
-      return "Läser receptet";
+      return domain ? `Läser receptet från ${domain}` : "Läser receptet";
   }
 }
 
@@ -51,7 +57,7 @@ export function waitingText(job: Pick<AiJob, "status" | "ahead">): string | null
 }
 
 /** The short confirmation for a finished job: "3 rättförslag är klara.", or why it did not go. */
-export function finishedText(job: Pick<AiJob, "kind" | "status" | "count">): string {
+export function finishedText(job: Pick<AiJob, "kind" | "status" | "count" | "title">): string {
   if (job.status === "failed") {
     switch (job.kind) {
       case "suggest":
@@ -68,7 +74,7 @@ export function finishedText(job: Pick<AiJob, "kind" | "status" | "count">): str
     case "analyze":
       return job.count === 1 ? "1 förslag från fotot av kylen är klart." : `${job.count ?? 0} förslag från fotot av kylen är klara.`;
     case "import":
-      return "Receptet är inläst.";
+      return job.title ? `Receptet ${job.title} är inläst.` : "Receptet är inläst.";
   }
 }
 
@@ -87,7 +93,7 @@ export function jobRowText(jobs: readonly AiJob[]): { text: string; label: strin
   const shown = active.find((job) => job.status === "running") ?? active[0];
   if (!shown) return null;
   const waiting = active.length - 1;
-  const doing = doingText(shown.kind);
+  const doing = doingText(shown.kind, importDomain(shown));
   return {
     text: waiting > 0 ? `AI: ${doing} · ${waiting} i kö` : `AI: ${doing}`,
     label: waiting > 0 ? `AI-jobb: ${doing}, ${waiting} i kö` : `AI-jobb: ${doing}`,

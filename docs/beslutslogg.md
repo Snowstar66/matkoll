@@ -2,6 +2,18 @@
 
 Beslut som fattats under bygget: vad, varför och vilka alternativ som fanns. Nyaste överst.
 
+## 2026-10-29 – Receptimport i bakgrunden (Story 12.6)
+
+- **Specens förslag godkändes som de stod** (Claude, headless enligt `docs/autonomi.md`): domänen (inte hela länken) i `context`, och ett tomt formulär när arket öppnas igen. Ingen migration: `ai_job` tar redan sorten `import`.
+- **Förhandskontrollen** `prepareImport` (i `import-recipe.ts`) gör texten (Zod), länkens form och domänen mot `settings` utan AI, och ger jobbets `context` (`{ source, domain? }`). `startImportJob` (gemensam för `POST /api/ai/jobs` och `jobs/photo`) kör den före `enqueue_ai_job`, så att ett fel svarar direkt och inget jobb köas. `importRecipe` är oförändrad som jobbets arbete, med jobbets signal; `safeFetch` kontrollerar domänen igen vid hämtningen.
+- **Ingen egen tidsgräns i arbetet:** AI-porten har 115 s och hämtningen 10 s, tillsammans 125 s, inom jobbets 130 s. `runAiJob` ger `deadline`, men `parseRecipe` tar ingen.
+- **Gränser:** `POST /api/ai/jobs` tar 64 KB för `import` och fortfarande 4 KB för AI-förslag (kontrollen görs på sorten efter att JSON lästs, före Zod). `/api/ai/import` och `/api/ai/import/photo` är borttagna.
+- **Arket:** "Tolka" startar jobbet. Arket väntar på jobbet ("Läser receptet …", "Du kan göra annat under tiden.", "I kö, 1 före.") och visar förhandsgranskningen eller felet när det är klart. Stängs arket fortsätter jobbet, och arket är tomt när det öppnas igen. Ett utkast som släpps (arket stängs) eller sparas stänger jobbet (`dismissAiJob`); ett fel som visas stänger det också. "Visa" (bekräftelsen eller arket AI-jobb, även för ett jobb som inte gick) öppnar arket på det nyaste klara importjobbet som inte setts; `ImportRecipeProvider` räknar hanterade "Visa" i en modulvariabel, så att arket öppnas en gång per tryck också när sidan byts.
+- **Bekräftelsen** säger titeln ("Receptet Krämig kycklinggryta är inläst."): `AiJob.title` (valfri) läses ur resultatet (`resultTitle`) av `toAiJobs`, och resultatet själv skickas fortfarande inte i listan. Jobbraden nämner sajten: "AI: Läser receptet från koket.se".
+- **Fel från jobbet har ingen sajt när det gäller en omdirigering:** `finish_ai_job` sparar bara felkoden, så `fetch_domain_not_allowed` efter en omdirigering visas som "Sajten är inte en godkänd receptsajt." (förut "example.com är inte …"). `fetch_blocked` och `fetch_timeout` namnger sajten ur jobbets `context.domain`. Alternativ: spara sajten i en kolumn (ny migration), inte värt det.
+- **Mocken:** `AI_MOCK_DELAY_MS` gäller nu också `parseRecipe` (12.4 lät den bara gälla AI-förslag), så att e2e kan se importjobbet. Alla importer i e2e tar därför 3 s plus pollningen, och `expect`-tiden i `playwright.config.ts` är 15 s. De äldre importspecarna kör jobben på riktigt (felen via mockens reserverade texter och bilder), och API-proven går mot `/api/ai/jobs`. `tests/e2e/ai-import-jobs.spec.ts` har egen användare (`e2e-ai-import@matkoll.test`).
+- **Loggar** är oförändrade: aldrig text, länk, foto eller recept. Inget anrop gjordes mot LM Studio eller en riktig sajt.
+
 ## 2026-10-28 – AI-jobb i kö, med AI-förslag först (Story 12.4)
 
 - **Specens förslag godkändes som de stod** (Claude, headless enligt `docs/autonomi.md`): jobbet körs i `after()` i förfrågan som tog emot det, klienten pollar, `GET /api/ai/jobs` ger inte hela resultatet och `clientKey` görs per tryck.

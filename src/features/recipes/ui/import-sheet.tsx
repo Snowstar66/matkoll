@@ -20,8 +20,9 @@ import { Sheet } from "@/components/sheet";
 import { useToast } from "@/components/toast";
 import { useCoarsePointer } from "@/components/use-coarse-pointer";
 import { downscaleImage } from "@/lib/downscale-image";
-import { postAi, postAiForm, type AiCallResult } from "@/lib/ai-client";
-import { errorMessages, fail, type AppError } from "@/lib/errors";
+import { useAiJobs, useShowingAiResults } from "@/lib/ai-jobs-client";
+import { isFinishedWithNews, type AiJob } from "@/lib/ai-job-shape";
+import { errorMessages, fail, isErrorCode, type AppError } from "@/lib/errors";
 import { saveRecipe } from "../actions/save-recipe";
 import {
   importErrorMessage,
@@ -33,7 +34,6 @@ import {
   offersPasteTextInstead,
   recipeImportSchema,
   type ImportKind,
-  type ImportRequest,
 } from "../domain/import";
 import { isDraftDirty } from "../domain/preview";
 import { validateDraft, type PendingFieldText, type RecipeDraft } from "../domain/recipe-draft";
@@ -41,12 +41,16 @@ import type { SearchIngredients } from "@/components/ingredient-picker";
 import { RecipePreview } from "./recipe-preview";
 
 // Importera recept (FR-3, FR-4): a sheet with the tabs Länk, Text and Foto,
-// opening on Länk. A link or pasted text is parsed by /api/ai/import and a
-// photo by /api/ai/import/photo, through src/lib/ai-client.ts (AD-9), and the
-// preview is shown in the same sheet. A photo is made small in the browser
-// first (AD-15) and kept in memory only while the sheet is open, for "Försök
-// igen". Nothing is saved until "Spara recept", which calls the Server Action
-// saveRecipe and opens the recipe view.
+// opening on Länk. A link or pasted text becomes an AI job (POST /api/ai/jobs)
+// and a photo too (POST /api/ai/jobs/photo), Story 12.6: the sheet can be
+// closed meanwhile and the next recipe read in at once. The jobs are read
+// through src/lib/ai-jobs-client.ts; when the job the sheet waits on is done,
+// the preview is shown in the same sheet, and when the sheet is closed
+// "Visa" in the confirmation opens it on the finished job. A photo is made
+// small in the browser first (AD-15) and kept in memory only while the sheet
+// is open, for "Försök igen". Nothing is saved until "Spara recept", which
+// calls the Server Action saveRecipe and opens the recipe view; the job is
+// closed (dismissed) when the sheet is closed or the recipe is saved.
 
 type Tab = "link" | "text" | "photo";
 
@@ -70,6 +74,8 @@ const backLabels: Record<ImportKind, string> = {
 };
 
 type Preview = {
+  /** The job the draft came from, closed when the preview is saved or let go. */
+  jobId: string;
   /** Increases with every import, so the preview starts afresh. */
   key: number;
   /** What the preview was parsed from: the link or the text as it was sent, or the photo's id. */
@@ -91,6 +97,25 @@ const retryable = new Set<AppError["code"]>([
   "settings_unavailable",
 ]);
 
+/** The job the sheet waits on, with what it was made from (the link or text sent; "" for a photo or a job that was opened with "Visa"). */
+type Watch = { id: string; kind: ImportKind; value: string };
+
+/** The import kind of a job, from its context. */
+function kindOfJob(job: AiJob): ImportKind {
+  const source = job.context.source;
+  return source === "url" || source === "photo" ? source : "text";
+}
+
+/** The newest finished import that has not been shown, for "Visa". */
+function newestUnseenImport(jobs: readonly AiJob[], handled: ReadonlySet<string>): AiJob | undefined {
+  return jobs
+    .filter((job) => job.kind === "import" && isFinishedWithNews(job) && !job.seen && !handled.has(job.id))
+    .sort((a, b) => Date.parse(b.createdAt) - Date.parse(a.createdAt))[0];
+}
+
+/** How many "Visa" taps for imports have been handled, kept across pages so the sheet opens once per tap. */
+let handledRevealCount = 0;
+
 /** From this length on, the text field shows how much is left. */
 const counterFrom = Math.floor(maxImportTextChars * 0.9);
 const formatCount = (n: number) => n.toLocaleString("sv-SE");
@@ -103,11 +128,23 @@ function isEdited(preview: Preview | null): boolean {
 export type ImportSheetProps = {
   open: boolean;
   onClose: () => void;
+  /** The sheet was opened with "Visa" for a finished import: it shows that job. */
+  showFinished?: boolean;
   searchIngredients: SearchIngredients;
 };
 
-export function ImportSheet({ open, onClose, searchIngredients }: ImportSheetProps) {
+export function ImportSheet({ open, onClose, showFinished = false, searchIngredients }: ImportSheetProps) {
   const ids = useId();
+  const { jobs, loaded, start, fetchResult, cancel: cancelJob, dismiss } = useAiJobs();
+  /** The job the sheet waits on while it reads. */
+  const [watch, setWatchState] = useState<Watch | null>(null);
+  const watchRef = useRef<Watch | null>(null);
+  /** The finished jobs whose result or failure the sheet has taken, so none is taken twice. */
+  const handledJobs = useRef(new Set<string>());
+  function setWatch(next: Watch | null) {
+    watchRef.current = next;
+    setWatchState(next);
+  }
   const [tab, setTab] = useState<Tab>("link");
   const [url, setUrl] = useState("");
   const [text, setText] = useState("");
@@ -150,8 +187,13 @@ export function ImportSheet({ open, onClose, searchIngredients }: ImportSheetPro
   /** Increases when the sheet closes; a save that answers after that is ignored. */
   const saveToken = useRef(0);
 
-  // Stop a running import when the sheet goes away.
-  useEffect(() => () => request.current?.abort(), []);
+  // A job goes on when the sheet goes away; only what is waiting for its start is let go.
+  useEffect(
+    () => () => {
+      request.current = null;
+    },
+    [],
+  );
 
   useEffect(() => {
     const kind = focusField.current;
@@ -172,14 +214,16 @@ export function ImportSheet({ open, onClose, searchIngredients }: ImportSheetPro
   // Pasted text that has not been parsed counts too, so closing never loses it silently.
   // A link does not: it is quick to paste again.
   const unparsedText = text.trim() !== "" && !(preview?.source.kind === "text" && preview.source.value === text);
-  const isDirty = edited || unparsedText;
+  const isDirty = edited || (unparsedText && view !== "reading");
   const errors = preview ? validateDraft(preview.draft, preview.pending) : {};
   /** "Spara recept" saves only a valid draft. */
   const isValid = Object.keys(errors).length === 0;
 
   function close() {
     saveToken.current += 1;
-    request.current?.abort();
+    // The job the sheet waits on goes on (Pontus can read in the next recipe); a draft that is let go closes its job.
+    if (preview) void dismiss(preview.jobId);
+    setWatch(null);
     request.current = null;
     setTab("link");
     setUrl("");
@@ -257,51 +301,121 @@ export function ImportSheet({ open, onClose, searchIngredients }: ImportSheetPro
     const value = of === "photo" ? (photoToSend ? String(photoToSend.id) : "") : valueFor(of);
     if (!value.trim()) return;
     if (of === "photo") setPhoto(photoToSend);
-    request.current?.abort();
     const controller = new AbortController();
     request.current = controller;
     setError(null);
     setView("reading");
 
-    let result: AiCallResult<unknown>;
+    let started: Awaited<ReturnType<typeof start>>;
     if (of === "photo" && photoToSend) {
       const form = new FormData();
       form.append("image", photoToSend.image, "photo");
-      result = await postAiForm<unknown>("/api/ai/import/photo", form, controller.signal);
+      form.append("kind", "import");
+      started = await start("/api/ai/jobs/photo", form, crypto.randomUUID());
     } else {
-      const body: ImportRequest = of === "url" ? { kind: "url", url: value } : { kind: "text", text: value };
-      result = await postAi<unknown>("/api/ai/import", body, controller.signal);
+      const body = of === "url" ? { kind: "import", source: "url", url: value } : { kind: "import", source: "text", text: value };
+      started = await start("/api/ai/jobs", body, crypto.randomUUID());
     }
-    // Cancelled, closed or replaced by a newer import: this answer is not wanted.
+    // "Avbryt" while the job was being started: it is stopped now that its id is known.
+    if (started.ok && controller.signal.aborted) {
+      void cancelJob(started.data.job.id);
+      return;
+    }
+    // Closed meanwhile: the job goes on, and its confirmation says when it is done.
     if (request.current !== controller) return;
     request.current = null;
 
-    if (result.ok) {
-      const parsed = recipeImportSchema.safeParse(result.data);
-      if (parsed.success) {
-        const { draft, ingredientNames } = parsed.data;
-        setPreview((previous) => ({
-          key: (previous?.key ?? 0) + 1,
-          source: { kind: of, value },
-          recipeId: crypto.randomUUID(),
-          initial: draft,
-          draft,
-          names: ingredientNames,
-          pending: {},
-        }));
-        setSaveError(null);
-        setView("preview");
+    if (!started.ok) {
+      // An expired session: the page sends Pontus to sign in.
+      if (started.error.code === "unauthorized") router.refresh();
+      setError({ kind: of, error: started.error });
+      focusField.current = of;
+      setView("input");
+      return;
+    }
+    setWatch({ id: started.data.job.id, kind: of, value });
+  }
+
+  // The job the sheet waits on: its draft when it is done, its error when it failed, back to the form when it is gone.
+  const watched = watch ? jobs.find((job) => job.id === watch.id) : undefined;
+  const watchedStatus = watched?.status;
+  const watchedCode = watched?.errorCode ?? null;
+  useEffect(() => {
+    if (!watch || view !== "reading") return;
+    if (!watchedStatus) {
+      // Cancelled from the list of jobs, or closed on another device.
+      if (loaded) {
+        // eslint-disable-next-line react-hooks/set-state-in-effect -- the job the sheet waits on is gone from the list.
+        setWatch(null);
+        setView("input");
+      }
+      return;
+    }
+    if ((watchedStatus !== "done" && watchedStatus !== "failed") || handledJobs.current.has(watch.id)) return;
+    handledJobs.current.add(watch.id);
+    const { id, kind: of, value } = watch;
+    const goBack = (shown: AppError) => {
+      setWatch(null);
+      setError({ kind: of, error: shown });
+      focusField.current = of;
+      setView("input");
+    };
+    if (watchedStatus === "failed") {
+      const code = watchedCode !== null && isErrorCode(watchedCode) ? watchedCode : "ai_unavailable";
+      // The site is named for a refusal or a slow answer; not for a redirect to another site, which is not the job's own.
+      const domain = watched?.context.domain;
+      goBack(fail(code, typeof domain === "string" && code !== "fetch_domain_not_allowed" ? { domain } : undefined).error);
+      // The failure is shown here, so the job has done its part.
+      void dismiss(id);
+      return;
+    }
+    void (async () => {
+      const result = await fetchResult(id);
+      // Cancelled, closed or replaced while the draft was fetched.
+      if (watchRef.current?.id !== id) return;
+      if (!result.ok) {
+        // Gone (older than 24 hours) or not readable now: said so; the job stays for its badge.
+        goBack(result.error);
         return;
       }
-      setError({ kind: of, error: fail("ai_invalid").error });
-    } else if ("aborted" in result) {
-      return;
-    } else {
-      setError({ kind: of, error: result.error });
-    }
-    focusField.current = of;
-    setView("input");
-  }
+      const parsed = recipeImportSchema.safeParse((result.data as { result: unknown }).result);
+      if (!parsed.success) {
+        goBack(fail("ai_invalid").error);
+        void dismiss(id);
+        return;
+      }
+      const { draft, ingredientNames } = parsed.data;
+      // A draft that this one replaces has done its part.
+      if (preview && preview.jobId !== id) void dismiss(preview.jobId);
+      setWatch(null);
+      setPreview((previous) => ({
+        jobId: id,
+        key: (previous?.key ?? 0) + 1,
+        source: { kind: of, value },
+        recipeId: crypto.randomUUID(),
+        initial: draft,
+        draft,
+        names: ingredientNames,
+        pending: {},
+      }));
+      setSaveError(null);
+      setView("preview");
+    })();
+    // The functions of useAiJobs change with the list; the job and its status decide.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [watch, view, watchedStatus, watchedCode, loaded]);
+
+  // "Visa" on a finished import: the sheet shows that job, the same way as when it waited on it.
+  useEffect(() => {
+    if (!open || !showFinished || view !== "input" || watch || preview) return;
+    const job = newestUnseenImport(jobs, handledJobs.current);
+    if (!job) return;
+    setWatch({ id: job.id, kind: kindOfJob(job), value: "" });
+    setView("reading");
+  }, [open, showFinished, view, watch, preview, jobs]);
+
+  // The result is on the screen while the sheet waits on a job or shows its draft: no confirmation says what is there.
+  useShowingAiResults("import", open && (view === "reading" || view === "preview"));
 
   /**
    * A photo from the camera or the file picker: made small in the browser
@@ -350,6 +464,8 @@ export function ImportSheet({ open, onClose, searchIngredients }: ImportSheetPro
   function cancel() {
     request.current?.abort();
     request.current = null;
+    if (watch) void cancelJob(watch.id);
+    setWatch(null);
     focusField.current = kind;
     setView("input");
   }
@@ -393,6 +509,8 @@ export function ImportSheet({ open, onClose, searchIngredients }: ImportSheetPro
   }
 
   const reading = view === "reading";
+  /** While the job waits behind others: "I kö, 1 före."; otherwise null. */
+  const waiting = watched?.status === "queued" && watched.ahead > 0 ? `I kö, ${watched.ahead} före.` : null;
   const tooLong = text.length >= maxImportTextChars;
 
   /** The error notice for an import kind, with the way forward that fits it. */
@@ -640,7 +758,7 @@ export function ImportSheet({ open, onClose, searchIngredients }: ImportSheetPro
                     Klistra in länk
                   </Button>
                   {/* Mounted empty, so the text is announced when it appears. */}
-                  <div role="status">{reading && tab === "link" ? <Reading /> : null}</div>
+                  <div role="status">{reading && tab === "link" ? <Reading waiting={waiting} /> : null}</div>
                   {tab === "link" ? showPreviewButton : null}
                 </div>
               ) : id === "text" ? (
@@ -669,7 +787,7 @@ export function ImportSheet({ open, onClose, searchIngredients }: ImportSheetPro
                     </div>
                   ) : null}
                   {/* Mounted empty, so the text is announced when it appears. */}
-                  <div role="status">{reading && tab === "text" ? <Reading /> : null}</div>
+                  <div role="status">{reading && tab === "text" ? <Reading waiting={waiting} /> : null}</div>
                   {tab === "text" ? showPreviewButton : null}
                 </div>
               ) : (
@@ -680,7 +798,7 @@ export function ImportSheet({ open, onClose, searchIngredients }: ImportSheetPro
                     AI-tjänsten av receptet. Bilden sparas inte.
                   </p>
                   {/* Mounted empty, so the text is announced when it appears. */}
-                  <div role="status">{reading && tab === "photo" ? <Reading /> : null}</div>
+                  <div role="status">{reading && tab === "photo" ? <Reading waiting={waiting} /> : null}</div>
                   {tab === "photo" ? showPreviewButton : null}
                 </div>
               )}
@@ -692,11 +810,12 @@ export function ImportSheet({ open, onClose, searchIngredients }: ImportSheetPro
   );
 }
 
-/** "Läser receptet …" with a progress bar (EXPERIENCE.md, Import pågår). */
-function Reading() {
+/** "Läser receptet …" with a progress bar (EXPERIENCE.md, Import pågår), and "I kö, 1 före." while it waits. */
+function Reading({ waiting }: { waiting: string | null }) {
   return (
     <div className="flex flex-col gap-2">
-      <p className="text-body text-ink">Läser receptet …</p>
+      <p className="text-body text-ink">{waiting ?? "Läser receptet …"}</p>
+      <p className="text-meta text-ink-2">Du kan göra annat under tiden.</p>
       <div aria-hidden="true" className="h-1 overflow-hidden rounded-full bg-hairline">
         <div className="h-full w-1/3 rounded-full bg-accent motion-safe:animate-progress" />
       </div>
@@ -721,10 +840,39 @@ export function ImportRecipeProvider({
   children: ReactNode;
 }) {
   const [open, setOpen] = useState(false);
+  /** Opened with "Visa" for a finished import, not with the "+". */
+  const [showFinished, setShowFinished] = useState(false);
+  const { reveals } = useAiJobs();
+
+  // "Visa" in the confirmation of a finished import (also from another page) opens the sheet on that job.
+  const revealed = reveals.import;
+  useEffect(() => {
+    if (revealed <= handledRevealCount) return;
+    handledRevealCount = revealed;
+    // eslint-disable-next-line react-hooks/set-state-in-effect -- "Visa" in a confirmation opens the sheet.
+    setShowFinished(true);
+    setOpen(true);
+  }, [revealed]);
+
   return (
-    <ImportContext.Provider value={{ openImport: () => setOpen(true) }}>
+    <ImportContext.Provider
+      value={{
+        openImport: () => {
+          setShowFinished(false);
+          setOpen(true);
+        },
+      }}
+    >
       {children}
-      <ImportSheet open={open} onClose={() => setOpen(false)} searchIngredients={searchIngredients} />
+      <ImportSheet
+        open={open}
+        showFinished={showFinished}
+        onClose={() => {
+          setOpen(false);
+          setShowFinished(false);
+        }}
+        searchIngredients={searchIngredients}
+      />
     </ImportContext.Provider>
   );
 }

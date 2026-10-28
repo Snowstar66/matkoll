@@ -83,3 +83,18 @@ describe("the words of AI jobs", () => {
     expect(resultHref("analyze")).toBe("/hemma");
   });
 });
+
+describe("the words of a recipe import (Story 12.6)", () => {
+  it("names the site a link is read from in the job row", () => {
+    const reading = job({ kind: "import", context: { source: "url", domain: "koket.se" } });
+    expect(jobRowText([reading])?.text).toBe("AI: Läser receptet från koket.se");
+    expect(jobRowText([job({ kind: "import", context: { source: "text" } })])?.text).toBe("AI: Läser receptet");
+  });
+
+  it("confirms with the recipe's title, and says it did not go", () => {
+    expect(finishedText(job({ kind: "import", status: "done", title: "Krämig kycklinggryta" }))).toBe(
+      "Receptet Krämig kycklinggryta är inläst.",
+    );
+    expect(finishedText(job({ kind: "import", status: "failed" }))).toBe("Det gick inte att läsa receptet.");
+  });
+});

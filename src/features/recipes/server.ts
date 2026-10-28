@@ -21,7 +21,7 @@ import {
 import type { SavedRecipe } from "./domain/saved-recipe";
 
 // Server-only entry (AD-1): read functions and server functions for AI flows.
-export { importRecipe } from "./actions/import-recipe";
+export { importRecipe, prepareImport, type ImportContext } from "./actions/import-recipe";
 
 /**
  * Server Action for searching the library while typing. A page passes it to a
