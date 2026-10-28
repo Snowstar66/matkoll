@@ -121,8 +121,8 @@ development_status:
   12-1-mät-ai-tiderna-och-ställ-in-lm-studio: done
   12-2-väck-modellen-i-förväg: done
   12-3-kortare-svar-för-ai-förslag: done
-  12-4-ai-jobb-i-kö-med-ai-förslag-först: in-progress
-  12-5-bildanalys-i-bakgrunden: backlog
-  12-6-receptimport-i-bakgrunden: backlog
+  12-4-ai-jobb-i-kö-med-ai-förslag-först: done
+  12-5-bildanalys-i-bakgrunden: in-progress
+  12-6-receptimport-i-bakgrunden: in-progress
   12-7-första-rätten-direkt: backlog
   epic-12-retrospective: optional

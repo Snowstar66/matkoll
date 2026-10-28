@@ -2,7 +2,7 @@
 title: 'Story 12.4: AI-jobb i kö, med AI-förslag först'
 type: 'feature'
 created: '2026-10-26'
-status: 'in-progress'
+status: 'done'
 baseline_commit: 'fbee2fc0e43edfc8e266ecc53ede35dd00b03d74'
 route: 'dispatch'
 context:
@@ -151,6 +151,13 @@ context:
   - **`shell.spec.ts`** fick `expect.poll` för flikarnas färger: tills fältet har hydrerats har det ingen aktuell flik (AD-18), vilket en upptagen dator visade tillräckligt länge för att testet skulle falla.
 
 ## Review Triage Log
+
+Iteration 1: en granskare (Sonnet), med fokus på migrering, samtidighet och integritet, enligt den tokensnåla loopen. Granskaren hittade inga fel som måste rättas. RLS, grants, låsningen, att utgångna jobb städas, att `after()` aldrig kastar, och att budgeten håller sig inom `maxDuration` kontrollerades och var i ordning.
+
+**Uppskjutet** (till `deferred-work.md`, eftersom de kräver en ny migrering eller bara har liten effekt):
+- `ai_queue_timeout` kan förlora mot `ai_job_lost`. Ett köat jobb går ut precis vid `startBy`, så texten kan bli "AI-jobbet avbröts" i stället för "hann inte börja". Rättning: ge köade jobb samma marginal som jobb som körs (cirka 10 s).
+- När ett jobb avbryts eller stängs blir platsen ledig innan det gamla anropet har slutat, så två modellanrop kan överlappa i upp till cirka 3 s. Rättning: godta det, eller förkorta `guardPollMs`.
+- Listan som hämtas varannan sekund läser in hela `result` bara för att räkna förslagen. Rättning: räkna i databasen.
 
 ## Verification
 
