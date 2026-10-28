@@ -200,6 +200,53 @@ describe("mock suggestDishes", () => {
     expect(second.ok && second.data[0].title).toBe("Kycklinggryta med tomat och grädde");
   });
 
+  describe("with a delay (AI_MOCK_DELAY_MS, Story 12.4)", () => {
+    afterEach(() => {
+      vi.useRealTimers();
+    });
+
+    it("answers only after the time has passed", async () => {
+      vi.useFakeTimers();
+      const slow = createMockAiService(dir, { delayMs: 3000 });
+      let answered = false;
+      const call = slow.suggestDishes(pantryInput, signal()).then((result) => {
+        answered = true;
+        return result;
+      });
+      await vi.advanceTimersByTimeAsync(2999);
+      expect(answered).toBe(false);
+      await vi.advanceTimersByTimeAsync(1);
+      expect(await call).toEqual({ ok: true, data: suggestions() });
+    });
+
+    it("gives up at once when the signal aborts while waiting, and never waits longer than 30 s", async () => {
+      vi.useFakeTimers();
+      const slow = createMockAiService(dir, { delayMs: 3000 });
+      const controller = new AbortController();
+      const call = slow.suggestDishes(pantryInput, controller.signal);
+      await vi.advanceTimersByTimeAsync(1000);
+      controller.abort();
+      expect(await call).toMatchObject({ ok: false, error: { code: "ai_unavailable" } });
+
+      const capped = createMockAiService(dir, { delayMs: 999_999 });
+      let answered = false;
+      void capped.suggestDishes(pantryInput, signal()).then(() => {
+        answered = true;
+      });
+      await vi.advanceTimersByTimeAsync(29_999);
+      expect(answered).toBe(false);
+      await vi.advanceTimersByTimeAsync(1);
+      expect(answered).toBe(true);
+    });
+
+    it("does not delay the other calls", async () => {
+      vi.useFakeTimers();
+      const slow = createMockAiService(dir, { delayMs: 3000 });
+      const result = await slow.parseRecipe(inputFor(manifest.cases[0]), signal());
+      expect(result.ok).toBe(true);
+    });
+  });
+
   it("gives ai_unavailable when the signal is aborted", async () => {
     const controller = new AbortController();
     controller.abort();

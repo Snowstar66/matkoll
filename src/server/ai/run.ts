@@ -207,9 +207,10 @@ export type WarmUpOptions = {
   /**
    * Asked again after the health check, just before the model is called:
    * true when a real AI call of the user's started in the meantime, which
-   * the warm-up then never delays.
+   * the warm-up then never delays. May ask the database (Story 12.4: an AI
+   * job of the user's that is queued or running).
    */
-  isBusy?: () => boolean;
+  isBusy?: () => boolean | Promise<boolean>;
 };
 
 /**
@@ -245,7 +246,7 @@ export async function runWarmUp(
       return { outcome: "unavailable", reason: health === "model_not_loaded" ? "model_not_loaded" : "health" };
     }
   }
-  if (isBusy?.()) return { outcome: "skipped", reason: "busy" };
+  if (await isBusy?.()) return { outcome: "skipped", reason: "busy" };
   const { providerOptions: samplingOptions, ...sampling } = request.sampling ?? {};
   try {
     await generateText({

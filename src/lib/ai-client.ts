@@ -12,7 +12,7 @@ export type AiCallResult<T> = Result<T> | AiAborted;
 const aborted: AiAborted = { ok: false, aborted: true };
 
 /** The handler's answer as a Result, with the Swedish text from errors.ts for its code. */
-function toResult<T>(payload: unknown): Result<T> {
+export function toResult<T>(payload: unknown): Result<T> {
   if (typeof payload === "object" && payload !== null && "ok" in payload) {
     if (payload.ok === true && "data" in payload) return ok(payload.data as T);
     if (payload.ok === false && "error" in payload) {

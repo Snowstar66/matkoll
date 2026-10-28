@@ -13,10 +13,12 @@ vi.mock("@/features/auth/server", () => ({ requireUserForRoute: () => requireUse
 const hasAiRunOnItsWay = vi.fn<(userId: string) => boolean>();
 vi.mock("@/features/pantry/server", () => ({ hasAiRunOnItsWay: (userId: string) => hasAiRunOnItsWay(userId) }));
 
-const isSuggesting = vi.fn<(userId: string) => boolean>();
-vi.mock("@/features/suggestions/server", () => ({ isSuggesting: (userId: string) => isSuggesting(userId) }));
+// What the user's AI jobs say (Story 12.4): one is queued or running, or one began or ended
+// within the warm-up limit. null when the table cannot be read.
+const getAiJobActivity = vi.fn<(since: Date) => Promise<{ active: boolean; recent: boolean } | null>>();
+vi.mock("@/features/ai-jobs/server", () => ({ getAiJobActivity: (since: Date) => getAiJobActivity(since) }));
 
-type Options = { isBusy?: () => boolean };
+type Options = { isBusy?: () => boolean | Promise<boolean> };
 const warmUp = vi.fn<(kind: string, signal: AbortSignal, options?: Options) => Promise<unknown>>();
 const warmUpKey = vi.fn<(kind: string) => string | null>();
 const getAiService = vi.fn(() => ({ warmUp, warmUpKey }));
@@ -64,7 +66,7 @@ beforeEach(() => {
   afterCallbacks = [];
   requireUserForRoute.mockReset().mockResolvedValue({ user: { id: "user", email: "pontus@example.com" } });
   hasAiRunOnItsWay.mockReset().mockReturnValue(false);
-  isSuggesting.mockReset().mockReturnValue(false);
+  getAiJobActivity.mockReset().mockResolvedValue({ active: false, recent: false });
   warmUp.mockReset().mockResolvedValue({ outcome: "ok" });
   warmUpKey.mockReset().mockReturnValue(model);
   getAiService.mockClear();
@@ -99,9 +101,17 @@ describe("POST /api/ai/warm", () => {
     await POST(post());
     await runAfter();
     const isBusy = warmUp.mock.calls[0][2]?.isBusy;
-    expect(isBusy?.()).toBe(false);
-    isSuggesting.mockReturnValue(true);
-    expect(isBusy?.()).toBe(true);
+    expect(await isBusy?.()).toBe(false);
+    getAiJobActivity.mockResolvedValue({ active: true, recent: true });
+    expect(await isBusy?.()).toBe(true);
+    // An analysis in this server process counts too (until Story 12.5 makes it a job).
+    getAiJobActivity.mockResolvedValue({ active: false, recent: false });
+    hasAiRunOnItsWay.mockReturnValue(true);
+    expect(await isBusy?.()).toBe(true);
+    // Not knowing is busy: the model is left alone.
+    hasAiRunOnItsWay.mockReturnValue(false);
+    getAiJobActivity.mockResolvedValue(null);
+    expect(await isBusy?.()).toBe(true);
   });
 
   it("logs the port's result with its reason, never more", async () => {
@@ -176,9 +186,32 @@ describe("POST /api/ai/warm", () => {
     expect(logged()).toEqual([{ kind: "image", outcome: "skipped", reason: "limited" }]);
   });
 
+  it("does not wake right after an AI job of the user's began or ended, whichever server instance ran it (Story 12.4)", async () => {
+    vi.useFakeTimers({ now: new Date("2026-10-28T12:00:00Z"), toFake: ["Date"] });
+    getAiJobActivity.mockResolvedValue({ active: false, recent: true });
+    expect((await POST(post())).status).toBe(202);
+    expect(afterCallbacks).toHaveLength(0);
+    expect(logged()).toEqual([{ kind: "image", outcome: "skipped", reason: "limited" }]);
+    // Asked about the window of the limit, counted back from now.
+    expect(getAiJobActivity.mock.calls[0][0].getTime()).toBe(Date.now() - warmIntervalMs);
+
+    // It does not use up the limit: with no job in the window the warm-up goes.
+    getAiJobActivity.mockResolvedValue({ active: false, recent: false });
+    await POST(post());
+    await runAfter();
+    expect(warmUp).toHaveBeenCalledTimes(1);
+  });
+
+  it("does not wake when the AI jobs cannot be read", async () => {
+    getAiJobActivity.mockResolvedValue(null);
+    expect((await POST(post())).status).toBe(202);
+    expect(afterCallbacks).toHaveLength(0);
+    expect(logged()).toEqual([{ kind: "image", outcome: "skipped", reason: "busy" }]);
+  });
+
   it.each([
     ["an analysis or a lookup of the numbers", () => hasAiRunOnItsWay.mockReturnValue(true)],
-    ["AI-förslag", () => isSuggesting.mockReturnValue(true)],
+    ["an AI job, queued or running", () => getAiJobActivity.mockResolvedValue({ active: true, recent: true })],
   ])("skips the warm-up while %s of the user's is on its way, without using up the limit", async (_name, busy) => {
     busy();
     expect((await POST(postKind("text"))).status).toBe(202);
@@ -186,7 +219,7 @@ describe("POST /api/ai/warm", () => {
     expect(logged()).toEqual([{ kind: "text", outcome: "skipped", reason: "busy" }]);
 
     hasAiRunOnItsWay.mockReturnValue(false);
-    isSuggesting.mockReturnValue(false);
+    getAiJobActivity.mockResolvedValue({ active: false, recent: false });
     await POST(postKind("text"));
     await runAfter();
     expect(warmUp).toHaveBeenCalledTimes(1);

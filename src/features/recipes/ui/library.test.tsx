@@ -4,7 +4,9 @@ import { useEffect, useState } from "react";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { ToastProvider } from "@/components/toast";
 import type { SelectedSite } from "@/features/pantry";
+import { AiJobActionsContext, aiJobsClient } from "@/lib/ai-jobs-client";
 import { fail, ok, type Result } from "@/lib/errors";
+import { createFakeAiJobsServer } from "../../../../tests/support/ai-jobs-fake";
 import type { FavoriteChange, RecipeListItem } from "../domain/recipe-list";
 import { Library } from "./library";
 import { recipeFilterStorageKey, resetRecipeFilterStore } from "./recipe-filter-store";
@@ -26,11 +28,8 @@ vi.mock("../actions/search-recipes", () => ({
 }));
 const refresh = vi.fn();
 vi.mock("next/navigation", () => ({ useRouter: () => ({ refresh, push: vi.fn() }) }));
-/** /api/ai/suggest, behind "Föreslå rätter med AI" (ai-suggestions.test.tsx has the rest). */
-const postAi = vi.fn<(path: string, body: unknown, signal: AbortSignal) => Promise<unknown>>();
-vi.mock("@/lib/ai-client", () => ({
-  postAi: (path: string, body: unknown, signal: AbortSignal) => postAi(path, body, signal),
-}));
+/** The AI jobs behind "Föreslå rätter med AI" (ai-suggestions.test.tsx has the rest). */
+const server = createFakeAiJobsServer();
 vi.mock("../actions/save-recipe", () => ({ saveRecipe: vi.fn() }));
 const setFavorite = vi.fn<(change: FavoriteChange) => Promise<Result<FavoriteChange>>>();
 vi.mock("../actions/set-favorite", () => ({ setFavorite: (change: FavoriteChange) => setFavorite(change) }));
@@ -59,6 +58,9 @@ const fisk = recipe(4, "Fiskgratäng", { missingCount: 0, createdAt: "2026-10-01
 /** Newest first, as the server gives them: N = 2, 0, 1 and 0. */
 const ranking = [soppa, gryta, pannkakor, fisk];
 
+const stugan: SelectedSite = { id: "55555555-5555-4555-8555-555555555555", name: "Stugan", siteCount: 2 };
+const hemmaSite: SelectedSite = { id: "66666666-6666-4666-8666-666666666666", name: "Hemma", siteCount: 2 };
+
 let serverRecipes: RecipeListItem[] = [];
 let rerenderServer: ((recipes: RecipeListItem[]) => void) | undefined;
 /** Renders the "server" list again with another place, as a place selected elsewhere does. */
@@ -80,6 +82,7 @@ function Server() {
       pantryUnavailable={serverPantryUnavailable}
       site={site}
       searchIngredients={searchIngredients}
+      siteNames={{ [stugan.id]: "Stugan", [hemmaSite.id]: "Hemma" }}
     />
   );
 }
@@ -92,9 +95,17 @@ function renderLibrary(recipes: RecipeListItem[] = [gryta, soppa], options: Rend
   serverSite = options.site ?? null;
   return render(
     <ToastProvider>
-      <Server />
+      <AiJobActionsContext.Provider value={server.actions}>
+        <Server />
+      </AiJobActionsContext.Provider>
     </ToastProvider>,
   );
+}
+
+/** The latest AI job is done with `suggestions` (of `siteId`), and the client reads the list. */
+async function finishSuggestions(suggestions: unknown[], siteId?: string) {
+  server.finish(server.latest.id, { suggestions, ...(siteId ? { siteId } : {}) }, suggestions.length);
+  await server.read();
 }
 
 const titles = () => screen.queryAllByTestId("recipe-card").map((row) => within(row).getByRole("link").textContent);
@@ -104,7 +115,7 @@ beforeEach(() => {
   window.localStorage.clear();
   resetRecipeFilterStore();
   refresh.mockReset();
-  postAi.mockReset().mockReturnValue(new Promise(() => {}));
+  server.install();
   searchPantryUnavailable = false;
   searchSite = null;
   searchRecipes.mockReset().mockResolvedValue(ok([]));
@@ -117,9 +128,8 @@ beforeEach(() => {
 
 afterEach(() => {
   vi.restoreAllMocks();
+  vi.unstubAllGlobals();
 });
-
-const stugan: SelectedSite = { id: "55555555-5555-4555-8555-555555555555", name: "Stugan", siteCount: 2 };
 
 describe("Library, the line Lager", () => {
   it("says which place Kan lagas nu counts against, only in Kan lagas nu", async () => {
@@ -218,32 +228,66 @@ describe("Library, AI-förslag and the place", () => {
   };
   const suggestion = () => screen.queryByRole("heading", { level: 3, name: "Ugnsomelett" });
 
-  it("hides the suggestions while the library shows another place than they were made from, and shows them again", async () => {
+  it("shows the suggestions with Förslagen bygger på lagret för Stugan. while the library shows another place, and plainly again", async () => {
     const user = userEvent.setup();
-    const hemma: SelectedSite = { ...stugan, id: "66666666-6666-4666-8666-666666666666", name: "Hemma" };
-    postAi.mockResolvedValueOnce(ok({ suggestions: [{ draft, ingredientNames: {} }], siteId: stugan.id }));
     renderLibrary(ranking, { site: stugan });
     await user.click(pill("Kan lagas nu"));
     await user.click(screen.getByRole("button", { name: "Föreslå rätter med AI" }));
+    await finishSuggestions([{ draft, ingredientNames: {} }], stugan.id);
     expect(await screen.findByRole("heading", { level: 3, name: "Ugnsomelett" })).toBeInTheDocument();
+    expect(screen.queryByText(/Förslagen bygger på lagret/)).not.toBeInTheDocument();
 
-    act(() => rerenderSite?.(hemma));
-    expect(suggestion()).not.toBeInTheDocument();
-    expect(screen.getByRole("button", { name: "Föreslå rätter med AI" })).toBeInTheDocument();
+    act(() => rerenderSite?.(hemmaSite));
+    expect(suggestion()).toBeInTheDocument();
+    expect(screen.getByText("Förslagen bygger på lagret för Stugan.")).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "Föreslå igen" })).toBeInTheDocument();
 
     act(() => rerenderSite?.(stugan));
     expect(suggestion()).toBeInTheDocument();
+    expect(screen.queryByText(/Förslagen bygger på lagret/)).not.toBeInTheDocument();
   });
 
-  it("keeps the suggestions when the library's place is not known", async () => {
+  it("keeps the suggestions without a line when the library's place is not known", async () => {
     const user = userEvent.setup();
-    postAi.mockResolvedValueOnce(ok({ suggestions: [{ draft, ingredientNames: {} }], siteId: stugan.id }));
     renderLibrary(ranking, { site: stugan });
     await user.click(pill("Kan lagas nu"));
     await user.click(screen.getByRole("button", { name: "Föreslå rätter med AI" }));
+    await finishSuggestions([{ draft, ingredientNames: {} }], stugan.id);
     expect(await screen.findByRole("heading", { level: 3, name: "Ugnsomelett" })).toBeInTheDocument();
     act(() => rerenderSite?.(null));
     expect(suggestion()).toBeInTheDocument();
+    expect(screen.queryByText(/Förslagen bygger på lagret/)).not.toBeInTheDocument();
+  });
+
+  it("opens Kan lagas nu by itself when a finished job has not been shown, once, and not again after another filter is chosen", async () => {
+    const user = userEvent.setup();
+    server.add({ kind: "suggest", status: "done", count: 1 }, { suggestions: [{ draft, ingredientNames: {} }] });
+    renderLibrary(ranking);
+    await aiJobsClient().refresh();
+    expect(await screen.findByRole("heading", { level: 3, name: "Ugnsomelett" })).toBeInTheDocument();
+    expect(pill("Kan lagas nu")).toBeChecked();
+    await waitFor(() => expect(server.actions.markSeen).toHaveBeenCalledTimes(1));
+
+    await user.click(pill("Alla"));
+    expect(pill("Alla")).toBeChecked();
+  });
+
+  it("opens Kan lagas nu when Visa is tapped for a result that came while another filter was shown", async () => {
+    const user = userEvent.setup();
+    renderLibrary(ranking);
+    await user.click(pill("Kan lagas nu"));
+    await user.click(screen.getByRole("button", { name: "Föreslå rätter med AI" }));
+    await user.click(pill("Alla"));
+    // The job ends while Alla is shown: nothing moves by itself.
+    await finishSuggestions([{ draft, ingredientNames: {} }], undefined);
+    expect(pill("Alla")).toBeChecked();
+    expect(screen.queryByRole("region", { name: "AI-förslag" })).not.toBeInTheDocument();
+    expect(server.actions.markSeen).not.toHaveBeenCalled();
+
+    // "Visa" in the confirmation asks to reveal it.
+    act(() => aiJobsClient().reveal("suggest"));
+    expect(await screen.findByRole("heading", { level: 3, name: "Ugnsomelett" })).toBeInTheDocument();
+    expect(pill("Kan lagas nu")).toBeChecked();
   });
 });
 
@@ -456,7 +500,7 @@ describe("Library", () => {
     await user.click(pill("Kan lagas nu"));
     await user.click(pill("Alla"));
     await user.click(pill("Kan lagas nu"));
-    expect(postAi).not.toHaveBeenCalled();
+    expect(server.started).toHaveLength(0);
   });
 
   it("keeps the AI suggestions while the pills change", async () => {
@@ -471,10 +515,10 @@ describe("Library", () => {
       steps: ["Grädda."],
       lines: [],
     };
-    postAi.mockResolvedValueOnce(ok({ suggestions: [{ draft, ingredientNames: {} }] }));
     renderLibrary(ranking);
     await user.click(pill("Kan lagas nu"));
     await user.click(screen.getByRole("button", { name: "Föreslå rätter med AI" }));
+    await finishSuggestions([{ draft, ingredientNames: {} }]);
     expect(await screen.findByRole("heading", { level: 3, name: "Ugnsomelett" })).toBeInTheDocument();
     await user.click(pill("Alla"));
     expect(screen.queryByRole("region", { name: "AI-förslag" })).not.toBeInTheDocument();
@@ -484,7 +528,7 @@ describe("Library", () => {
     expect(pill("Kan lagas nu")).toHaveFocus();
     // The suggestion is not a row of the library.
     expect(titles()).not.toContain("Ugnsomelett");
-    expect(postAi).toHaveBeenCalledTimes(1);
+    expect(server.started).toHaveLength(1);
   });
 
   it("has Föreslå rätter med AI at the bottom only on Kan lagas nu, also when nothing can be cooked now", async () => {
@@ -500,7 +544,8 @@ describe("Library", () => {
     const list = screen.getByRole("list", { name: "Recept, minst saknat först" });
     expect(list.compareDocumentPosition(button) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
     await user.click(button);
-    expect(postAi).toHaveBeenCalledWith("/api/ai/suggest", { avoidTitles: [] }, expect.any(AbortSignal));
+    expect(server.started).toHaveLength(1);
+    expect(server.started[0].body).toMatchObject({ kind: "suggest", avoidTitles: [] });
     expect(searchRecipes).not.toHaveBeenCalled();
 
     await user.click(pill("Alla"));
@@ -568,7 +613,7 @@ describe("Library", () => {
     const section = screen.getByTestId("ai-suggestions");
     expect(within(section).getByRole("status")).toHaveTextContent("Letar efter idéer …");
     await user.click(within(section).getByRole("button", { name: "Avbryt" }));
-    expect(postAi.mock.calls[0][2].aborted).toBe(true);
+    expect(server.actions.cancel).toHaveBeenCalledWith(expect.any(String));
     expect(within(section).getByRole("status")).toBeEmptyDOMElement();
     // Under the failed search, the button is not offered.
     expect(screen.queryByRole("button", { name: "Föreslå rätter med AI" })).not.toBeInTheDocument();

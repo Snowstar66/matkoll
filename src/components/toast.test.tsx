@@ -206,4 +206,105 @@ describe("ToastProvider", () => {
     act(() => vi.advanceTimersByTime(4_000));
     expect(screen.queryByRole("alert")).toBeNull();
   });
+
+  describe("with Visa and in the queue behind Ångra (Story 12.4)", () => {
+    function Buttons({ onShow, onClose }: { onShow?: () => void; onClose?: () => void }) {
+      const { showToast } = useToast();
+      return (
+        <>
+          <button type="button" onClick={() => showToast("3 rättförslag är klara.", { show: { onShow: onShow ?? (() => {}) }, waitForUndo: true, onClose })}>
+            Klart
+          </button>
+          <button type="button" onClick={() => showToast("Tog bort Mjölk.", { onUndo: () => {} })}>
+            Ta bort
+          </button>
+          <button type="button" onClick={() => showToast("Lagt 8 varor i lagret.")}>
+            Lagt
+          </button>
+        </>
+      );
+    }
+
+    it("shows Visa, stays 8 s, and calls onShow once and closes when Visa is tapped", () => {
+      const onShow = vi.fn();
+      const onClose = vi.fn();
+      render(
+        <ToastProvider>
+          <Buttons onShow={onShow} onClose={onClose} />
+        </ToastProvider>,
+      );
+      fireEvent.click(screen.getByRole("button", { name: "Klart" }));
+      expect(liveRegion()).toHaveTextContent("3 rättförslag är klara.");
+      act(() => vi.advanceTimersByTime(7_999));
+      expect(screen.getByTestId("toast")).toBeInTheDocument();
+      fireEvent.click(screen.getByRole("button", { name: "Visa" }));
+      expect(onShow).toHaveBeenCalledTimes(1);
+      expect(screen.queryByTestId("toast")).toBeNull();
+      // It went by its own button: the close that follows an ended toast is called once.
+      expect(onClose).toHaveBeenCalledTimes(1);
+    });
+
+    it("goes after 8 s without calling onShow", () => {
+      const onShow = vi.fn();
+      render(
+        <ToastProvider>
+          <Buttons onShow={onShow} />
+        </ToastProvider>,
+      );
+      fireEvent.click(screen.getByRole("button", { name: "Klart" }));
+      act(() => vi.advanceTimersByTime(8_000));
+      expect(screen.queryByTestId("toast")).toBeNull();
+      expect(onShow).not.toHaveBeenCalled();
+    });
+
+    it("replaces an ordinary toast, as any new one does", () => {
+      render(
+        <ToastProvider>
+          <Buttons />
+        </ToastProvider>,
+      );
+      fireEvent.click(screen.getByRole("button", { name: "Lagt" }));
+      fireEvent.click(screen.getByRole("button", { name: "Klart" }));
+      expect(screen.getByTestId("toast")).toHaveTextContent("3 rättförslag är klara.");
+    });
+
+    it("waits for a toast with Ångra, whether it ends by time or by Ångra, and comes with its own 8 s", () => {
+      render(
+        <ToastProvider>
+          <Buttons />
+        </ToastProvider>,
+      );
+      fireEvent.click(screen.getByRole("button", { name: "Ta bort" }));
+      fireEvent.click(screen.getByRole("button", { name: "Klart" }));
+      expect(screen.getByTestId("toast")).toHaveTextContent("Tog bort Mjölk.");
+      act(() => vi.advanceTimersByTime(5_000));
+      expect(screen.getByTestId("toast")).toHaveTextContent("3 rättförslag är klara.");
+      act(() => vi.advanceTimersByTime(7_999));
+      expect(screen.getByTestId("toast")).toBeInTheDocument();
+      act(() => vi.advanceTimersByTime(1));
+      expect(screen.queryByTestId("toast")).toBeNull();
+
+      fireEvent.click(screen.getByRole("button", { name: "Ta bort" }));
+      fireEvent.click(screen.getByRole("button", { name: "Klart" }));
+      fireEvent.click(screen.getByRole("button", { name: "Ångra" }));
+      expect(screen.getByTestId("toast")).toHaveTextContent("3 rättförslag är klara.");
+    });
+
+    it("comes in the order it waited when several wait", () => {
+      render(
+        <ToastProvider>
+          <Buttons />
+        </ToastProvider>,
+      );
+      fireEvent.click(screen.getByRole("button", { name: "Ta bort" }));
+      fireEvent.click(screen.getByRole("button", { name: "Klart" }));
+      fireEvent.click(screen.getByRole("button", { name: "Klart" }));
+      act(() => vi.advanceTimersByTime(5_000));
+      expect(screen.getByTestId("toast")).toHaveTextContent("3 rättförslag är klara.");
+      act(() => vi.advanceTimersByTime(8_000));
+      expect(screen.getByTestId("toast")).toHaveTextContent("3 rättförslag är klara.");
+      act(() => vi.advanceTimersByTime(8_000));
+      expect(screen.queryByTestId("toast")).toBeNull();
+    });
+  });
 });

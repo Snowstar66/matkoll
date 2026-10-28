@@ -8,7 +8,14 @@ import { TabBar } from "./tab-bar";
  * content at most 720 px wide. Renders no user data, so layouts never wait for the
  * session (AD-18).
  */
-export function AppShell({ children }: { children: ReactNode }) {
+export function AppShell({
+  children,
+  jobRows,
+}: {
+  children: ReactNode;
+  /** The job row for AI jobs (Story 12.4): one for the tab bar and one for the side menu; the layout gives them. */
+  jobRows?: { bar: ReactNode; side: ReactNode };
+}) {
   return (
     <div className="flex min-h-dvh flex-col">
       <a
@@ -17,7 +24,7 @@ export function AppShell({ children }: { children: ReactNode }) {
       >
         Hoppa till innehållet
       </a>
-      <SideMenu />
+      <SideMenu jobRow={jobRows?.side} />
       <main
         id="innehall"
         tabIndex={-1}
@@ -25,7 +32,7 @@ export function AppShell({ children }: { children: ReactNode }) {
       >
         <div className="mx-auto flex w-full max-w-content flex-1 flex-col">{children}</div>
       </main>
-      <TabBar />
+      <TabBar jobRow={jobRows?.bar} />
       <ScrollMemory />
     </div>
   );

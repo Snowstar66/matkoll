@@ -42,6 +42,11 @@ export const envSchema = z.object({
   CF_ACCESS_CLIENT_SECRET: optional(z.string()),
   ANTHROPIC_API_KEY: optional(z.string()),
   OPENAI_API_KEY: optional(z.string()),
+  /**
+   * How long the mock takes for an AI-förslag call, in milliseconds (0-30 000,
+   * Story 12.4). Only the mock reads it, and only tests set it.
+   */
+  AI_MOCK_DELAY_MS: optional(z.coerce.number().int().min(0).max(30_000)),
 });
 
 /** SITE_URL outside production when it is not set. */

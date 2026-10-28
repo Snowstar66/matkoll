@@ -9,8 +9,11 @@ import "server-only";
 // Best effort: the maps live in this server process. A second server
 // instance (Vercel may run several, and a new one starts empty) has its own,
 // so a warm-up may now and then run twice or right after a real call. That
-// costs one token on Pontus's Mac and nothing else. Shared state comes with
-// the AI jobs in Postgres (Story 12.4).
+// costs one token on Pontus's Mac and nothing else. Story 12.4: the AI jobs
+// are in Postgres, so POST /api/ai/warm also reads whether a job is queued or
+// running, or began or ended within warmIntervalMs, across server instances
+// (src/features/ai-jobs); these maps now serve the warm-ups themselves and the
+// analyses of photos, which become jobs in Story 12.5.
 
 /**
  * Three minutes: the model on Pontus's Mac is cold again after about five

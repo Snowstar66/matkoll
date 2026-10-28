@@ -1,7 +1,7 @@
 "use client";
 
 import { useRouter } from "next/navigation";
-import { useMemo, useRef, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { Button } from "@/components/button";
 import { cx } from "@/components/cx";
 import { EmptyState } from "@/components/empty-state";
@@ -67,13 +67,27 @@ export type LibraryProps = {
   site: SelectedSite | null;
   /** The catalog search for the preview of an AI suggestion; the page passes it (AD-1). */
   searchIngredients: SearchIngredients;
+  /** The names of Pontus's places by id, for "Förslagen bygger på lagret för Hemma." (Story 12.4). */
+  siteNames?: Readonly<Record<string, string>>;
 };
 
-export function Library({ recipes, pantryUnavailable, site, searchIngredients }: LibraryProps) {
+export function Library({ recipes, pantryUnavailable, site, searchIngredients, siteNames }: LibraryProps) {
   const router = useRouter();
   const [filter, setFilter] = useRecipeFilter();
-  // AI-förslag are of the place the server's list is counted against.
-  const dishes = useDishSuggestions(site?.id ?? null);
+  // AI-förslag are of the place the server's list is counted against. They are in
+  // Kan lagas nu, and a finished job is shown there and nowhere else.
+  const dishes = useDishSuggestions(site?.id ?? null, { visible: filter === "cookable", siteNames });
+  // A finished AI job that has not been shown is revealed (Story 12.4): when the
+  // library opens with one, and when Pontus taps "Visa" in the confirmation for
+  // it, the filter is set to Kan lagas nu, where the suggestions are.
+  const handledReveals = useRef<number | null>(null);
+  useEffect(() => {
+    if (filter === null || !dishes.jobsLoaded) return;
+    const first = handledReveals.current === null;
+    const asked = !first && handledReveals.current !== dishes.reveals;
+    handledReveals.current = dishes.reveals;
+    if ((first || asked) && dishes.unseenResult && filter !== "cookable") setFilter("cookable");
+  }, [filter, dishes.jobsLoaded, dishes.reveals, dishes.unseenResult, setFilter]);
   const [search, setSearch] = useState<Search>({ kind: "none" });
   const [busy, setBusy] = useState(false);
   const searchField = useRef<SearchFieldHandle>(null);

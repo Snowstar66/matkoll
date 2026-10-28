@@ -77,7 +77,13 @@
   --gutter-page: max(var(--gutter-mobile), env(safe-area-inset-left), env(safe-area-inset-right));
   --header-top-mobile: 56px;
   --tap-min: 44px;
-  --tab-bar-height: 84px;
+  /*
+   * The tab bar and, while an AI job is queued or running, the job row above
+   * its tabs inside it (Story 12.4): everything that sits above the bar (the
+   * toast, FixedAction, the page's bottom padding) follows its height. The
+   * job row sets --job-row-height to its own height, and removes it.
+   */
+  --tab-bar-height: calc(84px + var(--job-row-height, 0px));
   --side-menu-width: 240px;
   --content-max: 720px;
   --dialog-max: 560px;

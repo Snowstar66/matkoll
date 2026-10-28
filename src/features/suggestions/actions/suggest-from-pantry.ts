@@ -6,16 +6,16 @@ import { getPantryForStatus } from "@/features/pantry/server";
 import { fromAiRecipe, recipeDraftSchema, type RecipeDraft } from "@/features/recipes";
 import { fail, ok, type Result } from "@/lib/errors";
 import { getAiService } from "@/server/ai";
-import { noteAiUsed } from "@/server/ai/warm-limit";
 import { toSuggestInput } from "../domain/pantry-input";
 import type { DishSuggestions, SuggestRequest } from "../domain/suggestions";
 
-// The server side of AI-förslag (FR-23, AD-1, AD-2, AD-6, AD-9, AD-10). Not a
-// Server Action: the Route Handler /api/ai/suggest calls it with the
-// request's signal, so "Avbryt" in the client stops the model. It reads the
-// pantry from the session (the client never sends it) and never writes: the
-// drafts live in the client until Pontus saves one with saveRecipe, which is
-// also when new catalog ingredients are created. The model gets names and
+// The server side of AI-förslag (FR-23, AD-1, AD-2, AD-6, AD-9, AD-10, AD-28).
+// Not a Server Action: POST /api/ai/jobs runs it as the work of an AI job
+// (Story 12.4), with the job's signal, so "Avbryt" stops the model, and the
+// job's deadline. Its result is the job's result. It reads the pantry from
+// the session (the client never sends it) and never writes: the drafts live in
+// the job's result until Pontus saves one with saveRecipe, which is also when
+// new catalog ingredients are created. The model gets names and
 // amounts only, never ids or recipes, and the catalog links come from
 // matchIngredients alone. Only codes, counts and schema paths are logged,
 // never the pantry or the answer.
@@ -25,21 +25,6 @@ export const postModelMarginMs = 5_000;
 
 /** A suggestion must use at least this many ingredients that are at home. */
 export const minPantryIngredients = 2;
-
-/**
- * The run on its way per user, in this server process: a new request stops
- * the one before, so one person never keeps the local model busy twice
- * (a second tab, a double tap that got past the client).
- */
-const runs = new Map<string, AbortController>();
-
-/**
- * True while AI-förslag of the user's are on their way (Story 12.2: no
- * warm-up then). Only in this server process, like the map itself.
- */
-export function isSuggesting(userId: string): boolean {
-  return runs.has(userId);
-}
 
 /** Runs a catalog read; a failed query becomes `catalog_unavailable`, anything else is a bug and is thrown. */
 async function fromCatalog<T>(read: () => Promise<T>): Promise<Result<T>> {
@@ -62,7 +47,7 @@ async function readPantry(): Promise<Result<{ snapshot: PantrySnapshot; siteId: 
   return snapshot ? ok({ snapshot, siteId: site?.id ?? null }) : fail("pantry_unavailable");
 }
 
-/** The request went away ("Avbryt", a newer run): nobody reads the answer, so nothing more is done. */
+/** The job was stopped ("Avbryt", a newer photo): nobody reads the answer, so nothing more is done. */
 function stopped() {
   console.info("suggest_aborted");
   return fail("ai_unavailable");
@@ -77,23 +62,38 @@ function linkedIds(draft: RecipeDraft): string[] {
 
 export type SuggestOptions = {
   signal: AbortSignal;
-  /** When the whole request must be done (Date.now() milliseconds); the model gets the time left but postModelMarginMs. */
+  /** When the whole job must be done (Date.now() milliseconds); the model gets the time left but postModelMarginMs. */
   deadline?: number;
 };
+
+/**
+ * The check before a job is made (Story 12.4): the place's pantry is read,
+ * and an empty one is `suggest_empty_pantry` at once, so no job is queued
+ * and the AI is not asked. Gives the id of the place the job is about
+ * (`null` for a user without places), which the job keeps as its context.
+ * `pantry_unavailable` when the pantry cannot be read. Never writes.
+ */
+export async function checkSuggestPantry(): Promise<Result<{ siteId: string | null }>> {
+  const pantry = await readPantry();
+  if (!pantry.ok) return pantry;
+  if (pantry.data.snapshot.size === 0) return fail("suggest_empty_pantry");
+  return ok({ siteId: pantry.data.siteId });
+}
 
 /**
  * Three dishes from what is at home on the selected place, each as a
  * RecipeDraft with `sourceKind: "ai"` and the names of its matched catalog
  * ingredients, and the id of the place they were suggested from. In
- * order: the user (a run of theirs still on its way is stopped), the pantry
- * (`pantry_unavailable`; empty is `suggest_empty_pantry`, and the AI is not
- * asked in either case), the pantry's names (`catalog_unavailable`, also
- * when none of them can be found), the AI port (`validation`,
- * `ai_unavailable`, `ai_rejected`, `ai_invalid`), one matchIngredients call
- * for every line of the three, and fromAiRecipe. A draft that does not pass
- * recipeDraftSchema, or uses fewer than two ingredients that are at home, is
- * left out (logged as `ai_invalid`); none left is `ai_invalid`. A request
- * that goes away is `ai_unavailable`, and nothing more is read.
+ * order: the user, the pantry (`pantry_unavailable`; empty is
+ * `suggest_empty_pantry`, and the AI is not asked in either case), the
+ * pantry's names (`catalog_unavailable`, also when none of them can be
+ * found), the AI port (`validation`, `ai_unavailable`, `ai_rejected`,
+ * `ai_invalid`), one matchIngredients call for every line of the three, and
+ * fromAiRecipe. A draft that does not pass recipeDraftSchema, or uses fewer
+ * than two ingredients that are at home, is left out (logged as
+ * `ai_invalid`); none left is `ai_invalid`. A job that is stopped is
+ * `ai_unavailable`, and nothing more is read. Only one job runs at a time
+ * for a user (the queue, AD-28), so nothing here keeps a lock of its own.
  */
 export async function suggestFromPantry(
   request: SuggestRequest,
@@ -101,17 +101,7 @@ export async function suggestFromPantry(
 ): Promise<Result<DishSuggestions>> {
   const user = await requireUser();
   if (!user.ok) return user;
-
-  runs.get(user.data.id)?.abort();
-  const own = new AbortController();
-  runs.set(user.data.id, own);
-  try {
-    return await suggest(request, AbortSignal.any([signal, own.signal]), deadline);
-  } finally {
-    if (runs.get(user.data.id) === own) runs.delete(user.data.id);
-    // Story 12.2: the model has just been used, so it needs no warm-up for a while.
-    noteAiUsed(user.data.id);
-  }
+  return suggest(request, signal, deadline);
 }
 
 async function suggest(

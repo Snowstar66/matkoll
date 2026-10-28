@@ -56,8 +56,9 @@ test.describe("mobile, 390 × 844", () => {
 
     // The active tab is in the accent colour, the others in ink-3 (light mode values).
     const color = (name: string) => mainMenu(page).getByRole("link", { name }).evaluate((el) => getComputedStyle(el).color);
-    expect(await color("Recept")).toBe("rgb(62, 124, 98)");
-    expect(await color("Matsedel")).toBe("rgb(107, 120, 114)");
+    // Polled: until the bar has hydrated it has no current tab (AD-18), which a busy machine shows for a while.
+    await expect.poll(() => color("Recept")).toBe("rgb(62, 124, 98)");
+    await expect.poll(() => color("Matsedel")).toBe("rgb(107, 120, 114)");
 
     await expectSurface(page, surfaces[0]);
     for (const surface of [...surfaces.slice(1), surfaces[0]]) {
