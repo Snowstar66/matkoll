@@ -276,6 +276,8 @@ export function usePantryAnalysis(): PantryAnalysis {
     setReviewPhotoState((current) => (current && current.url === url ? { ...current, numbers } : current));
   }
 
+  /** The job whose photo "Försök igen" sends again, so retry can let its photo go. */
+  const photoJobId = useRef<string | null>(null);
   /** Places whose photo was cancelled while it was being sent: the job it gets is cancelled too, and is not shown as waiting meanwhile. */
   const cancelledStarts = useRef(new Set<string>());
   /** The photos being resized or sent, by place: the number of the start that owns the place (a newer start or "Avbryt" takes it over). */
@@ -402,7 +404,7 @@ export function usePantryAnalysis(): PantryAnalysis {
   }
 
   /** Sends the photo as a job; the answer is the job in the list, whose result is taken up when it is there. */
-  async function post(kept: KeptPhoto, token: number) {
+  async function post(kept: KeptPhoto, token: number): Promise<boolean> {
     const key = placeKey(kept.site.id, kept.location);
     const form = new FormData();
     form.append("image", kept.image, "photo");
@@ -414,15 +416,15 @@ export function usePantryAnalysis(): PantryAnalysis {
     const answer = await start("/api/ai/jobs/photo", form, crypto.randomUUID());
     const stillOwned = startOwner(key) === token;
     if (stillOwned) endStarting(key, token);
-    if (!mounted.current && !answer.ok) return;
+    if (!mounted.current && !answer.ok) return false;
     if (!answer.ok) {
       cancelledStarts.current.delete(key);
-      if (!stillOwned) return;
+      if (!stillOwned) return false;
       // An expired session: the page sends Pontus to sign in. A place that is gone
       // (Story 8.4): the page is read again, so Hemma shows one that is there.
       if (answer.error.code === "unauthorized" || answer.error.code === "pantry_site_gone") router.refresh();
       failWith(answer.error, kept);
-      return;
+      return false;
     }
     const { job } = answer.data;
     // "Avbryt" came while the photo was on its way: the job is stopped now that it has an id.
@@ -431,11 +433,12 @@ export function usePantryAnalysis(): PantryAnalysis {
       handled.current.add(job.id);
       cancelledStarts.current.delete(key);
       void cancelJob(job.id);
-      return;
+      return false;
     }
     keepPhoto(job.id, kept);
     startedAt.current.set(job.id, Date.now());
     setTick((count) => count + 1);
+    return true;
   }
 
   /** Resizes the photo (AD-15) and sends it. A photo that cannot be read or made small enough is never sent. */
@@ -471,7 +474,12 @@ export function usePantryAnalysis(): PantryAnalysis {
     const token = beginStarting(placeKey(kept.site.id, kept.location));
     setError(null);
     setPhoto(null);
-    void post(kept, token);
+    // The old job's photo is let go once the new job is posted (the new job keeps its own copy).
+    const old = photoJobId.current;
+    photoJobId.current = null;
+    void post(kept, token).then((posted) => {
+      if (posted && old !== null) releasePhoto(old);
+    });
   }
 
   /** The active photo job of a place that has not given its cards yet (or none). */
@@ -506,6 +514,9 @@ export function usePantryAnalysis(): PantryAnalysis {
     if (job.status === "failed") {
       const code = job.errorCode !== null && isErrorCode(job.errorCode) ? job.errorCode : "ai_unavailable";
       failWith(fail(code).error, keptPhoto(job.id));
+      photoJobId.current = job.id;
+      // A job lost is not retried from memory: its photo goes at once.
+      if (code === "ai_job_lost") releasePhoto(job.id);
       if (code === "pantry_site_gone" || code === "unauthorized") router.refresh();
       // The failure is shown here, so the job has done its part; the photo is kept for "Försök igen".
       void dismiss(job.id);
@@ -605,6 +616,16 @@ export function usePantryAnalysis(): PantryAnalysis {
     // `present` reads what it needs from refs and the hook's functions at the time it runs.
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [jobs, loaded, tick]);
+
+  // A job that ended without a result to review (superseded, cancelled, lost) keeps no photo in memory.
+  useEffect(() => {
+    for (const job of jobs) {
+      if (job.kind !== "analyze") continue;
+      if (job.status === "superseded" || job.status === "cancelled" || (job.status === "failed" && job.errorCode === "ai_job_lost" && handled.current.has(job.id))) {
+        releasePhoto(job.id);
+      }
+    }
+  }, [jobs]);
 
   // The numbers of the result shown: fetched once the job has ended.
   useEffect(() => {

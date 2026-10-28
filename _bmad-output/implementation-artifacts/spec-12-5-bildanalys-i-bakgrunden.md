@@ -2,7 +2,7 @@
 title: 'Story 12.5: Bildanalys i bakgrunden'
 type: 'feature'
 created: '2026-10-26'
-status: 'in-progress'
+status: 'done'
 baseline_commit: 'a3642718540a1b7039656073c84800309bad8a79'
 route: 'dispatch'
 context:
@@ -94,7 +94,7 @@ context:
 - [x] `src/features/ai-jobs/ui` och flikmärket -- Lagersaldo och texterna för foton
 - [x] `tests/e2e/ai-photo-jobs.spec.ts` (+ `support.ts`, `global-setup.ts`) -- egen e2e-användare `e2e-ai-foto@matkoll.test`, `AI_PROVIDER=mock`, `AI_MOCK_DELAY_MS=3000`: fotografera kylen och frysen efter varandra, se kön, gå till Recept och tillbaka, bekräfta kylens förslag med nummer; ett nytt foto av kylen ersätter det förra
 - [x] Befintliga e2e-specar för bildanalys, inventering, nummer och senaste foto uppdateras
-- [ ] Mätning mot LM Studio: tid från foto till kort och till nummer, före och efter
+- [ ] Mätning mot LM Studio: tid från foto till kort och till nummer, före och efter -- flyttad till slutmätningen
 - [x] `docs/beslutslogg.md` -- en post för storyn
 
 **Acceptance Criteria:**
@@ -128,6 +128,13 @@ context:
   - **Prövat:** `pnpm lint`, `pnpm typecheck`, `pnpm test` (rutten, jämförelsen, klienten, mocken, fotolagret), `AI_PROVIDER=mock pnpm build` och e2e för `ai-photo-jobs` (ny, fyra prov: kön, Recept och tillbaka med numren, ersatt jobb, kontext utan foto, omladdning), `pantry-camera`, `pantry-inventory`, `pantry-suggestions`, `empty-place`, `site-photo`, `place-photo-save`, `place-photo-view`, `pantry-image-reading`, `pantry-label`, `pantry-sites`, `import`, `ai-import-jobs`, `ai-jobs` och `ai-warm`. `pantry-inventory` och `pantry-suggestions` tillåter nu "Förslag klara" på platskortet; `ai-import-jobs` använder `toContainText` för bekräftelsen, som har knappen "Visa". Hela e2e-sviten kördes inte här. Ingenting anropade LM Studio.
 
 ## Review Triage Log
+
+En granskare (Sonnet) med fokus på integritet. Två fynd, båda åtgärdade:
+
+- **Fotot låg kvar i klientminnet:** `photo-store` släpper nu fotot när ett jobb ses som `superseded`, `cancelled` eller `failed` med `ai_job_lost`, och `retry()` släpper det gamla jobbets foto när det nya jobbet är postat. Fönstret `photoKeepMs` upprätthålls nu av en timer per post, inte bara av `sweep()`. Enhetsprov tillagda.
+- **Delvis AI-avläsning kunde överleva jobbet:** `ai_job_expire` sätter nu `result = null` när den misslyckar ett jobb (ny migrering `20261029020000`).
+
+Kömarginalen från Story 12.4 ingår: `enqueue_ai_job` ger köade jobb `expires_at` = startgräns + 10 s, så `ai_queue_timeout` inte längre förlorar mot `ai_job_lost`. Punkten "Köat jobb går ut för tidigt" är struken ur `deferred-work.md`. Provet mot LM Studio på iPhone är flyttat till slutmätningen.
 
 ## Verification
 

@@ -22,16 +22,25 @@ export type KeptPhoto = { image: Blob; location: Location; site: PhotoSite; size
 /** A photo is kept this long, if its result is not closed before (30 minutes). */
 export const photoKeepMs = 30 * 60_000;
 
-const photos = new Map<string, { photo: KeptPhoto; keptAt: number }>();
+const photos = new Map<string, { photo: KeptPhoto; keptAt: number; timer: ReturnType<typeof setTimeout> | null }>();
 
 function sweep(now: number): void {
-  for (const [id, { keptAt }] of photos) if (now - keptAt >= photoKeepMs) photos.delete(id);
+  for (const [id, { keptAt }] of photos) if (now - keptAt >= photoKeepMs) drop(id);
+}
+
+function drop(jobId: string): void {
+  const entry = photos.get(jobId);
+  if (entry?.timer) clearTimeout(entry.timer);
+  photos.delete(jobId);
 }
 
 /** Keeps the photo of a job. */
 export function keepPhoto(jobId: string, photo: KeptPhoto, now: number = Date.now()): void {
   sweep(now);
-  photos.set(jobId, { photo, keptAt: now });
+  drop(jobId);
+  // The window is enforced by a timer too, so a photo goes when its time is up even if nobody reads the store.
+  const timer = setTimeout(() => drop(jobId), photoKeepMs);
+  photos.set(jobId, { photo, keptAt: now, timer });
 }
 
 /** The photo of a job, or `null` when it was released, is older than photoKeepMs or never was here (a reload). */
@@ -42,10 +51,10 @@ export function keptPhoto(jobId: string, now: number = Date.now()): KeptPhoto | 
 
 /** The result of the job is closed: its photo is let go. */
 export function releasePhoto(jobId: string): void {
-  photos.delete(jobId);
+  drop(jobId);
 }
 
 /** Forgets every photo, for tests. */
 export function releaseAllPhotos(): void {
-  photos.clear();
+  for (const id of [...photos.keys()]) drop(id);
 }
