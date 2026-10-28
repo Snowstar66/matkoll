@@ -324,7 +324,7 @@ Pontus kan ändra butik i inställningarna (namn, kedja, butiks-id, adress), äv
 
 - **NFR-1 Säkerhet:** All hämtning från receptsajter och alla anrop till AI-tjänsten sker i serverfunktioner. Nycklar finns bara på servern. Serverfunktionen hämtar bara från godkända receptsajter, och det testas automatiskt.
 - **NFR-2 Utbytbar AI:** AI-tjänsten kan byta leverantör (lokal modell, Anthropic, OpenAI) via konfiguration, utan kodändring i funktionerna. Det finns en testleverantör (mock) så att tester körs utan modell.
-- **NFR-3 Responsiv:** Alla vyer fungerar på mobil (från 375 px bredd) och dator. Mobil har fyra flikar längst ned (Recept, Matsedel, Lista, Hemma), dator en sidomeny.
+- **NFR-3 Responsiv:** Alla vyer fungerar på mobil (från 375 px bredd) och dator. Mobil har fyra flikar längst ned (Recept, Matsedel, Inköpslista, Lagersaldo; flikarna hette Lista och Hemma före Story 10.4), dator en sidomeny.
 - **NFR-4 Tillgänglighet:** Tryckytor minst 44 px och läsbar kontrast i både ljust och mörkt läge.
 - **NFR-5 Utseende:** Designtokens och skärmregler från `docs/ux/ux-spec.md`. Inget rött. Ljust och mörkt läge.
 - **NFR-6 Språk:** Gränssnittet är på svenska.

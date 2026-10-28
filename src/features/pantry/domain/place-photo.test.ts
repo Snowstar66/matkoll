@@ -1,12 +1,29 @@
 import { describe, expect, it } from "vitest";
 import {
   clampTakenAt,
+  latestPhotoOpenLabel,
+  latestPhotoOpenText,
+  latestPhotoText,
   maxTakenAtAgeMs,
+  photoReadingHeading,
+  photoTakenText,
+  photoTimeText,
+  placePhotoCutoff,
   placePhotoFolder,
+  placePhotoMaxAgeMs,
   placePhotoPath,
   placePhotoPointsSchema,
+  placePhotoRowSchema,
+  placePhotoUrl,
   readPlacePhotoForm,
+  removedPhotoText,
+  removePhotoQuestion,
+  removePhotoText,
+  removePlacePhotoSchema,
+  savedPhotoAlt,
+  savedPhotoMarkers,
   storedPoints,
+  toPlacePhoto,
 } from "./place-photo";
 
 // Senaste foto (Story 10.1, AD-26): the photo's path, the time it was taken
@@ -123,5 +140,156 @@ describe("storedPoints", () => {
     expect(storedPoints({ positions: [{ n: 1, x: 1, y: 2 }] })).toEqual([{ n: 1, x: 1, y: 2 }]);
     expect(storedPoints({ positions: [] })).toBeNull();
     expect(storedPoints(undefined)).toBeNull();
+  });
+});
+
+// Visa senaste fotot (Story 10.2, UX-DR21, UX-DR22): the texts of the line
+// and the sheet, the time in Swedish time, the markers from the saved points
+// and the rows as Lagersaldo reads them.
+
+describe("photoTimeText", () => {
+  const now = new Date("2026-10-26T16:00:00+01:00");
+
+  it("says idag, igår or the day and month, with the time in Stockholm", () => {
+    expect(photoTimeText(new Date("2026-10-26T15:42:00+01:00"), now)).toBe("idag 15:42");
+    expect(photoTimeText(new Date("2026-10-25T09:10:00+01:00"), now)).toBe("igår 09:10");
+    expect(photoTimeText(new Date("2026-10-24T15:42:00+02:00"), now)).toBe("24 okt 15:42");
+    expect(photoTimeText(new Date("2026-09-30T07:05:00+02:00"), now)).toBe("30 sep 07:05");
+  });
+
+  it("counts the day in Stockholm, not in UTC", () => {
+    // 23:30 UTC on the 25th is 00:30 on the 26th in Stockholm.
+    expect(photoTimeText(new Date("2026-10-25T23:30:00Z"), now)).toBe("idag 00:30");
+    // Just after midnight in Stockholm, the evening before is igår.
+    expect(photoTimeText(new Date("2026-10-25T22:59:00+01:00"), new Date("2026-10-26T00:01:00+01:00"))).toBe("igår 22:59");
+    // Summer time.
+    expect(photoTimeText(new Date("2026-07-01T10:00:00Z"), new Date("2026-07-01T20:00:00Z"))).toBe("idag 12:00");
+  });
+
+  it("says idag for a photo taken after now, on a later day too (a clock that runs fast)", () => {
+    expect(photoTimeText(new Date("2026-10-26T16:05:00+01:00"), now)).toBe("idag 16:05");
+    expect(photoTimeText(new Date("2026-10-27T00:10:00+01:00"), now)).toBe("idag 00:10");
+  });
+
+  it("writes midnight as 00 and every month the same way everywhere", () => {
+    expect(photoTimeText(new Date("2026-03-03T00:00:00+01:00"), now)).toBe("3 mars 00:00");
+    expect(photoTimeText(new Date("2026-06-15T12:00:00+02:00"), now)).toBe("15 juni 12:00");
+  });
+});
+
+describe("the texts of the line and the sheet", () => {
+  it("has the line, its button's name and the subtitle with and without points", () => {
+    expect(latestPhotoText("Kyl", "idag 15:42")).toBe("Senaste foto av kylen: idag 15:42");
+    expect(latestPhotoText("Skafferi", "24 okt 15:42")).toBe("Senaste foto av skafferiet: 24 okt 15:42");
+    expect(latestPhotoOpenText).toBe("Visa");
+    expect(latestPhotoOpenLabel("Frys")).toBe("Visa senaste foto av frysen");
+    expect(photoTakenText("idag 15:42", true)).toBe("Taget idag 15:42. Numren visar vad AI:n läste av.");
+    expect(photoTakenText("idag 15:42", false)).toBe("Taget idag 15:42.");
+    expect(photoReadingHeading).toBe("AI:n läste av:");
+    expect(savedPhotoAlt("Kyl")).toBe("Senaste fotot av kylen");
+  });
+
+  it("asks before removing and confirms after", () => {
+    expect(removePhotoText).toBe("Ta bort fotot");
+    expect(removePhotoQuestion("Kyl")).toBe("Ta bort fotot av kylen? Det går inte att ångra.");
+    expect(removedPhotoText("Frys")).toBe("Fotot av frysen är borttaget.");
+  });
+
+  it("has the route's address for a photo", () => {
+    expect(placePhotoUrl(photo)).toBe(`/api/pantry/photo/${photo}`);
+  });
+});
+
+describe("savedPhotoMarkers", () => {
+  const reading = ["Mjölk", "Smör", "vara", "Ägg"];
+
+  it("gives a marker per point with its number, in percent, in number order", () => {
+    expect(
+      savedPhotoMarkers(
+        [
+          { n: 4, x: 900, y: 50 },
+          { n: 1, x: 125, y: 500 },
+        ],
+        reading,
+      ),
+    ).toEqual([
+      { key: 1, label: 1, left: 12.5, top: 50 },
+      { key: 4, label: 4, left: 90, top: 5 },
+    ]);
+  });
+
+  it("has none without points, and none for a number beyond the reading, a placeholder or a second point", () => {
+    expect(savedPhotoMarkers(null, reading)).toEqual([]);
+    expect(
+      savedPhotoMarkers(
+        [
+          { n: 5, x: 1, y: 1 },
+          { n: 3, x: 1, y: 1 },
+          { n: 2, x: 10, y: 10 },
+          { n: 2, x: 20, y: 20 },
+        ],
+        reading,
+      ),
+    ).toEqual([{ key: 2, label: 2, left: 1, top: 1 }]);
+  });
+
+  it("gives 18 markers for 20 items with 18 points", () => {
+    const twenty = Array.from({ length: 20 }, (_, index) => `Vara ${index + 1}`);
+    const points = Array.from({ length: 18 }, (_, index) => ({ n: index + 1, x: index * 10, y: index * 20 }));
+    expect(savedPhotoMarkers(points, twenty)).toHaveLength(18);
+  });
+});
+
+describe("placePhotoRowSchema", () => {
+  const row = {
+    id: photo,
+    location: "Kyl",
+    taken_at: "2026-10-26T14:42:00+00:00",
+    width: 720,
+    height: 900,
+    reading: ["Mjölk"],
+    points: [{ n: 1, x: 10, y: 20 }],
+  };
+
+  it("reads a row as a PlacePhoto, with no points as null", () => {
+    const parsed = placePhotoRowSchema.parse(row);
+    expect(toPlacePhoto(parsed)).toEqual({
+      id: photo,
+      location: "Kyl",
+      takenAt: new Date("2026-10-26T14:42:00Z"),
+      width: 720,
+      height: 900,
+      reading: ["Mjölk"],
+      points: [{ n: 1, x: 10, y: 20 }],
+    });
+    expect(toPlacePhoto(placePhotoRowSchema.parse({ ...row, points: [] })).points).toBeNull();
+    expect(toPlacePhoto(placePhotoRowSchema.parse({ ...row, points: null })).points).toBeNull();
+  });
+
+  it("refuses a row that is not a photo's", () => {
+    for (const bad of [
+      { ...row, location: "Källare" },
+      { ...row, taken_at: "igår" },
+      { ...row, reading: "Mjölk" },
+      { ...row, points: [{ n: 1, x: 2000, y: 1 }] },
+      { ...row, width: 0 },
+    ]) {
+      expect(placePhotoRowSchema.safeParse(bad).success, JSON.stringify(bad)).toBe(false);
+    }
+  });
+});
+
+describe("placePhotoCutoff", () => {
+  it("is 30 days before now", () => {
+    const now = new Date("2026-10-26T12:00:00Z");
+    expect(placePhotoMaxAgeMs).toBe(30 * 24 * 60 * 60 * 1000);
+    expect(placePhotoCutoff(now)).toEqual(new Date("2026-09-26T12:00:00Z"));
+  });
+});
+
+describe("removePlacePhotoSchema", () => {
+  it("takes a photo's id, a uuid", () => {
+    expect(removePlacePhotoSchema.safeParse({ id: photo }).success).toBe(true);
+    expect(removePlacePhotoSchema.safeParse({ id: "abc" }).success).toBe(false);
   });
 });

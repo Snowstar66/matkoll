@@ -84,8 +84,8 @@ test("Spara recept saves the recipe and opens the recipe view", async ({ page })
   const ingredients = page.getByRole("region", { name: "Ingredienser" });
   const lines = ingredients.getByTestId("recipe-view-line");
   await expect(lines).toHaveCount(8);
-  await expect(lines.first()).toHaveText(/^torskfilé\s*600 g$/);
-  await expect(lines.filter({ hasText: "purjolök" })).toHaveText(/^purjolök\s*1$/);
+  await expect(lines.first()).toHaveText(/^Torskfilé\s*600 g$/);
+  await expect(lines.filter({ hasText: "purjolök" })).toHaveText(/^Purjolök\s*1$/);
   // A vague line shows its original text.
   await expect(lines.filter({ hasText: "färsk dill" })).toHaveText("färsk dill");
 

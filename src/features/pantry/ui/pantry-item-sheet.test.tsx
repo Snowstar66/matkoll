@@ -43,7 +43,7 @@ const gulLok: PantryIngredientHit = {
   defaults: { section: "Frukt och grönt", location: "Skafferi", defaultUnit: "st" },
   exact: false,
 };
-const mjolk: PantryItem = { id: rowId, siteId: stugan.id, ingredientId: mjolkId, name: "Mjölk", location: "Kyl", amount: 1, unit: "l" };
+const mjolk: PantryItem = { id: rowId, siteId: stugan.id, ingredientId: mjolkId, name: "Mjölk", location: "Kyl", amount: 1, unit: "l", label: null, createdAt: "2026-10-20T10:00:00+00:00", section: "Mejeri" };
 
 function OpenItem({ item }: { item: PantryItem }) {
   const { openItem } = usePantrySheet();
@@ -116,6 +116,23 @@ describe("PantryItemSheet, a new item", () => {
     });
     expect(screen.queryByRole("dialog")).toBeNull();
     expect(screen.getByRole("status")).toHaveTextContent("Gul lök är sparad i skafferiet.");
+  });
+
+  it("sends a typed label for a new item, and none when the field is empty (Story 11.2)", async () => {
+    setup("Frys");
+    fireEvent.click(screen.getByRole("button", { name: "Lägg till vara" }));
+    await search("gul");
+    fireEvent.click(within(sheet()).getByRole("button", { name: "Gul lök" }));
+    fireEvent.change(within(sheet()).getByRole("textbox", { name: "Märke eller sort" }), { target: { value: "Svenska" } });
+    await save("Lägg till vara");
+    expect(savePantryItem).toHaveBeenLastCalledWith(expect.objectContaining({ label: "Svenska" }));
+
+    fireEvent.click(screen.getByRole("button", { name: "Lägg till vara" }));
+    await search("gul");
+    fireEvent.click(within(sheet()).getByRole("button", { name: "Gul lök" }));
+    await save("Lägg till vara");
+    // Empty: a row the item lands on keeps its label.
+    expect("label" in savePantryItem.mock.lastCall![0]).toBe(false);
   });
 
   it("asks for the section of a new ingredient, keeps it where the item is, and saves without amount", async () => {
@@ -304,8 +321,60 @@ describe("PantryItemSheet, an item in the pantry", () => {
       location: "Kyl",
       siteId: stugan.id,
       replaceId: rowId,
+      label: "",
     });
     expect(screen.getByRole("status")).toHaveTextContent("Mjölk är sparad i kylen.");
+  });
+
+  describe("Märke eller sort (Story 11.2)", () => {
+    function openLabelled(label: string | null) {
+      render(
+        <ToastProvider>
+          <PantrySuggestionsProvider>
+            <PantrySheetProvider location="Kyl" site={hemma}>
+              <OpenItem item={{ ...mjolk, label }} />
+            </PantrySheetProvider>
+          </PantrySuggestionsProvider>
+        </ToastProvider>,
+      );
+      fireEvent.click(screen.getByRole("button", { name: "Öppna Mjölk" }));
+      return within(sheet()).getByRole("textbox", { name: "Märke eller sort" });
+    }
+
+    it("is an optional text field with the item's label and a placeholder, which counts its limit in characters", () => {
+      const field = openLabelled("Arla laktosfri");
+      expect(field).toHaveValue("Arla laktosfri");
+      expect(field).toHaveAttribute("placeholder", "Till exempel Arla laktosfri");
+      // No maxLength: it would count UTF-16 units, not characters (parseLabelField counts them).
+      expect(field).not.toHaveAttribute("maxLength");
+      expect(field).not.toBeRequired();
+    });
+
+    it.each([
+      ["a changed label", "Garant"],
+      ["an emptied field, which removes the label", ""],
+    ])("saves %s", async (_case, text) => {
+      const field = openLabelled("Arla");
+      fireEvent.change(field, { target: { value: text } });
+      await save("Spara ändringar");
+      expect(savePantryItem).toHaveBeenLastCalledWith(expect.objectContaining({ label: text, replaceId: rowId }));
+    });
+
+    it("asks before closing with a changed label", () => {
+      const field = openLabelled(null);
+      fireEvent.change(field, { target: { value: "Arla" } });
+      fireEvent.click(within(sheet()).getByRole("button", { name: "Avbryt" }));
+      expect(screen.getByText("Släng ändringarna?")).toBeInTheDocument();
+    });
+
+    it("refuses more than 60 characters at the field and saves nothing", async () => {
+      const field = openLabelled(null);
+      fireEvent.change(field, { target: { value: "a".repeat(61) } });
+      expect(field).toHaveAttribute("aria-invalid", "true");
+      expect(within(sheet()).getByText("Skriv högst 60 tecken.")).toBeInTheDocument();
+      await save("Spara ändringar");
+      expect(savePantryItem).not.toHaveBeenCalled();
+    });
   });
 
   it.each([
@@ -459,6 +528,35 @@ describe("PantryItemSheet, a lagerförslag (Rätta)", () => {
     expect(within(sheet()).getByLabelText("Avdelning")).toHaveValue("Skafferi");
     expect(within(sheet()).getByLabelText("Mängd")).toHaveValue("0,5");
     expect(within(sheet()).getByLabelText("Enhet")).toHaveValue("l");
+  });
+
+  it("fills in Märke eller sort with the suggestion's first label and confirms a changed one (Story 11.2)", async () => {
+    open({ ...mjolkSuggestion, labels: ["Arla Mellanmjölk laktosfri 1,5 l", "Mjölk"] });
+    const field = within(sheet()).getByRole("textbox", { name: "Märke eller sort" });
+    expect(field).toHaveValue("Arla Mellanmjölk laktosfri 1,5 l");
+    fireEvent.change(field, { target: { value: "Arla" } });
+    await act(async () => fireEvent.click(within(sheet()).getByRole("button", { name: "Bekräfta" })));
+    expect(onConfirm.mock.calls[0]![2]).toMatchObject({ label: "Arla" });
+  });
+
+  it("leaves the photo's label as filled in out of the form, so it only fills an item without a label", async () => {
+    open({ ...mjolkSuggestion, labels: ["Arla Mellanmjölk laktosfri 1,5 l"] });
+    await act(async () => fireEvent.click(within(sheet()).getByRole("button", { name: "Bekräfta" })));
+    expect("label" in onConfirm.mock.calls[0]![2]).toBe(false);
+  });
+
+  it("shows the label the item has rather than the photo's, and keeps it as it is", async () => {
+    open({ ...mjolkSuggestion, labels: ["Arla Mellanmjölk laktosfri 1,5 l"], currentLabel: "Garant" });
+    expect(within(sheet()).getByRole("textbox", { name: "Märke eller sort" })).toHaveValue("Garant");
+    await act(async () => fireEvent.click(within(sheet()).getByRole("button", { name: "Bekräfta" })));
+    expect("label" in onConfirm.mock.calls[0]![2]).toBe(false);
+  });
+
+  it("leaves the label out when the field is empty, so the item keeps its own", async () => {
+    open(mjolkSuggestion);
+    expect(within(sheet()).getByRole("textbox", { name: "Märke eller sort" })).toHaveValue("");
+    await act(async () => fireEvent.click(within(sheet()).getByRole("button", { name: "Bekräfta" })));
+    expect("label" in onConfirm.mock.calls[0]![2]).toBe(false);
   });
 
   it("leaves an unlimited suggestion's amount and unit empty", () => {

@@ -1527,6 +1527,36 @@ så att inga bilder av mitt hem ligger kvar i onödan.
 **När** den körs
 **Så** innehåller den inga foton och inga rader från `storage.objects` eller `pantry_photo`, och `docs/drift.md` beskriver hur bucketen och policyerna kommer tillbaka vid en återställning, provat i en tillfällig lokal stack (AD-23)
 
+### Story 10.4: Lagersaldo och stor bokstav
+
+En snabbfix som Pontus bad om under Epic 10. Lagersidan hette Hemma, samma sak som det första stället (Epic 8), och sparade varunamn började ibland med liten bokstav.
+
+Som Pontus,
+vill jag att lagersidan heter Lagersaldo och att varornas namn börjar med stor bokstav,
+så att sidan inte förväxlas med stället Hemma och namnen ser likadana ut överallt.
+
+**Acceptance Criteria:**
+
+**Givet** menyn på mobil och dator
+**När** Pontus ser den
+**Så** heter lagersidan "Lagersaldo", rubriken och sidans titel är "Lagersaldo", och adressen är fortfarande `/hemma`
+
+**Givet** menyn på mobil och dator
+**När** Pontus ser den
+**Så** heter menyvalet för inköpslistan "Inköpslista" i stället för "Lista", adressen är fortfarande `/lista`, och ingen etikett i flikfältet klipps vid 375 px med 200 % textförstoring
+
+**Givet** stället Hemma
+**När** det visas i väljaren, i arket Ställen, i raden "Lager: Hemma" eller i en bekräftelse som "Tog bort 2 varor ur kylen för Hemma."
+**Så** heter stället fortfarande Hemma
+
+**Givet** en ny vara från ett foto, ett recept, AI-förslag eller arket Lagervara, till exempel "bregott"
+**När** den sparas i katalogen
+**Så** är namnet "Bregott", medan det normaliserade namnet, matchningen och sökningen är oförändrade
+
+**Givet** varor som redan finns i katalogen med liten första bokstav, till exempel "mellanmjölk" och "ägg"
+**När** migrationen har körts
+**Så** heter de "Mellanmjölk" och "Ägg", och inga andra kolumner eller rader har ändrats
+
 ## Epic 11: Nytt utseende
 
 Tillägg till 1.1. Pontus bad om "betydligt trevligare ux. Som ser proffsigare ut." och godkände tre skisser: Lagersaldo ("ja mycket snyggare enl din skiss"), Inköpslista ("inköpslistan börjar bli mkt bättre") och hela appen i mobilen ("ja nu börjar du verkligen hitta ux som app. bravo. håll den stilen"). Skisserna ligger i `ux-designs/ux-Matkoll-2026-10-25/mockups/`, och `DESIGN.md` och `EXPERIENCE.md` gäller när de inte stämmer överens. Epic 11 byggs efter Epic 10, där Story 10.4 redan byter namn till Lagersaldo och Inköpslista. Arkitekturen står i AD-27 och i tillägg till AD-3, AD-12, AD-17, AD-19 och AD-20. Storyna byggs i ordning, och varje story håller tillgänglighetsgolvet (NFR12): 44 px tryckytor, 200 % text, 375 px bredd, mörkt läge, VoiceOver och React Activity.
@@ -1899,7 +1929,7 @@ så att jag kan börja läsa medan de andra tas fram.
 
 **Givet** ett prov mot LM Studio med `streamText`, `Output.array` och det kompakta schemat från 12.3
 **När** det körs
-**Så** visar provet om varje rätt kommer innan svaret är klart, och utfallet står i T8 och beslutsloggen. Kommer den inte före, avslutas storyn med mätningen och utan strömning (FR50)
+**Så** visar provet om varje rätt kommer innan svaret är klart, och utfallet står i T9 och beslutsloggen. Kommer den inte före, avslutas storyn med mätningen och utan strömning (FR50)
 
 **Givet** att strömningen fungerar
 **När** Pontus ber om förslag
@@ -1915,7 +1945,7 @@ så att jag kan börja läsa medan de andra tas fram.
 
 ## Epic 9: Veckans erbjudanden
 
-Version 1.2. Pontus skrev 2026-10-26: "Jag vill helst kunna ladda in veckans erbjudanden via en länk … lägga in dom i inställningar för de affärer jag har konfigurerade." Förstudien (`docs/erbjudanden-lankar.md`) visar att ICA:s erbjudandesida per butik har samma adress varje vecka och går att läsa med en vanlig hämtning, medan Willys, Hemköp, Coop och Lidl kräver JavaScript. Pontus valde sedan funktionerna som använder erbjudandena. Kursändringen står i `sprint-change-proposal-2026-10-26-erbjudanden-v2.md` och ersätter den första planen. Arkitekturen står i AD-25 och i tillägg till AD-1, AD-9, AD-11, AD-15, AD-18, AD-24 och AD-28. Epic 9 byggs efter Epic 12. Storyna byggs i ordning, men om ica.se nekar Matkolls User-Agent (T11) byggs 9.7 direkt efter 9.1. Story 9.10 byggs bara om mätningen i 9.1 visar att den behövs (T12). Varje story håller tillgänglighetsgolvet (NFR12).
+Version 1.2. Pontus skrev 2026-10-26: "Jag vill helst kunna ladda in veckans erbjudanden via en länk … lägga in dom i inställningar för de affärer jag har konfigurerade." Förstudien (`docs/erbjudanden-lankar.md`) visar att ICA:s erbjudandesida per butik har samma adress varje vecka och går att läsa med en vanlig hämtning, medan Willys, Hemköp, Coop och Lidl kräver JavaScript. Pontus valde sedan funktionerna som använder erbjudandena. Kursändringen står i `sprint-change-proposal-2026-10-26-erbjudanden-v2.md` och ersätter den första planen. Arkitekturen står i AD-25 och i tillägg till AD-1, AD-9, AD-11, AD-15, AD-18, AD-24 och AD-28. Epic 9 byggs efter Epic 12. Storyna byggs i ordning, men om ica.se nekar Matkolls User-Agent (T13) byggs 9.7 direkt efter 9.1. Story 9.10 byggs bara om mätningen i 9.1 visar att den behövs (T14). Varje story håller tillgänglighetsgolvet (NFR12).
 
 ### Story 9.1: Veckans erbjudanden från butikens länk
 
@@ -2159,7 +2189,7 @@ Som Pontus,
 vill jag att erbjudanden med produktnamn ("Herrgård") kopplas till rätt vara i katalogen,
 så att etiketterna, filtret och "Fyll på lagret" hittar dem.
 
-Byggs bara om mätningen i 9.1 (T12) visar att färre än hälften av erbjudandena på mat får en katalogingrediens.
+Byggs bara om mätningen i 9.1 (T14) visar att färre än hälften av erbjudandena på mat får en katalogingrediens.
 
 **Acceptance Criteria:**
 

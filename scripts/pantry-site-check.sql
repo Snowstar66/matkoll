@@ -3,7 +3,7 @@
 -- after `supabase migration up` locally, and before and after
 -- `supabase db push` in the cloud (docs/drift.md), and `diff` the two outputs.
 -- They must be identical: every pantry_item row with the same id, user,
--- ingredient, location, amount and unit, the same number of rows, and every
+-- ingredient, location, amount, unit and created_at (Story 11.2), the same number of rows, and every
 -- pantry_removal record ("Ångra") with the same rows, in the same order,
 -- apart from the site_id the migration adds to each.
 --
@@ -15,7 +15,7 @@
 --
 -- Run with psql -X -q -A -t -F ' ' -v ON_ERROR_STOP=1 -f scripts/pantry-site-check.sql.
 
-select id, user_id, ingredient_id, location, amount, unit
+select id, user_id, ingredient_id, location, amount, unit, created_at
 from public.pantry_item
 order by id;
 

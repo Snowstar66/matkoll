@@ -18,7 +18,7 @@ context:
 
 ## Intent
 
-**Villkor:** storyn byggs bara om mätningen i 9.1 (T12) visar att färre än hälften av erbjudandena på mat från ica.se får en katalogingrediens. Annars avslutas den utan kod, och beslutet och siffrorna skrivs i beslutsloggen och T12.
+**Villkor:** storyn byggs bara om mätningen i 9.1 (T14) visar att färre än hälften av erbjudandena på mat från ica.se får en katalogingrediens. Annars avslutas den utan kod, och beslutet och siffrorna skrivs i beslutsloggen och T14.
 
 **Problem:** Länken (9.1) kopplar erbjudanden till katalogen bara när namnet eller en synonym stämmer. ICA skriver ofta produktnamn ("Herrgård, Präst, Grevé" i stället för ost, "Bregott" i stället för smör). Ett erbjudande utan katalogingrediens ger ingen etikett på inköpslistan, inget recept i filtret Erbjudanden och ingen rad i "Fyll på lagret" (FR-51–FR-53).
 
@@ -73,7 +73,7 @@ context:
 ## Code Map
 
 - `_bmad-output/implementation-artifacts/epic-9-context.md` -- beslut, felkoder och e2e-användare
-- `spec-9-1-…md` -- `offerName`, `matchIngredients` och T12
+- `spec-9-1-…md` -- `offerName`, `matchIngredients` och T14
 - `spec-9-7-…md`, `spec-12-4-…md` -- jobbet `offers` och mönstret för förhandskontroller
 - `spec-6-2-…md` -- mönster för granskning med bekräftelse och synonymer
 - `src/server/ai/service.ts`, `schemas.ts`, `prompts/`, `adapters/mock.ts` -- porten
@@ -96,7 +96,7 @@ context:
 - [ ] `src/features/offers/ui/offers-match.tsx` (+ test), `offers-sheet.tsx` -- raden "Koppla med AI", läget, granskningen med bockar och "Spara N kopplingar"
 - [ ] `tests/integration/offers.test.ts` -- `set_store_offer_ingredients` (bara okopplade rader, en annan användares ingrediens)
 - [ ] `tests/e2e/offers-match.spec.ts` (+ `support.ts`, `global-setup.ts`) -- egen e2e-användare `e2e-erbjudanden-koppla@matkoll.test`. Testerna hämtar fixtursidan, startar kopplingen, avmarkerar ett förslag, sparar och kontrollerar etiketten på inköpslistan och att en ny hämtning kopplar utan AI -- matrisen
-- [ ] `docs/beslutslogg.md` -- en post för storyn, och siffrorna i T12
+- [ ] `docs/beslutslogg.md` -- en post för storyn, och siffrorna i T14
 
 **Acceptance Criteria:**
 - Given `pnpm lint && pnpm typecheck && pnpm test && pnpm test:integration && AI_PROVIDER=mock pnpm build && CI=1 pnpm test:e2e`, when de körs, then lyckas alla.
@@ -123,4 +123,4 @@ context:
 **Manual checks (if no CLI):**
 - Vid 375 px och 1280 px, i ljust och mörkt läge och med 200 % text: raderna med "→" och bockarna radbryts utan vågrät scroll.
 - Med VoiceOver: en rad läses som "Herrgård, Präst, Grevé, kopplas till ost, vald".
-- `AI_PROVIDER=lmstudio pnpm eval:ai tests/eval/match-offers.eval.ts`: tid och andel rätta kopplingar skrivs i T12.
+- `AI_PROVIDER=lmstudio pnpm eval:ai tests/eval/match-offers.eval.ts`: tid och andel rätta kopplingar skrivs i T14.

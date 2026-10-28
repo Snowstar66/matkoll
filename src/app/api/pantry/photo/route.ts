@@ -26,8 +26,13 @@ import { isCrossSite, mediaTypeOf, readImageForm, respond } from "../../ai/route
 // and Zod for every other field, each JSON field capped before it is parsed.
 // The photo is never logged and never sent to the AI port. Anything thrown is
 // logged with its name only: Storage and PostgREST messages can hold the
-// photo's path. The default maxDuration is enough: an upload and a few
-// database calls.
+// photo's path.
+//
+// maxDuration bounds a save from its upload to its row (an upload and a few
+// database calls), so a file without a row older than photoOrphanMinAgeMs
+// (10 minutes, Story 10.3) can never be a save still under way. The domain's
+// placePhotoSaveDeadlineMs is locked to this value by a test.
+export const maxDuration = 60;
 
 /** A Content-Length that is there and within the limit: the browser always sends one for a form. */
 function sizeAllowed(request: Request): boolean {

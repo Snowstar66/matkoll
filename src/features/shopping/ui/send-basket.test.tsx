@@ -175,10 +175,10 @@ describe("Skicka till ICA", () => {
     expectNoServer();
   });
 
-  it("is the primary button alone, in the list's FixedAction", () => {
+  it("is the secondary button alone, in the list's FixedAction (Story 11.4)", () => {
     stubClipboard("ok");
     render(<ShoppingList {...props()} />);
-    expect(sendButton()).toHaveClass("bg-accent");
+    expect(sendButton()).toHaveClass("bg-sky");
     expect(screen.queryByRole("button", { name: "Lägg i lagret" })).not.toBeInTheDocument();
   });
 
@@ -198,21 +198,22 @@ describe("Skicka till ICA", () => {
     expect(screen.getByRole("checkbox", { name: "Gul lök, 2 st" })).not.toBeChecked();
   });
 
-  it("leaves out a line checked off, as shown, and sits under Lägg i lagret as the secondary button", async () => {
+  it("leaves out a line checked off, as shown, and sits beside Lägg i lagret as the secondary button", async () => {
     const user = userEvent.setup();
     const writeText = stubClipboard("ok");
     render(<ServerList />);
     await user.click(screen.getByRole("checkbox", { name: "Gul lök, 2 st" }));
     await waitFor(() => expect(sendButton()).toBeEnabled());
+    await user.click(screen.getByRole("button", { name: /^Visa I korgen/ }));
     expect(screen.getByRole("checkbox", { name: "Gul lök, 2 st" })).toBeChecked();
 
     const put = screen.getByRole("button", { name: "Lägg i lagret" });
     const send = sendButton()!;
     expect(put).toHaveClass("bg-accent");
     expect(send).toHaveClass("bg-sky");
-    // One FixedAction: "Lägg i lagret" first, "Skicka till ICA" under it.
+    // One FixedAction: "Skicka till ICA" first in the row, "Lägg i lagret" after it (on top when they wrap).
     expect(put.parentElement).toBe(send.parentElement);
-    expect(put.compareDocumentPosition(send) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
+    expect(send.compareDocumentPosition(put) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
 
     fireEvent.click(send);
     expect(writeText).toHaveBeenCalledTimes(1);

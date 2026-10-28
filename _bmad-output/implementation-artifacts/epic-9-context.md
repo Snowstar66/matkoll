@@ -45,7 +45,7 @@ Epicen bygger på det som redan finns:
 - Story 9.9: Ta bort erbjudanden
 - Story 9.10: AI kopplar fler erbjudanden till katalogen (byggs bara om mätningen i 9.1 visar att det behövs)
 
-Ordningen ger nyttan tidigt. Länken (9.1) gör att Matkoll har erbjudandena utan att Pontus gör något, och de tre användningarna utan AI (9.2–9.4) kommer före AI-flödena (9.5–9.6). Text och foto (9.7–9.8) är reserver för kedjor utan länk och för veckor då ICA nekar. **Om provet i 9.1 visar att ica.se nekar Matkolls ärliga User-Agent (T11) byggs 9.7 direkt efter 9.1**, eftersom text då är den enda vägen in.
+Ordningen ger nyttan tidigt. Länken (9.1) gör att Matkoll har erbjudandena utan att Pontus gör något, och de tre användningarna utan AI (9.2–9.4) kommer före AI-flödena (9.5–9.6). Text och foto (9.7–9.8) är reserver för kedjor utan länk och för veckor då ICA nekar. **Om provet i 9.1 visar att ica.se nekar Matkolls ärliga User-Agent (T13) byggs 9.7 direkt efter 9.1**, eftersom text då är den enda vägen in.
 
 ## Bindande beslut
 
@@ -72,7 +72,7 @@ Ordningen ger nyttan tidigt. Länken (9.1) gör att Matkoll har erbjudandena uta
 - **AI bara där den behövs.**
   - Katalogkopplingen för länken är deterministisk: `matchIngredients` på varans namn och delar av namnet.
   - Text och foto (9.7, 9.8) läses med `extractOffers` i ett AI-jobb, med granskning före sparande, som i den första planen.
-  - AI för att koppla fler erbjudanden till katalogen (9.10) byggs bara om mätningen i 9.1 visar att för få kopplas (T12).
+  - AI för att koppla fler erbjudanden till katalogen (9.10) byggs bara om mätningen i 9.1 visar att för få kopplas (T14).
 - **Ett erbjudande gäller en butik och en vecka.**
   - Veckan är måndag–söndag i svensk tid och lagras som måndagens datum. Bara den här och nästa vecka går att spara.
   - För länken är veckan den som innehåller det vanligaste `validTo`.
@@ -119,13 +119,13 @@ Ordningen ger nyttan tidigt. Länken (9.1) gör att Matkoll har erbjudandena uta
   - En basvara är en katalogingrediens som finns i lagret på något ställe just nu (också obegränsad) eller har ett produktval i butiken.
   - Raden säger var varan finns ("Finns i Hemma, inte i Stugan", med ett ställe "Finns hemma" eller "Finns inte hemma", och utan lager "Du brukar köpa Gevalia").
   - "Lägg på listan" lägger varan som egen vara på inköpslistan.
-  - Kvittona i `pantry_addition` har ingen vara och tas bort efter 30 dagar, så de går inte att använda (öppen fråga 23).
+  - Kvittona i `pantry_addition` har ingen vara och tas bort efter 30 dagar, så de går inte att använda (öppen fråga 27).
 - **AI-förslag (FR-36, 9.5):**
   - Jobbet `suggest` läser vald butik och veckans erbjudanden. Högst 40 varunamn och 1 000 tecken går till modellen, aldrig priser.
   - Förslagen får erbjudandeetiketter.
   - Utan erbjudanden är meddelandet exakt som efter 12.3.
 - **Veckans matsedel (FR-54, 9.6):**
-  - Ett nytt AI-jobb, `weekplan`. Det föreslår fem rätter (öppen fråga 24): i första hand recept ur biblioteket och högst två nya rätter, med erbjudanden och lagret.
+  - Ett nytt AI-jobb, `weekplan`. Det föreslår fem rätter (öppen fråga 28): i första hand recept ur biblioteket och högst två nya rätter, med erbjudanden och lagret.
   - Pontus väljer vilka som läggs på matsedeln. Nya rätter sparas via förhandsgranskningen som andra AI-förslag.
 - **Text och foto (FR-34, 9.7, 9.8):**
   - AI-jobbet `offers` med `extractOffers`, som i den första planen. Text högst 12 000 tecken, högst 40 erbjudanden per inläsning, foto som en plats (2048 px, 1,5 MB).
@@ -264,7 +264,7 @@ Ordningen ger nyttan tidigt. Länken (9.1) gör att Matkoll har erbjudandena uta
     | 9.10 | `e2e-erbjudanden-koppla@matkoll.test` |
 
   - E2E körs med `AI_PROVIDER=mock`, och då svarar fixtursajterna. `pnpm eval:ai` mot LM Studio körs för hand, inte i CI.
-- **Manuellt prov mot ica.se (9.1):** efter att storyn är byggd trycker bygget "Hämta veckans erbjudanden" en gång i den lokala appen mot Pontus butik, med appens User-Agent. Status, antal, antal som inte var mat och antal kopplade skrivs i T11 och T12. Inga varor, ingen HTML och inga huvuden sparas eller checkas in. Vid 403 eller 429 görs inget nytt försök, och 9.7 byggs direkt efter 9.1.
+- **Manuellt prov mot ica.se (9.1):** efter att storyn är byggd trycker bygget "Hämta veckans erbjudanden" en gång i den lokala appen mot Pontus butik, med appens User-Agent. Status, antal, antal som inte var mat och antal kopplade skrivs i T13 och T14. Inga varor, ingen HTML och inga huvuden sparas eller checkas in. Vid 403 eller 429 görs inget nytt försök, och 9.7 byggs direkt efter 9.1.
 
 ## UX & Interaction Patterns
 
@@ -324,8 +324,8 @@ Ordningen ger nyttan tidigt. Länken (9.1) gör att Matkoll har erbjudandena uta
 - **9.2, 9.3 och 9.4 efter 9.1,** i valfri ordning. 9.3 lägger `isMainLine` och `offersInRecipe`, som 9.5 och 9.6 använder.
 - **9.5 efter 9.3 och 12.4:** etiketterna på förslagen och huvudvarorna.
 - **9.6 efter 9.5:** prompten med erbjudanden, det kompakta schemat och jobben.
-- **9.7 efter 9.1 och 12.4,** eller direkt efter 9.1 om ica.se nekar (T11). **9.8 efter 9.7.**
+- **9.7 efter 9.1 och 12.4,** eller direkt efter 9.1 om ica.se nekar (T13). **9.8 efter 9.7.**
 - **9.9 efter 9.1.** Granskningen i 9.7 tar bort rader före sparande. 9.9 tar bort det som är sparat.
-- **9.10 efter 9.1:** byggs bara om T12 visar att färre än hälften av erbjudandena på mat kopplas till katalogen.
+- **9.10 efter 9.1:** byggs bara om T14 visar att färre än hälften av erbjudandena på mat kopplas till katalogen.
 - **Gren:** `epic/9-erbjudanden-v2`, med PR till `main`. Alla sex kontroller och en kodgranskning krävs (AD-23). Den gamla grenen `epic/9-erbjudanden` är ersatt.
-- **Efter epicen:** Pontus provar Flöde 7, svarar på öppna frågor 8–10 och 22–25 och läser T11 och T12.
+- **Efter epicen:** Pontus provar Flöde 7, svarar på öppna frågor 8–10 och 26–29 och läser T13 och T14.

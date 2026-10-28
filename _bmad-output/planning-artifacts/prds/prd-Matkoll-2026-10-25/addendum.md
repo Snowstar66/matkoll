@@ -604,7 +604,7 @@ SM-5 (variation) och SM-3 (hela veckan i appen) får stöd. Motmått **SM-C4 Ful
 - Automatisk hämtning varje vecka, utan tryck (`docs/backlog-efter-1-0.md`).
 - Bevakningar med aviseringar ("säg till när kaffe är på erbjudande") (`docs/backlog-efter-1-0.md`).
 - Länkar för Willys, Hemköp, Coop och Lidl. Deras sidor kräver JavaScript, och deras interna API:er används inte.
-- En historik över köp för att hitta basvaror bättre (öppen fråga 23).
+- En historik över köp för att hitta basvaror bättre (öppen fråga 27).
 - Prisjämförelse mellan butiker och kostnadsberäkning (1.3, PRD §7).
 - Erbjudanden från flera butiker på en gång. Allt gäller vald butik.
 

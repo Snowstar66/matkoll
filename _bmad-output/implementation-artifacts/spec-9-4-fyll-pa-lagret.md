@@ -44,7 +44,7 @@ context:
 - E2E-specen har den egna e2e-användaren `e2e-erbjudanden-lager@matkoll.test`.
 
 **Never:**
-- Ingen ny tabell och ingen historik över köp. Kvittona i `pantry_addition` används inte: de har ingen vara och tas bort efter 30 dagar (öppen fråga 23).
+- Ingen ny tabell och ingen historik över köp. Kvittona i `pantry_addition` används inte: de har ingen vara och tas bort efter 30 dagar (öppen fråga 27).
 - Ingen skrivning i lagret och ingen ändring av katalogen.
 - Ingen mängd på den egna varan.
 
@@ -95,7 +95,7 @@ context:
 
 ## Implementation Notes
 
-- **Beslut (förslag): basvara = finns i lagret nu eller har ett produktval.** Matkoll har ingen historik över köp. Det som Pontus håller i lagret, och det Pontus har valt en produkt för, är de bästa signalerna som finns. En historik är öppen fråga 23.
+- **Beslut (förslag): basvara = finns i lagret nu eller har ett produktval.** Matkoll har ingen historik över köp. Det som Pontus håller i lagret, och det Pontus har valt en produkt för, är de bästa signalerna som finns. En historik är öppen fråga 27.
 - **Beslut (förslag): alla ställen räknas.** Syftet är att se vad som saknas i stugan. AD-24 förbjuder att lagret summeras, och funktionen ger bara var varan finns, aldrig mängder.
 - **Beslut (förslag): egen vara utan mängd.** Pontus vet bäst hur mycket som ska köpas, och mängden går att rätta i listan.
 - Loggar innehåller bara felkoder och antal.

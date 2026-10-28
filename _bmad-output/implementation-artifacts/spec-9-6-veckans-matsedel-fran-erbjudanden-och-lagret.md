@@ -113,11 +113,12 @@ context:
 
 - **Beslut (förslag): biblioteket först, högst två nya rätter.** En ny rätt måste granskas och sparas innan den kan läggas på matsedeln, så fem nya rätter vore fem förhandsgranskningar. Ett index ur en lista är också mycket kortare att svara med än ett recept, vilket håller tiden nere.
 - **Beslut (förslag): servern väljer de 30 kandidaterna utan AI.** Hela biblioteket ryms inte i kontexten på 8 192 token, och rangordningen med erbjudanden och lagret finns redan (9.3, AD-7).
-- **Beslut (förslag): fem rätter och inga dagar.** Matsedeln har inga dagar. Antalet är en konstant (öppen fråga 24).
+- **Beslut (förslag): fem rätter och inga dagar.** Matsedeln har inga dagar. Antalet är en konstant (öppen fråga 28).
 - **Beslut (förslag): inget flikmärke på Matsedel.** AD-28 begränsar märket till Recept och Lagersaldo. Den korta bekräftelsen och jobbraden räcker, och "Visa" går till Matsedel.
 - **Risk: tiden.** Två kompakta recept, fem index, lagret och 30 rader recept ligger nära AI-förslagens storlek efter 12.3. Utvärderingen mäter det. Över 100 s med varm modell sänks antalet nya rätter till en.
 - **Risk: modellen väljer samma huvudvara fem gånger.** Prompten ber om variation, och utvärderingen räknar det. Annars kan servern begränsa till två rätter per huvudvara.
 - Loggar innehåller bara felkoder, sort, antal och jobbets id.
+- **Efter Epic 10/11 (sammanslagningen med main 2026-10-28):** det finns ingen `src/components/dish-card.tsx`. Rättkortet från 11.5 ligger i `src/features/mealplan/ui/meal-plan-list.tsx` (raden från `dishProgress` och `dishMetaText` i `mealplan/domain/meal-plan.ts`), och mätaren är `Meter` i `src/components/meter.tsx`. Förslagets kort byggs som rättkortet där, eller som `RecipeCard` (`recipes/ui/recipe-card.tsx`) som AI-förslagen i 11.5.
 
 ## Spec Change Log
 

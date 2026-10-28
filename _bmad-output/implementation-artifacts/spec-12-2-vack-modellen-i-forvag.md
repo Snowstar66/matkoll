@@ -80,7 +80,7 @@ context:
 - [ ] Lagersaldo och Recept -- anropen i en effekt
 - [ ] `tests/e2e/ai-warm.spec.ts` (+ `support.ts`, `global-setup.ts`) -- egen e2e-användare `e2e-ai-varm@matkoll.test`, `AI_PROVIDER=mock`: öppna Lagersaldo och se ett anrop till `/api/ai/warm` med `image`, öppna igen och se inget nytt
 - [ ] Mätningen mot LM Studio enligt Boundaries
-- [ ] `docs/lm-studio.md`, `docs/oppna-fragor.md` (T9), `docs/beslutslogg.md` -- siffrorna och beslutet
+- [ ] `docs/lm-studio.md`, `docs/oppna-fragor.md` (T10), `docs/beslutslogg.md` -- siffrorna och beslutet
 
 **Acceptance Criteria:**
 - Given `pnpm lint && pnpm typecheck && pnpm test && pnpm test:integration && AI_PROVIDER=mock pnpm build && CI=1 pnpm test:e2e`, when de körs, then lyckas alla.
@@ -91,7 +91,8 @@ context:
 - **Beslut (förslag): flödets egen systemprompt.** LM Studio kan återanvända början av en prompt (prefix-cache). Samma systemprompt ger störst chans att det riktiga anropet får nytta av det. Med PARALLEL 4 kan cachen höra till en annan plats; mät med den inställning som 12.1 rekommenderar.
 - **Beslut (förslag): `after()` och 202.** Sidan ska aldrig vänta på väckningen. Läs `node_modules/next/dist/docs/01-app/03-api-reference/04-functions/after.md` före koden.
 - **Risk: väckningen krockar med ett riktigt anrop.** Det riktiga anropet kan behöva vänta på väckningen (en token, några sekunder med en bild). Därför hoppar servern över när något pågår, och väckningen har en egen gräns på 30 s.
-- **Risk: väckningen hjälper inte** (T9: om det långsamma är minnet och inte cachen). Då tas den bort; det är ett giltigt utfall av storyn.
+- **Risk: väckningen hjälper inte** (T10: om det långsamma är minnet och inte cachen). Då tas den bort; det är ett giltigt utfall av storyn.
+- **Efter Epic 10/11 (sammanslagningen med main 2026-10-28):** Lagersaldo (`/hemma`) har nu också `photo-sweep-gate.tsx` (10.3), som gallrar gamla foton när sidan öppnas, och raden med senaste fotot (`latest-photo.tsx`, 10.2). Väckningen läggs bredvid dem i `home-content.tsx` eller sidan, och får inte vänta på eller störa gallringen. Öppna frågor och osäkerheter för Epic 12 har nya nummer: 21–25 och T9–T11.
 
 ## Spec Change Log
 

@@ -1,7 +1,7 @@
 import "server-only";
 import { requireUser } from "@/features/auth/server";
 import type { IngredientMatch, Location } from "@/features/catalog";
-import { CatalogDataError, getIngredientNames, matchIngredients } from "@/features/catalog/server";
+import { CatalogDataError, getIngredientNames, getIngredientSummaries, matchIngredients } from "@/features/catalog/server";
 import { fail, ok, type Result } from "@/lib/errors";
 import { createClient } from "@/lib/supabase/server";
 import { getAiService, minLoopRepeats, type ImageInput } from "@/server/ai";
@@ -55,7 +55,7 @@ async function fromCatalog<T>(read: () => Promise<T>): Promise<Result<T>> {
  */
 async function readPlace(location: Location, siteId: string | undefined): Promise<PantryItem[] | null> {
   try {
-    return await listPantryIn(await createClient(), location, getIngredientNames, siteId);
+    return await listPantryIn(await createClient(), location, getIngredientSummaries, siteId);
   } catch (error) {
     if (error instanceof PantryDataError) {
       console.error("pantry_unavailable", { reason: error.detail });

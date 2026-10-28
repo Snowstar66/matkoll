@@ -94,6 +94,7 @@ context:
 - **Beslut (förslag): etiketten står först på raden under, inte till höger.** Till höger står produktetiketten, och två etiketter bredvid varandra får inte plats vid 375 px.
 - **Beslut (förslag): det första erbjudandet i bladets ordning.** Priser är text och går inte att jämföra. Detaljen visar alla.
 - Loggar innehåller bara felkoder och antal.
+- **Efter Epic 10/11 (sammanslagningen med main 2026-10-28):** produktetiketten som är mönster för `OfferChip` är `ProductChip` i `src/features/shopping/ui/product-chip.tsx` (11.4), inte i `src/components/`. Listposten och I korgen byggs med `ListGroup` och `ListRow` (`src/components/list-group.tsx`, `list-row.tsx`, 11.1). Epic 9:s öppna frågor och osäkerheter har nya nummer: 26–30 och T12–T14.
 
 ## Spec Change Log
 

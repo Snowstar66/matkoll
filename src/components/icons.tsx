@@ -53,20 +53,13 @@ export function MealPlanIcon(props: IconProps) {
   );
 }
 
-export function ListIcon(props: IconProps) {
+/** A shopping cart: the Inköpslista tab (Epic 11). */
+export function CartIcon(props: IconProps) {
   return (
     <Icon {...props}>
-      <path d="M9 6h11M9 12h11M9 18h11" />
-      <path d="M4 6l1 1 2-2M4 12l1 1 2-2M4 18l1 1 2-2" />
-    </Icon>
-  );
-}
-
-export function HomeIcon(props: IconProps) {
-  return (
-    <Icon {...props}>
-      <path d="M4 11l8-7 8 7v9H4z" />
-      <path d="M10 20v-6h4v6" />
+      <path d="M3 4h2.5l2.2 11h10.6L20.5 7H6.4" />
+      <circle cx="9.5" cy="19.5" r="1.5" />
+      <circle cx="17" cy="19.5" r="1.5" />
     </Icon>
   );
 }
@@ -203,6 +196,18 @@ export function PantryIcon(props: IconProps) {
       <path d="M8 3h8v3H8z" />
       <path d="M7 6h10a1 1 0 0 1 1 1v12a2 2 0 0 1-2 2H8a2 2 0 0 1-2-2V7a1 1 0 0 1 1-1z" />
       <path d="M6 11h12" />
+    </Icon>
+  );
+}
+
+/** A waste bin: the grey Soptunna that removes an item at once (Epic 11). */
+export function TrashIcon(props: IconProps) {
+  return (
+    <Icon {...props}>
+      <path d="M4 7h16" />
+      <path d="M9 7V4.5h6V7" />
+      <path d="M6 7l1 12.5A1.5 1.5 0 0 0 8.5 21h7a1.5 1.5 0 0 0 1.5-1.5L18 7" />
+      <path d="M10 11v6M14 11v6" />
     </Icon>
   );
 }

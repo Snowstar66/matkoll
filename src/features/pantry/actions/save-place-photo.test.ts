@@ -44,6 +44,11 @@ vi.mock("../data/photos", () => ({
   photoRowExistsIn: (...args: unknown[]) => (steps.push("exists"), photoRowExistsIn(...args)),
 }));
 
+const sweepPlacePhotosIn = vi.fn();
+vi.mock("./photo-sweep", () => ({
+  sweepPlacePhotosIn: (...args: unknown[]) => (steps.push("sweep"), sweepPlacePhotosIn(...args)),
+}));
+
 const { savePlacePhoto } = await import("./save-place-photo");
 
 const kylPng = new Uint8Array(readFileSync(new URL("../../../../tests/fixtures/ai/kyl.png", import.meta.url)));
@@ -71,7 +76,8 @@ beforeEach(() => {
   uploadPlacePhoto.mockReset().mockResolvedValue(undefined);
   savePantryPhotoIn.mockReset().mockResolvedValue({ kind: "saved", previous: null });
   photoRowExistsIn.mockReset().mockResolvedValue(false);
-  removePlacePhotoFiles.mockReset().mockResolvedValue(1);
+  removePlacePhotoFiles.mockReset().mockImplementation(async (_db: unknown, paths: string[]) => ({ removed: paths, failed: null }));
+  sweepPlacePhotosIn.mockReset().mockResolvedValue({ removed: 0, more: false, failed: null });
   revalidateFor.mockReset();
   getAiService.mockReset();
   errors?.mockRestore();
@@ -112,7 +118,8 @@ describe("savePlacePhoto", () => {
       reading: ["Mellanmjölk 1,5 %", "Smör 500 g"],
       points: null,
     });
-    expect(steps).toEqual(["upload", "save"]);
+    expect(steps).toEqual(["upload", "save", "sweep"]);
+    expect(sweepPlacePhotosIn).toHaveBeenCalledWith(db, { now });
     expect(revalidateFor).toHaveBeenCalledWith("pantry_photo");
   });
 
@@ -140,13 +147,24 @@ describe("savePlacePhoto", () => {
   it("removes the file it replaced after the row is saved", async () => {
     savePantryPhotoIn.mockResolvedValue({ kind: "saved", previous: previousPath });
     expect((await savePlacePhoto(input(jpeg), { now })).ok).toBe(true);
-    expect(steps).toEqual(["upload", "save", "remove"]);
+    expect(steps).toEqual(["upload", "save", "remove", "sweep"]);
     expect(removePlacePhotoFiles).toHaveBeenCalledWith(db, [previousPath]);
+  });
+
+  it("sweeps after a save, and only logs the reason when the sweep fails (Story 10.3)", async () => {
+    sweepPlacePhotosIn.mockResolvedValue({ removed: 1, more: false, failed: "remove_failed 503" });
+    expect((await savePlacePhoto(input(jpeg), { now })).ok).toBe(true);
+    expect(errors).toHaveBeenCalledWith("pantry_photo_remove_failed", { reason: "remove_failed 503" });
+    sweepPlacePhotosIn.mockRejectedValue(new TypeError(`no ${userId}`));
+    expect((await savePlacePhoto(input(jpeg), { now })).ok).toBe(true);
+    expect(errors).toHaveBeenCalledWith("pantry_photo_remove_failed", { reason: "sweep_threw" });
+    expect(logged()).not.toContain(userId);
+    expect(revalidateFor).toHaveBeenCalledTimes(2);
   });
 
   it("logs only the reason when the file before cannot be removed, and still saves", async () => {
     savePantryPhotoIn.mockResolvedValue({ kind: "saved", previous: previousPath });
-    removePlacePhotoFiles.mockRejectedValue(new PantryDataError("remove_failed 500"));
+    removePlacePhotoFiles.mockResolvedValue({ removed: [], failed: "remove_failed 500" });
     expect((await savePlacePhoto(input(jpeg), { now })).ok).toBe(true);
     expect(errors).toHaveBeenCalledWith("pantry_photo_remove_failed", { reason: "remove_failed 500" });
     expect(logged()).not.toContain(userId);
@@ -194,7 +212,7 @@ describe("savePlacePhoto", () => {
 
   it("removes the new file and gives pantry_photo_failed when the row cannot be saved and is not there", async () => {
     savePantryPhotoIn.mockRejectedValue(new PantryDataError("save_failed 23514"));
-    removePlacePhotoFiles.mockRejectedValue(new PantryDataError("remove_failed 500"));
+    removePlacePhotoFiles.mockResolvedValue({ removed: [], failed: "remove_failed 500" });
     expect(await savePlacePhoto(input(jpeg), { now })).toEqual(fail("pantry_photo_failed"));
     expect(steps).toEqual(["upload", "save", "exists", "remove"]);
     expect(photoRowExistsIn.mock.calls[0][1]).toBe(uploaded()[1].split("/").at(-1)!.replace(".jpg", ""));
@@ -249,7 +267,7 @@ describe("savePlacePhoto", () => {
 
   it("never logs the photo, the path, the place or the reading, and never asks the AI", async () => {
     savePantryPhotoIn.mockResolvedValue({ kind: "saved", previous: previousPath });
-    removePlacePhotoFiles.mockRejectedValue(new PantryDataError("remove_failed 500"));
+    removePlacePhotoFiles.mockResolvedValue({ removed: [], failed: "remove_failed 500" });
     await savePlacePhoto(input(jpeg), { now });
     savePantryPhotoIn.mockRejectedValue(new PantryDataError(siteGoneDetail));
     await savePlacePhoto(input(jpeg), { now });

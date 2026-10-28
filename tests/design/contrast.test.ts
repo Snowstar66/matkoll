@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
-import { themeColors } from "@/app/theme-colors";
-import { colorTokens } from "./tokens";
+import { appIconColors, themeColors } from "@/app/theme-colors";
+import { colorTokens, rootToken } from "./tokens";
 
 // NFR4: every text pair in DESIGN.md reaches 4.5:1 in light and dark mode.
 
@@ -19,19 +19,19 @@ const { light, dark } = colorTokens();
 
 const colorNames = [
   "bg", "surface", "ink", "ink-2", "ink-3", "hairline", "border", "accent", "on-accent",
-  "mint", "mint-ink", "sky", "sky-ink", "sand", "sand-ink",
+  "mint", "mint-ink", "sky", "sky-ink", "sand", "sand-ink", "tile-clay", "tile-lilac",
 ];
 
 /** [text, background, where it is used] */
 const textPairs: [string, string, string][] = [
   ["ink", "bg", "titles on the page"],
-  ["ink-2", "bg", "body text and empty states on the page"],
+  ["ink-2", "bg", "body text and empty states on the page, category header name and count"],
   ["ink", "surface", "titles in cards"],
   ["ink-2", "surface", "body text in cards"],
   ["ink-3", "surface", "metadata, inactive tabs"],
   ["on-accent", "accent", "primary button, chosen pill"],
   ["mint-ink", "mint", "Kan lagas nu, active side-menu item"],
-  ["sky-ink", "sky", "Saknar N varor, notice, secondary button"],
+  ["sky-ink", "sky", "Saknar N varor, notice, secondary button, product chip"],
   ["sand-ink", "sand", "AI-förslag"],
   ["sky-ink", "bg", "field error on /logga-in"],
   // Pairs the shell and building blocks add on top of DESIGN.md's list:
@@ -71,7 +71,25 @@ describe("design tokens", () => {
     expect(themeColors.light).toBe(rgb(light.bg));
     expect(themeColors.dark).toBe(rgb(dark.bg));
   });
+
+  it("the app icon's colours are light mode's tokens (DESIGN.md, app-icon)", () => {
+    const rgb = (hex: string) =>
+      `rgb(${[1, 3, 5].map((i) => parseInt(hex.slice(i, i + 2), 16)).join(" ")})`;
+    expect(appIconColors).toEqual({
+      bg: rgb(light.bg),
+      accent: rgb(light.accent),
+      sand: rgb(light.sand),
+      sandInk: rgb(light["sand-ink"]),
+    });
+  });
 });
+
+/**
+ * Category tiles (Epic 11) are decoration: the category's name always stands
+ * beside them, so no contrast ratio applies. They must still be told apart
+ * from the page, in both modes.
+ */
+const categoryTiles = ["mint", "sky", "sand", "tile-clay", "tile-lilac", "border"];
 
 /** WCAG 1.4.11: borders that show where a control is need 3:1. [border, background, where] */
 const controlBorderPairs: [string, string, string][] = [
@@ -89,5 +107,50 @@ describe.each([
 
   it.each(controlBorderPairs)("control border: %s on %s (%s) is at least 3:1", (border, background) => {
     expect(contrast(tokens[border], tokens[background])).toBeGreaterThanOrEqual(3);
+  });
+
+  it.each(categoryTiles)("category tile: %s stands apart from bg", (tile) => {
+    expect(contrast(tokens[tile], tokens.bg)).toBeGreaterThanOrEqual(1.05);
+  });
+});
+
+/**
+ * Epic 11: the badge and the heart on a recipe image sit on --overlay,
+ * surface at 92 % over any photo. The pairs are checked with the overlay
+ * laid over black and over white, the two extremes of a photo. Badge text
+ * needs 4.5:1; the heart is a graphic and needs 3:1 (WCAG 1.4.11).
+ */
+const overlayShare = Number(/var\(--surface\) (\d+)%/.exec(rootToken("overlay") ?? "")?.[1]) / 100;
+
+/** `top` at `share` opacity over `under`, as hex. */
+function composite(top: string, under: string, share: number): string {
+  const channel = (hex: string, i: number) => parseInt(hex.slice(i, i + 2), 16);
+  return `#${[1, 3, 5]
+    .map((i) => Math.round(channel(top, i) * share + channel(under, i) * (1 - share)))
+    .map((value) => value.toString(16).padStart(2, "0"))
+    .join("")}`;
+}
+
+/** [colour on the overlay, minimum ratio, where] */
+const overlayPairs: [string, number, string][] = [
+  ["mint-ink", 4.5, "status badge Kan lagas nu on a recipe image"],
+  ["sky-ink", 4.5, "status badge Saknar N varor on a recipe image"],
+  ["accent", 3, "filled heart on a recipe image"],
+  ["ink-3", 3, "outlined heart on a recipe image"],
+];
+
+describe.each([
+  ["light", light],
+  ["dark", dark],
+])("on the image overlay in %s mode", (_mode, tokens) => {
+  it("the overlay is surface at 92 %", () => {
+    expect(overlayShare).toBe(0.92);
+  });
+
+  it.each(["#000000", "#FFFFFF"])("over %s, every badge and heart colour is readable", (photo) => {
+    const plate = composite(tokens.surface, photo, overlayShare);
+    for (const [color, minimum, where] of overlayPairs) {
+      expect(contrast(tokens[color], plate), where).toBeGreaterThanOrEqual(minimum);
+    }
   });
 });

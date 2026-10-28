@@ -112,7 +112,7 @@ context:
 - [ ] `src/features/ai-jobs/domain/` (+ test) -- jobbradens text ("Läser erbjudandena från texten") och bekräftelsen
 - [ ] `tests/integration/offers.test.ts` -- `save_store_offers` utan `replace_source`: sammanslagning per `label_key` och att länkens rader står kvar
 - [ ] `tests/e2e/offers-text.spec.ts` (+ `support.ts`, `global-setup.ts`) -- egen e2e-användare `e2e-erbjudanden-text@matkoll.test`, butik Willys utan länk. Testerna kontrollerar inläsningen, borttagning av två rader, sparandet, en andra inläsning, en länk som ger beskedet och "Släng erbjudandena?" -- matrisen
-- [ ] `docs/beslutslogg.md` -- en post för storyn, och mätningen i T7 i `docs/oppna-fragor.md`
+- [ ] `docs/beslutslogg.md` -- en post för storyn, och mätningen i T12 i `docs/oppna-fragor.md`
 
 **Acceptance Criteria:**
 - Given `pnpm lint && pnpm typecheck && pnpm test && pnpm test:integration && AI_PROVIDER=mock pnpm build && CI=1 pnpm test:e2e`, when de körs, then lyckas alla.
@@ -122,7 +122,7 @@ context:
 - **Beslut (förslag): sammanslagning per `label_key`, inte per `name`.** Det följer tabellen från 9.1, där två märken av samma vara är två erbjudanden. Samma rad som läses in två gånger blir ändå ett erbjudande.
 - **Beslut (förslag): en granskad rad tas bort utan "Ångra".** Inget är sparat, och raden kan läsas in igen.
 - **Beslut (förslag): en ICA-länk i texten leder till Inställningar.** Den som klistrar in adressen vill troligen att Matkoll hämtar sidan, och det gör länken i 9.1.
-- **Risk: modellens tid för en lång text.** 12 000 tecken och 40 poster ligger nära 8 192 token. Utvärderingen mäter det, och resultatet står i T7.
+- **Risk: modellens tid för en lång text.** 12 000 tecken och 40 poster ligger nära 8 192 token. Utvärderingen mäter det, och resultatet står i T12.
 - **Risk: priser som text.** De visas som AI:n läste dem och används aldrig i beräkningar.
 - Loggar innehåller bara felkoder, sort, antal och jobbets id.
 
@@ -139,4 +139,4 @@ context:
 **Manual checks (if no CLI):**
 - Vid 375 px och 1280 px, i ljust och mörkt läge och med 200 % text: fältet, veckopillren och granskningen radbryts utan vågrät scroll, också med ett namn på 120 tecken.
 - Med VoiceOver: veckopillren är en radiogrupp, läget och "Hittade 18 erbjudanden för vecka 45." läses upp, och "Ta bort Fläskfilé" går att nå.
-- `AI_PROVIDER=lmstudio pnpm eval:ai tests/eval/extract-offers.eval.ts` mot Qwen i LM Studio: tid och antal skrivs i T7.
+- `AI_PROVIDER=lmstudio pnpm eval:ai tests/eval/extract-offers.eval.ts` mot Qwen i LM Studio: tid och antal skrivs i T12.

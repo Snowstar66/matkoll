@@ -47,7 +47,7 @@ Epicen bygger på det som redan finns:
 ## Bindande beslut
 
 - **Mät före och efter.** Varje snabb vinst (12.2, 12.3, 12.7) mäts mot LM Studio med varm och kall modell, tre körningar, före och efter. En vinst som inte når sitt mål tas bort eller ändras, och beslutet loggas.
-- **LM Studio ändras inte utan att återställas.** Bygget får ladda om modellen med andra inställningar för att mäta (`lms load qwen/qwen3.6-35b-a3b -c 8192 --parallel 1`), men skriver ned `lms ps` före och laddar tillbaka samma inställningar efteråt. Rekommendationen står i `docs/lm-studio.md`, och Pontus väljer (öppen fråga 20).
+- **LM Studio ändras inte utan att återställas.** Bygget får ladda om modellen med andra inställningar för att mäta (`lms load qwen/qwen3.6-35b-a3b -c 8192 --parallel 1`), men skriver ned `lms ps` före och laddar tillbaka samma inställningar efteråt. Rekommendationen står i `docs/lm-studio.md`, och Pontus väljer (öppen fråga 24).
 - **Väckningen** (`warmUp`) är ett anrop med flödets egen systemprompt, minimal indata och `maxOutputTokens: 1`, utan schema och utan nya försök, högst 30 s. Bara LM Studio. Inte när ett jobb är aktivt. Klienten ber om den högst en gång per sort och fem minuter (`sessionStorage`, inom `try`), och servern har samma gräns per användare och sort i processen.
 - **Det kompakta svaret för AI-förslag** görs om till `AiRecipe` i porten. `fromAiRecipe`, `RecipeDraft` och förhandsgranskningen ändras inte. `parseRecipe` behåller hela schemat.
 - **Ett jobb körs i `after()` i den förfrågan som tog emot det.** Indata (foto, text, lagret) finns bara i den förfrågans minne. Ingen annan förfrågan kan köra jobbet, och indata sparas aldrig.
@@ -97,7 +97,7 @@ Epicen bygger på det som redan finns:
   2. `claim_ai_job` varje sekund tills `claimed`, `gone` eller tidsgränsen för start (`ai_queue_timeout` med `finish_ai_job`).
   3. `work(signal, deadline, report)` med en egen `AbortController`. En vakt läser jobbets `status` var tredje sekund och avbryter vid `cancelled` eller `superseded`.
   4. `finish_ai_job(status, result, error_code)`. Ett fel som inte är en känd felkod blir `ai_unavailable` och loggas med jobbets id.
-  - Aldrig `request.signal` i `after()`. Sessionen via `cookies()` i `after()` prövas först (T10); fungerar den inte, får modulens serverfunktion användaren som argument.
+  - Aldrig `request.signal` i `after()`. Sessionen via `cookies()` i `after()` prövas först (T11); fungerar den inte, får modulens serverfunktion användaren som argument.
 - **Väckningen (12.2, AD-9):** `AiService.warmUp(kind, signal)`. I `lmstudio`: hälsokontrollen, sedan `generateText` med `prompts.analyzeImage` och en grå PNG på 64 × 64 px (`image`) eller `prompts.suggestDishes` och "Lagret:\nsalt: finns" (`text`), `maxOutputTokens: 1`, `maxRetries: 0`, 30 s. I `mock`, `anthropic` och `openai`: inget. `POST /api/ai/warm` gör `isCrossSite`, `requireUserForRoute()`, Zod (`kind`), hoppar över när användaren har ett aktivt jobb eller väckte samma sort inom fem minuter, och svarar alltid 202 utan innehåll.
 - **Det kompakta svaret (12.3, AD-10):** `suggestDishesAnswerCompactFor(avoidTitles)` i `schemas.ts` och `fromCompactDish(dish): AiRecipe` i porten. `hint.section`, `hint.location` och `hint.defaultUnit` kommer från `new`, annars Övrigt, Skafferi och radens enhet eller `st`. `isVague` är `amount === null`. Prompten `suggest-dishes.md` skrivs om för schemat. Mocken svarar med samma form.
 - **Strömningen (12.7, AD-9):** `suggestDishesStream(input, signal, { onDish })` med `streamText`, `Output.array({ element: compactDish, minItems: 1, maxItems: 3 })` och `elementStream`. Varje rätt kontrolleras (titel att undvika, ny titel), görs om till `AiRecipe` och lämnas till `onDish`. `suggestFromPantry` matchar varje rätt mot katalogen och skriver den med `report` (`set_ai_job_result`). Ett nytt försök görs bara när ingen giltig rätt har kommit.
@@ -147,4 +147,4 @@ Epicen bygger på det som redan finns:
 - **12.6 efter 12.4:** importen som jobb. Kan byggas före eller efter 12.5. Tar bort `/api/ai/import` och `/api/ai/import/photo`.
 - **12.7 sist:** strömningen av AI-förslagen, ovanpå jobben och det kompakta svaret.
 - **Gren:** `epic/12-asynkron-ai`, med PR till `main`. Alla sex kontroller och en kodgranskning krävs (AD-23). Planeringsdokumenten för Epic 12 följer med i grenen.
-- **Efter epicen:** Pontus provar Flöde 10 i mobilen, väljer LM Studios inställningar efter `docs/lm-studio.md` och svarar på öppna frågor 17–21.
+- **Efter epicen:** Pontus provar Flöde 10 i mobilen, väljer LM Studios inställningar efter `docs/lm-studio.md` och svarar på öppna frågor 21–25.

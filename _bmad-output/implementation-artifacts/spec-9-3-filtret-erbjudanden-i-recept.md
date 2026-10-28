@@ -88,10 +88,11 @@ context:
 
 ## Implementation Notes
 
-- **Beslut (förslag): pillret heter "Erbjudanden".** "Laga med veckans erbjudanden" får inte plats som piller vid 375 px. Raden överst säger hela meningen. Öppen fråga 22.
+- **Beslut (förslag): pillret heter "Erbjudanden".** "Laga med veckans erbjudanden" får inte plats som piller vid 375 px. Raden överst säger hela meningen. Öppen fråga 26.
 - **Beslut (förslag): huvudvaror utan Såser & smaksättare.** Salt, senap och buljong på erbjudande gör inte en rätt intressant. Skafferi räknas, eftersom pasta och ris kan vara det som gör rätten billig.
 - **Beslut (förslag): erbjudanden först, sedan minst saknat.** Filtret handlar om erbjudandena, och "Kan lagas nu" finns kvar för lagret.
 - Loggar innehåller bara felkoder och antal.
+- **Efter Epic 10/11 (sammanslagningen med main 2026-10-28):** receptkortet från 11.5 är `RecipeCard` i `src/features/recipes/ui/recipe-card.tsx`, med statusetiketten som `StatusBadge` med `onImage` (`src/components/badges.tsx`). `recipe-row.tsx` finns inte längre. Pillren är `src/components/filter-pills.tsx`.
 
 ## Spec Change Log
 

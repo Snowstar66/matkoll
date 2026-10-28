@@ -1,6 +1,13 @@
 import "server-only";
 import { z } from "zod";
-import { LOCATIONS, locationSchema, unitSchema, type Location, type Unit } from "@/features/catalog";
+import {
+  LOCATIONS,
+  locationSchema,
+  unitSchema,
+  type IngredientSummary,
+  type Location,
+  type Unit,
+} from "@/features/catalog";
 import {
   comparePantryItems,
   toSnapshot,
@@ -8,6 +15,7 @@ import {
   type PantryItem,
   type PantrySnapshot,
 } from "../domain/pantry-item";
+import { pantryLabelSchema } from "../domain/pantry-item-form";
 import { PantryDataError, type PantryDb } from "./client";
 import { loadSelectedSiteIdIn } from "./sites";
 
@@ -22,10 +30,11 @@ import { loadSelectedSiteIdIn } from "./sites";
 // user's.
 
 /**
- * The catalog's names for ingredient ids. Passed in, because only the catalog
- * reads its tables (AD-1): in requests, catalog.getIngredientNames.
+ * The catalog's names and sections for ingredient ids. Passed in, because
+ * only the catalog reads its tables (AD-1): in requests,
+ * catalog.getIngredientSummaries.
  */
-export type IngredientNames = (ids: readonly string[]) => Promise<Record<string, string>>;
+export type IngredientSummaries = (ids: readonly string[]) => Promise<Record<string, IngredientSummary>>;
 
 /**
  * Rows per request: the API's row limit (max_rows in supabase/config.toml,
@@ -86,15 +95,29 @@ function amountOf(row: AmountColumns): { amount: number | null; unit: Unit | nul
 }
 
 /**
+ * A row's label as the domain reads it (pantryLabelSchema), or `null` when
+ * it has none or the domain cannot read it: the database's check is a little
+ * wider (pantry_item_label_check). An unreadable label is logged, without
+ * the text, and never makes the place unreadable.
+ */
+function readableLabel(label: string | null): string | null {
+  if (label === null) return null;
+  if (pantryLabelSchema.safeParse(label).success) return label;
+  console.error("pantry_label_unreadable", { reason: "invalid_label" });
+  return null;
+}
+
+/**
  * The signed-in user's pantry items in `location` on one place (`siteId`, or
  * the selected place; RLS limits the rows to the user's own) with their
- * catalog ingredients' names, sorted by name (comparePantryItems). Throws
+ * catalog ingredients' names and sections, labels and the times they were
+ * added (Story 11.2), sorted by name (comparePantryItems). Throws
  * PantryDataError when a query fails or a row's ingredient has no name.
  */
 export async function listPantryIn(
   db: PantryDb,
   location: Location,
-  ingredientNames: IngredientNames,
+  ingredientSummaries: IngredientSummaries,
   siteId?: string,
 ): Promise<PantryItem[]> {
   const place = await placeToRead(db, siteId);
@@ -102,28 +125,31 @@ export async function listPantryIn(
   const rows = await allPages((from, to) =>
     db
       .from("pantry_item")
-      .select("id, site_id, ingredient_id, location, amount, unit")
+      .select("id, site_id, ingredient_id, location, amount, unit, label, created_at")
       .eq("site_id", place)
       .eq("location", location)
       .order("id")
       .range(from, to),
   );
-  // getIngredientNames looks the ids up in chunks of 100.
+  // getIngredientSummaries looks the ids up in chunks of 100.
   const ids = [...new Set(rows.map((row) => row.ingredient_id))];
-  const names = ids.length > 0 ? await ingredientNames(ids) : {};
+  const summaries = ids.length > 0 ? await ingredientSummaries(ids) : {};
 
   const items = rows.map((row): PantryItem => {
-    const name = names[row.ingredient_id];
+    const summary = summaries[row.ingredient_id];
     const place = locationSchema.safeParse(row.location);
     // The foreign key keeps the ingredient in the user's catalog (AD-20).
-    if (name === undefined || !place.success) throw new PantryDataError("invalid_row");
+    if (summary === undefined || !place.success) throw new PantryDataError("invalid_row");
     return {
       id: row.id,
       siteId: row.site_id,
       ingredientId: row.ingredient_id,
-      name,
+      name: summary.name,
       location: place.data,
       ...amountOf(row),
+      label: readableLabel(row.label),
+      createdAt: row.created_at,
+      section: summary.section,
     };
   });
   return items.sort(comparePantryItems);

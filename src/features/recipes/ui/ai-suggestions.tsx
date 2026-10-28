@@ -6,9 +6,11 @@ import { AiBadge } from "@/components/badges";
 import { Button, buttonClasses } from "@/components/button";
 import type { SearchIngredients } from "@/components/ingredient-picker";
 import { Notice } from "@/components/notice";
+import { nameInSentence, normalizeIngredientText } from "@/features/catalog";
 import { suggestErrorMessage, suggestRetryCodes } from "@/features/suggestions";
 import { recipeMetaText } from "../domain/recipe-list";
 import { AiSuggestionSheet } from "./ai-suggestion-sheet";
+import { RecipeCard } from "./recipe-card";
 import type { DishSuggestionsState, ShownSuggestion } from "./use-dish-suggestions";
 
 // AI-förslag at the bottom of the filter Kan lagas nu (FR-23, EXPERIENCE.md,
@@ -67,7 +69,7 @@ export function AiSuggestions({ dishes, searchIngredients, offerButton = true }:
     const action =
       error.code === "suggest_empty_pantry" ? (
         <Link href="/hemma" className={buttonClasses("text")}>
-          Öppna Hemma
+          Öppna Lagersaldo
         </Link>
       ) : suggestRetryCodes.has(error.code) ? (
         <Button variant="text" onClick={suggest}>
@@ -89,7 +91,7 @@ export function AiSuggestions({ dishes, searchIngredients, offerButton = true }:
           <h2 id={headingId} ref={headingRef} tabIndex={-1} className="text-section-label text-ink-2">
             AI-förslag
           </h2>
-          <ul className="flex flex-col gap-3">
+          <ul className="grid gap-3 desktop:grid-cols-2">
             {suggestions.map((suggestion) => (
               <SuggestionCard key={suggestion.key} suggestion={suggestion} onSave={() => setOpened(suggestion)} />
             ))}
@@ -121,33 +123,50 @@ export function AiSuggestions({ dishes, searchIngredients, offerButton = true }:
   );
 }
 
-/** The names a card shows: the catalog's name for a linked line, otherwise the AI's, each once. */
+/**
+ * The names a card shows: the catalog's name for a linked line, otherwise the
+ * AI's, each once (compared normalised, so "Grädde" and "grädde" are one).
+ * They run on after "Med: ", so a catalog name, which starts with a capital
+ * (Story 10.4), starts in lower case; the AI's own text is shown as written.
+ */
 function cardNames({ draft, ingredientNames }: ShownSuggestion): string[] {
-  const names = draft.lines.map((line) => {
+  const seen = new Set<string>();
+  const names: string[] = [];
+  for (const line of draft.lines) {
     const { ingredient } = line;
     const linked = ingredient.kind === "match" || ingredient.kind === "chosen" ? ingredientNames[ingredient.ingredientId] : undefined;
-    return (linked ?? line.hint?.name ?? line.originalText).trim();
-  });
-  return [...new Set(names.filter(Boolean))].slice(0, maxCardNames);
+    const name = linked !== undefined ? nameInSentence(linked.trim()) : (line.hint?.name ?? line.originalText).trim();
+    const key = normalizeIngredientText(name) || name;
+    if (!name || seen.has(key)) continue;
+    seen.add(key);
+    names.push(name);
+  }
+  return names.slice(0, maxCardNames);
 }
 
 /**
- * Kort för ett AI-förslag: title, "35 min · 4 portioner", the AI label, "Med:
- * " and at most five ingredient names, and "Spara". The card is no link: a
- * suggestion has no recipe view until it is saved.
+ * Kort för ett AI-förslag, a recipe card (Epic 11): a short mint strip with
+ * the AI label on it in place of a status and no heart, the title, "35 min ·
+ * 4 portioner", "Med: " and at most five ingredient names, and "Spara"; the
+ * label is read before "Spara". The card is no link: a suggestion has no
+ * recipe view until it is saved. Never an image: an address from the model
+ * is not loaded (AD-15 loads only recipe sites' own images).
  */
 function SuggestionCard({ suggestion, onSave }: { suggestion: ShownSuggestion; onSave: () => void }) {
   const { draft } = suggestion;
   return (
-    <li data-testid="ai-suggestion" className="flex flex-col items-start gap-2 rounded-lg bg-surface p-4">
-      <h3 className="text-row-title break-words text-ink">{draft.title}</h3>
-      <p className="text-meta text-ink-3">{recipeMetaText(draft.totalMinutes, draft.servings)}</p>
-      <AiBadge />
+    <RecipeCard
+      data-testid="ai-suggestion"
+      title={draft.title}
+      imageUrl={null}
+      meta={recipeMetaText(draft.totalMinutes, draft.servings)}
+      badge={<AiBadge />}
+    >
       <p className="text-body break-words text-ink-2">Med: {cardNames(suggestion).join(", ")}</p>
       <Button variant="secondary" onClick={onSave} aria-label={`Spara ${draft.title}`}>
         Spara
       </Button>
-    </li>
+    </RecipeCard>
   );
 }
 

@@ -154,7 +154,7 @@ Ett nytt krav från Pontus efter 1.0. Det är inget fel i det som är byggt och 
 | Var ingången finns | Raden i Recept vid AI-förslagen | Inställningar (veckoinnehåll hör inte dit), en egen flik (ingen femte flik i v1). |
 
 **Insats:** låg till medel. Story 9.1 är störst, eftersom den lägger tabellen, porten och arket. 9.2–9.4 är små.
-**Risk:** låg. Migrationen bara lägger till en tabell. Den största osäkerheten är hur bra och snabbt den lokala modellen läser ett riktigt blad (T7), och den mäts i 9.1 och 9.3.
+**Risk:** låg. Migrationen bara lägger till en tabell. Den största osäkerheten är hur bra och snabbt den lokala modellen läser ett riktigt blad (T12), och den mäts i 9.1 och 9.3.
 **Tidsplan:** Epic 9 byggs efter att Epic 8 är ihopslagen, story för story, i grenen `epic/9-erbjudanden`.
 
 ## 4. Ändringar i detalj
@@ -237,7 +237,7 @@ Requirements Inventory, Additional Requirements, UX Design Requirements, FR Cove
 ### 4.7 Dokument i `docs/`
 
 - `beslutslogg.md`: kursändringens beslut, överst.
-- `oppna-fragor.md`: frågorna 8 (länk), 9 (automatisk hämtning) och 10 (vilken vecka som gäller), och den tekniska osäkerheten T7 (modellens läsning och tid).
+- `oppna-fragor.md`: frågorna 8 (länk), 9 (automatisk hämtning) och 10 (vilken vecka som gäller), och den tekniska osäkerheten T12 (modellens läsning och tid).
 - `backlog-efter-1-0.md`: punkt 2 är planerad som Epic 9.
 
 ### 4.8 Sammanslagning med Epic 8
@@ -263,4 +263,4 @@ Grenen utgår från `main`, och Epic 8:s grenar ändrar samma dokument. När Epi
   - En länk hämtas aldrig, och inget i flödet anropar `fetch` (test).
   - Lagningsstatus, "Kan lagas nu", inköpslistan och exporten är oförändrade.
   - Alla sex kontroller passerar.
-- **Pontus:** inga konton eller hemligheter behövs. Efter epicen provar Pontus Flöde 7 med ett riktigt blad och en text från butikens sida, och svarar på öppna frågor 8–10. T7 mäts med egna foton.
+- **Pontus:** inga konton eller hemligheter behövs. Efter epicen provar Pontus Flöde 7 med ett riktigt blad och en text från butikens sida, och svarar på öppna frågor 8–10. T12 mäts med egna foton.

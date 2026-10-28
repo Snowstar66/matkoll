@@ -19,14 +19,14 @@ context:
 **Problem:** Också med kortare svar (12.3) kommer tre rätter på en gång, efter hela tiden. Den första rätten är klar långt innan den sista, men Pontus ser den inte förrän alla är klara.
 
 **Approach:**
-- Först ett prov mot LM Studio: strömmar ett svar med JSON-schema genom `@ai-sdk/openai-compatible`, så att `elementStream` ger den första rätten innan svaret är klart? Svaret avgör om storyn bygger något (T8).
+- Först ett prov mot LM Studio: strömmar ett svar med JSON-schema genom `@ai-sdk/openai-compatible`, så att `elementStream` ger den första rätten innan svaret är klart? Svaret avgör om storyn bygger något (T9).
 - Går det: `suggestDishesStream` med `streamText`, `Output.array` och `elementStream`. Varje färdig rätt kontrolleras, matchas mot katalogen och läggs till i jobbets resultat. Klienten visar den vid nästa pollning.
 - Går det inte: storyn avslutas med mätningen och beslutet, utan strömning.
 
 ## Boundaries & Constraints
 
 **Always:**
-- **Provet först:** ett skript i `tests/eval/` (inte i appen) som anropar LM Studio med `streamText`, `Output.array({ element: compactDish, minItems: 1, maxItems: 3 })` och tidsstämplar för varje element från `elementStream` och för slutet. Tre körningar med varm modell. Kommer det första elementet efter mer än 80 % av tiden, eller blir svaret ogiltigt oftare än med `generateText`, byggs inget mer. Utfallet står i T8 och beslutsloggen.
+- **Provet först:** ett skript i `tests/eval/` (inte i appen) som anropar LM Studio med `streamText`, `Output.array({ element: compactDish, minItems: 1, maxItems: 3 })` och tidsstämplar för varje element från `elementStream` och för slutet. Tre körningar med varm modell. Kommer det första elementet efter mer än 80 % av tiden, eller blir svaret ogiltigt oftare än med `generateText`, byggs inget mer. Utfallet står i T9 och beslutsloggen.
 - **I porten (om provet går igenom):** `suggestDishesStream(input, signal, { deadline, onDish })` i `AiService`, med samma hälsokontroll, `providerOptions`, `maxRetries: 0` och tidsbudget som `runStructured`. Varje element kontrolleras mot titlarna att undvika och mot titlar som redan har kommit, görs om med `fromCompactDish` och lämnas till `onDish`. En rätt som inte håller hoppas över och loggas (`ai_invalid` med index). När strömmen är slut utan giltig rätt görs ett nytt försök som i `runStructured` (med feedback), annars är körningen klar med de rätter som kom. Mocken strömmar sina rätter med `AI_MOCK_DELAY_MS` mellan dem.
 - **`suggestFromPantry`:** matchar varje rätt mot katalogen när den kommer, gör samma kontroller som i dag (`recipeDraftSchema`, minst två varor från lagret) och skriver resultatet med `report` (`set_ai_job_result`) med alla rätter hittills. Jobbet är klart när strömmen är slut.
 - **Klienten:** pollar varannan sekund som förut och visar nya rätter under de förra, med "Letar efter fler …" och "Avbryt" sist tills jobbet är klart. En ny rätt annonseras: "Ny rätt: Pasta med svamp.". Ett förslag kan sparas innan de andra har kommit. Bekräftelsen "3 rättförslag är klara." (eller "2 rättförslag …") kommer när jobbet är klart, inte för varje rätt.
@@ -69,14 +69,14 @@ context:
 ## Tasks & Acceptance
 
 **Execution:**
-- [ ] `tests/eval/stream-probe.eval.ts` -- provet mot LM Studio; utfallet i `docs/oppna-fragor.md` (T8) och `docs/beslutslogg.md`. Avbryt här om provet inte går igenom
+- [ ] `tests/eval/stream-probe.eval.ts` -- provet mot LM Studio; utfallet i `docs/oppna-fragor.md` (T9) och `docs/beslutslogg.md`. Avbryt här om provet inte går igenom
 - [ ] `src/server/ai/service.ts`, `run.ts` (+ tester) -- `suggestDishesStream` med en falsk modell som strömmar element (giltiga, ogiltiga, dubbla, avbrott)
 - [ ] `src/server/ai/adapters/mock.ts` (+ test) -- strömmande rätter med fördröjning
 - [ ] `src/features/suggestions/actions/suggest-from-pantry.ts` (+ test) -- en rätt i taget med `report`
 - [ ] `src/features/recipes/ui/use-dish-suggestions.ts`, `ai-suggestions.tsx` (+ tester) -- rätter som kommer, "Letar efter fler …", annonsering, spara tidigt
 - [ ] `tests/e2e/ai-stream.spec.ts` (+ `support.ts`, `global-setup.ts`) -- egen e2e-användare `e2e-ai-strom@matkoll.test`, `AI_PROVIDER=mock`, `AI_MOCK_DELAY_MS=3000`: den första rätten syns innan den tredje, och en rätt kan sparas tidigt
 - [ ] Mätning mot LM Studio före och efter
-- [ ] `docs/lm-studio.md`, `docs/oppna-fragor.md` (T5, T8), `docs/beslutslogg.md`
+- [ ] `docs/lm-studio.md`, `docs/oppna-fragor.md` (T5, T9), `docs/beslutslogg.md`
 
 **Acceptance Criteria:**
 - Given `pnpm lint && pnpm typecheck && pnpm test && pnpm test:integration && AI_PROVIDER=mock pnpm build && CI=1 pnpm test:e2e`, when de körs, then lyckas alla.
@@ -86,8 +86,9 @@ context:
 
 - **Beslut (förslag): strömning till jobbet, pollning till klienten.** Jobbet och pollningen finns redan (12.4). En ny rätt syns inom två sekunder, utan ny transport.
 - **Beslut (förslag): minst en giltig rätt räcker.** Ett nytt försök när bara en av tre höll skulle dra ut på tiden. "Föreslå andra rätter" ger fler.
-- **Risk: LM Studio och strukturerad strömning** (T8). `supportsStructuredOutputs: true` skickar `response_format` med JSON-schema. Det är inte prövat om LM Studio strömmar ett sådant svar token för token, eller om `@ai-sdk/openai-compatible` ger delarna till `elementStream`. Därför provet först.
+- **Risk: LM Studio och strukturerad strömning** (T9). `supportsStructuredOutputs: true` skickar `response_format` med JSON-schema. Det är inte prövat om LM Studio strömmar ett sådant svar token för token, eller om `@ai-sdk/openai-compatible` ger delarna till `elementStream`. Därför provet först.
 - **Risk: `elementStream` och `maxItems`.** Ger modellen fler än tre rätter felar strömmen före den fjärde, och generering avbryts inte av sig själv. Avbryt med signalen när den tredje har kommit.
+- **Efter Epic 10/11 (sammanslagningen med main 2026-10-28):** AI-förslagen i `ai-suggestions.tsx` är sedan 11.5 receptkort (`RecipeCard` i `recipes/ui/recipe-card.tsx`) med en kort mintremsa och AI-etiketten, utan hjärta och länk. En rätt som kommer in läggs till som ett sådant kort. Osäkerheten om strömningen heter nu T9.
 
 ## Spec Change Log
 

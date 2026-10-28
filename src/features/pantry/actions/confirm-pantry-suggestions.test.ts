@@ -140,6 +140,40 @@ describe("confirmPantrySuggestions", () => {
     expect(result).toEqual(ok({ count: 1 }));
   });
 
+  it("saves each item's label, and leaves it out for an item without one (Story 11.2)", async () => {
+    await confirmPantrySuggestions([
+      existing(mjolk, { label: "Arla Mellanmjölk laktosfri 1,5 l" }),
+      existing(smor, { label: null }),
+      fresh("ägg"),
+    ]);
+    expect(setPantryItemsIn).toHaveBeenCalledWith(
+      db,
+      [
+        { ingredientId: mjolk, location: "Kyl", amount: 1, unit: "förp", label: "Arla Mellanmjölk laktosfri 1,5 l" },
+        { ingredientId: smor, location: "Kyl", amount: 1, unit: "förp", label: null },
+        { ingredientId: agg, location: "Kyl", amount: 6, unit: "st" },
+      ],
+      null,
+      stugan,
+    );
+  });
+
+  it("passes a photo's label on as a photo label, which fills only an item without one", async () => {
+    await confirmPantrySuggestions([existing(mjolk, { photoLabel: "Mellanmjölk 1,5 %" })]);
+    expect(setPantryItemsIn).toHaveBeenCalledWith(
+      db,
+      [{ ingredientId: mjolk, location: "Kyl", amount: 1, unit: "förp", photoLabel: "Mellanmjölk 1,5 %" }],
+      null,
+      stugan,
+    );
+  });
+
+  it("refuses a label the table would not take, by the item's index", async () => {
+    const result = await confirmPantrySuggestions([existing(mjolk), existing(smor, { label: "a".repeat(61) })]);
+    expect(result.ok).toBe(false);
+    expect(setPantryItemsIn).not.toHaveBeenCalled();
+  });
+
   it("applies amounts over unlimited again on the ids the catalog gives", async () => {
     commitIngredients.mockResolvedValue([mjolk, mjolk]);
     await confirmPantrySuggestions([existing(mjolk, { amount: null, unit: null }), fresh("Mjölk", { amount: 2, unit: "förp" })]);

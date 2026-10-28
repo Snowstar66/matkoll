@@ -229,7 +229,7 @@ export function RecipePreview({
       </div>
 
       <div className="flex flex-wrap items-start gap-x-6 gap-y-4">
-        <div className="flex flex-col gap-1.5">
+        <div className="flex max-w-full min-w-0 flex-col gap-1.5">
           <span id={`${ids}-servings`} className="text-body font-semibold text-ink">
             Portioner
           </span>

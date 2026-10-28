@@ -1,5 +1,6 @@
 import { z } from "zod";
 import { locationSchema, toLocation } from "./locations";
+import { catalogName } from "./name";
 import { cleanIngredientText, normalizeIngredientText } from "./normalize";
 import { sectionSchema, toSection } from "./sections";
 import { normalizeUnit, unitSchema } from "./units";
@@ -21,7 +22,7 @@ export type IngredientHint = {
 
 export type MatchItem = { text: string; hint?: IngredientHint | null };
 
-/** A proposed catalog ingredient. `name` is for display, in its original casing. */
+/** A proposed catalog ingredient. `name` is for display, in its original casing with an uppercase first letter (catalogName). */
 export const ingredientProposalSchema = z.object({
   name: z.string().trim().min(1),
   section: sectionSchema,
@@ -32,6 +33,9 @@ export type IngredientProposal = z.infer<typeof ingredientProposalSchema>;
 
 /** What the catalog suggests for one of its ingredients: where it is kept and its usual unit. */
 export type IngredientDefaults = Pick<IngredientProposal, "section" | "location" | "defaultUnit">;
+
+/** An ingredient's name and section, as the pantry's list shows them (Story 11.2): the view works out its category (AD-12). */
+export type IngredientSummary = Pick<IngredientProposal, "name" | "section">;
 
 export const ingredientMatchSchema = z.discriminatedUnion("kind", [
   z.object({
@@ -70,13 +74,15 @@ export type CatalogSnapshot = {
 
 /**
  * A new ingredient from the AI's hint, or from the text alone without one, or
- * `null` when neither gives a name. The name keeps its casing ("Gul lök");
- * only the stored normalized_name is normalised.
+ * `null` when neither gives a name. The name keeps its casing, with an
+ * uppercase first letter as the catalog stores it ("gul lök" → "Gul lök",
+ * Story 10.4); only the stored normalized_name is normalised.
  */
 export function proposalFrom(item: MatchItem): IngredientProposal | null {
   const hint = item.hint;
-  const name = cleanIngredientText(hint?.name) || cleanIngredientText(item.text);
-  if (!name) return null;
+  const cleaned = cleanIngredientText(hint?.name) || cleanIngredientText(item.text);
+  if (!cleaned) return null;
+  const name = catalogName(cleaned);
   const section = toSection(hint?.section);
   return {
     name,

@@ -18,8 +18,16 @@ export type SearchFieldProps = {
   label: string;
   placeholder?: string;
   defaultValue?: string;
-  /** Called 200 ms after typing stops, and at once on Enter or when the field becomes empty. */
+  /** Called 200 ms (`delayMs`) after typing stops, and at once on Enter or when the field becomes empty. */
   onSearch: (query: string) => void;
+  /**
+   * The pause after the last keystroke, `searchDelayMs` by default; 0 calls
+   * `onSearch` on every change, for a list that is already on the page
+   * (Lagersaldo, Story 11.3).
+   */
+  delayMs?: number;
+  /** Whether the cross "Rensa sökning" shows while the field has text; false when the page offers its own (Lagersaldo without a match). */
+  clearable?: boolean;
   /** The most characters the field takes, e.g. the action's limit. */
   maxLength?: number;
   className?: string;
@@ -32,6 +40,8 @@ export function SearchField({
   defaultValue = "",
   onSearch,
   maxLength,
+  delayMs = searchDelayMs,
+  clearable = true,
   className,
   ref,
 }: SearchFieldProps) {
@@ -53,12 +63,12 @@ export function SearchField({
 
   function change(next: string) {
     setValue(next);
-    if (next === "") {
-      searchNow("");
+    if (next === "" || delayMs <= 0) {
+      searchNow(next);
       return;
     }
     clearTimeout(timer.current);
-    timer.current = setTimeout(() => onSearchRef.current(next), searchDelayMs);
+    timer.current = setTimeout(() => onSearchRef.current(next), delayMs);
   }
 
   function clear() {
@@ -98,7 +108,7 @@ export function SearchField({
         }}
         className="h-full min-w-0 flex-1 bg-transparent text-body text-ink outline-none placeholder:text-ink-3 [&::-webkit-search-cancel-button]:appearance-none"
       />
-      {value ? (
+      {value && clearable ? (
         <button
           type="button"
           onClick={clear}

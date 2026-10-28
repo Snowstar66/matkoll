@@ -1,4 +1,5 @@
 import { z } from "zod";
+import { nameInSentence } from "@/features/catalog";
 import type { Store } from "@/features/settings";
 import { charLength, normalizeHttpsUrl, oneLine } from "@/lib/one-line";
 import type { ShoppingLine } from "./compute-list";
@@ -97,18 +98,14 @@ export const productChoiceRemovedText = "Produktvalet är borttaget.";
 /** The placeholder under Förpackning. */
 export const packageSizePlaceholder = "t.ex. 5 dl";
 
-/** Whether a character is an upper-case letter. */
-const isUpperCase = (char: string) => char !== char.toLocaleLowerCase("sv-SE") && char === char.toLocaleUpperCase("sv-SE");
-
 /**
- * "Produktval för grädde": the sheet's title, with the line's name as it
- * runs in a sentence: only its first letter in lower case, and not even
- * that when the second is upper case too ("ICA-kaffe", "OLW-chips").
+ * "Produktval för grädde": the sheet's title, with the line's catalog name
+ * as it runs in a sentence (catalog.nameInSentence): its first letter in
+ * lower case, but not for a word of its own like "ICA-kaffe", "OLW-chips"
+ * or "D-vitamin".
  */
 export function productChoiceTitle(label: string): string {
-  const [first = "", second = "", ...rest] = [...label];
-  const start = second && isUpperCase(second) ? first : first.toLocaleLowerCase("sv-SE");
-  return `Produktval för ${start}${second}${rest.join("")}`;
+  return `Produktval för ${nameInSentence(label)}`;
 }
 
 /** "Arla Matlagningsgrädde 15 % · 5 dl", or the name alone without a package size. */

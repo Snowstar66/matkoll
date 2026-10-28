@@ -10,6 +10,16 @@ import { imageSizeOf, imageTypeOf, maxImageBytes, maxPlacePhotoSide, stripJpegMe
 import { minLoopRepeats, type AiPantryItem } from "@/server/ai/schemas";
 import { analyzePlaces, createAiService, type AnalyzePlace } from "@/server/ai/service";
 import { parseEnv } from "@/server/env-schema";
+import {
+  evalLabel,
+  evalRuns,
+  installUsageMeter,
+  lmStudioSettings,
+  machineState,
+  timingRow,
+  writeTimingReport,
+  type TimingRow,
+} from "./timing";
 
 // `pnpm eval:ai`: analyzeImage against the configured AI_PROVIDER with
 // Pontus's own photos of the fridge, the freezer and the pantry in
@@ -41,7 +51,11 @@ import { parseEnv } from "@/server/env-schema";
 // cards are shown: the first 25 items, as one-line labels (readingLabel).
 // The report gives the time of the reading, the time of the points and their
 // sum, and how many items got a point. A failed lookup fails the run; a
-// missing point does not. Refuses to run
+// missing point does not.
+//
+// Story 12.1: both calls are also timed the shared way (timing.ts): a row
+// "bildanalys <photo>" and a row "nummer <photo>" per run, with the tokens in
+// and out, under EVAL_LABEL, in tests/eval/reports/. Refuses to run
 // against the mock. Photos of a home only go to a model on this computer (LM
 // Studio on localhost); another provider needs EVAL_ALLOW_REMOTE_PHOTOS=1.
 // With no photos it says so and skips. Nothing of the photo is printed.
@@ -66,7 +80,7 @@ type CaseResult = {
 };
 
 /** How many times each photo is sent: EVAL_RUNS, default 3 (Story 6.5), so the report shows whether the runs agree. */
-const runs = Math.max(1, Number.parseInt(process.env.EVAL_RUNS ?? "3", 10) || 3);
+const runs = evalRuns();
 /** The AI port's attempt budget (AD-9): a run that takes longer would fail in the app. */
 const maxRunSeconds = 100;
 const isLoop = (result: CaseResult) => (result.repeated ?? 0) >= minLoopRepeats;
@@ -83,6 +97,8 @@ if (env.AI_PROVIDER === "mock") {
 }
 const service = createAiService(env);
 const results: CaseResult[] = [];
+const meter = installUsageMeter();
+const timings: TimingRow[] = [];
 
 /** The photos stay on this computer unless Pontus opts in: LM Studio on localhost, or EVAL_ALLOW_REMOTE_PHOTOS=1. */
 function remoteRefusal(): string | null {
@@ -186,9 +202,12 @@ describe(`analyzeImage mot ${env.AI_PROVIDER}`, () => {
     if ("error" in photo) {
       entry = { name, file, run, place: expected.place, seconds: 0, error: photo.error, hits: [], misses: expected.items, wrong: [] };
     } else {
-      const started = performance.now();
-      const result = await service.analyzeImage({ image: photo, place: expected.place }, AbortSignal.timeout(120_000));
-      const seconds = (performance.now() - started) / 1000;
+      const state = machineState(env.AI_MODEL);
+      const startedAt = new Date();
+      const measured = await meter.measure(() =>
+        service.analyzeImage({ image: photo, place: expected.place }, AbortSignal.timeout(120_000)),
+      );
+      const { value: result, seconds } = measured;
       entry = result.ok
         ? {
             name,
@@ -202,7 +221,17 @@ describe(`analyzeImage mot ${env.AI_PROVIDER}`, () => {
             items: result.data.items,
           }
         : { name, file, run, place: expected.place, seconds, error: result.error.code, hits: [], misses: expected.items, wrong: [] };
-      if (result.ok && result.data.items.length > 0) entry.locate = await locate(photo, result.data.items);
+      timings.push(
+        timingRow(
+          `bildanalys ${name}`,
+          run,
+          state,
+          measured,
+          result.ok && result.data.repeated < minLoopRepeats && seconds <= maxRunSeconds,
+          startedAt,
+        ),
+      );
+      if (result.ok && result.data.items.length > 0) entry.locate = await locate(name, run, photo, result.data.items);
     }
     results.push(entry);
     expect(entry.error).toBeUndefined();
@@ -213,11 +242,18 @@ describe(`analyzeImage mot ${env.AI_PROVIDER}`, () => {
 });
 
 /** Story 6.6: the points of the items on the photo, timed, as the app asks for them after the reading. */
-async function locate(photo: { data: Uint8Array; mediaType: string }, items: AiPantryItem[]): Promise<NonNullable<CaseResult["locate"]>> {
+async function locate(
+  name: string,
+  run: number,
+  photo: { data: Uint8Array; mediaType: string },
+  items: AiPantryItem[],
+): Promise<NonNullable<CaseResult["locate"]>> {
   const labels = items.slice(0, maxPantrySuggestions).map((item) => readingLabel(item.label));
-  const started = performance.now();
-  const result = await service.locateItems({ image: photo, labels }, AbortSignal.timeout(60_000));
-  const seconds = (performance.now() - started) / 1000;
+  const state = machineState(env.AI_MODEL);
+  const startedAt = new Date();
+  const measured = await meter.measure(() => service.locateItems({ image: photo, labels }, AbortSignal.timeout(60_000)));
+  const { value: result, seconds } = measured;
+  timings.push(timingRow(`nummer ${name}`, run, state, measured, result.ok, startedAt));
   return result.ok
     ? { seconds, labels: labels.length, located: result.data.positions.length, invalid: result.data.invalid }
     : { seconds, labels: labels.length, error: result.error.code };
@@ -227,6 +263,17 @@ afterAll(() => {
   if (results.length === 0) return;
   writeFileSync(reportPath, renderReport());
   console.log(`Wrote ${reportPath}`);
+  writeTimingReport(
+    "bildanalys",
+    [
+      `Leverantör: ${env.AI_PROVIDER}`,
+      `Modell: ${env.AI_MODEL ?? "–"}`,
+      `LM Studio: ${lmStudioSettings(env.AI_MODEL)}`,
+      `Läge: ${evalLabel()}`,
+      `Körningar per foto: ${runs}`,
+    ],
+    timings,
+  );
 });
 
 function renderReport(): string {

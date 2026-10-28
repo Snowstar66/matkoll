@@ -26,7 +26,18 @@ vi.mock("@/features/pantry/server", () => ({ savePlacePhoto: (input: SaveInput) 
 
 vi.mock("@/server/env", () => ({ env: { SITE_URL: "http://localhost:3100" } }));
 
-const { POST } = await import("./route");
+const { POST, maxDuration } = await import("./route");
+const { photoOrphanMinAgeMs, placePhotoSaveDeadlineMs } = await import("@/features/pantry");
+
+// Story 10.3: a file without a row is swept only when it is far older than a
+// save can take, from its upload to its row (the route's maxDuration and the
+// database's 8 seconds for a statement).
+describe("the save's deadline", () => {
+  it("is the domain's, and far shorter than the age of a file the sweep takes", () => {
+    expect(maxDuration * 1000 + 8_000).toBe(placePhotoSaveDeadlineMs);
+    expect(photoOrphanMinAgeMs).toBeGreaterThanOrEqual(5 * placePhotoSaveDeadlineMs);
+  });
+});
 
 const url = "http://localhost:3100/api/pantry/photo";
 const png = new Uint8Array(readFileSync(new URL("../../../../../tests/fixtures/ai/kyl.png", import.meta.url)));

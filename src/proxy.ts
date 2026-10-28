@@ -50,7 +50,12 @@ export async function proxy(request: NextRequest) {
 
 export const config = {
   matcher: [
-    // Everything except Next's static output, image optimisation and files with an extension.
-    "/((?!_next/static|_next/image|favicon\\.ico|.*\\.[a-zA-Z0-9]+$).*)",
+    // Everything except Next's static output and image optimisation, a short
+    // list of files (/favicon.ico, /manifest.webmanifest, /robots.txt,
+    // /sitemap.xml) and the generated app icons (/icon, /icon/<id>,
+    // /apple-icon, /apple-icon/<id>; AD-27), which must load without a session
+    // to put Matkoll on the home screen. A path with a dot, like /recept/x.json,
+    // goes through the proxy like any other (there is no public/ folder).
+    "/((?!_next/static|_next/image|(?:favicon\\.ico|manifest\\.webmanifest|robots\\.txt|sitemap\\.xml)$|(?:apple-)?icon(?:/[a-zA-Z0-9_-]+)?$).*)",
   ],
 };

@@ -120,7 +120,7 @@ context:
 - [ ] `tests/integration/offers.test.ts` -- RLS för `store_offer`, `save_store_offers` (ersätt länk, sammanslagning per `label_key`, gränsen 300, vecka som är slut, vecka för långt fram, gamla veckor, en annan användares butik) och `store.offers_url`
 - [ ] `tests/design/offer-checks.test.ts` -- längdgränser, avdelningar, `source` och `FOOD_CATEGORIES` mot domänen
 - [ ] `tests/e2e/offers-link.spec.ts` (+ `support.ts`, `global-setup.ts`) -- egen e2e-användare. Före varje test tar service role bort användarens erbjudanden och sätter butikens länk till fixtursidan. Testerna kontrollerar länken i Inställningar, hämtningen och arket, "Hämta igen" för tätt, 403 och en sida utan data -- matrisen
-- [ ] `docs/oppna-fragor.md` (T11, T12), `docs/beslutslogg.md` -- det manuella provet mot ica.se enligt epic-kontexten och en post för storyn
+- [ ] `docs/oppna-fragor.md` (T13, T14), `docs/beslutslogg.md` -- det manuella provet mot ica.se enligt epic-kontexten och en post för storyn
 
 **Acceptance Criteria:**
 - Given `pnpm lint && pnpm typecheck && pnpm test && pnpm test:integration && AI_PROVIDER=mock pnpm build && CI=1 pnpm test:e2e`, when de körs, then lyckas alla.
@@ -132,9 +132,9 @@ context:
 - **Beslut (förslag): unik på `label_key` i stället för på `name`.** ICA har ofta två erbjudanden på samma vara från olika märken, och båda ska synas i listan.
 - **Beslut (förslag): veckan kommer från det vanligaste `validTo`.** Sidan har inget från-datum, och några erbjudanden gäller flera veckor.
 - **Beslut (förslag): 15 minuter mellan hämtningar.** Det skyddar mot dubbeltryck och ligger långt under ICA:s gräns (72 per minut). Tiden räknas från den senaste länkraden, så ingen ny tabell behövs.
-- **Risk: ICA nekar Matkolls User-Agent (T11).** Förstudien hämtade med en webbläsares User-Agent, och Matkoll låtsas aldrig vara en webbläsare. Nekar ICA, byggs 9.7 direkt efter den här storyn.
+- **Risk: ICA nekar Matkolls User-Agent (T13).** Förstudien hämtade med en webbläsares User-Agent, och Matkoll låtsas aldrig vara en webbläsare. Nekar ICA, byggs 9.7 direkt efter den här storyn.
 - **Risk: sidans form ändras.** Läsaren validerar med Zod och misslyckas hellre tydligt än gissar. Fixturen visar formen som den var vecka 44.
-- **Risk: få erbjudanden kopplas till katalogen (T12).** ICA:s namn är ofta produktnamn ("Herrgård"). Mätningen avgör om 9.10 byggs.
+- **Risk: få erbjudanden kopplas till katalogen (T14).** ICA:s namn är ofta produktnamn ("Herrgård"). Mätningen avgör om 9.10 byggs.
 
 ## Spec Change Log
 
@@ -149,4 +149,4 @@ context:
 **Manual checks (if no CLI):**
 - Vid 375 px och 1280 px, i ljust och mörkt läge och med 200 % text: arket, kategorierna och raderna radbryts utan vågrät scroll, också med ett namn på 120 tecken.
 - Med VoiceOver: förloppet och "Hämtade 7 erbjudanden för vecka 44." läses upp, kategorierna är rubriker och "Öppna sidan" säger att den öppnas i en ny flik.
-- Ett tryck på "Hämta veckans erbjudanden" mot Pontus riktiga butik, en gång, med appens User-Agent. Status, antal, antal som inte var mat och antal kopplade skrivs i T11 och T12.
+- Ett tryck på "Hämta veckans erbjudanden" mot Pontus riktiga butik, en gång, med appens User-Agent. Status, antal, antal som inte var mat och antal kopplade skrivs i T13 och T14.

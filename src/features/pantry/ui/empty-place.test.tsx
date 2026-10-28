@@ -64,6 +64,9 @@ const item = (n: number, location: Location = "Kyl"): PantryItem => ({
   location,
   amount: 1,
   unit: "st",
+  label: null,
+  createdAt: "2026-10-20T10:00:00+00:00",
+  section: "Mejeri",
 });
 const items = (count: number, location: Location = "Kyl") => Array.from({ length: count }, (_, n) => item(n + 1, location));
 const emptiedOf = (emptied: readonly PantryItem[]): Emptied => ({ removed: emptied.length, removedIds: emptied.map(({ id }) => id) });

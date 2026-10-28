@@ -1,15 +1,28 @@
 import { AuthSessionMissingError, AuthUnknownError } from "@supabase/supabase-js";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
-// endSession with the session client stubbed.
+// endSession, verifyEmailLink and verifyEmailCode with the session client stubbed.
 
 const signOut = vi.fn();
 const getClaims = vi.fn();
+const verifyOtp = vi.fn();
+const createClient = vi.fn();
+const removeSessionCookies = vi.fn();
 vi.mock("@/lib/supabase/server", () => ({
-  createClient: async () => ({ auth: { signOut: (...args: unknown[]) => signOut(...args), getClaims: () => getClaims() } }),
+  createClient: async (...args: unknown[]) => {
+    createClient(...args);
+    return {
+      auth: {
+        signOut: (...signOutArgs: unknown[]) => signOut(...signOutArgs),
+        getClaims: () => getClaims(),
+        verifyOtp: (...verifyArgs: unknown[]) => verifyOtp(...verifyArgs),
+      },
+    };
+  },
+  removeSessionCookies: () => removeSessionCookies(),
 }));
 
-const { endSession } = await import("./auth");
+const { endSession, verifyEmailCode, verifyEmailLink } = await import("./auth");
 
 const claims = { data: { claims: { sub: "user" } }, error: null };
 const noClaims = { data: null, error: null };
@@ -17,6 +30,80 @@ const noClaims = { data: null, error: null };
 beforeEach(() => {
   signOut.mockReset().mockResolvedValue({ error: null });
   getClaims.mockReset().mockResolvedValue(noClaims);
+  verifyOtp.mockReset();
+  createClient.mockReset();
+  removeSessionCookies.mockReset().mockResolvedValue(1);
+  vi.restoreAllMocks();
+});
+
+describe("verifyEmailCode", () => {
+  const allowOnly = (allowed: string) => (email: string | undefined) => email === allowed;
+
+  it("asks Supabase for an e-mail OTP and keeps the session of an allowed address", async () => {
+    verifyOtp.mockResolvedValue({ data: { user: { email: "pontus@example.com" } }, error: null });
+    expect(await verifyEmailCode("pontus@example.com", "123456", allowOnly("pontus@example.com"))).toEqual({
+      result: "signed_in",
+    });
+    expect(verifyOtp).toHaveBeenCalledWith({ email: "pontus@example.com", token: "123456", type: "email" });
+    expect(signOut).not.toHaveBeenCalled();
+  });
+
+  it("signs out again at once for an address outside the list", async () => {
+    verifyOtp.mockResolvedValue({ data: { user: { email: "annan@example.com" } }, error: null });
+    expect(await verifyEmailCode("annan@example.com", "123456", allowOnly("pontus@example.com"))).toEqual({
+      result: "not_allowed",
+    });
+    expect(signOut).toHaveBeenCalledWith({ scope: "local" });
+    expect(removeSessionCookies).not.toHaveBeenCalled();
+  });
+
+  it("deletes the session cookies itself when signing out fails, and logs only the reason", async () => {
+    verifyOtp.mockResolvedValue({ data: { user: { email: "annan@example.com" } }, error: null });
+    signOut.mockResolvedValue({ error: { code: "unexpected_failure", status: 500 } });
+    const log = vi.spyOn(console, "error").mockImplementation(() => {});
+    expect(await verifyEmailCode("annan@example.com", "123456", allowOnly("pontus@example.com"))).toEqual({
+      result: "not_allowed",
+    });
+    expect(removeSessionCookies).toHaveBeenCalledTimes(1);
+    expect(log).toHaveBeenCalledWith("auth_code_signout_failed", "unexpected_failure");
+    expect(JSON.stringify(log.mock.calls)).not.toContain("annan@example.com");
+  });
+
+  it("sends the browser's IP on to Supabase", async () => {
+    verifyOtp.mockResolvedValue({ data: { user: { email: "pontus@example.com" } }, error: null });
+    await verifyEmailCode("pontus@example.com", "123456", allowOnly("pontus@example.com"), { forwardedFor: "203.0.113.7" });
+    expect(createClient).toHaveBeenCalledWith({ forwardedFor: "203.0.113.7" });
+  });
+
+  it.each([
+    [{ code: "over_request_rate_limit", status: 429 }],
+    [{ status: 429 }],
+  ])("gives rate_limited for Supabase's limit %o", async (error) => {
+    verifyOtp.mockResolvedValue({ data: { user: null, session: null }, error });
+    expect((await verifyEmailCode("pontus@example.com", "123456", allowOnly("pontus@example.com"))).result).toBe(
+      "rate_limited",
+    );
+  });
+
+  it("gives Supabase's code for a refused code", async () => {
+    verifyOtp.mockResolvedValue({ data: { user: null, session: null }, error: { code: "otp_expired", status: 403 } });
+    expect(await verifyEmailCode("pontus@example.com", "123456", allowOnly("pontus@example.com"))).toEqual({
+      result: "invalid",
+      code: "otp_expired",
+    });
+    expect(signOut).not.toHaveBeenCalled();
+  });
+});
+
+describe("verifyEmailLink", () => {
+  it("deletes the session cookies itself when signing out a refused address fails", async () => {
+    verifyOtp.mockResolvedValue({ data: { user: { email: "annan@example.com" } }, error: null });
+    signOut.mockResolvedValue({ error: { code: "unexpected_failure" } });
+    const log = vi.spyOn(console, "error").mockImplementation(() => {});
+    expect(await verifyEmailLink("hash", (email) => email === "pontus@example.com")).toBe("not_allowed");
+    expect(removeSessionCookies).toHaveBeenCalledTimes(1);
+    expect(log).toHaveBeenCalledWith("auth_link_signout_failed", "unexpected_failure");
+  });
 });
 
 describe("endSession", () => {

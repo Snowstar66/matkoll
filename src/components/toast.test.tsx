@@ -39,6 +39,15 @@ describe("ToastProvider", () => {
     expect(liveRegion()).toHaveTextContent("Lagt 8 varor i lagret.");
   });
 
+  it("puts the same message in anew, so it is announced again", () => {
+    renderToasts();
+    fireEvent.click(screen.getByRole("button", { name: "Lagt 8 varor i lagret." }));
+    const first = liveRegion().firstElementChild;
+    fireEvent.click(screen.getByRole("button", { name: "Lagt 8 varor i lagret." }));
+    expect(liveRegion()).toHaveTextContent("Lagt 8 varor i lagret.");
+    expect(liveRegion().firstElementChild).not.toBe(first);
+  });
+
   it("stays 4 s without undo", () => {
     renderToasts();
     fireEvent.click(screen.getByRole("button", { name: "Lagt 8 varor i lagret." }));

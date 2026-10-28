@@ -93,7 +93,7 @@ context:
 - [ ] `src/features/ai-jobs/domain/` (+ test) -- jobbradens text ("Tittar på bladet") och bekräftelsen
 - [ ] `tests/eval/extract-offers.eval.ts` -- bilderna i fixturerna och Pontus egna foton i `tests/eval/photos/` med `<namn>.offers.expected.json` (ignoreras av git), tre körningar per bild med tid, antal, ogiltiga och upprepningar
 - [ ] `tests/e2e/offers-photo.spec.ts` (+ `support.ts`, `global-setup.ts`) -- egen e2e-användare `e2e-erbjudande-foto@matkoll.test`. Testerna väljer `reklamblad.png` med "Välj bild", granskar, sparar och kontrollerar arket. Ett eget test väljer den tomma bilden -- matrisen
-- [ ] `docs/beslutslogg.md` -- en post för storyn, och mätningen i T7 i `docs/oppna-fragor.md`
+- [ ] `docs/beslutslogg.md` -- en post för storyn, och mätningen i T12 i `docs/oppna-fragor.md`
 
 **Acceptance Criteria:**
 - Given `pnpm lint && pnpm typecheck && pnpm test && pnpm test:integration && AI_PROVIDER=mock pnpm build && CI=1 pnpm test:e2e`, when de körs, then lyckas alla.
@@ -119,4 +119,4 @@ context:
 **Manual checks (if no CLI):**
 - På iPhone: "Fotografera bladet" öppnar bakre kameran, och "Välj bild" visar bildbiblioteket med skärmbilder.
 - Vid 375 px och 1280 px, i ljust och mörkt läge och med 200 % text: knapparna radbryts utan vågrät scroll.
-- `AI_PROVIDER=lmstudio pnpm eval:ai tests/eval/extract-offers.eval.ts` med ett riktigt blad: tid, antal och felläsningar skrivs i T7.
+- `AI_PROVIDER=lmstudio pnpm eval:ai tests/eval/extract-offers.eval.ts` med ett riktigt blad: tid, antal och felläsningar skrivs i T12.

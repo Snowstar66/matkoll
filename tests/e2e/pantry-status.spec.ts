@@ -43,12 +43,12 @@ function watchErrors(page: Page): string[] {
 
 // Earlier routes stay mounted but hidden after a client navigation, so every
 // locator is scoped to what is visible.
-const recipeRow = (page: Page) => page.getByTestId("recipe-row").filter({ visible: true }).filter({ hasText: title });
+const recipeRow = (page: Page) => page.getByTestId("recipe-card").filter({ visible: true }).filter({ hasText: title });
 const view = (page: Page) => page.getByRole("article").filter({ visible: true });
 const lines = (page: Page) => view(page).getByTestId("recipe-view-line");
 const line = (page: Page, text: string) => lines(page).filter({ hasText: text });
 const mark = (row: Locator) => row.getByRole("img");
-const tab = (page: Page, name: "Recept" | "Hemma") =>
+const tab = (page: Page, name: "Recept" | "Lagersaldo") =>
   page.getByRole("navigation", { name: "Huvudmeny" }).getByRole("link", { name });
 const sheet = (page: Page) => page.getByRole("dialog", { name: "Lagervara" });
 
@@ -102,8 +102,8 @@ const allAtHome: SeedItem[] = [
   { line: "1/2 tsk salt", location: "Skafferi" },
 ];
 
-/** Adds an item in Hemma through the sheet Lagervara and waits for the confirmation. */
-async function addInHemma(page: Page, name: string, amount: string, unit: string) {
+/** Adds an item in Lagersaldo through the sheet Lagervara and waits for the confirmation. */
+async function addInLagersaldo(page: Page, name: string, amount: string, unit: string) {
   await page.getByRole("button", { name: "Lägg till vara" }).filter({ visible: true }).first().click();
   await sheet(page).getByRole("searchbox", { name: "Sök ingrediens" }).fill(name);
   await sheet(page).getByRole("button", { name: new RegExp(`^${name}$`, "i") }).click();
@@ -157,7 +157,7 @@ test("too little, or only another unit, counts as missing; a vague line is ringe
   expect(errors).toEqual([]);
 });
 
-test("adding what is missing in Hemma makes the library and the recipe view say Kan lagas nu", async ({ page }) => {
+test("adding what is missing in Lagersaldo makes the library and the recipe view say Kan lagas nu", async ({ page }) => {
   const errors = watchErrors(page);
   await seedPantry(twoShort);
   await page.goto("/recept");
@@ -165,10 +165,10 @@ test("adding what is missing in Hemma makes the library and the recipe view say 
 
   // Client navigation both ways, so the library shown again is the one the
   // save revalidated, not a fresh page load.
-  await tab(page, "Hemma").click();
+  await tab(page, "Lagersaldo").click();
   await expect(page).toHaveURL(/\/hemma$/);
-  await addInHemma(page, "mjölk", "6", "dl");
-  await addInHemma(page, "vetemjöl", "3", "dl");
+  await addInLagersaldo(page, "mjölk", "6", "dl");
+  await addInLagersaldo(page, "vetemjöl", "3", "dl");
 
   await tab(page, "Recept").click();
   await expect(page).toHaveURL(/\/recept$/);
@@ -187,19 +187,19 @@ test("adding what is missing in Hemma makes the library and the recipe view say 
   expect(errors).toEqual([]);
 });
 
-test("removing an item in Hemma makes the library and the recipe view say Saknar again", async ({ page }) => {
+test("removing an item in Lagersaldo makes the library and the recipe view say Saknar again", async ({ page }) => {
   const errors = watchErrors(page);
   await seedPantry(allAtHome);
   await page.goto("/recept");
   await expect(recipeRow(page).getByText("Kan lagas nu", { exact: true })).toBeVisible();
 
-  await tab(page, "Hemma").click();
+  await tab(page, "Lagersaldo").click();
   await expect(page).toHaveURL(/\/hemma/);
   const milk = page.getByTestId("pantry-row").filter({ visible: true }).filter({ hasText: /mjölk/i });
   await milk.click();
   await sheet(page).getByRole("button", { name: "Ta bort" }).click();
   await expect(sheet(page)).toHaveCount(0);
-  await expect(page.getByTestId("toast")).toContainText(/mjölk är borttagen/i);
+  await expect(page.getByTestId("toast")).toContainText(/Tog bort mjölk\./i);
   await expect(milk).toHaveCount(0);
 
   await tab(page, "Recept").click();

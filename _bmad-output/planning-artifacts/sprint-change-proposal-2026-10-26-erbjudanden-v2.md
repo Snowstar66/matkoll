@@ -181,15 +181,15 @@ Epic 9 byggs efter Epic 12, i grenen `epic/9-erbjudanden-v2`. 9.1–9.4 behöver
 | Katalogen | `matchIngredients`. AI bara om mätningen visar behov (9.10) | **AI direkt:** kostar tid och token varje vecka utan att veta om det behövs. |
 | Var ingången finns | "Erbjudanden" i Inköpslistans rubrik och filtret i Recept | **Raden i Kan lagas nu** (den första planen): erbjudandena används nu på flera ställen. **En femte flik:** fyra flikar räcker. |
 | Etikettens färg | Mint (`offer-chip`) | **Ljusblå:** är redan produktetikett och "saknas". **Sand:** är AI-etiketten. |
-| Basvaror | I lagret på något ställe nu, eller med produktval | **Kvittona i `pantry_addition`:** har ingen vara och försvinner. **En ny historik:** öppen fråga 23. |
+| Basvaror | I lagret på något ställe nu, eller med produktval | **Kvittona i `pantry_addition`:** har ingen vara och försvinner. **En ny historik:** öppen fråga 27. |
 | AI-förslagens ordning | AI:ns ordning, prompten ber om erbjudanden först | **Sortera på servern** (den första planen): korten skulle flytta sig när rätterna kommer en i taget (12.7). |
 | Veckomenyn | AI-jobbet `weekplan`: fem rätter, i första hand ur biblioteket och högst två nya | **Bara nya rätter:** Pontus skulle behöva granska fem recept. **Bara biblioteket utan AI:** filtret Erbjudanden gör redan det. |
 | Text och foto | AI-jobb av sorten `offers` | **Egna rutter** (den första planen): Epic 12 gör alla AI-flöden till jobb. |
 
 **Insats:** medel. 9.1 är störst (två migrationer, läsaren, hämtningen och arket). 9.6 är näst störst. 9.2–9.4 och 9.9 är små.
 **Risk:** låg till medel.
-- Den största osäkerheten är om ica.se godtar Matkolls ärliga User-Agent (T11). Den prövas en gång i 9.1, och svaret avgör om text kommer direkt efter.
-- Därefter kommer hur många erbjudanden som kopplas till katalogen (T12).
+- Den största osäkerheten är om ica.se godtar Matkolls ärliga User-Agent (T13). Den prövas en gång i 9.1, och svaret avgör om text kommer direkt efter.
+- Därefter kommer hur många erbjudanden som kopplas till katalogen (T14).
 - Sidans form kan ändras utan förvarning. Läsaren misslyckas då tydligt med en reserv.
 
 ## 4. Ändringar i detalj
@@ -243,7 +243,7 @@ EFTER: Tillägg (1.2, AD-25), beslutat av Pontus: safeFetch hämtar också butik
 7. **Story 9.7: Erbjudanden från inklistrad text.** AI-jobbet `offers` med granskning.
 8. **Story 9.8: Erbjudanden från foto av reklambladet.** Samma jobb med bild.
 9. **Story 9.9: Ta bort erbjudanden.** Soptunna, "Ångra" och "Ta bort alla".
-10. **Story 9.10: AI kopplar fler erbjudanden till katalogen.** Byggs bara om T12 visar behov.
+10. **Story 9.10: AI kopplar fler erbjudanden till katalogen.** Byggs bara om T14 visar behov.
 
 Requirements Inventory, Additional Requirements, UX Design Requirements (UX-DR19, UX-DR20, UX-DR32, UX-DR33), FR Coverage Map och Epic List är uppdaterade.
 
@@ -290,16 +290,16 @@ Requirements Inventory, Additional Requirements, UX Design Requirements (UX-DR19
 - `oppna-fragor.md`:
   - fråga 8 besvarad av Pontus (länken);
   - frågorna 9 och 10 omskrivna;
-  - nya frågor 22–26;
-  - T7 och nya T11–T12.
+  - nya frågor 26–30;
+  - T12 och nya T13–T14.
 - `backlog-efter-1-0.md`: punkt 2 är planerad som Epic 9 v2. Automatisk hämtning, bevakningar med aviseringar och fler kedjor med länk väntar.
 
 ## 5. Överlämning
 
 - **Omfattning:** Moderate. En omplanerad epic och nya planeringsdokument, men ingen ny plan för hela appen.
 - **Mottagare:** utvecklingen (`bmad-build`), story för story i ordningen 9.1 → 9.10 utan att fråga mellan storyna, efter Epic 12. Två undantag:
-  - nekar ica.se i 9.1 (T11) kommer 9.7 direkt efter;
-  - 9.10 byggs bara om T12 visar behov.
+  - nekar ica.se i 9.1 (T13) kommer 9.7 direkt efter;
+  - 9.10 byggs bara om T14 visar behov.
 
   Utkasten till specar slutförs när storyn påbörjas.
 - **Gren:** `epic/9-erbjudanden-v2`, med PR till `main`. Alla sex kontroller och en kodgranskning krävs (AD-23). Grenen tas om på `main` när Epic 10–12 är ihopslagna. Den gamla grenen `epic/9-erbjudanden` är ersatt och kan tas bort när den här är ihopslagen.
@@ -313,4 +313,4 @@ Requirements Inventory, Additional Requirements, UX Design Requirements (UX-DR19
   - Ingen test anropar en butik. Sidan läses aldrig med `eval`, och token, kakor och interna adresser finns aldrig i databasen eller loggarna (test).
   - Lagningsstatus, inköpslistans poster och exporten är oförändrade.
   - Alla sex kontroller passerar.
-- **Pontus:** inga konton eller hemligheter behövs. Efter epicen provar Pontus Flöde 7 och svarar på öppna frågor 9, 10 och 22–26. T11 och T12 fylls i under 9.1.
+- **Pontus:** inga konton eller hemligheter behövs. Efter epicen provar Pontus Flöde 7 och svarar på öppna frågor 9, 10 och 26–30. T13 och T14 fylls i under 9.1.

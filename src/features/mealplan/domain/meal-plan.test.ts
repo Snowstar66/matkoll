@@ -7,6 +7,8 @@ import {
   deletePlanQuestion,
   dishCountText,
   leftOutText,
+  dishMetaText,
+  dishProgress,
   dishStatus,
   isoWeek,
   isoWeekName,
@@ -108,6 +110,84 @@ describe("dishStatus", () => {
   it("has no status without a pantry or a recipe", () => {
     expect(dishStatus(recipe, 4, null)).toBeNull();
     expect(dishStatus(null, 4, snapshot)).toBeNull();
+  });
+});
+
+describe("dishProgress", () => {
+  it.each([
+    [2, 6, 8, "6 av 8 hemma", 0.75],
+    [3, 0, 3, "0 av 3 hemma", 0],
+    [2, 3, 5, "3 av 5 hemma", 0.6],
+    [0, 8, 8, "Allt finns hemma", 1],
+    [0, 1, 1, "Allt finns hemma", 1],
+    // Nothing missing, though a vague line's ingredient is not at home: as "Kan lagas nu".
+    [0, 1, 2, "Allt finns hemma", 1],
+    // Something missing never reads as everything at home.
+    [1, 8, 8, "7 av 8 hemma", 0.875],
+  ])("%i missing, %i of %i at home: %s, meter %d", (missingCount, atHomeCount, ingredientCount, text, value) => {
+    expect(dishProgress({ missingCount, atHomeCount, ingredientCount })).toEqual({ text, value });
+  });
+
+  it("has nothing to say without a catalog ingredient to count, or with counts that are not numbers", () => {
+    expect(dishProgress({ missingCount: 0, atHomeCount: 0, ingredientCount: 0 })).toBeNull();
+    expect(dishProgress({ missingCount: 0, atHomeCount: 0, ingredientCount: Number.NaN })).toBeNull();
+    expect(dishProgress({ missingCount: 0, atHomeCount: 0, ingredientCount: Infinity })).toBeNull();
+    expect(dishProgress({ missingCount: 1, atHomeCount: Number.NaN, ingredientCount: 4 })).toEqual({
+      text: "0 av 4 hemma",
+      value: 0,
+    });
+    expect(dishProgress({ missingCount: 2, atHomeCount: -3, ingredientCount: 4 })?.value).toBe(0);
+  });
+
+  it("agrees with the library's status when a vague line's ingredient is not at home", () => {
+    const cream = id(7);
+    const salt = id(8);
+    const recipe: DishRecipe = {
+      imageUrl: null,
+      totalMinutes: 20,
+      originalServings: 4,
+      lines: [
+        { id: id(1), ingredientId: cream, amount: 2, unit: "dl", isVague: false },
+        { id: id(2), ingredientId: salt, amount: null, unit: null, isVague: true },
+      ],
+    };
+    const status = dishStatus(recipe, 4, toSnapshot([{ ingredientId: cream, amount: 2, unit: "dl" }]))!;
+    expect(status).toMatchObject({ missingCount: 0, atHomeCount: 1, ingredientCount: 2 });
+    expect(dishProgress(status)).toEqual({ text: "Allt finns hemma", value: 1 });
+  });
+
+  it("follows the dish's servings through dishStatus", () => {
+    const milk = id(7);
+    const egg = id(8);
+    const recipe: DishRecipe = {
+      imageUrl: null,
+      totalMinutes: null,
+      originalServings: 4,
+      lines: [
+        { id: id(1), ingredientId: milk, amount: 4, unit: "dl", isVague: false },
+        { id: id(2), ingredientId: egg, amount: 2, unit: "st", isVague: false },
+      ],
+    };
+    const snapshot = toSnapshot([
+      { ingredientId: milk, amount: 4, unit: "dl" },
+      { ingredientId: egg, amount: 6, unit: "st" },
+    ]);
+    expect(dishProgress(dishStatus(recipe, 4, snapshot)!)).toEqual({ text: "Allt finns hemma", value: 1 });
+    expect(dishProgress(dishStatus(recipe, 5, snapshot)!)).toEqual({ text: "1 av 2 hemma", value: 0.5 });
+  });
+});
+
+describe("dishMetaText", () => {
+  const recipeId = id(1);
+  it.each([
+    [recipeId, 35, { text: "6 av 8 hemma", value: 0.75 }, "35 min · 6 av 8 hemma"],
+    [recipeId, null, { text: "Allt finns hemma", value: 1 }, "Allt finns hemma"],
+    [recipeId, 35, null, "35 min"],
+    [recipeId, Number.NaN, null, null],
+    [recipeId, 0, null, null],
+    [null, 35, null, "Borttaget recept"],
+  ] as const)("%s, %s min, %o: %s", (id, minutes, progress, text) => {
+    expect(dishMetaText(id, minutes, progress)).toBe(text);
   });
 });
 

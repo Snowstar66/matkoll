@@ -1,11 +1,23 @@
 import "server-only";
 import { z } from "zod";
-import { pantryItemSetSchema, type PantryItemSet } from "../domain/pantry-item-form";
+import { pantryItemSetSchema, pantryLabelSchema, type PantryItemSet } from "../domain/pantry-item-form";
 import { PantryDataError, pantryWriteError, type PantryDb } from "./client";
 
 const itemsSchema = z.array(pantryItemSetSchema).min(1);
 const replaceIdSchema = z.uuid().nullable();
 const siteIdSchema = z.uuid().nullish();
+
+/**
+ * An item's label as set_pantry_items reads it (Story 11.2): `label` as
+ * given; a photo's label as `label` with `label_if_empty`, which fills only
+ * a row without one; neither when the item has none, so the row keeps its
+ * own.
+ */
+export function labelKeys(item: Pick<PantryItemSet, "label" | "photoLabel">): { label?: string | null; label_if_empty?: true } {
+  if (item.label !== undefined) return { label: item.label };
+  if (item.photoLabel !== undefined) return { label: item.photoLabel, label_if_empty: true };
+  return {};
+}
 
 /** A row as set_pantry_items left it, with its place (Story 8.4) when the answer had it. */
 export type SetPantryRow = PantryItemSet & { id: string; siteId?: string };
@@ -50,6 +62,7 @@ export async function setPantryItemsIn(
       location: item.location,
       amount: item.amount,
       unit: item.unit,
+      ...labelKeys(item),
     })),
     ...(parsedReplaceId.data ? { replace_id: parsedReplaceId.data } : {}),
     ...(parsedSiteId.data ? { site: parsedSiteId.data } : {}),
@@ -62,6 +75,8 @@ export async function setPantryItemsIn(
       location: row.location,
       amount: row.amount === null ? null : Number(row.amount),
       unit: row.unit,
+      // A label the domain cannot read is left out: the write has committed.
+      ...(pantryLabelSchema.nullable().safeParse(row.label).success ? { label: row.label } : {}),
     });
     if (!parsed.success) throw new PantryDataError("invalid_row");
     return { id: row.id, siteId: row.site_id, ...parsed.data };

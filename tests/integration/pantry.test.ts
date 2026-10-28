@@ -1,7 +1,7 @@
 import { randomUUID } from "node:crypto";
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
 import { commitIngredients } from "@/features/catalog/data/commit";
-import { loadIngredientDefaults, loadIngredientNames } from "@/features/catalog/data/queries";
+import { loadIngredientDefaults, loadIngredientSummaries } from "@/features/catalog/data/queries";
 import { addToPantryIn, findPantryAdditionsIn, forgetPantryAdditionsIn } from "@/features/pantry/data/add";
 import { PantryDataError } from "@/features/pantry/data/client";
 import type { PantryRow } from "@/features/pantry/domain/pantry-item-form";
@@ -56,7 +56,7 @@ async function addItems(db: Db, rows: Row[]): Promise<void> {
   if (error) throw error;
 }
 
-const names = (user: TestUser) => (ids: readonly string[]) => loadIngredientNames(user.db, ids);
+const names = (user: TestUser) => (ids: readonly string[]) => loadIngredientSummaries(user.db, ids);
 
 beforeAll(() => {
   localSupabaseUrl();
@@ -299,6 +299,7 @@ describe("setPantryItems", () => {
       location: "Kyl",
       amount: 1.5,
       unit: "l",
+      label: null,
     });
 
     // Set, not increase: the row gets 2 l and keeps its id.
@@ -490,13 +491,17 @@ describe("removePantryItem and restorePantryItem", () => {
     ]);
     const before = await rowsOf(user.id);
 
+    // Story 11.2: with the time it was added, which "Ångra" puts back.
+    const removed = [];
     for (const row of [inFrys, unlimited]) {
-      expect(await removePantryItemIn(user.db, user.id, row.id)).toEqual({ row: { ...row, siteId: expect.any(String) } });
+      const gone = await removePantryItemIn(user.db, user.id, row.id);
+      expect(gone).toEqual({ row: { ...row, siteId: expect.any(String), createdAt: expect.any(String) } });
+      removed.push(gone!.row!);
     }
     expect(await rowsOf(user.id)).toEqual([]);
 
-    for (const row of [inFrys, unlimited]) {
-      expect(await restorePantryItemIn(user.db, row)).toEqual({ ...row, siteId: expect.any(String) });
+    for (const row of removed) {
+      expect(await restorePantryItemIn(user.db, row)).toEqual(row);
     }
     expect(await rowsOf(user.id)).toEqual(before);
   });
@@ -545,7 +550,7 @@ describe("removePantryItem and restorePantryItem", () => {
       { ingredientId: mjolk, location: "Kyl", amount: 5, unit: "dl" },
       { ingredientId: mjolk, location: "Frys", amount: 1, unit: "l" },
     ]);
-    expect(await restorePantryItemIn(user.db, row)).toEqual({ ...row, siteId: expect.any(String) });
+    expect(await restorePantryItemIn(user.db, row)).toEqual({ ...row, siteId: expect.any(String), createdAt: expect.any(String) });
     await expect(restorePantryItemIn(user.db, row)).rejects.toThrow(new PantryDataError("restore_failed 23505"));
     expect(await rowsOf(user.id)).toHaveLength(3);
   });
@@ -651,7 +656,7 @@ describe("emptyPantryPlace and restorePantryRemoval", () => {
     const restored = await restorePantryRemovalIn(user.db, operation);
     expect(restored.skipped).toBe(0);
     expect([...restored.restoredIds].sort()).toEqual(byId(inKyl).map((row) => row.id));
-    expect(byId(restored.rows)).toEqual(byId(inKyl));
+    expect(byId(restored.rows)).toEqual(byId(inKyl).map((row) => ({ ...row, createdAt: expect.any(String) })));
     expect(await rowsOf(user.id)).toEqual(before);
     // One "Ångra" per operation: the record is gone.
     expect(await countRows("pantry_removal", user.id)).toBe(0);
@@ -736,7 +741,18 @@ describe("emptyPantryPlace and restorePantryRemoval", () => {
     const aggRow = before.find((row) => row.ingredient_id === agg)!;
     expect(restored).toEqual({
       restoredIds: [aggRow.id],
-      rows: [{ id: aggRow.id, siteId: expect.any(String), ingredientId: agg, location: "Kyl", amount: 6, unit: "st" }],
+      rows: [
+        {
+          id: aggRow.id,
+          siteId: expect.any(String),
+          ingredientId: agg,
+          location: "Kyl",
+          amount: 6,
+          unit: "st",
+          label: null,
+          createdAt: expect.any(String),
+        },
+      ],
       skipped: 3,
     });
     expect(byId(await rowsOf(user.id))).toEqual(byId([...added.map(asDbRow), aggRow]));
@@ -868,9 +884,15 @@ describe("applyPantryInventory (apply_pantry_inventory)", () => {
     });
     expect(applied.removedCount).toBe(2);
     expect(applied.undoable).toBe(2);
-    expect(byId(applied.removed)).toEqual(byId([yoghurtRow, senapRow]));
+    expect(byId(applied.removed)).toEqual(byId([yoghurtRow, senapRow]).map((row) => ({ ...row, createdAt: expect.any(String) })));
     // mjölk förp keeps its id (the same key as an item); the dl row is replaced.
-    expect(applied.set[0]).toEqual({ ...kyl(mjolk, 1, "förp"), id: mjolkForp.id, siteId: mjolkForp.siteId });
+    expect(applied.set[0]).toEqual({
+      ...kyl(mjolk, 1, "förp"),
+      id: mjolkForp.id,
+      siteId: mjolkForp.siteId,
+      label: null,
+      createdAt: expect.any(String),
+    });
     const after = await rowsOf(user.id);
     expect(byId(after)).toEqual(
       byId([

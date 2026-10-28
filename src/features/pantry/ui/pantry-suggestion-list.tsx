@@ -61,7 +61,7 @@ import { focusIsFree } from "./use-pantry-analysis";
 //
 // Story 6.5: a card's title is the model's label as on the package ("ICA
 // vispgrädde 36 %"), with the catalog ingredient under it ("Sparas som:
-// vispgrädde"); the buttons keep
+// Vispgrädde"); the buttons keep
 // the catalog name, which is what is saved. A suggestion the model was
 // unsure of has the badge "Osäker" and a line that "Bekräfta alla" leaves it
 // out: it needs its own Bekräfta or Rätta, and after "Bekräfta alla" focus
