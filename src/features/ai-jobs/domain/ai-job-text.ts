@@ -100,7 +100,15 @@ export function jobRowText(jobs: readonly AiJob[]): { text: string; label: strin
   };
 }
 
-/** Where a finished job's result is shown: the tab's route (EXPERIENCE.md, Information Architecture). */
-export function resultHref(kind: AiJobKind): string {
-  return kind === "analyze" ? "/hemma" : "/recept";
+const placeSlugs: Record<string, string> = { Kyl: "kyl", Frys: "frys", Skafferi: "skafferi" };
+
+/**
+ * Where a finished job's result is shown: the tab's route (EXPERIENCE.md,
+ * Information Architecture). The result of a photo is shown in Lagersaldo on
+ * the photo's location (`context.location`, Story 12.5).
+ */
+export function resultHref(kind: AiJobKind, context: Readonly<Record<string, unknown>> = {}): string {
+  if (kind !== "analyze") return "/recept";
+  const slug = typeof context.location === "string" ? placeSlugs[context.location] : undefined;
+  return slug ? `/hemma?plats=${slug}` : "/hemma";
 }

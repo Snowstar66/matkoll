@@ -10,7 +10,7 @@ import type { AiJob } from "./domain/ai-job";
 
 export { enqueueAiJob, getAiJob, listAiJobs, type Enqueued } from "./actions/ai-job-requests";
 export type { AiJobWork, ReportAiJob } from "./actions/run-ai-job";
-export { runTimes, startBy, type AiJobKind } from "./domain/ai-job";
+export { functionMs, runTimes, startBy, type AiJobKind } from "./domain/ai-job";
 
 /**
  * Runs a job that was just queued, to its end, in the background of the

@@ -25,8 +25,10 @@ import { focusIsFree } from "./use-pantry-analysis";
 // (frysen, skafferiet) after the chosen location. On a phone it opens the
 // back camera and "Välj bild" under it opens the photo library; on a desktop
 // it opens the file picker (EXPERIENCE.md, Responsive). No camera API beyond
-// the file input. While a photo is analysed, "Tittar på bilden …" with a
-// progress bar and "Avbryt" take its place. Errors and an empty answer show
+// the file input. While a photo is analysed (a job in the background, Story
+// 12.5), "Tittar på bilden … Du kan göra annat under tiden." with a progress
+// bar, "I kö, 1 före." when it waits, and "Avbryt" take its place, for that
+// place and location only: another location can be photographed at once. Errors and an empty answer show
 // in a notice at the top of this area ("Allt i kylen stämmer med bilden."
 // when a photo matches the place, Story 6.4), and the camera button takes focus back
 // (unless Pontus has moved on, e.g. into the sheet); the rest of Hemma keeps
@@ -43,7 +45,7 @@ export type PantryCameraProps = {
 
 export function PantryCamera({ site, location }: PantryCameraProps) {
   const {
-    analyzing,
+    looking,
     result,
     error,
     empty,
@@ -58,6 +60,9 @@ export function PantryCamera({ site, location }: PantryCameraProps) {
     retry,
     cancel,
   } = usePantrySuggestions();
+  // Story 12.5: whether the photo of this place and location is being read, or waits in the queue behind others.
+  const looks = looking(site.id, location);
+  const analyzing = looks !== null;
   const touch = useCoarsePointer();
   // Story 8.4: while Hemma switches place, a photo would be taken for the place being left.
   const switching = useSiteSwitching();
@@ -128,10 +133,10 @@ export function PantryCamera({ site, location }: PantryCameraProps) {
       {notice}
       {/* Mounted empty, so the text is announced when it appears. */}
       <div role="status">
-        {analyzing ? <Looking /> : announcement ? <span className="sr-only">{announcement}</span> : null}
+        {looks ? <Looking waiting={looks.waiting} /> : announcement ? <span className="sr-only">{announcement}</span> : null}
       </div>
       {analyzing ? (
-        <Button variant="text" onClick={cancel} className="-ml-3 self-start">
+        <Button variant="text" onClick={() => cancel(site.id, location)} className="-ml-3 self-start">
           Avbryt
         </Button>
       ) : (
@@ -178,11 +183,16 @@ export function PantryCamera({ site, location }: PantryCameraProps) {
   );
 }
 
-/** "Tittar på bilden …" with a progress bar (EXPERIENCE.md, Bildanalys pågår). */
-function Looking() {
+/**
+ * "Tittar på bilden … Du kan göra annat under tiden." with a progress bar
+ * (EXPERIENCE.md, Bildanalys pågår), and "I kö, 1 före." while the photo waits
+ * behind another AI job (Story 12.5).
+ */
+function Looking({ waiting }: { waiting: string | null }) {
   return (
     <div className="flex flex-col gap-2">
-      <p className="text-body text-ink">Tittar på bilden …</p>
+      <p className="text-body text-ink">Tittar på bilden … Du kan göra annat under tiden.</p>
+      {waiting ? <p className="text-meta text-ink-2">{waiting}</p> : null}
       <div aria-hidden="true" className="h-1 overflow-hidden rounded-full bg-hairline">
         <div className="h-full w-1/3 rounded-full bg-accent motion-safe:animate-progress" />
       </div>

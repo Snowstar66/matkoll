@@ -257,6 +257,35 @@ describe("mock suggestDishes", () => {
       controller.abort();
       expect(await stopped).toMatchObject({ ok: false, error: { code: "ai_unavailable" } });
     });
+
+    it("delays a photo it does not know, for the reading and the numbers each (Story 12.5), but not the photos of its cases", async () => {
+      vi.useFakeTimers();
+      const slow = createMockAiService(dir, { delayMs: 3000 });
+      const known = { data: new Uint8Array(readFileSync(join(dir, "kyl.png"))), mediaType: "image/png" };
+      // Bytes after the image's end change what the mock keys on, not what the image is.
+      const unknown = { data: new Uint8Array([...known.data, 0]), mediaType: "image/png" };
+      expect((await slow.analyzeImage({ image: known, place: "Kyl" }, signal())).ok).toBe(true);
+      expect((await slow.locateItems({ image: known, labels: ["Mjölk"] }, signal())).ok).toBe(true);
+
+      let answered = 0;
+      void slow.analyzeImage({ image: unknown, place: "Kyl" }, signal()).then(() => (answered += 1));
+      void slow.locateItems({ image: unknown, labels: ["Mjölk"] }, signal()).then(() => (answered += 1));
+      await vi.advanceTimersByTimeAsync(2999);
+      expect(answered).toBe(0);
+      await vi.advanceTimersByTimeAsync(1);
+      expect(answered).toBe(2);
+    });
+
+    it("stops waiting for a photo it does not know when the signal aborts", async () => {
+      vi.useFakeTimers();
+      const slow = createMockAiService(dir, { delayMs: 3000 });
+      const unknown = { data: new Uint8Array([...readFileSync(join(dir, "kyl.png")), 0]), mediaType: "image/png" };
+      const controller = new AbortController();
+      const call = slow.analyzeImage({ image: unknown, place: "Kyl" }, controller.signal);
+      await vi.advanceTimersByTimeAsync(1000);
+      controller.abort();
+      expect(await call).toMatchObject({ ok: false, error: { code: "ai_unavailable" } });
+    });
   });
 
   it("gives ai_unavailable when the signal is aborted", async () => {

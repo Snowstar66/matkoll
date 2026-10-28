@@ -125,7 +125,7 @@ describe("readImageForm", () => {
       else body.append(name, value);
     }
     const encoded = new Response(body);
-    return new Request("http://localhost:3100/api/ai/analyze", {
+    return new Request("http://localhost:3100/api/ai/jobs/photo", {
       method: "POST",
       body: new Uint8Array(await encoded.arrayBuffer()),
       headers: { "content-type": encoded.headers.get("content-type") ?? "" },

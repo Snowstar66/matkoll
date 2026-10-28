@@ -157,7 +157,7 @@ async function choose(page: Page, name: "Hemma" | "Stugan") {
 
 /**
  * Before the page loads: notes the field `site` of every form posted to
- * /api/ai/analyze. Chromium gives Playwright no body for a request with a
+ * /api/ai/jobs/photo. Chromium gives Playwright no body for a request with a
  * file, so the form is read in the page as it is sent.
  */
 async function watchAnalyzeSites(page: Page) {
@@ -167,7 +167,7 @@ async function watchAnalyzeSites(page: Page) {
     const original = window.fetch.bind(window);
     window.fetch = (input, init) => {
       const url = typeof input === "string" ? input : input instanceof URL ? input.href : input.url;
-      if (url.endsWith("/api/ai/analyze") && init?.body instanceof FormData) sent.push(String(init.body.get("site")));
+      if (url.endsWith("/api/ai/jobs/photo") && init?.body instanceof FormData) sent.push(String(init.body.get("site")));
       return original(input, init);
     };
   });

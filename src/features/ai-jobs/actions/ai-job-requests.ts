@@ -69,7 +69,7 @@ export async function listAiJobs(db: AiJobsDb, now: number = Date.now()): Promis
 /**
  * One job with its whole result (GET /api/ai/jobs/[id]), once. `ai_job_gone`
  * when it is not the user's, is gone, was replaced, or has no result to give
- * (it is not done: the list tells how it went). Reads only; a lost job is
+ * (it is neither done nor running with a partial result: the list tells how it went). Reads only; a lost job is
  * shown as failed without writing.
  */
 export async function getAiJob(
@@ -83,8 +83,10 @@ export async function getAiJob(
     if (!row || row.status === "superseded") return fail("ai_job_gone");
     const job = shown([row], id, now);
     if (!job) return fail("ai_job_gone");
-    // Only a finished result is given; how another job went is in the list.
-    if (job.status !== "done") return fail("ai_job_gone");
+    // A finished result is given, and the partial one of a running job (Story 12.5: the reading of a photo,
+    // before its numbers); how another job went is in the list.
+    const partial = job.status === "running" && row.result != null;
+    if (job.status !== "done" && !partial) return fail("ai_job_gone");
     return ok({ job, result: row.result ?? null });
   } catch (error) {
     if (!(error instanceof AiJobsDataError)) throw error;

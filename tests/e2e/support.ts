@@ -1,3 +1,4 @@
+import { crc32, deflateSync } from "node:zlib";
 import type { Page } from "@playwright/test";
 import { createServerClient } from "@supabase/ssr";
 import { createClient, type SupabaseClient } from "@supabase/supabase-js";
@@ -220,6 +221,12 @@ export const aiWarmEmail = "e2e-ai-varm@matkoll.test";
  */
 export const aiJobsEmail = "e2e-ai-jobb@matkoll.test";
 /**
+ * The E2E user of ai-photo-jobs.spec.ts alone (the photo of a place as an AI
+ * job, Story 12.5): each test empties its AI jobs, photos and pantry and seeds
+ * its catalog with the service role.
+ */
+export const aiPhotoEmail = "e2e-ai-foto@matkoll.test";
+/**
  * The E2E user of ai-import-jobs.spec.ts alone (recipe import as a job, Story
  * 12.6): each test empties its AI jobs and recipes, so the queue holds only
  * what the test puts in it.
@@ -263,6 +270,7 @@ export const e2eEmails = [
   appInstallEmail,
   aiWarmEmail,
   aiJobsEmail,
+  aiPhotoEmail,
   aiImportEmail,
 ] as const;
 /** A real Supabase user whose address is not in ALLOWED_EMAILS. */
@@ -302,6 +310,7 @@ export const photoSweepStorageState = "tests/e2e/.auth/photo-sweep.json";
 export const photoViewStorageState = "tests/e2e/.auth/photo-view.json";
 export const aiWarmStorageState = "tests/e2e/.auth/ai-warm.json";
 export const aiJobsStorageState = "tests/e2e/.auth/ai-jobs.json";
+export const aiPhotoStorageState = "tests/e2e/.auth/ai-photo.json";
 export const aiImportStorageState = "tests/e2e/.auth/ai-import.json";
 export const outsiderStorageState = "tests/e2e/.auth/outsider.json";
 
@@ -462,4 +471,36 @@ export const placePhotoBucket = sharedPlacePhotoBucket;
 export async function removePlacePhotos(userId: string): Promise<void> {
   localSupabaseUrl();
   await removeUserPlacePhotos(adminClient().storage, userId);
+}
+
+/**
+ * A plain PNG of 720 x 900 px, `shade` (0-255) all over: a photo the mock does
+ * not know (it keys on the bytes), so it answers with its default case after
+ * AI_MOCK_DELAY_MS, for the reading and for the numbers each (Story 12.5).
+ * It fits, so the client sends it as it is.
+ */
+export function plainPng(shade: number): { name: string; mimeType: string; buffer: Buffer } {
+  const width = 720;
+  const height = 900;
+  const chunk = (type: string, data: Buffer) => {
+    const body = Buffer.concat([Buffer.from(type, "ascii"), data]);
+    const length = Buffer.alloc(4);
+    length.writeUInt32BE(data.length);
+    const crc = Buffer.alloc(4);
+    crc.writeUInt32BE(crc32(body));
+    return Buffer.concat([length, body, crc]);
+  };
+  const header = Buffer.alloc(13);
+  header.writeUInt32BE(width, 0);
+  header.writeUInt32BE(height, 4);
+  header.set([8, 2, 0, 0, 0], 8);
+  const row = Buffer.concat([Buffer.from([0]), Buffer.alloc(width * 3, shade)]);
+  const pixels = deflateSync(Buffer.concat(Array.from({ length: height }, () => row)));
+  const png = Buffer.concat([
+    Buffer.from([0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a]),
+    chunk("IHDR", header),
+    chunk("IDAT", pixels),
+    chunk("IEND", Buffer.alloc(0)),
+  ]);
+  return { name: `plain-${shade}.png`, mimeType: "image/png", buffer: png };
 }
