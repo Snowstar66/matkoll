@@ -206,6 +206,12 @@ export const coreFlowEmail = "e2e-karna@matkoll.test";
  * again before each such test, so it has no storage state.
  */
 export const appInstallEmail = "e2e-utseende-app@matkoll.test";
+/**
+ * The E2E user of offers-link.spec.ts alone (Veckans erbjudanden från
+ * butikens länk, Story 9.1): before each test its offers are removed and its
+ * store's link is set to a saved offer page, with the service role.
+ */
+export const offersLinkEmail = "e2e-erbjudanden-lank@matkoll.test";
 /** Every address in ALLOWED_EMAILS for the E2E server (see playwright.config.ts). */
 export const e2eEmails = [
   e2eEmail,
@@ -242,6 +248,7 @@ export const e2eEmails = [
   photoViewEmail,
   coreFlowEmail,
   appInstallEmail,
+  offersLinkEmail,
 ] as const;
 /** A real Supabase user whose address is not in ALLOWED_EMAILS. */
 export const outsiderEmail = "utanfor@matkoll.test";
@@ -278,6 +285,7 @@ export const shoppingLookStorageState = "tests/e2e/.auth/shopping-look.json";
 export const pantryLookStorageState = "tests/e2e/.auth/pantry-look.json";
 export const photoSweepStorageState = "tests/e2e/.auth/photo-sweep.json";
 export const photoViewStorageState = "tests/e2e/.auth/photo-view.json";
+export const offersLinkStorageState = "tests/e2e/.auth/offers-link.json";
 export const outsiderStorageState = "tests/e2e/.auth/outsider.json";
 
 export const mailpitUrl = "http://127.0.0.1:54324";

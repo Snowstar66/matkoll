@@ -23,9 +23,20 @@ const routesByTable = {
   recipe_site: [{ path: "/installningar", type: "page" }],
   // The stores in Inställningar, and the shopping list, which shows the
   // selected store's product choices and exports to it (Stories 7.2, 7.3).
+  // The weekly offers follow the selected store (Story 9.1, AD-25): the list
+  // and the meal plan show them.
   store: [
     { path: "/installningar", type: "page" },
     { path: "/lista", type: "page" },
+    { path: "/matsedel", type: "layout" },
+  ],
+  // The selected store's weekly offers (Story 9.1, AD-25): the sheet in the
+  // shopping list, and from 9.2–9.6 the labels in the list, the recipes and
+  // the meal plan.
+  store_offer: [
+    { path: "/recept", type: "layout" },
+    { path: "/lista", type: "page" },
+    { path: "/matsedel", type: "layout" },
   ],
   // Hemma, and the cooking status in the library, every recipe view (Story
   // 2.4) and the meal plan's dishes (Story 3.1), and the shopping list, which

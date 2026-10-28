@@ -7,6 +7,21 @@ export {
   normalizeDomainName,
 } from "./domain/domain-name";
 export {
+  maxOffersUrlLength,
+  OFFER_SITE_DOMAINS,
+  OFFER_SITES,
+  offerSiteFor,
+  offersLinkCardText,
+  offersLinkChainText,
+  offersLinkHint,
+  offersLinkLabel,
+  offersLinkMessage,
+  offersSiteName,
+  parseOffersLink,
+  type OfferSite,
+  type OffersLink,
+} from "./domain/offers-link";
+export {
   changeChainHint,
   compareStores,
   maxExternalStoreIdLength,

@@ -77,11 +77,21 @@ describe("revalidateFor", () => {
     expect(revalidatePath.mock.calls).toEqual([["/lista", "page"]]);
   });
 
-  it("revalidates Inställningar and the shopping list after a store write", () => {
+  it("revalidates Inställningar, the shopping list and the meal plan after a store write (the offers follow the store, AD-25)", () => {
     revalidateFor("store");
     expect(revalidatePath.mock.calls).toEqual([
       ["/installningar", "page"],
       ["/lista", "page"],
+      ["/matsedel", "layout"],
+    ]);
+  });
+
+  it("revalidates the recipes, the shopping list and the meal plan after the offers are saved (Story 9.1, AD-25)", () => {
+    revalidateFor("store_offer");
+    expect(revalidatePath.mock.calls).toEqual([
+      ["/recept", "layout"],
+      ["/lista", "page"],
+      ["/matsedel", "layout"],
     ]);
   });
 

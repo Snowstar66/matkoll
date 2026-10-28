@@ -26,6 +26,7 @@ const maxi: Store = {
   externalStoreId: "1003733",
   address: null,
   url: "https://handlaprivatkund.ica.se/stores/1003733",
+  offersUrl: null,
   isSelected: true,
 };
 const willys: Store = {
@@ -35,6 +36,7 @@ const willys: Store = {
   externalStoreId: null,
   address: "Lindhagensgatan 1",
   url: null,
+  offersUrl: null,
   isSelected: false,
 };
 
@@ -57,6 +59,67 @@ beforeEach(() => {
     ok({ store: { ...maxi, id: String(formData.get("id")), name: String(formData.get("name")) } }),
   );
   refresh.mockReset();
+});
+
+describe("StoreSheet: the link to the weekly offers (Story 9.1)", () => {
+  const link = "https://www.ica.se/erbjudanden/maxi-ica-stormarknad-ostersund-1003733/";
+
+  it("shows the link field with its help text for ICA, and saves the link", async () => {
+    const user = userEvent.setup();
+    render([maxi]);
+    await user.click(within(card()).getByRole("button", { name: "Ändra" }));
+    const dialog = sheet("Ändra butik");
+    const field = within(dialog).getByLabelText("Länk till veckans erbjudanden");
+    expect(field).toHaveAttribute("inputmode", "url");
+    expect(field).toHaveAccessibleDescription("Öppna butikens erbjudanden på ica.se och kopiera adressen.");
+    await user.type(field, link.slice(0, -1));
+    await user.click(within(dialog).getByRole("button", { name: "Spara" }));
+    await waitFor(() => expect(saveStore).toHaveBeenCalledTimes(1));
+    expect(lastSaved()).toMatchObject({ offersUrl: link.slice(0, -1), chain: "ICA" });
+  });
+
+  it("shows the error under the field for an address that is not an offer page, and saves nothing", async () => {
+    const user = userEvent.setup();
+    render([maxi]);
+    await user.click(within(card()).getByRole("button", { name: "Ändra" }));
+    const dialog = sheet("Ändra butik");
+    const field = within(dialog).getByLabelText("Länk till veckans erbjudanden");
+    await user.type(field, "https://www.willys.se/erbjudanden/butik");
+    await user.click(within(dialog).getByRole("button", { name: "Spara" }));
+    expect(
+      await within(dialog).findByText(
+        "Ange adressen till butikens erbjudanden på ica.se, till exempel https://www.ica.se/erbjudanden/maxi-ica-stormarknad-ostersund-1003733/.",
+      ),
+    ).toBeInTheDocument();
+    expect(field).toHaveAttribute("aria-invalid", "true");
+    expect(field).toHaveFocus();
+    expect(saveStore).not.toHaveBeenCalled();
+  });
+
+  it("has no link field for another chain, and says so", async () => {
+    const user = userEvent.setup();
+    render([maxi, willys]);
+    await user.click(screen.getByRole("button", { name: "Ändra Willys Lindhagen" }));
+    const dialog = sheet("Ändra butik");
+    expect(within(dialog).queryByLabelText("Länk till veckans erbjudanden")).not.toBeInTheDocument();
+    expect(within(dialog).getByText("Länk stöds bara för ICA än så länge.")).toBeInTheDocument();
+
+    await user.selectOptions(within(dialog).getByLabelText("Kedja"), "ICA");
+    expect(within(dialog).getByLabelText("Länk till veckans erbjudanden")).toBeInTheDocument();
+  });
+
+  it("shows the stored link in the field, and the card says Erbjudanden: ica.se", async () => {
+    const user = userEvent.setup();
+    render([{ ...maxi, offersUrl: link }]);
+    expect(within(card()).getByText("Erbjudanden: ica.se")).toBeInTheDocument();
+    await user.click(within(card()).getByRole("button", { name: "Ändra" }));
+    expect(within(sheet("Ändra butik")).getByLabelText("Länk till veckans erbjudanden")).toHaveValue(link);
+  });
+
+  it("shows no offers line on the card without a link", () => {
+    render([maxi]);
+    expect(within(card()).queryByText(/^Erbjudanden:/)).not.toBeInTheDocument();
+  });
 });
 
 describe("StoreSheet", () => {

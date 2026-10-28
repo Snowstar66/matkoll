@@ -2,7 +2,8 @@
 title: 'Story 9.1: Veckans erbjudanden från butikens länk'
 type: 'feature'
 created: '2026-10-27'
-status: 'draft'
+status: 'in-progress'
+baseline_commit: '870d7de'
 route: 'dispatch'
 context:
   - '{project-root}/_bmad-output/implementation-artifacts/epic-9-context.md'
@@ -127,16 +128,36 @@ context:
 
 ## Implementation Notes
 
-- **Beslut (förslag): länken sparas direkt, utan granskning.** Ingen AI tolkar sidan, och trycket "Hämta" är Pontus beslut. Fel varor tas bort i 9.9.
-- **Beslut (förslag): en hämtning ersätter butikens länkrader för veckan.** Sidan är hela sanningen för veckan. Text och foto läggs till i stället, eftersom de kan vara en sida i taget.
-- **Beslut (förslag): unik på `label_key` i stället för på `name`.** ICA har ofta två erbjudanden på samma vara från olika märken, och båda ska synas i listan.
-- **Beslut (förslag): veckan kommer från det vanligaste `validTo`.** Sidan har inget från-datum, och några erbjudanden gäller flera veckor.
-- **Beslut (förslag): 15 minuter mellan hämtningar.** Det skyddar mot dubbeltryck och ligger långt under ICA:s gräns (72 per minut). Tiden räknas från den senaste länkraden, så ingen ny tabell behövs.
+- **Beslut (godkänt 2026-10-28): länken sparas direkt, utan granskning.** Ingen AI tolkar sidan, och trycket "Hämta" är Pontus beslut. Fel varor tas bort i 9.9.
+- **Beslut (godkänt 2026-10-28): en hämtning ersätter butikens länkrader för veckan.** Sidan är hela sanningen för veckan. Text och foto läggs till i stället, eftersom de kan vara en sida i taget.
+- **Beslut (godkänt 2026-10-28): unik på `label_key` i stället för på `name`.** ICA har ofta två erbjudanden på samma vara från olika märken, och båda ska synas i listan.
+- **Beslut (godkänt 2026-10-28): veckan kommer från det vanligaste `validTo`.** Sidan har inget från-datum, och några erbjudanden gäller flera veckor.
+- **Beslut (godkänt 2026-10-28): 15 minuter mellan hämtningar.** Det skyddar mot dubbeltryck och ligger långt under ICA:s gräns (72 per minut). Tiden räknas från den senaste länkraden, så ingen ny tabell behövs.
 - **Risk: ICA nekar Matkolls User-Agent (T13).** Förstudien hämtade med en webbläsares User-Agent, och Matkoll låtsas aldrig vara en webbläsare. Nekar ICA, byggs 9.7 direkt efter den här storyn.
 - **Risk: sidans form ändras.** Läsaren validerar med Zod och misslyckas hellre tydligt än gissar. Fixturen visar formen som den var vecka 44.
 - **Risk: få erbjudanden kopplas till katalogen (T14).** ICA:s namn är ofta produktnamn ("Herrgård"). Mätningen avgör om 9.10 byggs.
 
 ## Spec Change Log
+
+### Vid bygget
+
+- **Byggd på `870d7de`** (`baseline_commit`), grenen `story/9-1` från `epic/9-erbjudanden-v2`. Besluten ovan godkändes som de var skrivna (Pontus: fortsätt med alla epics, utan att fråga). Skärmbilderna hoppades över på Pontus begäran.
+- **Migrationerna** `20261028193539_settings_store_offers_url.sql` och `20261028193540_offers_store_offer.sql`. Före körningen togs en säkerhetskopia av datan (`pg_dump --data-only`, `public` och `auth`), och `scripts/backup-counts.sql`, `scripts/pantry-site-check.sql` och en lista över alla butiker kördes före och efter under testlåset. Enda skillnaden var den nya raden `public.store_offer 0`. 40 befintliga butiker (ICA, 1003733) fick länken till Maxis erbjudanden.
+- **Osynliga tecken i migrationerna.** Skrivverktyget gjorde om `\u2028` och de andra kontrolltecknen i `check`-uttrycken till riktiga tecken, och så kördes migrationerna lokalt. Filerna skrevs sedan om med escape-sekvenserna, som i `*_settings_store_hardening.sql`. Postgres tolkar båda lika, och migrationerna är inte körda någon annanstans än lokalt.
+- **ICA:s kategori heter "Bröd, kex & bageri"** på sidan, inte "Bröd". `FOOD_CATEGORIES` har båda och jämför utan hänsyn till skiftläge.
+- **Namnet utan träff är den första delen**, inte den första kandidaten: matrisen säger `name` "herrgård" för "Herrgård®, Präst®", och hela namnet normaliseras till "herrgård präst". Kandidaterna för katalogen är fortfarande hela namnet först och sedan delarna.
+- **Ursprunget tas bort ur märket** i etiketten: ICA skriver märket som "Kronfågel. Ursprung Sverige", och etiketten blir "Kronfågel Färsk kycklingfilé". Ett namn som redan börjar med märket får inte märket två gånger ("Jätten").
+- **403 och 429 skiljs från andra fel** utan ny felkod i `safeFetch`: `fetchOfferPage` i `src/server/fetch/index.ts` ger sidan och statusen från det sista svaret. Receptimporten är oförändrad.
+- **`shopping/ui` är oförändrad.** Inköpslistans rubrik är `PageHeader` i rutten, och knappen "Erbjudanden" läggs i dess `action` från `src/app/(app)/lista/list-offers.tsx` inuti en egen `<Suspense>`. Shopping importerar alltså inte `offers`, och ingen ändring behövdes där.
+- **Inget separat index `(user_id, store_id, week_start)`**: det unika indexet på `(user_id, store_id, week_start, label_key)` börjar med samma kolumner och används för läsningarna.
+- **`store_offer_valid_to_check`**: `valid_to >= week_start`. Ett erbjudande som slutade före veckans måndag sparas inte (hämtningen hoppar över det).
+- **Bladets ordning sparas i `created_at`**: `save_store_offers` sätter `now()` plus en mikrosekund per plats i listan, så att 9.2 kan ta "det första i bladets ordning" utan en ny kolumn. Vid sammanslagning per `label_key` får raden den nya tiden.
+- **Fixturerna har veckans datum**: `{{sunday}}` och `{{sunday+N}}` i de sparade sidorna blir den här veckans söndag när `fixture-sites.ts` serverar dem, så att testerna och e2e fungerar vilken vecka som helst. Fler sidor än i Code Map: inga varor på mat (`ica-erbjudanden-bara-annat.html`), 500, en omdirigering till startsidan och en till en annan värd.
+- **Länken i formuläret:** en kedja utan erbjudandesajt sparar `offers_url null`, och ett formulär utan fältet lämnar den sparade länken orörd (som `save_store`).
+- **En sida där ingen post går att läsa** ger `offers_page_changed`, inte `offers_none`. En tom `weeklyOffers` ger `offers_none` som i matrisen.
+- **`ensure_user_defaults()`** fyller bara i länken för en ny användares butik. En butik som redan finns ändras inte, så en borttagen länk kommer inte tillbaka vid nästa inloggning. Befintliga butiker fick länken av migrationen.
+- **Fel i hämtningen** har "Öppna sidan" för `offers_fetch_blocked`, `offers_fetch_failed`, `offers_page_changed`, `offers_page_old` och `offers_none`, och "Öppna inställningar" för `offers_link_missing`, `offers_link_unsupported` och `offers_store_missing`.
+- **T13 och T14 är öppna**: provet mot ica.se med Matkolls User-Agent görs av Pontus med ett tryck (`docs/oppna-fragor.md`). På fixturen kopplades 1 av 7 (laxfilé) i enhetstestet, men det säger inget om Pontus katalog.
 
 ## Review Triage Log
 

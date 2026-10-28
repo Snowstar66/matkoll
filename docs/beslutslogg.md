@@ -2,6 +2,16 @@
 
 Beslut som fattats under bygget: vad, varför och vilka alternativ som fanns. Nyaste överst.
 
+## 2026-10-28 – Veckans erbjudanden från butikens länk (Story 9.1)
+
+- **Specens förslag godkändes som de stod** (Claude, enligt `docs/autonomi.md`, Pontus: fortsätt med alla epics): länken sparas direkt utan granskning, en hämtning ersätter butikens länkrader för veckan, unik på `label_key`, veckan från det vanligaste `validTo`, 15 minuter mellan hämtningar.
+- **Läsningen körs aldrig som kod.** En egen läsare tar ut `window.__INITIAL_DATA__`, gör om `undefined` och `new Map(...)` och tolkar med `JSON.parse`. ESLint förbjuder `eval`, `new Function` och strängar till timers i hela `src/`. Bara `offers.weeklyOffers` lämnas ut, och sidans token, kakor och interna adresser kastas direkt. Alternativ: `vm` eller AI, som spec och arkitektur förbjuder.
+- **403 och 429 skiljs ut i hämtningen**, inte i `safeFetch`: `fetchOfferPage` ger statusen från det sista svaret, så receptimportens fel och texter är oförändrade.
+- **Bladets ordning sparas i `created_at`** (en mikrosekund per plats), så att etiketten i 9.2 kan ta det första erbjudandet i bladet utan en ny kolumn.
+- **Fixturerna får veckans datum** när de serveras (`{{sunday}}`), så att testerna aldrig blir gamla. Varorna är påhittade, token och kakor också.
+- **Avvikelser från specen** står under "Vid bygget" i `spec-9-1-veckans-erbjudanden-fran-butikens-lank.md`, bland annat att ICA:s kategori heter "Bröd, kex & bageri" och att namnet utan träff är den första delen ("herrgård").
+- **T13 och T14** prövas av Pontus med ett tryck mot den riktiga butiken (`docs/oppna-fragor.md`).
+
 ## 2026-10-27 – Visa senaste fotot i Lagersaldo (Story 10.2)
 
 - **Byggd om på Epic 11** (`epic/11-nytt-utseende`): bygget från 26 oktober flyttades över till det nya utseendet innan det granskades. Beteendet är detsamma, bara utseendet och orden ändrades.

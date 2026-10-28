@@ -13,7 +13,7 @@ export async function loadActiveRecipeDomains(db: SettingsDb): Promise<string[]>
   return data.map((row) => row.domain);
 }
 
-const storeColumns = "id, name, chain, external_store_id, address, url, is_selected";
+const storeColumns = "id, name, chain, external_store_id, address, url, offers_url, is_selected";
 
 type StoreRow = {
   id: string;
@@ -22,6 +22,7 @@ type StoreRow = {
   external_store_id: string | null;
   address: string | null;
   url: string | null;
+  offers_url: string | null;
   is_selected: boolean;
 };
 
@@ -40,6 +41,7 @@ export function toStore(row: StoreRow): Store {
     externalStoreId: row.external_store_id,
     address: row.address,
     url: row.url,
+    offersUrl: row.offers_url,
     isSelected: row.is_selected,
   };
 }
