@@ -6,6 +6,8 @@ import {
   adminClient,
   aiSuggestionsEmail,
   aiSuggestionsStorageState,
+  aiImportEmail,
+  aiImportStorageState,
   aiJobsEmail,
   aiJobsStorageState,
   aiPhotoEmail,
@@ -147,6 +149,7 @@ export default async function globalSetup(config: FullConfig) {
       [aiWarmEmail, aiWarmStorageState],
       [aiJobsEmail, aiJobsStorageState],
       [aiPhotoEmail, aiPhotoStorageState],
+      [aiImportEmail, aiImportStorageState],
     ] as const) {
       const user = await browser.newContext({ baseURL });
       const page = await user.newPage();

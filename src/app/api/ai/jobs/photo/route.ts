@@ -6,10 +6,11 @@ import { locationSchema } from "@/features/catalog";
 import { locatePlaceItems, lookUpSite, readPhoto } from "@/features/pantry/server";
 import { readingSchema } from "@/features/pantry";
 import { fail, ok, type Result } from "@/lib/errors";
-import { maxPlacePhotoSide } from "@/lib/images";
+import { imageSideTolerance, imageSizeOf, maxImageSide, maxPlacePhotoSide } from "@/lib/images";
 import { createClient } from "@/lib/supabase/server";
 import type { Json } from "@/lib/supabase/database.types";
 import { isCrossSite, mediaTypeOf, readImageForm, respond } from "../../route-support";
+import { startImportJob } from "../start-import";
 
 // The AI job of a photo of a place (Story 12.5, FR-24, FR-46-FR-49, AD-9,
 // AD-15, AD-28). The client resizes the photo (to at most maxPlacePhotoSide,
@@ -42,6 +43,9 @@ const minLocateLeftMs = 40_000;
 /** Less than this left of the job's own time after the reading: the numbers are skipped. */
 const minLocateRunMs = 8_000;
 
+/** Story 12.6: a photo of a recipe to read; the fields are only its kind and key. */
+const importSchema = z.object({ kind: z.literal("import"), clientKey: z.uuid() });
+
 const formSchema = z.object({
   kind: z.literal("analyze"),
   clientKey: z.uuid(),
@@ -70,6 +74,16 @@ export async function POST(request: Request): Promise<Response> {
     maxSide: maxPlacePhotoSide,
   });
   if (!form.ok) return form.response;
+
+  // Story 12.6: a photo of a recipe is read as an import job; it is held to the smaller size of a recipe photo.
+  if (form.fields.kind === "import") {
+    const fields = importSchema.safeParse(form.fields);
+    if (!fields.success) return respond(fail("validation"));
+    const size = imageSizeOf(form.image.data);
+    if (!size || Math.max(size.width, size.height) > maxImageSide + imageSideTolerance) return respond(fail("image_too_large"));
+    return startImportJob({ kind: "photo", image: form.image }, fields.data.clientKey, requestStartedAt);
+  }
+
   const parsed = formSchema.safeParse({
     kind: form.fields.kind,
     clientKey: form.fields.clientKey,

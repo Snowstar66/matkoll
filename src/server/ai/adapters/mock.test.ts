@@ -239,11 +239,23 @@ describe("mock suggestDishes", () => {
       expect(answered).toBe(true);
     });
 
-    it("does not delay the other calls", async () => {
+    it("delays a recipe import too (Story 12.6), and gives up when the signal aborts while waiting", async () => {
       vi.useFakeTimers();
       const slow = createMockAiService(dir, { delayMs: 3000 });
-      const result = await slow.parseRecipe(inputFor(manifest.cases[0]), signal());
-      expect(result.ok).toBe(true);
+      let answered = false;
+      const call = slow.parseRecipe(inputFor(manifest.cases[0]), signal()).then((result) => {
+        answered = true;
+        return result;
+      });
+      await vi.advanceTimersByTimeAsync(2999);
+      expect(answered).toBe(false);
+      await vi.advanceTimersByTimeAsync(1);
+      expect((await call).ok).toBe(true);
+
+      const controller = new AbortController();
+      const stopped = slow.parseRecipe(inputFor(manifest.cases[0]), controller.signal);
+      controller.abort();
+      expect(await stopped).toMatchObject({ ok: false, error: { code: "ai_unavailable" } });
     });
 
     it("delays a photo it does not know, for the reading and the numbers each (Story 12.5), but not the photos of its cases", async () => {

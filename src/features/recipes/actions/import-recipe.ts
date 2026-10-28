@@ -6,13 +6,14 @@ import { fail, ok, type Result } from "@/lib/errors";
 import { getAiService, type ParseRecipeInput } from "@/server/ai";
 import { checkLinkSyntax, extractRecipePage, fetchRecipePage } from "@/server/fetch";
 import { fromAiRecipe, type RecipeSource } from "../domain/from-ai-recipe";
-import { maxImportTextChars, type ImportInput, type RecipeImport } from "../domain/import";
+import { importRequestSchema, maxImportTextChars, type ImportInput, type RecipeImport } from "../domain/import";
 import { recipeDraftSchema } from "../domain/recipe-draft";
 
 // The server side of importing pasted text, a link or a photo (AD-2, AD-9,
-// AD-10, AD-11, AD-15). Not a Server Action: the Route Handlers /api/ai/import
-// and /api/ai/import/photo call it with the request's signal, so "Avbryt" in
-// the client stops the fetch and the model call. It never writes: the draft
+// AD-10, AD-11, AD-15). Not a Server Action: the job routes (/api/ai/jobs and
+// /api/ai/jobs/photo, Story 12.6) call prepareImport before a job is queued
+// and importRecipe as its work, with the job's signal, so "Avbryt" stops the
+// fetch and the model call. It never writes: the draft
 // lives in the client until Pontus saves it (Story 1.7), and a photo is only
 // passed on to the AI port, never stored or logged.
 
@@ -60,6 +61,33 @@ async function readRecipePage(
     input: { text: text || undefined, jsonLd: jsonLd ?? undefined },
     source: { kind: "url", url: page.data.url, imageUrl },
   });
+}
+
+/** What an import job keeps to show itself: the kind of input and, for a link, only its domain, never the link, the text or the photo. */
+export type ImportContext = { source: "text" | "url" | "photo"; domain?: string };
+
+/**
+ * The checks that need no AI, before a job is queued (Story 12.6): the text
+ * against its limits (`validation`), a link's form (`fetch_invalid_url`) and
+ * its domain against the approved sites (`fetch_domain_not_allowed`,
+ * `settings_unavailable`). Gives the job's context. The job checks the sites
+ * again when it fetches, so a site removed meanwhile is still refused.
+ */
+export async function prepareImport(input: ImportInput): Promise<Result<ImportContext>> {
+  if (input.kind === "photo") return ok({ source: "photo" });
+  const parsed = importRequestSchema.safeParse(input);
+  if (!parsed.success) return fail("validation");
+  if (parsed.data.kind === "text") return ok({ source: "text" });
+  const url = checkLinkSyntax(parsed.data.url);
+  if (!url) return fail("fetch_invalid_url");
+  const domains = await approvedDomains();
+  if (!domains.ok) return domains;
+  const host = url.hostname.toLowerCase().replace(/\.$/, "");
+  const domain = host.replace(/^www\./, "");
+  if (!domains.data.some((allowed) => host === allowed || host === `www.${allowed}`)) {
+    return fail("fetch_domain_not_allowed", { domain });
+  }
+  return ok({ source: "url", domain });
 }
 
 /**

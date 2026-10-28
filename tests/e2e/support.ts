@@ -225,6 +225,12 @@ export const aiJobsEmail = "e2e-ai-jobb@matkoll.test";
  * its catalog with the service role.
  */
 export const aiPhotoEmail = "e2e-ai-foto@matkoll.test";
+/**
+ * The E2E user of ai-import-jobs.spec.ts alone (recipe import as a job, Story
+ * 12.6): each test empties its AI jobs and recipes, so the queue holds only
+ * what the test puts in it.
+ */
+export const aiImportEmail = "e2e-ai-import@matkoll.test";
 /** Every address in ALLOWED_EMAILS for the E2E server (see playwright.config.ts). */
 export const e2eEmails = [
   e2eEmail,
@@ -264,6 +270,7 @@ export const e2eEmails = [
   aiWarmEmail,
   aiJobsEmail,
   aiPhotoEmail,
+  aiImportEmail,
 ] as const;
 /** A real Supabase user whose address is not in ALLOWED_EMAILS. */
 export const outsiderEmail = "utanfor@matkoll.test";
@@ -303,6 +310,7 @@ export const photoViewStorageState = "tests/e2e/.auth/photo-view.json";
 export const aiWarmStorageState = "tests/e2e/.auth/ai-warm.json";
 export const aiJobsStorageState = "tests/e2e/.auth/ai-jobs.json";
 export const aiPhotoStorageState = "tests/e2e/.auth/ai-photo.json";
+export const aiImportStorageState = "tests/e2e/.auth/ai-import.json";
 export const outsiderStorageState = "tests/e2e/.auth/outsider.json";
 
 export const mailpitUrl = "http://127.0.0.1:54324";

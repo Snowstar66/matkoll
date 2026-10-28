@@ -67,7 +67,7 @@ export function AiJobsSheet({ open, onClose }: { open: boolean; onClose: () => v
                     <Button variant="text" aria-label={`Avbryt ${subjectText(job.kind)}`} onClick={() => void cancel(job.id)}>
                       Avbryt
                     </Button>
-                  ) : job.status === "done" ? (
+                  ) : job.status === "done" || (job.status === "failed" && job.kind === "import") ? (
                     <Button variant="text" aria-label={`Visa ${subjectText(job.kind)}`} onClick={() => show(job)}>
                       Visa
                     </Button>

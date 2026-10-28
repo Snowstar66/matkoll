@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { aiJobSchema, isLost, isOld, resultCount, toAiJobs, type AiJobRow } from "./ai-job";
+import { aiJobSchema, isLost, isOld, resultCount, resultTitle, toAiJobs, type AiJobRow } from "./ai-job";
 
 const now = Date.parse("2026-10-28T12:00:00Z");
 const at = (seconds: number) => new Date(now + seconds * 1000).toISOString();
@@ -131,5 +131,15 @@ describe("toAiJobs", () => {
     expect(toAiJobs([running], now)[0].count).toBe(2);
     expect(toAiJobs([row({ kind: "analyze", status: "running", result: null })], now)[0].count).toBeNull();
     expect(toAiJobs([{ ...running, status: "done" }], now)[0].count).toBe(2);
+  });
+});
+
+describe("resultTitle (Story 12.6)", () => {
+  it("gives the recipe's title of a finished import, and nothing for other jobs or an odd result", () => {
+    expect(resultTitle("import", { draft: { title: "Linssoppa" }, ingredientNames: {} })).toBe("Linssoppa");
+    expect(resultTitle("import", { draft: { title: "  " } })).toBeNull();
+    expect(resultTitle("import", { draft: null })).toBeNull();
+    expect(resultTitle("import", null)).toBeNull();
+    expect(resultTitle("suggest", { draft: { title: "Linssoppa" } })).toBeNull();
   });
 });

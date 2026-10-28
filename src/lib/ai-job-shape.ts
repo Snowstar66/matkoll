@@ -30,6 +30,8 @@ export const aiJobSchema = z.object({
   ahead: z.number().int().min(0),
   /** How much there is in a finished result, for "3 rättförslag är klara."; null when there is no result. */
   count: z.number().int().min(0).nullable(),
+  /** The title of a finished import's recipe, for "Receptet Linssoppa är inläst."; null or missing for other jobs. */
+  title: z.string().nullable().optional(),
 });
 export type AiJob = z.infer<typeof aiJobSchema>;
 
