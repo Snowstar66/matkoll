@@ -9,12 +9,13 @@ import { adminClient, aiSuggestionsEmail, aiSuggestionsStorageState, e2eUserId }
 // whatever is at home). The spec has an E2E user of its own
 // (aiSuggestionsEmail). Before each test the pantry and the recipes are
 // emptied, and the service role makes the recipe Linssoppa (so the library
-// has a row), a catalog ingredient for each hint in the mock's two answer
+// has a row), a catalog ingredient for each line name in the mock's two answer
 // sets, and each of them at home: as much as the first suggestion needs for
 // its own lines (so it can be cooked now once it is saved), always enough for
 // the rest (so every suggestion uses the pantry and is kept).
 
-type FixtureLine = { originalText: string; amount: number | null; unit: string | null; isVague: boolean; hint: { name: string } };
+// Story 12.3: the fixtures are the compact answer the model gives (a line without an amount is vague).
+type FixtureLine = { text: string; amount: number | null; unit: string | null; name: string };
 type FixtureRecipe = { title: string; ingredients: FixtureLine[] };
 
 const fixtures = join(process.cwd(), "tests", "fixtures", "ai");
@@ -108,15 +109,15 @@ test.beforeEach(async () => {
   });
   if (line.error) throw line.error;
 
-  const names = [...new Set([...suggested, ...others].flatMap((recipe) => recipe.ingredients.map((line) => line.hint.name)))];
+  const names = [...new Set([...suggested, ...others].flatMap((recipe) => recipe.ingredients.map((line) => line.name)))];
   const ids = await seedIngredients(names);
   // The first suggestion's lines: as much as each needs, in its unit (a count
   // without one is st); vague lines and everything else: always enough.
-  const firstLines = new Map(first.ingredients.map((line) => [line.hint.name, line]));
+  const firstLines = new Map(first.ingredients.map((line) => [line.name, line]));
   await seedPantry(
     names.map((name) => {
       const line = firstLines.get(name);
-      const exact = line && !line.isVague;
+      const exact = line && line.amount !== null;
       return { ingredientId: ids.get(name)!, amount: exact ? line.amount : null, unit: exact ? (line.unit ?? "st") : null };
     }),
   );

@@ -122,6 +122,8 @@ export function installUsageMeter() {
   const original = globalThis.fetch;
   let current: Usage | null = null;
   let pending: Promise<void>[] = [];
+  /** The answers' texts in this measure, for the evaluation's own checks (Story 12.3); never in a row. */
+  let contents: string[] = [];
 
   globalThis.fetch = async (input, init) => {
     const callStarted = performance.now();
@@ -136,6 +138,8 @@ export function installUsageMeter() {
             if (!current) return;
             const first = current.calls === 0 ? (performance.now() - callStarted) / 1000 : current.firstCallSeconds;
             current = { ...addUsage(current, body), firstCallSeconds: first };
+            const content = (body as { choices?: { message?: { content?: unknown } }[] } | null)?.choices?.[0]?.message?.content;
+            if (typeof content === "string") contents.push(content);
           })
           .catch(() => {
             if (current) current = { ...current, calls: current.calls + 1 };
@@ -146,15 +150,16 @@ export function installUsageMeter() {
   };
 
   return {
-    async measure<T>(call: () => Promise<T>): Promise<{ value: T; seconds: number; usage: Usage }> {
+    async measure<T>(call: () => Promise<T>): Promise<{ value: T; seconds: number; usage: Usage; contents: string[] }> {
       current = emptyUsage();
       pending = [];
+      contents = [];
       const started = performance.now();
       try {
         const value = await call();
         const seconds = (performance.now() - started) / 1000;
         await Promise.all(pending);
-        return { value, seconds, usage: current };
+        return { value, seconds, usage: current, contents };
       } finally {
         current = null;
       }

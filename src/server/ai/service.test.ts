@@ -30,6 +30,8 @@ import {
   recipeAnswer,
   testModelId,
   textAnswer,
+  validCompactDish,
+  validCompactDishRecipe,
   validRecipe,
 } from "./test-support";
 import { MockLanguageModelV4 } from "ai/test";
@@ -201,14 +203,15 @@ describe("createAiService", () => {
 
 describe("suggestDishes against LM Studio", () => {
   it("sends no sampling settings: only analyzeImage has them (Story 6.5)", async () => {
-    const dishes = ["Pannkakor", "Linssoppa", "Fiskgratäng"].map((title) => ({ ...validRecipe, title }));
+    const titles = ["Pannkakor", "Linssoppa", "Fiskgratäng"];
+    const dishes = titles.map((title) => ({ ...validCompactDish, title }));
     const server = fakeServer({ chat: [Response.json(chatCompletion(JSON.stringify({ suggestions: dishes })))] });
     const env = parseEnv({ AI_PROVIDER: "lmstudio", LMSTUDIO_BASE_URL: "http://localhost:1234/v1" });
     const result = await createAiService(env, { fetch: server.fetch }).suggestDishes(
       { pantry: [{ name: "mjölk", amount: 1, unit: "l" }], avoidTitles: [] },
       signal(),
     );
-    expect(result).toEqual({ ok: true, data: dishes });
+    expect(result).toEqual({ ok: true, data: titles.map((title) => ({ ...validCompactDishRecipe, title })) });
 
     const body = JSON.parse(String(server.requests[1].init?.body));
     expect(body.model).toBe(testModelId);
@@ -218,8 +221,11 @@ describe("suggestDishes against LM Studio", () => {
 });
 
 describe("suggestDishes on a model", () => {
-  const dish = (title: string) => ({ ...validRecipe, title });
+  /** A dish as the model answers it (Story 12.3: the compact form). */
+  const dish = (title: string) => ({ ...validCompactDish, title });
   const three = [dish("Pannkakor"), dish("Linssoppa"), dish("Fiskgratäng")];
+  /** The three as the port returns them (fromCompactDish). */
+  const recipes = three.map(({ title }) => ({ ...validCompactDishRecipe, title }));
   const answer = (suggestions: unknown[] = three) => JSON.stringify({ suggestions });
   const input: SuggestDishesInput = {
     pantry: [
@@ -236,7 +242,7 @@ describe("suggestDishes on a model", () => {
   it("sends the suggest-dishes prompt and the pantry and titles, and returns the three recipes", async () => {
     const model = fakeModel(answer());
     const result = await createModelAiService({ model }, limits).suggestDishes(input, signal());
-    expect(result).toEqual({ ok: true, data: three });
+    expect(result).toEqual({ ok: true, data: recipes });
 
     const call = model.doGenerateCalls[0];
     expect(call.maxOutputTokens).toBe(inputLimits.suggest.maxOutputTokens);
@@ -253,7 +259,7 @@ describe("suggestDishes on a model", () => {
   it("gives an answer with a title to avoid another try, telling the model so", async () => {
     const model = fakeModel(answer([three[0], dish("KÖTTBULLAR"), three[2]]), answer());
     const result = await createModelAiService({ model }, limits).suggestDishes(input, signal());
-    expect(result).toEqual({ ok: true, data: three });
+    expect(result).toEqual({ ok: true, data: recipes });
     expect(JSON.stringify(model.doGenerateCalls[1].prompt.at(-1)?.content)).toContain(
       "suggestions.1.title: This title was suggested before; suggest another dish",
     );
@@ -268,6 +274,28 @@ describe("suggestDishes on a model", () => {
     expect(prompts.suggestDishes).toContain('"Lagret:"');
   });
 
+  it("the prompt describes the compact answer (Story 12.3): name as in the pantry, new only outside it", () => {
+    for (const field of ["`text`", "`amount`", "`unit`", "`name`", "`stepIndexes`", "`new`"]) {
+      expect(prompts.suggestDishes).toContain(field);
+    }
+    expect(prompts.suggestDishes).toContain("samma namn som där");
+    expect(prompts.suggestDishes).toContain('`new`: `null` för en vara som står under "Lagret:"');
+    for (const old of ["originalText", "isVague", "hint"]) expect(prompts.suggestDishes).not.toContain(old);
+  });
+
+  it("asks for the compact schema and gives an unknown section in new another try (Story 12.3)", async () => {
+    const godis = { ...three[1], ingredients: [{ ...validCompactDish.ingredients[1], new: { section: "Godis", location: "Skafferi", defaultUnit: "st" } }] };
+    const model = fakeModel(answer([three[0], godis, three[2]]), answer());
+    const result = await createModelAiService({ model }, limits).suggestDishes(input, signal());
+    expect(result).toEqual({ ok: true, data: recipes });
+    expect(model.doGenerateCalls).toHaveLength(2);
+    expect(JSON.stringify(model.doGenerateCalls[1].prompt.at(-1)?.content)).toContain("suggestions.1.ingredients.0.new.section");
+    const format = model.doGenerateCalls[0].responseFormat as { schema?: unknown };
+    const line = JSON.stringify(format.schema);
+    expect(line).toContain('"new"');
+    expect(line).not.toContain('"isVague"');
+  });
+
   it("leaves out Föreslå inte when there are no titles to avoid", async () => {
     const model = fakeModel(answer());
     await createModelAiService({ model }, limits).suggestDishes({ ...input, avoidTitles: [] }, signal());
@@ -279,7 +307,7 @@ describe("suggestDishes on a model", () => {
   it("tries again after an invalid answer, telling the model what was wrong, and returns the next valid one", async () => {
     const model = fakeModel(answer(three.slice(0, 2)), answer());
     const result = await createModelAiService({ model }, limits).suggestDishes(input, signal());
-    expect(result).toEqual({ ok: true, data: three });
+    expect(result).toEqual({ ok: true, data: recipes });
     expect(model.doGenerateCalls).toHaveLength(2);
     const feedback = model.doGenerateCalls[1].prompt.at(-1);
     expect(feedback?.role).toBe("user");
@@ -287,7 +315,7 @@ describe("suggestDishes on a model", () => {
   });
 
   it("gives ai_invalid after three invalid answers: too few, a title twice, a step that does not exist", async () => {
-    const badStep = { ...three[2], ingredients: [{ ...validRecipe.ingredients[0], stepIndexes: [9] }] };
+    const badStep = { ...three[2], ingredients: [{ ...validCompactDish.ingredients[0], stepIndexes: [9] }] };
     const model = fakeModel(
       answer(three.slice(0, 2)),
       answer([three[0], three[1], dish("pannkakor")]),

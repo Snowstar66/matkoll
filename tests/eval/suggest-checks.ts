@@ -55,3 +55,44 @@ export function checkSuggestions(
   }
   return checks;
 }
+
+/** Story 12.3: what a model's answer text looks like, beside the checks. */
+export type AnswerShape = {
+  /** The compact answer (lines with `name` and no `hint`), not the full AiRecipe. */
+  compact: boolean;
+  /** Indented or on several lines, which costs tokens. */
+  indented: boolean;
+  lines: number;
+  /** Lines with a catalog entry in `new`. */
+  linesWithNew: number;
+  /** Names of lines without `new` that are not a pantry item's name: a new catalog item under Övrigt. */
+  unmatchedWithoutNew: string[];
+};
+
+type RawLine = { name?: unknown; hint?: unknown; new?: unknown };
+
+/** The shape of an answer text, or null when it is not JSON with suggestions. Reads only; never checks the answer. */
+export function answerShape(content: string | undefined, input: SuggestDishesInput): AnswerShape | null {
+  if (!content) return null;
+  let parsed: unknown;
+  try {
+    parsed = JSON.parse(content);
+  } catch {
+    return null;
+  }
+  const suggestions = (parsed as { suggestions?: unknown } | null)?.suggestions;
+  if (!Array.isArray(suggestions)) return null;
+  const lines = suggestions.flatMap((dish: { ingredients?: unknown }) =>
+    Array.isArray(dish?.ingredients) ? (dish.ingredients as RawLine[]) : [],
+  );
+  const compact = lines.length > 0 && lines.every((line) => typeof line === "object" && line !== null && "name" in line && !("hint" in line));
+  const pantry = new Set(input.pantry.map((item) => normalize(item.name)));
+  const withoutNew = compact ? lines.filter((line) => line.new === null || line.new === undefined) : [];
+  return {
+    compact,
+    indented: /\n/.test(content.trim()),
+    lines: lines.length,
+    linesWithNew: compact ? lines.length - withoutNew.length : 0,
+    unmatchedWithoutNew: withoutNew.map((line) => String(line.name)).filter((name) => !pantry.has(normalize(name))),
+  };
+}

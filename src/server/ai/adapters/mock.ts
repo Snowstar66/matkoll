@@ -10,10 +10,11 @@ import {
   locateItemsAnswer,
   parseAnalyzeItems,
   parseItemPositions,
-  suggestDishesAnswer,
+  suggestDishesAnswerCompact,
   type AiRecipe,
   type LocateItemsAnswer,
 } from "../schemas";
+import { fromCompactDish } from "../compact-dish";
 import type { AiService, AnalyzeImageResult, ParseRecipeInput, SuggestDishesInput } from "../service";
 
 // Deterministic stand-in for a model, used in all tests and in CI (AD-9). It
@@ -25,7 +26,9 @@ import type { AiService, AnalyzeImageResult, ParseRecipeInput, SuggestDishesInpu
 // inputs in manifest.json make the mock fail with an error code, so the import
 // flow's error messages can be tested end to end; reserved images do the same
 // for a photo. suggestDishes answers the three recipes in
-// <suggest>.response.json, whatever is at home, or the first set in
+// <suggest>.response.json, whatever is at home, written as a model answers
+// them (the compact form of Story 12.3) and turned into AiRecipe with the
+// port's own fromCompactDish, or the first set in
 // suggestAlternatives none of whose titles is to be avoided (ai_invalid when
 // every set has one), unless a pantry item's name is one of the reserved
 // inputs for ai_unavailable, ai_invalid or ai_rejected. analyzeImage answers
@@ -147,7 +150,7 @@ function loadSuggestFixtures(dir: string): SuggestFixtures {
   const read = (file: string) => readFileSync(join(dir, file), "utf8");
   const manifest = JSON.parse(read("manifest.json")) as Manifest;
   const sets = [manifest.suggest, ...(manifest.suggestAlternatives ?? [])].map(
-    (name) => suggestDishesAnswer.parse(JSON.parse(read(`${name}.response.json`))).suggestions,
+    (name) => suggestDishesAnswerCompact.parse(JSON.parse(read(`${name}.response.json`))).suggestions.map(fromCompactDish),
   );
   const errors = new Map<string, MockErrorCode>();
   for (const { text, code } of manifest.reserved) {

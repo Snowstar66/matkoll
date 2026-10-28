@@ -113,6 +113,24 @@ describe("installUsageMeter", () => {
     expect(measured.usage.firstCallSeconds).toBeGreaterThanOrEqual(0);
     expect(measured.seconds).toBeGreaterThanOrEqual(0);
   });
+
+  it("keeps the answer texts of the measured chat completions, for the evaluation's own checks (Story 12.3)", async () => {
+    let call = 0;
+    globalThis.fetch = vi.fn(async () => {
+      call++;
+      const body = { choices: [{ message: { content: `svar ${call}` } }], usage: { completion_tokens: 10 } };
+      return new Response(JSON.stringify(body), { headers: { "content-type": "application/json" } });
+    }) as typeof fetch;
+    const meter = installUsageMeter();
+
+    await fetch("http://localhost:1234/v1/chat/completions");
+    const measured = await meter.measure(async () => {
+      await fetch("http://localhost:1234/v1/chat/completions");
+      await fetch("http://localhost:1234/v1/chat/completions");
+    });
+    expect(measured.contents).toEqual(["svar 2", "svar 3"]);
+    expect((await meter.measure(async () => {})).contents).toEqual([]);
+  });
 });
 
 describe("summarize", () => {

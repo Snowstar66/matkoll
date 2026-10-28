@@ -4,7 +4,8 @@ import type { IngredientMatch, MatchItem } from "@/features/catalog";
 import type { PantrySnapshot, PantryStock } from "@/features/pantry";
 import { fail, ok } from "@/lib/errors";
 import { createMockAiService } from "@/server/ai/adapters/mock";
-import { suggestDishesAnswer } from "@/server/ai/schemas";
+import { fromCompactDish } from "@/server/ai/compact-dish";
+import { suggestDishesAnswerCompact } from "@/server/ai/schemas";
 import { isValidSuggestDishesInput, withInputValidation, type SuggestDishesInput, type SuggestDishesOptions } from "@/server/ai/service";
 import { toSuggestInput } from "../domain/pantry-input";
 
@@ -57,9 +58,9 @@ vi.mock("@/server/ai", () => ({ getAiService: () => ({ suggestDishes }) }));
 
 const { suggestFromPantry, postModelMarginMs } = await import("./suggest-from-pantry");
 
-const fixture = suggestDishesAnswer.parse(
+const fixture = suggestDishesAnswerCompact.parse(
   JSON.parse(readFileSync(new URL("../../../../tests/fixtures/ai/suggest-dishes.response.json", import.meta.url), "utf8")),
-).suggestions;
+).suggestions.map(fromCompactDish);
 const lineCount = fixture.reduce((sum, recipe) => sum + recipe.ingredients.length, 0);
 
 const id = (n: number) => `6f1c1b7e-3c1a-4c55-9a59-0f3f2b8f2a0${n}`;

@@ -119,6 +119,8 @@ Det fanns 37–52 % fritt minne före de kalla anropen, så det är inte brist p
 
 Det som gör skillnad är i appen: väckningen (12.2), kortare AI-förslag (12.3) och ett jobb i taget (12.4).
 
+**Kortare AI-förslag (12.3):** modellen svarar nu med en kortare form av rätterna. Varje receptrad har bara text, mängd, enhet, namn och stegen, och avdelning, plats och enhet för katalogen (`new`) bara för en vara som inte finns i lagret. Räknat med Qwen3.6:s egen tokeniserare (`tokenizer.json` i LM Studios modellmapp) på mockens svar blir tre rätter på en rad 1 073 token i stället för 1 616 (33 % färre), och 905 i stället för 1 274 för "andra rätter" (29 % färre, med en rad mer). Om varje rad har `new` blir det 1 455 token (10 % färre). Indraget JSON kostar ungefär 80 % mer (2 947 token för det gamla svaret); 12.1:s svar på 1 470–2 130 token talar för att modellen redan skriver på en rad, och prompten ber om det. Vid 44 token per sekund är det 12 s kortare än förut, ungefär 34 s i stället för 46 s i median varmt. Taket för svaret sänktes från 4 000 till 3 000 token. Mätningen mot LM Studio är flyttad till Epic 12-mätningen, som görs en gång när epicen är klar: `EVAL_LABEL=epic-12-varm EVAL_RUNS=3 AI_PROVIDER=lmstudio pnpm eval:ai tests/eval/suggest-dishes.eval.ts`. `tests/eval/suggest-report.md` visar då också token ut per anrop, rader ur lagret per förslag, om svaret var indraget och vilka rader utan `new` som inte fanns i lagret.
+
 ## 6. Så ställer du in LM Studio
 
 Kontrollera vad som är laddat:
