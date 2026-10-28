@@ -2,7 +2,6 @@ import { after } from "next/server";
 import { z } from "zod";
 import { requireUserForRoute } from "@/features/auth/server";
 import { getAiJobActivity } from "@/features/ai-jobs/server";
-import { hasAiRunOnItsWay } from "@/features/pantry/server";
 import { fail } from "@/lib/errors";
 import { getAiService, warmUpKinds, type WarmUpKind, type WarmUpResult } from "@/server/ai";
 import { claimWarmUp, warmIntervalMs } from "@/server/ai/warm-limit";
@@ -18,12 +17,11 @@ import { isCrossSite, mediaTypeOf, readCapped, respond, unreadBody } from "../ro
 // No warm-up while an AI call of the user's is on its way, asked again just
 // before the model is called, so a real call never waits behind it: an AI job
 // that is queued or running (read from ai_job, so it holds across server
-// instances, Story 12.4), or an analysis or a lookup of the numbers in this
-// server process (until Story 12.5 makes them jobs). Nor within the limit per
-// user and model: the AI jobs started or finished within it (ai_job again),
-// and the limit in src/server/ai/warm-limit.ts, which keeps the warm-ups
-// themselves and the analyses; that one is best effort, since it lives in
-// this server process. Logged only as `ai_warm` with the kind, the outcome,
+// instances; every AI call is a job since Story 12.5). Nor within the limit
+// per user and model: the AI jobs started or finished within it (ai_job
+// again), and the limit in src/server/ai/warm-limit.ts, which keeps the
+// warm-ups themselves; that one is best effort, since it lives in this
+// server process. Logged only as `ai_warm` with the kind, the outcome,
 // its reason and the time, never with a prompt or an answer.
 
 // The warm-up has at most 50 s (warmUpLimits); this leaves room around it.
@@ -51,9 +49,8 @@ function jobActivity() {
   return getAiJobActivity(new Date(Date.now() - warmIntervalMs));
 }
 
-/** True while a real AI call of the user's is on its way: a job, or an analysis in this server process. */
-async function isBusy(userId: string): Promise<boolean> {
-  if (hasAiRunOnItsWay(userId)) return true;
+/** True while a real AI call of the user's is on its way: a job that is queued or running. */
+async function isBusy(): Promise<boolean> {
   const activity = await jobActivity();
   return activity === null || activity.active;
 }
@@ -93,10 +90,6 @@ export async function POST(request: Request): Promise<Response> {
     return accepted;
   }
   // A call on its way is checked first, so it never uses up the limit.
-  if (hasAiRunOnItsWay(userId)) {
-    logWarm(kind, { outcome: "skipped", reason: "busy" }, 0);
-    return accepted;
-  }
   const activity = await jobActivity();
   if (activity === null || activity.active) {
     logWarm(kind, { outcome: "skipped", reason: "busy" }, 0);
@@ -113,7 +106,7 @@ export async function POST(request: Request): Promise<Response> {
     let result: WarmUpResult;
     try {
       result = await getAiService().warmUp(kind, AbortSignal.timeout(warmUpDeadlineMs), {
-        isBusy: () => isBusy(userId),
+        isBusy,
       });
     } catch {
       result = { outcome: "unavailable", reason: "connection" };

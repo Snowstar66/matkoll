@@ -117,7 +117,7 @@ async function photograph(page: Page, button: string) {
 
 async function photographFridge(page: Page) {
   await page.goto("/hemma");
-  await expect(placeCard(page, "Kyl")).toHaveText(/^Kyl\s*5 varor$/);
+  await expect(placeCard(page, "Kyl")).toHaveText(/^Kyl\s*5 varor(\s?Förslag klara)?$/);
   await photograph(page, "Fotografera kylen");
   await expect(section(page).getByRole("heading", { level: 2, name: "Lagerförslag från kylen" })).toBeVisible();
 }
@@ -175,7 +175,7 @@ test("Bekräfta alla adds, changes and removes in one go, and Ångra puts back t
   await expect(toast(page)).toContainText("Kylen är uppdaterad: 3 nya, 1 ändrad och 2 borttagna.");
   await expect(section(page)).toHaveCount(0);
   await expect(camera(page).getByRole("button", { name: "Fotografera kylen" })).toBeFocused();
-  await expect(placeCard(page, "Kyl")).toHaveText(/^Kyl\s*6 varor$/);
+  await expect(placeCard(page, "Kyl")).toHaveText(/^Kyl\s*6 varor(\s?Förslag klara)?$/);
   await expect.poll(() => rowNames(page)).toEqual(["Gurka", "Grädde", "Mjölk", "Smör", "Ägg", "Ketchup"]);
   await expect(page.getByText("Yoghurt").filter({ visible: true })).toHaveCount(0);
   const after = await pantry();
@@ -192,7 +192,7 @@ test("Bekräfta alla adds, changes and removes in one go, and Ångra puts back t
 
   // The undo puts back the removals only, and says so.
   await toast(page).getByRole("button", { name: "Ångra borttagning" }).click();
-  await expect(placeCard(page, "Kyl")).toHaveText(/^Kyl\s*8 varor$/);
+  await expect(placeCard(page, "Kyl")).toHaveText(/^Kyl\s*8 varor(\s?Förslag klara)?$/);
   await expect(group(page, "Syns inte längre")).toHaveText(["Senap", "Yoghurt"]);
   await expect
     .poll(() => rowNames(page))
@@ -211,11 +211,11 @@ test("Ta bort removes one item at once, and Ångra puts the row back with the sa
   await section(page).getByRole("button", { name: "Ta bort Yoghurt" }).click();
   await expect(toast(page)).toContainText("Yoghurt är borttagen.");
   await expect(group(page, "Syns inte längre")).toHaveText(["Senap"]);
-  await expect(placeCard(page, "Kyl")).toHaveText(/^Kyl\s*4 varor$/);
+  await expect(placeCard(page, "Kyl")).toHaveText(/^Kyl\s*4 varor(\s?Förslag klara)?$/);
   expect((await pantry()).some((row) => row.name === "Yoghurt")).toBe(false);
 
   await toast(page).getByRole("button", { name: "Ångra" }).click();
-  await expect(placeCard(page, "Kyl")).toHaveText(/^Kyl\s*5 varor$/);
+  await expect(placeCard(page, "Kyl")).toHaveText(/^Kyl\s*5 varor(\s?Förslag klara)?$/);
   await expect(rows(page).filter({ hasText: /^Yoghurt / })).toHaveCount(1);
   // The card is back too, while the suggestions are the same.
   await expect(group(page, "Syns inte längre")).toHaveText(["Senap", "Yoghurt"]);
@@ -225,7 +225,7 @@ test("Ta bort removes one item at once, and Ångra puts the row back with the sa
 
 test("a photo of the empty freezer gives the plain list, without groups", async ({ page }) => {
   await page.goto("/hemma?plats=frys");
-  await expect(placeCard(page, "Frys")).toHaveText(/^Frys\s*0 varor$/);
+  await expect(placeCard(page, "Frys")).toHaveText(/^Frys\s*0 varor(\s?Förslag klara)?$/);
   await photograph(page, "Fotografera frysen");
   await expect(section(page).getByRole("heading", { level: 2, name: "Lagerförslag från frysen" })).toBeVisible();
   await expect(section(page).getByTestId("pantry-suggestion").getByRole("heading", { level: 3 })).toHaveText(cardTitles([

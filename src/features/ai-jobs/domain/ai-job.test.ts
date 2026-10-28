@@ -125,6 +125,13 @@ describe("toAiJobs", () => {
   it("gives no count for a job that is not done", () => {
     expect(toAiJobs([row({ status: "running", result: { suggestions: [1] } })], now)[0].count).toBeNull();
   });
+
+  it("counts the suggestions of a photo's job as soon as its reading is there, before it is done (Story 12.5)", () => {
+    const running = row({ kind: "analyze", status: "running", result: { suggestions: [1, 2], points: null } });
+    expect(toAiJobs([running], now)[0].count).toBe(2);
+    expect(toAiJobs([row({ kind: "analyze", status: "running", result: null })], now)[0].count).toBeNull();
+    expect(toAiJobs([{ ...running, status: "done" }], now)[0].count).toBe(2);
+  });
 });
 
 describe("resultTitle (Story 12.6)", () => {

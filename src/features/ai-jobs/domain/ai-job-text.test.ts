@@ -81,6 +81,9 @@ describe("the words of AI jobs", () => {
     expect(resultHref("suggest")).toBe("/recept");
     expect(resultHref("import")).toBe("/recept");
     expect(resultHref("analyze")).toBe("/hemma");
+    // Story 12.5: a photo's result opens Lagersaldo on the photo's location.
+    expect(resultHref("analyze", { location: "Frys", siteId: null })).toBe("/hemma?plats=frys");
+    expect(resultHref("analyze", { location: "Okand" })).toBe("/hemma");
   });
 });
 

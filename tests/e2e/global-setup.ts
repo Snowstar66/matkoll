@@ -10,6 +10,8 @@ import {
   aiImportStorageState,
   aiJobsEmail,
   aiJobsStorageState,
+  aiPhotoEmail,
+  aiPhotoStorageState,
   aiWarmEmail,
   aiWarmStorageState,
   basketExportEmail,
@@ -146,6 +148,7 @@ export default async function globalSetup(config: FullConfig) {
       [photoViewEmail, photoViewStorageState],
       [aiWarmEmail, aiWarmStorageState],
       [aiJobsEmail, aiJobsStorageState],
+      [aiPhotoEmail, aiPhotoStorageState],
       [aiImportEmail, aiImportStorageState],
     ] as const) {
       const user = await browser.newContext({ baseURL });

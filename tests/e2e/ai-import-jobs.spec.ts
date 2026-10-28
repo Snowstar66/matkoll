@@ -144,7 +144,7 @@ test("the job row names the site while a link is read, and a site that refuses i
   await closeSheet(page);
   await expect(jobRow(page)).toHaveText("AI: Läser receptet från koket.se");
 
-  await expect(toast(page)).toHaveText("Det gick inte att läsa receptet.", jobTime);
+  await expect(toast(page)).toContainText("Det gick inte att läsa receptet.", jobTime);
   await toast(page).getByRole("button", { name: "Visa" }).click();
   await expect(sheet(page).getByRole("alert")).toContainText("koket.se släppte inte in oss.");
   await expect(sheet(page).getByRole("button", { name: "Klistra in text i stället" })).toBeVisible();

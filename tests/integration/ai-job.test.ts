@@ -310,6 +310,26 @@ describe("enqueue_ai_job", () => {
     expect(await claimAiJobIn(user.db, next.job.id, inFuture(130))).toEqual({ outcome: "claimed", position: 0 });
   });
 
+  it("never lets a partial result outlive a job that was lost", async () => {
+    const user = await createTestUser("ai-lost-partial");
+    const running = await enqueueImport(user);
+    await claimAiJobIn(user.db, running.job.id, inFuture(130));
+    expect(await setAiJobResultIn(user.db, running.job.id, { partial: 1 })).toBe(true);
+    await expire(running.job.id);
+    await enqueueImport(user);
+    expect(await statusOf(running.job.id)).toMatchObject({ status: "failed", error_code: "ai_job_lost", result: null });
+  });
+
+  it("gives a queued job a margin of about 10 seconds past its start deadline, so the route's own timeout comes first", async () => {
+    const user = await createTestUser("ai-margin");
+    const deadline = inFuture(60);
+    const outcome = await enqueueAiJobIn(user.db, { kind: "import", clientKey: randomUUID(), context: { source: "text" }, queueDeadline: deadline });
+    if (outcome.kind !== "queued") throw new Error("the queue was full");
+    const margin = Date.parse(outcome.job.expires_at) - deadline.getTime();
+    expect(margin).toBeGreaterThanOrEqual(9_000);
+    expect(margin).toBeLessThanOrEqual(11_000);
+  });
+
   it("removes finished jobs older than 24 hours, whether they were closed or not, and keeps younger ones and active ones", async () => {
     const user = await createTestUser("ai-old");
     const old = await enqueueImport(user);

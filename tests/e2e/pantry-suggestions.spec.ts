@@ -99,7 +99,7 @@ const toast = (page: Page) => page.getByTestId("toast");
 
 async function photographFridge(page: Page) {
   await page.goto("/hemma");
-  await expect(kylCard(page)).toHaveText(/^Kyl\s*2 varor$/);
+  await expect(kylCard(page)).toHaveText(/^Kyl\s*2 varor(\s?Förslag klara)?$/);
   const chooser = page.waitForEvent("filechooser");
   await cameraButton(page).click();
   await (await chooser).setFiles(kyl);
@@ -108,7 +108,7 @@ async function photographFridge(page: Page) {
 
 async function photographPantry(page: Page) {
   await page.goto("/hemma?plats=skafferi");
-  await expect(skafferiCard(page)).toHaveText(/^Skafferi\s*0 varor$/);
+  await expect(skafferiCard(page)).toHaveText(/^Skafferi\s*0 varor(\s?Förslag klara)?$/);
   const chooser = page.waitForEvent("filechooser");
   await camera(page).getByRole("button", { name: "Fotografera skafferiet" }).click();
   await (await chooser).setFiles(kyl);
@@ -145,7 +145,7 @@ test("confirm, correct, reject and Bekräfta alla save only what Pontus confirme
   // mjölk was the last card: focus goes to the one before it.
   await expect(section(page).getByRole("button", { name: "Bekräfta Ägg" })).toBeFocused();
   await expect(rows(page).filter({ hasText: /^Mjölk / })).toHaveCount(1);
-  await expect(kylCard(page)).toHaveText(/^Kyl\s*2 varor$/);
+  await expect(kylCard(page)).toHaveText(/^Kyl\s*2 varor(\s?Förslag klara)?$/);
 
   // Rätta grädde: the sheet filled in; another new ingredient, 2 dl, and Bekräfta.
   await section(page).getByRole("button", { name: "Rätta Grädde" }).click();
@@ -168,7 +168,7 @@ test("confirm, correct, reject and Bekräfta alla save only what Pontus confirme
   await expect(toast(page)).toHaveText("Matlagningsgrädde är sparad i kylen.");
   await expect(cardNames(page)).toHaveText(cardTitles(["Gurka", "Ketchup", "Ägg"]));
   await expect(rows(page).filter({ hasText: /^Matlagningsgrädde / })).toHaveCount(1);
-  await expect(kylCard(page)).toHaveText(/^Kyl\s*3 varor$/);
+  await expect(kylCard(page)).toHaveText(/^Kyl\s*3 varor(\s?Förslag klara)?$/);
 
   // Avvisa ketchup, Ångra, and Avvisa again: nothing asks the server.
   await section(page).getByRole("button", { name: "Avvisa Ketchup" }).click();
@@ -184,7 +184,7 @@ test("confirm, correct, reject and Bekräfta alla save only what Pontus confirme
   await expect(toast(page)).toHaveText("Kylen är uppdaterad: 2 nya.");
   await expect(section(page)).toHaveCount(0);
   await expect(cameraButton(page)).toBeFocused();
-  await expect(kylCard(page)).toHaveText(/^Kyl\s*5 varor$/);
+  await expect(kylCard(page)).toHaveText(/^Kyl\s*5 varor(\s?Förslag klara)?$/);
   await expect(rows(page).filter({ hasText: /^Smör / })).toHaveCount(1);
 
   expect(await saved()).toEqual({
@@ -216,7 +216,7 @@ test("a confirmation that gets no answer keeps the suggestions with a notice, an
   await section(page).getByRole("button", { name: "Bekräfta alla" }).click();
   await expect(toast(page)).toHaveText("Lagt 4 varor i lagret.");
   await expect(section(page)).toHaveCount(0);
-  await expect(skafferiCard(page)).toHaveText(/^Skafferi\s*4 varor$/);
+  await expect(skafferiCard(page)).toHaveText(/^Skafferi\s*4 varor(\s?Förslag klara)?$/);
   const after = await saved();
   expect(after.catalog.filter((name) => /^(Grädde|Ketchup) /.test(name))).toEqual([]);
   expect(after.pantry).toEqual(

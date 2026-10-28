@@ -2,14 +2,15 @@ import { act, fireEvent, render, screen, waitFor, within } from "@testing-librar
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { ToastProvider } from "@/components/toast";
 import type { Location } from "@/features/catalog";
-import type { AiCallResult } from "@/lib/ai-client";
 import { errorMessages, fail, ok, type Result } from "@/lib/errors";
 import type { AnalyzeResult, PantrySuggestion } from "../domain/pantry-suggestion";
 import { PantryCamera } from "./pantry-camera";
+import { keptPhoto, releaseAllPhotos } from "./photo-store";
 import { PantrySheetProvider } from "./pantry-item-sheet";
 import { PantrySuggestionList } from "./pantry-suggestion-list";
 import { focusAfter, PantrySuggestionsProvider, putBack } from "./pantry-suggestions";
 import type { PhotoPostAnswer } from "./photo-post";
+import { fakeAi } from "../../../../tests/mocks/fake-ai-jobs";
 
 /** The place Hemma shows (Story 8.2). */
 const testSite = { id: "55555555-5555-4555-8555-555555555555" };
@@ -18,24 +19,9 @@ const photoSite = { id: testSite.id, name: "Hemma" };
 
 // The analysis as Hemma holds it (PantrySuggestionsProvider with the camera
 // and the section), with the photo's resizing (downscaleImage) and
-// /api/ai/analyze (postAiForm) stubbed: the client rows of Story 6.1's matrix.
+// /api/ai/jobs/photo (the AI jobs, tests/mocks/fake-ai-jobs.ts) stubbed: the client rows of Story 6.1's matrix.
 
-type Call = {
-  path: string;
-  form: FormData;
-  signal: AbortSignal;
-  answer: (result: AiCallResult<unknown>) => void;
-  reject: (error: unknown) => void;
-};
-let calls: Call[] = [];
-vi.mock("@/lib/ai-client", () => ({
-  postAiForm: (path: string, form: FormData, signal: AbortSignal) =>
-    new Promise<AiCallResult<unknown>>((resolve, reject) => {
-      calls.push({ path, form, signal, answer: resolve, reject });
-      // Like fetch: an aborted call answers { aborted: true }.
-      signal.addEventListener("abort", () => resolve({ ok: false, aborted: true }), { once: true });
-    }),
-}));
+vi.mock("@/lib/ai-jobs-client", async () => (await import("../../../../tests/mocks/fake-ai-jobs")).fakeAiJobsModule);
 
 type Resize = { file: Blob; answer: (result: Result<Blob>) => void; reject: (error: unknown) => void };
 let resizes: Resize[] = [];
@@ -117,25 +103,26 @@ const picker = () => {
 };
 const choose = (file: File = photo()) => fireEvent.change(picker(), { target: { files: [file] } });
 const lastResize = () => resizes[resizes.length - 1];
-const lastCall = () => calls[calls.length - 1];
+const lastCall = () => fakeAi.calls[fakeAi.calls.length - 1];
 const resize = async (result: Result<Blob> = ok(resized())) => {
   await act(async () => lastResize().answer(result));
 };
-const answer = async (result: AiCallResult<unknown>) => {
+const answer = async (result: Result<unknown>) => {
   await act(async () => lastCall().answer(result));
 };
 const cardNames = () => screen.queryAllByTestId("pantry-suggestion").map((card) => within(card).getByRole("heading").textContent);
 const heading = () => screen.queryByRole("heading", { level: 2 });
 
 /** Chooses a photo, resizes it and answers the analysis with `result`. */
-async function analyzeWith(result: AiCallResult<unknown> = ok(fridge)) {
+async function analyzeWith(result: Result<unknown> = ok(fridge)) {
   choose();
   await resize();
   await answer(result);
 }
 
 beforeEach(() => {
-  calls = [];
+  fakeAi.reset();
+  releaseAllPhotos();
   photoPostCalls = [];
   resizes = [];
   refresh.mockReset();
@@ -151,11 +138,11 @@ describe("PantrySuggestionsProvider", () => {
     choose(file);
     expect(lastResize().file).toBe(file);
     // Nothing is sent before the photo is small.
-    expect(calls).toHaveLength(0);
+    expect(fakeAi.calls).toHaveLength(0);
     const small = resized();
     await resize(ok(small));
 
-    expect(lastCall().path).toBe("/api/ai/analyze");
+    expect(lastCall().path).toBe("/api/ai/jobs/photo");
     expect(lastCall().form.get("location")).toBe("Kyl");
     const image = lastCall().form.get("image");
     expect(image).toBeInstanceOf(Blob);
@@ -171,7 +158,7 @@ describe("PantrySuggestionsProvider", () => {
     render(<Hemma />);
     choose();
     await resize(fail("image_unsupported"));
-    expect(calls).toHaveLength(0);
+    expect(fakeAi.calls).toHaveLength(0);
     expect(await screen.findByRole("alert")).toHaveTextContent(errorMessages.image_unsupported);
     expect(screen.queryByRole("button", { name: "Försök igen" })).toBeNull();
     expect(screen.getByRole("button", { name: "Fotografera kylen" })).toBeInTheDocument();
@@ -192,7 +179,7 @@ describe("PantrySuggestionsProvider", () => {
     // Another card meanwhile: the photo is still the fridge's.
     rerender(<Hemma location="Frys" />);
     fireEvent.click(screen.getByRole("button", { name: "Försök igen" }));
-    expect(calls).toHaveLength(2);
+    expect(fakeAi.calls).toHaveLength(2);
     expect(resizes).toHaveLength(1);
     // The kept photo, not a new one: nothing was resized again.
     expect(await (lastCall().form.get("image") as Blob).text()).toBe("small");
@@ -220,7 +207,6 @@ describe("PantrySuggestionsProvider", () => {
     choose();
     await resize();
     fireEvent.click(screen.getByRole("button", { name: "Avbryt" }));
-    expect(lastCall().signal.aborted).toBe(true);
     expect(cardNames()).toEqual(["grädde", "mjölk"]);
     expect(screen.queryByRole("alert")).toBeNull();
 
@@ -236,7 +222,7 @@ describe("PantrySuggestionsProvider", () => {
     choose();
     fireEvent.click(screen.getByRole("button", { name: "Avbryt" }));
     await resize();
-    expect(calls).toHaveLength(0);
+    expect(fakeAi.calls).toHaveLength(0);
     expect(screen.getByRole("button", { name: "Fotografera kylen" })).toBeInTheDocument();
   });
 
@@ -246,9 +232,10 @@ describe("PantrySuggestionsProvider", () => {
     await resize();
     const first = lastCall();
     choose(photo("IMG_2.jpg"));
-    expect(first.signal.aborted).toBe(true);
     await resize();
+    // The server made a job of the first photo too: it is cancelled as soon as it has an id, and never shown (Story 12.5).
     await act(async () => first.answer(ok(freezer)));
+    expect(fakeAi.cancelled).toEqual([first.job.id]);
     await answer(ok(fridge));
     expect(cardNames()).toEqual(["grädde", "mjölk"]);
   });
@@ -300,22 +287,12 @@ describe("PantrySuggestionsProvider", () => {
     expect(screen.getByRole("button", { name: "Utanför" })).toHaveFocus();
   });
 
-  it("shows nothing when a newer analysis of the same person took over (ai_superseded), like Avbryt", async () => {
-    render(<Hemma />);
-    await analyzeWith(ok(fridge));
-    await analyzeWith(fail("ai_superseded"));
-    expect(screen.queryByRole("alert")).toBeNull();
-    expect(screen.queryByRole("button", { name: "Försök igen" })).toBeNull();
-    expect(screen.getByRole("button", { name: "Fotografera kylen" })).toBeInTheDocument();
-    expect(cardNames()).toEqual(["grädde", "mjölk"]);
-  });
-
   it("finishes with image_unsupported when resizing throws, and sends nothing", async () => {
     render(<Hemma />);
     choose();
     await act(async () => lastResize().reject(new Error("decoder crashed")));
     expect(await screen.findByRole("alert")).toHaveTextContent(errorMessages.image_unsupported);
-    expect(calls).toHaveLength(0);
+    expect(fakeAi.calls).toHaveLength(0);
     expect(screen.getByRole("button", { name: "Fotografera kylen" })).toBeInTheDocument();
   });
 
@@ -323,10 +300,10 @@ describe("PantrySuggestionsProvider", () => {
     render(<Hemma />);
     choose();
     await resize();
-    await act(async () => lastCall().reject(new TypeError("boom")));
+    await answer(fail("ai_unavailable"));
     expect(await screen.findByRole("alert")).toHaveTextContent(errorMessages.ai_unavailable);
     fireEvent.click(screen.getByRole("button", { name: "Försök igen" }));
-    expect(calls).toHaveLength(2);
+    expect(fakeAi.calls).toHaveLength(2);
   });
 
   it("keeps the photo only while Försök igen can help: not after Avbryt of a new try", async () => {
@@ -345,12 +322,15 @@ describe("PantrySuggestionsProvider", () => {
     expect(await screen.findByRole("alert")).toHaveTextContent(errorMessages.unauthorized);
   });
 
-  it("stops the analysis when Hemma goes away", async () => {
+  it("keeps the job when Hemma goes away: it runs in the background, and its photo stays in memory (Story 12.5)", async () => {
     const { unmount } = render(<Hemma />);
     choose();
     await resize();
     unmount();
-    expect(lastCall().signal.aborted).toBe(true);
+    const call = lastCall();
+    await act(async () => call.answer(ok(fridge)));
+    expect(fakeAi.cancelled).toEqual([]);
+    expect(keptPhoto(call.job.id)).not.toBeNull();
   });
 });
 
@@ -390,7 +370,7 @@ describe("the photo's place (Story 8.4)", () => {
     expect(lastCall().form.get("site")).toBe(stugan.id);
     await answer(fail("ai_unavailable"));
     fireEvent.click(await screen.findByRole("button", { name: "Försök igen" }));
-    expect(calls).toHaveLength(2);
+    expect(fakeAi.calls).toHaveLength(2);
     expect(lastCall().form.get("site")).toBe(stugan.id);
   });
 
@@ -428,20 +408,6 @@ describe("the photo's place (Story 8.4)", () => {
     expect(await within(screen.getByTestId("pantry-camera")).findByRole("alert")).toHaveTextContent(errorMessages.ai_invalid);
   });
 
-  it("keeps the place it sent when an answer has none (a server of before Story 8.4), and saves there", async () => {
-    confirmPantrySuggestions.mockReset().mockResolvedValue(ok({ count: 1 }));
-    const { rerender } = render(<Hemma shownSite={stugan} />);
-    const withoutSite: Partial<AnalyzeResult> = { ...fridge };
-    delete withoutSite.site;
-    await analyzeWith(ok(withoutSite));
-    expect(cardNames()).toEqual(["grädde", "mjölk"]);
-    rerender(<Hemma shownSite={photoSite} />);
-    expect(screen.getByTestId("pantry-suggestions-site")).toHaveTextContent("Förslagen gäller Stugan.");
-    fireEvent.click(screen.getByRole("button", { name: "Bekräfta grädde" }));
-    await waitFor(() => expect(confirmPantrySuggestions).toHaveBeenCalledTimes(1));
-    expect(confirmPantrySuggestions.mock.calls[0][0]).toMatchObject({ siteId: stugan.id });
-  });
-
   it("drops the suggestions when a confirmation finds their place gone, and says so in the camera area", async () => {
     confirmPantrySuggestions.mockReset().mockResolvedValue(fail("pantry_site_gone"));
     render(<Hemma />);
@@ -457,7 +423,7 @@ describe("Senaste foto (Story 10.1)", () => {
   const stugan = { id: "77777777-7777-4777-8777-777777777777", name: "Stugan" };
   const reading = ["Vispgrädde 3 dl", "Mellanmjölk 1,5 %"];
   const photoPosts = () => photoPostCalls;
-  const analyses = () => calls.filter((call) => call.path === "/api/ai/analyze");
+  const analyses = () => fakeAi.calls.filter((call) => call.path === "/api/ai/jobs/photo");
 
   beforeEach(() => {
     confirmPantrySuggestions.mockReset().mockResolvedValue(ok({ count: 1 }));

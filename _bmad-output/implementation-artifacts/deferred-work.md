@@ -47,6 +47,5 @@
 
 ## Från 12.4 (2026-10-28)
 
-- **Köat jobb går ut för tidigt:** `enqueue_ai_job` sätter `expires_at` = `startBy`, så `ai_queue_timeout` kan förlora mot `ai_job_lost`, och texten blir "avbröts" i stället för "hann inte börja". Ge köade jobb en marginal på cirka 10 s, i en ny migrering.
 - **Överlapp efter avbrott:** `cancel_ai_job` och `dismiss_ai_job` frigör platsen innan det gamla LM Studio-anropet har slutat (upp till cirka 3 s, `guardPollMs`). Godta det eller förkorta pollen.
 - **Tung lista:** `loadShownAiJobsIn` läser in hela `result` (upp till 256 KB) varannan sekund bara för att räkna förslagen. Räkna med `jsonb_array_length` i databasen.
