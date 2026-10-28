@@ -233,12 +233,6 @@ export const aiPhotoEmail = "e2e-ai-foto@matkoll.test";
  */
 export const aiImportEmail = "e2e-ai-import@matkoll.test";
 /**
- * The E2E user of ai-stream.spec.ts alone (the first dish at once, Story
- * 12.7): each test empties its AI jobs, recipes and pantry and seeds its
- * catalog with the service role.
- */
-export const aiStreamEmail = "e2e-ai-strom@matkoll.test";
-/**
  * The E2E user of offers-link.spec.ts alone (Veckans erbjudanden från
  * butikens länk, Story 9.1): before each test its offers are removed and its
  * store's link is set to a saved offer page, with the service role.
@@ -284,7 +278,6 @@ export const e2eEmails = [
   aiJobsEmail,
   aiPhotoEmail,
   aiImportEmail,
-  aiStreamEmail,
   offersLinkEmail,
 ] as const;
 /** A real Supabase user whose address is not in ALLOWED_EMAILS. */
@@ -326,7 +319,6 @@ export const aiWarmStorageState = "tests/e2e/.auth/ai-warm.json";
 export const aiJobsStorageState = "tests/e2e/.auth/ai-jobs.json";
 export const aiPhotoStorageState = "tests/e2e/.auth/ai-photo.json";
 export const aiImportStorageState = "tests/e2e/.auth/ai-import.json";
-export const aiStreamStorageState = "tests/e2e/.auth/ai-stream.json";
 export const offersLinkStorageState = "tests/e2e/.auth/offers-link.json";
 export const outsiderStorageState = "tests/e2e/.auth/outsider.json";
 

@@ -300,26 +300,6 @@ export function createMockAiService(dir: string = defaultFixturesDir, { delayMs 
       const set = current.sets.find((recipes) => recipes.every((recipe) => !avoided.has(normalizeTitle(recipe.title))));
       return set ? ok(structuredClone(set)) : fail("ai_invalid");
     },
-    async suggestDishesStream(input, signal, { onDish }) {
-      const current = logged(suggestFixtures());
-      if (!current) return fail("ai_unavailable");
-      const code = suggestErrorFor(input, current.errors);
-      if (code) {
-        if (!(await wait(Math.min(Math.max(delayMs, 0), maxMockDelayMs), signal))) return fail("ai_unavailable");
-        return fail(code);
-      }
-      const avoided = new Set(input.avoidTitles.map(normalizeTitle));
-      const set = current.sets.find((recipes) => recipes.every((recipe) => !avoided.has(normalizeTitle(recipe.title))));
-      if (!set) return fail("ai_invalid");
-      // Story 12.7: the dishes come one at a time, the delay spread evenly over them, so the whole takes as long as suggestDishes.
-      const each = Math.min(Math.max(delayMs, 0), maxMockDelayMs) / set.length;
-      let kept = 0;
-      for (const [index, recipe] of set.entries()) {
-        if (!(await wait(each, signal))) return fail("ai_unavailable");
-        if (await onDish(structuredClone(recipe), index)) kept += 1;
-      }
-      return kept > 0 ? ok(kept) : fail("ai_invalid");
-    },
     async analyzeImage(input, signal) {
       if (signal.aborted) return fail("ai_unavailable");
       const current = logged(analyzeFixtures());

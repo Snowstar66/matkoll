@@ -2,7 +2,7 @@
 title: 'Story 12.7: Första rätten direkt'
 type: 'feature'
 created: '2026-10-26'
-status: 'in-progress'
+status: 'done'
 baseline_commit: 'ce988c8'
 route: 'dispatch'
 context:
@@ -102,6 +102,11 @@ context:
 - Mocken ger sina rätter en i taget med `AI_MOCK_DELAY_MS` jämnt fördelad över dem (3 s ger 1 s mellan rätterna), så helheten tar lika lång tid som förut.
 - Avvikelse: en rätt som sparas tidigt öppnar receptet, och då försvinner bibliotekets tillstånd; när Pontus kommer tillbaka visas jobbets hela resultat, också den sparade rätten. Ligger kvar tills vidare, som för titlar att undvika.
 - `pnpm test:integration` kördes inte: inga tabeller, funktioner eller Server Actions ändrades. Ingen migration.
+
+## Utfall
+
+- **Strömningen dragen tillbaka efter provet (2026-10-29).** `stream-probe.eval.ts` gav domen "STOP: ingen strömning" (`docs/lm-studio.md`, "Slutmätning Epic 12"). Första rätten kom efter 69, 42 och 43 % av tiden, men det strömmade svaret var ogiltigt i två av tre körningar. `generateText` var giltigt i alla tre (25,6, 29,6 och 25,6 s). T9 är stängd.
+- Bygget är återtaget i `epic12-wrapup` (revert av `79cd282`): AI-förslagen går tillbaka till jobbvägen med `generateText` från 12.4 och visas alla på en gång. Provet `tests/eval/stream-probe.eval.ts` ligger kvar och kan köras om om modellen eller AI SDK byts.
 
 ## Spec Change Log
 

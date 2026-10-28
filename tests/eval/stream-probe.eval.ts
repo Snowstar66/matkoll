@@ -37,6 +37,8 @@ const target = createLmStudioTarget({
 const fixtures = join(process.cwd(), "tests", "fixtures", "ai");
 const manifest = JSON.parse(readFileSync(join(fixtures, "manifest.json"), "utf8")) as { suggest: string };
 const input = JSON.parse(readFileSync(join(fixtures, `${manifest.suggest}.pantry.json`), "utf8")) as SuggestDishesInput;
+// The streamed array is asked for as { "elements": [ … ] } (the prompt of the withdrawn 12.7 build).
+const streamPrompt = prompts.suggestDishes.replace('{ "suggestions": [ … ] }', '{ "elements": [ … ] }');
 const messages = [{ role: "user" as const, content: suggestDishesContent(input) }];
 
 type Run = { firstMs: number | null; elementsMs: number[]; endMs: number; elements: number; valid: boolean };
@@ -46,7 +48,7 @@ async function streamed(): Promise<Run> {
   const elementsMs: number[] = [];
   const result = streamText({
     model: target.model,
-    system: prompts.suggestDishesStream,
+    system: streamPrompt,
     messages,
     output: Output.array({ element: compactDish, minItems: 1, maxItems: 3 }),
     providerOptions: target.providerOptions,
@@ -74,7 +76,7 @@ async function whole(): Promise<{ endMs: number; valid: boolean }> {
   try {
     await generateText({
       model: target.model,
-      system: prompts.suggestDishesStream,
+      system: streamPrompt,
       messages,
       output: Output.array({ element: compactDish, minItems: 1, maxItems: 3 }),
       providerOptions: target.providerOptions,

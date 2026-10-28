@@ -134,7 +134,7 @@ export function toAiJobs(rows: readonly AiJobRow[], now: number): AiJob[] {
         seen: row.seen_at !== null,
         ahead: status === "queued" ? (aheadOf.get(row.id) ?? 0) : 0,
         // A running job has a result only when it gave a partial one (Story 12.5: the cards of a photo before its numbers).
-        count: status === "done" || (status === "running" && (row.kind === "analyze" || row.kind === "suggest")) ? resultCount(row.kind, row.result) : null,
+        count: status === "done" || (status === "running" && row.kind === "analyze") ? resultCount(row.kind, row.result) : null,
         // Only an import has a title; other jobs look as before.
         ...(status === "done" && row.kind === "import" ? { title: resultTitle(row.kind, row.result) } : {}),
       };

@@ -166,3 +166,37 @@ Låt modellen vila minst 5 minuter före varje körning. `EVAL_WARM_FLOW=bild` e
 ```bash
 EVAL_RUNS=3 AI_PROVIDER=lmstudio pnpm eval:ai tests/eval/stream-probe.eval.ts
 ```
+
+## 8. Slutmätning Epic 12 (2026-10-29)
+
+**Upplägg:** commit `08855d5` med Story 12.1-12.7 sammanslagna i `epic/12-asynkron-ai`. LM Studio `qwen/qwen3.6-35b-a3b`, körd 2026-10-29 mellan 00:00 och 00:33, med `EVAL_RUNS=3` och varm modell.
+
+**12.3, kortare svar för AI-förslag** (`EVAL_LABEL=epic-12-varm`, sex anrop: tre "lagret" och tre "andra rätter"):
+
+| Mått | Före (12.1) | Nu | Mål | Utfall |
+|---|---|---|---|---|
+| Tid, median | 45,9 s | 33,2 s | högst 40 s | Godkänd |
+| Token ut, giltigt enstaka försök | 1 800-2 000 | 1 289, 1 534, 1 357, 1 303 | minst 25 % färre | Gränsfall, ungefär 25-30 % färre |
+| Giltiga anrop till slut | 26 av 33 försök | 6 av 6 | inte färre | Godkänd |
+| Giltiga försök | 26 av 33 | 6 av 9 | | Sämre |
+
+- Tiderna var 29,8, 35,2, 92,6, 31,2, 39,6 och 29,9 s.
+- Inget försök kapades vid taket. Största försöket var 2 169 token, så taket 3 000 står kvar.
+- Tre av nio försök var ogiltiga och krävde nytt försök. "lagret" körning 2 behövde tre försök (499 + 2 169 + 1 358 token, 92,6 s) och körning 3 två (411 + 1 294). De korta ogiltiga försöken (omkring 400-500 token) tyder på att svaret avvisas av schemat, kanske de strikta uppräkningarna i `new`. Orsaken är inte analyserad.
+- Rader utan `new` som inte fanns i lagret: bara "salt och svartpeppar" (tre rader i körning 3).
+
+**12.2, väckningen** (kall efter ungefär 2,5 timmars vila, sedan 17 minuters vila):
+
+- Första bildanalysen: 92,4 s utan väckning och 31,7 s med, 66 % snabbare (mål minst 20 %). Godkänd.
+- Förslagsjämförelsen är inte avgörande. Utan väckning tog den 36,3 s, men den kördes direkt efter bildanropet och modellen var redan varm. Med väckning tog den 101,4 s på grund av nya försök (4 185 token ut), inte en kall modell.
+- Slutsats: väckningen blir kvar.
+
+**12.7, strömprovet** (`stream-probe.eval.ts`, tre körningar): domen blev "STOP: ingen strömning".
+
+| Körning | Första rätten | Strömmat svar | `generateText` |
+|---|---|---|---|
+| 1 | 18,7 s av 27,1 s (69 %) | OGILTIGT | giltigt, 25,6 s |
+| 2 | 10,0 s av 23,6 s (42 %) | OGILTIGT | giltigt, 29,6 s |
+| 3 | 12,1 s av 28,3 s (43 %) | giltigt | giltigt, 25,6 s |
+
+Första rätten kommer efter ungefär 40-70 % av tiden, men det strömmade svaret är för ofta ogiltigt. Strömningen drogs tillbaka som planerat och T9 är stängd. Provet kan köras om med `stream-probe.eval.ts` om modellen eller AI SDK byts.

@@ -3,7 +3,6 @@
 import { useRouter } from "next/navigation";
 import { useEffect, useMemo, useRef, useState } from "react";
 import { dishSuggestionsSchema, toAvoidTitles, type DishSuggestion } from "@/features/suggestions";
-import { normalizeTitle } from "@/lib/suggest-input";
 import { type AiJob, isActive } from "@/lib/ai-job-shape";
 import { useAiJobs, useShowingAiResults } from "@/lib/ai-jobs-client";
 import { fail, isErrorCode, type AppError } from "@/lib/errors";
@@ -27,10 +26,6 @@ export type ShownSuggestion = DishSuggestion & { key: number; recipeId: string }
 export type DishSuggestionsState = {
   /** The suggestions as they are, also when they are of another place (see `stale`). */
   suggestions: ShownSuggestion[];
-  /** Story 12.7: how many suggestions of the running job have come (they are in `suggestions`); 0 when none. */
-  arrived: number;
-  /** Story 12.7: "Ny rätt: Pasta med svamp." for the dishes that have just come, for the live region; otherwise null. */
-  announcement: string | null;
   /** A job is being started, waits in the queue or runs. */
   loading: boolean;
   /** While the job waits behind others: "I kö, 1 före."; otherwise null. */
@@ -94,12 +89,6 @@ export function useDishSuggestions(
     siteId: null,
     jobId: null,
   });
-  /** Story 12.7: the dishes of the running job that have come, shown after the earlier ones until the job is done. */
-  const [partial, setPartial] = useState<{ jobId: string; suggestions: ShownSuggestion[] } | null>(null);
-  const [announcement, setAnnouncement] = useState<string | null>(null);
-  /** Titles of this job's dishes that were saved before it was done, so the whole result does not bring them back. */
-  const savedEarly = useRef(new Set<string>());
-  const fetchedCount = useRef(0);
   const [starting, setStarting] = useState(false);
   const [error, setError] = useState<AppError | null>(null);
   const [arrivals, setArrivals] = useState(0);
@@ -119,51 +108,13 @@ export function useDishSuggestions(
   const loading = starting || active !== undefined;
   const waiting = active?.status === "queued" && active.ahead > 0 ? `I kö, ${active.ahead} före.` : null;
 
-  const unseenId = unseen?.id;
-  const unseenStatus = unseen?.status;
-  const unseenCode = unseen?.errorCode ?? null;
-  // Story 12.7: a running job gives its dishes as they come (the list says how many), each fetched once and shown at once.
-  const activeId = active?.id;
-  const activeCount = active?.status === "running" ? (active.count ?? 0) : 0;
-  const partialLength = partial?.suggestions.length ?? 0;
-  useEffect(() => {
-    if (!visible || !activeId || activeCount <= fetchedCount.current) return;
-    const jobId = activeId;
-    void (async () => {
-      const result = await fetchResult(jobId);
-      if (!result.ok) return;
-      const parsed = dishSuggestionsSchema.safeParse(result.data.result);
-      if (!parsed.success) return;
-      fetchedCount.current = Math.max(fetchedCount.current, parsed.data.suggestions.length);
-      setPartial((current) => {
-        const before = current?.jobId === jobId ? current.suggestions : [];
-        const known = new Set(before.map(({ draft }) => normalizeTitle(draft.title)));
-        const added = parsed.data.suggestions
-          .filter(({ draft }) => !known.has(normalizeTitle(draft.title)) && !savedEarly.current.has(normalizeTitle(draft.title)))
-          .map((suggestion) => ({ ...suggestion, key: ++nextKey.current, recipeId: crypto.randomUUID() }));
-        if (added.length === 0) return current;
-        setAnnouncement(added.map(({ draft }) => `Ny rätt: ${draft.title}.`).join(" "));
-        return { jobId, suggestions: [...before, ...added] };
-      });
-    })();
-    // The functions of useAiJobs change with the list; the job and how many dishes it has are what decide.
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [visible, activeId, activeCount]);
-  // No job is running any more and none finished: it was cancelled or lost, and its dishes go with it.
-  useEffect(() => {
-    if (activeId || partialLength === 0 || starting) return;
-    // A finished job's dishes stay until its whole result is shown, so nothing blinks in between.
-    if (unseenId && unseenStatus === "done") return;
-    // eslint-disable-next-line react-hooks/set-state-in-effect -- the job is gone: its dishes go with it.
-    setPartial(null);
-    setAnnouncement(null);
-    fetchedCount.current = 0;
-  }, [activeId, partialLength, starting, unseenId, unseenStatus]);
-
   // The result is on the screen: no confirmation for it, and it is counted as seen below.
   useShowingAiResults("suggest", visible);
 
   // A finished job is shown when the section is: its suggestions, or why it did not go.
+  const unseenId = unseen?.id;
+  const unseenStatus = unseen?.status;
+  const unseenCode = unseen?.errorCode ?? null;
   useEffect(() => {
     if (!visible || !unseenId || handled.current.has(unseenId)) return;
     handled.current.add(unseenId);
@@ -193,20 +144,16 @@ export function useDishSuggestions(
       }
       // New suggestions replace the old ones only now that they are here.
       setError(null);
-      // The dishes that came while the job ran keep their keys (an open preview stays), and the saved ones do not come back.
-      const shownBefore = new Map((partial?.suggestions ?? []).map((suggestion) => [normalizeTitle(suggestion.draft.title), suggestion]));
-      const finalDishes = parsed.data.suggestions
-        .filter(({ draft }) => !savedEarly.current.has(normalizeTitle(draft.title)))
-        .map(
-          (suggestion) =>
-            shownBefore.get(normalizeTitle(suggestion.draft.title)) ?? { ...suggestion, key: ++nextKey.current, recipeId: crypto.randomUUID() },
-        );
-      setMade({ siteId: parsed.data.siteId, jobId: unseenId, suggestions: finalDishes });
+      setMade({
+        siteId: parsed.data.siteId,
+        jobId: unseenId,
+        suggestions: parsed.data.suggestions.map((suggestion) => ({
+          ...suggestion,
+          key: ++nextKey.current,
+          recipeId: crypto.randomUUID(),
+        })),
+      });
       setArrivals((count) => count + 1);
-      setPartial(null);
-      setAnnouncement(null);
-      fetchedCount.current = 0;
-      savedEarly.current = new Set();
       void markSeen(unseenId);
     })();
     // The functions of useAiJobs change with the list; the job's id is what decides.
@@ -243,7 +190,6 @@ export function useDishSuggestions(
       return;
     }
     startKey.current = null;
-    savedEarly.current = new Set();
     // The old result is closed when the new job has started: it is not wanted any more.
     if (made.jobId) void dismiss(made.jobId);
     setMade((current) => ({ ...current, jobId: null }));
@@ -261,21 +207,10 @@ export function useDishSuggestions(
     }
     if (!active) return;
     void cancelJob(active.id);
-    setPartial(null);
-    setAnnouncement(null);
-    fetchedCount.current = 0;
     setCancels((count) => count + 1);
   }
 
   function remove(key: number) {
-    const early = partial?.suggestions.find((suggestion) => suggestion.key === key);
-    if (early) {
-      // Saved before the job is done: the rest still comes, and this one is not shown again.
-      savedTitles.current = [early.draft.title, ...savedTitles.current];
-      savedEarly.current.add(normalizeTitle(early.draft.title));
-      setPartial((current) => current && { ...current, suggestions: current.suggestions.filter((s) => s.key !== key) });
-      return;
-    }
     const saved = made.suggestions.find((suggestion) => suggestion.key === key);
     if (saved) savedTitles.current = [saved.draft.title, ...savedTitles.current];
     const left = made.suggestions.filter((suggestion) => suggestion.key !== key);
@@ -288,9 +223,7 @@ export function useDishSuggestions(
   }
 
   return {
-    suggestions: partial ? [...made.suggestions, ...partial.suggestions] : made.suggestions,
-    arrived: partialLength,
-    announcement,
+    suggestions: made.suggestions,
     loading,
     waiting,
     error,

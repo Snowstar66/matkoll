@@ -94,7 +94,7 @@ context:
 - [x] `src/features/ai-jobs/ui` och flikmärket -- Lagersaldo och texterna för foton
 - [x] `tests/e2e/ai-photo-jobs.spec.ts` (+ `support.ts`, `global-setup.ts`) -- egen e2e-användare `e2e-ai-foto@matkoll.test`, `AI_PROVIDER=mock`, `AI_MOCK_DELAY_MS=3000`: fotografera kylen och frysen efter varandra, se kön, gå till Recept och tillbaka, bekräfta kylens förslag med nummer; ett nytt foto av kylen ersätter det förra
 - [x] Befintliga e2e-specar för bildanalys, inventering, nummer och senaste foto uppdateras
-- [ ] Mätning mot LM Studio: tid från foto till kort och till nummer, före och efter -- flyttad till slutmätningen
+- [x] Mätning mot LM Studio: tid från foto till kort och till nummer, före och efter -- täcks av väckningsmätningen för bildanalysen i slutmätningen (2026-10-29): första bildanalysen 92,4 s utan och 31,7 s med väckning. Provet på riktig iPhone står kvar för Pontus (se Manual checks)
 - [x] `docs/beslutslogg.md` -- en post för storyn
 
 **Acceptance Criteria:**

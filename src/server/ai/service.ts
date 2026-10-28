@@ -5,7 +5,6 @@ import {
   avoidTitleLines,
   cleanModelText,
   isValidPantryEntry,
-  normalizeTitle,
   pantryLines,
   pantryLinesLength,
   suggestInputLimits,
@@ -20,7 +19,6 @@ import { fromCompactDish } from "./compact-dish";
 import { prompts } from "./prompts";
 import {
   defaultLimits,
-  runElementStream,
   runStructured,
   runWarmUp,
   type Limits,
@@ -30,7 +28,6 @@ import {
 } from "./run";
 import {
   analyzeImageAnswer,
-  compactDish,
   locateItemsAnswer,
   maxPantryItemTextChars,
   parseAnalyzeItems,
@@ -77,16 +74,6 @@ export type RunOptions = {
 };
 
 export type SuggestDishesOptions = RunOptions;
-
-export type SuggestDishesStreamOptions = RunOptions & {
-  /**
-   * Called with each dish as soon as it is complete and has passed the
-   * checks (the schema, not a title to avoid, not a title that has come
-   * already), in order, and awaited before the next one is read. Returns
-   * whether the caller keeps the dish.
-   */
-  onDish: (dish: AiRecipe, index: number) => boolean | Promise<boolean>;
-};
 
 /** The places at home a photo can show. The port takes them as strings; it never imports a feature module (AD-1). */
 export const analyzePlaces = ["Kyl", "Frys", "Skafferi"] as const;
@@ -149,16 +136,6 @@ export interface AiService {
    * little time), `ai_rejected` or `ai_invalid`.
    */
   suggestDishes(input: SuggestDishesInput, signal: AbortSignal, options?: SuggestDishesOptions): Promise<Result<AiRecipe[]>>;
-  /**
-   * The same dishes as suggestDishes (Story 12.7), but each is given to
-   * `options.onDish` as soon as the model has written it, so the first one
-   * can be shown long before the last. A dish that is not valid, has a title to avoid or
-   * repeats one that came is skipped (logged as `ai_invalid` with its index).
-   * With no dish kept, a new attempt is made as in suggestDishes; with at
-   * least one, the run is done. Gives how many dishes the caller kept (also
-   * when the time runs out after the first), or the errors of suggestDishes.
-   */
-  suggestDishesStream(input: SuggestDishesInput, signal: AbortSignal, options: SuggestDishesStreamOptions): Promise<Result<number>>;
   /**
    * The food items the model sees in a photo of a place at home, possibly
    * none, and possibly more than inputLimits.analyze.maxItems (the caller
@@ -315,9 +292,6 @@ export function isValidSuggestDishesInput(input: SuggestDishesInput): boolean {
   return avoidTitles.every((title) => title !== "" && title === cleanModelText(title) && title.length <= limits.maxTitleChars);
 }
 
-/** suggestDishes asks for this many dishes, and the stream is stopped when they have come. */
-const suggestDishesCount = 3;
-
 /** Less time than this left before the deadline: the model is not asked. */
 export const minRunMs = 10_000;
 
@@ -340,10 +314,6 @@ export function withInputValidation(service: AiService): AiService {
     async suggestDishes(input, signal, options) {
       if (!isValidSuggestDishesInput(input)) return fail("validation");
       return service.suggestDishes(input, signal, options);
-    },
-    async suggestDishesStream(input, signal, options) {
-      if (!isValidSuggestDishesInput(input)) return fail("validation");
-      return service.suggestDishesStream(input, signal, options);
     },
     async analyzeImage(input, signal, options) {
       if (!isValidAnalyzeImageInput(input)) return fail("validation");
@@ -405,39 +375,6 @@ export function createModelAiService(target: ModelTarget, limits: Limits = defau
       );
       if (!answer.ok) return answer;
       return ok(answer.data.suggestions.map(fromCompactDish));
-    },
-    async suggestDishesStream(input, signal, { deadline, onDish }) {
-      const within = limitsWithin(limits, deadline);
-      if (!within) {
-        console.error("ai_unavailable", { reason: "deadline" });
-        return fail("ai_unavailable");
-      }
-      // Like the schema of suggestDishes: a title to avoid, or one that has come, is not a dish to keep.
-      const taken = new Set(input.avoidTitles.map(normalizeTitle));
-      return runElementStream(
-        target,
-        {
-          element: compactDish,
-          maxItems: suggestDishesCount,
-          system: prompts.suggestDishesStream,
-          messages: [{ role: "user", content: suggestDishesContent(input) }],
-          maxOutputTokens: inputLimits.suggest.maxOutputTokens,
-          onTruncated: () => console.info("suggest_truncated"),
-          skippedFeedback:
-            "Ditt förra svar hade bara rätter med titlar som inte fick föreslås eller som kom två gånger. Svara igen med tre rätter med egna titlar.",
-          async onElement(dish, index) {
-            const title = normalizeTitle(dish.title);
-            if (taken.has(title)) {
-              console.error("ai_invalid", { reason: "title", index });
-              return false;
-            }
-            taken.add(title);
-            return onDish(fromCompactDish(dish), index);
-          },
-        },
-        signal,
-        within,
-      );
     },
     async analyzeImage(input, signal, options = {}) {
       const within = limitsWithin(limits, options.deadline);

@@ -2,6 +2,14 @@
 
 Beslut som fattats under bygget: vad, varför och vilka alternativ som fanns. Nyaste överst.
 
+## 2026-10-29 – Slutmätning Epic 12: strömningen dras tillbaka, väckningen och de kortare svaren blir kvar
+
+- **Mätt** med commit `08855d5` (Story 12.1-12.7), `qwen/qwen3.6-35b-a3b`, `EVAL_RUNS=3`, varm modell (`docs/lm-studio.md`, avsnitt 8).
+- **Strömningen (12.7) dras tillbaka**, som specen säger vid STOP: första rätten kom efter 42-69 % av tiden, men det strömmade svaret var ogiltigt i två av tre körningar. AI-förslagen går tillbaka till jobbvägen med `generateText` från 12.4. Provet `stream-probe.eval.ts` ligger kvar för en ny körning. T9 är stängd.
+- **Väckningen (12.2) blir kvar:** första bildanalysen 66 % snabbare (31,7 mot 92,4 s, mål minst 20 %).
+- **Kortare svar (12.3) och taket 3 000 token blir kvar:** median 33,2 s (mål högst 40 s), ungefär 25-30 % färre token, inget kapat. Tre av nio försök var ogiltiga; orsaken analyseras separat (T5).
+- **Alternativ:** behålla strömningen trots ogiltiga svar (avvisat), eller reservplanen med färre rader och steg (behövs inte, målen nåddes).
+
 ## 2026-10-29 – Första rätten direkt (Story 12.7)
 
 - **Specens förslag godkändes som de stod** (Claude, headless enligt `docs/autonomi.md`): strömning till jobbet och pollning till klienten, och minst en giltig rätt räcker.

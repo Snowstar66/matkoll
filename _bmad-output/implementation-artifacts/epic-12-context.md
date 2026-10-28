@@ -165,3 +165,13 @@ Pontus bestämde 2026-10-28 att Epic 12 mäts en gång mot LM Studio när epicen
 **Story 12.2, väckningen** (`tests/eval/warm-up.eval.ts`, med `EVAL_WARM=med` och `EVAL_WARM=utan`, kallt efter minst 15 minuters vila): det första anropet efter vila ska vara minst 20 % snabbare med väckning än utan, för bildanalysen och för AI-förslagen.
 
 **Story 12.7, första rätten direkt:** den första rätten syns efter högst 40 % av tiden för alla tre, om provet visar att svaret strömmar (T9).
+
+**Resultat (2026-10-29, `docs/lm-studio.md`, "Slutmätning Epic 12"):**
+
+- [x] 12.3, token ut: 1 289, 1 534, 1 357 och 1 303 på giltiga enstaka försök, ungefär 25-30 % färre än 12.1. Gränsfall, godkänd.
+- [x] 12.3, tid: median 33,2 s (12.1: 45,9 s), under 40 s.
+- [ ] 12.3, giltiga svar: alla 6 anrop blev till slut giltiga, men 3 av 9 försök var ogiltiga (12.1: 7 av 33). Orsaken är inte analyserad (T5, deferred-work).
+- [x] 12.3, rader utan `new` som inte finns i lagret: bara "salt och svartpeppar" (3 rader i körning 3).
+- [x] 12.3, taket: största försöket 2 169 token, inget kapat. Taket 3 000 står kvar.
+- [x] 12.2, väckningen: bildanalysen 92,4 s utan och 31,7 s med, 66 % snabbare (mål minst 20 %). Jämförelsen för förslagen är inte avgörande. Väckningen blir kvar.
+- [x] 12.7, strömningen: STOP, ingen strömning. Dragen tillbaka, T9 stängd.
