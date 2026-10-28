@@ -5,7 +5,8 @@ import type { PantrySnapshot } from "@/features/pantry";
 import { getPantryForStatus } from "@/features/pantry/server";
 import { fromAiRecipe, recipeDraftSchema, type RecipeDraft } from "@/features/recipes";
 import { fail, ok, type Result } from "@/lib/errors";
-import { getAiService } from "@/server/ai";
+import type { Json } from "@/lib/supabase/database.types";
+import { getAiService, type AiRecipe } from "@/server/ai";
 import { toSuggestInput } from "../domain/pantry-input";
 import type { DishSuggestions, SuggestRequest } from "../domain/suggestions";
 
@@ -64,6 +65,12 @@ export type SuggestOptions = {
   signal: AbortSignal;
   /** When the whole job must be done (Date.now() milliseconds); the model gets the time left but postModelMarginMs. */
   deadline?: number;
+  /**
+   * Story 12.7: called with the result so far (as the job's result: every dish
+   * that has come) each time a dish has passed the checks, so the client can
+   * show it before the others are ready. Never fails.
+   */
+  report?: (partial: Json) => Promise<void>;
 };
 
 /**
@@ -81,33 +88,37 @@ export async function checkSuggestPantry(): Promise<Result<{ siteId: string | nu
 }
 
 /**
- * Three dishes from what is at home on the selected place, each as a
+ * Up to three dishes from what is at home on the selected place, each as a
  * RecipeDraft with `sourceKind: "ai"` and the names of its matched catalog
  * ingredients, and the id of the place they were suggested from. In
  * order: the user, the pantry (`pantry_unavailable`; empty is
  * `suggest_empty_pantry`, and the AI is not asked in either case), the
  * pantry's names (`catalog_unavailable`, also when none of them can be
- * found), the AI port (`validation`, `ai_unavailable`, `ai_rejected`,
- * `ai_invalid`), one matchIngredients call for every line of the three, and
- * fromAiRecipe. A draft that does not pass recipeDraftSchema, or uses fewer
- * than two ingredients that are at home, is left out (logged as
- * `ai_invalid`); none left is `ai_invalid`. A job that is stopped is
- * `ai_unavailable`, and nothing more is read. Only one job runs at a time
- * for a user (the queue, AD-28), so nothing here keeps a lock of its own.
+ * found), then the AI port's stream (`validation`, `ai_unavailable`,
+ * `ai_rejected`, `ai_invalid`). Story 12.7: each dish is handled when it
+ * comes: one matchIngredients call for its lines, fromAiRecipe, and the
+ * result so far is reported. A draft that does not pass recipeDraftSchema, or
+ * uses fewer than two ingredients that are at home, is left out (logged as
+ * `ai_invalid`); none left is `ai_invalid`. A catalog read that fails ends
+ * the run with `catalog_unavailable` when no dish is kept; otherwise the
+ * dishes kept are the result. A job that is stopped is `ai_unavailable`, and
+ * nothing more is read. Only one job runs at a time for a user (the queue,
+ * AD-28), so nothing here keeps a lock of its own.
  */
 export async function suggestFromPantry(
   request: SuggestRequest,
-  { signal, deadline }: SuggestOptions,
+  { signal, deadline, report }: SuggestOptions,
 ): Promise<Result<DishSuggestions>> {
   const user = await requireUser();
   if (!user.ok) return user;
-  return suggest(request, signal, deadline);
+  return suggest(request, signal, deadline, report);
 }
 
 async function suggest(
   request: SuggestRequest,
   signal: AbortSignal,
   deadline: number | undefined,
+  report: SuggestOptions["report"],
 ): Promise<Result<DishSuggestions>> {
   const pantry = await readPantry();
   if (!pantry.ok) return pantry;
@@ -125,48 +136,57 @@ async function suggest(
   }
   if (dropped > 0) console.info("suggest_pantry_trimmed", { dropped });
 
-  const suggested = await getAiService().suggestDishes(input, signal, {
-    deadline: deadline === undefined ? undefined : deadline - postModelMarginMs,
-  });
-  if (!suggested.ok) return suggested;
-  if (signal.aborted) return stopped();
-  const recipes = suggested.data;
+  const siteId = pantry.data.siteId;
+  const suggestions: DishSuggestions["suggestions"] = [];
+  /** Why a dish could not be read from the catalog: the run ends with it when no dish was kept. */
+  const catalog: { failure: Result<never> | null } = { failure: null };
 
-  const lines = recipes.flatMap((recipe) => recipe.ingredients.map((line) => ({ text: line.originalText, hint: line.hint })));
-  const matches = await fromCatalog(() => matchIngredients(lines));
-  if (!matches.ok) return matches;
-
-  const drafts: RecipeDraft[] = [];
-  let start = 0;
-  recipes.forEach((recipe, index) => {
-    const lineMatches = matches.data.slice(start, start + recipe.ingredients.length);
-    start += recipe.ingredients.length;
-    const draft = recipeDraftSchema.safeParse(fromAiRecipe(recipe, lineMatches, { kind: "ai" }));
+  /** One dish that has come: matched against the catalog, checked, and reported with the ones before it. */
+  const takeDish = async (recipe: AiRecipe, index: number): Promise<boolean> => {
+    if (signal.aborted) return false;
+    const lines = recipe.ingredients.map((line) => ({ text: line.originalText, hint: line.hint }));
+    const matches = await fromCatalog(() => matchIngredients(lines));
+    if (!matches.ok) {
+      catalog.failure = matches;
+      return false;
+    }
+    if (signal.aborted) return false;
+    const draft = recipeDraftSchema.safeParse(fromAiRecipe(recipe, matches.data, { kind: "ai" }));
     if (!draft.success) {
       const issues = draft.error.issues.map(({ path, code }) => ({ path: path.map(String), code }));
       console.error("ai_invalid", { reason: "draft", index, issues });
-      return;
+      return false;
     }
     const count = new Set(linkedIds(draft.data).filter((id) => snapshot.has(id))).size;
     if (count < minPantryIngredients) {
       console.error("ai_invalid", { reason: "pantry", index, count });
-      return;
+      return false;
     }
-    drafts.push(draft.data);
-  });
-  if (drafts.length === 0) return fail("ai_invalid");
-
-  if (signal.aborted) return stopped();
-  const ids = [...new Set(drafts.flatMap(linkedIds))];
-  const names = ids.length > 0 ? await fromCatalog(() => getIngredientNames(ids)) : ok<Record<string, string>>({});
-  if (!names.ok) return names;
-  return ok({
-    siteId: pantry.data.siteId,
-    suggestions: drafts.map((draft) => ({
-      draft,
+    const ids = [...new Set(linkedIds(draft.data))];
+    const names = ids.length > 0 ? await fromCatalog(() => getIngredientNames(ids)) : ok<Record<string, string>>({});
+    if (!names.ok) {
+      catalog.failure = names;
+      return false;
+    }
+    if (signal.aborted) return false;
+    suggestions.push({
+      draft: draft.data,
       ingredientNames: Object.fromEntries(
-        linkedIds(draft).flatMap((id) => (id in names.data ? [[id, names.data[id]] as const] : [])),
+        ids.flatMap((id) => (id in names.data ? [[id, names.data[id]] as const] : [])),
       ),
-    })),
+    });
+    // The drafts are plain data; the job keeps them as JSON until Pontus saves one.
+    await report?.(JSON.parse(JSON.stringify({ suggestions, siteId })) as Json);
+    return true;
+  };
+
+  const streamed = await getAiService().suggestDishesStream(input, signal, {
+    deadline: deadline === undefined ? undefined : deadline - postModelMarginMs,
+    onDish: takeDish,
   });
+  if (signal.aborted) return stopped();
+  if (suggestions.length === 0 && catalog.failure) return catalog.failure;
+  if (!streamed.ok && suggestions.length === 0) return streamed;
+  if (suggestions.length === 0) return fail("ai_invalid");
+  return ok({ siteId, suggestions });
 }

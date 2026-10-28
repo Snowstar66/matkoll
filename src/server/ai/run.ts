@@ -5,6 +5,7 @@ import {
   NoObjectGeneratedError,
   NoOutputGeneratedError,
   Output,
+  streamText,
   type LanguageModel,
   type ModelMessage,
 } from "ai";
@@ -176,6 +177,135 @@ export async function runStructured<SCHEMA extends z.ZodType>(
       if (!isInvalidAnswer(error)) return failWith("ai_unavailable", "connection");
       // The model answered, but not as the schema says: tell it what was wrong and try again.
       feedback = { role: "user", content: schemaFeedback(error) };
+    }
+  }
+
+  if (total.aborted) return failWith("ai_unavailable", stopReason());
+  return failWith("ai_invalid", "invalid");
+}
+
+export type ElementStreamRequest<ELEMENT> = {
+  /** Each element of the answer array. */
+  element: z.ZodType<ELEMENT>;
+  /** The most elements: the stream is stopped when this many have come. */
+  maxItems: number;
+  system: string;
+  messages: ModelMessage[];
+  maxOutputTokens?: number;
+  sampling?: Sampling;
+  onTruncated?: () => void;
+  /**
+   * Called for each element that matches the schema, in order, with its
+   * index. True when the element is kept. Elements that did not match the
+   * schema are never given.
+   */
+  onElement: (element: ELEMENT, index: number) => boolean | Promise<boolean>;
+  /** Feedback for a new attempt when the answer had no kept element and the schema did not say why. */
+  skippedFeedback: string;
+};
+
+/**
+ * Story 12.7 (AD-9): like runStructured, but the answer is an array that is
+ * streamed (`streamText` with Output.array), and each complete element is
+ * given to `onElement` as soon as it has come. The same health check,
+ * provider options, no retries in the SDK and time budgets. The stream is
+ * stopped when `maxItems` elements have come. When it ends with no kept
+ * element, a new attempt is made, told what was wrong (as in
+ * runStructured); with at least one kept element the run is done. Gives
+ * the number of kept elements, or the same errors as runStructured.
+ */
+export async function runElementStream<ELEMENT>(
+  target: ModelTarget,
+  request: ElementStreamRequest<ELEMENT>,
+  signal: AbortSignal,
+  limits: Limits = defaultLimits,
+): Promise<Result<number>> {
+  if (signal.aborted) return failWith("ai_unavailable", "aborted");
+  const started = performance.now();
+  const total = AbortSignal.any([signal, AbortSignal.timeout(limits.totalMs)]);
+  const stopReason = (): Reason => (signal.aborted ? "aborted" : "timeout");
+
+  if (target.healthCheck) {
+    const healthSignal = AbortSignal.any([total, AbortSignal.timeout(limits.healthMs)]);
+    const health = await target.healthCheck(healthSignal).catch((): HealthResult => "unreachable");
+    if (health !== "ok") {
+      if (total.aborted) return failWith("ai_unavailable", stopReason());
+      return failWith("ai_unavailable", health === "model_not_loaded" ? "model_not_loaded" : "health");
+    }
+  }
+
+  const { providerOptions: samplingOptions, ...sampling } = request.sampling ?? {};
+  const providerOptions = mergeProviderOptions(target.providerOptions, samplingOptions);
+
+  let kept = 0;
+  let index = 0;
+  let feedback: ModelMessage | undefined;
+  for (let attempt = 1; attempt <= limits.maxAttempts; attempt++) {
+    if (total.aborted) break;
+    if (attempt > 1 && limits.totalMs - (performance.now() - started) < limits.minRetryMs) break;
+    const stopEarly = new AbortController();
+    const attemptSignal = AbortSignal.any([total, AbortSignal.timeout(limits.attemptMs), stopEarly.signal]);
+    let streamError: unknown;
+    let given = 0;
+    try {
+      const result = streamText({
+        model: target.model,
+        system: request.system,
+        messages: feedback ? [...request.messages, feedback] : request.messages,
+        output: Output.array({ element: request.element, minItems: 1, maxItems: request.maxItems }),
+        providerOptions,
+        maxOutputTokens: request.maxOutputTokens,
+        ...sampling,
+        ...(attempt > 1 && sampling.temperature === 0 ? { temperature: retryTemperature } : {}),
+        maxRetries: 0,
+        abortSignal: attemptSignal,
+        // The SDK logs a stream error by default, with text of the answer in it; the error is read below.
+        onError: ({ error }) => {
+          streamError = error;
+        },
+      });
+      // Never an unhandled rejection from what is not read (the whole answer, when the stream is stopped).
+      const output = result.output;
+      Promise.resolve(output).catch(() => {});
+      for await (const element of result.elementStream) {
+        given += 1;
+        if (await request.onElement(element, index++)) kept += 1;
+        if (attemptSignal.aborted) break;
+        if (given >= request.maxItems) {
+          stopEarly.abort();
+          break;
+        }
+      }
+      if (given < request.maxItems && !streamError) {
+        if ((await result.finishReason) === "length") request.onTruncated?.();
+        // The whole answer as a check: its errors say what was wrong, for the next attempt.
+        if (kept === 0) await output;
+      }
+    } catch (error) {
+      streamError ??= error;
+    }
+    if (stopEarly.signal.aborted) {
+      // Stopped on purpose after maxItems elements: whatever the stream says now is not an error.
+      streamError = undefined;
+    } else if (attemptSignal.aborted) {
+      // Elements already kept are the answer; the time ran out after them.
+      if (kept > 0 && !signal.aborted) return ok(kept);
+      return failWith("ai_unavailable", stopReason());
+    }
+    if (kept > 0) return ok(kept);
+    const error = streamError;
+    if (error !== undefined) {
+      if (NoObjectGeneratedError.isInstance(error) && error.finishReason === "length") request.onTruncated?.();
+      if (APICallError.isInstance(error)) {
+        const status = error.statusCode;
+        if (status !== undefined && status >= 400 && status < 500) return failWith("ai_rejected", "rejected", status);
+        return failWith("ai_unavailable", "connection", status);
+      }
+      if (!isInvalidAnswer(error)) return failWith("ai_unavailable", "connection");
+      feedback = { role: "user", content: schemaFeedback(error) };
+    } else {
+      // The model answered with valid elements, but none could be kept (a title to avoid, or one twice).
+      feedback = { role: "user", content: request.skippedFeedback };
     }
   }
 

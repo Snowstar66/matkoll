@@ -2,7 +2,8 @@
 title: 'Story 12.7: Första rätten direkt'
 type: 'feature'
 created: '2026-10-26'
-status: 'draft'
+status: 'in-progress'
+baseline_commit: 'ce988c8'
 route: 'dispatch'
 context:
   - '{project-root}/_bmad-output/implementation-artifacts/epic-12-context.md'
@@ -69,14 +70,14 @@ context:
 ## Tasks & Acceptance
 
 **Execution:**
-- [ ] `tests/eval/stream-probe.eval.ts` -- provet mot LM Studio; utfallet i `docs/oppna-fragor.md` (T9) och `docs/beslutslogg.md`. Avbryt här om provet inte går igenom
-- [ ] `src/server/ai/service.ts`, `run.ts` (+ tester) -- `suggestDishesStream` med en falsk modell som strömmar element (giltiga, ogiltiga, dubbla, avbrott)
-- [ ] `src/server/ai/adapters/mock.ts` (+ test) -- strömmande rätter med fördröjning
-- [ ] `src/features/suggestions/actions/suggest-from-pantry.ts` (+ test) -- en rätt i taget med `report`
-- [ ] `src/features/recipes/ui/use-dish-suggestions.ts`, `ai-suggestions.tsx` (+ tester) -- rätter som kommer, "Letar efter fler …", annonsering, spara tidigt
-- [ ] `tests/e2e/ai-stream.spec.ts` (+ `support.ts`, `global-setup.ts`) -- egen e2e-användare `e2e-ai-strom@matkoll.test`, `AI_PROVIDER=mock`, `AI_MOCK_DELAY_MS=3000`: den första rätten syns innan den tredje, och en rätt kan sparas tidigt
-- [ ] Mätning mot LM Studio före och efter
-- [ ] `docs/lm-studio.md`, `docs/oppna-fragor.md` (T5, T9), `docs/beslutslogg.md`
+- [x] `tests/eval/stream-probe.eval.ts` -- provet mot LM Studio; utfallet i `docs/oppna-fragor.md` (T9) och `docs/beslutslogg.md`. Avbryt här om provet inte går igenom
+- [x] `src/server/ai/service.ts`, `run.ts` (+ tester) -- `suggestDishesStream` med en falsk modell som strömmar element (giltiga, ogiltiga, dubbla, avbrott)
+- [x] `src/server/ai/adapters/mock.ts` (+ test) -- strömmande rätter med fördröjning
+- [x] `src/features/suggestions/actions/suggest-from-pantry.ts` (+ test) -- en rätt i taget med `report`
+- [x] `src/features/recipes/ui/use-dish-suggestions.ts`, `ai-suggestions.tsx` (+ tester) -- rätter som kommer, "Letar efter fler …", annonsering, spara tidigt
+- [x] `tests/e2e/ai-stream.spec.ts` (+ `support.ts`, `global-setup.ts`) -- egen e2e-användare `e2e-ai-strom@matkoll.test`, `AI_PROVIDER=mock`, `AI_MOCK_DELAY_MS=3000`: den första rätten syns innan den tredje, och en rätt kan sparas tidigt
+- [ ] Mätning mot LM Studio före och efter (flyttad till Epic 12-mätningen, se Vid bygget)
+- [x] `docs/lm-studio.md`, `docs/oppna-fragor.md` (T5, T9), `docs/beslutslogg.md`
 
 **Acceptance Criteria:**
 - Given `pnpm lint && pnpm typecheck && pnpm test && pnpm test:integration && AI_PROVIDER=mock pnpm build && CI=1 pnpm test:e2e`, when de körs, then lyckas alla.
@@ -89,6 +90,18 @@ context:
 - **Risk: LM Studio och strukturerad strömning** (T9). `supportsStructuredOutputs: true` skickar `response_format` med JSON-schema. Det är inte prövat om LM Studio strömmar ett sådant svar token för token, eller om `@ai-sdk/openai-compatible` ger delarna till `elementStream`. Därför provet först.
 - **Risk: `elementStream` och `maxItems`.** Ger modellen fler än tre rätter felar strömmen före den fjärde, och generering avbryts inte av sig själv. Avbryt med signalen när den tredje har kommit.
 - **Efter Epic 10/11 (sammanslagningen med main 2026-10-28):** AI-förslagen i `ai-suggestions.tsx` är sedan 11.5 receptkort (`RecipeCard` i `recipes/ui/recipe-card.tsx`) med en kort mintremsa och AI-etiketten, utan hjärta och länk. En rätt som kommer in läggs till som ett sådant kort. Osäkerheten om strömningen heter nu T9.
+
+## Vid bygget
+
+- **Provet kördes inte** (LM Studio får inte anropas i det här bygget): `tests/eval/stream-probe.eval.ts` är skrivet och skriver ut en dom (BUILD eller STOP) efter tre körningar med varm modell, men T9 är fortfarande öppen. Strömningen är byggd och gäller bara för modeller som strömmar; går provet inte igenom i Epic 12-mätningen ska storyn dras tillbaka (`suggestDishesStream` kan då anropa `suggestDishes` och ge alla rätter på en gång). Mätningen före och efter ligger i Epic 12-mätningen, mot målet 40 %.
+- `runElementStream` (`run.ts`) och `suggestDishesStream` (`service.ts`): `streamText` med `Output.array({ minItems: 1, maxItems: 3 })`, samma hälsokontroll, `providerOptions`, `maxRetries: 0` och tidsbudget som `runStructured`. Strömmen stoppas när den tredje rätten har kommit. Minst en behållen rätt räcker (ingen ny försök); ingen behållen rätt ger nytt försök med feedback. Tiden tar slut efter första rätten ger klart med den. `onError` är satt så att SDK:t inte loggar svaret.
+- AI SDK ger ett element först när nästa har börjat (det sista av ett reparerat delsvar tas bort), så den första rätten kommer några token efter sin sista klammer, inte exakt vid den. Element som inte följer `compactDish` hoppas över av SDK:t utan att nå koden; titel att undvika eller dubbel titel loggas som `ai_invalid` (`reason: "title"`, index).
+- Systemprompten för strömmen (`prompts.suggestDishesStream`) nämner `{ "elements": [ … ] }`, eftersom `Output.array` lindar svaret så.
+- `suggestFromPantry` tar emot `report`, matchar varje rätt mot katalogen när den kommer (ett `matchIngredients`-anrop och ett `getIngredientNames`-anrop per rätt) och rapporterar alla rätter hittills. Ett katalogfel för en rätt hoppar över den; är det den enda ger det `catalog_unavailable`.
+- Listan ger `count` också för ett körande AI-förslagsjobb. Klienten hämtar jobbets delresultat (GET `/api/ai/jobs/[id]` gav redan delresultat sedan 12.5) när `count` växer och visar nya rätter efter de förra, med "Letar efter fler …" och "Ny rätt: …." i statusregionen. Fokus flyttas till rubriken först när jobbet är klart (som förut).
+- Mocken ger sina rätter en i taget med `AI_MOCK_DELAY_MS` jämnt fördelad över dem (3 s ger 1 s mellan rätterna), så helheten tar lika lång tid som förut.
+- Avvikelse: en rätt som sparas tidigt öppnar receptet, och då försvinner bibliotekets tillstånd; när Pontus kommer tillbaka visas jobbets hela resultat, också den sparade rätten. Ligger kvar tills vidare, som för titlar att undvika.
+- `pnpm test:integration` kördes inte: inga tabeller, funktioner eller Server Actions ändrades. Ingen migration.
 
 ## Spec Change Log
 
