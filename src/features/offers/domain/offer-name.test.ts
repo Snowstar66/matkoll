@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { clip, offerName } from "./offer-name";
+import { clip, isNamed, offerName } from "./offer-name";
 
 describe("offerName", () => {
   it("gives the label as the store wrote it, without ®, and the catalog names of each item", () => {
@@ -60,5 +60,18 @@ describe("clip", () => {
   it("cuts at the limit with an ellipsis, and leaves shorter text alone", () => {
     expect(clip("abc", 3)).toBe("abc");
     expect(clip("abcd", 3)).toBe("ab…");
+  });
+});
+
+describe("isNamed", () => {
+  it("is false for an offer with nothing left of its label once cleaned", () => {
+    expect(isNamed(offerName({ brand: "\u00ae", name: "\u2122 \u00a9" }))).toBe(false);
+    expect(isNamed(offerName({ brand: "", name: "\u00ae" }))).toBe(false);
+  });
+
+  it("is true for an offer with a label and a name", () => {
+    expect(isNamed(offerName({ brand: "Arla", name: "Mellanmjölk" }))).toBe(true);
+    // Only an amount: the label is there and the fallback comes from it.
+    expect(isNamed(offerName({ brand: "", name: "500 g" }))).toBe(true);
   });
 });

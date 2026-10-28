@@ -1,6 +1,7 @@
 import { z } from "zod";
 import type { Section } from "@/features/catalog";
 import { fail, ok, type Result } from "@/lib/errors";
+import { isIsoDate } from "./week";
 
 // Reads the weekly offers out of a store's offer page on ica.se (Story 9.1,
 // AD-25, docs/erbjudanden-lankar.md). The page carries its data as a
@@ -186,7 +187,7 @@ function field(value: unknown, key: string): unknown {
 
 /**
  * The page's weekly offers on food, and how many other offers it had
- * (`skipped`). An entry with the wrong shape is left out. `offers_page_changed`
+ * (`skipped`). An entry with the wrong shape, or a last day that is not a real date, is left out. `offers_page_changed`
  * when the page has no data, a shape the reader does not know, or entries
  * none of which can be read. An empty list is not an error here.
  */
@@ -198,7 +199,8 @@ export function parseIcaOfferPage(html: string): Result<{ offers: IcaOffer[]; sk
   let readable = 0;
   for (const entry of weekly) {
     const parsed = offerSchema.safeParse(entry);
-    if (!parsed.success) continue;
+    // A date that does not exist (2026-02-30) leaves the entry out, as a wrong shape does.
+    if (!parsed.success || !isIsoDate(parsed.data.validTo.slice(0, 10))) continue;
     readable += 1;
     const { details, category, validTo, restriction, traits } = parsed.data;
     if (!foodSection(category.articleGroupName)) {

@@ -341,14 +341,14 @@ isOneToOne: false
                   ]
                 },"store": {
                   Row: {
-                    "address": string | null,"chain": string,"created_at": string,"external_store_id": string | null,"id": string,"is_selected": boolean,"name": string,"offers_url": string | null,"url": string | null,"user_id": string
+                    "address": string | null,"chain": string,"created_at": string,"external_store_id": string | null,"id": string,"is_selected": boolean,"name": string,"offers_attempted_at": string | null,"offers_url": string | null,"url": string | null,"user_id": string
                   }
                   ComputedFields: never
                   Insert: {
-                    "address"?: string | null,"chain": string,"created_at"?: string,"external_store_id"?: string | null,"id"?: string,"is_selected"?: boolean,"name": string,"offers_url"?: string | null,"url"?: string | null,"user_id"?: string
+                    "address"?: string | null,"chain": string,"created_at"?: string,"external_store_id"?: string | null,"id"?: string,"is_selected"?: boolean,"name": string,"offers_attempted_at"?: string | null,"offers_url"?: string | null,"url"?: string | null,"user_id"?: string
                   }
                   Update: {
-                    "address"?: string | null,"chain"?: string,"created_at"?: string,"external_store_id"?: string | null,"id"?: string,"is_selected"?: boolean,"name"?: string,"offers_url"?: string | null,"url"?: string | null,"user_id"?: string
+                    "address"?: string | null,"chain"?: string,"created_at"?: string,"external_store_id"?: string | null,"id"?: string,"is_selected"?: boolean,"name"?: string,"offers_attempted_at"?: string | null,"offers_url"?: string | null,"url"?: string | null,"user_id"?: string
                   }
                   Relationships: [
                     
@@ -606,6 +606,7 @@ isOneToOne: false
 "id": string,
 "is_selected": boolean,
 "name": string,
+"offers_attempted_at": string | null,
 "offers_url": string | null,
 "url": string | null,
 "user_id": string

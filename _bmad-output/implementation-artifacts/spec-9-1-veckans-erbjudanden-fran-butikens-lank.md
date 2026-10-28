@@ -2,7 +2,7 @@
 title: 'Story 9.1: Veckans erbjudanden från butikens länk'
 type: 'feature'
 created: '2026-10-27'
-status: 'in-progress'
+status: 'done'
 baseline_commit: '870d7de'
 route: 'dispatch'
 context:
@@ -160,6 +160,22 @@ context:
 - **T13 och T14 är öppna**: provet mot ica.se med Matkolls User-Agent görs av Pontus med ett tryck (`docs/oppna-fragor.md`). På fixturen kopplades 1 av 7 (laxfilé) i enhetstestet, men det säger inget om Pontus katalog.
 
 ## Review Triage Log
+
+Iteration 1. Fyra fynd från granskningen, alla godtagna och lagade i en fjärde migration, `store_offers_attempted_at`, och i appens kod.
+
+**Patch:**
+- En hämtning per tryck, aldrig hamra på ICA (hård regel):
+  - `store.offers_attempted_at` (nullbar `timestamptz`) sätts före hämtningen i en enda villkorad UPDATE, bara om den är null eller äldre än 15 minuter. Noll uppdaterade rader betyder strypt (`offers_fetched_recently`), så två tryck samtidigt kan inte båda hämta. Varje försök räknas, också ett som inte sparar något.
+  - Efter 403 eller 429 skjuts stämpeln fram i tiden, så att nästa försök får vänta 6 timmar (`offers_fetch_blocked`).
+  - `loadLastFetch` (som bara räknade lyckade sparningar) styr inte längre strypningen.
+  - Knappen är avstängd medan en hämtning pågår.
+  - Kolumnen följer tabellens befintliga rättigheter och radnivåsäkerhet (`store_own_rows`).
+- Omöjliga datum: ett erbjudande vars `validTo` inte klarar `isIsoDate` (till exempel 2026-02-30) räknas som oläsligt och lämnas ut. Ett dåligt erbjudande fäller inte hela sparningen.
+- Tomma namn: ett erbjudande vars etikett eller namn är tomt efter rensning (`isNamed`) sparas inte och räknas som överhoppat.
+- Tak före matchning: matvarorna kapas till databasens gräns (300) före `matchOffers`, och resten räknas som överhoppade.
+- Nya tester: enhetstester för datum, tomma namn och taket (och för att varje försök gör anspråk på hämtningen), samt ett integrationstest för strypning efter misslyckande, 6 timmar efter 403 och 429, åtta samtidiga försök och en annan användares butik.
+
+**Före och efter lokalt:** datasäkerhetskopia av `public` och `auth` före migrationen; `scripts/pantry-site-check.sql` före och efter gav identiska utdata (`diff` tom). Migrationen kördes med `supabase migration up --local`, aldrig `db reset`, och typerna genererades om.
 
 ## Verification
 

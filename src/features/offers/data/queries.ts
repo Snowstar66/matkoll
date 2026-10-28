@@ -1,6 +1,6 @@
 import "server-only";
 import { sectionSchema } from "@/features/catalog";
-import { OFFER_SOURCES, type OfferSource, type StoreOffer } from "../domain/offer";
+import { OFFER_SOURCES, offersBlockedIntervalMs, offersFetchIntervalMs, type OfferSource, type StoreOffer } from "../domain/offer";
 import { swedishToday, weekStartOf } from "../domain/week";
 import { OffersDataError, type OffersDb } from "./client";
 
@@ -98,4 +98,31 @@ export async function loadLastFetch(db: OffersDb, storeId: string): Promise<Date
     .maybeSingle();
   if (error) throw new OffersDataError(`query_failed ${error.code}`);
   return data ? new Date(data.created_at) : null;
+}
+
+/**
+ * Claims the right to fetch the store's page now: sets `offers_attempted_at`
+ * to `now` in one conditional UPDATE, only when it is null or older than the
+ * cooldown (15 minutes; 6 hours after a 403 or 429, see `blockFetch`). `false`
+ * when no row changed, which means the fetch is throttled. Every attempt is
+ * recorded, whether or not it saves offers, and two taps at the same time
+ * cannot both claim. Throws OffersDataError.
+ */
+export async function claimFetch(db: OffersDb, storeId: string, now: Date): Promise<boolean> {
+  const before = new Date(now.getTime() - offersFetchIntervalMs).toISOString();
+  const { data, error } = await db
+    .from("store")
+    .update({ offers_attempted_at: now.toISOString() })
+    .eq("id", storeId)
+    .or(`offers_attempted_at.is.null,offers_attempted_at.lt.${before}`)
+    .select("id");
+  if (error) throw new OffersDataError(`query_failed ${error.code}`);
+  return data.length > 0;
+}
+
+/** After a 403 or 429: the next claim waits 6 hours from `now` (the stamp is pushed into the future). Throws OffersDataError. */
+export async function blockFetch(db: OffersDb, storeId: string, now: Date): Promise<void> {
+  const until = new Date(now.getTime() + offersBlockedIntervalMs - offersFetchIntervalMs);
+  const { error } = await db.from("store").update({ offers_attempted_at: until.toISOString() }).eq("id", storeId);
+  if (error) throw new OffersDataError(`query_failed ${error.code}`);
 }

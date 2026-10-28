@@ -1,6 +1,6 @@
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
 import { addDays, weekStartOf, type OfferDraft } from "@/features/offers";
-import { loadActiveOffers, loadLastFetch, loadOffers } from "@/features/offers/data/queries";
+import { blockFetch, claimFetch, loadActiveOffers, loadLastFetch, loadOffers } from "@/features/offers/data/queries";
 import { saveOffersIn } from "@/features/offers/data/save";
 import { saveStoreIn } from "@/features/settings/data/stores";
 import { storeFormSchema } from "@/features/settings";
@@ -309,5 +309,54 @@ describe("store.offers_url", () => {
     expect((await user.db.rpc("ensure_user_defaults")).error).toBeNull();
     const { data } = await adminClient().from("store").select("offers_url").eq("user_id", user.id);
     expect(data).toEqual([{ offers_url: null }]);
+  });
+});
+
+describe("store.offers_attempted_at", () => {
+  const minute = 60_000;
+  const attemptedAt = async (storeId: string) => {
+    const { data, error } = await adminClient().from("store").select("offers_attempted_at").eq("id", storeId).single();
+    if (error) throw error;
+    return data.offers_attempted_at ? new Date(data.offers_attempted_at) : null;
+  };
+
+  it("lets the first attempt claim, and throttles the next within 15 minutes even though nothing was saved", async () => {
+    const user = await createTestUser("offers-claim");
+    const store = await addStore(user.db);
+    expect(await attemptedAt(store)).toBeNull();
+    const now = new Date();
+    expect(await claimFetch(user.db, store, now)).toBe(true);
+    expect((await attemptedAt(store))?.getTime()).toBe(now.getTime());
+    // No offer was saved, yet the store is not asked again.
+    expect(await claimFetch(user.db, store, new Date(now.getTime() + 5 * minute))).toBe(false);
+    expect(await claimFetch(user.db, store, new Date(now.getTime() + 16 * minute))).toBe(true);
+  });
+
+  it("throttles for 6 hours after a 403 or 429", async () => {
+    const user = await createTestUser("offers-block");
+    const store = await addStore(user.db);
+    const now = new Date();
+    expect(await claimFetch(user.db, store, now)).toBe(true);
+    await blockFetch(user.db, store, now);
+    expect(await claimFetch(user.db, store, new Date(now.getTime() + 20 * minute))).toBe(false);
+    expect(await claimFetch(user.db, store, new Date(now.getTime() + 5 * 60 * minute))).toBe(false);
+    expect(await claimFetch(user.db, store, new Date(now.getTime() + 6 * 60 * minute + minute))).toBe(true);
+  });
+
+  it("lets only one of several attempts at the same time claim", async () => {
+    const user = await createTestUser("offers-race");
+    const store = await addStore(user.db);
+    const now = new Date();
+    const claims = await Promise.all(Array.from({ length: 8 }, () => claimFetch(user.db, store, now)));
+    expect(claims.filter(Boolean)).toHaveLength(1);
+  });
+
+  it("never claims another user's store", async () => {
+    const owner = await createTestUser("offers-claim-owner");
+    const store = await addStore(owner.db);
+    const other = await createTestUser("offers-claim-other");
+    expect(await claimFetch(other.db, store, new Date())).toBe(false);
+    await blockFetch(other.db, store, new Date());
+    expect(await attemptedAt(store)).toBeNull();
   });
 });

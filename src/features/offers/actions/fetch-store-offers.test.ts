@@ -3,7 +3,7 @@ import type { IngredientMatch, MatchItem } from "@/features/catalog";
 import type { Store } from "@/features/settings";
 import { errorMessages, fail, ok, type Result } from "@/lib/errors";
 import type { OfferDraft } from "../domain/offer";
-import { weekStartOf } from "../domain/week";
+import { addDays, weekStartOf } from "../domain/week";
 
 // fetchStoreOffers with the fetch port on the saved pages in
 // tests/fixtures/sites (AI_PROVIDER=mock and a local SITE_URL, as in E2E and
@@ -37,21 +37,28 @@ vi.mock("@/lib/supabase/server", () => ({ createClient: async () => db }));
 const revalidateFor = vi.fn();
 vi.mock("@/lib/revalidate", () => ({ revalidateFor: (table: string) => revalidateFor(table) }));
 
-const loadLastFetch = vi.fn<() => Promise<Date | null>>();
-vi.mock("../data/queries", () => ({ loadLastFetch: () => loadLastFetch() }));
+const claimFetch = vi.fn<(db: unknown, storeId: string, now: Date) => Promise<boolean>>();
+const blockFetch = vi.fn<(db: unknown, storeId: string, now: Date) => Promise<void>>();
+vi.mock("../data/queries", () => ({
+  claimFetch: (...args: Parameters<typeof claimFetch>) => claimFetch(...args),
+  blockFetch: (...args: Parameters<typeof blockFetch>) => blockFetch(...args),
+}));
 const saveOffersIn = vi.fn<(db: unknown, input: { storeId: string; weekStart: string; items: OfferDraft[]; replaceSource?: string }) => Promise<Result<number>>>();
 vi.mock("../data/save", () => ({ saveOffersIn: (...args: Parameters<typeof saveOffersIn>) => saveOffersIn(...args) }));
 
 // The fetch port reads the saved pages; every call to it is counted.
 vi.mock("@/server/env", () => ({ env: { AI_PROVIDER: "mock", SITE_URL: "http://localhost:3100" } }));
 const fetchCalls: string[] = [];
+/** When set, the fetch port answers with this page instead of a saved one. */
+let pageOverride: string | null = null;
 const requests: string[] = [];
 vi.mock("@/server/fetch", async (importOriginal) => {
   const port = await importOriginal<typeof import("@/server/fetch")>();
   return {
     ...port,
-    fetchOfferPage: (url: string, options: Parameters<typeof port.fetchOfferPage>[1]) => {
+    fetchOfferPage: async (url: string, options: Parameters<typeof port.fetchOfferPage>[1]) => {
       fetchCalls.push(url);
+      if (pageOverride !== null) return { page: ok({ html: pageOverride, finalUrl: url }), status: 200 };
       return port.fetchOfferPage(url, options);
     },
   };
@@ -107,7 +114,9 @@ beforeEach(() => {
   }
   requireUser.mockReset().mockResolvedValue(ok({ id: "user", email: "pontus@example.com" }));
   listStores.mockReset().mockResolvedValue([storeWith(fixtureLink)]);
-  loadLastFetch.mockReset().mockResolvedValue(null);
+  pageOverride = null;
+  claimFetch.mockReset().mockResolvedValue(true);
+  blockFetch.mockReset().mockResolvedValue(undefined);
   saveOffersIn.mockReset().mockImplementation(async (_db, input) => ok(input.items.length));
   revalidateFor.mockReset();
   // Laxfilé is in the catalog; nothing else is.
@@ -220,14 +229,72 @@ describe("fetchStoreOffers", () => {
     expect(saveOffersIn).not.toHaveBeenCalled();
   });
 
-  it("refuses a new fetch within 15 minutes of the last one, without fetching", async () => {
-    loadLastFetch.mockResolvedValue(new Date(Date.now() - 5 * 60_000));
+  it("refuses a fetch the claim throttles, without fetching, and claims before every fetch", async () => {
+    claimFetch.mockResolvedValue(false);
     expect(await fetchStoreOffers({ storeId })).toEqual(fail("offers_fetched_recently"));
     expect(fetchCalls).toEqual([]);
 
-    loadLastFetch.mockResolvedValue(new Date(Date.now() - 16 * 60_000));
+    claimFetch.mockResolvedValue(true);
     expect((await fetchStoreOffers({ storeId })).ok).toBe(true);
     expect(fetchCalls).toHaveLength(1);
+    expect(claimFetch).toHaveBeenLastCalledWith(db, storeId, expect.any(Date));
+    expect(blockFetch).not.toHaveBeenCalled();
+  });
+
+  it("claims also for a page that fails, and blocks for 6 hours after a 403 or 429 only", async () => {
+    listStores.mockResolvedValue([storeWith(linkOf("matkoll-test-nekad-1000005"))]);
+    await fetchStoreOffers({ storeId });
+    expect(claimFetch).toHaveBeenCalledTimes(1);
+    expect(blockFetch).toHaveBeenCalledWith(db, storeId, expect.any(Date));
+
+    blockFetch.mockClear();
+    listStores.mockResolvedValue([storeWith(linkOf("matkoll-test-serverfel-1000007"))]);
+    await fetchStoreOffers({ storeId });
+    expect(claimFetch).toHaveBeenCalledTimes(2);
+    expect(blockFetch).not.toHaveBeenCalled();
+  });
+
+  describe("on a page written here", () => {
+    const day = addDays(weekStartOf(new Date()), 6);
+    const entry = (name: string, fields: Record<string, unknown> = {}) => ({
+      details: { brand: "", name, mechanicInfo: "10 kr" },
+      category: { articleGroupName: "Skafferivaror" },
+      validTo: `${day}T00:00:00`,
+      restriction: "",
+      ...fields,
+    });
+    const pageOf = (entries: unknown[]) =>
+      `<html><body><script>window.__INITIAL_DATA__ = ${JSON.stringify({ offers: { weeklyOffers: entries } })};</script></body></html>`;
+
+    it("cuts the food offers to 300 before matching and counts the rest as skipped", async () => {
+      pageOverride = pageOf(Array.from({ length: 305 }, (_, index) => entry(`Vara ${index}`)));
+      const result = await fetchStoreOffers({ storeId });
+      expect(result.ok && result.data).toMatchObject({ saved: 300, skipped: 5 });
+      expect(saveOffersIn.mock.calls[0][1].items).toHaveLength(300);
+      // One candidate list per kept offer: nothing past the 300th is looked up.
+      const asked = matchIngredients.mock.calls[0][0].map((item) => item.text);
+      expect(asked).not.toContain("vara 300");
+      expect(asked).toContain("vara 299");
+    });
+
+    it("leaves out an offer whose label is empty once cleaned, and saves the others", async () => {
+      pageOverride = pageOf([entry("\u00ae"), entry("Gul lök")]);
+      const result = await fetchStoreOffers({ storeId });
+      expect(result.ok && result.data).toMatchObject({ saved: 1, skipped: 1 });
+      expect(saveOffersIn.mock.calls[0][1].items.map((item) => item.label)).toEqual(["Gul lök"]);
+    });
+
+    it("gives offers_none when every offer is empty once cleaned", async () => {
+      pageOverride = pageOf([entry("\u00ae")]);
+      expect(await fetchStoreOffers({ storeId })).toEqual(fail("offers_none"));
+      expect(saveOffersIn).not.toHaveBeenCalled();
+    });
+
+    it("does not let one impossible date fail the save", async () => {
+      pageOverride = pageOf([entry("Spöke", { validTo: "2026-02-30T00:00:00" }), entry("Gul lök")]);
+      const result = await fetchStoreOffers({ storeId });
+      expect(result.ok && result.data.saved).toBe(1);
+    });
   });
 
   it.each([

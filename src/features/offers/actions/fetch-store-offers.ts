@@ -11,11 +11,11 @@ import { revalidateFor } from "@/lib/revalidate";
 import { createClient } from "@/lib/supabase/server";
 import { fetchOfferPage } from "@/server/fetch";
 import { OffersDataError } from "../data/client";
-import { loadLastFetch } from "../data/queries";
+import { blockFetch, claimFetch } from "../data/queries";
 import { saveOffersIn } from "../data/save";
 import { foodSection, parseIcaOfferPage, type IcaOffer } from "../domain/ica-offer-page";
-import { offersFetchIntervalMs, toOfferDraft, type OfferDraft } from "../domain/offer";
-import { offerName } from "../domain/offer-name";
+import { maxOffersPerWeek, toOfferDraft, type OfferDraft } from "../domain/offer";
+import { isNamed, offerName, type OfferName } from "../domain/offer-name";
 import { isSavableWeek, weekOfValidTo } from "../domain/week";
 
 // "Hämta veckans erbjudanden" (FR-34, Story 9.1, AD-11, AD-25): one fetch of
@@ -49,8 +49,7 @@ function failWith(code: ErrorCode, reason: string): ReturnType<typeof fail> {
 }
 
 /** The catalog ingredient for each offer: its first name that matched exactly or as a synonym. */
-async function matchOffers(offers: readonly IcaOffer[]) {
-  const names = offers.map((offer) => offerName(offer));
+async function matchOffers(names: readonly OfferName[]) {
   const items = names.flatMap((name) => name.candidates.map((text) => ({ text })));
   const matches: IngredientMatch[] = items.length > 0 ? await matchIngredients(items) : [];
   let at = 0;
@@ -102,8 +101,8 @@ export async function fetchStoreOffers(input: { storeId: string }): Promise<Fetc
   const db = await createClient();
   const now = new Date();
   try {
-    const last = await loadLastFetch(db, storeId);
-    if (last && now.getTime() - last.getTime() < offersFetchIntervalMs) return fail("offers_fetched_recently");
+    // Every attempt is recorded before the request, in one conditional UPDATE: no row changed means throttled.
+    if (!(await claimFetch(db, storeId, now))) return fail("offers_fetched_recently");
   } catch (error) {
     if (!(error instanceof OffersDataError)) throw error;
     return failWith("offers_failed", error.detail);
@@ -115,13 +114,21 @@ export async function fetchStoreOffers(input: { storeId: string }): Promise<Fetc
     signal: new AbortController().signal,
   });
   if (!page.ok) {
-    if (status === 403 || status === 429) return failWith("offers_fetch_blocked", `status_${status}`);
+    if (status === 403 || status === 429) {
+      try {
+        await blockFetch(db, storeId, now);
+      } catch (error) {
+        if (!(error instanceof OffersDataError)) throw error;
+        console.error("offers_failed", { reason: error.detail });
+      }
+      return failWith("offers_fetch_blocked", `status_${status}`);
+    }
     return failWith("offers_fetch_failed", page.error.code);
   }
 
   const read = parseIcaOfferPage(page.data.html);
   if (!read.ok) return failWith("offers_page_changed", "page_shape");
-  const { skipped } = read.data;
+  let { skipped } = read.data;
   if (read.data.offers.length === 0) {
     console.info("offers_none", { skipped });
     return fail("offers_none");
@@ -130,11 +137,23 @@ export async function fetchStoreOffers(input: { storeId: string }): Promise<Fetc
   const weekStart = weekOfValidTo(read.data.offers.map((offer) => offer.validTo));
   if (!weekStart || !isSavableWeek(weekStart, now)) return failWith("offers_page_old", "week");
   // An offer that ended before the week began is over: it is not saved.
-  const offers = read.data.offers.filter((offer) => offer.validTo >= weekStart);
+  // An offer with nothing left of its label or name once cleaned is not saved either, and the offers
+  // beyond the week's limit are cut before matching (the rest are counted as skipped).
+  const current = read.data.offers
+    .filter((offer) => offer.validTo >= weekStart)
+    .map((offer) => ({ offer, name: offerName(offer) }));
+  const named = current.filter((entry) => isNamed(entry.name));
+  const kept = named.slice(0, maxOffersPerWeek);
+  skipped += current.length - kept.length;
+  const offers: IcaOffer[] = kept.map((entry) => entry.offer);
+  if (kept.length === 0) {
+    console.info("offers_none", { skipped });
+    return fail("offers_none");
+  }
 
   let drafts: OfferDraft[];
   try {
-    const matches = await matchOffers(offers);
+    const matches = await matchOffers(kept.map((entry) => entry.name));
     drafts = offers.map((offer, index) =>
       toOfferDraft(offer, { ...matches[index], icaSection: foodSection(offer.category) }),
     );

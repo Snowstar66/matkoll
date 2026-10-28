@@ -134,6 +134,17 @@ describe("parseIcaOfferPage's reader", () => {
     });
   });
 
+  it("leaves out an entry whose last day does not exist, and keeps the others", () => {
+    const result = parseIcaOfferPage(
+      page(`{"offers":{"weeklyOffers":[${offer({ validTo: "2026-02-30T00:00:00" })},${offer({ details: { brand: "", name: "Gul lök", mechanicInfo: "" } })}]}}`),
+    );
+    expect(result.ok && result.data.offers.map((entry) => entry.name)).toEqual(["Gul lök"]);
+    // All of them impossible: the page is not read.
+    expect(parseIcaOfferPage(page(`{"offers":{"weeklyOffers":[${offer({ validTo: "2026-13-01T00:00:00" })}]}}`))).toEqual(
+      fail("offers_page_changed"),
+    );
+  });
+
   it("drops every field it does not use", () => {
     const result = parseIcaOfferPage(
       page(`{"offers":{"weeklyOffers":[${offer({ eans: [{ id: "123", image: "https://example.com/x.jpg" }], secret: "nyckel" })}]}}`),

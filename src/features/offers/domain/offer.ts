@@ -17,6 +17,8 @@ export const maxOfferNoteChars = 80;
 export const maxOffersPerWeek = 300;
 /** A new fetch for the same store waits this long after the last one (`offers_fetched_recently`). */
 export const offersFetchIntervalMs = 15 * 60_000;
+/** After a store has said no (403, 429) the next fetch waits this long. */
+export const offersBlockedIntervalMs = 6 * 60 * 60_000;
 
 /** Where an offer came from: the store's link (9.1), pasted text (9.7) or a photo (9.8). */
 export const OFFER_SOURCES = ["link", "text", "photo"] as const;

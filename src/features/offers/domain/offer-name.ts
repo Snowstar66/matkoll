@@ -67,3 +67,6 @@ export function offerName(details: { brand: string; name: string }): OfferName {
     clip(label.toLowerCase(), maxOfferNameChars);
   return { label, candidates, fallback };
 }
+
+/** Whether the offer has something to show and save: a label and a name that are not empty once cleaned. */
+export const isNamed = (name: OfferName): boolean => name.label !== "" && name.fallback !== "";
