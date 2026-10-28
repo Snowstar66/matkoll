@@ -6,7 +6,7 @@ import { fail, ok } from "@/lib/errors";
 import { createMockAiService } from "@/server/ai/adapters/mock";
 import { fromCompactDish } from "@/server/ai/compact-dish";
 import { suggestDishesAnswerCompact } from "@/server/ai/schemas";
-import { isValidSuggestDishesInput, withInputValidation, type SuggestDishesInput, type SuggestDishesOptions } from "@/server/ai/service";
+import { isValidSuggestDishesInput, withInputValidation, type SuggestDishesInput, type SuggestDishesStreamOptions } from "@/server/ai/service";
 import { toSuggestInput } from "../domain/pantry-input";
 
 // suggestFromPantry with the AI port's mock (tests/fixtures/ai, behind the
@@ -53,8 +53,17 @@ vi.mock("@/features/pantry/server", () => ({
 }));
 
 const ai = withInputValidation(createMockAiService());
-const suggestDishes = vi.fn(ai.suggestDishes);
-vi.mock("@/server/ai", () => ({ getAiService: () => ({ suggestDishes }) }));
+const suggestDishesStream = vi.fn(ai.suggestDishesStream);
+vi.mock("@/server/ai", () => ({ getAiService: () => ({ suggestDishesStream }) }));
+
+/** The port's stream, with the dishes given as the model would give them. */
+function streaming(recipes: (typeof fixture)[number][]) {
+  return async (_input: SuggestDishesInput, _signal: AbortSignal, options: SuggestDishesStreamOptions) => {
+    let kept = 0;
+    for (const [index, recipe] of recipes.entries()) if (await options?.onDish(recipe, index)) kept += 1;
+    return ok(kept);
+  };
+}
 
 const { checkSuggestPantry, suggestFromPantry, postModelMarginMs } = await import("./suggest-from-pantry");
 
@@ -102,15 +111,16 @@ beforeEach(() => {
         : { kind: "new", proposal: { name: item.hint?.name ?? item.text, section: "Övrigt", location: "Skafferi", defaultUnit: null } };
     }),
   );
-  suggestDishes.mockReset().mockImplementation(ai.suggestDishes);
+  suggestDishesStream.mockReset().mockImplementation(ai.suggestDishesStream);
 });
 
 describe("suggestFromPantry", () => {
   it("sends the pantry by name, matches every line in one call and returns three AI drafts with the matched names", async () => {
-    const result = await suggestFromPantry({ avoidTitles: ["Pannkakor"] }, { signal: signal() });
+    const report = vi.fn<(partial: unknown) => Promise<void>>(async () => {});
+    const result = await suggestFromPantry({ avoidTitles: ["Pannkakor"] }, { signal: signal(), report });
 
     expect(getIngredientNames.mock.calls[0][0]).toEqual(Object.values(ids));
-    const [input] = suggestDishes.mock.calls[0];
+    const [input] = suggestDishesStream.mock.calls[0];
     expect(input).toEqual({
       pantry: [
         { name: "Grädde", amount: 3, unit: "dl" },
@@ -124,8 +134,11 @@ describe("suggestFromPantry", () => {
     // The model never sees an id.
     expect(JSON.stringify(input)).not.toMatch(/6f1c1b7e/);
 
-    expect(matchIngredients).toHaveBeenCalledTimes(1);
-    expect(matchIngredients.mock.calls[0][0]).toHaveLength(lineCount);
+    // Story 12.7: each dish is matched when it comes, and the result so far is reported each time.
+    expect(matchIngredients).toHaveBeenCalledTimes(3);
+    expect(matchIngredients.mock.calls.flatMap(([items]) => items)).toHaveLength(lineCount);
+    expect(matchIngredients.mock.calls[0][0]).toHaveLength(fixture[0].ingredients.length);
+    expect(report.mock.calls.map(([partial]) => (partial as { suggestions: unknown[] }).suggestions.length)).toEqual([1, 2, 3]);
     expect(matchIngredients.mock.calls[0][0][0]).toEqual({
       text: fixture[0].ingredients[0].originalText,
       hint: fixture[0].ingredients[0].hint,
@@ -158,14 +171,14 @@ describe("suggestFromPantry", () => {
     requireUser.mockResolvedValue(fail("unauthorized"));
     expect(await suggestFromPantry({ avoidTitles: [] }, { signal: signal() })).toEqual(fail("unauthorized"));
     expect(getPantrySnapshot).not.toHaveBeenCalled();
-    expect(suggestDishes).not.toHaveBeenCalled();
+    expect(suggestDishesStream).not.toHaveBeenCalled();
   });
 
   it("gives pantry_unavailable without asking the AI when the pantry cannot be read", async () => {
     getPantrySnapshot.mockRejectedValue(new PantryDataError("connection"));
     expect(await suggestFromPantry({ avoidTitles: [] }, { signal: signal() })).toEqual(fail("pantry_unavailable"));
     expect(console.error).toHaveBeenCalledWith("pantry_unavailable", { reason: "connection" });
-    expect(suggestDishes).not.toHaveBeenCalled();
+    expect(suggestDishesStream).not.toHaveBeenCalled();
   });
 
   it("throws other errors from the pantry, which are bugs", async () => {
@@ -177,28 +190,41 @@ describe("suggestFromPantry", () => {
     getPantrySnapshot.mockResolvedValue(new Map());
     expect(await suggestFromPantry({ avoidTitles: [] }, { signal: signal() })).toEqual(fail("suggest_empty_pantry"));
     expect(getIngredientNames).not.toHaveBeenCalled();
-    expect(suggestDishes).not.toHaveBeenCalled();
+    expect(suggestDishesStream).not.toHaveBeenCalled();
   });
 
   it("gives catalog_unavailable, not an empty pantry, when nothing at home can be named", async () => {
     getIngredientNames.mockResolvedValue({});
     expect(await suggestFromPantry({ avoidTitles: [] }, { signal: signal() })).toEqual(fail("catalog_unavailable"));
     expect(console.error).toHaveBeenCalledWith("catalog_unavailable", { reason: "no_names" });
-    expect(suggestDishes).not.toHaveBeenCalled();
+    expect(suggestDishesStream).not.toHaveBeenCalled();
   });
 
   it("gives catalog_unavailable without asking the AI when the pantry's names cannot be read", async () => {
     getIngredientNames.mockRejectedValue(new CatalogDataError("query"));
     expect(await suggestFromPantry({ avoidTitles: [] }, { signal: signal() })).toEqual(fail("catalog_unavailable"));
-    expect(suggestDishes).not.toHaveBeenCalled();
+    expect(suggestDishesStream).not.toHaveBeenCalled();
   });
 
   it("gives catalog_unavailable when the matching or the matched names fail", async () => {
-    matchIngredients.mockRejectedValueOnce(new CatalogDataError("query"));
+    matchIngredients.mockRejectedValue(new CatalogDataError("query"));
     expect(await suggestFromPantry({ avoidTitles: [] }, { signal: signal() })).toEqual(fail("catalog_unavailable"));
 
-    getIngredientNames.mockImplementationOnce(async () => ({ ...catalogNames })).mockRejectedValueOnce(new CatalogDataError("query"));
+    matchIngredients.mockImplementation(async (items) =>
+      items.map((item): IngredientMatch => {
+        const matched = item.hint ? known[item.hint.name] : undefined;
+        return matched ? { kind: "match", ingredientId: matched, confidence: "hint" } : { kind: "unmatched" };
+      }),
+    );
+    getIngredientNames.mockImplementationOnce(async () => ({ ...catalogNames })).mockRejectedValue(new CatalogDataError("query"));
     expect(await suggestFromPantry({ avoidTitles: [] }, { signal: signal() })).toEqual(fail("catalog_unavailable"));
+  });
+
+  it("keeps the dishes that came when the catalog fails for one of them (Story 12.7)", async () => {
+    matchIngredients.mockRejectedValueOnce(new CatalogDataError("query"));
+    const result = await suggestFromPantry({ avoidTitles: [] }, { signal: signal() });
+    if (!result.ok) throw new Error(result.error.code);
+    expect(result.data.suggestions.map(({ draft }) => draft.title)).toEqual([fixture[1].title, fixture[2].title]);
   });
 
   it.each(["ai_unavailable", "ai_invalid", "ai_rejected"] as const)("passes on %s from the AI port", async (code) => {
@@ -211,7 +237,7 @@ describe("suggestFromPantry", () => {
   it("leaves out a draft that does not pass recipeDraftSchema, logging only paths and codes, and the later one keeps its own matches", async () => {
     const [first, second, third] = fixture;
     const tooLong = { ...second, title: `${"x".repeat(201)} hemligt` };
-    suggestDishes.mockResolvedValueOnce(ok([first, tooLong, third]));
+    suggestDishesStream.mockImplementationOnce(streaming([first, tooLong, third]));
     const result = await suggestFromPantry({ avoidTitles: [] }, { signal: signal() });
     if (!result.ok) throw new Error(result.error.code);
 
@@ -240,7 +266,7 @@ describe("suggestFromPantry", () => {
   });
 
   it("gives ai_invalid when no draft passes", async () => {
-    suggestDishes.mockResolvedValueOnce(ok(fixture.map((recipe) => ({ ...recipe, title: "x".repeat(201) }))));
+    suggestDishesStream.mockImplementationOnce(streaming(fixture.map((recipe) => ({ ...recipe, title: "x".repeat(201) }))));
     expect(await suggestFromPantry({ avoidTitles: [] }, { signal: signal() })).toEqual(fail("ai_invalid"));
   });
 
@@ -266,7 +292,7 @@ describe("suggestFromPantry", () => {
     });
     const result = await suggestFromPantry({ avoidTitles: [] }, { signal: signal() });
     expect(result.ok).toBe(true);
-    const sent = suggestDishes.mock.calls[0][0];
+    const sent = suggestDishesStream.mock.calls[0][0];
     expect(isValidSuggestDishesInput(sent)).toBe(true);
     expect(console.info).toHaveBeenCalledWith("suggest_pantry_trimmed", { dropped: 155 - sent.pantry.length });
   });
@@ -274,9 +300,9 @@ describe("suggestFromPantry", () => {
   it("gives the model the time left before the deadline, but a margin for the reads after it", async () => {
     const deadline = Date.now() + 120_000;
     await suggestFromPantry({ avoidTitles: [] }, { signal: signal(), deadline });
-    expect(suggestDishes.mock.calls[0][2]).toEqual({ deadline: deadline - postModelMarginMs });
+    expect(suggestDishesStream.mock.calls[0][2]).toMatchObject({ deadline: deadline - postModelMarginMs });
     await suggestFromPantry({ avoidTitles: [] }, { signal: signal() });
-    expect(suggestDishes.mock.calls[1][2]).toEqual({ deadline: undefined });
+    expect(suggestDishesStream.mock.calls[1][2]).toMatchObject({ deadline: undefined });
   });
 
   describe("a request that goes away", () => {
@@ -287,29 +313,29 @@ describe("suggestFromPantry", () => {
         return pantry;
       });
       expect(await suggestFromPantry({ avoidTitles: [] }, { signal: controller.signal })).toEqual(fail("ai_unavailable"));
-      expect(suggestDishes).not.toHaveBeenCalled();
+      expect(suggestDishesStream).not.toHaveBeenCalled();
       expect(console.info).toHaveBeenCalledWith("suggest_aborted");
     });
 
     it("reaches the mock as aborted while the AI is asked", async () => {
       const controller = new AbortController();
       let seen: AbortSignal | undefined;
-      suggestDishes.mockImplementationOnce(async (input: SuggestDishesInput, aiSignal: AbortSignal, options?: SuggestDishesOptions) => {
+      suggestDishesStream.mockImplementationOnce(async (input: SuggestDishesInput, aiSignal: AbortSignal, options: SuggestDishesStreamOptions) => {
         seen = aiSignal;
         controller.abort();
-        return ai.suggestDishes(input, aiSignal, options);
+        return ai.suggestDishesStream(input, aiSignal, options);
       });
       expect(await suggestFromPantry({ avoidTitles: [] }, { signal: controller.signal })).toEqual(fail("ai_unavailable"));
       expect(seen?.aborted).toBe(true);
       expect(matchIngredients).not.toHaveBeenCalled();
     });
 
-    it("stops after the AI answers, without matching", async () => {
+    it("stops matching the dishes that come after the job was stopped", async () => {
       const controller = new AbortController();
-      suggestDishes.mockImplementationOnce(async (input: SuggestDishesInput, aiSignal: AbortSignal) => {
-        const answer = await ai.suggestDishes(input, aiSignal);
+      suggestDishesStream.mockImplementationOnce(async (_input: SuggestDishesInput, _signal: AbortSignal, options: SuggestDishesStreamOptions) => {
         controller.abort();
-        return answer;
+        await options?.onDish(fixture[0], 0);
+        return fail("ai_unavailable");
       });
       expect(await suggestFromPantry({ avoidTitles: [] }, { signal: controller.signal })).toEqual(fail("ai_unavailable"));
       expect(matchIngredients).not.toHaveBeenCalled();
@@ -336,10 +362,10 @@ describe("suggestFromPantry", () => {
         release = resolve;
       });
       const signals: AbortSignal[] = [];
-      suggestDishes.mockImplementationOnce(async (input: SuggestDishesInput, aiSignal: AbortSignal, options?: SuggestDishesOptions) => {
+      suggestDishesStream.mockImplementationOnce(async (input: SuggestDishesInput, aiSignal: AbortSignal, options: SuggestDishesStreamOptions) => {
         signals.push(aiSignal);
         await held;
-        return ai.suggestDishes(input, aiSignal, options);
+        return ai.suggestDishesStream(input, aiSignal, options);
       });
       const running = suggestFromPantry({ avoidTitles: [] }, { signal: signal() });
       await vi.waitFor(() => expect(signals).toHaveLength(1));
@@ -352,7 +378,7 @@ describe("suggestFromPantry", () => {
 
     it("stops with the job's signal while the AI is asked", async () => {
       const controller = new AbortController();
-      suggestDishes.mockImplementationOnce(async (_input: SuggestDishesInput, aiSignal: AbortSignal) => {
+      suggestDishesStream.mockImplementationOnce(async (_input: SuggestDishesInput, aiSignal: AbortSignal) => {
         controller.abort();
         expect(aiSignal.aborted).toBe(true);
         return fail("ai_unavailable");
@@ -365,13 +391,13 @@ describe("suggestFromPantry", () => {
 describe("checkSuggestPantry", () => {
   it("gives the place the job is about when there is something at home", async () => {
     expect(await checkSuggestPantry()).toEqual(ok({ siteId: stugan.id }));
-    expect(suggestDishes).not.toHaveBeenCalled();
+    expect(suggestDishesStream).not.toHaveBeenCalled();
   });
 
   it("gives suggest_empty_pantry at once for an empty pantry, so no job is queued", async () => {
     getPantrySnapshot.mockResolvedValue(new Map());
     expect(await checkSuggestPantry()).toEqual(fail("suggest_empty_pantry"));
-    expect(suggestDishes).not.toHaveBeenCalled();
+    expect(suggestDishesStream).not.toHaveBeenCalled();
   });
 
   it("gives pantry_unavailable when the pantry cannot be read", async () => {

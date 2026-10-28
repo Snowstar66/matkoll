@@ -123,7 +123,7 @@ describe("toAiJobs", () => {
   });
 
   it("gives no count for a job that is not done", () => {
-    expect(toAiJobs([row({ status: "running", result: { suggestions: [1] } })], now)[0].count).toBeNull();
+    expect(toAiJobs([row({ status: "queued", result: null })], now)[0].count).toBeNull();
   });
 
   it("counts the suggestions of a photo's job as soon as its reading is there, before it is done (Story 12.5)", () => {

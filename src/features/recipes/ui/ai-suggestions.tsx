@@ -63,7 +63,7 @@ export function AiSuggestions({ dishes, searchIngredients, offerButton = true }:
   }, [cancels]);
 
   if (!dishes) return null;
-  const { suggestions, loading, waiting, error, stale, suggest, cancel, remove } = dishes;
+  const { suggestions, loading, waiting, error, stale, suggest, cancel, remove, arrived, announcement } = dishes;
 
   let notice = null;
   if (error && !loading) {
@@ -112,7 +112,11 @@ export function AiSuggestions({ dishes, searchIngredients, offerButton = true }:
         </section>
       ) : null}
       {/* Mounted empty, so the text is announced when it appears. */}
-      <div role="status">{loading ? <Thinking waiting={waiting} /> : null}</div>
+      <div role="status">
+        {loading ? <Thinking waiting={waiting} more={arrived > 0} /> : null}
+        {/* Story 12.7: each dish that comes is announced once, in the same live region. */}
+        {loading && announcement ? <p className="sr-only">{announcement}</p> : null}
+      </div>
       {loading ? (
         <Button variant="text" onClick={cancel} className="-ml-3 self-start">
           Avbryt
@@ -186,12 +190,13 @@ function SuggestionCard({ suggestion, onSave }: { suggestion: ShownSuggestion; o
 /**
  * "Letar efter idéer … Du kan göra annat under tiden." with a progress bar
  * (EXPERIENCE.md, AI-förslag hämtas), or "I kö, 1 före." while the job waits
- * behind others (Story 12.4).
+ * behind others (Story 12.4), or "Letar efter fler …" once the first dish
+ * of the job has come (Story 12.7).
  */
-function Thinking({ waiting }: { waiting: string | null }) {
+function Thinking({ waiting, more }: { waiting: string | null; more: boolean }) {
   return (
     <div className="flex flex-col gap-2">
-      <p className="text-body text-ink">{waiting ?? "Letar efter idéer …"}</p>
+      <p className="text-body text-ink">{waiting ?? (more ? "Letar efter fler …" : "Letar efter idéer …")}</p>
       <p className="text-meta text-ink-2">Du kan göra annat under tiden.</p>
       <div aria-hidden="true" className="h-1 overflow-hidden rounded-full bg-hairline">
         <div className="h-full w-1/3 rounded-full bg-accent motion-safe:animate-progress" />

@@ -150,6 +150,7 @@ async function suggest(
       catalog.failure = matches;
       return false;
     }
+    if (signal.aborted) return false;
     const draft = recipeDraftSchema.safeParse(fromAiRecipe(recipe, matches.data, { kind: "ai" }));
     if (!draft.success) {
       const issues = draft.error.issues.map(({ path, code }) => ({ path: path.map(String), code }));

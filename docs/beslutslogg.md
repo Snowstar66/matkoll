@@ -2,6 +2,14 @@
 
 Beslut som fattats under bygget: vad, varför och vilka alternativ som fanns. Nyaste överst.
 
+## 2026-10-29 – Första rätten direkt (Story 12.7)
+
+- **Specens förslag godkändes som de stod** (Claude, headless enligt `docs/autonomi.md`): strömning till jobbet och pollning till klienten, och minst en giltig rätt räcker.
+- **Provet mot LM Studio kördes inte** i bygget, eftersom LM Studio inte får anropas där. Skriptet finns (`tests/eval/stream-probe.eval.ts`) och mäts i Epic 12-mätningen; strömningen är byggd i förväg och dras tillbaka om provet säger STOP (T9).
+- **Mocken sprider `AI_MOCK_DELAY_MS` över rätterna** i stället för att vänta det på varje, så att andra e2e-specar som väntar på hela jobbet tar lika lång tid som förut.
+- **Fokus** flyttas till rubriken när jobbet är klart, inte för varje rätt, så att Pontus inte tappar sin plats medan rätterna kommer. Varje ny rätt annonseras i statusregionen.
+- **Alternativ:** SSE till klienten (avvisat i specen), vänta på alla tre (som efter 12.3).
+
 ## 2026-10-29 – Receptimport i bakgrunden (Story 12.6)
 
 - **Specens förslag godkändes som de stod** (Claude, headless enligt `docs/autonomi.md`): domänen (inte hela länken) i `context`, och ett tomt formulär när arket öppnas igen. Ingen migration: `ai_job` tar redan sorten `import`.

@@ -144,6 +144,38 @@ describe("mock suggestDishes", () => {
   const suggestions = () => setOf(manifest.suggest);
   const alternative = () => setOf(manifest.suggestAlternatives[0]);
 
+  it("streams the fixture dishes one at a time with the delay spread over them (Story 12.7)", async () => {
+    vi.useFakeTimers();
+    try {
+      const streaming = createMockAiService(defaultFixturesDir, { delayMs: 3_000 });
+      const titles: string[] = [];
+      const done = streaming.suggestDishesStream(pantryInput, signal(), { onDish: (recipe) => (titles.push(recipe.title), true) });
+      await vi.advanceTimersByTimeAsync(1_000);
+      expect(titles).toEqual([suggestions()[0].title]);
+      await vi.advanceTimersByTimeAsync(2_000);
+      expect(await done).toEqual({ ok: true, data: 3 });
+      expect(titles).toEqual(suggestions().map((recipe) => recipe.title));
+    } finally {
+      vi.useRealTimers();
+    }
+  });
+
+  it("stops streaming when it is aborted, and answers the reserved errors like suggestDishes", async () => {
+    const controller = new AbortController();
+    const stopped = service.suggestDishesStream(pantryInput, controller.signal, {
+      onDish: () => {
+        controller.abort();
+        return true;
+      },
+    });
+    expect(await stopped).toMatchObject({ ok: false, error: { code: "ai_unavailable" } });
+    const reserved = { pantry: [{ name: `matkoll-mock: ${mockSuggestErrorCodes[0]}`, amount: null, unit: null }], avoidTitles: [] };
+    expect(await service.suggestDishesStream(reserved, signal(), { onDish: () => true })).toMatchObject({
+      ok: false,
+      error: { code: mockSuggestErrorCodes[0] },
+    });
+  });
+
   it("answers the three fixture recipes, whatever is at home", async () => {
     expect(await service.suggestDishes(pantryInput, signal())).toEqual({ ok: true, data: suggestions() });
     const other = { pantry: [{ name: "havregryn", amount: 1, unit: "kg" }], avoidTitles: ["Gröt"] };

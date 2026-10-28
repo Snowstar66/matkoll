@@ -65,7 +65,7 @@ export function createFakeAiJobsServer() {
     if (one && method === "GET") {
       const job = jobs.find((other) => other.id === one[1]);
       // A job without a result of its own is one whose result is gone (older than 24 hours, closed elsewhere).
-      if (!job || job.status !== "done" || !results.has(job.id)) return json(fail("ai_job_gone"), 404);
+      if (!job || (job.status !== "done" && job.status !== "running") || !results.has(job.id)) return json(fail("ai_job_gone"), 404);
       return json(ok({ job, result: results.get(job.id) ?? null }));
     }
     throw new Error(`unexpected ${method} ${url.pathname}`);
@@ -122,6 +122,11 @@ export function createFakeAiJobsServer() {
     finish(id: string, result: unknown, count: number | null = null) {
       results.set(id, result);
       jobs = jobs.map((job) => (job.id === id ? { ...job, status: "done", count } : job));
+    },
+    /** A running job has `result` so far (Story 12.7), with `count` in the list. */
+    report(id: string, result: unknown, count: number) {
+      results.set(id, result);
+      jobs = jobs.map((job) => (job.id === id ? { ...job, count } : job));
     },
     /** The job did not go. */
     failJob(id: string, errorCode: ErrorCode) {
