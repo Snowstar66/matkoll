@@ -251,11 +251,17 @@ function wait(ms: number, signal: AbortSignal): Promise<boolean> {
   });
 }
 
+const clampedDelay = (ms: number) => Math.min(Math.max(ms, 0), maxMockDelayMs);
+
 export type MockOptions = {
   /**
    * Time every AI-förslag call takes (AI_MOCK_DELAY_MS, Story 12.4), so the
-   * queue and the job row can be tried in the end-to-end tests. The other
-   * calls answer at once until they are jobs too (Stories 12.5, 12.6).
+   * queue and the job row can be tried in the end-to-end tests. Story 12.5:
+   * also a photo the mock does not know (not one of the cases, not a reserved
+   * image), for the reading and for the numbers each, so the queue of photos
+   * can be seen; the photos of the cases answer at once, so the other
+   * end-to-end tests stay quick. The other calls answer at once until they
+   * are jobs too (Story 12.6).
    */
   delayMs?: number;
 };
@@ -285,7 +291,7 @@ export function createMockAiService(dir: string = defaultFixturesDir, { delayMs 
       return ok(structuredClone(answer ? answer.recipe : current.fallback));
     },
     async suggestDishes(input, signal) {
-      if (!(await wait(Math.min(Math.max(delayMs, 0), maxMockDelayMs), signal))) return fail("ai_unavailable");
+      if (!(await wait(clampedDelay(delayMs), signal))) return fail("ai_unavailable");
       const current = logged(suggestFixtures());
       if (!current) return fail("ai_unavailable");
       const code = suggestErrorFor(input, current.errors);
@@ -300,6 +306,7 @@ export function createMockAiService(dir: string = defaultFixturesDir, { delayMs 
       const current = logged(analyzeFixtures());
       if (!current) return fail("ai_unavailable");
       const answer = current.byKey.get(sha256(input.image.data));
+      if (!answer && !(await wait(clampedDelay(delayMs), signal))) return fail("ai_unavailable");
       if (answer && "code" in answer) return fail(answer.code);
       const { items, repeated } = answer ?? current.fallback;
       return ok({ items: structuredClone(items), invalid: 0, repeated });
@@ -309,6 +316,7 @@ export function createMockAiService(dir: string = defaultFixturesDir, { delayMs 
       const current = logged(locateFixtures());
       if (!current) return fail("ai_unavailable");
       const answer = current.byKey.get(sha256(input.image.data));
+      if (!answer && !(await wait(clampedDelay(delayMs), signal))) return fail("ai_unavailable");
       if (answer && "code" in answer) return fail(answer.code);
       // Like a model's answer: a point for a number beyond the labels is left out and counted.
       return ok(parseItemPositions((answer ?? current.fallback).positions, input.labels.length));

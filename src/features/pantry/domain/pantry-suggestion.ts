@@ -166,7 +166,7 @@ export const pantrySuggestionSchema = z
 export type PantrySuggestion = z.infer<typeof pantrySuggestionSchema>;
 
 /**
- * What /api/ai/analyze answers, checked by the client too: the photographed
+ * What a photo's AI job gives the client (Story 12.5), checked by the client too: the photographed
  * place, its suggestions and how many of the AI's items were left out (no
  * catalog link or name, a name that cannot be used, or not valid). No
  * suggestions but some left out means the photo had items that could not be
@@ -174,7 +174,7 @@ export type PantrySuggestion = z.infer<typeof pantrySuggestionSchema>;
  */
 export const analyzeResultSchema = z.object({
   /**
-   * Story 8.4: the place the photo was taken for, as /api/ai/analyze read it
+   * Story 8.4: the place the photo was taken for, as the job read it
    * (FR-33, AD-24). Every write from the suggestions sends its id, also when
    * Hemma shows another place by then. `null` only for a user without places
    * yet (before ensure_pantry_defaults): the writes then go to the selected
@@ -190,8 +190,8 @@ export const analyzeResultSchema = z.object({
   inventory: placeInventorySchema,
   /**
    * Story 6.6: the AI's items in reading order, as one-line labels: item n is
-   * reading[n − 1], also the ones left out of the suggestions. Sent back with
-   * the photo to /api/ai/locate for the numbers on the photo.
+   * reading[n − 1], also the ones left out of the suggestions. The job
+   * looks up the numbers on the photo from it, as its second step.
    */
   reading: readingSchema.optional(),
 });
@@ -475,6 +475,8 @@ export const analyzedPhotoNoteText = "Jämför förslagen med fotot. Det sparas 
 
 /** Instead of the photo, when the browser cannot show it. */
 export const analyzedPhotoErrorText = "Fotot kunde inte visas.";
+/** Story 12.5: the suggestions came back after a reload, and the photo is only in memory (AD-15). */
+export const analyzedPhotoGoneText = "Fotot finns inte kvar efter omladdningen.";
 
 /** The large photo as a toggle: pressed, it shows in full size, so the labels can be read. */
 export const analyzedPhotoFullSizeText = "Visa i full storlek";

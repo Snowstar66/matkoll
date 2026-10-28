@@ -79,7 +79,7 @@ export function AiJobsProvider({ children }: { children: ReactNode }) {
           show: {
             onShow: () => {
               reveal(only.kind);
-              router.push(resultHref(only.kind));
+              router.push(resultHref(only.kind, only.context));
             },
           },
         });

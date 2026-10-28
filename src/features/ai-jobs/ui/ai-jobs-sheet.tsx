@@ -38,7 +38,7 @@ export function AiJobsSheet({ open, onClose }: { open: boolean; onClose: () => v
   function show(job: AiJob) {
     onClose();
     reveal(job.kind);
-    router.push(resultHref(job.kind));
+    router.push(resultHref(job.kind, job.context));
   }
 
   async function retry(job: AiJob) {

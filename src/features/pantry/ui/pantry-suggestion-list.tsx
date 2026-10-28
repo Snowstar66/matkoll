@@ -11,6 +11,7 @@ import {
   currentAmountText,
   incompleteComparisonText,
   isBulkConfirmable,
+  analyzedPhotoGoneText,
   savedAsText,
   suggestionAmountText,
   suggestionsArrivedText,
@@ -100,6 +101,7 @@ export function PantrySuggestionList({ siteId }: PantrySuggestionListProps) {
   const {
     result,
     reviewPhoto,
+    photoGone,
     arrivals,
     announce,
     cameraAreaRef,
@@ -222,6 +224,8 @@ export function PantrySuggestionList({ siteId }: PantrySuggestionListProps) {
         <p role="status" data-testid="pantry-suggestions-site" className="text-body text-ink break-words empty:hidden">
           {result.site && result.site.id !== siteId ? suggestionsSiteText(result.site.name) : null}
         </p>
+        {/* Story 12.5: the cards came without the photo (after a reload): nothing to compare with, and no latest photo is saved. */}
+        {photoGone ? <p className="text-meta text-ink-2">{analyzedPhotoGoneText}</p> : null}
         {reviewPhoto ? (
           <AnalyzedPhotoButton
             photo={reviewPhoto}

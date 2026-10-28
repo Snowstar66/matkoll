@@ -55,8 +55,23 @@ const analyzeImage = vi.fn(ai.analyzeImage);
 const locateItems = vi.fn(ai.locateItems);
 vi.mock("@/server/ai", () => ({ getAiService: () => ({ analyzeImage, locateItems }), minLoopRepeats: 2 }));
 
-const { analyzePlace, minReadMs, postModelMarginMs } = await import("./analyze-place");
-const { locatePlaceItems } = await import("./locate-place-items");
+const { compareStoredReading, lookUpSite, minReadMs, postModelMarginMs, readPhoto } = await import("./analyze-place");
+
+/**
+ * The steps of a photo's job in one (Story 12.5): the place, the reading, and
+ * the comparison made when the result is fetched, as the client gets it.
+ */
+async function analyzePlace(
+  input: { image: typeof kyl; location: Location; siteId?: string },
+  options: { signal: AbortSignal; deadline?: number },
+) {
+  const looked = await lookUpSite(input.siteId);
+  if (!looked.ok) return looked.result;
+  const read = await readPhoto({ image: input.image, location: input.location, site: looked.site }, options);
+  if (!read.ok) return read;
+  // The numbers are the job's second step: not part of the old answer.
+  return ok({ ...(await compareStoredReading(read.data)), points: undefined });
+}
 
 const fixtures = new URL("../../../../tests/fixtures/ai/", import.meta.url);
 const photo = (file: string) => ({ data: new Uint8Array(readFileSync(new URL(file, fixtures))), mediaType: "image/png" });
@@ -192,7 +207,7 @@ describe("analyzePlace", () => {
   });
 
   it("gives an empty list for a photo without food, without asking the catalog, compared with an empty place", async () => {
-    listPantryIn.mockResolvedValueOnce([]);
+    listPantryIn.mockResolvedValue([]);
     const result = await analyzePlace({ image: photo("tom-hylla.png"), location: "Frys" }, { signal: signal() });
     expect(result).toEqual(
       ok({ site: { id: hemma, name: "Hemma" }, location: "Frys", suggestions: [], dropped: 0, inventory: { kind: "empty" }, reading: [] }),
@@ -210,12 +225,6 @@ describe("analyzePlace", () => {
       missing: [{ name: "Mjölk" }, { name: "Smör" }],
     });
     expect(matchIngredients).not.toHaveBeenCalled();
-  });
-
-  it("gives unauthorized without asking the AI", async () => {
-    requireUser.mockResolvedValue(fail("unauthorized"));
-    expect(await analyzePlace({ image: kyl, location: "Kyl" }, { signal: signal() })).toEqual(fail("unauthorized"));
-    expect(analyzeImage).not.toHaveBeenCalled();
   });
 
   it.each(["ai_unavailable", "ai_invalid", "ai_rejected"] as const)("passes on %s from the AI port", async (code) => {
@@ -246,7 +255,7 @@ describe("analyzePlace", () => {
     ["the pantry", () => new PantryDataError("query_failed 500"), { reason: "query_failed 500" }],
     ["the pantry's names", () => new CatalogDataError("query_failed"), { reason: "catalog_query_failed" }],
   ])("shows the suggestions without what the place has when %s cannot be read", async (_name, error, logged) => {
-    listPantryIn.mockRejectedValueOnce(error());
+    listPantryIn.mockRejectedValue(error());
     const result = await analyzePlace({ image: kyl, location: "Kyl" }, { signal: signal() });
     if (!result.ok) throw new Error(result.error.code);
     expect(result.data.suggestions).toHaveLength(6);
@@ -272,7 +281,7 @@ describe("analyzePlace", () => {
     };
 
     it("groups the suggestions against the place's items, with the AI call unchanged, and writes nothing", async () => {
-      listPantryIn.mockResolvedValueOnce([...atHome, yoghurtRow]);
+      listPantryIn.mockResolvedValue([...atHome, yoghurtRow]);
       const result = await analyzePlace({ image: kyl, location: "Kyl" }, { signal: signal() });
       if (!result.ok) throw new Error(result.error.code);
       // The AI port gets the same input as before the comparison: the photo and the place, nothing about the pantry.
@@ -307,7 +316,7 @@ describe("analyzePlace", () => {
     });
 
     it("is empty for a place without items: the suggestions as in 6.1 and 6.2", async () => {
-      listPantryIn.mockResolvedValueOnce([]);
+      listPantryIn.mockResolvedValue([]);
       const result = await analyzePlace({ image: kyl, location: "Frys" }, { signal: signal() });
       if (!result.ok) throw new Error(result.error.code);
       expect(result.data.inventory).toEqual({ kind: "empty" });
@@ -315,7 +324,7 @@ describe("analyzePlace", () => {
     });
 
     it("is unread when the place cannot be read (and when its read is skipped near the deadline, below)", async () => {
-      listPantryIn.mockRejectedValueOnce(new PantryDataError("query_failed 500"));
+      listPantryIn.mockRejectedValue(new PantryDataError("query_failed 500"));
       const failed = await analyzePlace({ image: kyl, location: "Kyl" }, { signal: signal() });
       expect(failed.ok && failed.data.inventory).toEqual({ kind: "unread" });
     });
@@ -361,7 +370,7 @@ describe("analyzePlace", () => {
         ),
       );
       getIngredientNames.mockResolvedValueOnce({ [senap]: "senap" });
-      listPantryIn.mockResolvedValueOnce([
+      listPantryIn.mockResolvedValue([
         { id: "7a1c1b7e-3c1a-4c55-9a59-0f3f2b8f2a09", siteId: hemma, ingredientId: senap, name: "senap", location: "Kyl", amount: 1, unit: "förp", label: null, createdAt: "2026-10-20T10:00:00+00:00", section: "Mejeri" },
       ]);
       const result = await analyzePlace({ image: photo("kyl-dorr.png"), location: "Kyl" }, { signal: signal() });
@@ -371,7 +380,7 @@ describe("analyzePlace", () => {
     });
 
     it("leaves out a comparison the client could not read, never the whole answer", async () => {
-      listPantryIn.mockResolvedValueOnce([...atHome, { ...yoghurtRow, id: "not-a-uuid" }]);
+      listPantryIn.mockResolvedValue([...atHome, { ...yoghurtRow, id: "not-a-uuid" }]);
       const result = await analyzePlace({ image: kyl, location: "Kyl" }, { signal: signal() });
       if (!result.ok) throw new Error(result.error.code);
       expect(result.data.inventory).toEqual({ kind: "unread" });
@@ -384,7 +393,7 @@ describe("analyzePlace", () => {
   });
 
   it("throws other errors from the pantry, which are bugs", async () => {
-    listPantryIn.mockRejectedValueOnce(new TypeError("bug"));
+    listPantryIn.mockRejectedValue(new TypeError("bug"));
     await expect(analyzePlace({ image: kyl, location: "Kyl" }, { signal: signal() })).rejects.toThrow("bug");
   });
 
@@ -450,7 +459,7 @@ describe("analyzePlace", () => {
   });
 
   it("gives each suggestion the AI's labels and marks the ones it was unsure of (Story 6.5)", async () => {
-    listPantryIn.mockResolvedValueOnce([]);
+    listPantryIn.mockResolvedValue([]);
     const result = await analyzePlace({ image: photo("kyl-dorr.png"), location: "Kyl" }, { signal: signal() });
     if (!result.ok) throw new Error(result.error.code);
     // The mock merged the repeated cream, as the port does: three suggestions, not six.
@@ -463,7 +472,7 @@ describe("analyzePlace", () => {
   });
 
   it("logs codes and counts only, never the photo, the items or the names", async () => {
-    listPantryIn.mockRejectedValueOnce(new PantryDataError("query_failed 500"));
+    listPantryIn.mockRejectedValue(new PantryDataError("query_failed 500"));
     const many = Array.from({ length: 26 }, () => fixture[0]);
     analyzeImage.mockResolvedValueOnce(answer(many, 1));
     await analyzePlace({ image: kyl, location: "Kyl" }, { signal: signal() });
@@ -511,12 +520,12 @@ describe("analyzePlace", () => {
         vi.setSystemTime(deadline - minReadMs + 1);
         return catalogNames;
       });
-      const result = await analyzePlace({ image: kyl, location: "Kyl" }, { signal: signal(), deadline });
+      // The reading alone: the comparison is made when the result is fetched (Story 12.5).
+      const result = await readPhoto({ image: kyl, location: "Kyl", site: { id: hemma, name: "Hemma" } }, { signal: signal(), deadline });
       if (!result.ok) throw new Error(result.error.code);
       expect(result.data.suggestions).toHaveLength(6);
       expect(result.data.suggestions.every((suggestion) => suggestion.current === null)).toBe(true);
       expect(listPantryIn).not.toHaveBeenCalled();
-      expect(result.data.inventory).toEqual({ kind: "unread" });
       expect(console.info).toHaveBeenCalledWith("analyze_place_skipped", { reason: "deadline" });
     });
   });
@@ -569,90 +578,6 @@ describe("analyzePlace", () => {
     });
   });
 
-  describe("one analysis per user", () => {
-    /** Holds the AI call until `release`, so a second request comes while it runs. */
-    function holdAi() {
-      let release = () => {};
-      const held = new Promise<void>((resolve) => {
-        release = resolve;
-      });
-      const signals: AbortSignal[] = [];
-      analyzeImage.mockImplementationOnce(async (input: AnalyzeImageInput, aiSignal: AbortSignal, options?: RunOptions) => {
-        signals.push(aiSignal);
-        await held;
-        return ai.analyzeImage(input, aiSignal, options);
-      });
-      return { release, signals };
-    }
-
-    it("stops the earlier analysis when the same user sends another photo, which answers ai_superseded", async () => {
-      const first = holdAi();
-      const running = analyzePlace({ image: kyl, location: "Kyl" }, { signal: signal() });
-      await vi.waitFor(() => expect(first.signals).toHaveLength(1));
-
-      expect((await analyzePlace({ image: kyl, location: "Frys" }, { signal: signal() })).ok).toBe(true);
-      expect(first.signals[0].aborted).toBe(true);
-      first.release();
-      expect(await running).toEqual(fail("ai_superseded"));
-      expect(console.info).toHaveBeenCalledWith("analyze_superseded");
-    });
-
-    it("answers ai_unavailable, not ai_superseded, when the request itself went away", async () => {
-      const first = holdAi();
-      const controller = new AbortController();
-      const running = analyzePlace({ image: kyl, location: "Kyl" }, { signal: controller.signal });
-      await vi.waitFor(() => expect(first.signals).toHaveLength(1));
-      controller.abort();
-      first.release();
-      expect(await running).toEqual(fail("ai_unavailable"));
-    });
-
-    it("leaves another user's analysis alone", async () => {
-      const first = holdAi();
-      const running = analyzePlace({ image: kyl, location: "Kyl" }, { signal: signal() });
-      await vi.waitFor(() => expect(first.signals).toHaveLength(1));
-
-      requireUser.mockResolvedValueOnce(user("someone-else"));
-      expect((await analyzePlace({ image: kyl, location: "Kyl" }, { signal: signal() })).ok).toBe(true);
-      expect(first.signals[0].aborted).toBe(false);
-      first.release();
-      expect((await running).ok).toBe(true);
-    });
-
-    // Story 6.6: the lookup of the numbers shares the lock, and gives way to an analysis.
-    const labels = ["Mellanmjölk 1,5 %", "Vispgrädde 3 dl"];
-
-    it("stops a lookup of the numbers on its way when the same user sends a photo", async () => {
-      const lookupSignals: AbortSignal[] = [];
-      locateItems.mockImplementationOnce(
-        (_input, lookupSignal) =>
-          new Promise((resolve) => {
-            lookupSignals.push(lookupSignal);
-            lookupSignal.addEventListener("abort", () => resolve(fail("ai_unavailable")), { once: true });
-          }),
-      );
-      const lookup = locatePlaceItems({ image: kyl, labels }, { signal: signal() });
-      await vi.waitFor(() => expect(lookupSignals).toHaveLength(1));
-
-      expect((await analyzePlace({ image: kyl, location: "Kyl" }, { signal: signal() })).ok).toBe(true);
-      expect(lookupSignals[0].aborted).toBe(true);
-      expect(await lookup).toEqual(fail("ai_superseded"));
-    });
-
-    it("answers a lookup during an analysis ai_superseded at once, without the AI, and the analysis goes on", async () => {
-      const first = holdAi();
-      const running = analyzePlace({ image: kyl, location: "Kyl" }, { signal: signal() });
-      await vi.waitFor(() => expect(first.signals).toHaveLength(1));
-
-      expect(await locatePlaceItems({ image: kyl, labels }, { signal: signal() })).toEqual(fail("ai_superseded"));
-      expect(locateItems).not.toHaveBeenCalled();
-      expect(first.signals[0].aborted).toBe(false);
-      first.release();
-      expect((await running).ok).toBe(true);
-      // Once the analysis is done, the lookup runs.
-      expect((await locatePlaceItems({ image: kyl, labels }, { signal: signal() })).ok).toBe(true);
-    });
-  });
 });
 
 describe("analyzePlace for a place (Story 8.4)", () => {
@@ -665,8 +590,10 @@ describe("analyzePlace for a place (Story 8.4)", () => {
     const result = await analyzePlace({ image: kyl, location: "Kyl", siteId: stugan }, { signal: signal() });
     if (!result.ok) throw new Error(result.error.code);
     expect(result.data.site).toEqual({ id: stugan, name: "Stugan" });
-    expect(listPantryIn).toHaveBeenCalledTimes(1);
+    // The reading and the comparison each read the place (Story 12.5).
+    expect(listPantryIn).toHaveBeenCalledTimes(2);
     expect(listPantryIn.mock.calls[0][3]).toBe(stugan);
+    expect(listPantryIn.mock.calls[1][3]).toBe(stugan);
     // The AI port's input is unchanged: the photo and the location only (AD-9).
     expect(analyzeImage.mock.calls[0][0]).toEqual({ image: kyl, place: "Kyl" });
     // "Smör" is unlimited at home only: on Stugan nothing is there of it.
@@ -723,37 +650,79 @@ describe("analyzePlace for a place (Story 8.4)", () => {
     expect(analyzeImage).not.toHaveBeenCalled();
     expect(console.info).toHaveBeenCalledWith("pantry_site_gone", { reason: "no_selected_site" });
   });
+});
 
-  it("stops the user's earlier analysis also when the new photo's place is gone", async () => {
-    let release = () => {};
-    const held = new Promise<void>((resolve) => {
-      release = resolve;
-    });
-    const signals: AbortSignal[] = [];
-    analyzeImage.mockImplementationOnce(async (input: AnalyzeImageInput, aiSignal: AbortSignal, options?: RunOptions) => {
-      signals.push(aiSignal);
-      await held;
-      return ai.analyzeImage(input, aiSignal, options);
-    });
-    const running = analyzePlace({ image: kyl, location: "Kyl", siteId: stugan }, { signal: signal() });
-    await vi.waitFor(() => expect(signals).toHaveLength(1));
+describe("a photo's reading kept by its job, and compared when it is fetched (Story 12.5)", () => {
+  const site = { id: hemma, name: "Hemma" };
+  const read = async () => {
+    const result = await readPhoto({ image: kyl, location: "Kyl", site }, { signal: signal() });
+    if (!result.ok) throw new Error(result.error.code);
+    return result.data;
+  };
 
-    const gone = "5a1c1b7e-3c1a-4c55-9a59-0f3f2b8f2aff";
-    expect(await analyzePlace({ image: kyl, location: "Kyl", siteId: gone }, { signal: signal() })).toEqual(
-      fail("pantry_site_gone"),
-    );
-    expect(signals[0].aborted).toBe(true);
-    release();
-    expect(await running).toEqual(fail("ai_superseded"));
-    // The failed lookup ended its own run: a new analysis runs as usual.
-    expect((await analyzePlace({ image: kyl, location: "Kyl", siteId: stugan }, { signal: signal() })).ok).toBe(true);
+  it("keeps the suggestions outside any comparison, the ingredients the AI named, and whether the comparison is incomplete", async () => {
+    const stored = await read();
+    expect(stored.site).toEqual(site);
+    expect(stored.location).toBe("Kyl");
+    expect(stored.points).toBeNull();
+    expect(stored.suggestions.every((suggestion) => suggestion.change === null && suggestion.replaces.length === 0)).toBe(true);
+    expect([...stored.seen].sort()).toEqual([mjolk, smor].sort());
+    expect(stored.incomplete).toBe(false);
+    analyzeImage.mockResolvedValueOnce(answer(fixture, 1));
+    expect((await read()).incomplete).toBe(true);
+    expect(stored.reading?.length).toBeGreaterThan(0);
+    // What the job keeps is plain data that fits a result, never a photo.
+    expect(JSON.stringify(stored).length).toBeLessThan(262_144);
   });
 
-  it("checks the user before the place", async () => {
-    requireUser.mockResolvedValue(fail("unauthorized"));
-    expect(await analyzePlace({ image: kyl, location: "Kyl", siteId: stugan }, { signal: signal() })).toEqual(
-      fail("unauthorized"),
-    );
-    expect(loadPantrySitesIn).not.toHaveBeenCalled();
+  it("compares with the place as it is when the result is opened, not as it was when the photo was read", async () => {
+    const stored = await read();
+    const before = JSON.stringify(stored);
+    listPantryIn.mockResolvedValue(atHome.filter((row) => row.ingredientId !== mjolk));
+    const later = await compareStoredReading(stored);
+    const milk = later.suggestions.find((suggestion) => suggestion.name === "Mjölk");
+    // The milk was taken away after the photo: it is new now, with nothing at home.
+    expect(milk?.change).toBe("new");
+    expect(milk?.current).toBeNull();
+    // The reading itself is never changed by a comparison.
+    expect(JSON.stringify(stored)).toBe(before);
+
+    listPantryIn.mockResolvedValue(atHome);
+    const now = await compareStoredReading(stored);
+    expect(now.suggestions.find((suggestion) => suggestion.name === "Mjölk")?.current).toEqual({
+      unlimited: false,
+      amounts: [{ amount: 2, unit: "förp" }],
+    });
+    expect(now.inventory.kind).toBe("compared");
+  });
+
+  it("gives Syns inte längre for what was in the place and is not on the photo, as it is when it is opened", async () => {
+    const stored = await read();
+    const extra: PantryItem = {
+      ...atHome[0],
+      id: "7a1c1b7e-3c1a-4c55-9a59-0f3f2b8f2a77",
+      ingredientId: "6f1c1b7e-3c1a-4c55-9a59-0f3f2b8f2a77",
+      name: "Yoghurt",
+    };
+    listPantryIn.mockResolvedValue([...atHome, extra]);
+    const result = await compareStoredReading(stored);
+    if (result.inventory.kind !== "compared") throw new Error("not compared");
+    expect(result.inventory.missing.map((item) => item.name)).toContain("Yoghurt");
+  });
+
+  it("is unread, with the suggestions as they were read, when the place cannot be read, and carries the points through", async () => {
+    const stored = { ...(await read()), points: "skipped" as const };
+    listPantryIn.mockRejectedValue(new PantryDataError("query_failed"));
+    const result = await compareStoredReading(stored);
+    expect(result.inventory).toEqual({ kind: "unread" });
+    expect(result.points).toBe("skipped");
+    expect(console.error).toHaveBeenCalledWith("pantry_unavailable", { reason: "query_failed" });
+  });
+
+  it("logs counts and codes only, never the items, the names or the labels", async () => {
+    await compareStoredReading(await read());
+    const logged = JSON.stringify([...vi.mocked(console.error).mock.calls, ...vi.mocked(console.info).mock.calls]);
+    expect(logged).not.toContain("Mjölk");
+    expect(logged).not.toContain("gurka");
   });
 });

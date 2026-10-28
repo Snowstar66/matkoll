@@ -51,9 +51,11 @@ export {
   locateLabelsSchema,
   locateResultSchema,
   readingLabel,
+  readingSchema,
   type LocateResult,
   type PhotoPoint,
 } from "./domain/photo-numbers";
+export { photoJobResultSchema, type PhotoJobResult, type PhotoPoints } from "./domain/photo-job";
 export {
   clampTakenAt,
   placePhotoBucket,

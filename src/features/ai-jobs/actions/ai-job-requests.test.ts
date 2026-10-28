@@ -130,6 +130,14 @@ describe("getAiJob", () => {
     expect(result).toEqual(ok({ job: expect.objectContaining({ id, status: "done", count: 1 }), result: { suggestions: [{ n: 1 }], siteId: null } }));
   });
 
+  it("gives the partial result of a running job, the reading of a photo before its numbers (Story 12.5)", async () => {
+    const partial = { suggestions: [{ n: 1 }, { n: 2 }], points: null };
+    loadAiJobIn.mockResolvedValue(row({ kind: "analyze", status: "running", result: partial }));
+    expect(await getAiJob(db, id, now)).toEqual(
+      ok({ job: expect.objectContaining({ id, status: "running", count: 2 }), result: partial }),
+    );
+  });
+
   it.each([
     ["a job that is not there", null],
     ["a replaced job", row({ status: "superseded", finished_at: at(-1) })],

@@ -93,10 +93,10 @@ export function isOld(row: Pick<AiJobRow, "status" | "finished_at">, now: number
   return row.status !== "queued" && row.status !== "running" && row.finished_at !== null && now - Date.parse(row.finished_at) > keepFinishedMs;
 }
 
-/** How much a finished result holds, for its summary: three dishes. */
+/** How much a result holds, for its summary: three dishes, or the suggestions of a photo. */
 export function resultCount(kind: AiJobKind, result: unknown): number | null {
   if (typeof result !== "object" || result === null) return null;
-  const list = kind === "suggest" ? (result as { suggestions?: unknown }).suggestions : undefined;
+  const list = kind === "suggest" || kind === "analyze" ? (result as { suggestions?: unknown }).suggestions : undefined;
   return Array.isArray(list) ? list.length : null;
 }
 
@@ -124,7 +124,8 @@ export function toAiJobs(rows: readonly AiJobRow[], now: number): AiJob[] {
         createdAt: row.created_at,
         seen: row.seen_at !== null,
         ahead: status === "queued" ? (aheadOf.get(row.id) ?? 0) : 0,
-        count: status === "done" ? resultCount(row.kind, row.result) : null,
+        // A running job has a result only when it gave a partial one (Story 12.5: the cards of a photo before its numbers).
+        count: status === "done" || (status === "running" && row.kind === "analyze") ? resultCount(row.kind, row.result) : null,
       };
     })
     .sort((a, b) => Date.parse(b.createdAt) - Date.parse(a.createdAt));
