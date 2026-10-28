@@ -1,5 +1,5 @@
 import { afterEach, describe, expect, it, vi } from "vitest";
-import { postAi, postAiForm } from "./ai-client";
+import { postAi, postAiForm, warmAi, warmAiIntervalMs, warmAiKey } from "./ai-client";
 import { errorMessages, fail } from "./errors";
 
 const json = (body: unknown, status = 200) =>
@@ -131,5 +131,80 @@ describe("postAiForm", () => {
       ok: false,
       aborted: true,
     });
+  });
+});
+
+describe("warmAi (Story 12.2)", () => {
+  /** A sessionStorage of its own per test, as a browser tab has. */
+  function stubStorage() {
+    const values = new Map<string, string>();
+    const storage = {
+      getItem: (key: string) => values.get(key) ?? null,
+      setItem: (key: string, value: string) => void values.set(key, value),
+    };
+    vi.stubGlobal("window", { sessionStorage: storage });
+    return values;
+  }
+
+  const now = Date.parse("2026-10-28T12:00:00Z");
+
+  it("posts the kind as JSON to /api/ai/warm and remembers when", () => {
+    const values = stubStorage();
+    const fetchMock = mockFetch(async () => new Response(null, { status: 202 }));
+    warmAi("image", now);
+
+    expect(fetchMock).toHaveBeenCalledTimes(1);
+    const [path, init] = fetchMock.mock.calls[0];
+    expect(path).toBe("/api/ai/warm");
+    expect(init?.method).toBe("POST");
+    expect(init?.body).toBe(JSON.stringify({ kind: "image" }));
+    expect(new Headers(init?.headers).get("content-type")).toBe("application/json");
+    expect(values.get(warmAiKey("image"))).toBe(String(now));
+  });
+
+  it("asks at most once per kind in five minutes, each kind on its own", () => {
+    stubStorage();
+    const fetchMock = mockFetch(async () => new Response(null, { status: 202 }));
+    warmAi("image", now);
+    warmAi("image", now + 60_000);
+    warmAi("image", now + warmAiIntervalMs - 1);
+    expect(fetchMock).toHaveBeenCalledTimes(1);
+
+    warmAi("text", now + 60_000);
+    expect(fetchMock).toHaveBeenCalledTimes(2);
+
+    warmAi("image", now + warmAiIntervalMs);
+    expect(fetchMock).toHaveBeenCalledTimes(3);
+  });
+
+  it("asks again when the time remembered is in the future (a clock set back) or not a time", () => {
+    const values = stubStorage();
+    const fetchMock = mockFetch(async () => new Response(null, { status: 202 }));
+    values.set(warmAiKey("text"), String(now + 60_000));
+    warmAi("text", now);
+    values.set(warmAiKey("image"), "nonsense");
+    warmAi("image", now);
+    expect(fetchMock).toHaveBeenCalledTimes(2);
+  });
+
+  it("still asks without storage, and ignores errors and the answer", async () => {
+    vi.stubGlobal("window", {
+      get sessionStorage(): Storage {
+        throw new Error("SecurityError");
+      },
+    });
+    const fetchMock = mockFetch(async () => Promise.reject(new TypeError("Failed to fetch")));
+    expect(() => warmAi("image", now)).not.toThrow();
+    expect(fetchMock).toHaveBeenCalledTimes(1);
+    // The rejected fetch is caught: nothing is left unhandled.
+    await new Promise((resolve) => setTimeout(resolve, 0));
+  });
+
+  it("never throws when fetch throws before sending", () => {
+    stubStorage();
+    vi.stubGlobal("fetch", () => {
+      throw new TypeError("blocked");
+    });
+    expect(() => warmAi("text", now)).not.toThrow();
   });
 });

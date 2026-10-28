@@ -206,6 +206,12 @@ export const coreFlowEmail = "e2e-karna@matkoll.test";
  * again before each such test, so it has no storage state.
  */
 export const appInstallEmail = "e2e-utseende-app@matkoll.test";
+/**
+ * The E2E user of ai-warm.spec.ts alone (Story 12.2): it only opens
+ * Lagersaldo and Recept and watches the warm-ups, which are counted per user
+ * on the server.
+ */
+export const aiWarmEmail = "e2e-ai-varm@matkoll.test";
 /** Every address in ALLOWED_EMAILS for the E2E server (see playwright.config.ts). */
 export const e2eEmails = [
   e2eEmail,
@@ -242,6 +248,7 @@ export const e2eEmails = [
   photoViewEmail,
   coreFlowEmail,
   appInstallEmail,
+  aiWarmEmail,
 ] as const;
 /** A real Supabase user whose address is not in ALLOWED_EMAILS. */
 export const outsiderEmail = "utanfor@matkoll.test";
@@ -278,6 +285,7 @@ export const shoppingLookStorageState = "tests/e2e/.auth/shopping-look.json";
 export const pantryLookStorageState = "tests/e2e/.auth/pantry-look.json";
 export const photoSweepStorageState = "tests/e2e/.auth/photo-sweep.json";
 export const photoViewStorageState = "tests/e2e/.auth/photo-view.json";
+export const aiWarmStorageState = "tests/e2e/.auth/ai-warm.json";
 export const outsiderStorageState = "tests/e2e/.auth/outsider.json";
 
 export const mailpitUrl = "http://127.0.0.1:54324";

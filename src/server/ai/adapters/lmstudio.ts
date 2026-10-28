@@ -84,6 +84,8 @@ export function createLmStudioTarget(config: LmStudioConfig): ModelTarget {
     imageSampling: isQwenModel(config.model) ? lmStudioImageSampling : undefined,
     // Story 6.6: Qwen's vision models point in thousandths of the photo; another model is not asked.
     supportsGrounding: isQwenModel(config.model),
+    // Story 12.2: the model on Pontus's Mac goes cold after some minutes without calls.
+    warmsUp: true,
     // GET /models answers fast even while a model is busy, so a sleeping Mac or
     // a stopped server is found in seconds instead of after the attempt budget.
     healthCheck: async (signal) => {

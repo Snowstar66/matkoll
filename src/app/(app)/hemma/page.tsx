@@ -2,6 +2,7 @@ import type { Metadata } from "next";
 import { Suspense } from "react";
 import { PageHeader } from "@/components/app-shell/page-header";
 import { Skeleton } from "@/components/skeleton";
+import { WarmAi } from "../warm-ai";
 import { HomePlace } from "./home-place";
 
 export const metadata: Metadata = { title: "Lagersaldo" };
@@ -27,18 +28,25 @@ export const metadata: Metadata = { title: "Lagersaldo" };
 // the site switch above the cards selects another; with one, "Lägg till
 // ställe" at the bottom opens the sheet Ställen. Every write from the page
 // sends the id of the place it showed.
+//
+// Story 12.2: when the page is shown, WarmAi asks the server to wake the
+// model for a photo, outside the Suspense boundary, so it never waits for
+// the page's data or the sweep of old photos (Story 10.3).
 export default function HomePage({ searchParams }: PageProps<"/hemma">) {
   return (
-    <Suspense
-      fallback={
-        <>
-          {/* The size of "+", so the header does not move when it arrives. */}
-          <PageHeader title="Lagersaldo" action={<span aria-hidden="true" inert className="size-tap" />} />
-          <Skeleton rows={3} />
-        </>
-      }
-    >
-      <HomePlace searchParams={searchParams} />
-    </Suspense>
+    <>
+      <WarmAi kind="image" />
+      <Suspense
+        fallback={
+          <>
+            {/* The size of "+", so the header does not move when it arrives. */}
+            <PageHeader title="Lagersaldo" action={<span aria-hidden="true" inert className="size-tap" />} />
+            <Skeleton rows={3} />
+          </>
+        }
+      >
+        <HomePlace searchParams={searchParams} />
+      </Suspense>
+    </>
   );
 }

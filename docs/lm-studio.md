@@ -147,3 +147,12 @@ EVAL_LABEL=parallel-4-varm EVAL_RUNS=3 AI_PROVIDER=lmstudio pnpm eval:ai
 ```
 
 `EVAL_LABEL` namnger läget och `EVAL_RUNS` säger hur många körningar varje fall får. Rapporterna hamnar i `tests/eval/reports/` (ignoreras av git), och `tests/eval/reports/sammanfattning.md` har medianen per flöde och läge över alla rapporter där. Ett enskilt fall väljs med Vitests `-t`, till exempel `pnpm eval:ai tests/eval/analyze-image.eval.ts -t "syntetisk-kyl, körning"`. För en kall mätning: låt modellen vila minst 15 minuter med Macen vaken och kör `EVAL_RUNS=1`. Rapporten visar hur länge modellen hade vilat och hur mycket minne som var komprimerat.
+
+**Väckningen (Story 12.2):** `tests/eval/warm-up.eval.ts` mäter det första anropet efter vila, med och utan väckning fem sekunder före. Den körs bara när `EVAL_WARM` är satt, och gör ett anrop per flöde (bildanalys med ditt första foto, och AI-förslag):
+
+```bash
+EVAL_WARM=utan EVAL_LABEL=kall-utan-vackning AI_PROVIDER=lmstudio pnpm eval:ai tests/eval/warm-up.eval.ts
+EVAL_WARM=med EVAL_LABEL=kall-med-vackning AI_PROVIDER=lmstudio pnpm eval:ai tests/eval/warm-up.eval.ts
+```
+
+Låt modellen vila minst 5 minuter före varje körning. `EVAL_WARM_FLOW=bild` eller `EVAL_WARM_FLOW=forslag` kör bara ett av flödena. Mätningen görs i Epic 12-mätningen i slutet av epicen.

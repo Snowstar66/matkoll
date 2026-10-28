@@ -2,8 +2,9 @@
 title: 'Story 12.2: Väck modellen i förväg'
 type: 'feature'
 created: '2026-10-26'
-status: 'draft'
+status: 'in-progress'
 route: 'dispatch'
+baseline_commit: '4070e6ee7a8f86f36f734c06d45c980c954e8498'
 context:
   - '{project-root}/_bmad-output/implementation-artifacts/epic-12-context.md'
   - '{project-root}/_bmad-output/implementation-artifacts/spec-12-1-mat-ai-tiderna-och-stall-in-lm-studio.md'
@@ -73,14 +74,14 @@ context:
 ## Tasks & Acceptance
 
 **Execution:**
-- [ ] `src/server/ai/service.ts`, `adapters/*` (+ tester) -- `warmUp` per adapter, med en falsk `fetch` som visar systemprompten, `max_tokens: 1` och att inget nytt försök görs
-- [ ] `src/server/ai/warm-image.ts` -- den grå bilden som konstant (byggd i koden, ingen fil)
-- [ ] `src/app/api/ai/warm/route.ts` (+ `route.test.ts`) -- kontrollerna, `after()`, gränsen per användare och sort, `skipped` när något pågår
-- [ ] `src/lib/ai-client.ts` (+ test) -- `warmAi(kind)` med gränsen i `sessionStorage`
-- [ ] Lagersaldo och Recept -- anropen i en effekt
-- [ ] `tests/e2e/ai-warm.spec.ts` (+ `support.ts`, `global-setup.ts`) -- egen e2e-användare `e2e-ai-varm@matkoll.test`, `AI_PROVIDER=mock`: öppna Lagersaldo och se ett anrop till `/api/ai/warm` med `image`, öppna igen och se inget nytt
-- [ ] Mätningen mot LM Studio enligt Boundaries
-- [ ] `docs/lm-studio.md`, `docs/oppna-fragor.md` (T10), `docs/beslutslogg.md` -- siffrorna och beslutet
+- [x] `src/server/ai/service.ts`, `adapters/*` (+ tester) -- `warmUp` per adapter, med en falsk `fetch` som visar systemprompten, `max_tokens: 1` och att inget nytt försök görs
+- [x] `src/server/ai/warm-image.ts` -- den grå bilden som konstant (byggd i koden, ingen fil)
+- [x] `src/app/api/ai/warm/route.ts` (+ `route.test.ts`) -- kontrollerna, `after()`, gränsen per användare och sort, `skipped` när något pågår
+- [x] `src/lib/ai-client.ts` (+ test) -- `warmAi(kind)` med gränsen i `sessionStorage`
+- [x] Lagersaldo och Recept -- anropen i en effekt
+- [x] `tests/e2e/ai-warm.spec.ts` (+ `support.ts`, `global-setup.ts`) -- egen e2e-användare `e2e-ai-varm@matkoll.test`, `AI_PROVIDER=mock`: öppna Lagersaldo och se ett anrop till `/api/ai/warm` med `image`, öppna igen och se inget nytt
+- [ ] Mätningen mot LM Studio enligt Boundaries -- flyttad till Epic 12-mätningen (Pontus, 2026-10-28)
+- [x] `docs/lm-studio.md`, `docs/oppna-fragor.md` (T10), `docs/beslutslogg.md` -- hur väckningen mäts och att mätningen är flyttad; siffrorna och beslutet kommer med Epic 12-mätningen
 
 **Acceptance Criteria:**
 - Given `pnpm lint && pnpm typecheck && pnpm test && pnpm test:integration && AI_PROVIDER=mock pnpm build && CI=1 pnpm test:e2e`, when de körs, then lyckas alla.
@@ -95,6 +96,18 @@ context:
 - **Efter Epic 10/11 (sammanslagningen med main 2026-10-28):** Lagersaldo (`/hemma`) har nu också `photo-sweep-gate.tsx` (10.3), som gallrar gamla foton när sidan öppnas, och raden med senaste fotot (`latest-photo.tsx`, 10.2). Väckningen läggs bredvid dem i `home-content.tsx` eller sidan, och får inte vänta på eller störa gallringen. Öppna frågor och osäkerheter för Epic 12 har nya nummer: 21–25 och T9–T11.
 
 ## Spec Change Log
+
+- Vid bygget:
+  - **Besluten (förslag) godkändes som de stod** (Claude, headless enligt `docs/autonomi.md`): flödets egen systemprompt, och `after()` med 202.
+  - **`warmUp` svarar med utfallet** (`ok`, `skipped` eller `unavailable`) i stället för inget, så att rutten kan logga `ai_warm` utan att porten loggar något själv. `skipped` betyder här en leverantör som aldrig är kall (`mock`, `anthropic`, `openai`) eller en sort som inte finns.
+  - **`ModelTarget.warmsUp`** säger vilka mål som väcks; bara `lmstudio` har den. Själva anropet är `runWarmUp` i `run.ts`, bredvid `runStructured`, som inte ändrades. Gränsen på 30 s gäller hela väckningen, hälsokontrollen inräknad.
+  - **Gränsen per användare och sort** ligger i `src/app/api/ai/warm/warm-limit.ts`, eftersom `route.ts` bara får exportera hanterare och inställningar. Gränsen tas när väckningen startar, också när LM Studio sedan inte svarar (`unavailable`), så att en sovande Mac inte får en hälsokontroll vid varje sidvisning. En körning som pågår kontrolleras först och tar aldrig gränsen.
+  - **"Något pågår"** är `hasAiRunOnItsWay` (bildanalys och nummer, `ai-runs.ts`, via `pantry/server.ts`) och `isSuggesting` (AI-förslag, via `suggestions/server.ts`). En receptimport har ingen sådan karta före 12.4, så en väckning kan sammanfalla med en import. Det får vara så tills importen blir ett jobb.
+  - **Rutten** svarar också 415 för en kropp som inte är JSON och 413 för mer än 256 byte, som de andra AI-rutterna.
+  - **Effekten** ligger i en gemensam klientkomponent, `src/app/(app)/warm-ai.tsx` (`<WarmAi kind="image" />` och `kind="text"`), som `hemma/page.tsx` och `recept/page.tsx` renderar utanför sina Suspense-gränser. Den väntar då aldrig på sidans data eller på gallringen av gamla foton, och den ligger inte i `home-content.tsx`. `src/components/` får inte använda `ai-client` enligt beroendediagrammet, därför ligger den under `src/app`.
+  - **Den grå bilden** byggs i `warm-image.ts` med `node:zlib` (`deflateSync`, `crc32`) som en RGB-PNG på 64 × 64 px.
+  - **Mätningen flyttades till Epic 12-mätningen** (Pontus, 2026-10-28): en enda mätning mot LM Studio i slutet av Epic 12 i stället för en per story. Väckningen ligger kvar, och beslutet om den ska tas bort (mindre än 20 % snabbare) fattas efter den mätningen. Det som behövs för den finns: `tests/eval/warm-up.eval.ts` körs bara med `EVAL_WARM=med` eller `utan` (en vanlig `pnpm eval:ai` hoppar över den), och gör ett första anrop per flöde (`EVAL_WARM_FLOW=bild` eller `forslag`), med väckningen `EVAL_WARM_LEAD_MS` (5 000) före. Bildanalysens förberedelse av foton flyttades till `tests/eval/photos.ts`, så att båda filerna använder samma, och `EVAL_PHOTOS_DIR` pekar på Pontus foton utan att de kopieras. Innan ändringen kom hann två kalla körningar av bildanalysen göras, som bara är en fingervisning: utan väckning efter 7 timmars vila gick anropet över 100 s (`ai_unavailable`), och med väckning 5 s före efter 7 minuters vila tog det 37,7 s (väckningen själv 23,2 s).
+  - **E2E** visar också att Lagersaldo inte väcker igen när sidan visas på nytt efter Activity (via fliken Recept).
 
 ## Review Triage Log
 

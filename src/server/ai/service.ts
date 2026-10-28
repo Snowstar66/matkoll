@@ -16,7 +16,7 @@ import { createLmStudioTarget } from "./adapters/lmstudio";
 import { createMockAiService } from "./adapters/mock";
 import { createOpenAiTarget } from "./adapters/openai";
 import { prompts } from "./prompts";
-import { defaultLimits, runStructured, type Limits, type ModelTarget } from "./run";
+import { defaultLimits, runStructured, runWarmUp, type Limits, type ModelTarget } from "./run";
 import {
   analyzeImageAnswer,
   locateItemsAnswer,
@@ -29,6 +29,7 @@ import {
   type AiRecipe,
   type ItemPosition,
 } from "./schemas";
+import { warmImage } from "./warm-image";
 
 // The AI port (AD-9). Modules call these methods and never see the provider.
 // Each has its schema in schemas.ts and its prompt in prompts/.
@@ -103,6 +104,17 @@ export type LocateItemsInput = {
  */
 export type LocateItemsResult = { positions: ItemPosition[]; invalid: number };
 
+/** What warmUp wakes (Story 12.2): the reading of a photo, or the text flows. */
+export const warmUpKinds = ["image", "text"] as const;
+export type WarmUpKind = (typeof warmUpKinds)[number];
+
+/**
+ * What a warm-up came to: the model answered (`ok`), there was nothing to
+ * wake (`skipped`: a provider that is never cold), or the model could not
+ * be reached in time (`unavailable`).
+ */
+export type WarmUpOutcome = "ok" | "skipped" | "unavailable";
+
 export interface AiService {
   /**
    * Fails with `validation` (input outside the limits below), `import_no_recipe`
@@ -141,6 +153,17 @@ export interface AiService {
    * whole is broken).
    */
   locateItems(input: LocateItemsInput, signal: AbortSignal, options?: RunOptions): Promise<Result<LocateItemsResult>>;
+  /**
+   * Wakes the model before it is needed (Story 12.2, FR-45): one call with
+   * the flow's own system prompt (analyzeImage for `image`, suggestDishes
+   * for `text`), a minimal message without any data of Pontus's (a grey
+   * image, or a pantry of salt) and a single token of answer, without a
+   * schema and without new attempts, at most warmUpLimits.totalMs. The
+   * answer is never used. Only a target that warmsUp (LM Studio) is called;
+   * any other answers `skipped` at once. Never fails: a model that cannot be
+   * reached is `unavailable`.
+   */
+  warmUp(kind: WarmUpKind, signal: AbortSignal): Promise<WarmUpOutcome>;
 }
 
 /**
@@ -278,6 +301,10 @@ export function withInputValidation(service: AiService): AiService {
       if (!isValidLocateItemsInput(input)) return fail("validation");
       return service.locateItems(input, signal, options);
     },
+    async warmUp(kind, signal) {
+      if (!(warmUpKinds as readonly string[]).includes(kind)) return "skipped";
+      return service.warmUp(kind, signal);
+    },
   };
 }
 
@@ -375,8 +402,29 @@ export function createModelAiService(target: ModelTarget, limits: Limits = defau
       if (located.invalid > 0) console.info("locate_positions_invalid", { count: located.invalid });
       return ok(located);
     },
+    async warmUp(kind, signal) {
+      if (!target.warmsUp) return "skipped";
+      return runWarmUp(
+        target,
+        kind === "image"
+          ? {
+              system: prompts.analyzeImage,
+              messages: [{ role: "user", content: analyzeImageContent({ image: warmImage, place: "Kyl" }) }],
+              // The same sampling as a real reading of a photo (Story 6.5).
+              sampling: target.imageSampling,
+            }
+          : {
+              system: prompts.suggestDishes,
+              messages: [{ role: "user", content: suggestDishesContent(warmUpPantry) }],
+            },
+        signal,
+      );
+    },
   };
 }
+
+/** The text warm-up's pantry: one line, "salt: finns", and nothing of Pontus's. */
+const warmUpPantry: SuggestDishesInput = { pantry: [{ name: "salt", amount: null, unit: null }], avoidTitles: [] };
 
 const placeNames: Record<AnalyzePlace, string> = { Kyl: "kylen", Frys: "frysen", Skafferi: "skafferiet" };
 

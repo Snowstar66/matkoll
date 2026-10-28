@@ -6,6 +6,8 @@ import {
   adminClient,
   aiSuggestionsEmail,
   aiSuggestionsStorageState,
+  aiWarmEmail,
+  aiWarmStorageState,
   basketExportEmail,
   basketExportStorageState,
   cameraEmail,
@@ -138,6 +140,7 @@ export default async function globalSetup(config: FullConfig) {
       [pantryLookEmail, pantryLookStorageState],
       [photoSweepEmail, photoSweepStorageState],
       [photoViewEmail, photoViewStorageState],
+      [aiWarmEmail, aiWarmStorageState],
     ] as const) {
       const user = await browser.newContext({ baseURL });
       const page = await user.newPage();

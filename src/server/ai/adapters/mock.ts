@@ -279,5 +279,9 @@ export function createMockAiService(dir: string = defaultFixturesDir): AiService
       // Like a model's answer: a point for a number beyond the labels is left out and counted.
       return ok(parseItemPositions((answer ?? current.fallback).positions, input.labels.length));
     },
+    // Story 12.2: the mock is never cold, so there is nothing to wake.
+    async warmUp() {
+      return "skipped";
+    },
   };
 }

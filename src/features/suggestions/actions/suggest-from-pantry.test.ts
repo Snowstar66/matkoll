@@ -55,7 +55,7 @@ const ai = withInputValidation(createMockAiService());
 const suggestDishes = vi.fn(ai.suggestDishes);
 vi.mock("@/server/ai", () => ({ getAiService: () => ({ suggestDishes }) }));
 
-const { suggestFromPantry, postModelMarginMs } = await import("./suggest-from-pantry");
+const { isSuggesting, suggestFromPantry, postModelMarginMs } = await import("./suggest-from-pantry");
 
 const fixture = suggestDishesAnswer.parse(
   JSON.parse(readFileSync(new URL("../../../../tests/fixtures/ai/suggest-dishes.response.json", import.meta.url), "utf8")),
@@ -355,6 +355,18 @@ describe("suggestFromPantry", () => {
       expect(first.signals[0].aborted).toBe(true);
       first.release();
       expect(await running).toEqual(fail("ai_unavailable"));
+    });
+
+    it("says a run is on its way only while it is, and only for its user (Story 12.2)", async () => {
+      const first = holdAi();
+      expect(isSuggesting("user")).toBe(false);
+      const running = suggestFromPantry({ avoidTitles: [] }, { signal: signal() });
+      await vi.waitFor(() => expect(first.signals).toHaveLength(1));
+      expect(isSuggesting("user")).toBe(true);
+      expect(isSuggesting("someone-else")).toBe(false);
+      first.release();
+      await running;
+      expect(isSuggesting("user")).toBe(false);
     });
 
     it("leaves another user's run alone", async () => {

@@ -5,3 +5,6 @@ import "server-only";
 
 /** AI-förslag from the pantry, for the Route Handler /api/ai/suggest (not a Server Action). */
 export { suggestFromPantry } from "./actions/suggest-from-pantry";
+
+/** Whether AI-förslag of the user's are on their way, for POST /api/ai/warm (Story 12.2). */
+export { isSuggesting } from "./actions/suggest-from-pantry";

@@ -1,15 +1,13 @@
-import { execFileSync } from "node:child_process";
-import { existsSync, mkdtempSync, readdirSync, readFileSync, rmSync, writeFileSync } from "node:fs";
-import { tmpdir } from "node:os";
+import { existsSync, readdirSync, readFileSync, writeFileSync } from "node:fs";
 import { extname, join } from "node:path";
 import { afterAll, describe, expect, it } from "vitest";
 import { normalizeIngredientText } from "@/features/catalog";
 import { maxPantrySuggestions } from "@/features/pantry/domain/pantry-suggestion";
 import { readingLabel } from "@/features/pantry/domain/photo-numbers";
-import { imageSizeOf, imageTypeOf, maxImageBytes, maxPlacePhotoSide, stripJpegMetadata, stripPngMetadata } from "@/lib/images";
 import { minLoopRepeats, type AiPantryItem } from "@/server/ai/schemas";
 import { analyzePlaces, createAiService, type AnalyzePlace } from "@/server/ai/service";
 import { parseEnv } from "@/server/env-schema";
+import { photoTypes, preparePhoto } from "./photos";
 import {
   evalLabel,
   evalRuns,
@@ -87,7 +85,6 @@ const isLoop = (result: CaseResult) => (result.repeated ?? 0) >= minLoopRepeats;
 
 const photosDir = join(process.cwd(), "tests", "eval", "photos");
 const reportPath = join(process.cwd(), "tests", "eval", "analyze-report.md");
-const photoTypes = new Set([".jpg", ".jpeg", ".png", ".webp", ".heic"]);
 
 const env = parseEnv(process.env);
 if (env.AI_PROVIDER === "mock") {
@@ -118,52 +115,6 @@ function photoCases(): { name: string; file: string }[] {
     .map((file) => ({ name: file.slice(0, -extname(file).length), file }))
     .filter(({ name }) => existsSync(join(photosDir, `${name}.expected.json`)))
     .sort((a, b) => a.name.localeCompare(b.name, "sv"));
-}
-
-/** The photo as the client would send it, without metadata: stripped when it fits, else made small with sips (macOS) and stripped. */
-function preparePhoto(file: string): { data: Uint8Array; mediaType: string } | { error: string } {
-  const path = join(photosDir, file);
-  const bytes = new Uint8Array(readFileSync(path));
-  const type = imageTypeOf(bytes);
-  const size = imageSizeOf(bytes);
-  const fits = size !== null && bytes.byteLength <= maxImageBytes && Math.max(size.width, size.height) <= maxPlacePhotoSide;
-  if (fits && type === "image/jpeg") {
-    const stripped = stripJpegMetadata(bytes);
-    if (stripped) return { data: stripped, mediaType: type };
-  }
-  if (fits && type === "image/png") {
-    const stripped = stripPngMetadata(bytes);
-    if (stripped) return { data: stripped, mediaType: type };
-  }
-  if (process.platform !== "darwin") return { error: "convert it to a JPEG or PNG of at most 2048 px and 1.5 MB" };
-  const temporary = mkdtempSync(join(tmpdir(), "matkoll-eval-"));
-  try {
-    const out = join(temporary, "photo.jpg");
-    // Made smaller only when its longest side is over 2048 px (sips -Z would also make a small photo larger).
-    const longest = size ? Math.max(size.width, size.height) : sipsLongestSide(path);
-    const resize = longest === null || longest > maxPlacePhotoSide ? ["-Z", String(maxPlacePhotoSide)] : [];
-    execFileSync("sips", [...resize, "-s", "format", "jpeg", "-s", "formatOptions", "85", path, "--out", out], {
-      stdio: "ignore",
-    });
-    const resized = stripJpegMetadata(new Uint8Array(readFileSync(out)));
-    if (!resized || resized.byteLength > maxImageBytes) return { error: "too_large after sips" };
-    return { data: resized, mediaType: "image/jpeg" };
-  } catch {
-    return { error: "unreadable (sips could not convert it)" };
-  } finally {
-    rmSync(temporary, { recursive: true, force: true });
-  }
-}
-
-/** The longest side of a photo imageSizeOf cannot read (HEIC), from sips; `null` when sips cannot tell. */
-function sipsLongestSide(path: string): number | null {
-  try {
-    const output = execFileSync("sips", ["-g", "pixelWidth", "-g", "pixelHeight", path], { encoding: "utf8" });
-    const sides = [...output.matchAll(/pixel(?:Width|Height):\s*(\d+)/g)].map((match) => Number(match[1]));
-    return sides.length === 2 ? Math.max(...sides) : null;
-  } catch {
-    return null;
-  }
 }
 
 /** An expected item is named when an item's hint name is it, or its label has it as a whole word (both normalised). */
@@ -197,7 +148,7 @@ describe(`analyzeImage mot ${env.AI_PROVIDER}`, () => {
   it.each(cases)("$name, körning $run", async ({ name, file, run }) => {
     const expected = JSON.parse(readFileSync(join(photosDir, `${name}.expected.json`), "utf8")) as Expected;
     if (!(analyzePlaces as readonly string[]).includes(expected.place)) throw new Error(`${name}: place must be Kyl, Frys or Skafferi`);
-    const photo = preparePhoto(file);
+    const photo = preparePhoto(join(photosDir, file));
     let entry: CaseResult;
     if ("error" in photo) {
       entry = { name, file, run, place: expected.place, seconds: 0, error: photo.error, hits: [], misses: expected.items, wrong: [] };

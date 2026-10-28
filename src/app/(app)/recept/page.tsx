@@ -10,6 +10,7 @@ import { searchIngredients } from "@/features/catalog/server";
 import { listLibrary } from "@/features/recipes/server";
 import { ImportRecipeButton, ImportRecipeProvider } from "@/features/recipes/ui/import-sheet";
 import { Library } from "@/features/recipes/ui/library";
+import { WarmAi } from "../warm-ai";
 
 export const metadata: Metadata = { title: "Recept" };
 
@@ -17,10 +18,12 @@ export const metadata: Metadata = { title: "Recept" };
 // rows while it loads; without recipes the page shows the empty state. "+" in
 // the header and "Importera recept" in the empty state open the same sheet.
 // AI-förslag are in the library's filter Kan lagas nu, so an empty library
-// offers import only.
+// offers import only. Story 12.2: when the page is shown, WarmAi asks the
+// server to wake the model for AI-förslag, without waiting for the list.
 export default function RecipesPage() {
   return (
     <ImportRecipeProvider searchIngredients={searchIngredients}>
+      <WarmAi kind="text" />
       <PageHeader
         title="Recept"
         action={

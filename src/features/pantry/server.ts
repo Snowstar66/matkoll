@@ -49,6 +49,9 @@ export { analyzePlace } from "./actions/analyze-place";
  */
 export { locatePlaceItems } from "./actions/locate-place-items";
 
+/** Whether an analysis or a lookup of the user's is on its way, for POST /api/ai/warm (Story 12.2). */
+export { hasRun as hasAiRunOnItsWay } from "./actions/ai-runs";
+
 /**
  * The latest photo of a place (Story 10.1, AD-26), for the Route Handler
  * POST /api/pantry/photo (not a Server Action: the photo may be 1.5 MB). The

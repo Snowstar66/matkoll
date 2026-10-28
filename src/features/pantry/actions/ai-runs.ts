@@ -38,3 +38,8 @@ export function startRun(userId: string, kind: AiRunKind): AbortController | nul
 export function finishRun(userId: string, controller: AbortController): void {
   if (runs.get(userId)?.controller === controller) runs.delete(userId);
 }
+
+/** True while an analysis or a lookup of the user's is on its way (Story 12.2: no warm-up then). */
+export function hasRun(userId: string): boolean {
+  return runs.has(userId);
+}

@@ -66,3 +66,51 @@ async function post<T>(
     return signal.aborted ? aborted : fail("ai_unavailable");
   }
 }
+
+/** What warmAi can wake (Story 12.2): the reading of a photo, or the text flows. */
+export type WarmAiKind = "image" | "text";
+
+/** The client asks for the same kind at most once in this time, as the server allows. */
+export const warmAiIntervalMs = 5 * 60_000;
+
+/** The sessionStorage key with when `kind` was last asked for (Date.now()). */
+export const warmAiKey = (kind: WarmAiKind) => `matkoll.warmAi.${kind}`;
+
+function lastWarmAi(kind: WarmAiKind): number | null {
+  try {
+    const value = Number(window.sessionStorage.getItem(warmAiKey(kind)));
+    return Number.isFinite(value) && value > 0 ? value : null;
+  } catch {
+    return null;
+  }
+}
+
+function rememberWarmAi(kind: WarmAiKind, at: number): void {
+  try {
+    window.sessionStorage.setItem(warmAiKey(kind), String(at));
+  } catch {
+    // No storage (private mode, blocked): the server's own limit still holds.
+  }
+}
+
+/**
+ * Asks the server to wake the model before it is needed (Story 12.2,
+ * FR-45): POST /api/ai/warm with `kind`, at most once per kind in
+ * warmAiIntervalMs per browser tab (sessionStorage). Fire and forget: the
+ * answer and any error are ignored, and nothing is ever shown.
+ */
+export function warmAi(kind: WarmAiKind, now: number = Date.now()): void {
+  const last = lastWarmAi(kind);
+  // A time in the future (a clock set back) does not hold the warm-up off.
+  if (last !== null && now >= last && now - last < warmAiIntervalMs) return;
+  rememberWarmAi(kind, now);
+  try {
+    fetch("/api/ai/warm", {
+      method: "POST",
+      headers: { "content-type": "application/json" },
+      body: JSON.stringify({ kind }),
+    }).catch(() => {});
+  } catch {
+    // fetch threw before sending: nothing to wake, and nothing to show.
+  }
+}

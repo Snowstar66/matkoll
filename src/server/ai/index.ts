@@ -16,7 +16,10 @@ export type {
   RunOptions,
   SuggestDishesInput,
   SuggestPantryItem,
+  WarmUpKind,
+  WarmUpOutcome,
 } from "./service";
+export { warmUpKinds } from "./service";
 export type { AiIngredientHint, AiPantryItem, AiRecipe, AiRecipeIngredient, ItemPosition } from "./schemas";
 export { minLoopRepeats } from "./schemas";
 

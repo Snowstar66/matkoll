@@ -17,7 +17,7 @@ const locateItems = vi.fn<(input: LocateItemsInput, signal: AbortSignal, options
 vi.mock("@/server/ai", () => ({ getAiService: () => ({ locateItems }) }));
 
 const { locatePlaceItems } = await import("./locate-place-items");
-const { finishRun, startRun } = await import("./ai-runs");
+const { finishRun, hasRun, startRun } = await import("./ai-runs");
 
 const kyl = {
   data: new Uint8Array(readFileSync(new URL("../../../../tests/fixtures/ai/kyl.png", import.meta.url))),
@@ -162,5 +162,14 @@ describe("the run lock", () => {
     const free = startRun("lock", "locate");
     expect(free).not.toBeNull();
     finishRun("lock", free!);
+  });
+
+  it("says a run is on its way only while one is (Story 12.2)", () => {
+    expect(hasRun("busy")).toBe(false);
+    const analysis = startRun("busy", "analyze");
+    expect(hasRun("busy")).toBe(true);
+    expect(hasRun("free")).toBe(false);
+    finishRun("busy", analysis);
+    expect(hasRun("busy")).toBe(false);
   });
 });

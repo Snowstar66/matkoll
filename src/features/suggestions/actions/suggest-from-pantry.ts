@@ -32,6 +32,11 @@ export const minPantryIngredients = 2;
  */
 const runs = new Map<string, AbortController>();
 
+/** True while AI-förslag of the user's are on their way (Story 12.2: no warm-up then). */
+export function isSuggesting(userId: string): boolean {
+  return runs.has(userId);
+}
+
 /** Runs a catalog read; a failed query becomes `catalog_unavailable`, anything else is a bug and is thrown. */
 async function fromCatalog<T>(read: () => Promise<T>): Promise<Result<T>> {
   try {

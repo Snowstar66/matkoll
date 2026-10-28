@@ -49,6 +49,12 @@ export type ModelTarget = {
    * is never sent a second time.
    */
   supportsGrounding?: boolean;
+  /**
+   * Story 12.2: the model runs on Pontus's Mac and goes cold after some
+   * minutes without calls, so warmUp is worth a call. Without it, warmUp
+   * does nothing: a cloud model is never cold for us, and a call costs money.
+   */
+  warmsUp?: boolean;
 };
 
 export type Limits = {
@@ -173,6 +179,57 @@ export async function runStructured<SCHEMA extends z.ZodType>(
 
   if (total.aborted) return failWith("ai_unavailable", stopReason());
   return failWith("ai_invalid", "invalid");
+}
+
+/** What a warm-up came to: the model answered, or it could not be reached in time. */
+export type WarmUpResult = "ok" | "unavailable";
+
+export type WarmUpRequest = {
+  system: string;
+  messages: ModelMessage[];
+  /** The flow's own sampling, so the warm-up is as close to the real call as it can be. */
+  sampling?: Sampling;
+};
+
+/** Story 12.2: the health check's usual 5 s, and at most 30 s for the whole warm-up. */
+export const warmUpLimits = { healthMs: 5_000, totalMs: 30_000 } as const;
+
+/**
+ * A warm-up (Story 12.2, AD-9): the health check, then one call with the
+ * flow's system prompt and a minimal message, for a single token, without a
+ * schema and without new attempts. The answer is never read. Nothing is
+ * logged here; the caller logs the result.
+ */
+export async function runWarmUp(
+  target: ModelTarget,
+  request: WarmUpRequest,
+  signal: AbortSignal,
+  limits: { healthMs: number; totalMs: number } = warmUpLimits,
+): Promise<WarmUpResult> {
+  if (signal.aborted) return "unavailable";
+  const total = AbortSignal.any([signal, AbortSignal.timeout(limits.totalMs)]);
+  if (target.healthCheck) {
+    const healthSignal = AbortSignal.any([total, AbortSignal.timeout(limits.healthMs)]);
+    const health = await target.healthCheck(healthSignal).catch((): HealthResult => "unreachable");
+    if (health !== "ok") return "unavailable";
+  }
+  const { providerOptions: samplingOptions, ...sampling } = request.sampling ?? {};
+  try {
+    await generateText({
+      model: target.model,
+      system: request.system,
+      messages: request.messages,
+      // The same options as a real call: LM Studio's thinking stays off.
+      providerOptions: mergeProviderOptions(target.providerOptions, samplingOptions),
+      ...sampling,
+      maxOutputTokens: 1,
+      maxRetries: 0,
+      abortSignal: total,
+    });
+    return "ok";
+  } catch {
+    return "unavailable";
+  }
 }
 
 /** The target's provider options with the call's added, per provider (the call's win on the same key). */
