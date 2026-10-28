@@ -4,6 +4,7 @@ import { join } from "node:path";
 import { afterEach, describe, expect, it, vi } from "vitest";
 import {
   addUsage,
+  attemptOf,
   evalLabel,
   evalRuns,
   formatNumber,
@@ -114,11 +115,14 @@ describe("installUsageMeter", () => {
     expect(measured.seconds).toBeGreaterThanOrEqual(0);
   });
 
-  it("keeps the answer texts of the measured chat completions, for the evaluation's own checks (Story 12.3)", async () => {
+  it("keeps each measured chat completion's text, tokens out and finish reason (Story 12.3)", async () => {
     let call = 0;
     globalThis.fetch = vi.fn(async () => {
       call++;
-      const body = { choices: [{ message: { content: `svar ${call}` } }], usage: { completion_tokens: 10 } };
+      const body = {
+        choices: [{ message: { content: `svar ${call}` }, finish_reason: call === 2 ? "length" : "stop" }],
+        usage: { completion_tokens: call * 1000 },
+      };
       return new Response(JSON.stringify(body), { headers: { "content-type": "application/json" } });
     }) as typeof fetch;
     const meter = installUsageMeter();
@@ -128,8 +132,17 @@ describe("installUsageMeter", () => {
       await fetch("http://localhost:1234/v1/chat/completions");
       await fetch("http://localhost:1234/v1/chat/completions");
     });
-    expect(measured.contents).toEqual(["svar 2", "svar 3"]);
-    expect((await meter.measure(async () => {})).contents).toEqual([]);
+    expect(measured.attempts).toEqual([
+      { content: "svar 2", outputTokens: 2000, finishReason: "length" },
+      { content: "svar 3", outputTokens: 3000, finishReason: "stop" },
+    ]);
+    expect(measured.usage.outputTokens).toBe(5000);
+    expect((await meter.measure(async () => {})).attempts).toEqual([]);
+  });
+
+  it("reads a body without choices or usage as an attempt with nothing known", () => {
+    expect(attemptOf({})).toEqual({ content: null, outputTokens: null, finishReason: null });
+    expect(attemptOf(null)).toEqual({ content: null, outputTokens: null, finishReason: null });
   });
 });
 

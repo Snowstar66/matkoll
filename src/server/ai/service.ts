@@ -322,6 +322,8 @@ export function createModelAiService(target: ModelTarget, limits: Limits = defau
           system: prompts.suggestDishes,
           messages: [{ role: "user", content: suggestDishesContent(input) }],
           maxOutputTokens: inputLimits.suggest.maxOutputTokens,
+          // Story 12.3: the cap is lower now, so an answer cut at it is logged (only the event, never the answer).
+          onTruncated: () => console.info("suggest_truncated"),
         },
         signal,
         within,

@@ -296,6 +296,21 @@ describe("suggestDishes on a model", () => {
     expect(line).not.toContain('"isVague"');
   });
 
+  it("has room for 3 000 tokens and logs suggest_truncated when the model stops at the limit (Story 12.3)", async () => {
+    expect(inputLimits.suggest.maxOutputTokens).toBe(3_000);
+    const length = { unified: "length" as const, raw: "length" };
+    const cut = new MockLanguageModelV4({ doGenerate: async () => ({ ...textAnswer('{"suggestions": [{"title": "Pann'), finishReason: length }) });
+    const result = await createModelAiService({ model: cut }, limits).suggestDishes(input, signal());
+    expect(result).toMatchObject({ ok: false, error: { code: "ai_invalid" } });
+    expect(console.info).toHaveBeenCalledWith("suggest_truncated");
+    vi.mocked(console.info).mockClear();
+    const whole = new MockLanguageModelV4({ doGenerate: async () => ({ ...textAnswer(answer()), finishReason: length }) });
+    expect(await createModelAiService({ model: whole }, limits).suggestDishes(input, signal())).toEqual({ ok: true, data: recipes });
+    expect(console.info).toHaveBeenCalledWith("suggest_truncated");
+    // Only the event: never the answer.
+    expect(JSON.stringify(vi.mocked(console.info).mock.calls)).not.toContain("Pannkakor");
+  });
+
   it("leaves out Föreslå inte when there are no titles to avoid", async () => {
     const model = fakeModel(answer());
     await createModelAiService({ model }, limits).suggestDishes({ ...input, avoidTitles: [] }, signal());

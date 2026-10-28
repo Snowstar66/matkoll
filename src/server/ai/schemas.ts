@@ -6,8 +6,13 @@ import { normalizeTitle } from "@/lib/suggest-input";
 // validated against these; an answer that does not pass is retried, then
 // reported as ai_invalid. Section, location and units are free text here:
 // the catalog interprets them (AD-6, AD-12), so a new spelling never makes
-// an otherwise usable answer invalid. Every property is required (nullable
-// where it may be missing), so all providers can use strict JSON schemas.
+// an otherwise usable answer invalid. The one exception is `new` in a
+// suggested dish's line (compactDishIngredient, Story 12.3): its section,
+// location and default unit are strict enums of the catalog's values on
+// purpose, so an unknown section ("Godis") makes the answer invalid and gets
+// a new attempt, and a strict provider decodes only known values. Every
+// property is required (nullable where it may be missing), so all providers
+// can use strict JSON schemas.
 
 /** A string that is not empty or whitespace only; surrounding whitespace is removed. */
 const text = () => z.string().trim().min(1);

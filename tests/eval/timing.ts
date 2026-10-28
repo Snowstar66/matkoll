@@ -113,6 +113,29 @@ export function addUsage(total: Usage, body: unknown): Usage {
   };
 }
 
+/** One chat completion within a measure (Story 12.3): its answer text, tokens out, and whether it stopped at the cap. */
+export type Attempt = {
+  content: string | null;
+  outputTokens: number | null;
+  /** The provider's finish_reason: "length" is an answer cut at maxOutputTokens. */
+  finishReason: string | null;
+};
+
+/** The attempt in one OpenAI-compatible response body; what is missing is null. */
+export function attemptOf(body: unknown): Attempt {
+  const parsed = body as {
+    choices?: { message?: { content?: unknown }; finish_reason?: unknown }[];
+    usage?: { completion_tokens?: unknown };
+  } | null;
+  const choice = parsed?.choices?.[0];
+  const tokens = parsed?.usage?.completion_tokens;
+  return {
+    content: typeof choice?.message?.content === "string" ? choice.message.content : null,
+    outputTokens: typeof tokens === "number" && Number.isFinite(tokens) ? tokens : null,
+    finishReason: typeof choice?.finish_reason === "string" ? choice.finish_reason : null,
+  };
+}
+
 /**
  * Counts the `usage` of every chat completion while `measure` runs, by
  * wrapping the global fetch the AI SDK uses (the port does not return it, and
@@ -122,8 +145,8 @@ export function installUsageMeter() {
   const original = globalThis.fetch;
   let current: Usage | null = null;
   let pending: Promise<void>[] = [];
-  /** The answers' texts in this measure, for the evaluation's own checks (Story 12.3); never in a row. */
-  let contents: string[] = [];
+  /** Each chat completion in this measure, for the evaluation's own checks (Story 12.3); never in a row. */
+  let attempts: Attempt[] = [];
 
   globalThis.fetch = async (input, init) => {
     const callStarted = performance.now();
@@ -138,8 +161,7 @@ export function installUsageMeter() {
             if (!current) return;
             const first = current.calls === 0 ? (performance.now() - callStarted) / 1000 : current.firstCallSeconds;
             current = { ...addUsage(current, body), firstCallSeconds: first };
-            const content = (body as { choices?: { message?: { content?: unknown } }[] } | null)?.choices?.[0]?.message?.content;
-            if (typeof content === "string") contents.push(content);
+            attempts.push(attemptOf(body));
           })
           .catch(() => {
             if (current) current = { ...current, calls: current.calls + 1 };
@@ -150,16 +172,16 @@ export function installUsageMeter() {
   };
 
   return {
-    async measure<T>(call: () => Promise<T>): Promise<{ value: T; seconds: number; usage: Usage; contents: string[] }> {
+    async measure<T>(call: () => Promise<T>): Promise<{ value: T; seconds: number; usage: Usage; attempts: Attempt[] }> {
       current = emptyUsage();
       pending = [];
-      contents = [];
+      attempts = [];
       const started = performance.now();
       try {
         const value = await call();
         const seconds = (performance.now() - started) / 1000;
         await Promise.all(pending);
-        return { value, seconds, usage: current, contents };
+        return { value, seconds, usage: current, attempts };
       } finally {
         current = null;
       }

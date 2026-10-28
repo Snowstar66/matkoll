@@ -9,13 +9,26 @@ import { adminClient, aiSuggestionsEmail, aiSuggestionsStorageState, e2eUserId }
 // whatever is at home). The spec has an E2E user of its own
 // (aiSuggestionsEmail). Before each test the pantry and the recipes are
 // emptied, and the service role makes the recipe Linssoppa (so the library
-// has a row), a catalog ingredient for each line name in the mock's two answer
-// sets, and each of them at home: as much as the first suggestion needs for
-// its own lines (so it can be cooked now once it is saved), always enough for
-// the rest (so every suggestion uses the pantry and is kept).
-
-// Story 12.3: the fixtures are the compact answer the model gives (a line without an amount is vague).
-type FixtureLine = { text: string; amount: number | null; unit: string | null; name: string };
+// has a row), a catalog ingredient for each line name from the pantry
+// (`new: null`) in the mock's two answer sets, and each of them at home: as
+// much as the first suggestion needs for its own lines (so it can be cooked
+// now once it is saved), always enough for the rest (so every suggestion
+// uses the pantry and is kept).
+//
+// Story 12.3: the fixtures are the compact answer the model gives (a line
+// without an amount is vague). The one line outside the pantry, with `new`
+// (grönsaksbuljong in Morotssoppa med vitlök), is neither in the catalog nor
+// at home: an earlier run's catalog row for it is renamed before each test
+// (catalog rows cannot be deleted), so the preview
+// proposes it as a new ingredient, and saving makes it with the section and
+// place from `new`.
+type FixtureLine = {
+  text: string;
+  amount: number | null;
+  unit: string | null;
+  name: string;
+  new: { section: string; location: string; defaultUnit: string } | null;
+};
 type FixtureRecipe = { title: string; ingredients: FixtureLine[] };
 
 const fixtures = join(process.cwd(), "tests", "fixtures", "ai");
@@ -26,6 +39,9 @@ const suggested = answerSet("suggest-dishes");
 const others = answerSet("suggest-dishes-andra");
 const [first] = suggested;
 const titles = suggested.map((recipe) => recipe.title);
+/** The dish with a line outside the pantry, and that line (Story 12.3). */
+const soup = others.find((recipe) => recipe.ingredients.some((line) => line.new !== null))!;
+const newLine = soup.ingredients.find((line) => line.new !== null)!;
 const soppa = "Linssoppa";
 const reservedUnavailable = "matkoll-mock: ai_unavailable";
 
@@ -109,7 +125,33 @@ test.beforeEach(async () => {
   });
   if (line.error) throw line.error;
 
-  const names = [...new Set([...suggested, ...others].flatMap((recipe) => recipe.ingredients.map((line) => line.name)))];
+  // Story 12.3: the line outside the pantry is not in the catalog. Catalog
+  // rows are never deleted (not even by the service role), so the row an
+  // earlier run's save made gets a name of its own that matches nothing, and
+  // loses its synonyms.
+  const stale = await admin
+    .from("ingredient")
+    .select("id")
+    .eq("user_id", userId)
+    .eq("normalized_name", normalizeIngredientText(newLine.name));
+  if (stale.error) throw stale.error;
+  for (const { id } of stale.data as { id: string }[]) {
+    const synonyms = await admin.from("ingredient_synonym").delete().eq("user_id", userId).eq("ingredient_id", id);
+    if (synonyms.error) throw synonyms.error;
+    const retired = `e2e-undanlagd-${id}`;
+    const renamed = await admin
+      .from("ingredient")
+      .update({ name: retired, normalized_name: normalizeIngredientText(retired) })
+      .eq("user_id", userId)
+      .eq("id", id);
+    if (renamed.error) throw renamed.error;
+  }
+
+  const names = [
+    ...new Set(
+      [...suggested, ...others].flatMap((recipe) => recipe.ingredients.filter((line) => line.new === null).map((line) => line.name)),
+    ),
+  ];
   const ids = await seedIngredients(names);
   // The first suggestion's lines: as much as each needs, in its unit (a count
   // without one is st); vague lines and everything else: always enough.
@@ -241,6 +283,31 @@ test("AI-förslag: Avbryt, three cards of their own, and a saved suggestion in t
   await visible(page).getByRole("button", { name: "Föreslå andra rätter" }).click();
   expect((await again).postDataJSON()).toEqual({ avoidTitles: [...titles.slice(1), first.title] });
   await expect(section(page).getByRole("heading", { level: 3 })).toHaveText(others.map((recipe) => recipe.title));
+
+  // Story 12.3: the line with `new` is proposed as a new catalog ingredient; the lines from the pantry are matched.
+  await section(page).getByRole("button", { name: `Spara ${soup.title}` }).click();
+  await expect(sheet(page)).toBeVisible();
+  const lines = sheet(page).getByTestId("recipe-line");
+  await expect(lines).toHaveCount(soup.ingredients.length);
+  const proposed = lines.filter({ hasText: newLine.text });
+  await expect(proposed.getByText("Ny", { exact: true })).toBeVisible();
+  await expect(lines.filter({ hasNotText: newLine.text }).getByText("Ny", { exact: true })).toHaveCount(0);
+  await sheet(page).getByRole("button", { name: "Spara recept" }).click();
+  await expect(page).toHaveURL(/\/recept\/[0-9a-f-]{36}$/);
+  await expect(page.getByRole("heading", { level: 1, name: soup.title })).toBeVisible();
+  // Saving made the catalog ingredient with the section, place and unit from `new`.
+  const made = await adminClient()
+    .from("ingredient")
+    .select("section, location, default_unit")
+    .eq("user_id", userId)
+    .eq("normalized_name", normalizeIngredientText(newLine.name))
+    .single();
+  if (made.error) throw made.error;
+  expect(made.data).toEqual({
+    section: newLine.new!.section,
+    location: newLine.new!.location,
+    default_unit: newLine.new!.defaultUnit,
+  });
   expect(errors.filter((error) => !error.includes("Failed to load resource"))).toEqual([]);
 });
 

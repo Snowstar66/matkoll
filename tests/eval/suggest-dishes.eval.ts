@@ -2,7 +2,7 @@ import { readFileSync, writeFileSync } from "node:fs";
 import { join } from "node:path";
 import { afterAll, describe, expect, it } from "vitest";
 import type { AiRecipe } from "@/server/ai/schemas";
-import { createAiService, type SuggestDishesInput } from "@/server/ai/service";
+import { createAiService, inputLimits, type SuggestDishesInput } from "@/server/ai/service";
 import { parseEnv } from "@/server/env-schema";
 import { normalize, type Check } from "./compare";
 import { answerShape, checkSuggestions, type AnswerShape, type SuggestExpected } from "./suggest-checks";
@@ -13,6 +13,7 @@ import {
   lmStudioSettings,
   machineState,
   timingRow,
+  type Attempt,
   writeTimingReport,
   type TimingRow,
 } from "./timing";
@@ -29,10 +30,11 @@ import {
 // timed the shared way (timing.ts) as "förslag" and "andra rätter", with the
 // tokens in and out, under EVAL_LABEL, in tests/eval/reports/.
 //
-// Story 12.3: suggest-report.md also has the tokens out per call, the lines
-// from the pantry per suggestion, and the shape of the model's last answer
-// text (answerShape): compact or full, indented or on one line, and the
-// lines without `new` whose name is not in the pantry.
+// Story 12.3: suggest-report.md also has the tokens out per call and per
+// attempt, which attempts were cut at the cap (finish_reason "length"), the
+// lines from the pantry per suggestion, and the shape of the model's last
+// answer text (answerShape): compact or full, indented or on one line, and
+// the lines without `new` whose name is not in the pantry.
 
 type RunResult = {
   name: string;
@@ -41,9 +43,10 @@ type RunResult = {
   error?: string;
   checks: Check[];
   recipes?: AiRecipe[];
-  /** Story 12.3: tokens out over all attempts, and the shape of the last answer text. */
+  /** Story 12.3: tokens out over all attempts, each attempt, and the shape of the last answer text. */
   outputTokens: number | null;
   calls: number;
+  attempts: Attempt[];
   shape: AnswerShape | null;
 };
 
@@ -74,7 +77,8 @@ async function run(name: string, runNumber: number, runInput: SuggestDishesInput
   const measuredParts = {
     outputTokens: measured.usage.outputTokens,
     calls: measured.usage.calls,
-    shape: answerShape(measured.contents.at(-1), runInput),
+    attempts: measured.attempts,
+    shape: answerShape(measured.attempts.at(-1)?.content ?? undefined, runInput),
   };
   const entry: RunResult = result.ok
     ? { name, run: runNumber, seconds, checks: checkSuggestions(result.data, runInput, expected), recipes: result.data, ...measuredParts }
@@ -132,14 +136,15 @@ function renderReport(): string {
     `- Modell: ${env.AI_MODEL ?? "–"}`,
     `- Lager: ${input.pantry.length} rader (${manifest.suggest}.pantry.json)`,
     `- Resultat: ${passed.length} av ${results.length} anrop godkända`,
+    `- Taket för svaret: ${inputLimits.suggest.maxOutputTokens} token per försök`,
     "",
-    "| Anrop | Körning | Resultat | Tid (s) | Token ut | Anrop till modellen | Rader ur lagret per förslag | Format | Titlar |",
-    "| --- | --- | --- | --- | --- | --- | --- | --- | --- |",
+    "| Anrop | Körning | Resultat | Tid (s) | Token ut | Token ut per försök | Kapat vid taket | Rader ur lagret per förslag | Format | Titlar |",
+    "| --- | --- | --- | --- | --- | --- | --- | --- | --- | --- |",
     ...results.map((result) => {
       const failed = result.checks.filter((check) => !check.ok);
       const status = result.error ? `Fel: ${result.error}` : failed.length === 0 ? "Godkänt" : "Avvikelser";
       const titles = (result.recipes ?? []).map((recipe) => recipe.title).join(" / ") || "–";
-      return `| ${result.name} | ${result.run} | ${status} | ${result.seconds.toFixed(1)} | ${result.outputTokens ?? "–"} | ${result.calls} | ${pantryLinesPerDish(result)} | ${escapeCell(shapeText(result.shape))} | ${escapeCell(titles)} |`;
+      return `| ${result.name} | ${result.run} | ${status} | ${result.seconds.toFixed(1)} | ${result.outputTokens ?? "–"} | ${perAttempt(result)} | ${cutAtCap(result)} | ${pantryLinesPerDish(result)} | ${escapeCell(shapeText(result.shape))} | ${escapeCell(titles)} |`;
     }),
     "",
   ];
@@ -159,6 +164,23 @@ function renderReport(): string {
     lines.push("", "<details><summary>Svar</summary>", "", "```json", JSON.stringify(result.recipes, null, 2), "```", "", "</details>", "");
   }
   return `${lines.join("\n")}\n`;
+}
+
+/** Tokens out of each attempt in order, as "2 950 + 1 120"; "–" for one the provider gave no count for. */
+function perAttempt(result: RunResult): string {
+  if (result.attempts.length === 0) return "–";
+  return result.attempts.map((attempt) => (attempt.outputTokens === null ? "–" : String(attempt.outputTokens))).join(" + ");
+}
+
+/**
+ * Which attempts stopped at maxOutputTokens (finish_reason "length"), as
+ * "ja (försök 1 av 2)", or "nej". The cap is decided in the Epic 12
+ * measurement: raised if a valid answer comes near it.
+ */
+function cutAtCap(result: RunResult): string {
+  const cut = result.attempts.flatMap((attempt, index) => (attempt.finishReason === "length" ? [index + 1] : []));
+  if (cut.length === 0) return result.attempts.length === 0 ? "–" : "nej";
+  return `ja (försök ${cut.join(", ")} av ${result.attempts.length})`;
 }
 
 /** Lines whose hint.name is a pantry item's name, per dish, as "6 / 5 / 7"; "–" without an answer. */
