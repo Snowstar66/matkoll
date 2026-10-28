@@ -41,6 +41,11 @@ describe("newIngredientName", () => {
     expect(newIngredientName("  Saffran ", [])).toBe("Saffran");
   });
 
+  it("starts the name with a capital, as the catalog stores it (Story 10.4)", () => {
+    expect(newIngredientName("2 dl schalottenlök", [])).toBe("Schalottenlök");
+    expect(newIngredientName("ägg", [])).toBe("Ägg");
+  });
+
   it("offers nothing when a hit has the name, or nothing is typed", () => {
     expect(newIngredientName("gul LÖK", [{ id: "1", name: "Gul lök" }])).toBeNull();
     expect(newIngredientName("   ", [])).toBeNull();

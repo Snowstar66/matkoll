@@ -103,6 +103,8 @@ jobs:
 
       # Schema and data (the data includes auth.users, which every row references
       # through user_id), a manifest with the applied migrations, and row counts.
+      # Photos are never in it (Story 10.3, AD-26, NFR-11): the files are not in the
+      # database, and their rows and paths are left out of the data.
       # The URL on the command line has no password; the password is in PGPASSWORD,
       # which the CLI and psql read. The plain files stay in a private folder that is
       # removed when the step ends; only the encrypted files are uploaded, each one
@@ -140,12 +142,14 @@ jobs:
           sql -F ' ' -f scripts/backup-counts.sql > "$plain/counts.txt"
 
           supabase db dump --db-url "$db_url" --file "$plain/schema.sql"
-          # The two storage tables cannot be written back by the postgres role (as in
-          # Supabase's own restore guide); Matkoll stores no files. Sessions, tokens,
-          # sign-in flows and the auth audit log are left out: they are not needed to
-          # restore, and a new project does not accept them anyway.
-          supabase db dump --db-url "$db_url" --data-only --use-copy \
-            --exclude storage.buckets_vectors --exclude storage.vector_indexes \
+          # The data of only two schemas, public and auth (an allowlist): nothing of
+          # the schema storage, so no bucket, no file's path and no upload (Story 10.3);
+          # the photo migration creates the bucket again on a restore. The photos' rows
+          # (public.pantry_photo) are left out too. Sessions, tokens, sign-in flows and
+          # the auth audit log are left out: they are not needed to restore, and a new
+          # project does not accept them anyway.
+          supabase db dump --db-url "$db_url" --data-only --use-copy --schema public,auth \
+            --exclude public.pantry_photo \
             --exclude auth.sessions --exclude auth.refresh_tokens --exclude auth.mfa_amr_claims \
             --exclude auth.one_time_tokens --exclude auth.flow_state --exclude auth.audit_log_entries \
             --file "$plain/data.sql"
@@ -156,6 +160,9 @@ jobs:
           done
           grep -q '^COPY "auth"."users" ' "$plain/data.sql" \
             || { echo "::error title=Säkerhetskopia::data.sql saknar auth.users."; exit 1; }
+          # Before anything is encrypted: the data has no row of the schema storage or of
+          # pantry_photo, and never the bucket's id. Only the verdict is printed, never a line.
+          if grep -qE '^COPY "?storage"?\.|^COPY "?public"?\."?pantry_photo"?[ (]|pantry-photo' "$plain/data.sql"; then echo "::error title=Säkerhetskopia::data.sql innehåller foton eller sökvägar till foton."; exit 1; fi
 
           for name in "${files[@]}"; do
             printf '%s' "$BACKUP_PASSPHRASE" | gpg --batch --yes --quiet --no-symkey-cache --pinentry-mode loopback \

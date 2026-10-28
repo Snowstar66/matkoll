@@ -484,18 +484,18 @@ describe("Rätta", () => {
     const field = within(sheet()).getByRole("searchbox", { name: "Sök ingrediens" });
     fireEvent.change(field, { target: { value: "slanggurka" } });
     await act(async () => fireEvent.keyDown(field, { key: "Enter" }));
-    fireEvent.click(within(sheet()).getByRole("button", { name: "Lägg till slanggurka som ny" }));
+    fireEvent.click(within(sheet()).getByRole("button", { name: "Lägg till Slanggurka som ny" }));
     fireEvent.click(within(sheet()).getByRole("button", { name: "Bekräfta" }));
     expect(lastConfirm().items).toEqual([
       {
-        ingredient: { kind: "new", name: "slanggurka", section: "Övrigt", location: "Kyl", defaultUnit: "st" },
+        ingredient: { kind: "new", name: "Slanggurka", section: "Övrigt", location: "Kyl", defaultUnit: "st" },
         location: "Kyl",
         amount: 2,
         unit: "st",
       },
     ]);
     await answerConfirm();
-    expect(toast()).toHaveTextContent("slanggurka är sparad i kylen.");
+    expect(toast()).toHaveTextContent("Slanggurka är sparad i kylen.");
   });
 
   it("keeps the sheet and the suggestion after a failure, with the text in the sheet", async () => {
@@ -655,9 +655,9 @@ describe("Story 6.5: labels and unsure suggestions", () => {
     const [gurka, senap, mjolk] = cards();
     expect(gurka.textContent).toBe("gurkaNy2 st · KylBekräftaRättaAvvisa");
     expect(within(senap).getByText("Osäker")).toHaveClass("bg-sky");
-    expect(within(senap).getByText("Sparas som: senap")).toBeInTheDocument();
+    expect(within(senap).getByText("Sparas som: Senap")).toBeInTheDocument();
     expect(senap).toHaveTextContent("AI:n är osäker på varan, så Bekräfta alla tar inte med den.");
-    expect(within(mjolk).getByText("Sparas som: mjölk")).toBeInTheDocument();
+    expect(within(mjolk).getByText("Sparas som: Mjölk")).toBeInTheDocument();
     expect(within(mjolk).queryByText("Osäker")).toBeNull();
     // The buttons keep the catalog name: it is what is saved.
     expect(button("Bekräfta senap")).toBeEnabled();

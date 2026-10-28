@@ -4,7 +4,8 @@ import { locationSchema, type Location } from "@/features/catalog";
 import { pantryItemSetSchema, pantryRowSchema, type PantryItemSet, type PantryRow } from "../domain/pantry-item-form";
 import { maxConfirmItems, maxInventoryRemovals, maxInventoryReplaces } from "../domain/pantry-suggestion";
 import { PantryDataError, pantryWriteError, type PantryDb } from "./client";
-import type { SetPantryRow } from "./set";
+import { labelAndTime } from "./remove";
+import { labelKeys, type SetPantryRow } from "./set";
 
 const requestSchema = z
   .object({
@@ -60,6 +61,8 @@ const answerRowSchema = z.object({
   location: z.string(),
   amount: z.union([z.number(), z.string()]).nullable(),
   unit: z.string().nullable(),
+  label: z.string().nullable().optional(),
+  created_at: z.string().optional(),
 });
 
 const answerSchema = z.object({
@@ -80,6 +83,7 @@ function asRow(value: unknown): PantryRow | null {
     location: row.data.location,
     amount: row.data.amount === null ? null : Number(row.data.amount),
     unit: row.data.unit,
+    ...labelAndTime(row.data),
   });
   return parsed.success ? parsed.data : null;
 }
@@ -113,6 +117,7 @@ export async function applyPantryInventoryIn(db: PantryDb, request: ApplyInvento
       location: item.location,
       amount: item.amount,
       unit: item.unit,
+      ...labelKeys(item),
     })),
     replace_ids: replaceRowIds,
     remove_ids: removeRowIds,

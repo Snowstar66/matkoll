@@ -101,19 +101,20 @@ development_status:
   8-5-inköpslista-inför-resan-till-ett-annat-ställe: done
   epic-8-retrospective: optional
 
-  epic-10: in-progress
+  epic-10: done
   10-1-spara-senaste-fotot-per-plats: done
-  10-2-visa-senaste-fotot-i-hemma: backlog
-  10-3-gallring-och-städning-av-foton: backlog
+  10-2-visa-senaste-fotot-i-hemma: done
+  10-3-gallring-och-städning-av-foton: done
+  10-4-lagersaldo-och-stor-bokstav: done
   epic-10-retrospective: optional
 
-  epic-11: backlog
-  11-1-gemensam-grund-för-nytt-utseende: backlog
-  11-2-märke-och-tid-på-lagervaror: backlog
-  11-3-lagersaldo-i-nytt-utseende: backlog
-  11-4-inköpslistan-i-nytt-utseende: backlog
-  11-5-recept-och-matsedel-i-nytt-utseende: backlog
-  11-6-matkoll-på-hemskärmen: backlog
+  epic-11: done
+  11-1-gemensam-grund-för-nytt-utseende: done
+  11-2-märke-och-tid-på-lagervaror: done
+  11-3-lagersaldo-i-nytt-utseende: done
+  11-4-inköpslistan-i-nytt-utseende: done
+  11-5-recept-och-matsedel-i-nytt-utseende: done
+  11-6-matkoll-på-hemskärmen: done
   epic-11-retrospective: optional
 
   epic-12: in-progress

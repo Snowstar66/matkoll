@@ -49,6 +49,9 @@ const item = (id: string, name: string, overrides: Partial<PantryItem> = {}): Pa
   location: "Kyl",
   amount: 1,
   unit: "st",
+  label: null,
+  createdAt: "2026-10-20T10:00:00+00:00",
+  section: "Mejeri",
   ...overrides,
 });
 const mjolk = item("11111111-1111-4111-8111-111111111111", "Mjölk", { unit: "l" });
@@ -103,13 +106,24 @@ function Hemma({ initial, initialSite = hemmaSite }: { initial: PantryItem[]; in
   );
 }
 
-const rowNames = () => screen.queryAllByTestId("pantry-row").map((row) => row.textContent);
-const tagNames = () => screen.queryAllByTestId("pantry-tag").map((tag) => tag.textContent);
+/** The names of the rows shown, without the line under them (Story 11.3). */
+const rowNames = () => screen.queryAllByTestId("pantry-row").map((row) => row.firstElementChild?.textContent);
 const kylCard = () => within(screen.getByRole("navigation", { name: "Platser" })).getAllByRole("link")[0];
 const toast = () => screen.getByTestId("toast");
-/** A tap on the swipe action (a pointer click has a detail). */
-const tapRemove = (name: string) =>
-  act(async () => fireEvent.click(screen.getByRole("button", { name: `Ta bort ${name}` }), { detail: 1 }));
+/**
+ * Every bin shares one double-tap guard (trashPressGuardMs): the clock it
+ * reads moves on by a second before each press, unless a test says otherwise.
+ */
+let guardOffset = 0;
+const realNow = performance.now.bind(performance);
+const afterGuard = () => {
+  guardOffset += 1000;
+};
+/** A tap on the row's bin (Story 11.3), well after the press before it. */
+const tapRemove = (name: string) => {
+  afterGuard();
+  return act(async () => fireEvent.click(screen.getByRole("button", { name: `Ta bort ${name}` }), { detail: 1 }));
+};
 const undo = () => act(async () => fireEvent.click(within(toast()).getByRole("button", { name: "Ångra" })));
 
 /** A promise resolved from the test, to see the list while an action waits. */
@@ -122,6 +136,7 @@ function deferred<T>() {
 }
 
 beforeEach(() => {
+  vi.spyOn(performance, "now").mockImplementation(() => realNow() + guardOffset);
   refresh.mockReset();
   // By default the server answers, and its items change right after the answer.
   removePantryItem.mockReset().mockImplementation(async (id) => {
@@ -191,12 +206,12 @@ describe("removing an item on Hemma", () => {
 
     await tapRemove("Mjölk");
     // Gone before the server answers, and the card counts what is shown.
-    expect(rowNames()).toEqual(["Smör 250 g"]);
+    expect(rowNames()).toEqual(["Salt", "Smör"]);
     expect(kylCard()).toHaveTextContent("Kyl 2 varor");
     expect(removePantryItem).toHaveBeenCalledWith(mjolk.id);
 
     await act(async () => pending.resolve(ok(rowOf(mjolk))));
-    expect(toast()).toHaveTextContent("Mjölk är borttagen.");
+    expect(toast()).toHaveTextContent("Tog bort Mjölk.");
     expect(within(toast()).getByRole("button", { name: "Ångra" })).toBeInTheDocument();
   });
 
@@ -205,12 +220,12 @@ describe("removing an item on Hemma", () => {
     render(<Hemma initial={[mjolk, smor]} />);
     await tapRemove("Mjölk");
     // Answered, but the page is not read again yet: no flash of the old row.
-    expect(rowNames()).toEqual(["Smör 250 g"]);
+    expect(rowNames()).toEqual(["Smör"]);
     serverRemoves(mjolk.id);
-    expect(rowNames()).toEqual(["Smör 250 g"]);
+    expect(rowNames()).toEqual(["Smör"]);
     // The change is done with: when the server has the item again, it shows.
     serverAdds(mjolk);
-    expect(rowNames()).toEqual(["Mjölk 1 l", "Smör 250 g"]);
+    expect(rowNames()).toEqual(["Mjölk", "Smör"]);
   });
 
   it("puts the row back with the same id on Ångra, and keeps it until the server has it", async () => {
@@ -219,37 +234,67 @@ describe("removing an item on Hemma", () => {
     await tapRemove("Mjölk");
     await undo();
     expect(restorePantryItem).toHaveBeenCalledWith(rowOf(mjolk));
-    expect(rowNames()).toEqual(["Mjölk 1 l", "Smör 250 g"]);
+    expect(rowNames()).toEqual(["Mjölk", "Smör"]);
     expect(kylCard()).toHaveTextContent("Kyl 2 varor");
     expect(screen.queryByTestId("toast")).toBeNull();
 
     // Answered, but not read again yet: still there; then the server has it.
     serverAdds(mjolk);
-    expect(rowNames()).toEqual(["Mjölk 1 l", "Smör 250 g"]);
+    expect(rowNames()).toEqual(["Mjölk", "Smör"]);
   });
 
-  it("collects items removed while the confirmation shows, and Ångra puts them all back", async () => {
+  it("joins removals while the confirmation shows, so one Ångra puts them all back (Story 11.3)", async () => {
     render(<Hemma initial={everything} />);
     await tapRemove("Mjölk");
-    expect(toast()).toHaveTextContent("Mjölk är borttagen.");
-    await tapRemove("Smör");
-    expect(toast()).toHaveTextContent("Mjölk och Smör är borttagna.");
+    expect(toast()).toHaveTextContent("Tog bort Mjölk.");
+    // A double tap that landed on the next bin too: still one Ångra away.
     await tapRemove("Ägg");
-    expect(toast()).toHaveTextContent("3 varor är borttagna.");
-    expect(rowNames()).toEqual([]);
+    expect(screen.getAllByTestId("toast")).toHaveLength(1);
+    expect(toast()).toHaveTextContent("Tog bort Mjölk och Ägg.");
+    await tapRemove("Smör");
+    expect(toast()).toHaveTextContent("Tog bort 3 varor.");
+    expect(rowNames()).toEqual(["Salt"]);
 
     await undo();
-    expect(restorePantryItem.mock.calls.map(([row]) => row.id)).toEqual([mjolk.id, smor.id, agg.id]);
-    expect(rowNames()).toEqual(["Mjölk 1 l", "Smör 250 g", "Ägg 6 st"]);
+    expect(restorePantryItem.mock.calls.map(([row]) => row.id)).toEqual([mjolk.id, agg.id, smor.id]);
+    await waitFor(() => expect(rowNames()).toEqual(["Mjölk", "Salt", "Smör", "Ägg"]));
   });
 
-  it("reports a failed Ångra as an alert, and keeps the ones that worked", async () => {
-    render(<Hemma initial={[mjolk, smor]} />);
+  it("keeps the taps' order when the answers come out of order, and Ångra puts back both", async () => {
+    const first = deferred<Result<PantryRow | null>>();
+    const second = deferred<Result<PantryRow | null>>();
+    removePantryItem.mockImplementationOnce(() => first.promise).mockImplementationOnce(() => second.promise);
+    // The fake server's list is not changed by these answers, so Ångra leaves it as it is too.
+    restorePantryItem.mockImplementation(async (row) => ok(row));
+    render(<Hemma initial={[mjolk, smor, agg]} />);
     await tapRemove("Mjölk");
     await tapRemove("Smör");
+    await act(async () => second.resolve(ok(rowOf(smor))));
+    expect(toast()).toHaveTextContent("Tog bort Smör.");
+    // The older answer joins; it never takes the newer one's place.
+    await act(async () => first.resolve(ok(rowOf(mjolk))));
+    expect(toast()).toHaveTextContent("Tog bort Mjölk och Smör.");
+    await undo();
+    expect(restorePantryItem.mock.calls.map(([row]) => row.id).sort()).toEqual([mjolk.id, smor.id].sort());
+    await waitFor(() => expect(rowNames()).toEqual(["Mjölk", "Smör", "Ägg"]));
+  });
+
+  it("names an item that cannot be put back in the confirmation showing, which keeps its Ångra", async () => {
+    render(<Hemma initial={[mjolk, smor, agg]} />);
+    await tapRemove("Mjölk");
+    removePantryItem.mockResolvedValueOnce(ok(null));
+    await tapRemove("Smör");
+    expect(toast()).toHaveTextContent("Tog bort Mjölk och Smör.");
+    await undo();
+    expect(restorePantryItem.mock.calls.map(([row]) => row.id)).toEqual([mjolk.id]);
+  });
+
+  it("reports a failed Ångra as an alert, and the item stays removed", async () => {
+    render(<Hemma initial={[mjolk, smor]} />);
+    await tapRemove("Mjölk");
     restorePantryItem.mockImplementationOnce(async () => fail("pantry_restore_failed"));
     await undo();
-    expect(rowNames()).toEqual(["Smör 250 g"]);
+    expect(rowNames()).toEqual(["Smör"]);
     expect(screen.getByRole("alert")).toHaveTextContent("Det gick inte att ångra.");
     expect(toast()).toHaveTextContent("Det gick inte att ångra.");
     expect(refresh).not.toHaveBeenCalled();
@@ -259,7 +304,7 @@ describe("removing an item on Hemma", () => {
     removePantryItem.mockResolvedValueOnce(fail("pantry_remove_failed"));
     render(<Hemma initial={[mjolk, smor]} />);
     await tapRemove("Mjölk");
-    expect(rowNames()).toEqual(["Mjölk 1 l", "Smör 250 g"]);
+    expect(rowNames()).toEqual(["Mjölk", "Smör"]);
     expect(screen.getByRole("alert")).toHaveTextContent("Det gick inte att ta bort varan.");
     expect(within(toast()).queryByRole("button", { name: "Ångra" })).toBeNull();
     expect(refresh).not.toHaveBeenCalled();
@@ -269,7 +314,7 @@ describe("removing an item on Hemma", () => {
     removePantryItem.mockRejectedValueOnce(new TypeError("Failed to fetch"));
     render(<Hemma initial={[mjolk, smor]} />);
     await tapRemove("Mjölk");
-    expect(rowNames()).toEqual(["Mjölk 1 l", "Smör 250 g"]);
+    expect(rowNames()).toEqual(["Mjölk", "Smör"]);
     expect(screen.getByRole("alert")).toHaveTextContent("Det gick inte att ta bort varan.");
     expect(refresh).toHaveBeenCalledTimes(1);
 
@@ -284,8 +329,8 @@ describe("removing an item on Hemma", () => {
     removePantryItem.mockResolvedValueOnce(ok(null));
     render(<Hemma initial={[mjolk, smor]} />);
     await tapRemove("Mjölk");
-    expect(rowNames()).toEqual(["Smör 250 g"]);
-    expect(toast()).toHaveTextContent("Mjölk är borttagen.");
+    expect(rowNames()).toEqual(["Smör"]);
+    expect(toast()).toHaveTextContent("Tog bort Mjölk.");
     expect(within(toast()).queryByRole("button", { name: "Ångra" })).toBeNull();
   });
 
@@ -303,11 +348,11 @@ describe("removing on one place and Ångra after another is selected (Story 8.2)
     expect(rowNames()).toEqual([]);
     // Hemma is selected now; its list is what the server gives for Hemma.
     act(() => serverSwitch(hemmaSite, [hemmaSmor]));
-    expect(rowNames()).toEqual(["Smör 250 g"]);
+    expect(rowNames()).toEqual(["Smör"]);
 
     await undo();
     await waitFor(() => expect(restorePantryItem).toHaveBeenCalledWith(expect.objectContaining({ siteId: stuganSite.id })));
-    expect(rowNames()).toEqual(["Smör 250 g"]);
+    expect(rowNames()).toEqual(["Smör"]);
     expect(kylCard()).toHaveTextContent("Kyl 1 vara");
   });
 
@@ -317,7 +362,7 @@ describe("removing on one place and Ångra after another is selected (Story 8.2)
     await tapRemove("Mjölk");
     await undo();
     await waitFor(() => expect(toast()).toHaveTextContent("Stället finns inte längre. Välj ett annat ställe."));
-    expect(rowNames()).toEqual(["Smör 250 g"]);
+    expect(rowNames()).toEqual(["Smör"]);
   });
 });
 
@@ -359,7 +404,7 @@ describe("the places a live Ångra needs (Story 8.2)", () => {
 describe("Ta bort in the sheet", () => {
   it("removes an unlimited item, closes without asking, and moves focus to the next item", async () => {
     render(<Hemma initial={[mjolk, salt, agg]} />);
-    fireEvent.click(screen.getByRole("button", { name: "Salt" }));
+    fireEvent.click(screen.getByRole("button", { name: /^Salt / }));
     const sheet = screen.getByRole("dialog", { name: "Lagervara" });
     // Even with a change that is not saved.
     fireEvent.change(within(sheet).getByLabelText("Mängd"), { target: { value: "2" } });
@@ -368,15 +413,15 @@ describe("Ta bort in the sheet", () => {
     expect(screen.queryByRole("dialog", { name: "Lagervara" })).toBeNull();
     expect(screen.queryByText("Släng ändringarna?")).toBeNull();
     expect(removePantryItem).toHaveBeenCalledWith(salt.id);
-    expect(tagNames()).toEqual([]);
-    expect(toast()).toHaveTextContent("Salt är borttagen.");
+    expect(rowNames()).toEqual(["Mjölk", "Ägg"]);
+    expect(toast()).toHaveTextContent("Tog bort Salt.");
     // Salt was the last item; the one before it takes focus.
-    expect(screen.getByRole("button", { name: "Ägg 6 st" })).toHaveFocus();
+    expect(screen.getByRole("button", { name: /^Ägg / })).toHaveFocus();
   });
 
   it("offers Ta bort only for an item in the pantry", () => {
     render(<Hemma initial={[mjolk]} />);
-    fireEvent.click(screen.getByRole("button", { name: "Mjölk 1 l" }));
+    fireEvent.click(screen.getByRole("button", { name: /^Mjölk / }));
     expect(within(screen.getByRole("dialog", { name: "Lagervara" })).getByRole("button", { name: "Ta bort" })).toBeInTheDocument();
     fireEvent.click(screen.getByRole("button", { name: "Avbryt" }));
 
@@ -393,39 +438,87 @@ describe("Ta bort in the sheet", () => {
     removePantryItem.mockImplementation(async (id) => ok(rowOf(id === moved.id ? moved : mjolk)));
     render(<Hemma initial={[mjolk, smor]} />);
 
-    fireEvent.click(screen.getByRole("button", { name: "Mjölk 1 l" }));
+    fireEvent.click(screen.getByRole("button", { name: /^Mjölk / }));
     fireEvent.change(screen.getByLabelText("Mängd"), { target: { value: "2" } });
     await act(async () => fireEvent.click(screen.getByRole("button", { name: "Spara ändringar" })));
     // Saving closes the sheet; it opens again from the list as it is now.
     await waitFor(() => expect(screen.queryByRole("dialog", { name: "Lagervara" })).toBeNull());
-    fireEvent.click(await screen.findByRole("button", { name: "Mjölk 2 l" }));
+    // The row shows no amount: the moved row is known by its id.
+    await waitFor(() => expect(screen.getByRole("button", { name: /^Mjölk / })).toHaveAttribute("data-pantry-item", moved.id));
+    fireEvent.click(screen.getByRole("button", { name: /^Mjölk / }));
     await act(async () => fireEvent.click(screen.getByRole("button", { name: "Ta bort" })));
     expect(removePantryItem).toHaveBeenCalledWith(moved.id);
   });
 });
 
 describe("focus after a removal", () => {
-  it("goes to the next row after a removal with the keyboard, else the one before, else Lägg till vara", async () => {
-    render(<Hemma initial={[mjolk, smor]} />);
-    const keyboardRemove = (name: string) =>
-      act(async () => {
-        const action = screen.getByRole("button", { name: `Ta bort ${name}` });
-        action.focus();
-        fireEvent.click(action, { detail: 0 });
-      });
-
-    await keyboardRemove("Mjölk");
-    expect(screen.getByRole("button", { name: "Smör 250 g" })).toHaveFocus();
-    await keyboardRemove("Smör");
+  /** A press on the bin, as with the keyboard or VoiceOver: focus is on it first. */
+  const removeFocused = (name: string) =>
+    act(async () => {
+      afterGuard();
+      const bin = screen.getByRole("button", { name: `Ta bort ${name}` });
+      bin.focus();
+      fireEvent.click(bin, { detail: 0 });
+    });
+  it("goes to the next item's bin, else the one before, else Lägg till vara (Story 11.3)", async () => {
+    render(<Hemma initial={[mjolk, smor, agg]} />);
+    await removeFocused("Smör");
+    expect(screen.getByRole("button", { name: "Ta bort Ägg" })).toHaveFocus();
+    await removeFocused("Ägg");
+    expect(screen.getByRole("button", { name: "Ta bort Mjölk" })).toHaveFocus();
+    await removeFocused("Mjölk");
     expect(screen.getByText("Inget i kylen än.")).toBeInTheDocument();
     const add = screen.getAllByRole("button", { name: "Lägg till vara" }).find((button) => button.textContent === "Lägg till vara");
     expect(add).toHaveFocus();
   });
 
-  it("stays put after a tap on the swipe action", async () => {
+  it("goes to the search field after the last match while the location has other items", async () => {
+    render(<Hemma initial={[mjolk, smor]} />);
+    const field = screen.getByRole("searchbox", { name: "Sök i kylen" });
+    fireEvent.change(field, { target: { value: "smö" } });
+    await removeFocused("Smör");
+    expect(screen.getByText("Inget i kylen matchar.")).toBeInTheDocument();
+    expect(field).toHaveFocus();
+  });
+
+  it("moves no focus after a tap, so the iPhone keyboard never comes up", async () => {
     render(<Hemma initial={[mjolk, smor]} />);
     await tapRemove("Mjölk");
-    expect(screen.getByRole("button", { name: "Smör 250 g" })).not.toHaveFocus();
+    expect(screen.getByRole("button", { name: "Ta bort Smör" })).not.toHaveFocus();
+    await tapRemove("Smör");
+    expect(screen.getByText("Inget i kylen än.")).toBeInTheDocument();
+    expect(document.body).toHaveFocus();
+  });
+
+  it("gives the bin focus again when the removal fails", async () => {
+    const pending = deferred<Result<PantryRow | null>>();
+    removePantryItem.mockImplementationOnce(() => pending.promise);
+    render(<Hemma initial={[mjolk, smor]} />);
+    await removeFocused("Mjölk");
+    expect(screen.getByRole("button", { name: "Ta bort Smör" })).toHaveFocus();
+    await act(async () => pending.resolve(fail("pantry_remove_failed")));
+    expect(rowNames()).toEqual(["Mjölk", "Smör"]);
+    await waitFor(() => expect(screen.getByRole("button", { name: "Ta bort Mjölk" })).toHaveFocus());
+  });
+
+  it("never ignores the keyboard, also right after a tap", async () => {
+    render(<Hemma initial={[mjolk, smor, agg]} />);
+    await tapRemove("Mjölk");
+    await act(async () => {
+      const bin = screen.getByRole("button", { name: "Ta bort Smör" });
+      bin.focus();
+      fireEvent.click(bin, { detail: 0 });
+    });
+    expect(removePantryItem).toHaveBeenCalledTimes(2);
+    expect(screen.getByRole("button", { name: "Ta bort Ägg" })).toHaveFocus();
+  });
+
+  it("ignores a second tap on a bin right after the first, so the row sliding up stays", async () => {
+    render(<Hemma initial={[mjolk, smor]} />);
+    await tapRemove("Mjölk");
+    await act(async () => fireEvent.click(screen.getByRole("button", { name: "Ta bort Smör" }), { detail: 1 }));
+    expect(removePantryItem).toHaveBeenCalledTimes(1);
+    expect(rowNames()).toEqual(["Smör"]);
   });
 });
 
@@ -447,7 +540,6 @@ describe("emptying a location", () => {
     expect(emptyPantryPlace).toHaveBeenCalledWith("Kyl", expect.stringMatching(uuid), hemmaSite.id);
     expect(removePantryItem).not.toHaveBeenCalled();
     expect(rowNames()).toEqual([]);
-    expect(tagNames()).toEqual([]);
     expect(screen.getByText("Inget i kylen än.")).toBeInTheDocument();
     expect(kylCard()).toHaveTextContent("Kyl 0 varor");
     expect(toast()).toHaveTextContent("Tog bort 4 varor ur kylen för Hemma.");
@@ -463,8 +555,7 @@ describe("emptying a location", () => {
     expect(restorePantryRemoval).toHaveBeenCalledTimes(1);
     expect(restorePantryRemoval).toHaveBeenCalledWith(operationOf());
     expect(restorePantryItem).not.toHaveBeenCalled();
-    expect(rowNames()).toEqual(["Mjölk 1 l", "Smör 250 g"]);
-    expect(tagNames()).toEqual(["Salt"]);
+    expect(rowNames()).toEqual(["Mjölk", "Salt", "Smör"]);
     expect(kylCard()).toHaveTextContent("Kyl 3 varor");
     expect(await screen.findByRole("button", { name: "Töm kylen" })).toBeInTheDocument();
   });
@@ -482,7 +573,7 @@ describe("emptying a location", () => {
     await waitFor(() => expect(serverItems).toEqual([]));
     await undo();
     // Ägg's removal goes with Ångra, so the server's list shows it.
-    await waitFor(() => expect(rowNames()).toEqual(["Mjölk 1 l", "Ägg 6 st"]));
+    await waitFor(() => expect(rowNames()).toEqual(["Mjölk", "Ägg"]));
   });
 
   it("keeps the others and tells how many could not be put back when Ångra skips rows", async () => {
@@ -497,7 +588,8 @@ describe("emptying a location", () => {
       return ok({ restoredIds: [smor.id], rows: [rowOf(smor)], skipped: 1 });
     });
     await undo();
-    await waitFor(() => expect(rowNames()).toEqual(["Mjölk 3 l", "Smör 250 g"]));
+    await waitFor(() => expect(rowNames()).toEqual(["Mjölk", "Smör"]));
+    expect(screen.getByRole("button", { name: /^Mjölk / })).toHaveAttribute("data-pantry-item", mjolkAgain.id);
     expect(screen.getByRole("alert")).toHaveTextContent("1 vara gick inte att ångra.");
     expect(refresh).not.toHaveBeenCalled();
   });
@@ -508,7 +600,7 @@ describe("emptying a location", () => {
     await emptyKyl();
     await waitFor(() => expect(serverItems).toEqual([]));
     await undo();
-    expect(rowNames()).toEqual(["Smör 250 g"]);
+    expect(rowNames()).toEqual(["Smör"]);
     expect(toast()).toHaveTextContent("1 vara gick inte att ångra.");
   });
 
@@ -556,7 +648,7 @@ describe("emptying a location", () => {
     await emptyKyl();
     const sheet = screen.getByRole("dialog", { name: "Töm kylen" });
     expect(within(sheet).getByRole("alert")).toHaveTextContent("Det gick inte att ta bort varorna. Försök igen.");
-    expect(rowNames()).toEqual(["Mjölk 1 l", "Smör 250 g"]);
+    expect(rowNames()).toEqual(["Mjölk", "Smör"]);
     expect(refresh).toHaveBeenCalledTimes(1);
 
     // The page as read again: Kyl is empty, so the sheet closes and Ångra is offered.
@@ -565,7 +657,7 @@ describe("emptying a location", () => {
     expect(screen.queryByRole("dialog", { name: "Töm kylen" })).toBeNull();
     await undo();
     expect(restorePantryRemoval).toHaveBeenCalledWith(operationOf());
-    await waitFor(() => expect(rowNames()).toEqual(["Mjölk 1 l", "Smör 250 g"]));
+    await waitFor(() => expect(rowNames()).toEqual(["Mjölk", "Smör"]));
   });
 
   it("keeps a lost answer's record while another place shows, and offers Ångra when its own place is read again empty (Story 8.4)", async () => {
@@ -606,7 +698,7 @@ describe("emptying a location", () => {
     render(<Hemma initial={[mjolk, smor]} />);
     await emptyKyl();
     await undo();
-    await waitFor(() => expect(rowNames()).toEqual(["Mjölk 1 l", "Smör 250 g"]));
+    await waitFor(() => expect(rowNames()).toEqual(["Mjölk", "Smör"]));
     expect(screen.queryByText(/Lade tillbaka/)).toBeNull();
   });
 
@@ -614,7 +706,7 @@ describe("emptying a location", () => {
     const stuganSalt = { ...salt, siteId: stuganSite.id };
     render(<Hemma initial={[mjolk, smor]} />);
     await tapRemove("Mjölk");
-    expect(toast()).toHaveTextContent("Mjölk är borttagen.");
+    expect(toast()).toHaveTextContent("Tog bort Mjölk.");
     act(() => serverSwitch(stuganSite, [stuganSalt]));
     await emptyKyl();
     expect(toast()).toHaveTextContent("Tog bort 2 varor.");
@@ -642,13 +734,13 @@ describe("emptying a location", () => {
     render(<Hemma initial={[mjolk]} />);
     await emptyKyl();
     expect(refresh).toHaveBeenCalledTimes(1);
-    expect(rowNames()).toEqual(["Mjölk 1 l"]);
+    expect(rowNames()).toEqual(["Mjölk"]);
   });
 
   it("joins a removal still showing its Ångra, and Ångra puts back both", async () => {
     render(<Hemma initial={[mjolk, smor, agg]} />);
     await tapRemove("Mjölk");
-    expect(toast()).toHaveTextContent("Mjölk är borttagen.");
+    expect(toast()).toHaveTextContent("Tog bort Mjölk.");
     await waitFor(() => expect(serverItems.map((one) => one.id)).toEqual([smor.id, agg.id]));
     await emptyKyl();
     expect(toast()).toHaveTextContent("Tog bort 3 varor ur kylen för Hemma.");
@@ -656,10 +748,10 @@ describe("emptying a location", () => {
     await undo();
     expect(restorePantryItem).toHaveBeenCalledWith(rowOf(mjolk));
     expect(restorePantryRemoval).toHaveBeenCalledWith(operationOf());
-    await waitFor(() => expect(rowNames()).toEqual(["Mjölk 1 l", "Smör 250 g", "Ägg 6 st"]));
+    await waitFor(() => expect(rowNames()).toEqual(["Mjölk", "Smör", "Ägg"]));
   });
 
-  it("keeps the emptying's Ångra when a single item is removed while it shows", async () => {
+  it("joins a single removal to the emptying's confirmation, and Ångra puts back both (Story 11.3)", async () => {
     render(<Hemma initial={[mjolk, smor]} />);
     await emptyKyl();
     await waitFor(() => expect(serverItems).toEqual([]));
@@ -671,7 +763,27 @@ describe("emptying a location", () => {
     await undo();
     expect(restorePantryRemoval).toHaveBeenCalledWith(operationOf());
     expect(restorePantryItem).toHaveBeenCalledWith(rowOf(agg));
-    await waitFor(() => expect(rowNames()).toEqual(["Mjölk 1 l", "Smör 250 g", "Ägg 6 st"]));
+    await waitFor(() => expect(rowNames()).toEqual(["Mjölk", "Smör", "Ägg"]));
+  });
+
+  it("joins a bin removal to Ångra for an emptying whose answer was lost, and Ångra puts back both", async () => {
+    emptyPantryPlace.mockImplementationOnce(async (_location, operationId) => {
+      removals.set(operationId, serverItems.map(rowOf));
+      throw new TypeError("Failed to fetch");
+    });
+    render(<Hemma initial={[mjolk, smor]} />);
+    await emptyKyl();
+    act(() => serverUpdate(() => []));
+    await waitFor(() => expect(toast()).toHaveTextContent("Kylen kan ha tömts."));
+    serverAdds(agg);
+    await tapRemove("Ägg");
+    expect(screen.getAllByTestId("toast")).toHaveLength(1);
+    expect(within(toast()).getByRole("button", { name: "Ångra" })).toBeInTheDocument();
+    await waitFor(() => expect(serverItems).toEqual([]));
+    await undo();
+    expect(restorePantryRemoval).toHaveBeenCalledWith(operationOf());
+    expect(restorePantryItem).toHaveBeenCalledWith(rowOf(agg));
+    await waitFor(() => expect(rowNames()).toEqual(["Mjölk", "Smör", "Ägg"]));
   });
 
   it("makes Töm kylen unavailable while a removal in the location is on its way", async () => {

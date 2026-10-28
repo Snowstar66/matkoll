@@ -62,16 +62,16 @@ test.beforeEach(async () => {
 
   const catalog = await admin.from("ingredient").upsert(
     [
-      ["mjölk", "Mejeri", "Kyl", "förp"],
-      ["smör", "Mejeri", "Kyl", "förp"],
-      ["ägg", "Mejeri", "Kyl", "st"],
-      ["grädde", "Mejeri", "Kyl", "förp"],
-      ["gurka", "Frukt och grönt", "Kyl", "st"],
-      ["ketchup", "Skafferi", "Skafferi", "förp"],
+      ["Mjölk", "Mejeri", "Kyl", "förp"],
+      ["Smör", "Mejeri", "Kyl", "förp"],
+      ["Ägg", "Mejeri", "Kyl", "st"],
+      ["Grädde", "Mejeri", "Kyl", "förp"],
+      ["Gurka", "Frukt och grönt", "Kyl", "st"],
+      ["Ketchup", "Skafferi", "Skafferi", "förp"],
     ].map(([name, section, location, unit]) => ({
       user_id: userId,
       name,
-      normalized_name: name,
+      normalized_name: name.toLocaleLowerCase("sv-SE"),
       section,
       location,
       default_unit: unit,
@@ -178,7 +178,7 @@ test("a confirmation saves the photo once, as a row and a file for Stugan's frid
   expect(saves.count()).toBe(0);
   expect(await photos()).toEqual([]);
 
-  await confirm(page, "mjölk");
+  await confirm(page, "Mjölk");
   await expect.poll(async () => (await photos()).length).toBe(1);
   const [saved] = await photos();
   expect(saved).toMatchObject({ site_id: sites.Stugan, location: "Kyl", media_type: "image/png" });
@@ -187,7 +187,7 @@ test("a confirmation saves the photo once, as a row and a file for Stugan's frid
   // The mock's points come with it, or once after it.
   await expect.poll(async () => (await photos())[0].points).not.toBeNull();
 
-  await confirm(page, "ägg");
+  await confirm(page, "Ägg");
   await section(page).getByRole("button", { name: "Bekräfta alla" }).click();
   await expect(toast(page)).toBeVisible();
   await expect.poll(async () => (await photos()).map((photo) => photo.id)).toEqual([saved.id]);
@@ -212,14 +212,14 @@ test("a new photo of the place replaces the row and the file", async ({ page }) 
   const errors = watchErrors(page);
   await openHemma(page);
   await photograph(page);
-  await confirm(page, "mjölk");
+  await confirm(page, "Mjölk");
   await expect.poll(async () => (await photos()).length).toBe(1);
   const [first] = await photos();
   // The first photo's cards go without a write, so the next cards are the new photo's.
   await rejectAll(page);
 
   await photograph(page);
-  await confirm(page, "ägg");
+  await confirm(page, "Ägg");
   await expect.poll(async () => (await photos()).map((photo) => photo.id)).not.toEqual([first.id]);
   const [second] = await photos();
   expect(await photos()).toHaveLength(1);
@@ -235,7 +235,7 @@ test("a photo of Stugan is saved on Stugan after Hemma is selected", async ({ pa
   await photograph(page);
   await choose(page, "Hemma");
   await expect(page.getByTestId("pantry-suggestions-site").filter({ visible: true })).toHaveText("Förslagen gäller Stugan.");
-  await confirm(page, "mjölk");
+  await confirm(page, "Mjölk");
   await expect.poll(async () => (await photos()).length).toBe(1);
   expect((await photos())[0]).toMatchObject({ site_id: sites.Stugan, location: "Kyl" });
   expect(await files(sites.Stugan)).toHaveLength(1);

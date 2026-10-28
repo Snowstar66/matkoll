@@ -32,7 +32,7 @@ context:
 - `suggestDishes` returnerar fortfarande `AiRecipe[]`. `parseRecipe` och dess schema ändras inte.
 - Mocken svarar med det kompakta formatet och gör om det med samma `fromCompactDish`, så att e2e prövar vägen.
 - Mätningen: `AI_PROVIDER=lmstudio EVAL_RUNS=3 pnpm eval:ai tests/eval/suggest-dishes.eval.ts` med varm modell, före och efter, med den inställning som 12.1 rekommenderar. Rapporten har token ut, tid, antal giltiga förslag och antal varor från lagret per förslag.
-- Nås inte målet med tre rätter: pröva högst 8 rader och 5 steg per rätt, mät igen, och skriv valet och siffrorna i beslutsloggen. Antalet rätter står kvar (öppen fråga 21).
+- Nås inte målet med tre rätter: pröva högst 8 rader och 5 steg per rätt, mät igen, och skriv valet och siffrorna i beslutsloggen. Antalet rätter står kvar (öppen fråga 25).
 
 **Never:**
 - Ingen ändring av `RecipeDraft`, `fromAiRecipe`, förhandsgranskningen eller databasen.

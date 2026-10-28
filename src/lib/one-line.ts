@@ -28,6 +28,11 @@ const invisibleMarks = /[\u061c\u200b-\u200f\u202a-\u202e\u2066-\u2069\ufeff]/g;
 /** What the tables' checks refuse in a text: every range in refusedCodePoints. */
 const refusedInText = /[\u0001-\u001f\u007f-\u009f\u061c\u200b-\u200f\u2028\u2029\u202a-\u202e\u2066-\u2069\ufeff]/;
 
+/** Whether the text holds a character the tables' one-line checks refuse (refusedCodePoints). */
+export function hasRefusedCodePoint(text: string): boolean {
+  return refusedInText.test(text);
+}
+
 /** The text's length in characters (code points), as Postgres's char_length counts it. */
 export function charLength(text: string): number {
   return [...text].length;

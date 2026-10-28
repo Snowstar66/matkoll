@@ -108,6 +108,7 @@ context:
 - **Beslut (förslag): fotot i klientens minne i 30 minuter.** Granskningen och det senaste fotot behöver det. Efter 30 minuter, eller en omladdning, fungerar korten ändå.
 - **Risk: minnet i servern.** Ett foto är högst 1,5 MB, och högst tre jobb per användare. Det ryms.
 - **Risk: Safari slänger en flik i bakgrunden.** Då laddas appen om, och fotot är borta. Det är samma som en omladdning.
+- **Efter Epic 10/11 (sammanslagningen med main 2026-10-28):** senaste fotot sparas med `savePlacePhoto` och numren med `savePlacePhotoPoints` (`pantry/actions/save-place-photo.ts` och `save-place-photo-points.ts`, frÃ¥n klienten via `pantry/ui/place-photo-save.ts` och `POST /api/pantry/photo`), och en sparning gallrar sedan gamla foton (`sweepPlacePhotosIn`, 10.3). Raden "Senaste foto av kylen: … · Visa" och fotoarket finns i `pantry/ui/latest-photo.tsx` och `GET /api/pantry/photo/[id]` (10.2), och "Ta bort fotot" i `remove-place-photo.ts`. Jobbet ska fortsätta att spara fotot och numren den vägen, efter att något har bekräftats. Kategorierna och soptunnorna i Lagersaldo kommer från 11.3, och märket på en lagervara från 11.2 (`pantry-meta.ts`).
 
 ## Spec Change Log
 

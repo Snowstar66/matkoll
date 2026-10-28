@@ -98,7 +98,7 @@ context:
 ## Tasks & Acceptance
 
 **Execution:**
-- [ ] Prov först (T10): en Route Handler i en gren som läser `requireUser()` och skriver en rad med sessionsklienten inne i `after()`, med `next build && next start`. Utfallet i beslutsloggen; fungerar det inte, får serverfunktionerna användaren som argument
+- [ ] Prov först (T11): en Route Handler i en gren som läser `requireUser()` och skriver en rad med sessionsklienten inne i `after()`, med `next build && next start`. Utfallet i beslutsloggen; fungerar det inte, får serverfunktionerna användaren som argument
 - [ ] `supabase/migrations/<tid>_ai_job.sql` (via `supabase migration new`) -- tabellen, index, RLS, grants, funktionerna. Sedan `pnpm db:types` -- AD-4, AD-5, AD-28
 - [ ] `tests/integration/ai-job.test.ts` -- matrisens databasrader, RLS och två samtidiga `claim_ai_job`
 - [ ] `src/features/ai-jobs/domain/*` (+ tester) -- sorter, lägen, `aiJobSchema`, tider (`runMs`, `startBy`, 295 s), sammanfattningen
@@ -128,10 +128,11 @@ context:
 - **Beslut (förslag): pollning, inte Realtime.** AD-2 förbjuder Supabase-klienten i webbläsaren. Varannan sekund bara medan något är aktivt och fliken syns.
 - **Beslut (förslag): `GET /api/ai/jobs` utan hela resultatet.** Listan pollas ofta; resultatet hämtas en gång med `GET /api/ai/jobs/[id]` när det behövs.
 - **Beslut (förslag): `clientKey` per tryck,** skapad i klienten med `crypto.randomUUID()`, och samma nyckel vid ett nytt försök efter ett nätfel.
-- **Risk: `cookies()` i `after()`** (T10). Dokumentationen säger att det fungerar i Route Handlers. Pröva först, med `next start`, och notera hur React `cache` i `requireUser()` beter sig i `after()`.
+- **Risk: `cookies()` i `after()`** (T11). Dokumentationen säger att det fungerar i Route Handlers. Pröva först, med `next start`, och notera hur React `cache` i `requireUser()` beter sig i `after()`.
 - **Risk: väntan i kön kostar funktionstid.** På Vercel debiteras CPU bara medan koden arbetar (Fluid compute); att vänta på databasen och modellen är I/O. Lokalt med `next start` finns ingen gräns, men koden håller samma tider så att beteendet är detsamma.
 - **Risk: en ny driftsättning dödar pågående `after()`.** Jobbet blir `ai_job_lost` och visas med "Försök igen". Det är godtaget för en användare.
 - Läs `docs/autonomi.md`: migrationen läggs till, inget tas bort i databasen.
+- **Efter Epic 10/11 (sammanslagningen med main 2026-10-28):** flikfältet (`src/components/app-shell/tab-bar.tsx`) har `min-h-tab-bar` och växer när en lång etikett radbryts mellan sina delar (`labelParts`, 10.4), så märket och jobbraden ovanför ska klara det. Sidhuvudet och Tillbaka ligger i `page-header.tsx` och `back-link.tsx` (11.1, 11.6). AI-förslagen i `ai-suggestions.tsx` visas sedan 11.5 som `RecipeCard` (`recipes/ui/recipe-card.tsx`) med AI-etiketten på en kort mintremsa; `recipe-row.tsx` finns inte längre. Säkerhetskopian (`backup.yml`, `backup-counts.sql`) ändrades i Epic 10 för fotona; `ai_job` hålls utanför på samma sätt.
 
 ## Spec Change Log
 

@@ -175,14 +175,16 @@ function watchErrors(page: Page): string[] {
 // locator is scoped to what is visible.
 const siteLine = (page: Page) => page.getByTestId("site-line").filter({ visible: true });
 const view = (page: Page) => page.getByRole("article").filter({ visible: true });
-const rows = (page: Page) => page.getByTestId("recipe-row").filter({ visible: true });
+const rows = (page: Page) => page.getByTestId("recipe-card").filter({ visible: true });
 const pill = (page: Page, name: "Alla" | "Favoriter" | "Kan lagas nu") =>
   page.getByRole("radio", { name }).filter({ visible: true });
 const dish = (page: Page) => page.getByTestId("plan-dish").filter({ visible: true });
 const ketchupCheck = (page: Page) => page.getByRole("checkbox", { name: /^Ketchup/ }).filter({ visible: true });
 const putButton = (page: Page) => page.getByRole("button", { name: "Lägg i lagret", exact: true }).filter({ visible: true });
+/** Unfolds I korgen, where the checked lines are (Story 11.4). */
+const showBasket = (page: Page) => page.getByRole("button", { name: /^Visa I korgen/ }).filter({ visible: true }).click();
 const toast = (page: Page) => page.getByTestId("toast");
-const tab = (page: Page, name: "Recept" | "Matsedel" | "Lista" | "Hemma") =>
+const tab = (page: Page, name: "Recept" | "Matsedel" | "Inköpslista" | "Lagersaldo") =>
   page.getByRole("navigation", { name: "Huvudmeny" }).getByRole("link", { name });
 const placePill = (page: Page, name: "Hemma" | "Stugan") =>
   page.getByRole("radiogroup", { name: "Ställe" }).filter({ visible: true }).getByRole("radio", { name, exact: true });
@@ -224,21 +226,21 @@ test("with Stugan selected, the recipe view, the library with Kan lagas nu and t
 
   await page.goto("/matsedel");
   await expect(siteLine(page)).toHaveText("Lager: Stugan");
-  await expect(dish(page).getByText("Saknar 1 vara", { exact: true })).toBeVisible();
+  await expect(dish(page).getByTestId("dish-meta")).toContainText("1 av 2 hemma");
   await expectNoHorizontalScroll(page);
 
   // Back to Hemma: everything follows.
   await selectSite(hemma);
   await page.goto("/matsedel");
   await expect(siteLine(page)).toHaveText("Lager: Hemma");
-  await expect(dish(page).getByText("Kan lagas nu", { exact: true })).toBeVisible();
+  await expect(dish(page).getByTestId("dish-meta")).toContainText("Allt finns hemma");
   await page.goto(`/recept/${recipeId}`);
   await expect(view(page).getByText("Kan lagas nu", { exact: true })).toBeVisible();
   await expect(siteLine(page)).toHaveText("Lager: Hemma");
   expect(errors).toEqual([]);
 });
 
-test("a switch with the picker in Hemma reaches the recipe view, Kan lagas nu and Matsedel without a reload", async ({
+test("a switch with the picker in Lagersaldo reaches the recipe view, Kan lagas nu and Matsedel without a reload", async ({
   page,
 }) => {
   const errors = watchErrors(page);
@@ -256,11 +258,11 @@ test("a switch with the picker in Hemma reaches the recipe view, Kan lagas nu an
   await expect(rows(page).filter({ hasText: title }).getByText("Saknar 1 vara", { exact: true })).toBeVisible();
   await tab(page, "Matsedel").click();
   await expect(siteLine(page)).toHaveText("Lager: Stugan");
-  await expect(dish(page).getByText("Saknar 1 vara", { exact: true })).toBeVisible();
+  await expect(dish(page).getByTestId("dish-meta")).toContainText("1 av 2 hemma");
 
-  // Hemma with the real picker (Story 8.2).
-  await tab(page, "Hemma").click();
-  await expect(page.getByRole("heading", { level: 1, name: "Hemma" })).toBeVisible();
+  // Lagersaldo with the real picker (Story 8.2).
+  await tab(page, "Lagersaldo").click();
+  await expect(page.getByRole("heading", { level: 1, name: "Lagersaldo" })).toBeVisible();
   await expect(page.getByRole("button", { name: "Ställen", exact: true }).filter({ visible: true })).toBeEnabled();
   await placePill(page, "Hemma").click();
   await expect(page.getByTestId("site-announcement").filter({ visible: true })).toHaveText("Valt ställe: Hemma.");
@@ -282,7 +284,7 @@ test("a switch with the picker in Hemma reaches the recipe view, Kan lagas nu an
   await tab(page, "Matsedel").click();
   await expect(page).toHaveURL(/\/matsedel$/);
   await expect(siteLine(page)).toHaveText("Lager: Hemma");
-  await expect(dish(page).getByText("Kan lagas nu", { exact: true })).toBeVisible();
+  await expect(dish(page).getByTestId("dish-meta")).toContainText("Allt finns hemma");
 
   expect(await page.evaluate(() => (window as unknown as { siteStatusNoReload?: boolean }).siteStatusNoReload)).toBe(true);
   expect(errors).toEqual([]);
@@ -311,6 +313,7 @@ test("Lägg i lagret with Stugan selected puts the ketchup on Stugan and says so
   const hemmaBefore = await pantryOn(hemma);
   await page.goto("/lista");
   await ketchupCheck(page).click();
+  await showBasket(page);
   await expect(ketchupCheck(page)).toBeChecked();
   await putButton(page).click();
   await expect(toast(page)).toHaveText("Lagt 1 vara i lagret för Stugan.");
@@ -339,6 +342,7 @@ test("Lägg i lagret for a place removed elsewhere writes nothing, keeps the che
   const korvCheck = page.getByRole("checkbox", { name: /^Korv/ }).filter({ visible: true });
   await expect(korvCheck).toHaveCount(0);
   await ketchupCheck(page).click();
+  await showBasket(page);
   await expect(ketchupCheck(page)).toBeChecked();
   await expect(putButton(page)).toBeEnabled();
 
@@ -377,6 +381,7 @@ test("Lägg i lagret puts the ketchup on the list's place when Hemma is selected
   const hemmaBefore = await pantryOn(hemma);
   await page.goto("/lista");
   await ketchupCheck(page).click();
+  await showBasket(page);
   await expect(ketchupCheck(page)).toBeChecked();
   // The check is saved (and the list read again, against Stugan) once the button is on.
   await expect(putButton(page)).toBeEnabled();

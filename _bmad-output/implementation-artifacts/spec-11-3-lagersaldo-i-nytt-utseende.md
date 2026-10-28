@@ -2,7 +2,8 @@
 title: 'Story 11.3: Lagersaldo i nytt utseende'
 type: 'feature'
 created: '2026-10-26'
-status: 'draft'
+status: 'done'
+baseline_commit: 'fbe221d180c822da13cbdb9b5f225ebb645866c7'
 route: 'dispatch'
 context:
   - '{project-root}/_bmad-output/implementation-artifacts/epic-11-context.md'
@@ -92,15 +93,15 @@ context:
 ## Tasks & Acceptance
 
 **Execution:**
-- [ ] `src/features/pantry/domain/pantry-meta.ts` (+ test) -- `pantryMetaText(item, now)` enligt Boundaries, `groupPantryByCategory(items)`, `filterPantry(items, query)` och `noMatchText(location)` ("Inget i kylen matchar.") -- FR-41, UX-DR28
-- [ ] `src/features/pantry/ui/pantry-list.tsx` (+ test) -- kategorier med `CategoryHeader`, `ListGroup` och `ListRow` med `TrashButton`. `splitPantryItems`, "Med mängd", "Finns hemma" och `SwipeRow` försvinner härifrån. Fokusflyttningen efter borttagning följer Boundaries -- FR-41, UX-DR24
-- [ ] `src/features/pantry/ui/pantry-search.tsx` (+ test) -- sökfältet och tillståndet, nollställt vid ny plats eller nytt ställe (nyckel), bevarat under Activity
-- [ ] `src/features/pantry/ui/pantry-removal.tsx` (+ test) -- texten "Tog bort Gräddfil." och fokus till nästa soptunna
-- [ ] `src/features/pantry/domain/pantry-item.ts` -- ta bort `splitPantryItems` om inget annat använder den
-- [ ] Befintliga e2e-specar -- uppdatera de som letar efter "Med mängd", "Finns hemma" eller svepet i Lagersaldo
-- [ ] `tests/e2e/pantry-look.spec.ts` (+ `support.ts`, `global-setup.ts`) -- egen e2e-användare `e2e-utseende-lager@matkoll.test`. Service role seedar kylen i matrisen med märken och `created_at`. Testerna kontrollerar kategorierna och ordningen, raden under, att ingen mängd syns, soptunnan och "Ångra" med samma rad under, sökningen och att den töms vid byte av plats, vid 375 px
-- [ ] `docs/oppna-fragor.md` -- raden om svep i "Att prova på riktig telefon" ersätts med soptunnan
-- [ ] `docs/beslutslogg.md` -- en post för storyn
+- [x] `src/features/pantry/domain/pantry-meta.ts` (+ test) -- `pantryMetaText(item, now)` enligt Boundaries, `groupPantryByCategory(items)`, `filterPantry(items, query)` och `noMatchText(location)` ("Inget i kylen matchar.") -- FR-41, UX-DR28
+- [x] `src/features/pantry/ui/pantry-list.tsx` (+ test) -- kategorier med `CategoryHeader`, `ListGroup` och `ListRow` med `TrashButton`. `splitPantryItems`, "Med mängd", "Finns hemma" och `SwipeRow` försvinner härifrån. Fokusflyttningen efter borttagning följer Boundaries -- FR-41, UX-DR24
+- [x] `src/features/pantry/ui/pantry-search.tsx` (+ test) -- sökfältet och tillståndet, nollställt vid ny plats eller nytt ställe (nyckel), bevarat under Activity
+- [x] `src/features/pantry/ui/pantry-removal.tsx` (+ test) -- texten "Tog bort Gräddfil." och fokus till nästa soptunna
+- [x] `src/features/pantry/domain/pantry-item.ts` -- ta bort `splitPantryItems` om inget annat använder den
+- [x] Befintliga e2e-specar -- uppdatera de som letar efter "Med mängd", "Finns hemma" eller svepet i Lagersaldo
+- [x] `tests/e2e/pantry-look.spec.ts` (+ `support.ts`, `global-setup.ts`) -- egen e2e-användare `e2e-utseende-lager@matkoll.test`. Service role seedar kylen i matrisen med märken och `created_at`. Testerna kontrollerar kategorierna och ordningen, raden under, att ingen mängd syns, soptunnan och "Ångra" med samma rad under, sökningen och att den töms vid byte av plats, vid 375 px
+- [x] `docs/oppna-fragor.md` -- raden om svep i "Att prova på riktig telefon" ersätts med soptunnan
+- [x] `docs/beslutslogg.md` -- en post för storyn
 
 **Acceptance Criteria:**
 - Given `pnpm lint && pnpm typecheck && pnpm test && pnpm test:integration && AI_PROVIDER=mock pnpm build && CI=1 pnpm test:e2e`, when de körs, then lyckas alla.
@@ -117,7 +118,67 @@ context:
 
 ## Spec Change Log
 
+- **2026-10-27, granskningen:** en ny borttagning läggs till bekräftelsen som visas i stället för att ersätta den. Medan "Ångra" visas samlas varje borttagning med soptunnan och varje tömning i samma bekräftelse ("Tog bort Gräddfil och Mjölk.", "Tog bort 3 varor."), och ett "Ångra" lägger tillbaka allt. Det ersätter regeln i Boundaries ("En ny borttagning ersätter bekräftelsen, och den förra står fast") och raden "Två borttagningar" i matrisen, som nu ger "Tog bort Gräddfil och Ägg." och tillbaka båda. Varför: soptunnan tar bort utan fråga, så ett dubbeltryck som träffar nästa rad eller en soptunna efter "Töm kylen" får aldrig göra en borttagning omöjlig att ångra.
+
+### Vid bygget
+
+- **Byggd på `fbe221d`** (`baseline_commit`): epicgrenen med 11.1, 11.2 och 11.6 ihopslagna. 11.4 och 11.5 byggs samtidigt i andra worktrees.
+- **Besluten (förslag) är godkända** som de stod: butikens ordning, märket före tiden, svepet borta och sökningen i klienten.
+- **`photoTimeText` finns inte:** Story 10.2 är inte byggd. `addedText` i `pantry-meta.ts` räknar kalenderdagar i Europe/Stockholm med `Intl.DateTimeFormat`, som `planDateText` i matsedeln, och månaderna skrivs som där ("okt", "mars"). Testerna har en fast `now` och prövar dygnsgränsen, nyår och bytet till sommar- och vintertid.
+- **Sökfältet saknade ett sätt att söka utan fördröjning.** `SearchField` fick `delayMs` (standard 200 ms som förut, 0 i Lagersaldo). Ändringen är bakåtkompatibel för 11.4 och 11.5.
+- **(Ersatt i granskningen, se ovan.) En ny borttagning ersatte bekräftelsen** (`pantry-removal.tsx`): bara den senaste varan kunde ångras. "Töm kylen" samlar fortfarande en enskild borttagning som visas i sin bekräftelse ("Tog bort 3 varor ur kylen."), som i 6.3, så att den inte går förlorad. En enskild borttagning efter "Töm kylen" ersätter däremot den bekräftelsen, och de tömda raderna står kvar som borttagna. `removedItemsText` ("Mjölk är borttagen.") står kvar för lagerförslagen och Inköpslistan; Lagersaldo använder nya `removedItemText` ("Tog bort Gräddfil."), också för "Ta bort" i arket.
+- **Fokus efter soptunnan:** `focusAfterRemoval(bin, listan)` flyttar till nästa soptunna, annars den föregående, innan raden försvinner. Finns ingen annan soptunna i listan går fokus, när raden är borta, till sökfältet (platsen har fler varor som sökningen döljer), annars till "Lägg till vara". `focusAfterRemoval`:s egen reserv (listans rubrik, sidans `h1`) används inte, eftersom specen säger sökfältet och "Lägg till vara". Efter "Ta bort" i arket går fokus som förut till nästa varas rad.
+- **Radens namn för skärmläsare** är "Mellanmjölk Arla laktosfri", utan kommatecken, enligt beslutet i 11.1 (raderna är block, så VoiceOver pausar). Raden har `aria-haspopup="dialog"` som i README-mönstret. Två rader med samma namn (samma vara i två enheter) får raden under med i soptunnans namn: "Ta bort Mjölk, Arla".
+- **Två knappar heter "Rensa sökning"** när inget matchar: krysset i fältet och textknappen i det tomma läget, som specen säger. Testerna skiljer dem på synlig text.
+- **Sökningen nollställs** genom att `PantryPlace` nycklar listan på ställe och plats (sidans `Suspense` är redan nycklad likadant). Sökningen är tillstånd i listan, så React Activity bevarar den. Kortens antal och "Töm kylen" gäller hela platsen. Sökningen tar högst 100 tecken.
+- **`splitPantryItems`** användes bara av listan och är borttagen, med sitt test och sin export.
+- **E2E:** ny `pantry-look.spec.ts` med `e2e-utseende-lager@matkoll.test`. De befintliga specarna letade efter mängder i raderna, "Med mängd", "Finns hemma", taggarna, svepet och "Mjölk är borttagen.". De läser nu namnen och "Tillagd idag", och mängderna kontrolleras i tabellen (service role) eller i arket Lagervara: `pantry`, `empty-place`, `pantry-camera`, `pantry-suggestions`, `pantry-inventory`, `pantry-sites`, `site-photo`, `pantry-status`, `put-in-pantry` och `core-flow`. Mellan två tryck på soptunnor i e2e väntar testet 450 ms, som mellan två riktiga tryck (dubbeltrycksskyddet på 400 ms).
+- **200 % text:** vid 375 px med `html { font-size: 200% }` ingen vågrät scroll. Vid 188 px bredd (375 px med 200 % zoom) radbryts listan utan att gå utanför, men platskorten (Skafferi, oförändrade sedan Epic 8) går 59 px utanför. Det rör inte storyn och står under öppna frågor (T8).
+- **Kontrollerna** (integration och e2e under `scripts/with-test-lock.sh`): `pnpm lint`, `pnpm typecheck` och `pnpm test` (215 filer, 4 378 tester) lyckas. `pnpm test:integration` ger 455 av 455. `AI_PROVIDER=mock pnpm build` lyckas, och `CI=1 pnpm test:e2e` ger 275 av 275 (hela sviten mot produktionsbygget).
+- **Skärmbilder** vid 375 px i ljust och mörkt läge (listan, bekräftelsen, sökningen och ingen träff), vid 1280 px, med 200 % text och vid 188 px, utanför repot. Uppbyggnaden följer `mockups/lagersaldo.html`: sökfältet, kategorirubrikerna med platta och antal, listgrupperna med märket eller tiden och en grå soptunna per rad, och "Tog bort Gräddfil." med "Ångra".
+- **Manuella kontroller** (iPhone, VoiceOver) är inte gjorda. De står i `docs/oppna-fragor.md` under "Att prova på riktig telefon".
+
 ## Review Triage Log
+
+Iteration 1. Granskare: två granskare gick igenom `56cb2bf`. Ändringarna ligger i en andra commit, "fix: review fixes for Story 11.3". 11.4 och 11.5 byggs samtidigt, så ändringarna i byggstenarna är tillägg: `TrashButton` ger `onPress` ett andra argument, och `SearchField` fick `clearable`.
+
+**Patch:**
+- Ångra (viktigast, eftersom soptunnan tar bort utan fråga):
+  - En borttagning medan "Ångra" visas läggs till samma bekräftelse, också efter "Töm kylen" och efter en tömning vars svar kom bort ("Kylen kan ha tömts."). Ett "Ångra" lägger tillbaka allt. Texten är "Tog bort Gräddfil och Mjölk." för två och "Tog bort 3 varor." för fler; med en tömning gäller de befintliga texterna.
+  - Varje tryck får ett löpnummer. Ett svar som kommer sent tar sin plats efter trycket i bekräftelsen och ersätter aldrig en nyare.
+  - En vara som inte kan läggas tillbaka (svaret saknar raden) ersätter aldrig en bekräftelse med "Ångra". Den läggs bara till i texten.
+  - Ett andra tryck på samma vara medan borttagningen pågår gör ingenting (`removeItem` ger `false`).
+  - Bekräftelsens live-region får en ny nod för varje bekräftelse, så att samma text två gånger ("Tog bort Mjölk.") läses upp igen.
+- Fokus och tryck:
+  - Fokus flyttas bara efter tangentbordet eller en skärmläsare (soptunnan har fokus, eller klicket saknar pekare, `detail` 0). Efter ett tryck med fingret flyttas inget fokus, och sökfältet får aldrig fokus, så att iPhones tangentbord inte täcker bekräftelsen.
+  - Fokus flyttas först när `removeItem` har tagit emot borttagningen. Misslyckas den får varans soptunna fokus igen. Visas listan på nytt (annan plats eller annat ställe) släpps ett fokus som väntade.
+  - Dubbeltrycksskyddet i `TrashButton` gäller bara tryck med pekare. Tangentbordet och VoiceOver stoppas aldrig. `onPress(bin, { pointer })`.
+- Sökningen:
+  - Texten jämförs i NFC och svenska gemener, med raka apostrofer för U+2018, U+2019 och U+02BC, och utan diakritiska tecken utom på å, ä och ö ("creme" hittar Crème fraiche, "jalapeno" Jalapeño). Varje ord i sökningen ska finnas i namnet och märket tillsammans, så "mjölk arla" hittar Mellanmjölk.
+  - Sökningen töms när platsen blir tom och när en vara sparas från arket Lagervara eller "+" (`saves` i `usePantrySheet`), så att en ny vara aldrig döljs.
+  - En dold, artig live-region säger "1 träff", "3 träffar" eller "Inget i kylen matchar." när sökningen har vilat i 500 ms. Listan filtreras fortfarande direkt.
+  - När inget matchar finns bara en kontroll som heter "Rensa sökning": fältets kryss döljs (`clearable={false}`).
+  - "Töm kylen" döljs medan en sökning visar bara träffar, eftersom den gäller hela platsen.
+- Texter och tid:
+  - Dubbla namn räknas över alla varor som visas, inte per kategori. Har två rader samma namn och samma rad under får både radens och soptunnans namn mängden ("Ta bort Mjölk, Tillagd idag, 1 l"), annars ett nummer.
+  - Ett märke av bara blanksteg räknas som inget.
+  - `usePantryNow` ger en ny tid vid nästa midnatt i Stockholm och när sidan visas igen (`visibilitychange`, React Activity) om dagen har bytts. Raden under har `suppressHydrationWarning`, eftersom servern och webbläsaren kan skilja sig kring midnatt.
+  - Enhetstesterna har en fast tid (`vi.setSystemTime`, bara `Date` fejkas) två dagar efter bytet till vintertid, och e2e seedar `created_at` klockan tolv i Stockholm N kalenderdagar bakåt.
+- Nya tester:
+  - "Töm kylen", sedan en soptunna, sedan "Ångra": båda tillbaka (testet som väntade motsatsen är omskrivet);
+  - en tömning vars svar kom bort, sedan en soptunna, sedan "Ångra";
+  - två svar i omvänd ordning;
+  - två soptunnor i rad och ett "Ångra";
+  - en vara som inte kan läggas tillbaka i en bekräftelse som visas;
+  - ett tryck flyttar inget fokus, tangentbordet flyttar det och stoppas aldrig av skyddet, och fokus tillbaka efter ett misslyckande;
+  - sökningens normalisering, flera ord och statusen;
+  - sökningen töms vid tom plats och efter att en vara sparats, "Töm kylen" döljs vid sökning;
+  - dubbla namn över kategorier och med samma rad under, märke av blanksteg, dagen i Stockholm och tiden till midnatt;
+  - live-regionen i `toast.tsx` och `clearable` i `SearchField`.
+
+**Avvisat:** inget.
+
+**Kontrollerna efter granskningen** (integration och e2e under `scripts/with-test-lock.sh`, med produktionsbygge): `pnpm lint`, `pnpm typecheck` och `pnpm test` (215 filer, 4 397 tester) lyckas. `pnpm test:integration` ger 455 av 455. `AI_PROVIDER=mock pnpm build` lyckas, och `CI=1 pnpm test:e2e` med de berörda specarna (`pantry-look`, `pantry`, `empty-place`, `pantry-camera`, `pantry-suggestions`, `pantry-inventory`, `pantry-sites`, `site-photo`, `place-photo-save`, `pantry-label`, `pantry-status`, `put-in-pantry` och `core-flow`) ger 80 av 80.
 
 ## Verification
 

@@ -1,4 +1,4 @@
-import { UNITS, type Location, type Unit } from "@/features/catalog";
+import { UNITS, type Location, type Section, type Unit } from "@/features/catalog";
 
 // What is at home (FR-11, FR-12, AD-19): a pantry item points at a catalog
 // ingredient and is kept in one location, with an amount and unit or
@@ -17,6 +17,16 @@ export type PantryItem = {
   /** `null` together with `unit`: unlimited. Otherwise above 0. */
   amount: number | null;
   unit: Unit | null;
+  /** Story 11.2 (FR-42): the brand or kind ("Arla laktosfri"), 1–60 characters, or `null`. */
+  label: string | null;
+  /**
+   * When the item was added (`created_at`, ISO 8601): kept when the amount
+   * changes, the row is replaced, and after "Ångra". `null` only on a
+   * placeholder for a row the list never showed (pantry-removal.tsx).
+   */
+  createdAt: string | null;
+  /** The catalog ingredient's section, so the view can work out its category (AD-12). */
+  section: Section;
 };
 
 /** An amount at home in one unit. Units are never converted into each other (AD-12). */
@@ -113,15 +123,4 @@ export function comparePantryItems(a: PantryItem, b: PantryItem): number {
     unitRank(a.unit) - unitRank(b.unit) ||
     (a.id < b.id ? -1 : a.id > b.id ? 1 : 0)
   );
-}
-
-/** The items of one location split as Hemma shows them: rows with an amount and tags for unlimited items. */
-export function splitPantryItems(items: readonly PantryItem[]): {
-  withAmount: PantryItem[];
-  unlimited: PantryItem[];
-} {
-  return {
-    withAmount: items.filter((item) => item.amount !== null),
-    unlimited: items.filter((item) => item.amount === null),
-  };
 }

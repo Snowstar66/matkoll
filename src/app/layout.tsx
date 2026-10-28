@@ -1,10 +1,15 @@
 import type { Metadata, Viewport } from "next";
 import "./globals.css";
+import { appDescription, appName } from "./app-info";
 import { themeColors } from "./theme-colors";
 
 export const metadata: Metadata = {
-  title: { template: "%s – Matkoll", default: "Matkoll" },
-  description: "Recept, matsedel, inköpslista och det du har hemma.",
+  title: { template: `%s – ${appName}`, default: appName },
+  description: appDescription,
+  // On the home screen (AD-27): full screen, named Matkoll. The status bar follows
+  // light and dark mode with `default`; `black-translucent` would give white text
+  // on the light background.
+  appleWebApp: { title: appName, capable: true, statusBarStyle: "default" },
 };
 
 export const viewport: Viewport = {

@@ -488,7 +488,7 @@ describe("Ta bort, Behåll and Ångra", () => {
     expect(within(section()).getByRole("button", { name: "Sparar …" })).toBeDisabled();
     await answerSave(answered({ removed: [removedRow(yoghurtRow, yoghurtId)], removedCount: 1, undoable: 1 }));
     expect(groupNames("Syns inte längre")).toEqual(["senap"]);
-    expect(toast()).toHaveTextContent("yoghurt är borttagen.");
+    expect(toast()).toHaveTextContent("Yoghurt är borttagen.");
 
     restorePantryRemoval.mockResolvedValueOnce(ok({ restoredIds: [yoghurtRow], rows: [], skipped: 0 }));
     fireEvent.click(within(toast()).getByRole("button", { name: "Ångra" }));
@@ -507,7 +507,7 @@ describe("Ta bort, Behåll and Ångra", () => {
     await waitFor(() => expect(saves).toHaveLength(2));
     expect(saves[1].input.operationId).toBe(saves[0].input.operationId);
     await answerSave(answered({ removed: [removedRow(senapRow, senapId)], removedCount: 1, undoable: 2 }));
-    expect(toast()).toHaveTextContent("yoghurt och senap är borttagna.");
+    expect(toast()).toHaveTextContent("Yoghurt och senap är borttagna.");
     restorePantryRemoval.mockResolvedValueOnce(ok({ restoredIds: [yoghurtRow], rows: [], skipped: 1 }));
     fireEvent.click(within(toast()).getByRole("button", { name: "Ångra" }));
     await waitFor(() => expect(screen.getByRole("alert")).toHaveTextContent("1 vara gick inte att ångra."));
@@ -540,7 +540,7 @@ describe("Ta bort, Behåll and Ångra", () => {
     expect(saves[1].input.operationId).toBe(saves[0].input.operationId);
     // The rows went with the first call: nothing more now, but the server keeps them for Ångra.
     await answerSave(answered({ undoable: 1 }));
-    expect(toast()).toHaveTextContent("yoghurt är borttagen.");
+    expect(toast()).toHaveTextContent("Yoghurt är borttagen.");
     expect(within(toast()).getByRole("button", { name: "Ångra" })).toBeInTheDocument();
   });
 

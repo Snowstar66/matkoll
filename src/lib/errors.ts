@@ -7,6 +7,11 @@ export const errorMessages = {
   validation: "Kontrollera uppgifterna och försök igen.",
   auth_link_invalid: "Länken har gått ut eller redan använts. Be om en ny.",
   auth_not_allowed: "Adressen har inte åtkomst till Matkoll.",
+  // The code from the e-mail (Story 11.6): a wrong, expired or used code and an
+  // address outside ALLOWED_EMAILS all give this, so the allowlist is never revealed.
+  auth_code_invalid: "Koden stämmer inte eller har gått ut. Skicka en ny länk.",
+  // Too many wrong codes from one address and IP (the app's limit) or Supabase's own limit.
+  auth_code_rate_limited: "För många försök. Vänta en stund eller skicka en ny länk.",
   auth_sign_out_failed: "Det gick inte att logga ut. Försök igen.",
   ai_unavailable: "AI-tjänsten svarar inte just nu. Är datorn med modellen igång?",
   ai_invalid: "Det gick inte att tolka svaret. Försök igen.",
@@ -16,7 +21,7 @@ export const errorMessages = {
   ai_superseded: "En nyare bild analyseras.",
   import_no_recipe: "Det gick inte att hitta något recept i texten.",
   // AI-förslag (Story 5.2) with nothing at home: the AI is not asked.
-  suggest_empty_pantry: "Lagret är tomt. Lägg till varor i Hemma, så kan AI:n föreslå rätter.",
+  suggest_empty_pantry: "Lagret är tomt. Lägg till varor i Lagersaldo, så kan AI:n föreslå rätter.",
   catalog_unavailable: "Det gick inte att läsa ingredienskatalogen. Försök igen.",
   recipe_save_failed: "Det gick inte att spara receptet. Försök igen.",
   recipe_delete_failed: "Det gick inte att ta bort receptet. Försök igen.",

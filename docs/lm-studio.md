@@ -1,6 +1,6 @@
 # Matkoll – LM Studio
 
-Så här går AI-flödena mot LM Studio på din Mac, och vilka inställningar som rekommenderas. Mätningen gjordes i Story 12.1 natten till 2026-10-27 med Qwen3.6 35B A3B (MLX, 4 bit) på den här Macen (32 GB minne). LM Studio lämnades som det var: du väljer själv om du vill ändra något (öppen fråga 20).
+Så här går AI-flödena mot LM Studio på din Mac, och vilka inställningar som rekommenderas. Mätningen gjordes i Story 12.1 natten till 2026-10-27 med Qwen3.6 35B A3B (MLX, 4 bit) på den här Macen (32 GB minne). LM Studio lämnades som det var: du väljer själv om du vill ändra något (öppen fråga 24).
 
 **Rekommendation i korthet:** behåll det du har, alltså kontext 8 192, PARALLEL 4 och ingen TTL, och slå inte på spekulativ avkodning. Det som gör anropen långsamma är inte LM Studios inställningar utan att modellen blir kall efter några minuter utan anrop, och att svaren är långa. Det tas om hand i appen (12.2 väcker modellen, 12.3 kortar svaren och 12.4 kör ett jobb i taget).
 
@@ -100,7 +100,7 @@ Från 12.4 skickar appen bara ett jobb i taget, så krockarna ska inte hända. O
 
 **Spekulativ avkodning gör ingen skillnad.** `lms load … --speculative-draft-mtp` laddade utan fel, men fart, token och tider var desamma som utan (44 token per sekund, samma längd på svaren). Antingen används MTP inte för den här modellen i MLX, eller så ger det inget här. Svaren blev inte sämre.
 
-**Kall modell (T9):** macOS komprimerar modellens minne när den inte används, redan efter 5 minuter. Före varje kallt anrop låg 12–17 GB i macOS minneskompressor, och efteråt 1–3 GB. Det kalla anropet packar upp det modellen behöver, och det kostar 18–66 s extra: bildanalysen 38–86 s i stället för 20, AI-förslaget 78–82 s i stället för 46, importen av ett foto 76 s i stället för 21. Mer vilad tid än 5 minuter gör det inte tydligt värre. Det första anropet efter att modellen har laddats tar också ungefär dubbelt så lång tid (40–42 s för bildanalysen).
+**Kall modell (T10):** macOS komprimerar modellens minne när den inte används, redan efter 5 minuter. Före varje kallt anrop låg 12–17 GB i macOS minneskompressor, och efteråt 1–3 GB. Det kalla anropet packar upp det modellen behöver, och det kostar 18–66 s extra: bildanalysen 38–86 s i stället för 20, AI-förslaget 78–82 s i stället för 46, importen av ett foto 76 s i stället för 21. Mer vilad tid än 5 minuter gör det inte tydligt värre. Det första anropet efter att modellen har laddats tar också ungefär dubbelt så lång tid (40–42 s för bildanalysen).
 
 Modellen är en MoE-modell (35 miljarder parametrar, ungefär 3 miljarder aktiva per token). Ett anrop packar troligen bara upp de delar det använder: numren direkt efter en kall bildanalys tog ibland 14–15 s i stället för 6. Det talar för väckningen i 12.2, som gör ett anrop med flödets egen prompt när en sida med AI öppnas. Om den hjälper mäts i 12.2.
 

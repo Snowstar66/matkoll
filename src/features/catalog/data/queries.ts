@@ -1,7 +1,7 @@
 import "server-only";
 import { containsPattern } from "@/lib/like-pattern";
 import { locationSchema } from "../domain/locations";
-import type { CatalogSnapshot, IngredientDefaults } from "../domain/match";
+import type { CatalogSnapshot, IngredientDefaults, IngredientSummary } from "../domain/match";
 import { sectionSchema } from "../domain/sections";
 import { unitSchema } from "../domain/units";
 import {
@@ -63,6 +63,31 @@ export async function loadIngredientNames(db: CatalogDb, ids: readonly string[])
     }),
   );
   return names;
+}
+
+/**
+ * The names and sections of the ingredients among `ids` in the signed-in
+ * user's catalog, by id. Ids not found are left out. The table's check
+ * equals SECTIONS; a row outside it is `query_failed` with the detail
+ * `invalid_row`.
+ */
+export async function loadIngredientSummaries(
+  db: CatalogDb,
+  ids: readonly string[],
+): Promise<Record<string, IngredientSummary>> {
+  const summaries: Record<string, IngredientSummary> = {};
+  await Promise.all(
+    chunks([...new Set(ids)]).map(async (chunk) => {
+      const { data, error } = await db.from("ingredient").select("id, name, section").in("id", chunk);
+      if (error) throw new CatalogDataError("query_failed", error.code);
+      for (const row of data) {
+        const section = sectionSchema.safeParse(row.section);
+        if (!section.success) throw new CatalogDataError("query_failed", "invalid_row");
+        summaries[row.id] = { name: row.name, section: section.data };
+      }
+    }),
+  );
+  return summaries;
 }
 
 /**

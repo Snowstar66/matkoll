@@ -3,20 +3,22 @@
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useCallback, useEffect, useMemo, useOptimistic, useRef, useState, useTransition } from "react";
-import { StatusBadge } from "@/components/badges";
-import { Button } from "@/components/button";
+import { Button, buttonClasses } from "@/components/button";
 import { EmptyState } from "@/components/empty-state";
+import { Meter } from "@/components/meter";
 import { RecipeImage } from "@/components/recipe-image";
 import { Stepper } from "@/components/stepper";
 import { SwipeRow } from "@/components/swipe-row";
 import { useToast } from "@/components/toast";
-import { recipeStatusText, type PantrySnapshot } from "@/features/pantry";
+import type { PantrySnapshot } from "@/features/pantry";
 import { errorMessages, fail, type Result } from "@/lib/errors";
 import { removePlanRecipe } from "../actions/remove-plan-recipe";
 import { restorePlanRecipe } from "../actions/restore-plan-recipe";
 import { setServings } from "../actions/set-servings";
 import {
   comparePlanRecipes,
+  dishMetaText,
+  dishProgress,
   dishStatus,
   maxServings,
   removedDishesText,
@@ -26,12 +28,13 @@ import {
 } from "../domain/meal-plan";
 import { AddDishButton } from "./add-dish-sheet";
 
-// Matsedel (FR-13): the current plan's dishes (matsedelsrätter) as cards like
-// the recipe rows, each with the portion selector, which is saved, and the
-// status for the chosen servings ("Kan lagas nu" or "Saknar N varor", counted
-// with pantry.recipeStatus, AD-7). A swipe to the left or "Ta bort" removes a
-// dish at once, and the short confirmation offers "Ångra" for 5 s, which puts
-// it back with the same id (AD-20).
+// Matsedel (FR-13): the current plan's dishes (matsedelsrätter) as dish cards
+// (rättkort, Epic 11), each with how much is at home for the chosen servings
+// ("6 av 8 hemma" or "Allt finns hemma" and a meter, counted with
+// pantry.recipeStatus, AD-7) and the portion selector, which is saved. A swipe
+// to the left or "Ta bort" removes a dish at once, and the short confirmation
+// offers "Ångra" for 5 s, which puts it back with the same id (AD-20). Under
+// the dishes, "Lägg till rätt" and "Visa inköpslistan".
 
 /** A removal or "Ångra" the plan shows before the server's plan has it. */
 type Entry = {
@@ -350,6 +353,12 @@ export function MealPlanList({ planName, dishes, snapshot, siteLine = null }: Me
           />
         ))}
       </ul>
+      <div className="mt-2 flex flex-col gap-3">
+        <AddDishButton variant="primary" fullWidth />
+        <Link href="/lista" className={buttonClasses("secondary", true)}>
+          Visa inköpslistan
+        </Link>
+      </div>
     </div>
   );
 }
@@ -365,17 +374,20 @@ type DishCardProps = {
 };
 
 /**
- * Matsedelsrätt: the recipe's image, its title (a link to the recipe), the
- * time, the status for the chosen servings, the portion selector and "Ta
- * bort". A dish whose recipe is gone keeps its title, says "Borttaget
- * recept" and has no status; one whose recipe could not be read shows its
- * stored title, without image, time or status.
+ * Rättkort (Epic 11, DESIGN.md dish-card): the recipe's image on
+ * `dish-thumb`, its title (a link to the recipe), the time and how much is
+ * at home for the chosen servings ("35 min · 6 av 8 hemma" or "35 min ·
+ * Allt finns hemma") with a small meter hidden from screen readers, then the
+ * portion selector and "Ta bort". Without a pantry, or a catalog ingredient
+ * to count, the line is the time alone and there is no meter. A dish whose
+ * recipe is gone keeps its title and says "Borttaget recept"; one whose
+ * recipe could not be read shows its stored title only.
  */
 function DishCard({ dish, servings, snapshot, onServingsChange, onRemove }: DishCardProps) {
   const { recipe, recipeTitle: title } = dish;
   const status = dishStatus(recipe, servings, snapshot);
-  // Without a recipe id the recipe is deleted; with one but no recipe it could not be read.
-  const meta = recipe?.totalMinutes ? `${recipe.totalMinutes} min` : dish.recipeId ? null : "Borttaget recept";
+  const progress = status ? dishProgress(status) : null;
+  const meta = dishMetaText(dish.recipeId, recipe?.totalMinutes, progress);
   return (
     <li data-testid="plan-dish" data-dish={dish.id}>
       <SwipeRow
@@ -385,8 +397,12 @@ function DishCard({ dish, servings, snapshot, onServingsChange, onRemove }: Dish
         className="rounded-lg"
       >
         <div className="flex flex-col gap-3 p-3">
-          <div className="flex items-center gap-[14px]">
-            <RecipeImage src={recipe?.imageUrl ?? null} iconSize={28} className="size-thumb shrink-0 rounded-md" />
+          <div className="flex items-center gap-3">
+            <RecipeImage
+              src={recipe?.imageUrl ?? null}
+              iconSize={24}
+              className="size-dish-thumb shrink-0 rounded-md"
+            />
             <div className="flex min-w-0 flex-1 flex-col gap-1">
               {dish.recipeId ? (
                 <Link
@@ -394,22 +410,22 @@ function DishCard({ dish, servings, snapshot, onServingsChange, onRemove }: Dish
                   data-dish-focus
                   // A mouse swipe on the title must move the card, not drag the link.
                   draggable={false}
-                  className="line-clamp-2 self-start text-row-title break-words text-ink"
+                  className="max-w-full self-start text-row-title break-words text-ink"
                 >
                   {title}
                 </Link>
               ) : (
-                <p className="line-clamp-2 text-row-title break-words text-ink">{title}</p>
+                <p className="text-row-title break-words text-ink">{title}</p>
               )}
-              {meta ? <p className="text-meta text-ink-3">{meta}</p> : null}
-              {status ? (
-                <StatusBadge status={status.missingCount === 0 ? "ok" : "missing"}>
-                  {recipeStatusText(status.missingCount)}
-                </StatusBadge>
+              {meta ? (
+                <p data-testid="dish-meta" className="text-meta break-words text-ink-2">
+                  {meta}
+                </p>
               ) : null}
+              {progress ? <Meter value={progress.value} size="small" className="mt-1" /> : null}
             </div>
           </div>
-          <div className="flex items-center justify-between gap-3">
+          <div className="flex flex-wrap items-center justify-between gap-x-3 gap-y-1">
             <Stepper
               value={servings}
               onChange={onServingsChange}

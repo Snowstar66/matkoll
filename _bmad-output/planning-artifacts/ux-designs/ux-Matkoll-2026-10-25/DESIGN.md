@@ -336,7 +336,7 @@ En familj: systemtypsnittet (San Francisco på Apple-enheter), med Inter som res
 
 | Roll | Token | Används för |
 | --- | --- | --- |
-| Sidrubrik | `{typography.page-title}` | Recept, Matsedel, Inköpslista, Hemma |
+| Sidrubrik | `{typography.page-title}` | Recept, Matsedel, Inköpslista, Lagersaldo |
 | Receptrubrik | `{typography.recipe-title}` | Receptvy och förhandsgranskning |
 | Steg | `{typography.step}` | Stegläge, läsbart på en armlängds avstånd |
 | Radrubrik | `{typography.row-title}` | Recepttitlar i listor, knapptext |
@@ -368,7 +368,7 @@ Mjuka, generösa hörn enligt `rounded`-tokens och komponenternas tokens ovan. B
 
 Samma komponenter, i samma ordning och med samma namn, finns i `EXPERIENCE.md` under Component Patterns. Tokennyckeln står inom parentes.
 
-- **Flikfält** (`tab-bar`): fyra flikar (Recept, Matsedel, Lista, Hemma) med ikon och etikett. Aktiv flik i `{colors.accent}`, övriga i `{colors.ink-3}`.
+- **Flikfält** (`tab-bar`): fyra flikar (Recept, Matsedel, Inköpslista, Lagersaldo) med ikon och etikett. En etikett som inte får plats bryts på två rader mellan orddelarna (Mat/sedel, Inköps/lista, Lager/saldo), aldrig mitt i en del. Aktiv flik i `{colors.accent}`, övriga i `{colors.ink-3}`.
 - **Sidomeny** (`side-menu`): samma fyra mål som flikfältet, i en lista, plus Inställningar längst ned. Aktivt mål har `{colors.mint}`-bakgrund, `{colors.mint-ink}`-text och ikon i `{colors.accent}` (accent på mint ger bara 4,1:1).
 - **Sökfält** (`search-field`): vitt fält med förstoringsglas och platshållartext i `{colors.ink-3}`.
 - **Filterpiller** (`filter-pill`): Alla, Favoriter, Kan lagas nu. Valt piller fylls med `{colors.accent}`.

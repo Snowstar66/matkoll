@@ -149,9 +149,13 @@ function watchErrors(page: Page): string[] {
 const lines = (page: Page) => page.getByTestId("shopping-line").filter({ visible: true });
 const lineOf = (page: Page, label: string) => lines(page).filter({ has: page.getByText(label, { exact: true }) });
 const summary = (page: Page) => page.getByTestId("list-summary").filter({ visible: true });
+/** The progress row (Story 11.4): "4 varor kvar" and "1 av 5 i korgen". */
+const progress = (page: Page) => page.getByTestId("list-progress").filter({ visible: true });
 const sectionHeadings = (page: Page) => page.getByRole("heading", { level: 2 }).filter({ visible: true });
+/** Unfolds I korgen, where the checked lines are (Story 11.4). */
+const showBasket = (page: Page) => page.getByRole("button", { name: /^Visa I korgen/ }).filter({ visible: true }).click();
 const check = (page: Page, name: string) => page.getByRole("checkbox", { name, exact: true }).filter({ visible: true });
-const tab = (page: Page, name: "Matsedel" | "Lista") =>
+const tab = (page: Page, name: "Matsedel" | "Inköpslista") =>
   page.getByRole("navigation", { name: "Huvudmeny" }).getByRole("link", { name });
 
 /** Waits until `count` Server Action calls started after this point have answered. */
@@ -175,7 +179,7 @@ test("without a meal plan the list says to put dishes on it", async ({ page }) =
   expect(errors).toEqual([]);
 });
 
-test("the list groups the lines by section, with från [rätt], the pantry beside and Finns hemma?", async ({ page }) => {
+test("the list groups the lines by category, with the dishes under each name and the pantry beside", async ({ page }) => {
   const admin = adminClient();
   const plan = await admin
     .from("meal_plan")
@@ -198,56 +202,72 @@ test("the list groups the lines by section, with från [rätt], the pantry besid
 
   const errors = watchErrors(page);
   await page.goto("/lista");
-  await expect(summary(page)).toHaveText("Vecka 44 · 2 rätter · 5 varor kvar");
-  await expect(sectionHeadings(page)).toHaveText(["Frukt och grönt", "Mejeri", "Skafferi", "Övrigt"]);
+  await expect(summary(page)).toHaveText("Vecka 44 · 2 rätter");
+  await expect(progress(page)).toHaveText(/^5 varor kvar\s*0 av 5 i korgen$/);
+  // The categories of Lagersaldo (Story 11.4): salt is a seasoning.
+  await expect(sectionHeadings(page)).toHaveText(["Frukt & grönt", "Mejeri & ägg", "Skafferi", "Såser & smaksättare", "Övrigt"]);
   await expect(lines(page)).toHaveCount(5);
   // An amount without unit counts as st.
-  await expect(lineOf(page, "Paprika")).toContainText(`från ${gryta}`);
-  await expect(lineOf(page, "Paprika")).toContainText("1 st");
-  // 2 dl and 1 dl from two dishes is one line.
-  await expect(lineOf(page, "Grädde")).toContainText(`från ${gryta}, ${paj}`);
+  await expect(lineOf(page, "Paprika")).toContainText(`Paprika 1 st ${gryta}`);
+  // 2 dl and 1 dl from two dishes is one line; the dishes with " · ", without "från".
+  await expect(lineOf(page, "Grädde")).toContainText(`${gryta} · ${paj}`);
   await expect(lineOf(page, "Grädde")).toContainText("3 dl");
   // 1 kg at home is never converted into dl.
   await expect(lineOf(page, "Mjöl")).toContainText("2 dl (hemma: 1 kg)");
-  await expect(lineOf(page, "Salt")).toContainText("Finns hemma?");
+  // A vague line: no amount, "Saknas i lagret" before the dishes; no "Finns hemma?".
+  await expect(lineOf(page, "Salt")).toContainText(`Saknas i lagret · ${gryta}`);
+  await expect(page.getByText("Finns hemma?")).toHaveCount(0);
   // A line without a catalog ingredient, with its own text, under Övrigt.
-  const other = page.getByRole("region", { name: "Övrigt" }).filter({ visible: true });
+  const other = page.getByRole("list", { name: "Övrigt" }).filter({ visible: true });
   // Every line's row also holds its "Ta bort", behind the row until it is swiped (Story 3.6).
-  await expect(other.getByTestId("shopping-line")).toHaveText([new RegExp(`^En näve persilja från ${paj}\\s*Ta bort$`)]);
+  await expect(other.getByTestId("shopping-line")).toHaveText([new RegExp(`^En näve persilja\\s*${paj}\\s*Ta bort$`)]);
   expect(errors).toEqual([]);
 });
 
-test("a check is saved at once, stays after a reload, keeps the line in its place and comes off again", async ({ page }) => {
+test("a check is saved at once, moves the line to I korgen, stays after a reload and comes off again", async ({ page }) => {
   await seedChecks([]);
   const errors = watchErrors(page);
   await page.goto("/lista");
-  await expect(summary(page)).toHaveText("Vecka 44 · 2 rätter · 5 varor kvar");
+  await expect(progress(page)).toHaveText(/^5 varor kvar/);
   const order = await lines(page).evaluateAll((rows) => rows.map((row) => row.getAttribute("data-line-key")));
-  // The check's name is the line and what it shows; the state is read out beside it.
-  await expect(check(page, "Salt, finns hemma?")).not.toBeChecked();
+  // The check's name is the line and its amount; the state is read out beside it.
+  await expect(check(page, "Salt")).not.toBeChecked();
   await expect(check(page, "Mjöl, 2 dl (hemma: 1 kg)")).not.toBeChecked();
-
-  await actionsAnswered(page, 1, () => check(page, "Paprika, 1 st").click());
-  await expect(check(page, "Paprika, 1 st")).toBeChecked();
-  await expect(summary(page)).toHaveText("Vecka 44 · 2 rätter · 4 varor kvar");
-  await expect(lineOf(page, "Paprika").getByText("Paprika", { exact: true })).toHaveCSS("text-decoration-line", "line-through");
   // The tap target is 44 × 44 px.
   const box = await check(page, "Paprika, 1 st").boundingBox();
   expect(box?.width).toBeGreaterThanOrEqual(44);
   expect(box?.height).toBeGreaterThanOrEqual(44);
 
-  await page.reload();
+  await actionsAnswered(page, 1, () => check(page, "Paprika, 1 st").click());
+  // Moved at once to I korgen, which is folded (Story 11.4).
+  await expect(check(page, "Paprika, 1 st")).toHaveCount(0);
+  await expect(progress(page)).toHaveText(/^4 varor kvar\s*1 av 5 i korgen$/);
+  await showBasket(page);
   await expect(check(page, "Paprika, 1 st")).toBeChecked();
-  await expect(summary(page)).toHaveText("Vecka 44 · 2 rätter · 4 varor kvar");
-  expect(await lines(page).evaluateAll((rows) => rows.map((row) => row.getAttribute("data-line-key")))).toEqual(order);
+  await expect(lineOf(page, "Paprika").getByText("Paprika", { exact: true }).locator("..")).toHaveCSS(
+    "text-decoration-line",
+    "line-through",
+  );
+
+  await page.reload();
+  await expect(progress(page)).toHaveText(/^4 varor kvar\s*1 av 5 i korgen$/);
+  await showBasket(page);
+  await expect(check(page, "Paprika, 1 st")).toBeChecked();
+  // The lines left, then the checked one in I korgen.
+  const paprika = order.find((key) => key?.includes(ids.get("Paprika")!));
+  expect(await lines(page).evaluateAll((rows) => rows.map((row) => row.getAttribute("data-line-key")))).toEqual([
+    ...order.filter((key) => key !== paprika),
+    paprika,
+  ]);
 
   await actionsAnswered(page, 1, () => check(page, "Paprika, 1 st").click());
   await expect(check(page, "Paprika, 1 st")).not.toBeChecked();
   await page.reload();
   await expect(check(page, "Paprika, 1 st")).not.toBeChecked();
-  await expect(summary(page)).toHaveText("Vecka 44 · 2 rätter · 5 varor kvar");
+  await expect(progress(page)).toHaveText(/^5 varor kvar\s*0 av 5 i korgen$/);
 
   await actionsAnswered(page, 1, () => check(page, "Grädde, 3 dl").click());
+  await showBasket(page);
   await expect(check(page, "Grädde, 3 dl")).toBeChecked();
   expect(errors).toEqual([]);
 });
@@ -256,6 +276,7 @@ test("more servings on Matsedel count the list again", async ({ page }) => {
   await seedChecks([["Grädde", "dl"]]);
   const errors = watchErrors(page);
   await page.goto("/lista");
+  await showBasket(page);
   await expect(lineOf(page, "Grädde")).toContainText("3 dl");
 
   await tab(page, "Matsedel").click();
@@ -266,9 +287,11 @@ test("more servings on Matsedel count the list again", async ({ page }) => {
     await expect(dish.getByText(`${servings} portioner`)).toBeVisible();
   }
 
-  await tab(page, "Lista").click();
+  await tab(page, "Inköpslista").click();
   await expect(page).toHaveURL(/\/lista$/);
-  // 2 dl for 4 is 3 dl for 6, and 1 dl from Paj: the same line, still checked.
+  // 2 dl for 4 is 3 dl for 6, and 1 dl from Paj: the same line, still checked,
+  // and I korgen still open from before the switch of tab (Activity).
+  await expect(page.getByRole("button", { name: "Dölj I korgen", exact: true }).filter({ visible: true })).toBeVisible();
   await expect(lineOf(page, "Grädde")).toContainText("4 dl");
   await expect(check(page, "Grädde, 4 dl")).toBeChecked();
   // 1.5 paprikor are bought as 2.
@@ -286,10 +309,11 @@ test("what is at home is taken off when the pantry changes", async ({ page }) =>
   const errors = watchErrors(page);
   await page.goto("/lista");
   // 4 dl needed, 3 dl at home; salt is at home. Grädde is checked, so not left.
+  await showBasket(page);
   await expect(lineOf(page, "Grädde")).toContainText("1 dl");
   await expect(check(page, "Grädde, 1 dl")).toBeChecked();
   await expect(lineOf(page, "Salt")).toHaveCount(0);
-  await expect(summary(page)).toHaveText("Vecka 44 · 2 rätter · 3 varor kvar");
+  await expect(progress(page)).toHaveText(/^3 varor kvar\s*1 av 4 i korgen$/);
 
   await addPantry("Grädde", 1, "dl", "Frys");
   await page.reload();
@@ -300,6 +324,7 @@ test("what is at home is taken off when the pantry changes", async ({ page }) =>
   const frys = await admin.from("pantry_item").delete().eq("user_id", userId).eq("location", "Frys");
   if (frys.error) throw frys.error;
   await page.reload();
+  await showBasket(page);
   await expect(check(page, "Grädde, 1 dl")).toBeChecked();
   await addPantry("Grädde", 1, "dl", "Frys");
   expect(errors).toEqual([]);
@@ -315,7 +340,9 @@ test("the list says everything is at home when nothing is short", async ({ page 
   const errors = watchErrors(page);
   await page.goto("/lista");
   await expect(page.getByText("Allt finns hemma.").filter({ visible: true })).toBeVisible();
-  await expect(summary(page)).toHaveText("Vecka 44 · 2 rätter · 0 varor kvar");
+  await expect(summary(page)).toHaveText("Vecka 44 · 2 rätter");
+  // No progress row for an empty list (Story 11.4).
+  await expect(progress(page)).toHaveCount(0);
   await expect(lines(page)).toHaveCount(0);
   expect(errors).toEqual([]);
 });
@@ -353,7 +380,7 @@ async function seedCustomItems(
 
 const customSheet = (page: Page) => page.getByRole("dialog", { name: "Lägg till egen vara" });
 const addCustomButton = (page: Page) => page.getByRole("button", { name: "Lägg till egen vara" }).filter({ visible: true });
-const region = (page: Page, name: string) => page.getByRole("region", { name }).filter({ visible: true });
+const region = (page: Page, name: string) => page.getByRole("list", { name, exact: true }).filter({ visible: true });
 const toast = (page: Page) => page.getByTestId("toast");
 // An own item's row also holds its "Ta bort", behind the row until it is swiped.
 
@@ -399,11 +426,12 @@ test("an own item without a catalog ingredient goes under Övrigt, and shows alt
   await actionsAnswered(page, 1, () => sheet.getByRole("button", { name: "Lägg till" }).click());
 
   await expect(customSheet(page)).toHaveCount(0);
-  await expect(region(page, "Övrigt").getByTestId("shopping-line")).toHaveText([/^diskmedel\s*Ta bort$/]);
+  await expect(region(page, "Övrigt").getByTestId("shopping-line")).toHaveText([/^diskmedel\s*Egen vara\s*Ta bort$/]);
   await expect(page.getByText("Allt finns hemma.").filter({ visible: true })).toHaveCount(0);
-  await expect(summary(page)).toHaveText("Vecka 44 · 2 rätter · 1 vara kvar");
+  await expect(summary(page)).toHaveText("Vecka 44 · 2 rätter");
+  await expect(progress(page)).toHaveText(/^1 vara kvar\s*0 av 1 i korgen$/);
   await page.reload();
-  await expect(region(page, "Övrigt").getByTestId("shopping-line")).toHaveText([/^diskmedel\s*Ta bort$/]);
+  await expect(region(page, "Övrigt").getByTestId("shopping-line")).toHaveText([/^diskmedel\s*Egen vara\s*Ta bort$/]);
   expect((await storedCustomItems()).map((item) => [item.label, item.ingredient_id])).toEqual([["diskmedel", null]]);
   expect(errors).toEqual([]);
 });
@@ -419,7 +447,7 @@ test("a suggestion links the own item to its catalog ingredient's section, never
   try {
     const errors = watchErrors(page);
     await page.goto("/lista");
-    await expect(region(page, "Mejeri").getByTestId("shopping-line")).toHaveCount(1);
+    await expect(region(page, "Mejeri & ägg").getByTestId("shopping-line")).toHaveCount(1);
 
     await addCustomButton(page).click();
     const sheet = customSheet(page);
@@ -432,10 +460,10 @@ test("a suggestion links the own item to its catalog ingredient's section, never
     await actionsAnswered(page, 1, () => sheet.getByRole("button", { name: "Lägg till" }).click());
 
     await expect(customSheet(page)).toHaveCount(0);
-    const mejeri = region(page, "Mejeri").getByTestId("shopping-line");
+    const mejeri = region(page, "Mejeri & ägg").getByTestId("shopping-line");
     await expect(mejeri).toHaveCount(2);
-    await expect(mejeri.filter({ hasText: "2 förp" })).toHaveText(/^Grädde\s*2 förp\s*Ta bort$/);
-    await expect(mejeri.filter({ hasText: "1 dl" })).toContainText(`från ${gryta}, ${paj}`);
+    await expect(mejeri.filter({ hasText: "2 förp" })).toHaveText(/^Grädde\s*2 förp\s*Egen vara\s*Ta bort$/);
+    await expect(mejeri.filter({ hasText: "1 dl" })).toContainText(`${gryta} · ${paj}`);
     expect((await storedCustomItems()).map((item) => [item.label, item.ingredient_id])).toEqual([["Grädde", ids.get("Grädde")]]);
     expect(errors).toEqual([]);
   } finally {
@@ -449,31 +477,37 @@ test("an own item is checked off, removed by swipe and put back with Ångra, wit
   await seedChecks([]);
   const errors = watchErrors(page);
   await page.goto("/lista");
-  await expect(region(page, "Övrigt").getByTestId("shopping-line")).toHaveText([/^diskmedel\s*Ta bort$/]);
-  await expect(region(page, "Skafferi").getByTestId("shopping-line")).toHaveText([/^Kaffe\s*Ta bort$/]);
+  await expect(region(page, "Övrigt").getByTestId("shopping-line")).toHaveText([/^diskmedel\s*Egen vara\s*Ta bort$/]);
+  await expect(region(page, "Skafferi").getByTestId("shopping-line")).toHaveText([/^Kaffe\s*Egen vara\s*Ta bort$/]);
 
   await actionsAnswered(page, 1, () => check(page, "diskmedel").click());
+  // Moved to I korgen (Story 11.4): Övrigt had only diskmedel.
+  await expect(region(page, "Övrigt")).toHaveCount(0);
+  await showBasket(page);
   await expect(check(page, "diskmedel")).toBeChecked();
   const { data, error } = await adminClient().from("shopping_check").select("line_key").eq("user_id", userId);
   if (error) throw error;
   expect(data).toEqual([{ line_key: `c:${seeded.get("diskmedel")}` }]);
 
-  const row = region(page, "Övrigt").getByTestId("shopping-line");
+  const row = region(page, "I korgen").getByTestId("shopping-line");
   await swipeLeft(page, row);
   await expect(row.getByTestId("swipe-row-front")).toHaveCSS("transform", "matrix(1, 0, 0, 1, -96, 0)");
   await actionsAnswered(page, 1, () => page.getByRole("button", { name: "Ta bort diskmedel" }).click());
-  await expect(region(page, "Övrigt")).toHaveCount(0);
-  await expect(toast(page)).toContainText("diskmedel är borttagen.");
+  await expect(region(page, "I korgen")).toHaveCount(0);
+  await expect(toast(page)).toContainText("Diskmedel är borttagen.");
   await expect.poll(async () => (await storedCustomItems()).map((item) => item.label)).toEqual(["Kaffe"]);
 
   await actionsAnswered(page, 1, () => toast(page).getByRole("button", { name: "Ångra" }).click());
-  await expect(region(page, "Övrigt").getByTestId("shopping-line")).toHaveText([/^diskmedel\s*Ta bort$/]);
+  // Back in I korgen, still checked; the basket folded when it was empty.
+  await showBasket(page);
+  await expect(region(page, "I korgen").getByTestId("shopping-line")).toContainText(["diskmedel"]);
   await expect(check(page, "diskmedel")).toBeChecked();
   expect((await storedCustomItems()).map((item) => [item.label, item.id])).toEqual([
     ["diskmedel", seeded.get("diskmedel")],
     ["Kaffe", seeded.get("Kaffe")],
   ]);
   await page.reload();
+  await showBasket(page);
   await expect(check(page, "diskmedel")).toBeChecked();
   expect(errors).toEqual([]);
 });
@@ -483,7 +517,7 @@ test("own items stay as they are when the servings change", async ({ page }) => 
   await seedChecks([]);
   const errors = watchErrors(page);
   await page.goto("/lista");
-  await expect(region(page, "Övrigt").getByTestId("shopping-line")).toHaveText([/^diskmedel\s*2 förp\s*Ta bort$/]);
+  await expect(region(page, "Övrigt").getByTestId("shopping-line")).toHaveText([/^diskmedel\s*2 förp\s*Egen vara\s*Ta bort$/]);
 
   await tab(page, "Matsedel").click();
   await expect(page).toHaveURL(/\/matsedel$/);
@@ -491,18 +525,18 @@ test("own items stay as they are when the servings change", async ({ page }) => 
   await actionsAnswered(page, 1, () => dish.getByRole("button", { name: `Fler portioner, ${gryta}` }).click());
   await expect(dish.getByText("7 portioner")).toBeVisible();
 
-  await tab(page, "Lista").click();
+  await tab(page, "Inköpslista").click();
   await expect(page).toHaveURL(/\/lista$/);
   // 3,5 dl grädde for 7, and 1 dl from Paj, against 4 dl at home: the recipes need more now.
-  await expect(region(page, "Mejeri").getByTestId("shopping-line")).toContainText(["Grädde"]);
-  await expect(region(page, "Övrigt").getByTestId("shopping-line")).toHaveText([/^diskmedel\s*2 förp\s*Ta bort$/]);
+  await expect(region(page, "Mejeri & ägg").getByTestId("shopping-line")).toContainText(["Grädde"]);
+  await expect(region(page, "Övrigt").getByTestId("shopping-line")).toHaveText([/^diskmedel\s*2 förp\s*Egen vara\s*Ta bort$/]);
   expect(errors).toEqual([]);
 });
 
 // Story 3.6: Listpostdetalj, corrected amounts and hidden lines. Each test
 // sets the pantry, the servings, the checks, the own items and the overrides
 // itself: Krämig kycklinggryta and Paj for 4 with 1 kg mjöl at home give
-// Paprika 1 st, Grädde 3 dl, Mjöl 2 dl (hemma: 1 kg) and Salt – Finns hemma?.
+// Paprika 1 st, Grädde 3 dl, Mjöl 2 dl (hemma: 1 kg) and Salt (Saknas i lagret).
 
 /** The current plan's id, with the service role. */
 async function currentPlanId(): Promise<string> {
@@ -599,7 +633,7 @@ test("a corrected amount is saved, stays when the servings change, and goes back
     await actionsAnswered(page, 1, () => dish.getByRole("button", { name: `Fler portioner, ${gryta}` }).click());
     await expect(dish.getByText(`${servings} portioner`)).toBeVisible();
   }
-  await tab(page, "Lista").click();
+  await tab(page, "Inköpslista").click();
   await expect(page).toHaveURL(/\/lista$/);
   // 3 dl + 1 dl counted now; the correction stays on the same key, and the row says the count has changed.
   await expect(lineOf(page, "Grädde")).toContainText("2 dl (beräknat 4 dl)");
@@ -620,7 +654,7 @@ test("a recipe line is hidden by swipe and comes back with Ångra, with its corr
   const [seeded] = await storedOverrides();
   const errors = watchErrors(page);
   await page.goto("/lista");
-  await expect(summary(page)).toHaveText("Vecka 44 · 2 rätter · 4 varor kvar");
+  await expect(progress(page)).toHaveText(/^4 varor kvar/);
   await expect(lineOf(page, "Grädde")).toContainText("2 dl");
 
   const row = lineOf(page, "Grädde");
@@ -630,12 +664,12 @@ test("a recipe line is hidden by swipe and comes back with Ångra, with its corr
   await expect(lineOf(page, "Grädde")).toHaveCount(0);
   await expect(toast(page)).toContainText("Grädde är borttagen.");
   // "varor kvar" leaves the hidden line out.
-  await expect(summary(page)).toHaveText("Vecka 44 · 2 rätter · 3 varor kvar");
+  await expect(progress(page)).toHaveText(/^3 varor kvar/);
   expect(await storedOverrides()).toEqual([{ ...seeded, hidden: true }]);
 
   await actionsAnswered(page, 1, () => toast(page).getByRole("button", { name: "Ångra" }).click());
   await expect(lineOf(page, "Grädde")).toContainText("2 dl");
-  await expect(summary(page)).toHaveText("Vecka 44 · 2 rätter · 4 varor kvar");
+  await expect(progress(page)).toHaveText(/^4 varor kvar/);
   expect(await storedOverrides()).toEqual([seeded]);
   await page.reload();
   await expect(lineOf(page, "Grädde")).toContainText("2 dl");
@@ -660,7 +694,7 @@ test("Ta bort in the detail hides a line, which stays hidden when the list is co
   await expect(detailSheet(page, "Grädde")).toHaveCount(0);
   await expect(lineOf(page, "Grädde")).toHaveCount(0);
   await expect(toast(page)).toContainText("Grädde är borttagen.");
-  await expect(summary(page)).toHaveText("Vecka 44 · 2 rätter · 3 varor kvar");
+  await expect(progress(page)).toHaveText(/^3 varor kvar/);
 
   // More servings: the same key, still hidden; the other lines are counted again.
   const servings = await adminClient().from("meal_plan_recipe").update({ servings: 8 }).eq("user_id", userId);
@@ -693,6 +727,8 @@ test("an own item's detail changes it in place, keeping its id and check", async
   if (error) throw error;
   const errors = watchErrors(page);
   await page.goto("/lista");
+  // Checked off, it is in I korgen (Story 11.4), and opens from there too.
+  await showBasket(page);
   await expect(check(page, "diskmedel")).toBeChecked();
 
   await nameOf(page, "diskmedel").click();
@@ -704,7 +740,7 @@ test("an own item's detail changes it in place, keeping its id and check", async
   await actionsAnswered(page, 1, () => sheet.getByRole("button", { name: "Spara" }).click());
   await expect(detailSheet(page, "diskmedel")).toHaveCount(0);
 
-  await expect(region(page, "Övrigt").getByTestId("shopping-line")).toHaveText([/^diskmedel eko\s*2 förp\s*Ta bort$/]);
+  await expect(region(page, "I korgen").getByTestId("shopping-line")).toHaveText([/^diskmedel eko\s*2 förp\s*i korgen\s*Egen vara\s*Ta bort$/]);
   await expect(check(page, "diskmedel eko, 2 förp")).toBeChecked();
   expect((await storedCustomItems()).map((item) => [item.id, item.label])).toEqual([[seeded.get("diskmedel"), "diskmedel eko"]]);
   expect(errors).toEqual([]);

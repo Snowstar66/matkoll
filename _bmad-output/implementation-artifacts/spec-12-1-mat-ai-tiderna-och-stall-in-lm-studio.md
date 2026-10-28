@@ -36,7 +36,7 @@ context:
 - `docs/lm-studio.md` på svenska, i samma stil som `docs/drift.md`: vad som mättes, tabellen, rekommendationen och hur Pontus ställer in den.
 
 **Never:**
-- Ingen permanent ändring av LM Studio. Rekommendationen är ett förslag tills Pontus väljer (öppen fråga 20).
+- Ingen permanent ändring av LM Studio. Rekommendationen är ett förslag tills Pontus väljer (öppen fråga 24).
 - Ingen annan modell och ingen TTL (modellen ska inte laddas ur).
 - Inga foton i repot: Pontus foto ligger i `tests/eval/photos/`, som git ignorerar.
 - Inga mätningar i CI.
@@ -71,7 +71,7 @@ context:
 - [x] `tests/eval/*.eval.ts` -- använder `timing.ts`, läser `EVAL_LABEL` (till exempel `parallel-1-varm`) och `EVAL_RUNS`, och skriver rapporten till `tests/eval/reports/` (git ignorerar mappen)
 - [x] Mätningen mot LM Studio enligt Boundaries, med `lms ps` före och efter
 - [x] `docs/lm-studio.md` -- mätningen, rekommendationen och kommandona
-- [x] `docs/oppna-fragor.md` -- T5 och T6 får de nya siffrorna, T9 svaret om kall modell
+- [x] `docs/oppna-fragor.md` -- T5 och T6 får de nya siffrorna, T10 svaret om kall modell
 - [x] `docs/beslutslogg.md` -- en post med siffrorna och rekommendationen
 
 **Acceptance Criteria:**
@@ -84,7 +84,7 @@ context:
 
 - **Hypotes (förslag): PARALLEL 1.** Appen kör ett jobb i taget från 12.4, så fyra platser ger inget, och de kan dela minne och fart. Mätningen avgör.
 - **Hypotes (förslag): spekulativ avkodning** kan ge fler token per sekund för text (förslag, import). Den kan också ändra svaren; jämför giltighet och innehåll, inte bara tid.
-- **Varför kall är långsam är okänt (T9).** Modellen laddas aldrig ur. Möjliga orsaker: macOS har komprimerat eller växlat ut minnet, bildkodaren och promptens cache är tomma. Notera minnestrycket (`memory_pressure` eller Aktivitetskontroll) vid kalla körningar.
+- **Varför kall är långsam är okänt (T10).** Modellen laddas aldrig ur. Möjliga orsaker: macOS har komprimerat eller växlat ut minnet, bildkodaren och promptens cache är tomma. Notera minnestrycket (`memory_pressure` eller Aktivitetskontroll) vid kalla körningar.
 - `usage` kan saknas från LM Studio i vissa lägen. Saknas det, räkna tid och notera "–".
 - Loggar och rapporter innehåller aldrig foton eller svarstext, bara siffror och flödets namn.
 

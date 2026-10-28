@@ -1,6 +1,7 @@
 import { z } from "zod";
 import { locationSchema, UNITS, unitSchema, type Location, type Unit } from "@/features/catalog";
 import { roundSum, type PantryAmountRow, type PantryItem } from "./pantry-item";
+import { suggestionLabel } from "./pantry-item-form";
 import type { ConfirmItemInput, PantrySuggestion } from "./pantry-suggestion";
 
 // "Inventera en plats med foto" (Story 6.4, FR-25, AD-6, AD-12, AD-19): a
@@ -307,7 +308,10 @@ export function inventoryRequest({
   missing,
 }: {
   location: Location;
-  suggestions: readonly Pick<PantrySuggestion, "id" | "ingredient" | "location" | "amount" | "unit" | "replaces">[];
+  suggestions: readonly Pick<
+    PantrySuggestion,
+    "id" | "name" | "labels" | "ingredient" | "location" | "amount" | "unit" | "replaces"
+  >[];
   missing: readonly Pick<MissingItem, "rows">[];
 }): InventoryRequest & { included: string[]; left: string[] } {
   const replaces = new Set<string>();
@@ -324,7 +328,12 @@ export function inventoryRequest({
   }
   return {
     location,
-    items: included.map(({ ingredient, location: place, amount, unit }) => ({ ingredient, location: place, amount, unit })),
+    items: included.map((suggestion) => {
+      const { ingredient, location: place, amount, unit } = suggestion;
+      // Story 11.2: the photo's label, as confirmItemFromSuggestion gives it: it fills only an item without one.
+      const photoLabel = suggestionLabel(suggestion);
+      return { ingredient, location: place, amount, unit, ...(photoLabel === null ? {} : { photoLabel }) };
+    }),
     replaceRowIds: [...replaces],
     removeRowIds: missing.flatMap((item) => item.rows.map((row) => row.id)),
     included: included.map(({ id }) => id),

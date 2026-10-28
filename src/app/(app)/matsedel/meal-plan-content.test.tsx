@@ -67,7 +67,7 @@ describe("MealPlanContent", () => {
       "href",
       "/matsedel/tidigare",
     );
-    await user.click(screen.getByRole("button", { name: "Lägg till rätt" }));
+    await user.click(within(screen.getByRole("banner")).getByRole("button", { name: "Lägg till rätt" }));
     const sheet = screen.getByRole("dialog", { name: "Lägg till rätt" });
     expect(within(sheet).getByRole("alert")).toHaveTextContent("Det gick inte att läsa recepten. Försök igen.");
     expect(logged).toHaveBeenCalledWith("mealplan_recipes_unavailable", { reason: "query_failed 08006" });
@@ -109,7 +109,7 @@ describe("MealPlanContent", () => {
         Node.DOCUMENT_POSITION_FOLLOWING,
     ).toBeTruthy();
     expect(siteLine.compareDocumentPosition(screen.getByTestId("plan-name")) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
-    expect(within(screen.getByTestId("plan-dish")).getByText("Saknar 1 vara")).toBeInTheDocument();
+    expect(within(screen.getByTestId("plan-dish")).getByTestId("dish-meta")).toHaveTextContent("15 min · 1 av 2 hemma");
   });
 
   it("has no line above dishes without a status: their recipes deleted or not read", async () => {

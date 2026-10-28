@@ -36,8 +36,10 @@ Vercel-projektet skapas först men fylls med variabler i steg 9, när värdena f
 1. Supabase → **New project** → namn `matkoll`, region **North EU (Stockholm), `eu-north-1`**. Välj ett starkt databaslösenord och spara det i din lösenordshanterare; det behövs i steg 6 och 10.
 2. Anteckna `<ref>` (syns i projektets adress, `https://<ref>.supabase.co`).
 3. Om projektet erbjuder att automatiskt exponera nya tabeller i Data API kan du stänga av det, som `auto_expose_new_tables = false` lokalt. Det är inte nödvändigt: migrationerna tar själva bort standardrättigheterna och ger varje tabell sina egna (AD-4).
+4. Projektet måste ha **PostgreSQL 17 eller senare**, som lokalt (`major_version = 17` i `supabase/config.toml`). Migrationerna `catalog_name_capital` och `catalog_name_rule` (Story 10.4) använder kollationen `pg_c_utf8`, som finns från version 17, och stoppar med ett tydligt fel på en äldre version.
+5. Storage behöver inte slås på. Det ingår i gratisnivån (1 GB), och Matkoll sparar högst ett foto per plats och ställe, högst 1,5 MB (Epic 10). Ett foto som är äldre än 30 dagar visas aldrig, och det gallras nästa gång Lagersaldo öppnas eller ett foto sparas. Den privata bucketen `pantry-photo` och dess policyer skapas av `supabase db push` i steg 6, inte i panelen.
 
-**Kontroll:** **Project Settings → General** visar regionen `eu-north-1`.
+**Kontroll:** **Project Settings → General** visar regionen `eu-north-1`, och **Project Settings → Infrastructure** visar Postgres 17 eller senare.
 
 ## 3. Registrering avstängd
 
@@ -61,11 +63,19 @@ Länken i mejlet går till `<adress>/auth/confirm?next=…` (appen bygger den fr
 **Authentication → Emails → Templates → Magic Link:**
 
 - **Subject:** `Din inloggningslänk till Matkoll`
-- **Body:** innehållet i `supabase/templates/magic-link.html`, oförändrat (samma som lokalt, se `[auth.email.template.magic_link]` i `supabase/config.toml`).
+- **Body:** innehållet i `supabase/templates/magic-link.html`, oförändrat (samma som lokalt, se `[auth.email.template.magic_link]` i `supabase/config.toml`). Från Epic 11 (Story 11.6) har mallen både länken och den sexsiffriga koden `{{ .Token }}` under texten "Eller skriv in koden i Matkoll:". Koden behövs för att logga in i Matkoll på hemskärmen, som inte delar inloggning med Safari, där länken öppnas. Har du lagt in en äldre mall: klistra in den nya, annars kommer bara länken i mejlet.
+
+**Authentication → Sign In / Providers → Email:**
+
+- **Email OTP Length:** `6` (som `otp_length` lokalt). Inloggningssidan tar bara emot sex siffror.
+- **Email OTP Expiration:** `3600` sekunder (som `otp_expiry` lokalt). Länken och koden gäller då i en timme, och när den ena har använts går ingen av dem att använda igen.
+- Supabase begränsar hur ofta en kod eller länk kan skickas (en gång i minuten per adress som standard) och hur många inloggningsförsök som görs per IP (under **Authentication → Rate Limits**). Låt standardvärdena stå kvar. Appen skickar webbläsarens IP till Supabase i rubriken `Sb-Forwarded-For`, eftersom koden kontrolleras från Vercel; om molnet inte tar emot den räknar Supabase per Vercel-IP (öppen fråga T7). Appen har dessutom en egen gräns: 5 fel koder per adress och IP på 15 minuter, per serverinstans.
+- **Allow new users to sign up** ska vara avstängd (steg 3). Varken länken eller koden kan då skapa en användare (`shouldCreateUser: false`), bara logga in dem som `pnpm users:sync` har skapat. Låt e-postinloggningen (**Email**-leverantören) vara på; det är den som skickar länken och koden.
+- Länken i mejlet öppnar en sida med knappen "Logga in", och först knappen loggar in. Då kan inte en länkskanner i e-posten (till exempel Microsoft Safe Links) använda upp länken och koden genom att öppna länken i förväg.
 
 Supabase inbyggda e-post skickar bara till projektets teammedlemmar och bara några mejl i timmen. Det räcker så länge bara du loggar in, med samma adress som ditt Supabase-konto. Ska fler logga in, eller tar gränsen slut: lägg in egen SMTP under **Authentication → Emails → SMTP Settings** (till exempel Resend eller Postmark, med avsändaradress på en egen domän).
 
-**Kontroll:** mejlet i steg 11 har ämnet och texten från mallen ("Logga in på Matkoll").
+**Kontroll:** mejlet i steg 11 har ämnet och texten från mallen ("Logga in på Matkoll"), länken och en sexsiffrig kod i stor text. Skicka en ny länk, skriv in koden på inloggningssidan och tryck "Logga in": du ska komma till Recept.
 
 ## 6. Schemat: `supabase link` och `supabase db push`
 
@@ -92,7 +102,7 @@ psql "<Session pooler-strängen utan lösenord>" -X -q -A -t -F ' ' -v ON_ERROR_
 diff ~/matkoll-pantry-fore.txt ~/matkoll-pantry-efter.txt
 ```
 
-Skriptet skriver varje rad i `pantry_item` (`id`, användare, katalogvara, plats, mängd och enhet, sorterade på `id`) och antalet rader. Efter migreringen kontrollerar det också eftervillkoren: varje vara ligger på ett ställe som tillhör samma användare, varje användare har exakt ett valt ställe, och varje sparad rad för "Ångra" har sitt ställe. Eftervillkoren skriver inget till filen, bara `NOTICE: pantry-site-check: the postconditions hold`, och ett brutet villkor stoppar skriptet med ett fel.
+Skriptet skriver varje rad i `pantry_item` (`id`, användare, katalogvara, plats, mängd, enhet och `created_at`, sorterade på `id`) och antalet rader. Efter migreringen kontrollerar det också eftervillkoren: varje vara ligger på ett ställe som tillhör samma användare, varje användare har exakt ett valt ställe, och varje sparad rad för "Ångra" har sitt ställe. Eftervillkoren skriver inget till filen, bara `NOTICE: pantry-site-check: the postconditions hold`, och ett brutet villkor stoppar skriptet med ett fel.
 
 Skriptet skriver också varje post i `pantry_removal` (underlaget för "Ångra") med raderna i samma ordning men utan `site_id`, och stoppar om `removed_rows` inte är en lista.
 
@@ -112,6 +122,17 @@ unset SUPABASE_SERVICE_ROLE_KEY
 ```
 
 Nyckeln finns under **Project Settings → API Keys → Secret keys** (`sb_secret_…`). Variablerna i terminalen går före `.env.local`, så den lokala filen ändras inte. `ALLOWED_EMAILS` ska ha samma adresser som i Vercel (steg 9). Kör om kommandot när listan ändras; `--prune` tar bort användare som inte längre står i den.
+
+Ta helst bort en användare med `pnpm users:sync --prune` (Story 10.3). För varje användare som inte står i `ALLOWED_EMAILS` gör skriptet så här:
+
+1. Användaren spärras, så att ingen ny inloggning kan ladda upp ett foto medan filerna tas bort.
+2. Användarens foton i bucketen `pantry-photo` tas bort.
+3. Användaren tas bort, och raderna följer med.
+4. Användarens mapp listas en gång till, och det som finns kvar tas bort.
+
+Går fotona inte att ta bort står användaren kvar, spärrad. Går användaren inte att ta bort när filerna redan är borta tas användarens fotorader bort, så att ingen rad pekar på en fil som saknas. En användare som misslyckas stoppar inte de andra, och skriptet avslutas med ett fel på slutet. Utdata visar bara användarnas id och antal, aldrig adresser till de borttagna eller sökvägar.
+
+En borttagning under **Authentication → Users** i Supabase-panelen tar bara raderna och lämnar filerna kvar i bucketen. Appens gallring når dem inte, eftersom den körs som den inloggade användaren. Därför tar varje körning av `pnpm users:sync`, med eller utan `--prune`, också bort filerna för användare som inte längre finns. En mapp tas bara bort när Supabase Auth svarar att användaren inte finns.
 
 **Kontroll:** **Authentication → Users** visar din adress, och utdata har inga fel.
 
@@ -191,16 +212,18 @@ Att tänka på med schemalagda flöden:
 
 ### Vad säkerhetskopian innehåller
 
-Kontrollerat 2026-10-26 med samma CLI-version mot den lokala stacken: `supabase db dump --dry-run`, verkliga dumpar och en återläsning i en separat, tillfällig lokal stack.
+Kontrollerat 2026-10-26 med samma CLI-version mot den lokala stacken: `supabase db dump --dry-run`, verkliga dumpar och en återläsning i en separat, tillfällig lokal stack. Provat igen samma dag med sparade foton i databasen (Story 10.3).
 
-- `schema.sql` (`supabase db dump`): det egna schemat, främst `public` med tabeller, funktioner, RLS-policyer och rättigheter. `auth`, `storage` och andra scheman som Supabase sköter tas inte med; ett nytt projekt har dem redan, och Matkoll har inga egna objekt där.
-- `data.sql` (`supabase db dump --data-only`): data i alla scheman utom Supabase interna, alltså även `auth.users` och `auth.identities`, som alla rader refererar via `user_id`. `auth` behöver inte läggas till. Utelämnas gör:
-  - `storage.buckets_vectors` och `storage.vector_indexes`, eftersom rollen `postgres` inte får skriva till dem vid återläsning (Matkoll lagrar inga filer);
+**Foton tas aldrig med** (AD-26, NFR-11). Filerna ligger i Storage och inte i databasen, och dumpen utesluter fotonas rader och filernas sökvägar. Efter en återställning finns inga foton. De går inte att få tillbaka, men ett nytt foto tas nästa gång Pontus fotograferar platsen, och ett foto visas ändå bara i 30 dagar.
+
+- `schema.sql` (`supabase db dump`): det egna schemat, främst `public` med tabeller, funktioner, RLS-policyer och rättigheter. `auth`, `storage` och andra scheman som Supabase sköter tas inte med; ett nytt projekt har dem redan. Matkolls enda objekt där, bucketen `pantry-photo` och dess policyer på `storage.objects`, skapas av fotomigrationerna när schemat läses in med `supabase db push` (punkt 3 under Återställning).
+- `data.sql` (`supabase db dump --data-only --schema public,auth`): bara data i schemana `public` och `auth`, alltså även `auth.users` och `auth.identities`, som alla rader refererar via `user_id`. Inget ur schemat `storage` tas med (Story 10.3): varken bucketen, filernas sökvägar eller uppladdningarna. Fotomigrationen skapar bucketen igen vid en återställning. Utelämnas gör också:
+  - fotonas rader, `public.pantry_photo` (med avläsningen);
   - inloggningarnas tillfälliga och känsliga data: `auth.sessions`, `auth.refresh_tokens`, `auth.mfa_amr_claims` (hör till sessionerna), `auth.one_time_tokens`, `auth.flow_state` och `auth.audit_log_entries`. De behövs inte för en återställning; efteråt loggar alla in på nytt.
 
-  Migrationshistoriken (`supabase_migrations`) ingår inte.
+  Innan något krypteras kontrollerar flödet att `data.sql` inte har någon rad ur `storage` eller `pantry_photo` och inte bucketens id `pantry-photo`. Annars stoppar körningen med ett fel, som inte visar någon rad ur dumpen. Migrationshistoriken (`supabase_migrations`) ingår inte.
 - `manifest.txt`: commiten som körningen gjordes från, CLI-versionen och de migrationer som är körda i molnet (från `supabase_migrations.schema_migrations`).
-- `counts.txt`: antal rader i `auth.users` och i varje tabell i `public`, från `scripts/backup-counts.sql`, räknade strax före dumpen.
+- `counts.txt`: antal rader i `auth.users` och i varje tabell i `public` utom `pantry_photo`, från `scripts/backup-counts.sql`, räknade strax före dumpen.
 - Roller dumpas inte: Matkoll skapar inga egna roller, och Supabase standardroller finns i varje nytt projekt.
 
 ### Återställning
@@ -249,6 +272,17 @@ Alla okrypterade filer, också `nu.sql` nedan, ligger i en egen mapp utanför re
    ```
 
    Användes appen medan säkerhetskopian togs kan antalet skilja lite.
+
+   Kontrollera också fotonas bucket och policyer. De finns i schemat `storage`, som varken `schema.sql` eller `data.sql` tar med, och skapades av fotomigrationerna i punkt 3:
+
+   ```bash
+   psql "<Session pooler-strängen utan lösenord>" -X -A -t \
+     -c "select id, public from storage.buckets where id = 'pantry-photo'" \
+     -c "select policyname from pg_policies where schemaname = 'storage' and policyname like 'pantry_photo_%' order by 1" \
+     -c "select count(*) from public.pantry_photo"
+   ```
+
+   Svaret ska vara `pantry-photo|f`, de tre policyerna `pantry_photo_delete`, `pantry_photo_insert` och `pantry_photo_select`, och `0` foton. Saknas bucketen eller en policy har schemat inte lästs in med `db push` som i punkt 3. Gör om punkt 3 och 4 i ett nytt projekt i stället för att lägga till dem för hand.
 6. Gå tillbaka till `main` och kör migrationerna som har kommit till sedan säkerhetskopian, innan appen pekas om:
 
    ```bash

@@ -36,6 +36,7 @@ vi.mock("@/features/catalog/server", () => ({
   CatalogDataError,
   matchIngredients: (items: readonly MatchItem[]) => matchIngredients(items),
   getIngredientNames: (ids: readonly string[]) => getIngredientNames(ids),
+  getIngredientSummaries: vi.fn(),
   commitIngredients: (...args: unknown[]) => commitIngredients(...args),
 }));
 
@@ -77,8 +78,8 @@ const places: PantrySite[] = [
   { id: stugan, name: "Stugan", isSelected: false },
 ];
 const atHome: PantryItem[] = [
-  { id: "7a1c1b7e-3c1a-4c55-9a59-0f3f2b8f2a01", siteId: hemma, ingredientId: mjolk, name: "Mjölk", location: "Kyl", amount: 2, unit: "förp" },
-  { id: "7a1c1b7e-3c1a-4c55-9a59-0f3f2b8f2a02", siteId: hemma, ingredientId: smor, name: "Smör", location: "Kyl", amount: null, unit: null },
+  { id: "7a1c1b7e-3c1a-4c55-9a59-0f3f2b8f2a01", siteId: hemma, ingredientId: mjolk, name: "Mjölk", location: "Kyl", amount: 2, unit: "förp", label: null, createdAt: "2026-10-20T10:00:00+00:00", section: "Mejeri" },
+  { id: "7a1c1b7e-3c1a-4c55-9a59-0f3f2b8f2a02", siteId: hemma, ingredientId: smor, name: "Smör", location: "Kyl", amount: null, unit: null, label: null, createdAt: "2026-10-20T10:00:00+00:00", section: "Mejeri" },
 ];
 const signal = () => new AbortController().signal;
 const user = (userId = "user") => ok({ id: userId, email: "pontus@example.com" });
@@ -265,6 +266,9 @@ describe("analyzePlace", () => {
       location: "Kyl",
       amount: 2,
       unit: "förp",
+      label: null,
+      createdAt: "2026-10-20T10:00:00+00:00",
+      section: "Mejeri",
     };
 
     it("groups the suggestions against the place's items, with the AI call unchanged, and writes nothing", async () => {
@@ -358,7 +362,7 @@ describe("analyzePlace", () => {
       );
       getIngredientNames.mockResolvedValueOnce({ [senap]: "senap" });
       listPantryIn.mockResolvedValueOnce([
-        { id: "7a1c1b7e-3c1a-4c55-9a59-0f3f2b8f2a09", siteId: hemma, ingredientId: senap, name: "senap", location: "Kyl", amount: 1, unit: "förp" },
+        { id: "7a1c1b7e-3c1a-4c55-9a59-0f3f2b8f2a09", siteId: hemma, ingredientId: senap, name: "senap", location: "Kyl", amount: 1, unit: "förp", label: null, createdAt: "2026-10-20T10:00:00+00:00", section: "Mejeri" },
       ]);
       const result = await analyzePlace({ image: photo("kyl-dorr.png"), location: "Kyl" }, { signal: signal() });
       if (!result.ok) throw new Error(result.error.code);
@@ -653,7 +657,7 @@ describe("analyzePlace", () => {
 
 describe("analyzePlace for a place (Story 8.4)", () => {
   const stugansKyl: PantryItem[] = [
-    { id: "7a1c1b7e-3c1a-4c55-9a59-0f3f2b8f2a11", siteId: stugan, ingredientId: mjolk, name: "Mjölk", location: "Kyl", amount: 2, unit: "förp" },
+    { id: "7a1c1b7e-3c1a-4c55-9a59-0f3f2b8f2a11", siteId: stugan, ingredientId: mjolk, name: "Mjölk", location: "Kyl", amount: 2, unit: "förp", label: null, createdAt: "2026-10-20T10:00:00+00:00", section: "Mejeri" },
   ];
 
   it("reads the location on the photo's place, gives that place back, and never tells the AI about it", async () => {
