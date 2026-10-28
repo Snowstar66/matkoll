@@ -4,9 +4,9 @@ import { requireUserForRoute } from "@/features/auth/server";
 import { hasAiRunOnItsWay } from "@/features/pantry/server";
 import { isSuggesting } from "@/features/suggestions/server";
 import { fail } from "@/lib/errors";
-import { getAiService, warmUpKinds, type WarmUpKind, type WarmUpOutcome } from "@/server/ai";
+import { getAiService, warmUpKinds, type WarmUpKind, type WarmUpResult } from "@/server/ai";
+import { claimWarmUp } from "@/server/ai/warm-limit";
 import { isCrossSite, mediaTypeOf, readCapped, respond, unreadBody } from "../route-support";
-import { claimWarmUp } from "./warm-limit";
 
 // Wakes the model before it is needed (Story 12.2, FR-45, AD-9). Lagersaldo
 // asks for `image` and Recept for `text` when the page is shown
@@ -15,22 +15,33 @@ import { claimWarmUp } from "./warm-limit";
 // after(), so the page never waits for it, and Pontus never sees it. Only
 // LM Studio is called (the port's warmUp), and never with data of Pontus's.
 //
-// No warm-up while an AI call of the user's is on its way in this process
-// (an analysis, a lookup of the numbers or AI-förslag), so a real call never
-// waits behind it, nor when the same user woke the same kind less than
-// warmIntervalMs ago (warm-limit.ts). Logged only as `ai_warm` with the kind
-// and the outcome.
+// No warm-up while an AI call of the user's is on its way (an analysis, a
+// lookup of the numbers or AI-förslag), asked again just before the model is
+// called, so a real call never waits behind it; nor within the limit per
+// user and model (src/server/ai/warm-limit.ts), which a finished real call
+// also sets. Both are best effort: they live in this server process, and
+// another server instance has its own. Story 12.4 moves them to the AI jobs
+// in Postgres. Logged only as `ai_warm` with the kind, the outcome, its
+// reason and the time, never with a prompt or an answer.
 
-// The warm-up has at most 30 s (warmUpLimits); this leaves room around it.
+// The warm-up has at most 50 s (warmUpLimits); this leaves room around it.
 export const maxDuration = 60;
+
+/** The warm-up's own deadline: within maxDuration, whatever the port's budget. */
+const warmUpDeadlineMs = (maxDuration - 5) * 1000;
 
 /** Largest request body: `{"kind":"image"}` is 16 bytes. */
 const maxBodyBytes = 256;
 
 const warmRequestSchema = z.object({ kind: z.enum(warmUpKinds) });
 
-function logWarm(kind: WarmUpKind, outcome: WarmUpOutcome): void {
-  console.info("ai_warm", { kind, outcome });
+function logWarm(kind: WarmUpKind, result: WarmUpResult, durationMs: number): void {
+  console.info("ai_warm", { kind, ...result, durationMs: Math.round(durationMs) });
+}
+
+/** True while a real AI call of the user's is on its way in this server process. */
+function isBusy(userId: string): boolean {
+  return hasAiRunOnItsWay(userId) || isSuggesting(userId);
 }
 
 export async function POST(request: Request): Promise<Response> {
@@ -52,19 +63,43 @@ export async function POST(request: Request): Promise<Response> {
   const parsed = warmRequestSchema.safeParse(body);
   if (!parsed.success) return respond(fail("validation"));
   const { kind } = parsed.data;
-
   const userId = auth.user.id;
-  // A call on its way is checked first, so it never uses up the limit.
-  if (hasAiRunOnItsWay(userId) || isSuggesting(userId) || !claimWarmUp(userId, kind)) {
-    logWarm(kind, "skipped");
-  } else {
-    // Never request.signal: it no longer holds once the response is sent. The port has its own 30 s.
-    after(async () => {
-      const outcome = await getAiService()
-        .warmUp(kind, new AbortController().signal)
-        .catch((): WarmUpOutcome => "unavailable");
-      logWarm(kind, outcome);
-    });
+  const accepted = new Response(null, { status: 202 });
+
+  let modelKey: string | null;
+  try {
+    modelKey = getAiService().warmUpKey(kind);
+  } catch {
+    // The AI settings could not be read: nothing to wake, and nothing to show.
+    logWarm(kind, { outcome: "unavailable", reason: "connection" }, 0);
+    return accepted;
   }
-  return new Response(null, { status: 202 });
+  if (modelKey === null) {
+    logWarm(kind, { outcome: "skipped", reason: "provider" }, 0);
+    return accepted;
+  }
+  // A call on its way is checked first, so it never uses up the limit.
+  if (isBusy(userId)) {
+    logWarm(kind, { outcome: "skipped", reason: "busy" }, 0);
+    return accepted;
+  }
+  if (!claimWarmUp(userId, modelKey)) {
+    logWarm(kind, { outcome: "skipped", reason: "limited" }, 0);
+    return accepted;
+  }
+
+  // Never request.signal: it no longer holds once the response is sent.
+  after(async () => {
+    const started = performance.now();
+    let result: WarmUpResult;
+    try {
+      result = await getAiService().warmUp(kind, AbortSignal.timeout(warmUpDeadlineMs), {
+        isBusy: () => isBusy(userId),
+      });
+    } catch {
+      result = { outcome: "unavailable", reason: "connection" };
+    }
+    logWarm(kind, result, performance.now() - started);
+  });
+  return accepted;
 }

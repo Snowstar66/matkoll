@@ -172,4 +172,14 @@ describe("the run lock", () => {
     finishRun("busy", analysis);
     expect(hasRun("busy")).toBe(false);
   });
+
+  it("holds a warm-up off for a while once a run has finished (Story 12.2)", async () => {
+    const { claimWarmUp, resetWarmUps } = await import("@/server/ai/warm-limit");
+    resetWarmUps();
+    const lookup = startRun("warm", "locate")!;
+    finishRun("warm", lookup);
+    expect(claimWarmUp("warm", "lmstudio:model")).toBe(false);
+    expect(claimWarmUp("cold", "lmstudio:model")).toBe(true);
+    resetWarmUps();
+  });
 });

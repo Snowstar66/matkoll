@@ -2,7 +2,7 @@ import { existsSync, readdirSync, readFileSync } from "node:fs";
 import { extname, join } from "node:path";
 import { setTimeout as sleep } from "node:timers/promises";
 import { afterAll, describe, expect, it } from "vitest";
-import { analyzePlaces, createAiService, type AnalyzePlace, type SuggestDishesInput, type WarmUpOutcome } from "@/server/ai/service";
+import { analyzePlaces, createAiService, type AnalyzePlace, type SuggestDishesInput, type WarmUpResult } from "@/server/ai/service";
 import { parseEnv } from "@/server/env-schema";
 import { photoTypes, preparePhoto } from "./photos";
 import {
@@ -45,7 +45,7 @@ const warmService = createAiService(env, { fetch: globalThis.fetch.bind(globalTh
 const meter = installUsageMeter();
 const service = createAiService(env);
 const timings: TimingRow[] = [];
-const warmUps: { flow: string; outcome: WarmUpOutcome; seconds: number }[] = [];
+const warmUps: { flow: string; result: WarmUpResult; seconds: number }[] = [];
 
 function firstPhoto(): { path: string; place: AnalyzePlace } | null {
   if (!existsSync(photosDir)) return null;
@@ -68,8 +68,8 @@ const isLocal = env.AI_PROVIDER === "lmstudio" && ["localhost", "127.0.0.1"].inc
 async function warmFirst(flow: string, kind: "image" | "text") {
   if (mode !== "med") return;
   const started = performance.now();
-  void warmService.warmUp(kind, AbortSignal.timeout(60_000)).then((outcome) => {
-    warmUps.push({ flow, outcome, seconds: (performance.now() - started) / 1000 });
+  void warmService.warmUp(kind, AbortSignal.timeout(60_000)).then((result) => {
+    warmUps.push({ flow, result, seconds: (performance.now() - started) / 1000 });
   });
   await sleep(leadMs);
 }
@@ -111,8 +111,8 @@ describe("väckningen före det första anropet (Story 12.2)", () => {
 });
 
 afterAll(async () => {
-  // A warm-up still on its way is given its 30 s, so its result is in the header.
-  for (let waited = 0; mode === "med" && warmUps.length < timings.length && waited < 30; waited += 1) await sleep(1_000);
+  // A warm-up still on its way is given its 50 s, so its result is in the header.
+  for (let waited = 0; mode === "med" && warmUps.length < timings.length && waited < 50; waited += 1) await sleep(1_000);
   writeTimingReport(
     "väckning",
     [
@@ -121,7 +121,10 @@ afterAll(async () => {
       `LM Studio: ${lmStudioSettings(env.AI_MODEL)}`,
       `Läge: ${evalLabel()}`,
       `Väckning: ${mode === "med" ? `${leadMs / 1000} s före` : "ingen"}`,
-      ...warmUps.map((warm) => `Väckningen (${warm.flow}): ${warm.outcome} efter ${warm.seconds.toFixed(1)} s`),
+      ...warmUps.map(
+        (warm) =>
+          `Väckningen (${warm.flow}): ${warm.result.outcome}${"reason" in warm.result ? ` (${warm.result.reason})` : ""} efter ${warm.seconds.toFixed(1)} s`,
+      ),
     ],
     timings,
   );

@@ -369,6 +369,15 @@ describe("suggestFromPantry", () => {
       expect(isSuggesting("user")).toBe(false);
     });
 
+    it("holds a warm-up off for a while once the run has finished (Story 12.2)", async () => {
+      const { claimWarmUp, resetWarmUps } = await import("@/server/ai/warm-limit");
+      resetWarmUps();
+      await suggestFromPantry({ avoidTitles: [] }, { signal: signal() });
+      expect(claimWarmUp("user", "lmstudio:model")).toBe(false);
+      expect(claimWarmUp("someone-else", "lmstudio:model")).toBe(true);
+      resetWarmUps();
+    });
+
     it("leaves another user's run alone", async () => {
       const first = holdAi();
       const running = suggestFromPantry({ avoidTitles: [] }, { signal: signal() });

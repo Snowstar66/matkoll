@@ -51,7 +51,7 @@ afterEach(() => {
 describe("warmUp against LM Studio", () => {
   it("wakes the reading of a photo: health check, then the analyze-image prompt, a grey image and one token", async () => {
     const server = fakeServer({ chat: [Response.json(chatCompletion("{"))] });
-    expect(await lmStudio(server).warmUp("image", signal())).toBe("ok");
+    expect(await lmStudio(server).warmUp("image", signal())).toEqual({ outcome: "ok" });
 
     expect(server.requests[0].url).toBe("http://localhost:1234/v1/models");
     const body = chatBody(server);
@@ -71,7 +71,7 @@ describe("warmUp against LM Studio", () => {
 
   it("wakes the text flows with the suggest-dishes prompt and a pantry of salt", async () => {
     const server = fakeServer({ chat: [Response.json(chatCompletion("{"))] });
-    expect(await lmStudio(server).warmUp("text", signal())).toBe("ok");
+    expect(await lmStudio(server).warmUp("text", signal())).toEqual({ outcome: "ok" });
 
     const body = chatBody(server);
     expect(body.max_tokens).toBe(1);
@@ -90,23 +90,23 @@ describe("warmUp against LM Studio", () => {
     ["HTTP 400", () => Response.json({ error: { message: "too long" } }, { status: 400 })],
   ])("never tries again after %s, and is unavailable", async (_name, reply) => {
     const server = fakeServer({ chat: [reply()] });
-    expect(await lmStudio(server).warmUp("text", signal())).toBe("unavailable");
+    expect(await lmStudio(server).warmUp("text", signal())).toEqual({ outcome: "unavailable", reason: "connection" });
     expect(server.chatCalls()).toBe(1);
   });
 
   it("is unavailable after a lost connection, with one call", async () => {
     const server = fakeServer({ chat: [connectionRefused()] });
-    expect(await lmStudio(server).warmUp("image", signal())).toBe("unavailable");
+    expect(await lmStudio(server).warmUp("image", signal())).toEqual({ outcome: "unavailable", reason: "connection" });
     expect(server.chatCalls()).toBe(1);
   });
 
-  it.each<[string, Response | Error]>([
-    ["LM Studio is off", connectionRefused()],
-    ["the server answers with an error", new Response("down", { status: 503 })],
-    ["the model is not loaded", Response.json({ object: "list", data: [{ id: "another-model" }] })],
-  ])("never calls the model when %s", async (_name, models) => {
+  it.each<[string, Response | Error, string]>([
+    ["LM Studio is off", connectionRefused(), "health"],
+    ["the server answers with an error", new Response("down", { status: 503 }), "health"],
+    ["the model is not loaded", Response.json({ object: "list", data: [{ id: "another-model" }] }), "model_not_loaded"],
+  ])("never calls the model when %s", async (_name, models, reason) => {
     const server = fakeServer({ models, chat: [Response.json(chatCompletion("{"))] });
-    expect(await lmStudio(server).warmUp("image", signal())).toBe("unavailable");
+    expect(await lmStudio(server).warmUp("image", signal())).toEqual({ outcome: "unavailable", reason });
     expect(server.chatCalls()).toBe(0);
   });
 
@@ -118,14 +118,31 @@ describe("warmUp against LM Studio", () => {
 
   it("is skipped for a kind that is not image or text", async () => {
     const server = fakeServer({ chat: [Response.json(chatCompletion("{"))] });
-    expect(await lmStudio(server).warmUp("video" as WarmUpKind, signal())).toBe("skipped");
+    expect(await lmStudio(server).warmUp("video" as WarmUpKind, signal())).toEqual({ outcome: "skipped", reason: "provider" });
+    expect(lmStudio(server).warmUpKey("video" as WarmUpKind)).toBeNull();
     expect(server.requests).toHaveLength(0);
+  });
+
+  it("has one key for both kinds: the model, so the limit is one per user and model", () => {
+    const service = lmStudio(fakeServer({ chat: [] }));
+    expect(service.warmUpKey("image")).toBe(`lmstudio:${testModelId}`);
+    expect(service.warmUpKey("text")).toBe(service.warmUpKey("image"));
+  });
+
+  it("skips the call when a real one started during the health check", async () => {
+    const server = fakeServer({ chat: [Response.json(chatCompletion("{"))] });
+    const isBusy = vi.fn(() => true);
+    expect(await lmStudio(server).warmUp("image", signal(), { isBusy })).toEqual({ outcome: "skipped", reason: "busy" });
+    expect(isBusy).toHaveBeenCalledTimes(1);
+    expect(server.requests.map((request) => request.url)).toEqual(["http://localhost:1234/v1/models"]);
   });
 });
 
 describe("warmUp on other providers", () => {
   it("does nothing on the mock", async () => {
-    expect(await createAiService(parseEnv({ AI_PROVIDER: "mock" })).warmUp("image", signal())).toBe("skipped");
+    const mock = createAiService(parseEnv({ AI_PROVIDER: "mock" }));
+    expect(await mock.warmUp("image", signal())).toEqual({ outcome: "skipped", reason: "provider" });
+    expect(mock.warmUpKey("image")).toBeNull();
   });
 
   it.each([
@@ -134,14 +151,15 @@ describe("warmUp on other providers", () => {
   ])("never calls %s, which costs money and is never cold", async (_name, values) => {
     const fetchSpy = vi.fn(async () => new Response("unexpected", { status: 500 }));
     const service = createAiService(parseEnv(values), { fetch: fetchSpy as unknown as typeof fetch });
-    expect(await service.warmUp("image", signal())).toBe("skipped");
-    expect(await service.warmUp("text", signal())).toBe("skipped");
+    expect(await service.warmUp("image", signal())).toEqual({ outcome: "skipped", reason: "provider" });
+    expect(await service.warmUp("text", signal())).toEqual({ outcome: "skipped", reason: "provider" });
+    expect(service.warmUpKey("text")).toBeNull();
     expect(fetchSpy).not.toHaveBeenCalled();
   });
 
   it("does nothing on a model target that does not warm up", async () => {
     const model = fakeModel("{");
-    expect(await createModelAiService({ model }).warmUp("text", signal())).toBe("skipped");
+    expect(await createModelAiService({ model }).warmUp("text", signal())).toEqual({ outcome: "skipped", reason: "provider" });
     expect(model.doGenerateCalls).toHaveLength(0);
   });
 });
@@ -149,13 +167,13 @@ describe("warmUp on other providers", () => {
 describe("runWarmUp", () => {
   const request = { system: "system", messages: [{ role: "user" as const, content: "Lagret:\nsalt: finns" }] };
 
-  it("has at most 30 s in total, with the usual 5 s health check", () => {
-    expect(warmUpLimits).toEqual({ healthMs: 5_000, totalMs: 30_000 });
+  it("has at most 50 s in total, with the usual 5 s health check", () => {
+    expect(warmUpLimits).toEqual({ healthMs: 5_000, totalMs: 50_000 });
   });
 
   it("asks the model once, for one token and without retries", async () => {
     const model = fakeModel("{");
-    expect(await runWarmUp({ model, warmsUp: true }, request, signal())).toBe("ok");
+    expect(await runWarmUp({ model, warmUpKey: "test" }, request, signal(), { isBusy: () => false })).toEqual({ outcome: "ok" });
     expect(model.doGenerateCalls).toHaveLength(1);
     expect(model.doGenerateCalls[0]).toMatchObject({ maxOutputTokens: 1 });
     // No schema: the answer is plain text.
@@ -164,8 +182,8 @@ describe("runWarmUp", () => {
 
   it("stops the call when the total budget is used up", async () => {
     const { model, signals } = hangingModel();
-    const result = await runWarmUp({ model }, request, signal(), { healthMs: 10, totalMs: 30 });
-    expect(result).toBe("unavailable");
+    const result = await runWarmUp({ model }, request, signal(), {}, { healthMs: 10, totalMs: 30 });
+    expect(result).toEqual({ outcome: "unavailable", reason: "timeout" });
     expect(signals).toHaveLength(1);
     expect(abortReason(signals[0])).toBe("TimeoutError");
   });
@@ -176,7 +194,10 @@ describe("runWarmUp", () => {
       (healthSignal: AbortSignal) =>
         new Promise<"ok">((_, reject) => healthSignal.addEventListener("abort", () => reject(healthSignal.reason))),
     );
-    expect(await runWarmUp({ model, healthCheck }, request, signal(), { healthMs: 20, totalMs: 1_000 })).toBe("unavailable");
+    expect(await runWarmUp({ model, healthCheck }, request, signal(), {}, { healthMs: 20, totalMs: 1_000 })).toEqual({
+      outcome: "unavailable",
+      reason: "health",
+    });
     expect(model.doGenerateCalls).toHaveLength(0);
   });
 
@@ -184,7 +205,7 @@ describe("runWarmUp", () => {
     const model = fakeModel("{");
     const controller = new AbortController();
     controller.abort();
-    expect(await runWarmUp({ model }, request, controller.signal)).toBe("unavailable");
+    expect(await runWarmUp({ model }, request, controller.signal)).toEqual({ outcome: "unavailable", reason: "timeout" });
     expect(model.doGenerateCalls).toHaveLength(0);
   });
 });

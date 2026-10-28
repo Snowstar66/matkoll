@@ -146,12 +146,13 @@ describe("warmAi (Story 12.2)", () => {
     return values;
   }
 
+  const accepted = async () => new Response(null, { status: 202 });
   const now = Date.parse("2026-10-28T12:00:00Z");
 
-  it("posts the kind as JSON to /api/ai/warm and remembers when", () => {
+  it("posts the kind as JSON to /api/ai/warm and remembers when, after a 202", async () => {
     const values = stubStorage();
-    const fetchMock = mockFetch(async () => new Response(null, { status: 202 }));
-    warmAi("image", now);
+    const fetchMock = mockFetch(accepted);
+    await warmAi("image", now);
 
     expect(fetchMock).toHaveBeenCalledTimes(1);
     const [path, init] = fetchMock.mock.calls[0];
@@ -162,49 +163,75 @@ describe("warmAi (Story 12.2)", () => {
     expect(values.get(warmAiKey("image"))).toBe(String(now));
   });
 
-  it("asks at most once per kind in five minutes, each kind on its own", () => {
+  it("asks at most once per kind in three minutes, each kind on its own", async () => {
     stubStorage();
-    const fetchMock = mockFetch(async () => new Response(null, { status: 202 }));
-    warmAi("image", now);
-    warmAi("image", now + 60_000);
-    warmAi("image", now + warmAiIntervalMs - 1);
+    const fetchMock = mockFetch(accepted);
+    expect(warmAiIntervalMs).toBe(3 * 60_000);
+    await warmAi("image", now);
+    await warmAi("image", now + 60_000);
+    await warmAi("image", now + warmAiIntervalMs - 1);
     expect(fetchMock).toHaveBeenCalledTimes(1);
 
-    warmAi("text", now + 60_000);
+    await warmAi("text", now + 60_000);
     expect(fetchMock).toHaveBeenCalledTimes(2);
 
-    warmAi("image", now + warmAiIntervalMs);
+    await warmAi("image", now + warmAiIntervalMs);
     expect(fetchMock).toHaveBeenCalledTimes(3);
   });
 
-  it("asks again when the time remembered is in the future (a clock set back) or not a time", () => {
+  it("sends once while a request for the kind is on its way, and stamps only when it is answered", async () => {
     const values = stubStorage();
-    const fetchMock = mockFetch(async () => new Response(null, { status: 202 }));
-    values.set(warmAiKey("text"), String(now + 60_000));
-    warmAi("text", now);
-    values.set(warmAiKey("image"), "nonsense");
-    warmAi("image", now);
+    let answer: (response: Response) => void = () => {};
+    const fetchMock = mockFetch(() => new Promise<Response>((resolve) => (answer = resolve)));
+    const first = warmAi("image", now);
+    const second = warmAi("image", now);
+    expect(fetchMock).toHaveBeenCalledTimes(1);
+    expect(values.has(warmAiKey("image"))).toBe(false);
+
+    answer(new Response(null, { status: 202 }));
+    await Promise.all([first, second]);
+    expect(values.get(warmAiKey("image"))).toBe(String(now));
+  });
+
+  it.each([
+    ["a network error", async () => Promise.reject(new TypeError("Failed to fetch"))],
+    ["an answer that is not 202", async () => new Response("down", { status: 503 })],
+    ["a 401", async () => new Response(null, { status: 401 })],
+  ])("asks again after %s, without throwing", async (_name, reply) => {
+    const values = stubStorage();
+    const fetchMock = mockFetch(reply);
+    await expect(warmAi("text", now)).resolves.toBeUndefined();
+    expect(values.has(warmAiKey("text"))).toBe(false);
+    await warmAi("text", now + 1_000);
     expect(fetchMock).toHaveBeenCalledTimes(2);
   });
 
-  it("still asks without storage, and ignores errors and the answer", async () => {
+  it("asks again when the time remembered is in the future (a clock set back) or not a time", async () => {
+    const values = stubStorage();
+    const fetchMock = mockFetch(accepted);
+    values.set(warmAiKey("text"), String(now + 60_000));
+    await warmAi("text", now);
+    values.set(warmAiKey("image"), "nonsense");
+    await warmAi("image", now);
+    expect(fetchMock).toHaveBeenCalledTimes(2);
+  });
+
+  it("still asks without storage", async () => {
     vi.stubGlobal("window", {
       get sessionStorage(): Storage {
         throw new Error("SecurityError");
       },
     });
-    const fetchMock = mockFetch(async () => Promise.reject(new TypeError("Failed to fetch")));
-    expect(() => warmAi("image", now)).not.toThrow();
+    const fetchMock = mockFetch(accepted);
+    await expect(warmAi("image", now)).resolves.toBeUndefined();
     expect(fetchMock).toHaveBeenCalledTimes(1);
-    // The rejected fetch is caught: nothing is left unhandled.
-    await new Promise((resolve) => setTimeout(resolve, 0));
   });
 
-  it("never throws when fetch throws before sending", () => {
+  it("never throws when fetch throws before sending", async () => {
     stubStorage();
     vi.stubGlobal("fetch", () => {
       throw new TypeError("blocked");
     });
-    expect(() => warmAi("text", now)).not.toThrow();
+    await expect(warmAi("text", now)).resolves.toBeUndefined();
   });
 });

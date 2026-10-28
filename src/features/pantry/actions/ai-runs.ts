@@ -1,4 +1,5 @@
 import "server-only";
+import { noteAiUsed } from "@/server/ai/warm-limit";
 
 // The AI run on its way per user, so one person never keeps the local model
 // busy twice (a second tab, a double tap that got past the client):
@@ -37,9 +38,14 @@ export function startRun(userId: string, kind: AiRunKind): AbortController | nul
 /** Ends the run, unless a newer one has taken its place. */
 export function finishRun(userId: string, controller: AbortController): void {
   if (runs.get(userId)?.controller === controller) runs.delete(userId);
+  // Story 12.2: the model has just been used, so it needs no warm-up for a while.
+  noteAiUsed(userId);
 }
 
-/** True while an analysis or a lookup of the user's is on its way (Story 12.2: no warm-up then). */
+/**
+ * True while an analysis or a lookup of the user's is on its way (Story
+ * 12.2: no warm-up then). Only in this server process, like the lock itself.
+ */
 export function hasRun(userId: string): boolean {
   return runs.has(userId);
 }

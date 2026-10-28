@@ -124,6 +124,7 @@ context:
 
 ## Implementation Notes
 
+- **Från granskningen av 12.2:** väckningen (`POST /api/ai/warm`) vet i dag bara om körningar i den egna serverinstansen (`hasAiRunOnItsWay`, `isSuggesting`), och gränsen ligger i processens minne (`src/server/ai/warm-limit.ts`). Med jobben: väckningen hoppar över när användaren har ett `ai_job` som körs eller står i kö, receptimporten blir ett jobb och räknas då som "något pågår", och gränsen kan läsas ur jobbtabellen (senast startade eller avslutade jobb), så att det gäller över serverinstanser. 12.4 bygger det delade läget.
 - **Beslut (förslag): jobbet körs i `after()` i förfrågan som tog emot det.** Indata finns bara där. Ingen annan process kan ta över ett jobb, så ett jobb vars förfrågan dör blir `ai_job_lost` när dess tid har gått.
 - **Beslut (förslag): pollning, inte Realtime.** AD-2 förbjuder Supabase-klienten i webbläsaren. Varannan sekund bara medan något är aktivt och fliken syns.
 - **Beslut (förslag): `GET /api/ai/jobs` utan hela resultatet.** Listan pollas ofta; resultatet hämtas en gång med `GET /api/ai/jobs/[id]` när det behövs.

@@ -51,10 +51,12 @@ export type ModelTarget = {
   supportsGrounding?: boolean;
   /**
    * Story 12.2: the model runs on Pontus's Mac and goes cold after some
-   * minutes without calls, so warmUp is worth a call. Without it, warmUp
-   * does nothing: a cloud model is never cold for us, and a call costs money.
+   * minutes without calls, so warmUp is worth a call. The key names the
+   * model (LM Studio's model id), so the limit on warm-ups is one per user
+   * and model, whatever the kind. Without it, warmUp does nothing: a cloud
+   * model is never cold for us, and a call costs money.
    */
-  warmsUp?: boolean;
+  warmUpKey?: string;
 };
 
 export type Limits = {
@@ -181,8 +183,18 @@ export async function runStructured<SCHEMA extends z.ZodType>(
   return failWith("ai_invalid", "invalid");
 }
 
-/** What a warm-up came to: the model answered, or it could not be reached in time. */
-export type WarmUpResult = "ok" | "unavailable";
+/**
+ * What a warm-up came to (Story 12.2): the model answered (`ok`); it was
+ * not needed (`skipped`: within the limit, an AI call of the user's on its
+ * way, or a provider that is never cold); or the model could not be reached
+ * (`unavailable`: the health check failed, the model is not loaded, the
+ * budget ran out, or the call failed). Logged as `ai_warm` with the reason,
+ * never with a prompt or an answer.
+ */
+export type WarmUpResult =
+  | { outcome: "ok" }
+  | { outcome: "skipped"; reason: "limited" | "busy" | "provider" }
+  | { outcome: "unavailable"; reason: "health" | "model_not_loaded" | "timeout" | "connection" };
 
 export type WarmUpRequest = {
   system: string;
@@ -191,28 +203,49 @@ export type WarmUpRequest = {
   sampling?: Sampling;
 };
 
-/** Story 12.2: the health check's usual 5 s, and at most 30 s for the whole warm-up. */
-export const warmUpLimits = { healthMs: 5_000, totalMs: 30_000 } as const;
+export type WarmUpOptions = {
+  /**
+   * Asked again after the health check, just before the model is called:
+   * true when a real AI call of the user's started in the meantime, which
+   * the warm-up then never delays.
+   */
+  isBusy?: () => boolean;
+};
 
 /**
- * A warm-up (Story 12.2, AD-9): the health check, then one call with the
- * flow's system prompt and a minimal message, for a single token, without a
- * schema and without new attempts. The answer is never read. Nothing is
- * logged here; the caller logs the result.
+ * Story 12.2: the health check's usual 5 s, and at most 50 s for the whole
+ * warm-up, within POST /api/ai/warm's maxDuration of 60 s. A cold call
+ * spends most of its time before the first token (12.1: 38-86 s for a
+ * photo, against 20 s warm), so a shorter budget would often stop the
+ * warm-up before it has woken the model.
+ */
+export const warmUpLimits = { healthMs: 5_000, totalMs: 50_000 } as const;
+
+/**
+ * A warm-up (Story 12.2, AD-9): the health check, then (unless isBusy says
+ * a real call has started) one call with the flow's system prompt and a
+ * minimal message, for a single token, without a schema and without new
+ * attempts. The answer is never read. Nothing is logged here; the caller
+ * logs the result.
  */
 export async function runWarmUp(
   target: ModelTarget,
   request: WarmUpRequest,
   signal: AbortSignal,
+  { isBusy }: WarmUpOptions = {},
   limits: { healthMs: number; totalMs: number } = warmUpLimits,
 ): Promise<WarmUpResult> {
-  if (signal.aborted) return "unavailable";
+  if (signal.aborted) return { outcome: "unavailable", reason: "timeout" };
   const total = AbortSignal.any([signal, AbortSignal.timeout(limits.totalMs)]);
   if (target.healthCheck) {
     const healthSignal = AbortSignal.any([total, AbortSignal.timeout(limits.healthMs)]);
     const health = await target.healthCheck(healthSignal).catch((): HealthResult => "unreachable");
-    if (health !== "ok") return "unavailable";
+    if (health !== "ok") {
+      if (total.aborted) return { outcome: "unavailable", reason: "timeout" };
+      return { outcome: "unavailable", reason: health === "model_not_loaded" ? "model_not_loaded" : "health" };
+    }
   }
+  if (isBusy?.()) return { outcome: "skipped", reason: "busy" };
   const { providerOptions: samplingOptions, ...sampling } = request.sampling ?? {};
   try {
     await generateText({
@@ -226,9 +259,9 @@ export async function runWarmUp(
       maxRetries: 0,
       abortSignal: total,
     });
-    return "ok";
+    return { outcome: "ok" };
   } catch {
-    return "unavailable";
+    return { outcome: "unavailable", reason: total.aborted ? "timeout" : "connection" };
   }
 }
 

@@ -155,4 +155,6 @@ EVAL_WARM=utan EVAL_LABEL=kall-utan-vackning AI_PROVIDER=lmstudio pnpm eval:ai t
 EVAL_WARM=med EVAL_LABEL=kall-med-vackning AI_PROVIDER=lmstudio pnpm eval:ai tests/eval/warm-up.eval.ts
 ```
 
+Väckningen har högst 50 s, eftersom ett kallt anrop tar 38–86 s för ett foto innan modellen är vaken (avsnitt 3) och nästan allt det är tiden före den första token: en väckning som bara får några sekunder hinner inte väcka modellen. Appen väcker samma modell högst en gång på tre minuter per användare, och inte strax efter ett riktigt anrop.
+
 Låt modellen vila minst 5 minuter före varje körning. `EVAL_WARM_FLOW=bild` eller `EVAL_WARM_FLOW=forslag` kör bara ett av flödena. Mätningen görs i Epic 12-mätningen i slutet av epicen.

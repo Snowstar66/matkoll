@@ -70,8 +70,15 @@ async function post<T>(
 /** What warmAi can wake (Story 12.2): the reading of a photo, or the text flows. */
 export type WarmAiKind = "image" | "text";
 
-/** The client asks for the same kind at most once in this time, as the server allows. */
-export const warmAiIntervalMs = 5 * 60_000;
+/**
+ * The client asks for the same kind at most once in this time, as the
+ * server allows (src/server/ai/warm-limit.ts): three minutes, since the
+ * model is cold again after about five.
+ */
+export const warmAiIntervalMs = 3 * 60_000;
+
+/** The kinds with a request on its way in this tab, so effects that run together ask once. */
+const warmAiInFlight = new Set<WarmAiKind>();
 
 /** The sessionStorage key with when `kind` was last asked for (Date.now()). */
 export const warmAiKey = (kind: WarmAiKind) => `matkoll.warmAi.${kind}`;
@@ -96,21 +103,29 @@ function rememberWarmAi(kind: WarmAiKind, at: number): void {
 /**
  * Asks the server to wake the model before it is needed (Story 12.2,
  * FR-45): POST /api/ai/warm with `kind`, at most once per kind in
- * warmAiIntervalMs per browser tab (sessionStorage). Fire and forget: the
- * answer and any error are ignored, and nothing is ever shown.
+ * warmAiIntervalMs per browser tab. The time is kept in sessionStorage only
+ * when the server answered 202, so a request that failed (offline, a
+ * deploy) is asked again on the next view; while one is on its way, another
+ * for the same kind is not sent. The answer and any error are otherwise
+ * ignored, and nothing is ever shown. The promise never rejects; callers
+ * need not wait for it.
  */
-export function warmAi(kind: WarmAiKind, now: number = Date.now()): void {
+export async function warmAi(kind: WarmAiKind, now: number = Date.now()): Promise<void> {
+  if (warmAiInFlight.has(kind)) return;
   const last = lastWarmAi(kind);
   // A time in the future (a clock set back) does not hold the warm-up off.
   if (last !== null && now >= last && now - last < warmAiIntervalMs) return;
-  rememberWarmAi(kind, now);
+  warmAiInFlight.add(kind);
   try {
-    fetch("/api/ai/warm", {
+    const response = await fetch("/api/ai/warm", {
       method: "POST",
       headers: { "content-type": "application/json" },
       body: JSON.stringify({ kind }),
-    }).catch(() => {});
+    });
+    if (response.status === 202) rememberWarmAi(kind, now);
   } catch {
-    // fetch threw before sending: nothing to wake, and nothing to show.
+    // Not sent or no answer: nothing to wake, nothing to show, and asked again next time.
+  } finally {
+    warmAiInFlight.delete(kind);
   }
 }

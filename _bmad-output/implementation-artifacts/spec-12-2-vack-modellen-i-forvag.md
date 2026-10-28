@@ -2,7 +2,7 @@
 title: 'Story 12.2: Väck modellen i förväg'
 type: 'feature'
 created: '2026-10-26'
-status: 'in-progress'
+status: 'done'
 route: 'dispatch'
 baseline_commit: '4070e6ee7a8f86f36f734c06d45c980c954e8498'
 context:
@@ -99,17 +99,39 @@ context:
 
 - Vid bygget:
   - **Besluten (förslag) godkändes som de stod** (Claude, headless enligt `docs/autonomi.md`): flödets egen systemprompt, och `after()` med 202.
-  - **`warmUp` svarar med utfallet** (`ok`, `skipped` eller `unavailable`) i stället för inget, så att rutten kan logga `ai_warm` utan att porten loggar något själv. `skipped` betyder här en leverantör som aldrig är kall (`mock`, `anthropic`, `openai`) eller en sort som inte finns.
-  - **`ModelTarget.warmsUp`** säger vilka mål som väcks; bara `lmstudio` har den. Själva anropet är `runWarmUp` i `run.ts`, bredvid `runStructured`, som inte ändrades. Gränsen på 30 s gäller hela väckningen, hälsokontrollen inräknad.
-  - **Gränsen per användare och sort** ligger i `src/app/api/ai/warm/warm-limit.ts`, eftersom `route.ts` bara får exportera hanterare och inställningar. Gränsen tas när väckningen startar, också när LM Studio sedan inte svarar (`unavailable`), så att en sovande Mac inte får en hälsokontroll vid varje sidvisning. En körning som pågår kontrolleras först och tar aldrig gränsen.
-  - **"Något pågår"** är `hasAiRunOnItsWay` (bildanalys och nummer, `ai-runs.ts`, via `pantry/server.ts`) och `isSuggesting` (AI-förslag, via `suggestions/server.ts`). En receptimport har ingen sådan karta före 12.4, så en väckning kan sammanfalla med en import. Det får vara så tills importen blir ett jobb.
+  - **`warmUp` svarar med utfallet och skälet** (`ok`; `skipped` med `limited`, `busy` eller `provider`; `unavailable` med `health`, `model_not_loaded`, `timeout` eller `connection`), så att rutten kan logga `ai_warm` med skäl och tid utan att porten loggar något själv. `provider` betyder en leverantör som aldrig är kall (`mock`, `anthropic`, `openai`) eller en sort som inte finns.
+  - **`ModelTarget.warmUpKey`** säger vilka mål som väcks och vilken modell det är (`lmstudio:<modell>`); bara `lmstudio` har den. `AiService.warmUpKey(kind)` ger nyckeln. Själva anropet är `runWarmUp` i `run.ts`, bredvid `runStructured`, som inte ändrades. Efter granskningen: högst 50 s för hela väckningen (inte 30), hälsokontrollen inräknad, eftersom ett kallt anrop tar 38–86 s innan modellen är vaken; rutten ger den en egen tidsgräns på 55 s inom `maxDuration` 60.
+  - **Gränsen** ligger i `src/server/ai/warm-limit.ts`. Efter granskningen gäller den per användare och modell (inte per sort, eftersom båda sorterna väcker samma modell), är tre minuter (inte fem, eftersom modellen är kall igen efter ungefär fem), och sätts också när ett riktigt AI-anrop blir klart (`finishRun` och AI-förslagens körning). Gränsen tas när väckningen startar, också när LM Studio sedan inte svarar, så att en sovande Mac inte får en hälsokontroll vid varje sidvisning. En körning som pågår kontrolleras först och tar aldrig gränsen.
+  - **"Något pågår"** är `hasAiRunOnItsWay` (bildanalys och nummer, `ai-runs.ts`, via `pantry/server.ts`) och `isSuggesting` (AI-förslag, via `suggestions/server.ts`), och frågas igen i `runWarmUp` mellan hälsokontrollen och anropet. En receptimport har ingen sådan karta före 12.4, så en väckning kan sammanfalla med en import.
+  - **Bara inom en serverinstans:** både "något pågår" och gränsen ligger i processens minne. En annan serverinstans (Vercel kan köra flera, och en ny börjar tom) har sina egna, så en väckning kan ibland göras två gånger eller strax efter ett riktigt anrop. Det kostar en token på Pontus Mac. 12.4 flyttar det till `ai_job` i Postgres (punkt i spec-12-4).
   - **Rutten** svarar också 415 för en kropp som inte är JSON och 413 för mer än 256 byte, som de andra AI-rutterna.
+  - **Klienten** sparar tiden i `sessionStorage` först när servern har svarat 202 (efter granskningen), så att ett misslyckat anrop görs om vid nästa visning, och skickar bara ett anrop per sort åt gången (en flagga i minnet), så att effekter som körs samtidigt inte skickar två.
   - **Effekten** ligger i en gemensam klientkomponent, `src/app/(app)/warm-ai.tsx` (`<WarmAi kind="image" />` och `kind="text"`), som `hemma/page.tsx` och `recept/page.tsx` renderar utanför sina Suspense-gränser. Den väntar då aldrig på sidans data eller på gallringen av gamla foton, och den ligger inte i `home-content.tsx`. `src/components/` får inte använda `ai-client` enligt beroendediagrammet, därför ligger den under `src/app`.
   - **Den grå bilden** byggs i `warm-image.ts` med `node:zlib` (`deflateSync`, `crc32`) som en RGB-PNG på 64 × 64 px.
   - **Mätningen flyttades till Epic 12-mätningen** (Pontus, 2026-10-28): en enda mätning mot LM Studio i slutet av Epic 12 i stället för en per story. Väckningen ligger kvar, och beslutet om den ska tas bort (mindre än 20 % snabbare) fattas efter den mätningen. Det som behövs för den finns: `tests/eval/warm-up.eval.ts` körs bara med `EVAL_WARM=med` eller `utan` (en vanlig `pnpm eval:ai` hoppar över den), och gör ett första anrop per flöde (`EVAL_WARM_FLOW=bild` eller `forslag`), med väckningen `EVAL_WARM_LEAD_MS` (5 000) före. Bildanalysens förberedelse av foton flyttades till `tests/eval/photos.ts`, så att båda filerna använder samma, och `EVAL_PHOTOS_DIR` pekar på Pontus foton utan att de kopieras. Innan ändringen kom hann två kalla körningar av bildanalysen göras, som bara är en fingervisning: utan väckning efter 7 timmars vila gick anropet över 100 s (`ai_unavailable`), och med väckning 5 s före efter 7 minuters vila tog det 37,7 s (väckningen själv 23,2 s).
   - **E2E** visar också att Lagersaldo inte väcker igen när sidan visas på nytt efter Activity (via fliken Recept).
 
 ## Review Triage Log
+
+Iteration 1. En samlad granskare.
+
+**Patch:**
+- Klienten:
+  - Tiden sparas först efter 202, och en flagga i minnet gör att samtidiga effekter skickar ett anrop.
+  - Gränsen är tre minuter i stället för fem, eftersom modellen är kall igen efter ungefär fem.
+- Servern:
+  - Gränsen gäller per användare och modell (`warmUpKey`), inte per sort, och flyttade till `src/server/ai/warm-limit.ts`.
+  - Ett klart riktigt AI-anrop (`finishRun` och AI-förslagens körning) sätter gränsen, så att ingen väckning görs strax efter.
+  - "Något pågår" frågas igen i `runWarmUp`, mellan hälsokontrollen och anropet, och ger då `skipped` med `busy`.
+  - Väckningen har högst 50 s (inte 30), och rutten ger den en egen tidsgräns på 55 s.
+  - Allt i `after()` ligger i `try`, också `getAiService()`. Ett fel loggas som `ai_warm` med `unavailable`.
+  - `ai_warm` loggar skäl (`limited`, `busy`, `provider`; `health`, `model_not_loaded`, `timeout`, `connection`) och `durationMs`, aldrig prompt eller svar.
+- Dokumentation:
+  - Att "något pågår" och gränsen bara gäller inom en serverinstans står i koden och under Vid bygget.
+  - `docs/lm-studio.md` säger att ett kallt anrop tar 38–86 s innan modellen är vaken, och varför väckningen har 50 s.
+
+**Uppskjutet till senare stories** (en punkt finns i spec-12-4 under Implementation Notes):
+- 12.4: väckningen hoppar över när användaren har ett `ai_job` som körs eller står i kö, receptimporten blir ett jobb och räknas då som "något pågår", och gränsen kan läsas ur jobbtabellen, så att det gäller över serverinstanser.
 
 ## Verification
 

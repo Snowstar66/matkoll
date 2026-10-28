@@ -16,7 +16,15 @@ import { createLmStudioTarget } from "./adapters/lmstudio";
 import { createMockAiService } from "./adapters/mock";
 import { createOpenAiTarget } from "./adapters/openai";
 import { prompts } from "./prompts";
-import { defaultLimits, runStructured, runWarmUp, type Limits, type ModelTarget } from "./run";
+import {
+  defaultLimits,
+  runStructured,
+  runWarmUp,
+  type Limits,
+  type ModelTarget,
+  type WarmUpOptions,
+  type WarmUpResult,
+} from "./run";
 import {
   analyzeImageAnswer,
   locateItemsAnswer,
@@ -108,12 +116,11 @@ export type LocateItemsResult = { positions: ItemPosition[]; invalid: number };
 export const warmUpKinds = ["image", "text"] as const;
 export type WarmUpKind = (typeof warmUpKinds)[number];
 
-/**
- * What a warm-up came to: the model answered (`ok`), there was nothing to
- * wake (`skipped`: a provider that is never cold), or the model could not
- * be reached in time (`unavailable`).
- */
-export type WarmUpOutcome = "ok" | "skipped" | "unavailable";
+function isWarmUpKind(kind: string): kind is WarmUpKind {
+  return (warmUpKinds as readonly string[]).includes(kind);
+}
+
+export type { WarmUpOptions, WarmUpResult } from "./run";
 
 export interface AiService {
   /**
@@ -159,11 +166,19 @@ export interface AiService {
    * for `text`), a minimal message without any data of Pontus's (a grey
    * image, or a pantry of salt) and a single token of answer, without a
    * schema and without new attempts, at most warmUpLimits.totalMs. The
-   * answer is never used. Only a target that warmsUp (LM Studio) is called;
-   * any other answers `skipped` at once. Never fails: a model that cannot be
-   * reached is `unavailable`.
+   * answer is never used. Only a target with a warmUpKey (LM Studio) is
+   * called; any other answers `skipped` (`provider`) at once. `isBusy` is
+   * asked again after the health check: a real call that started in the
+   * meantime makes it `skipped` (`busy`). Never fails: a model that cannot
+   * be reached is `unavailable`.
    */
-  warmUp(kind: WarmUpKind, signal: AbortSignal): Promise<WarmUpOutcome>;
+  warmUp(kind: WarmUpKind, signal: AbortSignal, options?: WarmUpOptions): Promise<WarmUpResult>;
+  /**
+   * The model `kind` would wake, as a key for the limit on warm-ups (one
+   * per user and model: both kinds wake the same LM Studio model), or
+   * `null` when warmUp does nothing for this provider.
+   */
+  warmUpKey(kind: WarmUpKind): string | null;
 }
 
 /**
@@ -301,9 +316,12 @@ export function withInputValidation(service: AiService): AiService {
       if (!isValidLocateItemsInput(input)) return fail("validation");
       return service.locateItems(input, signal, options);
     },
-    async warmUp(kind, signal) {
-      if (!(warmUpKinds as readonly string[]).includes(kind)) return "skipped";
-      return service.warmUp(kind, signal);
+    async warmUp(kind, signal, options) {
+      if (!isWarmUpKind(kind)) return { outcome: "skipped", reason: "provider" };
+      return service.warmUp(kind, signal, options);
+    },
+    warmUpKey(kind) {
+      return isWarmUpKind(kind) ? service.warmUpKey(kind) : null;
     },
   };
 }
@@ -402,8 +420,11 @@ export function createModelAiService(target: ModelTarget, limits: Limits = defau
       if (located.invalid > 0) console.info("locate_positions_invalid", { count: located.invalid });
       return ok(located);
     },
-    async warmUp(kind, signal) {
-      if (!target.warmsUp) return "skipped";
+    warmUpKey() {
+      return target.warmUpKey ?? null;
+    },
+    async warmUp(kind, signal, options) {
+      if (!target.warmUpKey) return { outcome: "skipped", reason: "provider" };
       return runWarmUp(
         target,
         kind === "image"
@@ -418,6 +439,7 @@ export function createModelAiService(target: ModelTarget, limits: Limits = defau
               messages: [{ role: "user", content: suggestDishesContent(warmUpPantry) }],
             },
         signal,
+        options,
       );
     },
   };

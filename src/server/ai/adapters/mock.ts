@@ -280,8 +280,11 @@ export function createMockAiService(dir: string = defaultFixturesDir): AiService
       return ok(parseItemPositions((answer ?? current.fallback).positions, input.labels.length));
     },
     // Story 12.2: the mock is never cold, so there is nothing to wake.
+    warmUpKey() {
+      return null;
+    },
     async warmUp() {
-      return "skipped";
+      return { outcome: "skipped", reason: "provider" };
     },
   };
 }

@@ -17,7 +17,7 @@ export type {
   SuggestDishesInput,
   SuggestPantryItem,
   WarmUpKind,
-  WarmUpOutcome,
+  WarmUpResult,
 } from "./service";
 export { warmUpKinds } from "./service";
 export type { AiIngredientHint, AiPantryItem, AiRecipe, AiRecipeIngredient, ItemPosition } from "./schemas";

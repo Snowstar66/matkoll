@@ -4,7 +4,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { WarmAi } from "./warm-ai";
 
 // Story 12.2: the page asks the server to wake the model when it is shown,
-// once per kind in five minutes, and shows nothing.
+// once per kind in three minutes, and shows nothing.
 
 let fetchMock: ReturnType<typeof vi.fn>;
 beforeEach(() => {
@@ -31,7 +31,7 @@ describe("WarmAi", () => {
     expect(container).toBeEmptyDOMElement();
   });
 
-  it("does not ask again when the page is shown again within five minutes", async () => {
+  it("does not ask again when the page is shown again within three minutes", async () => {
     const first = render(<WarmAi kind="text" />);
     await waitFor(() => expect(fetchMock).toHaveBeenCalledTimes(1));
     first.unmount();

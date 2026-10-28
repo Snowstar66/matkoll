@@ -2,7 +2,7 @@ import { expect, type Page, type Request, test } from "@playwright/test";
 import { aiWarmStorageState } from "./support";
 
 // Story 12.2: Lagersaldo and Recept ask the server to wake the model when
-// they are shown, at most once per kind in five minutes per tab. The spec has
+// they are shown, at most once per kind in three minutes per tab. The spec has
 // an E2E user of its own (aiWarmEmail). With AI_PROVIDER=mock the server
 // answers 202 and wakes nothing. Nothing is ever shown.
 

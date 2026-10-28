@@ -6,6 +6,7 @@ import { getPantryForStatus } from "@/features/pantry/server";
 import { fromAiRecipe, recipeDraftSchema, type RecipeDraft } from "@/features/recipes";
 import { fail, ok, type Result } from "@/lib/errors";
 import { getAiService } from "@/server/ai";
+import { noteAiUsed } from "@/server/ai/warm-limit";
 import { toSuggestInput } from "../domain/pantry-input";
 import type { DishSuggestions, SuggestRequest } from "../domain/suggestions";
 
@@ -32,7 +33,10 @@ export const minPantryIngredients = 2;
  */
 const runs = new Map<string, AbortController>();
 
-/** True while AI-förslag of the user's are on their way (Story 12.2: no warm-up then). */
+/**
+ * True while AI-förslag of the user's are on their way (Story 12.2: no
+ * warm-up then). Only in this server process, like the map itself.
+ */
 export function isSuggesting(userId: string): boolean {
   return runs.has(userId);
 }
@@ -105,6 +109,8 @@ export async function suggestFromPantry(
     return await suggest(request, AbortSignal.any([signal, own.signal]), deadline);
   } finally {
     if (runs.get(user.data.id) === own) runs.delete(user.data.id);
+    // Story 12.2: the model has just been used, so it needs no warm-up for a while.
+    noteAiUsed(user.data.id);
   }
 }
 
