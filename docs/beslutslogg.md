@@ -11,6 +11,14 @@ Beslut som fattats under bygget: vad, varför och vilka alternativ som fanns. Ny
 - **Efter granskningen:** gränsen är tre minuter i stället för fem, eftersom modellen är kall igen efter ungefär fem, och den gäller per modell, eftersom bild och text väcker samma modell. Väckningen har 50 s i stället för 30, eftersom ett kallt anrop tar 38–86 s innan modellen är vaken; med 30 s hade den ofta avbrutits innan den hade gjort nytta. "Något pågår" frågas igen precis före anropet. Både det och gränsen gäller bara inom en serverinstans; 12.4 flyttar det till jobbtabellen.
 - **Mätningen flyttades till Epic 12-mätningen** (Pontus, 2026-10-28): en mätning mot LM Studio i slutet av epicen i stället för en per story. Väckningen ligger kvar tills dess. Ger den inte minst 20 % snabbare första anrop i median tas den bort. Hur den mäts står i `docs/lm-studio.md`, avsnitt 7.
 
+## 2026-10-28 – Kortare svar för AI-förslag (Story 12.3)
+
+- **Modellen svarar i en kortare form** (`compactDish` i `schemas.ts`): receptraden har `text`, `amount`, `unit`, `name`, `stepIndexes` och `new`, där `new` (avdelning, plats och enhet) bara finns för en vara som inte står i lagret. Porten gör om svaret till `AiRecipe` (`fromCompactDish`), så förhandsgranskningen, `fromAiRecipe` och sparandet är oförändrade. Varför: varje token tar tid med Qwen lokalt, och katalogen behöver avdelning, plats och enhet bara för en ny vara (AD-6). Specens förslag godkändes som de stod (`new` bara utanför lagret, `stepIndexes` kvar).
+- **`new` är obligatoriskt och kan vara `null`,** i stället för valfritt, eftersom alla egenskaper i porten är obligatoriska för strikta JSON-scheman. Avdelning, plats och enhet i `new` är katalogens värden som uppräkningar, så en okänd avdelning ger ett nytt försök. Radens enhet är fri text som förut.
+- **Mätt utan LM Studio:** Pontus bestämde att Epic 12 mäts en gång när epicen är klar, inte per story. Med Qwen3.6:s tokeniserare på mockens svar blir tre rätter 1 073 token i stället för 1 616 (33 % färre) och 905 i stället för 1 274 för "andra rätter" (29 %), och 1 455 (10 %) om varje rad har `new`. Uppskattat 34 s i stället för 46 s varmt. Målet (minst 25 % färre token, högst 40 s i median) prövas i Epic 12-mätningen. Når det inte målet där prövas högst 8 rader och 5 steg per rätt, som specen säger.
+- **Taket för svaret sänktes från 4 000 till 3 000 token,** ungefär dubbelt det längsta kompakta svaret, så att ett svar som skenar stannar efter ungefär 70 s och ett nytt försök hinner inom 115 s.
+- **Prompten ber om JSON utan indrag.** Indraget JSON kostar ungefär 80 % fler token. Alternativ: inget, men det kostar inget att be om det.
+
 ## 2026-10-27 – Visa senaste fotot i Lagersaldo (Story 10.2)
 
 - **Byggd om på Epic 11** (`epic/11-nytt-utseende`): bygget från 26 oktober flyttades över till det nya utseendet innan det granskades. Beteendet är detsamma, bara utseendet och orden ändrades.

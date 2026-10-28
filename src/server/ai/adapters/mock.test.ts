@@ -3,9 +3,10 @@ import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { afterEach, describe, expect, it, vi } from "vitest";
 import { compare, type Expected } from "../../../../tests/eval/compare";
-import { checkSuggestions, type SuggestExpected } from "../../../../tests/eval/suggest-checks";
+import { answerShape, checkSuggestions, type SuggestExpected } from "../../../../tests/eval/suggest-checks";
 import { imageSizeOf, imageTypeOf, maxImageBytes, maxImageSide } from "@/lib/images";
-import { aiPantryItem, aiRecipe, analyzeImageAnswer, parseAnalyzeItems, suggestDishesAnswer } from "../schemas";
+import { fromCompactDish } from "../compact-dish";
+import { aiPantryItem, aiRecipe, analyzeImageAnswer, parseAnalyzeItems, suggestDishesAnswerCompact } from "../schemas";
 import type { SuggestDishesInput } from "../service";
 import {
   createMockAiService,
@@ -138,7 +139,8 @@ describe("mock AI service", () => {
 describe("mock suggestDishes", () => {
   const service = createMockAiService();
   const pantryInput = JSON.parse(read(`${manifest.suggest}.pantry.json`)) as SuggestDishesInput;
-  const setOf = (name: string) => suggestDishesAnswer.parse(JSON.parse(read(`${name}.response.json`))).suggestions;
+  const setOf = (name: string) =>
+    suggestDishesAnswerCompact.parse(JSON.parse(read(`${name}.response.json`))).suggestions.map(fromCompactDish);
   const suggestions = () => setOf(manifest.suggest);
   const alternative = () => setOf(manifest.suggestAlternatives[0]);
 
@@ -146,6 +148,33 @@ describe("mock suggestDishes", () => {
     expect(await service.suggestDishes(pantryInput, signal())).toEqual({ ok: true, data: suggestions() });
     const other = { pantry: [{ name: "havregryn", amount: 1, unit: "kg" }], avoidTitles: ["Gröt"] };
     expect(await service.suggestDishes(other, signal())).toEqual({ ok: true, data: suggestions() });
+  });
+
+  it("answers in the compact form turned into AiRecipe (Story 12.3), with `new` only for an item outside the pantry", async () => {
+    const raw = (name: string) =>
+      (JSON.parse(read(`${name}.response.json`)) as { suggestions: { ingredients: Record<string, unknown>[] }[] }).suggestions;
+    const lines = [...raw(manifest.suggest), ...raw(manifest.suggestAlternatives[0])].flatMap((dish) => dish.ingredients);
+    expect(lines.every((line) => !("originalText" in line) && !("hint" in line) && !("isVague" in line))).toBe(true);
+    const pantry = new Set(pantryInput.pantry.map((item) => item.name));
+    expect(lines.filter((line) => line.new !== null).map((line) => line.name)).toEqual(["grönsaksbuljong"]);
+    expect(lines.every((line) => line.new !== null || pantry.has(String(line.name)))).toBe(true);
+
+    const result = await service.suggestDishes({ ...pantryInput, avoidTitles: [suggestions()[0].title] }, signal());
+    if (!result.ok) throw new Error("expected ok");
+    const answered = result.data.flatMap((recipe) => recipe.ingredients);
+    expect(answered.find((line) => line.hint.name === "grönsaksbuljong")?.hint).toEqual({
+      name: "grönsaksbuljong",
+      section: "Skafferi",
+      location: "Skafferi",
+      defaultUnit: "st",
+    });
+    expect(answered.find((line) => line.hint.name === "smör")?.hint).toEqual({
+      name: "smör",
+      section: "Övrigt",
+      location: "Skafferi",
+      defaultUnit: "msk",
+    });
+    for (const recipe of result.data) expect(aiRecipe.safeParse(recipe).success).toBe(true);
   });
 
   it.each(mockSuggestErrorCodes.map((code) => [code]))(
@@ -195,6 +224,30 @@ describe("mock suggestDishes", () => {
     for (const set of [suggestions(), alternative()]) {
       expect(checkSuggestions(set, pantryInput, expected).filter((check) => !check.ok)).toEqual([]);
     }
+  });
+
+  it("is at least 25 % shorter on one line than the same dishes as full AiRecipe (Story 12.3)", () => {
+    for (const name of [manifest.suggest, ...manifest.suggestAlternatives]) {
+      const compact = JSON.stringify(JSON.parse(read(`${name}.response.json`)));
+      const full = JSON.stringify({ suggestions: setOf(name) });
+      expect(compact.length).toBeLessThanOrEqual(full.length * 0.75);
+    }
+  });
+
+  it("reads as a compact answer in the eval's answerShape, with every line without new in the pantry", () => {
+    expect(answerShape(read(`${manifest.suggestAlternatives[0]}.response.json`), pantryInput)).toEqual({
+      compact: true,
+      indented: true,
+      lines: 19,
+      linesWithNew: 1,
+      unmatchedWithoutNew: [],
+    });
+    const full = { suggestions: [{ ingredients: [{ originalText: "salt", hint: { name: "salt" } }] }] };
+    expect(answerShape(JSON.stringify(full), pantryInput)).toMatchObject({ compact: false, indented: false, linesWithNew: 0 });
+    const outside = { suggestions: [{ ingredients: [{ name: "lök", new: null }, { name: "Gul lök", new: null }] }] };
+    expect(answerShape(JSON.stringify(outside), pantryInput)?.unmatchedWithoutNew).toEqual(["lök"]);
+    expect(answerShape("{ inte json", pantryInput)).toBeNull();
+    expect(answerShape(undefined, pantryInput)).toBeNull();
   });
 
   it("keeps imports working when the suggest fixture is broken", async () => {

@@ -15,6 +15,7 @@ import { createAnthropicTarget } from "./adapters/anthropic";
 import { createLmStudioTarget } from "./adapters/lmstudio";
 import { createMockAiService } from "./adapters/mock";
 import { createOpenAiTarget } from "./adapters/openai";
+import { fromCompactDish } from "./compact-dish";
 import { prompts } from "./prompts";
 import {
   defaultLimits,
@@ -32,7 +33,7 @@ import {
   parseAnalyzeItems,
   parseItemPositions,
   parseRecipeAnswer,
-  suggestDishesAnswerFor,
+  suggestDishesAnswerCompactFor,
   type AiPantryItem,
   type AiRecipe,
   type ItemPosition,
@@ -195,11 +196,17 @@ export const inputLimits = {
   maxOutputTokens: 3_000,
   /**
    * suggestDishes (src/lib/suggest-input.ts): the pantry as at most 4 000
-   * characters of lines (about 1 300 tokens), and three answers of at most
-   * about 1 000 tokens each (the prompt allows 10 lines and 6 short steps per
-   * dish), so prompt, schema, pantry and answer fit in 8 192 tokens.
+   * characters of lines (about 1 300 tokens), and the answer, so prompt,
+   * schema, pantry and answer fit in 8 192 tokens. Story 12.3: the compact
+   * answer is about a third shorter. Counted with Qwen3.6's tokenizer on the
+   * mock's answers, three dishes are about 1 070 tokens on one line (the full
+   * AiRecipe was 1 620, and 12.1 measured 1 470–2 130), and about 1 460 when
+   * every line has `new`. 3 000 leaves room for that twice over, and an
+   * answer that runs on stops after about 70 s at 44 tokens per second, so a
+   * new attempt still fits in the 115 s (it was 4 000, about 90 s). The live
+   * measurement is in the one for all of Epic 12.
    */
-  suggest: { ...suggestInputLimits, maxOutputTokens: 4_000 },
+  suggest: { ...suggestInputLimits, maxOutputTokens: 3_000 },
   /**
    * analyzeImage, measured with Qwen3.6 in LM Studio (MLX, 8 192 tokens of
    * context, 2026-10-26): an item is 60–70 tokens of answer, so 25 items
@@ -355,17 +362,19 @@ export function createModelAiService(target: ModelTarget, limits: Limits = defau
       const answer = await runStructured(
         target,
         {
-          // An answer with a title to avoid is invalid, so the retry tells the model.
-          schema: suggestDishesAnswerFor(input.avoidTitles),
+          // Story 12.3: the compact answer. One with a title to avoid is invalid, so the retry tells the model.
+          schema: suggestDishesAnswerCompactFor(input.avoidTitles),
           system: prompts.suggestDishes,
           messages: [{ role: "user", content: suggestDishesContent(input) }],
           maxOutputTokens: inputLimits.suggest.maxOutputTokens,
+          // Story 12.3: the cap is lower now, so an answer cut at it is logged (only the event, never the answer).
+          onTruncated: () => console.info("suggest_truncated"),
         },
         signal,
         within,
       );
       if (!answer.ok) return answer;
-      return ok(answer.data.suggestions);
+      return ok(answer.data.suggestions.map(fromCompactDish));
     },
     async analyzeImage(input, signal, options = {}) {
       const within = limitsWithin(limits, options.deadline);
