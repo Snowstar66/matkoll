@@ -4,17 +4,20 @@ type: architecture-spine
 purpose: build-substrate
 altitude: feature
 paradigm: 'Modulär monolit: feature-moduler med inre lager, externa tjänster bakom portar (ports and adapters)'
-scope: 'Matkoll v1 och 1.1, hela appen (Epic 1–8, Epic 10 och Epic 11)'
+scope: 'Matkoll v1, 1.1 och 1.2, hela appen (Epic 1–12)'
 status: final
 created: '2026-10-25'
 updated: '2026-10-26'
-binds: [FR-1, FR-2, FR-3, FR-4, FR-5, FR-6, FR-7, FR-8, FR-9, FR-10, FR-11, FR-12, FR-13, FR-14, FR-15, FR-16, FR-17, FR-18, FR-19, FR-20, FR-21, FR-22, FR-23, FR-24, FR-25, FR-26, FR-27, FR-28, FR-29, FR-30, FR-31, FR-32, FR-33, FR-37, FR-38, FR-39, FR-40, FR-41, FR-42, FR-43, FR-44, NFR-1, NFR-2, NFR-3, NFR-4, NFR-5, NFR-6, NFR-7, NFR-8, NFR-9, NFR-11, NFR-12]
+binds: [FR-1, FR-2, FR-3, FR-4, FR-5, FR-6, FR-7, FR-8, FR-9, FR-10, FR-11, FR-12, FR-13, FR-14, FR-15, FR-16, FR-17, FR-18, FR-19, FR-20, FR-21, FR-22, FR-23, FR-24, FR-25, FR-26, FR-27, FR-28, FR-29, FR-30, FR-31, FR-32, FR-33, FR-34, FR-35, FR-36, FR-37, FR-38, FR-39, FR-40, FR-41, FR-42, FR-43, FR-44, FR-45, FR-46, FR-47, FR-48, FR-49, FR-50, FR-51, FR-52, FR-53, FR-54, NFR-1, NFR-2, NFR-3, NFR-4, NFR-5, NFR-6, NFR-7, NFR-8, NFR-9, NFR-10, NFR-11, NFR-12, NFR-13]
 sources:
   - _bmad-output/planning-artifacts/prds/prd-Matkoll-2026-10-25/prd.md
   - _bmad-output/planning-artifacts/prds/prd-Matkoll-2026-10-25/addendum.md
   - _bmad-output/planning-artifacts/sprint-change-proposal-2026-10-26-flera-stallen.md
   - _bmad-output/planning-artifacts/sprint-change-proposal-2026-10-26-spara-foto.md
   - _bmad-output/planning-artifacts/sprint-change-proposal-2026-10-26-nytt-utseende.md
+  - _bmad-output/planning-artifacts/sprint-change-proposal-2026-10-26-asynkron-ai.md
+  - _bmad-output/planning-artifacts/sprint-change-proposal-2026-10-26-erbjudanden-v2.md
+  - docs/erbjudanden-lankar.md
   - _bmad-output/planning-artifacts/ux-designs/ux-Matkoll-2026-10-25/mockups/
   - _bmad-output/planning-artifacts/ux-designs/ux-Matkoll-2026-10-25/DESIGN.md
   - _bmad-output/planning-artifacts/ux-designs/ux-Matkoll-2026-10-25/EXPERIENCE.md
@@ -36,7 +39,7 @@ companions: []
 | Actions | `src/features/<f>/actions/` | Server Actions (`"use server"`) och serverfunktioner för AI-flöden: `requireUser()`, Zod-validering, anropar `domain`, `data` och portar. |
 | Domain | `src/features/<f>/domain/` | Rena TypeScript-funktioner och Zod-scheman. Ingen I/O, inget React, ingen Next, ingen Supabase. |
 | Data | `src/features/<f>/data/` | Supabase-frågor för modulens egna tabeller. `queries.ts` (läsning, `server-only`) och skrivfunktioner. |
-| Portar | `src/server/ai/`, `src/server/fetch/` | AI-tjänsten och säker hämtning från receptsajter. |
+| Portar | `src/server/ai/`, `src/server/fetch/` | AI-tjänsten och säker hämtning från receptsajter och, från 1.2, godkända erbjudandesidor. |
 
 Feature-moduler och deras tabeller:
 
@@ -50,6 +53,8 @@ Feature-moduler och deras tabeller:
 | `shopping` | `shopping_check`, `shopping_line_override`, `shopping_custom_item`, `product_choice` |
 | `suggestions` | – (läser via andra moduler) |
 | `settings` | `recipe_site`, `store` |
+| `ai-jobs` | `ai_job` (Epic 12, AD-28) |
+| `offers` | `store_offer` (1.2, AD-25) |
 
 ## Invariants & Rules
 
@@ -81,13 +86,13 @@ Pilarna är de enda tillåtna beroendena. En annan modul nås bara via dess `ind
 
 - **Binds:** all kod
 - **Prevents:** affärslogik i sidor, moduler som läser eller skriver varandras tabeller, och Server Actions som används som läs-API.
-- **Rule:** Beroenden följer diagrammet. Varje tabell skrivs och läses bara av sin ägarmodul (tabellen ovan); andra moduler använder ägarens exporterade läsfunktioner och actions. Server Actions används inte för läsning, utom `search*`-actions för sökning medan man skriver. Komponenter som behövs i flera moduler ligger i `src/components/`. Portar importerar aldrig `src/lib/supabase` eller `src/features/*`; det de behöver skickas in som argument. En skrivning som måste vara atomär görs som en Postgres-funktion (`security invoker`) i ägarmodulens migration och skriver bara ägarens tabeller. Flöden över flera moduler görs idempotenta i stället för atomära.
+- **Rule:** Beroenden följer diagrammet. Varje tabell skrivs och läses bara av sin ägarmodul (tabellen ovan); andra moduler använder ägarens exporterade läsfunktioner och actions. Server Actions används inte för läsning, utom `search*`-actions för sökning medan man skriver. Komponenter som behövs i flera moduler ligger i `src/components/`. Portar importerar aldrig `src/lib/supabase` eller `src/features/*`; det de behöver skickas in som argument. En skrivning som måste vara atomär görs som en Postgres-funktion (`security invoker`) i ägarmodulens migration och skriver bara ägarens tabeller. Flöden över flera moduler görs idempotenta i stället för atomära. Tillägg (Epic 12, AD-28): modulen `ai-jobs` äger `ai_job` och är allmän. Den importerar ingen annan feature-modul och vet inget om recept, lager eller förslag. Jobbrutterna i `src/app/api/ai/jobs/` sätter ihop ett jobb med modulens serverfunktion (route → `server.ts`), och klienterna når jobben via `src/lib/ai-jobs-client.ts`. Tillägg (1.2, AD-25): modulen `offers` äger `store_offer`. Den får importera `src/server/fetch` (bara `safeFetch`), som `recipes`. Inga andra moduler gör det. Etiketterna för erbjudanden sätts ihop av sidorna (route → ui), så att `shopping/ui`, `recipes/ui` och `mealplan/ui` aldrig importerar `offers`.
 
 ### AD-2 – En väg för ändringar
 
 - **Binds:** alla skrivningar, FR-6, FR-16, FR-18, FR-25, NFR-1
 - **Prevents:** skrivvägar som kringgår validering och inloggning, och AI-flöden som sparar utan bekräftelse.
-- **Rule:** Webbläsaren använder aldrig Supabase-klienten. Läsning sker i Server Components via `server.ts`. Skrivning sker bara via Server Actions som börjar med `requireUser()` och validerar med Zod. Route Handlers under `src/app/api/ai/*` skriver aldrig till databasen; de anropar bara skrivfria funktioner, och resultatet lever i klienten tills Pontus sparar eller bekräftar via en Server Action. Undantag (Epic 10, AD-26): `POST /api/pantry/photo` sparar en plats senaste foto, eftersom en Server Action tar emot högst 1 MB och fotot kan vara 1,5 MB. Den är den enda Route Handler som skriver, och den gör samma kontroller som en Server Action: `isCrossSite`, `requireUserForRoute()`, `readImageForm` för bilden och Zod för övriga fält.
+- **Rule:** Webbläsaren använder aldrig Supabase-klienten. Läsning sker i Server Components via `server.ts`. Skrivning sker bara via Server Actions som börjar med `requireUser()` och validerar med Zod. Route Handlers under `src/app/api/ai/*` skriver aldrig till databasen; de anropar bara skrivfria funktioner, och resultatet lever i klienten tills Pontus sparar eller bekräftar via en Server Action. Undantag (Epic 10, AD-26): `POST /api/pantry/photo` sparar en plats senaste foto, eftersom en Server Action tar emot högst 1 MB och fotot kan vara 1,5 MB. Den är den enda Route Handler som skriver, och den gör samma kontroller som en Server Action: `isCrossSite`, `requireUserForRoute()`, `readImageForm` för bilden och Zod för övriga fält. Ändrat (Epic 12, AD-28): AI-resultat lever i den privata tabellen `ai_job` tills Pontus har stängt eller sparat dem, och i klienten som förut. `POST /api/ai/jobs` och `POST /api/ai/jobs/photo` skriver bara `ai_job`, med samma kontroller som ovan, och bara via Postgres-funktionerna i AD-28. Ingen AI-rutt skriver någon annan tabell, och inget AI-resultat sparas i en annan modul utan Pontus tryck. Avbryt, sett och stäng är Server Actions i `ai-jobs/actions`.
 
 ### AD-3 – Inloggning och tillåtelselista
 
@@ -99,7 +104,7 @@ Pilarna är de enda tillåtna beroendena. En annan modul nås bara via dess `ind
 
 - **Binds:** FR-2, NFR-1, NFR-8, alla tabeller
 - **Prevents:** tabeller utan skydd, skillnad mellan lokal miljö och moln, och rader som pekar på en annan användares data.
-- **Rule:** Varje tabell i `public` har `user_id uuid not null default auth.uid() references auth.users on delete cascade`, RLS påslaget och en policy `user_id = (select auth.uid())` för select, insert, update och delete. Varje migration som skapar en tabell ger `grant select, insert, update, delete` till `authenticated` och `service_role`, aldrig till `anon`. `supabase/config.toml` har `[api] auto_expose_new_tables = false`. Barntabeller refererar föräldern med sammansatt främmande nyckel `(parent_id, user_id)`. Serverkod i förfrågningar använder användarens sessionsklient, aldrig service role; service role används bara i tester och skript. Varje ny tabell får ett RLS-test där en anonym klient och en annan användare varken kan läsa eller skriva (`42501` eller tomt resultat godtas). Tillägg (Epic 10, AD-26): en Storage-bucket är privat och skyddas av policyer på `storage.objects` med bucketens id och användarens id som första mapp i sökvägen. Den får samma slags RLS-test: en anonym klient och en annan användare kan varken ladda upp, läsa, lista eller ta bort.
+- **Rule:** Varje tabell i `public` har `user_id uuid not null default auth.uid() references auth.users on delete cascade`, RLS påslaget och en policy `user_id = (select auth.uid())` för select, insert, update och delete. Varje migration som skapar en tabell ger `grant select, insert, update, delete` till `authenticated` och `service_role`, aldrig till `anon`. `supabase/config.toml` har `[api] auto_expose_new_tables = false`. Barntabeller refererar föräldern med sammansatt främmande nyckel `(parent_id, user_id)`. Serverkod i förfrågningar använder användarens sessionsklient, aldrig service role; service role används bara i tester och skript. Varje ny tabell får ett RLS-test där en anonym klient och en annan användare varken kan läsa eller skriva (`42501` eller tomt resultat godtas). Tillägg (Epic 10, AD-26): en Storage-bucket är privat och skyddas av policyer på `storage.objects` med bucketens id och användarens id som första mapp i sökvägen. Den får samma slags RLS-test: en anonym klient och en annan användare kan varken ladda upp, läsa, lista eller ta bort. Tillägg (Epic 12): `ai_job` följer regeln som alla tabeller, och RLS-testet visar också att en annan användare varken kan läsa, avbryta eller ta över ett jobb med Postgres-funktionerna.
 
 ### AD-5 – Schemaändringar
 
@@ -143,7 +148,7 @@ Pilarna är de enda tillåtna beroendena. En annan modul nås bara via dess `ind
 
 ### AD-9 – AI-tjänsten är en port
 
-- **Binds:** FR-3, FR-4, FR-5, FR-23, FR-24, NFR-2, NFR-7
+- **Binds:** FR-3, FR-4, FR-5, FR-23, FR-24, FR-34, FR-36, FR-45, FR-50, FR-54, NFR-2, NFR-7
 - **Prevents:** leverantörsspecifik kod i modulerna, ovaliderade AI-svar, anrop som inte går att avbryta och en sovande Mac som låser appen.
 - **Rule:** `src/server/ai/` exporterar `AiService` med `parseRecipe`, `analyzeImage` och `suggestDishes`. Alla tar en `AbortSignal`. Adaptrarna `lmstudio`, `anthropic`, `openai` och `mock` väljs med `AI_PROVIDER`; bara `src/server/ai/` får importera `ai` och `@ai-sdk/*`.
   - Anrop görs med `generateText` och `Output.object({ schema })`, aldrig `generateObject`. Bilder skickas som `file`-delar.
@@ -151,18 +156,27 @@ Pilarna är de enda tillåtna beroendena. En annan modul nås bara via dess `ind
   - SDK:ns `maxRetries` är 0. Porten gör högst två nya försök vid ogiltigt svar (`ai_invalid`). Nätverksfel, tidsgräns för anslutning (5 s) eller svar som inte är JSON ger `ai_unavailable` utan nya försök. Tidsbudget: 100 s per försök, 115 s totalt (ändrad 2026-10-25 efter Story 1.8: Qwen i LM Studio behöver 40–56 s för fulla recept). Ett nytt försök görs bara om tiden räcker.
   - Svarsscheman finns i `src/server/ai/schemas.ts` och promptar som filer i `src/server/ai/prompts/`. `mock` är deterministisk och används i alla tester och i CI.
   - AI-flöden startas från klienten via `src/lib/ai-client.ts` till Route Handlers i `src/app/api/ai/*` (`maxDuration = 120`). Handlern anropar modulens serverfunktion (t.ex. `recipes/actions/importRecipe.ts`) och skickar vidare `request.signal`. AI anropas aldrig vid rendering eller i `data`.
+  - Ändrat (Epic 12, AD-28):
+    - Bildanalys, AI-förslag och receptimport körs som AI-jobb. Klienten startar dem via `src/lib/ai-jobs-client.ts` till `POST /api/ai/jobs` (JSON) och `POST /api/ai/jobs/photo` (multipart), med `maxDuration = 300`. Jobbet körs i `after()` med en egen `AbortController` och en egen tidsgräns, aldrig med `request.signal`, som inte längre gäller när svaret har skickats. De gamla rutterna (`analyze`, `locate`, `suggest`, `import`, `import/photo`) tas bort i den story som flyttar flödet.
+    - Porten får `warmUp(kind: 'image' | 'text', signal)`: ett anrop med flödets systemprompt, minimal indata och `maxOutputTokens: 1`, utan schema och utan nya försök, högst 30 s. Bara `lmstudio` gör något; `mock`, `anthropic` och `openai` svarar direkt. Den anropas bara från `POST /api/ai/warm` (12.2).
+    - `suggestDishes` får en strömmande variant (`suggestDishesStream(input, signal, { onDish })`, 12.7) med `streamText` och `Output.array({ element })`, där `elementStream` ger varje färdig, validerad rätt. Det är det enda undantaget från `generateText` med `Output.object`. Samma tidsbudget, samma hälsokontroll och samma regel för nya försök: ett nytt försök görs bara när ingen giltig rätt har kommit.
+    - `mock` tar en fördröjning per anrop från `AI_MOCK_DELAY_MS` (AD-14), så att kön kan provas i e2e.
+  - Tillägg (1.2, AD-25):
+    - `suggestDishes` får `offers: string[]` (varornas namn, aldrig priser). En tom lista ger samma meddelande som utan erbjudanden.
+    - Porten får `planWeek` (veckans matsedel, jobbet `weekplan`, med det kompakta schemat från AD-10) och `extractOffers` (text eller bild till erbjudanden, jobbet `offers`), med samma regler som de andra metoderna. Om Story 9.10 byggs får den också `matchOffers`, som bara väljer bland befintliga katalogingredienser.
+    - Läsningen av en butiks erbjudandesida görs aldrig med AI (AD-25).
 
 ### AD-10 – Ett receptformat
 
 - **Binds:** FR-3, FR-4, FR-5, FR-6, FR-10, FR-21, FR-23
 - **Prevents:** olika importvägar som ger olika format, och redigering som tappar stegkopplingar.
-- **Rule:** `parseRecipe` och `suggestDishes` returnerar samma `AiRecipe`-schema (med katalogförslag per rad). `recipes/domain/fromAiRecipe(aiRecipe, matches): RecipeDraft` är den enda mappningen och används för länk, text, foto och AI-förslag. `RecipeDraft` (Zod) innehåller titel, originalportioner, total tid i minuter, bild-URL, `sourceKind` (`url | text | photo | ai`), `sourceUrl` (bara för `url`), steg och receptrader. Varje receptrad har originaltext, mängd, enhet, vag, `ingredient: IngredientMatch | { kind: 'chosen', ingredientId }` och valfria stegindex. Inget importflöde skriver till databasen. `saveRecipe(draft)` och `updateRecipe(id, draft)` är de enda skrivvägarna; `updateRecipe` behåller id för rader och steg som finns kvar och översätter stegindex till id. AI-förslag finns bara i klientens tillstånd tills de sparas. Visningstexten för källa väljs bara i `recipes/domain/sourceLabel()`.
+- **Rule:** `parseRecipe` och `suggestDishes` returnerar samma `AiRecipe`-schema (med katalogförslag per rad). `recipes/domain/fromAiRecipe(aiRecipe, matches): RecipeDraft` är den enda mappningen och används för länk, text, foto och AI-förslag. `RecipeDraft` (Zod) innehåller titel, originalportioner, total tid i minuter, bild-URL, `sourceKind` (`url | text | photo | ai`), `sourceUrl` (bara för `url`), steg och receptrader. Varje receptrad har originaltext, mängd, enhet, vag, `ingredient: IngredientMatch | { kind: 'chosen', ingredientId }` och valfria stegindex. Inget importflöde skriver till databasen. `saveRecipe(draft)` och `updateRecipe(id, draft)` är de enda skrivvägarna; `updateRecipe` behåller id för rader och steg som finns kvar och översätter stegindex till id. AI-förslag finns bara i klientens tillstånd tills de sparas. Visningstexten för källa väljs bara i `recipes/domain/sourceLabel()`. Tillägg (Epic 12): `suggestDishes` ber modellen om ett kompaktare svar (`suggestDishesAnswerCompact` i `schemas.ts`): receptraden har `text`, `amount`, `unit`, `name` och `stepIndexes`, och `new` (avdelning, plats och enhet) bara för en vara som inte finns i lagret. Porten gör om det till `AiRecipe` (`isVague` när `amount` är `null`, `hint` från `name` och `new`, annars Övrigt, Skafferi och raden eller `st` som enhet), så att `fromAiRecipe` och allt efter är oförändrat. `parseRecipe` behåller hela schemat. Ett AI-förslag och en import i ett jobb lagras som det färdiga resultatet (`RecipeDraft`) i `ai_job.result` tills Pontus sparar eller stänger det (AD-28).
 
 ### AD-11 – Hämtning från receptsajter
 
-- **Binds:** FR-3, FR-7, NFR-1, NFR-8
+- **Binds:** FR-3, FR-7, NFR-1, NFR-8, och från 1.2 FR-34 och NFR-10
 - **Prevents:** SSRF, hämtning från ej godkända domäner, och AI-normalisering som hoppas över.
-- **Rule:** `src/server/fetch/safeFetch(url, { allowedDomains, signal })` är den enda kod som hämtar från receptsajter. Anroparen läser domänlistan via `settings`. Krav: bara https; värden ska vara en domän i listan eller dess `www.`-variant; DNS slås upp och privata, lokala och reserverade adresser avvisas; omdirigeringar följs manuellt med ny kontroll (högst 3); 10 s tidsgräns; högst 3 MB. Kontrollen sker före varje anslutning och testas i CI med sparade sidor från koket.se och tasteline.com. JSON-LD (`schema.org/Recipe`) skickas, om den finns, som indata till `parseRecipe` tillsammans med sidans läsbara text; den används aldrig direkt som `RecipeDraft`. Domäner som Pontus lägger till valideras och normaliseras av ett Zod-schema i `settings/domain` (gemener, utan schema, sökväg och `www.`).
+- **Rule:** `src/server/fetch/safeFetch(url, { allowedDomains, signal })` är den enda kod som hämtar från receptsajter. Anroparen läser domänlistan via `settings`. Krav: bara https; värden ska vara en domän i listan eller dess `www.`-variant; DNS slås upp och privata, lokala och reserverade adresser avvisas; omdirigeringar följs manuellt med ny kontroll (högst 3); 10 s tidsgräns; högst 3 MB. Kontrollen sker före varje anslutning och testas i CI med sparade sidor från koket.se och tasteline.com. JSON-LD (`schema.org/Recipe`) skickas, om den finns, som indata till `parseRecipe` tillsammans med sidans läsbara text; den används aldrig direkt som `RecipeDraft`. Domäner som Pontus lägger till valideras och normaliseras av ett Zod-schema i `settings/domain` (gemener, utan schema, sökväg och `www.`). Tillägg (1.2, AD-25), beslutat av Pontus 2026-10-26: `safeFetch` hämtar också butikers erbjudandesidor, med samma kontroller, men bara från den fasta listan `OFFER_SITES` i `settings/domain/offers-link.ts` (i 1.2 `www.ica.se`, sökvägen `/erbjudanden/<slug>-<siffror>/`) och bara den adress som är sparad i `store.offers_url`. Erbjudandesidor blir aldrig receptsajter, och receptsajterna används aldrig för erbjudanden. Anroparen (`offers/actions/fetchStoreOffers`) skickar `OFFERS_USER_AGENT`, en ärlig User-Agent i samma form som receptimportens. Inga kakor, inga huvuden som efterliknar en webbläsare, en hämtning per tryck och inget nytt försök efter 403 eller 429. Testerna hämtar bara från `tests/fixtures/sites/` via `fixture-sites.ts`.
 
 ### AD-12 – Enheter, mängder, avdelningar och platser
 
@@ -180,13 +194,13 @@ Pilarna är de enda tillåtna beroendena. En annan modul nås bara via dess `ind
 
 - **Binds:** alla actions och Route Handlers, NFR-6
 - **Prevents:** olika felformer per modul och engelska tekniska fel i gränssnittet.
-- **Rule:** Actions och Route Handlers returnerar `{ ok: true, data } | { ok: false, error: { code, message } }`. `code` namnges `<område>_<orsak>` och finns i `src/lib/errors.ts` tillsammans med den svenska texten (Voice and Tone i `EXPERIENCE.md`), t.ex. `unauthorized`, `validation`, `fetch_domain_not_allowed`, `fetch_blocked`, `fetch_timeout`, `fetch_too_large`, `import_no_recipe`, `ai_unavailable`, `ai_invalid`, `image_too_large`. Förväntade fel kastas aldrig till klienten.
+- **Rule:** Actions och Route Handlers returnerar `{ ok: true, data } | { ok: false, error: { code, message } }`. `code` namnges `<område>_<orsak>` och finns i `src/lib/errors.ts` tillsammans med den svenska texten (Voice and Tone i `EXPERIENCE.md`), t.ex. `unauthorized`, `validation`, `fetch_domain_not_allowed`, `fetch_blocked`, `fetch_timeout`, `fetch_too_large`, `import_no_recipe`, `ai_unavailable`, `ai_invalid`, `image_too_large`. Förväntade fel kastas aldrig till klienten. Tillägg (Epic 12): `ai_queue_full`, `ai_queue_timeout`, `ai_job_lost` och `ai_job_gone` (AD-28). Ett jobb som misslyckas sparar sin felkod i `ai_job.error_code`, och klienten visar texten från `errors.ts` som för ett direkt svar.
 
 ### AD-14 – Konfiguration och hemligheter
 
 - **Binds:** NFR-1, NFR-2, NFR-8
 - **Prevents:** nycklar i klientkod, variabler med olika namn och saknade värden som upptäcks först vid anrop.
-- **Rule:** All miljö läses via `src/server/env.ts` (`server-only`), validerad med Zod vid start. Godkända namn: `NEXT_PUBLIC_SUPABASE_URL`, `NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY`, `SUPABASE_SERVICE_ROLE_KEY` (bara tester och skript), `SITE_URL` (appens publika adress, används i länkar i e-post), `ALLOWED_EMAILS`, `AI_PROVIDER`, `AI_MODEL`, `LMSTUDIO_BASE_URL`, `CF_ACCESS_CLIENT_ID`, `CF_ACCESS_CLIENT_SECRET`, `ANTHROPIC_API_KEY`, `OPENAI_API_KEY`. Nya variabler kräver en ändring av den här listan och `.env.example`. Hemligheter ligger i `.env.local` lokalt och i Vercels miljö i molnet.
+- **Rule:** All miljö läses via `src/server/env.ts` (`server-only`), validerad med Zod vid start. Godkända namn: `NEXT_PUBLIC_SUPABASE_URL`, `NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY`, `SUPABASE_SERVICE_ROLE_KEY` (bara tester och skript), `SITE_URL` (appens publika adress, används i länkar i e-post), `ALLOWED_EMAILS`, `AI_PROVIDER`, `AI_MODEL`, `LMSTUDIO_BASE_URL`, `CF_ACCESS_CLIENT_ID`, `CF_ACCESS_CLIENT_SECRET`, `ANTHROPIC_API_KEY`, `OPENAI_API_KEY`, och från Epic 12 `AI_MOCK_DELAY_MS` (heltal i millisekunder, högst 30 000, läses bara när `AI_PROVIDER=mock` och sätts aldrig i Vercel). Nya variabler kräver en ändring av den här listan och `.env.example`. Hemligheter ligger i `.env.local` lokalt och i Vercels miljö i molnet.
 
 ### AD-15 – Bilder
 
@@ -194,6 +208,8 @@ Pilarna är de enda tillåtna beroendena. En annan modul nås bara via dess `ind
 - **Prevents:** lagrade privata foton utanför den enda regeln nedan, uppladdningar som stoppas av Vercels gräns på 4,5 MB, och trasiga receptbilder.
 - **Rule:** Foton av kokbokssidor och platser förminskas i klienten till högst 1600 px för en kokbokssida och 2048 px för en plats (Story 6.5, `maxPlacePhotoSide`), och högst 1,5 MB (JPEG), före uppladdning, kontrolleras på servern (`image_too_large`), skickas till AI-tjänsten och sparas aldrig. Receptbilder sparas som URL och visas med `<img referrerPolicy="no-referrer">` och en platshållare vid fel. Ingen CSP i v1.
 - **Ändrat (Epic 10, AD-26):** ett undantag, och bara ett. Det senaste fotot av en plats (Kyl, Frys eller Skafferi på ett ställe) sparas när det har lett till en ändring i lagret, alltså när den första skrivningen från fotots lagerförslag har lyckats. Det som sparas är den förminskade bild som AI-tjänsten fick, utan metadata (EXIF, GPS, XMP, ICC och kommentarer tas bort på servern), i en privat bucket och med avläsningen och punkterna från 6.5 och 6.6. Högst ett foto per plats, och aldrig äldre än 30 dagar. Foton av kokbokssidor sparas fortfarande aldrig, inte heller ett platsfoto vars förslag bara avvisades. Ett sparat foto skickas aldrig till AI-tjänsten igen. Detaljerna står i AD-26.
+- **Tillägg (1.2, AD-25):** ett foto av ett reklamblad eller en skärmbild av en erbjudandesida behandlas som ett foto av en plats: 2048 px och 1,5 MB, skickas till AI-tjänsten i ett jobb och sparas aldrig, inte heller som senaste foto (AD-26).
+- **Tillägg (Epic 12, AD-28):** ett foto i ett AI-jobb finns bara i minnet i den förfrågan som tog emot det, medan jobbet väntar i kön och körs. Det sparas aldrig i `ai_job`, på disk eller i loggar, och ingen annan förfrågan kan köra jobbet. Klienten behåller fotot i minnet (aldrig i `localStorage`, `sessionStorage` eller IndexedDB) tills resultatet har stängts, för granskningen och det senaste fotot (AD-26).
 
 ### AD-16 – Varukorgsexporten
 
@@ -211,7 +227,7 @@ Pilarna är de enda tillåtna beroendena. En annan modul nås bara via dess `ind
 
 - **Binds:** alla sidor och actions
 - **Prevents:** byggfel från sessionsläsning utanför `<Suspense>`, cachad användardata och inaktuella härledda vyer.
-- **Rule:** `cacheComponents: true` behålls som i startmallen. Allt som läser sessionen eller användardata renderas i en komponent inuti `<Suspense>`; en layout gör aldrig `await` på sessionen på toppnivå. Ingen `'use cache'` på användardata i v1. Route segment config begränsas till `maxDuration`. Efter en skrivning anropar actionen `revalidateFor(table)` från `src/lib/revalidate.ts`, som mappar tabell till alla rutter som visar den eller något härlett ur den (t.ex. `pantry_item` → `/hemma`, `/recept`, `/recept/[id]`, `/matsedel`, `/lista`). `revalidatePath` anropas inte direkt. Tillägg (1.1, AD-24): `pantry_site` → `/hemma`, `/recept`, `/matsedel`, `/lista`, eftersom ett byte av ställe ändrar allt som räknas mot lagret. Tillägg (Epic 10, AD-26): `pantry_photo` → `/hemma`, eftersom fotot bara visas där. Klientkomponenter med effekter (t.ex. Wake Lock i stegläget) städar upp i effektens cleanup och återtar resurser vid `visibilitychange`.
+- **Rule:** `cacheComponents: true` behålls som i startmallen. Allt som läser sessionen eller användardata renderas i en komponent inuti `<Suspense>`; en layout gör aldrig `await` på sessionen på toppnivå. Ingen `'use cache'` på användardata i v1. Route segment config begränsas till `maxDuration`. Efter en skrivning anropar actionen `revalidateFor(table)` från `src/lib/revalidate.ts`, som mappar tabell till alla rutter som visar den eller något härlett ur den (t.ex. `pantry_item` → `/hemma`, `/recept`, `/recept/[id]`, `/matsedel`, `/lista`). `revalidatePath` anropas inte direkt. Tillägg (1.1, AD-24): `pantry_site` → `/hemma`, `/recept`, `/matsedel`, `/lista`, eftersom ett byte av ställe ändrar allt som räknas mot lagret. Tillägg (Epic 10, AD-26): `pantry_photo` → `/hemma`, eftersom fotot bara visas där. Tillägg (Epic 12, AD-28): `ai_job` revalideras aldrig. Tillägg (1.2, AD-25): `store_offer` → `/recept`, `/lista` och `/matsedel` (layout), och `store` får också `/lista` och `/matsedel`, eftersom etiketterna följer vald butik. Ingen sida renderar jobb på servern; klienten läser dem med pollning. Klientkomponenter med effekter (t.ex. Wake Lock i stegläget) städar upp i effektens cleanup och återtar resurser vid `visibilitychange`.
 
 ### AD-19 – Lagervarans identitet och skrivoperationer
 
@@ -258,6 +274,7 @@ Pilarna är de enda tillåtna beroendena. En annan modul nås bara via dess `ind
   - Vercel och Supabase ligger i Stockholm (Vercel `arn1`, Supabase `eu-north-1`).
   - Ett schemalagt GitHub Actions-flöde gör varje vecka en krypterad `supabase db dump` (lösenfras som hemlighet) och sparar den som artefakt. Det håller också gratisprojektet aktivt.
   - Tillägg (Epic 10, AD-26): CI startar Supabase med `storage-api` (det står inte längre i `SUPABASE_EXCLUDE`), eftersom migrationen skapar en bucket och RLS-testerna och e2e behöver Storage. Säkerhetskopian tar aldrig med foton: filerna finns inte i en databasdump, och raderna i `storage.objects` och `pantry_photo` utesluts. Bucketen och dess policyer ligger i schemat `storage`, som dumpen inte tar med, så återställningen kör fotomigrationen igen (`docs/drift.md`).
+  - Tillägg (Epic 12, AD-28): säkerhetskopian utesluter raderna i `ai_job` (bara schemat tas med), eftersom de är tillfälliga resultat. Jobbrutterna har `maxDuration = 300`, taket på Vercel Hobby med Fluid compute.
 
 ### AD-24 – Ställen i lagret
 
@@ -319,8 +336,83 @@ Pilarna är de enda tillåtna beroendena. En annan modul nås bara via dess `ind
 
     Ett integrationstest visar att lagret har samma rader, mängder och id före och efter, och att 1.0:s anrop utan `site` fortfarande fungerar.
   - **Rendering:** `revalidateFor('pantry_site')` (AD-18).
+  - **Tillägg (1.2, AD-25):** `pantry/server.ts` får `listStockedSites(ingredientIds): Map<ingredientId, siteId[]>` för "Fyll på lagret". Den säger bara på vilka ställen en katalogingrediens finns, aldrig mängder, och summerar aldrig lagret över ställen.
 
-AD-25 hör till Epic 9 (veckans erbjudanden), som är planerad men vilar på grenen `epic/9-erbjudanden`. Numret är reserverat.
+### AD-25 – Veckans erbjudanden
+
+- **Binds:** FR-34, FR-35, FR-36, FR-51, FR-52, FR-53, FR-54, NFR-10, och i 1.2 också FR-23 och FR-28
+- **Prevents:**
+  - hämtning från andra butiksadresser än en godkänd erbjudandesida, hämtning utan Pontus tryck och nya försök mot en butik som har sagt nej;
+  - att kod från en butiks sida körs, och att sidans sessionsdata (nycklar, kakor, interna adresser) sparas eller loggas;
+  - tester som anropar en butik;
+  - AI-svar om erbjudanden som sparas utan att Pontus har sett dem;
+  - erbjudanden som fyller ingredienskatalogen med varor som aldrig lagas;
+  - erbjudanden från olika veckor eller butiker som blandas;
+  - erbjudanden som ändrar lagningsstatus, rangordning, inköpslistans poster, exporten eller lagret;
+  - text i ett reklamblad som blir en instruktion till modellen.
+- **Rule:**
+  - **Länken:**
+    - `settings` äger `store.offers_url` (`text`, valfri, https, högst 300 tecken, inga blanktecken).
+    - `settings/domain/offers-link.ts` har den fasta listan `OFFER_SITES` (i 1.2 en sajt: värden `www.ica.se`, kedjan ICA, sökvägen `/erbjudanden/<slug>-<siffror>/`) och `parseOffersLink(url, chain)`. Listan ändras bara i kod, med test och fixtur. Den är skild från `recipe_site`.
+    - `save_store` tar `offers_url`, och en saknad nyckel lämnar värdet orört (AD-5).
+    - `ensure_user_defaults()` och migrationen fyller i länken för Maxi ICA Stormarknad Östersund (ICA, 1003733) när den är tom.
+  - **Data:**
+    - Modulen `offers` äger `store_offer`: `id`, `user_id`, `store_id`, `week_start`, `label`, `label_key`, `name`, `ingredient_id`, `section`, `price`, `note`, `member_only`, `valid_to`, `source` och `created_at`.
+      - `store_id` refererar `store (id, user_id)` och `ingredient_id` (valfri) refererar `ingredient (id, user_id)`, båda med `on delete restrict` (AD-20).
+      - `week_start` är veckans måndag (`check` på `isodow`).
+      - `label` är varan som butiken skrev den (1–120 tecken), `label_key` en genererad nyckel av den (gemener, enkla mellanslag) och `name` varan i grundform, normaliserad med `catalog/domain/normalize.ts` (1–100 tecken).
+      - `section` är en avdelning (AD-12). `price` (högst 40 tecken) och `note` (högst 80 tecken) är text eller `null`. Ingen text har radbrytningar.
+      - `source` är `link`, `text` eller `photo`.
+      - Unik på `(user_id, store_id, week_start, label_key)`, med indexet `(user_id, store_id, week_start)`.
+      - RLS, grants och RLS-test enligt AD-4.
+    - Ingen annan modul läser eller skriver `store_offer` (AD-1).
+  - **Vecka:**
+    - Bara `offers/domain/week.ts` räknar veckor, alltid i `Europe/Stockholm` och med `now` som argument.
+    - En vecka går från måndag till söndag. Bara den här och nästa vecka går att spara. För länken är veckan den som innehåller det vanligaste `validTo` på sidan.
+    - **Veckans erbjudanden** för en butik är erbjudandena för den senaste `week_start` vars vecka inte är slut, utan dem vars `valid_to` har passerat. Veckor blandas aldrig.
+  - **Hämtningen (NFR-10, AD-11):**
+    - Server Action `offers/actions/fetchStoreOffers({ storeId })` läser butiken via `settings/server.ts`. Klienten skickar aldrig adressen.
+    - Exakt ett anrop till `safeFetch` per tryck, med `allowedDomains` från `OFFER_SITES`, 10 s, 3 MB och `OFFERS_USER_AGENT` (`Mozilla/5.0 (compatible; Matkoll/1.0; +weekly offers for personal use)`). Inga kakor och inga huvuden som efterliknar en webbläsare.
+    - 403 och 429 ger `offers_fetch_blocked` utan nytt försök. En ny hämtning för samma butik nekas i 15 minuter efter den senaste länkraden (`offers_fetched_recently`).
+    - Ingen hämtning sker utan tryck: inte vid rendering, inte på schema och inte vid fel.
+  - **Läsningen:**
+    - `offers/domain/ica-offer-page.ts` (ren) hittar `window.__INITIAL_DATA__ =`, läser objektet med en egen läsare som håller reda på strängar och klamrar, gör om `undefined` och `new Map([...])` utanför strängar och tolkar med `JSON.parse`. En okänd konstruktion ger `offers_page_changed`.
+    - `eval`, `Function` och `vm` används aldrig (ESLint `no-eval`, `no-new-func`, `no-implied-eval`, och ett test).
+    - Bara `offers.weeklyOffers` lämnas ut, varje post kontrollerad för sig med Zod. Resten av sidan kastas direkt.
+    - Bara ICA:s kategorier för mat och dryck (`FOOD_CATEGORIES`) sparas. De andra räknas.
+  - **Skrivning:**
+    - `save_store_offers(store uuid, week date, items jsonb, replace_source text default null)` (`security invoker`, en transaktion):
+      - nekar en vecka som är slut eller ligger längre fram än nästa vecka (`offers_week_invalid`, för länken `offers_page_old`);
+      - tar, med `replace_source = 'link'`, först bort butikens länkrader för veckan;
+      - lägger till eller uppdaterar per `label_key`;
+      - nekar fler än 300 erbjudanden för butiken och veckan (`offers_limit`);
+      - tar bort användarens erbjudanden för veckor som är slut.
+    - Länkens erbjudanden sparas direkt efter trycket, eftersom ingen AI tolkar dem. Erbjudanden från text och foto sparas av `saveOffers` först när Pontus trycker "Spara" i granskningen (AD-2).
+    - `deleteOffers(ids)` returnerar de borttagna raderna, och `restoreOffers(rows)` sätter tillbaka dem med samma id (AD-20).
+  - **Katalog:**
+    - `name` kopplas med den skrivfria `matchIngredients` (exakt träff eller synonym) på kandidaterna från `offerName` (hela namnet, delarna, utan märke och mängd). Utan träff är `ingredient_id` `null`.
+    - `commitIngredients` anropas aldrig, utom i 9.10: en koppling som Pontus har bekräftat sparas som synonym, så att den hittas utan AI nästa gång. Erbjudanden skapar aldrig katalogingredienser.
+  - **Användningarna (utan AI):**
+    - `offers/domain/matching.ts` är den enda jämförelsen mellan erbjudanden och listposter, recept och lager: samma katalogingrediens först, annars samma normaliserade namn.
+    - `offersForLines` ger etiketter för listposterna (FR-51), `isMainLine` och `offersInRecipe` för filtret och förslagen (FR-52), och `staplesOnOffer` för "Fyll på lagret" (FR-53).
+    - Etikettens text kommer bara från `offerChip` ("Falukorv 29 kr").
+    - Sidorna sätter ihop: `/lista`, `/recept` och `/matsedel` läser butiken och erbjudandena och skickar etiketterna som data till `shopping/ui`, `recipes/ui` och `mealplan/ui`, som aldrig importerar `offers`. `OfferChip` ligger i `src/components`.
+    - "Lägg på listan" i "Fyll på lagret" anropar `shopping.addCustomItem` med ett id från klienten (AD-20).
+  - **AI (AD-9, AD-28):**
+    - `suggestDishes` får `offers: string[]`: varornas namn, rensade, högst 40 och högst 1 000 tecken, aldrig priser. En tom lista ger samma meddelande som utan erbjudanden. Prompten prioriterar, och schemat kontrollerar inte erbjudandena. Etiketterna räknas på servern med `offersInRecipe`.
+    - `planWeek` (jobbet `weekplan`) får lagret, erbjudandenas namn och upp till 30 recept ur biblioteket (titel och huvudvaror, rangordnade med `offersInRecipe` och antal saknade), och svarar med index ur biblioteket och högst två nya rätter i det kompakta schemat (AD-10).
+    - `extractOffers` (jobbet `offers`) läser text eller bild till `{ label, name, price }`, med varje post kontrollerad för sig, högst 40 per inläsning och text högst 12 000 tecken. Bilden följer AD-15.
+    - Klienten skickar aldrig erbjudanden. `suggestions` läser butiken och erbjudandena i jobbet.
+    - Om butiken eller erbjudandena inte går att läsa loggas `offers_unavailable`, och förslagen görs utan erbjudanden.
+  - **Utan påverkan:** `coverage`, `recipeStatus`, rangordningen i de andra filtren (AD-7), `computeList`, exporten (AD-8, AD-16) och lagret läser eller skriver aldrig erbjudanden.
+  - **Tester:** hämtningen går i tester, e2e och CI mot sparade sidor via `src/server/fetch/fixture-sites.ts` (`tests/fixtures/sites/ica-erbjudanden*.html`), med påhittade varor och en påhittad token som aldrig får finnas i resultatet.
+  - **Fel (AD-13):**
+    - länken: `offers_link_missing`, `offers_link_unsupported`, `offers_link`;
+    - hämtningen: `offers_fetched_recently`, `offers_fetch_blocked`, `offers_fetch_failed`, `offers_page_changed`, `offers_page_old`;
+    - övrigt: `offers_none`, `offers_text_too_long`, `offers_store_missing`, `offers_week_invalid`, `offers_limit`, `offers_failed`, `offers_unavailable`.
+
+    Texterna står i `src/lib/errors.ts`. Loggarna har bara felkoder och antal, aldrig adressen, varor eller priser.
+  - **Rendering:** `revalidateFor('store_offer')` → `/recept`, `/lista` och `/matsedel` (layout), och `store` revaliderar också `/lista` och `/matsedel` (AD-18).
 
 ### AD-26 – Platsfoton
 
@@ -362,6 +454,8 @@ AD-25 hör till Epic 9 (veckans erbjudanden), som är planerad men vilar på gre
     5. Den förra filen tas bort med Storage-API:t. Går det inte, blir den kvar utan rad och tas bort vid nästa gallring.
 
     Misslyckas något före steg 4 tas den nya filen bort, och den förra raden står kvar. Punkter som kommer efter sparandet läggs till med Server Action `savePlacePhotoPoints`. Sparandet syns inte för Pontus och påverkar aldrig lagret. Ett fel loggas bara med felkod.
+
+    Tillägg (Epic 12, AD-28): bilden i steg 1 är den som klienten har kvar i minnet från jobbets start. Har fliken laddats om finns den inte kvar, och då sparas inget senaste foto från det jobbet. Avläsningen och punkterna kommer från jobbets resultat.
   - **Läsning:**
     - `pantry/server.ts` exporterar `listPlacePhotos(siteId?)`, memoiserad med React `cache`. Den ger raderna utan bild, bara de som är yngre än 30 dagar, och `needsSweep` när det finns något att gallra.
     - Bilden visas från `GET /api/pantry/photo/[id]`. Den börjar med `requireUserForRoute()`, hämtar filen med sessionsklienten (`download`, RLS) och svarar med `Cache-Control: private, no-store`, `X-Content-Type-Options: nosniff` och radens `media_type`. Ett foto som inte finns, är äldre än 30 dagar eller är en annan användares ger 404.
@@ -388,6 +482,64 @@ AD-25 hör till Epic 9 (veckans erbjudanden), som är planerad men vilar på gre
   - Ingen service worker, ingen offline och inga startbilder. Inget i appen cachas av webbläsaren utöver det Next.js redan gör.
   - Varje sida under en flik har en synlig tillbakaknapp (`PageHeader`), eftersom helskärmen saknar webbläsarens bakåtknapp.
   - Inloggningen i hemskärmsappen sker med koden i AD-3.
+
+### AD-28 – AI-jobb och kön
+
+- **Binds:** FR-46, FR-47, FR-48, FR-49, FR-50, NFR-13, och i Epic 12 också FR-3, FR-4, FR-23, FR-24 och NFR-7
+- **Prevents:**
+  - två modellanrop samtidigt för samma användare, över flikar, enheter och serverinstanser;
+  - jobb som blir hängande och stoppar kön;
+  - dubbla jobb från dubbeltryck och nya försök;
+  - foton och recepttext som sparas eller loggas för att ett jobb ska kunna köras;
+  - inaktuella resultat som visas som aktuella, och AI-resultat som sparas utan Pontus tryck;
+  - Supabase-klienten i webbläsaren.
+- **Rule:**
+  - **Ägare:** modulen `ai-jobs` (`src/features/ai-jobs/`) äger `ai_job`. Den är allmän och importerar ingen annan feature-modul (AD-1). Ingen annan modul läser eller skriver `ai_job`.
+  - **Tabell `ai_job`:**
+    - `id`, `user_id` (AD-4), `kind` (`suggest`, `analyze`, `import`, med `check`), `status` (`queued`, `running`, `done`, `failed`, `cancelled`, `superseded`, med `check`), `client_key uuid`, `context jsonb`, `result jsonb` (`null` tills något finns), `error_code text`, `created_at`, `started_at`, `finished_at`, `expires_at` och `seen_at`.
+    - `context` är det som behövs för att visa och bedöma jobbet, aldrig indata: för `analyze` `{ siteId, location, takenAt }`, för `suggest` `{ siteId }`, för `import` `{ source: 'text' | 'url' | 'photo', domain? }`. Inget foto, ingen recepttext och ingen hel URL.
+    - Unik på `(user_id, client_key)`. Ett partiellt unikt index `(user_id) where status = 'running'` ger högst ett jobb som körs per användare. Index på `(user_id, status, created_at)`.
+    - RLS, grants och RLS-test enligt AD-4. Ingen främmande nyckel till andra moduler: `siteId` i `context` är bara ett sammanhang, och ett borttaget ställe visas som `pantry_site_gone` när resultatet bekräftas (AD-24).
+  - **Postgres-funktioner** (`security invoker`, i `ai-jobs` migration, med ett lås per användare `ai_job_lock()` som `pantry_lock()`):
+    - `enqueue_ai_job(kind, client_key, context, queue_deadline)`: finns `client_key` redan ges det jobbet. Markerar först jobb vars `expires_at` har gått som `failed` (`ai_job_lost`) och tar bort avslutade jobb äldre än 24 timmar. För `suggest` ges ett aktivt `suggest`-jobb om ett finns. För `analyze` blir andra `analyze`-jobb med samma `siteId` och `location` som är i kö, körs eller är klara men inte stängda `superseded`, eftersom ett nytt foto av en plats ersätter platsens förra förslag. Fler än tre aktiva jobb (`queued` och `running`) ger felet `ai_queue_full`. Annars en ny rad med `status = 'queued'` och `expires_at = queue_deadline`.
+    - `claim_ai_job(job_id, run_deadline)`: gör ett `running`-jobb vars `expires_at` har gått till `failed` (`ai_job_lost`). Svarar `claimed` (och sätter `status = 'running'`, `started_at` och `expires_at = run_deadline`) när inget annat jobb körs och jobbet är det äldsta i kö med `expires_at` kvar; `waiting` med platsen i kön; eller `gone` när jobbet inte längre är i kö (avbrutet, ersatt, utgånget).
+    - `set_ai_job_result(job_id, result)`: skriver ett delresultat medan jobbet körs (avläsningen före numren i 12.5, en rätt i taget i 12.7). Bara för `running`.
+    - `finish_ai_job(job_id, status, result, error_code)`: bara för ett jobb som fortfarande är `running`; annars ändras inget och resultatet kastas.
+    - `cancel_ai_job(job_id)`, `mark_ai_job_seen(job_id)` och `dismiss_ai_job(job_id)` (tar bort raden), för Server Actions med samma namn i `camelCase`.
+    - Egna `MK4xx`-koder för `ai_queue_full` och okänt jobb, som `pantry` gör.
+  - **Rutterna:**
+    - `POST /api/ai/jobs` (JSON: `suggest`, `import` från text eller länk) och `POST /api/ai/jobs/photo` (multipart: `analyze`, `import` från foto) gör `isCrossSite`, `requireUserForRoute()`, läser och validerar indata som de gamla rutterna, och gör sedan modulens kontroller som inte behöver AI (stället, tomt lager, domänlistan). Fel ges direkt, utan jobb.
+    - Sedan `enqueue_ai_job` och svaret 202 `{ ok: true, data: { job } }`. Jobbet körs av `runAiJob(job, work)` från `ai-jobs/server.ts`, som lägger arbetet i `after()`. `work(signal, deadline, report)` är rutten som anropar modulens serverfunktion (`suggestFromPantry`, `analyzePlace`, `importRecipe`) med jobbets signal och tidsgräns. `report(partial)` skriver ett delresultat.
+    - `maxDuration = 300`. Funktionens tidsgräns är förfrågans start + 295 s. Körtiden per sort är 120 s (`suggest`, `analyze`) och 130 s (`import`, med hämtningen). Ett jobb måste börja senast funktionens tidsgräns − körtiden, alltså efter högst 175 respektive 165 s i kö, annars `ai_queue_timeout`.
+    - `GET /api/ai/jobs` ger användarens aktiva jobb och avslutade jobb som inte har setts, med läge, plats i kön och en kort sammanfattning (sort, `context`, antal, titel), men inte hela resultatet. `GET /api/ai/jobs/[id]` ger hela resultatet, eller `ai_job_gone` (404). Båda är skrivfria: ett jobb vars `expires_at` har gått visas som `failed` (`ai_job_lost`) utan att raden ändras.
+  - **Körningen i `after()`:**
+    1. Frågar `claim_ai_job` varje sekund tills `claimed` eller `gone`, eller tills tiden att börja har gått (`ai_queue_timeout`).
+    2. Kör `work` med en egen `AbortController` och tidsgränsen `started_at` + körtiden. Läser jobbets `status` var tredje sekund medan det körs och avbryter vid `cancelled` eller `superseded`, också när det ändrades från en annan serverinstans.
+    3. `finish_ai_job` med resultatet eller felkoden. Ett avbrutet eller ersatt jobb får inget resultat.
+
+    Indata finns bara i minnet i den förfrågan som tog emot jobbet (AD-15). Sessionen läses med `cookies()` inne i `after()`, vilket Next.js tillåter i Route Handlers (`node_modules/next/dist/docs/01-app/03-api-reference/04-functions/after.md`). `after()` körs klart med `next start`, och på Vercel så länge `maxDuration` räcker.
+  - **Kön:** ett jobb i taget per användare (indexet), äldst först, högst tre aktiva. Matkoll kör aldrig två modellanrop samtidigt för samma användare, utom väckningen i AD-9, som hoppas över när ett jobb är aktivt.
+  - **Dubbla jobb:** `client_key` per tryck i klienten (samma nyckel vid ett nytt försök efter nätfel), ett aktivt `suggest` åt gången, och ett nytt foto av samma plats ersätter det äldre (`superseded`). Importer köas.
+  - **Inaktuella resultat:**
+    - Inget AI-resultat sparas i lagret, receptbiblioteket eller någon annanstans utan Pontus tryck (AD-2).
+    - `superseded` visas aldrig och ger inget besked.
+    - Ett `analyze`-resultat gäller `context.siteId` (FR-33, AD-24) och blir inte inaktuellt när valt ställe byts. Jämförelsen med platsens varor (6.4) räknas när resultatet hämtas, mot lagret då.
+    - Ett `suggest`-resultat vars `siteId` inte är valt ställe är inaktuellt: klienten visar det med en rad och "Föreslå igen".
+    - Ett `import`-resultat blir aldrig inaktuellt.
+  - **Bildanalysens två steg (12.5):** avläsningen skrivs med `set_ai_job_result` så fort den finns, och klienten visar korten. Jobbet räknas som `running` tills numren (6.6) är klara, högst 30 s till, så att inget annat jobb anropar modellen samtidigt. Numren hoppas över när ett nyare foto av samma plats väntar, eller när tiden inte räcker.
+  - **Klienten:** `src/lib/ai-jobs-client.ts` startar jobb, pollar `GET /api/ai/jobs` varannan sekund medan något jobb är aktivt och fliken syns, en gång när fliken visas igen och en gång när appen laddas, och delar läget med `useSyncExternalStore`. Leverantören `AiJobsProvider` i `ai-jobs/ui` renderas av `(app)/layout.tsx` och ger Avbryt, sett och stäng till `useAiJobs()`. Flikfältet i `src/components/app-shell` läser antalet osedda resultat därifrån. Ingen Supabase-klient i webbläsaren, ingen Realtime.
+  - **Resultatets livstid:** tills Pontus stänger eller sparar det (`dismiss_ai_job`), och högst 24 timmar efter att jobbet blev klart. Det som har setts finns kvar tills det stängs.
+  - **Aldrig:**
+    - foton, recepttext eller hela URL:er i `ai_job` eller i loggar; loggar har bara felkod, sort, antal och jobbets id;
+    - raderna i säkerhetskopian (AD-23);
+    - ett jobb som körs av någon annan än den förfrågan som tog emot det;
+    - `request.signal` inne i `after()`.
+  - **Rendering:** ingen `revalidateFor` (AD-18).
+  - **Tillägg (1.2, AD-25):**
+    - `kind` får `offers` (text eller foto av erbjudanden, och i 9.10 `match`) och `weekplan` (veckans matsedel).
+    - `context` för `offers` är `{ storeId, weekStart, source }` och för `weekplan` `{ siteId, storeId, weekStart }`. `suggest` får `storeId` och `weekStart` när erbjudanden användes.
+    - Körtiden är 120 s för båda. Ett aktivt `weekplan` åt gången, som `suggest`. Ett `weekplan`-resultat vars `siteId` inte är valt ställe är inaktuellt, som `suggest`.
+    - Text och foto finns bara i minnet, och inga varor, priser eller texter från bladet hamnar i `context` eller loggar.
 
 ## Consistency Conventions
 
@@ -435,24 +587,24 @@ AD-25 hör till Epic 9 (veckans erbjudanden), som är planerad men vilar på gre
 ```text
 matkoll/
   src/
-    app/                  # (app)/recept, matsedel, lista, hemma, installningar; logga-in; auth/confirm; api/ai/{import,analyze,locate,suggest}; api/pantry/photo (Epic 10); manifest.ts, icon.tsx, apple-icon.tsx (Epic 11)
+    app/                  # (app)/recept, matsedel, lista, hemma, installningar; logga-in; auth/confirm; api/ai/{import,analyze,locate,suggest} (ersätts i Epic 12 av api/ai/jobs, jobs/photo, jobs/[id] och api/ai/warm); api/pantry/photo (Epic 10); manifest.ts, icon.tsx, apple-icon.tsx (Epic 11)
     features/
-      auth/ catalog/ recipes/ pantry/ mealplan/ shopping/ suggestions/ settings/
+      auth/ catalog/ recipes/ pantry/ mealplan/ shopping/ suggestions/ settings/ ai-jobs/ (Epic 12) offers/ (1.2)
         ui/ actions/ domain/ data/ index.ts server.ts
     components/           # gemensamma byggstenar och komponenter som används i flera moduler
     lib/
       supabase/           # server- och proxyklient, database.types.ts
-      errors.ts  revalidate.ts  ai-client.ts
+      errors.ts  revalidate.ts  ai-client.ts  ai-jobs-client.ts (Epic 12)
     server/
       env.ts
       ai/                 # AiService, adaptrar, schemas.ts, prompts/
-      fetch/              # safeFetch
+      fetch/              # safeFetch (receptsajter och, från 1.2, erbjudandesidor)
     proxy.ts
   supabase/
     migrations/  seed.sql  config.toml
   scripts/                # users-sync, eval-ai, board.mjs
   tests/
-    integration/  e2e/  fixtures/{ai,sites}/
+    integration/  e2e/  fixtures/{ai,sites}/   # sites/ har också ica-erbjudanden*.html (1.2)
   docs/varukorgsexport.md
 ```
 
@@ -476,7 +628,10 @@ erDiagram
   meal_plan ||--o{ shopping_line_override : "har"
   meal_plan ||--o{ shopping_custom_item : "har"
   store ||--o{ product_choice : "gäller"
+  store ||--o{ store_offer : "har (1.2)"
+  ingredient |o--o{ store_offer : "kopplas (valfritt, 1.2)"
   recipe_site
+  ai_job
 ```
 
 | Tabell | Kolumner utöver `id`, `user_id`, `created_at` |
@@ -497,8 +652,10 @@ erDiagram
 | `shopping_line_override` | `meal_plan_id`, `line_key`, `amount`, `hidden` |
 | `shopping_custom_item` | `meal_plan_id`, `label`, `ingredient_id` (valfri), `amount`, `unit` |
 | `product_choice` | `ingredient_id`, `store_id`, `product_name`, `package_size`, `url` |
-| `store` | `name`, `chain`, `external_store_id`, `address`, `url`, `is_selected` |
+| `store` | `name`, `chain`, `external_store_id`, `address`, `url`, `is_selected`, `offers_url` (1.2, valfri) |
+| `store_offer` (1.2) | `store_id`, `week_start` (måndag), `label`, `label_key` (unik per butik och vecka), `name`, `ingredient_id` (valfri), `section`, `price`, `note`, `member_only`, `valid_to`, `source` |
 | `recipe_site` | `domain` (unik), `is_active` |
+| `ai_job` (Epic 12) | `kind`, `status`, `client_key` (unik per användare), `context`, `result`, `error_code`, `started_at`, `finished_at`, `expires_at`, `seen_at`; högst en rad med `status = 'running'` per användare. Aldrig indata (AD-28). |
 
 Ingen kolumn för vikt per dl eller st i v1, eftersom enheter aldrig räknas om.
 
@@ -543,6 +700,9 @@ Molnmiljön kräver Pontus konton och läggs på hens checklista i `docs/autonom
 | FR-29–FR-33, NFR-9 Flera ställen (1.1) | `pantry` (äger `pantry_site`), läses av `recipes`, `mealplan`, `suggestions`, `shopping`; `app/hemma`, `app/lista`, `app/api/ai/analyze` | AD-1, AD-5, AD-7, AD-8, AD-18, AD-19, AD-21, AD-24 |
 | FR-37–FR-39, NFR-11 Senaste fotot per plats (Epic 10) | `pantry` (äger `pantry_photo` och bucketen `pantry-photo`); `app/hemma`, `app/api/pantry/photo`; `scripts/users-sync.mjs`, `.github/workflows/backup.yml` | AD-1, AD-2, AD-4, AD-15, AD-18, AD-20, AD-23, AD-26 |
 | FR-40–FR-44, NFR-12 Nytt utseende (Epic 11) | `catalog/domain/categories.ts`, `src/components` (kategorirubrik, listrad, soptunna, mätare, kort), `pantry` (`label`), `shopping/ui`, `recipes/ui`, `mealplan/ui`, `auth` (kod), `app/manifest.ts`, `app/icon.tsx`, `src/proxy.ts` | AD-3, AD-12, AD-17, AD-19, AD-20, AD-27 |
+| FR-45 Snabbare AI (Epic 12) | `src/server/ai` (`warmUp`, kompakt svar för `suggestDishes`), `app/api/ai/warm`, `tests/eval/`, `docs/lm-studio.md` | AD-9, AD-10 |
+| FR-46–FR-50, NFR-13 AI-jobb och kön (Epic 12) | `ai-jobs` (äger `ai_job`), `app/api/ai/jobs`, `src/lib/ai-jobs-client.ts`, `src/components/app-shell` (jobbrad, flikmärke), `pantry/ui`, `recipes/ui`, `suggestions`; `.github/workflows/backup.yml` | AD-1, AD-2, AD-4, AD-9, AD-13, AD-15, AD-18, AD-23, AD-24, AD-26, AD-28 |
+| FR-34–FR-36, FR-51–FR-54, NFR-10 Veckans erbjudanden (1.2) | `offers` (äger `store_offer`), `settings` (`offers_url`, `OFFER_SITES`), `src/server/fetch`, `src/server/ai` (`extractOffers`, `planWeek`), `suggestions`, `pantry` (`listStockedSites`), `ai-jobs`; `app/lista`, `app/recept`, `app/matsedel`, `src/components/offer-chip.tsx` | AD-1, AD-2, AD-6, AD-9, AD-11, AD-13, AD-15, AD-18, AD-20, AD-24, AD-25, AD-28 |
 | NFR-1, NFR-2 Säkerhet, utbytbar AI | `src/server`, `auth` | AD-3, AD-4, AD-9, AD-11, AD-14 |
 | NFR-3–NFR-6 Responsiv, tillgänglig, utseende, svenska | `src/components`, `globals.css`, `src/lib/errors.ts` | AD-13, AD-17 |
 | NFR-7 Svarstider | regioner, AI-budget | AD-9, AD-23 |
@@ -559,4 +719,6 @@ Molnmiljön kräver Pontus konton och läggs på hens checklista i `docs/autonom
 - **Ställen efter 1.1:** att flytta eller kopiera varor mellan ställen, att välja ställe efter position och att listan har ett eget ställe, skilt från valt ställe (alternativ B i kursändringen). AD-24 tillåter alla tre utan ombyggnad: varan har redan `site_id`, och `putCheckedInPantry` tar redan emot ett ställe.
 - **Platsfoton efter Epic 10:** fler än ett foto per plats (en historik), att visa ett annat ställes foto utan att byta valt ställe och en gallring som körs utan att Pontus öppnar Hemma (ett schemalagt jobb med egen nyckel). AD-26 tillåter alla tre utan ombyggnad: varje foto har en egen sökväg, raden har stället, och gallringen är en egen funktion.
 - **Utseendet efter Epic 11:** en egen avdelning för såser i katalogen (kräver migration, promptar och omklassning), märke från produktvalet vid "Lägg i lagret", egna linjeikoner i stället för emoji, offline med service worker och push. AD-12 och AD-27 tillåter alla utan ombyggnad: kategorin räknas på ett ställe, och manifestet kan få en service worker senare.
+- **AI-jobb efter Epic 12:** pushaviseringar, Supabase Realtime i stället för pollning, jobb som lever längre än en funktions tak (Vercel Workflows eller en extern kö, som kräver att indata sparas och därför ett nytt beslut om AD-15), flera samtidiga jobb mot en modell som klarar det, och strömning av bildanalysen och importen. AD-28 tillåter pollningen att bytas och kön att bli bredare (indexet) utan ombyggnad av flödena.
+- **Erbjudanden efter 1.2:** automatisk hämtning utan tryck (ett schemalagt jobb med egen nyckel och regler för butikernas gränser), bevakningar med aviseringar (kräver push, AD-27), fler erbjudandesajter (Willys, Hemköp, Coop och Lidl kräver JavaScript i dag, och deras interna API:er används inte) och en historik över köp för basvaror. AD-25 tillåter alla utan ombyggnad: `store_offer` har butik, vecka, källa och katalogingrediens, och `OFFER_SITES` är en lista med en läsare per sajt. Prisjämförelse hör till 1.3.
 - **Vercel Hobby och fler användare:** Hobby gäller icke-kommersiellt bruk; plan och upphovsrätt för receptinnehåll prövas innan appen öppnas för andra.

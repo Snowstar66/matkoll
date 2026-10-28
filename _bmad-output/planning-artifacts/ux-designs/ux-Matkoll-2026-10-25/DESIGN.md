@@ -9,6 +9,7 @@ sources:
   - _bmad-output/planning-artifacts/prds/prd-Matkoll-2026-10-25/prd.md
   - _bmad-output/planning-artifacts/ux-designs/ux-Matkoll-2026-10-25/mockups/ (Epic 11, godkända av Pontus 2026-10-26)
   - _bmad-output/planning-artifacts/sprint-change-proposal-2026-10-26-nytt-utseende.md (Epic 11)
+  - _bmad-output/planning-artifacts/sprint-change-proposal-2026-10-26-erbjudanden-v2.md (Epic 9, `offer-chip`)
 colors:
   bg: '#F5F7F4'
   surface: '#FFFFFF'
@@ -266,6 +267,11 @@ components:
     text: '{colors.sky-ink}'
     radius: '{rounded.sm}'
     font: '{typography.badge}'
+  offer-chip:
+    background: '{colors.mint}'
+    text: '{colors.mint-ink}'
+    radius: '{rounded.sm}'
+    font: '{typography.badge}'
   recipe-card:
     background: '{colors.surface}'
     radius: '{rounded.lg}'
@@ -287,6 +293,16 @@ components:
   app-icon:
     background: '{colors.bg}'
     motif: 'morot i {colors.accent} och sand'
+  job-row:
+    background: '{colors.surface}'
+    text: '{colors.ink-2}'
+    border: '{colors.hairline}'
+    min-height: '{spacing.tap-min}'
+  tab-badge:
+    background: '{colors.accent}'
+    text: '{colors.surface}'
+    font: '{typography.badge}'
+    radius: '{rounded.full}'
 ---
 
 ## Brand & Style
@@ -405,6 +421,16 @@ Från Epic 11 (skisserna ovan):
 - **Receptkort** (`recipe-card`): ett vitt kort med bilden överst i full bredd och `{spacing.card-image}` hög, och titeln och "35 min · 4 portioner" under. Statusetiketten ligger nere till vänster på bilden och hjärtat nere till höger, båda på en ljus platta (`image-badge`, `{colors.surface}` till 92 %) så att de syns på alla bilder. Ett recept utan bild får platshållaren i mint som förut.
 - **Rättkort** (`dish-card`): ett vitt kort med en bild på `{spacing.dish-thumb}`, titeln, raden "6 av 8 hemma" och en liten mätare. Portionsväljaren står under.
 - **Appikon** (`app-icon`): en morot i accent och sand på `{colors.bg}`, med iPhones egna rundade hörn. Ingen text i ikonen.
+
+Från Epic 12 (AI i bakgrunden):
+
+- **Jobbrad** (`job-row`): en vit remsa i full bredd direkt ovanför flikfältet, med en hårfin linje överst, minst `{spacing.tap-min}` hög. Texten "AI: Tittar på fotot av kylen · 2 i kö" i `{typography.meta}` och `{colors.ink-2}`, avkortad med "…", och en liten pil till höger. En lugn, pulserande prick i `{colors.accent}` till vänster visar att något pågår; med "Minska rörelse" står pricken still. På dator ligger raden överst i sidomenyn.
+- **Flikmärke** (`tab-badge`): en rund etikett i `{colors.accent}` med siffran i `{colors.surface}`, minst 18 px, uppe till höger på flikens ikon. Aldrig rött. Över 9 står "9+".
+
+Från Epic 9 (veckans erbjudanden):
+
+- **Erbjudandeetikett** (`offer-chip`): en liten etikett i `{colors.mint}` med `{colors.mint-ink}`-text, samma form som produktetiketten, med varan och priset: "Falukorv 29 kr". Avkortad med "…". På en listpost står den först på raden under namnet, på ett receptkort eller rättkort under titeln (högst två och "+N"). Mint skiljer den från produktetiketten (ljusblå) och AI-etiketten (sand). Ingen ikon och ingen emoji.
+- **Veckans erbjudanden** byggs bara av befintliga komponenter: Ark, Kategorirubrik, Listgrupp, Listrad, Soptunna, Meddelanderuta, kort bekräftelse, primärknapp och textknappar. Inga nya tokens utöver `offer-chip`.
 
 ## Do's and Don'ts
 

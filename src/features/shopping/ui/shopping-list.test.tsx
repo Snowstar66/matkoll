@@ -612,6 +612,7 @@ describe("ShoppingList in the new look (Story 11.4)", () => {
       externalStoreId: null,
       address: null,
       url: null,
+      offersUrl: null,
       isSelected: true,
     };
     const choice = {
@@ -754,7 +755,7 @@ describe("ShoppingList in the new look (Story 11.4)", () => {
   });
 
   it("describes each check with the line under its name and its product", () => {
-    const store = { id: "s", name: "ICA Maxi", chain: "ICA" as const, externalStoreId: null, address: null, url: null, isSelected: true };
+    const store = { id: "s", name: "ICA Maxi", chain: "ICA" as const, externalStoreId: null, address: null, url: null, offersUrl: null, isSelected: true };
     const choice = { id: "c", ingredientId: "falukorv", storeId: "s", productName: "Scan Falukorv 800 g", packageSize: null, url: null, updatedAt: "x" };
     render(<ShoppingList plan={plan} lines={fourteen} pantryUnavailable={false} store={store} productChoices={{ falukorv: choice }} />);
     expect(screen.getByRole("checkbox", { name: "Falukorv, 800 g" })).toHaveAccessibleDescription(

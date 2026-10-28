@@ -133,6 +133,25 @@ export const errorMessages = {
   settings_duplicate_store: "Butiken finns redan.",
   // A store saved or selected after it went away elsewhere: the stores are read again.
   settings_store_gone: "Butiken finns inte längre.",
+  // Veckans erbjudanden (Story 9.1, AD-25). Shown in the sheet, in a notice;
+  // the fetch's errors come with "Öppna sidan" (the store's page in a new tab)
+  // and are never retried.
+  offers_link_missing: "Lägg in länken till butikens erbjudanden under Butik i Inställningar.",
+  offers_link_unsupported: "Matkoll kan bara hämta erbjudanden från ica.se än så länge.",
+  offers_fetched_recently: "Erbjudandena hämtades nyss. Försök igen om en stund.",
+  // 403 or 429 from the store's site: no new try.
+  offers_fetch_blocked: "ica.se släppte inte in Matkoll just nu. Öppna sidan och titta där, eller försök igen senare.",
+  // Too slow, too large, no connection or another status.
+  offers_fetch_failed: "Det gick inte att hämta erbjudandena. Försök igen senare.",
+  // No offer data in the page, or a shape the reader does not know.
+  offers_page_changed: "Sidan med erbjudanden ser inte ut som Matkoll väntar sig. Öppna sidan och titta där.",
+  offers_page_old: "Sidan visar inte den här eller nästa veckas erbjudanden.",
+  offers_none: "Hittade inga erbjudanden på mat.",
+  offers_store_missing: "Välj en butik i inställningarna först.",
+  offers_week_invalid: "Veckan är slut. Välj en annan vecka och spara igen.",
+  offers_limit: "Du kan ha högst 300 erbjudanden per vecka. Ta bort några först.",
+  offers_failed: "Det gick inte att spara erbjudandena. Försök igen.",
+  offers_unavailable: "Det gick inte att läsa erbjudandena.",
   // Fetching a recipe page (AD-11). The sentence with the site's name, from
   // `fields.domain`, is built by fetchErrorMessage below.
   fetch_invalid_url: "Det där ser inte ut som en länk till en receptsida. Kopiera hela adressen, som börjar med https://.",

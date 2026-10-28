@@ -5,7 +5,8 @@ import { fail, ok, type ErrorCode, type Result } from "@/lib/errors";
 import { isPublicAddress } from "./address";
 import { httpsFetch } from "./https-fetch";
 
-// The only code that fetches from recipe sites (AD-11). The caller passes the
+// The only code that fetches from recipe sites (AD-11), and from the store
+// offer pages in OFFER_SITES (Story 9.1, AD-25). The caller passes the
 // approved domains (from the settings module); the port never reads them
 // itself (AD-1). Rules:
 // - only https on the default port, no user name or password in the address;
@@ -48,6 +49,11 @@ export type SafeFetchOptions = {
   lookup?: Lookup;
   /** For tests and fixtures: replaces the HTTPS request. */
   fetchImpl?: FetchImpl;
+  /**
+   * The User-Agent: RECIPES_USER_AGENT (the default) or OFFERS_USER_AGENT.
+   * Always one of the honest ones below, never a browser's.
+   */
+  userAgent?: MatkollUserAgent;
 };
 
 export type FetchedPage = {
@@ -64,11 +70,27 @@ export class BlockedAddressError extends Error {
   }
 }
 
-const requestHeaders = {
-  accept: "text/html,application/xhtml+xml;q=0.9,*/*;q=0.1",
-  "accept-language": "sv-SE,sv;q=0.9,en;q=0.5",
-  "user-agent": "Mozilla/5.0 (compatible; Matkoll/1.0; +personal recipe import)",
-} as const;
+/**
+ * The honest User-Agents (AD-11, AD-25): what Matkoll is and what it fetches
+ * for, never a browser's. Recipe import is the default; the weekly offers
+ * from a store's page (Story 9.1) say so.
+ */
+export const RECIPES_USER_AGENT = "Mozilla/5.0 (compatible; Matkoll/1.0; +personal recipe import)";
+export const OFFERS_USER_AGENT = "Mozilla/5.0 (compatible; Matkoll/1.0; +weekly offers for personal use)";
+export type MatkollUserAgent = typeof RECIPES_USER_AGENT | typeof OFFERS_USER_AGENT;
+
+/**
+ * Every request's headers: these three and nothing else. No cookies (a
+ * Set-Cookie in an answer is never sent back), and nothing that makes Matkoll
+ * look like a browser (no sec-ch-ua, no browser User-Agent).
+ */
+function requestHeaders(userAgent: MatkollUserAgent): Readonly<Record<string, string>> {
+  return {
+    accept: "text/html,application/xhtml+xml;q=0.9,*/*;q=0.1",
+    "accept-language": "sv-SE,sv;q=0.9,en;q=0.5",
+    "user-agent": userAgent,
+  };
+}
 
 const htmlTypes = new Set(["text/html", "application/xhtml+xml"]);
 const redirectStatuses = new Set([301, 302, 303, 307, 308]);
@@ -215,6 +237,7 @@ export async function safeFetch(input: string, options: SafeFetchOptions): Promi
   const signal = AbortSignal.any([options.signal, timeout.signal]);
   const fetchImpl = options.fetchImpl ?? httpsFetch;
   const lookup = checkedLookup(options.lookup ?? systemLookup);
+  const headers = requestHeaders(options.userAgent ?? RECIPES_USER_AGENT);
 
   try {
     for (let redirects = 0; ; redirects++) {
@@ -222,7 +245,7 @@ export async function safeFetch(input: string, options: SafeFetchOptions): Promi
       let response: Response;
       try {
         signal.throwIfAborted();
-        response = await fetchImpl(url, { signal, headers: requestHeaders, lookup });
+        response = await fetchImpl(url, { signal, headers, lookup });
       } catch (error) {
         if (options.signal.aborted) return aborted();
         if (signal.aborted) return failWith("fetch_timeout", "timeout", host);

@@ -82,6 +82,7 @@ const maxi: Store = {
   externalStoreId: "1003733",
   address: null,
   url: "https://handlaprivatkund.ica.se/stores/1003733",
+  offersUrl: null,
   isSelected: true,
 };
 const choices: Record<string, ProductChoice> = {

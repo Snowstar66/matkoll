@@ -43,6 +43,7 @@ const store = (changes: Partial<Store>): Store => ({
   externalStoreId: "1003733",
   address: null,
   url: null,
+  offersUrl: null,
   isSelected: false,
   ...changes,
 });

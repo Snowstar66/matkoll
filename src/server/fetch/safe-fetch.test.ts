@@ -1,6 +1,15 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { fail, type Result } from "@/lib/errors";
-import { checkLinkSyntax, fetchLimits, safeFetch, type FetchImpl, type Lookup, type ResolvedAddress } from "./safe-fetch";
+import {
+  checkLinkSyntax,
+  fetchLimits,
+  OFFERS_USER_AGENT,
+  RECIPES_USER_AGENT,
+  safeFetch,
+  type FetchImpl,
+  type Lookup,
+  type ResolvedAddress,
+} from "./safe-fetch";
 
 // safeFetch with a fake resolver and a fake request (AD-11): no network. The
 // fake request does what a real connection does first, it resolves the host
@@ -71,6 +80,40 @@ describe("approved links", () => {
     routes["https://www.koket.se/kladdkaka?portioner=4"] = () => html();
     const result = await get("https://www.koket.se/kladdkaka?portioner=4#steg");
     expect(result.ok && result.data.url).toBe("https://www.koket.se/kladdkaka?portioner=4");
+  });
+
+  it("says what it is: the recipe import's User-Agent by default, the offers' when asked, and nothing else", async () => {
+    routes["https://www.koket.se/x"] = () => html();
+    await get("https://www.koket.se/x");
+    expect(seenHeaders?.["user-agent"]).toBe(RECIPES_USER_AGENT);
+    expect(Object.keys(seenHeaders ?? {}).sort()).toEqual(["accept", "accept-language", "user-agent"]);
+
+    await safeFetch("https://www.koket.se/x", {
+      allowedDomains,
+      signal: new AbortController().signal,
+      lookup,
+      fetchImpl,
+      userAgent: OFFERS_USER_AGENT,
+    });
+    expect(seenHeaders?.["user-agent"]).toBe("Mozilla/5.0 (compatible; Matkoll/1.0; +weekly offers for personal use)");
+    // No browser's User-Agent, no client hints and no cookies (AD-11, AD-25).
+    expect(Object.keys(seenHeaders ?? {}).sort()).toEqual(["accept", "accept-language", "user-agent"]);
+    expect(seenHeaders?.["user-agent"]).not.toMatch(/Chrome|Safari|Firefox|Gecko\//);
+  });
+
+  it("never sends a cookie back, also after a redirect that sets one", async () => {
+    const sent: Readonly<Record<string, string>>[] = [];
+    routes["https://www.koket.se/a"] = () =>
+      new Response(null, { status: 302, headers: { location: "/b", "set-cookie": "session=fake-session; Path=/" } });
+    routes["https://www.koket.se/b"] = () => {
+      sent.push(seenHeaders ?? {});
+      return html(page, { "set-cookie": "other=fake; Path=/" });
+    };
+    const result = await get("https://www.koket.se/a");
+    expect(result.ok).toBe(true);
+    expect(sent).toHaveLength(1);
+    expect(Object.keys(sent[0]).map((name) => name.toLowerCase())).not.toContain("cookie");
+    expect(JSON.stringify(sent[0])).not.toContain("fake-session");
   });
 
   it("asks for HTML in Swedish", async () => {

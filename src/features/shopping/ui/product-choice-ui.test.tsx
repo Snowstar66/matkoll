@@ -57,6 +57,7 @@ const maxi: Store = {
   externalStoreId: "1003733",
   address: null,
   url: null,
+  offersUrl: null,
   isSelected: true,
 };
 const base = { isVague: false, coverage: { kind: "unlinked" as const }, origins: ["d1"], checked: false, isCustom: false };

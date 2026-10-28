@@ -1,5 +1,6 @@
 import { z } from "zod";
 import { charLength as length, normalizeHttpsUrl, oneLine } from "@/lib/one-line";
+import { offerSiteFor, offersLinkMessage, parseOffersLink } from "./offers-link";
 
 // Pontus's stores (FR-28, Story 7.1): several stores, in several chains and
 // several in one chain, are the normal case (docs/beslutslogg.md,
@@ -28,6 +29,12 @@ export type Store = {
   address: string | null;
   /** Text Pontus typed, https only; shown as a link and never fetched. */
   url: string | null;
+  /**
+   * The link to the store's weekly offers (Story 9.1), checked with
+   * parseOffersLink; the only address the offers module fetches. `null` when
+   * there is none.
+   */
+  offersUrl: string | null;
   isSelected: boolean;
 };
 
@@ -114,6 +121,11 @@ export type StoreFormInput = {
   externalStoreId: string;
   address: string;
   url: string;
+  /**
+   * The link to the weekly offers (Story 9.1). Missing (`undefined`) when
+   * the form had no such field: the stored link is then kept.
+   */
+  offersUrl?: string;
   /** "Använd för varukorgen": select the store when it is saved. */
   makeSelected: boolean;
 };
@@ -132,6 +144,7 @@ export function readStoreForm(formData: FormData): StoreFormInput {
     externalStoreId: text("externalStoreId"),
     address: text("address"),
     url: text("url"),
+    ...(typeof formData.get("offersUrl") === "string" ? { offersUrl: text("offersUrl") } : {}),
     makeSelected: text("makeSelected") === "true",
   };
 }
@@ -140,7 +153,10 @@ export function readStoreForm(formData: FormData): StoreFormInput {
  * A store as Pontus fills it in: `id` is chosen by the client, so a retry
  * after a lost answer saves the store once (AD-20). Name, store id and
  * address are trimmed to one line, and empty optional fields become `null`.
- * The URL must start with https:// and have a host.
+ * The URL must start with https:// and have a host. The link to the weekly
+ * offers must be the chain's offer page (parseOffersLink, Story 9.1); a
+ * chain without an offer site has no link, and a missing field keeps the
+ * stored one (`undefined`).
  */
 export const storeFormSchema = z
   .object({
@@ -151,11 +167,12 @@ export const storeFormSchema = z
     externalStoreId: z.string(),
     address: z.string(),
     url: z.string(),
+    offersUrl: z.string().optional(),
     makeSelected: z.boolean(),
   })
   .transform((form, context) => {
     let valid = true;
-    const issue = (field: "name" | "externalStoreId" | "address" | "url", message: string) => {
+    const issue = (field: "name" | "externalStoreId" | "address" | "url" | "offersUrl", message: string) => {
       valid = false;
       context.addIssue({ code: "custom", path: [field], message });
     };
@@ -172,6 +189,13 @@ export const storeFormSchema = z
     const url = typedUrl ? normalizeStoreUrl(typedUrl) : null;
     if (typedUrl && url === null) issue("url", storeUrlMessage);
     else if (url !== null && length(url) > maxStoreUrlLength) issue("url", tooLongMessage(maxStoreUrlLength));
+    // Only a chain with an offer site has a link; for the others it is removed.
+    let offersUrl: string | null | undefined = null;
+    if (offerSiteFor(form.chain)) {
+      const typedLink = form.offersUrl?.trim();
+      offersUrl = typedLink === undefined ? undefined : typedLink ? (parseOffersLink(typedLink, form.chain)?.url ?? null) : null;
+      if (typedLink && offersUrl === null) issue("offersUrl", offersLinkMessage);
+    }
     if (!valid) return z.NEVER;
     return {
       id: form.id,
@@ -181,6 +205,7 @@ export const storeFormSchema = z
       externalStoreId: externalStoreId || null,
       address: address || null,
       url,
+      offersUrl,
       makeSelected: form.makeSelected,
     };
   });
@@ -188,7 +213,7 @@ export type StoreForm = z.output<typeof storeFormSchema>;
 
 /**
  * The form's own messages by field name (`name`, `externalStoreId`,
- * `address`, `url`), the first per field, for `fail("validation", fields)`
+ * `address`, `url`, `offersUrl`), the first per field, for `fail("validation", fields)`
  * and the sheet. Zod's built-in messages are English and never shown, so
  * only custom issues count: a chain or id that is not one gives none.
  */

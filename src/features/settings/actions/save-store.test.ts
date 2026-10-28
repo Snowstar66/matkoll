@@ -24,6 +24,7 @@ const willys: Store = {
   externalStoreId: null,
   address: null,
   url: null,
+  offersUrl: null,
   isSelected: true,
 };
 
@@ -52,9 +53,41 @@ describe("saveStore", () => {
       externalStoreId: null,
       address: "Lindhagensgatan 1",
       url: null,
+      // Willys has no offer site: the store has no link to weekly offers.
+      offersUrl: null,
       makeSelected: true,
     });
     expect(revalidateFor).toHaveBeenCalledWith("store");
+  });
+
+  it("saves the link to the weekly offers of an ICA store, with its trailing slash (Story 9.1)", async () => {
+    await saveStore(null, form({ chain: "ICA", offersUrl: " https://www.ica.se/erbjudanden/maxi-ica-stormarknad-ostersund-1003733 " }));
+    expect(saveStoreIn.mock.calls[0][1]).toMatchObject({
+      chain: "ICA",
+      offersUrl: "https://www.ica.se/erbjudanden/maxi-ica-stormarknad-ostersund-1003733/",
+    });
+  });
+
+  it("keeps the stored link when the form has no such field, and removes it when it is emptied", async () => {
+    await saveStore(null, form({ chain: "ICA" }));
+    expect(saveStoreIn.mock.calls[0][1].offersUrl).toBeUndefined();
+    await saveStore(null, form({ chain: "ICA", offersUrl: "  " }));
+    expect(saveStoreIn.mock.calls[1][1].offersUrl).toBeNull();
+  });
+
+  it.each([
+    "https://www.willys.se/erbjudanden/butik",
+    "https://www.ica.se/recept/kladdkaka-123/",
+    "https://www.ica.se/erbjudanden/maxi-ica-stormarknad-ostersund-1003733/?utm=x",
+    "https://www.ica.se/erbjudanden/maxi-ica-stormarknad-ostersund-1003733/#top",
+  ])("refuses %s as the offers link, and saves nothing", async (offersUrl) => {
+    expect(await saveStore(null, form({ chain: "ICA", offersUrl }))).toEqual(
+      fail("validation", {
+        offersUrl:
+          "Ange adressen till butikens erbjudanden på ica.se, till exempel https://www.ica.se/erbjudanden/maxi-ica-stormarknad-ostersund-1003733/.",
+      }),
+    );
+    expect(saveStoreIn).not.toHaveBeenCalled();
   });
 
   it("does not select the store without the ticked box", async () => {

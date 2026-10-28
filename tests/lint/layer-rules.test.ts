@@ -42,6 +42,8 @@ describe("allowed imports", () => {
     ["another module's data uses the Supabase session client", "src/features/other/data/allowed.ts", 'import { createClient } from "@/lib/supabase/server";'],
     ["src imports Supabase types", "src/features/example/data/allowed.ts", 'import type { SupabaseClient } from "@supabase/supabase-js";'],
     ["the proxy uses the Supabase proxy client", "src/proxy.ts", 'import { updateSession } from "@/lib/supabase/proxy";'],
+    ["recipes use the fetch port", "src/features/recipes/actions/allowed.ts", 'import { fetchRecipePage } from "@/server/fetch";'],
+    ["offers use the fetch port (AD-25)", "src/features/offers/actions/allowed.ts", 'import { fetchOfferPage } from "@/server/fetch";'],
   ])("%s", async (_name, filePath, code) => {
     expect(await ruleErrors(filePath, `${code}\n`)).toEqual([]);
   });
@@ -71,6 +73,10 @@ describe("forbidden imports", () => {
     ["another module imports domain directly", "src/features/other/actions/bad.ts", 'import { describeExample } from "@/features/example/domain/rules";', "import/no-restricted-paths"],
     ["a route imports data", "src/app/example/page.tsx", 'import { loadExample } from "@/features/example/data/queries";', "import/no-restricted-paths"],
     ["a port imports a feature", "src/server/fetch/bad.ts", 'import { describeExample } from "@/features/example";', "import/no-restricted-paths"],
+    ["a module other than recipes and offers imports the fetch port", "src/features/pantry/actions/bad.ts", 'import { safeFetch } from "@/server/fetch";', "import/no-restricted-paths"],
+    ["code calls eval", "src/features/offers/domain/bad.ts", 'export const value = eval("1");', "no-eval"],
+    ["code makes a Function", "src/features/offers/domain/bad.ts", 'export const make = new Function("return 1");', "no-new-func"],
+    ["code passes a string to setTimeout", "src/lib/bad.ts", 'setTimeout("alert(1)", 1);', "no-implied-eval"],
     ["the AI SDK outside src/server/ai", "src/features/example/actions/bad.ts", 'import { generateText } from "ai";', "no-restricted-imports"],
     ["an @ai-sdk provider outside src/server/ai", "src/lib/bad.ts", 'import { createAnthropic } from "@ai-sdk/anthropic";', "no-restricted-imports"],
     ["process.env outside env.ts", "src/lib/bad.ts", "export const value = process.env.AI_PROVIDER;", "no-restricted-syntax"],

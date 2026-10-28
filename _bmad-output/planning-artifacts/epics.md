@@ -15,7 +15,7 @@ inputDocuments:
 
 ## Översikt
 
-Det här dokumentet delar upp kraven i PRD:n, UX-dokumenten (`DESIGN.md`, `EXPERIENCE.md`) och arkitekturen (`ARCHITECTURE-SPINE.md`, AD-1–AD-24, AD-26 och AD-27) i epics och stories som går att bygga var för sig. Story-rubrikerna läses av `scripts/board.mjs` och blir kort på boarden. Epic 1–7 är version 1.0. Epic 8 är version 1.1, "Flera ställen", som kom till genom kursändringen `sprint-change-proposal-2026-10-26-flera-stallen.md`. Dess krav står i PRD-addendumet under "Version 1.1: Flera ställen". Epic 10, "Senaste fotot per plats", är ett tillägg till 1.1 som kom till genom kursändringen `sprint-change-proposal-2026-10-26-spara-foto.md`. Dess krav står i addendumet under "Tillägg till 1.1: Senaste fotot per plats". Epic 11, "Nytt utseende", kom till genom kursändringen `sprint-change-proposal-2026-10-26-nytt-utseende.md` efter att Pontus godkände tre mobilskisser. Dess krav står i addendumet under "Tillägg till 1.1: Nytt utseende", och skisserna ligger i `ux-designs/ux-Matkoll-2026-10-25/mockups/`. Epic 11 byggs efter Epic 10. Epic 9 (veckans erbjudanden, FR34–FR36, NFR10, AD-25, UX-DR19–UX-DR20) är planerad men vilar på grenen `epic/9-erbjudanden`, så de numren är reserverade.
+Det här dokumentet delar upp kraven i PRD:n, UX-dokumenten (`DESIGN.md`, `EXPERIENCE.md`) och arkitekturen (`ARCHITECTURE-SPINE.md`, AD-1–AD-28) i epics och stories som går att bygga var för sig. Story-rubrikerna läses av `scripts/board.mjs` och blir kort på boarden. Epic 1–7 är version 1.0. Epic 8 är version 1.1, "Flera ställen", som kom till genom kursändringen `sprint-change-proposal-2026-10-26-flera-stallen.md`. Dess krav står i PRD-addendumet under "Version 1.1: Flera ställen". Epic 10, "Senaste fotot per plats", är ett tillägg till 1.1 som kom till genom kursändringen `sprint-change-proposal-2026-10-26-spara-foto.md`. Dess krav står i addendumet under "Tillägg till 1.1: Senaste fotot per plats". Epic 11, "Nytt utseende", kom till genom kursändringen `sprint-change-proposal-2026-10-26-nytt-utseende.md` efter att Pontus godkände tre mobilskisser. Dess krav står i addendumet under "Tillägg till 1.1: Nytt utseende", och skisserna ligger i `ux-designs/ux-Matkoll-2026-10-25/mockups/`. Epic 11 byggs efter Epic 10. Epic 12, "Snabbare och asynkron AI", kom till genom kursändringen `sprint-change-proposal-2026-10-26-asynkron-ai.md` efter att Pontus godkände planen. Dess krav står i addendumet under "Tillägg till 1.1: Snabbare och asynkron AI", och den byggs efter Epic 11. Epic 9, "Veckans erbjudanden" (version 1.2), kom till genom kursändringen `sprint-change-proposal-2026-10-26-erbjudanden-v2.md`, som ersätter den första planen. Pontus vill hämta erbjudandena från en länk per butik och valde funktionerna som använder dem. Dess krav står i addendumet under "Version 1.2: Veckans erbjudanden". Epic 9 behåller sina reserverade nummer (FR34–FR36, NFR10, AD-25, UX-DR19–UX-DR20) och får FR51–FR54 och UX-DR32–UX-DR33. Den byggs efter Epic 12 och står sist i dokumentet.
 
 ## Requirements Inventory
 
@@ -68,6 +68,22 @@ Epic 11 (addendum, "Tillägg till 1.1: Nytt utseende"):
 - FR42: En lagervara har ett valfritt märke (från fotots första etikett eller fältet "Märke eller sort") och vet när den lades till. "Ångra" sätter tillbaka märket och tiden.
 - FR43: Inköpslistan visar "8 varor kvar" och "6 av 14 i korgen" med en mätare, flyttar avbockade poster till en hopfälld "I korgen", visar rätterna, "Egen vara" eller "Saknas i <ställe>" under posten och produktvalet som etikett, och har "Skicka till ICA" och "Lägg i lagret" fast längst ned.
 - FR44: Matkoll kan läggas på hemskärmen och öppnas i helskärm (manifest, appikoner, temafärg), loggas in med en sexsiffrig kod från samma mejl som länken, och har en synlig tillbakaknapp på varje sida under en flik.
+- FR45: AI-flödena mäts med kall och varm modell före och efter varje förbättring, med rekommenderade inställningar för LM Studio i `docs/lm-studio.md`. Modellen väcks i bakgrunden när Lagersaldo eller Recept öppnas (om mätningen visar minst 20 % vinst), och AI-förslagen ber om ett kortare svar (minst 25 % färre token, högst 40 s i median varmt).
+- FR46: Bildanalys, AI-förslag och receptimport är AI-jobb: att starta ett svarar inom en sekund, Pontus kan byta sida, stänga arket och ladda om utan att jobbet stoppas, kan avbryta det, och resultatet finns privat tills det stängs eller sparas, högst 24 timmar.
+- FR47: AI-jobben körs ett i taget i den ordning de startades, högst tre aktiva, över flikar och enheter. En jobbrad visar vad som pågår och "2 i kö". Ett jobb som inte hinner börja eller vars server dör stoppar aldrig kön, och dubbeltryck ger aldrig två jobb.
+- FR48: När ett resultat är klart säger en kort bekräftelse vad som är klart, med "Visa", och fliken där det visas (Recept eller Lagersaldo) får ett märke med antalet osedda resultat.
+- FR49: Inget från AI sparas automatiskt. Ett nytt foto av samma plats ersätter det äldre, som aldrig visas. Förslag från ett foto gäller fotots ställe. AI-förslag för ett annat ställe visas med "Förslagen bygger på lagret för Hemma." Jämförelsen med platsens varor görs när resultatet öppnas.
+- FR50: AI-förslagen visas en rätt i taget så snart varje rätt är klar, om LM Studio kan strömma ett svar med JSON-schema.
+
+Epic 9 (addendum, "Version 1.2: Veckans erbjudanden"):
+
+- FR34: Pontus sparar en länk till butikens erbjudandesida per butik i Inställningar (i 1.2 bara ica.se), och Matkoll hämtar veckans erbjudanden när Pontus trycker "Hämta veckans erbjudanden": en hämtning per tryck, bara mat, sparat för butiken och veckan. Utan länk, eller när butiken nekar, klistrar Pontus in texten eller fotograferar reklambladet och granskar det AI:n läste innan något sparas.
+- FR35: Veckans erbjudanden för vald butik visas i kategorier med pris och villkor, och de kan tas bort ett i taget eller alla, med "Ångra". Veckor som är slut används aldrig.
+- FR36: AI-förslagen prioriterar rätter med varor på erbjudande och visar dem med erbjudandeetiketter. Utan erbjudanden är förslagen som förut.
+- FR51: En listpost i inköpslistan vars vara är på erbjudande i vald butik den här veckan får en erbjudandeetikett ("Falukorv 29 kr"). Listan, mängderna och exporten är oförändrade.
+- FR52: Filtret "Erbjudanden" i Recept visar recept där minst en huvudvara är på erbjudande, flest först, med erbjudandeetiketter på korten.
+- FR53: "Fyll på lagret" visar erbjudanden på basvaror (varor i lagret på något ställe eller med produktval), var de finns och saknas, och lägger en vara på inköpslistan med ett tryck.
+- FR54: Pontus kan be om ett förslag till veckans matsedel som ett AI-jobb: fem rätter, i första hand ur biblioteket och högst två nya, utifrån erbjudandena och lagret, och väljer själv vilka som läggs på matsedeln.
 
 ### NonFunctional Requirements
 
@@ -80,8 +96,10 @@ Epic 11 (addendum, "Tillägg till 1.1: Nytt utseende"):
 - NFR7 Svarstider: lista, lager och bibliotek inom en sekund; import och bildanalys visar förlopp och kan avbrytas eller göras om.
 - NFR8 Tvingande kontroller: hemlighetsskanning, RLS-tester, test av domänbegränsning, lint och kodgranskning blockerar sammanslagning.
 - NFR9 (1.1) Migrering och svarstider för ställen: en migration som bara lägger till, fungerar med 1.0-koden och visas i ett test lämna lagret oförändrat. Byte av ställe svarar inom en sekund.
+- NFR10 (1.2) Hämtning från butiker: bara från godkända erbjudandesajter (i 1.2 www.ica.se), en hämtning per tryck med `safeFetch` och en ärlig User-Agent, inget nytt försök vid 403 eller 429, sidan läses deterministiskt utan `eval`, bara erbjudandena sparas och inget från sidans sessionsdata sparas eller loggas, och tester anropar aldrig en butik. Text och bild från reklamblad är data, och foton sparas aldrig.
 - NFR11 (Epic 10) Integritet för platsfoton: privat bucket med RLS-tester, ingen publik eller signerad länk, ingen metadata i sparade foton (test), aldrig till AI-tjänsten igen, aldrig i repot, loggar eller säkerhetskopian, och inom Supabase gratisnivå.
 - NFR12 (Epic 11) Utseendet håller tillgänglighetsgolvet: 375 px och 1280 px, ljust och mörkt läge, 200 % text utan vågrät scroll, VoiceOver och tangentbord, tryckytor minst 44 × 44 px, och ikoner, plattor och mätare säger aldrig något som inte står i text. Inget rött, inga skuggor, inga gradienter.
+- NFR13 (Epic 12) Integritet och tålighet för AI-jobb: privata jobb med RLS-tester, inga foton eller recepttexter i jobb, på disk eller i loggar, jobbens rader aldrig i säkerhetskopian, ett jobb vars server dör stoppar aldrig kön längre än sin tidsgräns, och två serverinstanser kör aldrig två jobb för samma användare samtidigt.
 
 ### Additional Requirements
 
@@ -113,6 +131,23 @@ Från arkitekturen (`ARCHITECTURE-SPINE.md`):
   - `ensure_pantry_defaults()`;
   - en migrering till "Hemma" som bara lägger till;
   - `revalidateFor('pantry_site')`.
+- (Epic 12) AI-jobb och kön (AD-28):
+  - modulen `ai-jobs` äger `ai_job`, med högst ett jobb som körs per användare (partiellt unikt index);
+  - `enqueue_ai_job`, `claim_ai_job`, `set_ai_job_result`, `finish_ai_job`, `cancel_ai_job`, `mark_ai_job_seen` och `dismiss_ai_job`;
+  - `POST /api/ai/jobs` och `/api/ai/jobs/photo` med `maxDuration = 300`, jobbet i `after()` med egen signal och tidsgräns, indata bara i minnet;
+  - pollning med `GET /api/ai/jobs` och `src/lib/ai-jobs-client.ts`, ingen Supabase-klient i webbläsaren;
+  - `warmUp` och strömmande `suggestDishes` i porten (AD-9), kompakt svar för förslagen (AD-10);
+  - säkerhetskopian utesluter `ai_job` (AD-23).
+- (Epic 9) Veckans erbjudanden (AD-25, och tillägg i AD-1, AD-9, AD-11, AD-15, AD-18, AD-24 och AD-28):
+  - `store.offers_url` i `settings`, kontrollerad mot den fasta listan `OFFER_SITES`;
+  - modulen `offers`, som äger `store_offer` (butik, vecka som måndagens datum, namn som butiken skrev det, vara i grundform, valfri katalogingrediens, avdelning, pris, villkor, Stammis, sista dag och källa);
+  - `save_store_offers` ersätter länkens rader, lägger ihop per namn, tar högst 300 per vecka och tar bort veckor som är slut;
+  - `fetchStoreOffers` med `safeFetch` och `parseIcaOfferPage` utan `eval`, och fixturer via `fixture-sites.ts`;
+  - `matchIngredients` för katalogkopplingen, aldrig `commitIngredients` utom bekräftade kopplingar i 9.10;
+  - `OfferChip` i `src/components`, och etiketterna sätts ihop av sidorna (route → ui);
+  - `listStockedSites` i `pantry` för "Fyll på lagret";
+  - AI-jobben `offers` (`extractOffers`) och `weekplan` (`planWeek`), och `offers` i `suggestDishes`;
+  - `revalidateFor('store_offer')`.
 
 ### UX Design Requirements
 
@@ -136,6 +171,8 @@ Från `DESIGN.md` och `EXPERIENCE.md`:
 - UX-DR16: Inställningar: godkända receptsajter, butik, logga ut.
 - UX-DR17 (1.1): Ställesväljare med filterpiller ovanför platskorten och "Ställen" när det finns flera ställen, annars bara "Lägg till ställe" längst ned i Hemma. Arket Ställen (lägg till, byt namn, ta bort ett tomt ställe). Raden "Lager: <namn>" i listan (med "Byt" och arket "Räkna listan mot"), matsedeln, receptvyn och biblioteket med "Kan lagas nu", bara när det finns flera ställen.
 - UX-DR18 (1.1): Texter för ställen enligt EXPERIENCE.md, Voice and Tone: inga ställesnamn när det bara finns ett ställe, och annars mönstren "Lager: Stugan" och "… för Stugan.".
+- UX-DR19 (Epic 9): Länken under Butik i Inställningar, arket Veckans erbjudanden (hämta, erbjudandena i kategorier, "Fyll på lagret", text och foto, granskning, soptunna med "Ångra" och "Ta bort alla"), textknappen "Erbjudanden" i Inköpslistans rubrik och filterpillret "Erbjudanden" i Recept med sin rad.
+- UX-DR20 (Epic 9): Texter för erbjudanden enligt EXPERIENCE.md: veckan som "vecka 45, 4–10 nov", pris och villkor som butiken skrev dem, "Hämtade 91 erbjudanden för vecka 45.", "Med veckans erbjudanden från <butik>." och felen för länken, med "Öppna sidan".
 - UX-DR21 (Epic 10): Raden "Senaste foto av kylen: idag 15:42" med textknappen "Visa" direkt under kameraknappen i Hemma, och fotoarket från 6.6 med numrerade markörer, "AI:n läste av:" med en numrerad lista och "Ta bort fotot" med kontrollfråga.
 - UX-DR22 (Epic 10): Texter för foton enligt EXPERIENCE.md: tiden som "idag 15:42", "igår 09:10" eller "24 okt 15:42", "Taget idag 15:42. Numren visar vad AI:n läste av.", "Fotot finns inte längre.", "Fotot av kylen är borttaget." och den nya underrubriken under granskningen.
 - UX-DR23 (Epic 11): Kategorirubrik med ikonplatta (emoji, dold för skärmläsare), kategorins namn och antal, i butikens ordning, i Lagersaldo och Inköpslista. Plattornas färger och tokens enligt DESIGN.md (`category-tile`, `tile-clay`, `tile-lilac`).
@@ -144,6 +181,11 @@ Från `DESIGN.md` och `EXPERIENCE.md`:
 - UX-DR26 (Epic 11): Receptkort med bilden överst och statusetiketten och hjärtat på bilden (en kolumn i mobilen, två från 1024 px), rättkort med 56 px bild, "6 av 8 hemma" och mätare, och "Visa inköpslistan" längst ned i Matsedel, enligt `mockups/matkoll-mobil.html`.
 - UX-DR27 (Epic 11): Matkoll på hemskärmen: appikonen (morot), helskärm med appens bakgrund bakom statusraden, tillbakaknappar, inloggning med koden och raden om hemskärmen i Inställningar.
 - UX-DR28 (Epic 11): Texter enligt EXPERIENCE.md, Voice and Tone och State Patterns för Epic 11 ("Tillagd …", "Tog bort …", "8 varor kvar", "Saknas i Stugan", "Egen vara", "Allt ligger i korgen", "Koden stämmer inte eller har gått ut. Skicka en ny länk."). Emoji bara i kategoriplattorna.
+- UX-DR29 (Epic 12): Jobbraden ovanför flikfältet (överst i sidomenyn på dator) med "AI: Tittar på fotot av kylen · 2 i kö", och arket AI-jobb med varje jobbs läge, "Avbryt" och "Visa", enligt `EXPERIENCE.md` och `DESIGN.md` (`job-row`).
+- UX-DR30 (Epic 12): Flikmärket i `{colors.accent}` på Recept och Lagersaldo med antalet osedda AI-resultat (`tab-badge`), och den korta bekräftelsen med "Visa" i 8 s för ett klart jobb, utan bekräftelse på resultatets egen sida.
+- UX-DR31 (Epic 12): Texter och tillstånd för AI-jobb enligt EXPERIENCE.md, Voice and Tone och State Patterns: "Du kan göra annat under tiden.", "I kö, 1 före.", "3 rättförslag är klara.", "Det finns redan tre AI-jobb. Vänta tills ett är klart.", "AI-jobbet avbröts. Försök igen.", "Resultatet finns inte längre.", "Förslagen bygger på lagret för Hemma." och "Letar efter fler …".
+- UX-DR32 (Epic 9): Erbjudandeetiketten (`offer-chip`, mint) med "Falukorv 29 kr" på listposter, receptkort och AI-förslag, med namnet "På erbjudande: …" för skärmläsare.
+- UX-DR33 (Epic 9): Förslaget till veckans matsedel i Matsedel: knappen "Föreslå veckans matsedel", jobbet, rättkort med bock och erbjudandeetiketter, "Lägg 3 rätter på matsedeln" och "Granska och spara" för nya rätter.
 
 ### FR Coverage Map
 
@@ -180,6 +222,9 @@ Från `DESIGN.md` och `EXPERIENCE.md`:
 - FR31: Epic 8 – se ett ställes lager på distans
 - FR32: Epic 8 – inköpslistan räknas mot valt ställe
 - FR33: Epic 8 – skrivningar på det ställe vyn visade
+- FR34: Epic 9 – länk (9.1), text (9.7) och foto (9.8)
+- FR35: Epic 9 – se (9.1) och ta bort (9.9) erbjudanden
+- FR36: Epic 9 – AI-förslag med erbjudanden (9.5)
 - FR37: Epic 10 – spara senaste fotot per plats
 - FR38: Epic 10 – visa senaste fotot i Hemma
 - FR39: Epic 10 – gallring och borttagning av foton
@@ -188,6 +233,16 @@ Från `DESIGN.md` och `EXPERIENCE.md`:
 - FR42: Epic 11 – märke och tid på lagervaran (11.2, visas i 11.3)
 - FR43: Epic 11 – inköpslistan i butiken (11.4)
 - FR44: Epic 11 – Matkoll på hemskärmen (11.6)
+- FR45: Epic 12 – snabbare AI, mätt före och efter (12.1, 12.2, 12.3)
+- FR46: Epic 12 – AI-jobb i bakgrunden (12.4, och per flöde i 12.5 och 12.6)
+- FR47: Epic 12 – kön och jobbraden (12.4)
+- FR48: Epic 12 – besked när ett resultat är klart (12.4)
+- FR49: Epic 12 – inaktuella resultat (12.4 för förslag, 12.5 för foton)
+- FR50: Epic 12 – första rätten direkt (12.7)
+- FR51: Epic 9 – erbjudanden på inköpslistan (9.2)
+- FR52: Epic 9 – filtret Erbjudanden i Recept (9.3)
+- FR53: Epic 9 – Fyll på lagret (9.4)
+- FR54: Epic 9 – veckans matsedel (9.6)
 
 ## Epic List
 
@@ -230,6 +285,14 @@ Tillägg till 1.1. Det senaste fotot av varje plats sparas privat när det har l
 ### Epic 11: Nytt utseende
 Tillägg till 1.1. Matkoll ser ut och känns som en app i mobilen, enligt tre skisser som Pontus godkände: varorna i kategorier med ikon, Lagersaldo utan mängder men med märke eller tid och en soptunna, en inköpslista med framsteg och "I korgen", kort i Recept och Matsedel, och Matkoll på hemskärmen med inloggning med kod.
 **FRs covered:** FR40, FR41, FR42, FR43, FR44, NFR12 (och ändringar av FR1, FR12, FR13 och FR16)
+
+### Epic 12: Snabbare och asynkron AI
+Tillägg till 1.1. AI-flödena mäts och snabbas upp, och bildanalys, AI-förslag och receptimport körs som AI-jobb i bakgrunden, ett i taget i en kö. Pontus kan fortsätta i appen och får en kort bekräftelse och ett märke på fliken när ett resultat är klart. Inget från AI sparas utan Pontus bekräftelse.
+**FRs covered:** FR45, FR46, FR47, FR48, FR49, FR50, NFR13 (och ändringar av NFR7, FR3, FR4, FR23 och FR24)
+
+### Epic 9: Veckans erbjudanden
+Version 1.2. Matkoll hämtar veckans erbjudanden från butikens länk, som Pontus sparar i Inställningar, och använder dem där de gör nytta: en etikett på inköpslistan, filtret Erbjudanden i Recept, "Fyll på lagret", AI-förslagen och ett förslag till veckans matsedel. Utan länk klistrar Pontus in texten eller fotograferar reklambladet. Byggs efter Epic 12.
+**FRs covered:** FR34, FR35, FR36, FR51, FR52, FR53, FR54, NFR10 (och FR23, som får erbjudanden som indata)
 
 ## Epic 1: Receptimport och receptbibliotek
 
@@ -1679,3 +1742,465 @@ så att den känns som en riktig app i mobilen.
 **Givet** en riktig iPhone
 **När** Pontus lägger Matkoll på hemskärmen och öppnar den
 **Så** öppnas appen i helskärm med moroten som ikon och appens bakgrund bakom statusraden, i ljust och mörkt läge (Flöde 9, manuellt prov)
+
+## Epic 12: Snabbare och asynkron AI
+
+Tillägg till 1.1. Pontus skrev 2026-10-26: "Vi borde få till prestandan i qwen kommandona om det går. Kanske göra dem asynkrona om det går, och att man kan fortsätta klicka runt i appen och göra fler asynkrona anrop som ramlar in när dom är klara. Om det inte riskerar ngt." Pontus godkände planen ("ja planera det så"): först fart, mätt före och efter, sedan AI-jobb i bakgrunden, ett i taget i en kö. Epic 12 byggs efter Epic 11. Arkitekturen står i AD-28 och i tillägg till AD-1, AD-2, AD-4, AD-9, AD-10, AD-13, AD-14, AD-15, AD-18, AD-23 och AD-26. Storyna byggs i ordning. Mätningarna i 12.1, 12.2, 12.3 och 12.7 görs mot LM Studio på Pontus Mac, och siffrorna skrivs i `docs/lm-studio.md`, T5, T6 och beslutsloggen. Inget från AI sparas utan Pontus bekräftelse.
+
+### Story 12.1: Mät AI-tiderna och ställ in LM Studio
+
+Som Pontus,
+vill jag veta hur lång tid varje AI-flöde tar och vilka inställningar i LM Studio som går snabbast,
+så att varje förbättring kan mätas före och efter.
+
+**Acceptance Criteria:**
+
+**Givet** utvärderingen (`pnpm eval:ai`)
+**När** den körs mot LM Studio
+**Så** mäter den varje flöde (bildanalys med nummer, AI-förslag, import av text och länk) med kall modell (efter minst 15 minuter utan anrop) och varm modell, och rapporten har tid, token in och ut och token per sekund per körning (FR45)
+
+**Givet** LM Studio med PARALLEL 4 och med PARALLEL 1
+**När** flödena körs ett i taget, som kön kommer att köra dem, och två samtidigt
+**Så** visar rapporten tiderna för båda, och spekulativ avkodning (`--speculative-draft-mtp`) är prövad om modellen stöder den
+
+**Givet** mätningen
+**När** den är klar
+**Så** finns `docs/lm-studio.md` med de uppmätta tiderna, de rekommenderade inställningarna (samtidiga anrop, kontext, TTL, spekulativ avkodning) och kommandot för att ladda modellen så, och LM Studio har samma inställningar som före mätningen
+
+**Givet** att bygget ändrar LM Studio för att mäta
+**När** det görs
+**Så** skrivs inställningarna ned före (`lms ps`), och de återställs efteråt
+
+### Story 12.2: Väck modellen i förväg
+
+Som Pontus,
+vill jag att modellen redan är vaken när jag tar ett foto eller ber om förslag,
+så att det första anropet inte tar tre gånger så lång tid.
+
+**Acceptance Criteria:**
+
+**Givet** att Pontus öppnar Lagersaldo eller Recept
+**När** sidan visas
+**Så** anropar klienten `POST /api/ai/warm` med `image` eller `text`, högst en gång per sort och fem minuter, servern svarar direkt (202), och AI-porten skickar i bakgrunden ett anrop med flödets systemprompt, minimal indata och `maxOutputTokens: 1` (FR45, AD-9)
+
+**Givet** att ett AI-anrop eller AI-jobb redan pågår för Pontus
+**När** väckningen begärs
+**Så** görs inget
+
+**Givet** `AI_PROVIDER=mock`, `anthropic` eller `openai`
+**När** väckningen begärs
+**Så** anropas ingen modell
+
+**Givet** mätningen från 12.1 med kall modell
+**När** det första riktiga anropet görs efter väckningen
+**Så** är det minst 20 % snabbare än utan väckning, annars tas väckningen bort och beslutet loggas
+
+### Story 12.3: Kortare svar för AI-förslag
+
+Som Pontus,
+vill jag att AI-förslagen kommer fortare,
+så att jag inte väntar en och en halv minut på tre rätter.
+
+**Acceptance Criteria:**
+
+**Givet** `suggestDishes`
+**När** modellen tillfrågas
+**Så** svarar den med det kompakta schemat (receptrad med `text`, `amount`, `unit`, `name`, `stepIndexes`, och `new` bara för varor som inte finns i lagret), och porten gör om svaret till `AiRecipe` så att förhandsgranskningen och sparandet är oförändrade (FR45, AD-10)
+
+**Givet** utvärderingen `tests/eval/suggest-dishes.eval.ts` före och efter
+**När** den körs mot LM Studio med varm modell
+**Så** ger svaret minst 25 % färre token, medianen är högst 40 s, och lika många förslag är giltiga och använder minst två varor från lagret
+
+**Givet** att målet inte nås med tre rätter
+**När** mätningen visar det
+**Så** prövas färre rader och steg per rätt, och valet och siffrorna står i beslutsloggen
+
+### Story 12.4: AI-jobb i kö, med AI-förslag först
+
+Som Pontus,
+vill jag kunna be om rättförslag och fortsätta använda appen medan AI:n arbetar,
+så att jag inte behöver vänta vid en snurra.
+
+**Acceptance Criteria:**
+
+**Givet** migrationen för `ai_job`
+**När** den körs
+**Så** finns tabellen med RLS, grants, det partiella unika indexet för `running` och Postgres-funktionerna i AD-28, och RLS-testerna visar att en annan användare varken kan läsa, avbryta eller ta över ett jobb (AD-4, AD-28, NFR13)
+
+**Givet** "Föreslå rätter med AI"
+**När** Pontus trycker
+**Så** svarar `POST /api/ai/jobs` inom en sekund med jobbet, Recept visar "Letar efter idéer … Du kan göra annat under tiden." och "Avbryt", jobbraden visas, och förslagen körs i bakgrunden (FR46)
+
+**Givet** ett jobb som pågår
+**När** Pontus går till Inköpslista
+**Så** säger en kort bekräftelse "3 rättförslag är klara." med "Visa" när förslagen är klara, och Recept får märket 1, som försvinner när förslagen har visats (FR48, UX-DR30)
+
+**Givet** tre aktiva jobb
+**När** Pontus startar ett fjärde
+**Så** visas "Det finns redan tre AI-jobb. Vänta tills ett är klart." och inget startas (FR47)
+
+**Givet** två jobb
+**När** de körs
+**Så** körs de ett i taget, jobbraden säger "· 1 i kö", och "Avbryt" fungerar både för jobbet i kö och för det som pågår, också från en annan flik (FR47, UX-DR29)
+
+**Givet** ett jobb vars server dör
+**När** dess tidsgräns har gått
+**Så** visas "AI-jobbet avbröts. Försök igen.", och nästa jobb i kö startar
+
+**Givet** att Pontus byter valt ställe medan förslagen tas fram
+**När** de visas
+**Så** står "Förslagen bygger på lagret för Hemma." och "Föreslå igen" över dem (FR49)
+
+**Givet** ett dubbeltryck eller ett nytt försök med samma nyckel
+**När** jobbet startas
+**Så** finns ett jobb, inte två
+
+**Givet** jobbet och loggarna
+**När** de granskas
+**Så** finns inget lager, ingen recepttext och inget foto i `ai_job.context` eller i loggarna, bara felkoder, sorter, antal och jobbets id (NFR13)
+
+### Story 12.5: Bildanalys i bakgrunden
+
+Som Pontus,
+vill jag kunna fotografera kylen och sedan frysen direkt, och göra annat medan fotona tolkas,
+så att jag kan inventera hela köket i ett svep.
+
+**Acceptance Criteria:**
+
+**Givet** ett foto av kylen
+**När** Pontus tar det
+**Så** svarar `POST /api/ai/jobs/photo` inom en sekund, Lagersaldo visar "Tittar på bilden … Du kan göra annat under tiden." och "Avbryt", och Pontus kan fotografera frysen direkt, som hamnar i kö (FR46, FR47)
+
+**Givet** att avläsningen är klar
+**När** jobbet fortsätter med numren
+**Så** visas korten direkt, numren kommer när de är klara, och nästa jobb i kö startar först efter numren (högst 30 s till) (AD-28)
+
+**Givet** ett nytt foto av samma plats på samma ställe
+**När** det förra är i kö, pågår eller väntar på bekräftelse
+**Så** ersätts det förra, som aldrig visas och inte ger någon bekräftelse (FR49)
+
+**Givet** ett resultat för kylen
+**När** Pontus öppnar det efter att ha ändrat i kylen
+**Så** jämförs avläsningen med kylen som den är nu ("Nytt", "Ändrat", "Syns inte längre"), och förslagen gäller fotots ställe med "Förslagen gäller Stugan." när ett annat ställe är valt (FR49, AD-24)
+
+**Givet** fotot och jobbet
+**När** jobbet väntar och körs
+**Så** finns fotot bara i serverns minne och i klientens minne, aldrig i `ai_job`, på disk eller i loggar, och efter en omladdning fungerar korten men inget senaste foto sparas (AD-15, AD-26, NFR13)
+
+**Givet** låset i `ai-runs.ts` och rutterna `/api/ai/analyze` och `/api/ai/locate`
+**När** storyn är klar
+**Så** är de borttagna, och kön är den enda regeln för att modellen kör ett jobb i taget
+
+### Story 12.6: Receptimport i bakgrunden
+
+Som Pontus,
+vill jag kunna läsa in flera recept efter varandra och stänga arket medan de läses,
+så att jag kan samla recept utan att vänta på vart och ett.
+
+**Acceptance Criteria:**
+
+**Givet** arket Importera recept med en länk, en text eller ett foto
+**När** Pontus trycker "Läs in"
+**Så** svarar servern inom en sekund, arket visar "Läser receptet … Du kan göra annat under tiden.", och Pontus kan stänga arket eller läsa in nästa recept (FR46)
+
+**Givet** en länk från en domän som inte är godkänd, eller en text som är för lång
+**När** Pontus trycker "Läs in"
+**Så** visas felet direkt, och inget jobb startas
+
+**Givet** att ett recept är inläst
+**När** Pontus är på en annan sida
+**Så** säger en kort bekräftelse "Receptet Krämig kycklinggryta är inläst." med "Visa", Recept får märket 1, och "Visa" öppnar förhandsgranskningen (FR48)
+
+**Givet** ett foto av en kokbokssida
+**När** det står i kö och körs
+**Så** finns fotot bara i serverns minne, och aldrig i `ai_job` eller i loggar (AD-15, NFR13)
+
+**Givet** rutterna `/api/ai/import` och `/api/ai/import/photo`
+**När** storyn är klar
+**Så** är de borttagna
+
+### Story 12.7: Första rätten direkt
+
+Som Pontus,
+vill jag se den första rätten så fort den är klar,
+så att jag kan börja läsa medan de andra tas fram.
+
+**Acceptance Criteria:**
+
+**Givet** ett prov mot LM Studio med `streamText`, `Output.array` och det kompakta schemat från 12.3
+**När** det körs
+**Så** visar provet om varje rätt kommer innan svaret är klart, och utfallet står i T9 och beslutsloggen. Kommer den inte före, avslutas storyn med mätningen och utan strömning (FR50)
+
+**Givet** att strömningen fungerar
+**När** Pontus ber om förslag
+**Så** visas varje rätt så fort den är klar, med "Letar efter fler …" och "Avbryt" sist, och en ny rätt annonseras för skärmläsare (FR50, UX-DR31)
+
+**Givet** en rätt som inte håller (fel schema, en titel att undvika, för få varor från lagret)
+**När** den kommer
+**Så** visas den aldrig, och jobbet är klart med de rätter som höll, eller gör ett nytt försök när ingen höll
+
+**Givet** mätningen med varm modell
+**När** den körs tre gånger
+**Så** syns den första rätten efter högst 40 % av tiden för alla tre
+
+## Epic 9: Veckans erbjudanden
+
+Version 1.2. Pontus skrev 2026-10-26: "Jag vill helst kunna ladda in veckans erbjudanden via en länk … lägga in dom i inställningar för de affärer jag har konfigurerade." Förstudien (`docs/erbjudanden-lankar.md`) visar att ICA:s erbjudandesida per butik har samma adress varje vecka och går att läsa med en vanlig hämtning, medan Willys, Hemköp, Coop och Lidl kräver JavaScript. Pontus valde sedan funktionerna som använder erbjudandena. Kursändringen står i `sprint-change-proposal-2026-10-26-erbjudanden-v2.md` och ersätter den första planen. Arkitekturen står i AD-25 och i tillägg till AD-1, AD-9, AD-11, AD-15, AD-18, AD-24 och AD-28. Epic 9 byggs efter Epic 12. Storyna byggs i ordning, men om ica.se nekar Matkolls User-Agent (T13) byggs 9.7 direkt efter 9.1. Story 9.10 byggs bara om mätningen i 9.1 visar att den behövs (T14). Varje story håller tillgänglighetsgolvet (NFR12).
+
+### Story 9.1: Veckans erbjudanden från butikens länk
+
+Som Pontus,
+vill jag spara länken till butikens erbjudanden i Inställningar och hämta veckans erbjudanden med ett tryck,
+så att Matkoll vet vad som är på erbjudande utan att jag skriver av något.
+
+**Acceptance Criteria:**
+
+**Givet** butiken Maxi ICA Stormarknad Östersund (ICA, butiks-id 1003733)
+**När** migrationen har körts
+**Så** har butiken länken `https://www.ica.se/erbjudanden/maxi-ica-stormarknad-ostersund-1003733/`, och arket Butik har fältet "Länk till veckans erbjudanden" (FR34, UX-DR19)
+**Och** en adress som inte är en erbjudandesida på ica.se nekas med ett besked under fältet, och för andra kedjor står "Länk stöds bara för ICA än så länge."
+
+**Givet** migrationen för `store_offer` med RLS och grants
+**När** RLS-testerna körs
+**Så** kan varken en anonym klient eller en annan användare läsa eller skriva erbjudanden (AD-4, AD-25)
+
+**Givet** arket Veckans erbjudanden, öppnat med "Erbjudanden" i Inköpslistans rubrik
+**När** Pontus trycker "Hämta veckans erbjudanden"
+**Så** hämtas sidan en gång med `safeFetch` och Matkolls egen User-Agent, bara erbjudanden på mat sparas för butiken och veckan, och arket visar dem i kategorier med pris och villkor (FR34, FR35, NFR10)
+**Och** den korta bekräftelsen säger "Hämtade 91 erbjudanden för vecka 45.", och raden under rubriken "122 varor som inte är mat togs inte med."
+
+**Givet** sidans data i `window.__INITIAL_DATA__` med `undefined` och `new Map([])`
+**När** den läses
+**Så** läses den deterministiskt utan `eval`, bara `offers.weeklyOffers` används, och `publicAccessToken`, kakor och interna adresser finns aldrig i databasen, svaret eller loggarna (NFR10)
+
+**Givet** att sidan svarar 403 eller 429, saknar data eller har en okänd form
+**När** Pontus trycker "Hämta veckans erbjudanden"
+**Så** görs inget nytt försök, inget sparas, och en meddelanderuta säger vad som hände, med "Öppna sidan"
+
+**Givet** erbjudanden som hämtades för en kvart sedan
+**När** Pontus trycker "Hämta igen"
+**Så** ersätts butikens hämtade erbjudanden för veckan, och erbjudanden från text eller foto står kvar
+**Och** ett nytt tryck inom 15 minuter ger "Erbjudandena hämtades nyss. Försök igen om en stund." utan hämtning
+
+**Givet** ett erbjudande vars vara finns i katalogen och ett som inte gör det
+**När** de sparas
+**Så** kopplas det första till katalogingrediensen med `matchIngredients`, det andra sparas med sitt namn, och katalogen är oförändrad (AD-6)
+
+**Givet** testerna
+**När** de körs
+**Så** går hämtningen mot sparade sidor via `fixture-sites.ts`, och ingen test anropar ica.se
+
+### Story 9.2: Erbjudanden på inköpslistan
+
+Som Pontus,
+vill jag se på inköpslistan vilka varor som är på erbjudande den här veckan,
+så att jag vet vad som är billigt när jag planerar och handlar.
+
+**Acceptance Criteria:**
+
+**Givet** listposten Falukorv och ett erbjudande på falukorv i vald butik
+**När** Inköpslistan visas
+**Så** står erbjudandeetiketten "Falukorv 29 kr" först på raden under namnet, och skärmläsaren säger "På erbjudande: Falukorv 29 kr" (FR51, UX-DR32)
+
+**Givet** en post utan katalogingrediens eller en egen vara med samma namn som ett erbjudande
+**När** listan visas
+**Så** får den också etiketten
+
+**Givet** listposten Falukorv
+**När** Pontus trycker på texten
+**Så** visar listpostdetaljen alla erbjudanden på varan med pris och villkor
+
+**Givet** etiketter på listan
+**När** Pontus trycker "Skicka till ICA"
+**Så** är exporten byte för byte som utan erbjudanden, och listans poster, mängder och ordning är oförändrade (AD-8, AD-16)
+
+### Story 9.3: Filtret Erbjudanden i Recept
+
+Som Pontus,
+vill jag se vilka av mina recept som använder veckans erbjudanden,
+så att jag kan laga det som är billigt den här veckan.
+
+**Acceptance Criteria:**
+
+**Givet** Recept
+**När** sidan visas
+**Så** finns pillren Alla, Favoriter, Kan lagas nu och Erbjudanden (FR52)
+
+**Givet** erbjudanden på falukorv, gul lök och laxfilé
+**När** Pontus väljer Erbjudanden
+**Så** visas recept där minst en huvudvara är på erbjudande, flest erbjudanden först och sedan minst saknat, med raden "Recept med veckans erbjudanden från Maxi ICA Stormarknad Östersund, vecka 45." och "Visa erbjudanden"
+**Och** korten har upp till två erbjudandeetiketter och "+N" (UX-DR32)
+
+**Givet** ett recept där bara en krydda eller en vag rad är på erbjudande
+**När** filtret visas
+**Så** kommer receptet inte med
+
+**Givet** erbjudanden
+**När** Pontus väljer Alla, Favoriter eller Kan lagas nu
+**Så** är ordning, status och kort som utan erbjudanden (AD-7)
+
+### Story 9.4: Fyll på lagret
+
+Som Pontus,
+vill jag se när varor jag brukar ha hemma eller i stugan är på erbjudande,
+så att jag kan fylla på när det är billigt.
+
+**Acceptance Criteria:**
+
+**Givet** kaffe i Hemma men inte i Stugan och ett erbjudande på kaffe
+**När** arket Veckans erbjudanden visas
+**Så** står kaffet överst under "Fyll på lagret" med "49 kr · Finns i Hemma, inte i Stugan" (FR53)
+
+**Givet** en vara som inte finns i lagret men har ett produktval i butiken
+**När** den är på erbjudande
+**Så** står den under "Fyll på lagret" med "Du brukar köpa Gevalia"
+
+**Givet** "Lägg på listan" vid kaffet och en aktuell matsedel
+**När** Pontus trycker
+**Så** läggs kaffet som egen vara på inköpslistan, en gång också vid dubbeltryck, och bekräftelsen säger "Lade kaffe på inköpslistan."
+
+**Givet** lagret på flera ställen
+**När** basvarorna räknas
+**Så** läses bara vilka ställen varan finns på, aldrig summerade mängder (AD-24)
+
+### Story 9.5: AI-förslag med veckans erbjudanden
+
+Som Pontus,
+vill jag att AI-förslagen gärna använder det som är på erbjudande i min butik den här veckan,
+så att veckans middagar blir billigare utan att jag letar själv.
+
+**Acceptance Criteria:**
+
+**Givet** inga erbjudanden för vald butik
+**När** Pontus ber om AI-förslag
+**Så** får AI-tjänsten exakt samma meddelande som efter Story 12.3 (FR36)
+
+**Givet** veckans erbjudanden
+**När** AI-jobbet för förslag körs
+**Så** får AI-tjänsten varornas namn under "Erbjudanden i butiken den här veckan:", aldrig priser, och klienten skickar aldrig erbjudandena (AD-25, AD-28)
+
+**Givet** förslag som använder varor på erbjudande
+**När** de visas, också en i taget
+**Så** har de erbjudandeetiketter, och över dem står "Med veckans erbjudanden från Maxi ICA Stormarknad Östersund." (UX-DR20, UX-DR32)
+
+**Givet** att erbjudandena inte går att läsa
+**När** Pontus ber om AI-förslag
+**Så** görs förslagen ändå, utan erbjudanden
+
+**Givet** ett förslag som sparas
+**När** det ligger i biblioteket
+**Så** har det inga erbjudandeetiketter
+
+### Story 9.6: Veckans matsedel från erbjudanden och lagret
+
+Som Pontus,
+vill jag få ett förslag till veckans matsedel som utgår från erbjudandena och det som finns hemma,
+så att veckan planeras på några tryck.
+
+**Acceptance Criteria:**
+
+**Givet** Matsedel
+**När** Pontus trycker "Föreslå veckans matsedel"
+**Så** startar ett AI-jobb av sorten `weekplan` som svarar inom en sekund, Matsedel visar "Planerar veckan … Du kan göra annat under tiden." och "Avbryt", och jobbraden visar det (FR54, AD-28)
+
+**Givet** att jobbet är klart
+**När** förslaget visas
+**Så** står fem rättkort under "Förslag till veckans matsedel", i första hand recept ur biblioteket och högst två nya rätter med AI-etiketten, med "6 av 8 hemma" och erbjudandeetiketter (UX-DR33)
+
+**Givet** förslaget med tre rätter ur biblioteket ibockade
+**När** Pontus trycker "Lägg 3 rätter på matsedeln"
+**Så** läggs de på den aktuella matsedeln, och bekräftelsen säger "Lade 3 rätter på matsedeln."
+
+**Givet** en ny rätt i förslaget
+**När** Pontus trycker "Granska och spara"
+**Så** öppnas förhandsgranskningen som för ett AI-förslag, och inget sparas utan "Spara" (AD-2, AD-10)
+
+**Givet** att Pontus byter valt ställe medan förslaget tas fram
+**När** det visas
+**Så** står "Förslaget bygger på lagret för Hemma." och "Föreslå igen"
+
+### Story 9.7: Erbjudanden från inklistrad text
+
+Som Pontus,
+vill jag klistra in texten från en butiks erbjudandesida när det inte finns någon länk,
+så att också andra butiker än ICA kan användas.
+
+**Acceptance Criteria:**
+
+**Givet** arket Veckans erbjudanden
+**När** Pontus väljer "Klistra in text", klistrar in texten och trycker "Läs erbjudandena"
+**Så** startar ett AI-jobb av sorten `offers`, och texten finns bara i serverns minne (FR34, AD-28)
+
+**Givet** att jobbet är klart
+**När** granskningen visas
+**Så** står "Hittade 18 erbjudanden för vecka 45." med en rad per erbjudande och "Ta bort", och inget sparas före "Spara 16 erbjudanden"
+
+**Givet** sparade erbjudanden för veckan
+**När** Pontus läser in en text till och sparar
+**Så** läggs erbjudandena ihop, och samma erbjudande blir ett
+
+**Givet** en text som bara är en adress till en ICA-erbjudandesida
+**När** Pontus trycker "Läs erbjudandena"
+**Så** startar inget jobb, och beskedet säger att länken ska läggas in under Butik i Inställningar
+
+### Story 9.8: Erbjudanden från foto av reklambladet
+
+Som Pontus,
+vill jag fotografera reklambladet eller välja en skärmbild,
+så att jag kan lägga in erbjudanden också när jag inte har texten.
+
+**Acceptance Criteria:**
+
+**Givet** arket Veckans erbjudanden
+**När** Pontus väljer "Fotografera bladet" eller "Välj bild"
+**Så** förminskas fotot i klienten till högst 2048 px och 1,5 MB, skickas till `/api/ai/jobs/photo` som ett jobb av sorten `offers` och sparas aldrig (FR34, AD-15, AD-28)
+
+**Givet** ett påhittat reklamblad i mockens fixturer
+**När** jobbet är klart
+**Så** visas samma granskning som för text, och "Spara" fungerar som i 9.7
+
+**Givet** ett foto utan erbjudanden
+**När** jobbet är klart
+**Så** visas "Hittade inga erbjudanden på mat." och inget sparas
+
+### Story 9.9: Ta bort erbjudanden
+
+Som Pontus,
+vill jag ta bort ett erbjudande som blev fel, eller alla för veckan,
+så att etiketterna och förslagen bara bygger på rätt erbjudanden.
+
+**Acceptance Criteria:**
+
+**Givet** ett erbjudande i arket
+**När** Pontus trycker på den grå soptunnan
+**Så** tas det bort utan fråga, "Tog bort Falukorv." visas med "Ångra" i 5 s, och "Ångra" sätter tillbaka det med samma id (FR35, AD-20)
+
+**Givet** veckans erbjudanden
+**När** Pontus trycker "Ta bort alla"
+**Så** tas veckans alla erbjudanden för butiken bort, och "Ångra" sätter tillbaka dem
+
+**Givet** ett borttaget erbjudande som kom från länken
+**När** Pontus hämtar igen
+**Så** kommer det tillbaka, och raden under "Hämta igen" säger det
+
+### Story 9.10: AI kopplar fler erbjudanden till katalogen
+
+Som Pontus,
+vill jag att erbjudanden med produktnamn ("Herrgård") kopplas till rätt vara i katalogen,
+så att etiketterna, filtret och "Fyll på lagret" hittar dem.
+
+Byggs bara om mätningen i 9.1 (T14) visar att färre än hälften av erbjudandena på mat får en katalogingrediens.
+
+**Acceptance Criteria:**
+
+**Givet** hämtade erbjudanden utan katalogingrediens
+**När** Pontus trycker "Koppla fler till katalogen" i arket
+**Så** startar ett AI-jobb som föreslår en befintlig katalogingrediens per erbjudande, utan att skapa nya (AD-6, AD-28)
+
+**Givet** förslagen
+**När** Pontus granskar dem och trycker "Spara kopplingar"
+**Så** kopplas erbjudandena, och varje bekräftad koppling sparas som synonym i katalogen, så att samma vara hittas utan AI nästa vecka
+
+**Givet** ett förslag som Pontus bockar ur i granskningen
+**När** kopplingarna sparas
+**Så** sparas inget för det erbjudandet

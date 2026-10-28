@@ -7,6 +7,7 @@ import { Notice } from "@/components/notice";
 import { useToast } from "@/components/toast";
 import { errorMessages, fail, type Result } from "@/lib/errors";
 import { selectStore } from "../actions/select-store";
+import { offersLinkCardText, offersSiteName } from "../domain/offers-link";
 import {
   compareStores,
   noAddressText,
@@ -93,6 +94,8 @@ export function StoreSettings({ stores }: StoreSettingsProps) {
   const cardHeading = useRef<HTMLHeadingElement>(null);
 
   const selected = shown.find((store) => store.isSelected) ?? null;
+  // "Erbjudanden: ica.se" when the store has a link to its weekly offers (Story 9.1).
+  const selectedOffersSite = selected?.offersUrl ? offersSiteName(selected.offersUrl) : null;
   const others = shown.filter((store) => !store.isSelected);
   // A store that went away elsewhere while its sheet is open: the sheet closes, there is nothing to change any more.
   const sheetStoreGone = sheet.store !== undefined && !stores.some((store) => store.id === sheet.store?.id);
@@ -157,6 +160,11 @@ export function StoreSettings({ stores }: StoreSettingsProps) {
             >
               {selected.url}
             </a>
+          ) : null}
+          {selectedOffersSite ? (
+            <p data-testid="store-offers-link" className="text-meta text-ink-2">
+              {offersLinkCardText(selectedOffersSite)}
+            </p>
           ) : null}
         </div>
       ) : (

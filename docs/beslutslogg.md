@@ -2,6 +2,16 @@
 
 Beslut som fattats under bygget: vad, varför och vilka alternativ som fanns. Nyaste överst.
 
+## 2026-10-28 – Veckans erbjudanden från butikens länk (Story 9.1)
+
+- **Specens förslag godkändes som de stod** (Claude, enligt `docs/autonomi.md`, Pontus: fortsätt med alla epics): länken sparas direkt utan granskning, en hämtning ersätter butikens länkrader för veckan, unik på `label_key`, veckan från det vanligaste `validTo`, 15 minuter mellan hämtningar.
+- **Läsningen körs aldrig som kod.** En egen läsare tar ut `window.__INITIAL_DATA__`, gör om `undefined` och `new Map(...)` och tolkar med `JSON.parse`. ESLint förbjuder `eval`, `new Function` och strängar till timers i hela `src/`. Bara `offers.weeklyOffers` lämnas ut, och sidans token, kakor och interna adresser kastas direkt. Alternativ: `vm` eller AI, som spec och arkitektur förbjuder.
+- **403 och 429 skiljs ut i hämtningen**, inte i `safeFetch`: `fetchOfferPage` ger statusen från det sista svaret, så receptimportens fel och texter är oförändrade.
+- **Bladets ordning sparas i `created_at`** (en mikrosekund per plats), så att etiketten i 9.2 kan ta det första erbjudandet i bladet utan en ny kolumn.
+- **Fixturerna får veckans datum** när de serveras (`{{sunday}}`), så att testerna aldrig blir gamla. Varorna är påhittade, token och kakor också.
+- **Avvikelser från specen** står under "Vid bygget" i `spec-9-1-veckans-erbjudanden-fran-butikens-lank.md`, bland annat att ICA:s kategori heter "Bröd, kex & bageri" och att namnet utan träff är den första delen ("herrgård").
+- **T13 och T14** prövas av Pontus med ett tryck mot den riktiga butiken (`docs/oppna-fragor.md`).
+
 ## 2026-10-27 – Visa senaste fotot i Lagersaldo (Story 10.2)
 
 - **Byggd om på Epic 11** (`epic/11-nytt-utseende`): bygget från 26 oktober flyttades över till det nya utseendet innan det granskades. Beteendet är detsamma, bara utseendet och orden ändrades.
@@ -73,6 +83,106 @@ Beslut som fattats under bygget: vad, varför och vilka alternativ som fanns. Ny
 - **Raden "Lägg Matkoll på hemskärmen …"** visas först när webbläsaren har svarat att appen inte körs från hemskärmen, så den blinkar aldrig fram i appen. Efter granskningen bara på iPhone och iPad; Android får webbläsarmenyns ord och en dator ingenting.
 - **Efter granskningen: gränsen för fel koder ligger i serverns minne,** 5 per adress och IP på 15 minuter, före Supabase och före tillåtelselistan, och webbläsarens IP skickas till Supabase som `Sb-Forwarded-For`. Alternativet, en gräns i databasen, kräver en funktion som `anon` får anropa, vilket AD-4 inte tillåter i dag (öppen fråga 17). Varför: Supabase räknar annars alla försök på Vercels IP.
 - **Efter granskningen: länken i mejlet loggar in först när knappen "Logga in" trycks.** Alternativ: logga in direkt när länken öppnas, som förut. Varför: länkskannrar i e-post (till exempel Safe Links) öppnar länkar i förväg, och eftersom länken och koden är samma token skulle det använda upp båda.
+## 2026-10-27 – AI-tiderna och LM Studios inställningar (Story 12.1)
+
+- **Underlag:** mätning natten till 2026-10-27 kl. 22.39–03.36 med `pnpm eval:ai` och den nya gemensamma tidmätningen (`tests/eval/timing.ts`) mot Qwen3.6 35B A3B (MLX, 4 bit) i LM Studio på Pontus Mac (32 GB). Flöden: bildanalys och nummer (Pontus kylfoto och `syntetisk-kyl`), AI-förslag och "andra rätter", import av text (`kycklinggryta`), länk (den sparade sidan `koket-chow-mein`) och foto (`ugnspannkaka`). Lägen: varm (tre körningar), kall (minst 15 minuter utan anrop, och en gång efter 5 och 30 minuter), två anrop samtidigt, PARALLEL 4 och 1 och PARALLEL 1 med `--speculative-draft-mtp`. `lms ps` före: kontext 8 192, PARALLEL 4, ingen TTL; samma efter återställningen. Allt står i `docs/lm-studio.md`.
+- **Siffrorna (median, varm med PARALLEL 4 → kall):** bildanalys av Pontus foto 19,9 → 82,1 s, nummer 6,4 → 14,6 s, AI-förslag 45,9 → 80,3 s, import av text 30,0 → 55,0 s, av länk 47,7 → 74,1 s och av foto 21,2 → 75,6 s. Modellen skriver ungefär 44 token per sekund i alla lägen. PARALLEL 1 och spekulativ avkodning gav samma varma tider inom en sekund. Två anrop samtidigt: med PARALLEL 4 blev 1 av 12 anrop ogiltigt (ett AI-förslag över 100 s), med PARALLEL 1 4 av 12 (alla tre uppslag av numren gav upp efter 30 s i LM Studios kö, och ett "andra rätter" över 115 s).
+- **Kall modell (T10):** macOS komprimerar modellens minne redan efter 5 minuter utan anrop (12–17 GB i minneskompressorn före ett kallt anrop, 1–3 GB efter). Det kostar 18–66 s per flöde.
+- **Beslut (Claude, headless enligt `docs/autonomi.md`; Pontus väljer, öppen fråga 24):**
+  - **Rekommendationen är att behålla kontext 8 192, PARALLEL 4 och ingen TTL, utan spekulativ avkodning.** Hypotesen före mätningen var PARALLEL 1, men den gav ingen fart för ett ensamt anrop och klarade krockar sämre. Spekulativ avkodning laddade utan fel men gav ingen mätbar skillnad. Alternativ: PARALLEL 1, som gör att ett anrop aldrig delar fart men får vänta i LM Studios kö.
+  - **LM Studio är återställt** till inställningarna före mätningen.
+  - **Fart vinns i appen:** kortare AI-förslag (12.3), eftersom tiden följer svarets längd, och väckningen (12.2), eftersom modellen blir kall efter några minuter. Väckningens gräns på fem minuter stämmer med mätningen.
+  - **Utvärderingen mäter token genom att läsa `usage` i svaren** via en egen `fetch` i utvärderingen, så att AI-porten inte ändras för mätningens skull.
+- **Varför:** samma mått för alla flöden behövs för att visa om 12.2, 12.3 och 12.7 hjälper. Rekommendationen följer siffrorna, inte hypotesen.
+## 2026-10-27 – Kursändring för veckans erbjudanden, andra planen (Epic 9)
+
+- **Underlag:**
+  - Pontus skrev 2026-10-26: "Jag vill helst kunna ladda in veckans erbjudanden via en länk … lägga in dom i inställningar för de affärer jag har konfigurerade."
+  - Pontus valde sedan funktioner ur en lista och godkände rekommendationen i stort: etiketten på inköpslistan, filtret i Recept, "Fyll på lagret", AI-förslag med erbjudanden och en föreslagen veckomeny. Bevakningar med aviseringar väntar.
+  - Pontus gav fria händer under natten ("Implementera det som är möjligt i natt").
+  - Förstudien `docs/erbjudanden-lankar.md` och den första planen på grenen `epic/9-erbjudanden` (`c72942e`) lästes.
+  - Koden lästes på `epic/12-asynkron-ai`: `safeFetch` och `fixture-sites.ts`, `store` och `save_store`, `pantry_addition` och `pantry_removal`, `addCustomItem` och receptbiblioteket med filterpillren. Skisserna från Epic 11 lästes också.
+- **Beslut (Pontus):** **erbjudandena hämtas från en länk per butik**, sparad i Inställningar. Det ersätter den första planens beslut "ingen länk i 1.2" och AD-25:s förbud mot hämtning från butiker. AD-11 och AD-25 är ändrade så att godkända erbjudandesidor uttryckligen är tillåtna.
+- **Beslut (Claude, headless enligt `docs/autonomi.md`; allt går att ändra):**
+  - **En andra plan för Epic 9 med tio stories** (alternativ 1, direkt justering), i `_bmad-output/planning-artifacts/sprint-change-proposal-2026-10-26-erbjudanden-v2.md`. Den första planen ligger kvar som underlag, märkt som ersatt. Grenen är `epic/9-erbjudanden-v2` från `epic/12-asynkron-ai`, och Epic 9 byggs efter Epic 12. 9.1–9.4 behöver bara Epic 11 och kan byggas tidigare om Pontus vill.
+  - **Numren behålls:** AD-25, FR-34–FR-36, NFR-10, UX-DR19–UX-DR20, UJ-7, Flöde 7, öppna frågor 8–10 och T12. De nya kraven fortsätter efter Epic 12: FR-51–FR-54, UX-DR32–UX-DR33, frågorna 26–30 och T13–T14.
+  - **Story-ordning, nyttan först:**
+    1. 9.1, länk och hämtning;
+    2. 9.2, etiketten på inköpslistan;
+    3. 9.3, filtret Erbjudanden;
+    4. 9.4, Fyll på lagret;
+    5. 9.5, AI-förslag;
+    6. 9.6, veckans matsedel;
+    7. 9.7, text;
+    8. 9.8, foto;
+    9. 9.9, ta bort;
+    10. 9.10, AI-koppling till katalogen.
+
+    De tre användningarna utan AI kommer före AI-flödena. Text och foto är reserver för kedjor utan länk. Nekar ica.se Matkolls User-Agent (T13) byggs 9.7 direkt efter 9.1. 9.10 byggs bara om färre än hälften av erbjudandena kopplas till katalogen (T14).
+  - **Bara godkända erbjudandesidor:** en fast lista i koden, `OFFER_SITES`, skild från receptsajterna. I 1.2 bara `www.ica.se/erbjudanden/<slug>-<id>/`, för kedjan ICA. Willys, Hemköp, Coop och Lidl får ingen länk, eftersom deras sidor kräver JavaScript, och deras interna API:er används aldrig.
+  - **Ärlig och sparsam hämtning:**
+    - en hämtning per tryck med `safeFetch`;
+    - User-Agent i samma form som receptimporten (`Mozilla/5.0 (compatible; Matkoll/1.0; +weekly offers for personal use)`), utan huvuden som efterliknar en webbläsare och utan kakor;
+    - inget nytt försök efter 403 eller 429;
+    - 15 minuter mellan hämtningar för samma butik;
+    - ingen hämtning utan tryck.
+
+    Alternativ: att utge sig för att vara en webbläsare (strider mot Pontus regel) eller att hämta automatiskt (backlog).
+  - **Sidan läses deterministiskt, utan AI och utan `eval`.** En egen läsare tar ut `window.__INITIAL_DATA__`, gör om `undefined` och `new Map([])` utanför strängar och tolkar med `JSON.parse`. Bara `offers.weeklyOffers` används. Token, kakor och interna adresser sparas och loggas aldrig, och ett test med en påhittad token visar det. Alternativ: receptimportens väg med AI (kapar vid 12 000 tecken och ser bara ett 20-tal av 213 erbjudanden).
+  - **Bara mat:** ICA:s kategorier för mat och dryck behålls, och resten räknas och visas som ett antal. Alternativ: en lista över det som inte är mat, som skulle släppa igenom nya kategorier.
+  - **Länkens erbjudanden sparas direkt, utan granskning,** eftersom ingen AI tolkar dem. En ny hämtning ersätter länkens erbjudanden för veckan, och text och foto står kvar. Text och foto granskas före sparande som i den första planen.
+  - **`store_offer` är unik per butik, vecka och namn som butiken skrev det (`label_key`),** inte per vara, så att två erbjudanden på falukorv från olika märken båda syns. Nya kolumner jämfört med den första planen: `section`, `note`, `member_only`, `valid_to` och `source`. Gränsen är 300 per vecka, eftersom en vecka på Maxi hade 91 erbjudanden på mat.
+  - **Veckan för länken** är den som innehåller det vanligaste `validTo`. Ett erbjudande vars sista dag har passerat används inte.
+  - **Katalogkopplingen är deterministisk:** `matchIngredients` på hela namnet och delarna, utan märke och mängd. AI används bara om mätningen visar att det behövs (9.10), och då sparas en koppling som Pontus bekräftar som synonym. Det är det enda undantaget från "erbjudanden skriver aldrig katalogen".
+  - **Länken för Maxi ICA Stormarknad Östersund fylls i** av migrationen och startdatan (öppen fråga 29).
+  - **Etiketten ("Falukorv 29 kr")** är en ny komponent, `OfferChip` (`offer-chip`, mint), i `src/components`. Sidorna sätter ihop etiketterna, så att `shopping/ui`, `recipes/ui` och `mealplan/ui` aldrig importerar `offers`. Mint skiljer den från produktetiketten (ljusblå) och AI-etiketten (sand).
+  - **Ingången till arket Veckans erbjudanden** är textknappen "Erbjudanden" i Inköpslistans rubrik och raden i filtret Erbjudanden. Den första planens rad vid "Föreslå rätter med AI" i Kan lagas nu finns inte längre, eftersom erbjudandena nu används på flera ställen och Recept har fått ett eget filter.
+  - **Filtret heter "Erbjudanden"** (öppen fråga 26) och räknar huvudvaror: receptrader som inte är vaga och har en katalogingrediens utanför Såser & smaksättare.
+  - **"Fyll på lagret":** en basvara finns i lagret på något ställe nu (också obegränsad) eller har ett produktval i butiken. Kvittona i `pantry_addition` har ingen vara och tas bort efter 30 dagar, så de går inte att använda (öppen fråga 27). `pantry` får `listStockedSites`, som säger var en vara finns men aldrig summerar mängder (tillägg i AD-24). "Lägg på listan" använder `addCustomItem`.
+  - **AI-förslagen sorteras inte längre om** efter erbjudandena, som i den första planen. Med en rätt i taget (12.7) skulle korten flytta sig. Prompten ber om rätter med erbjudanden först, och etiketterna visar dem.
+  - **Veckans matsedel är ett nytt AI-jobb, `weekplan`** (tillägg i AD-28): fem rätter, i första hand ur biblioteket och högst två nya (öppen fråga 28). Pontus väljer vilka som läggs på matsedeln, och nya rätter sparas via förhandsgranskningen.
+  - **Text och foto är AI-jobb av sorten `offers`** i stället för egna rutter, eftersom Epic 12 gör alla AI-flöden till jobb.
+  - **Väntar** (`docs/backlog-efter-1-0.md`): automatisk hämtning, bevakningar med aviseringar och fler kedjor med länk.
+- **Från den första planen gäller fortfarande:**
+  - modulen `offers` och tabellen `store_offer`, en butik och en vecka per erbjudande, och veckor i svensk tid;
+  - "veckans erbjudanden" är den senaste veckan som inte är slut;
+  - inget från AI sparas utan granskning;
+  - erbjudanden skapar inga katalogingredienser;
+  - erbjudanden ändrar inte lagningsstatus, inköpslistans poster eller exporten;
+  - AI-förslagen får namn, aldrig priser, och utan erbjudanden är meddelandet oförändrat;
+  - ett foto av bladet behandlas som ett foto av en plats.
+- **Varför:** Pontus vill ha länken och valde funktionerna. Det enklaste som ger dem utan risk för butiken, för Pontus data eller för testerna är valt: en fast lista med en sajt, en hämtning per tryck och en läsare utan AI. AI används bara där den behövs.
+- **Risker och hur de hanteras:**
+  - ICA nekar Matkolls User-Agent: provas en gång (T13), och då kommer text först.
+  - Sidans form ändras: Zod och ett tydligt fel.
+  - Få kopplingar till katalogen: mäts (T14), och 9.10 byggs vid behov.
+  - Kontexten och tiden i AI-förslagen och veckomenyn: mäts (T5, T12).
+
+## 2026-10-26 – Kursändring för snabbare och asynkron AI (Epic 12)
+
+- **Underlag:** Pontus skrev "Vi borde få till prestandan i qwen kommandona om det går. Kanske göra dem asynkrona om det går, och att man kan fortsätta klicka runt i appen och göra fler asynkrona anrop som ramlar in när dom är klara. Om det inte riskerar ngt." och godkände planen ("ja planera det så"): först fart, mätt före och efter, sedan AI-jobb i bakgrunden i en kö. Koden lästes på `epic/11-nytt-utseende` (`22a0feb`): AI-porten (`run.ts`, `service.ts`, `adapters/lmstudio.ts`), rutterna i `src/app/api/ai/`, låset i `pantry/actions/ai-runs.ts` och kartan i `suggestFromPantry`. Next.js 16.4.3-dokumentationen om `after()` och `maxDuration` lästes i `node_modules/next/dist/docs/`, AI SDK 7.0.153 om `Output.array` och `elementStream` i `node_modules/ai/docs/` och på ai-sdk.dev, och Vercels tak (300 s på Hobby med Fluid compute) på vercel.com. `lms load --help` visar `--parallel`, `--ttl` och `--speculative-draft-mtp`. LM Studio ändrades inte.
+- **Beslut (Claude, headless enligt `docs/autonomi.md`; allt går att ändra):**
+  - **Kursändringen görs som en ny Epic 12 med sju stories** (alternativ 1, direkt justering): 12.1 mätning och LM Studio, 12.2 väckning, 12.3 kortare AI-förslag, 12.4 jobb och kö med AI-förslag först, 12.5 bildanalys i bakgrunden, 12.6 import i bakgrunden, 12.7 första rätten direkt. Förslaget står i `_bmad-output/planning-artifacts/sprint-change-proposal-2026-10-26-asynkron-ai.md`. Epic 12 byggs efter Epic 11 och före Epic 9.
+  - **Numren fortsätter efter Epic 11:** FR-45–FR-50, NFR-13, UJ-10, AD-28, UX-DR29–UX-DR31, Flöde 10, öppna frågor 21–25 och T9–T11. Epic 9 har FR-34–FR-36, NFR-10, UJ-7, AD-25, frågorna 8–10 och T7 (nu T12) på `epic/9-erbjudanden`.
+  - **Fart först, och bara det som mäts.** 12.1 gör ett gemensamt utgångsläge (kall och varm modell, PARALLEL 1 och 4, spekulativ avkodning). Väckningen (12.2) finns bara kvar om det första anropet blir minst 20 % snabbare, det kortare svaret (12.3) ska ge minst 25 % färre token och högst 40 s i median, och strömningen (12.7) ska visa den första rätten efter högst 40 % av tiden.
+  - **LM Studio ändras inte permanent.** Bygget får ladda om modellen för att mäta, men skriver ned `lms ps` före och återställer. Rekommendationen står i `docs/lm-studio.md`, och Pontus väljer (öppen fråga 24). Utgångspunkten är PARALLEL 1, eftersom appen ändå kör ett jobb i taget, och PARALLEL 4 delade farten så att ett förslag gick över 100 s.
+  - **Väckningen** är ett anrop med flödets egen systemprompt och `maxOutputTokens: 1`, när Lagersaldo (bild) eller Recept (text) öppnas, högst en gång per sort och fem minuter, aldrig när ett jobb pågår, och bara mot LM Studio. Alternativ: vid varje sidbyte, med en timer, eller inte alls.
+  - **Det kortare svaret för AI-förslag:** receptraden har `text`, `amount`, `unit`, `name` och `stepIndexes`, och avdelning, plats och enhet bara för en vara utanför lagret. Porten gör om det till `AiRecipe`, så att resten av appen är oförändrad (tillägg i AD-10). `stepIndexes` står kvar för stegläget. Alternativ: två rätter i stället för tre (öppen fråga 25), färre steg, korta nycklar i JSON.
+  - **Ett AI-jobb körs i `after()` i den förfrågan som tog emot det.** Servern svarar 202 med jobbet direkt. Indata (foto, text) finns bara i den förfrågans minne och sparas aldrig (AD-15). Alternativ: en arbetare som hämtar jobb ur tabellen, eller en extern kö (Vercel Workflows, Queues, Inngest). Båda kräver att indata sparas och nya konton.
+  - **Ny AD-28 och modulen `ai-jobs`, som äger `ai_job`.** Tabellen har sort, läge, `client_key`, ett `context` utan indata, resultat, felkod och tider. Kön ligger i Postgres: ett partiellt unikt index tillåter bara ett jobb som körs per användare, över flikar, enheter och serverinstanser. Äldst först, högst tre aktiva. Modulen är allmän, och rutterna sätter ihop jobbet med modulens serverfunktion.
+  - **Tider:** jobbrutterna får `maxDuration = 300` (taket på Vercel Hobby). Körtiden är 120 s för förslag och bildanalys och 130 s för import, och ett jobb måste börja inom 175 respektive 165 s, annars `ai_queue_timeout`. Ett jobb vars server dör visas som `ai_job_lost` när dess `expires_at` har gått och stoppar aldrig kön.
+  - **Dubbla jobb:** en `clientKey` per tryck, ett AI-förslag åt gången, och ett nytt foto av samma plats på samma ställe ersätter det äldre (`superseded`), som aldrig visas. Importer köas.
+  - **Pollning, inte Supabase Realtime.** Klienten pollar `GET /api/ai/jobs` varannan sekund medan något jobb är aktivt och fliken syns. Varför: Realtime kräver Supabase-klienten i webbläsaren, vilket AD-2 förbjuder, och en publikation och RLS för Realtime som också måste testas. Med en användare är pollning enkel och billig.
+  - **Besked:** en kort bekräftelse med "Visa" i 8 s ("3 rättförslag är klara.") och ett flikmärke på Recept eller Lagersaldo med antalet osedda resultat. Ingen bekräftelse på resultatets egen sida. Jobbraden ovanför flikfältet visar "AI: Tittar på fotot av kylen · 2 i kö" och öppnar arket AI-jobb. `EXPERIENCE.md` förbjöd siffermärken på flikar; nu tillåts de bara för klara AI-jobb, eftersom Pontus ska kunna vara på en annan sida.
+  - **Inaktuella resultat:** inget från AI sparas automatiskt, som förut. Ett ersatt foto visas aldrig. Ett byte av ställe gör inte en bildanalys inaktuell (8.4: fotot hör till sitt ställe, "Förslagen gäller Stugan."), men AI-förslag för ett annat ställe visas med "Förslagen bygger på lagret för Hemma." och "Föreslå igen". Jämförelsen med platsens varor (6.4) räknas när resultatet hämtas.
+  - **Låset i 6.6 ersätts av kön.** `ai-runs.ts` och kartan i `suggestFromPantry` tas bort. Numren är andra steget i samma jobb: korten visas när avläsningen finns, och jobbet räknas som pågående tills numren är klara (högst 30 s), så att modellen aldrig får två anrop samtidigt. Numren hoppas över när ett nyare foto av samma plats väntar eller tiden inte räcker. En analys stoppar inte längre andra sorters jobb.
+  - **"Avbryt"** går via databasen (`cancel_ai_job`), och den förfrågan som kör jobbet läser läget var tredje sekund, så att det fungerar också från en annan flik eller serverinstans. `request.signal` gäller inte längre när svaret har skickats.
+  - **Fotot i klienten** hålls i minnet tills resultatet har stängts (högst 30 minuter) för granskningen och det senaste fotot (10.1). Efter en omladdning finns det inte kvar: korten fungerar, men inget senaste foto sparas från det jobbet.
+  - **Resultat finns i högst 24 timmar** och tas bort när Pontus stänger eller sparar dem (öppen fråga 23). Raderna tas aldrig med i säkerhetskopian.
+  - **Strömning bara för AI-förslag,** med `streamText`, `Output.array` och `elementStream` till jobbets resultat och pollning till klienten. Ingen SSE. Prövas först mot LM Studio (T9).
+  - **En ny miljövariabel, `AI_MOCK_DELAY_MS`,** som bara mocken läser, så att kön kan provas i e2e (tillägg i AD-14).
+- **Varför:** Pontus vill att AI går fortare och inte låser appen, "om det inte riskerar ngt". Det enklaste som ger det utan nya konton och utan att spara foton är valt: mät och snabba upp först, kör sedan jobben i samma förfrågan som tog emot dem, med kön i databasen och pollning till klienten.
+- **Risker och hur de hanteras:** en server som dör (`expires_at`, `ai_job_lost`), en kö som aldrig hinner (högst tre, gräns för start), dubbla jobb (`clientKey`, ett förslag åt gången, `superseded`), flera flikar och instanser (indexet och låset i Postgres), integritet (inga foton, ingen text och inget lager i `ai_job` eller loggar, RLS-test, inte i säkerhetskopian), sessionen i `after()` (prövas först, T11), strömning som inte fungerar (prov först, T9) och en väckning som inte hjälper (mäts, T10).
 
 ## 2026-10-26 – Kursändring för nytt utseende (Epic 11)
 

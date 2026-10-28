@@ -6,6 +6,16 @@ import { createAiService, type SuggestDishesInput } from "@/server/ai/service";
 import { parseEnv } from "@/server/env-schema";
 import type { Check } from "./compare";
 import { checkSuggestions, type SuggestExpected } from "./suggest-checks";
+import {
+  evalLabel,
+  evalRuns,
+  installUsageMeter,
+  lmStudioSettings,
+  machineState,
+  timingRow,
+  writeTimingReport,
+  type TimingRow,
+} from "./timing";
 
 // `pnpm eval:ai`: suggestDishes against the configured AI_PROVIDER with the
 // pantry in tests/fixtures/ai/suggest-dishes.pantry.json, first as it is and
@@ -14,8 +24,12 @@ import { checkSuggestions, type SuggestExpected } from "./suggest-checks";
 // titles of their own, at least three lines from the pantry each) and the
 // time is written to tests/eval/suggest-report.md (ignored by git). Refuses to
 // run against the mock.
+//
+// Story 12.1: the pair runs EVAL_RUNS times (default 3), and each call is
+// timed the shared way (timing.ts) as "förslag" and "andra rätter", with the
+// tokens in and out, under EVAL_LABEL, in tests/eval/reports/.
 
-type RunResult = { name: string; seconds: number; error?: string; checks: Check[]; recipes?: AiRecipe[] };
+type RunResult = { name: string; run: number; seconds: number; error?: string; checks: Check[]; recipes?: AiRecipe[] };
 
 const fixtures = join(process.cwd(), "tests", "fixtures", "ai");
 const reportPath = join(process.cwd(), "tests", "eval", "suggest-report.md");
@@ -30,39 +44,61 @@ if (env.AI_PROVIDER === "mock") {
 }
 const service = createAiService(env);
 const results: RunResult[] = [];
+const runs = evalRuns();
+const meter = installUsageMeter();
+const timings: TimingRow[] = [];
+/** The flow's name in the timing report, per call name here. */
+const flows: Record<string, string> = { lagret: "förslag", "andra rätter": "andra rätter" };
 
-async function run(name: string, runInput: SuggestDishesInput): Promise<RunResult> {
-  const started = performance.now();
-  const result = await service.suggestDishes(runInput, AbortSignal.timeout(120_000));
-  const seconds = (performance.now() - started) / 1000;
+async function run(name: string, runNumber: number, runInput: SuggestDishesInput): Promise<RunResult> {
+  const state = machineState(env.AI_MODEL);
+  const startedAt = new Date();
+  const measured = await meter.measure(() => service.suggestDishes(runInput, AbortSignal.timeout(120_000)));
+  const { value: result, seconds } = measured;
   const entry: RunResult = result.ok
-    ? { name, seconds, checks: checkSuggestions(result.data, runInput, expected), recipes: result.data }
-    : { name, seconds, error: result.error.code, checks: [] };
+    ? { name, run: runNumber, seconds, checks: checkSuggestions(result.data, runInput, expected), recipes: result.data }
+    : { name, run: runNumber, seconds, error: result.error.code, checks: [] };
   results.push(entry);
+  const valid = !entry.error && entry.checks.every((check) => check.ok);
+  timings.push(timingRow(flows[name] ?? name, runNumber, state, measured, valid, startedAt));
   return entry;
 }
 
 describe(`suggestDishes mot ${env.AI_PROVIDER}`, () => {
-  // In order: the second run avoids the first one's titles.
-  let firstTitles: string[] = [];
+  for (let runNumber = 1; runNumber <= runs; runNumber++) {
+    // In order: the second call avoids the first one's titles.
+    let firstTitles: string[] = [];
 
-  it("förslag ur lagret", async () => {
-    const first = await run("lagret", input);
-    firstTitles = (first.recipes ?? []).map((recipe) => recipe.title);
-    expect(first.error).toBeUndefined();
-    expect(first.checks.filter((check) => !check.ok)).toEqual([]);
-  });
+    it(`förslag ur lagret, körning ${runNumber}`, async () => {
+      const first = await run("lagret", runNumber, input);
+      firstTitles = (first.recipes ?? []).map((recipe) => recipe.title);
+      expect(first.error).toBeUndefined();
+      expect(first.checks.filter((check) => !check.ok)).toEqual([]);
+    });
 
-  it("andra rätter", async () => {
-    const second = await run("andra rätter", { ...input, avoidTitles: firstTitles });
-    expect(second.error).toBeUndefined();
-    expect(second.checks.filter((check) => !check.ok)).toEqual([]);
-  });
+    it(`andra rätter, körning ${runNumber}`, async () => {
+      const second = await run("andra rätter", runNumber, { ...input, avoidTitles: firstTitles });
+      expect(second.error).toBeUndefined();
+      expect(second.checks.filter((check) => !check.ok)).toEqual([]);
+    });
+  }
 });
 
 afterAll(() => {
   writeFileSync(reportPath, renderReport());
   console.log(`Wrote ${reportPath}`);
+  writeTimingReport(
+    "förslag",
+    [
+      `Leverantör: ${env.AI_PROVIDER}`,
+      `Modell: ${env.AI_MODEL ?? "–"}`,
+      `LM Studio: ${lmStudioSettings(env.AI_MODEL)}`,
+      `Läge: ${evalLabel()}`,
+      `Lager: ${input.pantry.length} rader`,
+      `Körningar: ${runs}`,
+    ],
+    timings,
+  );
 });
 
 function renderReport(): string {
@@ -74,21 +110,21 @@ function renderReport(): string {
     `- Leverantör: ${env.AI_PROVIDER}`,
     `- Modell: ${env.AI_MODEL ?? "–"}`,
     `- Lager: ${input.pantry.length} rader (${manifest.suggest}.pantry.json)`,
-    `- Resultat: ${passed.length} av ${results.length} körningar godkända`,
+    `- Resultat: ${passed.length} av ${results.length} anrop godkända`,
     "",
-    "| Körning | Resultat | Tid (s) | Titlar |",
-    "| --- | --- | --- | --- |",
+    "| Anrop | Körning | Resultat | Tid (s) | Titlar |",
+    "| --- | --- | --- | --- | --- |",
     ...results.map((result) => {
       const failed = result.checks.filter((check) => !check.ok);
       const status = result.error ? `Fel: ${result.error}` : failed.length === 0 ? "Godkänt" : "Avvikelser";
       const titles = (result.recipes ?? []).map((recipe) => recipe.title).join(" / ") || "–";
-      return `| ${result.name} | ${status} | ${result.seconds.toFixed(1)} | ${escapeCell(titles)} |`;
+      return `| ${result.name} | ${result.run} | ${status} | ${result.seconds.toFixed(1)} | ${escapeCell(titles)} |`;
     }),
     "",
   ];
 
   for (const result of results) {
-    lines.push(`## ${result.name}`, "");
+    lines.push(`## ${result.name}, körning ${result.run}`, "");
     if (result.error) {
       lines.push(`Felkod: \`${result.error}\``, "");
       continue;
