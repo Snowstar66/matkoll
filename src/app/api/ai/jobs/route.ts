@@ -2,12 +2,14 @@ import { after } from "next/server";
 import { z } from "zod";
 import { requireUserForRoute } from "@/features/auth/server";
 import { enqueueAiJob, listAiJobs, runAiJob } from "@/features/ai-jobs/server";
+import { importRequestSchema } from "@/features/recipes";
 import { suggestRequestSchema } from "@/features/suggestions";
 import { checkSuggestPantry, suggestFromPantry } from "@/features/suggestions/server";
 import { fail, ok, type Result } from "@/lib/errors";
 import { createClient } from "@/lib/supabase/server";
 import type { Json } from "@/lib/supabase/database.types";
 import { isCrossSite, mediaTypeOf, readCapped, respond, unreadBody } from "../route-support";
+import { startImportJob } from "./start-import";
 
 // AI jobs (Story 12.4, FR-46-FR-49, AD-28). The client starts a job with POST
 // and gets it back at once (202): the AI works in the background of this
@@ -27,12 +29,19 @@ import { isCrossSite, mediaTypeOf, readCapped, respond, unreadBody } from "../ro
 // The function lives as long as the longest job can wait and run (AD-28).
 export const maxDuration = 300;
 
-/** Largest request body: three titles of 200 characters, as UTF-8 and JSON, fit well within it. */
-const maxBodyBytes = 4 * 1024;
+/** Largest request body of AI-förslag: three titles of 200 characters, as UTF-8 and JSON, fit well within it. */
+const maxSuggestBodyBytes = 4 * 1024;
 
-const startSchema = z.discriminatedUnion("kind", [
-  suggestRequestSchema.extend({ kind: z.literal("suggest"), clientKey: z.uuid() }),
+/** Largest request body of an import (Story 12.6): 12 000 characters of text, as UTF-8 and JSON, fit well within it. */
+const maxBodyBytes = 64 * 1024;
+
+const suggestSchema = suggestRequestSchema.extend({ kind: z.literal("suggest"), clientKey: z.uuid() });
+// An import of text or a link: { kind: "import", clientKey, source: "text", text } or { ..., source: "url", url }.
+const importSchema = z.discriminatedUnion("source", [
+  z.object({ kind: z.literal("import"), clientKey: z.uuid(), source: z.literal("text"), text: z.string() }),
+  z.object({ kind: z.literal("import"), clientKey: z.uuid(), source: z.literal("url"), url: z.string() }),
 ]);
+const startSchema = z.union([suggestSchema, importSchema]);
 
 export async function POST(request: Request): Promise<Response> {
   const requestStartedAt = Date.now();
@@ -51,8 +60,21 @@ export async function POST(request: Request): Promise<Response> {
   } catch {
     return respond(fail("validation"));
   }
+  // Only an import may be larger than AI-förslag are.
+  const kind = typeof body === "object" && body !== null ? (body as { kind?: unknown }).kind : undefined;
+  if (kind !== "import" && read.bytes.byteLength > maxSuggestBodyBytes) return respond(fail("validation"), 413);
   const parsed = startSchema.safeParse(body);
   if (!parsed.success) return respond(fail("validation"));
+
+  if (parsed.data.kind === "import") {
+    const data = parsed.data;
+    // The same limits as before for text and link; what needs no AI is checked before a job is made.
+    const input = importRequestSchema.safeParse(
+      data.source === "text" ? { kind: "text", text: data.text } : { kind: "url", url: data.url },
+    );
+    if (!input.success) return respond(fail("validation"));
+    return startImportJob(input.data, data.clientKey, requestStartedAt);
+  }
   const { clientKey, avoidTitles } = parsed.data;
 
   // What needs no AI is checked first, so nothing is queued for it: an empty pantry is its own answer.

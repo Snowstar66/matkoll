@@ -185,16 +185,22 @@ test("Ta bort turns koket.se off at once, so a link import from it is refused; �
 test("a site added again works for link import at once", async ({ page }) => {
   const off = await adminClient().from("recipe_site").update({ is_active: false }).eq("user_id", userId).eq("domain", "koket.se");
   expect(off.error).toBeNull();
-  const refused = await page.request.post("/api/ai/import", { data: { kind: "url", url: chowMein } });
+  const start = () =>
+    page.request.post("/api/ai/jobs", { data: { kind: "import", clientKey: crypto.randomUUID(), source: "url", url: chowMein } });
+  const refused = await start();
   expect(refused.status()).toBe(422);
 
   await page.goto("/installningar");
   await addSite(page, chowMein);
   await expectSites(page, startSites);
 
-  const response = await page.request.post("/api/ai/import", { data: { kind: "url", url: chowMein } });
-  expect(response.status()).toBe(200);
-  expect(await response.json()).toMatchObject({ ok: true, data: { draft: { title: "Chow mein med lövbiff" } } });
+  // A job now: 202 at once, and the draft when the mock has read the saved page.
+  const response = await start();
+  expect(response.status()).toBe(202);
+  const { id } = (await response.json()).data.job as { id: string };
+  await expect.poll(async () => (await page.request.get(`/api/ai/jobs/${id}`)).status(), { timeout: 20_000 }).toBe(200);
+  const done = await page.request.get(`/api/ai/jobs/${id}`);
+  expect(await done.json()).toMatchObject({ ok: true, data: { result: { draft: { title: "Chow mein med lövbiff" } } } });
 });
 
 test("Logga ut ends the session; a removed site stays removed after signing in again", async ({ browser, baseURL }) => {
