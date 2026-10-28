@@ -2,7 +2,7 @@
 title: 'Story 12.6: Receptimport i bakgrunden'
 type: 'feature'
 created: '2026-10-26'
-status: 'in-progress'
+status: 'done'
 baseline_commit: 'a364271'
 route: 'dispatch'
 context:
@@ -109,6 +109,8 @@ context:
 ## Spec Change Log
 
 ## Review Triage Log
+
+Ingen separat granskning, enligt den tokensnåla loopen: storyn har ingen migrering och rör varken inloggning eller privata data. Byggaren gick själv igenom acceptanskriterierna. CI kör hela e2e-sviten på epic-PR:en.
 
 ## Verification
 
