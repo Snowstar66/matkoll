@@ -172,6 +172,7 @@ curl -s https://lmstudio.<din domän>/v1/models \
 | `LMSTUDIO_BASE_URL` | `https://lmstudio.<din domän>/v1` (steg 8) | ja | nej |
 | `CF_ACCESS_CLIENT_ID`, `CF_ACCESS_CLIENT_SECRET` | tjänstetokenen (steg 8); båda eller ingen | ja | nej |
 | `ANTHROPIC_API_KEY`, `OPENAI_API_KEY` | bara om `AI_PROVIDER` väljer den leverantören | vid behov | nej |
+| `AI_MOCK_DELAY_MS` | sätts aldrig (bara mocken läser den, så att AI-kön kan provas i tester) | nej | tomt (e2e-testerna sätter 3000) |
 
 - Supabase-variablerna ligger **bara i Production**, aldrig i Preview (AD-23), så att en förhandsdriftsättning från en gren aldrig når den riktiga databasen. Preview får bara `SITE_URL` och `AI_PROVIDER=mock`, som `next build` kräver. Kontrollerat lokalt 2026-10-26: `SITE_URL=… AI_PROVIDER=mock pnpm build` utan Supabase-variabler, `ALLOWED_EMAILS` och `.env.local` bygger, och servern svarar sedan 503 på sidorna (`supabase_not_configured`) i stället för att nå någon databas. En förhandsversion fungerar alltså bara som byggkontroll. Vill du hellre slippa förhandsversioner helt kan de stängas av under **Settings → Git**; valet står i checklistan.
 - `SUPABASE_SERVICE_ROLE_KEY` läggs **aldrig** i Vercel. Den läses bara av `scripts/` och `tests/` (AD-4) och används bara tillfälligt i steg 7.
@@ -219,11 +220,12 @@ Kontrollerat 2026-10-26 med samma CLI-version mot den lokala stacken: `supabase 
 - `schema.sql` (`supabase db dump`): det egna schemat, främst `public` med tabeller, funktioner, RLS-policyer och rättigheter. `auth`, `storage` och andra scheman som Supabase sköter tas inte med; ett nytt projekt har dem redan. Matkolls enda objekt där, bucketen `pantry-photo` och dess policyer på `storage.objects`, skapas av fotomigrationerna när schemat läses in med `supabase db push` (punkt 3 under Återställning).
 - `data.sql` (`supabase db dump --data-only --schema public,auth`): bara data i schemana `public` och `auth`, alltså även `auth.users` och `auth.identities`, som alla rader refererar via `user_id`. Inget ur schemat `storage` tas med (Story 10.3): varken bucketen, filernas sökvägar eller uppladdningarna. Fotomigrationen skapar bucketen igen vid en återställning. Utelämnas gör också:
   - fotonas rader, `public.pantry_photo` (med avläsningen);
+  - AI-jobbens rader, `public.ai_job` (Story 12.4): tillfälliga resultat som ändå försvinner efter högst ett dygn. Schemat tas med i `schema.sql`, så tabellen finns efter en återställning, men tom;
   - inloggningarnas tillfälliga och känsliga data: `auth.sessions`, `auth.refresh_tokens`, `auth.mfa_amr_claims` (hör till sessionerna), `auth.one_time_tokens`, `auth.flow_state` och `auth.audit_log_entries`. De behövs inte för en återställning; efteråt loggar alla in på nytt.
 
-  Innan något krypteras kontrollerar flödet att `data.sql` inte har någon rad ur `storage` eller `pantry_photo` och inte bucketens id `pantry-photo`. Annars stoppar körningen med ett fel, som inte visar någon rad ur dumpen. Migrationshistoriken (`supabase_migrations`) ingår inte.
+  Innan något krypteras kontrollerar flödet att `data.sql` inte har någon rad ur `storage`, `pantry_photo` eller `ai_job` och inte bucketens id `pantry-photo`. Annars stoppar körningen med ett fel, som inte visar någon rad ur dumpen. Migrationshistoriken (`supabase_migrations`) ingår inte.
 - `manifest.txt`: commiten som körningen gjordes från, CLI-versionen och de migrationer som är körda i molnet (från `supabase_migrations.schema_migrations`).
-- `counts.txt`: antal rader i `auth.users` och i varje tabell i `public` utom `pantry_photo`, från `scripts/backup-counts.sql`, räknade strax före dumpen.
+- `counts.txt`: antal rader i `auth.users` och i varje tabell i `public` utom `pantry_photo` och `ai_job`, från `scripts/backup-counts.sql`, räknade strax före dumpen.
 - Roller dumpas inte: Matkoll skapar inga egna roller, och Supabase standardroller finns i varje nytt projekt.
 
 ### Återställning

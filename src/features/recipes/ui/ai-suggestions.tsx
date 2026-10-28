@@ -14,8 +14,9 @@ import { RecipeCard } from "./recipe-card";
 import type { DishSuggestionsState, ShownSuggestion } from "./use-dish-suggestions";
 
 // AI-förslag at the bottom of the filter Kan lagas nu (FR-23, EXPERIENCE.md,
-// Flöde 5): "Föreslå rätter med AI" asks /api/ai/suggest, with "Letar efter
-// idéer …" and "Avbryt" in the button's place while it runs. The suggestions
+// Flöde 5): "Föreslå rätter med AI" starts an AI job (Story 12.4), with "Letar
+// efter idéer … Du kan göra annat under tiden." and "Avbryt", or "I kö, 1
+// före.", in the button's place while it waits or runs. The suggestions
 // come in a section of their own under the library, each marked "AI-förslag",
 // never mixed with the recipes and without a status until saved. "Spara" opens
 // the preview (AiSuggestionSheet). Errors show in a notice here, so the
@@ -62,7 +63,7 @@ export function AiSuggestions({ dishes, searchIngredients, offerButton = true }:
   }, [cancels]);
 
   if (!dishes) return null;
-  const { suggestions, loading, error, suggest, cancel, remove } = dishes;
+  const { suggestions, loading, waiting, error, stale, suggest, cancel, remove } = dishes;
 
   let notice = null;
   if (error && !loading) {
@@ -86,6 +87,18 @@ export function AiSuggestions({ dishes, searchIngredients, offerButton = true }:
   return (
     <div data-testid="ai-suggestions" className="flex flex-col gap-3">
       {notice}
+      {/* Suggestions of another place than the library shows (AD-24): they can still be saved. */}
+      {stale && suggestions.length > 0 ? (
+        <Notice
+          action={
+            <Button variant="text" onClick={suggest} disabled={loading}>
+              Föreslå igen
+            </Button>
+          }
+        >
+          {stale.siteName ? `Förslagen bygger på lagret för ${stale.siteName}.` : "Förslagen bygger på lagret för ett annat ställe."}
+        </Notice>
+      ) : null}
       {suggestions.length > 0 ? (
         <section aria-labelledby={headingId} className="flex flex-col gap-3">
           <h2 id={headingId} ref={headingRef} tabIndex={-1} className="text-section-label text-ink-2">
@@ -99,7 +112,7 @@ export function AiSuggestions({ dishes, searchIngredients, offerButton = true }:
         </section>
       ) : null}
       {/* Mounted empty, so the text is announced when it appears. */}
-      <div role="status">{loading ? <Thinking /> : null}</div>
+      <div role="status">{loading ? <Thinking waiting={waiting} /> : null}</div>
       {loading ? (
         <Button variant="text" onClick={cancel} className="-ml-3 self-start">
           Avbryt
@@ -170,11 +183,16 @@ function SuggestionCard({ suggestion, onSave }: { suggestion: ShownSuggestion; o
   );
 }
 
-/** "Letar efter idéer …" with a progress bar (EXPERIENCE.md, AI-förslag hämtas). */
-function Thinking() {
+/**
+ * "Letar efter idéer … Du kan göra annat under tiden." with a progress bar
+ * (EXPERIENCE.md, AI-förslag hämtas), or "I kö, 1 före." while the job waits
+ * behind others (Story 12.4).
+ */
+function Thinking({ waiting }: { waiting: string | null }) {
   return (
     <div className="flex flex-col gap-2">
-      <p className="text-body text-ink">Letar efter idéer …</p>
+      <p className="text-body text-ink">{waiting ?? "Letar efter idéer …"}</p>
+      <p className="text-meta text-ink-2">Du kan göra annat under tiden.</p>
       <div aria-hidden="true" className="h-1 overflow-hidden rounded-full bg-hairline">
         <div className="h-full w-1/3 rounded-full bg-accent motion-safe:animate-progress" />
       </div>

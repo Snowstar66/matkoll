@@ -17,6 +17,12 @@ const statusFor: Partial<Record<ErrorCode, number>> = {
   ai_unavailable: 503,
   // A newer analysis from the same person took over; nobody shows this answer.
   ai_superseded: 409,
+  // Story 12.4: the queue is full; a job did not get to start in time; a job
+  // was lost with its function; a result that no longer exists.
+  ai_queue_full: 429,
+  ai_queue_timeout: 504,
+  ai_job_lost: 410,
+  ai_job_gone: 404,
   catalog_unavailable: 503,
   pantry_unavailable: 503,
   // Story 8.4: the photo's place is removed, or not the user's; the AI was not asked.

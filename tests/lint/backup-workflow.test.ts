@@ -348,6 +348,8 @@ describe("backup.yml", () => {
       [
         // The photos' rows (Story 10.3).
         "public.pantry_photo",
+        // The AI jobs' rows, temporary results (Story 12.4).
+        "public.ai_job",
         "auth.sessions",
         "auth.refresh_tokens",
         "auth.mfa_amr_claims",
@@ -389,6 +391,8 @@ describe("backup.yml", () => {
       ["COPY storage.buckets (id) FROM stdin;", "a row of storage.buckets, unquoted"],
       ['COPY "public"."pantry_photo" ("id") FROM stdin;', "a row of pantry_photo"],
       ["COPY public.pantry_photo (id) FROM stdin;", "a row of pantry_photo, unquoted"],
+      ['COPY "public"."ai_job" ("id") FROM stdin;', "a row of ai_job"],
+      ["COPY public.ai_job (id) FROM stdin;", "a row of ai_job, unquoted"],
       ["x\tpantry-photo\ty", "the bucket's id anywhere"],
     ])("fails, printing no line of the data, for %j (%s)", (line) => {
       const result = runGuard(`${users}${line}\n`);
@@ -398,9 +402,9 @@ describe("backup.yml", () => {
     });
   });
 
-  it("never counts the photos' rows (Story 10.3), which the backup leaves out", () => {
+  it("never counts the photos' rows (Story 10.3) or the AI jobs' (Story 12.4), which the backup leaves out", () => {
     const counts = read("scripts/backup-counts.sql");
-    expect(counts).toMatch(/where table_schema = 'public' and table_type = 'BASE TABLE' and table_name <> 'pantry_photo'\n/);
+    expect(counts).toMatch(/where table_schema = 'public' and table_type = 'BASE TABLE' and table_name not in \('pantry_photo', 'ai_job'\)\n/);
   });
 
   it("checks the dumps, encrypts with AES256 and decrypts each file again before upload", () => {

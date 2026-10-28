@@ -229,7 +229,38 @@ function lazily<T>(load: () => T): () => T | undefined {
   };
 }
 
-export function createMockAiService(dir: string = defaultFixturesDir): AiService {
+/** The most AI_MOCK_DELAY_MS may be (AD-14), in milliseconds. */
+export const maxMockDelayMs = 30_000;
+
+/**
+ * Waits `ms`, or until `signal` aborts. True when the time passed: a call
+ * that is stopped ("Avbryt", a job that was cancelled) gives up at once.
+ */
+function wait(ms: number, signal: AbortSignal): Promise<boolean> {
+  if (ms <= 0) return Promise.resolve(!signal.aborted);
+  if (signal.aborted) return Promise.resolve(false);
+  return new Promise((resolve) => {
+    const done = (passed: boolean) => {
+      clearTimeout(timer);
+      signal.removeEventListener("abort", onAbort);
+      resolve(passed);
+    };
+    const onAbort = () => done(false);
+    const timer = setTimeout(() => done(true), ms);
+    signal.addEventListener("abort", onAbort, { once: true });
+  });
+}
+
+export type MockOptions = {
+  /**
+   * Time every AI-förslag call takes (AI_MOCK_DELAY_MS, Story 12.4), so the
+   * queue and the job row can be tried in the end-to-end tests. The other
+   * calls answer at once until they are jobs too (Stories 12.5, 12.6).
+   */
+  delayMs?: number;
+};
+
+export function createMockAiService(dir: string = defaultFixturesDir, { delayMs = 0 }: MockOptions = {}): AiService {
   // Each loaded once, on first use; a failure is remembered too.
   const fixtures = lazily(() => loadFixtures(dir));
   const suggestFixtures = lazily(() => loadSuggestFixtures(dir));
@@ -254,7 +285,7 @@ export function createMockAiService(dir: string = defaultFixturesDir): AiService
       return ok(structuredClone(answer ? answer.recipe : current.fallback));
     },
     async suggestDishes(input, signal) {
-      if (signal.aborted) return fail("ai_unavailable");
+      if (!(await wait(Math.min(Math.max(delayMs, 0), maxMockDelayMs), signal))) return fail("ai_unavailable");
       const current = logged(suggestFixtures());
       if (!current) return fail("ai_unavailable");
       const code = suggestErrorFor(input, current.errors);

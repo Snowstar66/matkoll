@@ -533,7 +533,7 @@ function createAdapter(env: Env, options: AiServiceOptions): AiService {
 
   switch (env.AI_PROVIDER) {
     case "mock":
-      return createMockAiService(options.fixturesDir);
+      return createMockAiService(options.fixturesDir, { delayMs: env.AI_MOCK_DELAY_MS });
     case "lmstudio":
       if (!env.LMSTUDIO_BASE_URL) throw new Error("LMSTUDIO_BASE_URL is not set");
       return createModelAiService(

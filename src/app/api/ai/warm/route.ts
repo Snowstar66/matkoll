@@ -1,11 +1,11 @@
 import { after } from "next/server";
 import { z } from "zod";
 import { requireUserForRoute } from "@/features/auth/server";
+import { getAiJobActivity } from "@/features/ai-jobs/server";
 import { hasAiRunOnItsWay } from "@/features/pantry/server";
-import { isSuggesting } from "@/features/suggestions/server";
 import { fail } from "@/lib/errors";
 import { getAiService, warmUpKinds, type WarmUpKind, type WarmUpResult } from "@/server/ai";
-import { claimWarmUp } from "@/server/ai/warm-limit";
+import { claimWarmUp, warmIntervalMs } from "@/server/ai/warm-limit";
 import { isCrossSite, mediaTypeOf, readCapped, respond, unreadBody } from "../route-support";
 
 // Wakes the model before it is needed (Story 12.2, FR-45, AD-9). Lagersaldo
@@ -15,14 +15,16 @@ import { isCrossSite, mediaTypeOf, readCapped, respond, unreadBody } from "../ro
 // after(), so the page never waits for it, and Pontus never sees it. Only
 // LM Studio is called (the port's warmUp), and never with data of Pontus's.
 //
-// No warm-up while an AI call of the user's is on its way (an analysis, a
-// lookup of the numbers or AI-förslag), asked again just before the model is
-// called, so a real call never waits behind it; nor within the limit per
-// user and model (src/server/ai/warm-limit.ts), which a finished real call
-// also sets. Both are best effort: they live in this server process, and
-// another server instance has its own. Story 12.4 moves them to the AI jobs
-// in Postgres. Logged only as `ai_warm` with the kind, the outcome, its
-// reason and the time, never with a prompt or an answer.
+// No warm-up while an AI call of the user's is on its way, asked again just
+// before the model is called, so a real call never waits behind it: an AI job
+// that is queued or running (read from ai_job, so it holds across server
+// instances, Story 12.4), or an analysis or a lookup of the numbers in this
+// server process (until Story 12.5 makes them jobs). Nor within the limit per
+// user and model: the AI jobs started or finished within it (ai_job again),
+// and the limit in src/server/ai/warm-limit.ts, which keeps the warm-ups
+// themselves and the analyses; that one is best effort, since it lives in
+// this server process. Logged only as `ai_warm` with the kind, the outcome,
+// its reason and the time, never with a prompt or an answer.
 
 // The warm-up has at most 50 s (warmUpLimits); this leaves room around it.
 export const maxDuration = 60;
@@ -39,9 +41,21 @@ function logWarm(kind: WarmUpKind, result: WarmUpResult, durationMs: number): vo
   console.info("ai_warm", { kind, ...result, durationMs: Math.round(durationMs) });
 }
 
-/** True while a real AI call of the user's is on its way in this server process. */
-function isBusy(userId: string): boolean {
-  return hasAiRunOnItsWay(userId) || isSuggesting(userId);
+/**
+ * What the AI jobs of the user's say: one is queued or running (`busy`), or
+ * one began or ended within the warm-up limit (`recent`). `null` when it
+ * cannot be read, and then nothing is woken: it cannot be told whether the
+ * model is in use.
+ */
+function jobActivity() {
+  return getAiJobActivity(new Date(Date.now() - warmIntervalMs));
+}
+
+/** True while a real AI call of the user's is on its way: a job, or an analysis in this server process. */
+async function isBusy(userId: string): Promise<boolean> {
+  if (hasAiRunOnItsWay(userId)) return true;
+  const activity = await jobActivity();
+  return activity === null || activity.active;
 }
 
 export async function POST(request: Request): Promise<Response> {
@@ -79,11 +93,16 @@ export async function POST(request: Request): Promise<Response> {
     return accepted;
   }
   // A call on its way is checked first, so it never uses up the limit.
-  if (isBusy(userId)) {
+  if (hasAiRunOnItsWay(userId)) {
     logWarm(kind, { outcome: "skipped", reason: "busy" }, 0);
     return accepted;
   }
-  if (!claimWarmUp(userId, modelKey)) {
+  const activity = await jobActivity();
+  if (activity === null || activity.active) {
+    logWarm(kind, { outcome: "skipped", reason: "busy" }, 0);
+    return accepted;
+  }
+  if (activity.recent || !claimWarmUp(userId, modelKey)) {
     logWarm(kind, { outcome: "skipped", reason: "limited" }, 0);
     return accepted;
   }

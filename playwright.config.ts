@@ -28,6 +28,13 @@ export default defineConfig({
     timeout: 120_000,
     // SITE_URL builds the link in the e-mail, so it must be this server. AI_PROVIDER must be
     // explicit, since `next start` runs in production mode (the mock is never a silent default there).
-    env: { AI_PROVIDER: "mock", ALLOWED_EMAILS: e2eEmails.join(","), SITE_URL: `http://localhost:${port}` },
+    // Story 12.4: AI_MOCK_DELAY_MS makes an AI-förslag call take 3 s (only the mock reads it), so the queue
+    // and the job row can be seen; the other AI calls of the mock answer at once.
+    env: {
+      AI_PROVIDER: "mock",
+      AI_MOCK_DELAY_MS: "3000",
+      ALLOWED_EMAILS: e2eEmails.join(","),
+      SITE_URL: `http://localhost:${port}`,
+    },
   },
 });

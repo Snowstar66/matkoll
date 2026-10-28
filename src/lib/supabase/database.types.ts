@@ -5,7 +5,21 @@ export type Database = {
   
   "public": {
           Tables: {
-            "ingredient": {
+            "ai_job": {
+                  Row: {
+                    "client_key": string,"context": NonNullable<Json>,"created_at": string,"error_code": string | null,"expires_at": string,"finished_at": string | null,"id": string,"kind": string,"result": Json | null,"seen_at": string | null,"started_at": string | null,"status": string,"user_id": string
+                  }
+                  ComputedFields: never
+                  Insert: {
+                    "client_key": string,"context"?: NonNullable<Json>,"created_at"?: string,"error_code"?: string | null,"expires_at": string,"finished_at"?: string | null,"id"?: string,"kind": string,"result"?: Json | null,"seen_at"?: string | null,"started_at"?: string | null,"status"?: string,"user_id"?: string
+                  }
+                  Update: {
+                    "client_key"?: string,"context"?: NonNullable<Json>,"created_at"?: string,"error_code"?: string | null,"expires_at"?: string,"finished_at"?: string | null,"id"?: string,"kind"?: string,"result"?: Json | null,"seen_at"?: string | null,"started_at"?: string | null,"status"?: string,"user_id"?: string
+                  }
+                  Relationships: [
+                    
+                  ]
+                },"ingredient": {
                   Row: {
                     "created_at": string,"default_unit": string | null,"id": string,"location": string,"name": string,"normalized_name": string,"section": string,"user_id": string
                   }
@@ -396,11 +410,23 @@ isOneToOne: false
 "add_to_pantry":
 { Args: { "items": Json,"site"?: string }; Returns: number
                            },
+"ai_job_expire":
+{ Args: Record<PropertyKey, never>; Returns: undefined
+                           },
+"ai_job_lock":
+{ Args: Record<PropertyKey, never>; Returns: undefined
+                           },
 "apply_pantry_inventory":
 { Args: { "items": Json,"operation_id"?: string,"place": string,"remove_ids": (string)[],"replace_ids": (string)[],"site"?: string }; Returns: Json
                            },
+"cancel_ai_job":
+{ Args: { "job_id": string }; Returns: boolean
+                           },
 "catalog_display_name":
 { Args: { "name_text": string }; Returns: string
+                           },
+"claim_ai_job":
+{ Args: { "job_id": string,"run_deadline": string }; Returns: Json
                            },
 "clear_put_in_pantry":
 { Args: { "check_ids": (string)[],"custom_item_ids": (string)[],"override_keys": (string)[],"plan_id": string }; Returns: number
@@ -422,8 +448,14 @@ isOneToOne: false
 "detach_recipe_from_current_plan":
 { Args: { "detached_recipe_id": string }; Returns: number
                            },
+"dismiss_ai_job":
+{ Args: { "job_id": string }; Returns: undefined
+                           },
 "empty_pantry_place":
 { Args: { "operation_id": string,"place": string,"site"?: string }; Returns: Json
+                           },
+"enqueue_ai_job":
+{ Args: { "job_client_key": string,"job_context": Json,"job_kind": string,"queue_deadline": string }; Returns: Json
                            },
 "ensure_pantry_defaults":
 { Args: Record<PropertyKey, never>; Returns: undefined
@@ -431,8 +463,14 @@ isOneToOne: false
 "ensure_user_defaults":
 { Args: Record<PropertyKey, never>; Returns: undefined
                            },
+"finish_ai_job":
+{ Args: { "job_error_code"?: string,"job_id": string,"job_result"?: Json,"job_status": string }; Returns: boolean
+                           },
 "hide_shopping_line":
 { Args: { "line_key": string,"plan_id": string }; Returns: Json
+                           },
+"mark_ai_job_seen":
+{ Args: { "job_id": string }; Returns: undefined
                            },
 "meal_plan_lock":
 { Args: Record<PropertyKey, never>; Returns: undefined
@@ -606,6 +644,9 @@ isOneToOne: false
       } },
 "select_store":
 { Args: { "store_id": string }; Returns: undefined
+                           },
+"set_ai_job_result":
+{ Args: { "job_id": string,"job_result": Json }; Returns: boolean
                            },
 "set_current_meal_plan":
 { Args: { "new_plan_id": string,"plan_name": string,"source_id"?: string }; Returns: {

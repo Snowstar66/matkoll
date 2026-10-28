@@ -83,8 +83,19 @@ describe("suggestErrorMessage", () => {
 
   it("offers Försök igen for the errors that can pass, not for an empty pantry or a session gone", () => {
     expect([...suggestRetryCodes].sort()).toEqual(
-      ["ai_invalid", "ai_rejected", "ai_unavailable", "catalog_unavailable", "pantry_unavailable", "validation"].sort(),
+      [
+        "ai_invalid",
+        "ai_job_lost",
+        "ai_queue_timeout",
+        "ai_rejected",
+        "ai_unavailable",
+        "catalog_unavailable",
+        "pantry_unavailable",
+        "validation",
+      ].sort(),
     );
+    // A full queue is not helped by trying again at once (Story 12.4).
+    expect(suggestRetryCodes.has("ai_queue_full")).toBe(false);
     expect(suggestRetryCodes.has("suggest_empty_pantry")).toBe(false);
     expect(suggestRetryCodes.has("unauthorized")).toBe(false);
   });

@@ -3,9 +3,9 @@ import { recipeImportSchema } from "@/features/recipes";
 import { errorMessages, type AppError } from "@/lib/errors";
 import { cleanModelText, cutCodePoints, hasControlChars, normalizeTitle, suggestInputLimits } from "@/lib/suggest-input";
 
-// What /api/ai/suggest takes and answers (FR-23, AD-9, AD-13). The pantry is
-// read on the server from the session, so the client only sends the titles it
-// already shows, for "Föreslå andra rätter".
+// What POST /api/ai/jobs takes for AI-förslag, and the result of the job (FR-23,
+// AD-9, AD-13, AD-28). The pantry is read on the server from the session, so the
+// client only sends the titles it already shows, for "Föreslå andra rätter".
 
 /**
  * A title to avoid: no control characters, format characters removed,
@@ -79,13 +79,17 @@ export function suggestErrorMessage(error: Pick<AppError, "code" | "message">): 
 
 /**
  * The errors "Försök igen" can help with: the model was away, refused or
- * answered badly, a read failed, or the request was refused (`validation`).
+ * answered badly, a read failed, the request was refused (`validation`), or
+ * the job never got to start or was lost (Story 12.4).
  */
 export const suggestRetryCodes: ReadonlySet<AppError["code"]> = new Set([
   "validation",
   "ai_unavailable",
   "ai_invalid",
   "ai_rejected",
+  // Story 12.4: the job did not get to start in time, or was lost with its function.
+  "ai_queue_timeout",
+  "ai_job_lost",
   "pantry_unavailable",
   "catalog_unavailable",
 ]);
