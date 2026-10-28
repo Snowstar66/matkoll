@@ -1,5 +1,5 @@
 import { expect, type Page, test } from "@playwright/test";
-import { adminClient, cardTitles, cameraEmail, cameraStorageState, e2eUserId } from "./support";
+import { adminClient, plainPng, cardTitles, cameraEmail, cameraStorageState, e2eUserId } from "./support";
 
 // Story 6.1: the camera button on Hemma and lagerförslag from a photo, with
 // AI_PROVIDER=mock. The fixture photos are synthetic PNGs that already fit
@@ -14,15 +14,10 @@ import { adminClient, cardTitles, cameraEmail, cameraStorageState, e2eUserId } f
 // kyl.locate.json, a point on each of its six items. Story 12.5: a photo is an AI
 // job (POST /api/ai/jobs/photo) that is read in the background; the mock keeps a
 // photo it does not know waiting AI_MOCK_DELAY_MS for the reading and for the
-// numbers (3 s each here), so kyl.png with a byte after its end (kylSlow) is the
-// same photo that can be seen waiting, while kyl.png itself answers at once.
+// numbers (3 s each here), so a plain PNG (plainPng) gets the default answer, the
+// same as kyl.png, and can be seen waiting, while kyl.png itself answers at once.
 
 const kyl = "tests/fixtures/ai/kyl.png";
-const emptyShelf = "tests/fixtures/ai/tom-hylla.png";
-const unavailablePhoto = "tests/fixtures/ai/reserved-ai_unavailable.png";
-/** kyl.png with a byte after its end: the same photo for the mock's answers, but one it keeps waiting (AI_MOCK_DELAY_MS). */
-const kylSlow = async () => ({ name: "kyl-slow.png", mimeType: "image/png", buffer: Buffer.concat([await readFixture(kyl), Buffer.from([0])]) });
-const analyzeRoute = "**/api/ai/jobs/photo";
 
 test.use({ storageState: cameraStorageState, viewport: { width: 375, height: 812 } });
 test.describe.configure({ mode: "serial" });
@@ -110,19 +105,6 @@ async function photograph(
   const chooser = page.waitForEvent("filechooser");
   await cameraButton(page, button).click();
   await (await chooser).setFiles(file);
-}
-
-/** Holds every analysis until `release`, as a slow model would. */
-async function holdAnalyses(page: Page) {
-  let release = () => {};
-  const held = new Promise<void>((resolve) => {
-    release = resolve;
-  });
-  await page.route(analyzeRoute, async (route) => {
-    await held;
-    await route.continue().catch(() => {});
-  });
-  return () => release();
 }
 
 test("the camera button follows the chosen card, and nothing asks the AI before a photo", async ({ page }) => {
@@ -242,7 +224,7 @@ test("the cards come first, then their numbers, and the large photo has the same
   const before = await rowCounts();
   await page.goto("/hemma");
   // The reading takes 3 s and the numbers 3 s more (the mock keeps a photo it does not know waiting, AD-28).
-  await photograph(page, "Fotografera kylen", await kylSlow());
+  await photograph(page, "Fotografera kylen", plainPng(1));
 
   await expect(cards(page)).toHaveCount(6, { timeout: 15_000 });
   await expect(section(page).getByTestId("pantry-photo-number")).toHaveCount(0);
@@ -320,7 +302,7 @@ test("Avbryt stops the job without an error, and the camera button takes focus",
   const errors = watchErrors(page);
   await page.goto("/hemma");
   // A photo the mock keeps waiting, so the job is there to cancel.
-  await photograph(page, "Fotografera kylen", await kylSlow());
+  await photograph(page, "Fotografera kylen", plainPng(1));
 
   await expect(camera(page).getByRole("status").getByText("Tittar på bilden … Du kan göra annat under tiden.")).toBeVisible();
   await expect(cameraButton(page, "Fotografera kylen")).toHaveCount(0);

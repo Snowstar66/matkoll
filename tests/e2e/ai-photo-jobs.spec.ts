@@ -1,4 +1,3 @@
-import { readFile } from "node:fs/promises";
 import { expect, type Page, test } from "@playwright/test";
 import {
   adminClient,
@@ -7,20 +6,20 @@ import {
   cardTitles,
   e2eUserId,
   placePhotoBucket,
+  plainPng,
   removePlacePhotos,
 } from "./support";
 
 // Story 12.5: the photo of a place is an AI job (AI_PROVIDER=mock, and
 // AI_MOCK_DELAY_MS=3000 from playwright.config.ts). The mock keeps a photo it
 // does not know waiting 3 s for the reading and 3 s more for the numbers, so
-// kyl.png with a byte after its end is the same photo as kyl.png (six items,
-// kyl.analyze.json, a point on each, kyl.locate.json) that can be seen in the
+// a plain PNG (plainPng) gets the default answer, the same as kyl.png (six items,
+// kyl.analyze.json, a point on each, kyl.locate.json), and can be seen in the
 // queue. The spec has an E2E user of its own (aiPhotoEmail): before each test
 // its AI jobs, photos and pantry are removed and its catalog is made, so a
 // photo of the fridge gives the plain list of six cards. The tests run in
 // order, since they share the user.
 
-const kyl = "tests/fixtures/ai/kyl.png";
 const titles = ["Vispgrädde 3 dl", "Gurka", "Ketchup", "Smör 500 g", "Ägg", "Mellanmjölk 1,5 %"];
 
 test.use({ storageState: aiPhotoStorageState, viewport: { width: 375, height: 812 } });
@@ -57,11 +56,6 @@ async function jobs(): Promise<JobRow[]> {
   return data as JobRow[];
 }
 
-/** kyl.png with `tag` after its end: the same photo for the mock's answers, but one it keeps waiting. */
-async function slowPhoto(tag: number) {
-  return { name: `kyl-${tag}.png`, mimeType: "image/png", buffer: Buffer.concat([await readFile(kyl), Buffer.from([tag])]) };
-}
-
 // Earlier routes stay mounted but hidden after a client navigation, so every locator is scoped to what is visible.
 const camera = (page: Page) => page.getByTestId("pantry-camera").filter({ visible: true });
 const section = (page: Page) => page.getByTestId("pantry-suggestions").filter({ visible: true });
@@ -89,13 +83,13 @@ test("the fridge and the freezer one after the other: the queue is seen, the res
   await page.goto("/hemma");
 
   // The fridge is read in the background: the page is free at once.
-  await photograph(page, "Fotografera kylen", await slowPhoto(1));
+  await photograph(page, "Fotografera kylen", plainPng(1));
   await expect(camera(page).getByText("Tittar på bilden … Du kan göra annat under tiden.")).toBeVisible();
   await expect(camera(page).getByRole("button", { name: "Avbryt" })).toBeVisible();
 
   // Another place can be photographed straight away; its job waits behind the fridge's.
   await locationCard(page, "Frys").click();
-  await photograph(page, "Fotografera frysen", await slowPhoto(2));
+  await photograph(page, "Fotografera frysen", plainPng(2));
   await expect(camera(page).getByText("I kö, 1 före.")).toBeVisible();
   await expect(jobRow(page)).toContainText("1 i kö");
   await locationCard(page, "Kyl").click();
@@ -111,7 +105,7 @@ test("the fridge and the freezer one after the other: the queue is seen, the res
   await toast(page).getByRole("button", { name: "Visa" }).click();
   await expect(page).toHaveURL(/\/hemma\?plats=kyl$/);
   await expect(cards(page)).toHaveCount(6);
-  await expect(section(page).getByRole("heading", { level: 4 }).first()).toHaveText(cardTitles([titles[0]]));
+  await expect(section(page).getByRole("heading", { level: 3 }).first()).toHaveText(cardTitles([titles[0]]));
   await expect(section(page).getByTestId("pantry-photo-number")).toHaveCount(6, longWait);
 
   // The freezer's cards wait for these: its card says so.
@@ -121,8 +115,9 @@ test("the fridge and the freezer one after the other: the queue is seen, the res
   if (before.error) throw before.error;
   expect(before.count).toBe(0);
   await section(page).getByRole("button", { name: "Bekräfta alla" }).click();
-  await expect(cards(page)).toHaveCount(1, { timeout: 10_000 });
-  await expect(section(page).getByRole("heading", { level: 2 })).toHaveText("Lagerförslag från frysen");
+  // The fridge's cards are all handled: the freezer's result, which waited, takes their place.
+  await expect(section(page).getByRole("heading", { level: 2 })).toHaveText("Lagerförslag från frysen", { timeout: 10_000 });
+  await expect(cards(page)).toHaveCount(6);
 
   // The fridge's job is closed, its photo is saved as the latest of the fridge, and the pantry has the six items.
   await expect.poll(async () => (await jobs()).filter((job) => job.status === "done").length).toBe(1);
@@ -141,13 +136,27 @@ test("the fridge and the freezer one after the other: the queue is seen, the res
 
 test("a new photo of the fridge replaces the one before: the first is replaced, and never shown", async ({ page }) => {
   await page.goto("/hemma");
-  await photograph(page, "Fotografera kylen", await slowPhoto(1));
+  await photograph(page, "Fotografera kylen", plainPng(1));
   await expect(camera(page).getByText("Tittar på bilden …")).toBeVisible();
   await expect.poll(async () => (await jobs()).map((job) => job.status)).toEqual(["running"]);
 
-  // Pontus takes the photo again while the first is still being read.
-  await photograph(page, "Fotografera kylen", await slowPhoto(3));
-  await expect.poll(async () => (await jobs()).map((job) => job.status).sort()).toEqual(["queued", "superseded"].sort());
+  // The photo is taken again, from another tab or device, while the first is still being read.
+  const site = await adminClient().from("pantry_site").select("id").eq("user_id", userId).eq("is_selected", true).single();
+  if (site.error) throw site.error;
+  const second = await page.request.post("/api/ai/jobs/photo", {
+    multipart: {
+      image: plainPng(3),
+      kind: "analyze",
+      clientKey: crypto.randomUUID(),
+      location: "Kyl",
+      site: (site.data as { id: string }).id,
+      takenAt: new Date().toISOString(),
+    },
+  });
+  expect(second.status()).toBe(202);
+  // The first is replaced at once; the new one waits for its turn or has it already.
+  await expect.poll(async () => (await jobs()).map((job) => job.status).includes("superseded")).toBe(true);
+  expect(await jobs()).toHaveLength(2);
 
   await expect(cards(page)).toHaveCount(6, longWait);
   await expect.poll(async () => (await jobs()).map((job) => job.status).sort(), longWait).toEqual(["done", "superseded"]);
@@ -159,7 +168,7 @@ test("a new photo of the fridge replaces the one before: the first is replaced, 
 
 test("the jobs keep only the place, the location and the time, and the photo is nowhere on the server", async ({ page }) => {
   await page.goto("/hemma");
-  await photograph(page, "Fotografera kylen", await slowPhoto(4));
+  await photograph(page, "Fotografera kylen", plainPng(4));
   await expect(cards(page)).toHaveCount(6, longWait);
   await expect.poll(async () => (await jobs()).map((job) => job.status), longWait).toEqual(["done"]);
 
@@ -173,7 +182,7 @@ test("the jobs keep only the place, the location and the time, and the photo is 
 
 test("a photo as a job survives a reload: the cards come back, without the photo, and no latest photo is saved", async ({ page }) => {
   await page.goto("/hemma");
-  await photograph(page, "Fotografera kylen", await slowPhoto(5));
+  await photograph(page, "Fotografera kylen", plainPng(5));
   // The page is reloaded while the fridge is read.
   await expect.poll(async () => (await jobs()).map((job) => job.status)).toEqual(["running"]);
   await page.reload();

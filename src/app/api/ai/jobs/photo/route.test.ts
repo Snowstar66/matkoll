@@ -51,6 +51,9 @@ vi.mock("@/features/pantry/server", () => ({
   locatePlaceItems: (...args: Parameters<typeof locatePlaceItems>) => locatePlaceItems(...args),
 }));
 
+const startImportJob = vi.fn<(source: { kind: string; image: Image }, key: string, startedAt: number) => Promise<Response>>();
+vi.mock("../start-import", () => ({ startImportJob: (...args: Parameters<typeof startImportJob>) => startImportJob(...args) }));
+
 /** The callbacks given to after(), run by the test once the response is there. */
 let afterCallbacks: (() => Promise<void>)[] = [];
 vi.mock("next/server", () => ({ after: (callback: () => Promise<void>) => afterCallbacks.push(callback) }));
@@ -115,6 +118,7 @@ beforeEach(() => {
   lookUpSite.mockReset().mockResolvedValue({ ok: true, site: hemma });
   enqueueAiJob.mockReset().mockResolvedValue(ok({ job, created: true, startBy: 1_000_000 }));
   runAiJob.mockReset().mockResolvedValue(undefined);
+  startImportJob.mockReset().mockResolvedValue(Response.json(ok({ job }), { status: 202 }));
   readPhoto.mockReset().mockResolvedValue(ok(reading));
   locatePlaceItems.mockReset().mockResolvedValue(ok(points));
 });
@@ -225,6 +229,23 @@ describe("POST /api/ai/jobs/photo", () => {
     });
     await runWork(Date.now() + 120_000, controller.signal);
     expect(locatePlaceItems).not.toHaveBeenCalled();
+  });
+
+  it("hands a photo of a recipe (`kind` import, Story 12.6) to the import job, without the place's checks", async () => {
+    const response = await POST(await post({ body: form(png, { kind: "import", location: null, site: null, takenAt: null }) }));
+    expect(response.status).toBe(202);
+    expect(startImportJob).toHaveBeenCalledTimes(1);
+    const [source, key] = startImportJob.mock.calls[0];
+    expect(source.kind).toBe("photo");
+    expect(key).toBe(clientKey);
+    expect(lookUpSite).not.toHaveBeenCalled();
+    expect(enqueueAiJob).not.toHaveBeenCalled();
+  });
+
+  it("holds a recipe photo to the smaller size, and validates its key", async () => {
+    expect((await POST(await post({ body: form(jpegHeader(2000, 1500), { kind: "import" }) }))).status).toBe(413);
+    expect((await POST(await post({ body: form(png, { kind: "import", clientKey: "abc" }) }))).status).toBe(400);
+    expect(startImportJob).not.toHaveBeenCalled();
   });
 
   it("answers a place that is gone or cannot be read at once, before anything is queued", async () => {
