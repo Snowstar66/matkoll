@@ -10,10 +10,11 @@ import {
   parseAnalyzeItems,
   parseItemPositions,
   parseRecipeAnswer,
-  suggestDishesAnswer,
-  suggestDishesAnswerFor,
+  compactDish,
+  suggestDishesAnswerCompact,
+  suggestDishesAnswerCompactFor,
 } from "./schemas";
-import { validRecipe } from "./test-support";
+import { validCompactDish, validRecipe } from "./test-support";
 
 describe("aiRecipe", () => {
   it("accepts a complete recipe", () => {
@@ -88,16 +89,16 @@ describe("parseRecipeAnswer", () => {
   });
 });
 
-describe("suggestDishesAnswer", () => {
-  const dish = (title: string) => ({ ...validRecipe, title });
+describe("suggestDishesAnswerCompact", () => {
+  const dish = (title: string) => ({ ...validCompactDish, title });
   const three = [dish("Pannkakor"), dish("Linssoppa"), dish("Fiskgratäng")];
   const issues = (value: unknown) => {
-    const result = suggestDishesAnswer.safeParse(value);
+    const result = suggestDishesAnswerCompact.safeParse(value);
     return result.success ? [] : result.error.issues.map((issue) => ({ path: issue.path, message: issue.message }));
   };
 
   it("accepts three valid recipes with titles of their own", () => {
-    expect(suggestDishesAnswer.parse({ suggestions: three })).toEqual({ suggestions: three });
+    expect(suggestDishesAnswerCompact.parse({ suggestions: three })).toEqual({ suggestions: three });
   });
 
   it.each([
@@ -120,7 +121,7 @@ describe("suggestDishesAnswer", () => {
   });
 
   it("rejects a title to avoid, normalized, with the path for the model", () => {
-    const schema = suggestDishesAnswerFor(["  linssoppa ", "Köttbullar"]);
+    const schema = suggestDishesAnswerCompactFor(["  linssoppa ", "Köttbullar"]);
     const result = schema.safeParse({ suggestions: [three[0], dish("LINSSOPPA"), three[2]] });
     expect(result.success).toBe(false);
     expect(result.error?.issues.map(({ path, message }) => ({ path, message }))).toEqual([
@@ -130,7 +131,7 @@ describe("suggestDishesAnswer", () => {
   });
 
   it("rejects a step index that points past the steps", () => {
-    const line = { ...validRecipe.ingredients[0], stepIndexes: [5] };
+    const line = { ...validCompactDish.ingredients[0], stepIndexes: [5] };
     const broken = { ...three[1], ingredients: [line] };
     expect(issues({ suggestions: [three[0], broken, three[2]] })).toEqual([
       { path: ["suggestions", 1, "ingredients", 0, "stepIndexes", 0], message: "stepIndexes must point at an existing step" },
@@ -138,10 +139,10 @@ describe("suggestDishesAnswer", () => {
   });
 
   it("has a JSON schema without minItems or maxItems over 1 on suggestions, so strict providers take it", () => {
-    expect(z.toJSONSchema(suggestDishesAnswerFor(["Pannkakor"]), { io: "input" })).toEqual(
-      z.toJSONSchema(suggestDishesAnswer, { io: "input" }),
+    expect(z.toJSONSchema(suggestDishesAnswerCompactFor(["Pannkakor"]), { io: "input" })).toEqual(
+      z.toJSONSchema(suggestDishesAnswerCompact, { io: "input" }),
     );
-    const schema = z.toJSONSchema(suggestDishesAnswer, { io: "input" }) as unknown as {
+    const schema = z.toJSONSchema(suggestDishesAnswerCompact, { io: "input" }) as unknown as {
       properties: { suggestions: { type: string; minItems?: number; maxItems?: number } };
     };
     const { suggestions } = schema.properties;
@@ -149,6 +150,50 @@ describe("suggestDishesAnswer", () => {
     expect(suggestions.minItems ?? 0).toBeLessThanOrEqual(1);
     expect(suggestions.maxItems ?? 1).toBeLessThanOrEqual(1);
     expect(suggestions.maxItems).toBeUndefined();
+  });
+});
+
+describe("compactDish (Story 12.3)", () => {
+  const line = validCompactDish.ingredients[1];
+  const withLine = (changed: Record<string, unknown>) => ({ ...validCompactDish, ingredients: [{ ...line, ...changed }] });
+
+  it("accepts a dish with a line from the pantry (new null) and one outside it", () => {
+    expect(compactDish.parse(validCompactDish)).toEqual(validCompactDish);
+  });
+
+  it.each([
+    ["an unknown section", { new: { ...line.new, section: "Godis" } }, ["ingredients", 0, "new", "section"]],
+    ["an unknown location", { new: { ...line.new, location: "Källare" } }, ["ingredients", 0, "new", "location"]],
+    ["an unknown default unit", { new: { ...line.new, defaultUnit: "burk" } }, ["ingredients", 0, "new", "defaultUnit"]],
+    ["new left out", { new: undefined }, ["ingredients", 0, "new"]],
+    ["an empty name", { name: " " }, ["ingredients", 0, "name"]],
+    ["an amount of 0", { amount: 0 }, ["ingredients", 0, "amount"]],
+  ])("rejects %s", (_name, changed, path) => {
+    const result = compactDish.safeParse(withLine(changed));
+    expect(result.success).toBe(false);
+    expect(result.error?.issues.map((issue) => issue.path)).toContainEqual(path);
+  });
+
+  it("takes a unit as written, trimmed, and an empty one as none", () => {
+    expect(compactDish.parse(withLine({ amount: 2, unit: " deciliter " })).ingredients[0].unit).toBe("deciliter");
+    expect(compactDish.parse(withLine({ amount: 2, unit: " " })).ingredients[0].unit).toBeNull();
+  });
+
+  it("rejects a step index that points past the steps", () => {
+    const result = compactDish.safeParse(withLine({ stepIndexes: [2] }));
+    expect(result.error?.issues.map(({ path, message }) => ({ path, message }))).toEqual([
+      { path: ["ingredients", 0, "stepIndexes", 0], message: "stepIndexes must point at an existing step" },
+    ]);
+  });
+
+  it("has every property required, new nullable, and no isVague or hint, so strict providers take it", () => {
+    const schema = z.toJSONSchema(compactDish, { io: "input" }) as unknown as {
+      properties: { ingredients: { items: { required: string[]; properties: Record<string, { anyOf?: unknown[] }> } } };
+    };
+    const { items } = schema.properties.ingredients;
+    expect(items.required).toEqual(["text", "amount", "unit", "name", "stepIndexes", "new"]);
+    expect(Object.keys(items.properties)).toEqual(items.required);
+    expect(JSON.stringify(items.properties.new)).toContain('"type":"null"');
   });
 });
 

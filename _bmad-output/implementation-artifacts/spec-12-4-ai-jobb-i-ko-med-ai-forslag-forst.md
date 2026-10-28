@@ -2,7 +2,8 @@
 title: 'Story 12.4: AI-jobb i kö, med AI-förslag först'
 type: 'feature'
 created: '2026-10-26'
-status: 'draft'
+status: 'done'
+baseline_commit: 'fbee2fc0e43edfc8e266ecc53ede35dd00b03d74'
 route: 'dispatch'
 context:
   - '{project-root}/_bmad-output/implementation-artifacts/epic-12-context.md'
@@ -98,24 +99,24 @@ context:
 ## Tasks & Acceptance
 
 **Execution:**
-- [ ] Prov först (T11): en Route Handler i en gren som läser `requireUser()` och skriver en rad med sessionsklienten inne i `after()`, med `next build && next start`. Utfallet i beslutsloggen; fungerar det inte, får serverfunktionerna användaren som argument
-- [ ] `supabase/migrations/<tid>_ai_job.sql` (via `supabase migration new`) -- tabellen, index, RLS, grants, funktionerna. Sedan `pnpm db:types` -- AD-4, AD-5, AD-28
-- [ ] `tests/integration/ai-job.test.ts` -- matrisens databasrader, RLS och två samtidiga `claim_ai_job`
-- [ ] `src/features/ai-jobs/domain/*` (+ tester) -- sorter, lägen, `aiJobSchema`, tider (`runMs`, `startBy`, 295 s), sammanfattningen
-- [ ] `src/features/ai-jobs/data/*`, `server.ts` (+ tester) -- `enqueueAiJob`, `runAiJob` med falsk klocka och falska funktioner (kö, avbryt, vakt, tidsgräns, `gone`), `listAiJobs`, `getAiJob`
-- [ ] `src/features/ai-jobs/actions/*` (+ tester) -- `cancelAiJob`, `markAiJobSeen`, `dismissAiJob`
-- [ ] `src/app/api/ai/jobs/route.ts`, `jobs/[id]/route.ts` (+ `route.test.ts`) -- `POST` för `suggest`, `GET` listan och resultatet; `src/app/api/ai/suggest/` tas bort
-- [ ] `src/features/suggestions/actions/suggest-from-pantry.ts` (+ test) -- utan kartan, med jobbets signal och tidsgräns
-- [ ] `src/lib/ai-jobs-client.ts` (+ test) -- start, pollning med falsk klocka och `visibilitychange`, `useAiJobs()`
-- [ ] `src/features/ai-jobs/ui/*` (+ tester) -- `AiJobsProvider`, jobbraden, arket AI-jobb, bekräftelsen för klara jobb
-- [ ] `src/components/app-shell/*`, `src/components/toast.tsx` (+ tester) -- flikmärket och bekräftelsen med "Visa"
-- [ ] `src/features/recipes/ui/use-dish-suggestions.ts`, `ai-suggestions.tsx` (+ tester) -- förslagen som jobb, inaktuella förslag
-- [ ] `src/server/ai/adapters/mock.ts`, `src/server/env.ts`, `.env.example` (+ tester) -- `AI_MOCK_DELAY_MS`
-- [ ] `src/lib/errors.ts`, `src/app/api/ai/route-support.ts` -- felkoderna och statuskoderna
-- [ ] `.github/workflows/backup.yml`, `scripts/backup-counts.sql`, `docs/drift.md` -- utan `ai_job`-rader
-- [ ] `tests/e2e/ai-jobs.spec.ts` (+ `support.ts`, `global-setup.ts`) -- egen e2e-användare `e2e-ai-jobb@matkoll.test`, `AI_PROVIDER=mock`, `AI_MOCK_DELAY_MS=3000`: starta förslag, gå till Inköpslista, se jobbraden, bekräftelsen och märket, tryck "Visa" och se förslagen; två jobb i kö med "· 1 i kö"; avbryt ett i kö
-- [ ] Befintliga e2e-specar för förslag uppdateras
-- [ ] `docs/beslutslogg.md` -- en post för storyn
+- [x] Prov först (T11): en Route Handler i en gren som läser `requireUser()` och skriver en rad med sessionsklienten inne i `after()`, med `next build && next start`. Utfallet i beslutsloggen; fungerar det inte, får serverfunktionerna användaren som argument
+- [x] `supabase/migrations/<tid>_ai_job.sql` (via `supabase migration new`) -- tabellen, index, RLS, grants, funktionerna. Sedan `pnpm db:types` -- AD-4, AD-5, AD-28
+- [x] `tests/integration/ai-job.test.ts` -- matrisens databasrader, RLS och två samtidiga `claim_ai_job`
+- [x] `src/features/ai-jobs/domain/*` (+ tester) -- sorter, lägen, `aiJobSchema`, tider (`runMs`, `startBy`, 295 s), sammanfattningen
+- [x] `src/features/ai-jobs/data/*`, `server.ts` (+ tester) -- `enqueueAiJob`, `runAiJob` med falsk klocka och falska funktioner (kö, avbryt, vakt, tidsgräns, `gone`), `listAiJobs`, `getAiJob`
+- [x] `src/features/ai-jobs/actions/*` (+ tester) -- `cancelAiJob`, `markAiJobSeen`, `dismissAiJob`
+- [x] `src/app/api/ai/jobs/route.ts`, `jobs/[id]/route.ts` (+ `route.test.ts`) -- `POST` för `suggest`, `GET` listan och resultatet; `src/app/api/ai/suggest/` tas bort
+- [x] `src/features/suggestions/actions/suggest-from-pantry.ts` (+ test) -- utan kartan, med jobbets signal och tidsgräns
+- [x] `src/lib/ai-jobs-client.ts` (+ test) -- start, pollning med falsk klocka och `visibilitychange`, `useAiJobs()`
+- [x] `src/features/ai-jobs/ui/*` (+ tester) -- `AiJobsProvider`, jobbraden, arket AI-jobb, bekräftelsen för klara jobb
+- [x] `src/components/app-shell/*`, `src/components/toast.tsx` (+ tester) -- flikmärket och bekräftelsen med "Visa"
+- [x] `src/features/recipes/ui/use-dish-suggestions.ts`, `ai-suggestions.tsx` (+ tester) -- förslagen som jobb, inaktuella förslag
+- [x] `src/server/ai/adapters/mock.ts`, `src/server/env.ts`, `.env.example` (+ tester) -- `AI_MOCK_DELAY_MS`
+- [x] `src/lib/errors.ts`, `src/app/api/ai/route-support.ts` -- felkoderna och statuskoderna
+- [x] `.github/workflows/backup.yml`, `scripts/backup-counts.sql`, `docs/drift.md` -- utan `ai_job`-rader
+- [x] `tests/e2e/ai-jobs.spec.ts` (+ `support.ts`, `global-setup.ts`) -- egen e2e-användare `e2e-ai-jobb@matkoll.test`, `AI_PROVIDER=mock`, `AI_MOCK_DELAY_MS=3000`: starta förslag, gå till Inköpslista, se jobbraden, bekräftelsen och märket, tryck "Visa" och se förslagen; två jobb i kö med "· 1 i kö"; avbryt ett i kö
+- [x] Befintliga e2e-specar för förslag uppdateras
+- [x] `docs/beslutslogg.md` -- en post för storyn
 
 **Acceptance Criteria:**
 - Given `pnpm lint && pnpm typecheck && pnpm test && pnpm test:integration && AI_PROVIDER=mock pnpm build && CI=1 pnpm test:e2e`, when de körs, then lyckas alla.
@@ -124,6 +125,7 @@ context:
 
 ## Implementation Notes
 
+- **Från granskningen av 12.2:** väckningen (`POST /api/ai/warm`) vet i dag bara om körningar i den egna serverinstansen (`hasAiRunOnItsWay`, `isSuggesting`), och gränsen ligger i processens minne (`src/server/ai/warm-limit.ts`). Med jobben: väckningen hoppar över när användaren har ett `ai_job` som körs eller står i kö, receptimporten blir ett jobb och räknas då som "något pågår", och gränsen kan läsas ur jobbtabellen (senast startade eller avslutade jobb), så att det gäller över serverinstanser. 12.4 bygger det delade läget.
 - **Beslut (förslag): jobbet körs i `after()` i förfrågan som tog emot det.** Indata finns bara där. Ingen annan process kan ta över ett jobb, så ett jobb vars förfrågan dör blir `ai_job_lost` när dess tid har gått.
 - **Beslut (förslag): pollning, inte Realtime.** AD-2 förbjuder Supabase-klienten i webbläsaren. Varannan sekund bara medan något är aktivt och fliken syns.
 - **Beslut (förslag): `GET /api/ai/jobs` utan hela resultatet.** Listan pollas ofta; resultatet hämtas en gång med `GET /api/ai/jobs/[id]` när det behövs.
@@ -136,7 +138,26 @@ context:
 
 ## Spec Change Log
 
+- Vid bygget:
+  - **Byggd på `fbee2fc`** (`baseline_commit`), epicgrenen efter 12.3. Besluten (förslag) är godkända som de stod. Beslutsloggen har hela posten ("AI-jobb i kö, med AI-förslag först").
+  - **T11 (sessionen i `after()`) fungerar.** `requireUser()`, lagret, katalogen och `finish_ai_job` läser och skriver som användaren inne i `after()` med `next start` (e2e med `CI=1`). Ruttens sessionsklient görs i förfrågan och lämnas till `runAiJob`, som därför tar klienten som första argument: `runAiJob(db, job, { startBy }, work)`. Körtiden räknas i `ai-jobs/domain` (`runTimes`).
+  - **Databasen:** `20261028235500_ai_job.sql`, med allt specen kräver, plus `check` på att `finished_at` finns precis när jobbet är avslutat, att `done` har ett resultat och `failed` en felkod; `MK430` (kön full) och `MK431` (inget sådant jobb); funktionerna returnerar `jsonb` (`{ created, job }`, `{ outcome, position }`) så att rutten vet om jobbet är nytt; `enqueue_ai_job` ersätter också äldre `analyze`-jobb för samma ställe och plats, så att 12.5 inte behöver en migration. `supabase migration up --local` stoppades av `MigrationMissingLocalError` (andra grenar har kört migrationer), så migrationen kördes med `psql` och `schema_migrations`-raden lades in för hand. Kontroll före och efter med `scripts/pantry-site-check.sql` gav ingen skillnad, och en datasäkerhetskopia togs först.
+  - **Avvikelser mot specen:**
+    - `AI_MOCK_DELAY_MS` gäller bara AI-förslagen, inte de andra mockanropen, eftersom e2e-servern sätter 3 000 för alla specar och bildanalysen med numren annars tar 6 s. Samma hjälpare tas i bruk när 12.5 och 12.6 flyttar flödena.
+    - Ett avbrutet jobb räknas som sett och visas inte i arket ("Avbrutet" står inte kvar tills det stängs). Se beslutsloggen.
+    - `GET /api/ai/jobs` döljer klara jobb äldre än 24 timmar redan före nästa `enqueue_ai_job`, som tar bort raden.
+  - **Väckningen** (granskningen av 12.2) läser nu `ai_job` (pågår, eller började eller slutade inom tre minuter) och räknar importer, och senare analyser, som något som pågår så fort de är jobb. `isBusy` får vara asynkron.
+  - **Prövat:** `pnpm lint`, `pnpm typecheck`, `pnpm test` (246 filer), `pnpm test:integration` (`tests/integration/ai-job.test.ts`: RLS, grants, alla funktioner, två `claim_ai_job` samtidigt), `AI_PROVIDER=mock pnpm build` och e2e för `ai-jobs`, `ai-suggestions`, `ai-warm`, `cookable`, `shell`, `library`, `recipes-look` och `app-install`. Hela e2e-sviten kördes inte här. Ingenting anropade LM Studio.
+  - **`shell.spec.ts`** fick `expect.poll` för flikarnas färger: tills fältet har hydrerats har det ingen aktuell flik (AD-18), vilket en upptagen dator visade tillräckligt länge för att testet skulle falla.
+
 ## Review Triage Log
+
+Iteration 1: en granskare (Sonnet), med fokus på migrering, samtidighet och integritet, enligt den tokensnåla loopen. Granskaren hittade inga fel som måste rättas. RLS, grants, låsningen, att utgångna jobb städas, att `after()` aldrig kastar, och att budgeten håller sig inom `maxDuration` kontrollerades och var i ordning.
+
+**Uppskjutet** (till `deferred-work.md`, eftersom de kräver en ny migrering eller bara har liten effekt):
+- `ai_queue_timeout` kan förlora mot `ai_job_lost`. Ett köat jobb går ut precis vid `startBy`, så texten kan bli "AI-jobbet avbröts" i stället för "hann inte börja". Rättning: ge köade jobb samma marginal som jobb som körs (cirka 10 s).
+- När ett jobb avbryts eller stängs blir platsen ledig innan det gamla anropet har slutat, så två modellanrop kan överlappa i upp till cirka 3 s. Rättning: godta det, eller förkorta `guardPollMs`.
+- Listan som hämtas varannan sekund läser in hela `result` bara för att räkna förslagen. Rättning: räkna i databasen.
 
 ## Verification
 

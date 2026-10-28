@@ -14,9 +14,9 @@ import {
 import { PantrySheetProvider } from "@/features/pantry/ui/pantry-item-sheet";
 import { PantrySuggestionsProvider } from "@/features/pantry/ui/pantry-suggestions";
 import { SiteSwitch, SiteSwitchProvider } from "@/features/pantry/ui/site-switch";
-import type { AiCallResult } from "@/lib/ai-client";
 import { ok, type Result } from "@/lib/errors";
 import { HomeContent } from "./home-content";
+import { fakeAi } from "../../../../tests/mocks/fake-ai-jobs";
 
 vi.mock("@/features/auth/server", () => ({ requireUserOrRedirect: vi.fn(async () => ({ id: "user" })) }));
 vi.mock("@/features/pantry/server", async (importOriginal) => ({
@@ -50,10 +50,7 @@ vi.mock("@/features/pantry/actions/confirm-pantry-suggestions", () => ({
 }));
 
 // The camera's analysis, answered by the test.
-let answers: ((result: AiCallResult<unknown>) => void)[] = [];
-vi.mock("@/lib/ai-client", () => ({
-  postAiForm: () => new Promise<AiCallResult<unknown>>((resolve) => answers.push(resolve)),
-}));
+vi.mock("@/lib/ai-jobs-client", async () => (await import("../../../../tests/mocks/fake-ai-jobs")).fakeAiJobsModule);
 vi.mock("@/lib/downscale-image", () => ({ downscaleImage: async (file: Blob): Promise<Result<Blob>> => ok(file) }));
 
 /** The place Hemma shows (Story 8.2), one of two, so the page has the site switch and no "Lägg till ställe". */
@@ -76,7 +73,7 @@ const mjolk: PantryItem = { id: "1", siteId: site.id, ingredientId: "m", name: "
 
 let logged: ReturnType<typeof vi.spyOn>;
 beforeEach(() => {
-  answers = [];
+  fakeAi.reset();
   logged = vi.spyOn(console, "error").mockImplementation(() => {});
 });
 afterEach(() => {
@@ -125,7 +122,7 @@ describe("HomeContent", () => {
     render(await HomeContent({ site, location: "Kyl", next: "/hemma" }));
     const picker = screen.getByTestId("pantry-camera").querySelector<HTMLInputElement>('input[type="file"]')!;
     fireEvent.change(picker, { target: { files: [new File(["x"], "IMG_1.jpg", { type: "image/jpeg" })] } });
-    await waitFor(() => expect(answers).toHaveLength(1));
+    await waitFor(() => expect(fakeAi.calls).toHaveLength(1));
     const suggestion = {
       id: "s1",
       name: "gurka",
@@ -137,7 +134,7 @@ describe("HomeContent", () => {
       change: null,
       replaces: [],
     };
-    await act(async () => answers[0](ok({ site: { id: site.id, name: site.name }, location: "Kyl", suggestions: [suggestion], dropped: 0, inventory: { kind: "unread" } })));
+    await act(async () => fakeAi.calls[0].answer(ok({ site: { id: site.id, name: site.name }, location: "Kyl", suggestions: [suggestion], dropped: 0, inventory: { kind: "unread" } })));
 
     const section = screen.getByRole("region", { name: "Lagerförslag från kylen" });
     expect(within(section).getByTestId("pantry-suggestion")).toHaveTextContent("gurkaNy2 st · Kyl");

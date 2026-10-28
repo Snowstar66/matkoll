@@ -3,9 +3,9 @@ import { cleanModelText } from "@/lib/suggest-input";
 import type { PantrySuggestion } from "./pantry-suggestion";
 import type { SuggestionGroups } from "./place-inventory";
 
-// Nummer på fotot (Story 6.6): after the cards from a photo have come, the
-// client sends the same photo and the AI's items in reading order (the
-// answer's `reading`) to /api/ai/locate, and gets a point per item back. A
+// Nummer på fotot (Story 6.6, 12.5): after the cards from a photo have come,
+// the same job looks up the AI's items in reading order (the result's
+// `reading`) on the same photo, and gives a point per item. A
 // card's number is the number of its first item in the reading; the large
 // photo gets a marker with the card's number on each of the card's items.
 // Only cards that are shown have numbers, so every marker has a card. Pure,
@@ -51,7 +51,7 @@ export function readingLabel(label: string): string {
   return text || readingPlaceholder;
 }
 
-/** What the client sends to /api/ai/locate with the photo: the reading's labels, 1 to maxReadingItems. */
+/** What the numbers step takes with the photo: the reading's labels, 1 to maxReadingItems. */
 export const locateLabelsSchema = z.array(readingLabelSchema).min(1).max(maxReadingItems);
 
 const coordinate = z.number().min(0).max(maxPointCoordinate);
@@ -64,7 +64,7 @@ export const photoPointSchema = z.object({
 });
 export type PhotoPoint = z.infer<typeof photoPointSchema>;
 
-/** What /api/ai/locate answers, checked by the client too: the points, at most one per item. */
+/** The points the numbers step gives, checked by the client too: at most one per item. */
 export const locateResultSchema = z.object({
   positions: z.array(photoPointSchema).max(maxReadingItems),
 });

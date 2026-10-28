@@ -11,6 +11,8 @@ const isCi = Boolean(process.env.CI);
 export default defineConfig({
   testDir: "./tests/e2e",
   globalSetup: "./tests/e2e/global-setup.ts",
+  // A recipe import is an AI job (Story 12.6): the mock's 3 s and the page's polling every 2 s come before the draft.
+  expect: { timeout: 15_000 },
   forbidOnly: isCi,
   retries: isCi ? 1 : 0,
   reporter: isCi ? [["github"], ["html", { open: "never" }]] : "list",
@@ -28,6 +30,13 @@ export default defineConfig({
     timeout: 120_000,
     // SITE_URL builds the link in the e-mail, so it must be this server. AI_PROVIDER must be
     // explicit, since `next start` runs in production mode (the mock is never a silent default there).
-    env: { AI_PROVIDER: "mock", ALLOWED_EMAILS: e2eEmails.join(","), SITE_URL: `http://localhost:${port}` },
+    // Stories 12.4 and 12.6: AI_MOCK_DELAY_MS makes an AI-förslag call and a recipe import take 3 s (only
+    // the mock reads it), so the queue and the job row can be seen; the other AI calls answer at once.
+    env: {
+      AI_PROVIDER: "mock",
+      AI_MOCK_DELAY_MS: "3000",
+      ALLOWED_EMAILS: e2eEmails.join(","),
+      SITE_URL: `http://localhost:${port}`,
+    },
   },
 });

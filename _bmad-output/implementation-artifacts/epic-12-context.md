@@ -148,3 +148,30 @@ Epicen bygger på det som redan finns:
 - **12.7 sist:** strömningen av AI-förslagen, ovanpå jobben och det kompakta svaret.
 - **Gren:** `epic/12-asynkron-ai`, med PR till `main`. Alla sex kontroller och en kodgranskning krävs (AD-23). Planeringsdokumenten för Epic 12 följer med i grenen.
 - **Efter epicen:** Pontus provar Flöde 10 i mobilen, väljer LM Studios inställningar efter `docs/lm-studio.md` och svarar på öppna frågor 21–25.
+
+## Slutmätning Epic 12
+
+Pontus bestämde 2026-10-28 att Epic 12 mäts en gång mot LM Studio när epicen är klar, inte per story. Mätningen görs med varm modell och tre körningar (`EVAL_RUNS=3`) med den inställning som `docs/lm-studio.md` rekommenderar, och kontrollerar först att LM Studio inte används av något annat (`~/.lmstudio/server-logs/`). Resultatet skrivs i `docs/lm-studio.md`, `docs/oppna-fragor.md` (T5, T10) och beslutsloggen, **med vilka stories som var ihopslagna i `epic/12-asynkron-ai` när mätningen kördes** (commit och lista över stories), så att siffrorna går att jämföra med 12.1:s utgångsläge.
+
+**Story 12.3, kortare svar för AI-förslag** (`EVAL_LABEL=epic-12-varm AI_PROVIDER=lmstudio pnpm eval:ai tests/eval/suggest-dishes.eval.ts`, med rapporten `tests/eval/suggest-report.md` och tidrapporterna i `tests/eval/reports/`):
+
+- Token ut minst 25 % färre än i 12.1 (1 800–2 000 i median, 1 470–2 130 för de flesta svar). Räknat med tokeniseraren på mockens svar väntas ungefär 1 070.
+- Högst 40 s i median varmt (12.1: 45,9 s för förslagen och 63,6 s för "andra rätter").
+- Inte färre giltiga förslag än i 12.1 (där var sju av 33 anrop inte giltiga).
+- Andelen rader utan `new` som inte finns i lagret (kolumnen Format i `suggest-report.md`). Varje sådan rad blir en ny katalogvara under Övrigt och Skafferi i förhandsgranskningen.
+- **Taket för svaret** (`inputLimits.suggest.maxOutputTokens`, 3 000 token): kolumnerna "Token ut per försök" och "Kapat vid taket". Prompten ber om JSON på en rad, men LM Studio styr inte det, och ett indraget svar i full storlek (30 rader, 18 steg) kan bli ungefär 3 500 token. Kommer något giltigt försök nära 3 000 token, eller kapas något, höjs taket (högst till 4 000 som förut).
+- **Reserv om målen inte nås:** högst 8 rader och 5 steg per rätt i prompten, mät igen och skriv valet och siffrorna i beslutsloggen. Antalet rätter står kvar (öppen fråga 25).
+
+**Story 12.2, väckningen** (`tests/eval/warm-up.eval.ts`, med `EVAL_WARM=med` och `EVAL_WARM=utan`, kallt efter minst 15 minuters vila): det första anropet efter vila ska vara minst 20 % snabbare med väckning än utan, för bildanalysen och för AI-förslagen.
+
+**Story 12.7, första rätten direkt:** den första rätten syns efter högst 40 % av tiden för alla tre, om provet visar att svaret strömmar (T9).
+
+**Resultat (2026-10-29, `docs/lm-studio.md`, "Slutmätning Epic 12"):**
+
+- [x] 12.3, token ut: 1 289, 1 534, 1 357 och 1 303 på giltiga enstaka försök, ungefär 25-30 % färre än 12.1. Gränsfall, godkänd.
+- [x] 12.3, tid: median 33,2 s (12.1: 45,9 s), under 40 s.
+- [ ] 12.3, giltiga svar: alla 6 anrop blev till slut giltiga, men 3 av 9 försök var ogiltiga (12.1: 7 av 33). Orsaken är inte analyserad (T5, deferred-work).
+- [x] 12.3, rader utan `new` som inte finns i lagret: bara "salt och svartpeppar" (3 rader i körning 3).
+- [x] 12.3, taket: största försöket 2 169 token, inget kapat. Taket 3 000 står kvar.
+- [x] 12.2, väckningen: bildanalysen 92,4 s utan och 31,7 s med, 66 % snabbare (mål minst 20 %). Jämförelsen för förslagen är inte avgörande. Väckningen blir kvar.
+- [x] 12.7, strömningen: STOP, ingen strömning. Dragen tillbaka, T9 stängd.

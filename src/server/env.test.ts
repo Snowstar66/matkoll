@@ -23,6 +23,17 @@ describe("parseEnv", () => {
     expect(env.LMSTUDIO_BASE_URL).toBe("http://localhost:1234/v1");
   });
 
+  it("reads AI_MOCK_DELAY_MS as whole milliseconds from 0 to 30 000, and treats an empty one as unset (Story 12.4)", () => {
+    expect(parseEnv({ AI_MOCK_DELAY_MS: "3000" }).AI_MOCK_DELAY_MS).toBe(3000);
+    expect(parseEnv({ AI_MOCK_DELAY_MS: "0" }).AI_MOCK_DELAY_MS).toBe(0);
+    expect(parseEnv({ AI_MOCK_DELAY_MS: "30000" }).AI_MOCK_DELAY_MS).toBe(30_000);
+    expect(parseEnv({ AI_MOCK_DELAY_MS: "" }).AI_MOCK_DELAY_MS).toBeUndefined();
+    expect(parseEnv({}).AI_MOCK_DELAY_MS).toBeUndefined();
+    for (const bad of ["-1", "30001", "1.5", "slow"]) {
+      expect(() => parseEnv({ AI_MOCK_DELAY_MS: bad }), bad).toThrow(EnvError);
+    }
+  });
+
   it("treats empty strings as unset", () => {
     const env = parseEnv({ AI_PROVIDER: "", OPENAI_API_KEY: "", LMSTUDIO_BASE_URL: "" });
     expect(env.AI_PROVIDER).toBe("mock");

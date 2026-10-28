@@ -1,7 +1,7 @@
 // Helpers for the AI port's tests: a fake model (MockLanguageModelV4) and a
 // fake LM Studio server behind a fetch function. Never imported by the app.
 import { MockLanguageModelV4 } from "ai/test";
-import type { AiRecipe } from "./schemas";
+import type { AiRecipe, CompactDish } from "./schemas";
 
 type GenerateResult = Awaited<ReturnType<MockLanguageModelV4["doGenerate"]>>;
 
@@ -28,6 +28,37 @@ export const validRecipe: AiRecipe = {
     },
   ],
   steps: ["Vispa ihop smeten.", "Stek pannkakorna."],
+};
+
+/**
+ * Story 12.3: a dish as the model answers suggestDishes (compactDish): mjölk
+ * from the pantry (no `new`) and salt, outside it, with its catalog entry.
+ */
+export const validCompactDish: CompactDish = {
+  title: "Pannkakor",
+  servings: 4,
+  totalMinutes: 30,
+  ingredients: [
+    { text: "3 dl mjölk", amount: 3, unit: "dl", name: "mjölk", stepIndexes: [0], new: null },
+    {
+      text: "salt",
+      amount: null,
+      unit: null,
+      name: "salt",
+      stepIndexes: [],
+      new: { section: "Skafferi", location: "Skafferi", defaultUnit: "krm" },
+    },
+  ],
+  steps: ["Vispa ihop smeten.", "Stek pannkakorna."],
+};
+
+/** validCompactDish as the port returns it (fromCompactDish). */
+export const validCompactDishRecipe: AiRecipe = {
+  ...validRecipe,
+  ingredients: [
+    { ...validRecipe.ingredients[0], hint: { name: "mjölk", section: "Övrigt", location: "Skafferi", defaultUnit: "dl" } },
+    validRecipe.ingredients[1],
+  ],
 };
 
 /** The model's JSON for parseRecipe: the recipe wrapped as the answer schema says. */

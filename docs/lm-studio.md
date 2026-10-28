@@ -119,6 +119,8 @@ Det fanns 37–52 % fritt minne före de kalla anropen, så det är inte brist p
 
 Det som gör skillnad är i appen: väckningen (12.2), kortare AI-förslag (12.3) och ett jobb i taget (12.4).
 
+**Kortare AI-förslag (12.3):** modellen svarar nu med en kortare form av rätterna. Varje receptrad har bara text, mängd, enhet, namn och stegen, och avdelning, plats och enhet för katalogen (`new`) bara för en vara som inte finns i lagret. Räknat med Qwen3.6:s egen tokeniserare (`tokenizer.json` i LM Studios modellmapp) på mockens svar blir tre rätter på en rad 1 073 token i stället för 1 616 (33 % färre), och 905 i stället för 1 274 för "andra rätter" (29 % färre, med en rad mer). Om varje rad har `new` blir det 1 455 token (10 % färre). Indraget JSON kostar ungefär 80 % mer (2 947 token för det gamla svaret); 12.1:s svar på 1 470–2 130 token talar för att modellen redan skriver på en rad, och prompten ber om det. Vid 44 token per sekund är det 12 s kortare än förut, ungefär 34 s i stället för 46 s i median varmt. Taket för svaret sänktes från 4 000 till 3 000 token. Mätningen mot LM Studio är flyttad till Epic 12-mätningen, som görs en gång när epicen är klar: `EVAL_LABEL=epic-12-varm EVAL_RUNS=3 AI_PROVIDER=lmstudio pnpm eval:ai tests/eval/suggest-dishes.eval.ts`. `tests/eval/suggest-report.md` visar då också token ut per anrop och per försök, om något försök kapades vid taket, rader ur lagret per förslag, om svaret var indraget och vilka rader utan `new` som inte fanns i lagret.
+
 ## 6. Så ställer du in LM Studio
 
 Kontrollera vad som är laddat:
@@ -147,3 +149,54 @@ EVAL_LABEL=parallel-4-varm EVAL_RUNS=3 AI_PROVIDER=lmstudio pnpm eval:ai
 ```
 
 `EVAL_LABEL` namnger läget och `EVAL_RUNS` säger hur många körningar varje fall får. Rapporterna hamnar i `tests/eval/reports/` (ignoreras av git), och `tests/eval/reports/sammanfattning.md` har medianen per flöde och läge över alla rapporter där. Ett enskilt fall väljs med Vitests `-t`, till exempel `pnpm eval:ai tests/eval/analyze-image.eval.ts -t "syntetisk-kyl, körning"`. För en kall mätning: låt modellen vila minst 15 minuter med Macen vaken och kör `EVAL_RUNS=1`. Rapporten visar hur länge modellen hade vilat och hur mycket minne som var komprimerat.
+
+**Väckningen (Story 12.2):** `tests/eval/warm-up.eval.ts` mäter det första anropet efter vila, med och utan väckning fem sekunder före. Den körs bara när `EVAL_WARM` är satt, och gör ett anrop per flöde (bildanalys med ditt första foto, och AI-förslag):
+
+```bash
+EVAL_WARM=utan EVAL_LABEL=kall-utan-vackning AI_PROVIDER=lmstudio pnpm eval:ai tests/eval/warm-up.eval.ts
+EVAL_WARM=med EVAL_LABEL=kall-med-vackning AI_PROVIDER=lmstudio pnpm eval:ai tests/eval/warm-up.eval.ts
+```
+
+Väckningen har högst 50 s, eftersom ett kallt anrop tar 38–86 s för ett foto innan modellen är vaken (avsnitt 3) och nästan allt det är tiden före den första token: en väckning som bara får några sekunder hinner inte väcka modellen. Appen väcker samma modell högst en gång på tre minuter per användare, och inte strax efter ett riktigt anrop.
+
+Låt modellen vila minst 5 minuter före varje körning. `EVAL_WARM_FLOW=bild` eller `EVAL_WARM_FLOW=forslag` kör bara ett av flödena. Mätningen görs i Epic 12-mätningen i slutet av epicen.
+
+**Strömmen (Story 12.7):** `tests/eval/stream-probe.eval.ts` strömmar förslagen med `streamText` och `Output.array`, tidsstämplar varje rätt och slutet och jämför med `generateText` (giltighet och tid). Den skriver en dom: bygg vidare om första rätten kommer efter högst 80 % av tiden i alla körningar och svaret inte är oftare ogiltigt. Målet för mätningen efter bygget är att första rätten syns efter högst 40 % av tiden för alla tre. Körs i Epic 12-mätningen:
+
+```bash
+EVAL_RUNS=3 AI_PROVIDER=lmstudio pnpm eval:ai tests/eval/stream-probe.eval.ts
+```
+
+## 8. Slutmätning Epic 12 (2026-10-29)
+
+**Upplägg:** commit `08855d5` med Story 12.1-12.7 sammanslagna i `epic/12-asynkron-ai`. LM Studio `qwen/qwen3.6-35b-a3b`, körd 2026-10-29 mellan 00:00 och 00:33, med `EVAL_RUNS=3` och varm modell.
+
+**12.3, kortare svar för AI-förslag** (`EVAL_LABEL=epic-12-varm`, sex anrop: tre "lagret" och tre "andra rätter"):
+
+| Mått | Före (12.1) | Nu | Mål | Utfall |
+|---|---|---|---|---|
+| Tid, median | 45,9 s | 33,2 s | högst 40 s | Godkänd |
+| Token ut, giltigt enstaka försök | 1 800-2 000 | 1 289, 1 534, 1 357, 1 303 | minst 25 % färre | Gränsfall, ungefär 25-30 % färre |
+| Giltiga anrop till slut | 26 av 33 försök | 6 av 6 | inte färre | Godkänd |
+| Giltiga försök | 26 av 33 | 6 av 9 | | Sämre |
+
+- Tiderna var 29,8, 35,2, 92,6, 31,2, 39,6 och 29,9 s.
+- Inget försök kapades vid taket. Största försöket var 2 169 token, så taket 3 000 står kvar.
+- Tre av nio försök var ogiltiga och krävde nytt försök. "lagret" körning 2 behövde tre försök (499 + 2 169 + 1 358 token, 92,6 s) och körning 3 två (411 + 1 294). De korta ogiltiga försöken (omkring 400-500 token) tyder på att svaret avvisas av schemat, kanske de strikta uppräkningarna i `new`. Orsaken är inte analyserad.
+- Rader utan `new` som inte fanns i lagret: bara "salt och svartpeppar" (tre rader i körning 3).
+
+**12.2, väckningen** (kall efter ungefär 2,5 timmars vila, sedan 17 minuters vila):
+
+- Första bildanalysen: 92,4 s utan väckning och 31,7 s med, 66 % snabbare (mål minst 20 %). Godkänd.
+- Förslagsjämförelsen är inte avgörande. Utan väckning tog den 36,3 s, men den kördes direkt efter bildanropet och modellen var redan varm. Med väckning tog den 101,4 s på grund av nya försök (4 185 token ut), inte en kall modell.
+- Slutsats: väckningen blir kvar.
+
+**12.7, strömprovet** (`stream-probe.eval.ts`, tre körningar): domen blev "STOP: ingen strömning".
+
+| Körning | Första rätten | Strömmat svar | `generateText` |
+|---|---|---|---|
+| 1 | 18,7 s av 27,1 s (69 %) | OGILTIGT | giltigt, 25,6 s |
+| 2 | 10,0 s av 23,6 s (42 %) | OGILTIGT | giltigt, 29,6 s |
+| 3 | 12,1 s av 28,3 s (43 %) | giltigt | giltigt, 25,6 s |
+
+Första rätten kommer efter ungefär 40-70 % av tiden, men det strömmade svaret är för ofta ogiltigt. Strömningen drogs tillbaka som planerat och T9 är stängd. Provet kan köras om med `stream-probe.eval.ts` om modellen eller AI SDK byts.

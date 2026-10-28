@@ -82,12 +82,61 @@ function moveIssue(project, issueNumber, column) {
   return changed;
 }
 
-// sprint-status.yaml is flat `key: value` lines under development_status:, so a full YAML parser is not needed.
-function readStoryStatuses() {
+// Stories are built on epic and story branches in parallel, so the local file alone lags behind.
+// Read sprint-status.yaml from the checkout and every origin epic/story branch, and keep each story's most advanced status.
+const STATUS_ORDER = Object.keys(COLUMN_FOR_STATUS);
+
+function git(...args) {
+  return execFileSync("git", args, { cwd: ROOT, encoding: "utf8", stdio: ["ignore", "pipe", "ignore"] });
+}
+
+// A branch already merged into main is history: main (or a later branch) has its final state.
+function isMerged(ref) {
+  try {
+    git("merge-base", "--is-ancestor", ref, "refs/remotes/origin/main");
+    return true;
+  } catch {
+    return false;
+  }
+}
+
+function sprintStatusTexts() {
   if (!existsSync(SPRINT_STATUS)) throw new Error(`Missing ${SPRINT_STATUS} – run sprint planning first`);
+  const texts = [readFileSync(SPRINT_STATUS, "utf8")];
+  const path = relative(ROOT, SPRINT_STATUS);
+  try {
+    git("fetch", "--quiet", "origin");
+  } catch {
+    // Offline: the refs we already have are still better than the local file alone.
+  }
+  const refs = git("for-each-ref", "--format=%(refname)", "refs/remotes/origin/main", "refs/remotes/origin/epic", "refs/remotes/origin/story")
+    .split("\n").filter(Boolean);
+  for (const ref of refs.filter((r) => r.endsWith("/main") || !isMerged(r))) {
+    try {
+      texts.push(git("show", `${ref}:${path}`));
+    } catch {
+      // The branch predates sprint-status.yaml.
+    }
+  }
+  return texts;
+}
+
+function readStoryStatuses() {
+  const best = new Map();
+  for (const text of sprintStatusTexts()) {
+    for (const story of parseStoryStatuses(text)) {
+      const seen = best.get(story.key);
+      if (!seen || STATUS_ORDER.indexOf(story.status) > STATUS_ORDER.indexOf(seen.status)) best.set(story.key, story);
+    }
+  }
+  return [...best.values()].sort((a, b) => a.epic - b.epic || a.num - b.num);
+}
+
+// sprint-status.yaml is flat `key: value` lines under development_status:, so a full YAML parser is not needed.
+function parseStoryStatuses(text) {
   const stories = [];
   let inSection = false;
-  for (const raw of readFileSync(SPRINT_STATUS, "utf8").split("\n")) {
+  for (const raw of text.split("\n")) {
     const line = raw.replace(/#.*$/, "").trimEnd();
     if (/^development_status:\s*$/.test(line)) { inSection = true; continue; }
     if (inSection && /^\S/.test(line)) inSection = false;
@@ -102,44 +151,82 @@ function readStoryStatuses() {
 }
 
 // Story sections come from the epics document(s): "### Story 1.2: Title" up to the next heading of the same or higher level.
-function readStorySections() {
+function parseStorySections(text, file, sections) {
+  const lines = text.split("\n");
+  lines.forEach((line, i) => {
+    const m = line.match(/^(#+)\s*Story\s+(\d+)\.(\d+):\s*(.+)$/);
+    if (!m) return;
+    const level = m[1].length;
+    let end = lines.findIndex((l, j) => j > i && /^#+\s/.test(l) && l.match(/^#+/)[0].length <= level);
+    if (end === -1) end = lines.length;
+    sections.set(`${m[2]}.${m[3]}`, {
+      title: m[4].trim(),
+      text: lines.slice(i + 1, end).join("\n").trim(),
+      file,
+    });
+  });
+}
+
+// One source of planning docs: the local checkout, or an origin branch read through git.
+function localSource() {
   const sections = new Map();
   const walk = (dir) => {
     if (!existsSync(dir)) return;
     for (const entry of readdirSync(dir, { withFileTypes: true })) {
       const p = join(dir, entry.name);
       if (entry.isDirectory()) walk(p);
-      else if (entry.name.endsWith(".md")) {
-        const lines = readFileSync(p, "utf8").split("\n");
-        lines.forEach((line, i) => {
-          const m = line.match(/^(#+)\s*Story\s+(\d+)\.(\d+):\s*(.+)$/);
-          if (!m) return;
-          const level = m[1].length;
-          let end = lines.findIndex((l, j) => j > i && /^#+\s/.test(l) && l.match(/^#+/)[0].length <= level);
-          if (end === -1) end = lines.length;
-          sections.set(`${m[2]}.${m[3]}`, {
-            title: m[4].trim(),
-            text: lines.slice(i + 1, end).join("\n").trim(),
-            file: relative(ROOT, p),
-          });
-        });
-      }
+      else if (entry.name.endsWith(".md")) parseStorySections(readFileSync(p, "utf8"), relative(ROOT, p), sections);
     }
   };
   walk(PLANNING_DIR);
-  return sections;
+  const storyFiles = existsSync(IMPLEMENTATION_DIR) ? readdirSync(IMPLEMENTATION_DIR) : [];
+  return { sections, storyFiles, blob: BLOB };
 }
 
-function storyBody(s, section) {
+function branchSource(ref) {
+  const sections = new Map();
+  const files = (dir) => git("ls-tree", "-r", "--name-only", ref, "--", dir).split("\n").filter(Boolean);
+  for (const file of files(relative(ROOT, PLANNING_DIR)).filter((f) => f.endsWith(".md"))) {
+    parseStorySections(git("show", `${ref}:${file}`), file, sections);
+  }
+  const storyFiles = files(relative(ROOT, IMPLEMENTATION_DIR)).map((f) => f.split("/").pop());
+  const branch = ref.replace(/^refs\/remotes\/origin\//, "");
+  return { sections, storyFiles, blob: `https://github.com/${REPO}/blob/${branch}` };
+}
+
+// An epic's own branch holds its newest plan, so it wins over the checkout and main for that epic's stories.
+function storySources() {
+  const local = localSource();
+  const epicRefs = git("for-each-ref", "--format=%(refname)", "refs/remotes/origin/epic").split("\n").filter(Boolean);
+  const byEpic = new Map();
+  // Epics are squash-merged, so an old epic branch never looks merged; only epics with an open PR count as active.
+  const open = new Set(ghJson("pr", "list", "--repo", REPO, "--state", "open", "--json", "headRefName").map((p) => p.headRefName));
+  for (const ref of epicRefs.filter((r) => open.has(r.replace(/^refs\/remotes\/origin\//, "")))) {
+    const m = ref.match(/\/epic\/(\d+)-/);
+    if (m) byEpic.set(Number(m[1]), ref);
+  }
+  const cache = new Map();
+  return (epic) => {
+    const ref = byEpic.get(epic);
+    if (!ref) return [local];
+    if (!cache.has(ref)) cache.set(ref, branchSource(ref));
+    return [cache.get(ref), local];
+  };
+}
+
+function storyBody(s, sourcesFor) {
+  const sources = sourcesFor(s.epic);
+  const source = sources.find((src) => src.sections.has(`${s.epic}.${s.num}`)) ?? sources[0];
+  const section = source.sections.get(`${s.epic}.${s.num}`);
   const parts = [];
   if (section?.text) parts.push(section.text);
   const links = [];
-  if (section) links.push(`[Epics och stories](${BLOB}/${section.file})`);
-  const storyFile = existsSync(IMPLEMENTATION_DIR) && readdirSync(IMPLEMENTATION_DIR).find((f) => f.startsWith(`${s.key}`) && f.endsWith(".md"));
-  if (storyFile) links.push(`[Story-fil](${BLOB}/_bmad-output/implementation-artifacts/${storyFile})`);
+  if (section) links.push(`[Epics och stories](${source.blob}/${section.file})`);
+  const storyFile = source.storyFiles.find((f) => f.startsWith(`${s.key}`) && f.endsWith(".md"));
+  if (storyFile) links.push(`[Story-fil](${source.blob}/_bmad-output/implementation-artifacts/${storyFile})`);
   parts.push(`---\nStory \`${s.key}\` från BMAD.${links.length ? " " + links.join(" · ") : ""}`);
   parts.push(`<!-- bmad-story: ${s.key} -->`);
-  return parts.join("\n\n");
+  return { body: parts.join("\n\n"), section };
 }
 
 function epicOption(project, epicNumber) {
@@ -149,9 +236,9 @@ function epicOption(project, epicNumber) {
 function sync() {
   const project = loadProject();
   const stories = readStoryStatuses();
-  const sections = readStorySections();
+  const sourcesFor = storySources();
   const issues = ghJson("issue", "list", "--repo", REPO, "--label", "story", "--state", "all",
-    "--limit", "500", "--json", "number,body,state");
+    "--limit", "500", "--json", "number,body,state,stateReason");
   const issueByKey = new Map();
   for (const issue of issues) {
     const m = issue.body?.match(/<!-- bmad-story: ([\p{L}\p{N}_-]+) -->/u);
@@ -163,14 +250,15 @@ function sync() {
     const column = COLUMN_FOR_STATUS[s.status];
     if (!column) { log.push(`? ${s.key}: unknown status "${s.status}", skipped`); continue; }
     let issue = issueByKey.get(s.key);
-    const section = sections.get(`${s.epic}.${s.num}`);
-    const body = storyBody(s, section);
+    // A card closed as not planned was replaced by a new plan; stale branches must not reopen it.
+    if (issue?.stateReason === "NOT_PLANNED") continue;
+    const { body, section } = storyBody(s, sourcesFor);
     if (!issue) {
       const title = `${s.epic}.${s.num} ${section?.title ?? s.key}`;
       const url = gh("issue", "create", "--repo", REPO, "--title", title, "--label", "story", "--body", body);
       issue = { number: Number(url.split("/").pop()), state: "OPEN" };
       log.push(`+ ${title}`);
-    } else if (issue.body.trim() !== body) {
+    } else if (section && issue.body.trim() !== body) {
       gh("issue", "edit", String(issue.number), "--repo", REPO, "--body", body);
       log.push(`✎ #${issue.number} ${s.key}: description updated`);
     }

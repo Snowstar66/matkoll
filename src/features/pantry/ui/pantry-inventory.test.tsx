@@ -2,7 +2,6 @@ import { act, fireEvent, render, screen, waitFor, within } from "@testing-librar
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { ToastProvider } from "@/components/toast";
 import type { Location } from "@/features/catalog";
-import type { AiCallResult } from "@/lib/ai-client";
 import { errorMessages, fail, ok, type Result } from "@/lib/errors";
 import type { ConfirmedInventory } from "../actions/confirm-pantry-inventory";
 import type { restorePantryRemoval as RestoreAction } from "../actions/restore-pantry-removal";
@@ -11,6 +10,7 @@ import { PantryCamera } from "./pantry-camera";
 import { PantrySheetProvider } from "./pantry-item-sheet";
 import { PantrySuggestionList } from "./pantry-suggestion-list";
 import { PantrySuggestionsProvider } from "./pantry-suggestions";
+import { fakeAi } from "../../../../tests/mocks/fake-ai-jobs";
 
 /** The place Hemma shows (Story 8.2). */
 const testSite = { id: "55555555-5555-4555-8555-555555555555" };
@@ -19,15 +19,12 @@ const photoSite = { id: testSite.id, name: "Hemma" };
 
 // Story 6.4: a photo compared with a place that has items. The section with
 // the groups Nytt, Ändrat and Syns inte längre, filled through the camera
-// with /api/ai/analyze and the resizing stubbed, and confirmed, removed,
+// with the AI jobs and the resizing stubbed, and confirmed, removed,
 // kept or undone with confirmPantryInventory and restorePantryRemoval
 // stubbed. A photo of an empty place goes the Story 6.2 way
 // (pantry-suggestion-list.test.tsx).
 
-let answers: ((result: AiCallResult<unknown>) => void)[] = [];
-vi.mock("@/lib/ai-client", () => ({
-  postAiForm: () => new Promise<AiCallResult<unknown>>((resolve) => answers.push(resolve)),
-}));
+vi.mock("@/lib/ai-jobs-client", async () => (await import("../../../../tests/mocks/fake-ai-jobs")).fakeAiJobsModule);
 /** Story 10.1: the forms of the photo saves, which never answer here. */
 let photoPosts: FormData[] = [];
 vi.mock("./photo-post", () => ({
@@ -164,11 +161,11 @@ function Hemma({ location = "Kyl", shownSite = photoSite }: { location?: Locatio
 }
 
 async function analyze(result: AnalyzeResult = fridge) {
-  const sent = answers.length;
+  const sent = fakeAi.calls.length;
   const inputs = screen.getByTestId("pantry-camera").querySelectorAll<HTMLInputElement>('input[type="file"]');
   fireEvent.change(inputs[inputs.length - 1], { target: { files: [new File(["x"], "IMG_1.jpg", { type: "image/jpeg" })] } });
-  await waitFor(() => expect(answers.length).toBe(sent + 1));
-  await act(async () => answers[sent](ok(result)));
+  await waitFor(() => expect(fakeAi.calls.length).toBe(sent + 1));
+  await act(async () => fakeAi.calls[sent].answer(ok(result)));
 }
 
 const section = () => screen.getByRole("region", { name: "Lagerförslag från kylen" });
@@ -198,7 +195,7 @@ async function answerSave(result: Result<ConfirmedInventory> = answered()) {
 }
 
 beforeEach(() => {
-  answers = [];
+  fakeAi.reset();
   photoPosts = [];
   saves = [];
   refresh.mockReset();

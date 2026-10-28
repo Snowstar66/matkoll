@@ -2,7 +2,6 @@ import { act, fireEvent, render, screen, waitFor, within } from "@testing-librar
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import { ToastProvider } from "@/components/toast";
 import type { Location } from "@/features/catalog";
-import type { AiCallResult } from "@/lib/ai-client";
 import { fail, ok, type Result } from "@/lib/errors";
 import type { PantryItem } from "../domain/pantry-item";
 import type { PantryRow } from "../domain/pantry-item-form";
@@ -12,12 +11,13 @@ import { PantryPlace } from "./pantry-place";
 import { PantrySuggestionsProvider } from "./pantry-suggestions";
 import { SitesSheetContext } from "./site-switching";
 import type { SelectedSite } from "../domain/site";
+import { fakeAi } from "../../../../tests/mocks/fake-ai-jobs";
 
 const noSheet = () => {};
 
 // "Töm kylen" on Hemma (Story 6.3): the button under the list, the sheet
 // that asks first, and what happens around it (focus, lagerförslag). The
-// actions, the photo's resizing and /api/ai/analyze are stubbed; the list's
+// actions, the photo's resizing and the AI jobs are stubbed; the list's
 // changes and "Ångra" are tested in pantry-removal.test.tsx.
 
 type Emptied = { removed: number; removedIds: string[] };
@@ -38,13 +38,7 @@ vi.mock("../actions/search-ingredients", () => ({ searchPantryIngredients: vi.fn
 const refresh = vi.fn();
 vi.mock("next/navigation", () => ({ useRouter: () => ({ refresh }) }));
 
-let answerAnalysis: (result: AiCallResult<unknown>) => void = () => {};
-vi.mock("@/lib/ai-client", () => ({
-  postAiForm: () =>
-    new Promise<AiCallResult<unknown>>((resolve) => {
-      answerAnalysis = resolve;
-    }),
-}));
+vi.mock("@/lib/ai-jobs-client", async () => (await import("../../../../tests/mocks/fake-ai-jobs")).fakeAiJobsModule);
 vi.mock("@/lib/downscale-image", () => ({
   downscaleImage: async () => ok(new Blob(["small"], { type: "image/jpeg" })),
 }));
@@ -105,6 +99,7 @@ function deferred<T>() {
 }
 
 beforeEach(() => {
+  fakeAi.reset();
   refresh.mockReset();
   restorePantryRemoval.mockReset();
   emptyPantryPlace.mockReset().mockImplementation(async () => ok({ removed: 0, removedIds: [] }));
@@ -279,8 +274,8 @@ describe("lagerförslag when the location is emptied", () => {
     fireEvent.change(pickers[pickers.length - 1], {
       target: { files: [new File([new Uint8Array([0xff, 0xd8, 0xff])], "IMG_1.jpg", { type: "image/jpeg" })] },
     });
-    await waitFor(() => expect(screen.getByText("Tittar på bilden …")).toBeInTheDocument());
-    await act(async () => answerAnalysis(ok(result)));
+    await waitFor(() => expect(screen.getByText("Tittar på bilden … Du kan göra annat under tiden.")).toBeInTheDocument());
+    await act(async () => fakeAi.calls[fakeAi.calls.length - 1].answer(ok(result)));
     expect(await screen.findByText("I kylen nu: 2 förp")).toBeInTheDocument();
     expect(screen.getByText("I frysen nu: 2 förp")).toBeInTheDocument();
 
@@ -334,8 +329,8 @@ describe("lagerförslag when the location is emptied", () => {
     fireEvent.change(pickers[pickers.length - 1], {
       target: { files: [new File([new Uint8Array([0xff, 0xd8, 0xff])], "IMG_1.jpg", { type: "image/jpeg" })] },
     });
-    await waitFor(() => expect(screen.getByText("Tittar på bilden …")).toBeInTheDocument());
-    await act(async () => answerAnalysis(ok(result)));
+    await waitFor(() => expect(screen.getByText("Tittar på bilden … Du kan göra annat under tiden.")).toBeInTheDocument());
+    await act(async () => fakeAi.calls[fakeAi.calls.length - 1].answer(ok(result)));
     expect(await screen.findByText("nu: 2 förp → bilden: 1 förp")).toBeInTheDocument();
     expect(screen.getAllByTestId("pantry-missing")).toHaveLength(1);
     expect(screen.getAllByTestId("pantry-suggestion")).toHaveLength(1);
@@ -411,8 +406,8 @@ describe("Töm kylen on a place (Story 8.4)", () => {
     fireEvent.change(pickers[pickers.length - 1], {
       target: { files: [new File([new Uint8Array([0xff, 0xd8, 0xff])], "IMG_1.jpg", { type: "image/jpeg" })] },
     });
-    await waitFor(() => expect(screen.getByText("Tittar på bilden …")).toBeInTheDocument());
-    await act(async () => answerAnalysis(ok(result)));
+    await waitFor(() => expect(screen.getByText("Tittar på bilden … Du kan göra annat under tiden.")).toBeInTheDocument());
+    await act(async () => fakeAi.calls[fakeAi.calls.length - 1].answer(ok(result)));
     expect(await screen.findByText("nu: 2 förp → bilden: 1 förp")).toBeInTheDocument();
     rerender(<Hemma initial={kyl} site={stugan} />);
     expect(screen.getByText("Förslagen gäller Hemma.")).toBeInTheDocument();

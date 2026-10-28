@@ -1,4 +1,5 @@
 import type { ComponentType } from "react";
+import type { AiJobKind } from "@/lib/ai-job-shape";
 import { CartIcon, FridgeIcon, type IconProps, MealPlanIcon, RecipesIcon, SettingsIcon } from "../icons";
 
 export type Destination = {
@@ -10,18 +11,20 @@ export type Destination = {
    */
   labelParts?: readonly string[];
   Icon: ComponentType<IconProps>;
+  /** The AI results that are shown on this surface, counted in its badge (Story 12.4). */
+  aiKinds?: readonly AiJobKind[];
 };
 
 /** The four main surfaces, in tab order (EXPERIENCE.md, Information Architecture). */
 export const mainDestinations: readonly Destination[] = [
-  { href: "/recept", label: "Recept", Icon: RecipesIcon },
+  { href: "/recept", label: "Recept", Icon: RecipesIcon, aiKinds: ["suggest", "import"] },
   // At 200 % zoom even "Matsedel" is wider than its tab, so it breaks too.
   { href: "/matsedel", label: "Matsedel", labelParts: ["Mat", "sedel"], Icon: MealPlanIcon },
   // Story 10.4: "Inköpslista" (was "Lista") and "Lagersaldo" (was "Hemma",
   // the name of the first place too). The routes stay, so bookmarks work.
   // Story 11.1: a cart for Inköpslista and a fridge for Lagersaldo; line icons, never emoji.
   { href: "/lista", label: "Inköpslista", labelParts: ["Inköps", "lista"], Icon: CartIcon },
-  { href: "/hemma", label: "Lagersaldo", labelParts: ["Lager", "saldo"], Icon: FridgeIcon },
+  { href: "/hemma", label: "Lagersaldo", labelParts: ["Lager", "saldo"], Icon: FridgeIcon, aiKinds: ["analyze"] },
 ];
 
 /** Settings: the gear in the Recept header on mobile, the bottom of the side menu on desktop. */

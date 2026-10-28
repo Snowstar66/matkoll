@@ -3,9 +3,10 @@ import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { afterEach, describe, expect, it, vi } from "vitest";
 import { compare, type Expected } from "../../../../tests/eval/compare";
-import { checkSuggestions, type SuggestExpected } from "../../../../tests/eval/suggest-checks";
+import { answerShape, checkSuggestions, type SuggestExpected } from "../../../../tests/eval/suggest-checks";
 import { imageSizeOf, imageTypeOf, maxImageBytes, maxImageSide } from "@/lib/images";
-import { aiPantryItem, aiRecipe, analyzeImageAnswer, parseAnalyzeItems, suggestDishesAnswer } from "../schemas";
+import { fromCompactDish } from "../compact-dish";
+import { aiPantryItem, aiRecipe, analyzeImageAnswer, parseAnalyzeItems, suggestDishesAnswerCompact } from "../schemas";
 import type { SuggestDishesInput } from "../service";
 import {
   createMockAiService,
@@ -138,7 +139,8 @@ describe("mock AI service", () => {
 describe("mock suggestDishes", () => {
   const service = createMockAiService();
   const pantryInput = JSON.parse(read(`${manifest.suggest}.pantry.json`)) as SuggestDishesInput;
-  const setOf = (name: string) => suggestDishesAnswer.parse(JSON.parse(read(`${name}.response.json`))).suggestions;
+  const setOf = (name: string) =>
+    suggestDishesAnswerCompact.parse(JSON.parse(read(`${name}.response.json`))).suggestions.map(fromCompactDish);
   const suggestions = () => setOf(manifest.suggest);
   const alternative = () => setOf(manifest.suggestAlternatives[0]);
 
@@ -146,6 +148,33 @@ describe("mock suggestDishes", () => {
     expect(await service.suggestDishes(pantryInput, signal())).toEqual({ ok: true, data: suggestions() });
     const other = { pantry: [{ name: "havregryn", amount: 1, unit: "kg" }], avoidTitles: ["Gröt"] };
     expect(await service.suggestDishes(other, signal())).toEqual({ ok: true, data: suggestions() });
+  });
+
+  it("answers in the compact form turned into AiRecipe (Story 12.3), with `new` only for an item outside the pantry", async () => {
+    const raw = (name: string) =>
+      (JSON.parse(read(`${name}.response.json`)) as { suggestions: { ingredients: Record<string, unknown>[] }[] }).suggestions;
+    const lines = [...raw(manifest.suggest), ...raw(manifest.suggestAlternatives[0])].flatMap((dish) => dish.ingredients);
+    expect(lines.every((line) => !("originalText" in line) && !("hint" in line) && !("isVague" in line))).toBe(true);
+    const pantry = new Set(pantryInput.pantry.map((item) => item.name));
+    expect(lines.filter((line) => line.new !== null).map((line) => line.name)).toEqual(["grönsaksbuljong"]);
+    expect(lines.every((line) => line.new !== null || pantry.has(String(line.name)))).toBe(true);
+
+    const result = await service.suggestDishes({ ...pantryInput, avoidTitles: [suggestions()[0].title] }, signal());
+    if (!result.ok) throw new Error("expected ok");
+    const answered = result.data.flatMap((recipe) => recipe.ingredients);
+    expect(answered.find((line) => line.hint.name === "grönsaksbuljong")?.hint).toEqual({
+      name: "grönsaksbuljong",
+      section: "Skafferi",
+      location: "Skafferi",
+      defaultUnit: "st",
+    });
+    expect(answered.find((line) => line.hint.name === "smör")?.hint).toEqual({
+      name: "smör",
+      section: "Övrigt",
+      location: "Skafferi",
+      defaultUnit: "msk",
+    });
+    for (const recipe of result.data) expect(aiRecipe.safeParse(recipe).success).toBe(true);
   });
 
   it.each(mockSuggestErrorCodes.map((code) => [code]))(
@@ -169,6 +198,94 @@ describe("mock suggestDishes", () => {
     first.data[0].title = "Ändrad";
     const second = await service.suggestDishes(pantryInput, signal());
     expect(second.ok && second.data[0].title).toBe("Kycklinggryta med tomat och grädde");
+  });
+
+  describe("with a delay (AI_MOCK_DELAY_MS, Story 12.4)", () => {
+    afterEach(() => {
+      vi.useRealTimers();
+    });
+
+    it("answers only after the time has passed", async () => {
+      vi.useFakeTimers();
+      const slow = createMockAiService(dir, { delayMs: 3000 });
+      let answered = false;
+      const call = slow.suggestDishes(pantryInput, signal()).then((result) => {
+        answered = true;
+        return result;
+      });
+      await vi.advanceTimersByTimeAsync(2999);
+      expect(answered).toBe(false);
+      await vi.advanceTimersByTimeAsync(1);
+      expect(await call).toEqual({ ok: true, data: suggestions() });
+    });
+
+    it("gives up at once when the signal aborts while waiting, and never waits longer than 30 s", async () => {
+      vi.useFakeTimers();
+      const slow = createMockAiService(dir, { delayMs: 3000 });
+      const controller = new AbortController();
+      const call = slow.suggestDishes(pantryInput, controller.signal);
+      await vi.advanceTimersByTimeAsync(1000);
+      controller.abort();
+      expect(await call).toMatchObject({ ok: false, error: { code: "ai_unavailable" } });
+
+      const capped = createMockAiService(dir, { delayMs: 999_999 });
+      let answered = false;
+      void capped.suggestDishes(pantryInput, signal()).then(() => {
+        answered = true;
+      });
+      await vi.advanceTimersByTimeAsync(29_999);
+      expect(answered).toBe(false);
+      await vi.advanceTimersByTimeAsync(1);
+      expect(answered).toBe(true);
+    });
+
+    it("delays a recipe import too (Story 12.6), and gives up when the signal aborts while waiting", async () => {
+      vi.useFakeTimers();
+      const slow = createMockAiService(dir, { delayMs: 3000 });
+      let answered = false;
+      const call = slow.parseRecipe(inputFor(manifest.cases[0]), signal()).then((result) => {
+        answered = true;
+        return result;
+      });
+      await vi.advanceTimersByTimeAsync(2999);
+      expect(answered).toBe(false);
+      await vi.advanceTimersByTimeAsync(1);
+      expect((await call).ok).toBe(true);
+
+      const controller = new AbortController();
+      const stopped = slow.parseRecipe(inputFor(manifest.cases[0]), controller.signal);
+      controller.abort();
+      expect(await stopped).toMatchObject({ ok: false, error: { code: "ai_unavailable" } });
+    });
+
+    it("delays a photo it does not know, for the reading and the numbers each (Story 12.5), but not the photos of its cases", async () => {
+      vi.useFakeTimers();
+      const slow = createMockAiService(dir, { delayMs: 3000 });
+      const known = { data: new Uint8Array(readFileSync(join(dir, "kyl.png"))), mediaType: "image/png" };
+      // Bytes after the image's end change what the mock keys on, not what the image is.
+      const unknown = { data: new Uint8Array([...known.data, 0]), mediaType: "image/png" };
+      expect((await slow.analyzeImage({ image: known, place: "Kyl" }, signal())).ok).toBe(true);
+      expect((await slow.locateItems({ image: known, labels: ["Mjölk"] }, signal())).ok).toBe(true);
+
+      let answered = 0;
+      void slow.analyzeImage({ image: unknown, place: "Kyl" }, signal()).then(() => (answered += 1));
+      void slow.locateItems({ image: unknown, labels: ["Mjölk"] }, signal()).then(() => (answered += 1));
+      await vi.advanceTimersByTimeAsync(2999);
+      expect(answered).toBe(0);
+      await vi.advanceTimersByTimeAsync(1);
+      expect(answered).toBe(2);
+    });
+
+    it("stops waiting for a photo it does not know when the signal aborts", async () => {
+      vi.useFakeTimers();
+      const slow = createMockAiService(dir, { delayMs: 3000 });
+      const unknown = { data: new Uint8Array([...readFileSync(join(dir, "kyl.png")), 0]), mediaType: "image/png" };
+      const controller = new AbortController();
+      const call = slow.analyzeImage({ image: unknown, place: "Kyl" }, controller.signal);
+      await vi.advanceTimersByTimeAsync(1000);
+      controller.abort();
+      expect(await call).toMatchObject({ ok: false, error: { code: "ai_unavailable" } });
+    });
   });
 
   it("gives ai_unavailable when the signal is aborted", async () => {
@@ -195,6 +312,30 @@ describe("mock suggestDishes", () => {
     for (const set of [suggestions(), alternative()]) {
       expect(checkSuggestions(set, pantryInput, expected).filter((check) => !check.ok)).toEqual([]);
     }
+  });
+
+  it("is at least 25 % shorter on one line than the same dishes as full AiRecipe (Story 12.3)", () => {
+    for (const name of [manifest.suggest, ...manifest.suggestAlternatives]) {
+      const compact = JSON.stringify(JSON.parse(read(`${name}.response.json`)));
+      const full = JSON.stringify({ suggestions: setOf(name) });
+      expect(compact.length).toBeLessThanOrEqual(full.length * 0.75);
+    }
+  });
+
+  it("reads as a compact answer in the eval's answerShape, with every line without new in the pantry", () => {
+    expect(answerShape(read(`${manifest.suggestAlternatives[0]}.response.json`), pantryInput)).toEqual({
+      compact: true,
+      indented: true,
+      lines: 19,
+      linesWithNew: 1,
+      unmatchedWithoutNew: [],
+    });
+    const full = { suggestions: [{ ingredients: [{ originalText: "salt", hint: { name: "salt" } }] }] };
+    expect(answerShape(JSON.stringify(full), pantryInput)).toMatchObject({ compact: false, indented: false, linesWithNew: 0 });
+    const outside = { suggestions: [{ ingredients: [{ name: "lök", new: null }, { name: "Gul lök", new: null }] }] };
+    expect(answerShape(JSON.stringify(outside), pantryInput)?.unmatchedWithoutNew).toEqual(["lök"]);
+    expect(answerShape("{ inte json", pantryInput)).toBeNull();
+    expect(answerShape(undefined, pantryInput)).toBeNull();
   });
 
   it("keeps imports working when the suggest fixture is broken", async () => {

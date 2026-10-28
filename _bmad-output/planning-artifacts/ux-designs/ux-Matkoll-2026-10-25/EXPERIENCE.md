@@ -31,6 +31,8 @@ Matkoll är en webbapp, mobil först (från 375 px), som också fungerar på dat
 
 Begreppen följer PRD:ns ordlista (§3) ordagrant: recept, receptbibliotek, matsedel, matsedelsrätt, inköpslista, listpost, lager, lagervara, plats, stegläge, AI-förslag, lagerförslag med flera. Från version 1.1 kommer **ställe** och **valt ställe** från addendumet ("Version 1.1: Flera ställen"). Ett ställe (Hemma, Stugan) har platserna Kyl, Frys och Skafferi, och ordet "plats" betyder fortfarande bara dem. Från version 1.2 kommer **erbjudande**, **veckans erbjudanden**, **länk till erbjudanden**, **basvara** och **erbjudandeetikett** från addendumet ("Version 1.2: Veckans erbjudanden"). Ett erbjudande gäller alltid en butik och en vecka.
 
+Begreppen följer PRD:ns ordlista (§3) ordagrant: recept, receptbibliotek, matsedel, matsedelsrätt, inköpslista, listpost, lager, lagervara, plats, stegläge, AI-förslag, lagerförslag med flera. Från version 1.1 kommer **ställe** och **valt ställe** från addendumet ("Version 1.1: Flera ställen"). Ett ställe (Hemma, Stugan) har platserna Kyl, Frys och Skafferi, och ordet "plats" betyder fortfarande bara dem.
+
 ## Information Architecture
 
 | Yta | Nås från | Syfte | PRD | Underlag |

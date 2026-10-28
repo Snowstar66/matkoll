@@ -44,3 +44,8 @@
 ## Från 6.5 (2026-10-26)
 
 - **Kontextbudget vid 2048 px:** bildtoken för ett platsfoto på 2048 px är inte uppmätta mot LM Studios kontextfönster. Mät dem (eller sänk gränsen) om svar börjar kortas av.
+
+## Från 12.4 (2026-10-28)
+
+- **Överlapp efter avbrott:** `cancel_ai_job` och `dismiss_ai_job` frigör platsen innan det gamla LM Studio-anropet har slutat (upp till cirka 3 s, `guardPollMs`). Godta det eller förkorta pollen.
+- **Tung lista:** `loadShownAiJobsIn` läser in hela `result` (upp till 256 KB) varannan sekund bara för att räkna förslagen. Räkna med `jsonb_array_length` i databasen.

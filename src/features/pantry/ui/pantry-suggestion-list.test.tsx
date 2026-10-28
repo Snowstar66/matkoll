@@ -3,11 +3,12 @@ import { StrictMode } from "react";
 import { afterEach, beforeEach, describe, expect, it, type MockInstance, vi } from "vitest";
 import { ToastProvider } from "@/components/toast";
 import type { Location } from "@/features/catalog";
-import type { AiCallResult } from "@/lib/ai-client";
 import { errorMessages, fail, ok, type Result } from "@/lib/errors";
 import type { PantryIngredientHit } from "../actions/search-ingredients";
 import type { AnalyzeResult, ConfirmItemInput, PantrySuggestion } from "../domain/pantry-suggestion";
+import { fakeAi } from "../../../../tests/mocks/fake-ai-jobs";
 import { PantryCamera } from "./pantry-camera";
+import { keptPhoto, releaseAllPhotos } from "./photo-store";
 import { PantrySheetProvider } from "./pantry-item-sheet";
 import { PantrySuggestionList } from "./pantry-suggestion-list";
 import { PantrySuggestionsProvider } from "./pantry-suggestions";
@@ -19,14 +20,10 @@ const testSite = { id: "55555555-5555-4555-8555-555555555555" };
 const photoSite = { id: testSite.id, name: "Hemma" };
 
 // Lagerförslag: the section with one card per suggestion, filled through the
-// camera with /api/ai/analyze and the resizing stubbed, and confirmed,
+// camera with the AI jobs (tests/mocks/fake-ai-jobs.ts) and the resizing stubbed, and confirmed,
 // corrected in the sheet Lagervara or rejected (Story 6.2) with
 // confirmPantrySuggestions stubbed.
 
-let answers: ((result: AiCallResult<unknown>) => void)[] = [];
-/** The lookups of the numbers on the photo (Story 6.6), kept apart from the analyses. */
-type Locate = { form: FormData; signal: AbortSignal; answer: (result: AiCallResult<unknown>) => void };
-let locates: Locate[] = [];
 /** Story 10.1: the saves of the photo, kept apart too. */
 let photoPosts: { form: FormData; answer: (result: PhotoPostAnswer) => void }[] = [];
 vi.mock("./photo-post", () => ({
@@ -36,18 +33,7 @@ const savePlacePhotoPoints = vi.fn();
 vi.mock("../actions/save-place-photo-points", () => ({
   savePlacePhotoPoints: (input: unknown) => savePlacePhotoPoints(input),
 }));
-vi.mock("@/lib/ai-client", () => ({
-  postAiForm: (path: string, form: FormData, signal: AbortSignal) =>
-    new Promise<AiCallResult<unknown>>((resolve) => {
-      if (path !== "/api/ai/locate") {
-        answers.push(resolve);
-        return;
-      }
-      locates.push({ form, signal, answer: resolve });
-      // Like fetch: an aborted call answers { aborted: true }.
-      signal.addEventListener("abort", () => resolve({ ok: false, aborted: true }), { once: true });
-    }),
-}));
+vi.mock("@/lib/ai-jobs-client", async () => (await import("../../../../tests/mocks/fake-ai-jobs")).fakeAiJobsModule);
 vi.mock("@/lib/downscale-image", () => ({ downscaleImage: async (file: Blob): Promise<Result<Blob>> => ok(file) }));
 const refresh = vi.fn();
 vi.mock("next/navigation", () => ({ useRouter: () => ({ refresh }) }));
@@ -138,12 +124,12 @@ function Hemma({ location = "Kyl", away = false }: { location?: Location; away?:
 
 /** Chooses a photo; resolves once its analysis has been sent, with the function that answers it. */
 async function startPhoto(file: File = new File(["x"], "IMG_1.jpg", { type: "image/jpeg" })) {
-  const sent = answers.length;
+  const sent = fakeAi.calls.length;
   const inputs = screen.getByTestId("pantry-camera").querySelectorAll<HTMLInputElement>('input[type="file"]');
   fireEvent.change(inputs[inputs.length - 1], { target: { files: [file] } });
-  await waitFor(() => expect(answers.length).toBe(sent + 1));
-  const answer = answers[sent];
-  return async (result: AnalyzeResult) => act(async () => answer(ok(result)));
+  await waitFor(() => expect(fakeAi.calls.length).toBe(sent + 1));
+  const call = fakeAi.calls[sent];
+  return async (result: AnalyzeResult) => act(async () => call.answer(ok(result)));
 }
 
 async function analyze(result: AnalyzeResult = fridge) {
@@ -154,8 +140,8 @@ const section = () => screen.getByRole("region", { name: "Lagerförslag från ky
 const cards = () => within(section()).getAllByTestId("pantry-suggestion");
 
 beforeEach(() => {
-  answers = [];
-  locates = [];
+  fakeAi.reset();
+  releaseAllPhotos();
   photoPosts = [];
   savePlacePhotoPoints.mockReset().mockResolvedValue(ok({ saved: true }));
   confirms = [];
@@ -977,13 +963,14 @@ describe("numbers on the photo (Story 6.6)", () => {
     Object.defineProperty(image, "naturalHeight", { configurable: true, value: height });
     fireEvent.load(image);
   };
-  const answerLocate = async (result: AiCallResult<unknown>, index = locates.length - 1) => {
-    await act(async () => locates[index].answer(result));
+  /** The job of the photo ends (Story 12.5): with the points of the numbers, or without them. */
+  const answerLocate = async (result: Result<unknown>, index = fakeAi.calls.length - 1) => {
+    await act(async () => fakeAi.calls[index].finish(result.ok ? result.data : "failed"));
   };
   /** Analyses a photo with a known size and answers it. */
   const analyzeNumbered = async (result: AnalyzeResult = numbered) => (await startPhoto(png()))(result);
 
-  it("shows the cards first, keeps the numbers' places, then looks up the points with the same photo and numbers the cards", async () => {
+  it("shows the cards first, keeps the numbers' places, then numbers the cards when the job has looked up the points", async () => {
     render(<Hemma />);
     const file = png();
     await (await startPhoto(file))(numbered);
@@ -993,11 +980,9 @@ describe("numbers on the photo (Story 6.6)", () => {
     expect(slots()).toHaveLength(4);
     for (const slot of slots()) expect(slot).toHaveClass("invisible");
     await waitFor(() => expect(status()).toHaveTextContent("Letar upp varorna på fotot …"));
-    expect(locates).toHaveLength(1);
-    // The same resized photo that was analysed (the resizing is stubbed to give the file back).
-    const sent = locates[0].form.get("image") as File;
+    // The numbers are the second step of the same job, with the same photo (the resizing is stubbed to give the file back).
+    const sent = fakeAi.calls[0].form.get("image") as File;
     expect(new Uint8Array(await sent.arrayBuffer())).toEqual(new Uint8Array(await file.arrayBuffer()));
-    expect(JSON.parse(String(locates[0].form.get("labels")))).toEqual(reading);
     // Confirming never waits for the numbers.
     expect(button("Bekräfta gurka")).toBeEnabled();
     expect(button("Bekräfta alla")).toBeEnabled();
@@ -1069,11 +1054,10 @@ describe("numbers on the photo (Story 6.6)", () => {
     expect(within(section()).getByRole("heading", { level: 3, name: "gurka" })).toBeInTheDocument();
   });
 
-  it("drops the numbers and stops the lookup when the thumbnail cannot be shown", async () => {
+  it("drops the numbers when the thumbnail cannot be shown", async () => {
     render(<Hemma />);
     await analyzeNumbered();
     fireEvent.error(thumbnail().querySelector("img")!);
-    expect(locates[0].signal.aborted).toBe(true);
     expect(slots()).toHaveLength(0);
     await waitFor(() => expect(status()).toBeEmptyDOMElement());
   });
@@ -1081,7 +1065,7 @@ describe("numbers on the photo (Story 6.6)", () => {
   it("looks nothing up for a photo whose size is unknown, and still shows it, without markers", async () => {
     render(<Hemma />);
     await analyze(numbered);
-    expect(locates).toHaveLength(0);
+    expect(status()).toBeEmptyDOMElement();
     expect(slots()).toHaveLength(0);
     fireEvent.click(thumbnail());
     expect(largePhoto()).toBeVisible();
@@ -1125,12 +1109,12 @@ describe("numbers on the photo (Story 6.6)", () => {
 
   it.each([
     ["the lookup fails", fail("ai_unavailable")],
-    ["a newer run took over", fail("ai_superseded")],
+    ["the job ends without them", ok("skipped")],
     ["the answer is not the schema's", ok({ positions: [{ n: 0, x: 1, y: 1 }] })],
   ])("shows no numbers and no error when %s", async (_name, result) => {
     render(<Hemma />);
     await analyzeNumbered();
-    await answerLocate(result as AiCallResult<unknown>);
+    await answerLocate(result as Result<unknown>);
     await waitFor(() => expect(slots()).toHaveLength(0));
     expect(badges()).toEqual([]);
     await waitFor(() => expect(status()).toBeEmptyDOMElement());
@@ -1140,36 +1124,29 @@ describe("numbers on the photo (Story 6.6)", () => {
     expect(markers()).toEqual([]);
   });
 
-  it("stops the lookup when a new photo is taken, and looks up the new one's numbers once its cards are here", async () => {
+  it("keeps the cards from before, without numbers, while a new photo is read, and numbers the new cards with the new job's points", async () => {
     render(<Hemma />);
     await analyzeNumbered();
-    const first = locates[0];
     const answerNew = await startPhoto(png());
-    expect(first.signal.aborted).toBe(true);
-    // The cards from before stay, without numbers, while the new photo is analysed.
+    // The cards from before stay while the new photo is read: a new photo of the place replaces its job.
     expect(cardNames()).toEqual(["gurka", "ketchup", "mjölk", "smör"]);
-    expect(slots()).toHaveLength(0);
     await answerNew({ ...numbered, suggestions: numbered.suggestions.slice(2) });
-    expect(locates).toHaveLength(2);
+    expect(cardNames()).toEqual(["mjölk", "smör"]);
+    // The first job was closed when the new cards came: its points are not for them.
+    expect(fakeAi.dismissed).toEqual([fakeAi.calls[0].job.id]);
     await answerLocate(ok(located), 0);
     expect(badges()).toEqual([]);
     await answerLocate(ok(located), 1);
     await waitFor(() => expect(badges()).toEqual(["1", "2"]));
   });
 
-  it.each([
-    ["is cancelled", async () => fireEvent.click(within(screen.getByTestId("pantry-camera")).getByRole("button", { name: "Avbryt" }))],
-    ["fails", async () => act(async () => answers[answers.length - 1](fail("ai_unavailable")))],
-    ["is superseded", async () => act(async () => answers[answers.length - 1](fail("ai_superseded")))],
-  ])("looks up the old cards' numbers again when a new photo's analysis %s", async (_name, end) => {
+  it("keeps the old cards when a new photo is cancelled or fails", async () => {
     render(<Hemma />);
     await analyzeNumbered();
     await startPhoto(png());
-    expect(locates[0].signal.aborted).toBe(true);
-    await end();
-    expect(locates).toHaveLength(2);
-    expect(JSON.parse(String(locates[1].form.get("labels")))).toEqual(reading);
-    await answerLocate(ok(located));
+    fireEvent.click(within(screen.getByTestId("pantry-camera")).getByRole("button", { name: "Avbryt" }));
+    expect(cardNames()).toEqual(["gurka", "ketchup", "mjölk", "smör"]);
+    await answerLocate(ok(located), 0);
     await waitFor(() => expect(badges()).toEqual(["3", "4", "1", "2"]));
   });
 
@@ -1179,27 +1156,27 @@ describe("numbers on the photo (Story 6.6)", () => {
     await answerLocate(ok(located));
     await startPhoto(png());
     fireEvent.click(within(screen.getByTestId("pantry-camera")).getByRole("button", { name: "Avbryt" }));
-    expect(locates).toHaveLength(1);
     expect(badges()).toEqual(["3", "4", "1", "2"]);
   });
 
-  it("stops the lookup when every card is handled, and Ångra sends it again", async () => {
+  it("closes the job when every card is handled, which stops the numbers, and lets the photo go from memory (Story 12.5)", async () => {
     render(<Hemma />);
     await analyzeNumbered({ ...numbered, suggestions: numbered.suggestions.slice(1, 2) });
+    const { id } = fakeAi.calls[0].job;
+    expect(keptPhoto(id)).not.toBeNull();
     fireEvent.click(button("Avvisa ketchup"));
-    expect(locates[0].signal.aborted).toBe(true);
+    expect(fakeAi.dismissed).toEqual([id]);
+    expect(keptPhoto(id)).toBeNull();
+    // "Ångra" brings the card back from the result held here, without the job.
     fireEvent.click(within(toast()).getByRole("button", { name: "Ångra" }));
-    expect(locates).toHaveLength(2);
-    await answerLocate(ok(located));
-    await waitFor(() => expect(badges()).toEqual(["4"]));
+    expect(cardNames()).toEqual(["ketchup"]);
   });
 
-  it("stops the lookup when Hemma is left, and keeps the photo's URL lifecycle", async () => {
+  it("keeps the photo's URL lifecycle when Hemma is left", async () => {
     const { unmount } = render(<Hemma />);
     await analyzeNumbered();
     expect(revoke).not.toHaveBeenCalled();
     unmount();
-    expect(locates[0].signal.aborted).toBe(true);
     expect(revoke).toHaveBeenCalledExactlyOnceWith("blob:photo-1");
   });
 
@@ -1217,16 +1194,15 @@ describe("numbers on the photo (Story 6.6)", () => {
   it("looks nothing up without a reading, for an answer without cards, or for Syns inte längre and unchanged items alone", async () => {
     render(<Hemma />);
     await (await startPhoto(png()))(fridge);
-    expect(locates).toHaveLength(0);
+    expect(status()).toBeEmptyDOMElement();
     await analyzeNumbered({ ...numbered, suggestions: [] });
-    expect(locates).toHaveLength(0);
     await analyzeNumbered({
       ...numbered,
       suggestions: numbered.suggestions.slice(3).map((suggestion) => ({ ...suggestion, change: "unchanged" as const })),
       inventory: { kind: "compared", incomplete: false, missing: [missingSmor] },
     });
     expect(within(section()).getAllByTestId("pantry-missing")).toHaveLength(1);
-    expect(locates).toHaveLength(0);
+    expect(status()).toBeEmptyDOMElement();
     expect(slots()).toHaveLength(0);
     expect(badges()).toEqual([]);
   });

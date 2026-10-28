@@ -46,7 +46,7 @@ const ai = createMockAiService();
 const parseRecipe = vi.fn(ai.parseRecipe);
 vi.mock("@/server/ai", () => ({ getAiService: () => ({ parseRecipe }) }));
 
-const { importRecipe } = await import("./import-recipe");
+const { importRecipe, prepareImport } = await import("./import-recipe");
 
 const gulLok = "6f1c1b7e-3c1a-4c55-9a59-0f3f2b8f2a01";
 const fixture = (name: string) => readFileSync(new URL(`../../../../tests/fixtures/ai/${name}`, import.meta.url), "utf8");
@@ -283,5 +283,40 @@ describe("importRecipe from a photo", () => {
       { signal: signal() },
     );
     expect(result).toEqual(fail("validation"));
+  });
+});
+
+describe("prepareImport", () => {
+  it("gives the source for text and photo, without reading anything", async () => {
+    expect(await prepareImport({ kind: "text", text: "Linssoppa" })).toEqual(ok({ source: "text" }));
+    expect(await prepareImport({ kind: "photo", image: { data: new Uint8Array(1), mediaType: "image/png" } })).toEqual(
+      ok({ source: "photo" }),
+    );
+    expect(getActiveRecipeDomains).not.toHaveBeenCalled();
+  });
+
+  it("gives validation for an empty text and one over 12 000 characters", async () => {
+    expect(await prepareImport({ kind: "text", text: "   " })).toEqual(fail("validation"));
+    expect(await prepareImport({ kind: "text", text: "a".repeat(13_000) })).toEqual(fail("validation"));
+  });
+
+  it("gives only the domain of an approved link, without www", async () => {
+    expect(await prepareImport({ kind: "url", url: "https://www.koket.se/recept/linssoppa?x=1" })).toEqual(
+      ok({ source: "url", domain: "koket.se" }),
+    );
+  });
+
+  it("refuses a bad link before reading the sites, and a site that is not approved with its name", async () => {
+    expect(await prepareImport({ kind: "url", url: "koket" })).toEqual(fail("fetch_invalid_url"));
+    expect(getActiveRecipeDomains).not.toHaveBeenCalled();
+    expect(await prepareImport({ kind: "url", url: "https://www.ica.se/recept" })).toEqual(
+      fail("fetch_domain_not_allowed", { domain: "ica.se" }),
+    );
+  });
+
+  it("gives settings_unavailable when the sites cannot be read", async () => {
+    vi.spyOn(console, "error").mockImplementation(() => {});
+    getActiveRecipeDomains.mockRejectedValue(new SettingsDataError("read_failed"));
+    expect(await prepareImport({ kind: "url", url: "https://www.koket.se/x" })).toEqual(fail("settings_unavailable"));
   });
 });

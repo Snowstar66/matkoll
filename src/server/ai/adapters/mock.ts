@@ -10,10 +10,11 @@ import {
   locateItemsAnswer,
   parseAnalyzeItems,
   parseItemPositions,
-  suggestDishesAnswer,
+  suggestDishesAnswerCompact,
   type AiRecipe,
   type LocateItemsAnswer,
 } from "../schemas";
+import { fromCompactDish } from "../compact-dish";
 import type { AiService, AnalyzeImageResult, ParseRecipeInput, SuggestDishesInput } from "../service";
 
 // Deterministic stand-in for a model, used in all tests and in CI (AD-9). It
@@ -25,7 +26,9 @@ import type { AiService, AnalyzeImageResult, ParseRecipeInput, SuggestDishesInpu
 // inputs in manifest.json make the mock fail with an error code, so the import
 // flow's error messages can be tested end to end; reserved images do the same
 // for a photo. suggestDishes answers the three recipes in
-// <suggest>.response.json, whatever is at home, or the first set in
+// <suggest>.response.json, whatever is at home, written as a model answers
+// them (the compact form of Story 12.3) and turned into AiRecipe with the
+// port's own fromCompactDish, or the first set in
 // suggestAlternatives none of whose titles is to be avoided (ai_invalid when
 // every set has one), unless a pantry item's name is one of the reserved
 // inputs for ai_unavailable, ai_invalid or ai_rejected. analyzeImage answers
@@ -147,7 +150,7 @@ function loadSuggestFixtures(dir: string): SuggestFixtures {
   const read = (file: string) => readFileSync(join(dir, file), "utf8");
   const manifest = JSON.parse(read("manifest.json")) as Manifest;
   const sets = [manifest.suggest, ...(manifest.suggestAlternatives ?? [])].map(
-    (name) => suggestDishesAnswer.parse(JSON.parse(read(`${name}.response.json`))).suggestions,
+    (name) => suggestDishesAnswerCompact.parse(JSON.parse(read(`${name}.response.json`))).suggestions.map(fromCompactDish),
   );
   const errors = new Map<string, MockErrorCode>();
   for (const { text, code } of manifest.reserved) {
@@ -226,7 +229,43 @@ function lazily<T>(load: () => T): () => T | undefined {
   };
 }
 
-export function createMockAiService(dir: string = defaultFixturesDir): AiService {
+/** The most AI_MOCK_DELAY_MS may be (AD-14), in milliseconds. */
+export const maxMockDelayMs = 30_000;
+
+/**
+ * Waits `ms`, or until `signal` aborts. True when the time passed: a call
+ * that is stopped ("Avbryt", a job that was cancelled) gives up at once.
+ */
+function wait(ms: number, signal: AbortSignal): Promise<boolean> {
+  if (ms <= 0) return Promise.resolve(!signal.aborted);
+  if (signal.aborted) return Promise.resolve(false);
+  return new Promise((resolve) => {
+    const done = (passed: boolean) => {
+      clearTimeout(timer);
+      signal.removeEventListener("abort", onAbort);
+      resolve(passed);
+    };
+    const onAbort = () => done(false);
+    const timer = setTimeout(() => done(true), ms);
+    signal.addEventListener("abort", onAbort, { once: true });
+  });
+}
+
+const clampedDelay = (ms: number) => Math.min(Math.max(ms, 0), maxMockDelayMs);
+
+export type MockOptions = {
+  /**
+   * Time every AI-förslag call and every recipe import takes (AI_MOCK_DELAY_MS,
+   * Stories 12.4 and 12.6), so the queue and the job row can be tried in the
+   * end-to-end tests. Story 12.5: also a photo the mock does not know (not one
+   * of the cases, not a reserved image), for the reading and for the numbers
+   * each, so the queue of photos can be seen; the photos of the cases answer
+   * at once, so the other end-to-end tests stay quick.
+   */
+  delayMs?: number;
+};
+
+export function createMockAiService(dir: string = defaultFixturesDir, { delayMs = 0 }: MockOptions = {}): AiService {
   // Each loaded once, on first use; a failure is remembered too.
   const fixtures = lazily(() => loadFixtures(dir));
   const suggestFixtures = lazily(() => loadSuggestFixtures(dir));
@@ -241,7 +280,7 @@ export function createMockAiService(dir: string = defaultFixturesDir): AiService
 
   return {
     async parseRecipe(input, signal) {
-      if (signal.aborted) return fail("ai_unavailable");
+      if (!(await wait(Math.min(Math.max(delayMs, 0), maxMockDelayMs), signal))) return fail("ai_unavailable");
       const current = logged(fixtures());
       if (!current) return fail("ai_unavailable");
       const key = mockKey(input);
@@ -251,7 +290,7 @@ export function createMockAiService(dir: string = defaultFixturesDir): AiService
       return ok(structuredClone(answer ? answer.recipe : current.fallback));
     },
     async suggestDishes(input, signal) {
-      if (signal.aborted) return fail("ai_unavailable");
+      if (!(await wait(clampedDelay(delayMs), signal))) return fail("ai_unavailable");
       const current = logged(suggestFixtures());
       if (!current) return fail("ai_unavailable");
       const code = suggestErrorFor(input, current.errors);
@@ -266,6 +305,7 @@ export function createMockAiService(dir: string = defaultFixturesDir): AiService
       const current = logged(analyzeFixtures());
       if (!current) return fail("ai_unavailable");
       const answer = current.byKey.get(sha256(input.image.data));
+      if (!answer && !(await wait(clampedDelay(delayMs), signal))) return fail("ai_unavailable");
       if (answer && "code" in answer) return fail(answer.code);
       const { items, repeated } = answer ?? current.fallback;
       return ok({ items: structuredClone(items), invalid: 0, repeated });
@@ -275,9 +315,17 @@ export function createMockAiService(dir: string = defaultFixturesDir): AiService
       const current = logged(locateFixtures());
       if (!current) return fail("ai_unavailable");
       const answer = current.byKey.get(sha256(input.image.data));
+      if (!answer && !(await wait(clampedDelay(delayMs), signal))) return fail("ai_unavailable");
       if (answer && "code" in answer) return fail(answer.code);
       // Like a model's answer: a point for a number beyond the labels is left out and counted.
       return ok(parseItemPositions((answer ?? current.fallback).positions, input.labels.length));
+    },
+    // Story 12.2: the mock is never cold, so there is nothing to wake.
+    warmUpKey() {
+      return null;
+    },
+    async warmUp() {
+      return { outcome: "skipped", reason: "provider" };
     },
   };
 }

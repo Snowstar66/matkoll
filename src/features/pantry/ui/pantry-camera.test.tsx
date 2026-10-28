@@ -2,11 +2,11 @@ import { act, fireEvent, render, screen, within } from "@testing-library/react";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { ToastProvider } from "@/components/toast";
 import type { Location } from "@/features/catalog";
-import type { AiCallResult } from "@/lib/ai-client";
 import { errorMessages, fail, ok, type ErrorCode, type Result } from "@/lib/errors";
 import { PantryCamera } from "./pantry-camera";
 import { PantrySheetProvider } from "./pantry-item-sheet";
 import { PantrySuggestionsProvider } from "./pantry-suggestions";
+import { fakeAi } from "../../../../tests/mocks/fake-ai-jobs";
 
 /** The place Hemma shows (Story 8.2). */
 const testSite = { id: "55555555-5555-4555-8555-555555555555" };
@@ -15,17 +15,9 @@ const photoSite = { id: testSite.id, name: "Hemma" };
 
 // Kameraknappen on Hemma: its text per location, the camera on a phone and
 // the file picker on a desktop, the progress with "Avbryt", and the notices
-// for errors and an empty answer. /api/ai/analyze and the resizing are stubbed.
+// for errors and an empty answer. The AI jobs and the resizing are stubbed.
 
-type Call = { signal: AbortSignal; answer: (result: AiCallResult<unknown>) => void };
-let calls: Call[] = [];
-vi.mock("@/lib/ai-client", () => ({
-  postAiForm: (_path: string, _form: FormData, signal: AbortSignal) =>
-    new Promise<AiCallResult<unknown>>((resolve) => {
-      calls.push({ signal, answer: resolve });
-      signal.addEventListener("abort", () => resolve({ ok: false, aborted: true }), { once: true });
-    }),
-}));
+vi.mock("@/lib/ai-jobs-client", async () => (await import("../../../../tests/mocks/fake-ai-jobs")).fakeAiJobsModule);
 const downscaled = vi.hoisted(() => [] as { maxSide?: number }[]);
 vi.mock("@/lib/downscale-image", () => ({
   downscaleImage: async (file: Blob, options: { maxSide?: number } = {}): Promise<Result<Blob>> => {
@@ -73,17 +65,17 @@ const area = () => screen.getByTestId("pantry-camera");
 const fileInputs = () => [...area().querySelectorAll<HTMLInputElement>('input[type="file"]')];
 const choose = () =>
   fireEvent.change(fileInputs().at(-1)!, { target: { files: [new File(["x"], "IMG_1.jpg", { type: "image/jpeg" })] } });
-const answer = async (result: AiCallResult<unknown>) => {
-  await act(async () => calls[calls.length - 1].answer(result));
+const answer = async (result: Result<unknown>) => {
+  await act(async () => fakeAi.calls[fakeAi.calls.length - 1].answer(result));
 };
 /** Chooses a photo and waits for the analysis call. */
 async function photograph() {
   choose();
-  await vi.waitFor(() => expect(calls.length).toBeGreaterThan(0));
+  await vi.waitFor(() => expect(fakeAi.calls.length).toBeGreaterThan(0));
 }
 
 beforeEach(() => {
-  calls = [];
+  fakeAi.reset();
   downscaled.length = 0;
   pointer(false);
 });
@@ -141,11 +133,13 @@ describe("PantryCamera", () => {
     // The status region is there empty before, so the text is announced.
     expect(within(area()).getByRole("status")).toBeEmptyDOMElement();
     await photograph();
-    expect(within(area()).getByRole("status")).toHaveTextContent("Tittar på bilden …");
+    expect(within(area()).getByRole("status")).toHaveTextContent("Tittar på bilden … Du kan göra annat under tiden.");
     expect(screen.queryByRole("button", { name: "Fotografera kylen" })).toBeNull();
 
     fireEvent.click(screen.getByRole("button", { name: "Avbryt" }));
-    expect(calls[0].signal.aborted).toBe(true);
+    // The photo was still on its way: the job is cancelled as soon as the server has made it (Story 12.5).
+    await answer(ok({ site: photoSite, location: "Kyl", suggestions: [], dropped: 0, inventory: { kind: "empty" } }));
+    expect(fakeAi.cancelled).toEqual([fakeAi.calls[0].job.id]);
     const button = await screen.findByRole("button", { name: "Fotografera kylen" });
     expect(button).toHaveFocus();
     expect(within(area()).getByRole("status")).toBeEmptyDOMElement();
@@ -204,7 +198,7 @@ describe("PantryCamera", () => {
     await answer(fail("ai_unavailable"));
     await within(area()).findByRole("alert");
     choose();
-    await vi.waitFor(() => expect(calls).toHaveLength(2));
+    await vi.waitFor(() => expect(fakeAi.calls).toHaveLength(2));
     expect(within(area()).queryByRole("alert")).toBeNull();
   });
 });

@@ -147,7 +147,8 @@ test("a failed save shows a notice and keeps the preview as it was", async ({ pa
   await sheet(page).getByRole("button", { name: "Spara recept" }).click();
   await expect(page).toHaveURL(recipePath);
   await expect(page.getByRole("heading", { level: 1, name: title })).toBeVisible();
-  expect(attempts).toBe(2);
+  // The two saves, and the Server Action that closes the import job (Story 12.6) after the second.
+  expect(attempts).toBe(3);
 });
 
 test("an answer lost after the save does not make a copy when Pontus tries again", async ({ page }) => {

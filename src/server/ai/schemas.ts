@@ -6,8 +6,13 @@ import { normalizeTitle } from "@/lib/suggest-input";
 // validated against these; an answer that does not pass is retried, then
 // reported as ai_invalid. Section, location and units are free text here:
 // the catalog interprets them (AD-6, AD-12), so a new spelling never makes
-// an otherwise usable answer invalid. Every property is required (nullable
-// where it may be missing), so all providers can use strict JSON schemas.
+// an otherwise usable answer invalid. The one exception is `new` in a
+// suggested dish's line (compactDishIngredient, Story 12.3): its section,
+// location and default unit are strict enums of the catalog's values on
+// purpose, so an unknown section ("Godis") makes the answer invalid and gets
+// a new attempt, and a strict provider decodes only known values. Every
+// property is required (nullable where it may be missing), so all providers
+// can use strict JSON schemas.
 
 /** A string that is not empty or whitespace only; surrounding whitespace is removed. */
 const text = () => z.string().trim().min(1);
@@ -43,6 +48,27 @@ export const aiRecipeIngredient = z
     path: ["isVague"],
   });
 
+/**
+ * Every stepIndexes entry of a recipe's lines points at one of its steps: an
+ * issue, with the path for the model, for each entry that does not.
+ */
+function checkStepIndexes(
+  recipe: { ingredients: readonly { stepIndexes: readonly number[] }[]; steps: readonly string[] },
+  context: z.RefinementCtx,
+) {
+  recipe.ingredients.forEach((line, lineIndex) => {
+    line.stepIndexes.forEach((stepIndex, position) => {
+      if (stepIndex >= recipe.steps.length) {
+        context.addIssue({
+          code: "custom",
+          message: "stepIndexes must point at an existing step",
+          path: ["ingredients", lineIndex, "stepIndexes", position],
+        });
+      }
+    });
+  });
+}
+
 export const aiRecipe = z
   .object({
     title: text(),
@@ -51,19 +77,7 @@ export const aiRecipe = z
     ingredients: z.array(aiRecipeIngredient).min(1),
     steps: z.array(text()).min(1),
   })
-  .superRefine((recipe, context) => {
-    recipe.ingredients.forEach((line, lineIndex) => {
-      line.stepIndexes.forEach((stepIndex, position) => {
-        if (stepIndex >= recipe.steps.length) {
-          context.addIssue({
-            code: "custom",
-            message: "stepIndexes must point at an existing step",
-            path: ["ingredients", lineIndex, "stepIndexes", position],
-          });
-        }
-      });
-    });
-  });
+  .superRefine(checkStepIndexes);
 
 /**
  * What the model answers to parseRecipe: a recipe, or `noRecipe: true` when the
@@ -84,18 +98,94 @@ export const parseRecipeAnswer = z
 export const suggestionCount = 3;
 
 /**
- * What the model answers to suggestDishes: exactly three dishes with titles of
- * their own, none of them one of `avoidTitles`. Titles are compared
- * normalized (normalizeTitle). The count is checked here rather than with
- * `.length(3)`, because strict JSON schemas (OpenAI, Anthropic) do not take
- * minItems or maxItems over 1; the path in each issue lets schemaFeedback tell
- * the model what to fix. The JSON schema is the same for every `avoidTitles`.
+ * The store sections, places at home and units of the catalog (AD-12), as
+ * the suggest-dishes prompt lists them. The port never imports the catalog
+ * (AD-1); tests/lint/ai-catalog-lists.test.ts keeps them in step.
  */
-export function suggestDishesAnswerFor(avoidTitles: readonly string[]) {
+export const catalogSections = [
+  "Frukt och grönt",
+  "Bröd",
+  "Mejeri",
+  "Kött och fisk",
+  "Chark",
+  "Frys",
+  "Skafferi",
+  "Dryck",
+  "Övrigt",
+] as const;
+export const catalogLocations = ["Kyl", "Frys", "Skafferi"] as const;
+export const catalogUnits = [
+  "g",
+  "kg",
+  "ml",
+  "cl",
+  "dl",
+  "l",
+  "krm",
+  "tsk",
+  "msk",
+  "st",
+  "förp",
+  "klyfta",
+  "kruka",
+  "knippe",
+  "skiva",
+] as const;
+
+/**
+ * Story 12.3: a line of a suggested dish, shorter than aiRecipeIngredient,
+ * since every token of the answer takes time with Qwen locally. `name` is the
+ * catalog name (the pantry's when the item is there), and `new` the catalog
+ * entry only for an item that is not in the pantry: one that is, is already
+ * in the catalog and is matched on its name (AD-6). `new` is required but
+ * nullable, like every property here, so strict JSON schemas take it. The
+ * unit is free text as in aiRecipeIngredient (the catalog reads it, AD-12);
+ * the catalog entry in `new` must be one the catalog knows, or the answer is
+ * invalid. fromCompactDish turns a dish into an AiRecipe (AD-10).
+ */
+export const compactDishIngredient = z.object({
+  text: text().describe("Raden som i ett svenskt recept, t.ex. 2 dl grädde"),
+  amount: z.number().positive().nullable().describe("Mängden som tal, null vid vag mängd"),
+  unit: unit().describe("Enheten, null om den saknas eller vid vag mängd"),
+  name: text().describe("Varan i grundform, samma namn som i lagret när den finns där"),
+  stepIndexes: z
+    .array(z.number().int().min(0))
+    .describe("Index (från 0) för de steg där varan används, tom lista om det är oklart"),
+  new: z
+    .object({
+      section: z.enum(catalogSections).describe("Avdelning i butiken"),
+      location: z.enum(catalogLocations).describe("Plats hemma"),
+      defaultUnit: z.enum(catalogUnits).describe("Enheten varan oftast mäts i"),
+    })
+    .nullable()
+    .describe("Bara för en vara som inte står i lagret, annars null"),
+});
+
+/** Story 12.3: one suggested dish in the compact form (compactDishIngredient). */
+export const compactDish = z
+  .object({
+    title: text(),
+    servings: z.number().int().min(1),
+    totalMinutes: z.number().int().min(0).nullable(),
+    ingredients: z.array(compactDishIngredient).min(1),
+    steps: z.array(text()).min(1),
+  })
+  .superRefine(checkStepIndexes);
+
+/**
+ * What the model answers to suggestDishes (Story 12.3): exactly three dishes
+ * in the compact form (compactDish), with titles of their own, none of them
+ * one of `avoidTitles`. Titles are compared normalized (normalizeTitle). The
+ * count is checked here rather than with `.length(3)`, because strict JSON
+ * schemas (OpenAI, Anthropic) do not take minItems or maxItems over 1; the
+ * path in each issue lets schemaFeedback tell the model what to fix. The JSON
+ * schema is the same for every `avoidTitles`.
+ */
+export function suggestDishesAnswerCompactFor(avoidTitles: readonly string[]) {
   const avoided = new Set(avoidTitles.map(normalizeTitle));
   return z
     .object({
-      suggestions: z.array(aiRecipe).describe("Exakt tre olika rätter"),
+      suggestions: z.array(compactDish).describe("Exakt tre olika rätter"),
     })
     .superRefine((answer, context) => {
       if (answer.suggestions.length !== suggestionCount) {
@@ -106,8 +196,8 @@ export function suggestDishesAnswerFor(avoidTitles: readonly string[]) {
         });
       }
       const titles = new Set<string>();
-      answer.suggestions.forEach((recipe, index) => {
-        const title = normalizeTitle(recipe.title);
+      answer.suggestions.forEach((dish, index) => {
+        const title = normalizeTitle(dish.title);
         if (avoided.has(title)) {
           context.addIssue({
             code: "custom",
@@ -126,8 +216,8 @@ export function suggestDishesAnswerFor(avoidTitles: readonly string[]) {
     });
 }
 
-/** suggestDishesAnswer with nothing to avoid, e.g. for the mock's fixtures. */
-export const suggestDishesAnswer = suggestDishesAnswerFor([]);
+/** suggestDishesAnswerCompact with nothing to avoid, e.g. for the mock's fixtures. */
+export const suggestDishesAnswerCompact = suggestDishesAnswerCompactFor([]);
 
 /** The longest label or hint text taken from the model for a pantry item; a longer one is no label on a shelf. */
 export const maxPantryItemTextChars = 200;
@@ -329,7 +419,8 @@ export type AiIngredientHint = z.infer<typeof aiIngredientHint>;
 export type AiRecipeIngredient = z.infer<typeof aiRecipeIngredient>;
 export type AiRecipe = z.infer<typeof aiRecipe>;
 export type ParseRecipeAnswer = z.infer<typeof parseRecipeAnswer>;
-export type SuggestDishesAnswer = z.infer<typeof suggestDishesAnswer>;
+export type CompactDish = z.output<typeof compactDish>;
+export type SuggestDishesAnswerCompact = z.output<typeof suggestDishesAnswerCompact>;
 export type AiPantryItem = z.output<typeof aiPantryItem>;
 export type PantryItemConfidence = (typeof pantryItemConfidences)[number];
 export type AnalyzeImageAnswer = z.infer<typeof analyzeImageAnswer>;

@@ -2,7 +2,7 @@
 title: 'Story 12.1: Mät AI-tiderna och ställ in LM Studio'
 type: 'chore'
 created: '2026-10-26'
-status: 'in-progress'
+status: 'done'
 route: 'dispatch'
 baseline_commit: '39ee83dd3d0061aee89fc45dd1611a69e59fc814'
 context:

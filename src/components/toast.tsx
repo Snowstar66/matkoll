@@ -5,6 +5,8 @@ import { createContext, type ReactNode, useCallback, useContext, useEffect, useM
 /** How long a short confirmation stays (EXPERIENCE.md, Kort bekräftelse). */
 export const toastDurationMs = 4000;
 export const toastWithUndoDurationMs = 5000;
+/** A confirmation with "Visa" for a finished AI job (Story 12.4, EXPERIENCE.md): Pontus may be reading or typing when it comes. */
+export const toastWithShowDurationMs = 8000;
 
 export type ToastOptions = {
   /** Shows "Ångra"; called once if Pontus taps it before the toast goes away. */
@@ -17,6 +19,18 @@ export type ToastOptions = {
    */
   onClose?: () => void;
   /**
+   * A button that takes Pontus to something ("Visa", Story 12.4) instead of
+   * undoing: called once if it is tapped before the toast goes away, and the
+   * toast goes with it. It stays toastWithShowDurationMs, 8 s.
+   */
+  show?: { label?: string; onShow: () => void };
+  /**
+   * Waits for a toast with "Ångra" that is showing, instead of replacing it,
+   * and is shown when that one has gone (Story 12.4): a finished AI job never
+   * takes the undo of something Pontus just did.
+   */
+  waitForUndo?: boolean;
+  /**
    * `alert` for a failure (e.g. "Det gick inte att ångra."): announced at
    * once through `role="alert"` instead of the polite live region.
    */
@@ -28,6 +42,7 @@ type ToastState = {
   message: string;
   onUndo?: () => void;
   undoLabel?: string;
+  show?: { label: string; onShow: () => void };
   onClose?: () => void;
   role: "status" | "alert";
 };
@@ -66,29 +81,53 @@ export function ToastProvider({ children }: { children: ReactNode }) {
   const paused = toast !== null && (hoveredId === toast.id || focusedId === toast.id);
   // The toast showing now, for onClose; state updaters must stay free of side effects.
   const current = useRef<ToastState | null>(null);
+  /** Toasts that waited for an "Ångra" one (ToastOptions.waitForUndo), oldest first. */
+  const pending = useRef<{ message: string; options: ToastOptions }[]>([]);
 
-  /** Replaces the toast; the one it replaces gets onClose unless it went with "Ångra". */
-  const replaceToast = useCallback((next: ToastState | null, undone = false) => {
-    const previous = current.current;
-    current.current = next;
-    setToast(next);
-    if (previous && !undone) previous.onClose?.();
+  /** A new toast: its id, and the time it has. */
+  const startToast = useCallback((message: string, options?: ToastOptions): ToastState => {
+    nextId.current += 1;
+    remaining.current = {
+      id: nextId.current,
+      ms: options?.show ? toastWithShowDurationMs : options?.onUndo ? toastWithUndoDurationMs : toastDurationMs,
+    };
+    return {
+      id: nextId.current,
+      message,
+      onUndo: options?.onUndo,
+      undoLabel: options?.undoLabel,
+      show: options?.show ? { label: options.show.label ?? "Visa", onShow: options.show.onShow } : undefined,
+      onClose: options?.onClose,
+      role: options?.role ?? "status",
+    };
   }, []);
+
+  /**
+   * Replaces the toast; the one it replaces gets onClose unless it went with
+   * "Ångra". When it is closed (`null`), the first toast that waited for it
+   * (ToastOptions.waitForUndo) is shown.
+   */
+  const replaceToast = useCallback(
+    function replace(next: ToastState | null, undone = false) {
+      const previous = current.current;
+      current.current = next;
+      setToast(next);
+      if (previous && !undone) previous.onClose?.();
+      const waiting = next === null ? pending.current.shift() : undefined;
+      if (waiting) replace(startToast(waiting.message, waiting.options));
+    },
+    [startToast],
+  );
 
   const showToast = useCallback(
     (message: string, options?: ToastOptions) => {
-      nextId.current += 1;
-      remaining.current = { id: nextId.current, ms: options?.onUndo ? toastWithUndoDurationMs : toastDurationMs };
-      replaceToast({
-        id: nextId.current,
-        message,
-        onUndo: options?.onUndo,
-        undoLabel: options?.undoLabel,
-        onClose: options?.onClose,
-        role: options?.role ?? "status",
-      });
+      if (options?.waitForUndo && current.current?.onUndo) {
+        pending.current.push({ message, options });
+        return;
+      }
+      replaceToast(startToast(message, options));
     },
-    [replaceToast],
+    [replaceToast, startToast],
   );
   const dismissToast = useCallback(() => replaceToast(null), [replaceToast]);
 
@@ -140,6 +179,19 @@ export function ToastProvider({ children }: { children: ReactNode }) {
             <p aria-hidden="true" className="flex-1 py-2">
               {toast.message}
             </p>
+            {toast.show ? (
+              <button
+                type="button"
+                onClick={() => {
+                  const onShow = toast.show?.onShow;
+                  replaceToast(null);
+                  onShow?.();
+                }}
+                className="min-h-tap shrink-0 rounded-md px-3 text-body font-semibold text-mint"
+              >
+                {toast.show.label}
+              </button>
+            ) : null}
             {toast.onUndo ? (
               <button
                 type="button"

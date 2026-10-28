@@ -6,97 +6,67 @@
       "totalMinutes": 30,
       "ingredients": [
         {
-          "originalText": "800 g potatis",
+          "text": "800 g potatis",
           "amount": 800,
           "unit": "g",
-          "isVague": false,
-          "hint": {
-            "name": "potatis",
-            "section": "Frukt och grönt",
-            "location": "Skafferi",
-            "defaultUnit": "kg"
-          },
+          "name": "potatis",
           "stepIndexes": [
             0,
             1
-          ]
+          ],
+          "new": null
         },
         {
-          "originalText": "1 gul lök",
+          "text": "1 gul lök",
           "amount": 1,
           "unit": null,
-          "isVague": false,
-          "hint": {
-            "name": "gul lök",
-            "section": "Frukt och grönt",
-            "location": "Skafferi",
-            "defaultUnit": "st"
-          },
+          "name": "gul lök",
           "stepIndexes": [
             0,
             1
-          ]
+          ],
+          "new": null
         },
         {
-          "originalText": "4 ägg",
+          "text": "4 ägg",
           "amount": 4,
           "unit": null,
-          "isVague": false,
-          "hint": {
-            "name": "ägg",
-            "section": "Mejeri",
-            "location": "Kyl",
-            "defaultUnit": "st"
-          },
+          "name": "ägg",
           "stepIndexes": [
             2
-          ]
+          ],
+          "new": null
         },
         {
-          "originalText": "2 msk smör",
+          "text": "2 msk smör",
           "amount": 2,
           "unit": "msk",
-          "isVague": false,
-          "hint": {
-            "name": "smör",
-            "section": "Mejeri",
-            "location": "Kyl",
-            "defaultUnit": "g"
-          },
+          "name": "smör",
           "stepIndexes": [
             1,
             2
-          ]
+          ],
+          "new": null
         },
         {
-          "originalText": "salt",
+          "text": "salt",
           "amount": null,
           "unit": null,
-          "isVague": true,
-          "hint": {
-            "name": "salt",
-            "section": "Skafferi",
-            "location": "Skafferi",
-            "defaultUnit": "krm"
-          },
+          "name": "salt",
           "stepIndexes": [
             1
-          ]
+          ],
+          "new": null
         },
         {
-          "originalText": "svartpeppar",
+          "text": "svartpeppar",
           "amount": null,
           "unit": null,
-          "isVague": true,
-          "hint": {
-            "name": "svartpeppar",
-            "section": "Skafferi",
-            "location": "Skafferi",
-            "defaultUnit": "krm"
-          },
+          "name": "svartpeppar",
           "stepIndexes": [
             1
-          ]
+          ],
+          "new": null
         }
       ],
       "steps": [
@@ -111,94 +81,64 @@
       "totalMinutes": 30,
       "ingredients": [
         {
-          "originalText": "4 dl ris",
+          "text": "4 dl ris",
           "amount": 4,
           "unit": "dl",
-          "isVague": false,
-          "hint": {
-            "name": "ris",
-            "section": "Skafferi",
-            "location": "Skafferi",
-            "defaultUnit": "dl"
-          },
+          "name": "ris",
           "stepIndexes": [
             0
-          ]
+          ],
+          "new": null
         },
         {
-          "originalText": "400 g kycklingfilé",
+          "text": "400 g kycklingfilé",
           "amount": 400,
           "unit": "g",
-          "isVague": false,
-          "hint": {
-            "name": "kycklingfilé",
-            "section": "Kött och fisk",
-            "location": "Kyl",
-            "defaultUnit": "g"
-          },
+          "name": "kycklingfilé",
           "stepIndexes": [
             1
-          ]
+          ],
+          "new": null
         },
         {
-          "originalText": "2 morötter",
+          "text": "2 morötter",
           "amount": 2,
           "unit": null,
-          "isVague": false,
-          "hint": {
-            "name": "morot",
-            "section": "Frukt och grönt",
-            "location": "Skafferi",
-            "defaultUnit": "st"
-          },
+          "name": "morot",
           "stepIndexes": [
             1
-          ]
+          ],
+          "new": null
         },
         {
-          "originalText": "2 ägg",
+          "text": "2 ägg",
           "amount": 2,
           "unit": null,
-          "isVague": false,
-          "hint": {
-            "name": "ägg",
-            "section": "Mejeri",
-            "location": "Kyl",
-            "defaultUnit": "st"
-          },
+          "name": "ägg",
           "stepIndexes": [
             2
-          ]
+          ],
+          "new": null
         },
         {
-          "originalText": "2 msk olivolja",
+          "text": "2 msk olivolja",
           "amount": 2,
           "unit": "msk",
-          "isVague": false,
-          "hint": {
-            "name": "olivolja",
-            "section": "Skafferi",
-            "location": "Skafferi",
-            "defaultUnit": "msk"
-          },
+          "name": "olivolja",
           "stepIndexes": [
             1
-          ]
+          ],
+          "new": null
         },
         {
-          "originalText": "salt",
+          "text": "salt",
           "amount": null,
           "unit": null,
-          "isVague": true,
-          "hint": {
-            "name": "salt",
-            "section": "Skafferi",
-            "location": "Skafferi",
-            "defaultUnit": "krm"
-          },
+          "name": "salt",
           "stepIndexes": [
             2
-          ]
+          ],
+          "new": null
         }
       ],
       "steps": [
@@ -213,102 +153,86 @@
       "totalMinutes": 35,
       "ingredients": [
         {
-          "originalText": "6 morötter",
+          "text": "6 morötter",
           "amount": 6,
           "unit": null,
-          "isVague": false,
-          "hint": {
-            "name": "morot",
-            "section": "Frukt och grönt",
-            "location": "Skafferi",
-            "defaultUnit": "st"
-          },
+          "name": "morot",
           "stepIndexes": [
             0,
             1
-          ]
+          ],
+          "new": null
         },
         {
-          "originalText": "1 gul lök",
+          "text": "1 gul lök",
           "amount": 1,
           "unit": null,
-          "isVague": false,
-          "hint": {
-            "name": "gul lök",
-            "section": "Frukt och grönt",
-            "location": "Skafferi",
-            "defaultUnit": "st"
-          },
+          "name": "gul lök",
           "stepIndexes": [
             0,
             1
-          ]
+          ],
+          "new": null
         },
         {
-          "originalText": "2 vitlöksklyftor",
+          "text": "2 vitlöksklyftor",
           "amount": 2,
           "unit": "klyfta",
-          "isVague": false,
-          "hint": {
-            "name": "vitlök",
-            "section": "Frukt och grönt",
-            "location": "Skafferi",
-            "defaultUnit": "klyfta"
-          },
+          "name": "vitlök",
           "stepIndexes": [
             0,
             1
-          ]
+          ],
+          "new": null
         },
         {
-          "originalText": "1 dl grädde",
+          "text": "1 grönsaksbuljongtärning",
           "amount": 1,
-          "unit": "dl",
-          "isVague": false,
-          "hint": {
-            "name": "grädde",
-            "section": "Mejeri",
-            "location": "Kyl",
-            "defaultUnit": "dl"
-          },
-          "stepIndexes": [
-            2
-          ]
-        },
-        {
-          "originalText": "1 msk smör",
-          "amount": 1,
-          "unit": "msk",
-          "isVague": false,
-          "hint": {
-            "name": "smör",
-            "section": "Mejeri",
-            "location": "Kyl",
-            "defaultUnit": "g"
-          },
+          "unit": null,
+          "name": "grönsaksbuljong",
           "stepIndexes": [
             1
-          ]
-        },
-        {
-          "originalText": "salt",
-          "amount": null,
-          "unit": null,
-          "isVague": true,
-          "hint": {
-            "name": "salt",
+          ],
+          "new": {
             "section": "Skafferi",
             "location": "Skafferi",
-            "defaultUnit": "krm"
-          },
+            "defaultUnit": "st"
+          }
+        },
+        {
+          "text": "1 dl grädde",
+          "amount": 1,
+          "unit": "dl",
+          "name": "grädde",
           "stepIndexes": [
             2
-          ]
+          ],
+          "new": null
+        },
+        {
+          "text": "1 msk smör",
+          "amount": 1,
+          "unit": "msk",
+          "name": "smör",
+          "stepIndexes": [
+            1
+          ],
+          "new": null
+        },
+        {
+          "text": "salt",
+          "amount": null,
+          "unit": null,
+          "name": "salt",
+          "stepIndexes": [
+            2
+          ],
+          "new": null
         }
       ],
       "steps": [
         "Skala och skiva morötterna, löken och vitlöken.",
-        "Fräs grönsakerna i smöret, täck med vatten och koka i 20 minuter.",
+        "Fräs grönsakerna i smöret, täck med vatten, lägg i buljongtärningen och koka i 20 minuter.",
         "Mixa soppan slät, rör ner grädden och smaka av med salt."
       ]
     }

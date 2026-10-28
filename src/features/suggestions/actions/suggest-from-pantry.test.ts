@@ -4,7 +4,8 @@ import type { IngredientMatch, MatchItem } from "@/features/catalog";
 import type { PantrySnapshot, PantryStock } from "@/features/pantry";
 import { fail, ok } from "@/lib/errors";
 import { createMockAiService } from "@/server/ai/adapters/mock";
-import { suggestDishesAnswer } from "@/server/ai/schemas";
+import { fromCompactDish } from "@/server/ai/compact-dish";
+import { suggestDishesAnswerCompact } from "@/server/ai/schemas";
 import { isValidSuggestDishesInput, withInputValidation, type SuggestDishesInput, type SuggestDishesOptions } from "@/server/ai/service";
 import { toSuggestInput } from "../domain/pantry-input";
 
@@ -55,11 +56,11 @@ const ai = withInputValidation(createMockAiService());
 const suggestDishes = vi.fn(ai.suggestDishes);
 vi.mock("@/server/ai", () => ({ getAiService: () => ({ suggestDishes }) }));
 
-const { suggestFromPantry, postModelMarginMs } = await import("./suggest-from-pantry");
+const { checkSuggestPantry, suggestFromPantry, postModelMarginMs } = await import("./suggest-from-pantry");
 
-const fixture = suggestDishesAnswer.parse(
+const fixture = suggestDishesAnswerCompact.parse(
   JSON.parse(readFileSync(new URL("../../../../tests/fixtures/ai/suggest-dishes.response.json", import.meta.url), "utf8")),
-).suggestions;
+).suggestions.map(fromCompactDish);
 const lineCount = fixture.reduce((sum, recipe) => sum + recipe.ingredients.length, 0);
 
 const id = (n: number) => `6f1c1b7e-3c1a-4c55-9a59-0f3f2b8f2a0${n}`;
@@ -328,10 +329,8 @@ describe("suggestFromPantry", () => {
       expect(getIngredientNames).toHaveBeenCalledTimes(1);
     });
   });
-
-  describe("one run per user", () => {
-    /** Holds the AI call until `release`, so a second request comes while it runs. */
-    function holdAi() {
+  describe("as the work of an AI job (Story 12.4)", () => {
+    it("keeps no lock of its own: the queue lets one job run at a time, and a run never stops another", async () => {
       let release = () => {};
       const held = new Promise<void>((resolve) => {
         release = resolve;
@@ -342,32 +341,42 @@ describe("suggestFromPantry", () => {
         await held;
         return ai.suggestDishes(input, aiSignal, options);
       });
-      return { release, signals };
-    }
-
-    it("stops the earlier run when the same user asks again", async () => {
-      const first = holdAi();
       const running = suggestFromPantry({ avoidTitles: [] }, { signal: signal() });
-      await vi.waitFor(() => expect(first.signals).toHaveLength(1));
+      await vi.waitFor(() => expect(signals).toHaveLength(1));
 
-      const second = await suggestFromPantry({ avoidTitles: [] }, { signal: signal() });
-      expect(second.ok).toBe(true);
-      expect(first.signals[0].aborted).toBe(true);
-      first.release();
-      expect(await running).toEqual(fail("ai_unavailable"));
-    });
-
-    it("leaves another user's run alone", async () => {
-      const first = holdAi();
-      const running = suggestFromPantry({ avoidTitles: [] }, { signal: signal() });
-      await vi.waitFor(() => expect(first.signals).toHaveLength(1));
-
-      requireUser.mockResolvedValueOnce(user("someone-else"));
       expect((await suggestFromPantry({ avoidTitles: [] }, { signal: signal() })).ok).toBe(true);
-      expect(first.signals[0].aborted).toBe(false);
-      first.release();
+      expect(signals[0].aborted).toBe(false);
+      release();
       expect((await running).ok).toBe(true);
     });
+
+    it("stops with the job's signal while the AI is asked", async () => {
+      const controller = new AbortController();
+      suggestDishes.mockImplementationOnce(async (_input: SuggestDishesInput, aiSignal: AbortSignal) => {
+        controller.abort();
+        expect(aiSignal.aborted).toBe(true);
+        return fail("ai_unavailable");
+      });
+      expect(await suggestFromPantry({ avoidTitles: [] }, { signal: controller.signal })).toEqual(fail("ai_unavailable"));
+    });
+  });
+});
+
+describe("checkSuggestPantry", () => {
+  it("gives the place the job is about when there is something at home", async () => {
+    expect(await checkSuggestPantry()).toEqual(ok({ siteId: stugan.id }));
+    expect(suggestDishes).not.toHaveBeenCalled();
+  });
+
+  it("gives suggest_empty_pantry at once for an empty pantry, so no job is queued", async () => {
+    getPantrySnapshot.mockResolvedValue(new Map());
+    expect(await checkSuggestPantry()).toEqual(fail("suggest_empty_pantry"));
+    expect(suggestDishes).not.toHaveBeenCalled();
+  });
+
+  it("gives pantry_unavailable when the pantry cannot be read", async () => {
+    getPantrySnapshot.mockRejectedValue(new PantryDataError("query_failed 500"));
+    expect(await checkSuggestPantry()).toEqual(fail("pantry_unavailable"));
   });
 });
 

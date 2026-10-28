@@ -3,7 +3,7 @@ import { fetchErrorMessage, importInvalidMessage, type AppError } from "@/lib/er
 import type { ImageMediaType } from "@/lib/images";
 import { draftLimits, recipeDraftSchema } from "./recipe-draft";
 
-// What the import Route Handlers (/api/ai/import and /api/ai/import/photo)
+// What the import job routes (/api/ai/jobs and /api/ai/jobs/photo)
 // take and answer (AD-9, AD-13).
 
 /**
@@ -20,7 +20,7 @@ export const maxImportUrlChars = draftLimits.urlChars;
  * The request body: pasted text, or a link to a recipe page. The link is only
  * checked for length here; whether it is a usable https address on an approved
  * site is the fetch port's answer (fetch_invalid_url, fetch_domain_not_allowed).
- * A photo is not JSON: /api/ai/import/photo takes it as multipart/form-data
+ * A photo is not JSON: /api/ai/jobs/photo takes it as multipart/form-data
  * and builds a PhotoImport.
  */
 export const importRequestSchema = z.discriminatedUnion("kind", [

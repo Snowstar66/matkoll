@@ -1,31 +1,22 @@
-import { act, render, screen, waitFor, within } from "@testing-library/react";
+import { render, screen, waitFor, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { ToastProvider } from "@/components/toast";
 import type { DishSuggestion } from "@/features/suggestions";
-import type { AiCallResult } from "@/lib/ai-client";
+import { AiJobActionsContext } from "@/lib/ai-jobs-client";
 import { errorMessages, fail, ok, type ErrorCode, type Result } from "@/lib/errors";
+import { createFakeAiJobsServer } from "../../../../tests/support/ai-jobs-fake";
 import type { RecipeDraft } from "../domain/recipe-draft";
 import { AiSuggestions } from "./ai-suggestions";
 import { useDishSuggestions } from "./use-dish-suggestions";
 
 // AI-förslag as the library holds them (useDishSuggestions + AiSuggestions),
-// with /api/ai/suggest (postAi) and saveRecipe stubbed: the client rows of
-// Story 5.2's matrix.
+// as AI jobs (Story 12.4): the client is the real one, and a stand-in for the
+// server (tests/support/ai-jobs-fake.ts) answers its fetches and the Server
+// Actions; saveRecipe is stubbed. The client rows of Story 5.2's matrix, and
+// the rows of Story 12.4's.
 
-type Call = { body: unknown; signal: AbortSignal; answer: (result: AiCallResult<unknown>) => void };
-let calls: Call[] = [];
-vi.mock("@/lib/ai-client", () => ({
-  postAi: (path: string, body: unknown, signal: AbortSignal) => {
-    if (path !== "/api/ai/suggest") throw new Error(`unexpected ${path}`);
-    return new Promise<AiCallResult<unknown>>((resolve) => {
-      const call: Call = { body, signal, answer: resolve };
-      calls.push(call);
-      // Like fetch: an aborted call answers { aborted: true }.
-      signal.addEventListener("abort", () => resolve({ ok: false, aborted: true }), { once: true });
-    });
-  },
-}));
+const server = createFakeAiJobsServer();
 
 const refresh = vi.fn();
 const push = vi.fn();
@@ -92,17 +83,31 @@ const pasta: DishSuggestion = {
 const omelett: DishSuggestion = { draft: draft("Ugnsomelett", [fresh("6 ägg", "ägg")], null), ingredientNames: {} };
 const three = { suggestions: [gryta, pasta, omelett] };
 
-function Harness() {
-  const dishes = useDishSuggestions();
+function Harness({
+  shownSiteId = null,
+  visible = true,
+  siteNames,
+}: {
+  shownSiteId?: string | null;
+  visible?: boolean;
+  siteNames?: Record<string, string>;
+}) {
+  const dishes = useDishSuggestions(shownSiteId, { visible, siteNames });
   return <AiSuggestions dishes={dishes} searchIngredients={searchIngredients} />;
 }
 
-function renderSuggestions() {
-  return render(
+function Tree(props: Parameters<typeof Harness>[0]) {
+  return (
     <ToastProvider>
-      <Harness />
-    </ToastProvider>,
+      <AiJobActionsContext.Provider value={server.actions}>
+        <Harness {...props} />
+      </AiJobActionsContext.Provider>
+    </ToastProvider>
   );
+}
+
+function renderSuggestions(props: Parameters<typeof Harness>[0] = {}) {
+  return render(<Tree {...props} />);
 }
 
 /** The section's own status region (the toast has one too). */
@@ -110,19 +115,42 @@ const progress = () => within(screen.getByTestId("ai-suggestions")).getByRole("s
 const suggestButton = () => screen.getByRole("button", { name: "Föreslå rätter med AI" });
 const section = () => screen.getByRole("region", { name: "AI-förslag" });
 const cards = () => within(section()).getAllByRole("listitem");
-const lastCall = () => calls[calls.length - 1];
-const answer = async (result: AiCallResult<unknown>) => {
-  await act(async () => lastCall().answer(result));
-};
+
+/** The codes that POST /api/ai/jobs answers itself, before a job is made; the others are a job that did not go. */
+const refusals: ReadonlySet<ErrorCode> = new Set(["validation", "suggest_empty_pantry", "pantry_unavailable", "unauthorized", "ai_queue_full"]);
+
+/** The latest job is done with `result` (or did not go), and the client reads the list. */
+async function answer(result: Result<unknown>) {
+  const { id } = server.latest;
+  if (result.ok) {
+    server.finish(id, result.data, 1);
+    await server.read();
+    // The suggestions are shown, and the job is marked as seen.
+    await waitFor(() => expect(server.actions.markSeen.mock.calls.some(([seen]) => seen === id) || server.actions.dismiss.mock.calls.some(([gone]) => gone === id)).toBe(true));
+  } else {
+    server.failJob(id, result.error.code);
+    await server.read();
+    await waitFor(() => expect(server.actions.dismiss.mock.calls.some(([gone]) => gone === id)).toBe(true));
+  }
+}
 
 /** Asks for suggestions and answers with `result`. */
-async function suggestWith(user: ReturnType<typeof userEvent.setup>, result: AiCallResult<unknown> = ok(three)) {
+async function suggestWith(user: ReturnType<typeof userEvent.setup>, result: Result<unknown> = ok(three)) {
+  if (!result.ok && refusals.has(result.error.code)) {
+    server.failNextStart(result.error.code);
+    await user.click(suggestButton());
+    return;
+  }
   await user.click(suggestButton());
   await answer(result);
 }
 
 beforeEach(() => {
-  calls = [];
+  server.install();
+  server.actions.cancel.mockClear();
+  server.actions.markSeen.mockClear();
+  server.actions.dismiss.mockClear();
+  server.started.length = 0;
   refresh.mockReset();
   push.mockReset();
   saveRecipe.mockReset();
@@ -130,6 +158,7 @@ beforeEach(() => {
 
 afterEach(() => {
   vi.restoreAllMocks();
+  vi.unstubAllGlobals();
 });
 
 describe("AiSuggestions", () => {
@@ -138,19 +167,51 @@ describe("AiSuggestions", () => {
     expect(container).toBeEmptyDOMElement();
   });
 
-  it("asks /api/ai/suggest with no titles, and shows Letar efter idéer … with Avbryt in the button's place", async () => {
+  it("starts an AI job with no titles and a key of its own, and shows Letar efter idéer … with Avbryt in the button's place", async () => {
     const user = userEvent.setup();
     renderSuggestions();
-    expect(calls).toHaveLength(0);
+    expect(server.started).toHaveLength(0);
     const status = progress();
     expect(status).toBeEmptyDOMElement();
 
     await user.click(suggestButton());
-    expect(calls).toHaveLength(1);
-    expect(lastCall().body).toEqual({ avoidTitles: [] });
+    expect(server.started).toHaveLength(1);
+    expect(server.started[0].path).toBe("/api/ai/jobs");
+    expect(server.started[0].body).toEqual({ kind: "suggest", avoidTitles: [], clientKey: expect.stringMatching(/^[0-9a-f-]{36}$/) });
     expect(status).toHaveTextContent("Letar efter idéer …");
+    expect(status).toHaveTextContent("Du kan göra annat under tiden.");
     expect(screen.getByRole("button", { name: "Avbryt" })).toBeInTheDocument();
     expect(screen.queryByRole("button", { name: "Föreslå rätter med AI" })).not.toBeInTheDocument();
+  });
+
+  it("says I kö, 1 före. while the job waits behind another, and Letar efter idéer … when it runs", async () => {
+    const user = userEvent.setup();
+    renderSuggestions();
+    await user.click(suggestButton());
+    server.queue(server.latest.id, 1);
+    await server.read();
+    expect(progress()).toHaveTextContent("I kö, 1 före.");
+    expect(progress()).not.toHaveTextContent("Letar efter idéer");
+    expect(screen.getByRole("button", { name: "Avbryt" })).toBeInTheDocument();
+
+    server.queue(server.latest.id, 0);
+    await server.read();
+    expect(progress()).toHaveTextContent("Letar efter idéer …");
+  });
+
+  it("makes one job of a retry after a network error, with the same key, and a new key for the next tap", async () => {
+    const user = userEvent.setup();
+    renderSuggestions();
+    server.failNextStart("network");
+    await user.click(suggestButton());
+    expect(await screen.findByRole("alert")).toHaveTextContent(errorMessages.ai_unavailable);
+    await user.click(screen.getByRole("button", { name: "Försök igen" }));
+    expect(server.started).toHaveLength(2);
+    expect(server.started[1].body.clientKey).toBe(server.started[0].body.clientKey);
+
+    await answer(ok(three));
+    await user.click(screen.getByRole("button", { name: "Föreslå andra rätter" }));
+    expect(server.started[2].body.clientKey).not.toBe(server.started[0].body.clientKey);
   });
 
   it("shows three cards in a section of their own and moves focus to its heading", async () => {
@@ -190,10 +251,10 @@ describe("AiSuggestions", () => {
     renderSuggestions();
     await suggestWith(user);
     await user.click(screen.getByRole("button", { name: "Föreslå andra rätter" }));
-    const { signal } = lastCall();
+    const { id } = server.latest;
     await user.click(screen.getByRole("button", { name: "Avbryt" }));
 
-    expect(signal.aborted).toBe(true);
+    expect(server.actions.cancel).toHaveBeenCalledWith(id);
     expect(screen.getByRole("button", { name: "Föreslå andra rätter" })).toHaveFocus();
     expect(screen.queryByRole("alert")).not.toBeInTheDocument();
     expect(progress()).toBeEmptyDOMElement();
@@ -214,7 +275,7 @@ describe("AiSuggestions", () => {
     renderSuggestions();
     await suggestWith(user, ok({ suggestions: [{ draft: draft("Gryta   med\tris", [fresh("1 ägg", "ägg")]), ingredientNames: {} }] }));
     await user.click(screen.getByRole("button", { name: "Föreslå andra rätter" }));
-    expect(lastCall().body).toEqual({ avoidTitles: ["Gryta med ris"] });
+    expect(server.started[1].body.avoidTitles).toEqual(["Gryta med ris"]);
   });
 
   it("Föreslå andra rätter sends the titles shown and replaces them only when the new ones are here", async () => {
@@ -222,7 +283,9 @@ describe("AiSuggestions", () => {
     renderSuggestions();
     await suggestWith(user);
     await user.click(screen.getByRole("button", { name: "Föreslå andra rätter" }));
-    expect(lastCall().body).toEqual({ avoidTitles: ["Kycklinggryta", "Krämig pasta", "Ugnsomelett"] });
+    expect(server.started[1].body.avoidTitles).toEqual(["Kycklinggryta", "Krämig pasta", "Ugnsomelett"]);
+    // The old result is closed once the new job has started, and its suggestions stay until the new ones are here.
+    expect(server.actions.dismiss).toHaveBeenCalledTimes(1);
     expect(cards()).toHaveLength(3);
 
     const other = { suggestions: [{ draft: draft("Fiskgratäng", [fresh("400 g torsk", "torsk")]), ingredientNames: {} }] };
@@ -239,7 +302,7 @@ describe("AiSuggestions", () => {
     await user.click(screen.getByRole("button", { name: "Föreslå andra rätter" }));
     await answer(fail("ai_unavailable"));
 
-    const alert = screen.getByRole("alert");
+    const alert = await screen.findByRole("alert");
     expect(alert).toHaveTextContent(errorMessages.ai_unavailable);
     expect(cards()).toHaveLength(3);
     expect(alert.compareDocumentPosition(section()) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
@@ -256,21 +319,43 @@ describe("AiSuggestions", () => {
     const user = userEvent.setup();
     renderSuggestions();
     await suggestWith(user, fail(code));
-    expect(screen.getByRole("alert")).toHaveTextContent(text);
+    expect(await screen.findByRole("alert")).toHaveTextContent(text);
 
     await user.click(screen.getByRole("button", { name: "Försök igen" }));
-    expect(calls).toHaveLength(2);
+    expect(server.started).toHaveLength(2);
     expect(screen.queryByRole("alert")).not.toBeInTheDocument();
     expect(progress()).toHaveTextContent("Letar efter idéer …");
     await answer(ok(three));
     expect(cards()).toHaveLength(3);
   });
 
+  it.each<[ErrorCode, string]>([
+    ["ai_queue_timeout", "AI:n hann inte börja med det här. Försök igen."],
+    ["ai_job_lost", "AI-jobbet avbröts. Försök igen."],
+  ])("shows %s with Försök igen (Story 12.4)", async (code, text) => {
+    const user = userEvent.setup();
+    renderSuggestions();
+    await suggestWith(user, fail(code));
+    expect(await screen.findByRole("alert")).toHaveTextContent(text);
+    expect(screen.getByRole("button", { name: "Försök igen" })).toBeInTheDocument();
+  });
+
+  it("says the queue is full without Försök igen, and starts nothing", async () => {
+    const user = userEvent.setup();
+    renderSuggestions();
+    await suggestWith(user, fail("ai_queue_full"));
+    expect(await screen.findByRole("alert")).toHaveTextContent("Det finns redan tre AI-jobb. Vänta tills ett är klart.");
+    expect(screen.queryByRole("button", { name: "Försök igen" })).not.toBeInTheDocument();
+    expect(server.jobs).toHaveLength(0);
+    // The button is back for the next tap.
+    expect(suggestButton()).toBeInTheDocument();
+  });
+
   it("treats an answer that is not the suggestions' shape as ai_invalid", async () => {
     const user = userEvent.setup();
     renderSuggestions();
     await suggestWith(user, ok({ suggestions: [{ draft: { title: "" }, ingredientNames: {} }] }));
-    expect(screen.getByRole("alert")).toHaveTextContent("Det gick inte att tolka svaret. Försök igen.");
+    expect(await screen.findByRole("alert")).toHaveTextContent("Det gick inte att tolka svaret. Försök igen.");
     expect(screen.getByRole("button", { name: "Försök igen" })).toBeInTheDocument();
   });
 
@@ -278,7 +363,7 @@ describe("AiSuggestions", () => {
     const user = userEvent.setup();
     renderSuggestions();
     await suggestWith(user, fail("suggest_empty_pantry"));
-    expect(screen.getByRole("alert")).toHaveTextContent(
+    expect(await screen.findByRole("alert")).toHaveTextContent(
       "Lagret är tomt. Lägg till varor i Lagersaldo, så kan AI:n föreslå rätter.",
     );
     expect(screen.getByRole("link", { name: "Öppna Lagersaldo" })).toHaveAttribute("href", "/hemma");
@@ -289,17 +374,89 @@ describe("AiSuggestions", () => {
     const user = userEvent.setup();
     renderSuggestions();
     await suggestWith(user, fail("unauthorized"));
-    expect(refresh).toHaveBeenCalledTimes(1);
+    await waitFor(() => expect(refresh).toHaveBeenCalledTimes(1));
     expect(screen.queryByRole("button", { name: "Försök igen" })).not.toBeInTheDocument();
   });
 
-  it("stops the call when the component goes away", async () => {
+  it("lets the job go on when the component goes away, and shows its result when it comes back (Story 12.4)", async () => {
     const user = userEvent.setup();
     const { unmount } = renderSuggestions();
     await user.click(suggestButton());
-    const { signal } = lastCall();
+    const { id } = server.latest;
     unmount();
-    expect(signal.aborted).toBe(true);
+    expect(server.actions.cancel).not.toHaveBeenCalled();
+
+    server.finish(id, three, 3);
+    // Pontus comes back: the app reads the list, and the section shows the suggestions at once.
+    renderSuggestions();
+    await server.read();
+    expect(await screen.findByRole("region", { name: "AI-förslag" })).toBeInTheDocument();
+    expect(cards()).toHaveLength(3);
+    await waitFor(() => expect(server.actions.markSeen).toHaveBeenCalledWith(id));
+  });
+
+  it("shows a finished job only when the section is on the screen, and then marks it as seen", async () => {
+    server.add({ kind: "suggest", status: "done", count: 3 }, three);
+    const { rerender } = renderSuggestions({ visible: false });
+    await server.read();
+    expect(screen.queryByRole("region", { name: "AI-förslag" })).not.toBeInTheDocument();
+    expect(server.actions.markSeen).not.toHaveBeenCalled();
+
+    rerender(<Tree visible />);
+    expect(await screen.findByRole("region", { name: "AI-förslag" })).toBeInTheDocument();
+    await waitFor(() => expect(server.actions.markSeen).toHaveBeenCalledTimes(1));
+  });
+
+  it("says Resultatet finns inte längre. for a result that is gone", async () => {
+    const job = server.add({ kind: "suggest", status: "done", count: 3 });
+    renderSuggestions();
+    await server.read();
+    expect(await screen.findByRole("alert")).toHaveTextContent("Resultatet finns inte längre.");
+    expect(server.actions.markSeen).toHaveBeenCalledWith(job.id);
+  });
+
+  it("closes the result when the last suggestion is saved", async () => {
+    const user = userEvent.setup();
+    saveRecipe.mockResolvedValue(ok({ id: "11111111-2222-4333-8444-555555555555" }));
+    renderSuggestions();
+    await suggestWith(user, ok({ suggestions: [{ draft: draft("Ugnsomelett", [fresh("6 ägg", "ägg")]), ingredientNames: {} }] }));
+    const { id } = server.latest;
+    await user.click(screen.getByRole("button", { name: "Spara Ugnsomelett" }));
+    await user.click(screen.getByRole("button", { name: "Spara recept" }));
+    await waitFor(() => expect(server.actions.dismiss).toHaveBeenCalledWith(id));
+  });
+
+  describe("suggestions of another place (AD-24, Story 12.4)", () => {
+    const hemma = "0b2f6d0a-3c0e-4d52-9a54-6d0f0c5f6a01";
+    const stugan = "55555555-5555-4555-8555-555555555555";
+
+    it("shows them with Förslagen bygger på lagret för Hemma. and Föreslå igen, and they can still be saved", async () => {
+      const user = userEvent.setup();
+      const view = renderSuggestions({ shownSiteId: hemma, siteNames: { [hemma]: "Hemma", [stugan]: "Stugan" } });
+      await suggestWith(user, ok({ ...three, siteId: hemma }));
+      expect(screen.queryByText(/Förslagen bygger på lagret/)).not.toBeInTheDocument();
+
+      view.rerender(<Tree shownSiteId={stugan} siteNames={{ [hemma]: "Hemma", [stugan]: "Stugan" }} />);
+      expect(screen.getByText("Förslagen bygger på lagret för Hemma.")).toBeInTheDocument();
+      expect(cards()).toHaveLength(3);
+      expect(screen.getByRole("button", { name: "Spara Kycklinggryta" })).toBeEnabled();
+
+      // "Föreslå igen" starts a job for the place now shown, with nothing to avoid.
+      await user.click(screen.getByRole("button", { name: "Föreslå igen" }));
+      expect(server.started[1].body.avoidTitles).toEqual([]);
+    });
+
+    it("names no place when it is not known, and says nothing for the place that is shown or an unknown place", async () => {
+      const user = userEvent.setup();
+      const view = renderSuggestions({ shownSiteId: hemma });
+      await suggestWith(user, ok({ ...three, siteId: hemma }));
+      view.rerender(<Tree shownSiteId={stugan} />);
+      expect(screen.getByText("Förslagen bygger på lagret för ett annat ställe.")).toBeInTheDocument();
+
+      view.rerender(<Tree shownSiteId={null} />);
+      expect(screen.queryByText(/Förslagen bygger på lagret/)).not.toBeInTheDocument();
+      expect(cards()).toHaveLength(3);
+    });
   });
 
   describe("Spara AI-förslag", () => {
@@ -394,7 +551,7 @@ describe("AiSuggestions", () => {
       await waitFor(() => expect(screen.queryByRole("dialog", { name: "Spara AI-förslag" })).not.toBeInTheDocument());
 
       await user.click(screen.getByRole("button", { name: "Föreslå andra rätter" }));
-      expect(lastCall().body).toEqual({ avoidTitles: ["Krämig pasta", "Ugnsomelett", "Kycklinggryta"] });
+      expect(server.started[1].body.avoidTitles).toEqual(["Krämig pasta", "Ugnsomelett", "Kycklinggryta"]);
     });
 
     it("asks Släng ändringarna? when an edited suggestion is closed, and keeps the suggestion as it was", async () => {

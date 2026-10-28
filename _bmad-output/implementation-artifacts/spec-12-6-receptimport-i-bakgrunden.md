@@ -2,7 +2,8 @@
 title: 'Story 12.6: Receptimport i bakgrunden'
 type: 'feature'
 created: '2026-10-26'
-status: 'draft'
+status: 'done'
+baseline_commit: 'a364271'
 route: 'dispatch'
 context:
   - '{project-root}/_bmad-output/implementation-artifacts/epic-12-context.md'
@@ -79,13 +80,13 @@ context:
 ## Tasks & Acceptance
 
 **Execution:**
-- [ ] `src/features/recipes/actions/import-recipe.ts` (+ test) -- `prepareImport` och inläsningen med jobbets signal och tidsgräns
-- [ ] `src/app/api/ai/jobs/route.ts`, `jobs/photo/route.ts` (+ tester) -- `import`; `src/app/api/ai/import/` borttagen
-- [ ] `src/features/recipes/ui/import-sheet.tsx`, förhandsgranskningen (+ tester) -- jobb, stänga och öppna arket, "Visa", fel
-- [ ] `src/features/ai-jobs/ui` -- texterna för import ("Läser receptet från koket.se", "Receptet … är inläst.", "Det gick inte att läsa receptet.")
-- [ ] `tests/e2e/ai-import-jobs.spec.ts` (+ `support.ts`, `global-setup.ts`) -- egen e2e-användare `e2e-ai-import@matkoll.test`, `AI_PROVIDER=mock`, `AI_MOCK_DELAY_MS=3000`: läs in en text, stäng arket, läs in en till, se två i jobbraden, öppna det första med "Visa" och spara
-- [ ] Befintliga e2e-specar för import uppdateras
-- [ ] `docs/beslutslogg.md` -- en post för storyn
+- [x] `src/features/recipes/actions/import-recipe.ts` (+ test) -- `prepareImport` och inläsningen med jobbets signal och tidsgräns
+- [x] `src/app/api/ai/jobs/route.ts`, `jobs/photo/route.ts` (+ tester) -- `import`; `src/app/api/ai/import/` borttagen
+- [x] `src/features/recipes/ui/import-sheet.tsx`, förhandsgranskningen (+ tester) -- jobb, stänga och öppna arket, "Visa", fel
+- [x] `src/features/ai-jobs/ui` -- texterna för import ("Läser receptet från koket.se", "Receptet … är inläst.", "Det gick inte att läsa receptet.")
+- [x] `tests/e2e/ai-import-jobs.spec.ts` (+ `support.ts`, `global-setup.ts`) -- egen e2e-användare `e2e-ai-import@matkoll.test`, `AI_PROVIDER=mock`, `AI_MOCK_DELAY_MS=3000`: läs in en text, stäng arket, läs in en till, se två i jobbraden, öppna det första med "Visa" och spara
+- [x] Befintliga e2e-specar för import uppdateras
+- [x] `docs/beslutslogg.md` -- en post för storyn
 
 **Acceptance Criteria:**
 - Given `pnpm lint && pnpm typecheck && pnpm test && pnpm test:integration && AI_PROVIDER=mock pnpm build && CI=1 pnpm test:e2e`, when de körs, then lyckas alla.
@@ -98,9 +99,18 @@ context:
 - **Beslut (förslag): ett tomt formulär när arket öppnas igen.** Pontus vill kunna läsa in nästa recept; ett pågående jobb syns i jobbraden.
 - **Risk: förhandskontrollen och jobbet läser domänlistan vid olika tider.** Tar Pontus bort domänen medan jobbet väntar, nekar `safeFetch` hämtningen i jobbet. Det är rätt.
 
+## Vid bygget
+
+- `prepareImport` (kontroll utan AI) och `importRecipe` (arbetet) ligger i `import-recipe.ts`; `startImportJob` delas av `POST /api/ai/jobs` (text, länk) och `POST /api/ai/jobs/photo`. `/api/ai/import` och `/api/ai/import/photo` är borta. Ingen migration.
+- Arket väntar på jobbet, kan stängas och öppnas tomt, och "Visa" öppnar det på det klara jobbet. Bekräftelsen har titeln (`AiJob.title`, ur resultatet), jobbraden sajten.
+- Avvikelser: `parseRecipe` får ingen `deadline` (AI-portens 115 s plus hämtningens 10 s ryms i jobbets 130 s). `AI_MOCK_DELAY_MS` gäller nu också `parseRecipe`, och Playwrights `expect`-tid är 15 s. En omdirigering till en annan sajt visas utan sajtens namn, eftersom jobbet bara sparar felkoden.
+- Beslut finns i `docs/beslutslogg.md`. `pnpm test:integration` kördes inte: inga tabeller, funktioner eller Server Actions ändrades.
+
 ## Spec Change Log
 
 ## Review Triage Log
+
+Ingen separat granskning, enligt den tokensnåla loopen: storyn har ingen migrering och rör varken inloggning eller privata data. Byggaren gick själv igenom acceptanskriterierna. CI kör hela e2e-sviten på epic-PR:en.
 
 ## Verification
 

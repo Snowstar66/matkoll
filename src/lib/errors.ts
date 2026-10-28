@@ -19,6 +19,14 @@ export const errorMessages = {
   // A photo analysis stopped because a newer one from the same person started
   // (another tab, a double tap). Not an error: the client shows nothing for it.
   ai_superseded: "En nyare bild analyseras.",
+  // AI jobs (Story 12.4, AD-28): the queue holds three at most; a job that
+  // waited too long to start; a job whose function died or ran out of time
+  // (its time passed); a result that is older than 24 hours or was closed on
+  // another device.
+  ai_queue_full: "Det finns redan tre AI-jobb. Vänta tills ett är klart.",
+  ai_queue_timeout: "AI:n hann inte börja med det här. Försök igen.",
+  ai_job_lost: "AI-jobbet avbröts. Försök igen.",
+  ai_job_gone: "Resultatet finns inte längre.",
   import_no_recipe: "Det gick inte att hitta något recept i texten.",
   // AI-förslag (Story 5.2) with nothing at home: the AI is not asked.
   suggest_empty_pantry: "Lagret är tomt. Lägg till varor i Lagersaldo, så kan AI:n föreslå rätter.",

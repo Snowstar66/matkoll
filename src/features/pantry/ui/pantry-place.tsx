@@ -12,6 +12,7 @@ import { PantryCamera } from "./pantry-camera";
 import { PantryList } from "./pantry-list";
 import { applyPantryChanges, usePantryRemoval } from "./pantry-removal";
 import { PantrySuggestionList } from "./pantry-suggestion-list";
+import { usePantrySuggestions } from "./pantry-suggestions";
 
 export type PantryPlaceProps = {
   /** The place Hemma shows: the selected one (Story 8.2). */
@@ -39,12 +40,13 @@ export type PantryPlaceProps = {
  */
 export function PantryPlace({ site, location, counts, items, photo = null }: PantryPlaceProps) {
   const { changes, report } = usePantryRemoval();
+  const { readyLocations } = usePantrySuggestions();
   // The removals keep a change until the server's items show it.
   useEffect(() => report(site.id, location, items), [report, site.id, location, items]);
   const shown = applyPantryChanges(items, site.id, location, changes);
   return (
     <div className="flex flex-col gap-6">
-      <LocationCards selected={location} counts={{ ...counts, [location]: shown.length }} />
+      <LocationCards selected={location} counts={{ ...counts, [location]: shown.length }} ready={readyLocations(site.id)} />
       <PantryCamera site={site} location={location} />
       <LatestPhoto photo={photo} location={location} />
       <PantrySuggestionList siteId={site.id} />

@@ -4,20 +4,14 @@ import { fail, ok } from "@/lib/errors";
 import { createMockAiService } from "@/server/ai/adapters/mock";
 import { withInputValidation, type LocateItemsInput, type RunOptions } from "@/server/ai/service";
 
-// locatePlaceItems (Story 6.6) with the AI port's mock behind its input
-// check, as with AI_PROVIDER=mock, and a stubbed user, and the run lock it
-// shares with analyzePlace (ai-runs.ts): an analysis wins over a lookup, and
-// a newer lookup over an older one.
-
-const requireUser = vi.fn();
-vi.mock("@/features/auth/server", () => ({ requireUser: () => requireUser() }));
+// locatePlaceItems (Story 6.6, 12.5) with the AI port's mock behind its input
+// check, as with AI_PROVIDER=mock: the second step of a photo's job.
 
 const ai = withInputValidation(createMockAiService());
 const locateItems = vi.fn<(input: LocateItemsInput, signal: AbortSignal, options?: RunOptions) => ReturnType<typeof ai.locateItems>>();
 vi.mock("@/server/ai", () => ({ getAiService: () => ({ locateItems }) }));
 
 const { locatePlaceItems } = await import("./locate-place-items");
-const { finishRun, startRun } = await import("./ai-runs");
 
 const kyl = {
   data: new Uint8Array(readFileSync(new URL("../../../../tests/fixtures/ai/kyl.png", import.meta.url))),
@@ -25,7 +19,6 @@ const kyl = {
 };
 const labels = ["Mellanmjölk 1,5 %", "Vispgrädde 3 dl", "Smör 500 g", "Ägg", "Gurka", "Ketchup"];
 const signal = () => new AbortController().signal;
-const user = (id = "user") => ok({ id, email: "pontus@example.com" });
 
 /** Holds the AI call until it is aborted, so another run comes while it is on its way. */
 function holdLocate() {
@@ -44,7 +37,6 @@ beforeEach(() => {
   vi.restoreAllMocks();
   vi.spyOn(console, "error").mockImplementation(() => {});
   vi.spyOn(console, "info").mockImplementation(() => {});
-  requireUser.mockReset().mockResolvedValue(user());
   locateItems.mockReset().mockImplementation(ai.locateItems);
 });
 
@@ -76,12 +68,6 @@ describe("locatePlaceItems", () => {
     expect(logged).not.toContain("Mellanmjölk");
   });
 
-  it("gives unauthorized without asking the AI", async () => {
-    requireUser.mockResolvedValue(fail("unauthorized"));
-    expect(await locatePlaceItems({ image: kyl, labels }, { signal: signal() })).toEqual(fail("unauthorized"));
-    expect(locateItems).not.toHaveBeenCalled();
-  });
-
   it("passes the AI's error on", async () => {
     locateItems.mockResolvedValueOnce(fail("ai_invalid"));
     expect(await locatePlaceItems({ image: kyl, labels }, { signal: signal() })).toEqual(fail("ai_invalid"));
@@ -91,76 +77,12 @@ describe("locatePlaceItems", () => {
     expect(await locatePlaceItems({ image: kyl, labels: ["Mjölk\nSmör"] }, { signal: signal() })).toEqual(fail("validation"));
   });
 
-  it("answers ai_superseded at once, without asking the AI, while an analysis of the same user is on its way", async () => {
-    const analysis = startRun("user", "analyze");
-    try {
-      expect(await locatePlaceItems({ image: kyl, labels }, { signal: signal() })).toEqual(fail("ai_superseded"));
-      expect(locateItems).not.toHaveBeenCalled();
-      // The analysis goes on.
-      expect(analysis.signal.aborted).toBe(false);
-    } finally {
-      finishRun("user", analysis);
-    }
-    // Once it is done, a lookup runs again.
-    expect((await locatePlaceItems({ image: kyl, labels }, { signal: signal() })).ok).toBe(true);
-  });
-
-  it("is stopped by a new analysis of the same user, and answers ai_superseded", async () => {
-    const signals = holdLocate();
-    const running = locatePlaceItems({ image: kyl, labels }, { signal: signal() });
-    await vi.waitFor(() => expect(signals).toHaveLength(1));
-    const analysis = startRun("user", "analyze");
-    expect(await running).toEqual(fail("ai_superseded"));
-    expect(signals[0].aborted).toBe(true);
-    expect(console.info).toHaveBeenCalledWith("locate_superseded");
-    finishRun("user", analysis);
-  });
-
-  it("stops an older lookup of the same user, but not one of another user", async () => {
-    const signals = holdLocate();
-    const older = locatePlaceItems({ image: kyl, labels }, { signal: signal() });
-    await vi.waitFor(() => expect(signals).toHaveLength(1));
-    const othersSignals = holdLocate();
-    requireUser.mockResolvedValueOnce(user("other"));
-    const others = locatePlaceItems({ image: kyl, labels }, { signal: signal() });
-    await vi.waitFor(() => expect(othersSignals).toHaveLength(1));
-
-    expect((await locatePlaceItems({ image: kyl, labels }, { signal: signal() })).ok).toBe(true);
-    expect(await older).toEqual(fail("ai_superseded"));
-    expect(othersSignals[0].aborted).toBe(false);
-    // The other user's lookup ends with its own request.
-    const stop = startRun("other", "analyze");
-    expect(await others).toEqual(fail("ai_superseded"));
-    finishRun("other", stop);
-  });
-
-  it("answers ai_unavailable, not ai_superseded, when the request itself went away", async () => {
+  it("answers ai_unavailable when the job is stopped while the AI is asked", async () => {
     const signals = holdLocate();
     const controller = new AbortController();
     const running = locatePlaceItems({ image: kyl, labels }, { signal: controller.signal });
     await vi.waitFor(() => expect(signals).toHaveLength(1));
     controller.abort();
     expect(await running).toEqual(fail("ai_unavailable"));
-  });
-});
-
-describe("the run lock", () => {
-  it("lets an analysis stop any run, a lookup stop only a lookup, and frees the user only for the run that has it", () => {
-    const lookup = startRun("lock", "locate")!;
-    const newer = startRun("lock", "locate")!;
-    expect(lookup.signal.aborted).toBe(true);
-    const analysis = startRun("lock", "analyze");
-    expect(newer.signal.aborted).toBe(true);
-    expect(startRun("lock", "locate")).toBeNull();
-    expect(analysis.signal.aborted).toBe(false);
-    // An older run that ends does not free the user.
-    finishRun("lock", newer);
-    expect(startRun("lock", "locate")).toBeNull();
-    const second = startRun("lock", "analyze");
-    expect(analysis.signal.aborted).toBe(true);
-    finishRun("lock", second);
-    const free = startRun("lock", "locate");
-    expect(free).not.toBeNull();
-    finishRun("lock", free!);
   });
 });

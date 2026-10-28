@@ -1,5 +1,5 @@
 import { expect, type Page, test } from "@playwright/test";
-import { adminClient, cardTitles, cameraEmail, cameraStorageState, e2eUserId } from "./support";
+import { adminClient, plainPng, cardTitles, cameraEmail, cameraStorageState, e2eUserId } from "./support";
 
 // Story 6.1: the camera button on Hemma and lagerförslag from a photo, with
 // AI_PROVIDER=mock. The fixture photos are synthetic PNGs that already fit
@@ -10,13 +10,14 @@ import { adminClient, cardTitles, cameraEmail, cameraStorageState, e2eUserId } f
 // catalog ingredient "Mjölk" and the pantry item "Mjölk 2 förp" in Kyl, and
 // nothing else, so a photo of Kyl is compared with it (Story 6.4): mjölk is
 // "Ändrat" and the other five "Nytt". The tests run in order, since they
-// share the user. Story 6.6: the mock answers /api/ai/locate for kyl.png with
-// kyl.locate.json, a point on each of its six items.
+// share the user. Story 6.6: the mock answers the numbers for kyl.png with
+// kyl.locate.json, a point on each of its six items. Story 12.5: a photo is an AI
+// job (POST /api/ai/jobs/photo) that is read in the background; the mock keeps a
+// photo it does not know waiting AI_MOCK_DELAY_MS for the reading and for the
+// numbers (3 s each here), so a plain PNG (plainPng) gets the default answer, the
+// same as kyl.png, and can be seen waiting, while kyl.png itself answers at once.
 
 const kyl = "tests/fixtures/ai/kyl.png";
-const emptyShelf = "tests/fixtures/ai/tom-hylla.png";
-const unavailablePhoto = "tests/fixtures/ai/reserved-ai_unavailable.png";
-const analyzeRoute = "**/api/ai/analyze";
 
 test.use({ storageState: cameraStorageState, viewport: { width: 375, height: 812 } });
 test.describe.configure({ mode: "serial" });
@@ -37,6 +38,9 @@ test.beforeEach(async () => {
     .select("id")
     .single();
   if (catalog.error) throw catalog.error;
+  // Story 12.5: the jobs of the tests before, so a job counted here is this test's.
+  const jobsGone = await admin.from("ai_job").delete().eq("user_id", userId);
+  if (jobsGone.error) throw jobsGone.error;
   const removed = await admin.from("pantry_item").delete().eq("user_id", userId);
   if (removed.error) throw removed.error;
   const inserted = await admin
@@ -56,6 +60,14 @@ async function rowCounts(): Promise<Record<string, number>> {
   return counts;
 }
 
+type JobRow = { status: string; context: Record<string, unknown>; result: unknown };
+/** The user's AI jobs, read by the service role (the app never gives their results in a list). */
+async function jobs(): Promise<JobRow[]> {
+  const { data, error } = await adminClient().from("ai_job").select("status, context, result").eq("user_id", userId).order("created_at");
+  if (error) throw error;
+  return data as JobRow[];
+}
+
 /** Collects console errors and uncaught exceptions for the page. */
 function watchErrors(page: Page): string[] {
   const errors: string[] = [];
@@ -66,11 +78,11 @@ function watchErrors(page: Page): string[] {
   return errors;
 }
 
-/** Counts the calls to /api/ai/analyze. */
+/** Counts the photos posted as jobs. */
 function countAnalyses(page: Page): () => number {
   let calls = 0;
   page.on("request", (request) => {
-    if (request.url().endsWith("/api/ai/analyze")) calls++;
+    if (request.url().endsWith("/api/ai/jobs/photo")) calls++;
   });
   return () => calls;
 }
@@ -85,23 +97,14 @@ const card = (page: Page, name: "Kyl" | "Frys" | "Skafferi") =>
 const cameraButton = (page: Page, name: string) => camera(page).getByRole("button", { name });
 
 /** Presses the camera button and chooses `file` in the file chooser it opens (the desktop's file picker, or the phone's camera). */
-async function photograph(page: Page, button: string, file: string) {
+async function photograph(
+  page: Page,
+  button: string,
+  file: string | { name: string; mimeType: string; buffer: Buffer },
+) {
   const chooser = page.waitForEvent("filechooser");
   await cameraButton(page, button).click();
   await (await chooser).setFiles(file);
-}
-
-/** Holds every analysis until `release`, as a slow model would. */
-async function holdAnalyses(page: Page) {
-  let release = () => {};
-  const held = new Promise<void>((resolve) => {
-    release = resolve;
-  });
-  await page.route(analyzeRoute, async (route) => {
-    await held;
-    await route.continue().catch(() => {});
-  });
-  return () => release();
 }
 
 test("the camera button follows the chosen card, and nothing asks the AI before a photo", async ({ page }) => {
@@ -218,31 +221,19 @@ test("the cards come first, then their numbers, and the large photo has the same
   page,
 }) => {
   const errors = watchErrors(page);
-  let locates = 0;
-  let release = () => {};
-  const held = new Promise<void>((resolve) => {
-    release = resolve;
-  });
-  // The lookup is held until the cards have been checked, as a slow model would.
-  await page.route("**/api/ai/locate", async (route) => {
-    locates++;
-    await held;
-    await route.continue().catch(() => {});
-  });
   const before = await rowCounts();
   await page.goto("/hemma");
-  await photograph(page, "Fotografera kylen", kyl);
+  // The reading takes 3 s and the numbers 3 s more (the mock keeps a photo it does not know waiting, AD-28).
+  await photograph(page, "Fotografera kylen", plainPng(1));
 
-  await expect(cards(page)).toHaveCount(6);
+  await expect(cards(page)).toHaveCount(6, { timeout: 15_000 });
   await expect(section(page).getByTestId("pantry-photo-number")).toHaveCount(0);
   await expect(section(page).getByRole("status").filter({ hasText: "Letar upp varorna på fotot …" })).toBeVisible();
   // Nothing waits for the numbers.
   await expect(section(page).getByRole("button", { name: "Bekräfta alla" })).toBeEnabled();
-  await expect.poll(() => locates).toBe(1);
-  release();
 
   // Each card has the number of its item in kyl.png's reading: mellanmjölk 1, vispgrädde 2, smör 3, ägg 4, gurka 5, ketchup 6.
-  await expect(section(page).getByText("Numren på korten visar var varorna är på fotot.")).toBeVisible();
+  await expect(section(page).getByText("Numren på korten visar var varorna är på fotot.")).toBeVisible({ timeout: 15_000 });
   const expected = [
     ["Vispgrädde 3 dl", 2],
     ["Gurka", 5],
@@ -289,23 +280,7 @@ test("the cards come first, then their numbers, and the large photo has the same
   await section(page).getByRole("button", { name: "Fotot av kylen, visa större" }).click();
   await expect(photoSheet.getByTestId("pantry-photo-marker")).toHaveText(["2", "6", "3", "4", "1"]);
   expect(await rowCounts()).toEqual(before);
-  expect(locates).toBe(1);
   expect(errors).toEqual([]);
-});
-
-test("a lookup that fails leaves the cards without numbers and without an error (Story 6.6)", async ({ page }) => {
-  await page.route("**/api/ai/locate", (route) =>
-    route.fulfill({ status: 503, json: { ok: false, error: { code: "ai_unavailable", message: "x" } } }),
-  );
-  await page.goto("/hemma");
-  await photograph(page, "Fotografera kylen", kyl);
-  await expect(cards(page)).toHaveCount(6);
-  await expect(section(page).getByText("Letar upp varorna på fotot …")).toHaveCount(0);
-  await expect(section(page).getByTestId("pantry-photo-number")).toHaveCount(0);
-  await expect(section(page).getByRole("alert")).toHaveCount(0);
-  await expect(camera(page).getByRole("alert")).toHaveCount(0);
-  await section(page).getByRole("button", { name: "Fotot av kylen, visa större" }).click();
-  await expect(page.getByRole("dialog", { name: "Fotot av kylen" }).getByTestId("pantry-photo-marker")).toHaveCount(0);
 });
 
 test("the suggestions go when Lagersaldo is left through the tab bar and opened again", async ({ page }) => {
@@ -323,96 +298,27 @@ test("the suggestions go when Lagersaldo is left through the tab bar and opened 
   await expect(page.getByTestId("pantry-suggestion")).toHaveCount(0);
 });
 
-test("Avbryt stops the analysis without an error, and the camera button takes focus", async ({ page }) => {
+test("Avbryt stops the job without an error, and the camera button takes focus", async ({ page }) => {
   const errors = watchErrors(page);
-  const release = await holdAnalyses(page);
   await page.goto("/hemma");
-  await photograph(page, "Fotografera kylen", kyl);
+  // A photo the mock keeps waiting, so the job is there to cancel.
+  await photograph(page, "Fotografera kylen", plainPng(1));
 
-  await expect(camera(page).getByRole("status").getByText("Tittar på bilden …")).toBeVisible();
+  await expect(camera(page).getByRole("status").getByText("Tittar på bilden … Du kan göra annat under tiden.")).toBeVisible();
   await expect(cameraButton(page, "Fotografera kylen")).toHaveCount(0);
-  const aborted = page.waitForEvent("requestfailed", (request) => request.url().endsWith("/api/ai/analyze"));
   await camera(page).getByRole("button", { name: "Avbryt" }).click();
-  await aborted;
-  release();
 
   await expect(cameraButton(page, "Fotografera kylen")).toBeFocused();
   await expect(camera(page).getByText("Tittar på bilden …")).toHaveCount(0);
   await expect(camera(page).getByRole("alert")).toHaveCount(0);
+  // The server stopped it: the job is cancelled, and nothing is shown for it, also after it would have finished.
+  await expect
+    .poll(async () => (await jobs()).map((job) => job.status))
+    .toEqual(["cancelled"]);
+  await page.waitForTimeout(4_000);
   await expect(section(page)).toHaveCount(0);
-  expect(errors.filter((error) => !error.includes("Failed to load resource"))).toEqual([]);
-});
-
-test("choosing Frys while the fridge is analysed keeps the analysis, and its suggestions are the fridge's", async ({ page }) => {
-  const release = await holdAnalyses(page);
-  await page.goto("/hemma");
-  await photograph(page, "Fotografera kylen", kyl);
-  await expect(camera(page).getByText("Tittar på bilden …")).toBeVisible();
-
-  await card(page, "Frys").click();
-  await expect(card(page, "Frys")).toHaveAttribute("aria-current", "true");
-  // Still analysing in the new place's camera area.
-  await expect(camera(page).getByText("Tittar på bilden …")).toBeVisible();
-  release();
-
-  await expect(section(page).getByRole("heading", { level: 2 })).toHaveText("Lagerförslag från kylen");
-  await expect(cards(page)).toHaveCount(6);
-  await expect(cameraButton(page, "Fotografera frysen")).toBeVisible();
-  await expect(cards(page).filter({ hasText: "· Frys" })).toHaveCount(0);
-});
-
-test("a photo without food of an empty place says so and offers to add an item by hand", async ({ page }) => {
-  await page.goto("/hemma?plats=frys");
-  await photograph(page, "Fotografera frysen", emptyShelf);
-  const status = camera(page).getByRole("status").filter({
-    hasText: "Hittade inga varor på bilden. Prova ett ljusare foto eller lägg till för hand.",
-  });
-  await expect(status).toBeVisible();
-  await expect(section(page)).toHaveCount(0);
-  await camera(page).getByRole("button", { name: "Lägg till vara" }).click();
-  await expect(page.getByRole("dialog", { name: "Lagervara" })).toBeVisible();
-});
-
-test("a photo without food of the fridge lists what it has under Syns inte längre, with the warning", async ({ page }) => {
-  const before = await rowCounts();
-  await page.goto("/hemma");
-  await photograph(page, "Fotografera kylen", emptyShelf);
-  await expect(section(page).getByRole("heading", { level: 3 })).toHaveText(["Syns inte längre"]);
-  await expect(section(page).getByTestId("pantry-missing")).toHaveCount(1);
-  await expect(section(page).getByTestId("pantry-missing")).toContainText("Mjölk");
-  await expect(
-    section(page).getByText("Några varor på bilden gick inte att tolka. Kontrollera innan du tar bort."),
-  ).toBeVisible();
-  // Only Ta bort removes from an incomplete comparison.
-  await expect(section(page).getByRole("button", { name: "Bekräfta alla" })).toBeDisabled();
-  await expect(camera(page).getByText("Hittade inga varor på bilden.", { exact: false })).toHaveCount(0);
-  expect(await rowCounts()).toEqual(before);
-});
-
-test("the AI out of reach: the text and Försök igen with the same photo, while the list and + work", async ({ page }) => {
-  const analyses = countAnalyses(page);
-  await page.goto("/hemma");
-  await photograph(page, "Fotografera kylen", unavailablePhoto);
-  const alert = camera(page).getByRole("alert");
-  await expect(alert).toHaveText("AI-tjänsten svarar inte just nu. Är datorn med modellen igång?");
-
-  // The rest of Hemma works.
-  await expect(page.getByTestId("pantry-row").filter({ visible: true })).toHaveText([/^Mjölk /]);
-  await page.getByRole("button", { name: "Lägg till vara" }).first().click();
-  const sheet = page.getByRole("dialog", { name: "Lagervara" });
-  await expect(sheet).toBeVisible();
-  await page.keyboard.press("Escape");
-  await expect(sheet).toHaveCount(0);
-
-  // The same photo again, from memory, without choosing a file: the mock knows it by its bytes.
-  await camera(page).getByRole("button", { name: "Försök igen" }).click();
-  await expect.poll(analyses).toBe(2);
-  await expect(alert).toHaveText("AI-tjänsten svarar inte just nu. Är datorn med modellen igång?");
-
-  // A photo that works takes the error away.
-  await photograph(page, "Fotografera kylen", kyl);
-  await expect(cards(page)).toHaveCount(6);
   await expect(camera(page).getByRole("alert")).toHaveCount(0);
+  expect(errors.filter((error) => !error.includes("Failed to load resource"))).toEqual([]);
 });
 
 test.describe("on a phone", () => {
@@ -434,69 +340,57 @@ test.describe("on a phone", () => {
   });
 });
 
-test.describe("/api/ai/analyze", () => {
+test.describe("/api/ai/jobs/photo", () => {
+  const fields = { kind: "analyze", clientKey: "6f1c1e4e-6b1a-4a0e-9d1e-3f4f4f0e6a11", location: "Kyl", takenAt: "2026-10-28T12:00:00.000Z" };
+  const image = async () => ({ name: "kyl.png", mimeType: "image/png", buffer: await readFixture(kyl) });
+
   test("answers 401 without a session", async ({ browser }) => {
     const context = await browser.newContext({ storageState: { cookies: [], origins: [] } });
-    const response = await context.request.post("/api/ai/analyze", {
-      multipart: { image: { name: "kyl.png", mimeType: "image/png", buffer: await readFixture(kyl) }, location: "Kyl" },
-    });
+    const response = await context.request.post("/api/ai/jobs/photo", { multipart: { image: await image(), ...fields } });
     expect(response.status()).toBe(401);
     await context.close();
   });
 
-  test("answers validation without asking the AI for a place that does not exist", async ({ request }) => {
-    const response = await request.post("/api/ai/analyze", {
-      multipart: { image: { name: "kyl.png", mimeType: "image/png", buffer: await readFixture(kyl) }, location: "Källare" },
-    });
-    expect(response.status()).toBe(400);
-    expect(await response.json()).toMatchObject({ ok: false, error: { code: "validation" } });
+  test("answers validation without queuing anything for a place that does not exist, or for no time", async ({ request }) => {
+    const unknown = await request.post("/api/ai/jobs/photo", { multipart: { image: await image(), ...fields, location: "Källare" } });
+    expect(unknown.status()).toBe(400);
+    expect(await unknown.json()).toMatchObject({ ok: false, error: { code: "validation" } });
+    const late = await request.post("/api/ai/jobs/photo", { multipart: { image: await image(), ...fields, takenAt: "igår" } });
+    expect(late.status()).toBe(400);
+    expect(await jobs()).toEqual([]);
   });
 
   test("answers validation for a `site` that is not a uuid, and pantry_site_gone for one that is not the user's (Story 8.4)", async ({
     request,
   }) => {
-    const image = { name: "kyl.png", mimeType: "image/png", buffer: await readFixture(kyl) };
-    const forged = await request.post("/api/ai/analyze", { multipart: { image, location: "Kyl", site: "stugan" } });
+    const forged = await request.post("/api/ai/jobs/photo", { multipart: { image: await image(), ...fields, site: "stugan" } });
     expect(forged.status()).toBe(400);
     expect(await forged.json()).toMatchObject({ ok: false, error: { code: "validation" } });
 
-    const gone = await request.post("/api/ai/analyze", {
-      multipart: { image, location: "Kyl", site: "00000000-0000-4000-8000-000000000000" },
+    const gone = await request.post("/api/ai/jobs/photo", {
+      multipart: { image: await image(), ...fields, site: "00000000-0000-4000-8000-000000000000" },
     });
     expect(gone.status()).toBe(409);
     expect(await gone.json()).toMatchObject({ ok: false, error: { code: "pantry_site_gone" } });
-  });
-});
-
-test.describe("/api/ai/locate (Story 6.6)", () => {
-  const labels = JSON.stringify(["Mellanmjölk 1,5 %", "Vispgrädde 3 dl"]);
-
-  test("answers 401 without a session", async ({ browser }) => {
-    const context = await browser.newContext({ storageState: { cookies: [], origins: [] } });
-    const response = await context.request.post("/api/ai/locate", {
-      multipart: { image: { name: "kyl.png", mimeType: "image/png", buffer: await readFixture(kyl) }, labels },
-    });
-    expect(response.status()).toBe(401);
-    await context.close();
+    expect(await jobs()).toEqual([]);
   });
 
-  test("answers the points for the labels sent, and validation for labels over the limits", async ({ request }) => {
-    const image = { name: "kyl.png", mimeType: "image/png", buffer: await readFixture(kyl) };
-    const response = await request.post("/api/ai/locate", { multipart: { image, labels } });
-    expect(response.status()).toBe(200);
-    expect(await response.json()).toEqual({
-      ok: true,
-      data: {
-        positions: [
-          { n: 1, x: 193, y: 193 },
-          { n: 2, x: 432, y: 225 },
-        ],
-      },
-    });
-    const tooMany = JSON.stringify(Array.from({ length: 26 }, (_, index) => `Vara ${index}`));
-    const refused = await request.post("/api/ai/locate", { multipart: { image, labels: tooMany } });
-    expect(refused.status()).toBe(400);
-    expect(await refused.json()).toMatchObject({ ok: false, error: { code: "validation" } });
+  test("answers 202 with the job, and keeps nothing of the photo in it: the context is only the place, the location and the time", async ({
+    request,
+  }) => {
+    const response = await request.post("/api/ai/jobs/photo", { multipart: { image: await image(), ...fields } });
+    expect(response.status()).toBe(202);
+    const body = (await response.json()) as { data: { job: { id: string; kind: string } } };
+    expect(body.data.job.kind).toBe("analyze");
+    await expect.poll(async () => (await jobs()).map((job) => job.status)).toEqual(["done"]);
+    const [row] = await jobs();
+    expect(Object.keys(row.context).sort()).toEqual(["location", "siteId", "takenAt"]);
+    expect(row.context.location).toBe("Kyl");
+    // The reading kept is the cards' data: no photo, no bytes.
+    expect(JSON.stringify(row.result)).not.toContain("iVBOR");
+    expect(Object.keys(row.result as object).sort()).toEqual(
+      ["dropped", "incomplete", "location", "points", "reading", "seen", "site", "suggestions"].sort(),
+    );
   });
 });
 

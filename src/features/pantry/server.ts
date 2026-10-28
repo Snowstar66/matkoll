@@ -24,7 +24,7 @@ import type { PantrySite, PantrySiteWithCount, SelectedSite } from "./domain/sit
 // client, so RLS limits them to the user's own rows. They are for pages,
 // after requireUserOrRedirect, inside <Suspense> (AD-18), and for other
 // modules' server code. setPantryItems is for saving actions only, after
-// requireUser (AD-2). analyzePlace only reads, for /api/ai/analyze.
+// requireUser (AD-2). readPhoto and compareStoredReading only read, for the photo jobs (Story 12.5).
 // addToPantry is for "Lägg i lagret" in the shopping module (AD-19). Removing an item and "Ångra" are the Server Actions
 // removePantryItem and restorePantryItem in ./actions (AD-19, AD-20).
 //
@@ -38,14 +38,17 @@ import type { PantrySite, PantrySiteWithCount, SelectedSite } from "./domain/sit
 export { PantryDataError } from "./data/client";
 
 /**
- * Lagerförslag from a photo of a place (FR-24), for the Route Handler
- * /api/ai/analyze (not a Server Action). Never writes (AD-2).
+ * The steps of a photo's AI job (Story 12.5): the reading of a photo of a
+ * place (FR-24), the place the photo is for, and the comparison with the
+ * place's items when the result is fetched, for the Route Handlers under
+ * /api/ai/jobs (not Server Actions). Never writes (AD-2).
  */
-export { analyzePlace } from "./actions/analyze-place";
+export { compareStoredReading, lookUpSite, readPhoto } from "./actions/analyze-place";
+export { storedReadingSchema, type StoredReading } from "./domain/photo-job";
 
 /**
- * The points of the items on the photo of a place (Story 6.6), for the Route
- * Handler /api/ai/locate (not a Server Action). Never writes (AD-2).
+ * The points of the items on the photo of a place (Story 6.6), the second
+ * step of a photo's job. Never writes (AD-2).
  */
 export { locatePlaceItems } from "./actions/locate-place-items";
 

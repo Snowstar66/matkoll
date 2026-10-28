@@ -1,9 +1,10 @@
 import { readFileSync } from "node:fs";
-import { expect, type Locator, type Page, test } from "@playwright/test";
+import { type APIRequestContext, expect, type Locator, type Page, test } from "@playwright/test";
 import { adminClient, e2eEmail, outsiderStorageState, recipesStorageState, userStorageState } from "./support";
 
 // Story 1.6, 1.8 and 1.9: importing a recipe from pasted text, a link or a photo, with
-// AI_PROVIDER=mock. In CI this runs against the built server (`pnpm build &&
+// AI_PROVIDER=mock. Since Story 12.6 an import is an AI job (POST /api/ai/jobs and
+// /api/ai/jobs/photo), which the mock answers after AI_MOCK_DELAY_MS (3 s). In CI this runs against the built server (`pnpm build &&
 // pnpm start`), so a working import also shows that the AI port, with its
 // prompt bundled through `?raw`, works after `next build`. It also tests the
 // Sheet in a real browser: Esc, the close button and "Släng ändringarna?".
@@ -74,6 +75,52 @@ test.use({ storageState: userStorageState, viewport: mobile });
 test.beforeAll(async () => {
   await seedCatalog();
 });
+
+// The queue takes three active jobs; each test starts with none.
+test.beforeEach(async () => {
+  const { error } = await adminClient().from("ai_job").delete().eq("user_id", e2eUserId);
+  if (error) throw error;
+});
+
+/** The states of the E2E user's import jobs, oldest first. */
+async function jobStatuses(): Promise<string[]> {
+  const { data, error } = await adminClient()
+    .from("ai_job")
+    .select("status")
+    .eq("user_id", e2eUserId)
+    .order("created_at", { ascending: true });
+  if (error) throw error;
+  return data.map((row) => row.status);
+}
+
+/** Starts an import job through the route and waits for its end: the draft, or the job's error code. */
+async function runImportJob(
+  request: APIRequestContext,
+  data: Record<string, unknown>,
+): Promise<{ draft: unknown; ingredientNames: Record<string, string> } | { errorCode: string }> {
+  const started = await request.post("/api/ai/jobs", { data: { kind: "import", clientKey: crypto.randomUUID(), ...data } });
+  expect(started.status()).toBe(202);
+  const { id } = (await started.json()).data.job as { id: string };
+  let errorCode: string | null = null;
+  await expect
+    .poll(
+      async () => {
+        const result = await request.get(`/api/ai/jobs/${id}`);
+        if (result.status() === 200) return "done";
+        const list = (await (await request.get("/api/ai/jobs")).json()).data.jobs as { id: string; status: string; errorCode: string | null }[];
+        const job = list.find((candidate) => candidate.id === id);
+        if (job?.status === "failed") {
+          errorCode = job.errorCode;
+          return "failed";
+        }
+        return "waiting";
+      },
+      { timeout: 20_000, intervals: [500] },
+    )
+    .not.toBe("waiting");
+  if (errorCode !== null) return { errorCode };
+  return (await (await request.get(`/api/ai/jobs/${id}`)).json()).data.result;
+}
 
 test("the sheet opens on the Länk tab, with Text and Foto beside it", async ({ page }) => {
   const errors = watchErrors(page);
@@ -237,34 +284,23 @@ test("the ingredient search goes back to the unchanged preview with Esc or Avbry
 
 test("Avbryt stops the import and goes back to the text without an error", async ({ page }) => {
   const errors = watchErrors(page);
-  // Hold the request, so "Läser receptet …" stays until Avbryt.
-  let release = () => {};
-  const held = new Promise<void>((resolve) => {
-    release = resolve;
-  });
-  let requests = 0;
-  await page.route("**/api/ai/import", async (route) => {
-    requests++;
-    await held;
-    // The page has aborted the request by now, so there is nothing to continue.
-    await route.continue().catch(() => {});
-  });
-
   await openImport(page);
   await parse(page, linssoppa);
   await expect(sheet(page).getByRole("status").getByText("Läser receptet …")).toBeVisible();
+  await expect(sheet(page).getByText("Du kan göra annat under tiden.")).toBeVisible();
   await expect(textField(page)).toHaveValue(linssoppa);
-  const aborted = page.waitForEvent("requestfailed", (request) => request.url().endsWith("/api/ai/import"));
   await sheet(page).getByRole("button", { name: "Avbryt" }).click();
-  await aborted;
-  release();
 
   await expect(sheet(page).getByText("Läser receptet …")).toHaveCount(0);
   await expect(textField(page)).toHaveValue(linssoppa);
   await expect(textField(page)).toBeFocused();
   await expect(sheet(page).getByRole("alert")).toHaveCount(0);
   await expect(sheet(page).getByLabel("Titel")).toHaveCount(0);
-  expect(requests).toBe(1);
+  // The job is stopped, not just forgotten: it is cancelled, and no draft comes after the mock's 3 s.
+  await expect.poll(jobStatuses).toEqual(["cancelled"]);
+  await page.waitForTimeout(4_500);
+  await expect(sheet(page).getByLabel("Titel")).toHaveCount(0);
+  expect(await jobStatuses()).toEqual(["cancelled"]);
   expect(errors.filter((error) => !error.includes("Failed to load resource"))).toEqual([]);
 });
 
@@ -430,29 +466,25 @@ test.describe("import from a link", () => {
   });
 
   test("Enter while the page is read does not start a second import", async ({ page }) => {
-    let release = () => {};
-    const held = new Promise<void>((resolve) => {
-      release = resolve;
-    });
     let requests = 0;
-    await page.route("**/api/ai/import", async (route) => {
-      requests++;
-      await held;
-      await route.continue().catch(() => {});
+    await page.route("**/api/ai/jobs", async (route) => {
+      if (route.request().method() === "POST") requests++;
+      await route.continue();
     });
     await openImport(page, "Länk");
     await parseLink(page, chowMein);
     await expect(sheet(page).getByRole("status").getByText("Läser receptet …")).toBeVisible();
     await linkField(page).press("Enter");
-    release();
     await expect(sheet(page).getByLabel("Titel")).toHaveValue("Chow mein med lövbiff");
     expect(requests).toBe(1);
+    expect(await jobStatuses()).toHaveLength(1);
   });
 
   test("when the approved sites cannot be read, Försök igen tries again", async ({ page }) => {
     // The settings read cannot fail on its own in E2E, so the answer is simulated in the browser.
     let calls = 0;
-    await page.route("**/api/ai/import", async (route) => {
+    await page.route("**/api/ai/jobs", async (route) => {
+      if (route.request().method() !== "POST") return route.continue();
       calls++;
       if (calls === 1) {
         await route.fulfill({
@@ -512,7 +544,8 @@ test.describe("import from a link", () => {
   test("a redirect to another site is refused", async ({ page }) => {
     await openImport(page, "Länk");
     await parseLink(page, "https://www.koket.se/matkoll-test/annan-sajt");
-    await expect(sheet(page).getByRole("alert")).toHaveText("example.com är inte en godkänd receptsajt.");
+    // The job's own error has no site: the redirect's target is not the one Pontus gave.
+    await expect(sheet(page).getByRole("alert")).toHaveText("Sajten är inte en godkänd receptsajt.");
   });
 
   test("Klistra in länk reads the clipboard only when tapped, if the browser allows it", async ({ page, context }) => {
@@ -549,11 +582,13 @@ test.describe("desktop, 1280 × 800", () => {
   });
 });
 
-test.describe("/api/ai/import without access", () => {
+const textJob = { source: "text", text: linssoppa };
+
+test.describe("/api/ai/jobs, kind import, without access", () => {
   test.use({ storageState: { cookies: [], origins: [] } });
 
   test("answers 401 without a session", async ({ request }) => {
-    const response = await request.post("/api/ai/import", { data: { kind: "text", text: linssoppa } });
+    const response = await request.post("/api/ai/jobs", { data: { kind: "import", clientKey: crypto.randomUUID(), ...textJob } });
     expect(response.status()).toBe(401);
     expect(await response.json()).toEqual({
       ok: false,
@@ -562,64 +597,100 @@ test.describe("/api/ai/import without access", () => {
   });
 });
 
-test.describe("/api/ai/import for an address outside ALLOWED_EMAILS", () => {
+test.describe("/api/ai/jobs, kind import, for an address outside ALLOWED_EMAILS", () => {
   test.use({ storageState: outsiderStorageState });
 
   test("answers 401", async ({ request }) => {
-    const response = await request.post("/api/ai/import", { data: { kind: "text", text: linssoppa } });
+    const response = await request.post("/api/ai/jobs", { data: { kind: "import", clientKey: crypto.randomUUID(), ...textJob } });
     expect(response.status()).toBe(401);
     expect(await response.json()).toMatchObject({ ok: false, error: { code: "unauthorized" } });
   });
 });
 
-test.describe("/api/ai/import signed in", () => {
-  test("answers a draft and never writes, and rejects an invalid body", async ({ request }) => {
+test.describe("/api/ai/jobs, kind import, signed in", () => {
+  test("answers 202 at once, gives a draft in the end and never writes a recipe or an ingredient", async ({ request }) => {
     const count = () =>
       adminClient().from("ingredient").select("id", { count: "exact", head: true }).eq("user_id", e2eUserId);
     const before = await count();
-    const response = await request.post("/api/ai/import", { data: { kind: "text", text: linssoppa } });
-    expect(response.status()).toBe(200);
-    const body = await response.json();
-    expect(body).toMatchObject({ ok: true, data: { draft: { title: "Röd linssoppa med kokosmjölk", sourceKind: "text" } } });
-    expect(Object.values(body.data.ingredientNames)).toEqual(expect.arrayContaining(["Gul lök", "Vitlök"]));
+    const started = Date.now();
+    const response = await request.post("/api/ai/jobs", { data: { kind: "import", clientKey: crypto.randomUUID(), ...textJob } });
+    expect(response.status()).toBe(202);
+    // Well before the mock's 3 s: the AI works in the background.
+    expect(Date.now() - started).toBeLessThan(2_500);
+    expect(await response.json()).toMatchObject({ ok: true, data: { job: { kind: "import", context: { source: "text" } } } });
+    await expect.poll(jobStatuses, { timeout: 20_000 }).toEqual(["done"]);
+
+    const done = await runImportJob(request, textJob);
+    expect(done).toMatchObject({ draft: { title: "Röd linssoppa med kokosmjölk", sourceKind: "text" } });
+    expect(Object.values((done as { ingredientNames: Record<string, string> }).ingredientNames)).toEqual(
+      expect.arrayContaining(["Gul lök", "Vitlök"]),
+    );
     const after = await count();
     expect(before.count).toBeGreaterThan(0);
     expect(after.count).toBe(before.count);
-
-    const invalid = await request.post("/api/ai/import", { data: { kind: "text", text: "  " } });
-    expect(invalid.status()).toBe(400);
-    expect(await invalid.json()).toMatchObject({ ok: false, error: { code: "validation" } });
   });
 
-  test("answers a link with the page's draft and its source", async ({ request }) => {
-    const response = await request.post("/api/ai/import", { data: { kind: "url", url: chowMein } });
-    expect(response.status()).toBe(200);
-    expect(await response.json()).toMatchObject({
-      ok: true,
-      data: {
-        draft: {
-          title: "Chow mein med lövbiff",
-          sourceKind: "url",
-          sourceUrl: chowMein,
-          imageUrl: "https://img.koket.se/standard-mega/chow-mein-med-lovbiff-filip-poons-recept.png.jpg",
-        },
+  test("refuses an empty text and one over 12 000 characters at once, without a job", async ({ request }) => {
+    for (const text of ["  ", "a".repeat(13_000)]) {
+      const response = await request.post("/api/ai/jobs", {
+        data: { kind: "import", clientKey: crypto.randomUUID(), source: "text", text },
+      });
+      expect(response.status()).toBe(400);
+      expect(await response.json()).toMatchObject({ ok: false, error: { code: "validation" } });
+    }
+    expect(await jobStatuses()).toEqual([]);
+  });
+
+  test("keeps only the domain of a link in the job, never the link", async ({ request }) => {
+    expect(await runImportJob(request, { source: "url", url: chowMein })).toMatchObject({
+      draft: {
+        title: "Chow mein med lövbiff",
+        sourceKind: "url",
+        sourceUrl: chowMein,
+        imageUrl: "https://img.koket.se/standard-mega/chow-mein-med-lovbiff-filip-poons-recept.png.jpg",
       },
     });
+    const { data, error } = await adminClient().from("ai_job").select("context").eq("user_id", e2eUserId);
+    if (error) throw error;
+    expect(data).toEqual([{ context: { source: "url", domain: "koket.se" } }]);
   });
 
   for (const { name, url, status, code, fields } of [
     { name: "a site that is not approved", url: "https://www.example.org/recept/x", status: 422, code: "fetch_domain_not_allowed", fields: { domain: "example.org" } },
     { name: "an http link", url: "http://www.koket.se/x", status: 422, code: "fetch_invalid_url", fields: undefined },
-    { name: "a site that refuses", url: "https://www.koket.se/matkoll-test/blockerad", status: 502, code: "fetch_blocked", fields: { domain: "koket.se" } },
+    { name: "text that is not a link", url: "koket", status: 422, code: "fetch_invalid_url", fields: undefined },
   ]) {
-    test(`answers ${name} with ${status} ${code}`, async ({ request }) => {
-      const response = await request.post("/api/ai/import", { data: { kind: "url", url } });
+    test(`answers ${name} at once with ${status} ${code}, without a job`, async ({ request }) => {
+      const response = await request.post("/api/ai/jobs", {
+        data: { kind: "import", clientKey: crypto.randomUUID(), source: "url", url },
+      });
       expect(response.status()).toBe(status);
       const body = await response.json();
       expect(body).toMatchObject({ ok: false, error: { code } });
       expect(body.error.fields).toEqual(fields);
+      expect(await jobStatuses()).toEqual([]);
     });
   }
+
+  test("a site that refuses makes the job fail with fetch_blocked", async ({ request }) => {
+    expect(await runImportJob(request, { source: "url", url: "https://www.koket.se/matkoll-test/blockerad" })).toEqual({
+      errorCode: "fetch_blocked",
+    });
+  });
+
+  test("a fourth job is refused with ai_queue_full while three are active", async ({ request }) => {
+    for (let index = 0; index < 3; index++) {
+      const response = await request.post("/api/ai/jobs", {
+        data: { kind: "import", clientKey: crypto.randomUUID(), source: "text", text: `${linssoppa} ${index}` },
+      });
+      expect(response.status()).toBe(202);
+    }
+    const fourth = await request.post("/api/ai/jobs", {
+      data: { kind: "import", clientKey: crypto.randomUUID(), source: "text", text: linssoppa },
+    });
+    expect(await fourth.json()).toMatchObject({ ok: false, error: { code: "ai_queue_full" } });
+    await expect.poll(jobStatuses, { timeout: 30_000 }).toEqual(["done", "done", "done"]);
+  });
 });
 
 // Story 1.9: a photo of a cookbook page. The fixture PNG already fits (768 × 942
@@ -627,7 +698,7 @@ test.describe("/api/ai/import signed in", () => {
 // bytes; the reserved PNGs make the mock fail with an error code the same way.
 
 const photoPath = "tests/fixtures/ai/ugnspannkaka.png";
-const photoRoute = "**/api/ai/import/photo";
+const photoRoute = "**/api/ai/jobs/photo";
 
 /** Opens the Foto tab and chooses `files` with "Välj bild", through the browser's file chooser. */
 async function choosePhoto(page: Page, files: Parameters<import("@playwright/test").FileChooser["setFiles"]>[0]) {
@@ -854,26 +925,16 @@ test.describe("import from a photo", () => {
 
   test("Avbryt stops the photo import without an error", async ({ page }) => {
     const errors = watchErrors(page);
-    let release = () => {};
-    const held = new Promise<void>((resolve) => {
-      release = resolve;
-    });
-    await page.route(photoRoute, async (route) => {
-      await held;
-      await route.continue().catch(() => {});
-    });
     await openImport(page, "Länk");
     await choosePhoto(page, photoPath);
     await expect(sheet(page).getByRole("status").getByText("Läser receptet …")).toBeVisible();
-    const aborted = page.waitForEvent("requestfailed", (request) => request.url().endsWith("/api/ai/import/photo"));
     await sheet(page).getByRole("button", { name: "Avbryt" }).click();
-    await aborted;
-    release();
 
     await expect(sheet(page).getByText("Läser receptet …")).toHaveCount(0);
     await expect(sheet(page).getByRole("alert")).toHaveCount(0);
     await expect(sheet(page).getByLabel("Titel")).toHaveCount(0);
     await expect(sheet(page).getByRole("button", { name: "Välj bild" })).toBeFocused();
+    await expect.poll(jobStatuses).toEqual(["cancelled"]);
     expect(errors.filter((error) => !error.includes("Failed to load resource"))).toEqual([]);
   });
 
@@ -910,7 +971,7 @@ test.describe("import from a photo", () => {
     await sheet(page).getByLabel("Titel").fill("Pannkaka");
     await sheet(page).getByRole("button", { name: "Tillbaka till bilden" }).click();
     await choosePhoto(page, "tests/fixtures/ai/reserved-ai_rejected.png");
-    const sent = page.waitForRequest((request) => request.url().endsWith("/api/ai/import/photo"));
+    const sent = page.waitForRequest((request) => request.url().endsWith("/api/ai/jobs/photo"));
     await sheet(page).getByRole("button", { name: "Släng ändringarna" }).click();
     await sent;
     await expect(sheet(page).getByRole("alert")).toHaveText(
@@ -942,49 +1003,59 @@ test.describe("import from a photo on a phone", () => {
   });
 });
 
-test.describe("/api/ai/import/photo without access", () => {
+/** A multipart form for a photo job. */
+const photoJob = (buffer: Buffer, name = "photo.png", mimeType = "image/png") => ({
+  kind: "import",
+  clientKey: crypto.randomUUID(),
+  image: { name, mimeType, buffer },
+});
+
+test.describe("/api/ai/jobs/photo without access", () => {
   test.use({ storageState: { cookies: [], origins: [] } });
 
   test("answers 401 without a session", async ({ request }) => {
-    const response = await request.post("/api/ai/import/photo", {
-      multipart: { image: { name: "photo.png", mimeType: "image/png", buffer: readFileSync(photoPath) } },
-    });
+    const response = await request.post("/api/ai/jobs/photo", { multipart: photoJob(readFileSync(photoPath)) });
     expect(response.status()).toBe(401);
     expect(await response.json()).toEqual({ ok: false, error: { code: "unauthorized", message: "Du behöver logga in." } });
   });
 });
 
-test.describe("/api/ai/import/photo signed in", () => {
-  test("answers a draft from the photo and never writes", async ({ request }) => {
+test.describe("/api/ai/jobs/photo signed in", () => {
+  test("answers 202, reads the photo in the background, never writes, and keeps no photo in the job", async ({ request }) => {
     const count = () => adminClient().from("ingredient").select("id", { count: "exact", head: true }).eq("user_id", e2eUserId);
     const before = await count();
-    const response = await request.post("/api/ai/import/photo", {
-      multipart: { image: { name: "photo.jpg", mimeType: "image/jpeg", buffer: readFileSync(photoPath) } },
+    const response = await request.post("/api/ai/jobs/photo", {
+      multipart: photoJob(readFileSync(photoPath), "photo.jpg", "image/jpeg"),
     });
-    expect(response.status()).toBe(200);
-    expect(await response.json()).toMatchObject({
+    expect(response.status()).toBe(202);
+    const { id } = (await response.json()).data.job as { id: string };
+    await expect.poll(jobStatuses, { timeout: 20_000 }).toEqual(["done"]);
+    const result = await request.get(`/api/ai/jobs/${id}`);
+    expect(await result.json()).toMatchObject({
       ok: true,
-      data: { draft: { title: "Ugnspannkaka med bacon", sourceKind: "photo", sourceUrl: null, imageUrl: null } },
+      data: { result: { draft: { title: "Ugnspannkaka med bacon", sourceKind: "photo", sourceUrl: null, imageUrl: null } } },
     });
+    const { data, error } = await adminClient().from("ai_job").select("context").eq("user_id", e2eUserId);
+    if (error) throw error;
+    expect(data).toEqual([{ context: { source: "photo" } }]);
     expect((await count()).count).toBe(before.count);
   });
 
-  test("answers an image over 1.5 MB with 413 image_too_large", async ({ request }) => {
+  test("answers an image over 1.5 MB with 413 image_too_large, without a job", async ({ request }) => {
     // About 1.6 MB: under the 2 MB request limit, so the image's own size check answers.
     const big = Buffer.concat([readFileSync(photoPath), Buffer.alloc(1.6 * 1024 * 1024 - 110_000)]);
-    const response = await request.post("/api/ai/import/photo", {
-      multipart: { image: { name: "photo.png", mimeType: "image/png", buffer: big } },
-    });
+    const response = await request.post("/api/ai/jobs/photo", { multipart: photoJob(big) });
     expect(response.status()).toBe(413);
     expect(await response.json()).toEqual({
       ok: false,
       error: { code: "image_too_large", message: "Bilden är för stor. Ta en ny bild eller välj en mindre bild." },
     });
+    expect(await jobStatuses()).toEqual([]);
   });
 
   test("answers a text file with 415 image_unsupported, even when it says it is a JPEG", async ({ request }) => {
-    const response = await request.post("/api/ai/import/photo", {
-      multipart: { image: { name: "recept.jpg", mimeType: "image/jpeg", buffer: Buffer.from(kycklinggryta) } },
+    const response = await request.post("/api/ai/jobs/photo", {
+      multipart: photoJob(Buffer.from(kycklinggryta), "recept.jpg", "image/jpeg"),
     });
     expect(response.status()).toBe(415);
     expect(await response.json()).toEqual({
