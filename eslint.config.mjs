@@ -77,6 +77,12 @@ const layerZones = [
     message: "Ports never import features or Supabase; pass what they need as arguments (AD-1).",
   },
   {
+    // Only recipes (import, AD-11) and offers (the weekly offers, AD-25) fetch from other sites.
+    target: "./src/features/!(recipes|offers)/**",
+    from: ["./src/server/fetch/**"],
+    message: "Only the recipes and offers modules may use the fetch port (AD-1, AD-11, AD-25).",
+  },
+  {
     target: ["./src/components/**", "./src/lib/**"],
     from: ["./src/features/**"],
     message: "Shared code never imports feature modules (AD-1).",
@@ -172,6 +178,10 @@ const eslintConfig = defineConfig([
       "import/no-restricted-paths": ["error", { basePath: root, zones: layerZones }],
       "no-restricted-imports": restrictedImports(),
       "no-restricted-syntax": ["error", ...processEnvSelectors, ...serviceRoleSelectors],
+      // Code from a page is never run (AD-25): no eval, no Function, no string timers.
+      "no-eval": "error",
+      "no-new-func": "error",
+      "no-implied-eval": "error",
     },
   },
   {

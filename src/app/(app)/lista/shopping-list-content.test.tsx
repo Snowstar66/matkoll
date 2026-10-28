@@ -113,6 +113,7 @@ describe("ShoppingListContent", () => {
       externalStoreId: "1003733",
       address: null,
       url: null,
+      offersUrl: null,
       isSelected: true,
     };
     vi.mocked(getShoppingList).mockResolvedValue(
@@ -194,6 +195,7 @@ describe("ShoppingListContent", () => {
           externalStoreId: "1003733",
           address: null,
           url: null,
+          offersUrl: null,
           isSelected: true,
         },
         unreadableChoices: [graddeId],

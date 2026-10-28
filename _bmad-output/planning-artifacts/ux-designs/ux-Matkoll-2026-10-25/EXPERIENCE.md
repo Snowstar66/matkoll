@@ -12,6 +12,7 @@ sources:
   - _bmad-output/planning-artifacts/sprint-change-proposal-2026-10-26-nytt-utseende.md (Epic 11)
   - _bmad-output/planning-artifacts/ux-designs/ux-Matkoll-2026-10-25/mockups/ (Epic 11)
   - _bmad-output/planning-artifacts/sprint-change-proposal-2026-10-26-asynkron-ai.md (Epic 12)
+  - _bmad-output/planning-artifacts/sprint-change-proposal-2026-10-26-erbjudanden-v2.md (Epic 9, version 1.2)
 ---
 
 # Matkoll – upplevelse
@@ -25,6 +26,10 @@ Matkoll är en webbapp, mobil först (från 375 px), som också fungerar på dat
 **Nytt utseende (Epic 11).** Pontus godkände tre skisser 2026-10-26 (länkade under Brand & Style i `DESIGN.md`). De visar målet för Recept, Matsedel, Inköpslista och Lagersaldo i mobilen. Det är fortfarande en och samma responsiva webbapp, men den kan läggas på hemskärmen och öppnas i helskärm som en app. Vid konflikt med en skiss gäller den här filen och `DESIGN.md`. Namnen Lagersaldo och Inköpslista kommer från Story 10.4.
 
 **AI i bakgrunden (Epic 12).** Bildanalys, AI-förslag och receptimport är AI-jobb. Pontus startar ett jobb och kan göra annat medan AI:n arbetar. Jobben körs ett i taget, i den ordning de startades. En jobbrad visar vad som pågår, en kort bekräftelse säger till när något är klart, och fliken där resultatet visas får ett märke. Inget från AI sparas utan att Pontus bekräftar, som förut.
+
+**Veckans erbjudanden (Epic 9, version 1.2).** Matkoll hämtar veckans erbjudanden från butikens länk med ett tryck, eller läser dem ur inklistrad text eller ett foto av reklambladet. Erbjudandena syns som en etikett på inköpslistan, i filtret Erbjudanden i Recept, i "Fyll på lagret", i AI-förslagen och i förslaget till veckans matsedel. Allt följer utseendet från Epic 11: kategorier med platta, listrader, grå soptunna med "Ångra" och etiketter.
+
+Begreppen följer PRD:ns ordlista (§3) ordagrant: recept, receptbibliotek, matsedel, matsedelsrätt, inköpslista, listpost, lager, lagervara, plats, stegläge, AI-förslag, lagerförslag med flera. Från version 1.1 kommer **ställe** och **valt ställe** från addendumet ("Version 1.1: Flera ställen"). Ett ställe (Hemma, Stugan) har platserna Kyl, Frys och Skafferi, och ordet "plats" betyder fortfarande bara dem. Från version 1.2 kommer **erbjudande**, **veckans erbjudanden**, **länk till erbjudanden**, **basvara** och **erbjudandeetikett** från addendumet ("Version 1.2: Veckans erbjudanden"). Ett erbjudande gäller alltid en butik och en vecka.
 
 Begreppen följer PRD:ns ordlista (§3) ordagrant: recept, receptbibliotek, matsedel, matsedelsrätt, inköpslista, listpost, lager, lagervara, plats, stegläge, AI-förslag, lagerförslag med flera. Från version 1.1 kommer **ställe** och **valt ställe** från addendumet ("Version 1.1: Flera ställen"). Ett ställe (Hemma, Stugan) har platserna Kyl, Frys och Skafferi, och ordet "plats" betyder fortfarande bara dem.
 
@@ -54,12 +59,16 @@ Begreppen följer PRD:ns ordlista (§3) ordagrant: recept, receptbibliotek, mats
 | Byt ställe (ark, 1.1) | "Byt" på raden "Lager: Stugan" i Inköpslistan | Välja vilket ställe listan räknas mot. Det är samma val som i Lagersaldo. | FR-32 | Ark, Flöde 6 |
 | Senaste foto (rad, Epic 10) | I Lagersaldo, direkt under kameraknappen, när platsen har ett sparat foto | Visa när platsen senast fotograferades, och öppna fotot | FR-38 | Senaste foto |
 | Fotot av kylen (ark, Epic 10) | "Visa" på raden Senaste foto | Det sparade fotot med numren och AI:ns avläsning; ta bort fotot | FR-38, FR-39 | Ark, Fotoark |
-| Inställningar | Kugghjul i Recept-rubriken (mobil), längst ned i sidomenyn (dator) | Godkända receptsajter, butik, logga ut | FR-7, FR-28 | Settings |
+| Inställningar | Kugghjul i Recept-rubriken (mobil), längst ned i sidomenyn (dator) | Godkända receptsajter, butik (från 1.2 med länk till erbjudanden), logga ut | FR-7, FR-28, FR-34 | Settings |
 | Kategorier (Epic 11) | Lagersaldo och Inköpslista | Varorna grupperade i nio kategorier med ikon, i butikens ordning | FR-40 | Kategorirubrik, skisserna |
 | Sök i platsen (Epic 11) | Överst i Lagersaldos lista, när platsen har varor | Hitta en vara i kylen, frysen eller skafferiet | FR-41 | Sök i platsen |
 | I korgen (Epic 11) | Längst ned i Inköpslistan, när något är avbockat | Det som redan ligger i korgen, hopfällt | FR-43 | I korgen |
 | Inloggning med kod (Epic 11) | Inloggningssidan, efter "Skicka länk" | Logga in med koden från mejlet, också i appen på hemskärmen | FR-1, FR-44 | Flöde 9 |
 | Matkoll på hemskärmen (Epic 11) | Safaris "Dela" → "Lägg till på hemskärmen"; en rad i Inställningar förklarar det | Öppna Matkoll i helskärm med egen ikon | FR-44 | Flöde 9 |
+| Veckans erbjudanden (ark, Epic 9) | Textknappen "Erbjudanden" i Inköpslistans rubrik, "Visa erbjudanden" i filtret Erbjudanden i Recept | Hämta veckans erbjudanden, se dem i kategorier, Fyll på lagret, klistra in text eller fotografera bladet, ta bort | FR-34, FR-35, FR-53 | Veckans erbjudanden (ark), Flöde 7 |
+| Filtret Erbjudanden (Epic 9) | Fjärde filterpillret i Recept | Recept som använder veckans erbjudanden | FR-52 | Filterpiller, Erbjudandeetikett, Flöde 7 |
+| Erbjudandeetikett (Epic 9) | Listpost, receptkort i filtret Erbjudanden, AI-förslag, förslaget till veckans matsedel | Visa att en vara är på erbjudande, med pris | FR-36, FR-51, FR-52 | Erbjudandeetikett |
+| Förslag till veckans matsedel (Epic 9) | "Föreslå veckans matsedel" i Matsedel | Fem rätter utifrån erbjudandena och lagret, välja vilka som läggs på matsedeln | FR-54 | Förslag till veckans matsedel, Flöde 7 |
 | Jobbrad (Epic 12) | Ovanför flikfältet (mobil), överst i sidomenyn (dator), på alla sidor när ett AI-jobb är i kö eller pågår | Se vad AI:n arbetar med och hur många som står i kö | FR-47 | Jobbrad, Flöde 10 |
 | AI-jobb (ark, Epic 12) | Tryck på jobbraden | Alla aktiva och klara jobb med läge, "Avbryt" och "Visa" | FR-46, FR-47, FR-48 | AI-jobb (ark), Flöde 10 |
 
@@ -116,6 +125,16 @@ Matkoll skriver aldrig att Pontus *är* på ett ställe, bara vilket lager som g
 | "Det finns redan tre AI-jobb. Vänta tills ett är klart." | "Kön är full (429)" |
 | "Förslagen bygger på lagret för Hemma." | "Inaktuellt resultat" |
 
+**Erbjudanden i texter (Epic 9):** veckan skrivs "vecka 45" och, där det finns plats, med datum: "vecka 45, 4–10 nov". Butiken nämns med sitt namn. Priser och villkor står som butiken skrev dem ("2 för 119 kr", "89 kr/kg", "Stammis", "Max 1 köp/hushåll") och räknas aldrig om. Matkoll lovar aldrig att något blir billigare och säger aldrig "fynd" eller "spara". Etiketten är varan och priset: "Falukorv 29 kr". Ett fel med butikens sida säger vad som hände och ger en väg vidare, aldrig en statuskod.
+
+| Gör | Gör inte |
+| --- | --- |
+| "Falukorv 29 kr" | "Fynd! Spara 10 kr 🎉" |
+| "Hämtade 91 erbjudanden för vecka 45." | "Synkroniseringen lyckades" |
+| "ica.se släppte inte in Matkoll just nu. Öppna sidan och titta där, eller försök igen senare." | "Fel 403" |
+| "Finns i Hemma, inte i Stugan" | "Stugan har slut!" |
+| "122 varor som inte är mat togs inte med." | "122 poster filtrerades" |
+
 ## Component Patterns
 
 Beteende. Utseendet beskrivs under Components i `DESIGN.md`, med samma namn och ordning. Komponenter som bara har beteende (Matsedelsrätt, Stegläge) står sist.
@@ -124,7 +143,7 @@ Beteende. Utseendet beskrivs under Components i `DESIGN.md`, med samma namn och 
 | --- | --- | --- |
 | Flikfält / Sidomeny | Alla huvudytor | Byter yta utan att tappa scrollposition eller filter i den yta man lämnar. |
 | Sökfält | Recept, Lägg till rätt, Lagervara | Söker på titel och ingrediens (även synonymer) medan man skriver, efter 200 ms paus. |
-| Filterpiller | Recept | Ett valt åt gången. "Kan lagas nu" sorterar efter antal saknade varor, minst först (FR-22). Valet sparas på enheten. |
+| Filterpiller | Recept | Ett valt åt gången. "Kan lagas nu" sorterar efter antal saknade varor, minst först (FR-22). Valet sparas på enheten. Från Epic 9 finns ett fjärde piller, "Erbjudanden" (FR-52). |
 | Receptrad | Recept, Lägg till rätt, AI-förslag | Tryck öppnar receptvyn. I Lägg till rätt lägger ett tryck i stället rätten på matsedeln och stänger arket. |
 | Statusetikett | Receptrad, Matsedelsrätt | Räknas om när lagret ändras (FR-8). |
 | AI-etikett | AI-förslag, förhandsgranskning av AI-förslag | Följer med tills receptet sparats. Ett sparat AI-förslag får källan "AI-förslag". AI-förslag visas i en egen sektion och blandas aldrig med biblioteket. |
@@ -160,6 +179,11 @@ Beteende. Utseendet beskrivs under Components i `DESIGN.md`, med samma namn och 
 | Rättkort (Epic 11) | Matsedel | Som Matsedelsrätt: bild, titel, "6 av 8 hemma" (eller "Allt finns hemma") och mätaren, och portionsväljaren under. "Visa inköpslistan" längst ned i Matsedel går till Inköpslistan. |
 | Tillbakaknapp (Epic 11) | Receptvy, tidigare matsedel, Inställningar | En synlig "Tillbaka" (pil och text) överst på varje sida under en flik, eftersom appen på hemskärmen inte har webbläsarens bakåtknapp. |
 | Inloggning med kod (Epic 11) | Inloggning | Efter "Skicka länk" står "Vi har skickat en länk och en kod till din e-post." och fältet "Kod från mejlet" (sex siffror, `inputmode="numeric"`, `autocomplete="one-time-code"`) med knappen "Logga in". Länken fungerar som förut. Fel kod eller gammal kod: "Koden stämmer inte eller har gått ut. Skicka en ny länk." Samma svar för alla adresser. |
+| Erbjudandeetikett (Epic 9) | Listpost, receptkort, AI-förslag, förslaget till veckans matsedel | En liten etikett i mint med varan och priset: "Falukorv 29 kr", avkortad med "…" efter 28 tecken. Bara visning, inget tryck. Skärmläsaren läser "På erbjudande: Falukorv 29 kr". På en listpost står den först på raden under namnet, före rätterna, och produktetiketten står kvar till höger. På ett kort står upp till två etiketter under titeln och "+N" för resten ("och 2 till på erbjudande"). |
+| Veckans erbjudanden (ark, Epic 9) | Inköpslista, Recept | Rubriken "Veckans erbjudanden" och under den butiken och veckan ("Maxi ICA Stormarknad Östersund · vecka 45, 4–10 nov"). **Utan erbjudanden, med länk:** "Inga erbjudanden hämtade för vecka 45." och primärknappen "Hämta veckans erbjudanden". Förloppet: "Hämtar erbjudandena från ica.se …". **Utan länk:** meddelanderutan "Lägg in länken till butikens erbjudanden under Butik i Inställningar." med "Öppna inställningar", och från 9.7 "Klistra in text" och "Fotografera bladet". **Med erbjudanden:** "91 erbjudanden · hämtade idag 07:12" och textknappen "Hämta igen"; avsnittet "Fyll på lagret" (om det finns basvaror på erbjudande); erbjudandena under Kategorirubriker i Listgrupper, där listraden har namnet som butiken skrev det och raden under med pris och villkor ("89 kr/kg · Stammis · Max 1 köp/hushåll · t.o.m. 22 nov") och, från 9.9, en grå soptunna; sist textlänken "Öppna sidan på ica.se" (ny flik). Kortbekräftelsen efter en hämtning: "Hämtade 91 erbjudanden för vecka 45.", och raden "122 varor som inte är mat togs inte med." under rubriken. Fel visas i en meddelanderuta med "Öppna sidan". **Text och foto (9.7, 9.8):** samma inläsning som Importera recept, som AI-jobb, och sedan en granskning: "Hittade 18 erbjudanden för vecka 45.", en rad per erbjudande med "Ta bort" (utan "Ångra", eftersom inget är sparat) och primärknappen "Spara 16 erbjudanden". Veckopillren "Vecka 44" och "Vecka 45" väljer vecka för text och foto. **Ta bort (9.9):** soptunnan tar bort direkt, "Tog bort Falukorv." med "Ångra"; "Ta bort alla" ger "Tog bort 91 erbjudanden." med "Ångra". |
+| Fyll på lagret (Epic 9) | Veckans erbjudanden | Överst i arket, rubriken "Fyll på lagret" (`h2`) och raden "Erbjudanden på varor du brukar ha hemma.". En listrad per basvara på erbjudande: namnet, och under det priset och var varan finns ("49 kr · Finns i Hemma, inte i Stugan"; med ett ställe "Finns hemma" eller "Finns inte hemma"; utan lager "Du brukar köpa Gevalia"). Det som saknas på något ställe står först. Textknappen "Lägg på listan" (namn "Lägg kaffe på listan") lägger varan som egen vara på inköpslistan, bekräftelsen säger "Lade kaffe på inköpslistan." och knappen byter till "På listan". Utan aktuell matsedel finns ingen knapp, och raden säger "Lägg rätter på matsedeln för att få en inköpslista.". Utan basvaror på erbjudande syns inte avsnittet. |
+| Filtret Erbjudanden (Epic 9) | Recept | Överst raden "Recept med veckans erbjudanden från Maxi ICA Stormarknad Östersund, vecka 45." i `{typography.meta}` med textknappen "Visa erbjudanden". Receptkorten med minst en huvudvara på erbjudande (inte kryddor, såser eller vaga rader), flest först och sedan minst saknat, med erbjudandeetiketter. Längst ned, från 9.5, "Föreslå rätter med AI". |
+| Förslag till veckans matsedel (Epic 9) | Matsedel | Sekundärknappen "Föreslå veckans matsedel" under "Lägg till rätt" startar ett AI-jobb ("Planerar veckan … Du kan göra annat under tiden." och "Avbryt"). Resultatet: rubriken "Förslag till veckans matsedel" och fem rättkort med en rund bock till vänster (förvald), "6 av 8 hemma" och erbjudandeetiketter. Nya rätter har AI-etiketten och textknappen "Granska och spara", som öppnar förhandsgranskningen, och ingen bock förrän de är sparade. Primärknappen "Lägg 3 rätter på matsedeln" följer antalet bockar. Bekräftelsen säger "Lade 3 rätter på matsedeln.". "Stäng förslaget" tar bort det. |
 | Jobbrad (Epic 12) | Alla | Visas när minst ett AI-jobb är i kö eller pågår: "AI: Tittar på fotot av kylen · 2 i kö" (utan kö bara "AI: Tittar på fotot av kylen"). Texten för det som pågår: "Tittar på fotot av kylen", "Letar efter rättförslag", "Läser receptet från koket.se". Ett tryck öppnar arket AI-jobb. Raden försvinner när inget är aktivt. Den annonseras inte vid varje pollning, bara när ett jobb startar ("AI-jobbet står i kö.") via live-regionen. Namn för skärmläsare: "AI-jobb: Tittar på fotot av kylen, 2 i kö". |
 | AI-jobb (ark, Epic 12) | Alla | Rubriken "AI-jobb". En rad per jobb, nyast överst: vad det gäller och läget ("Pågår", "I kö, 1 före", "Klart", "Gick inte", "Avbrutet"). Ett jobb i kö eller som pågår har "Avbryt" (utan fråga: det går att starta igen). Ett klart jobb har "Visa", som stänger arket och öppnar resultatet. Ett jobb som inte gick har texten från felet och "Försök igen" när det går (inte för ett foto efter en omladdning). Stängs som andra ark. |
 | Flikmärke (Epic 12) | Flikfält, sidomeny | En liten accentfärgad rund etikett med siffra på fliken Recept (klara AI-förslag och importer) och Lagersaldo (klara bildanalyser), med antalet klara jobb som Pontus inte har sett, också de som inte gick. Visas inte på den flik Pontus står på. Ett resultat räknas som sett när det har visats på sin sida. Märket uppdateras på alla enheter vid nästa pollning. Fliken läses "Recept, 1 nytt AI-resultat". Bara för AI-jobb. |
@@ -222,6 +246,21 @@ Gemensamma tillstånd först, sedan per yta i IA-ordning.
 | Inget i korgen (Epic 11) | Inköpslista | Ingen korgrad. Bara "Skicka till ICA" längst ned. |
 | Fel kod (Epic 11) | Inloggning | Under fältet: "Koden stämmer inte eller har gått ut. Skicka en ny länk." Fältet töms inte. |
 | Öppnad från hemskärmen (Epic 11) | Alla | Helskärm utan webbläsarens fält. Statusraden har appens bakgrund. Utan session visas inloggningen med kodfältet. |
+| Länken saknas (Epic 9) | Veckans erbjudanden | Meddelanderuta: "Lägg in länken till butikens erbjudanden under Butik i Inställningar." + "Öppna inställningar". |
+| Kedjan stöds inte (Epic 9) | Inställningar, Veckans erbjudanden | Under Butik: "Länk stöds bara för ICA än så länge." I arket, från 9.7: "Klistra in text" och "Fotografera bladet". |
+| Fel adress (Epic 9) | Inställningar | Under fältet: "Ange adressen till butikens erbjudanden på ica.se, till exempel https://www.ica.se/erbjudanden/maxi-ica-stormarknad-ostersund-1003733/." |
+| Hämtar (Epic 9) | Veckans erbjudanden | "Hämtar erbjudandena från ica.se …". Knappen är inaktiv. Ingen "Avbryt", eftersom hämtningen tar högst 10 s. |
+| Hämtade nyss (Epic 9) | Veckans erbjudanden | Meddelanderuta: "Erbjudandena hämtades nyss. Försök igen om en stund." |
+| Butiken nekar (Epic 9) | Veckans erbjudanden | Meddelanderuta: "ica.se släppte inte in Matkoll just nu. Öppna sidan och titta där, eller försök igen senare." + "Öppna sidan". Inget nytt försök. |
+| Sidan har ändrats (Epic 9) | Veckans erbjudanden | Meddelanderuta: "Sidan med erbjudanden ser inte ut som Matkoll väntar sig. Öppna sidan och titta där." + "Öppna sidan". |
+| Gammal sida (Epic 9) | Veckans erbjudanden | Meddelanderuta: "Sidan visar inte den här eller nästa veckas erbjudanden." |
+| Inga erbjudanden på mat (Epic 9) | Veckans erbjudanden | Meddelanderuta: "Hittade inga erbjudanden på mat." |
+| Ingen butik vald (Epic 9) | Veckans erbjudanden, filtret Erbjudanden | "Välj en butik i inställningarna först." + "Öppna inställningar". |
+| Inga erbjudanden (Epic 9) | Filtret Erbjudanden | "Inga erbjudanden för den här veckan." + "Hämta veckans erbjudanden" (eller "Visa erbjudanden" utan länk). |
+| Inget recept använder erbjudandena (Epic 9) | Filtret Erbjudanden | "Inget recept använder veckans erbjudanden." + "Föreslå rätter med AI" (från 9.5). |
+| Erbjudandena går inte att läsa (Epic 9) | Inköpslista, Recept, AI-förslag | Inköpslistan och AI-förslagen visas utan etiketter. Filtret Erbjudanden: "Det gick inte att läsa erbjudandena.". |
+| Erbjudanden i AI-förslag (Epic 9) | AI-förslag | Över förslagen: "Med veckans erbjudanden från Maxi ICA Stormarknad Östersund.", eller "Inget av förslagen använder veckans erbjudanden.". |
+| Förslag för ett annat ställe (Epic 9) | Förslag till veckans matsedel | "Förslaget bygger på lagret för Hemma." + "Föreslå igen". |
 | AI-jobb i kö (Epic 12) | Flödet, jobbraden, arket | "I kö, 1 före." i flödet, "· 1 i kö" i jobbraden. "Avbryt" finns. |
 | AI-jobb pågår (Epic 12) | Flödet, jobbraden, arket | Flödets text med "Du kan göra annat under tiden." och "Avbryt". |
 | AI-jobb klart (Epic 12) | Alla | Kort bekräftelse med "Visa" och flikmärke (Component Patterns). På resultatets sida visas resultatet direkt. |
@@ -340,9 +379,20 @@ iPhone Safari är huvudmålet. Innehållet håller sig innanför säkerhetsmargi
 
 **Variant, se stugans lager hemifrån:** i Lagersaldo trycker Pontus på pillret Stugan, ser att kaffet är slut i skafferiet och trycker på Hemma igen. Valet gäller hela appen tills det byts, så raden "Lager: Stugan" syns i listan, matsedeln och receptvyn under tiden.
 
-### Flöde 8 – Läste den rätt? (UJ-8, Epic 10, Pontus vid köksbänken)
+### Flöde 7 – Veckan efter erbjudandena (UJ-7, Epic 9, söndag förmiddag)
 
-Flöde 7 hör till Epic 9 (veckans erbjudanden), som vilar.
+1. Pontus öppnar Inköpslista och trycker "Erbjudanden" i rubriken. Arket säger "Inga erbjudanden hämtade för vecka 45." Pontus trycker "Hämta veckans erbjudanden".
+2. "Hämtar erbjudandena från ica.se …". Efter några sekunder: "Hämtade 91 erbjudanden för vecka 45." Erbjudandena står under Kött, fisk & chark, Mejeri & ägg och de andra kategorierna.
+3. Överst under "Fyll på lagret" står "Gevalia Mellanrost 450 g" med "49 kr · Finns i Hemma, inte i Stugan". Pontus trycker "Lägg på listan", eftersom resan till stugan är nästa helg.
+4. Pontus går till Matsedel och trycker "Föreslå veckans matsedel". "Planerar veckan … Du kan göra annat under tiden." Pontus väljer filtret Erbjudanden i Recept under tiden och ser Korv stroganoff först, med "Falukorv 29 kr" och "Gul lök 10 kr".
+5. En kort bekräftelse säger att förslaget är klart. Fem rätter: tre ur biblioteket och två nya med AI-etiketten. Pontus trycker "Lägg 3 rätter på matsedeln" och "Granska och spara" på en av de nya.
+6. **Klimax:** i Inköpslistan står "Falukorv 29 kr" under falukorven, och kaffet står som egen vara. Pontus trycker "Skicka till ICA" som vanligt.
+
+**Variant, en annan kedja:** för Willys finns ingen länk. Pontus trycker "Klistra in text" i arket, klistrar in texten från Willys sida, tar bort två rader som inte är mat i granskningen och trycker "Spara 16 erbjudanden". Eller "Fotografera bladet" med reklambladet från brevlådan.
+
+**Variant, ica.se nekar:** meddelanderutan säger att ica.se inte släppte in Matkoll just nu. Pontus trycker "Öppna sidan" och ser erbjudandena i webbläsaren, eller klistrar in texten.
+
+### Flöde 8 – Läste den rätt? (UJ-8, Epic 10, Pontus vid köksbänken)
 
 1. På lördagen fotograferar Pontus kylen, trycker "Bekräfta alla" och går vidare.
 2. Ett par dagar senare ser Pontus "cappuccino" under Kyl i Lagersaldo, fast det inte finns någon.
@@ -379,9 +429,11 @@ Flöde 7 hör till Epic 9 (veckans erbjudanden), som vilar.
 | Inställning | Beteende |
 | --- | --- |
 | Godkända receptsajter | Lista med domäner; lägg till (bara domännamn, valideras) och ta bort. Gäller direkt (FR-7). |
-| Butik | Namn, kedja, butiks-id, adress. Förvald: Maxi ICA Stormarknad Östersund (FR-28). |
+| Butik | Namn, kedja, butiks-id, adress. Förvald: Maxi ICA Stormarknad Östersund (FR-28). Från 1.2 fältet "Länk till veckans erbjudanden" (FR-34) med hjälptexten "Öppna butikens erbjudanden på ica.se och kopiera adressen." Bara för kedjan ICA; för andra kedjor står "Länk stöds bara för ICA än så länge." Länken är förifylld för Maxi ICA Stormarknad Östersund. Butikskortet visar "Erbjudanden: ica.se" när länken finns. |
 | Logga ut | Textknapp längst ned. |
 
 Produktval (FR-27) anges per vara i listpostdetaljen och gäller för den katalogingrediensen i vald butik.
 
 Ställen (1.1, FR-29) hanteras i Lagersaldo, i arket Ställen, och inte i Inställningar, eftersom de hör till lagret.
+
+Veckans erbjudanden (1.2) hämtas och visas i arket Veckans erbjudanden, inte i Inställningar, eftersom de ändras varje vecka. Bara länken, som är densamma varje vecka, ligger i Inställningar.

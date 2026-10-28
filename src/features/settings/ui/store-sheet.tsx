@@ -9,6 +9,7 @@ import { Sheet } from "@/components/sheet";
 import { useToast } from "@/components/toast";
 import { errorMessages, fail } from "@/lib/errors";
 import { saveStore, type SaveStoreState } from "../actions/save-store";
+import { offerSiteFor, offersLinkChainText, offersLinkHint, offersLinkLabel } from "../domain/offers-link";
 import {
   changeChainHint,
   newStoreId,
@@ -31,23 +32,27 @@ type FormValues = {
   externalStoreId: string;
   address: string;
   url: string;
+  offersUrl: string;
   makeSelected: boolean;
 };
 
-type Field = "name" | "externalStoreId" | "address" | "url";
-const textFields: readonly Field[] = ["name", "externalStoreId", "address", "url"];
+type Field = "name" | "externalStoreId" | "address" | "url" | "offersUrl";
+const textFields: readonly Field[] = ["name", "externalStoreId", "address", "url", "offersUrl"];
 
 /** Stands in for the id while the fields are checked as Pontus types; the id is never a field. */
 const checkId = "00000000-0000-4000-8000-000000000000";
 
 function valuesOf(store: Store | undefined): FormValues {
-  if (!store) return { name: "", chain: "ICA", externalStoreId: "", address: "", url: "", makeSelected: true };
+  if (!store) {
+    return { name: "", chain: "ICA", externalStoreId: "", address: "", url: "", offersUrl: "", makeSelected: true };
+  }
   return {
     name: store.name,
     chain: store.chain,
     externalStoreId: store.externalStoreId ?? "",
     address: store.address ?? "",
     url: store.url ?? "",
+    offersUrl: store.offersUrl ?? "",
     makeSelected: false,
   };
 }
@@ -105,7 +110,8 @@ export function StoreSheet({ open, onClose, session, store, onSaved }: StoreShee
   const externalStoreIdRef = useRef<HTMLInputElement>(null);
   const addressRef = useRef<HTMLInputElement>(null);
   const urlRef = useRef<HTMLInputElement>(null);
-  const refs = { name: nameRef, externalStoreId: externalStoreIdRef, address: addressRef, url: urlRef };
+  const offersUrlRef = useRef<HTMLInputElement>(null);
+  const refs = { name: nameRef, externalStoreId: externalStoreIdRef, address: addressRef, url: urlRef, offersUrl: offersUrlRef };
   const ids = useId();
   const editing = store !== undefined;
 
@@ -203,9 +209,11 @@ export function StoreSheet({ open, onClose, session, store, onSaved }: StoreShee
   }
 
   const formId = `${ids}-form`;
-  const textField = (field: Field, label: string, props: Partial<ComponentProps<typeof Input>> = {}) => {
+  const textField = (field: Field, label: string, props: Partial<ComponentProps<typeof Input>> = {}, hint?: string) => {
     const message = fieldError(field);
     const errorId = `${ids}-${field}-error`;
+    const hintId = `${ids}-${field}-hint`;
+    const describedBy = [hint ? hintId : null, message ? errorId : null].filter(Boolean).join(" ");
     return (
       <div className="flex flex-col gap-1.5">
         <FieldLabel htmlFor={`${ids}-${field}`}>{label}</FieldLabel>
@@ -217,9 +225,14 @@ export function StoreSheet({ open, onClose, session, store, onSaved }: StoreShee
           value={values[field]}
           onChange={(event) => update({ [field]: event.target.value } as Partial<FormValues>)}
           aria-invalid={message ? true : undefined}
-          aria-describedby={message ? errorId : undefined}
+          aria-describedby={describedBy || undefined}
           {...props}
         />
+        {hint ? (
+          <p id={hintId} className="text-meta text-ink-2">
+            {hint}
+          </p>
+        ) : null}
         {message ? <FieldError id={errorId}>{message}</FieldError> : null}
       </div>
     );
@@ -281,6 +294,29 @@ export function StoreSheet({ open, onClose, session, store, onSaved }: StoreShee
           spellCheck: false,
           placeholder: "https://",
         })}
+        {/* The link to the weekly offers (Story 9.1): only for a chain with an offer site. */}
+        {offerSiteFor(values.chain)
+          ? textField(
+              "offersUrl",
+              offersLinkLabel,
+              {
+                type: "url",
+                inputMode: "url",
+                autoCapitalize: "none",
+                autoCorrect: "off",
+                spellCheck: false,
+                placeholder: "https://www.ica.se/erbjudanden/…",
+              },
+              offersLinkHint,
+            )
+          : (
+            <div className="flex flex-col gap-1.5">
+              <p className="text-body text-ink">{offersLinkLabel}</p>
+              <p data-testid="offers-link-chain" className="text-meta text-ink-2">
+                {offersLinkChainText}
+              </p>
+            </div>
+          )}
         {editing ? null : (
           <label className="flex min-h-tap items-center gap-3 text-body text-ink">
             <input

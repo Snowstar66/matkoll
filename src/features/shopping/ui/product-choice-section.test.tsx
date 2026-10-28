@@ -17,6 +17,7 @@ const maxi: Store = {
   externalStoreId: "1003733",
   address: null,
   url: null,
+  offersUrl: null,
   isSelected: true,
 };
 const choice: ProductChoice = {

@@ -221,13 +221,14 @@ const defaultStore = {
   external_store_id: "1003733",
   address: null,
   url: "https://handlaprivatkund.ica.se/stores/1003733",
+  offers_url: "https://www.ica.se/erbjudanden/maxi-ica-stormarknad-ostersund-1003733/",
   is_selected: true,
 };
 
 async function storesOf(userId: string) {
   const { data, error } = await adminClient()
     .from("store")
-    .select("id, name, chain, external_store_id, address, url, is_selected")
+    .select("id, name, chain, external_store_id, address, url, offers_url, is_selected")
     .eq("user_id", userId)
     .order("created_at")
     .order("name");
@@ -247,6 +248,7 @@ const storeForm = (changes: Partial<StoreForm> = {}): StoreForm => ({
   externalStoreId: null,
   address: null,
   url: null,
+  offersUrl: undefined,
   makeSelected: false,
   ...changes,
 });
@@ -381,6 +383,7 @@ describe("store: reading", () => {
       externalStoreId: "1003733",
       address: null,
       url: "https://handlaprivatkund.ica.se/stores/1003733",
+      offersUrl: "https://www.ica.se/erbjudanden/maxi-ica-stormarknad-ostersund-1003733/",
       isSelected: true,
     };
     expect(await loadSelectedStore(user.db)).toEqual(maxi);
@@ -403,6 +406,7 @@ describe("store: save_store and select_store", () => {
       externalStoreId: null,
       address: null,
       url: null,
+      offersUrl: null,
       isSelected: false,
     });
     // A retry with the same id changes the same row.

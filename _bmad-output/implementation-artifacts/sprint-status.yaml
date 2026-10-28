@@ -126,3 +126,16 @@ development_status:
   12-6-receptimport-i-bakgrunden: done
   12-7-första-rätten-direkt: review
   epic-12-retrospective: optional
+
+  epic-9: in-progress
+  9-1-veckans-erbjudanden-från-butikens-länk: done
+  9-2-erbjudanden-på-inköpslistan: backlog
+  9-3-filtret-erbjudanden-i-recept: backlog
+  9-4-fyll-på-lagret: backlog
+  9-5-ai-förslag-med-veckans-erbjudanden: backlog
+  9-6-veckans-matsedel-från-erbjudanden-och-lagret: backlog
+  9-7-erbjudanden-från-inklistrad-text: backlog
+  9-8-erbjudanden-från-foto-av-reklambladet: backlog
+  9-9-ta-bort-erbjudanden: backlog
+  9-10-ai-kopplar-fler-erbjudanden-till-katalogen: backlog
+  epic-9-retrospective: optional

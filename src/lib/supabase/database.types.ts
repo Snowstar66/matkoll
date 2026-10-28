@@ -355,17 +355,43 @@ isOneToOne: false
                   ]
                 },"store": {
                   Row: {
-                    "address": string | null,"chain": string,"created_at": string,"external_store_id": string | null,"id": string,"is_selected": boolean,"name": string,"url": string | null,"user_id": string
+                    "address": string | null,"chain": string,"created_at": string,"external_store_id": string | null,"id": string,"is_selected": boolean,"name": string,"offers_attempted_at": string | null,"offers_url": string | null,"url": string | null,"user_id": string
                   }
                   ComputedFields: never
                   Insert: {
-                    "address"?: string | null,"chain": string,"created_at"?: string,"external_store_id"?: string | null,"id"?: string,"is_selected"?: boolean,"name": string,"url"?: string | null,"user_id"?: string
+                    "address"?: string | null,"chain": string,"created_at"?: string,"external_store_id"?: string | null,"id"?: string,"is_selected"?: boolean,"name": string,"offers_attempted_at"?: string | null,"offers_url"?: string | null,"url"?: string | null,"user_id"?: string
                   }
                   Update: {
-                    "address"?: string | null,"chain"?: string,"created_at"?: string,"external_store_id"?: string | null,"id"?: string,"is_selected"?: boolean,"name"?: string,"url"?: string | null,"user_id"?: string
+                    "address"?: string | null,"chain"?: string,"created_at"?: string,"external_store_id"?: string | null,"id"?: string,"is_selected"?: boolean,"name"?: string,"offers_attempted_at"?: string | null,"offers_url"?: string | null,"url"?: string | null,"user_id"?: string
                   }
                   Relationships: [
                     
+                  ]
+                },"store_offer": {
+                  Row: {
+                    "created_at": string,"id": string,"ingredient_id": string | null,"label": string,"label_key": string | null,"member_only": boolean,"name": string,"note": string | null,"price": string | null,"section": string,"source": string,"store_id": string,"user_id": string,"valid_to": string | null,"week_start": string
+                  }
+                  ComputedFields: never
+                  Insert: {
+                    "created_at"?: string,"id"?: string,"ingredient_id"?: string | null,"label": string,"label_key"?: never,"member_only"?: boolean,"name": string,"note"?: string | null,"price"?: string | null,"section": string,"source": string,"store_id": string,"user_id"?: string,"valid_to"?: string | null,"week_start": string
+                  }
+                  Update: {
+                    "created_at"?: string,"id"?: string,"ingredient_id"?: string | null,"label"?: string,"label_key"?: never,"member_only"?: boolean,"name"?: string,"note"?: string | null,"price"?: string | null,"section"?: string,"source"?: string,"store_id"?: string,"user_id"?: string,"valid_to"?: string | null,"week_start"?: string
+                  }
+                  Relationships: [
+                    {
+      foreignKeyName: "store_offer_ingredient_fkey"
+      columns: ["ingredient_id","user_id"]
+isOneToOne: false
+      referencedRelation: "ingredient"
+      referencedColumns: ["id","user_id"]
+    },{
+      foreignKeyName: "store_offer_store_fkey"
+      columns: ["store_id","user_id"]
+isOneToOne: false
+      referencedRelation: "store"
+      referencedColumns: ["id","user_id"]
+    }
                   ]
                 }
           }
@@ -618,6 +644,8 @@ isOneToOne: false
 "id": string,
 "is_selected": boolean,
 "name": string,
+"offers_attempted_at": string | null,
+"offers_url": string | null,
 "url": string | null,
 "user_id": string
             }
@@ -627,6 +655,9 @@ isOneToOne: false
         isOneToOne: true
         isSetofReturn: false
       } },
+"save_store_offers":
+{ Args: { "items": Json,"replace_source"?: string,"store": string,"week": string }; Returns: number
+                           },
 "select_pantry_site":
 { Args: { "site_id": string }; Returns: {
               "created_at": string,

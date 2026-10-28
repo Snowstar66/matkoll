@@ -238,6 +238,12 @@ export const aiImportEmail = "e2e-ai-import@matkoll.test";
  * catalog with the service role.
  */
 export const aiStreamEmail = "e2e-ai-strom@matkoll.test";
+/**
+ * The E2E user of offers-link.spec.ts alone (Veckans erbjudanden från
+ * butikens länk, Story 9.1): before each test its offers are removed and its
+ * store's link is set to a saved offer page, with the service role.
+ */
+export const offersLinkEmail = "e2e-erbjudanden-lank@matkoll.test";
 /** Every address in ALLOWED_EMAILS for the E2E server (see playwright.config.ts). */
 export const e2eEmails = [
   e2eEmail,
@@ -279,6 +285,7 @@ export const e2eEmails = [
   aiPhotoEmail,
   aiImportEmail,
   aiStreamEmail,
+  offersLinkEmail,
 ] as const;
 /** A real Supabase user whose address is not in ALLOWED_EMAILS. */
 export const outsiderEmail = "utanfor@matkoll.test";
@@ -320,6 +327,7 @@ export const aiJobsStorageState = "tests/e2e/.auth/ai-jobs.json";
 export const aiPhotoStorageState = "tests/e2e/.auth/ai-photo.json";
 export const aiImportStorageState = "tests/e2e/.auth/ai-import.json";
 export const aiStreamStorageState = "tests/e2e/.auth/ai-stream.json";
+export const offersLinkStorageState = "tests/e2e/.auth/offers-link.json";
 export const outsiderStorageState = "tests/e2e/.auth/outsider.json";
 
 export const mailpitUrl = "http://127.0.0.1:54324";

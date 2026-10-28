@@ -27,6 +27,7 @@ const maxi: Store = {
   externalStoreId: "1003733",
   address: null,
   url: "https://handlaprivatkund.ica.se/stores/1003733",
+  offersUrl: null,
   isSelected: true,
 };
 const willys: Store = {
@@ -36,6 +37,7 @@ const willys: Store = {
   externalStoreId: null,
   address: "Lindhagensgatan 1",
   url: null,
+  offersUrl: null,
   isSelected: false,
 };
 

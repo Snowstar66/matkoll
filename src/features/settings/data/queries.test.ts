@@ -11,6 +11,7 @@ const row = {
   external_store_id: null,
   address: "Storgatan 1",
   url: null,
+  offers_url: null,
   is_selected: false,
 };
 
@@ -23,6 +24,7 @@ describe("toStore", () => {
       externalStoreId: null,
       address: "Storgatan 1",
       url: null,
+      offersUrl: null,
       isSelected: false,
     });
   });

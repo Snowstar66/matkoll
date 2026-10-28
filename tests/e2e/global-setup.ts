@@ -39,6 +39,8 @@ import {
   openMagicLink,
   mealplanEmail,
   mealplanStorageState,
+  offersLinkEmail,
+  offersLinkStorageState,
   outsiderEmail,
   outsiderStorageState,
   pantryEmail,
@@ -153,6 +155,7 @@ export default async function globalSetup(config: FullConfig) {
       [aiPhotoEmail, aiPhotoStorageState],
       [aiImportEmail, aiImportStorageState],
       [aiStreamEmail, aiStreamStorageState],
+      [offersLinkEmail, offersLinkStorageState],
     ] as const) {
       const user = await browser.newContext({ baseURL });
       const page = await user.newPage();

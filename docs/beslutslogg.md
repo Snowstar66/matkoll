@@ -56,6 +56,15 @@ Beslut som fattats under bygget: vad, varför och vilka alternativ som fanns. Ny
 - **Mätt utan LM Studio:** Pontus bestämde att Epic 12 mäts en gång när epicen är klar, inte per story. Med Qwen3.6:s tokeniserare på mockens svar blir tre rätter 1 073 token i stället för 1 616 (33 % färre) och 905 i stället för 1 274 för "andra rätter" (29 %), och 1 455 (10 %) om varje rad har `new`. Uppskattat 34 s i stället för 46 s varmt. Målet (minst 25 % färre token, högst 40 s i median) prövas i Epic 12-mätningen. Når det inte målet där prövas högst 8 rader och 5 steg per rätt, som specen säger.
 - **Taket för svaret sänktes från 4 000 till 3 000 token,** ungefär dubbelt det längsta kompakta svaret, så att ett svar som skenar stannar efter ungefär 70 s och ett nytt försök hinner inom 115 s.
 - **Prompten ber om JSON utan indrag.** Indraget JSON kostar ungefär 80 % fler token. Alternativ: inget, men det kostar inget att be om det.
+## 2026-10-28 – Veckans erbjudanden från butikens länk (Story 9.1)
+
+- **Specens förslag godkändes som de stod** (Claude, enligt `docs/autonomi.md`, Pontus: fortsätt med alla epics): länken sparas direkt utan granskning, en hämtning ersätter butikens länkrader för veckan, unik på `label_key`, veckan från det vanligaste `validTo`, 15 minuter mellan hämtningar.
+- **Läsningen körs aldrig som kod.** En egen läsare tar ut `window.__INITIAL_DATA__`, gör om `undefined` och `new Map(...)` och tolkar med `JSON.parse`. ESLint förbjuder `eval`, `new Function` och strängar till timers i hela `src/`. Bara `offers.weeklyOffers` lämnas ut, och sidans token, kakor och interna adresser kastas direkt. Alternativ: `vm` eller AI, som spec och arkitektur förbjuder.
+- **403 och 429 skiljs ut i hämtningen**, inte i `safeFetch`: `fetchOfferPage` ger statusen från det sista svaret, så receptimportens fel och texter är oförändrade.
+- **Bladets ordning sparas i `created_at`** (en mikrosekund per plats), så att etiketten i 9.2 kan ta det första erbjudandet i bladet utan en ny kolumn.
+- **Fixturerna får veckans datum** när de serveras (`{{sunday}}`), så att testerna aldrig blir gamla. Varorna är påhittade, token och kakor också.
+- **Avvikelser från specen** står under "Vid bygget" i `spec-9-1-veckans-erbjudanden-fran-butikens-lank.md`, bland annat att ICA:s kategori heter "Bröd, kex & bageri" och att namnet utan träff är den första delen ("herrgård").
+- **T13 och T14** prövas av Pontus med ett tryck mot den riktiga butiken (`docs/oppna-fragor.md`).
 
 ## 2026-10-27 – Visa senaste fotot i Lagersaldo (Story 10.2)
 
@@ -148,13 +157,76 @@ Beslut som fattats under bygget: vad, varför och vilka alternativ som fanns. Ny
   - **Fart vinns i appen:** kortare AI-förslag (12.3), eftersom tiden följer svarets längd, och väckningen (12.2), eftersom modellen blir kall efter några minuter. Väckningens gräns på fem minuter stämmer med mätningen.
   - **Utvärderingen mäter token genom att läsa `usage` i svaren** via en egen `fetch` i utvärderingen, så att AI-porten inte ändras för mätningens skull.
 - **Varför:** samma mått för alla flöden behövs för att visa om 12.2, 12.3 och 12.7 hjälper. Rekommendationen följer siffrorna, inte hypotesen.
+## 2026-10-27 – Kursändring för veckans erbjudanden, andra planen (Epic 9)
+
+- **Underlag:**
+  - Pontus skrev 2026-10-26: "Jag vill helst kunna ladda in veckans erbjudanden via en länk … lägga in dom i inställningar för de affärer jag har konfigurerade."
+  - Pontus valde sedan funktioner ur en lista och godkände rekommendationen i stort: etiketten på inköpslistan, filtret i Recept, "Fyll på lagret", AI-förslag med erbjudanden och en föreslagen veckomeny. Bevakningar med aviseringar väntar.
+  - Pontus gav fria händer under natten ("Implementera det som är möjligt i natt").
+  - Förstudien `docs/erbjudanden-lankar.md` och den första planen på grenen `epic/9-erbjudanden` (`c72942e`) lästes.
+  - Koden lästes på `epic/12-asynkron-ai`: `safeFetch` och `fixture-sites.ts`, `store` och `save_store`, `pantry_addition` och `pantry_removal`, `addCustomItem` och receptbiblioteket med filterpillren. Skisserna från Epic 11 lästes också.
+- **Beslut (Pontus):** **erbjudandena hämtas från en länk per butik**, sparad i Inställningar. Det ersätter den första planens beslut "ingen länk i 1.2" och AD-25:s förbud mot hämtning från butiker. AD-11 och AD-25 är ändrade så att godkända erbjudandesidor uttryckligen är tillåtna.
+- **Beslut (Claude, headless enligt `docs/autonomi.md`; allt går att ändra):**
+  - **En andra plan för Epic 9 med tio stories** (alternativ 1, direkt justering), i `_bmad-output/planning-artifacts/sprint-change-proposal-2026-10-26-erbjudanden-v2.md`. Den första planen ligger kvar som underlag, märkt som ersatt. Grenen är `epic/9-erbjudanden-v2` från `epic/12-asynkron-ai`, och Epic 9 byggs efter Epic 12. 9.1–9.4 behöver bara Epic 11 och kan byggas tidigare om Pontus vill.
+  - **Numren behålls:** AD-25, FR-34–FR-36, NFR-10, UX-DR19–UX-DR20, UJ-7, Flöde 7, öppna frågor 8–10 och T12. De nya kraven fortsätter efter Epic 12: FR-51–FR-54, UX-DR32–UX-DR33, frågorna 26–30 och T13–T14.
+  - **Story-ordning, nyttan först:**
+    1. 9.1, länk och hämtning;
+    2. 9.2, etiketten på inköpslistan;
+    3. 9.3, filtret Erbjudanden;
+    4. 9.4, Fyll på lagret;
+    5. 9.5, AI-förslag;
+    6. 9.6, veckans matsedel;
+    7. 9.7, text;
+    8. 9.8, foto;
+    9. 9.9, ta bort;
+    10. 9.10, AI-koppling till katalogen.
+
+    De tre användningarna utan AI kommer före AI-flödena. Text och foto är reserver för kedjor utan länk. Nekar ica.se Matkolls User-Agent (T13) byggs 9.7 direkt efter 9.1. 9.10 byggs bara om färre än hälften av erbjudandena kopplas till katalogen (T14).
+  - **Bara godkända erbjudandesidor:** en fast lista i koden, `OFFER_SITES`, skild från receptsajterna. I 1.2 bara `www.ica.se/erbjudanden/<slug>-<id>/`, för kedjan ICA. Willys, Hemköp, Coop och Lidl får ingen länk, eftersom deras sidor kräver JavaScript, och deras interna API:er används aldrig.
+  - **Ärlig och sparsam hämtning:**
+    - en hämtning per tryck med `safeFetch`;
+    - User-Agent i samma form som receptimporten (`Mozilla/5.0 (compatible; Matkoll/1.0; +weekly offers for personal use)`), utan huvuden som efterliknar en webbläsare och utan kakor;
+    - inget nytt försök efter 403 eller 429;
+    - 15 minuter mellan hämtningar för samma butik;
+    - ingen hämtning utan tryck.
+
+    Alternativ: att utge sig för att vara en webbläsare (strider mot Pontus regel) eller att hämta automatiskt (backlog).
+  - **Sidan läses deterministiskt, utan AI och utan `eval`.** En egen läsare tar ut `window.__INITIAL_DATA__`, gör om `undefined` och `new Map([])` utanför strängar och tolkar med `JSON.parse`. Bara `offers.weeklyOffers` används. Token, kakor och interna adresser sparas och loggas aldrig, och ett test med en påhittad token visar det. Alternativ: receptimportens väg med AI (kapar vid 12 000 tecken och ser bara ett 20-tal av 213 erbjudanden).
+  - **Bara mat:** ICA:s kategorier för mat och dryck behålls, och resten räknas och visas som ett antal. Alternativ: en lista över det som inte är mat, som skulle släppa igenom nya kategorier.
+  - **Länkens erbjudanden sparas direkt, utan granskning,** eftersom ingen AI tolkar dem. En ny hämtning ersätter länkens erbjudanden för veckan, och text och foto står kvar. Text och foto granskas före sparande som i den första planen.
+  - **`store_offer` är unik per butik, vecka och namn som butiken skrev det (`label_key`),** inte per vara, så att två erbjudanden på falukorv från olika märken båda syns. Nya kolumner jämfört med den första planen: `section`, `note`, `member_only`, `valid_to` och `source`. Gränsen är 300 per vecka, eftersom en vecka på Maxi hade 91 erbjudanden på mat.
+  - **Veckan för länken** är den som innehåller det vanligaste `validTo`. Ett erbjudande vars sista dag har passerat används inte.
+  - **Katalogkopplingen är deterministisk:** `matchIngredients` på hela namnet och delarna, utan märke och mängd. AI används bara om mätningen visar att det behövs (9.10), och då sparas en koppling som Pontus bekräftar som synonym. Det är det enda undantaget från "erbjudanden skriver aldrig katalogen".
+  - **Länken för Maxi ICA Stormarknad Östersund fylls i** av migrationen och startdatan (öppen fråga 29).
+  - **Etiketten ("Falukorv 29 kr")** är en ny komponent, `OfferChip` (`offer-chip`, mint), i `src/components`. Sidorna sätter ihop etiketterna, så att `shopping/ui`, `recipes/ui` och `mealplan/ui` aldrig importerar `offers`. Mint skiljer den från produktetiketten (ljusblå) och AI-etiketten (sand).
+  - **Ingången till arket Veckans erbjudanden** är textknappen "Erbjudanden" i Inköpslistans rubrik och raden i filtret Erbjudanden. Den första planens rad vid "Föreslå rätter med AI" i Kan lagas nu finns inte längre, eftersom erbjudandena nu används på flera ställen och Recept har fått ett eget filter.
+  - **Filtret heter "Erbjudanden"** (öppen fråga 26) och räknar huvudvaror: receptrader som inte är vaga och har en katalogingrediens utanför Såser & smaksättare.
+  - **"Fyll på lagret":** en basvara finns i lagret på något ställe nu (också obegränsad) eller har ett produktval i butiken. Kvittona i `pantry_addition` har ingen vara och tas bort efter 30 dagar, så de går inte att använda (öppen fråga 27). `pantry` får `listStockedSites`, som säger var en vara finns men aldrig summerar mängder (tillägg i AD-24). "Lägg på listan" använder `addCustomItem`.
+  - **AI-förslagen sorteras inte längre om** efter erbjudandena, som i den första planen. Med en rätt i taget (12.7) skulle korten flytta sig. Prompten ber om rätter med erbjudanden först, och etiketterna visar dem.
+  - **Veckans matsedel är ett nytt AI-jobb, `weekplan`** (tillägg i AD-28): fem rätter, i första hand ur biblioteket och högst två nya (öppen fråga 28). Pontus väljer vilka som läggs på matsedeln, och nya rätter sparas via förhandsgranskningen.
+  - **Text och foto är AI-jobb av sorten `offers`** i stället för egna rutter, eftersom Epic 12 gör alla AI-flöden till jobb.
+  - **Väntar** (`docs/backlog-efter-1-0.md`): automatisk hämtning, bevakningar med aviseringar och fler kedjor med länk.
+- **Från den första planen gäller fortfarande:**
+  - modulen `offers` och tabellen `store_offer`, en butik och en vecka per erbjudande, och veckor i svensk tid;
+  - "veckans erbjudanden" är den senaste veckan som inte är slut;
+  - inget från AI sparas utan granskning;
+  - erbjudanden skapar inga katalogingredienser;
+  - erbjudanden ändrar inte lagningsstatus, inköpslistans poster eller exporten;
+  - AI-förslagen får namn, aldrig priser, och utan erbjudanden är meddelandet oförändrat;
+  - ett foto av bladet behandlas som ett foto av en plats.
+- **Varför:** Pontus vill ha länken och valde funktionerna. Det enklaste som ger dem utan risk för butiken, för Pontus data eller för testerna är valt: en fast lista med en sajt, en hämtning per tryck och en läsare utan AI. AI används bara där den behövs.
+- **Risker och hur de hanteras:**
+  - ICA nekar Matkolls User-Agent: provas en gång (T13), och då kommer text först.
+  - Sidans form ändras: Zod och ett tydligt fel.
+  - Få kopplingar till katalogen: mäts (T14), och 9.10 byggs vid behov.
+  - Kontexten och tiden i AI-förslagen och veckomenyn: mäts (T5, T12).
 
 ## 2026-10-26 – Kursändring för snabbare och asynkron AI (Epic 12)
 
 - **Underlag:** Pontus skrev "Vi borde få till prestandan i qwen kommandona om det går. Kanske göra dem asynkrona om det går, och att man kan fortsätta klicka runt i appen och göra fler asynkrona anrop som ramlar in när dom är klara. Om det inte riskerar ngt." och godkände planen ("ja planera det så"): först fart, mätt före och efter, sedan AI-jobb i bakgrunden i en kö. Koden lästes på `epic/11-nytt-utseende` (`22a0feb`): AI-porten (`run.ts`, `service.ts`, `adapters/lmstudio.ts`), rutterna i `src/app/api/ai/`, låset i `pantry/actions/ai-runs.ts` och kartan i `suggestFromPantry`. Next.js 16.4.3-dokumentationen om `after()` och `maxDuration` lästes i `node_modules/next/dist/docs/`, AI SDK 7.0.153 om `Output.array` och `elementStream` i `node_modules/ai/docs/` och på ai-sdk.dev, och Vercels tak (300 s på Hobby med Fluid compute) på vercel.com. `lms load --help` visar `--parallel`, `--ttl` och `--speculative-draft-mtp`. LM Studio ändrades inte.
 - **Beslut (Claude, headless enligt `docs/autonomi.md`; allt går att ändra):**
   - **Kursändringen görs som en ny Epic 12 med sju stories** (alternativ 1, direkt justering): 12.1 mätning och LM Studio, 12.2 väckning, 12.3 kortare AI-förslag, 12.4 jobb och kö med AI-förslag först, 12.5 bildanalys i bakgrunden, 12.6 import i bakgrunden, 12.7 första rätten direkt. Förslaget står i `_bmad-output/planning-artifacts/sprint-change-proposal-2026-10-26-asynkron-ai.md`. Epic 12 byggs efter Epic 11 och före Epic 9.
-  - **Numren fortsätter efter Epic 11:** FR-45–FR-50, NFR-13, UJ-10, AD-28, UX-DR29–UX-DR31, Flöde 10, öppna frågor 21–25 och T9–T11. Epic 9 har FR-34–FR-36, NFR-10, UJ-7, AD-25, frågorna 8–10 och T7 på `epic/9-erbjudanden`.
+  - **Numren fortsätter efter Epic 11:** FR-45–FR-50, NFR-13, UJ-10, AD-28, UX-DR29–UX-DR31, Flöde 10, öppna frågor 21–25 och T9–T11. Epic 9 har FR-34–FR-36, NFR-10, UJ-7, AD-25, frågorna 8–10 och T7 (nu T12) på `epic/9-erbjudanden`.
   - **Fart först, och bara det som mäts.** 12.1 gör ett gemensamt utgångsläge (kall och varm modell, PARALLEL 1 och 4, spekulativ avkodning). Väckningen (12.2) finns bara kvar om det första anropet blir minst 20 % snabbare, det kortare svaret (12.3) ska ge minst 25 % färre token och högst 40 s i median, och strömningen (12.7) ska visa den första rätten efter högst 40 % av tiden.
   - **LM Studio ändras inte permanent.** Bygget får ladda om modellen för att mäta, men skriver ned `lms ps` före och återställer. Rekommendationen står i `docs/lm-studio.md`, och Pontus väljer (öppen fråga 24). Utgångspunkten är PARALLEL 1, eftersom appen ändå kör ett jobb i taget, och PARALLEL 4 delade farten så att ett förslag gick över 100 s.
   - **Väckningen** är ett anrop med flödets egen systemprompt och `maxOutputTokens: 1`, när Lagersaldo (bild) eller Recept (text) öppnas, högst en gång per sort och fem minuter, aldrig när ett jobb pågår, och bara mot LM Studio. Alternativ: vid varje sidbyte, med en timer, eller inte alls.

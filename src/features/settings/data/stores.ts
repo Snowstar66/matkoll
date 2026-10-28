@@ -41,6 +41,8 @@ export async function saveStoreIn(db: SettingsDb, form: StoreForm): Promise<Save
       external_store_id: form.externalStoreId,
       address: form.address,
       url: form.url,
+      // Left out when the form had no such field: save_store then keeps the stored link.
+      ...(form.offersUrl === undefined ? {} : { offers_url: form.offersUrl }),
     },
     mode: form.mode,
     make_selected: form.makeSelected,
