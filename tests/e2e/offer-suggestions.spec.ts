@@ -244,7 +244,7 @@ test("the week's best store is on top and preselected, and the dishes are built 
   const bodies = watchJobBodies(page);
 
   await openOffers(page);
-  await expect(sheet(page).getByTestId("best-store")).toContainText("Veckans bästa butik:");
+  await expect(sheet(page).getByTestId("best-store")).toContainText("Bäst denna vecka:");
   await expect(sheet(page).getByTestId("best-store")).toContainText("Maxi");
   await expect(sheet(page).getByTestId("best-store")).toContainText("3 erbjudanden passar det du brukar laga");
   const picker = sheet(page).getByRole("radiogroup", { name: "Butik för förslagen" });

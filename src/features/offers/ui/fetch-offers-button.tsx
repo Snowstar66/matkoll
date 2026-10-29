@@ -5,8 +5,8 @@ import { Button } from "@/components/button";
 export type FetchOffersButtonProps = {
   /** Starts the fetch; the sheet sends one store's id at a time. */
   onFetch: () => void;
-  /** "primary" without offers ("Hämta veckans erbjudanden"), "text" with them ("Hämta igen"). */
-  variant: "primary" | "text";
+  /** "primary" without offers ("Hämta veckans erbjudanden"), "secondary" in the toolbar with them ("Hämta igen"). */
+  variant: "primary" | "secondary";
   /** While a page is fetched: the button waits. */
   pending: boolean;
 };
@@ -26,7 +26,6 @@ export function FetchOffersButton({ onFetch, variant, pending }: FetchOffersButt
       fullWidth={variant === "primary"}
       disabled={pending}
       aria-disabled={pending || undefined}
-      className={variant === "text" ? "-mr-3 shrink-0" : undefined}
     >
       {variant === "primary" ? "Hämta veckans erbjudanden" : "Hämta igen"}
     </Button>
