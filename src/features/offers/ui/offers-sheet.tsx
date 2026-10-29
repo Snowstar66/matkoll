@@ -12,6 +12,7 @@ import { Notice } from "@/components/notice";
 import { Sheet } from "@/components/sheet";
 import { useToast } from "@/components/toast";
 import { errorMessages, fail, type ErrorCode, type Result } from "@/lib/errors";
+import { clearOtherStoreOffers } from "../actions/clear-other-store-offers";
 import { fetchStoreOffers, type FetchStoreOffersResult } from "../actions/fetch-store-offers";
 import {
   addedToListText,
@@ -88,7 +89,7 @@ export type OffersSheetProps = {
 
 /** Story 9.11: the offers under their categories, or the best saving first. */
 const sortOptions = [
-  { value: "category", label: "Efter avdelning" },
+  { value: "category", label: "Avdelning" },
   { value: "saving", label: "Bäst rabatt" },
 ] as const;
 
@@ -159,10 +160,9 @@ export function OffersSheet({
   const [onlyBest, setOnlyBest] = useState(false);
   const [storeFilter, setStoreFilter] = useState<string>("all");
   // The stores Pontus has unticked for "Hämta valda"; all are ticked by default.
-  const [panel, setPanel] = useState<"fetch" | "filter" | null>(null);
+  const [panel, setPanel] = useState<"fetch" | null>(null);
   const [selecting, setSelecting] = useState(false);
   const fetchPanelId = useId();
-  const filterPanelId = useId();
   const [unticked, setUnticked] = useState<ReadonlySet<string>>(new Set());
   const [runs, setRuns] = useState<StoreRun[]>([]);
   const [progress, setProgress] = useState<{ store: OffersStore; at: number; of: number } | null>(null);
@@ -175,11 +175,12 @@ export function OffersSheet({
     () => new Map(stores.map((store) => [store.id, { text: storeBadgeText(store.name), tone: storeBadgeTone(store.chain) }])),
     [stores],
   );
-  const filterId = storeFilter !== "all" && withLink.some((store) => store.id === storeFilter) ? storeFilter : "all";
+  const storesWithOffers = useMemo(() => withLink.filter((store) => offers.some((offer) => offer.storeId === store.id)), [withLink, offers]);
+  // Story 16.8: a store that no longer has offers (a fetch replaced them) cannot stay chosen.
+  const filterId = storeFilter !== "all" && storesWithOffers.some((store) => store.id === storeFilter) ? storeFilter : "all";
   const fits = useMemo(() => new Set(fitIds ?? []), [fitIds]);
   const onList = useMemo(() => new Set([...(listing?.onList ?? []), ...added]), [listing, added]);
   const chosen = offers.filter((offer) => picked.has(offer.id) && !onList.has(offer.id));
-  const storesWithOffers = useMemo(() => withLink.filter((store) => offers.some((offer) => offer.storeId === store.id)), [withLink, offers]);
   const bestInfo = storesWithOffers.length > 1 && best && storesWithOffers.some((store) => store.id === best.storeId) ? best : null;
   const matchIds = useMemo(() => new Set(bestInfo?.matches.map((match) => match.id) ?? []), [bestInfo]);
   const showingMatches = onlyBest && matchIds.size > 0;
@@ -190,7 +191,7 @@ export function OffersSheet({
   const ticked = withLink.filter((store) => !unticked.has(store.id));
 
   /** One store after the other, never at once: each is one request to the store's site, and its answer is kept. */
-  async function fetchFrom(chosenStores: readonly OffersStore[]) {
+  async function fetchFrom(chosenStores: readonly OffersStore[], replaceOthers = false) {
     if (pending || chosenStores.length === 0) return;
     setPanel(null);
     setRuns([]);
@@ -209,6 +210,14 @@ export function OffersSheet({
       if (!answer.ok && answer.error.code === "unauthorized") {
         router.refresh();
         break;
+      }
+    }
+    // Story 16.8: a selection replaces the other stores' offers, but only once one of its fetches worked.
+    if (replaceOthers && done.some((run) => run.result.ok)) {
+      try {
+        await clearOtherStoreOffers({ keep: chosenStores.map((store) => store.id) });
+      } catch {
+        // The offers of the other stores stay; the next fetch tries again.
       }
     }
     setProgress(null);
@@ -278,12 +287,11 @@ export function OffersSheet({
         now={now}
         pending={pending}
         ticked={ticked}
-        onFetch={(list) => void fetchFrom(list)}
+        onFetch={(list) => void fetchFrom(list, list.length < withLink.length)}
       />
     );
-    const hasSaving = shown.some((offer) => offer.savingPercent !== null);
-    const canFilter = many || hasSaving;
-    const activeFilters = (sort !== "category" ? 1 : 0) + (filterId !== "all" ? 1 : 0);
+    const hasSaving = offers.some((offer) => offer.savingPercent !== null);
+    const filterStores = storesWithOffers.length > 1;
     const tops = shown.filter((offer) => offer.savingPercent !== null && offer.savingPercent >= topDealPercent).length;
     body = (
       <div className="flex flex-col gap-4">
@@ -295,8 +303,15 @@ export function OffersSheet({
           </div>
         ) : (
           <>
-            <div className="flex flex-wrap items-baseline gap-x-2 text-meta text-ink-2">
-              <p data-testid="offers-summary">{offersSummaryText(shown.length, lastFetch, new Date(now))}</p>
+            <div className="flex flex-wrap items-center gap-x-2 text-meta text-ink-2">
+              <p data-testid="offers-summary">
+                {showingMatches ? `Visar ${shown.length} av ${offers.length} erbjudanden` : offersSummaryText(shown.length, lastFetch, new Date(now))}
+              </p>
+              {showingMatches ? (
+                <Button variant="compact" aria-label="Visa alla erbjudanden" className="-my-3 -ml-1" onClick={() => setOnlyBest(false)}>
+                  Visa alla
+                </Button>
+              ) : null}
               {tops > 0 ? (
                 <p data-testid="offers-finds" className="font-semibold">
                   <span aria-hidden="true">{"\u{1F525} "}</span>
@@ -305,10 +320,10 @@ export function OffersSheet({
               ) : null}
             </div>
             <div className="flex flex-col gap-2">
-              <div className="flex flex-wrap items-center gap-2">
+              <div className="-mt-1 flex items-center gap-1">
                 {many ? (
                   <Button
-                    variant="secondary"
+                    variant="compact"
                     aria-expanded={panel === "fetch"}
                     aria-controls={fetchPanelId}
                     onClick={() => setPanel(panel === "fetch" ? null : "fetch")}
@@ -318,19 +333,9 @@ export function OffersSheet({
                 ) : (
                   <FetchOffersButton onFetch={() => void fetchFrom(withLink)} variant="secondary" pending={pending} />
                 )}
-                {canFilter ? (
-                  <Button
-                    variant="secondary"
-                    aria-expanded={panel === "filter"}
-                    aria-controls={filterPanelId}
-                    onClick={() => setPanel(panel === "filter" ? null : "filter")}
-                  >
-                    {activeFilters > 0 ? `Filter \u00B7 ${activeFilters}` : "Filter"}
-                  </Button>
-                ) : null}
                 {listing ? (
                   <Button
-                    variant="text"
+                    variant="compact"
                     className="ml-auto"
                     aria-pressed={selecting}
                     onClick={() => {
@@ -343,24 +348,23 @@ export function OffersSheet({
                 ) : null}
               </div>
               {many && panel === "fetch" ? <div id={fetchPanelId}>{fetchPanel}</div> : null}
-              {panel === "filter" && canFilter ? (
-                <div id={filterPanelId} className="flex flex-col gap-3 rounded-lg border border-border p-4" data-testid="filter-panel">
-                  {hasSaving ? (
-                    <div className="flex flex-col gap-1">
-                      <p className="text-meta text-ink-2">Sortera</p>
-                      <FilterPills label="Sortera erbjudandena" options={sortOptions} value={sort} onChange={setSort} />
-                    </div>
-                  ) : null}
-                  {many ? (
-                    <div className="flex flex-col gap-1">
-                      <p className="text-meta text-ink-2">Butik</p>
+              {filterStores || hasSaving ? (
+                <div className="flex flex-col" data-testid="list-filters">
+                  {filterStores ? (
+                    <FilterRow label="Visa butik">
                       <FilterPills
+                        compact
                         label="Visa butik"
-                        options={[{ value: "all", label: "Alla" }, ...withLink.map((store) => ({ value: store.id, label: badges.get(store.id)?.text ?? store.name }))]}
+                        options={[{ value: "all", label: "Alla" }, ...storesWithOffers.map((store) => ({ value: store.id, label: badges.get(store.id)?.text ?? store.name }))]}
                         value={filterId}
                         onChange={setStoreFilter}
                       />
-                    </div>
+                    </FilterRow>
+                  ) : null}
+                  {hasSaving ? (
+                    <FilterRow label="Sortera">
+                      <FilterPills compact label="Sortera" options={sortOptions} value={sort} onChange={setSort} />
+                    </FilterRow>
                   ) : null}
                 </div>
               ) : null}
@@ -372,23 +376,29 @@ export function OffersSheet({
               defaultStoreId={bestInfo?.storeId ?? storesWithOffers[0]?.id}
               bestLine={
                 bestInfo ? (
-                  <div data-testid="best-store" className="flex flex-col gap-1">
-                    <p className="text-body text-ink">
-                      <span className="font-semibold">Bäst denna vecka:</span>{" "}
-                      {badges.get(bestInfo.storeId) ? <StoreLabel badge={badges.get(bestInfo.storeId)!} testId="best-store-label" /> : null}
-                      {" \u2013 "}
-                      <span className="text-ink-2">{bestStoreLine(bestInfo)}</span>
-                    </p>
+                  <div data-testid="best-store" className="text-meta">
+                    <span className="font-semibold text-ink">Bäst denna vecka:</span>{" "}
+                    {badges.get(bestInfo.storeId) ? <StoreLabel badge={badges.get(bestInfo.storeId)!} testId="best-store-label" /> : null}{" "}
+                    <span className="text-ink-2">
+                      {"\u2013 "}
+                      {bestStoreLine(bestInfo)}
+                    </span>
                     {matchIds.size > 0 ? (
-                      <Button
-                        variant="text"
-                        className="self-start"
-                        aria-pressed={showingMatches}
-                        onClick={() => setOnlyBest(!showingMatches)}
-                        data-testid="best-store-toggle"
-                      >
-                        {showingMatches ? "Visa alla" : "Visa"}
-                      </Button>
+                      <>
+                        {" "}
+                        <span aria-hidden="true" className="text-ink-2">
+                          {"\u00B7"}
+                        </span>
+                        <Button
+                          variant="compact"
+                          className="-my-3 align-middle"
+                          aria-pressed={showingMatches}
+                          onClick={() => setOnlyBest(!showingMatches)}
+                          data-testid="best-store-toggle"
+                        >
+                          {showingMatches ? "Visa alla" : "Visa"}
+                        </Button>
+                      </>
                     ) : null}
                   </div>
                 ) : undefined
@@ -508,6 +518,16 @@ export function OffersSheet({
         {body}
       </div>
     </Sheet>
+  );
+}
+
+/** Story 16.8: a visible label, then the pills, for the filters over the list. */
+function FilterRow({ label, children }: { label: string; children: ReactNode }) {
+  return (
+    <div className="flex min-w-0 items-center gap-2">
+      <span className="shrink-0 text-meta text-ink-2">{label}:</span>
+      {children}
+    </div>
   );
 }
 

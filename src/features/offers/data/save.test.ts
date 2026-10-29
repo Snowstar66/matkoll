@@ -2,7 +2,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { fail, ok } from "@/lib/errors";
 import type { OfferDraft } from "../domain/offer";
 import type { OffersDb } from "./client";
-import { saveOffersIn } from "./save";
+import { clearOtherStoreOffersIn, saveOffersIn } from "./save";
 
 // saveOffersIn with a stubbed client: what it sends to save_store_offers and
 // how it reads the function's SQLSTATE codes. The function itself is tested
@@ -75,5 +75,18 @@ describe("saveOffersIn", () => {
   ] as const)("reads %s as %s", async (code, expected) => {
     rpc.mockResolvedValue({ data: null, error: { code, message: "x" } });
     expect(await saveOffersIn(db, { storeId: "s", weekStart: "2026-10-26", items: [draft] })).toEqual(fail(expected));
+  });
+});
+
+describe("clearOtherStoreOffersIn", () => {
+  it("sends the stores to keep and gives the number removed", async () => {
+    rpc.mockResolvedValue({ data: 4, error: null });
+    expect(await clearOtherStoreOffersIn(db, ["a", "b"])).toEqual(ok(4));
+    expect(rpc).toHaveBeenCalledWith("clear_other_store_offers", { keep: ["a", "b"] });
+  });
+
+  it("gives offers_failed on any error", async () => {
+    rpc.mockResolvedValue({ data: null, error: { code: "22023" } });
+    expect(await clearOtherStoreOffersIn(db, [])).toEqual(fail("offers_failed"));
   });
 });

@@ -252,9 +252,9 @@ test("the week's best store is on top and preselected, and the dishes are built 
   const before = await sheet(page).getByTestId("offer-row").count();
   await sheet(page).getByRole("button", { name: "Visa", exact: true }).click();
   await expect(sheet(page).getByTestId("offer-row")).toHaveCount(3);
-  await sheet(page).getByRole("button", { name: "Visa alla" }).click();
+  await sheet(page).getByTestId("best-store-toggle").click();
   await expect(sheet(page).getByTestId("offer-row")).toHaveCount(before);
-  const picker = sheet(page).getByRole("radiogroup", { name: "Butik för förslagen" });
+  const picker = sheet(page).getByRole("radiogroup", { name: "Föreslå rätter från" });
   await expect(picker.getByRole("radio", { name: "Maxi" })).toBeChecked();
 
   await suggestButton(page).click();
@@ -273,7 +273,7 @@ test("another store can be picked for the dishes", async ({ page }) => {
   const bodies = watchJobBodies(page);
 
   await openOffers(page);
-  const picker = sheet(page).getByRole("radiogroup", { name: "Butik för förslagen" });
+  const picker = sheet(page).getByRole("radiogroup", { name: "Föreslå rätter från" });
   await picker.getByRole("radio", { name: "Matkoll" }).click();
   await expect(picker.getByRole("radio", { name: "Matkoll" })).toBeChecked();
   await suggestButton(page).click();
