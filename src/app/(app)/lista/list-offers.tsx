@@ -58,7 +58,7 @@ export async function ListOffers() {
       const pantry = new Set(snapshot.keys());
       // Story 16.7: the rows that fit say "Passar dig", by the same rule as the best store.
       fitIds = [...fittingOffers(offers, pantry, counts).keys()];
-      if (withOffers.size > 1) best = bestStore(offers, stores.map((store) => store.id), pantry, counts);
+      if (withOffers.size > 0) best = bestStore(offers, stores.map((store) => store.id), pantry, counts);
     } catch (error) {
       if (!(error instanceof PantryDataError || error instanceof RecipeDataError)) throw error;
       console.error("best_store_unavailable", { reason: error.detail });

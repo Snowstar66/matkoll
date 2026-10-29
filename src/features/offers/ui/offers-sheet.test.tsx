@@ -18,6 +18,10 @@ const clearOtherStoreOffers = vi.fn<(input: { keep: string[] }) => Promise<unkno
 vi.mock("../actions/clear-other-store-offers", () => ({
   clearOtherStoreOffers: (input: { keep: string[] }) => clearOtherStoreOffers(input),
 }));
+const startJob = vi.fn<(url: string, body: Record<string, unknown>, key: string) => Promise<unknown>>();
+vi.mock("@/lib/ai-jobs-client", () => ({
+  useAiJobs: () => ({ start: (url: string, body: Record<string, unknown>, key: string) => startJob(url, body, key) }),
+}));
 const refresh = vi.fn();
 vi.mock("next/navigation", () => ({ useRouter: () => ({ refresh }) }));
 
@@ -82,6 +86,7 @@ async function openPanel(user: ReturnType<typeof userEvent.setup>, dialog: HTMLE
 beforeEach(() => {
   fetchStoreOffers.mockReset().mockResolvedValue(ok({ saved: 7, skipped: 2, matched: 1, weekStart: "2026-10-26" }));
   refresh.mockReset();
+  startJob.mockReset().mockResolvedValue(ok({ id: "job" }));
   clearOtherStoreOffers.mockReset().mockResolvedValue(ok({ removed: 0 }));
 });
 
@@ -344,7 +349,7 @@ describe("OffersSheet: several stores (Story 9.13)", () => {
     expect(within(dialog).getAllByTestId("offer-row")).toHaveLength(3);
   });
 
-  it("shows labelled list filters without a Filter button, and the suggestion picker under its own label (Story 16.8)", async () => {
+  it("shows labelled list filters without a Filter button, and no store pills in the AI area (Stories 16.8, 16.10)", async () => {
     render({ stores, offers: both });
     const { dialog } = await open();
     expect(within(dialog).queryByRole("button", { name: /^Filter/ })).not.toBeInTheDocument();
@@ -352,9 +357,8 @@ describe("OffersSheet: several stores (Story 9.13)", () => {
     expect(filters).toHaveTextContent("Visa butik:");
     expect(filters).toHaveTextContent("Sortera:");
     expect(within(filters).getByRole("radio", { name: "Avdelning" })).toBeChecked();
-    const picker = within(dialog).getByTestId("suggest-store-picker");
-    expect(picker).toHaveTextContent("Från:");
-    expect(within(picker).getAllByRole("radio")).toHaveLength(2);
+    expect(within(dialog).queryByTestId("suggest-store-picker")).not.toBeInTheDocument();
+    expect(within(dialog).queryByRole("radiogroup", { name: "Föreslå rätter från" })).not.toBeInTheDocument();
   });
 
   it("has no store filter and no suggestion picker with one store's offers, and no sort without savings (Story 16.8)", async () => {
@@ -388,31 +392,38 @@ describe("OffersSheet: several stores (Story 9.13)", () => {
     expect(clearOtherStoreOffers).not.toHaveBeenCalled();
   });
 
-  it("shows the week's best store on top and preselects it in the picker for the suggestions (Story 9.14)", async () => {
-    render({ stores, offers: both, best: { storeId: krokom.id, fits: 2, total: 2, score: 3, matches: [{ id: both[1].id, name: "Laxfilé", source: "recipes" }, { id: both[2].id, name: "Gul lök", source: "pantry" }] }, fitIds: [both[1].id, both[2].id] });
-    const { dialog } = await open();
-    const line = within(dialog).getByTestId("best-store");
-    expect(line).toHaveTextContent("Bäst denna vecka:");
-    expect(line).toHaveTextContent("Krokom");
-    expect(line).toHaveTextContent("Bäst denna vecka: Krokom \u2013 Laxfilé och gul lök passar det du brukar laga");
+  const krokomBest = { storeId: krokom.id, fits: 2, total: 2, score: 3, matches: [{ id: both[1].id, name: "Laxfilé", source: "recipes" as const }, { id: both[2].id, name: "Gul lök", source: "pantry" as const }] };
+
+  it("says the week's best store in one tip sentence, and asks for the store before the suggestions start (Stories 9.14, 16.10)", async () => {
+    render({ stores, offers: both, best: krokomBest, fitIds: [both[1].id, both[2].id] });
+    const { user, dialog } = await open();
+    const tip = within(dialog).getByTestId("best-store");
+    expect(tip).toHaveTextContent("Krokom passar dig bäst den här veckan: Laxfilé och gul lök passar det du brukar laga");
     expect(within(dialog).getAllByTestId("offer-fit")).toHaveLength(2);
-    const picker = within(within(dialog).getByRole("radiogroup", { name: "Föreslå rätter från" }));
-    expect(picker.getByRole("radio", { name: "Krokom" })).toBeChecked();
-    expect(picker.getByRole("radio", { name: "Maxi" })).not.toBeChecked();
+    expect(startJob).not.toHaveBeenCalled();
+    await user.click(within(dialog).getByRole("button", { name: "Föreslå rätter från veckans erbjudanden" }));
+    expect(within(dialog).getByRole("heading", { name: "Föreslå rätter från vilken butik?" })).toBeInTheDocument();
+    const group = within(within(dialog).getByRole("radiogroup", { name: "Föreslå rätter från vilken butik?" }));
+    expect(group.getByRole("radio", { name: /Krokom/ })).toBeChecked();
+    expect(group.getByRole("radio", { name: /Maxi/ })).not.toBeChecked();
+    await user.click(group.getByRole("radio", { name: /Maxi/ }));
+    await user.click(within(dialog).getByTestId("store-choice-start"));
+    await waitFor(() => expect(startJob).toHaveBeenCalledTimes(1));
+    expect(startJob.mock.calls[0][1]).toMatchObject({ mode: "offers", storeId: store.id });
   });
 
-  it("filters the list to the matching offers and back with Visa alla (Story 16.7)", async () => {
+  it("filters the list to the matching offers and back from the tip's link (Stories 16.7, 16.10)", async () => {
     render({ stores, offers: both, best: { storeId: krokom.id, fits: 1, total: 2, score: 2, matches: [{ id: both[1].id, name: "Laxfilé", source: "recipes" }] } });
     const { user, dialog } = await open();
     const rows = () => within(dialog).getAllByTestId("offer-row").length;
     expect(rows()).toBe(both.length);
-    await user.click(within(dialog).getByRole("button", { name: "Visa" }));
+    await user.click(within(dialog).getByRole("button", { name: "Visa bara de erbjudandena" }));
     expect(rows()).toBe(1);
-    await user.click(within(dialog).getByRole("button", { name: "Visa alla" }));
+    await user.click(within(dialog).getByRole("button", { name: "Visa alla erbjudanden" }));
     expect(rows()).toBe(both.length);
   });
 
-  it("has no best-store line and no picker with offers from one store only (Story 9.14)", async () => {
+  it("names the matches without a store with offers from one store only, and has no tip without matches (Stories 9.14, 16.10)", async () => {
     render({ stores, offers: both.slice(0, 1), best: { storeId: store.id, fits: 1, total: 1, score: 1, matches: [] } });
     const { dialog } = await open();
     expect(within(dialog).queryByTestId("best-store")).not.toBeInTheDocument();

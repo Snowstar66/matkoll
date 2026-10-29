@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { bestStore, bestStoreLine, bestStoreReason, fitPhrase, fittingOffers, matchNames } from "./best-store";
+import { bestStore, bestStoreLine, bestStoreReason, bestStoreTip, fitPhrase, fittingOffers, matchNames } from "./best-store";
 
 let n = 0;
 const o = (storeId: string, ingredientId: string | null, savingPercent: number | null = null, label = "Vara") => ({
@@ -80,5 +80,17 @@ describe("bestStoreLine", () => {
   });
   it("falls back to the count without names", () => {
     expect(bestStoreLine({ fits: 0, total: 5, matches: [] })).toBe("5 erbjudanden");
+  });
+});
+
+describe("bestStoreTip", () => {
+  const m = (name: string, source: "pantry" | "recipes" | "both") => ({ id: name, name, source });
+  const base = { fits: 1, total: 4 };
+  it("words the reason as in Story 16.7, with or without the store", () => {
+    expect(bestStoreTip({ ...base, matches: [m("Falukorv", "recipes")] }, "Maxi")).toBe("Maxi passar dig bäst den här veckan: Falukorv finns i dina recept");
+    expect(bestStoreTip({ ...base, matches: [m("Falukorv", "recipes")] })).toBe("Falukorv finns i dina recept");
+    expect(bestStoreTip({ ...base, matches: [m("Lök", "pantry")] })).toBe("Lök har du hemma");
+    expect(bestStoreTip({ ...base, matches: [m("Lök", "pantry"), m("Ost", "recipes")] })).toBe("Lök och ost passar det du brukar laga");
+    expect(bestStoreTip({ fits: 0, total: 4, matches: [] }, "Maxi")).toBe("Maxi passar dig bäst den här veckan: 4 erbjudanden");
   });
 });
