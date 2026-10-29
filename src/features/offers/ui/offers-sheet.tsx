@@ -18,6 +18,7 @@ import {
   addedToListText,
   addToListText,
   fetchedAtText,
+  fetchedLineText,
   fetchingOffersText,
   noOffersText,
   offersCountWords,
@@ -27,14 +28,14 @@ import {
   offersSheetSubtitle,
   offersSkippedText,
   offerListItem,
-  offersSummaryText,
+  offersMetaText,
   openOffersPageText,
   type StoreOffer,
 } from "../domain/offer";
 import { topDealPercent } from "../domain/offer-saving";
 import { bestStoreTip, type BestStore } from "../domain/best-store";
 import { storeBadgeText, storeBadgeTone, type StoreBadgeInfo } from "../domain/store-badge";
-import { FetchOffersButton } from "./fetch-offers-button";
+import { FetchOffersButton, inlineLinkClasses } from "./fetch-offers-button";
 import { OffersList, StoreLabel } from "./offers-list";
 import { StoreChoice, SuggestFromOffersButton } from "./suggest-from-offers-button";
 
@@ -261,7 +262,7 @@ export function OffersSheet({
 
   const skipped = runs.reduce((sum, run) => sum + (run.result.ok ? run.result.data.skipped : 0), 0);
   const siteName = withLink[0]?.siteName ?? "ica.se";
-  const lastFetch = shown.length > 0 ? latestFetch(filterId === "all" ? withLink : withLink.filter((store) => store.id === filterId)) : null;
+  const lastFetch = latestFetch(withLink);
   const single = withLink[0];
 
   let body: ReactNode;
@@ -306,7 +307,10 @@ export function OffersSheet({
     );
     const hasSaving = offers.some((offer) => offer.savingPercent !== null);
     const filterStores = storesWithOffers.length > 1;
-    const tops = shown.filter((offer) => offer.savingPercent !== null && offer.savingPercent >= topDealPercent).length;
+    const tops = offers.filter((offer) => offer.savingPercent !== null && offer.savingPercent >= topDealPercent).length;
+    const tip = bestInfo && (filterStores || matchIds.size > 0)
+      ? bestStoreTip(bestInfo, filterStores ? (badges.get(bestInfo.storeId)?.text ?? undefined) : undefined)
+      : null;
     body = (
       <div className="flex flex-col gap-4">
         {offers.length === 0 ? (
@@ -317,35 +321,102 @@ export function OffersSheet({
           </div>
         ) : (
           <>
-            <div className="flex flex-wrap items-center gap-x-2 text-meta text-ink-2">
-              <p data-testid="offers-summary">
-                {showingMatches ? `Visar ${shown.length} av ${offers.length} erbjudanden` : offersSummaryText(shown.length, lastFetch, new Date(now))}
+            {/* Story 16.11: the top in groups of 16 px: header group, divider, inspiration card, divider, controls, then the list under its own header row. */}
+            <div className="flex flex-col gap-1" data-testid="offers-header-group">
+              <p data-testid="offers-meta" className="text-meta text-ink-2">
+                {offersMetaText({ stores: many ? `${withLink.length} butiker` : (single ?? stores[0]).name, weekStart, count: offers.length })}
+                {tops > 0 ? (
+                  <>
+                    {" · "}
+                    <span data-testid="offers-finds" className="font-semibold">
+                      <span aria-hidden="true">{"\u{1F525} "}</span>
+                      {`${tops} Toppklipp`}
+                    </span>
+                  </>
+                ) : null}
               </p>
-              {tops > 0 ? (
-                <p data-testid="offers-finds" className="font-semibold">
-                  <span aria-hidden="true">{"\u{1F525} "}</span>
-                  {`${tops} Toppklipp`}
-                </p>
-              ) : null}
-            </div>
-            <div className="flex flex-col gap-2">
-              <div className="-mt-1 flex items-center gap-1">
+              <p data-testid="offers-fetched" className="text-meta text-ink-2">
+                {lastFetch ? `${fetchedLineText(lastFetch, new Date(now))} · ` : null}
                 {many ? (
-                  <Button
-                    variant="compact"
+                  <button
+                    type="button"
+                    className={inlineLinkClasses}
                     aria-expanded={panel === "fetch"}
                     aria-controls={fetchPanelId}
                     onClick={() => setPanel(panel === "fetch" ? null : "fetch")}
                   >
-                    Hämta
-                  </Button>
+                    Hämta igen
+                  </button>
                 ) : (
-                  <FetchOffersButton onFetch={() => void fetchFrom(withLink)} variant="secondary" pending={pending} />
+                  <FetchOffersButton onFetch={() => void fetchFrom(withLink)} variant="link" pending={pending} />
                 )}
+              </p>
+            </div>
+            {many && panel === "fetch" ? <div id={fetchPanelId}>{fetchPanel}</div> : null}
+            <hr className="m-0 border-border" />
+            <div data-testid="inspiration" className="flex flex-col gap-3 rounded-lg bg-mint/40 p-4">
+              {tip ? (
+                <div data-testid="best-store" className="flex items-start gap-2 text-body text-ink">
+                  <span aria-hidden="true">{"\u{1F4A1}"}</span>
+                  <p className="min-w-0">{tip}</p>
+                </div>
+              ) : null}
+              <div className="flex items-center gap-3">
+                {matchIds.size > 0 && tip ? (
+                  <Button
+                    variant="compact"
+                    className="-ml-2 min-w-0 text-left"
+                    onClick={() => setOnlyBest(!showingMatches)}
+                    data-testid="best-store-toggle"
+                  >
+                    {showingMatches ? "Visa alla erbjudanden" : "Visa bara de erbjudandena"}
+                  </Button>
+                ) : null}
+                <SuggestFromOffersButton
+                  hasOffers
+                  className="ml-auto shrink-0"
+                  onStarted={onClose}
+                  onChoose={filterStores ? () => setChoosing(true) : undefined}
+                />
+              </div>
+            </div>
+            <hr className="m-0 border-border" />
+            {filterStores || hasSaving ? (
+              <div className="grid grid-cols-[auto_1fr] items-center gap-x-4 gap-y-2" data-testid="list-filters">
+                {filterStores ? (
+                  <>
+                    <span aria-hidden="true" className="text-meta text-ink-2">
+                      Visa butik
+                    </span>
+                    <FilterPills
+                      segmented
+                      label="Visa butik"
+                      options={[{ value: "all", label: "Alla" }, ...storesWithOffers.map((store) => ({ value: store.id, label: badges.get(store.id)?.text ?? store.name }))]}
+                      value={filterId}
+                      onChange={setStoreFilter}
+                      className="justify-self-start"
+                    />
+                  </>
+                ) : null}
+                {hasSaving ? (
+                  <>
+                    <span aria-hidden="true" className="text-meta text-ink-2">
+                      Sortera
+                    </span>
+                    <FilterPills segmented label="Sortera" options={sortOptions} value={sort} onChange={setSort} className="justify-self-start" />
+                  </>
+                ) : null}
+              </div>
+            ) : null}
+            <div className="flex flex-col">
+              <div className="flex min-h-tap items-center justify-between border-b border-border">
+                <p data-testid="offers-summary" className="text-meta text-ink-2">
+                  {showingMatches ? `Visar ${shown.length} av ${offers.length}` : offersCountWords(shown.length)}
+                </p>
                 {listing ? (
                   <Button
                     variant="compact"
-                    className="ml-auto"
+                    className="-mr-2"
                     aria-pressed={selecting}
                     onClick={() => {
                       setSelecting(!selecting);
@@ -356,67 +427,34 @@ export function OffersSheet({
                   </Button>
                 ) : null}
               </div>
-              {many && panel === "fetch" ? <div id={fetchPanelId}>{fetchPanel}</div> : null}
-              {filterStores || hasSaving ? (
-                <div className="flex flex-col" data-testid="list-filters">
-                  {filterStores ? (
-                    <FilterRow label="Visa butik">
-                      <FilterPills
-                        compact
-                        label="Visa butik"
-                        options={[{ value: "all", label: "Alla" }, ...storesWithOffers.map((store) => ({ value: store.id, label: badges.get(store.id)?.text ?? store.name }))]}
-                        value={filterId}
-                        onChange={setStoreFilter}
-                      />
-                    </FilterRow>
-                  ) : null}
-                  {hasSaving ? (
-                    <FilterRow label="Sortera">
-                      <FilterPills compact label="Sortera" options={sortOptions} value={sort} onChange={setSort} />
-                    </FilterRow>
-                  ) : null}
-                </div>
-              ) : null}
-            </div>
-            {bestInfo && (filterStores || matchIds.size > 0) ? (
-              <div data-testid="best-store" className="flex flex-col items-start">
-                <p className="text-meta text-ink">
-                  <span aria-hidden="true">{"\u{1F4A1} "}</span>
-                  {bestStoreTip(bestInfo, filterStores ? (badges.get(bestInfo.storeId)?.text ?? undefined) : undefined)}
-                </p>
-                {matchIds.size > 0 ? (
-                  <Button variant="compact" className="-ml-2" onClick={() => setOnlyBest(!showingMatches)} data-testid="best-store-toggle">
-                    {showingMatches ? "Visa alla erbjudanden" : "Visa bara de erbjudandena"}
-                  </Button>
-                ) : null}
+              <div className="pt-4">
+                <OffersList
+                  offers={shown}
+                  weekStart={weekStart}
+                  sort={sort}
+                  badges={many ? badges : undefined}
+                  showStore={filterId === "all" && storesWithOffers.length > 1 && !showingMatches}
+                  fits={fits}
+                  selection={
+                    listing
+                      ? {
+                          picked,
+                          onList,
+                          selecting,
+                          disabled: adding,
+                          onToggle: (id, on) =>
+                            setPicked((before) => {
+                              const next = new Set(before);
+                              if (on) next.add(id);
+                              else next.delete(id);
+                              return next;
+                            }),
+                        }
+                      : undefined
+                  }
+                />
               </div>
-            ) : null}
-            <SuggestFromOffersButton hasOffers onStarted={onClose} onChoose={filterStores ? () => setChoosing(true) : undefined} />
-            <OffersList
-              offers={shown}
-              weekStart={weekStart}
-              sort={sort}
-              badges={many ? badges : undefined}
-              showStore={filterId === "all" && storesWithOffers.length > 1 && !showingMatches}
-              fits={fits}
-              selection={
-                listing
-                  ? {
-                      picked,
-                      onList,
-                      selecting,
-                      disabled: adding,
-                      onToggle: (id, on) =>
-                        setPicked((before) => {
-                          const next = new Set(before);
-                          if (on) next.add(id);
-                          else next.delete(id);
-                          return next;
-                        }),
-                    }
-                  : undefined
-              }
-            />
+            </div>
           </>
         )}
         <div className="-ml-3 flex flex-col items-start">
@@ -443,11 +481,13 @@ export function OffersSheet({
       title={choosing ? "Föreslå rätter från vilken butik?" : "Veckans erbjudanden"}
       closeLabel={choosing ? "Tillbaka" : undefined}
       subtitle={
-        stores.length > 0 && !choosing
+        // With offers the meta line in the body says store, week and count (Story 16.11).
+        stores.length > 0 && !choosing && offers.length === 0
           ? offersSheetSubtitle(withLink.length > 1 ? `${withLink.length} butiker` : (single ?? stores[0]).name, weekStart)
           : undefined
       }
       preventClose={pending || adding}
+      initialFocus="title"
       footer={
         chosen.length > 0 && !choosing ? (
           <Button variant="primary" disabled={adding} onClick={addChosen} data-testid="add-offers-to-list">
@@ -507,16 +547,6 @@ export function OffersSheet({
         {body}
       </div>
     </Sheet>
-  );
-}
-
-/** Story 16.8: a visible label, then the pills, for the filters over the list. */
-function FilterRow({ label, children }: { label: string; children: ReactNode }) {
-  return (
-    <div className="flex min-w-0 items-center gap-2">
-      <span className="shrink-0 text-meta text-ink-2">{label}:</span>
-      {children}
-    </div>
   );
 }
 

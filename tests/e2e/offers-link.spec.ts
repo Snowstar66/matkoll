@@ -119,7 +119,9 @@ test("fetches the week's offers with one tap and shows them under their categori
   await dialog.getByRole("button", { name: "Hämta veckans erbjudanden" }).click();
   await expect(page.getByTestId("toast")).toHaveText(new RegExp(`Hämtade 7 erbjudanden för vecka ${week()}\\.`));
   await expect(dialog.getByText("2 varor som inte är mat togs inte med.")).toBeVisible();
-  await expect(dialog.getByTestId("offers-summary")).toHaveText(/^7 erbjudanden · hämtade idag \d\d:\d\d$/);
+  await expect(dialog.getByTestId("offers-summary")).toHaveText("7 erbjudanden");
+  await expect(dialog.getByTestId("offers-meta")).toContainText(/ · v\. \d+ · 7 erbjudanden/);
+  await expect(dialog.getByTestId("offers-fetched")).toHaveText(/^Hämtade idag \d\d:\d\d · Hämta igen$/);
 
   const meat = dialog.getByRole("list", { name: /Kött, fisk & chark/ });
   await expect(meat.getByText("Gårdens Herrgård, Präst")).toBeVisible();
@@ -281,7 +283,7 @@ test("Story 9.13: fetches from several stores one by one, shows a badge per stor
   await expect(page.getByTestId("toast")).toContainText("Hämtade 7 erbjudanden");
   expect(await storedOffers()).toHaveLength(7);
 
-  await dialog.getByRole("button", { name: "Hämta", exact: true }).click();
+  await dialog.getByRole("button", { name: "Hämta igen" }).click();
   await dialog.getByRole("button", { name: "Hämta alla" }).click();
   // Krokom was fetched a moment ago: it is skipped with its own message, the other store still goes.
   await expect(dialog.getByRole("alert")).toHaveText("Krokom: Erbjudandena hämtades nyss. Försök igen om en stund.");
@@ -315,13 +317,13 @@ test("Story 16.8: fetching only one store removes the other store's offers", asy
   await dialog.getByRole("button", { name: "Hämta alla" }).click();
   await expect(dialog.getByTestId("offers-store-result")).toHaveCount(2);
   expect(await storedOffers()).toHaveLength(14);
-  await expect(dialog.getByTestId("list-filters")).toContainText("Visa butik:");
+  await expect(dialog.getByTestId("list-filters")).toContainText("Visa butik");
   await expect(dialog.getByRole("button", { name: /^Filter/ })).toHaveCount(0);
 
   // Let both stores be fetched again at once, then fetch only Krokom.
   const cleared = await adminClient().from("store").update({ offers_attempted_at: null }).eq("user_id", userId);
   if (cleared.error) throw cleared.error;
-  await dialog.getByRole("button", { name: "Hämta", exact: true }).click();
+  await dialog.getByRole("button", { name: "Hämta igen" }).click();
   await dialog.getByRole("checkbox", { name: storeName }).click();
   await dialog.getByRole("button", { name: "Hämta valda (1)" }).click();
   await expect(dialog.getByTestId("offers-store-result")).toHaveText("Krokom: Hämtade 7 erbjudanden.");

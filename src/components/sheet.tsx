@@ -25,9 +25,10 @@ export type SheetProps = {
   preventClose?: boolean;
   /**
    * `close`: focus starts on the header button ("Avbryt"), e.g. for a question
-   * before something is deleted. Otherwise the browser picks the first control.
+   * before something is deleted. `title` (Story 16.11): focus starts on the
+   * title, so a tap that opened the sheet never leaves a ring on "Klar". Otherwise the browser picks the first control.
    */
-  initialFocus?: "close";
+  initialFocus?: "close" | "title";
 };
 
 type SheetEntry = {
@@ -73,6 +74,7 @@ export function Sheet({
 }: SheetProps) {
   const dialogRef = useRef<HTMLDialogElement>(null);
   const closeButtonRef = useRef<HTMLButtonElement>(null);
+  const titleRef = useRef<HTMLHeadingElement>(null);
   const pointerDownOnBackdrop = useRef(false);
   const swipeStartY = useRef<number | null>(null);
   const titleId = useId();
@@ -142,6 +144,7 @@ export function Sheet({
       shownSheet = me;
       if (!dialog.open) dialog.showModal();
       if (latest.current.initialFocus === "close") closeButtonRef.current?.focus();
+      if (latest.current.initialFocus === "title") titleRef.current?.focus({ preventScroll: true });
     };
 
     const previous = shownSheet;
@@ -274,7 +277,7 @@ export function Sheet({
           >
             <div aria-hidden="true" className="mx-auto h-[5px] w-9 rounded-full bg-border desktop:hidden" />
             <div className="flex min-h-tap items-center justify-between gap-3 pt-2 desktop:pt-3">
-              <h2 id={titleId} className="text-row-title text-ink">
+              <h2 ref={titleRef} id={titleId} tabIndex={-1} className="text-row-title text-ink outline-none">
                 {title}
               </h2>
               {confirming ? null : (

@@ -115,6 +115,17 @@ export function offersSheetSubtitle(storeName: string, weekStart: string): strin
   return `${storeName} · ${weekLabel(weekStart)}`;
 }
 
+/** Story 16.11: "2 butiker · v. 44 · 157 erbjudanden", the one meta line under the sheet's title (the Toppklipp count is added by the sheet). */
+export function offersMetaText(input: { stores: string; weekStart: string; count: number }): string {
+  return [input.stores, weekShortLabel(input.weekStart).replace("vecka ", "v. "), offersCountWords(input.count)].join(" · ");
+}
+
+/** Story 16.11: "Hämtade idag 13:30", the small line under the meta line (the link "Hämta igen" follows it). */
+export function fetchedLineText(at: Date, now: Date): string {
+  const text = fetchedAtText(at, now);
+  return text.charAt(0).toUpperCase() + text.slice(1);
+}
+
 /** "Öppna sidan på ica.se", the last link in the sheet. */
 export function openOffersPageText(siteName: string): string {
   return `Öppna sidan på ${siteName}`;

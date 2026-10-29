@@ -2697,3 +2697,27 @@ så att jag förstår varje sak utan förklaring.
 **Givet** allt från 9.13 till 16.9 (Hämta ersätter, filter, sortering, "Passar dig", urvalsläge, besparingar, "Från dina recept")
 **När** jag använder arket
 **Så** fungerar det som förut, även i mörkt läge, utan sidoöverflöd vid 375 px, med 44 px träffytor och fokusring bara med tangentbord
+
+### Story 16.11: Ordnad topp i erbjudandearket
+
+Som Pontus,
+vill jag att toppen av erbjudandearket är lagd i snygga rader med avdelare, jämna avstånd och rätt storlek på varje del,
+så att den känns lugn och ordnad i stället för stökig och brusig.
+
+**Acceptance Criteria:**
+
+**Givet** arket med erbjudanden
+**När** det visas
+**Så** står det uppifrån och ned: en rubrikgrupp (titel med "Klar" till höger, en metarad "2 butiker · v. 44 · 157 erbjudanden · 🔥 18 Toppklipp" och raden "Hämtade idag 13:30 · Hämta igen"), en avdelare, ett inspirationskort (tipset, länken "Visa bara de erbjudandena" till vänster och en kompakt "✨ Föreslå rätter" till höger), en avdelare, kontrollerna, en listrad ("157 erbjudanden" eller "Visar 3 av 157" och "Välj") med ett hårstreck, och listan; raden Hämta/Välj är borta och avståndet mellan grupperna är 16 px
+
+**Givet** "Visa butik" och "Sortera"
+**När** de visas
+**Så** är de en tvåkolumnsrad med en gemensam etikettkolumn, så att båda segmenten börjar på samma x, och ett riktigt segmenterat val (en rundad ram, lika höga segment om 32 px, 44 px träffyta, valt segment i accentfärg), som är radiogrupper med namn
+
+**Givet** att arket öppnas
+**När** det sker med en peksättning
+**Så** hamnar fokus på titeln och "Klar" får ingen fokusring; ringen visas bara med `:focus-visible`
+
+**Givet** allt från 9.13 till 16.10
+**När** jag använder arket
+**Så** fungerar det som förut, även i mörkt läge, utan sidoöverflöd vid 375 px

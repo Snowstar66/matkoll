@@ -46,6 +46,8 @@ export type SuggestFromOffersButtonProps = {
   onStarted?: () => void;
   /** Story 16.10: with two or more stores the button asks which one first (the sheet shows `StoreChoice`) instead of starting. */
   onChoose?: () => void;
+  /** Story 16.11: placement from the card around it (e.g. pushed to the right). */
+  className?: string;
 };
 
 /**
@@ -56,10 +58,10 @@ export type SuggestFromOffersButtonProps = {
  * confirmation has "Visa", which opens the suggestions in Recept. One job runs
  * at a time: the button waits while one is started or active.
  */
-export function SuggestFromOffersButton({ hasOffers, onStarted, onChoose }: SuggestFromOffersButtonProps) {
+export function SuggestFromOffersButton({ hasOffers, onStarted, onChoose, className }: SuggestFromOffersButtonProps) {
   const { starting, suggest } = useSuggestJob(onStarted);
   return (
-    <div className="flex flex-col items-start gap-1">
+    <div className={cx("flex flex-col items-start gap-1", className)}>
       <Button
         type="button"
         variant="compact-primary"

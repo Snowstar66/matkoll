@@ -78,7 +78,7 @@ async function choose(user: ReturnType<typeof userEvent.setup>, dialog: HTMLElem
   await user.click(within(dialog).getByRole("button", { name: "Välj" }));
 }
 
-/** Story 14.1: the store panel sits behind "Hämta". */
+/** Story 14.1: the store panel sits behind "Hämta igen". */
 async function openPanel(user: ReturnType<typeof userEvent.setup>, dialog: HTMLElement, name: string | RegExp) {
   await user.click(within(dialog).getByRole("button", { name }));
 }
@@ -122,7 +122,9 @@ describe("OffersSheet", () => {
   it("shows the offers under their categories, with the price and conditions, and the store's page last", async () => {
     render({ offers, stores: [{ ...store, fetchedAt: "2026-10-28T06:12:00Z" }] });
     const { dialog } = await open();
-    expect(within(dialog).getByTestId("offers-summary")).toHaveTextContent("3 erbjudanden · hämtade idag 07:12");
+    expect(within(dialog).getByTestId("offers-summary")).toHaveTextContent("3 erbjudanden");
+    expect(within(dialog).getByTestId("offers-meta")).toHaveTextContent(/^Maxi ICA Stormarknad Östersund · v\. 44 · 3 erbjudanden/);
+    expect(within(dialog).getByTestId("offers-fetched")).toHaveTextContent("Hämtade idag 07:12 · Hämta igen");
     expect(within(dialog).getByRole("button", { name: "Hämta igen" })).toBeInTheDocument();
     expect(within(dialog).getAllByRole("heading", { level: 3 }).map((heading) => heading.textContent)).toEqual([
       "Frukt & grönt",
@@ -292,7 +294,7 @@ describe("OffersSheet: several stores (Story 9.13)", () => {
     });
     render({ stores, offers: both });
     const { user, dialog } = await open();
-    await openPanel(user, dialog, "Hämta");
+    await openPanel(user, dialog, "Hämta igen");
     const rows = within(dialog).getAllByTestId("store-fetch-row");
     expect(rows).toHaveLength(2);
     expect(within(dialog).getByRole("checkbox", { name: "ICA Kvantum Krokom" })).toHaveAttribute("aria-checked", "true");
@@ -354,8 +356,8 @@ describe("OffersSheet: several stores (Story 9.13)", () => {
     const { dialog } = await open();
     expect(within(dialog).queryByRole("button", { name: /^Filter/ })).not.toBeInTheDocument();
     const filters = within(dialog).getByTestId("list-filters");
-    expect(filters).toHaveTextContent("Visa butik:");
-    expect(filters).toHaveTextContent("Sortera:");
+    expect(filters).toHaveTextContent("Visa butik");
+    expect(filters).toHaveTextContent("Sortera");
     expect(within(filters).getByRole("radio", { name: "Avdelning" })).toBeChecked();
     expect(within(dialog).queryByTestId("suggest-store-picker")).not.toBeInTheDocument();
     expect(within(dialog).queryByRole("radiogroup", { name: "Föreslå rätter från" })).not.toBeInTheDocument();
@@ -371,7 +373,7 @@ describe("OffersSheet: several stores (Story 9.13)", () => {
   it("clears the other stores' offers after Hämta valda, only when a fetch worked (Story 16.8)", async () => {
     render({ stores, offers: both });
     const { user, dialog } = await open();
-    await user.click(within(dialog).getByRole("button", { name: "Hämta" }));
+    await user.click(within(dialog).getByRole("button", { name: "Hämta igen" }));
     await user.click(within(dialog).getByRole("checkbox", { name: "Maxi ICA Stormarknad Östersund" }));
     await user.click(within(dialog).getByRole("button", { name: "Hämta valda (1)" }));
     await waitFor(() => expect(clearOtherStoreOffers).toHaveBeenCalledWith({ keep: [krokom.id] }));
@@ -381,12 +383,12 @@ describe("OffersSheet: several stores (Story 9.13)", () => {
     fetchStoreOffers.mockResolvedValue(fail("offers_fetch_blocked"));
     render({ stores, offers: both });
     const { user, dialog } = await open();
-    await user.click(within(dialog).getByRole("button", { name: "Hämta" }));
+    await user.click(within(dialog).getByRole("button", { name: "Hämta igen" }));
     await user.click(within(dialog).getByRole("checkbox", { name: "Maxi ICA Stormarknad Östersund" }));
     await user.click(within(dialog).getByRole("button", { name: "Hämta valda (1)" }));
     await waitFor(() => expect(fetchStoreOffers).toHaveBeenCalledTimes(1));
     fetchStoreOffers.mockResolvedValue(ok({ saved: 3, skipped: 0, matched: 0, weekStart: "2026-10-26" }));
-    await user.click(within(dialog).getByRole("button", { name: "Hämta" }));
+    await user.click(within(dialog).getByRole("button", { name: "Hämta igen" }));
     await user.click(within(dialog).getByRole("button", { name: "Hämta alla" }));
     await waitFor(() => expect(fetchStoreOffers).toHaveBeenCalledTimes(3));
     expect(clearOtherStoreOffers).not.toHaveBeenCalled();
