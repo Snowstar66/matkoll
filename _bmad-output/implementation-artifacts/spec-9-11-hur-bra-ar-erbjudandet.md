@@ -2,7 +2,7 @@
 title: 'Story 9.11: Hur bra är erbjudandet'
 type: 'feature'
 created: '2026-10-29'
-status: 'in-review'
+status: 'done'
 baseline_commit: '6530a8c'
 route: 'dispatch'
 context:
@@ -85,3 +85,7 @@ context:
 - **Beslut: standardsortering oförändrad.** "Bäst rabatt" är ett val i arket, så att kategorierna som Pontus känner igen är kvar.
 
 ## Spec Change Log
+
+## Review Triage Log
+
+Granskningen gjordes av Claude direkt på migreringen, enligt den tokensnåla loopen: migreringen lägger bara till två kolumner som får vara tomma, med kontroller. `save_store_offers` byts med `create or replace` och har samma mönster som granskades i 9.1: `caller = auth.uid()`, kontroll att butiken tillhör användaren, advisory lock, security invoker, `search_path = ''` och execute bara för `authenticated`. Ingenting behövde rättas.
