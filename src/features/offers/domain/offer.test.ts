@@ -2,6 +2,8 @@ import { describe, expect, it } from "vitest";
 import type { IcaOffer } from "./ica-offer-page";
 import {
   fetchedAtText,
+  fetchedLineText,
+  offersMetaText,
   fetchingOffersText,
   groupOffers,
   noOffersText,
@@ -119,5 +121,12 @@ describe("groupOffers", () => {
       ["Kött, fisk & chark", [2, 4]],
       ["Såser & smaksättare", [5]],
     ]);
+  });
+});
+
+describe("the sheet top (Story 16.11)", () => {
+  it("writes the meta line and the fetched line", () => {
+    expect(offersMetaText({ stores: "2 butiker", weekStart: "2026-10-26", count: 157 })).toBe("2 butiker \u00B7 v. 44 \u00B7 157 erbjudanden");
+    expect(fetchedLineText(new Date("2026-10-28T12:30:00Z"), new Date("2026-10-28T15:00:00Z"))).toBe("Hämtade idag 13:30");
   });
 });
