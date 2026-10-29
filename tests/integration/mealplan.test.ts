@@ -322,6 +322,41 @@ describe("deleting a recipe", () => {
   });
 });
 
+describe("past weeks close on every guard (Story 13.7 review)", () => {
+  async function pastPlan(db: Db, recipeId: string, recipeTitle: string) {
+    const { data, error } = await db
+      .from("meal_plan")
+      .insert({ name: "Förra veckan", is_current: true, week_start: addWeeks(currentWeekStart(), -1) })
+      .select("id")
+      .single();
+    if (error) throw error;
+    const row = await db
+      .from("meal_plan_recipe")
+      .insert({ meal_plan_id: data.id, recipe_id: recipeId, recipe_title: recipeTitle, servings: 4, position: 0 })
+      .select("id")
+      .single();
+    if (row.error) throw row.error;
+    return { planId: data.id, dishId: row.data.id };
+  }
+
+  it("keeps a past week's dish when the recipe is deleted, with no write since", async () => {
+    const user = await createTestUser("mealplan-past-detach");
+    const recipeId = await addRecipe(user.db, "Gammal soppa");
+    const { dishId } = await pastPlan(user.db, recipeId, "Gammal soppa");
+    expect(await detachRecipeIn(user.db, recipeId)).toBe(0);
+    await deleteRecipeIn(user.db, user.id, recipeId);
+    expect(await dishRow(dishId)).toMatchObject({ recipe_id: null, recipe_title: "Gammal soppa" });
+  });
+
+  it("refuses checks on a past week's list", async () => {
+    const user = await createTestUser("mealplan-past-check");
+    const recipeId = await addRecipe(user.db);
+    const { planId } = await pastPlan(user.db, recipeId, "Linssoppa");
+    const { error } = await user.db.rpc("set_shopping_check", { plan_id: planId, line_key: "mjol", checked: true });
+    expect(error?.code).toBe("55000");
+  });
+});
+
 describe("getRecipesByIds", () => {
   it("reads the user's recipes among the ids, with their lines, and leaves the rest out", async () => {
     const owner = await createTestUser("mealplan-recipes");

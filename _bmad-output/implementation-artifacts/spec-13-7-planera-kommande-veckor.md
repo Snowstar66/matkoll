@@ -2,7 +2,7 @@
 title: 'Story 13.7: Planera kommande veckor'
 type: 'feature'
 created: '2026-10-29'
-status: 'in-progress'
+status: 'done'
 route: 'dispatch'
 review_loop_iteration: 0
 baseline_commit: '288dd20'
@@ -44,4 +44,7 @@ baseline_commit: '288dd20'
 
 ## Review Triage Log
 
-Migreringsgranskning återstår (status `in-progress`).
+En Sonnet-granskare, 2 must-fix.
+
+1. Måste fixas: en passerad veckas plan förblev `is_current = true` tills `add_to_plan`, `set_current_meal_plan` eller `delete_meal_plan` körde `meal_plan_close_past()`. Äldre guardar (detach, restore, kryssning, egna rader, överstyrningar, `clear_put_in_pantry`) testade `is_current` utan att stänga gamla veckor. Fixat: migreringen `20261029233000_lock_closes_past_weeks.sql` låter `meal_plan_lock()` anropa `meal_plan_close_past()`, så alla guardar stänger passerade veckor först. Integrationstester: receptborttagning behåller rätten (titel kvar, `recipe_id` null) och kryssning på förra veckans lista nekas.
+2. Måste fixas: driftsättningsordning (kod före migrering). Hanterat: migreringarna och koden levereras i samma PR.
