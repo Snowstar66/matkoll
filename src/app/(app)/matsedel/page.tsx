@@ -11,8 +11,10 @@ export const metadata: Metadata = { title: "Matsedel" };
 // and "+" in the header (or "Lägg till rätt" in the empty plan), which opens
 // Lägg till rätt with the favourites first. Everything is read inside
 // <Suspense> (AD-18), with skeleton rows while it loads. "Tidigare" in the
-// header leads to the earlier plans (Story 3.2).
-export default function MealPlanPage() {
+// header leads to the earlier plans (Story 3.2). "‹ Vecka 44 ›" under the
+// title moves between this week and the coming ones (Story 13.7); the week is
+// in the address as ?vecka=2026-W45.
+export default function MealPlanPage({ searchParams }: PageProps<"/matsedel">) {
   return (
     <Suspense
       fallback={
@@ -31,7 +33,7 @@ export default function MealPlanPage() {
         </>
       }
     >
-      <MealPlanContent />
+      <MealPlanContent searchParams={searchParams} />
     </Suspense>
   );
 }

@@ -1,11 +1,13 @@
 import { redirect } from "next/navigation";
 import { Notice } from "@/components/notice";
 import { requireUserOrRedirect } from "@/features/auth/server";
+import { viewedWeek } from "@/features/mealplan";
 import { searchIngredients } from "@/features/catalog/server";
 import type { PantrySite } from "@/features/pantry";
 import { listPantrySites, PantryDataError } from "@/features/pantry/server";
 import { getShoppingList } from "@/features/shopping/server";
 import { ShoppingListView } from "./shopping-list-view";
+import { WeekPicker } from "./week-picker";
 
 const next = "/lista";
 
@@ -29,9 +31,13 @@ const next = "/lista";
  * counted against. The places never stop the list: when they cannot be read,
  * for whatever reason, there is no line.
  */
-export async function ShoppingListContent() {
+export async function ShoppingListContent({
+  searchParams,
+}: { searchParams?: Promise<{ vecka?: string | string[] }> } = {}) {
   await requireUserOrRedirect(next);
-  const [listRead, sitesRead] = await Promise.allSettled([getShoppingList(), listPantrySites()]);
+  const vecka = (await searchParams)?.vecka;
+  const weekStart = viewedWeek(Array.isArray(vecka) ? vecka[0] : vecka);
+  const [listRead, sitesRead] = await Promise.allSettled([getShoppingList(weekStart), listPantrySites()]);
   // getShoppingList handles every expected error: what it throws is a bug.
   if (listRead.status === "rejected") throw listRead.reason;
   const result = listRead.value;
@@ -55,23 +61,29 @@ export async function ShoppingListContent() {
     unreadableChoices,
     site,
   } = result.data;
+  // The week's own state: a new key starts the list afresh, so no check, sheet or
+  // pending change of another week's plan is carried over (Story 13.7).
   return (
-    <ShoppingListView
-      sites={sites}
-      plan={plan}
-      lines={lines}
-      hiddenLines={hiddenLines}
-      pantryUnavailable={pantryUnavailable}
-      checksUnavailable={checksUnavailable}
-      pendingClear={pendingClear}
-      searchIngredients={searchIngredients}
-      store={store}
-      storeUnavailable={storeUnavailable}
-      productChoices={productChoices}
-      productChoicesUnavailable={productChoicesUnavailable}
-      unreadableChoices={unreadableChoices}
-      site={site}
-    />
+    <>
+      <WeekPicker weekStart={weekStart} />
+      <ShoppingListView
+        key={weekStart}
+        sites={sites}
+        plan={plan}
+        lines={lines}
+        hiddenLines={hiddenLines}
+        pantryUnavailable={pantryUnavailable}
+        checksUnavailable={checksUnavailable}
+        pendingClear={pendingClear}
+        searchIngredients={searchIngredients}
+        store={store}
+        storeUnavailable={storeUnavailable}
+        productChoices={productChoices}
+        productChoicesUnavailable={productChoicesUnavailable}
+        unreadableChoices={unreadableChoices}
+        site={site}
+      />
+    </>
   );
 }
 
@@ -84,7 +96,9 @@ export async function ShoppingListContent() {
 function sitesOf(read: PromiseSettledResult<PantrySite[]>): PantrySite[] | null {
   if (read.status === "fulfilled") return read.value;
   if (!(read.reason instanceof PantryDataError)) {
-    console.error("pantry_sites_unavailable", { reason: read.reason instanceof Error ? read.reason.name : "unknown" });
+    console.error("pantry_sites_unavailable", {
+      reason: read.reason instanceof Error ? read.reason.name : "unknown",
+    });
   }
   return null;
 }

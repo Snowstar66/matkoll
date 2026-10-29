@@ -1,5 +1,5 @@
 import { expect, type Page, test } from "@playwright/test";
-import { adminClient, e2eUserId, siteStatusEmail, siteStatusStorageState } from "./support";
+import { adminClient, e2eUserId, siteStatusEmail, siteStatusStorageState, thisMonday } from "./support";
 
 // Story 8.3: the cooking status, the line "Lager: Stugan" and "Lägg i
 // lagret" follow the selected place. The spec has an E2E user of its own
@@ -128,7 +128,7 @@ async function seed() {
     })),
   );
   if (lines.error) throw lines.error;
-  const plan = await admin.from("meal_plan").insert({ user_id: userId, name: "Vecka 44", is_current: true }).select("id").single();
+  const plan = await admin.from("meal_plan").insert({ user_id: userId, name: "Vecka 44", is_current: true, week_start: thisMonday() }).select("id").single();
   if (plan.error) throw plan.error;
   const dish = await admin.from("meal_plan_recipe").insert({
     user_id: userId,

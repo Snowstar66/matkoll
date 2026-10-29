@@ -37,3 +37,4 @@ export {
   type PlanSummary,
   type ServingsChange,
 } from "./domain/meal-plan";
+export * from "./domain/week";

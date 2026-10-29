@@ -55,14 +55,14 @@ isOneToOne: false
                   ]
                 },"meal_plan": {
                   Row: {
-                    "created_at": string,"id": string,"is_current": boolean,"name": string,"user_id": string
+                    "created_at": string,"id": string,"is_current": boolean,"name": string,"user_id": string,"week_start": string | null
                   }
                   ComputedFields: never
                   Insert: {
-                    "created_at"?: string,"id"?: string,"is_current"?: boolean,"name": string,"user_id"?: string
+                    "created_at"?: string,"id"?: string,"is_current"?: boolean,"name": string,"user_id"?: string,"week_start"?: string | null
                   }
                   Update: {
-                    "created_at"?: string,"id"?: string,"is_current"?: boolean,"name"?: string,"user_id"?: string
+                    "created_at"?: string,"id"?: string,"is_current"?: boolean,"name"?: string,"user_id"?: string,"week_start"?: string | null
                   }
                   Relationships: [
                     
@@ -416,8 +416,11 @@ isOneToOne: false
         isOneToOne: true
         isSetofReturn: false
       } },
-"add_to_current_plan":
-{ Args: { "dish_id": string,"dish_recipe_id": string,"dish_recipe_title": string,"dish_servings": number,"dish_weekday"?: number,"plan_name": string }; Returns: {
+"add_to_pantry":
+{ Args: { "items": Json,"site"?: string }; Returns: number
+                           },
+"add_to_plan":
+{ Args: { "dish_id": string,"dish_recipe_id": string,"dish_recipe_title": string,"dish_servings": number,"dish_weekday"?: number,"plan_name": string,"week_start": string }; Returns: {
               "cooked_at": string | null,
 "cooked_deductions": Json | null,
 "created_at": string,
@@ -436,9 +439,6 @@ isOneToOne: false
         isOneToOne: true
         isSetofReturn: false
       } },
-"add_to_pantry":
-{ Args: { "items": Json,"site"?: string }; Returns: number
-                           },
 "ai_job_expire":
 { Args: Record<PropertyKey, never>; Returns: undefined
                            },
@@ -507,8 +507,14 @@ isOneToOne: false
 "mark_dish_cooked":
 { Args: { "deductions": Json,"dish": string,"site": string }; Returns: Json
                            },
+"meal_plan_close_past":
+{ Args: Record<PropertyKey, never>; Returns: undefined
+                           },
 "meal_plan_lock":
 { Args: Record<PropertyKey, never>; Returns: undefined
+                           },
+"meal_plan_week_start":
+{ Args: { "at"?: string }; Returns: string
                            },
 "pantry_added_time":
 { Args: { "value": string }; Returns: string
@@ -697,7 +703,8 @@ isOneToOne: false
 "id": string,
 "is_current": boolean,
 "name": string,
-"user_id": string
+"user_id": string,
+"week_start": string | null
             }
                           SetofOptions: {
         from: "*"

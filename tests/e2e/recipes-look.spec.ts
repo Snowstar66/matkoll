@@ -1,6 +1,6 @@
 import { expect, type Locator, type Page, type Route, test } from "@playwright/test";
 import { normalizeIngredientText } from "@/features/catalog/domain/normalize";
-import { adminClient, e2eUserId, recipesLookEmail, recipesLookStorageState } from "./support";
+import { adminClient, e2eUserId, recipesLookEmail, recipesLookStorageState, thisMonday } from "./support";
 
 // Story 11.5: Recept and Matsedel in the new look. The library shows recipe
 // cards (the image on top, the status bottom left and the heart bottom right
@@ -183,7 +183,7 @@ test.beforeEach(async () => {
   );
   if (pantry.error) throw pantry.error;
 
-  const plan = await admin.from("meal_plan").insert({ user_id: userId, name: "Vecka 44", is_current: true }).select("id").single();
+  const plan = await admin.from("meal_plan").insert({ user_id: userId, name: "Vecka 44", is_current: true, week_start: thisMonday() }).select("id").single();
   if (plan.error) throw plan.error;
   const dishes = await admin.from("meal_plan_recipe").insert(
     [gryta, korv].map((title, position) => ({

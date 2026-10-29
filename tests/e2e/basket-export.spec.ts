@@ -5,7 +5,7 @@ import {
   basketPreamble,
   basketStartMarker,
 } from "@/features/shopping/domain/export-basket";
-import { adminClient, basketExportEmail, basketExportStorageState, e2eUserId } from "./support";
+import { adminClient, basketExportEmail, basketExportStorageState, e2eUserId, thisMonday } from "./support";
 
 // Story 7.3: "Kopiera till ICA-varukorgen" copies the basket export to the clipboard.
 // The spec has a user of its own (basketExportEmail), and each test makes
@@ -146,7 +146,7 @@ async function seed() {
     { ...base, position: 3, original_text: "2 citroner", amount: 2, unit: "st", is_vague: false },
   ]);
   if (lines.error) throw lines.error;
-  const plan = await admin.from("meal_plan").insert({ user_id: userId, name: "Vecka 44", is_current: true }).select("id").single();
+  const plan = await admin.from("meal_plan").insert({ user_id: userId, name: "Vecka 44", is_current: true, week_start: thisMonday() }).select("id").single();
   if (plan.error) throw plan.error;
   const planId = (plan.data as { id: string }).id;
   const dish = await admin.from("meal_plan_recipe").insert({

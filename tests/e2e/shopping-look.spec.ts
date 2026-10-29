@@ -1,5 +1,5 @@
 import { expect, type Page, type Response, test } from "@playwright/test";
-import { adminClient, e2eUserId, shoppingLookEmail, shoppingLookStorageState } from "./support";
+import { adminClient, e2eUserId, shoppingLookEmail, shoppingLookStorageState, thisMonday } from "./support";
 
 // Story 11.4: Inköpslistan in the new look (FR-43, Flöde 9). The progress
 // row, the categories of Lagersaldo, the line under a name, the product chip,
@@ -117,7 +117,7 @@ async function seed(checked: string[] = []) {
   });
   if (choice.error) throw choice.error;
 
-  const plan = await admin.from("meal_plan").insert({ user_id: userId, name: "Vecka 44", is_current: true }).select("id").single();
+  const plan = await admin.from("meal_plan").insert({ user_id: userId, name: "Vecka 44", is_current: true, week_start: thisMonday() }).select("id").single();
   if (plan.error) throw plan.error;
   const planId = (plan.data as { id: string }).id;
   const recipes: [string, { text: string; ingredient: string; amount: number | null; unit: string | null }[]][] = [

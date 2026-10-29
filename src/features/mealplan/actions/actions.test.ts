@@ -91,6 +91,7 @@ describe("addToCurrentPlan", () => {
       planName: "Vecka 44",
       // 26 Oct 2026 is a Monday, and the plan has no dish yet.
       weekday: 1,
+      weekStart: "2026-10-26",
     });
     expect(revalidateFor).toHaveBeenCalledWith("meal_plan_recipe");
   });

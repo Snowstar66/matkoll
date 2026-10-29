@@ -620,3 +620,50 @@ test("days show their date and today is marked (Story 13.6)", async ({ page }) =
   await expect(today).toContainText("Idag");
   expect(await page.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth)).toBe(true);
 });
+
+test("plans next week: a dish added there shows only there, and its list is a week picker away (Story 13.7)", async ({ page }) => {
+  const errors = watchErrors(page);
+  const ids = await seedIngredients(["Mjölk"]);
+  await seedRecipe("Våffelsmet", false, { text: "5 dl mjölk", ingredientId: ids.get("Mjölk")!, amount: 5 });
+  await page.goto("/matsedel");
+  const thisWeekDishes = await dishCount();
+  const nav = page.getByTestId("week-nav").filter({ visible: true });
+  await expect(nav.getByTestId("week-label")).toHaveText("Denna vecka");
+  await expect(nav.getByRole("link", { name: "Föregående vecka" })).toHaveCount(0);
+
+  // Next week: an empty week with a free row for every day, and its dates from that week's Monday.
+  await nav.getByRole("link", { name: "Nästa vecka" }).click();
+  await expect(page).toHaveURL(/\/matsedel\?vecka=\d{4}-W\d{2}$/);
+  await expect(nav.getByTestId("week-label")).toHaveText("Nästa vecka");
+  await expect(page.getByTestId("day-free").filter({ visible: true })).toHaveCount(7);
+  await expect(dishes(page)).toHaveCount(0);
+  await expect(page.locator('[data-testid="plan-day"][aria-current="date"]').filter({ visible: true })).toHaveCount(0);
+  await expect(page.locator('[data-testid="plan-day"][data-day="1"]').filter({ visible: true })).toContainText(/Måndag\s*·\s*\d{1,2} \S+/);
+
+  await page.getByTestId("day-free").filter({ visible: true }).nth(2).click();
+  await addSheet(page).getByRole("searchbox", { name: "Sök recept" }).fill("mjölk");
+  await addSheet(page).getByRole("region", { name: "Sökresultat" }).getByRole("button", { name: /Våffelsmet/ }).click();
+  await expect(addSheet(page)).toHaveCount(0);
+  await expect(dish(page, "Våffelsmet")).toHaveCount(1);
+  await expect(page.locator('[data-testid="plan-day"][data-day="3"]').filter({ visible: true })).toContainText("Våffelsmet");
+
+  // A reload keeps the week; "Idag" goes back to this week, which did not get the dish.
+  await page.reload();
+  await expect(nav.getByTestId("week-label")).toHaveText("Nästa vecka");
+  await expect(dish(page, "Våffelsmet")).toHaveCount(1);
+  expect(await page.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth)).toBe(true);
+  await nav.getByRole("link", { name: "Idag" }).click();
+  await expect(page).toHaveURL(/\/matsedel$/);
+  await expect(dishes(page)).toHaveCount(thisWeekDishes);
+  await expect(dish(page, "Våffelsmet")).toHaveCount(0);
+
+  // Inköpslista counts this week by default; the picker moves it to next week.
+  await page.goto("/lista");
+  const picker = page.getByRole("combobox", { name: "Vecka" }).filter({ visible: true });
+  await expect(picker.locator("option:checked")).toContainText("Denna vecka");
+  await expect(page.getByText("Mjölk", { exact: true })).toHaveCount(0);
+  await picker.selectOption({ index: 1 });
+  await expect(page).toHaveURL(/\/lista\?vecka=\d{4}-W\d{2}$/);
+  await expect(page.getByText("Mjölk", { exact: true }).filter({ visible: true })).toBeVisible();
+  expect(errors).toEqual([]);
+});

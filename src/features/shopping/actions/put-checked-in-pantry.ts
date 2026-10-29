@@ -3,7 +3,7 @@
 import { z } from "zod";
 import { requireUser } from "@/features/auth/server";
 import { CatalogDataError, getIngredientDefaults, getIngredientNames } from "@/features/catalog/server";
-import { getCurrentPlan, MealPlanDataError } from "@/features/mealplan/server";
+import { getCurrentPlan, getPlan, MealPlanDataError } from "@/features/mealplan/server";
 import { shownSiteName } from "@/features/pantry";
 import {
   addToPantry,
@@ -88,7 +88,13 @@ export async function putCheckedInPantry(input: PutInPantryInput): Promise<Resul
     outcome = await putInPantryWith(
       {
         sources: {
-          currentPlan: getCurrentPlan,
+          // This week's plan, or the plan the list was counted for when it is a coming week's (Story 13.7).
+          currentPlan: async () => {
+            const current = await getCurrentPlan();
+            if (current?.id === planId) return current;
+            const planned = await getPlan(planId);
+            return planned?.isCurrent ? planned : null;
+          },
           recipesByIds: getRecipesByIds,
           // Without the pantry, the amounts to buy would be wrong: a failure
           // stops the flow. A user without places has an empty pantry.

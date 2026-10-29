@@ -1,5 +1,5 @@
 import { expect, type Page, test } from "@playwright/test";
-import { adminClient, e2eUserId, productChoiceEmail, productChoiceStorageState } from "./support";
+import { adminClient, e2eUserId, productChoiceEmail, productChoiceStorageState, thisMonday } from "./support";
 
 // Story 7.2: Produktval in Listpostdetalj. The spec has a user of its own
 // (productChoiceEmail), and each test makes its state with the service role:
@@ -92,7 +92,7 @@ async function seed() {
     { user_id: userId, recipe_id: recipeId, position: 1, original_text: "2 citroner", amount: 2, unit: "st", is_vague: false },
   ]);
   if (lines.error) throw lines.error;
-  const plan = await admin.from("meal_plan").insert({ user_id: userId, name: "Vecka 44", is_current: true }).select("id").single();
+  const plan = await admin.from("meal_plan").insert({ user_id: userId, name: "Vecka 44", is_current: true, week_start: thisMonday() }).select("id").single();
   if (plan.error) throw plan.error;
   const planId = (plan.data as { id: string }).id;
   const dish = await admin.from("meal_plan_recipe").insert({

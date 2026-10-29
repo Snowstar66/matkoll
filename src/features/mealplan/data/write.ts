@@ -2,6 +2,7 @@ import "server-only";
 import { z } from "zod";
 import { cookedUndoRowSchema, type MarkedCooked } from "../domain/cooked";
 import { planRecipeRowSchema, type PlanRecipeRow } from "../domain/meal-plan";
+import { currentWeekStart } from "../domain/week";
 import { MealPlanDataError, type MealPlanDb } from "./client";
 import { dishColumns, toPlanRecipeRow } from "./queries";
 
@@ -17,17 +18,20 @@ export type NewDish = {
   planName: string;
   /** The day it lies on, 1–7; `null` or left out for none. */
   weekday?: number | null;
+  /** The Monday of the week to add to (Story 13.7); left out, this week. */
+  weekStart?: string;
 };
 
 /**
  * addToCurrentPlan (AD-22) for the signed-in user: adds the dish last on the
- * current meal plan, creating the plan when there is none, in one transaction
- * (add_to_current_plan). A dish id the user already has returns that row,
+ * meal plan of `weekStart` (default this week), creating that week's plan when
+ * there is none, in one transaction (add_to_plan, Story 13.7). A dish id the user already has returns that row,
  * so a retry adds the dish once. Throws MealPlanDataError: `add_failed
  * <code>` when Postgres refuses (23503: not the user's recipe).
  */
 export async function addToCurrentPlanIn(db: MealPlanDb, dish: NewDish): Promise<PlanRecipeRow> {
-  const { data, error } = await db.rpc("add_to_current_plan", {
+  const { data, error } = await db.rpc("add_to_plan", {
+    week_start: dish.weekStart ?? currentWeekStart(),
     dish_id: dish.id,
     dish_recipe_id: dish.recipeId,
     dish_recipe_title: dish.recipeTitle,

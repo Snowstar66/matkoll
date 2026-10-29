@@ -1,6 +1,7 @@
 import { randomUUID } from "node:crypto";
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
 import { MealPlanDataError } from "@/features/mealplan/data/client";
+import { addWeeks, currentWeekStart } from "@/features/mealplan/domain/week";
 import { getCurrentPlanIn, getPlanIn, listPreviousPlansIn } from "@/features/mealplan/data/queries";
 import {
   addToCurrentPlanIn,
@@ -19,7 +20,7 @@ import { localSupabaseUrl } from "../local-supabase";
 import { adminClient, anonClient, createTestUser, deleteTestUsers, expectRlsIsolation, type Db } from "./support";
 
 // The meal plan against local Supabase (AD-4, AD-20, AD-22): RLS on both
-// tables, one current plan per user, add_to_current_plan creating the plan
+// tables, one current plan per user, add_to_plan creating the plan
 // and adding dishes, the recipe's title kept when the recipe is deleted
 // (on delete set null (recipe_id)), detachRecipe, and removing a dish with
 // "Ångra" (same id). Story 3.2: set_current_meal_plan ("Använd igen" and "Ny
@@ -36,7 +37,12 @@ async function addRecipe(db: Db, title = "Linssoppa", servings = 4): Promise<str
 }
 
 async function addPlan(db: Db, name = "Vecka 1", isCurrent = false): Promise<string> {
-  const { data, error } = await db.from("meal_plan").insert({ name, is_current: isCurrent }).select("id").single();
+  // The plan of this week is the current one (Story 13.7).
+  const { data, error } = await db
+    .from("meal_plan")
+    .insert({ name, is_current: isCurrent, ...(isCurrent ? { week_start: currentWeekStart() } : {}) })
+    .select("id")
+    .single();
   if (error) throw error;
   return data.id;
 }
@@ -79,11 +85,16 @@ describe("schema and RLS", () => {
     }));
   });
 
-  it("keeps at most one current meal plan per user", async () => {
+  it("keeps at most one meal plan per user and week", async () => {
     const user = await createTestUser("mealplan-current");
     await addPlan(user.db, "Vecka 43", true);
-    const second = await user.db.from("meal_plan").insert({ name: "Vecka 44", is_current: true });
-    expect(second.error?.code, "a second current plan").toBe("23505");
+    const second = await user.db.from("meal_plan").insert({ name: "Vecka 44", is_current: true, week_start: currentWeekStart() });
+    expect(second.error?.code, "a second plan for the same week").toBe("23505");
+    const notMonday = await user.db.from("meal_plan").insert({ name: "Vecka 44", week_start: "2026-11-04" });
+    expect(notMonday.error?.code, "a week_start that is not a Monday").toBe("23514");
+    // Another week is fine, and so are many plans without a week.
+    const next = await user.db.from("meal_plan").insert({ name: "Vecka 45", is_current: true, week_start: addWeeks(currentWeekStart(), 1) });
+    expect(next.error).toBeNull();
     // Earlier plans are not current, and there may be many.
     await addPlan(user.db, "Vecka 41");
     await addPlan(user.db, "Vecka 42");
@@ -138,7 +149,7 @@ describe("schema and RLS", () => {
   });
 });
 
-describe("add_to_current_plan", () => {
+describe("add_to_plan", () => {
   it("creates the current plan when there is none, named as given, and adds the dish last", async () => {
     const user = await createTestUser("mealplan-add");
     const soppa = await addRecipe(user.db, "Linssoppa");
@@ -200,7 +211,8 @@ describe("add_to_current_plan", () => {
     await expect(addToCurrentPlanIn(other.db, dish(theirs))).rejects.toThrow(MealPlanDataError);
     expect(await getCurrentPlanIn(other.db), "nothing is left behind").toBeNull();
 
-    const anon = await anonClient().rpc("add_to_current_plan", {
+    const anon = await anonClient().rpc("add_to_plan", {
+      week_start: currentWeekStart(),
       dish_id: randomUUID(),
       dish_recipe_id: theirs,
       dish_recipe_title: "Linssoppa",
@@ -568,6 +580,7 @@ describe("earlier plans", () => {
       id: added.mealPlanId,
       name: "Vecka 44",
       isCurrent: true,
+      weekStart: currentWeekStart(),
       createdAt: expect.any(String),
       recipes: [{ id: added.id, recipeId: added.recipeId, recipeTitle: "Linssoppa", servings: 5, position: 0, cookedAt: null, weekday: null }],
     });
@@ -646,5 +659,86 @@ describe("weekday (Story 13.5)", () => {
     if (error) throw error;
     await addToCurrentPlanIn(user.db, dish(recipe, { weekday: 2 }));
     expect((await getCurrentPlanIn(user.db))?.recipes.map((d) => d.weekday)).toEqual([null, 2]);
+  });
+});
+
+describe("planning the coming weeks (Story 13.7)", () => {
+  const thisWeek = currentWeekStart();
+  const nextWeek = addWeeks(thisWeek, 1);
+
+  it("adds to a coming week without touching this week, creating that week's plan once", async () => {
+    const user = await createTestUser("mealplan-future");
+    const recipe = await addRecipe(user.db);
+    const now = await addToCurrentPlanIn(user.db, dish(recipe));
+    const first = await addToCurrentPlanIn(user.db, dish(recipe, { weekStart: nextWeek, planName: "Vecka 45" }));
+    const second = await addToCurrentPlanIn(user.db, dish(recipe, { weekStart: nextWeek, weekday: 2 }));
+    expect(first.mealPlanId).toBe(second.mealPlanId);
+    expect(first.mealPlanId).not.toBe(now.mealPlanId);
+    expect([first.position, second.position]).toEqual([0, 1]);
+
+    expect((await getCurrentPlanIn(user.db))?.recipes.map(({ id }) => id)).toEqual([now.id]);
+    const upcoming = await getCurrentPlanIn(user.db, nextWeek);
+    expect(upcoming?.name).toBe("Vecka 45");
+    expect(upcoming?.recipes.map(({ id }) => id)).toEqual([first.id, second.id]);
+    expect(await getCurrentPlanIn(user.db, addWeeks(thisWeek, 2))).toBeNull();
+    // A coming week is not an earlier plan.
+    expect(await listPreviousPlansIn(user.db)).toEqual([]);
+    const plans = await user.db.from("meal_plan").select("id, is_current, week_start").order("week_start");
+    expect(plans.data?.map(({ is_current, week_start }) => [is_current, week_start])).toEqual([
+      [true, thisWeek],
+      [true, nextWeek],
+    ]);
+  });
+
+  it("adds the same dish id once, and refuses a past, a far or a non-Monday week", async () => {
+    const user = await createTestUser("mealplan-future-refuse");
+    const recipe = await addRecipe(user.db);
+    const payload = dish(recipe, { weekStart: nextWeek });
+    const added = await addToCurrentPlanIn(user.db, payload);
+    expect((await addToCurrentPlanIn(user.db, payload)).id).toBe(added.id);
+    expect((await getCurrentPlanIn(user.db, nextWeek))?.recipes).toHaveLength(1);
+    for (const weekStart of [addWeeks(thisWeek, -1), addWeeks(thisWeek, 13), "2026-11-04"]) {
+      await expect(addToCurrentPlanIn(user.db, dish(recipe, { weekStart })), weekStart).rejects.toThrow("add_failed");
+    }
+  });
+
+  it("keeps every user's weeks apart", async () => {
+    const owner = await createTestUser("mealplan-future-owner");
+    const other = await createTestUser("mealplan-future-other");
+    const added = await addToCurrentPlanIn(owner.db, dish(await addRecipe(owner.db), { weekStart: nextWeek }));
+    expect(await getCurrentPlanIn(other.db, nextWeek)).toBeNull();
+    // The other user gets a plan of their own for the same week; the owner's is untouched.
+    const theirs = await addToCurrentPlanIn(other.db, dish(await addRecipe(other.db), { weekStart: nextWeek }));
+    expect(theirs.mealPlanId).not.toBe(added.mealPlanId);
+    expect((await getCurrentPlanIn(owner.db, nextWeek))?.recipes.map(({ id }) => id)).toEqual([added.id]);
+    expect(await getPlanIn(other.db, added.mealPlanId)).toBeNull();
+    const anon = await anonClient().rpc("meal_plan_week_start");
+    expect(anon.error?.code).toBe("42501");
+  });
+
+  it("lets a week that has passed become an earlier plan, and a switch only touch this week", async () => {
+    const user = await createTestUser("mealplan-week-passed");
+    const recipe = await addRecipe(user.db);
+    const upcoming = await addToCurrentPlanIn(user.db, dish(recipe, { weekStart: nextWeek }));
+    const now = await addToCurrentPlanIn(user.db, dish(recipe));
+    // "Använd igen" makes a new plan for this week: this week's plan goes to Tidigare, next week's stays.
+    const created = await setCurrentPlanIn(user.db, { id: randomUUID(), name: "Vecka 44", sourceId: now.mealPlanId });
+    expect(created.id).not.toBe(now.mealPlanId);
+    expect((await getCurrentPlanIn(user.db))?.id).toBe(created.id);
+    expect((await getCurrentPlanIn(user.db, nextWeek))?.id).toBe(upcoming.mealPlanId);
+    expect((await listPreviousPlansIn(user.db)).map(({ id }) => id)).toEqual([now.mealPlanId]);
+    expect((await getPlanIn(user.db, now.mealPlanId))?.isCurrent).toBe(false);
+    expect((await getPlanIn(user.db, upcoming.mealPlanId))?.isCurrent).toBe(true);
+    // A week in the past is closed when plans change: back-dated here with a plan of its own.
+    const past = await adminClient()
+      .from("meal_plan")
+      .insert({ user_id: user.id, name: "Vecka 40", is_current: true, week_start: addWeeks(thisWeek, -3) })
+      .select("id")
+      .single();
+    if (past.error) throw past.error;
+    await addToCurrentPlanIn(user.db, dish(recipe));
+    const closed = await user.db.from("meal_plan").select("is_current").eq("id", past.data.id).single();
+    expect(closed.data?.is_current).toBe(false);
+    expect((await listPreviousPlansIn(user.db)).map(({ id }) => id)).toContain(past.data.id);
   });
 });

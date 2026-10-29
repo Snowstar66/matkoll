@@ -2,9 +2,11 @@ import { PageHeader } from "@/components/app-shell/page-header";
 import { Notice } from "@/components/notice";
 import { requireUserOrRedirect } from "@/features/auth/server";
 import { getMealPlanView, MealPlanDataError, type MealPlanView } from "@/features/mealplan/server";
+import { currentWeekStart, viewedWeek } from "@/features/mealplan";
 import { AddDishButton, AddDishProvider } from "@/features/mealplan/ui/add-dish-sheet";
 import { MealPlanList } from "@/features/mealplan/ui/meal-plan-list";
 import { PreviousPlansLink } from "@/features/mealplan/ui/previous-plans-link";
+import { WeekNav } from "@/features/mealplan/ui/week-nav";
 import type { RecipeListItem } from "@/features/recipes";
 import { siteLineText } from "@/features/pantry";
 import { listRecipes, RecipeDataError, searchRecipes } from "@/features/recipes/server";
@@ -35,19 +37,24 @@ async function libraryOrNull(): Promise<RecipeListItem[] | null> {
  * page title says which place the status is counted against (AD-24); the
  * list shows it while it has dishes. Other errors go to the error boundary.
  */
-export async function MealPlanContent() {
+export async function MealPlanContent({ searchParams }: { searchParams?: Promise<{ vecka?: string | string[] }> } = {}) {
   await requireUserOrRedirect("/matsedel");
+  const vecka = (await searchParams)?.vecka;
+  const now = new Date();
+  const weekStart = viewedWeek(Array.isArray(vecka) ? vecka[0] : vecka, now);
+  const upcoming = weekStart !== currentWeekStart(now);
 
   let view: MealPlanView;
   let recipes: RecipeListItem[] | null;
   try {
-    [view, recipes] = await Promise.all([getMealPlanView(), libraryOrNull()]);
+    [view, recipes] = await Promise.all([getMealPlanView(weekStart), libraryOrNull()]);
   } catch (error) {
     if (!(error instanceof MealPlanDataError)) throw error;
     console.error("mealplan_unavailable", { reason: error.detail });
     return (
       <>
         <PageHeader title="Matsedel" action={<PreviousPlansLink />} />
+        <WeekNav weekStart={weekStart} now={now} />
         <Notice role="alert">{errorMessages.mealplan_unavailable}</Notice>
       </>
     );
@@ -58,6 +65,7 @@ export async function MealPlanContent() {
       recipes={recipes}
       searchRecipes={searchRecipes}
       plannedDays={view.dishes.map((dish) => dish.weekday ?? null)}
+      weekStart={weekStart}
     >
       <PageHeader
         title="Matsedel"
@@ -68,7 +76,11 @@ export async function MealPlanContent() {
           </>
         }
       />
+      <WeekNav weekStart={weekStart} now={now} />
       <MealPlanList
+        key={weekStart}
+        weekStart={weekStart}
+        upcoming={upcoming}
         planName={view.plan?.name ?? null}
         dishes={view.dishes}
         snapshot={view.snapshot}

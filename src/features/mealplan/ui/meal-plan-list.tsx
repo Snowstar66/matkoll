@@ -38,6 +38,7 @@ import {
   type WeekdayChange,
   weekdayDateText,
 } from "../domain/meal-plan";
+import { currentWeekStart, weekAnchorDate, weekQuery } from "../domain/week";
 import { AddDishButton, useAddDish } from "./add-dish-sheet";
 import { MarkCookedButton } from "./mark-cooked-button";
 import { MoveToDayButton } from "./move-to-day-button";
@@ -129,6 +130,14 @@ export type MealPlanListProps = {
   siteId?: string | null;
   /** The catalog names by ingredient id, for "Markera som lagad" (Story 13.4). */
   names?: Readonly<Record<string, string>>;
+  /**
+   * The Monday of the week shown (Story 13.7). Dates are counted from it and
+   * "Idag" only marks a day in this week; left out, this week as the
+   * browser counts it.
+   */
+  weekStart?: string;
+  /** A coming week: with no dish it still shows the week's days ("Ledig"), not the empty-plan text. */
+  upcoming?: boolean;
 };
 
 /**
@@ -142,7 +151,16 @@ export type MealPlanListProps = {
  * or the card's button, focus goes to the next dish, else the one before,
  * else "Lägg till rätt".
  */
-export function MealPlanList({ planName, dishes, snapshot, siteLine = null, siteId = null, names = {} }: MealPlanListProps) {
+export function MealPlanList({
+  planName,
+  dishes,
+  snapshot,
+  siteLine = null,
+  siteId = null,
+  names = {},
+  weekStart,
+  upcoming = false,
+}: MealPlanListProps) {
   const router = useRouter();
   const { showToast } = useToast();
   const [entries, setEntries] = useState<ReadonlyMap<string, Entry>>(() => new Map());
@@ -276,15 +294,17 @@ export function MealPlanList({ planName, dishes, snapshot, siteLine = null, site
   /** Today's weekday, known only in the browser so the server's page never differs from it. */
   const today = useSyncExternalStore(
     subscribeToNothing,
-    () => todayWeekday(new Date()),
+    () => (weekStart && weekStart !== currentWeekStart() ? null : todayWeekday(new Date())),
     () => null,
   );
   /** The week's dates ("26 okt") are known only in the browser too, for the same reason. */
-  const weekOf = useSyncExternalStore(
+  const browserWeek = useSyncExternalStore(
     subscribeToNothing,
     () => weekAnchor(),
     () => null,
   );
+  // The viewed week's dates come from its Monday, never from "this week" (Story 13.7).
+  const weekOf = weekStart ? weekAnchorDate(weekStart) : browserWeek;
   const { open: openAdd } = useAddDish();
 
   function moveDish(dish: PlanDish, weekday: number | null) {
@@ -408,7 +428,7 @@ export function MealPlanList({ planName, dishes, snapshot, siteLine = null, site
     lastOrder.current = order;
   });
 
-  if (shown.length === 0) {
+  if (shown.length === 0 && !upcoming) {
     return (
       <div ref={rootRef}>
         <EmptyState action={<AddDishButton variant="primary" />}>Ingen rätt på matsedeln än.</EmptyState>
@@ -502,7 +522,10 @@ export function MealPlanList({ planName, dishes, snapshot, siteLine = null, site
       </ul>
       <div className="mt-2 flex flex-col gap-3">
         <AddDishButton variant="primary" fullWidth />
-        <Link href="/lista" className={buttonClasses("secondary", true)}>
+        <Link
+          href={`/lista${weekStart ? weekQuery(weekStart) : ""}`}
+          className={buttonClasses("secondary", true)}
+        >
           Visa inköpslistan
         </Link>
       </div>
