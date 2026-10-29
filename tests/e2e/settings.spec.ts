@@ -241,3 +241,24 @@ test("Spara i Matkoll: the bookmarklet and the iPhone address are built from thi
   expect(href).toContain(`${origin}/recept/importera?url=`);
   await expect(section.getByRole("link", { name: "godkända receptsajterna" })).toBeVisible();
 });
+
+test("Story 1.14: Importera recept lists the approved sites with new-tab links and leads to Spara i Matkoll", async ({ page }) => {
+  await page.setViewportSize({ width: 375, height: 812 });
+  await page.goto("/recept");
+  await page.getByRole("button", { name: "Importera recept" }).first().click();
+  const section = page.getByTestId("find-recipes");
+  await expect(section.getByRole("heading", { name: "Hitta recept på nätet" })).toBeVisible();
+  for (const domain of startSites) {
+    const link = section.getByRole("link", { name: `Öppna ${domain} i en ny flik` });
+    await expect(link).toHaveAttribute("href", `https://${domain}/`);
+    await expect(link).toHaveAttribute("target", "_blank");
+    await expect(link).toHaveAttribute("rel", /noopener/);
+    expect((await link.boundingBox())?.height ?? 0).toBeGreaterThanOrEqual(44);
+  }
+  await section.getByRole("button", { name: "här" }).click();
+  await expect(page.getByLabel("Länk till receptet")).toBeFocused();
+  await section.getByRole("link", { name: "Spara i Matkoll" }).click();
+  await expect(page).toHaveURL(/\/installningar#spara-i-matkoll$/);
+  await expect(page.getByTestId("bookmarklet-tip")).toContainText("⌘⇧B");
+  await expect(page.getByRole("heading", { level: 2, name: "Spara i Matkoll" })).toBeInViewport();
+});
