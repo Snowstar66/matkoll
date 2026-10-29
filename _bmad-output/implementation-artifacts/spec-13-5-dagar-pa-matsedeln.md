@@ -2,7 +2,7 @@
 title: 'Story 13.5: Dagar på matsedeln'
 type: 'feature'
 created: '2026-10-29'
-status: 'in-progress'
+status: 'done'
 route: 'dispatch'
 review_loop_iteration: 0
 baseline_commit: 'e858f28'
@@ -48,5 +48,12 @@ baseline_commit: 'e858f28'
 - **Tester:** enhet (`meal-plan.test.ts`, `actions.test.ts`, `meal-plan-ui.test.tsx`); integration (`mealplan.test.ts`: dag vid tillägg, flytt, check 1-7, annan användares rätt, Ångra, gammal rad utan dag); e2e (`mealplan.spec.ts`: veckovyn, Flytta till dag, tryck på ledig dag, listan opåverkad, tryckytor, ingen sidled vid 375 px).
 
 ## Review Triage Log
+
+Claude granskade migreringen själv:
+- Kolumnen `weekday` får vara tom och kontrolleras till värdena 1–7.
+- `add_to_current_plan` tas bort och skapas igen med en valfri dag. Den är fortfarande security invoker med `search_path = ''`, kontrollerar `caller = auth.uid()` på både rätt och matsedel och kan bara köras av `authenticated`.
+- `restore_plan_recipe` byts med `create or replace` och behåller sina behörigheter.
+
+Befintliga rader fick ingen dag. Inget behövde rättas.
 
 Ingen separat granskning ännu; migrationsgranskning följer. lint, typecheck, `pnpm test`, `scripts/with-test-lock.sh pnpm test:integration`, `AI_PROVIDER=mock pnpm build` och e2e (`mealplan`, `cook-mode`, `shopping`, `offer-suggestions`) är gröna.
