@@ -1,5 +1,5 @@
 import { requireUserOrRedirect } from "@/features/auth/server";
-import { bestStore, type BestStore, type StoreOffer, weekStartOf } from "@/features/offers";
+import { bestStore, fittingOffers, type BestStore, type StoreOffer, weekStartOf } from "@/features/offers";
 import { getActiveOffers, getLastFetch, OffersDataError } from "@/features/offers/server";
 import { OffersSheetButton, type OffersListing } from "@/features/offers/ui/offers-sheet";
 import { addKeyedItems, getKeyedItemsOnList, ShoppingDataError } from "@/features/shopping/server";
@@ -50,11 +50,15 @@ export async function ListOffers() {
   }
   // Story 9.14: "Veckans bästa butik", counted without AI from the pantry and the recipes; left out when either cannot be read.
   let best: BestStore | null = null;
+  let fitIds: string[] | undefined;
   const withOffers = new Set(offers.map((offer) => offer.storeId));
-  if (!unavailable && withOffers.size > 1) {
+  if (!unavailable && offers.length > 0) {
     try {
       const [snapshot, counts] = await Promise.all([getPantrySnapshot(), getIngredientRecipeCounts()]);
-      best = bestStore(offers, stores.map((store) => store.id), new Set(snapshot.keys()), counts);
+      const pantry = new Set(snapshot.keys());
+      // Story 16.7: the rows that fit say "Passar dig", by the same rule as the best store.
+      fitIds = [...fittingOffers(offers, pantry, counts).keys()];
+      if (withOffers.size > 1) best = bestStore(offers, stores.map((store) => store.id), pantry, counts);
     } catch (error) {
       if (!(error instanceof PantryDataError || error instanceof RecipeDataError)) throw error;
       console.error("best_store_unavailable", { reason: error.detail });
@@ -77,6 +81,7 @@ export async function ListOffers() {
       unavailable={unavailable}
       listing={listing}
       best={best}
+      fitIds={fitIds}
     />
   );
 }

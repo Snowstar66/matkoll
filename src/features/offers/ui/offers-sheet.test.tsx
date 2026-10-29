@@ -341,19 +341,31 @@ describe("OffersSheet: several stores (Story 9.13)", () => {
   });
 
   it("shows the week's best store on top and preselects it in the picker for the suggestions (Story 9.14)", async () => {
-    render({ stores, offers: both, best: { storeId: krokom.id, fits: 2, total: 2, score: 3 } });
+    render({ stores, offers: both, best: { storeId: krokom.id, fits: 2, total: 2, score: 3, matches: [{ id: both[1].id, name: "Laxfilé", source: "recipes" }, { id: both[2].id, name: "Gul lök", source: "pantry" }] }, fitIds: [both[1].id, both[2].id] });
     const { dialog } = await open();
     const line = within(dialog).getByTestId("best-store");
     expect(line).toHaveTextContent("Bäst denna vecka:");
     expect(line).toHaveTextContent("Krokom");
-    expect(line).toHaveTextContent("2 erbjudanden passar det du brukar laga");
+    expect(line).toHaveTextContent("Bäst denna vecka: Krokom \u2013 laxfilé och gul lök passar det du brukar laga");
+    expect(within(dialog).getAllByTestId("offer-fit")).toHaveLength(2);
     const picker = within(within(dialog).getByRole("radiogroup", { name: "Butik för förslagen" }));
     expect(picker.getByRole("radio", { name: "Krokom" })).toBeChecked();
     expect(picker.getByRole("radio", { name: "Maxi" })).not.toBeChecked();
   });
 
+  it("filters the list to the matching offers and back with Visa alla (Story 16.7)", async () => {
+    render({ stores, offers: both, best: { storeId: krokom.id, fits: 1, total: 2, score: 2, matches: [{ id: both[1].id, name: "Laxfilé", source: "recipes" }] } });
+    const { user, dialog } = await open();
+    const rows = () => within(dialog).getAllByTestId("offer-row").length;
+    expect(rows()).toBe(both.length);
+    await user.click(within(dialog).getByRole("button", { name: "Visa" }));
+    expect(rows()).toBe(1);
+    await user.click(within(dialog).getByRole("button", { name: "Visa alla" }));
+    expect(rows()).toBe(both.length);
+  });
+
   it("has no best-store line and no picker with offers from one store only (Story 9.14)", async () => {
-    render({ stores, offers: both.slice(0, 1), best: { storeId: store.id, fits: 1, total: 1, score: 1 } });
+    render({ stores, offers: both.slice(0, 1), best: { storeId: store.id, fits: 1, total: 1, score: 1, matches: [] } });
     const { dialog } = await open();
     expect(within(dialog).queryByTestId("best-store")).not.toBeInTheDocument();
     expect(within(dialog).queryByRole("radiogroup", { name: "Butik för förslagen" })).not.toBeInTheDocument();
