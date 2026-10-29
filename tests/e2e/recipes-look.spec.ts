@@ -319,11 +319,14 @@ test("the heart toggles the favourite without opening the recipe; a tap on the i
   expect(errors).toEqual([]);
 });
 
-test("with the keyboard, the card's link comes before its heart", async ({ page }) => {
+test("with the keyboard, the card's link comes before its bin and heart", async ({ page }) => {
   await serveImages(page);
   await page.goto("/recept");
   const korvCard = card(page, korv);
   await korvCard.getByRole("link", { name: korv }).focus();
+  // Story 13.2: the card's soptunna sits with the text, so it comes between the link and the heart.
+  await page.keyboard.press("Tab");
+  await expect(korvCard.getByRole("button", { name: `Ta bort ${korv}` })).toBeFocused();
   await page.keyboard.press("Tab");
   await expect(heart(korvCard, korv)).toBeFocused();
 });

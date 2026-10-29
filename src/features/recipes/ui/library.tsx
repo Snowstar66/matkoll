@@ -17,6 +17,7 @@ import { filterRecipes, type RecipeFilter, type RecipeLibrary, type RecipeListIt
 import type { AddToPlan } from "./add-to-plan-button";
 import { AiSuggestions } from "./ai-suggestions";
 import { useRecipeFilter } from "./recipe-filter-store";
+import { useRecipeDelete } from "./recipe-delete";
 import { RecipeList } from "./recipe-list";
 import { useDishSuggestions } from "./use-dish-suggestions";
 import { useFavorites } from "./use-favorites";
@@ -72,9 +73,11 @@ export type LibraryProps = {
   siteNames?: Readonly<Record<string, string>>;
   /** mealplan.addToCurrentPlan from the page (AD-1), for "Lägg på matsedeln" on suggestions from offers (Story 9.5). */
   addToPlan?: AddToPlan;
+  /** The ids of the recipes on the current meal plan, which "Ta bort" says (Story 13.2). */
+  onMenuIds?: readonly string[];
 };
 
-export function Library({ recipes, pantryUnavailable, site, searchIngredients, siteNames, addToPlan }: LibraryProps) {
+export function Library({ recipes, pantryUnavailable, site, searchIngredients, siteNames, addToPlan, onMenuIds = [] }: LibraryProps) {
   const router = useRouter();
   const [filter, setFilter] = useRecipeFilter();
   // AI-förslag are of the place the server's list is counted against. They are in
@@ -138,9 +141,12 @@ export function Library({ recipes, pantryUnavailable, site, searchIngredients, s
   );
   const current = useMemo(() => Object.fromEntries(shown.map((recipe) => [recipe.id, recipe.isFavorite])), [shown]);
   const { favorites, setFavorite } = useFavorites(current);
+  // A deleted recipe leaves the list at once, before the page's new list arrives.
+  const [deleted, setDeleted] = useState<ReadonlySet<string>>(new Set());
+  const { ask, dialog } = useRecipeDelete((id) => setDeleted((ids) => new Set(ids).add(id)));
   const visible = useMemo(
-    () => (filter === null ? [] : filterRecipes(shown, filter, (recipe) => favorites[recipe.id] ?? recipe.isFavorite)),
-    [shown, filter, favorites],
+    () => (filter === null ? [] : filterRecipes(shown.filter((recipe) => !deleted.has(recipe.id)), filter, (recipe) => favorites[recipe.id] ?? recipe.isFavorite)),
+    [shown, filter, favorites, deleted],
   );
 
   // Until the client has read the saved filter (hydration), skeleton rows
@@ -189,6 +195,7 @@ export function Library({ recipes, pantryUnavailable, site, searchIngredients, s
         recipes={visible}
         favorites={favorites}
         onFavoriteChange={setFavorite}
+        onDelete={(recipe) => ask({ id: recipe.id, title: recipe.title, onMenu: onMenuIds.includes(recipe.id) })}
         ranked={cookable && !statusUnavailable}
       />
     );
@@ -247,6 +254,7 @@ export function Library({ recipes, pantryUnavailable, site, searchIngredients, s
           addToPlan={addToPlan}
         />
       ) : null}
+      {dialog}
     </div>
   );
 }

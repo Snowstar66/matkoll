@@ -3,7 +3,7 @@ import { notFound } from "next/navigation";
 import { Suspense } from "react";
 import { requireUserOrRedirect } from "@/features/auth/server";
 import { searchIngredients } from "@/features/catalog/server";
-import { addToCurrentPlan } from "@/features/mealplan/server";
+import { addToCurrentPlan, getCurrentPlan } from "@/features/mealplan/server";
 import { getRecipe, getRecipeWithPantry } from "@/features/recipes/server";
 import { RecipeMenu } from "@/features/recipes/ui/recipe-menu";
 import { RecipeView } from "@/features/recipes/ui/recipe-view";
@@ -40,12 +40,15 @@ async function RecipeContent({ params }: Pick<PageProps<"/recept/[id]">, "params
   const found = await getRecipeWithPantry(id);
   if (!found) notFound();
   const { recipe, snapshot, site } = found;
+  // Whether the recipe is on the current meal plan, which "Ta bort recept" says.
+  const plan = await getCurrentPlan().catch(() => null);
+  const onMenu = plan?.recipes.some((dish) => dish.recipeId === recipe.id) ?? false;
   return (
     <RecipeView
       recipe={recipe}
       snapshot={snapshot}
       site={site}
-      menu={<RecipeMenu recipe={recipe} searchIngredients={searchIngredients} />}
+      menu={<RecipeMenu recipe={recipe} searchIngredients={searchIngredients} onMenu={onMenu} />}
       addToPlan={addToCurrentPlan}
     />
   );
