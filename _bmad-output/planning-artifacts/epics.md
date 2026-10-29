@@ -2426,6 +2426,26 @@ så att lagersaldot stämmer utan att jag räknar själv.
 **När** avdraget görs
 **Så** uppdateras lagret, rätten visas som lagad på matsedeln och räknas inte längre in i inköpslistan, och "Ångra" återställer både lagret och rätten
 
+### Story 13.5: Dagar på matsedeln
+
+Som Pontus,
+vill jag lägga rätterna på veckans dagar och flytta dem mellan dagar,
+så att jag ser veckan i överblick och vet vad vi äter när.
+
+**Acceptance Criteria:**
+
+**Givet** matsedeln för en vecka
+**När** den visas
+**Så** är rätterna grupperade under måndag–söndag, och rätter utan dag ligger under "Ingen dag än"
+
+**Givet** en rätt på matsedeln
+**När** Pontus väljer "Flytta till dag" (eller lägger till en ny rätt)
+**Så** kan en dag väljas, flera rätter kan ligga samma dag, och inköpslistan påverkas inte av vilken dag rätten ligger på
+
+**Givet** befintliga matsedlar
+**När** ändringen går live
+**Så** behåller alla rätter sina data och hamnar under "Ingen dag än", och "Markera som lagad", portioner, soptunna och tidigare veckor fungerar som förut
+
 ## Epic 14: Tydligare flöden
 
 Pontus förstod inte hur listan kommer till butiken, och erbjudandevyn har blivit rörig när funktionerna lagts på varandra.
