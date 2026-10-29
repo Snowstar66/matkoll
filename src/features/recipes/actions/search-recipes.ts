@@ -7,6 +7,7 @@ import { requireUser } from "@/features/auth/server";
 import { fail, ok, type Result } from "@/lib/errors";
 import { createClient } from "@/lib/supabase/server";
 import { RecipeDataError } from "../data/client";
+import { missingNames } from "../data/missing-names";
 import { searchRecipesIn } from "../data/queries";
 import { recipeSearchSchema, toLibrary, type RecipeLibrary, type RecipeListItem } from "../domain/recipe-list";
 
@@ -50,7 +51,7 @@ async function search(query: string): Promise<Result<RecipeLibrary>> {
     // failed search. The status and the place are the ones selected now, so
     // the line "Lager" and the badges always agree (AD-24).
     const { snapshot, site } = await getPantryForStatus();
-    return ok(toLibrary(rows, snapshot, site));
+    return ok(toLibrary(rows, snapshot, site, await missingNames(rows, snapshot)));
   } catch (error) {
     if (error instanceof CatalogDataError) {
       console.error("recipe_search_failed", { reason: `catalog_${error.code}` });

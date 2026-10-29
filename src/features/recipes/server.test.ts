@@ -90,7 +90,7 @@ describe("listLibrary", () => {
   it("gives the rows with their status, says the pantry was read, and has the place it is of", async () => {
     onStugan(toSnapshot([{ ingredientId: "gradde", amount: 2, unit: "dl" }]));
     expect(await listLibrary()).toEqual({
-      recipes: [{ ...libraryItem, missingCount: 0 }],
+      recipes: [{ ...libraryItem, missingCount: 0, missingNames: [] }],
       pantryUnavailable: false,
       site: stugan,
     });

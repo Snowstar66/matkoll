@@ -109,6 +109,15 @@ describe("RecipeCard", () => {
     expect(card.querySelector("img")).toBeNull();
   });
 
+  it("keeps the short text on the badge and lists the missing items in its accessible text and title (Story 4.3)", () => {
+    const { card } = renderCard({
+      badge: <RecipeStatusBadge missingCount={3} missingNames={["Tryffelolja", "Persilja", "Salt"]} onImage />,
+    });
+    const badge = within(card).getByText("Saknar 3 varor").closest("span[title]");
+    expect(badge).toHaveAttribute("title", "Saknar: tryffelolja, persilja +1");
+    expect(badge).toHaveTextContent("Saknar 3 varor: tryffelolja, persilja +1");
+  });
+
   it("reads title, time, status and then the heart", () => {
     const { card } = renderCard({ badge: <RecipeStatusBadge missingCount={2} onImage /> });
     const order = [

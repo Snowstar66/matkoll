@@ -75,6 +75,8 @@ export type IngredientRowProps = {
    * not 1.
    */
   factor?: number;
+  /** An id that makes the row focusable by script ("Saknar: …" in the recipe view takes focus here); not in the step mode, which repeats the lines. */
+  anchorId?: string;
 };
 
 /**
@@ -89,18 +91,26 @@ export type IngredientRowProps = {
  * some ("hemma: 2 dl, 1 l"). Amounts are rounded only by formatQuantity, never
  * to whole pieces (AD-7, AD-12).
  */
-export function IngredientRow({ line, coverage, factor = 1 }: IngredientRowProps) {
+export function IngredientRow({ line, coverage, factor = 1, anchorId }: IngredientRowProps) {
   const name = !line.isVague ? line.ingredientName : null;
   const withAmount = !line.isVague && line.ingredientId !== null;
   const showOriginal =
     name !== null && normalizeIngredientText(line.originalText) !== normalizeIngredientText(name);
   const short = coverage !== null && coverage.kind !== "unlinked" && isShort(coverage);
   const atHome = coverage?.kind === "partial" || coverage?.kind === "other-unit" ? coverage.amounts : null;
-  const multiplier = !withAmount && !line.isVague && line.amount !== null && factor !== 1 ? factorText(factor) : null;
+  // Story 4.3: a calm word under the name; the ring in front already says it to screen readers.
+  const tag = short ? (
+    <span aria-hidden="true" className="text-meta text-ink-2">
+      Saknas
+    </span>
+  ) : null;
+  const multiplier =!withAmount && !line.isVague && line.amount !== null && factor !== 1 ? factorText(factor) : null;
   return (
     <li
+      id={anchorId}
+      tabIndex={anchorId ? -1 : undefined}
       data-testid="recipe-view-line"
-      className="flex min-h-10 items-start gap-3 border-t border-hairline py-2 first:border-t-0"
+      className="flex min-h-10 items-start gap-3 border-t border-hairline py-2 outline-none first:border-t-0 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-accent"
     >
       {coverage ? <LineMark coverage={coverage} /> : null}
       {withAmount ? (
@@ -108,6 +118,7 @@ export function IngredientRow({ line, coverage, factor = 1 }: IngredientRowProps
           <span className="flex min-w-0 flex-col">
             <span className="text-body text-ink">{name ?? line.originalText}</span>
             {showOriginal ? <span className="text-meta text-ink-2">{line.originalText}</span> : null}
+            {tag}
           </span>
           <span className="flex shrink-0 flex-col items-end">
             <span className={cx("text-body", short ? "text-sky-ink" : "text-ink-2")}>
@@ -118,11 +129,17 @@ export function IngredientRow({ line, coverage, factor = 1 }: IngredientRowProps
         </span>
       ) : multiplier ? (
         <span className="flex min-w-0 flex-1 items-baseline justify-between gap-3">
-          <span className="min-w-0 text-body text-ink">{line.originalText}</span>
+          <span className="flex min-w-0 flex-col">
+            <span className="text-body text-ink">{line.originalText}</span>
+            {tag}
+          </span>
           <span className="shrink-0 text-body text-ink-2">{multiplier}</span>
         </span>
       ) : (
-        <span className="min-w-0 flex-1 text-body text-ink">{line.originalText}</span>
+        <span className="flex min-w-0 flex-1 flex-col">
+          <span className="text-body text-ink">{line.originalText}</span>
+          {tag}
+        </span>
       )}
     </li>
   );

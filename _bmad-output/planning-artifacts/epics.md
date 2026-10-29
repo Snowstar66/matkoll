@@ -1082,6 +1082,34 @@ så att jag kan laga mat med mobilen lutad mot väggen.
 
 Pontus kan se vad som går att laga med det som finns hemma, rangordnat efter hur lite som saknas, och be om AI-förslag när biblioteket inte räcker.
 
+### Story 4.3: Visa vilka varor som saknas
+
+Som Pontus,
+vill jag se vilka varor som saknas i receptet och inte bara hur många,
+så att jag vet vad jag ska köpa utan att leta bland raderna.
+
+**Acceptance Criteria:**
+
+**Givet** ett recept där varor saknas hemma
+**När** receptvyn visas
+**Så** står "Saknar: tryffelolja" (vid fler än två "Saknar: tryffelolja, persilja +1") i stället för "Saknar N varor", med ingrediensernas katalognamn i gemener, och "X av Y hemma" står kvar
+
+**Givet** chippen "Saknar: …"
+**När** Pontus trycker på den
+**Så** rullar vyn mjukt till ingredienserna och första saknade raden får fokus
+
+**Givet** en ingredienslista
+**När** en rad saknas
+**Så** har den ett lugnt "Saknas" under namnet, medan rader som finns hemma ser ut som förut
+
+**Givet** receptkortet i biblioteket
+**När** något saknas
+**Så** står "Saknar N varor" kvar som synlig text, men märkets tillgängliga namn och title listar varorna ("Saknar: tryffelolja")
+
+**Givet** ändrade portioner, mörkt läge, 375 px och stor text
+**När** receptvyn visas
+**Så** följer namnen portionerna, inget går utanför sidan och chippen är minst 44 px hög
+
 ### Story 5.1: Kan lagas nu, rangordnat
 
 Som Pontus,

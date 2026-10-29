@@ -155,6 +155,7 @@ export {
   recipeStatus,
   recipeStatusForFactor,
   recipeStatusText,
+  missingNamesText,
   atHomeSummaryText,
   type LineCoverage,
   type RecipeStatus,

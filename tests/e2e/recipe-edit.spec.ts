@@ -104,7 +104,7 @@ test("Ändra changes the title, a line's ingredient and the steps, and stays in 
 
   const lines = page.getByRole("region", { name: "Ingredienser" }).getByTestId("recipe-view-line");
   await expect(lines).toHaveCount(8);
-  await expect(lines.filter({ hasText: "1 purjolök" })).toHaveText(/^Smör\s*1 purjolök\s*1$/);
+  await expect(lines.filter({ hasText: "1 purjolök" })).toHaveText(/^Smör\s*1 purjolök\s*(Saknas)?\s*1$/);
   const steps = page.getByRole("region", { name: "Steg" }).getByRole("listitem");
   await expect(steps).toHaveCount(6);
   await expect(steps.last()).toHaveText(/^6\s*Servera med kokt potatis\.$/);

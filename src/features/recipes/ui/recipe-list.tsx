@@ -37,7 +37,9 @@ export function RecipeList({ recipes, favorites, onFavoriteChange, ranked = fals
           meta={recipeMetaText(recipe.totalMinutes, recipe.originalServings)}
           href={`/recept/${recipe.id}`}
           badge={
-            recipe.missingCount !== null ? <RecipeStatusBadge missingCount={recipe.missingCount} onImage /> : undefined
+            recipe.missingCount !== null ? (
+              <RecipeStatusBadge missingCount={recipe.missingCount} missingNames={recipe.missingNames} onImage />
+            ) : undefined
           }
           onDelete={onDelete ? () => onDelete(recipe) : undefined}
           favorite={{
