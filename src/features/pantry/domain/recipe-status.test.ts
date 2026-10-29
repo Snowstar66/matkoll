@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import { toSnapshot } from "./pantry-item";
-import { atHomeSummaryText, recipeStatus, recipeStatusForFactor, recipeStatusText, type LineCoverage, type StatusLine } from "./recipe-status";
+import { atHomeSummaryText, missingNamesText, recipeStatus, recipeStatusForFactor, recipeStatusText, type LineCoverage, type StatusLine } from "./recipe-status";
 
 let lineId = 0;
 const line = (overrides: Partial<StatusLine> & Pick<StatusLine, "ingredientId">): StatusLine => ({
@@ -119,6 +119,7 @@ describe("recipeStatus", () => {
   it("can cook a recipe without lines", () => {
     expect(recipeStatus({ servings: 2, lines: [] }, 2, snapshot)).toEqual({
       missingCount: 0,
+      missingIngredientIds: [],
       ingredientCount: 0,
       atHomeCount: 0,
       lines: {},
@@ -211,5 +212,21 @@ describe("recipeStatusText", () => {
     expect(recipeStatusText(0)).toBe("Kan lagas nu");
     expect(recipeStatusText(1)).toBe("Saknar 1 vara");
     expect(recipeStatusText(2)).toBe("Saknar 2 varor");
+  });
+});
+
+describe("missingNamesText", () => {
+  it.each([
+    [["Tryffelolja"], "Saknar: tryffelolja"],
+    [["Tryffelolja", "Persilja"], "Saknar: tryffelolja, persilja"],
+    [["Tryffelolja", "Persilja", "Salt"], "Saknar: tryffelolja, persilja +1"],
+    [["a", "b", "c", "d", "e"], "Saknar: a, b +3"],
+    [[" ", "Mjölk"], "Saknar: mjölk"],
+  ])("%j is %s", (names, text) => {
+    expect(missingNamesText(names)).toBe(text);
+  });
+
+  it("is null without names", () => {
+    expect(missingNamesText([])).toBeNull();
   });
 });

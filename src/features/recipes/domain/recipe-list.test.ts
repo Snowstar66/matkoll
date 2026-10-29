@@ -190,10 +190,11 @@ describe("withStatus", () => {
         ]),
       ],
       snapshot,
+      { gradde: "Grädde" },
     );
     expect(items).toEqual([
-      { id: "soppa", title: "soppa", imageUrl: null, totalMinutes: null, originalServings: 2, isFavorite: false, createdAt: "2026-10-01T08:00:00+00:00", missingCount: 1 },
-      { id: "gryta", title: "gryta", imageUrl: null, totalMinutes: null, originalServings: 4, isFavorite: false, createdAt: "2026-10-01T08:00:00+00:00", missingCount: 0 },
+      { id: "soppa", title: "soppa", imageUrl: null, totalMinutes: null, originalServings: 2, isFavorite: false, createdAt: "2026-10-01T08:00:00+00:00", missingCount: 1, missingNames: ["Grädde"] },
+      { id: "gryta", title: "gryta", imageUrl: null, totalMinutes: null, originalServings: 4, isFavorite: false, createdAt: "2026-10-01T08:00:00+00:00", missingCount: 0, missingNames: [] },
     ]);
   });
 

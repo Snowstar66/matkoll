@@ -153,7 +153,10 @@ describe("RecipeView", () => {
   it("says Saknar N varor, rings what is short, and shows what is at home in another unit", () => {
     // Chicken only in kg, no onion, and no salt: the vague salt is ringed but not counted in N.
     render(<RecipeView recipe={recipe} snapshot={toSnapshot([{ ingredientId: kyckling, amount: 1, unit: "kg" }])} />);
-    expect(screen.getByText("Saknar 2 varor")).toHaveClass("bg-sky", "text-sky-ink");
+    expect(screen.getByText("Saknar: kycklinglårfilé, rödlök")).toHaveClass("bg-sky", "text-sky-ink");
+    // Each missing line has the calm word, and what is at home has not.
+    expect(within(rows()[0]).getByText("Saknas")).toBeInTheDocument();
+    expect(within(rows()[2]).queryByText("Saknas")).not.toBeInTheDocument();
     // The salt is not at home either, so none of the three is.
     expect(atHome()).toHaveTextContent(/^0 av 3 hemma$/);
     expect(marks()).toEqual(["saknas", "saknas", "jämförs inte med lagret", "saknas"]);
@@ -173,8 +176,19 @@ describe("RecipeView", () => {
         ])}
       />,
     );
-    expect(screen.getByText("Saknar 1 vara")).toHaveClass("bg-sky");
+    expect(screen.getByText("Saknar: rödlök")).toHaveClass("bg-sky");
     expect(atHome()).toHaveTextContent(/^2 av 3 hemma$/);
+  });
+
+  it("takes Pontus to the ingredients and focuses the first missing line when the chip is pressed", async () => {
+    const user = userEvent.setup();
+    const scrollIntoView = vi.fn();
+    Element.prototype.scrollIntoView = scrollIntoView;
+    window.matchMedia ??= ((query: string) => ({ matches: false, media: query })) as unknown as typeof window.matchMedia;
+    render(<RecipeView recipe={recipe} snapshot={toSnapshot([{ ingredientId: kyckling, amount: 600, unit: "g" }])} />);
+    await user.click(screen.getByRole("button", { name: "Saknar: rödlök" }));
+    expect(scrollIntoView).toHaveBeenCalledWith(expect.objectContaining({ block: "start" }));
+    expect(rows()[1]).toHaveFocus();
   });
 
   it("shows everything at home beside a line with too little: every unit of the ingredient", () => {
@@ -378,7 +392,7 @@ describe("RecipeView: the portion selector", () => {
     render(<RecipeView recipe={withCream} snapshot={snapshot} />);
     const creamRow = () => rows()[4];
     // Chicken is at home only in kg: one short at the recipe's own servings.
-    expect(screen.getByText("Saknar 1 vara")).toBeInTheDocument();
+    expect(screen.getByText("Saknar: kycklinglårfilé")).toBeInTheDocument();
     expect(atHome()).toHaveTextContent(/^3 av 4 hemma$/);
 
     // 8 portions need exactly the 4 dl at home.
@@ -393,7 +407,7 @@ describe("RecipeView: the portion selector", () => {
     expect(within(creamRow()).getByRole("img")).toHaveAccessibleName("saknas");
     expect(within(creamRow()).getByText("5 dl")).toHaveClass("text-sky-ink");
     expect(within(creamRow()).getByText("hemma: 4 dl")).toBeInTheDocument();
-    expect(screen.getByText("Saknar 2 varor")).toBeInTheDocument();
+    expect(screen.getByText("Saknar: kycklinglårfilé, grädde")).toBeInTheDocument();
     expect(atHome()).toHaveTextContent(/^2 av 4 hemma$/);
 
     await user.click(stepper.fewer());
@@ -414,7 +428,7 @@ describe("RecipeView: the portion selector", () => {
       </ToastProvider>,
     );
     expect(stepper.value()).toHaveTextContent("5 portioner");
-    expect(screen.getByText("Saknar 2 varor")).toBeInTheDocument();
+    expect(screen.getByText("Saknar: kycklinglårfilé, rödlök")).toBeInTheDocument();
 
     rerender(
       <ToastProvider>

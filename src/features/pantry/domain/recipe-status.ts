@@ -31,6 +31,8 @@ export type RecipeStatus = {
    * catalog ingredient never count. 0 is "Kan lagas nu".
    */
   missingCount: number;
+  /** The ingredients counted in `missingCount`, by id, in the order their lines first appear (Story 4.3). */
+  missingIngredientIds: string[];
   /**
    * Y in "X av Y hemma": the distinct catalog ingredients of the recipe, also
    * those with only vague lines. Lines without a catalog ingredient never
@@ -91,6 +93,7 @@ export function recipeStatusForFactor(
   }
   return {
     missingCount: short.size,
+    missingIngredientIds: [...short],
     ingredientCount: ingredients.size,
     atHomeCount: ingredients.size - notAtHome.size,
     lines: byLine,
@@ -100,6 +103,22 @@ export function recipeStatusForFactor(
 /** "7 av 9 hemma": X of the recipe's Y catalog ingredients are at home for the chosen servings. */
 export function atHomeSummaryText(atHomeCount: number, ingredientCount: number): string {
   return `${atHomeCount} av ${ingredientCount} hemma`;
+}
+
+/** At most this many names are spelled out in "Saknar: a, b +N". */
+const maxMissingNames = 2;
+
+/**
+ * Which items are missing, in words (Story 4.3): "Saknar: tryffelolja",
+ * "Saknar: tryffelolja, persilja" and "Saknar: tryffelolja, persilja +1" for
+ * more than two. Names are lower case, as they stand mid-sentence. `null`
+ * without names, so the caller falls back to recipeStatusText.
+ */
+export function missingNamesText(names: readonly string[]): string | null {
+  const shown = names.map((name) => name.trim().toLocaleLowerCase("sv-SE")).filter((name) => name !== "");
+  if (shown.length === 0) return null;
+  const rest = shown.length - maxMissingNames;
+  return `Saknar: ${shown.slice(0, maxMissingNames).join(", ")}${rest > 0 ? ` +${rest}` : ""}`;
 }
 
 /** The status in words: "Kan lagas nu", "Saknar 1 vara" or "Saknar 3 varor". */
