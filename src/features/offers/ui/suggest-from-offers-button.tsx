@@ -1,6 +1,6 @@
 "use client";
 
-import { useRef, useState } from "react";
+import { type ReactNode, useRef, useState } from "react";
 import { Button } from "@/components/button";
 import { FilterPills } from "@/components/filter-pills";
 import { useToast } from "@/components/toast";
@@ -16,6 +16,8 @@ export type SuggestFromOffersButtonProps = {
   stores?: readonly { id: string; label: string }[];
   /** The store that is chosen until Pontus picks another: the week's best store. */
   defaultStoreId?: string;
+  /** Story 14.1: the best-store line, shown first inside the card. */
+  bestLine?: ReactNode;
 };
 
 /**
@@ -27,7 +29,7 @@ export type SuggestFromOffersButtonProps = {
  * button waits while one is started or active. The same key again gives the
  * same job, so a retry after a lost answer never makes a second one.
  */
-export function SuggestFromOffersButton({ hasOffers, onStarted, stores = [], defaultStoreId }: SuggestFromOffersButtonProps) {
+export function SuggestFromOffersButton({ hasOffers, onStarted, stores = [], defaultStoreId, bestLine }: SuggestFromOffersButtonProps) {
   const { showToast } = useToast();
   const { start } = useAiJobs();
   const [starting, setStarting] = useState(false);
@@ -55,7 +57,8 @@ export function SuggestFromOffersButton({ hasOffers, onStarted, stores = [], def
   }
 
   return (
-    <div className="flex flex-col gap-2">
+    <section aria-label="Förslag från erbjudandena" className="flex flex-col gap-3 rounded-lg border border-border p-4">
+      {bestLine}
       {choose && storeId ? (
         <FilterPills
           label="Butik för förslagen"
@@ -83,6 +86,6 @@ export function SuggestFromOffersButton({ hasOffers, onStarted, stores = [], def
           {suggestFromOffersText.noOffers}
         </p>
       )}
-    </div>
+    </section>
   );
 }

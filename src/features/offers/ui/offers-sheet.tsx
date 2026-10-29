@@ -31,6 +31,7 @@ import {
   openOffersPageText,
   type StoreOffer,
 } from "../domain/offer";
+import { topDealPercent } from "../domain/offer-saving";
 import { bestStoreReason, type BestStore } from "../domain/best-store";
 import { storeBadgeText, storeBadgeTone, type StoreBadgeInfo } from "../domain/store-badge";
 import { FetchOffersButton } from "./fetch-offers-button";
@@ -155,6 +156,10 @@ export function OffersSheet({
   const [sort, setSort] = useState<"category" | "saving">("category");
   const [storeFilter, setStoreFilter] = useState<string>("all");
   // The stores Pontus has unticked for "Hämta valda"; all are ticked by default.
+  const [panel, setPanel] = useState<"fetch" | "filter" | null>(null);
+  const [selecting, setSelecting] = useState(false);
+  const fetchPanelId = useId();
+  const filterPanelId = useId();
   const [unticked, setUnticked] = useState<ReadonlySet<string>>(new Set());
   const [runs, setRuns] = useState<StoreRun[]>([]);
   const [progress, setProgress] = useState<{ store: OffersStore; at: number; of: number } | null>(null);
@@ -181,6 +186,7 @@ export function OffersSheet({
   /** One store after the other, never at once: each is one request to the store's site, and its answer is kept. */
   async function fetchFrom(chosenStores: readonly OffersStore[]) {
     if (pending || chosenStores.length === 0) return;
+    setPanel(null);
     setRuns([]);
     const done: StoreRun[] = [];
     for (const [index, store] of chosenStores.entries()) {
@@ -224,6 +230,7 @@ export function OffersSheet({
     if (answer.ok) {
       setAdded((before) => new Set([...before, ...chosen.map((offer) => offer.id)]));
       setPicked(new Set());
+      setSelecting(false);
       // The sheet closes, so the toast and its link are within reach.
       onClose();
       showToast(addedToListText(chosen.length), {
@@ -248,66 +255,125 @@ export function OffersSheet({
   } else if (unavailable) {
     body = <Notice role="alert">{errorMessages.offers_unavailable}</Notice>;
   } else {
+    const fetchPanel = (
+      <StoreFetchPanel
+        stores={withLink}
+        offers={offers}
+        badges={badges}
+        unticked={unticked}
+        onToggle={(id, on) =>
+          setUnticked((before) => {
+            const next = new Set(before);
+            if (on) next.delete(id);
+            else next.add(id);
+            return next;
+          })
+        }
+        now={now}
+        pending={pending}
+        ticked={ticked}
+        onFetch={(list) => void fetchFrom(list)}
+      />
+    );
+    const hasSaving = shown.some((offer) => offer.savingPercent !== null);
+    const canFilter = many || hasSaving;
+    const activeFilters = (sort !== "category" ? 1 : 0) + (filterId !== "all" ? 1 : 0);
+    const tops = shown.filter((offer) => offer.savingPercent !== null && offer.savingPercent >= topDealPercent).length;
     body = (
-      <div className="flex flex-col gap-5">
-        {many ? (
-          <StoreFetchPanel
-            stores={withLink}
-            offers={offers}
-            badges={badges}
-            unticked={unticked}
-            onToggle={(id, on) =>
-              setUnticked((before) => {
-                const next = new Set(before);
-                if (on) next.delete(id);
-                else next.add(id);
-                return next;
-              })
-            }
-            now={now}
-            pending={pending}
-            ticked={ticked}
-            onFetch={(list) => void fetchFrom(list)}
-          />
-        ) : null}
+      <div className="flex flex-col gap-4">
         {offers.length === 0 ? (
           <div className="flex flex-col gap-4">
             <p className="text-body text-ink-2">{noOffersText(weekStart)}</p>
-            {many ? null : <FetchOffersButton onFetch={() => void fetchFrom(withLink)} variant="primary" pending={pending} />}
+            {many ? fetchPanel : <FetchOffersButton onFetch={() => void fetchFrom(withLink)} variant="primary" pending={pending} />}
             <SuggestFromOffersButton hasOffers={false} />
           </div>
         ) : (
           <>
-            <div className="flex items-center justify-between gap-x-3">
-              <p data-testid="offers-summary" className="min-w-0 text-meta text-ink-2">
-                {offersSummaryText(shown.length, lastFetch, new Date(now))}
-              </p>
-              {many ? null : <FetchOffersButton onFetch={() => void fetchFrom(withLink)} variant="text" pending={pending} />}
+            <div className="flex flex-wrap items-baseline gap-x-2 text-meta text-ink-2">
+              <p data-testid="offers-summary">{offersSummaryText(shown.length, lastFetch, new Date(now))}</p>
+              {tops > 0 ? (
+                <p data-testid="offers-finds" className="font-semibold">
+                  <span aria-hidden="true">{"\u{1F525} "}</span>
+                  {`${tops} Toppklipp`}
+                </p>
+              ) : null}
             </div>
-            {bestInfo ? (
-              <p data-testid="best-store" className="flex flex-wrap items-center gap-x-2 gap-y-1 text-body text-ink">
-                <span className="font-semibold">Veckans bästa butik:</span>
-                <StoreBadge badge={badges.get(bestInfo.storeId)} />
-                <span className="text-ink-2">{bestStoreReason(bestInfo)}</span>
-              </p>
-            ) : null}
+            <div className="flex flex-col gap-2">
+              <div className="flex flex-wrap items-center gap-2">
+                {many ? (
+                  <Button
+                    variant="secondary"
+                    aria-expanded={panel === "fetch"}
+                    aria-controls={fetchPanelId}
+                    onClick={() => setPanel(panel === "fetch" ? null : "fetch")}
+                  >
+                    Hämta
+                  </Button>
+                ) : (
+                  <FetchOffersButton onFetch={() => void fetchFrom(withLink)} variant="secondary" pending={pending} />
+                )}
+                {canFilter ? (
+                  <Button
+                    variant="secondary"
+                    aria-expanded={panel === "filter"}
+                    aria-controls={filterPanelId}
+                    onClick={() => setPanel(panel === "filter" ? null : "filter")}
+                  >
+                    {activeFilters > 0 ? `Filter \u00B7 ${activeFilters}` : "Filter"}
+                  </Button>
+                ) : null}
+                {listing ? (
+                  <Button
+                    variant="text"
+                    className="ml-auto"
+                    aria-pressed={selecting}
+                    onClick={() => {
+                      setSelecting(!selecting);
+                      if (selecting) setPicked(new Set());
+                    }}
+                  >
+                    {selecting ? "Klar" : "Välj"}
+                  </Button>
+                ) : null}
+              </div>
+              {many && panel === "fetch" ? <div id={fetchPanelId}>{fetchPanel}</div> : null}
+              {panel === "filter" && canFilter ? (
+                <div id={filterPanelId} className="flex flex-col gap-3 rounded-lg border border-border p-4" data-testid="filter-panel">
+                  {hasSaving ? (
+                    <div className="flex flex-col gap-1">
+                      <p className="text-meta text-ink-2">Sortera</p>
+                      <FilterPills label="Sortera erbjudandena" options={sortOptions} value={sort} onChange={setSort} />
+                    </div>
+                  ) : null}
+                  {many ? (
+                    <div className="flex flex-col gap-1">
+                      <p className="text-meta text-ink-2">Butik</p>
+                      <FilterPills
+                        label="Visa butik"
+                        options={[{ value: "all", label: "Alla" }, ...withLink.map((store) => ({ value: store.id, label: badges.get(store.id)?.text ?? store.name }))]}
+                        value={filterId}
+                        onChange={setStoreFilter}
+                      />
+                    </div>
+                  ) : null}
+                </div>
+              ) : null}
+            </div>
             <SuggestFromOffersButton
               hasOffers
               onStarted={onClose}
               stores={storesWithOffers.map((store) => ({ id: store.id, label: badges.get(store.id)?.text ?? store.name }))}
               defaultStoreId={bestInfo?.storeId ?? storesWithOffers[0]?.id}
+              bestLine={
+                bestInfo ? (
+                  <p data-testid="best-store" className="flex flex-wrap items-center gap-x-2 gap-y-1 text-body text-ink">
+                    <span className="font-semibold">Bäst denna vecka:</span>
+                    <StoreBadge badge={badges.get(bestInfo.storeId)} />
+                    <span className="text-ink-2">{bestStoreReason(bestInfo)}</span>
+                  </p>
+                ) : undefined
+              }
             />
-            {many ? (
-              <FilterPills
-                label="Visa butik"
-                options={[{ value: "all", label: "Alla" }, ...withLink.map((store) => ({ value: store.id, label: badges.get(store.id)?.text ?? store.name }))]}
-                value={filterId}
-                onChange={setStoreFilter}
-              />
-            ) : null}
-            {shown.some((offer) => offer.savingPercent !== null) ? (
-              <FilterPills label="Sortera erbjudandena" options={sortOptions} value={sort} onChange={setSort} />
-            ) : null}
             <OffersList
               offers={shown}
               weekStart={weekStart}
@@ -318,6 +384,7 @@ export function OffersSheet({
                   ? {
                       picked,
                       onList,
+                      selecting,
                       disabled: adding,
                       onToggle: (id, on) =>
                         setPicked((before) => {
@@ -457,8 +524,8 @@ function StoreFetchPanel({
 }) {
   const headingId = useId();
   return (
-    <section aria-labelledby={headingId} className="flex flex-col gap-3" data-testid="store-fetch-panel">
-      <h3 id={headingId} className="text-row-title font-semibold text-ink">
+    <section aria-labelledby={headingId} className="flex flex-col gap-3 rounded-lg border border-border p-4" data-testid="store-fetch-panel">
+      <h3 id={headingId} className="text-body font-semibold text-ink">
         Hämta från
       </h3>
       <ListGroup labelledBy={headingId}>

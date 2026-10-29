@@ -7,16 +7,25 @@ import { useToast } from "@/components/toast";
 import type { Store } from "@/features/settings";
 import type { ShoppingLine } from "../domain/compute-list";
 import { exportableLines, exportBasket } from "../domain/export-basket";
-import { copiedText, copyFailedText, copyText, exportSheetTitle, exportTextLabel } from "../domain/list-text";
+import {
+  copiedText,
+  copyFailedText,
+  copyText,
+  exportSheetTitle,
+  exportTextLabel,
+  listCopiedText,
+} from "../domain/list-text";
+import { shareListText } from "../domain/share-list";
 import type { ProductChoice } from "../domain/product-choice";
+import { stepsHidden } from "./steps-sheet";
 
-// "Skicka till ICA" (FR-26, AD-16, Story 7.3): copies the basket export to
+// "Kopiera till ICA-varukorgen" (FR-26, AD-16, Story 7.3, 14.2): copies the basket export to
 // the clipboard for Pontus's own Claude in Chrome. The text is built here,
 // from the list as it is shown (a check not yet saved included), and
 // navigator.clipboard.writeText is called in the same tap, with no await,
 // fetch or Server Action before it, so the browser counts it as the user's
 // action. Nothing goes to the server, nothing is stored, and no store's site
-// is opened. When the browser refuses the clipboard, the sheet Inköpslistan
+// is opened (the steps sheet has a link Pontus taps himself). When the browser refuses the clipboard, the sheet Inköpslistan
 // shows the text selected, with "Kopiera".
 
 /** What the list has when the button is tapped. */
@@ -91,6 +100,7 @@ export function useSendBasket({
   const { showToast } = useToast();
   const [sheet, setSheet] = useState<ExportSheetState | null>(null);
   const [storeNotice, setStoreNotice] = useState<number | null>(null);
+  const [stepsOpen, setStepsOpen] = useState(false);
   const storeMissing = storeUnavailable || store === null;
   /** The latest tap; a writeText answer for an earlier one is ignored. */
   const sendToken = useRef(0);
@@ -136,8 +146,10 @@ export function useSendBasket({
     }
     void written.then((copied) => {
       if (token !== sendToken.current) return;
-      if (copied) showToast(confirmation);
-      else openSheet(text, confirmation);
+      if (copied) {
+        showToast(confirmation);
+        if (!stepsHidden()) setStepsOpen(true);
+      } else openSheet(text, confirmation);
     });
   }
 
@@ -165,7 +177,36 @@ export function useSendBasket({
     setSheet((current) => (current ? { ...current, open: false } : current));
   }
 
-  return { send, storeNotice, sheet, copyAgain, closeSheet };
+  /** "Dela listan": the unchecked lines as plain text, by the phone's share menu, or copied when there is none. */
+  function share() {
+    const text = shareListText(lines);
+    if (typeof navigator !== "undefined" && typeof navigator.share === "function") {
+      // A cancelled share menu rejects: that is not an error.
+      navigator.share({ text }).catch(() => {});
+      return;
+    }
+    const written = writeToClipboard(text);
+    if (written === false) {
+      openSheet(text, listCopiedText);
+      return;
+    }
+    void written.then((copied) => {
+      if (copied) showToast(listCopiedText);
+      else openSheet(text, listCopiedText);
+    });
+  }
+
+  return {
+    send,
+    share,
+    storeNotice,
+    sheet,
+    copyAgain,
+    closeSheet,
+    stepsOpen,
+    showSteps: () => setStepsOpen(true),
+    closeSteps: () => setStepsOpen(false),
+  };
 }
 
 /** Selects all of the field's text and gives it focus, also on iOS Safari. */
