@@ -19,6 +19,8 @@ export type PlanRecipe = {
   recipeTitle: string;
   servings: number;
   position: number;
+  /** When the dish was marked cooked (Story 13.4, ISO 8601), or `null`/left out when it is not. */
+  cookedAt?: string | null;
 };
 
 /** The current meal plan: its name ("Vecka 44") and its dishes in order. */
@@ -69,6 +71,7 @@ export const planRecipeRowSchema = z.object({
   recipeTitle: z.string().trim().min(1).max(200),
   servings: servingsSchema,
   position: z.number().int().min(0),
+  cookedAt: z.string().nullish(),
 });
 
 /** Dishes in plan order: by position, then by id for dishes at the same place. */
@@ -83,7 +86,8 @@ export type DishRecipe = {
   totalMinutes: number | null;
   /** The servings the recipe's amounts are written for. */
   originalServings: number;
-  lines: StatusLine[];
+  /** `originalText` is the line as written, for "Kontrollera själv" in Markera som lagad (Story 13.4). */
+  lines: (StatusLine & { originalText?: string })[];
 };
 
 /** A dish as Matsedel shows it: the dish and its recipe, or `null` when the recipe is gone. */

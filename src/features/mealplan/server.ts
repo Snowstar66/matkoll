@@ -1,5 +1,6 @@
 import "server-only";
 import { cache } from "react";
+import { getIngredientNames } from "@/features/catalog/server";
 import type { PantrySnapshot, SelectedSite } from "@/features/pantry";
 import { getPantryForStatus } from "@/features/pantry/server";
 import type { RecipeListRow } from "@/features/recipes";
@@ -66,6 +67,8 @@ export type MealPlanView = {
   /** `null` when there is no current plan yet. */
   plan: { id: string; name: string } | null;
   dishes: PlanDish[];
+  /** The catalog names of the dishes' ingredients by id, for "Markera som lagad" (Story 13.4). */
+  names?: Record<string, string>;
   /** The whole pantry, or `null` when it cannot be read: the dishes are shown without status. */
   snapshot: PantrySnapshot | null;
   /**
@@ -103,7 +106,7 @@ async function recipesOrNone(ids: readonly string[]): Promise<RecipeListRow[]> {
  */
 export async function getMealPlanView(): Promise<MealPlanView> {
   const [plan, { snapshot, site }] = await Promise.all([getCurrentPlan(), getPantryForStatus()]);
-  if (!plan) return { plan: null, dishes: [], snapshot, site };
+  if (!plan) return { plan: null, dishes: [], names: {}, snapshot, site };
   const recipes = await recipesOrNone(plan.recipes.flatMap((dish) => (dish.recipeId ? [dish.recipeId] : [])));
   const byId = new Map<string, DishRecipe>(
     recipes.map((recipe) => [
@@ -116,7 +119,11 @@ export async function getMealPlanView(): Promise<MealPlanView> {
       },
     ]),
   );
-  return { plan: { id: plan.id, name: plan.name }, dishes: toPlanDishes(plan.recipes, byId), snapshot, site };
+  const ingredientIds = [
+    ...new Set(recipes.flatMap((recipe) => recipe.lines.flatMap((line) => (line.ingredientId ? [line.ingredientId] : [])))),
+  ];
+  const names = ingredientIds.length > 0 ? await getIngredientNames(ingredientIds).catch(() => ({})) : {};
+  return { plan: { id: plan.id, name: plan.name }, dishes: toPlanDishes(plan.recipes, byId), names, snapshot, site };
 }
 
 /**

@@ -68,7 +68,9 @@ export async function MealPlanContent() {
         planName={view.plan?.name ?? null}
         dishes={view.dishes}
         snapshot={view.snapshot}
+        names={view.names ?? {}}
         siteLine={siteLineText(view.site)}
+        siteId={view.site?.id ?? null}
       />
     </AddDishProvider>
   );

@@ -5,6 +5,7 @@ import { requireUserOrRedirect } from "@/features/auth/server";
 import { searchIngredients } from "@/features/catalog/server";
 import { addToCurrentPlan, getCurrentPlan } from "@/features/mealplan/server";
 import { getRecipe, getRecipeWithPantry } from "@/features/recipes/server";
+import { MarkCookedButton } from "@/features/mealplan/ui/mark-cooked-button";
 import { RecipeMenu } from "@/features/recipes/ui/recipe-menu";
 import { RecipeView } from "@/features/recipes/ui/recipe-view";
 
@@ -43,6 +44,11 @@ async function RecipeContent({ params }: Pick<PageProps<"/recept/[id]">, "params
   // Whether the recipe is on the current meal plan, which "Ta bort recept" says.
   const plan = await getCurrentPlan().catch(() => null);
   const onMenu = plan?.recipes.some((dish) => dish.recipeId === recipe.id) ?? false;
+  // The dish that is not cooked yet: "Markera som lagad" at the end of the step mode (Story 13.4).
+  const dish = plan?.recipes.find((candidate) => candidate.recipeId === recipe.id && !candidate.cookedAt);
+  const names = Object.fromEntries(
+    recipe.lines.flatMap((line) => (line.ingredientId && line.ingredientName ? [[line.ingredientId, line.ingredientName]] : [])),
+  );
   return (
     <RecipeView
       recipe={recipe}
@@ -50,6 +56,20 @@ async function RecipeContent({ params }: Pick<PageProps<"/recept/[id]">, "params
       site={site}
       menu={<RecipeMenu recipe={recipe} searchIngredients={searchIngredients} onMenu={onMenu} />}
       addToPlan={addToCurrentPlan}
+      finish={
+        dish ? (
+          <MarkCookedButton
+            dish={{ id: dish.id, title: dish.recipeTitle, servings: dish.servings }}
+            originalServings={recipe.servings}
+            lines={recipe.lines}
+            snapshot={snapshot}
+            siteId={site?.id ?? null}
+            names={names}
+            variant="primary"
+            fullWidth
+          />
+        ) : undefined
+      }
     />
   );
 }
