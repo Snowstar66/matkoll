@@ -19,6 +19,7 @@ const findIngredientIds = vi.fn();
 vi.mock("@/features/catalog/server", () => ({
   CatalogDataError,
   findIngredientIds: (text: string) => findIngredientIds(text),
+  getIngredientNames: async () => ({ "lok-id": "Lök" }),
 }));
 
 class PantryDataError extends Error {
@@ -70,6 +71,7 @@ const gryta = {
   isFavorite: true,
   createdAt: row.createdAt,
   missingCount: 1,
+  missingNames: ["Lök"],
 };
 
 const stugan = { id: "55555555-5555-4555-8555-555555555555", name: "Stugan", siteCount: 2 };
@@ -127,7 +129,7 @@ describe("searchRecipes", () => {
 
   it("gives the recipes without status when the pantry cannot be read, never recipe_search_failed", async () => {
     pantryFails();
-    expect(await searchRecipes("gryta")).toEqual(ok([{ ...gryta, missingCount: null }]));
+    expect(await searchRecipes("gryta")).toEqual(ok([{ ...gryta, missingCount: null, missingNames: undefined }]));
   });
 
   it("does not read the pantry when nothing is found", async () => {
@@ -152,14 +154,14 @@ describe("searchLibrary", () => {
     expect(getPantrySnapshot).toHaveBeenCalledWith(stugan.id);
     pantryFails();
     expect(await searchLibrary("gryta")).toEqual(
-      ok({ recipes: [{ ...gryta, missingCount: null }], pantryUnavailable: true, site: null }),
+      ok({ recipes: [{ ...gryta, missingCount: null, missingNames: undefined }], pantryUnavailable: true, site: null }),
     );
   });
 
   it("gives neither status nor place when the place cannot be read", async () => {
     getSelectedSite.mockRejectedValue(new PantryDataError("sites_failed 08006"));
     expect(await searchLibrary("gryta")).toEqual(
-      ok({ recipes: [{ ...gryta, missingCount: null }], pantryUnavailable: true, site: null }),
+      ok({ recipes: [{ ...gryta, missingCount: null, missingNames: undefined }], pantryUnavailable: true, site: null }),
     );
   });
 

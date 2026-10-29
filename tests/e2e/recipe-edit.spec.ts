@@ -1,6 +1,6 @@
 import { readFileSync } from "node:fs";
 import { expect, type Page, test } from "@playwright/test";
-import { adminClient, recipesStorageState } from "./support";
+import { adminClient, openSavedImport, recipesStorageState } from "./support";
 
 // Story 1.11: "Ändra" in the recipe view's menu (⋯) opens the preview's form
 // for the saved recipe; "Spara ändringar" keeps Pontus in the recipe view, and
@@ -13,6 +13,7 @@ import { adminClient, recipesStorageState } from "./support";
 
 const fiskgratang = readFileSync("tests/fixtures/ai/fiskgratang.txt", "utf8");
 const mobile = { width: 390, height: 844 };
+const fixtureTitle = "Fiskgratäng med räkor";
 const recipePath = /\/recept\/([0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12})$/;
 
 const importSheet = (page: Page) => page.getByRole("dialog", { name: "Importera recept" });
@@ -35,9 +36,12 @@ async function saveRecipe(page: Page, title: string): Promise<string> {
   await importSheet(page).getByRole("tab", { name: "Text" }).click();
   await importSheet(page).getByLabel("Recepttext").fill(fiskgratang);
   await importSheet(page).getByRole("button", { name: "Tolka" }).click();
-  await importSheet(page).getByLabel("Titel").fill(title);
-  await importSheet(page).getByRole("button", { name: "Spara recept" }).click();
+  await openSavedImport(page, fixtureTitle);
   await expect(page).toHaveURL(recipePath);
+  // The import keeps the recipe's own title (Story 1.15); the spec gives it one of its own.
+  const renamed = await adminClient().from("recipe").update({ title }).eq("id", recipePath.exec(page.url())![1]);
+  expect(renamed.error).toBeNull();
+  await page.reload();
   await expect(page.getByRole("heading", { level: 1, name: title })).toBeVisible();
   return recipePath.exec(page.url())![1];
 }
@@ -100,7 +104,7 @@ test("Ändra changes the title, a line's ingredient and the steps, and stays in 
 
   const lines = page.getByRole("region", { name: "Ingredienser" }).getByTestId("recipe-view-line");
   await expect(lines).toHaveCount(8);
-  await expect(lines.filter({ hasText: "1 purjolök" })).toHaveText(/^Smör\s*1 purjolök\s*1$/);
+  await expect(lines.filter({ hasText: "1 purjolök" })).toHaveText(/^Smör\s*1 purjolök\s*(Saknas)?\s*1$/);
   const steps = page.getByRole("region", { name: "Steg" }).getByRole("listitem");
   await expect(steps).toHaveCount(6);
   await expect(steps.last()).toHaveText(/^6\s*Servera med kokt potatis\.$/);

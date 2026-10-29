@@ -1,5 +1,5 @@
 import { crc32, deflateSync } from "node:zlib";
-import type { Page } from "@playwright/test";
+import { expect, type Page } from "@playwright/test";
 import { createServerClient } from "@supabase/ssr";
 import { createClient, type SupabaseClient } from "@supabase/supabase-js";
 import { placePhotoBucket as sharedPlacePhotoBucket, removeUserPlacePhotos } from "../../scripts/pantry-photo-files.mjs";
@@ -233,6 +233,12 @@ export const aiPhotoEmail = "e2e-ai-foto@matkoll.test";
  */
 export const aiImportEmail = "e2e-ai-import@matkoll.test";
 /**
+ * The E2E user of import.spec.ts alone. Since Story 1.15 an import saves its recipe, so the
+ * main E2E user (whose library must stay empty) cannot be used; the spec empties this user's
+ * recipes and catalog before each test.
+ */
+export const importEmail = "e2e-import@matkoll.test";
+/**
  * The E2E user of offers-link.spec.ts alone (Veckans erbjudanden från
  * butikens länk, Story 9.1): before each test its offers are removed and its
  * store's link is set to a saved offer page, with the service role.
@@ -283,6 +289,7 @@ export const e2eEmails = [
   aiJobsEmail,
   aiPhotoEmail,
   aiImportEmail,
+  importEmail,
   offersLinkEmail,
   offerSuggestionsEmail,
 ] as const;
@@ -325,6 +332,7 @@ export const aiWarmStorageState = "tests/e2e/.auth/ai-warm.json";
 export const aiJobsStorageState = "tests/e2e/.auth/ai-jobs.json";
 export const aiPhotoStorageState = "tests/e2e/.auth/ai-photo.json";
 export const aiImportStorageState = "tests/e2e/.auth/ai-import.json";
+export const importStorageState = "tests/e2e/.auth/import.json";
 export const offersLinkStorageState = "tests/e2e/.auth/offers-link.json";
 export const offerSuggestionsStorageState = "tests/e2e/.auth/offer-suggestions.json";
 export const outsiderStorageState = "tests/e2e/.auth/outsider.json";
@@ -522,3 +530,13 @@ export function plainPng(shade: number): { name: string; mimeType: string; buffe
 
 /** This week's Monday (Stockholm), the week_start of the current meal plan (Story 13.7). */
 export { currentWeekStart as thisMonday } from "../../src/features/mealplan/domain/week";
+
+/**
+ * Story 1.15: an import saves the recipe itself. Waits for "Receptet <title> är sparat" and
+ * taps "Öppna", which opens the recipe (what "Spara recept" in the preview used to do).
+ */
+export async function openSavedImport(page: Page, title: string) {
+  const toast = page.getByTestId("toast");
+  await expect(toast).toContainText(`Receptet ${title} är sparat`, { timeout: 30_000 });
+  await toast.getByRole("button", { name: "Öppna" }).click();
+}

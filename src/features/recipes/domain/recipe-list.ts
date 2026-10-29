@@ -21,6 +21,11 @@ export type RecipeListItem = {
    * is shown without a status.
    */
   missingCount: number | null;
+  /**
+   * The names of the missing ingredients (Story 4.3), in the recipe's order,
+   * for the badge's accessible name; empty when none are known.
+   */
+  missingNames?: readonly string[];
 };
 
 /**
@@ -38,13 +43,32 @@ export type RecipeListRow = Omit<RecipeListItem, "missingCount"> & { lines: Reci
  * servings (AD-7: the library never scales), in the same order. Without a
  * snapshot (the pantry could not be read) every row has no status.
  */
-export function withStatus(rows: readonly RecipeListRow[], snapshot: PantrySnapshot | null): RecipeListItem[] {
-  return rows.map(({ lines, ...row }) => ({
-    ...row,
-    missingCount: snapshot
-      ? recipeStatus({ servings: row.originalServings, lines }, row.originalServings, snapshot).missingCount
-      : null,
-  }));
+export function withStatus(
+  rows: readonly RecipeListRow[],
+  snapshot: PantrySnapshot | null,
+  names: Readonly<Record<string, string>> = {},
+): RecipeListItem[] {
+  return rows.map(({ lines, ...row }) => {
+    if (!snapshot) return { ...row, missingCount: null };
+    const status = recipeStatus({ servings: row.originalServings, lines }, row.originalServings, snapshot);
+    return {
+      ...row,
+      missingCount: status.missingCount,
+      missingNames: status.missingIngredientIds.flatMap((id) => (names[id] ? [names[id]] : [])),
+    };
+  });
+}
+
+/** The ids of the ingredients any of the rows is missing, for looking their names up (Story 4.3). */
+export function missingIngredientIds(rows: readonly RecipeListRow[], snapshot: PantrySnapshot | null): string[] {
+  if (!snapshot) return [];
+  const ids = new Set<string>();
+  for (const { originalServings, lines } of rows) {
+    for (const id of recipeStatus({ servings: originalServings, lines }, originalServings, snapshot).missingIngredientIds) {
+      ids.add(id);
+    }
+  }
+  return [...ids];
 }
 
 /**
@@ -62,8 +86,9 @@ export function toLibrary(
   rows: readonly RecipeListRow[],
   snapshot: PantrySnapshot | null,
   site: SelectedSite | null,
+  names: Readonly<Record<string, string>> = {},
 ): RecipeLibrary {
-  return { recipes: withStatus(rows, snapshot), pantryUnavailable: snapshot === null, site: snapshot ? site : null };
+  return { recipes: withStatus(rows, snapshot, names), pantryUnavailable: snapshot === null, site: snapshot ? site : null };
 }
 
 /** What searchRecipes takes: the text typed so far, at most 100 characters. */

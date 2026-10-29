@@ -11,6 +11,7 @@ import {
   listRecipes as listRecipesIn,
   type ListOptions,
 } from "./data/queries";
+import { missingNames } from "./data/missing-names";
 import {
   toLibrary,
   withStatus,
@@ -21,6 +22,7 @@ import {
 import type { SavedRecipe } from "./domain/saved-recipe";
 
 // Server-only entry (AD-1): read functions and server functions for AI flows.
+export { saveRecipe } from "./actions/save-recipe";
 export { importRecipe, prepareImport, type ImportContext } from "./actions/import-recipe";
 
 /**
@@ -55,7 +57,7 @@ export const getRecipe = cache(async (id: string): Promise<SavedRecipe | null> =
  */
 export async function listRecipes(options?: ListOptions): Promise<RecipeListItem[]> {
   const [rows, { snapshot }] = await Promise.all([listRecipesIn(await createClient(), options), getPantryForStatus()]);
-  return withStatus(rows, snapshot);
+  return withStatus(rows, snapshot, await missingNames(rows, snapshot));
 }
 
 /**
@@ -67,7 +69,7 @@ export async function listRecipes(options?: ListOptions): Promise<RecipeListItem
  */
 export async function listLibrary(): Promise<RecipeLibrary> {
   const [rows, { snapshot, site }] = await Promise.all([listRecipesIn(await createClient()), getPantryForStatus()]);
-  return toLibrary(rows, snapshot, site);
+  return toLibrary(rows, snapshot, site, await missingNames(rows, snapshot));
 }
 
 /**

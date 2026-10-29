@@ -212,7 +212,7 @@ test("with Stugan selected, the recipe view, the library with Kan lagas nu and t
 
   await selectSite(stugan);
   await page.goto(`/recept/${recipeId}`);
-  await expect(view(page).getByText("Saknar 1 vara", { exact: true })).toBeVisible();
+  await expect(view(page).getByText(/^Saknar: [^,+]+$/)).toBeVisible();
   await expect(view(page).getByTestId("recipe-at-home")).toHaveText("1 av 2 hemma");
   await expect(siteLine(page)).toHaveText("Lager: Stugan");
   // Under "X av Y hemma", as metadata, and never in a live region.
@@ -250,7 +250,7 @@ test("a switch with the picker in Lagersaldo reaches the recipe view, Kan lagas 
   const errors = watchErrors(page);
   await selectSite(stugan);
   await page.goto(`/recept/${recipeId}`);
-  await expect(view(page).getByText("Saknar 1 vara", { exact: true })).toBeVisible();
+  await expect(view(page).getByText(/^Saknar: [^,+]+$/)).toBeVisible();
   await expect(siteLine(page)).toHaveText("Lager: Stugan");
   // Set once; a reload would clear it.
   await page.evaluate(() => Object.assign(window, { siteStatusNoReload: true }));

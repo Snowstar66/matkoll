@@ -278,6 +278,34 @@ så att jag hittar nya recept utan att lämna appen för att leta efter sajten.
 **När** avsnittet visas
 **Så** blir det inget sidled och kontrasten håller
 
+#### Story 1.15: Import sparas direkt
+
+Som Pontus,
+vill jag att ett importerat recept hamnar direkt i Recept,
+så att jag slipper ett onödigt steg med förhandsgranskning och inte tappar ett recept som blev klart medan jag gjorde något annat.
+
+**Acceptance Criteria:**
+
+**Givet** en import från länk, bokmärket `?url=`, delningsmenyn, inklistrad text eller foto
+**När** inläsningen är klar
+**Så** sparas receptet av jobbet självt med de förval förhandsgranskningen hade (rader matchade mot katalogen, nya ingredienser med föreslagen avdelning, plats och enhet), med jobbets id som receptets id, så att en omkörning eller dubbel avläsning aldrig ger en kopia, och jobbets resultat får `savedRecipeId`
+
+**Givet** ett sparat importrecept
+**När** appen ser att jobbet är klart (på vilken sida som helst, även efter att den varit stängd)
+**Så** visas "Receptet <titel> är sparat" med "Öppna" (receptet, där "Ändra recept" finns) och "Ångra" (det befintliga raderingsanropet), receptet finns i biblioteket direkt och jobbet stängs
+
+**Givet** ett klart importjobb som aldrig sparades (jobbet kunde inte spara, eller det blev klart före den här storyn)
+**När** appen öppnas
+**Så** sparas det med samma id och samma förval, och bekräftelsen visas, så att inget inläst recept försvinner
+
+**Givet** en import som misslyckas (sajten ej godkänd, hämtning blockerad, ogiltigt AI-svar)
+**När** jobbet är klart
+**Så** sparas inget, och på Recept står ett kvarstående meddelande med orsaken och "Stäng" tills Pontus stänger det
+
+**Givet** arket Importera recept
+**När** jobbet det väntar på blir klart
+**Så** stängs arket (ingen förhandsgranskning), och flikarna, "Avbryt", "Försök igen" och felmeddelandena fungerar som förut
+
 ## Epic 2: Lager
 Pontus kan föra in det som finns hemma per plats, med eller utan mängd, och ser direkt i receptbiblioteket vilka rätter som kan lagas och hur många varor som saknas.
 **FRs covered:** FR11, FR12, FR8 (lagningsstatus)
@@ -1053,6 +1081,34 @@ så att jag kan laga mat med mobilen lutad mot väggen.
 ## Epic 5: Förslag
 
 Pontus kan se vad som går att laga med det som finns hemma, rangordnat efter hur lite som saknas, och be om AI-förslag när biblioteket inte räcker.
+
+### Story 4.3: Visa vilka varor som saknas
+
+Som Pontus,
+vill jag se vilka varor som saknas i receptet och inte bara hur många,
+så att jag vet vad jag ska köpa utan att leta bland raderna.
+
+**Acceptance Criteria:**
+
+**Givet** ett recept där varor saknas hemma
+**När** receptvyn visas
+**Så** står "Saknar: tryffelolja" (vid fler än två "Saknar: tryffelolja, persilja +1") i stället för "Saknar N varor", med ingrediensernas katalognamn i gemener, och "X av Y hemma" står kvar
+
+**Givet** chippen "Saknar: …"
+**När** Pontus trycker på den
+**Så** rullar vyn mjukt till ingredienserna och första saknade raden får fokus
+
+**Givet** en ingredienslista
+**När** en rad saknas
+**Så** har den ett lugnt "Saknas" under namnet, medan rader som finns hemma ser ut som förut
+
+**Givet** receptkortet i biblioteket
+**När** något saknas
+**Så** står "Saknar N varor" kvar som synlig text, men märkets tillgängliga namn och title listar varorna ("Saknar: tryffelolja")
+
+**Givet** ändrade portioner, mörkt läge, 375 px och stor text
+**När** receptvyn visas
+**Så** följer namnen portionerna, inget går utanför sidan och chippen är minst 44 px hög
 
 ### Story 5.1: Kan lagas nu, rangordnat
 

@@ -50,6 +50,7 @@ development_status:
   1-12-inställningar-för-receptsajter: done
   1-13-spara-i-matkoll-från-receptsajten: done
   1-14-hitta-recept-från-lägg-till: done
+  1-15-import-sparas-direkt: done
   epic-1-retrospective: optional
 
   epic-2: done
@@ -74,6 +75,7 @@ development_status:
   epic-4: done
   4-1-portioner-och-x-av-y-hemma-i-receptvyn: done
   4-2-stegläge-med-tänd-skärm: done
+  4-3-visa-vilka-varor-som-saknas: done
   epic-4-retrospective: optional
 
   epic-5: done

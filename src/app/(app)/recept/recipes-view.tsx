@@ -13,6 +13,7 @@ import { listLibrary } from "@/features/recipes/server";
 import { type AutoImport, ImportRecipeButton, ImportRecipeProvider } from "@/features/recipes/ui/import-sheet";
 import { PlanningBar } from "@/features/mealplan/ui/planning-bar";
 import { planningTarget } from "@/features/mealplan";
+import { ImportFailures } from "@/features/recipes/ui/saved-imports";
 import { Library } from "@/features/recipes/ui/library";
 import { WarmAi } from "../warm-ai";
 
@@ -34,7 +35,7 @@ export function RecipesView({
   // Story 1.14: waited for inside the import sheet; a failure shows the "no sites" line.
   const sites = listRecipeSites().catch((): string[] => []);
   return (
-    <ImportRecipeProvider searchIngredients={searchIngredients} autoImport={autoImport} sites={sites}>
+    <ImportRecipeProvider autoImport={autoImport} sites={sites}>
       <WarmAi kind="text" />
       <PageHeader
         title="Recept"
@@ -53,6 +54,7 @@ export function RecipesView({
           </>
         }
       />
+      <ImportFailures />
       <Suspense fallback={<Skeleton rows={4} />}>
         <RecipesContent searchParams={searchParams} />
       </Suspense>

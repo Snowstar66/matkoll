@@ -54,7 +54,9 @@ export function RecipeList({ recipes, favorites, onFavoriteChange, ranked = fals
             ) : undefined
           }
           badge={
-            recipe.missingCount !== null ? <RecipeStatusBadge missingCount={recipe.missingCount} onImage /> : undefined
+            recipe.missingCount !== null ? (
+              <RecipeStatusBadge missingCount={recipe.missingCount} missingNames={recipe.missingNames} onImage />
+            ) : undefined
           }
           onDelete={onDelete ? () => onDelete(recipe) : undefined}
           favorite={{

@@ -13,6 +13,8 @@ export type StatusBadgeProps = {
    * the light `overlay` plate, so it reads on any picture.
    */
   onImage?: boolean;
+  /** Longer wording for a pointer's tooltip (the names behind "Saknar 2 varor"). */
+  title?: string;
   className?: string;
 };
 
@@ -26,9 +28,11 @@ const statusColorsOnImage: Record<StatusBadgeProps["status"], string> = {
   missing: "bg-overlay text-sky-ink",
 };
 
-export function StatusBadge({ status, children, onImage = false, className }: StatusBadgeProps) {
+export function StatusBadge({ status, children, onImage = false, title, className }: StatusBadgeProps) {
   return (
-    <span className={cx(badge, (onImage ? statusColorsOnImage : statusColors)[status], className)}>{children}</span>
+    <span title={title} className={cx(badge, (onImage ? statusColorsOnImage : statusColors)[status], className)}>
+      {children}
+    </span>
   );
 }
 
