@@ -11,6 +11,7 @@ import { bestSavingFirst, groupOffers, type StoreOffer } from "../domain/offer";
 import { offerDetailText, offerDisplay, offerSpokenName } from "../domain/offer-display";
 import { topDealPercent } from "../domain/offer-saving";
 import { cx } from "@/components/cx";
+import type { StoreBadgeInfo } from "../domain/store-badge";
 
 export type OffersListProps = {
   offers: readonly StoreOffer[];
@@ -20,6 +21,8 @@ export type OffersListProps = {
   sort?: "category" | "saving";
   /** Story 9.12: with it each row has a checkbox; without it the list is only shown. */
   selection?: OfferSelection;
+  /** Story 9.13: the badge of each store id; given when the offers come from several stores, so each row says which. */
+  badges?: ReadonlyMap<string, StoreBadgeInfo>;
 };
 
 /** The offers Pontus has ticked, and those already on the shopping list (shown "På listan", never ticked). */
@@ -41,10 +44,34 @@ const tagBase = "inline-flex min-h-6 items-center rounded-full px-2 text-meta fo
  * saving ("−20 %", "Toppklipp −33 %" from 30 %). The checkbox is named like
  * "Aubergine, 12 kr per st, spara 20 %".
  */
-function OfferRow({ offer, weekStart, selection }: { offer: StoreOffer; weekStart: string; selection?: OfferSelection }) {
+const badgeTones = { ica: "bg-store-ica text-store-ica-ink", other: "bg-store-other text-store-other-ink" } as const;
+
+/** The store's short name in its chain's colour ("Maxi", "Krokom"); the name is text, so colour never carries it alone. */
+function StoreBadge({ badge }: { badge: StoreBadgeInfo }) {
+  return (
+    <span
+      data-testid="store-badge"
+      className={cx("mr-1.5 inline-flex items-center rounded-sm px-[7px] py-px align-middle text-badge", badgeTones[badge.tone])}
+    >
+      {badge.text}
+    </span>
+  );
+}
+
+function OfferRow({
+  offer,
+  weekStart,
+  selection,
+  badge,
+}: {
+  offer: StoreOffer;
+  weekStart: string;
+  selection?: OfferSelection;
+  badge?: StoreBadgeInfo;
+}) {
   const top = offer.savingPercent !== null && offer.savingPercent >= topDealPercent;
   const listed = selection?.onList.has(offer.id) ?? false;
-  const spoken = offerSpokenName(offer);
+  const spoken = badge ? `${offerSpokenName(offer)}, ${badge.text}` : offerSpokenName(offer);
   const trailing = (
     <span className="flex max-w-36 flex-col items-end gap-1 text-right">
       {offer.price ? (
@@ -69,7 +96,16 @@ function OfferRow({ offer, weekStart, selection }: { offer: StoreOffer; weekStar
   return (
     <ListRow
       title={offerDisplay(offer.label).title}
-      meta={offerDetailText(offer, weekStart) || undefined}
+      meta={
+        badge ? (
+          <>
+            <StoreBadge badge={badge} />
+            {offerDetailText(offer, weekStart)}
+          </>
+        ) : (
+          offerDetailText(offer, weekStart) || undefined
+        )
+      }
       leading={
         selection ? (
           <CheckCircle
@@ -96,11 +132,13 @@ function OffersGroup({
   offers,
   weekStart,
   selection,
+  badges,
 }: {
   category: Category;
   offers: readonly StoreOffer[];
   weekStart: string;
   selection?: OfferSelection;
+  badges?: ReadonlyMap<string, StoreBadgeInfo>;
 }) {
   const headingId = useId();
   return (
@@ -109,7 +147,7 @@ function OffersGroup({
       <CategoryHeader id={headingId} category={category} count={offers.length} level={3} />
       <ListGroup labelledBy={headingId}>
         {offers.map((offer) => (
-          <OfferRow key={offer.id} offer={offer} weekStart={weekStart} selection={selection} />
+          <OfferRow key={offer.id} offer={offer} weekStart={weekStart} selection={selection} badge={badges?.get(offer.storeId)} />
         ))}
       </ListGroup>
     </div>
@@ -126,14 +164,14 @@ function OffersGroup({
  * badge. `sort="saving"` lists them best saving first. Story 9.12: with `selection` each row has a checkbox named by the offer, and
  * "På listan" replaces the tick for an offer already on the shopping list.
  */
-export function OffersList({ offers, weekStart, sort = "category", selection }: OffersListProps) {
+export function OffersList({ offers, weekStart, sort = "category", selection, badges }: OffersListProps) {
   if (sort === "saving") {
     return (
       <div data-testid="offers-list" className="flex flex-col gap-2">
         <h3 className="sr-only">Bäst rabatt först</h3>
         <ListGroup label="Bäst rabatt först">
           {bestSavingFirst(offers).map((offer) => (
-            <OfferRow key={offer.id} offer={offer} weekStart={weekStart} selection={selection} />
+            <OfferRow key={offer.id} offer={offer} weekStart={weekStart} selection={selection} badge={badges?.get(offer.storeId)} />
           ))}
         </ListGroup>
       </div>
@@ -142,7 +180,7 @@ export function OffersList({ offers, weekStart, sort = "category", selection }: 
   return (
     <div data-testid="offers-list" className="flex flex-col gap-4">
       {groupOffers(offers).map(({ category, offers: items }) => (
-        <OffersGroup key={category} category={category} offers={items} weekStart={weekStart} selection={selection} />
+        <OffersGroup key={category} category={category} offers={items} weekStart={weekStart} selection={selection} badges={badges} />
       ))}
     </div>
   );

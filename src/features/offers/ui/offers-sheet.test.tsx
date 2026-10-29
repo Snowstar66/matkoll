@@ -18,7 +18,7 @@ const refresh = vi.fn();
 vi.mock("next/navigation", () => ({ useRouter: () => ({ refresh }) }));
 
 const link = "https://www.ica.se/erbjudanden/maxi-ica-stormarknad-ostersund-1003733/";
-const store = { id: "11111111-1111-4111-8111-111111111111", name: "Maxi ICA Stormarknad Östersund", offersUrl: link, siteName: "ica.se" };
+const store = { id: "11111111-1111-4111-8111-111111111111", name: "Maxi ICA Stormarknad Östersund", chain: "ICA", offersUrl: link, siteName: "ica.se", fetchedAt: null };
 
 function offer(changes: Partial<StoreOffer>): StoreOffer {
   return {
@@ -48,10 +48,9 @@ const offers = [
 ];
 
 const base: OffersSheetProps = {
-  store,
+  stores: [store],
   offers: [],
   weekStart: "2026-10-26",
-  fetchedAt: null,
   now: "2026-10-28T11:00:00Z",
   unavailable: false,
 };
@@ -101,7 +100,7 @@ describe("OffersSheet", () => {
   });
 
   it("shows the offers under their categories, with the price and conditions, and the store's page last", async () => {
-    render({ offers, fetchedAt: "2026-10-28T06:12:00Z" });
+    render({ offers, stores: [{ ...store, fetchedAt: "2026-10-28T06:12:00Z" }] });
     const { dialog } = await open();
     expect(within(dialog).getByTestId("offers-summary")).toHaveTextContent("3 erbjudanden · hämtade idag 07:12");
     expect(within(dialog).getByRole("button", { name: "Hämta igen" })).toBeInTheDocument();
@@ -154,7 +153,7 @@ describe("OffersSheet", () => {
   });
 
   it("asks for the link without one, with Öppna inställningar, and offers no fetch", async () => {
-    render({ store: { ...store, offersUrl: null, siteName: null } });
+    render({ stores: [{ ...store, offersUrl: null, siteName: null }] });
     const { dialog } = await open();
     expect(within(dialog).getByText("Lägg in länken till butikens erbjudanden under Butik i Inställningar.")).toBeInTheDocument();
     expect(within(dialog).getByRole("link", { name: "Öppna inställningar" })).toHaveAttribute("href", "/installningar");
@@ -162,7 +161,7 @@ describe("OffersSheet", () => {
   });
 
   it("asks for a store when none is selected", async () => {
-    render({ store: null });
+    render({ stores: [] });
     const { dialog } = await open();
     expect(within(dialog).getByText("Välj en butik i inställningarna först.")).toBeInTheDocument();
     expect(within(dialog).getByRole("link", { name: "Öppna inställningar" })).toBeInTheDocument();
@@ -202,8 +201,8 @@ describe("OffersSheet: picking offers for the shopping list (Story 9.12)", () =>
     expect(add).toHaveBeenCalledWith({
       planId,
       items: [
-        { key: herrgard.id, label: "Herrgård (Erbjudande: 89 kr/kg)", ingredientId: null },
-        { key: lok.id, label: "Gul lök (Erbjudande: 10 kr/kg)", ingredientId: null },
+        { key: herrgard.id, label: "Herrgård (Erbjudande Maxi: 89 kr/kg)", ingredientId: null },
+        { key: lok.id, label: "Gul lök (Erbjudande Maxi: 10 kr/kg)", ingredientId: null },
       ],
     });
     expect(await screen.findAllByText("Lade 2 erbjudanden i inköpslistan.")).not.toHaveLength(0);
@@ -238,5 +237,92 @@ describe("OffersSheet: picking offers for the shopping list (Story 9.12)", () =>
     render({ offers, listing: null });
     const { dialog } = await open();
     expect(within(dialog).queryByRole("checkbox")).not.toBeInTheDocument();
+  });
+});
+
+describe("OffersSheet: several stores (Story 9.13)", () => {
+  const krokom = { id: "22222222-2222-4222-8222-222222222222", name: "ICA Kvantum Krokom", chain: "ICA", offersUrl: "https://www.ica.se/erbjudanden/ica-kvantum-krokom-1000002/", siteName: "ica.se", fetchedAt: null };
+  const noLink = { id: "44444444-4444-4444-8444-444444444444", name: "Willys Östersund", chain: "Willys", offersUrl: null, siteName: null, fetchedAt: null };
+  const stores = [store, krokom, noLink];
+  const both = [
+    offer({ label: "Havets Laxfilé", savingPercent: 10 }),
+    offer({ label: "Havets Laxfilé", storeId: krokom.id, price: "119 kr/kg", savingPercent: 25 }),
+    offer({ label: "Odlarna Gul lök", name: "gul lök", storeId: krokom.id, section: "Frukt och grönt", savingPercent: null }),
+  ];
+
+  it("lists the stores with a link, all ticked, and fetches the ticked ones one after the other", async () => {
+    const order: string[] = [];
+    let release: () => void = () => {};
+    fetchStoreOffers.mockImplementation(async ({ storeId }) => {
+      order.push(`start ${storeId}`);
+      await new Promise<void>((resolve) => (release = resolve));
+      order.push(`end ${storeId}`);
+      return ok({ saved: 4, skipped: 1, matched: 0, weekStart: "2026-10-26" });
+    });
+    render({ stores, offers: both });
+    const { user, dialog } = await open();
+    const rows = within(dialog).getAllByTestId("store-fetch-row");
+    expect(rows).toHaveLength(2);
+    expect(within(dialog).getByRole("checkbox", { name: "ICA Kvantum Krokom" })).toHaveAttribute("aria-checked", "true");
+    await user.click(within(dialog).getByRole("button", { name: "Hämta alla" }));
+    expect(await within(dialog).findByText("Hämtar Maxi från ica.se (1 av 2) …")).toBeInTheDocument();
+    expect(fetchStoreOffers).toHaveBeenCalledTimes(1);
+    release();
+    expect(await within(dialog).findByText("Hämtar Krokom från ica.se (2 av 2) …")).toBeInTheDocument();
+    release();
+    expect(await screen.findAllByText("Hämtade 8 erbjudanden från 2 butiker för vecka 44.")).not.toHaveLength(0);
+    expect(order).toEqual([`start ${store.id}`, `end ${store.id}`, `start ${krokom.id}`, `end ${krokom.id}`]);
+    expect(within(dialog).getAllByTestId("offers-store-result").map((line) => line.textContent)).toEqual([
+      "Maxi: Hämtade 4 erbjudanden.",
+      "Krokom: Hämtade 4 erbjudanden.",
+    ]);
+  });
+
+  it("fetches only the ticked stores with Hämta valda", async () => {
+    render({ stores });
+    const { user, dialog } = await open();
+    await user.click(within(dialog).getByRole("checkbox", { name: "Maxi ICA Stormarknad Östersund" }));
+    await user.click(within(dialog).getByRole("button", { name: "Hämta valda (1)" }));
+    await waitFor(() => expect(fetchStoreOffers).toHaveBeenCalledTimes(1));
+    expect(fetchStoreOffers).toHaveBeenCalledWith({ storeId: krokom.id });
+  });
+
+  it("skips a store that is throttled or blocked with its own message, and still fetches the others", async () => {
+    fetchStoreOffers.mockImplementation(async ({ storeId }) =>
+      storeId === store.id ? fail("offers_fetch_blocked") : ok({ saved: 5, skipped: 0, matched: 0, weekStart: "2026-10-26" }),
+    );
+    render({ stores });
+    const { user, dialog } = await open();
+    await user.click(within(dialog).getByRole("button", { name: "Hämta alla" }));
+    const alert = await within(dialog).findByRole("alert");
+    expect(alert).toHaveTextContent(/^Maxi: /);
+    await waitFor(() => expect(fetchStoreOffers).toHaveBeenCalledTimes(2));
+    expect(await within(dialog).findByText("Krokom: Hämtade 5 erbjudanden.")).toBeInTheDocument();
+  });
+
+  it("badges every row with its store, filters per store and sorts by saving across stores", async () => {
+    render({ stores, offers: both });
+    const { user, dialog } = await open();
+    expect(within(dialog).getAllByTestId("store-badge").map((badge) => badge.textContent)).toEqual(["Krokom", "Maxi", "Krokom"]);
+    // The same product in two stores shows twice.
+    expect(within(dialog).getAllByText("Havets Laxfilé")).toHaveLength(2);
+    await user.click(within(dialog).getByRole("radio", { name: "Bäst rabatt" }));
+    const best = within(dialog).getByRole("list", { name: "Bäst rabatt först" }).querySelectorAll("[data-testid=offer-row]");
+    expect(best[0]).toHaveTextContent("Krokom");
+    expect(best[1]).toHaveTextContent("Maxi");
+    await user.click(within(dialog).getByRole("radio", { name: "Krokom" }));
+    expect(within(dialog).getAllByTestId("offer-row")).toHaveLength(2);
+    expect(within(dialog).getByTestId("offers-summary")).toHaveTextContent("2 erbjudanden");
+    await user.click(within(dialog).getByRole("radio", { name: "Alla" }));
+    expect(within(dialog).getAllByTestId("offer-row")).toHaveLength(3);
+  });
+
+  it("puts the store in the item's note when offers are picked", async () => {
+    const add = vi.fn().mockResolvedValue(ok({ count: 1 }));
+    render({ stores, offers: both, listing: { planId: "33333333-3333-4333-8333-333333333333", onList: [], add } });
+    const { user, dialog } = await open();
+    await user.click(within(dialog).getAllByRole("checkbox", { name: /^Havets Laxfilé, 119 kr per kg/ })[0]);
+    await user.click(within(dialog).getByRole("button", { name: "Lägg 1 i inköpslistan" }));
+    expect(add.mock.calls[0][0].items[0].label).toBe("Laxfilé (Erbjudande Krokom: 119 kr/kg)");
   });
 });

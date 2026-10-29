@@ -6,7 +6,7 @@
     "koket-chow-mein.html and tasteline-bakad-fetaost.html were saved once with `pnpm sites:probe --save`, only as test input.",
     "The only edit: tasteline's Cloudflare analytics beacon was removed, since its public site token trips gitleaks.",
     "Addresses under /matkoll-test/ do not exist on the real sites; they give the import flow's error cases.",
-    "The ica-erbjudanden*.html pages (Story 9.1) are written by hand in the shape of ICA's offer page: made-up items and stores, a made-up token and cookie, no addresses, footer or images.",
+    "The ica-erbjudanden*.html pages (Story 9.1) are written by hand in the shape of ICA's offer page: made-up items and stores (ica-erbjudanden-krokom.html is a second store with the same items, Story 9.13), a made-up token and cookie, no addresses, footer or images.",
     "In them, {{sunday}} and {{sunday+N}} become this week's Sunday (plus N days) when served, so the page is this week's (fixture-sites.ts).",
     "The /erbjudanden/matkoll-test-*-100000N/ addresses do not exist on ica.se; https://www.ica.se/ stands in for the start page a moved link redirects to."
   ],
@@ -21,6 +21,7 @@
     { "url": "https://www.koket.se/matkoll-test/for-stor", "bytes": 3500000 },
     { "url": "https://www.koket.se/matkoll-test/annan-sajt", "redirect": "https://example.com/recept", "status": 302 },
     { "url": "https://www.ica.se/erbjudanden/matkoll-test-butik-1000001/", "file": "ica-erbjudanden.html" },
+    { "url": "https://www.ica.se/erbjudanden/matkoll-test-krokom-1000013/", "file": "ica-erbjudanden-krokom.html" },
     { "url": "https://www.ica.se/erbjudanden/matkoll-test-utan-data-1000002/", "file": "ica-erbjudanden-utan-data.html" },
     { "url": "https://www.ica.se/erbjudanden/matkoll-test-tom-1000003/", "file": "ica-erbjudanden-tom.html" },
     { "url": "https://www.ica.se/erbjudanden/matkoll-test-gammal-1000004/", "file": "ica-erbjudanden-gammal.html" },

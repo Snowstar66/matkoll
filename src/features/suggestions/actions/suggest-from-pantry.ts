@@ -5,7 +5,7 @@ import type { PantrySnapshot } from "@/features/pantry";
 import { getPantryForStatus } from "@/features/pantry/server";
 import { getActiveOffers, OffersDataError } from "@/features/offers/server";
 import type { StoreOffer } from "@/features/offers";
-import { getSelectedStore, SettingsDataError } from "@/features/settings/server";
+import { getSelectedStore, listStores, SettingsDataError } from "@/features/settings/server";
 import { fromAiRecipe, recipeDraftSchema, type RecipeDraft } from "@/features/recipes";
 import { fail, ok, type Result } from "@/lib/errors";
 import { getAiService } from "@/server/ai";
@@ -65,14 +65,15 @@ function linkedIds(draft: RecipeDraft): string[] {
 }
 
 /**
- * The selected store's active offers (Story 9.5), for the dishes built around
+ * The active offers of the store `storeId` (Story 9.13), else the selected store's (Story 9.5), for the dishes built around
  * them. `offers_store_missing` without a store, `offers_none` without offers
  * and `offers_unavailable` when the store or the offers cannot be read
  * (logged, codes only).
  */
-async function readOffers(): Promise<Result<StoreOffer[]>> {
+async function readOffers(storeId?: string): Promise<Result<StoreOffer[]>> {
   try {
-    const store = await getSelectedStore();
+    // Story 9.13: a given store (one of the user's own), else the selected one.
+    const store = storeId ? ((await listStores()).find((candidate) => candidate.id === storeId) ?? null) : await getSelectedStore();
     if (!store) return fail("offers_store_missing");
     const offers = await getActiveOffers(store.id);
     return offers.length > 0 ? ok(offers) : fail("offers_none");
@@ -106,12 +107,12 @@ export type SuggestOptions = {
  * (`null` for a user without places), which the job keeps as its context.
  * `pantry_unavailable` when the pantry cannot be read. Never writes.
  */
-export async function checkSuggestPantry(mode: SuggestMode = "pantry"): Promise<Result<{ siteId: string | null }>> {
+export async function checkSuggestPantry(mode: SuggestMode = "pantry", storeId?: string): Promise<Result<{ siteId: string | null }>> {
   const pantry = await readPantry();
   if (!pantry.ok) return pantry;
   if (mode === "offers") {
     // Around offers an empty pantry is fine; without offers there is nothing to build on.
-    const offers = await readOffers();
+    const offers = await readOffers(storeId);
     return offers.ok ? ok({ siteId: pantry.data.siteId }) : offers;
   }
   if (pantry.data.snapshot.size === 0) return fail("suggest_empty_pantry");
@@ -157,7 +158,7 @@ async function suggest(
   // Story 9.5: the offers are read here, in the job, and only their names go to the model.
   let offers: StoreOffer[] = [];
   if (byOffers) {
-    const read = await readOffers();
+    const read = await readOffers(request.storeId);
     if (!read.ok) return read;
     offers = read.data;
   }

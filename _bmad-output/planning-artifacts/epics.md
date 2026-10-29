@@ -2279,3 +2279,37 @@ så att jag slipper skriva in dem själv.
 **När** raderna visas
 **Så** står produktnamnet rensat från märke och ursprungsland ("Aubergine" för "ICA. Spanien Aubergine") med landet och märket smått under, priset fetstilt i en piller till höger, ordinarie pris genomstruket under det, och rabattmärket "−20 %" (från 30 % "Toppklipp −33 %")
 **Och** kryssrutans namn lyder "Aubergine, 12 kr per st, spara 20 %", raden håller 375 px utan sidscroll och finns i mörkt läge
+
+### Story 9.13: Erbjudanden från flera butiker
+
+Som Pontus,
+vill jag hämta veckans erbjudanden från flera av mina butiker, alla eller bara de jag väljer,
+så att jag ser vad som är billigast och vilken butik varje erbjudande gäller.
+
+**Acceptance Criteria:**
+
+**Givet** minst två butiker med länk
+**När** arket Veckans erbjudanden öppnas
+**Så** står en kryssruta per butik (alla ikryssade, 44 px tryckyta) och knapparna "Hämta valda (N)" och "Hämta alla"; med en butik med länk ser arket ut som förut
+
+**Givet** en hämtning från flera butiker
+**När** den körs
+**Så** hämtas butikerna en efter en, aldrig samtidigt, var och en med sin egen spärr (15 minuter) och 403/429-paus
+**Och** en butik som är spärrad eller blockerad hoppas över med eget meddelande ("Maxi: …") medan de andra hämtas, och resultatet visas per butik
+
+**Givet** erbjudanden från flera butiker
+**När** listan visas
+**Så** har varje rad en liten butiksetikett ("Maxi", "Krokom") i kedjans färgtoken (ICA, och en neutral för andra kedjor), och filterpiller överst: "Alla" och en per butik
+**Och** "Bäst rabatt" sorterar över butikerna, och samma vara i två butiker visas som två rader
+
+**Givet** ett erbjudande som läggs i inköpslistan
+**När** det blir en egen vara
+**Så** står butiken i noteringen: "Erbjudande Maxi: 89 kr/kg"
+
+**Givet** AI-förslag från erbjudanden
+**När** en begäran har ett `storeId`
+**Så** byggs förslagen på den butikens erbjudanden (en butik som inte är användarens ger `offers_store_missing`); utan `storeId` gäller den valda butiken
+
+**Givet** bygget
+**När** det granskas
+**Så** finns ingen ny migration, ingen hämtning mot ica.se i testerna, färgtokens i `DESIGN.md` och CSS med kontrast minst 4,5:1, och 9.12:s val till inköpslistan fungerar som förut
