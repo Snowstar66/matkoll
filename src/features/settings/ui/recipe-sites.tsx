@@ -137,7 +137,7 @@ export function RecipeSites({ sites }: RecipeSitesProps) {
   }
 
   return (
-    <section aria-labelledby={headingId} className="flex flex-col gap-3">
+    <section id="godkanda-receptsajter" aria-labelledby={headingId} className="flex flex-col gap-3">
       <h2 id={headingId} className="text-section-label text-ink-2">
         Godkända receptsajter
       </h2>

@@ -70,6 +70,7 @@ test.describe("without a session", () => {
       lang: "sv",
       start_url: "/recept",
       scope: "/",
+      share_target: { action: "/recept/importera", method: "GET", params: { url: "url", text: "text" } },
       display: "standalone",
       background_color: "#F5F7F4",
       theme_color: "#F5F7F4",
