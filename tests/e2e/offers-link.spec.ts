@@ -223,7 +223,7 @@ test("Story 9.12: picks offers and adds them to the shopping list once", async (
   expect(box?.height).toBeGreaterThanOrEqual(44);
 
   await herrgard.click();
-  await dialog.getByRole("checkbox", { name: /^Odlarna Gul lök/ }).click();
+  await dialog.getByRole("checkbox", { name: /^Gul lök/ }).click();
   await dialog.getByRole("button", { name: "Lägg 2 i inköpslistan" }).click();
   await expect(page.getByTestId("toast")).toContainText("Lade 2 erbjudanden i inköpslistan.");
   // The sheet closes, so the toast is within reach.

@@ -220,7 +220,7 @@ describe("OffersSheet: picking offers for the shopping list (Story 9.12)", () =>
     expect(within(dialog).queryByRole("checkbox")).not.toBeInTheDocument();
     await choose(user, dialog);
     await user.click(within(dialog).getByRole("checkbox", { name: "Gårdens Herrgård, Präst, 89 kr per kg" }));
-    await user.click(within(dialog).getByRole("checkbox", { name: "Odlarna Gul lök, 10 kr per kg" }));
+    await user.click(within(dialog).getByRole("checkbox", { name: "Gul lök, 10 kr per kg" }));
     await user.click(within(dialog).getByRole("button", { name: "Lägg 2 i inköpslistan" }));
     expect(add).toHaveBeenCalledWith({
       planId,
@@ -235,7 +235,7 @@ describe("OffersSheet: picking offers for the shopping list (Story 9.12)", () =>
     const { user: again2, dialog: again } = await open();
     await choose(again2, again);
     expect(within(again).getAllByText("På listan")).toHaveLength(2);
-    expect(within(again).getByRole("checkbox", { name: "Odlarna Gul lök, 10 kr per kg" })).toBeDisabled();
+    expect(within(again).getByRole("checkbox", { name: "Gul lök, 10 kr per kg" })).toBeDisabled();
     expect(within(again).queryByRole("button", { name: /i inköpslistan/ })).not.toBeInTheDocument();
   });
 
@@ -254,7 +254,7 @@ describe("OffersSheet: picking offers for the shopping list (Story 9.12)", () =>
     render({ offers, listing: { planId, onList: [], add } });
     const { user, dialog } = await open();
     await choose(user, dialog);
-    await user.click(within(dialog).getByRole("checkbox", { name: "Odlarna Gul lök, 10 kr per kg" }));
+    await user.click(within(dialog).getByRole("checkbox", { name: "Gul lök, 10 kr per kg" }));
     await user.click(within(dialog).getByRole("button", { name: "Lägg 1 i inköpslistan" }));
     expect(await within(dialog).findByRole("alert")).toHaveTextContent("Det gick inte att spara varan. Försök igen.");
     expect(within(dialog).getByRole("button", { name: "Lägg 1 i inköpslistan" })).toBeEnabled();

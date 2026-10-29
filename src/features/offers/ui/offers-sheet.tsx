@@ -368,8 +368,10 @@ export function OffersSheet({
                     className="-ml-2 min-w-0 text-left"
                     onClick={() => setOnlyBest(!showingMatches)}
                     data-testid="best-store-toggle"
+                    // Short on screen so it stays on one line beside the button; the name says it in full.
+                    aria-label={showingMatches ? "Visa alla erbjudanden" : "Visa bara de erbjudandena"}
                   >
-                    {showingMatches ? "Visa alla erbjudanden" : "Visa bara de erbjudandena"}
+                    {showingMatches ? "Visa alla" : "Visa dessa"}
                   </Button>
                 ) : null}
                 <SuggestFromOffersButton

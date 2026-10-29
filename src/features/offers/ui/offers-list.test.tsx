@@ -84,7 +84,7 @@ describe("OffersList, how good the offers are (Story 9.11)", () => {
     const rows = screen.getAllByTestId("offer-row").map((row) => row.textContent ?? "");
     expect(rows[0]).toContain("Bondens Krossade tomater");
     expect(rows[1]).toContain("Gårdens Herrgård");
-    expect(rows[2]).toContain("Odlarna Gul lök");
+    expect(rows[2]).toContain("Gul lök");
     expect(screen.getByRole("list", { name: "Bäst rabatt först" })).toBeInTheDocument();
   });
 
