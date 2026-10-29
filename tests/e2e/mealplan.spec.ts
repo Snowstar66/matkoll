@@ -463,3 +463,81 @@ test("an unknown plan is Sidan finns inte, and the current plan's address leads 
   await expect(page).toHaveURL(/\/matsedel$/);
   await expect(page.getByRole("heading", { name: "Matsedel", level: 1 })).toBeVisible();
 });
+
+// Story 13.4: "Markera som lagad" deducts from the pantry and marks the dish
+// in one go; the list drops the dish; "Ångra" restores both; unmarking leaves
+// the pantry alone. Linssoppa for 8 needs 6 dl röda linser with 5 dl at home
+// (so the list asks for 1 dl, and the deduction goes to 0 with a note);
+// Krämig kycklinggryta needs 2 dl grädde of the 5 dl at home.
+test("Markera som lagad deducts from the pantry, drops the dish from the list and Ångra restores both", async ({ page }) => {
+  const errors = watchErrors(page);
+  const admin = adminClient();
+  const ids = await seedIngredients(["Grädde", "Röda linser"]);
+  for (const table of ["meal_plan_recipe", "pantry_item"] as const) {
+    const { error } = await admin.from(table).delete().eq("user_id", userId);
+    if (error) throw error;
+  }
+  const plan = await admin.from("meal_plan").select("id").eq("user_id", userId).eq("is_current", true).single();
+  if (plan.error) throw plan.error;
+  const planId = (plan.data as { id: string }).id;
+  const seeded = await admin.from("meal_plan_recipe").insert([
+    { user_id: userId, meal_plan_id: planId, recipe_id: recipeIds[soppa], recipe_title: soppa, servings: 8, position: 0 },
+    { user_id: userId, meal_plan_id: planId, recipe_id: recipeIds[gryta], recipe_title: gryta, servings: 4, position: 1 },
+  ]);
+  if (seeded.error) throw seeded.error;
+  const stocked = await admin.from("pantry_item").insert([
+    { user_id: userId, ingredient_id: ids.get("Röda linser"), location: "Skafferi", amount: 5, unit: "dl" },
+    { user_id: userId, ingredient_id: ids.get("Grädde"), location: "Kyl", amount: 5, unit: "dl" },
+  ]);
+  if (stocked.error) throw stocked.error;
+  const amountOf = async (name: string) => {
+    const { data, error } = await admin.from("pantry_item").select("amount").eq("user_id", userId).eq("ingredient_id", ids.get(name)!);
+    if (error) throw error;
+    return (data as { amount: number }[]).map((row) => Number(row.amount));
+  };
+  const listLine = (name: string) => page.getByTestId("shopping-line").filter({ visible: true }).filter({ hasText: name });
+  const sheet = page.getByRole("dialog", { name: "Markera som lagad" });
+
+  await page.goto("/lista");
+  await expect(listLine("Röda linser")).toHaveCount(1);
+
+  await page.goto("/matsedel");
+  const card = dish(page, soppa);
+  const open = card.getByRole("button", { name: "Markera som lagad" });
+  expect((await open.boundingBox())!.height).toBeGreaterThanOrEqual(44);
+  await open.click();
+  await expect(sheet).toBeVisible();
+  const line = sheet.getByTestId("cooked-line").filter({ hasText: "Röda linser" });
+  await expect(line.getByTestId("cooked-line-text")).toHaveText("5 dl − 5 dl → 0 dl");
+  await expect(line).toContainText("så det blir 0");
+  await sheet.getByRole("button", { name: "Dra från lagret och markera lagad" }).click();
+  await expect(sheet).toHaveCount(0);
+  await expect(toast(page)).toContainText(`${soppa} är lagad. Lagret är uppdaterat.`);
+  await expect(card.getByTestId("dish-cooked")).toHaveText("Lagad");
+  expect(await amountOf("Röda linser")).toEqual([]);
+  await page.goto("/lista");
+  await expect(listLine("Röda linser")).toHaveCount(0);
+
+  // "Ångra" restores the pantry and the dish.
+  await page.goto("/matsedel");
+  await dish(page, gryta).getByRole("button", { name: "Markera som lagad" }).click();
+  const cream = sheet.getByTestId("cooked-line").filter({ hasText: "Grädde" });
+  await expect(cream.getByTestId("cooked-line-text")).toHaveText("5 dl − 2 dl → 3 dl");
+  await sheet.getByRole("textbox", { name: "Ny mängd Grädde" }).fill("4");
+  await expect(cream.getByTestId("cooked-line-text")).toHaveText("5 dl − 1 dl → 4 dl");
+  await sheet.getByRole("button", { name: "Dra från lagret och markera lagad" }).click();
+  await expect(dish(page, gryta).getByTestId("dish-cooked")).toBeVisible();
+  expect(await amountOf("Grädde")).toEqual([4]);
+  await toast(page).getByRole("button", { name: "Ångra" }).click();
+  await expect(dish(page, gryta).getByTestId("dish-cooked")).toHaveCount(0);
+  expect(await amountOf("Grädde")).toEqual([5]);
+
+  // Unmarking leaves the pantry alone, and the dish counts in the list again.
+  await dish(page, soppa).getByRole("button", { name: `Ta bort markeringen lagad, ${soppa}` }).click();
+  await expect(toast(page)).toContainText("Lagret är inte ändrat.");
+  await expect(dish(page, soppa).getByTestId("dish-cooked")).toHaveCount(0);
+  expect(await amountOf("Röda linser")).toEqual([]);
+  await page.goto("/lista");
+  await expect(listLine("Röda linser")).toHaveCount(1);
+  expect(errors).toEqual([]);
+});

@@ -1,6 +1,7 @@
 // Client-safe entry: types and domain (AD-1).
 export {
   toSnapshot,
+  roundSum,
   snapshotFor,
   comparePantryItems,
   type PantryItem,

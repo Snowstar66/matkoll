@@ -73,7 +73,9 @@ export type ShoppingList = {
  * what the sources throw.
  */
 export async function loadShoppingList(sources: ShoppingSources): Promise<ShoppingList> {
-  const plan = await sources.currentPlan();
+  const current = await sources.currentPlan();
+  // A dish marked cooked (Story 13.4) is done: it adds nothing to the list.
+  const plan = current && { ...current, recipes: current.recipes.filter((dish) => !dish.cookedAt) };
   if (!plan) return { plan: null, lines: [], hiddenLines: [], pantryUnavailable: false, checksUnavailable: false };
 
   const recipeIds = [...new Set(plan.recipes.flatMap((dish) => (dish.recipeId ? [dish.recipeId] : [])))];

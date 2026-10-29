@@ -37,9 +37,11 @@ export type RecipeViewProps = {
    * "Lägg på matsedeln" pinned to the bottom (Story 3.1).
    */
   addToPlan?: AddToPlan;
+  /** "Markera som lagad" for the recipe's dish, shown at the end of the step mode (Story 13.4). */
+  finish?: ReactNode;
 };
 
-export function RecipeView({ recipe, snapshot, site = null, menu, addToPlan }: RecipeViewProps) {
+export function RecipeView({ recipe, snapshot, site = null, menu, addToPlan, finish }: RecipeViewProps) {
   const source = sourceLabel(recipe.sourceKind, recipe.sourceUrl);
   // The portion selector shows the servings, so the meta line is only the time.
   const time = recipeTimeText(recipe.totalMinutes);
@@ -89,6 +91,7 @@ export function RecipeView({ recipe, snapshot, site = null, menu, addToPlan }: R
         snapshot={snapshot}
         site={site}
         addToPlan={addToPlan}
+        finish={finish}
       />
     </article>
   );
