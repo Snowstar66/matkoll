@@ -14,6 +14,7 @@ import { siteLineText, type SelectedSite } from "@/features/pantry";
 import { errorMessages, fail, type AppError, type Result } from "@/lib/errors";
 import { searchLibrary } from "../actions/search-recipes";
 import { filterRecipes, type RecipeFilter, type RecipeLibrary, type RecipeListItem } from "../domain/recipe-list";
+import type { AddToPlan } from "./add-to-plan-button";
 import { AiSuggestions } from "./ai-suggestions";
 import { useRecipeFilter } from "./recipe-filter-store";
 import { RecipeList } from "./recipe-list";
@@ -69,9 +70,11 @@ export type LibraryProps = {
   searchIngredients: SearchIngredients;
   /** The names of Pontus's places by id, for "Förslagen bygger på lagret för Hemma." (Story 12.4). */
   siteNames?: Readonly<Record<string, string>>;
+  /** mealplan.addToCurrentPlan from the page (AD-1), for "Lägg på matsedeln" on suggestions from offers (Story 9.5). */
+  addToPlan?: AddToPlan;
 };
 
-export function Library({ recipes, pantryUnavailable, site, searchIngredients, siteNames }: LibraryProps) {
+export function Library({ recipes, pantryUnavailable, site, searchIngredients, siteNames, addToPlan }: LibraryProps) {
   const router = useRouter();
   const [filter, setFilter] = useRecipeFilter();
   // AI-förslag are of the place the server's list is counted against. They are in
@@ -237,7 +240,12 @@ export function Library({ recipes, pantryUnavailable, site, searchIngredients, s
           way and the suggestions stay. AI-förslag are offered when the pantry could not be
           read too: the server reads it again. */}
       {cookable ? (
-        <AiSuggestions dishes={dishes} searchIngredients={searchIngredients} offerButton={search.kind !== "failed"} />
+        <AiSuggestions
+          dishes={dishes}
+          searchIngredients={searchIngredients}
+          offerButton={search.kind !== "failed"}
+          addToPlan={addToPlan}
+        />
       ) : null}
     </div>
   );

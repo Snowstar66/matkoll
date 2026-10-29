@@ -166,3 +166,10 @@ export function groupOffers<T extends Pick<StoreOffer, "section" | "name">>(offe
   }
   return [...groups].sort(([a], [b]) => compareCategories(a, b)).map(([category, items]) => ({ category, offers: items }));
 }
+
+/** The words of "Föreslå rätter från veckans erbjudanden" (Story 9.5). */
+export const suggestFromOffersText = {
+  button: "Föreslå rätter från veckans erbjudanden",
+  noOffers: "Hämta veckans erbjudanden först, så kan AI föreslå rätter som bygger på dem.",
+  started: "Letar efter rätter från erbjudandena. Du kan göra annat under tiden.",
+} as const;

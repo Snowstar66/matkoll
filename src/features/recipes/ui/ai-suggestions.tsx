@@ -7,7 +7,8 @@ import { Button, buttonClasses } from "@/components/button";
 import type { SearchIngredients } from "@/components/ingredient-picker";
 import { Notice } from "@/components/notice";
 import { nameInSentence, normalizeIngredientText } from "@/features/catalog";
-import { suggestErrorMessage, suggestRetryCodes } from "@/features/suggestions";
+import { atHomeText, suggestErrorMessage, suggestRetryCodes } from "@/features/suggestions";
+import type { AddToPlan } from "./add-to-plan-button";
 import { recipeMetaText } from "../domain/recipe-list";
 import { AiSuggestionSheet } from "./ai-suggestion-sheet";
 import { RecipeCard } from "./recipe-card";
@@ -35,13 +36,15 @@ export type AiSuggestionsProps = {
    * and "Avbryt" either way, and the suggestions stay.
    */
   offerButton?: boolean;
+  /** mealplan.addToCurrentPlan from the page (AD-1): suggestions built around offers can go straight to the menu (Story 9.5). */
+  addToPlan?: AddToPlan;
 };
 
-export function AiSuggestions({ dishes, searchIngredients, offerButton = true }: AiSuggestionsProps) {
+export function AiSuggestions({ dishes, searchIngredients, offerButton = true, addToPlan }: AiSuggestionsProps) {
   const headingId = useId();
   const headingRef = useRef<HTMLHeadingElement>(null);
   const buttonRef = useRef<HTMLButtonElement>(null);
-  const [opened, setOpened] = useState<ShownSuggestion | null>(null);
+  const [opened, setOpened] = useState<{ suggestion: ShownSuggestion; toMenu: boolean } | null>(null);
   // What this mount has already moved focus for: a remount (a pill changed
   // back) does not take focus for suggestions that came earlier.
   const handledArrivals = useRef(dishes?.arrivals ?? 0);
@@ -63,7 +66,8 @@ export function AiSuggestions({ dishes, searchIngredients, offerButton = true }:
   }, [cancels]);
 
   if (!dishes) return null;
-  const { suggestions, loading, waiting, error, stale, suggest, cancel, remove } = dishes;
+  const { suggestions, mode, loading, waiting, error, stale, suggest, cancel, remove } = dishes;
+  const byOffers = mode === "offers";
 
   let notice = null;
   if (error && !loading) {
@@ -102,11 +106,16 @@ export function AiSuggestions({ dishes, searchIngredients, offerButton = true }:
       {suggestions.length > 0 ? (
         <section aria-labelledby={headingId} className="flex flex-col gap-3">
           <h2 id={headingId} ref={headingRef} tabIndex={-1} className="text-section-label text-ink-2">
-            AI-förslag
+            {byOffers ? "AI-förslag från veckans erbjudanden" : "AI-förslag"}
           </h2>
           <ul className="grid gap-3 desktop:grid-cols-2">
             {suggestions.map((suggestion) => (
-              <SuggestionCard key={suggestion.key} suggestion={suggestion} onSave={() => setOpened(suggestion)} />
+              <SuggestionCard
+                key={suggestion.key}
+                suggestion={suggestion}
+                onSave={() => setOpened({ suggestion, toMenu: false })}
+                onAddToPlan={byOffers && addToPlan ? () => setOpened({ suggestion, toMenu: true }) : undefined}
+              />
             ))}
           </ul>
         </section>
@@ -123,8 +132,10 @@ export function AiSuggestions({ dishes, searchIngredients, offerButton = true }:
         </Button>
       ) : null}
       <AiSuggestionSheet
-        key={opened?.key ?? "stängt"}
-        suggestion={opened}
+        key={opened ? `${opened.suggestion.key}-${opened.toMenu}` : "stängt"}
+        suggestion={opened?.suggestion ?? null}
+        addToPlan={addToPlan}
+        toMenu={opened?.toMenu ?? false}
         onClose={() => setOpened(null)}
         onSaved={(key) => {
           setOpened(null);
@@ -165,8 +176,16 @@ function cardNames({ draft, ingredientNames }: ShownSuggestion): string[] {
  * recipe view until it is saved. Never an image: an address from the model
  * is not loaded (AD-15 loads only recipe sites' own images).
  */
-function SuggestionCard({ suggestion, onSave }: { suggestion: ShownSuggestion; onSave: () => void }) {
-  const { draft } = suggestion;
+function SuggestionCard({
+  suggestion,
+  onSave,
+  onAddToPlan,
+}: {
+  suggestion: ShownSuggestion;
+  onSave: () => void;
+  onAddToPlan?: () => void;
+}) {
+  const { draft, onOffer = [], atHome } = suggestion;
   return (
     <RecipeCard
       data-testid="ai-suggestion"
@@ -176,6 +195,17 @@ function SuggestionCard({ suggestion, onSave }: { suggestion: ShownSuggestion; o
       badge={<AiBadge />}
     >
       <p className="text-meta break-words text-ink-2">Med: {cardNames(suggestion).join(", ")}</p>
+      {onOffer.length > 0 ? (
+        <p data-testid="ai-suggestion-offers" className="text-meta break-words text-ink-2">
+          På erbjudande: {onOffer.join(", ")}
+        </p>
+      ) : null}
+      {atHome ? <p className="text-meta text-ink-2">{atHomeText(atHome)}</p> : null}
+      {onAddToPlan ? (
+        <Button onClick={onAddToPlan} aria-label={`Lägg på matsedeln: ${draft.title}`}>
+          Lägg på matsedeln
+        </Button>
+      ) : null}
       <Button variant="secondary" onClick={onSave} aria-label={`Spara ${draft.title}`}>
         Spara
       </Button>

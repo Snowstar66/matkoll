@@ -3,9 +3,13 @@ import { requireUser } from "@/features/auth/server";
 import { CatalogDataError, getIngredientNames, matchIngredients } from "@/features/catalog/server";
 import type { PantrySnapshot } from "@/features/pantry";
 import { getPantryForStatus } from "@/features/pantry/server";
+import { getActiveOffers, OffersDataError } from "@/features/offers/server";
+import type { StoreOffer } from "@/features/offers";
+import { getSelectedStore, SettingsDataError } from "@/features/settings/server";
 import { fromAiRecipe, recipeDraftSchema, type RecipeDraft } from "@/features/recipes";
 import { fail, ok, type Result } from "@/lib/errors";
 import { getAiService } from "@/server/ai";
+import { offersUsed, toOfferNames } from "../domain/offer-input";
 import { toSuggestInput } from "../domain/pantry-input";
 import type { DishSuggestions, SuggestRequest } from "../domain/suggestions";
 
@@ -60,6 +64,35 @@ function linkedIds(draft: RecipeDraft): string[] {
   );
 }
 
+/**
+ * The selected store's active offers (Story 9.5), for the dishes built around
+ * them. `offers_store_missing` without a store, `offers_none` without offers
+ * and `offers_unavailable` when the store or the offers cannot be read
+ * (logged, codes only).
+ */
+async function readOffers(): Promise<Result<StoreOffer[]>> {
+  try {
+    const store = await getSelectedStore();
+    if (!store) return fail("offers_store_missing");
+    const offers = await getActiveOffers(store.id);
+    return offers.length > 0 ? ok(offers) : fail("offers_none");
+  } catch (error) {
+    if (!(error instanceof SettingsDataError || error instanceof OffersDataError)) throw error;
+    console.error("offers_unavailable", { reason: error.detail });
+    return fail("offers_unavailable");
+  }
+}
+
+/** True for a line linked to a catalog ingredient that is in the pantry. */
+function isLinkedAtHome(ingredient: RecipeDraft["lines"][number]["ingredient"], snapshot: PantrySnapshot): boolean {
+  return (ingredient.kind === "match" || ingredient.kind === "chosen") && snapshot.has(ingredient.ingredientId);
+}
+
+export type SuggestMode = SuggestRequest["mode"];
+
+/** What the job is asked: the mode is "pantry" when left out. */
+export type SuggestJobRequest = Omit<SuggestRequest, "mode"> & { mode?: SuggestMode };
+
 export type SuggestOptions = {
   signal: AbortSignal;
   /** When the whole job must be done (Date.now() milliseconds); the model gets the time left but postModelMarginMs. */
@@ -73,9 +106,14 @@ export type SuggestOptions = {
  * (`null` for a user without places), which the job keeps as its context.
  * `pantry_unavailable` when the pantry cannot be read. Never writes.
  */
-export async function checkSuggestPantry(): Promise<Result<{ siteId: string | null }>> {
+export async function checkSuggestPantry(mode: SuggestMode = "pantry"): Promise<Result<{ siteId: string | null }>> {
   const pantry = await readPantry();
   if (!pantry.ok) return pantry;
+  if (mode === "offers") {
+    // Around offers an empty pantry is fine; without offers there is nothing to build on.
+    const offers = await readOffers();
+    return offers.ok ? ok({ siteId: pantry.data.siteId }) : offers;
+  }
   if (pantry.data.snapshot.size === 0) return fail("suggest_empty_pantry");
   return ok({ siteId: pantry.data.siteId });
 }
@@ -96,7 +134,7 @@ export async function checkSuggestPantry(): Promise<Result<{ siteId: string | nu
  * for a user (the queue, AD-28), so nothing here keeps a lock of its own.
  */
 export async function suggestFromPantry(
-  request: SuggestRequest,
+  request: SuggestJobRequest,
   { signal, deadline }: SuggestOptions,
 ): Promise<Result<DishSuggestions>> {
   const user = await requireUser();
@@ -105,7 +143,7 @@ export async function suggestFromPantry(
 }
 
 async function suggest(
-  request: SuggestRequest,
+  request: SuggestJobRequest,
   signal: AbortSignal,
   deadline: number | undefined,
 ): Promise<Result<DishSuggestions>> {
@@ -113,12 +151,25 @@ async function suggest(
   if (!pantry.ok) return pantry;
   const snapshot = pantry.data.snapshot;
   if (signal.aborted) return stopped();
-  if (snapshot.size === 0) return fail("suggest_empty_pantry");
+  const byOffers = request.mode === "offers";
+  if (snapshot.size === 0 && !byOffers) return fail("suggest_empty_pantry");
+
+  // Story 9.5: the offers are read here, in the job, and only their names go to the model.
+  let offers: StoreOffer[] = [];
+  if (byOffers) {
+    const read = await readOffers();
+    if (!read.ok) return read;
+    offers = read.data;
+  }
 
   const pantryNames = await fromCatalog(() => getIngredientNames([...snapshot.keys()]));
   if (!pantryNames.ok) return pantryNames;
   const { input, dropped } = toSuggestInput(snapshot, pantryNames.data, request.avoidTitles);
-  if (input.pantry.length === 0) {
+  if (byOffers) {
+    input.offers = toOfferNames(offers);
+    if (input.offers.length === 0) return fail("offers_none");
+  }
+  if (input.pantry.length === 0 && snapshot.size > 0) {
     // There is something at home, but none of it could be named: a catalog read gone wrong, worth another try.
     console.error("catalog_unavailable", { reason: "no_names" });
     return fail("catalog_unavailable");
@@ -148,7 +199,7 @@ async function suggest(
       return;
     }
     const count = new Set(linkedIds(draft.data).filter((id) => snapshot.has(id))).size;
-    if (count < minPantryIngredients) {
+    if (!byOffers && count < minPantryIngredients) {
       console.error("ai_invalid", { reason: "pantry", index, count });
       return;
     }
@@ -162,11 +213,24 @@ async function suggest(
   if (!names.ok) return names;
   return ok({
     siteId: pantry.data.siteId,
-    suggestions: drafts.map((draft) => ({
-      draft,
-      ingredientNames: Object.fromEntries(
-        linkedIds(draft).flatMap((id) => (id in names.data ? [[id, names.data[id]] as const] : [])),
-      ),
-    })),
+    mode: request.mode ?? "pantry",
+    suggestions: drafts.map((draft) => {
+      const linked = linkedIds(draft);
+      const ingredientNames = Object.fromEntries(
+        linked.flatMap((id) => (id in names.data ? [[id, names.data[id]] as const] : [])),
+      );
+      if (!byOffers) return { draft, ingredientNames, onOffer: [], atHome: null };
+      const lineNames = draft.lines.map((line) => line.hint?.name ?? line.originalText);
+      return {
+        draft,
+        ingredientNames,
+        onOffer: offersUsed(offers, new Set(linked), [...lineNames, ...Object.values(ingredientNames)]),
+        // "X av Y hemma": the lines linked to something in the pantry, of all lines.
+        atHome: {
+          have: draft.lines.filter(({ ingredient }) => isLinkedAtHome(ingredient, snapshot)).length,
+          total: draft.lines.length,
+        },
+      };
+    }),
   });
 }

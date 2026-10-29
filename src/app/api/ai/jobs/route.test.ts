@@ -38,13 +38,13 @@ vi.mock("@/features/ai-jobs/server", () => ({
   runAiJob: (...args: Parameters<typeof runAiJob>) => runAiJob(...args),
 }));
 
-type SuggestRequest = { avoidTitles: string[] };
+type SuggestRequest = { avoidTitles: string[]; mode?: string };
 type Options = { signal: AbortSignal; deadline?: number };
 const suggestFromPantry = vi.fn<(request: SuggestRequest, options: Options) => Promise<Result<unknown>>>();
-const checkSuggestPantry = vi.fn<() => Promise<Result<{ siteId: string | null }>>>();
+const checkSuggestPantry = vi.fn<(mode?: string) => Promise<Result<{ siteId: string | null }>>>();
 vi.mock("@/features/suggestions/server", () => ({
   suggestFromPantry: (request: SuggestRequest, options: Options) => suggestFromPantry(request, options),
-  checkSuggestPantry: () => checkSuggestPantry(),
+  checkSuggestPantry: (mode?: string) => checkSuggestPantry(mode),
 }));
 
 /** The callbacks given to after(), run by the test once the response is there. */
@@ -106,6 +106,31 @@ describe("POST /api/ai/jobs", () => {
     expect(suggestFromPantry).not.toHaveBeenCalled();
   });
 
+  it("runs a job of the mode offers: checks the offers first, keeps only the mode as context and sends no offers (Story 9.5)", async () => {
+    const response = await POST(post({ body: JSON.stringify({ kind: "suggest", mode: "offers", clientKey, avoidTitles: [] }) }));
+    expect(response.status).toBe(202);
+    expect(checkSuggestPantry).toHaveBeenCalledWith("offers");
+    expect(enqueueAiJob.mock.calls[0][1].context).toEqual({ siteId, mode: "offers" });
+    await runAfter();
+    await runAiJob.mock.calls[0][3](new AbortController().signal, 5_000, async () => {});
+    expect(suggestFromPantry.mock.calls[0][0]).toEqual({ avoidTitles: [], mode: "offers" });
+  });
+
+  it("refuses offers sent by the client", async () => {
+    const response = await POST(
+      post({ body: JSON.stringify({ kind: "suggest", mode: "offers", clientKey, offers: ["falukorv"] }) }),
+    );
+    expect(response.status).toBe(400);
+    expect(enqueueAiJob).not.toHaveBeenCalled();
+  });
+
+  it("queues nothing without offers", async () => {
+    checkSuggestPantry.mockResolvedValue(fail("offers_none"));
+    const response = await POST(post({ body: JSON.stringify({ kind: "suggest", mode: "offers", clientKey }) }));
+    expect((await response.json()).error.code).toBe("offers_none");
+    expect(enqueueAiJob).not.toHaveBeenCalled();
+  });
+
   it("runs the job in after(), with the session client, the time to start by, and the titles in the work", async () => {
     await POST(post({ body: JSON.stringify({ kind: "suggest", clientKey, avoidTitles: [" Pannkakor "] }) }));
     expect(afterCallbacks).toHaveLength(1);
@@ -120,7 +145,7 @@ describe("POST /api/ai/jobs", () => {
     const result = await work(controller.signal, 5_000, async () => {});
     expect(result).toEqual(ok({ suggestions: [], siteId }));
     const [input, options] = suggestFromPantry.mock.calls[0];
-    expect(input).toEqual({ avoidTitles: ["Pannkakor"] });
+    expect(input).toEqual({ avoidTitles: ["Pannkakor"], mode: "pantry" });
     // The job's own signal and deadline, never the request's.
     expect(options.signal).toBe(controller.signal);
     expect(options.deadline).toBe(5_000);
@@ -147,7 +172,7 @@ describe("POST /api/ai/jobs", () => {
     await POST(post({ body: JSON.stringify({ kind: "suggest", clientKey }) }));
     await runAfter();
     await runAiJob.mock.calls[0][3](new AbortController().signal, 1, async () => {});
-    expect(suggestFromPantry.mock.calls[0][0]).toEqual({ avoidTitles: [] });
+    expect(suggestFromPantry.mock.calls[0][0]).toEqual({ avoidTitles: [], mode: "pantry" });
   });
 
   it("answers an empty pantry at once, without a job", async () => {

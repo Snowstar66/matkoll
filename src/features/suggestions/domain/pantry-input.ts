@@ -19,7 +19,7 @@ import {
  * The shape of the AI port's SuggestDishesInput (src/server/ai/service.ts).
  * Declared here because domain code never imports the port (AD-1); this fits it.
  */
-export type SuggestInputShape = { pantry: SuggestPantryEntry[]; avoidTitles: string[] };
+export type SuggestInputShape = { pantry: SuggestPantryEntry[]; avoidTitles: string[]; offers?: string[] };
 
 /** The smallest amount sent: what is shown with two decimals, never 0. */
 const minAmount = 0.01;

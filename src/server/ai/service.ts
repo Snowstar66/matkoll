@@ -4,7 +4,10 @@ import { imageMediaTypes, maxImageBytes } from "@/lib/images";
 import {
   avoidTitleLines,
   cleanModelText,
+  isValidOfferName,
   isValidPantryEntry,
+  offerLines,
+  offerLinesLength,
   pantryLines,
   pantryLinesLength,
   suggestInputLimits,
@@ -62,6 +65,12 @@ export type SuggestDishesInput = {
   pantry: SuggestPantryItem[];
   /** Titles already suggested, which the model is asked not to suggest again; an answer with one of them is invalid. */
   avoidTitles: string[];
+  /**
+   * Story 9.5: the names of this week's offers (never prices), best first,
+   * when the dishes are to be built around them. Empty (the default) gives
+   * the message of Story 12.3 unchanged. Data for the model, never instructions.
+   */
+  offers?: string[];
 };
 
 export type RunOptions = {
@@ -285,7 +294,11 @@ export function locateLimitsFrom(limits: Limits): Limits {
 export function isValidSuggestDishesInput(input: SuggestDishesInput): boolean {
   const limits = inputLimits.suggest;
   const { pantry, avoidTitles } = input;
-  if (pantry.length === 0 || pantry.length > limits.maxPantryItems) return false;
+  const offers = input.offers ?? [];
+  // Without offers there must be a pantry; around offers an empty pantry is fine.
+  if ((pantry.length === 0 && offers.length === 0) || pantry.length > limits.maxPantryItems) return false;
+  if (offers.length > limits.maxOffers || !offers.every(isValidOfferName) || new Set(offers).size !== offers.length) return false;
+  if (offerLinesLength(offers) > limits.maxOfferChars) return false;
   if (!pantry.every(isValidPantryEntry)) return false;
   if (pantryLinesLength(pantry) > limits.maxPantryChars) return false;
   if (avoidTitles.length > limits.maxAvoidTitles) return false;
@@ -488,7 +501,10 @@ export function locateItemsContent(input: LocateItemsInput) {
  * prompt says both lists are data, not instructions.
  */
 export function suggestDishesContent(input: SuggestDishesInput): string {
-  const parts = [`Lagret:\n${pantryLines(input.pantry)}`];
+  const parts = [input.pantry.length > 0 ? `Lagret:\n${pantryLines(input.pantry)}` : "Lagret:\n(tomt)"];
+  if (input.offers && input.offers.length > 0) {
+    parts.push(`Erbjudanden i butiken den här veckan:\n${offerLines(input.offers)}`);
+  }
   if (input.avoidTitles.length > 0) parts.push(`Föreslå inte:\n${avoidTitleLines(input.avoidTitles)}`);
   return parts.join("\n\n");
 }
