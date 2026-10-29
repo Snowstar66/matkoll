@@ -39,6 +39,8 @@ function draft(label: string, changes: Partial<OfferDraft> = {}): OfferDraft {
     memberOnly: false,
     validTo: null,
     source: "link",
+    regularPrice: null,
+    savingPercent: null,
     ...changes,
   };
 }
@@ -100,6 +102,9 @@ describe("schema and RLS", () => {
     ["an unknown section", { section: "Godis" }],
     ["an unknown source", { source: "ai" }],
     ["an end before the week", { valid_to: addDays(thisWeekValue(), -1) }],
+    ["a regular price of 0", { regular_price: 0 }],
+    ["a saving of 0 %", { saving_percent: 0 }],
+    ["a saving of 100 %", { saving_percent: 100 }],
   ])("refuses %s", async (_name, changes) => {
     const user = await createTestUser(`offer-check-${unique++}`);
     const store = await addStore(user.db);
@@ -155,6 +160,22 @@ describe("save_store_offers", () => {
       "Gårdens Herrgård, Präst",
       "Havets Laxfilé",
       "Odlarna Gul lök",
+    ]);
+  });
+
+  it("saves the regular price and the saving, and null when they are not known (Story 9.11)", async () => {
+    const week = thisWeek();
+    const saved = await saveOffersIn(user.db, {
+      storeId: store,
+      weekStart: week,
+      items: [draft("Gårdens Herrgård", { regularPrice: 111.9, savingPercent: 20 }), draft("Odlarna Gul lök")],
+      replaceSource: "link",
+    });
+    expect(saved).toEqual({ ok: true, data: 2 });
+    const offers = await loadOffers(user.db, store, week);
+    expect(offers.map((offer) => [offer.regularPrice, offer.savingPercent])).toEqual([
+      [111.9, 20],
+      [null, null],
     ]);
   });
 

@@ -10,6 +10,7 @@ import {
   createModelAiService,
   inputLimits,
   isValidSuggestDishesInput,
+  suggestDishesContent,
   limitsWithin,
   minRunMs,
   isValidAnalyzeImageInput,
@@ -941,5 +942,42 @@ describe("locateItems input validation in front of every adapter (Story 6.6)", (
 
   it("accepts 25 labels of 200 characters", () => {
     expect(isValidLocateItemsInput(input(Array.from({ length: 25 }, () => "x".repeat(200))))).toBe(true);
+  });
+});
+
+describe("suggestDishes with offers (Story 9.5)", () => {
+  const pantry = [{ name: "mjölk", amount: 1, unit: "l" }];
+
+  it("leaves the message of Story 12.3 as it was without offers", () => {
+    const plain = suggestDishesContent({ pantry, avoidTitles: ["Pannkakor"] });
+    expect(suggestDishesContent({ pantry, avoidTitles: ["Pannkakor"], offers: [] })).toBe(plain);
+    expect(plain).not.toContain("Erbjudanden");
+  });
+
+  it("adds the offers' names, never prices, after the pantry", () => {
+    const content = suggestDishesContent({ pantry, avoidTitles: [], offers: ["falukorv", "broccoli"] });
+    expect(content).toBe("Lagret:\nmjölk: 1 l\n\nErbjudanden i butiken den här veckan:\n- falukorv\n- broccoli");
+  });
+
+  it("takes offers around an empty pantry, and an empty pantry without offers is refused", () => {
+    expect(isValidSuggestDishesInput({ pantry: [], avoidTitles: [], offers: ["falukorv"] })).toBe(true);
+    expect(isValidSuggestDishesInput({ pantry: [], avoidTitles: [], offers: [] })).toBe(false);
+  });
+
+  it.each([
+    ["41 offers", Array.from({ length: 41 }, (_, i) => `v${i}`)],
+    ["a repeated name", ["falukorv", "falukorv"]],
+    ["an unclean name", ["fa\nlukorv"]],
+    ["too many characters", Array.from({ length: 12 }, (_, i) => `${"x".repeat(90)}${i}`)],
+  ])("refuses %s", (_name, offers) => {
+    expect(isValidSuggestDishesInput({ pantry, avoidTitles: [], offers })).toBe(false);
+  });
+
+  it("answers the offers fixture from the mock, and the usual one without offers", async () => {
+    const service = createAiService(parseEnv({ AI_PROVIDER: "mock" }));
+    const withOffers = await service.suggestDishes({ pantry, avoidTitles: [], offers: ["falukorv"] }, signal());
+    const without = await service.suggestDishes({ pantry, avoidTitles: [] }, signal());
+    expect(withOffers.ok && withOffers.data[0].title).toBe("Falukorv med stuvade makaroner");
+    expect(without.ok && without.data[0].title).not.toBe("Falukorv med stuvade makaroner");
   });
 });

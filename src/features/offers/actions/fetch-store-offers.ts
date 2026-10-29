@@ -169,6 +169,7 @@ export async function fetchStoreOffers(input: { storeId: string }): Promise<Fetc
   }
   revalidateFor("store_offer");
   const matched = drafts.filter((draft) => draft.ingredientId !== null).length;
-  console.info("offers_fetched", { saved: saved.data, skipped, matched });
+  const withRegularPrice = drafts.filter((draft) => draft.regularPrice !== null).length;
+  console.info("offers_fetched", { saved: saved.data, skipped, matched, withRegularPrice });
   return ok({ saved: saved.data, skipped, matched, weekStart });
 }

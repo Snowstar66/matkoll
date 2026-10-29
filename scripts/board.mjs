@@ -20,6 +20,8 @@ const PLANNING_DIR = join(ROOT, "_bmad-output/planning-artifacts");
 const IMPLEMENTATION_DIR = join(ROOT, "_bmad-output/implementation-artifacts");
 const BLOB = `https://github.com/${REPO}/blob/main`;
 
+const PAUSED_LABEL = "pausad";
+
 // BMAD story status -> board column
 const COLUMN_FOR_STATUS = {
   backlog: "Backlog",
@@ -238,7 +240,7 @@ function sync() {
   const stories = readStoryStatuses();
   const sourcesFor = storySources();
   const issues = ghJson("issue", "list", "--repo", REPO, "--label", "story", "--state", "all",
-    "--limit", "500", "--json", "number,body,state,stateReason");
+    "--limit", "500", "--json", "number,body,state,stateReason,labels");
   const issueByKey = new Map();
   for (const issue of issues) {
     const m = issue.body?.match(/<!-- bmad-story: ([\p{L}\p{N}_-]+) -->/u);
@@ -247,11 +249,13 @@ function sync() {
 
   const log = [];
   for (const s of stories) {
-    const column = COLUMN_FOR_STATUS[s.status];
+    let column = COLUMN_FOR_STATUS[s.status];
     if (!column) { log.push(`? ${s.key}: unknown status "${s.status}", skipped`); continue; }
     let issue = issueByKey.get(s.key);
     // A card closed as not planned was replaced by a new plan; stale branches must not reopen it.
     if (issue?.stateReason === "NOT_PLANNED") continue;
+    // Pontus pauses a story with the label "pausad": it waits in its own column, not in the queue.
+    if (column === "Backlog" && issue?.labels?.some((l) => l.name === PAUSED_LABEL)) column = "Pausad";
     const { body, section } = storyBody(s, sourcesFor);
     if (!issue) {
       const title = `${s.epic}.${s.num} ${section?.title ?? s.key}`;

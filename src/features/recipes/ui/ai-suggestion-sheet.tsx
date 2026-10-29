@@ -8,8 +8,10 @@ import type { SearchIngredients } from "@/components/ingredient-picker";
 import { Notice } from "@/components/notice";
 import { Sheet } from "@/components/sheet";
 import { useToast } from "@/components/toast";
+import { addedToPlanText } from "@/features/mealplan";
 import { errorMessages, fail } from "@/lib/errors";
 import { saveRecipe } from "../actions/save-recipe";
+import type { AddToPlan } from "./add-to-plan-button";
 import { isDraftDirty } from "../domain/preview";
 import { validateDraft, type PendingFieldText, type RecipeDraft } from "../domain/recipe-draft";
 import { RecipePreview } from "./recipe-preview";
@@ -28,9 +30,27 @@ export type AiSuggestionSheetProps = {
   /** The suggestion was saved: it leaves the section, and the sheet closes. */
   onSaved: (key: number) => void;
   searchIngredients: SearchIngredients;
+  /**
+   * Story 9.5: mealplan.addToCurrentPlan from the page (AD-1). With `toMenu`,
+   * the primary button is "Spara och lägg på matsedeln": it saves the recipe,
+   * adds it last on the current meal plan (as "Lägg till rätt" does) and
+   * confirms with a way to the shopping list.
+   */
+  addToPlan?: AddToPlan;
+  toMenu?: boolean;
 };
 
-export function AiSuggestionSheet({ suggestion, onClose, onSaved, searchIngredients }: AiSuggestionSheetProps) {
+export function AiSuggestionSheet({
+  suggestion,
+  onClose,
+  onSaved,
+  searchIngredients,
+  addToPlan,
+  toMenu = false,
+}: AiSuggestionSheetProps) {
+  const planning = toMenu && addToPlan !== undefined;
+  /** The dish's id for this sheet, so a retry after a lost answer adds it once. */
+  const [dishId] = useState(() => crypto.randomUUID());
   const [draft, setDraft] = useState<RecipeDraft | null>(suggestion?.draft ?? null);
   const [names, setNames] = useState<Readonly<Record<string, string>>>(suggestion?.ingredientNames ?? {});
   /** Typed text in the preview that did not become a value. */
@@ -63,6 +83,24 @@ export function AiSuggestionSheet({ suggestion, onClose, onSaved, searchIngredie
         setSaveError(result.error.code === "unauthorized" ? result.error.message : errorMessages.recipe_save_failed);
         return;
       }
+      if (planning) {
+        let added: Awaited<ReturnType<AddToPlan>>;
+        try {
+          added = await addToPlan({ recipeId: result.data.id, id: dishId });
+        } catch {
+          added = fail("mealplan_add_failed");
+        }
+        if (!added.ok) {
+          // The recipe is saved (saving again makes no copy), so a new try only adds the dish.
+          setSaveError(
+            added.error.code === "unauthorized" ? added.error.message : `Receptet är sparat. ${added.error.message}`,
+          );
+          return;
+        }
+        onSaved(suggestion.key);
+        showToast(addedToPlanText, { show: { label: "Visa inköpslistan", onShow: () => router.push("/lista") } });
+        return;
+      }
       onSaved(suggestion.key);
       router.push(`/recept/${result.data.id}`);
       showToast("Receptet är sparat.");
@@ -82,7 +120,7 @@ export function AiSuggestionSheet({ suggestion, onClose, onSaved, searchIngredie
           <>
             {saveError ? <Notice role="alert">{saveError}</Notice> : null}
             <Button fullWidth disabled={!isValid || saving} onClick={save}>
-              {saving ? "Sparar …" : "Spara recept"}
+              {saving ? "Sparar …" : planning ? "Spara och lägg på matsedeln" : "Spara recept"}
             </Button>
           </>
         ) : null

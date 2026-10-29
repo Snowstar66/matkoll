@@ -21,6 +21,10 @@ export const suggestInputLimits = {
   maxPantryChars: 4_000,
   maxAvoidTitles: 3,
   maxTitleChars: 200,
+  /** Offer names sent with "Föreslå rätter från veckans erbjudanden" (Story 9.5). */
+  maxOffers: 40,
+  /** The offers' lines, as offerLines writes them. */
+  maxOfferChars: 1_000,
 } as const;
 
 /** Control and format characters, and the line and paragraph separators. */
@@ -102,4 +106,19 @@ export function isValidPantryEntry({ name, amount, unit }: SuggestPantryEntry): 
 /** A title for comparing: whitespace collapsed, trimmed, lower case. "Fisk  Gratäng " and "fiskgratäng" differ; "Fisk gratäng" does not. */
 export function normalizeTitle(title: string): string {
   return title.trim().replace(/\s+/g, " ").toLocaleLowerCase("sv-SE");
+}
+
+/** The offers' names as lines: "- falukorv". Names are clean (isValidOfferName), so each is one line. */
+export function offerLines(names: readonly string[]): string {
+  return names.map((name) => `- ${name}`).join("\n");
+}
+
+/** The length offerLines gives for `names`: each line, and a line break between them. */
+export function offerLinesLength(names: readonly string[]): number {
+  return names.reduce((sum, name, index) => sum + name.length + 2 + (index > 0 ? 1 : 0), 0);
+}
+
+/** True for an offer name the port takes: clean, 1–100 code points. */
+export function isValidOfferName(name: string): boolean {
+  return name !== "" && name === cleanModelText(name) && codePointLength(name) <= suggestInputLimits.maxNameChars;
 }

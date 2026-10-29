@@ -59,8 +59,11 @@ describe("parseIcaOfferPage on the saved page", () => {
       category: "Färskvaror",
       validTo: "2026-11-22",
       memberOnly: true,
+      regularPrice: 111.9,
+      savingPercent: 20,
     });
-    expect(result.data.offers[2]).toMatchObject({ mechanicInfo: "Köp 3 betala för 2", memberOnly: false });
+    expect(result.data.offers[2]).toMatchObject({ mechanicInfo: "Köp 3 betala för 2", memberOnly: false, regularPrice: null, savingPercent: 33 });
+    expect(result.data.offers[1]).toMatchObject({ mechanicInfo: "129 kr/kg", regularPrice: null, savingPercent: null });
     expect(result.data.offers[6]).toMatchObject({ validTo: "2026-11-08", restriction: "Max 2 köp/hushåll" });
   });
 

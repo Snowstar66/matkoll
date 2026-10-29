@@ -9,7 +9,7 @@ import { OffersDataError, type OffersDb } from "./client";
 // store the caller has read from settings.
 
 const offerColumns =
-  "id, store_id, week_start, label, name, ingredient_id, section, price, note, member_only, valid_to, source, created_at";
+  "id, store_id, week_start, label, name, ingredient_id, section, price, note, member_only, valid_to, source, regular_price, saving_percent, created_at";
 
 type OfferRow = {
   id: string;
@@ -24,6 +24,8 @@ type OfferRow = {
   member_only: boolean;
   valid_to: string | null;
   source: string;
+  regular_price: number | null;
+  saving_percent: number | null;
   created_at: string;
 };
 
@@ -44,6 +46,8 @@ export function toStoreOffer(row: OfferRow): StoreOffer {
     memberOnly: row.member_only,
     validTo: row.valid_to,
     source,
+    regularPrice: row.regular_price,
+    savingPercent: row.saving_percent,
     createdAt: row.created_at,
   };
 }

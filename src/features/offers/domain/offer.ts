@@ -2,6 +2,7 @@ import { compareCategories, displayCategory, type Category, type Section } from 
 import { oneLine } from "@/lib/one-line";
 import type { IcaOffer } from "./ica-offer-page";
 import { clip } from "./offer-name";
+import { savingText } from "./offer-saving";
 import { dayText, swedishToday, weekEnd, weekLabel, weekShortLabel } from "./week";
 
 // An offer as Matkoll keeps it (Story 9.1, AD-25): one store, one week. The
@@ -37,6 +38,10 @@ export type OfferDraft = {
   /** The offer's last day, YYYY-MM-DD, or `null` when the store does not say. */
   validTo: string | null;
   source: OfferSource;
+  /** The regular price in kronor, or `null` when not known (Story 9.11). */
+  regularPrice: number | null;
+  /** The saving in whole percent, or `null` when it cannot be stated (Story 9.11). */
+  savingPercent: number | null;
 };
 
 /** An offer as it is stored and shown. */
@@ -74,6 +79,8 @@ export function toOfferDraft(
     memberOnly: offer.memberOnly,
     validTo: offer.validTo,
     source: "link",
+    regularPrice: offer.regularPrice,
+    savingPercent: offer.savingPercent,
   };
 }
 
@@ -97,9 +104,10 @@ export function noOffersText(weekStart: string): string {
   return `Inga erbjudanden hämtade för ${weekShortLabel(weekStart)}.`;
 }
 
-/** "Hämtar erbjudandena från ica.se …" while the page is fetched. */
-export function fetchingOffersText(siteName: string): string {
-  return `Hämtar erbjudandena från ${siteName} …`;
+/** "Hämtar erbjudandena från ica.se …" while the page is fetched; Story 9.13 adds the store: "Hämtar Maxi från ica.se (1 av 2) …". */
+export function fetchingOffersText(siteName: string, progress?: { store: string; at: number; of: number }): string {
+  if (!progress || progress.of < 2) return `Hämtar erbjudandena från ${siteName} …`;
+  return `Hämtar ${progress.store} från ${siteName} (${progress.at} av ${progress.of}) …`;
 }
 
 /** "Maxi ICA Stormarknad Östersund · vecka 44, 26 okt–1 nov", under the sheet's title. */
@@ -117,8 +125,11 @@ export function openOffersPageText(siteName: string): string {
  * when the offer does not end with its week, its last day: "89 kr/kg ·
  * Stammis · Max 1 köp/hushåll · t.o.m. 22 nov".
  */
-export function offerMetaText(offer: Pick<StoreOffer, "price" | "memberOnly" | "note" | "validTo">, weekStart: string): string {
-  const parts = [offer.price, offer.memberOnly ? "Stammis" : null, offer.note];
+export function offerMetaText(
+  offer: Pick<StoreOffer, "price" | "memberOnly" | "note" | "validTo" | "regularPrice" | "savingPercent">,
+  weekStart: string,
+): string {
+  const parts = [offer.price, savingText(offer) || null, offer.memberOnly ? "Stammis" : null, offer.note];
   if (offer.validTo && offer.validTo !== weekEnd(weekStart)) parts.push(`t.o.m. ${dayText(offer.validTo)}`);
   return parts.filter(Boolean).join(" · ");
 }
@@ -139,6 +150,14 @@ export function offersSummaryText(count: number, fetchedAt: Date | null, now: Da
   return fetchedAt ? `${offersCountWords(count)} · ${fetchedAtText(fetchedAt, now)}` : offersCountWords(count);
 }
 
+/**
+ * The offers best saving first, "Bäst rabatt": by percent, those with no
+ * stated saving last, and the page's order within equals (the sort is stable).
+ */
+export function bestSavingFirst<T extends Pick<StoreOffer, "savingPercent">>(offers: readonly T[]): T[] {
+  return [...offers].sort((a, b) => (b.savingPercent ?? -1) - (a.savingPercent ?? -1));
+}
+
 /** The offers under their display categories, in the store's order of categories and the page's order within each. */
 export function groupOffers<T extends Pick<StoreOffer, "section" | "name">>(offers: readonly T[]): { category: Category; offers: T[] }[] {
   const groups = new Map<Category, T[]>();
@@ -147,4 +166,54 @@ export function groupOffers<T extends Pick<StoreOffer, "section" | "name">>(offe
     groups.set(category, [...(groups.get(category) ?? []), offer]);
   }
   return [...groups].sort(([a], [b]) => compareCategories(a, b)).map(([category, items]) => ({ category, offers: items }));
+}
+
+/** The words of "Föreslå rätter från veckans erbjudanden" (Story 9.5). */
+export const suggestFromOffersText = {
+  button: "Föreslå rätter från veckans erbjudanden",
+  noOffers: "Hämta veckans erbjudanden först, så kan AI föreslå rätter som bygger på dem.",
+  started: "Letar efter rätter från erbjudandena. Du kan göra annat under tiden.",
+} as const;
+
+/**
+ * The shopping-list item an offer becomes (Story 9.12): the key is the offer's
+ * id, so adding it twice is one item; the text is the offer's item (the
+ * catalog's name when it matched, else the name as normalised) and a short
+ * note, "Havregryn (Erbjudande: 89 kr/kg)", or with the store's short name
+ * (Story 9.13) "Havregryn (Erbjudande Maxi: 89 kr/kg)"; the catalog ingredient is linked
+ * when there is one.
+ */
+export function offerListItem(
+  offer: Pick<StoreOffer, "id" | "name" | "label" | "price" | "ingredientId">,
+  storeLabel?: string,
+): {
+  key: string;
+  label: string;
+  ingredientId: string | null;
+} {
+  const base = oneLine(offer.name) || oneLine(offer.label);
+  const name = base.charAt(0).toLocaleUpperCase("sv-SE") + base.slice(1);
+  const what = storeLabel ? `Erbjudande ${storeLabel}` : "Erbjudande";
+  const note = offer.price ? ` (${what}: ${offer.price})` : ` (${what})`;
+  return { key: offer.id, label: `${name}${note}`, ingredientId: offer.ingredientId };
+}
+
+/** "Lägg 3 i inköpslistan". */
+export function addToListText(count: number): string {
+  return `Lägg ${count} i inköpslistan`;
+}
+
+/** The toast after adding: "Lade 3 erbjudanden i inköpslistan." */
+export function addedToListText(count: number): string {
+  return `Lade ${offersCountWords(count)} i inköpslistan.`;
+}
+
+/** The toast after fetching from several stores: "Hämtade 12 erbjudanden från 2 butiker för vecka 44." */
+export function offersFetchedManyText(count: number, stores: number, weekStart: string): string {
+  return `Hämtade ${offersCountWords(count)} från ${stores} ${stores === 1 ? "butik" : "butiker"} för ${weekShortLabel(weekStart)}.`;
+}
+
+/** One store's line after fetching from several: "Hämtade 7 erbjudanden." */
+export function offersFetchedStoreText(count: number): string {
+  return `Hämtade ${offersCountWords(count)}.`;
 }

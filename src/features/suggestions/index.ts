@@ -12,3 +12,4 @@ export {
   type DishSuggestion,
 } from "./domain/suggestions";
 export { toSuggestInput, type SuggestInputShape } from "./domain/pantry-input";
+export { toOfferNames, offersUsed, atHomeText, type OfferInfo } from "./domain/offer-input";

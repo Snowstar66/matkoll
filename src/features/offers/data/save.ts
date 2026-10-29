@@ -29,6 +29,8 @@ export async function saveOffersIn(
     member_only: item.memberOnly,
     valid_to: item.validTo,
     source: item.source,
+    regular_price: item.regularPrice,
+    saving_percent: item.savingPercent,
   }));
   const { data, error } = await db.rpc("save_store_offers", {
     store: input.storeId,

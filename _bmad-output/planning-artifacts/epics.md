@@ -2063,33 +2063,41 @@ så att jag kan fylla på när det är billigt.
 **När** basvarorna räknas
 **Så** läses bara vilka ställen varan finns på, aldrig summerade mängder (AD-24)
 
-### Story 9.5: AI-förslag med veckans erbjudanden
+### Story 9.5: AI-förslag med veckans erbjudanden, direkt på matsedeln
 
 Som Pontus,
-vill jag att AI-förslagen gärna använder det som är på erbjudande i min butik den här veckan,
-så att veckans middagar blir billigare utan att jag letar själv.
+vill jag att AI föreslår rätter med veckans erbjudanden som bas, och kunna lägga en rätt jag gillar på matsedeln i ett steg,
+så att jag får alla varor på inköpslistan utom de jag redan har hemma.
 
 **Acceptance Criteria:**
 
-**Givet** inga erbjudanden för vald butik
-**När** Pontus ber om AI-förslag
-**Så** får AI-tjänsten exakt samma meddelande som efter Story 12.3 (FR36)
+**Givet** arket Veckans erbjudanden utan erbjudanden
+**När** Pontus ser knappen "Föreslå rätter från veckans erbjudanden"
+**Så** är den avstängd och en rad säger att erbjudandena ska hämtas först
 
 **Givet** veckans erbjudanden
-**När** AI-jobbet för förslag körs
-**Så** får AI-tjänsten varornas namn under "Erbjudanden i butiken den här veckan:", aldrig priser, och klienten skickar aldrig erbjudandena (AD-25, AD-28)
+**När** Pontus trycker på knappen
+**Så** startar ett AI-jobb av sorten `suggest` med `mode: "offers"`, klienten skickar bara läget, och AI-tjänsten får varornas namn under "Erbjudanden i butiken den här veckan:" (högst 40, aldrig priser) bredvid lagret (FR36, AD-25, AD-28)
 
-**Givet** förslag som använder varor på erbjudande
-**När** de visas, också en i taget
-**Så** har de erbjudandeetiketter, och över dem står "Med veckans erbjudanden från Maxi ICA Stormarknad Östersund." (UX-DR20, UX-DR32)
+**Givet** inga erbjudanden eller ingen vald butik på servern
+**När** jobbet ska startas
+**Så** köas inget jobb, och felet är `offers_none` eller `offers_store_missing`
 
-**Givet** att erbjudandena inte går att läsa
-**När** Pontus ber om AI-förslag
-**Så** görs förslagen ändå, utan erbjudanden
+**Givet** förslagen
+**När** de visas
+**Så** visar varje kort rätten, erbjudandena den använder ("På erbjudande: Falukorv") och "5 av 6 hemma"
 
-**Givet** ett förslag som sparas
-**När** det ligger i biblioteket
-**Så** har det inga erbjudandeetiketter
+**Givet** ett förslag
+**När** Pontus trycker "Lägg på matsedeln"
+**Så** öppnas förhandsgranskningen som vanligt, och dess huvudknapp "Spara och lägg på matsedeln" sparar receptet, lägger rätten sist på aktuell matsedel och bekräftar "Lagt på matsedeln." med "Visa inköpslistan"
+
+**Givet** rätten på matsedeln
+**När** Pontus öppnar inköpslistan
+**Så** har den bara varorna som inte finns hemma
+
+**Givet** inga erbjudanden för butiken
+**När** Pontus ber om vanliga AI-förslag
+**Så** får AI-tjänsten exakt samma meddelande som efter Story 12.3 (FR36)
 
 ### Story 9.6: Veckans matsedel från erbjudanden och lagret
 
@@ -2204,3 +2212,136 @@ Byggs bara om mätningen i 9.1 (T14) visar att färre än hälften av erbjudande
 **Givet** ett förslag som Pontus bockar ur i granskningen
 **När** kopplingarna sparas
 **Så** sparas inget för det erbjudandet
+
+### Story 9.11: Hur bra är erbjudandet
+
+Som Pontus,
+vill jag se hur bra rabatt eller erbjudande varje vara i veckans lista är,
+så att jag ser de bästa först och inte behöver räkna själv.
+
+**Acceptance Criteria:**
+
+**Givet** en hämtad vecka där ICA anger ordinarie pris eller en procentrabatt
+**När** Pontus öppnar arket Veckans erbjudanden
+**Så** står under varan till exempel "89 kr/kg · Ord. 111,90 kr · spara 20 %", och för "25% rabatt" och "Köp 3 betala för 2" står "spara 25 %" respektive "spara 33 %"
+**Och** när ordinarie pris eller jämförbar enhet saknas visas ingenting om besparingen, aldrig en gissning
+
+**Givet** ett erbjudande med minst 30 % besparing
+**När** listan visas
+**Så** har raden märket "Toppklipp"
+
+**Givet** erbjudanden där minst ett har en besparing
+**När** Pontus väljer "Bäst rabatt"
+**Så** visas en lista med störst besparing först och okända sist, och "Efter avdelning" är kvar som standard
+
+**Givet** migrationen
+**När** den körs på befintliga data
+**Så** får gamla rader null, `scripts/pantry-site-check.sql` ger samma utskrift före och efter, och `save_store_offers` är fortfarande `security invoker` med samma grants
+
+**Givet** en hämtning
+**När** den är klar
+**Så** loggas antalet erbjudanden med ordinarie pris (`withRegularPrice`), aldrig varunamn
+
+### Story 9.12: Välj erbjudanden till inköpslistan
+
+Som Pontus,
+vill jag välja vilka av veckans erbjudanden jag lägger i min inköpslista,
+så att jag slipper skriva in dem själv.
+
+**Acceptance Criteria:**
+
+**Givet** arket Veckans erbjudanden med en aktuell matsedel
+**När** arket visar erbjudandena
+**Så** har varje rad en kryssruta med erbjudandets text som namn och minst 44 px tryckyta, och knappen "Lägg N i inköpslistan" visas när minst ett är kryssat
+
+**Givet** ett eller flera kryssade erbjudanden
+**När** Pontus trycker "Lägg N i inköpslistan"
+**Så** läggs de som egna varor på listan: katalogvaran när erbjudandet är matchat, annars erbjudandets namn som fri text, med noteringen "(Erbjudande: 89 kr/kg)"
+**Och** en toast säger "Lade N erbjudanden i inköpslistan." och länkar till Inköpslista
+
+**Givet** ett erbjudande som lagts på listan
+**När** det läggs igen, eller arket öppnas på nytt
+**Så** blir det ingen dubblett, och raden visar "På listan" med en ofylld, avstängd kryssruta
+
+**Givet** att sparandet misslyckas
+**När** Pontus trycker knappen
+**Så** står ett felmeddelande i arket och kryssen finns kvar
+
+**Givet** ingen aktuell matsedel
+**När** arket visas
+**Så** har raderna inga kryssrutor och listan fungerar som förut
+
+**Givet** bygget
+**När** det granskas
+**Så** finns ingen ny migration, `src/server/ai/` är orört och arket i erbjudandemodulen importerar inte inköpslistan
+
+**Givet** arket Veckans erbjudanden
+**När** raderna visas
+**Så** står produktnamnet rensat från märke och ursprungsland ("Aubergine" för "ICA. Spanien Aubergine") med landet och märket smått under, priset fetstilt i en piller till höger, ordinarie pris genomstruket under det, och rabattmärket "−20 %" (från 30 % "Toppklipp −33 %")
+**Och** kryssrutans namn lyder "Aubergine, 12 kr per st, spara 20 %", raden håller 375 px utan sidscroll och finns i mörkt läge
+
+### Story 9.13: Erbjudanden från flera butiker
+
+Som Pontus,
+vill jag hämta veckans erbjudanden från flera av mina butiker, alla eller bara de jag väljer,
+så att jag ser vad som är billigast och vilken butik varje erbjudande gäller.
+
+**Acceptance Criteria:**
+
+**Givet** minst två butiker med länk
+**När** arket Veckans erbjudanden öppnas
+**Så** står en kryssruta per butik (alla ikryssade, 44 px tryckyta) och knapparna "Hämta valda (N)" och "Hämta alla"; med en butik med länk ser arket ut som förut
+
+**Givet** en hämtning från flera butiker
+**När** den körs
+**Så** hämtas butikerna en efter en, aldrig samtidigt, var och en med sin egen spärr (15 minuter) och 403/429-paus
+**Och** en butik som är spärrad eller blockerad hoppas över med eget meddelande ("Maxi: …") medan de andra hämtas, och resultatet visas per butik
+
+**Givet** erbjudanden från flera butiker
+**När** listan visas
+**Så** har varje rad en liten butiksetikett ("Maxi", "Krokom") i kedjans färgtoken (ICA, och en neutral för andra kedjor), och filterpiller överst: "Alla" och en per butik
+**Och** "Bäst rabatt" sorterar över butikerna, och samma vara i två butiker visas som två rader
+
+**Givet** ett erbjudande som läggs i inköpslistan
+**När** det blir en egen vara
+**Så** står butiken i noteringen: "Erbjudande Maxi: 89 kr/kg"
+
+**Givet** AI-förslag från erbjudanden
+**När** en begäran har ett `storeId`
+**Så** byggs förslagen på den butikens erbjudanden (en butik som inte är användarens ger `offers_store_missing`); utan `storeId` gäller den valda butiken
+
+**Givet** bygget
+**När** det granskas
+**Så** finns ingen ny migration, ingen hämtning mot ica.se i testerna, färgtokens i `DESIGN.md` och CSS med kontrast minst 4,5:1, och 9.12:s val till inköpslistan fungerar som förut
+
+### Story 9.14: Matförslag per butik och veckans bästa butik
+
+Som Pontus,
+vill jag få matförslag från en butik i taget och veta vilken butik som passar bäst den här veckan,
+så att jag inte behöver åka runt i stan för att handla.
+
+**Acceptance Criteria:**
+
+**Givet** erbjudanden från flera butiker
+**När** Pontus öppnar AI-förslagen från veckans erbjudanden
+**Så** väljer Pontus en butik, och förslagen bygger bara på den butikens erbjudanden och lagret
+
+**Givet** erbjudanden från flera butiker och Pontus lager och recept
+**När** arket Veckans erbjudanden visas
+**Så** står "Veckans bästa butik" överst. Den räknas fram utan AI från hur många erbjudanden som passar lagret och det Pontus brukar laga, och den är förvald när förslag beställs
+
+### Story 9.15: Butiksfärger och roligare erbjudandelista
+
+Som Pontus,
+vill jag att erbjudandelistan är rolig och tydlig att titta på, med butikens färg,
+så att jag snabbt ser fynden och vilken butik de finns i.
+
+**Acceptance Criteria:**
+
+**Givet** erbjudanden från flera kedjor och butiker
+**När** listan visas
+**Så** har varje butik en bricka i kedjans färg (ICA röd, övriga neutral tills de får egen färg), utan ICA:s logga och utan produktbilder från ICA
+
+**Givet** ett erbjudande med rabatt
+**När** raden visas
+**Så** syns prislappen och rabatten tydligt, Toppklipp sticker ut, och listan fungerar i 375 px och i mörkt läge

@@ -123,7 +123,19 @@ test("fetches the week's offers with one tap and shows them under their categori
 
   const meat = dialog.getByRole("list", { name: /Kött, fisk & chark/ });
   await expect(meat.getByText("Gårdens Herrgård, Präst")).toBeVisible();
-  await expect(meat.getByText(/^89 kr\/kg · Stammis · Max 1 köp\/hushåll · t\.o\.m\. \d+ \w+$/)).toBeVisible();
+  await expect(
+    meat.getByText(/^Stammis · Max 1 köp\/hushåll · t\.o\.m\. \d+ \w+$/),
+  ).toBeVisible();
+  // Story 9.11: no regular price and no stated saving, nothing about it.
+  await expect(meat.getByText("129 kr/kg", { exact: true })).toBeVisible();
+  await expect(dialog.getByText(/^Toppklipp/)).toHaveCount(1);
+  await expect(meat.getByTestId("offer-regular-price")).toHaveText("111,90 kr");
+  await dialog.getByRole("radio", { name: "Bäst rabatt" }).click();
+  const best = dialog.getByRole("list", { name: "Bäst rabatt först" }).getByTestId("offer-row");
+  await expect(best.first()).toContainText("Köp 3 betala för 2");
+  await expect(best.first()).toContainText("\u221233 %");
+  await expect(best.last()).not.toContainText("%");
+  await dialog.getByRole("radio", { name: "Efter avdelning" }).click();
   await expect(dialog.getByRole("heading", { level: 3, name: "Bröd" })).toBeVisible();
   await expect(dialog.getByText("Ljusfabriken Kronljus")).toHaveCount(0);
   const page$ = dialog.getByRole("link", { name: /^Öppna sidan på ica\.se/ });
@@ -183,4 +195,141 @@ test("asks for the link when the store has none", async ({ page }) => {
   const dialog = sheet(page);
   await expect(dialog.getByText("Lägg in länken till butikens erbjudanden under Butik i Inställningar.")).toBeVisible();
   await expect(dialog.getByRole("link", { name: "Öppna inställningar" })).toHaveAttribute("href", "/installningar");
+});
+
+test("Story 9.12: picks offers and adds them to the shopping list once", async ({ page }) => {
+  const errors = watchErrors(page);
+  const admin = adminClient();
+  const cleared = await admin.from("meal_plan").delete().eq("user_id", userId);
+  if (cleared.error) throw cleared.error;
+  const plan = await admin.from("meal_plan").insert({ user_id: userId, name: "Vecka 44", is_current: true });
+  if (plan.error) throw plan.error;
+
+  await openSheet(page);
+  const dialog = sheet(page);
+  await dialog.getByRole("button", { name: "Hämta veckans erbjudanden" }).click();
+  await expect(dialog.getByTestId("offers-summary")).toBeVisible();
+
+  // Nothing is picked, so there is no button.
+  await expect(dialog.getByTestId("add-offers-to-list")).toHaveCount(0);
+  const herrgard = dialog.getByRole("checkbox", { name: /^Gårdens Herrgård, Präst, 89 kr per kg/ });
+  await expect(herrgard).toHaveAttribute("aria-checked", "false");
+  const box = await herrgard.boundingBox();
+  expect(box?.width).toBeGreaterThanOrEqual(44);
+  expect(box?.height).toBeGreaterThanOrEqual(44);
+
+  await herrgard.click();
+  await dialog.getByRole("checkbox", { name: /^Odlarna Gul lök/ }).click();
+  await dialog.getByRole("button", { name: "Lägg 2 i inköpslistan" }).click();
+  await expect(page.getByTestId("toast")).toContainText("Lade 2 erbjudanden i inköpslistan.");
+  // The sheet closes, so the toast is within reach.
+  await expect(dialog).toBeHidden();
+
+  const items = await admin.from("shopping_custom_item").select("label").eq("user_id", userId).order("label");
+  expect(items.error).toBeNull();
+  expect(items.data?.map((item) => item.label)).toEqual([
+    "Gul lök (Erbjudande Matkoll: 10 kr/kg)",
+    expect.stringMatching(/^.+ \(Erbjudande Matkoll: 89 kr\/kg\)$/),
+  ]);
+
+  // The toast's link goes to the list, which has the items; a reload and a new opening keep "På listan".
+  await page.getByTestId("toast").getByRole("button", { name: "Inköpslista" }).click();
+  await expect(page).toHaveURL(/\/lista$/);
+  await page.reload();
+  await expect(page.getByText("Gul lök")).toBeVisible();
+  await page.getByRole("button", { name: "Erbjudanden" }).click();
+  await expect(sheet(page).getByText("På listan")).toHaveCount(2);
+  await expect(sheet(page).getByRole("checkbox", { name: /^Gårdens Herrgård, Präst/ })).toBeDisabled();
+  await expect(sheet(page).getByTestId("add-offers-to-list")).toHaveCount(0);
+  const after = await admin.from("shopping_custom_item").select("id").eq("user_id", userId);
+  expect(after.data).toHaveLength(2);
+  expect(errors).toEqual([]);
+});
+
+const krokomLink = fixtureLink("matkoll-test-krokom-1000013");
+
+async function addKrokom() {
+  const added = await adminClient().from("store").insert({
+    user_id: userId,
+    name: "ICA Kvantum Krokom",
+    chain: "ICA",
+    external_store_id: "1000013",
+    offers_url: krokomLink,
+    is_selected: false,
+  });
+  if (added.error) throw added.error;
+}
+
+test("Story 9.13: fetches from several stores one by one, shows a badge per store and filters on them", async ({ page }) => {
+  const errors = watchErrors(page);
+  await addKrokom();
+  await openSheet(page);
+  const dialog = sheet(page);
+  await expect(dialog.getByTestId("store-fetch-row")).toHaveCount(2);
+  const first = dialog.getByRole("checkbox", { name: storeName });
+  await expect(first).toHaveAttribute("aria-checked", "true");
+  const box = await first.boundingBox();
+  expect(box?.width).toBeGreaterThanOrEqual(44);
+  expect(box?.height).toBeGreaterThanOrEqual(44);
+
+  // Only Krokom is ticked: one fetch, one store.
+  await first.click();
+  await dialog.getByRole("button", { name: "Hämta valda (1)" }).click();
+  await expect(page.getByTestId("toast")).toContainText("Hämtade 7 erbjudanden");
+  expect(await storedOffers()).toHaveLength(7);
+
+  await dialog.getByRole("button", { name: "Hämta alla" }).click();
+  // Krokom was fetched a moment ago: it is skipped with its own message, the other store still goes.
+  await expect(dialog.getByRole("alert")).toHaveText("Krokom: Erbjudandena hämtades nyss. Försök igen om en stund.");
+  await expect(dialog.getByTestId("offers-store-result")).toHaveText("Matkoll: Hämtade 7 erbjudanden.");
+  expect(await storedOffers()).toHaveLength(14);
+
+  await expect(dialog.getByTestId("store-badge").first()).toBeVisible();
+  const texts = await dialog.getByTestId("store-badge").allTextContents();
+  expect(texts.filter((text) => text === "Matkoll")).toHaveLength(7);
+  expect(texts.filter((text) => text === "Krokom")).toHaveLength(7);
+  // The same product on offer in both stores shows twice.
+  await expect(dialog.getByText("Havets Laxfilé")).toHaveCount(2);
+
+  await dialog.getByRole("radio", { name: "Bäst rabatt" }).click();
+  await expect(dialog.getByRole("list", { name: "Bäst rabatt först" }).getByTestId("offer-row")).toHaveCount(14);
+  await dialog.getByRole("radiogroup", { name: "Visa butik" }).getByRole("radio", { name: "Krokom" }).click();
+  await expect(dialog.getByTestId("offer-row")).toHaveCount(7);
+  await expect(dialog.getByTestId("store-badge")).toHaveText(Array(7).fill("Krokom"));
+  await dialog.getByRole("radio", { name: "Alla" }).click();
+  await expect(dialog.getByTestId("offer-row")).toHaveCount(14);
+  expect(await page.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth)).toBe(true);
+  expect(errors).toEqual([]);
+});
+
+test("Story 9.13: a blocked store is skipped with its own message and the other store is still fetched", async ({ page }) => {
+  await resetStore(fixtureLink("matkoll-test-nekad-1000005"));
+  await addKrokom();
+  await openSheet(page);
+  const dialog = sheet(page);
+  await dialog.getByRole("button", { name: "Hämta alla" }).click();
+  await expect(dialog.getByRole("alert")).toHaveText(
+    "Matkoll: ica.se släppte inte in Matkoll just nu. Öppna sidan och titta där, eller försök igen senare.",
+  );
+  await expect(dialog.getByTestId("offers-store-result")).toHaveText("Krokom: Hämtade 7 erbjudanden.");
+  expect(await storedOffers()).toHaveLength(7);
+});
+
+test("Story 9.13: a picked offer's note on the shopping list names its store", async ({ page }) => {
+  const admin = adminClient();
+  const cleared = await admin.from("meal_plan").delete().eq("user_id", userId);
+  if (cleared.error) throw cleared.error;
+  const plan = await admin.from("meal_plan").insert({ user_id: userId, name: "Vecka 44", is_current: true });
+  if (plan.error) throw plan.error;
+  await addKrokom();
+  await openSheet(page);
+  const dialog = sheet(page);
+  await dialog.getByRole("button", { name: "Hämta alla" }).click();
+  await expect(dialog.getByTestId("offers-store-result")).toHaveCount(2);
+  await dialog.getByRole("radiogroup", { name: "Visa butik" }).getByRole("radio", { name: "Krokom" }).click();
+  await dialog.getByRole("checkbox", { name: /^Gårdens Herrgård, Präst, 79 kr per kg.*Krokom$/ }).click();
+  await dialog.getByRole("button", { name: "Lägg 1 i inköpslistan" }).click();
+  await expect(dialog).toBeHidden();
+  const items = await admin.from("shopping_custom_item").select("label").eq("user_id", userId);
+  expect(items.data?.map((item) => item.label)).toEqual([expect.stringMatching(/^.+ \(Erbjudande Krokom: 79 kr\/kg\)$/)]);
 });

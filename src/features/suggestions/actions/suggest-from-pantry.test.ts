@@ -52,6 +52,25 @@ vi.mock("@/features/pantry/server", () => ({
   },
 }));
 
+// Story 9.5: the selected store and its offers.
+const { SettingsDataError, OffersDataError } = vi.hoisted(() => ({
+  SettingsDataError: class SettingsDataError extends Error {
+    constructor(readonly detail: string) {
+      super(detail);
+    }
+  },
+  OffersDataError: class OffersDataError extends Error {
+    constructor(readonly detail: string) {
+      super(detail);
+    }
+  },
+}));
+const getSelectedStore = vi.fn<() => Promise<{ id: string } | null>>();
+const getActiveOffers = vi.fn<(storeId: string) => Promise<unknown[]>>();
+const listStores = vi.fn<() => Promise<{ id: string; name: string }[]>>();
+vi.mock("@/features/settings/server", () => ({ SettingsDataError, getSelectedStore: () => getSelectedStore(), listStores: () => listStores() }));
+vi.mock("@/features/offers/server", () => ({ OffersDataError, getActiveOffers: (storeId: string) => getActiveOffers(storeId) }));
+
 const ai = withInputValidation(createMockAiService());
 const suggestDishes = vi.fn(ai.suggestDishes);
 vi.mock("@/server/ai", () => ({ getAiService: () => ({ suggestDishes }) }));
@@ -103,6 +122,9 @@ beforeEach(() => {
     }),
   );
   suggestDishes.mockReset().mockImplementation(ai.suggestDishes);
+  getSelectedStore.mockReset().mockResolvedValue({ id: "store" });
+  listStores.mockReset().mockResolvedValue([{ id: "store", name: "Maxi ICA Stormarknad Östersund" }, { id: "krokom", name: "ICA Kvantum Krokom" }]);
+  getActiveOffers.mockReset().mockResolvedValue([]);
 });
 
 describe("suggestFromPantry", () => {
@@ -387,5 +409,88 @@ describe("the pantry sent", () => {
     const { input, dropped } = toSuggestInput(snapshot, names, []);
     expect(dropped).toBeGreaterThan(0);
     expect(isValidSuggestDishesInput(input)).toBe(true);
+  });
+});
+
+describe("suggestFromPantry in the mode offers (Story 9.5)", () => {
+  const offer = (name: string, label: string, ingredientId: string | null) => ({ name, label, ingredientId });
+  const offers = [
+    offer("falukorv", "Falukorv 29 kr", id(7)),
+    offer("broccoli", "Broccoli 15 kr", null),
+    offer("kycklingfilé", "Kyckling 99 kr", id(8)),
+  ];
+  const offersKnown: Record<string, string> = { ...known, falukorv: id(7), kycklingfilé: id(8), makaroner: ids.salt };
+
+  beforeEach(() => {
+    getActiveOffers.mockResolvedValue(offers);
+    matchIngredients.mockImplementation(async (items) =>
+      items.map((item): IngredientMatch => {
+        const matched = item.hint ? offersKnown[item.hint.name] : undefined;
+        return matched
+          ? { kind: "match", ingredientId: matched, confidence: "hint" }
+          : { kind: "new", proposal: { name: item.hint?.name ?? item.text, section: "Övrigt", location: "Skafferi", defaultUnit: null } };
+      }),
+    );
+  });
+
+  it("gives the model the offers' names, never prices or ids, and labels what each dish uses with how much is at home", async () => {
+    const result = await suggestFromPantry({ avoidTitles: [], mode: "offers" }, { signal: signal() });
+
+    const [input] = suggestDishes.mock.calls[0];
+    // Offers with a catalog ingredient first.
+    expect(input.offers).toEqual(["falukorv", "kycklingfilé", "broccoli"]);
+    expect(JSON.stringify(input)).not.toMatch(/kr|6f1c1b7e/);
+
+    if (!result.ok) throw new Error(result.error.code);
+    expect(result.data.mode).toBe("offers");
+    const [falukorv, broccoli, kyckling] = result.data.suggestions;
+    expect(falukorv.draft.title).toBe("Falukorv med stuvade makaroner");
+    expect(falukorv.onOffer).toEqual(["Falukorv 29 kr"]);
+    // Only makaroner is linked to something at home here (the pantry's salt id); falukorv is on offer, not at home.
+    expect(falukorv.atHome).toEqual({ have: 1, total: 6 });
+    expect(broccoli.onOffer).toEqual(["Broccoli 15 kr"]);
+    expect(kyckling.onOffer).toEqual(["Kyckling 99 kr"]);
+  });
+
+  it("reads the offers of the given store (Story 9.13), else the selected one, and refuses a store that is not the user's", async () => {
+    await suggestFromPantry({ avoidTitles: [], mode: "offers" }, { signal: signal() });
+    expect(getActiveOffers).toHaveBeenLastCalledWith("store");
+    await suggestFromPantry({ avoidTitles: [], mode: "offers", storeId: "krokom" }, { signal: signal() });
+    expect(getActiveOffers).toHaveBeenLastCalledWith("krokom");
+    getActiveOffers.mockClear();
+    expect(await checkSuggestPantry("offers", "someone-elses")).toEqual(fail("offers_store_missing"));
+    expect(getActiveOffers).not.toHaveBeenCalled();
+  });
+
+  it("does not hold a dish to the pantry rule, and works around an empty pantry", async () => {
+    getPantrySnapshot.mockResolvedValue(new Map());
+    const result = await suggestFromPantry({ avoidTitles: [], mode: "offers" }, { signal: signal() });
+    if (!result.ok) throw new Error(result.error.code);
+    expect(result.data.suggestions).toHaveLength(3);
+    expect(suggestDishes.mock.calls[0][0].pantry).toEqual([]);
+  });
+
+  it.each([
+    ["without a store", () => getSelectedStore.mockResolvedValue(null), "offers_store_missing"],
+    ["without offers", () => getActiveOffers.mockResolvedValue([]), "offers_none"],
+    ["when the offers cannot be read", () => getActiveOffers.mockRejectedValue(new OffersDataError("read_failed")), "offers_unavailable"],
+  ])("fails %s, before the model is asked", async (_name, arrange, code) => {
+    arrange();
+    expect(await checkSuggestPantry("offers")).toEqual(fail(code as "offers_none"));
+    expect(await suggestFromPantry({ avoidTitles: [], mode: "offers" }, { signal: signal() })).toEqual(fail(code as "offers_none"));
+    expect(suggestDishes).not.toHaveBeenCalled();
+  });
+
+  it("checks an empty pantry as fine when there are offers, and leaves pantry suggestions without offers", async () => {
+    getPantrySnapshot.mockResolvedValue(new Map());
+    expect((await checkSuggestPantry("offers")).ok).toBe(true);
+    expect(await checkSuggestPantry()).toEqual(fail("suggest_empty_pantry"));
+    getPantrySnapshot.mockResolvedValue(pantry);
+    getActiveOffers.mockClear();
+    const plain = await suggestFromPantry({ avoidTitles: [] }, { signal: signal() });
+    if (!plain.ok) throw new Error(plain.error.code);
+    expect(plain.data.mode).toBe("pantry");
+    expect(plain.data.suggestions.every(({ onOffer, atHome }) => onOffer.length === 0 && atHome === null)).toBe(true);
+    expect(getActiveOffers).not.toHaveBeenCalled();
   });
 });

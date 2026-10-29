@@ -75,10 +75,10 @@ export async function POST(request: Request): Promise<Response> {
     if (!input.success) return respond(fail("validation"));
     return startImportJob(input.data, data.clientKey, requestStartedAt);
   }
-  const { clientKey, avoidTitles } = parsed.data;
+  const { clientKey, avoidTitles, mode, storeId } = parsed.data;
 
   // What needs no AI is checked first, so nothing is queued for it: an empty pantry is its own answer.
-  const checked = await checkSuggestPantry();
+  const checked = await checkSuggestPantry(mode, storeId);
   if (!checked.ok) return respond(checked);
 
   // The session client is made here, where the request's cookies are, and handed to the background run.
@@ -86,7 +86,7 @@ export async function POST(request: Request): Promise<Response> {
   const enqueued = await enqueueAiJob(db, {
     kind: "suggest",
     clientKey,
-    context: { siteId: checked.data.siteId },
+    context: { siteId: checked.data.siteId, ...(mode === "offers" ? { mode } : {}) },
     requestStartedAt,
   });
   if (!enqueued.ok) return respond(enqueued);
@@ -96,7 +96,7 @@ export async function POST(request: Request): Promise<Response> {
   if (created) {
     after(() =>
       runAiJob(db, job, { startBy }, async (signal, deadline): Promise<Result<Json>> => {
-        const result = await suggestFromPantry({ avoidTitles }, { signal, deadline });
+        const result = await suggestFromPantry({ avoidTitles, mode, storeId }, { signal, deadline });
         // The drafts are plain data; the job keeps them as JSON until Pontus saves one.
         return result.ok ? ok(JSON.parse(JSON.stringify(result.data)) as Json) : result;
       }),

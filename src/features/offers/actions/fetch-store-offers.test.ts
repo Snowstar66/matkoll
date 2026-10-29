@@ -185,7 +185,7 @@ describe("fetchStoreOffers", () => {
     }
     // The logs hold counts only: no address, item or price.
     expect(JSON.stringify(logs)).not.toMatch(/ica\.se|Herrgård|kr\/kg/);
-    expect(logs).toContainEqual(["offers_fetched", { saved: 7, skipped: 2, matched: 1 }]);
+    expect(logs).toContainEqual(["offers_fetched", { saved: 7, skipped: 2, matched: 1, withRegularPrice: 3 }]);
   });
 
   it.each([
