@@ -1743,6 +1743,23 @@ så att den känns som en riktig app i mobilen.
 **När** Pontus lägger Matkoll på hemskärmen och öppnar den
 **Så** öppnas appen i helskärm med moroten som ikon och appens bakgrund bakom statusraden, i ljust och mörkt läge (Flöde 9, manuellt prov)
 
+### Story 11.7: Egen ikon och Snowstar
+
+Som Pontus,
+vill jag ha en egen ikon (burken med bocken) och se att appen kommer från Snowstar,
+så att Matkoll känns som min egen app.
+
+**Acceptance Criteria:**
+
+**Givet** manifestet
+**När** ikonerna hämtas
+**Så** är `any` 192 och 512 en rundad grön ruta med burken, `maskable` 512 en kantlös grön ruta med burken på 80 % och Apple-ikonen (180 px) en kantlös ruta utan genomskinlighet
+**Och** `favicon.ico` har 32 och 48 px med en förenklad burk och tjockare bock
+
+**Givet** inloggningssidan och Inställningar
+**När** de visas
+**Så** står "Matkoll · av Snowstar" längst ned i liten dämpad text (`text-ink-3`)
+
 ## Epic 12: Snabbare och asynkron AI
 
 Tillägg till 1.1. Pontus skrev 2026-10-26: "Vi borde få till prestandan i qwen kommandona om det går. Kanske göra dem asynkrona om det går, och att man kan fortsätta klicka runt i appen och göra fler asynkrona anrop som ramlar in när dom är klara. Om det inte riskerar ngt." Pontus godkände planen ("ja planera det så"): först fart, mätt före och efter, sedan AI-jobb i bakgrunden, ett i taget i en kö. Epic 12 byggs efter Epic 11. Arkitekturen står i AD-28 och i tillägg till AD-1, AD-2, AD-4, AD-9, AD-10, AD-13, AD-14, AD-15, AD-18, AD-23 och AD-26. Storyna byggs i ordning. Mätningarna i 12.1, 12.2, 12.3 och 12.7 görs mot LM Studio på Pontus Mac, och siffrorna skrivs i `docs/lm-studio.md`, T5, T6 och beslutsloggen. Inget från AI sparas utan Pontus bekräftelse.

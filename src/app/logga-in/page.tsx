@@ -19,6 +19,7 @@ export default function LoginPage({ searchParams }: PageProps<"/logga-in">) {
       <Suspense fallback={null}>
         <LoginFormWithParams searchParams={searchParams} />
       </Suspense>
+      <p className="mt-8 text-center text-meta text-ink-3">Matkoll · av Snowstar</p>
     </main>
   );
 }

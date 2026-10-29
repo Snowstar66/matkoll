@@ -15,5 +15,5 @@ export default async function Icon({ id }: { id: Promise<string | number> }) {
   const iconId = String(await id);
   const icon = manifestIcons.find((candidate) => candidate.id === iconId);
   if (!icon) notFound();
-  return appIconResponse(icon.side, icon.scale);
+  return appIconResponse(icon.side, icon.scale, icon.purpose === "any");
 }

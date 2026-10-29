@@ -33,6 +33,7 @@ export default function SettingsPage() {
         <div className="mt-auto flex flex-col gap-6">
           <HomeScreenHint />
           <SignOutButton />
+          <p className="text-center text-meta text-ink-3">Matkoll · av Snowstar</p>
         </div>
       </div>
     </>
