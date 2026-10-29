@@ -1,6 +1,6 @@
 "use client";
 
-import { type CSSProperties, type PointerEvent, type RefObject, useEffect, useLayoutEffect, useRef, useState } from "react";
+import { type CSSProperties, type PointerEvent, type ReactNode, type RefObject, useEffect, useLayoutEffect, useRef, useState } from "react";
 import { Button } from "@/components/button";
 import { cx } from "@/components/cx";
 import { formatPortions } from "@/components/stepper";
@@ -35,6 +35,12 @@ export type CookModeProps = {
   onClose: () => void;
   /** Where focus goes when Pontus closes the step mode: "Laga nu". */
   returnFocusRef: RefObject<HTMLElement | null>;
+  /**
+   * "Markera som lagad" from the page (mealplan, AD-1, Story 13.4), shown
+   * above Föregående and Nästa at the last step; left out when the recipe is
+   * not on the menu.
+   */
+  finish?: ReactNode;
 };
 
 type Drag = { pointerId: number; startX: number; startY: number; axis: "x" | "y" | null };
@@ -69,7 +75,7 @@ const withModifier = (event: globalThis.KeyboardEvent) =>
  * is open. When Pontus closes it, focus goes back to `returnFocusRef`; when a
  * client navigation hides the page, it closes without moving focus.
  */
-export function CookMode({ title, servings, steps, status, factor, onClose, returnFocusRef }: CookModeProps) {
+export function CookMode({ title, servings, steps, status, factor, onClose, returnFocusRef, finish }: CookModeProps) {
   const dialogRef = useRef<HTMLDialogElement>(null);
   const headingRef = useRef<HTMLHeadingElement>(null);
   const scrollerRef = useRef<HTMLDivElement>(null);
@@ -291,6 +297,7 @@ export function CookMode({ title, servings, steps, status, factor, onClose, retu
 
         <div className="shrink-0 px-page pt-3 pb-[calc(env(safe-area-inset-bottom)+var(--gutter-mobile))]">
           {/* Side by side; with large text Nästa wraps below Föregående, still in the thumb zone. */}
+          {atLast && finish ? <div className="mx-auto mb-3 flex max-w-content flex-col [&>*]:w-full">{finish}</div> : null}
           <div className="mx-auto flex max-w-content flex-wrap gap-3">
             <Button
               variant="secondary"

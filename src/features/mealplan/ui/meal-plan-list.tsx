@@ -3,11 +3,12 @@
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useCallback, useEffect, useMemo, useOptimistic, useRef, useState, useTransition } from "react";
-import { buttonClasses } from "@/components/button";
+import { Button, buttonClasses } from "@/components/button";
 import { useConfirmDelete } from "@/components/confirm-delete";
 import { EmptyState } from "@/components/empty-state";
 import { Meter } from "@/components/meter";
 import { RecipeImage } from "@/components/recipe-image";
+import { CheckIcon } from "@/components/icons";
 import { Stepper } from "@/components/stepper";
 import { SwipeRow } from "@/components/swipe-row";
 import { useToast } from "@/components/toast";
@@ -17,6 +18,8 @@ import { errorMessages, fail, type Result } from "@/lib/errors";
 import { removePlanRecipe } from "../actions/remove-plan-recipe";
 import { restorePlanRecipe } from "../actions/restore-plan-recipe";
 import { setServings } from "../actions/set-servings";
+import { unmarkDishCooked } from "../actions/unmark-dish-cooked";
+import { uncookedText } from "../domain/cooked";
 import {
   comparePlanRecipes,
   dishMetaText,
@@ -29,6 +32,7 @@ import {
   type ServingsChange,
 } from "../domain/meal-plan";
 import { AddDishButton } from "./add-dish-sheet";
+import { MarkCookedButton } from "./mark-cooked-button";
 
 // Matsedel (FR-13): the current plan's dishes (matsedelsrätter) as dish cards
 // (rättkort, Epic 11), each with how much is at home for the chosen servings
@@ -100,6 +104,8 @@ export type MealPlanListProps = {
    * place or without a status.
    */
   siteLine?: string | null;
+  /** The catalog names by ingredient id, for "Markera som lagad" (Story 13.4). */
+  names?: Readonly<Record<string, string>>;
 };
 
 /**
@@ -113,7 +119,7 @@ export type MealPlanListProps = {
  * or the card's button, focus goes to the next dish, else the one before,
  * else "Lägg till rätt".
  */
-export function MealPlanList({ planName, dishes, snapshot, siteLine = null }: MealPlanListProps) {
+export function MealPlanList({ planName, dishes, snapshot, siteLine = null, names = {} }: MealPlanListProps) {
   const router = useRouter();
   const { showToast } = useToast();
   const [entries, setEntries] = useState<ReadonlyMap<string, Entry>>(() => new Map());
@@ -298,6 +304,22 @@ export function MealPlanList({ planName, dishes, snapshot, siteLine = null }: Me
     });
   }
 
+  /** Takes the "lagad" mark off; the pantry stays as it is, which the confirmation says. */
+  async function unmark(dish: PlanDish) {
+    let result: Result<null>;
+    try {
+      result = await unmarkDishCooked(dish.id);
+    } catch {
+      result = fail("mealplan_uncook_failed");
+    }
+    if (!result.ok) {
+      if (result.error.code === "unauthorized") router.refresh();
+      else showToast(result.error.message, { role: "alert" });
+      return;
+    }
+    showToast(uncookedText(dish.recipeTitle));
+  }
+
   // A change the server's plan already shows is done, whatever the entry says.
   const pending = [...entries.values()].filter((entry) => !(entry.settled && serverHas(entry, dishes)));
   const shown = applyChanges(dishes, pending);
@@ -351,6 +373,8 @@ export function MealPlanList({ planName, dishes, snapshot, siteLine = null }: Me
             dish={dish}
             servings={servings[dish.id] ?? dish.servings}
             snapshot={snapshot}
+            names={names}
+            onUnmark={() => void unmark(dish)}
             onServingsChange={(value) => changeServings(dish, value)}
             onRemove={(moveFocus) => 
               confirm.requestDelete({
@@ -377,6 +401,8 @@ type DishCardProps = {
   /** The servings shown now, optimistic included. */
   servings: number;
   snapshot: PantrySnapshot | null;
+  names: Readonly<Record<string, string>>;
+  onUnmark: () => void;
   onServingsChange: (servings: number) => void;
   /** `moveFocus`: the removal came from the keyboard or the card's button. */
   onRemove: (moveFocus: boolean) => void;
@@ -392,13 +418,15 @@ type DishCardProps = {
  * recipe is gone keeps its title and says "Borttaget recept"; one whose
  * recipe could not be read shows its stored title only.
  */
-function DishCard({ dish, servings, snapshot, onServingsChange, onRemove }: DishCardProps) {
+function DishCard({ dish, servings, snapshot, names, onUnmark, onServingsChange, onRemove }: DishCardProps) {
   const { recipe, recipeTitle: title } = dish;
-  const status = dishStatus(recipe, servings, snapshot);
+  const cooked = Boolean(dish.cookedAt);
+  // A cooked dish has no status: it is done (Story 13.4).
+  const status = cooked ? null : dishStatus(recipe, servings, snapshot);
   const progress = status ? dishProgress(status) : null;
   const meta = dishMetaText(dish.recipeId, recipe?.totalMinutes, progress);
   return (
-    <li data-testid="plan-dish" data-dish={dish.id}>
+    <li data-testid="plan-dish" data-dish={dish.id} data-cooked={cooked || undefined}>
       <SwipeRow
         actionLabel="Ta bort"
         actionName={`Ta bort ${title}`}
@@ -432,6 +460,12 @@ function DishCard({ dish, servings, snapshot, onServingsChange, onRemove }: Dish
                 </p>
               ) : null}
               {progress ? <Meter value={progress.value} size="small" className="mt-1" /> : null}
+              {cooked ? (
+                <p data-testid="dish-cooked" className="flex items-center gap-1.5 text-meta text-ink">
+                  <CheckIcon size={16} />
+                  Lagad
+                </p>
+              ) : null}
             </div>
           </div>
           <div className="flex flex-wrap items-center justify-between gap-x-3 gap-y-1">
@@ -444,6 +478,25 @@ function DishCard({ dish, servings, snapshot, onServingsChange, onRemove }: Dish
               increaseLabel={`Fler portioner, ${title}`}
               className="bg-bg"
             />
+            {cooked ? (
+              <Button
+                variant="text"
+                onClick={onUnmark}
+                aria-label={`Ta bort markeringen lagad, ${title}`}
+                aria-describedby={`cooked-note-${dish.id}`}
+              >
+                Inte lagad
+              </Button>
+            ) : recipe ? (
+              <MarkCookedButton
+                dish={{ id: dish.id, title, servings }}
+                originalServings={recipe.originalServings}
+                lines={recipe.lines}
+                snapshot={snapshot}
+                names={names}
+                variant="text"
+              />
+            ) : null}
             <TrashButton
               label={`Ta bort ${title} från matsedeln`}
               onPress={() => onRemove(true)}
@@ -451,6 +504,11 @@ function DishCard({ dish, servings, snapshot, onServingsChange, onRemove }: Dish
               {...(dish.recipeId ? {} : { "data-dish-focus": true })}
             />
           </div>
+          {cooked ? (
+            <p id={`cooked-note-${dish.id}`} className="text-meta text-ink-2">
+              Om du tar bort markeringen ändras inte lagret.
+            </p>
+          ) : null}
         </div>
       </SwipeRow>
     </li>

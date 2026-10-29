@@ -1,5 +1,6 @@
 import "server-only";
 import { z } from "zod";
+import { cookedUndoRowSchema, type CookedUndoRow, type MarkedCooked } from "../domain/cooked";
 import { planRecipeRowSchema, type PlanRecipeRow } from "../domain/meal-plan";
 import { MealPlanDataError, type MealPlanDb } from "./client";
 import { dishColumns, toPlanRecipeRow } from "./queries";
@@ -149,4 +150,61 @@ export async function deletePlanIn(db: MealPlanDb, id: string): Promise<boolean>
   const { data, error } = await db.rpc("delete_meal_plan", { plan_id: id });
   if (error) throw new MealPlanDataError(`delete_failed ${error.code}`, error.code);
   return data;
+}
+
+/** The Postgres code of mark_dish_cooked (Story 13.4) for a dish that is cooked already. */
+export const cookedAlreadyCode = "MK417";
+
+/**
+ * "Markera som lagad" (Story 13.4): in one transaction (mark_dish_cooked),
+ * takes each deduction off the user's pantry rows of that ingredient and unit
+ * in the place `siteId` (oldest row first, a row that reaches 0 is deleted,
+ * never below 0) and sets the dish's cooked_at. Returns the time and the
+ * rows touched as they were, for undoDishCookedIn. Throws MealPlanDataError:
+ * `cooked_failed <code>`, with MK417 for a dish that is cooked already,
+ * MK410 for a place that is gone and P0002 for a dish that is gone.
+ */
+export async function markDishCookedIn(
+  db: MealPlanDb,
+  dishId: string,
+  siteId: string | null,
+  deductions: readonly { ingredientId: string; unit: string; amount: number }[],
+): Promise<MarkedCooked> {
+  const { data, error } = await db.rpc("mark_dish_cooked", {
+    dish: dishId,
+    // Only read when there are deductions; the nil uuid stands in when there are none and no place.
+    site: siteId ?? "00000000-0000-0000-0000-000000000000",
+    deductions: deductions.map((item) => ({ ingredient_id: item.ingredientId, unit: item.unit, amount: item.amount })),
+  });
+  if (error) throw new MealPlanDataError(`cooked_failed ${error.code}`);
+  const parsed = z.object({ cooked_at: z.string(), rows: z.array(cookedUndoRowSchema) }).safeParse(data);
+  if (!parsed.success) throw new MealPlanDataError("cooked_bad_answer");
+  return { cookedAt: parsed.data.cooked_at, rows: parsed.data.rows };
+}
+
+/**
+ * "Ångra" after "Markera som lagad" (undo_dish_cooked): puts the deducted
+ * amounts back and clears cooked_at, in one transaction. Throws
+ * MealPlanDataError `cooked_undo_failed <code>` (23505: a row was made again
+ * under the same key; nothing is changed).
+ */
+export async function undoDishCookedIn(db: MealPlanDb, dishId: string, rows: readonly CookedUndoRow[]): Promise<void> {
+  const { error } = await db.rpc("undo_dish_cooked", { dish: dishId, rows: rows.map((row) => ({ ...row })) });
+  if (error) throw new MealPlanDataError(`cooked_undo_failed ${error.code}`);
+}
+
+/**
+ * Takes the "lagad" mark off a dish; the pantry is not touched. `false` when
+ * the user has no dish with the id. Throws MealPlanDataError.
+ */
+export async function unmarkDishCookedIn(db: MealPlanDb, userId: string, id: string): Promise<boolean> {
+  if (!idSchema.safeParse(id).success) throw new MealPlanDataError("invalid_id");
+  const { data, error } = await db
+    .from("meal_plan_recipe")
+    .update({ cooked_at: null })
+    .eq("id", id)
+    .eq("user_id", userId)
+    .select("id");
+  if (error) throw new MealPlanDataError(`uncook_failed ${error.code}`);
+  return data.length > 0;
 }

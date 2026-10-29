@@ -154,9 +154,9 @@ describe("add_to_current_plan", () => {
     expect(plan?.id).toBe(first.mealPlanId);
     expect([second.mealPlanId, again.mealPlanId]).toEqual([plan?.id, plan?.id]);
     expect(plan?.recipes).toEqual([
-      { id: first.id, recipeId: soppa, recipeTitle: "Linssoppa", servings: 4, position: 0 },
-      { id: second.id, recipeId: gryta, recipeTitle: "Kycklinggryta", servings: 2, position: 1 },
-      { id: again.id, recipeId: soppa, recipeTitle: "Linssoppa", servings: 6, position: 2 },
+      { id: first.id, recipeId: soppa, recipeTitle: "Linssoppa", servings: 4, position: 0, cookedAt: null },
+      { id: second.id, recipeId: gryta, recipeTitle: "Kycklinggryta", servings: 2, position: 1, cookedAt: null },
+      { id: again.id, recipeId: soppa, recipeTitle: "Linssoppa", servings: 6, position: 2, cookedAt: null },
     ]);
     const plans = await adminClient().from("meal_plan").select("id").eq("user_id", user.id);
     expect(plans.data).toHaveLength(1);
@@ -568,7 +568,7 @@ describe("earlier plans", () => {
       name: "Vecka 44",
       isCurrent: true,
       createdAt: expect.any(String),
-      recipes: [{ id: added.id, recipeId: added.recipeId, recipeTitle: "Linssoppa", servings: 5, position: 0 }],
+      recipes: [{ id: added.id, recipeId: added.recipeId, recipeTitle: "Linssoppa", servings: 5, position: 0, cookedAt: null }],
     });
     expect(await getPlanIn(other.db, added.mealPlanId)).toBeNull();
     expect(await getPlanIn(owner.db, "inte-ett-id")).toBeNull();

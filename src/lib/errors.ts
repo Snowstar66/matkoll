@@ -84,6 +84,11 @@ export const errorMessages = {
   mealplan_servings_failed: "Det gick inte att spara portionerna.",
   mealplan_remove_failed: "Det gick inte att ta bort rätten.",
   mealplan_restore_failed: "Det gick inte att ångra.",
+  // Markera som lagad (Story 13.4): nothing is deducted or marked when it fails.
+  mealplan_cooked_failed: "Det gick inte att markera rätten som lagad. Inget är ändrat.",
+  mealplan_cooked_already: "Rätten är redan markerad som lagad.",
+  mealplan_uncook_failed: "Det gick inte att ta bort markeringen.",
+  mealplan_cooked_undo_failed: "Det gick inte att ångra. Kontrollera lagret.",
   // Tidigare matsedlar (Story 3.2). After a failed "Använd igen" or "Ny
   // matsedel" the current plan is as it was; after a failed delete the plan stays.
   mealplan_previous_unavailable: "Det gick inte att läsa tidigare matsedlar. Försök igen.",
