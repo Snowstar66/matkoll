@@ -8,6 +8,7 @@ import { requireUserOrRedirect } from "@/features/auth/server";
 import { searchIngredients } from "@/features/catalog/server";
 import { addToCurrentPlan, getCurrentPlan } from "@/features/mealplan/server";
 import { ownRecipesWithOffers } from "@/features/suggestions/server";
+import { listRecipeSites } from "@/features/settings/server";
 import { listLibrary } from "@/features/recipes/server";
 import { type AutoImport, ImportRecipeButton, ImportRecipeProvider } from "@/features/recipes/ui/import-sheet";
 import { Library } from "@/features/recipes/ui/library";
@@ -21,8 +22,10 @@ import { WarmAi } from "../warm-ai";
 // offers import only. Story 12.2: when the page is shown, WarmAi asks the
 // server to wake the model for AI-förslag, without waiting for the list.
 export function RecipesView({ autoImport }: { autoImport?: AutoImport }) {
+  // Story 1.14: waited for inside the import sheet; a failure shows the "no sites" line.
+  const sites = listRecipeSites().catch((): string[] => []);
   return (
-    <ImportRecipeProvider searchIngredients={searchIngredients} autoImport={autoImport}>
+    <ImportRecipeProvider searchIngredients={searchIngredients} autoImport={autoImport} sites={sites}>
       <WarmAi kind="text" />
       <PageHeader
         title="Recept"
