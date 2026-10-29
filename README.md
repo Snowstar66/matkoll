@@ -12,10 +12,11 @@ pnpm db:start         # startar lokal Supabase i Docker
 pnpm db:env           # skriver Supabase-URL och nycklar till .env.local (skapas från .env.example)
 # Lägg din adress i ALLOWED_EMAILS i .env.local, t.ex. ALLOWED_EMAILS=du@example.com
 pnpm users:sync       # skapar användarna i ALLOWED_EMAILS
-pnpm dev              # http://localhost:3000
+pnpm dev              # http://localhost:3000, bara loopback (127.0.0.1)
+pnpm dev:lan          # nåbar på LAN (mobiltest), loggar aldrig in automatiskt
 ```
 
-**Automatisk inloggning lokalt (Story 15.1).** Sätt `DEV_AUTO_LOGIN_EMAIL` (en adress i `ALLOWED_EMAILS`) och `DEV_AUTO_LOGIN_PASSWORD` i `.env.local`, kör `pnpm users:sync` och `pnpm dev:set-password`. Då loggas du in utan kod när du öppnar `http://localhost:3000` med `pnpm dev`. Det fungerar bara om allt stämmer: `NODE_ENV=development`, inte Vercel, värden är `localhost` eller `127.0.0.1` och Supabase-adressen är lokal. Annars gäller den vanliga inloggningen. Efter att du loggat ut loggas du in igen nästa gång du öppnar en sida utanför `/logga-in`.
+**Automatisk inloggning lokalt (Story 15.1).** Sätt `DEV_AUTO_LOGIN_EMAIL` (en adress i `ALLOWED_EMAILS`) och `DEV_AUTO_LOGIN_PASSWORD` i `.env.local`, kör `pnpm users:sync` och `pnpm dev:set-password`. Då loggas du in utan kod när du öppnar `http://localhost:3000` med `pnpm dev`. `pnpm dev` binder bara till 127.0.0.1 och sätter `MATKOLL_DEV_LOOPBACK=1`; `pnpm dev:lan` saknar flaggan och loggar aldrig in automatiskt. Det fungerar bara om allt stämmer: `NODE_ENV=development`, flaggan, ingen `x-forwarded-for`/`x-real-ip`/`forwarded`-header, inte Vercel, värden är `localhost` eller `127.0.0.1` och Supabase-adressen är lokal. Annars gäller den vanliga inloggningen. Efter utloggning loggas du inte in igen automatiskt (en kort kaka `matkoll-dev-logged-out`) förrän du väljer "Logga in automatiskt igen" på `/logga-in`.
 
 Logga in på `http://localhost:3000/logga-in`. Länken hamnar i Mailpit på `http://127.0.0.1:54324`; öppna den så är du inloggad. Registrering är avstängd, så bara adresser som `pnpm users:sync` har skapat kan logga in, och appen släpper bara in adresser som står i `ALLOWED_EMAILS`. `pnpm users:sync` tar aldrig bort någon; användare som inte finns i listan visas som varning och tas bort först med `pnpm users:sync --prune`.
 

@@ -10,10 +10,23 @@ export type DevAutoLoginInput = {
   host: string | null | undefined;
   /** X-Forwarded-Host when present (a proxy or tunnel in front); it must be local too. */
   forwardedHost?: string | null;
+  /** `MATKOLL_DEV_LOOPBACK`: only `pnpm dev` sets it, and that binds to 127.0.0.1. `pnpm dev:lan` does not. */
+  loopbackFlag?: string | undefined;
+  /** True when the request carries x-forwarded-for, x-real-ip or forwarded (a proxy, tunnel or LAN hop). */
+  proxied?: boolean;
   email: string | undefined;
   password: string | undefined;
   supabaseUrl: string | undefined;
 };
+
+/** Short-lived cookie set by signOut so that a logout is not undone by the next page load. */
+export const devLoggedOutCookie = "matkoll-dev-logged-out";
+export const devLoggedOutMaxAgeSeconds = 8 * 60 * 60;
+
+/** True when any header that proxies and tunnels add is present. */
+export function hasProxyHeaders(headers: { get(name: string): string | null }): boolean {
+  return ["x-forwarded-for", "x-real-ip", "forwarded"].some((name) => headers.get(name) !== null);
+}
 
 const localHostnames = new Set(["localhost", "127.0.0.1"]);
 
@@ -37,6 +50,8 @@ export function isLocalUrl(value: string | undefined): boolean {
 export function devAutoLoginCredentials(input: DevAutoLoginInput): { email: string; password: string } | null {
   if (input.nodeEnv !== "development") return null;
   if (input.vercel) return null;
+  if (input.loopbackFlag !== "1") return null;
+  if (input.proxied) return null;
   if (!isLocalHost(input.host)) return null;
   if (input.forwardedHost && !isLocalHost(input.forwardedHost)) return null;
   const email = input.email?.trim();

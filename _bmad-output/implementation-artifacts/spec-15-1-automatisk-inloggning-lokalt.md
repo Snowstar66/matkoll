@@ -2,7 +2,7 @@
 title: 'Story 15.1: Automatisk inloggning lokalt'
 type: 'feature'
 created: '2026-10-29'
-status: 'in-progress'
+status: 'done'
 route: 'dispatch'
 review_loop_iteration: 0
 baseline_commit: 'origin/epic/15-lokal-inloggning'
@@ -38,3 +38,12 @@ baseline_commit: 'origin/epic/15-lokal-inloggning'
 `pnpm lint`, `pnpm typecheck`, `pnpm test`, `AI_PROVIDER=mock pnpm build` och e2e `auth` och `shell`. `grep -r` över `.next` efter lösenordsvärdet ger inga träffar. Säkerhetsgranskning återstår.
 
 ## Review Triage Log
+
+## Review Triage Log
+
+En säkerhetsgranskare (Sonnet) gick igenom storyn. Resultat: en måste-åtgärdas och tre bra-att-ha, alla åtgärdade.
+
+- Måste: `Host: localhost` kunde förfalskas från LAN eftersom `next dev` lyssnar på 0.0.0.0. Nu binder `pnpm dev` till 127.0.0.1 och sätter `MATKOLL_DEV_LOOPBACK=1`, som auto-inloggningen kräver. `pnpm dev:lan` saknar flaggan. Auto-inloggning vägras även vid `x-forwarded-for`, `x-real-ip` eller `forwarded`.
+- Bra: inloggning direkt efter utloggning. `signOut` sätter kakan `matkoll-dev-logged-out`; `/logga-in` har länken "Logga in automatiskt igen".
+- Bra: upprepade försök efter misslyckad auto-inloggning. En flagga i processen stoppar nya försök och `dev_auto_login_failed` loggas en gång.
+- Bra: `secure` på sessionskakorna är nu även sant när `NODE_ENV=production`. Schemakrav på https för `SITE_URL` infördes inte, eftersom e2e kör ett produktionsbygge på http://localhost:3100.

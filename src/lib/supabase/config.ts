@@ -27,7 +27,7 @@ export const sessionMaxAgeSeconds = 90 * 24 * 60 * 60;
 /**
  * Cookie options for the session cookies (Story 15.2). The app has no browser
  * client, so the cookies can be httpOnly. `secure` follows the site's own
- * scheme, so a production build tried over http://localhost still works.
+ * scheme (or production), so `pnpm dev` over http://localhost still works.
  */
 export function authCookieOptions() {
   return {
@@ -35,6 +35,6 @@ export function authCookieOptions() {
     httpOnly: true,
     sameSite: "lax" as const,
     path: "/",
-    secure: env.SITE_URL.startsWith("https://"),
+    secure: env.NODE_ENV === "production" || env.SITE_URL.startsWith("https://"),
   };
 }

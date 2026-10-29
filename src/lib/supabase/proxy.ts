@@ -1,6 +1,6 @@
 import { createServerClient } from "@supabase/ssr";
 import { type NextRequest, NextResponse } from "next/server";
-import { devAutoLoginCredentials } from "./dev-auto-login";
+import { devAutoLoginCredentials, devLoggedOutCookie, hasProxyHeaders } from "./dev-auto-login";
 import { env } from "@/server/env";
 import { authCookieOptions, supabaseConfig } from "./config";
 
@@ -67,6 +67,9 @@ export function redirectWithSession(target: URL, session: SessionUpdate): NextRe
   return redirect;
 }
 
+/** After one failed auto-login nothing is retried until the process restarts (no log noise). */
+let devAutoLoginFailed = false;
+
 /**
  * Story 15.1: signs in Pontus's local user with a password when every guard in
  * devAutoLoginCredentials holds (development, not Vercel, a local host and a
@@ -76,9 +79,14 @@ export function redirectWithSession(target: URL, session: SessionUpdate): NextRe
  * the service role. Logs nothing about the e-mail or the password.
  */
 export async function devAutoLoginRedirect(request: NextRequest): Promise<NextResponse | null> {
+  // Pontus logged out on purpose; stay logged out until he asks for it on /logga-in.
+  if (request.cookies.has(devLoggedOutCookie)) return null;
+  if (devAutoLoginFailed) return null;
   const credentials = devAutoLoginCredentials({
     nodeEnv: env.NODE_ENV,
     vercel: env.VERCEL,
+    loopbackFlag: env.MATKOLL_DEV_LOOPBACK,
+    proxied: hasProxyHeaders(request.headers),
     host: request.headers.get("host"),
     forwardedHost: request.headers.get("x-forwarded-host"),
     email: env.DEV_AUTO_LOGIN_EMAIL,
@@ -90,6 +98,7 @@ export async function devAutoLoginRedirect(request: NextRequest): Promise<NextRe
   const { supabase, response } = createProxyClient(request);
   const { error } = await supabase.auth.signInWithPassword(credentials);
   if (error) {
+    devAutoLoginFailed = true;
     console.warn("dev_auto_login_failed");
     return null;
   }

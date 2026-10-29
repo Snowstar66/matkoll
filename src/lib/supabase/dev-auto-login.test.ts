@@ -1,9 +1,10 @@
 import { describe, expect, it } from "vitest";
-import { devAutoLoginCredentials, isLocalHost, isLocalUrl, type DevAutoLoginInput } from "./dev-auto-login";
+import { devAutoLoginCredentials, hasProxyHeaders, isLocalHost, isLocalUrl, type DevAutoLoginInput } from "./dev-auto-login";
 
 const ok: DevAutoLoginInput = {
   nodeEnv: "development",
   vercel: undefined,
+  loopbackFlag: "1",
   host: "localhost:3000",
   email: "dev@example.test",
   password: "secret-pw",
@@ -24,6 +25,16 @@ describe("devAutoLoginCredentials", () => {
 
   it("is inert on Vercel", () => {
     expect(devAutoLoginCredentials({ ...ok, vercel: "1" })).toBeNull();
+  });
+
+  it("is inert without MATKOLL_DEV_LOOPBACK=1 (pnpm dev:lan)", () => {
+    expect(devAutoLoginCredentials({ ...ok, loopbackFlag: undefined })).toBeNull();
+    expect(devAutoLoginCredentials({ ...ok, loopbackFlag: "0" })).toBeNull();
+    expect(devAutoLoginCredentials({ ...ok, loopbackFlag: "true" })).toBeNull();
+  });
+
+  it("is inert when the request went through a proxy", () => {
+    expect(devAutoLoginCredentials({ ...ok, proxied: true })).toBeNull();
   });
 
   it("is inert for any host but localhost and 127.0.0.1", () => {
@@ -58,5 +69,14 @@ describe("isLocalHost and isLocalUrl", () => {
     expect(isLocalHost("127.0.0.2")).toBe(false);
     expect(isLocalUrl("http://localhost:54321")).toBe(true);
     expect(isLocalUrl("http://127.0.0.1.evil.com")).toBe(false);
+  });
+});
+
+describe("hasProxyHeaders", () => {
+  it("detects x-forwarded-for, x-real-ip and forwarded", () => {
+    expect(hasProxyHeaders(new Headers({ host: "localhost:3000" }))).toBe(false);
+    for (const name of ["x-forwarded-for", "x-real-ip", "forwarded"]) {
+      expect(hasProxyHeaders(new Headers({ [name]: "192.168.1.9" }))).toBe(true);
+    }
   });
 });

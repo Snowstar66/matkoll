@@ -1,6 +1,8 @@
 import type { Metadata } from "next";
 import { Suspense } from "react";
 import { errorMessages } from "@/lib/errors";
+import { resumeDevAutoLogin } from "@/features/auth/server";
+import { devAutoLoginApplies } from "@/lib/supabase/dev-auto-login-server";
 import { LoginForm } from "@/features/auth/ui/login-form";
 
 export const metadata: Metadata = { title: "Logga in" };
@@ -29,5 +31,17 @@ async function LoginFormWithParams({ searchParams }: Pick<PageProps<"/logga-in">
     atkomst: errorMessages.auth_not_allowed,
   };
   const notice = typeof params.fel === "string" ? notices[params.fel] : undefined;
-  return <LoginForm next={next} notice={notice} />;
+  const showResume = await devAutoLoginApplies();
+  return (
+    <>
+      <LoginForm next={next} notice={notice} />
+      {showResume ? (
+        <form action={resumeDevAutoLogin}>
+          <button type="submit" className="text-body text-accent underline">
+            Logga in automatiskt igen
+          </button>
+        </form>
+      ) : null}
+    </>
+  );
 }
