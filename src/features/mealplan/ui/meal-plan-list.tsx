@@ -432,9 +432,9 @@ export function MealPlanList({ planName, dishes, snapshot, siteLine = null, site
                   data-testid="day-free"
                   aria-label={`Lägg till rätt på ${heading.toLowerCase()}`}
                   onClick={() => openAdd(weekday)}
-                  className="flex min-h-tap w-full items-center justify-between gap-3 rounded-lg border border-dashed border-hairline px-3 text-left"
+                  className="flex min-h-tap w-full flex-wrap items-center justify-between gap-x-3 gap-y-1 rounded-lg border border-dashed border-hairline px-3 py-2 text-left"
                 >
-                  <span className="flex items-center gap-2 text-section-label text-ink-2">
+                  <span className="flex min-w-0 flex-wrap items-center gap-x-2 text-section-label text-ink-2">
                     {heading}
                     {isToday ? <span className="text-accent">Idag</span> : null}
                   </span>
