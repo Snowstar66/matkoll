@@ -1,6 +1,11 @@
 import { describe, expect, it } from "vitest";
 import { toSnapshot } from "@/features/pantry";
 import {
+  addedOnDayText,
+  defaultWeekday,
+  groupByWeekday,
+  movedText,
+  todayWeekday,
   addToPlanSchema,
   clampServings,
   comparePlanRecipes,
@@ -235,5 +240,42 @@ describe("Tidigare", () => {
 
   it("asks before a plan is deleted", () => {
     expect(deletePlanQuestion("Vecka 42")).toBe("Ta bort Vecka 42? Det går inte att ångra.");
+  });
+});
+
+describe("days on the menu (Story 13.5)", () => {
+  it("finds today's weekday in Stockholm", () => {
+    expect(todayWeekday(new Date("2026-10-26T10:00:00Z"))).toBe(1);
+    expect(todayWeekday(new Date("2026-11-01T10:00:00Z"))).toBe(7);
+    // 23:30 UTC on a Sunday is already Monday in Stockholm.
+    expect(todayWeekday(new Date("2026-11-01T23:30:00Z"))).toBe(1);
+  });
+
+  it("defaults to the first day from today without a dish, else none", () => {
+    expect(defaultWeekday([], 3)).toBe(3);
+    expect(defaultWeekday([{ weekday: 3 }, { weekday: 4 }, { weekday: null }], 3)).toBe(5);
+    expect(defaultWeekday([{ weekday: 6 }], 6)).toBe(7);
+    expect(defaultWeekday([{ weekday: 6 }, { weekday: 7 }], 6)).toBeNull();
+  });
+
+  it("groups måndag to söndag, then Ingen dag än only when needed, keeping the order within a day", () => {
+    const dishes = [
+      { id: "a", position: 3, weekday: 2 },
+      { id: "b", position: 1, weekday: 2 },
+      { id: "c", position: 2, weekday: null },
+      { id: "d", position: 0 },
+    ];
+    const sections = groupByWeekday(dishes);
+    expect(sections.map((section) => section.weekday)).toEqual([1, 2, 3, 4, 5, 6, 7, null]);
+    expect(sections[1]?.dishes.map((dish) => dish.id)).toEqual(["b", "a"]);
+    expect(sections[7]?.dishes.map((dish) => dish.id)).toEqual(["d", "c"]);
+    expect(groupByWeekday([{ id: "a", position: 0, weekday: 7 }]).at(-1)?.weekday).toBe(7);
+  });
+
+  it("words the confirmations", () => {
+    expect(addedOnDayText(4)).toBe("Lagt på matsedeln, torsdag.");
+    expect(addedOnDayText(null)).toBe("Lagt på matsedeln.");
+    expect(movedText("Pasta", 5)).toBe("Pasta ligger på fredag.");
+    expect(movedText("Pasta", null)).toBe("Pasta har ingen dag.");
   });
 });

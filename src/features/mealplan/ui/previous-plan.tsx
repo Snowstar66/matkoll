@@ -19,6 +19,7 @@ import {
   nothingToReuseText,
   planDateText,
   planDeletedText,
+  weekdayNames,
   type PlanDetail,
 } from "../domain/meal-plan";
 import { useCreatePlan } from "./use-create-plan";
@@ -111,7 +112,10 @@ export function PreviousPlan({ plan }: PreviousPlanProps) {
                   Borttaget recept: {dish.recipeTitle}
                 </p>
               )}
-              <p className="text-meta text-ink-3">{formatPortions(dish.servings)}</p>
+              <p className="text-meta text-ink-3">
+                {dish.weekday ? `${weekdayNames[dish.weekday - 1]} · ` : ""}
+                {formatPortions(dish.servings)}
+              </p>
             </li>
           ))}
         </ul>

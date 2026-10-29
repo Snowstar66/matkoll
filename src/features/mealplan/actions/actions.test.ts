@@ -24,8 +24,11 @@ vi.mock("@/features/recipes/server", () => ({
   RecipeDataError,
   getRecipesByIds: (ids: string[]) => getRecipesByIds(ids),
 }));
+const getCurrentPlanIn = vi.fn();
+vi.mock("../data/queries", () => ({ getCurrentPlanIn: (...args: unknown[]) => getCurrentPlanIn(...args) }));
 const data = {
   addToCurrentPlanIn: vi.fn(),
+  setWeekdayIn: vi.fn(),
   setServingsIn: vi.fn(),
   removePlanRecipeIn: vi.fn(),
   restorePlanRecipeIn: vi.fn(),
@@ -35,6 +38,7 @@ const data = {
 vi.mock("../data/write", () => ({
   addToCurrentPlanIn: (...args: unknown[]) => data.addToCurrentPlanIn(...args),
   setServingsIn: (...args: unknown[]) => data.setServingsIn(...args),
+  setWeekdayIn: (...args: unknown[]) => data.setWeekdayIn(...args),
   removePlanRecipeIn: (...args: unknown[]) => data.removePlanRecipeIn(...args),
   restorePlanRecipeIn: (...args: unknown[]) => data.restorePlanRecipeIn(...args),
   setCurrentPlanIn: (...args: unknown[]) => data.setCurrentPlanIn(...args),
@@ -43,6 +47,7 @@ vi.mock("../data/write", () => ({
 
 const { addToCurrentPlan } = await import("./add-to-current-plan");
 const { setServings } = await import("./set-servings");
+const { setWeekday } = await import("./set-weekday");
 const { removePlanRecipe } = await import("./remove-plan-recipe");
 const { restorePlanRecipe } = await import("./restore-plan-recipe");
 const { reusePlan } = await import("./reuse-plan");
@@ -61,6 +66,8 @@ beforeEach(() => {
   getRecipesByIds.mockReset().mockResolvedValue([recipe]);
   data.addToCurrentPlanIn.mockReset().mockResolvedValue(row);
   data.setServingsIn.mockReset().mockResolvedValue(true);
+  data.setWeekdayIn.mockReset().mockResolvedValue(true);
+  getCurrentPlanIn.mockReset().mockResolvedValue(null);
   data.removePlanRecipeIn.mockReset().mockResolvedValue(row);
   data.restorePlanRecipeIn.mockReset().mockImplementation(async (_db, restored: PlanRecipeRow) => restored);
   data.setCurrentPlanIn.mockReset().mockImplementation(async (_db, plan: { id: string; name: string }) => plan);
@@ -82,8 +89,30 @@ describe("addToCurrentPlan", () => {
       recipeTitle: "Pasta",
       servings: 4,
       planName: "Vecka 44",
+      // 26 Oct 2026 is a Monday, and the plan has no dish yet.
+      weekday: 1,
     });
     expect(revalidateFor).toHaveBeenCalledWith("meal_plan_recipe");
+  });
+
+  it("gives the first free day from today when no day is given, and none when the rest of the week is full", async () => {
+    vi.useFakeTimers({ now: new Date("2026-10-29T10:00:00Z"), toFake: ["Date"] });
+    getCurrentPlanIn.mockResolvedValue({ id: planId, name: "Vecka 44", recipes: [{ weekday: 4 }, { weekday: 5 }, { weekday: 1 }] });
+    await addToCurrentPlan({ recipeId });
+    expect(data.addToCurrentPlanIn).toHaveBeenLastCalledWith(db, expect.objectContaining({ weekday: 6 }));
+    getCurrentPlanIn.mockResolvedValue({ id: planId, name: "Vecka 44", recipes: [{ weekday: 4 }, { weekday: 5 }, { weekday: 6 }, { weekday: 7 }] });
+    await addToCurrentPlan({ recipeId });
+    expect(data.addToCurrentPlanIn).toHaveBeenLastCalledWith(db, expect.objectContaining({ weekday: null }));
+    vi.useRealTimers();
+  });
+
+  it("takes a chosen day, or none, without reading the plan", async () => {
+    await addToCurrentPlan({ recipeId, weekday: 3 });
+    expect(data.addToCurrentPlanIn).toHaveBeenLastCalledWith(db, expect.objectContaining({ weekday: 3 }));
+    await addToCurrentPlan({ recipeId, weekday: null });
+    expect(data.addToCurrentPlanIn).toHaveBeenLastCalledWith(db, expect.objectContaining({ weekday: null }));
+    expect(getCurrentPlanIn).not.toHaveBeenCalled();
+    expect(await addToCurrentPlan({ recipeId, weekday: 8 })).toEqual(fail("validation"));
   });
 
   it("keeps a recipe's own servings within 1 to 1000", async () => {
@@ -269,5 +298,34 @@ describe("deletePlan", () => {
     // The current plan is never deleted.
     data.deletePlanIn.mockRejectedValue(new MealPlanDataError("delete_failed 55000", "55000"));
     expect(await deletePlan(planId)).toEqual(fail("mealplan_delete_failed"));
+  });
+});
+
+describe("setWeekday", () => {
+  it("saves the day for the user's dish and revalidates", async () => {
+    expect(await setWeekday({ id: dishId, weekday: 3 })).toEqual(ok({ id: dishId, weekday: 3 }));
+    expect(data.setWeekdayIn).toHaveBeenCalledWith(db, "user", dishId, 3);
+    expect(revalidateFor).toHaveBeenCalledWith("meal_plan_recipe");
+    expect(await setWeekday({ id: dishId, weekday: null })).toEqual(ok({ id: dishId, weekday: null }));
+  });
+
+  it.each([[{ id: dishId, weekday: 0 }], [{ id: dishId, weekday: 8 }], [{ id: "x", weekday: 2 }], [{ id: dishId }]])(
+    "rejects %j",
+    async (input) => {
+      expect(await setWeekday(input as never)).toEqual(fail("validation"));
+      expect(data.setWeekdayIn).not.toHaveBeenCalled();
+    },
+  );
+
+  it("fails for a dish the user does not have, and when the data fails", async () => {
+    data.setWeekdayIn.mockResolvedValue(false);
+    expect(await setWeekday({ id: dishId, weekday: 2 })).toEqual(fail("mealplan_weekday_failed"));
+    data.setWeekdayIn.mockRejectedValue(new MealPlanDataError("weekday_failed 23514"));
+    expect(await setWeekday({ id: dishId, weekday: 2 })).toEqual(fail("mealplan_weekday_failed"));
+  });
+
+  it("returns unauthorized without an allowed user", async () => {
+    requireUser.mockResolvedValue(fail("unauthorized"));
+    expect(await setWeekday({ id: dishId, weekday: 2 })).toEqual(fail("unauthorized"));
   });
 });
