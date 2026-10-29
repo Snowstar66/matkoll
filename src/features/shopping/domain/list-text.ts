@@ -389,6 +389,8 @@ export type CopiedNotes = {
   partialChoices?: boolean;
   /** The checks could not be read: items already in the basket may be in the export. */
   checksUnread?: boolean;
+  /** The number of items copied ("6 varor kopierade" first), as the text's "Antal varor". */
+  count?: number;
 };
 
 /**
@@ -397,11 +399,20 @@ export type CopiedNotes = {
  * chain "… på butikens webbplats."; "kopierad utan produktval" when the
  * choices could not be read, "utan alla produktval" when some could not;
  * and when the checks could not be read, "…, men bockarna gick inte att
- * läsa. Kontrollera varukorgen." instead of where to paste.
+ * läsa. Kontrollera varukorgen." instead of where to paste. With `count`
+ * it starts "6 varor kopierade. " (Story 16.5).
  */
 export function copiedText(
   store: Pick<Store, "chain"> | null,
-  { withoutChoices = false, partialChoices = false, checksUnread = false }: CopiedNotes = {},
+  { withoutChoices = false, partialChoices = false, checksUnread = false, count }: CopiedNotes = {},
+): string {
+  const counted = count === undefined ? "" : `${count} ${count === 1 ? "vara kopierad" : "varor kopierade"}. `;
+  return `${counted}${copiedSentence(store, { withoutChoices, partialChoices, checksUnread })}`;
+}
+
+function copiedSentence(
+  store: Pick<Store, "chain"> | null,
+  { withoutChoices, partialChoices, checksUnread }: CopiedNotes,
 ): string {
   const choices = withoutChoices ? " utan produktval" : partialChoices ? " utan alla produktval" : "";
   if (checksUnread) return `Inköpslistan är kopierad${choices}, men bockarna gick inte att läsa. Kontrollera varukorgen.`;

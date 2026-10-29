@@ -169,10 +169,11 @@ describe("Kopiera till ICA-varukorgen", () => {
     expect(text).toContain("\nURL: https://handlaprivatkund.ica.se/stores/1003733\n");
     expect(text).toContain("Mejeri\n- Grädde\n  Mängd: 3 dl\n  Önskad produkt: Arla Matlagningsgrädde 15 %\n  Förpackning: 5 dl\n");
     expect(text).toContain("Frukt och grönt\n- Gul lök\n  Mängd: 2 st\n");
-    // The vague line is never sent.
-    expect(text).not.toContain("Salt");
+    // The vague line is sent too, with no amount (Story 16.5).
+    expect(text).toContain("- Salt\n  Mängd: ingen angiven – välj en vanlig förpackning\n");
+    expect(text).toContain("Antal varor: 3\n");
     expect(text.endsWith(`${basketEndMarker}\n\n${basketInstruction}\n`)).toBe(true);
-    expect(await screen.findByTestId("toast")).toHaveTextContent(copied);
+    expect(await screen.findByTestId("toast")).toHaveTextContent(`3 varor kopierade. ${copied}`);
     expectNoServer();
   });
 
@@ -220,12 +221,12 @@ describe("Kopiera till ICA-varukorgen", () => {
     expect(writeText).toHaveBeenCalledTimes(1);
     const text = writeText.mock.calls[0]![0];
     expect(text).not.toContain("Gul lök");
-    expect(text).toContain("Antal varor: 1\n");
-    expect(await screen.findByTestId("toast")).toHaveTextContent(copied);
+    expect(text).toContain("Antal varor: 2\n");
+    expect(await screen.findByTestId("toast")).toHaveTextContent(`2 varor kopierade. ${copied}`);
   });
 
   it.each([
-    ["every line checked off or vague", props({ lines: [{ ...lokLine, checked: true }, saltLine] })],
+    ["every line checked off", props({ lines: [{ ...lokLine, checked: true }, { ...saltLine, checked: true }] })],
     ["an empty list", props({ lines: [] })],
     ["no meal plan", props({ plan: null, lines: [] })],
   ])("is not shown for %s", (_, list) => {
@@ -233,12 +234,12 @@ describe("Kopiera till ICA-varukorgen", () => {
     expect(screen.queryByRole("button", { name: /^Kopiera till/ })).not.toBeInTheDocument();
   });
 
-  it("takes every line but the vague ones when the checks could not be read, and says to check the basket", async () => {
+  it("takes every line when the checks could not be read, and says to check the basket", async () => {
     const writeText = stubClipboard("ok");
     render(<ShoppingList {...props({ checksUnavailable: true })} />);
     fireEvent.click(sendButton()!);
     const text = writeText.mock.calls[0]![0];
-    expect(text).toContain("Antal varor: 2\n");
+    expect(text).toContain("Antal varor: 3\n");
     expect(await screen.findByTestId("toast")).toHaveTextContent(
       "Inköpslistan är kopierad, men bockarna gick inte att läsa. Kontrollera varukorgen.",
     );

@@ -284,6 +284,13 @@ describe("the basket export's texts (Story 7.3)", () => {
     );
   });
 
+  it("starts with the number of items copied when it is given (Story 16.5)", () => {
+    expect(copiedText({ chain: "ICA" }, { count: 6 })).toBe(
+      "6 varor kopierade. Inköpslistan är kopierad. Klistra in den i Claude i Chrome på ICA Handla.",
+    );
+    expect(copiedText({ chain: "ICA" }, { count: 1 })).toMatch(/^1 vara kopierad\. /);
+  });
+
   it("says when the export has no product choices", () => {
     expect(copiedText({ chain: "ICA" }, { withoutChoices: true })).toBe(
       "Inköpslistan är kopierad utan produktval. Klistra in den i Claude i Chrome på ICA Handla.",
