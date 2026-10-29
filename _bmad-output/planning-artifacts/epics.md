@@ -2462,3 +2462,59 @@ så att jag kan handla där jag vill.
 **När** Pontus trycker "Dela listan"
 **Så** öppnas telefonens delningsmeny (eller kopieras texten när delning saknas) med en enkel lista per avdelning, till exempel "Gul lök 1 st", utan butiksformatet
 
+## Epic 16: Bättre matförslag
+
+Pontus fick AI-förslag från veckans erbjudanden men kunde inte spara dem, och förslagen säger för lite om varför de är bra.
+
+### Story 16.1: Spara och lägga på matsedeln fungerar från förslagen
+
+Som Pontus,
+vill jag att "Spara", "Lägg på matsedeln" och att ta bort ett förslag fungerar,
+så att jag kan använda förslagen jag gillar.
+
+**Acceptance Criteria:**
+
+**Givet** AI-förslag från veckans erbjudanden, öppnade från jobbets notis eller från Recept
+**När** Pontus trycker "Spara" eller "Lägg på matsedeln"
+**Så** öppnas förhandsgranskningen och receptet sparas (och läggs på matsedeln), även efter att Pontus har bytt sida och kommit tillbaka
+
+**Givet** ett förslag Pontus inte vill ha
+**När** Pontus trycker på förslagets soptunna
+**Så** försvinner förslaget ur listan
+
+### Story 16.2: Förslaget säger varför det är bra
+
+Som Pontus,
+vill jag se direkt vad ett förslag ger mig,
+så att jag snabbt väljer rätt.
+
+**Acceptance Criteria:**
+
+**Givet** ett AI-förslag eller ett recept med erbjudanden
+**När** kortet visas
+**Så** står en kort rad som "3 på erbjudande · 1 hemma · köp till: potatis", med erbjudandenas rena namn (utan märke och land)
+
+### Story 16.3: Dina egna recept med veckans erbjudanden
+
+Som Pontus,
+vill jag att mina egna recept som passar veckans erbjudanden föreslås först, hjärtmarkerade överst,
+så att jag lagar det jag redan gillar när det är billigt.
+
+**Acceptance Criteria:**
+
+**Givet** recept i biblioteket och veckans erbjudanden från vald butik
+**När** Pontus ber om förslag från erbjudandena
+**Så** visas först "Från dina recept": de recept som använder flest erbjudanden, favoriter först, utan AI, och därefter AI-förslagen
+
+### Story 16.4: Ett snyggt recept när förslaget sparas
+
+Som Pontus,
+vill jag att ett sparat AI-förslag blir ett komplett och snyggt recept,
+så att det ser lika bra ut som mina andra recept.
+
+**Acceptance Criteria:**
+
+**Givet** ett sparat AI-förslag
+**När** receptet visas
+**Så** har det ingredienser, numrerade steg, tid och portioner, en bildyta med en illustration för rättens huvudråvara när foto saknas, och en rad om vilka varor som var på erbjudande när det sparades
+
