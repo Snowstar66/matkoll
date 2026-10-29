@@ -3,6 +3,7 @@
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { type ReactNode, Suspense } from "react";
+import { AppLogo } from "../app-logo";
 import { cx } from "../cx";
 import { currentState, type Destination, mainDestinations, settingsDestination } from "./destinations";
 import { badgeName, TabBadge, useAiBadgeCount } from "./tab-badge";
@@ -57,7 +58,10 @@ function SideMenuNav({ pathname, jobRow }: { pathname: string | null; jobRow?: R
       aria-label="Huvudmeny"
       className="fixed inset-y-0 left-0 z-30 hidden w-side-menu flex-col border-r border-border bg-surface px-3 pt-8 pb-6 desktop:flex"
     >
-      <p className="px-3 pb-6 text-row-title text-ink">Matkoll</p>
+      <p className="flex items-center gap-2 px-3 pb-6 text-row-title text-ink">
+        <AppLogo />
+        Matkoll
+      </p>
       {jobRow ? <div className="pb-4">{jobRow}</div> : null}
       <ul className="flex flex-col gap-1">
         {mainDestinations.map((destination) => (

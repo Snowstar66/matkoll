@@ -4,13 +4,15 @@ import { errorMessages } from "@/lib/errors";
 import { resumeDevAutoLogin } from "@/features/auth/server";
 import { devAutoLoginApplies } from "@/lib/supabase/dev-auto-login-server";
 import { LoginForm } from "@/features/auth/ui/login-form";
+import { AppLogo } from "@/components/app-logo";
 
 export const metadata: Metadata = { title: "Logga in" };
 
 export default function LoginPage({ searchParams }: PageProps<"/logga-in">) {
   return (
     <main className="mx-auto flex w-full max-w-96 flex-1 flex-col justify-center gap-4 px-page py-[max(var(--header-top-mobile),env(safe-area-inset-top))]">
-      <p aria-hidden="true" className="text-row-title text-accent">
+      <p aria-hidden="true" className="flex items-center gap-2 text-row-title text-accent">
+        <AppLogo size={36} />
         Matkoll
       </p>
       <h1 className="text-page-title text-ink">Logga in</h1>
@@ -19,6 +21,7 @@ export default function LoginPage({ searchParams }: PageProps<"/logga-in">) {
       <Suspense fallback={null}>
         <LoginFormWithParams searchParams={searchParams} />
       </Suspense>
+      <p className="mt-8 text-center text-meta text-ink-3">Matkoll · av Snowstar</p>
     </main>
   );
 }
