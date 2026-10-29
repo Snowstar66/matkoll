@@ -47,6 +47,11 @@ export type ImportKind = ImportInput["kind"];
 export const recipeImportSchema = z.object({
   draft: recipeDraftSchema,
   ingredientNames: z.record(z.string(), z.string()),
+  /**
+   * Story 1.15: the id of the recipe the job saved when it finished (the job's own id), so an
+   * import lands in the library without a preview. Missing when that save did not work.
+   */
+  savedRecipeId: z.uuid().optional(),
 });
 export type RecipeImport = z.infer<typeof recipeImportSchema>;
 

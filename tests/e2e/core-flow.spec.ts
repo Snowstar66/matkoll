@@ -1,6 +1,6 @@
 import { readFileSync } from "node:fs";
 import { expect, type Page, test } from "@playwright/test";
-import { adminClient, coreFlowEmail, deleteMailsTo, mailHtml, mailsTo, openMagicLink, recreateE2eUser } from "./support";
+import { adminClient, coreFlowEmail, deleteMailsTo, mailHtml, mailsTo, openMagicLink, openSavedImport, recreateE2eUser } from "./support";
 
 // Story 3.8: the whole core of Epic 1–3 in one go, as Pontus uses it. Sign in
 // through the real /logga-in and the link in Mailpit (no saved session, no
@@ -70,8 +70,7 @@ test("sign in, import a recipe, plan it, check a line off and put it in the pant
   await sheet(page).getByRole("tab", { name: "Text" }).click();
   await sheet(page).getByLabel("Recepttext").fill(kycklinggryta);
   await sheet(page).getByRole("button", { name: "Tolka" }).click();
-  await expect(sheet(page).getByLabel("Titel")).toHaveValue(title);
-  await sheet(page).getByRole("button", { name: "Spara recept" }).click();
+  await openSavedImport(page, title);
   await expect(page).toHaveURL(/\/recept\/[0-9a-f-]{36}$/);
 
   // Put it on the meal plan.

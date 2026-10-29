@@ -13,20 +13,17 @@ import {
   useId,
   useRef,
   useState,
-  useTransition,
 } from "react";
 import { Button } from "@/components/button";
 import { FieldError, FieldLabel, Input } from "@/components/field";
 import { PlusIcon } from "@/components/icons";
 import { Notice } from "@/components/notice";
 import { Sheet } from "@/components/sheet";
-import { useToast } from "@/components/toast";
 import { useCoarsePointer } from "@/components/use-coarse-pointer";
 import { downscaleImage } from "@/lib/downscale-image";
 import { useAiJobs, useShowingAiResults } from "@/lib/ai-jobs-client";
-import { isFinishedWithNews, type AiJob } from "@/lib/ai-job-shape";
-import { errorMessages, fail, isErrorCode, type AppError } from "@/lib/errors";
-import { saveRecipe } from "../actions/save-recipe";
+import { type AiJob } from "@/lib/ai-job-shape";
+import { fail, isErrorCode, type AppError } from "@/lib/errors";
 import {
   importErrorMessage,
   importLinkTooLongMessage,
@@ -35,25 +32,20 @@ import {
   maxImportUrlChars,
   isUnreadablePhoto,
   offersPasteTextInstead,
-  recipeImportSchema,
   type ImportKind,
 } from "../domain/import";
-import { isDraftDirty } from "../domain/preview";
-import { validateDraft, type PendingFieldText, type RecipeDraft } from "../domain/recipe-draft";
-import type { SearchIngredients } from "@/components/ingredient-picker";
-import { RecipePreview } from "./recipe-preview";
+import { kindOfJob } from "./saved-imports";
 
 // Importera recept (FR-3, FR-4): a sheet with the tabs Länk, Text and Foto,
 // opening on Länk. A link or pasted text becomes an AI job (POST /api/ai/jobs)
 // and a photo too (POST /api/ai/jobs/photo), Story 12.6: the sheet can be
 // closed meanwhile and the next recipe read in at once. The jobs are read
-// through src/lib/ai-jobs-client.ts; when the job the sheet waits on is done,
-// the preview is shown in the same sheet, and when the sheet is closed
-// "Visa" in the confirmation opens it on the finished job. A photo is made
-// small in the browser first (AD-15) and kept in memory only while the sheet
-// is open, for "Försök igen". Nothing is saved until "Spara recept", which
-// calls the Server Action saveRecipe and opens the recipe view; the job is
-// closed (dismissed) when the sheet is closed or the recipe is saved.
+// through src/lib/ai-jobs-client.ts. Story 1.15: there is no preview. The job
+// saves the recipe when it is read, and when the job the sheet waits on is
+// done the sheet closes; SavedImports (saved-imports.tsx) says "Receptet X är
+// sparat" with "Öppna" and "Ångra". A failure is shown in the tab it was made
+// from. A photo is made small in the browser first (AD-15) and kept in memory
+// only while the sheet is open, for "Försök igen".
 
 type Tab = "link" | "text" | "photo";
 
@@ -70,28 +62,6 @@ const kindFor: Record<Tab, ImportKind> = { link: "url", text: "text", photo: "ph
 /** A photo, made small and ready to send; `id` tells one photo from the next. */
 type Photo = { id: number; image: Blob };
 
-const backLabels: Record<ImportKind, string> = {
-  url: "Tillbaka till länken",
-  text: "Tillbaka till texten",
-  photo: "Tillbaka till bilden",
-};
-
-type Preview = {
-  /** The job the draft came from, closed when the preview is saved or let go. */
-  jobId: string;
-  /** Increases with every import, so the preview starts afresh. */
-  key: number;
-  /** What the preview was parsed from: the link or the text as it was sent, or the photo's id. */
-  source: { kind: ImportKind; value: string };
-  /** The id the recipe gets when saved, made with the preview, so saving it again never makes a copy. */
-  recipeId: string;
-  initial: RecipeDraft;
-  draft: RecipeDraft;
-  names: Readonly<Record<string, string>>;
-  /** Typed text in the preview that did not become a value. */
-  pending: PendingFieldText;
-};
-
 /** The errors "Försök igen" can help with: the model was away or answered badly, or a read failed. */
 const retryable = new Set<AppError["code"]>([
   "ai_unavailable",
@@ -103,16 +73,10 @@ const retryable = new Set<AppError["code"]>([
 /** The job the sheet waits on, with what it was made from (the link or text sent; "" for a photo or a job that was opened with "Visa"). */
 type Watch = { id: string; kind: ImportKind; value: string };
 
-/** The import kind of a job, from its context. */
-function kindOfJob(job: AiJob): ImportKind {
-  const source = job.context.source;
-  return source === "url" || source === "photo" ? source : "text";
-}
-
-/** The newest finished import that has not been shown, for "Visa". */
-function newestUnseenImport(jobs: readonly AiJob[], handled: ReadonlySet<string>): AiJob | undefined {
+/** The newest failed import that has not been shown, for "Visa". */
+function newestUnseenFailure(jobs: readonly AiJob[], handled: ReadonlySet<string>): AiJob | undefined {
   return jobs
-    .filter((job) => job.kind === "import" && isFinishedWithNews(job) && !job.seen && !handled.has(job.id))
+    .filter((job) => job.kind === "import" && job.status === "failed" && !job.seen && !handled.has(job.id))
     .sort((a, b) => Date.parse(b.createdAt) - Date.parse(a.createdAt))[0];
 }
 
@@ -123,17 +87,11 @@ let handledRevealCount = 0;
 const counterFrom = Math.floor(maxImportTextChars * 0.9);
 const formatCount = (n: number) => n.toLocaleString("sv-SE");
 
-/** Pontus has changed the preview: a field, or text that has not become a value yet. */
-function isEdited(preview: Preview | null): boolean {
-  return preview !== null && isDraftDirty(preview.draft, preview.initial, preview.pending);
-}
-
 export type ImportSheetProps = {
   open: boolean;
   onClose: () => void;
   /** The sheet was opened with "Visa" for a finished import: it shows that job. */
   showFinished?: boolean;
-  searchIngredients: SearchIngredients;
   /** Story 1.13: a shared link to read as soon as the sheet is on screen, or a shared value that is not a usable link. */
   autoImport?: AutoImport;
   /** Story 1.14: the approved recipe sites (sorted domains), for "Hitta recept på nätet". Without it the section says there are none. */
@@ -142,9 +100,9 @@ export type ImportSheetProps = {
 
 export type AutoImport = { kind: "ok"; url: string } | { kind: "invalid"; value: string };
 
-export function ImportSheet({ open, onClose, showFinished = false, searchIngredients, autoImport, sites }: ImportSheetProps) {
+export function ImportSheet({ open, onClose, showFinished = false, autoImport, sites }: ImportSheetProps) {
   const ids = useId();
-  const { jobs, loaded, start, fetchResult, cancel: cancelJob, dismiss } = useAiJobs();
+  const { jobs, loaded, start, cancel: cancelJob, dismiss } = useAiJobs();
   /** The job the sheet waits on while it reads. */
   const [watch, setWatchState] = useState<Watch | null>(null);
   const watchRef = useRef<Watch | null>(null);
@@ -159,30 +117,20 @@ export function ImportSheet({ open, onClose, showFinished = false, searchIngredi
   const [text, setText] = useState("");
   /** The last photo that could be made small, kept for "Försök igen" until the sheet closes. */
   const [photo, setPhoto] = useState<Photo | null>(null);
-  /**
-   * A new photo chosen over an edited preview, waiting for "Släng ändringarna?".
-   * It replaces `photo` only when it is sent; "Fortsätt ändra" drops it.
-   */
-  const [pendingPhoto, setPendingPhoto] = useState<Photo | null>(null);
   const photoCount = useRef(0);
-  const [view, setView] = useState<"input" | "reading" | "preview">("input");
+  const [view, setView] = useState<"input" | "reading">("input");
   /** The last import's error, shown in the tab it was made from. */
   const [error, setError] = useState<{ kind: ImportKind; error: AppError } | null>(null);
-  const [preview, setPreview] = useState<Preview | null>(null);
   /**
-   * "Släng ändringarna?" before a new parse replaces an edited preview, or
-   * before "Öppna inställningar" leaves the sheet with unsaved changes.
+   * "Släng ändringarna?" before "Öppna inställningar" leaves the sheet with pasted text
+   * that has not been read.
    */
   /** The part of /installningar the pending "Öppna inställningar" goes to. */
   const settingsHash = useRef("");
-  const [confirm, setConfirm] = useState<"replace" | "settings" | null>(null);
+  const [confirm, setConfirm] = useState<"settings" | null>(null);
   /** The pasted link was longer than a link may be, so it was not put in the field. */
   const [pastedTooLong, setPastedTooLong] = useState(false);
-  const [saving, startSaving] = useTransition();
-  /** Why "Spara recept" failed; the preview stays as it was. */
-  const [saveError, setSaveError] = useState<string | null>(null);
   const router = useRouter();
-  const { showToast } = useToast();
   const request = useRef<AbortController | null>(null);
   const urlRef = useRef<HTMLInputElement>(null);
   const textRef = useRef<HTMLTextAreaElement>(null);
@@ -195,8 +143,6 @@ export function ImportSheet({ open, onClose, showFinished = false, searchIngredi
   const tabRefs = useRef(new Map<Tab, HTMLButtonElement>());
   /** The field to focus once the input view shows the tab. */
   const focusField = useRef<ImportKind | null>(null);
-  /** Increases when the sheet closes; a save that answers after that is ignored. */
-  const saveToken = useRef(0);
 
   // A job goes on when the sheet goes away; only what is waiting for its start is let go.
   useEffect(
@@ -239,77 +185,35 @@ export function ImportSheet({ open, onClose, showFinished = false, searchIngredi
   const kind = kindFor[tab];
   /** What an import of this kind sends: the link, the text, or the id of the kept photo ("" when there is none). */
   const valueFor = (of: ImportKind) => (of === "url" ? url : of === "text" ? text : photo ? String(photo.id) : "");
-  /** The preview was parsed from what is in the open tab's field (or the kept photo) right now. */
-  const previewMatchesInput =
-    preview !== null && preview.source.kind === kind && preview.source.value === valueFor(kind);
-
-  const edited = isEdited(preview);
-  // Pasted text that has not been parsed counts too, so closing never loses it silently.
+  // Pasted text that has not been read counts as unsaved, so closing never loses it silently.
   // A link does not: it is quick to paste again.
-  const unparsedText = text.trim() !== "" && !(preview?.source.kind === "text" && preview.source.value === text);
-  const isDirty = edited || (unparsedText && view !== "reading");
-  const errors = preview ? validateDraft(preview.draft, preview.pending) : {};
-  /** "Spara recept" saves only a valid draft. */
-  const isValid = Object.keys(errors).length === 0;
+  const isDirty = text.trim() !== "" && view !== "reading";
 
   function close() {
-    saveToken.current += 1;
-    // The job the sheet waits on goes on (Pontus can read in the next recipe); a draft that is let go closes its job.
-    if (preview) void dismiss(preview.jobId);
+    // The job the sheet waits on goes on (Pontus can read in the next recipe).
     setWatch(null);
     request.current = null;
     setTab("link");
     setUrl("");
     setText("");
     setPhoto(null);
-    setPendingPhoto(null);
     setView("input");
     setError(null);
-    setPreview(null);
     setConfirm(null);
     setPastedTooLong(false);
-    setSaveError(null);
     onClose();
-  }
-
-  /** "Spara recept": saves the draft, then closes the sheet and opens the recipe view. */
-  function save() {
-    if (!preview || !isValid || saving) return;
-    const { draft, recipeId } = preview;
-    const token = saveToken.current;
-    setSaveError(null);
-    startSaving(async () => {
-      let result: Awaited<ReturnType<typeof saveRecipe>>;
-      try {
-        result = await saveRecipe(draft, recipeId);
-      } catch {
-        // The connection broke or the server failed: nothing to show but the save error.
-        result = fail("recipe_save_failed");
-      }
-      // The sheet closed meanwhile (it cannot while saving, but never act on a stale answer).
-      if (saveToken.current !== token) return;
-      if (!result.ok) {
-        setSaveError(result.error.code === "unauthorized" ? result.error.message : errorMessages.recipe_save_failed);
-        return;
-      }
-      close();
-      router.push(`/recept/${result.data.id}`);
-      showToast("Receptet är sparat.");
-    });
   }
 
   /** A tab change also drops a pending "Släng ändringarna?", which was about the other tab. */
   function changeTab(next: Tab) {
     setConfirm(null);
-    setPendingPhoto(null);
     setTab(next);
   }
 
   function requestParse() {
     // One import at a time: Enter in the read-only field while reading does nothing.
     if (view === "reading" || !valueFor(kind).trim()) return;
-    if (edited) setConfirm("replace");
-    else void parse(kind);
+    void parse(kind);
   }
 
   /** "Öppna inställningar": leaves the sheet, asking first when there are unsaved changes, like closing. */
@@ -333,12 +237,11 @@ export function ImportSheet({ open, onClose, showFinished = false, searchIngredi
 
   /**
    * Sends the link, the text or the photo (the kept one unless `photoToSend`
-   * is given) and shows the preview. A photo that is sent becomes the kept
+   * is given) and waits for the job. A photo that is sent becomes the kept
    * one, for "Försök igen".
    */
   async function parse(of: ImportKind, photoToSend: Photo | null = photo, valueOverride?: string) {
     setConfirm(null);
-    setPendingPhoto(null);
     const value = of === "photo" ? (photoToSend ? String(photoToSend.id) : "") : (valueOverride ?? valueFor(of));
     if (!value.trim()) return;
     if (of === "photo") setPhoto(photoToSend);
@@ -394,7 +297,7 @@ export function ImportSheet({ open, onClose, showFinished = false, searchIngredi
     }
     if ((watchedStatus !== "done" && watchedStatus !== "failed") || handledJobs.current.has(watch.id)) return;
     handledJobs.current.add(watch.id);
-    const { id, kind: of, value } = watch;
+    const { id, kind: of } = watch;
     const goBack = (shown: AppError) => {
       setWatch(null);
       setError({ kind: of, error: shown });
@@ -410,53 +313,23 @@ export function ImportSheet({ open, onClose, showFinished = false, searchIngredi
       void dismiss(id);
       return;
     }
-    void (async () => {
-      const result = await fetchResult(id);
-      // Cancelled, closed or replaced while the draft was fetched.
-      if (watchRef.current?.id !== id) return;
-      if (!result.ok) {
-        // Gone (older than 24 hours) or not readable now: said so; the job stays for its badge.
-        goBack(result.error);
-        return;
-      }
-      const parsed = recipeImportSchema.safeParse((result.data as { result: unknown }).result);
-      if (!parsed.success) {
-        goBack(fail("ai_invalid").error);
-        void dismiss(id);
-        return;
-      }
-      const { draft, ingredientNames } = parsed.data;
-      // A draft that this one replaces has done its part.
-      if (preview && preview.jobId !== id) void dismiss(preview.jobId);
-      setWatch(null);
-      setPreview((previous) => ({
-        jobId: id,
-        key: (previous?.key ?? 0) + 1,
-        source: { kind: of, value },
-        recipeId: crypto.randomUUID(),
-        initial: draft,
-        draft,
-        names: ingredientNames,
-        pending: {},
-      }));
-      setSaveError(null);
-      setView("preview");
-    })();
+    // Done: the job has saved the recipe, and SavedImports says so; the sheet has done its part.
+    close();
     // The functions of useAiJobs change with the list; the job and its status decide.
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [watch, view, watchedStatus, watchedCode, loaded]);
 
-  // "Visa" on a finished import: the sheet shows that job, the same way as when it waited on it.
+  // "Visa" on a failed import: the sheet shows that job's error, the same way as when it waited on it.
   useEffect(() => {
-    if (!open || !showFinished || view !== "input" || watch || preview) return;
-    const job = newestUnseenImport(jobs, handledJobs.current);
+    if (!open || !showFinished || view !== "input" || watch) return;
+    const job = newestUnseenFailure(jobs, handledJobs.current);
     if (!job) return;
     setWatch({ id: job.id, kind: kindOfJob(job), value: "" });
     setView("reading");
-  }, [open, showFinished, view, watch, preview, jobs]);
+  }, [open, showFinished, view, watch, jobs]);
 
   // The result is on the screen while the sheet waits on a job or shows its draft: no confirmation says what is there.
-  useShowingAiResults("import", open && (view === "reading" || view === "preview"));
+  useShowingAiResults("import", open && view === "reading");
 
   /**
    * A photo from the camera or the file picker: made small in the browser
@@ -477,7 +350,7 @@ export function ImportSheet({ open, onClose, showFinished = false, searchIngredi
     if (request.current !== controller) return;
     request.current = null;
     if (!prepared.ok) {
-      // The photo kept from before stays, so "Försök igen" and its preview still work.
+      // The photo kept from before stays, so "Försök igen" still works.
       setError({ kind: "photo", error: prepared.error });
       focusField.current = "photo";
       setView("input");
@@ -485,13 +358,6 @@ export function ImportSheet({ open, onClose, showFinished = false, searchIngredi
     }
     photoCount.current += 1;
     const next: Photo = { id: photoCount.current, image: prepared.data };
-    if (edited) {
-      // An edited preview is not replaced without asking, as for text; the new photo waits.
-      setPendingPhoto(next);
-      setView("input");
-      setConfirm("replace");
-      return;
-    }
     void parse("photo", next);
   }
 
@@ -603,14 +469,6 @@ export function ImportSheet({ open, onClose, showFinished = false, searchIngredi
     );
   }
 
-  /** "Visa förhandsgranskningen", when the preview was parsed from what is in the field. */
-  const showPreviewButton =
-    view === "input" && previewMatchesInput ? (
-      <Button variant="text" onClick={() => setView("preview")} className="-ml-3 self-start">
-        Visa förhandsgranskningen
-      </Button>
-    ) : null;
-
   let footer: ReactNode = null;
   if (view === "input" && confirm !== null) {
     footer = (
@@ -621,9 +479,7 @@ export function ImportSheet({ open, onClose, showFinished = false, searchIngredi
         <Button
           variant="secondary"
           fullWidth
-          onClick={() =>
-            confirm === "settings" ? openSettings(settingsHash.current) : void parse(kind, kind === "photo" ? (pendingPhoto ?? photo) : null)
-          }
+          onClick={() => openSettings(settingsHash.current)}
         >
           Släng ändringarna
         </Button>
@@ -631,12 +487,7 @@ export function ImportSheet({ open, onClose, showFinished = false, searchIngredi
           variant="text"
           fullWidth
           autoFocus
-          onClick={() => {
-            const keepPreview = confirm === "replace";
-            setConfirm(null);
-            setPendingPhoto(null);
-            if (keepPreview) setView("preview");
-          }}
+          onClick={() => setConfirm(null)}
         >
           Fortsätt ändra
         </Button>
@@ -693,15 +544,6 @@ export function ImportSheet({ open, onClose, showFinished = false, searchIngredi
         Avbryt
       </Button>
     );
-  } else if (view === "preview" && preview) {
-    footer = (
-      <>
-        {saveError ? <Notice role="alert">{saveError}</Notice> : null}
-        <Button fullWidth disabled={!isValid || saving} onClick={save}>
-          {saving ? "Sparar …" : "Spara recept"}
-        </Button>
-      </>
-    );
   }
 
   return (
@@ -711,30 +553,9 @@ export function ImportSheet({ open, onClose, showFinished = false, searchIngredi
       title="Importera recept"
       closeLabel="Stäng"
       isDirty={isDirty}
-      preventClose={saving}
       footer={footer}
     >
-      {view === "preview" && preview ? (
-        // Nothing in the preview can change while it is being saved.
-        <div data-valid={isValid} inert={saving}>
-          <RecipePreview
-            key={preview.key}
-            draft={preview.draft}
-            names={preview.names}
-            onChange={(draft, names) => setPreview((current) => current && { ...current, draft, names })}
-            pending={preview.pending}
-            onPendingChange={(pending) => setPreview((current) => current && { ...current, pending })}
-            errors={errors}
-            searchIngredients={searchIngredients}
-            backLabel={backLabels[preview.source.kind]}
-            onBack={() => {
-              focusField.current = preview.source.kind;
-              changeTab(tabFor[preview.source.kind]);
-              setView("input");
-            }}
-          />
-        </div>
-      ) : (
+      {(
         <div className="flex flex-col gap-4">
           <div role="tablist" aria-label="Importera från" className="flex rounded-md bg-bg p-1">
             {tabs.map(({ id, label }) => (
@@ -807,7 +628,6 @@ export function ImportSheet({ open, onClose, showFinished = false, searchIngredi
                   </Button>
                   {/* Mounted empty, so the text is announced when it appears. */}
                   <div role="status">{reading && tab === "link" ? <Reading waiting={waiting} /> : null}</div>
-                  {tab === "link" ? showPreviewButton : null}
                 </div>
               ) : id === "text" ? (
                 <div className="flex flex-col gap-3">
@@ -836,7 +656,6 @@ export function ImportSheet({ open, onClose, showFinished = false, searchIngredi
                   ) : null}
                   {/* Mounted empty, so the text is announced when it appears. */}
                   <div role="status">{reading && tab === "text" ? <Reading waiting={waiting} /> : null}</div>
-                  {tab === "text" ? showPreviewButton : null}
                 </div>
               ) : (
                 <div className="flex flex-col gap-3">
@@ -847,7 +666,6 @@ export function ImportSheet({ open, onClose, showFinished = false, searchIngredi
                   </p>
                   {/* Mounted empty, so the text is announced when it appears. */}
                   <div role="status">{reading && tab === "photo" ? <Reading waiting={waiting} /> : null}</div>
-                  {tab === "photo" ? showPreviewButton : null}
                 </div>
               )}
             </div>
@@ -959,16 +777,13 @@ const ImportContext = createContext<ImportContextValue | null>(null);
 
 /**
  * Holds the import sheet for a page, so the "+" in the header and the button in
- * the empty library open the same sheet. `searchIngredients` comes from the
- * page, which may import the catalog's server entry (AD-1).
+ * the empty library open the same sheet.
  */
 export function ImportRecipeProvider({
-  searchIngredients,
   autoImport,
   sites,
   children,
 }: {
-  searchIngredients: SearchIngredients;
   /** Story 1.13: opens the sheet on a shared link; closing it goes back to /recept. */
   autoImport?: AutoImport;
   /** Story 1.14: the approved recipe sites, read on the server and waited for inside the sheet. */
@@ -1012,7 +827,6 @@ export function ImportRecipeProvider({
           // The shared link is spent: a reload must not read it again.
           if (autoImport) router.replace("/recept");
         }}
-        searchIngredients={searchIngredients}
       />
     </ImportContext.Provider>
   );

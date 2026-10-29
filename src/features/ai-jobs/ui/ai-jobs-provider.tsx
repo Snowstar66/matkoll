@@ -70,7 +70,8 @@ export function AiJobsProvider({ children }: { children: ReactNode }) {
   const onFinished = useCallback(
     (finished: AiJob[]) => {
       const client = aiJobsClient();
-      const news = finished.filter((job) => !client.isShowing(job.kind));
+      // A finished import is saved already (Story 1.15); SavedImports says so, with "Öppna" and "Ångra".
+      const news = finished.filter((job) => !client.isShowing(job.kind) && !(job.kind === "import" && job.status === "done"));
       if (news.length === 0) return;
       const [only] = news;
       if (news.length === 1) {
