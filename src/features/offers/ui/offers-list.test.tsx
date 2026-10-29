@@ -60,14 +60,20 @@ describe("OffersList, how good the offers are (Story 9.11)", () => {
 
   it("shows the regular price and the saving, and nothing when unknown", () => {
     render(<OffersList weekStart="2026-10-26" offers={offers} />);
-    expect(screen.getByText("89 kr/kg · Ord. 111,90 kr · spara 20 %")).toBeInTheDocument();
-    expect(screen.getByText("Köp 3 betala för 2 · spara 33 %")).toBeInTheDocument();
-    expect(screen.getByText("10 kr/kg")).toBeInTheDocument();
+    const [onion, cheese, tomatoes] = screen.getAllByTestId("offer-row").map((row) => within(row));
+    expect(cheese.getByTestId("offer-price")).toHaveTextContent("89 kr/kg");
+    expect(cheese.getByTestId("offer-regular-price")).toHaveTextContent("111,90 kr");
+    expect(cheese.getByText("\u221220 %")).toBeInTheDocument();
+    expect(tomatoes.getByText("\u221233 %", { exact: false })).toBeInTheDocument();
+    expect(onion.getByTestId("offer-price")).toHaveTextContent("10 kr/kg");
+    expect(onion.queryByTestId("offer-regular-price")).not.toBeInTheDocument();
+    expect(onion.queryByText(/%/)).not.toBeInTheDocument();
   });
 
   it("marks 30 % or more as Toppklipp", () => {
     render(<OffersList weekStart="2026-10-26" offers={offers} />);
-    expect(screen.getAllByText("Toppklipp")).toHaveLength(1);
+    expect(screen.getAllByText(/Toppklipp/)).toHaveLength(1);
+    expect(screen.getByText(/Toppklipp/)).toHaveTextContent("Toppklipp \u221233 %");
   });
 
   it("lists the best saving first and unknown last", () => {

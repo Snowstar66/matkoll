@@ -2,20 +2,23 @@
 
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { type ReactNode, useActionState, useId, useState } from "react";
+import { type ReactNode, useActionState, useId, useMemo, useState } from "react";
 import { FilterPills } from "@/components/filter-pills";
 import { Button, buttonClasses } from "@/components/button";
 import { Notice } from "@/components/notice";
 import { Sheet } from "@/components/sheet";
 import { useToast } from "@/components/toast";
-import { errorMessages, fail, type ErrorCode } from "@/lib/errors";
+import { errorMessages, fail, type ErrorCode, type Result } from "@/lib/errors";
 import { fetchStoreOffers, type FetchStoreOffersResult } from "../actions/fetch-store-offers";
 import {
+  addedToListText,
+  addToListText,
   fetchingOffersText,
   noOffersText,
   offersFetchedText,
   offersSheetSubtitle,
   offersSkippedText,
+  offerListItem,
   offersSummaryText,
   openOffersPageText,
   type StoreOffer,
@@ -33,6 +36,22 @@ export type OffersStore = {
   siteName: string | null;
 };
 
+/**
+ * Story 9.12: what picking offers for the shopping list needs. The page
+ * reads the current plan and what is on its list (shopping) and passes the
+ * action, so this module never imports shopping (AD-1). `null` without a
+ * current plan: the rows then have no checkbox.
+ */
+export type OffersListing = {
+  planId: string;
+  /** Ids of the offers already on the list. */
+  onList: readonly string[];
+  add: (input: {
+    planId: string;
+    items: { key: string; label: string; ingredientId: string | null }[];
+  }) => Promise<Result<{ count: number }>>;
+};
+
 export type OffersSheetProps = {
   /** The selected store, or `null` when none is selected. */
   store: OffersStore | null;
@@ -46,6 +65,8 @@ export type OffersSheetProps = {
   now: string;
   /** The offers could not be read. */
   unavailable: boolean;
+  /** Picking offers for the shopping list (Story 9.12); absent or `null` shows the list only. */
+  listing?: OffersListing | null;
 };
 
 /** Story 9.11: the offers under their categories, or the best saving first. */
@@ -105,10 +126,17 @@ export function OffersSheet({
   fetchedAt,
   now,
   unavailable,
+  listing = null,
 }: OffersSheetProps & { open: boolean; onClose: () => void }) {
   const router = useRouter();
   const { showToast } = useToast();
   const formId = useId();
+  const [picked, setPicked] = useState<ReadonlySet<string>>(new Set());
+  const [added, setAdded] = useState<ReadonlySet<string>>(new Set());
+  const [adding, setAdding] = useState(false);
+  const [addError, setAddError] = useState<{ message: string; attempt: number } | null>(null);
+  const onList = useMemo(() => new Set([...(listing?.onList ?? []), ...added]), [listing, added]);
+  const chosen = offers.filter((offer) => picked.has(offer.id) && !onList.has(offer.id));
   const [sort, setSort] = useState<"category" | "saving">("category");
   const [state, fetchAction, pending] = useActionState<FetchState | null, FormData>(async (previous, formData) => {
     let answer: FetchStoreOffersResult;
@@ -122,6 +150,32 @@ export function OffersSheet({
     else if (answer.error.code === "unauthorized") router.refresh();
     return { result: answer, attempt: (previous?.attempt ?? 0) + 1 };
   }, null);
+
+  async function addChosen() {
+    if (!listing || chosen.length === 0 || adding) return;
+    const items = chosen.map(offerListItem);
+    setAdding(true);
+    setAddError(null);
+    let answer: Awaited<ReturnType<OffersListing["add"]>>;
+    try {
+      answer = await listing.add({ planId: listing.planId, items });
+    } catch {
+      answer = fail("shopping_save_failed");
+    }
+    setAdding(false);
+    if (answer.ok) {
+      setAdded((before) => new Set([...before, ...chosen.map((offer) => offer.id)]));
+      setPicked(new Set());
+      // The sheet closes, so the toast and its link are within reach.
+      onClose();
+      showToast(addedToListText(chosen.length), {
+        show: { label: "Inköpslista", onShow: () => router.push("/lista") },
+      });
+    } else {
+      if (answer.error.code === "unauthorized" || answer.error.code === "shopping_plan_changed") router.refresh();
+      setAddError({ message: answer.error.message, attempt: (addError?.attempt ?? 0) + 1 });
+    }
+  }
 
   const result = state?.result ?? null;
   const error = result && !result.ok ? result.error : null;
@@ -154,7 +208,27 @@ export function OffersSheet({
         {offers.some((offer) => offer.savingPercent !== null) ? (
           <FilterPills label="Sortera erbjudandena" options={sortOptions} value={sort} onChange={setSort} />
         ) : null}
-        <OffersList offers={offers} weekStart={weekStart} sort={sort} />
+        <OffersList
+          offers={offers}
+          weekStart={weekStart}
+          sort={sort}
+          selection={
+            listing
+              ? {
+                  picked,
+                  onList,
+                  disabled: adding,
+                  onToggle: (id, on) =>
+                    setPicked((before) => {
+                      const next = new Set(before);
+                      if (on) next.add(id);
+                      else next.delete(id);
+                      return next;
+                    }),
+                }
+              : undefined
+          }
+        />
         <div className="-ml-3">
           <OpenPageLink href={store.offersUrl} text={openOffersPageText(siteName)} />
         </div>
@@ -168,7 +242,14 @@ export function OffersSheet({
       onClose={onClose}
       title="Veckans erbjudanden"
       subtitle={store ? offersSheetSubtitle(store.name, weekStart) : undefined}
-      preventClose={pending}
+      preventClose={pending || adding}
+      footer={
+        chosen.length > 0 ? (
+          <Button variant="primary" disabled={adding} onClick={addChosen} data-testid="add-offers-to-list">
+            {addToListText(chosen.length)}
+          </Button>
+        ) : undefined
+      }
     >
       <div className="flex flex-col gap-4">
         {skipped > 0 && !pending ? (
@@ -194,6 +275,11 @@ export function OffersSheet({
             }
           >
             {error.message}
+          </Notice>
+        ) : null}
+        {addError ? (
+          <Notice key={addError.attempt} role="alert">
+            {addError.message}
           </Notice>
         ) : null}
         {body}

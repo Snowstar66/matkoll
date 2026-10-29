@@ -1,8 +1,11 @@
 import { requireUserOrRedirect } from "@/features/auth/server";
 import { type StoreOffer, weekStartOf } from "@/features/offers";
 import { getActiveOffers, getLastFetch, OffersDataError } from "@/features/offers/server";
-import { OffersSheetButton } from "@/features/offers/ui/offers-sheet";
+import { OffersSheetButton, type OffersListing } from "@/features/offers/ui/offers-sheet";
+import { addKeyedItems, getKeyedItemsOnList, ShoppingDataError } from "@/features/shopping/server";
 import { offersSiteName, type Store } from "@/features/settings";
+import { MealPlanDataError } from "@/features/mealplan/server";
+
 import { getSelectedStore, SettingsDataError } from "@/features/settings/server";
 
 /**
@@ -21,9 +24,18 @@ export async function ListOffers() {
   let offers: StoreOffer[] = [];
   let fetchedAt: Date | null = null;
   let unavailable = false;
+  let listing: OffersListing | null = null;
   try {
     store = await getSelectedStore();
     if (store) [offers, fetchedAt] = await Promise.all([getActiveOffers(store.id), getLastFetch(store.id)]);
+    // Story 9.12: the current plan and the offers already on its list. Without them the rows only show.
+    try {
+      const onList = await getKeyedItemsOnList(offers.map((offer) => offer.id));
+      if (onList) listing = { planId: onList.planId, onList: onList.onList, add: addKeyedItems };
+    } catch (error) {
+      if (!(error instanceof ShoppingDataError || error instanceof MealPlanDataError)) throw error;
+      console.error("offers_listing_unavailable", { reason: error.detail });
+    }
   } catch (error) {
     if (!(error instanceof SettingsDataError || error instanceof OffersDataError)) throw error;
     console.error("offers_unavailable", { reason: error.detail });
@@ -47,6 +59,7 @@ export async function ListOffers() {
       fetchedAt={fetchedAt?.toISOString() ?? null}
       now={now.toISOString()}
       unavailable={unavailable}
+      listing={listing}
     />
   );
 }
