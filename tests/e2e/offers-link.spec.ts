@@ -123,7 +123,17 @@ test("fetches the week's offers with one tap and shows them under their categori
 
   const meat = dialog.getByRole("list", { name: /Kött, fisk & chark/ });
   await expect(meat.getByText("Gårdens Herrgård, Präst")).toBeVisible();
-  await expect(meat.getByText(/^89 kr\/kg · Stammis · Max 1 köp\/hushåll · t\.o\.m\. \d+ \w+$/)).toBeVisible();
+  await expect(
+    meat.getByText(/^89 kr\/kg · Ord\. 111,90 kr · spara 20 % · Stammis · Max 1 köp\/hushåll · t\.o\.m\. \d+ \w+$/),
+  ).toBeVisible();
+  // Story 9.11: no regular price and no stated saving, nothing about it.
+  await expect(meat.getByText("129 kr/kg", { exact: true })).toBeVisible();
+  await expect(dialog.getByText("Toppklipp")).toHaveCount(1);
+  await dialog.getByRole("radio", { name: "Bäst rabatt" }).click();
+  const best = dialog.getByRole("list", { name: "Bäst rabatt först" }).getByTestId("offer-row");
+  await expect(best.first()).toContainText("Köp 3 betala för 2 · spara 33 %");
+  await expect(best.last()).not.toContainText("spara");
+  await dialog.getByRole("radio", { name: "Efter avdelning" }).click();
   await expect(dialog.getByRole("heading", { level: 3, name: "Bröd" })).toBeVisible();
   await expect(dialog.getByText("Ljusfabriken Kronljus")).toHaveCount(0);
   const page$ = dialog.getByRole("link", { name: /^Öppna sidan på ica\.se/ });

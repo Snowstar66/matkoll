@@ -2,6 +2,7 @@ import { compareCategories, displayCategory, type Category, type Section } from 
 import { oneLine } from "@/lib/one-line";
 import type { IcaOffer } from "./ica-offer-page";
 import { clip } from "./offer-name";
+import { savingText } from "./offer-saving";
 import { dayText, swedishToday, weekEnd, weekLabel, weekShortLabel } from "./week";
 
 // An offer as Matkoll keeps it (Story 9.1, AD-25): one store, one week. The
@@ -37,6 +38,10 @@ export type OfferDraft = {
   /** The offer's last day, YYYY-MM-DD, or `null` when the store does not say. */
   validTo: string | null;
   source: OfferSource;
+  /** The regular price in kronor, or `null` when not known (Story 9.11). */
+  regularPrice: number | null;
+  /** The saving in whole percent, or `null` when it cannot be stated (Story 9.11). */
+  savingPercent: number | null;
 };
 
 /** An offer as it is stored and shown. */
@@ -74,6 +79,8 @@ export function toOfferDraft(
     memberOnly: offer.memberOnly,
     validTo: offer.validTo,
     source: "link",
+    regularPrice: offer.regularPrice,
+    savingPercent: offer.savingPercent,
   };
 }
 
@@ -117,8 +124,11 @@ export function openOffersPageText(siteName: string): string {
  * when the offer does not end with its week, its last day: "89 kr/kg ·
  * Stammis · Max 1 köp/hushåll · t.o.m. 22 nov".
  */
-export function offerMetaText(offer: Pick<StoreOffer, "price" | "memberOnly" | "note" | "validTo">, weekStart: string): string {
-  const parts = [offer.price, offer.memberOnly ? "Stammis" : null, offer.note];
+export function offerMetaText(
+  offer: Pick<StoreOffer, "price" | "memberOnly" | "note" | "validTo" | "regularPrice" | "savingPercent">,
+  weekStart: string,
+): string {
+  const parts = [offer.price, savingText(offer) || null, offer.memberOnly ? "Stammis" : null, offer.note];
   if (offer.validTo && offer.validTo !== weekEnd(weekStart)) parts.push(`t.o.m. ${dayText(offer.validTo)}`);
   return parts.filter(Boolean).join(" · ");
 }
@@ -137,6 +147,14 @@ export function fetchedAtText(at: Date, now: Date): string {
 /** "7 erbjudanden · hämtade idag 07:12", or only the count when the time is not known. */
 export function offersSummaryText(count: number, fetchedAt: Date | null, now: Date): string {
   return fetchedAt ? `${offersCountWords(count)} · ${fetchedAtText(fetchedAt, now)}` : offersCountWords(count);
+}
+
+/**
+ * The offers best saving first, "Bäst rabatt": by percent, those with no
+ * stated saving last, and the page's order within equals (the sort is stable).
+ */
+export function bestSavingFirst<T extends Pick<StoreOffer, "savingPercent">>(offers: readonly T[]): T[] {
+  return [...offers].sort((a, b) => (b.savingPercent ?? -1) - (a.savingPercent ?? -1));
 }
 
 /** The offers under their display categories, in the store's order of categories and the page's order within each. */

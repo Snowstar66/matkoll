@@ -34,6 +34,8 @@ function offer(changes: Partial<StoreOffer>): StoreOffer {
     memberOnly: false,
     validTo: "2026-11-01",
     source: "link",
+    regularPrice: null,
+    savingPercent: null,
     createdAt: "2026-10-28T06:12:00Z",
     ...changes,
   };

@@ -22,6 +22,8 @@ const herrgard: IcaOffer = {
   category: "Färskvaror",
   validTo: "2026-11-22",
   memberOnly: true,
+  regularPrice: 111.9,
+  savingPercent: 20,
 };
 
 describe("toOfferDraft", () => {
@@ -38,6 +40,8 @@ describe("toOfferDraft", () => {
       memberOnly: true,
       validTo: "2026-11-22",
       source: "link",
+      regularPrice: 111.9,
+      savingPercent: 20,
     });
   });
 
@@ -62,10 +66,16 @@ describe("toOfferDraft", () => {
 
 describe("texts", () => {
   it("writes the line under an offer, with the last day only when it is not the week's", () => {
-    const offer = { price: "89 kr/kg", memberOnly: true, note: "Max 1 köp/hushåll", validTo: "2026-11-22" };
+    const offer = { price: "89 kr/kg", memberOnly: true, note: "Max 1 köp/hushåll", validTo: "2026-11-22", regularPrice: null, savingPercent: null };
     expect(offerMetaText(offer, "2026-10-26")).toBe("89 kr/kg · Stammis · Max 1 köp/hushåll · t.o.m. 22 nov");
     expect(offerMetaText({ ...offer, validTo: "2026-11-01" }, "2026-10-26")).toBe("89 kr/kg · Stammis · Max 1 köp/hushåll");
-    expect(offerMetaText({ price: "2 för 30 kr", memberOnly: false, note: null, validTo: null }, "2026-10-26")).toBe("2 för 30 kr");
+    expect(offerMetaText({ ...offer, price: "2 för 30 kr", memberOnly: false, note: null, validTo: null }, "2026-10-26")).toBe("2 för 30 kr");
+    expect(offerMetaText({ ...offer, regularPrice: 111.9, savingPercent: 20 }, "2026-10-26")).toBe(
+      "89 kr/kg · Ord. 111,90 kr · spara 20 % · Stammis · Max 1 köp/hushåll · t.o.m. 22 nov",
+    );
+    expect(offerMetaText({ ...offer, price: "25% rabatt", note: null, validTo: null, memberOnly: false, savingPercent: 25 }, "2026-10-26")).toBe(
+      "25% rabatt · spara 25 %",
+    );
   });
 
   it("confirms a fetch and says what was not food", () => {

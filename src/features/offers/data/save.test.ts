@@ -21,6 +21,8 @@ const draft: OfferDraft = {
   memberOnly: false,
   validTo: "2026-11-01",
   source: "link",
+  regularPrice: 149.5,
+  savingPercent: 14,
 };
 
 beforeEach(() => {
@@ -50,6 +52,8 @@ describe("saveOffersIn", () => {
           member_only: false,
           valid_to: "2026-11-01",
           source: "link",
+          regular_price: 149.5,
+          saving_percent: 14,
         },
       ],
       replace_source: "link",

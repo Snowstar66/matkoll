@@ -3,6 +3,7 @@
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { type ReactNode, useActionState, useId, useState } from "react";
+import { FilterPills } from "@/components/filter-pills";
 import { Button, buttonClasses } from "@/components/button";
 import { Notice } from "@/components/notice";
 import { Sheet } from "@/components/sheet";
@@ -46,6 +47,12 @@ export type OffersSheetProps = {
   /** The offers could not be read. */
   unavailable: boolean;
 };
+
+/** Story 9.11: the offers under their categories, or the best saving first. */
+const sortOptions = [
+  { value: "category", label: "Efter avdelning" },
+  { value: "saving", label: "Bäst rabatt" },
+] as const;
 
 /** The last fetch's answer, and which tap it was, so a repeated failure is announced again. */
 type FetchState = { result: FetchStoreOffersResult; attempt: number };
@@ -102,6 +109,7 @@ export function OffersSheet({
   const router = useRouter();
   const { showToast } = useToast();
   const formId = useId();
+  const [sort, setSort] = useState<"category" | "saving">("category");
   const [state, fetchAction, pending] = useActionState<FetchState | null, FormData>(async (previous, formData) => {
     let answer: FetchStoreOffersResult;
     try {
@@ -143,7 +151,10 @@ export function OffersSheet({
           </p>
           <FetchOffersButton form={formId} variant="text" pending={pending} />
         </div>
-        <OffersList offers={offers} weekStart={weekStart} />
+        {offers.some((offer) => offer.savingPercent !== null) ? (
+          <FilterPills label="Sortera erbjudandena" options={sortOptions} value={sort} onChange={setSort} />
+        ) : null}
+        <OffersList offers={offers} weekStart={weekStart} sort={sort} />
         <div className="-ml-3">
           <OpenPageLink href={store.offersUrl} text={openOffersPageText(siteName)} />
         </div>

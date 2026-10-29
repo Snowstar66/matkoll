@@ -1,6 +1,7 @@
 import { z } from "zod";
 import type { Section } from "@/features/catalog";
 import { fail, ok, type Result } from "@/lib/errors";
+import { mechanicsSchema, offerSaving } from "./offer-saving";
 import { isIsoDate } from "./week";
 
 // Reads the weekly offers out of a store's offer page on ica.se (Story 9.1,
@@ -56,6 +57,10 @@ export type IcaOffer = {
   validTo: string;
   /** The offer is for members ("Stammis"). */
   memberOnly: boolean;
+  /** The regular price in kronor ("Ord.pris"), or `null` when the page has none (Story 9.11). */
+  regularPrice: number | null;
+  /** The saving in whole percent, or `null` when it cannot be stated (Story 9.11). */
+  savingPercent: number | null;
 };
 
 const text = z
@@ -74,6 +79,12 @@ const offerSchema = z.object({
   validTo: z.string().regex(/^\d{4}-\d{2}-\d{2}/),
   restriction: text,
   traits: z.array(z.string()).nullish(),
+  // Story 9.11: a wrong shape here only means no saving, never a lost offer.
+  parsedMechanics: mechanicsSchema.nullish().catch(null),
+  stores: z
+    .array(z.object({ regularPrice: z.string().nullish().catch(null) }))
+    .nullish()
+    .catch(null),
 });
 
 const marker = "window.__INITIAL_DATA__";
@@ -202,7 +213,7 @@ export function parseIcaOfferPage(html: string): Result<{ offers: IcaOffer[]; sk
     // A date that does not exist (2026-02-30) leaves the entry out, as a wrong shape does.
     if (!parsed.success || !isIsoDate(parsed.data.validTo.slice(0, 10))) continue;
     readable += 1;
-    const { details, category, validTo, restriction, traits } = parsed.data;
+    const { details, category, validTo, restriction, traits, parsedMechanics, stores } = parsed.data;
     if (!foodSection(category.articleGroupName)) {
       skipped += 1;
       continue;
@@ -215,6 +226,7 @@ export function parseIcaOfferPage(html: string): Result<{ offers: IcaOffer[]; sk
       category: category.articleGroupName,
       validTo: validTo.slice(0, 10),
       memberOnly: (traits ?? []).includes("Stammis"),
+      ...offerSaving(parsedMechanics, stores?.[0]?.regularPrice),
     });
   }
   if (weekly.length > 0 && readable === 0) return fail("offers_page_changed");

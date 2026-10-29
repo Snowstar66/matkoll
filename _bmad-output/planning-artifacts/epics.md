@@ -2204,3 +2204,32 @@ Byggs bara om mätningen i 9.1 (T14) visar att färre än hälften av erbjudande
 **Givet** ett förslag som Pontus bockar ur i granskningen
 **När** kopplingarna sparas
 **Så** sparas inget för det erbjudandet
+
+### Story 9.11: Hur bra är erbjudandet
+
+Som Pontus,
+vill jag se hur bra rabatt eller erbjudande varje vara i veckans lista är,
+så att jag ser de bästa först och inte behöver räkna själv.
+
+**Acceptance Criteria:**
+
+**Givet** en hämtad vecka där ICA anger ordinarie pris eller en procentrabatt
+**När** Pontus öppnar arket Veckans erbjudanden
+**Så** står under varan till exempel "89 kr/kg · Ord. 111,90 kr · spara 20 %", och för "25% rabatt" och "Köp 3 betala för 2" står "spara 25 %" respektive "spara 33 %"
+**Och** när ordinarie pris eller jämförbar enhet saknas visas ingenting om besparingen, aldrig en gissning
+
+**Givet** ett erbjudande med minst 30 % besparing
+**När** listan visas
+**Så** har raden märket "Toppklipp"
+
+**Givet** erbjudanden där minst ett har en besparing
+**När** Pontus väljer "Bäst rabatt"
+**Så** visas en lista med störst besparing först och okända sist, och "Efter avdelning" är kvar som standard
+
+**Givet** migrationen
+**När** den körs på befintliga data
+**Så** får gamla rader null, `scripts/pantry-site-check.sql` ger samma utskrift före och efter, och `save_store_offers` är fortfarande `security invoker` med samma grants
+
+**Givet** en hämtning
+**När** den är klar
+**Så** loggas antalet erbjudanden med ordinarie pris (`withRegularPrice`), aldrig varunamn
