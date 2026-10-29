@@ -175,7 +175,7 @@ function SuggestionCard({ suggestion, onSave }: { suggestion: ShownSuggestion; o
       meta={recipeMetaText(draft.totalMinutes, draft.servings)}
       badge={<AiBadge />}
     >
-      <p className="text-body break-words text-ink-2">Med: {cardNames(suggestion).join(", ")}</p>
+      <p className="text-meta break-words text-ink-2">Med: {cardNames(suggestion).join(", ")}</p>
       <Button variant="secondary" onClick={onSave} aria-label={`Spara ${draft.title}`}>
         Spara
       </Button>

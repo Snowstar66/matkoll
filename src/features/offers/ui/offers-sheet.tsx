@@ -137,7 +137,7 @@ export function OffersSheet({
   } else {
     body = (
       <div className="flex flex-col gap-5">
-        <div className="flex flex-wrap items-center justify-between gap-x-3">
+        <div className="flex items-center justify-between gap-x-3">
           <p data-testid="offers-summary" className="min-w-0 text-meta text-ink-2">
             {offersSummaryText(offers.length, fetchedAt ? new Date(fetchedAt) : null, new Date(now))}
           </p>
