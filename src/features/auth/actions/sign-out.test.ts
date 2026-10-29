@@ -6,6 +6,11 @@ import { fail } from "@/lib/errors";
 const endSession = vi.fn();
 vi.mock("../data/auth", () => ({ endSession: () => endSession() }));
 
+const cookieSet = vi.fn();
+vi.mock("next/headers", () => ({ cookies: async () => ({ set: cookieSet }) }));
+const applies = vi.fn();
+vi.mock("@/lib/supabase/dev-auto-login-server", () => ({ devAutoLoginApplies: () => applies() }));
+
 class RedirectSignal extends Error {
   constructor(readonly url: string) {
     super(`redirect ${url}`);
@@ -21,6 +26,24 @@ const { signOut } = await import("./sign-out");
 beforeEach(() => {
   endSession.mockReset();
   redirect.mockClear();
+  cookieSet.mockReset();
+  applies.mockReset();
+  applies.mockResolvedValue(false);
+});
+
+describe("signOut dev logout marker", () => {
+  it("sets the marker cookie only when the auto-login guards pass", async () => {
+    endSession.mockResolvedValue({ signedOut: true });
+    applies.mockResolvedValue(true);
+    await expect(signOut()).rejects.toThrow(RedirectSignal);
+    expect(cookieSet).toHaveBeenCalledWith("matkoll-dev-logged-out", "1", expect.objectContaining({ httpOnly: true }));
+  });
+
+  it("sets no cookie otherwise", async () => {
+    endSession.mockResolvedValue({ signedOut: true });
+    await expect(signOut()).rejects.toThrow(RedirectSignal);
+    expect(cookieSet).not.toHaveBeenCalled();
+  });
 });
 
 describe("signOut", () => {

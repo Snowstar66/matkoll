@@ -47,6 +47,15 @@ export const envSchema = z.object({
    * Story 12.4). Only the mock reads it, and only tests set it.
    */
   AI_MOCK_DELAY_MS: optional(z.coerce.number().int().min(0).max(30_000)),
+  /** Story 15.1: automatic sign-in on the local machine only. Both or neither; see devAutoLoginCredentials. */
+  DEV_AUTO_LOGIN_EMAIL: optional(z.string()),
+  DEV_AUTO_LOGIN_PASSWORD: optional(z.string()),
+  /** Set to 1 by `pnpm dev` only (bound to 127.0.0.1); `pnpm dev:lan` leaves it out, so no auto-login. */
+  MATKOLL_DEV_LOOPBACK: optional(z.string()),
+  /** Set by Vercel; a guard of the automatic local sign-in. */
+  VERCEL: optional(z.string()),
+  /** Set by Next (`development`, `production`); a guard of the automatic local sign-in. */
+  NODE_ENV: optional(z.string()),
 });
 
 /** SITE_URL outside production when it is not set. */

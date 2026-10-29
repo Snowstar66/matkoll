@@ -1,5 +1,6 @@
 import { type NextRequest, NextResponse } from "next/server";
 import {
+  devAutoLoginRedirect,
   redirectWithSession,
   type SessionUpdate,
   SupabaseNotConfiguredError,
@@ -42,6 +43,10 @@ export async function proxy(request: NextRequest) {
   if (session.hasSession || isPublic(pathname) || !isPageRequest(request)) {
     return session.response;
   }
+
+  // Story 15.1: only on a local machine with every guard met; otherwise null.
+  const autoLogin = await devAutoLoginRedirect(request);
+  if (autoLogin) return autoLogin;
 
   const login = new URL("/logga-in", request.url);
   login.searchParams.set("next", `${pathname}${search}`);

@@ -2462,6 +2462,46 @@ så att jag kan handla där jag vill.
 **När** Pontus trycker "Dela listan"
 **Så** öppnas telefonens delningsmeny (eller kopieras texten när delning saknas) med en enkel lista per avdelning, till exempel "Gul lök 1 st", utan butiksformatet
 
+## Epic 15: Enklare lokalt
+
+Pontus vill slippa logga in när Matkoll körs på den egna Macen. Inloggningen finns kvar för den publicerade appen.
+
+### Story 15.1: Automatisk inloggning lokalt
+
+Som Pontus,
+vill jag vara inloggad direkt när jag öppnar Matkoll på min egen Mac,
+så att jag slipper koden varje gång.
+
+**Acceptance Criteria:**
+
+**Givet** att Matkoll körs med `pnpm dev` på localhost och att `.env.local` anger e-post och lösenord för den lokala autoinloggningen
+**När** Pontus öppnar appen utan att vara inloggad
+**Så** loggas Pontus in automatiskt och hamnar där Pontus skulle ha hamnat efter inloggning
+
+**Givet** en produktionsbygge, Vercel, en annan värd än localhost eller 127.0.0.1, eller att inställningarna saknas
+**När** någon öppnar appen
+**Så** fungerar inloggningen precis som förut, och den automatiska vägen går inte att nå eller slå på
+
+**Givet** koden och loggarna
+**När** autoinloggningen används
+**Så** loggas aldrig lösenordet, service role används inte i appen, och ett skript i `scripts/` sätter lösenordet för Pontus lokala användare
+
+### Story 15.2: Inloggad länge på varje enhet
+
+Som Pontus,
+vill jag förbli inloggad på telefonen och datorn länge,
+så att jag bara behöver ange en kod någon enstaka gång.
+
+**Acceptance Criteria:**
+
+**Givet** att Pontus har loggat in på en enhet
+**När** Pontus öppnar appen igen inom 90 dagar
+**Så** är Pontus fortfarande inloggad utan kod, och sessionen förnyas tyst medan appen används
+
+**Givet** att Pontus loggar ut eller inte har använt enheten på 90 dagar
+**När** appen öppnas
+**Så** krävs inloggning igen, och cookies är fortfarande httpOnly, secure i produktion och SameSite=Lax
+
 ## Epic 16: Bättre matförslag
 
 Pontus fick AI-förslag från veckans erbjudanden men kunde inte spara dem, och förslagen säger för lite om varför de är bra.

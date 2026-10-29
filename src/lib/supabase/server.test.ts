@@ -14,7 +14,10 @@ const cookieStore = {
 };
 vi.mock("next/headers", () => ({ cookies: async () => cookieStore }));
 vi.mock("next/server", () => ({ connection: async () => {} }));
-vi.mock("./config", () => ({ supabaseConfig: () => ({ url: "http://127.0.0.1:54321", key: "publishable" }) }));
+vi.mock("./config", () => ({
+  supabaseConfig: () => ({ url: "http://127.0.0.1:54321", key: "publishable" }),
+  authCookieOptions: () => ({ maxAge: 7_776_000, httpOnly: true, sameSite: "lax", path: "/", secure: false }),
+}));
 
 const { createClient, removeSessionCookies } = await import("./server");
 

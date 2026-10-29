@@ -151,6 +151,9 @@ development_status:
   epic-14: done
   14-1-erbjudandevyn-städas: done
   14-2-skicka-listan-till-butiken-tydligare: done
+  epic-15: done
+  15-1-automatisk-inloggning-lokalt: done
+  15-2-inloggad-länge-på-varje-enhet: done
   epic-16: in-progress
   16-1-spara-och-lägga-på-matsedeln-fungerar-från-förslagen: in-progress
   16-2-förslaget-säger-varför-det-är-bra: backlog
