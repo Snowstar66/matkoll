@@ -131,9 +131,13 @@ export type ImportSheetProps = {
   /** The sheet was opened with "Visa" for a finished import: it shows that job. */
   showFinished?: boolean;
   searchIngredients: SearchIngredients;
+  /** Story 1.13: a shared link to read as soon as the sheet is on screen, or a shared value that is not a usable link. */
+  autoImport?: AutoImport;
 };
 
-export function ImportSheet({ open, onClose, showFinished = false, searchIngredients }: ImportSheetProps) {
+export type AutoImport = { kind: "ok"; url: string } | { kind: "invalid"; value: string };
+
+export function ImportSheet({ open, onClose, showFinished = false, searchIngredients, autoImport }: ImportSheetProps) {
   const ids = useId();
   const { jobs, loaded, start, fetchResult, cancel: cancelJob, dismiss } = useAiJobs();
   /** The job the sheet waits on while it reads. */
@@ -194,6 +198,28 @@ export function ImportSheet({ open, onClose, showFinished = false, searchIngredi
     },
     [],
   );
+
+  // Story 1.13: a shared link is read once, from here, in the browser, never when the page is
+  // rendered on the server (so a prefetch of the link reads nothing). The timer is cleared by
+  // Strict Mode's extra cleanup, and the ref keeps a second run from starting a second import.
+  const autoStarted = useRef(false);
+  useEffect(() => {
+    if (!open || !autoImport || autoStarted.current) return;
+    const timer = setTimeout(() => {
+      autoStarted.current = true;
+      if (autoImport.kind === "ok") {
+        setUrl(autoImport.url);
+        void parse("url", null, autoImport.url);
+      } else {
+        setUrl(autoImport.value);
+        setError({ kind: "url", error: fail("fetch_invalid_url").error });
+        focusField.current = "url";
+      }
+    }, 0);
+    return () => clearTimeout(timer);
+    // parse is this render's; the shared link and the open sheet decide.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [open, autoImport]);
 
   useEffect(() => {
     const kind = focusField.current;
@@ -295,10 +321,10 @@ export function ImportSheet({ open, onClose, showFinished = false, searchIngredi
    * is given) and shows the preview. A photo that is sent becomes the kept
    * one, for "Försök igen".
    */
-  async function parse(of: ImportKind, photoToSend: Photo | null = photo) {
+  async function parse(of: ImportKind, photoToSend: Photo | null = photo, valueOverride?: string) {
     setConfirm(null);
     setPendingPhoto(null);
-    const value = of === "photo" ? (photoToSend ? String(photoToSend.id) : "") : valueFor(of);
+    const value = of === "photo" ? (photoToSend ? String(photoToSend.id) : "") : (valueOverride ?? valueFor(of));
     if (!value.trim()) return;
     if (of === "photo") setPhoto(photoToSend);
     const controller = new AbortController();
@@ -834,12 +860,16 @@ const ImportContext = createContext<ImportContextValue | null>(null);
  */
 export function ImportRecipeProvider({
   searchIngredients,
+  autoImport,
   children,
 }: {
   searchIngredients: SearchIngredients;
+  /** Story 1.13: opens the sheet on a shared link; closing it goes back to /recept. */
+  autoImport?: AutoImport;
   children: ReactNode;
 }) {
-  const [open, setOpen] = useState(false);
+  const router = useRouter();
+  const [open, setOpen] = useState(autoImport !== undefined);
   /** Opened with "Visa" for a finished import, not with the "+". */
   const [showFinished, setShowFinished] = useState(false);
   const { reveals } = useAiJobs();
@@ -867,9 +897,12 @@ export function ImportRecipeProvider({
       <ImportSheet
         open={open}
         showFinished={showFinished}
+        autoImport={autoImport}
         onClose={() => {
           setOpen(false);
           setShowFinished(false);
+          // The shared link is spent: a reload must not read it again.
+          if (autoImport) router.replace("/recept");
         }}
         searchIngredients={searchIngredients}
       />

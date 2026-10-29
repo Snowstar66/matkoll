@@ -21,6 +21,7 @@ export {
   type RecipeDraft,
 } from "./domain/recipe-draft";
 export { toEditableDraft, savedIngredientNames, lineChoices, hasOnlySavedIds } from "./domain/editable-draft";
+export { readSharedLink, type SharedLink } from "./domain/shared-link";
 export { fromAiRecipe, type AiRecipeLike, type RecipeSource } from "./domain/from-ai-recipe";
 export {
   maxImportTextChars,

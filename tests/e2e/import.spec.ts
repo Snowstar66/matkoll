@@ -449,6 +449,34 @@ test.describe("import from a link", () => {
     await expect(page).toHaveURL(/\/installningar$/);
   });
 
+  // Story 1.13: /recept/importera reads the link in the browser after mount.
+  test("/recept/importera?url= shows the preview, and the link is spent after closing", async ({ page }) => {
+    const errors = watchErrors(page);
+    await page.goto(`/recept/importera?url=${encodeURIComponent(chowMein)}`);
+    await expect(sheet(page).getByLabel("Titel")).toHaveValue("Chow mein med lövbiff");
+    await expect(sheet(page).getByText("Källa: koket.se")).toBeVisible();
+    // One import only, also in dev's Strict Mode.
+    expect(await jobStatuses()).toHaveLength(1);
+    await sheet(page).getByRole("button", { name: "Stäng" }).click();
+    await expect(page).toHaveURL(/\/recept$/);
+    expect(errors).toEqual([]);
+  });
+
+  test("/recept/importera takes the address from text, like Android's share menu", async ({ page }) => {
+    await page.goto(`/recept/importera?text=${encodeURIComponent(`Kolla detta! ${chowMein}`)}`);
+    await expect(sheet(page).getByLabel("Titel")).toHaveValue("Chow mein med lövbiff");
+  });
+
+  test("/recept/importera with an unapproved site says so, and without a usable link asks for one", async ({ page }) => {
+    await page.goto(`/recept/importera?url=${encodeURIComponent("https://www.example.com/recept/kladdkaka")}`);
+    await expect(sheet(page).getByRole("alert")).toHaveText("example.com är inte en godkänd receptsajt.");
+
+    await page.goto(`/recept/importera?url=${encodeURIComponent("http://www.koket.se/chow-mein-med-lovbiff")}`);
+    await expect(sheet(page).getByRole("alert")).toContainText("börjar med https://");
+    await page.goto("/recept/importera");
+    await expect(sheet(page).getByRole("alert")).toContainText("börjar med https://");
+  });
+
   test("Öppna inställningar asks before it throws away pasted text", async ({ page }) => {
     await openImport(page);
     await textField(page).fill(linssoppa);
