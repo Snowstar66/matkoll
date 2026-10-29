@@ -2558,3 +2558,19 @@ så att det ser lika bra ut som mina andra recept.
 **När** receptet visas
 **Så** har det ingredienser, numrerade steg, tid och portioner, en bildyta med en illustration för rättens huvudråvara när foto saknas, och en rad om vilka varor som var på erbjudande när det sparades
 
+### Story 16.5: Varor utan mängd följer med till varukorgen
+
+Som Pontus,
+vill jag att alla varor på inköpslistan kommer med när jag kopierar till varukorgen, även de utan mängd,
+så att agenten inte missar persilja och smör.
+
+**Acceptance Criteria:**
+
+**Givet** en inköpslista där några varor saknar mängd (till exempel "Persilja" och "Smör" som saknas hemma)
+**När** Pontus kopierar till varukorgen
+**Så** finns de med i texten med en tydlig markering, till exempel "mängd: en förpackning, välj minsta vanliga", och agentens instruktion säger att varje rad ska läggas i varukorgen
+
+**Givet** texten
+**När** den kopieras
+**Så** stämmer antalet varor i texten med antalet varor kvar på listan, och appen visar "6 varor kopierade"
+
