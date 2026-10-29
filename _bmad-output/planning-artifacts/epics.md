@@ -2726,3 +2726,27 @@ så att listan börjar högt upp och inget är för stort eller blaffigt.
 **Givet** en pill eller knapp som trycks med pekare
 **När** den får fokus
 **Så** syns ingen fokusring; med tangentbord syns en enkel ring (inte dubbel) på pillen
+
+### Story 16.10: Tips, filter och AI var för sig
+
+Som Pontus,
+vill jag att tipset, listfiltret och AI-förslagen är tre skilda saker på tre ställen,
+så att jag förstår varje sak utan förklaring.
+
+**Acceptance Criteria:**
+
+**Givet** arket med erbjudanden
+**När** det visas
+**Så** står det i ordningen sammanfattning, "Hämta"/"Välj", "Visa butik:" och "Sortera:", en tipsmening, knappen "✨ Föreslå rätter" och listan; AI-kortets ruta och butikspillren "Från:" är borta, och butiksfiltret finns bara i raden "Visa butik:"
+
+**Givet** att minst två butiker har erbjudanden, eller att ett tips nämner matchande erbjudanden
+**När** tipset visas
+**Så** är det en mening utan andra kontroller än en länk: "💡 Maxi passar dig bäst den här veckan: Falukorv finns i dina recept" (skäl enligt 16.7: "finns i dina recept", "har du hemma", "passar det du brukar laga"); med en enda butik "💡 Falukorv finns i dina recept"; under den länken "Visa bara de erbjudandena", som blir "Visa alla erbjudanden" när filtret är på
+
+**Givet** knappen "✨ Föreslå rätter" (✨ är `aria-hidden`)
+**När** jag trycker den med två eller fler butiker
+**Så** öppnas "Föreslå rätter från vilken butik?" med ett stort radioval per butik (bästa butiken förvald och märkt "– passar dig bäst") och knappen "Föreslå rätter" startar jobbet med `storeId`; "Tillbaka" och Esc går tillbaka till listan; med en butik startar jobbet direkt
+
+**Givet** allt från 9.13 till 16.9 (Hämta ersätter, filter, sortering, "Passar dig", urvalsläge, besparingar, "Från dina recept")
+**När** jag använder arket
+**Så** fungerar det som förut, även i mörkt läge, utan sidoöverflöd vid 375 px, med 44 px träffytor och fokusring bara med tangentbord

@@ -128,3 +128,22 @@ export function bestStoreReason(best: Pick<BestStore, "fits" | "total">): string
   if (best.fits > 0) return `${best.fits} ${best.fits === 1 ? "erbjudande passar" : "erbjudanden passar"} det du brukar laga`;
   return `${best.total} ${best.total === 1 ? "erbjudande" : "erbjudanden"}`;
 }
+
+const tipWords: Record<FitSource, string> = {
+  pantry: "har du hemma",
+  recipes: "finns i dina recept",
+  both: "passar det du brukar laga",
+};
+
+/**
+ * The tip over the list (Story 16.10), one sentence: with a store,
+ * "Maxi passar dig bäst den här veckan: Falukorv finns i dina recept"; without
+ * (only one store has offers), "Falukorv finns i dina recept". No names: the counted reason.
+ */
+export function bestStoreTip(best: Pick<BestStore, "fits" | "total" | "matches">, storeLabel?: string): string {
+  const why =
+    best.matches.length === 0
+      ? bestStoreReason(best)
+      : `${matchNames(best.matches)} ${new Set(best.matches.map((match) => match.source)).size === 1 ? tipWords[best.matches[0].source] : tipWords.both}`;
+  return storeLabel ? `${storeLabel} passar dig bäst den här veckan: ${why}` : why;
+}

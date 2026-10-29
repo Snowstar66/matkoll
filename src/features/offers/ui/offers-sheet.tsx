@@ -32,11 +32,11 @@ import {
   type StoreOffer,
 } from "../domain/offer";
 import { topDealPercent } from "../domain/offer-saving";
-import { bestStoreLine, type BestStore } from "../domain/best-store";
+import { bestStoreTip, type BestStore } from "../domain/best-store";
 import { storeBadgeText, storeBadgeTone, type StoreBadgeInfo } from "../domain/store-badge";
 import { FetchOffersButton } from "./fetch-offers-button";
 import { OffersList, StoreLabel } from "./offers-list";
-import { SuggestFromOffersButton } from "./suggest-from-offers-button";
+import { StoreChoice, SuggestFromOffersButton } from "./suggest-from-offers-button";
 
 /** A store as the sheet needs it; the page reads it from settings. */
 export type OffersStore = {
@@ -81,7 +81,7 @@ export type OffersSheetProps = {
   unavailable: boolean;
   /** Picking offers for the shopping list (Story 9.12); absent or `null` shows the list only. */
   listing?: OffersListing | null;
-  /** Story 9.14: the week's best store, counted by the page; `null` when it could not be, or fewer than two stores have offers. */
+  /** Story 9.14: the week's best store, counted by the page; `null` when it could not be. With one store only its matches are named (Story 16.10). */
   best?: BestStore | null;
   /** Story 16.7: the ids of the offers that fit what Pontus cooks or has at home (same rule as `best`); their rows say "Passar dig". */
   fitIds?: readonly string[];
@@ -162,6 +162,8 @@ export function OffersSheet({
   // The stores Pontus has unticked for "Hämta valda"; all are ticked by default.
   const [panel, setPanel] = useState<"fetch" | null>(null);
   const [selecting, setSelecting] = useState(false);
+  // Story 16.10: "Föreslå rätter från vilken butik?" replaces the list inside the same sheet (sheets never stack).
+  const [choosing, setChoosing] = useState(false);
   const fetchPanelId = useId();
   const [unticked, setUnticked] = useState<ReadonlySet<string>>(new Set());
   const [runs, setRuns] = useState<StoreRun[]>([]);
@@ -181,7 +183,7 @@ export function OffersSheet({
   const fits = useMemo(() => new Set(fitIds ?? []), [fitIds]);
   const onList = useMemo(() => new Set([...(listing?.onList ?? []), ...added]), [listing, added]);
   const chosen = offers.filter((offer) => picked.has(offer.id) && !onList.has(offer.id));
-  const bestInfo = storesWithOffers.length > 1 && best && storesWithOffers.some((store) => store.id === best.storeId) ? best : null;
+  const bestInfo = best && storesWithOffers.some((store) => store.id === best.storeId) ? best : null;
   const matchIds = useMemo(() => new Set(bestInfo?.matches.map((match) => match.id) ?? []), [bestInfo]);
   const showingMatches = onlyBest && matchIds.size > 0;
   const shown = useMemo(() => {
@@ -263,7 +265,19 @@ export function OffersSheet({
   const single = withLink[0];
 
   let body: ReactNode;
-  if (stores.length === 0) {
+  if (choosing && storesWithOffers.length > 1) {
+    body = (
+      <StoreChoice
+        stores={storesWithOffers.map((store) => ({ id: store.id, label: badges.get(store.id)?.text ?? store.name }))}
+        defaultStoreId={bestInfo?.storeId ?? storesWithOffers[0].id}
+        bestStoreId={bestInfo?.storeId}
+        onStarted={() => {
+          setChoosing(false);
+          onClose();
+        }}
+      />
+    );
+  } else if (stores.length === 0) {
     body = <Notice action={<SettingsLink />}>{errorMessages.offers_store_missing}</Notice>;
   } else if (withLink.length === 0) {
     body = <Notice action={<SettingsLink />}>{errorMessages.offers_link_missing}</Notice>;
@@ -307,11 +321,6 @@ export function OffersSheet({
               <p data-testid="offers-summary">
                 {showingMatches ? `Visar ${shown.length} av ${offers.length} erbjudanden` : offersSummaryText(shown.length, lastFetch, new Date(now))}
               </p>
-              {showingMatches ? (
-                <Button variant="compact" aria-label="Visa alla erbjudanden" className="-my-3 -ml-1" onClick={() => setOnlyBest(false)}>
-                  Visa alla
-                </Button>
-              ) : null}
               {tops > 0 ? (
                 <p data-testid="offers-finds" className="font-semibold">
                   <span aria-hidden="true">{"\u{1F525} "}</span>
@@ -369,41 +378,20 @@ export function OffersSheet({
                 </div>
               ) : null}
             </div>
-            <SuggestFromOffersButton
-              hasOffers
-              onStarted={onClose}
-              stores={storesWithOffers.map((store) => ({ id: store.id, label: badges.get(store.id)?.text ?? store.name }))}
-              defaultStoreId={bestInfo?.storeId ?? storesWithOffers[0]?.id}
-              bestLine={
-                bestInfo ? (
-                  <div data-testid="best-store" className="text-meta">
-                    <span className="font-semibold text-ink">Bäst denna vecka:</span>{" "}
-                    {badges.get(bestInfo.storeId) ? <StoreLabel badge={badges.get(bestInfo.storeId)!} testId="best-store-label" /> : null}{" "}
-                    <span className="text-ink-2">
-                      {"\u2013 "}
-                      {bestStoreLine(bestInfo)}
-                    </span>
-                    {matchIds.size > 0 ? (
-                      <>
-                        {" "}
-                        <span aria-hidden="true" className="text-ink-2">
-                          {"\u00B7"}
-                        </span>
-                        <Button
-                          variant="compact"
-                          className="-my-3 align-middle"
-                          aria-pressed={showingMatches}
-                          onClick={() => setOnlyBest(!showingMatches)}
-                          data-testid="best-store-toggle"
-                        >
-                          {showingMatches ? "Visa alla" : "Visa"}
-                        </Button>
-                      </>
-                    ) : null}
-                  </div>
-                ) : undefined
-              }
-            />
+            {bestInfo && (filterStores || matchIds.size > 0) ? (
+              <div data-testid="best-store" className="flex flex-col items-start">
+                <p className="text-meta text-ink">
+                  <span aria-hidden="true">{"\u{1F4A1} "}</span>
+                  {bestStoreTip(bestInfo, filterStores ? (badges.get(bestInfo.storeId)?.text ?? undefined) : undefined)}
+                </p>
+                {matchIds.size > 0 ? (
+                  <Button variant="compact" className="-ml-2" onClick={() => setOnlyBest(!showingMatches)} data-testid="best-store-toggle">
+                    {showingMatches ? "Visa alla erbjudanden" : "Visa bara de erbjudandena"}
+                  </Button>
+                ) : null}
+              </div>
+            ) : null}
+            <SuggestFromOffersButton hasOffers onStarted={onClose} onChoose={filterStores ? () => setChoosing(true) : undefined} />
             <OffersList
               offers={shown}
               weekStart={weekStart}
@@ -451,16 +439,17 @@ export function OffersSheet({
   return (
     <Sheet
       open={open}
-      onClose={onClose}
-      title="Veckans erbjudanden"
+      onClose={choosing ? () => setChoosing(false) : onClose}
+      title={choosing ? "Föreslå rätter från vilken butik?" : "Veckans erbjudanden"}
+      closeLabel={choosing ? "Tillbaka" : undefined}
       subtitle={
-        stores.length > 0
+        stores.length > 0 && !choosing
           ? offersSheetSubtitle(withLink.length > 1 ? `${withLink.length} butiker` : (single ?? stores[0]).name, weekStart)
           : undefined
       }
       preventClose={pending || adding}
       footer={
-        chosen.length > 0 ? (
+        chosen.length > 0 && !choosing ? (
           <Button variant="primary" disabled={adding} onClick={addChosen} data-testid="add-offers-to-list">
             {addToListText(chosen.length)}
           </Button>
