@@ -2279,3 +2279,36 @@ så att jag slipper skriva in dem själv.
 **När** raderna visas
 **Så** står produktnamnet rensat från märke och ursprungsland ("Aubergine" för "ICA. Spanien Aubergine") med landet och märket smått under, priset fetstilt i en piller till höger, ordinarie pris genomstruket under det, och rabattmärket "−20 %" (från 30 % "Toppklipp −33 %")
 **Och** kryssrutans namn lyder "Aubergine, 12 kr per st, spara 20 %", raden håller 375 px utan sidscroll och finns i mörkt läge
+
+
+### Story 9.14: Matförslag per butik och veckans bästa butik
+
+Som Pontus,
+vill jag få matförslag från en butik i taget och veta vilken butik som passar bäst den här veckan,
+så att jag inte behöver åka runt i stan för att handla.
+
+**Acceptance Criteria:**
+
+**Givet** erbjudanden från flera butiker
+**När** Pontus öppnar AI-förslagen från veckans erbjudanden
+**Så** väljer Pontus en butik, och förslagen bygger bara på den butikens erbjudanden och lagret
+
+**Givet** erbjudanden från flera butiker och Pontus lager och recept
+**När** arket Veckans erbjudanden visas
+**Så** står "Veckans bästa butik" överst. Den räknas fram utan AI från hur många erbjudanden som passar lagret och det Pontus brukar laga, och den är förvald när förslag beställs
+
+### Story 9.15: Butiksfärger och roligare erbjudandelista
+
+Som Pontus,
+vill jag att erbjudandelistan är rolig och tydlig att titta på, med butikens färg,
+så att jag snabbt ser fynden och vilken butik de finns i.
+
+**Acceptance Criteria:**
+
+**Givet** erbjudanden från flera kedjor och butiker
+**När** listan visas
+**Så** har varje butik en bricka i kedjans färg (ICA röd, övriga neutral tills de får egen färg), utan ICA:s logga och utan produktbilder från ICA
+
+**Givet** ett erbjudande med rabatt
+**När** raden visas
+**Så** syns prislappen och rabatten tydligt, Toppklipp sticker ut, och listan fungerar i 375 px och i mörkt läge
