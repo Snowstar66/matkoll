@@ -2406,3 +2406,22 @@ så att jag kan lägga till, flytta, ändra och ta bort rätter enkelt.
 **När** något saknas eller är krångligt
 **Så** rättas det i storyn eller skrivs som ett förslag till Pontus
 
+### Story 13.4: Markera som lagad
+
+Som Pontus,
+vill jag markera en rätt på matsedeln som lagad och få ingredienserna dragna från lagret,
+så att lagersaldot stämmer utan att jag räknar själv.
+
+**Acceptance Criteria:**
+
+**Givet** en rätt på matsedeln (och slutet av stegläget)
+**När** Pontus trycker "Markera som lagad"
+**Så** visas ett ark med de varor som dras från lagret, skalade efter portionerna, med föreslagen ny mängd per vara som Pontus kan ändra eller hoppa över
+
+**Givet** en receptrad som inte går att räkna om mot lagret (annan enhet eller ingen mängd)
+**När** arket visas
+**Så** står den som "Kontrollera själv" och dras inte av automatiskt, och appen gissar aldrig
+
+**Givet** att Pontus bekräftar
+**När** avdraget görs
+**Så** uppdateras lagret, rätten visas som lagad på matsedeln och räknas inte längre in i inköpslistan, och "Ångra" återställer både lagret och rätten

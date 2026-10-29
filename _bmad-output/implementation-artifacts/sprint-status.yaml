@@ -143,8 +143,9 @@ development_status:
   9-13-erbjudanden-från-flera-butiker: done
   9-14-matförslag-per-butik-och-veckans-bästa-butik: done
   9-15-butiksfärger-och-roligare-erbjudandelista: done
-  epic-13: done
+  epic-13: in-progress
   13-1-soptunna-med-smart-kontrollfråga-på-inköpslistan: done
   13-2-ta-bort-recept: done
   13-3-matsedeln-har-det-som-behövs: done
+  13-4-markera-som-lagad: in-progress
   epic-9-retrospective: optional
