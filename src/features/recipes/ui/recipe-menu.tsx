@@ -1,9 +1,12 @@
 "use client";
 
+import { useRouter } from "next/navigation";
 import { type KeyboardEvent, useEffect, useId, useRef, useState } from "react";
 import { MoreIcon } from "@/components/icons";
+import { TrashButton } from "@/components/trash-button";
 import type { SavedRecipe } from "../domain/saved-recipe";
 import { EditRecipeSheet } from "./edit-recipe-sheet";
+import { useRecipeDelete } from "./recipe-delete";
 import type { SearchIngredients } from "@/components/ingredient-picker";
 
 /**
@@ -15,16 +18,24 @@ import type { SearchIngredients } from "@/components/ingredient-picker";
 export function RecipeMenu({
   recipe,
   searchIngredients,
+  onMenu = false,
   className,
 }: {
   recipe: SavedRecipe;
   searchIngredients: SearchIngredients;
+  /** The recipe is on the current meal plan, which the question says (Story 13.2). */
+  onMenu?: boolean;
   className?: string;
 }) {
   const [menuOpen, setMenuOpen] = useState(false);
   const [editing, setEditing] = useState(false);
   /** A fresh form each time the sheet opens, from the recipe as last saved. */
   const [editKey, setEditKey] = useState(0);
+  const router = useRouter();
+  const { ask, dialog } = useRecipeDelete(() => {
+    // Replace, so "back" never leads to the gone recipe.
+    router.replace("/recept");
+  });
   const menuId = useId();
   const root = useRef<HTMLDivElement>(null);
   const toggle = useRef<HTMLButtonElement>(null);
@@ -63,7 +74,13 @@ export function RecipeMenu({
   }
 
   return (
-    <div ref={root} className={className ? `relative ${className}` : "relative"}>
+    <div ref={root} className={className ? `relative flex ${className}` : "relative flex"}>
+      <TrashButton
+        label="Ta bort recept"
+        className="rounded-full"
+        onPress={() => ask({ id: recipe.id, title: recipe.title, onMenu })}
+      />
+      {dialog}
       <button
         ref={toggle}
         type="button"

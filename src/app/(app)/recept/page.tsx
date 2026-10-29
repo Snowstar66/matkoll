@@ -7,7 +7,7 @@ import { SettingsIcon } from "@/components/icons";
 import { Skeleton } from "@/components/skeleton";
 import { requireUserOrRedirect } from "@/features/auth/server";
 import { searchIngredients } from "@/features/catalog/server";
-import { addToCurrentPlan } from "@/features/mealplan/server";
+import { addToCurrentPlan, getCurrentPlan } from "@/features/mealplan/server";
 import { listLibrary } from "@/features/recipes/server";
 import { ImportRecipeButton, ImportRecipeProvider } from "@/features/recipes/ui/import-sheet";
 import { Library } from "@/features/recipes/ui/library";
@@ -52,6 +52,8 @@ export default function RecipesPage() {
 async function RecipesContent() {
   await requireUserOrRedirect("/recept");
   const { recipes, pantryUnavailable, site } = await listLibrary();
+  const plan = await getCurrentPlan().catch(() => null);
+  const onMenuIds = (plan?.recipes ?? []).flatMap((dish) => (dish.recipeId ? [dish.recipeId] : []));
   if (recipes.length === 0) {
     return (
       <EmptyState action={<ImportRecipeButton variant="primary" />}>
@@ -66,6 +68,7 @@ async function RecipesContent() {
       site={site}
       searchIngredients={searchIngredients}
       addToPlan={addToCurrentPlan}
+      onMenuIds={onMenuIds}
     />
   );
 }
