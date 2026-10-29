@@ -16,6 +16,7 @@ export {
   isoWeekName,
   removedDishesText,
   addedToPlanText,
+  addedOnDayText,
   planDateText,
   dishCountText,
   planSummaryText,
@@ -38,3 +39,4 @@ export {
   type ServingsChange,
 } from "./domain/meal-plan";
 export * from "./domain/week";
+export * from "./domain/planning";

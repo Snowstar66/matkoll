@@ -5,11 +5,25 @@ import { useRef, useState } from "react";
 import { Button } from "@/components/button";
 import { cx } from "@/components/cx";
 import { useToast } from "@/components/toast";
-import { addedToPlanText, clampServings } from "@/features/mealplan";
+import {
+  addedOnDayText,
+  addedToPlanText,
+  clampServings,
+  planningButtonText,
+  planningDoneHref,
+  type PlanningTarget,
+} from "@/features/mealplan";
 import { fail, type Result } from "@/lib/errors";
 
 /** mealplan.addToCurrentPlan, passed down by the page (AD-1). */
-export type AddToPlan = (input: { recipeId: string; servings?: number; id: string }) => Promise<Result<unknown>>;
+export type AddToPlan = (input: {
+  recipeId: string;
+  servings?: number;
+  id: string;
+  /** Story 13.8: the day to add to, in the week of `weekStart` (a Monday). */
+  weekStart?: string;
+  weekday?: number;
+}) => Promise<Result<unknown>>;
 
 export type AddToPlanButtonProps = {
   recipeId: string;
@@ -21,6 +35,10 @@ export type AddToPlanButtonProps = {
   className?: string;
   /** Told when an add starts and ends, e.g. so "Laga nu" waits for the confirmation. */
   onPendingChange?: (pending: boolean) => void;
+  /** Planning mode (Story 13.8): "Lägg på onsdag", adds to that day and returns to Matsedel. */
+  planning?: PlanningTarget;
+  /** The button's name when its text alone is not enough, e.g. on a card: "Lägg på onsdag: Linssoppa". */
+  ariaLabel?: string;
 };
 
 /**
@@ -38,6 +56,8 @@ export function AddToPlanButton({
   fullWidth = true,
   className,
   onPendingChange,
+  planning,
+  ariaLabel,
 }: AddToPlanButtonProps) {
   const router = useRouter();
   const { showToast } = useToast();
@@ -57,7 +77,12 @@ export function AddToPlanButton({
     if (pending.current?.servings !== sent) pending.current = { id: crypto.randomUUID(), servings: sent };
     let result: Result<unknown>;
     try {
-      result = await addToPlan({ recipeId, servings: sent, id: pending.current.id });
+      result = await addToPlan({
+        recipeId,
+        servings: sent,
+        id: pending.current.id,
+        ...(planning ? { weekStart: planning.weekStart, weekday: planning.weekday } : {}),
+      });
     } catch {
       result = fail("mealplan_add_failed");
     }
@@ -65,17 +90,21 @@ export function AddToPlanButton({
     onPendingChange?.(false);
     if (result.ok) {
       pending.current = null;
-      showToast(addedToPlanText);
+      if (planning) {
+        // The mode ends here: Matsedel opens on the day's week with the day lit.
+        router.push(planningDoneHref(planning));
+        showToast(addedOnDayText(planning.weekday));
+      } else showToast(addedToPlanText);
     } else if (result.error.code === "unauthorized") router.refresh();
     else showToast(result.error.message, { role: "alert" });
   }
 
   return (
-    <Button fullWidth={fullWidth} disabled={adding} onClick={add} className={className}>
+    <Button fullWidth={fullWidth} disabled={adding} onClick={add} className={className} aria-label={ariaLabel}>
       {/* Both labels take room, so the button keeps its width while adding; the hidden one is not read. */}
       <span className="grid justify-items-center">
         <span aria-hidden={adding || undefined} className={cx("col-start-1 row-start-1", adding && "invisible")}>
-          Lägg på matsedeln
+          {planning ? planningButtonText(planning) : "Lägg på matsedeln"}
         </span>
         <span aria-hidden={!adding || undefined} className={cx("col-start-1 row-start-1", !adding && "invisible")}>
           Lägger på matsedeln …

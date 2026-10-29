@@ -2,7 +2,7 @@ import { PageHeader } from "@/components/app-shell/page-header";
 import { Notice } from "@/components/notice";
 import { requireUserOrRedirect } from "@/features/auth/server";
 import { getMealPlanView, MealPlanDataError, type MealPlanView } from "@/features/mealplan/server";
-import { currentWeekStart, viewedWeek } from "@/features/mealplan";
+import { currentWeekStart, highlightDay, viewedWeek } from "@/features/mealplan";
 import { AddDishButton, AddDishProvider } from "@/features/mealplan/ui/add-dish-sheet";
 import { MealPlanList } from "@/features/mealplan/ui/meal-plan-list";
 import { PreviousPlansLink } from "@/features/mealplan/ui/previous-plans-link";
@@ -37,9 +37,11 @@ async function libraryOrNull(): Promise<RecipeListItem[] | null> {
  * page title says which place the status is counted against (AD-24); the
  * list shows it while it has dishes. Other errors go to the error boundary.
  */
-export async function MealPlanContent({ searchParams }: { searchParams?: Promise<{ vecka?: string | string[] }> } = {}) {
+export async function MealPlanContent({ searchParams }: { searchParams?: Promise<{ vecka?: string | string[]; dag?: string | string[] }> } = {}) {
   await requireUserOrRedirect("/matsedel");
-  const vecka = (await searchParams)?.vecka;
+  const params = await searchParams;
+  const vecka = params?.vecka;
+  const dag = params?.dag;
   const now = new Date();
   const weekStart = viewedWeek(Array.isArray(vecka) ? vecka[0] : vecka, now);
   const upcoming = weekStart !== currentWeekStart(now);
@@ -80,6 +82,7 @@ export async function MealPlanContent({ searchParams }: { searchParams?: Promise
       <MealPlanList
         key={weekStart}
         weekStart={weekStart}
+        highlightDay={highlightDay(Array.isArray(dag) ? dag[0] : dag)}
         upcoming={upcoming}
         planName={view.plan?.name ?? null}
         dishes={view.dishes}

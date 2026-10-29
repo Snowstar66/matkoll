@@ -4,7 +4,7 @@ import { type ReactNode, useLayoutEffect, useMemo, useRef, useState } from "reac
 import { Button } from "@/components/button";
 import { FixedAction } from "@/components/fixed-action";
 import { Stepper } from "@/components/stepper";
-import { clampServings, maxServings } from "@/features/mealplan";
+import { clampServings, maxServings, type PlanningTarget } from "@/features/mealplan";
 import {
   atHomeSummaryText,
   recipeStatusForFactor,
@@ -33,6 +33,8 @@ export type RecipeBodyProps = {
   addToPlan?: AddToPlan;
   /** mealplan's "Markera som lagad" for this recipe's dish, from the page: shown at the end of the step mode (Story 13.4). */
   finish?: ReactNode;
+  /** Planning mode (Story 13.8): the primary button is "Lägg på onsdag". */
+  planning?: PlanningTarget;
 };
 
 /**
@@ -57,7 +59,7 @@ export type RecipeBodyProps = {
  * servings shown, and closing it leaves the servings and the scroll as they
  * were. It closes if the steps go while it is open (a re-read after "Ändra").
  */
-export function RecipeBody({ recipe, snapshot, site = null, addToPlan, finish }: RecipeBodyProps) {
+export function RecipeBody({ recipe, snapshot, site = null, addToPlan, finish, planning }: RecipeBodyProps) {
   const [servings, setServings] = useState(() => clampServings(recipe.servings));
   const factor = scaleFactor(servings, recipe.servings);
   const lines = useMemo(() => scaleLines(recipe.lines, factor), [recipe.lines, factor]);
@@ -158,6 +160,7 @@ export function RecipeBody({ recipe, snapshot, site = null, addToPlan, finish }:
                 fullWidth={false}
                 className="grow-[999] basis-auto"
                 onPendingChange={setAdding}
+                planning={planning}
               />
             ) : null}
             {canCook ? (

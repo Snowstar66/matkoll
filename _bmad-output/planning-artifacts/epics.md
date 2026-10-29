@@ -2631,6 +2631,46 @@ så att jag kan handla och laga efter en plan som ligger längre fram än sönda
 **När** veckonavigeringen och veckoväljaren visas
 **Så** blir ingenting avklippt eller sidledes och tryckytorna är minst 44 px
 
+### Story 13.8: Välj dag och sedan recept
+
+Som Pontus,
+vill jag markera en dag i matsedeln och sedan välja receptet till just den dagen,
+så att jag kan planera uppifrån och ned, dag för dag, utan att välja dag sist.
+
+**Acceptance Criteria:**
+
+**Givet** matsedeln för vilken vecka som helst
+**När** jag trycker på en dag ("Ledig"-raden eller dagens rubrik)
+**Så** finns "Välj recept", och "Lägg till rätt" finns kvar som alternativ
+
+**Givet** att jag trycker på "Välj recept"
+**När** Recept öppnas
+**Så** ligger läget i adressen (`/recept?planera=2026-11-04`) och överst står "Lägger på onsdag 4 nov · Avbryt"
+
+**Givet** Recept i planeringsläge
+**När** jag ser receptkorten och receptsidan
+**Så** har korten en snabbknapp "Lägg på onsdag" och receptsidans primärknapp "Lägg på matsedeln" heter "Lägg på onsdag"
+
+**Givet** att jag trycker på "Lägg på onsdag"
+**När** rätten läggs till
+**Så** hamnar den på den dagen i rätt veckas matsedel, matsedeln öppnas på den veckan (`?vecka=…`) med dagen markerad en kort stund och en bekräftelse säger "Lagt på matsedeln, onsdag.", och läget är slut
+
+**Givet** planeringsläget
+**När** jag trycker på "Avbryt"
+**Så** lämnas läget och Recept visas som vanligt
+
+**Givet** planeringsläget
+**När** jag går mellan receptbiblioteket och ett recept
+**Så** ligger läget kvar (adressen), och det tar slut när rätten är tillagd eller jag avbryter
+
+**Givet** AI-förslag och "Från dina recept" i planeringsläge
+**När** jag lägger en rätt på matsedeln därifrån
+**Så** hamnar den på den valda dagen och veckan, annars som förut
+
+**Givet** 375 px bredd, mörkt läge eller 200 % text
+**När** planeringsfältet, korten och knapparna visas
+**Så** blir ingenting avklippt eller sidledes och tryckytorna är minst 44 px
+
 ## Epic 14: Tydligare flöden
 
 Pontus förstod inte hur listan kommer till butiken, och erbjudandevyn har blivit rörig när funktionerna lagts på varandra.

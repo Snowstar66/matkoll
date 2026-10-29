@@ -1,9 +1,10 @@
 "use client";
 
+import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { createContext, type MouseEvent, type ReactNode, useContext, useId, useRef, useState } from "react";
 import { StatusBadge } from "@/components/badges";
-import { Button } from "@/components/button";
+import { Button, buttonClasses } from "@/components/button";
 import { FieldLabel, inputClasses } from "@/components/field";
 import { cx } from "@/components/cx";
 import { EmptyState } from "@/components/empty-state";
@@ -18,6 +19,7 @@ import { recipeMetaText, type RecipeListItem } from "@/features/recipes";
 import { errorMessages, fail, type AppError, type Result } from "@/lib/errors";
 import { addToCurrentPlan } from "../actions/add-to-current-plan";
 import { defaultWeekday, todayWeekday, weekdayNames, weekdays, addedOnDayText } from "../domain/meal-plan";
+import { planningHref } from "../domain/planning";
 import { currentWeekStart } from "../domain/week";
 
 // Lägg till rätt (FR-13, Flöde 2): the sheet with the favourites first and a
@@ -176,6 +178,16 @@ function AddDishContent({ recipes, searchRecipes, startDay, weekStart, onAdded, 
           ))}
           <option value="none">Ingen dag</option>
         </select>
+        {/* Story 13.8: pick the recipe in Recept instead, which then adds it to this day. */}
+        {day !== null ? (
+          <Link
+            href={planningHref(weekStart ?? currentWeekStart(), day)}
+            data-testid="pick-recipe"
+            className={buttonClasses("secondary", true)}
+          >
+            Välj recept
+          </Link>
+        ) : null}
       </div>
       {favorites.length > 0 ? <DishChoices label="Favoriter" recipes={favorites} onChoose={add} /> : null}
       <div className="flex flex-col gap-3">

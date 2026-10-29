@@ -73,6 +73,14 @@ describe("MealPlanContent", () => {
     expect(logged).toHaveBeenCalledWith("mealplan_recipes_unavailable", { reason: "query_failed 08006" });
   });
 
+  it("lights the day ?dag= names, for a moment (Story 13.8)", async () => {
+    vi.mocked(getMealPlanView).mockResolvedValue({ plan: { id: "plan", name: "Vecka 44" }, dishes: [{ ...dish, weekday: 3 }], snapshot: null, site: null });
+    vi.mocked(listRecipes).mockResolvedValue([]);
+    render(<ToastProvider>{await MealPlanContent({ searchParams: Promise.resolve({ dag: "3" }) })}</ToastProvider>);
+    const days = screen.getAllByTestId("plan-day");
+    expect(days.filter((day) => day.hasAttribute("data-highlight")).map((day) => day.getAttribute("data-day"))).toEqual(["3"]);
+  });
+
   const stugan = { id: "55555555-5555-4555-8555-555555555555", name: "Stugan", siteCount: 2 };
   const recipeId = "22222222-2222-4222-8222-222222222222";
   /** Korv med ketchup: korv in the pantry, ketchup not. */

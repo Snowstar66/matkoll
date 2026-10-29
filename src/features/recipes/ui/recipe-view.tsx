@@ -2,6 +2,7 @@ import type { ReactNode } from "react";
 import { BackLink } from "@/components/app-shell/back-link";
 import { ChevronLeftIcon } from "@/components/icons";
 import { RecipeImage } from "@/components/recipe-image";
+import type { PlanningTarget } from "@/features/mealplan";
 import type { PantrySnapshot, SelectedSite } from "@/features/pantry";
 import { dishEmoji, offerSavedText } from "../domain/dish-emoji";
 import { recipeTimeText } from "../domain/recipe-list";
@@ -40,9 +41,11 @@ export type RecipeViewProps = {
   addToPlan?: AddToPlan;
   /** "Markera som lagad" for the recipe's dish, shown at the end of the step mode (Story 13.4). */
   finish?: ReactNode;
+  /** Planning mode (Story 13.8): "Lägg på matsedeln" becomes "Lägg på onsdag". */
+  planning?: PlanningTarget;
 };
 
-export function RecipeView({ recipe, snapshot, site = null, menu, addToPlan, finish }: RecipeViewProps) {
+export function RecipeView({ recipe, snapshot, site = null, menu, addToPlan, finish, planning }: RecipeViewProps) {
   const source = sourceLabel(recipe.sourceKind, recipe.sourceUrl);
   // The portion selector shows the servings, so the meta line is only the time.
   const time = recipeTimeText(recipe.totalMinutes);
@@ -104,6 +107,7 @@ export function RecipeView({ recipe, snapshot, site = null, menu, addToPlan, fin
         site={site}
         addToPlan={addToPlan}
         finish={finish}
+        planning={planning}
       />
     </article>
   );

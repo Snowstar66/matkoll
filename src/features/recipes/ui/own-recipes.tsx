@@ -6,7 +6,14 @@ import { useEffect, useId, useRef, useState } from "react";
 import { Badge } from "@/components/badges";
 import { Button, buttonClasses } from "@/components/button";
 import { useToast } from "@/components/toast";
-import { addedToPlanText, clampServings } from "@/features/mealplan";
+import {
+  addedOnDayText,
+  addedToPlanText,
+  clampServings,
+  planningButtonText,
+  planningDoneHref,
+  type PlanningTarget,
+} from "@/features/mealplan";
 import { offerDisplay } from "@/features/offers";
 import { atHomeText, whyText, type OwnRecipeMatch } from "@/features/suggestions";
 import { fail, type Result } from "@/lib/errors";
@@ -28,9 +35,11 @@ export type OwnRecipesProps = {
   storeId: string | null;
   /** mealplan.addToCurrentPlan from the page (AD-1). */
   addToPlan?: AddToPlan;
+  /** Planning mode (Story 13.8): the dish goes on this day. */
+  planning?: PlanningTarget;
 };
 
-export function OwnRecipes({ read, storeId, addToPlan }: OwnRecipesProps) {
+export function OwnRecipes({ read, storeId, addToPlan, planning }: OwnRecipesProps) {
   const headingId = useId();
   const [shown, setShown] = useState<{ storeId: string | null; recipes: OwnRecipeMatch[] } | null>(null);
 
@@ -59,14 +68,22 @@ export function OwnRecipes({ read, storeId, addToPlan }: OwnRecipesProps) {
       </h2>
       <ul className="grid gap-3 desktop:grid-cols-2">
         {shown.recipes.map((recipe) => (
-          <OwnRecipeCard key={recipe.id} recipe={recipe} addToPlan={addToPlan} />
+          <OwnRecipeCard key={recipe.id} recipe={recipe} addToPlan={addToPlan} planning={planning} />
         ))}
       </ul>
     </section>
   );
 }
 
-function OwnRecipeCard({ recipe, addToPlan }: { recipe: OwnRecipeMatch; addToPlan?: AddToPlan }) {
+function OwnRecipeCard({
+  recipe,
+  addToPlan,
+  planning,
+}: {
+  recipe: OwnRecipeMatch;
+  addToPlan?: AddToPlan;
+  planning?: PlanningTarget;
+}) {
   const router = useRouter();
   const { showToast } = useToast();
   const [adding, setAdding] = useState(false);
@@ -80,13 +97,22 @@ function OwnRecipeCard({ recipe, addToPlan }: { recipe: OwnRecipeMatch; addToPla
     const id = (dishId.current ??= crypto.randomUUID());
     let result: Result<unknown>;
     try {
-      result = await addToPlan({ recipeId: recipe.id, servings: clampServings(recipe.servings), id });
+      result = await addToPlan({
+        recipeId: recipe.id,
+        servings: clampServings(recipe.servings),
+        id,
+        ...(planning ? { weekStart: planning.weekStart, weekday: planning.weekday } : {}),
+      });
     } catch {
       result = fail("mealplan_add_failed");
     }
     setAdding(false);
     if (result.ok) {
       dishId.current = null;
+      if (planning) {
+        router.push(planningDoneHref(planning));
+        showToast(addedOnDayText(planning.weekday));
+      } else
       showToast(addedToPlanText, { show: { label: "Visa inköpslistan", onShow: () => router.push("/lista") } });
     } else if (result.error.code === "unauthorized") router.refresh();
     else showToast(result.error.message, { role: "alert" });
@@ -108,8 +134,8 @@ function OwnRecipeCard({ recipe, addToPlan }: { recipe: OwnRecipeMatch; addToPla
         {atHomeText({ have: recipe.have, total: recipe.total })} · Erbjudanden: {offerNames.join(", ")}
       </p>
       {addToPlan ? (
-        <Button onClick={() => void add()} disabled={adding} aria-label={`Lägg på matsedeln: ${recipe.title}`}>
-          Lägg på matsedeln
+        <Button onClick={() => void add()} disabled={adding} aria-label={`${planning ? planningButtonText(planning) : "Lägg på matsedeln"}: ${recipe.title}`}>
+          {planning ? planningButtonText(planning) : "Lägg på matsedeln"}
         </Button>
       ) : null}
       <Link href={`/recept/${recipe.id}`} className={buttonClasses("secondary")} aria-label={`Öppna ${recipe.title}`}>

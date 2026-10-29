@@ -10,6 +10,7 @@ import type { SearchIngredients } from "@/components/ingredient-picker";
 import { Notice } from "@/components/notice";
 import { SearchField, type SearchFieldHandle } from "@/components/search-field";
 import { Skeleton } from "@/components/skeleton";
+import type { PlanningTarget } from "@/features/mealplan";
 import { siteLineText, type SelectedSite } from "@/features/pantry";
 import { errorMessages, fail, type AppError, type Result } from "@/lib/errors";
 import { searchLibrary } from "../actions/search-recipes";
@@ -78,9 +79,11 @@ export type LibraryProps = {
   ownRecipes?: OwnRecipesRead;
   /** The ids of the recipes on the current meal plan, which "Ta bort" says (Story 13.2). */
   onMenuIds?: readonly string[];
+  /** Planning mode (Story 13.8): the day recipes are put on. */
+  planning?: PlanningTarget;
 };
 
-export function Library({ recipes, pantryUnavailable, site, searchIngredients, siteNames, addToPlan, ownRecipes, onMenuIds = [] }: LibraryProps) {
+export function Library({ recipes, pantryUnavailable, site, searchIngredients, siteNames, addToPlan, ownRecipes, onMenuIds = [], planning }: LibraryProps) {
   const router = useRouter();
   const [filter, setFilter] = useRecipeFilter();
   // AI-förslag are of the place the server's list is counted against. They are in
@@ -200,6 +203,8 @@ export function Library({ recipes, pantryUnavailable, site, searchIngredients, s
         onFavoriteChange={setFavorite}
         onDelete={(recipe) => ask({ id: recipe.id, title: recipe.title, onMenu: onMenuIds.includes(recipe.id) })}
         ranked={cookable && !statusUnavailable}
+        planning={planning}
+        addToPlan={addToPlan}
       />
     );
   } else if (search.kind === "done") {
@@ -256,6 +261,7 @@ export function Library({ recipes, pantryUnavailable, site, searchIngredients, s
           offerButton={search.kind !== "failed"}
           addToPlan={addToPlan}
           ownRecipes={ownRecipes}
+          planning={planning}
         />
       ) : null}
       {dialog}

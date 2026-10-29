@@ -667,3 +667,53 @@ test("plans next week: a dish added there shows only there, and its list is a we
   await expect(page.getByText("Mjölk", { exact: true }).filter({ visible: true })).toBeVisible();
   expect(errors).toEqual([]);
 });
+
+test("picks a day, then a recipe: Välj recept opens Recept for that day and adds the dish there (Story 13.8)", async ({ page }) => {
+  const errors = watchErrors(page);
+  await page.goto("/matsedel");
+  const nav = page.getByTestId("week-nav").filter({ visible: true });
+  await nav.getByRole("link", { name: "Nästa vecka" }).click();
+  await expect(nav.getByTestId("week-label")).toHaveText("Nästa vecka");
+  const wednesday = page.locator('[data-testid="plan-day"][data-day="3"]').filter({ visible: true });
+  await expect(wednesday).not.toContainText("Linssoppa");
+
+  // A free day: its sheet offers Välj recept; Avbryt leaves the mode and stays in Recept.
+  await page.getByTestId("day-free").filter({ visible: true }).nth(1).click();
+  await addSheet(page).getByRole("link", { name: "Välj recept" }).click();
+  await expect(page).toHaveURL(/\/recept\?planera=\d{4}-\d{2}-\d{2}$/);
+  const bar = page.getByTestId("planning-bar");
+  await expect(bar).toContainText(/^Lägger på \S+ \d{1,2} \S+/);
+  await expect(page.getByRole("button", { name: /^Lägg på \S+: / }).first()).toBeVisible();
+  await bar.getByRole("link", { name: "Avbryt" }).click();
+  await expect(page).toHaveURL(/\/recept$/);
+  await expect(page.getByTestId("planning-bar")).toHaveCount(0);
+
+  // A day with a dish: the heading's Välj recept. The mode follows into the recipe, whose button names the day.
+  await page.goto("/matsedel");
+  await nav.getByRole("link", { name: "Nästa vecka" }).click();
+  await expect(nav.getByTestId("week-label")).toHaveText("Nästa vecka");
+  const headingLink = wednesday.getByRole("link", { name: "Välj recept för onsdag" });
+  await expect(wednesday).toBeVisible();
+  if (await headingLink.count()) await headingLink.click();
+  else {
+    // Run alone, Wednesday is still free: the sheet's Välj recept.
+    await wednesday.getByTestId("day-free").click();
+    await addSheet(page).getByRole("link", { name: "Välj recept" }).click();
+  }
+  await expect(page.getByTestId("planning-bar")).toContainText(/^Lägger på onsdag \d{1,2} \S+$/);
+  expect(await page.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth)).toBe(true);
+  await page.getByRole("link", { name: soppa }).first().click();
+  await expect(page).toHaveURL(/\/recept\/[0-9a-f-]+\?planera=\d{4}-\d{2}-\d{2}$/);
+  await expect(page.getByRole("button", { name: "Lägg på matsedeln" })).toHaveCount(0);
+  await page.getByRole("button", { name: "Lägg på onsdag" }).click();
+
+  // The mode ends: Matsedel opens on next week with Wednesday lit and the dish on it.
+  await expect(page).toHaveURL(/\/matsedel\?vecka=\d{4}-W\d{2}&dag=3$/);
+  await expect(wednesday).toHaveAttribute("data-highlight", "true");
+  await expect(page.getByTestId("toast")).toContainText("Lagt på matsedeln, onsdag.");
+  await expect(nav.getByTestId("week-label")).toHaveText("Nästa vecka");
+  await expect(wednesday).toContainText(soppa);
+  await expect(wednesday).not.toHaveAttribute("data-highlight", "true", { timeout: 8000 });
+  expect(await page.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth)).toBe(true);
+  expect(errors).toEqual([]);
+});

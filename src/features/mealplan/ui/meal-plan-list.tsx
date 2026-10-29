@@ -38,6 +38,7 @@ import {
   type WeekdayChange,
   weekdayDateText,
 } from "../domain/meal-plan";
+import { planningHref } from "../domain/planning";
 import { currentWeekStart, weekAnchorDate, weekQuery } from "../domain/week";
 import { AddDishButton, useAddDish } from "./add-dish-sheet";
 import { MarkCookedButton } from "./mark-cooked-button";
@@ -138,6 +139,8 @@ export type MealPlanListProps = {
   weekStart?: string;
   /** A coming week: with no dish it still shows the week's days ("Ledig"), not the empty-plan text. */
   upcoming?: boolean;
+  /** The weekday a dish was just put on from Recept (Story 13.8): lit for a moment. */
+  highlightDay?: number | null;
 };
 
 /**
@@ -160,6 +163,7 @@ export function MealPlanList({
   names = {},
   weekStart,
   upcoming = false,
+  highlightDay = null,
 }: MealPlanListProps) {
   const router = useRouter();
   const { showToast } = useToast();
@@ -306,6 +310,19 @@ export function MealPlanList({
   // The viewed week's dates come from its Monday, never from "this week" (Story 13.7).
   const weekOf = weekStart ? weekAnchorDate(weekStart) : browserWeek;
   const { open: openAdd } = useAddDish();
+  /** The day lit after "Lägg på onsdag" in Recept, for a few seconds. */
+  const [lit, setLit] = useState(highlightDay);
+  // A page kept from an earlier visit gets a new ?dag= without remounting, so the prop is followed.
+  const [seenDay, setSeenDay] = useState(highlightDay);
+  if (seenDay !== highlightDay) {
+    setSeenDay(highlightDay);
+    setLit(highlightDay);
+  }
+  useEffect(() => {
+    if (!lit) return;
+    const timer = setTimeout(() => setLit(null), 3000);
+    return () => clearTimeout(timer);
+  }, [lit]);
 
   function moveDish(dish: PlanDish, weekday: number | null) {
     startTransition(async () => {
@@ -475,8 +492,9 @@ export function MealPlanList({
               data-testid="plan-day"
               data-day={weekday ?? "none"}
               data-today={isToday || undefined}
+              data-highlight={weekday !== null && weekday === lit ? "true" : undefined}
               aria-current={isToday ? "date" : undefined}
-              className={`flex flex-col gap-2 ${isToday ? "-ml-3 rounded-lg border-l-4 border-accent pl-2" : ""}`}
+              className={`flex flex-col gap-2 ${isToday ? "-ml-3 rounded-lg border-l-4 border-accent pl-2" : ""} ${weekday !== null && weekday === lit ? "rounded-lg bg-accent/20 ring-2 ring-accent motion-safe:transition-colors" : ""}`}
             >
               {dayDishes.length === 0 && weekday ? (
                 // An empty day is one thin row: the day, "Ledig", and a tap adds a dish to it.
@@ -492,7 +510,18 @@ export function MealPlanList({
                 </button>
               ) : (
                 <>
-                  <h3 className="flex flex-wrap items-baseline gap-x-2">{title}</h3>
+                  <div className="flex items-center justify-between gap-3">
+                    <h3 className="flex flex-wrap items-baseline gap-x-2">{title}</h3>
+                    {weekday ? (
+                      <Link
+                        href={planningHref(weekStart ?? currentWeekStart(), weekday)}
+                        aria-label={`Välj recept för ${heading.toLowerCase()}`}
+                        className="flex min-h-tap shrink-0 items-center text-body text-accent underline"
+                      >
+                        Välj recept
+                      </Link>
+                    ) : null}
+                  </div>
                   <ul aria-label={heading} className="flex flex-col gap-3">
                     {dayDishes.map((dish) => (
                       <DishCard
