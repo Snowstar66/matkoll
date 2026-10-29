@@ -619,5 +619,4 @@ test("days show their date and today is marked (Story 13.6)", async ({ page }) =
   await expect(today).toHaveCount(1);
   await expect(today).toContainText("Idag");
   expect(await page.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth)).toBe(true);
-  await page.screenshot({ path: "/private/tmp/claude-501/-Users-pontus-AI-Projects-Matkoll/67fb9a7f-8674-4d91-94c9-bd712391e835/scratchpad/ux-136/final-375-light.png" });
 });
