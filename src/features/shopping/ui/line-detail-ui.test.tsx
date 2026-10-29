@@ -231,7 +231,7 @@ describe("hiding a recipe line", () => {
   it("hides the line at once by swipe, and Ångra puts its override back", async () => {
     const user = userEvent.setup();
     const { rerender } = render(<ShoppingList plan={plan} lines={[corrected, salt]} pantryUnavailable={false} />);
-    await user.click(screen.getByRole("button", { name: "Ta bort Grädde" }));
+    await user.click(screen.getByRole("button", { name: "Svep bort Grädde" }));
     expect(hideLine).toHaveBeenCalledWith({ planId, key: graddeKey });
     expect(screen.queryByText("Grädde")).not.toBeInTheDocument();
     expect(screen.getByTestId("list-progress")).toHaveTextContent("1 vara kvar");
@@ -266,7 +266,7 @@ describe("hiding a recipe line", () => {
     const user = userEvent.setup();
     hideLine.mockResolvedValue(fail("shopping_remove_failed"));
     render(<ShoppingList plan={plan} lines={[gradde]} pantryUnavailable={false} />);
-    await user.click(screen.getByRole("button", { name: "Ta bort Grädde" }));
+    await user.click(screen.getByRole("button", { name: "Svep bort Grädde" }));
     expect(await screen.findByRole("alert")).toHaveTextContent("Det gick inte att ta bort varan.");
     expect(screen.getByText("Grädde")).toBeInTheDocument();
     expect(screen.getByTestId("list-announcement")).toBeEmptyDOMElement();
@@ -276,7 +276,7 @@ describe("hiding a recipe line", () => {
     const user = userEvent.setup();
     restoreLine.mockResolvedValue(fail("shopping_restore_failed"));
     const { rerender } = render(<ShoppingList plan={plan} lines={[gradde, salt]} pantryUnavailable={false} />);
-    await user.click(screen.getByRole("button", { name: "Ta bort Grädde" }));
+    await user.click(screen.getByRole("button", { name: "Svep bort Grädde" }));
     rerender(<ShoppingList plan={plan} lines={[salt]} pantryUnavailable={false} />);
     await user.click(await screen.findByRole("button", { name: "Ångra" }));
     expect(await screen.findByRole("alert")).toHaveTextContent("Det gick inte att ångra.");
@@ -315,7 +315,7 @@ describe("hiding a recipe line", () => {
     let answer: (result: Result<HiddenLine | null>) => void = () => {};
     hideLine.mockImplementation(() => new Promise((resolve) => (answer = resolve)));
     render(<ShoppingList plan={plan} lines={[gradde, salt]} pantryUnavailable={false} />);
-    const action = screen.getByRole("button", { name: "Ta bort Grädde" });
+    const action = screen.getByRole("button", { name: "Svep bort Grädde" });
     // Two presses before the list renders again.
     act(() => {
       action.click();
@@ -336,7 +336,7 @@ describe("hiding a recipe line", () => {
     const user = userEvent.setup();
     hideLine.mockRejectedValueOnce(new Error("offline"));
     render(<ShoppingList plan={plan} lines={[gradde, salt]} pantryUnavailable={false} />);
-    await user.click(screen.getByRole("button", { name: "Ta bort Grädde" }));
+    await user.click(screen.getByRole("button", { name: "Svep bort Grädde" }));
     expect((await screen.findAllByText("Grädde är borttagen.")).length).toBeGreaterThan(0);
     expect(hideLine).toHaveBeenCalledTimes(2);
     expect(screen.getByRole("button", { name: "Ångra" })).toBeInTheDocument();
@@ -347,7 +347,7 @@ describe("hiding a recipe line", () => {
     const user = userEvent.setup();
     hideLine.mockRejectedValue(new Error("offline"));
     render(<ShoppingList plan={plan} lines={[gradde, salt]} pantryUnavailable={false} />);
-    await user.click(screen.getByRole("button", { name: "Ta bort Grädde" }));
+    await user.click(screen.getByRole("button", { name: "Svep bort Grädde" }));
     expect(await screen.findByRole("alert")).toHaveTextContent("Det gick inte att ta bort varan.");
     expect(hideLine).toHaveBeenCalledTimes(2);
     expect(refresh).toHaveBeenCalled();
@@ -358,7 +358,7 @@ describe("hiding a recipe line", () => {
     const user = userEvent.setup();
     hideLine.mockResolvedValue(ok(null));
     render(<ShoppingList plan={plan} lines={[gradde, salt]} pantryUnavailable={false} />);
-    await user.click(screen.getByRole("button", { name: "Ta bort Grädde" }));
+    await user.click(screen.getByRole("button", { name: "Svep bort Grädde" }));
     expect((await screen.findAllByText("Grädde är borttagen.")).length).toBeGreaterThan(0);
     expect(screen.queryByRole("button", { name: "Ångra" })).not.toBeInTheDocument();
     expect(screen.queryByRole("alert")).not.toBeInTheDocument();

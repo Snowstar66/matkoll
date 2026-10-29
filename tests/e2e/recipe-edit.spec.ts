@@ -213,7 +213,7 @@ test("Story 13.2: the soptunna on the recipe page and in the library asks, then 
   expect(box?.width).toBeGreaterThanOrEqual(44);
   expect(box?.height).toBeGreaterThanOrEqual(44);
   await bin.click();
-  const confirm = page.getByRole("dialog", { name: "Ta bort recept" });
+  const confirm = page.getByRole("dialog", { name: "Ta bort", exact: true });
   await expect(confirm.getByText(`Ta bort receptet ${fromPage}? Det går inte att ångra.`)).toBeVisible();
   await confirm.getByRole("button", { name: "Avbryt" }).click();
   await expect(page.getByRole("heading", { level: 1, name: fromPage })).toBeVisible();
@@ -222,8 +222,8 @@ test("Story 13.2: the soptunna on the recipe page and in the library asks, then 
   await bin.click();
   await confirm.getByRole("button", { name: "Ta bort", exact: true }).click();
   await expect(page).toHaveURL(/\/recept$/);
-  await expect(page.getByText("Receptet är borttaget.")).toBeVisible();
-  await expect(page.getByText(fromPage)).toHaveCount(0);
+  await expect(page.getByTestId("toast")).toHaveText(/Receptet är borttaget/);
+  await expect(page.getByRole("link", { name: fromPage })).toHaveCount(0);
 
   // In the library: the row's own bin removes the row in place.
   await saveRecipe(page, fromLibrary);
