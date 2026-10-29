@@ -258,7 +258,31 @@ Pontus kan föra in det som finns hemma per plats, med eller utan mängd, och se
 Pontus kan planera veckan med portioner, få en inköpslista per butiksavdelning där lagret är avdraget, bocka av med en hand i butiken, lägga till egna varor och lägga allt avbockat i lagret med ett tryck. Efter epicen fungerar kärnan end-to-end och molndriften är förberedd.
 **FRs covered:** FR13, FR14, FR15, FR16, FR17, FR18, FR19, FR20 (knappen Lägg på matsedeln)
 
-### Epic 4: Steg-för-steg
+#### Story 3.9: Avbockade syns och kan ångras
+
+Som Pontus,
+vill jag se det jag bockat av överstruket och kunna ångra en felbockning,
+så att jag inte tappar en vara i butiken.
+
+**Acceptance Criteria:**
+
+**Givet** att jag bockat av varor i inköpslistan
+**När** jag ser listan
+**Så** ligger de längst ned under "I korgen (N)", överstrukna och dämpade med ikryssade rutor, och sektionen är öppen från början med "Dölj"/"Visa" vars val kommer ihåg per enhet
+
+**Givet** att jag just bockat av en vara
+**När** bekräftelsen visas
+**Så** står där "Gul lök i korgen" med "Ångra", och "Ångra" bockar av varan igen så att den ligger kvar i sin kategori
+
+**Givet** en avbockad vara i "I korgen"
+**När** jag trycker på dess ruta
+**Så** bockas den av och hamnar tillbaka i sin kategori
+
+**Givet** inköpslistan och erbjudandearket
+**När** jag ser rutorna
+**Så** är de samma fyrkantiga `Checkbox` med 44 px träffyta, och förloppskortet, papperskorgen, svepet, "Lägg i lagret" och kopiera till varukorg fungerar som förut (avbockade varor lämnas utanför exporten)
+
+## Epic 4: Steg-för-steg
 Pontus kan välja portioner i receptvyn, se vad som finns hemma och laga maten ett steg i taget med tänd skärm.
 **FRs covered:** FR20, FR21
 

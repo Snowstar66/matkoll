@@ -5,7 +5,7 @@ import { useRouter } from "next/navigation";
 import { type ReactNode, useId, useMemo, useRef, useState } from "react";
 import { FilterPills } from "@/components/filter-pills";
 import { Button, buttonClasses } from "@/components/button";
-import { CheckCircle } from "@/components/check-circle";
+import { Checkbox } from "@/components/checkbox";
 import { ListGroup } from "@/components/list-group";
 import { ListRow } from "@/components/list-row";
 import { Notice } from "@/components/notice";
@@ -531,7 +531,7 @@ function latestFetch(stores: readonly OffersStore[]): Date | null {
  * Story 9.13: with several stores, a checkbox per store (all ticked at first)
  * and "Hämta valda" and "Hämta alla". Each store's line says its chain, how
  * many offers it has and when they were fetched. The checkboxes are
- * `CheckCircle`s with a 44 px tap area, named by the store.
+ * `Checkbox`es with a 44 px tap area, named by the store.
  */
 function StoreFetchPanel({
   stores,
@@ -570,7 +570,7 @@ function StoreFetchPanel({
               title={store.name}
               meta={storeFetchLine(store, count, now)}
               leading={
-                <CheckCircle
+                <Checkbox
                   label={store.name}
                   checked={!unticked.has(store.id)}
                   disabled={pending}
