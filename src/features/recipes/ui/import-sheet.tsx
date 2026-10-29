@@ -1,5 +1,6 @@
 "use client";
 
+import Link from "next/link";
 import { useRouter } from "next/navigation";
 import {
   createContext,
@@ -7,6 +8,8 @@ import {
   type ReactNode,
   useContext,
   useEffect,
+  Suspense,
+  use,
   useId,
   useRef,
   useState,
@@ -133,11 +136,13 @@ export type ImportSheetProps = {
   searchIngredients: SearchIngredients;
   /** Story 1.13: a shared link to read as soon as the sheet is on screen, or a shared value that is not a usable link. */
   autoImport?: AutoImport;
+  /** Story 1.14: the approved recipe sites (sorted domains), for "Hitta recept på nätet". Without it the section says there are none. */
+  sites?: Promise<readonly string[]>;
 };
 
 export type AutoImport = { kind: "ok"; url: string } | { kind: "invalid"; value: string };
 
-export function ImportSheet({ open, onClose, showFinished = false, searchIngredients, autoImport }: ImportSheetProps) {
+export function ImportSheet({ open, onClose, showFinished = false, searchIngredients, autoImport, sites }: ImportSheetProps) {
   const ids = useId();
   const { jobs, loaded, start, fetchResult, cancel: cancelJob, dismiss } = useAiJobs();
   /** The job the sheet waits on while it reads. */
@@ -168,6 +173,8 @@ export function ImportSheet({ open, onClose, showFinished = false, searchIngredi
    * "Släng ändringarna?" before a new parse replaces an edited preview, or
    * before "Öppna inställningar" leaves the sheet with unsaved changes.
    */
+  /** The part of /installningar the pending "Öppna inställningar" goes to. */
+  const settingsHash = useRef("");
   const [confirm, setConfirm] = useState<"replace" | "settings" | null>(null);
   /** The pasted link was longer than a link may be, so it was not put in the field. */
   const [pastedTooLong, setPastedTooLong] = useState(false);
@@ -307,13 +314,21 @@ export function ImportSheet({ open, onClose, showFinished = false, searchIngredi
 
   /** "Öppna inställningar": leaves the sheet, asking first when there are unsaved changes, like closing. */
   function requestSettings() {
+    settingsHash.current = "";
     if (isDirty) setConfirm("settings");
     else openSettings();
   }
 
-  function openSettings() {
+  function openSettings(hash = "") {
     close();
-    router.push("/installningar");
+    router.push(`/installningar${hash}`);
+  }
+
+  /** The links to Inställningar in "Hitta recept på nätet": leaves the sheet, asking first when there are unsaved changes. */
+  function goToSettings(hash: string) {
+    settingsHash.current = hash;
+    if (isDirty) setConfirm("settings");
+    else openSettings(hash);
   }
 
   /**
@@ -521,6 +536,13 @@ export function ImportSheet({ open, onClose, showFinished = false, searchIngredi
     changeTab("text");
   }
 
+  /** "klistra in den här": the Länk tab, with focus in its field. */
+  function focusLinkField() {
+    focusField.current = "url";
+    changeTab("link");
+    urlRef.current?.focus();
+  }
+
   function onTabKeyDown(event: KeyboardEvent<HTMLButtonElement>) {
     const index = tabs.findIndex(({ id }) => id === tab);
     let next: number;
@@ -600,7 +622,7 @@ export function ImportSheet({ open, onClose, showFinished = false, searchIngredi
           variant="secondary"
           fullWidth
           onClick={() =>
-            confirm === "settings" ? openSettings() : void parse(kind, kind === "photo" ? (pendingPhoto ?? photo) : null)
+            confirm === "settings" ? openSettings(settingsHash.current) : void parse(kind, kind === "photo" ? (pendingPhoto ?? photo) : null)
           }
         >
           Släng ändringarna
@@ -830,9 +852,91 @@ export function ImportSheet({ open, onClose, showFinished = false, searchIngredi
               )}
             </div>
           ))}
+
+          <Suspense fallback={null}>
+            <FindRecipes sites={sites} onSettings={goToSettings} onPaste={focusLinkField} />
+          </Suspense>
         </div>
       )}
     </Sheet>
+  );
+}
+
+/**
+ * "Hitta recept på nätet" (Story 1.14): one link per approved recipe site, to
+ * its start page in a new tab. Matkoll fetches nothing from them; the recipe
+ * comes back through the bookmarklet or the pasted link.
+ */
+function FindRecipes({
+  sites,
+  onSettings,
+  onPaste,
+}: {
+  sites: Promise<readonly string[]> | undefined;
+  onSettings: (hash: string) => void;
+  onPaste: () => void;
+}) {
+  const domains = sites ? use(sites) : [];
+  const headingId = useId();
+  const linkClass = "text-accent underline";
+  return (
+    <section aria-labelledby={headingId} data-testid="find-recipes" className="mt-6 flex flex-col gap-3 border-t border-hairline pt-4">
+      <h3 id={headingId} className="text-section-label text-ink-2">
+        Hitta recept på nätet
+      </h3>
+      {domains.length > 0 ? (
+        <>
+          <ul className="flex flex-wrap gap-2">
+            {domains.map((domain) => (
+              <li key={domain}>
+                <a
+                  href={`https://${domain}/`}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  aria-label={`Öppna ${domain} i en ny flik`}
+                  className="flex min-h-tap items-center rounded-full bg-surface px-4 text-body text-ink"
+                >
+                  {domain}
+                </a>
+              </li>
+            ))}
+          </ul>
+          <p className="text-meta text-ink-2">
+            Hittat ett recept? Använd bokmärket{" "}
+            <Link
+              href="/installningar#spara-i-matkoll"
+              onClick={(event) => {
+                event.preventDefault();
+                onSettings("#spara-i-matkoll");
+              }}
+              className={linkClass}
+            >
+              Spara i Matkoll
+            </Link>{" "}
+            på datorn, eller kopiera länken och klistra in den{" "}
+            <button type="button" onClick={onPaste} className={`${linkClass} min-h-tap`}>
+              här
+            </button>
+            .
+          </p>
+        </>
+      ) : (
+        <p className="text-meta text-ink-2">
+          Inga godkända receptsajter än.{" "}
+          <Link
+            href="/installningar#godkanda-receptsajter"
+            onClick={(event) => {
+              event.preventDefault();
+              onSettings("#godkanda-receptsajter");
+            }}
+            className={linkClass}
+          >
+            Lägg till en i Inställningar
+          </Link>
+          .
+        </p>
+      )}
+    </section>
   );
 }
 
@@ -861,11 +965,14 @@ const ImportContext = createContext<ImportContextValue | null>(null);
 export function ImportRecipeProvider({
   searchIngredients,
   autoImport,
+  sites,
   children,
 }: {
   searchIngredients: SearchIngredients;
   /** Story 1.13: opens the sheet on a shared link; closing it goes back to /recept. */
   autoImport?: AutoImport;
+  /** Story 1.14: the approved recipe sites, read on the server and waited for inside the sheet. */
+  sites?: Promise<readonly string[]>;
   children: ReactNode;
 }) {
   const router = useRouter();
@@ -898,6 +1005,7 @@ export function ImportRecipeProvider({
         open={open}
         showFinished={showFinished}
         autoImport={autoImport}
+        sites={sites}
         onClose={() => {
           setOpen(false);
           setShowFinished(false);

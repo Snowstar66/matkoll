@@ -26,6 +26,16 @@ export function SaveToMatkoll() {
     if (origin) anchor.current?.setAttribute("href", bookmarklet(origin));
   }, [origin]);
 
+  // Story 1.14: the page streams in and the shell puts the scroll back at the top, so the browser's own jump to
+  // #spara-i-matkoll is lost. Scroll there again a few times while the page settles.
+  useEffect(() => {
+    if (window.location.hash !== "#spara-i-matkoll") return;
+    const timers = [0, 100, 300, 800].map((delay) =>
+      window.setTimeout(() => document.getElementById("spara-i-matkoll")?.scrollIntoView(), delay),
+    );
+    return () => timers.forEach((timer) => window.clearTimeout(timer));
+  }, []);
+
   const prefix = origin ? importUrlPrefix(origin) : "";
 
   async function copy() {
@@ -38,12 +48,15 @@ export function SaveToMatkoll() {
   }
 
   return (
-    <section aria-labelledby={headingId} className="flex flex-col gap-3" data-testid="save-to-matkoll">
+    <section id="spara-i-matkoll" aria-labelledby={headingId} className="flex scroll-mt-4 flex-col gap-3" data-testid="save-to-matkoll">
       <h2 id={headingId} className="text-section-label text-ink-2">
         Spara i Matkoll
       </h2>
       <p className="text-body text-ink-2">
         Öppna ett recept på en godkänd receptsajt och skicka det till Matkoll med ett tryck, utan att kopiera länken.
+      </p>
+      <p className="text-body text-ink-2" data-testid="bookmarklet-tip">
+        Tips: dra knappen till bokmärkesfältet (visa det med ⌘⇧B i Chrome).
       </p>
       <div className="flex flex-col gap-2 rounded-lg bg-surface p-4">
         <h3 className="font-semibold">Dator</h3>

@@ -250,7 +250,35 @@ Från `DESIGN.md` och `EXPERIENCE.md`:
 Pontus kan logga in, lägga in recept från länk, text eller foto, granska och rätta dem i Matkolls format och hitta dem i ett receptbibliotek med sökning och favoriter. Epicen lägger också grunden: projektet, inloggningen, app-skalet, AI-tjänsten och ingredienskatalogen.
 **FRs covered:** FR1, FR2, FR3, FR4, FR5, FR6, FR7, FR8 (utom lagningsstatus och filtret Kan lagas nu), FR9, FR10, FR20 (grundläggande receptvy)
 
-### Epic 2: Lager
+#### Story 1.14: Hitta recept från Lägg till
+
+Som Pontus,
+vill jag kunna surfa in på koket.se eller en annan godkänd receptsajt direkt från Lägg till recept,
+så att jag hittar nya recept utan att lämna appen för att leta efter sajten.
+
+**Acceptance Criteria:**
+
+**Givet** arket Importera recept
+**När** det är öppet och det finns godkända receptsajter
+**Så** visar avsnittet "Hitta recept på nätet" en kompakt knapp per sajt (t.ex. "koket.se") som öppnar sajtens startsida i en ny flik (`target="_blank"`, `rel="noopener"`), med tillgängligt namn "Öppna koket.se i en ny flik" och minst 44 px tryckyta, och Matkoll hämtar inget från sajten
+
+**Givet** avsnittet "Hitta recept på nätet"
+**När** Pontus läser raden under knapparna
+**Så** står "Hittat ett recept? Använd bokmärket Spara i Matkoll på datorn, eller kopiera länken och klistra in den här.", där "Spara i Matkoll" leder till `/installningar#spara-i-matkoll` (avsnittet finns och sidan scrollar dit) och "här" öppnar fliken Länk med fokus i länkfältet
+
+**Givet** inga godkända receptsajter
+**När** arket är öppet
+**Så** visas en kort rad med länk till listan över godkända receptsajter i Inställningar i stället för knappar
+
+**Givet** avsnittet "Spara i Matkoll" i Inställningar
+**När** Pontus öppnar det
+**Så** står överst "Tips: dra knappen till bokmärkesfältet (visa det med ⌘⇧B i Chrome)."
+
+**Givet** en skärm på 375 px och mörkt läge
+**När** avsnittet visas
+**Så** blir det inget sidled och kontrasten håller
+
+## Epic 2: Lager
 Pontus kan föra in det som finns hemma per plats, med eller utan mängd, och ser direkt i receptbiblioteket vilka rätter som kan lagas och hur många varor som saknas.
 **FRs covered:** FR11, FR12, FR8 (lagningsstatus)
 
