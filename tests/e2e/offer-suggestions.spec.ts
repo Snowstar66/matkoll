@@ -317,7 +317,7 @@ for (const away of [false, true]) {
     // Story 16.4: the card's illustration, and the offers it names.
     await expect(cards.first().getByTestId("recipe-illustration")).toBeVisible();
     const offerLine = cards.first().getByTestId("ai-suggestion-offers");
-    const offered = (await offerLine.count()) > 0 ? ((await offerLine.textContent()) ?? "").replace("På erbjudande: ", "") : null;
+    const offered = (await offerLine.count()) > 0 ? ((await offerLine.textContent()) ?? "").replace("Erbjudanden: ", "") : null;
     await cards.first().getByRole("button", { name: /^Spara / }).click();
     await expect(preview).toBeVisible();
     await preview.getByRole("button", { name: "Spara recept" }).click();
@@ -355,4 +355,59 @@ test("a suggestion can be removed with its trash, also after visiting other page
   // Nothing is saved by removing.
   const recipes = await adminClient().from("recipe").select("id").eq("user_id", userId);
   expect(recipes.data).toHaveLength(1);
+});
+
+// Story 16.3: "Från dina recept": a favourite that uses an offer is shown first, at once, and goes on the menu in one tap.
+test("a favourite recipe that uses an offer is shown first and goes on the menu, and the list follows", async ({ page }) => {
+  const errors = watchErrors(page);
+  await seed({ withOffers: true });
+  const admin = adminClient();
+  const ids = await seedIngredients(["falukorv", "makaroner"]);
+  const recipe = await admin
+    .from("recipe")
+    .insert({ user_id: userId, title: "Korvstroganoff", original_servings: 4, total_minutes: 30, source_kind: "text", is_favorite: true })
+    .select("id")
+    .single();
+  if (recipe.error) throw recipe.error;
+  const lines = await admin.from("recipe_ingredient").insert(
+    [
+      { text: "400 g falukorv", id: ids.get("falukorv")! },
+      { text: "makaroner", id: ids.get("makaroner")! },
+    ].map((line, position) => ({
+      user_id: userId,
+      recipe_id: (recipe.data as { id: string }).id,
+      position,
+      original_text: line.text,
+      amount: null,
+      unit: null,
+      is_vague: true,
+      ingredient_id: line.id,
+    })),
+  );
+  if (lines.error) throw lines.error;
+
+  await openOffers(page);
+  await suggestButton(page).click();
+  await expect(sheet(page)).toBeHidden();
+  await page.goto("/recept");
+  await page.getByRole("radio", { name: "Kan lagas nu" }).click();
+  const own = page.getByTestId("own-recipes");
+  await expect(own.getByRole("heading", { name: "Från dina recept" })).toBeVisible();
+  const card = own.getByTestId("own-recipe");
+  await expect(card).toHaveCount(1);
+  await expect(card).toContainText("Korvstroganoff");
+  await expect(card.getByTestId("own-recipe-why")).toHaveText("allt hemma eller på erbjudande");
+  // First: the section is above the AI suggestions in the page.
+  const first = await page.getByTestId("ai-suggestions").locator("section").first().getAttribute("data-testid");
+  expect(first).toBe("own-recipes");
+
+  await card.getByRole("button", { name: "Lägg på matsedeln: Korvstroganoff" }).click();
+  await expect(toast(page)).toContainText("Lagt på matsedeln.");
+  const plan = await admin.from("meal_plan_recipe").select("recipe_title").eq("user_id", userId);
+  expect(plan.error).toBeNull();
+  expect((plan.data as { recipe_title: string }[]).map((row) => row.recipe_title)).toEqual(["Korvstroganoff"]);
+  await toast(page).getByRole("button", { name: "Visa inköpslistan" }).click();
+  await expect(page).toHaveURL(/\/lista$/);
+  await expect(page.getByTestId("shopping-line").filter({ visible: true, hasText: /falukorv/i })).toHaveCount(1);
+  expect(errors).toEqual([]);
 });
