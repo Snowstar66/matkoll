@@ -311,3 +311,17 @@ Den första publiceringen i produktion kräver Pontus godkännande (AD-23), så 
    - Be om en länk med din adress: mejlet kommer, länken börjar med `<adress>/auth/confirm?` och loggar in dig på `/recept`.
    - Importera ett recept (LM Studio på Macen igång), lägg det på matsedeln och öppna Lista.
    - En adress som inte finns får samma svar men inget mejl (steg 3).
+
+## 12. Inloggad länge (Story 15.2)
+
+Appen sätter sessionskakan till 90 dagar (`maxAge`) och förnyar sessionen i proxyn vid varje sidanrop. Kakan är `httpOnly`, `SameSite=Lax` och `secure` när `SITE_URL` börjar med `https://`. Åtkomsttoken gäller en timme och förnyas tyst med förnyelsetoken, som byts vid varje förnyelse. Sessionen slutar alltså gälla först när enheten legat oanvänd längre än Supabase tillåter. Lokalt styr `supabase/config.toml` det (`jwt_expiry = 3600`, `refresh_token_reuse_interval = 60`, `[auth.sessions] inactivity_timeout = "2160h"`).
+
+**Authentication → Sessions** i molnprojektet (Pro-plan krävs för tids- och inaktivitetsgränserna; på gratisplanen går förnyelsetoken aldrig ut, vilket också ger över 90 dagar):
+
+- **Time-box user sessions:** av (ingen tidsgräns).
+- **Inactivity timeout:** 90 dagar (`2160h`) eller längre.
+- **Detect and revoke potentially compromised refresh tokens:** på.
+- **Refresh token reuse interval** (Authentication → Sign In / Providers eller *JWT Settings*): 60 sekunder, så att två samtidiga sidanrop som förnyar samma token inte loggar ut dig.
+- **JWT expiry:** 3600 sekunder (standard).
+
+Ändra inget i molnet utan att Pontus godkänner (AD-23). **Kontroll:** logga in på telefonen, vänta över en timme och öppna appen: du är fortfarande inloggad. Logga ut: kakorna `sb-…-auth-token` försvinner och `/logga-in` visas.

@@ -20,6 +20,7 @@
     "db:start": "supabase start",
     "db:types": "supabase gen types --local --schema public > src/lib/supabase/database.types.ts",
     "db:env": "node scripts/db-env.mjs",
+    "dev:set-password": "node --env-file-if-exists=.env.local scripts/dev-set-password.mjs",
     "users:sync": "node --env-file-if-exists=.env.local scripts/users-sync.mjs",
     "prepare": "if git rev-parse --is-inside-work-tree >/dev/null 2>&1; then lefthook install; fi"
   },

@@ -15,6 +15,8 @@ pnpm users:sync       # skapar användarna i ALLOWED_EMAILS
 pnpm dev              # http://localhost:3000
 ```
 
+**Automatisk inloggning lokalt (Story 15.1).** Sätt `DEV_AUTO_LOGIN_EMAIL` (en adress i `ALLOWED_EMAILS`) och `DEV_AUTO_LOGIN_PASSWORD` i `.env.local`, kör `pnpm users:sync` och `pnpm dev:set-password`. Då loggas du in utan kod när du öppnar `http://localhost:3000` med `pnpm dev`. Det fungerar bara om allt stämmer: `NODE_ENV=development`, inte Vercel, värden är `localhost` eller `127.0.0.1` och Supabase-adressen är lokal. Annars gäller den vanliga inloggningen. Efter att du loggat ut loggas du in igen nästa gång du öppnar en sida utanför `/logga-in`.
+
 Logga in på `http://localhost:3000/logga-in`. Länken hamnar i Mailpit på `http://127.0.0.1:54324`; öppna den så är du inloggad. Registrering är avstängd, så bara adresser som `pnpm users:sync` har skapat kan logga in, och appen släpper bara in adresser som står i `ALLOWED_EMAILS`. `pnpm users:sync` tar aldrig bort någon; användare som inte finns i listan visas som varning och tas bort först med `pnpm users:sync --prune`.
 
 | Kommando | Gör |
@@ -30,6 +32,7 @@ Logga in på `http://localhost:3000/logga-in`. Länken hamnar i Mailpit på `htt
 | `pnpm db:start` | Startar lokal Supabase (`supabase start`) |
 | `pnpm db:env` | Skriver `NEXT_PUBLIC_SUPABASE_URL`, `NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY` och `SUPABASE_SERVICE_ROLE_KEY` från `supabase status` till `.env.local` |
 | `pnpm db:types` | Genererar `src/lib/supabase/database.types.ts`; körs efter varje migration (AD-5) |
+| `pnpm dev:set-password` | Sätter lösenordet för din lokala användare (`DEV_AUTO_LOGIN_EMAIL`/`DEV_AUTO_LOGIN_PASSWORD`), så att `pnpm dev` loggar in dig automatiskt (Story 15.1). Vägrar om Supabase-adressen inte är lokal |
 | `pnpm users:sync` | Skapar användarna i `ALLOWED_EMAILS` med service role (`--prune` tar bort övriga) |
 
 ### Utseende och byggstenar

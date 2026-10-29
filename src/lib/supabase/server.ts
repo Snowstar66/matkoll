@@ -2,7 +2,7 @@ import "server-only";
 import { createServerClient } from "@supabase/ssr";
 import { cookies } from "next/headers";
 import { connection } from "next/server";
-import { supabaseConfig } from "./config";
+import { authCookieOptions, supabaseConfig } from "./config";
 import type { Database } from "./database.types";
 
 export type CreateClientOptions = {
@@ -27,6 +27,7 @@ export async function createClient({ forwardedFor }: CreateClientOptions = {}) {
 
   return createServerClient<Database>(url, key, {
     ...(forwardedFor ? { global: { headers: { "Sb-Forwarded-For": forwardedFor } } } : {}),
+    cookieOptions: authCookieOptions(),
     cookies: {
       getAll() {
         return cookieStore.getAll();

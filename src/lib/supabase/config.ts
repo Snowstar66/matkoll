@@ -20,3 +20,21 @@ export function supabaseConfig(): { url: string; key: string } {
   if (!url || !key) throw new SupabaseNotConfiguredError();
   return { url, key };
 }
+
+/** The session lasts 90 days from the last refresh (Story 15.2). */
+export const sessionMaxAgeSeconds = 90 * 24 * 60 * 60;
+
+/**
+ * Cookie options for the session cookies (Story 15.2). The app has no browser
+ * client, so the cookies can be httpOnly. `secure` follows the site's own
+ * scheme, so a production build tried over http://localhost still works.
+ */
+export function authCookieOptions() {
+  return {
+    maxAge: sessionMaxAgeSeconds,
+    httpOnly: true,
+    sameSite: "lax" as const,
+    path: "/",
+    secure: env.SITE_URL.startsWith("https://"),
+  };
+}

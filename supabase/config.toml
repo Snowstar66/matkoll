@@ -174,7 +174,7 @@ jwt_expiry = 3600
 enable_refresh_token_rotation = true
 # Allows refresh tokens to be reused after expiry, up to the specified interval in seconds.
 # Requires enable_refresh_token_rotation = true.
-refresh_token_reuse_interval = 10
+refresh_token_reuse_interval = 60
 # Allow/disallow new user signups to your project.
 # Matkoll: off; users are created only by `pnpm users:sync` (AD-3).
 enable_signup = false
@@ -284,11 +284,12 @@ max_frequency = "5s"
 # 14152127777 = "123456"
 
 # Configure logged in session timeouts.
-# [auth.sessions]
+# Story 15.2: no timebox, and the session ends after 90 days without use.
+[auth.sessions]
 # Force log out after the specified duration.
 # timebox = "24h"
 # Force log out if the user has been inactive longer than the specified duration.
-# inactivity_timeout = "8h"
+inactivity_timeout = "2160h"
 
 # This hook runs before a new user is created and allows developers to reject the request based on the incoming user object.
 # [auth.hook.before_user_created]
