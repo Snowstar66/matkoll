@@ -606,3 +606,18 @@ test("dishes lie on days: Flytta till dag, adding to a free day, and the list do
   expect(await listLines()).toBe(before);
   expect(errors).toEqual([]);
 });
+
+test("days show their date and today is marked (Story 13.6)", async ({ page }) => {
+  const admin = adminClient();
+  const update = await admin.from("meal_plan_recipe").update({ weekday: 1 }).eq("user_id", userId).eq("recipe_title", soppa);
+  if (update.error) throw update.error;
+  await page.goto("/matsedel");
+  const monday = page.locator('[data-testid="plan-day"][data-day="1"]').filter({ visible: true });
+  await expect(monday).toContainText(/Måndag\s*·\s*\d{1,2} \S+/);
+  await expect(monday.getByRole("heading", { level: 3 })).toHaveCSS("text-transform", "none");
+  const today = page.locator('[data-testid="plan-day"][aria-current="date"]').filter({ visible: true });
+  await expect(today).toHaveCount(1);
+  await expect(today).toContainText("Idag");
+  expect(await page.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth)).toBe(true);
+  await page.screenshot({ path: "/private/tmp/claude-501/-Users-pontus-AI-Projects-Matkoll/67fb9a7f-8674-4d91-94c9-bd712391e835/scratchpad/ux-136/final-375-light.png" });
+});
