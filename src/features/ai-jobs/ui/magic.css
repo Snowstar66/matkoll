@@ -1,0 +1,122 @@
+/* The magical view of the sheet AI-jobb (Story 12.8): a slowly turning cube of
+   glowing edges, an inner one turning the other way, and a few particles in
+   orbit. Only transform and opacity move, and "Minska rörelse" stops all. */
+.magic-hero {
+  position: relative;
+  display: grid;
+  place-items: center;
+  height: 160px;
+  perspective: 560px;
+  overflow: hidden;
+}
+.magic-hero > * {
+  grid-area: 1 / 1;
+}
+.magic-glow {
+  width: 150px;
+  height: 150px;
+  border-radius: 9999px;
+  background: radial-gradient(circle, color-mix(in srgb, var(--accent) 38%, transparent) 0%, transparent 68%);
+  animation: magic-breathe 4s ease-in-out infinite;
+}
+.magic-settled .magic-glow {
+  animation: none;
+  opacity: 0.8;
+}
+.magic-scene {
+  position: relative;
+  width: 0;
+  height: 0;
+  transform-style: preserve-3d;
+  animation: magic-spin 18s linear infinite;
+}
+.magic-scene-inner {
+  animation-direction: reverse;
+  animation-duration: 12s;
+}
+.magic-face {
+  position: absolute;
+  left: calc(var(--s) / -2);
+  top: calc(var(--s) / -2);
+  width: var(--s);
+  height: var(--s);
+  border: 1.5px solid var(--accent);
+  border-radius: 6px;
+  background: color-mix(in srgb, var(--accent) 7%, transparent);
+}
+.magic-face:nth-child(1) { transform: translateZ(calc(var(--s) / 2)); }
+.magic-face:nth-child(2) { transform: rotateY(180deg) translateZ(calc(var(--s) / 2)); }
+.magic-face:nth-child(3) { transform: rotateY(90deg) translateZ(calc(var(--s) / 2)); }
+.magic-face:nth-child(4) { transform: rotateY(-90deg) translateZ(calc(var(--s) / 2)); }
+.magic-face:nth-child(5) { transform: rotateX(90deg) translateZ(calc(var(--s) / 2)); }
+.magic-face:nth-child(6) { transform: rotateX(-90deg) translateZ(calc(var(--s) / 2)); }
+.magic-core {
+  position: absolute;
+  left: -5px;
+  top: -5px;
+  width: 10px;
+  height: 10px;
+  border-radius: 9999px;
+  background: var(--accent);
+  animation: magic-breathe 2.4s ease-in-out infinite;
+}
+.magic-orbit {
+  position: relative;
+  width: 0;
+  height: 0;
+  animation: magic-orbit 9s linear infinite;
+}
+.magic-orbit > span {
+  position: absolute;
+  left: var(--r);
+  top: -3px;
+  width: 6px;
+  height: 6px;
+  border-radius: 9999px;
+  background: var(--accent);
+  opacity: 0.8;
+}
+.magic-status {
+  animation: magic-fade 2.5s ease-in-out infinite;
+}
+.magic-shimmer {
+  position: relative;
+  overflow: hidden;
+}
+.magic-shimmer::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  background: linear-gradient(90deg, transparent, color-mix(in srgb, var(--accent) 9%, transparent), transparent);
+  transform: translateX(-100%);
+  animation: magic-sweep 2.4s ease-in-out infinite;
+  pointer-events: none;
+}
+@keyframes magic-spin {
+  from { transform: rotateX(-24deg) rotateY(0deg); }
+  to { transform: rotateX(-24deg) rotateY(360deg); }
+}
+@keyframes magic-orbit {
+  from { transform: rotateX(70deg) rotateZ(0deg); }
+  to { transform: rotateX(70deg) rotateZ(360deg); }
+}
+@keyframes magic-breathe {
+  0%, 100% { opacity: 0.55; transform: scale(0.94); }
+  50% { opacity: 1; transform: scale(1.04); }
+}
+@keyframes magic-fade {
+  0% { opacity: 0; }
+  12%, 88% { opacity: 1; }
+  100% { opacity: 0; }
+}
+@keyframes magic-sweep {
+  to { transform: translateX(100%); }
+}
+@media (prefers-reduced-motion: reduce) {
+  .magic-scene, .magic-orbit, .magic-glow, .magic-core, .magic-status, .magic-shimmer::after {
+    animation: none !important;
+  }
+  .magic-scene { transform: rotateX(-24deg) rotateY(30deg); }
+  .magic-orbit { transform: rotateX(70deg); }
+  .magic-shimmer::after { display: none; }
+}

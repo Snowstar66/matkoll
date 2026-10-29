@@ -2,12 +2,14 @@
 
 import { useRouter } from "next/navigation";
 import { useState } from "react";
+import { cx } from "@/components/cx";
 import { Button } from "@/components/button";
 import { Notice } from "@/components/notice";
 import { Sheet } from "@/components/sheet";
 import { useAiJobs } from "@/lib/ai-jobs-client";
 import { isActive, type AiJob } from "@/lib/ai-job-shape";
 import { errorMessages, isErrorCode, type AppError } from "@/lib/errors";
+import { MagicView } from "./magic-view";
 import { resultHref, statusText, subjectText } from "../domain/ai-job-text";
 
 // The sheet AI-jobb (Story 12.4, EXPERIENCE.md, Component Patterns): one row
@@ -52,12 +54,13 @@ export function AiJobsSheet({ open, onClose }: { open: boolean; onClose: () => v
     <Sheet open={open} onClose={onClose} title="AI-jobb">
       <div className="flex flex-col gap-3">
         {error ? <Notice role="alert">{error.message}</Notice> : null}
+        <MagicView jobs={shown} />
         {shown.length === 0 ? (
           <p className="text-body text-ink-2">Inga AI-jobb just nu.</p>
         ) : (
           <ul className="flex flex-col divide-y divide-hairline">
             {shown.map((job) => (
-              <li key={job.id} data-testid="ai-job" className="flex flex-col gap-1 py-3">
+              <li key={job.id} data-testid="ai-job" className={cx("flex flex-col gap-1 py-3", job.status === "running" && "magic-shimmer")}>
                 <div className="flex items-center justify-between gap-3">
                   <div className="min-w-0">
                     <p className="text-row-title break-words text-ink">{capitalized(subjectText(job.kind))}</p>
