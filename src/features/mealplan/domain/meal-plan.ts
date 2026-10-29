@@ -21,6 +21,8 @@ export type PlanRecipe = {
   position: number;
   /** When the dish was marked cooked (Story 13.4, ISO 8601), or `null`/left out when it is not. */
   cookedAt?: string | null;
+  /** The day the dish is planned for, 1 (måndag) to 7 (söndag), or `null`/left out for "Ingen dag än" (Story 13.5). */
+  weekday?: number | null;
 };
 
 /** The current meal plan: its name ("Vecka 44") and its dishes in order. */
@@ -48,6 +50,9 @@ export function clampServings(servings: number): number {
   return Math.min(maxServings, Math.max(1, Math.round(servings)));
 }
 
+/** A weekday: 1 (måndag) to 7 (söndag). */
+export const weekdaySchema = z.number().int().min(1).max(7);
+
 /**
  * What addToCurrentPlan takes: the recipe, and optionally the servings
  * (else the recipe's own) and the new dish's id (so a retry adds it once).
@@ -56,8 +61,14 @@ export const addToPlanSchema = z.object({
   recipeId: z.uuid(),
   servings: servingsSchema.optional(),
   id: z.uuid().optional(),
+  /** 1–7 for a day, `null` for "Ingen dag än"; left out, the dish gets defaultWeekday (Story 13.5). */
+  weekday: weekdaySchema.nullable().optional(),
 });
 export type AddToPlanInput = z.input<typeof addToPlanSchema>;
+
+/** What setWeekday takes: the dish and its day, or `null` for "Ingen dag än". */
+export const weekdayChangeSchema = z.object({ id: z.uuid(), weekday: weekdaySchema.nullable() });
+export type WeekdayChange = z.infer<typeof weekdayChangeSchema>;
 
 /** What setServings takes: the dish and its new servings. */
 export const servingsChangeSchema = z.object({ id: z.uuid(), servings: servingsSchema });
@@ -72,10 +83,12 @@ export const planRecipeRowSchema = z.object({
   servings: servingsSchema,
   position: z.number().int().min(0),
   cookedAt: z.string().nullish(),
+  weekday: weekdaySchema.nullish(),
 });
 
 /** Dishes in plan order: by position, then by id for dishes at the same place. */
-export function comparePlanRecipes(a: PlanRecipe, b: PlanRecipe): number {
+type Ordered = Pick<PlanRecipe, "id" | "position">;
+export function comparePlanRecipes(a: Ordered, b: Ordered): number {
   if (a.position !== b.position) return a.position - b.position;
   return a.id < b.id ? -1 : a.id > b.id ? 1 : 0;
 }
@@ -268,3 +281,69 @@ export const planDeletedText = "Matsedeln är borttagen.";
 
 /** A plan id: the plan to use again or delete, or a new plan's id made by the client. */
 export const planIdSchema = z.uuid();
+
+// Dagar på matsedeln (Story 13.5).
+
+/** The weekdays' names, Monday first: index 0 is weekday 1. */
+export const weekdayNames = ["Måndag", "Tisdag", "Onsdag", "Torsdag", "Fredag", "Lördag", "Söndag"] as const;
+
+/** The weekdays 1–7, Monday first. */
+export const weekdays = [1, 2, 3, 4, 5, 6, 7] as const;
+
+/** The name of a weekday (1–7) in lower case, as a sentence uses it: "torsdag". */
+export function weekdayWord(weekday: number): string {
+  return (weekdayNames[weekday - 1] ?? "").toLowerCase();
+}
+
+/** The weekday (1 måndag to 7 söndag) of `date`'s day in Stockholm. */
+export function todayWeekday(date: Date, timeZone: string = planTimeZone): number {
+  const name = new Intl.DateTimeFormat("en-US", { timeZone, weekday: "short" }).format(date);
+  const index = ["Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"].indexOf(name);
+  return index === -1 ? 1 : index + 1;
+}
+
+/**
+ * The day a new dish gets when Pontus does not choose: the first day from
+ * today to Sunday with no dish yet, so a week fills up one day at a time with
+ * no extra step; `null` ("Ingen dag än") when every remaining day has a dish.
+ */
+export function defaultWeekday(dishes: readonly Pick<PlanRecipe, "weekday">[], today: number): number | null {
+  const taken = new Set(dishes.map((dish) => dish.weekday));
+  for (let day = Math.min(7, Math.max(1, today)); day <= 7; day += 1) {
+    if (!taken.has(day)) return day;
+  }
+  return null;
+}
+
+/** One day of the week view: the weekday (`null` for "Ingen dag än") and its dishes in plan order. */
+export type DaySection<T extends Pick<PlanRecipe, "weekday" | "position" | "id">> = {
+  weekday: number | null;
+  dishes: T[];
+};
+
+/**
+ * The dishes grouped for the week view: måndag to söndag, always all seven
+ * (an empty day has no dishes), then "Ingen dag än" last and only when it
+ * has dishes. Within a day the plan's order stays.
+ */
+export function groupByWeekday<T extends Pick<PlanRecipe, "weekday" | "position" | "id">>(
+  dishes: readonly T[],
+): DaySection<T>[] {
+  const sorted = [...dishes].sort(comparePlanRecipes);
+  const days: DaySection<T>[] = weekdays.map((weekday) => ({
+    weekday,
+    dishes: sorted.filter((dish) => dish.weekday === weekday),
+  }));
+  const none = sorted.filter((dish) => !dish.weekday);
+  return none.length > 0 ? [...days, { weekday: null, dishes: none }] : days;
+}
+
+/** The short confirmation after a dish was added: "Lagt på matsedeln, torsdag." */
+export function addedOnDayText(weekday: number | null | undefined): string {
+  return weekday ? `Lagt på matsedeln, ${weekdayWord(weekday)}.` : addedToPlanText;
+}
+
+/** The confirmation after a move: "Pasta ligger på torsdag." or "Pasta har ingen dag." */
+export function movedText(title: string, weekday: number | null): string {
+  return weekday ? `${title} ligger på ${weekdayWord(weekday)}.` : `${title} har ingen dag.`;
+}

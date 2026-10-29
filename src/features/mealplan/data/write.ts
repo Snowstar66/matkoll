@@ -15,6 +15,8 @@ export type NewDish = {
   servings: number;
   /** The current plan's name if one has to be created: "Vecka 44". */
   planName: string;
+  /** The day it lies on, 1–7; `null` or left out for none. */
+  weekday?: number | null;
 };
 
 /**
@@ -31,6 +33,7 @@ export async function addToCurrentPlanIn(db: MealPlanDb, dish: NewDish): Promise
     dish_recipe_title: dish.recipeTitle,
     dish_servings: dish.servings,
     plan_name: dish.planName,
+    ...(dish.weekday ? { dish_weekday: dish.weekday } : {}),
   });
   if (error) throw new MealPlanDataError(`add_failed ${error.code}`);
   return toPlanRecipeRow(data);
@@ -49,6 +52,23 @@ export async function setServingsIn(db: MealPlanDb, userId: string, id: string, 
     .eq("user_id", userId)
     .select("id");
   if (error) throw new MealPlanDataError(`update_failed ${error.code}`);
+  return data.length > 0;
+}
+
+/**
+ * Moves a dish to a weekday (1–7), or to "Ingen dag än" with `null` (Story
+ * 13.5). The dish keeps its place in the plan's order. `false` when the user
+ * has no dish with the id. Throws MealPlanDataError.
+ */
+export async function setWeekdayIn(db: MealPlanDb, userId: string, id: string, weekday: number | null): Promise<boolean> {
+  if (!idSchema.safeParse(id).success) throw new MealPlanDataError("invalid_id");
+  const { data, error } = await db
+    .from("meal_plan_recipe")
+    .update({ weekday })
+    .eq("id", id)
+    .eq("user_id", userId)
+    .select("id");
+  if (error) throw new MealPlanDataError(`weekday_failed ${error.code}`);
   return data.length > 0;
 }
 
@@ -80,9 +100,9 @@ export async function removePlanRecipeIn(db: MealPlanDb, userId: string, id: str
 export async function restorePlanRecipeIn(db: MealPlanDb, row: PlanRecipeRow): Promise<PlanRecipeRow> {
   const parsed = planRecipeRowSchema.safeParse(row);
   if (!parsed.success) throw new MealPlanDataError("invalid_row");
-  const { id, mealPlanId, recipeId, recipeTitle, servings, position } = parsed.data;
+  const { id, mealPlanId, recipeId, recipeTitle, servings, position, weekday } = parsed.data;
   const { data, error } = await db.rpc("restore_plan_recipe", {
-    dish: { id, meal_plan_id: mealPlanId, recipe_id: recipeId, recipe_title: recipeTitle, servings, position },
+    dish: { id, meal_plan_id: mealPlanId, recipe_id: recipeId, recipe_title: recipeTitle, servings, position, weekday: weekday ?? null },
   });
   if (error) throw new MealPlanDataError(`restore_failed ${error.code}`);
   return toPlanRecipeRow(data);
