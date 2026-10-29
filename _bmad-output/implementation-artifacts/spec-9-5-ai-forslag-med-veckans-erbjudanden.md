@@ -2,7 +2,7 @@
 title: 'Story 9.5: AI-förslag med veckans erbjudanden, direkt på matsedeln'
 type: 'feature'
 created: '2026-10-27'
-status: 'in-progress'
+status: 'done'
 route: 'dispatch'
 context:
   - '{project-root}/_bmad-output/implementation-artifacts/epic-9-context.md'
@@ -117,6 +117,10 @@ context:
 - 2026-10-29: Omskriven efter Pontus önskemål och efter Epic 12: ett eget AI-anrop från arket Veckans erbjudanden, direkt till matsedeln och inköpslistan, i stället för att alla förslag lutar åt erbjudanden.
 
 ## Review Triage Log
+
+Ingen separat granskning, enligt den tokensnåla loopen: storyn har ingen migrering och rör varken inloggning eller privata data. Byggaren gick igenom acceptanskriterierna, och CI kör hela e2e-sviten på epic-PR:en.
+
+Mätningen mot LM Studio (tid och andel rätter som använder ett erbjudande) görs vid nästa samlade mätning, inte per story.
 
 ## Verification
 
