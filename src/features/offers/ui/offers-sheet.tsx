@@ -6,7 +6,6 @@ import { type ReactNode, useId, useMemo, useRef, useState } from "react";
 import { FilterPills } from "@/components/filter-pills";
 import { Button, buttonClasses } from "@/components/button";
 import { CheckCircle } from "@/components/check-circle";
-import { cx } from "@/components/cx";
 import { ListGroup } from "@/components/list-group";
 import { ListRow } from "@/components/list-row";
 import { Notice } from "@/components/notice";
@@ -32,10 +31,10 @@ import {
   type StoreOffer,
 } from "../domain/offer";
 import { topDealPercent } from "../domain/offer-saving";
-import { bestStoreReason, type BestStore } from "../domain/best-store";
+import { bestStoreLine, type BestStore } from "../domain/best-store";
 import { storeBadgeText, storeBadgeTone, type StoreBadgeInfo } from "../domain/store-badge";
 import { FetchOffersButton } from "./fetch-offers-button";
-import { OffersList } from "./offers-list";
+import { OffersList, StoreLabel } from "./offers-list";
 import { SuggestFromOffersButton } from "./suggest-from-offers-button";
 
 /** A store as the sheet needs it; the page reads it from settings. */
@@ -83,6 +82,8 @@ export type OffersSheetProps = {
   listing?: OffersListing | null;
   /** Story 9.14: the week's best store, counted by the page; `null` when it could not be, or fewer than two stores have offers. */
   best?: BestStore | null;
+  /** Story 16.7: the ids of the offers that fit what Pontus cooks or has at home (same rule as `best`); their rows say "Passar dig". */
+  fitIds?: readonly string[];
 };
 
 /** Story 9.11: the offers under their categories, or the best saving first. */
@@ -146,6 +147,7 @@ export function OffersSheet({
   unavailable,
   listing = null,
   best = null,
+  fitIds,
 }: OffersSheetProps & { open: boolean; onClose: () => void }) {
   const router = useRouter();
   const { showToast } = useToast();
@@ -154,6 +156,7 @@ export function OffersSheet({
   const [adding, setAdding] = useState(false);
   const [addError, setAddError] = useState<{ message: string; attempt: number } | null>(null);
   const [sort, setSort] = useState<"category" | "saving">("category");
+  const [onlyBest, setOnlyBest] = useState(false);
   const [storeFilter, setStoreFilter] = useState<string>("all");
   // The stores Pontus has unticked for "Hämta valda"; all are ticked by default.
   const [panel, setPanel] = useState<"fetch" | "filter" | null>(null);
@@ -173,14 +176,17 @@ export function OffersSheet({
     [stores],
   );
   const filterId = storeFilter !== "all" && withLink.some((store) => store.id === storeFilter) ? storeFilter : "all";
-  const shown = useMemo(
-    () => (filterId === "all" ? offers : offers.filter((offer) => offer.storeId === filterId)),
-    [offers, filterId],
-  );
+  const fits = useMemo(() => new Set(fitIds ?? []), [fitIds]);
   const onList = useMemo(() => new Set([...(listing?.onList ?? []), ...added]), [listing, added]);
   const chosen = offers.filter((offer) => picked.has(offer.id) && !onList.has(offer.id));
   const storesWithOffers = useMemo(() => withLink.filter((store) => offers.some((offer) => offer.storeId === store.id)), [withLink, offers]);
   const bestInfo = storesWithOffers.length > 1 && best && storesWithOffers.some((store) => store.id === best.storeId) ? best : null;
+  const matchIds = useMemo(() => new Set(bestInfo?.matches.map((match) => match.id) ?? []), [bestInfo]);
+  const showingMatches = onlyBest && matchIds.size > 0;
+  const shown = useMemo(() => {
+    const ofStore = filterId === "all" ? offers : offers.filter((offer) => offer.storeId === filterId);
+    return showingMatches ? ofStore.filter((offer) => matchIds.has(offer.id)) : ofStore;
+  }, [offers, filterId, showingMatches, matchIds]);
   const ticked = withLink.filter((store) => !unticked.has(store.id));
 
   /** One store after the other, never at once: each is one request to the store's site, and its answer is kept. */
@@ -366,11 +372,25 @@ export function OffersSheet({
               defaultStoreId={bestInfo?.storeId ?? storesWithOffers[0]?.id}
               bestLine={
                 bestInfo ? (
-                  <p data-testid="best-store" className="flex flex-wrap items-center gap-x-2 gap-y-1 text-body text-ink">
-                    <span className="font-semibold">Bäst denna vecka:</span>
-                    <StoreBadge badge={badges.get(bestInfo.storeId)} />
-                    <span className="text-ink-2">{bestStoreReason(bestInfo)}</span>
-                  </p>
+                  <div data-testid="best-store" className="flex flex-col gap-1">
+                    <p className="text-body text-ink">
+                      <span className="font-semibold">Bäst denna vecka:</span>{" "}
+                      {badges.get(bestInfo.storeId) ? <StoreLabel badge={badges.get(bestInfo.storeId)!} testId="best-store-label" /> : null}
+                      {" \u2013 "}
+                      <span className="text-ink-2">{bestStoreLine(bestInfo)}</span>
+                    </p>
+                    {matchIds.size > 0 ? (
+                      <Button
+                        variant="text"
+                        className="self-start"
+                        aria-pressed={showingMatches}
+                        onClick={() => setOnlyBest(!showingMatches)}
+                        data-testid="best-store-toggle"
+                      >
+                        {showingMatches ? "Visa alla" : "Visa"}
+                      </Button>
+                    ) : null}
+                  </div>
                 ) : undefined
               }
             />
@@ -379,7 +399,8 @@ export function OffersSheet({
               weekStart={weekStart}
               sort={sort}
               badges={many ? badges : undefined}
-              showStore={filterId === "all" && storesWithOffers.length > 1}
+              showStore={filterId === "all" && storesWithOffers.length > 1 && !showingMatches}
+              fits={fits}
               selection={
                 listing
                   ? {
@@ -546,7 +567,7 @@ function StoreFetchPanel({
                   onCheckedChange={(on) => onToggle(store.id, on)}
                 />
               }
-              trailing={badge ? <StoreBadge badge={badge} /> : undefined}
+              trailing={badge ? <StoreLabel badge={badge} testId="fetch-store-label" /> : undefined}
               data-testid="store-fetch-row"
             />
           );
@@ -567,16 +588,6 @@ function StoreFetchPanel({
         </Button>
       </div>
     </section>
-  );
-}
-
-/** The store's short name in its chain's colour. */
-function StoreBadge({ badge }: { badge: StoreBadgeInfo | undefined }) {
-  if (!badge) return null;
-  return (
-    <span className={cx("inline-flex rounded-sm px-[9px] py-[3px] text-badge", badge.tone === "ica" ? "bg-store-ica text-store-ica-ink" : "bg-store-other text-store-other-ink")}>
-      {badge.text}
-    </span>
   );
 }
 
