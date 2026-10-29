@@ -1,0 +1,220 @@
+{
+  "suggestions": [
+    {
+      "title": "Falukorv med stuvade makaroner",
+      "servings": 4,
+      "totalMinutes": 25,
+      "ingredients": [
+        {
+          "text": "600 g falukorv",
+          "amount": 600,
+          "unit": "g",
+          "name": "falukorv",
+          "stepIndexes": [
+            1
+          ],
+          "new": null
+        },
+        {
+          "text": "4 dl makaroner",
+          "amount": 4,
+          "unit": "dl",
+          "name": "makaroner",
+          "stepIndexes": [
+            0
+          ],
+          "new": null
+        },
+        {
+          "text": "3 dl mjölk",
+          "amount": 3,
+          "unit": "dl",
+          "name": "mjölk",
+          "stepIndexes": [
+            2
+          ],
+          "new": null
+        },
+        {
+          "text": "2 msk smör",
+          "amount": 2,
+          "unit": "msk",
+          "name": "smör",
+          "stepIndexes": [
+            2
+          ],
+          "new": null
+        },
+        {
+          "text": "2 msk vetemjöl",
+          "amount": 2,
+          "unit": "msk",
+          "name": "vetemjöl",
+          "stepIndexes": [
+            2
+          ],
+          "new": null
+        },
+        {
+          "text": "salt",
+          "amount": null,
+          "unit": null,
+          "name": "salt",
+          "stepIndexes": [
+            2
+          ],
+          "new": null
+        }
+      ],
+      "steps": [
+        "Koka makaronerna enligt anvisningen på förpackningen.",
+        "Skär falukorven i bitar och stek den.",
+        "Smält smöret, rör ner mjölet och späd med mjölk. Smaka av med salt och blanda med makaronerna."
+      ]
+    },
+    {
+      "title": "Broccolisoppa med ost",
+      "servings": 4,
+      "totalMinutes": 30,
+      "ingredients": [
+        {
+          "text": "500 g broccoli",
+          "amount": 500,
+          "unit": "g",
+          "name": "broccoli",
+          "stepIndexes": [
+            0
+          ],
+          "new": null
+        },
+        {
+          "text": "1 gul lök",
+          "amount": 1,
+          "unit": null,
+          "name": "gul lök",
+          "stepIndexes": [
+            0
+          ],
+          "new": null
+        },
+        {
+          "text": "5 dl grönsaksbuljong",
+          "amount": 5,
+          "unit": "dl",
+          "name": "grönsaksbuljong",
+          "stepIndexes": [
+            1
+          ],
+          "new": null
+        },
+        {
+          "text": "1 dl grädde",
+          "amount": 1,
+          "unit": "dl",
+          "name": "grädde",
+          "stepIndexes": [
+            2
+          ],
+          "new": null
+        },
+        {
+          "text": "100 g riven ost",
+          "amount": 100,
+          "unit": "g",
+          "name": "riven ost",
+          "stepIndexes": [
+            2
+          ],
+          "new": null
+        },
+        {
+          "text": "salt",
+          "amount": null,
+          "unit": null,
+          "name": "salt",
+          "stepIndexes": [
+            2
+          ],
+          "new": null
+        }
+      ],
+      "steps": [
+        "Hacka löken och dela broccolin.",
+        "Koka broccolin och löken i buljongen i 10 minuter.",
+        "Mixa soppan, rör ner grädde och ost och smaka av med salt."
+      ]
+    },
+    {
+      "title": "Kycklingpasta med tomat",
+      "servings": 4,
+      "totalMinutes": 30,
+      "ingredients": [
+        {
+          "text": "500 g kycklingfilé",
+          "amount": 500,
+          "unit": "g",
+          "name": "kycklingfilé",
+          "stepIndexes": [
+            1
+          ],
+          "new": null
+        },
+        {
+          "text": "4 dl pasta",
+          "amount": 4,
+          "unit": "dl",
+          "name": "pasta",
+          "stepIndexes": [
+            0
+          ],
+          "new": null
+        },
+        {
+          "text": "1 förp krossade tomater",
+          "amount": 1,
+          "unit": "förp",
+          "name": "krossade tomater",
+          "stepIndexes": [
+            2
+          ],
+          "new": null
+        },
+        {
+          "text": "1 gul lök",
+          "amount": 1,
+          "unit": null,
+          "name": "gul lök",
+          "stepIndexes": [
+            1
+          ],
+          "new": null
+        },
+        {
+          "text": "1 msk olivolja",
+          "amount": 1,
+          "unit": "msk",
+          "name": "olivolja",
+          "stepIndexes": [
+            1
+          ],
+          "new": null
+        },
+        {
+          "text": "salt",
+          "amount": null,
+          "unit": null,
+          "name": "salt",
+          "stepIndexes": [
+            2
+          ],
+          "new": null
+        }
+      ],
+      "steps": [
+        "Koka pastan enligt anvisningen.",
+        "Stek kycklingen och löken i oljan.",
+        "Tillsätt krossade tomater, smaka av med salt och blanda med pastan."
+      ]
+    }
+  ]
+}

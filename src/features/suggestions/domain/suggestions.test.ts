@@ -10,9 +10,19 @@ import {
 
 describe("suggestRequestSchema", () => {
   it("defaults to no titles, trims them, collapses whitespace and removes format characters", () => {
-    expect(suggestRequestSchema.parse({})).toEqual({ avoidTitles: [] });
-    expect(suggestRequestSchema.parse({ avoidTitles: [" Pannkakor "] })).toEqual({ avoidTitles: ["Pannkakor"] });
-    expect(suggestRequestSchema.parse({ avoidTitles: ["Krämig   pasta\u200B"] })).toEqual({ avoidTitles: ["Krämig pasta"] });
+    expect(suggestRequestSchema.parse({})).toEqual({ avoidTitles: [], mode: "pantry" });
+    expect(suggestRequestSchema.parse({ avoidTitles: [" Pannkakor "] })).toEqual({ avoidTitles: ["Pannkakor"], mode: "pantry" });
+    expect(suggestRequestSchema.parse({ avoidTitles: ["Krämig   pasta\u200B"] })).toEqual({
+      avoidTitles: ["Krämig pasta"],
+      mode: "pantry",
+    });
+  });
+
+  it("takes the mode offers (Story 9.5) and no other", () => {
+    expect(suggestRequestSchema.parse({ mode: "offers" }).mode).toBe("offers");
+    expect(suggestRequestSchema.safeParse({ mode: "weekplan" }).success).toBe(false);
+    // The client never sends the offers.
+    expect(suggestRequestSchema.safeParse({ mode: "offers", offers: ["falukorv"] }).success).toBe(false);
   });
 
   it.each([

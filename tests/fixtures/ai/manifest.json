@@ -75,6 +75,7 @@
     }
   ],
   "suggest": "suggest-dishes",
+  "suggestOffers": "suggest-dishes-erbjudanden",
   "suggestAlternatives": [
     "suggest-dishes-andra"
   ],

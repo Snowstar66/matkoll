@@ -65,6 +65,8 @@ type Manifest = {
   suggest: string;
   /** Further answers, for when every title of the ones before is to be avoided ("Föreslå andra rätter"). */
   suggestAlternatives?: string[];
+  /** The answer when the message has offers (Story 9.5): <suggestOffers>.response.json. */
+  suggestOffers?: string;
   /** analyzeImage: each case is a photo <name>.png with the answer <name>.analyze.json; `default` answers any other photo. */
   analyze?: { default: string; cases: { name: string }[] };
   /** locateItems: each case is a photo <name>.png with the points <name>.locate.json; `default` answers any other photo. */
@@ -76,6 +78,8 @@ type Fixtures = { byKey: Map<string, Answer>; fallback: AiRecipe };
 type SuggestFixtures = {
   /** The answer sets in the order they are tried. */
   sets: AiRecipe[][];
+  /** The answer for a message with offers, if the manifest has one. */
+  offersSet: AiRecipe[] | undefined;
   /** Normalized reserved text → its code, for the pantry items given to suggestDishes. */
   errors: Map<string, MockErrorCode>;
 };
@@ -152,11 +156,14 @@ function loadSuggestFixtures(dir: string): SuggestFixtures {
   const sets = [manifest.suggest, ...(manifest.suggestAlternatives ?? [])].map(
     (name) => suggestDishesAnswerCompact.parse(JSON.parse(read(`${name}.response.json`))).suggestions.map(fromCompactDish),
   );
+  const offersSet = manifest.suggestOffers
+    ? suggestDishesAnswerCompact.parse(JSON.parse(read(`${manifest.suggestOffers}.response.json`))).suggestions.map(fromCompactDish)
+    : undefined;
   const errors = new Map<string, MockErrorCode>();
   for (const { text, code } of manifest.reserved) {
     if ((mockSuggestErrorCodes as readonly string[]).includes(code)) errors.set(normalizeInputText({ text }), code);
   }
-  return { sets, errors };
+  return { sets, offersSet, errors };
 }
 
 function loadAnalyzeFixtures(dir: string): AnalyzeFixtures {
@@ -295,6 +302,13 @@ export function createMockAiService(dir: string = defaultFixturesDir, { delayMs 
       if (!current) return fail("ai_unavailable");
       const code = suggestErrorFor(input, current.errors);
       if (code) return fail(code);
+      // Offers given: the answer built around them (Story 9.5), never an avoided title.
+      if (input.offers && input.offers.length > 0 && current.offersSet) {
+        const taken = new Set(input.avoidTitles.map(normalizeTitle));
+        return current.offersSet.every((recipe) => !taken.has(normalizeTitle(recipe.title)))
+          ? ok(structuredClone(current.offersSet))
+          : fail("ai_invalid");
+      }
       // Like a model held to avoidTitles: the first set without one of them.
       const avoided = new Set(input.avoidTitles.map(normalizeTitle));
       const set = current.sets.find((recipes) => recipes.every((recipe) => !avoided.has(normalizeTitle(recipe.title))));

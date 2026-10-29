@@ -21,6 +21,7 @@ import {
 } from "../domain/offer";
 import { FetchOffersButton } from "./fetch-offers-button";
 import { OffersList } from "./offers-list";
+import { SuggestFromOffersButton } from "./suggest-from-offers-button";
 
 /** The store as the sheet needs it; the page reads it from settings. */
 export type OffersStore = {
@@ -132,6 +133,7 @@ export function OffersSheet({
       <div className="flex flex-col gap-4">
         <p className="text-body text-ink-2">{noOffersText(weekStart)}</p>
         <FetchOffersButton form={formId} variant="primary" pending={pending} />
+        <SuggestFromOffersButton hasOffers={false} />
       </div>
     );
   } else {
@@ -143,6 +145,7 @@ export function OffersSheet({
           </p>
           <FetchOffersButton form={formId} variant="text" pending={pending} />
         </div>
+        <SuggestFromOffersButton hasOffers onStarted={onClose} />
         <OffersList offers={offers} weekStart={weekStart} />
         <div className="-ml-3">
           <OpenPageLink href={store.offersUrl} text={openOffersPageText(siteName)} />

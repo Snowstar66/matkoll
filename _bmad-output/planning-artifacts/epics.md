@@ -2063,33 +2063,41 @@ så att jag kan fylla på när det är billigt.
 **När** basvarorna räknas
 **Så** läses bara vilka ställen varan finns på, aldrig summerade mängder (AD-24)
 
-### Story 9.5: AI-förslag med veckans erbjudanden
+### Story 9.5: AI-förslag med veckans erbjudanden, direkt på matsedeln
 
 Som Pontus,
-vill jag att AI-förslagen gärna använder det som är på erbjudande i min butik den här veckan,
-så att veckans middagar blir billigare utan att jag letar själv.
+vill jag att AI föreslår rätter med veckans erbjudanden som bas, och kunna lägga en rätt jag gillar på matsedeln i ett steg,
+så att jag får alla varor på inköpslistan utom de jag redan har hemma.
 
 **Acceptance Criteria:**
 
-**Givet** inga erbjudanden för vald butik
-**När** Pontus ber om AI-förslag
-**Så** får AI-tjänsten exakt samma meddelande som efter Story 12.3 (FR36)
+**Givet** arket Veckans erbjudanden utan erbjudanden
+**När** Pontus ser knappen "Föreslå rätter från veckans erbjudanden"
+**Så** är den avstängd och en rad säger att erbjudandena ska hämtas först
 
 **Givet** veckans erbjudanden
-**När** AI-jobbet för förslag körs
-**Så** får AI-tjänsten varornas namn under "Erbjudanden i butiken den här veckan:", aldrig priser, och klienten skickar aldrig erbjudandena (AD-25, AD-28)
+**När** Pontus trycker på knappen
+**Så** startar ett AI-jobb av sorten `suggest` med `mode: "offers"`, klienten skickar bara läget, och AI-tjänsten får varornas namn under "Erbjudanden i butiken den här veckan:" (högst 40, aldrig priser) bredvid lagret (FR36, AD-25, AD-28)
 
-**Givet** förslag som använder varor på erbjudande
-**När** de visas, också en i taget
-**Så** har de erbjudandeetiketter, och över dem står "Med veckans erbjudanden från Maxi ICA Stormarknad Östersund." (UX-DR20, UX-DR32)
+**Givet** inga erbjudanden eller ingen vald butik på servern
+**När** jobbet ska startas
+**Så** köas inget jobb, och felet är `offers_none` eller `offers_store_missing`
 
-**Givet** att erbjudandena inte går att läsa
-**När** Pontus ber om AI-förslag
-**Så** görs förslagen ändå, utan erbjudanden
+**Givet** förslagen
+**När** de visas
+**Så** visar varje kort rätten, erbjudandena den använder ("På erbjudande: Falukorv") och "5 av 6 hemma"
 
-**Givet** ett förslag som sparas
-**När** det ligger i biblioteket
-**Så** har det inga erbjudandeetiketter
+**Givet** ett förslag
+**När** Pontus trycker "Lägg på matsedeln"
+**Så** öppnas förhandsgranskningen som vanligt, och dess huvudknapp "Spara och lägg på matsedeln" sparar receptet, lägger rätten sist på aktuell matsedel och bekräftar "Lagt på matsedeln." med "Visa inköpslistan"
+
+**Givet** rätten på matsedeln
+**När** Pontus öppnar inköpslistan
+**Så** har den bara varorna som inte finns hemma
+
+**Givet** inga erbjudanden för butiken
+**När** Pontus ber om vanliga AI-förslag
+**Så** får AI-tjänsten exakt samma meddelande som efter Story 12.3 (FR36)
 
 ### Story 9.6: Veckans matsedel från erbjudanden och lagret
 

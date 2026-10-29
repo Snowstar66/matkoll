@@ -19,6 +19,8 @@ const avoidTitleSchema = z
 
 /** Titles to avoid: the suggestions shown and saved, at most three. */
 export const suggestRequestSchema = z.strictObject({
+  /** `offers`: dishes built around this week's offers (Story 9.5); the server reads the offers, never the client sends them. */
+  mode: z.enum(["pantry", "offers"]).default("pantry"),
   avoidTitles: z.array(avoidTitleSchema).max(suggestInputLimits.maxAvoidTitles).default([]),
 });
 export type SuggestRequest = z.infer<typeof suggestRequestSchema>;
@@ -32,11 +34,24 @@ export type SuggestRequest = z.infer<typeof suggestRequestSchema>;
  * for a user without places (and from a server before Story 8.3).
  */
 export const dishSuggestionsSchema = z.object({
-  suggestions: z.array(recipeImportSchema).min(1).max(3),
+  suggestions: z
+    .array(
+      recipeImportSchema.extend({
+        /** Story 9.5: the labels of the offers the dish uses (not saved with the recipe). */
+        onOffer: z.array(z.string()).default([]),
+        /** Story 9.5: how many of the dish's ingredients are at home, or `null` (pantry suggestions). */
+        atHome: z.object({ have: z.number().int().min(0), total: z.number().int().min(0) }).nullable().default(null),
+      }),
+    )
+    .min(1)
+    .max(3),
+  mode: z.enum(["pantry", "offers"]).default("pantry"),
   siteId: z.uuid().nullable().default(null),
 });
 export type DishSuggestions = z.infer<typeof dishSuggestionsSchema>;
-export type DishSuggestion = DishSuggestions["suggestions"][number];
+type DishSuggestionOut = DishSuggestions["suggestions"][number];
+/** A suggestion as the UI holds it: `onOffer` and `atHome` may be left out (none). */
+export type DishSuggestion = Omit<DishSuggestionOut, "onOffer" | "atHome"> & Partial<Pick<DishSuggestionOut, "onOffer" | "atHome">>;
 
 /**
  * The titles the client sends to avoid, from the most wanted: cleaned like

@@ -26,6 +26,8 @@ export type ShownSuggestion = DishSuggestion & { key: number; recipeId: string }
 export type DishSuggestionsState = {
   /** The suggestions as they are, also when they are of another place (see `stale`). */
   suggestions: ShownSuggestion[];
+  /** Story 9.5: `offers` when the suggestions were built around this week's offers. */
+  mode: "pantry" | "offers";
   /** A job is being started, waits in the queue or runs. */
   loading: boolean;
   /** While the job waits behind others: "I kö, 1 före."; otherwise null. */
@@ -84,8 +86,14 @@ export function useDishSuggestions(
 ): DishSuggestionsState {
   const router = useRouter();
   const { jobs, loaded, start, cancel: cancelJob, markSeen, dismiss, fetchResult, reveals } = useAiJobs();
-  const [made, setMade] = useState<{ suggestions: ShownSuggestion[]; siteId: string | null; jobId: string | null }>({
+  const [made, setMade] = useState<{
+    suggestions: ShownSuggestion[];
+    siteId: string | null;
+    jobId: string | null;
+    mode: "pantry" | "offers";
+  }>({
     suggestions: [],
+    mode: "pantry",
     siteId: null,
     jobId: null,
   });
@@ -146,6 +154,7 @@ export function useDishSuggestions(
       setError(null);
       setMade({
         siteId: parsed.data.siteId,
+        mode: parsed.data.mode,
         jobId: unseenId,
         suggestions: parsed.data.suggestions.map((suggestion) => ({
           ...suggestion,
@@ -224,6 +233,7 @@ export function useDishSuggestions(
 
   return {
     suggestions: made.suggestions,
+    mode: made.mode,
     loading,
     waiting,
     error,

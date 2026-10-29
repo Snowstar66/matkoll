@@ -7,4 +7,4 @@ import "server-only";
  * AI-förslag from the pantry, the work of an AI job for POST /api/ai/jobs
  * (Story 12.4; not a Server Action), and the check before the job is made.
  */
-export { checkSuggestPantry, suggestFromPantry } from "./actions/suggest-from-pantry";
+export { checkSuggestPantry, suggestFromPantry, type SuggestMode } from "./actions/suggest-from-pantry";
