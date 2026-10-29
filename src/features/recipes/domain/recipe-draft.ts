@@ -22,6 +22,8 @@ export const draftLimits = {
   urlChars: 2048,
   steps: 100,
   lines: 200,
+  offerNames: 10,
+  offerNameChars: 100,
 } as const;
 
 const webUrl = () => z.url({ protocol: /^https?$/ }).max(draftLimits.urlChars);
@@ -106,6 +108,8 @@ export const recipeDraftSchema = z
     sourceUrl: webUrl().nullable(),
     steps: z.array(recipeStepSchema).max(draftLimits.steps),
     lines: z.array(recipeLineSchema).max(draftLimits.lines),
+    /** Story 16.4: the offers an AI suggestion was built around, kept for "Sparad från veckans erbjudanden". */
+    offerNames: z.array(z.string().trim().min(1).max(draftLimits.offerNameChars)).max(draftLimits.offerNames).optional(),
   })
   .superRefine((draft, context) => {
     if ((draft.sourceKind === "url") !== (draft.sourceUrl !== null)) {

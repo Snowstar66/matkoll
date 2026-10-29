@@ -209,14 +209,14 @@ isOneToOne: false
                   ]
                 },"recipe": {
                   Row: {
-                    "created_at": string,"id": string,"image_url": string | null,"is_favorite": boolean,"original_servings": number,"source_kind": string,"source_url": string | null,"title": string,"total_minutes": number | null,"updated_at": string,"user_id": string
+                    "created_at": string,"id": string,"image_url": string | null,"is_favorite": boolean,"offer_names": (string)[],"original_servings": number,"source_kind": string,"source_url": string | null,"title": string,"total_minutes": number | null,"updated_at": string,"user_id": string
                   }
                   ComputedFields: never
                   Insert: {
-                    "created_at"?: string,"id"?: string,"image_url"?: string | null,"is_favorite"?: boolean,"original_servings": number,"source_kind": string,"source_url"?: string | null,"title": string,"total_minutes"?: number | null,"updated_at"?: string,"user_id"?: string
+                    "created_at"?: string,"id"?: string,"image_url"?: string | null,"is_favorite"?: boolean,"offer_names"?: (string)[],"original_servings": number,"source_kind": string,"source_url"?: string | null,"title": string,"total_minutes"?: number | null,"updated_at"?: string,"user_id"?: string
                   }
                   Update: {
-                    "created_at"?: string,"id"?: string,"image_url"?: string | null,"is_favorite"?: boolean,"original_servings"?: number,"source_kind"?: string,"source_url"?: string | null,"title"?: string,"total_minutes"?: number | null,"updated_at"?: string,"user_id"?: string
+                    "created_at"?: string,"id"?: string,"image_url"?: string | null,"is_favorite"?: boolean,"offer_names"?: (string)[],"original_servings"?: number,"source_kind"?: string,"source_url"?: string | null,"title"?: string,"total_minutes"?: number | null,"updated_at"?: string,"user_id"?: string
                   }
                   Relationships: [
                     

@@ -10,6 +10,7 @@ import { focusAfterRemoval } from "@/components/trash-button";
 import { nameInSentence, normalizeIngredientText } from "@/features/catalog";
 import { atHomeText, suggestErrorMessage, suggestRetryCodes } from "@/features/suggestions";
 import type { AddToPlan } from "./add-to-plan-button";
+import { dishEmoji } from "../domain/dish-emoji";
 import { recipeMetaText } from "../domain/recipe-list";
 import { AiSuggestionSheet } from "./ai-suggestion-sheet";
 import { RecipeCard } from "./recipe-card";
@@ -198,6 +199,7 @@ function SuggestionCard({
       data-testid="ai-suggestion"
       title={draft.title}
       imageUrl={null}
+      emoji={dishEmoji(draft.title)}
       meta={recipeMetaText(draft.totalMinutes, draft.servings)}
       badge={<AiBadge />}
       onDelete={onRemove}

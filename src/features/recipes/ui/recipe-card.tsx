@@ -15,6 +15,8 @@ type CardBase = {
    * that does not load shows the placeholder at full height.
    */
   imageUrl: string | null;
+  /** Story 16.4: the dish's emoji, shown on the strip (or when the image fails) in place of the book icon. */
+  emoji?: string;
   /** "35 min · 4 portioner" (recipeMetaText). */
   meta: string;
   /** Bottom left on the image: the status ("Kan lagas nu", on the light plate) or "AI-förslag". */
@@ -73,6 +75,7 @@ export type RecipeCardProps = LinkCardProps | PlainCardProps;
 export function RecipeCard({
   title,
   imageUrl,
+  emoji,
   meta,
   href,
   badge,
@@ -106,7 +109,8 @@ export function RecipeCard({
       <div className="relative order-first">
         <RecipeImage
           src={imageUrl}
-          iconSize={imageUrl === null ? 24 : 40}
+          emoji={emoji}
+          iconSize={emoji ? (imageUrl === null ? 36 : 56) : imageUrl === null ? 24 : 40}
           className={cx("w-full rounded-t-lg", imageUrl === null ? "h-16" : "h-card-image")}
         />
         {badge || favorite ? (
