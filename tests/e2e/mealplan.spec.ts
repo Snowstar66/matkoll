@@ -132,6 +132,12 @@ async function swipeLeft(page: Page, card: Locator, distance = 150) {
   await page.mouse.up();
 }
 
+/** Answers "Ta bort <rätt> från matsedeln?" with "Ta bort". */
+async function confirmRemoval(page: Page) {
+  await removalQuestion(page).getByRole("button", { name: "Ta bort", exact: true }).click();
+}
+const removalQuestion = (page: Page) => page.getByRole("dialog", { name: "Ta bort från matsedeln" });
+
 async function dishCount(): Promise<number> {
   const { count, error } = await adminClient()
     .from("meal_plan_recipe")
@@ -224,6 +230,7 @@ test("Ta bort removes a dish at once, and Ångra puts it back with the same id",
   const id = await dish(page, soppa).getAttribute("data-dish");
 
   await dish(page, soppa).getByRole("button", { name: `Ta bort ${soppa} från matsedeln` }).click();
+  await confirmRemoval(page);
   await expect(dish(page, soppa)).toHaveCount(0);
   await expect(toast(page)).toContainText(`${soppa} är borttagen från matsedeln.`);
   await expect.poll(dishCount).toBe(2);
@@ -243,9 +250,59 @@ test("a swipe to the left shows Ta bort", async ({ page }) => {
   await swipeLeft(page, card);
   await expect(card.getByTestId("swipe-row-front")).toHaveCSS("transform", "matrix(1, 0, 0, 1, -96, 0)");
   await card.getByRole("button", { name: `Ta bort ${soppa}`, exact: true }).click();
+  await confirmRemoval(page);
   await expect(dish(page, soppa)).toHaveCount(0);
   await expect(toast(page)).toContainText(`${soppa} är borttagen från matsedeln.`);
   await expect.poll(dishCount).toBe(2);
+  expect(errors).toEqual([]);
+});
+
+// Story 13.3: the trash asks first, then removes within a minute without
+// asking, and the shopping list follows. Servings were covered above; moving
+// a dish to another day waits, since the plan has no days (see the spec).
+test("the trash asks before it removes, the next removals go at once and the list follows", async ({ page }) => {
+  const errors = watchErrors(page);
+  await page.goto("/lista");
+  await expect(page.getByTestId("shopping-line").filter({ visible: true }).filter({ hasText: "Grädde" })).toHaveCount(1);
+
+  await page.goto("/matsedel");
+  const trash = (index: number) => dishes(page).nth(index).getByRole("button", { name: `Ta bort ${gryta} från matsedeln` });
+  const box = (await trash(0).boundingBox())!;
+  expect(box.width).toBeGreaterThanOrEqual(44);
+  expect(box.height).toBeGreaterThanOrEqual(44);
+  await trash(0).click();
+  await expect(removalQuestion(page)).toContainText(`Ta bort ${gryta} från matsedeln?`);
+  await removalQuestion(page).getByRole("button", { name: "Avbryt" }).click();
+  await expect(dishes(page)).toHaveCount(2);
+  expect(await dishCount()).toBe(2);
+
+  await trash(0).click();
+  await confirmRemoval(page);
+  await expect(dishes(page)).toHaveCount(1);
+  // Within a minute the next one goes without a question.
+  await trash(0).click();
+  await expect(removalQuestion(page)).toHaveCount(0);
+  await expect(dishes(page)).toHaveCount(0);
+  await expect.poll(dishCount).toBe(0);
+
+  await page.goto("/lista");
+  await expect(page.getByText("Lägg rätter på matsedeln så räknas listan fram.").filter({ visible: true })).toBeVisible();
+
+  // Put the dishes back for the tests that follow.
+  const admin = adminClient();
+  const plan = await admin.from("meal_plan").select("id").eq("user_id", userId).eq("is_current", true).single();
+  if (plan.error) throw plan.error;
+  const restored = await admin.from("meal_plan_recipe").insert(
+    [0, 1].map((position) => ({
+      user_id: userId,
+      meal_plan_id: (plan.data as { id: string }).id,
+      recipe_id: recipeIds[gryta],
+      recipe_title: gryta,
+      servings: 4,
+      position,
+    })),
+  );
+  if (restored.error) throw restored.error;
   expect(errors).toEqual([]);
 });
 

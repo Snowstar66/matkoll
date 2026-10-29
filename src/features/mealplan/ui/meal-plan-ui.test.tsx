@@ -26,6 +26,11 @@ vi.mock("../actions/remove-plan-recipe", () => ({ removePlanRecipe: (id: string)
 vi.mock("../actions/restore-plan-recipe", () => ({
   restorePlanRecipe: (row: PlanRecipeRow) => restorePlanRecipe(row),
 }));
+// The question before a removal has its own tests (meal-plan-remove-confirm.test.tsx);
+// here a removal goes straight through.
+vi.mock("./use-remove-confirm", () => ({
+  useRemoveConfirm: () => ({ ask: (_title: string, remove: () => void) => remove(), dialog: null }),
+}));
 const refresh = vi.fn();
 vi.mock("next/navigation", () => ({ useRouter: () => ({ refresh }) }));
 
