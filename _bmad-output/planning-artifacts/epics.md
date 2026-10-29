@@ -1976,6 +1976,34 @@ så att jag kan börja läsa medan de andra tas fram.
 **När** den körs tre gånger
 **Så** syns den första rätten efter högst 40 % av tiden för alla tre
 
+### Story 12.8: Magisk AI-vy
+
+Som Pontus,
+vill jag se att AI:n arbetar medan ett jobb pågår,
+så att väntan känns lugn och spännande i stället för tom.
+
+**Acceptance Criteria:**
+
+**Givet** ett jobb som körs
+**När** arket AI-jobb är öppet
+**Så** visas överst en lugnt roterande kub med partiklar, en statusrad som byts var 2,5 s med mjuk toning (olika texter för förslag, foto och import), och tiden hittills mot den vanliga tiden ("12 s av ca 35 s")
+
+**Givet** att statusraden byts
+**När** en skärmläsare lyssnar
+**Så** läses inte varje rad upp; en stabil status ändras bara när jobbets tillstånd ändras
+
+**Givet** att inget jobb körs men något är klart
+**När** arket är öppet
+**Så** står bilden still med en bock och "Klart!", och klara jobb visas som förut
+
+**Givet** "Minska rörelse"
+**När** arket är öppet
+**Så** står allt stilla och statusraden är en fast text
+
+**Givet** 375 px och mörkt läge
+**När** arket visas
+**Så** blir ingenting för brett, knapparna har kvar 44 px och bilden läses i båda lägena
+
 ## Epic 9: Veckans erbjudanden
 
 Version 1.2. Pontus skrev 2026-10-26: "Jag vill helst kunna ladda in veckans erbjudanden via en länk … lägga in dom i inställningar för de affärer jag har konfigurerade." Förstudien (`docs/erbjudanden-lankar.md`) visar att ICA:s erbjudandesida per butik har samma adress varje vecka och går att läsa med en vanlig hämtning, medan Willys, Hemköp, Coop och Lidl kräver JavaScript. Pontus valde sedan funktionerna som använder erbjudandena. Kursändringen står i `sprint-change-proposal-2026-10-26-erbjudanden-v2.md` och ersätter den första planen. Arkitekturen står i AD-25 och i tillägg till AD-1, AD-9, AD-11, AD-15, AD-18, AD-24 och AD-28. Epic 9 byggs efter Epic 12. Storyna byggs i ordning, men om ica.se nekar Matkolls User-Agent (T13) byggs 9.7 direkt efter 9.1. Story 9.10 byggs bara om mätningen i 9.1 visar att den behövs (T14). Varje story håller tillgänglighetsgolvet (NFR12).
