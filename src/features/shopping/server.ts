@@ -15,6 +15,7 @@ import { listOverridesIn } from "./data/overrides";
 import { listProductChoicesIn } from "./data/product-choices";
 import { receiptedChecks } from "./data/put-in-pantry";
 import { loadShoppingList, type ShoppingList as CountedList } from "./data/queries";
+import { keyedItemId } from "./data/keyed-item-id";
 import type { ProductChoiceContext } from "./domain/product-choice";
 import type { CheckRow } from "./domain/put-in-pantry";
 
@@ -177,3 +178,20 @@ export async function getShoppingList(): Promise<Result<ShoppingList>> {
     return fail("shopping_unavailable");
   }
 }
+
+/**
+ * What Veckans erbjudanden needs from the list (Story 9.12): the current plan
+ * and the keys (the offers' ids) of the items added by addKeyedItems that are
+ * on its list now, among `keys`. `null` without a current plan. Throws
+ * ShoppingDataError or MealPlanDataError.
+ */
+export async function getKeyedItemsOnList(keys: readonly string[]): Promise<{ planId: string; onList: string[] } | null> {
+  const plan = await getCurrentPlan();
+  if (!plan) return null;
+  const items = await listCustomItemsIn(await createClient(), plan.id);
+  const ids = new Set(items.map((item) => item.id));
+  return { planId: plan.id, onList: keys.filter((key) => ids.has(keyedItemId(key))) };
+}
+
+export { ShoppingDataError } from "./data/client";
+export { addKeyedItems } from "./actions/add-keyed-items";

@@ -173,3 +173,31 @@ export const suggestFromOffersText = {
   noOffers: "Hämta veckans erbjudanden först, så kan AI föreslå rätter som bygger på dem.",
   started: "Letar efter rätter från erbjudandena. Du kan göra annat under tiden.",
 } as const;
+
+/**
+ * The shopping-list item an offer becomes (Story 9.12): the key is the offer's
+ * id, so adding it twice is one item; the text is the offer's item (the
+ * catalog's name when it matched, else the name as normalised) and a short
+ * note, "Havregryn (Erbjudande: 89 kr/kg)"; the catalog ingredient is linked
+ * when there is one.
+ */
+export function offerListItem(offer: Pick<StoreOffer, "id" | "name" | "label" | "price" | "ingredientId">): {
+  key: string;
+  label: string;
+  ingredientId: string | null;
+} {
+  const base = oneLine(offer.name) || oneLine(offer.label);
+  const name = base.charAt(0).toLocaleUpperCase("sv-SE") + base.slice(1);
+  const note = offer.price ? ` (Erbjudande: ${offer.price})` : " (Erbjudande)";
+  return { key: offer.id, label: `${name}${note}`, ingredientId: offer.ingredientId };
+}
+
+/** "Lägg 3 i inköpslistan". */
+export function addToListText(count: number): string {
+  return `Lägg ${count} i inköpslistan`;
+}
+
+/** The toast after adding: "Lade 3 erbjudanden i inköpslistan." */
+export function addedToListText(count: number): string {
+  return `Lade ${offersCountWords(count)} i inköpslistan.`;
+}

@@ -2241,3 +2241,41 @@ så att jag ser de bästa först och inte behöver räkna själv.
 **Givet** en hämtning
 **När** den är klar
 **Så** loggas antalet erbjudanden med ordinarie pris (`withRegularPrice`), aldrig varunamn
+
+### Story 9.12: Välj erbjudanden till inköpslistan
+
+Som Pontus,
+vill jag välja vilka av veckans erbjudanden jag lägger i min inköpslista,
+så att jag slipper skriva in dem själv.
+
+**Acceptance Criteria:**
+
+**Givet** arket Veckans erbjudanden med en aktuell matsedel
+**När** arket visar erbjudandena
+**Så** har varje rad en kryssruta med erbjudandets text som namn och minst 44 px tryckyta, och knappen "Lägg N i inköpslistan" visas när minst ett är kryssat
+
+**Givet** ett eller flera kryssade erbjudanden
+**När** Pontus trycker "Lägg N i inköpslistan"
+**Så** läggs de som egna varor på listan: katalogvaran när erbjudandet är matchat, annars erbjudandets namn som fri text, med noteringen "(Erbjudande: 89 kr/kg)"
+**Och** en toast säger "Lade N erbjudanden i inköpslistan." och länkar till Inköpslista
+
+**Givet** ett erbjudande som lagts på listan
+**När** det läggs igen, eller arket öppnas på nytt
+**Så** blir det ingen dubblett, och raden visar "På listan" med en ofylld, avstängd kryssruta
+
+**Givet** att sparandet misslyckas
+**När** Pontus trycker knappen
+**Så** står ett felmeddelande i arket och kryssen finns kvar
+
+**Givet** ingen aktuell matsedel
+**När** arket visas
+**Så** har raderna inga kryssrutor och listan fungerar som förut
+
+**Givet** bygget
+**När** det granskas
+**Så** finns ingen ny migration, `src/server/ai/` är orört och arket i erbjudandemodulen importerar inte inköpslistan
+
+**Givet** arket Veckans erbjudanden
+**När** raderna visas
+**Så** står produktnamnet rensat från märke och ursprungsland ("Aubergine" för "ICA. Spanien Aubergine") med landet och märket smått under, priset fetstilt i en piller till höger, ordinarie pris genomstruket under det, och rabattmärket "−20 %" (från 30 % "Toppklipp −33 %")
+**Och** kryssrutans namn lyder "Aubergine, 12 kr per st, spara 20 %", raden håller 375 px utan sidscroll och finns i mörkt läge
