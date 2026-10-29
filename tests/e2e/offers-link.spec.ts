@@ -130,6 +130,7 @@ test("fetches the week's offers with one tap and shows them under their categori
   await expect(meat.getByText("129 kr/kg", { exact: true })).toBeVisible();
   await expect(dialog.getByText(/^Toppklipp/)).toHaveCount(1);
   await expect(meat.getByTestId("offer-regular-price")).toHaveText("111,90 kr");
+  await dialog.getByRole("button", { name: /^Filter/ }).click();
   await dialog.getByRole("radio", { name: "Bäst rabatt" }).click();
   const best = dialog.getByRole("list", { name: "Bäst rabatt först" }).getByTestId("offer-row");
   await expect(best.first()).toContainText("Köp 3 betala för 2");
@@ -212,6 +213,8 @@ test("Story 9.12: picks offers and adds them to the shopping list once", async (
 
   // Nothing is picked, so there is no button.
   await expect(dialog.getByTestId("add-offers-to-list")).toHaveCount(0);
+  await expect(dialog.getByRole("checkbox")).toHaveCount(0);
+  await dialog.getByRole("button", { name: "Välj" }).click();
   const herrgard = dialog.getByRole("checkbox", { name: /^Gårdens Herrgård, Präst, 89 kr per kg/ });
   await expect(herrgard).toHaveAttribute("aria-checked", "false");
   const box = await herrgard.boundingBox();
@@ -239,6 +242,7 @@ test("Story 9.12: picks offers and adds them to the shopping list once", async (
   await expect(page.getByText("Gul lök")).toBeVisible();
   await page.getByRole("button", { name: "Erbjudanden" }).click();
   await expect(sheet(page).getByText("På listan")).toHaveCount(2);
+  await sheet(page).getByRole("button", { name: "Välj" }).click();
   await expect(sheet(page).getByRole("checkbox", { name: /^Gårdens Herrgård, Präst/ })).toBeDisabled();
   await expect(sheet(page).getByTestId("add-offers-to-list")).toHaveCount(0);
   const after = await admin.from("shopping_custom_item").select("id").eq("user_id", userId);
@@ -278,6 +282,7 @@ test("Story 9.13: fetches from several stores one by one, shows a badge per stor
   await expect(page.getByTestId("toast")).toContainText("Hämtade 7 erbjudanden");
   expect(await storedOffers()).toHaveLength(7);
 
+  await dialog.getByRole("button", { name: "Hämta", exact: true }).click();
   await dialog.getByRole("button", { name: "Hämta alla" }).click();
   // Krokom was fetched a moment ago: it is skipped with its own message, the other store still goes.
   await expect(dialog.getByRole("alert")).toHaveText("Krokom: Erbjudandena hämtades nyss. Försök igen om en stund.");
@@ -291,6 +296,7 @@ test("Story 9.13: fetches from several stores one by one, shows a badge per stor
   // The same product on offer in both stores shows twice.
   await expect(dialog.getByText("Havets Laxfilé")).toHaveCount(2);
 
+  await dialog.getByRole("button", { name: /^Filter/ }).click();
   await dialog.getByRole("radio", { name: "Bäst rabatt" }).click();
   await expect(dialog.getByRole("list", { name: "Bäst rabatt först" }).getByTestId("offer-row")).toHaveCount(14);
   await dialog.getByRole("radiogroup", { name: "Visa butik" }).getByRole("radio", { name: "Krokom" }).click();
@@ -326,7 +332,9 @@ test("Story 9.13: a picked offer's note on the shopping list names its store", a
   const dialog = sheet(page);
   await dialog.getByRole("button", { name: "Hämta alla" }).click();
   await expect(dialog.getByTestId("offers-store-result")).toHaveCount(2);
+  await dialog.getByRole("button", { name: /^Filter/ }).click();
   await dialog.getByRole("radiogroup", { name: "Visa butik" }).getByRole("radio", { name: "Krokom" }).click();
+  await dialog.getByRole("button", { name: "Välj" }).click();
   await dialog.getByRole("checkbox", { name: /^Gårdens Herrgård, Präst, 79 kr per kg.*Krokom$/ }).click();
   await dialog.getByRole("button", { name: "Lägg 1 i inköpslistan" }).click();
   await expect(dialog).toBeHidden();

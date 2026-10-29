@@ -31,6 +31,8 @@ export type OfferSelection = {
   onList: ReadonlySet<string>;
   onToggle: (offerId: string, picked: boolean) => void;
   disabled?: boolean;
+  /** Story 14.1: the checkboxes show only while Pontus is choosing ("Välj"); default true. */
+  selecting?: boolean;
 };
 
 /** "Toppklipp" from 30 %: the stronger tag. */
@@ -55,17 +57,6 @@ function StoreBadge({ badge }: { badge: StoreBadgeInfo }) {
     >
       {badge.text}
     </span>
-  );
-}
-
-/** "Veckans fynd" with the number of Toppklipp; nothing when there is none. */
-function FindsLine({ tops }: { tops: number }) {
-  if (tops === 0) return null;
-  return (
-    <p data-testid="offers-finds" className="text-meta font-semibold text-ink-2">
-      <span aria-hidden="true">{"\u{1F525} "}</span>
-      {`Veckans fynd: ${tops} Toppklipp`}
-    </p>
   );
 }
 
@@ -121,7 +112,7 @@ function OfferRow({
         )
       }
       leading={
-        selection ? (
+        selection && selection.selecting !== false ? (
           <CheckCircle
             label={spoken}
             checked={!listed && selection.picked.has(offer.id)}
@@ -182,7 +173,6 @@ export function OffersList({ offers, weekStart, sort = "category", selection, ba
   if (sort === "saving") {
     return (
       <div data-testid="offers-list" className="flex flex-col gap-2">
-        <FindsLine tops={offers.filter((offer) => offer.savingPercent !== null && offer.savingPercent >= topDealPercent).length} />
         <h3 className="sr-only">Bäst rabatt först</h3>
         <ListGroup label="Bäst rabatt först">
           {bestSavingFirst(offers).map((offer) => (
@@ -192,10 +182,8 @@ export function OffersList({ offers, weekStart, sort = "category", selection, ba
       </div>
     );
   }
-  const tops = offers.filter((offer) => offer.savingPercent !== null && offer.savingPercent >= topDealPercent).length;
   return (
     <div data-testid="offers-list" className="flex flex-col gap-4">
-      <FindsLine tops={tops} />
       {groupOffers(offers).map(({ category, offers: items }) => (
         <OffersGroup key={category} category={category} offers={items} weekStart={weekStart} selection={selection} badges={badges} />
       ))}
