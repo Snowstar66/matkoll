@@ -26,10 +26,15 @@
   --sand: #F1ECE2;
   --sand-ink: #6E5B3E;
   /* Store badge (Story 9.13): the chain's colour on an offer row; ICA warm clay, any other chain neutral. */
-  --store-ica: #F1E3DD;
-  --store-ica-ink: #6B4A3E;
-  --store-other: #E9EDEA;
-  --store-other-ink: #4A5751;
+  --store-ica: #B3261E;
+  --store-ica-ink: #FFFFFF;
+  --store-other: #4A5751;
+  --store-other-ink: #FFFFFF;
+  /* Offer price label (Story 9.15): the saving badge in warm amber, "Toppklipp" in a stronger burnt orange. */
+  --deal: #FBE3C8;
+  --deal-ink: #7A3A00;
+  --hot: #B93C0B;
+  --hot-ink: #FFFFFF;
   /* Category tiles only (Epic 11): clay for Kött, fisk & chark, lilac for Dryck. Decoration, never text. */
   --tile-clay: #F1E3DD;
   --tile-lilac: #E6E1F2;
@@ -123,10 +128,14 @@
     --sky-ink: #A9C9EA;
     --sand: #3A3326;
     --sand-ink: #DCC9A6;
-    --store-ica: #3B2C27;
-    --store-ica-ink: #E6C9BC;
-    --store-other: #2A322E;
-    --store-other-ink: #C3CDC8;
+    --store-ica: #E5736A;
+    --store-ica-ink: #2A0B08;
+    --store-other: #C3CDC8;
+    --store-other-ink: #14201A;
+    --deal: #4A3018;
+    --deal-ink: #F5CFA0;
+    --hot: #F59E6B;
+    --hot-ink: #2B1203;
     --tile-clay: #3B2C27;
     --tile-lilac: #2C2840;
     /* Dark ink is light, so the veil darkens with black instead. */
@@ -212,6 +221,10 @@
   --color-store-ica-ink: var(--store-ica-ink);
   --color-store-other: var(--store-other);
   --color-store-other-ink: var(--store-other-ink);
+  --color-deal: var(--deal);
+  --color-deal-ink: var(--deal-ink);
+  --color-hot: var(--hot);
+  --color-hot-ink: var(--hot-ink);
   --color-tile-clay: var(--tile-clay);
   --color-tile-lilac: var(--tile-lilac);
   --color-overlay: var(--overlay);

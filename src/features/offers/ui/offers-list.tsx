@@ -34,7 +34,7 @@ export type OfferSelection = {
 };
 
 /** "Toppklipp" from 30 %: the stronger tag. */
-const topTag = "bg-accent text-on-accent";
+const topTag = "bg-hot text-hot-ink";
 const tagBase = "inline-flex min-h-6 items-center rounded-full px-2 text-meta font-semibold whitespace-nowrap";
 
 /**
@@ -51,10 +51,21 @@ function StoreBadge({ badge }: { badge: StoreBadgeInfo }) {
   return (
     <span
       data-testid="store-badge"
-      className={cx("mr-1.5 inline-flex items-center rounded-sm px-[7px] py-px align-middle text-badge", badgeTones[badge.tone])}
+      className={cx("mr-1.5 inline-flex items-center rounded-sm px-2 py-0.5 align-middle text-badge", badgeTones[badge.tone])}
     >
       {badge.text}
     </span>
+  );
+}
+
+/** "Veckans fynd" with the number of Toppklipp; nothing when there is none. */
+function FindsLine({ tops }: { tops: number }) {
+  if (tops === 0) return null;
+  return (
+    <p data-testid="offers-finds" className="text-meta font-semibold text-ink-2">
+      <span aria-hidden="true">{"\u{1F525} "}</span>
+      {`Veckans fynd: ${tops} Toppklipp`}
+    </p>
   );
 }
 
@@ -75,7 +86,7 @@ function OfferRow({
   const trailing = (
     <span className="flex max-w-36 flex-col items-end gap-1 text-right">
       {offer.price ? (
-        <span data-testid="offer-price" className="rounded-full bg-mint px-3 py-1 text-row-title font-bold text-mint-ink">
+        <span data-testid="offer-price" className="rounded-md bg-mint px-3 py-1 text-lg leading-tight font-extrabold text-mint-ink">
           {offer.price}
         </span>
       ) : null}
@@ -85,9 +96,12 @@ function OfferRow({
         </s>
       ) : null}
       {offer.savingPercent !== null ? (
-        <span className={cx(tagBase, top ? topTag : "bg-sand text-sand-ink")}>
-          {top ? "Toppklipp " : null}
-          {`\u2212${offer.savingPercent} %`}
+        <span className="inline-flex items-center gap-1">
+          {top ? <span aria-hidden="true">{"\u{1F525}"}</span> : null}
+          <span className={cx(tagBase, top ? topTag : "bg-deal text-deal-ink")}>
+            {top ? "Toppklipp " : null}
+            {`\u2212${offer.savingPercent} %`}
+          </span>
         </span>
       ) : null}
       {listed ? <Badge tone="neutral">På listan</Badge> : null}
@@ -168,6 +182,7 @@ export function OffersList({ offers, weekStart, sort = "category", selection, ba
   if (sort === "saving") {
     return (
       <div data-testid="offers-list" className="flex flex-col gap-2">
+        <FindsLine tops={offers.filter((offer) => offer.savingPercent !== null && offer.savingPercent >= topDealPercent).length} />
         <h3 className="sr-only">Bäst rabatt först</h3>
         <ListGroup label="Bäst rabatt först">
           {bestSavingFirst(offers).map((offer) => (
@@ -177,8 +192,10 @@ export function OffersList({ offers, weekStart, sort = "category", selection, ba
       </div>
     );
   }
+  const tops = offers.filter((offer) => offer.savingPercent !== null && offer.savingPercent >= topDealPercent).length;
   return (
     <div data-testid="offers-list" className="flex flex-col gap-4">
+      <FindsLine tops={tops} />
       {groupOffers(offers).map(({ category, offers: items }) => (
         <OffersGroup key={category} category={category} offers={items} weekStart={weekStart} selection={selection} badges={badges} />
       ))}

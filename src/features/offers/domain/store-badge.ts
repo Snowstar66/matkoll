@@ -17,7 +17,7 @@ export function storeBadgeText(name: string): string {
   return clip(place ?? words[0]);
 }
 
-/** The colour of the badge: ICA has its own, every other chain the neutral one. */
+/** The colour of the badge: ICA red, every other chain neutral. A chain with its own colour (Willys green) is one more tone here, a token in globals.css and a class in offers-list.tsx. */
 export function storeBadgeTone(chain: string): "ica" | "other" {
   return chain === "ICA" ? "ica" : "other";
 }
