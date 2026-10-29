@@ -252,7 +252,7 @@ test("the week's best store is on top and preselected, and the dishes are built 
   const before = await sheet(page).getByTestId("offer-row").count();
   await sheet(page).getByRole("button", { name: "Visa", exact: true }).click();
   await expect(sheet(page).getByTestId("offer-row")).toHaveCount(3);
-  await sheet(page).getByRole("button", { name: "Visa alla" }).click();
+  await sheet(page).getByTestId("best-store-toggle").click();
   await expect(sheet(page).getByTestId("offer-row")).toHaveCount(before);
   const picker = sheet(page).getByRole("radiogroup", { name: "Föreslå rätter från" });
   await expect(picker.getByRole("radio", { name: "Maxi" })).toBeChecked();

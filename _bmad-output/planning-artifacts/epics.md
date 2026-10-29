@@ -2645,3 +2645,31 @@ så att jag aldrig ser erbjudanden från butiker jag just valt bort och förstå
 **Givet** kortet med AI-förslag och två butiker
 **När** det visas
 **Så** står "Föreslå rätter från:" ovanför butiksvalet inne i kortet
+
+### Story 16.9: Kompakt topp i erbjudandearket
+
+Som Pontus,
+vill jag att toppen av erbjudandearket är lugn, kompakt och tydlig,
+så att listan börjar högt upp och inget är för stort eller blaffigt.
+
+**Acceptance Criteria:**
+
+**Givet** arket med erbjudanden
+**När** det visas
+**Så** är "Hämta" och "Välj" små textknappar (44 px träffyta), och raderna "Visa butik:" och "Sortera:" har kompakta pillrar (32 px synlig höjd) på en rad som scrollar i sidled vid behov, utan sidoöverflöd vid 375 px
+
+**Givet** kortet med AI-förslag
+**När** det visas
+**Så** har det högst tre rader utan ram: "Bäst denna vecka: ● Maxi – Falukorv passar dina recept · Visa" (länken blir "Visa alla" när den är aktiv), "Från: Maxi · Krokom" (bara med 2+ butiker) och en kompakt knapp "Föreslå rätter"
+
+**Givet** ett erbjudande som "scan falukorv"
+**När** det nämns på bästa-butik-raden
+**Så** står det "Falukorv": varumärket är borta och första bokstaven versal
+
+**Givet** filtret "Visa" på bästa-butik-raden
+**När** det är på
+**Så** står "Visar 1 av 157 erbjudanden · Visa alla" i sammanfattningen
+
+**Givet** en pill eller knapp som trycks med pekare
+**När** den får fokus
+**Så** syns ingen fokusring; med tangentbord syns en enkel ring (inte dubbel) på pillen

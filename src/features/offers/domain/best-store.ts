@@ -105,15 +105,19 @@ export function fitPhrase(matches: readonly Pick<FitMatch, "source">[]): string 
   return sourceWords.both;
 }
 
-/** "falukorv och grädde", "falukorv, grädde och lök", "falukorv, grädde, lök +2"; same name once. */
+/** "Falukorv och grädde", "Falukorv, grädde och lök", "Falukorv, grädde, lök +2"; same name once, first letter capital. */
 export function matchNames(matches: readonly Pick<FitMatch, "name">[]): string {
   const names = [...new Set(matches.map((match) => match.name.toLocaleLowerCase("sv")))];
-  if (names.length <= 2) return names.join(" och ");
-  if (names.length === 3) return `${names[0]}, ${names[1]} och ${names[2]}`;
-  return `${names.slice(0, maxNamed).join(", ")} +${names.length - maxNamed}`;
+  const text =
+    names.length <= 2
+      ? names.join(" och ")
+      : names.length === 3
+        ? `${names[0]}, ${names[1]} och ${names[2]}`
+        : `${names.slice(0, maxNamed).join(", ")} +${names.length - maxNamed}`;
+  return text.charAt(0).toLocaleUpperCase("sv-SE") + text.slice(1);
 }
 
-/** "falukorv och grädde passar dina recept"; with no names, the counted reason. */
+/** "Falukorv och grädde passar dina recept"; with no names, the counted reason. */
 export function bestStoreLine(best: Pick<BestStore, "fits" | "total" | "matches">): string {
   if (best.matches.length === 0) return bestStoreReason(best);
   return `${matchNames(best.matches)} ${fitPhrase(best.matches)}`;

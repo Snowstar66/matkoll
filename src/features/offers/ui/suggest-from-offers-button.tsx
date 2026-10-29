@@ -57,12 +57,13 @@ export function SuggestFromOffersButton({ hasOffers, onStarted, stores = [], def
   }
 
   return (
-    <section aria-label="Förslag från erbjudandena" className="flex flex-col gap-3 rounded-lg border border-border p-4">
+    <section aria-label="Förslag från erbjudandena" className="flex flex-col items-start gap-1 rounded-lg bg-surface px-3 py-2">
       {bestLine}
       {choose && storeId ? (
-        <div className="flex flex-col gap-1" data-testid="suggest-store-picker">
-          <p className="text-meta text-ink-2">Föreslå rätter från:</p>
+        <div className="flex w-full min-w-0 items-center gap-2" data-testid="suggest-store-picker">
+          <p className="shrink-0 text-meta text-ink-2">Från:</p>
           <FilterPills
+            compact
             label="Föreslå rätter från"
             options={stores.map((store) => ({ value: store.id, label: store.label }))}
             value={storeId}
@@ -71,18 +72,19 @@ export function SuggestFromOffersButton({ hasOffers, onStarted, stores = [], def
               setPicked(id);
             }}
             disabled={starting}
+            className="min-w-0"
           />
         </div>
       ) : null}
       <Button
         type="button"
-        variant="secondary"
-        fullWidth
+        variant="compact-primary"
         disabled={!hasOffers || starting}
+        aria-label={suggestFromOffersText.button}
         aria-describedby={hasOffers ? undefined : "suggest-from-offers-hint"}
         onClick={() => void suggest()}
       >
-        {suggestFromOffersText.button}
+        Föreslå rätter
       </Button>
       {hasOffers ? null : (
         <p id="suggest-from-offers-hint" className="text-meta text-ink-2">

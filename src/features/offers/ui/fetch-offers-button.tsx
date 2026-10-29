@@ -22,7 +22,7 @@ export function FetchOffersButton({ onFetch, variant, pending }: FetchOffersButt
     <Button
       type="button"
       onClick={onFetch}
-      variant={variant}
+      variant={variant === "primary" ? "primary" : "compact"}
       fullWidth={variant === "primary"}
       disabled={pending}
       aria-disabled={pending || undefined}

@@ -303,8 +303,15 @@ export function OffersSheet({
           </div>
         ) : (
           <>
-            <div className="flex flex-wrap items-baseline gap-x-2 text-meta text-ink-2">
-              <p data-testid="offers-summary">{offersSummaryText(shown.length, lastFetch, new Date(now))}</p>
+            <div className="flex flex-wrap items-center gap-x-2 text-meta text-ink-2">
+              <p data-testid="offers-summary">
+                {showingMatches ? `Visar ${shown.length} av ${offers.length} erbjudanden` : offersSummaryText(shown.length, lastFetch, new Date(now))}
+              </p>
+              {showingMatches ? (
+                <Button variant="compact" aria-label="Visa alla erbjudanden" className="-my-3 -ml-1" onClick={() => setOnlyBest(false)}>
+                  Visa alla
+                </Button>
+              ) : null}
               {tops > 0 ? (
                 <p data-testid="offers-finds" className="font-semibold">
                   <span aria-hidden="true">{"\u{1F525} "}</span>
@@ -313,10 +320,10 @@ export function OffersSheet({
               ) : null}
             </div>
             <div className="flex flex-col gap-2">
-              <div className="flex flex-wrap items-center gap-2">
+              <div className="-mt-1 flex items-center gap-1">
                 {many ? (
                   <Button
-                    variant="secondary"
+                    variant="compact"
                     aria-expanded={panel === "fetch"}
                     aria-controls={fetchPanelId}
                     onClick={() => setPanel(panel === "fetch" ? null : "fetch")}
@@ -328,7 +335,7 @@ export function OffersSheet({
                 )}
                 {listing ? (
                   <Button
-                    variant="text"
+                    variant="compact"
                     className="ml-auto"
                     aria-pressed={selecting}
                     onClick={() => {
@@ -342,10 +349,11 @@ export function OffersSheet({
               </div>
               {many && panel === "fetch" ? <div id={fetchPanelId}>{fetchPanel}</div> : null}
               {filterStores || hasSaving ? (
-                <div className="flex flex-col gap-1" data-testid="list-filters">
+                <div className="flex flex-col" data-testid="list-filters">
                   {filterStores ? (
                     <FilterRow label="Visa butik">
                       <FilterPills
+                        compact
                         label="Visa butik"
                         options={[{ value: "all", label: "Alla" }, ...storesWithOffers.map((store) => ({ value: store.id, label: badges.get(store.id)?.text ?? store.name }))]}
                         value={filterId}
@@ -355,7 +363,7 @@ export function OffersSheet({
                   ) : null}
                   {hasSaving ? (
                     <FilterRow label="Sortera">
-                      <FilterPills label="Sortera" options={sortOptions} value={sort} onChange={setSort} />
+                      <FilterPills compact label="Sortera" options={sortOptions} value={sort} onChange={setSort} />
                     </FilterRow>
                   ) : null}
                 </div>
@@ -368,23 +376,29 @@ export function OffersSheet({
               defaultStoreId={bestInfo?.storeId ?? storesWithOffers[0]?.id}
               bestLine={
                 bestInfo ? (
-                  <div data-testid="best-store" className="flex flex-col gap-1">
-                    <p className="text-body text-ink">
-                      <span className="font-semibold">Bäst denna vecka:</span>{" "}
-                      {badges.get(bestInfo.storeId) ? <StoreLabel badge={badges.get(bestInfo.storeId)!} testId="best-store-label" /> : null}
-                      {" \u2013 "}
-                      <span className="text-ink-2">{bestStoreLine(bestInfo)}</span>
-                    </p>
+                  <div data-testid="best-store" className="text-meta">
+                    <span className="font-semibold text-ink">Bäst denna vecka:</span>{" "}
+                    {badges.get(bestInfo.storeId) ? <StoreLabel badge={badges.get(bestInfo.storeId)!} testId="best-store-label" /> : null}{" "}
+                    <span className="text-ink-2">
+                      {"\u2013 "}
+                      {bestStoreLine(bestInfo)}
+                    </span>
                     {matchIds.size > 0 ? (
-                      <Button
-                        variant="text"
-                        className="self-start"
-                        aria-pressed={showingMatches}
-                        onClick={() => setOnlyBest(!showingMatches)}
-                        data-testid="best-store-toggle"
-                      >
-                        {showingMatches ? "Visa alla" : "Visa"}
-                      </Button>
+                      <>
+                        {" "}
+                        <span aria-hidden="true" className="text-ink-2">
+                          {"\u00B7"}
+                        </span>
+                        <Button
+                          variant="compact"
+                          className="-my-3 align-middle"
+                          aria-pressed={showingMatches}
+                          onClick={() => setOnlyBest(!showingMatches)}
+                          data-testid="best-store-toggle"
+                        >
+                          {showingMatches ? "Visa alla" : "Visa"}
+                        </Button>
+                      </>
                     ) : null}
                   </div>
                 ) : undefined
@@ -510,8 +524,8 @@ export function OffersSheet({
 /** Story 16.8: a visible label, then the pills, for the filters over the list. */
 function FilterRow({ label, children }: { label: string; children: ReactNode }) {
   return (
-    <div className="flex flex-wrap items-center gap-x-2">
-      <span className="text-meta text-ink-2">{label}:</span>
+    <div className="flex min-w-0 items-center gap-2">
+      <span className="shrink-0 text-meta text-ink-2">{label}:</span>
       {children}
     </div>
   );

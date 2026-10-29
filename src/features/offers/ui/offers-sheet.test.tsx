@@ -353,7 +353,7 @@ describe("OffersSheet: several stores (Story 9.13)", () => {
     expect(filters).toHaveTextContent("Sortera:");
     expect(within(filters).getByRole("radio", { name: "Avdelning" })).toBeChecked();
     const picker = within(dialog).getByTestId("suggest-store-picker");
-    expect(picker).toHaveTextContent("Föreslå rätter från:");
+    expect(picker).toHaveTextContent("Från:");
     expect(within(picker).getAllByRole("radio")).toHaveLength(2);
   });
 
@@ -394,7 +394,7 @@ describe("OffersSheet: several stores (Story 9.13)", () => {
     const line = within(dialog).getByTestId("best-store");
     expect(line).toHaveTextContent("Bäst denna vecka:");
     expect(line).toHaveTextContent("Krokom");
-    expect(line).toHaveTextContent("Bäst denna vecka: Krokom \u2013 laxfilé och gul lök passar det du brukar laga");
+    expect(line).toHaveTextContent("Bäst denna vecka: Krokom \u2013 Laxfilé och gul lök passar det du brukar laga");
     expect(within(dialog).getAllByTestId("offer-fit")).toHaveLength(2);
     const picker = within(within(dialog).getByRole("radiogroup", { name: "Föreslå rätter från" }));
     expect(picker.getByRole("radio", { name: "Krokom" })).toBeChecked();
