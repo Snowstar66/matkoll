@@ -54,7 +54,11 @@ export async function MealPlanContent() {
   }
 
   return (
-    <AddDishProvider recipes={recipes} searchRecipes={searchRecipes}>
+    <AddDishProvider
+      recipes={recipes}
+      searchRecipes={searchRecipes}
+      plannedDays={view.dishes.map((dish) => dish.weekday ?? null)}
+    >
       <PageHeader
         title="Matsedel"
         action={

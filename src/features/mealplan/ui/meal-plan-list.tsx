@@ -2,7 +2,7 @@
 
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { useCallback, useEffect, useMemo, useOptimistic, useRef, useState, useTransition } from "react";
+import { useCallback, useEffect, useMemo, useOptimistic, useRef, useState, useSyncExternalStore, useTransition } from "react";
 import { Button, buttonClasses } from "@/components/button";
 import { useConfirmDelete } from "@/components/confirm-delete";
 import { EmptyState } from "@/components/empty-state";
@@ -18,6 +18,7 @@ import { errorMessages, fail, type Result } from "@/lib/errors";
 import { removePlanRecipe } from "../actions/remove-plan-recipe";
 import { restorePlanRecipe } from "../actions/restore-plan-recipe";
 import { setServings } from "../actions/set-servings";
+import { setWeekday } from "../actions/set-weekday";
 import { unmarkDishCooked } from "../actions/unmark-dish-cooked";
 import { uncookedText } from "../domain/cooked";
 import {
@@ -25,14 +26,20 @@ import {
   dishMetaText,
   dishProgress,
   dishStatus,
+  groupByWeekday,
   maxServings,
+  movedText,
   removedDishesText,
+  todayWeekday,
+  weekdayNames,
   type PlanDish,
   type PlanRecipeRow,
   type ServingsChange,
+  type WeekdayChange,
 } from "../domain/meal-plan";
-import { AddDishButton } from "./add-dish-sheet";
+import { AddDishButton, useAddDish } from "./add-dish-sheet";
 import { MarkCookedButton } from "./mark-cooked-button";
+import { MoveToDayButton } from "./move-to-day-button";
 
 // Matsedel (FR-13): the current plan's dishes (matsedelsrätter) as dish cards
 // (rättkort, Epic 11), each with how much is at home for the chosen servings
@@ -41,6 +48,9 @@ import { MarkCookedButton } from "./mark-cooked-button";
 // to the left or "Ta bort" removes a dish at once, and the short confirmation
 // offers "Ångra" for 5 s, which puts it back with the same id (AD-20). Under
 // the dishes, "Lägg till rätt" and "Visa inköpslistan".
+
+/** Nothing to subscribe to: today only changes when the page is read again. */
+const subscribeToNothing = () => () => {};
 
 /** A removal or "Ångra" the plan shows before the server's plan has it. */
 type Entry = {
@@ -246,6 +256,38 @@ export function MealPlanList({ planName, dishes, snapshot, siteLine = null, site
   const latestChange = useRef(new Map<string, number>());
   /** Per dish, the writes of a burst of taps, one at a time; see saveServings. */
   const writes = useRef(new Map<string, ServingsWrites>());
+  // Days (Story 13.5): a move shows at once and is saved with setWeekday (useOptimistic).
+  const savedDays = useMemo(() => Object.fromEntries(dishes.map((dish) => [dish.id, dish.weekday ?? null])), [dishes]);
+  const [days, showDay] = useOptimistic(savedDays, (state, change: WeekdayChange) => ({
+    ...state,
+    [change.id]: change.weekday,
+  }));
+  /** Today's weekday, known only in the browser so the server's page never differs from it. */
+  const today = useSyncExternalStore(
+    subscribeToNothing,
+    () => todayWeekday(new Date()),
+    () => null,
+  );
+  const { open: openAdd } = useAddDish();
+
+  function moveDish(dish: PlanDish, weekday: number | null) {
+    startTransition(async () => {
+      showDay({ id: dish.id, weekday });
+      let result: Result<WeekdayChange>;
+      try {
+        result = await setWeekday({ id: dish.id, weekday });
+      } catch {
+        result = fail("mealplan_weekday_failed");
+      }
+      if (result.ok) {
+        showToast(movedText(dish.recipeTitle, weekday));
+        return;
+      }
+      if (result.error.code === "unauthorized") router.refresh();
+      else showToast(result.error.message, { role: "alert" });
+    });
+  }
+
   /** The pending removals as last rendered, for code that runs after an await. */
   const entriesNow = useRef(entries);
   useEffect(() => {
@@ -324,7 +366,10 @@ export function MealPlanList({ planName, dishes, snapshot, siteLine = null, site
 
   // A change the server's plan already shows is done, whatever the entry says.
   const pending = [...entries.values()].filter((entry) => !(entry.settled && serverHas(entry, dishes)));
-  const shown = applyChanges(dishes, pending);
+  const shown = applyChanges(dishes, pending).map((dish) =>
+    dish.id in days ? { ...dish, weekday: days[dish.id] } : dish,
+  );
+  const sections = groupByWeekday(shown);
   const order = shown.map((dish) => dish.id);
   const lastOrder = useRef<readonly string[]>(order);
 
@@ -368,25 +413,65 @@ export function MealPlanList({ planName, dishes, snapshot, siteLine = null, site
           {planName}
         </h2>
       ) : null}
-      <ul aria-label="Matsedelsrätter" className="flex flex-col gap-3">
-        {shown.map((dish) => (
-          <DishCard
-            key={dish.id}
-            dish={dish}
-            servings={servings[dish.id] ?? dish.servings}
-            snapshot={snapshot}
-            siteId={siteId}
-            names={names}
-            onUnmark={() => void unmark(dish)}
-            onServingsChange={(value) => changeServings(dish, value)}
-            onRemove={(moveFocus) => 
-              confirm.requestDelete({
-                question: `Ta bort ${dish.recipeTitle} från matsedeln?`,
-                onConfirm: () => removeDish(dish, moveFocus),
-              })
-            }
-          />
-        ))}
+      <ul aria-label="Matsedelsrätter" className="flex flex-col gap-4">
+        {sections.map(({ weekday, dishes: dayDishes }) => {
+          const heading = weekday ? (weekdayNames[weekday - 1] ?? "") : "Ingen dag än";
+          const isToday = weekday !== null && weekday === today;
+          return (
+            <li
+              key={weekday ?? "none"}
+              data-testid="plan-day"
+              data-day={weekday ?? "none"}
+              data-today={isToday || undefined}
+              className="flex flex-col gap-2"
+            >
+              {dayDishes.length === 0 && weekday ? (
+                // An empty day is one thin row: the day, "Ledig", and a tap adds a dish to it.
+                <button
+                  type="button"
+                  data-testid="day-free"
+                  aria-label={`Lägg till rätt på ${heading.toLowerCase()}`}
+                  onClick={() => openAdd(weekday)}
+                  className="flex min-h-tap w-full flex-wrap items-center justify-between gap-x-3 gap-y-1 rounded-lg border border-dashed border-hairline px-3 py-2 text-left"
+                >
+                  <span className="flex min-w-0 flex-wrap items-center gap-x-2 text-section-label text-ink-2">
+                    {heading}
+                    {isToday ? <span className="text-accent">Idag</span> : null}
+                  </span>
+                  <span className="text-meta text-ink-3">Ledig</span>
+                </button>
+              ) : (
+                <>
+                  <h3 className="flex items-center gap-2 text-section-label text-ink-2">
+                    {heading}
+                    {isToday ? <span className="text-accent">Idag</span> : null}
+                  </h3>
+                  <ul aria-label={heading} className="flex flex-col gap-3">
+                    {dayDishes.map((dish) => (
+                      <DishCard
+                        key={dish.id}
+                        dish={dish}
+                        servings={servings[dish.id] ?? dish.servings}
+                        snapshot={snapshot}
+                        siteId={siteId}
+                        names={names}
+                        onUnmark={() => void unmark(dish)}
+                        onServingsChange={(value) => changeServings(dish, value)}
+                        onMove={(day) => moveDish(dish, day)}
+                        onRemove={(moveFocus) =>
+                          confirm.requestDelete({
+                            question: `Ta bort ${dish.recipeTitle} från matsedeln?`,
+                            onConfirm: () => removeDish(dish, moveFocus),
+                          })
+                        }
+                      />
+                    ))}
+                  </ul>
+                </>
+              )}
+            </li>
+          );
+        })}
       </ul>
       <div className="mt-2 flex flex-col gap-3">
         <AddDishButton variant="primary" fullWidth />
@@ -408,6 +493,8 @@ type DishCardProps = {
   names: Readonly<Record<string, string>>;
   onUnmark: () => void;
   onServingsChange: (servings: number) => void;
+  /** Flytta till dag: the chosen day (1–7) or `null`. */
+  onMove: (weekday: number | null) => void;
   /** `moveFocus`: the removal came from the keyboard or the card's button. */
   onRemove: (moveFocus: boolean) => void;
 };
@@ -422,7 +509,7 @@ type DishCardProps = {
  * recipe is gone keeps its title and says "Borttaget recept"; one whose
  * recipe could not be read shows its stored title only.
  */
-function DishCard({ dish, servings, snapshot, siteId, names, onUnmark, onServingsChange, onRemove }: DishCardProps) {
+function DishCard({ dish, servings, snapshot, siteId, names, onUnmark, onServingsChange, onMove, onRemove }: DishCardProps) {
   const { recipe, recipeTitle: title } = dish;
   const cooked = Boolean(dish.cookedAt);
   // A cooked dish has no status: it is done (Story 13.4).
@@ -502,6 +589,7 @@ function DishCard({ dish, servings, snapshot, siteId, names, onUnmark, onServing
                 variant="text"
               />
             ) : null}
+            <MoveToDayButton title={title} weekday={dish.weekday ?? null} onMove={onMove} />
             <TrashButton
               label={`Ta bort ${title} från matsedeln`}
               onPress={() => onRemove(true)}

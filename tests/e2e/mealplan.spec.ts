@@ -122,6 +122,7 @@ async function actionsAnswered(page: Page, count: number, act: () => Promise<voi
 
 /** Swipes the card to the left from its top row with the mouse, which sends the same pointer events as a finger. */
 async function swipeLeft(page: Page, card: Locator, distance = 150) {
+  await card.scrollIntoViewIfNeeded();
   const box = await card.boundingBox();
   if (!box) throw new Error("no card");
   const x = box.x + box.width * 0.8;
@@ -539,5 +540,69 @@ test("Markera som lagad deducts from the pantry, drops the dish from the list an
   expect(await amountOf("Röda linser")).toEqual([]);
   await page.goto("/lista");
   await expect(listLine("Röda linser")).toHaveCount(1);
+  expect(errors).toEqual([]);
+});
+
+test("dishes lie on days: Flytta till dag, adding to a free day, and the list does not care", async ({ page }) => {
+  const errors = watchErrors(page);
+  const admin = adminClient();
+  await seedIngredients(["Grädde", "Röda linser"]);
+  for (const table of ["meal_plan_recipe", "pantry_item"] as const) {
+    const { error } = await admin.from(table).delete().eq("user_id", userId);
+    if (error) throw error;
+  }
+  const plan = await admin.from("meal_plan").select("id").eq("user_id", userId).eq("is_current", true).single();
+  if (plan.error) throw plan.error;
+  const planId = (plan.data as { id: string }).id;
+  const seeded = await admin.from("meal_plan_recipe").insert([
+    { user_id: userId, meal_plan_id: planId, recipe_id: recipeIds[soppa], recipe_title: soppa, servings: 4, position: 0 },
+    { user_id: userId, meal_plan_id: planId, recipe_id: recipeIds[gryta], recipe_title: gryta, servings: 4, position: 1 },
+  ]);
+  if (seeded.error) throw seeded.error;
+  const day = (n: number | "none") => page.locator(`[data-testid="plan-day"][data-day="${n}"]`).filter({ visible: true });
+  const listLines = async () => {
+    await page.goto("/lista");
+    await expect(page.getByTestId("shopping-line").filter({ visible: true }).first()).toBeVisible();
+    return page.getByTestId("shopping-line").filter({ visible: true }).count();
+  };
+  const before = await listLines();
+
+  // Existing dishes have no day: all seven days show, the dishes under "Ingen dag än".
+  await page.goto("/matsedel");
+  await expect(page.getByTestId("plan-day").filter({ visible: true })).toHaveCount(8);
+  await expect(day("none")).toContainText(soppa);
+  await expect(day("none")).toContainText(gryta);
+  await expect(day(1).getByTestId("day-free")).toContainText("Ledig");
+  expect(await page.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth)).toBe(true);
+
+  // Move Linssoppa to fredag.
+  const move = dish(page, soppa).getByRole("button", { name: `Flytta till dag, ${soppa}` });
+  expect((await move.boundingBox())!.height).toBeGreaterThanOrEqual(44);
+  await move.click();
+  const sheet = page.getByRole("dialog", { name: "Flytta till dag" });
+  await expect(sheet.getByTestId("day-choice")).toHaveCount(8);
+  expect((await sheet.getByTestId("day-choice").first().boundingBox())!.height).toBeGreaterThanOrEqual(44);
+  await sheet.getByRole("button", { name: "Fredag" }).click();
+  await expect(toast(page)).toContainText(`${soppa} ligger på fredag.`);
+  await expect(day(5)).toContainText(soppa);
+  await expect(day("none")).not.toContainText(soppa);
+  await expect
+    .poll(async () => {
+      const { data } = await admin.from("meal_plan_recipe").select("weekday").eq("user_id", userId).eq("recipe_title", soppa).single();
+      return (data as { weekday: number | null }).weekday;
+    })
+    .toBe(5);
+
+  // A tap on a free day opens Lägg till rätt on that day.
+  await day(1).getByTestId("day-free").click();
+  await expect(addSheet(page).getByRole("combobox", { name: "Dag" })).toHaveValue("1");
+  await addSheet(page).getByRole("region", { name: "Favoriter" }).getByRole("button", { name: new RegExp(gryta) }).click();
+  await expect(toast(page)).toContainText("Lagt på matsedeln, måndag.");
+  await expect(day(1)).toContainText(gryta);
+  await expect(day(1).getByTestId("day-free")).toHaveCount(0);
+  expect(await dishCount()).toBe(3);
+
+  // The list ignores days: the same lines as before the moves and the new dish (same recipes).
+  expect(await listLines()).toBe(before);
   expect(errors).toEqual([]);
 });
