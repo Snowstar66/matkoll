@@ -41,16 +41,24 @@ colors:
   sky-ink-dark: '#A9C9EA'
   sand-dark: '#3A3326'
   sand-ink-dark: '#DCC9A6'
-  store-ica: '#F1E3DD'
-  store-ica-ink: '#6B4A3E'
-  store-other: '#E9EDEA'
-  store-other-ink: '#4A5751'
+  store-ica: '#B3261E'
+  store-ica-ink: '#FFFFFF'
+  store-other: '#4A5751'
+  store-other-ink: '#FFFFFF'
+  deal: '#FBE3C8'
+  deal-ink: '#7A3A00'
+  hot: '#B93C0B'
+  hot-ink: '#FFFFFF'
   tile-clay: '#F1E3DD'
   tile-lilac: '#E6E1F2'
-  store-ica-dark: '#3B2C27'
-  store-ica-ink-dark: '#E6C9BC'
-  store-other-dark: '#2A322E'
-  store-other-ink-dark: '#C3CDC8'
+  store-ica-dark: '#E5736A'
+  store-ica-ink-dark: '#2A0B08'
+  store-other-dark: '#C3CDC8'
+  store-other-ink-dark: '#14201A'
+  deal-dark: '#4A3018'
+  deal-ink-dark: '#F5CFA0'
+  hot-dark: '#F59E6B'
+  hot-ink-dark: '#2B1203'
   tile-clay-dark: '#3B2C27'
   tile-lilac-dark: '#2C2840'
 typography:
@@ -350,7 +358,7 @@ Ljust läge följer `docs/ux/ux-spec.md` exakt. Mörkt läge är härlett ur sam
 - **Mint (`{colors.mint}` / `{colors.mint-ink}`)** betyder "finns" eller "går att laga": "Kan lagas nu", "Finns hemma"-etiketter och platskortet Kyl.
 - **Ljusblått (`{colors.sky}` / `{colors.sky-ink}`)** betyder "saknas" eller "obs": "Saknar N varor", blå ring på saknade ingredienser, sekundärknappar, kameraknappen, platskortet Frys och alla varnings- och felmeddelanden.
 - **Sand (`{colors.sand}` / `{colors.sand-ink}`)** används för platskortet Skafferi och märkningen av AI-förslag.
-- **Butiksetikett (Story 9.13, `store-badge`):** en liten etikett på varje erbjudanderad med butikens korta namn ("Maxi", "Krokom"), i kedjans färg: ICA har `{colors.store-ica}` / `{colors.store-ica-ink}` (varm lera), varje annan kedja det neutrala `{colors.store-other}` / `{colors.store-other-ink}` (`store-badge-other`). Färgen visar bara kedjan; butikens namn står alltid i etiketten. Mörkt läge har egna värden. En ny kedja (Willys) får en egen färgtoken när den läggs till.
+- **Butiksetikett (Story 9.13, `store-badge`):** en liten etikett på varje erbjudanderad med butikens korta namn ("Maxi", "Krokom"), i kedjans färg som en fylld bricka (Story 9.15): ICA har `{colors.store-ica}` / `{colors.store-ica-ink}` (varm röd, vit text), varje annan kedja det neutrala `{colors.store-other}` / `{colors.store-other-ink}` (`store-badge-other`). Färgen visar bara kedjan; butikens namn står alltid i etiketten. Mörkt läge har egna värden. En ny kedja (Willys) får en egen färgtoken när den läggs till.
 - **Kategoriplattor (Epic 11):** den lilla plattan bakom kategorins ikon har en ljus ton: mint, ljusblått, sand, `{colors.tile-clay}` (lera, en ljus beige) eller `{colors.tile-lilac}` (syren), och `{colors.border}` för Övrigt. Fördelningen står under `category-tile`. Plattan är dekor: kategorins namn står alltid bredvid, och färgen betyder ingenting. Lera och syren används inte till något annat. I mörkt läge har de egna mörka värden, och mint, ljusblått och sand har sina mörka värden som förut.
 
 Inget rött förekommer, inte ens för fel eller borttagning. Soptunnan är grå (`{colors.ink-3}`). Inga gradienter. Färgen i gränssnittet kommer från matfotona och de små kategoriplattorna.
@@ -449,8 +457,8 @@ Från Epic 12 (AI i bakgrunden):
 Från Epic 9 (veckans erbjudanden):
 
 - **Erbjudandeetikett** (`offer-chip`): en liten etikett i `{colors.mint}` med `{colors.mint-ink}`-text, samma form som produktetiketten, med varan och priset: "Falukorv 29 kr". Avkortad med "…". På en listpost står den först på raden under namnet, på ett receptkort eller rättkort under titeln (högst två och "+N"). Mint skiljer den från produktetiketten (ljusblå) och AI-etiketten (sand). Ingen ikon och ingen emoji.
-- **Veckans erbjudanden** byggs bara av befintliga komponenter: Ark, Kategorirubrik, Listgrupp, Listrad, Soptunna, Meddelanderuta, kort bekräftelse, primärknapp och textknappar. Inga nya tokens utöver `offer-chip`.
-- **Erbjudanderad** (`offer-row`, Story 9.12): en Listrad som produktrad. Till vänster en kryssruta (Krysscirkel, 44 px) med namnet "Aubergine, 12 kr per st, spara 20 %". Rad ett är produktnamnet rensat från märke och ursprungsland ("ICA. Spanien Aubergine" blir "Aubergine"); raden under är liten, `{colors.ink-3}`, och bär landet och märket ("ICA · Spanien"), Stammis, villkor och sista dag. Till höger en rad staplad åt höger: priset ("15 kr/kg", "2 för 25 kr") fetstilt i en piller av `{colors.mint}` med `{colors.mint-ink}`-text (accent på mint ger bara 4,1:1), under det ordinarie priset genomstruket i `{colors.ink-3}` ("111,90 kr"), sedan rabattmärket "−20 %" i `{colors.sand}` och från 30 % "Toppklipp −33 %" i `{colors.accent}` med `{colors.on-accent}`-text, och för en vara som redan ligger i inköpslistan märket "På listan". Allt som saknas (pris, ordinarie pris, rabatt) utelämnas. Raden håller 375 px utan sidscroll: namnet bryts, högerkolumnen är högst 9 rem.
+- **Veckans erbjudanden** byggs bara av befintliga komponenter: Ark, Kategorirubrik, Listgrupp, Listrad, Soptunna, Meddelanderuta, kort bekräftelse, primärknapp och textknappar. Inga nya tokens utöver `offer-chip` och, från Story 9.15, `deal` och `hot`.
+- **Erbjudanderad** (`offer-row`, Story 9.12): en Listrad som produktrad. Till vänster en kryssruta (Krysscirkel, 44 px) med namnet "Aubergine, 12 kr per st, spara 20 %". Rad ett är produktnamnet rensat från märke och ursprungsland ("ICA. Spanien Aubergine" blir "Aubergine"); raden under är liten, `{colors.ink-3}`, och bär landet och märket ("ICA · Spanien"), Stammis, villkor och sista dag. Story 9.15 gör högerkolumnen till en hyllprislapp: priset större (18 px) och fetstilt, det ordinarie priset litet och genomstruket under, rabattmärket "−20 %" i `{colors.deal}` med `{colors.deal-ink}` och från 30 % "Toppklipp −33 %" i `{colors.hot}` med `{colors.hot-ink}`, med 🔥 som aria-dold text före märket. Överst i listan står "Veckans fynd" med antalet Toppklipp. Så här såg 9.12 ut: till höger en rad staplad åt höger: priset ("15 kr/kg", "2 för 25 kr") fetstilt i en piller av `{colors.mint}` med `{colors.mint-ink}`-text (accent på mint ger bara 4,1:1), under det ordinarie priset genomstruket i `{colors.ink-3}` ("111,90 kr"), sedan rabattmärket "−20 %" i `{colors.sand}` och från 30 % "Toppklipp −33 %" i `{colors.accent}` med `{colors.on-accent}`-text, och för en vara som redan ligger i inköpslistan märket "På listan". Allt som saknas (pris, ordinarie pris, rabatt) utelämnas. Raden håller 375 px utan sidscroll: namnet bryts, högerkolumnen är högst 9 rem.
 
 ## Do's and Don'ts
 

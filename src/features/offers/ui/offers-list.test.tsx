@@ -72,8 +72,9 @@ describe("OffersList, how good the offers are (Story 9.11)", () => {
 
   it("marks 30 % or more as Toppklipp", () => {
     render(<OffersList weekStart="2026-10-26" offers={offers} />);
-    expect(screen.getAllByText(/Toppklipp/)).toHaveLength(1);
-    expect(screen.getByText(/Toppklipp/)).toHaveTextContent("Toppklipp \u221233 %");
+    expect(screen.getAllByText(/^Toppklipp/)).toHaveLength(1);
+    expect(screen.getByText(/^Toppklipp/)).toHaveTextContent("Toppklipp \u221233 %");
+    expect(screen.getByTestId("offers-finds")).toHaveTextContent("Veckans fynd: 1 Toppklipp");
   });
 
   it("lists the best saving first and unknown last", () => {

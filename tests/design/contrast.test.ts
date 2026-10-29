@@ -19,7 +19,7 @@ const { light, dark } = colorTokens();
 
 const colorNames = [
   "bg", "surface", "ink", "ink-2", "ink-3", "hairline", "border", "accent", "on-accent",
-  "mint", "mint-ink", "sky", "sky-ink", "sand", "sand-ink", "store-ica", "store-ica-ink", "store-other", "store-other-ink", "tile-clay", "tile-lilac",
+  "mint", "mint-ink", "sky", "sky-ink", "sand", "sand-ink", "store-ica", "store-ica-ink", "store-other", "store-other-ink", "deal", "deal-ink", "hot", "hot-ink", "tile-clay", "tile-lilac",
 ];
 
 /** [text, background, where it is used] */
@@ -35,6 +35,8 @@ const textPairs: [string, string, string][] = [
   ["sand-ink", "sand", "AI-förslag"],
   ["store-ica-ink", "store-ica", "store badge, ICA"],
   ["store-other-ink", "store-other", "store badge, other chains"],
+  ["deal-ink", "deal", "saving badge on an offer row"],
+  ["hot-ink", "hot", "Toppklipp badge on an offer row"],
   ["sky-ink", "bg", "field error on /logga-in"],
   // Pairs the shell and building blocks add on top of DESIGN.md's list:
   ["accent", "surface", "active tab label, heart, text button in a sheet"],
@@ -59,8 +61,10 @@ describe("design tokens", () => {
     );
   });
 
-  it("has no red: every colour is grey-green, blue, sand or white", () => {
+  it("has no red except the ICA badge and the warm offer tags (Story 9.15)", () => {
+    const warm = new Set(["store-ica", "deal-ink", "hot", "deal"].flatMap((name) => [light[name], dark[name]]));
     for (const hex of [...Object.values(light), ...Object.values(dark)]) {
+      if (warm.has(hex)) continue;
       const [r, g, b] = [1, 3, 5].map((i) => parseInt(hex.slice(i, i + 2), 16));
       // Red dominating both other channels clearly is what reads as red.
       expect(r - Math.max(g, b), hex).toBeLessThan(40);
