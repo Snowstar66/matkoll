@@ -2610,3 +2610,34 @@ så att det är lätt att skumma veckans fynd.
 **När** raden visas
 **Så** står priset som ren fet text, ordinarie pris och rabatt på en rad under ("29,90 kr · −50 %"), och Toppklipp med 🔥 som en liten tonad etikett, så att raden är lika hög som en vanlig listrad och kolumnen till höger inte staplar tre block
 
+### Story 16.7: Varför veckans bästa butik
+
+Som Pontus,
+vill jag se vilka erbjudanden som gör en butik till veckans bästa,
+så att "1 erbjudande passar det du brukar laga" inte lämnar mig nyfiken.
+
+**Acceptance Criteria:**
+
+**Givet** veckans bästa butik
+**När** den räknas
+**Så** returnerar `bestStore` också vilka erbjudanden som passade, med id och städat namn (via `offerDisplay`)
+
+**Givet** raden "Bäst denna vecka"
+**När** den visas
+**Så** nämner den dem: "Bäst denna vecka: ● Maxi – falukorv och grädde passar det du brukar laga", vid fler än tre "falukorv, grädde, lök +2", och med en enda kort fras när skälen skiljer sig (hemma eller i recept)
+
+**Givet** arkets butiksmärken
+**När** de visas
+**Så** används den lugna pricken från 16.6 i stället för den fyllda röda brickan, även i raden "Bäst denna vecka" och i Hämta-panelen
+
+**Givet** raden
+**När** Pontus trycker på "Visa"
+**Så** filtreras listan till de passande erbjudandena, med "Visa alla" som väg tillbaka
+
+**Givet** listan
+**När** ett erbjudande passar det Pontus lagar eller har hemma (samma matchning som `bestStore`)
+**Så** har dess metarad en diskret, dämpad "Passar dig" utan färgblock, läsbar för skärmläsare
+
+**Givet** mörkt läge, 375 px och 44 px-mål
+**När** arket visas
+**Så** håller layouten utan sidscroll
