@@ -39,6 +39,8 @@ export type MarkCookedButtonProps = {
   lines: readonly CookedLine[];
   /** The pantry of the selected place; `null` when it could not be read: nothing is deducted then. */
   snapshot: PantrySnapshot | null;
+  /** The place `snapshot` is read from. */
+  siteId: string | null;
   /** The catalog names by ingredient id. */
   names: Readonly<Record<string, string>>;
   variant?: ButtonVariant;
@@ -62,6 +64,7 @@ export function MarkCookedButton({
   originalServings,
   lines,
   snapshot,
+  siteId,
   names,
   variant = "secondary",
   className,
@@ -107,6 +110,7 @@ export function MarkCookedButton({
     try {
       result = await markDishCooked({
         dishId: dish.id,
+        siteId,
         deductions: deductions.map(({ line, taken }) => ({ ingredientId: line.ingredientId, unit: line.unit, amount: taken })),
       });
     } catch {
@@ -127,7 +131,7 @@ export function MarkCookedButton({
         void (async () => {
           let undone: Result<null>;
           try {
-            undone = await undoDishCooked({ dishId: dish.id, rows });
+            undone = await undoDishCooked({ dishId: dish.id });
           } catch {
             showToast(errorMessages.mealplan_cooked_undo_failed, { role: "alert" });
             return;

@@ -80,7 +80,7 @@ describe("mark_dish_cooked and undo_dish_cooked", () => {
     expect(await cookedAt(user, dishId)).toBe(marked.cookedAt);
     expect(marked.rows).toHaveLength(2);
 
-    await undoDishCookedIn(user.db, dishId, marked.rows);
+    await undoDishCookedIn(user.db, dishId);
     expect(await amount(user, cream)).toBe(5);
     expect(await amount(user, flour)).toBe(1);
     expect(await cookedAt(user, dishId)).toBeNull();
@@ -133,8 +133,45 @@ describe("mark_dish_cooked and undo_dish_cooked", () => {
     await markDishCookedIn(mine.user.db, mine.dishId, mine.site, [{ ingredientId: theirs.cream, unit: "dl", amount: 3 }]);
     expect(await amount(theirs.user, theirs.cream)).toBe(5);
     // Undo with the other user's dish or rows changes nothing of theirs.
-    await expect(undoDishCookedIn(mine.user.db, theirs.dishId, [])).rejects.toBeInstanceOf(MealPlanDataError);
+    await expect(undoDishCookedIn(mine.user.db, theirs.dishId)).rejects.toBeInstanceOf(MealPlanDataError);
     expect(await cookedAt(theirs.user, theirs.dishId)).toBeNull();
+  });
+
+  it("undo runs once: a second undo restores nothing more and fails with MK418", async () => {
+    const { user, site, dishId, cream } = await scenario("cooked-undo-twice");
+    await markDishCookedIn(user.db, dishId, site, [{ ingredientId: cream, unit: "dl", amount: 2 }]);
+    await undoDishCookedIn(user.db, dishId);
+    expect(await amount(user, cream)).toBe(5);
+    await expect(undoDishCookedIn(user.db, dishId)).rejects.toMatchObject({ detail: "cooked_undo_failed MK418" });
+    expect(await amount(user, cream)).toBe(5);
+  });
+
+  it("a stale undo after unmarking fails and leaves the pantry alone", async () => {
+    const { user, site, dishId, cream } = await scenario("cooked-undo-stale");
+    await markDishCookedIn(user.db, dishId, site, [{ ingredientId: cream, unit: "dl", amount: 2 }]);
+    await unmarkDishCookedIn(user.db, user.id, dishId);
+    await expect(undoDishCookedIn(user.db, dishId)).rejects.toMatchObject({ detail: "cooked_undo_failed MK418" });
+    expect(await amount(user, cream)).toBe(3);
+  });
+
+  it("rejects NaN and an amount of a million or more, and duplicate pairs", async () => {
+    const { user, site, dishId, cream } = await scenario("cooked-bad-amounts");
+    for (const bad of ["NaN", 1_000_000, 5_000_000]) {
+      const { error } = await user.db.rpc("mark_dish_cooked", {
+        dish: dishId,
+        site,
+        deductions: [{ ingredient_id: cream, unit: "dl", amount: bad }],
+      });
+      expect(error?.code).toBe("22023");
+    }
+    await expect(
+      markDishCookedIn(user.db, dishId, site, [
+        { ingredientId: cream, unit: "dl", amount: 1 },
+        { ingredientId: cream, unit: "dl", amount: 1 },
+      ]),
+    ).rejects.toMatchObject({ detail: "cooked_failed 22023" });
+    expect(await amount(user, cream)).toBe(5);
+    expect(await cookedAt(user, dishId)).toBeNull();
   });
 
   it("refuses the anonymous caller", async () => {
@@ -152,7 +189,7 @@ describe("mark_dish_cooked and undo_dish_cooked", () => {
     const marked = await markDishCookedIn(user.db, dishId, site, [{ ingredientId: cream, unit: "dl", amount: 7 }]);
     expect(await amount(user, cream)).toBe(2);
     expect(marked.rows.map((row) => row.deducted).sort()).toEqual([2, 5]);
-    await undoDishCookedIn(user.db, dishId, marked.rows);
+    await undoDishCookedIn(user.db, dishId);
     expect(await amount(user, cream)).toBe(9);
   });
 

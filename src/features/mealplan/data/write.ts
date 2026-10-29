@@ -1,6 +1,6 @@
 import "server-only";
 import { z } from "zod";
-import { cookedUndoRowSchema, type CookedUndoRow, type MarkedCooked } from "../domain/cooked";
+import { cookedUndoRowSchema, type MarkedCooked } from "../domain/cooked";
 import { planRecipeRowSchema, type PlanRecipeRow } from "../domain/meal-plan";
 import { MealPlanDataError, type MealPlanDb } from "./client";
 import { dishColumns, toPlanRecipeRow } from "./queries";
@@ -185,11 +185,12 @@ export async function markDishCookedIn(
 /**
  * "Ångra" after "Markera som lagad" (undo_dish_cooked): puts the deducted
  * amounts back and clears cooked_at, in one transaction. Throws
- * MealPlanDataError `cooked_undo_failed <code>` (23505: a row was made again
- * under the same key; nothing is changed).
+ * MealPlanDataError `cooked_undo_failed <code>` (MK418: nothing to undo, as it
+ * ran already or the dish was unmarked; 23505: a row was made again under the
+ * same key; nothing is changed). The rows come from the dish's server-side ledger.
  */
-export async function undoDishCookedIn(db: MealPlanDb, dishId: string, rows: readonly CookedUndoRow[]): Promise<void> {
-  const { error } = await db.rpc("undo_dish_cooked", { dish: dishId, rows: rows.map((row) => ({ ...row })) });
+export async function undoDishCookedIn(db: MealPlanDb, dishId: string): Promise<void> {
+  const { error } = await db.rpc("undo_dish_cooked", { dish: dishId });
   if (error) throw new MealPlanDataError(`cooked_undo_failed ${error.code}`);
 }
 
@@ -201,7 +202,7 @@ export async function unmarkDishCookedIn(db: MealPlanDb, userId: string, id: str
   if (!idSchema.safeParse(id).success) throw new MealPlanDataError("invalid_id");
   const { data, error } = await db
     .from("meal_plan_recipe")
-    .update({ cooked_at: null })
+    .update({ cooked_at: null, cooked_deductions: null })
     .eq("id", id)
     .eq("user_id", userId)
     .select("id");

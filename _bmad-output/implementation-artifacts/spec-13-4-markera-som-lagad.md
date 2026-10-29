@@ -2,7 +2,7 @@
 title: 'Story 13.4: Markera som lagad'
 type: 'feature'
 created: '2026-10-29'
-status: 'in-progress'
+status: 'done'
 route: 'dispatch'
 review_loop_iteration: 0
 baseline_commit: '0579bed'
@@ -47,3 +47,13 @@ baseline_commit: '0579bed'
 ## Review Triage Log
 
 Ingen separat granskning ännu. lint, typecheck, `pnpm test`, `scripts/with-test-lock.sh pnpm test:integration`, `AI_PROVIDER=mock pnpm build` och e2e (`mealplan`, `cook-mode`, `shopping`, `pantry-inventory`) är gröna.
+
+## Review Triage Log
+
+En Sonnet-granskare. Fynd: 1 måste-fixa och 3 bra-att-ha, alla åtgärdade (migration `20261029180000_meal_plan_cooked_ledger.sql`).
+
+- Måste-fixa: Ångra kunde köras flera gånger och litade på rader från klienten. Nu lagrar `mark_dish_cooked` en huvudbok i `meal_plan_recipe.cooked_deductions`; `undo_dish_cooked(dish)` läser den på servern, uppdaterar `where cooked_at is not null` under samma lås, återställer exakt en gång och ger MK418 när det inte finns något att ångra. "Inte lagad" rensar också huvudboken, så en gammal Ångra ger MK418 och ett vänligt felmeddelande.
+- Bra-att-ha: NaN och belopp från 1 000 000 avvisas i `mark_dish_cooked`.
+- Bra-att-ha: arket skickar `siteId` (platsen beloppen räknades från) i stället för vald plats på servern.
+- Bra-att-ha: dubbla par (vara, enhet) avvisas.
+- Tester: dubbel Ångra, gammal Ångra efter "Inte lagad", NaN/för stort belopp, dubbla par, annan användares rätt och plats.

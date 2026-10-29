@@ -63,6 +63,7 @@ async function RecipeContent({ params }: Pick<PageProps<"/recept/[id]">, "params
             originalServings={recipe.servings}
             lines={recipe.lines}
             snapshot={snapshot}
+            siteId={site?.id ?? null}
             names={names}
             variant="primary"
             fullWidth

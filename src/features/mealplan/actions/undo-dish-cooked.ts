@@ -14,7 +14,7 @@ import { undoCookedSchema, type UndoCookedInput } from "../domain/cooked";
  * Revalidates Matsedel, the list, Hemma and the recipes (AD-18).
  *
  * Fails with `unauthorized`, `validation` or `mealplan_cooked_undo_failed`
- * (also when a pantry row was made again under the same key); nothing is
+ * (also when there is nothing to undo or a pantry row was made again under the same key); nothing is
  * changed then.
  */
 export async function undoDishCooked(input: UndoCookedInput): Promise<Result<null>> {
@@ -24,7 +24,7 @@ export async function undoDishCooked(input: UndoCookedInput): Promise<Result<nul
   if (!parsed.success) return fail("validation");
 
   try {
-    await undoDishCookedIn(await createClient(), parsed.data.dishId, parsed.data.rows);
+    await undoDishCookedIn(await createClient(), parsed.data.dishId);
     revalidateFor("meal_plan_recipe");
     revalidateFor("pantry_item");
     return ok(null);

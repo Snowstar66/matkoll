@@ -104,6 +104,8 @@ export type MealPlanListProps = {
    * place or without a status.
    */
   siteLine?: string | null;
+  /** The place `snapshot` is read from, for "Markera som lagad". */
+  siteId?: string | null;
   /** The catalog names by ingredient id, for "Markera som lagad" (Story 13.4). */
   names?: Readonly<Record<string, string>>;
 };
@@ -119,7 +121,7 @@ export type MealPlanListProps = {
  * or the card's button, focus goes to the next dish, else the one before,
  * else "Lägg till rätt".
  */
-export function MealPlanList({ planName, dishes, snapshot, siteLine = null, names = {} }: MealPlanListProps) {
+export function MealPlanList({ planName, dishes, snapshot, siteLine = null, siteId = null, names = {} }: MealPlanListProps) {
   const router = useRouter();
   const { showToast } = useToast();
   const [entries, setEntries] = useState<ReadonlyMap<string, Entry>>(() => new Map());
@@ -373,6 +375,7 @@ export function MealPlanList({ planName, dishes, snapshot, siteLine = null, name
             dish={dish}
             servings={servings[dish.id] ?? dish.servings}
             snapshot={snapshot}
+            siteId={siteId}
             names={names}
             onUnmark={() => void unmark(dish)}
             onServingsChange={(value) => changeServings(dish, value)}
@@ -401,6 +404,7 @@ type DishCardProps = {
   /** The servings shown now, optimistic included. */
   servings: number;
   snapshot: PantrySnapshot | null;
+  siteId: string | null;
   names: Readonly<Record<string, string>>;
   onUnmark: () => void;
   onServingsChange: (servings: number) => void;
@@ -418,7 +422,7 @@ type DishCardProps = {
  * recipe is gone keeps its title and says "Borttaget recept"; one whose
  * recipe could not be read shows its stored title only.
  */
-function DishCard({ dish, servings, snapshot, names, onUnmark, onServingsChange, onRemove }: DishCardProps) {
+function DishCard({ dish, servings, snapshot, siteId, names, onUnmark, onServingsChange, onRemove }: DishCardProps) {
   const { recipe, recipeTitle: title } = dish;
   const cooked = Boolean(dish.cookedAt);
   // A cooked dish has no status: it is done (Story 13.4).
@@ -493,6 +497,7 @@ function DishCard({ dish, servings, snapshot, names, onUnmark, onServingsChange,
                 originalServings={recipe.originalServings}
                 lines={recipe.lines}
                 snapshot={snapshot}
+                siteId={siteId}
                 names={names}
                 variant="text"
               />

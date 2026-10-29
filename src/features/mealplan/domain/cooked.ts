@@ -131,6 +131,8 @@ export function parseNewAmount(text: string, current: number): number | null {
 /** What markDishCooked takes: the dish, and per line the amount to take off in its unit. */
 export const markCookedSchema = z.object({
   dishId: z.uuid(),
+  /** The place the sheet's amounts were computed from. */
+  siteId: z.uuid().nullable(),
   deductions: z
     .array(z.object({ ingredientId: z.uuid(), unit: unitSchema, amount: z.number().positive().lt(1_000_000) }))
     .max(200),
@@ -148,13 +150,14 @@ export const cookedUndoRowSchema = z.object({
   label: z.string().nullable(),
   created_at: z.string(),
   deducted: z.number().positive(),
+  deleted: z.boolean(),
 });
 export type CookedUndoRow = z.infer<typeof cookedUndoRowSchema>;
 
 /** What markDishCooked gives: when, and what "Ångra" needs. */
 export type MarkedCooked = { cookedAt: string; rows: CookedUndoRow[] };
 
-export const undoCookedSchema = z.object({ dishId: z.uuid(), rows: z.array(cookedUndoRowSchema).max(400) });
+export const undoCookedSchema = z.object({ dishId: z.uuid() });
 export type UndoCookedInput = z.infer<typeof undoCookedSchema>;
 
 /** The confirmation after a dish was marked cooked, with "Ångra". */
