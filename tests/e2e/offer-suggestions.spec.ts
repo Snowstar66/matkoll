@@ -125,6 +125,7 @@ function watchErrors(page: Page): string[] {
 
 const sheet = (page: Page) => page.getByRole("dialog", { name: "Veckans erbjudanden" });
 const toast = (page: Page) => page.getByTestId("toast");
+const choice = (page: Page) => page.getByTestId("store-choice");
 const suggestButton = (page: Page) => sheet(page).getByRole("button", { name: "Föreslå rätter från veckans erbjudanden" });
 
 async function openOffers(page: Page) {
@@ -150,7 +151,7 @@ test("offers become dishes with labels, one step puts a dish on the menu and the
 
   await openOffers(page);
   await expect(suggestButton(page)).toBeEnabled();
-  await suggestButton(page).click();
+  await startSuggest(page);
   await expect(sheet(page)).toBeHidden();
   // Only the mode goes from the client: never the offers, never prices.
   expect(bodies).toHaveLength(1);
@@ -244,20 +245,22 @@ test("the week's best store is on top and preselected, and the dishes are built 
   const bodies = watchJobBodies(page);
 
   await openOffers(page);
-  await expect(sheet(page).getByTestId("best-store")).toContainText("Bäst denna vecka:");
-  await expect(sheet(page).getByTestId("best-store")).toContainText("Maxi");
-  await expect(sheet(page).getByTestId("best-store")).toContainText(/ \u2013 .+ passar (det du (har hemma|brukar laga)|dina recept)/);
-  // Story 16.7: "Visa" narrows the list to the matching offers, "Visa alla" brings the rest back.
+  await expect(sheet(page).getByTestId("best-store")).toContainText("Maxi passar dig bäst den här veckan:");
+  await expect(sheet(page).getByTestId("best-store")).toContainText(/ (finns i dina recept|har du hemma|passar det du brukar laga)/);
+  // Story 16.10: the tip has no store pills; the store is chosen in the sheet that the AI button opens.
+  await expect(sheet(page).getByRole("radiogroup", { name: "Föreslå rätter från" })).toHaveCount(0);
+  // Story 16.7: the tip's link narrows the list to the matching offers, and brings the rest back.
   await expect(sheet(page).getByTestId("offer-fit")).toHaveCount(3);
   const before = await sheet(page).getByTestId("offer-row").count();
-  await sheet(page).getByRole("button", { name: "Visa", exact: true }).click();
+  await sheet(page).getByRole("button", { name: "Visa bara de erbjudandena" }).click();
   await expect(sheet(page).getByTestId("offer-row")).toHaveCount(3);
   await sheet(page).getByTestId("best-store-toggle").click();
   await expect(sheet(page).getByTestId("offer-row")).toHaveCount(before);
-  const picker = sheet(page).getByRole("radiogroup", { name: "Föreslå rätter från" });
-  await expect(picker.getByRole("radio", { name: "Maxi" })).toBeChecked();
-
   await suggestButton(page).click();
+  const picker = choice(page).getByRole("radiogroup", { name: "Föreslå rätter från vilken butik?" });
+  await expect(picker.getByRole("radio", { name: /Maxi/ })).toBeChecked();
+  await expect(picker).toContainText("Maxi \u2013 passar dig bäst");
+  await choice(page).getByTestId("store-choice-start").click();
   await expect(sheet(page)).toBeHidden();
   expect(bodies).toHaveLength(1);
   expect(JSON.parse(bodies[0])).toMatchObject({ kind: "suggest", mode: "offers", storeId: maxiId });
@@ -273,10 +276,11 @@ test("another store can be picked for the dishes", async ({ page }) => {
   const bodies = watchJobBodies(page);
 
   await openOffers(page);
-  const picker = sheet(page).getByRole("radiogroup", { name: "Föreslå rätter från" });
-  await picker.getByRole("radio", { name: "Matkoll" }).click();
-  await expect(picker.getByRole("radio", { name: "Matkoll" })).toBeChecked();
   await suggestButton(page).click();
+  const picker = choice(page).getByRole("radiogroup", { name: "Föreslå rätter från vilken butik?" });
+  await picker.getByRole("radio", { name: /Matkoll/ }).check({ force: true });
+  await expect(picker.getByRole("radio", { name: /Matkoll/ })).toBeChecked();
+  await choice(page).getByTestId("store-choice-start").click();
   await expect(sheet(page)).toBeHidden();
   expect(JSON.parse(bodies[0])).toMatchObject({ mode: "offers", storeId: testId });
   await toast(page).getByRole("button", { name: "Visa" }).click(jobTime);
@@ -286,7 +290,7 @@ test("another store can be picked for the dishes", async ({ page }) => {
 // Story 16.1: the buttons on a suggestion work after Pontus has been to other pages and back, and a suggestion can be removed.
 async function suggestionsFromOffers(page: Page) {
   await openOffers(page);
-  await suggestButton(page).click();
+  await startSuggest(page);
   await expect(sheet(page)).toBeHidden();
   await toast(page).getByRole("button", { name: "Visa" }).click(jobTime);
   const cards = page.getByTestId("ai-suggestions").getByTestId("ai-suggestion");
@@ -394,7 +398,7 @@ test("a favourite recipe that uses an offer is shown first and goes on the menu,
   if (lines.error) throw lines.error;
 
   await openOffers(page);
-  await suggestButton(page).click();
+  await startSuggest(page);
   await expect(sheet(page)).toBeHidden();
   await page.goto("/recept");
   await page.getByRole("radio", { name: "Kan lagas nu" }).click();
@@ -418,3 +422,10 @@ test("a favourite recipe that uses an offer is shown first and goes on the menu,
   await expect(page.getByTestId("shopping-line").filter({ visible: true, hasText: /falukorv/i })).toHaveCount(1);
   expect(errors).toEqual([]);
 });
+
+/** Starts the suggestions; with two stores the store-choice sheet comes first (Story 16.10), where the preselected store is kept. */
+async function startSuggest(page: Page) {
+  await suggestButton(page).click();
+  const start = choice(page).getByTestId("store-choice-start");
+  if (await start.isVisible()) await start.click();
+}
