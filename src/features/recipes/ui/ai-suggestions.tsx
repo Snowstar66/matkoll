@@ -12,6 +12,7 @@ import { suggestErrorMessage, suggestRetryCodes, whyText } from "@/features/sugg
 import { offerDisplay } from "@/features/offers";
 import type { AddToPlan } from "./add-to-plan-button";
 import { OwnRecipes, type OwnRecipesRead } from "./own-recipes";
+import { dishEmoji } from "../domain/dish-emoji";
 import { recipeMetaText } from "../domain/recipe-list";
 import { AiSuggestionSheet } from "./ai-suggestion-sheet";
 import { RecipeCard } from "./recipe-card";
@@ -205,6 +206,7 @@ function SuggestionCard({
       data-testid="ai-suggestion"
       title={draft.title}
       imageUrl={null}
+      emoji={dishEmoji(draft.title)}
       meta={recipeMetaText(draft.totalMinutes, draft.servings)}
       badge={<AiBadge />}
       onDelete={onRemove}

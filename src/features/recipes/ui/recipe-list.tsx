@@ -1,6 +1,7 @@
 "use client";
 
 import { recipeMetaText, type RecipeListItem } from "../domain/recipe-list";
+import { dishEmoji } from "../domain/dish-emoji";
 import { RecipeCard } from "./recipe-card";
 import { RecipeStatusBadge } from "./recipe-status-badge";
 
@@ -32,6 +33,7 @@ export function RecipeList({ recipes, favorites, onFavoriteChange, ranked = fals
           key={recipe.id}
           title={recipe.title}
           imageUrl={recipe.imageUrl}
+          emoji={dishEmoji(recipe.title)}
           meta={recipeMetaText(recipe.totalMinutes, recipe.originalServings)}
           href={`/recept/${recipe.id}`}
           badge={

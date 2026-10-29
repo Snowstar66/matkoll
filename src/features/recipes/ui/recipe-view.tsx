@@ -3,6 +3,7 @@ import { BackLink } from "@/components/app-shell/back-link";
 import { ChevronLeftIcon } from "@/components/icons";
 import { RecipeImage } from "@/components/recipe-image";
 import type { PantrySnapshot, SelectedSite } from "@/features/pantry";
+import { dishEmoji, offerSavedText } from "../domain/dish-emoji";
 import { recipeTimeText } from "../domain/recipe-list";
 import type { SavedRecipe } from "../domain/saved-recipe";
 import { sourceLabel } from "../domain/source-label";
@@ -45,10 +46,16 @@ export function RecipeView({ recipe, snapshot, site = null, menu, addToPlan, fin
   const source = sourceLabel(recipe.sourceKind, recipe.sourceUrl);
   // The portion selector shows the servings, so the meta line is only the time.
   const time = recipeTimeText(recipe.totalMinutes);
+  const offerLine = offerSavedText(recipe.offerNames);
   return (
     <article className="flex flex-col gap-6 pb-gutter">
       <div className="relative -mx-page desktop:mx-0 desktop:mt-10">
-        <RecipeImage src={recipe.imageUrl} className="h-[260px] desktop:rounded-lg" />
+        <RecipeImage
+          src={recipe.imageUrl}
+          emoji={dishEmoji(recipe.title)}
+          iconSize={96}
+          className="h-[260px] desktop:rounded-lg"
+        />
         {/* At every width: Matkoll on the home screen has no browser back button (AD-27).
             Back in history when opened within Matkoll (from Matsedel, say), else to Recept. */}
         <BackLink
@@ -83,6 +90,11 @@ export function RecipeView({ recipe, snapshot, site = null, menu, addToPlan, fin
             source
           )}
         </p>
+        {offerLine ? (
+          <p className="text-meta text-ink-2" data-testid="recipe-offers">
+            {offerLine}
+          </p>
+        ) : null}
       </header>
 
       <RecipeBody

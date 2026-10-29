@@ -11,6 +11,7 @@ import { offerDisplay } from "@/features/offers";
 import { atHomeText, whyText, type OwnRecipeMatch } from "@/features/suggestions";
 import { fail, type Result } from "@/lib/errors";
 import type { AddToPlan } from "./add-to-plan-button";
+import { dishEmoji } from "../domain/dish-emoji";
 import { recipeMetaText } from "../domain/recipe-list";
 import { RecipeCard } from "./recipe-card";
 
@@ -96,6 +97,7 @@ function OwnRecipeCard({ recipe, addToPlan }: { recipe: OwnRecipeMatch; addToPla
       data-testid="own-recipe"
       title={recipe.title}
       imageUrl={recipe.imageUrl}
+      emoji={dishEmoji(recipe.title)}
       meta={recipeMetaText(recipe.totalMinutes, recipe.servings)}
       badge={recipe.isFavorite ? <Badge tone="mint">Favorit</Badge> : <Badge tone="neutral">Ditt recept</Badge>}
     >

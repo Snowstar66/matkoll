@@ -30,6 +30,8 @@ export type SavedRecipe = {
   sourceKind: SourceKind;
   sourceUrl: string | null;
   isFavorite: boolean;
+  /** Story 16.4: the offers the recipe was saved from; empty for any other recipe. */
+  offerNames?: string[];
   /**
    * When the recipe last changed, exactly as the database gives it. Ändra
    * recept sends it back, so a form filled before a newer change cannot
@@ -53,6 +55,7 @@ export type SaveRecipeArgs = {
     image_url: string | null;
     source_kind: SourceKind;
     source_url: string | null;
+    offer_names?: string[];
   };
   steps: { position: number; text: string }[];
   lines: {
@@ -88,6 +91,7 @@ export function toSaveRecipeArgs(
       image_url: draft.imageUrl,
       source_kind: draft.sourceKind,
       source_url: draft.sourceUrl,
+      offer_names: draft.offerNames ?? [],
     },
     steps: draft.steps.map((step, position) => ({ position, text: stepText(step).trim() })),
     lines: draft.lines.map((line, position) => lineRow(line, position, ingredientIds[position])),

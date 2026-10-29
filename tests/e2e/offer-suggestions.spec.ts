@@ -314,10 +314,21 @@ for (const away of [false, true]) {
     await expect(toast(page)).toContainText("Lagt på matsedeln.");
     await expect(cards).toHaveCount(2);
 
+    // Story 16.4: the card's illustration, and the offers it names.
+    await expect(cards.first().getByTestId("recipe-illustration")).toBeVisible();
+    const offerLine = cards.first().getByTestId("ai-suggestion-offers");
+    const offered = (await offerLine.count()) > 0 ? ((await offerLine.textContent()) ?? "").replace("På erbjudande: ", "") : null;
     await cards.first().getByRole("button", { name: /^Spara / }).click();
     await expect(preview).toBeVisible();
     await preview.getByRole("button", { name: "Spara recept" }).click();
     await expect(page).toHaveURL(/\/recept\/[0-9a-f-]{36}/);
+    // The saved recipe is complete: illustration, numbered steps, and the offers it was saved from.
+    const view = page.getByRole("article").filter({ visible: true });
+    await expect(view.getByTestId("recipe-illustration")).toBeVisible();
+    await expect(view.getByRole("region", { name: "Steg" }).getByRole("listitem").first()).toBeVisible();
+    if (offered) {
+      await expect(view.getByTestId("recipe-offers")).toHaveText(`Sparad från veckans erbjudanden: ${offered}`);
+    }
     const recipes = await adminClient().from("recipe").select("id").eq("user_id", userId);
     expect(recipes.data).toHaveLength(3);
     expect(errors).toEqual([]);

@@ -9,6 +9,12 @@ export type RecipeImageProps = {
   src: string | null;
   /** The placeholder icon's size: 48 for the recipe view, smaller for a 72 px thumbnail. */
   iconSize?: number;
+  /**
+   * Story 16.4: an illustration for the dish (an emoji) in the place of the
+   * book icon, shown when there is no image or it cannot be loaded.
+   * Decoration, so hidden from a screen reader.
+   */
+  emoji?: string;
   className?: string;
 };
 
@@ -17,7 +23,7 @@ export type RecipeImageProps = {
  * recipe site without a referrer, and never stored. Without an address, or
  * when the image cannot be loaded, a quiet placeholder takes its place.
  */
-export function RecipeImage({ src, iconSize = 48, className }: RecipeImageProps) {
+export function RecipeImage({ src, iconSize = 48, emoji, className }: RecipeImageProps) {
   const [failedSrc, setFailedSrc] = useState<string | null>(null);
   const imageRef = useRef<HTMLImageElement>(null);
 
@@ -46,8 +52,17 @@ export function RecipeImage({ src, iconSize = 48, className }: RecipeImageProps)
           className="size-full object-cover"
         />
       ) : (
-        <div data-testid="recipe-image-placeholder" className="flex size-full items-center justify-center text-mint-ink">
-          <RecipesIcon size={iconSize} />
+        <div
+          data-testid="recipe-image-placeholder"
+          className={cx("flex size-full items-center justify-center", emoji ? "text-ink" : "text-mint-ink")}
+        >
+          {emoji ? (
+            <span data-testid="recipe-illustration" aria-hidden="true" style={{ fontSize: iconSize, lineHeight: 1 }}>
+              {emoji}
+            </span>
+          ) : (
+            <RecipesIcon size={iconSize} />
+          )}
         </div>
       )}
     </div>
