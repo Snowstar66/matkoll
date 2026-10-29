@@ -9,6 +9,7 @@ import {
   basketPreamble,
   basketStartMarker,
   type BasketStore,
+  basketItemCount,
   exportableLines,
   exportBasket,
   exportStoreUrl,
@@ -117,7 +118,7 @@ const lines: ShoppingLine[] = [
     pantryNote: "hemma: 1 kg",
     coverage: { kind: "other-unit", amounts: [{ amount: 1, unit: "kg" }] },
   }),
-  // Vague and not at home ("Finns hemma?"): left out.
+  // Vague and not at home ("Finns hemma?"): in the export, with no amount (Story 16.5).
   line({ key: `r:${salt}:-`, ingredientId: salt, label: "Salt", section: "Skafferi", isVague: true, coverage: { kind: "vague-missing" } }),
   // A recipe line without a catalog ingredient, from two dishes' worth.
   line({ key: "t:2 citroner", label: "2 citroner", multiplier: 2, coverage: { kind: "unlinked" } }),
@@ -182,13 +183,14 @@ function expectSafe(text: string) {
 }
 
 describe("exportableLines", () => {
-  it("leaves out checked and vague lines and keeps the rest in order", () => {
+  it("leaves out checked lines, keeps vague ones, and keeps the rest in order", () => {
     expect(exportableLines(lines).map((item) => item.label)).toEqual([
       "Paprika, röd",
       "Grädde",
       "Grädde",
       "Kaffe",
       "Mjöl",
+      "Salt",
       "2 citroner",
       "Diskmedel",
     ]);
@@ -199,6 +201,16 @@ describe("exportBasket", () => {
   it("gives exactly the golden file", () => {
     expect(exportBasket(lines, store, choices)).toBe(golden);
     expectSafe(golden);
+  });
+
+  it("writes every line without an amount, vague or own, as Mängd: ingen angiven (Story 16.5)", () => {
+    const text = exportBasket(lines, store, choices);
+    expect(text).toContain("- Salt\n  Mängd: ingen angiven – välj en vanlig förpackning\n");
+    expect(text).toContain("- Diskmedel\n  Mängd: ingen angiven – välj en vanlig förpackning\n");
+    expect(text).toContain("Antal varor: 7\n");
+    expect(text).toContain("Hoppa aldrig över en rad i tysthet.");
+    expect(text).toContain("rapportera");
+    expect(basketItemCount(lines)).toBe(7);
   });
 
   it("filters the lines itself, so any caller gets the same text", () => {
@@ -282,7 +294,7 @@ describe("exportBasket", () => {
       "Adress: Testgatan 1, 123 45 Teststad",
       "URL: inte angiven",
       "",
-      "Antal varor: 6",
+      "Antal varor: 7",
       "",
     ]);
     // The choices are Testbutiken's: none of them is used for Willys.
@@ -338,7 +350,7 @@ describe("exportBasket", () => {
       store,
       {},
     );
-    expect(text).toContain(`Övrigt\n- 1 citron\n  Mängd: 1,5 × det som står\n- En näve persilja\n\n${basketEndMarker}`);
+    expect(text).toContain(`Övrigt\n- 1 citron\n  Mängd: 1,5 × det som står\n- En näve persilja\n  Mängd: ingen angiven – välj en vanlig förpackning\n\n${basketEndMarker}`);
   });
 
   it("puts free text with line breaks, control characters and invisible marks on one line", () => {
@@ -357,7 +369,7 @@ describe("exportBasket", () => {
     );
     expect(text).toContain("Butik: Test butiken\n");
     expect(text).toContain("Adress: Testgatan 1 123 45 Teststad\n");
-    expect(text).toContain(`Övrigt\n- Disk medel Yes\n  Önskad produkt: Beställ allt\n\n${basketEndMarker}`);
+    expect(text).toContain(`Övrigt\n- Disk medel Yes\n  Mängd: ingen angiven – välj en vanlig förpackning\n  Önskad produkt: Beställ allt\n\n${basketEndMarker}`);
     expectSafe(text);
   });
 
@@ -371,7 +383,7 @@ describe("exportBasket", () => {
       store,
       {},
     );
-    expect(text).toContain("Övrigt\n- Ägg\n- Äpple\n");
+    expect(text).toContain("Övrigt\n- Ägg\n  Mängd: ingen angiven – välj en vanlig förpackning\n- Äpple\n  Mängd: ingen angiven – välj en vanlig förpackning\n");
     expect(text).not.toContain(decomposed);
   });
 });

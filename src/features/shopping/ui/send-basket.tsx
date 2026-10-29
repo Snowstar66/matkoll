@@ -6,7 +6,7 @@ import { Sheet } from "@/components/sheet";
 import { useToast } from "@/components/toast";
 import type { Store } from "@/features/settings";
 import type { ShoppingLine } from "../domain/compute-list";
-import { exportableLines, exportBasket } from "../domain/export-basket";
+import { basketItemCount, exportableLines, exportBasket } from "../domain/export-basket";
 import {
   copiedText,
   copyFailedText,
@@ -42,7 +42,7 @@ export type SendBasketInput = {
   productChoicesUnavailable: boolean;
   /** The catalog ingredients whose stored choice cannot be read: an export with one of them says "utan alla produktval". */
   unreadableChoices: readonly string[];
-  /** The checks could not be read: every line but the vague ones is sent, and the confirmation says to check the basket. */
+  /** The checks could not be read: every line is sent, and the confirmation says to check the basket. */
   checksUnavailable: boolean;
 };
 
@@ -80,7 +80,7 @@ function writeToClipboard(text: string): Promise<boolean> | false {
 
 /**
  * `send` for the button: builds the export of the lines not checked off and
- * not vague, in the selected store with its choices, and copies it, then
+ * vague ones included, in the selected store with its choices, and copies it, then
  * shows the short confirmation (which says what is missing); when the
  * clipboard is refused or missing, the sheet with the text. Only the latest
  * tap's answer counts: an older writeText that settles later is ignored.
@@ -138,6 +138,7 @@ export function useSendBasket({
       withoutChoices: productChoicesUnavailable,
       partialChoices: sent.some((line) => line.ingredientId !== undefined && unreadableChoices.includes(line.ingredientId)),
       checksUnread: checksUnavailable,
+      count: basketItemCount(sent),
     });
     const written = writeToClipboard(text);
     if (written === false) {

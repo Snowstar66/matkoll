@@ -23,7 +23,8 @@ const maxi = "Maxi ICA Stormarknad Östersund";
 const storeUrl = "https://handlaprivatkund.ica.se/stores/1003733";
 const arla = "Arla Matlagningsgrädde 15 %";
 const arlaUrl = "https://www.arla.se/produkter/matlagningsgradde-15";
-const copied = "Inköpslistan är kopierad. Klistra in den i Claude i Chrome på ICA Handla.";
+const copied = (count: number) =>
+  `${count} varor kopierade. Inköpslistan är kopierad. Klistra in den i Claude i Chrome på ICA Handla.`;
 
 test.use({ storageState: basketExportStorageState, viewport: mobile });
 test.describe.configure({ mode: "serial" });
@@ -55,7 +56,7 @@ const expectedExport = [
   "Adress: Testgatan 1, 123 45 Teststad",
   `URL: ${storeUrl}`,
   "",
-  "Antal varor: 4",
+  "Antal varor: 5",
   "",
   "Frukt och grönt",
   "- Gul lök",
@@ -68,9 +69,15 @@ const expectedExport = [
   // The link is on another site than the store's: left out, the product name stays.
   "  Förpackning: 5 dl",
   "",
+  "Skafferi",
+  "- Salt",
+  "  Mängd: ingen angiven – välj en vanlig förpackning",
+  "",
   "Övrigt",
   "- 2 citroner",
+  "  Mängd: ingen angiven – välj en vanlig förpackning",
   "- Diskmedel",
+  "  Mängd: ingen angiven – välj en vanlig förpackning",
   "",
   basketEndMarker,
   "",
@@ -222,12 +229,12 @@ test("Kopiera till ICA-varukorgen copies the export without asking the server, a
   const url = page.url();
 
   await sendButton(page).click();
-  await expect(toast(page)).toHaveText(copied);
+  await expect(toast(page)).toHaveText(copied(5));
   const text = await clipboard(page);
   expect(text).toBe(expectedExport);
   expect(text.startsWith("Matkoll varukorgsexport v1\n")).toBe(true);
   expect(text).toContain("Arla");
-  expect(text).not.toMatch(/salt/i);
+  expect(text).toContain("- Salt\n  Mängd: ingen angiven – välj en vanlig förpackning\n");
   expect(text.endsWith(`${instruction}\n`)).toBe(true);
 
   // The tap made no request, and the page stayed where it was.
@@ -253,11 +260,11 @@ test("a gul lök checked off is not in the next export, and Lägg i lagret stand
   expect(put && send && put.y + put.height <= send.y).toBe(true);
 
   await sendButton(page).click();
-  await expect(toast(page)).toHaveText(copied);
+  await expect(toast(page)).toHaveText(copied(4));
   const text = await clipboard(page);
   expect(text).not.toContain("Gul lök");
   expect(text).not.toContain("Frukt och grönt");
-  expect(text).toContain("Antal varor: 3\n");
+  expect(text).toContain("Antal varor: 4\n");
   expect(text).toContain(`- Grädde\n  Mängd: 3 dl\n  Önskad produkt: ${arla}\n`);
   expect(errors).toEqual([]);
 });
@@ -325,7 +332,7 @@ test("after a copy the steps sheet explains the cart, links to ica.se without op
 
   // Hidden on the next copy, and "Så funkar det" opens it again.
   await sendButton(page).click();
-  await expect(toast(page)).toHaveText(copied);
+  await expect(toast(page)).toHaveText(copied(5));
   await expect(sheet).toHaveCount(0);
   await page.getByRole("button", { name: "Så funkar det", exact: true }).filter({ visible: true }).click();
   await expect(sheet).toBeVisible();
