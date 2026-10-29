@@ -229,3 +229,15 @@ test("Logga ut ends the session; a removed site stays removed after signing in a
   await expectSites(page, ["arla.se", "ica.se", "tasteline.com"]);
   await context.close();
 });
+
+test("Spara i Matkoll: the bookmarklet and the iPhone address are built from this site's origin", async ({ page, baseURL }) => {
+  await page.goto("/installningar");
+  const section = page.getByTestId("save-to-matkoll");
+  await expect(section.getByRole("heading", { level: 2, name: "Spara i Matkoll" })).toBeVisible();
+  const origin = new URL(baseURL ?? page.url()).origin;
+  await expect(section.getByTestId("import-prefix")).toHaveText(`${origin}/recept/importera?url=`);
+  const href = await section.getByTestId("bookmarklet").getAttribute("href");
+  expect(href).toContain("javascript:");
+  expect(href).toContain(`${origin}/recept/importera?url=`);
+  await expect(section.getByRole("link", { name: "godkända receptsajterna" })).toBeVisible();
+});

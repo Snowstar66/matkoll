@@ -1,13 +1,13 @@
 import { act, fireEvent, render, screen, waitFor, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { useEffect, useState } from "react";
-import { beforeEach, describe, expect, it, vi } from "vitest";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { startDeleteGrace } from "@/components/confirm-delete";
 import { ToastProvider } from "@/components/toast";
 import { toSnapshot } from "@/features/pantry";
 import type { RecipeListItem } from "@/features/recipes";
 import { fail, ok, type Result } from "@/lib/errors";
-import type { AddToPlanInput, PlanDish, PlanRecipeRow, ServingsChange } from "../domain/meal-plan";
+import type { AddToPlanInput, PlanDish, PlanRecipeRow, ServingsChange, WeekdayChange } from "../domain/meal-plan";
 import { AddDishButton, AddDishProvider, type SearchRecipes } from "./add-dish-sheet";
 import { MealPlanList } from "./meal-plan-list";
 
@@ -22,6 +22,8 @@ const restorePlanRecipe = vi.fn<(row: PlanRecipeRow) => Promise<Result<PlanRecip
 vi.mock("../actions/add-to-current-plan", () => ({
   addToCurrentPlan: (input: AddToPlanInput) => addToCurrentPlan(input),
 }));
+const setWeekday = vi.fn<(change: WeekdayChange) => Promise<Result<WeekdayChange>>>();
+vi.mock("../actions/set-weekday", () => ({ setWeekday: (change: WeekdayChange) => setWeekday(change) }));
 vi.mock("../actions/set-servings", () => ({ setServings: (change: ServingsChange) => setServings(change) }));
 vi.mock("../actions/remove-plan-recipe", () => ({ removePlanRecipe: (id: string) => removePlanRecipe(id) }));
 vi.mock("../actions/restore-plan-recipe", () => ({
@@ -86,7 +88,12 @@ const cards = () => screen.queryAllByTestId("plan-dish");
 const card = (title: string) => cards().find((element) => element.textContent?.includes(title))!;
 const toast = () => screen.getByTestId("toast");
 
+afterEach(() => vi.useRealTimers());
+
 beforeEach(() => {
+  // Thursday 29 October 2026, in Stockholm.
+  vi.useFakeTimers({ now: new Date("2026-10-29T10:00:00Z"), toFake: ["Date"] });
+  setWeekday.mockReset().mockImplementation(async (change) => ok(change));
   startDeleteGrace();
   addToCurrentPlan.mockReset();
   setServings.mockReset().mockImplementation(async (change) => ok(change));
@@ -102,6 +109,57 @@ describe("MealPlanList", () => {
     expect(screen.getByText("Ingen rätt på matsedeln än.")).toBeInTheDocument();
     // "+" (the header's, here) and the empty state's button.
     expect(screen.getAllByRole("button", { name: "Lägg till rätt" })).toHaveLength(2);
+  });
+
+  it("groups the dishes under måndag to söndag with Ingen dag än last, marks today and keeps empty days compact", () => {
+    render(<Matsedel initial={[dish(1, "Pasta", { weekday: 4, position: 5 }), dish(2, "Soppa", { weekday: 4, position: 2 }), dish(3, "Gryta")]} />);
+    const days = screen.getAllByTestId("plan-day");
+    expect(days.map((day) => day.getAttribute("data-day"))).toEqual(["1", "2", "3", "4", "5", "6", "7", "none"]);
+    expect(within(days[3]).getAllByTestId("plan-dish").map((c) => c.textContent?.slice(0, 5))).toEqual(["Soppa", "Pasta"]);
+    expect(days[3]).toHaveAttribute("data-today", "true");
+    expect(within(days[3]).getByText("Idag")).toBeInTheDocument();
+    expect(days[0]).not.toHaveAttribute("data-today");
+    expect(within(days[0]).getByTestId("day-free")).toHaveTextContent("MåndagLedig");
+    expect(within(days[7]).getByRole("heading", { name: "Ingen dag än" })).toBeInTheDocument();
+    expect(within(days[7]).getByTestId("plan-dish")).toHaveTextContent("Gryta");
+  });
+
+  it("leaves out Ingen dag än when every dish has a day", () => {
+    render(<Matsedel initial={[dish(1, "Pasta", { weekday: 2 })]} />);
+    expect(screen.getAllByTestId("plan-day")).toHaveLength(7);
+    expect(screen.queryByText("Ingen dag än")).toBeNull();
+  });
+
+  it("moves a dish to a day from Flytta till dag, at once, and says so", async () => {
+    const user = userEvent.setup();
+    setWeekday.mockImplementation(async (change) => {
+      serverUpdate((dishes) => dishes.map((d) => (d.id === change.id ? { ...d, weekday: change.weekday } : d)));
+      return ok(change);
+    });
+    render(<Matsedel initial={[pasta]} />);
+    await user.click(within(card("Pasta")).getByRole("button", { name: "Flytta till dag, Pasta" }));
+    const sheet = screen.getByRole("dialog", { name: "Flytta till dag" });
+    expect(within(sheet).getAllByTestId("day-choice").map((b) => b.textContent)).toEqual([
+      "Måndag", "Tisdag", "Onsdag", "Torsdag", "Fredag", "Lördag", "Söndag", "Ingen dag",
+    ]);
+    expect(within(sheet).getByRole("button", { name: "Ingen dag" })).toHaveAttribute("aria-pressed", "true");
+    await user.click(within(sheet).getByRole("button", { name: "Fredag" }));
+    expect(setWeekday).toHaveBeenCalledWith({ id: pasta.id, weekday: 5 });
+    await waitFor(() => expect(toast()).toHaveTextContent("Pasta ligger på fredag."));
+    const friday = screen.getAllByTestId("plan-day")[4];
+    expect(within(friday).getByTestId("plan-dish")).toHaveTextContent("Pasta");
+  });
+
+  it("puts the dish back and says so when the move fails", async () => {
+    const user = userEvent.setup();
+    setWeekday.mockResolvedValue(fail("mealplan_weekday_failed"));
+    render(<Matsedel initial={[pasta]} />);
+    await user.click(within(card("Pasta")).getByRole("button", { name: "Flytta till dag, Pasta" }));
+    await user.click(screen.getByRole("button", { name: "Fredag" }));
+    await waitFor(() => expect(toast()).toHaveTextContent("Det gick inte att flytta rätten."));
+    await waitFor(() =>
+      expect(within(screen.getAllByTestId("plan-day").at(-1)!).getByTestId("plan-dish")).toHaveTextContent("Pasta"),
+    );
   });
 
   it("shows each dish card with what is at home for its servings, a hidden meter and the portion selector", async () => {
@@ -262,11 +320,36 @@ describe("Lägg till rätt", () => {
     ]);
     expect(within(sheet).getByRole("region", { name: "Övriga recept" })).toHaveTextContent("Lasagne");
 
+    // The day starts on the first free day from today: Thursday 29 Oct 2026 with an empty plan.
+    expect(within(sheet).getByRole("combobox", { name: "Dag" })).toHaveValue("4");
     await user.click(within(favorites).getByRole("button", { name: /Krämig kycklinggryta/ }));
-    expect(addToCurrentPlan).toHaveBeenCalledWith({ recipeId: gryta.id, id: expect.stringMatching(/^[0-9a-f-]{36}$/) });
+    expect(addToCurrentPlan).toHaveBeenCalledWith({
+      recipeId: gryta.id,
+      id: expect.stringMatching(/^[0-9a-f-]{36}$/),
+      weekday: 4,
+    });
     // The sheet closes, and the toast shows, once the answer has settled.
     await waitFor(() => expect(screen.queryByRole("dialog", { name: "Lägg till rätt" })).toBeNull());
-    expect(toast()).toHaveTextContent("Lagt på matsedeln.");
+    expect(toast()).toHaveTextContent("Lagt på matsedeln, torsdag.");
+  });
+
+  it("opens Lägg till rätt on the day of a tapped free day", async () => {
+    const user = userEvent.setup();
+    render(<Matsedel initial={[pasta]} recipes={[lasagne]} />);
+    await user.click(within(screen.getAllByTestId("plan-day")[1]).getByTestId("day-free"));
+    expect(within(screen.getByRole("dialog", { name: "Lägg till rätt" })).getByRole("combobox", { name: "Dag" })).toHaveValue("2");
+  });
+
+  it("adds without a day when Ingen dag is chosen", async () => {
+    const user = userEvent.setup();
+    addToCurrentPlan.mockResolvedValue(ok(rowOf(pasta)));
+    render(<Matsedel initial={[]} recipes={[lasagne, gryta]} />);
+    await user.click(screen.getAllByRole("button", { name: "Lägg till rätt" })[0]);
+    const sheet = screen.getByRole("dialog", { name: "Lägg till rätt" });
+    await user.selectOptions(within(sheet).getByRole("combobox", { name: "Dag" }), "Ingen dag");
+    await user.click(within(sheet).getByRole("button", { name: /Krämig kycklinggryta/ }));
+    expect(addToCurrentPlan).toHaveBeenCalledWith(expect.objectContaining({ weekday: null }));
+    await waitFor(() => expect(toast()).toHaveTextContent("Lagt på matsedeln."));
   });
 
   it("searches the library under the favourites", async () => {

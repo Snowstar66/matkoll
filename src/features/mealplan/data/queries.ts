@@ -11,7 +11,7 @@ import {
 import { MealPlanDataError, type MealPlanDb } from "./client";
 
 /** A meal_plan_recipe row's columns, as the queries read them. */
-export const dishColumns = "id, meal_plan_id, recipe_id, recipe_title, servings, position, cooked_at";
+export const dishColumns = "id, meal_plan_id, recipe_id, recipe_title, servings, position, cooked_at, weekday";
 
 export type DishRow = {
   id: string;
@@ -21,6 +21,7 @@ export type DishRow = {
   servings: number;
   position: number;
   cooked_at: string | null;
+  weekday: number | null;
 };
 
 export function toPlanRecipeRow(row: DishRow): PlanRecipeRow {
@@ -32,6 +33,7 @@ export function toPlanRecipeRow(row: DishRow): PlanRecipeRow {
     servings: row.servings,
     position: row.position,
     cookedAt: row.cooked_at,
+    weekday: row.weekday,
   };
 }
 
@@ -43,6 +45,7 @@ function toPlanRecipe(row: DishRow): PlanRecipe {
     servings: row.servings,
     position: row.position,
     cookedAt: row.cooked_at,
+    weekday: row.weekday,
   };
 }
 

@@ -48,6 +48,7 @@ development_status:
   1-10-receptbiblioteket-med-sökning-och-favoriter: done
   1-11-ändra-och-ta-bort-recept: done
   1-12-inställningar-för-receptsajter: done
+  1-13-spara-i-matkoll-från-receptsajten: done
   epic-1-retrospective: optional
 
   epic-2: done
@@ -149,6 +150,7 @@ development_status:
   13-2-ta-bort-recept: done
   13-3-matsedeln-har-det-som-behövs: done
   13-4-markera-som-lagad: done
+  13-5-dagar-på-matsedeln: done
   epic-14: done
   14-1-erbjudandevyn-städas: done
   14-2-skicka-listan-till-butiken-tydligare: done

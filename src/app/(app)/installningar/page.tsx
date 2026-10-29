@@ -8,6 +8,7 @@ import { SignOutButton } from "@/features/auth/ui/sign-out-button";
 import { listRecipeSites, SettingsDataError } from "@/features/settings/server";
 import { HomeScreenHint } from "@/features/settings/ui/home-screen-hint";
 import { RecipeSites } from "@/features/settings/ui/recipe-sites";
+import { SaveToMatkoll } from "@/features/settings/ui/save-to-matkoll";
 import { errorMessages } from "@/lib/errors";
 import { StoreContent } from "./store-content";
 
@@ -30,6 +31,7 @@ export default function SettingsPage() {
         <Suspense fallback={<Skeleton rows={2} />}>
           <StoreContent />
         </Suspense>
+        <SaveToMatkoll />
         <div className="mt-auto flex flex-col gap-6">
           <HomeScreenHint />
           <SignOutButton />

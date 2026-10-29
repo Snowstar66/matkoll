@@ -18,6 +18,14 @@ describe("manifest", () => {
     });
   });
 
+  it("takes shared links from Android's share menu (Story 1.13)", () => {
+    expect(manifest().share_target).toEqual({
+      action: "/recept/importera",
+      method: "GET",
+      params: { url: "url", text: "text" },
+    });
+  });
+
   it("uses light mode's bg from globals.css as both colours", () => {
     const { light } = colorTokens();
     expect(manifest().background_color).toBe(light.bg);

@@ -82,6 +82,7 @@ export const errorMessages = {
   mealplan_recipes_unavailable: "Det gick inte att läsa recepten. Försök igen.",
   mealplan_add_failed: "Det gick inte att lägga rätten på matsedeln. Försök igen.",
   mealplan_servings_failed: "Det gick inte att spara portionerna.",
+  mealplan_weekday_failed: "Det gick inte att flytta rätten. Försök igen.",
   mealplan_remove_failed: "Det gick inte att ta bort rätten.",
   mealplan_restore_failed: "Det gick inte att ångra.",
   // Markera som lagad (Story 13.4): nothing is deducted or marked when it fails.

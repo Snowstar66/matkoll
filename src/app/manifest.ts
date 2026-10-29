@@ -17,6 +17,8 @@ export default function manifest(): MetadataRoute.Manifest {
     lang: "sv",
     start_url: "/recept",
     scope: "/",
+    // Story 1.13: Android's share menu offers Matkoll; some apps put the address in text.
+    share_target: { action: "/recept/importera", method: "GET", params: { url: "url", text: "text" } },
     display: "standalone",
     background_color: background,
     theme_color: background,
