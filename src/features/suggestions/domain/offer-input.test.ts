@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { atHomeText, offersUsed, toOfferNames } from "./offer-input";
+import { atHomeText, isTrivialStaple, offersUsed, toBuyNames, toOfferNames, whyText } from "./offer-input";
 
 const offer = (name: string, ingredientId: string | null = null, label = name) => ({ label, name, ingredientId });
 
@@ -57,5 +57,48 @@ describe("offersUsed", () => {
 describe("atHomeText", () => {
   it("says how many of the ingredients are at home", () => {
     expect(atHomeText({ have: 3, total: 6 })).toBe("3 av 6 hemma");
+  });
+});
+
+describe("toBuyNames", () => {
+  const offers = [
+    { label: "Scan Falukorv", name: "falukorv", ingredientId: "f" },
+    { label: "Kryddmix", name: "kryddmix", ingredientId: null },
+  ];
+  it("leaves out what is at home, on offer, trivial staples and repeats", () => {
+    const line = (name: string, ingredientId: string | null, atHome = false) => ({ name, ingredientId, atHome });
+    expect(
+      toBuyNames(offers, [
+        line("falukorv", "f"),
+        line("kryddmix", null),
+        line("mjölk", "m", true),
+        line("Salt", "s"),
+        line("potatis", "p"),
+        line("Potatis", null),
+        line("vatten", null),
+      ]),
+    ).toEqual(["potatis"]);
+  });
+  it("knows the staples", () => {
+    expect(isTrivialStaple("Peppar")).toBe(true);
+    expect(isTrivialStaple("potatis")).toBe(false);
+  });
+});
+
+describe("whyText", () => {
+  it("counts offers and home and says what to buy", () => {
+    expect(whyText({ onOffer: 3, have: 1, toBuy: ["potatis"] })).toBe("3 på erbjudande · 1 hemma · köp till: potatis");
+  });
+  it("leaves out a zero", () => {
+    expect(whyText({ onOffer: 0, have: 2, toBuy: ["lök"] })).toBe("2 hemma · köp till: lök");
+    expect(whyText({ onOffer: 1, have: 0, toBuy: ["lök"] })).toBe("1 på erbjudande · köp till: lök");
+  });
+  it("shows three names and counts the rest", () => {
+    expect(whyText({ onOffer: 1, have: 1, toBuy: ["a", "b", "c", "d", "e"] })).toBe(
+      "1 på erbjudande · 1 hemma · köp till: a, b, c +2",
+    );
+  });
+  it("says everything is covered when nothing is left to buy", () => {
+    expect(whyText({ onOffer: 2, have: 3, toBuy: [] })).toBe("allt hemma eller på erbjudande");
   });
 });

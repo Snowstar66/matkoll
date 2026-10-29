@@ -236,7 +236,7 @@ describe("AiSuggestions", () => {
     ).toBeTruthy();
     expect(section().querySelector("img")).toBeNull();
     // The catalog's name for a linked line, the AI's otherwise; at most five, each once.
-    expect(first.getByText("Med: gul lök, kycklingfilé, grädde, krossade tomater, ris")).toBeInTheDocument();
+    expect(first.getByText("Med: gul lök, kycklingfilé, grädde, krossade tomater")).toBeInTheDocument();
     expect(first.getByRole("button", { name: "Spara Kycklinggryta" })).toHaveTextContent("Spara");
     expect(within(cards()[2]).getByText("4 portioner")).toBeInTheDocument();
     // No status before saving, and no link: a suggestion has no recipe view.

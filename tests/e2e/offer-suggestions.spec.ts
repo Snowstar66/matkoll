@@ -164,8 +164,8 @@ test("offers become dishes with labels, one step puts a dish on the menu and the
   const cards = section.getByTestId("ai-suggestion");
   await expect(cards).toHaveCount(3);
   const card = cards.filter({ hasText: dishName });
-  await expect(card.getByTestId("ai-suggestion-offers")).toHaveText("På erbjudande: Falukorv");
-  await expect(card).toContainText(`${atHome.length} av ${falukorvDish.ingredients.length} hemma`);
+  await expect(card.getByTestId("ai-suggestion-offers")).toHaveText("Erbjudanden: Falukorv");
+  await expect(card.getByTestId("ai-suggestion-why")).toHaveText("allt hemma eller på erbjudande");
 
   await card.getByRole("button", { name: `Lägg på matsedeln: ${dishName}` }).click();
   const preview = page.getByRole("dialog", { name: "Spara AI-förslag" });
