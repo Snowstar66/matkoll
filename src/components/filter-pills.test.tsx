@@ -91,3 +91,16 @@ describe("FilterPills", () => {
     expect(onChange).not.toHaveBeenCalled();
   });
 });
+
+describe("FilterPills segmented (Story 16.11)", () => {
+  it("is a labelled radio group with one chosen segment, moved by the arrow keys", async () => {
+    const user = userEvent.setup();
+    const onChange = vi.fn();
+    render(<FilterPills segmented label="Visa butik" options={options} value="all" onChange={onChange} />);
+    expect(screen.getByRole("radiogroup", { name: "Visa butik" })).toHaveClass("h-8");
+    expect(screen.getByRole("radio", { name: "Alla" })).toBeChecked();
+    screen.getByRole("radio", { name: "Alla" }).focus();
+    await user.keyboard("{ArrowRight}");
+    expect(onChange).toHaveBeenCalledWith("favorites");
+  });
+});

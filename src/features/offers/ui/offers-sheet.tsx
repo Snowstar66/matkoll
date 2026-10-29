@@ -18,6 +18,7 @@ import {
   addedToListText,
   addToListText,
   fetchedAtText,
+  fetchedLineText,
   fetchingOffersText,
   noOffersText,
   offersCountWords,
@@ -27,14 +28,14 @@ import {
   offersSheetSubtitle,
   offersSkippedText,
   offerListItem,
-  offersSummaryText,
+  offersMetaText,
   openOffersPageText,
   type StoreOffer,
 } from "../domain/offer";
 import { topDealPercent } from "../domain/offer-saving";
 import { bestStoreTip, type BestStore } from "../domain/best-store";
 import { storeBadgeText, storeBadgeTone, type StoreBadgeInfo } from "../domain/store-badge";
-import { FetchOffersButton } from "./fetch-offers-button";
+import { FetchOffersButton, inlineLinkClasses } from "./fetch-offers-button";
 import { OffersList, StoreLabel } from "./offers-list";
 import { StoreChoice, SuggestFromOffersButton } from "./suggest-from-offers-button";
 
@@ -157,11 +158,9 @@ export function OffersSheet({
   const [adding, setAdding] = useState(false);
   const [addError, setAddError] = useState<{ message: string; attempt: number } | null>(null);
   const [sort, setSort] = useState<"category" | "saving">("category");
-  const [onlyBest, setOnlyBest] = useState(false);
   const [storeFilter, setStoreFilter] = useState<string>("all");
   // The stores Pontus has unticked for "Hämta valda"; all are ticked by default.
   const [panel, setPanel] = useState<"fetch" | null>(null);
-  const [selecting, setSelecting] = useState(false);
   // Story 16.10: "Föreslå rätter från vilken butik?" replaces the list inside the same sheet (sheets never stack).
   const [choosing, setChoosing] = useState(false);
   const fetchPanelId = useId();
@@ -185,11 +184,9 @@ export function OffersSheet({
   const chosen = offers.filter((offer) => picked.has(offer.id) && !onList.has(offer.id));
   const bestInfo = best && storesWithOffers.some((store) => store.id === best.storeId) ? best : null;
   const matchIds = useMemo(() => new Set(bestInfo?.matches.map((match) => match.id) ?? []), [bestInfo]);
-  const showingMatches = onlyBest && matchIds.size > 0;
   const shown = useMemo(() => {
-    const ofStore = filterId === "all" ? offers : offers.filter((offer) => offer.storeId === filterId);
-    return showingMatches ? ofStore.filter((offer) => matchIds.has(offer.id)) : ofStore;
-  }, [offers, filterId, showingMatches, matchIds]);
+    return filterId === "all" ? offers : offers.filter((offer) => offer.storeId === filterId);
+  }, [offers, filterId]);
   const ticked = withLink.filter((store) => !unticked.has(store.id));
 
   /** One store after the other, never at once: each is one request to the store's site, and its answer is kept. */
@@ -247,7 +244,6 @@ export function OffersSheet({
     if (answer.ok) {
       setAdded((before) => new Set([...before, ...chosen.map((offer) => offer.id)]));
       setPicked(new Set());
-      setSelecting(false);
       // The sheet closes, so the toast and its link are within reach.
       onClose();
       showToast(addedToListText(chosen.length), {
@@ -261,7 +257,7 @@ export function OffersSheet({
 
   const skipped = runs.reduce((sum, run) => sum + (run.result.ok ? run.result.data.skipped : 0), 0);
   const siteName = withLink[0]?.siteName ?? "ica.se";
-  const lastFetch = shown.length > 0 ? latestFetch(filterId === "all" ? withLink : withLink.filter((store) => store.id === filterId)) : null;
+  const lastFetch = latestFetch(withLink);
   const single = withLink[0];
 
   let body: ReactNode;
@@ -306,7 +302,10 @@ export function OffersSheet({
     );
     const hasSaving = offers.some((offer) => offer.savingPercent !== null);
     const filterStores = storesWithOffers.length > 1;
-    const tops = shown.filter((offer) => offer.savingPercent !== null && offer.savingPercent >= topDealPercent).length;
+    const tops = offers.filter((offer) => offer.savingPercent !== null && offer.savingPercent >= topDealPercent).length;
+    const tip = bestInfo && (filterStores || matchIds.size > 0)
+      ? bestStoreTip(bestInfo, filterStores ? (badges.get(bestInfo.storeId)?.text ?? undefined) : undefined)
+      : null;
     body = (
       <div className="flex flex-col gap-4">
         {offers.length === 0 ? (
@@ -317,106 +316,116 @@ export function OffersSheet({
           </div>
         ) : (
           <>
-            <div className="flex flex-wrap items-center gap-x-2 text-meta text-ink-2">
-              <p data-testid="offers-summary">
-                {showingMatches ? `Visar ${shown.length} av ${offers.length} erbjudanden` : offersSummaryText(shown.length, lastFetch, new Date(now))}
+            {/* Story 16.11: the top in groups of 16 px: header group, divider, inspiration card, divider, controls, then the list under its own header row. */}
+            <div className="flex flex-col gap-1" data-testid="offers-header-group">
+              <p data-testid="offers-meta" className="text-meta text-ink-2">
+                {offersMetaText({ stores: many ? `${withLink.length} butiker` : (single ?? stores[0]).name, weekStart, count: offers.length })}
+                {tops > 0 ? (
+                  <>
+                    {" · "}
+                    <span data-testid="offers-finds" className="font-semibold">
+                      <span aria-hidden="true">{"\u{1F525} "}</span>
+                      {`${tops} Toppklipp`}
+                    </span>
+                  </>
+                ) : null}
               </p>
-              {tops > 0 ? (
-                <p data-testid="offers-finds" className="font-semibold">
-                  <span aria-hidden="true">{"\u{1F525} "}</span>
-                  {`${tops} Toppklipp`}
-                </p>
-              ) : null}
-            </div>
-            <div className="flex flex-col gap-2">
-              <div className="-mt-1 flex items-center gap-1">
+              <p data-testid="offers-fetched" className="text-meta text-ink-2">
+                {lastFetch ? `${fetchedLineText(lastFetch, new Date(now))} · ` : null}
                 {many ? (
-                  <Button
-                    variant="compact"
+                  <button
+                    type="button"
+                    className={inlineLinkClasses}
                     aria-expanded={panel === "fetch"}
                     aria-controls={fetchPanelId}
                     onClick={() => setPanel(panel === "fetch" ? null : "fetch")}
                   >
-                    Hämta
-                  </Button>
+                    Hämta igen
+                  </button>
                 ) : (
-                  <FetchOffersButton onFetch={() => void fetchFrom(withLink)} variant="secondary" pending={pending} />
+                  <FetchOffersButton onFetch={() => void fetchFrom(withLink)} variant="link" pending={pending} />
                 )}
-                {listing ? (
-                  <Button
-                    variant="compact"
-                    className="ml-auto"
-                    aria-pressed={selecting}
-                    onClick={() => {
-                      setSelecting(!selecting);
-                      if (selecting) setPicked(new Set());
-                    }}
-                  >
-                    {selecting ? "Klar" : "Välj"}
-                  </Button>
-                ) : null}
-              </div>
-              {many && panel === "fetch" ? <div id={fetchPanelId}>{fetchPanel}</div> : null}
-              {filterStores || hasSaving ? (
-                <div className="flex flex-col" data-testid="list-filters">
-                  {filterStores ? (
-                    <FilterRow label="Visa butik">
-                      <FilterPills
-                        compact
-                        label="Visa butik"
-                        options={[{ value: "all", label: "Alla" }, ...storesWithOffers.map((store) => ({ value: store.id, label: badges.get(store.id)?.text ?? store.name }))]}
-                        value={filterId}
-                        onChange={setStoreFilter}
-                      />
-                    </FilterRow>
-                  ) : null}
-                  {hasSaving ? (
-                    <FilterRow label="Sortera">
-                      <FilterPills compact label="Sortera" options={sortOptions} value={sort} onChange={setSort} />
-                    </FilterRow>
-                  ) : null}
+              </p>
+            </div>
+            {many && panel === "fetch" ? <div id={fetchPanelId}>{fetchPanel}</div> : null}
+            <hr className="m-0 border-border" />
+            <div data-testid="inspiration" className="flex flex-col gap-3 rounded-lg bg-mint/40 p-4">
+              {tip ? (
+                <div data-testid="best-store" className="flex items-start gap-2 text-body text-ink">
+                  <span aria-hidden="true">{"\u{1F4A1}"}</span>
+                  <p className="min-w-0">{tip}</p>
                 </div>
               ) : null}
+              <div className="flex justify-end">
+                <SuggestFromOffersButton
+                  hasOffers
+                  className="shrink-0"
+                  onStarted={onClose}
+                  onChoose={filterStores ? () => setChoosing(true) : undefined}
+                />
+              </div>
             </div>
-            {bestInfo && (filterStores || matchIds.size > 0) ? (
-              <div data-testid="best-store" className="flex flex-col items-start">
-                <p className="text-meta text-ink">
-                  <span aria-hidden="true">{"\u{1F4A1} "}</span>
-                  {bestStoreTip(bestInfo, filterStores ? (badges.get(bestInfo.storeId)?.text ?? undefined) : undefined)}
-                </p>
-                {matchIds.size > 0 ? (
-                  <Button variant="compact" className="-ml-2" onClick={() => setOnlyBest(!showingMatches)} data-testid="best-store-toggle">
-                    {showingMatches ? "Visa alla erbjudanden" : "Visa bara de erbjudandena"}
-                  </Button>
+            <hr className="m-0 border-border" />
+            {filterStores || hasSaving ? (
+              <div className="grid grid-cols-[auto_1fr] items-center gap-x-4 gap-y-2" data-testid="list-filters">
+                {filterStores ? (
+                  <>
+                    <span aria-hidden="true" className="text-meta text-ink-2">
+                      Visa butik
+                    </span>
+                    <FilterPills
+                      segmented
+                      label="Visa butik"
+                      options={[{ value: "all", label: "Alla" }, ...storesWithOffers.map((store) => ({ value: store.id, label: badges.get(store.id)?.text ?? store.name }))]}
+                      value={filterId}
+                      onChange={setStoreFilter}
+                      className="justify-self-start"
+                    />
+                  </>
+                ) : null}
+                {hasSaving ? (
+                  <>
+                    <span aria-hidden="true" className="text-meta text-ink-2">
+                      Sortera
+                    </span>
+                    <FilterPills segmented label="Sortera" options={sortOptions} value={sort} onChange={setSort} className="justify-self-start" />
+                  </>
                 ) : null}
               </div>
             ) : null}
-            <SuggestFromOffersButton hasOffers onStarted={onClose} onChoose={filterStores ? () => setChoosing(true) : undefined} />
-            <OffersList
-              offers={shown}
-              weekStart={weekStart}
-              sort={sort}
-              badges={many ? badges : undefined}
-              showStore={filterId === "all" && storesWithOffers.length > 1 && !showingMatches}
-              fits={fits}
-              selection={
-                listing
-                  ? {
-                      picked,
-                      onList,
-                      selecting,
-                      disabled: adding,
-                      onToggle: (id, on) =>
-                        setPicked((before) => {
-                          const next = new Set(before);
-                          if (on) next.add(id);
-                          else next.delete(id);
-                          return next;
-                        }),
-                    }
-                  : undefined
-              }
-            />
+            <div className="flex flex-col">
+              <div className="flex min-h-tap items-center border-b border-border">
+                <p data-testid="offers-summary" className="text-meta text-ink-2">
+                  {offersCountWords(shown.length)}
+                </p>
+              </div>
+              <div className="pt-4">
+                <OffersList
+                  offers={shown}
+                  weekStart={weekStart}
+                  sort={sort}
+                  badges={many ? badges : undefined}
+                  showStore={filterId === "all" && storesWithOffers.length > 1}
+                  fits={fits}
+                  selection={
+                    listing
+                      ? {
+                          picked,
+                          onList,
+                          disabled: adding,
+                          onToggle: (id, on) =>
+                            setPicked((before) => {
+                              const next = new Set(before);
+                              if (on) next.add(id);
+                              else next.delete(id);
+                              return next;
+                            }),
+                        }
+                      : undefined
+                  }
+                />
+              </div>
+            </div>
           </>
         )}
         <div className="-ml-3 flex flex-col items-start">
@@ -443,11 +452,13 @@ export function OffersSheet({
       title={choosing ? "Föreslå rätter från vilken butik?" : "Veckans erbjudanden"}
       closeLabel={choosing ? "Tillbaka" : undefined}
       subtitle={
-        stores.length > 0 && !choosing
+        // With offers the meta line in the body says store, week and count (Story 16.11).
+        stores.length > 0 && !choosing && offers.length === 0
           ? offersSheetSubtitle(withLink.length > 1 ? `${withLink.length} butiker` : (single ?? stores[0]).name, weekStart)
           : undefined
       }
       preventClose={pending || adding}
+      initialFocus="title"
       footer={
         chosen.length > 0 && !choosing ? (
           <Button variant="primary" disabled={adding} onClick={addChosen} data-testid="add-offers-to-list">
@@ -507,16 +518,6 @@ export function OffersSheet({
         {body}
       </div>
     </Sheet>
-  );
-}
-
-/** Story 16.8: a visible label, then the pills, for the filters over the list. */
-function FilterRow({ label, children }: { label: string; children: ReactNode }) {
-  return (
-    <div className="flex min-w-0 items-center gap-2">
-      <span className="shrink-0 text-meta text-ink-2">{label}:</span>
-      {children}
-    </div>
   );
 }
 

@@ -249,13 +249,9 @@ test("the week's best store is on top and preselected, and the dishes are built 
   await expect(sheet(page).getByTestId("best-store")).toContainText(/ (finns i dina recept|har du hemma|passar det du brukar laga)/);
   // Story 16.10: the tip has no store pills; the store is chosen in the sheet that the AI button opens.
   await expect(sheet(page).getByRole("radiogroup", { name: "Föreslå rätter från" })).toHaveCount(0);
-  // Story 16.7: the tip's link narrows the list to the matching offers, and brings the rest back.
+  // Story 16.12: no "Visa dessa"; the matching offers are only marked "Passar dig".
+  await expect(sheet(page).getByTestId("best-store-toggle")).toHaveCount(0);
   await expect(sheet(page).getByTestId("offer-fit")).toHaveCount(3);
-  const before = await sheet(page).getByTestId("offer-row").count();
-  await sheet(page).getByRole("button", { name: "Visa bara de erbjudandena" }).click();
-  await expect(sheet(page).getByTestId("offer-row")).toHaveCount(3);
-  await sheet(page).getByTestId("best-store-toggle").click();
-  await expect(sheet(page).getByTestId("offer-row")).toHaveCount(before);
   await suggestButton(page).click();
   const picker = choice(page).getByRole("radiogroup", { name: "Föreslå rätter från vilken butik?" });
   await expect(picker.getByRole("radio", { name: /Maxi/ })).toBeChecked();
