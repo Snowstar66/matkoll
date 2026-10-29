@@ -492,7 +492,7 @@ test("an own item is checked off, removed by swipe and put back with Ångra, wit
   const row = region(page, "I korgen").getByTestId("shopping-line");
   await swipeLeft(page, row);
   await expect(row.getByTestId("swipe-row-front")).toHaveCSS("transform", "matrix(1, 0, 0, 1, -96, 0)");
-  await actionsAnswered(page, 1, () => page.getByRole("button", { name: "Ta bort diskmedel" }).click());
+  await actionsAnswered(page, 1, () => page.getByRole("button", { name: "Svep bort diskmedel" }).click());
   await expect(region(page, "I korgen")).toHaveCount(0);
   await expect(toast(page)).toContainText("Diskmedel är borttagen.");
   await expect.poll(async () => (await storedCustomItems()).map((item) => item.label)).toEqual(["Kaffe"]);
@@ -660,7 +660,7 @@ test("a recipe line is hidden by swipe and comes back with Ångra, with its corr
   const row = lineOf(page, "Grädde");
   await swipeLeft(page, row);
   await expect(row.getByTestId("swipe-row-front")).toHaveCSS("transform", "matrix(1, 0, 0, 1, -96, 0)");
-  await actionsAnswered(page, 1, () => page.getByRole("button", { name: "Ta bort Grädde" }).click());
+  await actionsAnswered(page, 1, () => page.getByRole("button", { name: "Svep bort Grädde" }).click());
   await expect(lineOf(page, "Grädde")).toHaveCount(0);
   await expect(toast(page)).toContainText("Grädde är borttagen.");
   // "varor kvar" leaves the hidden line out.
@@ -744,4 +744,41 @@ test("an own item's detail changes it in place, keeping its id and check", async
   await expect(check(page, "diskmedel eko, 2 förp")).toBeChecked();
   expect((await storedCustomItems()).map((item) => [item.id, item.label])).toEqual([[seeded.get("diskmedel"), "diskmedel eko"]]);
   expect(errors).toEqual([]);
+});
+
+// Story 13.1: the bin on every row asks first; a second bin within a minute does not.
+test("the bin asks the first time, not the second within a minute, and asks again after it", async ({ page }) => {
+  await seedCustomItems([{ label: "diskmedel" }, { label: "tvättmedel" }, { label: "svamp" }]);
+  await seedChecks([]);
+  await page.clock.install();
+  await page.goto("/lista");
+  const bin = (name: string) => page.getByRole("button", { name: `Ta bort ${name}`, exact: true });
+  const dialog = page.getByRole("dialog");
+  const box = await bin("diskmedel").boundingBox();
+  expect(box?.width).toBeGreaterThanOrEqual(44);
+  expect(box?.height).toBeGreaterThanOrEqual(44);
+
+  // Avbryt removes nothing and starts no window.
+  await bin("diskmedel").click();
+  await expect(dialog.getByText("Ta bort diskmedel från inköpslistan?")).toBeVisible();
+  await dialog.getByRole("button", { name: "Avbryt" }).click();
+  await expect(dialog).toHaveCount(0);
+  expect((await storedCustomItems()).length).toBe(3);
+
+  await bin("diskmedel").click();
+  await actionsAnswered(page, 1, () => dialog.getByRole("button", { name: "Ta bort", exact: true }).click());
+  await expect(bin("diskmedel")).toHaveCount(0);
+
+  // Within the minute: no question.
+  await page.clock.fastForward(30_000);
+  await actionsAnswered(page, 1, () => bin("tvättmedel").click());
+  await expect(dialog).toHaveCount(0);
+  await expect(bin("tvättmedel")).toHaveCount(0);
+
+  // The window restarted at the last delete; after a quiet minute the question is back.
+  await page.clock.fastForward(61_000);
+  await bin("svamp").click();
+  await expect(dialog.getByText("Ta bort svamp från inköpslistan?")).toBeVisible();
+  await dialog.getByRole("button", { name: "Avbryt" }).click();
+  expect((await storedCustomItems()).map((item) => item.label)).toEqual(["svamp"]);
 });

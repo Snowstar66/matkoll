@@ -2345,3 +2345,64 @@ så att jag snabbt ser fynden och vilken butik de finns i.
 **Givet** ett erbjudande med rabatt
 **När** raden visas
 **Så** syns prislappen och rabatten tydligt, Toppklipp sticker ut, och listan fungerar i 375 px och i mörkt läge
+
+## Epic 13: Ta bort och planera
+
+Pontus vill kunna ta bort saker där de syns, med en soptunna och en kontrollfråga som inte tjatar, och att matsedeln har det som behövs för att planera veckan.
+
+### Story 13.1: Soptunna med smart kontrollfråga på inköpslistan
+
+Som Pontus,
+vill jag ta bort en vara från inköpslistan med en liten soptunna på raden,
+så att listan bara visar det jag faktiskt ska köpa.
+
+**Acceptance Criteria:**
+
+**Givet** inköpslistan
+**När** listan visas
+**Så** har varje rad en liten soptunna med minst 44 px tryckyta och namnet "Ta bort <vara>"
+
+**Givet** att Pontus inte har tagit bort något på en stund
+**När** Pontus trycker på en soptunna
+**Så** visas en kontrollfråga, och varan tas bort först när Pontus bekräftar
+
+**Givet** att Pontus nyss har bekräftat en borttagning (inom ungefär en minut)
+**När** Pontus trycker på en ny soptunna
+**Så** tas varan bort direkt utan kontrollfråga, och tiden räknas om från den senaste borttagningen. När ingen soptunna har tryckts på en stund kommer kontrollfrågan tillbaka
+
+**Givet** en vara som kommer från ett recept på matsedeln
+**När** den tas bort
+**Så** döljs den för veckan (den räknas inte fram igen), medan en egen vara tas bort helt
+
+**Givet** lagersaldot (skafferiet, kylen, frysen)
+**När** Pontus trycker på en soptunna på en rad
+**Så** gäller samma kontrollfråga och samma minut som på inköpslistan (en borttagning i ena räknas i andra), och "Ångra" finns kvar efter borttagningen
+
+### Story 13.2: Ta bort recept
+
+Som Pontus,
+vill jag kunna ta bort ett recept där jag ser det,
+så att biblioteket inte fylls av rätter jag inte vill ha.
+
+**Acceptance Criteria:**
+
+**Givet** receptvyn och receptbiblioteket
+**När** Pontus vill ta bort ett recept
+**Så** finns en synlig soptunna, med samma smarta kontrollfråga som i 13.1, och receptet tas bort och försvinner från biblioteket och framtida matsedlar enligt hur borttagning fungerar i dag
+
+### Story 13.3: Matsedeln har det som behövs
+
+Som Pontus,
+vill jag att matsedeln låter mig planera veckan utan omvägar,
+så att jag kan lägga till, flytta, ändra och ta bort rätter enkelt.
+
+**Acceptance Criteria:**
+
+**Givet** matsedeln
+**När** Pontus planerar veckan
+**Så** kan Pontus lägga till en rätt, ta bort en rätt med soptunna och samma kontrollfråga, ändra portioner och flytta en rätt till en annan dag, och inköpslistan följer med
+
+**Givet** en genomgång av matsedeln mot PRD:n och Pontus flöden
+**När** något saknas eller är krångligt
+**Så** rättas det i storyn eller skrivs som ett förslag till Pontus
+

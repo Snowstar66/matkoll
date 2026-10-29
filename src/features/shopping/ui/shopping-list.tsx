@@ -6,6 +6,7 @@ import { type ReactNode, type RefObject, useEffect, useId, useMemo, useOptimisti
 import { Button, buttonClasses } from "@/components/button";
 import { CategoryHeader } from "@/components/category-header";
 import { CheckCircle } from "@/components/check-circle";
+import { useConfirmDelete } from "@/components/confirm-delete";
 import { cx } from "@/components/cx";
 import { EmptyState } from "@/components/empty-state";
 import { FixedAction } from "@/components/fixed-action";
@@ -15,6 +16,7 @@ import { ListRow } from "@/components/list-row";
 import { Meter } from "@/components/meter";
 import { Notice } from "@/components/notice";
 import { SwipeRow } from "@/components/swipe-row";
+import { TrashButton, type TrashPress } from "@/components/trash-button";
 import type { Category } from "@/features/catalog";
 import { type SelectedSite, shownSiteName } from "@/features/pantry";
 import type { Store } from "@/features/settings";
@@ -801,6 +803,8 @@ export function ShoppingList({
   });
   const canSend = plan !== null && exportableLines(lines).length > 0;
   const [hiddenSheet, setHiddenSheet] = useState(false);
+  // The bin on a row asks first, unless Pontus deleted something a minute ago (Story 13.1).
+  const { requestDelete, dialog: deleteDialog } = useConfirmDelete();
   // Nothing hidden any more: the sheet closes.
   if (hiddenSheet && hiddenLines.length === 0) setHiddenSheet(false);
   /** A line's row, the same among the lines left and in I korgen. */
@@ -812,6 +816,12 @@ export function ShoppingList({
       chip={chipChoice(line, store !== null, productChoices)?.productName ?? null}
       onCheckedChange={(checked) => moveLine(line, checked)}
       onRemove={(moveFocus) => removal.remove(line, moveFocus)}
+      onTrash={(press) =>
+        requestDelete({
+          question: `Ta bort ${line.label} från inköpslistan?`,
+          onConfirm: () => removal.remove(line, !press.pointer),
+        })
+      }
       onOpen={() => openDetail(line)}
       checkingOff={checksUnavailable}
       ignoredTap={ignored?.key === line.key ? ignored.id : null}
@@ -928,6 +938,7 @@ export function ShoppingList({
               {hiddenLinesButtonText(hiddenLines.length)}
             </Button>
           ) : null}
+          {deleteDialog}
           <HiddenLinesSheet
             open={hiddenSheet}
             planId={plan.id}
@@ -1136,6 +1147,7 @@ export function ShoppingLineRow({
   chip = null,
   onCheckedChange,
   onRemove,
+  onTrash,
   onOpen,
   checkingOff = false,
   ignoredTap = null,
@@ -1148,6 +1160,8 @@ export function ShoppingLineRow({
   onCheckedChange: (checked: boolean) => void;
   /** Removes or hides the line; `moveFocus` when it came from the keyboard. */
   onRemove?: (moveFocus: boolean) => void;
+  /** The bin on the right (Story 13.1); the caller asks, then removes with `onRemove`'s action. */
+  onTrash?: (press: TrashPress) => void;
   /** Opens the line's Listpostdetalj. */
   onOpen?: () => void;
   /** Checking is off: the saved checks could not be read. */
@@ -1194,7 +1208,15 @@ export function ShoppingLineRow({
         }
       />
     ),
-    trailing: chip ? <ProductChip name={chip} id={chipId} /> : undefined,
+    trailing:
+      chip || onTrash ? (
+        <>
+          {chip ? <ProductChip name={chip} id={chipId} /> : null}
+          {onTrash ? (
+            <TrashButton label={`Ta bort ${line.label}`} onPress={(_bin, press) => onTrash(press)} />
+          ) : null}
+        </>
+      ) : undefined,
   };
   const row = onOpen ? (
     <ListRow
@@ -1208,7 +1230,7 @@ export function ShoppingLineRow({
   return (
     <li data-testid="shopping-line" data-line-key={line.key} data-checked={line.checked}>
       {onRemove ? (
-        <SwipeRow actionLabel="Ta bort" actionName={`Ta bort ${line.label}`} onAction={(via) => onRemove(via === "keyboard")}>
+        <SwipeRow actionLabel="Ta bort" actionName={`Svep bort ${line.label}`} onAction={(via) => onRemove(via === "keyboard")}>
           {row}
         </SwipeRow>
       ) : (

@@ -2,6 +2,7 @@
 
 import { type ReactNode, useEffect, useId, useRef, useState } from "react";
 import { CategoryHeader } from "@/components/category-header";
+import { useConfirmDelete } from "@/components/confirm-delete";
 import { EmptyState } from "@/components/empty-state";
 import { ListGroup } from "@/components/list-group";
 import { ListRow } from "@/components/list-row";
@@ -112,6 +113,8 @@ export function PantryList({ location, items, after }: PantryListProps) {
   const searchRef = useRef<SearchFieldHandle>(null);
   const rootRef = useRef<HTMLDivElement>(null);
   const now = usePantryNow();
+  // The bin asks first, unless something was deleted a minute ago, here or on the shopping list (Story 13.1).
+  const { requestDelete, dialog: deleteDialog } = useConfirmDelete();
 
   // The search goes when the location has nothing left to search, and when an
   // item is saved from the sheet (state adjusted while rendering).
@@ -188,6 +191,17 @@ export function PantryList({ location, items, after }: PantryListProps) {
     if (neighbour && root) focusAfterRemoval(bin, root);
   }
 
+  /** A bin was pressed: asks, or removes at once inside the grace window; "Ångra" follows the removal. */
+  function askToRemove(item: PantryItem, bin: HTMLButtonElement, pointer: boolean) {
+    // Decided now: once the question shows, focus is no longer on the bin.
+    const keyboard = !pointer || document.activeElement === bin;
+    requestDelete({
+      question: `Ta bort ${item.name} från lagret?`,
+      detail: "Du kan ångra direkt efteråt.",
+      onConfirm: () => removeWithBin(item, bin, !keyboard),
+    });
+  }
+
   if (items.length === 0) {
     return (
       <>
@@ -215,11 +229,12 @@ export function PantryList({ location, items, after }: PantryListProps) {
           <PantryNoMatch location={location} fieldRef={searchRef} />
         ) : (
           groups.map((group) => (
-            <CategoryGroup key={group.category} group={group} names={names} onRemove={removeWithBin} />
+            <CategoryGroup key={group.category} group={group} names={names} onRemove={askToRemove} />
           ))
         )}
       </div>
       {searching ? null : after}
+      {deleteDialog}
     </>
   );
 }

@@ -2,6 +2,7 @@ import { act, fireEvent, render, screen, waitFor, within } from "@testing-librar
 import userEvent from "@testing-library/user-event";
 import { useEffect, useState } from "react";
 import { beforeEach, describe, expect, it, vi } from "vitest";
+import { startDeleteGrace } from "@/components/confirm-delete";
 import { ToastProvider } from "@/components/toast";
 import { toSnapshot } from "@/features/pantry";
 import type { RecipeListItem } from "@/features/recipes";
@@ -26,6 +27,8 @@ vi.mock("../actions/remove-plan-recipe", () => ({ removePlanRecipe: (id: string)
 vi.mock("../actions/restore-plan-recipe", () => ({
   restorePlanRecipe: (row: PlanRecipeRow) => restorePlanRecipe(row),
 }));
+// The question before a removal has its own tests (meal-plan-remove-confirm.test.tsx);
+// here the grace window is open, so a removal goes straight through.
 const refresh = vi.fn();
 vi.mock("next/navigation", () => ({ useRouter: () => ({ refresh }) }));
 
@@ -84,6 +87,7 @@ const card = (title: string) => cards().find((element) => element.textContent?.i
 const toast = () => screen.getByTestId("toast");
 
 beforeEach(() => {
+  startDeleteGrace();
   addToCurrentPlan.mockReset();
   setServings.mockReset().mockImplementation(async (change) => ok(change));
   removePlanRecipe.mockReset().mockImplementation(async (id) => ok(rowOf(known.find((d) => d.id === id)!)));

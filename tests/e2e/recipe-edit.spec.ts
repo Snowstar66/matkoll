@@ -200,3 +200,39 @@ test("Ta bort recept asks first, then removes the recipe and opens the library",
   await expect(page.getByText("Sidan finns inte.")).toBeVisible();
   expect(errors.filter((error) => !error.includes("404"))).toEqual([]);
 });
+
+test("Story 13.2: the soptunna on the recipe page and in the library asks, then deletes", async ({ page }) => {
+  const errors = watchErrors(page);
+  const fromPage = uniqueTitle("Soptunna sidan");
+  const fromLibrary = uniqueTitle("Soptunna listan");
+  await saveRecipe(page, fromPage);
+
+  // On the recipe page: a visible bin of at least 44 px, no menu needed.
+  const bin = page.getByRole("button", { name: "Ta bort recept", exact: true });
+  const box = await bin.boundingBox();
+  expect(box?.width).toBeGreaterThanOrEqual(44);
+  expect(box?.height).toBeGreaterThanOrEqual(44);
+  await bin.click();
+  const confirm = page.getByRole("dialog", { name: "Ta bort", exact: true });
+  await expect(confirm.getByText(`Ta bort receptet ${fromPage}? Det går inte att ångra.`)).toBeVisible();
+  await confirm.getByRole("button", { name: "Avbryt" }).click();
+  await expect(page.getByRole("heading", { level: 1, name: fromPage })).toBeVisible();
+  // A second pointer press within the bin's guard time (400 ms) is ignored on purpose.
+  await page.waitForTimeout(500);
+  await bin.click();
+  await confirm.getByRole("button", { name: "Ta bort", exact: true }).click();
+  await expect(page).toHaveURL(/\/recept$/);
+  await expect(page.getByTestId("toast")).toHaveText(/Receptet är borttaget/);
+  await expect(page.getByRole("link", { name: fromPage })).toHaveCount(0);
+
+  // In the library: the row's own bin removes the row in place.
+  await saveRecipe(page, fromLibrary);
+  await page.goto("/recept");
+  await expect(page.getByRole("link", { name: fromLibrary })).toBeVisible();
+  await page.getByRole("button", { name: `Ta bort ${fromLibrary}` }).click();
+  await expect(confirm.getByText(`Ta bort receptet ${fromLibrary}? Det går inte att ångra.`)).toBeVisible();
+  await confirm.getByRole("button", { name: "Ta bort", exact: true }).click();
+  await expect(page.getByRole("link", { name: fromLibrary })).toHaveCount(0);
+  await expect(page).toHaveURL(/\/recept$/);
+  expect(errors).toEqual([]);
+});

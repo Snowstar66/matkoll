@@ -14,6 +14,8 @@ export type RecipeListProps = {
    * nu), which the list's name says, since there are no headings or groups.
    */
   ranked?: boolean;
+  /** The small soptunna on each card asks to delete the recipe (Story 13.2). */
+  onDelete?: (recipe: RecipeListItem) => void;
 };
 
 /**
@@ -22,7 +24,7 @@ export type RecipeListProps = {
  * has the status on its image ("Kan lagas nu" or "Saknar N varor"; none when
  * the pantry could not be read) and the heart.
  */
-export function RecipeList({ recipes, favorites, onFavoriteChange, ranked = false }: RecipeListProps) {
+export function RecipeList({ recipes, favorites, onFavoriteChange, ranked = false, onDelete }: RecipeListProps) {
   return (
     <ul aria-label={ranked ? "Recept, minst saknat först" : "Recept"} className="grid gap-3 desktop:grid-cols-2">
       {recipes.map((recipe) => (
@@ -35,6 +37,7 @@ export function RecipeList({ recipes, favorites, onFavoriteChange, ranked = fals
           badge={
             recipe.missingCount !== null ? <RecipeStatusBadge missingCount={recipe.missingCount} onImage /> : undefined
           }
+          onDelete={onDelete ? () => onDelete(recipe) : undefined}
           favorite={{
             pressed: favorites[recipe.id] ?? recipe.isFavorite,
             onPressedChange: (isFavorite) => onFavoriteChange(recipe.id, isFavorite),

@@ -4,6 +4,7 @@ import Link from "next/link";
 import type { ReactNode } from "react";
 import { cx } from "@/components/cx";
 import { HeartToggle } from "@/components/heart-toggle";
+import { TrashButton } from "@/components/trash-button";
 import { RecipeImage } from "@/components/recipe-image";
 
 type CardBase = {
@@ -32,6 +33,8 @@ type LinkCardProps = CardBase & {
   href: string;
   /** The heart bottom right on the image. */
   favorite?: { pressed: boolean; onPressedChange: (pressed: boolean) => void };
+  /** A small soptunna at the right of the text, "Ta bort <titel>", lifted above the link like the heart (Story 13.2). */
+  onDelete?: () => void;
   children?: never;
 };
 
@@ -43,6 +46,7 @@ type LinkCardProps = CardBase & {
 type PlainCardProps = CardBase & {
   href?: never;
   favorite?: never;
+  onDelete?: never;
   children?: ReactNode;
 };
 
@@ -70,24 +74,30 @@ export function RecipeCard({
   href,
   badge,
   favorite,
+  onDelete,
   children,
   "data-testid": testId = "recipe-card",
 }: RecipeCardProps) {
   const hasChildren = children !== undefined && children !== null;
   return (
     <li data-testid={testId} className="relative flex min-w-0 flex-col rounded-lg bg-surface">
-      <div className={cx("flex min-w-0 flex-col gap-1 px-3 pt-3", hasChildren ? "pb-1" : "pb-3")}>
-        {href ? (
-          <Link
-            href={href}
-            className="text-row-title break-words text-ink outline-none after:absolute after:inset-0 after:z-1 after:rounded-lg focus-visible:after:outline-2 focus-visible:after:outline-offset-2 focus-visible:after:outline-accent"
-          >
-            {title}
-          </Link>
-        ) : (
-          <h3 className="text-row-title break-words text-ink">{title}</h3>
-        )}
-        <p className="text-meta text-ink-3">{meta}</p>
+      <div className={cx("flex min-w-0 gap-1 pl-3 pt-3", onDelete ? "pr-1" : "pr-3", hasChildren ? "pb-1" : "pb-3")}>
+        <div className="flex min-w-0 flex-1 flex-col gap-1">
+          {href ? (
+            <Link
+              href={href}
+              className="text-row-title break-words text-ink outline-none after:absolute after:inset-0 after:z-1 after:rounded-lg focus-visible:after:outline-2 focus-visible:after:outline-offset-2 focus-visible:after:outline-accent"
+            >
+              {title}
+            </Link>
+          ) : (
+            <h3 className="text-row-title break-words text-ink">{title}</h3>
+          )}
+          <p className="text-meta text-ink-3">{meta}</p>
+        </div>
+        {onDelete ? (
+          <TrashButton label={`Ta bort ${title}`} onPress={onDelete} className="relative z-10 -mt-2" />
+        ) : null}
       </div>
       <div className="relative order-first">
         <RecipeImage
