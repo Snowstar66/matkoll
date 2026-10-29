@@ -38,6 +38,21 @@ function offerUnitPrice(mechanics: IcaMechanics): number | null {
   return total === null ? null : total / quantity;
 }
 
+/**
+ * The price per item or kg read from the offer's own text when the mechanics
+ * cannot be read: "99 kr/st", "64,90 kr/kg", "2 för 25 kr". Anything else
+ * ("89 kr +pant", "3 för 2") gives `null`.
+ */
+export function textUnitPrice(mechanicInfo: string | null | undefined): number | null {
+  const text = (mechanicInfo ?? "").trim().replace(/\s+/g, " ");
+  const single = /^(\d{1,5}(?:,\d{1,2})?) ?kr\/(?:st|kg)$/i.exec(text);
+  if (single) return parsePrice(single[1]);
+  const multi = /^(\d{1,2}) för (\d{1,5}(?:,\d{1,2})?) ?kr$/i.exec(text);
+  if (!multi || Number(multi[1]) < 1) return null;
+  const total = parsePrice(multi[2]);
+  return total === null ? null : total / Number(multi[1]);
+}
+
 /** The saving in whole percent from two prices, or `null` when the offer is not cheaper by at least 1 %. */
 export function percentBelow(regular: number, offer: number): number | null {
   const percent = Math.round(((regular - offer) / regular) * 100);
@@ -54,11 +69,13 @@ export function savingKronor(regular: number, offer: number): number | null {
  * The regular price and the saving of an offer. The saving is `null` unless
  * it can be stated: a percent mechanic ("25% rabatt"), "Köp 3 betala för 2"
  * (1 - 2/3), or a FIXED price per kg, item or "2 för 50" against the regular
- * price (taken to be in the same unit, the store's own "Ord.pris").
+ * price (taken to be in the same unit, the store's own "Ord.pris"), and as a
+ * fallback the offer's text ("99 kr/st", "2 för 25 kr") against that price.
  */
 export function offerSaving(
   mechanics: IcaMechanics | null | undefined,
   regularPriceText: string | null | undefined,
+  mechanicInfo?: string | null,
 ): { regularPrice: number | null; savingPercent: number | null } {
   const regularPrice = parsePrice(regularPriceText);
   let savingPercent: number | null = null;
@@ -76,6 +93,12 @@ export function offerSaving(
       const unitPrice = offerUnitPrice(mechanics);
       savingPercent = unitPrice === null ? null : percentBelow(regularPrice, unitPrice);
     }
+  }
+  // The live page's mechanics do not always have the shape above; the offer's
+  // own text ("99 kr/st") against the store's regular price still states it.
+  if (savingPercent === null && regularPrice !== null && mechanics?.benefitType !== "PERCENT") {
+    const unitPrice = textUnitPrice(mechanicInfo);
+    savingPercent = unitPrice === null ? null : percentBelow(regularPrice, unitPrice);
   }
   return { regularPrice, savingPercent };
 }

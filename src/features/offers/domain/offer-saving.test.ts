@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import { bestSavingFirst } from "./offer";
-import { offerSaving, parsePrice, regularPriceText, savingKronor, savingText, type IcaMechanics } from "./offer-saving";
+import { offerSaving, parsePrice, regularPriceText, savingKronor, savingText, textUnitPrice, type IcaMechanics } from "./offer-saving";
 
 const fixed = (changes: Partial<IcaMechanics>): IcaMechanics => ({
   benefitType: "FIXED",
@@ -80,5 +80,22 @@ describe("bestSavingFirst", () => {
       { id: "e", savingPercent: 20 },
     ];
     expect(bestSavingFirst(list).map((o) => o.id)).toEqual(["c", "b", "e", "a", "d"]);
+  });
+});
+
+describe("the offer's text as a fallback", () => {
+  it("reads a price per item, per kg and 'n för x kr'", () => {
+    expect(textUnitPrice("99 kr/st")).toBe(99);
+    expect(textUnitPrice("64,90 kr/kg")).toBe(64.9);
+    expect(textUnitPrice("2 för 25 kr")).toBe(12.5);
+    expect(textUnitPrice("89 kr +pant")).toBeNull();
+    expect(textUnitPrice("")).toBeNull();
+  });
+
+  it("gives a saving when the mechanics cannot be read but the text and the regular price can", () => {
+    expect(offerSaving(null, "141,39", "99 kr/st")).toEqual({ regularPrice: 141.39, savingPercent: 30 });
+    expect(offerSaving({ benefitType: "OTHER" }, "29,90", "15 kr/kg")).toEqual({ regularPrice: 29.9, savingPercent: 50 });
+    expect(offerSaving(null, "127,40", "89 kr +pant")).toEqual({ regularPrice: 127.4, savingPercent: null });
+    expect(offerSaving(null, null, "99 kr/st")).toEqual({ regularPrice: null, savingPercent: null });
   });
 });

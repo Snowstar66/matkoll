@@ -226,7 +226,7 @@ export function parseIcaOfferPage(html: string): Result<{ offers: IcaOffer[]; sk
       category: category.articleGroupName,
       validTo: validTo.slice(0, 10),
       memberOnly: (traits ?? []).includes("Stammis"),
-      ...offerSaving(parsedMechanics, stores?.[0]?.regularPrice),
+      ...offerSaving(parsedMechanics, stores?.[0]?.regularPrice, details.mechanicInfo),
     });
   }
   if (weekly.length > 0 && readable === 0) return fail("offers_page_changed");
