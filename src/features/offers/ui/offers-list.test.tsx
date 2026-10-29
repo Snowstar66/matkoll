@@ -87,4 +87,19 @@ describe("OffersList, how good the offers are (Story 9.11)", () => {
     expect(rows[2]).toContain("Odlarna Gul lök");
     expect(screen.getByRole("list", { name: "Bäst rabatt först" })).toBeInTheDocument();
   });
+
+  it("marks a fitting offer with a muted Passar dig and names it in the checkbox (Story 16.7)", () => {
+    render(
+      <OffersList
+        weekStart="2026-10-26"
+        offers={[offer("1", {}), offer("2", { label: "Gul lök", name: "gul lök" })]}
+        fits={new Set(["1"])}
+        selection={{ picked: new Set(), onList: new Set(), onToggle: () => {} }}
+      />,
+    );
+    const rows = screen.getAllByTestId("offer-row");
+    expect(within(rows[0]).getByTestId("offer-fit")).toHaveTextContent("Passar dig");
+    expect(within(rows[1]).queryByTestId("offer-fit")).not.toBeInTheDocument();
+    expect(within(rows[0]).getByRole("checkbox").getAttribute("aria-label") ?? within(rows[0]).getByRole("checkbox").textContent).toMatch(/passar dig/);
+  });
 });

@@ -1,6 +1,6 @@
 "use client";
 
-import { useId } from "react";
+import { Fragment, useId } from "react";
 import { CategoryHeader } from "@/components/category-header";
 import { Badge } from "@/components/badges";
 import { CheckCircle } from "@/components/check-circle";
@@ -25,6 +25,8 @@ export type OffersListProps = {
   badges?: ReadonlyMap<string, StoreBadgeInfo>;
   /** Story 16.6: show the store label on each row (default true); the store stays in the checkbox's name either way. */
   showStore?: boolean;
+  /** Story 16.7: the ids of the offers that fit what Pontus cooks or has at home; their rows say "Passar dig". */
+  fits?: ReadonlySet<string>;
 };
 
 /** The offers Pontus has ticked, and those already on the shopping list (shown "På listan", never ticked). */
@@ -50,9 +52,9 @@ export type OfferSelection = {
 const dotTones = { ica: "bg-store-ica", other: "bg-store-other" } as const;
 
 /** The store's short name in muted ink with a small dot in its chain's colour; the name is text, so colour never carries it alone. */
-function StoreLabel({ badge }: { badge: StoreBadgeInfo }) {
+export function StoreLabel({ badge, testId = "store-badge" }: { badge: StoreBadgeInfo; testId?: string }) {
   return (
-    <span data-testid="store-badge" className="inline-flex items-center gap-1.5 align-middle">
+    <span data-testid={testId} className="inline-flex items-center gap-1.5 align-middle">
       <span aria-hidden="true" className={cx("size-2 shrink-0 rounded-full", dotTones[badge.tone])} />
       {badge.text}
     </span>
@@ -65,16 +67,18 @@ function OfferRow({
   selection,
   badge,
   showStore,
+  fit,
 }: {
   offer: StoreOffer;
   weekStart: string;
   selection?: OfferSelection;
   badge?: StoreBadgeInfo;
   showStore: boolean;
+  fit: boolean;
 }) {
   const top = offer.savingPercent !== null && offer.savingPercent >= topDealPercent;
   const listed = selection?.onList.has(offer.id) ?? false;
-  const spoken = badge ? `${offerSpokenName(offer)}, ${badge.text}` : offerSpokenName(offer);
+  const spoken = [offerSpokenName(offer), badge?.text, fit ? "passar dig" : null].filter(Boolean).join(", ");
   const trailing =
     offer.price || offer.regularPrice !== null || offer.savingPercent !== null ? (
       <span className="flex max-w-36 flex-col items-end gap-0.5 text-right">
@@ -95,7 +99,16 @@ function OfferRow({
     ) : undefined;
   const details = offerDetailText(offer, weekStart);
   const label = showStore ? badge : undefined;
-  const hasMeta = top || listed || label || details;
+  const hasMeta = top || listed || label || fit || details;
+  const parts = [
+    label ? <StoreLabel key="store" badge={label} /> : null,
+    fit ? (
+      <span key="fit" data-testid="offer-fit" className="text-ink-3">
+        Passar dig
+      </span>
+    ) : null,
+    details || null,
+  ].filter(Boolean);
   return (
     <ListRow
       title={offerDisplay(offer.label).title}
@@ -112,9 +125,12 @@ function OfferRow({
               </span>
             ) : null}
             {listed ? <Badge tone="neutral" className="mr-1.5 align-middle">På listan</Badge> : null}
-            {label ? <StoreLabel badge={label} /> : null}
-            {label && details ? " \u00B7 " : null}
-            {details}
+            {parts.map((part, index) => (
+              <Fragment key={index}>
+                {index > 0 ? " \u00B7 " : null}
+                {part}
+              </Fragment>
+            ))}
           </>
         ) : undefined
       }
@@ -146,6 +162,7 @@ function OffersGroup({
   selection,
   badges,
   showStore,
+  fits,
 }: {
   category: Category;
   offers: readonly StoreOffer[];
@@ -153,6 +170,7 @@ function OffersGroup({
   selection?: OfferSelection;
   badges?: ReadonlyMap<string, StoreBadgeInfo>;
   showStore: boolean;
+  fits?: ReadonlySet<string>;
 }) {
   const headingId = useId();
   return (
@@ -161,7 +179,7 @@ function OffersGroup({
       <CategoryHeader id={headingId} category={category} count={offers.length} level={3} />
       <ListGroup labelledBy={headingId}>
         {offers.map((offer) => (
-          <OfferRow key={offer.id} offer={offer} weekStart={weekStart} selection={selection} badge={badges?.get(offer.storeId)} showStore={showStore} />
+          <OfferRow key={offer.id} offer={offer} weekStart={weekStart} selection={selection} badge={badges?.get(offer.storeId)} showStore={showStore} fit={fits?.has(offer.id) ?? false} />
         ))}
       </ListGroup>
     </div>
@@ -178,14 +196,14 @@ function OffersGroup({
  * badge. `sort="saving"` lists them best saving first. Story 9.12: with `selection` each row has a checkbox named by the offer, and
  * "På listan" replaces the tick for an offer already on the shopping list.
  */
-export function OffersList({ offers, weekStart, sort = "category", selection, badges, showStore = true }: OffersListProps) {
+export function OffersList({ offers, weekStart, sort = "category", selection, badges, showStore = true, fits }: OffersListProps) {
   if (sort === "saving") {
     return (
       <div data-testid="offers-list" className="flex flex-col gap-2">
         <h3 className="sr-only">Bäst rabatt först</h3>
         <ListGroup label="Bäst rabatt först">
           {bestSavingFirst(offers).map((offer) => (
-            <OfferRow key={offer.id} offer={offer} weekStart={weekStart} selection={selection} badge={badges?.get(offer.storeId)} showStore={showStore} />
+            <OfferRow key={offer.id} offer={offer} weekStart={weekStart} selection={selection} badge={badges?.get(offer.storeId)} showStore={showStore} fit={fits?.has(offer.id) ?? false} />
           ))}
         </ListGroup>
       </div>
@@ -194,7 +212,7 @@ export function OffersList({ offers, weekStart, sort = "category", selection, ba
   return (
     <div data-testid="offers-list" className="flex flex-col gap-4">
       {groupOffers(offers).map(({ category, offers: items }) => (
-        <OffersGroup key={category} category={category} offers={items} weekStart={weekStart} selection={selection} badges={badges} showStore={showStore} />
+        <OffersGroup key={category} category={category} offers={items} weekStart={weekStart} selection={selection} badges={badges} showStore={showStore} fits={fits} />
       ))}
     </div>
   );
