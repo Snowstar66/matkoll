@@ -19,7 +19,7 @@ const { light, dark } = colorTokens();
 
 const colorNames = [
   "bg", "surface", "ink", "ink-2", "ink-3", "hairline", "border", "accent", "on-accent",
-  "mint", "mint-ink", "sky", "sky-ink", "sand", "sand-ink", "tile-clay", "tile-lilac",
+  "mint", "mint-ink", "sky", "sky-ink", "sand", "sand-ink", "store-ica", "store-ica-ink", "store-other", "store-other-ink", "tile-clay", "tile-lilac",
 ];
 
 /** [text, background, where it is used] */
@@ -33,6 +33,8 @@ const textPairs: [string, string, string][] = [
   ["mint-ink", "mint", "Kan lagas nu, active side-menu item"],
   ["sky-ink", "sky", "Saknar N varor, notice, secondary button, product chip"],
   ["sand-ink", "sand", "AI-förslag"],
+  ["store-ica-ink", "store-ica", "store badge, ICA"],
+  ["store-other-ink", "store-other", "store badge, other chains"],
   ["sky-ink", "bg", "field error on /logga-in"],
   // Pairs the shell and building blocks add on top of DESIGN.md's list:
   ["accent", "surface", "active tab label, heart, text button in a sheet"],

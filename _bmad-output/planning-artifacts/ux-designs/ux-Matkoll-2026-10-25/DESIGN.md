@@ -41,8 +41,16 @@ colors:
   sky-ink-dark: '#A9C9EA'
   sand-dark: '#3A3326'
   sand-ink-dark: '#DCC9A6'
+  store-ica: '#F1E3DD'
+  store-ica-ink: '#6B4A3E'
+  store-other: '#E9EDEA'
+  store-other-ink: '#4A5751'
   tile-clay: '#F1E3DD'
   tile-lilac: '#E6E1F2'
+  store-ica-dark: '#3B2C27'
+  store-ica-ink-dark: '#E6C9BC'
+  store-other-dark: '#2A322E'
+  store-other-ink-dark: '#C3CDC8'
   tile-clay-dark: '#3B2C27'
   tile-lilac-dark: '#2C2840'
 typography:
@@ -272,6 +280,16 @@ components:
     text: '{colors.mint-ink}'
     radius: '{rounded.sm}'
     font: '{typography.badge}'
+  store-badge:
+    background: '{colors.store-ica}'
+    text: '{colors.store-ica-ink}'
+    radius: '{rounded.sm}'
+    font: '{typography.badge}'
+  store-badge-other:
+    background: '{colors.store-other}'
+    text: '{colors.store-other-ink}'
+    radius: '{rounded.sm}'
+    font: '{typography.badge}'
   recipe-card:
     background: '{colors.surface}'
     radius: '{rounded.lg}'
@@ -332,6 +350,7 @@ Ljust läge följer `docs/ux/ux-spec.md` exakt. Mörkt läge är härlett ur sam
 - **Mint (`{colors.mint}` / `{colors.mint-ink}`)** betyder "finns" eller "går att laga": "Kan lagas nu", "Finns hemma"-etiketter och platskortet Kyl.
 - **Ljusblått (`{colors.sky}` / `{colors.sky-ink}`)** betyder "saknas" eller "obs": "Saknar N varor", blå ring på saknade ingredienser, sekundärknappar, kameraknappen, platskortet Frys och alla varnings- och felmeddelanden.
 - **Sand (`{colors.sand}` / `{colors.sand-ink}`)** används för platskortet Skafferi och märkningen av AI-förslag.
+- **Butiksetikett (Story 9.13, `store-badge`):** en liten etikett på varje erbjudanderad med butikens korta namn ("Maxi", "Krokom"), i kedjans färg: ICA har `{colors.store-ica}` / `{colors.store-ica-ink}` (varm lera), varje annan kedja det neutrala `{colors.store-other}` / `{colors.store-other-ink}` (`store-badge-other`). Färgen visar bara kedjan; butikens namn står alltid i etiketten. Mörkt läge har egna värden. En ny kedja (Willys) får en egen färgtoken när den läggs till.
 - **Kategoriplattor (Epic 11):** den lilla plattan bakom kategorins ikon har en ljus ton: mint, ljusblått, sand, `{colors.tile-clay}` (lera, en ljus beige) eller `{colors.tile-lilac}` (syren), och `{colors.border}` för Övrigt. Fördelningen står under `category-tile`. Plattan är dekor: kategorins namn står alltid bredvid, och färgen betyder ingenting. Lera och syren används inte till något annat. I mörkt läge har de egna mörka värden, och mint, ljusblått och sand har sina mörka värden som förut.
 
 Inget rött förekommer, inte ens för fel eller borttagning. Soptunnan är grå (`{colors.ink-3}`). Inga gradienter. Färgen i gränssnittet kommer från matfotona och de små kategoriplattorna.

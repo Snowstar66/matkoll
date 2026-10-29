@@ -21,6 +21,8 @@ const avoidTitleSchema = z
 export const suggestRequestSchema = z.strictObject({
   /** `offers`: dishes built around this week's offers (Story 9.5); the server reads the offers, never the client sends them. */
   mode: z.enum(["pantry", "offers"]).default("pantry"),
+  /** Story 9.13: the store whose offers `offers` mode builds on; left out, the selected store (Story 9.14 adds the choice in the UI). */
+  storeId: z.guid().optional(),
   avoidTitles: z.array(avoidTitleSchema).max(suggestInputLimits.maxAvoidTitles).default([]),
 });
 export type SuggestRequest = z.infer<typeof suggestRequestSchema>;

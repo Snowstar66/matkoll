@@ -67,7 +67,8 @@ const { SettingsDataError, OffersDataError } = vi.hoisted(() => ({
 }));
 const getSelectedStore = vi.fn<() => Promise<{ id: string } | null>>();
 const getActiveOffers = vi.fn<(storeId: string) => Promise<unknown[]>>();
-vi.mock("@/features/settings/server", () => ({ SettingsDataError, getSelectedStore: () => getSelectedStore() }));
+const listStores = vi.fn<() => Promise<{ id: string }[]>>();
+vi.mock("@/features/settings/server", () => ({ SettingsDataError, getSelectedStore: () => getSelectedStore(), listStores: () => listStores() }));
 vi.mock("@/features/offers/server", () => ({ OffersDataError, getActiveOffers: (storeId: string) => getActiveOffers(storeId) }));
 
 const ai = withInputValidation(createMockAiService());
@@ -122,6 +123,7 @@ beforeEach(() => {
   );
   suggestDishes.mockReset().mockImplementation(ai.suggestDishes);
   getSelectedStore.mockReset().mockResolvedValue({ id: "store" });
+  listStores.mockReset().mockResolvedValue([{ id: "store" }, { id: "krokom" }]);
   getActiveOffers.mockReset().mockResolvedValue([]);
 });
 
@@ -448,6 +450,16 @@ describe("suggestFromPantry in the mode offers (Story 9.5)", () => {
     expect(falukorv.atHome).toEqual({ have: 1, total: 6 });
     expect(broccoli.onOffer).toEqual(["Broccoli 15 kr"]);
     expect(kyckling.onOffer).toEqual(["Kyckling 99 kr"]);
+  });
+
+  it("reads the offers of the given store (Story 9.13), else the selected one, and refuses a store that is not the user's", async () => {
+    await suggestFromPantry({ avoidTitles: [], mode: "offers" }, { signal: signal() });
+    expect(getActiveOffers).toHaveBeenLastCalledWith("store");
+    await suggestFromPantry({ avoidTitles: [], mode: "offers", storeId: "krokom" }, { signal: signal() });
+    expect(getActiveOffers).toHaveBeenLastCalledWith("krokom");
+    getActiveOffers.mockClear();
+    expect(await checkSuggestPantry("offers", "someone-elses")).toEqual(fail("offers_store_missing"));
+    expect(getActiveOffers).not.toHaveBeenCalled();
   });
 
   it("does not hold a dish to the pantry rule, and works around an empty pantry", async () => {

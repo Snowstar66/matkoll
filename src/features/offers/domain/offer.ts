@@ -104,9 +104,10 @@ export function noOffersText(weekStart: string): string {
   return `Inga erbjudanden hämtade för ${weekShortLabel(weekStart)}.`;
 }
 
-/** "Hämtar erbjudandena från ica.se …" while the page is fetched. */
-export function fetchingOffersText(siteName: string): string {
-  return `Hämtar erbjudandena från ${siteName} …`;
+/** "Hämtar erbjudandena från ica.se …" while the page is fetched; Story 9.13 adds the store: "Hämtar Maxi från ica.se (1 av 2) …". */
+export function fetchingOffersText(siteName: string, progress?: { store: string; at: number; of: number }): string {
+  if (!progress || progress.of < 2) return `Hämtar erbjudandena från ${siteName} …`;
+  return `Hämtar ${progress.store} från ${siteName} (${progress.at} av ${progress.of}) …`;
 }
 
 /** "Maxi ICA Stormarknad Östersund · vecka 44, 26 okt–1 nov", under the sheet's title. */
@@ -178,17 +179,22 @@ export const suggestFromOffersText = {
  * The shopping-list item an offer becomes (Story 9.12): the key is the offer's
  * id, so adding it twice is one item; the text is the offer's item (the
  * catalog's name when it matched, else the name as normalised) and a short
- * note, "Havregryn (Erbjudande: 89 kr/kg)"; the catalog ingredient is linked
+ * note, "Havregryn (Erbjudande: 89 kr/kg)", or with the store's short name
+ * (Story 9.13) "Havregryn (Erbjudande Maxi: 89 kr/kg)"; the catalog ingredient is linked
  * when there is one.
  */
-export function offerListItem(offer: Pick<StoreOffer, "id" | "name" | "label" | "price" | "ingredientId">): {
+export function offerListItem(
+  offer: Pick<StoreOffer, "id" | "name" | "label" | "price" | "ingredientId">,
+  storeLabel?: string,
+): {
   key: string;
   label: string;
   ingredientId: string | null;
 } {
   const base = oneLine(offer.name) || oneLine(offer.label);
   const name = base.charAt(0).toLocaleUpperCase("sv-SE") + base.slice(1);
-  const note = offer.price ? ` (Erbjudande: ${offer.price})` : " (Erbjudande)";
+  const what = storeLabel ? `Erbjudande ${storeLabel}` : "Erbjudande";
+  const note = offer.price ? ` (${what}: ${offer.price})` : ` (${what})`;
   return { key: offer.id, label: `${name}${note}`, ingredientId: offer.ingredientId };
 }
 
@@ -200,4 +206,14 @@ export function addToListText(count: number): string {
 /** The toast after adding: "Lade 3 erbjudanden i inköpslistan." */
 export function addedToListText(count: number): string {
   return `Lade ${offersCountWords(count)} i inköpslistan.`;
+}
+
+/** The toast after fetching from several stores: "Hämtade 12 erbjudanden från 2 butiker för vecka 44." */
+export function offersFetchedManyText(count: number, stores: number, weekStart: string): string {
+  return `Hämtade ${offersCountWords(count)} från ${stores} ${stores === 1 ? "butik" : "butiker"} för ${weekShortLabel(weekStart)}.`;
+}
+
+/** One store's line after fetching from several: "Hämtade 7 erbjudanden." */
+export function offersFetchedStoreText(count: number): string {
+  return `Hämtade ${offersCountWords(count)}.`;
 }

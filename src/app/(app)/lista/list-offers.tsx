@@ -6,13 +6,13 @@ import { addKeyedItems, getKeyedItemsOnList, ShoppingDataError } from "@/feature
 import { offersSiteName, type Store } from "@/features/settings";
 import { MealPlanDataError } from "@/features/mealplan/server";
 
-import { getSelectedStore, SettingsDataError } from "@/features/settings/server";
+import { listStores, SettingsDataError } from "@/features/settings/server";
 
 /**
  * "Erbjudanden" in Inköpslista's header and the sheet Veckans erbjudanden
  * (Story 9.1, FR-35), for a <Suspense> in page.tsx (AD-18). The page puts it
- * together (route → ui): the selected store from settings and its offers
- * from offers go to the sheet, and the button goes to the header as a slot,
+ * together (route → ui): the user's stores from settings and their offers
+ * from offers (Story 9.13: all stores, not only the selected one) go to the sheet, and the button goes to the header as a slot,
  * so the shopping list never imports the offers module (AD-1). Nothing is
  * fetched from the store here: only "Hämta veckans erbjudanden" does that.
  * When the store or the offers cannot be read, the sheet says so and the
@@ -20,14 +20,19 @@ import { getSelectedStore, SettingsDataError } from "@/features/settings/server"
  */
 export async function ListOffers() {
   await requireUserOrRedirect("/lista");
-  let store: Store | null = null;
+  let stores: Store[] = [];
   let offers: StoreOffer[] = [];
-  let fetchedAt: Date | null = null;
+  const fetchedAt = new Map<string, Date | null>();
   let unavailable = false;
   let listing: OffersListing | null = null;
   try {
-    store = await getSelectedStore();
-    if (store) [offers, fetchedAt] = await Promise.all([getActiveOffers(store.id), getLastFetch(store.id)]);
+    // Story 9.13: every store of the user, the selected one first; the sheet fetches from those with a link.
+    stores = await listStores();
+    const read = await Promise.all(
+      stores.map(async (store) => ({ store, offers: await getActiveOffers(store.id), fetched: await getLastFetch(store.id) })),
+    );
+    offers = read.flatMap((entry) => entry.offers);
+    for (const entry of read) fetchedAt.set(entry.store.id, entry.fetched);
     // Story 9.12: the current plan and the offers already on its list. Without them the rows only show.
     try {
       const onList = await getKeyedItemsOnList(offers.map((offer) => offer.id));
@@ -44,19 +49,16 @@ export async function ListOffers() {
   const now = new Date();
   return (
     <OffersSheetButton
-      store={
-        store
-          ? {
-              id: store.id,
-              name: store.name,
-              offersUrl: store.offersUrl,
-              siteName: store.offersUrl ? offersSiteName(store.offersUrl) : null,
-            }
-          : null
-      }
+      stores={stores.map((store) => ({
+        id: store.id,
+        name: store.name,
+        chain: store.chain,
+        offersUrl: store.offersUrl,
+        siteName: store.offersUrl ? offersSiteName(store.offersUrl) : null,
+        fetchedAt: fetchedAt.get(store.id)?.toISOString() ?? null,
+      }))}
       offers={offers}
-      weekStart={offers[0]?.weekStart ?? weekStartOf(now)}
-      fetchedAt={fetchedAt?.toISOString() ?? null}
+      weekStart={offers.map((offer) => offer.weekStart).sort().at(-1) ?? weekStartOf(now)}
       now={now.toISOString()}
       unavailable={unavailable}
       listing={listing}
