@@ -11,6 +11,7 @@ import { nameInSentence, normalizeIngredientText } from "@/features/catalog";
 import { suggestErrorMessage, suggestRetryCodes, whyText } from "@/features/suggestions";
 import { offerDisplay } from "@/features/offers";
 import type { AddToPlan } from "./add-to-plan-button";
+import { OwnRecipes, type OwnRecipesRead } from "./own-recipes";
 import { recipeMetaText } from "../domain/recipe-list";
 import { AiSuggestionSheet } from "./ai-suggestion-sheet";
 import { RecipeCard } from "./recipe-card";
@@ -40,9 +41,11 @@ export type AiSuggestionsProps = {
   offerButton?: boolean;
   /** mealplan.addToCurrentPlan from the page (AD-1): suggestions built around offers can go straight to the menu (Story 9.5). */
   addToPlan?: AddToPlan;
+  /** suggestions.ownRecipesWithOffers from the page (AD-1): "Från dina recept" while an offers job is on or its dishes are shown (Story 16.3). */
+  ownRecipes?: OwnRecipesRead;
 };
 
-export function AiSuggestions({ dishes, searchIngredients, offerButton = true, addToPlan }: AiSuggestionsProps) {
+export function AiSuggestions({ dishes, searchIngredients, offerButton = true, addToPlan, ownRecipes }: AiSuggestionsProps) {
   const headingId = useId();
   const headingRef = useRef<HTMLHeadingElement>(null);
   const buttonRef = useRef<HTMLButtonElement>(null);
@@ -105,6 +108,8 @@ export function AiSuggestions({ dishes, searchIngredients, offerButton = true, a
           {stale.siteName ? `Förslagen bygger på lagret för ${stale.siteName}.` : "Förslagen bygger på lagret för ett annat ställe."}
         </Notice>
       ) : null}
+      {/* Story 16.3: Pontus's own recipes first, from the offers, with no wait for the AI. */}
+      {ownRecipes && dishes.offersJob ? <OwnRecipes read={ownRecipes} storeId={dishes.offersJob.storeId} addToPlan={addToPlan} /> : null}
       {suggestions.length > 0 ? (
         <section aria-labelledby={headingId} className="flex flex-col gap-3">
           <h2 id={headingId} ref={headingRef} tabIndex={-1} className="text-section-label text-ink-2">

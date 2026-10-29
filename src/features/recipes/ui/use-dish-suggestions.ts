@@ -30,6 +30,8 @@ export type DishSuggestionsState = {
   mode: "pantry" | "offers";
   /** Story 9.14: the store the offers suggestions are from, when Pontus picked one of several. */
   storeName: string | null;
+  /** Story 16.3: set while a job built around the offers waits, runs or has an unseen result; `storeId` is the picked store, if any. */
+  offersJob: { storeId: string | null } | null;
   /** A job is being started, waits in the queue or runs. */
   loading: boolean;
   /** While the job waits behind others: "I kö, 1 före."; otherwise null. */
@@ -117,6 +119,13 @@ export function useDishSuggestions(
 
   const active = latest(jobs, isActive);
   const unseen = latest(jobs, (job) => (job.status === "done" || job.status === "failed") && !job.seen);
+  const offersJobRow =
+    latest(jobs, (job) => isActive(job) && job.context.mode === "offers") ??
+    latest(jobs, (job) => job.status === "done" && !job.seen && job.context.mode === "offers");
+  const offersStoreId = offersJobRow && typeof offersJobRow.context.storeId === "string" ? offersJobRow.context.storeId : null;
+  // Kept after the job is seen, while its dishes are shown, so "Från dina recept" stays with them.
+  const [lastOffers, setLastOffers] = useState<{ storeId: string | null } | null>(null);
+  if (offersJobRow && (lastOffers === null || lastOffers.storeId !== offersStoreId)) setLastOffers({ storeId: offersStoreId });
   const loading = starting || active !== undefined;
   const waiting = active?.status === "queued" && active.ahead > 0 ? `I kö, ${active.ahead} före.` : null;
 
@@ -239,6 +248,11 @@ export function useDishSuggestions(
 
   return {
     suggestions: made.suggestions,
+    offersJob: offersJobRow
+      ? { storeId: offersStoreId }
+      : made.mode === "offers" && made.suggestions.length > 0
+        ? lastOffers
+        : null,
     mode: made.mode,
     storeName: made.storeName,
     loading,
