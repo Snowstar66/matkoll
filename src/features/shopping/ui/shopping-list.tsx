@@ -48,6 +48,8 @@ import {
   progressText,
   recountedText,
   sendButtonText,
+  shareButtonText,
+  stepsLinkText,
   siteRecountedText,
   skippedDishesText,
 } from "../domain/list-text";
@@ -62,6 +64,7 @@ import { ProductChoiceSheet } from "./product-choice-sheet";
 import { canPutInPantry } from "../domain/put-in-pantry";
 import { PutInPantryButton, usePutInPantry } from "./put-in-pantry";
 import { ExportSheet, useSendBasket } from "./send-basket";
+import { StepsSheet } from "./steps-sheet";
 
 // Inköpslista (FR-15, UX-DR9; the new look of Story 11.4, FR-43): the current
 // plan's name and number of dishes under the title, then the progress row
@@ -85,7 +88,7 @@ import { ExportSheet, useSendBasket } from "./send-basket";
 // The detail of a line with a catalog ingredient shows the selected store's
 // product choice for it, and its button replaces the detail with the sheet
 // Produktval (Story 7.2); the choices sit beside the list and never change
-// its count. Pinned above the tab bar: "Skicka till ICA" (named after the
+// its count. Pinned above the tab bar: "Kopiera till ICA-varukorgen" (named after the
 // store's chain; it copies the basket export of the lines as shown, Story
 // 7.3) while there is something to send, and "Lägg i lagret" beside it while
 // a line is checked off, which puts every checked line in the pantry and
@@ -791,7 +794,7 @@ export function ShoppingList({
       store,
     }));
   };
-  // "Skicka till ICA": the export is built from the lines as shown, a check not yet saved included.
+  // "Kopiera till ICA-varukorgen": the export is built from the lines as shown, a check not yet saved included.
   const basket = useSendBasket({
     lines,
     store,
@@ -888,7 +891,7 @@ export function ShoppingList({
           {pantry.notice.text}
         </Notice>
       ) : null}
-      {/* "Skicka till ICA" without a store that can be read: nothing was copied. */}
+      {/* "Kopiera till ICA-varukorgen" without a store that can be read: nothing was copied. */}
       {basket.storeNotice !== null ? (
         <Notice
           key={`store-${basket.storeNotice}`}
@@ -954,6 +957,16 @@ export function ShoppingList({
             searchIngredients={searchIngredients}
             onClose={() => setSheet((current) => ({ ...current, open: false }))}
           />
+          {canSend ? (
+            <div className="flex flex-wrap justify-center gap-x-2">
+              <Button variant="text" onClick={basket.share}>
+                {shareButtonText}
+              </Button>
+              <Button variant="text" onClick={basket.showSteps}>
+                {stepsLinkText}
+              </Button>
+            </div>
+          ) : null}
           <ListActions
             // Room for both buttons while the list has lines, so the page does not move when the first check adds one.
             reserve={hasLines && !checksUnavailable ? 2 : 1}
@@ -971,6 +984,7 @@ export function ShoppingList({
             // Off while a check is being saved: a check that goes back must not leave an item out.
             send={canSend ? { text: sendButtonText(store), onSend: basket.send, disabled: saving } : null}
           />
+          <StepsSheet open={basket.stepsOpen} store={store} onClose={basket.closeSteps} />
           {/* Mounted from the first refused copy, and kept, so it can close with its animation. */}
           {basket.sheet ? (
             <ExportSheet state={basket.sheet} onCopy={basket.copyAgain} onClose={basket.closeSheet} />
@@ -1012,7 +1026,7 @@ export function ShoppingList({
 
 /**
  * The list's Fast åtgärdsknapp (UX-DR3, Story 11.4): one FixedAction with
- * "Skicka till ICA" (secondary) alone, or with "Lägg i lagret" (primary)
+ * "Kopiera till ICA-varukorgen" (secondary) alone, or with "Lägg i lagret" (primary)
  * beside it while a line is checked off; FixedAction puts "Lägg i lagret" on
  * top when the two do not fit in a row. Nothing when neither shows.
  */

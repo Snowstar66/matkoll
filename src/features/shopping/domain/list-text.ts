@@ -333,14 +333,53 @@ export const partlyPutInPantryText = "Det gick inte att lägga allt i lagret.";
 export const serverUnreachableText = "Det gick inte att nå servern. Försök igen.";
 
 /**
- * The button that copies the basket export (Story 7.3), named after the
- * selected store's chain: "Skicka till ICA", "Skicka till Willys"; "Skicka
- * till butiken" for Annan, or without a store. The export is the same for
- * every chain (decision 2026-10-26).
+ * The button that copies the basket export (Story 7.3, 14.2), named after the
+ * selected store's chain: "Kopiera till ICA-varukorgen"; "Kopiera till
+ * varukorgen" for Annan, or without a store. The export is the same for
+ * every chain (decision 2026-10-26). Nothing is sent: the text is copied.
  */
 export function sendButtonText(store: Pick<Store, "chain"> | null): string {
-  return !store || store.chain === "Annan" ? "Skicka till butiken" : `Skicka till ${store.chain}`;
+  return !store || store.chain === "Annan" ? "Kopiera till varukorgen" : `Kopiera till ${store.chain}-varukorgen`;
 }
+
+/** The chains' own sites, a fixed list: opened only when Pontus taps the link, never fetched by Matkoll. */
+const chainSites: Readonly<Record<string, { host: string; url: string }>> = {
+  ICA: { host: "ica.se", url: "https://www.ica.se" },
+  Willys: { host: "willys.se", url: "https://www.willys.se" },
+  Coop: { host: "coop.se", url: "https://www.coop.se" },
+  Lidl: { host: "lidl.se", url: "https://www.lidl.se" },
+  Hemköp: { host: "hemkop.se", url: "https://www.hemkop.se" },
+  "City Gross": { host: "citygross.se", url: "https://www.citygross.se" },
+};
+
+/** The chain's site for the steps' link, or `null` for Annan and without a store. */
+export function chainSite(store: Pick<Store, "chain"> | null): { host: string; url: string } | null {
+  return (store && chainSites[store.chain]) || null;
+}
+
+/** The sheet after a copy (Story 14.2): what to do with the copied text. */
+export const stepsSheetTitle = "Så fyller du varukorgen";
+export const stepsLinkText = "Så funkar det";
+export const stepsDontShowAgainText = "Visa inte igen";
+
+/** The three steps, with the chain's name when there is one. */
+export function stepsText(store: Pick<Store, "chain"> | null): string[] {
+  const chain = store && store.chain !== "Annan" ? store.chain : null;
+  return [
+    chain ? `Öppna ${chain}s webbplats och logga in` : "Öppna butikens webbplats och logga in",
+    "Öppna Claude in Chrome och klistra in listan",
+    "Granska varukorgen och beställ själv",
+  ];
+}
+
+/** The link button under the steps: "Öppna ica.se". */
+export function openSiteText(host: string): string {
+  return `Öppna ${host}`;
+}
+
+/** "Dela listan" (Story 14.2). */
+export const shareButtonText = "Dela listan";
+export const listCopiedText = "Listan är kopierad";
 
 /** What the confirmation after a copy must say beside "kopierad". */
 export type CopiedNotes = {

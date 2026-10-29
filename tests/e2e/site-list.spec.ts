@@ -12,7 +12,7 @@ import { adminClient, e2eUserId, siteListEmail, siteListStorageState } from "./s
 //   on the current meal plan;
 // - the place Stugan beside Hemma, with Hemma selected;
 // - 1 förp ketchup on Hemma, and 1 förp senap on Stugan;
-// - Maxi ICA Stormarknad Östersund as the selected store, for "Skicka till ICA";
+// - Maxi ICA Stormarknad Östersund as the selected store, for "Kopiera till ICA-varukorgen";
 // - no checks, corrected amounts, hidden lines or own items.
 //
 // So against Hemma the list has senap and korv, and against Stugan ketchup
@@ -230,7 +230,7 @@ const progress = (page: Page) => page.getByTestId("list-progress").filter({ visi
 /** Unfolds I korgen, where the checked lines are (Story 11.4). */
 const showBasket = (page: Page) => page.getByRole("button", { name: /^Visa I korgen/ }).filter({ visible: true }).click();
 const putButton = (page: Page) => page.getByRole("button", { name: "Lägg i lagret", exact: true }).filter({ visible: true });
-const sendButton = (page: Page) => page.getByRole("button", { name: "Skicka till ICA", exact: true }).filter({ visible: true });
+const sendButton = (page: Page) => page.getByRole("button", { name: "Kopiera till ICA-varukorgen", exact: true }).filter({ visible: true });
 const tab = (page: Page, name: "Inköpslista" | "Lagersaldo") =>
   page.getByRole("navigation", { name: "Huvudmeny" }).getByRole("link", { name });
 const placePill = (page: Page, name: "Hemma" | "Stugan") =>
@@ -428,7 +428,7 @@ test("the empty list names Stugan when everything is in stock there", async ({ p
   expect(errors).toEqual([]);
 });
 
-test("Skicka till ICA against Stugan copies the export of Stugan's list, in the same format", async ({ page, context, baseURL }) => {
+test("Kopiera till ICA-varukorgen against Stugan copies the export of Stugan's list, in the same format", async ({ page, context, baseURL }) => {
   const errors = watchErrors(page);
   await context.grantPermissions(["clipboard-read", "clipboard-write"], { origin: baseURL });
   await page.goto("/lista");

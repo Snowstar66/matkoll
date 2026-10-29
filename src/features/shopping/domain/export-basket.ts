@@ -5,7 +5,7 @@ import { compareShoppingLines, type ShoppingLine, unknownItemLabel } from "./com
 import { groupBySection } from "./list-text";
 import type { ProductChoice } from "./product-choice";
 
-// Varukorgsexporten (FR-26, AD-16, Story 7.3): the text "Skicka till ICA"
+// Varukorgsexporten (FR-26, AD-16, Story 7.3): the text "Kopiera till ICA-varukorgen"
 // copies, for Pontus's own Claude in Chrome (or Pontus by hand) to fill the
 // store's basket from. Matkoll itself never contacts a store. The format,
 // `Matkoll varukorgsexport v1`, is documented in docs/varukorgsexport.md and

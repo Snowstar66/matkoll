@@ -1,6 +1,6 @@
 # Matkoll varukorgsexport v1
 
-Knappen "Skicka till ICA" i Inköpslistan kopierar en text till urklipp. Texten är en inköpslista för en butik, skriven så att Pontus kan klistra in den i sin egen Claude in Chrome och låta den fylla varukorgen i butikens webbutik, i Pontus inloggade webbläsare. Texten går lika bra att läsa och följa för hand.
+Knappen "Kopiera till ICA-varukorgen" (utan vald kedja: "Kopiera till varukorgen") i Inköpslistan kopierar en text till urklipp. Inget skickas: Matkoll kontaktar aldrig butiken. Texten är en inköpslista för en butik, skriven så att Pontus kan klistra in den i sin egen Claude in Chrome och låta den fylla varukorgen i butikens webbutik, i Pontus inloggade webbläsare. Texten går lika bra att läsa och följa för hand.
 
 Formatet byggs av `exportBasket(lines, store, choices)` i `src/features/shopping/domain/export-basket.ts` (AD-16) och låses med golden-filen `tests/fixtures/export/varukorgsexport-v1.txt`.
 
@@ -151,9 +151,13 @@ En ny version får en ny golden-fil (`varukorgsexport-v2.txt`) och ett nytt avsn
 
 1. Kontrollera butiken i Inställningar → Butik (namn, butiks-id, adress och URL).
 2. Logga in på ICA Handla själv i Chrome, gärna med en tom varukorg.
-3. Tryck "Skicka till ICA" i Inköpslistan. Bekräftelsen säger att listan är kopierad. Om webbläsaren nekar urklipp öppnas arket "Inköpslistan" med texten markerad: tryck "Kopiera", eller kopiera texten själv (ett tryck i fältet markerar allt).
+3. Tryck "Kopiera till ICA-varukorgen" i Inköpslistan. Bekräftelsen säger att listan är kopierad, och arket "Så fyller du varukorgen" visar tre steg: öppna butikens webbplats och logga in, öppna Claude in Chrome och klistra in listan, granska varukorgen och beställ själv. Arket har en länk "Öppna ica.se" (en fast lista över kedjornas sidor; den öppnas i ny flik först när Pontus trycker, Matkoll hämtar den aldrig) och "Visa inte igen" (sparas i webbläsaren). "Så funkar det" under knappen öppnar stegen igen. Om webbläsaren nekar urklipp öppnas arket "Inköpslistan" med texten markerad: tryck "Kopiera", eller kopiera texten själv (ett tryck i fältet markerar allt).
 4. Öppna Claude in Chrome på ICA Handla och klistra in texten.
 5. Granska varukorgen och agentens lista över osäkra och saknade varor.
 6. Beställ själv, eller låt bli och handla i butiken.
 
-Med en annan kedja vald heter knappen till exempel "Skicka till Willys", och texten fungerar likadant i den butikens webbutik. Butikens villkor för automatisk ifyllnad är inte kontrollerade (PRD 6). Se checklistan "Prova Skicka till ICA med Claude in Chrome" i `docs/oppna-fragor.md`.
+Med en annan kedja vald heter knappen till exempel "Kopiera till Willys-varukorgen", och texten fungerar likadant i den butikens webbutik. Butikens villkor för automatisk ifyllnad är inte kontrollerade (PRD 6). Se checklistan "Prova Skicka till ICA med Claude in Chrome" (knappen hette så före Story 14.2) i `docs/oppna-fragor.md`.
+
+## Dela listan (Story 14.2)
+
+Under knappen finns "Dela listan": en enkel text per avdelning ("Frukt & grönt", "- Gul lök 1 st", "- Persilja"), bara varor som inte är avbockade och inte dolda, och inte butiksformatet ovan. Telefonens delningsmeny öppnas (`navigator.share`); saknas den kopieras texten med bekräftelsen "Listan är kopierad". Texten byggs av `shareListText` i `src/features/shopping/domain/share-list.ts`.

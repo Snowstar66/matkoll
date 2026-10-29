@@ -18,7 +18,7 @@ import type { OwnChanges } from "./own-changes";
 
 // "Lägg i lagret" (FR-19, UX-DR9): the list's primary button, pinned above the
 // tab bar while a line that can go to the pantry is checked off, with
-// "Skicka till ICA" under it (Story 7.3). One tap puts
+// "Kopiera till ICA-varukorgen" under it (Story 7.3). One tap puts
 // every such line in the pantry and takes it off the list, without asking
 // first; the short confirmation ("Lagt 8 varor i lagret.") sits above the
 // button. A failure is a blue Notice above the list, and trying again adds
@@ -107,7 +107,7 @@ export function usePutInPantry(
 
 /**
  * "Lägg i lagret" as the primary button; the list puts it in its FixedAction,
- * above "Skicka till ICA" (ListActions). Disabled while the flow or a check's
+ * above "Kopiera till ICA-varukorgen" (ListActions). Disabled while the flow or a check's
  * save runs.
  */
 export function PutInPantryButton({ disabled, busy, onPut }: { disabled: boolean; busy: boolean; onPut: () => void }) {

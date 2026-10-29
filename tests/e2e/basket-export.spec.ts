@@ -7,7 +7,7 @@ import {
 } from "@/features/shopping/domain/export-basket";
 import { adminClient, basketExportEmail, basketExportStorageState, e2eUserId } from "./support";
 
-// Story 7.3: "Skicka till ICA" copies the basket export to the clipboard.
+// Story 7.3: "Kopiera till ICA-varukorgen" copies the basket export to the clipboard.
 // The spec has a user of its own (basketExportEmail), and each test makes
 // its state with the service role: a recipe with "3 dl grädde", "2 gul
 // lök", "salt efter smak" (vague, and not at home) and "2 citroner" on the
@@ -167,7 +167,7 @@ function watchErrors(page: Page): string[] {
 
 // Earlier routes stay mounted but hidden after a client navigation, so every
 // locator is scoped to what is visible.
-const sendButton = (page: Page) => page.getByRole("button", { name: "Skicka till ICA", exact: true }).filter({ visible: true });
+const sendButton = (page: Page) => page.getByRole("button", { name: "Kopiera till ICA-varukorgen", exact: true }).filter({ visible: true });
 const putButton = (page: Page) => page.getByRole("button", { name: "Lägg i lagret", exact: true }).filter({ visible: true });
 const check = (page: Page, name: string) => page.getByRole("checkbox", { name, exact: true }).filter({ visible: true });
 const toast = (page: Page) => page.getByTestId("toast");
@@ -190,6 +190,8 @@ async function openList(page: Page) {
 
 test.beforeEach(async ({ context, page, baseURL }) => {
   await seed();
+  // The steps sheet after a copy has its own test below.
+  await page.addInitScript(() => localStorage.setItem("matkoll:hide-basket-steps", "1"));
   await context.grantPermissions(["clipboard-read", "clipboard-write"], { origin: baseURL });
   storeRequests = [];
   linkRequests = [];
@@ -211,7 +213,7 @@ test.afterEach(() => {
   expect(newPages).toBe(0);
 });
 
-test("Skicka till ICA copies the export without asking the server, and confirms", async ({ page }) => {
+test("Kopiera till ICA-varukorgen copies the export without asking the server, and confirms", async ({ page }) => {
   const errors = watchErrors(page);
   await openList(page);
   // Nothing is checked off: the only button (secondary since Story 11.4).
@@ -234,7 +236,7 @@ test("Skicka till ICA copies the export without asking the server, and confirms"
   expect(errors).toEqual([]);
 });
 
-test("a gul lök checked off is not in the next export, and Lägg i lagret stands beside Skicka till ICA", async ({ page }) => {
+test("a gul lök checked off is not in the next export, and Lägg i lagret stands beside Kopiera till ICA-varukorgen", async ({ page }) => {
   const errors = watchErrors(page);
   await openList(page);
   await check(page, "Gul lök, 2 st").click();
@@ -245,10 +247,10 @@ test("a gul lök checked off is not in the next export, and Lägg i lagret stand
   // Off while the check was saved; on again now.
   await expect(sendButton(page)).toBeEnabled();
 
-  // One row at 375 px: "Skicka till ICA" left, "Lägg i lagret" right (Story 11.4).
+  // At 375 px the long label stacks under "Lägg i lagret" (Story 11.4, 14.2).
   const put = await putButton(page).boundingBox();
   const send = await sendButton(page).boundingBox();
-  expect(put && send && Math.abs(put.y - send.y) < 1 && send.x + send.width <= put.x).toBe(true);
+  expect(put && send && put.y + put.height <= send.y).toBe(true);
 
   await sendButton(page).click();
   await expect(toast(page)).toHaveText(copied);
@@ -297,4 +299,70 @@ test("a refused clipboard opens Inköpslistan with the text selected, and Kopier
   await sheet.getByRole("button", { name: "Klar", exact: true }).click();
   await expect(sheet).toHaveCount(0);
   expect(requests).toEqual([]);
+});
+
+test("after a copy the steps sheet explains the cart, links to ica.se without opening it, and Visa inte igen hides it", async ({ page }) => {
+  const errors = watchErrors(page);
+  await openList(page);
+  // The spec's default hides the steps; show them again for this test.
+  await page.evaluate(() => localStorage.removeItem("matkoll:hide-basket-steps"));
+  await sendButton(page).click();
+  const sheet = page.getByRole("dialog", { name: "Så fyller du varukorgen", exact: true });
+  await expect(sheet).toBeVisible();
+  await expect(sheet.getByRole("listitem")).toHaveText([
+    "Öppna ICAs webbplats och logga in",
+    "Öppna Claude in Chrome och klistra in listan",
+    "Granska varukorgen och beställ själv",
+  ]);
+  const link = sheet.getByRole("link", { name: "Öppna ica.se", exact: true });
+  await expect(link).toHaveAttribute("href", "https://www.ica.se");
+  await expect(link).toHaveAttribute("target", "_blank");
+  await expect(link).toHaveAttribute("rel", /noopener/);
+  expect((await link.boundingBox())!.height).toBeGreaterThanOrEqual(44);
+  await sheet.getByRole("checkbox", { name: "Visa inte igen", exact: true }).check();
+  await sheet.getByRole("button", { name: "Klar", exact: true }).click();
+  await expect(sheet).toHaveCount(0);
+
+  // Hidden on the next copy, and "Så funkar det" opens it again.
+  await sendButton(page).click();
+  await expect(toast(page)).toHaveText(copied);
+  await expect(sheet).toHaveCount(0);
+  await page.getByRole("button", { name: "Så funkar det", exact: true }).filter({ visible: true }).click();
+  await expect(sheet).toBeVisible();
+  expect(errors).toEqual([]);
+});
+
+test("Dela listan copies a plain list per department when sharing is missing, without the store format", async ({ page }) => {
+  const errors = watchErrors(page);
+  await page.addInitScript(() => Object.defineProperty(navigator, "share", { value: undefined, configurable: true }));
+  await openList(page);
+  await check(page, "Gul lök, 2 st").click();
+  await page.getByRole("button", { name: "Dela listan", exact: true }).filter({ visible: true }).click();
+  await expect(toast(page)).toHaveText("Listan är kopierad");
+  const text = await clipboard(page);
+  expect(text).not.toContain("Matkoll varukorgsexport");
+  expect(text).not.toContain("Gul lök");
+  expect(text).toContain("Mejeri & ägg\n- ");
+  expect(text).toContain("- Grädde 3 dl");
+  expect(errors).toEqual([]);
+});
+
+test("Dela listan opens the share menu with the text when the browser has one", async ({ page }) => {
+  await page.addInitScript(() => {
+    const shared: string[] = [];
+    Object.assign(window, { shared });
+    Object.defineProperty(navigator, "share", {
+      value: (data: { text: string }) => {
+        shared.push(data.text);
+        return Promise.resolve();
+      },
+      configurable: true,
+    });
+  });
+  await openList(page);
+  await page.getByRole("button", { name: "Dela listan", exact: true }).filter({ visible: true }).click();
+  await expect.poll(() => page.evaluate(() => (window as unknown as { shared: string[] }).shared.length)).toBe(1);
+  const [text] = await page.evaluate(() => (window as unknown as { shared: string[] }).shared);
+  expect(text).toContain("- Gul lök 2 st");
+  await expect(toast(page)).toHaveCount(0);
 });

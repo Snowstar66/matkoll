@@ -255,9 +255,9 @@ test("the list shows the progress row, the categories, the line under each name 
   await expect(chip).toHaveText(scan);
   const [chipBox, rowBox] = [await chip.boundingBox(), await lineOf(page, "Falukorv").boundingBox()];
   expect(chipBox!.width).toBeLessThanOrEqual(rowBox!.width * 0.4 + 1);
-  // Nothing checked off: no basket row, and only "Skicka till ICA", as the secondary button.
+  // Nothing checked off: no basket row, and only "Kopiera till ICA-varukorgen", as the secondary button.
   await expect(basketRow(page)).toHaveCount(0);
-  await expect(button(page, "Skicka till ICA")).toBeVisible();
+  await expect(button(page, "Kopiera till ICA-varukorgen")).toBeVisible();
   await expect(button(page, "Lägg i lagret")).toHaveCount(0);
   // The check's tap target is 44 × 44 px.
   const box = await check(page, "Gul lök, 1 st").boundingBox();
@@ -282,11 +282,10 @@ test("a check moves the line to I korgen at once, and a check there takes it bac
   // Focus on the next line's check.
   await expect(check(page, "Matlagningsgrädde, 3 dl")).toBeFocused();
   expect(await storedChecks()).toEqual([lineKey("Gul lök", "st")]);
-  // Both buttons in one row: "Skicka till ICA" left, "Lägg i lagret" right.
-  const send = await button(page, "Skicka till ICA").boundingBox();
+  // The long label no longer fits beside "Lägg i lagret" (Story 14.2): FixedAction stacks them, "Lägg i lagret" on top.
+  const send = await button(page, "Kopiera till ICA-varukorgen").boundingBox();
   const put = await button(page, "Lägg i lagret").boundingBox();
-  expect(Math.abs(send!.y - put!.y)).toBeLessThan(1);
-  expect(send!.x).toBeLessThan(put!.x);
+  expect(put!.y + put!.height).toBeLessThanOrEqual(send!.y);
 
   // Saved: still in the basket after a reload, folded.
   await page.reload();
@@ -342,7 +341,7 @@ test("at 200 % text the buttons stack with Lägg i lagret on top, the chip is cu
   const errors = watchErrors(page);
   await page.goto("/lista");
   await expect(progress(page)).toHaveText(/^4 varor kvar/);
-  const send = await button(page, "Skicka till ICA").boundingBox();
+  const send = await button(page, "Kopiera till ICA-varukorgen").boundingBox();
   const put = await button(page, "Lägg i lagret").boundingBox();
   expect(put!.y + put!.height).toBeLessThanOrEqual(send!.y);
   const chip = lineOf(page, "Falukorv").getByTestId("product-chip");
@@ -359,7 +358,7 @@ test("with the page's text at 200 % the buttons and labels stay inside 375 px", 
   await page.goto("/lista");
   await page.addStyleTag({ content: "html { font-size: 200%; }" });
   await expect(progress(page)).toHaveText(/^4 varor kvar/);
-  for (const name of ["Skicka till ICA", "Lägg i lagret"]) {
+  for (const name of ["Kopiera till ICA-varukorgen", "Lägg i lagret"]) {
     const box = await button(page, name).boundingBox();
     expect(box!.x).toBeGreaterThanOrEqual(0);
     expect(box!.x + box!.width).toBeLessThanOrEqual(375);

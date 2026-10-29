@@ -163,7 +163,7 @@ describe("ShoppingListContent", () => {
     expect(detail).toHaveTextContent("Arla Matlagningsgrädde 15 % · 5 dl");
   });
 
-  it("passes the choices that cannot be read on to the line's detail, and shows Skicka till ICA", async () => {
+  it("passes the choices that cannot be read on to the line's detail, and shows Kopiera till ICA-varukorgen", async () => {
     const graddeId = "11111111-1111-4111-8111-111111111111";
     vi.mocked(getShoppingList).mockResolvedValue(
       ok({
@@ -203,7 +203,7 @@ describe("ShoppingListContent", () => {
     );
     const user = userEvent.setup();
     render(<ToastProvider>{await ShoppingListContent()}</ToastProvider>);
-    expect(screen.getByRole("button", { name: "Skicka till ICA" })).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "Kopiera till ICA-varukorgen" })).toBeInTheDocument();
     await user.click(screen.getByRole("button", { name: /^Grädde/ }));
     const detail = await screen.findByRole("dialog", { name: "Grädde" });
     expect(detail).toHaveTextContent("Det gick inte att läsa produktvalet.");
