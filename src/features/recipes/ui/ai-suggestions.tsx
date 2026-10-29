@@ -6,6 +6,7 @@ import { AiBadge } from "@/components/badges";
 import { Button, buttonClasses } from "@/components/button";
 import type { SearchIngredients } from "@/components/ingredient-picker";
 import { Notice } from "@/components/notice";
+import { focusAfterRemoval } from "@/components/trash-button";
 import { nameInSentence, normalizeIngredientText } from "@/features/catalog";
 import { atHomeText, suggestErrorMessage, suggestRetryCodes } from "@/features/suggestions";
 import type { AddToPlan } from "./add-to-plan-button";
@@ -113,6 +114,10 @@ export function AiSuggestions({ dishes, searchIngredients, offerButton = true, a
               <SuggestionCard
                 key={suggestion.key}
                 suggestion={suggestion}
+                onRemove={(bin) => {
+                  focusAfterRemoval(bin);
+                  remove(suggestion.key);
+                }}
                 onSave={() => setOpened({ suggestion, toMenu: false })}
                 onAddToPlan={byOffers && addToPlan ? () => setOpened({ suggestion, toMenu: true }) : undefined}
               />
@@ -180,8 +185,10 @@ function SuggestionCard({
   suggestion,
   onSave,
   onAddToPlan,
+  onRemove,
 }: {
   suggestion: ShownSuggestion;
+  onRemove: (bin: HTMLButtonElement) => void;
   onSave: () => void;
   onAddToPlan?: () => void;
 }) {
@@ -193,6 +200,8 @@ function SuggestionCard({
       imageUrl={null}
       meta={recipeMetaText(draft.totalMinutes, draft.servings)}
       badge={<AiBadge />}
+      onDelete={onRemove}
+      deleteLabel={`Ta bort förslaget ${draft.title}`}
     >
       <p className="text-meta break-words text-ink-2">Med: {cardNames(suggestion).join(", ")}</p>
       {onOffer.length > 0 ? (

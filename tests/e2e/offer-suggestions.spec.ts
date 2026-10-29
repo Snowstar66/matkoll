@@ -275,3 +275,73 @@ test("another store can be picked for the dishes", async ({ page }) => {
   await toast(page).getByRole("button", { name: "Visa" }).click(jobTime);
   await expect(page.getByTestId("ai-suggestions").getByRole("heading", { name: "Med veckans erbjudanden från Matkoll" })).toBeVisible(jobTime);
 });
+
+// Story 16.1: the buttons on a suggestion work after Pontus has been to other pages and back, and a suggestion can be removed.
+async function suggestionsFromOffers(page: Page) {
+  await openOffers(page);
+  await suggestButton(page).click();
+  await expect(sheet(page)).toBeHidden();
+  await toast(page).getByRole("button", { name: "Visa" }).click(jobTime);
+  const cards = page.getByTestId("ai-suggestions").getByTestId("ai-suggestion");
+  await expect(cards).toHaveCount(3, jobTime);
+  return cards;
+}
+
+async function awayAndBack(page: Page) {
+  const nav = page.getByRole("navigation", { name: "Huvudmeny" });
+  await nav.getByRole("link", { name: "Matsedel" }).click();
+  await expect(page).toHaveURL(/\/matsedel/);
+  await nav.getByRole("link", { name: "Lagersaldo" }).click();
+  await expect(page).toHaveURL(/\/hemma/);
+  await nav.getByRole("link", { name: "Recept" }).click();
+  await expect(page).toHaveURL(/\/recept/);
+}
+
+for (const away of [false, true]) {
+  const where = away ? "after visiting other pages" : "straight away";
+  test(`Spara and Lägg på matsedeln work on a suggestion ${where}`, async ({ page }) => {
+    const errors = watchErrors(page);
+    await seed({ withOffers: true });
+    const cards = await suggestionsFromOffers(page);
+    if (away) await awayAndBack(page);
+    await expect(cards).toHaveCount(3);
+
+    const preview = page.getByRole("dialog", { name: "Spara AI-förslag" });
+    await cards.nth(1).getByRole("button", { name: /^Lägg på matsedeln/ }).click();
+    await expect(preview).toBeVisible();
+    await preview.getByRole("button", { name: "Spara och lägg på matsedeln" }).click();
+    await expect(preview).toBeHidden();
+    await expect(toast(page)).toContainText("Lagt på matsedeln.");
+    await expect(cards).toHaveCount(2);
+
+    await cards.first().getByRole("button", { name: /^Spara / }).click();
+    await expect(preview).toBeVisible();
+    await preview.getByRole("button", { name: "Spara recept" }).click();
+    await expect(page).toHaveURL(/\/recept\/[0-9a-f-]{36}/);
+    const recipes = await adminClient().from("recipe").select("id").eq("user_id", userId);
+    expect(recipes.data).toHaveLength(3);
+    expect(errors).toEqual([]);
+  });
+}
+
+test("a suggestion can be removed with its trash, also after visiting other pages", async ({ page }) => {
+  await seed({ withOffers: true });
+  const cards = await suggestionsFromOffers(page);
+  await awayAndBack(page);
+  await expect(cards).toHaveCount(3);
+  await cards.filter({ hasText: dishName }).getByRole("button", { name: `Ta bort förslaget ${dishName}` }).click();
+  await expect(cards).toHaveCount(2);
+  await expect(cards.filter({ hasText: dishName })).toHaveCount(0);
+  await page.waitForTimeout(450);
+  // The bins ignore a second tap within 400 ms, so each removal is waited for.
+  for (const left of [1, 0]) {
+    await cards.last().getByRole("button", { name: /^Ta bort förslaget / }).click();
+    await expect(cards).toHaveCount(left);
+    await page.waitForTimeout(450);
+  }
+  await expect(cards).toHaveCount(0);
+  await expect(page.getByTestId("ai-suggestions").getByRole("heading")).toHaveCount(0);
+  // Nothing is saved by removing.
+  const recipes = await adminClient().from("recipe").select("id").eq("user_id", userId);
+  expect(recipes.data).toHaveLength(1);
+});
