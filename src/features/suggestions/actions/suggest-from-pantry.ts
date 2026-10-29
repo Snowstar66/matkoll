@@ -7,7 +7,7 @@ import { getPantryForStatus } from "@/features/pantry/server";
 import { getActiveOffers, OffersDataError } from "@/features/offers/server";
 import { storeBadgeText, type StoreOffer } from "@/features/offers";
 import { getSelectedStore, listStores, SettingsDataError } from "@/features/settings/server";
-import { fromAiRecipe, recipeDraftSchema, type RecipeDraft } from "@/features/recipes";
+import { draftLimits, fromAiRecipe, recipeDraftSchema, type RecipeDraft } from "@/features/recipes";
 import { fail, ok, type Result } from "@/lib/errors";
 import { getAiService } from "@/server/ai";
 import { offersUsed, toBuyNames, toOfferNames } from "../domain/offer-input";
@@ -56,6 +56,14 @@ async function readPantry(): Promise<Result<{ snapshot: PantrySnapshot; siteId: 
 function stopped() {
   console.info("suggest_aborted");
   return fail("ai_unavailable");
+}
+
+/** The offer labels kept with a draft, within the draft's limits. */
+function offerNamesOf(onOffer: readonly string[]): string[] {
+  return onOffer
+    .map((name) => name.trim().slice(0, draftLimits.offerNameChars))
+    .filter((name) => name !== "")
+    .slice(0, draftLimits.offerNames);
 }
 
 /** The catalog ids a draft's lines are linked to. */
@@ -227,10 +235,12 @@ async function suggest(
       );
       if (!byOffers) return { draft, ingredientNames, onOffer: [], atHome: null, toBuy: [] };
       const lineNames = draft.lines.map((line) => line.hint?.name ?? line.originalText);
+      const onOffer = offersUsed(offers, new Set(linked), [...lineNames, ...Object.values(ingredientNames)]);
       return {
-        draft,
+        // Story 16.4: the offers go with the draft, so the saved recipe can say what it was built around.
+        draft: onOffer.length > 0 ? { ...draft, offerNames: offerNamesOf(onOffer) } : draft,
         ingredientNames,
-        onOffer: offersUsed(offers, new Set(linked), [...lineNames, ...Object.values(ingredientNames)]),
+        onOffer,
         // "X av Y hemma": the lines linked to something in the pantry, of all lines.
         atHome: {
           have: draft.lines.filter(({ ingredient }) => isLinkedAtHome(ingredient, snapshot)).length,
