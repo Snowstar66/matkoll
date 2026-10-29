@@ -2,7 +2,7 @@
 title: 'Story 16.8: Hämta ersätter och tydliga filter'
 type: 'feature'
 created: '2026-10-29'
-status: 'in-progress'
+status: 'done'
 route: 'dispatch'
 review_loop_iteration: 0
 ---
@@ -34,3 +34,7 @@ Datasäkerhetskopia i scratchpad (`migration-16-8/backup.sql`), `scripts/pantry-
 ## Verifiering
 
 lint, typecheck, `pnpm test` (5204), integration (554), `AI_PROVIDER=mock pnpm build`, e2e `offers-link` + `offer-suggestions` (19, inklusive nytt test: två butiker, hämta bara en, den andras erbjudanden är borta), kort kontroll i `pnpm dev` på port 3296. Status `in-progress` tills granskning efter migrationen är gjord.
+
+## Review Triage Log
+
+Claude granskade migreringen `clear_other_store_offers` själv. Funktionen tar bara bort den inloggade användarens egna rader (`user_id = caller`), vägrar en tom lista med butiker att behålla, är security invoker med `search_path = ''` och kan bara köras av `authenticated`. Ett id för en annan användares butik i listan gör ingen skada, eftersom bara egna rader berörs. Inget behövde rättas.
