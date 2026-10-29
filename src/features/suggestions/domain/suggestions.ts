@@ -21,7 +21,7 @@ const avoidTitleSchema = z
 export const suggestRequestSchema = z.strictObject({
   /** `offers`: dishes built around this week's offers (Story 9.5); the server reads the offers, never the client sends them. */
   mode: z.enum(["pantry", "offers"]).default("pantry"),
-  /** Story 9.13: the store whose offers `offers` mode builds on; left out, the selected store (Story 9.14 adds the choice in the UI). */
+  /** Story 9.13: the store whose offers `offers` mode builds on; left out, the selected store (Story 9.14: the sheet sends it with two or more stores). */
   storeId: z.guid().optional(),
   avoidTitles: z.array(avoidTitleSchema).max(suggestInputLimits.maxAvoidTitles).default([]),
 });
@@ -49,6 +49,8 @@ export const dishSuggestionsSchema = z.object({
     .max(3),
   mode: z.enum(["pantry", "offers"]).default("pantry"),
   siteId: z.uuid().nullable().default(null),
+  /** Story 9.14: the short name of the store the offers are from, when Pontus picked one of several; else `null`. */
+  storeName: z.string().max(40).nullable().default(null),
 });
 export type DishSuggestions = z.infer<typeof dishSuggestionsSchema>;
 type DishSuggestionOut = DishSuggestions["suggestions"][number];

@@ -41,3 +41,5 @@ export {
   type OfferSource,
   type StoreOffer,
 } from "./domain/offer";
+export { bestStore, bestStoreReason, type BestStore } from "./domain/best-store";
+export { storeBadgeText, storeBadgeTone } from "./domain/store-badge";

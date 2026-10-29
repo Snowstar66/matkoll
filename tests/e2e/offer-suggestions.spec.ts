@@ -191,3 +191,87 @@ test("offers become dishes with labels, one step puts a dish on the menu and the
   }
   expect(errors).toEqual([]);
 });
+
+// Story 9.14: two stores with offers. Maxi has offers on things that are at home, so it is the week's best store.
+async function seedMaxi(): Promise<{ maxiId: string; testId: string }> {
+  const admin = adminClient();
+  const ids = await seedIngredients(atHome.slice(0, 3));
+  const maxi = await admin
+    .from("store")
+    .insert({
+      user_id: userId,
+      name: "Maxi ICA Stormarknad Östersund",
+      chain: "ICA",
+      external_store_id: "1003733",
+      offers_url: "https://www.ica.se/erbjudanden/maxi-ica-stormarknad-ostersund-1003733/",
+      is_selected: false,
+    })
+    .select("id")
+    .single();
+  if (maxi.error) throw maxi.error;
+  const maxiId = (maxi.data as { id: string }).id;
+  const offers = await admin.from("store_offer").insert(
+    atHome.slice(0, 3).map((name) => ({
+      user_id: userId,
+      store_id: maxiId,
+      week_start: weekStartOf(new Date()),
+      label: name,
+      name,
+      ingredient_id: ids.get(name) ?? null,
+      section: "Övrigt",
+      price: "10 kr/st",
+      source: "link",
+    })),
+  );
+  if (offers.error) throw offers.error;
+  const test = await admin.from("store").select("id").eq("user_id", userId).eq("name", "Matkoll Testbutik").single();
+  if (test.error) throw test.error;
+  return { maxiId, testId: (test.data as { id: string }).id };
+}
+
+function watchJobBodies(page: Page): string[] {
+  const bodies: string[] = [];
+  page.on("request", (request) => {
+    if (request.method() === "POST" && new URL(request.url()).pathname === "/api/ai/jobs") bodies.push(request.postData() ?? "");
+  });
+  return bodies;
+}
+
+test("the week's best store is on top and preselected, and the dishes are built from that store", async ({ page }) => {
+  const errors = watchErrors(page);
+  await seed({ withOffers: true });
+  const { maxiId } = await seedMaxi();
+  const bodies = watchJobBodies(page);
+
+  await openOffers(page);
+  await expect(sheet(page).getByTestId("best-store")).toContainText("Veckans bästa butik:");
+  await expect(sheet(page).getByTestId("best-store")).toContainText("Maxi");
+  await expect(sheet(page).getByTestId("best-store")).toContainText("3 erbjudanden passar det du brukar laga");
+  const picker = sheet(page).getByRole("radiogroup", { name: "Butik för förslagen" });
+  await expect(picker.getByRole("radio", { name: "Maxi" })).toBeChecked();
+
+  await suggestButton(page).click();
+  await expect(sheet(page)).toBeHidden();
+  expect(bodies).toHaveLength(1);
+  expect(JSON.parse(bodies[0])).toMatchObject({ kind: "suggest", mode: "offers", storeId: maxiId });
+
+  await toast(page).getByRole("button", { name: "Visa" }).click(jobTime);
+  await expect(page.getByTestId("ai-suggestions").getByRole("heading", { name: "Med veckans erbjudanden från Maxi" })).toBeVisible(jobTime);
+  expect(errors).toEqual([]);
+});
+
+test("another store can be picked for the dishes", async ({ page }) => {
+  await seed({ withOffers: true });
+  const { testId } = await seedMaxi();
+  const bodies = watchJobBodies(page);
+
+  await openOffers(page);
+  const picker = sheet(page).getByRole("radiogroup", { name: "Butik för förslagen" });
+  await picker.getByRole("radio", { name: "Matkoll" }).click();
+  await expect(picker.getByRole("radio", { name: "Matkoll" })).toBeChecked();
+  await suggestButton(page).click();
+  await expect(sheet(page)).toBeHidden();
+  expect(JSON.parse(bodies[0])).toMatchObject({ mode: "offers", storeId: testId });
+  await toast(page).getByRole("button", { name: "Visa" }).click(jobTime);
+  await expect(page.getByTestId("ai-suggestions").getByRole("heading", { name: "Med veckans erbjudanden från Matkoll" })).toBeVisible(jobTime);
+});

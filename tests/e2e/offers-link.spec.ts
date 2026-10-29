@@ -293,7 +293,7 @@ test("Story 9.13: fetches from several stores one by one, shows a badge per stor
 
   await dialog.getByRole("radio", { name: "Bäst rabatt" }).click();
   await expect(dialog.getByRole("list", { name: "Bäst rabatt först" }).getByTestId("offer-row")).toHaveCount(14);
-  await dialog.getByRole("radio", { name: "Krokom" }).click();
+  await dialog.getByRole("radiogroup", { name: "Visa butik" }).getByRole("radio", { name: "Krokom" }).click();
   await expect(dialog.getByTestId("offer-row")).toHaveCount(7);
   await expect(dialog.getByTestId("store-badge")).toHaveText(Array(7).fill("Krokom"));
   await dialog.getByRole("radio", { name: "Alla" }).click();
@@ -326,7 +326,7 @@ test("Story 9.13: a picked offer's note on the shopping list names its store", a
   const dialog = sheet(page);
   await dialog.getByRole("button", { name: "Hämta alla" }).click();
   await expect(dialog.getByTestId("offers-store-result")).toHaveCount(2);
-  await dialog.getByRole("radio", { name: "Krokom" }).click();
+  await dialog.getByRole("radiogroup", { name: "Visa butik" }).getByRole("radio", { name: "Krokom" }).click();
   await dialog.getByRole("checkbox", { name: /^Gårdens Herrgård, Präst, 79 kr per kg.*Krokom$/ }).click();
   await dialog.getByRole("button", { name: "Lägg 1 i inköpslistan" }).click();
   await expect(dialog).toBeHidden();

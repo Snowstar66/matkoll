@@ -66,7 +66,7 @@ export function AiSuggestions({ dishes, searchIngredients, offerButton = true, a
   }, [cancels]);
 
   if (!dishes) return null;
-  const { suggestions, mode, loading, waiting, error, stale, suggest, cancel, remove } = dishes;
+  const { suggestions, mode, storeName, loading, waiting, error, stale, suggest, cancel, remove } = dishes;
   const byOffers = mode === "offers";
 
   let notice = null;
@@ -106,7 +106,7 @@ export function AiSuggestions({ dishes, searchIngredients, offerButton = true, a
       {suggestions.length > 0 ? (
         <section aria-labelledby={headingId} className="flex flex-col gap-3">
           <h2 id={headingId} ref={headingRef} tabIndex={-1} className="text-section-label text-ink-2">
-            {byOffers ? "AI-förslag från veckans erbjudanden" : "AI-förslag"}
+            {byOffers ? (storeName ? `Med veckans erbjudanden från ${storeName}` : "AI-förslag från veckans erbjudanden") : "AI-förslag"}
           </h2>
           <ul className="grid gap-3 desktop:grid-cols-2">
             {suggestions.map((suggestion) => (
