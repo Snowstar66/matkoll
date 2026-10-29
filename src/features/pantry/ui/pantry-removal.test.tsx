@@ -1,6 +1,7 @@
 import { act, fireEvent, render, screen, waitFor, within } from "@testing-library/react";
 import { useEffect, useState } from "react";
 import { beforeEach, describe, expect, it, vi } from "vitest";
+import { resetDeleteGrace, startDeleteGrace } from "@/components/confirm-delete";
 import { ToastProvider } from "@/components/toast";
 import type { Location } from "@/features/catalog";
 import { fail, ok, type Result } from "@/lib/errors";
@@ -136,6 +137,8 @@ function deferred<T>() {
 }
 
 beforeEach(() => {
+  // The bin's question (Story 13.1) is answered by the window; the test "asks" below ends it.
+  startDeleteGrace();
   vi.spyOn(performance, "now").mockImplementation(() => realNow() + guardOffset);
   refresh.mockReset();
   // By default the server answers, and its items change right after the answer.
@@ -213,6 +216,21 @@ describe("removing an item on Hemma", () => {
     await act(async () => pending.resolve(ok(rowOf(mjolk))));
     expect(toast()).toHaveTextContent("Tog bort Mjölk.");
     expect(within(toast()).getByRole("button", { name: "Ångra" })).toBeInTheDocument();
+  });
+
+  it("asks first when no delete was confirmed lately, shares the window, and keeps Ångra after Ta bort (Story 13.1)", async () => {
+    resetDeleteGrace();
+    render(<Hemma initial={[mjolk, smor, salt]} />);
+    await tapRemove("Mjölk");
+    expect(screen.getByText("Ta bort Mjölk från lagret?")).toBeInTheDocument();
+    expect(removePantryItem).not.toHaveBeenCalled();
+    await act(async () => fireEvent.click(screen.getByRole("button", { name: "Ta bort" })));
+    expect(removePantryItem).toHaveBeenCalledWith(mjolk.id);
+    expect(within(toast()).getByRole("button", { name: "Ångra" })).toBeInTheDocument();
+    // Inside the window: at once, no question.
+    await tapRemove("Smör");
+    expect(removePantryItem).toHaveBeenCalledWith(smor.id);
+    expect(screen.queryByText("Ta bort Smör från lagret?")).not.toBeInTheDocument();
   });
 
   it("keeps a removed row hidden until the server's items no longer have it", async () => {

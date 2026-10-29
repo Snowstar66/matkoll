@@ -2374,6 +2374,10 @@ så att listan bara visar det jag faktiskt ska köpa.
 **När** den tas bort
 **Så** döljs den för veckan (den räknas inte fram igen), medan en egen vara tas bort helt
 
+**Givet** lagersaldot (skafferiet, kylen, frysen)
+**När** Pontus trycker på en soptunna på en rad
+**Så** gäller samma kontrollfråga och samma minut som på inköpslistan (en borttagning i ena räknas i andra), och "Ångra" finns kvar efter borttagningen
+
 ### Story 13.2: Ta bort recept
 
 Som Pontus,

@@ -139,6 +139,13 @@ const categories = (page: Page) => page.getByTestId("pantry-category").filter({ 
 const rows = (page: Page) => page.getByTestId("pantry-row").filter({ visible: true });
 const row = (page: Page, name: string) => rows(page).filter({ hasText: new RegExp(`^${name}`) });
 const bin = (page: Page, name: string) => page.getByRole("button", { name: `Ta bort ${name}`, exact: true }).filter({ visible: true });
+
+/** Presses a bin; the first one in a minute asks (Story 13.1), and this answers "Ta bort". */
+async function pressBin(page: Page, name: string) {
+  await bin(page, name).click();
+  const confirm = page.getByRole("dialog").getByRole("button", { name: "Ta bort", exact: true });
+  if (await confirm.waitFor({ state: "visible", timeout: 700 }).then(() => true, () => false)) await confirm.click();
+}
 const search = (page: Page, place = "kylen") => page.getByRole("searchbox", { name: `Sök i ${place}` }).filter({ visible: true });
 const toast = (page: Page) => page.getByTestId("toast");
 const mainMenu = (page: Page) => page.getByRole("navigation", { name: "Huvudmeny" });
@@ -220,7 +227,7 @@ test("the bin removes at once, focus goes to the next bin, and Ångra brings the
   const before = (await stored()).get(ids["Gräddfil"]);
   await page.goto("/hemma");
 
-  await bin(page, "Gräddfil").click();
+  await pressBin(page, "Gräddfil");
   await expect(row(page, "Gräddfil")).toHaveCount(0);
   await expect(bin(page, "Mellanmjölk")).toBeFocused();
   await expect(toast(page)).toContainText("Tog bort Gräddfil.");
@@ -238,10 +245,10 @@ test("a second removal joins the confirmation, and one Ångra puts back both", a
   const before = await stored();
   await page.goto("/hemma");
 
-  await bin(page, "Gräddfil").click();
+  await pressBin(page, "Gräddfil");
   await expect(toast(page)).toContainText("Tog bort Gräddfil.");
   await pastGuard(page);
-  await bin(page, "Ägg").click();
+  await pressBin(page, "Ägg");
   await expect(toast(page)).toHaveCount(1);
   await expect(toast(page)).toContainText("Tog bort Gräddfil och Ägg.");
   await expect.poll(async () => (await stored()).has(ids["Ägg"])).toBe(false);
@@ -256,7 +263,7 @@ test("a second removal joins the confirmation, and one Ångra puts back both", a
 test("the last item's bin leaves the empty fridge with focus on Lägg till vara", async ({ page }) => {
   await reset(["Hemma"], [fridge[1]]);
   await page.goto("/hemma");
-  await bin(page, "Gräddfil").click();
+  await pressBin(page, "Gräddfil");
   await expect(page.getByText("Inget i kylen än.")).toBeVisible();
   await expect(search(page)).toHaveCount(0);
   await expect(page.getByRole("button", { name: "Lägg till vara", exact: true }).filter({ hasText: "Lägg till vara" })).toBeFocused();
