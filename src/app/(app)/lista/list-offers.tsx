@@ -1,10 +1,12 @@
 import { requireUserOrRedirect } from "@/features/auth/server";
-import { type StoreOffer, weekStartOf } from "@/features/offers";
+import { bestStore, type BestStore, type StoreOffer, weekStartOf } from "@/features/offers";
 import { getActiveOffers, getLastFetch, OffersDataError } from "@/features/offers/server";
 import { OffersSheetButton, type OffersListing } from "@/features/offers/ui/offers-sheet";
 import { addKeyedItems, getKeyedItemsOnList, ShoppingDataError } from "@/features/shopping/server";
 import { offersSiteName, type Store } from "@/features/settings";
 import { MealPlanDataError } from "@/features/mealplan/server";
+import { getPantrySnapshot, PantryDataError } from "@/features/pantry/server";
+import { getIngredientRecipeCounts, RecipeDataError } from "@/features/recipes/server";
 
 import { listStores, SettingsDataError } from "@/features/settings/server";
 
@@ -46,6 +48,18 @@ export async function ListOffers() {
     console.error("offers_unavailable", { reason: error.detail });
     unavailable = true;
   }
+  // Story 9.14: "Veckans bästa butik", counted without AI from the pantry and the recipes; left out when either cannot be read.
+  let best: BestStore | null = null;
+  const withOffers = new Set(offers.map((offer) => offer.storeId));
+  if (!unavailable && withOffers.size > 1) {
+    try {
+      const [snapshot, counts] = await Promise.all([getPantrySnapshot(), getIngredientRecipeCounts()]);
+      best = bestStore(offers, stores.map((store) => store.id), new Set(snapshot.keys()), counts);
+    } catch (error) {
+      if (!(error instanceof PantryDataError || error instanceof RecipeDataError)) throw error;
+      console.error("best_store_unavailable", { reason: error.detail });
+    }
+  }
   const now = new Date();
   return (
     <OffersSheetButton
@@ -62,6 +76,7 @@ export async function ListOffers() {
       now={now.toISOString()}
       unavailable={unavailable}
       listing={listing}
+      best={best}
     />
   );
 }

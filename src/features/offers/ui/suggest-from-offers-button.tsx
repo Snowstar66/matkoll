@@ -2,6 +2,7 @@
 
 import { useRef, useState } from "react";
 import { Button } from "@/components/button";
+import { FilterPills } from "@/components/filter-pills";
 import { useToast } from "@/components/toast";
 import { useAiJobs } from "@/lib/ai-jobs-client";
 import { suggestFromOffersText } from "../domain/offer";
@@ -11,6 +12,10 @@ export type SuggestFromOffersButtonProps = {
   hasOffers: boolean;
   /** Called when the job has started, e.g. to close the sheet. */
   onStarted?: () => void;
+  /** Story 9.14: the stores that have offers; with two or more, Pontus picks the store the dishes are built around. */
+  stores?: readonly { id: string; label: string }[];
+  /** The store that is chosen until Pontus picks another: the week's best store. */
+  defaultStoreId?: string;
 };
 
 /**
@@ -22,17 +27,21 @@ export type SuggestFromOffersButtonProps = {
  * button waits while one is started or active. The same key again gives the
  * same job, so a retry after a lost answer never makes a second one.
  */
-export function SuggestFromOffersButton({ hasOffers, onStarted }: SuggestFromOffersButtonProps) {
+export function SuggestFromOffersButton({ hasOffers, onStarted, stores = [], defaultStoreId }: SuggestFromOffersButtonProps) {
   const { showToast } = useToast();
   const { start } = useAiJobs();
   const [starting, setStarting] = useState(false);
   const key = useRef<string | null>(null);
+  const [picked, setPicked] = useState<string | null>(null);
+  // Story 9.14: with several stores the dishes are built around one of them; with one the server uses it as before.
+  const choose = stores.length > 1;
+  const storeId = choose ? (stores.find((store) => store.id === (picked ?? defaultStoreId))?.id ?? stores[0].id) : undefined;
 
   async function suggest() {
     if (starting) return;
     setStarting(true);
     const clientKey = (key.current ??= crypto.randomUUID());
-    const result = await start("/api/ai/jobs", { kind: "suggest", mode: "offers", avoidTitles: [] }, clientKey);
+    const result = await start("/api/ai/jobs", { kind: "suggest", mode: "offers", avoidTitles: [], ...(storeId ? { storeId } : {}) }, clientKey);
     setStarting(false);
     if (!result.ok) {
       // A network error may be tried again with the same key; any other answer is final for this tap.
@@ -47,6 +56,18 @@ export function SuggestFromOffersButton({ hasOffers, onStarted }: SuggestFromOff
 
   return (
     <div className="flex flex-col gap-2">
+      {choose && storeId ? (
+        <FilterPills
+          label="Butik för förslagen"
+          options={stores.map((store) => ({ value: store.id, label: store.label }))}
+          value={storeId}
+          onChange={(id) => {
+            key.current = null;
+            setPicked(id);
+          }}
+          disabled={starting}
+        />
+      ) : null}
       <Button
         type="button"
         variant="secondary"

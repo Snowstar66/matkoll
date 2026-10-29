@@ -310,11 +310,30 @@ describe("OffersSheet: several stores (Story 9.13)", () => {
     const best = within(dialog).getByRole("list", { name: "Bäst rabatt först" }).querySelectorAll("[data-testid=offer-row]");
     expect(best[0]).toHaveTextContent("Krokom");
     expect(best[1]).toHaveTextContent("Maxi");
-    await user.click(within(dialog).getByRole("radio", { name: "Krokom" }));
+    await user.click(within(within(dialog).getByRole("radiogroup", { name: "Visa butik" })).getByRole("radio", { name: "Krokom" }));
     expect(within(dialog).getAllByTestId("offer-row")).toHaveLength(2);
     expect(within(dialog).getByTestId("offers-summary")).toHaveTextContent("2 erbjudanden");
     await user.click(within(dialog).getByRole("radio", { name: "Alla" }));
     expect(within(dialog).getAllByTestId("offer-row")).toHaveLength(3);
+  });
+
+  it("shows the week's best store on top and preselects it in the picker for the suggestions (Story 9.14)", async () => {
+    render({ stores, offers: both, best: { storeId: krokom.id, fits: 2, total: 2, score: 3 } });
+    const { dialog } = await open();
+    const line = within(dialog).getByTestId("best-store");
+    expect(line).toHaveTextContent("Veckans bästa butik:");
+    expect(line).toHaveTextContent("Krokom");
+    expect(line).toHaveTextContent("2 erbjudanden passar det du brukar laga");
+    const picker = within(within(dialog).getByRole("radiogroup", { name: "Butik för förslagen" }));
+    expect(picker.getByRole("radio", { name: "Krokom" })).toBeChecked();
+    expect(picker.getByRole("radio", { name: "Maxi" })).not.toBeChecked();
+  });
+
+  it("has no best-store line and no picker with offers from one store only (Story 9.14)", async () => {
+    render({ stores, offers: both.slice(0, 1), best: { storeId: store.id, fits: 1, total: 1, score: 1 } });
+    const { dialog } = await open();
+    expect(within(dialog).queryByTestId("best-store")).not.toBeInTheDocument();
+    expect(within(dialog).queryByRole("radiogroup", { name: "Butik för förslagen" })).not.toBeInTheDocument();
   });
 
   it("puts the store in the item's note when offers are picked", async () => {

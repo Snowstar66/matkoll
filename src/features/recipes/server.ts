@@ -106,3 +106,19 @@ export async function getRecipeWithPantry(
 export async function getRecipesByIds(ids: readonly string[]): Promise<RecipeListRow[]> {
   return getRecipesByIdsIn(await createClient(), ids);
 }
+
+/**
+ * How many of the signed-in user's recipes use each catalog ingredient (by
+ * id), for "Veckans bästa butik" (Story 9.14). One read of the library's
+ * rows, which the library page reads anyway. Throws RecipeDataError.
+ */
+export async function getIngredientRecipeCounts(): Promise<Map<string, number>> {
+  const rows = await listRecipesIn(await createClient());
+  const counts = new Map<string, number>();
+  for (const row of rows) {
+    for (const id of new Set(row.lines.flatMap((line) => (line.ingredientId ? [line.ingredientId] : [])))) {
+      counts.set(id, (counts.get(id) ?? 0) + 1);
+    }
+  }
+  return counts;
+}

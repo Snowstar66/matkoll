@@ -67,7 +67,7 @@ const { SettingsDataError, OffersDataError } = vi.hoisted(() => ({
 }));
 const getSelectedStore = vi.fn<() => Promise<{ id: string } | null>>();
 const getActiveOffers = vi.fn<(storeId: string) => Promise<unknown[]>>();
-const listStores = vi.fn<() => Promise<{ id: string }[]>>();
+const listStores = vi.fn<() => Promise<{ id: string; name: string }[]>>();
 vi.mock("@/features/settings/server", () => ({ SettingsDataError, getSelectedStore: () => getSelectedStore(), listStores: () => listStores() }));
 vi.mock("@/features/offers/server", () => ({ OffersDataError, getActiveOffers: (storeId: string) => getActiveOffers(storeId) }));
 
@@ -123,7 +123,7 @@ beforeEach(() => {
   );
   suggestDishes.mockReset().mockImplementation(ai.suggestDishes);
   getSelectedStore.mockReset().mockResolvedValue({ id: "store" });
-  listStores.mockReset().mockResolvedValue([{ id: "store" }, { id: "krokom" }]);
+  listStores.mockReset().mockResolvedValue([{ id: "store", name: "Maxi ICA Stormarknad Östersund" }, { id: "krokom", name: "ICA Kvantum Krokom" }]);
   getActiveOffers.mockReset().mockResolvedValue([]);
 });
 

@@ -4,7 +4,7 @@ import { CatalogDataError, getIngredientNames, matchIngredients } from "@/featur
 import type { PantrySnapshot } from "@/features/pantry";
 import { getPantryForStatus } from "@/features/pantry/server";
 import { getActiveOffers, OffersDataError } from "@/features/offers/server";
-import type { StoreOffer } from "@/features/offers";
+import { storeBadgeText, type StoreOffer } from "@/features/offers";
 import { getSelectedStore, listStores, SettingsDataError } from "@/features/settings/server";
 import { fromAiRecipe, recipeDraftSchema, type RecipeDraft } from "@/features/recipes";
 import { fail, ok, type Result } from "@/lib/errors";
@@ -70,13 +70,13 @@ function linkedIds(draft: RecipeDraft): string[] {
  * and `offers_unavailable` when the store or the offers cannot be read
  * (logged, codes only).
  */
-async function readOffers(storeId?: string): Promise<Result<StoreOffer[]>> {
+async function readOffers(storeId?: string): Promise<Result<{ offers: StoreOffer[]; storeName: string }>> {
   try {
     // Story 9.13: a given store (one of the user's own), else the selected one.
     const store = storeId ? ((await listStores()).find((candidate) => candidate.id === storeId) ?? null) : await getSelectedStore();
     if (!store) return fail("offers_store_missing");
     const offers = await getActiveOffers(store.id);
-    return offers.length > 0 ? ok(offers) : fail("offers_none");
+    return offers.length > 0 ? ok({ offers, storeName: store.name }) : fail("offers_none");
   } catch (error) {
     if (!(error instanceof SettingsDataError || error instanceof OffersDataError)) throw error;
     console.error("offers_unavailable", { reason: error.detail });
@@ -157,10 +157,13 @@ async function suggest(
 
   // Story 9.5: the offers are read here, in the job, and only their names go to the model.
   let offers: StoreOffer[] = [];
+  let storeName: string | null = null;
   if (byOffers) {
     const read = await readOffers(request.storeId);
     if (!read.ok) return read;
-    offers = read.data;
+    offers = read.data.offers;
+    // Story 9.14: named in the result only when Pontus picked the store.
+    if (request.storeId) storeName = storeBadgeText(read.data.storeName);
   }
 
   const pantryNames = await fromCatalog(() => getIngredientNames([...snapshot.keys()]));
@@ -215,6 +218,7 @@ async function suggest(
   return ok({
     siteId: pantry.data.siteId,
     mode: request.mode ?? "pantry",
+    storeName,
     suggestions: drafts.map((draft) => {
       const linked = linkedIds(draft);
       const ingredientNames = Object.fromEntries(
