@@ -20,6 +20,8 @@ type CardBase = {
   /** Bottom left on the image: the status ("Kan lagas nu", on the light plate) or "AI-förslag". */
   badge?: ReactNode;
   "data-testid"?: string;
+  /** The soptunna's name; by default "Ta bort <titel>". */
+  deleteLabel?: string;
 };
 
 /**
@@ -46,7 +48,8 @@ type LinkCardProps = CardBase & {
 type PlainCardProps = CardBase & {
   href?: never;
   favorite?: never;
-  onDelete?: never;
+  /** A small soptunna like a saved recipe's, for a suggestion Pontus does not want (Story 16.1). */
+  onDelete?: (bin: HTMLButtonElement) => void;
   children?: ReactNode;
 };
 
@@ -75,6 +78,7 @@ export function RecipeCard({
   badge,
   favorite,
   onDelete,
+  deleteLabel,
   children,
   "data-testid": testId = "recipe-card",
 }: RecipeCardProps) {
@@ -96,7 +100,7 @@ export function RecipeCard({
           <p className="text-meta text-ink-3">{meta}</p>
         </div>
         {onDelete ? (
-          <TrashButton label={`Ta bort ${title}`} onPress={onDelete} className="relative z-10 -mt-2" />
+          <TrashButton label={deleteLabel ?? `Ta bort ${title}`} onPress={onDelete} className="relative z-10 -mt-2" />
         ) : null}
       </div>
       <div className="relative order-first">

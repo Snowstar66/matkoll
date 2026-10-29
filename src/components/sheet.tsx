@@ -231,6 +231,10 @@ export function Sheet({
         // Closed by the browser while still meant to be open (back gesture, form method="dialog",
         // a cancel the browser would not let us stop).
         if (!open) return;
+        // The "close" of an effect's own `dialog.close()` arrives as a task after the effect has
+        // run again (React's Strict Mode, or a hidden page shown again) and shown the dialog anew:
+        // that is no close to follow, or a sheet mounted open would shut at once.
+        if (event.currentTarget.open) return;
         if (latest.current.preventClose) {
           event.currentTarget.showModal();
         } else if (latest.current.isDirty) {

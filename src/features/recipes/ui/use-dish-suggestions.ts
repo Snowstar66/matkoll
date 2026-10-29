@@ -52,7 +52,7 @@ export type DishSuggestionsState = {
   suggest: () => void;
   /** "Avbryt": stops the job; nothing is shown for it and the suggestions from before stay. */
   cancel: () => void;
-  /** A saved suggestion leaves the section; its title is still avoided by "Föreslå andra rätter". */
+  /** A saved or removed suggestion leaves the section; its title is still avoided by "Föreslå andra rätter". */
   remove: (key: number) => void;
 };
 
@@ -225,15 +225,16 @@ export function useDishSuggestions(
   }
 
   function remove(key: number) {
-    const saved = made.suggestions.find((suggestion) => suggestion.key === key);
-    if (saved) savedTitles.current = [saved.draft.title, ...savedTitles.current];
+    const gone = made.suggestions.find((suggestion) => suggestion.key === key);
+    if (!gone) return;
+    savedTitles.current = [gone.draft.title, ...savedTitles.current];
     const left = made.suggestions.filter((suggestion) => suggestion.key !== key);
-    setMade((current) => ({ ...current, suggestions: left }));
-    // The last one is saved: the result has done its part.
-    if (left.length === 0 && made.jobId) {
-      void dismiss(made.jobId);
-      setMade((current) => ({ ...current, jobId: null }));
-    }
+    // The last one is gone: the result has done its part.
+    if (left.length === 0 && made.jobId) void dismiss(made.jobId);
+    setMade((current) => {
+      const suggestions = current.suggestions.filter((suggestion) => suggestion.key !== key);
+      return { ...current, suggestions, jobId: suggestions.length === 0 ? null : current.jobId };
+    });
   }
 
   return {
