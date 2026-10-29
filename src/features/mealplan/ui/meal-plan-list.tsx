@@ -36,6 +36,7 @@ import {
   type PlanRecipeRow,
   type ServingsChange,
   type WeekdayChange,
+  weekdayDateText,
 } from "../domain/meal-plan";
 import { AddDishButton, useAddDish } from "./add-dish-sheet";
 import { MarkCookedButton } from "./mark-cooked-button";
@@ -48,6 +49,16 @@ import { MoveToDayButton } from "./move-to-day-button";
 // to the left or "Ta bort" removes a dish at once, and the short confirmation
 // offers "Ångra" for 5 s, which puts it back with the same id (AD-20). Under
 // the dishes, "Lägg till rätt" and "Visa inköpslistan".
+
+/** A moment this week, kept as one value so the store snapshot stays stable between renders. */
+let anchorValue: Date | null = null;
+function weekAnchor(): Date {
+  // A day-old value would show yesterday's dates after midnight; refresh when the date changes.
+  if (!anchorValue || todayWeekday(anchorValue) !== todayWeekday(new Date()) || Date.now() - anchorValue.getTime() > 86_400_000) {
+    anchorValue = new Date();
+  }
+  return anchorValue;
+}
 
 /** Nothing to subscribe to: today only changes when the page is read again. */
 const subscribeToNothing = () => () => {};
@@ -268,6 +279,12 @@ export function MealPlanList({ planName, dishes, snapshot, siteLine = null, site
     () => todayWeekday(new Date()),
     () => null,
   );
+  /** The week's dates ("26 okt") are known only in the browser too, for the same reason. */
+  const weekOf = useSyncExternalStore(
+    subscribeToNothing,
+    () => weekAnchor(),
+    () => null,
+  );
   const { open: openAdd } = useAddDish();
 
   function moveDish(dish: PlanDish, weekday: number | null) {
@@ -417,13 +434,29 @@ export function MealPlanList({ planName, dishes, snapshot, siteLine = null, site
         {sections.map(({ weekday, dishes: dayDishes }) => {
           const heading = weekday ? (weekdayNames[weekday - 1] ?? "") : "Ingen dag än";
           const isToday = weekday !== null && weekday === today;
+          const date = weekday && weekOf ? weekdayDateText(weekOf, weekday) : null;
+          const title = (
+            <>
+              <span className="text-body font-semibold text-ink">{heading}</span>
+              {date ? (
+                <span className="text-meta text-ink-3">
+                  <span aria-hidden="true">· </span>
+                  {date}
+                </span>
+              ) : null}
+              {isToday ? (
+                <span className="rounded-full bg-accent/15 px-2 text-meta font-semibold text-accent">Idag</span>
+              ) : null}
+            </>
+          );
           return (
             <li
               key={weekday ?? "none"}
               data-testid="plan-day"
               data-day={weekday ?? "none"}
               data-today={isToday || undefined}
-              className="flex flex-col gap-2"
+              aria-current={isToday ? "date" : undefined}
+              className={`flex flex-col gap-2 ${isToday ? "-ml-3 rounded-lg border-l-4 border-accent pl-2" : ""}`}
             >
               {dayDishes.length === 0 && weekday ? (
                 // An empty day is one thin row: the day, "Ledig", and a tap adds a dish to it.
@@ -432,20 +465,14 @@ export function MealPlanList({ planName, dishes, snapshot, siteLine = null, site
                   data-testid="day-free"
                   aria-label={`Lägg till rätt på ${heading.toLowerCase()}`}
                   onClick={() => openAdd(weekday)}
-                  className="flex min-h-tap w-full flex-wrap items-center justify-between gap-x-3 gap-y-1 rounded-lg border border-dashed border-hairline px-3 py-2 text-left"
+                  className={`flex min-h-tap w-full flex-wrap items-center justify-between gap-x-3 gap-y-1 rounded-lg border border-dashed px-3 py-2 text-left ${isToday ? "border-accent bg-accent/10" : "border-hairline"}`}
                 >
-                  <span className="flex min-w-0 flex-wrap items-center gap-x-2 text-section-label text-ink-2">
-                    {heading}
-                    {isToday ? <span className="text-accent">Idag</span> : null}
-                  </span>
+                  <span className="flex min-w-0 flex-wrap items-baseline gap-x-2">{title}</span>
                   <span className="text-meta text-ink-3">Ledig</span>
                 </button>
               ) : (
                 <>
-                  <h3 className="flex items-center gap-2 text-section-label text-ink-2">
-                    {heading}
-                    {isToday ? <span className="text-accent">Idag</span> : null}
-                  </h3>
+                  <h3 className="flex flex-wrap items-baseline gap-x-2">{title}</h3>
                   <ul aria-label={heading} className="flex flex-col gap-3">
                     {dayDishes.map((dish) => (
                       <DishCard

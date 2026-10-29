@@ -118,8 +118,11 @@ describe("MealPlanList", () => {
     expect(within(days[3]).getAllByTestId("plan-dish").map((c) => c.textContent?.slice(0, 5))).toEqual(["Soppa", "Pasta"]);
     expect(days[3]).toHaveAttribute("data-today", "true");
     expect(within(days[3]).getByText("Idag")).toBeInTheDocument();
+    expect(days[3]).toHaveAttribute("aria-current", "date");
+    expect(days[3]).toHaveTextContent("Torsdag· 29 oktIdag");
     expect(days[0]).not.toHaveAttribute("data-today");
-    expect(within(days[0]).getByTestId("day-free")).toHaveTextContent("MåndagLedig");
+    expect(days[0]).not.toHaveAttribute("aria-current");
+    expect(within(days[0]).getByTestId("day-free")).toHaveTextContent("Måndag· 26 oktLedig");
     expect(within(days[7]).getByRole("heading", { name: "Ingen dag än" })).toBeInTheDocument();
     expect(within(days[7]).getByTestId("plan-dish")).toHaveTextContent("Gryta");
   });

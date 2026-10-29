@@ -2503,6 +2503,26 @@ så att jag ser veckan i överblick och vet vad vi äter när.
 **När** ändringen går live
 **Så** behåller alla rätter sina data och hamnar under "Ingen dag än", och "Markera som lagad", portioner, soptunna och tidigare veckor fungerar som förut
 
+### Story 13.6: Idag och datum på matsedeln
+
+Som Pontus,
+vill jag se dagens datum vid varje dag och en lugnare markering av idag,
+så att veckan känns som en kalender och dagens middag syns utan att texten skriker.
+
+**Acceptance Criteria:**
+
+**Givet** veckovyn på matsedeln
+**När** den visas
+**Så** står varje dag med stor begynnelsebokstav ("Måndag"), inte med versaler, och datumet ligger diskret efter dagens namn i dämpad text ("Måndag · 26 okt"), räknat måndag–söndag i svensk tid
+
+**Givet** dagens veckodag
+**När** matsedeln visas
+**Så** har den dagens sektion ett tunt accentstreck till vänster och en liten ljus "Idag"-pill efter datumet, och en tom dag ("Ledig") eller rättkort på dagen får samma dämpade markering, och sektionen har `aria-current="date"`
+
+**Givet** 375 px bredd, mörkt läge eller 200 % text
+**När** veckovyn visas
+**Så** blir ingenting avklippt eller sidledes, tryckytorna är minst 44 px, och "Ingen dag än", "Flytta till dag", "Markera som lagad", portioner, soptunna, "Lägg till rätt" och "Ledig"-raderna fungerar som förut
+
 ## Epic 14: Tydligare flöden
 
 Pontus förstod inte hur listan kommer till butiken, och erbjudandevyn har blivit rörig när funktionerna lagts på varandra.
