@@ -73,9 +73,9 @@ export function progressText(left: number, checked: number, total: number): { le
   return { left: itemsLeftText(left), basket: `${checked} av ${total} i korgen` };
 }
 
-/** The basket row under the list: "1 vara i korgen", "6 varor i korgen". */
+/** The header of I korgen under the list: "I korgen (6)". */
 export function basketText(count: number): string {
-  return `${count} ${count === 1 ? "vara" : "varor"} i korgen`;
+  return `I korgen (${count})`;
 }
 
 /**
@@ -86,8 +86,6 @@ export function basketToggleText(open: boolean, count: number): string {
   return open ? "Dölj I korgen" : `Visa I korgen (${count} ${count === 1 ? "vara" : "varor"})`;
 }
 
-/** The heading of the checked lines when "Visa" opens them. */
-export const basketTitle = "I korgen";
 
 /** Announced when a line is checked off and moves to I korgen: "Citron i korgen.". */
 export function inBasketAnnouncement(label: NameInText): string {

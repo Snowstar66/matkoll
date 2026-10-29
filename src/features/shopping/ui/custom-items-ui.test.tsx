@@ -67,6 +67,8 @@ const searchIngredients = vi.fn(async (query: string) =>
 );
 
 beforeEach(() => {
+  // These tests start from I korgen folded; Story 3.9 opens it by default.
+  window.localStorage.setItem("matkoll:basket-open", "0");
   addCustomItem.mockReset().mockImplementation(async (input) =>
     ok({ id: input.id!, planId, label: input.label, ingredientId: input.ingredientId ?? null, amount: null, unit: null }),
   );
@@ -228,12 +230,11 @@ describe("removing an own item", () => {
 
     await user.click(screen.getByRole("button", { name: "Ångra" }));
     expect(restoreCustomItem).toHaveBeenCalledWith(diskRow);
-    // The basket folded when it was empty: the item is back in it, still checked.
-    expect(await screen.findByText("1 vara i korgen")).toBeInTheDocument();
-    await user.click(screen.getByRole("button", { name: /^Visa I korgen/ }));
+    // The basket stays as it was left (open): the item is back in it, still checked.
+    expect(await screen.findByText("I korgen (1)")).toBeInTheDocument();
     const back = screen.getByRole("checkbox", { name: "diskmedel" });
     expect(back).toBeChecked();
-    expect(within(screen.getByRole("list", { name: "I korgen" })).getByText("diskmedel")).toBeInTheDocument();
+    expect(within(screen.getByRole("list", { name: /^I korgen/ })).getByText("diskmedel")).toBeInTheDocument();
   });
 
   it("joins items removed while the confirmation shows, and puts them all back", async () => {

@@ -7,7 +7,6 @@ import {
   stepsText,
   backOnListAnnouncement,
   basketText,
-  basketTitle,
   basketToggleText,
   missingText,
   checkLabel,
@@ -73,9 +72,8 @@ describe("list texts", () => {
   });
 
   it("counts the basket and announces a line moving in and out of it (Story 11.4)", () => {
-    expect(basketText(1)).toBe("1 vara i korgen");
-    expect(basketText(6)).toBe("6 varor i korgen");
-    expect(basketTitle).toBe("I korgen");
+    expect(basketText(1)).toBe("I korgen (1)");
+    expect(basketText(6)).toBe("I korgen (6)");
     expect(inBasketAnnouncement("Citron")).toBe("Citron i korgen.");
     expect(backOnListAnnouncement("Citron")).toBe("Citron tillbaka på listan.");
     // The user's own text is shown as written, but starts the sentence with a capital.

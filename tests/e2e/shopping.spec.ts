@@ -153,7 +153,11 @@ const summary = (page: Page) => page.getByTestId("list-summary").filter({ visibl
 const progress = (page: Page) => page.getByTestId("list-progress").filter({ visible: true });
 const sectionHeadings = (page: Page) => page.getByRole("heading", { level: 2 }).filter({ visible: true });
 /** Unfolds I korgen, where the checked lines are (Story 11.4). */
-const showBasket = (page: Page) => page.getByRole("button", { name: /^Visa I korgen/ }).filter({ visible: true }).click();
+const showBasket = async (page: Page) => {
+  // I korgen is open from the start (Story 3.9): "Visa" only when it was folded.
+  const show = page.getByRole("button", { name: /^Visa I korgen/ }).filter({ visible: true });
+  if ((await show.count()) > 0) await show.click();
+};
 const check = (page: Page, name: string) => page.getByRole("checkbox", { name, exact: true }).filter({ visible: true });
 const tab = (page: Page, name: "Matsedel" | "Inköpslista") =>
   page.getByRole("navigation", { name: "Huvudmeny" }).getByRole("link", { name });
@@ -239,8 +243,8 @@ test("a check is saved at once, moves the line to I korgen, stays after a reload
   expect(box?.height).toBeGreaterThanOrEqual(44);
 
   await actionsAnswered(page, 1, () => check(page, "Paprika, 1 st").click());
-  // Moved at once to I korgen, which is folded (Story 11.4).
-  await expect(check(page, "Paprika, 1 st")).toHaveCount(0);
+  // Moved at once to I korgen, which is open from the start (Story 3.9).
+  await expect(region(page, "I korgen (1)").getByRole("checkbox", { name: "Paprika, 1 st" })).toBeChecked();
   await expect(progress(page)).toHaveText(/^4 varor kvar\s*1 av 5 i korgen$/);
   await showBasket(page);
   await expect(check(page, "Paprika, 1 st")).toBeChecked();
@@ -380,7 +384,9 @@ async function seedCustomItems(
 
 const customSheet = (page: Page) => page.getByRole("dialog", { name: "Lägg till egen vara" });
 const addCustomButton = (page: Page) => page.getByRole("button", { name: "Lägg till egen vara" }).filter({ visible: true });
-const region = (page: Page, name: string) => page.getByRole("list", { name, exact: true }).filter({ visible: true });
+const region = (page: Page, name: string) =>
+  // I korgen is named with its count, "I korgen (1)" (Story 3.9).
+  page.getByRole("list", name === "I korgen" ? { name: /^I korgen \(\d+\)$/ } : { name, exact: true }).filter({ visible: true });
 const toast = (page: Page) => page.getByTestId("toast");
 // An own item's row also holds its "Ta bort", behind the row until it is swiped.
 
@@ -490,6 +496,8 @@ test("an own item is checked off, removed by swipe and put back with Ångra, wit
   expect(data).toEqual([{ line_key: `c:${seeded.get("diskmedel")}` }]);
 
   const row = region(page, "I korgen").getByTestId("shopping-line");
+  // The "i korgen" toast (Story 3.9) may lie over the row: wait for it to go.
+  await expect(toast(page)).toHaveCount(0);
   await swipeLeft(page, row);
   await expect(row.getByTestId("swipe-row-front")).toHaveCSS("transform", "matrix(1, 0, 0, 1, -96, 0)");
   await actionsAnswered(page, 1, () => page.getByRole("button", { name: "Svep bort diskmedel" }).click());
@@ -498,7 +506,7 @@ test("an own item is checked off, removed by swipe and put back with Ångra, wit
   await expect.poll(async () => (await storedCustomItems()).map((item) => item.label)).toEqual(["Kaffe"]);
 
   await actionsAnswered(page, 1, () => toast(page).getByRole("button", { name: "Ångra" }).click());
-  // Back in I korgen, still checked; the basket folded when it was empty.
+  // Back in I korgen, still checked.
   await showBasket(page);
   await expect(region(page, "I korgen").getByTestId("shopping-line")).toContainText(["diskmedel"]);
   await expect(check(page, "diskmedel")).toBeChecked();

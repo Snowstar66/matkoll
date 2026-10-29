@@ -110,7 +110,11 @@ const check = (page: Page, name: string) => page.getByRole("checkbox", { name, e
 const putButton = (page: Page) => page.getByRole("button", { name: "Lägg i lagret", exact: true }).filter({ visible: true });
 const toast = (page: Page) => page.getByTestId("toast");
 /** Unfolds I korgen, where the checked lines are (Story 11.4). */
-const showBasket = (page: Page) => page.getByRole("button", { name: /^Visa I korgen/ }).filter({ visible: true }).click();
+const showBasket = async (page: Page) => {
+  // I korgen is open from the start (Story 3.9): "Visa" only when it was folded.
+  const show = page.getByRole("button", { name: /^Visa I korgen/ }).filter({ visible: true });
+  if ((await show.count()) > 0) await show.click();
+};
 const tab = (page: Page, name: "Recept" | "Lagersaldo" | "Inköpslista") =>
   page.getByRole("navigation", { name: "Huvudmeny" }).getByRole("link", { name });
 
@@ -140,8 +144,8 @@ test("Lägg i lagret puts the checked lines in the pantry, takes them off the li
   for (const name of ["Grädde, 2 dl", "Paprika, 2 st", "Salt", "kaffe", "diskmedel"]) {
     // From the keyboard: clicks on other lines in quick succession would be taken as a double click (Story 11.4).
     await check(page, name).press("Space");
-    // Moved to I korgen at once (Story 11.4).
-    await expect(check(page, name)).toHaveCount(0);
+    // Moved to I korgen at once, which is open (Story 3.9): still there, checked.
+    await expect(check(page, name)).toBeChecked();
   }
   await expect(page.getByTestId("list-progress").filter({ visible: true })).toHaveText("Allt ligger i korgen");
   await putButton(page).click();
