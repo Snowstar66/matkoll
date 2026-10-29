@@ -642,6 +642,22 @@ så att jag kan importera från nya sajter utan kodändring.
 **När** Pontus trycker på den
 **Så** avslutas sessionen och inloggningssidan visas
 
+### Story 1.13: Spara i Matkoll från receptsajten
+
+Som Pontus,
+vill jag skicka ett recept från koket.se eller en annan godkänd sajt till Matkoll med ett tryck,
+så att jag slipper kopiera och klistra in länken.
+
+**Acceptance Criteria:**
+
+**Givet** adressen `/recept/importera?url=<receptets adress>`
+**När** Pontus öppnar den inloggad
+**Så** startar importen från länk direkt (samma regler som Story 1.8 och godkända sajter i 1.12) och förhandsgranskningen visas, och en sajt som inte är godkänd ger samma tydliga meddelande som förut
+
+**Givet** Inställningar
+**När** Pontus öppnar avsnittet "Spara i Matkoll"
+**Så** finns ett bokmärke att dra till bokmärkesfältet på datorn, en kort instruktion för en iOS-genväg via Dela-menyn, och Android kan dela till Matkoll när appen är installerad (Web Share Target i manifestet)
+
 ## Epic 2: Lager
 
 Pontus kan föra in det som finns hemma per plats, med eller utan mängd, och ser direkt i receptbiblioteket vilka rätter som kan lagas och hur många varor som saknas.
