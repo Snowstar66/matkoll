@@ -1,6 +1,9 @@
 "use server";
 
+import { cookies } from "next/headers";
 import { redirect } from "next/navigation";
+import { devLoggedOutCookie, devLoggedOutMaxAgeSeconds } from "@/lib/supabase/dev-auto-login";
+import { devAutoLoginApplies } from "@/lib/supabase/dev-auto-login-server";
 import { fail, type Result } from "@/lib/errors";
 import { endSession } from "../data/auth";
 
@@ -20,5 +23,14 @@ export async function signOut(): Promise<Result<never>> {
   }
   // The session is gone here, but Supabase could not revoke it on its side.
   if (outcome.code) console.error("auth_sign_out_revoke_failed", outcome.code);
+  // Story 15.1: a logout must not be undone by the local auto-login on the next page load.
+  if (await devAutoLoginApplies()) {
+    (await cookies()).set(devLoggedOutCookie, "1", {
+      httpOnly: true,
+      sameSite: "lax",
+      path: "/",
+      maxAge: devLoggedOutMaxAgeSeconds,
+    });
+  }
   redirect("/logga-in");
 }
