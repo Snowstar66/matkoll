@@ -36,7 +36,7 @@ function fakeLayout({ width, barWidth, barHeight = 52, top = 676 }: { width: num
 
 const twoButtons = (
   <FixedAction>
-    <Button variant="secondary">Skicka till ICA</Button>
+    <Button variant="secondary">Kopiera till ICA-varukorgen</Button>
     <Button>Lägg i lagret</Button>
   </FixedAction>
 );
@@ -53,7 +53,7 @@ describe("FixedAction", () => {
     const bar = screen.getByTestId("fixed-action");
     expect(bar).toHaveAttribute("data-layout", "row");
     expect(bar).toHaveClass("flex-row", "*:grow", "*:basis-0", "*:min-w-fit", "*:max-w-full");
-    expect(names()).toEqual(["Skicka till ICA", "Lägg i lagret"]);
+    expect(names()).toEqual(["Kopiera till ICA-varukorgen", "Lägg i lagret"]);
   });
 
   it("stacks two buttons that do not fit, the last on top and first in the DOM, with labels that wrap", async () => {
@@ -63,7 +63,7 @@ describe("FixedAction", () => {
     await waitFor(() => expect(bar).toHaveAttribute("data-layout", "stacked"));
     expect(bar).toHaveClass("flex-col", "[&>button]:whitespace-normal", "[&>button]:h-auto", "[&>button]:min-h-button");
     // The reading and tab order follow what is seen.
-    expect(names()).toEqual(["Lägg i lagret", "Skicka till ICA"]);
+    expect(names()).toEqual(["Lägg i lagret", "Kopiera till ICA-varukorgen"]);
   });
 
   it("stands at the end of the page when it would take more than a quarter of the window", async () => {

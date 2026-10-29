@@ -10,7 +10,7 @@ import { basketEndMarker, basketExportHeader, basketInstruction } from "../domai
 import type { ProductChoice } from "../domain/product-choice";
 import { ShoppingList, type ShoppingListProps } from "./shopping-list";
 
-// "Skicka till ICA" (Story 7.3): the export is built in the browser from the
+// "Kopiera till ICA-varukorgen" (Story 7.3): the export is built in the browser from the
 // list as shown and written to the clipboard in the same tap, with no fetch
 // and no Server Action; a refused clipboard opens the sheet Inköpslistan
 // with the text selected and "Kopiera".
@@ -119,7 +119,7 @@ function ServerList() {
 }
 
 const copied = "Inköpslistan är kopierad. Klistra in den i Claude i Chrome på ICA Handla.";
-const sendButton = (name = "Skicka till ICA") => screen.queryByRole("button", { name });
+const sendButton = (name = "Kopiera till ICA-varukorgen") => screen.queryByRole("button", { name });
 
 /** A clipboard whose writeText answers with `answers` in turn, then the last again. */
 function stubClipboard(...answers: ("ok" | "refuse")[]) {
@@ -156,7 +156,7 @@ function expectNoServer() {
   expect(refresh).not.toHaveBeenCalled();
 }
 
-describe("Skicka till ICA", () => {
+describe("Kopiera till ICA-varukorgen", () => {
   it("writes the export to the clipboard in the tap itself, with no fetch or action, and confirms", async () => {
     const writeText = stubClipboard("ok");
     render(<ShoppingList {...props()} />);
@@ -212,7 +212,7 @@ describe("Skicka till ICA", () => {
     const send = sendButton()!;
     expect(put).toHaveClass("bg-accent");
     expect(send).toHaveClass("bg-sky");
-    // One FixedAction: "Skicka till ICA" first in the row, "Lägg i lagret" after it (on top when they wrap).
+    // One FixedAction: "Kopiera till ICA-varukorgen" first in the row, "Lägg i lagret" after it (on top when they wrap).
     expect(put.parentElement).toBe(send.parentElement);
     expect(send.compareDocumentPosition(put) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
 
@@ -230,7 +230,7 @@ describe("Skicka till ICA", () => {
     ["no meal plan", props({ plan: null, lines: [] })],
   ])("is not shown for %s", (_, list) => {
     render(<ShoppingList {...list} />);
-    expect(screen.queryByRole("button", { name: /^Skicka till/ })).not.toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: /^Kopiera till/ })).not.toBeInTheDocument();
   });
 
   it("takes every line but the vague ones when the checks could not be read, and says to check the basket", async () => {
@@ -279,12 +279,12 @@ describe("Skicka till ICA", () => {
   });
 
   it.each([
-    ["Willys", "Skicka till Willys", "Inköpslistan är kopierad. Klistra in den i Claude i Chrome på butikens webbplats."],
-    ["Annan", "Skicka till butiken", "Inköpslistan är kopierad. Klistra in den i Claude i Chrome på butikens webbplats."],
+    ["Willys", "Kopiera till Willys-varukorgen", "Inköpslistan är kopierad. Klistra in den i Claude i Chrome på butikens webbplats."],
+    ["Annan", "Kopiera till varukorgen", "Inköpslistan är kopierad. Klistra in den i Claude i Chrome på butikens webbplats."],
   ] as const)("names the button after the chain %s, and confirms with the store's site", async (chain, name, text) => {
     const writeText = stubClipboard("ok");
     render(<ShoppingList {...props({ store: { ...maxi, chain, name: "Butiken" } })} />);
-    expect(sendButton("Skicka till ICA")).not.toBeInTheDocument();
+    expect(sendButton("Kopiera till ICA-varukorgen")).not.toBeInTheDocument();
     fireEvent.click(sendButton(name)!);
     expect(writeText.mock.calls[0]![0]).toContain(`Kedja: ${chain}\n`);
     expect(await screen.findByTestId("toast")).toHaveTextContent(text);
@@ -307,7 +307,7 @@ describe("Skicka till ICA", () => {
     const user = userEvent.setup();
     const writeText = stubClipboard("ok");
     render(<ShoppingList {...list} />);
-    await user.click(sendButton("Skicka till butiken")!);
+    await user.click(sendButton("Kopiera till varukorgen")!);
     expect(writeText).not.toHaveBeenCalled();
     const notice = await screen.findByRole("alert");
     expect(notice).toHaveTextContent("Det gick inte att läsa butiken. Öppna inställningarna och försök igen.");
@@ -326,7 +326,7 @@ describe("Skicka till ICA", () => {
       </Activity>
     );
     const { rerender } = render(view("visible"));
-    await user.click(sendButton("Skicka till butiken")!);
+    await user.click(sendButton("Kopiera till varukorgen")!);
     expect(await screen.findByRole("alert")).toBeInTheDocument();
     await act(async () => rerender(view("hidden")));
     await act(async () => rerender(view("visible")));
@@ -337,7 +337,7 @@ describe("Skicka till ICA", () => {
     const user = userEvent.setup();
     stubClipboard("ok");
     const { rerender } = render(<ShoppingList {...props({ store: null, storeUnavailable: true })} />);
-    await user.click(sendButton("Skicka till butiken")!);
+    await user.click(sendButton("Kopiera till varukorgen")!);
     expect(await screen.findByRole("alert")).toBeInTheDocument();
     rerender(<ShoppingList {...props()} />);
     await waitFor(() => expect(screen.queryByRole("alert")).not.toBeInTheDocument());

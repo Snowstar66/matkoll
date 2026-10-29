@@ -2,6 +2,9 @@ import { describe, expect, it } from "vitest";
 import type { ShoppingLine } from "./compute-list";
 import {
   allInStockText,
+  chainSite,
+  openSiteText,
+  stepsText,
   backOnListAnnouncement,
   basketText,
   basketTitle,
@@ -264,11 +267,11 @@ describe("putInPantryText", () => {
 
 describe("the basket export's texts (Story 7.3)", () => {
   it("names the button after the store's chain, and the store for Annan or none", () => {
-    expect(sendButtonText({ chain: "ICA" })).toBe("Skicka till ICA");
-    expect(sendButtonText({ chain: "Willys" })).toBe("Skicka till Willys");
-    expect(sendButtonText({ chain: "City Gross" })).toBe("Skicka till City Gross");
-    expect(sendButtonText({ chain: "Annan" })).toBe("Skicka till butiken");
-    expect(sendButtonText(null)).toBe("Skicka till butiken");
+    expect(sendButtonText({ chain: "ICA" })).toBe("Kopiera till ICA-varukorgen");
+    expect(sendButtonText({ chain: "Willys" })).toBe("Kopiera till Willys-varukorgen");
+    expect(sendButtonText({ chain: "City Gross" })).toBe("Kopiera till City Gross-varukorgen");
+    expect(sendButtonText({ chain: "Annan" })).toBe("Kopiera till varukorgen");
+    expect(sendButtonText(null)).toBe("Kopiera till varukorgen");
   });
 
   it("says where to paste: ICA Handla for ICA, the store's site for another chain", () => {
@@ -302,5 +305,16 @@ describe("the basket export's texts (Story 7.3)", () => {
   it("names the sheet and says what to do when copying is refused again", () => {
     expect(exportSheetTitle).toBe("Inköpslistan");
     expect(copyFailedText).toBe("Det gick inte att kopiera. Markera texten och kopiera den själv.");
+  });
+
+  it("names the chain in the steps, and gives the site only for a known chain (Story 14.2)", () => {
+    expect(stepsText({ chain: "ICA" })[0]).toBe("Öppna ICAs webbplats och logga in");
+    expect(stepsText({ chain: "Annan" })[0]).toBe("Öppna butikens webbplats och logga in");
+    expect(stepsText(null)).toHaveLength(3);
+    expect(chainSite({ chain: "ICA" })).toEqual({ host: "ica.se", url: "https://www.ica.se" });
+    expect(chainSite({ chain: "City Gross" })?.host).toBe("citygross.se");
+    expect(chainSite({ chain: "Annan" })).toBeNull();
+    expect(chainSite(null)).toBeNull();
+    expect(openSiteText("ica.se")).toBe("Öppna ica.se");
   });
 });
