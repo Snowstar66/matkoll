@@ -29,3 +29,6 @@ export function rgbToHex(rgb: string): string {
   if (channels.some((channel) => channel > 255)) throw new Error(`Not an rgb() colour: ${rgb}`);
   return `#${channels.map((channel) => channel.toString(16).padStart(2, "0")).join("").toUpperCase()}`;
 }
+
+/** The jar icon's own colours (Story 11.7): the lid and its shadow, and the white jar. */
+export const jarColors = { lid: "#DDEFE5", lidShadow: "#2C5E48", glass: "#FFFFFF" } as const;

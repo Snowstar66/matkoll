@@ -642,6 +642,22 @@ så att jag kan importera från nya sajter utan kodändring.
 **När** Pontus trycker på den
 **Så** avslutas sessionen och inloggningssidan visas
 
+### Story 1.13: Spara i Matkoll från receptsajten
+
+Som Pontus,
+vill jag skicka ett recept från koket.se eller en annan godkänd sajt till Matkoll med ett tryck,
+så att jag slipper kopiera och klistra in länken.
+
+**Acceptance Criteria:**
+
+**Givet** adressen `/recept/importera?url=<receptets adress>`
+**När** Pontus öppnar den inloggad
+**Så** startar importen från länk direkt (samma regler som Story 1.8 och godkända sajter i 1.12) och förhandsgranskningen visas, och en sajt som inte är godkänd ger samma tydliga meddelande som förut
+
+**Givet** Inställningar
+**När** Pontus öppnar avsnittet "Spara i Matkoll"
+**Så** finns ett bokmärke att dra till bokmärkesfältet på datorn, en kort instruktion för en iOS-genväg via Dela-menyn, och Android kan dela till Matkoll när appen är installerad (Web Share Target i manifestet)
+
 ## Epic 2: Lager
 
 Pontus kan föra in det som finns hemma per plats, med eller utan mängd, och ser direkt i receptbiblioteket vilka rätter som kan lagas och hur många varor som saknas.
@@ -1743,6 +1759,23 @@ så att den känns som en riktig app i mobilen.
 **När** Pontus lägger Matkoll på hemskärmen och öppnar den
 **Så** öppnas appen i helskärm med moroten som ikon och appens bakgrund bakom statusraden, i ljust och mörkt läge (Flöde 9, manuellt prov)
 
+### Story 11.7: Egen ikon och Snowstar
+
+Som Pontus,
+vill jag ha en egen ikon (burken med bocken) och se att appen kommer från Snowstar,
+så att Matkoll känns som min egen app.
+
+**Acceptance Criteria:**
+
+**Givet** manifestet
+**När** ikonerna hämtas
+**Så** är `any` 192 och 512 en rundad grön ruta med burken, `maskable` 512 en kantlös grön ruta med burken på 80 % och Apple-ikonen (180 px) en kantlös ruta utan genomskinlighet
+**Och** `favicon.ico` har 32 och 48 px med en förenklad burk och tjockare bock
+
+**Givet** inloggningssidan och Inställningar
+**När** de visas
+**Så** står "Matkoll · av Snowstar" längst ned i liten dämpad text (`text-ink-3`)
+
 ## Epic 12: Snabbare och asynkron AI
 
 Tillägg till 1.1. Pontus skrev 2026-10-26: "Vi borde få till prestandan i qwen kommandona om det går. Kanske göra dem asynkrona om det går, och att man kan fortsätta klicka runt i appen och göra fler asynkrona anrop som ramlar in när dom är klara. Om det inte riskerar ngt." Pontus godkände planen ("ja planera det så"): först fart, mätt före och efter, sedan AI-jobb i bakgrunden, ett i taget i en kö. Epic 12 byggs efter Epic 11. Arkitekturen står i AD-28 och i tillägg till AD-1, AD-2, AD-4, AD-9, AD-10, AD-13, AD-14, AD-15, AD-18, AD-23 och AD-26. Storyna byggs i ordning. Mätningarna i 12.1, 12.2, 12.3 och 12.7 görs mot LM Studio på Pontus Mac, och siffrorna skrivs i `docs/lm-studio.md`, T5, T6 och beslutsloggen. Inget från AI sparas utan Pontus bekräftelse.
@@ -2425,6 +2458,26 @@ så att lagersaldot stämmer utan att jag räknar själv.
 **Givet** att Pontus bekräftar
 **När** avdraget görs
 **Så** uppdateras lagret, rätten visas som lagad på matsedeln och räknas inte längre in i inköpslistan, och "Ångra" återställer både lagret och rätten
+
+### Story 13.5: Dagar på matsedeln
+
+Som Pontus,
+vill jag lägga rätterna på veckans dagar och flytta dem mellan dagar,
+så att jag ser veckan i överblick och vet vad vi äter när.
+
+**Acceptance Criteria:**
+
+**Givet** matsedeln för en vecka
+**När** den visas
+**Så** är rätterna grupperade under måndag–söndag, och rätter utan dag ligger under "Ingen dag än"
+
+**Givet** en rätt på matsedeln
+**När** Pontus väljer "Flytta till dag" (eller lägger till en ny rätt)
+**Så** kan en dag väljas, flera rätter kan ligga samma dag, och inköpslistan påverkas inte av vilken dag rätten ligger på
+
+**Givet** befintliga matsedlar
+**När** ändringen går live
+**Så** behåller alla rätter sina data och hamnar under "Ingen dag än", och "Markera som lagad", portioner, soptunna och tidigare veckor fungerar som förut
 
 ## Epic 14: Tydligare flöden
 

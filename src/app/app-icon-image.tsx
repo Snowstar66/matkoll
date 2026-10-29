@@ -1,45 +1,35 @@
 import { ImageResponse } from "next/og";
-import { appIconColors } from "./theme-colors";
+import { appIconColors, jarColors } from "./theme-colors";
 
-// The app icon (DESIGN.md, `app-icon`, AD-27): a carrot in accent and sand on
-// light mode's bg, no text and no emoji. The same drawing serves the manifest's
-// icons (icon.tsx) and the home screen icon on iPhone (apple-icon.tsx). The
-// background fills the square; iPhone and Android round the corners themselves.
+// The app icon (Story 11.7, "Burken"): a pantry jar with a check mark, on the
+// accent green. The same drawing serves the manifest's icons (icon.tsx) and the
+// home screen icon on iPhone (apple-icon.tsx). `rounded` is for the "any" icons;
+// the others fill the square, since iPhone and Android mask them themselves.
 
-/** The drawing on a 100 × 100 canvas, centred, scaled to `scale` of the square. */
-export function AppIconArt({ scale }: { scale: number }) {
-  const { bg, accent, sand, sandInk } = appIconColors;
-  const offset = 50 * (1 - scale);
+const jarGreen = appIconColors.accent;
+
+/** The jar on a 512 canvas, scaled to `scale` of the square around its centre. */
+export function AppIconArt({ scale, rounded }: { scale: number; rounded: boolean }) {
+  const offset = 256 * (1 - scale);
   return (
-    <svg width="100%" height="100%" viewBox="0 0 100 100" xmlns="http://www.w3.org/2000/svg">
-      <rect width="100" height="100" fill={bg} />
+    <svg width="100%" height="100%" viewBox="0 0 512 512" xmlns="http://www.w3.org/2000/svg">
+      <rect width="512" height="512" rx={rounded ? 112 : 0} fill={jarGreen} />
       <g transform={`translate(${offset} ${offset}) scale(${scale})`}>
-        <circle cx="50" cy="50" r="50" fill={sand} />
-        <g transform="rotate(35 50 50)">
-          {/* The leaves: three in accent, fanned out from the top of the carrot. */}
-          <path d="M50 30 C44 22 43 12 47 5 C53 12 54 22 50 30 Z" fill={accent} />
-          <path d="M50 30 C40 26 34 18 33 10 C42 12 48 20 50 30 Z" fill={accent} />
-          <path d="M50 30 C60 26 66 18 67 10 C58 12 52 20 50 30 Z" fill={accent} />
-          {/* The carrot, wide at the top and tapering to a point. */}
-          <path d="M37 36 Q37 29 44 29 L56 29 Q63 29 63 36 L53 88 Q50 94 47 88 Z" fill={sandInk} />
-          {/* Ridges across the carrot, in sand. */}
-          <g stroke={sand} strokeWidth="3" strokeLinecap="round">
-            <line x1="42" y1="43" x2="50" y2="43" />
-            <line x1="51" y1="57" x2="58" y2="57" />
-            <line x1="45" y1="71" x2="51" y2="71" />
-          </g>
-        </g>
+        <rect x="166" y="104" width="180" height="46" rx="14" fill={jarColors.lid} />
+        <rect x="182" y="146" width="148" height="22" rx="6" fill={jarColors.lidShadow} opacity=".35" />
+        <path d="M150 196c0-18 14-32 32-32h148c18 0 32 14 32 32v178c0 35-28 62-62 62H212c-34 0-62-27-62-62V196z" fill={jarColors.glass} />
+        <path d="M200 300l40 40 78-88" fill="none" stroke={jarGreen} strokeWidth="34" strokeLinecap="round" strokeLinejoin="round" />
       </g>
     </svg>
   );
 }
 
 /** A square PNG of the app icon. */
-export function appIconResponse(side: number, scale: number): ImageResponse {
+export function appIconResponse(side: number, scale: number, rounded = false): ImageResponse {
   return new ImageResponse(
     (
       <div style={{ display: "flex", width: "100%", height: "100%" }}>
-        <AppIconArt scale={scale} />
+        <AppIconArt scale={scale} rounded={rounded} />
       </div>
     ),
     { width: side, height: side },

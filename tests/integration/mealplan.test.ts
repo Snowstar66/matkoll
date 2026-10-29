@@ -10,6 +10,7 @@ import {
   restorePlanRecipeIn,
   setCurrentPlanIn,
   setServingsIn,
+  setWeekdayIn,
   type NewDish,
 } from "@/features/mealplan/data/write";
 import { getRecipesByIdsIn } from "@/features/recipes/data/queries";
@@ -154,9 +155,9 @@ describe("add_to_current_plan", () => {
     expect(plan?.id).toBe(first.mealPlanId);
     expect([second.mealPlanId, again.mealPlanId]).toEqual([plan?.id, plan?.id]);
     expect(plan?.recipes).toEqual([
-      { id: first.id, recipeId: soppa, recipeTitle: "Linssoppa", servings: 4, position: 0, cookedAt: null },
-      { id: second.id, recipeId: gryta, recipeTitle: "Kycklinggryta", servings: 2, position: 1, cookedAt: null },
-      { id: again.id, recipeId: soppa, recipeTitle: "Linssoppa", servings: 6, position: 2, cookedAt: null },
+      { id: first.id, recipeId: soppa, recipeTitle: "Linssoppa", servings: 4, position: 0, cookedAt: null, weekday: null },
+      { id: second.id, recipeId: gryta, recipeTitle: "Kycklinggryta", servings: 2, position: 1, cookedAt: null, weekday: null },
+      { id: again.id, recipeId: soppa, recipeTitle: "Linssoppa", servings: 6, position: 2, cookedAt: null, weekday: null },
     ]);
     const plans = await adminClient().from("meal_plan").select("id").eq("user_id", user.id);
     expect(plans.data).toHaveLength(1);
@@ -568,7 +569,7 @@ describe("earlier plans", () => {
       name: "Vecka 44",
       isCurrent: true,
       createdAt: expect.any(String),
-      recipes: [{ id: added.id, recipeId: added.recipeId, recipeTitle: "Linssoppa", servings: 5, position: 0, cookedAt: null }],
+      recipes: [{ id: added.id, recipeId: added.recipeId, recipeTitle: "Linssoppa", servings: 5, position: 0, cookedAt: null, weekday: null }],
     });
     expect(await getPlanIn(other.db, added.mealPlanId)).toBeNull();
     expect(await getPlanIn(owner.db, "inte-ett-id")).toBeNull();
@@ -597,3 +598,53 @@ async function setPlanWith(user: { db: Db }) {
   await addToCurrentPlanIn(user.db, dish(await addRecipe(user.db)));
   await setCurrentPlanIn(user.db, { id: randomUUID(), name: "Vecka 45" });
 }
+
+describe("weekday (Story 13.5)", () => {
+  it("adds a dish on a day, or on none, and moves it, within 1 to 7", async () => {
+    const user = await createTestUser("mealplan-weekday");
+    const recipe = await addRecipe(user.db);
+    const onDay = await addToCurrentPlanIn(user.db, dish(recipe, { weekday: 3 }));
+    const none = await addToCurrentPlanIn(user.db, dish(recipe));
+    expect([onDay.weekday, none.weekday]).toEqual([3, null]);
+
+    expect(await setWeekdayIn(user.db, user.id, none.id, 7)).toBe(true);
+    expect((await dishRow(none.id))?.weekday).toBe(7);
+    expect(await setWeekdayIn(user.db, user.id, none.id, null)).toBe(true);
+    expect((await dishRow(none.id))?.weekday).toBeNull();
+    // The check constraint refuses a day outside 1 to 7, and the order is untouched by a move.
+    await expect(setWeekdayIn(user.db, user.id, none.id, 8)).rejects.toBeInstanceOf(MealPlanDataError);
+    await expect(setWeekdayIn(user.db, user.id, none.id, 0)).rejects.toBeInstanceOf(MealPlanDataError);
+    expect((await dishRow(none.id))?.position).toBe(1);
+  });
+
+  it("does not move another user's dish", async () => {
+    const owner = await createTestUser("mealplan-weekday-owner");
+    const other = await createTestUser("mealplan-weekday-other");
+    const added = await addToCurrentPlanIn(owner.db, dish(await addRecipe(owner.db)));
+    expect(await setWeekdayIn(other.db, other.id, added.id, 2)).toBe(false);
+    expect(await setWeekdayIn(other.db, owner.id, added.id, 2)).toBe(false);
+    expect((await dishRow(added.id))?.weekday).toBeNull();
+  });
+
+  it("puts the day back with Ångra after a removal", async () => {
+    const user = await createTestUser("mealplan-weekday-undo");
+    const added = await addToCurrentPlanIn(user.db, dish(await addRecipe(user.db), { weekday: 5 }));
+    const removed = await removePlanRecipeIn(user.db, user.id, added.id);
+    expect(removed?.weekday).toBe(5);
+    const restored = await restorePlanRecipeIn(user.db, removed!);
+    expect(restored.weekday).toBe(5);
+    expect((await dishRow(added.id))?.weekday).toBe(5);
+  });
+
+  it("reads the day with the plan, and an old row without one has none", async () => {
+    const user = await createTestUser("mealplan-weekday-read");
+    const recipe = await addRecipe(user.db);
+    const planId = await addPlan(user.db, "Vecka 44", true);
+    const { error } = await user.db
+      .from("meal_plan_recipe")
+      .insert({ meal_plan_id: planId, recipe_id: recipe, recipe_title: "Gammal", servings: 2, position: 0 });
+    if (error) throw error;
+    await addToCurrentPlanIn(user.db, dish(recipe, { weekday: 2 }));
+    expect((await getCurrentPlanIn(user.db))?.recipes.map((d) => d.weekday)).toEqual([null, 2]);
+  });
+});
