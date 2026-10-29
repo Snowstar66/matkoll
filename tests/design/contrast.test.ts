@@ -36,6 +36,8 @@ const textPairs: [string, string, string][] = [
   ["store-ica-ink", "store-ica", "store badge, ICA"],
   ["store-other-ink", "store-other", "store badge, other chains"],
   ["deal-ink", "deal", "saving badge on an offer row"],
+  ["deal-ink", "surface", "saving percent as text on an offer row (Story 16.6)"],
+  ["hot", "surface", "Toppklipp label text on an offer row (Story 16.6)"],
   ["hot-ink", "hot", "Toppklipp badge on an offer row"],
   ["sky-ink", "bg", "field error on /logga-in"],
   // Pairs the shell and building blocks add on top of DESIGN.md's list:
@@ -101,6 +103,8 @@ const categoryTiles = ["mint", "sky", "sand", "tile-clay", "tile-lilac", "border
 const controlBorderPairs: [string, string, string][] = [
   ["ink-3", "surface", "unticked check circle, text field border in a sheet"],
   ["ink-3", "bg", "text field border on the page"],
+  ["store-ica", "surface", "chain dot in an offer row's store label (Story 16.6)"],
+  ["store-other", "surface", "chain dot in an offer row's store label (Story 16.6)"],
 ];
 
 describe.each([
@@ -109,6 +113,11 @@ describe.each([
 ])("contrast in %s mode", (_mode, tokens) => {
   it.each(textPairs)("text: %s on %s (%s) is at least 4.5:1", (text, background) => {
     expect(contrast(tokens[text], tokens[background])).toBeGreaterThanOrEqual(4.5);
+  });
+
+  it("Toppklipp text stays readable on its 12 % tint over surface (Story 16.6)", () => {
+    const tint = composite(tokens.hot, tokens.surface, 0.12);
+    expect(contrast(tokens.hot, tint)).toBeGreaterThanOrEqual(4.5);
   });
 
   it.each(controlBorderPairs)("control border: %s on %s (%s) is at least 3:1", (border, background) => {

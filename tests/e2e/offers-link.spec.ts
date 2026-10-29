@@ -128,7 +128,7 @@ test("fetches the week's offers with one tap and shows them under their categori
   ).toBeVisible();
   // Story 9.11: no regular price and no stated saving, nothing about it.
   await expect(meat.getByText("129 kr/kg", { exact: true })).toBeVisible();
-  await expect(dialog.getByText(/^Toppklipp/)).toHaveCount(1);
+  await expect(dialog.getByTestId("offer-top-tag")).toHaveCount(1);
   await expect(meat.getByTestId("offer-regular-price")).toHaveText("111,90 kr");
   await dialog.getByRole("button", { name: /^Filter/ }).click();
   await dialog.getByRole("radio", { name: "Bäst rabatt" }).click();
@@ -301,7 +301,8 @@ test("Story 9.13: fetches from several stores one by one, shows a badge per stor
   await expect(dialog.getByRole("list", { name: "Bäst rabatt först" }).getByTestId("offer-row")).toHaveCount(14);
   await dialog.getByRole("radiogroup", { name: "Visa butik" }).getByRole("radio", { name: "Krokom" }).click();
   await expect(dialog.getByTestId("offer-row")).toHaveCount(7);
-  await expect(dialog.getByTestId("store-badge")).toHaveText(Array(7).fill("Krokom"));
+  // Story 16.6: one store shown, so no store label on the rows.
+  await expect(dialog.getByTestId("store-badge")).toHaveCount(0);
   await dialog.getByRole("radio", { name: "Alla" }).click();
   await expect(dialog.getByTestId("offer-row")).toHaveCount(14);
   expect(await page.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth)).toBe(true);
