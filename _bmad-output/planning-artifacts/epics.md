@@ -2574,3 +2574,19 @@ så att agenten inte missar persilja och smör.
 **När** den kopieras
 **Så** stämmer antalet varor i texten med antalet varor kvar på listan, och appen visar "6 varor kopierade"
 
+### Story 16.6: Lugnare erbjudanderader
+
+Som Pontus,
+vill jag att erbjudandelistan är ren och tilltalande, med Toppklipp och elden kvar men utan blaffiga färgblock,
+så att det är lätt att skumma veckans fynd.
+
+**Acceptance Criteria:**
+
+**Givet** erbjudandelistan med flera butiker
+**När** raderna visas
+**Så** är butiksbrickan diskret (till exempel liten text med en färgprick i kedjans färg) i stället för ett starkt rött block, och den syns bara när listan visar mer än en butik
+
+**Givet** ett erbjudande med pris, ordinarie pris och rabatt
+**När** raden visas
+**Så** står priset som ren fet text, ordinarie pris och rabatt på en rad under ("29,90 kr · −50 %"), och Toppklipp med 🔥 som en liten tonad etikett, så att raden är lika hög som en vanlig listrad och kolumnen till höger inte staplar tre block
+
