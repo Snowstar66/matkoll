@@ -45,3 +45,16 @@ export async function saveOffersIn(
   console.error("offers_failed", { reason: `save_store_offers ${error.code}` });
   return fail("offers_failed");
 }
+
+/**
+ * Deletes the user's offers (any week) of every store not in `keepStoreIds`
+ * (Story 16.8), through clear_other_store_offers. Gives the number of rows
+ * removed, or `offers_failed` (also for an empty `keepStoreIds`, which the
+ * function refuses, so a failed fetch can never wipe everything).
+ */
+export async function clearOtherStoreOffersIn(db: OffersDb, keepStoreIds: readonly string[]): Promise<Result<number>> {
+  const { data, error } = await db.rpc("clear_other_store_offers", { keep: [...keepStoreIds] });
+  if (!error) return ok(data);
+  console.error("offers_failed", { reason: `clear_other_store_offers ${error.code}` });
+  return fail("offers_failed");
+}

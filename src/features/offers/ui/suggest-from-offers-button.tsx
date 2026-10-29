@@ -60,16 +60,19 @@ export function SuggestFromOffersButton({ hasOffers, onStarted, stores = [], def
     <section aria-label="Förslag från erbjudandena" className="flex flex-col gap-3 rounded-lg border border-border p-4">
       {bestLine}
       {choose && storeId ? (
-        <FilterPills
-          label="Butik för förslagen"
-          options={stores.map((store) => ({ value: store.id, label: store.label }))}
-          value={storeId}
-          onChange={(id) => {
-            key.current = null;
-            setPicked(id);
-          }}
-          disabled={starting}
-        />
+        <div className="flex flex-col gap-1" data-testid="suggest-store-picker">
+          <p className="text-meta text-ink-2">Föreslå rätter från:</p>
+          <FilterPills
+            label="Föreslå rätter från"
+            options={stores.map((store) => ({ value: store.id, label: store.label }))}
+            value={storeId}
+            onChange={(id) => {
+              key.current = null;
+              setPicked(id);
+            }}
+            disabled={starting}
+          />
+        </div>
       ) : null}
       <Button
         type="button"

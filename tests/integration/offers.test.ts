@@ -1,7 +1,7 @@
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
 import { addDays, weekStartOf, type OfferDraft } from "@/features/offers";
 import { blockFetch, claimFetch, loadActiveOffers, loadLastFetch, loadOffers } from "@/features/offers/data/queries";
-import { saveOffersIn } from "@/features/offers/data/save";
+import { clearOtherStoreOffersIn, saveOffersIn } from "@/features/offers/data/save";
 import { saveStoreIn } from "@/features/settings/data/stores";
 import { storeFormSchema } from "@/features/settings";
 import { fail } from "@/lib/errors";
@@ -193,6 +193,26 @@ describe("save_store_offers", () => {
     });
     expect(again).toEqual({ ok: true, data: 3 });
     expect((await labelsOf(fresh.id, own, week)).sort()).toEqual(["Gul lök (link)", "Kaffe (text)", "Mjölk (link)"]);
+  });
+
+  it("clears the offers of the stores not kept, in every week, and never another user's (Story 16.8)", async () => {
+    const week = thisWeek();
+    const fresh = await createTestUser("offer-clear");
+    const other = await createTestUser("offer-clear-other");
+    const [a, b, c] = [await addStore(fresh.db), await addStore(fresh.db), await addStore(fresh.db)];
+    const theirs = await addStore(other.db);
+    for (const id of [a, b, c]) await saveOffersIn(fresh.db, { storeId: id, weekStart: week, items: [draft("Falukorv")], replaceSource: "link" });
+    await saveOffersIn(fresh.db, { storeId: b, weekStart: addDays(week, 7), items: [draft("Nästa vecka")], replaceSource: "link" });
+    await saveOffersIn(other.db, { storeId: theirs, weekStart: week, items: [draft("Mjölk")], replaceSource: "link" });
+    expect(await clearOtherStoreOffersIn(fresh.db, [a])).toEqual({ ok: true, data: 3 });
+    expect(await labelsOf(fresh.id, a, week)).toEqual(["Falukorv (link)"]);
+    expect(await labelsOf(fresh.id, b, week)).toEqual([]);
+    expect(await labelsOf(fresh.id, b, addDays(week, 7))).toEqual([]);
+    expect(await labelsOf(fresh.id, c, week)).toEqual([]);
+    expect(await labelsOf(other.id, theirs, week)).toEqual(["Mjölk (link)"]);
+    // Nothing to keep is refused, so a failed fetch cannot wipe everything.
+    expect((await clearOtherStoreOffersIn(fresh.db, [])).ok).toBe(false);
+    expect(await labelsOf(fresh.id, a, week)).toEqual(["Falukorv (link)"]);
   });
 
   it("merges by label key: one row per label, and two brands of the same item are two rows", async () => {
