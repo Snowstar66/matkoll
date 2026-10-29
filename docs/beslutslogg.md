@@ -2,6 +2,11 @@
 
 Beslut som fattats under bygget: vad, varför och vilka alternativ som fanns. Nyaste överst.
 
+## 2026-10-29 – Ingen annan inmatning av erbjudanden (T13)
+
+- **Länken räcker** (Pontus): provet mot ica.se läste in 78 erbjudanden utan fel. Story 9.7 (inklistrad text) och 9.8 (foto av reklambladet) behövs inte och stryks (korten stängs som "not planned").
+- **Kopplingen till katalogen är svag:** 5 av 78 (6 %) matchade en katalogingrediens (T14). Det uppfyller villkoret för Story 9.10, men den är pausad med resten av Epic 9 (9.2–9.6, 9.9, 9.10).
+
 ## 2026-10-29 – Utseendegenomgång efter Epic 12
 
 - **Beslut:** en genomgång av alla huvudskärmar vid 375 px, ljust och mörkt, mot mockuparna och DESIGN.md. Rörelsen och stilen är oförändrade; bara avvikelser rättades.
