@@ -122,3 +122,12 @@ export async function getIngredientRecipeCounts(): Promise<Map<string, number>> 
   }
   return counts;
 }
+
+/**
+ * The signed-in user's whole library as rows with their lines, newest first,
+ * for the ranking of own recipes against offers (Story 16.3). For server
+ * code after requireUser. Throws RecipeDataError.
+ */
+export async function listRecipeRows(): Promise<RecipeListRow[]> {
+  return listRecipesIn(await createClient());
+}

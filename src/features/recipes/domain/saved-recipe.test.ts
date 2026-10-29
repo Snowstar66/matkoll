@@ -1,4 +1,5 @@
 import { describe, expect, it } from "vitest";
+import { fromAiRecipe } from "./from-ai-recipe";
 import type { RecipeDraft } from "./recipe-draft";
 import { toSaveRecipeArgs } from "./saved-recipe";
 
@@ -53,6 +54,7 @@ describe("toSaveRecipeArgs", () => {
         image_url: null,
         source_kind: "url",
         source_url: "https://www.koket.se/linssoppa",
+        offer_names: [],
       },
       steps: [
         { position: 0, text: "Hacka löken." },
@@ -92,5 +94,46 @@ describe("toSaveRecipeArgs", () => {
 
   it("needs one ingredient id per line", () => {
     expect(() => toSaveRecipeArgs(recipeId, draft, [onion])).toThrow();
+  });
+});
+
+describe("a saved AI suggestion (Story 16.4)", () => {
+  // The suggestion's path to the database keeps what makes it a recipe:
+  // steps, time, portions and the offers it was built around.
+  const suggestion = fromAiRecipe(
+    {
+      title: "Falukorv med stuvad potatis",
+      servings: 4,
+      totalMinutes: 35,
+      ingredients: [
+        { originalText: "1 paket falukorv", amount: 1, unit: "st", isVague: false, stepIndexes: [1] },
+        { originalText: "salt", amount: null, unit: null, isVague: true, stepIndexes: [0] },
+      ],
+      steps: ["Koka potatisen.", "Stek korven.", "Servera."],
+    },
+    [
+      { kind: "match", ingredientId: onion, confidence: "exact" },
+      { kind: "match", ingredientId: salt, confidence: "exact" },
+    ],
+    { kind: "ai" },
+  );
+
+  it("writes every step in order, the time, the portions and the offers", () => {
+    const args = toSaveRecipeArgs(recipeId, { ...suggestion, offerNames: ["falukorv", "ketchup"] }, [onion, salt]);
+    expect(args.steps).toEqual([
+      { position: 0, text: "Koka potatisen." },
+      { position: 1, text: "Stek korven." },
+      { position: 2, text: "Servera." },
+    ]);
+    expect(args.recipe).toMatchObject({
+      original_servings: 4,
+      total_minutes: 35,
+      source_kind: "ai",
+      offer_names: ["falukorv", "ketchup"],
+    });
+  });
+
+  it("has no offers for a suggestion from the pantry", () => {
+    expect(toSaveRecipeArgs(recipeId, suggestion, [onion, salt]).recipe.offer_names).toEqual([]);
   });
 });

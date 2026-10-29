@@ -2502,3 +2502,91 @@ så att jag bara behöver ange en kod någon enstaka gång.
 **När** appen öppnas
 **Så** krävs inloggning igen, och cookies är fortfarande httpOnly, secure i produktion och SameSite=Lax
 
+## Epic 16: Bättre matförslag
+
+Pontus fick AI-förslag från veckans erbjudanden men kunde inte spara dem, och förslagen säger för lite om varför de är bra.
+
+### Story 16.1: Spara och lägga på matsedeln fungerar från förslagen
+
+Som Pontus,
+vill jag att "Spara", "Lägg på matsedeln" och att ta bort ett förslag fungerar,
+så att jag kan använda förslagen jag gillar.
+
+**Acceptance Criteria:**
+
+**Givet** AI-förslag från veckans erbjudanden, öppnade från jobbets notis eller från Recept
+**När** Pontus trycker "Spara" eller "Lägg på matsedeln"
+**Så** öppnas förhandsgranskningen och receptet sparas (och läggs på matsedeln), även efter att Pontus har bytt sida och kommit tillbaka
+
+**Givet** ett förslag Pontus inte vill ha
+**När** Pontus trycker på förslagets soptunna
+**Så** försvinner förslaget ur listan
+
+### Story 16.2: Förslaget säger varför det är bra
+
+Som Pontus,
+vill jag se direkt vad ett förslag ger mig,
+så att jag snabbt väljer rätt.
+
+**Acceptance Criteria:**
+
+**Givet** ett AI-förslag eller ett recept med erbjudanden
+**När** kortet visas
+**Så** står en kort rad som "3 på erbjudande · 1 hemma · köp till: potatis", med erbjudandenas rena namn (utan märke och land)
+
+### Story 16.3: Dina egna recept med veckans erbjudanden
+
+Som Pontus,
+vill jag att mina egna recept som passar veckans erbjudanden föreslås först, hjärtmarkerade överst,
+så att jag lagar det jag redan gillar när det är billigt.
+
+**Acceptance Criteria:**
+
+**Givet** recept i biblioteket och veckans erbjudanden från vald butik
+**När** Pontus ber om förslag från erbjudandena
+**Så** visas först "Från dina recept": de recept som använder flest erbjudanden, favoriter först, utan AI, och därefter AI-förslagen
+
+### Story 16.4: Ett snyggt recept när förslaget sparas
+
+Som Pontus,
+vill jag att ett sparat AI-förslag blir ett komplett och snyggt recept,
+så att det ser lika bra ut som mina andra recept.
+
+**Acceptance Criteria:**
+
+**Givet** ett sparat AI-förslag
+**När** receptet visas
+**Så** har det ingredienser, numrerade steg, tid och portioner, en bildyta med en illustration för rättens huvudråvara när foto saknas, och en rad om vilka varor som var på erbjudande när det sparades
+
+### Story 16.5: Varor utan mängd följer med till varukorgen
+
+Som Pontus,
+vill jag att alla varor på inköpslistan kommer med när jag kopierar till varukorgen, även de utan mängd,
+så att agenten inte missar persilja och smör.
+
+**Acceptance Criteria:**
+
+**Givet** en inköpslista där några varor saknar mängd (till exempel "Persilja" och "Smör" som saknas hemma)
+**När** Pontus kopierar till varukorgen
+**Så** finns de med i texten med en tydlig markering, till exempel "mängd: en förpackning, välj minsta vanliga", och agentens instruktion säger att varje rad ska läggas i varukorgen
+
+**Givet** texten
+**När** den kopieras
+**Så** stämmer antalet varor i texten med antalet varor kvar på listan, och appen visar "6 varor kopierade"
+
+### Story 16.6: Lugnare erbjudanderader
+
+Som Pontus,
+vill jag att erbjudandelistan är ren och tilltalande, med Toppklipp och elden kvar men utan blaffiga färgblock,
+så att det är lätt att skumma veckans fynd.
+
+**Acceptance Criteria:**
+
+**Givet** erbjudandelistan med flera butiker
+**När** raderna visas
+**Så** är butiksbrickan diskret (till exempel liten text med en färgprick i kedjans färg) i stället för ett starkt rött block, och den syns bara när listan visar mer än en butik
+
+**Givet** ett erbjudande med pris, ordinarie pris och rabatt
+**När** raden visas
+**Så** står priset som ren fet text, ordinarie pris och rabatt på en rad under ("29,90 kr · −50 %"), och Toppklipp med 🔥 som en liten tonad etikett, så att raden är lika hög som en vanlig listrad och kolumnen till höger inte staplar tre block
+

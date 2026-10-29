@@ -30,6 +30,8 @@ export type DishSuggestionsState = {
   mode: "pantry" | "offers";
   /** Story 9.14: the store the offers suggestions are from, when Pontus picked one of several. */
   storeName: string | null;
+  /** Story 16.3: set while a job built around the offers waits, runs or has an unseen result; `storeId` is the picked store, if any. */
+  offersJob: { storeId: string | null } | null;
   /** A job is being started, waits in the queue or runs. */
   loading: boolean;
   /** While the job waits behind others: "I kö, 1 före."; otherwise null. */
@@ -52,7 +54,7 @@ export type DishSuggestionsState = {
   suggest: () => void;
   /** "Avbryt": stops the job; nothing is shown for it and the suggestions from before stay. */
   cancel: () => void;
-  /** A saved suggestion leaves the section; its title is still avoided by "Föreslå andra rätter". */
+  /** A saved or removed suggestion leaves the section; its title is still avoided by "Föreslå andra rätter". */
   remove: (key: number) => void;
 };
 
@@ -117,6 +119,13 @@ export function useDishSuggestions(
 
   const active = latest(jobs, isActive);
   const unseen = latest(jobs, (job) => (job.status === "done" || job.status === "failed") && !job.seen);
+  const offersJobRow =
+    latest(jobs, (job) => isActive(job) && job.context.mode === "offers") ??
+    latest(jobs, (job) => job.status === "done" && !job.seen && job.context.mode === "offers");
+  const offersStoreId = offersJobRow && typeof offersJobRow.context.storeId === "string" ? offersJobRow.context.storeId : null;
+  // Kept after the job is seen, while its dishes are shown, so "Från dina recept" stays with them.
+  const [lastOffers, setLastOffers] = useState<{ storeId: string | null } | null>(null);
+  if (offersJobRow && (lastOffers === null || lastOffers.storeId !== offersStoreId)) setLastOffers({ storeId: offersStoreId });
   const loading = starting || active !== undefined;
   const waiting = active?.status === "queued" && active.ahead > 0 ? `I kö, ${active.ahead} före.` : null;
 
@@ -225,19 +234,25 @@ export function useDishSuggestions(
   }
 
   function remove(key: number) {
-    const saved = made.suggestions.find((suggestion) => suggestion.key === key);
-    if (saved) savedTitles.current = [saved.draft.title, ...savedTitles.current];
+    const gone = made.suggestions.find((suggestion) => suggestion.key === key);
+    if (!gone) return;
+    savedTitles.current = [gone.draft.title, ...savedTitles.current];
     const left = made.suggestions.filter((suggestion) => suggestion.key !== key);
-    setMade((current) => ({ ...current, suggestions: left }));
-    // The last one is saved: the result has done its part.
-    if (left.length === 0 && made.jobId) {
-      void dismiss(made.jobId);
-      setMade((current) => ({ ...current, jobId: null }));
-    }
+    // The last one is gone: the result has done its part.
+    if (left.length === 0 && made.jobId) void dismiss(made.jobId);
+    setMade((current) => {
+      const suggestions = current.suggestions.filter((suggestion) => suggestion.key !== key);
+      return { ...current, suggestions, jobId: suggestions.length === 0 ? null : current.jobId };
+    });
   }
 
   return {
     suggestions: made.suggestions,
+    offersJob: offersJobRow
+      ? { storeId: offersStoreId }
+      : made.mode === "offers" && made.suggestions.length > 0
+        ? lastOffers
+        : null,
     mode: made.mode,
     storeName: made.storeName,
     loading,

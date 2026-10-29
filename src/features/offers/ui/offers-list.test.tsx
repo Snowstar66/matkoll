@@ -72,8 +72,11 @@ describe("OffersList, how good the offers are (Story 9.11)", () => {
 
   it("marks 30 % or more as Toppklipp", () => {
     render(<OffersList weekStart="2026-10-26" offers={offers} />);
-    expect(screen.getAllByText(/^Toppklipp/)).toHaveLength(1);
-    expect(screen.getByText(/^Toppklipp/)).toHaveTextContent("Toppklipp \u221233 %");
+    expect(screen.getAllByTestId("offer-top-tag")).toHaveLength(1);
+    expect(screen.getByTestId("offer-top-tag")).toHaveTextContent("Toppklipp");
+    // The saving stays plain text on the price side, two lines at most.
+    const [, , tomatoes] = screen.getAllByTestId("offer-row").map((row) => within(row));
+    expect(tomatoes.getByTestId("offer-saving")).toHaveTextContent("\u221233 %");
   });
 
   it("lists the best saving first and unknown last", () => {

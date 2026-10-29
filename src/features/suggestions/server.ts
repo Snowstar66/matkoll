@@ -8,3 +8,4 @@ import "server-only";
  * (Story 12.4; not a Server Action), and the check before the job is made.
  */
 export { checkSuggestPantry, suggestFromPantry, type SuggestMode } from "./actions/suggest-from-pantry";
+export { ownRecipesWithOffers } from "./actions/own-recipes-with-offers";

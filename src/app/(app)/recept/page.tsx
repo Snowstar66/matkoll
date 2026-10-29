@@ -8,6 +8,7 @@ import { Skeleton } from "@/components/skeleton";
 import { requireUserOrRedirect } from "@/features/auth/server";
 import { searchIngredients } from "@/features/catalog/server";
 import { addToCurrentPlan, getCurrentPlan } from "@/features/mealplan/server";
+import { ownRecipesWithOffers } from "@/features/suggestions/server";
 import { listLibrary } from "@/features/recipes/server";
 import { ImportRecipeButton, ImportRecipeProvider } from "@/features/recipes/ui/import-sheet";
 import { Library } from "@/features/recipes/ui/library";
@@ -68,6 +69,7 @@ async function RecipesContent() {
       site={site}
       searchIngredients={searchIngredients}
       addToPlan={addToCurrentPlan}
+      ownRecipes={ownRecipesWithOffers}
       onMenuIds={onMenuIds}
     />
   );

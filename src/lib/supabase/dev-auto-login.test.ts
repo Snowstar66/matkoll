@@ -80,3 +80,16 @@ describe("hasProxyHeaders", () => {
     }
   });
 });
+
+describe("hasProxyHeaders with Next's own x-forwarded-for", () => {
+  it("allows the loopback address Next adds for a local request", () => {
+    for (const address of ["127.0.0.1", "::1", "::ffff:127.0.0.1", "127.0.0.1, ::1"]) {
+      expect(hasProxyHeaders(new Headers({ "x-forwarded-for": address }))).toBe(false);
+    }
+  });
+
+  it("refuses any other address in the chain", () => {
+    expect(hasProxyHeaders(new Headers({ "x-forwarded-for": "192.168.1.9" }))).toBe(true);
+    expect(hasProxyHeaders(new Headers({ "x-forwarded-for": "127.0.0.1, 192.168.1.9" }))).toBe(true);
+  });
+});

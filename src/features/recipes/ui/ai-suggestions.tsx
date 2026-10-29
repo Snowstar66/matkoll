@@ -6,9 +6,13 @@ import { AiBadge } from "@/components/badges";
 import { Button, buttonClasses } from "@/components/button";
 import type { SearchIngredients } from "@/components/ingredient-picker";
 import { Notice } from "@/components/notice";
+import { focusAfterRemoval } from "@/components/trash-button";
 import { nameInSentence, normalizeIngredientText } from "@/features/catalog";
-import { atHomeText, suggestErrorMessage, suggestRetryCodes } from "@/features/suggestions";
+import { suggestErrorMessage, suggestRetryCodes, whyText } from "@/features/suggestions";
+import { offerDisplay } from "@/features/offers";
 import type { AddToPlan } from "./add-to-plan-button";
+import { OwnRecipes, type OwnRecipesRead } from "./own-recipes";
+import { dishEmoji } from "../domain/dish-emoji";
 import { recipeMetaText } from "../domain/recipe-list";
 import { AiSuggestionSheet } from "./ai-suggestion-sheet";
 import { RecipeCard } from "./recipe-card";
@@ -24,7 +28,7 @@ import type { DishSuggestionsState, ShownSuggestion } from "./use-dish-suggestio
 // library keeps working. The state comes from the library (useDishSuggestions).
 
 /** At most this many ingredient names on a card, after "Med: ". */
-const maxCardNames = 5;
+const maxCardNames = 4;
 
 export type AiSuggestionsProps = {
   /** The suggestions and the calls (useDishSuggestions); without it nothing is shown. */
@@ -38,9 +42,11 @@ export type AiSuggestionsProps = {
   offerButton?: boolean;
   /** mealplan.addToCurrentPlan from the page (AD-1): suggestions built around offers can go straight to the menu (Story 9.5). */
   addToPlan?: AddToPlan;
+  /** suggestions.ownRecipesWithOffers from the page (AD-1): "Från dina recept" while an offers job is on or its dishes are shown (Story 16.3). */
+  ownRecipes?: OwnRecipesRead;
 };
 
-export function AiSuggestions({ dishes, searchIngredients, offerButton = true, addToPlan }: AiSuggestionsProps) {
+export function AiSuggestions({ dishes, searchIngredients, offerButton = true, addToPlan, ownRecipes }: AiSuggestionsProps) {
   const headingId = useId();
   const headingRef = useRef<HTMLHeadingElement>(null);
   const buttonRef = useRef<HTMLButtonElement>(null);
@@ -103,6 +109,8 @@ export function AiSuggestions({ dishes, searchIngredients, offerButton = true, a
           {stale.siteName ? `Förslagen bygger på lagret för ${stale.siteName}.` : "Förslagen bygger på lagret för ett annat ställe."}
         </Notice>
       ) : null}
+      {/* Story 16.3: Pontus's own recipes first, from the offers, with no wait for the AI. */}
+      {ownRecipes && dishes.offersJob ? <OwnRecipes read={ownRecipes} storeId={dishes.offersJob.storeId} addToPlan={addToPlan} /> : null}
       {suggestions.length > 0 ? (
         <section aria-labelledby={headingId} className="flex flex-col gap-3">
           <h2 id={headingId} ref={headingRef} tabIndex={-1} className="text-section-label text-ink-2">
@@ -113,6 +121,10 @@ export function AiSuggestions({ dishes, searchIngredients, offerButton = true, a
               <SuggestionCard
                 key={suggestion.key}
                 suggestion={suggestion}
+                onRemove={(bin) => {
+                  focusAfterRemoval(bin);
+                  remove(suggestion.key);
+                }}
                 onSave={() => setOpened({ suggestion, toMenu: false })}
                 onAddToPlan={byOffers && addToPlan ? () => setOpened({ suggestion, toMenu: true }) : undefined}
               />
@@ -171,7 +183,7 @@ function cardNames({ draft, ingredientNames }: ShownSuggestion): string[] {
 /**
  * Kort för ett AI-förslag, a recipe card (Epic 11): a short mint strip with
  * the AI label on it in place of a status and no heart, the title, "35 min ·
- * 4 portioner", "Med: " and at most five ingredient names, and "Spara"; the
+ * 4 portioner", "Med: " and at most four ingredient names, and "Spara"; the
  * label is read before "Spara". The card is no link: a suggestion has no
  * recipe view until it is saved. Never an image: an address from the model
  * is not loaded (AD-15 loads only recipe sites' own images).
@@ -180,27 +192,39 @@ function SuggestionCard({
   suggestion,
   onSave,
   onAddToPlan,
+  onRemove,
 }: {
   suggestion: ShownSuggestion;
+  onRemove: (bin: HTMLButtonElement) => void;
   onSave: () => void;
   onAddToPlan?: () => void;
 }) {
-  const { draft, onOffer = [], atHome } = suggestion;
+  const { draft, onOffer = [], atHome, toBuy = [] } = suggestion;
+  const offerNames = onOffer.map((label) => offerDisplay(label).title);
   return (
     <RecipeCard
       data-testid="ai-suggestion"
       title={draft.title}
       imageUrl={null}
+      emoji={dishEmoji(draft.title)}
       meta={recipeMetaText(draft.totalMinutes, draft.servings)}
       badge={<AiBadge />}
+      onDelete={onRemove}
+      deleteLabel={`Ta bort förslaget ${draft.title}`}
     >
       <p className="text-meta break-words text-ink-2">Med: {cardNames(suggestion).join(", ")}</p>
-      {onOffer.length > 0 ? (
-        <p data-testid="ai-suggestion-offers" className="text-meta break-words text-ink-2">
-          På erbjudande: {onOffer.join(", ")}
-        </p>
+      {atHome ? (
+        <>
+          <p data-testid="ai-suggestion-why" className="text-meta break-words text-ink">
+            {whyText({ onOffer: onOffer.length, have: atHome.have, toBuy })}
+          </p>
+          {offerNames.length > 0 ? (
+            <p data-testid="ai-suggestion-offers" className="text-meta break-words text-ink-2">
+              Erbjudanden: {offerNames.join(", ")}
+            </p>
+          ) : null}
+        </>
       ) : null}
-      {atHome ? <p className="text-meta text-ink-2">{atHomeText(atHome)}</p> : null}
       {onAddToPlan ? (
         <Button onClick={onAddToPlan} aria-label={`Lägg på matsedeln: ${draft.title}`}>
           Lägg på matsedeln

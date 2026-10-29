@@ -15,11 +15,15 @@ type CardBase = {
    * that does not load shows the placeholder at full height.
    */
   imageUrl: string | null;
+  /** Story 16.4: the dish's emoji, shown on the strip (or when the image fails) in place of the book icon. */
+  emoji?: string;
   /** "35 min · 4 portioner" (recipeMetaText). */
   meta: string;
   /** Bottom left on the image: the status ("Kan lagas nu", on the light plate) or "AI-förslag". */
   badge?: ReactNode;
   "data-testid"?: string;
+  /** The soptunna's name; by default "Ta bort <titel>". */
+  deleteLabel?: string;
 };
 
 /**
@@ -46,7 +50,8 @@ type LinkCardProps = CardBase & {
 type PlainCardProps = CardBase & {
   href?: never;
   favorite?: never;
-  onDelete?: never;
+  /** A small soptunna like a saved recipe's, for a suggestion Pontus does not want (Story 16.1). */
+  onDelete?: (bin: HTMLButtonElement) => void;
   children?: ReactNode;
 };
 
@@ -70,11 +75,13 @@ export type RecipeCardProps = LinkCardProps | PlainCardProps;
 export function RecipeCard({
   title,
   imageUrl,
+  emoji,
   meta,
   href,
   badge,
   favorite,
   onDelete,
+  deleteLabel,
   children,
   "data-testid": testId = "recipe-card",
 }: RecipeCardProps) {
@@ -96,13 +103,14 @@ export function RecipeCard({
           <p className="text-meta text-ink-3">{meta}</p>
         </div>
         {onDelete ? (
-          <TrashButton label={`Ta bort ${title}`} onPress={onDelete} className="relative z-10 -mt-2" />
+          <TrashButton label={deleteLabel ?? `Ta bort ${title}`} onPress={onDelete} className="relative z-10 -mt-2" />
         ) : null}
       </div>
       <div className="relative order-first">
         <RecipeImage
           src={imageUrl}
-          iconSize={imageUrl === null ? 24 : 40}
+          emoji={emoji}
+          iconSize={emoji ? (imageUrl === null ? 36 : 56) : imageUrl === null ? 24 : 40}
           className={cx("w-full rounded-t-lg", imageUrl === null ? "h-16" : "h-card-image")}
         />
         {badge || favorite ? (

@@ -27,6 +27,17 @@ describe("shareListText (Story 14.2)", () => {
     expect(text).not.toContain("Matkoll");
   });
 
+  it("keeps lines without an amount, so Persilja and Smör are shared (Story 16.5)", () => {
+    const text = shareListText([
+      line({ label: "Persilja", section: "Frukt och grönt", amount: null, unit: null, isVague: true }),
+      line({ label: "Smör", section: "Mejeri", amount: null, unit: null, isVague: true }),
+      line({ label: "Falukorv", section: "Kött och fisk", amount: 500, unit: "g" }),
+    ]);
+    expect(text).toContain("- Persilja");
+    expect(text).toContain("- Smör");
+    expect(text).toContain("- Falukorv 500 g");
+  });
+
   it("leaves out checked lines, and a department left empty", () => {
     const text = shareListText([
       line({ label: "Gul lök", section: "Frukt och grönt", checked: true }),
