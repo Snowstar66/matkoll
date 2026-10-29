@@ -2486,3 +2486,19 @@ så att jag slipper koden varje gång.
 **När** autoinloggningen används
 **Så** loggas aldrig lösenordet, service role används inte i appen, och ett skript i `scripts/` sätter lösenordet för Pontus lokala användare
 
+### Story 15.2: Inloggad länge på varje enhet
+
+Som Pontus,
+vill jag förbli inloggad på telefonen och datorn länge,
+så att jag bara behöver ange en kod någon enstaka gång.
+
+**Acceptance Criteria:**
+
+**Givet** att Pontus har loggat in på en enhet
+**När** Pontus öppnar appen igen inom 90 dagar
+**Så** är Pontus fortfarande inloggad utan kod, och sessionen förnyas tyst medan appen används
+
+**Givet** att Pontus loggar ut eller inte har använt enheten på 90 dagar
+**När** appen öppnas
+**Så** krävs inloggning igen, och cookies är fortfarande httpOnly, secure i produktion och SameSite=Lax
+
