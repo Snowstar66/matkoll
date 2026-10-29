@@ -303,6 +303,20 @@ export function todayWeekday(date: Date, timeZone: string = planTimeZone): numbe
 }
 
 /**
+ * The date of `weekday` (1 måndag to 7 söndag) in the week `date` falls in,
+ * week counted Monday to Sunday in Stockholm: "26 okt". Plain calendar
+ * arithmetic on the Stockholm date, so a week with a clock change still has
+ * seven consecutive dates.
+ */
+export function weekdayDateText(date: Date, weekday: number, timeZone: string = planTimeZone): string {
+  const parts = new Intl.DateTimeFormat("en-US", { timeZone, year: "numeric", month: "numeric", day: "numeric" })
+    .formatToParts(date)
+    .reduce<Record<string, number>>((all, part) => ({ ...all, [part.type]: Number(part.value) }), {});
+  const target = new Date(Date.UTC(parts.year, parts.month - 1, parts.day + (weekday - todayWeekday(date, timeZone))));
+  return `${target.getUTCDate()} ${shortMonths[target.getUTCMonth()]}`;
+}
+
+/**
  * The day a new dish gets when Pontus does not choose: the first day from
  * today to Sunday with no dish yet, so a week fills up one day at a time with
  * no extra step; `null` ("Ingen dag än") when every remaining day has a dish.

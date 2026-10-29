@@ -6,6 +6,7 @@ import {
   groupByWeekday,
   movedText,
   todayWeekday,
+  weekdayDateText,
   addToPlanSchema,
   clampServings,
   comparePlanRecipes,
@@ -249,6 +250,27 @@ describe("days on the menu (Story 13.5)", () => {
     expect(todayWeekday(new Date("2026-11-01T10:00:00Z"))).toBe(7);
     // 23:30 UTC on a Sunday is already Monday in Stockholm.
     expect(todayWeekday(new Date("2026-11-01T23:30:00Z"))).toBe(1);
+  });
+
+  it("dates the days of a week, Monday to Sunday, in Stockholm (Story 13.6)", () => {
+    const thursday = new Date("2026-10-29T10:00:00Z");
+    expect([1, 4, 7].map((day) => weekdayDateText(thursday, day))).toEqual(["26 okt", "29 okt", "1 nov"]);
+    // Monday and Sunday give the same week; 23:30 UTC on Sunday is already Monday in Stockholm.
+    expect(weekdayDateText(new Date("2026-10-26T05:00:00Z"), 7)).toBe("1 nov");
+    expect(weekdayDateText(new Date("2026-11-01T10:00:00Z"), 1)).toBe("26 okt");
+    expect(weekdayDateText(new Date("2026-11-01T23:30:00Z"), 1)).toBe("2 nov");
+    // Month and year boundaries.
+    expect(weekdayDateText(new Date("2026-12-31T10:00:00Z"), 7)).toBe("3 jan");
+    expect(weekdayDateText(new Date("2026-03-05T10:00:00Z"), 1)).toBe("2 mars");
+  });
+
+  it("keeps seven consecutive dates in a week with a clock change", () => {
+    // Summer time ended on Sunday 25 October 2026.
+    const dates = [1, 2, 3, 4, 5, 6, 7].map((day) => weekdayDateText(new Date("2026-10-25T10:00:00Z"), day));
+    expect(dates).toEqual(["19 okt", "20 okt", "21 okt", "22 okt", "23 okt", "24 okt", "25 okt"]);
+    // And the one that began on 29 March 2026.
+    const spring = [1, 7].map((day) => weekdayDateText(new Date("2026-03-25T10:00:00Z"), day));
+    expect(spring).toEqual(["23 mars", "29 mars"]);
   });
 
   it("defaults to the first day from today without a dish, else none", () => {
