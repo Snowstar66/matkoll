@@ -2442,6 +2442,26 @@ så att lagersaldot stämmer utan att jag räknar själv.
 **När** avdraget görs
 **Så** uppdateras lagret, rätten visas som lagad på matsedeln och räknas inte längre in i inköpslistan, och "Ångra" återställer både lagret och rätten
 
+### Story 13.5: Dagar på matsedeln
+
+Som Pontus,
+vill jag lägga rätterna på veckans dagar och flytta dem mellan dagar,
+så att jag ser veckan i överblick och vet vad vi äter när.
+
+**Acceptance Criteria:**
+
+**Givet** matsedeln för en vecka
+**När** den visas
+**Så** är rätterna grupperade under måndag–söndag, och rätter utan dag ligger under "Ingen dag än"
+
+**Givet** en rätt på matsedeln
+**När** Pontus väljer "Flytta till dag" (eller lägger till en ny rätt)
+**Så** kan en dag väljas, flera rätter kan ligga samma dag, och inköpslistan påverkas inte av vilken dag rätten ligger på
+
+**Givet** befintliga matsedlar
+**När** ändringen går live
+**Så** behåller alla rätter sina data och hamnar under "Ingen dag än", och "Markera som lagad", portioner, soptunna och tidigare veckor fungerar som förut
+
 ## Epic 14: Tydligare flöden
 
 Pontus förstod inte hur listan kommer till butiken, och erbjudandevyn har blivit rörig när funktionerna lagts på varandra.
@@ -2606,3 +2626,86 @@ så att det är lätt att skumma veckans fynd.
 **När** raden visas
 **Så** står priset som ren fet text, ordinarie pris och rabatt på en rad under ("29,90 kr · −50 %"), och Toppklipp med 🔥 som en liten tonad etikett, så att raden är lika hög som en vanlig listrad och kolumnen till höger inte staplar tre block
 
+### Story 16.7: Varför veckans bästa butik
+
+Som Pontus,
+vill jag se vilka erbjudanden som gör en butik till veckans bästa,
+så att "1 erbjudande passar det du brukar laga" inte lämnar mig nyfiken.
+
+**Acceptance Criteria:**
+
+**Givet** veckans bästa butik
+**När** den räknas
+**Så** returnerar `bestStore` också vilka erbjudanden som passade, med id och städat namn (via `offerDisplay`)
+
+**Givet** raden "Bäst denna vecka"
+**När** den visas
+**Så** nämner den dem: "Bäst denna vecka: ● Maxi – falukorv och grädde passar det du brukar laga", vid fler än tre "falukorv, grädde, lök +2", och med en enda kort fras när skälen skiljer sig (hemma eller i recept)
+
+**Givet** arkets butiksmärken
+**När** de visas
+**Så** används den lugna pricken från 16.6 i stället för den fyllda röda brickan, även i raden "Bäst denna vecka" och i Hämta-panelen
+
+**Givet** raden
+**När** Pontus trycker på "Visa"
+**Så** filtreras listan till de passande erbjudandena, med "Visa alla" som väg tillbaka
+
+**Givet** listan
+**När** ett erbjudande passar det Pontus lagar eller har hemma (samma matchning som `bestStore`)
+**Så** har dess metarad en diskret, dämpad "Passar dig" utan färgblock, läsbar för skärmläsare
+
+**Givet** mörkt läge, 375 px och 44 px-mål
+**När** arket visas
+**Så** håller layouten utan sidscroll
+
+### Story 16.8: Hämta ersätter och tydliga filter
+
+Som Pontus,
+vill jag att en ny hämtning ersätter de gamla erbjudandena och att filtren förklarar sig själva,
+så att jag aldrig ser erbjudanden från butiker jag just valt bort och förstår vad varje val gör.
+
+**Acceptance Criteria:**
+
+**Givet** en butik som hämtas igen
+**När** hämtningen lyckas
+**Så** ersätter den butikens gamla erbjudanden från länken, utan dubbletter
+
+**Givet** "Hämta valda" med färre butiker än alla (eller en enda butik)
+**När** minst en vald butik hämtades
+**Så** tas övriga butikers erbjudanden bort (`clear_other_store_offers`), men aldrig när alla val misslyckades, och "Hämta alla" behåller allt
+
+**Givet** arket med erbjudanden
+**När** det visas
+**Så** finns ingen "Filter"-knapp: verktygsraden har "Hämta" och "Välj", och två märkta rader "Visa butik: Alla · Maxi · Krokom" (vid två butiker med erbjudanden) och "Sortera: Avdelning · Bäst rabatt" (när något erbjudande har rabatt)
+
+**Givet** kortet med AI-förslag och två butiker
+**När** det visas
+**Så** står "Föreslå rätter från:" ovanför butiksvalet inne i kortet
+
+### Story 16.9: Kompakt topp i erbjudandearket
+
+Som Pontus,
+vill jag att toppen av erbjudandearket är lugn, kompakt och tydlig,
+så att listan börjar högt upp och inget är för stort eller blaffigt.
+
+**Acceptance Criteria:**
+
+**Givet** arket med erbjudanden
+**När** det visas
+**Så** är "Hämta" och "Välj" små textknappar (44 px träffyta), och raderna "Visa butik:" och "Sortera:" har kompakta pillrar (32 px synlig höjd) på en rad som scrollar i sidled vid behov, utan sidoöverflöd vid 375 px
+
+**Givet** kortet med AI-förslag
+**När** det visas
+**Så** har det högst tre rader utan ram: "Bäst denna vecka: ● Maxi – Falukorv passar dina recept · Visa" (länken blir "Visa alla" när den är aktiv), "Från: Maxi · Krokom" (bara med 2+ butiker) och en kompakt knapp "Föreslå rätter"
+
+**Givet** ett erbjudande som "scan falukorv"
+**När** det nämns på bästa-butik-raden
+**Så** står det "Falukorv": varumärket är borta och första bokstaven versal
+
+**Givet** filtret "Visa" på bästa-butik-raden
+**När** det är på
+**Så** står "Visar 1 av 157 erbjudanden · Visa alla" i sammanfattningen
+
+**Givet** en pill eller knapp som trycks med pekare
+**När** den får fokus
+**Så** syns ingen fokusring; med tangentbord syns en enkel ring (inte dubbel) på pillen

@@ -13,10 +13,12 @@ const countries = [
   "USA", "Kina", "Thailand", "Vietnam", "Indien",
 ];
 const markers = ["ICA", "KRAV"];
+// Producer brands that stand in front of the product and are not part of its name (Story 16.9); matched in any letter case.
+const brands = ["Scan", "Arla", "Kronfågel", "Pågen"];
 
 const escape = (text: string) => text.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
 const alternatives = (words: string[]) => words.map(escape).sort((a, b) => b.length - a.length).join("|");
-const markerStart = new RegExp(`^(${alternatives(markers)})(?=[\\s.,/]|$)[\\s.,/]*`, "i");
+const markerStart = new RegExp(`^(${alternatives([...markers, ...brands])})(?=[\\s.,/]|$)[\\s.,/]*`, "i");
 const countryStart = new RegExp(`^(${alternatives(countries)})(?=[\\s.,/]|$)[\\s.,/]*(?:och\\s+(?=${alternatives(countries)}))?`, "i");
 
 const canonical = (word: string, list: string[]) => list.find((entry) => entry.toLowerCase() === word.toLowerCase()) ?? word;
@@ -47,7 +49,8 @@ export function offerDisplay(label: string): OfferDisplay {
     const marker = markerStart.exec(rest);
     if (marker) {
       flush();
-      extras.push(canonical(marker[1], markers).toUpperCase());
+      const brand = canonical(marker[1], brands);
+      extras.push(brands.includes(brand) ? brand : canonical(marker[1], markers).toUpperCase());
       rest = rest.slice(marker[0].length);
       continue;
     }

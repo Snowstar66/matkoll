@@ -16,6 +16,12 @@ describe("offerDisplay", () => {
     expect(offerDisplay("Italien och Spanien Klementiner")).toEqual({ title: "Klementiner", extras: ["Italien/Spanien"] });
   });
 
+  it("takes a producer brand off in any letter case (Story 16.9)", () => {
+    expect(offerDisplay("Scan Falukorv")).toEqual({ title: "Falukorv", extras: ["Scan"] });
+    expect(offerDisplay("scan falukorv")).toEqual({ title: "Falukorv", extras: ["Scan"] });
+    expect(offerDisplay("ICA. Sverige scan falukorv").title).toBe("Falukorv");
+  });
+
   it("leaves other labels, and labels with nothing left, as they are", () => {
     expect(offerDisplay("Gårdens Herrgård, Präst")).toEqual({ title: "Gårdens Herrgård, Präst", extras: [] });
     expect(offerDisplay("ICA. Spanien")).toEqual({ title: "ICA. Spanien", extras: [] });

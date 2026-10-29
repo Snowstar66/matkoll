@@ -246,8 +246,15 @@ test("the week's best store is on top and preselected, and the dishes are built 
   await openOffers(page);
   await expect(sheet(page).getByTestId("best-store")).toContainText("Bäst denna vecka:");
   await expect(sheet(page).getByTestId("best-store")).toContainText("Maxi");
-  await expect(sheet(page).getByTestId("best-store")).toContainText("3 erbjudanden passar det du brukar laga");
-  const picker = sheet(page).getByRole("radiogroup", { name: "Butik för förslagen" });
+  await expect(sheet(page).getByTestId("best-store")).toContainText(/ \u2013 .+ passar (det du (har hemma|brukar laga)|dina recept)/);
+  // Story 16.7: "Visa" narrows the list to the matching offers, "Visa alla" brings the rest back.
+  await expect(sheet(page).getByTestId("offer-fit")).toHaveCount(3);
+  const before = await sheet(page).getByTestId("offer-row").count();
+  await sheet(page).getByRole("button", { name: "Visa", exact: true }).click();
+  await expect(sheet(page).getByTestId("offer-row")).toHaveCount(3);
+  await sheet(page).getByTestId("best-store-toggle").click();
+  await expect(sheet(page).getByTestId("offer-row")).toHaveCount(before);
+  const picker = sheet(page).getByRole("radiogroup", { name: "Föreslå rätter från" });
   await expect(picker.getByRole("radio", { name: "Maxi" })).toBeChecked();
 
   await suggestButton(page).click();
@@ -266,7 +273,7 @@ test("another store can be picked for the dishes", async ({ page }) => {
   const bodies = watchJobBodies(page);
 
   await openOffers(page);
-  const picker = sheet(page).getByRole("radiogroup", { name: "Butik för förslagen" });
+  const picker = sheet(page).getByRole("radiogroup", { name: "Föreslå rätter från" });
   await picker.getByRole("radio", { name: "Matkoll" }).click();
   await expect(picker.getByRole("radio", { name: "Matkoll" })).toBeChecked();
   await suggestButton(page).click();

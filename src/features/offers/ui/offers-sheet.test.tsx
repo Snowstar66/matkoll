@@ -14,6 +14,10 @@ const fetchStoreOffers = vi.fn<(input: { storeId: string }) => Promise<FetchStor
 vi.mock("../actions/fetch-store-offers", () => ({
   fetchStoreOffers: (input: { storeId: string }) => fetchStoreOffers(input),
 }));
+const clearOtherStoreOffers = vi.fn<(input: { keep: string[] }) => Promise<unknown>>();
+vi.mock("../actions/clear-other-store-offers", () => ({
+  clearOtherStoreOffers: (input: { keep: string[] }) => clearOtherStoreOffers(input),
+}));
 const refresh = vi.fn();
 vi.mock("next/navigation", () => ({ useRouter: () => ({ refresh }) }));
 
@@ -70,7 +74,7 @@ async function choose(user: ReturnType<typeof userEvent.setup>, dialog: HTMLElem
   await user.click(within(dialog).getByRole("button", { name: "Välj" }));
 }
 
-/** Story 14.1: the store panel and the filters sit behind "Hämta" and "Filter". */
+/** Story 14.1: the store panel sits behind "Hämta". */
 async function openPanel(user: ReturnType<typeof userEvent.setup>, dialog: HTMLElement, name: string | RegExp) {
   await user.click(within(dialog).getByRole("button", { name }));
 }
@@ -78,6 +82,7 @@ async function openPanel(user: ReturnType<typeof userEvent.setup>, dialog: HTMLE
 beforeEach(() => {
   fetchStoreOffers.mockReset().mockResolvedValue(ok({ saved: 7, skipped: 2, matched: 1, weekStart: "2026-10-26" }));
   refresh.mockReset();
+  clearOtherStoreOffers.mockReset().mockResolvedValue(ok({ removed: 0 }));
 });
 
 describe("OffersSheet", () => {
@@ -328,7 +333,6 @@ describe("OffersSheet: several stores (Story 9.13)", () => {
     expect(within(dialog).getAllByTestId("store-badge").map((badge) => badge.textContent)).toEqual(["Krokom", "Maxi", "Krokom"]);
     // The same product in two stores shows twice.
     expect(within(dialog).getAllByText("Havets Laxfilé")).toHaveLength(2);
-    await openPanel(user, dialog, /^Filter/);
     await user.click(within(dialog).getByRole("radio", { name: "Bäst rabatt" }));
     const best = within(dialog).getByRole("list", { name: "Bäst rabatt först" }).querySelectorAll("[data-testid=offer-row]");
     expect(best[0]).toHaveTextContent("Krokom");
@@ -340,23 +344,79 @@ describe("OffersSheet: several stores (Story 9.13)", () => {
     expect(within(dialog).getAllByTestId("offer-row")).toHaveLength(3);
   });
 
+  it("shows labelled list filters without a Filter button, and the suggestion picker under its own label (Story 16.8)", async () => {
+    render({ stores, offers: both });
+    const { dialog } = await open();
+    expect(within(dialog).queryByRole("button", { name: /^Filter/ })).not.toBeInTheDocument();
+    const filters = within(dialog).getByTestId("list-filters");
+    expect(filters).toHaveTextContent("Visa butik:");
+    expect(filters).toHaveTextContent("Sortera:");
+    expect(within(filters).getByRole("radio", { name: "Avdelning" })).toBeChecked();
+    const picker = within(dialog).getByTestId("suggest-store-picker");
+    expect(picker).toHaveTextContent("Från:");
+    expect(within(picker).getAllByRole("radio")).toHaveLength(2);
+  });
+
+  it("has no store filter and no suggestion picker with one store's offers, and no sort without savings (Story 16.8)", async () => {
+    render({ stores, offers: [{ ...both[0], savingPercent: null, regularPrice: null }] });
+    const { dialog } = await open();
+    expect(within(dialog).queryByTestId("list-filters")).not.toBeInTheDocument();
+    expect(within(dialog).queryByTestId("suggest-store-picker")).not.toBeInTheDocument();
+  });
+
+  it("clears the other stores' offers after Hämta valda, only when a fetch worked (Story 16.8)", async () => {
+    render({ stores, offers: both });
+    const { user, dialog } = await open();
+    await user.click(within(dialog).getByRole("button", { name: "Hämta" }));
+    await user.click(within(dialog).getByRole("checkbox", { name: "Maxi ICA Stormarknad Östersund" }));
+    await user.click(within(dialog).getByRole("button", { name: "Hämta valda (1)" }));
+    await waitFor(() => expect(clearOtherStoreOffers).toHaveBeenCalledWith({ keep: [krokom.id] }));
+  });
+
+  it("keeps the other stores' offers when the selected fetch failed, and after Hämta alla (Story 16.8)", async () => {
+    fetchStoreOffers.mockResolvedValue(fail("offers_fetch_blocked"));
+    render({ stores, offers: both });
+    const { user, dialog } = await open();
+    await user.click(within(dialog).getByRole("button", { name: "Hämta" }));
+    await user.click(within(dialog).getByRole("checkbox", { name: "Maxi ICA Stormarknad Östersund" }));
+    await user.click(within(dialog).getByRole("button", { name: "Hämta valda (1)" }));
+    await waitFor(() => expect(fetchStoreOffers).toHaveBeenCalledTimes(1));
+    fetchStoreOffers.mockResolvedValue(ok({ saved: 3, skipped: 0, matched: 0, weekStart: "2026-10-26" }));
+    await user.click(within(dialog).getByRole("button", { name: "Hämta" }));
+    await user.click(within(dialog).getByRole("button", { name: "Hämta alla" }));
+    await waitFor(() => expect(fetchStoreOffers).toHaveBeenCalledTimes(3));
+    expect(clearOtherStoreOffers).not.toHaveBeenCalled();
+  });
+
   it("shows the week's best store on top and preselects it in the picker for the suggestions (Story 9.14)", async () => {
-    render({ stores, offers: both, best: { storeId: krokom.id, fits: 2, total: 2, score: 3 } });
+    render({ stores, offers: both, best: { storeId: krokom.id, fits: 2, total: 2, score: 3, matches: [{ id: both[1].id, name: "Laxfilé", source: "recipes" }, { id: both[2].id, name: "Gul lök", source: "pantry" }] }, fitIds: [both[1].id, both[2].id] });
     const { dialog } = await open();
     const line = within(dialog).getByTestId("best-store");
     expect(line).toHaveTextContent("Bäst denna vecka:");
     expect(line).toHaveTextContent("Krokom");
-    expect(line).toHaveTextContent("2 erbjudanden passar det du brukar laga");
-    const picker = within(within(dialog).getByRole("radiogroup", { name: "Butik för förslagen" }));
+    expect(line).toHaveTextContent("Bäst denna vecka: Krokom \u2013 Laxfilé och gul lök passar det du brukar laga");
+    expect(within(dialog).getAllByTestId("offer-fit")).toHaveLength(2);
+    const picker = within(within(dialog).getByRole("radiogroup", { name: "Föreslå rätter från" }));
     expect(picker.getByRole("radio", { name: "Krokom" })).toBeChecked();
     expect(picker.getByRole("radio", { name: "Maxi" })).not.toBeChecked();
   });
 
+  it("filters the list to the matching offers and back with Visa alla (Story 16.7)", async () => {
+    render({ stores, offers: both, best: { storeId: krokom.id, fits: 1, total: 2, score: 2, matches: [{ id: both[1].id, name: "Laxfilé", source: "recipes" }] } });
+    const { user, dialog } = await open();
+    const rows = () => within(dialog).getAllByTestId("offer-row").length;
+    expect(rows()).toBe(both.length);
+    await user.click(within(dialog).getByRole("button", { name: "Visa" }));
+    expect(rows()).toBe(1);
+    await user.click(within(dialog).getByRole("button", { name: "Visa alla" }));
+    expect(rows()).toBe(both.length);
+  });
+
   it("has no best-store line and no picker with offers from one store only (Story 9.14)", async () => {
-    render({ stores, offers: both.slice(0, 1), best: { storeId: store.id, fits: 1, total: 1, score: 1 } });
+    render({ stores, offers: both.slice(0, 1), best: { storeId: store.id, fits: 1, total: 1, score: 1, matches: [] } });
     const { dialog } = await open();
     expect(within(dialog).queryByTestId("best-store")).not.toBeInTheDocument();
-    expect(within(dialog).queryByRole("radiogroup", { name: "Butik för förslagen" })).not.toBeInTheDocument();
+    expect(within(dialog).queryByRole("radiogroup", { name: "Föreslå rätter från" })).not.toBeInTheDocument();
   });
 
   it("puts the store in the item's note when offers are picked", async () => {

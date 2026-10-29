@@ -69,14 +69,14 @@ isOneToOne: false
                   ]
                 },"meal_plan_recipe": {
                   Row: {
-                    "cooked_at": string | null,"cooked_deductions": Json | null,"created_at": string,"id": string,"meal_plan_id": string,"position": number,"recipe_id": string | null,"recipe_title": string,"servings": number,"user_id": string
+                    "cooked_at": string | null,"cooked_deductions": Json | null,"created_at": string,"id": string,"meal_plan_id": string,"position": number,"recipe_id": string | null,"recipe_title": string,"servings": number,"user_id": string,"weekday": number | null
                   }
                   ComputedFields: never
                   Insert: {
-                    "cooked_at"?: string | null,"cooked_deductions"?: Json | null,"created_at"?: string,"id"?: string,"meal_plan_id": string,"position": number,"recipe_id"?: string | null,"recipe_title": string,"servings": number,"user_id"?: string
+                    "cooked_at"?: string | null,"cooked_deductions"?: Json | null,"created_at"?: string,"id"?: string,"meal_plan_id": string,"position": number,"recipe_id"?: string | null,"recipe_title": string,"servings": number,"user_id"?: string,"weekday"?: number | null
                   }
                   Update: {
-                    "cooked_at"?: string | null,"cooked_deductions"?: Json | null,"created_at"?: string,"id"?: string,"meal_plan_id"?: string,"position"?: number,"recipe_id"?: string | null,"recipe_title"?: string,"servings"?: number,"user_id"?: string
+                    "cooked_at"?: string | null,"cooked_deductions"?: Json | null,"created_at"?: string,"id"?: string,"meal_plan_id"?: string,"position"?: number,"recipe_id"?: string | null,"recipe_title"?: string,"servings"?: number,"user_id"?: string,"weekday"?: number | null
                   }
                   Relationships: [
                     {
@@ -417,7 +417,7 @@ isOneToOne: false
         isSetofReturn: false
       } },
 "add_to_current_plan":
-{ Args: { "dish_id": string,"dish_recipe_id": string,"dish_recipe_title": string,"dish_servings": number,"plan_name": string }; Returns: {
+{ Args: { "dish_id": string,"dish_recipe_id": string,"dish_recipe_title": string,"dish_servings": number,"dish_weekday"?: number,"plan_name": string }; Returns: {
               "cooked_at": string | null,
 "cooked_deductions": Json | null,
 "created_at": string,
@@ -427,7 +427,8 @@ isOneToOne: false
 "recipe_id": string | null,
 "recipe_title": string,
 "servings": number,
-"user_id": string
+"user_id": string,
+"weekday": number | null
             }
                           SetofOptions: {
         from: "*"
@@ -455,6 +456,9 @@ isOneToOne: false
                            },
 "claim_ai_job":
 { Args: { "job_id": string,"run_deadline": string }; Returns: Json
+                           },
+"clear_other_store_offers":
+{ Args: { "keep": (string)[] }; Returns: number
                            },
 "clear_put_in_pantry":
 { Args: { "check_ids": (string)[],"custom_item_ids": (string)[],"override_keys": (string)[],"plan_id": string }; Returns: number
@@ -590,7 +594,8 @@ isOneToOne: false
 "recipe_id": string | null,
 "recipe_title": string,
 "servings": number,
-"user_id": string
+"user_id": string,
+"weekday": number | null
             }
                           SetofOptions: {
         from: "*"

@@ -130,13 +130,12 @@ test("fetches the week's offers with one tap and shows them under their categori
   await expect(meat.getByText("129 kr/kg", { exact: true })).toBeVisible();
   await expect(dialog.getByTestId("offer-top-tag")).toHaveCount(1);
   await expect(meat.getByTestId("offer-regular-price")).toHaveText("111,90 kr");
-  await dialog.getByRole("button", { name: /^Filter/ }).click();
   await dialog.getByRole("radio", { name: "Bäst rabatt" }).click();
   const best = dialog.getByRole("list", { name: "Bäst rabatt först" }).getByTestId("offer-row");
   await expect(best.first()).toContainText("Köp 3 betala för 2");
   await expect(best.first()).toContainText("\u221233 %");
   await expect(best.last()).not.toContainText("%");
-  await dialog.getByRole("radio", { name: "Efter avdelning" }).click();
+  await dialog.getByRole("radio", { name: "Avdelning" }).click();
   await expect(dialog.getByRole("heading", { level: 3, name: "Bröd" })).toBeVisible();
   await expect(dialog.getByText("Ljusfabriken Kronljus")).toHaveCount(0);
   const page$ = dialog.getByRole("link", { name: /^Öppna sidan på ica\.se/ });
@@ -296,7 +295,6 @@ test("Story 9.13: fetches from several stores one by one, shows a badge per stor
   // The same product on offer in both stores shows twice.
   await expect(dialog.getByText("Havets Laxfilé")).toHaveCount(2);
 
-  await dialog.getByRole("button", { name: /^Filter/ }).click();
   await dialog.getByRole("radio", { name: "Bäst rabatt" }).click();
   await expect(dialog.getByRole("list", { name: "Bäst rabatt först" }).getByTestId("offer-row")).toHaveCount(14);
   await dialog.getByRole("radiogroup", { name: "Visa butik" }).getByRole("radio", { name: "Krokom" }).click();
@@ -306,6 +304,33 @@ test("Story 9.13: fetches from several stores one by one, shows a badge per stor
   await dialog.getByRole("radio", { name: "Alla" }).click();
   await expect(dialog.getByTestId("offer-row")).toHaveCount(14);
   expect(await page.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth)).toBe(true);
+  expect(errors).toEqual([]);
+});
+
+test("Story 16.8: fetching only one store removes the other store's offers", async ({ page }) => {
+  const errors = watchErrors(page);
+  await addKrokom();
+  await openSheet(page);
+  const dialog = sheet(page);
+  await dialog.getByRole("button", { name: "Hämta alla" }).click();
+  await expect(dialog.getByTestId("offers-store-result")).toHaveCount(2);
+  expect(await storedOffers()).toHaveLength(14);
+  await expect(dialog.getByTestId("list-filters")).toContainText("Visa butik:");
+  await expect(dialog.getByRole("button", { name: /^Filter/ })).toHaveCount(0);
+
+  // Let both stores be fetched again at once, then fetch only Krokom.
+  const cleared = await adminClient().from("store").update({ offers_attempted_at: null }).eq("user_id", userId);
+  if (cleared.error) throw cleared.error;
+  await dialog.getByRole("button", { name: "Hämta", exact: true }).click();
+  await dialog.getByRole("checkbox", { name: storeName }).click();
+  await dialog.getByRole("button", { name: "Hämta valda (1)" }).click();
+  await expect(dialog.getByTestId("offers-store-result")).toHaveText("Krokom: Hämtade 7 erbjudanden.");
+  await expect(dialog.getByTestId("offers-summary")).toContainText("7 erbjudanden");
+  await expect(dialog.getByTestId("list-filters")).not.toContainText("Visa butik");
+  const rows = await storedOffers();
+  expect(rows).toHaveLength(7);
+  const stores = await adminClient().from("store_offer").select("store_id").eq("user_id", userId);
+  expect(new Set(stores.data?.map((row) => row.store_id)).size).toBe(1);
   expect(errors).toEqual([]);
 });
 
@@ -333,7 +358,6 @@ test("Story 9.13: a picked offer's note on the shopping list names its store", a
   const dialog = sheet(page);
   await dialog.getByRole("button", { name: "Hämta alla" }).click();
   await expect(dialog.getByTestId("offers-store-result")).toHaveCount(2);
-  await dialog.getByRole("button", { name: /^Filter/ }).click();
   await dialog.getByRole("radiogroup", { name: "Visa butik" }).getByRole("radio", { name: "Krokom" }).click();
   await dialog.getByRole("button", { name: "Välj" }).click();
   await dialog.getByRole("checkbox", { name: /^Gårdens Herrgård, Präst, 79 kr per kg.*Krokom$/ }).click();

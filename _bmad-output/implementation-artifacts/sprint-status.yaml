@@ -149,6 +149,7 @@ development_status:
   13-2-ta-bort-recept: done
   13-3-matsedeln-har-det-som-behövs: done
   13-4-markera-som-lagad: done
+  13-5-dagar-på-matsedeln: done
   epic-14: done
   14-1-erbjudandevyn-städas: done
   14-2-skicka-listan-till-butiken-tydligare: done
@@ -162,4 +163,7 @@ development_status:
   16-4-ett-snyggt-recept-när-förslaget-sparas: done
   16-5-varor-utan-mängd-följer-med-till-varukorgen: done
   16-6-lugnare-erbjudanderader: done
+  16-7-varför-veckans-bästa-butik: done
+  16-8-hämta-ersätter-och-tydliga-filter: done
+  16-9-kompakt-topp-i-erbjudandearket: done
   epic-9-retrospective: optional
