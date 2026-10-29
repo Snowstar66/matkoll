@@ -2621,3 +2621,27 @@ så att "1 erbjudande passar det du brukar laga" inte lämnar mig nyfiken.
 **Givet** mörkt läge, 375 px och 44 px-mål
 **När** arket visas
 **Så** håller layouten utan sidscroll
+
+### Story 16.8: Hämta ersätter och tydliga filter
+
+Som Pontus,
+vill jag att en ny hämtning ersätter de gamla erbjudandena och att filtren förklarar sig själva,
+så att jag aldrig ser erbjudanden från butiker jag just valt bort och förstår vad varje val gör.
+
+**Acceptance Criteria:**
+
+**Givet** en butik som hämtas igen
+**När** hämtningen lyckas
+**Så** ersätter den butikens gamla erbjudanden från länken, utan dubbletter
+
+**Givet** "Hämta valda" med färre butiker än alla (eller en enda butik)
+**När** minst en vald butik hämtades
+**Så** tas övriga butikers erbjudanden bort (`clear_other_store_offers`), men aldrig när alla val misslyckades, och "Hämta alla" behåller allt
+
+**Givet** arket med erbjudanden
+**När** det visas
+**Så** finns ingen "Filter"-knapp: verktygsraden har "Hämta" och "Välj", och två märkta rader "Visa butik: Alla · Maxi · Krokom" (vid två butiker med erbjudanden) och "Sortera: Avdelning · Bäst rabatt" (när något erbjudande har rabatt)
+
+**Givet** kortet med AI-förslag och två butiker
+**När** det visas
+**Så** står "Föreslå rätter från:" ovanför butiksvalet inne i kortet

@@ -456,6 +456,9 @@ isOneToOne: false
 "claim_ai_job":
 { Args: { "job_id": string,"run_deadline": string }; Returns: Json
                            },
+"clear_other_store_offers":
+{ Args: { "keep": string[] }; Returns: number
+                           },
 "clear_put_in_pantry":
 { Args: { "check_ids": (string)[],"custom_item_ids": (string)[],"override_keys": (string)[],"plan_id": string }; Returns: number
                            },
