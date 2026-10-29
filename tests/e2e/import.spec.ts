@@ -1,6 +1,6 @@
 import { readFileSync } from "node:fs";
-import { type APIRequestContext, expect, type Locator, type Page, test } from "@playwright/test";
-import { adminClient, e2eEmail, outsiderStorageState, recipesStorageState, userStorageState } from "./support";
+import { type APIRequestContext, expect, type Page, test } from "@playwright/test";
+import { adminClient, importEmail, importStorageState, outsiderStorageState } from "./support";
 
 // Story 1.6, 1.8 and 1.9: importing a recipe from pasted text, a link or a photo, with
 // AI_PROVIDER=mock. Since Story 12.6 an import is an AI job (POST /api/ai/jobs and
@@ -27,8 +27,8 @@ async function seedCatalog() {
   const admin = adminClient();
   const { data, error } = await admin.auth.admin.listUsers({ perPage: 1000 });
   if (error) throw error;
-  const user = data.users.find((candidate) => candidate.email === e2eEmail);
-  if (!user) throw new Error(`${e2eEmail} is missing; global-setup creates it`);
+  const user = data.users.find((candidate) => candidate.email === importEmail);
+  if (!user) throw new Error(`${importEmail} is missing; global-setup creates it`);
   e2eUserId = user.id;
   const rows = [
     { name: "Gul lök", normalized_name: "gul lök", section: "Frukt och grönt", location: "Skafferi", default_unit: "st" },
@@ -53,9 +53,6 @@ function watchErrors(page: Page): string[] {
 const sheet = (page: Page) => page.getByRole("dialog", { name: "Importera recept" });
 const textField = (page: Page) => sheet(page).getByLabel("Recepttext");
 const linkField = (page: Page) => sheet(page).getByLabel("Länk till receptet");
-const line = (page: Page, originalText: string): Locator =>
-  sheet(page).getByTestId("recipe-line").filter({ hasText: originalText });
-
 /** Opens the sheet, on the Text tab unless `tab` says otherwise (it opens on Länk). */
 async function openImport(page: Page, tab: "Länk" | "Text" = "Text") {
   await page.goto("/recept");
@@ -70,7 +67,9 @@ async function parse(page: Page, text: string) {
   await sheet(page).getByRole("button", { name: "Tolka" }).click();
 }
 
-test.use({ storageState: userStorageState, viewport: mobile });
+test.use({ storageState: importStorageState, viewport: mobile });
+// One user for all the tests, which empty its recipes and catalog first: they must not run at the same time.
+test.describe.configure({ mode: "serial" });
 
 test.beforeAll(async () => {
   await seedCatalog();
@@ -78,8 +77,14 @@ test.beforeAll(async () => {
 
 // The queue takes three active jobs; each test starts with none.
 test.beforeEach(async () => {
-  const { error } = await adminClient().from("ai_job").delete().eq("user_id", e2eUserId);
-  if (error) throw error;
+  // Children before parents. An import saves its recipe (Story 1.15), so each test starts without
+  // recipes. The catalog is only added to: service_role may not delete ingredients.
+  const admin = adminClient();
+  for (const table of ["ai_job", "recipe_ingredient", "recipe_step", "recipe"] as const) {
+    const { error } = await admin.from(table).delete().eq("user_id", e2eUserId);
+    if (error) throw error;
+  }
+  await seedCatalog();
 });
 
 /** The states of the E2E user's import jobs, oldest first. */
@@ -156,129 +161,45 @@ test("the empty library's button opens the same sheet", async ({ page }) => {
   await expect(sheet(page).getByRole("tab", { name: "Länk" })).toHaveAttribute("aria-selected", "true");
 });
 
-test("pasted text becomes a preview that can be edited, and closing asks before discarding", async ({ page }) => {
+test("pasted text is saved by itself, with the catalog's matches and new ingredients' suggestions, and Öppna shows it", async ({ page }) => {
   const errors = watchErrors(page);
   await openImport(page);
   await parse(page, linssoppa);
+  await expect(sheet(page).getByText("Läser receptet …")).toBeVisible();
 
-  // The preview in Matkoll's format.
-  await expect(sheet(page).getByLabel("Titel")).toHaveValue("Röd linssoppa med kokosmjölk");
-  await expect(sheet(page).getByText("6 portioner")).toBeVisible();
-  await expect(sheet(page).getByLabel("Tid i minuter")).toHaveValue("30");
-  await expect(sheet(page).getByTestId("recipe-line")).toHaveCount(12);
-  await expect(sheet(page).getByLabel("Steg 1")).toHaveValue(/^Hacka lök, vitlök och ingefära/);
+  // No preview: the sheet closes and the recipe is in the library (Story 1.15).
+  await expect(sheet(page)).toHaveCount(0, { timeout: 20_000 });
+  const toast = page.getByTestId("toast");
+  await expect(toast).toContainText("Receptet Röd linssoppa med kokosmjölk är sparat");
+  await expect(toast.getByRole("button", { name: "Ångra" })).toBeVisible();
+  await expect(page.getByTestId("recipe-card").filter({ hasText: "Röd linssoppa med kokosmjölk" })).toHaveCount(1);
 
-  // Matched through the AI's name: ring and "Kontrollera". No catalog row: "Ny".
-  const onion = line(page, "2 gula lökar");
-  await expect(onion.getByRole("button", { name: /^Gul lök/ })).toBeVisible();
-  await expect(onion.getByText("Kontrollera")).toBeVisible();
-  await expect(line(page, "3 vitlöksklyftor").getByText("Kontrollera")).toBeVisible();
-  const carrots = line(page, "2 morötter");
-  await expect(carrots.getByText("Ny", { exact: true })).toBeVisible();
-  await expect(carrots.getByText("Kontrollera")).toHaveCount(0);
-  await expect(line(page, "3 dl röda linser").getByText("3 dl", { exact: true })).toBeVisible();
-  // "1 bit" is not a catalog unit: a vague line, shown as its original text without amount.
-  const ginger = line(page, "1 bit färsk ingefära, ca 3 cm");
-  await expect(ginger.getByText("1 bit färsk ingefära, ca 3 cm")).toBeVisible();
-  await expect(ginger).toHaveText(/^Ingefära/);
+  const { data: recipes, error } = await adminClient()
+    .from("recipe")
+    .select("id, original_servings, total_minutes, source_kind, recipe_ingredient(ingredient_id)")
+    .eq("user_id", e2eUserId);
+  if (error) throw error;
+  expect(recipes).toHaveLength(1);
+  expect(recipes[0]).toMatchObject({ original_servings: 6, total_minutes: 30, source_kind: "text" });
+  expect(recipes[0].recipe_ingredient).toHaveLength(12);
 
-  // Edit title, servings, time, amount and unit.
-  await sheet(page).getByLabel("Titel").fill("Linssoppa");
-  await sheet(page).getByRole("button", { name: "Fler portioner" }).click();
-  await expect(sheet(page).getByText("7 portioner")).toBeVisible();
-  await sheet(page).getByLabel("Tid i minuter").fill("en halvtimme");
-  await expect(sheet(page).getByText("Ange ett tal.")).toBeVisible();
-  await sheet(page).getByLabel("Tid i minuter").fill("35");
-  await expect(sheet(page).getByText("Ange ett tal.")).toHaveCount(0);
+  // Matched through the AI's name: no copy of "Gul lök". No catalog row: a new one with its section, place and unit.
+  const { data: catalog, error: catalogError } = await adminClient()
+    .from("ingredient")
+    .select("name, section, location, default_unit")
+    .eq("user_id", e2eUserId);
+  if (catalogError) throw catalogError;
+  expect(catalog.filter((row) => row.name === "Gul lök")).toHaveLength(1);
+  const carrot = catalog.find((row) => /^Morot/.test(row.name));
+  expect(carrot).toBeDefined();
+  expect(carrot?.section).toBeTruthy();
+  expect(carrot?.location).toBeTruthy();
+  expect(carrot?.default_unit).toBeTruthy();
 
-  const lentils = line(page, "3 dl röda linser");
-  await lentils.getByRole("button", { name: /^Ändra mängd/ }).click();
-  await lentils.getByLabel("Mängd").fill("abc");
-  await expect(lentils.getByText("Ange ett tal.")).toBeVisible();
-  await lentils.getByLabel("Mängd").fill("2,5");
-  await expect(lentils.getByText("Ange ett tal.")).toHaveCount(0);
-  await lentils.getByLabel("Enhet").selectOption("msk");
-  await expect(lentils.getByText("2,5 msk", { exact: true })).toBeVisible();
-  await lentils.getByRole("button", { name: /^Ändra mängd/ }).click();
-  await expect(lentils.getByLabel("Mängd")).toHaveCount(0);
-
-  await sheet(page).getByLabel("Steg 1").fill("Hacka allt.");
-  await expect(sheet(page).getByLabel("Steg 1")).toHaveValue("Hacka allt.");
-
-  // Swap the ingredient of the uncertain line: search, choose, no "Kontrollera".
-  await onion.getByRole("button", { name: /^Gul lök/ }).click();
-  await sheet(page).getByLabel("Sök ingrediens").fill("gul lök");
-  await sheet(page).getByRole("list", { name: "Träffar" }).getByRole("button", { name: "Gul lök" }).click();
-  await expect(onion.getByRole("button", { name: /^Gul lök/ })).toBeFocused();
-  await expect(onion.getByText("Kontrollera")).toHaveCount(0);
-
-  // No hit: a new ingredient with the typed name.
-  await carrots.getByRole("button", { name: /^Morot/ }).click();
-  await sheet(page).getByLabel("Sök ingrediens").fill("palsternacka");
-  await expect(sheet(page).getByText("Ingen ingrediens hittades.")).toBeVisible();
-  await sheet(page).getByRole("button", { name: "Lägg till Palsternacka som ny" }).click();
-  await expect(carrots.getByRole("button", { name: /^Palsternacka/ })).toBeVisible();
-  await expect(carrots.getByText("Ny", { exact: true })).toBeVisible();
-
-  // Esc asks first; "Fortsätt ändra" keeps the changes.
-  await page.keyboard.press("Escape");
-  await expect(sheet(page).getByText("Släng ändringarna?")).toBeVisible();
-  await sheet(page).getByRole("button", { name: "Fortsätt ändra" }).click();
-  await expect(sheet(page).getByLabel("Titel")).toHaveValue("Linssoppa");
-  await expect(sheet(page).getByText("7 portioner")).toBeVisible();
-
-  // The close button asks too; "Släng ändringarna" closes without saving.
-  await sheet(page).getByRole("button", { name: "Stäng" }).click();
-  await expect(sheet(page).getByText("Släng ändringarna?")).toBeVisible();
-  await sheet(page).getByRole("button", { name: "Släng ändringarna" }).click();
-  await expect(sheet(page)).toBeHidden();
-  await expect(page.getByText("Inga recept än.")).toBeVisible();
-
-  // Opened again, the sheet starts empty, on Länk.
-  await page.locator("header").getByRole("button", { name: "Importera recept" }).click();
-  await expect(sheet(page).getByRole("tab", { name: "Länk" })).toHaveAttribute("aria-selected", "true");
-  await sheet(page).getByRole("tab", { name: "Text" }).click();
-  await expect(textField(page)).toHaveValue("");
-  expect(errors).toEqual([]);
-});
-
-test("an unchanged preview closes without asking, and the text is still there behind it", async ({ page }) => {
-  await openImport(page);
-  await parse(page, linssoppa);
-  await expect(sheet(page).getByLabel("Titel")).toHaveValue("Röd linssoppa med kokosmjölk");
-
-  await sheet(page).getByRole("button", { name: "Tillbaka till texten" }).click();
-  await expect(textField(page)).toHaveValue(linssoppa);
-  await sheet(page).getByRole("button", { name: "Visa förhandsgranskningen" }).click();
-  await expect(sheet(page).getByLabel("Titel")).toHaveValue("Röd linssoppa med kokosmjölk");
-
-  await page.keyboard.press("Escape");
-  await expect(sheet(page)).toBeHidden();
-});
-
-test("the ingredient search goes back to the unchanged preview with Esc or Avbryt, without asking", async ({ page }) => {
-  const errors = watchErrors(page);
-  await openImport(page);
-  await parse(page, linssoppa);
-  const onion = line(page, "2 gula lökar");
-
-  await onion.getByRole("button", { name: /^Gul lök/ }).click();
-  await expect(sheet(page).getByRole("heading", { name: "Byt ingrediens" })).toBeVisible();
-  await expect(sheet(page).getByText("Receptraden: 2 gula lökar")).toBeVisible();
-  await expect(sheet(page).getByLabel("Sök ingrediens")).toBeFocused();
-  await page.keyboard.press("Escape");
-  await expect(sheet(page).getByText("Släng ändringarna?")).toHaveCount(0);
-  await expect(onion.getByRole("button", { name: /^Gul lök/ })).toBeFocused();
-
-  await onion.getByRole("button", { name: /^Gul lök/ }).click();
-  await sheet(page).getByRole("button", { name: "Avbryt" }).click();
-  await expect(sheet(page).getByText("Släng ändringarna?")).toHaveCount(0);
-  await expect(sheet(page).getByRole("heading", { name: "Byt ingrediens" })).toHaveCount(0);
-  await expect(sheet(page).getByLabel("Titel")).toHaveValue("Röd linssoppa med kokosmjölk");
-
-  // Nothing changed, so the sheet closes without asking.
-  await page.keyboard.press("Escape");
-  await expect(sheet(page)).toBeHidden();
+  // Öppna opens the recipe, where "Ändra recept" is.
+  await toast.getByRole("button", { name: "Öppna" }).click();
+  await expect(page).toHaveURL(/\/recept\/[0-9a-f-]{36}$/);
+  await expect(page.getByRole("heading", { level: 1, name: "Röd linssoppa med kokosmjölk" })).toBeVisible();
   expect(errors).toEqual([]);
 });
 
@@ -304,30 +225,6 @@ test("Avbryt stops the import and goes back to the text without an error", async
   expect(errors.filter((error) => !error.includes("Failed to load resource"))).toEqual([]);
 });
 
-test("parsing again asks before it replaces an edited preview", async ({ page }) => {
-  await openImport(page);
-  await parse(page, linssoppa);
-  const title = sheet(page).getByLabel("Titel");
-  await expect(title).toBeFocused();
-  await title.fill("Min soppa");
-
-  // Back to the same text: the preview is still there, and Tolka asks first.
-  await sheet(page).getByRole("button", { name: "Tillbaka till texten" }).click();
-  await expect(sheet(page).getByRole("button", { name: "Visa förhandsgranskningen" })).toBeVisible();
-  await sheet(page).getByRole("button", { name: "Tolka" }).click();
-  await expect(sheet(page).getByText("Släng ändringarna?")).toBeVisible();
-  await sheet(page).getByRole("button", { name: "Fortsätt ändra" }).click();
-  await expect(title).toHaveValue("Min soppa");
-
-  // Another text: the old preview is no longer offered, and "Släng ändringarna" replaces it.
-  await sheet(page).getByRole("button", { name: "Tillbaka till texten" }).click();
-  await textField(page).fill(kycklinggryta);
-  await expect(sheet(page).getByRole("button", { name: "Visa förhandsgranskningen" })).toHaveCount(0);
-  await sheet(page).getByRole("button", { name: "Tolka" }).click();
-  await sheet(page).getByRole("button", { name: "Släng ändringarna" }).click();
-  await expect(title).toHaveValue("Krämig kycklinggryta med curry");
-});
-
 test("pasted text that has not been parsed is not lost silently", async ({ page }) => {
   await openImport(page);
   await textField(page).fill(linssoppa);
@@ -338,17 +235,6 @@ test("pasted text that has not been parsed is not lost silently", async ({ page 
   await sheet(page).getByRole("button", { name: "Stäng" }).click();
   await sheet(page).getByRole("button", { name: "Släng ändringarna" }).click();
   await expect(sheet(page)).toBeHidden();
-});
-
-test("an empty title or step and a time that is not a number are pointed out", async ({ page }) => {
-  await openImport(page);
-  await parse(page, linssoppa);
-  await expect(sheet(page).locator("[data-valid=true]")).toHaveCount(1);
-  await sheet(page).getByLabel("Titel").fill(" ");
-  await expect(sheet(page).getByText("Ange en titel.")).toBeVisible();
-  await sheet(page).getByLabel("Steg 2").fill("");
-  await expect(sheet(page).getByText("Skriv vad steget gör.")).toBeVisible();
-  await expect(sheet(page).locator("[data-valid=false]")).toHaveCount(1);
 });
 
 test("the text field stops at 12 000 characters and says so", async ({ page }) => {
@@ -396,7 +282,7 @@ for (const { code, message, retry } of failures) {
     }
     // The error goes away once a new text is parsed.
     await parse(page, linssoppa);
-    await expect(sheet(page).getByLabel("Titel")).toHaveValue("Röd linssoppa med kokosmjölk");
+    await expect(page.getByTestId("toast")).toContainText("Receptet Röd linssoppa med kokosmjölk är sparat", { timeout: 20_000 });
     await expect(sheet(page).getByRole("alert")).toHaveCount(0);
   });
 }
@@ -409,35 +295,34 @@ async function parseLink(page: Page, url: string) {
 }
 
 test.describe("import from a link", () => {
-  test("an approved link becomes a preview with its source", async ({ page }) => {
+  test("an approved link is saved with its source, and the sheet closes", async ({ page }) => {
     const errors = watchErrors(page);
     await openImport(page, "Länk");
     await parseLink(page, chowMein);
 
-    await expect(sheet(page).getByLabel("Titel")).toHaveValue("Chow mein med lövbiff");
-    await expect(sheet(page).getByText("Källa: koket.se")).toBeVisible();
-    await expect(sheet(page).getByText("4 portioner")).toBeVisible();
-    await expect(sheet(page).getByLabel("Tid i minuter")).toHaveValue("45");
-    await expect(sheet(page).getByTestId("recipe-line")).toHaveCount(19);
-
-    // Back to the link, and to the same preview again.
-    await sheet(page).getByRole("button", { name: "Tillbaka till länken" }).click();
-    await expect(linkField(page)).toHaveValue(chowMein);
-    await expect(linkField(page)).toBeFocused();
-    await sheet(page).getByRole("button", { name: "Visa förhandsgranskningen" }).click();
-    await expect(sheet(page).getByLabel("Titel")).toHaveValue("Chow mein med lövbiff");
+    await expect(page.getByTestId("toast")).toContainText("Receptet Chow mein med lövbiff är sparat", { timeout: 20_000 });
+    await expect(sheet(page)).toHaveCount(0);
+    const { data, error } = await adminClient()
+      .from("recipe")
+      .select("original_servings, total_minutes, source_kind, source_url, recipe_ingredient(ingredient_id)")
+      .eq("user_id", e2eUserId)
+      .single();
+    if (error) throw error;
+    expect(data).toMatchObject({ original_servings: 4, total_minutes: 45, source_kind: "url" });
+    expect(data.source_url).toContain("koket.se");
+    expect(data.recipe_ingredient).toHaveLength(19);
     expect(errors).toEqual([]);
   });
 
   test("tasteline.com, and a link that redirects within the site, work too", async ({ page }) => {
     await openImport(page, "Länk");
     await parseLink(page, "https://www.tasteline.com/recept/bakad-fetaost-med-rostad-potatis/");
-    await expect(sheet(page).getByLabel("Titel")).toHaveValue("Bakad fetaost med rostad potatis");
-    await expect(sheet(page).getByText("Källa: tasteline.com")).toBeVisible();
+    await expect(page.getByTestId("toast")).toContainText("Receptet Bakad fetaost med rostad potatis är sparat", { timeout: 20_000 });
+    await expect(sheet(page)).toHaveCount(0);
 
-    await sheet(page).getByRole("button", { name: "Tillbaka till länken" }).click();
+    await openImport(page, "Länk");
     await parseLink(page, "https://koket.se/chow-mein-med-lovbiff");
-    await expect(sheet(page).getByLabel("Titel")).toHaveValue("Chow mein med lövbiff");
+    await expect(page.getByTestId("toast")).toContainText("Receptet Chow mein med lövbiff är sparat", { timeout: 20_000 });
   });
 
   test("a site that is not approved is refused, with a way to the settings", async ({ page }) => {
@@ -450,21 +335,28 @@ test.describe("import from a link", () => {
   });
 
   // Story 1.13: /recept/importera reads the link in the browser after mount.
-  test("/recept/importera?url= shows the preview, and the link is spent after closing", async ({ page }) => {
+  test("/recept/importera?url= saves the recipe in the library, with Öppna and Ångra, and the link is spent", async ({ page }) => {
     const errors = watchErrors(page);
     await page.goto(`/recept/importera?url=${encodeURIComponent(chowMein)}`);
-    await expect(sheet(page).getByLabel("Titel")).toHaveValue("Chow mein med lövbiff");
-    await expect(sheet(page).getByText("Källa: koket.se")).toBeVisible();
-    // One import only, also in dev's Strict Mode.
-    expect(await jobStatuses()).toHaveLength(1);
-    await sheet(page).getByRole("button", { name: "Stäng" }).click();
+    await expect(page.getByTestId("toast")).toContainText("Receptet Chow mein med lövbiff är sparat", { timeout: 20_000 });
+    await expect(page.getByTestId("toast").getByRole("button", { name: "Öppna" })).toBeVisible();
+    await expect(page.getByTestId("toast").getByRole("button", { name: "Ångra" })).toBeVisible();
     await expect(page).toHaveURL(/\/recept$/);
+    await expect(page.getByTestId("recipe-card").filter({ hasText: "Chow mein med lövbiff" })).toHaveCount(1);
+    // One recipe only (the job is closed by now), also in dev's Strict Mode.
+    const { count } = await adminClient().from("recipe").select("id", { count: "exact", head: true }).eq("user_id", e2eUserId);
+    expect(count).toBe(1);
+
+    // Ångra removes it again.
+    await page.getByTestId("toast").getByRole("button", { name: "Ångra" }).click();
+    await expect(page.getByTestId("toast")).toHaveText("Receptet är borttaget.");
+    await expect(page.getByTestId("recipe-card")).toHaveCount(0);
     expect(errors).toEqual([]);
   });
 
   test("/recept/importera takes the address from text, like Android's share menu", async ({ page }) => {
     await page.goto(`/recept/importera?text=${encodeURIComponent(`Kolla detta! ${chowMein}`)}`);
-    await expect(sheet(page).getByLabel("Titel")).toHaveValue("Chow mein med lövbiff");
+    await expect(page.getByTestId("toast")).toContainText("Receptet Chow mein med lövbiff är sparat", { timeout: 20_000 });
   });
 
   test("/recept/importera with an unapproved site says so, and without a usable link asks for one", async ({ page }) => {
@@ -503,9 +395,10 @@ test.describe("import from a link", () => {
     await parseLink(page, chowMein);
     await expect(sheet(page).getByRole("status").getByText("Läser receptet …")).toBeVisible();
     await linkField(page).press("Enter");
-    await expect(sheet(page).getByLabel("Titel")).toHaveValue("Chow mein med lövbiff");
+    await expect(page.getByTestId("toast")).toContainText("Receptet Chow mein med lövbiff är sparat", { timeout: 20_000 });
     expect(requests).toBe(1);
-    expect(await jobStatuses()).toHaveLength(1);
+    const { count } = await adminClient().from("recipe").select("id", { count: "exact", head: true }).eq("user_id", e2eUserId);
+    expect(count).toBe(1);
   });
 
   test("when the approved sites cannot be read, Försök igen tries again", async ({ page }) => {
@@ -527,7 +420,7 @@ test.describe("import from a link", () => {
     await parseLink(page, chowMein);
     await expect(sheet(page).getByRole("alert")).toHaveText("Det gick inte att läsa inställningarna. Försök igen.");
     await sheet(page).getByRole("button", { name: "Försök igen" }).click();
-    await expect(sheet(page).getByLabel("Titel")).toHaveValue("Chow mein med lövbiff");
+    await expect(page.getByTestId("toast")).toContainText("Receptet Chow mein med lövbiff är sparat", { timeout: 20_000 });
     expect(calls).toBe(2);
   });
 
@@ -563,9 +456,7 @@ test.describe("import from a link", () => {
 
       // The text tab works as usual from there.
       await parse(page, linssoppa);
-      await expect(sheet(page).getByLabel("Titel")).toHaveValue("Röd linssoppa med kokosmjölk");
-      await sheet(page).getByRole("button", { name: "Tillbaka till texten" }).click();
-      await expect(textField(page)).toHaveValue(linssoppa);
+      await expect(page.getByTestId("toast")).toContainText("Receptet Röd linssoppa med kokosmjölk är sparat", { timeout: 20_000 });
     });
   }
 
@@ -606,7 +497,8 @@ test.describe("desktop, 1280 × 800", () => {
     const box = await sheet(page).boundingBox();
     expect(box?.width).toBeLessThanOrEqual(560);
     await parse(page, linssoppa);
-    await expect(line(page, "2 gula lökar").getByText("Kontrollera")).toBeVisible();
+    // No preview since Story 1.15: the sheet closes on the saved recipe.
+    await expect(page.getByTestId("toast")).toContainText("Receptet Röd linssoppa med kokosmjölk är sparat", { timeout: 20_000 });
   });
 });
 
@@ -636,10 +528,7 @@ test.describe("/api/ai/jobs, kind import, for an address outside ALLOWED_EMAILS"
 });
 
 test.describe("/api/ai/jobs, kind import, signed in", () => {
-  test("answers 202 at once, gives a draft in the end and never writes a recipe or an ingredient", async ({ request }) => {
-    const count = () =>
-      adminClient().from("ingredient").select("id", { count: "exact", head: true }).eq("user_id", e2eUserId);
-    const before = await count();
+  test("answers 202 at once, gives a draft in the end and saves the recipe under the job's id", async ({ request }) => {
     const started = Date.now();
     const response = await request.post("/api/ai/jobs", { data: { kind: "import", clientKey: crypto.randomUUID(), ...textJob } });
     expect(response.status()).toBe(202);
@@ -653,9 +542,11 @@ test.describe("/api/ai/jobs, kind import, signed in", () => {
     expect(Object.values((done as { ingredientNames: Record<string, string> }).ingredientNames)).toEqual(
       expect.arrayContaining(["Gul lök", "Vitlök"]),
     );
-    const after = await count();
-    expect(before.count).toBeGreaterThan(0);
-    expect(after.count).toBe(before.count);
+    // Story 1.15: the job saved the recipe, and its id is the job's id.
+    const savedId = (done as { savedRecipeId?: string }).savedRecipeId;
+    expect(savedId).toBeDefined();
+    const { data: saved } = await adminClient().from("recipe").select("id").eq("user_id", e2eUserId).eq("id", savedId!);
+    expect(saved).toHaveLength(1);
   });
 
   test("refuses an empty text and one over 12 000 characters at once, without a job", async ({ request }) => {
@@ -812,40 +703,27 @@ async function largeCameraPhoto(page: Page): Promise<Buffer> {
 }
 
 test.describe("import from a photo", () => {
-  test("the photo becomes a preview from 'Foto av kokbok', and the photo is kept for going back", async ({ page }) => {
+  test("the photo is saved by itself as a recipe from 'Foto av kokbok'", async ({ page }) => {
     const errors = watchErrors(page);
     await openImport(page, "Länk");
     await choosePhoto(page, photoPath);
 
-    await expect(sheet(page).getByLabel("Titel")).toHaveValue("Ugnspannkaka med bacon");
-    await expect(sheet(page).getByText("Källa: Foto av kokbok")).toBeVisible();
-    await expect(sheet(page).getByText("4 portioner")).toBeVisible();
-    // The mock knows the fixture by its bytes, so this recipe shows that a PNG that fits is sent unchanged.
-
-    await sheet(page).getByRole("button", { name: "Tillbaka till bilden" }).click();
-    await expect(sheet(page).getByRole("tab", { name: "Foto" })).toHaveAttribute("aria-selected", "true");
-    await expect(sheet(page).getByRole("button", { name: "Välj bild" })).toBeFocused();
-    await sheet(page).getByRole("button", { name: "Visa förhandsgranskningen" }).click();
-    await expect(sheet(page).getByLabel("Titel")).toHaveValue("Ugnspannkaka med bacon");
+    await expect(page.getByTestId("toast")).toContainText("Receptet Ugnspannkaka med bacon är sparat", { timeout: 20_000 });
+    await expect(sheet(page)).toHaveCount(0);
     expect(errors).toEqual([]);
   });
 
-  test.describe("saved", () => {
-    // Saved as the E2E user for saving recipes: the main E2E user's library stays empty.
-    test.use({ storageState: recipesStorageState });
-
-    test("the saved recipe has the photo as its source and no image", async ({ page }) => {
-      await openImport(page, "Länk");
-      await choosePhoto(page, photoPath);
-      await expect(sheet(page).getByLabel("Titel")).toHaveValue("Ugnspannkaka med bacon");
-      await sheet(page).getByRole("button", { name: "Spara recept" }).click();
-      await expect(page).toHaveURL(/\/recept\/[0-9a-f-]{36}$/);
-      const id = page.url().split("/").pop();
-      const { data, error } = await adminClient().from("recipe").select("source_kind, source_url, image_url").eq("id", id).single();
-      if (error) throw error;
-      expect(data).toEqual({ source_kind: "photo", source_url: null, image_url: null });
-      await expect(page.getByText("Foto av kokbok")).toBeVisible();
-    });
+  test("the saved recipe has the photo as its source and no image", async ({ page }) => {
+    await openImport(page, "Länk");
+    await choosePhoto(page, photoPath);
+    await expect(page.getByTestId("toast")).toContainText("Receptet Ugnspannkaka med bacon är sparat", { timeout: 20_000 });
+    await page.getByTestId("toast").getByRole("button", { name: "Öppna" }).click();
+    await expect(page).toHaveURL(/\/recept\/[0-9a-f-]{36}$/);
+    const id = page.url().split("/").pop();
+    const { data, error } = await adminClient().from("recipe").select("source_kind, source_url, image_url").eq("id", id).single();
+    if (error) throw error;
+    expect(data).toEqual({ source_kind: "photo", source_url: null, image_url: null });
+    await expect(page.getByText("Foto av kokbok")).toBeVisible();
   });
 
   test("a large camera photo is sent as a JPEG of at most 1600 px and 1.5 MB, turned the right way", async ({ page }) => {
@@ -870,8 +748,8 @@ test.describe("import from a photo", () => {
     expect([...image.subarray(0, 3)]).toEqual([0xff, 0xd8, 0xff]);
     // EXIF orientation 6 is applied: the landscape sensor image becomes a portrait page.
     expect(jpegSize(image)).toEqual({ width: 1200, height: 1600 });
-    // Unknown bytes to the mock: its default recipe, still from a photo.
-    await expect(sheet(page).getByText("Källa: Foto av kokbok")).toBeVisible();
+    // Unknown bytes to the mock: its default recipe, still from a photo, saved by itself.
+    await expect(page.getByTestId("toast")).toContainText("är sparat", { timeout: 20_000 });
   });
 
   test("a file that cannot be read is not sent", async ({ page }) => {
@@ -890,7 +768,7 @@ test.describe("import from a photo", () => {
 
     // Another photo works as usual from there.
     await choosePhoto(page, photoPath);
-    await expect(sheet(page).getByLabel("Titel")).toHaveValue("Ugnspannkaka med bacon");
+    await expect(page.getByTestId("toast")).toContainText("Receptet Ugnspannkaka med bacon är sparat", { timeout: 20_000 });
   });
 
   const unreadable = "Det gick inte att tolka bilden. Ta en ny bild, välj en annan eller klistra in texten.";
@@ -930,7 +808,7 @@ test.describe("import from a photo", () => {
       }
       // The error goes away with a photo that works.
       await choosePhoto(page, photoPath);
-      await expect(sheet(page).getByLabel("Titel")).toHaveValue("Ugnspannkaka med bacon");
+      await expect(page.getByTestId("toast")).toContainText("Receptet Ugnspannkaka med bacon är sparat", { timeout: 20_000 });
       await expect(sheet(page).getByRole("alert")).toHaveCount(0);
     });
   }
@@ -966,47 +844,6 @@ test.describe("import from a photo", () => {
     expect(errors.filter((error) => !error.includes("Failed to load resource"))).toEqual([]);
   });
 
-  test("a new photo asks before it replaces an edited preview; keeping it keeps the old photo", async ({ page }) => {
-    let requests = 0;
-    await page.route(photoRoute, async (route) => {
-      requests++;
-      await route.continue();
-    });
-    await openImport(page, "Länk");
-    await choosePhoto(page, photoPath);
-    await sheet(page).getByLabel("Titel").fill("Pannkaka");
-    await sheet(page).getByRole("button", { name: "Tillbaka till bilden" }).click();
-    await choosePhoto(page, "tests/fixtures/ai/reserved-ai_rejected.png");
-    await expect(sheet(page).getByText("Släng ändringarna?")).toBeVisible();
-    await sheet(page).getByRole("button", { name: "Fortsätt ändra" }).click();
-    await expect(sheet(page).getByLabel("Titel")).toHaveValue("Pannkaka");
-    expect(requests).toBe(1);
-
-    // The edited preview still belongs to the kept photo, so it can be reached again.
-    await sheet(page).getByRole("button", { name: "Tillbaka till bilden" }).click();
-    await sheet(page).getByRole("button", { name: "Visa förhandsgranskningen" }).click();
-    await expect(sheet(page).getByLabel("Titel")).toHaveValue("Pannkaka");
-  });
-
-  test("Släng ändringarna sends the new photo in place of the edited preview", async ({ page }) => {
-    let requests = 0;
-    await page.route(photoRoute, async (route) => {
-      requests++;
-      await route.continue();
-    });
-    await openImport(page, "Länk");
-    await choosePhoto(page, photoPath);
-    await sheet(page).getByLabel("Titel").fill("Pannkaka");
-    await sheet(page).getByRole("button", { name: "Tillbaka till bilden" }).click();
-    await choosePhoto(page, "tests/fixtures/ai/reserved-ai_rejected.png");
-    const sent = page.waitForRequest((request) => request.url().endsWith("/api/ai/jobs/photo"));
-    await sheet(page).getByRole("button", { name: "Släng ändringarna" }).click();
-    await sent;
-    await expect(sheet(page).getByRole("alert")).toHaveText(
-      "AI-tjänsten tog inte emot bilden. Prova en tydligare bild eller försök igen senare.",
-    );
-    expect(requests).toBe(2);
-  });
 });
 
 test.describe("import from a photo on a phone", () => {
@@ -1021,10 +858,10 @@ test.describe("import from a photo on a phone", () => {
     expect(await camera.element().getAttribute("capture")).toBe("environment");
     expect(await camera.element().getAttribute("accept")).toBe("image/*");
     await camera.setFiles(photoPath);
-    await expect(sheet(page).getByLabel("Titel")).toHaveValue("Ugnspannkaka med bacon");
-    await expect(sheet(page).getByText("Källa: Foto av kokbok")).toBeVisible();
+    await expect(page.getByTestId("toast")).toContainText("Receptet Ugnspannkaka med bacon är sparat", { timeout: 20_000 });
 
-    await sheet(page).getByRole("button", { name: "Tillbaka till bilden" }).click();
+    await openImport(page, "Länk");
+    await sheet(page).getByRole("tab", { name: "Foto" }).click();
     const picker = page.waitForEvent("filechooser");
     await sheet(page).getByRole("button", { name: "Välj bild" }).click();
     expect(await (await picker).element().getAttribute("capture")).toBeNull();
@@ -1049,9 +886,7 @@ test.describe("/api/ai/jobs/photo without access", () => {
 });
 
 test.describe("/api/ai/jobs/photo signed in", () => {
-  test("answers 202, reads the photo in the background, never writes, and keeps no photo in the job", async ({ request }) => {
-    const count = () => adminClient().from("ingredient").select("id", { count: "exact", head: true }).eq("user_id", e2eUserId);
-    const before = await count();
+  test("answers 202, reads the photo in the background, saves the recipe, and keeps no photo in the job", async ({ request }) => {
     const response = await request.post("/api/ai/jobs/photo", {
       multipart: photoJob(readFileSync(photoPath), "photo.jpg", "image/jpeg"),
     });
@@ -1066,7 +901,8 @@ test.describe("/api/ai/jobs/photo signed in", () => {
     const { data, error } = await adminClient().from("ai_job").select("context").eq("user_id", e2eUserId);
     if (error) throw error;
     expect(data).toEqual([{ context: { source: "photo" } }]);
-    expect((await count()).count).toBe(before.count);
+    const { data: recipes } = await adminClient().from("recipe").select("id").eq("user_id", e2eUserId).eq("id", id);
+    expect(recipes).toHaveLength(1);
   });
 
   test("answers an image over 1.5 MB with 413 image_too_large, without a job", async ({ request }) => {

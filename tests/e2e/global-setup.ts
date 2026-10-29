@@ -8,6 +8,8 @@ import {
   aiSuggestionsStorageState,
   aiImportEmail,
   aiImportStorageState,
+  importEmail,
+  importStorageState,
   aiJobsEmail,
   aiJobsStorageState,
   aiPhotoEmail,
@@ -154,6 +156,7 @@ export default async function globalSetup(config: FullConfig) {
       [aiJobsEmail, aiJobsStorageState],
       [aiPhotoEmail, aiPhotoStorageState],
       [aiImportEmail, aiImportStorageState],
+      [importEmail, importStorageState],
       [offersLinkEmail, offersLinkStorageState],
       [offerSuggestionsEmail, offerSuggestionsStorageState],
     ] as const) {

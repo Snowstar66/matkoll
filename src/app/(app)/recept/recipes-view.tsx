@@ -11,6 +11,7 @@ import { ownRecipesWithOffers } from "@/features/suggestions/server";
 import { listRecipeSites } from "@/features/settings/server";
 import { listLibrary } from "@/features/recipes/server";
 import { type AutoImport, ImportRecipeButton, ImportRecipeProvider } from "@/features/recipes/ui/import-sheet";
+import { ImportFailures } from "@/features/recipes/ui/saved-imports";
 import { Library } from "@/features/recipes/ui/library";
 import { WarmAi } from "../warm-ai";
 
@@ -25,7 +26,7 @@ export function RecipesView({ autoImport }: { autoImport?: AutoImport }) {
   // Story 1.14: waited for inside the import sheet; a failure shows the "no sites" line.
   const sites = listRecipeSites().catch((): string[] => []);
   return (
-    <ImportRecipeProvider searchIngredients={searchIngredients} autoImport={autoImport} sites={sites}>
+    <ImportRecipeProvider autoImport={autoImport} sites={sites}>
       <WarmAi kind="text" />
       <PageHeader
         title="Recept"
@@ -44,6 +45,7 @@ export function RecipesView({ autoImport }: { autoImport?: AutoImport }) {
           </>
         }
       />
+      <ImportFailures />
       <Suspense fallback={<Skeleton rows={4} />}>
         <RecipesContent />
       </Suspense>

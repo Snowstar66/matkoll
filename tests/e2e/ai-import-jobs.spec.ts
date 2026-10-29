@@ -76,7 +76,7 @@ async function closeSheet(page: Page) {
   await expect(sheet(page)).toHaveCount(0);
 }
 
-test("two texts in a row: the sheet closes, the next is read at once, both are in the job row, and each is opened with Visa and saved", async ({ page }) => {
+test("two texts in a row: the sheet closes, the next is read at once, both are in the job row, and each lands in the library by itself", async ({ page }) => {
   await openImport(page);
   await readText(page, linssoppa);
   await closeSheet(page);
@@ -99,31 +99,24 @@ test("two texts in a row: the sheet closes, the next is read at once, both are i
   }
   expect(JSON.stringify(started)).not.toMatch(/linser|kyckling/i);
 
-  // Elsewhere in the app, the first is done: a confirmation with the title and Visa.
+  // Elsewhere in the app, the first is done and saved (Story 1.15): a confirmation with Öppna and Ångra.
   await page.goto("/lista");
-  await expect(toast(page)).toHaveText(/Receptet Röd linssoppa med kokosmjölk är inläst\./, jobTime);
-  await toast(page).getByRole("button", { name: "Visa" }).click();
-  await expect(page).toHaveURL(/\/recept$/);
-  await expect(sheet(page).getByLabel("Titel")).toHaveValue("Röd linssoppa med kokosmjölk", jobTime);
-  // Nothing is saved until Spara recept.
-  expect(await recipeTitles()).toEqual([]);
-  await sheet(page).getByRole("button", { name: "Spara recept" }).click();
+  await expect(toast(page)).toHaveText(/Receptet Röd linssoppa med kokosmjölk är sparat/, jobTime);
+  await expect(toast(page).getByRole("button", { name: "Ångra" })).toBeVisible();
+  expect(await recipeTitles()).toContain("Röd linssoppa med kokosmjölk");
+  await toast(page).getByRole("button", { name: "Öppna" }).click();
   await expect(page).toHaveURL(/\/recept\/[0-9a-f-]{36}$/);
-  expect(await recipeTitles()).toEqual(["Röd linssoppa med kokosmjölk"]);
   // Saved: its job is closed, and the other one is still there.
   await expect.poll(async () => (await jobs()).length, { timeout: 5_000 }).toBe(1);
 
   // The second one, the same way.
-  await expect(toast(page)).toHaveText(/Receptet Krämig kycklinggryta med curry är inläst\./, jobTime);
-  await toast(page).getByRole("button", { name: "Visa" }).click();
-  await expect(sheet(page).getByLabel("Titel")).toHaveValue("Krämig kycklinggryta med curry", jobTime);
-  await sheet(page).getByRole("button", { name: "Spara recept" }).click();
-  await expect(page).toHaveURL(/\/recept\/[0-9a-f-]{36}$/);
+  await expect(toast(page)).toHaveText(/Receptet Krämig kycklinggryta med curry är sparat/, jobTime);
+  await toast(page).getByRole("button", { name: "Öppna" }).click();
   expect(await recipeTitles()).toEqual(["Krämig kycklinggryta med curry", "Röd linssoppa med kokosmjölk"]);
   await expect.poll(async () => (await jobs()).length, { timeout: 5_000 }).toBe(0);
 });
 
-test("a link keeps only its domain in the job, and the open sheet shows the draft when it is done", async ({ page }) => {
+test("a link keeps only its domain in the job, and the open sheet closes on a saved recipe with Öppna and Ångra", async ({ page }) => {
   await openImport(page);
   await readLink(page, chowMein);
   await expect(sheet(page).getByText("Du kan göra annat under tiden.")).toBeVisible();
@@ -133,9 +126,55 @@ test("a link keeps only its domain in the job, and the open sheet shows the draf
   expect(job.context).toEqual({ source: "url", domain: "koket.se" });
   expect(JSON.stringify(job.context)).not.toContain("chow-mein");
 
-  // The sheet is open on the job: the preview comes in the sheet, without a confirmation.
-  await expect(sheet(page).getByLabel("Titel")).toHaveValue("Chow mein med lövbiff", jobTime);
-  await expect(toast(page)).toHaveCount(0);
+  // The sheet is open on the job: it closes when the recipe is saved, and the confirmation says so.
+  await expect(sheet(page)).toHaveCount(0, jobTime);
+  await expect(toast(page)).toContainText("Receptet Chow mein med lövbiff är sparat");
+  expect(await recipeTitles()).toEqual(["Chow mein med lövbiff"]);
+  await expect(page.getByTestId("recipe-card").filter({ hasText: "Chow mein med lövbiff" })).toHaveCount(1);
+
+  // Ångra removes it again, with the existing delete.
+  await toast(page).getByRole("button", { name: "Ångra" }).click();
+  await expect(toast(page)).toHaveText("Receptet är borttaget.");
+  await expect.poll(recipeTitles).toEqual([]);
+  await expect(page.getByTestId("recipe-card")).toHaveCount(0);
+});
+
+test("a finished import that was never saved is saved when the app is opened", async ({ page }) => {
+  const id = crypto.randomUUID();
+  const draft = {
+    title: "Förlorad soppa",
+    servings: 2,
+    totalMinutes: null,
+    imageUrl: null,
+    sourceKind: "text",
+    sourceUrl: null,
+    steps: ["Koka."],
+    lines: [],
+  };
+  const inserted = await adminClient()
+    .from("ai_job")
+    .insert({
+      id,
+      user_id: userId,
+      kind: "import",
+      status: "done",
+      client_key: crypto.randomUUID(),
+      context: { source: "url", domain: "koket.se" },
+      result: { draft, ingredientNames: {} },
+      started_at: new Date().toISOString(),
+      finished_at: new Date().toISOString(),
+      expires_at: new Date(Date.now() + 3_600_000).toISOString(),
+    });
+  expect(inserted.error).toBeNull();
+
+  await page.goto("/recept");
+  await expect(toast(page)).toContainText("Receptet Förlorad soppa är sparat", jobTime);
+  await expect.poll(recipeTitles).toEqual(["Förlorad soppa"]);
+  await expect(page.getByTestId("recipe-card").filter({ hasText: "Förlorad soppa" })).toHaveCount(1);
+  await expect.poll(async () => (await jobs()).length).toBe(0);
+  // The recipe has the job's id, so it can never be saved twice.
+  const { data } = await adminClient().from("recipe").select("id").eq("user_id", userId);
+  expect(data?.map((row) => row.id)).toEqual([id]);
 });
 
 test("the job row names the site while a link is read, and a site that refuses is said so with Visa", async ({ page }) => {
@@ -145,6 +184,9 @@ test("the job row names the site while a link is read, and a site that refuses i
   await expect(jobRow(page)).toHaveText("AI: Läser receptet från koket.se");
 
   await expect(toast(page)).toContainText("Det gick inte att läsa receptet.", jobTime);
+  // Also a card on Recept, that stays until it is closed; nothing is saved.
+  await expect(page.getByRole("alert").filter({ hasText: "koket.se släppte inte in oss." })).toBeVisible();
+  expect(await recipeTitles()).toEqual([]);
   await toast(page).getByRole("button", { name: "Visa" }).click();
   await expect(sheet(page).getByRole("alert")).toContainText("koket.se släppte inte in oss.");
   await expect(sheet(page).getByRole("button", { name: "Klistra in text i stället" })).toBeVisible();

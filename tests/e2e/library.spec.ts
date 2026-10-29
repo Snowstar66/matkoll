@@ -1,6 +1,6 @@
 import { readFileSync } from "node:fs";
 import { expect, type Locator, type Page, test } from "@playwright/test";
-import { adminClient, e2eUserId, libraryEmail, libraryStorageState } from "./support";
+import { adminClient, e2eUserId, libraryEmail, libraryStorageState, openSavedImport } from "./support";
 
 // Story 1.10: the recipe library with search, the filters Alla and Favoriter,
 // and the heart, with AI_PROVIDER=mock. The spec has an E2E user of its own,
@@ -47,8 +47,7 @@ async function importAndSave(page: Page, text: string, title: string) {
   await sheet(page).getByRole("tab", { name: "Text" }).click();
   await sheet(page).getByLabel("Recepttext").fill(text);
   await sheet(page).getByRole("button", { name: "Tolka" }).click();
-  await expect(sheet(page).getByLabel("Titel")).toHaveValue(title);
-  await sheet(page).getByRole("button", { name: "Spara recept" }).click();
+  await openSavedImport(page, title);
   await expect(page).toHaveURL(recipePath);
   await expect(page.getByRole("heading", { level: 1, name: title })).toBeVisible();
 }

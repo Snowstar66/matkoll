@@ -39,7 +39,9 @@ vi.mock("@/features/suggestions/server", () => ({ suggestFromPantry: vi.fn(), ch
 type Input = { kind: string; text?: string; url?: string; image?: { data: Uint8Array; mediaType: string } };
 const prepareImport = vi.fn<(input: Input) => Promise<Result<unknown>>>();
 const importRecipe = vi.fn<(input: Input, options: { signal: AbortSignal }) => Promise<Result<unknown>>>();
+const saveRecipe = vi.fn<(draft: unknown, id: string) => Promise<Result<{ id: string }>>>();
 vi.mock("@/features/recipes/server", () => ({
+  saveRecipe: (draft: unknown, id: string) => saveRecipe(draft, id),
   prepareImport: (input: Input) => prepareImport(input),
   importRecipe: (input: Input, options: { signal: AbortSignal }) => importRecipe(input, options),
 }));
@@ -85,6 +87,7 @@ beforeEach(() => {
   prepareImport.mockReset().mockResolvedValue(ok({ source: "url", domain: "koket.se" }));
   enqueueAiJob.mockReset().mockResolvedValue(ok({ job, created: true, startBy: 1_000_000 }));
   runAiJob.mockReset().mockResolvedValue(undefined);
+  saveRecipe.mockReset().mockImplementation(async (_draft, id) => ok({ id }));
   importRecipe.mockReset().mockResolvedValue(ok({ draft: { title: "Soppa" }, ingredientNames: {} }));
 });
 
@@ -107,11 +110,30 @@ describe("POST /api/ai/jobs, kind import", () => {
     await runAfter();
     const controller = new AbortController();
     const result = await runAiJob.mock.calls[0][3](controller.signal, Date.now() + 1000, async () => {});
-    expect(result).toEqual(ok({ draft: { title: "Soppa" }, ingredientNames: {} }));
+    // Story 1.15: saved as it finishes, with the job's id as the recipe's id.
+    expect(saveRecipe).toHaveBeenCalledWith({ title: "Soppa" }, "d3f5f0f0-2b7e-4d0c-8f64-0a7b2a1c9e22");
+    expect(result).toEqual(
+      ok({ draft: { title: "Soppa" }, ingredientNames: {}, savedRecipeId: "d3f5f0f0-2b7e-4d0c-8f64-0a7b2a1c9e22" }),
+    );
     expect(importRecipe).toHaveBeenCalledWith(
       { kind: "url", url: "https://www.koket.se/linssoppa" },
       { signal: controller.signal },
     );
+  });
+
+  it("keeps the draft without a recipe id when the save fails, and saves nothing when the import fails", async () => {
+    prepareImport.mockResolvedValue(ok({ source: "text" }));
+    await jobs.POST(postJson({ kind: "import", clientKey, source: "text", text: "Linssoppa" }));
+    await runAfter();
+    saveRecipe.mockResolvedValueOnce(fail("recipe_save_failed"));
+    const kept = await runAiJob.mock.calls[0][3](new AbortController().signal, Date.now() + 1000, async () => {});
+    expect(kept).toEqual(ok({ draft: { title: "Soppa" }, ingredientNames: {} }));
+
+    saveRecipe.mockClear();
+    importRecipe.mockResolvedValueOnce(fail("fetch_blocked"));
+    const failed = await runAiJob.mock.calls[0][3](new AbortController().signal, Date.now() + 1000, async () => {});
+    expect(failed.ok).toBe(false);
+    expect(saveRecipe).not.toHaveBeenCalled();
   });
 
   it("queues pasted text", async () => {

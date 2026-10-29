@@ -2,6 +2,7 @@ import type { ReactNode } from "react";
 import { AppShell } from "@/components/app-shell/app-shell";
 import { ToastProvider } from "@/components/toast";
 import { AiJobRow } from "@/features/ai-jobs/ui/ai-job-row";
+import { SavedImports } from "@/features/recipes/ui/saved-imports";
 import { AiJobsProvider } from "@/features/ai-jobs/ui/ai-jobs-provider";
 
 // The signed-in part of the app. The layout never awaits the session (AD-18): each
@@ -13,6 +14,7 @@ export default function AppLayout({ children }: { children: ReactNode }) {
   return (
     <ToastProvider>
       <AiJobsProvider>
+        <SavedImports />
         <AppShell jobRows={{ bar: <AiJobRow variant="bar" />, side: <AiJobRow variant="side" /> }}>{children}</AppShell>
       </AiJobsProvider>
     </ToastProvider>
