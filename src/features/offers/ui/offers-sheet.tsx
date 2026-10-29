@@ -379,6 +379,7 @@ export function OffersSheet({
               weekStart={weekStart}
               sort={sort}
               badges={many ? badges : undefined}
+              showStore={filterId === "all" && storesWithOffers.length > 1}
               selection={
                 listing
                   ? {

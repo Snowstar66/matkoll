@@ -23,6 +23,8 @@ export type OffersListProps = {
   selection?: OfferSelection;
   /** Story 9.13: the badge of each store id; given when the offers come from several stores, so each row says which. */
   badges?: ReadonlyMap<string, StoreBadgeInfo>;
+  /** Story 16.6: show the store label on each row (default true); the store stays in the checkbox's name either way. */
+  showStore?: boolean;
 };
 
 /** The offers Pontus has ticked, and those already on the shopping list (shown "På listan", never ticked). */
@@ -35,26 +37,23 @@ export type OfferSelection = {
   selecting?: boolean;
 };
 
-/** "Toppklipp" from 30 %: the stronger tag. */
-const topTag = "bg-hot text-hot-ink";
-const tagBase = "inline-flex min-h-6 items-center rounded-full px-2 text-meta font-semibold whitespace-nowrap";
-
 /**
- * One offer as a product row (Story 9.12): the cleaned name, under it the
- * country and brand small (and Stammis, conditions, last day), on the right
- * the price in a tag, the regular price struck through under it and the
- * saving ("−20 %", "Toppklipp −33 %" from 30 %). The checkbox is named like
- * "Aubergine, 12 kr per st, spara 20 %".
+ * One offer as a product row (Story 9.12, calmed in Story 16.6): the cleaned
+ * name; under it a small line with "🔥 Toppklipp" (from 30 %, a soft tinted
+ * label), the store ("● Maxi", only when the list shows several stores), the
+ * country and brand, Stammis, conditions and last day; on the right the price
+ * in bold ink and, under it, the regular price struck through and the saving
+ * ("29,90 kr −50 %", the percent in text only). Two lines at most, so the row
+ * is as tall as any list row. The checkbox is named like "Aubergine, 12 kr per
+ * st, spara 20 %".
  */
-const badgeTones = { ica: "bg-store-ica text-store-ica-ink", other: "bg-store-other text-store-other-ink" } as const;
+const dotTones = { ica: "bg-store-ica", other: "bg-store-other" } as const;
 
-/** The store's short name in its chain's colour ("Maxi", "Krokom"); the name is text, so colour never carries it alone. */
-function StoreBadge({ badge }: { badge: StoreBadgeInfo }) {
+/** The store's short name in muted ink with a small dot in its chain's colour; the name is text, so colour never carries it alone. */
+function StoreLabel({ badge }: { badge: StoreBadgeInfo }) {
   return (
-    <span
-      data-testid="store-badge"
-      className={cx("mr-1.5 inline-flex items-center rounded-sm px-2 py-0.5 align-middle text-badge", badgeTones[badge.tone])}
-    >
+    <span data-testid="store-badge" className="inline-flex items-center gap-1.5 align-middle">
+      <span aria-hidden="true" className={cx("size-2 shrink-0 rounded-full", dotTones[badge.tone])} />
       {badge.text}
     </span>
   );
@@ -65,51 +64,59 @@ function OfferRow({
   weekStart,
   selection,
   badge,
+  showStore,
 }: {
   offer: StoreOffer;
   weekStart: string;
   selection?: OfferSelection;
   badge?: StoreBadgeInfo;
+  showStore: boolean;
 }) {
   const top = offer.savingPercent !== null && offer.savingPercent >= topDealPercent;
   const listed = selection?.onList.has(offer.id) ?? false;
   const spoken = badge ? `${offerSpokenName(offer)}, ${badge.text}` : offerSpokenName(offer);
-  const trailing = (
-    <span className="flex max-w-36 flex-col items-end gap-1 text-right">
-      {offer.price ? (
-        <span data-testid="offer-price" className="rounded-md bg-mint px-3 py-1 text-lg leading-tight font-extrabold text-mint-ink">
-          {offer.price}
-        </span>
-      ) : null}
-      {offer.regularPrice !== null ? (
-        <s data-testid="offer-regular-price" className="text-meta text-ink-3">
-          {regularPriceAmount(offer.regularPrice)}
-        </s>
-      ) : null}
-      {offer.savingPercent !== null ? (
-        <span className="inline-flex items-center gap-1">
-          {top ? <span aria-hidden="true">{"\u{1F525}"}</span> : null}
-          <span className={cx(tagBase, top ? topTag : "bg-deal text-deal-ink")}>
-            {top ? "Toppklipp " : null}
-            {`\u2212${offer.savingPercent} %`}
+  const trailing =
+    offer.price || offer.regularPrice !== null || offer.savingPercent !== null ? (
+      <span className="flex max-w-36 flex-col items-end gap-0.5 text-right">
+        {offer.price ? (
+          <span data-testid="offer-price" className="text-lg leading-6 font-bold text-ink">
+            {offer.price}
           </span>
-        </span>
-      ) : null}
-      {listed ? <Badge tone="neutral">På listan</Badge> : null}
-    </span>
-  );
+        ) : null}
+        {offer.regularPrice !== null || offer.savingPercent !== null ? (
+          <span className="flex items-baseline gap-2 text-meta text-ink-3">
+            {offer.regularPrice !== null ? <s data-testid="offer-regular-price">{regularPriceAmount(offer.regularPrice)}</s> : null}
+            {offer.savingPercent !== null ? (
+              <span data-testid="offer-saving" className="font-semibold text-deal-ink">{`\u2212${offer.savingPercent} %`}</span>
+            ) : null}
+          </span>
+        ) : null}
+      </span>
+    ) : undefined;
+  const details = offerDetailText(offer, weekStart);
+  const label = showStore ? badge : undefined;
+  const hasMeta = top || listed || label || details;
   return (
     <ListRow
       title={offerDisplay(offer.label).title}
       meta={
-        badge ? (
+        hasMeta ? (
           <>
-            <StoreBadge badge={badge} />
-            {offerDetailText(offer, weekStart)}
+            {top ? (
+              <span
+                data-testid="offer-top-tag"
+                className="mr-1.5 inline-flex items-center gap-1 rounded-full bg-hot/12 px-2 align-middle font-semibold text-hot"
+              >
+                <span aria-hidden="true">{"\u{1F525}"}</span>
+                Toppklipp
+              </span>
+            ) : null}
+            {listed ? <Badge tone="neutral" className="mr-1.5 align-middle">På listan</Badge> : null}
+            {label ? <StoreLabel badge={label} /> : null}
+            {label && details ? " \u00B7 " : null}
+            {details}
           </>
-        ) : (
-          offerDetailText(offer, weekStart) || undefined
-        )
+        ) : undefined
       }
       leading={
         selection && selection.selecting !== false ? (
@@ -138,12 +145,14 @@ function OffersGroup({
   weekStart,
   selection,
   badges,
+  showStore,
 }: {
   category: Category;
   offers: readonly StoreOffer[];
   weekStart: string;
   selection?: OfferSelection;
   badges?: ReadonlyMap<string, StoreBadgeInfo>;
+  showStore: boolean;
 }) {
   const headingId = useId();
   return (
@@ -152,7 +161,7 @@ function OffersGroup({
       <CategoryHeader id={headingId} category={category} count={offers.length} level={3} />
       <ListGroup labelledBy={headingId}>
         {offers.map((offer) => (
-          <OfferRow key={offer.id} offer={offer} weekStart={weekStart} selection={selection} badge={badges?.get(offer.storeId)} />
+          <OfferRow key={offer.id} offer={offer} weekStart={weekStart} selection={selection} badge={badges?.get(offer.storeId)} showStore={showStore} />
         ))}
       </ListGroup>
     </div>
@@ -169,14 +178,14 @@ function OffersGroup({
  * badge. `sort="saving"` lists them best saving first. Story 9.12: with `selection` each row has a checkbox named by the offer, and
  * "På listan" replaces the tick for an offer already on the shopping list.
  */
-export function OffersList({ offers, weekStart, sort = "category", selection, badges }: OffersListProps) {
+export function OffersList({ offers, weekStart, sort = "category", selection, badges, showStore = true }: OffersListProps) {
   if (sort === "saving") {
     return (
       <div data-testid="offers-list" className="flex flex-col gap-2">
         <h3 className="sr-only">Bäst rabatt först</h3>
         <ListGroup label="Bäst rabatt först">
           {bestSavingFirst(offers).map((offer) => (
-            <OfferRow key={offer.id} offer={offer} weekStart={weekStart} selection={selection} badge={badges?.get(offer.storeId)} />
+            <OfferRow key={offer.id} offer={offer} weekStart={weekStart} selection={selection} badge={badges?.get(offer.storeId)} showStore={showStore} />
           ))}
         </ListGroup>
       </div>
@@ -185,7 +194,7 @@ export function OffersList({ offers, weekStart, sort = "category", selection, ba
   return (
     <div data-testid="offers-list" className="flex flex-col gap-4">
       {groupOffers(offers).map(({ category, offers: items }) => (
-        <OffersGroup key={category} category={category} offers={items} weekStart={weekStart} selection={selection} badges={badges} />
+        <OffersGroup key={category} category={category} offers={items} weekStart={weekStart} selection={selection} badges={badges} showStore={showStore} />
       ))}
     </div>
   );
