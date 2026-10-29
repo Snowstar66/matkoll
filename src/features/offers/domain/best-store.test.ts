@@ -56,19 +56,27 @@ describe("matches (Story 16.7)", () => {
   });
 });
 
+describe("best store names (Story 16.9)", () => {
+  it("shows the cleaned product name, brand off, first letter capital", () => {
+    const offers = [{ id: "o1", label: "scan falukorv", storeId: "s1", ingredientId: "i1", savingPercent: null }];
+    const best = bestStore(offers, ["s1"], new Set(), new Map([["i1", 2]]));
+    expect(best && bestStoreLine(best)).toBe("Falukorv passar dina recept");
+  });
+});
+
 describe("bestStoreLine", () => {
   const m = (name: string, source: "pantry" | "recipes" | "both" = "recipes") => ({ id: name, name, source });
   it("names the matches", () => {
-    expect(matchNames([m("Falukorv"), m("Grädde")])).toBe("falukorv och grädde");
-    expect(matchNames([m("Falukorv"), m("Grädde"), m("Lök")])).toBe("falukorv, grädde och lök");
-    expect(matchNames([m("a"), m("b"), m("c"), m("d"), m("e")])).toBe("a, b, c +2");
-    expect(matchNames([m("Lök"), m("lök")])).toBe("lök");
+    expect(matchNames([m("Falukorv"), m("Grädde")])).toBe("Falukorv och grädde");
+    expect(matchNames([m("Falukorv"), m("Grädde"), m("Lök")])).toBe("Falukorv, grädde och lök");
+    expect(matchNames([m("a"), m("b"), m("c"), m("d"), m("e")])).toBe("A, b, c +2");
+    expect(matchNames([m("Lök"), m("lök")])).toBe("Lök");
   });
   it("keeps one short phrase when the reasons differ", () => {
     expect(fitPhrase([m("a", "pantry"), m("b", "pantry")])).toBe("passar det du har hemma");
     expect(fitPhrase([m("a", "recipes")])).toBe("passar dina recept");
     expect(fitPhrase([m("a", "pantry"), m("b", "recipes")])).toBe("passar det du brukar laga");
-    expect(bestStoreLine({ fits: 2, total: 4, matches: [m("Falukorv"), m("Grädde")] })).toBe("falukorv och grädde passar dina recept");
+    expect(bestStoreLine({ fits: 2, total: 4, matches: [m("Falukorv"), m("Grädde")] })).toBe("Falukorv och grädde passar dina recept");
   });
   it("falls back to the count without names", () => {
     expect(bestStoreLine({ fits: 0, total: 5, matches: [] })).toBe("5 erbjudanden");

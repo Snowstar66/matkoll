@@ -14,6 +14,8 @@ export type FilterPillsProps<T extends string> = {
   /** Every pill unavailable, e.g. before hydration, when a tap would do nothing. */
   disabled?: boolean;
   className?: string;
+  /** "compact": 32 px pills in one row that scrolls sideways instead of wrapping (Story 16.9). The tap area stays 44 px. */
+  compact?: boolean;
 };
 
 const nextKeys: Record<string, number> = { ArrowRight: 1, ArrowDown: 1, ArrowLeft: -1, ArrowUp: -1 };
@@ -30,6 +32,7 @@ export function FilterPills<T extends string>({
   onChange,
   disabled = false,
   className,
+  compact = false,
 }: FilterPillsProps<T>) {
   const refs = useRef<(HTMLButtonElement | null)[]>([]);
   const chosenIndex = Math.max(
@@ -37,10 +40,11 @@ export function FilterPills<T extends string>({
     options.findIndex((option) => option.value === value),
   );
 
-  function choose(index: number) {
+  function choose(index: number, moveFocus = false) {
     const option = options[index];
     if (!option) return;
-    refs.current[index]?.focus();
+    // Only the arrow keys move focus; a tap already has it, and focus the keyboard did not ask for would draw a ring.
+    if (moveFocus) refs.current[index]?.focus();
     if (option.value !== value) onChange(option.value);
   }
 
@@ -52,11 +56,11 @@ export function FilterPills<T extends string>({
     if (event.key === "End") target = count - 1;
     if (target === null) return;
     event.preventDefault();
-    choose(target);
+    choose(target, true);
   }
 
   return (
-    <div role="radiogroup" aria-label={label} className={cx("flex flex-wrap gap-2", className)}>
+    <div role="radiogroup" aria-label={label} className={cx("flex gap-2", compact ? "flex-nowrap gap-1 overflow-x-auto" : "flex-wrap", className)}>
       {options.map((option, index) => {
         const selected = index === chosenIndex;
         return (
@@ -72,11 +76,12 @@ export function FilterPills<T extends string>({
             disabled={disabled}
             onClick={() => choose(index)}
             onKeyDown={(event) => onKeyDown(event, index)}
-            className="flex min-h-tap items-center rounded-pill disabled:cursor-not-allowed disabled:opacity-60"
+            className="group flex min-h-tap shrink-0 items-center rounded-pill outline-none disabled:cursor-not-allowed disabled:opacity-60"
           >
             <span
               className={cx(
-                "flex h-[34px] items-center rounded-pill px-[14px] text-meta font-semibold",
+                "flex items-center rounded-pill text-meta font-semibold group-focus-visible:outline-2 group-focus-visible:outline-offset-2 group-focus-visible:outline-accent",
+                compact ? "h-8 px-3" : "h-[34px] px-[14px]",
                 selected ? "bg-accent text-on-accent" : "bg-surface text-ink-2",
               )}
             >
