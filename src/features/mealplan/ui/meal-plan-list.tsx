@@ -3,13 +3,15 @@
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useCallback, useEffect, useMemo, useOptimistic, useRef, useState, useTransition } from "react";
-import { Button, buttonClasses } from "@/components/button";
+import { buttonClasses } from "@/components/button";
+import { useConfirmDelete } from "@/components/confirm-delete";
 import { EmptyState } from "@/components/empty-state";
 import { Meter } from "@/components/meter";
 import { RecipeImage } from "@/components/recipe-image";
 import { Stepper } from "@/components/stepper";
 import { SwipeRow } from "@/components/swipe-row";
 import { useToast } from "@/components/toast";
+import { TrashButton } from "@/components/trash-button";
 import type { PantrySnapshot } from "@/features/pantry";
 import { errorMessages, fail, type Result } from "@/lib/errors";
 import { removePlanRecipe } from "../actions/remove-plan-recipe";
@@ -122,6 +124,7 @@ export function MealPlanList({ planName, dishes, snapshot, siteLine = null }: Me
   /** The dishes removed under the confirmation showing now; a new object per confirmation. */
   const batch = useRef<{ removed: readonly Removed[] } | null>(null);
   const rootRef = useRef<HTMLDivElement>(null);
+  const confirm = useConfirmDelete();
 
   useEffect(() => {
     serverDishes.current = dishes;
@@ -349,7 +352,12 @@ export function MealPlanList({ planName, dishes, snapshot, siteLine = null }: Me
             servings={servings[dish.id] ?? dish.servings}
             snapshot={snapshot}
             onServingsChange={(value) => changeServings(dish, value)}
-            onRemove={(moveFocus) => void removeDish(dish, moveFocus)}
+            onRemove={(moveFocus) => 
+              confirm.requestDelete({
+                question: `Ta bort ${dish.recipeTitle} från matsedeln?`,
+                onConfirm: () => removeDish(dish, moveFocus),
+              })
+            }
           />
         ))}
       </ul>
@@ -359,6 +367,7 @@ export function MealPlanList({ planName, dishes, snapshot, siteLine = null }: Me
           Visa inköpslistan
         </Link>
       </div>
+      {confirm.dialog}
     </div>
   );
 }
@@ -435,15 +444,12 @@ function DishCard({ dish, servings, snapshot, onServingsChange, onRemove }: Dish
               increaseLabel={`Fler portioner, ${title}`}
               className="bg-bg"
             />
-            <Button
-              variant="text"
-              aria-label={`Ta bort ${title} från matsedeln`}
-              onClick={() => onRemove(true)}
-              className="-mr-3"
+            <TrashButton
+              label={`Ta bort ${title} från matsedeln`}
+              onPress={() => onRemove(true)}
+              className="-mr-2"
               {...(dish.recipeId ? {} : { "data-dish-focus": true })}
-            >
-              Ta bort
-            </Button>
+            />
           </div>
         </div>
       </SwipeRow>
