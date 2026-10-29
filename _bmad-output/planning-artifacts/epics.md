@@ -2425,3 +2425,40 @@ så att lagersaldot stämmer utan att jag räknar själv.
 **Givet** att Pontus bekräftar
 **När** avdraget görs
 **Så** uppdateras lagret, rätten visas som lagad på matsedeln och räknas inte längre in i inköpslistan, och "Ångra" återställer både lagret och rätten
+
+## Epic 14: Tydligare flöden
+
+Pontus förstod inte hur listan kommer till butiken, och erbjudandevyn har blivit rörig när funktionerna lagts på varandra.
+
+### Story 14.1: Erbjudandevyn städas
+
+Som Pontus,
+vill jag att veckans erbjudanden är lugna och lätta att läsa,
+så att jag hittar fynden utan att drunkna i knappar.
+
+**Acceptance Criteria:**
+
+**Givet** arket Veckans erbjudanden med en eller flera butiker
+**När** arket visas i 375 px
+**Så** finns en tydlig ordning: butik och vecka, en rad med Hämta och filter/sortering samlade, AI-förslagen som ett eget kort, och sedan listan, utan dubbla rader med knappar
+
+**Givet** alla funktioner från 9.1–9.15
+**När** vyn städas
+**Så** finns de kvar (hämta valda/alla, bästa butik, AI-förslag per butik, sortering, butiksfilter, välj till inköpslistan, rabatt), och tryckytor, mörkt läge och tillgänglighet håller
+
+### Story 14.2: Skicka listan till butiken tydligare
+
+Som Pontus,
+vill jag förstå hur inköpslistan kommer till ICA eller en annan butik och kunna dela den som vanlig text,
+så att jag kan handla där jag vill.
+
+**Acceptance Criteria:**
+
+**Givet** inköpslistan
+**När** Pontus trycker på knappen för butiken
+**Så** heter den "Kopiera till <kedja>-varukorgen", och efter trycket visar ett ark de tre stegen (öppna butikens sajt inloggad, klistra in i Claude in Chrome, granska och beställ själv) med en länk som öppnar butikens sajt
+
+**Givet** inköpslistan
+**När** Pontus trycker "Dela listan"
+**Så** öppnas telefonens delningsmeny (eller kopieras texten när delning saknas) med en enkel lista per avdelning, till exempel "Gul lök 1 st", utan butiksformatet
+
