@@ -392,6 +392,13 @@ async function rowId(userId: string, name: Name, location: string): Promise<stri
 /** The row's bin (Story 11.3). */
 const bin = (page: Page, name: string) => page.getByRole("button", { name: `Ta bort ${name}`, exact: true }).filter({ visible: true });
 
+/** Presses a bin; the first one in a minute asks (Story 13.1), and this answers "Ta bort". */
+async function pressBin(page: Page, name: string) {
+  await bin(page, name).click();
+  const confirm = page.getByRole("dialog").getByRole("button", { name: "Ta bort", exact: true });
+  if (await confirm.waitFor({ state: "visible", timeout: 700 }).then(() => true, () => false)) await confirm.click();
+}
+
 /** Taps Ångra and waits for the answers to the Server Action calls it makes. */
 async function undoAndWait(page: Page, calls = 1) {
   let answered = 0;
@@ -413,7 +420,7 @@ test.describe("removing an item", () => {
     await page.goto("/hemma");
     await expect(rows(page)).toHaveCount(3);
 
-    await bin(page, "Mjölk").click();
+    await pressBin(page, "Mjölk");
     await expect(sheet(page)).toHaveCount(0);
     await expect(rows(page)).toHaveText([today("Smör"), today("Salt")]);
     await expect(card(page, "Kyl")).toHaveText(/^Kyl\s*2 varor$/);
@@ -437,11 +444,11 @@ test.describe("removing an item", () => {
     const errors = watchErrors(page);
     const ids = [await rowId(userId, "Mjölk", "Kyl"), await rowId(userId, "Smör", "Kyl")];
     await page.goto("/hemma");
-    await bin(page, "Mjölk").click();
+    await pressBin(page, "Mjölk");
     await expect(toast(page)).toContainText("Tog bort Mjölk.");
     // Past the bins' double-tap guard (400 ms), as between two real taps.
     await page.waitForTimeout(450);
-    await bin(page, "Smör").click();
+    await pressBin(page, "Smör");
     await expect(toast(page)).toContainText("Tog bort Mjölk och Smör.");
     await expect(rows(page)).toHaveText([today("Salt")]);
     await expect(card(page, "Kyl")).toHaveText(/^Kyl\s*1 vara$/);
@@ -472,7 +479,7 @@ test.describe("removing an item", () => {
   test("Ångra fails when the location has the item again, and the item stays removed", async ({ page }) => {
     const errors = watchErrors(page);
     await page.goto("/hemma");
-    await bin(page, "Smör").click();
+    await pressBin(page, "Smör");
     await expect(toast(page)).toContainText("Tog bort Smör.");
 
     // Meanwhile Smör in g is back in Kyl, as a new row.
@@ -516,6 +523,7 @@ test.describe("removing an item with the keyboard", () => {
     await page.keyboard.press("Tab");
     await expect(bin(page, "Mjölk")).toBeFocused();
     await page.keyboard.press("Enter");
+    await page.getByRole("dialog").getByRole("button", { name: "Ta bort", exact: true }).click();
     await expect(rows(page)).toHaveText([today("Smör"), today("Salt")]);
     await expect(toast(page)).toContainText("Tog bort Mjölk.");
     await expect(bin(page, "Smör")).toBeFocused();

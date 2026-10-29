@@ -5,7 +5,7 @@ import { ok, type Result } from "@/lib/errors";
 import type { PlanDish, PlanRecipeRow } from "../domain/meal-plan";
 import { AddDishProvider } from "./add-dish-sheet";
 import { MealPlanList } from "./meal-plan-list";
-import { removeGraceMs } from "./use-remove-confirm";
+import { deleteGraceMs as removeGraceMs, resetDeleteGrace } from "@/components/confirm-delete";
 
 // Story 13.3: the trash on a dish asks "Ta bort <rätt> från matsedeln?" first,
 // and the next removals within a minute go at once.
@@ -49,6 +49,7 @@ const press = (title: string) =>
 
 beforeEach(() => {
   vi.useRealTimers();
+  resetDeleteGrace();
   removePlanRecipe.mockReset().mockImplementation(async (id) => ok(rowOf(dishes.find((d) => d.id === id)!)));
 });
 
@@ -56,7 +57,7 @@ describe("removing a dish asks first", () => {
   it("asks, and Avbryt keeps the dish", async () => {
     renderPlan();
     await press("Pasta");
-    const question = screen.getByRole("dialog", { name: "Ta bort från matsedeln" });
+    const question = screen.getByRole("dialog", { name: "Ta bort" });
     expect(question).toHaveTextContent("Ta bort Pasta från matsedeln?");
     await act(async () => fireEvent.click(within(question).getByRole("button", { name: "Avbryt" })));
     expect(removePlanRecipe).not.toHaveBeenCalled();
@@ -67,7 +68,7 @@ describe("removing a dish asks first", () => {
     vi.useFakeTimers({ toFake: ["Date"] });
     renderPlan();
     await press("Pasta");
-    const question = screen.getByRole("dialog", { name: "Ta bort från matsedeln" });
+    const question = screen.getByRole("dialog", { name: "Ta bort" });
     await act(async () => fireEvent.click(within(question).getByRole("button", { name: "Ta bort" })));
     expect(removePlanRecipe).toHaveBeenCalledTimes(1);
     expect(screen.getAllByTestId("plan-dish")).toHaveLength(2);
@@ -87,11 +88,11 @@ describe("removing a dish asks first", () => {
     renderPlan();
     await press("Pasta");
     await act(async () =>
-      fireEvent.click(within(screen.getByRole("dialog", { name: "Ta bort från matsedeln" })).getByRole("button", { name: "Ta bort" })),
+      fireEvent.click(within(screen.getByRole("dialog", { name: "Ta bort" })).getByRole("button", { name: "Ta bort" })),
     );
     vi.advanceTimersByTime(removeGraceMs + 1000);
     await press("Soppa");
     expect(removePlanRecipe).toHaveBeenCalledTimes(1);
-    expect(screen.getByRole("dialog", { name: "Ta bort från matsedeln" })).toHaveTextContent("Ta bort Soppa från matsedeln?");
+    expect(screen.getByRole("dialog", { name: "Ta bort" })).toHaveTextContent("Ta bort Soppa från matsedeln?");
   });
 });

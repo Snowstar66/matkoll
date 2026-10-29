@@ -50,7 +50,7 @@ Matsedelns modell har ingen dag: rätterna är en ordnad lista (`position`) på 
 
 ## Vid bygget
 
-- Storys 13.1:s delade kontrollfråga fanns inte på `origin/story/13-1` under de cirka 30 minuter bygget väntade. Därför finns en minimal lokal hook, `useRemoveConfirm` (`src/features/mealplan/ui/use-remove-confirm.tsx`), med samma beteende (60 s fönster, "Avbryt"/"Ta bort", `Sheet`). När 13.1 är mergad ska hooken bytas mot den delade och filen tas bort.
+- Story 13.1:s delade `useConfirmDelete` (`src/components/confirm-delete.tsx`, 60 s fönster) kom på `origin/story/13-1` medan bygget pågick och är mergad hit; Matsedel använder den. Ingen lokal hook finns kvar. Arket heter "Ta bort" (delade hookens titel) med frågan "Ta bort <rätt> från matsedeln?".
 - Soptunnans namn är "Ta bort <rätt> från matsedeln" (som textknappen), så svepets "Ta bort <rätt>" och soptunnan skiljs åt.
 - Inga migrationer, inga serveråtgärder ändrade: inga integrationstester behövdes, ingen backup eller `pantry-site-check`.
 - Tester: ny enhetstestfil `meal-plan-remove-confirm.test.tsx`; `meal-plan-ui.test.tsx` går förbi frågan; e2e `mealplan.spec.ts` har ett nytt test (fråga, Avbryt, direkt borttagning, listan följer, tryckyta minst 44 px). Flytta till dag har inget test eftersom det inte byggdes.

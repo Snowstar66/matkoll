@@ -136,7 +136,7 @@ async function swipeLeft(page: Page, card: Locator, distance = 150) {
 async function confirmRemoval(page: Page) {
   await removalQuestion(page).getByRole("button", { name: "Ta bort", exact: true }).click();
 }
-const removalQuestion = (page: Page) => page.getByRole("dialog", { name: "Ta bort från matsedeln" });
+const removalQuestion = (page: Page) => page.getByRole("dialog", { name: "Ta bort" });
 
 async function dishCount(): Promise<number> {
   const { count, error } = await adminClient()

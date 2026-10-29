@@ -4,6 +4,7 @@ import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useCallback, useEffect, useMemo, useOptimistic, useRef, useState, useTransition } from "react";
 import { buttonClasses } from "@/components/button";
+import { useConfirmDelete } from "@/components/confirm-delete";
 import { EmptyState } from "@/components/empty-state";
 import { Meter } from "@/components/meter";
 import { RecipeImage } from "@/components/recipe-image";
@@ -28,7 +29,6 @@ import {
   type ServingsChange,
 } from "../domain/meal-plan";
 import { AddDishButton } from "./add-dish-sheet";
-import { useRemoveConfirm } from "./use-remove-confirm";
 
 // Matsedel (FR-13): the current plan's dishes (matsedelsrätter) as dish cards
 // (rättkort, Epic 11), each with how much is at home for the chosen servings
@@ -124,7 +124,7 @@ export function MealPlanList({ planName, dishes, snapshot, siteLine = null }: Me
   /** The dishes removed under the confirmation showing now; a new object per confirmation. */
   const batch = useRef<{ removed: readonly Removed[] } | null>(null);
   const rootRef = useRef<HTMLDivElement>(null);
-  const confirm = useRemoveConfirm();
+  const confirm = useConfirmDelete();
 
   useEffect(() => {
     serverDishes.current = dishes;
@@ -352,7 +352,12 @@ export function MealPlanList({ planName, dishes, snapshot, siteLine = null }: Me
             servings={servings[dish.id] ?? dish.servings}
             snapshot={snapshot}
             onServingsChange={(value) => changeServings(dish, value)}
-            onRemove={(moveFocus) => confirm.ask(dish.recipeTitle, () => void removeDish(dish, moveFocus))}
+            onRemove={(moveFocus) => 
+              confirm.requestDelete({
+                question: `Ta bort ${dish.recipeTitle} från matsedeln?`,
+                onConfirm: () => removeDish(dish, moveFocus),
+              })
+            }
           />
         ))}
       </ul>
