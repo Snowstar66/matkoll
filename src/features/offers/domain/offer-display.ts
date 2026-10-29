@@ -14,7 +14,7 @@ const countries = [
 ];
 const markers = ["ICA", "KRAV"];
 // Producer brands that stand in front of the product and are not part of its name (Story 16.9); matched in any letter case.
-const brands = ["Scan", "Arla", "Kronfågel", "Pågen"];
+const brands = ["Scan", "Arla", "Kronfågel", "Pågen", "Odlarna"];
 
 const escape = (text: string) => text.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
 const alternatives = (words: string[]) => words.map(escape).sort((a, b) => b.length - a.length).join("|");

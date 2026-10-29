@@ -16,6 +16,12 @@ export type FilterPillsProps<T extends string> = {
   className?: string;
   /** "compact": 32 px pills in one row that scrolls sideways instead of wrapping (Story 16.9). The tap area stays 44 px. */
   compact?: boolean;
+  /**
+   * "segmented" (Story 16.11): one rounded 32 px container with a hairline border and equal
+   * segments; the chosen one is an accent chip, the rest plain text. Each segment keeps a 44 px
+   * tap area (it reaches 6 px above and below the container).
+   */
+  segmented?: boolean;
 };
 
 const nextKeys: Record<string, number> = { ArrowRight: 1, ArrowDown: 1, ArrowLeft: -1, ArrowUp: -1 };
@@ -33,6 +39,7 @@ export function FilterPills<T extends string>({
   disabled = false,
   className,
   compact = false,
+  segmented = false,
 }: FilterPillsProps<T>) {
   const refs = useRef<(HTMLButtonElement | null)[]>([]);
   const chosenIndex = Math.max(
@@ -57,6 +64,42 @@ export function FilterPills<T extends string>({
     if (target === null) return;
     event.preventDefault();
     choose(target, true);
+  }
+
+  if (segmented) {
+    return (
+      <div
+        role="radiogroup"
+        aria-label={label}
+        className={cx("flex h-8 min-w-0 max-w-full items-stretch gap-0.5 rounded-md border border-border bg-bg p-0.5", className)}
+      >
+        {options.map((option, index) => {
+          const selected = index === chosenIndex;
+          return (
+            <button
+              key={option.value}
+              ref={(element) => {
+                refs.current[index] = element;
+              }}
+              type="button"
+              role="radio"
+              aria-checked={selected}
+              tabIndex={selected ? 0 : -1}
+              disabled={disabled}
+              onClick={() => choose(index)}
+              onKeyDown={(event) => onKeyDown(event, index)}
+              className={cx(
+                "relative flex min-w-0 items-center justify-center rounded-sm px-3 text-meta font-semibold whitespace-nowrap outline-none",
+                "before:absolute before:inset-x-0 before:-inset-y-[9px]before:content-[''] focus-visible:outline-2 focus-visible:outline-offset-1 focus-visible:outline-accent disabled:cursor-not-allowed disabled:opacity-60",
+                selected ? "bg-accent text-on-accent" : "text-ink-2",
+              )}
+            >
+              <span className="truncate">{option.label}</span>
+            </button>
+          );
+        })}
+      </div>
+    );
   }
 
   return (

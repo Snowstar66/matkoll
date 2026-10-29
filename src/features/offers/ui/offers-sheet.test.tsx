@@ -73,12 +73,7 @@ async function open() {
   return { user, dialog: screen.getByRole("dialog", { name: "Veckans erbjudanden" }) };
 }
 
-/** Story 14.1: the checkboxes show only after "Välj". */
-async function choose(user: ReturnType<typeof userEvent.setup>, dialog: HTMLElement) {
-  await user.click(within(dialog).getByRole("button", { name: "Välj" }));
-}
-
-/** Story 14.1: the store panel sits behind "Hämta". */
+/** Story 14.1: the store panel sits behind "Hämta igen". */
 async function openPanel(user: ReturnType<typeof userEvent.setup>, dialog: HTMLElement, name: string | RegExp) {
   await user.click(within(dialog).getByRole("button", { name }));
 }
@@ -122,7 +117,9 @@ describe("OffersSheet", () => {
   it("shows the offers under their categories, with the price and conditions, and the store's page last", async () => {
     render({ offers, stores: [{ ...store, fetchedAt: "2026-10-28T06:12:00Z" }] });
     const { dialog } = await open();
-    expect(within(dialog).getByTestId("offers-summary")).toHaveTextContent("3 erbjudanden · hämtade idag 07:12");
+    expect(within(dialog).getByTestId("offers-summary")).toHaveTextContent("3 erbjudanden");
+    expect(within(dialog).getByTestId("offers-meta")).toHaveTextContent(/^Maxi ICA Stormarknad Östersund · v\. 44 · 3 erbjudanden/);
+    expect(within(dialog).getByTestId("offers-fetched")).toHaveTextContent("Hämtade idag 07:12 · Hämta igen");
     expect(within(dialog).getByRole("button", { name: "Hämta igen" })).toBeInTheDocument();
     expect(within(dialog).getAllByRole("heading", { level: 3 }).map((heading) => heading.textContent)).toEqual([
       "Frukt & grönt",
@@ -215,10 +212,9 @@ describe("OffersSheet: picking offers for the shopping list (Story 9.12)", () =>
     render({ offers, listing: { planId, onList: [], add } });
     const { user, dialog } = await open();
     expect(within(dialog).queryByRole("button", { name: /i inköpslistan/ })).not.toBeInTheDocument();
-    expect(within(dialog).queryByRole("checkbox")).not.toBeInTheDocument();
-    await choose(user, dialog);
+    expect(within(dialog).queryByRole("checkbox", { checked: true })).not.toBeInTheDocument();
     await user.click(within(dialog).getByRole("checkbox", { name: "Gårdens Herrgård, Präst, 89 kr per kg" }));
-    await user.click(within(dialog).getByRole("checkbox", { name: "Odlarna Gul lök, 10 kr per kg" }));
+    await user.click(within(dialog).getByRole("checkbox", { name: "Gul lök, 10 kr per kg" }));
     await user.click(within(dialog).getByRole("button", { name: "Lägg 2 i inköpslistan" }));
     expect(add).toHaveBeenCalledWith({
       planId,
@@ -230,17 +226,15 @@ describe("OffersSheet: picking offers for the shopping list (Story 9.12)", () =>
     expect(await screen.findAllByText("Lade 2 erbjudanden i inköpslistan.")).not.toHaveLength(0);
     // The sheet closes so the toast is within reach; opened again, the rows say På listan.
     await waitFor(() => expect(screen.queryByRole("dialog", { name: "Veckans erbjudanden" })).not.toBeInTheDocument());
-    const { user: again2, dialog: again } = await open();
-    await choose(again2, again);
+    const { dialog: again } = await open();
     expect(within(again).getAllByText("På listan")).toHaveLength(2);
-    expect(within(again).getByRole("checkbox", { name: "Odlarna Gul lök, 10 kr per kg" })).toBeDisabled();
+    expect(within(again).getByRole("checkbox", { name: "Gul lök, 10 kr per kg" })).toBeDisabled();
     expect(within(again).queryByRole("button", { name: /i inköpslistan/ })).not.toBeInTheDocument();
   });
 
   it("shows På listan for offers already on the list, unticked and not pickable", async () => {
     render({ offers, listing: { planId, onList: [offers[0].id], add } });
-    const { user, dialog } = await open();
-    await choose(user, dialog);
+    const { dialog } = await open();
     const box = within(dialog).getByRole("checkbox", { name: "Gårdens Herrgård, Präst, 89 kr per kg" });
     expect(box).toBeDisabled();
     expect(box).toHaveAttribute("aria-checked", "false");
@@ -251,8 +245,7 @@ describe("OffersSheet: picking offers for the shopping list (Story 9.12)", () =>
     add.mockResolvedValue(fail("shopping_save_failed"));
     render({ offers, listing: { planId, onList: [], add } });
     const { user, dialog } = await open();
-    await choose(user, dialog);
-    await user.click(within(dialog).getByRole("checkbox", { name: "Odlarna Gul lök, 10 kr per kg" }));
+    await user.click(within(dialog).getByRole("checkbox", { name: "Gul lök, 10 kr per kg" }));
     await user.click(within(dialog).getByRole("button", { name: "Lägg 1 i inköpslistan" }));
     expect(await within(dialog).findByRole("alert")).toHaveTextContent("Det gick inte att spara varan. Försök igen.");
     expect(within(dialog).getByRole("button", { name: "Lägg 1 i inköpslistan" })).toBeEnabled();
@@ -292,7 +285,7 @@ describe("OffersSheet: several stores (Story 9.13)", () => {
     });
     render({ stores, offers: both });
     const { user, dialog } = await open();
-    await openPanel(user, dialog, "Hämta");
+    await openPanel(user, dialog, "Hämta igen");
     const rows = within(dialog).getAllByTestId("store-fetch-row");
     expect(rows).toHaveLength(2);
     expect(within(dialog).getByRole("checkbox", { name: "ICA Kvantum Krokom" })).toHaveAttribute("aria-checked", "true");
@@ -354,8 +347,8 @@ describe("OffersSheet: several stores (Story 9.13)", () => {
     const { dialog } = await open();
     expect(within(dialog).queryByRole("button", { name: /^Filter/ })).not.toBeInTheDocument();
     const filters = within(dialog).getByTestId("list-filters");
-    expect(filters).toHaveTextContent("Visa butik:");
-    expect(filters).toHaveTextContent("Sortera:");
+    expect(filters).toHaveTextContent("Visa butik");
+    expect(filters).toHaveTextContent("Sortera");
     expect(within(filters).getByRole("radio", { name: "Avdelning" })).toBeChecked();
     expect(within(dialog).queryByTestId("suggest-store-picker")).not.toBeInTheDocument();
     expect(within(dialog).queryByRole("radiogroup", { name: "Föreslå rätter från" })).not.toBeInTheDocument();
@@ -371,7 +364,7 @@ describe("OffersSheet: several stores (Story 9.13)", () => {
   it("clears the other stores' offers after Hämta valda, only when a fetch worked (Story 16.8)", async () => {
     render({ stores, offers: both });
     const { user, dialog } = await open();
-    await user.click(within(dialog).getByRole("button", { name: "Hämta" }));
+    await user.click(within(dialog).getByRole("button", { name: "Hämta igen" }));
     await user.click(within(dialog).getByRole("checkbox", { name: "Maxi ICA Stormarknad Östersund" }));
     await user.click(within(dialog).getByRole("button", { name: "Hämta valda (1)" }));
     await waitFor(() => expect(clearOtherStoreOffers).toHaveBeenCalledWith({ keep: [krokom.id] }));
@@ -381,12 +374,12 @@ describe("OffersSheet: several stores (Story 9.13)", () => {
     fetchStoreOffers.mockResolvedValue(fail("offers_fetch_blocked"));
     render({ stores, offers: both });
     const { user, dialog } = await open();
-    await user.click(within(dialog).getByRole("button", { name: "Hämta" }));
+    await user.click(within(dialog).getByRole("button", { name: "Hämta igen" }));
     await user.click(within(dialog).getByRole("checkbox", { name: "Maxi ICA Stormarknad Östersund" }));
     await user.click(within(dialog).getByRole("button", { name: "Hämta valda (1)" }));
     await waitFor(() => expect(fetchStoreOffers).toHaveBeenCalledTimes(1));
     fetchStoreOffers.mockResolvedValue(ok({ saved: 3, skipped: 0, matched: 0, weekStart: "2026-10-26" }));
-    await user.click(within(dialog).getByRole("button", { name: "Hämta" }));
+    await user.click(within(dialog).getByRole("button", { name: "Hämta igen" }));
     await user.click(within(dialog).getByRole("button", { name: "Hämta alla" }));
     await waitFor(() => expect(fetchStoreOffers).toHaveBeenCalledTimes(3));
     expect(clearOtherStoreOffers).not.toHaveBeenCalled();
@@ -412,15 +405,13 @@ describe("OffersSheet: several stores (Story 9.13)", () => {
     expect(startJob.mock.calls[0][1]).toMatchObject({ mode: "offers", storeId: store.id });
   });
 
-  it("filters the list to the matching offers and back from the tip's link (Stories 16.7, 16.10)", async () => {
-    render({ stores, offers: both, best: { storeId: krokom.id, fits: 1, total: 2, score: 2, matches: [{ id: both[1].id, name: "Laxfilé", source: "recipes" }] } });
-    const { user, dialog } = await open();
-    const rows = () => within(dialog).getAllByTestId("offer-row").length;
-    expect(rows()).toBe(both.length);
-    await user.click(within(dialog).getByRole("button", { name: "Visa bara de erbjudandena" }));
-    expect(rows()).toBe(1);
-    await user.click(within(dialog).getByRole("button", { name: "Visa alla erbjudanden" }));
-    expect(rows()).toBe(both.length);
+  it("has no Visa dessa toggle; the matching offers are only marked, and every offer has a checkbox (Story 16.12)", async () => {
+    render({ stores, offers: both, best: { storeId: krokom.id, fits: 1, total: 2, score: 2, matches: [{ id: both[1].id, name: "Laxfilé", source: "recipes" }] }, listing: { planId: "33333333-3333-4333-8333-333333333333", onList: [], add: vi.fn() } });
+    const { dialog } = await open();
+    expect(within(dialog).queryByRole("button", { name: /Visa bara de erbjudandena|Visa alla erbjudanden/ })).not.toBeInTheDocument();
+    expect(within(dialog).queryByRole("button", { name: /^Välj$/ })).not.toBeInTheDocument();
+    expect(within(dialog).getAllByTestId("offer-row")).toHaveLength(both.length);
+    expect(within(dialog).getAllByRole("checkbox")).toHaveLength(both.length);
   });
 
   it("names the matches without a store with offers from one store only, and has no tip without matches (Stories 9.14, 16.10)", async () => {
@@ -434,7 +425,6 @@ describe("OffersSheet: several stores (Story 9.13)", () => {
     const add = vi.fn().mockResolvedValue(ok({ count: 1 }));
     render({ stores, offers: both, listing: { planId: "33333333-3333-4333-8333-333333333333", onList: [], add } });
     const { user, dialog } = await open();
-    await choose(user, dialog);
     await user.click(within(dialog).getAllByRole("checkbox", { name: /^Havets Laxfilé, 119 kr per kg/ })[0]);
     await user.click(within(dialog).getByRole("button", { name: "Lägg 1 i inköpslistan" }));
     expect(add.mock.calls[0][0].items[0].label).toBe("Laxfilé (Erbjudande Krokom: 119 kr/kg)");
