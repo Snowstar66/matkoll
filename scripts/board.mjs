@@ -131,7 +131,17 @@ function readStoryStatuses() {
       if (!seen || STATUS_ORDER.indexOf(story.status) > STATUS_ORDER.indexOf(seen.status)) best.set(story.key, story);
     }
   }
-  return [...best.values()].sort((a, b) => a.epic - b.epic || a.num - b.num);
+  // Klar means merged to main: a story done only on its own branch is still in review.
+  let doneOnMain = new Set();
+  try {
+    const mainText = git("show", `refs/remotes/origin/main:${relative(ROOT, SPRINT_STATUS)}`);
+    doneOnMain = new Set(parseStoryStatuses(mainText).filter((s) => s.status === "done").map((s) => s.key));
+  } catch {
+    // No origin/main yet: fall back to the branch statuses as they are.
+  }
+  return [...best.values()]
+    .map((s) => (s.status === "done" && doneOnMain.size > 0 && !doneOnMain.has(s.key) ? { ...s, status: "review" } : s))
+    .sort((a, b) => a.epic - b.epic || a.num - b.num);
 }
 
 // sprint-status.yaml is flat `key: value` lines under development_status:, so a full YAML parser is not needed.

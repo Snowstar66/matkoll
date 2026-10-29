@@ -248,7 +248,8 @@ test("a gul lök checked off is not in the next export, and Lägg i lagret stand
   await openList(page);
   await check(page, "Gul lök, 2 st").click();
   // Moved to I korgen (Story 11.4).
-  await page.getByRole("button", { name: /^Visa I korgen/ }).filter({ visible: true }).click();
+  // I korgen is open from the start (Story 3.9).
+  await expect(page.getByRole("button", { name: /^Dölj I korgen/ }).filter({ visible: true })).toBeVisible();
   await expect(check(page, "Gul lök, 2 st")).toBeChecked();
   await expect(putButton(page)).toBeEnabled();
   // Off while the check was saved; on again now.

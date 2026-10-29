@@ -182,7 +182,11 @@ const dish = (page: Page) => page.getByTestId("plan-dish").filter({ visible: tru
 const ketchupCheck = (page: Page) => page.getByRole("checkbox", { name: /^Ketchup/ }).filter({ visible: true });
 const putButton = (page: Page) => page.getByRole("button", { name: "Lägg i lagret", exact: true }).filter({ visible: true });
 /** Unfolds I korgen, where the checked lines are (Story 11.4). */
-const showBasket = (page: Page) => page.getByRole("button", { name: /^Visa I korgen/ }).filter({ visible: true }).click();
+const showBasket = async (page: Page) => {
+  // I korgen is open from the start (Story 3.9): "Visa" only when it was folded.
+  const show = page.getByRole("button", { name: /^Visa I korgen/ }).filter({ visible: true });
+  if ((await show.count()) > 0) await show.click();
+};
 const toast = (page: Page) => page.getByTestId("toast");
 const tab = (page: Page, name: "Recept" | "Matsedel" | "Inköpslista" | "Lagersaldo") =>
   page.getByRole("navigation", { name: "Huvudmeny" }).getByRole("link", { name });

@@ -136,6 +136,8 @@ function stubClipboard(...answers: ("ok" | "refuse")[]) {
 
 const fetchSpy = vi.fn();
 beforeEach(() => {
+  // These tests start from I korgen folded; Story 3.9 opens it by default.
+  window.localStorage.setItem("matkoll:basket-open", "0");
   actions.setChecked.mockReset().mockImplementation(async (change: unknown) => ok(change));
   actions.putCheckedInPantry.mockReset();
   actions.other.mockReset();
@@ -222,7 +224,8 @@ describe("Kopiera till ICA-varukorgen", () => {
     const text = writeText.mock.calls[0]![0];
     expect(text).not.toContain("Gul lök");
     expect(text).toContain("Antal varor: 2\n");
-    expect(await screen.findByTestId("toast")).toHaveTextContent(`2 varor kopierade. ${copied}`);
+    // The copy replaces the "Gul lök i korgen" toast (Story 3.9).
+    await waitFor(() => expect(screen.getByTestId("toast")).toHaveTextContent(`2 varor kopierade. ${copied}`));
   });
 
   it.each([

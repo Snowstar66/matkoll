@@ -65,6 +65,8 @@ function ServerList({ initial }: { initial: ShoppingLine[] }) {
 const button = () => screen.queryByRole("button", { name: "Lägg i lagret" });
 
 beforeEach(() => {
+  // These tests start from I korgen folded; Story 3.9 opens it by default.
+  window.localStorage.setItem("matkoll:basket-open", "0");
   setChecked.mockReset().mockImplementation(async (change) => {
     server.save(change);
     return ok(change);
@@ -132,7 +134,7 @@ describe("Lägg i lagret", () => {
     expect(await screen.findByRole("alert")).toHaveTextContent(
       "Stället finns inte längre. Listan har räknats om mot Hemma. Tryck Lägg i lagret igen.",
     );
-    expect(screen.getByText("1 vara i korgen")).toBeInTheDocument();
+    expect(screen.getByText("I korgen (1)")).toBeInTheDocument();
     await user.click(screen.getByRole("button", { name: /^Visa I korgen/ }));
     expect(screen.getByRole("checkbox", { name: "Grädde, 3 dl" })).toBeChecked();
     expect(refresh).toHaveBeenCalledTimes(1);

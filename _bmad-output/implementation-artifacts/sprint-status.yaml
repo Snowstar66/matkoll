@@ -49,6 +49,7 @@ development_status:
   1-11-ändra-och-ta-bort-recept: done
   1-12-inställningar-för-receptsajter: done
   1-13-spara-i-matkoll-från-receptsajten: done
+  1-14-hitta-recept-från-lägg-till: done
   epic-1-retrospective: optional
 
   epic-2: done
@@ -67,6 +68,7 @@ development_status:
   3-6-rätta-mängd-och-dölja-listposter: done
   3-7-lägg-i-lagret-efter-handlingen: done
   3-8-förbered-molndrift: done
+  3-9-avbockade-syns-och-kan-ångras: done
   epic-3-retrospective: optional
 
   epic-4: done

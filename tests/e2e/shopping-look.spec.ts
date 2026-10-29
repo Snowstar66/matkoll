@@ -277,7 +277,7 @@ test("a check moves the line to I korgen at once, and a check there takes it bac
   // Gone from Frukt & grönt (it had only Gul lök), counted in the progress row and the basket row.
   await expect(region(page, "Frukt & grönt")).toHaveCount(0);
   await expect(progress(page)).toHaveText(/^4 varor kvar\s*1 av 5 i korgen$/);
-  await expect(basketRow(page)).toContainText("1 vara i korgen");
+  await expect(basketRow(page)).toContainText("I korgen (1)");
   await expect(announcement(page)).toHaveText("Gul lök i korgen.");
   // Focus on the next line's check.
   await expect(check(page, "Matlagningsgrädde, 3 dl")).toBeFocused();
@@ -287,17 +287,19 @@ test("a check moves the line to I korgen at once, and a check there takes it bac
   const put = await button(page, "Lägg i lagret").boundingBox();
   expect(put!.y + put!.height).toBeLessThanOrEqual(send!.y);
 
-  // Saved: still in the basket after a reload, folded.
+  // Saved: still in the basket after a reload, which is open from the start (Story 3.9), struck through.
   await page.reload();
-  await expect(basketRow(page)).toContainText("1 vara i korgen");
-  await expect(check(page, "Gul lök, 1 st")).toHaveCount(0);
-  const show = showButton(page);
-  await expect(show).toHaveAttribute("aria-expanded", "false");
-  await show.click();
+  await expect(basketRow(page)).toContainText("I korgen (1)");
   await expect(button(page, "Dölj I korgen")).toHaveAttribute("aria-expanded", "true");
-  const basket = region(page, "I korgen");
-  await expect(page.getByRole("heading", { level: 2, name: "I korgen", exact: true }).filter({ visible: true })).toBeVisible();
+  const basket = region(page, "I korgen (1)");
   await expect(basket.getByText("Gul lök", { exact: true }).locator("..")).toHaveCSS("text-decoration-line", "line-through");
+  // Dölj folds it, and the choice is kept across a reload on this device.
+  await button(page, "Dölj I korgen").click();
+  await expect(basket).toHaveCount(0);
+  await page.reload();
+  await expect(showButton(page)).toHaveAttribute("aria-expanded", "false");
+  await showButton(page).click();
+  await expect(basket).toBeVisible();
 
   await actionsAnswered(page, 1, () => basket.getByRole("checkbox", { name: "Gul lök, 1 st" }).click());
   await expect(region(page, "Frukt & grönt").getByRole("checkbox", { name: "Gul lök, 1 st" })).not.toBeChecked();
@@ -315,22 +317,47 @@ test("everything checked off: Allt ligger i korgen, no categories, and I korgen 
   await expect(progress(page)).toHaveText(/^1 vara kvar\s*4 av 5 i korgen$/);
   await actionsAnswered(page, 1, () => check(page, "Diskmedel").click());
   await expect(progress(page)).toHaveText("Allt ligger i korgen");
-  // No category; the folded basket row is a heading, so heading navigation finds it.
-  await expect(headings(page)).toHaveText(["5 varor i korgen"]);
-  // The last line left: focus on the basket row's "Visa".
-  await expect(showButton(page)).toBeFocused();
-  await expect(basketRow(page)).toContainText("5 varor i korgen");
+  // No category; the basket row is a heading, so heading navigation finds it.
+  await expect(headings(page)).toHaveText(["I korgen (5)"]);
+  // The last line left: focus on the basket row's "Dölj".
+  await expect(button(page, "Dölj I korgen")).toBeFocused();
+  await expect(basketRow(page)).toContainText("I korgen (5)");
   await expect(button(page, "Lägg i lagret")).toBeVisible();
-
-  await showButton(page).click();
-  await expect(region(page, "I korgen").getByTestId("shopping-line")).toHaveCount(5);
+  await expect(region(page, "I korgen (5)").getByTestId("shopping-line")).toHaveCount(5);
   await tab(page, "Recept").click();
   await expect(page).toHaveURL(/\/recept$/);
   await tab(page, "Inköpslista").click();
   await expect(page).toHaveURL(/\/lista$/);
   // Kept while the page was hidden (Activity).
-  await expect(region(page, "I korgen")).toBeVisible();
+  await expect(region(page, "I korgen (5)")).toBeVisible();
   await expect(button(page, "Dölj I korgen")).toBeVisible();
+  expect(errors).toEqual([]);
+});
+
+test("a checked line stays visible and struck through, Ångra in the toast takes the check back, and a tap on it unchecks it (Story 3.9)", async ({ page }) => {
+  await seed();
+  const errors = watchErrors(page);
+  await page.goto("/lista");
+  await expect(progress(page)).toHaveText(/^5 varor kvar/);
+
+  // Check, then Ångra in the toast.
+  await actionsAnswered(page, 1, () => check(page, "Gul lök, 1 st").click());
+  const toast = page.getByTestId("toast").filter({ visible: true });
+  await expect(toast).toContainText("Gul lök i korgen");
+  await actionsAnswered(page, 1, () => toast.getByRole("button", { name: "Ångra" }).click());
+  await expect(region(page, "Frukt & grönt").getByRole("checkbox", { name: "Gul lök, 1 st" })).not.toBeChecked();
+  await expect(progress(page)).toHaveText(/^5 varor kvar\s*0 av 5 i korgen$/);
+  expect(await storedChecks()).toEqual([]);
+
+  // Check again: the line is visible in I korgen, struck through, with a checked box.
+  await actionsAnswered(page, 1, () => check(page, "Gul lök, 1 st").click());
+  const basket = region(page, "I korgen (1)");
+  await expect(basket.getByText("Gul lök", { exact: true }).locator("..")).toHaveCSS("text-decoration-line", "line-through");
+  await expect(basket.getByRole("checkbox", { name: "Gul lök, 1 st" })).toBeChecked();
+  // A tap on its box unchecks it, and it is back in its category.
+  await actionsAnswered(page, 1, () => basket.getByRole("checkbox", { name: "Gul lök, 1 st" }).click());
+  await expect(region(page, "Frukt & grönt").getByRole("checkbox", { name: "Gul lök, 1 st" })).not.toBeChecked();
+  await expect(basketRow(page)).toHaveCount(0);
   expect(errors).toEqual([]);
 });
 
