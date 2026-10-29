@@ -8,7 +8,8 @@ import type { SearchIngredients } from "@/components/ingredient-picker";
 import { Notice } from "@/components/notice";
 import { focusAfterRemoval } from "@/components/trash-button";
 import { nameInSentence, normalizeIngredientText } from "@/features/catalog";
-import { atHomeText, suggestErrorMessage, suggestRetryCodes } from "@/features/suggestions";
+import { suggestErrorMessage, suggestRetryCodes, whyText } from "@/features/suggestions";
+import { offerDisplay } from "@/features/offers";
 import type { AddToPlan } from "./add-to-plan-button";
 import { recipeMetaText } from "../domain/recipe-list";
 import { AiSuggestionSheet } from "./ai-suggestion-sheet";
@@ -25,7 +26,7 @@ import type { DishSuggestionsState, ShownSuggestion } from "./use-dish-suggestio
 // library keeps working. The state comes from the library (useDishSuggestions).
 
 /** At most this many ingredient names on a card, after "Med: ". */
-const maxCardNames = 5;
+const maxCardNames = 4;
 
 export type AiSuggestionsProps = {
   /** The suggestions and the calls (useDishSuggestions); without it nothing is shown. */
@@ -176,7 +177,7 @@ function cardNames({ draft, ingredientNames }: ShownSuggestion): string[] {
 /**
  * Kort för ett AI-förslag, a recipe card (Epic 11): a short mint strip with
  * the AI label on it in place of a status and no heart, the title, "35 min ·
- * 4 portioner", "Med: " and at most five ingredient names, and "Spara"; the
+ * 4 portioner", "Med: " and at most four ingredient names, and "Spara"; the
  * label is read before "Spara". The card is no link: a suggestion has no
  * recipe view until it is saved. Never an image: an address from the model
  * is not loaded (AD-15 loads only recipe sites' own images).
@@ -192,7 +193,8 @@ function SuggestionCard({
   onSave: () => void;
   onAddToPlan?: () => void;
 }) {
-  const { draft, onOffer = [], atHome } = suggestion;
+  const { draft, onOffer = [], atHome, toBuy = [] } = suggestion;
+  const offerNames = onOffer.map((label) => offerDisplay(label).title);
   return (
     <RecipeCard
       data-testid="ai-suggestion"
@@ -204,12 +206,18 @@ function SuggestionCard({
       deleteLabel={`Ta bort förslaget ${draft.title}`}
     >
       <p className="text-meta break-words text-ink-2">Med: {cardNames(suggestion).join(", ")}</p>
-      {onOffer.length > 0 ? (
-        <p data-testid="ai-suggestion-offers" className="text-meta break-words text-ink-2">
-          På erbjudande: {onOffer.join(", ")}
-        </p>
+      {atHome ? (
+        <>
+          <p data-testid="ai-suggestion-why" className="text-meta break-words text-ink">
+            {whyText({ onOffer: onOffer.length, have: atHome.have, toBuy })}
+          </p>
+          {offerNames.length > 0 ? (
+            <p data-testid="ai-suggestion-offers" className="text-meta break-words text-ink-2">
+              Erbjudanden: {offerNames.join(", ")}
+            </p>
+          ) : null}
+        </>
       ) : null}
-      {atHome ? <p className="text-meta text-ink-2">{atHomeText(atHome)}</p> : null}
       {onAddToPlan ? (
         <Button onClick={onAddToPlan} aria-label={`Lägg på matsedeln: ${draft.title}`}>
           Lägg på matsedeln

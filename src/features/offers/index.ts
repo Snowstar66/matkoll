@@ -16,6 +16,7 @@ export {
   weekStartOf,
 } from "./domain/week";
 export { FOOD_CATEGORIES, foodSection, parseIcaOfferPage, type IcaOffer } from "./domain/ica-offer-page";
+export { offerDisplay, type OfferDisplay } from "./domain/offer-display";
 export { clip, offerName, type OfferName } from "./domain/offer-name";
 export {
   fetchedAtText,

@@ -43,6 +43,8 @@ export const dishSuggestionsSchema = z.object({
         onOffer: z.array(z.string()).default([]),
         /** Story 9.5: how many of the dish's ingredients are at home, or `null` (pantry suggestions). */
         atHome: z.object({ have: z.number().int().min(0), total: z.number().int().min(0) }).nullable().default(null),
+        /** Story 16.2: the lines to buy (not at home, not on offer, no trivial staples), by name; empty for pantry suggestions. */
+        toBuy: z.array(z.string().max(100)).max(30).default([]),
       }),
     )
     .min(1)
@@ -55,7 +57,7 @@ export const dishSuggestionsSchema = z.object({
 export type DishSuggestions = z.infer<typeof dishSuggestionsSchema>;
 type DishSuggestionOut = DishSuggestions["suggestions"][number];
 /** A suggestion as the UI holds it: `onOffer` and `atHome` may be left out (none). */
-export type DishSuggestion = Omit<DishSuggestionOut, "onOffer" | "atHome"> & Partial<Pick<DishSuggestionOut, "onOffer" | "atHome">>;
+export type DishSuggestion = Omit<DishSuggestionOut, "onOffer" | "atHome" | "toBuy"> & Partial<Pick<DishSuggestionOut, "onOffer" | "atHome" | "toBuy">>;
 
 /**
  * The titles the client sends to avoid, from the most wanted: cleaned like

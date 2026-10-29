@@ -1,5 +1,6 @@
 import "server-only";
 import { requireUser } from "@/features/auth/server";
+import { nameInSentence } from "@/features/catalog";
 import { CatalogDataError, getIngredientNames, matchIngredients } from "@/features/catalog/server";
 import type { PantrySnapshot } from "@/features/pantry";
 import { getPantryForStatus } from "@/features/pantry/server";
@@ -9,7 +10,7 @@ import { getSelectedStore, listStores, SettingsDataError } from "@/features/sett
 import { fromAiRecipe, recipeDraftSchema, type RecipeDraft } from "@/features/recipes";
 import { fail, ok, type Result } from "@/lib/errors";
 import { getAiService } from "@/server/ai";
-import { offersUsed, toOfferNames } from "../domain/offer-input";
+import { offersUsed, toBuyNames, toOfferNames } from "../domain/offer-input";
 import { toSuggestInput } from "../domain/pantry-input";
 import type { DishSuggestions, SuggestRequest } from "../domain/suggestions";
 
@@ -224,7 +225,7 @@ async function suggest(
       const ingredientNames = Object.fromEntries(
         linked.flatMap((id) => (id in names.data ? [[id, names.data[id]] as const] : [])),
       );
-      if (!byOffers) return { draft, ingredientNames, onOffer: [], atHome: null };
+      if (!byOffers) return { draft, ingredientNames, onOffer: [], atHome: null, toBuy: [] };
       const lineNames = draft.lines.map((line) => line.hint?.name ?? line.originalText);
       return {
         draft,
@@ -235,6 +236,19 @@ async function suggest(
           have: draft.lines.filter(({ ingredient }) => isLinkedAtHome(ingredient, snapshot)).length,
           total: draft.lines.length,
         },
+        toBuy: toBuyNames(
+          offers,
+          draft.lines.map((line) => {
+            const { ingredient } = line;
+            const id = ingredient.kind === "match" || ingredient.kind === "chosen" ? ingredient.ingredientId : null;
+            const linked = id !== null ? ingredientNames[id] : undefined;
+            return {
+              name: linked !== undefined ? nameInSentence(linked.trim()) : (line.hint?.name ?? line.originalText).trim(),
+              ingredientId: id,
+              atHome: isLinkedAtHome(ingredient, snapshot),
+            };
+          }),
+        ),
       };
     }),
   });
