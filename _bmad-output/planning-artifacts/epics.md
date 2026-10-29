@@ -2721,3 +2721,23 @@ så att den känns lugn och ordnad i stället för stökig och brusig.
 **Givet** allt från 9.13 till 16.10
 **När** jag använder arket
 **Så** fungerar det som förut, även i mörkt läge, utan sidoöverflöd vid 375 px
+
+### Story 16.12: Kryssrutor alltid framme
+
+Som Pontus,
+vill jag att erbjudandelistan alltid har sina kryssrutor framme, utan "Välj"/"Klar" och utan "Visa dessa", och att rutorna är riktiga kryssrutor,
+så att jag kan plocka direkt och inte tar dem för radioknappar.
+
+**Acceptance Criteria:**
+
+**Givet** tipskortet i erbjudandearket
+**När** det visas
+**Så** har det tipsmeningen och "✨ Föreslå rätter" (höger under meningen) men ingen "Visa dessa"/"Visa alla" och ingen "Visar N av M"; "Passar dig" står kvar på raderna
+
+**Givet** att det går att lägga i inköpslistan
+**När** listan visas
+**Så** har varje erbjudanderad alltid sin kryssruta, utan "Välj"/"Klar"; listraden har bara "N erbjudanden" till vänster; "Lägg N i inköpslistan" syns när minst en är ikryssad; rader som redan ligger på listan har "På listan" och en avstängd ruta; går det inte att lägga till visas inga rutor
+
+**Givet** en kryssruta
+**När** den visas
+**Så** är den kvadratisk (22 px, 6 px rundade hörn, 2 px ram i dämpad ink), ikryssad med accentfyllning och vit bock, med 44 px träffyta och rollen checkbox med samma namn som förut; den är en delad komponent, och de runda cirklarna i inköpslistan ("i korgen") är oförändrade

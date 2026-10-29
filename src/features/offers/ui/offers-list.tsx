@@ -3,7 +3,7 @@
 import { Fragment, useId } from "react";
 import { CategoryHeader } from "@/components/category-header";
 import { Badge } from "@/components/badges";
-import { CheckCircle } from "@/components/check-circle";
+import { Checkbox } from "@/components/checkbox";
 import { ListGroup } from "@/components/list-group";
 import { ListRow } from "@/components/list-row";
 import type { Category } from "@/features/catalog";
@@ -35,8 +35,6 @@ export type OfferSelection = {
   onList: ReadonlySet<string>;
   onToggle: (offerId: string, picked: boolean) => void;
   disabled?: boolean;
-  /** Story 14.1: the checkboxes show only while Pontus is choosing ("Välj"); default true. */
-  selecting?: boolean;
 };
 
 /**
@@ -135,8 +133,8 @@ function OfferRow({
         ) : undefined
       }
       leading={
-        selection && selection.selecting !== false ? (
-          <CheckCircle
+        selection ? (
+          <Checkbox
             label={spoken}
             checked={!listed && selection.picked.has(offer.id)}
             disabled={listed || selection.disabled}

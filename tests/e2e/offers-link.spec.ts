@@ -214,8 +214,8 @@ test("Story 9.12: picks offers and adds them to the shopping list once", async (
 
   // Nothing is picked, so there is no button.
   await expect(dialog.getByTestId("add-offers-to-list")).toHaveCount(0);
-  await expect(dialog.getByRole("checkbox")).toHaveCount(0);
-  await dialog.getByRole("button", { name: "Välj" }).click();
+  // Story 16.12: the checkboxes are always there, none of them ticked.
+  await expect(dialog.getByRole("checkbox", { checked: true })).toHaveCount(0);
   const herrgard = dialog.getByRole("checkbox", { name: /^Gårdens Herrgård, Präst, 89 kr per kg/ });
   await expect(herrgard).toHaveAttribute("aria-checked", "false");
   const box = await herrgard.boundingBox();
@@ -243,7 +243,6 @@ test("Story 9.12: picks offers and adds them to the shopping list once", async (
   await expect(page.getByText("Gul lök")).toBeVisible();
   await page.getByRole("button", { name: "Erbjudanden" }).click();
   await expect(sheet(page).getByText("På listan")).toHaveCount(2);
-  await sheet(page).getByRole("button", { name: "Välj" }).click();
   await expect(sheet(page).getByRole("checkbox", { name: /^Gårdens Herrgård, Präst/ })).toBeDisabled();
   await expect(sheet(page).getByTestId("add-offers-to-list")).toHaveCount(0);
   const after = await admin.from("shopping_custom_item").select("id").eq("user_id", userId);
@@ -361,7 +360,6 @@ test("Story 9.13: a picked offer's note on the shopping list names its store", a
   await dialog.getByRole("button", { name: "Hämta alla" }).click();
   await expect(dialog.getByTestId("offers-store-result")).toHaveCount(2);
   await dialog.getByRole("radiogroup", { name: "Visa butik" }).getByRole("radio", { name: "Krokom" }).click();
-  await dialog.getByRole("button", { name: "Välj" }).click();
   await dialog.getByRole("checkbox", { name: /^Gårdens Herrgård, Präst, 79 kr per kg.*Krokom$/ }).click();
   await dialog.getByRole("button", { name: "Lägg 1 i inköpslistan" }).click();
   await expect(dialog).toBeHidden();

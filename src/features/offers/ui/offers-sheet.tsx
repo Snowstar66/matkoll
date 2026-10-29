@@ -158,11 +158,9 @@ export function OffersSheet({
   const [adding, setAdding] = useState(false);
   const [addError, setAddError] = useState<{ message: string; attempt: number } | null>(null);
   const [sort, setSort] = useState<"category" | "saving">("category");
-  const [onlyBest, setOnlyBest] = useState(false);
   const [storeFilter, setStoreFilter] = useState<string>("all");
   // The stores Pontus has unticked for "Hämta valda"; all are ticked by default.
   const [panel, setPanel] = useState<"fetch" | null>(null);
-  const [selecting, setSelecting] = useState(false);
   // Story 16.10: "Föreslå rätter från vilken butik?" replaces the list inside the same sheet (sheets never stack).
   const [choosing, setChoosing] = useState(false);
   const fetchPanelId = useId();
@@ -186,11 +184,9 @@ export function OffersSheet({
   const chosen = offers.filter((offer) => picked.has(offer.id) && !onList.has(offer.id));
   const bestInfo = best && storesWithOffers.some((store) => store.id === best.storeId) ? best : null;
   const matchIds = useMemo(() => new Set(bestInfo?.matches.map((match) => match.id) ?? []), [bestInfo]);
-  const showingMatches = onlyBest && matchIds.size > 0;
   const shown = useMemo(() => {
-    const ofStore = filterId === "all" ? offers : offers.filter((offer) => offer.storeId === filterId);
-    return showingMatches ? ofStore.filter((offer) => matchIds.has(offer.id)) : ofStore;
-  }, [offers, filterId, showingMatches, matchIds]);
+    return filterId === "all" ? offers : offers.filter((offer) => offer.storeId === filterId);
+  }, [offers, filterId]);
   const ticked = withLink.filter((store) => !unticked.has(store.id));
 
   /** One store after the other, never at once: each is one request to the store's site, and its answer is kept. */
@@ -248,7 +244,6 @@ export function OffersSheet({
     if (answer.ok) {
       setAdded((before) => new Set([...before, ...chosen.map((offer) => offer.id)]));
       setPicked(new Set());
-      setSelecting(false);
       // The sheet closes, so the toast and its link are within reach.
       onClose();
       showToast(addedToListText(chosen.length), {
@@ -361,22 +356,10 @@ export function OffersSheet({
                   <p className="min-w-0">{tip}</p>
                 </div>
               ) : null}
-              <div className="flex items-center gap-3">
-                {matchIds.size > 0 && tip ? (
-                  <Button
-                    variant="compact"
-                    className="-ml-2 min-w-0 text-left"
-                    onClick={() => setOnlyBest(!showingMatches)}
-                    data-testid="best-store-toggle"
-                    // Short on screen so it stays on one line beside the button; the name says it in full.
-                    aria-label={showingMatches ? "Visa alla erbjudanden" : "Visa bara de erbjudandena"}
-                  >
-                    {showingMatches ? "Visa alla" : "Visa dessa"}
-                  </Button>
-                ) : null}
+              <div className="flex justify-end">
                 <SuggestFromOffersButton
                   hasOffers
-                  className="ml-auto shrink-0"
+                  className="shrink-0"
                   onStarted={onClose}
                   onChoose={filterStores ? () => setChoosing(true) : undefined}
                 />
@@ -411,23 +394,10 @@ export function OffersSheet({
               </div>
             ) : null}
             <div className="flex flex-col">
-              <div className="flex min-h-tap items-center justify-between border-b border-border">
+              <div className="flex min-h-tap items-center border-b border-border">
                 <p data-testid="offers-summary" className="text-meta text-ink-2">
-                  {showingMatches ? `Visar ${shown.length} av ${offers.length}` : offersCountWords(shown.length)}
+                  {offersCountWords(shown.length)}
                 </p>
-                {listing ? (
-                  <Button
-                    variant="compact"
-                    className="-mr-2"
-                    aria-pressed={selecting}
-                    onClick={() => {
-                      setSelecting(!selecting);
-                      if (selecting) setPicked(new Set());
-                    }}
-                  >
-                    {selecting ? "Klar" : "Välj"}
-                  </Button>
-                ) : null}
               </div>
               <div className="pt-4">
                 <OffersList
@@ -435,14 +405,13 @@ export function OffersSheet({
                   weekStart={weekStart}
                   sort={sort}
                   badges={many ? badges : undefined}
-                  showStore={filterId === "all" && storesWithOffers.length > 1 && !showingMatches}
+                  showStore={filterId === "all" && storesWithOffers.length > 1}
                   fits={fits}
                   selection={
                     listing
                       ? {
                           picked,
                           onList,
-                          selecting,
                           disabled: adding,
                           onToggle: (id, on) =>
                             setPicked((before) => {
