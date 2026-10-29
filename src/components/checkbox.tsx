@@ -9,17 +9,20 @@ export type CheckboxProps = {
   /** What is picked, e.g. "Aubergine, 12 kr per kg". The state is read out as checked / not checked. */
   label: string;
   disabled?: boolean;
+  /** Id(s) of the text that describes it, e.g. the line under a list item. */
+  describedBy?: string;
   className?: string;
 };
 
 /** A square tick box for picking among many (not the round "i korgen" circle): 22 px visible box in a 44 px tap area. */
-export function Checkbox({ checked, onCheckedChange, label, disabled, className }: CheckboxProps) {
+export function Checkbox({ checked, onCheckedChange, label, disabled, describedBy, className }: CheckboxProps) {
   return (
     <button
       type="button"
       role="checkbox"
       aria-checked={checked}
       aria-label={label}
+      aria-describedby={describedBy || undefined}
       disabled={disabled}
       onClick={() => onCheckedChange(!checked)}
       className={cx("flex size-tap shrink-0 items-center justify-center rounded-md disabled:opacity-50", className)}

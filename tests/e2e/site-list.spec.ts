@@ -228,7 +228,11 @@ const listAnnouncement = (page: Page) => page.getByTestId("list-announcement").f
 const summary = (page: Page) => page.getByTestId("list-summary").filter({ visible: true });
 const progress = (page: Page) => page.getByTestId("list-progress").filter({ visible: true });
 /** Unfolds I korgen, where the checked lines are (Story 11.4). */
-const showBasket = (page: Page) => page.getByRole("button", { name: /^Visa I korgen/ }).filter({ visible: true }).click();
+const showBasket = async (page: Page) => {
+  // I korgen is open from the start (Story 3.9): "Visa" only when it was folded.
+  const show = page.getByRole("button", { name: /^Visa I korgen/ }).filter({ visible: true });
+  if ((await show.count()) > 0) await show.click();
+};
 const putButton = (page: Page) => page.getByRole("button", { name: "Lägg i lagret", exact: true }).filter({ visible: true });
 const sendButton = (page: Page) => page.getByRole("button", { name: "Kopiera till ICA-varukorgen", exact: true }).filter({ visible: true });
 const tab = (page: Page, name: "Inköpslista" | "Lagersaldo") =>
@@ -366,13 +370,13 @@ test("Lägg i lagret against Stugan puts only what was checked off there, and ke
   const errors = watchErrors(page);
   await page.goto("/lista");
   await lineCheck(page, "Senap").click();
-  // Moved to I korgen (Story 11.4).
-  await expect(lineCheck(page, "Senap")).toHaveCount(0);
+  // Moved to I korgen, which is open from the start (Story 3.9): still there, checked.
+  await expect(lineCheck(page, "Senap")).toBeChecked();
   await expect.poll(storedChecks).toEqual([lineKey("Senap", "förp")]);
 
   await countAgainst(page, "Stugan");
   await lineCheck(page, "Korv").click();
-  await expect(lineCheck(page, "Korv")).toHaveCount(0);
+  await expect(lineCheck(page, "Korv")).toBeChecked();
   await expect(progress(page)).toHaveText(/1 av 2 i korgen$/);
   await expect(putButton(page)).toBeEnabled();
   await putButton(page).click();

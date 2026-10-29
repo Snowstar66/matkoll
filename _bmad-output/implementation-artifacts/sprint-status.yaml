@@ -68,6 +68,7 @@ development_status:
   3-6-rätta-mängd-och-dölja-listposter: done
   3-7-lägg-i-lagret-efter-handlingen: done
   3-8-förbered-molndrift: done
+  3-9-avbockade-syns-och-kan-ångras: done
   epic-3-retrospective: optional
 
   epic-4: done
@@ -152,6 +153,7 @@ development_status:
   13-3-matsedeln-har-det-som-behövs: done
   13-4-markera-som-lagad: done
   13-5-dagar-på-matsedeln: done
+  13-6-idag-och-datum-på-matsedeln: done
   epic-14: done
   14-1-erbjudandevyn-städas: done
   14-2-skicka-listan-till-butiken-tydligare: done

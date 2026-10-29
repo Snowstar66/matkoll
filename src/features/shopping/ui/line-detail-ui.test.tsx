@@ -98,6 +98,8 @@ const previous: LineOverrideRow = { id: overrideId, planId, key: graddeKey, amou
 const hiddenUpdatedAt = "2026-10-26T05:12:29.123456+00:00";
 
 beforeEach(() => {
+  // This test starts from I korgen folded; Story 3.9 opens it by default.
+  window.localStorage.setItem("matkoll:basket-open", "0");
   setLineAmount.mockReset().mockImplementation(async (input) => ok(input));
   clearLineAmount.mockReset().mockImplementation(async (line) => ok(line));
   hideLine.mockReset().mockResolvedValue(ok({ previous, hiddenUpdatedAt }));

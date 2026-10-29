@@ -5,7 +5,7 @@ import { useRouter } from "next/navigation";
 import { type ReactNode, type RefObject, useEffect, useId, useMemo, useOptimistic, useRef, useState, useTransition } from "react";
 import { Button, buttonClasses } from "@/components/button";
 import { CategoryHeader } from "@/components/category-header";
-import { CheckCircle } from "@/components/check-circle";
+import { Checkbox } from "@/components/checkbox";
 import { useConfirmDelete } from "@/components/confirm-delete";
 import { cx } from "@/components/cx";
 import { EmptyState } from "@/components/empty-state";
@@ -30,7 +30,6 @@ import {
   allInStockText,
   backOnListAnnouncement,
   basketText,
-  basketTitle,
   basketToggleText,
   checkLabel,
   missingText,
@@ -618,10 +617,17 @@ export function ShoppingList({
     [lines],
   );
   const basketKeys = inBasket.map((line) => line.key);
-  /** I korgen unfolded; folded from the start, kept while the page is hidden (Activity), not after a reload. */
-  const [basketOpen, setBasketOpen] = useState(false);
-  // Nothing in the basket any more ("Lägg i lagret", or the last check taken back): it folds.
-  if (basketOpen && inBasket.length === 0) setBasketOpen(false);
+  /** I korgen unfolded (Story 3.9): open from the start; the choice is kept per device. */
+  const [basketOpen, setBasketOpen] = useState(true);
+  useEffect(() => {
+    // Read after hydration, so the server and the first render agree.
+    // eslint-disable-next-line react-hooks/set-state-in-effect
+    if (readBasketOpen() === false) setBasketOpen(false);
+  }, []);
+  const changeBasketOpen = (open: boolean) => {
+    setBasketOpen(open);
+    writeBasketOpen(open);
+  };
   /** A line whose check could not be taken back: I korgen opens once it is there again. */
   const [reopenFor, setReopenFor] = useState<string | null>(null);
   if (reopenFor !== null && inBasket.some((line) => line.key === reopenFor)) {
@@ -632,6 +638,7 @@ export function ShoppingList({
   const rootRef = useRef<HTMLDivElement>(null);
   useFocusAfterRemoval(rootRef, removal.focusAfterRef, [...leftKeys, ...(basketShown ? basketKeys : [])]);
   const { announcement: moveAnnouncement, announce } = useMoveAnnouncement();
+  const { showToast } = useToast();
   /**
    * Focus to move once the line has moved (the basket row's "Visa" after the
    * first check, a line back in its category, a line that went back): tried
@@ -708,6 +715,15 @@ export function ShoppingList({
     }
     toggle(line.key, checked);
     announce(checked ? inBasketAnnouncement(lineName(line)) : backOnListAnnouncement(lineName(line)));
+    // Story 3.9: a check can be taken back from the toast; only the latest one is shown.
+    if (checked) {
+      showToast(inBasketAnnouncement(lineName(line)).replace(/\.$/, ""), {
+        onUndo: () => {
+          toggle(line.key, false);
+          announce(backOnListAnnouncement(lineName(line)));
+        },
+      });
+    }
   };
   /** The saved checks of the latest taps, by line, to compare with the list once every save has settled. */
   const savedChecks = useRef(new Map<string, boolean>());
@@ -758,7 +774,6 @@ export function ShoppingList({
     [store, storeUnavailable, productChoices, productChoicesUnavailable, unreadableChoices],
   );
   const [choiceSheet, setChoiceSheet] = useState<ChoiceSheet | null>(null);
-  const { showToast } = useToast();
   // The list is read again while the sheet Produktval is open, and the
   // store it was opened for is no longer the selected one, or the choices
   // cannot be read now: the sheet closes and says why, rather than save
@@ -932,7 +947,7 @@ export function ShoppingList({
             Lägg till egen vara
           </Button>
           {inBasket.length > 0 ? (
-            <Basket open={basketShown} onOpenChange={setBasketOpen} count={inBasket.length}>
+            <Basket open={basketShown} onOpenChange={changeBasketOpen} count={inBasket.length}>
               {inBasket.map(lineRow)}
             </Basket>
           ) : null}
@@ -1119,7 +1134,9 @@ function Basket({
   return (
     <>
       <div data-testid="basket-row" className="flex items-center justify-between gap-3 pl-1">
-        <h2 className="min-w-0 text-body text-ink-2">{basketText(count)}</h2>
+        <h2 id={headingId} className="min-w-0 text-body text-ink-2">
+          {basketText(count)}
+        </h2>
         <Button
           variant="text"
           data-basket-toggle
@@ -1135,10 +1152,7 @@ function Basket({
         </Button>
       </div>
       {open ? (
-        <div id={regionId} data-testid="basket" className="flex flex-col gap-2">
-          <h2 id={headingId} className="px-1 text-section-label text-ink-2">
-            {basketTitle}
-          </h2>
+        <div id={regionId} data-testid="basket">
           <ListGroup labelledBy={headingId} className="@container">{children}</ListGroup>
         </div>
       ) : null}
@@ -1147,14 +1161,31 @@ function Basket({
 }
 
 /**
- * One listpost (DESIGN.md, list-row; FR-43): the round check (CheckCircle,
- * 26 px in a 44 × 44 px tap area) to the left, the name with the amount after
+ * One listpost (DESIGN.md, list-row; FR-43): the square check (Checkbox,
+ * 22 px in a 44 × 44 px tap area) to the left, the name with the amount after
  * it in ink-2 ("Gul lök 2 st"), the line under it, and the product chip to
  * the right. Checked (in I korgen), the name is struck through in ink-3. The
  * check and the text are separate tap targets: with `onOpen`, the text is a
  * button that opens Listpostdetalj. With `onRemove`, swiping the row to the
  * left reveals "Ta bort" (SwipeRow), also reached with Tab after the row.
  */
+const basketOpenKey = "matkoll:basket-open";
+function readBasketOpen(): boolean | null {
+  try {
+    const value = window.localStorage.getItem(basketOpenKey);
+    return value === null ? null : value === "1";
+  } catch {
+    return null;
+  }
+}
+function writeBasketOpen(open: boolean) {
+  try {
+    window.localStorage.setItem(basketOpenKey, open ? "1" : "0");
+  } catch {
+    // Not kept: I korgen is open again next time.
+  }
+}
+
 export function ShoppingLineRow({
   line,
   meta,
@@ -1208,7 +1239,7 @@ export function ShoppingLineRow({
     // The strike-through, said: "Grädde 3 dl, i korgen".
     srStatus: line.checked ? "i korgen" : undefined,
     leading: (
-      <CheckCircle
+      <Checkbox
         checked={line.checked}
         onCheckedChange={onCheckedChange}
         label={checkLabel(line)}
