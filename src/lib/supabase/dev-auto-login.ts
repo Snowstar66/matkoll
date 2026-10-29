@@ -23,9 +23,19 @@ export type DevAutoLoginInput = {
 export const devLoggedOutCookie = "matkoll-dev-logged-out";
 export const devLoggedOutMaxAgeSeconds = 8 * 60 * 60;
 
-/** True when any header that proxies and tunnels add is present. */
+const loopbackAddresses = new Set(["127.0.0.1", "::1", "::ffff:127.0.0.1"]);
+
+/**
+ * True when the request came through a proxy or tunnel, or from another
+ * machine. Next's own server adds `x-forwarded-for` with the socket's address
+ * on every request, so that header is allowed when each entry is loopback;
+ * `x-real-ip` and `forwarded` only come from proxies.
+ */
 export function hasProxyHeaders(headers: { get(name: string): string | null }): boolean {
-  return ["x-forwarded-for", "x-real-ip", "forwarded"].some((name) => headers.get(name) !== null);
+  if (headers.get("x-real-ip") !== null || headers.get("forwarded") !== null) return true;
+  const forwardedFor = headers.get("x-forwarded-for");
+  if (forwardedFor === null) return false;
+  return forwardedFor.split(",").some((entry) => !loopbackAddresses.has(entry.trim().toLowerCase()));
 }
 
 const localHostnames = new Set(["localhost", "127.0.0.1"]);
