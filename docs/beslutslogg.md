@@ -2,6 +2,12 @@
 
 Beslut som fattats under bygget: vad, varför och vilka alternativ som fanns. Nyaste överst.
 
+## 2026-10-29 – Utseendegenomgång efter Epic 12
+
+- **Beslut:** en genomgång av alla huvudskärmar vid 375 px, ljust och mörkt, mot mockuparna och DESIGN.md. Rörelsen och stilen är oförändrade; bara avvikelser rättades.
+- **Rättat:** textknappen "Hämta igen" i erbjudandearket hamnade indragen på egen rad när sammanfattningen bröts, nu står raden kvar och texten bryts i stället. Raden "Med: …" på AI-förslagskort använder nu samma metatext som övriga kort. Inloggningen har fått ordmärket "Matkoll" över rubriken.
+- **Kontrollerat utan avvikelse:** pekytor på minst 44 px, ingen sidledsscroll, fokusringar, kontrast i mörkt läge, tomlägen, arken för butik, plats, vara, AI-jobb och erbjudanden.
+
 ## 2026-10-29 – Slutmätning Epic 12: strömningen dras tillbaka, väckningen och de kortare svaren blir kvar
 
 - **Mätt** med commit `08855d5` (Story 12.1-12.7), `qwen/qwen3.6-35b-a3b`, `EVAL_RUNS=3`, varm modell (`docs/lm-studio.md`, avsnitt 8).
