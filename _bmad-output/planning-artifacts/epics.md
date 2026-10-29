@@ -278,6 +278,34 @@ så att jag hittar nya recept utan att lämna appen för att leta efter sajten.
 **När** avsnittet visas
 **Så** blir det inget sidled och kontrasten håller
 
+#### Story 1.15: Import sparas direkt
+
+Som Pontus,
+vill jag att ett importerat recept hamnar direkt i Recept,
+så att jag slipper ett onödigt steg med förhandsgranskning och inte tappar ett recept som blev klart medan jag gjorde något annat.
+
+**Acceptance Criteria:**
+
+**Givet** en import från länk, bokmärket `?url=`, delningsmenyn, inklistrad text eller foto
+**När** inläsningen är klar
+**Så** sparas receptet av jobbet självt med de förval förhandsgranskningen hade (rader matchade mot katalogen, nya ingredienser med föreslagen avdelning, plats och enhet), med jobbets id som receptets id, så att en omkörning eller dubbel avläsning aldrig ger en kopia, och jobbets resultat får `savedRecipeId`
+
+**Givet** ett sparat importrecept
+**När** appen ser att jobbet är klart (på vilken sida som helst, även efter att den varit stängd)
+**Så** visas "Receptet <titel> är sparat" med "Öppna" (receptet, där "Ändra recept" finns) och "Ångra" (det befintliga raderingsanropet), receptet finns i biblioteket direkt och jobbet stängs
+
+**Givet** ett klart importjobb som aldrig sparades (jobbet kunde inte spara, eller det blev klart före den här storyn)
+**När** appen öppnas
+**Så** sparas det med samma id och samma förval, och bekräftelsen visas, så att inget inläst recept försvinner
+
+**Givet** en import som misslyckas (sajten ej godkänd, hämtning blockerad, ogiltigt AI-svar)
+**När** jobbet är klart
+**Så** sparas inget, och på Recept står ett kvarstående meddelande med orsaken och "Stäng" tills Pontus stänger det
+
+**Givet** arket Importera recept
+**När** jobbet det väntar på blir klart
+**Så** stängs arket (ingen förhandsgranskning), och flikarna, "Avbryt", "Försök igen" och felmeddelandena fungerar som förut
+
 ## Epic 2: Lager
 Pontus kan föra in det som finns hemma per plats, med eller utan mängd, och ser direkt i receptbiblioteket vilka rätter som kan lagas och hur många varor som saknas.
 **FRs covered:** FR11, FR12, FR8 (lagningsstatus)

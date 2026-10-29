@@ -1,6 +1,6 @@
 import { readFileSync } from "node:fs";
 import { expect, type Locator, type Page, test } from "@playwright/test";
-import { adminClient, e2eUserId, statusEmail, statusStorageState } from "./support";
+import { adminClient, e2eUserId, openSavedImport, statusEmail, statusStorageState } from "./support";
 
 // Story 2.4: "Kan lagas nu" or "Saknar N varor" in the library and the recipe
 // view, with a tick or ring on every line, counted again when the pantry
@@ -122,8 +122,7 @@ test("a saved recipe with nothing at home says Saknar 5 varor, with a ring on ev
   await importSheet.getByRole("tab", { name: "Text" }).click();
   await importSheet.getByLabel("Recepttext").fill(pannkaka);
   await importSheet.getByRole("button", { name: "Tolka" }).click();
-  await expect(importSheet.getByLabel("Titel")).toHaveValue(title);
-  await importSheet.getByRole("button", { name: "Spara recept" }).click();
+  await openSavedImport(page, title);
 
   await expect(page).toHaveURL(recipePath);
   await expect(page.getByRole("heading", { level: 1, name: title })).toBeVisible();
