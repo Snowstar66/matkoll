@@ -488,6 +488,9 @@ isOneToOne: false
               "id": string,"normalized_name": string
             }[]
                            },
+"copy_meal_plan":
+{ Args: { "source_plan": string,"target_week": string }; Returns: number
+                           },
 "delete_expired_pantry_photos":
 { Args: { "photo_ids": (string)[],"taken_before": string }; Returns: string[]
                            },

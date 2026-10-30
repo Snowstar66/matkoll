@@ -162,6 +162,22 @@ export async function setCurrentPlanIn(db: MealPlanDb, plan: NewPlan): Promise<{
 }
 
 /**
+ * "Kopiera till …" (Story 13.9): copies the dishes of the user's plan
+ * `sourceId` onto the plan of the week starting `targetWeek`, after the dishes
+ * it has, in one transaction (copy_meal_plan). Weekday, servings and order are
+ * kept; dishes whose recipe is deleted are left out. Returns how many dishes
+ * were copied. Throws MealPlanDataError: `invalid_id`, or `copy_failed <code>`
+ * with `code`: P0002 no such plan; 22023 a week that is not offered, the
+ * plan's own week, or no dish with a recipe.
+ */
+export async function copyPlanIn(db: MealPlanDb, sourceId: string, targetWeek: string): Promise<number> {
+  if (!idSchema.safeParse(sourceId).success) throw new MealPlanDataError("invalid_id");
+  const { data, error } = await db.rpc("copy_meal_plan", { source_plan: sourceId, target_week: targetWeek });
+  if (error) throw new MealPlanDataError(`copy_failed ${error.code}`, error.code);
+  return data;
+}
+
+/**
  * Deletes an earlier meal plan for good, with its dishes and everything the
  * shopping list keeps for it (on delete cascade), under the meal plan lock
  * (delete_meal_plan), so it never races "Använd igen" of the same plan.

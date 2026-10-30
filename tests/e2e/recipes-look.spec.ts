@@ -497,7 +497,7 @@ test("a long page title keeps the header's actions beside it at 375 px", async (
   await page.goto("/matsedel");
   const header = page.locator("header").filter({ visible: true });
   const title = header.getByRole("heading", { level: 1 });
-  const previous = header.getByRole("link", { name: "Tidigare" });
+  const previous = header.getByRole("button", { name: "Lägg till rätt" });
   for (const text of ["Matsedel", "Matsedel för hela veckan med släkten"]) {
     await title.evaluate((el, value) => (el.textContent = value), text);
     const titleBox = await box(title);

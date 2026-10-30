@@ -7,7 +7,7 @@ import type { RecipeListRow } from "@/features/recipes";
 import { getRecipesByIds, RecipeDataError } from "@/features/recipes/server";
 import { revalidateFor } from "@/lib/revalidate";
 import { createClient } from "@/lib/supabase/server";
-import { getCurrentPlanIn, getPlanIn, listPreviousPlansIn } from "./data/queries";
+import { getCurrentPlanIn, getPlanIn, getWeekCountsIn, listPreviousPlansIn } from "./data/queries";
 import { detachRecipeIn } from "./data/write";
 import { currentWeekStart } from "./domain/week";
 import {
@@ -54,6 +54,14 @@ export const getCurrentPlan = cache(async (): Promise<MealPlan | null> => {
 export const getPlanForWeek = cache(async (weekStart: string): Promise<MealPlan | null> => {
   return getCurrentPlanIn(await createClient(), weekStart);
 });
+
+/**
+ * The number of dishes on the signed-in user's plans of `weeks` (Mondays), by
+ * week, in one query, for the week overview (Story 13.9). Throws MealPlanDataError.
+ */
+export async function getWeekCounts(weeks: readonly string[]): Promise<Record<string, number>> {
+  return getWeekCountsIn(await createClient(), weeks);
+}
 
 /**
  * The signed-in user's earlier meal plans, newest first, with their number of

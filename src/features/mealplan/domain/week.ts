@@ -133,6 +133,38 @@ export function weekChoices(now: Date = new Date()): WeekChoice[] {
   });
 }
 
+/** The ISO week number of a Monday: 44. */
+export function weekNumber(weekStart: string): number {
+  return isoWeekOfMonday(weekStart).week;
+}
+
+/** How many weeks the overview and "Kopiera till …" offer: this week and the next two. */
+export const overviewWeeks = 3;
+
+/** The short label of a week tile: "Denna vecka", "Nästa", "Om 3 v". */
+export function weekTileLabel(offset: number): string {
+  if (offset <= 0) return "Denna vecka";
+  if (offset === 1) return "Nästa";
+  return `Om ${offset} v`;
+}
+
+/** A tile's accessible name: "Vecka 45, nästa vecka, 3 rätter". */
+export function weekTileName(weekStart: string, offset: number, count: number): string {
+  const when = weekOffsetLabel(offset).toLocaleLowerCase("sv-SE");
+  const dishes = count === 0 ? "inga rätter" : count === 1 ? "1 rätt" : `${count} rätter`;
+  return `${weekName(weekStart)}, ${when}, ${dishes}`;
+}
+
+/** The weeks "Kopiera till …" offers: this week, next week and the week after. */
+export function copyTargets(now: Date = new Date()): WeekChoice[] {
+  return weekChoices(now).slice(0, overviewWeeks);
+}
+
+/** "Kopierade 5 rätter till vecka 46". */
+export function copiedText(count: number, weekStart: string): string {
+  return `Kopierade ${count === 1 ? "1 rätt" : `${count} rätter`} till vecka ${weekNumber(weekStart)}`;
+}
+
 /** The `?vecka=` query for a week: empty for this week, so the plain address stays. */
 export function weekQuery(weekStart: string, now: Date = new Date()): string {
   return weekStart === currentWeekStart(now) ? "" : `?vecka=${weekParam(weekStart)}`;

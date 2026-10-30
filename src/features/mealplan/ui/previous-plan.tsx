@@ -9,6 +9,7 @@ import { Sheet } from "@/components/sheet";
 import { formatPortions } from "@/components/stepper";
 import { useToast } from "@/components/toast";
 import { fail, type Result } from "@/lib/errors";
+import { copyPlan } from "../actions/copy-plan";
 import { deletePlan } from "../actions/delete-plan";
 import { reusePlan } from "../actions/reuse-plan";
 import {
@@ -22,6 +23,7 @@ import {
   weekdayNames,
   type PlanDetail,
 } from "../domain/meal-plan";
+import { copiedText, copyTargets, weekQuery, type WeekChoice } from "../domain/week";
 import { useCreatePlan } from "./use-create-plan";
 
 // An earlier meal plan (FR-14): its dishes and servings, read only. A dish
@@ -43,12 +45,16 @@ export function PreviousPlan({ plan }: PreviousPlanProps) {
   const [asking, setAsking] = useState(false);
   const [deleting, startDeleting] = useTransition();
   const [deleteError, setDeleteError] = useState<string | null>(null);
+  const [copying, setCopying] = useState(false);
+  const [copyBusy, startCopying] = useTransition();
+  const [copyError, setCopyError] = useState<string | null>(null);
+  const copyInFlight = useRef(false);
   const router = useRouter();
   const { showToast } = useToast();
   /** Set from the tap until the answer, before React has rendered `deleting`. */
   const deleteInFlight = useRef(false);
   const noteId = useId();
-  const busy = creating || deleting;
+  const busy = creating || deleting || copyBusy;
   const reusable = plan.recipes.filter((dish) => dish.recipeId !== null).length;
   const leftOut = leftOutText(plan.recipes.length - reusable);
   const reuseNote = plan.recipes.length === 0 ? null : reusable === 0 ? nothingToReuseText : leftOut;
@@ -56,6 +62,33 @@ export function PreviousPlan({ plan }: PreviousPlanProps) {
   function ask() {
     setDeleteError(null);
     setAsking(true);
+  }
+
+  function copyTo(target: WeekChoice) {
+    if (copyInFlight.current) return;
+    copyInFlight.current = true;
+    setCopyError(null);
+    startCopying(async () => {
+      try {
+        let result: Result<{ copied: number }>;
+        try {
+          result = await copyPlan(plan.id, target.weekStart);
+        } catch {
+          result = fail("mealplan_copy_failed");
+        }
+        if (!result.ok) {
+          if (result.error.code === "unauthorized") router.refresh();
+          else setCopyError(result.error.message);
+          return;
+        }
+        // In the same transition as the action's revalidated routes, to the week that got the dishes.
+        router.push(`/matsedel${weekQuery(target.weekStart)}`);
+        setCopying(false);
+        showToast(copiedText(result.data.copied, target.weekStart));
+      } finally {
+        copyInFlight.current = false;
+      }
+    });
   }
 
   function remove() {
@@ -135,10 +168,46 @@ export function PreviousPlan({ plan }: PreviousPlanProps) {
         >
           {creating ? "Skapar …" : "Använd igen"}
         </Button>
+        <Button
+          variant="secondary"
+          fullWidth
+          disabled={busy || reusable === 0}
+          aria-describedby={reuseNote || plan.recipes.length === 0 ? noteId : undefined}
+          onClick={() => {
+            setCopyError(null);
+            setCopying(true);
+          }}
+        >
+          Kopiera till {"\u2026"}
+        </Button>
         <Button variant="text" disabled={busy} onClick={ask} className="self-start -ml-3">
           Ta bort matsedel
         </Button>
       </div>
+      <Sheet
+        open={copying}
+        onClose={() => setCopying(false)}
+        title={"Kopiera till \u2026"}
+        subtitle={`${plan.name}: rätterna läggs efter dem som redan finns`}
+        closeLabel="Avbryt"
+        preventClose={copyBusy}
+      >
+        <div className="flex flex-col gap-2">
+          {copyError ? <Notice role="alert">{copyError}</Notice> : null}
+          {copyTargets().map((target) => (
+            <Button
+              key={target.weekStart}
+              variant="secondary"
+              fullWidth
+              disabled={copyBusy}
+              data-testid="copy-target"
+              onClick={() => copyTo(target)}
+            >
+              {target.label} ({target.name.toLocaleLowerCase("sv-SE")})
+            </Button>
+          ))}
+        </div>
+      </Sheet>
       <Sheet
         open={asking}
         onClose={() => setAsking(false)}

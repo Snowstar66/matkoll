@@ -462,8 +462,9 @@ export function MealPlanList({
           {siteLine}
         </p>
       ) : null}
+      {/* The week's name is the selected tile now; the heading stays for screen readers (Story 13.9). */}
       {planName ? (
-        <h2 data-testid="plan-name" className="text-section-label text-ink-2">
+        <h2 data-testid="plan-name" className="sr-only">
           {planName}
         </h2>
       ) : null}

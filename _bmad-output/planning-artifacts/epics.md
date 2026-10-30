@@ -2727,6 +2727,34 @@ så att jag kan planera uppifrån och ned, dag för dag, utan att välja dag sis
 **När** planeringsfältet, korten och knapparna visas
 **Så** blir ingenting avklippt eller sidledes och tryckytorna är minst 44 px
 
+### Story 13.9: Veckoöversikt och kopiera vecka
+
+Som Pontus,
+vill jag se denna vecka och de två närmaste som små flikar med antal inplanerade rätter, och kunna kopiera en tidigare vecka till en ny,
+så att jag snabbt ser vad som är planerat och slipper börja om när jag var nöjd med en gammal vecka.
+
+**Acceptance Criteria:**
+
+**Givet** Matsedel
+**När** sidan öppnas
+**Så** visar en enda rad tre veckoflikar, denna vecka, nästa och veckan efter, var och en med veckonummer ("v. 44"), en kort text ("Denna vecka", "Nästa", "Om 2 v") och antal rätter (🍽 3, eller ett dämpat "–" när veckan är tom), och den visade veckan är markerad med accentfärg
+
+**Givet** veckoflikarna
+**När** jag trycker på en flik
+**Så** visas den veckan och `?vecka=` ligger kvar i adressen; antalen läses med en enda fråga; veckor längre fram nås fortfarande via `?vecka=` och får en egen vald flik
+
+**Givet** Matsedels rubrik
+**När** den visas
+**Så** finns ingen "Tidigare"-knapp, inga ‹ ›-pilar, ingen "Idag"-länk och ingen versal "VECKA 45"-etikett; en diskret länk "Tidigare veckor" leder till tidigare matsedlar och "Lager: …" är kvar, liten
+
+**Givet** en tidigare vecka
+**När** jag trycker på "Kopiera till …" och väljer Denna vecka, Nästa vecka eller Om 2 veckor
+**Så** kopieras alla rätter med recept, titel, portioner och veckodag till den veckans matsedel (efter de rätter som redan finns) i en transaktion (`copy_meal_plan`), jag hamnar på den veckan och en bekräftelse säger "Kopierade 5 rätter till vecka 46"; rätter vars recept är borttaget följer inte med, som vid "Använd igen"
+
+**Givet** 375 px bredd, mörkt läge eller 200 % text
+**När** flikarna och kopieringsvalet visas
+**Så** blir ingenting avklippt eller sidledes, tryckytorna är minst 44 px och flikarna har tillgängliga namn ("Vecka 45, nästa vecka, 3 rätter")
+
 ## Epic 14: Tydligare flöden
 
 Pontus förstod inte hur listan kommer till butiken, och erbjudandevyn har blivit rörig när funktionerna lagts på varandra.

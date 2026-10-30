@@ -348,10 +348,10 @@ async function seedEarlierPlan(name: string, createdAt: string, dishes: { recipe
   planIds[name] = id;
 }
 
-test("Tidigare in the header says when there are no earlier plans", async ({ page }) => {
+test("Tidigare veckor says when there are no earlier plans", async ({ page }) => {
   const errors = watchErrors(page);
   await page.goto("/matsedel");
-  await page.locator("header").filter({ visible: true }).getByRole("link", { name: "Tidigare" }).click();
+  await page.getByRole("link", { name: "Tidigare veckor" }).filter({ visible: true }).click();
   await expect(page).toHaveURL(/\/matsedel\/tidigare$/);
   await expect(page.getByRole("heading", { name: "Tidigare matsedlar", level: 1 })).toBeVisible();
   await expect(page.getByText("Inga tidigare matsedlar än.").filter({ visible: true })).toBeVisible();
@@ -628,13 +628,13 @@ test("plans next week: a dish added there shows only there, and its list is a we
   await page.goto("/matsedel");
   const thisWeekDishes = await dishCount();
   const nav = page.getByTestId("week-nav").filter({ visible: true });
-  await expect(nav.getByTestId("week-label")).toHaveText("Denna vecka");
+  await expect(nav.locator(`[aria-current="page"]`)).toContainText("Denna vecka");
   await expect(nav.getByRole("link", { name: "Föregående vecka" })).toHaveCount(0);
 
   // Next week: an empty week with a free row for every day, and its dates from that week's Monday.
   await nav.getByRole("link", { name: "Nästa vecka" }).click();
   await expect(page).toHaveURL(/\/matsedel\?vecka=\d{4}-W\d{2}$/);
-  await expect(nav.getByTestId("week-label")).toHaveText("Nästa vecka");
+  await expect(nav.locator(`[aria-current="page"]`)).toContainText("Nästa");
   await expect(page.getByTestId("day-free").filter({ visible: true })).toHaveCount(7);
   await expect(dishes(page)).toHaveCount(0);
   await expect(page.locator('[data-testid="plan-day"][aria-current="date"]').filter({ visible: true })).toHaveCount(0);
@@ -647,12 +647,12 @@ test("plans next week: a dish added there shows only there, and its list is a we
   await expect(dish(page, "Våffelsmet")).toHaveCount(1);
   await expect(page.locator('[data-testid="plan-day"][data-day="3"]').filter({ visible: true })).toContainText("Våffelsmet");
 
-  // A reload keeps the week; "Idag" goes back to this week, which did not get the dish.
+  // A reload keeps the week; the "Denna vecka" tile goes back to this week, which did not get the dish.
   await page.reload();
-  await expect(nav.getByTestId("week-label")).toHaveText("Nästa vecka");
+  await expect(nav.locator(`[aria-current="page"]`)).toContainText("Nästa");
   await expect(dish(page, "Våffelsmet")).toHaveCount(1);
   expect(await page.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth)).toBe(true);
-  await nav.getByRole("link", { name: "Idag" }).click();
+  await nav.getByRole("link", { name: /denna vecka/i }).click();
   await expect(page).toHaveURL(/\/matsedel$/);
   await expect(dishes(page)).toHaveCount(thisWeekDishes);
   await expect(dish(page, "Våffelsmet")).toHaveCount(0);
@@ -673,7 +673,7 @@ test("picks a day, then a recipe: Välj recept opens Recept for that day and add
   await page.goto("/matsedel");
   const nav = page.getByTestId("week-nav").filter({ visible: true });
   await nav.getByRole("link", { name: "Nästa vecka" }).click();
-  await expect(nav.getByTestId("week-label")).toHaveText("Nästa vecka");
+  await expect(nav.locator(`[aria-current="page"]`)).toContainText("Nästa");
   const wednesday = page.locator('[data-testid="plan-day"][data-day="3"]').filter({ visible: true });
   await expect(wednesday).not.toContainText("Linssoppa");
 
@@ -691,7 +691,7 @@ test("picks a day, then a recipe: Välj recept opens Recept for that day and add
   // A day with a dish: the heading's Välj recept. The mode follows into the recipe, whose button names the day.
   await page.goto("/matsedel");
   await nav.getByRole("link", { name: "Nästa vecka" }).click();
-  await expect(nav.getByTestId("week-label")).toHaveText("Nästa vecka");
+  await expect(nav.locator(`[aria-current="page"]`)).toContainText("Nästa");
   const headingLink = wednesday.getByRole("link", { name: "Välj recept för onsdag" });
   await expect(wednesday).toBeVisible();
   if (await headingLink.count()) await headingLink.click();
@@ -711,9 +711,79 @@ test("picks a day, then a recipe: Välj recept opens Recept for that day and add
   await expect(page).toHaveURL(/\/matsedel\?vecka=\d{4}-W\d{2}&dag=3$/);
   await expect(wednesday).toHaveAttribute("data-highlight", "true");
   await expect(page.getByTestId("toast")).toContainText("Lagt på matsedeln, onsdag.");
-  await expect(nav.getByTestId("week-label")).toHaveText("Nästa vecka");
+  await expect(nav.locator(`[aria-current="page"]`)).toContainText("Nästa");
   await expect(wednesday).toContainText(soppa);
   await expect(wednesday).not.toHaveAttribute("data-highlight", "true", { timeout: 8000 });
   expect(await page.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth)).toBe(true);
+  expect(errors).toEqual([]);
+});
+
+// Story 13.9: the week overview and "Kopiera till …".
+test("the week tiles show counts and switch week, and an earlier week is copied to next week", async ({ page }) => {
+  const errors = watchErrors(page);
+  await page.goto("/matsedel");
+  const nav = page.getByTestId("week-nav").filter({ visible: true });
+  const tiles = nav.getByTestId("week-tile");
+  await expect(tiles).toHaveCount(3);
+  await expect(tiles.nth(0)).toHaveAttribute("aria-current", "page");
+  const countOf = async (index: number) => {
+    const text = (await tiles.nth(index).getByTestId("week-count").textContent()) ?? "";
+    const digits = /\d+/.exec(text);
+    return digits ? Number(digits[0]) : 0;
+  };
+  const thisWeekCount = await countOf(0);
+  expect(thisWeekCount).toBeGreaterThan(0);
+  await expect(tiles.nth(0)).toHaveAttribute("aria-label", new RegExp(`^Vecka \\d+, denna vecka, ${thisWeekCount} rätt`));
+  const nextBefore = await countOf(1);
+  for (let index = 0; index < 3; index += 1) {
+    const box = await tiles.nth(index).boundingBox();
+    expect(box!.height).toBeGreaterThanOrEqual(44);
+  }
+  expect(await page.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth)).toBe(true);
+
+  // Tapping a tile shows that week and keeps it in the address.
+  await tiles.nth(1).click();
+  await expect(page).toHaveURL(/\/matsedel\?vecka=\d{4}-W\d{2}$/);
+  await expect(nav.locator(`[aria-current="page"]`)).toContainText("Nästa");
+  await expect(dishes(page)).toHaveCount(nextBefore);
+
+  // An earlier week is copied to next week, with its weekdays.
+  await seedEarlierPlan("Vecka 38", "2026-09-14T08:00:00Z", [
+    { recipeId: recipeIds[soppa], title: soppa, servings: 2 },
+    { recipeId: recipeIds[gryta], title: gryta, servings: 6 },
+  ]);
+  const rows = await adminClient()
+    .from("meal_plan_recipe")
+    .select("id, position")
+    .eq("meal_plan_id", planIds["Vecka 38"])
+    .order("position");
+  if (rows.error) throw rows.error;
+  for (const [index, row] of (rows.data as { id: string }[]).entries()) {
+    const updated = await adminClient()
+      .from("meal_plan_recipe")
+      .update({ weekday: index === 0 ? 2 : 4 })
+      .eq("id", row.id);
+    if (updated.error) throw updated.error;
+  }
+  await page.goto(`/matsedel/tidigare/${planIds["Vecka 38"]}`);
+  await page
+    .getByRole("button", { name: /Kopiera till/ })
+    .filter({ visible: true })
+    .click();
+  const targets = page.getByTestId("copy-target").filter({ visible: true });
+  await expect(targets).toHaveCount(3);
+  expect(await page.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth)).toBe(true);
+  await targets.nth(1).click();
+
+  await expect(page).toHaveURL(/\/matsedel\?vecka=\d{4}-W\d{2}$/);
+  await expect(toast(page)).toHaveText(/^Kopierade 2 rätter till vecka \d+$/);
+  await expect(dishes(page)).toHaveCount(nextBefore + 2);
+  await expect(page.locator('[data-testid="plan-day"][data-day="2"]').filter({ visible: true })).toContainText(soppa);
+  await expect(page.locator('[data-testid="plan-day"][data-day="4"]').filter({ visible: true })).toContainText(gryta);
+  await expect(tiles.nth(1).getByTestId("week-count")).toContainText(String(nextBefore + 2));
+
+  await tiles.nth(0).click();
+  await expect(page).toHaveURL(/\/matsedel$/);
+  await expect(dishes(page)).toHaveCount(thisWeekCount);
   expect(errors).toEqual([]);
 });

@@ -112,3 +112,21 @@ export async function getPlanIn(db: MealPlanDb, id: string): Promise<PlanDetail 
     recipes: data.dishes.map(toPlanRecipe).sort(comparePlanRecipes),
   };
 }
+
+/**
+ * How many dishes the signed-in user's plans of `weeks` (Mondays) hold, by
+ * week, in one query (Story 13.9). A week without a plan is not in the map.
+ * RLS limits the query to the user's rows. Throws MealPlanDataError.
+ */
+export async function getWeekCountsIn(db: MealPlanDb, weeks: readonly string[]): Promise<Record<string, number>> {
+  const { data, error } = await db
+    .from("meal_plan")
+    .select("week_start, dishes:meal_plan_recipe(count)")
+    .in("week_start", [...weeks]);
+  if (error) throw new MealPlanDataError(`query_failed ${error.code}`);
+  const counts: Record<string, number> = {};
+  for (const row of data) {
+    if (row.week_start) counts[row.week_start] = row.dishes[0]?.count ?? 0;
+  }
+  return counts;
+}

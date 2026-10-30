@@ -1,11 +1,10 @@
 import { PageHeader } from "@/components/app-shell/page-header";
 import { Notice } from "@/components/notice";
 import { requireUserOrRedirect } from "@/features/auth/server";
-import { getMealPlanView, MealPlanDataError, type MealPlanView } from "@/features/mealplan/server";
-import { currentWeekStart, highlightDay, viewedWeek } from "@/features/mealplan";
+import { getMealPlanView, getWeekCounts, MealPlanDataError, type MealPlanView } from "@/features/mealplan/server";
+import { addWeeks, currentWeekStart, highlightDay, overviewWeeks, viewedWeek } from "@/features/mealplan";
 import { AddDishButton, AddDishProvider } from "@/features/mealplan/ui/add-dish-sheet";
 import { MealPlanList } from "@/features/mealplan/ui/meal-plan-list";
-import { PreviousPlansLink } from "@/features/mealplan/ui/previous-plans-link";
 import { WeekNav } from "@/features/mealplan/ui/week-nav";
 import type { RecipeListItem } from "@/features/recipes";
 import { siteLineText } from "@/features/pantry";
@@ -24,6 +23,17 @@ async function libraryOrNull(): Promise<RecipeListItem[] | null> {
     if (!(error instanceof RecipeDataError)) throw error;
     console.error("mealplan_recipes_unavailable", { reason: error.detail });
     return null;
+  }
+}
+
+/** The dishes by week for the week overview, or none when they cannot be read: the tiles then show "–". */
+async function countsOrEmpty(weeks: string[]): Promise<Record<string, number>> {
+  try {
+    return await getWeekCounts(weeks);
+  } catch (error) {
+    if (!(error instanceof MealPlanDataError)) throw error;
+    console.error("mealplan_counts_unavailable", { reason: error.detail });
+    return {};
   }
 }
 
@@ -46,16 +56,20 @@ export async function MealPlanContent({ searchParams }: { searchParams?: Promise
   const weekStart = viewedWeek(Array.isArray(vecka) ? vecka[0] : vecka, now);
   const upcoming = weekStart !== currentWeekStart(now);
 
+  const overview = Array.from({ length: overviewWeeks }, (_, offset) => addWeeks(currentWeekStart(now), offset));
+  if (!overview.includes(weekStart)) overview.push(weekStart);
+
   let view: MealPlanView;
   let recipes: RecipeListItem[] | null;
+  let counts: Record<string, number>;
   try {
-    [view, recipes] = await Promise.all([getMealPlanView(weekStart), libraryOrNull()]);
+    [view, recipes, counts] = await Promise.all([getMealPlanView(weekStart), libraryOrNull(), countsOrEmpty(overview)]);
   } catch (error) {
     if (!(error instanceof MealPlanDataError)) throw error;
     console.error("mealplan_unavailable", { reason: error.detail });
     return (
       <>
-        <PageHeader title="Matsedel" action={<PreviousPlansLink />} />
+        <PageHeader title="Matsedel" />
         <WeekNav weekStart={weekStart} now={now} />
         <Notice role="alert">{errorMessages.mealplan_unavailable}</Notice>
       </>
@@ -71,14 +85,9 @@ export async function MealPlanContent({ searchParams }: { searchParams?: Promise
     >
       <PageHeader
         title="Matsedel"
-        action={
-          <>
-            <PreviousPlansLink />
-            <AddDishButton variant="icon" />
-          </>
-        }
+        action={<AddDishButton variant="icon" />}
       />
-      <WeekNav weekStart={weekStart} now={now} />
+      <WeekNav weekStart={weekStart} counts={counts} now={now} />
       <MealPlanList
         key={weekStart}
         weekStart={weekStart}
