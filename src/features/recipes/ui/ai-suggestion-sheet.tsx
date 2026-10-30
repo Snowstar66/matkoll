@@ -8,7 +8,13 @@ import type { SearchIngredients } from "@/components/ingredient-picker";
 import { Notice } from "@/components/notice";
 import { Sheet } from "@/components/sheet";
 import { useToast } from "@/components/toast";
-import { addedToPlanText } from "@/features/mealplan";
+import {
+  addedOnDayText,
+  addedToPlanText,
+  planningButtonText,
+  planningDoneHref,
+  type PlanningTarget,
+} from "@/features/mealplan";
 import { errorMessages, fail } from "@/lib/errors";
 import { saveRecipe } from "../actions/save-recipe";
 import type { AddToPlan } from "./add-to-plan-button";
@@ -38,6 +44,8 @@ export type AiSuggestionSheetProps = {
    */
   addToPlan?: AddToPlan;
   toMenu?: boolean;
+  /** Planning mode (Story 13.8): with `toMenu`, the dish goes on this day, and Matsedel opens on it. */
+  planningDay?: PlanningTarget;
 };
 
 export function AiSuggestionSheet({
@@ -47,6 +55,7 @@ export function AiSuggestionSheet({
   searchIngredients,
   addToPlan,
   toMenu = false,
+  planningDay,
 }: AiSuggestionSheetProps) {
   const planning = toMenu && addToPlan !== undefined;
   /** The dish's id for this sheet, so a retry after a lost answer adds it once. */
@@ -86,7 +95,11 @@ export function AiSuggestionSheet({
       if (planning) {
         let added: Awaited<ReturnType<AddToPlan>>;
         try {
-          added = await addToPlan({ recipeId: result.data.id, id: dishId });
+          added = await addToPlan({
+            recipeId: result.data.id,
+            id: dishId,
+            ...(planningDay ? { weekStart: planningDay.weekStart, weekday: planningDay.weekday } : {}),
+          });
         } catch {
           added = fail("mealplan_add_failed");
         }
@@ -98,6 +111,11 @@ export function AiSuggestionSheet({
           return;
         }
         onSaved(suggestion.key);
+        if (planningDay) {
+          router.push(planningDoneHref(planningDay));
+          showToast(addedOnDayText(planningDay.weekday));
+          return;
+        }
         showToast(addedToPlanText, { show: { label: "Visa inköpslistan", onShow: () => router.push("/lista") } });
         return;
       }
@@ -120,7 +138,7 @@ export function AiSuggestionSheet({
           <>
             {saveError ? <Notice role="alert">{saveError}</Notice> : null}
             <Button fullWidth disabled={!isValid || saving} onClick={save}>
-              {saving ? "Sparar …" : planning ? "Spara och lägg på matsedeln" : "Spara recept"}
+              {saving ? "Sparar …" : planning ? (planningDay ? `Spara och ${planningButtonText(planningDay).toLowerCase()}` : "Spara och lägg på matsedeln") : "Spara recept"}
             </Button>
           </>
         ) : null

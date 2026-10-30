@@ -48,7 +48,7 @@ vi.mock("@/features/pantry/server", () => ({
   getPantrySnapshot: (...args: unknown[]) => getPantrySnapshot(...args),
   listPantrySites: () => listPantrySites(),
 }));
-vi.mock("@/features/mealplan/server", () => ({ MealPlanDataError, getCurrentPlan: vi.fn() }));
+vi.mock("@/features/mealplan/server", () => ({ MealPlanDataError, getCurrentPlan: vi.fn(), getPlan: vi.fn() }));
 vi.mock("@/features/recipes/server", () => ({ RecipeDataError, getRecipesByIds: vi.fn() }));
 vi.mock("@/features/catalog/server", () => ({
   CatalogDataError,

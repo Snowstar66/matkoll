@@ -100,6 +100,9 @@ export const errorMessages = {
   // elsewhere (or the recipes did): the page is read again.
   mealplan_plans_changed: "Matsedlarna har ändrats.",
   mealplan_delete_failed: "Det gick inte att ta bort matsedeln. Försök igen.",
+  // "Kopiera till …" (Story 13.9): nothing is copied then.
+  mealplan_copy_failed: "Det gick inte att kopiera veckan. Inget är ändrat. Försök igen.",
+  mealplan_copy_nothing: "Inga rätter med recept att kopiera.",
   // Inköpslista (Story 3.3): the plan, its recipes or the catalog cannot be read.
   shopping_unavailable: "Det gick inte att läsa inköpslistan. Försök igen.",
   // A check that could not be saved (Story 3.4): the check goes back.

@@ -1,5 +1,5 @@
 import { expect, type Locator, type Page, type Response, test } from "@playwright/test";
-import { adminClient, e2eUserId, shoppingEmail, shoppingStorageState } from "./support";
+import { adminClient, e2eUserId, shoppingEmail, shoppingStorageState, thisMonday } from "./support";
 
 // Story 3.3: Inköpslista, counted from the current meal plan, its recipes and
 // the pantry every time it is read. Story 3.4: checking lines off, saved at
@@ -187,7 +187,7 @@ test("the list groups the lines by category, with the dishes under each name and
   const admin = adminClient();
   const plan = await admin
     .from("meal_plan")
-    .insert({ user_id: userId, name: "Vecka 44", is_current: true })
+    .insert({ user_id: userId, name: "Vecka 44", is_current: true, week_start: thisMonday() })
     .select("id")
     .single();
   if (plan.error) throw plan.error;

@@ -252,8 +252,11 @@ describe("ShoppingListContent", () => {
     expect(screen.getByTestId("site-line")).toHaveTextContent("Lager: Stugan");
     expect(screen.getByRole("button", { name: "Byt lager för listan" })).toHaveTextContent("Byt");
     expect(screen.getByText("Allt finns i lagret för Stugan.")).toBeInTheDocument();
-    // The line comes first, before the list.
-    expect(container.firstElementChild).toContainElement(screen.getByTestId("site-line"));
+    // The line comes before the list (the week picker, Story 13.7, is above both).
+    const line = screen.getByTestId("site-line");
+    const list = screen.getByText("Allt finns i lagret för Stugan.");
+    expect(container).toContainElement(line);
+    expect(line.compareDocumentPosition(list) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
   });
 
   it("shows no line with one place, and says everything is at home as in 1.0", async () => {

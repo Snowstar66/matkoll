@@ -2,6 +2,7 @@ import "server-only";
 import { z } from "zod";
 import { cookedUndoRowSchema, type MarkedCooked } from "../domain/cooked";
 import { planRecipeRowSchema, type PlanRecipeRow } from "../domain/meal-plan";
+import { currentWeekStart } from "../domain/week";
 import { MealPlanDataError, type MealPlanDb } from "./client";
 import { dishColumns, toPlanRecipeRow } from "./queries";
 
@@ -17,17 +18,20 @@ export type NewDish = {
   planName: string;
   /** The day it lies on, 1–7; `null` or left out for none. */
   weekday?: number | null;
+  /** The Monday of the week to add to (Story 13.7); left out, this week. */
+  weekStart?: string;
 };
 
 /**
  * addToCurrentPlan (AD-22) for the signed-in user: adds the dish last on the
- * current meal plan, creating the plan when there is none, in one transaction
- * (add_to_current_plan). A dish id the user already has returns that row,
+ * meal plan of `weekStart` (default this week), creating that week's plan when
+ * there is none, in one transaction (add_to_plan, Story 13.7). A dish id the user already has returns that row,
  * so a retry adds the dish once. Throws MealPlanDataError: `add_failed
  * <code>` when Postgres refuses (23503: not the user's recipe).
  */
 export async function addToCurrentPlanIn(db: MealPlanDb, dish: NewDish): Promise<PlanRecipeRow> {
-  const { data, error } = await db.rpc("add_to_current_plan", {
+  const { data, error } = await db.rpc("add_to_plan", {
+    week_start: dish.weekStart ?? currentWeekStart(),
     dish_id: dish.id,
     dish_recipe_id: dish.recipeId,
     dish_recipe_title: dish.recipeTitle,
@@ -155,6 +159,22 @@ export async function setCurrentPlanIn(db: MealPlanDb, plan: NewPlan): Promise<{
   });
   if (error) throw new MealPlanDataError(`set_current_failed ${error.code}`, error.code);
   return { id: data.id, name: data.name };
+}
+
+/**
+ * "Kopiera till …" (Story 13.9): copies the dishes of the user's plan
+ * `sourceId` onto the plan of the week starting `targetWeek`, after the dishes
+ * it has, in one transaction (copy_meal_plan). Weekday, servings and order are
+ * kept; dishes whose recipe is deleted are left out. Returns how many dishes
+ * were copied. Throws MealPlanDataError: `invalid_id`, or `copy_failed <code>`
+ * with `code`: P0002 no such plan; 22023 a week that is not offered, the
+ * plan's own week, or no dish with a recipe.
+ */
+export async function copyPlanIn(db: MealPlanDb, sourceId: string, targetWeek: string): Promise<number> {
+  if (!idSchema.safeParse(sourceId).success) throw new MealPlanDataError("invalid_id");
+  const { data, error } = await db.rpc("copy_meal_plan", { source_plan: sourceId, target_week: targetWeek });
+  if (error) throw new MealPlanDataError(`copy_failed ${error.code}`, error.code);
+  return data;
 }
 
 /**

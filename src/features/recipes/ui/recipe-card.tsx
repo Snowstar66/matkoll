@@ -39,6 +39,8 @@ type LinkCardProps = CardBase & {
   favorite?: { pressed: boolean; onPressedChange: (pressed: boolean) => void };
   /** A small soptunna at the right of the text, "Ta bort <titel>", lifted above the link like the heart (Story 13.2). */
   onDelete?: () => void;
+  /** Planning mode (Story 13.8): a button under the text, lifted above the link like the heart. */
+  quickAction?: ReactNode;
   children?: never;
 };
 
@@ -50,6 +52,7 @@ type LinkCardProps = CardBase & {
 type PlainCardProps = CardBase & {
   href?: never;
   favorite?: never;
+  quickAction?: never;
   /** A small soptunna like a saved recipe's, for a suggestion Pontus does not want (Story 16.1). */
   onDelete?: (bin: HTMLButtonElement) => void;
   children?: ReactNode;
@@ -82,13 +85,14 @@ export function RecipeCard({
   favorite,
   onDelete,
   deleteLabel,
+  quickAction,
   children,
   "data-testid": testId = "recipe-card",
 }: RecipeCardProps) {
   const hasChildren = children !== undefined && children !== null;
   return (
     <li data-testid={testId} className="relative flex min-w-0 flex-col rounded-lg bg-surface">
-      <div className={cx("flex min-w-0 gap-1 pl-3 pt-3", onDelete ? "pr-1" : "pr-3", hasChildren ? "pb-1" : "pb-3")}>
+      <div className={cx("flex min-w-0 gap-1 pl-3 pt-3", onDelete ? "pr-1" : "pr-3", hasChildren || quickAction ? "pb-1" : "pb-3")}>
         <div className="flex min-w-0 flex-1 flex-col gap-1">
           {href ? (
             <Link
@@ -132,6 +136,7 @@ export function RecipeCard({
           </div>
         ) : null}
       </div>
+      {quickAction ? <div className="relative z-10 order-last flex flex-col items-start gap-2 px-3 pb-3">{quickAction}</div> : null}
       {hasChildren ? <div className="order-last flex flex-col items-start gap-2 px-3 pb-3">{children}</div> : null}
     </li>
   );

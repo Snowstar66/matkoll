@@ -7,8 +7,9 @@ import type { RecipeListRow } from "@/features/recipes";
 import { getRecipesByIds, RecipeDataError } from "@/features/recipes/server";
 import { revalidateFor } from "@/lib/revalidate";
 import { createClient } from "@/lib/supabase/server";
-import { getCurrentPlanIn, getPlanIn, listPreviousPlansIn } from "./data/queries";
+import { getCurrentPlanIn, getPlanIn, getWeekCountsIn, listPreviousPlansIn } from "./data/queries";
 import { detachRecipeIn } from "./data/write";
+import { currentWeekStart } from "./domain/week";
 import {
   toPlanDishes,
   type DishRecipe,
@@ -44,6 +45,23 @@ export { addToCurrentPlan } from "./actions/add-to-current-plan";
 export const getCurrentPlan = cache(async (): Promise<MealPlan | null> => {
   return getCurrentPlanIn(await createClient());
 });
+
+/**
+ * The signed-in user's meal plan for the week starting `weekStart` (a Monday),
+ * or `null` when that week has none yet (Story 13.7). Memoised per request.
+ * Throws MealPlanDataError.
+ */
+export const getPlanForWeek = cache(async (weekStart: string): Promise<MealPlan | null> => {
+  return getCurrentPlanIn(await createClient(), weekStart);
+});
+
+/**
+ * The number of dishes on the signed-in user's plans of `weeks` (Mondays), by
+ * week, in one query, for the week overview (Story 13.9). Throws MealPlanDataError.
+ */
+export async function getWeekCounts(weeks: readonly string[]): Promise<Record<string, number>> {
+  return getWeekCountsIn(await createClient(), weeks);
+}
 
 /**
  * The signed-in user's earlier meal plans, newest first, with their number of
@@ -95,7 +113,8 @@ async function recipesOrNone(ids: readonly string[]): Promise<RecipeListRow[]> {
 }
 
 /**
- * Matsedel's data (FR-13): the current plan, each dish with its recipe's
+ * Matsedel's data (FR-13): the plan of `weekStart` (default this week; a week
+ * with no plan gives `plan: null` and no dishes, Story 13.7), each dish with its recipe's
  * image, time, own servings and lines (recipes.getRecipesByIds, AD-1), and
  * the pantry for the status (AD-7) with the place it is of (AD-24), read in
  * parallel; pantry.getPantryForStatus reads the place once and then that
@@ -104,8 +123,11 @@ async function recipesOrNone(ids: readonly string[]): Promise<RecipeListRow[]> {
  * null`; a place or pantry that cannot be read gives `snapshot: null` and
  * `site: null`. Throws MealPlanDataError.
  */
-export async function getMealPlanView(): Promise<MealPlanView> {
-  const [plan, { snapshot, site }] = await Promise.all([getCurrentPlan(), getPantryForStatus()]);
+export async function getMealPlanView(weekStart?: string): Promise<MealPlanView> {
+  const [plan, { snapshot, site }] = await Promise.all([
+    weekStart && weekStart !== currentWeekStart() ? getPlanForWeek(weekStart) : getCurrentPlan(),
+    getPantryForStatus(),
+  ]);
   if (!plan) return { plan: null, dishes: [], names: {}, snapshot, site };
   const recipes = await recipesOrNone(plan.recipes.flatMap((dish) => (dish.recipeId ? [dish.recipeId] : [])));
   const byId = new Map<string, DishRecipe>(

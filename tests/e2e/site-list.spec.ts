@@ -1,5 +1,5 @@
 import { expect, type Page, test } from "@playwright/test";
-import { adminClient, e2eUserId, siteListEmail, siteListStorageState } from "./support";
+import { adminClient, e2eUserId, siteListEmail, siteListStorageState, thisMonday } from "./support";
 
 // Story 8.5: Inköpslista before a trip to Stugan (UJ-6, Flöde 6). Under the
 // title "Lager: Hemma" and "Byt"; "Byt" opens the sheet "Räkna listan mot",
@@ -166,7 +166,7 @@ async function seed() {
     })),
   );
   if (lines.error) throw lines.error;
-  const plan = await admin.from("meal_plan").insert({ user_id: userId, name: "Vecka 44", is_current: true }).select("id").single();
+  const plan = await admin.from("meal_plan").insert({ user_id: userId, name: "Vecka 44", is_current: true, week_start: thisMonday() }).select("id").single();
   if (plan.error) throw plan.error;
   planId = (plan.data as { id: string }).id;
   const dish = await admin.from("meal_plan_recipe").insert({

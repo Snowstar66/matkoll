@@ -1,7 +1,8 @@
 import "server-only";
 import { requireUser } from "@/features/auth/server";
 import { CatalogDataError, getIngredientDefaults, getIngredientNames } from "@/features/catalog/server";
-import { getCurrentPlan, MealPlanDataError } from "@/features/mealplan/server";
+import { currentWeekStart } from "@/features/mealplan";
+import { getCurrentPlan, getPlanForWeek, MealPlanDataError } from "@/features/mealplan/server";
 import type { SelectedSite } from "@/features/pantry";
 import { findPantryAdditions, getPantryForStatus, PantryDataError } from "@/features/pantry/server";
 import { getRecipesByIds, RecipeDataError } from "@/features/recipes/server";
@@ -120,7 +121,8 @@ async function pendingClearOf(list: CountedList, checks: readonly CheckRow[] | n
 }
 
 /**
- * Inköpslista's data (FR-15): the current plan's name and number of dishes,
+ * Inköpslista's data (FR-15): the name and number of dishes of the plan of
+ * `weekStart` (default this week; Story 13.7), 
  * each dish's title, and the list's lines from computeList, sorted by section
  * and name. For the page, inside <Suspense> (AD-18). `unauthorized` without a
  * signed-in user; `shopping_unavailable` (logged) when the plan, the recipes,
@@ -135,7 +137,7 @@ async function pendingClearOf(list: CountedList, checks: readonly CheckRow[] | n
  * its product choices are read alongside (storeAndChoices); when they cannot
  * be read, the list is given all the same. Other errors are thrown.
  */
-export async function getShoppingList(): Promise<Result<ShoppingList>> {
+export async function getShoppingList(weekStart?: string): Promise<Result<ShoppingList>> {
   const user = await requireUser();
   if (!user.ok) return fail("unauthorized");
   let checks: CheckRow[] | null = null;
@@ -145,7 +147,7 @@ export async function getShoppingList(): Promise<Result<ShoppingList>> {
   // before any is used, so none is left running unobserved.
   const [counted, choices, status] = await Promise.allSettled([
     loadShoppingList({
-      currentPlan: getCurrentPlan,
+      currentPlan: weekStart && weekStart !== currentWeekStart() ? () => getPlanForWeek(weekStart) : getCurrentPlan,
       recipesByIds: getRecipesByIds,
       pantry: async () => (await forStatus).snapshot,
       ingredientNames: getIngredientNames,

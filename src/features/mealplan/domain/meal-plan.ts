@@ -6,6 +6,7 @@ import {
   type RecipeStatus,
   type StatusLine,
 } from "@/features/pantry";
+import { weekStartSchema } from "./week";
 
 // Matsedel (FR-13, AD-22): the current meal plan with its dishes, what the
 // actions take, and the plan's name. Pure, so it is tested without a database.
@@ -63,6 +64,8 @@ export const addToPlanSchema = z.object({
   id: z.uuid().optional(),
   /** 1–7 for a day, `null` for "Ingen dag än"; left out, the dish gets defaultWeekday (Story 13.5). */
   weekday: weekdaySchema.nullable().optional(),
+  /** The Monday of the week to add to (Story 13.7); left out, this week. */
+  weekStart: weekStartSchema.optional(),
 });
 export type AddToPlanInput = z.input<typeof addToPlanSchema>;
 
@@ -225,7 +228,10 @@ export type PlanSummary = {
 
 /** A meal plan with its dishes in order, as its own page shows it. */
 export type PlanDetail = MealPlan & {
+  /** Whether the plan is of this week or a coming one: Matsedel shows it, not Tidigare. */
   isCurrent: boolean;
+  /** The Monday of the plan's week (Story 13.7), `null` for an earlier plan with no week. */
+  weekStart?: string | null;
   /** When the plan was made (ISO 8601). */
   createdAt: string;
 };

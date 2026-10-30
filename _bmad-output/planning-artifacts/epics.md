@@ -2635,6 +2635,126 @@ så att veckan känns som en kalender och dagens middag syns utan att texten skr
 **När** veckovyn visas
 **Så** blir ingenting avklippt eller sidledes, tryckytorna är minst 44 px, och "Ingen dag än", "Flytta till dag", "Markera som lagad", portioner, soptunna, "Lägg till rätt" och "Ledig"-raderna fungerar som förut
 
+### Story 13.7: Planera kommande veckor
+
+Som Pontus,
+vill jag kunna planera nästa och kommande veckors matsedlar redan denna vecka,
+så att jag kan handla och laga efter en plan som ligger längre fram än söndag.
+
+**Acceptance Criteria:**
+
+**Givet** matsedeln
+**När** den visas
+**Så** står "‹ Vecka 44 ›" under rubriken med "Denna vecka", "Nästa vecka" eller "Om 2 veckor" under veckonamnet, och "Idag" tar tillbaka till denna vecka när en annan vecka visas
+
+**Givet** att jag bläddrar framåt
+**När** jag går från denna vecka
+**Så** kan jag gå minst 8 veckor fram (12), medan "‹" på denna vecka inte finns: tidigare veckor ligger kvar i Tidigare (3.2) och dubbleras inte
+
+**Givet** en kommande vecka utan matsedel
+**När** den visas
+**Så** syns veckans sju dagar med "Ledig"-rader och "Lägg till rätt", och matsedeln skapas först när den första rätten läggs dit
+
+**Givet** en vecka i matsedeln
+**När** sidan laddas om eller länken delas
+**Så** ligger veckan i adressen (`?vecka=2026-W45`, ett datum fungerar också) och en ogiltig eller för gammal vecka visar denna vecka
+
+**Givet** en kommande vecka
+**När** datumen visas
+**Så** räknas de från den veckans måndag, och "Idag" markeras bara i denna vecka
+
+**Givet** en visad vecka
+**När** jag lägger till en rätt, väljer dag, flyttar, ändrar portioner, tar bort eller markerar lagad
+**Så** gäller det den veckans matsedel och ingen annan
+
+**Givet** AI-förslag och "Från dina recept"
+**När** jag lägger en rätt på matsedeln därifrån
+**Så** hamnar den i denna veckas matsedel som förut
+
+**Givet** att en ny vecka börjar
+**När** måndagen kommer
+**Så** blir den planerade veckan automatiskt denna vecka, och den gamla veckan ligger under Tidigare
+
+**Givet** inköpslistan
+**När** den öppnas
+**Så** räknas den för denna vecka som förut, och en veckoväljare ("Vecka 44 · Denna vecka", "Nästa vecka" och veckorna därefter) räknar listan för vald veckas matsedel minus lagret, med egna bockar, dolda rader och egna varor per matsedel, så att veckorna aldrig blandas
+
+**Givet** mina befintliga matsedlar och bockar
+**När** migreringen körs
+**Så** finns alla rätter, bockar, egna varor och dolda rader kvar och den matsedel som gällde är denna vecka
+
+**Givet** 375 px bredd, mörkt läge eller 200 % text
+**När** veckonavigeringen och veckoväljaren visas
+**Så** blir ingenting avklippt eller sidledes och tryckytorna är minst 44 px
+
+### Story 13.8: Välj dag och sedan recept
+
+Som Pontus,
+vill jag markera en dag i matsedeln och sedan välja receptet till just den dagen,
+så att jag kan planera uppifrån och ned, dag för dag, utan att välja dag sist.
+
+**Acceptance Criteria:**
+
+**Givet** matsedeln för vilken vecka som helst
+**När** jag trycker på en dag ("Ledig"-raden eller dagens rubrik)
+**Så** finns "Välj recept", och "Lägg till rätt" finns kvar som alternativ
+
+**Givet** att jag trycker på "Välj recept"
+**När** Recept öppnas
+**Så** ligger läget i adressen (`/recept?planera=2026-11-04`) och överst står "Lägger på onsdag 4 nov · Avbryt"
+
+**Givet** Recept i planeringsläge
+**När** jag ser receptkorten och receptsidan
+**Så** har korten en snabbknapp "Lägg på onsdag" och receptsidans primärknapp "Lägg på matsedeln" heter "Lägg på onsdag"
+
+**Givet** att jag trycker på "Lägg på onsdag"
+**När** rätten läggs till
+**Så** hamnar den på den dagen i rätt veckas matsedel, matsedeln öppnas på den veckan (`?vecka=…`) med dagen markerad en kort stund och en bekräftelse säger "Lagt på matsedeln, onsdag.", och läget är slut
+
+**Givet** planeringsläget
+**När** jag trycker på "Avbryt"
+**Så** lämnas läget och Recept visas som vanligt
+
+**Givet** planeringsläget
+**När** jag går mellan receptbiblioteket och ett recept
+**Så** ligger läget kvar (adressen), och det tar slut när rätten är tillagd eller jag avbryter
+
+**Givet** AI-förslag och "Från dina recept" i planeringsläge
+**När** jag lägger en rätt på matsedeln därifrån
+**Så** hamnar den på den valda dagen och veckan, annars som förut
+
+**Givet** 375 px bredd, mörkt läge eller 200 % text
+**När** planeringsfältet, korten och knapparna visas
+**Så** blir ingenting avklippt eller sidledes och tryckytorna är minst 44 px
+
+### Story 13.9: Veckoöversikt och kopiera vecka
+
+Som Pontus,
+vill jag se denna vecka och de två närmaste som små flikar med antal inplanerade rätter, och kunna kopiera en tidigare vecka till en ny,
+så att jag snabbt ser vad som är planerat och slipper börja om när jag var nöjd med en gammal vecka.
+
+**Acceptance Criteria:**
+
+**Givet** Matsedel
+**När** sidan öppnas
+**Så** visar en enda rad tre veckoflikar, denna vecka, nästa och veckan efter, var och en med veckonummer ("v. 44"), en kort text ("Denna vecka", "Nästa", "Om 2 v") och antal rätter (🍽 3, eller ett dämpat "–" när veckan är tom), och den visade veckan är markerad med accentfärg
+
+**Givet** veckoflikarna
+**När** jag trycker på en flik
+**Så** visas den veckan och `?vecka=` ligger kvar i adressen; antalen läses med en enda fråga; veckor längre fram nås fortfarande via `?vecka=` och får en egen vald flik
+
+**Givet** Matsedels rubrik
+**När** den visas
+**Så** finns ingen "Tidigare"-knapp, inga ‹ ›-pilar, ingen "Idag"-länk och ingen versal "VECKA 45"-etikett; en diskret länk "Tidigare veckor" leder till tidigare matsedlar och "Lager: …" är kvar, liten
+
+**Givet** en tidigare vecka
+**När** jag trycker på "Kopiera till …" och väljer Denna vecka, Nästa vecka eller Om 2 veckor
+**Så** kopieras alla rätter med recept, titel, portioner och veckodag till den veckans matsedel (efter de rätter som redan finns) i en transaktion (`copy_meal_plan`), jag hamnar på den veckan och en bekräftelse säger "Kopierade 5 rätter till vecka 46"; rätter vars recept är borttaget följer inte med, som vid "Använd igen"
+
+**Givet** 375 px bredd, mörkt läge eller 200 % text
+**När** flikarna och kopieringsvalet visas
+**Så** blir ingenting avklippt eller sidledes, tryckytorna är minst 44 px och flikarna har tillgängliga namn ("Vecka 45, nästa vecka, 3 rätter")
+
 ## Epic 14: Tydligare flöden
 
 Pontus förstod inte hur listan kommer till butiken, och erbjudandevyn har blivit rörig när funktionerna lagts på varandra.

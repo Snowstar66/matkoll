@@ -7,6 +7,7 @@ import { Button, buttonClasses } from "@/components/button";
 import type { SearchIngredients } from "@/components/ingredient-picker";
 import { Notice } from "@/components/notice";
 import { focusAfterRemoval } from "@/components/trash-button";
+import { planningButtonText, type PlanningTarget } from "@/features/mealplan";
 import { nameInSentence, normalizeIngredientText } from "@/features/catalog";
 import { suggestErrorMessage, suggestRetryCodes, whyText } from "@/features/suggestions";
 import { offerDisplay } from "@/features/offers";
@@ -44,9 +45,11 @@ export type AiSuggestionsProps = {
   addToPlan?: AddToPlan;
   /** suggestions.ownRecipesWithOffers from the page (AD-1): "Från dina recept" while an offers job is on or its dishes are shown (Story 16.3). */
   ownRecipes?: OwnRecipesRead;
+  /** Planning mode (Story 13.8): "Lägg på matsedeln" puts the dish on this day. */
+  planning?: PlanningTarget;
 };
 
-export function AiSuggestions({ dishes, searchIngredients, offerButton = true, addToPlan, ownRecipes }: AiSuggestionsProps) {
+export function AiSuggestions({ dishes, searchIngredients, offerButton = true, addToPlan, ownRecipes, planning }: AiSuggestionsProps) {
   const headingId = useId();
   const headingRef = useRef<HTMLHeadingElement>(null);
   const buttonRef = useRef<HTMLButtonElement>(null);
@@ -110,7 +113,7 @@ export function AiSuggestions({ dishes, searchIngredients, offerButton = true, a
         </Notice>
       ) : null}
       {/* Story 16.3: Pontus's own recipes first, from the offers, with no wait for the AI. */}
-      {ownRecipes && dishes.offersJob ? <OwnRecipes read={ownRecipes} storeId={dishes.offersJob.storeId} addToPlan={addToPlan} /> : null}
+      {ownRecipes && dishes.offersJob ? <OwnRecipes read={ownRecipes} storeId={dishes.offersJob.storeId} addToPlan={addToPlan} planning={planning} /> : null}
       {suggestions.length > 0 ? (
         <section aria-labelledby={headingId} className="flex flex-col gap-3">
           <h2 id={headingId} ref={headingRef} tabIndex={-1} className="text-section-label text-ink-2">
@@ -127,6 +130,7 @@ export function AiSuggestions({ dishes, searchIngredients, offerButton = true, a
                 }}
                 onSave={() => setOpened({ suggestion, toMenu: false })}
                 onAddToPlan={byOffers && addToPlan ? () => setOpened({ suggestion, toMenu: true }) : undefined}
+                planning={planning}
               />
             ))}
           </ul>
@@ -148,6 +152,7 @@ export function AiSuggestions({ dishes, searchIngredients, offerButton = true, a
         suggestion={opened?.suggestion ?? null}
         addToPlan={addToPlan}
         toMenu={opened?.toMenu ?? false}
+        planningDay={planning}
         onClose={() => setOpened(null)}
         onSaved={(key) => {
           setOpened(null);
@@ -193,11 +198,13 @@ function SuggestionCard({
   onSave,
   onAddToPlan,
   onRemove,
+  planning,
 }: {
   suggestion: ShownSuggestion;
   onRemove: (bin: HTMLButtonElement) => void;
   onSave: () => void;
   onAddToPlan?: () => void;
+  planning?: PlanningTarget;
 }) {
   const { draft, onOffer = [], atHome, toBuy = [] } = suggestion;
   const offerNames = onOffer.map((label) => offerDisplay(label).title);
@@ -226,8 +233,8 @@ function SuggestionCard({
         </>
       ) : null}
       {onAddToPlan ? (
-        <Button onClick={onAddToPlan} aria-label={`Lägg på matsedeln: ${draft.title}`}>
-          Lägg på matsedeln
+        <Button onClick={onAddToPlan} aria-label={`${planning ? planningButtonText(planning) : "Lägg på matsedeln"}: ${draft.title}`}>
+          {planning ? planningButtonText(planning) : "Lägg på matsedeln"}
         </Button>
       ) : null}
       <Button variant="secondary" onClick={onSave} aria-label={`Spara ${draft.title}`}>

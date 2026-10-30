@@ -11,6 +11,8 @@ import { ownRecipesWithOffers } from "@/features/suggestions/server";
 import { listRecipeSites } from "@/features/settings/server";
 import { listLibrary } from "@/features/recipes/server";
 import { type AutoImport, ImportRecipeButton, ImportRecipeProvider } from "@/features/recipes/ui/import-sheet";
+import { PlanningBar } from "@/features/mealplan/ui/planning-bar";
+import { planningTarget } from "@/features/mealplan";
 import { ImportFailures } from "@/features/recipes/ui/saved-imports";
 import { Library } from "@/features/recipes/ui/library";
 import { WarmAi } from "../warm-ai";
@@ -22,7 +24,14 @@ import { WarmAi } from "../warm-ai";
 // AI-förslag are in the library's filter Kan lagas nu, so an empty library
 // offers import only. Story 12.2: when the page is shown, WarmAi asks the
 // server to wake the model for AI-förslag, without waiting for the list.
-export function RecipesView({ autoImport }: { autoImport?: AutoImport }) {
+export function RecipesView({
+  autoImport,
+  searchParams,
+}: {
+  autoImport?: AutoImport;
+  /** `?planera=2026-11-04`: Recept in planning mode for that day (Story 13.8). */
+  searchParams?: Promise<{ planera?: string | string[] }>;
+}) {
   // Story 1.14: waited for inside the import sheet; a failure shows the "no sites" line.
   const sites = listRecipeSites().catch((): string[] => []);
   return (
@@ -47,25 +56,32 @@ export function RecipesView({ autoImport }: { autoImport?: AutoImport }) {
       />
       <ImportFailures />
       <Suspense fallback={<Skeleton rows={4} />}>
-        <RecipesContent />
+        <RecipesContent searchParams={searchParams} />
       </Suspense>
     </ImportRecipeProvider>
   );
 }
 
-async function RecipesContent() {
+async function RecipesContent({ searchParams }: { searchParams?: Promise<{ planera?: string | string[] }> }) {
   await requireUserOrRedirect("/recept");
+  const planera = (await searchParams)?.planera;
+  const planning = planningTarget(Array.isArray(planera) ? planera[0] : planera);
   const { recipes, pantryUnavailable, site } = await listLibrary();
   const plan = await getCurrentPlan().catch(() => null);
   const onMenuIds = (plan?.recipes ?? []).flatMap((dish) => (dish.recipeId ? [dish.recipeId] : []));
   if (recipes.length === 0) {
     return (
-      <EmptyState action={<ImportRecipeButton variant="primary" />}>
-        Inga recept än. Klistra in en länk till ett recept du gillar.
-      </EmptyState>
+      <>
+        {planning ? <PlanningBar target={planning} /> : null}
+        <EmptyState action={<ImportRecipeButton variant="primary" />}>
+          Inga recept än. Klistra in en länk till ett recept du gillar.
+        </EmptyState>
+      </>
     );
   }
   return (
+    <>
+    {planning ? <PlanningBar target={planning} /> : null}
     <Library
       recipes={recipes}
       pantryUnavailable={pantryUnavailable}
@@ -74,6 +90,8 @@ async function RecipesContent() {
       addToPlan={addToCurrentPlan}
       ownRecipes={ownRecipesWithOffers}
       onMenuIds={onMenuIds}
+      planning={planning ?? undefined}
     />
+    </>
   );
 }

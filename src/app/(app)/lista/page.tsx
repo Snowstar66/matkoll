@@ -13,7 +13,7 @@ export const metadata: Metadata = { title: "Inköpslista" };
 // with skeleton rows while it loads. "Erbjudanden" in the header opens the
 // sheet Veckans erbjudanden (Story 9.1); it is read in a <Suspense> of its
 // own, with a space of its size while it loads, so the header never moves.
-export default function ShoppingListPage() {
+export default function ShoppingListPage({ searchParams }: PageProps<"/lista">) {
   return (
     <>
       <PageHeader
@@ -25,7 +25,7 @@ export default function ShoppingListPage() {
         }
       />
       <Suspense fallback={<Skeleton rows={4} />}>
-        <ShoppingListContent />
+        <ShoppingListContent searchParams={searchParams} />
       </Suspense>
     </>
   );

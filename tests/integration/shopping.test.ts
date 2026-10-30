@@ -3,6 +3,7 @@ import { afterAll, beforeAll, describe, expect, it, vi } from "vitest";
 import { UNITS, type Section, type Unit } from "@/features/catalog";
 import { loadIngredientDefaults, loadIngredientNames } from "@/features/catalog/data/queries";
 import { getCurrentPlanIn } from "@/features/mealplan/data/queries";
+import { addWeeks, currentWeekStart } from "@/features/mealplan/domain/week";
 import { addToCurrentPlanIn, deletePlanIn, setCurrentPlanIn, setServingsIn } from "@/features/mealplan/data/write";
 import { addToPantryIn, findPantryAdditionsIn, forgetPantryAdditionsIn } from "@/features/pantry/data/add";
 import { PantryDataError } from "@/features/pantry/data/client";
@@ -294,7 +295,11 @@ describe("shopping_check", () => {
   }
 
   async function addPlan(db: Db, isCurrent = true): Promise<string> {
-    const { data, error } = await db.from("meal_plan").insert({ name: "Vecka 44", is_current: isCurrent }).select("id").single();
+    const { data, error } = await db
+      .from("meal_plan")
+      .insert({ name: "Vecka 44", is_current: isCurrent, ...(isCurrent ? { week_start: currentWeekStart() } : {}) })
+      .select("id")
+      .single();
     if (error) throw error;
     return data.id;
   }
@@ -449,7 +454,11 @@ describe("shopping_check", () => {
 
 describe("shopping_custom_item", () => {
   async function addPlan(db: Db, isCurrent = true): Promise<string> {
-    const { data, error } = await db.from("meal_plan").insert({ name: "Vecka 44", is_current: isCurrent }).select("id").single();
+    const { data, error } = await db
+      .from("meal_plan")
+      .insert({ name: "Vecka 44", is_current: isCurrent, ...(isCurrent ? { week_start: currentWeekStart() } : {}) })
+      .select("id")
+      .single();
     if (error) throw error;
     return data.id;
   }
@@ -713,7 +722,11 @@ describe("shopping_custom_item", () => {
 
 describe("shopping_line_override", () => {
   async function addPlan(db: Db, isCurrent = true): Promise<string> {
-    const { data, error } = await db.from("meal_plan").insert({ name: "Vecka 44", is_current: isCurrent }).select("id").single();
+    const { data, error } = await db
+      .from("meal_plan")
+      .insert({ name: "Vecka 44", is_current: isCurrent, ...(isCurrent ? { week_start: currentWeekStart() } : {}) })
+      .select("id")
+      .single();
     if (error) throw error;
     return data.id;
   }
@@ -1640,5 +1653,46 @@ describe("product_choice", () => {
     const { user } = await checkTarget();
     await expect(listProductChoicesIn(user.db, "maxi")).rejects.toThrow(ShoppingDataError);
     await expect(removeProductChoiceIn(user.db, "x")).rejects.toThrow(ShoppingDataError);
+  });
+});
+
+describe("the list of a coming week (Story 13.7)", () => {
+  it("counts a coming week's plan on its own, with its own checks", async () => {
+    const user = await createTestUser("shopping-week");
+    const [gradde, lok] = await addIngredients(user.db, [
+      { name: "Grädde", section: "Mejeri" },
+      { name: "Lök", section: "Frukt och grönt" },
+    ]);
+    const now = await addRecipe(user.db, "Gryta", 4, [{ text: "3 dl grädde", ingredientId: gradde, amount: 3, unit: "dl" }]);
+    const later = await addRecipe(user.db, "Soppa", 4, [{ text: "2 lök", ingredientId: lok, amount: 2, unit: "st" }]);
+    await addDish(user.db, now, "Gryta", 4);
+    const nextWeek = addWeeks(currentWeekStart(), 1);
+    await addToCurrentPlanIn(user.db, {
+      id: randomUUID(),
+      recipeId: later,
+      recipeTitle: "Soppa",
+      servings: 4,
+      planName: "Vecka 45",
+      weekStart: nextWeek,
+    });
+
+    const thisWeek = await loadShoppingList(sources(user.db));
+    const upcoming = await loadShoppingList({ ...sources(user.db), currentPlan: () => getCurrentPlanIn(user.db, nextWeek) });
+    expect(thisWeek.lines.map((line) => line.label)).toEqual(["Grädde"]);
+    expect(upcoming.lines.map((line) => line.label)).toEqual(["Lök"]);
+    expect(upcoming.plan?.id).not.toBe(thisWeek.plan?.id);
+
+    // A check on the coming week's plan is saved and stays on that plan.
+    const key = upcoming.lines[0]!.key;
+    expect(await setCheckIn(user.db, upcoming.plan!.id, key, true)).toBe("saved");
+    expect(await listChecksIn(user.db, upcoming.plan!.id)).toEqual([key]);
+    expect(await listChecksIn(user.db, thisWeek.plan!.id)).toEqual([]);
+    const again = await loadShoppingList({ ...sources(user.db), currentPlan: () => getCurrentPlanIn(user.db, nextWeek) });
+    expect(again.lines[0]?.checked).toBe(true);
+    expect((await loadShoppingList(sources(user.db))).lines.every((line) => !line.checked)).toBe(true);
+
+    // A week with no plan has no list.
+    const empty = await loadShoppingList({ ...sources(user.db), currentPlan: () => getCurrentPlanIn(user.db, addWeeks(nextWeek, 3)) });
+    expect(empty.plan).toBeNull();
   });
 });

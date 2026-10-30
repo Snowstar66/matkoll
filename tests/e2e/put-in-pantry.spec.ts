@@ -1,5 +1,5 @@
 import { expect, type Page, test } from "@playwright/test";
-import { adminClient, e2eUserId, putInPantryEmail, putInPantryStorageState } from "./support";
+import { adminClient, e2eUserId, putInPantryEmail, putInPantryStorageState, thisMonday } from "./support";
 
 // Story 3.7: "Lägg i lagret". The spec has an E2E user of its own
 // (putInPantryEmail), and each test makes its state with the service role:
@@ -70,7 +70,7 @@ async function seed() {
     })),
   );
   if (lines.error) throw lines.error;
-  const plan = await admin.from("meal_plan").insert({ user_id: userId, name: "Vecka 44", is_current: true }).select("id").single();
+  const plan = await admin.from("meal_plan").insert({ user_id: userId, name: "Vecka 44", is_current: true, week_start: thisMonday() }).select("id").single();
   if (plan.error) throw plan.error;
   const planId = (plan.data as { id: string }).id;
   const dish = await admin.from("meal_plan_recipe").insert({

@@ -1,9 +1,10 @@
 "use client";
 
+import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { createContext, type MouseEvent, type ReactNode, useContext, useId, useRef, useState } from "react";
 import { StatusBadge } from "@/components/badges";
-import { Button } from "@/components/button";
+import { Button, buttonClasses } from "@/components/button";
 import { FieldLabel, inputClasses } from "@/components/field";
 import { cx } from "@/components/cx";
 import { EmptyState } from "@/components/empty-state";
@@ -18,6 +19,8 @@ import { recipeMetaText, type RecipeListItem } from "@/features/recipes";
 import { errorMessages, fail, type AppError, type Result } from "@/lib/errors";
 import { addToCurrentPlan } from "../actions/add-to-current-plan";
 import { defaultWeekday, todayWeekday, weekdayNames, weekdays, addedOnDayText } from "../domain/meal-plan";
+import { planningHref } from "../domain/planning";
+import { currentWeekStart } from "../domain/week";
 
 // Lägg till rätt (FR-13, Flöde 2): the sheet with the favourites first and a
 // search of the library under them. A tap on a recipe adds it to the current
@@ -42,13 +45,15 @@ type AddDishContentProps = {
   searchRecipes: SearchRecipes;
   /** The day the sheet starts on: a day tapped in the week view, else the first free day from today, or `null`. */
   startDay: number | null;
+  /** The Monday of the week the dish goes to (Story 13.7); left out, this week. */
+  weekStart?: string;
   /** The dish is on the plan, on `weekday` (`null`: no day). */
   onAdded: (weekday: number | null) => void;
   /** Whether a dish is being added; the sheet does not close meanwhile. */
   onBusyChange: (busy: boolean) => void;
 };
 
-function AddDishContent({ recipes, searchRecipes, startDay, onAdded, onBusyChange }: AddDishContentProps) {
+function AddDishContent({ recipes, searchRecipes, startDay, weekStart, onAdded, onBusyChange }: AddDishContentProps) {
   const dayId = useId();
   const [day, setDay] = useState<number | null>(startDay);
   const router = useRouter();
@@ -98,7 +103,7 @@ function AddDishContent({ recipes, searchRecipes, startDay, onAdded, onBusyChang
     if (intent.current?.recipeId !== recipe.id) intent.current = { recipeId: recipe.id, id: crypto.randomUUID() };
     let result: Result<unknown>;
     try {
-      result = await addToCurrentPlan({ recipeId: recipe.id, id: intent.current.id, weekday: day });
+      result = await addToCurrentPlan({ recipeId: recipe.id, id: intent.current.id, weekday: day, ...(weekStart ? { weekStart } : {}) });
     } catch {
       // No answer (e.g. no connection): nothing is known to be added.
       result = fail("mealplan_add_failed");
@@ -173,6 +178,16 @@ function AddDishContent({ recipes, searchRecipes, startDay, onAdded, onBusyChang
           ))}
           <option value="none">Ingen dag</option>
         </select>
+        {/* Story 13.8: pick the recipe in Recept instead, which then adds it to this day. */}
+        {day !== null ? (
+          <Link
+            href={planningHref(weekStart ?? currentWeekStart(), day)}
+            data-testid="pick-recipe"
+            className={buttonClasses("secondary", true)}
+          >
+            Välj recept
+          </Link>
+        ) : null}
       </div>
       {favorites.length > 0 ? <DishChoices label="Favoriter" recipes={favorites} onChoose={add} /> : null}
       <div className="flex flex-col gap-3">
@@ -264,6 +279,8 @@ export type AddDishProviderProps = {
   searchRecipes: SearchRecipes;
   /** The days (1–7, `null` for none) the plan's dishes lie on, for the sheet's first choice of day (Story 13.5). */
   plannedDays?: readonly (number | null)[];
+  /** The Monday of the week shown (Story 13.7): dishes are added to it. Left out, this week. */
+  weekStart?: string;
   children: ReactNode;
 };
 
@@ -274,7 +291,7 @@ export type AddDishProviderProps = {
  * action revalidated Matsedel, so the dish is on the plan behind it. Needs a
  * ToastProvider above.
  */
-export function AddDishProvider({ recipes, searchRecipes, plannedDays = [], children }: AddDishProviderProps) {
+export function AddDishProvider({ recipes, searchRecipes, plannedDays = [], weekStart, children }: AddDishProviderProps) {
   /** The day the sheet starts on, set when it opens. */
   const [startDay, setStartDay] = useState<number | null>(null);
   const [open, setOpen] = useState(false);
@@ -284,7 +301,9 @@ export function AddDishProvider({ recipes, searchRecipes, plannedDays = [], chil
   const { showToast } = useToast();
   const api: AddDishApi = {
     open: (weekday) => {
-      setStartDay(weekday ?? defaultWeekday(plannedDays.map((day) => ({ weekday: day })), todayWeekday(new Date())));
+      // A coming week starts on its first free day from Monday; this week from today.
+      const from = weekStart && weekStart !== currentWeekStart() ? 1 : todayWeekday(new Date());
+      setStartDay(weekday ?? defaultWeekday(plannedDays.map((day) => ({ weekday: day })), from));
       setSession((current) => current + 1);
       setOpen(true);
     },
@@ -299,6 +318,7 @@ export function AddDishProvider({ recipes, searchRecipes, plannedDays = [], chil
           searchRecipes={searchRecipes}
           onBusyChange={setBusy}
           startDay={startDay}
+          weekStart={weekStart}
           onAdded={(weekday) => {
             setOpen(false);
             showToast(addedOnDayText(weekday));

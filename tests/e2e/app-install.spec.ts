@@ -8,6 +8,7 @@ import {
   mailsTo,
   outsiderEmail,
   recreateE2eUser,
+  thisMonday,
 } from "./support";
 
 // Story 11.6: Matkoll on the home screen. The manifest and the icons load
@@ -227,7 +228,7 @@ test.describe("Tillbaka on every page under a tab", () => {
       .single();
     if (recipe.error) throw recipe.error;
     recipeId = (recipe.data as { id: string }).id;
-    const plan = await admin.from("meal_plan").insert({ user_id: userId, name: "Vecka 44", is_current: true }).select("id").single();
+    const plan = await admin.from("meal_plan").insert({ user_id: userId, name: "Vecka 44", is_current: true, week_start: thisMonday() }).select("id").single();
     if (plan.error) throw plan.error;
     const dish = await admin.from("meal_plan_recipe").insert({
       user_id: userId,

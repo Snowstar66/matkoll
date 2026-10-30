@@ -528,6 +528,9 @@ export function plainPng(shade: number): { name: string; mimeType: string; buffe
   return { name: `plain-${shade}.png`, mimeType: "image/png", buffer: png };
 }
 
+/** This week's Monday (Stockholm), the week_start of the current meal plan (Story 13.7). */
+export { currentWeekStart as thisMonday } from "../../src/features/mealplan/domain/week";
+
 /**
  * Story 1.15: an import saves the recipe itself. Waits for "Receptet <title> är sparat" and
  * taps "Öppna", which opens the recipe (what "Spara recept" in the preview used to do).

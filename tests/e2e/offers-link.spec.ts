@@ -1,6 +1,6 @@
 import { expect, type Page, test } from "@playwright/test";
 import { isoWeekNumber, weekStartOf } from "@/features/offers/domain/week";
-import { adminClient, e2eUserId, offersLinkEmail, offersLinkStorageState } from "./support";
+import { adminClient, e2eUserId, offersLinkEmail, offersLinkStorageState, thisMonday } from "./support";
 
 // Story 9.1: Veckans erbjudanden från butikens länk. The spec has a user of
 // its own (offersLinkEmail). Before each test the service role removes the
@@ -204,7 +204,7 @@ test("Story 9.12: picks offers and adds them to the shopping list once", async (
   const admin = adminClient();
   const cleared = await admin.from("meal_plan").delete().eq("user_id", userId);
   if (cleared.error) throw cleared.error;
-  const plan = await admin.from("meal_plan").insert({ user_id: userId, name: "Vecka 44", is_current: true });
+  const plan = await admin.from("meal_plan").insert({ user_id: userId, name: "Vecka 44", is_current: true, week_start: thisMonday() });
   if (plan.error) throw plan.error;
 
   await openSheet(page);
@@ -352,7 +352,7 @@ test("Story 9.13: a picked offer's note on the shopping list names its store", a
   const admin = adminClient();
   const cleared = await admin.from("meal_plan").delete().eq("user_id", userId);
   if (cleared.error) throw cleared.error;
-  const plan = await admin.from("meal_plan").insert({ user_id: userId, name: "Vecka 44", is_current: true });
+  const plan = await admin.from("meal_plan").insert({ user_id: userId, name: "Vecka 44", is_current: true, week_start: thisMonday() });
   if (plan.error) throw plan.error;
   await addKrokom();
   await openSheet(page);
