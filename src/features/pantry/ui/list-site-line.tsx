@@ -290,14 +290,18 @@ export function ListSiteLine({ site, sites, busy = false, onSwitching }: ListSit
 
   return (
     <>
-      {/* Close under the title, as part of the header; metadata, never announced. */}
-      <div className="-mt-4 mb-4 flex flex-wrap items-center gap-x-1">
+      {/* A calm meta line under the week tiles: "Lager: Hemma · Byt"; metadata, never announced (Story 3.10). */}
+      <div className="mb-2 flex flex-wrap items-center">
         <p data-testid="site-line" className="min-w-0 text-meta break-words text-ink-2">
           {line}
         </p>
+        <span aria-hidden="true" className="px-1 text-meta text-ink-3">
+          {"\u00B7"}
+        </span>
         {/* A tap before hydration would do nothing, and a switch waits for what the list is saving. */}
         <Button
-          variant="text"
+          variant="compact"
+          className="-mx-1"
           aria-label={switchListButtonLabel}
           aria-haspopup="dialog"
           disabled={!hydrated || busy || saving}

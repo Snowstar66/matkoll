@@ -153,6 +153,8 @@ export type ShoppingListProps = {
    * on its way), so the page can let "Byt" wait.
    */
   onBusyChange?: (busy: boolean) => void;
+  /** The empty list without dishes (Story 3.10): its text and a way on, e.g. to the week that has dishes. */
+  empty?: { text: string; action: ReactNode };
   /** The choices could not be read: the detail's section Produktval says so. */
   productChoicesUnavailable?: boolean;
   /** The catalog ingredients whose stored choice cannot be read: their section says so. */
@@ -581,6 +583,7 @@ export function ShoppingList({
   site = null,
   isQuietSwitch,
   onBusyChange,
+  empty,
 }: ShoppingListProps) {
   const planId = plan?.id ?? null;
   const { checks, toggle, notice, saving, settling } = useChecks(planId, savedLines, handleSettled);
@@ -921,12 +924,16 @@ export function ShoppingList({
         </Notice>
       ) : null}
       {plan === null ? (
-        <EmptyState>{emptyPlanText}</EmptyState>
+        <EmptyState action={empty?.action}>{empty?.text ?? emptyPlanText}</EmptyState>
       ) : (
         <>
           {!hasLines ? (
             // "Allt finns hemma." (or "… i lagret för Stugan.") only when the list has no lines at all, own items included.
-            <EmptyState>{hasDishes ? allInStockText(siteName) : emptyPlanText}</EmptyState>
+            hasDishes ? (
+              <EmptyState>{allInStockText(siteName)}</EmptyState>
+            ) : (
+              <EmptyState action={empty?.action}>{empty?.text ?? emptyPlanText}</EmptyState>
+            )
           ) : (
             <div data-list-lines className="flex flex-col gap-4">
               <ProgressRow left={itemsLeft(lines)} checked={inBasket.length} total={lines.length} />

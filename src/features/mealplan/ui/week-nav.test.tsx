@@ -22,6 +22,12 @@ describe("WeekNav", () => {
     expect(screen.getByRole("link", { name: "Tidigare veckor" })).toHaveAttribute("href", "/matsedel/tidigare");
   });
 
+  it("leads to another page without the history link when asked (Inköpslista, Story 3.10)", () => {
+    render(<WeekNav weekStart="2026-10-26" now={now} basePath="/lista" showHistory={false} />);
+    expect(screen.getAllByTestId("week-tile")[1]).toHaveAttribute("href", "/lista?vecka=2026-W45");
+    expect(screen.queryByRole("link", { name: "Tidigare veckor" })).toBeNull();
+  });
+
   it("highlights the viewed week", () => {
     render(<WeekNav weekStart="2026-11-09" now={now} />);
     expect(screen.getByRole("link", { name: /Vecka 46/ })).toHaveAttribute("aria-current", "page");

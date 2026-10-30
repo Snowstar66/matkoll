@@ -1,13 +1,17 @@
 import { redirect } from "next/navigation";
 import { Notice } from "@/components/notice";
 import { requireUserOrRedirect } from "@/features/auth/server";
-import { viewedWeek } from "@/features/mealplan";
+import Link from "next/link";
+import { buttonClasses } from "@/components/button";
+import { addWeeks, currentWeekStart, overviewWeeks, viewedWeek, weekName, weekQuery } from "@/features/mealplan";
+import { getWeekCounts } from "@/features/mealplan/server";
+import { WeekNav } from "@/features/mealplan/ui/week-nav";
 import { searchIngredients } from "@/features/catalog/server";
 import type { PantrySite } from "@/features/pantry";
 import { listPantrySites, PantryDataError } from "@/features/pantry/server";
 import { getShoppingList } from "@/features/shopping/server";
+import { emptyPlanText } from "@/features/shopping";
 import { ShoppingListView } from "./shopping-list-view";
-import { WeekPicker } from "./week-picker";
 
 const next = "/lista";
 
@@ -36,7 +40,12 @@ export async function ShoppingListContent({
 }: { searchParams?: Promise<{ vecka?: string | string[] }> } = {}) {
   await requireUserOrRedirect(next);
   const vecka = (await searchParams)?.vecka;
-  const weekStart = viewedWeek(Array.isArray(vecka) ? vecka[0] : vecka);
+  const now = new Date();
+  const weekStart = viewedWeek(Array.isArray(vecka) ? vecka[0] : vecka, now);
+  const tiles = Array.from({ length: overviewWeeks }, (_, offset) => addWeeks(currentWeekStart(now), offset));
+  if (!tiles.includes(weekStart)) tiles.push(weekStart);
+  // Dishes per week are one query; when it cannot be read the tiles show "–" and no other week is offered.
+  const countsRead = getWeekCounts(tiles).catch((): Record<string, number> => ({}));
   const [listRead, sitesRead] = await Promise.allSettled([getShoppingList(weekStart), listPantrySites()]);
   // getShoppingList handles every expected error: what it throws is a bug.
   if (listRead.status === "rejected") throw listRead.reason;
@@ -63,9 +72,34 @@ export async function ShoppingListContent({
   } = result.data;
   // The week's own state: a new key starts the list afresh, so no check, sheet or
   // pending change of another week's plan is carried over (Story 13.7).
+  const counts = await countsRead;
+  const other = tiles.find((week) => week !== weekStart && (counts[week] ?? 0) > 0);
+  const empty = other
+    ? {
+        text: `${weekName(weekStart)} har inga rätter än.`,
+        action: (
+          <Link
+            href={`/lista${weekQuery(other, now)}`}
+            scroll={false}
+            className={buttonClasses("secondary")}
+          >
+            {`Visa ${weekName(other).toLocaleLowerCase("sv-SE")} (${counts[other] === 1 ? "1 rätt" : `${counts[other]} rätter`})`}
+          </Link>
+        ),
+      }
+    : {
+        text: emptyPlanText,
+        action: (
+          <Link href="/matsedel" className={buttonClasses("secondary")}>
+            Gå till Matsedel
+          </Link>
+        ),
+      };
   return (
     <>
-      <WeekPicker weekStart={weekStart} />
+      <div className="mb-2">
+        <WeekNav weekStart={weekStart} counts={counts} now={now} basePath="/lista" showHistory={false} />
+      </div>
       <ShoppingListView
         key={weekStart}
         sites={sites}
@@ -82,6 +116,7 @@ export async function ShoppingListContent({
         productChoicesUnavailable={productChoicesUnavailable}
         unreadableChoices={unreadableChoices}
         site={site}
+        empty={empty}
       />
     </>
   );

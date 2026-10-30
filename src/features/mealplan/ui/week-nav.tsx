@@ -16,10 +16,16 @@ export function WeekNav({
   weekStart,
   counts = {},
   now = new Date(),
+  basePath = "/matsedel",
+  showHistory = true,
 }: {
   weekStart: string;
   counts?: Record<string, number>;
   now?: Date;
+  /** The page the tiles lead to; Inköpslista reuses the tiles (Story 3.10). */
+  basePath?: string;
+  /** "Tidigare veckor" under the tiles, which only Matsedel has. */
+  showHistory?: boolean;
 }) {
   const thisWeek = currentWeekStart(now);
   const weeks = Array.from({ length: overviewWeeks }, (_, offset) => addWeeks(thisWeek, offset));
@@ -34,7 +40,7 @@ export function WeekNav({
           return (
             <li key={week} className="flex">
               <Link
-                href={`/matsedel${weekQuery(week, now)}`}
+                href={`${basePath}${weekQuery(week, now)}`}
                 scroll={false}
                 data-testid="week-tile"
                 aria-current={selected ? "page" : undefined}
@@ -61,9 +67,11 @@ export function WeekNav({
           );
         })}
       </ul>
-      <Link href="/matsedel/tidigare" className="flex min-h-tap items-center self-start px-1 text-meta font-semibold text-accent">
-        Tidigare veckor
-      </Link>
+      {showHistory ? (
+        <Link href="/matsedel/tidigare" className="flex min-h-tap items-center self-start px-1 text-meta font-semibold text-accent">
+          Tidigare veckor
+        </Link>
+      ) : null}
     </nav>
   );
 }

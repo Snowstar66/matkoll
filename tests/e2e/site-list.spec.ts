@@ -246,7 +246,8 @@ const placePill = (page: Page, name: "Hemma" | "Stugan") =>
  * seen is this switch's.
  */
 async function countAgainst(page: Page, name: "Hemma" | "Stugan") {
-  await expect(anyToast(page)).toHaveCount(0, { timeout: 10_000 });
+  // Only an earlier "Listan räknas nu mot" must be gone; an undo strip ("... i korgen") may linger and is replaced.
+  await expect(toast(page, "Listan räknas nu mot")).toHaveCount(0, { timeout: 10_000 });
   await expect(bytButton(page)).toBeEnabled();
   await bytButton(page).click();
   await expect(switchSheet(page)).toBeVisible();

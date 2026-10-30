@@ -657,14 +657,39 @@ test("plans next week: a dish added there shows only there, and its list is a we
   await expect(dishes(page)).toHaveCount(thisWeekDishes);
   await expect(dish(page, "Våffelsmet")).toHaveCount(0);
 
-  // Inköpslista counts this week by default; the picker moves it to next week.
+  // Inköpslista counts this week by default; its week tiles (Story 3.10) move it to next week.
   await page.goto("/lista");
-  const picker = page.getByRole("combobox", { name: "Vecka" }).filter({ visible: true });
-  await expect(picker.locator("option:checked")).toContainText("Denna vecka");
+  const listTiles = page.getByTestId("week-nav").filter({ visible: true });
+  await expect(listTiles.locator(`[aria-current="page"]`)).toContainText("Denna vecka");
+  await expect(listTiles.getByRole("link", { name: "Tidigare veckor" })).toHaveCount(0);
   await expect(page.getByText("Mjölk", { exact: true })).toHaveCount(0);
-  await picker.selectOption({ index: 1 });
+  await listTiles.getByRole("link", { name: /nästa vecka/i }).click();
   await expect(page).toHaveURL(/\/lista\?vecka=\d{4}-W\d{2}$/);
   await expect(page.getByText("Mjölk", { exact: true }).filter({ visible: true })).toBeVisible();
+  expect(errors).toEqual([]);
+});
+
+test("an empty week in Inköpslista offers the week that has dishes (Story 3.10)", async ({ page }) => {
+  const errors = watchErrors(page);
+  // A dish on next week, so a week with dishes is among the tiles; a week five ahead, reached by its address, has none.
+  const ids = await seedIngredients(["Mjölk"]);
+  await seedRecipe("Pannkaksmet", false, { text: "5 dl mjölk", ingredientId: ids.get("Mjölk")!, amount: 5 });
+  await page.goto("/matsedel");
+  await page.getByTestId("week-nav").filter({ visible: true }).getByRole("link", { name: "Nästa vecka" }).click();
+  await page.getByTestId("day-free").filter({ visible: true }).nth(2).click();
+  await addSheet(page).getByRole("searchbox", { name: "Sök recept" }).fill("pannkaks");
+  await addSheet(page).getByRole("region", { name: "Sökresultat" }).getByRole("button", { name: /Pannkaksmet/ }).click();
+  await expect(dish(page, "Pannkaksmet")).toHaveCount(1);
+  // The ISO week of today plus 35 days: the Thursday of that week decides its year and number.
+  const ahead = new Date(Date.now() + 35 * 86_400_000);
+  const thursday = new Date(Date.UTC(ahead.getFullYear(), ahead.getMonth(), ahead.getDate() + 3 - ((ahead.getDay() + 6) % 7)));
+  const week = Math.floor((thursday.getTime() - Date.UTC(thursday.getUTCFullYear(), 0, 1)) / 604_800_000) + 1;
+  await page.goto(`/lista?vecka=${thursday.getUTCFullYear()}-W${String(week).padStart(2, "0")}`);
+  await expect(page.getByText(/^Vecka \d{1,2} har inga rätter än\.$/).filter({ visible: true })).toBeVisible();
+  await page.getByRole("link", { name: new RegExp(`^Visa vecka \\d{1,2} \\(\\d+ rätt(er)?\\)$`) }).filter({ visible: true }).click();
+  await expect(page).toHaveURL(/\/lista(\?vecka=\d{4}-W\d{2})?$/);
+  await expect(page.getByText(/har inga rätter än/)).toHaveCount(0);
+  expect(await page.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth)).toBe(true);
   expect(errors).toEqual([]);
 });
 

@@ -338,6 +338,38 @@ så att jag inte tappar en vara i butiken.
 **När** jag ser rutorna
 **Så** är de samma fyrkantiga `Checkbox` med 44 px träffyta, och förloppskortet, papperskorgen, svepet, "Lägg i lagret" och kopiera till varukorg fungerar som förut (avbockade varor lämnas utanför exporten)
 
+### Story 3.10: Lugn topp i inköpslistan
+
+Som Pontus,
+vill jag ha en lugn övre del i inköpslistan med veckorna som flikar,
+så att jag ser vilken vecka listan gäller och inte tror att listan är trasig när en annan vecka har rätter.
+
+**Acceptance Criteria:**
+
+**Givet** inköpslistan
+**När** jag ser toppen
+**Så** finns samma tre veckoflikar som i Matsedel ("v. 44 · Denna vecka", "v. 45 · Nästa", "v. 46 · Om 2 v") i stället för den stora listrutan, med antal rätter eller "–", och vald vecka markerad
+
+**Givet** veckoflikarna
+**När** jag trycker på en flik
+**Så** räknas listan för den veckan med samma adress (`?vecka=2026-W45`) som förut, och en vecka längre fram i adressen fungerar och får en fjärde, vald flik
+
+**Givet** fler än ett lager
+**När** jag ser raden under flikarna
+**Så** står där "Lager: Hemma · Byt" som en lugn metarad i sidans vänsterkant, där "Byt" är en liten textlänk med 44 px träffyta
+
+**Givet** en vald vecka utan rätter där en annan av de tre veckorna har rätter
+**När** jag ser listan
+**Så** står där "Vecka 44 har inga rätter än." och knappen "Visa vecka 45 (2 rätter)"
+
+**Givet** att ingen av veckorna har rätter
+**När** jag ser listan
+**Så** står den vanliga texten kvar med en knapp "Gå till Matsedel"
+
+**Givet** mörkt läge, 375 px bredd och 200 % text
+**När** jag ser toppen
+**Så** finns ingen sidledes rullning, alla mål är minst 44 px och flikarna har tillgängliga namn
+
 ## Epic 4: Steg-för-steg
 Pontus kan välja portioner i receptvyn, se vad som finns hemma och laga maten ett steg i taget med tänd skärm.
 **FRs covered:** FR20, FR21
