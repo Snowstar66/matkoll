@@ -52,3 +52,4 @@ export {
   exportableLines,
   exportBasket,
 } from "./domain/export-basket";
+export { emptyPlanText } from "./domain/list-text";

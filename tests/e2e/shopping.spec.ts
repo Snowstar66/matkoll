@@ -392,6 +392,8 @@ const toast = (page: Page) => page.getByTestId("toast");
 
 /** Swipes the row to the left from its text with the mouse, which sends the same pointer events as a finger. */
 async function swipeLeft(page: Page, row: Locator, distance = 150) {
+  // The taller top (week tiles, Story 3.10) can push the row under the tab bar: bring it to the middle first.
+  await row.scrollIntoViewIfNeeded();
   const box = await row.boundingBox();
   if (!box) throw new Error("no row");
   const x = box.x + box.width * 0.7;
