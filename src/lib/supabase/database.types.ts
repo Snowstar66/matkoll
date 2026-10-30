@@ -416,6 +416,26 @@ isOneToOne: false
         isOneToOne: true
         isSetofReturn: false
       } },
+"add_to_current_plan":
+{ Args: { "dish_id": string,"dish_recipe_id": string,"dish_recipe_title": string,"dish_servings": number,"dish_weekday"?: number,"plan_name": string }; Returns: {
+              "cooked_at": string | null,
+"cooked_deductions": Json | null,
+"created_at": string,
+"id": string,
+"meal_plan_id": string,
+"position": number,
+"recipe_id": string | null,
+"recipe_title": string,
+"servings": number,
+"user_id": string,
+"weekday": number | null
+            }
+                          SetofOptions: {
+        from: "*"
+        to: "meal_plan_recipe"
+        isOneToOne: true
+        isSetofReturn: false
+      } },
 "add_to_pantry":
 { Args: { "items": Json,"site"?: string }; Returns: number
                            },
