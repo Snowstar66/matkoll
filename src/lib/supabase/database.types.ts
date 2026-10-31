@@ -437,14 +437,14 @@ isOneToOne: false
                   ]
                 },"thing_item": {
                   Row: {
-                    "category": string,"confidence": string,"created_at": string,"id": string,"name": string,"photo_id": string | null,"place_id": string,"position": number,"same_as": string | null,"source": string,"user_id": string,"where_hint": string | null
+                    "box_height": number | null,"box_left": number | null,"box_missed": boolean,"box_top": number | null,"box_width": number | null,"category": string,"confidence": string,"created_at": string,"id": string,"name": string,"photo_id": string | null,"place_id": string,"position": number,"same_as": string | null,"source": string,"user_id": string,"where_hint": string | null
                   }
                   ComputedFields: never
                   Insert: {
-                    "category": string,"confidence": string,"created_at"?: string,"id"?: string,"name": string,"photo_id"?: string | null,"place_id": string,"position"?: number,"same_as"?: string | null,"source"?: string,"user_id"?: string,"where_hint"?: string | null
+                    "box_height"?: number | null,"box_left"?: number | null,"box_missed"?: boolean,"box_top"?: number | null,"box_width"?: number | null,"category": string,"confidence": string,"created_at"?: string,"id"?: string,"name": string,"photo_id"?: string | null,"place_id": string,"position"?: number,"same_as"?: string | null,"source"?: string,"user_id"?: string,"where_hint"?: string | null
                   }
                   Update: {
-                    "category"?: string,"confidence"?: string,"created_at"?: string,"id"?: string,"name"?: string,"photo_id"?: string | null,"place_id"?: string,"position"?: number,"same_as"?: string | null,"source"?: string,"user_id"?: string,"where_hint"?: string | null
+                    "box_height"?: number | null,"box_left"?: number | null,"box_missed"?: boolean,"box_top"?: number | null,"box_width"?: number | null,"category"?: string,"confidence"?: string,"created_at"?: string,"id"?: string,"name"?: string,"photo_id"?: string | null,"place_id"?: string,"position"?: number,"same_as"?: string | null,"source"?: string,"user_id"?: string,"where_hint"?: string | null
                   }
                   Relationships: [
                     {

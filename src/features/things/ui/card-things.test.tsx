@@ -33,6 +33,8 @@ const snapshot: ThingSnapshot = {
   sameAs: null,
   source: "photo",
   pointedBy: [],
+  box: null,
+  boxMissed: false,
 };
 
 beforeEach(() => {

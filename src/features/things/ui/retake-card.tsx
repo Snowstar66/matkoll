@@ -16,11 +16,24 @@ import { useCardUpload } from "./use-card-upload";
 // phone the camera opens, on a desktop the file picker. The new card shows in
 // the list while it is read.
 
-export function RetakeCard({ cardId, placeId, name }: { cardId: string; placeId: string; name: string }) {
+export function RetakeCard({
+  cardId,
+  placeId,
+  name,
+  variant = "compact",
+  onSent,
+}: {
+  cardId: string;
+  placeId: string;
+  name: string;
+  variant?: "compact" | "secondary";
+  /** Called once the new photo is saved (Story 18.7: the big view goes to the room, where the new card is read); otherwise the page is read again. */
+  onSent?: () => void;
+}) {
   const router = useRouter();
   const touch = useCoarsePointer();
   const input = useRef<HTMLInputElement>(null);
-  const refresh = useCallback(() => router.refresh(), [router]);
+  const refresh = useCallback(() => (onSent ? onSent() : router.refresh()), [router, onSent]);
   const upload = useCardUpload(refresh);
   const sending = upload.state.kind === "sending";
   const [asking, setAsking] = useState(false);
@@ -43,7 +56,8 @@ export function RetakeCard({ cardId, placeId, name }: { cardId: string; placeId:
   return (
     <>
       <Button
-        variant="compact"
+        variant={variant}
+        fullWidth={variant === "secondary"}
         disabled={sending}
         aria-label={`${retakeText} kortet ${name}`}
         onClick={() => setAsking(true)}

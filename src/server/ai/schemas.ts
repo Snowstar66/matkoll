@@ -1,6 +1,7 @@
 import { z } from "zod";
 import { labelKey } from "@/lib/label-key";
 import { cleanModelText, cutCodePoints, normalizeTitle } from "@/lib/suggest-input";
+import { boxFromThousandths, type ThingBox } from "@/lib/thing-box";
 import { thingNoun, thingNounCap } from "@/lib/thing-noun";
 
 // Response schemas for the AI port (AD-9, AD-10). The model's answer is
@@ -400,6 +401,11 @@ export const listThingsAnswer = z.object({
         category: z.string().describe(`En av: ${thingCategories.join(", ")}`),
         where: z.string().nullable().describe("Var på bilden, t.ex. översta hyllan, vänster; null om det är oklart"),
         confidence: z.string().describe("high, medium eller low"),
+        // Story 18.7: the box in the same call, so a new card needs no second call to show where a thing is.
+        box: z
+          .array(z.number())
+          .nullable()
+          .describe(`[x1, y1, x2, y2] runt ${thingNoun.definite} i tusendelar (0–1000) av bildens bredd och höjd från övre vänstra hörnet; null om det är oklart`),
       }),
     )
     .describe(`${thingNounCap.definitePlural} som syns på bilden, tom lista om inga syns`),
@@ -553,6 +559,8 @@ export const aiThing = z.object({
     },
     z.enum(thingConfidences),
   ),
+  // Story 18.7: a box that is not reasonable is left out, never the thing (boxFromThousandths).
+  box: z.preprocess((value) => boxFromThousandths(value), z.custom<ThingBox>().nullable()),
 });
 export type AiThing = z.output<typeof aiThing>;
 
@@ -652,6 +660,24 @@ export function parseItemPositions(
   return { positions: [...byNumber.values()].sort((a, b) => a.n - b.n), invalid };
 }
 
+/**
+ * What the model answers to locateThing (Story 18.7): whether it sees the
+ * föremål, and its box [x1, y1, x2, y2] in thousandths. Types only, so strict
+ * JSON schemas take it; the box is checked on its own (boxFromThousandths).
+ */
+export const locateThingAnswer = z.object({
+  found: z.boolean().describe(`true om ${thingNoun.definite} syns på bilden`),
+  box: z
+    .array(z.number())
+    .nullable()
+    .describe(`[x1, y1, x2, y2] runt ${thingNoun.definite} i tusendelar (0–1000) från bildens övre vänstra hörn; null om det inte syns`),
+});
+
+/** The box of an answer to locateThing, or `null` when the model did not find it or gave a box that is not reasonable. */
+export function parseLocatedBox(answer: z.output<typeof locateThingAnswer>): ThingBox | null {
+  return answer.found ? boxFromThousandths(answer.box) : null;
+}
+
 export type AiIngredientHint = z.infer<typeof aiIngredientHint>;
 export type AiRecipeIngredient = z.infer<typeof aiRecipeIngredient>;
 export type AiRecipe = z.infer<typeof aiRecipe>;
@@ -663,6 +689,7 @@ export type PantryItemConfidence = (typeof pantryItemConfidences)[number];
 export type AnalyzeImageAnswer = z.infer<typeof analyzeImageAnswer>;
 export type LocateItemsAnswer = z.infer<typeof locateItemsAnswer>;
 export type ListThingsAnswer = z.infer<typeof listThingsAnswer>;
+export type LocateThingAnswer = z.infer<typeof locateThingAnswer>;
 export type AskThingsAnswer = z.infer<typeof askThingsAnswer>;
 export type CategorizeThingsAnswer = z.infer<typeof categorizeThingsAnswer>;
 export type ThingTermsAnswer = z.infer<typeof thingTermsAnswer>;

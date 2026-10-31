@@ -1,5 +1,6 @@
 import { thingRowSchema, toThing, type Thing, type ThingCategory } from "../domain/thing";
 import type { ThingSnapshot } from "../domain/thing-edit";
+import { boxColumnsOf, boxOfRow } from "../domain/thing-card";
 import { loadPointersIn, relinkItemsIn } from "./merge";
 import { guarded, ThingsDataError, type ThingsDb } from "./client";
 
@@ -61,7 +62,7 @@ export async function removeItemIn(db: ThingsDb, id: string): Promise<ThingSnaps
       .eq("id", id)
       // A thing written into a box (Story 18.13) has no card; it is changed by editing the box's text, never removed alone.
       .in("source", ["photo", "added"])
-      .select("id, photo_id, place_id, name, category, where_hint, confidence, position, created_at, same_as, source");
+      .select("id, photo_id, place_id, name, category, where_hint, confidence, position, created_at, same_as, source, box_left, box_top, box_width, box_height, box_missed");
     if (error) throw new ThingsDataError(`remove_failed ${error.code}`);
     const [row] = data;
     if (!row || row.photo_id === null) return null;
@@ -80,6 +81,8 @@ export async function removeItemIn(db: ThingsDb, id: string): Promise<ThingSnaps
       sameAs: row.same_as,
       source: row.source === "added" ? "added" : "photo",
       pointedBy: pointers.get(id) ?? [],
+      box: boxOfRow(row),
+      boxMissed: row.box_missed && boxOfRow(row) === null,
     };
   });
 }
@@ -98,6 +101,7 @@ export async function restoreItemIn(db: ThingsDb, thing: ThingSnapshot): Promise
       position: thing.position,
       created_at: thing.createdAt,
       source: thing.source,
+      ...boxColumnsOf(thing),
     });
     if (!error) {
       await relinkItemsIn(db, [{ id: thing.id, sameAs: thing.sameAs, pointedBy: thing.pointedBy }]);

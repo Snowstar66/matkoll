@@ -2,6 +2,7 @@ import Link from "next/link";
 import type { ReactNode } from "react";
 import { cx } from "../cx";
 import { ChevronLeftIcon } from "../icons";
+import { BackLink } from "./back-link";
 
 export type PageHeaderProps = {
   title: string;
@@ -18,23 +19,35 @@ export type PageHeaderProps = {
   backLabel?: string;
   /** The back link is only for a phone: on a desktop the page above is beside this one (Story 14.7). */
   backOnlyOnMobile?: boolean;
+  /**
+   * The back link goes back in history when the page was reached within the
+   * app, and to `backHref` otherwise (BackLink, Story 11.6): for a page opened
+   * from several places, such as a card from search or from its room (Story 18.7).
+   */
+  backInHistory?: boolean;
 };
 
 /** Sidrubrik: 34 px bold title with 56 px of air above it on mobile (more under a notch). */
-export function PageHeader({ title, action, backHref, backLabel = "Tillbaka", backOnlyOnMobile = false }: PageHeaderProps) {
+export function PageHeader({ title, action, backHref, backLabel = "Tillbaka", backOnlyOnMobile = false, backInHistory = false }: PageHeaderProps) {
+  const backClasses = cx(
+    "-mt-tap mb-1 -ml-2 flex min-h-tap min-w-tap items-center gap-1 self-start rounded-md px-2 text-body text-accent desktop:mt-0",
+    backOnlyOnMobile && "desktop:hidden",
+  );
+  const back = (
+    <>
+      <ChevronLeftIcon size={20} />
+      {backLabel}
+    </>
+  );
   return (
     <header className="flex flex-col pt-[max(var(--header-top-mobile),calc(env(safe-area-inset-top)+12px))] pb-4 desktop:pt-10">
-      {backHref ? (
-        <Link
-          href={backHref}
-          scroll={false}
-          className={cx(
-            "-mt-tap mb-1 -ml-2 flex min-h-tap min-w-tap items-center gap-1 self-start rounded-md px-2 text-body text-accent desktop:mt-0",
-            backOnlyOnMobile && "desktop:hidden",
-          )}
-        >
-          <ChevronLeftIcon size={20} />
-          {backLabel}
+      {backHref && backInHistory ? (
+        <BackLink fallbackHref={backHref} className={backClasses}>
+          {back}
+        </BackLink>
+      ) : backHref ? (
+        <Link href={backHref} scroll={false} className={backClasses}>
+          {back}
         </Link>
       ) : null}
       {/* The title takes the room the actions leave and wraps between its words there. Only

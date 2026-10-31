@@ -43,6 +43,8 @@ import {
   parseAskAnswer,
   listThingsAnswer,
   locateItemsAnswer,
+  locateThingAnswer,
+  parseLocatedBox,
   mergeThingsAnswer,
   parseMergePairs,
   maxPantryItemTextChars,
@@ -58,6 +60,7 @@ import {
 } from "./schemas";
 import { warmImage } from "./warm-image";
 import { noThingNounText, thingNoun, thingNounCap } from "@/lib/thing-noun";
+import type { ThingBox } from "@/lib/thing-box";
 
 // The AI port (AD-9). Modules call these methods and never see the provider.
 // Each has its schema in schemas.ts and its prompt in prompts/.
@@ -145,6 +148,18 @@ export type LocateItemsInput = {
  * are simply missing.
  */
 export type LocateItemsResult = { positions: ItemPosition[]; invalid: number };
+
+export type LocateThingInput = {
+  /** The card's photo as it is stored (AD-15). Never stored or logged by the port. */
+  image: ImageInput;
+  /** The föremål's name as it is saved, on one line (at most inputLimits.locateThing.maxNameChars). Data for the model, never instructions. */
+  name: string;
+  /** Where on the photo the reading said it is, on one line, or `null`. Data for the model, never instructions. */
+  where: string | null;
+};
+
+/** What locateThing answers (Story 18.7): the föremål's box, or `null` when the model does not see it or its box is not reasonable. */
+export type LocateThingResult = { box: ThingBox | null };
 
 export type ListThingsInput = {
   /** A photo of a place, already resized in the client (AD-15). Never stored or logged by the port. */
@@ -292,6 +307,18 @@ export interface AiService {
    */
   listThings(input: ListThingsInput, signal: AbortSignal, options?: RunOptions): Promise<Result<ListThingsResult>>;
   /**
+   * Where one föremål is on its card (Story 18.7): one short call with the
+   * photo and the föremål's name, for a card read before the boxes came in
+   * listThings. The box is checked (boxFromThousandths): `{ box: null }` when
+   * the model does not see it or gives a box that is not reasonable. Its own
+   * short budget (locateLimitsFrom: one attempt of at most 30 s). Asked of
+   * any model, unlike locateItems: listThings asks every model for boxes too.
+   * Fails with `validation` (an image, name or "where" outside the limits),
+   * `ai_unavailable` (also when the deadline leaves too little time),
+   * `ai_rejected` or `ai_invalid`.
+   */
+  locateThing(input: LocateThingInput, signal: AbortSignal, options?: RunOptions): Promise<Result<LocateThingResult>>;
+  /**
    * A short answer in Swedish to a question about Pontus's things (Story
    * 18.4), from the lists the cards gave (text only, no image) and the
    * numbers of the places it is about, each checked to be in the list. Fails
@@ -383,12 +410,20 @@ export const inputLimits = {
    */
   analyze: { maxItems: 25, maxOutputTokens: 3_000 },
   /**
-   * listThings (Story 18.2): a thing is about 40 tokens of answer, so 60
-   * things are about 2 400 and 4 000 leave room for the note and a model that
-   * writes more around them. The spike on nine photos of a storage room gave
-   * 9–47 things per photo in 9–24 s with Haiku 5.5.
+   * listThings (Story 18.2): a thing is about 40 tokens of answer, and its box
+   * (Story 18.7) about 15 more, so 60 things are about 3 300 and 5 000 leave
+   * room for the note and a model that writes more around them. The spike on
+   * nine photos of a storage room gave 9–47 things per photo in 9–24 s with
+   * Haiku 5.5.
    */
-  things: { maxOutputTokens: 4_000 },
+  things: { maxOutputTokens: 5_000 },
+  /**
+   * locateThing (Story 18.7): a name of at most 80 characters and a "where" of
+   * at most 120 (as thing_item holds them) with the photo; the answer is a flag
+   * and four numbers, about 30 tokens, so 300 leave room for a model that
+   * writes around them. One attempt of at most locate.attemptMs.
+   */
+  locateThing: { maxNameChars: 80, maxWhereChars: 120, maxOutputTokens: 300 },
   /**
    * askThings (Story 18.4): the question at most 300 characters and the
    * lists at most 12 000 (askThingsText counts them), as for any text flow,
@@ -516,6 +551,13 @@ export function isValidMergeThingsInput(input: MergeThingsInput): boolean {
   return added.every(thing) && existing.every((item) => thing(item) && oneLine(item.card)) && mergeThingsText(input).length <= limits.maxChars;
 }
 
+/** True for an image within the limits, a name on one line and a "where" on one line or `null`, within inputLimits.locateThing. */
+export function isValidLocateThingInput(input: LocateThingInput): boolean {
+  const limits = inputLimits.locateThing;
+  const oneLine = (text: string, max: number) => text !== "" && text === cleanModelText(text) && text.length <= max;
+  return isValidImage(input.image) && oneLine(input.name, limits.maxNameChars) && (input.where === null || oneLine(input.where, limits.maxWhereChars));
+}
+
 /** True for an image within the limits and 1 to inputLimits.locate.maxLabels valid labels. */
 export function isValidLocateItemsInput(input: LocateItemsInput): boolean {
   const { labels } = input;
@@ -589,6 +631,10 @@ export function withInputValidation(service: AiService): AiService {
     async listThings(input, signal, options) {
       if (!isValidImage(input.image)) return fail("validation");
       return service.listThings(input, signal, options);
+    },
+    async locateThing(input, signal, options) {
+      if (!isValidLocateThingInput(input)) return fail("validation");
+      return service.locateThing(input, signal, options);
     },
     async askThings(input, signal, options) {
       if (!isValidAskThingsInput(input)) return fail("validation");
@@ -827,6 +873,31 @@ export function createModelAiService(target: ModelTarget, limits: Limits = defau
       if (located.invalid > 0) console.info("locate_positions_invalid", { count: located.invalid });
       return ok(located);
     },
+    async locateThing(input, signal, options = {}) {
+      const within = limitsWithin(locateLimitsFrom(limits), options.deadline);
+      if (!within) {
+        console.error("ai_unavailable", { reason: "deadline" });
+        return fail("ai_unavailable");
+      }
+      const answer = await runStructured(
+        target,
+        {
+          schema: locateThingAnswer,
+          system: prompts.locateThing,
+          messages: [{ role: "user", content: locateThingContent(input) }],
+          maxOutputTokens: inputLimits.locateThing.maxOutputTokens,
+          sampling: target.imageSampling,
+          onTruncated: () => console.info("locate_thing_truncated"),
+        },
+        signal,
+        within,
+      );
+      if (!answer.ok) return answer;
+      const box = parseLocatedBox(answer.data);
+      // Only whether it was found, never the name or the box.
+      console.info("thing_located", { found: box !== null, answered: answer.data.found });
+      return ok({ box });
+    },
     warmUpKey() {
       return target.warmUpKey ?? null;
     },
@@ -943,6 +1014,21 @@ export function locateItemsContent(input: LocateItemsInput) {
   return [
     { type: "file" as const, data: input.image.data, mediaType: input.image.mediaType },
     { type: "text" as const, text: `Varorna:\n${lines}` },
+  ];
+}
+
+/**
+ * The user message for locateThing (Story 18.7): the photo as a `file` part,
+ * then "Föremålet:" with the name, and "Var:" with where the reading said it
+ * is when it said. Both are on one line, so neither can start a section of
+ * its own; the prompt says they are data.
+ */
+export function locateThingContent(input: LocateThingInput) {
+  const lines = [`${thingNounCap.singular}: ${input.name}`];
+  if (input.where) lines.push(`Var: ${input.where}`);
+  return [
+    { type: "file" as const, data: input.image.data, mediaType: input.image.mediaType },
+    { type: "text" as const, text: lines.join("\n") },
   ];
 }
 

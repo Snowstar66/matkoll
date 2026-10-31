@@ -16,6 +16,7 @@ import { RemoveCard } from "./remove-card";
 import { RetakeCard } from "./retake-card";
 import { AiWorking } from "@/components/ai-working";
 import { thingNoun } from "../domain/thing-noun";
+import { cardViewHref } from "../domain/thing-card";
 
 /** The input of a card is always its photo. */
 const cardSteps = ["Tittar på kortet …", `Hittar ${thingNoun.definitePlural} …`];
@@ -24,6 +25,8 @@ const cardSteps = ["Tittar på kortet …", `Hittar ${thingNoun.definitePlural} 
 // shows ("Hela rummet", "Väggen", "Låda: Black box"), its number of things and
 // its date, and "Ta om" (Story 18.11) and "Ta bort" (Story 18.3, with "Ångra").
 // A card being read says so; one whose reading did not go has "Försök igen".
+// The thumbnail of a read card opens it big, whole and with its föremål marked
+// (Story 18.7); the ⤢ in its corner says so.
 
 function RetryCard({ id }: { id: string }) {
   const router = useRouter();
@@ -71,9 +74,22 @@ export function RoomCards({
     <ul role="list" className="grid grid-cols-2 gap-2.5" data-testid="room-cards">
       {cards.map((card) => (
         <li key={card.id} className="flex flex-col overflow-hidden rounded-md bg-surface" data-testid="room-card">
-          {/* The photo is served by the route that checks the user; nothing is fetched from anywhere else. */}
-          {/* eslint-disable-next-line @next/next/no-img-element */}
-          <img src={`/api/things/photo/${card.id}`} alt={`Kort: ${card.label}`} loading="lazy" className="h-24 w-full bg-border object-cover" />
+          {card.status === "done" ? (
+            <Link href={cardViewHref(card.id)} className="relative block focus-visible:-outline-offset-2" aria-label={`Visa kortet ${card.label}`} data-testid="open-card">
+              {/* The photo is served by the route that checks the user; nothing is fetched from anywhere else. */}
+              {/* eslint-disable-next-line @next/next/no-img-element */}
+              <img src={`/api/things/photo/${card.id}`} alt={`Kort: ${card.label}`} loading="lazy" className="h-24 w-full bg-border object-cover" />
+              <span
+                aria-hidden="true"
+                className="absolute right-1.5 bottom-1.5 flex size-6.5 items-center justify-center rounded-full bg-photo-chip text-meta leading-none text-photo-mark"
+              >
+                ⤢
+              </span>
+            </Link>
+          ) : (
+            // eslint-disable-next-line @next/next/no-img-element
+            <img src={`/api/things/photo/${card.id}`} alt={`Kort: ${card.label}`} loading="lazy" className="h-24 w-full bg-border object-cover" />
+          )}
           <div className="flex flex-col px-2.5 py-2">
             <div className="-my-1 flex items-start justify-between gap-1">
               <p className="py-1 text-meta font-semibold wrap-break-word text-ink">{card.label}</p>

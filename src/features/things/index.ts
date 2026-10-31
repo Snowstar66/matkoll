@@ -107,3 +107,4 @@ export {
 export { takeCardSubText, takeCardText } from "./domain/capture";
 export { parseRoomView, type RoomSummary } from "./domain/thing-room";
 export { noThingNounText, thingNoun, thingNounCap } from "./domain/thing-noun";
+export { cardViewHref, cardViewMeta, cardViewTitle, type CardThing, type CardView } from "./domain/thing-card";

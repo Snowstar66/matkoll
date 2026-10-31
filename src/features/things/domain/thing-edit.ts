@@ -2,6 +2,7 @@ import { z } from "zod";
 import { charLength, oneLine } from "@/lib/one-line";
 import { thingCategories, thingConfidences } from "./thing";
 import { thingPhotoMediaTypes } from "./thing-photo";
+import { thingBoxSchema } from "./thing-card";
 import { thingNoun } from "./thing-noun";
 
 // Förnya och ta bort (Story 18.3): removing a card, a thing, and renaming a
@@ -58,6 +59,9 @@ export const thingSnapshotSchema = z.object({
   // Story 18.15: a thing typed onto its card comes back as one.
   source: z.enum(["photo", "added"]).default("photo"),
   pointedBy: z.array(z.uuid()).max(200).default([]),
+  // Story 18.7: where it is on the card, so "Ångra" brings the box back too (none in a snapshot from before).
+  box: thingBoxSchema.nullable().default(null),
+  boxMissed: z.boolean().default(false),
 });
 export type ThingSnapshot = z.output<typeof thingSnapshotSchema>;
 

@@ -4,6 +4,7 @@ import { shortDateText } from "./thing-photo";
 import { seenOnText } from "./thing-merge";
 import { inBoxText } from "./thing-place";
 import { thingCountText, thingNoun } from "./thing-noun";
+import { cardViewHref } from "./thing-card";
 
 // Sök (Stories 18.4 and 18.14): the things are found by the database, with
 // typos tolerated (search_things), never by loading every thing to the
@@ -123,9 +124,19 @@ export function hitTile(hit: Pick<ThingHit, "category">): { icon: string; tile: 
   return thingTiles[hit.category];
 }
 
-/** Where a hit opens: the box's page for a written thing, otherwise the place's room (/prylar/<place> redirects to it). */
-export function hitHref(hit: Pick<ThingHit, "placeId" | "written">): string {
-  return hit.written ? `/prylar/lada/${hit.placeId}` : `/prylar/${hit.placeId}`;
+/**
+ * Where a hit opens: the box's page for a written thing, otherwise its card
+ * big with the thing marked (Story 18.7); a thing without a card that is not
+ * written (none should be) opens the place's room (/prylar/<place> redirects to it).
+ */
+export function hitHref(hit: Pick<ThingHit, "id" | "placeId" | "written" | "photoId">): string {
+  if (hit.written) return `/prylar/lada/${hit.placeId}`;
+  return hit.photoId ? cardViewHref(hit.photoId, hit.id) : `/prylar/${hit.placeId}`;
+}
+
+/** The thumbnail of a hit (Story 18.7): its card's photo, or none for a thing written into a box (the box's icon shows then). */
+export function hitThumbnail(hit: Pick<ThingHit, "photoId" | "written">): string | null {
+  return !hit.written && hit.photoId ? `/api/things/photo/${hit.photoId}` : null;
 }
 
 /** The fewest characters that start the instant search (Story 18.17). */

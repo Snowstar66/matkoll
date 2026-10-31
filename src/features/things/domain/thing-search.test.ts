@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import { cleanThingName, renameInputSchema } from "./thing-edit";
-import { hitHref, hitMeta, searchKey, searchRowsSchema, searchTerms, toHit, type ThingHit } from "./thing-search";
+import { hitHref, hitMeta, hitThumbnail, searchKey, searchRowsSchema, searchTerms, toHit, type ThingHit } from "./thing-search";
 
 const hit = (extra: Partial<ThingHit> = {}): ThingHit => ({
   id: "0b2f6d0a-3c0e-4d52-9a54-6d0f0c5f6a01",
@@ -54,7 +54,10 @@ describe("a hit", () => {
     expect(hitHref(written)).toBe(`/prylar/lada/${written.placeId}`);
     const photographed = hit({ part: "Blå backen", isBox: true });
     expect(hitMeta(photographed)).toContain("Skräpförrådet, i Blå backen ·");
-    expect(hitHref(photographed)).toBe(`/prylar/${photographed.placeId}`);
+    // Story 18.7: a thing on a card opens the card big with the thing marked.
+    expect(hitHref(photographed)).toBe(`/prylar/kort/${photographed.photoId}?foremal=${photographed.id}`);
+    expect(hitThumbnail(photographed)).toBe(`/api/things/photo/${photographed.photoId}`);
+    expect(hitThumbnail(written)).toBeNull();
   });
 
   it("is read from a row of search_things, with or without a card", () => {

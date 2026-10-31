@@ -1,7 +1,6 @@
 "use client";
 
 import { type ReactNode, useEffect, useMemo, useState } from "react";
-import { cx } from "@/components/cx";
 import { ListGroup } from "@/components/list-group";
 import { ListRow } from "@/components/list-row";
 import { searchDelayMs } from "@/components/search-field";
@@ -10,7 +9,7 @@ import {
   hitCountText,
   hitHref,
   hitMeta,
-  hitTile,
+  hitThumbnail,
   maxHits,
   noHitsText,
   searchFailedText,
@@ -54,7 +53,7 @@ function Hits({ query }: { query: string }) {
       </p>
       <ListGroup label="Sökträffar">
         {shown.map((hit) => {
-          const { icon, tile } = hitTile(hit);
+          const thumbnail = hitThumbnail(hit);
           return (
             <ListRow
               key={hit.id}
@@ -62,12 +61,15 @@ function Hits({ query }: { query: string }) {
               title={hit.name}
               meta={hitMeta(hit)}
               leading={
-                <span
-                  aria-hidden="true"
-                  className={cx("flex size-tile shrink-0 items-center justify-center rounded-sm text-tile-icon leading-none select-none", tile)}
-                >
-                  {icon}
-                </span>
+                thumbnail ? (
+                  // Story 18.7: the card's thumbnail, served by the route that checks the user. Decoration: the name says what it is.
+                  // eslint-disable-next-line @next/next/no-img-element
+                  <img src={thumbnail} alt="" loading="lazy" className="h-10 w-13 shrink-0 rounded-sm bg-border object-cover" data-testid="hit-thumbnail" />
+                ) : (
+                  <span aria-hidden="true" className="flex h-10 w-13 shrink-0 items-center justify-center rounded-sm bg-tile-clay text-tile-icon leading-none select-none">
+                    {"\u{1F4E6}"}
+                  </span>
+                )
               }
               pressProps={{ "data-testid": "thing-hit" }}
             />
