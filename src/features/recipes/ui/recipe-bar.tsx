@@ -1,11 +1,11 @@
 "use client";
 
-import { cx } from "@/components/cx";
+import { FilterPills, type FilterOption } from "@/components/filter-pills";
 import { recipeSortLabels, type RecipeSort, type RecipeView } from "../domain/recipe-list";
 
-const views: readonly { value: RecipeView; icon: string; label: string }[] = [
-  { value: "cards", icon: "▦", label: "Kortvy" },
-  { value: "compact", icon: "☰", label: "Kompakt vy" },
+const views: readonly FilterOption<RecipeView>[] = [
+  { value: "cards", icon: "\u25A6", label: "Kort" },
+  { value: "compact", icon: "\u2630", label: "Lista" },
 ];
 
 export type RecipeBarProps = {
@@ -20,12 +20,12 @@ export type RecipeBarProps = {
 
 /**
  * The library's quiet line (Story 1.16): "12 recept", the sort button with the
- * chosen sort, and the switch between Kortvy and Kompakt vy. The line wraps
+ * chosen sort, and the segmented switch "Kort" / "Lista" (Story 14.4, the shared FilterPills). The line wraps
  * rather than scrolls at 200 % text; every target keeps a 44 px area.
  */
 export function RecipeBar({ count, sort, onOpenSort, view, onViewChange }: RecipeBarProps) {
   return (
-    <div className="flex flex-wrap items-center gap-x-3 px-1 text-meta text-ink-3">
+    <div className="flex flex-wrap items-center gap-x-2 px-1 text-meta text-ink-3">
       <p data-testid="recipe-count" aria-live="polite">
         {count} recept
       </p>
@@ -39,32 +39,7 @@ export function RecipeBar({ count, sort, onOpenSort, view, onViewChange }: Recip
         <span className="sr-only">Sortera:</span> {recipeSortLabels[sort]} <span aria-hidden="true">▾</span>
       </button>
       {view !== null ? (
-        <div role="group" aria-label="Vy" className="ml-auto flex">
-          {views.map((option) => {
-            const pressed = option.value === view;
-            return (
-              <button
-                key={option.value}
-                type="button"
-                aria-label={option.label}
-                aria-pressed={pressed}
-                onClick={() => onViewChange(option.value)}
-                className="group flex min-h-tap min-w-tap items-center justify-center rounded-sm outline-none"
-              >
-                <span
-                  aria-hidden="true"
-                  className={cx(
-                    "flex h-[30px] w-9 items-center justify-center rounded-sm text-body leading-none",
-                    "group-focus-visible:outline-2 group-focus-visible:outline-offset-1 group-focus-visible:outline-accent",
-                    pressed ? "bg-surface text-ink" : "bg-hairline text-ink-3",
-                  )}
-                >
-                  {option.icon}
-                </span>
-              </button>
-            );
-          })}
-        </div>
+        <FilterPills segmented label="Vy" options={views} value={view} onChange={onViewChange} className="ml-auto [&>button]:px-2.5" />
       ) : null}
     </div>
   );

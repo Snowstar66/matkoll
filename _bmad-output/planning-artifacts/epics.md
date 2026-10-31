@@ -2981,6 +2981,14 @@ Skiss: `_bmad-output/planning-artifacts/ux-designs/ux-Matkoll-2026-10-25/mockups
 **När** jag ser Recept och menyn
 **Så** håller kontrasten och ikonerna syns
 
+**Givet** kategorichipsen i Recept (Story 1.17)
+**När** de visas på telefon och dator
+**Så** visas bara kategorier som minst ett recept i hela biblioteket tillhör (räknat mot alla recept, inte aktuellt filter eller sökning, så chipsen inte hoppar), den valda kategorin ligger kvar även om den inte har några recept, chipsen bryts över flera rader i stället för att rulla i sidled, och raden döljs när inget recept har någon kategori
+
+**Givet** en passerad dag i Matsedel med en olagad rätt
+**När** raden visas på 390 px
+**Så** bryts titeln aldrig mitt i ett ord: "Lagad?" ligger som en liten chip under metaraden och titeln får hela radbredden bredvid ⋯
+
 ## Epic 15: Enklare lokalt
 
 Pontus vill slippa logga in när Matkoll körs på den egna Macen. Inloggningen finns kvar för den publicerade appen.
