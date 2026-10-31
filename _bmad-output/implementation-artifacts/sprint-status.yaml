@@ -51,8 +51,8 @@ development_status:
   1-13-spara-i-matkoll-från-receptsajten: done
   1-14-hitta-recept-från-lägg-till: done
   1-15-import-sparas-direkt: done
-  1-16-kompakt-vy-och-sortering-i-recept: review
-  1-17-kategorier-i-recept: review
+  1-16-kompakt-vy-och-sortering-i-recept: done
+  1-17-kategorier-i-recept: done
   epic-1-retrospective: optional
 
   epic-2: done
@@ -73,7 +73,7 @@ development_status:
   3-8-förbered-molndrift: done
   3-9-avbockade-syns-och-kan-ångras: done
   3-10-lugn-topp-i-inköpslistan: done
-  3-11-lugn-veckovy-i-matsedel: review
+  3-11-lugn-veckovy-i-matsedel: done
   epic-3-retrospective: optional
 
   epic-4: done
