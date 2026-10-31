@@ -600,8 +600,8 @@ describe("earlier plans", () => {
 
     const previous = await listPreviousPlansIn(user.db);
     expect(previous).toEqual([
-      { id: middle.id, name: "Vecka 44", createdAt: expect.stringMatching(/^2026-10-26T10:00:00/), dishCount: 1 },
-      { id: oldest.mealPlanId, name: "Vecka 44", createdAt: expect.stringMatching(/^2025-10-27T10:00:00/), dishCount: 2 },
+      { id: middle.id, name: "Vecka 44", createdAt: expect.stringMatching(/^2026-10-26T10:00:00/), dishCount: 1, weekStart: null },
+      { id: oldest.mealPlanId, name: "Vecka 44", createdAt: expect.stringMatching(/^2025-10-27T10:00:00/), dishCount: 2, weekStart: null },
     ]);
     expect(previous.some(({ id }) => id === current.id)).toBe(false);
     expect(await listPreviousPlansIn(other.db)).toHaveLength(1);
