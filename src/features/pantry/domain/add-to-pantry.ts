@@ -2,7 +2,7 @@ import { z } from "zod";
 import { locationSchema, unitSchema } from "@/features/catalog";
 import { maxPantryAmount } from "./pantry-item-form";
 
-// addToPantry (AD-19, FR-19): what "Lägg i lagret" adds to the pantry. An
+// addToPantry (AD-19, FR-19): what "Lägg i förrådet" adds to the pantry. An
 // item increases the row with the same ingredient, location and unit, or
 // creates it; without amount it makes the ingredient unlimited. Units are
 // never converted (AD-12). Pure, so it is tested without a database.

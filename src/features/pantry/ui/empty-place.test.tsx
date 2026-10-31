@@ -70,7 +70,7 @@ function Hemma({ location = "Kyl", initial, site = hemma }: { location?: Locatio
     <ToastProvider>
       <PantrySuggestionsProvider>
         <PantrySheetProvider location={location} site={site}>
-          {/* "Lägg till ställe" with one place needs the sheet Ställen; it is not opened here. */}
+          {/* "Lägg till boende" with one place needs the sheet Boenden; it is not opened here. */}
           <SitesSheetContext.Provider value={noSheet}>
             <PantryPlace
               site={site}
@@ -341,13 +341,13 @@ describe("lagerförslag when the location is emptied", () => {
     await waitFor(() => expect(screen.getAllByTestId("pantry-suggestion")).toHaveLength(2));
     expect(screen.queryByTestId("pantry-missing")).toBeNull();
     expect(screen.queryByRole("heading", { name: "Ändrat" })).toBeNull();
-    expect(screen.queryByText(/stämmer med lagret/)).toBeNull();
+    expect(screen.queryByText(/stämmer med förrådet/)).toBeNull();
     expect(screen.queryByText(/→/)).toBeNull();
 
     // Ångra puts the rows back, but not the ones the photo was compared with: the list says so.
     restorePantryRemoval.mockResolvedValueOnce(ok({ restoredIds: [kyl[0].id], rows: [], skipped: 0 }));
     await act(async () => fireEvent.click(within(screen.getByTestId("toast")).getByRole("button", { name: "Ångra" })));
-    expect(await screen.findByText("Lagret i kylen har ändrats sedan bilden togs.")).toBeInTheDocument();
+    expect(await screen.findByText("Förrådet i kylen har ändrats sedan bilden togs.")).toBeInTheDocument();
     expect(screen.getAllByTestId("pantry-suggestion")).toHaveLength(2);
     expect(screen.queryByTestId("pantry-missing")).toBeNull();
   });
@@ -370,7 +370,7 @@ describe("Töm kylen on a place (Story 8.4)", () => {
     render(<Hemma initial={items(2)} site={stugan} />);
     fireEvent.click(emptyButton()!);
     fireEvent.click(sheetConfirm());
-    expect(await within(sheet()).findByRole("alert")).toHaveTextContent("Stället finns inte längre. Välj ett annat ställe.");
+    expect(await within(sheet()).findByRole("alert")).toHaveTextContent("Boendet finns inte längre. Välj ett annat boende.");
     expect(screen.getAllByTestId("pantry-row")).toHaveLength(2);
     fireEvent.click(await within(sheet()).findByRole("button", { name: "Töm kylen" }));
     await waitFor(() => expect(emptyPantryPlace).toHaveBeenCalledTimes(2));
@@ -433,7 +433,7 @@ describe("Töm kylen on a place (Story 8.4)", () => {
     await waitFor(() => expect(restorePantryRemoval).toHaveBeenCalledTimes(1));
     expect(screen.getByText("nu: 2 förp → bilden: 1 förp")).toBeInTheDocument();
     expect(screen.queryByText(/5 förp/)).toBeNull();
-    expect(screen.queryByText("Lagret i kylen har ändrats sedan bilden togs.")).toBeNull();
+    expect(screen.queryByText("Förrådet i kylen har ändrats sedan bilden togs.")).toBeNull();
   });
 
   it("closes the sheet when Hemma shows another place, and keeps the question it asked", () => {

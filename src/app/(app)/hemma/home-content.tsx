@@ -30,7 +30,7 @@ export type HomeContentProps = {
  * catalog's names cannot be read, a notice says so, with the camera button
  * and the suggestions under it (a photo needs no list); a place deleted in
  * the meantime says so too (`pantry_site_gone`). With one place, "Lägg till
- * ställe" is there in both cases. Other errors go to the error boundary.
+ * boende" is there in both cases. Other errors go to the error boundary.
  *
  * Story 10.2: the latest photo of the chosen location on the place, younger
  * than 30 days, is read with them (its row only, never the image), and its
@@ -73,7 +73,7 @@ export async function HomeContent({ site, location, next }: HomeContentProps) {
           <LatestPhoto photo={await photoRead} location={location} />
         </PantryCamera>
         <PantrySuggestionList siteId={site.id} />
-        {/* With one place, the sheet Ställen is reached only from here (needs a SiteSwitch above). */}
+        {/* With one place, the sheet Boenden is reached only from here (needs a SiteSwitch above). */}
         {site.siteCount === 1 ? <AddSiteButton /> : null}
       </div>
     );

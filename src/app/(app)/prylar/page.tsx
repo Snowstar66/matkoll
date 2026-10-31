@@ -9,7 +9,7 @@ export const metadata: Metadata = { title: "Prylar" };
 // Prylar, at /prylar (Epic 18, Story 18.1): the places of the selected boende
 // grouped by room, each with how many things its latest card has and the
 // card's date, "Ny plats" and, with two or more boenden, the same pills as in
-// Lagersaldo (the boende is the one selected there; things belong to it and
+// Förråd (the boende is the one selected there; things belong to it and
 // never touch the food). Everything is read inside <Suspense> (AD-18).
 export default function PrylarPage() {
   return (

@@ -93,8 +93,8 @@ describe("removedItemsText", () => {
 
 describe("confirmedItemsText and rejectedItemText", () => {
   it("counts the confirmed suggestions", () => {
-    expect(confirmedItemsText(1)).toBe("Lagt 1 vara i lagret.");
-    expect(confirmedItemsText(4)).toBe("Lagt 4 varor i lagret.");
+    expect(confirmedItemsText(1)).toBe("Lagt 1 vara i förrådet.");
+    expect(confirmedItemsText(4)).toBe("Lagt 4 varor i förrådet.");
   });
 
   it("names the rejected suggestion", () => {

@@ -25,6 +25,7 @@ describe("revalidateFor", () => {
       ["/recept", "layout"],
       ["/matsedel", "layout"],
       ["/lista", "page"],
+      ["/installningar", "layout"],
     ]);
   });
 
@@ -58,7 +59,7 @@ describe("revalidateFor", () => {
       ["/recept", "layout"],
       ["/matsedel", "layout"],
       ["/lista", "page"],
-      ["/installningar", "page"],
+      ["/installningar", "layout"],
     ]);
   });
 
@@ -80,7 +81,7 @@ describe("revalidateFor", () => {
   it("revalidates Inställningar, the shopping list and the meal plan after a store write (the offers follow the store, AD-25)", () => {
     revalidateFor("store");
     expect(revalidatePath.mock.calls).toEqual([
-      ["/installningar", "page"],
+      ["/installningar", "layout"],
       ["/lista", "page"],
       ["/matsedel", "layout"],
     ]);

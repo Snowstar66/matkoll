@@ -175,7 +175,7 @@ function watchErrors(page: Page): string[] {
 // Earlier routes stay mounted but hidden after a client navigation, so every
 // locator is scoped to what is visible.
 const sendButton = (page: Page) => page.getByRole("button", { name: "Kopiera till ICA-varukorgen", exact: true }).filter({ visible: true });
-const putButton = (page: Page) => page.getByRole("button", { name: "Lägg i lagret", exact: true }).filter({ visible: true });
+const putButton = (page: Page) => page.getByRole("button", { name: "Lägg i förrådet", exact: true }).filter({ visible: true });
 const check = (page: Page, name: string) => page.getByRole("checkbox", { name, exact: true }).filter({ visible: true });
 const toast = (page: Page) => page.getByTestId("toast");
 const exportSheet = (page: Page) => page.getByRole("dialog", { name: "Inköpslistan", exact: true });
@@ -243,7 +243,7 @@ test("Kopiera till ICA-varukorgen copies the export without asking the server, a
   expect(errors).toEqual([]);
 });
 
-test("a gul lök checked off is not in the next export, and Lägg i lagret stands beside Kopiera till ICA-varukorgen", async ({ page }) => {
+test("a gul lök checked off is not in the next export, and Lägg i förrådet stands beside Kopiera till ICA-varukorgen", async ({ page }) => {
   const errors = watchErrors(page);
   await openList(page);
   await check(page, "Gul lök, 2 st").click();
@@ -255,7 +255,7 @@ test("a gul lök checked off is not in the next export, and Lägg i lagret stand
   // Off while the check was saved; on again now.
   await expect(sendButton(page)).toBeEnabled();
 
-  // At 375 px the long label stacks under "Lägg i lagret" (Story 11.4, 14.2).
+  // At 375 px the long label stacks under "Lägg i förrådet" (Story 11.4, 14.2).
   const put = await putButton(page).boundingBox();
   const send = await sendButton(page).boundingBox();
   expect(put && send && put.y + put.height <= send.y).toBe(true);

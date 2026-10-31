@@ -36,19 +36,19 @@ import {
 } from "../domain/site";
 import { useLiveUndo } from "./site-switching";
 
-// Arket Ställen (FR-29, Story 8.2, EXPERIENCE.md): a row per place in the
+// Arket Boenden (FR-29, Story 8.2, EXPERIENCE.md): a row per place in the
 // order they were created, with the name, the number of items and "Valt" for
 // the selected place. A tap on the name gives a field for a new name; one
 // name at a time. "Ta bort" is there only for an empty place that is not
 // selected and not the last: it goes at once, without a question and
 // without "Ångra", since nothing is lost. It waits while a confirmation with
 // "Ångra" for the place's rows shows, since they could not go back to it.
-// Under the list, the field "Nytt ställe" and "Lägg till"; a new place is
+// Under the list, the field "Nytt boende" and "Lägg till"; a new place is
 // never selected by itself. Places are kept in the pantry, so they are
-// managed here and not in Inställningar.
+// managed in this sheet, which Förråd and Inställningar > Boenden both open.
 //
 // The sheet stays open after a change, so its confirmations ("Lade till
-// Stugan. …", "Stället heter nu …", "Tog bort Stugan.") show in the sheet,
+// Stugan. …", "Boendet heter nu …", "Tog bort Stugan.") show in the sheet,
 // in a live region that is always there, rather than as a toast under it.
 // Errors show under the field or in a Notice at the top of the sheet. The
 // list behind is read again by the actions (revalidateFor("pantry_site")),
@@ -203,7 +203,7 @@ type AddSiteFormProps = Feedback & {
 };
 
 /**
- * "Nytt ställe" and "Lägg till", with mode `add`. The id is chosen when the
+ * "Nytt boende" and "Lägg till", with mode `add`. The id is chosen when the
  * field mounts (when the sheet opens, and after each place added) and kept
  * until the name changes, so a retry after a lost answer adds one place.
  */
@@ -269,7 +269,7 @@ function AddSiteForm({ atLimit, focusOnMount, pendingId, onAdded, onUncertain, s
   const describedBy = [atLimit ? limitId : null, fieldError && !atLimit ? errorId : null].filter(Boolean).join(" ");
   return (
     <form onSubmit={submit} noValidate aria-busy={adding || undefined} className="flex flex-col gap-1.5">
-      <FieldLabel htmlFor={`${ids}-name`}>Nytt ställe</FieldLabel>
+      <FieldLabel htmlFor={`${ids}-name`}>Nytt boende</FieldLabel>
       {atLimit ? (
         <p id={limitId} className="text-meta text-ink-2">
           {siteLimitText}
@@ -309,7 +309,7 @@ export type SitesSheetProps = {
   onClose: () => void;
   /**
    * Increases each time the sheet opens: the sheet then starts afresh, with
-   * no name being changed, an empty field "Nytt ställe" and a new id.
+   * no name being changed, an empty field "Nytt boende" and a new id.
    */
   session: number;
   /** Every place of the user's, in the order they were created, with its number of items. */
@@ -319,7 +319,7 @@ export type SitesSheetProps = {
 /** An add whose outcome is unknown, and the places as they were when it was sent. */
 type PendingAdd = { id: string; seen: readonly PantrySiteWithCount[]; announce: boolean };
 
-/** Arket Ställen; see the comment at the top. */
+/** Arket Boenden; see the comment at the top. */
 export function SitesSheet({ open, onClose, session, sites }: SitesSheetProps) {
   const router = useRouter();
   const { liveUndoSites } = useLiveUndo();
@@ -330,7 +330,7 @@ export function SitesSheet({ open, onClose, session, sites }: SitesSheetProps) {
   const [error, setError] = useState<{ text: string; id: number } | null>(null);
   const [removing, startRemoving] = useTransition();
   const [removingId, setRemovingId] = useState<string | null>(null);
-  /** Places added in this session: the field "Nytt ställe" starts afresh, with focus, after each. */
+  /** Places added in this session: the field "Nytt boende" starts afresh, with focus, after each. */
   const [added, setAdded] = useState(0);
   const [pendingAdd, setPendingAdd] = useState<PendingAdd | null>(null);
   const listRef = useRef<HTMLUListElement>(null);
@@ -425,7 +425,7 @@ export function SitesSheet({ open, onClose, session, sites }: SitesSheetProps) {
   const shownRenaming = renaming !== null && sites.some((site) => site.id === renaming) ? renaming : null;
 
   return (
-    <Sheet open={open} onClose={onClose} title="Ställen" preventClose={removing}>
+    <Sheet open={open} onClose={onClose} title="Boenden" preventClose={removing}>
       <div className="flex flex-col gap-5">
         {error ? (
           <Notice key={error.id} role="alert">
@@ -435,7 +435,7 @@ export function SitesSheet({ open, onClose, session, sites }: SitesSheetProps) {
         <ul
           ref={listRef}
           id={listId}
-          aria-label="Ställen"
+          aria-label="Boenden"
           tabIndex={-1}
           className="flex flex-col rounded-lg bg-surface px-4 outline-none"
         >

@@ -104,7 +104,7 @@ test("labels are the cards' titles, a repeat is one card, and an unsure item wai
 
   // Bekräfta alla saves the two sure ones, and the unsure card stays.
   await section(page).getByRole("button", { name: "Bekräfta alla" }).click();
-  await expect(toast(page)).toHaveText("Lagt 2 varor i lagret. 1 osäker vara är kvar att bekräfta eller rätta.");
+  await expect(toast(page)).toHaveText("Lagt 2 varor i förrådet. 1 osäker vara är kvar att bekräfta eller rätta.");
   await expect(titles(page)).toHaveText(cardTitles(["Gul flaska, troligen senap"]));
   await expect(section(page).getByRole("button", { name: "Bekräfta Senap" })).toBeFocused();
   await expect(section(page).getByRole("button", { name: "Bekräfta alla" })).toBeDisabled();

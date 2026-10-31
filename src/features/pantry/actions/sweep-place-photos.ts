@@ -10,9 +10,9 @@ import { sweepPlacePhotosIn } from "./photo-sweep";
  * The sweep of the latest photos (Story 10.3, FR-39): removes the signed-in
  * user's photos older than 30 days (files, then the rows whose files are
  * gone) and files without a row older than 10 minutes, at most 100 files per
- * call (see sweepPlacePhotosIn). Lagersaldo calls it when it has photos older
+ * call (see sweepPlacePhotosIn). Förråd calls it when it has photos older
  * than 30 days, again while `more` is true (a bounded number of times), and
- * shows nothing. Takes nothing from the client. Revalidates Lagersaldo
+ * shows nothing. Takes nothing from the client. Revalidates Förråd
  * (AD-18) only when something was removed. Returns how many photos and files
  * went, and whether more remain.
  *

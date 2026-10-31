@@ -84,7 +84,7 @@ describe("suggestErrorMessage", () => {
   it("has its own text for ai_rejected and the empty pantry, and the error's own otherwise", () => {
     expect(suggestErrorMessage(fail("ai_rejected").error)).toBe("AI-tjänsten tog inte emot förfrågan. Försök igen senare.");
     expect(suggestErrorMessage(fail("suggest_empty_pantry").error)).toBe(
-      "Lagret är tomt. Lägg till varor i Lagersaldo, så kan AI:n föreslå rätter.",
+      "Förrådet är tomt. Lägg till varor i Förråd, så kan AI:n föreslå rätter.",
     );
     expect(suggestErrorMessage(fail("ai_unavailable").error)).toBe(errorMessages.ai_unavailable);
     expect(suggestErrorMessage(fail("ai_invalid").error)).toBe("Det gick inte att tolka svaret. Försök igen.");

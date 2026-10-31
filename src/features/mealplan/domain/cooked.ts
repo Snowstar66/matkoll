@@ -75,7 +75,7 @@ export function cookedPlan(
     if (stock?.unlimited) {
       check.push({ key, text, reason: "Finns alltid hemma, så inget dras." });
     } else if (!stock || stock.amounts.length === 0) {
-      check.push({ key, text, reason: "Finns inte i lagret." });
+      check.push({ key, text, reason: "Finns inte i förrådet." });
     } else if (!same) {
       check.push({ key, text, reason: `Annan enhet. ${atHomeText(stock.amounts)}` });
     } else {
@@ -163,11 +163,11 @@ export type UndoCookedInput = z.infer<typeof undoCookedSchema>;
 /** The confirmation after a dish was marked cooked, with "Ångra". */
 export function cookedText(title: string, deductedCount: number): string {
   return deductedCount > 0
-    ? `${title} är lagad. Lagret är uppdaterat.`
-    : `${title} är lagad. Lagret är inte ändrat.`;
+    ? `${title} är lagad. Förrådet är uppdaterat.`
+    : `${title} är lagad. Förrådet är inte ändrat.`;
 }
 
 /** The confirmation after the mark was removed: the pantry stays as it is. */
 export function uncookedText(title: string): string {
-  return `${title} är inte längre markerad som lagad. Lagret är inte ändrat.`;
+  return `${title} är inte längre markerad som lagad. Förrådet är inte ändrat.`;
 }

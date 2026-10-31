@@ -942,7 +942,7 @@ describe("the reads per place", () => {
 
 // Story 8.2: choosing and managing places.
 
-/** The form the sheet Ställen sends, as savePantrySite reads it. */
+/** The form the sheet Boenden sends, as savePantrySite reads it. */
 const siteForm = (id: string, name: string, mode: "add" | "rename") => siteFormSchema.parse({ id, name, mode });
 
 /** save_pantry_site as the app calls it, with the domain's normalized name. */
@@ -1032,7 +1032,7 @@ describe("save_pantry_site", () => {
     const user = await createTestUser("pantry-site-limit");
     expect((await user.db.rpc("ensure_pantry_defaults")).error).toBeNull();
     for (let index = 2; index <= maxSites; index += 1) {
-      expect((await savePlace(user.db, randomUUID(), `Ställe ${index}`, "add")).error, `place ${index}`).toBeNull();
+      expect((await savePlace(user.db, randomUUID(), `Boende ${index}`, "add")).error, `place ${index}`).toBeNull();
     }
     expect(await sitesOf(user.id)).toHaveLength(maxSites);
 
@@ -1056,7 +1056,7 @@ describe("save_pantry_site", () => {
     });
     expect(await saveSiteIn(user.db, siteForm(randomUUID(), " STUGAN ", "add"))).toEqual({ kind: "name_taken", name: "Stugan" });
     expect(await saveSiteIn(user.db, siteForm(madeUpId, "Annexet", "rename"))).toEqual({ kind: "gone" });
-    for (let index = 4; index <= maxSites; index += 1) await saveSiteIn(user.db, siteForm(randomUUID(), `Ställe ${index}`, "add"));
+    for (let index = 4; index <= maxSites; index += 1) await saveSiteIn(user.db, siteForm(randomUUID(), `Boende ${index}`, "add"));
     expect(await saveSiteIn(user.db, siteForm(randomUUID(), "Elfte", "add"))).toEqual({ kind: "limit" });
     expect(await saveSiteIn(user.db, siteForm(stugan, "Stugan", "rename"))).toMatchObject({ kind: "saved" });
     await expect(saveSiteIn(anonClient(), siteForm(randomUUID(), "Annexet", "add"))).rejects.toThrow(

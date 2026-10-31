@@ -222,7 +222,7 @@ describe("removing an item on Hemma", () => {
     resetDeleteGrace();
     render(<Hemma initial={[mjolk, smor, salt]} />);
     await tapRemove("Mjölk");
-    expect(screen.queryByText("Ta bort Mjölk från lagret?")).not.toBeInTheDocument();
+    expect(screen.queryByText("Ta bort Mjölk från förrådet?")).not.toBeInTheDocument();
     expect(removePantryItem).toHaveBeenCalledWith(mjolk.id);
     expect(within(toast()).getByRole("button", { name: "Ångra" })).toBeInTheDocument();
   });
@@ -373,7 +373,7 @@ describe("removing on one place and Ångra after another is selected (Story 8.2)
     render(<Hemma initial={[mjolk, smor]} />);
     await tapRemove("Mjölk");
     await undo();
-    await waitFor(() => expect(toast()).toHaveTextContent("Stället finns inte längre. Välj ett annat ställe."));
+    await waitFor(() => expect(toast()).toHaveTextContent("Boendet finns inte längre. Välj ett annat boende."));
     expect(rowNames()).toEqual(["Smör"]);
   });
 });

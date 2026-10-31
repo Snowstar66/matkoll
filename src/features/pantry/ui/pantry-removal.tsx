@@ -41,7 +41,7 @@ import { useLiveUndo } from "./site-switching";
 // and "Ångra" puts the row back on its own place, also when Hemma shows
 // another place by then; the list shows a restored row only when it is on
 // the place and in the location shown. While a confirmation with "Ångra"
-// shows, its places are marked (useLiveUndo), so the sheet Ställen offers no
+// shows, its places are marked (useLiveUndo), so the sheet Boenden offers no
 // "Ta bort" for a place the rows could not go back to.
 
 /** A change the list shows before the server's list has it. */

@@ -183,7 +183,7 @@ describe("Kopiera till ICA-varukorgen", () => {
     stubClipboard("ok");
     render(<ShoppingList {...props()} />);
     expect(sendButton()).toHaveClass("bg-sky");
-    expect(screen.queryByRole("button", { name: "Lägg i lagret" })).not.toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: "Lägg i förrådet" })).not.toBeInTheDocument();
   });
 
   it("is off while a check is being saved, so a check that goes back cannot leave an item out", async () => {
@@ -202,7 +202,7 @@ describe("Kopiera till ICA-varukorgen", () => {
     expect(screen.getByRole("checkbox", { name: "Gul lök, 2 st" })).not.toBeChecked();
   });
 
-  it("leaves out a line checked off, as shown, and sits beside Lägg i lagret as the secondary button", async () => {
+  it("leaves out a line checked off, as shown, and sits beside Lägg i förrådet as the secondary button", async () => {
     const user = userEvent.setup();
     const writeText = stubClipboard("ok");
     render(<ServerList />);
@@ -211,11 +211,11 @@ describe("Kopiera till ICA-varukorgen", () => {
     await user.click(screen.getByRole("button", { name: /^Visa I korgen/ }));
     expect(screen.getByRole("checkbox", { name: "Gul lök, 2 st" })).toBeChecked();
 
-    const put = screen.getByRole("button", { name: "Lägg i lagret" });
+    const put = screen.getByRole("button", { name: "Lägg i förrådet" });
     const send = sendButton()!;
     expect(put).toHaveClass("bg-accent");
     expect(send).toHaveClass("bg-sky");
-    // One FixedAction: "Kopiera till ICA-varukorgen" first in the row, "Lägg i lagret" after it (on top when they wrap).
+    // One FixedAction: "Kopiera till ICA-varukorgen" first in the row, "Lägg i förrådet" after it (on top when they wrap).
     expect(put.parentElement).toBe(send.parentElement);
     expect(send.compareDocumentPosition(put) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
 
@@ -315,7 +315,7 @@ describe("Kopiera till ICA-varukorgen", () => {
     expect(writeText).not.toHaveBeenCalled();
     const notice = await screen.findByRole("alert");
     expect(notice).toHaveTextContent("Det gick inte att läsa butiken. Öppna inställningarna och försök igen.");
-    expect(screen.getByRole("link", { name: "Öppna inställningar" })).toHaveAttribute("href", "/installningar");
+    expect(screen.getByRole("link", { name: "Öppna inställningar" })).toHaveAttribute("href", "/installningar/butiker");
     expect(screen.queryByTestId("toast")).not.toBeInTheDocument();
     expectNoServer();
   });

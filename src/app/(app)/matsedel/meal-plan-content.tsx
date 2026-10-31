@@ -43,7 +43,7 @@ async function countsOrEmpty(weeks: string[]): Promise<Record<string, number>> {
  * cannot be read, a notice says so. The library, the recipes behind the
  * dishes and the pantry each degrade on their own: the sheet says the
  * library could not be read, the dishes show their stored titles, or the
- * status is left out. With more than one place, "Lager: Stugan" under the
+ * status is left out. With more than one place, "Boende: Stugan" under the
  * page title says which place the status is counted against (AD-24); the
  * list shows it while it has dishes. Other errors go to the error boundary.
  */

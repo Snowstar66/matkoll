@@ -56,7 +56,7 @@ function toSite(row: unknown): PantrySite {
  * What saving a place did: `saved` it, or found no place to rename (`gone`,
  * MK410), another of the user's places with the same normalized name
  * (`name_taken`, with that place's name as stored, for "Det finns redan ett
- * ställe som heter Stugan."), 10 places already (`limit`, MK422), or, for a
+ * boende som heter Stugan."), 10 places already (`limit`, MK422), or, for a
  * retried add, the id on a place that has been renamed since (`stale`,
  * MK424; the rename stays).
  */

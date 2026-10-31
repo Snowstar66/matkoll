@@ -288,7 +288,7 @@ describe("Bekräfta", () => {
     fireEvent.click(button("Bekräfta mjölk"));
     await answerConfirm(fail("pantry_confirm_failed"));
     const alert = await within(section()).findByRole("alert");
-    expect(alert).toHaveTextContent("Det gick inte att lägga förslagen i lagret. Försök igen.");
+    expect(alert).toHaveTextContent("Det gick inte att lägga förslagen i förrådet. Försök igen.");
     expect(section().firstElementChild).toContainElement(alert);
     expect(cardNames()).toEqual(["gurka", "ketchup", "mjölk", "smör"]);
     await waitFor(() => expect(button("Bekräfta mjölk")).toHaveFocus());
@@ -344,7 +344,7 @@ describe("Bekräfta alla", () => {
     for (const saving of savingButtons) expect(saving).toBeDisabled();
     await answerConfirm(ok({ count: 4 }));
     expect(screen.queryByRole("region")).toBeNull();
-    expect(toast()).toHaveTextContent("Lagt 4 varor i lagret.");
+    expect(toast()).toHaveTextContent("Lagt 4 varor i förrådet.");
     await waitFor(() => expect(cameraButton()).toHaveFocus());
   });
 
@@ -589,7 +589,7 @@ describe("Review patches", () => {
     expect(lastConfirm().items).toHaveLength(3);
     await answerConfirm(ok({ count: 3 }));
     expect(cardNames()).toEqual(["ketchup"]);
-    expect(toast()).toHaveTextContent("Lagt 3 varor i lagret.");
+    expect(toast()).toHaveTextContent("Lagt 3 varor i förrådet.");
   });
 
   it("counts a confirmation without an answer in 30 s as failed, so the buttons work again", async () => {
@@ -658,7 +658,7 @@ describe("Story 6.5: labels and unsure suggestions", () => {
       [labelled.suggestions[0], labelled.suggestions[2], labelled.suggestions[3]].map(({ ingredient }) => ingredient),
     );
     await answerConfirm(ok({ count: 3 }));
-    expect(toast()).toHaveTextContent("Lagt 3 varor i lagret. 1 osäker vara är kvar att bekräfta eller rätta.");
+    expect(toast()).toHaveTextContent("Lagt 3 varor i förrådet. 1 osäker vara är kvar att bekräfta eller rätta.");
     expect(cardNames()).toEqual(["Gul flaska, troligen senap"]);
     await waitFor(() => expect(button("Bekräfta senap")).toHaveFocus());
     // Only the unsure card is left: Bekräfta alla has nothing to take.
@@ -684,7 +684,7 @@ describe("Story 6.5: labels and unsure suggestions", () => {
     await answerConfirm(ok({ count: 3 }));
     // The refused card is still there, but it is not one "Bekräfta alla" left as unsure.
     expect(cardNames()).toEqual(["Gul flaska, troligen senap"]);
-    expect(toast()).toHaveTextContent(/^Lagt 3 varor i lagret\.$/);
+    expect(toast()).toHaveTextContent(/^Lagt 3 varor i förrådet\.$/);
     await waitFor(() => expect(cameraButton()).toHaveFocus());
   });
 });

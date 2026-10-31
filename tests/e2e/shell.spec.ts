@@ -9,11 +9,11 @@ const surfaces = [
   { tab: "Recept", path: "/recept", title: "Recept", empty: "Inga recept än. Klistra in en länk till ett recept du gillar." },
   { tab: "Matsedel", path: "/matsedel", title: "Matsedel", empty: "Ingen rätt på matsedeln än." },
   { tab: "Inköpslista", path: "/lista", title: "Inköpslista", empty: "Lägg rätter på matsedeln så räknas listan fram." },
-  { tab: "Lagersaldo", path: "/hemma", title: "Lagersaldo", empty: "Inget i kylen än." },
+  { tab: "Förråd", path: "/hemma", title: "Förråd", empty: "Inget i kylen än." },
 ] as const;
 
-/** The tab bar's labels, in order (Story 10.4: Inköpslista and Lagersaldo). */
-const mainLabels = ["Recept", "Matsedel", "Inköpslista", "Lagersaldo"];
+/** The tab bar's labels, in order (Story 10.4: Inköpslista and Förråd). */
+const mainLabels = ["Recept", "Matsedel", "Inköpslista", "Förråd"];
 
 const mobile = { width: 390, height: 844 };
 const desktop = { width: 1280, height: 800 };
@@ -220,7 +220,7 @@ async function tabLabels(page: Page) {
   });
 }
 
-/** Opens Inköpslista and Lagersaldo, so each long label is measured while it is active (semibold). */
+/** Opens Inköpslista and Förråd, so each long label is measured while it is active (semibold). */
 async function measureActive(page: Page, rootFontSize?: string) {
   const measured = [];
   for (const path of ["/lista", "/hemma"]) {
@@ -233,16 +233,16 @@ async function measureActive(page: Page, rootFontSize?: string) {
 }
 
 test.describe("tab labels (Story 10.4)", () => {
-  test("Inköpslista and Lagersaldo fit on one line at 375 × 812, also active, and name their pages", async ({ page }) => {
+  test("Inköpslista and Förråd fit on one line at 375 × 812, also active, and name their pages", async ({ page }) => {
     await page.setViewportSize({ width: 375, height: 812 });
     const labels = await measureActive(page);
     expect(labels.map(({ name }) => name)).toEqual([...mainLabels, ...mainLabels]);
-    expect(labels.filter(({ active }) => active).map(({ name }) => name)).toEqual(["Inköpslista", "Lagersaldo"]);
+    expect(labels.filter(({ active }) => active).map(({ name }) => name)).toEqual(["Inköpslista", "Förråd"]);
     expect(labels.filter(({ fits, lines }) => !fits || lines !== 1)).toEqual([]);
     await page.goto("/lista");
     await expect(page).toHaveTitle("Inköpslista – Matkoll");
     await page.goto("/hemma");
-    await expect(page).toHaveTitle("Lagersaldo – Matkoll");
+    await expect(page).toHaveTitle("Förråd – Matkoll");
   });
 
   test("at 375 px with the root font size doubled every label fits its tab and stays clear of the safe area", async ({ page }) => {
@@ -257,7 +257,7 @@ test.describe("tab labels (Story 10.4)", () => {
     const labels = await measureActive(page);
     expect(labels.filter(({ fits, lines }) => !fits || lines > 2)).toEqual([]);
     expect(labels.filter(({ lines }) => lines === 2).map(({ name }) => name)).toEqual(
-      expect.arrayContaining(["Inköpslista", "Lagersaldo"]),
+      expect.arrayContaining(["Inköpslista"]),
     );
     // The tab bar itself never scrolls sideways, and keeps its height while everything fits.
     expect(await mainMenu(page).evaluate((nav) => nav.scrollWidth <= nav.clientWidth)).toBe(true);

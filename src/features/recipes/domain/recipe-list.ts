@@ -85,7 +85,7 @@ export function missingIngredientIds(rows: readonly RecipeListRow[], snapshot: P
  * status, and whether the pantry could not be read (pantry.getPantryForStatus
  * gave `null`), in which case no row has a status and Kan lagas nu cannot
  * rank them. `site` is the place the status was counted against, for the
- * line "Lager: Stugan" in Kan lagas nu (AD-24); `null` without a status, or
+ * line "Boende: Stugan" in Kan lagas nu (AD-24); `null` without a status, or
  * when the place could not be read.
  */
 export type RecipeLibrary = { recipes: RecipeListItem[]; pantryUnavailable: boolean; site: SelectedSite | null };

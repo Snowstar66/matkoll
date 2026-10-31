@@ -23,10 +23,10 @@ export type SearchFieldProps = {
   /**
    * The pause after the last keystroke, `searchDelayMs` by default; 0 calls
    * `onSearch` on every change, for a list that is already on the page
-   * (Lagersaldo, Story 11.3).
+   * (Förråd, Story 11.3).
    */
   delayMs?: number;
-  /** Whether the cross "Rensa sökning" shows while the field has text; false when the page offers its own (Lagersaldo without a match). */
+  /** Whether the cross "Rensa sökning" shows while the field has text; false when the page offers its own (Förråd without a match). */
   clearable?: boolean;
   /** The most characters the field takes, e.g. the action's limit. */
   maxLength?: number;

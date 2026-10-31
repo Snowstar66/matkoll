@@ -109,7 +109,7 @@ const pageActions = new Set<ErrorCode>([
 /** "Öppna inställningar", to the section Butik. */
 function SettingsLink() {
   return (
-    <Link href="/installningar" className={buttonClasses("text")}>
+    <Link href="/installningar/butiker" className={buttonClasses("text")}>
       Öppna inställningar
     </Link>
   );

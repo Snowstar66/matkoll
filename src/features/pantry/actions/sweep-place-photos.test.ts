@@ -26,7 +26,7 @@ beforeEach(() => {
 });
 
 describe("sweepPlacePhotos", () => {
-  it("sweeps with the session client and revalidates Lagersaldo when something went", async () => {
+  it("sweeps with the session client and revalidates Förråd when something went", async () => {
     expect(await sweepPlacePhotos()).toEqual(ok({ removed: 2, more: true }));
     expect(sweepPlacePhotosIn).toHaveBeenCalledWith(db);
     expect(revalidateFor).toHaveBeenCalledWith("pantry_photo");

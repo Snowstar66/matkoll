@@ -78,7 +78,7 @@ const places = (page: Page) => page.getByRole("navigation", { name: "Platser" })
 const card = (page: Page, name: "Kyl" | "Frys" | "Skafferi") => places(page).getByRole("link", { name: new RegExp(`^${name}`) });
 const rows = (page: Page) => page.getByTestId("pantry-row").filter({ visible: true });
 const heading = (page: Page, name: string) => page.getByRole("heading", { level: 2, name });
-/** A row added today, as Lagersaldo shows it (Story 14.6): the name alone, without "Tillagd …". */
+/** A row added today, as Förråd shows it (Story 14.6): the name alone, without "Tillagd …". */
 const today = (name: string) => new RegExp(`^${name}$`);
 
 async function expectChosen(page: Page, name: "Kyl" | "Frys" | "Skafferi") {
@@ -105,7 +105,7 @@ test.describe("on a phone", () => {
   test("shows the three location cards with counts, and Kyl's items under their categories", async ({ page }) => {
     const errors = watchErrors(page);
     await page.goto("/hemma");
-    await expect(page.getByRole("heading", { level: 1, name: "Lagersaldo" })).toBeVisible();
+    await expect(page.getByRole("heading", { level: 1, name: "Förråd" })).toBeVisible();
 
     await expect(card(page, "Kyl")).toHaveText(/^\S*Kyl\s*3 varor$/);
     await expect(card(page, "Frys")).toHaveText(/^\S*Frys\s*1 vara$/);
@@ -506,7 +506,7 @@ test.describe("removing an item", () => {
     expect(errors).toEqual([]);
   });
 
-  test("has a swipe row and no bin in Lagersaldo (Story 14.6)", async ({ page }) => {
+  test("has a swipe row and no bin in Förråd (Story 14.6)", async ({ page }) => {
     await page.goto("/hemma");
     await expect(page.getByTestId("swipe-row-front")).toHaveCount(3);
     await expect(page.locator("[data-trash-button]")).toHaveCount(0);

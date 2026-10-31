@@ -1,5 +1,6 @@
 import Link from "next/link";
 import type { ReactNode } from "react";
+import { cx } from "../cx";
 import { ChevronLeftIcon } from "../icons";
 
 export type PageHeaderProps = {
@@ -13,20 +14,27 @@ export type PageHeaderProps = {
    * iPad as on a phone.
    */
   backHref?: string;
+  /** The words of the back link when it is not "Tillbaka", e.g. "Inställningar" on a subpage (Story 14.7). */
+  backLabel?: string;
+  /** The back link is only for a phone: on a desktop the page above is beside this one (Story 14.7). */
+  backOnlyOnMobile?: boolean;
 };
 
 /** Sidrubrik: 34 px bold title with 56 px of air above it on mobile (more under a notch). */
-export function PageHeader({ title, action, backHref }: PageHeaderProps) {
+export function PageHeader({ title, action, backHref, backLabel = "Tillbaka", backOnlyOnMobile = false }: PageHeaderProps) {
   return (
     <header className="flex flex-col pt-[max(var(--header-top-mobile),calc(env(safe-area-inset-top)+12px))] pb-4 desktop:pt-10">
       {backHref ? (
         <Link
           href={backHref}
           scroll={false}
-          className="-mt-tap mb-1 -ml-2 flex min-h-tap min-w-tap items-center gap-1 self-start rounded-md px-2 text-body text-accent desktop:mt-0"
+          className={cx(
+            "-mt-tap mb-1 -ml-2 flex min-h-tap min-w-tap items-center gap-1 self-start rounded-md px-2 text-body text-accent desktop:mt-0",
+            backOnlyOnMobile && "desktop:hidden",
+          )}
         >
           <ChevronLeftIcon size={20} />
-          Tillbaka
+          {backLabel}
         </Link>
       ) : null}
       {/* The title takes the room the actions leave and wraps between its words there. Only

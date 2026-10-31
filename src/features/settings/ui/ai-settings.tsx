@@ -1,7 +1,8 @@
 "use client";
 
-import { useId, useState, useSyncExternalStore, useTransition } from "react";
+import { type KeyboardEvent, useId, useRef, useState, useSyncExternalStore, useTransition } from "react";
 import { FilterPills, type FilterOption } from "@/components/filter-pills";
+import { ListGroup } from "@/components/list-group";
 import { Notice } from "@/components/notice";
 import { useToast } from "@/components/toast";
 import { errorMessages, fail, type Result } from "@/lib/errors";
@@ -12,7 +13,7 @@ import {
   aiProviderLabels,
   claudeKeyMissingText,
   claudeModels,
-  costSummaryText,
+  costPerCallText,
   defaultClaudeLevel,
   defaultClaudeModel,
   levelOffForQwenText,
@@ -99,91 +100,132 @@ export function AiSettings({ view }: AiSettingsProps) {
     { value: "lmstudio", label: aiProviderLabels.lmstudio, disabled: !view.qwenAvailable },
     { value: "anthropic", label: aiProviderLabels.anthropic, disabled: !view.claudeAvailable },
   ];
-  const modelOptions: FilterOption<ClaudeModelId>[] = claudeModels.map((candidate) => ({
-    value: candidate.id,
-    label: candidate.label,
-  }));
   const busy = !hydrated || pending;
   const claude = provider === "anthropic";
 
   return (
-    <section id="ai" aria-labelledby={headingId} className="flex flex-col gap-3">
-      <h2 id={headingId} className="text-section-label text-ink-2">
+    <section aria-labelledby={headingId} className="flex flex-col gap-5" data-testid="ai-settings">
+      <h2 id={headingId} className="sr-only">
         AI
       </h2>
       {error ? <Notice role="alert">{error}</Notice> : null}
-      <div data-testid="ai-settings" className="flex flex-col gap-4 rounded-lg bg-surface p-4">
-        <div className="flex flex-col gap-2">
-          <p className="text-meta font-semibold text-ink-2">Leverantör</p>
-          <FilterPills
-            segmented
-            label="Leverantör"
-            options={providerOptions}
-            value={provider}
-            disabled={busy}
-            onChange={(value) => save({ provider: value, model, level })}
-          />
-          {!view.claudeAvailable ? (
-            <p data-testid="ai-claude-missing" className="text-meta text-ink-2">
-              {claudeKeyMissingText}
-            </p>
-          ) : null}
-          {!view.qwenAvailable ? <p className="text-meta text-ink-2">{qwenUnavailableText}</p> : null}
-          {view.isDefault ? (
-            <p data-testid="ai-default-note" className="text-meta text-ink-2">
-              Standard just nu: {view.effective ? "Claude Haiku 5.5, Medel" : view.defaultText}. Ditt val sparas när du ändrar.
-            </p>
-          ) : null}
-        </div>
+      <div className="flex flex-col gap-2">
+        <p className="px-1 text-section-label text-ink-2">Leverantör</p>
+        <FilterPills
+          segmented
+          label="Leverantör"
+          options={providerOptions}
+          value={provider}
+          disabled={busy}
+          onChange={(value) => save({ provider: value, model, level })}
+          className="h-9 w-full [&>button]:flex-1"
+        />
+        {!view.claudeAvailable ? (
+          <p data-testid="ai-claude-missing" className="px-1 text-meta text-ink-3">
+            {claudeKeyMissingText}
+          </p>
+        ) : null}
+        {!view.qwenAvailable ? <p className="px-1 text-meta text-ink-3">{qwenUnavailableText}</p> : null}
+        {view.isDefault ? (
+          <p data-testid="ai-default-note" className="px-1 text-meta text-ink-3">
+            Standard just nu: {view.effective ? "Claude Haiku 5.5, Medel" : view.defaultText}. Ditt val sparas när du ändrar.
+          </p>
+        ) : null}
+      </div>
 
+      <div className="flex flex-col gap-2">
+        <p className="px-1 text-section-label text-ink-2">Modell</p>
         {provider === "lmstudio" ? (
-          <div className="flex flex-col gap-1">
-            <p className="text-meta font-semibold text-ink-2">Modell</p>
-            <p className="text-body break-all text-ink">{view.qwenModel}</p>
-          </div>
-        ) : null}
+          <ListGroup label="Modell">
+            <li className="flex min-h-14 flex-col justify-center px-4 py-2">
+              <span className="text-body break-all text-ink">{view.qwenModel}</span>
+            </li>
+          </ListGroup>
+        ) : (
+          <ModelChoice model={model} disabled={busy} onChange={(value) => save({ provider, model: value, level })} />
+        )}
+      </div>
 
-        {claude ? (
-          <div className="flex flex-col gap-2">
-            <p className="text-meta font-semibold text-ink-2">Modell</p>
-            <FilterPills
-              segmented
-              label="Modell"
-              options={modelOptions}
-              value={model}
-              disabled={busy}
-              onChange={(value) => save({ provider, model: value, level })}
-            />
-            <ul className="flex flex-col gap-1" aria-label="Ungefärlig kostnad per anrop">
-              {claudeModels.map((candidate) => (
-                <li
-                  key={candidate.id}
-                  className={candidate.id === model ? "text-meta text-ink" : "text-meta text-ink-3"}
-                >
-                  <span className="font-semibold">{candidate.label}</span>: {costSummaryText(candidate)}
-                </li>
-              ))}
-            </ul>
-          </div>
-        ) : null}
-
-        <div className="flex flex-col gap-2">
-          <p className="text-meta font-semibold text-ink-2">Nivå</p>
-          <FilterPills
-            segmented
-            label="Nivå"
-            options={levelOptions}
-            value={level}
-            disabled={busy || !claude}
-            onChange={(value) => save({ provider, model, level: value })}
-          />
-          {!claude ? (
-            <p id={noteId} className="text-meta text-ink-2">
-              {levelOffForQwenText}
-            </p>
-          ) : null}
-        </div>
+      <div className="flex flex-col gap-2">
+        <p className="px-1 text-section-label text-ink-2">Nivå</p>
+        <FilterPills
+          segmented
+          label="Nivå"
+          options={levelOptions}
+          value={level}
+          disabled={busy || !claude}
+          onChange={(value) => save({ provider, model, level: value })}
+          className="h-9 w-full [&>button]:flex-1"
+        />
+        <p id={noteId} className="px-1 text-meta text-ink-3">
+          {claude ? "Högre nivå tänker längre: bättre svar men långsammare och lite dyrare." : levelOffForQwenText}
+        </p>
       </div>
     </section>
+  );
+}
+
+/** The Claude models as rows with a check on the chosen one (a radio group; the arrow keys move the choice). */
+function ModelChoice({
+  model,
+  disabled,
+  onChange,
+}: {
+  model: ClaudeModelId;
+  disabled: boolean;
+  onChange: (model: ClaudeModelId) => void;
+}) {
+  const refs = useRef<(HTMLButtonElement | null)[]>([]);
+  const baseId = useId();
+
+  function onKeyDown(event: KeyboardEvent<HTMLButtonElement>, index: number) {
+    const step = { ArrowDown: 1, ArrowRight: 1, ArrowUp: -1, ArrowLeft: -1 }[event.key];
+    if (!step) return;
+    event.preventDefault();
+    const next = (index + step + claudeModels.length) % claudeModels.length;
+    refs.current[next]?.focus();
+    onChange(claudeModels[next].id);
+  }
+
+  return (
+    <ListGroup label="Modell">
+      <li role="none">
+        <div role="radiogroup" aria-label="Modell" className="flex flex-col divide-y divide-hairline">
+          {claudeModels.map((candidate, index) => {
+            const chosen = candidate.id === model;
+            return (
+              <button
+                key={candidate.id}
+                ref={(element) => {
+                  refs.current[index] = element;
+                }}
+                type="button"
+                role="radio"
+                aria-checked={chosen}
+                aria-labelledby={`${baseId}-${candidate.id}-name`}
+                aria-describedby={`${baseId}-${candidate.id}-note`}
+                tabIndex={chosen ? 0 : -1}
+                disabled={disabled}
+                onClick={() => !chosen && onChange(candidate.id)}
+                onKeyDown={(event) => onKeyDown(event, index)}
+                className="flex min-h-14 items-center gap-3 px-4 py-2 text-left focus-visible:-outline-offset-2 disabled:cursor-not-allowed disabled:opacity-60"
+              >
+                <span className="flex min-w-0 flex-1 flex-col">
+                  <span id={`${baseId}-${candidate.id}-name`} className="text-body text-ink">
+                    {candidate.label}
+                  </span>
+                  <span id={`${baseId}-${candidate.id}-note`} className="text-meta text-ink-3">
+                    {candidate.note} · {costPerCallText(candidate, "import")}
+                  </span>
+                </span>
+                <span aria-hidden="true" className="w-5 text-center text-row-title text-accent">
+                  {chosen ? "✓" : ""}
+                </span>
+              </button>
+            );
+          })}
+        </div>
+      </li>
+    </ListGroup>
   );
 }

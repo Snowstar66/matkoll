@@ -33,8 +33,8 @@ import { focusIsFree } from "./use-pantry-analysis";
 // when a photo matches the place, Story 6.4), and the camera button takes focus back
 // (unless Pontus has moved on, e.g. into the sheet); the rest of Hemma keeps
 // working. Story 8.4: a photo is taken for the place Hemma shows; when that
-// place is gone, the area says so ("Stället finns inte längre. Välj ett annat
-// ställe.", without "Försök igen") and the page is read again.
+// place is gone, the area says so ("Boendet finns inte längre. Välj ett annat
+// boende.", without "Försök igen") and the page is read again.
 
 export type PantryCameraProps = {
   /** The place Hemma shows (Story 8.4): a new photo is taken for it, and its suggestions stay with it. */

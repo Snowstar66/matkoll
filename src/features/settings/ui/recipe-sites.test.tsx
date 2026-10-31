@@ -88,9 +88,9 @@ describe("RecipeSites", () => {
   it("keeps the typed text when adding gets no answer", async () => {
     addRecipeSite.mockRejectedValue(new TypeError("Failed to fetch"));
     renderSites();
-    await userEvent.type(screen.getByLabelText("Ny receptsajt"), "ica.se");
+    await userEvent.type(screen.getByLabelText(/ny receptsajt/i), "ica.se");
     await userEvent.click(screen.getByRole("button", { name: "Lägg till" }));
     expect(await screen.findByRole("alert")).toHaveTextContent("Det gick inte att spara ändringen. Försök igen.");
-    expect(screen.getByLabelText("Ny receptsajt")).toHaveValue("ica.se");
+    expect(screen.getByLabelText(/ny receptsajt/i)).toHaveValue("ica.se");
   });
 });

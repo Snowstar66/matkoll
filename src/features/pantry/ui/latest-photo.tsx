@@ -29,7 +29,7 @@ import { AnalyzedPhotoSheet, badgeClasses } from "./analyzed-photo";
 import { usePantrySuggestions } from "./pantry-suggestions";
 
 // Senaste foto (Story 10.2, FR-38, FR-39, UX-DR21, UX-DR22): centred directly
-// under the camera button, when the chosen location on the place Lagersaldo
+// under the camera button, when the chosen location on the place Förråd
 // shows has a photo younger than 30 days, the line "Senaste foto av kylen:
 // idag 15:42 · Visa" in meta type, as in the Epic 11 mockup (lagersaldo.html).
 // No thumbnail, and nothing is fetched before "Visa": the photo sheet of
@@ -66,7 +66,7 @@ import { usePantrySuggestions } from "./pantry-suggestions";
 export type ShownPlacePhoto = PlacePhoto & { time: string };
 
 export type LatestPhotoProps = {
-  /** The latest photo of the chosen location on the place Lagersaldo shows, or `null` for none: no line. */
+  /** The latest photo of the chosen location on the place Förråd shows, or `null` for none: no line. */
   photo: ShownPlacePhoto | null;
   /** The chosen location. */
   location: Location;
@@ -227,7 +227,7 @@ export function LatestPhoto({ photo, location }: LatestPhotoProps) {
             <div className="flex flex-col gap-2 pt-5">
               {sheetPhoto.reading.length > 0 ? (
                 <>
-                  {/* A section label, as over Lagersaldo's categories (Epic 11). */}
+                  {/* A section label, as over Förråd's categories (Epic 11). */}
                   <h3 id={readingHeadingId} className="px-1 text-section-label text-ink-2">
                     {photoReadingHeading}
                   </h3>

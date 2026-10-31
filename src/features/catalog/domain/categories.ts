@@ -2,7 +2,7 @@ import { z } from "zod";
 import { normalizeIngredientText } from "./normalize";
 import { type Section, simplifyLabel, toSection } from "./sections";
 
-// Display categories (Epic 11, AD-12): how Lagersaldo and Inköpslista group
+// Display categories (Epic 11, AD-12): how Förråd and Inköpslista group
 // items under a heading with an icon. A category is worked out from the
 // item's store section and name every time it is shown and is never stored;
 // AI schemas, prompts and the export still use the sections.

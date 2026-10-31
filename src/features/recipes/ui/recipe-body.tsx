@@ -27,7 +27,7 @@ export type RecipeBodyProps = {
    * could not be read: no badge, marks or "X av Y hemma" then.
    */
   snapshot: PantrySnapshot | null;
-  /** The place the snapshot is of: "Lager: Stugan" under "X av Y hemma" with more than one place. */
+  /** The place the snapshot is of: "Boende: Stugan" under "X av Y hemma" with more than one place. */
   site?: SelectedSite | null;
   /** mealplan.addToCurrentPlan from the page (AD-1): "Lägg på matsedeln" pinned to the bottom. */
   addToPlan?: AddToPlan;

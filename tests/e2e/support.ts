@@ -56,7 +56,7 @@ export const mealplanEmail = "e2e-matsedel@matkoll.test";
  */
 export const shoppingEmail = "e2e-lista@matkoll.test";
 /**
- * The E2E user of put-in-pantry.spec.ts alone ("Lägg i lagret", Story 3.7):
+ * The E2E user of put-in-pantry.spec.ts alone ("Lägg i förrådet", Story 3.7):
  * each test makes its recipe, meal plan, own items and pantry with the
  * service role, so what goes to the pantry depends on nothing else.
  */
@@ -186,7 +186,7 @@ export const recipesLookEmail = "e2e-utseende-recept@matkoll.test";
  */
 export const shoppingLookEmail = "e2e-utseende-lista@matkoll.test";
 /**
- * The E2E user of pantry-look.spec.ts alone (Lagersaldo in the new look,
+ * The E2E user of pantry-look.spec.ts alone (Förråd in the new look,
  * Story 11.3): each test seeds its catalog and pantry, with brands and the
  * times the items were added, with the service role.
  */
@@ -216,7 +216,7 @@ export const coreFlowEmail = "e2e-karna@matkoll.test";
 export const appInstallEmail = "e2e-utseende-app@matkoll.test";
 /**
  * The E2E user of ai-warm.spec.ts alone (Story 12.2): it only opens
- * Lagersaldo and Recept and watches the warm-ups, which are counted per user
+ * Förråd and Recept and watches the warm-ups, which are counted per user
  * on the server.
  */
 export const aiWarmEmail = "e2e-ai-varm@matkoll.test";

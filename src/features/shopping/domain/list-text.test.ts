@@ -86,14 +86,14 @@ describe("list texts", () => {
     expect(lineMetaText(line({ origins: ["d1"] }), titles, null)).toBe("Korv stroganoff");
     expect(lineMetaText(line({ origins: ["d1", "d2", "d3"] }), titles, null)).toBe("Korv stroganoff · Kycklinggryta");
     expect(lineMetaText(line({ origins: [], isCustom: true }), titles, "Stugan")).toBe("Egen vara");
-    expect(lineMetaText(line({ origins: ["d1"], isVague: true }), titles, null)).toBe("Saknas i lagret · Korv stroganoff");
+    expect(lineMetaText(line({ origins: ["d1"], isVague: true }), titles, null)).toBe("Saknas i förrådet · Korv stroganoff");
     expect(lineMetaText(line({ origins: ["d1"], isVague: true }), titles, "Stugan")).toBe("Saknas i Stugan · Korv stroganoff");
-    expect(lineMetaText(line({ origins: ["okänd"], isVague: true }), titles, null)).toBe("Saknas i lagret");
+    expect(lineMetaText(line({ origins: ["okänd"], isVague: true }), titles, null)).toBe("Saknas i förrådet");
     expect(lineMetaText(line({ origins: ["okänd"] }), titles, null)).toBeNull();
     // The pantry could not be read: nothing is known to be missing.
     expect(lineMetaText(line({ origins: ["d1"], isVague: true }), titles, "Stugan", false)).toBe("Korv stroganoff");
     expect(lineMetaText(line({ origins: [], isVague: true }), titles, null, false)).toBeNull();
-    expect(missingText(null)).toBe("Saknas i lagret");
+    expect(missingText(null)).toBe("Saknas i förrådet");
     expect(missingText("Stugan")).toBe("Saknas i Stugan");
     expect(missingText("Stugan", false)).toBeNull();
   });
@@ -126,9 +126,9 @@ describe("list texts", () => {
 
   it("says everything is in stock, naming the place only when there is a name to show", () => {
     expect(allInStockText(null)).toBe("Allt finns hemma.");
-    expect(allInStockText("Stugan")).toBe("Allt finns i lagret för Stugan.");
+    expect(allInStockText("Stugan")).toBe("Allt finns i förrådet för Stugan.");
     // Without inflection, so Hemma reads the same way with several places.
-    expect(allInStockText("Hemma")).toBe("Allt finns i lagret för Hemma.");
+    expect(allInStockText("Hemma")).toBe("Allt finns i förrådet för Hemma.");
   });
 
   it("names the dishes a line comes from, each title once", () => {
@@ -143,7 +143,7 @@ describe("list texts", () => {
     expect(lineAmountText(line({ amount: 3, unit: "dl" }))).toBe("3 dl");
     expect(lineAmountText(line({ amount: 1.25, unit: "dl" }))).toBe("1,25 dl");
     expect(lineAmountText(line({ amount: 2, unit: "dl", pantryNote: "hemma: 1 kg" }))).toBe("2 dl (hemma: 1 kg)");
-    // Story 11.4: no "Finns hemma?"; the line under it says "Saknas i lagret".
+    // Story 11.4: no "Finns hemma?"; the line under it says "Saknas i förrådet".
     expect(lineAmountText(line({ amount: null, unit: null, isVague: true }))).toBe("");
     expect(lineAmountText(line({ amount: null, unit: null, coverage: { kind: "unlinked" } }))).toBe("");
     expect(lineAmountText(line({ amount: null, unit: null, coverage: { kind: "unlinked" }, multiplier: 2 }))).toBe("×2");
@@ -241,24 +241,24 @@ describe("a correction whose counted amount has changed, and Dolda varor (Story 
 
 describe("siteGoneText", () => {
   it("says the list is counted again, against the place selected now when there are more than one", () => {
-    expect(siteGoneText("Hemma")).toBe("Stället finns inte längre. Listan har räknats om mot Hemma. Tryck Lägg i lagret igen.");
-    expect(siteGoneText(null)).toBe("Stället finns inte längre. Listan har räknats om. Tryck Lägg i lagret igen.");
+    expect(siteGoneText("Hemma")).toBe("Boendet finns inte längre. Listan har räknats om mot Hemma. Tryck Lägg i förrådet igen.");
+    expect(siteGoneText(null)).toBe("Boendet finns inte längre. Listan har räknats om. Tryck Lägg i förrådet igen.");
   });
 });
 
 describe("putInPantryText", () => {
   it("says how many items went to the pantry, else how many were taken off the list", () => {
-    expect(putInPantryText(8, 0)).toBe("Lagt 8 varor i lagret.");
-    expect(putInPantryText(1, 3)).toBe("Lagt 1 vara i lagret.");
+    expect(putInPantryText(8, 0)).toBe("Lagt 8 varor i förrådet.");
+    expect(putInPantryText(1, 3)).toBe("Lagt 1 vara i förrådet.");
     expect(putInPantryText(0, 1)).toBe("Tog bort 1 vara från listan.");
     expect(putInPantryText(0, 2)).toBe("Tog bort 2 varor från listan.");
     expect(putInPantryText(0, 0)).toBeNull();
   });
 
   it("names the place the items went to, with more than one place", () => {
-    expect(putInPantryText(8, 0, "Stugan")).toBe("Lagt 8 varor i lagret för Stugan.");
-    expect(putInPantryText(1, 2, "Stugan")).toBe("Lagt 1 vara i lagret för Stugan.");
-    expect(putInPantryText(8, 0, null)).toBe("Lagt 8 varor i lagret.");
+    expect(putInPantryText(8, 0, "Stugan")).toBe("Lagt 8 varor i förrådet för Stugan.");
+    expect(putInPantryText(1, 2, "Stugan")).toBe("Lagt 1 vara i förrådet för Stugan.");
+    expect(putInPantryText(8, 0, null)).toBe("Lagt 8 varor i förrådet.");
     expect(putInPantryText(0, 2, "Stugan")).toBe("Tog bort 2 varor från listan.");
   });
 });

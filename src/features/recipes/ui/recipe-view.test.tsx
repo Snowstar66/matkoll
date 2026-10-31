@@ -146,7 +146,7 @@ describe("RecipeView", () => {
     expect(screen.getByText("Kan lagas nu")).toHaveClass("bg-mint", "text-mint-ink");
     // Chicken, red onion and salt: the spinach has no catalog ingredient.
     expect(atHome()).toHaveTextContent(/^3 av 3 hemma$/);
-    expect(marks()).toEqual(["finns hemma", "finns hemma", "jämförs inte med lagret", "finns hemma"]);
+    expect(marks()).toEqual(["finns hemma", "finns hemma", "jämförs inte med förrådet", "finns hemma"]);
     expect(within(rows()[0]).getByText("600 g")).toHaveClass("text-ink-2");
   });
 
@@ -159,7 +159,7 @@ describe("RecipeView", () => {
     expect(within(rows()[2]).queryByText("Saknas")).not.toBeInTheDocument();
     // The salt is not at home either, so none of the three is.
     expect(atHome()).toHaveTextContent(/^0 av 3 hemma$/);
-    expect(marks()).toEqual(["saknas", "saknas", "jämförs inte med lagret", "saknas"]);
+    expect(marks()).toEqual(["saknas", "saknas", "jämförs inte med förrådet", "saknas"]);
     expect(within(rows()[0]).getByText("600 g")).toHaveClass("text-sky-ink");
     expect(within(rows()[0]).getByText("hemma: 1 kg")).toBeInTheDocument();
     expect(within(rows()[1]).getByText("1 st")).toHaveClass("text-sky-ink");
@@ -231,7 +231,7 @@ describe("RecipeView", () => {
     render(<RecipeView recipe={{ ...recipe, lines: unlinked }} snapshot={allHome} />);
     expect(screen.getByText("Kan lagas nu")).toBeInTheDocument();
     expect(atHome()).not.toBeInTheDocument();
-    expect(marks()).toEqual(["jämförs inte med lagret", "jämförs inte med lagret"]);
+    expect(marks()).toEqual(["jämförs inte med förrådet", "jämförs inte med förrådet"]);
   });
 
   it("shows the recipe without badge, marks or X av Y hemma when the pantry could not be read, and still scales it", async () => {
@@ -253,7 +253,7 @@ describe("RecipeView", () => {
   it("says which place the status is counted against under X av Y hemma, outside the live region", () => {
     const stugan = { id: "55555555-5555-4555-8555-555555555555", name: "Stugan", siteCount: 2 };
     render(<RecipeView recipe={recipe} snapshot={allHome} site={stugan} />);
-    const siteLine = screen.getByText("Lager: Stugan");
+    const siteLine = screen.getByText("Boende: Stugan");
     expect(siteLine.tagName).toBe("P");
     expect(siteLine).toHaveClass("text-meta", "text-ink-2");
     expect(siteLine.closest("[aria-live]")).toBeNull();
@@ -264,10 +264,10 @@ describe("RecipeView", () => {
   it("has no line with one place, or without a status", () => {
     const hemma = { id: "55555555-5555-4555-8555-555555555555", name: "Hemma", siteCount: 1 };
     const { unmount } = render(<RecipeView recipe={recipe} snapshot={allHome} site={hemma} />);
-    expect(screen.queryByText(/^Lager:/)).not.toBeInTheDocument();
+    expect(screen.queryByText(/^Boende:/)).not.toBeInTheDocument();
     unmount();
     render(<RecipeView recipe={recipe} snapshot={null} site={{ ...hemma, name: "Stugan", siteCount: 2 }} />);
-    expect(screen.queryByText(/^Lager:/)).not.toBeInTheDocument();
+    expect(screen.queryByText(/^Boende:/)).not.toBeInTheDocument();
   });
 
   it("numbers the steps", () => {
@@ -312,7 +312,7 @@ describe("RecipeView: the portion selector", () => {
     for (let i = 0; i < 4; i++) await user.click(stepper.more());
     expect(stepper.value()).toHaveTextContent("8 portioner");
     expect(rows()[2]).toHaveTextContent(/^2 nävar spenat×2$/);
-    expect(within(rows()[2]).getByRole("img")).toHaveAccessibleName("jämförs inte med lagret");
+    expect(within(rows()[2]).getByRole("img")).toHaveAccessibleName("jämförs inte med förrådet");
     expect(rows()[3]).toHaveTextContent(/^salt och peppar$/);
 
     await user.click(stepper.fewer());

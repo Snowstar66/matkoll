@@ -18,17 +18,17 @@ const routesByTable = {
     { path: "/matsedel", type: "layout" },
     { path: "/lista", type: "page" },
   ],
-  // The list of approved recipe sites in Inställningar. Import reads the sites
+  // The list of approved recipe sites in Inställningar (Story 14.7: layout level, since the start page's values and the pages beneath it show them). Import reads the sites
   // on every request, so it needs nothing here.
-  recipe_site: [{ path: "/installningar", type: "page" }],
+  recipe_site: [{ path: "/installningar", type: "layout" }],
   // The choice of AI in Inställningar (Story 17.5). Jobs read it on every run.
-  ai_setting: [{ path: "/installningar", type: "page" }],
+  ai_setting: [{ path: "/installningar", type: "layout" }],
   // The stores in Inställningar, and the shopping list, which shows the
   // selected store's product choices and exports to it (Stories 7.2, 7.3).
   // The weekly offers follow the selected store (Story 9.1, AD-25): the list
   // and the meal plan show them.
   store: [
-    { path: "/installningar", type: "page" },
+    { path: "/installningar", type: "layout" },
     { path: "/lista", type: "page" },
     { path: "/matsedel", type: "layout" },
   ],
@@ -59,6 +59,8 @@ const routesByTable = {
     { path: "/recept", type: "layout" },
     { path: "/matsedel", type: "layout" },
     { path: "/lista", type: "page" },
+    // Story 14.7: Boenden under Inställningar, and the start page's value for them.
+    { path: "/installningar", type: "layout" },
   ],
   // The latest photo of each place (Epic 10, AD-26); only Hemma shows it.
   pantry_photo: [{ path: "/hemma", type: "page" }],

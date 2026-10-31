@@ -75,7 +75,7 @@ export function ProductChoiceSection({ line, context, onOpen, disabled = false, 
     body = (
       <div className="flex flex-col items-start gap-1">
         <p className="text-body text-ink-2">{noStoreText}</p>
-        <Link href="/installningar" className={cx(buttonClasses("text"), "-ml-3")}>
+        <Link href="/installningar/butiker" className={cx(buttonClasses("text"), "-ml-3")}>
           {openSettingsText}
         </Link>
       </div>
