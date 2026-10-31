@@ -16,7 +16,7 @@ import { WarmAi } from "../../../../warm-ai";
 export const metadata: Metadata = { title: "Förråd" };
 
 // A room in Förråd (Epic 18, Story 18.12), at /prylar/rum/<boende>/<room>: the
-// summary, "Ta fler kort", and Prylar or Kort. The room is the distinct room of
+// summary, the buttons "Ta foto" and "Välj från Bilder", and Prylar or Kort. The room is the distinct room of
 // the boende's places (its key is in the address). An id that is not a uuid, or a
 // room the user does not have, is "Sidan finns inte." The address and the
 // session are read inside <Suspense> (AD-18).
@@ -70,7 +70,7 @@ async function RoomContent({ params, searchParams }: Pick<PageProps<"/prylar/rum
     );
   }
 
-  const { summary, categories, cards, places, written, clearCounts } = page;
+  const { summary, categories, cards, places, written, clearCounts, placeCounts } = page;
   const parent = places.find((place) => place.kind === "part" && place.part === null) ?? places.find((place) => place.kind === "part") ?? null;
   const box = typeof fota === "string" ? places.find((place) => place.id === fota && place.kind === "box") : undefined;
   return (
@@ -93,6 +93,9 @@ async function RoomContent({ params, searchParams }: Pick<PageProps<"/prylar/rum
         initialView={parseRoomView(typeof vy === "string" ? vy : null)}
         placeIds={places.map((place) => place.id)}
         boxes={places.filter((place) => place.kind === "box").map((place) => ({ id: place.id, part: place.part }))}
+        parts={places.filter((place) => place.kind === "part" && place.part !== null).map((place) => ({ id: place.id, part: place.part ?? "" }))}
+        placeCounts={placeCounts}
+        placeTotal={places.length}
       />
     </>
   );

@@ -714,6 +714,12 @@ isOneToOne: false
         isOneToOne: false
         isSetofReturn: true
       } },
+"remove_thing_place":
+{ Args: { "place": string }; Returns: Json
+                           },
+"rename_thing_room":
+{ Args: { "in_room": string,"new_key": string,"new_name": string,"site": string }; Returns: Json
+                           },
 "replace_box_things":
 { Args: { "box": string,"things": Json }; Returns: number
                            },
@@ -910,9 +916,19 @@ isOneToOne: false
               "boxes": number,"cards": number,"things": number
             }[]
                            },
+"thing_place_counts":
+{ Args: { "in_room": string,"site": string }; Returns: {
+              "cards": number,"place_id": string,"things": number
+            }[]
+                           },
 "thing_room_categories":
 { Args: { "in_room": string,"site": string }; Returns: {
               "category": string,"things": number
+            }[]
+                           },
+"thing_room_merge_moves":
+{ Args: { "in_room": string,"new_key": string,"site": string }; Returns: {
+              "from_path": string,"photo": string,"to_path": string
             }[]
                            },
 "thing_room_stats":

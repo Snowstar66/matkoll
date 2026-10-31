@@ -41,7 +41,7 @@ export function UploadCardRow({ placeId, title }: { placeId: string; title: stri
         {state.kind === "sent" ? <p className="text-body text-ink">{sentText(state.count)}</p> : null}
       </div>
       {state.kind === "error" ? <Notice role="alert">{errorMessages[state.error.code]}</Notice> : null}
-      <input ref={input} type="file" accept="image/*" multiple capture={touch ? "environment" : undefined} tabIndex={-1} aria-hidden="true" className="sr-only" onChange={onChosen} />
+      <input ref={input} type="file" accept="image/*,.heic,.heif" multiple capture={touch ? "environment" : undefined} tabIndex={-1} aria-hidden="true" className="sr-only" onChange={onChosen} />
     </div>
   );
 }

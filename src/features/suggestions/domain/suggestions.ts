@@ -24,6 +24,8 @@ export const suggestRequestSchema = z.strictObject({
   /** Story 9.13: the store whose offers `offers` mode builds on; left out, the selected store (Story 9.14: the sheet sends it with two or more stores). */
   storeId: z.guid().optional(),
   avoidTitles: z.array(avoidTitleSchema).max(suggestInputLimits.maxAvoidTitles).default([]),
+  /** Story 16.13: "Ät det här först" from Matvaror: every dish is built around what has lain long at home. */
+  eatFirst: z.boolean().optional(),
 });
 export type SuggestRequest = z.infer<typeof suggestRequestSchema>;
 
@@ -45,6 +47,8 @@ export const dishSuggestionsSchema = z.object({
         atHome: z.object({ have: z.number().int().min(0), total: z.number().int().min(0) }).nullable().default(null),
         /** Story 16.2: the lines to buy (not at home, not on offer, no trivial staples), by name; empty for pantry suggestions. */
         toBuy: z.array(z.string().max(100)).max(30).default([]),
+        /** Story 16.13: the old pantry items the dish uses, with the days since they were added; empty for none. */
+        oldUsed: z.array(z.object({ name: z.string().max(100), days: z.number().int().min(1) })).max(8).default([]),
       }),
     )
     .min(1)
@@ -57,7 +61,7 @@ export const dishSuggestionsSchema = z.object({
 export type DishSuggestions = z.infer<typeof dishSuggestionsSchema>;
 type DishSuggestionOut = DishSuggestions["suggestions"][number];
 /** A suggestion as the UI holds it: `onOffer` and `atHome` may be left out (none). */
-export type DishSuggestion = Omit<DishSuggestionOut, "onOffer" | "atHome" | "toBuy"> & Partial<Pick<DishSuggestionOut, "onOffer" | "atHome" | "toBuy">>;
+export type DishSuggestion = Omit<DishSuggestionOut, "onOffer" | "atHome" | "toBuy" | "oldUsed"> & Partial<Pick<DishSuggestionOut, "onOffer" | "atHome" | "toBuy" | "oldUsed">>;
 
 /**
  * The titles the client sends to avoid, from the most wanted: cleaned like

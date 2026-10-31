@@ -3987,6 +3987,44 @@ Beslut 2026-10-31 (Pontus): rättelser hålls knutna till kortet; rensa rum och 
 **När** något rensas
 **Så** tas även bildfilerna bort, allt sker för den inloggade användaren bara (radskydd, isoleringstest), och ändringen av prylar knutna till kort är bakåtkompatibel
 
+### Story 18.16: Lägga till bilder enkelt
+
+Som Pontus,
+vill jag tydligt kunna fota eller välja bilder från Bilder, och rätta rum och delar som blev fel,
+så att det inte är stökigt att fylla Förrådet.
+
+Beslut 2026-10-31 (Pontus): byggs före 17.9.
+
+**Acceptance Criteria:**
+
+**Givet** arket "Var tar du kortet?" (från Förrådets startsida och rumssidan)
+**När** det öppnas
+**Så** visas rummet överst (senast använda förvalt, "+ Nytt rum", "Mer exakt plats (valfritt)") och därunder två lika stora, tydliga knappar sida vid sida: "📷 Ta foto" (öppnar kameran på telefon; på dator samma som nästa) och "🖼️ Välj från Bilder" (bildbiblioteket på iPhone, filfönstret på dator där Bilder finns i sidofältet; flera bilder på en gång)
+
+**Givet** rumssidan
+**När** jag ser den
+**Så** finns samma två knappar direkt på sidan i stället för raden "Ta fler kort" (rummet är redan valt), med "Senaste kort 31 okt" som metatext
+
+**Givet** en HEIC-bild (iPhone) i en webbläsare som inte kan läsa HEIC (t.ex. Chrome på Mac)
+**När** jag väljer den
+**Så** görs den om till JPEG i webbläsaren innan den skalas ner och laddas upp, och kortet läses som vanligt; misslyckas omvandlingen står ett lugnt fel per bild
+
+**Givet** ⋯ på ett rum
+**När** jag väljer "Byt namn på rummet"
+**Så** kan jag ge rummet ett nytt namn (finns namnet redan i boendet slås rummen ihop efter en fråga)
+
+**Givet** en del eller låda i ett rum (i listan "Lådor"/delar och i vyn Kort)
+**När** jag öppnar dess ⋯
+**Så** kan jag byta namn eller ta bort den; ta bort frågar först, visar vad som försvinner (kort och prylar) och tar bort delen med dess kort, bilder och prylar
+
+**Givet** ett kort i vyn Kort som "Kunde inte läsas" eller har fastnat i läsningen
+**När** jag ser det
+**Så** har det både "Försök igen" och "Ta bort" (samma borttagning med "Ångra" som ett färdigt kort)
+
+**Givet** mörkt läge, 375 px och 200 % text
+**När** jag ser arket och rumssidan
+**Så** finns ingen sidledes rullning och alla mål är minst 44 px
+
 ### Story 18.17: Ett fält – sök eller fråga
 
 Som Pontus,
