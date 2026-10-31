@@ -38,7 +38,7 @@ const next = "/lista";
 export async function ShoppingListContent({
   searchParams,
 }: { searchParams?: Promise<{ vecka?: string | string[] }> } = {}) {
-  await requireUserOrRedirect(next);
+  const user = await requireUserOrRedirect(next);
   const vecka = (await searchParams)?.vecka;
   const now = new Date();
   const weekStart = viewedWeek(Array.isArray(vecka) ? vecka[0] : vecka, now);
@@ -103,6 +103,7 @@ export async function ShoppingListContent({
       <ShoppingListView
         key={weekStart}
         sites={sites}
+        userId={user.id}
         plan={plan}
         lines={lines}
         hiddenLines={hiddenLines}
