@@ -124,11 +124,10 @@ export type MealPlanListProps = {
   /** The whole pantry for the status, or `null` when it could not be read: no status then. */
   snapshot: PantrySnapshot | null;
   /**
-   * "Boende: Stugan" (pantry.siteLineText), the place the status is counted
-   * against, shown first while a shown dish has a status; `null` with one
-   * place or without a status.
+   * The boende button (Story 16.14), the place the status is counted against,
+   * shown first in the list; `null` with one place.
    */
-  siteLine?: string | null;
+  siteSlot?: ReactNode;
   /** The place `snapshot` is read from, for "Markera som lagad". */
   siteId?: string | null;
   /** The catalog names by ingredient id, for "Markera som lagad" (Story 13.4). */
@@ -160,7 +159,7 @@ export function MealPlanList({
   planName,
   dishes,
   snapshot,
-  siteLine = null,
+  siteSlot = null,
   siteId = null,
   names = {},
   weekStart,
@@ -440,7 +439,7 @@ export function MealPlanList({
       const root = rootRef.current;
       const element = target
         ? root?.querySelector<HTMLElement>(`[data-dish="${target}"] [data-dish-focus]`)
-        : root?.querySelector<HTMLElement>("button");
+        : root?.querySelector<HTMLElement>("button:not([data-site-slot] *)");
       element?.focus();
       focusAfter.current = null;
     }
@@ -450,6 +449,7 @@ export function MealPlanList({
   if (shown.length === 0 && !upcoming) {
     return (
       <div ref={rootRef}>
+        {siteSlot ? <div data-site-slot>{siteSlot}</div> : null}
         <EmptyState action={<AddDishButton variant="primary" />}>Ingen rätt på matsedeln än.</EmptyState>
       </div>
     );
@@ -457,13 +457,7 @@ export function MealPlanList({
 
   return (
     <div ref={rootRef} className="flex flex-col gap-3">
-      {/* Metadata under the page title, never announced: the dishes' badges are what changes.
-          Only above a dish with a status: a recipe, and a pantry to count it against. */}
-      {siteLine && snapshot && shown.some((dish) => dish.recipe !== null) ? (
-        <p className="text-meta break-words text-ink-2" data-testid="site-line">
-          {siteLine}
-        </p>
-      ) : null}
+      {siteSlot ? <div data-site-slot>{siteSlot}</div> : null}
       {/* The week's name is the selected tile now; the heading stays for screen readers (Story 13.9). */}
       {planName ? (
         <h2 data-testid="plan-name" className="sr-only">

@@ -3,6 +3,7 @@ import { randomUUID } from "node:crypto";
 import { expect, type Page, test } from "@playwright/test";
 import {
   adminClient,
+  boendeButton,
   e2eUserId,
   photoSweepEmail,
   photoSweepStorageState,
@@ -122,14 +123,14 @@ function watchErrors(page: Page): string[] {
 
 // Earlier routes stay mounted but hidden after a client navigation, so every
 // locator is scoped to what is visible.
-const sitesButton = (page: Page) => page.getByRole("button", { name: "Hantera boenden", exact: true }).filter({ visible: true });
+const addSiteButton = (page: Page) => page.getByRole("button", { name: "Lägg till boende" }).filter({ visible: true });
 const sheet = (page: Page) => page.getByRole("dialog", { name: "Boenden" });
 const emptyButton = (page: Page) => page.getByRole("button", { name: "Töm kylen", exact: true }).filter({ visible: true });
 const toast = (page: Page) => page.getByTestId("toast");
 
 async function openHemma(page: Page) {
   await page.goto("/hemma");
-  await expect(sitesButton(page)).toBeEnabled();
+  await expect(boendeButton(page)).toBeEnabled();
 }
 
 test("Hemma sweeps a photo older than 30 days, row and file, and keeps yesterday's", async ({ page }) => {
@@ -170,8 +171,10 @@ test("removing an empty place in the sheet Boenden removes its photos' files too
   const frys = await seedPhoto(sites.Stugan, "Frys", new Date(Date.now() - 2 * day));
   const home = await seedPhoto(sites.Hemma, "Kyl", new Date(Date.now() - day));
 
-  await openHemma(page);
-  await sitesButton(page).click();
+  // The sheet Boenden is opened from Inställningar → Boenden (Story 16.14).
+  await page.goto("/installningar/boenden");
+  await expect(addSiteButton(page)).toBeEnabled();
+  await addSiteButton(page).click();
   await sheet(page).getByRole("button", { name: "Ta bort Stugan" }).click();
   await expect(sheet(page).getByTestId("sites-status")).toHaveText("Tog bort Stugan.");
 

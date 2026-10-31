@@ -5,7 +5,7 @@ import { Skeleton } from "@/components/skeleton";
 import { requireUserOrRedirect } from "@/features/auth/server";
 import type { PantrySiteWithCount } from "@/features/pantry";
 import { listPantrySitesWithCounts, PantryDataError } from "@/features/pantry/server";
-import { HousingSettings } from "@/features/pantry/ui/housing-settings";
+import { HousingSettings, type SiteThingCounts } from "@/features/pantry/ui/housing-settings";
 import { getClearCounts, ThingsDataError } from "@/features/things/server";
 import { ClearSiteThings, type SiteThings } from "@/features/things/ui/clear-site";
 import { SettingsPageHeader } from "@/features/settings/ui/settings-page-header";
@@ -13,7 +13,7 @@ import { errorMessages } from "@/lib/errors";
 
 export const metadata: Metadata = { title: "Boenden" };
 
-// Boenden (Story 14.7): what "Ställen" was, managed in the same sheet as in Matvaror (FR-29).
+// Boenden (Story 14.7, an overview since Story 16.14): a card per boende with what is in it; rename, remove and add as in the sheet Boenden (FR-29).
 export default function HousingPage() {
   return (
     <>
@@ -37,15 +37,18 @@ async function HousingContent() {
   }
   // What Förråd holds in each boende, for "Rensa förrådet" (Story 18.15); the list is left out when it cannot be read.
   let things: SiteThings[] = [];
+  let thingCounts: Record<string, SiteThingCounts> | null = null;
   try {
     things = await Promise.all(sites.map(async (site) => ({ id: site.id, name: site.name, counts: await getClearCounts(site.id) })));
+    // The same counts give the cards their prylar and kort (Story 16.14).
+    thingCounts = Object.fromEntries(things.map((site) => [site.id, { things: site.counts.things, cards: site.counts.cards }]));
   } catch (error) {
     if (!(error instanceof ThingsDataError)) throw error;
     console.error("things_unavailable", { reason: error.detail });
   }
   return (
     <div className="flex flex-col gap-6">
-      <HousingSettings sites={sites} />
+      <HousingSettings sites={sites} thingCounts={thingCounts} />
       <ClearSiteThings sites={things} />
     </div>
   );

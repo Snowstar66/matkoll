@@ -1,10 +1,31 @@
-import type { ReactNode } from "react";
+import { type ReactNode, Suspense } from "react";
 import { AppShell } from "@/components/app-shell/app-shell";
 import { ToastProvider } from "@/components/toast";
 import { AiJobRow } from "@/features/ai-jobs/ui/ai-job-row";
 import { SavedImports } from "@/features/recipes/ui/saved-imports";
 import { PrivacyNote } from "@/features/auth/ui/privacy-note";
 import { AiJobsProvider } from "@/features/ai-jobs/ui/ai-jobs-provider";
+import type { PantrySite } from "@/features/pantry";
+import { listPantrySites, PantryDataError } from "@/features/pantry/server";
+import { BoendeVal } from "@/features/pantry/ui/boende-val";
+import { SiteSwitchProvider } from "@/features/pantry/ui/site-switching";
+import { loadBoendeCounts } from "./boende-counts";
+
+/**
+ * The boende button in the side menu (Story 16.14), read inside its own
+ * <Suspense> so the shell never waits for it (AD-18). Nothing with one boende,
+ * or when the boenden cannot be read or there is no session.
+ */
+async function SideBoende() {
+  let sites: PantrySite[];
+  try {
+    sites = await listPantrySites();
+  } catch (error) {
+    if (!(error instanceof PantryDataError)) throw error;
+    return null;
+  }
+  return <BoendeVal variant="side" sites={sites} loadCounts={loadBoendeCounts} />;
+}
 
 // The signed-in part of the app. The layout never awaits the session (AD-18): each
 // page checks it with requireUserOrRedirect inside <Suspense>, and the proxy has
@@ -17,10 +38,20 @@ export default function AppLayout({ children }: { children: ReactNode }) {
     <ToastProvider>
       <AiJobsProvider>
         <SavedImports />
-        <AppShell jobRows={{ bar: <AiJobRow variant="bar" />, side: <AiJobRow variant="side" /> }}>
-          <PrivacyNote />
-          {children}
-        </AppShell>
+        {/* Story 16.14: the boende is selected in the side menu or under the page title, so what waits while it is saved is above both. */}
+        <SiteSwitchProvider>
+          <AppShell
+            jobRows={{ bar: <AiJobRow variant="bar" />, side: <AiJobRow variant="side" /> }}
+            siteSwitch={
+              <Suspense fallback={null}>
+                <SideBoende />
+              </Suspense>
+            }
+          >
+            <PrivacyNote />
+            {children}
+          </AppShell>
+        </SiteSwitchProvider>
       </AiJobsProvider>
     </ToastProvider>
   );

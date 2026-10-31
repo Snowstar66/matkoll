@@ -6,16 +6,18 @@ import { Suspense } from "react";
 import { requireUserOrRedirect } from "@/features/auth/server";
 import { type PantrySiteWithCount, type SelectedSite } from "@/features/pantry";
 import { listPantrySitesWithCounts, PantryDataError } from "@/features/pantry/server";
-import { SiteSwitch, SiteSwitchProvider } from "@/features/pantry/ui/site-switch";
+import { BoendeVal } from "@/features/pantry/ui/boende-val";
+import { SiteSwitch } from "@/features/pantry/ui/site-switch";
 import { takeCardSubText, takeCardText, thingsEmptyText, type RoomSummary } from "@/features/things";
 import { listRooms, ThingsDataError } from "@/features/things/server";
 import { ThingFinder } from "@/features/things/ui/thing-finder";
 import { RoomsList } from "@/features/things/ui/rooms-list";
 import { TakeCard } from "@/features/things/ui/take-card";
 import { errorMessages } from "@/lib/errors";
+import { loadBoendeCounts } from "../boende-counts";
 
 /**
- * The tab's data: the user's boenden (for the pills) and the rooms of the
+ * The tab's data: the user's boenden (for the boende button under the title on a phone) and the rooms of the
  * selected one. The data's <Suspense> is keyed on the boende, so choosing
  * another shows the skeleton rows instead of the old rooms. When the boenden
  * or the rooms cannot be read, a notice says so; other errors go to the error boundary.
@@ -51,10 +53,14 @@ export async function PrylarContent() {
     </SiteSwitch>
   );
   return (
-    <SiteSwitchProvider>
+    <>
       <PageHeader title="Förråd" />
+      {/* A phone has no side menu: the boende is under the title (Story 16.14). */}
+      <div className="-mt-2 mb-3 empty:hidden desktop:hidden">
+        <BoendeVal variant="page" sites={sites} loadCounts={loadBoendeCounts} />
+      </div>
       {places}
-    </SiteSwitchProvider>
+    </>
   );
 }
 
