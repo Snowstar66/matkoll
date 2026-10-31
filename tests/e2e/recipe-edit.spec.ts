@@ -1,14 +1,13 @@
 import { readFileSync } from "node:fs";
 import { expect, type Page, test } from "@playwright/test";
-import { adminClient, openSavedImport, recipesStorageState } from "./support";
+import { adminClient, openSavedImport, recipeEditStorageState } from "./support";
 
 // Story 1.11: "Ändra" in the recipe view's menu (⋯) opens the preview's form
 // for the saved recipe; "Spara ändringar" keeps Pontus in the recipe view, and
 // "Ta bort recept" asks first, then removes the recipe and goes to the
-// library. As the E2E user for saving recipes (e2e-recept), like
-// recipe.spec.ts, so the main E2E user's library stays empty. The specs run
-// in parallel and add to that user's catalog, so nothing here assumes an
-// ingredient is new or missing: the relinked ingredient (smör) is one that
+// library. As an E2E user of its own (e2e-recept-andra), so the main E2E
+// user's library stays empty and recipe.spec.ts's imports of the same fixture
+// do not show their toast here. The relinked ingredient (smör) is one that
 // saving fiskgratäng itself creates or finds.
 
 const fiskgratang = readFileSync("tests/fixtures/ai/fiskgratang.txt", "utf8");
@@ -62,7 +61,7 @@ async function savedIds(recipeId: string) {
 
 const uniqueTitle = (base: string) => `${base} ${Date.now()}`;
 
-test.use({ storageState: recipesStorageState, viewport: mobile });
+test.use({ storageState: recipeEditStorageState, viewport: mobile });
 
 test("Ändra changes the title, a line's ingredient and the steps, and stays in the recipe view", async ({ page }) => {
   const errors = watchErrors(page);
