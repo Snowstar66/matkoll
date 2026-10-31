@@ -41,11 +41,11 @@ Vercel-projektet skapas först men fylls med variabler i steg 9, när värdena f
 
 **Kontroll:** **Project Settings → General** visar regionen `eu-north-1`, och **Project Settings → Infrastructure** visar Postgres 17 eller senare.
 
-## 3. Registrering avstängd
+## 3. Registrering (från Story 17.2: på, men bara för inbjudna)
 
-**Authentication → Sign In / Providers:** stäng av **Allow new users to sign up**. E-post med engångslänk ska vara på. Lokalt motsvaras det av `enable_signup = false` i `supabase/config.toml` (AD-3); användare skapas bara av `pnpm users:sync`.
+**Authentication → Sign In / Providers:** låt **Allow new users to sign up** vara på, eftersom "Skapa konto" i appen skapar kontot. Appen släpper bara igenom adresser i `ALLOWED_EMAILS` (kontrolleras på servern innan Supabase frågas, och vid varje inloggning); ett konto som någon skapar direkt mot Supabase med en adress utanför listan får ingen åtkomst. Lokalt motsvaras det av `enable_signup = true` i `supabase/config.toml`. Lägg också in mejlmallen för **Reset Password** från `supabase/templates/recovery.html` (länken går till `/auth/confirm` med `type=recovery`), som för engångslänken. Överväg att slå på **Confirm email** i molnet, så att ingen kan registrera någon annans inbjudna adress med eget lösenord innan hen själv gjort det.
 
-**Kontroll:** efter steg 11, be om en länk på `<adress>/logga-in` med en adress som inte finns. Sidan svarar som vanligt, men inget mejl kommer och ingen användare skapas under **Authentication → Users**.
+**Kontroll:** efter steg 11, välj **Skapa konto** på `<adress>/logga-in` med en adress som inte står i `ALLOWED_EMAILS`. Appen svarar att adressen inte är inbjuden, och ingen användare skapas under **Authentication → Users**.
 
 ## 4. Site URL och redirect-URL
 

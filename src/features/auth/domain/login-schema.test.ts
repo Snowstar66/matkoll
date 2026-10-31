@@ -1,5 +1,13 @@
 import { describe, expect, it } from "vitest";
-import { emailCodeSchema, loginFieldErrors, loginSchema, normalizeEmailCode } from "./login-schema";
+import {
+  emailCodeSchema,
+  loginFieldErrors,
+  loginSchema,
+  newPasswordSchema,
+  normalizeEmailCode,
+  passwordLoginSchema,
+  signUpSchema,
+} from "./login-schema";
 
 describe("loginSchema", () => {
   it("accepts and trims a valid address", () => {
@@ -54,5 +62,30 @@ describe("emailCodeSchema", () => {
 
   it("refuses an invalid address", () => {
     expect(emailCodeSchema.safeParse({ email: "inte-en-adress", code: "123456" }).success).toBe(false);
+  });
+});
+
+describe("passwordLoginSchema", () => {
+  it("accepts any non-empty password, however short", () => {
+    expect(passwordLoginSchema.safeParse({ email: " a@b.se ", password: "x" }).success).toBe(true);
+  });
+
+  it("refuses an empty password and an invalid address", () => {
+    expect(passwordLoginSchema.safeParse({ email: "a@b.se", password: "" }).success).toBe(false);
+    expect(passwordLoginSchema.safeParse({ email: "a", password: "x" }).success).toBe(false);
+  });
+});
+
+describe("signUpSchema and newPasswordSchema", () => {
+  it("needs at least 8 characters, in Swedish", () => {
+    const result = signUpSchema.safeParse({ email: "a@b.se", password: "kort" });
+    expect(result.success).toBe(false);
+    expect(!result.success && result.error.issues[0].message).toBe("Lösenordet måste vara minst 8 tecken.");
+    expect(newPasswordSchema.safeParse("12345678").success).toBe(true);
+  });
+
+  it("stops at 72 characters", () => {
+    expect(newPasswordSchema.safeParse("x".repeat(73)).success).toBe(false);
+    expect(newPasswordSchema.safeParse("x".repeat(72)).success).toBe(true);
   });
 });

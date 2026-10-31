@@ -51,3 +51,29 @@ export const emailCodeSchema = loginSchema.extend({
 });
 
 export type EmailCodeInput = z.input<typeof emailCodeSchema>;
+
+/** The shortest password the app accepts when one is chosen (Story 17.2); Supabase's own minimum is lower. */
+export const minPasswordLength = 8;
+/** Keeps a pasted novel out of the hashing; bcrypt itself stops at 72 bytes. */
+export const maxPasswordLength = 72;
+
+const passwordTooShort = `Lösenordet måste vara minst ${minPasswordLength} tecken.`;
+const passwordTooLong = `Lösenordet får vara högst ${maxPasswordLength} tecken.`;
+
+/** Signing in with an existing password: nothing about its strength is checked, so an old short one still works. */
+export const passwordLoginSchema = loginSchema.extend({
+  password: z.string({ error: "Ange ditt lösenord." }).min(1, "Ange ditt lösenord.").max(maxPasswordLength, "Ange ditt lösenord."),
+});
+
+export type PasswordLoginInput = z.input<typeof passwordLoginSchema>;
+
+/** The password for "Skapa konto" and for a new password after "Glömt lösenord". */
+export const newPasswordSchema = z
+  .string({ error: passwordTooShort })
+  .min(minPasswordLength, passwordTooShort)
+  .max(maxPasswordLength, passwordTooLong);
+
+/** "Skapa konto": the address and a chosen password. */
+export const signUpSchema = loginSchema.extend({ password: newPasswordSchema });
+
+export type SignUpInput = z.input<typeof signUpSchema>;

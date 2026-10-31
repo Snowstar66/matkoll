@@ -4,8 +4,9 @@ import { createClient, type SupabaseClient } from "@supabase/supabase-js";
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
 import { localSupabaseUrl } from "../local-supabase";
 
-// Sign-up is closed and users come only from `pnpm users:sync` (AD-3), checked
-// against local Supabase. Every address is unique to this run and removed afterwards.
+// Password and one-time-link sign-in against local Supabase (AD-3, Story 17.2). The
+// allowlist for "Skapa konto" is enforced by the createAccount action (unit tests),
+// not by Supabase. Every address is unique to this run and removed afterwards.
 
 const url = process.env.NEXT_PUBLIC_SUPABASE_URL;
 const publishableKey = process.env.NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY;
@@ -51,21 +52,34 @@ beforeAll(() => {
 });
 
 afterAll(async () => {
-  for (const name of ["allowed-a", "allowed-b", "outsider", "signup", "otp"]) {
+  for (const name of ["allowed-a", "allowed-b", "outsider", "signup", "otp", "pwuser"]) {
     for (const user of await usersWithEmail(address(name))) createdIds.add(user.id);
   }
   for (const id of createdIds) await admin.auth.admin.deleteUser(id);
 });
 
-describe("sign-up is closed", () => {
-  it("rejects auth.signUp with the publishable key and creates no user", async () => {
-    const email = address("signup");
-    const { data, error } = await anon.auth.signUp({ email, password: `pw-${run}-long-enough` });
-    expect(error).not.toBeNull();
-    expect(data.user).toBeNull();
-    expect(await usersWithEmail(email)).toHaveLength(0);
-  });
+describe("password sign-in", () => {
+  it("signs in an existing user with the right password and refuses a wrong one with invalid_credentials", async () => {
+    const email = address("pwuser");
+    const password = `pw-${run}-long-enough`;
+    const created = await admin.auth.admin.createUser({ email, password, email_confirm: true });
+    expect(created.error).toBeNull();
+    createdIds.add(created.data.user!.id);
 
+    const right = await anon.auth.signInWithPassword({ email, password });
+    expect(right.error).toBeNull();
+    expect(right.data.session).not.toBeNull();
+
+    const wrong = await anon.auth.signInWithPassword({ email, password: `${password}x` });
+    expect(wrong.data.session).toBeNull();
+    expect(wrong.error?.code).toBe("invalid_credentials");
+
+    const unknown = await anon.auth.signInWithPassword({ email: address("outsider"), password });
+    expect(unknown.error?.code).toBe("invalid_credentials");
+  });
+});
+
+describe("no user from a one-time link", () => {
   it("does not create a user from signInWithOtp with shouldCreateUser: false", async () => {
     const email = address("otp");
     const { error } = await anon.auth.signInWithOtp({ email, options: { shouldCreateUser: false } });

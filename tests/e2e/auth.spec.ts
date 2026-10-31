@@ -9,6 +9,7 @@ import {
   mailsTo,
   outsiderEmail,
   outsiderStorageState,
+  sessionCookiesFor,
   userStorageState,
 } from "./support";
 
@@ -84,6 +85,62 @@ test.describe("without a session", () => {
     expect(data.users.filter((user) => user.email === stranger)).toHaveLength(0);
   });
 
+  test("an address and password sign in, and the session is kept for months (Story 17.2)", async ({ browser, baseURL }) => {
+    const password = `pw-${Date.now()}-lang`;
+    const admin = adminClient();
+    const { data } = await admin.auth.admin.listUsers({ perPage: 1000 });
+    const user = data.users.find((candidate) => candidate.email === e2eEmail);
+    const updated = await admin.auth.admin.updateUserById(user!.id, { password });
+    expect(updated.error).toBeNull();
+
+    const context = await browser.newContext({ baseURL });
+    const page = await context.newPage();
+    await page.goto("/recept?flik=x");
+    await page.getByLabel("E-postadress").fill(e2eEmail);
+    await page.getByLabel("Lösenord").fill(`${password}x`);
+    await page.getByRole("button", { name: "Logga in", exact: true }).click();
+    await expect(page.getByRole("main").getByRole("alert")).toHaveText("E-postadressen eller lösenordet stämmer inte.");
+
+    await page.getByLabel("Lösenord").fill(password);
+    await page.getByRole("button", { name: "Logga in", exact: true }).click();
+    await expect(page).toHaveURL(/\/recept\?flik=x$/);
+    const cookie = (await context.cookies()).find((candidate) => /^sb-.+-auth-token/.test(candidate.name));
+    expect(cookie!.expires).toBeGreaterThan(Date.now() / 1000 + 60 * 24 * 60 * 60);
+    await context.close();
+  });
+
+  test("an address outside the list gets the same sign-in answer and a friendly no on Skapa konto", async ({ page }) => {
+    const stranger = `okand-${Date.now()}@matkoll.test`;
+    await page.goto("/logga-in");
+    await page.getByLabel("E-postadress").fill(stranger);
+    await page.getByLabel("Lösenord").fill("ett-langt-losenord");
+    await page.getByRole("button", { name: "Logga in", exact: true }).click();
+    await expect(page.getByRole("main").getByRole("alert")).toHaveText("E-postadressen eller lösenordet stämmer inte.");
+
+    await page.getByRole("button", { name: "Skapa konto" }).click();
+    await page.getByRole("button", { name: "Skapa konto" }).click();
+    await expect(page.getByRole("main").getByRole("alert")).toHaveText(
+      "Den här adressen är inte inbjuden till Matkoll. Fråga den som driver Matkoll.",
+    );
+    const { data } = await adminClient().auth.admin.listUsers({ perPage: 1000 });
+    expect(data.users.filter((user) => user.email === stranger)).toHaveLength(0);
+  });
+
+  test("Glömt lösenord mails a link for an allowed address and nothing for others", async ({ page }) => {
+    const stranger = `okand-${Date.now()}@matkoll.test`;
+    await deleteMailsTo(e2eEmail);
+    for (const email of [e2eEmail, stranger]) {
+      await page.goto("/logga-in");
+      await page.getByLabel("E-postadress").fill(email);
+      await page.getByRole("button", { name: "Glömt lösenord?" }).click();
+      await page.getByRole("button", { name: "Skicka återställningslänk" }).click();
+      await expect(page.getByText("Om adressen har ett konto skickar vi ett mejl")).toBeVisible();
+    }
+    await expect.poll(async () => (await mailsTo(e2eEmail)).length, { timeout: 10_000 }).toBe(1);
+    await page.waitForTimeout(500);
+    expect(await mailsTo(stranger)).toHaveLength(0);
+  });
+
   test("an invalid or used link leads to the login page with an explanation", async ({ page }) => {
     await openMagicLink(page, "/auth/confirm?token_hash=ogiltig&type=email&next=/recept");
     await expect(page).toHaveURL(/\/logga-in\?fel=lank&next=%2Frecept$/);
@@ -124,6 +181,23 @@ test.describe("without a session", () => {
       await expect(page).toHaveURL(`${baseURL}/recept`);
     });
   }
+});
+
+test.describe("the privacy note (Story 17.2)", () => {
+  test("shows once per device and Okej keeps it away", async ({ browser, baseURL }) => {
+    const context = await browser.newContext({ baseURL });
+    // A session made outside the app, so nothing has answered the note yet on this device.
+    const cookies = await sessionCookiesFor(e2eEmail);
+    await context.addCookies(cookies.map((cookie) => ({ ...cookie, url: baseURL! })));
+    const page = await context.newPage();
+    await page.goto("/recept");
+    await expect(page.getByText("Den som driver Matkoll kan tekniskt se kontots data.")).toBeVisible();
+    await page.getByRole("button", { name: "Okej" }).click();
+    await expect(page.getByText("Den som driver Matkoll")).toHaveCount(0);
+    await page.goto("/matsedel");
+    await expect(page.getByText("Den som driver Matkoll")).toHaveCount(0);
+    await context.close();
+  });
 });
 
 test.describe("signed in", () => {

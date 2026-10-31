@@ -18,6 +18,87 @@ export async function requestMagicLink(email: string, redirectTo: string): Promi
   return error ? { ok: false, code: String(error.code ?? error.status ?? "unknown") } : { ok: true };
 }
 
+/** Outcome of the password calls; `code` is Supabase's error code, never user data. */
+export type PasswordOutcome =
+  | { result: "signed_in"; email: string | undefined }
+  | { result: "invalid" | "exists" | "rate_limited" | "weak" | "failed"; code: string };
+
+function passwordFailure(error: { code?: string; status?: number }): PasswordOutcome {
+  const code = errorCode(error);
+  if (isRateLimit(error)) return { result: "rate_limited", code };
+  if (code === "invalid_credentials") return { result: "invalid", code };
+  if (code === "user_already_exists" || code === "email_exists") return { result: "exists", code };
+  if (code === "weak_password") return { result: "weak", code };
+  return { result: "failed", code };
+}
+
+/** Signs in with e-mail and password, which sets the session cookies. */
+export async function signInWithPassword(
+  email: string,
+  password: string,
+  { forwardedFor }: { forwardedFor?: string | null } = {},
+): Promise<PasswordOutcome> {
+  const supabase = await createClient({ forwardedFor });
+  const { data, error } = await supabase.auth.signInWithPassword({ email, password });
+  if (error) return passwordFailure(error);
+  return { result: "signed_in", email: data.user?.email };
+}
+
+/**
+ * Creates the account and, as the project does not require confirmation, a
+ * session for it. The caller has checked ALLOWED_EMAILS: this does not.
+ * `signed_in` with no session is not possible; a project that did require
+ * confirmation would answer `failed` here and the caller signs in instead.
+ */
+export async function signUpWithPassword(
+  email: string,
+  password: string,
+  { forwardedFor }: { forwardedFor?: string | null } = {},
+): Promise<PasswordOutcome> {
+  const supabase = await createClient({ forwardedFor });
+  const { data, error } = await supabase.auth.signUp({ email, password });
+  if (error) return passwordFailure(error);
+  // With confirmation on, a repeated sign-up answers with a user that has no identities and no session.
+  if (!data.session) return { result: "failed", code: data.user?.identities?.length === 0 ? "email_exists" : "no_session" };
+  return { result: "signed_in", email: data.user?.email };
+}
+
+/** Asks Supabase to e-mail a password-reset link; the link goes to `redirectTo` with a token_hash. */
+export async function requestPasswordReset(email: string, redirectTo: string): Promise<SupabaseOutcome> {
+  const supabase = await createClient();
+  const { error } = await supabase.auth.resetPasswordForEmail(email, { redirectTo });
+  return error ? { ok: false, code: errorCode(error) } : { ok: true };
+}
+
+export type PasswordResetResult = "done" | "invalid" | "not_allowed" | "failed";
+
+/**
+ * Uses the reset link's token and sets the new password in one step, so the
+ * token is spent only when the person has chosen a password. An address that
+ * `isAllowed` rejects is signed out at once, as with the other sign-ins.
+ */
+export async function resetPasswordWithToken(
+  tokenHash: string,
+  password: string,
+  isAllowed: (email: string | undefined) => boolean,
+): Promise<PasswordResetResult> {
+  const supabase = await createClient();
+  const { data, error } = await supabase.auth.verifyOtp({ token_hash: tokenHash, type: "recovery" });
+  if (error) return "invalid";
+  if (!isAllowed(data.user?.email)) {
+    await dropRefusedSession(supabase, "auth_reset_signout_failed");
+    return "not_allowed";
+  }
+  const updated = await supabase.auth.updateUser({ password });
+  if (updated.error) {
+    console.error("auth_reset_update_failed", errorCode(updated.error));
+    // The recovery session is not kept without a new password; the link is spent, so a new one is asked for.
+    await dropRefusedSession(supabase, "auth_reset_signout_failed");
+    return "failed";
+  }
+  return "done";
+}
+
 export type EmailLinkResult = "signed_in" | "invalid" | "not_allowed";
 
 type SessionClient = Awaited<ReturnType<typeof createClient>>;
@@ -33,6 +114,11 @@ async function dropRefusedSession(supabase: SessionClient, event: string): Promi
   if (!error) return;
   console.error(event, errorCode(error));
   await removeSessionCookies();
+}
+
+/** Ends the session just made in this request, for an address that turned out not to be allowed. */
+export async function dropCurrentSession(event: string): Promise<void> {
+  await dropRefusedSession(await createClient(), event);
 }
 
 /**

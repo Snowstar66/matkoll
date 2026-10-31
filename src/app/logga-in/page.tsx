@@ -16,7 +16,7 @@ export default function LoginPage({ searchParams }: PageProps<"/logga-in">) {
         Matkoll
       </p>
       <h1 className="text-page-title text-ink">Logga in</h1>
-      <p className="text-body text-ink-2">Skriv din e-postadress så skickar vi en inloggningslänk och en kod.</p>
+      <p className="text-body text-ink-2">Logga in med e-post och lösenord. Första gången? Välj Skapa konto.</p>
       {/* No form as fallback: a form typed into would be replaced when the real one streams in. */}
       <Suspense fallback={null}>
         <LoginFormWithParams searchParams={searchParams} />
