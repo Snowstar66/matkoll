@@ -12,6 +12,14 @@ export const errorMessages = {
   auth_code_invalid: "Koden stämmer inte eller har gått ut. Skicka en ny länk.",
   // Too many wrong codes from one address and IP (the app's limit) or Supabase's own limit.
   auth_code_rate_limited: "För många försök. Vänta en stund eller skicka en ny länk.",
+  // Password sign-in (Story 17.2): a wrong password, an unknown address and an
+  // address outside ALLOWED_EMAILS all give the first, so a sign-in never
+  // reveals which addresses have an account.
+  auth_password_invalid: "E-postadressen eller lösenordet stämmer inte.",
+  auth_password_rate_limited: "För många försök. Vänta en stund och försök igen.",
+  // The link from the reset mail: used, expired or not for this address.
+  auth_reset_invalid: "Länken har gått ut eller redan använts. Be om en ny under Välj lösenord.",
+  auth_reset_failed: "Det gick inte att spara lösenordet. Försök igen.",
   auth_sign_out_failed: "Det gick inte att logga ut. Försök igen.",
   ai_unavailable: "AI-tjänsten svarar inte just nu. Är datorn med modellen igång?",
   ai_invalid: "Det gick inte att tolka svaret. Försök igen.",

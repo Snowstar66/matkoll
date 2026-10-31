@@ -262,6 +262,13 @@ otp_expiry = 3600
 subject = "Din inloggningslänk till Matkoll"
 content_path = "./supabase/templates/magic-link.html"
 
+# Matkoll (Story 17.2): the reset link ("Välj lösenord" on the login page) goes to /auth/confirm with
+# token_hash and type=recovery. Accounts are made only by `pnpm users:sync` and sign-up stays off.
+# Set the same subject and template in the cloud project.
+[auth.email.template.recovery]
+subject = "Välj lösenord i Matkoll"
+content_path = "./supabase/templates/recovery.html"
+
 # Uncomment to customize notification email template
 # [auth.email.notification.password_changed]
 # enabled = true
