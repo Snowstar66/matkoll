@@ -4191,3 +4191,63 @@ Beslut 2026-10-31 (Pontus): förslag B av tre.
 **Givet** en favicon på 16 px
 **När** den visas
 **Så** går huset och bocken fortfarande att urskilja
+
+### Story 18.21: Rummen först
+
+Som Pontus,
+vill jag gå till rummet och fota där, och lägga till ett nytt rum sist i listan,
+så att "Ta kort" inte ser ut som en plats bland rummen och jag inte väljer handlingen före platsen.
+
+Beslut 2026-10-31 (Pontus): "det känns som om ta kort också är en plats eftersom det har samma form", "om jag har flera rum så borde jag klicka på rummet jag vill lägga till saker". Mockup godkänd ("det där blir mycket bättre"): `_bmad-output/planning-artifacts/ux-designs/ux-Matkoll-2026-10-25/mockups/forrad-rum-forst.html` ("Idag" är skärmdumpar, "Nytt" och punktlistorna är specen; rumsnamn och siffror är bara exempel).
+
+**Acceptance Criteria:**
+
+**Givet** Förrådets startsida
+**När** jag ser den
+**Så** finns inte det gröna kortet "Ta kort · Fota ett rum, en hylla eller en låda" och ingen annan kameraknapp; "Sök eller fråga …" står direkt under boendet (på datorn direkt under rubriken) och syns som förut bara när boendet har föremål; RUM-rubriken med summan och rumsraderna är oförändrade och har ingen kameraknapp
+
+**Givet** rummen
+**När** jag ser listan
+**Så** står sist, under listan, raden "+ Nytt rum" med streckad kant, ingen vit bakgrund och grön text, minst 44 px hög
+
+**Givet** "+ Nytt rum"
+**När** jag trycker
+**Så** öppnas ett blad "Nytt rum" med Avbryt, fältet "Namn på rummet" (fokus direkt, exempel Garaget), en kort hjälptext och knappen "Skapa rum"; "Skapa rum" skapar rummet och tar mig till dess sida, redo att fota, och rummet syns i listan med "Inget kort än"
+
+**Givet** bladet "Nytt rum"
+**När** namnet är tomt eller rummet redan finns (samma namn)
+**Så** visas felet under fältet som i dagens Ta kort-blad, respektive går jag till det befintliga rummet i stället för att få ett nytt likadant
+
+**Givet** ett boende utan rum
+**När** jag ser sidan
+**Så** står texten "Börja med ett rum, som Förrådet eller Garaget." och under den "+ Nytt rum", utan RUM-rubrik och utan sökfält
+
+**Givet** rummets sida
+**När** jag använder den
+**Så** är den oförändrad: Ta foto, Välj från Bilder, Mer exakt plats … (med dagens blad), Skickar …, Skickat och Ta ett till
+
+**Givet** mörkt läge, 375 px och 200 % text
+**När** jag använder startsidan och bladet
+**Så** finns ingen sidledes rullning och alla tryckytor är minst 44 px
+
+### Story 18.22: Föremål i stället för prylar
+
+Som Pontus,
+vill jag att sakerna i Förrådet heter "föremål" i stället för "prylar",
+så att ordet inte grumlar vad det är (pass, verktyg och kläder är inte "prylar").
+
+Beslut 2026-10-31 (Pontus): "föremål" valt av saker, grejer, föremål och ägodelar.
+
+**Acceptance Criteria:**
+
+**Givet** appen
+**När** den visar Förrådets saker (rumsrader, summor, boendemenyn, Inställningar → Boenden, rummets och lådans sidor, sökning, chatt, tomma lägen, fel, bekräftelser, AI-stegen som "Hittar prylarna …")
+**Så** står "föremål" (ett föremål, föremålet, flera föremål, föremålen) och aldrig "pryl", "prylen", "prylar" eller "prylarna"
+
+**Givet** AI:ns svar i chatten
+**När** den svarar
+**Så** använder den också ordet föremål (prompten säger det)
+
+**Givet** adresser, kod, databas och loggnycklar
+**När** de innehåller "prylar" eller "things"
+**Så** är de oförändrade (bara text som syns ändras)

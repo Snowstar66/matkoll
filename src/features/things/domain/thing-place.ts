@@ -1,6 +1,5 @@
 import { z } from "zod";
 import { charLength, oneLine } from "@/lib/one-line";
-import { appName } from "@/app/app-info";
 
 // Platser i Prylar (Story 18.1): a place has a name of its own, a room and an
 // optional part ("Skräpförrådet", "Översta hyllan"), and belongs to one of the
@@ -127,7 +126,7 @@ export type BoxInput = z.input<typeof boxInputSchema>;
 
 // The texts follow EXPERIENCE.md, Voice and Tone.
 
-export const thingsEmptyText = `Fotografera en hylla eller ett förråd, så listar ${appName} vad som finns där.`;
+export const thingsEmptyText = "Börja med ett rum, som Förrådet eller Garaget.";
 export const newPlaceText = "Ny plats";
 export const emptyRoomText = "Ange ett rum, till exempel Skräpförrådet.";
 export const addBoxText = "Lägg till låda";

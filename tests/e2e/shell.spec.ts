@@ -10,7 +10,7 @@ const surfaces = [
   { tab: "Matsedel", path: "/matsedel", title: "Matsedel", empty: "Ingen rätt på matsedeln än." },
   { tab: "Inköpslista", path: "/lista", title: "Inköpslista", empty: "Lägg rätter på matsedeln så räknas listan fram." },
   { tab: "Matvaror", path: "/hemma", title: "Matvaror", empty: "Inget i kylen än." },
-  { tab: "Förråd", path: "/prylar", title: "Förråd", empty: "Fotografera en hylla eller ett förråd, så listar Livskoll vad som finns där." },
+  { tab: "Förråd", path: "/prylar", title: "Förråd", empty: "Börja med ett rum, som Förrådet eller Garaget." },
 ] as const;
 
 /** The tab bar's labels, in order (Story 10.4: Inköpslista and Matvaror; Epic 18: Förråd). */
