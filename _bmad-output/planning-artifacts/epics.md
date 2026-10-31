@@ -3023,13 +3023,13 @@ Skiss: `_bmad-output/planning-artifacts/ux-designs/ux-Matkoll-2026-10-25/mockups
 **När** den lämnas för granskning
 **Så** finns skärmbilder av Matsedel och Inköpslista i 390 och 1280 px, ljust och mörkt, jämförda med skissen
 
-### Story 14.7: Inställningar som i telefonens egna appar, och "Boenden"
+### Story 14.7: Inställningar som i telefonens egna appar, "Boenden" och "Förråd"
 
 Som Pontus,
 vill jag att Inställningar är en kort startsida med grupper och egna undersidor, och att "ställen" heter "boenden",
 så att det förblir enkelt och tydligt även när vi lägger till mer.
 
-Skiss: `_bmad-output/planning-artifacts/ux-designs/ux-Matkoll-2026-10-25/mockups/installningar.html` (godkänd av Pontus 2026-10-31). Ordet "Boenden" valt av Pontus samma dag. Byggs efter Story 17.5, vars AI-avsnitt flyttar till en egen undersida.
+Skiss: `_bmad-output/planning-artifacts/ux-designs/ux-Matkoll-2026-10-25/mockups/installningar.html` (godkänd av Pontus 2026-10-31). Orden "Boenden" (i stället för ställen) och "Förråd" (i stället för Lagersaldo) valda av Pontus samma dag. Byggs efter Story 17.5, vars AI-avsnitt flyttar till en egen undersida.
 
 **Acceptance Criteria:**
 
@@ -3052,6 +3052,10 @@ Skiss: `_bmad-output/planning-artifacts/ux-designs/ux-Matkoll-2026-10-25/mockups
 **Givet** ordet "ställen"
 **När** det förekommer i appens text (Inställningar, Lagersaldo, inköpslistans "Lager: Hemma · Byt", ark och felmeddelanden)
 **Så** heter det i stället "boenden"/"boende" (t.ex. "Boende: Hemma · Byt", "Hantera boenden"); kod, tabeller och adresser behöver inte byta namn, men användartexten ska vara konsekvent
+
+**Givet** namnet "Lagersaldo"
+**När** det förekommer i appens text (fliken, sidomenyn, sidrubriken, sidans titel, hänvisningar som "Lägg i lagret"-bekräftelser och tomma lägen)
+**Så** heter sidan i stället "Förråd" med ikonen 📦 i menyn (i stället för 🧊, som krockar med Kyl); orden "lager"/"lagret" i löptext byts där det låter naturligt ("Lägg i förrådet"), och adressen `/hemma` behöver inte ändras
 
 **Givet** mörkt läge, 375 px och 200 % text
 **När** jag ser startsidan och undersidorna
