@@ -1,6 +1,6 @@
 # Ändringsförslag: Molnet och gemensam lista (Epic 17)
 
-Datum: 2026-10-31 · Status: **förslag, väntar på Pontus godkännande**
+Datum: 2026-10-31 · Status: **godkänd 2026-10-31** (17.3 och 17.4 väntar på Pontus "nu går vi till Vercel")
 
 ## Varför
 
