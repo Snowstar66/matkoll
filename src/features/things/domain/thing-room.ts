@@ -3,6 +3,7 @@ import { seenOnText } from "./thing-merge";
 import { shortDateText } from "./thing-photo";
 import { inBoxText, normalizePlaceName } from "./thing-place";
 import { thingCountText } from "./thing-noun";
+import { notedHint } from "./thing-noted";
 
 // Rummets överblick (Stories 18.11 and 18.12): a room is the distinct room of a
 // boende's places; its things, categories and cards are the sum of all its
@@ -88,7 +89,21 @@ export function toRoomThing(row: {
   part: string | null;
   kind: "part" | "box";
   seenOn: number;
+  /** Story 18.19: when a noted thing was written in (ISO); null for any other thing. */
+  notedAt?: string | null;
 }): Thing {
+  if (row.notedAt) {
+    // A noted thing says its part and the day it was written in, and keeps its own (empty) "where" for the sheet.
+    return {
+      id: row.id,
+      name: row.name,
+      category: row.category,
+      confidence: row.confidence,
+      whereHint: notedHint(row.part, new Date(row.notedAt)),
+      seenOn: 1,
+      noted: { at: row.notedAt, part: row.part },
+    };
+  }
   return {
     id: row.id,
     name: row.name,

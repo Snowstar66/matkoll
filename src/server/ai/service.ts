@@ -38,8 +38,11 @@ import {
   categorizeThingsAnswer,
   parseCategories,
   parseSearchTerms,
+  parseThingIntent,
   thingTermsAnswer,
   type ThingCategory,
+  type ThingIntent,
+  type ThingToRemember,
   parseAskAnswer,
   listThingsAnswer,
   locateItemsAnswer,
@@ -177,6 +180,8 @@ export type AskThingsPlace = {
   hidden: number;
   /** Story 18.13: the things were written by hand into a box (no card): `cardDate` is when they were written. */
   written?: boolean;
+  /** Story 18.19: Pontus wrote in himself where the things are (no card): `cardDate` is when. */
+  noted?: boolean;
   /** The things of the card: name and category, and where in the photo, all on one line. */
   things: { name: string; category: string; where: string | null }[];
 };
@@ -200,10 +205,20 @@ export type AskThingsInput = {
 export type ThingSearchTermsInput = {
   question: string;
   history: { question: string; answer: string }[];
+  /**
+   * Story 18.19: the rooms of the boende with their parts, so a thing to
+   * remember lands in a room that exists ("i sovrummet" is "Sovrummet").
+   * Names on one line; data for the model, never instructions.
+   */
+  rooms?: { room: string; parts: string[] }[];
 };
 
-/** The words to look for in the names of the things: at most maxSearchTerms, lower case, 2 to 40 characters. */
-export type ThingSearchTermsResult = { terms: string[] };
+/**
+ * The words to look for in the names of the things (at most maxSearchTerms,
+ * lower case, 2 to 40 characters), what the text is (Story 18.19), and the
+ * thing to remember when it is one.
+ */
+export type ThingSearchTermsResult = { terms: string[]; intent: ThingIntent; remember: ThingToRemember | null };
 
 /** What categorizeThings gets (Story 18.13): the names written into a box, each on one line. */
 export type CategorizeThingsInput = { names: string[] };
@@ -404,6 +419,12 @@ export const inputLimits = {
    */
   terms: { maxChars: 4_000, maxOutputTokens: 300 },
   /**
+   * Story 18.19: the same call also says what the text is and, for a thing to
+   * remember, its name, room, part and category (about 60 tokens more), with
+   * the boende's rooms and parts (at most 60 places of 40 + 40 characters).
+   */
+  termsWithRooms: { maxRooms: 60, maxPartsPerRoom: 60, maxChars: 9_000, maxOutputTokens: 500 },
+  /**
    * categorizeThings (Story 18.13): at most 100 names of 80 characters (8 000
    * characters, about 3 000 tokens in) and a category of about 5 tokens each, so
    * 100 are 500 and 1 000 leave room for a model that writes around them.
@@ -492,9 +513,14 @@ function isValidHistory(history: ThingSearchTermsInput["history"]): boolean {
 
 /** True for a question and at most six turns of history, within inputLimits.terms. */
 export function isValidThingSearchTermsInput(input: ThingSearchTermsInput): boolean {
-  const { question, history } = input;
+  const { question, history, rooms } = input;
   if (question === "" || question !== cleanModelText(question) || question.length > inputLimits.ask.maxQuestionChars) return false;
-  return isValidHistory(history) && thingSearchTermsText(input).length <= inputLimits.terms.maxChars;
+  const oneLine = (text: string) => text !== "" && text === cleanModelText(text);
+  const limits = inputLimits.termsWithRooms;
+  if (rooms && (rooms.length > limits.maxRooms || !rooms.every((room) => oneLine(room.room) && room.parts.length <= limits.maxPartsPerRoom && room.parts.every(oneLine)))) {
+    return false;
+  }
+  return isValidHistory(history) && thingSearchTermsText(input).length <= (rooms ? limits.maxChars : inputLimits.terms.maxChars);
 }
 
 /** True for 1 to inputLimits.categorize.maxNames names, each on one line and at most maxNameChars. */
@@ -766,14 +792,14 @@ export function createModelAiService(target: ModelTarget, limits: Limits = defau
           schema: thingTermsAnswer,
           system: prompts.thingSearchTerms,
           messages: [{ role: "user", content: thingSearchTermsText(input) }],
-          maxOutputTokens: inputLimits.terms.maxOutputTokens,
+          maxOutputTokens: inputLimits.termsWithRooms.maxOutputTokens,
           onTruncated: () => console.info("terms_truncated"),
         },
         signal,
         within,
       );
       if (!answer.ok) return answer;
-      return ok({ terms: parseSearchTerms(answer.data) });
+      return ok({ terms: parseSearchTerms(answer.data), ...parseThingIntent(answer.data) });
     },
     async categorizeThings(input, signal, options = {}) {
       const within = limitsWithin(limits, options.deadline);
@@ -883,7 +909,7 @@ export function listThingsContent(input: ListThingsInput) {
  */
 export function askThingsText(input: AskThingsInput): string {
   const places = input.places.map((place, index) => {
-    const head = [place.title, place.site, `${place.written ? "skrivet" : "kort"} ${place.cardDate}`];
+    const head = [place.title, place.site, `${place.noted ? "du skrev in" : place.written ? "skrivet" : "kort"} ${place.cardDate}`];
     if (place.hidden > 0) head.push(`${place.hidden} ${place.hidden === 1 ? "låda" : "lådor"} syns inte`);
     const things = place.things
       .map((thing) => `${thing.name.replaceAll(";", ",")} (${[thing.category, thing.where].filter(Boolean).join(", ")})`)
@@ -904,10 +930,18 @@ function historyText(history: ThingSearchTermsInput["history"]): string {
   return `Tidigare:\n${history.map((turn) => `Fråga: ${turn.question}\nSvar: ${turn.answer}`).join("\n")}`;
 }
 
-/** The user message for thingSearchTerms (Story 18.14): the earlier turns when there are any, then the question. */
+/**
+ * The user message for thingSearchTerms (Story 18.14): the earlier turns when
+ * there are any, then the question, and (Story 18.19) the boende's rooms, a
+ * line each with its parts after a colon ("Sovrummet: Garderoben, Byrån").
+ */
 export function thingSearchTermsText(input: ThingSearchTermsInput): string {
   const earlier = input.history.length > 0 ? `${historyText(input.history)}\n\n` : "";
-  return `${earlier}Fråga: ${input.question}`;
+  const rooms =
+    input.rooms && input.rooms.length > 0
+      ? `\n\nRum:\n${input.rooms.map((room) => (room.parts.length > 0 ? `${room.room}: ${room.parts.join(", ")}` : room.room)).join("\n")}`
+      : "";
+  return `${earlier}Fråga: ${input.question}${rooms}`;
 }
 
 /** The user message for categorizeThings (Story 18.13): "Prylar:" and a numbered line per name. */

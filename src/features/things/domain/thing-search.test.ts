@@ -1,6 +1,20 @@
 import { describe, expect, it } from "vitest";
 import { cleanThingName, renameInputSchema } from "./thing-edit";
-import { hitHref, hitMeta, searchKey, searchRowsSchema, searchTerms, toHit, type ThingHit } from "./thing-search";
+import {
+  hitHref,
+  hitLine,
+  hitMeta,
+  hitRank,
+  isPlainSearch,
+  plainSearchAnswer,
+  rankHits,
+  searchKey,
+  searchRowsSchema,
+  searchTerms,
+  showSimilarText,
+  toHit,
+  type ThingHit,
+} from "./thing-search";
 
 const hit = (extra: Partial<ThingHit> = {}): ThingHit => ({
   id: "0b2f6d0a-3c0e-4d52-9a54-6d0f0c5f6a01",
@@ -18,6 +32,7 @@ const hit = (extra: Partial<ThingHit> = {}): ThingHit => ({
   photoId: "0b2f6d0a-3c0e-4d52-9a54-6d0f0c5f6a04",
   takenAt: "2026-10-31T10:00:00Z",
   written: false,
+  noted: false,
   score: 1,
   ...extra,
 });
@@ -93,3 +108,48 @@ describe("renaming a thing", () => {
     expect(renameInputSchema.safeParse({ id: "nope", name: "Hammare" }).success).toBe(false);
   });
 });
+
+describe("a plain search and its best hits (Story 18.19)", () => {
+  it("takes one to three words without a question as a search", () => {
+    for (const text of ["coca-cola", "passen", "skruvdragare", "röd cykelpump", "  Blå   backen  ", "vinter däck sommar"]) expect(isPlainSearch(text), text).toBe(true);
+    for (const text of ["var är passen", "passen?", "har vi tejp", "hur många skruvar", "finns tejp", "och tången", "passen ligger här", "en två tre fyra", "", "  ", "?"]) {
+      expect(isPlainSearch(text), text).toBe(false);
+    }
+  });
+
+  it("ranks the same name first, then the start, then a name that holds it, and a close match not at all", () => {
+    expect(hitRank("coca-cola", "Coca-Cola")).toBe(3);
+    expect(hitRank("coca cola", "Coca-Cola")).toBe(3);
+    expect(hitRank("skruv", "Skruvdragare")).toBe(2);
+    expect(hitRank("nyckel", "Skiftnyckel")).toBe(1);
+    expect(hitRank("röd pump", "Röd cykelpump")).toBe(1);
+    expect(hitRank("coca-cola", "Fun Light läsk")).toBe(0);
+    expect(hitRank("kratha", "Kratta")).toBe(0);
+    expect(hitRank("", "Kratta")).toBe(0);
+  });
+
+  it("splits the hits into the answer and Liknande, best first", () => {
+    const names = ["Fun Light läsk", "Skiftnyckel", "Nyckelring", "Nyckel"].map((name) => hit({ id: crypto.randomUUID(), name }));
+    const { best, similar } = rankHits("nyckel", names);
+    expect(best.map((entry) => entry.name)).toEqual(["Nyckel", "Nyckelring", "Skiftnyckel"]);
+    expect(similar.map((entry) => entry.name)).toEqual(["Fun Light läsk"]);
+    expect(showSimilarText(5)).toBe("Visa 5 liknande");
+  });
+
+  it("answers first and short", () => {
+    const pass = hit({ name: "Pass", room: "Sovrummet", part: "Översta byrålådan" });
+    expect(plainSearchAnswer("passen", [pass], [])).toBe("Pass finns i Sovrummet · Översta byrålådan.");
+    expect(plainSearchAnswer("pass", [pass, pass], [])).toBe("Hittade 2 föremål.");
+    expect(plainSearchAnswer(" coca-cola ", [], [pass])).toBe('Ingen "coca-cola" hittad. Liknande:');
+    expect(plainSearchAnswer("coca-cola", [], [])).toBe('Ingen "coca-cola" hittad.');
+  });
+
+  it("gives a hit's line: where, the boende only when it is another, and the day only for a thing written in", () => {
+    const card = hit({ room: "Boden", part: "Nedersta hyllan", whereHint: "mitten", siteName: "Stugan" });
+    expect(hitLine(card)).toBe("Boden · Nedersta hyllan · mitten");
+    expect(hitLine(card, card.siteId)).toBe("Boden · Nedersta hyllan · mitten");
+    expect(hitLine(card, "0b2f6d0a-3c0e-4d52-9a54-6d0f0c5f6aff")).toBe("Boden · Nedersta hyllan · mitten · Stugan");
+    expect(hitLine(hit({ room: "Sovrummet", part: "Byrån", noted: true, photoId: null, takenAt: "2026-10-31T10:00:00Z" }))).toBe("Sovrummet · Byrån · skrivet 31 okt");
+  });
+});
+

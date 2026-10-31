@@ -94,5 +94,11 @@ async function Rooms({ site }: { site: SelectedSite }) {
       <NewRoom siteId={site.id} />
     </div>
   );
-  return rooms.some((room) => room.things > 0) ? <ThingFinder>{list}</ThingFinder> : list;
+  return rooms.some((room) => room.things > 0) ? (
+    <ThingFinder siteId={site.id} rooms={rooms.map((room) => room.room)}>
+      {list}
+    </ThingFinder>
+  ) : (
+    list
+  );
 }

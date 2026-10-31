@@ -403,6 +403,38 @@ describe("household isolation", () => {
     });
   });
 
+  // Story 18.19: a thing written in with where it is (source noted, no card) is a thing_item row like any
+  // other: RLS (user_id) keeps it, remember_thing writes only into the caller's own part, and the search and
+  // the room's list never show it to another household.
+  describe("a thing written in with where it is (noted)", () => {
+    it("keeps A's noted thing from B and from anon, in the table and in the functions", async () => {
+      const part = await a.db.from("thing_place").insert({ site_id: aSeed.siteId, room: "Sovrummet", part: "Byrån", room_key: "sovrummet", part_key: "byrån" }).select("id").single();
+      expect(part.error).toBeNull();
+      const saved = await a.db.rpc("remember_thing", { place: part.data!.id, thing_name: "Pass", thing_category: "Övrigt" });
+      expect(saved.error).toBeNull();
+      const id = saved.data!;
+      // B can neither read, find, list, change nor remove it, nor write into A's part or remove it by `replaces`.
+      expect((await b.db.from("thing_item").select("id").eq("id", id)).data).toEqual([]);
+      expect((await b.db.rpc("search_things", { terms: ["pass"] })).data).toEqual([]);
+      expect((await b.db.rpc("thing_room_things", { site: aSeed.siteId, in_room: "sovrummet", wanted: "Övrigt" })).data).toEqual([]);
+      expect((await b.db.from("thing_item").update({ name: "Hackat" }).eq("id", id).select("id")).data).toEqual([]);
+      expect((await b.db.from("thing_item").delete().eq("id", id).select("id")).data).toEqual([]);
+      expect((await b.db.rpc("remember_thing", { place: part.data!.id, thing_name: "Lapp", thing_category: "Övrigt" })).error?.code).toBe("MK440");
+      const bSite = await b.db.from("pantry_site").insert({ name: "B noterat", normalized_name: `b-noterat-${randomUUID()}`, is_selected: false }).select("id").single();
+      expect(bSite.error).toBeNull();
+      const bPart = await b.db.from("thing_place").insert({ site_id: bSite.data!.id, room: "Hallen", room_key: "hallen" }).select("id").single();
+      expect((await b.db.rpc("remember_thing", { place: bPart.data!.id, thing_name: "Pass", thing_category: "Övrigt", replaces: id })).error).toBeNull();
+      const insert = await b.db.from("thing_item").insert({ photo_id: null, place_id: part.data!.id, name: "Lapp", category: "Övrigt", confidence: "high", source: "noted" });
+      expect(insert.error).not.toBeNull();
+      expect((await adminClient().from("thing_item").select("name, user_id, source").eq("id", id).single()).data).toEqual({ name: "Pass", user_id: a.id, source: "noted" });
+      // A finds it, as noted.
+      expect((await a.db.rpc("search_things", { terms: ["pass"] })).data?.map((row) => [row.name, row.noted])).toEqual([["Pass", true]]);
+      const anon = anonClient();
+      expect((await anon.rpc("remember_thing", { place: part.data!.id, thing_name: "X", thing_category: "Övrigt" })).error?.code).toBe("42501");
+      expect((await anon.from("thing_item").select("id").eq("id", id)).data ?? []).toEqual([]);
+    });
+  });
+
   // Story 17.9: a personal key for the quick-add API. The owner lists and revokes their keys and never reads
   // the hash back; a key adds only to its own household; a refused key says nothing about which keys exist.
   describe("personal keys for quick add", () => {

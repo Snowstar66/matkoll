@@ -275,7 +275,9 @@ function mockAskAnswer(input: AskThingsInput): AskThingsResult {
   }
   const sentences = found.slice(0, 3).map(({ place, names }) => {
     const hidden = place.hidden > 0 ? ` Innehållet i ${place.hidden === 1 ? "en låda" : `${place.hidden} lådor`} syns inte, så där kan det också ligga något.` : "";
-    return `${names.slice(0, 3).join(", ")} finns i ${place.title} (${place.site}).${hidden}`;
+    // Story 18.19: a place Pontus wrote in himself says so, with the day.
+    const noted = place.noted ? ` Det skrev du in själv ${place.cardDate}.` : "";
+    return `${names.slice(0, 3).join(", ")} finns i ${place.title} (${place.site}).${hidden}${noted}`;
   });
   return { answer: sentences.join(" "), places: found.slice(0, 5).map(({ index }) => index) };
 }
@@ -285,15 +287,39 @@ function mockAskAnswer(input: AskThingsInput): AskThingsResult {
  * that are not small words (and not "då", "och", "sett"), once each, at most
  * eight. A follow-up has its own words, so the history is not used.
  */
-const mockTermStopWords = new Set([...mockStopWords, "sett", "hittar", "vet", "jag", "du", "vi", "ni", "min", "mina", "vår", "våra", "då", "var", "hur", "vad", "finns", "har"]);
+const mockTermStopWords = new Set([...mockStopWords, "sett", "hittar", "vet", "jag", "du", "vi", "ni", "min", "mina", "vår", "våra", "då", "var", "hur", "vad", "finns", "har", "är"]);
+
+/**
+ * Story 18.19 without a model: a statement "<thing> ligger|står|hänger i <part> i <room>"
+ * (no question mark) is something to remember. The room is the last " i …"
+ * (matched against the rooms given, in any case), the part what is before it;
+ * the thing keeps the words as written, with a capital first letter, in Övrigt.
+ */
+const mockStatement = /^(.+?)\s+(?:ligger|står|hänger|finns|förvaras)\s+(?:i|på)\s+(.+?)\.?$/iu;
+
+function mockRemember(input: ThingSearchTermsInput): ThingSearchTermsResult["remember"] {
+  const text = input.question.normalize("NFC").trim();
+  if (text.endsWith("?")) return null;
+  const match = mockStatement.exec(text);
+  if (!match) return null;
+  const capital = (word: string) => word.charAt(0).toLocaleUpperCase("sv") + word.slice(1);
+  const where = match[2];
+  const split = where.toLocaleLowerCase("sv").lastIndexOf(" i ");
+  const roomText = split >= 0 ? where.slice(split + 3) : where;
+  const part = split >= 0 ? where.slice(0, split) : null;
+  const known = (input.rooms ?? []).find((room) => room.room.toLocaleLowerCase("sv") === roomText.toLocaleLowerCase("sv"));
+  return { name: capital(match[1]), room: known?.room ?? capital(roomText), part, category: "Övrigt" };
+}
 
 function mockSearchTerms(input: ThingSearchTermsInput): ThingSearchTermsResult {
-  const words = input.question
+  const remember = mockRemember(input);
+  const source = remember ? remember.name : input.question;
+  const words = source
     .normalize("NFC")
     .toLocaleLowerCase("sv")
     .split(/[^\p{L}\p{N}]+/u)
     .filter((word) => [...word].length >= 2 && !mockTermStopWords.has(word));
-  return { terms: [...new Set(words)].slice(0, 8) };
+  return { terms: [...new Set(words)].slice(0, 8), intent: remember ? "remember" : "question", remember };
 }
 
 /**
