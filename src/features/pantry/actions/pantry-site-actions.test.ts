@@ -242,7 +242,7 @@ describe("deletePantrySite", () => {
       expect(removePlacePhotoFiles).toHaveBeenCalledWith(db, [...paths, left]);
     });
 
-    it("removes the Prylar card files read before the boende was deleted (Story 18.2)", async () => {
+    it("removes the Föremål card files read before the boende was deleted (Story 18.2)", async () => {
       const cards = [`user/place-1/a.jpg`];
       loadSiteCardFiles.mockResolvedValue(cards);
       expect(await deletePantrySite({ id: stugan })).toEqual(ok({ removed: true }));

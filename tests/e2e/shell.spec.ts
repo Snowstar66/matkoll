@@ -252,7 +252,7 @@ test.describe("tab labels (Story 10.4)", () => {
     expect(labels.filter(({ fits, lines }) => !fits || lines > 2)).toEqual([]);
   });
 
-  // 234 px wide is a 375 px phone at 160 % zoom: with the fifth tab (Prylar) each tab is as wide as at 187 px with four.
+  // 234 px wide is a 375 px phone at 160 % zoom: with the fifth tab (Föremål) each tab is as wide as at 187 px with four.
   test("at 200 % zoom every label fits its tab, the long ones on two lines between their parts", async ({ page }) => {
     await page.setViewportSize({ width: 234, height: 406 });
     const labels = await measureActive(page);

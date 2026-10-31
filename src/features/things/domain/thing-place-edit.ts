@@ -2,6 +2,7 @@ import { z } from "zod";
 import { charLength } from "@/lib/one-line";
 import { cardsText, thingsText } from "./thing-room";
 import { cleanPlaceName, maxPlaceNameChars } from "./thing-place";
+import { thingNoun } from "./thing-noun";
 
 // Rätta rum och delar (Story 18.16): rename a room (merging it into a room that
 // has the name already, after a question), rename a part or a box, and remove a
@@ -51,13 +52,13 @@ export function renamePlaceTitle(place: { part: string; box: boolean }): string 
 
 /** What the sheet says when the new name is a room that is there already. */
 export function mergeQuestionText(room: string): string {
-  return `${room} finns redan. Vill du slå ihop rummen? Korten och prylarna hamnar i ${room}, och delar med samma namn blir en.`;
+  return `${room} finns redan. Vill du slå ihop rummen? Korten och ${thingNoun.definitePlural} hamnar i ${room}, och delar med samma namn blir en.`;
 }
 
 /** The lead of the remove sheet: "Det här tas bort: 12 prylar, 2 kort." */
 export function removePlaceLeadText(counts: PlaceCounts): string {
   const parts = [counts.things > 0 ? thingsText(counts.things) : null, counts.cards > 0 ? cardsText(counts.cards) : null].filter(Boolean);
-  return parts.length > 0 ? `Det här tas bort: ${parts.join(", ")}.` : "Det finns inga kort eller prylar här än.";
+  return parts.length > 0 ? `Det här tas bort: ${parts.join(", ")}.` : `Det finns inga kort eller ${thingNoun.plural} här än.`;
 }
 
 export function removePlaceTitle(place: { part: string; box: boolean }): string {
@@ -65,7 +66,7 @@ export function removePlaceTitle(place: { part: string; box: boolean }): string 
 }
 
 export function removePlaceDetailText(box: boolean): string {
-  return `${box ? "Lådan" : "Delen"} tas bort med sina kort, foton och prylar. Det går inte att ångra.`;
+  return `${box ? "Lådan" : "Delen"} tas bort med sina kort, foton och ${thingNoun.plural}. Det går inte att ångra.`;
 }
 
 /** The toast after a removal. */

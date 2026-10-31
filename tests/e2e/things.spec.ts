@@ -4,7 +4,7 @@ import { expect, type Locator, type Page, test } from "@playwright/test";
 import { shortDateText } from "@/features/things";
 import { adminClient, boendeButton, e2eUserId, thingsEmail, thingsStorageState } from "./support";
 
-// Prylar (Epic 18, Stories 18.1 to 18.12) with AI_PROVIDER=mock and
+// Föremål (Epic 18, Stories 18.1 to 18.12) with AI_PROVIDER=mock and
 // AI_MOCK_DELAY_MS=3000 from playwright.config.ts: any photo gets the mock's
 // things (tests/fixtures/ai/skrapforrad.things.json, twelve things in six
 // categories, one a guess, and three closed containers) after 3 s; the
@@ -158,9 +158,9 @@ test("a photo taken first lands in the room's whole room, is read in the backgro
 
   // The room is made with a place without a part ("Hela rummet"); the reading runs in the background.
   await page.goto("/prylar");
-  await expect(rooms(page)).toHaveText([/Skräpförrådet\s*Tittar på kortet …|Skräpförrådet\s*12 prylar · 1 kort/], { timeout: 25_000 });
-  await expect(rooms(page)).toContainText(`12 prylar · 1 kort · ${shortDateText(new Date())}`, { timeout: 25_000 });
-  await expect(page.getByTestId("rooms-total")).toHaveText("1 rum · 12 prylar");
+  await expect(rooms(page)).toHaveText([/Skräpförrådet\s*Tittar på kortet …|Skräpförrådet\s*12 föremål · 1 kort/], { timeout: 25_000 });
+  await expect(rooms(page)).toContainText(`12 föremål · 1 kort · ${shortDateText(new Date())}`, { timeout: 25_000 });
+  await expect(page.getByTestId("rooms-total")).toHaveText("1 rum · 12 föremål");
   const places = (await adminClient().from("thing_place").select("room, part, part_key, kind").eq("user_id", userId)).data;
   expect(places).toEqual([{ room: "Skräpförrådet", part: null, part_key: "", kind: "part" }]);
 
@@ -169,7 +169,7 @@ test("a photo taken first lands in the room's whole room, is read in the backgro
   await expect(page).toHaveURL(new RegExp(`/prylar/rum/${hemma}/skr%C3%A4pf%C3%B6rr%C3%A5det$`));
   await expect(page.getByRole("heading", { level: 1 })).toHaveText("Skräpförrådet");
   const summary = page.getByTestId("room-summary");
-  await expect(summary).toContainText("12prylar");
+  await expect(summary).toContainText("12föremål");
   await expect(summary).toContainText("7kategorier");
   await expect(summary).toContainText("1kort");
   await expect(page.getByText(`Senaste kort ${shortDateText(new Date())}`)).toBeVisible();
@@ -198,7 +198,7 @@ test("a photo taken first lands in the room's whole room, is read in the backgro
   const card = page.getByTestId("room-card");
   await expect(card).toHaveCount(1);
   await expect(card).toContainText("Hela rummet");
-  await expect(card).toContainText(`12 prylar · ${shortDateText(new Date())}`);
+  await expect(card).toContainText(`12 föremål · ${shortDateText(new Date())}`);
   await expect(card.getByRole("img")).toBeVisible();
   await expect(card.getByRole("button", { name: /^Ta om/ })).toBeVisible();
   await expect(card.getByRole("button", { name: /^Ta bort/ })).toBeVisible();
@@ -216,7 +216,7 @@ test("a photo taken first lands in the room's whole room, is read in the backgro
   expect((await anonymous.request.get(`/api/things/photo/${photoId}`)).status()).toBe(401);
   await anonymous.close();
 
-  // Prylar never touch the food: nothing in the pantry or the lists.
+  // Föremål never touch the food: nothing in the pantry or the lists.
   const pantry = await adminClient().from("pantry_item").select("id", { count: "exact", head: true }).eq("user_id", userId);
   expect(pantry.count).toBe(0);
   expect(errors).toEqual([]);
@@ -260,7 +260,7 @@ test("a new card adds to the room and replaces nothing; Ta om replaces only that
   // A sheet says what is replaced first (Story 18.15), then the picker opens.
   await page.getByTestId("room-card").first().getByRole("button", { name: /^Ta om/ }).click();
   const retake = page.getByRole("dialog", { name: "Ta om kortet" });
-  await expect(retake.getByTestId("retake-detail")).toContainText("Rättelser och tillagda prylar på det gamla kortet ersätts av den nya läsningen.");
+  await expect(retake.getByTestId("retake-detail")).toContainText("Rättelser och tillagda föremål på det gamla kortet ersätts av den nya läsningen.");
   const chooser = page.waitForEvent("filechooser");
   await retake.getByRole("button", { name: /Välj från Bilder/ }).click();
   await (await chooser).setFiles(photo);
@@ -310,12 +310,12 @@ test("a finished reading is confirmed while Pontus is in another tab, with a bad
   await expect(page.getByText(/Skickar kortet|Kortet läses i bakgrunden\./)).toBeVisible();
   await nav(page).getByRole("link", { name: "Recept" }).click();
   await expect(page).toHaveURL(/\/recept$/);
-  await expect(page.getByTestId("toast")).toContainText("12 prylar är listade.", { timeout: 25_000 });
+  await expect(page.getByTestId("toast")).toContainText("12 föremål är listade.", { timeout: 25_000 });
   await expect(nav(page).getByTestId("tab-badge")).toHaveText("1");
   await page.getByTestId("toast").getByRole("button", { name: "Visa" }).click();
   // The old place address opens the room the place is in.
   await expect(page).toHaveURL(/\/prylar\/rum\/[0-9a-f-]{36}\/boden$/);
-  await expect(page.getByTestId("room-summary")).toContainText("12prylar");
+  await expect(page.getByTestId("room-summary")).toContainText("12föremål");
   // Seen here: the badge goes.
   await expect(nav(page).getByTestId("tab-badge")).toHaveCount(0);
 });
@@ -403,7 +403,7 @@ test("Ta bort kortet asks first, removes card, things and file, and Ångra bring
 
   await page.getByTestId("toast").getByRole("button", { name: "Ångra" }).click();
   await expect(cards).toHaveCount(1);
-  await expect(cards).toContainText("12 prylar");
+  await expect(cards).toContainText("12 föremål");
   expect(await fileExists()).toBe(true);
 
   // Without Ångra the file goes when the time is out.
@@ -427,14 +427,14 @@ test("a thing the AI got wrong is renamed or removed alone, with Ångra, and the
   const things = page.getByTestId("thing");
 
   await page.getByRole("button", { name: /Hammare/ }).click();
-  const sheet = page.getByRole("dialog", { name: "Pryl" });
+  const sheet = page.getByRole("dialog", { name: "Föremål" });
   await sheet.getByLabel("Byt namn").fill("Klohammare");
   await sheet.getByRole("button", { name: "Spara" }).click();
   await expect(things.first()).toContainText("Klohammare");
   await expect(page.getByText("Hammare", { exact: true })).toHaveCount(0);
 
   await page.getByRole("button", { name: /Spade/ }).click();
-  await sheet.getByRole("button", { name: "Ta bort pryl" }).click();
+  await sheet.getByRole("button", { name: "Ta bort föremål" }).click();
   await expect(page.getByTestId("toast")).toContainText("Tog bort Spade.");
   await expect(things).toHaveCount(1);
   await expect(page.getByRole("button", { name: /^Trädgård/ })).toHaveCount(0);
@@ -466,8 +466,8 @@ test("search finds a thing in every room and boende, and the chat answers a ques
 
   await page.goto("/prylar");
   // The rooms of the selected boende, counted.
-  await expect(rooms(page)).toHaveText([/Skräpförrådet\s*2 prylar · 1 kort · 31 okt/]);
-  await expect(page.getByTestId("rooms-total")).toHaveText("1 rum · 2 prylar");
+  await expect(rooms(page)).toHaveText([/Skräpförrådet\s*2 föremål · 1 kort · 31 okt/]);
+  await expect(page.getByTestId("rooms-total")).toHaveText("1 rum · 2 föremål");
   // The database searches: the hit says place, boende and the card's day, from every boende, and a typo is fine.
   const search = page.getByRole("textbox", { name: "Sök eller fråga" });
   // One field: the hint while it is empty, and one character is not searched for.
@@ -483,7 +483,7 @@ test("search finds a thing in every room and boende, and the chat answers a ques
   await search.fill("kratha");
   await expect(page.getByTestId("thing-hit")).toHaveText([/Kratta\s*Redskapsboden · Stugan · 2 sep/]);
   await search.fill("inget");
-  await expect(page.getByText('Inga prylar matchar "inget".')).toBeVisible();
+  await expect(page.getByText('Inga föremål matchar "inget".')).toBeVisible();
   await search.fill("");
   await expect(rooms(page)).toBeVisible();
 
@@ -552,11 +552,11 @@ test("a box is added from the line about closed boxes, and its things are 'i Kar
   // A box with a card: its things say where they are, in the room's list, on the card and in search.
   await seedPlace(hemma, "Skräpförrådet", [{ name: "Julgransprydnad", category: "Hushåll" }], { part: "Kartong jul", box: true });
   await page.goto(roomUrl("Skräpförrådet"));
-  await expect(page.getByTestId("room-summary")).toContainText("2prylar");
+  await expect(page.getByTestId("room-summary")).toContainText("2föremål");
   await page.getByRole("button", { name: "Hushåll · 1" }).click();
   await expect(page.getByTestId("thing").filter({ hasText: "Julgransprydnad" })).toContainText("i Kartong jul");
   await page.getByRole("radio", { name: "Kort" }).click();
-  await expect(page.getByTestId("room-card").filter({ hasText: "Låda: Kartong jul" })).toContainText("1 pryl");
+  await expect(page.getByTestId("room-card").filter({ hasText: "Låda: Kartong jul" })).toContainText("1 föremål");
   await page.goto("/prylar");
   await page.getByRole("textbox", { name: "Sök eller fråga" }).fill("julgran");
   await expect(page.getByTestId("thing-hit")).toHaveText([/Julgransprydnad\s*Skräpförrådet, i Kartong jul · Hemma · 31 okt/]);
@@ -572,10 +572,10 @@ test("the same things on two cards of one room are counted once and say 'syns p�
 
   // The room counts them once: twelve things on two cards.
   await page.goto("/prylar");
-  await expect(rooms(page)).toContainText(`12 prylar · 2 kort · ${shortDateText(new Date())}`);
+  await expect(rooms(page)).toContainText(`12 föremål · 2 kort · ${shortDateText(new Date())}`);
   await rooms(page).click();
   await expect(page).toHaveURL(/\/prylar\/rum\//);
-  await expect(page.getByTestId("room-summary")).toContainText("12prylar");
+  await expect(page.getByTestId("room-summary")).toContainText("12föremål");
   await expect(page.getByTestId("room-summary")).toContainText("2kort");
   await page.getByRole("button", { name: "Verktyg · 4" }).click();
   const things = page.getByTestId("thing");
@@ -594,11 +594,11 @@ test("the same things on two cards of one room are counted once and say 'syns p�
   await rooms(page).click();
   await expect(page).toHaveURL(/\/prylar\/rum\//);
   await page.getByRole("radio", { name: "Kort" }).click();
-  await page.getByTestId("room-card").filter({ hasText: "0 prylar" }).getByRole("button", { name: /^Ta bort kortet/ }).click();
+  await page.getByTestId("room-card").filter({ hasText: "0 föremål" }).getByRole("button", { name: /^Ta bort kortet/ }).click();
   await page.getByRole("dialog", { name: "Ta bort kortet" }).getByRole("button", { name: "Ta bort kortet" }).click();
   await expect.poll(async () => (await adminClient().from("thing_photo").select("id").eq("user_id", userId)).data?.length).toBe(1);
-  await page.getByRole("radio", { name: "Prylar" }).click();
-  await expect(page.getByTestId("room-summary")).toContainText("12prylar");
+  await page.getByRole("radio", { name: "Föremål" }).click();
+  await expect(page.getByTestId("room-summary")).toContainText("12föremål");
   await page.getByRole("button", { name: "Verktyg · 4" }).click();
   await expect(page.getByText("syns på 2 kort")).toHaveCount(0);
 });
@@ -607,7 +607,7 @@ test("a room with hundreds of things shows its categories folded in and renders 
   const names = Array.from({ length: 300 }, (_, index) => ({ name: `Skruv ${String(index).padStart(3, "0")}`, category: "Byggmaterial" }));
   await seedPlace(hemma, "Garaget", [...names, { name: "Lövblås", category: "Trädgård" }]);
   await page.goto(roomUrl("Garaget"));
-  await expect(page.getByTestId("room-summary")).toContainText("301prylar");
+  await expect(page.getByTestId("room-summary")).toContainText("301föremål");
   await expect(page.getByRole("button", { name: "Byggmaterial · 300" })).toHaveAttribute("aria-expanded", "false");
   await expect(page.getByTestId("thing")).toHaveCount(0);
   await page.getByRole("button", { name: "Byggmaterial · 300" }).click();
@@ -674,7 +674,7 @@ test("what is in a box is written, sorted by one AI call, shown with the photogr
   const field = page.getByLabel("Vad finns i lådan?");
   await field.fill("julgransbelysning\nadventsljusstake, 2 st\nskarvsladdar, glitter");
   await page.getByRole("button", { name: "Spara" }).click();
-  await expect(page.getByTestId("box-saved")).toHaveText("Sparat: 4 prylar");
+  await expect(page.getByTestId("box-saved")).toHaveText("Sparat: 4 föremål");
   await expect(field).toHaveValue("Julgransbelysning\nAdventsljusstake, 2 st\nSkarvsladdar\nGlitter");
   // One thing per row without a card, a category each (the mock sorts by a few words), the call recorded.
   const rows = (await adminClient().from("thing_item").select("name, category, source, photo_id, place_id").eq("place_id", box.data.id).order("position")).data;
@@ -688,20 +688,20 @@ test("what is in a box is written, sorted by one AI call, shown with the photogr
 
   // Written and photographed things show together: counts, lists ("i Black box") and the Kort view.
   await page.goto(roomUrl("Skräpförrådet"));
-  await expect(page.getByTestId("room-summary")).toContainText("5prylar");
-  await expect(page.getByTestId("room-box")).toContainText("skrivet 4 prylar");
+  await expect(page.getByTestId("room-summary")).toContainText("5föremål");
+  await expect(page.getByTestId("room-box")).toContainText("skrivet 4 föremål");
   await page.getByRole("button", { name: "Elektronik · 2" }).click();
   await expect(page.getByTestId("thing").filter({ hasText: "Skarvsladdar" })).toContainText("i Black box");
   await page.getByRole("radio", { name: "Kort" }).click();
   const written = page.getByTestId("room-card-written");
   await expect(written).toContainText("Låda: Black box");
-  await expect(written).toContainText(/skrivet \d+ \w+ · 4 prylar/);
+  await expect(written).toContainText(/skrivet \d+ \w+ · 4 föremål/);
   await written.getByTestId("edit-written").click();
   await expect(page).toHaveURL(`/prylar/lada/${box.data.id}`);
 
   // Search and the chat find a written thing: the box, without a thumbnail.
   await page.goto("/prylar");
-  await expect(rooms(page)).toHaveText([/Skräpförrådet\s*5 prylar · 1 kort/]);
+  await expect(rooms(page)).toHaveText([/Skräpförrådet\s*5 föremål · 1 kort/]);
   await page.getByRole("textbox", { name: "Sök eller fråga" }).fill("skarvsladd");
   await expect(page.getByTestId("thing-hit")).toHaveText([/Skarvsladdar\s*Skräpförrådet, i Black box · Hemma · skrivet/]);
   await page.getByRole("textbox", { name: "Sök eller fråga" }).fill("");
@@ -719,7 +719,7 @@ test("what is in a box is written, sorted by one AI call, shown with the photogr
   // Editing the text replaces the written things; the photographed ones stay.
   await page.getByLabel("Vad finns i lådan?").fill("tomtenissar");
   await page.getByRole("button", { name: "Spara" }).click();
-  await expect(page.getByTestId("box-saved")).toHaveText("Sparat: 1 pryl");
+  await expect(page.getByTestId("box-saved")).toHaveText("Sparat: 1 föremål");
   expect((await adminClient().from("thing_item").select("name").eq("place_id", box.data.id).eq("source", "manual")).data).toEqual([{ name: "Tomtenissar" }]);
   expect((await adminClient().from("thing_item").select("name").eq("user_id", userId).eq("source", "photo")).data).toEqual([{ name: "Hammare" }]);
   expect(problems).toEqual([]);
@@ -742,7 +742,7 @@ test("when the AI does not sort a box's text the things are saved under Övrigt 
   ]);
   await page.getByLabel("Vad finns i lådan?").fill("x".repeat(81));
   await page.getByRole("button", { name: "Spara" }).click();
-  await expect(page.getByText("En pryl får vara högst 80 tecken. Dela upp raden.")).toBeVisible();
+  await expect(page.getByText("Ett föremål får vara högst 80 tecken. Dela upp raden.")).toBeVisible();
   // A page that is not a box, or is gone, is "Sidan finns inte."
   await page.goto(`/prylar/lada/${randomUUID()}`);
   await expect(page.getByText("Sidan finns inte.")).toBeVisible();
@@ -755,7 +755,7 @@ test("a thing's sheet changes its category and where on the picture, and it stay
   await page.goto(roomUrl("Skräpförrådet"));
   await page.getByRole("button", { name: "Verktyg · 1" }).click();
   await page.getByRole("button", { name: /Hammare/ }).click();
-  const sheet = page.getByRole("dialog", { name: "Pryl" });
+  const sheet = page.getByRole("dialog", { name: "Föremål" });
   await expect(sheet.getByRole("radio", { name: /Verktyg/ })).toBeChecked();
   await expect(sheet.getByLabel("Var på bilden")).toHaveValue("på väggen");
   await shot(page, "1-thing-sheet");
@@ -776,27 +776,27 @@ test("a thing's sheet changes its category and where on the picture, and it stay
   await expect.poll(async () => (await admin.from("thing_item").select("where_hint").eq("user_id", userId)).data?.[0]?.where_hint).toBeNull();
 });
 
-test("Lägg till pryl on a card writes things tied to that card, sorted by one AI call, and they go with the card", async ({ page }) => {
+test("Lägg till föremål on a card writes things tied to that card, sorted by one AI call, and they go with the card", async ({ page }) => {
   const place = await seedPlace(hemma, "Skräpförrådet", [{ name: "Hammare", category: "Verktyg" }]);
   const admin = adminClient();
   const card = (await admin.from("thing_photo").select("id").eq("place_id", place).single()).data!;
   await page.goto(`${roomUrl("Skräpförrådet")}?vy=kort`);
   await page.getByRole("radio", { name: "Kort" }).click();
   await page.getByTestId("add-card-things").click();
-  const sheet = page.getByRole("dialog", { name: "Lägg till prylar på kortet" });
+  const sheet = page.getByRole("dialog", { name: "Lägg till föremål på kortet" });
   await sheet.getByLabel("Vad saknas?").fill("skiftnyckel\nsladdrulle, 2 st");
   await shot(page, "2-add-thing");
   await sheet.getByRole("button", { name: "Lägg till" }).click();
-  await expect(page.getByTestId("toast")).toContainText("Lade till 2 prylar.");
+  await expect(page.getByTestId("toast")).toContainText("Lade till 2 föremål.");
   expect((await admin.from("thing_item").select("name, category, source, photo_id, place_id").eq("user_id", userId).eq("source", "added").order("position")).data).toEqual([
     { name: "Skiftnyckel", category: "Verktyg", source: "added", photo_id: card.id, place_id: place },
     { name: "Sladdrulle, 2 st", category: "Elektronik", source: "added", photo_id: card.id, place_id: place },
   ]);
   expect((await admin.from("ai_usage").select("model").eq("user_id", userId)).data).toEqual([{ model: "mock" }]);
   // They show like the others: counted in the room, in the list of the category, and on the card.
-  await expect(page.getByTestId("room-card")).toContainText("3 prylar");
-  await page.getByRole("radio", { name: "Prylar" }).click();
-  await expect(page.getByTestId("room-summary")).toContainText("3prylar");
+  await expect(page.getByTestId("room-card")).toContainText("3 föremål");
+  await page.getByRole("radio", { name: "Föremål" }).click();
+  await expect(page.getByTestId("room-summary")).toContainText("3föremål");
   await page.getByRole("button", { name: "Verktyg · 2" }).click();
   await expect(page.getByTestId("thing").filter({ hasText: "Skiftnyckel" })).toBeVisible();
 
@@ -807,14 +807,14 @@ test("Lägg till pryl on a card writes things tied to that card, sorted by one A
   await expect.poll(async () => (await admin.from("thing_item").select("id").eq("user_id", userId)).data?.length).toBe(0);
 });
 
-test("Lägg till pryl says Övrigt when the AI does not answer, and asks for something to add", async ({ page }) => {
+test("Lägg till föremål says Övrigt when the AI does not answer, and asks for something to add", async ({ page }) => {
   const place = await seedPlace(hemma, "Garaget", [{ name: "Hammare", category: "Verktyg" }]);
   await page.goto(roomUrl("Garaget"));
   await page.getByRole("radio", { name: "Kort" }).click();
   await page.getByTestId("add-card-things").click();
-  const sheet = page.getByRole("dialog", { name: "Lägg till prylar på kortet" });
+  const sheet = page.getByRole("dialog", { name: "Lägg till föremål på kortet" });
   await sheet.getByRole("button", { name: "Lägg till" }).click();
-  await expect(sheet.getByText("Skriv minst en pryl.")).toBeVisible();
+  await expect(sheet.getByText("Skriv minst ett föremål.")).toBeVisible();
   await sheet.getByLabel("Vad saknas?").fill("Spade\nHej matkoll-mock: ai_unavailable");
   await sheet.getByRole("button", { name: "Lägg till" }).click();
   await expect(page.getByTestId("toast")).toContainText("Sparat, men utan kategorier");
@@ -839,7 +839,7 @@ test("Rensa rummet asks for the room's name, then removes its cards, files, thin
   await page.getByTestId("room-menu").click();
   await page.getByRole("menuitem", { name: "Rensa rummet" }).click();
   const sheet = page.getByRole("dialog", { name: "Rensa rummet" });
-  await expect(sheet.getByTestId("clear-counts")).toHaveText("Det här tas bort: 4 prylar, 2 kort, 1 låda.");
+  await expect(sheet.getByTestId("clear-counts")).toHaveText("Det här tas bort: 4 föremål, 2 kort, 1 låda.");
   await expect(sheet).toContainText("Det går inte att ångra.");
   const confirm = sheet.getByRole("button", { name: "Rensa rummet" });
   await expect(confirm).toBeDisabled();
@@ -851,7 +851,7 @@ test("Rensa rummet asks for the room's name, then removes its cards, files, thin
   await shot(page, "4-clear-room-enabled");
   await confirm.click();
   await expect(page).toHaveURL("/prylar");
-  await expect(page.getByTestId("toast")).toContainText("Rensade 4 prylar, 2 kort, 1 låda.");
+  await expect(page.getByTestId("toast")).toContainText("Rensade 4 föremål, 2 kort, 1 låda.");
   await expect(rooms(page)).toHaveText([/Garaget/]);
   expect((await admin.from("thing_place").select("id").eq("user_id", userId)).data).toEqual([{ id: keep }]);
   expect((await admin.from("thing_item").select("name").eq("user_id", userId)).data).toEqual([{ name: "Skruvdragare" }]);
@@ -872,11 +872,11 @@ test("Rensa förrådet in Inställningar asks for RENSA, removes all of Förråd
 
   await page.goto("/installningar/boenden");
   const row = page.getByTestId("clear-site-row").filter({ hasText: "Rensa förrådet i Hemma" });
-  await expect(row).toContainText("3 prylar, 2 kort");
+  await expect(row).toContainText("3 föremål, 2 kort");
   await expect(page.getByTestId("clear-site-row")).toHaveCount(2);
   await row.click();
   const sheet = page.getByRole("dialog", { name: "Rensa förrådet i Hemma" });
-  await expect(sheet.getByTestId("clear-counts")).toHaveText("Det här tas bort: 3 prylar, 2 kort.");
+  await expect(sheet.getByTestId("clear-counts")).toHaveText("Det här tas bort: 3 föremål, 2 kort.");
   await expect(sheet).toContainText("Matvaror rörs inte.");
   const confirm = sheet.getByRole("button", { name: "Rensa förrådet i Hemma" });
   await expect(confirm).toBeDisabled();
@@ -884,7 +884,7 @@ test("Rensa förrådet in Inställningar asks for RENSA, removes all of Förråd
   await sheet.getByLabel("Skriv RENSA för att bekräfta.").fill("rensa");
   await expect(confirm).toBeEnabled();
   await confirm.click();
-  await expect(page.getByTestId("toast")).toContainText("Rensade 3 prylar, 2 kort.");
+  await expect(page.getByTestId("toast")).toContainText("Rensade 3 föremål, 2 kort.");
   await expect(page.getByTestId("clear-site-row")).toHaveCount(1);
   expect((await admin.from("thing_place").select("site_id").eq("user_id", userId)).data).toEqual([{ site_id: other.data.id }]);
   expect((await admin.from("thing_item").select("name").eq("user_id", userId)).data).toEqual([{ name: "Borr" }]);
@@ -976,7 +976,7 @@ test("a part or a box can be renamed and removed from its ⋯, and removing asks
   await part.getByTestId("place-menu").click();
   await page.getByTestId("place-remove").click();
   const sheet = page.getByRole("dialog", { name: "Ta bort delen Hyllan" });
-  await expect(sheet.getByTestId("place-remove-counts")).toHaveText("Det här tas bort: 2 prylar, 1 kort.");
+  await expect(sheet.getByTestId("place-remove-counts")).toHaveText("Det här tas bort: 2 föremål, 1 kort.");
   await shot(page, "9-remove-part");
   await sheet.getByRole("button", { name: "Avbryt" }).click();
   expect((await cardsOf()).length).toBe(2);

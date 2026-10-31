@@ -2,6 +2,7 @@ import { thingCategories, type Thing, type ThingCategory } from "./thing";
 import { seenOnText } from "./thing-merge";
 import { shortDateText } from "./thing-photo";
 import { inBoxText, normalizePlaceName } from "./thing-place";
+import { thingCountText } from "./thing-noun";
 
 // Rummets överblick (Stories 18.11 and 18.12): a room is the distinct room of a
 // boende's places; its things, categories and cards are the sum of all its
@@ -29,7 +30,7 @@ export type RoomSummary = {
 
 /** "74 prylar", or "1 pryl". */
 export function thingsText(count: number): string {
-  return count === 1 ? "1 pryl" : `${count} prylar`;
+  return thingCountText(count);
 }
 
 /** "9 kort", or "1 kort". */

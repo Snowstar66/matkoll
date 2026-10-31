@@ -35,7 +35,7 @@ describe("Skriv vad som finns", () => {
   it("shows what is written, and says how many things the cards show as well", () => {
     renderIt({ initialText: "Glitter\nTång", photographed: 12 });
     expect(screen.getByLabelText("Vad finns i lådan?")).toHaveValue("Glitter\nTång");
-    expect(screen.getByText("Dessutom 12 prylar från kort.")).toBeInTheDocument();
+    expect(screen.getByText("Dessutom 12 föremål från kort.")).toBeInTheDocument();
   });
 
   it("saves the text, shows it as stored and says how many things were saved", async () => {
@@ -44,7 +44,7 @@ describe("Skriv vad som finns", () => {
     await userEvent.type(screen.getByLabelText("Vad finns i lådan?"), "glitter, tång");
     await userEvent.click(screen.getByRole("button", { name: "Spara" }));
     expect(saveBoxThings).toHaveBeenCalledWith({ placeId, text: "glitter, tång" });
-    expect(await screen.findByText("Sparat: 2 prylar")).toBeInTheDocument();
+    expect(await screen.findByText("Sparat: 2 föremål")).toBeInTheDocument();
     expect(screen.getByLabelText("Vad finns i lådan?")).toHaveValue("Glitter\nTång");
     expect(refresh).toHaveBeenCalled();
   });
@@ -58,11 +58,11 @@ describe("Skriv vad som finns", () => {
   });
 
   it("says a text the action refuses under the field, and a failure at the top", async () => {
-    saveBoxThings.mockResolvedValueOnce(fail("validation", { text: "Du kan skriva högst 100 prylar i en låda." }));
+    saveBoxThings.mockResolvedValueOnce(fail("validation", { text: "Du kan skriva högst 100 föremål i en låda." }));
     renderIt();
     await userEvent.type(screen.getByLabelText("Vad finns i lådan?"), "x");
     await userEvent.click(screen.getByRole("button", { name: "Spara" }));
-    expect(await screen.findByText("Du kan skriva högst 100 prylar i en låda.")).toBeInTheDocument();
+    expect(await screen.findByText("Du kan skriva högst 100 föremål i en låda.")).toBeInTheDocument();
     saveBoxThings.mockResolvedValueOnce(fail("things_place_failed"));
     await userEvent.click(screen.getByRole("button", { name: "Spara" }));
     await waitFor(() => expect(screen.getByText("Det gick inte att spara. Försök igen.")).toBeInTheDocument());
