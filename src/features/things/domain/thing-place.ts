@@ -22,6 +22,25 @@ export function normalizePlaceName(name: string): string {
   return oneLine(name).normalize("NFC").toLocaleLowerCase("sv");
 }
 
+/**
+ * A box (Story 18.5) is a place under the same room whose part is the box's
+ * name. No column says so (the story adds no migration): the box is told by
+ * its `part_key`, which carries this prefix, so a box and a part with the same
+ * name never clash and the key stays out of sight (the shown `part` is the
+ * plain name). Kept at most 160 characters by the table's check.
+ */
+export const boxKeyPrefix = "box:";
+
+/** The `part_key` of a box named `name`. */
+export function boxKey(name: string): string {
+  return `${boxKeyPrefix}${normalizePlaceName(name)}`;
+}
+
+/** Whether a stored `part_key` is a box's. */
+export function isBoxKey(partKey: string): boolean {
+  return partKey.startsWith(boxKeyPrefix);
+}
+
 /** A name as typed, cleaned for storing: one line, trimmed. */
 export function cleanPlaceName(name: string): string {
   return oneLine(name).normalize("NFC");
@@ -52,6 +71,8 @@ export type ThingPlace = {
   siteId: string;
   room: string;
   part: string | null;
+  /** A box in the room (Story 18.5): `part` is its name. */
+  isBox: boolean;
   /** How many things the place's latest card has. */
   itemCount: number;
   /** When the latest finished card was taken, or null before there is one. */
@@ -61,8 +82,14 @@ export type ThingPlace = {
 };
 
 /** The place's name as one line: "Skräpförrådet · Översta hyllan", or the room alone. */
-export function placeTitle(place: Pick<ThingPlace, "room" | "part">): string {
+export function placeTitle(place: { room: string; part: string | null; isBox?: boolean }): string {
+  if (place.isBox && place.part) return `${place.room}, ${inBoxText(place.part)}`;
   return place.part ? `${place.room} · ${place.part}` : place.room;
+}
+
+/** "i Blå backen": how a thing in a box says where it is. */
+export function inBoxText(boxName: string): string {
+  return `i ${boxName}`;
 }
 
 /** The part's name in a list under its room: "Översta hyllan", or "Hela rummet" for a place without one. */
@@ -89,11 +116,18 @@ export function roomSuggestions(places: readonly Pick<ThingPlace, "room">[]): st
   return [...rooms.values()].sort((a, b) => a.localeCompare(b, "sv"));
 }
 
+/** What "Lägg till" sends in the sheet Lägg till låda: the place it is added to and the box's name. */
+export const boxInputSchema = z.object({ placeId: z.uuid(), name: nameField });
+export type BoxInput = z.input<typeof boxInputSchema>;
+
 // The texts follow EXPERIENCE.md, Voice and Tone.
 
 export const thingsEmptyText = "Fotografera en hylla eller ett förråd, så listar Matkoll vad som finns där.";
 export const newPlaceText = "Ny plats";
 export const emptyRoomText = "Ange ett rum, till exempel Skräpförrådet.";
+export const addBoxText = "Lägg till låda";
+export const emptyBoxText = "Ange ett namn, till exempel Blå backen.";
+export const boxTakenText = "Lådan finns redan.";
 export const nameTooLongText = `Namnet får vara högst ${maxPlaceNameChars} tecken.`;
 export const placeTakenText = "Platsen finns redan.";
 export const placeLimitText = `Du kan ha högst ${maxPlacesPerSite} platser i ett boende.`;

@@ -9,6 +9,7 @@ const place = (id: string, room: string, names: string[], extra: Partial<Indexed
   siteName: "Hemma",
   room,
   part: null,
+  isBox: false,
   cardTakenAt: new Date("2026-10-31T10:00:00Z"),
   hidden: 0,
   things: names.map((name, index) => ({ id: `${id}-${index}`, name, category: "Verktyg", whereHint: null })),
@@ -94,5 +95,13 @@ describe("renaming a thing", () => {
     expect(renameInputSchema.safeParse({ id, name: "x".repeat(81) }).success).toBe(false);
     expect(renameInputSchema.safeParse({ id, name: "x".repeat(80) }).success).toBe(true);
     expect(renameInputSchema.safeParse({ id: "nope", name: "Hammare" }).success).toBe(false);
+  });
+});
+
+describe("things in a box", () => {
+  it("say where they are as 'i Blå backen'", () => {
+    const box = place("b", "Skräpförrådet", ["Julgransprydnad"], { part: "Blå backen", isBox: true });
+    const [hit] = searchThings([box], "julgran").hits;
+    expect(hitMeta(hit)).toContain("Skräpförrådet, i Blå backen, på väggen");
   });
 });

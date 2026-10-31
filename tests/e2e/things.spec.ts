@@ -277,12 +277,12 @@ async function seedPlace(
   siteId: string,
   room: string,
   names: { name: string; category: string; where?: string }[],
-  { part = null, takenAt = "2026-10-31T10:00:00Z", hidden = 0 }: { part?: string | null; takenAt?: string; hidden?: number } = {},
+  { part = null, takenAt = "2026-10-31T10:00:00Z", hidden = 0, box = false }: { part?: string | null; takenAt?: string; hidden?: number; box?: boolean } = {},
 ): Promise<string> {
   const admin = adminClient();
   const place = await admin
     .from("thing_place")
-    .insert({ user_id: userId, site_id: siteId, room, part, room_key: room.toLowerCase(), part_key: part?.toLowerCase() ?? "" })
+    .insert({ user_id: userId, site_id: siteId, room, part, room_key: room.toLowerCase(), part_key: part ? (box ? "box:" : "") + part.toLowerCase() : "" })
     .select("id")
     .single();
   if (place.error) throw place.error;
@@ -422,4 +422,30 @@ test("search finds a thing in every place and boende, and a question is answered
   await answer.getByTestId("ask-ref").click();
   await expect(page).toHaveURL(new RegExp(`/prylar/${shed}$`));
   await expect(page.getByRole("heading", { level: 1 })).toHaveText("Redskapsboden");
+});
+
+test("a box is added from the line about closed boxes, gets its own card, and its things are 'i Blå backen' in lists and search", async ({ page }) => {
+  const shed = await seedPlace(hemma, "Skräpförrådet", [{ name: "Hammare", category: "Verktyg" }], { hidden: 3 });
+  await page.goto(`/prylar/${shed}`);
+  await page.getByRole("button", { name: "Innehållet i 3 lådor syns inte – fota insidan" }).click();
+  const sheet = page.getByRole("dialog", { name: "Lägg till låda" });
+  await sheet.getByRole("button", { name: "Lägg till och fota" }).click();
+  await expect(sheet.getByText("Ange ett namn, till exempel Blå backen.")).toBeVisible();
+  await sheet.getByLabel("Namn på lådan").fill("Blå backen");
+  await sheet.getByRole("button", { name: "Lägg till och fota" }).click();
+  await expect(page).toHaveURL(/\/prylar\/[0-9a-f-]{36}\?fota=1$/);
+  await expect(page.getByRole("heading", { level: 1 })).toHaveText("Skräpförrådet, i Blå backen");
+  const box = (await adminClient().from("thing_place").select("room, part, part_key").eq("user_id", userId).eq("part", "Blå backen").single()).data!;
+  expect(box).toEqual({ room: "Skräpförrådet", part: "Blå backen", part_key: "box:blå backen" });
+  // A box holds no box.
+  await expect(page.getByRole("button", { name: "Lägg till låda" })).toHaveCount(0);
+
+  // A box with a card: its things say where they are, in the room's lists and in search.
+  await seedPlace(hemma, "Skräpförrådet", [{ name: "Julgransprydnad", category: "Hushåll" }], { part: "Kartong jul", box: true });
+  await page.goto(`/prylar/${shed}`);
+  await expect(page.getByTestId("place-boxes").getByTestId("box")).toHaveCount(2);
+  await page.goto("/prylar");
+  await expect(page.getByTestId("place").filter({ hasText: "Låda · 1 sak" })).toHaveCount(1);
+  await page.getByRole("searchbox", { name: "Sök bland prylar" }).fill("julgran");
+  await expect(page.getByTestId("thing-hit")).toHaveText([/Julgransprydnad\s*Skräpförrådet, i Kartong jul · Hemma · 31 okt/]);
 });
