@@ -13,6 +13,7 @@ import {
   latestPhotoOpenLabel,
   latestPhotoOpenText,
   latestPhotoText,
+  noPhotoText,
   photoReadingHeading,
   photoTimeText,
   photoTakenText,
@@ -181,14 +182,10 @@ export function LatestPhoto({ photo, location }: LatestPhotoProps) {
   return (
     <>
       {photo && removedId !== photo.id ? (
-        // Centred under the camera button, close to it (Epic 11, lagersaldo.html): "Senaste foto av kylen: idag 15:42 · Visa".
-        <div
-          data-testid="pantry-latest-photo"
-          className="-mt-5 -mb-3 flex flex-wrap items-center justify-center gap-x-1 text-center"
-        >
-          {/* ink-2, not ink-3: the line lies on the page's background (DESIGN.md, Färger). */}
-          <p className="text-meta text-ink-2">
-            {latestPhotoText(location, timeOf(photo))}
+        // Under "Fotografera kylen" in the camera row (Story 14.6): "Senaste idag 15:42 · Visa".
+        <div data-testid="pantry-latest-photo" className="flex flex-wrap items-center gap-x-1 text-meta text-ink-3">
+          <p>
+            {latestPhotoText(timeOf(photo))}
             <span aria-hidden="true"> ·</span>
           </p>
           <button
@@ -202,13 +199,17 @@ export function LatestPhoto({ photo, location }: LatestPhotoProps) {
               setOpened((times) => times + 1);
               setView("photo");
             }}
-            // A text button in meta type that keeps a 44 px tap area.
-            className="-mx-2 inline-flex min-h-tap min-w-tap items-center justify-center rounded-md px-2 text-meta font-semibold text-accent"
+            // A text button in meta type that keeps a 44 px tap area without making the line taller.
+            className="-mx-2 -my-3 inline-flex min-h-tap min-w-tap items-center justify-center rounded-md px-2 text-meta font-semibold text-accent"
           >
             {latestPhotoOpenText}
           </button>
         </div>
-      ) : null}
+      ) : (
+        <p data-testid="pantry-no-photo" className="text-meta text-ink-3">
+          {noPhotoText}
+        </p>
+      )}
       {sheetPhoto ? (
         <>
           <AnalyzedPhotoSheet

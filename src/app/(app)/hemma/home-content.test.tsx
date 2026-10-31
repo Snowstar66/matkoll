@@ -87,7 +87,7 @@ describe("HomeContent", () => {
     vi.mocked(listPantry).mockResolvedValue([mjolk]);
     render(await HomeContent({ site, location: "Kyl", next: "/hemma" }));
     const links = within(screen.getByRole("navigation", { name: "Platser" })).getAllByRole("link");
-    expect(links.map((link) => link.textContent)).toEqual(["Kyl 1 vara", "Frys 1 vara", "Skafferi 0 varor"]);
+    expect(links.map((link) => link.textContent)).toEqual(["\u{1F9CA}Kyl 1 vara", "\u2744\uFE0FFrys 1 vara", "\u{1F96B}Skafferi 0 varor"]);
     expect(screen.getByText("Mjölk")).toBeInTheDocument();
     expect(listPantry).toHaveBeenCalledWith("Kyl", site.id);
     expect(countPantryItems).toHaveBeenCalledWith(site.id);
@@ -261,10 +261,10 @@ describe("HomeContent: Senaste foto (Story 10.2)", () => {
     render(await HomeContent({ site, location: "Kyl", next: "/hemma" }));
     expect(listPlacePhotos).toHaveBeenCalledWith(site.id);
     const line = screen.getByTestId("pantry-latest-photo");
-    expect(line).toHaveTextContent("Senaste foto av kylen: idag 15:42");
+    expect(line).toHaveTextContent("Senaste idag 15:42");
     expect(within(line).getByRole("button", { name: "Visa senaste foto av kylen" })).toBeInTheDocument();
-    // Directly after the camera area.
-    expect(screen.getByTestId("pantry-camera").nextElementSibling).toBe(line);
+    // Inside the camera area, under "Fotografera kylen" (Story 14.6).
+    expect(screen.getByTestId("pantry-camera")).toContainElement(line);
   });
 
   it("has no line for a location without a photo", async () => {
@@ -273,6 +273,7 @@ describe("HomeContent: Senaste foto (Story 10.2)", () => {
     vi.mocked(listPlacePhotos).mockResolvedValue({ photos: [photo("Kyl", new Date("2026-10-26T15:42:00+01:00"))] });
     render(await HomeContent({ site, location: "Frys", next: "/hemma" }));
     expect(screen.queryByTestId("pantry-latest-photo")).toBeNull();
+    expect(screen.getByTestId("pantry-no-photo")).toHaveTextContent("Inget foto än");
   });
 
   it("keeps the line under the camera button when the pantry cannot be read", async () => {
@@ -281,6 +282,6 @@ describe("HomeContent: Senaste foto (Story 10.2)", () => {
     vi.mocked(listPlacePhotos).mockResolvedValue({ photos: [photo("Kyl", new Date("2026-10-25T09:10:00+01:00"))] });
     render(await HomeContent({ site, location: "Kyl", next: "/hemma" }));
     expect(screen.getByText(unavailable)).toBeInTheDocument();
-    expect(screen.getByTestId("pantry-latest-photo")).toHaveTextContent("Senaste foto av kylen: igår 09:10");
+    expect(screen.getByTestId("pantry-latest-photo")).toHaveTextContent("Senaste igår 09:10");
   });
 });

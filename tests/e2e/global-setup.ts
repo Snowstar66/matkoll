@@ -63,6 +63,8 @@ import {
   productChoiceStorageState,
   putInPantryEmail,
   putInPantryStorageState,
+  recipeEditEmail,
+  recipeEditStorageState,
   recipesEmail,
   recipesLookEmail,
   recipesLookStorageState,
@@ -124,6 +126,7 @@ export default async function globalSetup(config: FullConfig) {
     for (const [email, path] of [
       [e2eEmail, userStorageState],
       [recipesEmail, recipesStorageState],
+      [recipeEditEmail, recipeEditStorageState],
       [libraryEmail, libraryStorageState],
       [settingsEmail, settingsStorageState],
       [pantryEmail, pantryStorageState],

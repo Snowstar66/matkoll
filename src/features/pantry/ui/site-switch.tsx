@@ -90,7 +90,7 @@ export function SiteSwitch({ sites, selected, children }: SiteSwitchProps) {
 
   return (
     <SitesSheetContext.Provider value={openSheet}>
-      <div className="flex flex-col gap-4">
+      <div className="flex flex-col gap-3">
         {sites.length > 1 ? (
           <div className="flex flex-wrap items-center gap-x-2">
             {/* A tap before hydration would do nothing, so the pills wait. */}
@@ -102,8 +102,14 @@ export function SiteSwitch({ sites, selected, children }: SiteSwitchProps) {
               disabled={!hydrated}
               className="min-w-0"
             />
-            <Button variant="text" disabled={!hydrated || switching} onClick={openSheet}>
-              Ställen
+            {/* Story 14.6: a discreet "Hantera" last in the row; the sheet Ställen is still where places are managed. */}
+            <Button
+              variant="compact"
+              disabled={!hydrated || switching}
+              onClick={openSheet}
+              aria-label="Hantera boenden"
+            >
+              Hantera
             </Button>
           </div>
         ) : null}

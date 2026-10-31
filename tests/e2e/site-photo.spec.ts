@@ -145,7 +145,7 @@ const group = (page: Page, title: string) =>
 /** Hemma, once React runs. */
 async function openHemma(page: Page, path = "/hemma") {
   await page.goto(path);
-  await expect(page.getByRole("button", { name: "Ställen", exact: true }).filter({ visible: true })).toBeEnabled();
+  await expect(page.getByRole("button", { name: "Hantera boenden", exact: true }).filter({ visible: true })).toBeEnabled();
 }
 
 /** Selects a place with its pill and waits until the page shows it. */
@@ -242,7 +242,7 @@ test("selecting Hemma while Stugan's suggestions show says so, and Bekräfta sti
   expect(on(after, "Stugan").find((row) => row.name === "Mjölk")).toMatchObject({ amount: 1, unit: "förp" });
   // Hemma's list is Hemma's: 1 l, never Stugan's 1 förp.
   // Story 11.3: the rows show no amount; on(after, "Hemma") above holds the 1 l.
-  await expect(rows(page).filter({ hasText: /^Mjölk / })).toHaveCount(1);
+  await expect(rows(page).filter({ hasText: /^Mjölk(?:\s|$)/ })).toHaveCount(1);
   expect(errors).toEqual([]);
 });
 
@@ -253,7 +253,7 @@ test("Töm kylen on Stugan asks with its name, empties only Stugan, and Ångra a
   const before = await pantry();
   await openHemma(page);
   await choose(page, "Stugan");
-  await expect(placeCard(page, "Kyl")).toHaveText(/^Kyl\s*2 varor$/);
+  await expect(placeCard(page, "Kyl")).toHaveText(/^\S*Kyl\s*2 varor$/);
   await page.getByRole("button", { name: "Töm kylen" }).filter({ visible: true }).click();
   const sheet = page.getByRole("dialog", { name: "Töm kylen" });
   await expect(sheet.getByText("Ta bort alla 2 varor i kylen för Stugan?")).toBeVisible();
@@ -267,7 +267,7 @@ test("Töm kylen on Stugan asks with its name, empties only Stugan, and Ångra a
   await expect.poll(async () => on(await pantry(), "Stugan")).toEqual(on(before, "Stugan"));
   expect(on(await pantry(), "Hemma")).toEqual(on(before, "Hemma"));
   // Hemma's list never shows Stugan's rows.
-  await expect(rows(page)).toHaveText([/^Mjölk /, /^Yoghurt /]);
+  await expect(rows(page)).toHaveText([/^Mjölk(?:\s|$)/, /^Yoghurt(?:\s|$)/]);
   expect(errors).toEqual([]);
 });
 
@@ -278,7 +278,7 @@ test("an empty freezer on Stugan gives the plain list, although Hemma's freezer 
   const before = await pantry();
   await openHemma(page, "/hemma?plats=frys");
   await choose(page, "Stugan");
-  await expect(placeCard(page, "Frys")).toHaveText(/^Frys\s*0 varor$/);
+  await expect(placeCard(page, "Frys")).toHaveText(/^\S*Frys\s*0 varor$/);
   await photograph(page, "Fotografera frysen");
 
   await expect(section(page).getByRole("heading", { level: 2 })).toHaveText("Lagerförslag från frysen");

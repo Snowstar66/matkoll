@@ -75,6 +75,46 @@ export function addedText(createdAt: string, now: Date): string | null {
   return then.year === today.year ? `Tillagd ${date}` : `Tillagd ${date} ${then.year}`;
 }
 
+/** Days after which an item counts as old ("ligger länge"), per location (Story 14.6); none for Skafferi. */
+const oldAfterDays: Record<Location, number | null> = { Kyl: 7, Frys: 60, Skafferi: null };
+
+/** The number of days an item in `location` may lie before it gets the "N dagar" label, or `null` for no limit. */
+export function oldLimitDays(location: Location): number | null {
+  return oldAfterDays[location];
+}
+
+/**
+ * Whole calendar days (Stockholm) from `createdAt` (ISO 8601) to `now`, never
+ * below 0; `null` for a time that cannot be read.
+ */
+export function daysSinceAdded(createdAt: string, now: Date): number | null {
+  const added = new Date(createdAt);
+  if (!Number.isFinite(added.getTime()) || !Number.isFinite(now.getTime())) return null;
+  const then = stockholmDay(added);
+  const today = stockholmDay(now);
+  const days = Math.round(
+    (Date.UTC(today.year, today.month - 1, today.day) - Date.UTC(then.year, then.month - 1, then.day)) / dayMs,
+  );
+  return Math.max(0, days);
+}
+
+/**
+ * The small label of an item that has lain longer than its location's limit
+ * (Story 14.6): "9 dagar", counted from when it was added; `null` for an item
+ * within the limit, in a location without one, or without a readable time.
+ */
+export function oldItemText(
+  item: Pick<PantryItem, "createdAt">,
+  location: Location,
+  now: Date,
+): string | null {
+  const limit = oldLimitDays(location);
+  if (limit === null || !item.createdAt) return null;
+  const days = daysSinceAdded(item.createdAt, now);
+  if (days === null || days <= limit) return null;
+  return `${days} dagar`;
+}
+
 /**
  * The line under an item's name in Lagersaldo (FR-42): its brand when it has
  * one ("Arla laktosfri"), else when it was added (addedText); `null` for

@@ -129,7 +129,7 @@ const toast = (page: Page) => page.getByTestId("toast");
 
 async function openHemma(page: Page) {
   await page.goto("/hemma");
-  await expect(page.getByRole("button", { name: "Ställen", exact: true }).filter({ visible: true })).toBeEnabled();
+  await expect(page.getByRole("button", { name: "Hantera boenden", exact: true }).filter({ visible: true })).toBeEnabled();
 }
 
 /** Selects a place with its pill and waits until the page shows it. */
@@ -149,7 +149,7 @@ async function photograph(page: Page) {
 
 /** Avvisa on every card, which writes nothing, until the section is gone. */
 async function rejectAll(page: Page) {
-  const reject = section(page).getByRole("button", { name: /^Avvisa / });
+  const reject = section(page).getByRole("button", { name: /^Avvisa(?:\s|$)/ });
   while ((await reject.count()) > 0) {
     const left = await reject.count();
     await reject.first().click();

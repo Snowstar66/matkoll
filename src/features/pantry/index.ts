@@ -71,6 +71,7 @@ export {
   placePhotoMaxAgeMs,
   photoTimeText,
   latestPhotoText,
+  noPhotoText,
   removedPhotoText,
   removePhotoQuestion,
   type PlacePhoto,
@@ -205,6 +206,9 @@ export {
 export {
   addedText,
   pantryMetaText,
+  oldItemText,
+  oldLimitDays,
+  daysSinceAdded,
   groupPantryByCategory,
   filterPantry,
   pantrySearchLabel,

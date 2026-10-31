@@ -218,19 +218,13 @@ describe("removing an item on Hemma", () => {
     expect(within(toast()).getByRole("button", { name: "Ångra" })).toBeInTheDocument();
   });
 
-  it("asks first when no delete was confirmed lately, shares the window, and keeps Ångra after Ta bort (Story 13.1)", async () => {
+  it("removes at once from the swipe action, without a question, and keeps Ångra (Story 14.6)", async () => {
     resetDeleteGrace();
     render(<Hemma initial={[mjolk, smor, salt]} />);
     await tapRemove("Mjölk");
-    expect(screen.getByText("Ta bort Mjölk från lagret?")).toBeInTheDocument();
-    expect(removePantryItem).not.toHaveBeenCalled();
-    await act(async () => fireEvent.click(screen.getByRole("button", { name: "Ta bort" })));
+    expect(screen.queryByText("Ta bort Mjölk från lagret?")).not.toBeInTheDocument();
     expect(removePantryItem).toHaveBeenCalledWith(mjolk.id);
     expect(within(toast()).getByRole("button", { name: "Ångra" })).toBeInTheDocument();
-    // Inside the window: at once, no question.
-    await tapRemove("Smör");
-    expect(removePantryItem).toHaveBeenCalledWith(smor.id);
-    expect(screen.queryByText("Ta bort Smör från lagret?")).not.toBeInTheDocument();
   });
 
   it("keeps a removed row hidden until the server's items no longer have it", async () => {
@@ -422,7 +416,7 @@ describe("the places a live Ångra needs (Story 8.2)", () => {
 describe("Ta bort in the sheet", () => {
   it("removes an unlimited item, closes without asking, and moves focus to the next item", async () => {
     render(<Hemma initial={[mjolk, salt, agg]} />);
-    fireEvent.click(screen.getByRole("button", { name: /^Salt / }));
+    fireEvent.click(screen.getByRole("button", { name: /^Salt(?:\s|$)/ }));
     const sheet = screen.getByRole("dialog", { name: "Lagervara" });
     // Even with a change that is not saved.
     fireEvent.change(within(sheet).getByLabelText("Mängd"), { target: { value: "2" } });
@@ -434,12 +428,12 @@ describe("Ta bort in the sheet", () => {
     expect(rowNames()).toEqual(["Mjölk", "Ägg"]);
     expect(toast()).toHaveTextContent("Tog bort Salt.");
     // Salt was the last item; the one before it takes focus.
-    expect(screen.getByRole("button", { name: /^Ägg / })).toHaveFocus();
+    expect(screen.getByRole("button", { name: /^Ägg(?:\s|$)/ })).toHaveFocus();
   });
 
   it("offers Ta bort only for an item in the pantry", () => {
     render(<Hemma initial={[mjolk]} />);
-    fireEvent.click(screen.getByRole("button", { name: /^Mjölk / }));
+    fireEvent.click(screen.getByRole("button", { name: /^Mjölk(?:\s|$)/ }));
     expect(within(screen.getByRole("dialog", { name: "Lagervara" })).getByRole("button", { name: "Ta bort" })).toBeInTheDocument();
     fireEvent.click(screen.getByRole("button", { name: "Avbryt" }));
 
@@ -456,14 +450,14 @@ describe("Ta bort in the sheet", () => {
     removePantryItem.mockImplementation(async (id) => ok(rowOf(id === moved.id ? moved : mjolk)));
     render(<Hemma initial={[mjolk, smor]} />);
 
-    fireEvent.click(screen.getByRole("button", { name: /^Mjölk / }));
+    fireEvent.click(screen.getByRole("button", { name: /^Mjölk(?:\s|$)/ }));
     fireEvent.change(screen.getByLabelText("Mängd"), { target: { value: "2" } });
     await act(async () => fireEvent.click(screen.getByRole("button", { name: "Spara ändringar" })));
     // Saving closes the sheet; it opens again from the list as it is now.
     await waitFor(() => expect(screen.queryByRole("dialog", { name: "Lagervara" })).toBeNull());
     // The row shows no amount: the moved row is known by its id.
-    await waitFor(() => expect(screen.getByRole("button", { name: /^Mjölk / })).toHaveAttribute("data-pantry-item", moved.id));
-    fireEvent.click(screen.getByRole("button", { name: /^Mjölk / }));
+    await waitFor(() => expect(screen.getByRole("button", { name: /^Mjölk(?:\s|$)/ })).toHaveAttribute("data-pantry-item", moved.id));
+    fireEvent.click(screen.getByRole("button", { name: /^Mjölk(?:\s|$)/ }));
     await act(async () => fireEvent.click(screen.getByRole("button", { name: "Ta bort" })));
     expect(removePantryItem).toHaveBeenCalledWith(moved.id);
   });
@@ -481,9 +475,9 @@ describe("focus after a removal", () => {
   it("goes to the next item's bin, else the one before, else Lägg till vara (Story 11.3)", async () => {
     render(<Hemma initial={[mjolk, smor, agg]} />);
     await removeFocused("Smör");
-    expect(screen.getByRole("button", { name: "Ta bort Ägg" })).toHaveFocus();
+    expect(screen.getByRole("button", { name: "Ägg" })).toHaveFocus();
     await removeFocused("Ägg");
-    expect(screen.getByRole("button", { name: "Ta bort Mjölk" })).toHaveFocus();
+    expect(screen.getByRole("button", { name: "Mjölk" })).toHaveFocus();
     await removeFocused("Mjölk");
     expect(screen.getByText("Inget i kylen än.")).toBeInTheDocument();
     const add = screen.getAllByRole("button", { name: "Lägg till vara" }).find((button) => button.textContent === "Lägg till vara");
@@ -513,10 +507,10 @@ describe("focus after a removal", () => {
     removePantryItem.mockImplementationOnce(() => pending.promise);
     render(<Hemma initial={[mjolk, smor]} />);
     await removeFocused("Mjölk");
-    expect(screen.getByRole("button", { name: "Ta bort Smör" })).toHaveFocus();
+    expect(screen.getByRole("button", { name: "Smör" })).toHaveFocus();
     await act(async () => pending.resolve(fail("pantry_remove_failed")));
     expect(rowNames()).toEqual(["Mjölk", "Smör"]);
-    await waitFor(() => expect(screen.getByRole("button", { name: "Ta bort Mjölk" })).toHaveFocus());
+    await waitFor(() => expect(screen.getByRole("button", { name: "Mjölk" })).toHaveFocus());
   });
 
   it("never ignores the keyboard, also right after a tap", async () => {
@@ -528,15 +522,7 @@ describe("focus after a removal", () => {
       fireEvent.click(bin, { detail: 0 });
     });
     expect(removePantryItem).toHaveBeenCalledTimes(2);
-    expect(screen.getByRole("button", { name: "Ta bort Ägg" })).toHaveFocus();
-  });
-
-  it("ignores a second tap on a bin right after the first, so the row sliding up stays", async () => {
-    render(<Hemma initial={[mjolk, smor]} />);
-    await tapRemove("Mjölk");
-    await act(async () => fireEvent.click(screen.getByRole("button", { name: "Ta bort Smör" }), { detail: 1 }));
-    expect(removePantryItem).toHaveBeenCalledTimes(1);
-    expect(rowNames()).toEqual(["Smör"]);
+    expect(screen.getByRole("button", { name: "Ägg" })).toHaveFocus();
   });
 });
 
@@ -607,7 +593,7 @@ describe("emptying a location", () => {
     });
     await undo();
     await waitFor(() => expect(rowNames()).toEqual(["Mjölk", "Smör"]));
-    expect(screen.getByRole("button", { name: /^Mjölk / })).toHaveAttribute("data-pantry-item", mjolkAgain.id);
+    expect(screen.getByRole("button", { name: /^Mjölk(?:\s|$)/ })).toHaveAttribute("data-pantry-item", mjolkAgain.id);
     expect(screen.getByRole("alert")).toHaveTextContent("1 vara gick inte att ångra.");
     expect(refresh).not.toHaveBeenCalled();
   });
