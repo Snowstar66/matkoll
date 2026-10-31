@@ -1,6 +1,8 @@
 import { z } from "zod";
 import type { Json } from "@/lib/supabase/database.types";
 import { isErrorCode } from "@/lib/errors";
+import { thingCategories, thingConfidences } from "../domain/thing";
+import type { CardSnapshot } from "../domain/thing-edit";
 import { thingPhotoBucket, thingPhotoMediaTypes, type ThingCard, type ThingPhotoMediaType } from "../domain/thing-photo";
 import { cardGoneCode, guarded, ThingsDataError, type ThingsDb } from "./client";
 
@@ -269,4 +271,167 @@ export async function loadCardFileOrphansIn(db: ThingsDb, userId: string, now: D
     }
   }
   return orphans;
+}
+
+const snapshotSelect =
+  "id, place_id, object_path, media_type, width, height, taken_at, created_at, status, unseen_note, unseen_count, thing_item(id, photo_id, place_id, name, category, where_hint, confidence, position, created_at)";
+
+const snapshotRowSchema = z.object({
+  id: z.uuid(),
+  place_id: z.uuid(),
+  object_path: z.string(),
+  media_type: z.enum(thingPhotoMediaTypes),
+  width: z.number().int(),
+  height: z.number().int(),
+  taken_at: z.string(),
+  created_at: z.string(),
+  status: z.enum(["reading", "done", "failed"]),
+  unseen_note: z.string().nullable(),
+  unseen_count: z.number().int(),
+  thing_item: z.array(
+    z.object({
+      id: z.uuid(),
+      photo_id: z.uuid(),
+      place_id: z.uuid(),
+      name: z.string(),
+      category: z.enum(thingCategories),
+      where_hint: z.string().nullable(),
+      confidence: z.enum(thingConfidences),
+      position: z.number().int(),
+      created_at: z.string(),
+    }),
+  ),
+});
+
+/** What removing a card gives back: the snapshot "Ångra" needs, and whether it was a finished card. */
+export type RemovedCard = { snapshot: CardSnapshot };
+
+/**
+ * "Ta bort kortet" (Story 18.3): reads the finished card with its things, then
+ * deletes its row; the things go with it (their foreign key cascades). The
+ * file is NOT removed here, so "Ångra" can put the rows back; the caller
+ * removes it when the undo time is out (removeCardFileIfOrphan), and the sweep
+ * takes it later if that never happens. Returns `null` when the card is gone,
+ * not the user's, or not finished. Throws ThingsDataError `remove_failed <code>`
+ * or `query_failed <code>` or `invalid_row`.
+ */
+export async function removeCardIn(db: ThingsDb, id: string): Promise<RemovedCard | null> {
+  return guarded("remove", async () => {
+    const { data, error } = await db.from("thing_photo").select(snapshotSelect).eq("id", id).eq("status", "done").maybeSingle();
+    if (error) throw new ThingsDataError(`query_failed ${error.code}`);
+    if (!data) return null;
+    const parsed = snapshotRowSchema.safeParse(data);
+    if (!parsed.success) throw new ThingsDataError("invalid_row");
+    const row = parsed.data;
+    const deleted = await db.from("thing_photo").delete().eq("id", id).select("id");
+    if (deleted.error) throw new ThingsDataError(`remove_failed ${deleted.error.code}`);
+    if (deleted.data.length === 0) return null;
+    return {
+      snapshot: {
+        id: row.id,
+        placeId: row.place_id,
+        objectPath: row.object_path,
+        mediaType: row.media_type,
+        width: row.width,
+        height: row.height,
+        takenAt: new Date(row.taken_at).toISOString(),
+        createdAt: new Date(row.created_at).toISOString(),
+        unseenNote: row.unseen_note,
+        unseenCount: row.unseen_count,
+        things: [...row.thing_item]
+          .sort((a, b) => a.position - b.position)
+          .map((item) => ({
+            id: item.id,
+            photoId: item.photo_id,
+            placeId: item.place_id,
+            name: item.name,
+            category: item.category,
+            whereHint: item.where_hint,
+            confidence: item.confidence,
+            position: item.position,
+            createdAt: new Date(item.created_at).toISOString(),
+          })),
+      },
+    };
+  });
+}
+
+/** What "Ångra" did: the card is back (`restored`, also when it already was), its file is gone, or its place is. */
+export type RestoredCard = "restored" | "file_gone" | "place_gone";
+
+/**
+ * "Ångra" after "Ta bort kortet": puts the card and its things back with the
+ * same ids and times, as a finished card. The file must still be there (it
+ * is kept for the undo time; a sweep that took it makes this `file_gone`, and
+ * nothing is written). Throws ThingsDataError `restore_failed <code>` or
+ * `exists_failed <status>`.
+ */
+export async function restoreCardIn(db: ThingsDb, card: CardSnapshot): Promise<RestoredCard> {
+  return guarded("restore", async () => {
+    // The folder's listing, searched for the file: a missing file is an empty list, not an error to read the status of.
+    const slash = card.objectPath.lastIndexOf("/");
+    const listed = await db.storage
+      .from(thingPhotoBucket)
+      .list(card.objectPath.slice(0, slash), { limit: 1, search: card.objectPath.slice(slash + 1) });
+    if (listed.error) throw new ThingsDataError(`exists_failed ${statusOf(listed.error)}`);
+    if (!listed.data.some((entry) => entry.name === card.objectPath.slice(slash + 1))) return "file_gone";
+    const photo = await db.from("thing_photo").insert({
+      id: card.id,
+      place_id: card.placeId,
+      object_path: card.objectPath,
+      media_type: card.mediaType,
+      width: card.width,
+      height: card.height,
+      taken_at: card.takenAt,
+      created_at: card.createdAt,
+      status: "done",
+      unseen_note: card.unseenNote,
+      unseen_count: card.unseenCount,
+    });
+    if (photo.error) {
+      // The card is there already (a second "Ångra", or another tab): fine. The place is gone: the foreign key.
+      if (photo.error.code === "23505") return "restored";
+      if (photo.error.code === "23503") return "place_gone";
+      throw new ThingsDataError(`restore_failed ${photo.error.code}`);
+    }
+    if (card.things.length > 0) {
+      const items = await db.from("thing_item").insert(
+        card.things.map((thing) => ({
+          id: thing.id,
+          photo_id: card.id,
+          place_id: card.placeId,
+          name: thing.name,
+          category: thing.category,
+          where_hint: thing.whereHint,
+          confidence: thing.confidence,
+          position: thing.position,
+          created_at: thing.createdAt,
+        })),
+      );
+      if (items.error) {
+        // No card without its things: the row goes again, and the user may try once more.
+        await db.from("thing_photo").delete().eq("id", card.id);
+        throw new ThingsDataError(`restore_failed ${items.error.code}`);
+      }
+    }
+    return "restored";
+  });
+}
+
+/**
+ * Removes a removed card's file, once the undo time is out: only when no
+ * card has the path any more (a card that "Ångra" put back keeps its file).
+ * Never throws; a failure is logged as a reason only and the sweep takes the
+ * file later.
+ */
+export async function removeCardFileIfOrphan(db: ThingsDb, path: string): Promise<void> {
+  try {
+    const { data, error } = await db.from("thing_photo").select("id").eq("object_path", path).limit(1);
+    if (error) throw new ThingsDataError(`query_failed ${error.code}`);
+    if (data.length > 0) return;
+    const { failed } = await removeCardFiles(db, [path]);
+    if (failed !== null) console.error("things_photo_remove_failed", { reason: failed });
+  } catch (error) {
+    console.error("things_photo_remove_failed", { reason: error instanceof ThingsDataError ? error.detail : "remove_threw" });
+  }
 }

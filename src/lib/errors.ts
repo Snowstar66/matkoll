@@ -95,6 +95,14 @@ export const errorMessages = {
   things_place_gone: "Platsen finns inte längre.",
   things_photo_failed: "Det gick inte att spara fotot. Försök igen.",
   things_card_gone: "Kortet finns inte längre.",
+  // Förnya och ta bort (Story 18.3): the card or thing stays, or "Ångra" did not go.
+  things_card_remove_failed: "Det gick inte att ta bort kortet. Försök igen.",
+  things_restore_failed: "Det gick inte att ångra. Försök igen.",
+  things_restore_file_gone: "Kortet kunde inte läggas tillbaka, för fotot är borta. Ta ett nytt kort.",
+  things_item_failed: "Det gick inte att spara prylen. Försök igen.",
+  things_item_gone: "Prylen finns inte längre.",
+  // Sök och fråga (Story 18.4): nothing on a card to ask about yet.
+  things_ask_empty: "Fotografera en plats först, så kan du fråga om vad som finns där.",
   // Matsedel (Story 3.1). After failed servings the selector shows the saved
   // value again; after a failed remove the dish is back on the plan.
   mealplan_unavailable: "Det gick inte att läsa matsedeln. Försök igen.",

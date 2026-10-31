@@ -1,12 +1,16 @@
 import { randomUUID } from "node:crypto";
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
 import { ThingsDataError } from "@/features/things/data/client";
-import { loadThingsIn } from "@/features/things/data/items";
+import { loadThingIndexIn } from "@/features/things/data/index";
+import { loadThingsIn, removeItemIn, renameItemIn, restoreItemIn } from "@/features/things/data/items";
 import {
   downloadCardFile,
   insertCardIn,
   loadCardsIn,
   loadSiteCardFilesIn,
+  removeCardFileIfOrphan,
+  removeCardIn,
+  restoreCardIn,
   markCardFailedIn,
   removeCardFiles,
   reopenCardIn,
@@ -33,12 +37,14 @@ const png = new Uint8Array([137, 80, 78, 71, 13, 10, 26, 10, 1, 2, 3, 4]);
 
 let a: TestUser;
 let b: TestUser;
+let c: TestUser;
 const files: string[] = [];
 
 beforeAll(async () => {
   localSupabaseUrl();
   a = await createTestUser("things-a");
   b = await createTestUser("things-b");
+  c = await createTestUser("things-c");
 });
 
 afterAll(async () => {
@@ -78,7 +84,7 @@ async function cardOf(user: TestUser, placeId: string, createdAt?: string): Prom
   return { id, path };
 }
 
-const hammer = { name: "Hammare", category: "Verktyg", where: "på väggen", confidence: "high" };
+const hammer: { name: string; category: string; where: string | null; confidence: string } = { name: "Hammare", category: "Verktyg", where: "på väggen", confidence: "high" };
 
 describe("places", () => {
   it("keeps a room and part once, whatever the spelling, and groups nothing across boenden", async () => {
@@ -266,5 +272,125 @@ describe("save_thing_reading", () => {
     const db: Db = (await import("./support")).anonClient();
     const refused = await db.rpc("save_thing_reading", { photo: randomUUID(), things: [] });
     expect(refused.error).not.toBeNull();
+  });
+});
+
+/** A finished card with things, as the job saves it. */
+async function doneCard(user: TestUser, placeId: string, things = [hammer], createdAt?: string): Promise<{ id: string; path: string }> {
+  const card = await cardOf(user, placeId, createdAt);
+  await saveReadingIn(user.db, { photoId: card.id, things, note: "Innehållet i en låda syns inte.", hidden: 1 });
+  return card;
+}
+
+describe("Förnya och ta bort (Story 18.3)", () => {
+  const exists = async (path: string) => (await downloadCardFile(c.db, path)) !== null;
+
+  it("removes the card and its things at once but keeps the file, and Ångra puts back the same rows", async () => {
+    const site = await siteOf(c);
+    const place = await placeOf(c, site, "Ångra-rummet");
+    const card = await doneCard(c, place, [hammer, { ...hammer, name: "Spade", category: "Trädgård", where: null, confidence: "low" }]);
+    const before = await loadThingsIn(c.db, card.id);
+    const [stored] = await loadCardsIn(c.db, place);
+
+    const removed = await removeCardIn(c.db, card.id);
+    expect(removed?.snapshot).toMatchObject({ id: card.id, placeId: place, objectPath: card.path, unseenCount: 1, unseenNote: "Innehållet i en låda syns inte." });
+    expect(removed?.snapshot.things.map((thing) => thing.name)).toEqual(["Hammare", "Spade"]);
+    expect(await loadCardsIn(c.db, place)).toEqual([]);
+    expect(await loadThingsIn(c.db, card.id)).toEqual([]);
+    expect(await exists(card.path)).toBe(true);
+
+    expect(await restoreCardIn(c.db, removed!.snapshot)).toBe("restored");
+    expect(await loadCardsIn(c.db, place)).toEqual([stored]);
+    expect(await loadThingsIn(c.db, card.id)).toEqual(before);
+    // A second Ångra changes nothing.
+    expect(await restoreCardIn(c.db, removed!.snapshot)).toBe("restored");
+    expect(await loadThingsIn(c.db, card.id)).toEqual(before);
+  });
+
+  it("removes the file when the undo time is out, but never the file of a card that is back", async () => {
+    const site = await siteOf(c);
+    const place = await placeOf(c, site, "Fil-rummet");
+    const card = await doneCard(c, place);
+    const removed = await removeCardIn(c.db, card.id);
+    await restoreCardIn(c.db, removed!.snapshot);
+    await removeCardFileIfOrphan(c.db, card.path);
+    expect(await exists(card.path)).toBe(true);
+
+    const again = await removeCardIn(c.db, card.id);
+    await removeCardFileIfOrphan(c.db, card.path);
+    expect(await exists(card.path)).toBe(false);
+    // Too late for Ångra: the file is gone, and nothing is written.
+    expect(await restoreCardIn(c.db, again!.snapshot)).toBe("file_gone");
+    expect(await loadCardsIn(c.db, place)).toEqual([]);
+  });
+
+  it("gives null for a card that is gone, not finished or another user's, and says a place that is gone", async () => {
+    const site = await siteOf(c);
+    const place = await placeOf(c, site, "Främmande");
+    const done = await doneCard(c, place);
+    const reading = await cardOf(c, place);
+    expect(await removeCardIn(c.db, reading.id)).toBeNull();
+    expect(await removeCardIn(c.db, randomUUID())).toBeNull();
+    expect(await removeCardIn(b.db, done.id)).toBeNull();
+    expect(await loadCardsIn(c.db, place)).toHaveLength(2);
+
+    const removed = await removeCardIn(c.db, done.id);
+    await c.db.from("thing_place").delete().eq("id", place);
+    expect(await restoreCardIn(c.db, removed!.snapshot)).toBe("place_gone");
+  });
+
+  it("renames just one thing, and removes just one thing with Ångra, leaving the card alone", async () => {
+    const site = await siteOf(c);
+    const place = await placeOf(c, site, "Pryl-rummet");
+    const card = await doneCard(c, place, [hammer, { ...hammer, name: "Spade" }]);
+    const [cardBefore] = await loadCardsIn(c.db, place);
+    const [first, second] = await loadThingsIn(c.db, card.id);
+
+    expect(await renameItemIn(c.db, first.id, "Klohammare")).toBe(true);
+    expect((await loadThingsIn(c.db, card.id)).map((thing) => thing.name)).toEqual(["Klohammare", "Spade"]);
+    // Another user's thing, and one that is gone, are not renamed.
+    expect(await renameItemIn(b.db, first.id, "Stulen")).toBe(false);
+    expect(await renameItemIn(c.db, randomUUID(), "Ingen")).toBe(false);
+
+    const removed = await removeItemIn(c.db, second.id);
+    expect(removed).toMatchObject({ id: second.id, photoId: card.id, placeId: place, name: "Spade" });
+    expect((await loadThingsIn(c.db, card.id)).map((thing) => thing.name)).toEqual(["Klohammare"]);
+    expect(await removeItemIn(b.db, first.id)).toBeNull();
+    expect(await restoreItemIn(c.db, removed!)).toBe("restored");
+    expect(await loadThingsIn(c.db, card.id)).toEqual([{ ...first, name: "Klohammare" }, second]);
+    // The card, with its date, is as it was.
+    expect(await loadCardsIn(c.db, place)).toEqual([cardBefore]);
+    // A thing whose card is gone cannot come back.
+    await removeCardIn(c.db, card.id);
+    expect(await restoreItemIn(c.db, removed!)).toBe("gone");
+  });
+});
+
+describe("the index for search and questions (Story 18.4)", () => {
+  it("has the things of each place's newest finished card across boenden, with boende, date and closed containers, and nothing of another user's", async () => {
+    const home = await siteOf(c, "Hemma-index");
+    const cabin = await siteOf(c, "Stugan-index");
+    const shed = await placeOf(c, home, "Skräpförrådet", "Översta hyllan");
+    const garage = await placeOf(c, cabin, "Garaget");
+    await placeOf(c, home, "Tomt");
+    const old = await doneCard(c, shed, [{ ...hammer, name: "Gammal pryl" }], "2026-01-01T10:00:00Z");
+    const fresh = await doneCard(c, shed, [hammer, { ...hammer, name: "Spade", where: null }], "2026-02-01T10:00:00Z");
+    await doneCard(c, garage, [{ ...hammer, name: "Såg" }]);
+    // A card being read has no things yet and is not in the index.
+    await cardOf(c, garage, "2026-12-01T10:00:00Z");
+    // restoreCardIn of an older card must not hide the newer one: the newest finished card wins.
+    expect(old.id).not.toBe(fresh.id);
+
+    const index = (await loadThingIndexIn(c.db)).filter((place) => [shed, garage].includes(place.id));
+    expect(index.map((place) => [place.room, place.part, place.siteName, place.hidden])).toEqual([
+      ["Skräpförrådet", "Översta hyllan", "Hemma-index", 1],
+      ["Garaget", null, "Stugan-index", 1],
+    ]);
+    expect(index[0].things.map((thing) => [thing.name, thing.whereHint])).toEqual([
+      ["Hammare", "på väggen"],
+      ["Spade", null],
+    ]);
+    expect(index[1].things.map((thing) => thing.name)).toEqual(["Såg"]);
+    expect((await loadThingIndexIn(b.db)).some((place) => [shed, garage].includes(place.id))).toBe(false);
   });
 });

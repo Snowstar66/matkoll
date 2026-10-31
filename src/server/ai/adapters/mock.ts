@@ -18,7 +18,7 @@ import {
 } from "../schemas";
 import { fromCompactDish } from "../compact-dish";
 import { reportUsage } from "../usage";
-import type { AiService, AnalyzeImageResult, ListThingsResult, ParseRecipeInput, SuggestDishesInput } from "../service";
+import type { AiService, AnalyzeImageResult, AskThingsInput, AskThingsResult, ListThingsResult, ParseRecipeInput, SuggestDishesInput } from "../service";
 
 // Deterministic stand-in for a model, used in all tests and in CI (AD-9). It
 // answers from tests/fixtures/ai/: manifest.json lists the cases, each with a
@@ -238,6 +238,36 @@ function loadThingsFixtures(dir: string): ThingsFixtures {
   return { errors, answer: parsed };
 }
 
+/**
+ * askThings (Story 18.4) without a model: the places whose things have a word
+ * of the question in their name (a word of four letters or more matches by its
+ * first four, so "måla" finds "Målarfärgsburkar"), named in a fixed sentence
+ * with the closed containers added when a place has any; or "Jag hittar inget
+ * som passar." A question that holds a reserved text of the manifest fails
+ * with its code.
+ */
+/** Small words that would match inside a name ("att" in "Kratta"). */
+const mockStopWords = new Set(["har", "att", "med", "och", "det", "den", "ett", "som", "var", "finns", "något", "någon", "några", "ligger", "kan", "till", "för", "inte"]);
+
+function mockAskAnswer(input: AskThingsInput): AskThingsResult {
+  const words = input.question
+    .normalize("NFC")
+    .toLocaleLowerCase("sv")
+    .split(/[^\p{L}\p{N}]+/u)
+    .filter((word) => word.length >= 3 && !mockStopWords.has(word))
+    .map((word) => (word.length > 4 ? word.slice(0, 4) : word));
+  const found = input.places.flatMap((place, index) => {
+    const names = place.things.filter((thing) => words.some((word) => thing.name.toLocaleLowerCase("sv").includes(word))).map((thing) => thing.name);
+    return names.length > 0 ? [{ place, index, names }] : [];
+  });
+  if (found.length === 0) return { answer: "Jag hittar inget som passar i dina listor.", places: [] };
+  const sentences = found.slice(0, 3).map(({ place, names }) => {
+    const hidden = place.hidden > 0 ? ` Innehållet i ${place.hidden === 1 ? "en låda" : `${place.hidden} lådor`} syns inte, så där kan det också ligga något.` : "";
+    return `${names.slice(0, 3).join(", ")} finns i ${place.title} (${place.site}).${hidden}`;
+  });
+  return { answer: sentences.join(" "), places: found.slice(0, 5).map(({ index }) => index) };
+}
+
 /** The error code a reserved pantry item asks for, if any. */
 function suggestErrorFor(input: SuggestDishesInput, errors: Map<string, MockErrorCode>): MockErrorCode | undefined {
   for (const item of input.pantry) {
@@ -316,6 +346,7 @@ function countingCalls(service: AiService): AiService {
     analyzeImage: counted(service.analyzeImage),
     locateItems: counted(service.locateItems),
     listThings: counted(service.listThings),
+    askThings: counted(service.askThings),
   };
 }
 
@@ -330,6 +361,8 @@ function createMockService(dir: string, { delayMs = 0 }: MockOptions): AiService
   const analyzeFixtures = lazily(() => loadAnalyzeFixtures(dir));
   const locateFixtures = lazily(() => loadLocateFixtures(dir));
   const thingsFixtures = lazily(() => loadThingsFixtures(dir));
+  // The suggest fixtures hold the reserved texts askThings fails on (a question that contains one).
+  const askErrors = lazily(() => loadSuggestFixtures(dir).errors);
 
   /** The fixtures, or undefined (logged) when they cannot be read. */
   const logged = <T>(current: T | undefined) => {
@@ -395,6 +428,14 @@ function createMockService(dir: string, { delayMs = 0 }: MockOptions): AiService
       if (!code && !(await wait(clampedDelay(delayMs), signal))) return fail("ai_unavailable");
       if (code) return fail(code);
       return ok({ ...structuredClone(current.answer), invalid: 0, trimmed: 0 });
+    },
+    async askThings(input, signal) {
+      if (!(await wait(clampedDelay(Math.min(delayMs, 1_000)), signal))) return fail("ai_unavailable");
+      const errors = logged(askErrors());
+      if (!errors) return fail("ai_unavailable");
+      const question = normalizeInputText({ text: input.question });
+      for (const [text, code] of errors) if (question.includes(text)) return fail(code);
+      return ok(mockAskAnswer(input));
     },
     // Story 12.2: the mock is never cold, so there is nothing to wake.
     warmUpKey() {

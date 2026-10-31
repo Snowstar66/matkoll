@@ -643,3 +643,49 @@ describe("usage (Story 17.6)", () => {
     expect(seen).toHaveLength(1);
   });
 });
+
+describe("mock askThings (Story 18.4)", () => {
+  const service = createMockAiService();
+  const places = [
+    { title: "Garaget", site: "Stugan", cardDate: "1 nov", hidden: 0, things: [{ name: "Spade", category: "Trädgård", where: null }] },
+    {
+      title: "Skräpförrådet",
+      site: "Hemma",
+      cardDate: "31 okt",
+      hidden: 3,
+      things: [
+        { name: "Hammare", category: "Verktyg", where: null },
+        { name: "Målarfärgsburkar", category: "Byggmaterial", where: null },
+      ],
+    },
+  ];
+
+  it("names the places whose things fit the question, with the closed containers, and points to them", async () => {
+    const result = await service.askThings({ question: "Har vi något att måla med?", places }, signal());
+    expect(result).toEqual({
+      ok: true,
+      data: {
+        answer: "Målarfärgsburkar finns i Skräpförrådet (Hemma). Innehållet i 3 lådor syns inte, så där kan det också ligga något.",
+        places: [1],
+      },
+    });
+  });
+
+  it("says so when nothing fits, and points to nothing", async () => {
+    expect(await service.askThings({ question: "Finns en cykelpump?", places }, signal())).toEqual({
+      ok: true,
+      data: { answer: "Jag hittar inget som passar i dina listor.", places: [] },
+    });
+  });
+
+  it.each(mockSuggestErrorCodes)("gives %s for a question with its reserved text", async (code) => {
+    const result = await service.askThings({ question: `Hej matkoll-mock: ${code}`, places }, signal());
+    expect(result).toMatchObject({ ok: false, error: { code } });
+  });
+
+  it("is ai_unavailable for a call that is stopped", async () => {
+    const controller = new AbortController();
+    controller.abort();
+    expect(await service.askThings({ question: "Hammare?", places }, controller.signal)).toMatchObject({ ok: false, error: { code: "ai_unavailable" } });
+  });
+});
