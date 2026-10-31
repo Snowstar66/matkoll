@@ -89,11 +89,12 @@ describe("PantryCamera", () => {
     ["Kyl", "Fotografera kylen"],
     ["Frys", "Fotografera frysen"],
     ["Skafferi", "Fotografera skafferiet"],
-  ] as const)("names %s on a light blue button across the width with the camera icon", (location, text) => {
+  ] as const)("names %s on a quiet row with the camera tile and a chevron", (location, text) => {
     render(<Hemma location={location} />);
     const button = within(area()).getByRole("button", { name: text });
-    expect(button).toHaveClass("bg-sky", "w-full");
-    expect(button.querySelector("svg")).not.toBeNull();
+    expect(button.parentElement?.parentElement).toHaveClass("bg-surface", "rounded-lg");
+    expect(button.parentElement?.parentElement).toHaveTextContent("\u{1F4F7}");
+    expect(button.parentElement?.parentElement).toHaveTextContent("›");
   });
 
   it("opens the file picker on a desktop, without capture and without Välj bild", () => {

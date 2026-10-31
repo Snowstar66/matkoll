@@ -1,8 +1,8 @@
 "use client";
 
-import { type ChangeEvent, useEffect, useRef } from "react";
+import { type ChangeEvent, type ReactNode, useEffect, useRef } from "react";
 import { Button } from "@/components/button";
-import { CameraIcon } from "@/components/icons";
+import { cx } from "@/components/cx";
 import { Notice } from "@/components/notice";
 import { useCoarsePointer } from "@/components/use-coarse-pointer";
 import type { Location } from "@/features/catalog";
@@ -41,9 +41,11 @@ export type PantryCameraProps = {
   site: PhotoSite;
   /** The chosen location: the button's text and the place a new photo shows. */
   location: Location;
+  /** Story 14.6: the line under "Fotografera kylen" ("Senaste idag 15:42 · Visa", LatestPhoto); stays mounted while a photo is read. */
+  children?: ReactNode;
 };
 
-export function PantryCamera({ site, location }: PantryCameraProps) {
+export function PantryCamera({ site, location, children }: PantryCameraProps) {
   const {
     looking,
     result,
@@ -132,32 +134,44 @@ export function PantryCamera({ site, location }: PantryCameraProps) {
     <div ref={cameraAreaRef} data-testid="pantry-camera" className="flex flex-col gap-3">
       {notice}
       {/* Mounted empty, so the text is announced when it appears. */}
-      <div role="status">
+      <div role="status" className="empty:-my-1.5">
         {looks ? <Looking waiting={looks.waiting} /> : announcement ? <span className="sr-only">{announcement}</span> : null}
       </div>
       {analyzing ? (
         <Button variant="text" onClick={() => cancel(site.id, location)} className="-ml-3 self-start">
           Avbryt
         </Button>
-      ) : (
-        <>
-          <Button
+      ) : null}
+      {/* Story 14.6: a quiet row like the shopping row in Matsedel. The camera button covers the card (stretched);
+          the line under it, with "Visa", sits above that. While a photo is read it is hidden, not unmounted. */}
+      <div
+        hidden={analyzing}
+        className={cx("relative flex min-h-tap items-center gap-3 rounded-lg bg-surface px-3.5 py-3", analyzing && "hidden")}
+      >
+        <span aria-hidden="true" className="flex size-8 shrink-0 items-center justify-center rounded-md bg-sky">
+          {"\u{1F4F7}"}
+        </span>
+        <div className="flex min-w-0 flex-1 flex-col">
+          <button
             ref={cameraButtonRef}
-            variant="secondary"
-            fullWidth
+            type="button"
             disabled={switching}
             onClick={() => (touch ? cameraRef : pickerRef).current?.click()}
+            className="-my-3 py-3 text-left text-row-title wrap-break-word text-ink outline-none after:absolute after:inset-0 after:rounded-lg after:content-[''] focus-visible:after:outline-2 focus-visible:after:-outline-offset-2 focus-visible:after:outline-accent disabled:cursor-not-allowed disabled:opacity-60"
           >
-            <CameraIcon size={22} />
             {cameraButtonText(location)}
-          </Button>
-          {touch ? (
-            <Button variant="text" disabled={switching} onClick={() => pickerRef.current?.click()} className="self-center">
-              Välj bild
-            </Button>
-          ) : null}
-        </>
-      )}
+          </button>
+          <div className="relative z-10">{children}</div>
+        </div>
+        <span aria-hidden="true" className="text-row-title text-ink-3">
+          ›
+        </span>
+      </div>
+      {touch && !analyzing ? (
+        <Button variant="text" disabled={switching} onClick={() => pickerRef.current?.click()} className="self-center">
+          Välj bild
+        </Button>
+      ) : null}
       {touch ? (
         <input
           ref={cameraRef}

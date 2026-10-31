@@ -98,6 +98,8 @@ test("a confirmed suggestion keeps its first label, which the sheet shows and Po
   await expect(sheet(page)).toHaveCount(0);
   await expect.poll(async () => (await saved(/^mjölk$/i)).map((row) => row.label)).toEqual(["Arla laktosfri"]);
 
+  // The list shows the new label before the row is opened, so the sheet never gets the old one.
+  await expect(rows(page).filter({ hasText: "Arla laktosfri" })).toHaveCount(1);
   await rows(page).filter({ hasText: /mjölk/i }).click();
   await expect(labelField(page)).toHaveValue("Arla laktosfri");
   await labelField(page).fill("");

@@ -45,10 +45,11 @@ export function PantryPlace({ site, location, counts, items, photo = null }: Pan
   useEffect(() => report(site.id, location, items), [report, site.id, location, items]);
   const shown = applyPantryChanges(items, site.id, location, changes);
   return (
-    <div className="flex flex-col gap-6">
+    <div className="flex flex-col gap-3">
       <LocationCards selected={location} counts={{ ...counts, [location]: shown.length }} ready={readyLocations(site.id)} />
-      <PantryCamera site={site} location={location} />
-      <LatestPhoto photo={photo} location={location} />
+      <PantryCamera site={site} location={location}>
+        <LatestPhoto photo={photo} location={location} />
+      </PantryCamera>
       <PantrySuggestionList siteId={site.id} />
       {/* Keyed, so the search starts empty on another place or location (Story 11.3). */}
       <PantryList

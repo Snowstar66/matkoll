@@ -140,11 +140,10 @@ const rows = (page: Page) => page.getByTestId("pantry-row").filter({ visible: tr
 const row = (page: Page, name: string) => rows(page).filter({ hasText: new RegExp(`^${name}`) });
 const bin = (page: Page, name: string) => page.getByRole("button", { name: `Ta bort ${name}`, exact: true }).filter({ visible: true });
 
-/** Presses a bin; the first one in a minute asks (Story 13.1), and this answers "Ta bort". */
+/** Removes a row with its swipe action, reached from the keyboard (Story 14.6): no question, "Ångra" follows. */
 async function pressBin(page: Page, name: string) {
-  await bin(page, name).click();
-  const confirm = page.getByRole("dialog").getByRole("button", { name: "Ta bort", exact: true });
-  if (await confirm.waitFor({ state: "visible", timeout: 700 }).then(() => true, () => false)) await confirm.click();
+  await bin(page, name).focus();
+  await page.keyboard.press("Enter");
 }
 const search = (page: Page, place = "kylen") => page.getByRole("searchbox", { name: `Sök i ${place}` }).filter({ visible: true });
 const toast = (page: Page) => page.getByTestId("toast");
@@ -167,7 +166,7 @@ async function shownCategories(page: Page): Promise<[string, string, string[]][]
 /** Lets the bins' double-tap guard (400 ms) pass, as between two real taps. */
 const pastGuard = (page: Page) => page.waitForTimeout(450);
 
-test("the fridge shows its items under categories in the store's order, with the brand or the time and no amount", async ({
+test("the fridge shows its items under categories in the store's order, with the brand, the amount at the right and the old label", async ({
   page,
 }) => {
   const errors = watchErrors(page);
@@ -182,25 +181,24 @@ test("the fridge shows its items under categories in the store's order, with the
     ["Kött, fisk & chark", "1"],
     ["Såser & smaksättare", "1"],
   ]);
-  expect(shown[0][2]).toEqual([expect.stringMatching(/^Gurka \| Tillagd \d{1,2} [a-z]+( \d{4})?$/)]);
-  expect(shown[1][2]).toEqual([
-    "Gräddfil | Tillagd för 6 dagar sedan",
-    "Mellanmjölk | Arla laktosfri",
-    "Ägg | Tillagd idag",
-  ]);
-  expect(shown[2][2]).toEqual(["Kycklingfilé | Tillagd igår"]);
+  expect(shown[0][2]).toEqual(["Gurka"]);
+  expect(shown[1][2]).toEqual(["Gräddfil", "Mellanmjölk | Arla laktosfri", "Ägg"]);
+  expect(shown[2][2]).toEqual(["Kycklingfilé"]);
   expect(shown[3][2]).toEqual(["Senap | Johnny's"]);
 
   // Headings for VoiceOver's rotor, with the count read as words.
   await expect(page.getByRole("heading", { level: 2, name: "Mejeri & ägg" })).toHaveAccessibleDescription("3 varor");
   await expect(page.getByRole("button", { name: "Mellanmjölk Arla laktosfri" })).toBeVisible();
 
-  // No amount, unit, "Med mängd" or "Finns hemma" in the list; the cards count the whole fridge.
+  // The amount stands to the right of the name (Story 14.6); no "Tillagd", "Med mängd" or "Finns hemma"; the cards count the whole fridge.
   const listText = (await categories(page).allInnerTexts()).join("\n");
-  expect(listText).not.toMatch(/\b(1 l|3 dl|6 st|500 g|1 st)\b|Med mängd|Finns hemma/);
+  expect(listText).toMatch(/Mellanmjölk[\s\S]*1 l/);
+  expect(listText).not.toMatch(/Tillagd|Med mängd|Finns hemma/);
+  // Gurka was added 24 days ago, in Kyl: past the limit of 7 days, so it has the label; Gräddfil (6 days) has none.
+  await expect(page.getByTestId("pantry-old").filter({ visible: true })).toHaveText(["24 dagar", "10 dagar"]);
   await expect(places(page).getByRole("link", { name: /^Kyl/ })).toContainText("6 varor");
 
-  // 44 px bins, rows of at least 56 px, and no sideways scroll at 375 px.
+  // A swipe action of 44 px at least, rows of at least 56 px, and no sideways scroll at 375 px.
   const binBox = await bin(page, "Gräddfil").boundingBox();
   expect(binBox?.width).toBeGreaterThanOrEqual(44);
   expect(binBox?.height).toBeGreaterThanOrEqual(44);
@@ -229,12 +227,12 @@ test("the bin removes at once, focus goes to the next bin, and Ångra brings the
 
   await pressBin(page, "Gräddfil");
   await expect(row(page, "Gräddfil")).toHaveCount(0);
-  await expect(bin(page, "Mellanmjölk")).toBeFocused();
+  await expect(row(page, "Mellanmjölk")).toBeFocused();
   await expect(toast(page)).toContainText("Tog bort Gräddfil.");
   await expect.poll(async () => (await stored()).has(ids["Gräddfil"])).toBe(false);
 
   await toast(page).getByRole("button", { name: "Ångra" }).click();
-  await expect(row(page, "Gräddfil")).toHaveText(/^Gräddfil\s*Tillagd för 6 dagar sedan$/);
+  await expect(row(page, "Gräddfil")).toHaveText(/^Gräddfil$/);
   await expect.poll(async () => (await stored()).get(ids["Gräddfil"])).toEqual(before);
   expect(errors).toEqual([]);
 });
@@ -254,7 +252,7 @@ test("a second removal joins the confirmation, and one Ångra puts back both", a
   await expect.poll(async () => (await stored()).has(ids["Ägg"])).toBe(false);
   await toast(page).getByRole("button", { name: "Ångra" }).click();
   await expect(row(page, "Ägg")).toHaveCount(1);
-  await expect(row(page, "Gräddfil")).toHaveText(/^Gräddfil\s*Tillagd för 6 dagar sedan$/);
+  await expect(row(page, "Gräddfil")).toHaveText(/^Gräddfil$/);
   await expect.poll(async () => (await stored()).get(ids["Gräddfil"])).toEqual(before.get(ids["Gräddfil"]));
   await expect.poll(async () => (await stored()).has(ids["Ägg"])).toBe(true);
   expect(errors).toEqual([]);

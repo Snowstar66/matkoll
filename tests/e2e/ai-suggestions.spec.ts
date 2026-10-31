@@ -263,7 +263,7 @@ test("AI-förslag: Avbryt, three cards of their own, and a saved suggestion in t
   await expect(section(page).getByRole("heading", { level: 3 })).toHaveText(titles);
   await expect(cards(page).first().getByText("35 min · 4 portioner")).toBeVisible();
   for (const card of await cards(page).all()) await expect(card.getByText("AI-förslag", { exact: true })).toBeVisible();
-  await expect(cards(page).first().getByText(/^Med: /)).toBeVisible();
+  await expect(cards(page).first().getByText(/^Med:(?:\s|$)/)).toBeVisible();
   // A section of its own, outside the list of recipes, and no status on a suggestion.
   const list = page.getByRole("list", { name: "Recept, minst saknat först" }).filter({ visible: true });
   await expect(list.getByText(first.title)).toHaveCount(0);

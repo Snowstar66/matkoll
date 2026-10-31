@@ -10,6 +10,9 @@ import {
   noMatchText,
   pantryMetaText,
   pantrySearchLabel,
+  daysSinceAdded,
+  oldItemText,
+  oldLimitDays,
 } from "./pantry-meta";
 
 // A fixed now: Tuesday 27 October 2026, 10:00 in Stockholm (CET, UTC+1).
@@ -179,5 +182,49 @@ describe("the day in Stockholm", () => {
     expect(msUntilStockholmMidnight(new Date("2026-10-27T09:00:00Z"))).toBe(14 * 60 * 60 * 1000);
     // 23:59:59.5: at least a second.
     expect(msUntilStockholmMidnight(new Date("2026-10-27T22:59:59.500Z"))).toBe(1000);
+  });
+});
+
+describe("oldLimitDays", () => {
+  it("is 7 days for Kyl, 60 for Frys and none for Skafferi", () => {
+    expect(oldLimitDays("Kyl")).toBe(7);
+    expect(oldLimitDays("Frys")).toBe(60);
+    expect(oldLimitDays("Skafferi")).toBeNull();
+  });
+});
+
+describe("daysSinceAdded", () => {
+  it("counts calendar days in Stockholm", () => {
+    expect(daysSinceAdded("2026-10-27T08:00:00Z", now)).toBe(0);
+    expect(daysSinceAdded("2026-10-26T22:30:00Z", now)).toBe(1); // 23:30 on the 26th in Stockholm
+  });
+
+  it("is never negative and null for a time that cannot be read", () => {
+    expect(daysSinceAdded("2026-11-05T08:00:00Z", now)).toBe(0);
+    expect(daysSinceAdded("not a time", now)).toBeNull();
+  });
+});
+
+describe("oldItemText", () => {
+  const added = (days: number) => ({ createdAt: new Date(now.getTime() - days * 86_400_000).toISOString() });
+
+  it("labels a Kyl item only after more than 7 days", () => {
+    expect(oldItemText(added(7), "Kyl", now)).toBeNull();
+    expect(oldItemText(added(8), "Kyl", now)).toBe("8 dagar");
+    expect(oldItemText(added(9), "Kyl", now)).toBe("9 dagar");
+  });
+
+  it("labels a Frys item only after more than 60 days", () => {
+    expect(oldItemText(added(60), "Frys", now)).toBeNull();
+    expect(oldItemText(added(61), "Frys", now)).toBe("61 dagar");
+  });
+
+  it("never labels a Skafferi item", () => {
+    expect(oldItemText(added(900), "Skafferi", now)).toBeNull();
+  });
+
+  it("gives nothing for a placeholder without a time or an unreadable one", () => {
+    expect(oldItemText({ createdAt: null }, "Kyl", now)).toBeNull();
+    expect(oldItemText({ createdAt: "x" }, "Kyl", now)).toBeNull();
   });
 });

@@ -78,8 +78,8 @@ const places = (page: Page) => page.getByRole("navigation", { name: "Platser" })
 const card = (page: Page, name: "Kyl" | "Frys" | "Skafferi") => places(page).getByRole("link", { name: new RegExp(`^${name}`) });
 const rows = (page: Page) => page.getByTestId("pantry-row").filter({ visible: true });
 const heading = (page: Page, name: string) => page.getByRole("heading", { level: 2, name });
-/** A row added today, as Lagersaldo shows it (Story 11.3): the name, and "Tillagd idag" under it. */
-const today = (name: string) => new RegExp(`^${name} Tillagd idag$`);
+/** A row added today, as Lagersaldo shows it (Story 14.6): the name alone, without "Tillagd …". */
+const today = (name: string) => new RegExp(`^${name}$`);
 
 async function expectChosen(page: Page, name: "Kyl" | "Frys" | "Skafferi") {
   for (const other of ["Kyl", "Frys", "Skafferi"] as const) {
@@ -107,9 +107,9 @@ test.describe("on a phone", () => {
     await page.goto("/hemma");
     await expect(page.getByRole("heading", { level: 1, name: "Lagersaldo" })).toBeVisible();
 
-    await expect(card(page, "Kyl")).toHaveText(/^Kyl\s*3 varor$/);
-    await expect(card(page, "Frys")).toHaveText(/^Frys\s*1 vara$/);
-    await expect(card(page, "Skafferi")).toHaveText(/^Skafferi\s*0 varor$/);
+    await expect(card(page, "Kyl")).toHaveText(/^\S*Kyl\s*3 varor$/);
+    await expect(card(page, "Frys")).toHaveText(/^\S*Frys\s*1 vara$/);
+    await expect(card(page, "Skafferi")).toHaveText(/^\S*Skafferi\s*0 varor$/);
     await expectChosen(page, "Kyl");
 
     // Three cards in one row, each at least 44 px, without horizontal scroll.
@@ -183,7 +183,7 @@ test.describe("on a computer", () => {
 // Story 2.2: the sheet Lagervara.
 const sheet = (page: Page) => page.getByRole("dialog", { name: "Lagervara" });
 const addButton = (page: Page) => page.getByRole("button", { name: "Lägg till vara" }).filter({ visible: true }).first();
-const row = (page: Page, name: string) => rows(page).filter({ hasText: new RegExp(`^${name} `) });
+const row = (page: Page, name: string) => rows(page).filter({ hasText: new RegExp(`^${name}(?:\\s|$)`) });
 
 /** The amounts of the user's rows of the item, by location, with the service role: the list shows none (Story 11.3). */
 async function amounts(userId: string, name: string): Promise<Record<string, string>> {
@@ -235,7 +235,7 @@ test.describe("the sheet Lagervara", () => {
     // Set, not added to: 1,5 l on the same row.
     await expect(rows(page)).toHaveText([today("Mjölk"), today("Smör"), today("Salt")]);
     await expect.poll(() => amounts(userId, "Mjölk")).toEqual({ Kyl: "1.5 l" });
-    await expect(card(page, "Kyl")).toHaveText(/^Kyl\s*3 varor$/);
+    await expect(card(page, "Kyl")).toHaveText(/^\S*Kyl\s*3 varor$/);
     expect(errors).toEqual([]);
   });
 
@@ -258,7 +258,7 @@ test.describe("the sheet Lagervara", () => {
     // "Saffran" is a seasoning: Såser & smaksättare, after Frys in the store's order.
     await expect(heading(page, "Såser & smaksättare")).toBeVisible();
     await expect(rows(page)).toHaveText([today("Ärtor"), today(name)]);
-    await expect(card(page, "Frys")).toHaveText(/^Frys\s*2 varor$/);
+    await expect(card(page, "Frys")).toHaveText(/^\S*Frys\s*2 varor$/);
 
     // The new ingredient is in the catalog now: the search finds it.
     await addButton(page).click();
@@ -306,8 +306,8 @@ test.describe("the sheet Lagervara", () => {
     await expect(sheet(page)).toHaveCount(0);
     await expect(page.getByTestId("toast")).toHaveText("Mjölk är sparad i frysen.");
     await expect(rows(page)).toHaveText([today("Smör"), today("Salt")]);
-    await expect(card(page, "Kyl")).toHaveText(/^Kyl\s*2 varor$/);
-    await expect(card(page, "Frys")).toHaveText(/^Frys\s*2 varor$/);
+    await expect(card(page, "Kyl")).toHaveText(/^\S*Kyl\s*2 varor$/);
+    await expect(card(page, "Frys")).toHaveText(/^\S*Frys\s*2 varor$/);
 
     // Mejeri & ägg comes before Frys in the store's order.
     await card(page, "Frys").click();
@@ -392,11 +392,10 @@ async function rowId(userId: string, name: Name, location: string): Promise<stri
 /** The row's bin (Story 11.3). */
 const bin = (page: Page, name: string) => page.getByRole("button", { name: `Ta bort ${name}`, exact: true }).filter({ visible: true });
 
-/** Presses a bin; the first one in a minute asks (Story 13.1), and this answers "Ta bort". */
+/** Removes a row with its swipe action, reached from the keyboard (Story 14.6): no question, "Ångra" follows. */
 async function pressBin(page: Page, name: string) {
-  await bin(page, name).click();
-  const confirm = page.getByRole("dialog").getByRole("button", { name: "Ta bort", exact: true });
-  if (await confirm.waitFor({ state: "visible", timeout: 700 }).then(() => true, () => false)) await confirm.click();
+  await bin(page, name).focus();
+  await page.keyboard.press("Enter");
 }
 
 /** Taps Ångra and waits for the answers to the Server Action calls it makes. */
@@ -423,7 +422,7 @@ test.describe("removing an item", () => {
     await pressBin(page, "Mjölk");
     await expect(sheet(page)).toHaveCount(0);
     await expect(rows(page)).toHaveText([today("Smör"), today("Salt")]);
-    await expect(card(page, "Kyl")).toHaveText(/^Kyl\s*2 varor$/);
+    await expect(card(page, "Kyl")).toHaveText(/^\S*Kyl\s*2 varor$/);
     await expect(toast(page)).toContainText("Tog bort Mjölk.");
     await expect.poll(() => rowId(userId, "Mjölk", "Kyl")).toBeNull();
 
@@ -431,7 +430,7 @@ test.describe("removing an item", () => {
     // Settled: the action has answered and the page has the server's list.
     await expect(toast(page)).toHaveCount(0);
     await expect(rows(page)).toHaveText([today("Mjölk"), today("Smör"), today("Salt")]);
-    await expect(card(page, "Kyl")).toHaveText(/^Kyl\s*3 varor$/);
+    await expect(card(page, "Kyl")).toHaveText(/^\S*Kyl\s*3 varor$/);
     expect(await rowId(userId, "Mjölk", "Kyl")).toBe(id);
     // Still there after a reload, with its amount: the server has it.
     await page.reload();
@@ -451,12 +450,12 @@ test.describe("removing an item", () => {
     await pressBin(page, "Smör");
     await expect(toast(page)).toContainText("Tog bort Mjölk och Smör.");
     await expect(rows(page)).toHaveText([today("Salt")]);
-    await expect(card(page, "Kyl")).toHaveText(/^Kyl\s*1 vara$/);
+    await expect(card(page, "Kyl")).toHaveText(/^\S*Kyl\s*1 vara$/);
 
     await undoAndWait(page, 2);
     await expect(toast(page)).toHaveCount(0);
     await expect(rows(page)).toHaveText([today("Mjölk"), today("Smör"), today("Salt")]);
-    await expect(card(page, "Kyl")).toHaveText(/^Kyl\s*3 varor$/);
+    await expect(card(page, "Kyl")).toHaveText(/^\S*Kyl\s*3 varor$/);
     expect([await rowId(userId, "Mjölk", "Kyl"), await rowId(userId, "Smör", "Kyl")]).toEqual(ids);
     expect(errors).toEqual([]);
   });
@@ -507,26 +506,26 @@ test.describe("removing an item", () => {
     expect(errors).toEqual([]);
   });
 
-  test("has no swipe in Lagersaldo (Story 11.3)", async ({ page }) => {
+  test("has a swipe row and no bin in Lagersaldo (Story 14.6)", async ({ page }) => {
     await page.goto("/hemma");
-    await expect(page.getByTestId("swipe-row-front")).toHaveCount(0);
+    await expect(page.getByTestId("swipe-row-front")).toHaveCount(3);
+    await expect(page.locator("[data-trash-button]")).toHaveCount(0);
   });
 });
 
 test.describe("removing an item with the keyboard", () => {
   test.use({ viewport: desktop });
 
-  test("Tab after a row reaches its bin; Enter removes, and focus goes to the next bin", async ({ page }) => {
+  test("Tab after a row reaches its Ta bort; Enter removes at once, and focus goes to the next row", async ({ page }) => {
     const errors = watchErrors(page);
     await page.goto("/hemma");
     await row(page, "Mjölk").focus();
     await page.keyboard.press("Tab");
     await expect(bin(page, "Mjölk")).toBeFocused();
     await page.keyboard.press("Enter");
-    await page.getByRole("dialog").getByRole("button", { name: "Ta bort", exact: true }).click();
     await expect(rows(page)).toHaveText([today("Smör"), today("Salt")]);
     await expect(toast(page)).toContainText("Tog bort Mjölk.");
-    await expect(bin(page, "Smör")).toBeFocused();
+    await expect(row(page, "Smör")).toBeFocused();
     expect(errors).toEqual([]);
   });
 });

@@ -132,7 +132,7 @@ describe("the search in Lagersaldo", () => {
     }));
     render(providers(<Page items={saved} />));
     fireEvent.change(field(), { target: { value: "mjö" } });
-    fireEvent.click(screen.getByRole("button", { name: /^Mellanmjölk / }));
+    fireEvent.click(screen.getByRole("button", { name: /^Mellanmjölk(?:\s|$)/ }));
     fireEvent.change(screen.getByLabelText("Mängd"), { target: { value: "2" } });
     fireEvent.change(screen.getByLabelText("Enhet"), { target: { value: "l" } });
     await act(async () => fireEvent.click(screen.getByRole("button", { name: "Spara ändringar" })));
