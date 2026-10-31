@@ -101,6 +101,8 @@ export const errorMessages = {
   things_restore_failed: "Det gick inte att ångra. Försök igen.",
   things_restore_file_gone: "Kortet kunde inte läggas tillbaka, för fotot är borta. Ta ett nytt kort.",
   things_item_failed: "Det gick inte att spara prylen. Försök igen.",
+  // Rensa rummet / Rensa förrådet (Story 18.15): nothing was removed.
+  things_clear_failed: "Det gick inte att rensa. Försök igen.",
   things_item_gone: "Prylen finns inte längre.",
   // Sök och fråga (Story 18.4): nothing on a card to ask about yet.
   things_ask_empty: "Fotografera en plats först, så kan du fråga om vad som finns där.",

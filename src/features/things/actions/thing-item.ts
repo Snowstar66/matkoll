@@ -6,8 +6,18 @@ import { fail, ok, type Result } from "@/lib/errors";
 import { revalidateFor } from "@/lib/revalidate";
 import { createClient } from "@/lib/supabase/server";
 import { ThingsDataError } from "../data/client";
-import { removeItemIn, renameItemIn, restoreItemIn } from "../data/items";
-import { emptyNameText, nameTooLongText, renameInputSchema, thingSnapshotSchema, type RenameInput, type ThingSnapshot } from "../domain/thing-edit";
+import { removeItemIn, renameItemIn, restoreItemIn, updateItemIn } from "../data/items";
+import {
+  emptyNameText,
+  nameTooLongText,
+  renameInputSchema,
+  thingSnapshotSchema,
+  updateThingInputSchema,
+  whereTooLongText,
+  type RenameInput,
+  type ThingSnapshot,
+  type UpdateThingInput,
+} from "../domain/thing-edit";
 
 // One thing the AI got wrong (Story 18.3): rename it, or remove just it, with
 // "Ångra". The card is never changed: no date, no other thing, no file.
@@ -28,6 +38,36 @@ export async function renameThing(input: RenameInput): Promise<Result<null>> {
     const renamed = await renameItemIn(await createClient(), parsed.data.id, parsed.data.name);
     revalidateFor("thing_item");
     return renamed ? ok(null) : fail("things_item_gone");
+  } catch (error) {
+    if (!(error instanceof ThingsDataError)) throw error;
+    console.error("things_item_failed", { reason: error.detail });
+    return fail("things_item_failed");
+  }
+}
+
+/**
+ * "Spara" in the sheet of a thing (Story 18.15): a new name, category and "where
+ * on the picture". The thing stays on its card. Fails with `validation` (the
+ * text in `fields.name` or `fields.where`), `things_item_gone` or `things_item_failed`.
+ */
+export async function updateThing(input: UpdateThingInput): Promise<Result<null>> {
+  const user = await requireUser();
+  if (!user.ok) return user;
+  const parsed = updateThingInputSchema.safeParse(input);
+  if (!parsed.success) {
+    const issue = parsed.error.issues[0];
+    if (issue?.path[0] === "name") return fail("validation", { name: issue.message === "too long" ? nameTooLongText : emptyNameText });
+    if (issue?.path[0] === "whereHint") return fail("validation", { where: whereTooLongText });
+    return fail("validation");
+  }
+  try {
+    const updated = await updateItemIn(await createClient(), parsed.data.id, {
+      name: parsed.data.name,
+      category: parsed.data.category,
+      whereHint: parsed.data.whereHint,
+    });
+    revalidateFor("thing_item");
+    return updated ? ok(null) : fail("things_item_gone");
   } catch (error) {
     if (!(error instanceof ThingsDataError)) throw error;
     console.error("things_item_failed", { reason: error.detail });

@@ -8,6 +8,7 @@ import { Skeleton } from "@/components/skeleton";
 import { requireUserOrRedirect } from "@/features/auth/server";
 import { normalizePlaceName, parseRoomView } from "@/features/things";
 import { getRoomPage, listRooms, ThingsDataError } from "@/features/things/server";
+import { ClearRoom } from "@/features/things/ui/clear-room";
 import { RoomView } from "@/features/things/ui/room-view";
 import { errorMessages } from "@/lib/errors";
 import { WarmAi } from "../../../../warm-ai";
@@ -69,12 +70,17 @@ async function RoomContent({ params, searchParams }: Pick<PageProps<"/prylar/rum
     );
   }
 
-  const { summary, categories, cards, places, written } = page;
+  const { summary, categories, cards, places, written, clearCounts } = page;
   const parent = places.find((place) => place.kind === "part" && place.part === null) ?? places.find((place) => place.kind === "part") ?? null;
   const box = typeof fota === "string" ? places.find((place) => place.id === fota && place.kind === "box") : undefined;
   return (
     <>
-      <PageHeader title={summary.room} backHref="/prylar" backLabel="Förråd" />
+      <PageHeader
+        title={summary.room}
+        backHref="/prylar"
+        backLabel="Förråd"
+        action={<ClearRoom siteId={site} roomKey={summary.key} room={summary.room} counts={clearCounts} />}
+      />
       <RoomView
         siteId={site}
         summary={summary}

@@ -7,11 +7,11 @@ import type { Thing } from "../domain/thing";
 import type { ThingSnapshot } from "../domain/thing-edit";
 import { CardThings } from "./card-things";
 
-const renameThing = vi.fn();
+const updateThing = vi.fn();
 const removeThing = vi.fn();
 const restoreThing = vi.fn();
 vi.mock("../actions/thing-item", () => ({
-  renameThing: (input: unknown) => renameThing(input),
+  updateThing: (input: unknown) => updateThing(input),
   removeThing: (id: string) => removeThing(id),
   restoreThing: (snapshot: ThingSnapshot) => restoreThing(snapshot),
 }));
@@ -31,11 +31,12 @@ const snapshot: ThingSnapshot = {
   position: 0,
   createdAt: "2026-10-31T10:00:00.000Z",
   sameAs: null,
+  source: "photo",
   pointedBy: [],
 };
 
 beforeEach(() => {
-  for (const mock of [renameThing, removeThing, restoreThing, refresh]) mock.mockReset();
+  for (const mock of [updateThing, removeThing, restoreThing, refresh]) mock.mockReset();
 });
 
 async function openHammer() {
@@ -57,29 +58,50 @@ describe("the things of a card", () => {
   });
 
   it("renames just that thing and reads the page again", async () => {
-    renameThing.mockResolvedValue(ok(null));
+    updateThing.mockResolvedValue(ok(null));
     const dialog = await openHammer();
     const field = within(dialog).getByLabelText("Byt namn");
     await userEvent.clear(field);
     await userEvent.type(field, "Klohammare");
     await userEvent.click(within(dialog).getByRole("button", { name: "Spara" }));
-    await waitFor(() => expect(renameThing).toHaveBeenCalledWith({ id: hammer.id, name: "Klohammare" }));
+    await waitFor(() => expect(updateThing).toHaveBeenCalledWith({ id: hammer.id, name: "Klohammare", category: "Verktyg", whereHint: "på väggen" }));
     await waitFor(() => expect(refresh).toHaveBeenCalled());
+  });
+
+  it("changes the category with the chips and where on the picture, and keeps the thing on its card", async () => {
+    updateThing.mockResolvedValue(ok(null));
+    const dialog = await openHammer();
+    expect(within(dialog).getByRole("radio", { name: /Verktyg/ })).toBeChecked();
+    await userEvent.click(within(dialog).getByRole("radio", { name: /Trädgård/ }));
+    const where = within(dialog).getByLabelText("Var på bilden");
+    expect(where).toHaveValue("på väggen");
+    await userEvent.clear(where);
+    await userEvent.type(where, "översta hyllan");
+    await userEvent.click(within(dialog).getByRole("button", { name: "Spara" }));
+    await waitFor(() => expect(updateThing).toHaveBeenCalledWith({ id: hammer.id, name: "Hammare", category: "Trädgård", whereHint: "översta hyllan" }));
+  });
+
+  it("clears the where with an empty field and saves a changed category alone", async () => {
+    updateThing.mockResolvedValue(ok(null));
+    const dialog = await openHammer();
+    await userEvent.clear(within(dialog).getByLabelText("Var på bilden"));
+    await userEvent.click(within(dialog).getByRole("button", { name: "Spara" }));
+    await waitFor(() => expect(updateThing).toHaveBeenCalledWith({ id: hammer.id, name: "Hammare", category: "Verktyg", whereHint: "" }));
   });
 
   it("asks for a name when it is emptied, and sends nothing when it is unchanged", async () => {
     const dialog = await openHammer();
     await userEvent.click(within(dialog).getByRole("button", { name: "Spara" }));
-    expect(renameThing).not.toHaveBeenCalled();
+    expect(updateThing).not.toHaveBeenCalled();
     await userEvent.click(screen.getByRole("button", { name: /Hammare/ }));
     await userEvent.clear(within(dialog).getByLabelText("Byt namn"));
     await userEvent.click(within(dialog).getByRole("button", { name: "Spara" }));
     expect(screen.getByText("Ange ett namn.")).toBeInTheDocument();
-    expect(renameThing).not.toHaveBeenCalled();
+    expect(updateThing).not.toHaveBeenCalled();
   });
 
   it("shows the server's text under the field when the name is refused", async () => {
-    renameThing.mockResolvedValue(fail("validation", { name: "Namnet får vara högst 80 tecken." }));
+    updateThing.mockResolvedValue(fail("validation", { name: "Namnet får vara högst 80 tecken." }));
     const dialog = await openHammer();
     await userEvent.type(within(dialog).getByLabelText("Byt namn"), "x");
     await userEvent.click(within(dialog).getByRole("button", { name: "Spara" }));

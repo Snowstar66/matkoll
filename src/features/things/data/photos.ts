@@ -242,8 +242,10 @@ async function listFolderIn(db: ThingsDb, folder: string, kind: "files" | "folde
  * file in the folders of the boende's places (`<user>/<place>/`), so a file
  * without a row goes too. Throws ThingsDataError.
  */
-export async function loadSiteCardFilesIn(db: ThingsDb, userId: string, siteId: string): Promise<string[]> {
-  const { data: places, error: placesError } = await db.from("thing_place").select("id").eq("site_id", siteId);
+export async function loadSiteCardFilesIn(db: ThingsDb, userId: string, siteId: string, roomKey?: string): Promise<string[]> {
+  // With `roomKey` (Story 18.15, "Rensa rummet") only the places of that room.
+  const query = db.from("thing_place").select("id").eq("site_id", siteId);
+  const { data: places, error: placesError } = await (roomKey === undefined ? query : query.eq("room_key", roomKey));
   if (placesError) throw new ThingsDataError(`query_failed ${placesError.code}`);
   const placeIds = places.map((place) => place.id);
   if (placeIds.length === 0) return [];
@@ -278,7 +280,7 @@ export async function loadCardFileOrphansIn(db: ThingsDb, userId: string, now: D
 }
 
 const snapshotSelect =
-  "id, place_id, object_path, media_type, width, height, taken_at, created_at, status, unseen_note, unseen_count, thing_item(id, photo_id, place_id, name, category, where_hint, confidence, position, created_at, same_as)";
+  "id, place_id, object_path, media_type, width, height, taken_at, created_at, status, unseen_note, unseen_count, thing_item(id, photo_id, place_id, name, category, where_hint, confidence, position, created_at, same_as, source)";
 
 const snapshotRowSchema = z.object({
   id: z.uuid(),
@@ -304,6 +306,7 @@ const snapshotRowSchema = z.object({
       position: z.number().int(),
       created_at: z.string(),
       same_as: z.uuid().nullable(),
+      source: z.enum(["photo", "added"]),
     }),
   ),
 });
@@ -358,6 +361,7 @@ export async function removeCardIn(db: ThingsDb, id: string): Promise<RemovedCar
             position: item.position,
             createdAt: new Date(item.created_at).toISOString(),
             sameAs: item.same_as,
+            source: item.source,
             pointedBy: pointers.get(item.id) ?? [],
           })),
       },
@@ -415,6 +419,7 @@ export async function restoreCardIn(db: ThingsDb, card: CardSnapshot): Promise<R
           confidence: thing.confidence,
           position: thing.position,
           created_at: thing.createdAt,
+          source: thing.source,
         })),
       );
       if (items.error) {

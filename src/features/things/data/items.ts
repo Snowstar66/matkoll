@@ -1,4 +1,4 @@
-import { thingRowSchema, toThing, type Thing } from "../domain/thing";
+import { thingRowSchema, toThing, type Thing, type ThingCategory } from "../domain/thing";
 import type { ThingSnapshot } from "../domain/thing-edit";
 import { loadPointersIn, relinkItemsIn } from "./merge";
 import { guarded, ThingsDataError, type ThingsDb } from "./client";
@@ -34,6 +34,18 @@ export async function renameItemIn(db: ThingsDb, id: string, name: string): Prom
   });
 }
 
+/** The fields of a thing that "Spara" in its sheet changes. */
+export type ThingUpdate = { name: string; category: ThingCategory; whereHint: string | null };
+
+/** Changes the name, the category and the "where" of a thing; its card and the other things are not touched. `false` when it is gone or not the user's. Throws ThingsDataError `update_failed <code>`. */
+export async function updateItemIn(db: ThingsDb, id: string, update: ThingUpdate): Promise<boolean> {
+  return guarded("update", async () => {
+    const { data, error } = await db.from("thing_item").update({ name: update.name, category: update.category, where_hint: update.whereHint }).eq("id", id).select("id");
+    if (error) throw new ThingsDataError(`update_failed ${error.code}`);
+    return data.length > 0;
+  });
+}
+
 /**
  * Deletes one thing and gives it back as it was, for "Ångra"; the card is not
  * touched. `null` when it is gone or not the user's. Throws ThingsDataError
@@ -48,8 +60,8 @@ export async function removeItemIn(db: ThingsDb, id: string): Promise<ThingSnaps
       .delete()
       .eq("id", id)
       // A thing written into a box (Story 18.13) has no card; it is changed by editing the box's text, never removed alone.
-      .eq("source", "photo")
-      .select("id, photo_id, place_id, name, category, where_hint, confidence, position, created_at, same_as");
+      .in("source", ["photo", "added"])
+      .select("id, photo_id, place_id, name, category, where_hint, confidence, position, created_at, same_as, source");
     if (error) throw new ThingsDataError(`remove_failed ${error.code}`);
     const [row] = data;
     if (!row || row.photo_id === null) return null;
@@ -66,6 +78,7 @@ export async function removeItemIn(db: ThingsDb, id: string): Promise<ThingSnaps
       position: parsed.data.position,
       createdAt: new Date(row.created_at).toISOString(),
       sameAs: row.same_as,
+      source: row.source === "added" ? "added" : "photo",
       pointedBy: pointers.get(id) ?? [],
     };
   });
@@ -84,6 +97,7 @@ export async function restoreItemIn(db: ThingsDb, thing: ThingSnapshot): Promise
       confidence: thing.confidence,
       position: thing.position,
       created_at: thing.createdAt,
+      source: thing.source,
     });
     if (!error) {
       await relinkItemsIn(db, [{ id: thing.id, sameAs: thing.sameAs, pointedBy: thing.pointedBy }]);

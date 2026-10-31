@@ -52,3 +52,20 @@ export async function loadRoomWrittenIn(db: ThingsDb, siteId: string, key: strin
     return parsed.data.map((row) => ({ placeId: row.place_id, part: row.part ?? "", things: row.things, writtenAt: new Date(row.written_at) }));
   });
 }
+
+/**
+ * Adds things to the finished card `photoId` (add_card_things), after its other
+ * things. `gone` when the card is not the user's or not finished, `full` when
+ * the card would hold too many. Throws ThingsDataError `save_failed <code>`.
+ */
+export async function addCardThingsIn(db: ThingsDb, photoId: string, things: readonly WrittenThing[]): Promise<{ kind: "added"; count: number } | { kind: "gone" } | { kind: "full" }> {
+  return guarded("save", async () => {
+    const { data, error } = await db.rpc("add_card_things", { photo: photoId, things: things.map((thing) => ({ name: thing.name, category: thing.category })) as Json });
+    if (error) {
+      if (error.code === boxGoneCode) return { kind: "gone" };
+      if (error.code === "MK441") return { kind: "full" };
+      throw new ThingsDataError(`save_failed ${error.code}`);
+    }
+    return { kind: "added", count: typeof data === "number" ? data : things.length };
+  });
+}

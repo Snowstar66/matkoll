@@ -1,14 +1,13 @@
 "use server";
 
 import { requireUser } from "@/features/auth/server";
-import { getAiServiceForUser } from "@/features/settings/server";
 import { fail, ok, type Result } from "@/lib/errors";
 import { revalidateFor } from "@/lib/revalidate";
 import { createClient } from "@/lib/supabase/server";
+import { categorizeNames } from "./categorize-names";
 import { ThingsDataError } from "../data/client";
 import { loadPlaceIn } from "../data/places";
 import { replaceBoxThingsIn } from "../data/written";
-import type { ThingCategory } from "../domain/thing";
 import { parseWrittenThings, writtenInputSchema, writtenToText, type WrittenThing } from "../domain/thing-written";
 
 // "Skriv vad som finns" (Story 18.13, FR-24, AD-9): the text of a box becomes
@@ -18,9 +17,6 @@ import { parseWrittenThings, writtenInputSchema, writtenToText, type WrittenThin
 // Inställningar applies and the call is counted like any other (Story 17.6).
 // When the AI does not answer the things are still saved, under "Övrigt".
 // Only counts and codes are logged, never a name.
-
-/** The time the model gets: well within the page's maxDuration of 60 s. */
-const categorizeDeadlineMs = 25_000;
 
 /** What was saved: how many things, whether the AI sorted them, and the text as it is stored (one thing a line, to show in the field). */
 export type SavedBoxThings = { count: number; categorized: boolean; text: string };
@@ -51,19 +47,7 @@ export async function saveBoxThings(input: { placeId: string; text: string }): P
     return fail("things_place_failed");
   }
 
-  let categories: ThingCategory[] = names.names.map(() => "Övrigt");
-  let categorized = true;
-  if (names.names.length > 0) {
-    const answered = await (await getAiServiceForUser()).categorizeThings({ names: names.names }, AbortSignal.timeout(categorizeDeadlineMs + 5_000), {
-      deadline: Date.now() + categorizeDeadlineMs,
-    });
-    if (answered.ok) categories = answered.data.categories;
-    else {
-      // The things are saved anyway; the code only, never a name.
-      categorized = false;
-      console.error("things_categorize_failed", { code: answered.error.code });
-    }
-  }
+  const { categories, categorized } = await categorizeNames(names.names);
   const things: WrittenThing[] = names.names.map((name, index) => ({ name, category: categories[index] ?? "Övrigt" }));
 
   try {

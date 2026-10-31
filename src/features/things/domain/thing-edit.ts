@@ -25,6 +25,22 @@ export const renameInputSchema = z.object({
 });
 export type RenameInput = z.input<typeof renameInputSchema>;
 
+/** The longest "where" of a thing, as thing_item_where_hint_check counts it. */
+export const maxWhereChars = 120;
+
+/** "Spara" in the sheet of a thing (Story 18.15): a name, a category and where on the picture; an empty "where" clears it. */
+export const updateThingInputSchema = z.object({
+  id: z.uuid(),
+  name: renameInputSchema.shape.name,
+  category: z.enum(thingCategories),
+  whereHint: z
+    .string()
+    .nullable()
+    .transform((text) => (text === null ? null : cleanThingName(text) || null))
+    .refine((text) => text === null || charLength(text) <= maxWhereChars, "too long"),
+});
+export type UpdateThingInput = z.input<typeof updateThingInputSchema>;
+
 /** A thing_item row as it was, for "Ångra". */
 export const thingSnapshotSchema = z.object({
   id: z.uuid(),
@@ -38,6 +54,8 @@ export const thingSnapshotSchema = z.object({
   createdAt: z.iso.datetime({ offset: true }),
   // Story 18.6: the thing it was merged into, and the things that were merged into it, so "Ångra" does not bring duplicates back.
   sameAs: z.uuid().nullable().default(null),
+  // Story 18.15: a thing typed onto its card comes back as one.
+  source: z.enum(["photo", "added"]).default("photo"),
   pointedBy: z.array(z.uuid()).max(200).default([]),
 });
 export type ThingSnapshot = z.output<typeof thingSnapshotSchema>;
@@ -68,6 +86,10 @@ export const removeCardQuestion = "Ta bort kortet?";
 export const removeCardDetail = "Kortet, fotot och alla prylar som lästes från det tas bort. Platsen finns kvar.";
 export const removeThingText = "Ta bort pryl";
 export const renameThingText = "Byt namn";
+export const categoryLabelText = "Kategori";
+export const whereLabelText = "Var på bilden";
+export const wherePlaceholderText = "Till exempel översta hyllan";
+export const whereTooLongText = `Det får vara högst ${maxWhereChars} tecken.`;
 export const emptyNameText = "Ange ett namn.";
 export const nameTooLongText = `Namnet får vara högst ${maxThingNameChars} tecken.`;
 

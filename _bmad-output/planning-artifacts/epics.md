@@ -3912,3 +3912,37 @@ Beslut 2026-10-31 (Pontus): "Livskoll" – "livs" som i livsmedel och som i live
 **Givet** e2e- och enhetstester
 **När** de körs
 **Så** är tester som letar efter "Matkoll" i användartext uppdaterade, och AI-prompter och `tests/eval` är orörda
+
+### Story 18.15: Rätta och rensa
+
+Som Pontus,
+vill jag kunna rätta enskilda prylar, lägga till det AI missade och rensa ett rum eller hela förrådet,
+så att listan går att lita på och det går att börja om.
+
+Beslut 2026-10-31 (Pontus): rättelser hålls knutna till kortet; rensa rum och hela förrådet finns men skyddas.
+
+**Acceptance Criteria:**
+
+**Givet** arket för en pryl (tryck på prylen i en öppen kategori)
+**När** det öppnas
+**Så** kan jag byta namn, byta kategori (chips med emoji), ändra var på bilden ("översta hyllan") och "Ta bort pryl" med Ångra; prylen ligger kvar på sitt kort
+
+**Givet** ett kort i vyn Kort
+**När** jag väljer "Lägg till pryl"
+**Så** kan jag skriva en eller flera saker (som i "Skriv vad som finns") som blir prylar knutna till just det kortet, med kategori från ett billigt textanrop (eller Övrigt om AI inte svarar)
+
+**Givet** "Ta om" på ett kort
+**När** arket visas
+**Så** står det att rättelser och tillagda prylar på det gamla kortet ersätts av den nya läsningen
+
+**Givet** ⋯ på ett rum
+**När** jag väljer "Rensa rummet"
+**Så** visar ett ark vad som försvinner ("74 prylar, 9 kort, 2 lådor"), att det inte går att ångra, och kräver att jag skriver rummets namn; först då tas rummets kort, bilder, prylar, inskrivna lådor och platser bort
+
+**Givet** Inställningar → Boenden → ett boende
+**När** jag väljer "Rensa förrådet i Hemma"
+**Så** visas på samma sätt vad som försvinner och jag måste skriva "RENSA"; då tas allt i Förrådet för boendet bort (Matvaror rörs inte)
+
+**Givet** lagringen
+**När** något rensas
+**Så** tas även bildfilerna bort, allt sker för den inloggade användaren bara (radskydd, isoleringstest), och ändringen av prylar knutna till kort är bakåtkompatibel
