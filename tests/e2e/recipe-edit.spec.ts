@@ -205,7 +205,7 @@ test("Ta bort recept asks first, then removes the recipe and opens the library",
   expect(errors.filter((error) => !error.includes("404"))).toEqual([]);
 });
 
-test("Story 13.2: the soptunna on the recipe page and in the library asks, then deletes", async ({ page }) => {
+test("Story 13.2: the soptunna on the recipe page asks, then deletes; the library has none", async ({ page }) => {
   const errors = watchErrors(page);
   const fromPage = uniqueTitle("Soptunna sidan");
   const fromLibrary = uniqueTitle("Soptunna listan");
@@ -229,14 +229,13 @@ test("Story 13.2: the soptunna on the recipe page and in the library asks, then 
   await expect(page.getByTestId("toast")).toHaveText(/Receptet är borttaget/);
   await expect(page.getByRole("link", { name: fromPage })).toHaveCount(0);
 
-  // In the library: the row's own bin removes the row in place.
+  // Story 1.16: the library's cards and rows have no bin; the recipe's own page does.
   await saveRecipe(page, fromLibrary);
   await page.goto("/recept");
   await expect(page.getByRole("link", { name: fromLibrary })).toBeVisible();
-  await page.getByRole("button", { name: `Ta bort ${fromLibrary}` }).click();
-  await expect(confirm.getByText(`Ta bort receptet ${fromLibrary}? Det går inte att ångra.`)).toBeVisible();
-  await confirm.getByRole("button", { name: "Ta bort", exact: true }).click();
-  await expect(page.getByRole("link", { name: fromLibrary })).toHaveCount(0);
-  await expect(page).toHaveURL(/\/recept$/);
+  await expect(page.getByRole("button", { name: `Ta bort ${fromLibrary}` })).toHaveCount(0);
+  await page.getByRole("button", { name: "Kompakt vy" }).click();
+  await expect(page.getByRole("link", { name: fromLibrary })).toBeVisible();
+  await expect(page.getByRole("button", { name: `Ta bort ${fromLibrary}` })).toHaveCount(0);
   expect(errors).toEqual([]);
 });

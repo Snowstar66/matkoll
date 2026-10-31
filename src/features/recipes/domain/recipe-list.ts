@@ -1,5 +1,6 @@
 import { z } from "zod";
 import { recipeStatus, type PantrySnapshot, type SelectedSite, type StatusLine } from "@/features/pantry";
+import { recipeCategories, type RecipeCategory } from "./recipe-category";
 
 // The recipe library (FR-8, FR-9, FR-22): what a recipe row shows, the search
 // text and the filters Alla, Favoriter and Kan lagas nu. Pure, so it is tested
@@ -26,6 +27,8 @@ export type RecipeListItem = {
    * for the badge's accessible name; empty when none are known.
    */
   missingNames?: readonly string[];
+  /** Story 1.17: worked out from the title, the lines and the time (recipeCategories); none when not given. */
+  categories?: readonly RecipeCategory[];
 };
 
 /**
@@ -49,10 +52,16 @@ export function withStatus(
   names: Readonly<Record<string, string>> = {},
 ): RecipeListItem[] {
   return rows.map(({ lines, ...row }) => {
-    if (!snapshot) return { ...row, missingCount: null };
+    const categories = recipeCategories({
+      title: row.title,
+      ingredients: lines.map((line) => line.originalText),
+      totalMinutes: row.totalMinutes,
+    });
+    if (!snapshot) return { ...row, categories, missingCount: null };
     const status = recipeStatus({ servings: row.originalServings, lines }, row.originalServings, snapshot);
     return {
       ...row,
+      categories,
       missingCount: status.missingCount,
       missingNames: status.missingIngredientIds.flatMap((id) => (names[id] ? [names[id]] : [])),
     };
@@ -159,4 +168,70 @@ function fewestMissingFirst(a: FilterableRecipe, b: FilterableRecipe): number {
   }
   if (a.createdAt !== b.createdAt) return a.createdAt < b.createdAt ? 1 : -1;
   return a.id < b.id ? -1 : a.id > b.id ? 1 : 0;
+}
+
+/** The recipes in one category; no category keeps them all. */
+export function filterByCategory<T extends { categories?: readonly RecipeCategory[] }>(
+  recipes: readonly T[],
+  category: RecipeCategory | null,
+): T[] {
+  return category === null ? [...recipes] : recipes.filter((recipe) => recipe.categories?.includes(category));
+}
+
+/** How the library is ordered (Story 1.16); the first is the default. */
+export const RECIPE_SORTS = ["newest", "fastest", "mostHome", "alphabetical"] as const;
+export type RecipeSort = (typeof RECIPE_SORTS)[number];
+
+/** The sort sheet's options, in order, with the text the button shows for the choice. */
+export const recipeSortLabels: Record<RecipeSort, string> = {
+  newest: "Senast tillagda",
+  fastest: "Snabbast",
+  mostHome: "Mest hemma",
+  alphabetical: "A–Ö",
+};
+
+/** A stored sort choice; anything else, or nothing, is Senast tillagda. */
+export function parseRecipeSort(value: unknown): RecipeSort {
+  return RECIPE_SORTS.find((sort) => sort === value) ?? "newest";
+}
+
+/** How the library shows its recipes (Story 1.16): as cards or as a compact list. */
+export const RECIPE_VIEWS = ["cards", "compact"] as const;
+export type RecipeView = (typeof RECIPE_VIEWS)[number];
+
+/** A stored view choice; anything else, or nothing, is the cards. */
+export function parseRecipeView(value: unknown): RecipeView {
+  return RECIPE_VIEWS.find((view) => view === value) ?? "cards";
+}
+
+/** What sortRecipes needs of a row. */
+type SortableRecipe = FilterableRecipe & { title: string; totalMinutes: number | null };
+
+/** Shortest time first; a recipe without a time (or 0) last. */
+function fastestFirst(a: SortableRecipe, b: SortableRecipe): number {
+  const minutesA = a.totalMinutes || null;
+  const minutesB = b.totalMinutes || null;
+  if (minutesA === minutesB) return 0;
+  if (minutesA === null) return 1;
+  if (minutesB === null) return -1;
+  return minutesA - minutesB;
+}
+
+/** Newest first, then by id: the server's order. */
+function newestFirst(a: FilterableRecipe, b: FilterableRecipe): number {
+  if (a.createdAt !== b.createdAt) return a.createdAt < b.createdAt ? 1 : -1;
+  return a.id < b.id ? -1 : a.id > b.id ? 1 : 0;
+}
+
+/**
+ * The recipes in the chosen order; equal ones are newest first. Snabbast is
+ * the shortest time first, Mest hemma the fewest missing first (rows without
+ * a status last), A–Ö by title in Swedish order (å, ä, ö after z).
+ */
+export function sortRecipes<T extends SortableRecipe>(recipes: readonly T[], sort: RecipeSort): T[] {
+  const copy = [...recipes];
+  if (sort === "mostHome") return copy.sort(fewestMissingFirst);
+  const primary: (a: T, b: T) => number =
+    sort === "fastest" ? fastestFirst : sort === "alphabetical" ? (a, b) => a.title.localeCompare(b.title, "sv") : () => 0;
+  return copy.sort((a, b) => primary(a, b) || newestFirst(a, b));
 }
