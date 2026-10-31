@@ -14,6 +14,8 @@ import { emptyPlanText } from "@/features/shopping";
 import { ShoppingListView } from "./shopping-list-view";
 
 const next = "/lista";
+/** Story 17.9: the address that opens "Lägg till egen vara" at once (home-screen shortcut). */
+const quickAddNext = "/lista/lagg-till";
 
 /**
  * Inköpslista's data, for a <Suspense> in page.tsx (AD-18). Without a
@@ -37,8 +39,9 @@ const next = "/lista";
  */
 export async function ShoppingListContent({
   searchParams,
-}: { searchParams?: Promise<{ vecka?: string | string[] }> } = {}) {
-  const user = await requireUserOrRedirect(next);
+  quickAdd = false,
+}: { searchParams?: Promise<{ vecka?: string | string[] }>; quickAdd?: boolean } = {}) {
+  const user = await requireUserOrRedirect(quickAdd ? quickAddNext : next);
   const vecka = (await searchParams)?.vecka;
   const now = new Date();
   const weekStart = viewedWeek(Array.isArray(vecka) ? vecka[0] : vecka, now);
@@ -118,6 +121,7 @@ export async function ShoppingListContent({
         unreadableChoices={unreadableChoices}
         site={site}
         empty={empty}
+        openAddOnStart={quickAdd}
       />
     </>
   );

@@ -98,7 +98,7 @@ test("the start page is grouped rows with values, and Receptsajter lists the act
   const row = (name: string | RegExp) => page.getByTestId("settings-row").filter({ hasText: name });
   await expect(row("Receptsajter")).toContainText("3 sajter");
   await expect(row("Boenden")).toContainText("Hemma");
-  for (const name of ["Konto", "Boenden", "Butiker", "Receptsajter", "Spara i Livskoll", "Modell", "Installera appen", "Om Livskoll"]) {
+  for (const name of ["Konto", "Boenden", "Butiker", "Receptsajter", "Spara i Livskoll", "Modell", "Installera appen", "Siri och genvägar", "Om Livskoll"]) {
     const link = name === "Konto" ? row(settingsEmail) : row(name);
     await expect(link).toBeVisible();
     expect((await link.boundingBox())?.height ?? 0).toBeGreaterThanOrEqual(44);
@@ -387,5 +387,68 @@ test("Story 17.6: the start page's AI group and the page AI show this month's ca
   await page.reload();
   await expect(page.getByTestId("ai-usage-calls")).toHaveText("0");
   await expect(page.getByTestId("ai-usage-cost")).toHaveText("0 kr");
+  expect(errors).toEqual([]);
+});
+
+// Story 17.9: Siri och genvägar. A personal key is made and shown once, adds items through the API, and
+// stops working when revoked; the quick-add address opens "Lägg till egen vara" with focus in the field.
+test("a personal key is shown once, adds items by POST /api/snabb and stops when revoked; the quick-add address opens the field", async ({ page, request }) => {
+  const errors = watchErrors(page);
+  const admin = adminClient();
+  await admin.from("api_key").delete().eq("user_id", userId);
+  await admin.from("shopping_custom_item").delete().eq("user_id", userId);
+  await page.setViewportSize(mobile);
+
+  await page.goto("/installningar");
+  await page.getByTestId("settings-row").filter({ hasText: "Siri och genvägar" }).click();
+  await expect(page).toHaveURL(/\/installningar\/siri$/);
+  await expect(page.getByText("Inga nycklar än.")).toBeVisible();
+  const shot = async (name: string) => {
+    if (process.env.SHOT_DIR) await page.screenshot({ path: `${process.env.SHOT_DIR}/${name}.png`, fullPage: true });
+  };
+  await shot("siri-before");
+  await page.getByRole("button", { name: "Skapa nyckel" }).click();
+  const shown = page.getByTestId("new-key-value");
+  await expect(shown).toBeVisible();
+  const key = (await shown.textContent())!;
+  expect(key).toMatch(/^lk_[A-Za-z0-9_-]{43}$/);
+  await expect(page.getByTestId("shortcut-guide")).toContainText("Diktera text");
+  await expect(page.getByTestId("api-key")).toContainText("Aldrig använd");
+  await shot("siri-after");
+
+  // Only the hash is stored.
+  const stored = await admin.from("api_key").select("key_hash").eq("user_id", userId);
+  expect(stored.data).toHaveLength(1);
+  expect(stored.data![0]!.key_hash).toMatch(/^[0-9a-f]{64}$/);
+  expect(stored.data![0]!.key_hash).not.toContain(key);
+
+  const post = (headers: Record<string, string>, text: string) =>
+    request.post("/api/snabb", { headers: { "content-type": "application/json", ...headers }, data: { text } });
+  const added = await post({ authorization: `Bearer ${key}` }, "mjölk och ägg");
+  expect(added.status()).toBe(200);
+  expect(await added.text()).toBe("La till: Mjölk, Ägg");
+  expect((await post({ authorization: `Bearer ${key.slice(0, -1)}x` }, "spöke")).status()).toBe(401);
+  expect((await post({}, "spöke")).status()).toBe(401);
+  const items = await admin.from("shopping_custom_item").select("label, meal_plan_id").eq("user_id", userId).order("created_at");
+  expect(items.data).toEqual([
+    { label: "Mjölk", meal_plan_id: null },
+    { label: "Ägg", meal_plan_id: null },
+  ]);
+
+  // The quick-add address: the sheet is open and the text field has focus.
+  await page.goto("/lista/lagg-till");
+  const sheet = page.getByRole("dialog", { name: "Lägg till egen vara" });
+  await expect(sheet).toBeVisible();
+  await shot("quick-add");
+  await expect(sheet.getByRole("combobox").or(sheet.getByRole("textbox")).first()).toBeFocused();
+
+  // Revoke: the key stops working at once, and the page lists it as revoked.
+  await page.goto("/installningar/siri");
+  await expect(page.getByTestId("api-key")).toContainText("Senast använd");
+  await page.getByRole("button", { name: /^Återkalla nyckeln/ }).click();
+  await expect(page.getByTestId("api-key-revoked")).toBeVisible();
+  expect((await post({ authorization: `Bearer ${key}` }, "kaffe")).status()).toBe(401);
+  await admin.from("api_key").delete().eq("user_id", userId);
+  await admin.from("shopping_custom_item").delete().eq("user_id", userId);
   expect(errors).toEqual([]);
 });

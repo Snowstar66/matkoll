@@ -19,6 +19,8 @@ export default function manifest(): MetadataRoute.Manifest {
     scope: "/",
     // Story 1.13: Android's share menu offers Matkoll; some apps put the address in text.
     share_target: { action: "/recept/importera", method: "GET", params: { url: "url", text: "text" } },
+    // Story 17.9: long-press the home-screen icon (Android) to add something to the list at once.
+    shortcuts: [{ name: "Lägg till vara", short_name: "Lägg till", url: "/lista/lagg-till" }],
     display: "standalone",
     background_color: background,
     theme_color: background,

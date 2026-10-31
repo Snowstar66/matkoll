@@ -4077,3 +4077,24 @@ Beslut 2026-10-31 (Pontus): backlog. Hänger ihop med Story 17.9 (Siri).
 **När** jag frågar "var är passen?"
 **Så** svarar chatten med platsen och att jag själv skrev in den (datum), och prylen går att ändra eller ta bort som andra prylar
 
+### Story 18.20: Ny ikon – hus med bock
+
+Som Pontus,
+vill jag att appens ikon är ett krämfärgat hus med en grön bock som dörr på appens gröna rundade fyrkant,
+så att ikonen passar namnet Livskoll och inte längre föreställer en burk.
+
+Beslut 2026-10-31 (Pontus): förslag B av tre.
+
+**Acceptance Criteria:**
+
+**Givet** appen
+**När** ikonen visas (sidomenyn, inloggningen, webbläsarflik, hemskärm på iPhone och Android, PWA-manifestet)
+**Så** är det huset med bocken överallt och burken finns inte kvar
+
+**Givet** den maskbara ikonen
+**När** Android beskär den till en cirkel
+**Så** ligger huset och bocken inom de centrala 80 procenten
+
+**Givet** en favicon på 16 px
+**När** den visas
+**Så** går huset och bocken fortfarande att urskilja
