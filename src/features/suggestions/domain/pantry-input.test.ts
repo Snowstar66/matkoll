@@ -1,7 +1,7 @@
 import { describe, expect, it } from "vitest";
 import type { PantrySnapshot, PantryStock } from "@/features/pantry";
 import { isValidPantryEntry, pantryLinesLength, suggestInputLimits } from "@/lib/suggest-input";
-import { toSuggestInput } from "./pantry-input";
+import { oldItemsUsed, toOldItemsInput, toSuggestInput } from "./pantry-input";
 
 const suggestPantryLimits = suggestInputLimits;
 
@@ -119,5 +119,45 @@ describe("toSuggestInput", () => {
 
   it("is empty for an empty pantry", () => {
     expect(toSuggestInput(new Map(), {}, [])).toEqual({ input: { pantry: [], avoidTitles: [] }, dropped: 0 });
+  });
+});
+
+describe("toOldItemsInput (Story 16.13)", () => {
+  const old = (name: string, days: number, ingredientId = name) => ({ ingredientId, name, days });
+
+  it("sends names and days only, oldest first as given", () => {
+    expect(toOldItemsInput([old("lax", 61), old("lime", 9)])).toEqual([
+      { name: "lax", days: 61 },
+      { name: "lime", days: 9 },
+    ]);
+  });
+
+  it("cleans names, drops repeats and entries the port refuses, and keeps at most eight", () => {
+    expect(toOldItemsInput([old(" li\nme\u200B ", 9), old("li me", 8, "other"), old("", 9), old("gurka", 0)])).toEqual([
+      { name: "li me", days: 9 },
+    ]);
+    const many = Array.from({ length: 12 }, (_, i) => old(`vara ${i}`, 20 - i));
+    const kept = toOldItemsInput(many);
+    expect(kept).toHaveLength(suggestInputLimits.maxOldItems);
+    expect(kept[0].name).toBe("vara 0");
+  });
+
+  it("is empty for none", () => {
+    expect(toOldItemsInput([])).toEqual([]);
+  });
+});
+
+describe("oldItemsUsed (Story 16.13)", () => {
+  it("gives the old items a dish is linked to, in the given order", () => {
+    const old = [
+      { ingredientId: "a", name: "lax", days: 61 },
+      { ingredientId: "b", name: "lime", days: 9 },
+      { ingredientId: "c", name: "koriander", days: 8 },
+    ];
+    expect(oldItemsUsed(old, new Set(["c", "a", "z"]))).toEqual([
+      { name: "lax", days: 61 },
+      { name: "koriander", days: 8 },
+    ]);
+    expect(oldItemsUsed(old, new Set())).toEqual([]);
   });
 });

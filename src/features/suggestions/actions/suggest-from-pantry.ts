@@ -3,14 +3,15 @@ import { requireUser } from "@/features/auth/server";
 import { nameInSentence } from "@/features/catalog";
 import { CatalogDataError, getIngredientNames, matchIngredients } from "@/features/catalog/server";
 import type { PantrySnapshot } from "@/features/pantry";
-import { getPantryForStatus } from "@/features/pantry/server";
+import type { OldPantryItem } from "@/features/pantry";
+import { getPantryForStatus, listOldPantryItems, PantryDataError } from "@/features/pantry/server";
 import { getActiveOffers, OffersDataError } from "@/features/offers/server";
 import { storeBadgeText, type StoreOffer } from "@/features/offers";
 import { getAiServiceForUser, getSelectedStore, listStores, SettingsDataError } from "@/features/settings/server";
 import { draftLimits, fromAiRecipe, recipeDraftSchema, type RecipeDraft } from "@/features/recipes";
 import { fail, ok, type Result } from "@/lib/errors";
 import { offersUsed, toBuyNames, toOfferNames } from "../domain/offer-input";
-import { toSuggestInput } from "../domain/pantry-input";
+import { oldItemsUsed, toOldItemsInput, toSuggestInput } from "../domain/pantry-input";
 import type { DishSuggestions, SuggestRequest } from "../domain/suggestions";
 
 // The server side of AI-förslag (FR-23, AD-1, AD-2, AD-6, AD-9, AD-10, AD-28).
@@ -49,6 +50,22 @@ async function fromCatalog<T>(read: () => Promise<T>): Promise<Result<T>> {
 async function readPantry(): Promise<Result<{ snapshot: PantrySnapshot; siteId: string | null }>> {
   const { site, snapshot } = await getPantryForStatus();
   return snapshot ? ok({ snapshot, siteId: site?.id ?? null }) : fail("pantry_unavailable");
+}
+
+/**
+ * Story 16.13: what has lain long on the place, for the dishes to use first.
+ * A help, not the job: when it cannot be read (logged, code only), the dishes
+ * are suggested without it.
+ */
+async function readOldItems(siteId: string | null): Promise<OldPantryItem[]> {
+  if (siteId === null) return [];
+  try {
+    return await listOldPantryItems(siteId);
+  } catch (error) {
+    if (!(error instanceof PantryDataError || error instanceof CatalogDataError)) throw error;
+    console.error("old_items_unavailable", { reason: error instanceof PantryDataError ? error.detail : error.code });
+    return [];
+  }
 }
 
 /** The job was stopped ("Avbryt", a newer photo): nobody reads the answer, so nothing more is done. */
@@ -181,6 +198,13 @@ async function suggest(
     input.offers = toOfferNames(offers);
     if (input.offers.length === 0) return fail("offers_none");
   }
+  // Story 16.13: in the pantry mode what has lain long goes with the pantry, oldest first, and the answer says which dish uses it.
+  const oldItems = byOffers ? [] : await readOldItems(pantry.data.siteId);
+  const oldInput = toOldItemsInput(oldItems);
+  if (oldInput.length > 0) {
+    input.oldItems = oldInput;
+    if (request.eatFirst) input.eatFirst = true;
+  }
   if (input.pantry.length === 0 && snapshot.size > 0) {
     // There is something at home, but none of it could be named: a catalog read gone wrong, worth another try.
     console.error("catalog_unavailable", { reason: "no_names" });
@@ -232,13 +256,16 @@ async function suggest(
       const ingredientNames = Object.fromEntries(
         linked.flatMap((id) => (id in names.data ? [[id, names.data[id]] as const] : [])),
       );
-      if (!byOffers) return { draft, ingredientNames, onOffer: [], atHome: null, toBuy: [] };
+      if (!byOffers) {
+        return { draft, ingredientNames, onOffer: [], atHome: null, toBuy: [], oldUsed: oldItemsUsed(oldItems, new Set(linked)) };
+      }
       const lineNames = draft.lines.map((line) => line.hint?.name ?? line.originalText);
       const onOffer = offersUsed(offers, new Set(linked), [...lineNames, ...Object.values(ingredientNames)]);
       return {
         // Story 16.4: the offers go with the draft, so the saved recipe can say what it was built around.
         draft: onOffer.length > 0 ? { ...draft, offerNames: offerNamesOf(onOffer) } : draft,
         ingredientNames,
+        oldUsed: [],
         onOffer,
         // "X av Y hemma": the lines linked to something in the pantry, of all lines.
         atHome: {

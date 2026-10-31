@@ -5,12 +5,15 @@ import {
   avoidTitleLines,
   cleanModelText,
   isValidOfferName,
+  isValidOldItem,
   isValidPantryEntry,
   offerLines,
   offerLinesLength,
+  oldItemLines,
   pantryLines,
   pantryLinesLength,
   suggestInputLimits,
+  type SuggestOldItem,
   type SuggestPantryEntry,
 } from "@/lib/suggest-input";
 import type { Env } from "@/server/env-schema";
@@ -83,6 +86,14 @@ export type SuggestDishesInput = {
    * the message of Story 12.3 unchanged. Data for the model, never instructions.
    */
   offers?: string[];
+  /**
+   * Story 16.13: what has lain long at home, by catalog name with the days
+   * since it was added, oldest first (at most inputLimits.suggest.maxOldItems).
+   * The dishes should use it first. Data for the model, never instructions.
+   */
+  oldItems?: SuggestOldItem[];
+  /** Story 16.13: "Ät det här först" was asked for: every dish is built around `oldItems`, not only weighted towards them. */
+  eatFirst?: boolean;
 };
 
 export type RunOptions = {
@@ -535,6 +546,8 @@ export function isValidSuggestDishesInput(input: SuggestDishesInput): boolean {
   if ((pantry.length === 0 && offers.length === 0) || pantry.length > limits.maxPantryItems) return false;
   if (offers.length > limits.maxOffers || !offers.every(isValidOfferName) || new Set(offers).size !== offers.length) return false;
   if (offerLinesLength(offers) > limits.maxOfferChars) return false;
+  const oldItems = input.oldItems ?? [];
+  if (oldItems.length > limits.maxOldItems || !oldItems.every(isValidOldItem)) return false;
   if (!pantry.every(isValidPantryEntry)) return false;
   if (pantryLinesLength(pantry) > limits.maxPantryChars) return false;
   if (avoidTitles.length > limits.maxAvoidTitles) return false;
@@ -942,6 +955,9 @@ export function suggestDishesContent(input: SuggestDishesInput): string {
   const parts = [input.pantry.length > 0 ? `Lagret:\n${pantryLines(input.pantry)}` : "Lagret:\n(tomt)"];
   if (input.offers && input.offers.length > 0) {
     parts.push(`Erbjudanden i butiken den här veckan:\n${offerLines(input.offers)}`);
+  }
+  if (input.oldItems && input.oldItems.length > 0) {
+    parts.push(`${input.eatFirst ? "Ät först" : "Har legat länge"}:\n${oldItemLines(input.oldItems)}`);
   }
   if (input.avoidTitles.length > 0) parts.push(`Föreslå inte:\n${avoidTitleLines(input.avoidTitles)}`);
   return parts.join("\n\n");

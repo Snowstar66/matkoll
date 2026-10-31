@@ -5,6 +5,7 @@ import type { Location } from "@/features/catalog";
 import type { PantryItem } from "../domain/pantry-item";
 import type { SelectedSite } from "../domain/site";
 import { AddSiteButton } from "./add-site-button";
+import { EatFirstRow } from "./eat-first-row";
 import { EmptyPlaceButton } from "./empty-place";
 import { LatestPhoto, type ShownPlacePhoto } from "./latest-photo";
 import { LocationCards } from "./location-cards";
@@ -25,6 +26,8 @@ export type PantryPlaceProps = {
   items: readonly PantryItem[];
   /** Story 10.2: the latest photo of the chosen location on the place, or `null` for none. */
   photo?: ShownPlacePhoto | null;
+  /** Story 16.13: how many items on the place have lain long (Kyl and Frys), for the row at the top; none shows no row. */
+  oldCount?: number;
 };
 
 /**
@@ -38,7 +41,7 @@ export type PantryPlaceProps = {
  * only one place, "Lägg till boende" comes last (needs a SiteSwitch above);
  * with more, the site switch above has "Boenden".
  */
-export function PantryPlace({ site, location, counts, items, photo = null }: PantryPlaceProps) {
+export function PantryPlace({ site, location, counts, items, photo = null, oldCount = 0 }: PantryPlaceProps) {
   const { changes, report } = usePantryRemoval();
   const { readyLocations } = usePantrySuggestions();
   // The removals keep a change until the server's items show it.
@@ -46,6 +49,7 @@ export function PantryPlace({ site, location, counts, items, photo = null }: Pan
   const shown = applyPantryChanges(items, site.id, location, changes);
   return (
     <div className="flex flex-col gap-3">
+      <EatFirstRow count={oldCount} />
       <LocationCards selected={location} counts={{ ...counts, [location]: shown.length }} ready={readyLocations(site.id)} />
       <PantryCamera site={site} location={location}>
         <LatestPhoto photo={photo} location={location} />
