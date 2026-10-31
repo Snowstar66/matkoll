@@ -44,7 +44,6 @@ export {
 export {
   askButtonText,
   askHintText,
-  askingText,
   askLabel,
   askPlaceholder,
   chatInputSchema,
