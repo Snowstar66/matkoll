@@ -9,7 +9,7 @@ import { errorMessages, fail, type AppError, type Result } from "@/lib/errors";
 import { askChat, type ChatAnswer } from "../actions/ask-chat";
 import {
   askButtonText,
-  askExamplesText,
+  askHintText,
   askingText,
   askLabel,
   askPlaceholder,
@@ -60,7 +60,15 @@ function Reference({ reference }: { reference: ChatRef }) {
   );
 }
 
-export function ThingChat() {
+export function ThingChat({
+  onTextChange,
+  onConversationChange,
+}: {
+  /** Called with the field's text on every change (the instant search follows it). */
+  onTextChange?: (text: string) => void;
+  /** Called with whether a conversation is going on (the instant matches hide then). */
+  onConversationChange?: (active: boolean) => void;
+} = {}) {
   const ids = useId();
   const [turns, setTurns] = useState<Turn[]>([]);
   const [text, setText] = useState("");
@@ -69,6 +77,16 @@ export function ThingChat() {
   const generation = useRef(0);
   const nextId = useRef(1);
   const lastTurn = useRef<HTMLDivElement>(null);
+
+  const talking = turns.length > 0;
+  useEffect(() => {
+    onConversationChange?.(talking);
+  }, [talking, onConversationChange]);
+
+  function type(next: string) {
+    setText(next);
+    onTextChange?.(next);
+  }
 
   useEffect(() => {
     // Not in every environment (jsdom has none).
@@ -86,7 +104,7 @@ export function ThingChat() {
     const id = nextId.current++;
     const mine = generation.current;
     setTurns((all) => [...all, { id, question }]);
-    setText("");
+    type("");
     let result: Result<ChatAnswer>;
     try {
       result = await askChat({ question, history });
@@ -104,7 +122,7 @@ export function ThingChat() {
   function clear() {
     generation.current++;
     setTurns([]);
-    setText("");
+    type("");
   }
 
   return (
@@ -145,7 +163,7 @@ export function ThingChat() {
           </div>
         </>
       ) : (
-        <p className="px-1 text-meta text-ink-3">{askExamplesText}</p>
+        text === "" ? <p className="px-1 text-meta text-ink-3">{askHintText}</p> : null
       )}
       <form onSubmit={submit} className="flex gap-2" aria-busy={pending || undefined}>
         <label htmlFor={`${ids}-q`} className="sr-only">
@@ -159,7 +177,7 @@ export function ThingChat() {
           enterKeyHint="send"
           maxLength={maxQuestionChars}
           value={text}
-          onChange={(event) => setText(event.target.value)}
+          onChange={(event) => type(event.target.value)}
           className="h-11 min-w-0 flex-1 rounded-full border-transparent bg-bg"
         />
         <button

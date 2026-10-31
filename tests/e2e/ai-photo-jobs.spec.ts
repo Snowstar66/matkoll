@@ -84,7 +84,7 @@ test("the fridge and the freezer one after the other: the queue is seen, the res
 
   // The fridge is read in the background: the page is free at once.
   await photograph(page, "Fotografera kylen", plainPng(1));
-  await expect(camera(page).getByText("Tittar på bilden … Du kan göra annat under tiden.")).toBeVisible();
+  await expect(camera(page).getByText("Du kan göra annat under tiden.")).toBeVisible();
   await expect(camera(page).getByRole("button", { name: "Avbryt" })).toBeVisible();
 
   // Another place can be photographed straight away; its job waits behind the fridge's.
@@ -93,7 +93,7 @@ test("the fridge and the freezer one after the other: the queue is seen, the res
   await expect(camera(page).getByText("I kö, 1 före.")).toBeVisible();
   await expect(jobRow(page)).toContainText("1 i kö");
   await locationCard(page, "Kyl").click();
-  await expect(camera(page).getByText("Tittar på bilden … Du kan göra annat under tiden.")).toBeVisible();
+  await expect(camera(page).getByText("Du kan göra annat under tiden.")).toBeVisible();
 
   // Leave Matvaror: the fridge's cards come while Pontus is in Recept, with a confirmation and a badge.
   await nav(page).getByRole("link", { name: "Recept" }).click();
@@ -137,7 +137,7 @@ test("the fridge and the freezer one after the other: the queue is seen, the res
 test("a new photo of the fridge replaces the one before: the first is replaced, and never shown", async ({ page }) => {
   await page.goto("/hemma");
   await photograph(page, "Fotografera kylen", plainPng(1));
-  await expect(camera(page).getByText("Tittar på bilden …")).toBeVisible();
+  await expect(camera(page).getByText("Tittar på bilden …").first()).toBeVisible();
   await expect.poll(async () => (await jobs()).map((job) => job.status)).toEqual(["running"]);
 
   // The photo is taken again, from another tab or device, while the first is still being read.

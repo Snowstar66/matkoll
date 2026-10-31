@@ -23,8 +23,7 @@ import {
 // client, so RLS limits them to the user's own rows. The read functions are
 // for pages, after requireUserOrRedirect, inside <Suspense> (AD-18), and for
 // other modules' server code; detachRecipe is for recipes.deleteRecipe only.
-// Setting servings, removing a dish, "Ångra", "Använd igen", "Ny matsedel"
-// and deleting a plan are the Server Actions in ./actions, used by this
+// Setting servings, removing a dish, "Ångra" and deleting a plan are the Server Actions in ./actions, used by this
 // module's own ui.
 
 /** What the functions below throw when Supabase fails; never user data. */

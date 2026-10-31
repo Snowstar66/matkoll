@@ -1,5 +1,5 @@
 import { expect, type Page, test } from "@playwright/test";
-import { adminClient, e2eUserId, pantryLookEmail, pantryLookStorageState } from "./support";
+import { adminClient, e2eUserId, pantryLookEmail, pickBoende, pantryLookStorageState } from "./support";
 
 // Story 11.3 (FR-40, FR-41): Matvaror in the new look at 375 px. The spec
 // has an E2E user of its own (pantryLookEmail). Before each test the service
@@ -331,9 +331,9 @@ test("the search empties when another location or place is chosen, and an empty 
   await expect(rows(page)).toHaveCount(6);
 
   await search(page).fill("mjö");
-  await page.getByRole("radiogroup", { name: "Boende" }).filter({ visible: true }).getByRole("radio", { name: "Stugan" }).click();
+  await pickBoende(page, "Stugan");
   await expect(page.getByText("Inget i kylen än.")).toBeVisible();
-  await page.getByRole("radiogroup", { name: "Boende" }).filter({ visible: true }).getByRole("radio", { name: "Hemma" }).click();
+  await pickBoende(page, "Hemma");
   await expect(search(page)).toHaveValue("");
   await expect(rows(page)).toHaveCount(6);
   expect(errors).toEqual([]);

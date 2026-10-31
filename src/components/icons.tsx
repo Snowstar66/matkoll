@@ -211,3 +211,22 @@ export function TrashIcon(props: IconProps) {
     </Icon>
   );
 }
+
+/** A map pin: marks the boende in the side menu and under the page title (Story 16.14). */
+export function PinIcon(props: IconProps) {
+  return (
+    <Icon {...props}>
+      <path d="M12 21s-6.5-5.6-6.5-11a6.5 6.5 0 0 1 13 0c0 5.4-6.5 11-6.5 11z" />
+      <circle cx="12" cy="10" r="2.3" />
+    </Icon>
+  );
+}
+
+/** A chevron pointing down: the button opens something below or above it. */
+export function ChevronDownIcon(props: IconProps) {
+  return (
+    <Icon {...props}>
+      <path d="M6 9l6 6 6-6" />
+    </Icon>
+  );
+}

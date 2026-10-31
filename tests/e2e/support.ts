@@ -589,3 +589,26 @@ export async function openSavedImport(page: Page, title: string) {
   await expect(toast).toContainText(`Receptet ${title} är sparat`, { timeout: 30_000 });
   await toast.getByRole("button", { name: "Öppna" }).click();
 }
+
+// The boende (Story 16.14): a button with the selected boende's name, in the
+// side menu on a desktop and under the page title on a phone; it opens a
+// popover or a bottom sheet with an option per boende. Only the button that
+// shows is meant, since pages kept mounted by a client navigation are hidden.
+
+/** The boende button that shows; absent with one boende. */
+export const boendeButton = (page: Page) => page.getByRole("button", { name: /^Boende: / }).filter({ visible: true });
+
+/** Opens the boende menu and selects `name` in it (no waiting for the page to show it). */
+export async function pickBoende(page: Page, name: string) {
+  await boendeButton(page).click();
+  await page
+    .getByTestId("boende-option")
+    .filter({ visible: true })
+    .filter({ hasText: new RegExp(`^${name}`) })
+    .click();
+}
+
+/** Expects `name` to be the boende the button shows. */
+export async function expectBoende(page: Page, name: string) {
+  await expect(boendeButton(page)).toHaveAccessibleName(`Boende: ${name}`);
+}

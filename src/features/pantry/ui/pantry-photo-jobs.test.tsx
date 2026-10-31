@@ -103,7 +103,7 @@ describe("a photo's job on Hemma", () => {
   it("shows that the photo of a place waits in the queue, and lets another location be photographed at once", () => {
     fakeAi.add({ status: "queued", ahead: 1, context: context("Kyl") });
     const { rerender } = render(<Hemma />);
-    expect(within(area()).getByText("Tittar på bilden … Du kan göra annat under tiden.")).toBeInTheDocument();
+    expect(within(area()).getByText("Du kan göra annat under tiden.")).toBeInTheDocument();
     expect(within(area()).getByText("I kö, 1 före.")).toBeInTheDocument();
     expect(within(area()).getByRole("button", { name: "Avbryt" })).toBeInTheDocument();
     expect(screen.queryByRole("button", { name: "Fotografera kylen" })).toBeNull();

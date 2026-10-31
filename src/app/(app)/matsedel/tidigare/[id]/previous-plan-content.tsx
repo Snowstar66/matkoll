@@ -2,8 +2,8 @@ import { notFound, redirect } from "next/navigation";
 import { PageHeader } from "@/components/app-shell/page-header";
 import { Notice } from "@/components/notice";
 import { requireUserOrRedirect } from "@/features/auth/server";
-import type { PlanDetail } from "@/features/mealplan";
-import { getPlan, MealPlanDataError } from "@/features/mealplan/server";
+import { copyTargets, type PlanDetail } from "@/features/mealplan";
+import { getPlan, getWeekCounts, MealPlanDataError } from "@/features/mealplan/server";
 import { PreviousPlan } from "@/features/mealplan/ui/previous-plan";
 import { errorMessages } from "@/lib/errors";
 
@@ -33,7 +33,18 @@ export async function PreviousPlanContent({ id }: { id: string }) {
   return (
     <>
       <PageHeader title={plan.name} backHref="/matsedel/tidigare" />
-      <PreviousPlan plan={plan} />
+      <PreviousPlan plan={plan} targetCounts={await targetCountsOrNull()} />
     </>
   );
+}
+
+/** The dishes on the "Kopiera till" weeks; without them the sheet still works, just without the counts. */
+async function targetCountsOrNull(): Promise<Record<string, number> | null> {
+  try {
+    return await getWeekCounts(copyTargets().map((target) => target.weekStart));
+  } catch (error) {
+    if (!(error instanceof MealPlanDataError)) throw error;
+    console.error("mealplan_counts_unavailable", { reason: error.detail });
+    return null;
+  }
 }

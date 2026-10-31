@@ -1,0 +1,93 @@
+<!doctype html>
+<html lang="sv">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>AI-väntan</title>
+<style>
+  :root { --bg:#F5F7F4; --card:#fff; --ink:#1B2420; --ink2:#56635D; --line:#E4E9E6; --accent:#3E7C62; --mint:#DDEFE5; --cream:#F4EEDF; --sand:#E9B872;
+    font-family:-apple-system,BlinkMacSystemFont,'SF Pro Text',Inter,'Helvetica Neue',Arial,sans-serif; }
+  :root[data-theme="dark"] { --bg:#121714; --card:#1B221E; --ink:#E8EDEA; --ink2:#9BA8A1; --line:#2A332E; --mint:#21382C; }
+  * { box-sizing:border-box; }
+  body { margin:0; background:var(--bg); color:var(--ink); transition:background .2s; }
+  .wrap { max-width:1100px; margin:0 auto; padding:28px 16px 60px; }
+  h1 { font-size:26px; margin:0 0 6px; } p.lead { color:var(--ink2); max-width:760px; line-height:1.5; margin:0 0 10px; }
+  .bar { display:flex; gap:8px; margin:0 0 20px; }
+  .bar button { font:inherit; font-size:14px; border:1px solid var(--line); background:var(--card); color:var(--ink); border-radius:99px; padding:8px 14px; cursor:pointer; }
+  .grid { display:grid; grid-template-columns:repeat(auto-fill,minmax(320px,1fr)); gap:18px; }
+  .card { background:var(--card); border-radius:18px; padding:18px; border:1px solid var(--line); }
+  .card h2 { font-size:17px; margin:0 0 4px; } .card p { color:var(--ink2); font-size:14px; line-height:1.45; margin:0 0 16px; }
+  .stage { background:var(--bg); border-radius:14px; padding:18px 16px; min-height:96px; display:flex; flex-direction:column; gap:10px; justify-content:center; }
+  .bubble-user { align-self:flex-end; background:var(--accent); color:#fff; padding:9px 13px; border-radius:16px 16px 4px 16px; font-size:15px; }
+  .row { display:flex; align-items:center; gap:10px; font-size:15px; color:var(--ink2); }
+  .ex { font-size:12px; color:var(--ink2); margin-top:10px; }
+
+  /* A shimmer text */
+  .shimmer { font-weight:600; background:linear-gradient(90deg, var(--ink2) 0%, var(--ink2) 40%, var(--accent) 50%, var(--ink2) 60%, var(--ink2) 100%); background-size:250% 100%; -webkit-background-clip:text; background-clip:text; color:transparent; animation:sh 1.8s linear infinite; }
+  @keyframes sh { from { background-position:100% 0 } to { background-position:-150% 0 } }
+
+  /* B glowing orb */
+  .orb { width:26px; height:26px; border-radius:50%; background:conic-gradient(from 0deg, #3E7C62, #8FD3B0, #E9B872, #3E7C62); filter:blur(.3px); animation:spin 2.4s linear infinite, breathe 1.6s ease-in-out infinite; box-shadow:0 0 14px rgba(62,124,98,.55); position:relative; }
+  .orb::after { content:""; position:absolute; inset:5px; border-radius:50%; background:var(--bg); opacity:.55; }
+  @keyframes spin { to { transform:rotate(360deg) } }
+  @keyframes breathe { 50% { box-shadow:0 0 22px rgba(233,184,114,.75); scale:1.08 } }
+
+  /* C dots wave */
+  .dots { display:inline-flex; gap:5px; background:var(--card); border:1px solid var(--line); padding:11px 14px; border-radius:16px 16px 16px 4px; align-self:flex-start; }
+  .dots i { width:8px; height:8px; border-radius:50%; background:var(--accent); animation:wave 1.2s ease-in-out infinite; }
+  .dots i:nth-child(2) { animation-delay:.15s } .dots i:nth-child(3) { animation-delay:.3s }
+  @keyframes wave { 0%,60%,100% { transform:translateY(0); opacity:.4 } 30% { transform:translateY(-6px); opacity:1 } }
+
+  /* D house icon drawing its check */
+  .house svg .ck { stroke-dasharray:200; stroke-dashoffset:200; animation:draw 1.6s ease-in-out infinite; }
+  @keyframes draw { 0% { stroke-dashoffset:200 } 45%,70% { stroke-dashoffset:0 } 100% { stroke-dashoffset:-200 } }
+
+  /* E gradient border sweep on the bubble */
+  .sweep { position:relative; align-self:flex-start; padding:11px 14px; border-radius:16px 16px 16px 4px; background:var(--card); font-size:15px; color:var(--ink2); isolation:isolate; }
+  .sweep::before { content:""; position:absolute; inset:-1.5px; border-radius:inherit; padding:1.5px; background:conic-gradient(from var(--a), transparent 0 60%, #3E7C62 75%, #E9B872 85%, transparent 100%); -webkit-mask:linear-gradient(#000 0 0) content-box, linear-gradient(#000 0 0); -webkit-mask-composite:xor; mask-composite:exclude; animation:rot 2s linear infinite; z-index:-1; }
+  @property --a { syntax:'<angle>'; inherits:false; initial-value:0deg; }
+  @keyframes rot { to { --a:360deg } }
+
+  /* F skeleton lines shimmer (answer taking shape) */
+  .lines { align-self:stretch; display:flex; flex-direction:column; gap:7px; background:var(--card); border:1px solid var(--line); padding:12px 14px; border-radius:16px 16px 16px 4px; }
+  .lines span { height:10px; border-radius:5px; background:linear-gradient(90deg, var(--line) 0%, var(--mint) 50%, var(--line) 100%); background-size:200% 100%; animation:ln 1.4s ease-in-out infinite; }
+  .lines span:nth-child(2) { width:85% } .lines span:nth-child(3) { width:55% }
+  @keyframes ln { from { background-position:150% 0 } to { background-position:-50% 0 } }
+
+  /* step text cycling */
+  .steps { position:relative; height:20px; overflow:hidden; }
+  .steps span { position:absolute; left:0; animation:step 6s infinite; opacity:0; white-space:nowrap; }
+  .steps span:nth-child(2) { animation-delay:2s } .steps span:nth-child(3) { animation-delay:4s }
+  @keyframes step { 0% { opacity:0; transform:translateY(8px) } 5%,30% { opacity:1; transform:none } 35%,100% { opacity:0; transform:translateY(-8px) } }
+
+  @media (prefers-reduced-motion: reduce) { *, *::before, *::after { animation-duration:0s !important; animation-iteration-count:1 !important; } }
+</style>
+</head>
+<body>
+<div class="wrap">
+  <h1>Väntan på AI – välj stil</h1>
+  <p class="lead">Idag visar appen mest en text som "Tänker …" eller "Letar efter prylar på fotot". Här är sex stilar i rörelse, i appens färger. Peka på den som liknar videon mest (eller säg vad som skiljer). Med "minska rörelse" påslaget i telefonen står animationen still.</p>
+  <div class="bar"><button onclick="document.documentElement.dataset.theme='light'">Ljust</button><button onclick="document.documentElement.dataset.theme='dark'">Mörkt</button></div>
+  <div class="grid">
+    <div class="card"><h2>A. Skimrande text</h2><p>Ett ljus sveper genom texten, och texten byter steg medan det pågår. Lugnast och tydligast (som i ChatGPT/Claude).</p>
+      <div class="stage"><div class="bubble-user">Var är skiftnyckeln?</div><div class="row"><span class="steps" style="min-width:170px"><span class="shimmer">Letar i förrådet …</span><span class="shimmer">Jämför korten …</span><span class="shimmer">Skriver svaret …</span></span></div></div>
+      <div class="ex">Passar: chatten, Läs recept, Fotografera kylen</div></div>
+    <div class="card"><h2>B. Glödande klot</h2><p>Ett litet klot i grönt och sand som snurrar och andas. Känns mest "AI".</p>
+      <div class="stage"><div class="bubble-user">Var är skiftnyckeln?</div><div class="row"><span class="orb"></span><span>Letar i förrådet …</span></div></div>
+      <div class="ex">Passar: chatten, fotoläsning</div></div>
+    <div class="card"><h2>C. Hoppande prickar</h2><p>Tre prickar i en pratbubbla, som när någon skriver i Messenger.</p>
+      <div class="stage"><div class="bubble-user">Var är skiftnyckeln?</div><div class="dots"><i></i><i></i><i></i></div></div>
+      <div class="ex">Passar: bara chatten</div></div>
+    <div class="card"><h2>D. Ikonen ritar sin bock</h2><p>Huset från nya ikonen; bocken ritas om och om igen. Eget för Livskoll.</p>
+      <div class="stage"><div class="bubble-user">Var är skiftnyckeln?</div><div class="row house"><svg width="30" height="30" viewBox="0 0 512 512"><rect width="512" height="512" rx="112" fill="#3E7C62"/><path d="M256 112 L406 236 V384 c0 18-14 32-32 32 H138 c-18 0-32-14-32-32 V236 Z" fill="#F4EEDF"/><path class="ck" d="M196 300l44 44 84-96" fill="none" stroke="#3E7C62" stroke-width="40" stroke-linecap="round" stroke-linejoin="round"/></svg><span>Letar i förrådet …</span></div></div>
+      <div class="ex">Passar: överallt, även helsidesladdning</div></div>
+    <div class="card"><h2>E. Ljus som går runt bubblan</h2><p>Svarsbubblan finns redan; en ljusstrimma löper runt kanten tills svaret kommer.</p>
+      <div class="stage"><div class="bubble-user">Var är skiftnyckeln?</div><div class="sweep">Letar i förrådet …</div></div>
+      <div class="ex">Passar: chatten, kort som läses</div></div>
+    <div class="card"><h2>F. Svaret tar form</h2><p>Grå rader i bubblan som skimrar, så man ser att ett svar är på väg.</p>
+      <div class="stage"><div class="bubble-user">Var är skiftnyckeln?</div><div class="lines"><span></span><span></span><span></span></div></div>
+      <div class="ex">Passar: chatten, receptförslag</div></div>
+  </div>
+</div>
+</body>
+</html>

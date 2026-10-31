@@ -36,6 +36,7 @@ import {
 } from "../domain/import";
 import { kindOfJob } from "./saved-imports";
 import { appName } from "@/app/app-info";
+import { AiWorking } from "@/components/ai-working";
 
 // Importera recept (FR-3, FR-4): a sheet with the tabs Länk, Text and Foto,
 // opening on Länk. A link or pasted text becomes an AI job (POST /api/ai/jobs)
@@ -760,10 +761,13 @@ function FindRecipes({
 }
 
 /** "Läser receptet …" with a progress bar (EXPERIENCE.md, Import pågår), and "I kö, 1 före." while it waits. */
+/** One call takes a link, a pasted text or a photo, so the words hold for all three. */
+const recipeSteps = ["Läser receptet …", "Tolkar innehållet …", "Sätter ihop receptet …"];
+
 function Reading({ waiting }: { waiting: string | null }) {
   return (
     <div className="flex flex-col gap-2">
-      <p className="text-body text-ink">{waiting ?? "Läser receptet …"}</p>
+      {waiting ? <p className="text-body text-ink">{waiting}</p> : <AiWorking inLiveRegion steps={recipeSteps} />}
       <p className="text-meta text-ink-2">Du kan göra annat under tiden.</p>
       <div aria-hidden="true" className="h-1 overflow-hidden rounded-full bg-hairline">
         <div className="h-full w-1/3 rounded-full bg-accent motion-safe:animate-progress" />

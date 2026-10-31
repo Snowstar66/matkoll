@@ -274,7 +274,7 @@ describe("lagerförslag when the location is emptied", () => {
     fireEvent.change(pickers[pickers.length - 1], {
       target: { files: [new File([new Uint8Array([0xff, 0xd8, 0xff])], "IMG_1.jpg", { type: "image/jpeg" })] },
     });
-    await waitFor(() => expect(screen.getByText("Tittar på bilden … Du kan göra annat under tiden.")).toBeInTheDocument());
+    await waitFor(() => expect(screen.getByText("Du kan göra annat under tiden.")).toBeInTheDocument());
     await act(async () => fakeAi.calls[fakeAi.calls.length - 1].answer(ok(result)));
     expect(await screen.findByText("I kylen nu: 2 förp")).toBeInTheDocument();
     expect(screen.getByText("I frysen nu: 2 förp")).toBeInTheDocument();
@@ -329,7 +329,7 @@ describe("lagerförslag when the location is emptied", () => {
     fireEvent.change(pickers[pickers.length - 1], {
       target: { files: [new File([new Uint8Array([0xff, 0xd8, 0xff])], "IMG_1.jpg", { type: "image/jpeg" })] },
     });
-    await waitFor(() => expect(screen.getByText("Tittar på bilden … Du kan göra annat under tiden.")).toBeInTheDocument());
+    await waitFor(() => expect(screen.getByText("Du kan göra annat under tiden.")).toBeInTheDocument());
     await act(async () => fakeAi.calls[fakeAi.calls.length - 1].answer(ok(result)));
     expect(await screen.findByText("nu: 2 förp → bilden: 1 förp")).toBeInTheDocument();
     expect(screen.getAllByTestId("pantry-missing")).toHaveLength(1);
@@ -406,7 +406,7 @@ describe("Töm kylen on a place (Story 8.4)", () => {
     fireEvent.change(pickers[pickers.length - 1], {
       target: { files: [new File([new Uint8Array([0xff, 0xd8, 0xff])], "IMG_1.jpg", { type: "image/jpeg" })] },
     });
-    await waitFor(() => expect(screen.getByText("Tittar på bilden … Du kan göra annat under tiden.")).toBeInTheDocument());
+    await waitFor(() => expect(screen.getByText("Du kan göra annat under tiden.")).toBeInTheDocument());
     await act(async () => fakeAi.calls[fakeAi.calls.length - 1].answer(ok(result)));
     expect(await screen.findByText("nu: 2 förp → bilden: 1 förp")).toBeInTheDocument();
     rerender(<Hemma initial={kyl} site={stugan} />);

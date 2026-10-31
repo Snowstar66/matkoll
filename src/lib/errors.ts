@@ -123,15 +123,10 @@ export const errorMessages = {
   mealplan_cooked_already: "Rätten är redan markerad som lagad.",
   mealplan_uncook_failed: "Det gick inte att ta bort markeringen.",
   mealplan_cooked_undo_failed: "Det gick inte att ångra. Kontrollera matvarorna.",
-  // Tidigare matsedlar (Story 3.2). After a failed "Använd igen" or "Ny
-  // matsedel" the current plan is as it was; after a failed delete the plan stays.
+  // Tidigare matsedlar (Story 3.2). After a failed delete the plan stays.
   mealplan_previous_unavailable: "Det gick inte att läsa tidigare matsedlar. Försök igen.",
-  mealplan_create_failed: "Det gick inte att skapa matsedeln. Försök igen.",
-  // "Använd igen" of a plan deleted elsewhere: back to Tidigare.
+  // "Kopiera till …" of a plan deleted elsewhere.
   mealplan_plan_gone: "Matsedeln finns inte längre.",
-  // A new plan that cannot be made as asked, because the plans changed
-  // elsewhere (or the recipes did): the page is read again.
-  mealplan_plans_changed: "Matsedlarna har ändrats.",
   mealplan_delete_failed: "Det gick inte att ta bort matsedeln. Försök igen.",
   // "Kopiera till …" (Story 13.9): nothing is copied then.
   mealplan_copy_failed: "Det gick inte att kopiera veckan. Inget är ändrat. Försök igen.",
