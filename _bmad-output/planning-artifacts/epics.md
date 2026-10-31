@@ -2961,7 +2961,7 @@ Som Pontus,
 vill jag att veckovalet i Matsedel och Inköpslista är en lugn segmenterad kontroll i stället för tre stora brickor,
 så att det passar in i gränssnittet och inte tar så mycket plats.
 
-Skiss: `_bmad-output/planning-artifacts/ux-designs/ux-Matkoll-2026-10-25/mockups/veckoval.html`, variant **A1** (vald av Pontus 2026-10-31). Ersätter brickorna från Story 13.7/13.9 och 3.10; funktionen är densamma.
+Skiss: `_bmad-output/planning-artifacts/ux-designs/ux-Matkoll-2026-10-25/mockups/veckoval.html`, variant **A1** (vald av Pontus 2026-10-31), plus en ikonruta 📅 i raden under skenan (Pontus: "kanske någon ikon"). Ersätter brickorna från Story 13.7/13.9 och 3.10; funktionen är densamma.
 
 **Acceptance Criteria:**
 
@@ -2975,7 +2975,7 @@ Skiss: `_bmad-output/planning-artifacts/ux-designs/ux-Matkoll-2026-10-25/mockups
 
 **Givet** raden under skenan
 **När** den visas
-**Så** står "v. 44 · 27 okt – 2 nov" (vald vecka och dess datum) till vänster i metastorlek och "Tidigare ›" som accentlänk till höger (Matsedel; i Inköpslistan bara om den finns där idag); "Lager: Hemma · Byt" visas bara när det finns fler än ett lager, i samma lugna metastil
+**Så** står en liten ikonruta 📅 (24 px, mint bakgrund, samma stil som 🛒-rutan på inköpsraden och kategoriernas rutor) följd av "v. 44 · 27 okt – 2 nov" (vald vecka och dess datum) till vänster i metastorlek och "Tidigare ›" som accentlänk till höger (Matsedel; i Inköpslistan bara om den finns där idag); "Lager: Hemma · Byt" visas bara när det finns fler än ett lager, i samma lugna metastil
 
 **Givet** en vecka längre fram i adressen (`?vecka=2026-W47`)
 **När** sidan visas
