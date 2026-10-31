@@ -43,6 +43,8 @@ import {
   offersLinkStorageState,
   offerSuggestionsEmail,
   offerSuggestionsStorageState,
+  thingsEmail,
+  thingsStorageState,
   outsiderEmail,
   outsiderStorageState,
   pantryEmail,
@@ -162,6 +164,7 @@ export default async function globalSetup(config: FullConfig) {
       [importEmail, importStorageState],
       [offersLinkEmail, offersLinkStorageState],
       [offerSuggestionsEmail, offerSuggestionsStorageState],
+      [thingsEmail, thingsStorageState],
     ] as const) {
       const user = await browser.newContext({ baseURL });
       const page = await user.newPage();

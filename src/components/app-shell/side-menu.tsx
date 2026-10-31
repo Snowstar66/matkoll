@@ -36,7 +36,7 @@ function MenuLink({ destination, pathname }: { destination: Destination; pathnam
 }
 
 /**
- * Sidomeny: from 1024 px, the four main surfaces plus Inställningar at the
+ * Sidomeny: from 1024 px, the five main surfaces plus Inställningar at the
  * bottom. Like the tab bar, it renders without a current item until the path
  * of a dynamic route is known (AD-18). `jobRow` is the job row for AI jobs
  * (Story 12.4), at the top under "Matkoll".

@@ -1,18 +1,20 @@
 import { randomUUID } from "node:crypto";
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
 import { placePhotoBucket, placePhotoPath } from "@/features/pantry/domain/place-photo";
+import { thingPhotoBucket, thingPhotoPath } from "@/features/things/domain/thing-photo";
 import { localSupabaseUrl } from "../local-supabase";
 import { adminClient, anonClient, createTestUser, deleteTestUsers, type Db, type TableName, type TestUser } from "./support";
 
 // Household isolation (Story 17.1, AD-4, NFR-11): with two accounts that both
 // hold data, account B can neither read, change, delete nor insert as account
-// A, in every table of the public schema and in the pantry photo bucket. The
+// A, in every table of the public schema and in the photo buckets (the
+// pantry's and, Epic 18, the things'). The
 // tables come from the live schema, not from a list kept here: a table that a
 // migration adds and this file does not cover fails the first test by name.
 // Each table's own policies are also tried one by one in its feature's test;
 // this file is the one place that checks all of them against the same data.
 
-const bucket = placePhotoBucket;
+const buckets = [placePhotoBucket, thingPhotoBucket];
 
 /** What A owns, so a later table's row can point at an earlier table's. */
 type Seed = {
@@ -21,6 +23,8 @@ type Seed = {
   recipeId: string;
   planId: string;
   storeId: string;
+  placeId: string;
+  thingPhotoId: string;
 };
 
 type Coverage = {
@@ -79,6 +83,24 @@ const coverage: Record<TableName, Coverage> = {
     row: (s) => ({ meal_plan_id: s.planId, line_key: "r:11111111-1111-4111-8111-111111111111:dl", amount: 2 }),
   },
   store: { row: () => ({ name: "Coop Forum", chain: "Coop" }) },
+  thing_place: { row: (s) => ({ site_id: s.siteId, room: "Skräpförrådet", part: "Översta hyllan", room_key: "skräpförrådet", part_key: "översta hyllan" }) },
+  thing_photo: {
+    row: (s, ownerId) => {
+      const id = randomUUID();
+      return {
+        id,
+        place_id: s.placeId,
+        object_path: thingPhotoPath(ownerId, s.placeId, id, "image/jpeg"),
+        media_type: "image/jpeg",
+        width: 10,
+        height: 10,
+        taken_at: new Date().toISOString(),
+      };
+    },
+  },
+  thing_item: {
+    row: (s) => ({ photo_id: s.thingPhotoId, place_id: s.placeId, name: "Hammare", category: "Verktyg", where_hint: "på väggen", confidence: "high" }),
+  },
   store_offer: {
     row: (s) => ({ store_id: s.storeId, week_start: "2026-10-26", label: "Havets Laxfilé", name: "laxfilé", section: "Kött och fisk", source: "link" }),
   },
@@ -107,6 +129,9 @@ const seedOrder: TableName[] = [
   "shopping_custom_item",
   "shopping_line_override",
   "store_offer",
+  "thing_place",
+  "thing_photo",
+  "thing_item",
 ];
 
 /**
@@ -127,7 +152,7 @@ let b: TestUser;
 let rowIds: Map<TableName, string>;
 let aSeed: Seed;
 const photoPath = (userId: string, id: string) => `${userId}/${randomUUID()}/kyl/${id}.png`;
-let aPhotoPath: string;
+let aPhotoPaths: Map<string, string>;
 const photoBytes = new Uint8Array([137, 80, 78, 71, 13, 10, 26, 10, 1, 2, 3, 4]);
 
 /** Gives `owner` a row in every table; returns the row ids and the parents they point at. */
@@ -148,6 +173,8 @@ async function seedAs(owner: Db, ownerId: string): Promise<{ ids: Map<TableName,
     if (table === "recipe") seed.recipeId = row.id;
     if (table === "meal_plan") seed.planId = row.id;
     if (table === "store") seed.storeId = row.id;
+    if (table === "thing_place") seed.placeId = row.id;
+    if (table === "thing_photo") seed.thingPhotoId = row.id;
   }
   return { ids, seed };
 }
@@ -158,13 +185,17 @@ beforeAll(async () => {
   ({ ids: rowIds, seed: aSeed } = await seedAs(a.db, a.id));
   // B has data of their own too, so an empty result is not just an empty account.
   await seedAs(b.db, b.id);
-  aPhotoPath = photoPath(a.id, randomUUID());
-  const uploaded = await a.db.storage.from(bucket).upload(aPhotoPath, photoBytes, { contentType: "image/png" });
-  expect(uploaded.error, "A uploads a photo").toBeNull();
+  aPhotoPaths = new Map();
+  for (const bucket of buckets) {
+    const path = photoPath(a.id, randomUUID());
+    aPhotoPaths.set(bucket, path);
+    const uploaded = await a.db.storage.from(bucket).upload(path, photoBytes, { contentType: "image/png" });
+    expect(uploaded.error, `A uploads a photo to ${bucket}`).toBeNull();
+  }
 });
 
 afterAll(async () => {
-  await adminClient().storage.from(bucket).remove([aPhotoPath]);
+  for (const bucket of buckets) await adminClient().storage.from(bucket).remove([aPhotoPaths.get(bucket)!]);
   await deleteTestUsers();
 });
 
@@ -231,8 +262,9 @@ describe("household isolation", () => {
     });
   });
 
-  describe(`storage bucket ${bucket}`, () => {
+  describe.each(buckets)("storage bucket %s", (bucket) => {
     it("keeps A's photo from B and from anon", async () => {
+      const aPhotoPath = aPhotoPaths.get(bucket)!;
       const admin = adminClient().storage.from(bucket);
       const original = await admin.download(aPhotoPath);
       expect(original.error, "the photo is stored").toBeNull();

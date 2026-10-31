@@ -9,7 +9,7 @@ import { NavEmoji } from "./nav-emoji";
 import { badgeName, TabBadge, useAiBadgeCount } from "./tab-badge";
 
 /**
- * Flikfält: the four main surfaces at the bottom, below 1024 px. On a route
+ * Flikfält: the five main surfaces at the bottom, below 1024 px. On a route
  * with a dynamic segment (/recept/[id]) the path is known only at request
  * time, so the bar first renders without a current tab (AD-18). `jobRow` is
  * the job row for AI jobs (Story 12.4), which sits in the bar above the tabs.
@@ -69,7 +69,7 @@ function TabBarNav({ pathname, jobRow }: { pathname: string | null; jobRow?: Rea
     >
       {jobRow}
       {/* Story 10.4: at least the bar's height; it grows rather than let a label run into the safe area. */}
-      <ul className="grid flex-1 grid-cols-4">
+      <ul className="grid flex-1 grid-cols-5">
         {mainDestinations.map((destination) => (
           <li key={destination.href} className="flex">
             <TabLink destination={destination} pathname={pathname} />

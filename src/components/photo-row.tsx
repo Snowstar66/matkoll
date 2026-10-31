@@ -1,0 +1,44 @@
+import { type ReactNode, type Ref } from "react";
+import { cx } from "./cx";
+
+// The quiet camera row (Story 14.6): a card with an icon tile, the action's
+// title, a sub line and a chevron, like the shopping row in Matsedel. The
+// title button covers the whole card (stretched); the sub line sits above that
+// so a button in it (such as "Visa") stays tappable. Shared by Lagersaldo's
+// "Fotografera kylen" and a Prylar place's "Ta ett nytt kort".
+
+export type PhotoRowProps = {
+  title: string;
+  onClick: () => void;
+  disabled?: boolean;
+  /** Hidden, not unmounted, so the sub line keeps its state. */
+  hidden?: boolean;
+  buttonRef?: Ref<HTMLButtonElement>;
+  /** The sub line under the title. */
+  children?: ReactNode;
+};
+
+export function PhotoRow({ title, onClick, disabled, hidden, buttonRef, children }: PhotoRowProps) {
+  return (
+    <div hidden={hidden} className={cx("relative flex min-h-tap items-center gap-3 rounded-lg bg-surface px-3.5 py-3", hidden && "hidden")}>
+      <span aria-hidden="true" className="flex size-8 shrink-0 items-center justify-center rounded-md bg-sky">
+        {"\u{1F4F7}"}
+      </span>
+      <div className="flex min-w-0 flex-1 flex-col">
+        <button
+          ref={buttonRef}
+          type="button"
+          disabled={disabled}
+          onClick={onClick}
+          className="-my-3 py-3 text-left text-row-title wrap-break-word text-ink outline-none after:absolute after:inset-0 after:rounded-lg after:content-[''] focus-visible:after:outline-2 focus-visible:after:-outline-offset-2 focus-visible:after:outline-accent disabled:cursor-not-allowed disabled:opacity-60"
+        >
+          {title}
+        </button>
+        <div className="relative z-10">{children}</div>
+      </div>
+      <span aria-hidden="true" className="text-row-title text-ink-3">
+        ›
+      </span>
+    </div>
+  );
+}

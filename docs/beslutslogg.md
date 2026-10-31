@@ -2,6 +2,13 @@
 
 Beslut som fattats under bygget: vad, varför och vilka alternativ som fanns. Nyaste överst.
 
+## 2026-10-31 – Prylar: flik, platser och kort med AI (Story 18.1 och 18.2)
+
+- **Fliken Prylar** (🧰, femte i flikraden och sidomenyn) delar boende med Lagersaldo: pillren är samma komponent och valt boende är samma `pantry_site`. Prylar rör aldrig maten: inga inköpslistor, inget recept, inga lagerantal.
+- **Databasen** (`20261031140000_things.sql`, bara tillägg): `thing_place` (rum + valfri del, nycklar normaliserade i koden så att "skräpförrådet " och "Skräpförrådet" är samma plats), `thing_photo` (kortet: privat fil, status `reading`/`done`/`failed`, raden om det som inte syns) och `thing_item` (prylen: namn, kategori, var på bilden, säkerhet). Alla med `user_id`, radskydd och kaskad från kort till prylar och från boende till platser. Bucketen `thing-photo` är privat per konto som `pantry-photo`. `save_thing_reading` sparar prylarna, gör kortet `done` och tar bort platsens äldre kort i en transaktion (det nya kortet ersätter det gamla när jobbet är klart, vilket också är första kriteriet i 18.3). `ai_job` får typen `things`; den gamla koden skriver aldrig den.
+- **AI-jobbet:** `POST /api/things/photo` sparar kortet och köar ett jobb av typen `things`; jobbet läser fotot med `listThings` i AI-porten (valt AI från Story 17.5, svaret kontrolleras med zod, en pryl åt gången) och sparar själv. Ett jobb som inte går lämnar kortet `failed` med "Försök igen" (`POST /api/things/retry` läser den lagrade filen igen). Ett kort som står som `reading` i över sex minuter visas som misslyckat, eftersom jobbet då är förlorat.
+- **Kvar att besluta:** filer i `thing-photo` städas inte när ett konto raderas med `users:sync` (bara `pantry-photo` gör det), och ett boende som tas bort tar sina platser och kort med sig utan att filerna tas bort.
+
 ## 2026-10-29 – Ingen annan inmatning av erbjudanden (T13)
 
 - **Länken räcker** (Pontus): provet mot ica.se läste in 78 erbjudanden utan fel. Story 9.7 (inklistrad text) och 9.8 (foto av reklambladet) behövs inte och stryks (korten stängs som "not planned").

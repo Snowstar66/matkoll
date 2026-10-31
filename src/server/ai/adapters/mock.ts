@@ -7,15 +7,17 @@ import { normalizeTitle } from "@/lib/suggest-input";
 import {
   aiRecipe,
   analyzeImageAnswer,
+  listThingsAnswer,
   locateItemsAnswer,
   parseAnalyzeItems,
   parseItemPositions,
+  parseThings,
   suggestDishesAnswerCompact,
   type AiRecipe,
   type LocateItemsAnswer,
 } from "../schemas";
 import { fromCompactDish } from "../compact-dish";
-import type { AiService, AnalyzeImageResult, ParseRecipeInput, SuggestDishesInput } from "../service";
+import type { AiService, AnalyzeImageResult, ListThingsResult, ParseRecipeInput, SuggestDishesInput } from "../service";
 
 // Deterministic stand-in for a model, used in all tests and in CI (AD-9). It
 // answers from tests/fixtures/ai/: manifest.json lists the cases, each with a
@@ -31,7 +33,8 @@ import type { AiService, AnalyzeImageResult, ParseRecipeInput, SuggestDishesInpu
 // port's own fromCompactDish, or the first set in
 // suggestAlternatives none of whose titles is to be avoided (ai_invalid when
 // every set has one), unless a pantry item's name is one of the reserved
-// inputs for ai_unavailable, ai_invalid or ai_rejected. analyzeImage answers
+// inputs for ai_unavailable, ai_invalid or ai_rejected. listThings (Story 18.2) answers one fixture, <things>.things.json, for any
+// photo, and the reserved images give their error codes. analyzeImage answers
 // from the manifest's `analyze` part: <name>.analyze.json for the photo
 // <name>.png, keyed on the SHA-256 of the image bytes, and the default case
 // for any other photo, read through parseAnalyzeItems like a model's answer,
@@ -71,6 +74,8 @@ type Manifest = {
   analyze?: { default: string; cases: { name: string }[] };
   /** locateItems: each case is a photo <name>.png with the points <name>.locate.json; `default` answers any other photo. */
   locate?: { default: string; cases: { name: string }[] };
+  /** listThings (Story 18.2): the answer <things>.things.json for any photo that is not a reserved image. */
+  things?: string;
 };
 
 type Answer = { recipe: AiRecipe } | { code: MockErrorCode };
@@ -95,6 +100,12 @@ type LocateFixtures = {
   /** SHA-256 of the image bytes → the model's points or an error code. */
   byKey: Map<string, LocateItemsAnswer | { code: MockErrorCode }>;
   fallback: LocateItemsAnswer;
+};
+
+type ThingsFixtures = {
+  /** SHA-256 of the image bytes → an error code, for the reserved images. */
+  errors: Map<string, MockErrorCode>;
+  answer: Omit<ListThingsResult, "invalid" | "trimmed">;
 };
 
 export const defaultFixturesDir = join(process.cwd(), "tests", "fixtures", "ai");
@@ -212,6 +223,20 @@ function loadLocateFixtures(dir: string): LocateFixtures {
   return { byKey, fallback };
 }
 
+function loadThingsFixtures(dir: string): ThingsFixtures {
+  const read = (file: string) => readFileSync(join(dir, file), "utf8");
+  const manifest = JSON.parse(read("manifest.json")) as Manifest;
+  if (!manifest.things) throw new Error("things missing");
+  const parsed = parseThings(listThingsAnswer.parse(JSON.parse(read(`${manifest.things}.things.json`))));
+  // Every thing must pass on its own: a fixture is a valid answer.
+  if (parsed.invalid > 0) throw new Error("invalid things fixture");
+  const errors = new Map<string, MockErrorCode>();
+  for (const { image, code } of manifest.reservedImages ?? []) {
+    if ((mockAnalyzeErrorCodes as readonly string[]).includes(code)) errors.set(sha256(readFileSync(join(dir, image))), code);
+  }
+  return { errors, answer: parsed };
+}
+
 /** The error code a reserved pantry item asks for, if any. */
 function suggestErrorFor(input: SuggestDishesInput, errors: Map<string, MockErrorCode>): MockErrorCode | undefined {
   for (const item of input.pantry) {
@@ -278,6 +303,7 @@ export function createMockAiService(dir: string = defaultFixturesDir, { delayMs 
   const suggestFixtures = lazily(() => loadSuggestFixtures(dir));
   const analyzeFixtures = lazily(() => loadAnalyzeFixtures(dir));
   const locateFixtures = lazily(() => loadLocateFixtures(dir));
+  const thingsFixtures = lazily(() => loadThingsFixtures(dir));
 
   /** The fixtures, or undefined (logged) when they cannot be read. */
   const logged = <T>(current: T | undefined) => {
@@ -333,6 +359,16 @@ export function createMockAiService(dir: string = defaultFixturesDir, { delayMs 
       if (answer && "code" in answer) return fail(answer.code);
       // Like a model's answer: a point for a number beyond the labels is left out and counted.
       return ok(parseItemPositions((answer ?? current.fallback).positions, input.labels.length));
+    },
+    async listThings(input, signal) {
+      if (signal.aborted) return fail("ai_unavailable");
+      const current = logged(thingsFixtures());
+      if (!current) return fail("ai_unavailable");
+      const code = current.errors.get(sha256(input.image.data));
+      // A photo the mock does not know takes the delay, so a reading can be seen in progress.
+      if (!code && !(await wait(clampedDelay(delayMs), signal))) return fail("ai_unavailable");
+      if (code) return fail(code);
+      return ok({ ...structuredClone(current.answer), invalid: 0, trimmed: 0 });
     },
     // Story 12.2: the mock is never cold, so there is nothing to wake.
     warmUpKey() {

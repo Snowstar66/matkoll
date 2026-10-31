@@ -30,6 +30,11 @@ const statusFor: Partial<Record<ErrorCode, number>> = {
   // Story 10.1: the latest photo of a place could not be saved; Story 10.2: it is gone.
   pantry_photo_failed: 500,
   pantry_photo_gone: 404,
+  things_unavailable: 503,
+  // Epic 18: the card's place is removed, or not the user's; the AI was not asked.
+  things_place_gone: 404,
+  things_card_gone: 404,
+  things_photo_failed: 500,
   settings_unavailable: 503,
   fetch_invalid_url: 422,
   fetch_domain_not_allowed: 422,

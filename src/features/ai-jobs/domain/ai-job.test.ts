@@ -143,3 +143,13 @@ describe("resultTitle (Story 12.6)", () => {
     expect(resultTitle("suggest", { draft: { title: "Linssoppa" } })).toBeNull();
   });
 });
+
+describe("a things job's count (Story 18.2)", () => {
+  it("is the count its result says, and nothing for a result that is not one", () => {
+    expect(resultCount("things", { photoId: "p", placeId: "q", count: 12 })).toBe(12);
+    expect(resultCount("things", { count: 0 })).toBe(0);
+    expect(resultCount("things", { count: -1 })).toBeNull();
+    expect(resultCount("things", { count: "12" })).toBeNull();
+    expect(resultCount("things", null)).toBeNull();
+  });
+});

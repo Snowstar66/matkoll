@@ -1,0 +1,42 @@
+// Client-safe entry: types and domain (AD-1).
+export {
+  cardDateText,
+  cardFailureText,
+  cameraText,
+  latestCardText,
+  newCardText,
+  clampTakenAt,
+  noThingsText,
+  pickText,
+  readingText,
+  retryText,
+  shortDateText,
+  shownStatus,
+  thingPhotoBucket,
+  thingPhotoFormSchema,
+  thingPhotoPath,
+  type ThingCard,
+  type ThingPhotoStatus,
+} from "./domain/thing-photo";
+export {
+  categoryCountText,
+  groupByCategory,
+  isMaybe,
+  maybeText,
+  thingCategories,
+  thingMeta,
+  thingTiles,
+  unseenText,
+  type Thing,
+  type ThingCategory,
+} from "./domain/thing";
+export {
+  groupByRoom,
+  newPlaceText,
+  partLabel,
+  placeTitle,
+  roomSuggestions,
+  thingCountText,
+  thingsEmptyText,
+  type ThingPlace,
+} from "./domain/thing-place";

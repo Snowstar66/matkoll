@@ -19,6 +19,8 @@ export function doingText(kind: AiJobKind, domain: string | null = null): string
       return "Tittar på fotot av kylen";
     case "import":
       return domain ? `Läser receptet från ${domain}` : "Läser receptet";
+    case "things":
+      return "Letar efter prylar på fotot";
   }
 }
 
@@ -31,6 +33,8 @@ export function subjectText(kind: AiJobKind): string {
       return "fotot av kylen";
     case "import":
       return "receptet";
+    case "things":
+      return "prylarna på fotot";
   }
 }
 
@@ -66,6 +70,8 @@ export function finishedText(job: Pick<AiJob, "kind" | "status" | "count" | "tit
         return "Det gick inte att läsa fotot av kylen.";
       case "import":
         return "Det gick inte att läsa receptet.";
+      case "things":
+        return "Det gick inte att lista prylarna på fotot.";
     }
   }
   switch (job.kind) {
@@ -75,6 +81,8 @@ export function finishedText(job: Pick<AiJob, "kind" | "status" | "count" | "tit
       return job.count === 1 ? "1 förslag från fotot av kylen är klart." : `${job.count ?? 0} förslag från fotot av kylen är klara.`;
     case "import":
       return job.title ? `Receptet ${job.title} är inläst.` : "Receptet är inläst.";
+    case "things":
+      return job.count === 1 ? "1 pryl är listad." : `${job.count ?? 0} prylar är listade.`;
   }
 }
 
@@ -100,6 +108,8 @@ export function jobRowText(jobs: readonly AiJob[]): { text: string; label: strin
   };
 }
 
+const uuidPattern = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+
 const placeSlugs: Record<string, string> = { Kyl: "kyl", Frys: "frys", Skafferi: "skafferi" };
 
 /**
@@ -108,6 +118,11 @@ const placeSlugs: Record<string, string> = { Kyl: "kyl", Frys: "frys", Skafferi:
  * the photo's location (`context.location`, Story 12.5).
  */
 export function resultHref(kind: AiJobKind, context: Readonly<Record<string, unknown>> = {}): string {
+  // Story 18.2: the things of a photo are on their place's page in Prylar.
+  if (kind === "things") {
+    const place = context.placeId;
+    return typeof place === "string" && uuidPattern.test(place) ? `/prylar/${place}` : "/prylar";
+  }
   if (kind !== "analyze") return "/recept";
   const slug = typeof context.location === "string" ? placeSlugs[context.location] : undefined;
   return slug ? `/hemma?plats=${slug}` : "/hemma";

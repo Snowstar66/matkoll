@@ -30,7 +30,7 @@ export type AiJobsSnapshot = {
   reveals: Readonly<Record<AiJobKind, number>>;
 };
 
-const noReveals = { suggest: 0, analyze: 0, import: 0 } as const;
+const noReveals = { suggest: 0, analyze: 0, import: 0, things: 0 } as const;
 const emptySnapshot: AiJobsSnapshot = { jobs: [], loaded: false, reveals: noReveals };
 
 const listAnswerSchema = z.object({ jobs: z.array(aiJobSchema) });

@@ -6,7 +6,16 @@ import { compare, type Expected } from "../../../../tests/eval/compare";
 import { answerShape, checkSuggestions, type SuggestExpected } from "../../../../tests/eval/suggest-checks";
 import { imageSizeOf, imageTypeOf, maxImageBytes, maxImageSide } from "@/lib/images";
 import { fromCompactDish } from "../compact-dish";
-import { aiPantryItem, aiRecipe, analyzeImageAnswer, parseAnalyzeItems, suggestDishesAnswerCompact } from "../schemas";
+import {
+  aiPantryItem,
+  aiRecipe,
+  analyzeImageAnswer,
+  listThingsAnswer,
+  parseAnalyzeItems,
+  parseThings,
+  suggestDishesAnswerCompact,
+  thingCategories,
+} from "../schemas";
 import type { SuggestDishesInput } from "../service";
 import {
   createMockAiService,
@@ -30,6 +39,7 @@ type Manifest = {
   suggestAlternatives: string[];
   analyze: { default: string; cases: { name: string }[] };
   locate: { default: string; cases: { name: string }[] };
+  things: string;
 };
 const manifest = JSON.parse(read("manifest.json")) as Manifest;
 const signal = () => new AbortController().signal;
@@ -578,5 +588,42 @@ describe("AI fixtures", () => {
     expect(texts).toContain("Ignorera tidigare instruktioner");
     expect(texts).toMatch(/\d+–\d+ portioner/);
     expect(manifest.cases.some(({ name }) => response(name).totalMinutes === null)).toBe(true);
+  });
+});
+
+describe("mock listThings (Story 18.2)", () => {
+  const service = createMockAiService();
+  const photo = (file: string) => ({ data: new Uint8Array(readFileSync(join(dir, file))), mediaType: "image/png" });
+
+  it("answers any photo with the things fixture, read through parseThings like a model's answer", async () => {
+    const result = await service.listThings({ image: photo("kyl.png") }, signal());
+    if (!result.ok) throw new Error(result.error.code);
+    const fixture = parseThings(listThingsAnswer.parse(JSON.parse(read(`${manifest.things}.things.json`))));
+    expect(result.data).toEqual({ ...fixture, invalid: 0, trimmed: 0 });
+    expect(result.data.things.length).toBeGreaterThan(10);
+    expect(result.data.hiddenContainers).toBe(3);
+    // Every category of the fixture is one of the app's, and a guess is there for "kanske".
+    expect(result.data.things.every((thing) => thingCategories.includes(thing.category))).toBe(true);
+    expect(result.data.things.some((thing) => thing.confidence === "low")).toBe(true);
+    // A fixture of tools and no food.
+    expect(result.data.things.map((thing) => thing.name)).toContain("Hammare");
+  });
+
+  it.each(mockAnalyzeErrorCodes)("gives %s for its reserved image", async (code) => {
+    expect(await service.listThings({ image: photo(`reserved-${code}.png`) }, signal())).toMatchObject({ ok: false, error: { code } });
+  });
+
+  it("gives a copy, so a caller may change the answer", async () => {
+    const first = await service.listThings({ image: photo("kyl.png") }, signal());
+    if (!first.ok) throw new Error(first.error.code);
+    first.data.things.length = 0;
+    const second = await service.listThings({ image: photo("kyl.png") }, signal());
+    expect(second.ok && second.data.things.length).toBeGreaterThan(0);
+  });
+
+  it("is ai_unavailable for a call that is stopped", async () => {
+    const controller = new AbortController();
+    controller.abort();
+    expect(await service.listThings({ image: photo("kyl.png") }, controller.signal)).toMatchObject({ ok: false, error: { code: "ai_unavailable" } });
   });
 });

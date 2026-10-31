@@ -28,7 +28,7 @@ describe("the words of AI jobs", () => {
   it("names a job after what it is about, never the technique", () => {
     expect(doingText("suggest")).toBe("Letar efter rättförslag");
     expect(subjectText("suggest")).toBe("rättförslag");
-    for (const kind of ["suggest", "analyze", "import"] as const) {
+    for (const kind of ["suggest", "analyze", "import", "things"] as const) {
       expect(doingText(kind)).not.toMatch(/AI|modell|jobb/i);
       expect(subjectText(kind)).not.toMatch(/AI|modell|jobb/i);
     }
@@ -99,5 +99,22 @@ describe("the words of a recipe import (Story 12.6)", () => {
       "Receptet Krämig kycklinggryta är inläst.",
     );
     expect(finishedText(job({ kind: "import", status: "failed" }))).toBe("Det gick inte att läsa receptet.");
+  });
+});
+
+describe("the things job (Story 18.2)", () => {
+  it("is named after what it is about, and says how many things it listed", () => {
+    expect(doingText("things")).toBe("Letar efter prylar på fotot");
+    expect(subjectText("things")).toBe("prylarna på fotot");
+    expect(finishedText(job({ kind: "things", status: "done", count: 12 }))).toBe("12 prylar är listade.");
+    expect(finishedText(job({ kind: "things", status: "done", count: 1 }))).toBe("1 pryl är listad.");
+    expect(finishedText(job({ kind: "things", status: "failed" }))).toBe("Det gick inte att lista prylarna på fotot.");
+  });
+
+  it("shows the result on the place's page in Prylar, and on the tab for anything odd", () => {
+    const place = "0b2f6d0a-3c0e-4d52-9a54-6d0f0c5f6a02";
+    expect(resultHref("things", { placeId: place })).toBe(`/prylar/${place}`);
+    expect(resultHref("things", {})).toBe("/prylar");
+    expect(resultHref("things", { placeId: "../../recept" })).toBe("/prylar");
   });
 });

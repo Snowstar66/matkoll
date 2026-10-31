@@ -16,6 +16,7 @@ import {
   isValidAnalyzeImageInput,
   isValidLocateItemsInput,
   locateLimitsFrom,
+  withInputValidation,
   type AnalyzeImageInput,
   type LocateItemsInput,
   type ParseRecipeInput,
@@ -1007,5 +1008,79 @@ describe("the choice from Inställningar (Story 17.5)", () => {
   it.each(["low", "medium"] as const)("sends level %s", async (effort) => {
     const body = await requestBody({ provider: "anthropic", model: "claude-haiku-5-5", effort });
     expect((body.output_config as { effort: string }).effort).toBe(effort);
+  });
+});
+
+describe("listThings on a model (Story 18.2)", () => {
+  const thing = (name: string, extra: Record<string, unknown> = {}) => ({
+    name,
+    category: "Verktyg",
+    where: "översta hyllan, vänster",
+    confidence: "high",
+    ...extra,
+  });
+  const answer = (things: unknown[], extra: Record<string, unknown> = {}) =>
+    JSON.stringify({ things, hiddenContainers: 0, hiddenNote: null, ...extra });
+  const input = { image: png() };
+  const limits: Limits = { healthMs: 30_000, attemptMs: 30_000, totalMs: 60_000, maxAttempts: 3, minRetryMs: 0 };
+
+  it("sends the list-things prompt and the photo as a file part, and returns the things with the note", async () => {
+    const model = fakeModel(answer([thing("Hammare"), thing("Spade", { category: "Trädgård", confidence: "low" })], { hiddenContainers: 3, hiddenNote: "Innehållet i tre lådor syns inte." }));
+    const result = await createModelAiService({ model }, limits).listThings(input, signal());
+    expect(result).toEqual({
+      ok: true,
+      data: {
+        things: [
+          { name: "Hammare", category: "Verktyg", where: "översta hyllan, vänster", confidence: "high" },
+          { name: "Spade", category: "Trädgård", where: "översta hyllan, vänster", confidence: "low" },
+        ],
+        invalid: 0,
+        trimmed: 0,
+        hiddenContainers: 3,
+        hiddenNote: "Innehållet i tre lådor syns inte.",
+      },
+    });
+    const call = model.doGenerateCalls[0];
+    expect(call.maxOutputTokens).toBe(inputLimits.things.maxOutputTokens);
+    const [system, user] = call.prompt;
+    expect(system).toEqual({ role: "system", content: prompts.listThings });
+    const parts = user.content as { type: string; mediaType?: string }[];
+    expect(parts.find((part) => part.type === "file")).toMatchObject({ mediaType: "image/png" });
+  });
+
+  it("keeps a thing with an unknown category as Övrigt and an odd confidence as low, and drops one without a name", async () => {
+    const model = fakeModel(answer([thing("Pryl", { category: "Mat", confidence: "kanske" }), thing("   "), thing("Såg", { where: "" })]));
+    const result = await createModelAiService({ model }, limits).listThings(input, signal());
+    if (!result.ok) throw new Error(result.error.code);
+    expect(result.data.things).toEqual([
+      { name: "Pryl", category: "Övrigt", where: "översta hyllan, vänster", confidence: "low" },
+      { name: "Såg", category: "Verktyg", where: null, confidence: "high" },
+    ]);
+    expect(result.data.invalid).toBe(1);
+  });
+
+  it("merges the same name on the same spot and keeps the same name in two places", async () => {
+    const model = fakeModel(answer([thing("Hammare"), thing("hammare "), thing("Hammare", { where: "golvet" })]));
+    const result = await createModelAiService({ model }, limits).listThings(input, signal());
+    if (!result.ok) throw new Error(result.error.code);
+    expect(result.data.things.map((entry) => entry.where)).toEqual(["översta hyllan, vänster", "golvet"]);
+  });
+
+  it("cuts at 60 things and counts the rest", async () => {
+    const many = Array.from({ length: 65 }, (_, index) => thing(`Pryl ${index}`));
+    const result = await createModelAiService({ model: fakeModel(answer(many)) }, limits).listThings(input, signal());
+    if (!result.ok) throw new Error(result.error.code);
+    expect(result.data.things).toHaveLength(60);
+    expect(result.data.trimmed).toBe(5);
+  });
+
+  it("is ai_invalid for an answer that is not the shape, and validation for an empty photo", async () => {
+    const broken = await createModelAiService({ model: fakeModel("{}", "{}", "{}") }, limits).listThings(input, signal());
+    expect(broken).toMatchObject({ ok: false, error: { code: "ai_invalid" } });
+    const wrapped = withInputValidation(createModelAiService({ model: fakeModel(answer([])) }, limits));
+    expect(await wrapped.listThings({ image: { data: new Uint8Array(0), mediaType: "image/png" } }, signal())).toMatchObject({
+      ok: false,
+      error: { code: "validation" },
+    });
   });
 });

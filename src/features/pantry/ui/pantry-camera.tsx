@@ -2,8 +2,8 @@
 
 import { type ChangeEvent, type ReactNode, useEffect, useRef } from "react";
 import { Button } from "@/components/button";
-import { cx } from "@/components/cx";
 import { Notice } from "@/components/notice";
+import { PhotoRow } from "@/components/photo-row";
 import { useCoarsePointer } from "@/components/use-coarse-pointer";
 import type { Location } from "@/features/catalog";
 import {
@@ -144,29 +144,15 @@ export function PantryCamera({ site, location, children }: PantryCameraProps) {
       ) : null}
       {/* Story 14.6: a quiet row like the shopping row in Matsedel. The camera button covers the card (stretched);
           the line under it, with "Visa", sits above that. While a photo is read it is hidden, not unmounted. */}
-      <div
+      <PhotoRow
         hidden={analyzing}
-        className={cx("relative flex min-h-tap items-center gap-3 rounded-lg bg-surface px-3.5 py-3", analyzing && "hidden")}
+        buttonRef={cameraButtonRef}
+        disabled={switching}
+        onClick={() => (touch ? cameraRef : pickerRef).current?.click()}
+        title={cameraButtonText(location)}
       >
-        <span aria-hidden="true" className="flex size-8 shrink-0 items-center justify-center rounded-md bg-sky">
-          {"\u{1F4F7}"}
-        </span>
-        <div className="flex min-w-0 flex-1 flex-col">
-          <button
-            ref={cameraButtonRef}
-            type="button"
-            disabled={switching}
-            onClick={() => (touch ? cameraRef : pickerRef).current?.click()}
-            className="-my-3 py-3 text-left text-row-title wrap-break-word text-ink outline-none after:absolute after:inset-0 after:rounded-lg after:content-[''] focus-visible:after:outline-2 focus-visible:after:-outline-offset-2 focus-visible:after:outline-accent disabled:cursor-not-allowed disabled:opacity-60"
-          >
-            {cameraButtonText(location)}
-          </button>
-          <div className="relative z-10">{children}</div>
-        </div>
-        <span aria-hidden="true" className="text-row-title text-ink-3">
-          ›
-        </span>
-      </div>
+        {children}
+      </PhotoRow>
       {touch && !analyzing ? (
         <Button variant="text" disabled={switching} onClick={() => pickerRef.current?.click()} className="self-center">
           Välj bild

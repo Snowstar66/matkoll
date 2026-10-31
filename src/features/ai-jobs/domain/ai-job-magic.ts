@@ -8,12 +8,13 @@ import type { AiJobKind } from "@/lib/ai-job-shape";
 export const statusCycleMs = 2500;
 
 /** What a job usually takes, in seconds, per kind (Epic 12's measurement): one place for the numbers. */
-export const typicalSeconds: Record<AiJobKind, number> = { suggest: 35, analyze: 30, import: 20 };
+export const typicalSeconds: Record<AiJobKind, number> = { suggest: 35, analyze: 30, import: 20, things: 20 };
 
 const statusTexts: Record<AiJobKind, readonly string[]> = {
   suggest: ["Läser ditt förråd…", "Matchar veckans erbjudanden…", "Komponerar rätter…", "Skriver recepten…"],
   analyze: ["Tittar på fotot…", "Känner igen varorna…", "Räknar antal…"],
   import: ["Hämtar receptet…", "Läser ingredienserna…", "Strukturerar stegen…"],
+  things: ["Tittar på fotot…", "Letar efter prylar…", "Sorterar i kategorier…"],
 };
 
 /** The status line for a job kind after `step` cycles; it starts over after the last. */

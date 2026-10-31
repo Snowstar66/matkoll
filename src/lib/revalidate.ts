@@ -64,6 +64,11 @@ const routesByTable = {
   ],
   // The latest photo of each place (Epic 10, AD-26); only Hemma shows it.
   pantry_photo: [{ path: "/hemma", type: "page" }],
+  // Prylar (Epic 18): the tab's list of places and every place page below it.
+  // Things never reach the pantry, the lists or the recipes.
+  thing_place: [{ path: "/prylar", type: "layout" }],
+  thing_photo: [{ path: "/prylar", type: "layout" }],
+  thing_item: [{ path: "/prylar", type: "layout" }],
   // The meal plan, the shopping list counted from it, and the recipes, which
   // may show what is on the plan (AD-18). Both tables, so either can be named.
   meal_plan: [

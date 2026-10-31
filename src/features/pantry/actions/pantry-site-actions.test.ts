@@ -31,6 +31,13 @@ vi.mock("../data/photos", () => ({
   removePlacePhotoFiles: (...args: unknown[]) => (steps.push("remove"), removePlacePhotoFiles(...args)),
 }));
 
+const loadSiteCardFiles = vi.fn();
+const removeSiteCardFiles = vi.fn();
+vi.mock("@/features/things/server", () => ({
+  loadSiteCardFiles: (...args: unknown[]) => loadSiteCardFiles(...args),
+  removeSiteCardFiles: (...args: unknown[]) => removeSiteCardFiles(...args),
+}));
+
 const { selectPantrySite } = await import("./select-pantry-site");
 const { savePantrySite } = await import("./save-pantry-site");
 const { deletePantrySite } = await import("./delete-pantry-site");
@@ -54,6 +61,8 @@ beforeEach(() => {
   loadSitePhotoPathsIn.mockReset().mockResolvedValue([]);
   removePlacePhotoFiles.mockReset().mockImplementation(async (_db: unknown, paths: string[]) => ({ removed: paths, failed: null }));
   listPlacePhotoFilesIn.mockReset().mockResolvedValue([]);
+  loadSiteCardFiles.mockReset().mockResolvedValue([]);
+  removeSiteCardFiles.mockReset().mockResolvedValue(undefined);
   revalidateFor.mockReset();
   log?.mockRestore();
   log = vi.spyOn(console, "error").mockImplementation(() => {});
@@ -231,6 +240,24 @@ describe("deletePantrySite", () => {
       // The user's own folder of the place, from the session's user.
       expect(listPlacePhotoFilesIn).toHaveBeenCalledWith(db, `user/${stugan}`);
       expect(removePlacePhotoFiles).toHaveBeenCalledWith(db, [...paths, left]);
+    });
+
+    it("removes the Prylar card files read before the boende was deleted (Story 18.2)", async () => {
+      const cards = [`user/place-1/a.jpg`];
+      loadSiteCardFiles.mockResolvedValue(cards);
+      expect(await deletePantrySite({ id: stugan })).toEqual(ok({ removed: true }));
+      // Read before the delete, removed after it.
+      expect(loadSiteCardFiles.mock.invocationCallOrder[0]).toBeLessThan(deleteSiteIn.mock.invocationCallOrder[0]);
+      expect(removeSiteCardFiles.mock.invocationCallOrder[0]).toBeGreaterThan(deleteSiteIn.mock.invocationCallOrder[0]);
+      expect(loadSiteCardFiles).toHaveBeenCalledWith(stugan, "user");
+      expect(removeSiteCardFiles).toHaveBeenCalledWith(cards);
+    });
+
+    it("keeps the card files of a place in use", async () => {
+      loadSiteCardFiles.mockResolvedValue(["user/place-1/a.jpg"]);
+      deleteSiteIn.mockResolvedValue({ kind: "in_use" });
+      expect(await deletePantrySite({ id: stugan })).toEqual(fail("pantry_site_in_use"));
+      expect(removeSiteCardFiles).not.toHaveBeenCalled();
     });
 
     it("removes nothing when the place had no files", async () => {

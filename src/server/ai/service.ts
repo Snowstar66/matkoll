@@ -31,14 +31,17 @@ import {
 } from "./run";
 import {
   analyzeImageAnswer,
+  listThingsAnswer,
   locateItemsAnswer,
   maxPantryItemTextChars,
   parseAnalyzeItems,
   parseItemPositions,
   parseRecipeAnswer,
+  parseThings,
   suggestDishesAnswerCompactFor,
   type AiPantryItem,
   type AiRecipe,
+  type AiThing,
   type ItemPosition,
 } from "./schemas";
 import { warmImage } from "./warm-image";
@@ -122,6 +125,25 @@ export type LocateItemsInput = {
  */
 export type LocateItemsResult = { positions: ItemPosition[]; invalid: number };
 
+export type ListThingsInput = {
+  /** A photo of a place, already resized in the client (AD-15). Never stored or logged by the port. */
+  image: ImageInput;
+};
+
+/**
+ * What listThings answers (Story 18.2): the things that passed aiThing, the
+ * first maxThings in the model's order, how many did not (`invalid`) or were
+ * cut (`trimmed`), how many closed containers the model could not see into,
+ * and its sentence about them.
+ */
+export type ListThingsResult = {
+  things: AiThing[];
+  invalid: number;
+  trimmed: number;
+  hiddenContainers: number;
+  hiddenNote: string | null;
+};
+
 /** What warmUp wakes (Story 12.2): the reading of a photo, or the text flows. */
 export const warmUpKinds = ["image", "text"] as const;
 export type WarmUpKind = (typeof warmUpKinds)[number];
@@ -170,6 +192,15 @@ export interface AiService {
    * whole is broken).
    */
   locateItems(input: LocateItemsInput, signal: AbortSignal, options?: RunOptions): Promise<Result<LocateItemsResult>>;
+  /**
+   * The things the model sees in a photo of a place (Story 18.2): name,
+   * category, where in the photo and how sure, partly visible things too, but
+   * no fixtures such as shelves. Each is checked on its own (parseThings).
+   * Fails with `validation` (an image outside the limits), `ai_unavailable`
+   * (also when the deadline leaves too little time), `ai_rejected` or
+   * `ai_invalid` (the answer as a whole is broken).
+   */
+  listThings(input: ListThingsInput, signal: AbortSignal, options?: RunOptions): Promise<Result<ListThingsResult>>;
   /**
    * Wakes the model before it is needed (Story 12.2, FR-45): one call with
    * the flow's own system prompt (analyzeImage for `image`, suggestDishes
@@ -230,6 +261,13 @@ export const inputLimits = {
    * more are cut by the caller, not refused.
    */
   analyze: { maxItems: 25, maxOutputTokens: 3_000 },
+  /**
+   * listThings (Story 18.2): a thing is about 40 tokens of answer, so 60
+   * things are about 2 400 and 4 000 leave room for the note and a model that
+   * writes more around them. The spike on nine photos of a storage room gave
+   * 9–47 things per photo in 9–24 s with Haiku 5.5.
+   */
+  things: { maxOutputTokens: 4_000 },
   /**
    * locateItems (Story 6.6), measured with Qwen3.6 in LM Studio on Pontus's
    * photo at 2048 px (2026-10-26): 20 points were 390 tokens of answer, in
@@ -336,6 +374,10 @@ export function withInputValidation(service: AiService): AiService {
       if (!isValidLocateItemsInput(input)) return fail("validation");
       return service.locateItems(input, signal, options);
     },
+    async listThings(input, signal, options) {
+      if (!isValidImage(input.image)) return fail("validation");
+      return service.listThings(input, signal, options);
+    },
     async warmUp(kind, signal, options) {
       if (!isWarmUpKind(kind)) return { outcome: "skipped", reason: "provider" };
       return service.warmUp(kind, signal, options);
@@ -411,6 +453,31 @@ export function createModelAiService(target: ModelTarget, limits: Limits = defau
       if (!answer.ok) return answer;
       return ok(parseAnalyzeItems(answer.data.items));
     },
+    async listThings(input, signal, options = {}) {
+      const within = limitsWithin(limits, options.deadline);
+      if (!within) {
+        console.error("ai_unavailable", { reason: "deadline" });
+        return fail("ai_unavailable");
+      }
+      const answer = await runStructured(
+        target,
+        {
+          schema: listThingsAnswer,
+          system: prompts.listThings,
+          messages: [{ role: "user", content: listThingsContent(input) }],
+          maxOutputTokens: inputLimits.things.maxOutputTokens,
+          sampling: target.imageSampling,
+          onTruncated: () => console.info("things_truncated"),
+        },
+        signal,
+        within,
+      );
+      if (!answer.ok) return answer;
+      const parsed = parseThings(answer.data);
+      // Counts only, never the names.
+      if (parsed.invalid > 0 || parsed.trimmed > 0) console.info("things_dropped", { invalid: parsed.invalid, trimmed: parsed.trimmed });
+      return ok(parsed);
+    },
     async locateItems(input, signal, options = {}) {
       // Story 6.6: only a model trained to point in thousandths is asked; the photo is not sent again otherwise.
       if (!target.supportsGrounding) {
@@ -476,6 +543,14 @@ const placeNames: Record<AnalyzePlace, string> = { Kyl: "kylen", Frys: "frysen",
 export function analyzeImageContent(input: AnalyzeImageInput) {
   return [
     { type: "text" as const, text: `Bilden visar ${placeNames[input.place]}.` },
+    { type: "file" as const, data: input.image.data, mediaType: input.image.mediaType },
+  ];
+}
+
+/** The user message for listThings (Story 18.2): a line and the photo as a `file` part. */
+export function listThingsContent(input: ListThingsInput) {
+  return [
+    { type: "text" as const, text: "Bilden visar en plats hemma. Lista prylarna." },
     { type: "file" as const, data: input.image.data, mediaType: input.image.mediaType },
   ];
 }

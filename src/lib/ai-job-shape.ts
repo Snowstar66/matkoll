@@ -6,7 +6,7 @@ import { z } from "zod";
 // result: the list is polled often, and the result is fetched once with
 // GET /api/ai/jobs/[id].
 
-export const aiJobKinds = ["suggest", "analyze", "import"] as const;
+export const aiJobKinds = ["suggest", "analyze", "import", "things"] as const;
 export type AiJobKind = (typeof aiJobKinds)[number];
 
 export const aiJobStatuses = ["queued", "running", "done", "failed", "cancelled", "superseded"] as const;
