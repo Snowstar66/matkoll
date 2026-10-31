@@ -17,14 +17,8 @@ export const errorMessages = {
   // reveals which addresses have an account.
   auth_password_invalid: "E-postadressen eller lösenordet stämmer inte.",
   auth_password_rate_limited: "För många försök. Vänta en stund och försök igen.",
-  // "Skapa konto": only here is the allowlist visible, as the story asks (a friendly no).
-  auth_signup_not_allowed: "Den här adressen är inte inbjuden till Matkoll. Fråga den som driver Matkoll.",
-  auth_signup_exists: "Det finns redan ett konto för adressen. Logga in, eller välj Glömt lösenord.",
-  // Signed in with the right password before the confirmation link was used; "Skicka mejlet igen" follows.
-  auth_email_unconfirmed: "Bekräfta din e-post först – vi kan skicka mejlet igen.",
-  auth_signup_failed: "Det gick inte att skapa kontot. Försök igen.",
   // The link from the reset mail: used, expired or not for this address.
-  auth_reset_invalid: "Länken har gått ut eller redan använts. Be om en ny under Glömt lösenord.",
+  auth_reset_invalid: "Länken har gått ut eller redan använts. Be om en ny under Välj lösenord.",
   auth_reset_failed: "Det gick inte att spara lösenordet. Försök igen.",
   auth_sign_out_failed: "Det gick inte att logga ut. Försök igen.",
   ai_unavailable: "AI-tjänsten svarar inte just nu. Är datorn med modellen igång?",

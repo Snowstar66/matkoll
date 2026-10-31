@@ -41,11 +41,20 @@ Vercel-projektet skapas först men fylls med variabler i steg 9, när värdena f
 
 **Kontroll:** **Project Settings → General** visar regionen `eu-north-1`, och **Project Settings → Infrastructure** visar Postgres 17 eller senare.
 
-## 3. Registrering (från Story 17.2: på, men bara för inbjudna)
+## 3. Registrering avstängd, konton görs av `users:sync`
 
-**Authentication → Sign In / Providers:** låt **Allow new users to sign up** vara på, eftersom "Skapa konto" i appen skapar kontot. Appen släpper bara igenom adresser i `ALLOWED_EMAILS` (kontrolleras på servern innan Supabase frågas, och vid varje inloggning); ett konto som någon skapar direkt mot Supabase med en adress utanför listan får ingen åtkomst. Lokalt motsvaras det av `enable_signup = true` i `supabase/config.toml`. Slå också på **Confirm email** (lokalt `enable_confirmations = true`), så att ingen kan registrera någon annans inbjudna adress med eget lösenord utan att kunna läsa dess post. Lägg in mejlmallarna **Confirm sign up** från `supabase/templates/confirmation.html` (`type=signup`) och **Reset Password** från `supabase/templates/recovery.html` (`type=recovery`), som för engångslänken; båda länkarna går till `/auth/confirm`.
+**Authentication → Sign In / Providers:** stäng av **Allow new users to sign up**. E-post ska vara på. Lokalt motsvaras det av `enable_signup = false` i `supabase/config.toml` (AD-3). Ingen kan skapa sig själv ett konto; det finns därför inget "Skapa konto" i appen, och ingen kan registrera en inbjuden adress med eget lösenord i förväg.
 
-**Kontroll:** efter steg 11, välj **Skapa konto** på `<adress>/logga-in` med en adress som inte står i `ALLOWED_EMAILS`. Appen svarar att adressen inte är inbjuden, och ingen användare skapas under **Authentication → Users**. Med en inbjuden adress kommer ett bekräftelsemejl, och kontot fungerar först när länken i det använts.
+Konton görs bara av `pnpm users:sync`, som läser `ALLOWED_EMAILS` och skapar användare utan lösenord (adressen räknas som bekräftad). Så här bjuder Pontus in någon:
+
+1. Lägg adressen i `ALLOWED_EMAILS` (Vercel och lokalt) och kör `pnpm users:sync`.
+2. Säg åt personen att öppna appen och välja **Första gången eller glömt lösenordet? Välj lösenord**. Mejlet har en länk där hen väljer lösenord (minst 12 tecken) och blir inloggad. Samma väg gäller om någon glömt sitt lösenord.
+
+Lägg in mejlmallen **Reset Password** från `supabase/templates/recovery.html` (`type=recovery`), som för engångslänken; länken går till `/auth/confirm`. Lokalt läses mallen när Supabase startas, så `pnpm db:stop && pnpm db:start` behövs en gång efter Story 17.2.
+
+**Gränser för inloggningsförsök.** Appens egna gränser (fem felaktiga lösenord, fem koder och fem mejl för "Välj lösenord" per adress och IP på 15 minuter) ligger i serverns minne. På Vercel räknar varje instans för sig och en kall start nollställer, så de är ett första skydd, inte ett tak. I molnet gäller också Supabases egna gränser: kontrollera under **Authentication → Rate Limits** antalet mejl per timme (kräver egen SMTP), inloggningar och registreringar per IP, och verifieringar av engångskoder per IP, och sänk dem om standardvärdena är för höga.
+
+**Kontroll:** efter steg 11, be om en länk med **Välj lösenord** för en adress som inte står i `ALLOWED_EMAILS`. Sidan svarar som vanligt, men inget mejl kommer och ingen användare skapas under **Authentication → Users**.
 
 ## 4. Site URL och redirect-URL
 

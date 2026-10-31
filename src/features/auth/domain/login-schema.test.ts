@@ -6,7 +6,6 @@ import {
   newPasswordSchema,
   normalizeEmailCode,
   passwordLoginSchema,
-  signUpSchema,
 } from "./login-schema";
 
 describe("loginSchema", () => {
@@ -76,16 +75,20 @@ describe("passwordLoginSchema", () => {
   });
 });
 
-describe("signUpSchema and newPasswordSchema", () => {
-  it("needs at least 8 characters, in Swedish", () => {
-    const result = signUpSchema.safeParse({ email: "a@b.se", password: "kort" });
+describe("newPasswordSchema", () => {
+  it("needs at least 12 characters, in Swedish", () => {
+    const result = newPasswordSchema.safeParse("elvatecken");
     expect(result.success).toBe(false);
-    expect(!result.success && result.error.issues[0].message).toBe("Lösenordet måste vara minst 8 tecken.");
-    expect(newPasswordSchema.safeParse("12345678").success).toBe(true);
+    expect(!result.success && result.error.issues[0].message).toBe("Lösenordet måste vara minst 12 tecken.");
+    expect(newPasswordSchema.safeParse("123456789012").success).toBe(true);
   });
 
-  it("stops at 72 characters", () => {
-    expect(newPasswordSchema.safeParse("x".repeat(73)).success).toBe(false);
+  it("stops at 72 bytes, not 72 characters", () => {
     expect(newPasswordSchema.safeParse("x".repeat(72)).success).toBe(true);
+    expect(newPasswordSchema.safeParse("x".repeat(73)).success).toBe(false);
+    // 40 two-byte letters are 40 characters but 80 bytes.
+    expect(newPasswordSchema.safeParse("å".repeat(40)).success).toBe(false);
+    expect(newPasswordSchema.safeParse("å".repeat(36)).success).toBe(true);
+    expect(passwordLoginSchema.safeParse({ email: "a@b.se", password: "å".repeat(40) }).success).toBe(false);
   });
 });

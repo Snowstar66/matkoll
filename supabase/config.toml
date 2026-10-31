@@ -176,11 +176,8 @@ enable_refresh_token_rotation = true
 # Requires enable_refresh_token_rotation = true.
 refresh_token_reuse_interval = 60
 # Allow/disallow new user signups to your project.
-# Matkoll (Story 17.2): on, because "Skapa konto" signs up with the publishable key (the service role
-# stays out of src, AD-4). The app's createAccount action refuses addresses outside ALLOWED_EMAILS
-# before it asks Supabase; an account made by calling Supabase directly gets no access, since
-# requireUser and the sign-in actions check ALLOWED_EMAILS too. Users can also come from `pnpm users:sync`.
-enable_signup = true
+# Matkoll: off; users are created only by `pnpm users:sync` (AD-3).
+enable_signup = false
 # Allow/disallow anonymous sign-ins to your project.
 enable_anonymous_sign_ins = false
 # Allow/disallow testing manual linking of accounts
@@ -227,13 +224,14 @@ web3 = 30
 [auth.email]
 # Allow/disallow new user signups via email to your project.
 # Matkoll: must stay true. The CLI maps this to GOTRUE_EXTERNAL_EMAIL_ENABLED, so false
-# turns off e-mail login (and magic links) entirely.
+# turns off e-mail login (and magic links) entirely. Sign-up is already off through
+# [auth] enable_signup = false (GOTRUE_DISABLE_SIGNUP), which also covers e-mail.
 enable_signup = true
 # If enabled, a user will be required to confirm any email change on both the old, and new email
 # addresses. If disabled, only the new email is required to confirm.
 double_confirm_changes = true
 # If enabled, users need to confirm their email address before signing in.
-enable_confirmations = true
+enable_confirmations = false
 # If enabled, users will need to reauthenticate or have logged in recently to change their password.
 secure_password_change = false
 # Controls the minimum amount of time that must pass before sending another signup confirmation or password reset email.
@@ -264,16 +262,11 @@ otp_expiry = 3600
 subject = "Din inloggningslänk till Matkoll"
 content_path = "./supabase/templates/magic-link.html"
 
-# Matkoll (Story 17.2): confirmation is on, so nobody can claim an invited address they cannot read mail for.
-# The link goes to /auth/confirm with token_hash and type=signup. Set the same subject and template in the cloud project.
-[auth.email.template.confirmation]
-subject = "Bekräfta din e-post i Matkoll"
-content_path = "./supabase/templates/confirmation.html"
-
-# Matkoll (Story 17.2): the reset link goes to /auth/confirm with token_hash and type=recovery.
+# Matkoll (Story 17.2): the reset link ("Välj lösenord" on the login page) goes to /auth/confirm with
+# token_hash and type=recovery. Accounts are made only by `pnpm users:sync` and sign-up stays off.
 # Set the same subject and template in the cloud project.
 [auth.email.template.recovery]
-subject = "Välj nytt lösenord i Matkoll"
+subject = "Välj lösenord i Matkoll"
 content_path = "./supabase/templates/recovery.html"
 
 # Uncomment to customize notification email template

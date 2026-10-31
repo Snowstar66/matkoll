@@ -3139,13 +3139,13 @@ så att hela familjen kan dela samma konto utan engångslänkar.
 **När** jag anger e-post och lösenord för ett befintligt konto
 **Så** loggas jag in och förblir inloggad tills jag loggar ut, även efter att appen stängts
 
-**Givet** en e-postadress i inbjudningslistan (`ALLOWED_EMAILS`) utan konto
-**När** jag väljer "Skapa konto" och anger ett lösenord
-**Så** skapas kontot och ett bekräftelsemejl skickas; kontot fungerar när länken i mejlet använts (inloggning före det ger "Bekräfta din e-post först" och går att skicka om); en adress utanför listan får ett vänligt nej och inget konto skapas
+**Givet** en adress i inbjudningslistan (`ALLOWED_EMAILS`) vars konto gjorts med `pnpm users:sync`, och som inte har något lösenord än
+**När** jag väljer "Första gången eller glömt lösenordet? Välj lösenord" och anger min e-post
+**Så** kommer ett mejl med en länk där jag väljer lösenord (minst 12 tecken) och blir inloggad (lokalt syns mejlet i Mailpit); svaret är detsamma för alla adresser, och ingen kan skapa konto själv
 
-**Givet** "Glömt lösenord"
+**Givet** "Glömt lösenord" (samma "Välj lösenord")
 **När** jag anger min e-post
-**Så** kommer ett mejl med en länk där jag väljer nytt lösenord (lokalt syns mejlet i Mailpit)
+**Så** kommer ett mejl med en länk där jag väljer nytt lösenord
 
 **Givet** första inloggningen på ett konto
 **När** appen öppnas

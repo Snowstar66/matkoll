@@ -109,31 +109,24 @@ test.describe("without a session", () => {
     await context.close();
   });
 
-  test("an address outside the list gets the same sign-in answer and a friendly no on Skapa konto", async ({ page }) => {
+  test("an address outside the list gets the same sign-in answer", async ({ page }) => {
     const stranger = `okand-${Date.now()}@matkoll.test`;
     await page.goto("/logga-in");
     await page.getByLabel("E-postadress").fill(stranger);
     await page.getByLabel("Lösenord").fill("ett-langt-losenord");
     await page.getByRole("button", { name: "Logga in", exact: true }).click();
     await expect(page.getByRole("main").getByRole("alert")).toHaveText("E-postadressen eller lösenordet stämmer inte.");
-
-    await page.getByRole("button", { name: "Skapa konto" }).click();
-    await page.getByRole("button", { name: "Skapa konto" }).click();
-    await expect(page.getByRole("main").getByRole("alert")).toHaveText(
-      "Den här adressen är inte inbjuden till Matkoll. Fråga den som driver Matkoll.",
-    );
-    const { data } = await adminClient().auth.admin.listUsers({ perPage: 1000 });
-    expect(data.users.filter((user) => user.email === stranger)).toHaveLength(0);
+    await expect(page.getByRole("button", { name: "Skapa konto" })).toHaveCount(0);
   });
 
-  test("Glömt lösenord mails a link for an allowed address and nothing for others", async ({ page }) => {
+  test("Välj lösenord mails a link for an allowed address and nothing for others", async ({ page }) => {
     const stranger = `okand-${Date.now()}@matkoll.test`;
     await deleteMailsTo(e2eEmail);
     for (const email of [e2eEmail, stranger]) {
       await page.goto("/logga-in");
       await page.getByLabel("E-postadress").fill(email);
-      await page.getByRole("button", { name: "Glömt lösenord?" }).click();
-      await page.getByRole("button", { name: "Skicka återställningslänk" }).click();
+      await page.getByRole("button", { name: "Första gången eller glömt lösenordet? Välj lösenord" }).click();
+      await page.getByRole("button", { name: "Skicka länk för att välja lösenord" }).click();
       await expect(page.getByText("Om adressen har ett konto skickar vi ett mejl")).toBeVisible();
     }
     await expect.poll(async () => (await mailsTo(e2eEmail)).length, { timeout: 10_000 }).toBe(1);
@@ -168,12 +161,6 @@ test.describe("without a session", () => {
     await expect(page.getByRole("heading", { level: 1, name: "Logga in" })).toBeVisible();
     await page.getByRole("main").getByRole("button", { name: "Logga in" }).click();
     await expect(page).toHaveURL(/\/recept\?flik=x$/);
-  });
-
-  test("a confirmation link (type=signup) with a spent token leads to the login page with an explanation", async ({ page }) => {
-    await page.goto("/auth/confirm?token_hash=ogiltig&type=signup&next=/recept");
-    await page.getByRole("main").getByRole("button", { name: "Logga in" }).click();
-    await expect(page).toHaveURL(/\/logga-in\?fel=lank&next=%2Frecept$/);
   });
 
   test("a link without a token leads to the login page without a button", async ({ page }) => {

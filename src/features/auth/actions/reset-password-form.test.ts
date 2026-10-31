@@ -17,7 +17,7 @@ function form(fields: Record<string, string>) {
   for (const [key, value] of Object.entries(fields)) data.set(key, value);
   return data;
 }
-const valid = { token_hash: "abc", password: "ett-nytt-lösenord", next: "/matsedel" };
+const valid = { token_hash: "abc", password: "ett-nytt-lösenord-123", next: "/matsedel" };
 
 beforeEach(() => {
   vi.restoreAllMocks();
@@ -29,7 +29,7 @@ beforeEach(() => {
 describe("resetPasswordForm", () => {
   it("uses the token with the new password, ensures start data and goes to next", async () => {
     await expect(resetPasswordForm(null, form(valid))).rejects.toThrow("NEXT_REDIRECT /matsedel");
-    expect(resetWithToken).toHaveBeenCalledWith("abc", "ett-nytt-lösenord", expect.any(Function));
+    expect(resetWithToken).toHaveBeenCalledWith("abc", "ett-nytt-lösenord-123", expect.any(Function));
     const isAllowed = resetWithToken.mock.calls[0][2] as (email: string) => boolean;
     expect(isAllowed("pontus@example.com")).toBe(true);
     expect(isAllowed("annan@example.com")).toBe(false);

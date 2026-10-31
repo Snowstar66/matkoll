@@ -19,8 +19,7 @@ import { passwordAttempts } from "./password-attempt-limit";
  *    within 15 minutes, `auth_password_rate_limited` without asking Supabase.
  * 2. The input must be valid and the address in ALLOWED_EMAILS; otherwise
  *    `auth_password_invalid` without asking Supabase.
- * 3. Supabase checks the password; the right password for an account whose
- *    e-mail is not confirmed gives `auth_email_unconfirmed`. A wrong password and an unknown address both
+ * 3. Supabase checks the password. A wrong password and an unknown address both
  *    give `auth_password_invalid`, so a sign-in never says which addresses
  *    have an account; Supabase's own limit gives `auth_password_rate_limited`.
  * 4. The address is checked against ALLOWED_EMAILS again, as for the link; a
@@ -34,7 +33,8 @@ export async function loginWithPassword(input: PasswordLoginInput): Promise<Resu
   const ip = clientIpFrom(await headers());
   const ipTag = ipLogTag(ip);
   const rawEmail = typeof input?.email === "string" ? normalizeEmail(input.email) : "";
-  const attemptKey = `${sha256Hex(rawEmail)}|${ip ?? "none"}`;
+  // Without an IP the count is per address only.
+  const attemptKey = ip ? `${sha256Hex(rawEmail)}|${ip}` : sha256Hex(rawEmail);
 
   if (passwordAttempts.isBlocked(attemptKey)) {
     console.warn("auth_password_rate_limited", { by: "app", ip: ipTag });
@@ -62,8 +62,6 @@ export async function loginWithPassword(input: PasswordLoginInput): Promise<Resu
     console.warn("auth_password_rate_limited", { by: "supabase", ip: ipTag });
     return fail("auth_password_rate_limited");
   }
-  // Only reached with the right password (Supabase checks it first), so it says nothing to anyone else.
-  if (outcome.result === "unconfirmed") return fail("auth_email_unconfirmed");
   if (outcome.result !== "signed_in") {
     console.info("auth_password_refused", outcome.code);
     return refuse();

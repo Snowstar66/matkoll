@@ -1,4 +1,5 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
+import { createCodeAttempts } from "../domain/code-attempts";
 
 const requestResetMail = vi.fn();
 vi.mock("../data/auth", () => ({
@@ -8,10 +9,20 @@ vi.mock("@/server/env", () => ({
   env: { ALLOWED_EMAILS: ["pontus@example.com"], SITE_URL: "http://localhost:3000" },
 }));
 
+vi.mock("next/headers", () => ({ headers: async () => new Headers({ "x-forwarded-for": "203.0.113.7" }) }));
+let attempts = createCodeAttempts();
+vi.mock("./password-attempt-limit", () => ({
+  resetAttempts: {
+    isBlocked: (key: string) => attempts.isBlocked(key),
+    recordFailure: (key: string) => attempts.recordFailure(key),
+  },
+}));
+
 const { requestPasswordReset } = await import("./request-password-reset");
 
 beforeEach(() => {
-  requestResetMail.mockReset();
+  requestResetMail.mockReset().mockResolvedValue({ ok: true });
+  attempts = createCodeAttempts();
   vi.restoreAllMocks();
 });
 
@@ -45,5 +56,14 @@ describe("requestPasswordReset", () => {
       ok: false,
       error: { code: "validation" },
     });
+  });
+
+  it("limits to five requests per address and IP, whatever the address", async () => {
+    for (let i = 0; i < 5; i++) await requestPasswordReset({ email: "annan@example.com" });
+    expect(await requestPasswordReset({ email: "annan@example.com" })).toMatchObject({
+      ok: false,
+      error: { code: "auth_password_rate_limited" },
+    });
+    expect(await requestPasswordReset({ email: "pontus@example.com" })).toEqual({ ok: true, data: null });
   });
 });

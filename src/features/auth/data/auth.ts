@@ -21,15 +21,12 @@ export async function requestMagicLink(email: string, redirectTo: string): Promi
 /** Outcome of the password calls; `code` is Supabase's error code, never user data. */
 export type PasswordOutcome =
   | { result: "signed_in"; email: string | undefined }
-  | { result: "invalid" | "exists" | "unconfirmed" | "confirmation_sent" | "rate_limited" | "weak" | "failed"; code: string };
+  | { result: "invalid" | "rate_limited" | "failed"; code: string };
 
 function passwordFailure(error: { code?: string; status?: number }): PasswordOutcome {
   const code = errorCode(error);
   if (isRateLimit(error)) return { result: "rate_limited", code };
   if (code === "invalid_credentials") return { result: "invalid", code };
-  if (code === "email_not_confirmed") return { result: "unconfirmed", code };
-  if (code === "user_already_exists" || code === "email_exists") return { result: "exists", code };
-  if (code === "weak_password") return { result: "weak", code };
   return { result: "failed", code };
 }
 
@@ -43,34 +40,6 @@ export async function signInWithPassword(
   const { data, error } = await supabase.auth.signInWithPassword({ email, password });
   if (error) return passwordFailure(error);
   return { result: "signed_in", email: data.user?.email };
-}
-
-/**
- * Creates the account. The project requires e-mail confirmation, so the answer
- * is `confirmation_sent` (the link goes to `redirectTo` with a token_hash) and
- * there is no session until the link is used; a project without confirmation
- * answers `signed_in`. The caller has checked ALLOWED_EMAILS: this does not.
- */
-export async function signUpWithPassword(
-  email: string,
-  password: string,
-  redirectTo: string,
-  { forwardedFor }: { forwardedFor?: string | null } = {},
-): Promise<PasswordOutcome> {
-  const supabase = await createClient({ forwardedFor });
-  const { data, error } = await supabase.auth.signUp({ email, password, options: { emailRedirectTo: redirectTo } });
-  if (error) return passwordFailure(error);
-  if (data.session) return { result: "signed_in", email: data.user?.email };
-  // A repeated sign-up for a confirmed address answers with a user that has no identities and no session.
-  if (data.user?.identities?.length === 0) return { result: "exists", code: "email_exists" };
-  return { result: "confirmation_sent", code: "confirmation_sent" };
-}
-
-/** Asks Supabase to send the confirmation mail again; the link goes to `redirectTo` with a token_hash. */
-export async function resendConfirmation(email: string, redirectTo: string): Promise<SupabaseOutcome> {
-  const supabase = await createClient();
-  const { error } = await supabase.auth.resend({ type: "signup", email, options: { emailRedirectTo: redirectTo } });
-  return error ? { ok: false, code: errorCode(error) } : { ok: true };
 }
 
 /** Asks Supabase to e-mail a password-reset link; the link goes to `redirectTo` with a token_hash. */
@@ -139,10 +108,9 @@ export async function dropCurrentSession(event: string): Promise<void> {
 export async function verifyEmailLink(
   tokenHash: string,
   isAllowed: (email: string | undefined) => boolean,
-  type: "email" | "signup" = "email",
 ): Promise<EmailLinkResult> {
   const supabase = await createClient();
-  const { data, error } = await supabase.auth.verifyOtp({ token_hash: tokenHash, type });
+  const { data, error } = await supabase.auth.verifyOtp({ token_hash: tokenHash, type: "email" });
   if (error) return "invalid";
   if (isAllowed(data.user?.email)) return "signed_in";
   await dropRefusedSession(supabase, "auth_link_signout_failed");

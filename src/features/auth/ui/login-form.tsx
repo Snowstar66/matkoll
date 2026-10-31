@@ -14,17 +14,9 @@ import { Button } from "@/components/button";
 import { FieldError, FieldLabel, Input } from "@/components/field";
 import { Notice } from "@/components/notice";
 import { errorMessages, type Result } from "@/lib/errors";
-import {
-  emailCodePattern,
-  emailCodeSchema,
-  loginFieldErrors,
-  loginSchema,
-  minPasswordLength,
-} from "../domain/login-schema";
-import { createAccount } from "../actions/create-account";
+import { emailCodePattern, emailCodeSchema, loginFieldErrors, loginSchema } from "../domain/login-schema";
 import { loginWithPassword } from "../actions/login-with-password";
 import { requestPasswordReset } from "../actions/request-password-reset";
-import { resendConfirmation } from "../actions/resend-confirmation";
 import { sendMagicLink, type SendMagicLinkState } from "../actions/send-magic-link";
 import { verifyEmailCode } from "../actions/verify-email-code";
 
@@ -91,24 +83,22 @@ function useHydrated() {
   );
 }
 
-/** What the main button does: sign in, create an account or ask for a reset mail. */
-type Mode = "login" | "create" | "reset";
+/** What the main button does: sign in, or ask for the mail where a password is chosen. */
+type Mode = "login" | "reset";
 
 const modeLabels: Record<Mode, string> = {
   login: "Logga in",
-  create: "Skapa konto",
-  reset: "Skicka återställningslänk",
+  reset: "Skicka länk för att välja lösenord",
 };
 
-const resendSentMessage = "Vi har skickat mejlet igen.";
-
 // The same text whether or not the address has an account (AD-3).
-const resetSentMessage = "Om adressen har ett konto skickar vi ett mejl med en länk där du väljer nytt lösenord.";
+const resetSentMessage = "Om adressen har ett konto skickar vi ett mejl med en länk där du väljer lösenord.";
 
 /**
  * Logga in (FR-1, AD-3, Story 17.2): e-mail address and password with "Logga
- * in", "Skapa konto" (only for invited addresses, checked on the server) and
- * "Glömt lösenord?". Under it, "Skicka länk" is the one-time link without a
+ * in". Accounts are made by `pnpm users:sync`, so a first sign-in and a
+ * forgotten password both go through "Välj lösenord", a mail with a link.
+ * Under it, "Skicka länk" is the one-time link without a
  * password, and once the mail is sent, "Kod från mejlet" and "Logga in" (Story
  * 11.6). The link signs in the browser it is opened in; the code signs in here,
  * which is what the app on the iPhone home screen needs, since the link opens
@@ -135,13 +125,11 @@ export function LoginForm({ next, notice }: LoginFormProps) {
     async (_previous, formData) => {
       const email = String(formData.get("email") ?? "");
       const password = String(formData.get("password") ?? "");
-      if (mode === "create") return createAccount({ email, password, next });
       if (mode === "reset") return requestPasswordReset({ email, next });
       return loginWithPassword({ email, password, next });
     },
     null,
   );
-  const [resent, setResent] = useState(false);
   // The main answer is about what was typed; editing or changing mode hides it.
   const [mainEdited, setMainEdited] = useState(false);
   const pending = linkPending || mainPending;
@@ -175,15 +163,7 @@ export function LoginForm({ next, notice }: LoginFormProps) {
     (state && !state.ok ? (state.error.fields?.email ?? state.error.message) : null);
   const passwordError = mainError && !mainError.fields?.email ? (mainError.fields?.password ?? mainError.message) : null;
   const resetSent = mode === "reset" && mainState?.ok === true && !mainEdited;
-  const createSent = mode === "create" && mainState?.ok === true && !mainEdited;
-  const unconfirmed = mainError?.code === "auth_email_unconfirmed";
 
-  async function resendMail() {
-    setResent(false);
-    const result = await resendConfirmation({ email, next });
-    if (result.ok) setResent(true);
-    else setClientError(result.error.message);
-  }
   // The notice is there on page load, so it is an alert, not part of the live region below.
   const showNotice = Boolean(notice) && !state && !mainState && !codeStep;
 
@@ -195,7 +175,6 @@ export function LoginForm({ next, notice }: LoginFormProps) {
     } else {
       setClientError(null);
       setMainEdited(false);
-      setResent(false);
     }
   }
 
@@ -219,7 +198,6 @@ export function LoginForm({ next, notice }: LoginFormProps) {
 
   function chooseMode(next: Mode) {
     setMode(next);
-    setResent(false);
     setMainEdited(true);
     setClientError(null);
   }
@@ -247,8 +225,7 @@ export function LoginForm({ next, notice }: LoginFormProps) {
             setEmail(event.target.value);
             setClientError(null);
             setMainEdited(true);
-            setResent(false);
-          }}
+                }}
         />
         {fieldError ? (
           <FieldError id={errorId} role="alert">
@@ -268,7 +245,7 @@ export function LoginForm({ next, notice }: LoginFormProps) {
                   id={passwordId}
                   name="password"
                   type="password"
-                  autoComplete={mode === "create" ? "new-password" : "current-password"}
+                  autoComplete="current-password"
                   required
                   aria-invalid={passwordError ? true : undefined}
                   aria-describedby={passwordError ? passwordErrorId : undefined}
@@ -278,28 +255,12 @@ export function LoginForm({ next, notice }: LoginFormProps) {
                     setMainEdited(true);
                   }}
                 />
-                {mode === "create" ? <p className="text-meta text-ink-2">Minst {minPasswordLength} tecken.</p> : null}
               </>
             )}
             {passwordError ? (
               <FieldError id={passwordErrorId} role="alert">
                 {passwordError}
               </FieldError>
-            ) : null}
-            {unconfirmed ? (
-              <Button variant="text" className="-ml-3 self-start" disabled={pending || !hydrated} onClick={resendMail}>
-                Skicka mejlet igen
-              </Button>
-            ) : null}
-            {resent && !mainEdited ? (
-              <p role="status" aria-live="polite" className="text-body text-ink-2">
-                {resendSentMessage}
-              </p>
-            ) : null}
-            {createSent ? (
-              <p role="status" aria-live="polite" className="text-body text-ink-2">
-                Vi har skickat ett mejl till {email.trim()}. Klicka på länken i mejlet för att aktivera kontot.
-              </p>
             ) : null}
             {/* First submit button, so Enter in a field uses it; the form's own action sends the link. */}
             <Button type="submit" formAction={mainAction} fullWidth disabled={pending || !hydrated}>
@@ -310,22 +271,13 @@ export function LoginForm({ next, notice }: LoginFormProps) {
                 {resetSent ? resetSentMessage : null}
               </p>
             ) : null}
-            <div className="-ml-3 flex flex-wrap items-center gap-x-2">
-              {mode === "login" ? (
-                <>
-                  <Button variant="text" onClick={() => chooseMode("reset")}>
-                    Glömt lösenord?
-                  </Button>
-                  <Button variant="text" onClick={() => chooseMode("create")}>
-                    Skapa konto
-                  </Button>
-                </>
-              ) : (
-                <Button variant="text" onClick={() => chooseMode("login")}>
-                  Tillbaka till inloggning
-                </Button>
-              )}
-            </div>
+            <Button
+              variant="text"
+              className="-ml-3 self-start text-left"
+              onClick={() => chooseMode(mode === "login" ? "reset" : "login")}
+            >
+              {mode === "login" ? "Första gången eller glömt lösenordet? Välj lösenord" : "Tillbaka till inloggning"}
+            </Button>
           </>
         )}
         {mode === "login" || codeStep ? (
