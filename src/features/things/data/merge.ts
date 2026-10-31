@@ -92,6 +92,35 @@ export async function loadMergeInputIn(db: ThingsDb, photoId: string): Promise<M
   });
 }
 
+/** The ids of the things that point at each of `ids` (the things they were merged into), for "Ångra". Throws ThingsDataError `query_failed <code>`. */
+export async function loadPointersIn(db: ThingsDb, ids: readonly string[]): Promise<Map<string, string[]>> {
+  const pointers = new Map<string, string[]>();
+  if (ids.length === 0) return pointers;
+  const { data, error } = await db.from("thing_item").select("id, same_as").in("same_as", [...ids]);
+  if (error) throw new ThingsDataError(`query_failed ${error.code}`);
+  for (const row of data) if (row.same_as) pointers.set(row.same_as, [...(pointers.get(row.same_as) ?? []), row.id]);
+  return pointers;
+}
+
+/** What "Ångra" gives back about a restored thing's links (relink_thing_items). */
+export type ThingLink = { id: string; sameAs: string | null; pointedBy: readonly string[] };
+
+/** Puts back the links of restored things, where they still hold (relink_thing_items); returns how many. Never throws: the things are back either way, and a failure is only logged (`things_relink_failed`). */
+export async function relinkItemsIn(db: ThingsDb, links: readonly ThingLink[]): Promise<number> {
+  const wanted = links.filter((link) => link.sameAs !== null || link.pointedBy.length > 0);
+  if (wanted.length === 0) return 0;
+  try {
+    const { data, error } = await db.rpc("relink_thing_items", {
+      links: wanted.map((link) => ({ id: link.id, same_as: link.sameAs, pointed_by: [...link.pointedBy] })) as Json,
+    });
+    if (error) throw new ThingsDataError(`relink_failed ${error.code}`);
+    return typeof data === "number" ? data : 0;
+  } catch (error) {
+    console.error("things_relink_failed", { reason: error instanceof ThingsDataError ? error.detail : "threw" });
+    return 0;
+  }
+}
+
 /** Points the card's things at the kept things they are the same as (merge_thing_items); returns how many were merged. Throws ThingsDataError `merge_failed <code>`. */
 export async function mergeItemsIn(db: ThingsDb, photoId: string, rows: readonly { item: string; target: string }[]): Promise<number> {
   return guarded("merge", async () => {

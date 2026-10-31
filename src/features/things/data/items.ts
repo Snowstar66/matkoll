@@ -1,5 +1,6 @@
 import { thingRowSchema, toThing, type Thing } from "../domain/thing";
 import type { ThingSnapshot } from "../domain/thing-edit";
+import { loadPointersIn, relinkItemsIn } from "./merge";
 import { guarded, ThingsDataError, type ThingsDb } from "./client";
 
 /** The things of a card, in the model's order. Throws ThingsDataError `query_failed <code>` or `invalid_row`. */
@@ -40,11 +41,13 @@ export async function renameItemIn(db: ThingsDb, id: string, name: string): Prom
  */
 export async function removeItemIn(db: ThingsDb, id: string): Promise<ThingSnapshot | null> {
   return guarded("remove", async () => {
+    // The things merged into this one, before they become kept things of their own (FK set null).
+    const pointers = await loadPointersIn(db, [id]);
     const { data, error } = await db
       .from("thing_item")
       .delete()
       .eq("id", id)
-      .select("id, photo_id, place_id, name, category, where_hint, confidence, position, created_at");
+      .select("id, photo_id, place_id, name, category, where_hint, confidence, position, created_at, same_as");
     if (error) throw new ThingsDataError(`remove_failed ${error.code}`);
     const [row] = data;
     if (!row) return null;
@@ -60,6 +63,8 @@ export async function removeItemIn(db: ThingsDb, id: string): Promise<ThingSnaps
       confidence: parsed.data.confidence,
       position: parsed.data.position,
       createdAt: new Date(row.created_at).toISOString(),
+      sameAs: row.same_as,
+      pointedBy: pointers.get(id) ?? [],
     };
   });
 }
@@ -78,7 +83,11 @@ export async function restoreItemIn(db: ThingsDb, thing: ThingSnapshot): Promise
       position: thing.position,
       created_at: thing.createdAt,
     });
-    if (!error || error.code === "23505") return "restored";
+    if (!error) {
+      await relinkItemsIn(db, [{ id: thing.id, sameAs: thing.sameAs, pointedBy: thing.pointedBy }]);
+      return "restored";
+    }
+    if (error.code === "23505") return "restored";
     if (error.code === "23503") return "gone";
     throw new ThingsDataError(`restore_failed ${error.code}`);
   });

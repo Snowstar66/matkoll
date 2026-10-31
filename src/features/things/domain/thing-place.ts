@@ -77,6 +77,8 @@ export type ThingPlace = {
   isBox: boolean;
   /** How many things the place's latest card has. */
   itemCount: number;
+  /** How many of the latest card's things were merged into other cards of the room (Story 18.6): they are counted there. */
+  mergedAway: number;
   /** When the latest finished card was taken, or null before there is one. */
   cardTakenAt: Date | null;
   /** The latest card is being read now, or its reading did not go. */
@@ -133,6 +135,9 @@ export const boxTakenText = "Lådan finns redan.";
 export const nameTooLongText = `Namnet får vara högst ${maxPlaceNameChars} tecken.`;
 export const placeTakenText = "Platsen finns redan.";
 export const placeLimitText = `Du kan ha högst ${maxPlacesPerSite} platser i ett boende.`;
+
+/** What a place says when all of its card's things are seen on other cards of the room. */
+export const allOnOtherCardsText = "Alla syns på andra kort";
 
 /** "12 saker" or "1 sak". */
 export function thingCountText(count: number): string {

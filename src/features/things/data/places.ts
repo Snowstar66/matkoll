@@ -16,7 +16,7 @@ import { guarded, ThingsDataError, type ThingsDb } from "./client";
 // session client, never an admin client, so RLS limits it to the user's own
 // rows (AD-4). Errors carry only a fixed reason and the Postgres code.
 
-const placeSelect = "id, site_id, room, part, part_key, kind, created_at, thing_photo(id, status, taken_at, created_at), thing_item(count)";
+const placeSelect = "id, site_id, room, part, part_key, kind, created_at, thing_photo(id, status, taken_at, created_at), thing_item(count), all_items:thing_item(count)";
 
 const placeRowSchema = z.object({
   id: z.uuid(),
@@ -30,6 +30,7 @@ const placeRowSchema = z.object({
     z.object({ id: z.uuid(), status: z.enum(["reading", "done", "failed"]), taken_at: z.string(), created_at: z.string() }),
   ),
   thing_item: z.array(z.object({ count: z.number().int() })),
+  all_items: z.array(z.object({ count: z.number().int() })),
 });
 
 /** A thing_place row with its cards and its things counted, as a ThingPlace. */
@@ -48,6 +49,7 @@ function toPlace(row: unknown, now: Date): ThingPlace {
     part: parsed.data.part,
     isBox: parsed.data.kind === "box" || isBoxKey(parsed.data.part_key),
     itemCount: items[0]?.count ?? 0,
+    mergedAway: (parsed.data.all_items[0]?.count ?? 0) - (items[0]?.count ?? 0),
     cardTakenAt: done ? new Date(done.taken_at) : null,
     cardState: latest ? shownStatus({ status: latest.status, createdAt: new Date(latest.created_at) }, now) : "none",
   };

@@ -682,6 +682,9 @@ isOneToOne: false
 "pantry_target_site":
 { Args: { "site": string }; Returns: string
                            },
+"relink_thing_items":
+{ Args: { "links": Json }; Returns: number
+                           },
 "remove_shopping_custom_item":
 { Args: { "item_id": string }; Returns: {
               "amount": number | null,

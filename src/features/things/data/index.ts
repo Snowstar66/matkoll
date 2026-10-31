@@ -68,12 +68,14 @@ export async function loadThingIndexIn(db: ThingsDb): Promise<IndexedPlace[]> {
       .filter((photo) => photo.status === "done")
       .sort((a, b) => Date.parse(b.created_at) - Date.parse(a.created_at) || (a.id < b.id ? 1 : -1))[0];
     if (!card) continue;
+    // A card whose things were all merged into other cards has nothing to list.
     const things = card.thing_item
       .filter((item) => item.same_as === null)
       .sort((a, b) => a.position - b.position || (a.id < b.id ? -1 : 1))
       .slice(0, Math.max(0, maxIndexedThings - count))
       .map((item) => ({ id: item.id, name: item.name, category: item.category, whereHint: item.where_hint, seenOn: 1 + (cards.get(item.id) ?? 0) }));
     count += things.length;
+    if (card.thing_item.length > 0 && card.thing_item.every((item) => item.same_as !== null)) continue;
     places.push({
       id: parsed.data.id,
       siteId: parsed.data.site_id,

@@ -30,6 +30,8 @@ const snapshot: ThingSnapshot = {
   confidence: "high",
   position: 0,
   createdAt: "2026-10-31T10:00:00.000Z",
+  sameAs: null,
+  pointedBy: [],
 };
 
 beforeEach(() => {

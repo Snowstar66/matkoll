@@ -458,7 +458,8 @@ describe("overlap merge (Story 18.6)", () => {
     expect(removedSecond).not.toBeNull();
     expect((await loadThingsIn(d.db, first.id)).map((thing) => thing.seenOn)).toEqual([1, 1]);
     await restoreCardIn(d.db, removedSecond!.snapshot);
-    expect(await mergeItemsIn(d.db, second.id, [{ item: await itemId(d, second.id, "Batteridriven cirkelsåg"), target: await itemId(d, first.id, "Cirkelsåg") }])).toBe(1);
+    // "Ångra" brought the merge back with the card.
+    expect((await loadThingsIn(d.db, first.id)).map((thing) => thing.seenOn)).toEqual([2, 1]);
     await removeCardIn(d.db, first.id);
     expect((await loadThingsIn(d.db, second.id)).map((thing) => [thing.name, thing.seenOn])).toEqual([["Batteridriven cirkelsåg", 1], ["Hammare", 1]]);
     const after = (await loadThingIndexIn(d.db)).find((place) => place.id === whole);
@@ -502,4 +503,60 @@ describe("overlap merge (Story 18.6)", () => {
     expect(await mergeItemsIn(d.db, thirdCard.id, [{ item: await itemId(d, thirdCard.id, "Cirkelsåg"), target: keep }])).toBe(1);
     expect((await loadThingsIn(d.db, roomCard.id))[0].seenOn).toBe(3);
   });
+
+  it("Ångra puts the merges back and never brings duplicates back", async () => {
+    const site = await siteOf(d, "Ångra-merge");
+    const left = await placeOf(d, site, "Garaget", "Vänster");
+    const right = await placeOf(d, site, "Garaget", "Höger");
+    const first = await doneCard(d, left, [saw, spade], "2026-04-01T10:00:00Z");
+    const second = await doneCard(d, right, [{ ...saw, name: "Cirkelsåg 2" }, hammer], "2026-04-02T10:00:00Z");
+    const kept = await itemId(d, first.id, "Cirkelsåg");
+    const merged = await itemId(d, second.id, "Cirkelsåg 2");
+    expect(await mergeItemsIn(d.db, second.id, [{ item: merged, target: kept }])).toBe(1);
+
+    // Remove the card with the kept thing: the other card's thing becomes kept; "Ångra" makes it a duplicate again, not a second kept thing.
+    const removed = await removeCardIn(d.db, first.id);
+    expect(removed!.snapshot.things.find((thing) => thing.id === kept)?.pointedBy).toEqual([merged]);
+    expect((await loadThingsIn(d.db, second.id)).map((thing) => thing.seenOn)).toEqual([1, 1]);
+    await restoreCardIn(d.db, removed!.snapshot);
+    expect((await loadThingsIn(d.db, second.id)).map((thing) => [thing.name, thing.seenOn])).toEqual([["Cirkelsåg 2", 2], ["Hammare", 1]]);
+    const index = (await loadThingIndexIn(d.db)).filter((place) => [left, right].includes(place.id));
+    expect(index.flatMap((place) => place.things.map((thing) => thing.name))).toEqual(["Cirkelsåg", "Spade", "Hammare"]);
+
+    // Remove the card with the merged thing and put it back: its own link is back too.
+    const removedSecond = await removeCardIn(d.db, second.id);
+    expect(removedSecond!.snapshot.things.find((thing) => thing.id === merged)?.sameAs).toBe(kept);
+    await restoreCardIn(d.db, removedSecond!.snapshot);
+    expect((await loadThingsIn(d.db, first.id)).map((thing) => [thing.name, thing.seenOn])).toEqual([["Cirkelsåg", 2], ["Spade", 1]]);
+
+    // One thing removed and brought back, both ways.
+    const single = await removeItemIn(d.db, kept);
+    expect(single?.pointedBy).toEqual([merged]);
+    expect(await restoreItemIn(d.db, single!)).toBe("restored");
+    expect((await loadThingsIn(d.db, second.id)).map((thing) => thing.seenOn)).toEqual([2, 1]);
+    const dup = await removeItemIn(d.db, merged);
+    expect(dup?.sameAs).toBe(kept);
+    expect((await loadThingsIn(d.db, first.id)).map((thing) => thing.seenOn)).toEqual([1, 1]);
+    await restoreItemIn(d.db, dup!);
+    expect((await loadThingsIn(d.db, first.id)).map((thing) => thing.seenOn)).toEqual([2, 1]);
+
+    // A link that no longer holds is left alone: the target went (its card was removed for good), or the thing was merged elsewhere meanwhile.
+    const gone = await removeItemIn(d.db, merged);
+    await removeCardIn(d.db, first.id);
+    expect(await restoreItemIn(d.db, gone!)).toBe("restored");
+    expect((await loadThingsIn(d.db, second.id)).map((thing) => thing.seenOn)).toEqual([1, 1]);
+  });
+
+  it("says when every thing of a card is on other cards, and leaves such a place out of the index", async () => {
+    const site = await siteOf(e, "Alla-merge");
+    const one = await placeOf(e, site, "Boden", "A");
+    const two = await placeOf(e, site, "Boden", "B");
+    const first = await doneCard(e, one, [saw], "2026-05-01T10:00:00Z");
+    const second = await doneCard(e, two, [{ ...saw, name: "Sågen" }], "2026-05-02T10:00:00Z");
+    await mergeItemsIn(e.db, second.id, [{ item: await itemId(e, second.id, "Sågen"), target: await itemId(e, first.id, "Cirkelsåg") }]);
+    const places = await loadPlacesIn(e.db, site);
+    expect(places.map((place) => [place.itemCount, place.mergedAway])).toEqual([[1, 0], [0, 1]]);
+    expect((await loadThingIndexIn(e.db)).filter((place) => [one, two].includes(place.id)).map((place) => place.id)).toEqual([one]);
+  });
 });
+

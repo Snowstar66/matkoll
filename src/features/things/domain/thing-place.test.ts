@@ -21,6 +21,7 @@ const place = (room: string, part: string | null = null, id = `${room}-${part}`)
   part,
   isBox: false,
   itemCount: 0,
+  mergedAway: 0,
   cardTakenAt: null,
   cardState: "none",
 });

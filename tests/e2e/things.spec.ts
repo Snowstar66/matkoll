@@ -472,7 +472,7 @@ test("the same things on two cards of one room are counted once and say 'syns p�
   // The room counts them once: twelve on the first card, none new on the second.
   await page.goto("/prylar");
   await expect(links.filter({ hasText: "Väggen" })).toContainText("12 saker");
-  await expect(links.filter({ hasText: "Golvet" })).toContainText("0 saker");
+  await expect(links.filter({ hasText: "Golvet" })).toContainText("Alla syns på andra kort");
   await links.filter({ hasText: "Väggen" }).click();
   const things = page.getByTestId("card-panel").getByTestId("thing");
   await expect(things).toHaveCount(12);
