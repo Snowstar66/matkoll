@@ -257,6 +257,12 @@ export const offersLinkEmail = "e2e-erbjudanden-lank@matkoll.test";
  */
 export const offerSuggestionsEmail = "e2e-erbjudande-forslag@matkoll.test";
 /**
+ * The E2E user of eat-first.spec.ts alone (Ät det här först, Story 16.13):
+ * before each test the service role empties the user's pantry, jobs and
+ * recipes and makes a pantry where some items have lain long.
+ */
+export const eatFirstEmail = "e2e-at-forst@matkoll.test";
+/**
  * The E2E user of things.spec.ts alone (Prylar, Epic 18): each test removes the
  * user's things, places and AI jobs, and the card files, and makes its boenden
  * with the service role.
@@ -317,6 +323,7 @@ export const e2eEmails = [
   importEmail,
   offersLinkEmail,
   offerSuggestionsEmail,
+  eatFirstEmail,
   thingsEmail,
   liveListEmail,
   offlineListEmail,
@@ -366,6 +373,7 @@ export const aiImportStorageState = "tests/e2e/.auth/ai-import.json";
 export const importStorageState = "tests/e2e/.auth/import.json";
 export const offersLinkStorageState = "tests/e2e/.auth/offers-link.json";
 export const offerSuggestionsStorageState = "tests/e2e/.auth/offer-suggestions.json";
+export const eatFirstStorageState = "tests/e2e/.auth/eat-first.json";
 export const thingsStorageState = "tests/e2e/.auth/things.json";
 export const outsiderStorageState = "tests/e2e/.auth/outsider.json";
 

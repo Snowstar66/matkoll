@@ -40,7 +40,10 @@ const getPantrySnapshot = vi.fn<(siteId?: string) => Promise<PantrySnapshot>>();
 const stugan = { id: "55555555-5555-4555-8555-555555555555", name: "Stugan", siteCount: 2 };
 // pantry.getPantryForStatus as pantry/server.test.ts shows it: the selected
 // place, then that place's pantry, and neither when one cannot be read.
+const listOldPantryItems = vi.fn<(siteId?: string) => Promise<{ ingredientId: string; name: string; days: number }[]>>();
 vi.mock("@/features/pantry/server", () => ({
+  PantryDataError,
+  listOldPantryItems: (siteId?: string) => listOldPantryItems(siteId),
   getPantryForStatus: async () => {
     try {
       return { site: stugan, snapshot: await getPantrySnapshot(stugan.id) };
@@ -109,6 +112,7 @@ beforeEach(() => {
   vi.spyOn(console, "info").mockImplementation(() => {});
   requireUser.mockReset().mockResolvedValue(user());
   getPantrySnapshot.mockReset().mockResolvedValue(pantry);
+  listOldPantryItems.mockReset().mockResolvedValue([]);
   getIngredientNames.mockReset().mockImplementation(async (wanted) =>
     Object.fromEntries(wanted.flatMap((wantedId) => (catalogNames[wantedId] ? [[wantedId, catalogNames[wantedId]]] : []))),
   );
@@ -173,6 +177,64 @@ describe("suggestFromPantry", () => {
     expect(getPantrySnapshot).toHaveBeenCalledTimes(1);
     expect(getPantrySnapshot).toHaveBeenCalledWith(stugan.id);
     expect(result.ok && result.data.siteId).toBe(stugan.id);
+  });
+
+  describe("items that have lain long (Story 16.13)", () => {
+    const old = [
+      { ingredientId: ids.ost, name: "Riven ost", days: 12 },
+      { ingredientId: ids.lok, name: "Gul lök", days: 9 },
+    ];
+
+    it("sends their names and days with the pantry, never ids, and says which dish uses which", async () => {
+      listOldPantryItems.mockResolvedValue(old);
+      const result = await suggestFromPantry({ avoidTitles: [] }, { signal: signal() });
+      expect(listOldPantryItems).toHaveBeenCalledWith(stugan.id);
+      const [input] = suggestDishes.mock.calls[0];
+      expect(input.oldItems).toEqual([
+        { name: "Riven ost", days: 12 },
+        { name: "Gul lök", days: 9 },
+      ]);
+      expect(input.eatFirst).toBeUndefined();
+      expect(JSON.stringify(input.oldItems)).not.toMatch(/6f1c1b7e/);
+      if (!result.ok) throw new Error(result.error.code);
+      // The mock answers the old-items fixture: quesadillas with ost and lök, a soup with the same.
+      expect(result.data.suggestions.map(({ draft }) => draft.title)).toEqual(["Quesadillas med ost och lime", "Löksoppa med ost"]);
+      for (const { oldUsed } of result.data.suggestions) {
+        expect(oldUsed).toEqual([
+          { name: "Riven ost", days: 12 },
+          { name: "Gul lök", days: 9 },
+        ]);
+      }
+    });
+
+    it("asks for every dish built around them with eatFirst", async () => {
+      listOldPantryItems.mockResolvedValue(old);
+      await suggestFromPantry({ avoidTitles: [], eatFirst: true }, { signal: signal() });
+      expect(suggestDishes.mock.calls[0][0].eatFirst).toBe(true);
+    });
+
+    it("sends nothing about age when nothing is old, and no oldUsed", async () => {
+      const result = await suggestFromPantry({ avoidTitles: [], eatFirst: true }, { signal: signal() });
+      const [input] = suggestDishes.mock.calls[0];
+      expect(input).not.toHaveProperty("oldItems");
+      expect(input).not.toHaveProperty("eatFirst");
+      expect(result.ok && result.data.suggestions.every((suggestion) => suggestion.oldUsed.length === 0)).toBe(true);
+    });
+
+    it("suggests without them when they cannot be read", async () => {
+      listOldPantryItems.mockRejectedValue(new PantryDataError("connection"));
+      const result = await suggestFromPantry({ avoidTitles: [] }, { signal: signal() });
+      expect(result.ok).toBe(true);
+      expect(console.error).toHaveBeenCalledWith("old_items_unavailable", { reason: "connection" });
+      expect(suggestDishes.mock.calls[0][0]).not.toHaveProperty("oldItems");
+    });
+
+    it("leaves them out around offers", async () => {
+      listOldPantryItems.mockResolvedValue(old);
+      getActiveOffers.mockResolvedValue([{ label: "Falukorv", name: "falukorv", ingredientId: null }] as never);
+      await suggestFromPantry({ avoidTitles: [], mode: "offers" }, { signal: signal() });
+      expect(listOldPantryItems).not.toHaveBeenCalled();
+    });
   });
 
   it("gives unauthorized without reading anything", async () => {

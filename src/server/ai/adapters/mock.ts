@@ -71,6 +71,8 @@ type Manifest = {
   suggestAlternatives?: string[];
   /** The answer when the message has offers (Story 9.5): <suggestOffers>.response.json. */
   suggestOffers?: string;
+  /** The answer when the message has old items (Story 16.13): <suggestOld>.response.json, with dishes that use them. */
+  suggestOld?: string;
   /** analyzeImage: each case is a photo <name>.png with the answer <name>.analyze.json; `default` answers any other photo. */
   analyze?: { default: string; cases: { name: string }[] };
   /** locateItems: each case is a photo <name>.png with the points <name>.locate.json; `default` answers any other photo. */
@@ -86,6 +88,8 @@ type SuggestFixtures = {
   sets: AiRecipe[][];
   /** The answer for a message with offers, if the manifest has one. */
   offersSet: AiRecipe[] | undefined;
+  /** The answer for a message with items that have lain long (Story 16.13), if the manifest has one. */
+  oldSet: AiRecipe[] | undefined;
   /** Normalized reserved text → its code, for the pantry items given to suggestDishes. */
   errors: Map<string, MockErrorCode>;
 };
@@ -171,11 +175,14 @@ function loadSuggestFixtures(dir: string): SuggestFixtures {
   const offersSet = manifest.suggestOffers
     ? suggestDishesAnswerCompact.parse(JSON.parse(read(`${manifest.suggestOffers}.response.json`))).suggestions.map(fromCompactDish)
     : undefined;
+  const oldSet = manifest.suggestOld
+    ? suggestDishesAnswerCompact.parse(JSON.parse(read(`${manifest.suggestOld}.response.json`))).suggestions.map(fromCompactDish)
+    : undefined;
   const errors = new Map<string, MockErrorCode>();
   for (const { text, code } of manifest.reserved) {
     if ((mockSuggestErrorCodes as readonly string[]).includes(code)) errors.set(normalizeInputText({ text }), code);
   }
-  return { sets, offersSet, errors };
+  return { sets, offersSet, oldSet, errors };
 }
 
 function loadAnalyzeFixtures(dir: string): AnalyzeFixtures {
@@ -459,6 +466,11 @@ function createMockService(dir: string, { delayMs = 0 }: MockOptions): AiService
         return current.offersSet.every((recipe) => !taken.has(normalizeTitle(recipe.title)))
           ? ok(structuredClone(current.offersSet))
           : fail("ai_invalid");
+      }
+      // Old items given (Story 16.13): the answer that uses them, never an avoided title.
+      if (input.oldItems && input.oldItems.length > 0 && current.oldSet) {
+        const taken = new Set(input.avoidTitles.map(normalizeTitle));
+        if (current.oldSet.every((recipe) => !taken.has(normalizeTitle(recipe.title)))) return ok(structuredClone(current.oldSet));
       }
       // Like a model held to avoidTitles: the first set without one of them.
       const avoided = new Set(input.avoidTitles.map(normalizeTitle));
