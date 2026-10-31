@@ -62,7 +62,7 @@ export type ListSiteLineProps = {
   site: SelectedSite | null;
   /** Every place of the user's, in the order they were created (listPantrySites), read in the same request. */
   sites: readonly PantrySite[];
-  /** Something on the list is being saved ("Lägg i förrådet", a check): "Byt" waits. */
+  /** Something on the list is being saved ("Lägg till i Matvaror", a check): "Byt" waits. */
   busy?: boolean;
   /**
    * Called with the place a switch from the sheet is on its way to, before

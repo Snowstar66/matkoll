@@ -197,7 +197,7 @@ describe("listPlacePhotos (Story 10.2)", () => {
     expect(log).toHaveBeenLastCalledWith("pantry_photos_unavailable", { reason: "site_gone" });
   });
 
-  it("gives none for a bug too, logged with the error's name only, so the line never breaks Förråd", async () => {
+  it("gives none for a bug too, logged with the error's name only, so the line never breaks Matvaror", async () => {
     loadPlacePhotosIn.mockRejectedValue(new TypeError("user/site/kyl/photo.jpg"));
     expect(await listPlacePhotos(stugan)).toEqual({ photos: [] });
     expect(log).toHaveBeenCalledWith("pantry_photos_unavailable", { reason: "unexpected TypeError" });

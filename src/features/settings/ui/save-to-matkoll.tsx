@@ -62,7 +62,7 @@ export function SaveToMatkoll() {
 
   return (
     <section aria-label="Spara i Matkoll" className="flex flex-col gap-4" data-testid="save-to-matkoll">
-      <p className="px-1 text-meta text-ink-3">
+      <p className="px-1 desktop:px-0 text-meta text-ink-3">
         Öppna ett recept på en godkänd receptsajt och skicka det till Matkoll med ett tryck, utan att kopiera länken.
       </p>
       <FilterPills
@@ -119,7 +119,7 @@ export function SaveToMatkoll() {
           </p>
         </div>
       ) : null}
-      <p className="px-1 text-meta text-ink-3">
+      <p className="px-1 desktop:px-0 text-meta text-ink-3">
         Telefonen når Matkoll först när appen är publicerad, och receptsajten måste finnas bland de{" "}
         <Link href="/installningar/receptsajter" className="text-accent underline">
           godkända receptsajterna

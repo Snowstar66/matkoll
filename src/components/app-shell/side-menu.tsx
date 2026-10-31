@@ -21,7 +21,7 @@ function MenuLink({ destination, pathname }: { destination: Destination; pathnam
       aria-current={current}
       aria-label={badge > 0 ? badgeName(label, badge) : undefined}
       className={cx(
-        "flex min-h-tap items-center gap-3 rounded-md px-3 text-body",
+        "flex min-h-tap items-center gap-3 rounded-md px-3 text-body focus-visible:-outline-offset-2",
         // Active text in mint-ink: accent on mint is only 4.1:1 (NFR4); the emoji keeps its colour.
         current ? "bg-mint font-semibold text-mint-ink" : "text-ink-2",
       )}

@@ -110,7 +110,7 @@ export function AiSettings({ view }: AiSettingsProps) {
       </h2>
       {error ? <Notice role="alert">{error}</Notice> : null}
       <div className="flex flex-col gap-2">
-        <p className="px-1 text-section-label text-ink-2">Leverantör</p>
+        <p className="px-1 desktop:px-0 text-section-label text-ink-2">Leverantör</p>
         <FilterPills
           segmented
           label="Leverantör"
@@ -121,20 +121,20 @@ export function AiSettings({ view }: AiSettingsProps) {
           className="h-9 w-full [&>button]:flex-1"
         />
         {!view.claudeAvailable ? (
-          <p data-testid="ai-claude-missing" className="px-1 text-meta text-ink-3">
+          <p data-testid="ai-claude-missing" className="px-1 desktop:px-0 text-meta text-ink-3">
             {claudeKeyMissingText}
           </p>
         ) : null}
-        {!view.qwenAvailable ? <p className="px-1 text-meta text-ink-3">{qwenUnavailableText}</p> : null}
+        {!view.qwenAvailable ? <p className="px-1 desktop:px-0 text-meta text-ink-3">{qwenUnavailableText}</p> : null}
         {view.isDefault ? (
-          <p data-testid="ai-default-note" className="px-1 text-meta text-ink-3">
+          <p data-testid="ai-default-note" className="px-1 desktop:px-0 text-meta text-ink-3">
             Standard just nu: {view.effective ? "Claude Haiku 5.5, Medel" : view.defaultText}. Ditt val sparas när du ändrar.
           </p>
         ) : null}
       </div>
 
       <div className="flex flex-col gap-2">
-        <p className="px-1 text-section-label text-ink-2">Modell</p>
+        <p className="px-1 desktop:px-0 text-section-label text-ink-2">Modell</p>
         {provider === "lmstudio" ? (
           <ListGroup label="Modell">
             <li className="flex min-h-14 flex-col justify-center px-4 py-2">
@@ -147,7 +147,7 @@ export function AiSettings({ view }: AiSettingsProps) {
       </div>
 
       <div className="flex flex-col gap-2">
-        <p className="px-1 text-section-label text-ink-2">Nivå</p>
+        <p className="px-1 desktop:px-0 text-section-label text-ink-2">Nivå</p>
         <FilterPills
           segmented
           label="Nivå"
@@ -157,7 +157,7 @@ export function AiSettings({ view }: AiSettingsProps) {
           onChange={(value) => save({ provider, model, level: value })}
           className="h-9 w-full [&>button]:flex-1"
         />
-        <p id={noteId} className="px-1 text-meta text-ink-3">
+        <p id={noteId} className="px-1 desktop:px-0 text-meta text-ink-3">
           {claude ? "Högre nivå tänker längre: bättre svar men långsammare och lite dyrare." : levelOffForQwenText}
         </p>
       </div>

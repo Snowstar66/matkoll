@@ -3,7 +3,7 @@ import { join, relative } from "node:path";
 import { fileURLToPath } from "node:url";
 import { describe, expect, it } from "vitest";
 
-// Story 10.4: the pantry page is called Förråd; "Hemma" is the name of the
+// Story 10.4: the pantry page is called Matvaror; "Hemma" is the name of the
 // first place (defaultSiteName). No component or error text may call the page
 // Hemma again. Code comments are left out (they may still call the page
 // Hemma), and so are tests. A "Hemma" that is the place's name, or the
@@ -36,7 +36,7 @@ function hemmaLines(path: string): { file: string; line: number; text: string }[
     .filter(({ text }) => !(allowed[file] ?? []).some(({ contains }) => text.includes(contains)));
 }
 
-describe("the page is called Förråd (Story 10.4)", () => {
+describe("the page is called Matvaror (Story 10.4)", () => {
   it("finds Hemma in text and code, never in comments", () => {
     const source = [
       "// Hemma's cards",
@@ -58,10 +58,10 @@ describe("the page is called Förråd (Story 10.4)", () => {
     expect(files.flatMap(hemmaLines)).toEqual([]);
   });
 
-  it("the menu and the page say Förråd", () => {
+  it("the menu and the page say Matvaror", () => {
     expect(readFileSync(join(root, "src/components/app-shell/destinations.ts"), "utf8")).toContain(
-      '{ href: "/hemma", label: "Förråd"',
+      '{ href: "/hemma", label: "Matvaror"',
     );
-    expect(readFileSync(join(root, "src/app/(app)/hemma/page.tsx"), "utf8")).toContain('title: "Förråd"');
+    expect(readFileSync(join(root, "src/app/(app)/hemma/page.tsx"), "utf8")).toContain('title: "Matvaror"');
   });
 });

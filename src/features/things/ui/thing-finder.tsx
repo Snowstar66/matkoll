@@ -26,7 +26,7 @@ import {
 
 // Sök och fråga (Story 18.4): on the Prylar tab, a search field over the
 // things of every place and boende (plain text in the browser, no request and
-// no AI) and the box "Fråga om dina prylar", whose answer comes from the AI
+// no AI) and the box "Fråga om ditt förråd", whose answer comes from the AI
 // with places to tap. While the search has text its hits replace the places
 // (`children`), which stay mounted underneath.
 

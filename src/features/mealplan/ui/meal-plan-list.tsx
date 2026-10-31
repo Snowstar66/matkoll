@@ -744,7 +744,7 @@ function DishRow({
                 </Button>
               </div>
               <p id={`cooked-note-${dish.id}`} className="text-meta text-ink-2">
-                Om du tar bort markeringen ändras inte förrådet.
+                Om du tar bort markeringen ändras inte matvarorna.
               </p>
             </div>
           ) : recipe ? (

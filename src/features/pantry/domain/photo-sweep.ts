@@ -4,7 +4,7 @@
 // replaced photo whose file could not be removed, or a save that was cut off)
 // is removed too. The sweep runs as the signed-in user, so it never reaches
 // another user's folder, and so never the files of a user deleted outside
-// `pnpm users:sync --prune`: users:sync removes those (scripts/). Förråd
+// `pnpm users:sync --prune`: users:sync removes those (scripts/). Matvaror
 // starts the sweep when there are photos older than 30 days, and every save
 // runs it afterwards; there is no scheduled job (AD-4, AD-14). Pure, so it is
 // tested without Supabase, and safe in a client component.
@@ -33,7 +33,7 @@ export const photoOrphanMinAgeMs = 10 * 60 * 1000;
 /** The most files one sweep removes, and the most names Storage's remove() is given at once. */
 export const photoSweepBatchSize = 100;
 
-/** The most sweeps one view of Förråd starts, while each removed a full batch and more remain. */
+/** The most sweeps one view of Matvaror starts, while each removed a full batch and more remain. */
 export const photoSweepMaxRounds = 5;
 
 /** The time before which a photo was taken that is too old to be shown: `now` less 30 days. */

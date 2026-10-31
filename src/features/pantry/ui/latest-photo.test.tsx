@@ -8,7 +8,7 @@ import { PantryCamera } from "./pantry-camera";
 import { PantrySheetProvider } from "./pantry-item-sheet";
 import { PantrySuggestionsProvider } from "./pantry-suggestions";
 
-// Senaste foto in Förråd (Story 10.2): the line under the camera button, the
+// Senaste foto in Matvaror (Story 10.2): the line under the camera button, the
 // photo sheet of Story 6.6 with the saved markers, the reading as a
 // numbered list, and "Ta bort fotot" with its question. removePlacePhoto and
 // fetch are stubbed; the photo itself is never fetched by the test.

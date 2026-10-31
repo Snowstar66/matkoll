@@ -72,7 +72,7 @@ export function cardDateText(takenAt: Date): string {
   return `Kort från ${shortDateText(takenAt)}`;
 }
 
-/** The row that takes a card (the same quiet row as Förråd's): its title, and its line "Senaste kort 31 okt" or "Inget kort än". */
+/** The row that takes a card (the same quiet row as Matvaror's): its title, and its line "Senaste kort 31 okt" or "Inget kort än". */
 export const newCardText = "Ta ett nytt kort";
 export function latestCardText(takenAt: Date | null): string {
   return takenAt ? `Senaste kort ${shortDateText(takenAt)}` : "Inget kort än";

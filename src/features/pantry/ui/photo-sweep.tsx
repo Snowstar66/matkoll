@@ -24,7 +24,7 @@ function skipFromNowOn(): void {
 }
 
 /**
- * The sweep of the latest photos (Story 10.3, FR-39): Förråd renders
+ * The sweep of the latest photos (Story 10.3, FR-39): Matvaror renders
  * this only when it has photos older than 30 days, and it calls the Server
  * Action sweepPlacePhotos once per view, again while the answer says more
  * remain (a full batch), at most photoSweepMaxRounds times. Nothing is shown,
@@ -33,7 +33,7 @@ function skipFromNowOn(): void {
  * A sweep that removed nothing, failed or never answered (offline) is not
  * tried again in this session (sessionStorage), so a photo whose file cannot
  * be removed never makes every view call the server. When something went,
- * the action revalidates Förråd, which then no longer renders this.
+ * the action revalidates Matvaror, which then no longer renders this.
  *
  * Once per view: a call under way is not started again (React's StrictMode
  * runs the effect twice).

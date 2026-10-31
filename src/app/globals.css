@@ -53,6 +53,10 @@
   --recipe-title-weight: 700;
   --recipe-title-tracking: -0.4px;
   --recipe-title-leading: 1.15;
+  --section-title-size: 24px;
+  --section-title-weight: 700;
+  --section-title-tracking: -0.3px;
+  --section-title-leading: 1.2;
   --step-size: 24px;
   --step-weight: 500;
   --step-leading: 1.4;
@@ -96,6 +100,9 @@
   --tab-bar-height: calc(84px + var(--job-row-height, 0px));
   --side-menu-width: 240px;
   --content-max: 720px;
+  /* Inställningar on a desktop (Story 14.8): the two columns need more than the content width. */
+  --frame-wide: 1040px;
+  --settings-menu-width: 320px;
   --dialog-max: 560px;
   --thumb-list: 72px;
   --button-height: 52px;
@@ -239,6 +246,10 @@
   --text-recipe-title--font-weight: var(--recipe-title-weight);
   --text-recipe-title--letter-spacing: var(--recipe-title-tracking);
   --text-recipe-title--line-height: var(--recipe-title-leading);
+  --text-section-title: var(--section-title-size);
+  --text-section-title--font-weight: var(--section-title-weight);
+  --text-section-title--letter-spacing: var(--section-title-tracking);
+  --text-section-title--line-height: var(--section-title-leading);
   --text-step: var(--step-size);
   --text-step--font-weight: var(--step-weight);
   --text-step--line-height: var(--step-leading);
@@ -283,6 +294,7 @@
   --spacing-meter-small: var(--meter-height-small);
 
   --container-content: var(--content-max);
+  --container-frame-wide: var(--frame-wide);
   --container-dialog: var(--dialog-max);
 }
 

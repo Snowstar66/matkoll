@@ -5,7 +5,7 @@ import { TabBar } from "./tab-bar";
 
 /**
  * App-skal: tab bar at the bottom below 1024 px, side menu on the left from 1024 px,
- * content at most 720 px wide. Renders no user data, so layouts never wait for the
+ * content at most 720 px wide (a page with `data-wide-frame` gets the wider frame from 1024 px, Story 14.8). Renders no user data, so layouts never wait for the
  * session (AD-18).
  */
 export function AppShell({
@@ -30,7 +30,7 @@ export function AppShell({
         tabIndex={-1}
         className="flex flex-1 flex-col px-page outline-none pb-[calc(var(--tab-bar-height)+var(--gutter-mobile))] desktop:pb-10 desktop:pl-[calc(var(--side-menu-width)+var(--gutter-mobile))]"
       >
-        <div className="mx-auto flex w-full max-w-content flex-1 flex-col">{children}</div>
+        <div className="mx-auto flex w-full max-w-content flex-1 flex-col desktop:has-[[data-wide-frame]]:max-w-frame-wide">{children}</div>
       </main>
       <TabBar jobRow={jobRows?.bar} />
       <ScrollMemory />

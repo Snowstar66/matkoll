@@ -180,7 +180,7 @@ const pill = (page: Page, name: "Alla" | "Favoriter" | "Kan lagas nu") =>
   page.getByRole("radio", { name }).filter({ visible: true });
 const dish = (page: Page) => page.getByTestId("plan-dish").filter({ visible: true });
 const ketchupCheck = (page: Page) => page.getByRole("checkbox", { name: /^Ketchup/ }).filter({ visible: true });
-const putButton = (page: Page) => page.getByRole("button", { name: "Lägg i förrådet", exact: true }).filter({ visible: true });
+const putButton = (page: Page) => page.getByRole("button", { name: "Lägg till i Matvaror", exact: true }).filter({ visible: true });
 /** Unfolds I korgen, where the checked lines are (Story 11.4). */
 const showBasket = async (page: Page) => {
   // I korgen is open from the start (Story 3.9): "Visa" only when it was folded.
@@ -188,7 +188,7 @@ const showBasket = async (page: Page) => {
   if ((await show.count()) > 0) await show.click();
 };
 const toast = (page: Page) => page.getByTestId("toast");
-const tab = (page: Page, name: "Recept" | "Matsedel" | "Inköpslista" | "Förråd") =>
+const tab = (page: Page, name: "Recept" | "Matsedel" | "Inköpslista" | "Matvaror") =>
   page.getByRole("navigation", { name: "Huvudmeny" }).getByRole("link", { name });
 const placePill = (page: Page, name: "Hemma" | "Stugan") =>
   page.getByRole("radiogroup", { name: "Boende" }).filter({ visible: true }).getByRole("radio", { name, exact: true });
@@ -244,7 +244,7 @@ test("with Stugan selected, the recipe view, the library with Kan lagas nu and t
   expect(errors).toEqual([]);
 });
 
-test("a switch with the picker in Förråd reaches the recipe view, Kan lagas nu and Matsedel without a reload", async ({
+test("a switch with the picker in Matvaror reaches the recipe view, Kan lagas nu and Matsedel without a reload", async ({
   page,
 }) => {
   const errors = watchErrors(page);
@@ -264,9 +264,9 @@ test("a switch with the picker in Förråd reaches the recipe view, Kan lagas nu
   await expect(siteLine(page)).toHaveText("Boende: Stugan");
   await expect(dish(page).getByTestId("dish-meta")).toContainText("1 av 2 hemma");
 
-  // Förråd with the real picker (Story 8.2).
-  await tab(page, "Förråd").click();
-  await expect(page.getByRole("heading", { level: 1, name: "Förråd" })).toBeVisible();
+  // Matvaror with the real picker (Story 8.2).
+  await tab(page, "Matvaror").click();
+  await expect(page.getByRole("heading", { level: 1, name: "Matvaror" })).toBeVisible();
   await expect(page.getByRole("button", { name: "Hantera boenden", exact: true }).filter({ visible: true })).toBeEnabled();
   await placePill(page, "Hemma").click();
   await expect(page.getByTestId("site-announcement").filter({ visible: true })).toHaveText("Valt boende: Hemma.");
@@ -311,7 +311,7 @@ test("with one place there is no line Lager anywhere, as in 1.0", async ({ page 
   expect(errors).toEqual([]);
 });
 
-test("Lägg i förrådet with Stugan selected puts the ketchup on Stugan and says so", async ({ page }) => {
+test("Lägg till i Matvaror with Stugan selected puts the ketchup on Stugan and says so", async ({ page }) => {
   const errors = watchErrors(page);
   await selectSite(stugan);
   const hemmaBefore = await pantryOn(hemma);
@@ -320,7 +320,7 @@ test("Lägg i förrådet with Stugan selected puts the ketchup on Stugan and say
   await showBasket(page);
   await expect(ketchupCheck(page)).toBeChecked();
   await putButton(page).click();
-  await expect(toast(page)).toHaveText("Lagt 1 vara i förrådet för Stugan.");
+  await expect(toast(page)).toHaveText("Lagt 1 vara i Matvaror för Stugan.");
   await expect(ketchupCheck(page)).toHaveCount(0);
 
   await expect
@@ -330,7 +330,7 @@ test("Lägg i förrådet with Stugan selected puts the ketchup on Stugan and say
   expect(errors).toEqual([]);
 });
 
-test("Lägg i förrådet for a place removed elsewhere writes nothing, keeps the check, counts the list against Hemma, and a second tap puts it there", async ({
+test("Lägg till i Matvaror for a place removed elsewhere writes nothing, keeps the check, counts the list against Hemma, and a second tap puts it there", async ({
   page,
 }) => {
   const errors = watchErrors(page);
@@ -356,7 +356,7 @@ test("Lägg i förrådet for a place removed elsewhere writes nothing, keeps the
   await putButton(page).click();
   // The list's notice (not Next's route announcer, also an alert).
   await expect(page.getByRole("alert").filter({ visible: true, hasText: "Boendet" })).toHaveText(
-    "Boendet finns inte längre. Listan har räknats om. Tryck Lägg i förrådet igen.",
+    "Boendet finns inte längre. Listan har räknats om. Tryck Lägg till i Matvaror igen.",
   );
   // The list is read again against Hemma: the korv is missing there; the ketchup keeps its check.
   await expect(korvCheck).toBeVisible();
@@ -370,14 +370,14 @@ test("Lägg i förrådet for a place removed elsewhere writes nothing, keeps the
 
   // A second tap puts the ketchup on Hemma, the only place now.
   await putButton(page).click();
-  await expect(toast(page)).toHaveText("Lagt 1 vara i förrådet.");
+  await expect(toast(page)).toHaveText("Lagt 1 vara i Matvaror.");
   await expect
     .poll(async () => (await pantryOn(hemma)).filter((row) => row.ingredient_id === ids.get("Ketchup")))
     .toEqual([{ ingredient_id: ids.get("Ketchup"), location: "Skafferi", amount: 1, unit: "förp" }]);
   expect(errors).toEqual([]);
 });
 
-test("Lägg i förrådet puts the ketchup on the list's place when Hemma is selected elsewhere after the list was shown", async ({
+test("Lägg till i Matvaror puts the ketchup on the list's place when Hemma is selected elsewhere after the list was shown", async ({
   page,
 }) => {
   const errors = watchErrors(page);
@@ -392,7 +392,7 @@ test("Lägg i förrådet puts the ketchup on the list's place when Hemma is sele
   // Another device selects Hemma before the tap.
   await selectSite(hemma);
   await putButton(page).click();
-  await expect(toast(page)).toHaveText("Lagt 1 vara i förrådet för Stugan.");
+  await expect(toast(page)).toHaveText("Lagt 1 vara i Matvaror för Stugan.");
 
   await expect
     .poll(async () => (await pantryOn(stugan)).some((row) => row.ingredient_id === ids.get("Ketchup")))

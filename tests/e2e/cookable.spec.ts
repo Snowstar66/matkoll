@@ -125,7 +125,7 @@ const titles = (page: Page) => rows(page).getByRole("link");
 const pill = (page: Page, name: "Alla" | "Favoriter" | "Kan lagas nu") =>
   page.getByRole("radio", { name }).filter({ visible: true });
 const rankedList = (page: Page) => page.getByRole("list", { name: "Recept, minst saknat först" }).filter({ visible: true });
-const tab = (page: Page, name: "Recept" | "Förråd") =>
+const tab = (page: Page, name: "Recept" | "Matvaror") =>
   page.getByRole("navigation", { name: "Huvudmeny" }).getByRole("link", { name });
 const sheet = (page: Page) => page.getByRole("dialog", { name: "Lagervara" });
 
@@ -173,7 +173,7 @@ test("Kan lagas nu ranks the library fewest missing first and keeps the choice",
   expect(errors).toEqual([]);
 });
 
-test("adding an item in Förråd ranks the library again", async ({ page }) => {
+test("adding an item in Matvaror ranks the library again", async ({ page }) => {
   const errors = watchErrors(page);
   await page.goto("/recept");
   await pill(page, "Kan lagas nu").click();
@@ -181,7 +181,7 @@ test("adding an item in Förråd ranks the library again", async ({ page }) => {
 
   // Client navigation both ways, so the library shown again is the one the
   // save revalidated, not a fresh page load.
-  await tab(page, "Förråd").click();
+  await tab(page, "Matvaror").click();
   await expect(page).toHaveURL(/\/hemma$/);
   await page.getByRole("button", { name: "Lägg till vara" }).filter({ visible: true }).first().click();
   await sheet(page).getByRole("searchbox", { name: "Sök ingrediens" }).fill("torsk");

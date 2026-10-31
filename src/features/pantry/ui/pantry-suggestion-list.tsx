@@ -52,12 +52,12 @@ import { focusIsFree } from "./use-pantry-analysis";
 //
 // Story 6.4: a photo compared with a place that has items shows, under the
 // heading and "Bekräfta alla", how many suggestions already match ("2 varor
-// stämmer med förrådet.", no cards for them) and the groups "Nytt", "Ändrat"
+// stämmer med matvarorna.", no cards for them) and the groups "Nytt", "Ändrat"
 // and "Syns inte längre" (h3, an empty group is left out). An "Ändrat" card
 // shows "nu: 2 förp → bilden: 1 förp" instead of "I kylen nu"; a "Syns inte
 // längre" card shows what the place has, with "Ta bort" (primary) and
 // "Behåll". Focus moves through the cards in that order. An empty place, or
-// one that could not be read ("Det gick inte att jämföra med förrådet i
+// one that could not be read ("Det gick inte att jämföra med matvarorna i
 // kylen."), shows the plain list.
 //
 // Story 6.5: a card's title is the model's label as on the package ("ICA

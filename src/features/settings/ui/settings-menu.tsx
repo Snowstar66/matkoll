@@ -85,7 +85,7 @@ export function SettingsMenu({ groups, signOut }: { groups: readonly SettingsGro
     <div className="flex flex-col gap-3 pb-2">
       {groups.map((group) => (
         <section key={group.label} className="flex flex-col gap-1.5">
-          <h2 className="px-1 text-section-label text-ink-2">{group.label}</h2>
+          <h2 className="px-1 desktop:px-0 text-section-label text-ink-2">{group.label}</h2>
           <ListGroup label={group.label}>
             {group.rows.map((row) => (
               <Row key={row.title} row={row} current={row.href !== null && pathname === row.href} />

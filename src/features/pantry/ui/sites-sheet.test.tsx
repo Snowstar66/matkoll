@@ -105,7 +105,7 @@ describe("SitesSheet", () => {
     await user.type(newField(), "Stugan");
     await user.click(addButton());
 
-    await waitFor(() => expect(status()).toHaveTextContent("Lade till Stugan. Välj det för att se och fylla dess förråd."));
+    await waitFor(() => expect(status()).toHaveTextContent("Lade till Stugan. Välj det för att se och fylla dess matvaror."));
     expect(newField()).toHaveValue("");
     const sent = fields(savePantrySite.mock.calls[0]![1]);
     expect(sent).toMatchObject({ name: "Stugan", mode: "add" });
@@ -148,7 +148,7 @@ describe("SitesSheet", () => {
     render(<Sheet initial={[hemma]} />);
     await user.type(newField(), "Stugan");
     await user.click(addButton());
-    await waitFor(() => expect(status()).toHaveTextContent("Lade till Stugan. Välj det för att se och fylla dess förråd."));
+    await waitFor(() => expect(status()).toHaveTextContent("Lade till Stugan. Välj det för att se och fylla dess matvaror."));
     expect(newField()).toHaveValue("");
     expect(newField()).toHaveFocus();
   });

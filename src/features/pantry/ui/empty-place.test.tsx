@@ -341,13 +341,13 @@ describe("lagerförslag when the location is emptied", () => {
     await waitFor(() => expect(screen.getAllByTestId("pantry-suggestion")).toHaveLength(2));
     expect(screen.queryByTestId("pantry-missing")).toBeNull();
     expect(screen.queryByRole("heading", { name: "Ändrat" })).toBeNull();
-    expect(screen.queryByText(/stämmer med förrådet/)).toBeNull();
+    expect(screen.queryByText(/stämmer med matvarorna/)).toBeNull();
     expect(screen.queryByText(/→/)).toBeNull();
 
     // Ångra puts the rows back, but not the ones the photo was compared with: the list says so.
     restorePantryRemoval.mockResolvedValueOnce(ok({ restoredIds: [kyl[0].id], rows: [], skipped: 0 }));
     await act(async () => fireEvent.click(within(screen.getByTestId("toast")).getByRole("button", { name: "Ångra" })));
-    expect(await screen.findByText("Förrådet i kylen har ändrats sedan bilden togs.")).toBeInTheDocument();
+    expect(await screen.findByText("Matvarorna i kylen har ändrats sedan bilden togs.")).toBeInTheDocument();
     expect(screen.getAllByTestId("pantry-suggestion")).toHaveLength(2);
     expect(screen.queryByTestId("pantry-missing")).toBeNull();
   });
@@ -433,7 +433,7 @@ describe("Töm kylen on a place (Story 8.4)", () => {
     await waitFor(() => expect(restorePantryRemoval).toHaveBeenCalledTimes(1));
     expect(screen.getByText("nu: 2 förp → bilden: 1 förp")).toBeInTheDocument();
     expect(screen.queryByText(/5 förp/)).toBeNull();
-    expect(screen.queryByText("Förrådet i kylen har ändrats sedan bilden togs.")).toBeNull();
+    expect(screen.queryByText("Matvarorna i kylen har ändrats sedan bilden togs.")).toBeNull();
   });
 
   it("closes the sheet when Hemma shows another place, and keeps the question it asked", () => {

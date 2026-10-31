@@ -3,7 +3,7 @@ import { requireUserForRoute } from "@/features/auth/server";
 import { hasPlacePhoto, PantryDataError, readPlacePhotoImage } from "@/features/pantry/server";
 
 // Visa senaste fotot (Story 10.2, FR-38, AD-26, NFR-11): sends the image of
-// the signed-in user's saved photo `id`, for the photo sheet in Förråd (an
+// the signed-in user's saved photo `id`, for the photo sheet in Matvaror (an
 // <img> on the same site, so the session's cookies come along). The user is
 // checked first; the row and the file are read with the session client, so
 // RLS and the bucket's policies give only the user's own. There is never a

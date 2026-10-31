@@ -55,7 +55,7 @@ export type FixedActionProps = {
  * on one line beside each other (a long label, 200 % text), they stand one
  * above the other with the last child on top, and first in the DOM too, so
  * the reading and tab order follow what is seen (Story 11.4: "Skicka till
- * ICA" left and "Lägg i förrådet" right, or "Lägg i förrådet" on top). A label
+ * ICA" left and "Lägg till i Matvaror" right, or "Lägg till i Matvaror" on top). A label
  * wraps inside its button rather than overflow. When the pinned bar would
  * take more than a quarter of the viewport, it stands at the end of the page
  * instead.

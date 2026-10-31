@@ -9,7 +9,7 @@ import {
 import { photoOrphanMinAgeMs, photoSweepBatchSize, placePhotoExpiredBefore } from "../domain/photo-sweep";
 
 // The sweep of the latest photos (Story 10.3, FR-39, AD-26), shared by the
-// Server Action sweepPlacePhotos (started by Förråd) and savePlacePhoto
+// Server Action sweepPlacePhotos (started by Matvaror) and savePlacePhoto
 // (after a save). Not a Server Action itself: it takes the session client, so
 // the bucket's policies and RLS keep it to the user's own rows and files
 // (AD-4). Files are removed with the Storage API only, never with SQL.
@@ -111,7 +111,7 @@ export async function sweepPlacePhotosIn(
 
 /**
  * Whether the signed-in user has a photo taken more than 30 days before
- * `now`, which Förråd then has swept. Only reads (AD-2), and only the
+ * `now`, which Matvaror then has swept. Only reads (AD-2), and only the
  * user's few rows of pantry_photo: the scan for files without a row is left
  * to the sweep itself, which every save runs too. Throws PantryDataError.
  */

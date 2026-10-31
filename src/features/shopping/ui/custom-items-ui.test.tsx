@@ -104,7 +104,7 @@ describe("Lägg till egen vara", () => {
     await user.click(screen.getByRole("checkbox", { name: /diskmedel/ }));
     await waitFor(() => expect(setChecked).toHaveBeenCalledWith({ planId: null, key: `c:${diskId}`, checked: true }));
     // The pantry flow is for a plan's list.
-    expect(screen.queryByRole("button", { name: /Lägg i förrådet/ })).not.toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: /Lägg till i Matvaror/ })).not.toBeInTheDocument();
   });
 
   it("asks for text, then adds the item with an id made once and closes the sheet", async () => {

@@ -352,7 +352,7 @@ describe("getShoppingList", () => {
     expect(log).toHaveBeenCalledWith("shopping_unavailable", logged);
   });
 
-  it("counts the checks of lines no longer listed that an interrupted Lägg i förrådet put in the pantry", async () => {
+  it("counts the checks of lines no longer listed that an interrupted Lägg till i Matvaror put in the pantry", async () => {
     // The first check's line is listed; the other two are not (covered by the pantry, say).
     listChecksIn.mockResolvedValue([`r:${gradde}:dl`, `r:${gradde}:st`, "r:00000000-0000-4000-8000-000000000000:st"]);
     findPantryAdditions.mockResolvedValue(["check-2"]);

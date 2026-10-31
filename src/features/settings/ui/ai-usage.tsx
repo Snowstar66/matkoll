@@ -8,7 +8,7 @@ import { formatMonthCost, type AiMonthUsage } from "../domain/ai-usage";
 export function AiUsage({ usage }: { usage: AiMonthUsage }) {
   return (
     <section className="flex flex-col gap-2" data-testid="ai-usage">
-      <h2 className="px-1 text-section-label text-ink-2">Den här månaden</h2>
+      <h2 className="px-1 desktop:px-0 text-section-label text-ink-2">Den här månaden</h2>
       <ListGroup label="Den här månaden">
         <li className="flex min-h-12 items-center gap-3 px-4 py-1.5">
           <span className="min-w-0 flex-1 text-body text-ink">Anrop</span>

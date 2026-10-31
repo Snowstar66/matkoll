@@ -48,7 +48,7 @@ const view = (page: Page) => page.getByRole("article").filter({ visible: true })
 const lines = (page: Page) => view(page).getByTestId("recipe-view-line");
 const line = (page: Page, text: string) => lines(page).filter({ hasText: text });
 const mark = (row: Locator) => row.getByRole("img");
-const tab = (page: Page, name: "Recept" | "Förråd") =>
+const tab = (page: Page, name: "Recept" | "Matvaror") =>
   page.getByRole("navigation", { name: "Huvudmeny" }).getByRole("link", { name });
 const sheet = (page: Page) => page.getByRole("dialog", { name: "Lagervara" });
 
@@ -102,7 +102,7 @@ const allAtHome: SeedItem[] = [
   { line: "1/2 tsk salt", location: "Skafferi" },
 ];
 
-/** Adds an item in Förråd through the sheet Lagervara and waits for the confirmation. */
+/** Adds an item in Matvaror through the sheet Lagervara and waits for the confirmation. */
 async function addInLagersaldo(page: Page, name: string, amount: string, unit: string) {
   await page.getByRole("button", { name: "Lägg till vara" }).filter({ visible: true }).first().click();
   await sheet(page).getByRole("searchbox", { name: "Sök ingrediens" }).fill(name);
@@ -156,7 +156,7 @@ test("too little, or only another unit, counts as missing; a vague line is ringe
   expect(errors).toEqual([]);
 });
 
-test("adding what is missing in Förråd makes the library and the recipe view say Kan lagas nu", async ({ page }) => {
+test("adding what is missing in Matvaror makes the library and the recipe view say Kan lagas nu", async ({ page }) => {
   const errors = watchErrors(page);
   await seedPantry(twoShort);
   await page.goto("/recept");
@@ -164,7 +164,7 @@ test("adding what is missing in Förråd makes the library and the recipe view s
 
   // Client navigation both ways, so the library shown again is the one the
   // save revalidated, not a fresh page load.
-  await tab(page, "Förråd").click();
+  await tab(page, "Matvaror").click();
   await expect(page).toHaveURL(/\/hemma$/);
   await addInLagersaldo(page, "mjölk", "6", "dl");
   await addInLagersaldo(page, "vetemjöl", "3", "dl");
@@ -186,13 +186,13 @@ test("adding what is missing in Förråd makes the library and the recipe view s
   expect(errors).toEqual([]);
 });
 
-test("removing an item in Förråd makes the library and the recipe view say Saknar again", async ({ page }) => {
+test("removing an item in Matvaror makes the library and the recipe view say Saknar again", async ({ page }) => {
   const errors = watchErrors(page);
   await seedPantry(allAtHome);
   await page.goto("/recept");
   await expect(recipeRow(page).getByText("Kan lagas nu", { exact: true })).toBeVisible();
 
-  await tab(page, "Förråd").click();
+  await tab(page, "Matvaror").click();
   await expect(page).toHaveURL(/\/hemma/);
   const milk = page.getByTestId("pantry-row").filter({ visible: true }).filter({ hasText: /mjölk/i });
   await milk.click();

@@ -232,9 +232,9 @@ const showBasket = async (page: Page) => {
   const show = page.getByRole("button", { name: /^Visa I korgen/ }).filter({ visible: true });
   if ((await show.count()) > 0) await show.click();
 };
-const putButton = (page: Page) => page.getByRole("button", { name: "Lägg i förrådet", exact: true }).filter({ visible: true });
+const putButton = (page: Page) => page.getByRole("button", { name: "Lägg till i Matvaror", exact: true }).filter({ visible: true });
 const sendButton = (page: Page) => page.getByRole("button", { name: "Kopiera till ICA-varukorgen", exact: true }).filter({ visible: true });
-const tab = (page: Page, name: "Inköpslista" | "Förråd") =>
+const tab = (page: Page, name: "Inköpslista" | "Matvaror") =>
   page.getByRole("navigation", { name: "Huvudmeny" }).getByRole("link", { name });
 const placePill = (page: Page, name: "Hemma" | "Stugan") =>
   page.getByRole("radiogroup", { name: "Boende" }).filter({ visible: true }).getByRole("radio", { name, exact: true });
@@ -297,9 +297,9 @@ test("Byt counts the list against Stugan: ketchup instead of senap, and Hemma sh
   await expectNoHorizontalScroll(page);
   await expect.poll(async () => (await sites()).find((site) => site.is_selected)?.id).toBe(stugan);
 
-  // The same selection as in Förråd.
-  await tab(page, "Förråd").click();
-  await expect(page.getByRole("heading", { level: 1, name: "Förråd" })).toBeVisible();
+  // The same selection as in Matvaror.
+  await tab(page, "Matvaror").click();
+  await expect(page.getByRole("heading", { level: 1, name: "Matvaror" })).toBeVisible();
   await expect(placePill(page, "Stugan")).toBeChecked();
   await expect(placePill(page, "Hemma")).not.toBeChecked();
   expect(errors).toEqual([]);
@@ -363,7 +363,7 @@ test("senap checked off against Hemma leaves the list against Stugan, and is che
   expect(errors).toEqual([]);
 });
 
-test("Lägg i förrådet against Stugan puts only what was checked off there, and keeps the senap checked against Hemma", async ({
+test("Lägg till i Matvaror against Stugan puts only what was checked off there, and keeps the senap checked against Hemma", async ({
   page,
 }) => {
   const errors = watchErrors(page);
@@ -379,7 +379,7 @@ test("Lägg i förrådet against Stugan puts only what was checked off there, an
   await expect(progress(page)).toHaveText(/1 av 2 i korgen$/);
   await expect(putButton(page)).toBeEnabled();
   await putButton(page).click();
-  await expect(toast(page, "Lagt 1 vara i förrådet för Stugan.")).toBeVisible();
+  await expect(toast(page, "Lagt 1 vara i Matvaror för Stugan.")).toBeVisible();
   await expect(lineCheck(page, "Korv")).toHaveCount(0);
 
   // Exactly the korv went to Stugan, beside the senap that was there; Hemma is untouched.
@@ -425,7 +425,7 @@ test("the empty list names Stugan when everything is in stock there", async ({ p
   await page.goto("/lista");
   await expect(lineCheck(page, "Senap")).toBeVisible();
   await countAgainst(page, "Stugan");
-  await expect(page.getByText("Allt finns i förrådet för Stugan.").filter({ visible: true })).toBeVisible();
+  await expect(page.getByText("Allt finns i Matvaror för Stugan.").filter({ visible: true })).toBeVisible();
   await expect(progress(page)).toHaveCount(0);
   expect(errors).toEqual([]);
 });

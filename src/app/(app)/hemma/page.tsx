@@ -5,9 +5,9 @@ import { Skeleton } from "@/components/skeleton";
 import { WarmAi } from "../warm-ai";
 import { HomePlace } from "./home-place";
 
-export const metadata: Metadata = { title: "Förråd" };
+export const metadata: Metadata = { title: "Matvaror" };
 
-// Förråd, at /hemma (FR-11, FR-12): the location cards with the number of items in each,
+// Matvaror, at /hemma (FR-11, FR-12): the location cards with the number of items in each,
 // and the chosen location's items. The location comes from `?plats=` (kyl,
 // frys, skafferi; anything else is Kyl). Everything is read inside
 // <Suspense> (AD-18), with skeleton rows while it loads. "+" in the header,
@@ -24,7 +24,7 @@ export const metadata: Metadata = { title: "Förråd" };
 // empties the chosen location after a question, with "Ångra" (Story 6.3).
 //
 // Places (Story 8.2, FR-29–FR-31, FR-33, AD-24): Hemma shows the selected
-// place, read on the server; the title stays "Förråd" (Story 10.4: the page was called Hemma, like the first place). With two or more places
+// place, read on the server; the title stays "Matvaror" (Story 10.4: the page was called Hemma, like the first place). With two or more places
 // the site switch above the cards selects another; with one, "Lägg till
 // boende" at the bottom opens the sheet Boenden. Every write from the page
 // sends the id of the place it showed.
@@ -40,7 +40,7 @@ export default function HomePage({ searchParams }: PageProps<"/hemma">) {
         fallback={
           <>
             {/* The size of "+", so the header does not move when it arrives. */}
-            <PageHeader title="Förråd" action={<span aria-hidden="true" inert className="size-tap" />} />
+            <PageHeader title="Matvaror" action={<span aria-hidden="true" inert className="size-tap" />} />
             <Skeleton rows={3} />
           </>
         }

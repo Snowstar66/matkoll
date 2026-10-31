@@ -3,7 +3,7 @@ import { charLength, oneLine } from "@/lib/one-line";
 
 // Platser i Prylar (Story 18.1): a place has a name of its own, a room and an
 // optional part ("Skräpförrådet", "Översta hyllan"), and belongs to one of the
-// user's boenden (a pantry_site, which the Prylar tab shares with Förråd).
+// user's boenden (a pantry_site, which the Prylar tab shares with Matvaror).
 // No floor plan. Pure, so it is tested without a database; the table's
 // checks (supabase/migrations/*_things.sql) follow the same rules.
 

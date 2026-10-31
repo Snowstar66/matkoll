@@ -24,7 +24,7 @@ export async function listChecksIn(db: ShoppingDb, planId: string | null): Promi
 }
 
 /**
- * The plan's checks with their ids, for "Lägg i förrådet" (Story 3.7): a
+ * The plan's checks with their ids, for "Lägg till i Matvaror" (Story 3.7): a
  * check's id is the idempotency key of the item it puts in the pantry, stable
  * until the check is cleared. Throws ShoppingDataError.
  */
