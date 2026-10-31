@@ -23,7 +23,7 @@ import {
   weekdayNames,
   type PlanDetail,
 } from "../domain/meal-plan";
-import { copiedText, copyTargets, weekQuery, type WeekChoice } from "../domain/week";
+import { copiedText, copyTargets, weekFillText, weekQuery, type WeekChoice } from "../domain/week";
 import { useCreatePlan } from "./use-create-plan";
 
 // An earlier meal plan (FR-14): its dishes and servings, read only. A dish
@@ -33,14 +33,17 @@ import { useCreatePlan } from "./use-create-plan";
 // whose recipe is left, "Använd igen" is unavailable and the note says why.
 // "Ta bort matsedel" asks first ("Ta bort Vecka 42? Det går inte att
 // ångra.", focus on "Avbryt") and then deletes the plan for good; a plan
-// already gone counts as deleted.
+// already gone counts as deleted. "Kopiera till …" says what each week
+// already has ("2 rätter", "Tom"), like the week tiles in Matsedel.
 
 export type PreviousPlanProps = {
   /** An earlier plan with its dishes in order (mealplan.getPlan). */
   plan: PlanDetail;
+  /** The dishes already on each "Kopiera till" week, by week start; null when they could not be read. */
+  targetCounts?: Record<string, number> | null;
 };
 
-export function PreviousPlan({ plan }: PreviousPlanProps) {
+export function PreviousPlan({ plan, targetCounts = null }: PreviousPlanProps) {
   const { creating, error: createError, run: reuse } = useCreatePlan((id) => reusePlan(plan.id, id));
   const [asking, setAsking] = useState(false);
   const [deleting, startDeleting] = useTransition();
@@ -204,6 +207,7 @@ export function PreviousPlan({ plan }: PreviousPlanProps) {
               onClick={() => copyTo(target)}
             >
               {target.label} ({target.name.toLocaleLowerCase("sv-SE")})
+              {targetCounts ? ` \u00b7 ${weekFillText(targetCounts[target.weekStart] ?? 0)}` : null}
             </Button>
           ))}
         </div>

@@ -14,6 +14,7 @@ vi.mock("@/features/mealplan/server", async (importOriginal) => ({
   ...(await importOriginal<typeof import("@/features/mealplan/server")>()),
   listPreviousPlans: vi.fn(),
   getPlan: vi.fn(),
+  getWeekCounts: vi.fn(async () => ({})),
 }));
 vi.mock("@/features/mealplan/actions/new-plan", () => ({ newPlan: vi.fn() }));
 vi.mock("@/features/mealplan/actions/reuse-plan", () => ({ reusePlan: vi.fn() }));
