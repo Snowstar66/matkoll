@@ -2955,6 +2955,32 @@ så att den är trevlig att handla från för den som får den.
 **När** telefonen inte har delningsmenyn
 **Så** kopieras samma text som idag, och kopiera till varukorg (butikens exportformat) är oförändrat
 
+### Story 14.4: Som i skissen – tydlig vyväxel, två kolumner och färgade ikoner
+
+Som Pontus,
+vill jag att Recept och menyn ser ut som i den godkända skissen,
+så att jag hittar växeln mellan kort och lista och appen känns lika trevlig som skissen.
+
+Skiss: `_bmad-output/planning-artifacts/ux-designs/ux-Matkoll-2026-10-25/mockups/recept-vyer.html` och `matkoll-mobil.html` (menyn). Rättar avvikelser från Story 1.16.
+
+**Acceptance Criteria:**
+
+**Givet** raden "5 recept · Senast tillagda ▾" i Recept
+**När** jag ser den på telefon och dator
+**Så** finns till höger ett tydligt segmenterat val med text och ikon, "▦ Kort" och "☰ Lista", byggt med samma segmenterade komponent som erbjudandearket (rundad ram, lika höga segment, valt segment i accentfärg, 44 px träffyta, radiogrupp med namnet "Vy")
+
+**Givet** kortvyn på en telefon (375–430 px)
+**När** recepten visas
+**Så** ligger korten i två kolumner som i skissen (bild ca 104 px hög, titel högst två rader, metarad i metastorlek, märke och hjärta kvar), utan sidledes rullning, även vid 200 % text där de får falla till en kolumn
+
+**Givet** menyn (flikraden på telefon och sidomenyn på dator)
+**När** den visas
+**Så** har varje mål en färgad ikon som i skissen – 📖 Recept, 📅 Matsedel, 🛒 Inköpslista, 🧊 Lagersaldo, ⚙️ Inställningar – där inaktiva ikoner är gråskaliga och något nedtonade och den aktiva visas i full färg med etikett i accentfärg; märken (antal) och tillgängliga namn fungerar som förut
+
+**Givet** mörkt läge
+**När** jag ser Recept och menyn
+**Så** håller kontrasten och ikonerna syns
+
 ## Epic 15: Enklare lokalt
 
 Pontus vill slippa logga in när Matkoll körs på den egna Macen. Inloggningen finns kvar för den publicerade appen.
