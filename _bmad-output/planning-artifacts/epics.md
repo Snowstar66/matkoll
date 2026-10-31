@@ -3885,8 +3885,33 @@ Pausad (Pontus 2026-10-31): fota garderoben för att veta vad man har och få "�
 
 ### Story 18.9: Nytt namn på appen – Livskoll
 
-<<<<<<< HEAD
-Väntar på beslut. Förslag: "Hemkoll" (behåller "koll", täcker både mat och prylar). Kontrollera namnkrockar före beslut.
+Som Pontus,
+vill jag att appen heter Livskoll,
+så att namnet täcker både mat, prylar och vardagen och inte bara mat.
+
+Beslut 2026-10-31 (Pontus): "Livskoll" – "livs" som i livsmedel och som i livet, där du får koll i kaoset. Undertitel: "Mat, prylar och vardag under kontroll". Inget engelskt namn nu; ingen domän förrän betan bekräftat namnet.
+
+**Acceptance Criteria:**
+
+**Givet** appens namn
+**När** det används i koden
+**Så** finns det på ett enda ställe (t.ex. en konstant `appName` och `appTagline`), som all användartext läser från, så att ett framtida namnbyte är en rad
+
+**Givet** appen
+**När** jag ser den
+**Så** står "Livskoll" i sidomenyns logotyprad, sidtitlar (`<title>` och metadata), PWA-manifestets namn och korta namn (appnamnet på hemskärmen), inloggningssidan, Inställningar → "Om Livskoll", raden om integritet ("Den som driver Livskoll …"), tomlägen och hjälptexter som nämner appen ("så listar Livskoll vad som finns"), och i inloggnings- och återställningsmejlens mallar
+
+**Givet** inloggningssidan och Om-sidan
+**När** de visas
+**Så** står undertiteln "Mat, prylar och vardag under kontroll" under namnet
+
+**Givet** bokmärket och delningen "Spara i Matkoll"
+**När** de visas
+**Så** heter de "Spara i Livskoll"; adresser, kodnamn, tabeller och repo behåller "matkoll"
+
+**Givet** e2e- och enhetstester
+**När** de körs
+**Så** är tester som letar efter "Matkoll" i användartext uppdaterade, och AI-prompter och `tests/eval` är orörda
 
 ### Story 18.15: Rätta och rensa
 
@@ -3921,32 +3946,3 @@ Beslut 2026-10-31 (Pontus): rättelser hålls knutna till kortet; rensa rum och 
 **Givet** lagringen
 **När** något rensas
 **Så** tas även bildfilerna bort, allt sker för den inloggade användaren bara (radskydd, isoleringstest), och ändringen av prylar knutna till kort är bakåtkompatibel
-=======
-Som Pontus,
-vill jag att appen heter Livskoll,
-så att namnet täcker både mat, prylar och vardagen och inte bara mat.
-
-Beslut 2026-10-31 (Pontus): "Livskoll" – "livs" som i livsmedel och som i livet, där du får koll i kaoset. Undertitel: "Mat, prylar och vardag under kontroll". Inget engelskt namn nu; ingen domän förrän betan bekräftat namnet.
-
-**Acceptance Criteria:**
-
-**Givet** appens namn
-**När** det används i koden
-**Så** finns det på ett enda ställe (t.ex. en konstant `appName` och `appTagline`), som all användartext läser från, så att ett framtida namnbyte är en rad
-
-**Givet** appen
-**När** jag ser den
-**Så** står "Livskoll" i sidomenyns logotyprad, sidtitlar (`<title>` och metadata), PWA-manifestets namn och korta namn (appnamnet på hemskärmen), inloggningssidan, Inställningar → "Om Livskoll", raden om integritet ("Den som driver Livskoll …"), tomlägen och hjälptexter som nämner appen ("så listar Livskoll vad som finns"), och i inloggnings- och återställningsmejlens mallar
-
-**Givet** inloggningssidan och Om-sidan
-**När** de visas
-**Så** står undertiteln "Mat, prylar och vardag under kontroll" under namnet
-
-**Givet** bokmärket och delningen "Spara i Matkoll"
-**När** de visas
-**Så** heter de "Spara i Livskoll"; adresser, kodnamn, tabeller och repo behåller "matkoll"
-
-**Givet** e2e- och enhetstester
-**När** de körs
-**Så** är tester som letar efter "Matkoll" i användartext uppdaterade, och AI-prompter och `tests/eval` är orörda
->>>>>>> origin/main
