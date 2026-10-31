@@ -4191,3 +4191,33 @@ Beslut 2026-10-31 (Pontus): förslag B av tre.
 **Givet** en favicon på 16 px
 **När** den visas
 **Så** går huset och bocken fortfarande att urskilja
+
+### Story 18.21: Ta kort som knapp i rubriken
+
+Som Pontus,
+vill jag att "Ta kort" är en knapp uppe vid rubriken i stället för ett kort överst i listan,
+så att det inte ser ut som en plats bland rummen.
+
+Beslut 2026-10-31 (Pontus): "det känns som om ta kort också är en plats eftersom det har samma form". Alternativet "Knapp i rubriken" valt.
+
+**Acceptance Criteria:**
+
+**Givet** Förrådets startsida
+**När** jag ser den
+**Så** står en grön knapp "📷 Ta kort" till höger på samma rad som rubriken "Förråd", och det gröna kortet "Ta kort · Fota ett rum, en hylla eller en låda" överst i listan finns inte längre
+
+**Givet** knappen
+**När** jag trycker på den
+**Så** öppnas samma blad "Var tar du kortet?" som förut, och "Skickar …", "Skickat", "Ta ett till" och felrutor visas under rubriken som förut
+
+**Givet** att rummen fortfarande läses in eller att boendet byts
+**När** jag ser rubriken
+**Så** står knappen kvar på sin plats (inaktiv tills rummen är lästa), så att sidan inte hoppar
+
+**Givet** ett boende utan rum
+**När** jag ser sidan
+**Så** finns knappen i rubriken och tom-texten under, och ett tryck låter mig skriva ett nytt rum som förut
+
+**Givet** mörkt läge, 375 px och 200 % text
+**När** jag ser rubriken
+**Så** finns ingen sidledes rullning, knappen är minst 44 px och flyttar till en egen rad under rubriken om den inte får plats
