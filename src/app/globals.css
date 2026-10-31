@@ -409,12 +409,6 @@
   }
 }
 
-/* The chosen plate of a segment (Story 14.5, premium look): white in light mode, a clearly lighter
-   plate than the track in dark mode so the chosen week shows. */
-.segment-on {
-  background-color: var(--seg-on);
-}
-
 /*
  * AiWorking (Story 16.15, demo ai-vanta.html B + A): a small glowing orb that
  * turns and breathes, and a text a light sweeps through. The colours of the

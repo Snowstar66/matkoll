@@ -4,6 +4,7 @@ import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { type ReactNode, useId, useMemo, useRef, useState } from "react";
 import { FilterPills } from "@/components/filter-pills";
+import { Segment } from "@/components/segment";
 import { Button, buttonClasses } from "@/components/button";
 import { Checkbox } from "@/components/checkbox";
 import { ListGroup } from "@/components/list-group";
@@ -374,7 +375,7 @@ export function OffersSheet({
                       Visa butik
                     </span>
                     <FilterPills
-                      segmented
+                      compact
                       label="Visa butik"
                       options={[{ value: "all", label: "Alla" }, ...storesWithOffers.map((store) => ({ value: store.id, label: badges.get(store.id)?.text ?? store.name }))]}
                       value={filterId}
@@ -388,7 +389,7 @@ export function OffersSheet({
                     <span aria-hidden="true" className="text-meta text-ink-2">
                       Sortera
                     </span>
-                    <FilterPills segmented label="Sortera" options={sortOptions} value={sort} onChange={setSort} className="justify-self-start" />
+                    <Segment label="Sortera" options={sortOptions} value={sort} onChange={setSort} className="justify-self-start" />
                   </>
                 ) : null}
               </div>

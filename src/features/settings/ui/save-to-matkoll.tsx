@@ -67,12 +67,10 @@ export function SaveToMatkoll() {
         Öppna ett recept på en godkänd receptsajt och skicka det till {appName} med ett tryck, utan att kopiera länken.
       </p>
       <FilterPills
-        segmented
         label="Enhet"
         options={guideOptions}
         value={guide}
         onChange={setChosen}
-        className="h-9 w-full [&>button]:flex-1"
       />
       {guide === "computer" ? (
         <div className="flex flex-col gap-3 rounded-lg bg-surface p-4" data-testid="guide-computer">

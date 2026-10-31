@@ -185,8 +185,16 @@ function watchErrors(page: Page): string[] {
 const siteLine = (page: Page) => page.getByTestId("site-line").filter({ visible: true });
 const view = (page: Page) => page.getByRole("article").filter({ visible: true });
 const rows = (page: Page) => page.getByTestId("recipe-card").filter({ visible: true });
-const pill = (page: Page, name: "Alla" | "Favoriter" | "Kan lagas nu") =>
-  page.getByRole("radio", { name }).filter({ visible: true });
+const pill = (page: Page, name: "Favoriter" | "Kan lagas nu") =>
+  page.getByRole("button", { name }).filter({ visible: true });
+
+/** "Alla" has no chip (Story 19.3): letting go of the chosen filter chip shows every recipe. */
+const showAll = async (page: Page) => {
+  for (const name of ["Favoriter", "Kan lagas nu"]) {
+    const chip = page.getByRole("button", { name, pressed: true }).filter({ visible: true });
+    if ((await chip.count()) > 0) await chip.click();
+  }
+};
 const dish = (page: Page) => page.getByTestId("plan-dish").filter({ visible: true });
 const ketchupCheck = (page: Page) => page.getByRole("checkbox", { name: /^Ketchup/ }).filter({ visible: true });
 const putButton = (page: Page) => page.getByRole("button", { name: "Lägg till i Matvaror", exact: true }).filter({ visible: true });
@@ -230,7 +238,7 @@ test("with Stugan selected, the recipe view, the library with Kan lagas nu and t
   await pill(page, "Kan lagas nu").click();
   await expect(siteLine(page)).toHaveText("Boende: Stugan");
   await expect(rows(page).filter({ hasText: title }).getByText("Saknar 1 vara", { exact: true })).toBeVisible();
-  await pill(page, "Alla").click();
+  await showAll(page);
   await expect(siteLine(page)).toHaveCount(0);
   // The badges are counted against Stugan all the same.
   await expect(rows(page).filter({ hasText: title }).getByText("Saknar 1 vara", { exact: true })).toBeVisible();
@@ -283,7 +291,7 @@ test("a switch with the picker in Matvaror reaches the recipe view, Kan lagas nu
   // Back with the app's links: the library, still on Kan lagas nu, counts against Hemma.
   await tab(page, "Recept").click();
   await expect(page).toHaveURL(/\/recept$/);
-  await expect(pill(page, "Kan lagas nu")).toBeChecked();
+  await expect(pill(page, "Kan lagas nu")).toHaveAttribute("aria-pressed", "true");
   await expect(siteLine(page)).toHaveText("Boende: Hemma");
   await expect(rows(page).filter({ hasText: title }).getByText("Kan lagas nu", { exact: true })).toBeVisible();
   await rows(page).filter({ hasText: title }).getByRole("link").first().click();

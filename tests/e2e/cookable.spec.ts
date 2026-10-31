@@ -122,8 +122,16 @@ function watchErrors(page: Page): string[] {
 // locator is scoped to what is visible.
 const rows = (page: Page) => page.getByTestId("recipe-card").filter({ visible: true });
 const titles = (page: Page) => rows(page).getByRole("link");
-const pill = (page: Page, name: "Alla" | "Favoriter" | "Kan lagas nu") =>
-  page.getByRole("radio", { name }).filter({ visible: true });
+const pill = (page: Page, name: "Favoriter" | "Kan lagas nu") =>
+  page.getByRole("button", { name }).filter({ visible: true });
+
+/** "Alla" has no chip (Story 19.3): letting go of the chosen filter chip shows every recipe. */
+const showAll = async (page: Page) => {
+  for (const name of ["Favoriter", "Kan lagas nu"]) {
+    const chip = page.getByRole("button", { name, pressed: true }).filter({ visible: true });
+    if ((await chip.count()) > 0) await chip.click();
+  }
+};
 const rankedList = (page: Page) => page.getByRole("list", { name: "Recept, minst saknat först" }).filter({ visible: true });
 const tab = (page: Page, name: "Recept" | "Matvaror") =>
   page.getByRole("navigation", { name: "Huvudmeny" }).getByRole("link", { name });
@@ -151,7 +159,7 @@ test("Kan lagas nu ranks the library fewest missing first and keeps the choice",
   await expect(titles(page)).toHaveText([fisk, gryta, soppa]);
 
   await pill(page, "Kan lagas nu").click();
-  await expect(pill(page, "Kan lagas nu")).toBeChecked();
+  await expect(pill(page, "Kan lagas nu")).toHaveAttribute("aria-pressed", "true");
   await expect(titles(page)).toHaveText([gryta, fisk, soppa]);
   await expectStatuses(page, ["Kan lagas nu", "Saknar 1 vara", "Saknar 2 varor"]);
   await expect(rankedList(page)).toBeVisible();
@@ -163,11 +171,11 @@ test("Kan lagas nu ranks the library fewest missing first and keeps the choice",
   await expectNoHorizontalScroll(page);
 
   await page.reload();
-  await expect(pill(page, "Kan lagas nu")).toBeChecked();
+  await expect(pill(page, "Kan lagas nu")).toHaveAttribute("aria-pressed", "true");
   await expect(titles(page)).toHaveText([gryta, fisk, soppa]);
   await expect(rankedList(page)).toBeVisible();
 
-  await pill(page, "Alla").click();
+  await showAll(page);
   await expect(titles(page)).toHaveText([fisk, gryta, soppa]);
   await expect(page.getByRole("list", { name: "Recept", exact: true }).filter({ visible: true })).toBeVisible();
   expect(errors).toEqual([]);
@@ -194,7 +202,7 @@ test("adding an item in Matvaror ranks the library again", async ({ page }) => {
 
   await tab(page, "Recept").click();
   await expect(page).toHaveURL(/\/recept$/);
-  await expect(pill(page, "Kan lagas nu")).toBeChecked();
+  await expect(pill(page, "Kan lagas nu")).toHaveAttribute("aria-pressed", "true");
   // Two can be cooked now, newest first.
   await expect(titles(page)).toHaveText([fisk, gryta, soppa]);
   await expectStatuses(page, ["Kan lagas nu", "Kan lagas nu", "Saknar 2 varor"]);

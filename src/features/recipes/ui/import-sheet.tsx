@@ -559,7 +559,7 @@ export function ImportSheet({ open, onClose, showFinished = false, autoImport, s
     >
       {(
         <div className="flex flex-col gap-4">
-          <div role="tablist" aria-label="Importera från" className="flex rounded-md bg-bg p-1">
+          <div role="tablist" aria-label="Importera från" className="flex gap-0.5 rounded-md bg-seg-track p-[3px]">
             {tabs.map(({ id, label }) => (
               <button
                 key={id}
@@ -578,8 +578,8 @@ export function ImportSheet({ open, onClose, showFinished = false, autoImport, s
                 onKeyDown={onTabKeyDown}
                 className={
                   tab === id
-                    ? "min-h-tap flex-1 rounded-sm bg-surface text-body font-semibold text-ink"
-                    : "min-h-tap flex-1 rounded-sm text-body text-ink-2"
+                    ? "h-10 flex-1 rounded-[9px] border border-border bg-seg-on text-control font-semibold text-ink"
+                    : "h-10 flex-1 rounded-[9px] border border-transparent text-control font-medium text-ink-2"
                 }
               >
                 {label}

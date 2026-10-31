@@ -1,7 +1,9 @@
 "use client";
 
 import { type KeyboardEvent, useRef } from "react";
+import { Chip } from "./chip";
 import { cx } from "./cx";
+import { Segment } from "./segment";
 
 export type FilterOption<T extends string> = {
   value: T;
@@ -23,12 +25,10 @@ export type FilterPillsProps<T extends string> = {
   className?: string;
   /** "compact": 32 px pills in one row that scrolls sideways instead of wrapping (Story 16.9). The tap area stays 44 px. */
   compact?: boolean;
-  /**
-   * "segmented" (Story 16.11): one rounded 32 px container with a hairline border and equal
-   * segments; the chosen one is an accent chip, the rest plain text. Each segment keeps a 44 px
-   * tap area (it reaches 6 px above and below the container).
-   */
+  /** Deprecated: renders a `Segment` (Story 19.3). New code uses `Segment` directly. */
   segmented?: boolean;
+  /** With `segmented`: 46 px segments (Story 16.17). */
+  tall?: boolean;
 };
 
 const nextKeys: Record<string, number> = { ArrowRight: 1, ArrowDown: 1, ArrowLeft: -1, ArrowUp: -1 };
@@ -47,6 +47,7 @@ export function FilterPills<T extends string>({
   className,
   compact = false,
   segmented = false,
+  tall = false,
 }: FilterPillsProps<T>) {
   const refs = useRef<(HTMLButtonElement | null)[]>([]);
   const chosenIndex = Math.max(
@@ -74,80 +75,30 @@ export function FilterPills<T extends string>({
   }
 
   if (segmented) {
-    return (
-      <div
-        role="radiogroup"
-        aria-label={label}
-        className={cx("flex h-8 min-w-0 max-w-full items-stretch gap-0.5 rounded-md border border-border bg-bg p-0.5", className)}
-      >
-        {options.map((option, index) => {
-          const selected = index === chosenIndex;
-          return (
-            <button
-              key={option.value}
-              ref={(element) => {
-                refs.current[index] = element;
-              }}
-              type="button"
-              role="radio"
-              aria-checked={selected}
-              tabIndex={selected ? 0 : -1}
-              disabled={disabled || option.disabled}
-              onClick={() => choose(index)}
-              onKeyDown={(event) => onKeyDown(event, index)}
-              className={cx(
-                "relative flex min-w-0 items-center justify-center rounded-sm px-3 text-meta font-medium whitespace-nowrap outline-none",
-                "before:absolute before:inset-x-0 before:-inset-y-[9px] before:content-[''] focus-visible:outline-2 focus-visible:outline-offset-1 focus-visible:outline-accent disabled:cursor-not-allowed disabled:opacity-60",
-                selected ? "bg-accent text-on-accent" : "text-ink-2",
-              )}
-            >
-              {option.icon ? (
-                <span aria-hidden="true" className="mr-1.5 leading-none">
-                  {option.icon}
-                </span>
-              ) : null}
-              <span className="truncate">{option.label}</span>
-            </button>
-          );
-        })}
-      </div>
-    );
+    return <Segment label={label} options={options} value={value} onChange={onChange} disabled={disabled} tall={tall} className={className} />;
   }
 
   return (
-    <div role="radiogroup" aria-label={label} className={cx("flex gap-2", compact ? "flex-nowrap gap-1 overflow-x-auto" : "flex-wrap", className)}>
+    <div role="radiogroup" aria-label={label} className={cx("flex gap-x-2", compact ? "flex-nowrap overflow-x-auto" : "flex-wrap", className)}>
       {options.map((option, index) => {
         const selected = index === chosenIndex;
         return (
-          <button
+          <Chip
             key={option.value}
             ref={(element) => {
               refs.current[index] = element;
             }}
-            type="button"
             role="radio"
             aria-checked={selected}
+            selected={selected}
+            icon={option.icon}
             tabIndex={selected ? 0 : -1}
             disabled={disabled || option.disabled}
             onClick={() => choose(index)}
             onKeyDown={(event) => onKeyDown(event, index)}
-            className="group flex min-h-tap shrink-0 items-center rounded-pill outline-none disabled:cursor-not-allowed disabled:opacity-60"
           >
-            <span
-              className={cx(
-                "flex items-center rounded-pill text-meta font-medium group-focus-visible:outline-2 group-focus-visible:outline-offset-2 group-focus-visible:outline-accent",
-                compact ? "h-8 px-3" : "h-[34px] px-[14px]",
-                selected ? "bg-accent text-on-accent" : "bg-surface text-ink-2",
-              )}
-            >
-              {option.icon ? (
-                <span aria-hidden="true" className="mr-1.5 leading-none">
-                  {option.icon}
-                </span>
-              ) : null}
-              {option.label}
-            </span>
-          </button>
+            {option.label}
+          </Chip>
         );
       })}
     </div>
