@@ -1,5 +1,5 @@
 import { expect, type Page, test } from "@playwright/test";
-import { adminClient, e2eUserId, siteListEmail, siteListStorageState, thisMonday } from "./support";
+import { adminClient, e2eUserId, expectBoende, siteListEmail, siteListStorageState, thisMonday } from "./support";
 
 // Story 8.5: Inköpslista before a trip to Stugan (UJ-6, Flöde 6). Under the
 // title "Boende: Hemma" and "Byt"; "Byt" opens the sheet "Räkna listan mot",
@@ -236,8 +236,6 @@ const putButton = (page: Page) => page.getByRole("button", { name: "Lägg till i
 const sendButton = (page: Page) => page.getByRole("button", { name: "Kopiera till ICA-varukorgen", exact: true }).filter({ visible: true });
 const tab = (page: Page, name: "Inköpslista" | "Matvaror") =>
   page.getByRole("navigation", { name: "Huvudmeny" }).getByRole("link", { name });
-const placePill = (page: Page, name: "Hemma" | "Stugan") =>
-  page.getByRole("radiogroup", { name: "Boende" }).filter({ visible: true }).getByRole("radio", { name, exact: true });
 
 /**
  * "Byt", then `name` in "Räkna listan mot": the sheet closes and the
@@ -300,8 +298,7 @@ test("Byt counts the list against Stugan: ketchup instead of senap, and Hemma sh
   // The same selection as in Matvaror.
   await tab(page, "Matvaror").click();
   await expect(page.getByRole("heading", { level: 1, name: "Matvaror" })).toBeVisible();
-  await expect(placePill(page, "Stugan")).toBeChecked();
-  await expect(placePill(page, "Hemma")).not.toBeChecked();
+  await expectBoende(page, "Stugan");
   expect(errors).toEqual([]);
 });
 

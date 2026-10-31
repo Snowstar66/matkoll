@@ -7,8 +7,10 @@ import { type PantrySiteWithCount, placeFromSlug, placeSlug, type SelectedSite }
 import { listPantrySitesWithCounts, PantryDataError } from "@/features/pantry/server";
 import { AddPantryItemButton, PantrySheetProvider } from "@/features/pantry/ui/pantry-item-sheet";
 import { PantrySuggestionsProvider } from "@/features/pantry/ui/pantry-suggestions";
-import { SiteSwitch, SiteSwitchProvider } from "@/features/pantry/ui/site-switch";
+import { BoendeVal } from "@/features/pantry/ui/boende-val";
+import { SiteSwitch } from "@/features/pantry/ui/site-switch";
 import { errorMessages } from "@/lib/errors";
+import { loadBoendeCounts } from "../boende-counts";
 import { HomeContent } from "./home-content";
 
 /**
@@ -22,7 +24,7 @@ import { HomeContent } from "./home-content";
  * and the sheet Lagervara keeps the place it opened for, so nothing from one
  * place is saved on another. What belongs to the switch itself (its
  * transition, the live region and the places a live "Ångra" needs) is in
- * SiteSwitchProvider. When the places cannot be read, Hemma says so, without
+ * SiteSwitchProvider (in the layout, Story 16.14). When the places cannot be read, Hemma says so, without
  * a switch.
  */
 export async function HomePlace({ searchParams }: Pick<PageProps<"/hemma">, "searchParams">) {
@@ -54,10 +56,13 @@ export async function HomePlace({ searchParams }: Pick<PageProps<"/hemma">, "sea
   const site: SelectedSite = { id: selected.id, name: selected.name, siteCount: sites.length };
 
   return (
-    <SiteSwitchProvider>
-      <PantrySuggestionsProvider>
+    <PantrySuggestionsProvider>
         <PantrySheetProvider location={location} site={site}>
           <PageHeader title="Matvaror" action={<AddPantryItemButton variant="icon" />} />
+          {/* A phone has no side menu: the boende is under the title (Story 16.14). */}
+          <div className="-mt-2 mb-3 empty:hidden desktop:hidden">
+            <BoendeVal variant="page" sites={sites} loadCounts={loadBoendeCounts} />
+          </div>
           <SiteSwitch sites={sites} selected={site}>
             <Suspense key={`${site.id}:${location}`} fallback={<Skeleton rows={3} />}>
               <HomeContent site={site} location={location} next={next} />
@@ -65,6 +70,5 @@ export async function HomePlace({ searchParams }: Pick<PageProps<"/hemma">, "sea
           </SiteSwitch>
         </PantrySheetProvider>
       </PantrySuggestionsProvider>
-    </SiteSwitchProvider>
   );
 }

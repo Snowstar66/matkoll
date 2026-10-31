@@ -1,7 +1,16 @@
 import { expect, type Page, test } from "@playwright/test";
-import { adminClient, e2eUserId, siteStatusEmail, siteStatusStorageState, thisMonday } from "./support";
+import {
+  adminClient,
+  boendeButton,
+  e2eUserId,
+  expectBoende,
+  pickBoende,
+  siteStatusEmail,
+  siteStatusStorageState,
+  thisMonday,
+} from "./support";
 
-// Story 8.3: the cooking status, the line "Boende: Stugan" and "Lägg i
+// Story 8.3: the cooking status, the line "Boende: Stugan" (on Matsedel the boende button since Story 16.14) and "Lägg i
 // förrådet" follow the selected place. The spec has an E2E user of its own
 // (siteStatusEmail). Before each test the service role makes:
 //
@@ -190,8 +199,6 @@ const showBasket = async (page: Page) => {
 const toast = (page: Page) => page.getByTestId("toast");
 const tab = (page: Page, name: "Recept" | "Matsedel" | "Inköpslista" | "Matvaror") =>
   page.getByRole("navigation", { name: "Huvudmeny" }).getByRole("link", { name });
-const placePill = (page: Page, name: "Hemma" | "Stugan") =>
-  page.getByRole("radiogroup", { name: "Boende" }).filter({ visible: true }).getByRole("radio", { name, exact: true });
 
 async function expectNoHorizontalScroll(page: Page) {
   expect(await page.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth)).toBe(true);
@@ -229,14 +236,14 @@ test("with Stugan selected, the recipe view, the library with Kan lagas nu and t
   await expect(rows(page).filter({ hasText: title }).getByText("Saknar 1 vara", { exact: true })).toBeVisible();
 
   await page.goto("/matsedel");
-  await expect(siteLine(page)).toHaveText("Boende: Stugan");
+  await expectBoende(page, "Stugan");
   await expect(dish(page).getByTestId("dish-meta")).toContainText("1 av 2 hemma");
   await expectNoHorizontalScroll(page);
 
   // Back to Hemma: everything follows.
   await selectSite(hemma);
   await page.goto("/matsedel");
-  await expect(siteLine(page)).toHaveText("Boende: Hemma");
+  await expectBoende(page, "Hemma");
   await expect(dish(page).getByTestId("dish-meta")).toContainText("✓ Allt hemma");
   await page.goto(`/recept/${recipeId}`);
   await expect(view(page).getByText("Kan lagas nu", { exact: true })).toBeVisible();
@@ -261,14 +268,14 @@ test("a switch with the picker in Matvaror reaches the recipe view, Kan lagas nu
   await expect(siteLine(page)).toHaveText("Boende: Stugan");
   await expect(rows(page).filter({ hasText: title }).getByText("Saknar 1 vara", { exact: true })).toBeVisible();
   await tab(page, "Matsedel").click();
-  await expect(siteLine(page)).toHaveText("Boende: Stugan");
+  await expectBoende(page, "Stugan");
   await expect(dish(page).getByTestId("dish-meta")).toContainText("1 av 2 hemma");
 
   // Matvaror with the real picker (Story 8.2).
   await tab(page, "Matvaror").click();
   await expect(page.getByRole("heading", { level: 1, name: "Matvaror" })).toBeVisible();
-  await expect(page.getByRole("button", { name: "Hantera boenden", exact: true }).filter({ visible: true })).toBeEnabled();
-  await placePill(page, "Hemma").click();
+  await expect(boendeButton(page)).toBeEnabled();
+  await pickBoende(page, "Hemma");
   await expect(page.getByTestId("site-announcement").filter({ visible: true })).toHaveText("Valt boende: Hemma.");
   await expect(page.getByTestId("site-content").filter({ visible: true })).not.toHaveAttribute("aria-busy");
   await expect.poll(async () => (await sites()).find((site) => site.is_selected)?.id).toBe(hemma);
@@ -287,7 +294,7 @@ test("a switch with the picker in Matvaror reaches the recipe view, Kan lagas nu
 
   await tab(page, "Matsedel").click();
   await expect(page).toHaveURL(/\/matsedel$/);
-  await expect(siteLine(page)).toHaveText("Boende: Hemma");
+  await expectBoende(page, "Hemma");
   await expect(dish(page).getByTestId("dish-meta")).toContainText("✓ Allt hemma");
 
   expect(await page.evaluate(() => (window as unknown as { siteStatusNoReload?: boolean }).siteStatusNoReload)).toBe(true);
@@ -306,7 +313,7 @@ test("with one place there is no line Lager anywhere, as in 1.0", async ({ page 
   await expect(siteLine(page)).toHaveCount(0);
   await page.goto("/matsedel");
   await expect(dish(page)).toHaveCount(1);
-  await expect(siteLine(page)).toHaveCount(0);
+  await expect(boendeButton(page)).toHaveCount(0);
   await expect(page.getByText(/^Boende:/)).toHaveCount(0);
   expect(errors).toEqual([]);
 });
