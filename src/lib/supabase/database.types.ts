@@ -33,6 +33,20 @@ export type Database = {
                   Relationships: [
                     
                   ]
+                },"ai_usage": {
+                  Row: {
+                    "created_at": string,"id": string,"input_tokens": number,"model": string,"output_tokens": number,"user_id": string
+                  }
+                  ComputedFields: never
+                  Insert: {
+                    "created_at"?: string,"id"?: string,"input_tokens"?: number,"model": string,"output_tokens"?: number,"user_id"?: string
+                  }
+                  Update: {
+                    "created_at"?: string,"id"?: string,"input_tokens"?: number,"model"?: string,"output_tokens"?: number,"user_id"?: string
+                  }
+                  Relationships: [
+                    
+                  ]
                 },"ingredient": {
                   Row: {
                     "created_at": string,"default_unit": string | null,"id": string,"location": string,"name": string,"normalized_name": string,"section": string,"user_id": string
@@ -544,6 +558,11 @@ isOneToOne: false
                            },
 "ai_job_lock":
 { Args: Record<PropertyKey, never>; Returns: undefined
+                           },
+"ai_usage_month":
+{ Args: { "from_at": string,"to_at": string }; Returns: {
+              "calls": number,"input_tokens": number,"model": string,"output_tokens": number
+            }[]
                            },
 "apply_pantry_inventory":
 { Args: { "items": Json,"operation_id"?: string,"place": string,"remove_ids": (string)[],"replace_ids": (string)[],"site"?: string }; Returns: Json

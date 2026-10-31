@@ -37,7 +37,7 @@ test.afterAll(removeCardFiles);
 test.beforeEach(async () => {
   const admin = adminClient();
   await removeCardFiles();
-  for (const table of ["ai_job", "thing_place", "pantry_site"] as const) {
+  for (const table of ["ai_job", "ai_usage", "thing_place", "pantry_site"] as const) {
     const removed = await admin.from(table).delete().eq("user_id", userId);
     if (removed.error) throw removed.error;
   }
@@ -419,6 +419,9 @@ test("search finds a thing in every place and boende, and a question is answered
   await page.getByRole("button", { name: "Fråga", exact: true }).click();
   const answer = page.getByTestId("ask-answer");
   await expect(answer).toContainText("Målarfärgsburkar finns i Redskapsboden (Stugan).");
+  // Story 17.6: the question was recorded as a call (the mock: model and no tokens, no cost).
+  const usage = await adminClient().from("ai_usage").select("model, input_tokens, output_tokens").eq("user_id", userId);
+  expect(usage.data).toEqual([{ model: "mock", input_tokens: 0, output_tokens: 0 }]);
   await answer.getByTestId("ask-ref").click();
   await expect(page).toHaveURL(new RegExp(`/prylar/${shed}$`));
   await expect(page.getByRole("heading", { level: 1 })).toHaveText("Redskapsboden");

@@ -1,10 +1,10 @@
 import "server-only";
+import { getAiServiceForUser } from "@/features/settings/server";
 import type { IngredientMatch, Location } from "@/features/catalog";
 import { CatalogDataError, getIngredientNames, getIngredientSummaries, matchIngredients } from "@/features/catalog/server";
 import { fail, ok, type Result } from "@/lib/errors";
 import { createClient } from "@/lib/supabase/server";
-import { getAiChoice } from "@/features/settings/server";
-import { getAiServiceFor, minLoopRepeats, type ImageInput } from "@/server/ai";
+import { minLoopRepeats, type ImageInput } from "@/server/ai";
 import { PantryDataError } from "../data/client";
 import { readingLabel, readingSchema } from "../domain/photo-numbers";
 import { listPantryIn } from "../data/queries";
@@ -150,7 +150,7 @@ export async function readPhoto(
   { image, location, site }: ReadPhotoInput,
   { signal, deadline }: ReadPhotoOptions,
 ): Promise<Result<StoredReading>> {
-  const analyzed = await getAiServiceFor(await getAiChoice()).analyzeImage({ image, place: location }, signal, {
+  const analyzed = await (await getAiServiceForUser()).analyzeImage({ image, place: location }, signal, {
     deadline: deadline === undefined ? undefined : deadline - postModelMarginMs,
   });
   if (!analyzed.ok) return analyzed;

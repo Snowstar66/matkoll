@@ -3,6 +3,7 @@ import { loadActiveRecipeDomains, loadSelectedStore, loadStores } from "@/featur
 import { insertUserDefaults } from "@/features/settings/data/defaults";
 import { SettingsDataError } from "@/features/settings/data/client";
 import { clearAiSettingIn, loadAiSettingIn, saveAiSettingIn } from "@/features/settings/data/ai-setting";
+import { insertAiUsageIn, loadAiUsageIn } from "@/features/settings/data/ai-usage";
 import { addRecipeSiteIn, setRecipeSiteActiveIn } from "@/features/settings/data/sites";
 import { saveStoreIn, selectStoreIn } from "@/features/settings/data/stores";
 import { storeFormSchema, type StoreForm } from "@/features/settings";
@@ -628,6 +629,45 @@ describe("ai_setting (Story 17.5)", () => {
     const insert = (row: Record<string, string>) => user.db.from("ai_setting").insert({ provider: "anthropic", model: "m", effort: "low", ...row });
     expect((await insert({ provider: "openai" })).error?.code).toBe("23514");
     expect((await insert({ effort: "max" })).error?.code).toBe("23514");
+    expect((await insert({ model: "" })).error?.code).toBe("23514");
+  });
+});
+
+describe("ai_usage (Story 17.6)", () => {
+  it("isolates ai_usage", async () => {
+    await expectRlsIsolation("ai_usage", async () => ({ model: "claude-haiku-5-5", input_tokens: 10, output_tokens: 5 }));
+  });
+
+  it("records calls and sums them per model within a month, for the user only", async () => {
+    const user = await createTestUser("ai-usage");
+    const other = await createTestUser("ai-usage-other");
+    await insertAiUsageIn(user.db, { model: "claude-haiku-5-5", inputTokens: 1000, outputTokens: 200 });
+    await insertAiUsageIn(user.db, { model: "claude-haiku-5-5", inputTokens: 500, outputTokens: 100 });
+    await insertAiUsageIn(user.db, { model: "mock", inputTokens: 0, outputTokens: 0 });
+    await insertAiUsageIn(other.db, { model: "claude-opus-5-5", inputTokens: 9, outputTokens: 9 });
+    // A call from before the month, written behind RLS's back so its time can be set.
+    const old = await adminClient()
+      .from("ai_usage")
+      .insert({ user_id: user.id, model: "claude-haiku-5-5", input_tokens: 7, output_tokens: 7, created_at: "2020-01-15T10:00:00Z" });
+    expect(old.error).toBeNull();
+
+    const from = new Date(Date.now() - 60_000);
+    const to = new Date(Date.now() + 60_000);
+    const models = (await loadAiUsageIn(user.db, from, to)).sort((a, b) => a.model.localeCompare(b.model));
+    expect(models).toEqual([
+      { model: "claude-haiku-5-5", calls: 2, inputTokens: 1500, outputTokens: 300 },
+      { model: "mock", calls: 1, inputTokens: 0, outputTokens: 0 },
+    ]);
+    expect(await loadAiUsageIn(user.db, new Date("2020-01-01T00:00:00Z"), new Date("2020-02-01T00:00:00Z"))).toEqual([
+      { model: "claude-haiku-5-5", calls: 1, inputTokens: 7, outputTokens: 7 },
+    ]);
+  });
+
+  it("refuses negative tokens and an empty model", async () => {
+    const user = await createTestUser("ai-usage-bad");
+    const insert = (row: Record<string, unknown>) => user.db.from("ai_usage").insert({ model: "m", input_tokens: 1, output_tokens: 1, ...row });
+    expect((await insert({ input_tokens: -1 })).error?.code).toBe("23514");
+    expect((await insert({ output_tokens: -1 })).error?.code).toBe("23514");
     expect((await insert({ model: "" })).error?.code).toBe("23514");
   });
 });

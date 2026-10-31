@@ -6,10 +6,9 @@ import type { PantrySnapshot } from "@/features/pantry";
 import { getPantryForStatus } from "@/features/pantry/server";
 import { getActiveOffers, OffersDataError } from "@/features/offers/server";
 import { storeBadgeText, type StoreOffer } from "@/features/offers";
-import { getAiChoice, getSelectedStore, listStores, SettingsDataError } from "@/features/settings/server";
+import { getAiServiceForUser, getSelectedStore, listStores, SettingsDataError } from "@/features/settings/server";
 import { draftLimits, fromAiRecipe, recipeDraftSchema, type RecipeDraft } from "@/features/recipes";
 import { fail, ok, type Result } from "@/lib/errors";
-import { getAiServiceFor } from "@/server/ai";
 import { offersUsed, toBuyNames, toOfferNames } from "../domain/offer-input";
 import { toSuggestInput } from "../domain/pantry-input";
 import type { DishSuggestions, SuggestRequest } from "../domain/suggestions";
@@ -189,7 +188,7 @@ async function suggest(
   }
   if (dropped > 0) console.info("suggest_pantry_trimmed", { dropped });
 
-  const suggested = await getAiServiceFor(await getAiChoice()).suggestDishes(input, signal, {
+  const suggested = await (await getAiServiceForUser()).suggestDishes(input, signal, {
     deadline: deadline === undefined ? undefined : deadline - postModelMarginMs,
   });
   if (!suggested.ok) return suggested;

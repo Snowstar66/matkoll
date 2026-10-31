@@ -26,7 +26,7 @@ test.beforeEach(async () => {
   userId = await e2eUserId(aiImportEmail);
   const admin = adminClient();
   // Children before parents, so nothing relies on the cascades.
-  for (const table of ["ai_job", "recipe_ingredient", "recipe_step", "recipe"] as const) {
+  for (const table of ["ai_job", "ai_usage", "recipe_ingredient", "recipe_step", "recipe"] as const) {
     const { error } = await admin.from(table).delete().eq("user_id", userId);
     if (error) throw error;
   }
@@ -114,6 +114,13 @@ test("two texts in a row: the sheet closes, the next is read at once, both are i
   await toast(page).getByRole("button", { name: "Öppna" }).click();
   expect(await recipeTitles()).toEqual(["Krämig kycklinggryta med curry", "Röd linssoppa med kokosmjölk"]);
   await expect.poll(async () => (await jobs()).length, { timeout: 5_000 }).toBe(0);
+
+  // Story 17.6: each read was recorded as a call, by model and tokens only (the mock has no tokens and costs nothing).
+  const usage = await adminClient().from("ai_usage").select("model, input_tokens, output_tokens").eq("user_id", userId);
+  expect(usage.data).toEqual([
+    { model: "mock", input_tokens: 0, output_tokens: 0 },
+    { model: "mock", input_tokens: 0, output_tokens: 0 },
+  ]);
 });
 
 test("a link keeps only its domain in the job, and the open sheet closes on a saved recipe with Öppna and Ångra", async ({ page }) => {

@@ -352,3 +352,40 @@ test("Story 17.5: the page AI saves the choice, which is read again after a relo
   }
   expect(errors).toEqual([]);
 });
+
+test("Story 17.6: the start page's AI group and the page AI show this month's calls and cost, from the price table", async ({ page }) => {
+  const errors = watchErrors(page);
+  const admin = adminClient();
+  await admin.from("ai_usage").delete().eq("user_id", userId);
+  // Haiku 2M in and 100k out is $0.25, 2,50 kr; a local model and the mock are free; a call from 2020 is another month.
+  const now = new Date().toISOString();
+  const seeded = await admin.from("ai_usage").insert([
+    { user_id: userId, model: "claude-haiku-5-5", input_tokens: 1_500_000, output_tokens: 60_000, created_at: now },
+    { user_id: userId, model: "claude-haiku-5-5", input_tokens: 500_000, output_tokens: 40_000, created_at: now },
+    { user_id: userId, model: "qwen/qwen3.6-35b-a3b", input_tokens: 9_000_000, output_tokens: 900_000, created_at: now },
+    { user_id: userId, model: "mock", input_tokens: 0, output_tokens: 0, created_at: now },
+    { user_id: userId, model: "claude-opus-5-5", input_tokens: 9_000_000, output_tokens: 900_000, created_at: "2020-03-10T10:00:00Z" },
+  ]);
+  expect(seeded.error).toBeNull();
+  const month = new Intl.DateTimeFormat("sv-SE", { timeZone: "Europe/Stockholm", month: "long" }).format(new Date());
+
+  await page.goto("/installningar");
+  const aiGroup = page.getByRole("list", { name: "AI", exact: true });
+  await expect(aiGroup.getByText(`Kostnad i ${month}`)).toBeVisible();
+  await expect(aiGroup.getByTestId("settings-value").filter({ hasText: "ca 2,50 kr" })).toBeVisible();
+
+  await page.getByTestId("settings-row").filter({ hasText: "Modell" }).click();
+  await expect(page).toHaveURL(/\/installningar\/ai$/);
+  const usage = page.getByTestId("ai-usage");
+  await expect(usage.getByRole("heading", { name: "Den här månaden" })).toBeVisible();
+  await expect(usage.getByTestId("ai-usage-calls")).toHaveText("4");
+  await expect(usage.getByTestId("ai-usage-cost")).toHaveText("ca 2,50 kr");
+  const width = await page.evaluate(() => [document.documentElement.scrollWidth, window.innerWidth]);
+  expect(width[0]).toBeLessThanOrEqual(width[1]);
+
+  await admin.from("ai_usage").delete().eq("user_id", userId);
+  await page.reload();
+  await expect(page.getByTestId("ai-usage-calls")).toHaveText("0");
+  await expect(page.getByTestId("ai-usage-cost")).toHaveText("0 kr");
+  expect(errors).toEqual([]);
+});

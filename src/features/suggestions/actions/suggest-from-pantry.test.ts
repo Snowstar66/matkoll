@@ -68,12 +68,11 @@ const { SettingsDataError, OffersDataError } = vi.hoisted(() => ({
 const getSelectedStore = vi.fn<() => Promise<{ id: string } | null>>();
 const getActiveOffers = vi.fn<(storeId: string) => Promise<unknown[]>>();
 const listStores = vi.fn<() => Promise<{ id: string; name: string }[]>>();
-vi.mock("@/features/settings/server", () => ({ SettingsDataError, getAiChoice: async () => null, getSelectedStore: () => getSelectedStore(), listStores: () => listStores() }));
+vi.mock("@/features/settings/server", () => ({ SettingsDataError, getAiServiceForUser: async () => ({ suggestDishes }), getSelectedStore: () => getSelectedStore(), listStores: () => listStores() }));
 vi.mock("@/features/offers/server", () => ({ OffersDataError, getActiveOffers: (storeId: string) => getActiveOffers(storeId) }));
 
 const ai = withInputValidation(createMockAiService());
 const suggestDishes = vi.fn(ai.suggestDishes);
-vi.mock("@/server/ai", () => ({ getAiServiceFor: () => ({ suggestDishes }) }));
 
 const { checkSuggestPantry, suggestFromPantry, postModelMarginMs } = await import("./suggest-from-pantry");
 
