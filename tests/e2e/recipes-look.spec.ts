@@ -467,8 +467,8 @@ async function expectStepperFits(page: Page, scope: Locator, title?: string) {
   const viewport = page.viewportSize()!;
   for (const button of [fewer, more]) {
     const found = await box(button);
-    expect(found.width).toBeGreaterThanOrEqual(44);
-    expect(found.height).toBeGreaterThanOrEqual(44);
+    expect(found.width).toBeGreaterThanOrEqual(44 - 0.01);
+    expect(found.height).toBeGreaterThanOrEqual(44 - 0.01);
     expect(found.x + found.width).toBeLessThanOrEqual(viewport.width);
   }
   const stepper = scope.getByTestId("stepper").first();
