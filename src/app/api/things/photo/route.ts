@@ -51,7 +51,14 @@ export async function POST(request: Request): Promise<Response> {
       requestStartedAt,
     });
   } catch (error) {
-    console.error("things_photo_failed", { code: "things_photo_failed", reason: error instanceof Error ? error.name : "unknown" });
+    // The name, message and first stack line only: they hold no photo and no name (an error from our own code or a library).
+    const known = error instanceof Error;
+    console.error("things_photo_failed", {
+      code: "things_photo_failed",
+      reason: known ? error.name : "unknown",
+      message: known ? error.message : undefined,
+      at: known ? error.stack?.split("\n").slice(1, 3).map((line) => line.trim()) : undefined,
+    });
     result = fail("things_photo_failed");
   }
   return result.ok ? respond(ok({ job: result.data.job }), 202) : respond(result);

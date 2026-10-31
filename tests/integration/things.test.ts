@@ -752,6 +752,10 @@ describe("rooms (Stories 18.11 and 18.12)", () => {
     ]);
     expect(rooms[0].latest).not.toBeNull();
     expect((await loadRoomIn(f.db, site, "garaget"))?.reading).toBe(1);
+
+    // A reading card older than the six minutes a job has is lost (readingStaleMs): the room no longer says it is being looked at.
+    await cardOf(f, garage, new Date(Date.now() - 7 * 60_000).toISOString());
+    expect((await loadRoomIn(f.db, site, "garaget"))?.reading).toBe(1);
     expect(await loadRoomIn(f.db, site, "finns-inte")).toBeNull();
 
     expect(await loadRoomCategoriesIn(f.db, site, "skräpförrådet")).toEqual([

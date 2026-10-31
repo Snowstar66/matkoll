@@ -135,6 +135,17 @@ async function queueReading(
   return ok({ job });
 }
 
+/** Removes a card nobody reads: the file first, so the row is never left pointing at nothing, then the row. */
+async function discardCard(db: ThingsDb, id: string, path: string): Promise<void> {
+  try {
+    await removeCardFiles(db, [path]);
+    const { error } = await db.from("thing_photo").delete().eq("id", id);
+    if (error) console.error("things_photo_failed", { reason: `cleanup_failed ${error.code}` });
+  } catch {
+    console.error("things_photo_failed", { reason: "cleanup_threw" });
+  }
+}
+
 /**
  * Saves the photo as a new card of the place and starts its job, in order:
  * the user; the metadata removed (`things_photo_failed` for a file that
@@ -192,12 +203,17 @@ export async function startCardReading(input: StartReadingInput): Promise<Result
     return fail("things_place_gone");
   }
 
-  const queued = await queueReading(db, user.data.id, { id, placeId: input.placeId, takenAt }, image, input.clientKey, input.requestStartedAt);
+  let queued: Awaited<ReturnType<typeof queueReading>>;
+  try {
+    queued = await queueReading(db, user.data.id, { id, placeId: input.placeId, takenAt }, image, input.clientKey, input.requestStartedAt);
+  } catch (error) {
+    // An error nobody expected: the card must not stay `reading` for ever. The route logs it.
+    await discardCard(db, id, path);
+    throw error;
+  }
   if (!queued.ok) {
     // Nobody will read this card: it goes again, the file first so the row is never left pointing at nothing.
-    await removeCardFiles(db, [path]);
-    const { error } = await db.from("thing_photo").delete().eq("id", id);
-    if (error) console.error("things_photo_failed", { reason: `cleanup_failed ${error.code}` });
+    await discardCard(db, id, path);
     return queued;
   }
   revalidateFor("thing_photo");
