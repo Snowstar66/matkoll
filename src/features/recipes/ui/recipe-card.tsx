@@ -24,6 +24,8 @@ type CardBase = {
   "data-testid"?: string;
   /** The soptunna's name; by default "Ta bort <titel>". */
   deleteLabel?: string;
+  /** Story 14.4: a narrow tile for the two-column phone grid: 104 px image, title cut after two lines. */
+  tile?: boolean;
 };
 
 /**
@@ -84,6 +86,7 @@ export function RecipeCard({
   favorite,
   onDelete,
   deleteLabel,
+  tile = false,
   quickAction,
   children,
   "data-testid": testId = "recipe-card",
@@ -96,7 +99,7 @@ export function RecipeCard({
           {href ? (
             <Link
               href={href}
-              className="text-row-title break-words text-ink outline-none after:absolute after:inset-0 after:z-1 after:rounded-lg focus-visible:after:outline-2 focus-visible:after:outline-offset-2 focus-visible:after:outline-accent"
+              className={cx("text-row-title break-words text-ink outline-none", tile && "line-clamp-2", "after:absolute after:inset-0 after:z-1 after:rounded-lg focus-visible:after:outline-2 focus-visible:after:outline-offset-2 focus-visible:after:outline-accent")}
             >
               {title}
             </Link>
@@ -114,7 +117,7 @@ export function RecipeCard({
           src={imageUrl}
           emoji={emoji}
           iconSize={emoji ? (imageUrl === null ? 36 : 56) : imageUrl === null ? 24 : 40}
-          className={cx("w-full rounded-t-lg", imageUrl === null ? "h-16" : "h-card-image")}
+          className={cx("w-full rounded-t-lg", imageUrl === null ? "h-16" : tile ? "h-[104px] desktop:h-card-image" : "h-card-image")}
         />
         {badge || favorite ? (
           <div

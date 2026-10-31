@@ -607,7 +607,7 @@ type Panel = "more" | "move" | "cooked" | null;
  * what is at home for them ("✓ Allt hemma", or "1 av 11 hemma" in sand with
  * a thin meter), and ⋯, which opens the sheet with servings, "Markera som
  * lagad", "Flytta till annan dag" and "Ta bort från matsedeln". A passed day
- * is smaller and dimmed, and an uncooked dish on it has "Lagad?". Without a
+ * is smaller and dimmed, and an uncooked dish on it has "Lagad?" as a chip under the meta line (so the title keeps the row's width and never breaks mid-word). Without a
  * pantry, or a catalog ingredient to count, there is no status and no
  * meter; a dish whose recipe is gone keeps its title and says "Borttaget recept".
  */
@@ -643,51 +643,53 @@ function DishRow({
     >
       <div className={`flex items-center gap-3 py-2 pr-1 pl-3 ${past ? "" : "min-h-row"}`}>
         {when}
-        <div className={`flex min-w-0 flex-1 items-center gap-3 ${past ? "opacity-60" : ""}`}>
+        <div className="flex min-w-0 flex-1 items-center gap-3">
           <RecipeImage
             src={recipe?.imageUrl ?? null}
             iconSize={past ? 20 : 24}
-            className={`shrink-0 rounded-md ${past ? "size-tap" : "size-dish-thumb"}`}
+            className={`shrink-0 rounded-md ${past ? "size-tap opacity-60" : "size-dish-thumb"}`}
           />
           <div className="flex min-w-0 flex-1 flex-col gap-0.5">
-            {dish.recipeId ? (
-              <Link
-                href={`/recept/${dish.recipeId}`}
-                data-dish-focus
-                // The link covers the whole row, so a tap anywhere on it opens the recipe.
-                className={`max-w-full self-start break-words text-ink after:absolute after:inset-0 ${past ? "text-body font-semibold" : "text-row-title"}`}
-              >
-                {title}
-              </Link>
-            ) : (
-              <p className={`break-words text-ink ${past ? "text-body font-semibold" : "text-row-title"}`}>{title}</p>
-            )}
-            <p data-testid="dish-meta" className="flex flex-wrap items-center gap-x-1.5 text-meta text-ink-3">
-              {today ? <TodayPill /> : null}
-              <span>{dishRowMetaText(dish.recipeId, recipe?.totalMinutes, servings)}</span>
-              {cooked ? (
-                <span data-testid="dish-cooked" className="font-semibold text-mint-ink">
-                  ✓ Lagad
-                </span>
-              ) : progress ? (
-                <span data-testid="dish-status" className={`font-semibold ${missing ? "text-sand-ink" : "text-mint-ink"}`}>
-                  {missing ? progress.text : "✓ Allt hemma"}
-                </span>
+            <div className={`flex min-w-0 flex-col gap-0.5 ${past ? "opacity-60" : ""}`}>
+              {dish.recipeId ? (
+                <Link
+                  href={`/recept/${dish.recipeId}`}
+                  data-dish-focus
+                  // The link covers the whole row, so a tap anywhere on it opens the recipe.
+                  className={`max-w-full self-start break-words text-ink after:absolute after:inset-0 ${past ? "text-body font-semibold" : "text-row-title"}`}
+                >
+                  {title}
+                </Link>
+              ) : (
+                <p className={`break-words text-ink ${past ? "text-body font-semibold" : "text-row-title"}`}>{title}</p>
+              )}
+              <p data-testid="dish-meta" className="flex flex-wrap items-center gap-x-1.5 text-meta text-ink-3">
+                {today ? <TodayPill /> : null}
+                <span>{dishRowMetaText(dish.recipeId, recipe?.totalMinutes, servings)}</span>
+                {cooked ? (
+                  <span data-testid="dish-cooked" className="font-semibold text-mint-ink">
+                    ✓ Lagad
+                  </span>
+                ) : progress ? (
+                  <span data-testid="dish-status" className={`font-semibold ${missing ? "text-sand-ink" : "text-mint-ink"}`}>
+                    {missing ? progress.text : "✓ Allt hemma"}
+                  </span>
+                ) : null}
+              </p>
+              {missing && progress ? <Meter value={progress.value} size="small" className="mt-1" /> : null}
+            </div>
+              {past && !cooked && recipe ? (
+                <button
+                  type="button"
+                  onClick={() => setPanel("cooked")}
+                  aria-label={`Lagad? ${title}`}
+                  className="relative z-10 flex min-h-tap items-center self-start rounded-full text-meta font-semibold text-accent"
+                >
+                  <span className="rounded-full border border-border bg-surface px-3 py-1">Lagad?</span>
+                </button>
               ) : null}
-            </p>
-            {missing && progress ? <Meter value={progress.value} size="small" className="mt-1" /> : null}
           </div>
         </div>
-        {past && !cooked && recipe ? (
-          <button
-            type="button"
-            onClick={() => setPanel("cooked")}
-            aria-label={`Lagad? ${title}`}
-            className="relative z-10 flex min-h-tap shrink-0 items-center rounded-full px-2 text-meta font-semibold text-accent"
-          >
-            <span className="rounded-full border border-border bg-surface px-3 py-1">Lagad?</span>
-          </button>
-        ) : null}
         <button
           type="button"
           onClick={() => setPanel("more")}

@@ -170,6 +170,8 @@ export function Library({ recipes, pantryUnavailable, site, searchIngredients, s
   // Kan lagas nu ranks by what is missing, which is what Senast tillagda and
   // Mest hemma ask for there; an explicit Snabbast or A–Ö is followed instead.
   const rankedByMissing = filter === "cookable" && (sort === "newest" || sort === "mostHome");
+  // Story 14.4: the categories any recipe has, counted over the whole library so the chips stay put while filtering.
+  const availableCategories = useMemo(() => new Set(recipes.flatMap((recipe) => recipe.categories ?? [])), [recipes]);
   // The recipes in the category, before the pills, so an empty list can say which.
   const inCategory = useMemo(() => (category === undefined ? [] : filterByCategory(shown, category)), [shown, category]);
   const visible = useMemo(() => {
@@ -280,7 +282,7 @@ export function Library({ recipes, pantryUnavailable, site, searchIngredients, s
           {siteLine}
         </p>
       ) : null}
-      <RecipeCategoryChips value={category} onChange={setCategory} />
+      <RecipeCategoryChips value={category} onChange={setCategory} available={availableCategories} />
       {search.kind !== "failed" ? (
         <RecipeBar
           count={visible.length}
