@@ -1,5 +1,6 @@
 import { z } from "zod";
 import type { ThingCategory } from "../domain/thing";
+import { cleanThingName } from "../domain/thing-edit";
 import { notedTitle, type RoomParts } from "../domain/thing-noted";
 import { normalizePlaceName } from "../domain/thing-place";
 import { cardGoneCode, guarded, ThingsDataError, type ThingsDb } from "./client";
@@ -55,18 +56,20 @@ function literal(text: string): string {
  * the same thing moves. `null` when there is none. Throws ThingsDataError.
  */
 export async function findNotedIn(db: ThingsDb, name: string): Promise<{ id: string; title: string; notedAt: string } | null> {
+  const clean = cleanThingName(name);
+  if (clean === "") return null;
   return guarded("query", async () => {
     const { data, error } = await db
       .from("thing_item")
       .select("id, name, created_at, thing_place!inner(room, part)")
       .eq("source", "noted")
-      .ilike("name", literal(name))
+      .ilike("name", literal(clean))
       .order("created_at", { ascending: false })
       .limit(10);
     if (error) throw new ThingsDataError(`query_failed ${error.code}`);
     const parsed = notedRowsSchema.safeParse(data);
     if (!parsed.success) throw new ThingsDataError("invalid_row");
-    const key = normalizePlaceName(name);
+    const key = normalizePlaceName(clean);
     const row = parsed.data.find((entry) => normalizePlaceName(entry.name) === key);
     return row ? { id: row.id, title: notedTitle(row.thing_place), notedAt: new Date(row.created_at).toISOString() } : null;
   });
