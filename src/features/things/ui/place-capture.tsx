@@ -3,17 +3,17 @@
 import { useRouter } from "next/navigation";
 import { type ChangeEvent, useCallback, useEffect, useRef, useState } from "react";
 import { Button } from "@/components/button";
-import { CameraIcon } from "@/components/icons";
 import { Notice } from "@/components/notice";
+import { PhotoRow } from "@/components/photo-row";
 import { useCoarsePointer } from "@/components/use-coarse-pointer";
 import { useAiJobs, useOnAiJobsFinished, useShowingAiResults } from "@/lib/ai-jobs-client";
 import { isActive, type AiJob } from "@/lib/ai-job-shape";
 import { downscaleImage } from "@/lib/downscale-image";
 import { errorMessages, fail, isErrorCode, type AppError, type Result } from "@/lib/errors";
 import { maxPlacePhotoSide } from "@/lib/images";
-import { cameraText, cardFailureText, pickText, readingText, retryText, type ThingPhotoStatus } from "../domain/thing-photo";
+import { cardFailureText, latestCardText, newCardText, pickText, readingText, retryText, type ThingPhotoStatus } from "../domain/thing-photo";
 
-// Fota en plats (Story 18.2, FR-24): the camera button, "Välj bild" and the
+// Fota en plats (Story 18.2, FR-24): the camera row, "Välj bild" and the
 // state of the card being read, on a place's page. On a phone the button opens
 // the back camera and "Välj bild" the photo library (HEIC from an iPhone is
 // decoded by the browser and sent as a JPEG); on a desktop the button opens the
@@ -30,14 +30,14 @@ export type PlaceCaptureProps = {
   placeId: string;
   /** The newest card when it is being read or failed, else `null`. */
   pending: PendingCard | null;
-  /** The place has a finished card: the button then takes a new one. */
-  hasCard: boolean;
+  /** When the finished card was taken, for the line "Senaste kort 31 okt"; `null` for none. */
+  latestTakenAt: Date | null;
 };
 
 /** How often a page with a card being read reads itself again. */
 const refreshMs = 3_000;
 
-export function PlaceCapture({ placeId, pending, hasCard }: PlaceCaptureProps) {
+export function PlaceCapture({ placeId, pending, latestTakenAt }: PlaceCaptureProps) {
   const router = useRouter();
   const { start, jobs, markSeen } = useAiJobs();
   const touch = useCoarsePointer();
@@ -160,10 +160,11 @@ export function PlaceCapture({ placeId, pending, hasCard }: PlaceCaptureProps) {
       </div>
       {reading ? null : (
         <>
-          <Button variant="secondary" fullWidth onClick={() => (touch ? cameraRef : pickerRef).current?.click()}>
-            <CameraIcon size={22} />
-            {hasCard ? "Ta ett nytt kort" : cameraText}
-          </Button>
+          <PhotoRow title={newCardText} onClick={() => (touch ? cameraRef : pickerRef).current?.click()}>
+            <p data-testid="place-latest-card" className="text-meta text-ink-3">
+              {latestCardText(latestTakenAt)}
+            </p>
+          </PhotoRow>
           {touch ? (
             <Button variant="text" onClick={() => pickerRef.current?.click()} className="self-center">
               {pickText}

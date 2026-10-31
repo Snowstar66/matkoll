@@ -1,7 +1,8 @@
 import "server-only";
 import { createClient } from "@/lib/supabase/server";
+import { ThingsDataError } from "./data/client";
 import { loadThingsIn } from "./data/items";
-import { downloadCardFile, loadCardIn, loadCardsIn } from "./data/photos";
+import { downloadCardFile, loadCardIn, loadCardsIn, loadSiteCardFilesIn, removeCardFiles } from "./data/photos";
 import { loadPlaceIn, loadPlacesIn } from "./data/places";
 import type { Thing } from "./domain/thing";
 import { shownStatus, type ThingCard } from "./domain/thing-photo";
@@ -13,7 +14,7 @@ import type { ThingPlace } from "./domain/thing-place";
 // Handlers. Things never touch food (Epic 18).
 
 /** What the functions below throw when Supabase fails; never user data. */
-export { ThingsDataError } from "./data/client";
+export { ThingsDataError };
 
 /**
  * The cards and the AI's jobs behind a photo: for the Route Handlers
@@ -68,4 +69,28 @@ export async function readCardImage(id: string): Promise<{ data: Blob; mediaType
 /** Whether the user's card `id` and its file are there (HEAD). */
 export async function hasCardImage(id: string): Promise<boolean> {
   return (await readCardImage(id)) !== null;
+}
+
+/**
+ * The card files of a boende that is about to be deleted (Story 18.2, AD-26):
+ * its cards' files and anything else in its places' folders. The cascade takes
+ * the rows, not the files, so a caller reads them first and removes them with
+ * removeSiteCardFiles once the boende is gone. When they cannot be read that
+ * is logged (`things_photo_remove_failed`, a reason only) and none are given:
+ * the sweep takes them later, once they have no row.
+ */
+export async function loadSiteCardFiles(siteId: string, userId: string): Promise<string[]> {
+  try {
+    return await loadSiteCardFilesIn(await createClient(), userId, siteId);
+  } catch (error) {
+    if (!(error instanceof ThingsDataError)) throw error;
+    console.error("things_photo_remove_failed", { reason: error.detail });
+    return [];
+  }
+}
+
+/** Removes the files loadSiteCardFiles gave, with the Storage API (once more on a failure); a failure is only logged. */
+export async function removeSiteCardFiles(paths: readonly string[]): Promise<void> {
+  const { failed } = await removeCardFiles(await createClient(), paths);
+  if (failed !== null) console.error("things_photo_remove_failed", { reason: failed });
 }

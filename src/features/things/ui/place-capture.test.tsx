@@ -44,7 +44,7 @@ beforeEach(() => {
   finishedListener = null;
 });
 
-const props = (overrides: Partial<PlaceCaptureProps> = {}): PlaceCaptureProps => ({ placeId, pending: null, hasCard: false, ...overrides });
+const props = (overrides: Partial<PlaceCaptureProps> = {}): PlaceCaptureProps => ({ placeId, pending: null, latestTakenAt: null, ...overrides });
 
 function choose(file = new File(["x"], "plats.heic", { type: "image/heic" })) {
   const input = document.querySelectorAll<HTMLInputElement>("input[type=file]")[0];
@@ -52,11 +52,12 @@ function choose(file = new File(["x"], "plats.heic", { type: "image/heic" })) {
 }
 
 describe("Fota en plats", () => {
-  it("has the camera button, which takes a new card when the place has one", () => {
+  it("has the quiet camera row, with the date of the latest card or 'Inget kort än'", () => {
     const { rerender } = render(<PlaceCapture {...props()} />);
-    expect(screen.getByRole("button", { name: "Fotografera platsen" })).toBeInTheDocument();
-    rerender(<PlaceCapture {...props({ hasCard: true })} />);
     expect(screen.getByRole("button", { name: "Ta ett nytt kort" })).toBeInTheDocument();
+    expect(screen.getByText("Inget kort än")).toBeInTheDocument();
+    rerender(<PlaceCapture {...props({ latestTakenAt: new Date("2026-10-31T10:00:00Z") })} />);
+    expect(screen.getByText("Senaste kort 31 okt")).toBeInTheDocument();
   });
 
   it("makes the photo small and posts it as a job with the place and the time, then reads the page again", async () => {
@@ -80,9 +81,9 @@ describe("Fota en plats", () => {
     render(<PlaceCapture {...props()} />);
     choose();
     expect(await screen.findByText(/Tittar på bilden/)).toBeInTheDocument();
-    expect(screen.queryByRole("button", { name: "Fotografera platsen" })).toBeNull();
+    expect(screen.queryByRole("button", { name: "Ta ett nytt kort" })).toBeNull();
     await act(async () => answer(ok({ job })));
-    expect(await screen.findByRole("button", { name: "Fotografera platsen" })).toBeInTheDocument();
+    expect(await screen.findByRole("button", { name: "Ta ett nytt kort" })).toBeInTheDocument();
   });
 
   it("shows the reason in a notice when the start is refused, and keeps the camera button", async () => {
@@ -90,7 +91,7 @@ describe("Fota en plats", () => {
     render(<PlaceCapture {...props()} />);
     choose();
     expect(await screen.findByRole("alert")).toHaveTextContent("Det finns redan tre AI-jobb");
-    expect(screen.getByRole("button", { name: "Fotografera platsen" })).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "Ta ett nytt kort" })).toBeInTheDocument();
   });
 
   it("shows a card being read without a camera button, and reads the page again every few seconds", () => {
@@ -98,7 +99,7 @@ describe("Fota en plats", () => {
     try {
       render(<PlaceCapture {...props({ pending: { id: cardId, status: "reading", errorCode: null } })} />);
       expect(screen.getByText(/Tittar på bilden … Du kan göra annat under tiden/)).toBeInTheDocument();
-      expect(screen.queryByRole("button", { name: "Fotografera platsen" })).toBeNull();
+      expect(screen.queryByRole("button", { name: "Ta ett nytt kort" })).toBeNull();
       expect(refresh).not.toHaveBeenCalled();
       act(() => void vi.advanceTimersByTime(3_100));
       expect(refresh).toHaveBeenCalledTimes(1);
@@ -126,7 +127,7 @@ describe("Fota en plats", () => {
     render(<PlaceCapture {...props({ pending: { id: cardId, status: "failed", errorCode: "ai_unavailable" } })} />);
     expect(screen.getByRole("alert")).toHaveTextContent("Det ligger kvar, så du kan försöka igen");
     // The camera button is there too: a new card can be taken instead.
-    expect(screen.getByRole("button", { name: "Fotografera platsen" })).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "Ta ett nytt kort" })).toBeInTheDocument();
     fireEvent.click(screen.getByRole("button", { name: "Försök igen" }));
     await waitFor(() => expect(start).toHaveBeenCalledWith("/api/things/retry", { card: cardId }, expect.any(String)));
     await waitFor(() => expect(refresh).toHaveBeenCalled());

@@ -2,6 +2,7 @@
 
 import { z } from "zod";
 import { requireUser } from "@/features/auth/server";
+import { loadSiteCardFiles, removeSiteCardFiles } from "@/features/things/server";
 import { fail, ok, type Result } from "@/lib/errors";
 import { revalidateFor } from "@/lib/revalidate";
 import { createClient } from "@/lib/supabase/server";
@@ -30,6 +31,11 @@ const deleteSchema = z.object({ id: z.uuid() });
  * `pantry_photo_remove_failed` with the reason only, the place is deleted all
  * the same, and the sweep takes the files later (they have no row).
  *
+ * The boende's Prylar cards (Story 18.2) are the same: their files, and
+ * whatever is in their places' folders, are read before and removed with the
+ * Storage API after (loadSiteCardFiles). The migration's comment that "the
+ * code removes the files" is kept by this call.
+ *
  * Fails with `unauthorized`, `validation`, `pantry_site_in_use` (selected,
  * with items or the last; another tab changed it meanwhile) or
  * `pantry_site_failed`. Logs only the error code and the Postgres code.
@@ -43,10 +49,13 @@ export async function deletePantrySite(input: { id: string }): Promise<Result<{ 
   try {
     const db = await createClient();
     const photoPaths = await sitePhotoPaths(db, parsed.data.id);
+    // Prylar's card files (Story 18.2): the cascade takes the rows of the boende's cards, not their files.
+    const cardFiles = await loadSiteCardFiles(parsed.data.id, user.data.id);
     const outcome = await deleteSiteIn(db, parsed.data.id);
     revalidateFor("pantry_site");
     if (outcome.kind === "in_use") return fail("pantry_site_in_use");
     await removeSitePhotos(db, photoPaths, `${user.data.id}/${parsed.data.id}`);
+    await removeSiteCardFiles(cardFiles);
     return ok({ removed: outcome.removed });
   } catch (error) {
     if (!(error instanceof PantryDataError)) throw error;

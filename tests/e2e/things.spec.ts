@@ -81,7 +81,7 @@ test("a place is made with a room and a part, rooms are suggested and places are
   await newPlace(page, "Skräpförrådet", "Översta hyllan");
   await expect(page).toHaveURL(/\/prylar\/[0-9a-f-]{36}$/);
   await expect(page.getByRole("heading", { level: 1 })).toHaveText("Skräpförrådet · Översta hyllan");
-  await expect(page.getByRole("button", { name: "Fotografera platsen" })).toBeVisible();
+  await expect(page.getByRole("button", { name: "Ta ett nytt kort" })).toBeVisible();
 
   // Back to the list, a second place in the same room: the room is suggested, so it is reused.
   await page.getByRole("link", { name: "Tillbaka" }).click();
@@ -147,13 +147,13 @@ test("a photo is read in the background and the things come under their categori
   page.on("pageerror", (error) => errors.push(error.message));
   await page.goto("/prylar");
   await newPlace(page, "Skräpförrådet", "Väggen");
-  await expect(page.getByRole("button", { name: "Fotografera platsen" })).toBeVisible();
+  await expect(page.getByRole("button", { name: "Ta ett nytt kort" })).toBeVisible();
 
   const chooser = page.waitForEvent("filechooser");
-  await page.getByRole("button", { name: "Fotografera platsen" }).click();
+  await page.getByRole("button", { name: "Ta ett nytt kort" }).click();
   await (await chooser).setFiles(photo);
   await expect(page.getByText("Tittar på bilden … Du kan göra annat under tiden.")).toBeVisible();
-  await expect(page.getByRole("button", { name: "Fotografera platsen" })).toHaveCount(0);
+  await expect(page.getByRole("button", { name: "Ta ett nytt kort" })).toHaveCount(0);
 
   // The job runs in the background: the card, its date and the things come when it is done.
   const panel = page.getByTestId("card-panel");
@@ -200,9 +200,9 @@ test("a photo is read in the background and the things come under their categori
 test("a new photo of the place replaces the old card, its things and its file", async ({ page }) => {
   await page.goto("/prylar");
   await newPlace(page, "Garaget");
-  for (const round of [1, 2]) {
+  for (let round = 0; round < 2; round += 1) {
     const chooser = page.waitForEvent("filechooser");
-    await page.getByRole("button", { name: round === 1 ? "Fotografera platsen" : "Ta ett nytt kort" }).click();
+    await page.getByRole("button", { name: "Ta ett nytt kort" }).click();
     await (await chooser).setFiles(photo);
     await expect(page.getByTestId("card-panel")).toBeVisible({ timeout: 25_000 });
     await expect(page.getByRole("button", { name: "Ta ett nytt kort" })).toBeVisible();
@@ -222,7 +222,7 @@ test("a reading that does not go leaves the card with a calm notice and Försök
   await page.goto("/prylar");
   await newPlace(page, "Vinden");
   const chooser = page.waitForEvent("filechooser");
-  await page.getByRole("button", { name: "Fotografera platsen" }).click();
+  await page.getByRole("button", { name: "Ta ett nytt kort" }).click();
   await (await chooser).setFiles(failing);
   const notice = page.getByRole("alert").filter({ hasText: "Det gick inte att läsa kortet" });
   await expect(notice).toBeVisible({ timeout: 25_000 });
@@ -250,7 +250,7 @@ test("a finished reading is confirmed while Pontus is in another tab, with a bad
   await page.goto("/prylar");
   await newPlace(page, "Boden");
   const chooser = page.waitForEvent("filechooser");
-  await page.getByRole("button", { name: "Fotografera platsen" }).click();
+  await page.getByRole("button", { name: "Ta ett nytt kort" }).click();
   await (await chooser).setFiles(photo);
   await expect(page.getByText("Tittar på bilden … Du kan göra annat under tiden.")).toBeVisible();
   await nav(page).getByRole("link", { name: "Recept" }).click();

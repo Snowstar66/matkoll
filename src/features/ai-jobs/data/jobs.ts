@@ -31,6 +31,24 @@ function parseRow(row: unknown): AiJobRow {
   return parsed.data;
 }
 
+/**
+ * The rows a read gives, without those this code cannot read (a job of a
+ * kind or a shape a newer or older version wrote, AD-28 backward
+ * compatibility): they are skipped and counted in one log line, never a
+ * reason to fail the whole list.
+ */
+function parseRows(rows: readonly unknown[]): AiJobRow[] {
+  const jobs: AiJobRow[] = [];
+  let skipped = 0;
+  for (const row of rows) {
+    const parsed = aiJobRowSchema.safeParse(row);
+    if (parsed.success) jobs.push(parsed.data);
+    else skipped += 1;
+  }
+  if (skipped > 0) console.error("ai_job_rows_skipped", { count: skipped });
+  return jobs;
+}
+
 export type EnqueueOutcome = { kind: "queued"; created: boolean; job: AiJobRow } | { kind: "full" };
 
 /**
@@ -138,14 +156,14 @@ export async function loadShownAiJobsIn(db: AiJobsDb): Promise<AiJobRow[]> {
     .order("created_at")
     .order("id");
   if (error) throw new AiJobsDataError(`query_failed ${error.code}`);
-  return data.map(parseRow);
+  return parseRows(data);
 }
 
-/** One job with its result, or null when it is not the user's or is gone. */
+/** One job with its result, or null when it is not the user's, is gone or is one this code cannot read. */
 export async function loadAiJobIn(db: AiJobsDb, id: string): Promise<AiJobRow | null> {
   const { data, error } = await db.from("ai_job").select(`${columns}, result`).eq("id", id).maybeSingle();
   if (error) throw new AiJobsDataError(`query_failed ${error.code}`);
-  return data ? parseRow(data) : null;
+  return data ? (parseRows([data])[0] ?? null) : null;
 }
 
 /** A job's status, for the function that runs it to see that it was cancelled or replaced; null when gone. */

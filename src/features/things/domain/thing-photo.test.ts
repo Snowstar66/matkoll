@@ -60,3 +60,11 @@ describe("the form", () => {
     expect(thingPhotoFormSchema.safeParse({ clientKey: uuid, place: uuid, takenAt: null }).success).toBe(false);
   });
 });
+
+describe("latestCardText", () => {
+  it("says the day of the latest card, or that there is none", async () => {
+    const { latestCardText } = await import("./thing-photo");
+    expect(latestCardText(new Date("2026-10-31T10:00:00Z"))).toBe("Senaste kort 31 okt");
+    expect(latestCardText(null)).toBe("Inget kort än");
+  });
+});

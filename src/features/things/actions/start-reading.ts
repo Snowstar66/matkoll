@@ -21,6 +21,7 @@ import {
   saveReadingIn,
   uploadCardFile,
 } from "../data/photos";
+import { sweepCardFilesIn } from "./sweep-card-files";
 import { shownStatus, thingPhotoPath, type ThingPhotoMediaType } from "../domain/thing-photo";
 
 // Fota en plats (Story 18.2, FR-24, FR-46-FR-49, AD-2, AD-9, AD-15, AD-26,
@@ -62,7 +63,7 @@ function withoutMetadata(image: StartReadingInput["image"]): { data: Uint8Array;
 }
 
 /** The job's work: the model reads the photo, the things are saved, the older cards of the place go. */
-function readingWork(db: ThingsDb, card: { id: string; placeId: string }, image: { data: Uint8Array; mediaType: string }): AiJobWork {
+function readingWork(db: ThingsDb, userId: string, card: { id: string; placeId: string }, image: { data: Uint8Array; mediaType: string }): AiJobWork {
   return async (signal, deadline): Promise<Result<Json>> => {
     const failCard = async (code: string) => {
       try {
@@ -98,6 +99,8 @@ function readingWork(db: ThingsDb, card: { id: string; placeId: string }, image:
     // The older cards of the place are replaced: their files go too. A file that stays is only logged.
     const { failed } = await removeCardFiles(db, removed);
     if (failed !== null) console.error("things_photo_remove_failed", { reason: failed });
+    // Like the pantry's sweep after a save (Story 10.3): files without a row go too. Never changes the answer.
+    await sweepCardFilesIn(db, userId);
     console.info("things_read", { count: things.length });
     return ok({ photoId: card.id, placeId: card.placeId, count: things.length } satisfies Json);
   };
@@ -106,6 +109,7 @@ function readingWork(db: ThingsDb, card: { id: string; placeId: string }, image:
 /** Queues the card's job and runs it in the background of this request. */
 async function queueReading(
   db: ThingsDb,
+  userId: string,
   card: { id: string; placeId: string; takenAt: Date },
   image: { data: Uint8Array; mediaType: string },
   clientKey: string,
@@ -120,7 +124,7 @@ async function queueReading(
   if (!enqueued.ok) return enqueued;
   const { job, created, startBy } = enqueued.data;
   // A job that was given back (a double tap, another tab) is run by the request that made it.
-  if (created) after(() => runAiJob(db, job, { startBy }, readingWork(db, card, image)));
+  if (created) after(() => runAiJob(db, job, { startBy }, readingWork(db, userId, card, image)));
   return ok({ job });
 }
 
@@ -177,7 +181,7 @@ export async function startCardReading(input: StartReadingInput): Promise<Result
     return fail("things_place_gone");
   }
 
-  const queued = await queueReading(db, { id, placeId: input.placeId, takenAt }, image, input.clientKey, input.requestStartedAt);
+  const queued = await queueReading(db, user.data.id, { id, placeId: input.placeId, takenAt }, image, input.clientKey, input.requestStartedAt);
   if (!queued.ok) {
     // Nobody will read this card: it goes again, the file first so the row is never left pointing at nothing.
     await removeCardFiles(db, [path]);
@@ -223,6 +227,7 @@ export async function retryCardReading(input: { cardId: string; clientKey: strin
 
   const queued = await queueReading(
     db,
+    user.data.id,
     { id: card.id, placeId: card.placeId, takenAt: card.takenAt },
     { data: bytes, mediaType: card.mediaType },
     input.clientKey,

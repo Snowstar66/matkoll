@@ -3,6 +3,8 @@ export {
   cardDateText,
   cardFailureText,
   cameraText,
+  latestCardText,
+  newCardText,
   clampTakenAt,
   noThingsText,
   pickText,

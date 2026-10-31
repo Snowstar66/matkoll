@@ -69,7 +69,7 @@ async function PlaceContent({ params }: Pick<PageProps<"/prylar/[id]">, "params"
       <div className="flex flex-col gap-6">
         <PlaceCapture
           placeId={place.id}
-          hasCard={card !== null}
+          latestTakenAt={card?.takenAt ?? null}
           pending={pending && pending.status !== "done" ? { id: pending.id, status: pending.status, errorCode: pending.errorCode } : null}
         />
         {card ? <CardPanel card={card} things={things} /> : null}

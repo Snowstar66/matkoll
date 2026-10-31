@@ -152,14 +152,22 @@ describe("the reads", () => {
     expect(calls.filter(([name]) => name === "order").map(([, column]) => column)).toEqual(["created_at", "id"]);
   });
 
-  it("throws for a row that is not the shape and for a failed query", async () => {
-    await expect(loadShownAiJobsIn(fakeDb({}, { data: [{ id: "x" }] }).db)).rejects.toMatchObject({ detail: "invalid_row" });
+  it("skips a row it cannot read, such as an unknown kind, logging once, and throws for a failed query", async () => {
+    const log = vi.spyOn(console, "error").mockImplementation(() => {});
+    const rows = await loadShownAiJobsIn(fakeDb({}, { data: [{ id: "x" }, row, { ...row, kind: "from_the_future" }] }).db);
+    expect(rows.map((shown) => shown.id)).toEqual([row.id]);
+    expect(log).toHaveBeenCalledTimes(1);
+    expect(log).toHaveBeenCalledWith("ai_job_rows_skipped", { count: 2 });
+    log.mockRestore();
     await expect(loadShownAiJobsIn(fakeDb({}, error("42501")).db)).rejects.toMatchObject({ detail: "query_failed 42501" });
   });
 
   it("reads one job with its result, or null when it is not there", async () => {
     expect(await loadAiJobIn(fakeDb({}, { data: { ...row, status: "done", result: { suggestions: [] } } }).db, row.id)).toMatchObject({ status: "done" });
     expect(await loadAiJobIn(fakeDb({}, { data: null }).db, row.id)).toBeNull();
+    const log = vi.spyOn(console, "error").mockImplementation(() => {});
+    expect(await loadAiJobIn(fakeDb({}, { data: { ...row, kind: "from_the_future" } }).db, row.id)).toBeNull();
+    log.mockRestore();
   });
 
   it("reads a job's status, null when it is gone", async () => {

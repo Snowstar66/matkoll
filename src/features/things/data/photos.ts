@@ -176,7 +176,7 @@ export async function downloadCardFile(db: ThingsDb, path: string): Promise<Blob
 }
 
 /** Removes files with the Storage API. Never throws: the first failure is returned (`remove_failed <status>`), the files are then left behind. */
-export async function removeCardFiles(db: ThingsDb, paths: readonly string[]): Promise<{ failed: string | null }> {
+async function removeCardFilesOnce(db: ThingsDb, paths: readonly string[]): Promise<{ failed: string | null }> {
   if (paths.length === 0) return { failed: null };
   try {
     const { error } = await db.storage.from(thingPhotoBucket).remove([...paths]);
@@ -184,4 +184,89 @@ export async function removeCardFiles(db: ThingsDb, paths: readonly string[]): P
   } catch {
     return { failed: "remove_threw" };
   }
+}
+
+/** Removes files like removeCardFilesOnce, and once more when that failed (a hiccup), so fewer files are left for the sweep. */
+export async function removeCardFiles(db: ThingsDb, paths: readonly string[]): Promise<{ failed: string | null }> {
+  const first = await removeCardFilesOnce(db, paths);
+  return first.failed === null ? first : removeCardFilesOnce(db, paths);
+}
+
+/** The most entries one Storage listing asks for. */
+const listPage = 100;
+
+/** The most files one listing of a folder reads, so it never runs away. */
+const listMaxFiles = 1_000;
+
+export type StoredFile = { path: string; createdAt: Date | null };
+
+/**
+ * The files directly in `folder` (such as `<user>/<place>`), and its
+ * sub-folders' names when `folders` is true instead; every page. Throws
+ * ThingsDataError `list_failed <status>`, `list_threw` or `list_too_many`.
+ */
+async function listFolderIn(db: ThingsDb, folder: string, kind: "files" | "folders"): Promise<StoredFile[]> {
+  const found: StoredFile[] = [];
+  for (let offset = 0; ; offset += listPage) {
+    const entries = await guarded("list", async () => {
+      const { data, error } = await db.storage.from(thingPhotoBucket).list(folder, {
+        limit: listPage,
+        offset,
+        sortBy: { column: "name", order: "asc" },
+      });
+      if (error) throw new ThingsDataError(`list_failed ${statusOf(error)}`);
+      return data ?? [];
+    });
+    for (const entry of entries) {
+      // A folder is an entry without an id.
+      const isFile = entry.id !== null && entry.id !== undefined;
+      if ((kind === "files") !== isFile) continue;
+      const created = typeof entry.created_at === "string" ? new Date(entry.created_at) : null;
+      found.push({ path: `${folder}/${entry.name}`, createdAt: created && !Number.isNaN(created.getTime()) ? created : null });
+    }
+    if (found.length > listMaxFiles) throw new ThingsDataError("list_too_many");
+    if (entries.length < listPage) break;
+  }
+  return found;
+}
+
+/**
+ * The files of a boende's cards, read before the boende is deleted (the
+ * cascade takes the rows, not the files): the paths in thing_photo, and every
+ * file in the folders of the boende's places (`<user>/<place>/`), so a file
+ * without a row goes too. Throws ThingsDataError.
+ */
+export async function loadSiteCardFilesIn(db: ThingsDb, userId: string, siteId: string): Promise<string[]> {
+  const { data: places, error: placesError } = await db.from("thing_place").select("id").eq("site_id", siteId);
+  if (placesError) throw new ThingsDataError(`query_failed ${placesError.code}`);
+  const placeIds = places.map((place) => place.id);
+  if (placeIds.length === 0) return [];
+  const { data: rows, error } = await db.from("thing_photo").select("object_path").in("place_id", placeIds);
+  if (error) throw new ThingsDataError(`query_failed ${error.code}`);
+  const files = new Set(rows.map((row) => row.object_path));
+  for (const placeId of placeIds) {
+    for (const file of await listFolderIn(db, `${userId}/${placeId}`, "files")) files.add(file.path);
+  }
+  return [...files];
+}
+
+/**
+ * The user's card files that have no thing_photo row and are older than
+ * `minAgeMs` (a card being saved has its file before its row), at most
+ * `limit`. Throws ThingsDataError.
+ */
+export async function loadCardFileOrphansIn(db: ThingsDb, userId: string, now: Date, minAgeMs: number, limit: number): Promise<string[]> {
+  const { data, error } = await db.from("thing_photo").select("object_path");
+  if (error) throw new ThingsDataError(`query_failed ${error.code}`);
+  const known = new Set(data.map((row) => row.object_path));
+  const orphans: string[] = [];
+  for (const folder of await listFolderIn(db, userId, "folders")) {
+    for (const file of await listFolderIn(db, folder.path, "files")) {
+      // A file whose age is not known is left alone.
+      if (known.has(file.path) || !file.createdAt || now.getTime() - file.createdAt.getTime() < minAgeMs) continue;
+      orphans.push(file.path);
+      if (orphans.length >= limit) return orphans;
+    }
+  }
+  return orphans;
 }

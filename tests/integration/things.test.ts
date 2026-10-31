@@ -6,12 +6,14 @@ import {
   downloadCardFile,
   insertCardIn,
   loadCardsIn,
+  loadSiteCardFilesIn,
   markCardFailedIn,
   removeCardFiles,
   reopenCardIn,
   saveReadingIn,
   uploadCardFile,
 } from "@/features/things/data/photos";
+import { sweepCardFilesIn } from "@/features/things/actions/sweep-card-files";
 import { insertPlaceIn, loadPlaceIn, loadPlacesIn } from "@/features/things/data/places";
 import { thingPhotoBucket, thingPhotoPath } from "@/features/things/domain/thing-photo";
 import { localSupabaseUrl } from "../local-supabase";
@@ -124,6 +126,48 @@ describe("places", () => {
       const rows = await adminClient().from(table).select("id", { count: "exact", head: true }).eq("user_id", a.id).in(table === "thing_place" ? "id" : table === "thing_photo" ? "place_id" : "place_id", [place]);
       expect(rows.count ?? 0, table).toBe(0);
     }
+  });
+});
+
+describe("the files of a deleted boende and the sweep", () => {
+  const exists = async (path: string) => (await downloadCardFile(a.db, path)) !== null;
+
+  it("gives the files of a boende's cards and its places' folders, and they can be removed after the cascade", async () => {
+    const site = await siteOf(a, "Med filer");
+    const place = await placeOf(a, site, "Källaren");
+    const card = await cardOf(a, place);
+    const stray = thingPhotoPath(a.id, place, randomUUID(), "image/png");
+    await uploadCardFile(a.db, stray, png, "image/png");
+    files.push(stray);
+    const found = await loadSiteCardFilesIn(a.db, a.id, site);
+    expect([...found].sort()).toEqual([card.path, stray].sort());
+    expect((await a.db.from("pantry_site").delete().eq("id", site)).error).toBeNull();
+    // The rows went with the boende; the files are still there until they are removed.
+    expect(await exists(card.path)).toBe(true);
+    expect(await removeCardFiles(a.db, found)).toEqual({ failed: null });
+    expect(await exists(card.path)).toBe(false);
+    expect(await exists(stray)).toBe(false);
+    expect(await loadSiteCardFilesIn(a.db, a.id, site)).toEqual([]);
+  });
+
+  it("sweeps a file without a row, never one with a row or one that is too new, and never another user's", async () => {
+    const site = await siteOf(a, "Svep");
+    const place = await placeOf(a, site, "Vinden");
+    const kept = await cardOf(a, place);
+    const orphan = thingPhotoPath(a.id, place, randomUUID(), "image/png");
+    await uploadCardFile(a.db, orphan, png, "image/png");
+    files.push(orphan);
+    const bSite = await siteOf(b, "B:s");
+    const bPlace = await placeOf(b, bSite, "Vinden");
+    const others = await cardOf(b, bPlace);
+    // Too new: a save in progress has its file before its row.
+    expect(await sweepCardFilesIn(a.db, a.id)).toBe(0);
+    expect(await exists(orphan)).toBe(true);
+    // Files left by the tests above (a deleted boende's) are orphans too, so at least this one goes.
+    expect(await sweepCardFilesIn(a.db, a.id, { minAgeMs: 0, now: new Date(Date.now() + 60_000) })).toBeGreaterThanOrEqual(1);
+    expect(await exists(orphan)).toBe(false);
+    expect(await exists(kept.path)).toBe(true);
+    expect(await downloadCardFile(b.db, others.path)).not.toBeNull();
   });
 });
 
