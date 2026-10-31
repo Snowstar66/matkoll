@@ -10,9 +10,8 @@ export const themeColors = {
 } as const;
 
 /**
- * The app icon's colours (DESIGN.md, `app-icon`): a carrot in accent and sand on
- * light mode's --bg. The icon is the same in dark mode. `sandInk` draws the
- * carrot itself, since sand alone is too light to see against bg.
+ * The app icon's colours (DESIGN.md, `app-icon`): the accent green behind a cream house
+ * (`houseColors`). The icon is the same in dark mode.
  */
 export const appIconColors = {
   bg: themeColors.light,
@@ -30,5 +29,5 @@ export function rgbToHex(rgb: string): string {
   return `#${channels.map((channel) => channel.toString(16).padStart(2, "0")).join("").toUpperCase()}`;
 }
 
-/** The jar icon's own colours (Story 11.7): the lid and its shadow, and the white jar. */
-export const jarColors = { lid: "#DDEFE5", lidShadow: "#2C5E48", glass: "#FFFFFF" } as const;
+/** The house icon's cream (Story 18.20): the house itself; its door, the check mark, is accent green. */
+export const houseColors = { cream: "#F4EEDF" } as const;
