@@ -306,6 +306,76 @@ så att jag slipper ett onödigt steg med förhandsgranskning och inte tappar et
 **När** jobbet det väntar på blir klart
 **Så** stängs arket (ingen förhandsgranskning), och flikarna, "Avbryt", "Försök igen" och felmeddelandena fungerar som förut
 
+#### Story 1.16: Kompakt vy och sortering i Recept
+
+Som Pontus,
+vill jag kunna växla mellan kort och en kompakt lista och sortera recepten,
+så att jag ser fler recept på en gång och hittar rätt snabbare.
+
+Skiss: `_bmad-output/planning-artifacts/ux-designs/ux-Matkoll-2026-10-25/mockups/recept-vyer.html`
+
+**Acceptance Criteria:**
+
+**Givet** receptbiblioteket
+**När** jag ser raden under filterpillren
+**Så** står antalet recept ("12 recept"), en sorteringsknapp med vald sortering ("Senast tillagda ▾") och en växel med två lägen, Kortvy och Kompakt vy (ikoner ▦ och ☰, tillgängliga namn och `aria-pressed`)
+
+**Givet** växeln
+**När** jag väljer Kompakt vy
+**Så** visas recepten som en grupperad lista: liten bild (48 px), titel på en rad med ellips, metarad "25 min · 4 port. · Kan lagas nu" (eller "Saknar 2") och hjärtat med 44 px träffyta; ett tryck på raden öppnar receptet, och valet sparas på enheten på samma sätt som filterpillret (med minnet som reserv)
+
+**Givet** kortvyn och den kompakta vyn
+**När** jag ser ett recept
+**Så** finns ingen papperskorg på kortet eller raden; att ta bort ett recept görs från receptets ⋯-meny som finns idag
+
+**Givet** sorteringsknappen
+**När** jag trycker på den
+**Så** öppnas ett ark "Sortera" med Senast tillagda (förval), Snabbast (kortast tid först, recept utan tid sist), Mest hemma (minst antal saknade varor först) och A–Ö (svensk sortering), med en bock vid valet; valet gäller direkt, sparas på enheten och fungerar tillsammans med sök och filterpillren
+
+**Givet** mörkt läge, 375 px bredd och 200 % text
+**När** jag ser båda vyerna och arket
+**Så** finns ingen sidledes rullning och alla mål är minst 44 px
+
+#### Story 1.17: Kategorier i Recept
+
+Som Pontus,
+vill jag kunna filtrera recepten på Kött, Fågel, Fisk & skaldjur, Vegetariskt och vanliga rätttyper,
+så att jag snabbt hittar något när jag vet vad jag är sugen på.
+
+Skiss: `_bmad-output/planning-artifacts/ux-designs/ux-Matkoll-2026-10-25/mockups/recept-vyer.html`
+
+Beslut (2026-10-31): kategorin räknas fram med regler, utan AI-anrop (den lokala modellen är långsam) och utan ny kolumn. Om reglerna gissar fel kan manuell ändring läggas till senare.
+
+**Acceptance Criteria:**
+
+**Givet** ett recept med titel, ingrediensnamn och tid
+**När** kategorin räknas fram i domänlagret (en ren funktion, inget AI-anrop, ingen migrering)
+**Så** får receptet exakt en huvudråvara (Kött, Fågel, Fisk & skaldjur eller Vegetariskt när inget kött, fågel eller fisk finns), noll eller flera rätttyper (Pasta, Soppa, Sallad, Gryta) från titel och ingredienser, och Snabbt när tiden är högst 30 minuter; buljong, fond och liknande smaksättare räknas inte som råvara
+
+**Givet** reglerna
+**När** enhetstesterna körs
+**Så** täcker de svenska exempel som "Caesarkyckling med rostade rotfrukter" (Fågel, Sallad), "Korv stroganoff" (Kött, Gryta), "Spagettipumpa" (Vegetariskt om ingen köttråvara finns), laxpasta (Fisk & skaldjur, Pasta), en grönsakssoppa på kycklingbuljong (Vegetariskt, Soppa) och recept utan tid (inte Snabbt)
+
+**Givet** receptbiblioteket
+**När** jag ser raden under filterpillren
+**Så** finns en rad med kategorichips som rullar i sidled (Kött, Fågel, Fisk & skaldjur, Vegetariskt, Pasta, Soppa, Sallad, Gryta, Snabbt), var och en med en liten ikonruta som kategoriernas i Inköpslista, och sidan själv rullar aldrig i sidled
+
+**Givet** kategorichipsen
+**När** jag trycker på ett chip
+**Så** visas bara recept i den kategorin, chipet markeras (`aria-pressed`), antalet uppdateras, ett nytt tryck släpper valet, och kategorin fungerar tillsammans med Alla/Favoriter/Kan lagas nu, sök och sortering; valet sparas på enheten som filterpillret
+
+**Givet** en kategori utan träffar
+**När** listan är tom
+**Så** står "Inga recept i Fågel." med knappen "Visa alla", som släpper kategorin
+
+**Givet** sorteringsarket från Story 1.16
+**När** det öppnas
+**Så** finns kategorierna också där under rubriken "Kategori"
+
+**Givet** mörkt läge, 375 px bredd och 200 % text
+**När** jag ser chipsen
+**Så** finns ingen sidledes rullning av sidan, alla mål är minst 44 px och kontrasten håller
+
 ## Epic 2: Lager
 Pontus kan föra in det som finns hemma per plats, med eller utan mängd, och ser direkt i receptbiblioteket vilka rätter som kan lagas och hur många varor som saknas.
 **FRs covered:** FR11, FR12, FR8 (lagningsstatus)
