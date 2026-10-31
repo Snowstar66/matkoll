@@ -47,7 +47,6 @@ export const questionTooLongText = `Frågan får vara högst ${maxQuestionChars}
 export const askLabel = "Sök eller fråga";
 export const askPlaceholder = "Sök eller fråga …";
 export const askButtonText = "Skicka";
-export const askingText = "Tänker …";
 export const newQuestionText = "Ny fråga";
 export const askHintText = "Skriv för att söka – tryck ↑ för att fråga";
 

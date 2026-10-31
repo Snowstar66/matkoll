@@ -4,6 +4,7 @@ import type { ThingCategory } from "./thing";
 import { thingsText } from "./thing-room";
 import { shortDateText } from "./thing-photo";
 import { appName } from "@/app/app-info";
+import { thingNoun, thingNounCap } from "./thing-noun";
 
 // "Skriv vad som finns" (Story 18.13): what a box holds, written by hand. One
 // thing per line or separated by commas, with a quantity ("2 st") that stays
@@ -85,16 +86,16 @@ export const savingWrittenText = "Sorterar …";
 export const photoInsteadText = "Fota insidan i stället";
 export const writeInsteadText = "Skriv vad som finns i stället";
 export const writtenEditText = "Ändra";
-export const emptyWrittenText = "Skriv minst en pryl, eller tryck Spara med tom ruta för att tömma lådan.";
+export const emptyWrittenText = `Skriv minst ${thingNoun.indefinite}, eller tryck Spara med tom ruta för att tömma lådan.`;
 export const tooLongTextText = `Texten får vara högst ${maxWrittenTextChars} tecken.`;
-export const nameTooLongWrittenText = `En pryl får vara högst ${maxWrittenNameChars} tecken. Dela upp raden.`;
-export const tooManyThingsText = `Du kan skriva högst ${maxWrittenThings} prylar i en låda.`;
+export const nameTooLongWrittenText = `${thingNounCap.indefinite} får vara högst ${maxWrittenNameChars} tecken. Dela upp raden.`;
+export const tooManyThingsText = `Du kan skriva högst ${maxWrittenThings} ${thingNoun.plural} i en låda.`;
 export const writtenFailedText = "Det gick inte att spara. Försök igen.";
 export const writtenUncategorizedText = "Sparat, men utan kategorier: AI svarade inte. De ligger under Övrigt.";
 
 /** "Sparat: 6 prylar". */
 export function writtenSavedText(count: number): string {
-  return count === 0 ? "Lådan är tömd på inskrivna prylar." : `Sparat: ${thingsText(count)}`;
+  return count === 0 ? `Lådan är tömd på inskrivna ${thingNoun.plural}.` : `Sparat: ${thingsText(count)}`;
 }
 
 /** "Dessutom 12 prylar från kort." for a box that also has photographed things. */
@@ -118,12 +119,12 @@ export function partMeta(counts: { things: number; cards: number }): string {
 }
 
 // "Lägg till pryl" on a card (Story 18.15): things typed onto one card.
-export const addThingsText = "Lägg till pryl";
-export const addThingsTitle = "Lägg till prylar på kortet";
-export const addThingsHintText = "En sak per rad eller med komma. Prylarna hör till det här kortet och byts ut om du tar om det.";
+export const addThingsText = `Lägg till ${thingNoun.singular}`;
+export const addThingsTitle = `Lägg till ${thingNoun.plural} på kortet`;
+export const addThingsHintText = `En sak per rad eller med komma. ${thingNounCap.definitePlural} hör till det här kortet och byts ut om du tar om det.`;
 export const addThingsSaveText = "Lägg till";
-export const addThingsFullText = "Kortet har redan så många prylar som får plats. Ta bort några först.";
-export const emptyAddedText = "Skriv minst en pryl.";
+export const addThingsFullText = `Kortet har redan så många ${thingNoun.plural} som får plats. Ta bort några först.`;
+export const emptyAddedText = `Skriv minst ${thingNoun.indefinite}.`;
 
 /** "Lade till 2 prylar." */
 export function addedThingsText(count: number): string {

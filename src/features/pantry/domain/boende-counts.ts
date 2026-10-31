@@ -1,5 +1,6 @@
 // What each boende holds, in words (Story 16.14): the short line in the boende
 // menu, and the longer one on the cards in Inställningar → Boenden. Pure.
+import { thingCountText, thingNoun } from "@/lib/thing-noun";
 
 /** What a boende holds: matvaror, prylar (things) and the cards (photos) of Förråd. */
 export type BoendeCounts = { items: number; things: number; cards: number };
@@ -12,7 +13,7 @@ function plural(count: number, one: string, many: string): string {
 export function boendeMenuText(counts: BoendeCounts): string {
   const parts = [
     counts.items > 0 ? plural(counts.items, "vara", "varor") : null,
-    counts.things > 0 ? plural(counts.things, "pryl", "prylar") : null,
+    counts.things > 0 ? thingCountText(counts.things) : null,
   ].filter(Boolean);
   return parts.length > 0 ? parts.join(" · ") : "Tomt";
 }
@@ -20,8 +21,8 @@ export function boendeMenuText(counts: BoendeCounts): string {
 /** For the cards: "30 matvaror · inga prylar än", "Inga matvaror · 18 prylar · 1 kort". */
 export function boendeCardText(counts: BoendeCounts): string {
   const items = counts.items > 0 ? plural(counts.items, "matvara", "matvaror") : "Inga matvaror";
-  if (counts.things === 0 && counts.cards === 0) return `${items} · inga prylar än`;
-  const parts = [items, counts.things > 0 ? plural(counts.things, "pryl", "prylar") : null, counts.cards > 0 ? plural(counts.cards, "kort", "kort") : null];
+  if (counts.things === 0 && counts.cards === 0) return `${items} · inga ${thingNoun.plural} än`;
+  const parts = [items, counts.things > 0 ? thingCountText(counts.things) : null, counts.cards > 0 ? plural(counts.cards, "kort", "kort") : null];
   return parts.filter(Boolean).join(" · ");
 }
 

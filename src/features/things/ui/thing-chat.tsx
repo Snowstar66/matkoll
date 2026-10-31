@@ -2,6 +2,7 @@
 
 import Link from "next/link";
 import { type FormEvent, useEffect, useId, useRef, useState } from "react";
+import { AiWorking } from "@/components/ai-working";
 import { Button } from "@/components/button";
 import { Input } from "@/components/field";
 import { Notice } from "@/components/notice";
@@ -10,7 +11,6 @@ import { askChat, type ChatAnswer } from "../actions/ask-chat";
 import {
   askButtonText,
   askHintText,
-  askingText,
   askLabel,
   askPlaceholder,
   maxHistoryAnswerChars,
@@ -143,7 +143,7 @@ export function ThingChat({
                   <div className="flex">
                     <div className="max-w-[88%] rounded-[1rem_1rem_1rem_0.25rem] bg-bg px-3 py-2.5 text-body text-ink" data-testid="chat-answer">
                       {turn.answer === undefined ? (
-                        <span className="text-ink-2">{askingText}</span>
+                        <AiWorking size="sm" inLiveRegion />
                       ) : (
                         <>
                           <p className="wrap-break-word">{turn.answer}</p>

@@ -11,6 +11,7 @@ import { loadUnseenIn, searchThingsIn } from "../data/search";
 import { chatInputSchema, cleanHistory, groupHits, maxAnswerHits, questionTooLongText, questionWords, refOfGroup, type ChatRef, type ChatTurn } from "../domain/thing-ask";
 import { placeTitle } from "../domain/thing-place";
 import { hitDateText } from "../domain/thing-search";
+import { thingNounCap } from "../domain/thing-noun";
 
 // "Fråga om ditt förråd" as a chat (Story 18.14, FR-24, AD-9). Pontus may have
 // thousands of things, so they never all go to the AI. Three steps:
@@ -83,7 +84,7 @@ export async function askChat(input: { question: string; history: ChatTurn[] }):
       cardDate: hitDateText(first).replace(/^skrivet /, ""),
       hidden: 0,
       written: first.written,
-      things: group.hits.map((hit) => ({ name: cleanModelText(hit.name) || "Pryl", category: hit.category, where: hit.whereHint ? cleanModelText(hit.whereHint) || null : null })),
+      things: group.hits.map((hit) => ({ name: cleanModelText(hit.name) || thingNounCap.singular, category: hit.category, where: hit.whereHint ? cleanModelText(hit.whereHint) || null : null })),
     };
   });
 

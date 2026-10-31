@@ -98,7 +98,7 @@ describe("the one field to search and ask", () => {
     searchThingsAction.mockResolvedValue(ok({ hits: [] }));
     renderIt();
     await userEvent.type(field(), "xyz");
-    expect(await screen.findByText('Inga prylar matchar "xyz".')).toBeInTheDocument();
+    expect(await screen.findByText('Inga föremål matchar "xyz".')).toBeInTheDocument();
     searchThingsAction.mockResolvedValue(fail("things_unavailable"));
     await userEvent.type(field(), "q");
     expect(await screen.findByRole("alert")).toHaveTextContent("Sökningen gick inte");
