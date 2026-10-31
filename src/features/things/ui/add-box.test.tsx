@@ -20,25 +20,25 @@ beforeEach(() => {
 });
 
 describe("Lägg till låda", () => {
-  it("adds the box and opens its page with the camera ready", async () => {
+  it("adds the box and opens the room with the camera ready", async () => {
     createThingBox.mockResolvedValue(ok({ id: boxId }));
-    render(<AddBox placeId={placeId} variant="button" />);
+    render(<AddBox placeId={placeId} variant="button" roomHref="/prylar/rum/site/garaget" />);
     await userEvent.click(screen.getByRole("button", { name: "Lägg till låda" }));
     await userEvent.type(screen.getByLabelText("Namn på lådan"), "Blå backen");
     await userEvent.click(screen.getByRole("button", { name: "Lägg till och fota" }));
-    await waitFor(() => expect(push).toHaveBeenCalledWith(`/prylar/${boxId}?fota=1`));
+    await waitFor(() => expect(push).toHaveBeenCalledWith(`/prylar/rum/site/garaget?fota=${boxId}`));
     expect(createThingBox).toHaveBeenCalledWith({ placeId, name: "Blå backen" });
   });
 
   it("opens from the line about the closed boxes", async () => {
-    render(<AddBox placeId={placeId} variant="row" label="Innehållet i 3 lådor syns inte – fota insidan" />);
+    render(<AddBox placeId={placeId} variant="row" label="Innehållet i 3 lådor syns inte – fota insidan" roomHref="/prylar/rum/site/garaget" />);
     await userEvent.click(screen.getByRole("button", { name: "Innehållet i 3 lådor syns inte – fota insidan" }));
     expect(screen.getByRole("dialog", { name: "Lägg till låda" })).toBeInTheDocument();
   });
 
   it("says an empty name and a taken one under the field", async () => {
     createThingBox.mockResolvedValue(fail("things_place_taken", { name: "Lådan finns redan." }));
-    render(<AddBox placeId={placeId} variant="button" />);
+    render(<AddBox placeId={placeId} variant="button" roomHref="/prylar/rum/site/garaget" />);
     await userEvent.click(screen.getByRole("button", { name: "Lägg till låda" }));
     await userEvent.click(screen.getByRole("button", { name: "Lägg till och fota" }));
     expect(screen.getByText("Ange ett namn, till exempel Blå backen.")).toBeInTheDocument();

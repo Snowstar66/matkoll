@@ -455,14 +455,14 @@ isOneToOne: false
                   ]
                 },"thing_photo": {
                   Row: {
-                    "created_at": string,"error_code": string | null,"height": number,"id": string,"media_type": string,"object_path": string,"place_id": string,"status": string,"taken_at": string,"unseen_count": number,"unseen_note": string | null,"user_id": string,"width": number
+                    "created_at": string,"error_code": string | null,"height": number,"id": string,"media_type": string,"object_path": string,"place_id": string,"replaces_photo_id": string | null,"status": string,"taken_at": string,"unseen_count": number,"unseen_note": string | null,"user_id": string,"width": number
                   }
                   ComputedFields: never
                   Insert: {
-                    "created_at"?: string,"error_code"?: string | null,"height": number,"id": string,"media_type": string,"object_path": string,"place_id": string,"status"?: string,"taken_at": string,"unseen_count"?: number,"unseen_note"?: string | null,"user_id"?: string,"width": number
+                    "created_at"?: string,"error_code"?: string | null,"height": number,"id": string,"media_type": string,"object_path": string,"place_id": string,"replaces_photo_id"?: string | null,"status"?: string,"taken_at": string,"unseen_count"?: number,"unseen_note"?: string | null,"user_id"?: string,"width": number
                   }
                   Update: {
-                    "created_at"?: string,"error_code"?: string | null,"height"?: number,"id"?: string,"media_type"?: string,"object_path"?: string,"place_id"?: string,"status"?: string,"taken_at"?: string,"unseen_count"?: number,"unseen_note"?: string | null,"user_id"?: string,"width"?: number
+                    "created_at"?: string,"error_code"?: string | null,"height"?: number,"id"?: string,"media_type"?: string,"object_path"?: string,"place_id"?: string,"replaces_photo_id"?: string | null,"status"?: string,"taken_at"?: string,"unseen_count"?: number,"unseen_note"?: string | null,"user_id"?: string,"width"?: number
                   }
                   Relationships: [
                     {
@@ -470,6 +470,12 @@ isOneToOne: false
       columns: ["place_id","user_id"]
 isOneToOne: false
       referencedRelation: "thing_place"
+      referencedColumns: ["id","user_id"]
+    },{
+      foreignKeyName: "thing_photo_replaces_fkey"
+      columns: ["replaces_photo_id","user_id"]
+isOneToOne: false
+      referencedRelation: "thing_photo"
       referencedColumns: ["id","user_id"]
     }
                   ]
@@ -810,6 +816,9 @@ isOneToOne: false
 "save_store_offers":
 { Args: { "items": Json,"replace_source"?: string,"store": string,"week": string }; Returns: number
                            },
+"save_thing_card":
+{ Args: { "hidden_count"?: number,"note"?: string,"photo": string,"things": Json }; Returns: (string)[]
+                           },
 "save_thing_reading":
 { Args: { "hidden_count"?: number,"note"?: string,"photo": string,"things": Json }; Returns: (string)[]
                            },
@@ -881,6 +890,21 @@ isOneToOne: false
                            },
 "store_lock":
 { Args: Record<PropertyKey, never>; Returns: undefined
+                           },
+"thing_room_categories":
+{ Args: { "in_room": string,"site": string }; Returns: {
+              "category": string,"things": number
+            }[]
+                           },
+"thing_room_stats":
+{ Args: { "site": string }; Returns: {
+              "cards": number,"latest": string,"reading": number,"room": string,"room_key": string,"things": number
+            }[]
+                           },
+"thing_room_things":
+{ Args: { "in_room": string,"site": string,"wanted": string }; Returns: {
+              "category": string,"confidence": string,"id": string,"kind": string,"name": string,"part": string,"seen_on": number,"where_hint": string
+            }[]
                            },
 "undo_dish_cooked":
 { Args: { "dish": string }; Returns: undefined

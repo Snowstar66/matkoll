@@ -3767,6 +3767,106 @@ så att listan går att lita på.
 **När** sammanslagningen körs i ett eval
 **Så** slås uppenbara dubbletter ihop (t.ex. samma cirkelsåg på två kort) utan att olika saker med liknande namn blandas
 
+### Story 18.11: Ta kort först, många kort per rum
+
+Som Pontus,
+vill jag kunna fota direkt och lägga många kort i samma rum,
+så att jag kan fota ett helt rum i ett svep utan att först skapa platser.
+
+Skiss: `_bmad-output/planning-artifacts/ux-designs/ux-Matkoll-2026-10-25/mockups/forrad-flyt.html` (bild 1 och 2), godkänd av Pontus 2026-10-31.
+
+**Acceptance Criteria:**
+
+**Givet** Förrådets startsida
+**När** jag ser den
+**Så** är "📷 Ta kort" den första, tydliga raden (accentfärgad radkort), före rummen; "Ny plats" finns inte längre som start
+
+**Givet** "Ta kort"
+**När** jag trycker
+**Så** öppnas ett ark "Var tar du kortet?" med rummen som chips (senast använda rummet förvalt) och "+ Nytt rum"; "Mer exakt plats (valfritt)" fälls ut med del eller låda; utan val hamnar kortet i hela rummet
+
+**Givet** arket
+**När** jag väljer "Öppna kameran" på telefonen eller "Välj bilder …" (flera bilder på en gång, även på datorn)
+**Så** laddas varje bild upp som ett eget kort i valt rum och läses av AI i bakgrunden; efter varje kort från kameran erbjuds "Ta ett till"
+
+**Givet** ett rum som redan har kort
+**När** jag tar ett nytt kort
+**Så** läggs det till (ersätter inget); att förnya görs med "Ta om" på ett visst kort, som bara ersätter det kortet när det nya är läst; dubbletter mellan korten slås ihop som i Story 18.6
+
+**Givet** startsidan
+**När** rummen visas
+**Så** står varje rum med antal prylar, antal kort och senaste datum ("Skräpförrådet · 74 prylar · 9 kort · 31 okt") och summan överst ("3 rum · 112 prylar")
+
+### Story 18.12: Rummets överblick
+
+Som Pontus,
+vill jag se hur många prylar ett rum har och en lista per kategori,
+så att jag får överblick efter att ha fotat.
+
+Skiss: bild 3 och 4 i samma skiss.
+
+**Acceptance Criteria:**
+
+**Givet** ett rum
+**När** jag öppnar det
+**Så** visas överst en sammanfattning med antal prylar, kategorier och kort, och raden "Ta fler kort" (senaste kort-datum)
+
+**Givet** rummets sida
+**När** jag väljer "Prylar" i det segmenterade valet
+**Så** visas rummets sammanslagna prylar (alla kort, delar och lådor) per kategori med emoji-ruta och antal, med var på bilden eller "syns på 2 kort" och "i Blå backen" för lådor
+
+**Givet** rummets sida
+**När** jag väljer "Kort"
+**Så** visas korten som miniatyrer i två kolumner med vad kortet visar ("Hela rummet", "Väggen", "Låda: Black box"), antal prylar och datum, och "Ta om" och "Ta bort" per kort
+
+**Givet** ett rum med hundratals eller tusentals prylar
+**När** jag väljer "Prylar"
+**Så** visas kategorierna hopfällda med emoji-ruta, namn och antal ("Skruv & beslag · 214"); en kategori visar sina rader först när jag fäller ut den (utfällt minns enheten), och startsidan och rummets sida räknar i databasen i stället för att läsa in varje pryl
+
+### Story 18.13: Skriv vad som finns i en låda
+
+Som Pontus,
+vill jag kunna skriva vad en låda innehåller när jag inte orkar eller kan fota insidan,
+så att även stängda lådor går att hitta.
+
+Skiss: bild 5 i samma skiss.
+
+**Acceptance Criteria:**
+
+**Givet** en låda
+**När** jag väljer "Skriv vad som finns"
+**Så** kan jag skriva fritt, en sak per rad eller med komma, och spara; sakerna blir prylar i lådan (utan kort), kategoriseras av AI med ett billigt textanrop (utan bild, via valt AI, användning räknas som i Story 17.6) och syns i listor, sök och chatt som "i Black box"
+
+**Givet** en låda med inskrivna saker
+**När** jag öppnar den igen
+**Så** kan jag ändra texten (sakerna ersätts) och även fota insidan; båda sorterna visas tillsammans
+
+**Givet** lagringen
+**När** inskrivna saker sparas
+**Så** kan en pryl höra till en plats utan kort (bakåtkompatibel migrering), täckt av isoleringstestet
+
+### Story 18.14: Fråga som en chatt
+
+Som Pontus,
+vill jag kunna fråga "Har du sett min skiftnyckel?" och ställa följdfrågor,
+så att det känns som att fråga någon som vet var allt ligger.
+
+Skiss: bild 1 i samma skiss (chatten högst upp på startsidan).
+
+**Acceptance Criteria:**
+
+**Givet** Förrådets startsida
+**När** jag har prylar
+**Så** finns en chatt högst upp under "Ta kort" med fältet "Fråga om ditt förråd …"
+
+**Givet** en fråga
+**När** jag skickar den
+**Så** svarar AI kort utifrån de sparade listorna (inte bilderna) med rum, del eller låda och en tryckbar referens med kortets miniatyr och datum; om saken inte finns säger svaret det och nämner lådor vars innehåll inte syns
+
+**Givet** en följdfråga ("och tången då?")
+**När** jag skickar den
+**Så** förstår AI sammanhanget från de senaste frågorna i samma samtal (som hålls i webbläsaren, inte sparas), och samtalet kan rensas med "Ny fråga"
+
 ### Story 18.7: Visa prylen på kortet
 
 Som Pontus,

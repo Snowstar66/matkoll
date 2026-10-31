@@ -2,6 +2,7 @@ import { z } from "zod";
 import type { Json } from "@/lib/supabase/database.types";
 import { thingCategories } from "../domain/thing";
 import type { MergeCandidate } from "../domain/thing-merge";
+import { shortDateText } from "../domain/thing-photo";
 import { partLabel } from "../domain/thing-place";
 import { guarded, ThingsDataError, type ThingsDb } from "./client";
 
@@ -35,7 +36,7 @@ const roomSchema = z.object({
   site_id: z.uuid(),
   room_key: z.string(),
   thing_photo: z.array(
-    z.object({ id: z.uuid(), status: z.enum(["reading", "done", "failed"]), created_at: z.string(), thing_item: z.array(itemSchema) }),
+    z.object({ id: z.uuid(), status: z.enum(["reading", "done", "failed"]), created_at: z.string(), taken_at: z.string(), thing_item: z.array(itemSchema) }),
   ),
 });
 
@@ -45,8 +46,8 @@ const bySort = (a: z.infer<typeof itemSchema>, b: z.infer<typeof itemSchema>) =>
 
 /**
  * The things to compare for the finished card `photoId`: its own things that
- * are not merged yet, and the kept things of the newest finished card of every
- * other place in the same room (a part or the whole room, never a box). `null`
+ * are not merged yet, and the kept things of every other finished card of the
+ * room's places (a part or the whole room, never a box). `null`
  * when the card's place is a box or is gone. Throws ThingsDataError
  * `query_failed <code>` or `invalid_row`.
  */
@@ -61,7 +62,7 @@ export async function loadMergeInputIn(db: ThingsDb, photoId: string): Promise<M
 
     const rows = await db
       .from("thing_place")
-      .select(`${placeColumns}, thing_photo(id, status, created_at, thing_item(id, name, category, where_hint, position, same_as))`)
+      .select(`${placeColumns}, thing_photo(id, status, created_at, taken_at, thing_item(id, name, category, where_hint, position, same_as))`)
       .eq("site_id", place.site_id)
       .eq("room_key", place.room_key)
       .eq("kind", "part")
@@ -75,17 +76,18 @@ export async function loadMergeInputIn(db: ThingsDb, photoId: string): Promise<M
       const parsed = roomSchema.safeParse(row);
       if (!parsed.success) throw new ThingsDataError("invalid_row");
       const done = parsed.data.thing_photo.filter((photo) => photo.status === "done");
-      if (parsed.data.id === place.id) {
-        const mine = done.find((photo) => photo.id === photoId);
-        for (const item of [...(mine?.thing_item ?? [])].sort(bySort)) {
-          if (item.same_as === null) added.push({ id: item.id, name: item.name, category: item.category, where: item.where_hint });
+      // Since Story 18.11 a place holds many cards: every other finished card of the room is compared with, the newest first.
+      for (const photo of done.sort((a, b) => Date.parse(b.created_at) - Date.parse(a.created_at) || (a.id < b.id ? 1 : -1))) {
+        if (photo.id === photoId) {
+          for (const item of [...photo.thing_item].sort(bySort)) {
+            if (item.same_as === null) added.push({ id: item.id, name: item.name, category: item.category, where: item.where_hint });
+          }
+          continue;
         }
-        continue;
-      }
-      // Newest finished card; the id breaks a tie like the page does.
-      const newest = done.sort((a, b) => Date.parse(b.created_at) - Date.parse(a.created_at) || (a.id < b.id ? 1 : -1))[0];
-      for (const item of [...(newest?.thing_item ?? [])].sort(bySort)) {
-        if (item.same_as === null) existing.push({ id: item.id, name: item.name, category: item.category, where: item.where_hint, card: partLabel(parsed.data) });
+        const label = `${partLabel(parsed.data)} ${shortDateText(new Date(photo.taken_at))}`;
+        for (const item of [...photo.thing_item].sort(bySort)) {
+          if (item.same_as === null) existing.push({ id: item.id, name: item.name, category: item.category, where: item.where_hint, card: label });
+        }
       }
     }
     return { room: place.room, cardTitle: partLabel(place), added, existing };

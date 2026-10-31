@@ -18,8 +18,9 @@ import { isCrossSite, mediaTypeOf, readImageForm, respond } from "../../ai/route
 // multipart form can be posted cross-site without a preflight), the user, a
 // body within the limit before anything is read, the photo's size and type on
 // its own bytes (JPEG or PNG only: 415 otherwise) and Zod for every other
-// field. The photo is never logged. A newer card of the same place replaces
-// the old one when its job is done.
+// field. The photo is never logged. A new card is added to
+// its place; with `replaces` (Ta om) it takes the place of that one card when
+// its job is done (Story 18.11).
 
 // The function lives as long as the longest job can wait and run (AD-28).
 export const maxDuration = 300;
@@ -32,7 +33,7 @@ export async function POST(request: Request): Promise<Response> {
   if (auth.response) return auth.response;
 
   if (mediaTypeOf(request) !== "multipart/form-data") return respond(fail("validation"), 415);
-  const form = await readImageForm(request, ["clientKey", "place", "takenAt"], { maxSide: maxPlacePhotoSide });
+  const form = await readImageForm(request, ["clientKey", "place", "takenAt", "replaces"], { maxSide: maxPlacePhotoSide });
   if (!form.ok) return form.response;
   // A WebP can be read by the AI, but only a JPEG or PNG is kept, since only those are cleaned of metadata.
   if (form.image.mediaType === "image/webp") return respond(fail("validation"), 415);
@@ -44,6 +45,7 @@ export async function POST(request: Request): Promise<Response> {
     result = await startCardReading({
       image: form.image,
       placeId: fields.data.place,
+      replacesId: fields.data.replaces,
       takenAt: clampTakenAt(fields.data.takenAt, new Date()),
       clientKey: fields.data.clientKey,
       requestStartedAt,

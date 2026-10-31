@@ -45,6 +45,8 @@ export type StartReadingInput = {
   /** The photo as the client sent it, checked by readImageForm (size, pixels and type from its own bytes). */
   image: { data: Uint8Array; mediaType: ImageMediaType };
   placeId: string;
+  /** "Ta om": the card of this place the new card replaces once it is read (Story 18.11). */
+  replacesId?: string | null;
   /** When the photo was taken, as the client says (clampTakenAt keeps it within the last day). */
   takenAt: Date;
   clientKey: string;
@@ -64,7 +66,7 @@ function withoutMetadata(image: StartReadingInput["image"]): { data: Uint8Array;
   return null;
 }
 
-/** The job's work: the model reads the photo, the things are saved, the older cards of the place go, and the things the card shares with the room's other cards are merged. */
+/** The job's work: the model reads the photo, the things are saved, the card it replaces (Ta om) goes, and the things the card shares with the room's other cards are merged. */
 function readingWork(db: ThingsDb, userId: string, card: { id: string; placeId: string }, image: { data: Uint8Array; mediaType: string }): AiJobWork {
   return async (signal, deadline): Promise<Result<Json>> => {
     const failCard = async (code: string) => {
@@ -99,7 +101,7 @@ function readingWork(db: ThingsDb, userId: string, card: { id: string; placeId: 
       await failCard("things_unavailable");
       return fail("things_unavailable");
     }
-    // The older cards of the place are replaced: their files go too. A file that stays is only logged.
+    // The replaced card's file goes too. A file that stays is only logged.
     const { failed } = await removeCardFiles(db, removed);
     if (failed !== null) console.error("things_photo_remove_failed", { reason: failed });
     // Like the pantry's sweep after a save (Story 10.3): files without a row go too. Never changes the answer.
@@ -167,6 +169,9 @@ export async function startCardReading(input: StartReadingInput): Promise<Result
 
   let inserted: "saved" | "place_gone";
   try {
+    // Only a card of the same place can be replaced.
+    const replaced = input.replacesId ? await loadCardIn(db, input.replacesId) : null;
+    const replacesId = replaced && replaced.placeId === input.placeId ? replaced.id : null;
     inserted = await insertCardIn(db, {
       id,
       placeId: input.placeId,
@@ -175,6 +180,7 @@ export async function startCardReading(input: StartReadingInput): Promise<Result
       width: size.width,
       height: size.height,
       takenAt,
+      replacesId,
     });
   } catch (error) {
     console.error("things_photo_failed", { reason: error instanceof ThingsDataError ? error.detail : "save_threw" });

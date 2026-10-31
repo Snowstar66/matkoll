@@ -63,19 +63,20 @@ export async function loadThingIndexIn(db: ThingsDb): Promise<IndexedPlace[]> {
     const parsed = rowSchema.safeParse(row);
     if (!parsed.success) throw new ThingsDataError("invalid_row");
     const { thing_photo: photos } = parsed.data;
-    // Newest first; the id breaks a tie like the queue does.
-    const card = photos
+    // Since Story 18.11 a place holds many cards: the things of every finished card, the newest card first.
+    const done = photos
       .filter((photo) => photo.status === "done")
-      .sort((a, b) => Date.parse(b.created_at) - Date.parse(a.created_at) || (a.id < b.id ? 1 : -1))[0];
+      .sort((a, b) => Date.parse(b.created_at) - Date.parse(a.created_at) || (a.id < b.id ? 1 : -1));
+    const card = done[0];
     if (!card) continue;
-    // A card whose things were all merged into other cards has nothing to list.
-    const things = card.thing_item
-      .filter((item) => item.same_as === null)
-      .sort((a, b) => a.position - b.position || (a.id < b.id ? -1 : 1))
+    const all = done.flatMap((photo) => photo.thing_item);
+    const things = done
+      .flatMap((photo) => [...photo.thing_item].filter((item) => item.same_as === null).sort((a, b) => a.position - b.position || (a.id < b.id ? -1 : 1)))
       .slice(0, Math.max(0, maxIndexedThings - count))
       .map((item) => ({ id: item.id, name: item.name, category: item.category, whereHint: item.where_hint, seenOn: 1 + (cards.get(item.id) ?? 0) }));
     count += things.length;
-    if (card.thing_item.length > 0 && card.thing_item.every((item) => item.same_as !== null)) continue;
+    // A place whose things were all merged into other cards has nothing to list.
+    if (all.length > 0 && all.every((item) => item.same_as !== null)) continue;
     places.push({
       id: parsed.data.id,
       siteId: parsed.data.site_id,
@@ -84,7 +85,7 @@ export async function loadThingIndexIn(db: ThingsDb): Promise<IndexedPlace[]> {
       part: parsed.data.part,
       isBox: parsed.data.kind === "box" || isBoxKey(parsed.data.part_key),
       cardTakenAt: new Date(card.taken_at),
-      hidden: card.unseen_count,
+      hidden: done.reduce((sum, photo) => sum + photo.unseen_count, 0),
       things,
     });
   }

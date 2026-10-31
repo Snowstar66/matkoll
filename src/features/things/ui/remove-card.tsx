@@ -19,7 +19,7 @@ import { shortDateText } from "../domain/thing-photo";
 // goes with the sweep of the next card. The question is always asked: a
 // card is more than a row.
 
-export function RemoveCard({ cardId, takenAt }: { cardId: string; takenAt: Date }) {
+export function RemoveCard({ cardId, takenAt, compact = false, name }: { cardId: string; takenAt: Date; compact?: boolean; name?: string }) {
   const router = useRouter();
   const { showToast } = useToast();
   const [asking, setAsking] = useState(false);
@@ -75,8 +75,8 @@ export function RemoveCard({ cardId, takenAt }: { cardId: string; takenAt: Date 
 
   return (
     <>
-      <Button variant="text" onClick={() => setAsking(true)} className="self-center" data-testid="remove-card">
-        {removeCardText}
+      <Button variant={compact ? "compact" : "text"} onClick={() => setAsking(true)} className={compact ? undefined : "self-center"} aria-label={compact && name ? `Ta bort kortet ${name}` : undefined} data-testid="remove-card">
+        {compact ? "Ta bort" : removeCardText}
       </Button>
       <Sheet
         open={asking}

@@ -7,18 +7,18 @@ import { requireUserOrRedirect } from "@/features/auth/server";
 import { type PantrySiteWithCount, type SelectedSite } from "@/features/pantry";
 import { listPantrySitesWithCounts, PantryDataError } from "@/features/pantry/server";
 import { SiteSwitch, SiteSwitchProvider } from "@/features/pantry/ui/site-switch";
-import { roomSuggestions, thingsEmptyText, type IndexedPlace } from "@/features/things";
-import { getThingIndex, listThingPlaces, ThingsDataError } from "@/features/things/server";
+import { takeCardSubText, takeCardText, thingsEmptyText, type IndexedPlace, type RoomSummary } from "@/features/things";
+import { getThingIndex, listRooms, ThingsDataError } from "@/features/things/server";
 import { ThingFinder } from "@/features/things/ui/thing-finder";
-import { NewPlace } from "@/features/things/ui/new-place-sheet";
-import { PlacesList } from "@/features/things/ui/places-list";
+import { RoomsList } from "@/features/things/ui/rooms-list";
+import { TakeCard } from "@/features/things/ui/take-card";
 import { errorMessages } from "@/lib/errors";
 
 /**
- * The tab's data: the user's boenden (for the pills) and the places of the
+ * The tab's data: the user's boenden (for the pills) and the rooms of the
  * selected one. The data's <Suspense> is keyed on the boende, so choosing
- * another shows the skeleton rows instead of the old places. When the boenden
- * or the places cannot be read, a notice says so; other errors go to the error boundary.
+ * another shows the skeleton rows instead of the old rooms. When the boenden
+ * or the rooms cannot be read, a notice says so; other errors go to the error boundary.
  */
 export async function PrylarContent() {
   await requireUserOrRedirect("/prylar");
@@ -43,50 +43,54 @@ export async function PrylarContent() {
   }
   const site: SelectedSite = { id: selected.id, name: selected.name, siteCount: sites.length };
 
-  // Story 18.4: the search and the question span every boende. Without a card
-  // to search in they are left out; when the index cannot be read the tab works as before.
-  let index: IndexedPlace[] = [];
-  try {
-    index = await getThingIndex();
-  } catch (error) {
-    if (!(error instanceof ThingsDataError)) throw error;
-    console.error("things_unavailable", { reason: error.detail });
-  }
-
   const places = (
     <SiteSwitch sites={sites} selected={site}>
       <Suspense key={site.id} fallback={<Skeleton rows={3} />}>
-        <Places siteId={site.id} />
+        <Rooms site={site} />
       </Suspense>
     </SiteSwitch>
   );
   return (
     <SiteSwitchProvider>
       <PageHeader title="Förråd" />
-      {index.some((place) => place.things.length > 0) ? <ThingFinder places={index}>{places}</ThingFinder> : places}
+      {places}
     </SiteSwitchProvider>
   );
 }
 
-async function Places({ siteId }: { siteId: string }) {
-  let places;
+/**
+ * "Ta kort" first, then (when there are cards) the search and the question
+ * over every boende (Story 18.4) and the rooms of this boende with their
+ * counts, read by the database (Story 18.11). When the index cannot be read
+ * the tab works without search.
+ */
+async function Rooms({ site }: { site: SelectedSite }) {
+  let rooms: RoomSummary[];
+  let index: IndexedPlace[] = [];
   try {
-    places = await listThingPlaces(siteId);
+    rooms = await listRooms(site.id);
+    index = await getThingIndex();
   } catch (error) {
     if (!(error instanceof ThingsDataError)) throw error;
     console.error("things_unavailable", { reason: error.detail });
     return <Notice role="alert">{errorMessages.things_unavailable}</Notice>;
   }
-  const rooms = roomSuggestions(places);
-  if (places.length === 0) {
+  const take = (
+    <TakeCard siteId={site.id} rooms={rooms.map((room) => room.room)} variant="primary" title={takeCardText} sub={takeCardSubText} />
+  );
+  if (rooms.length === 0) {
     return (
-      <EmptyState action={<NewPlace siteId={siteId} rooms={rooms} variant="primary" />}>{thingsEmptyText}</EmptyState>
+      <div className="flex flex-col gap-4">
+        {take}
+        <EmptyState>{thingsEmptyText}</EmptyState>
+      </div>
     );
   }
+  const list = <RoomsList siteId={site.id} rooms={rooms} />;
   return (
-    <div className="flex flex-col gap-6">
-      <PlacesList places={places} />
-      <NewPlace siteId={siteId} rooms={rooms} variant="text" />
+    <div className="flex flex-col gap-4">
+      {take}
+      {index.some((place) => place.things.length > 0) ? <ThingFinder places={index}>{list}</ThingFinder> : list}
     </div>
   );
 }

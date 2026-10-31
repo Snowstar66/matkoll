@@ -90,6 +90,8 @@ export type NewCard = {
   width: number;
   height: number;
   takenAt: Date;
+  /** The card of the same place this one replaces when it is read (Ta om); null for a card that adds. */
+  replacesId?: string | null;
 };
 
 /**
@@ -106,6 +108,7 @@ export async function insertCardIn(db: ThingsDb, card: NewCard): Promise<"saved"
       width: card.width,
       height: card.height,
       taken_at: card.takenAt.toISOString(),
+      replaces_photo_id: card.replacesId ?? null,
     });
     if (!error) return "saved";
     if (error.code === "23503") return "place_gone";
@@ -139,9 +142,9 @@ export async function reopenCardIn(db: ThingsDb, id: string): Promise<boolean> {
 export type ReadThing = { name: string; category: string; where: string | null; confidence: string };
 
 /**
- * The job's end (save_thing_reading): the things are saved, the card is `done`
- * and the older cards of the place are removed. Returns the files of the
- * removed cards, for the caller to remove with the Storage API. Throws
+ * The job's end (save_thing_card): the things are saved, the card is `done`
+ * and the card it replaces (Ta om), if any, is removed; a card that replaces
+ * nothing only adds. Returns the files of the removed cards, for the caller to remove with the Storage API. Throws
  * ThingsDataError `card_gone` (MK440) or `save_failed <code>`.
  */
 export async function saveReadingIn(
@@ -149,7 +152,7 @@ export async function saveReadingIn(
   reading: { photoId: string; things: readonly ReadThing[]; note: string | null; hidden: number },
 ): Promise<string[]> {
   return guarded("save", async () => {
-    const { data, error } = await db.rpc("save_thing_reading", {
+    const { data, error } = await db.rpc("save_thing_card", {
       photo: reading.photoId,
       things: reading.things.map((thing) => ({
         name: thing.name,

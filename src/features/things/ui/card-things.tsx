@@ -21,7 +21,7 @@ import { cleanThingName, emptyNameText, maxThingNameChars, removedThingText, rem
 // cards, a category's emoji on a light tile; the tile is decoration and the
 // category's name stands beside it.
 
-function CategoryHeading({ category, count, id }: { category: ThingCategory; count: number; id: string }) {
+export function CategoryHeading({ category, count, id }: { category: ThingCategory; count: number; id: string }) {
   const { icon, tile } = thingTiles[category];
   return (
     <div className="flex items-center gap-3 px-1">
@@ -39,7 +39,17 @@ function CategoryHeading({ category, count, id }: { category: ThingCategory; cou
   );
 }
 
-export function CardThings({ things }: { things: readonly Thing[] }) {
+/** A thing's row in a room's list (Story 18.12): the name, and where it is at the right in small type. */
+function AsideTitle({ name, hint }: { name: string; hint: string }) {
+  return (
+    <span className="flex items-baseline justify-between gap-3">
+      <span className="min-w-0 font-normal wrap-break-word">{name}</span>
+      {hint ? <span className="max-w-[45%] shrink-0 text-right text-meta font-normal text-ink-3">{hint}</span> : null}
+    </span>
+  );
+}
+
+export function CardThings({ things, headings = true, aside = false }: { things: readonly Thing[]; headings?: boolean; aside?: boolean }) {
   const router = useRouter();
   const { showToast } = useToast();
   const [open, setOpen] = useState(false);
@@ -140,13 +150,13 @@ export function CardThings({ things }: { things: readonly Thing[] }) {
     <>
       {groups.map((group) => (
         <section key={group.category} className="flex flex-col gap-2" data-testid="thing-group">
-          <CategoryHeading category={group.category} count={group.things.length} id={`cat-${group.category}`} />
-          <ListGroup labelledBy={`cat-${group.category}`}>
+          {headings ? <CategoryHeading category={group.category} count={group.things.length} id={`cat-${group.category}`} /> : null}
+          <ListGroup labelledBy={headings ? `cat-${group.category}` : undefined} label={headings ? undefined : group.category}>
             {group.things.map((thing) => (
               <ListRow
                 key={thing.id}
-                title={thing.name}
-                meta={thingMeta(thing)}
+                title={aside ? <AsideTitle name={thing.name} hint={thingMeta(thing)} /> : thing.name}
+                meta={aside ? undefined : thingMeta(thing)}
                 onPress={() => openSheet(thing)}
                 pressProps={{ "aria-haspopup": "dialog", "data-testid": "thing-press" }}
                 data-testid="thing"
