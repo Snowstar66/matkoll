@@ -25,18 +25,25 @@ export type RecipeCategoryChipsProps = {
   value: RecipeCategory | null;
   /** The chip pressed; the chosen one is pressed again to let it go (`null`). */
   onChange: (category: RecipeCategory | null) => void;
+  /**
+   * The categories at least one recipe in the whole library belongs to (Story 14.4); only
+   * these get a chip, plus the chosen one even when it has none left. Left out: all of them.
+   */
+  available?: ReadonlySet<RecipeCategory>;
 };
 
 /**
- * Kategorichips (Story 1.17): one row that scrolls sideways inside itself,
- * never the page. Each is a toggle button (`aria-pressed`): a 34 px chip with
+ * Kategorichips (Story 1.17): the chips wrap onto several lines, never scroll
+ * sideways (Story 14.4), and only categories some recipe has are shown. Each is a toggle button (`aria-pressed`): a 34 px chip with
  * a 24 px icon tile in a 44 px tap area. One category at a time; pressing the
  * chosen one lets it go.
  */
-export function RecipeCategoryChips({ value, onChange }: RecipeCategoryChipsProps) {
+export function RecipeCategoryChips({ value, onChange, available }: RecipeCategoryChipsProps) {
+  const categories = RECIPE_CATEGORIES.filter((category) => category === value || !available || available.has(category));
+  if (categories.length === 0) return null;
   return (
-    <div role="group" aria-label="Kategori" className="flex min-w-0 gap-2 overflow-x-auto [scrollbar-width:none]">
-      {RECIPE_CATEGORIES.map((category) => {
+    <div role="group" aria-label="Kategori" className="flex min-w-0 flex-wrap gap-x-2">
+      {categories.map((category) => {
         const selected = value === category;
         const { icon, tile } = categoryTiles[category];
         return (
@@ -45,7 +52,7 @@ export function RecipeCategoryChips({ value, onChange }: RecipeCategoryChipsProp
             type="button"
             aria-pressed={selected}
             onClick={() => onChange(selected ? null : category)}
-            className="group flex min-h-tap shrink-0 items-center rounded-pill outline-none"
+            className="group flex min-h-tap items-center rounded-pill outline-none"
           >
             <span
               className={cx(

@@ -254,6 +254,11 @@ test("the library shows recipe cards with the image on top, the status and the h
   await page.goto("/recept");
   await expect(cards(page)).toHaveCount(4);
 
+  // Story 14.4: two columns on a phone, as in the sketch.
+  const [firstTile, secondTile] = [await box(cards(page).nth(0)), await box(cards(page).nth(1))];
+  expect(secondTile.y).toBeCloseTo(firstTile.y, 0);
+  expect(secondTile.x).toBeGreaterThan(firstTile.x + firstTile.width - 1);
+
   const korvCard = card(page, korv);
   await expect(korvCard.getByText("15 min · 4 portioner", { exact: true })).toBeVisible();
   await expect(korvCard.getByText("Kan lagas nu", { exact: true })).toBeVisible();
@@ -270,7 +275,7 @@ test("the library shows recipe cards with the image on top, the status and the h
   const imageBox = await box(image);
   const cardBox = await box(korvCard);
   expect(imageBox.width).toBeCloseTo(cardBox.width, 0);
-  expect(imageBox.height).toBe(120);
+  expect(imageBox.height).toBe(104);
   expect(imageBox.y).toBeCloseTo(cardBox.y, 0);
 
   // The status bottom left and the heart bottom right, on the image.
@@ -292,6 +297,17 @@ test("the library shows recipe cards with the image on top, the status and the h
   await expect(card(page, fisk).getByTestId("recipe-image-placeholder")).toBeVisible();
   await expectNoHorizontalScroll(page);
   expect(errors).toEqual([]);
+});
+
+test("the view switch is a labelled segmented control named Vy with Kort and Lista, with a 44 px tap area", async ({ page }) => {
+  await serveImages(page);
+  await page.goto("/recept");
+  const group = page.getByRole("radiogroup", { name: "Vy" });
+  await expect(group.getByRole("radio")).toHaveText([/Kort/, /Lista/]);
+  await expect(group.getByRole("radio", { name: "Kort", exact: true })).toBeChecked();
+  // The 44 px tap area reaches 9 px above the 26 px segment: a tap there still chooses it.
+  await group.getByRole("radio", { name: "Lista", exact: true }).click({ position: { x: 10, y: -8 } });
+  await expect(group.getByRole("radio", { name: "Lista", exact: true })).toBeChecked();
 });
 
 test("the heart toggles the favourite without opening the recipe; a tap on the image opens it", async ({ page }) => {
@@ -416,13 +432,13 @@ test.describe("with large text", () => {
     }
     await expectNoHorizontalScroll(page);
 
-    // The long title is shown in full, wrapped, never cut short.
+    // Story 14.4: the title wraps but is cut after two lines (the full text stays in the page).
     const long = card(page, pannkakor).getByRole("link", { name: pannkakor });
     await expect(long).toHaveText(pannkakor);
-    expect(await long.evaluate((el) => el.scrollHeight <= el.clientHeight + 1 && el.scrollWidth <= el.clientWidth + 1)).toBe(
-      true,
-    );
-    expect((await box(long)).height).toBeGreaterThan(60);
+    expect(await long.evaluate((el) => el.scrollWidth <= el.clientWidth + 1)).toBe(true);
+    const lineHeight = await long.evaluate((el) => parseFloat(getComputedStyle(el).lineHeight));
+    expect((await box(long)).height).toBeGreaterThan(lineHeight * 1.5);
+    expect((await box(long)).height).toBeLessThanOrEqual(lineHeight * 2 + 1);
 
     await page.goto("/matsedel");
     await expect(dish(page, gryta).getByTestId("dish-meta")).toHaveText("35 min · 4 port.6 av 8 hemma");
@@ -461,6 +477,15 @@ async function expectStepperFits(page: Page, scope: Locator, title?: string) {
 }
 
 test.describe("with the root text at 200 %", () => {
+  test("the cards fall to one column", async ({ page }) => {
+    await serveImages(page);
+    await page.goto("/recept");
+    await page.addStyleTag({ content: "html { font-size: 200%; }" });
+    const [first, second] = [await box(cards(page).nth(0)), await box(cards(page).nth(1))];
+    expect(second.y).toBeGreaterThan(first.y + first.height - 1);
+    await expectNoHorizontalScroll(page);
+  });
+
   test("the badge stays on the image, clear of the heart", async ({ page }) => {
     await serveImages(page);
     await page.goto("/recept");

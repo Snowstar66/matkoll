@@ -28,6 +28,9 @@ function watchErrors(page: Page): string[] {
   return errors;
 }
 
+// Story 14.4: each link starts with its coloured emoji; the label is what follows.
+const endsWith = (label: string) => new RegExp(`${label}$`);
+
 const mainMenu = (page: Page) => page.getByRole("navigation", { name: "Huvudmeny" });
 
 async function expectSurface(page: Page, surface: (typeof surfaces)[number]) {
@@ -47,7 +50,7 @@ test.describe("mobile, 390 × 844", () => {
     const errors = watchErrors(page);
     await page.goto("/recept");
     await expect(mainMenu(page)).toHaveCount(1);
-    await expect(mainMenu(page).getByRole("link")).toHaveText(mainLabels);
+    await expect(mainMenu(page).getByRole("link")).toHaveText(mainLabels.map(endsWith));
 
     // The tab bar sits at the bottom of the screen and is 84 px high.
     const box = await mainMenu(page).boundingBox();
@@ -118,7 +121,7 @@ test.describe("desktop, 1280 × 800", () => {
     const errors = watchErrors(page);
     await page.goto("/recept");
     await expect(mainMenu(page)).toHaveCount(1);
-    await expect(mainMenu(page).getByRole("link")).toHaveText([...mainLabels, "Inställningar"]);
+    await expect(mainMenu(page).getByRole("link")).toHaveText([...mainLabels, "Inställningar"].map(endsWith));
 
     const menu = await mainMenu(page).boundingBox();
     expect(menu).toMatchObject({ x: 0, y: 0, width: 240, height: desktop.height });
@@ -203,7 +206,7 @@ async function tabLabels(page: Page) {
       const box = link.getBoundingClientRect();
       const text = label.getBoundingClientRect();
       return {
-        name: link.textContent,
+        name: label.textContent,
         active: link.getAttribute("aria-current") === "page",
         fits:
           label.scrollWidth <= label.clientWidth &&

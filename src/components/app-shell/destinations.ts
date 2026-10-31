@@ -1,6 +1,4 @@
-import type { ComponentType } from "react";
 import type { AiJobKind } from "@/lib/ai-job-shape";
-import { CartIcon, FridgeIcon, type IconProps, MealPlanIcon, RecipesIcon, SettingsIcon } from "../icons";
 
 export type Destination = {
   href: string;
@@ -10,25 +8,26 @@ export type Destination = {
    * narrow (a 375 px phone at 200 % zoom). Joined, the parts are `label`.
    */
   labelParts?: readonly string[];
-  Icon: ComponentType<IconProps>;
+  /** The sketch's coloured emoji (Story 14.4); grey and dimmed when the destination is not the current one. */
+  emoji: string;
   /** The AI results that are shown on this surface, counted in its badge (Story 12.4). */
   aiKinds?: readonly AiJobKind[];
 };
 
 /** The four main surfaces, in tab order (EXPERIENCE.md, Information Architecture). */
 export const mainDestinations: readonly Destination[] = [
-  { href: "/recept", label: "Recept", Icon: RecipesIcon, aiKinds: ["suggest", "import"] },
+  { href: "/recept", label: "Recept", emoji: "\u{1F4D6}", aiKinds: ["suggest", "import"] },
   // At 200 % zoom even "Matsedel" is wider than its tab, so it breaks too.
-  { href: "/matsedel", label: "Matsedel", labelParts: ["Mat", "sedel"], Icon: MealPlanIcon },
+  { href: "/matsedel", label: "Matsedel", labelParts: ["Mat", "sedel"], emoji: "\u{1F4C5}" },
   // Story 10.4: "Inköpslista" (was "Lista") and "Lagersaldo" (was "Hemma",
   // the name of the first place too). The routes stay, so bookmarks work.
-  // Story 11.1: a cart for Inköpslista and a fridge for Lagersaldo; line icons, never emoji.
-  { href: "/lista", label: "Inköpslista", labelParts: ["Inköps", "lista"], Icon: CartIcon },
-  { href: "/hemma", label: "Lagersaldo", labelParts: ["Lager", "saldo"], Icon: FridgeIcon, aiKinds: ["analyze"] },
+  // Story 11.1: Story 14.4: the sketch's emoji replace the line icons.
+  { href: "/lista", label: "Inköpslista", labelParts: ["Inköps", "lista"], emoji: "\u{1F6D2}" },
+  { href: "/hemma", label: "Lagersaldo", labelParts: ["Lager", "saldo"], emoji: "\u{1F9CA}", aiKinds: ["analyze"] },
 ];
 
 /** Settings: the gear in the Recept header on mobile, the bottom of the side menu on desktop. */
-export const settingsDestination: Destination = { href: "/installningar", label: "Inställningar", Icon: SettingsIcon };
+export const settingsDestination: Destination = { href: "/installningar", label: "Inställningar", emoji: "\u2699\uFE0F" };
 
 /** Paths whose scroll position is kept when switching between them. */
 export const shellPaths: readonly string[] = [...mainDestinations, settingsDestination].map((d) => d.href);
