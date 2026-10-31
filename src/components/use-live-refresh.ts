@@ -21,14 +21,16 @@ const renewBeforeMs = 60_000;
 
 type RealtimeSession = { url: string; key: string; userId: string; accessToken: string; expiresAt: number | null };
 
-async function readSession(): Promise<RealtimeSession | null> {
+/** `refused`: signed out or no longer allowed, which a retry never changes. `failed`: try again later. */
+async function readSession(): Promise<RealtimeSession | "refused" | "failed"> {
   try {
     const response = await fetch("/api/realtime/session", { cache: "no-store" });
-    if (!response.ok) return null;
+    if (response.status === 401 || response.status === 403) return "refused";
+    if (!response.ok) return "failed";
     const body = (await response.json()) as { ok: boolean; data?: RealtimeSession };
-    return body.ok && body.data ? body.data : null;
+    return body.ok && body.data ? body.data : "failed";
   } catch {
-    return null;
+    return "failed";
   }
 }
 
@@ -66,11 +68,20 @@ export function useLiveRefresh({ tables, busy }: LiveRefreshOptions): void {
       channel = null;
     }
 
+    /** Each call to listen takes a number; one that is no longer the latest stops after its next await. */
+    let generation = 0;
+    /** When the token runs out (ms), and whether the socket joined its channel. */
+    let tokenEndsAt = 0;
+    let joined = false;
+
     async function listen() {
+      generation += 1;
+      const mine = generation;
       stopListening();
       const session = await readSession();
-      if (stopped) return;
-      if (!session) {
+      if (stopped || mine !== generation) return;
+      if (session === "refused") return;
+      if (session === "failed") {
         renewTimer = setTimeout(() => void listen(), retryMs);
         return;
       }
@@ -80,19 +91,30 @@ export function useLiveRefresh({ tables, busy }: LiveRefreshOptions): void {
         accessToken: async () => session.accessToken,
       });
       await next.setAuth(session.accessToken);
-      if (stopped) return;
+      if (stopped || mine !== generation) {
+        void next.disconnect();
+        return;
+      }
       client = next;
+      joined = false;
+      // Every event is only a ping that something changed: no payload is read.
+      // INSERT and UPDATE are filtered on the user and follow RLS. Realtime
+      // applies neither to DELETE (its record holds the row id only), so a
+      // DELETE is heard without a filter and can only cost one harmless refresh.
       let live = next.channel(`live:${tablesKey}`);
       for (const table of tablesKey.split(",")) {
-        live = live.on(
-          "postgres_changes",
-          { event: "*", schema: "public", table, filter: `user_id=eq.${session.userId}` },
-          () => scheduler.notify(),
-        );
+        const ping = () => scheduler.notify();
+        live = live
+          .on("postgres_changes", { event: "INSERT", schema: "public", table, filter: `user_id=eq.${session.userId}` }, ping)
+          .on("postgres_changes", { event: "UPDATE", schema: "public", table, filter: `user_id=eq.${session.userId}` }, ping)
+          .on("postgres_changes", { event: "DELETE", schema: "public", table }, ping);
       }
-      channel = live.subscribe();
+      channel = live.subscribe((status) => {
+        joined = mine === generation && status === "SUBSCRIBED";
+      });
       // Renew the token before it expires; the socket is rebuilt with the new one.
-      const expiresIn = session.expiresAt ? session.expiresAt * 1000 - Date.now() - renewBeforeMs : retryMs;
+      tokenEndsAt = session.expiresAt ? session.expiresAt * 1000 : Date.now() + retryMs + renewBeforeMs;
+      const expiresIn = tokenEndsAt - Date.now() - renewBeforeMs;
       renewTimer = setTimeout(() => void listen(), Math.max(expiresIn, retryMs));
     }
 
@@ -102,8 +124,9 @@ export function useLiveRefresh({ tables, busy }: LiveRefreshOptions): void {
         return;
       }
       // A phone may have dropped the socket while the tab was hidden: listen
-      // again, and read the page once for whatever was missed.
-      void listen();
+      // again unless the socket is joined and its token is good for a while,
+      // and read the page once for whatever was missed.
+      if (!(joined && client?.isConnected() && tokenEndsAt - Date.now() > 2 * renewBeforeMs)) void listen();
       scheduler.refreshNow();
     }
 

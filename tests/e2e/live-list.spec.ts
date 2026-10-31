@@ -1,5 +1,7 @@
 import { expect, type Locator, type Page, test } from "@playwright/test";
-import { adminClient, e2eUserId, liveListEmail, liveListStorageState, thisMonday } from "./support";
+import { createClient } from "@supabase/supabase-js";
+import { localSupabaseUrl } from "../local-supabase";
+import { adminClient, e2eUserId, liveListEmail, liveListStorageState, outsiderEmail, thisMonday } from "./support";
 
 // Story 17.7: Live-inköpslista. Two phones (two browser contexts) are signed in
 // as the same user and have /lista open; what one does shows on the other
@@ -165,4 +167,50 @@ test("a check, an own item and its removal on one phone show on the other, and a
   expect(errors).toEqual([]);
   await phoneA.close();
   await phoneB.close();
+});
+
+// Realtime follows RLS for INSERT and UPDATE, but not for DELETE, whose record
+// holds the row id only. Another account's subscription, with no filter at all,
+// must never hear what is in this user's rows; a bare DELETE ping with only an
+// id may arrive (a timing-only leak, accepted: Story 17.7).
+test("another account's subscription never receives this user's row content", async () => {
+  const link = await adminClient().auth.admin.generateLink({ type: "magiclink", email: outsiderEmail });
+  if (link.error) throw link.error;
+  const other = createClient(localSupabaseUrl(), process.env.NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY ?? "", {
+    auth: { persistSession: false, autoRefreshToken: false },
+  });
+  const verified = await other.auth.verifyOtp({ token_hash: link.data.properties.hashed_token, type: "email" });
+  if (verified.error) throw verified.error;
+
+  const heard: { type: string; text: string }[] = [];
+  let joined = false;
+  const channel = other.channel("spy");
+  for (const event of ["INSERT", "UPDATE", "DELETE"] as const) {
+    channel.on("postgres_changes", { event, schema: "public", table: "shopping_check" }, (payload) =>
+      heard.push({ type: payload.eventType, text: JSON.stringify(payload) }),
+    );
+  }
+  channel.subscribe((status) => {
+    if (status === "SUBSCRIBED") joined = true;
+  });
+  await expect.poll(() => joined, { timeout: 8_000 }).toBe(true);
+
+  const admin = adminClient();
+  const inserted = await admin
+    .from("shopping_check")
+    .insert({ user_id: userId, meal_plan_id: planId, line_key: "t:hemlignyckel" })
+    .select("id")
+    .single();
+  if (inserted.error) throw inserted.error;
+  const id = (inserted.data as { id: string }).id;
+  await admin.from("shopping_check").update({ line_key: "t:hemlignyckel2" }).eq("id", id);
+  await admin.from("shopping_check").delete().eq("id", id);
+  await new Promise((resolve) => setTimeout(resolve, 3_000));
+  await other.removeAllChannels();
+
+  expect(heard.filter((event) => event.type !== "DELETE")).toEqual([]);
+  for (const event of heard) {
+    expect(event.text).not.toContain("t:hemlignyckel");
+    expect(event.text).not.toContain(userId);
+  }
 });

@@ -9,22 +9,26 @@ import { isCrossSite, respond } from "../../ai/route-support";
 // so the signed-in user's own short-lived access token, the project's
 // publishable key and the user's id come from here. The token is only used to
 // open the realtime socket as that user, which keeps the row-level security
-// of every table; it is never stored. `no-store`: it is per user and per time.
+// of every table; it is never stored. `no-store, private` on every answer.
+
+/** Every answer, also a refusal, is per user and per time: never stored. */
+function uncached(response: Response): Response {
+  response.headers.set("Cache-Control", "no-store, private");
+  return response;
+}
 
 export async function GET(request: Request): Promise<Response> {
-  if (isCrossSite(request)) return respond(fail("unauthorized"), 403);
+  if (isCrossSite(request)) return uncached(respond(fail("unauthorized"), 403));
   const auth = await requireUserForRoute();
-  if (auth.response) return auth.response;
+  if (auth.response) return uncached(auth.response);
 
   // getCurrentUser verified the session with getClaims(); this only reads its token.
   const supabase = await createClient();
   const { data } = await supabase.auth.getSession();
   const session = data.session;
-  if (!session) return respond(fail("unauthorized"));
+  if (!session) return uncached(respond(fail("unauthorized"), 401));
   const { url, key } = supabaseConfig();
-  const response = respond(
-    ok({ url, key, userId: auth.user.id, accessToken: session.access_token, expiresAt: session.expires_at ?? null }),
+  return uncached(
+    respond(ok({ url, key, userId: auth.user.id, accessToken: session.access_token, expiresAt: session.expires_at ?? null })),
   );
-  response.headers.set("Cache-Control", "no-store");
-  return response;
 }
