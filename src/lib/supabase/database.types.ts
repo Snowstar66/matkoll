@@ -423,14 +423,14 @@ isOneToOne: false
                   ]
                 },"thing_item": {
                   Row: {
-                    "category": string,"confidence": string,"created_at": string,"id": string,"name": string,"photo_id": string,"place_id": string,"position": number,"user_id": string,"where_hint": string | null
+                    "category": string,"confidence": string,"created_at": string,"id": string,"name": string,"photo_id": string,"place_id": string,"position": number,"same_as": string | null,"user_id": string,"where_hint": string | null
                   }
                   ComputedFields: never
                   Insert: {
-                    "category": string,"confidence": string,"created_at"?: string,"id"?: string,"name": string,"photo_id": string,"place_id": string,"position"?: number,"user_id"?: string,"where_hint"?: string | null
+                    "category": string,"confidence": string,"created_at"?: string,"id"?: string,"name": string,"photo_id": string,"place_id": string,"position"?: number,"same_as"?: string | null,"user_id"?: string,"where_hint"?: string | null
                   }
                   Update: {
-                    "category"?: string,"confidence"?: string,"created_at"?: string,"id"?: string,"name"?: string,"photo_id"?: string,"place_id"?: string,"position"?: number,"user_id"?: string,"where_hint"?: string | null
+                    "category"?: string,"confidence"?: string,"created_at"?: string,"id"?: string,"name"?: string,"photo_id"?: string,"place_id"?: string,"position"?: number,"same_as"?: string | null,"user_id"?: string,"where_hint"?: string | null
                   }
                   Relationships: [
                     {
@@ -444,6 +444,12 @@ isOneToOne: false
       columns: ["place_id","user_id"]
 isOneToOne: false
       referencedRelation: "thing_place"
+      referencedColumns: ["id","user_id"]
+    },{
+      foreignKeyName: "thing_item_same_as_fkey"
+      columns: ["same_as","user_id"]
+isOneToOne: false
+      referencedRelation: "thing_item"
       referencedColumns: ["id","user_id"]
     }
                   ]
@@ -469,14 +475,14 @@ isOneToOne: false
                   ]
                 },"thing_place": {
                   Row: {
-                    "created_at": string,"id": string,"part": string | null,"part_key": string,"room": string,"room_key": string,"site_id": string,"user_id": string
+                    "created_at": string,"id": string,"kind": string,"part": string | null,"part_key": string,"room": string,"room_key": string,"site_id": string,"user_id": string
                   }
                   ComputedFields: never
                   Insert: {
-                    "created_at"?: string,"id"?: string,"part"?: string | null,"part_key"?: string,"room": string,"room_key": string,"site_id": string,"user_id"?: string
+                    "created_at"?: string,"id"?: string,"kind"?: string,"part"?: string | null,"part_key"?: string,"room": string,"room_key": string,"site_id": string,"user_id"?: string
                   }
                   Update: {
-                    "created_at"?: string,"id"?: string,"part"?: string | null,"part_key"?: string,"room"?: string,"room_key"?: string,"site_id"?: string,"user_id"?: string
+                    "created_at"?: string,"id"?: string,"kind"?: string,"part"?: string | null,"part_key"?: string,"room"?: string,"room_key"?: string,"site_id"?: string,"user_id"?: string
                   }
                   Relationships: [
                     {
@@ -638,6 +644,9 @@ isOneToOne: false
 "meal_plan_week_start":
 { Args: { "at"?: string }; Returns: string
                            },
+"merge_thing_items":
+{ Args: { "pairs": Json,"photo": string }; Returns: number
+                           },
 "pantry_added_time":
 { Args: { "value": string }; Returns: string
                            },
@@ -672,6 +681,9 @@ isOneToOne: false
                            },
 "pantry_target_site":
 { Args: { "site": string }; Returns: string
+                           },
+"relink_thing_items":
+{ Args: { "links": Json }; Returns: number
                            },
 "remove_shopping_custom_item":
 { Args: { "item_id": string }; Returns: {

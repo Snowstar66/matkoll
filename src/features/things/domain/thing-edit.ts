@@ -36,6 +36,9 @@ export const thingSnapshotSchema = z.object({
   confidence: z.enum(thingConfidences),
   position: z.number().int().min(0).max(1000),
   createdAt: z.iso.datetime({ offset: true }),
+  // Story 18.6: the thing it was merged into, and the things that were merged into it, so "Ångra" does not bring duplicates back.
+  sameAs: z.uuid().nullable().default(null),
+  pointedBy: z.array(z.uuid()).max(200).default([]),
 });
 export type ThingSnapshot = z.output<typeof thingSnapshotSchema>;
 

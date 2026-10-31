@@ -16,6 +16,9 @@ export type {
   ImageInput,
   ListThingsInput,
   ListThingsResult,
+  MergeThingsInput,
+  MergeThingsPair,
+  MergeThingsResult,
   LocateItemsInput,
   LocateItemsResult,
   ParseRecipeInput,
@@ -25,7 +28,7 @@ export type {
   WarmUpKind,
   WarmUpResult,
 } from "./service";
-export { aiEfforts, askThingsText, inputLimits, warmUpKinds } from "./service";
+export { aiEfforts, askThingsText, inputLimits, mergeThingsText, warmUpKinds } from "./service";
 export type { AiChoice, AiEffort } from "./service";
 export type { AiIngredientHint, AiPantryItem, AiRecipe, AiRecipeIngredient, AiThing, ItemPosition, ThingCategory, ThingConfidence } from "./schemas";
 export { maxThings, thingCategories, thingConfidences } from "./schemas";
@@ -74,6 +77,7 @@ function withSink(service: AiService, sink: AiUsageSink): AiService {
     locateItems: (input, signal, options) => withUsageSink(sink, () => service.locateItems(input, signal, options)),
     listThings: (input, signal, options) => withUsageSink(sink, () => service.listThings(input, signal, options)),
     askThings: (input, signal, options) => withUsageSink(sink, () => service.askThings(input, signal, options)),
+    mergeThings: (input, signal, options) => withUsageSink(sink, () => service.mergeThings(input, signal, options)),
     warmUp: (kind, signal, options) => service.warmUp(kind, signal, options),
     warmUpKey: (kind) => service.warmUpKey(kind),
   };

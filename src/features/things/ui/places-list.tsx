@@ -1,7 +1,7 @@
 import { ListGroup } from "@/components/list-group";
 import { ListRow } from "@/components/list-row";
 import { cardDateText } from "../domain/thing-photo";
-import { groupByRoom, partLabel, thingCountText, type ThingPlace } from "../domain/thing-place";
+import { allOnOtherCardsText, groupByRoom, partLabel, thingCountText, type ThingPlace } from "../domain/thing-place";
 
 // The places of a boende (Story 18.1), grouped by room: the room as a section
 // label, its places as quiet rows in one list group, each with how many things
@@ -12,7 +12,9 @@ export function placeMeta(place: ThingPlace): string {
   const box = place.isBox ? "Låda · " : "";
   if (place.cardState === "reading") return `${box}Tittar på kortet …`;
   if (place.cardTakenAt === null) return `${box}${place.cardState === "failed" ? "Kortet kunde inte läsas" : "Inget kort än"}`;
-  const base = `${box}${thingCountText(place.itemCount)} · ${cardDateText(place.cardTakenAt)}`;
+  // Every thing of the card is counted on another card of the room.
+  const count = place.itemCount === 0 && place.mergedAway > 0 ? allOnOtherCardsText : thingCountText(place.itemCount);
+  const base = `${box}${count} · ${cardDateText(place.cardTakenAt)}`;
   return place.cardState === "failed" ? `${base} · nytt kort kunde inte läsas` : base;
 }
 

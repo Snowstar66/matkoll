@@ -12,7 +12,7 @@ const place = (id: string, room: string, names: string[], extra: Partial<Indexed
   isBox: false,
   cardTakenAt: new Date("2026-10-31T10:00:00Z"),
   hidden: 0,
-  things: names.map((name, index) => ({ id: `${id}-${index}`, name, category: "Verktyg", whereHint: null })),
+  things: names.map((name, index) => ({ id: `${id}-${index}`, name, category: "Verktyg", whereHint: null, seenOn: 1 })),
   ...extra,
 });
 
@@ -51,6 +51,9 @@ describe("searchThings", () => {
     expect(hitMeta(hit)).toBe("Skräpförrådet, Översta hyllan · Hemma · 31 okt");
     const withWhere = { ...hit, thing: { ...hit.thing, whereHint: "väggen" } };
     expect(`${hit.thing.name} · ${hitMeta(withWhere)}`).toBe("Cirkelsåg · Skräpförrådet, Översta hyllan, väggen · Hemma · 31 okt");
+    // A thing the room's cards overlap on is listed once and says so (Story 18.6).
+    const merged = { ...hit, thing: { ...hit.thing, seenOn: 2 } };
+    expect(hitMeta(merged)).toBe("Skräpförrådet, Översta hyllan · Hemma · 31 okt · syns på 2 kort");
   });
 
   it("compares in NFC and Swedish lower case", () => {

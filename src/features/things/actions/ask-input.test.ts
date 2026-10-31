@@ -14,7 +14,7 @@ const place = (id: string, room: string, names: string[], extra: Partial<Indexed
   isBox: false,
   cardTakenAt: new Date("2026-10-31T10:00:00Z"),
   hidden: 0,
-  things: names.map((name, index) => ({ id: `${id}-${index}`, name, category: "Verktyg", whereHint: "på väggen" })),
+  things: names.map((name, index) => ({ id: `${id}-${index}`, name, category: "Verktyg", whereHint: "på väggen", seenOn: 1 })),
   ...extra,
 });
 

@@ -20,6 +20,7 @@ import {
   saveReadingIn,
   uploadCardFile,
 } from "../data/photos";
+import { mergeCardWithRoom } from "./merge-card";
 import { sweepCardFilesIn } from "./sweep-card-files";
 import { shownStatus, thingPhotoPath, type ThingPhotoMediaType } from "../domain/thing-photo";
 
@@ -37,6 +38,8 @@ import { shownStatus, thingPhotoPath, type ThingPhotoMediaType } from "../domain
 
 /** Time kept after the model for saving the things, so the whole job fits its deadline. */
 const postModelMarginMs = 5_000;
+/** Time kept after the merge call for the job to finish. */
+const mergeMarginMs = 1_000;
 
 export type StartReadingInput = {
   /** The photo as the client sent it, checked by readImageForm (size, pixels and type from its own bytes). */
@@ -61,7 +64,7 @@ function withoutMetadata(image: StartReadingInput["image"]): { data: Uint8Array;
   return null;
 }
 
-/** The job's work: the model reads the photo, the things are saved, the older cards of the place go. */
+/** The job's work: the model reads the photo, the things are saved, the older cards of the place go, and the things the card shares with the room's other cards are merged. */
 function readingWork(db: ThingsDb, userId: string, card: { id: string; placeId: string }, image: { data: Uint8Array; mediaType: string }): AiJobWork {
   return async (signal, deadline): Promise<Result<Json>> => {
     const failCard = async (code: string) => {
@@ -72,7 +75,8 @@ function readingWork(db: ThingsDb, userId: string, card: { id: string; placeId: 
       }
     };
 
-    const listed = await (await getAiServiceForUser()).listThings({ image }, signal, { deadline: deadline - postModelMarginMs });
+    const ai = await getAiServiceForUser();
+    const listed = await ai.listThings({ image }, signal, { deadline: deadline - postModelMarginMs });
     if (!listed.ok) {
       await failCard(listed.error.code);
       return listed;
@@ -101,6 +105,8 @@ function readingWork(db: ThingsDb, userId: string, card: { id: string; placeId: 
     // Like the pantry's sweep after a save (Story 10.3): files without a row go too. Never changes the answer.
     await sweepCardFilesIn(db, userId);
     console.info("things_read", { count: things.length });
+    // Story 18.6: things the card shares with the room's other cards are merged; the card is done either way.
+    if (!signal.aborted) await mergeCardWithRoom(db, ai, card.id, signal, deadline - mergeMarginMs);
     return ok({ photoId: card.id, placeId: card.placeId, count: things.length } satisfies Json);
   };
 }

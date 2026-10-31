@@ -5,6 +5,7 @@ import { thingCategories, thingConfidences } from "../domain/thing";
 import type { CardSnapshot } from "../domain/thing-edit";
 import { thingPhotoBucket, thingPhotoMediaTypes, type ThingCard, type ThingPhotoMediaType } from "../domain/thing-photo";
 import { cardGoneCode, guarded, ThingsDataError, type ThingsDb } from "./client";
+import { loadPointersIn, relinkItemsIn } from "./merge";
 
 // The cards (Story 18.2): every call to thing_photo and to the bucket
 // thing-photo is here. Every function needs the signed-in user's session
@@ -274,7 +275,7 @@ export async function loadCardFileOrphansIn(db: ThingsDb, userId: string, now: D
 }
 
 const snapshotSelect =
-  "id, place_id, object_path, media_type, width, height, taken_at, created_at, status, unseen_note, unseen_count, thing_item(id, photo_id, place_id, name, category, where_hint, confidence, position, created_at)";
+  "id, place_id, object_path, media_type, width, height, taken_at, created_at, status, unseen_note, unseen_count, thing_item(id, photo_id, place_id, name, category, where_hint, confidence, position, created_at, same_as)";
 
 const snapshotRowSchema = z.object({
   id: z.uuid(),
@@ -299,6 +300,7 @@ const snapshotRowSchema = z.object({
       confidence: z.enum(thingConfidences),
       position: z.number().int(),
       created_at: z.string(),
+      same_as: z.uuid().nullable(),
     }),
   ),
 });
@@ -323,6 +325,8 @@ export async function removeCardIn(db: ThingsDb, id: string): Promise<RemovedCar
     const parsed = snapshotRowSchema.safeParse(data);
     if (!parsed.success) throw new ThingsDataError("invalid_row");
     const row = parsed.data;
+    // The things merged into this card's things, before they become kept things of their own (FK set null).
+    const pointers = await loadPointersIn(db, row.thing_item.map((item) => item.id));
     const deleted = await db.from("thing_photo").delete().eq("id", id).select("id");
     if (deleted.error) throw new ThingsDataError(`remove_failed ${deleted.error.code}`);
     if (deleted.data.length === 0) return null;
@@ -350,6 +354,8 @@ export async function removeCardIn(db: ThingsDb, id: string): Promise<RemovedCar
             confidence: item.confidence,
             position: item.position,
             createdAt: new Date(item.created_at).toISOString(),
+            sameAs: item.same_as,
+            pointedBy: pointers.get(item.id) ?? [],
           })),
       },
     };
@@ -413,6 +419,8 @@ export async function restoreCardIn(db: ThingsDb, card: CardSnapshot): Promise<R
         await db.from("thing_photo").delete().eq("id", card.id);
         throw new ThingsDataError(`restore_failed ${items.error.code}`);
       }
+      // Story 18.6: the merges come back where they still hold, so "Ångra" never brings duplicates back.
+      await relinkItemsIn(db, card.things.map((thing) => ({ id: thing.id, sameAs: thing.sameAs, pointedBy: thing.pointedBy })));
     }
     return "restored";
   });

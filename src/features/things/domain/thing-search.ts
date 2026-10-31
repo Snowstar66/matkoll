@@ -1,5 +1,6 @@
 import { thingTiles, type ThingCategory } from "./thing";
 import { shortDateText } from "./thing-photo";
+import { seenOnText } from "./thing-merge";
 import { inBoxText } from "./thing-place";
 
 // Sök och fråga (Story 18.4): the things of every place and boende as one
@@ -11,6 +12,8 @@ export type IndexedThing = {
   name: string;
   category: ThingCategory;
   whereHint: string | null;
+  /** On how many cards of the room it is seen (Story 18.6): 1 for a thing on one card. */
+  seenOn: number;
 };
 
 /** A place with the things of its latest finished card, as the search and the question see it. */
@@ -69,9 +72,9 @@ export function hitWhere({ thing, place }: ThingHit): string {
   return [place.room, place.isBox && place.part ? inBoxText(place.part) : place.part, thing.whereHint].filter(Boolean).join(", ");
 }
 
-/** The line under a hit's name: "Skräpförrådet, väggen · Hemma · 31 okt". With the name first it reads "Hammare · Skräpförrådet, väggen · Hemma · 31 okt". */
+/** The line under a hit's name: "Skräpförrådet, väggen · Hemma · 31 okt", with "syns på 2 kort" last for a thing the room's cards overlap on. With the name first it reads "Hammare · Skräpförrådet, väggen · Hemma · 31 okt". */
 export function hitMeta(hit: ThingHit): string {
-  return [hitWhere(hit), hit.place.siteName, shortDateText(hit.place.cardTakenAt)].join(" · ");
+  return [hitWhere(hit), hit.place.siteName, shortDateText(hit.place.cardTakenAt), seenOnText(hit.thing.seenOn)].filter(Boolean).join(" · ");
 }
 
 /** The tile of a hit's category, as everywhere. */

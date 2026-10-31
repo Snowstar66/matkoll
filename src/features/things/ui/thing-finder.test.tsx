@@ -19,7 +19,7 @@ const places: IndexedPlace[] = [
     isBox: false,
     cardTakenAt: new Date("2026-10-31T10:00:00Z"),
     hidden: 0,
-    things: [{ id: "0b2f6d0a-3c0e-4d52-9a54-6d0f0c5f6a11", name: "Hammare", category: "Verktyg", whereHint: "väggen" }],
+    things: [{ id: "0b2f6d0a-3c0e-4d52-9a54-6d0f0c5f6a11", name: "Hammare", category: "Verktyg", whereHint: "väggen", seenOn: 1 }],
   },
   {
     id: "0b2f6d0a-3c0e-4d52-9a54-6d0f0c5f6a02",
@@ -30,7 +30,7 @@ const places: IndexedPlace[] = [
     isBox: false,
     cardTakenAt: new Date("2026-09-02T10:00:00Z"),
     hidden: 0,
-    things: [{ id: "0b2f6d0a-3c0e-4d52-9a54-6d0f0c5f6a12", name: "Spade", category: "Trädgård", whereHint: null }],
+    things: [{ id: "0b2f6d0a-3c0e-4d52-9a54-6d0f0c5f6a12", name: "Spade", category: "Trädgård", whereHint: null, seenOn: 1 }],
   },
 ];
 

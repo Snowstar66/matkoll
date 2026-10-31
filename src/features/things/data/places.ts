@@ -16,7 +16,7 @@ import { guarded, ThingsDataError, type ThingsDb } from "./client";
 // session client, never an admin client, so RLS limits it to the user's own
 // rows (AD-4). Errors carry only a fixed reason and the Postgres code.
 
-const placeSelect = "id, site_id, room, part, part_key, created_at, thing_photo(id, status, taken_at, created_at), thing_item(count)";
+const placeSelect = "id, site_id, room, part, part_key, kind, created_at, thing_photo(id, status, taken_at, created_at), thing_item(count), all_items:thing_item(count)";
 
 const placeRowSchema = z.object({
   id: z.uuid(),
@@ -24,11 +24,13 @@ const placeRowSchema = z.object({
   room: z.string(),
   part: z.string().nullable(),
   part_key: z.string(),
+  kind: z.enum(["part", "box"]),
   created_at: z.string(),
   thing_photo: z.array(
     z.object({ id: z.uuid(), status: z.enum(["reading", "done", "failed"]), taken_at: z.string(), created_at: z.string() }),
   ),
   thing_item: z.array(z.object({ count: z.number().int() })),
+  all_items: z.array(z.object({ count: z.number().int() })),
 });
 
 /** A thing_place row with its cards and its things counted, as a ThingPlace. */
@@ -45,8 +47,9 @@ function toPlace(row: unknown, now: Date): ThingPlace {
     siteId: parsed.data.site_id,
     room: parsed.data.room,
     part: parsed.data.part,
-    isBox: isBoxKey(parsed.data.part_key),
+    isBox: parsed.data.kind === "box" || isBoxKey(parsed.data.part_key),
     itemCount: items[0]?.count ?? 0,
+    mergedAway: (parsed.data.all_items[0]?.count ?? 0) - (items[0]?.count ?? 0),
     cardTakenAt: done ? new Date(done.taken_at) : null,
     cardState: latest ? shownStatus({ status: latest.status, createdAt: new Date(latest.created_at) }, now) : "none",
   };
@@ -58,14 +61,15 @@ function toPlace(row: unknown, now: Date): ThingPlace {
  * ThingsDataError `query_failed <code>` or `invalid_row`.
  */
 export async function loadPlacesIn(db: ThingsDb, siteId: string, now: Date = new Date()): Promise<ThingPlace[]> {
-  const { data, error } = await db.from("thing_place").select(placeSelect).eq("site_id", siteId).order("created_at").order("id");
+  // Only the kept things are counted (Story 18.6): a thing merged into another card counts there.
+  const { data, error } = await db.from("thing_place").select(placeSelect).eq("site_id", siteId).is("thing_item.same_as", null).order("created_at").order("id");
   if (error) throw new ThingsDataError(`query_failed ${error.code}`);
   return data.map((row) => toPlace(row, now));
 }
 
 /** One place, or `null` when it is gone or not the user's. Throws like loadPlacesIn. */
 export async function loadPlaceIn(db: ThingsDb, id: string, now: Date = new Date()): Promise<ThingPlace | null> {
-  const { data, error } = await db.from("thing_place").select(placeSelect).eq("id", id).maybeSingle();
+  const { data, error } = await db.from("thing_place").select(placeSelect).eq("id", id).is("thing_item.same_as", null).maybeSingle();
   if (error) throw new ThingsDataError(`query_failed ${error.code}`);
   return data ? toPlace(data, now) : null;
 }
@@ -90,6 +94,7 @@ export async function insertPlaceIn(db: ThingsDb, input: ValidPlaceInput, box = 
         part: input.part,
         room_key: normalizePlaceName(input.room),
         part_key: input.part === null ? "" : box ? boxKey(input.part) : normalizePlaceName(input.part),
+        kind: box ? "box" : "part",
       })
       .select("id")
       .single();
