@@ -77,7 +77,7 @@ export function SaveToMatkoll() {
       {guide === "computer" ? (
         <div className="flex flex-col gap-3 rounded-lg bg-surface p-4" data-testid="guide-computer">
           <p className="text-body text-ink-2">
-            Dra knappen till bokmärkesfältet (visa det med ⌘⇧B i Chrome). Tryck på den när du står på ett recept, så öppnas
+            Dra knappen till bokmärkesfältet (visa det med ⌘⇧B i Chrome). Tryck på den när du står på ett recept, så öppnas{" "}
             {appName} i en ny flik.
           </p>
           <a
