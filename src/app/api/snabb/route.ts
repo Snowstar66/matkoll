@@ -1,4 +1,5 @@
 import { bearerKey } from "@/lib/api-key";
+import { readBodyText } from "@/lib/read-body";
 import { revalidateFor } from "@/lib/revalidate";
 import { addItemsByApiKey } from "@/features/shopping/server";
 import { quickAddedText } from "@/features/shopping";
@@ -20,8 +21,8 @@ function text(body: string, status: number): Response {
 
 /** The dictated text from a JSON body `{ "text": "..." }`, or from a plain text body; null when there is none. */
 async function textOf(request: Request): Promise<string | null> {
-  const raw = await request.text();
-  if (raw.length > maxBodyBytes) return null;
+  const raw = await readBodyText(request, maxBodyBytes);
+  if (raw === null) return null;
   if (!(request.headers.get("content-type") ?? "").includes("json")) return raw;
   try {
     const body: unknown = JSON.parse(raw);

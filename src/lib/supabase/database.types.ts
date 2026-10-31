@@ -49,14 +49,14 @@ export type Database = {
                   ]
                 },"api_key": {
                   Row: {
-                    "created_at": string,"id": string,"key_hash": string,"label": string,"last_used_at": string | null,"revoked_at": string | null,"user_id": string,"window_count": number,"window_start": string | null
+                    "created_at": string,"day_count": number,"day_start": string | null,"id": string,"key_hash": string,"label": string,"last_used_at": string | null,"revoked_at": string | null,"user_id": string,"window_count": number,"window_start": string | null
                   }
                   ComputedFields: never
                   Insert: {
-                    "created_at"?: string,"id"?: string,"key_hash": string,"label"?: string,"last_used_at"?: string | null,"revoked_at"?: string | null,"user_id"?: string,"window_count"?: number,"window_start"?: string | null
+                    "created_at"?: string,"day_count"?: number,"day_start"?: string | null,"id"?: string,"key_hash": string,"label"?: string,"last_used_at"?: string | null,"revoked_at"?: string | null,"user_id"?: string,"window_count"?: number,"window_start"?: string | null
                   }
                   Update: {
-                    "created_at"?: string,"id"?: string,"key_hash"?: string,"label"?: string,"last_used_at"?: string | null,"revoked_at"?: string | null,"user_id"?: string,"window_count"?: number,"window_start"?: string | null
+                    "created_at"?: string,"day_count"?: number,"day_start"?: string | null,"id"?: string,"key_hash"?: string,"label"?: string,"last_used_at"?: string | null,"revoked_at"?: string | null,"user_id"?: string,"window_count"?: number,"window_start"?: string | null
                   }
                   Relationships: [
                     

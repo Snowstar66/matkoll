@@ -219,24 +219,12 @@ export async function addItemsByApiKey(
 > {
   if (key === null) return { kind: "invalid_key" };
   const labels = splitQuickText(text);
-  if (labels.length === 0) {
-    // Still ask the database about the key, so a bad key is never answered as "nothing".
-    return (await checkKey(key)) ? { kind: "nothing" } : { kind: "invalid_key" };
-  }
   try {
-    return await addItemsByApiKeyIn(createKeyClient(), hashApiKey(key), labels);
+    // An empty list still goes to the database: it checks the key and counts as a call.
+    const outcome = await addItemsByApiKeyIn(createKeyClient(), hashApiKey(key), labels);
+    return outcome.kind === "added" && labels.length === 0 ? { kind: "nothing" } : outcome;
   } catch (error) {
     console.error("quick_add_failed", { reason: error instanceof ShoppingDataError ? error.detail : "unknown" });
     return { kind: "failed" };
-  }
-}
-
-/** Whether the key is a working one, without adding anything (an empty list is refused by the function after the key check, 22023). */
-async function checkKey(key: string): Promise<boolean> {
-  try {
-    const { error } = await createKeyClient().rpc("add_items_by_api_key", { hash: hashApiKey(key), labels: [] });
-    return error?.code !== "MK401";
-  } catch {
-    return false;
   }
 }

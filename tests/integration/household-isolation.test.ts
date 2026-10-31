@@ -455,16 +455,49 @@ describe("household isolation", () => {
       const user = await createTestUser("household-key-limit");
       const key = await makeKey(user);
       const db = anonClient();
-      expect((await db.rpc("add_items_by_api_key", { hash: hashOf(key), labels: [] })).error?.code).toBe("22023");
+      expect((await db.rpc("add_items_by_api_key", { hash: hashOf(key), labels: [] })).data, "an empty list is a probe that counts as a call").toEqual([]);
+      expect((await db.rpc("add_items_by_api_key", { hash: hashOf("lk_nej"), labels: [] })).error?.code, "a probe of an unknown key").toBe("MK401");
       expect((await db.rpc("add_items_by_api_key", { hash: hashOf(key), labels: Array(21).fill("x") })).error?.code).toBe("22023");
       expect((await db.rpc("add_items_by_api_key", { hash: hashOf(key), labels: ["x".repeat(201)] })).error?.code).toBe("22023");
       expect((await db.rpc("add_items_by_api_key", { hash: hashOf(key), labels: [" "] })).error?.code).toBe("22023");
-      // 4 refused calls above rolled back and did not count; 30 calls pass, the 31st does not.
-      for (let call = 0; call < 30; call++) {
+      // The validation errors above cost nothing; the probe counted as call 1, so 29 more pass and the 31st does not.
+      for (let call = 0; call < 29; call++) {
         expect((await db.rpc("add_items_by_api_key", { hash: hashOf(key), labels: [`vara ${call}`] })).error, `call ${call + 1}`).toBeNull();
       }
       expect((await db.rpc("add_items_by_api_key", { hash: hashOf(key), labels: ["för mycket"] })).error?.code).toBe("MK429");
       expect(await own(user)).not.toContain("För mycket");
+    });
+
+    it("keeps a revoked key revoked, caps key rows at 50 and items at 200 a day", async () => {
+      const user = await createTestUser("household-key-hardening");
+      const key = await makeKey(user);
+      const revoked = await user.db.from("api_key").update({ revoked_at: new Date().toISOString() }).eq("user_id", user.id).select("id");
+      expect(revoked.error).toBeNull();
+      const undo = await user.db.from("api_key").update({ revoked_at: null }).eq("user_id", user.id);
+      expect(undo.error?.code, "revocation cannot be undone").toBe("MK404");
+      const later = await user.db.from("api_key").update({ revoked_at: new Date().toISOString() }).eq("user_id", user.id);
+      expect(later.error?.code, "nor changed").toBe("MK404");
+      expect((await anonClient().rpc("add_items_by_api_key", { hash: hashOf(key), labels: ["x"] })).error?.code).toBe("MK401");
+
+      // 50 rows in all: with 1 revoked, 49 more can be made (revoking each), the next is refused.
+      for (let count = 1; count < 50; count++) {
+        const key2 = await makeKey(user);
+        void key2;
+        expect((await user.db.from("api_key").update({ revoked_at: new Date().toISOString() }).eq("user_id", user.id).is("revoked_at", null)).error).toBeNull();
+      }
+      expect((await user.db.from("api_key").insert({ key_hash: hashOf(randomUUID()), label: "Siri" })).error?.code).toBe("MK403");
+
+      // 200 items a day for one key: spread over calls of 20, the 11th call is refused and adds nothing.
+      const other = await createTestUser("household-key-daily");
+      const dayKey = await makeKey(other);
+      const db = anonClient();
+      for (let call = 0; call < 10; call++) {
+        const labels = Array.from({ length: 20 }, (_, index) => `d${call}-${index}`);
+        expect((await db.rpc("add_items_by_api_key", { hash: hashOf(dayKey), labels })).error, `call ${call + 1}`).toBeNull();
+        // Keep under the minute limit's 30 calls: the window is per minute, 10 calls fit.
+      }
+      expect((await db.rpc("add_items_by_api_key", { hash: hashOf(dayKey), labels: ["en till"] })).error?.code).toBe("MK429");
+      expect(await own(other)).toHaveLength(200);
     });
 
     it("allows five working keys at most", async () => {
