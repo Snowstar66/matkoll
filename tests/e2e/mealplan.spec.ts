@@ -120,17 +120,24 @@ async function actionsAnswered(page: Page, count: number, act: () => Promise<voi
   page.off("response", seen);
 }
 
-/** Swipes the card to the left from its top row with the mouse, which sends the same pointer events as a finger. */
-async function swipeLeft(page: Page, card: Locator, distance = 150) {
-  await card.scrollIntoViewIfNeeded();
-  const box = await card.boundingBox();
-  if (!box) throw new Error("no card");
-  const x = box.x + box.width * 0.8;
-  const y = box.y + 24;
-  await page.mouse.move(x, y);
-  await page.mouse.down();
-  await page.mouse.move(x - distance, y + 4, { steps: 12 });
-  await page.mouse.up();
+/** The weekday (1 Monday to 7 Sunday) in Stockholm, as the page counts it. */
+function todayWeekday(): number {
+  const name = new Intl.DateTimeFormat("en-US", { timeZone: "Europe/Stockholm", weekday: "short" }).format(new Date());
+  return ["Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"].indexOf(name) + 1;
+}
+
+/** Opens the ⋯ sheet of a dish row and returns it. */
+async function openMore(page: Page, row: Locator, title: string) {
+  await row.getByRole("button", { name: `Fler val för ${title}` }).click();
+  const sheet = page.getByRole("dialog", { name: title });
+  await expect(sheet).toBeVisible();
+  return sheet;
+}
+
+/** "Ta bort från matsedeln" in the row's ⋯ sheet. */
+async function removeVia(page: Page, row: Locator, title: string) {
+  const sheet = await openMore(page, row, title);
+  await sheet.getByRole("button", { name: "Ta bort från matsedeln" }).click();
 }
 
 /** Answers "Ta bort <rätt> från matsedeln?" with "Ta bort". */
@@ -169,8 +176,10 @@ test("a favourite is on the plan after two taps, with its own servings", async (
 
   await expect(dishes(page)).toHaveCount(1);
   await expect(page.getByTestId("plan-name")).toHaveText(/^Vecka \d{1,2}$/);
-  await expect(dish(page, gryta).getByText("4 portioner")).toBeVisible();
-  await expect(dish(page, gryta).getByTestId("dish-meta")).toContainText("Allt finns hemma");
+  await expect(dish(page, gryta).getByTestId("dish-meta")).toContainText("4 port.");
+  await expect(dish(page, gryta).getByTestId("dish-meta")).toContainText("✓ Allt hemma");
+  // Everything at home: no meter.
+  await expect(dish(page, gryta).getByTestId("meter")).toHaveCount(0);
   expect(errors).toEqual([]);
 });
 
@@ -185,6 +194,7 @@ test("a search in Lägg till rätt finds a recipe by its ingredient and adds it"
 
   await expect(dishes(page)).toHaveCount(2);
   await expect(dish(page, soppa).getByTestId("dish-meta")).toContainText("0 av 1 hemma");
+  await expect(dish(page, soppa).getByTestId("meter")).toHaveCount(1);
   expect(errors).toEqual([]);
 });
 
@@ -207,21 +217,19 @@ test("more servings are saved and the status follows them", async ({ page }) => 
   const errors = watchErrors(page);
   await page.goto("/matsedel");
   const first = dish(page, gryta).first();
-  await actionsAnswered(page, 1, () =>
-    first.getByRole("button", { name: `Fler portioner, ${gryta}` }).click(),
-  );
-  await expect(first.getByText("5 portioner")).toBeVisible();
+  const sheet = await openMore(page, first, gryta);
+  await actionsAnswered(page, 1, () => sheet.getByRole("button", { name: `Fler portioner, ${gryta}` }).click());
+  await expect(sheet.getByText("5 portioner")).toBeVisible();
   // 2 dl grädde is enough for 4 portions, not for 5.
   await expect(first.getByTestId("dish-meta")).toContainText("0 av 1 hemma");
 
   await page.reload();
-  await expect(dish(page, gryta).first().getByText("5 portioner")).toBeVisible();
-  await expect(dish(page, gryta).nth(1).getByText("4 portioner")).toBeVisible();
+  await expect(dish(page, gryta).first().getByTestId("dish-meta")).toContainText("5 port.");
+  await expect(dish(page, gryta).nth(1).getByTestId("dish-meta")).toContainText("4 port.");
   // Fewer again: never below 1.
-  await actionsAnswered(page, 1, () =>
-    dish(page, gryta).first().getByRole("button", { name: `Färre portioner, ${gryta}` }).click(),
-  );
-  await expect(dish(page, gryta).first().getByTestId("dish-meta")).toContainText("Allt finns hemma");
+  const again = await openMore(page, dish(page, gryta).first(), gryta);
+  await actionsAnswered(page, 1, () => again.getByRole("button", { name: `Färre portioner, ${gryta}` }).click());
+  await expect(dish(page, gryta).first().getByTestId("dish-meta")).toContainText("✓ Allt hemma");
   expect(errors).toEqual([]);
 });
 
@@ -230,7 +238,7 @@ test("Ta bort removes a dish at once, and Ångra puts it back with the same id",
   await page.goto("/matsedel");
   const id = await dish(page, soppa).getAttribute("data-dish");
 
-  await dish(page, soppa).getByRole("button", { name: `Ta bort ${soppa} från matsedeln` }).click();
+  await removeVia(page, dish(page, soppa), soppa);
   await confirmRemoval(page);
   await expect(dish(page, soppa)).toHaveCount(0);
   await expect(toast(page)).toContainText(`${soppa} är borttagen från matsedeln.`);
@@ -244,17 +252,32 @@ test("Ta bort removes a dish at once, and Ångra puts it back with the same id",
   expect(errors).toEqual([]);
 });
 
-test("a swipe to the left shows Ta bort", async ({ page }) => {
+test("a row opens the recipe and ⋯ opens the sheet with the seldom used buttons (Story 3.11)", async ({ page }) => {
   const errors = watchErrors(page);
   await page.goto("/matsedel");
-  const card = dish(page, soppa);
-  await swipeLeft(page, card);
-  await expect(card.getByTestId("swipe-row-front")).toHaveCSS("transform", "matrix(1, 0, 0, 1, -96, 0)");
-  await card.getByRole("button", { name: `Ta bort ${soppa}`, exact: true }).click();
-  await confirmRemoval(page);
-  await expect(dish(page, soppa)).toHaveCount(0);
-  await expect(toast(page)).toContainText(`${soppa} är borttagen från matsedeln.`);
-  await expect.poll(dishCount).toBe(2);
+  const row = dish(page, soppa);
+  const more = row.getByRole("button", { name: `Fler val för ${soppa}` });
+  const box = (await more.boundingBox())!;
+  expect(box.width).toBeGreaterThanOrEqual(44);
+  expect(box.height).toBeGreaterThanOrEqual(44);
+  // No big buttons under the list; the quiet shopping row is above it.
+  await expect(page.getByRole("link", { name: "Visa inköpslistan" })).toHaveCount(0);
+  await expect(page.getByTestId("shopping-row").filter({ visible: true })).toHaveText(/^🛒Inköpslista för vecka \d{1,2}›$/);
+
+  const sheet = await openMore(page, row, soppa);
+  await expect(sheet.getByRole("link", { name: "Öppna receptet ›" })).toHaveAttribute("href", `/recept/${recipeIds[soppa]}`);
+  await expect(sheet.getByText("Portioner", { exact: true })).toBeVisible();
+  await expect(sheet.getByRole("button", { name: "Markera som lagad" })).toBeVisible();
+  await expect(sheet.getByRole("button", { name: /^Flytta till annan dag/ })).toBeVisible();
+  await expect(sheet.getByRole("button", { name: "Ta bort från matsedeln" })).toBeVisible();
+  expect(await page.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth)).toBe(true);
+  await sheet.getByRole("button", { name: "Klar" }).click();
+  await expect(sheet).toHaveCount(0);
+  await expect(more).toBeFocused();
+
+  // A tap on the row itself, here on the image, opens the recipe: the title's link covers the row.
+  await row.click({ position: { x: 90, y: 20 } });
+  await expect(page).toHaveURL(new RegExp(`/recept/${recipeIds[soppa]}$`));
   expect(errors).toEqual([]);
 });
 
@@ -263,25 +286,25 @@ test("a swipe to the left shows Ta bort", async ({ page }) => {
 // a dish to another day waits, since the plan has no days (see the spec).
 test("the trash asks before it removes, the next removals go at once and the list follows", async ({ page }) => {
   const errors = watchErrors(page);
+  // Linssoppa has been on the plan since the tests above; leave the two gryta dishes.
+  const dropped = await adminClient().from("meal_plan_recipe").delete().eq("user_id", userId).eq("recipe_title", soppa);
+  if (dropped.error) throw dropped.error;
   await page.goto("/lista");
   await expect(page.getByTestId("shopping-line").filter({ visible: true }).filter({ hasText: "Grädde" })).toHaveCount(1);
 
   await page.goto("/matsedel");
-  const trash = (index: number) => dishes(page).nth(index).getByRole("button", { name: `Ta bort ${gryta} från matsedeln` });
-  const box = (await trash(0).boundingBox())!;
-  expect(box.width).toBeGreaterThanOrEqual(44);
-  expect(box.height).toBeGreaterThanOrEqual(44);
-  await trash(0).click();
+  const trash = (index: number) => removeVia(page, dishes(page).nth(index), gryta);
+  await trash(0);
   await expect(removalQuestion(page)).toContainText(`Ta bort ${gryta} från matsedeln?`);
   await removalQuestion(page).getByRole("button", { name: "Avbryt" }).click();
   await expect(dishes(page)).toHaveCount(2);
   expect(await dishCount()).toBe(2);
 
-  await trash(0).click();
+  await trash(0);
   await confirmRemoval(page);
   await expect(dishes(page)).toHaveCount(1);
   // Within a minute the next one goes without a question.
-  await trash(0).click();
+  await trash(0);
   await expect(removalQuestion(page)).toHaveCount(0);
   await expect(dishes(page)).toHaveCount(0);
   await expect.poll(dishCount).toBe(0);
@@ -396,9 +419,9 @@ test("Använd igen makes a new current plan with the same dishes and servings, w
   await expect(toast(page)).toHaveText("Matsedeln är skapad.");
   await expect(dishes(page)).toHaveCount(2);
   await expect(dishes(page).nth(0)).toContainText(soppa);
-  await expect(dishes(page).nth(0).getByText("2 portioner")).toBeVisible();
+  await expect(dishes(page).nth(0).getByTestId("dish-meta")).toContainText("2 port.");
   await expect(dishes(page).nth(1)).toContainText(gryta);
-  await expect(dishes(page).nth(1).getByText("6 portioner")).toBeVisible();
+  await expect(dishes(page).nth(1).getByTestId("dish-meta")).toContainText("6 port.");
   await expect(page.getByTestId("plan-name").filter({ visible: true })).toHaveText(/^Vecka \d{1,2}$/);
 
   // One current plan; the one that was current is an earlier plan now.
@@ -504,7 +527,7 @@ test("Markera som lagad deducts from the pantry, drops the dish from the list an
 
   await page.goto("/matsedel");
   const card = dish(page, soppa);
-  const open = card.getByRole("button", { name: "Markera som lagad" });
+  const open = (await openMore(page, card, soppa)).getByRole("button", { name: "Markera som lagad" });
   expect((await open.boundingBox())!.height).toBeGreaterThanOrEqual(44);
   await open.click();
   await expect(sheet).toBeVisible();
@@ -514,14 +537,14 @@ test("Markera som lagad deducts from the pantry, drops the dish from the list an
   await sheet.getByRole("button", { name: "Dra från lagret och markera lagad" }).click();
   await expect(sheet).toHaveCount(0);
   await expect(toast(page)).toContainText(`${soppa} är lagad. Lagret är uppdaterat.`);
-  await expect(card.getByTestId("dish-cooked")).toHaveText("Lagad");
+  await expect(card.getByTestId("dish-cooked")).toHaveText("✓ Lagad");
   expect(await amountOf("Röda linser")).toEqual([]);
   await page.goto("/lista");
   await expect(listLine("Röda linser")).toHaveCount(0);
 
   // "Ångra" restores the pantry and the dish.
   await page.goto("/matsedel");
-  await dish(page, gryta).getByRole("button", { name: "Markera som lagad" }).click();
+  await (await openMore(page, dish(page, gryta), gryta)).getByRole("button", { name: "Markera som lagad" }).click();
   const cream = sheet.getByTestId("cooked-line").filter({ hasText: "Grädde" });
   await expect(cream.getByTestId("cooked-line-text")).toHaveText("5 dl − 2 dl → 3 dl");
   await sheet.getByRole("textbox", { name: "Ny mängd Grädde" }).fill("4");
@@ -534,7 +557,7 @@ test("Markera som lagad deducts from the pantry, drops the dish from the list an
   expect(await amountOf("Grädde")).toEqual([5]);
 
   // Unmarking leaves the pantry alone, and the dish counts in the list again.
-  await dish(page, soppa).getByRole("button", { name: `Ta bort markeringen lagad, ${soppa}` }).click();
+  await (await openMore(page, dish(page, soppa), soppa)).getByRole("button", { name: `Ta bort markeringen lagad, ${soppa}` }).click();
   await expect(toast(page)).toContainText("Lagret är inte ändrat.");
   await expect(dish(page, soppa).getByTestId("dish-cooked")).toHaveCount(0);
   expect(await amountOf("Röda linser")).toEqual([]);
@@ -566,40 +589,46 @@ test("dishes lie on days: Flytta till dag, adding to a free day, and the list do
     return page.getByTestId("shopping-line").filter({ visible: true }).count();
   };
   const before = await listLines();
+  // Days that have passed with nothing on them are left out, so the free day to add to is today or later.
+  const today = todayWeekday();
+  const dayNames = ["måndag", "tisdag", "onsdag", "torsdag", "fredag", "lördag", "söndag"];
+  const target = today === 5 ? 4 : 5;
 
-  // Existing dishes have no day: all seven days show, the dishes under "Ingen dag än".
+  // Existing dishes have no day: today and the days after show, the dishes under "Ingen dag än".
   await page.goto("/matsedel");
-  await expect(page.getByTestId("plan-day").filter({ visible: true })).toHaveCount(8);
+  await expect(page.getByTestId("plan-day").filter({ visible: true })).toHaveCount(7 - today + 1 + 1);
   await expect(day("none")).toContainText(soppa);
   await expect(day("none")).toContainText(gryta);
-  await expect(day(1).getByTestId("day-free")).toContainText("Ledig");
+  await expect(day(today).getByTestId("day-free")).toContainText("+ Lägg till");
   expect(await page.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth)).toBe(true);
 
-  // Move Linssoppa to fredag.
-  const move = dish(page, soppa).getByRole("button", { name: `Flytta till dag, ${soppa}` });
+  // Move Linssoppa to another day from the ⋯ sheet.
+  const more = await openMore(page, dish(page, soppa), soppa);
+  await expect(more.getByRole("button", { name: /^Flytta till annan dag/ })).toContainText("Ingen dag");
+  const move = more.getByRole("button", { name: /^Flytta till annan dag/ });
   expect((await move.boundingBox())!.height).toBeGreaterThanOrEqual(44);
   await move.click();
   const sheet = page.getByRole("dialog", { name: "Flytta till dag" });
   await expect(sheet.getByTestId("day-choice")).toHaveCount(8);
   expect((await sheet.getByTestId("day-choice").first().boundingBox())!.height).toBeGreaterThanOrEqual(44);
-  await sheet.getByRole("button", { name: "Fredag" }).click();
-  await expect(toast(page)).toContainText(`${soppa} ligger på fredag.`);
-  await expect(day(5)).toContainText(soppa);
+  await sheet.getByRole("button", { name: dayNames[target - 1]!.replace(/^./, (c) => c.toUpperCase()) }).click();
+  await expect(toast(page)).toContainText(`${soppa} ligger på ${dayNames[target - 1]}.`);
+  await expect(day(target)).toContainText(soppa);
   await expect(day("none")).not.toContainText(soppa);
   await expect
     .poll(async () => {
       const { data } = await admin.from("meal_plan_recipe").select("weekday").eq("user_id", userId).eq("recipe_title", soppa).single();
       return (data as { weekday: number | null }).weekday;
     })
-    .toBe(5);
+    .toBe(target);
 
   // A tap on a free day opens Lägg till rätt on that day.
-  await day(1).getByTestId("day-free").click();
-  await expect(addSheet(page).getByRole("combobox", { name: "Dag" })).toHaveValue("1");
+  await day(today).getByTestId("day-free").click();
+  await expect(addSheet(page).getByRole("combobox", { name: "Dag" })).toHaveValue(String(today));
   await addSheet(page).getByRole("region", { name: "Favoriter" }).getByRole("button", { name: new RegExp(gryta) }).click();
-  await expect(toast(page)).toContainText("Lagt på matsedeln, måndag.");
-  await expect(day(1)).toContainText(gryta);
-  await expect(day(1).getByTestId("day-free")).toHaveCount(0);
+  await expect(toast(page)).toContainText(`Lagt på matsedeln, ${dayNames[today - 1]}.`);
+  await expect(day(today)).toContainText(gryta);
+  await expect(day(today).getByTestId("day-free")).toHaveCount(0);
   expect(await dishCount()).toBe(3);
 
   // The list ignores days: the same lines as before the moves and the new dish (same recipes).
@@ -613,8 +642,8 @@ test("days show their date and today is marked (Story 13.6)", async ({ page }) =
   if (update.error) throw update.error;
   await page.goto("/matsedel");
   const monday = page.locator('[data-testid="plan-day"][data-day="1"]').filter({ visible: true });
-  await expect(monday).toContainText(/Måndag\s*·\s*\d{1,2} \S+/);
-  await expect(monday.getByRole("heading", { level: 3 })).toHaveCSS("text-transform", "none");
+  await expect(monday).toContainText(/Måndag \d{1,2} \S+/);
+  await expect(monday.getByText("Mån", { exact: true })).toBeVisible();
   const today = page.locator('[data-testid="plan-day"][aria-current="date"]').filter({ visible: true });
   await expect(today).toHaveCount(1);
   await expect(today).toContainText("Idag");
@@ -638,7 +667,7 @@ test("plans next week: a dish added there shows only there, and its list is a we
   await expect(page.getByTestId("day-free").filter({ visible: true })).toHaveCount(7);
   await expect(dishes(page)).toHaveCount(0);
   await expect(page.locator('[data-testid="plan-day"][aria-current="date"]').filter({ visible: true })).toHaveCount(0);
-  await expect(page.locator('[data-testid="plan-day"][data-day="1"]').filter({ visible: true })).toContainText(/Måndag\s*·\s*\d{1,2} \S+/);
+  await expect(page.locator('[data-testid="plan-day"][data-day="1"]').filter({ visible: true })).toContainText(/Måndag \d{1,2} \S+/);
 
   await page.getByTestId("day-free").filter({ visible: true }).nth(2).click();
   await addSheet(page).getByRole("searchbox", { name: "Sök recept" }).fill("mjölk");
@@ -713,18 +742,16 @@ test("picks a day, then a recipe: Välj recept opens Recept for that day and add
   await expect(page).toHaveURL(/\/recept$/);
   await expect(page.getByTestId("planning-bar")).toHaveCount(0);
 
-  // A day with a dish: the heading's Välj recept. The mode follows into the recipe, whose button names the day.
+  // A day with a dish has no Välj recept of its own any more: "+" in the header opens the sheet, whose Dag is set to onsdag.
+  // The mode follows into the recipe, whose button names the day.
   await page.goto("/matsedel");
   await nav.getByRole("link", { name: "Nästa vecka" }).click();
   await expect(nav.locator(`[aria-current="page"]`)).toContainText("Nästa");
-  const headingLink = wednesday.getByRole("link", { name: "Välj recept för onsdag" });
   await expect(wednesday).toBeVisible();
-  if (await headingLink.count()) await headingLink.click();
-  else {
-    // Run alone, Wednesday is still free: the sheet's Välj recept.
-    await wednesday.getByTestId("day-free").click();
-    await addSheet(page).getByRole("link", { name: "Välj recept" }).click();
-  }
+  await expect(wednesday.getByRole("link", { name: /Välj recept/ })).toHaveCount(0);
+  await openAddSheet(page);
+  await addSheet(page).getByRole("combobox", { name: "Dag" }).selectOption("3");
+  await addSheet(page).getByRole("link", { name: "Välj recept" }).click();
   await expect(page.getByTestId("planning-bar")).toContainText(/^Lägger på onsdag \d{1,2} \S+$/);
   expect(await page.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth)).toBe(true);
   await page.getByRole("link", { name: soppa }).first().click();

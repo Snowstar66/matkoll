@@ -57,8 +57,8 @@ const row = {
   isFavorite: true,
   createdAt: "2026-10-01T08:00:00+00:00",
   lines: [
-    { id: "line-1", ingredientId: "gradde-id", amount: 3, unit: "dl", isVague: false },
-    { id: "line-2", ingredientId: "lok-id", amount: 1, unit: null, isVague: false },
+    { id: "line-1", ingredientId: "gradde-id", amount: 3, unit: "dl", isVague: false, originalText: "3 dl grädde" },
+    { id: "line-2", ingredientId: "lok-id", amount: 1, unit: null, isVague: false, originalText: "1 lök" },
   ],
 };
 /** The row as the library gets it: without lines, with N (the onion is missing). */
@@ -72,6 +72,8 @@ const gryta = {
   createdAt: row.createdAt,
   missingCount: 1,
   missingNames: ["Lök"],
+  // Poultry, from the title; a gryta, from the title.
+  categories: ["poultry", "stew"],
 };
 
 const stugan = { id: "55555555-5555-4555-8555-555555555555", name: "Stugan", siteCount: 2 };
