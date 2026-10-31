@@ -1,6 +1,6 @@
 import Link from "next/link";
 import { weekRangeText } from "../domain/meal-plan";
-import { addWeeks, currentWeekStart, overviewWeeks, weekNumber, weeksBetween, weekQuery, weekTileLabel, weekTileName } from "../domain/week";
+import { addWeeks, currentWeekStart, overviewWeeks, weekFillText, weekNumber, weeksBetween, weekQuery, weekTileLabel, weekTileName } from "../domain/week";
 
 /**
  * The week control on Matsedel and Inköpslista (Story 14.5, Stories 13.7,
@@ -63,7 +63,7 @@ export function WeekNav({
                   data-testid="week-count"
                   className={`text-[13px] ${selected ? "font-semibold text-accent" : "text-ink-2"}`}
                 >
-                  {count === 0 ? "Tom" : count === 1 ? "1 rätt" : `${count} rätter`}
+                  {weekFillText(count)}
                 </span>
               </Link>
             </li>

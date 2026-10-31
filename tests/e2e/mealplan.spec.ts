@@ -824,6 +824,8 @@ test("the week tiles show counts and switch week, and an earlier week is copied 
     .click();
   const targets = page.getByTestId("copy-target").filter({ visible: true });
   await expect(targets).toHaveCount(3);
+  // Each week says what it already has, like the week tiles.
+  await expect(targets.nth(1)).toContainText(nextBefore === 0 ? "· Tom" : nextBefore === 1 ? "· 1 rätt" : `· ${nextBefore} rätter`);
   expect(await page.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth)).toBe(true);
   await targets.nth(1).click();
 
