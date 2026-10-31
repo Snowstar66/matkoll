@@ -10,7 +10,7 @@ const surfaces = [
   { tab: "Matsedel", path: "/matsedel", title: "Matsedel", empty: "Ingen rätt på matsedeln än." },
   { tab: "Inköpslista", path: "/lista", title: "Inköpslista", empty: "Lägg rätter på matsedeln så räknas listan fram." },
   { tab: "Matvaror", path: "/hemma", title: "Matvaror", empty: "Inget i kylen än." },
-  { tab: "Förråd", path: "/prylar", title: "Förråd", empty: "Fotografera en hylla eller ett förråd, så listar Matkoll vad som finns där." },
+  { tab: "Förråd", path: "/prylar", title: "Förråd", empty: "Fotografera en hylla eller ett förråd, så listar Livskoll vad som finns där." },
 ] as const;
 
 /** The tab bar's labels, in order (Story 10.4: Inköpslista and Matvaror; Epic 18: Förråd). */
@@ -241,9 +241,9 @@ test.describe("tab labels (Story 10.4)", () => {
     expect(labels.filter(({ active }) => active).map(({ name }) => name)).toEqual(["Inköpslista", "Matvaror"]);
     expect(labels.filter(({ fits, lines }) => !fits || lines !== 1)).toEqual([]);
     await page.goto("/lista");
-    await expect(page).toHaveTitle("Inköpslista – Matkoll");
+    await expect(page).toHaveTitle("Inköpslista – Livskoll");
     await page.goto("/hemma");
-    await expect(page).toHaveTitle("Matvaror – Matkoll");
+    await expect(page).toHaveTitle("Matvaror – Livskoll");
   });
 
   test("at 375 px with the root font size doubled every label fits its tab and stays clear of the safe area", async ({ page }) => {

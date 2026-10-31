@@ -10,7 +10,7 @@ beforeEach(() => {
   resetPrivacyNoteStore();
 });
 
-const text = "Den som driver Matkoll kan tekniskt se kontots data.";
+const text = "Den som driver Livskoll kan tekniskt se kontots data.";
 
 describe("PrivacyNote", () => {
   it("shows the line once, and Okej keeps it away on this device", async () => {

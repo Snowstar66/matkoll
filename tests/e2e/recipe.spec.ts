@@ -62,7 +62,7 @@ test("an import saves the recipe by itself and Öppna opens the recipe view", as
   await expect(sheet(page)).toBeHidden();
 
   await expect(page.getByRole("heading", { level: 1, name: title })).toBeVisible();
-  await expect(page).toHaveTitle(`${title} – Matkoll`);
+  await expect(page).toHaveTitle(`${title} – Livskoll`);
   await expectReceptCurrent(page);
   // The recipe has no time, so no meta line; the portion selector shows the servings.
   await expect(page.getByTestId("recipe-meta")).toHaveCount(0);

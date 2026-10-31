@@ -3,6 +3,7 @@
 import { Button } from "@/components/button";
 import { Notice } from "@/components/notice";
 import { usePrivacyNoteAcknowledged } from "./privacy-note-store";
+import { appName } from "@/app/app-info";
 
 /**
  * The one-time line about who can see the account's data (Story 17.2), shown
@@ -21,7 +22,7 @@ export function PrivacyNote() {
         </Button>
       }
     >
-      Den som driver Matkoll kan tekniskt se kontots data.
+      Den som driver {appName} kan tekniskt se kontots data.
     </Notice>
   );
 }

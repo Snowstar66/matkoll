@@ -5,8 +5,8 @@ import { HomeScreenHint } from "./home-screen-hint";
 // HomeScreenHint (Story 11.6): Safari's steps on iPhone and iPad, the browser
 // menu on Android, nothing on a computer or in the app on the home screen.
 
-const iosText = "Lägg Matkoll på hemskärmen: tryck Dela och sedan Lägg till på hemskärmen.";
-const androidText = "Lägg Matkoll på hemskärmen: välj Installera appen i webbläsarens meny.";
+const iosText = "Lägg Livskoll på hemskärmen: tryck Dela och sedan Lägg till på hemskärmen.";
+const androidText = "Lägg Livskoll på hemskärmen: välj Installera appen i webbläsarens meny.";
 
 const userAgents = {
   iphone: "Mozilla/5.0 (iPhone; CPU iPhone OS 18_0 like Mac OS X) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/18.0 Mobile/15E148 Safari/604.1",

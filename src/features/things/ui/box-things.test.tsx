@@ -26,7 +26,7 @@ describe("Skriv vad som finns", () => {
     renderIt();
     expect(screen.getByText("Låda i Skräpförrådet")).toBeInTheDocument();
     expect(screen.getByLabelText("Vad finns i lådan?")).toBeInTheDocument();
-    expect(screen.getByText("En sak per rad eller med komma. Matkoll sorterar i kategorier.")).toBeInTheDocument();
+    expect(screen.getByText("En sak per rad eller med komma. Livskoll sorterar i kategorier.")).toBeInTheDocument();
     expect(screen.getByRole("button", { name: "Spara" })).toBeInTheDocument();
     expect(screen.getByRole("link", { name: /Fota insidan i stället/ })).toHaveAttribute("href", `/prylar/rum/s/skräpförrådet?fota=${placeId}`);
     expect(screen.queryByText(/från kort/)).not.toBeInTheDocument();

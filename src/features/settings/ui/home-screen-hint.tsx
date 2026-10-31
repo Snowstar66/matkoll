@@ -1,6 +1,7 @@
 "use client";
 
 import { useSyncExternalStore } from "react";
+import { appName } from "@/app/app-info";
 
 // "Lägg Matkoll på hemskärmen" in Inställningar (Story 11.6, AD-27): how to put
 // the app on the home screen, shown only when Matkoll is not already running
@@ -12,8 +13,8 @@ const standaloneQuery = "(display-mode: standalone)";
 export type Platform = "standalone" | "ios" | "android" | "other";
 
 const texts: Partial<Record<Platform, string>> = {
-  ios: "Lägg Matkoll på hemskärmen: tryck Dela och sedan Lägg till på hemskärmen.",
-  android: "Lägg Matkoll på hemskärmen: välj Installera appen i webbläsarens meny.",
+  ios: `Lägg ${appName} på hemskärmen: tryck Dela och sedan Lägg till på hemskärmen.`,
+  android: `Lägg ${appName} på hemskärmen: välj Installera appen i webbläsarens meny.`,
 };
 
 export function platformSubscribe(onChange: () => void) {

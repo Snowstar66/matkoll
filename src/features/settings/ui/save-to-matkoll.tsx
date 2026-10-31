@@ -6,6 +6,7 @@ import { Button } from "@/components/button";
 import { FilterPills } from "@/components/filter-pills";
 import { useToast } from "@/components/toast";
 import { bookmarklet, importUrlPrefix } from "../domain/save-link";
+import { appName } from "@/app/app-info";
 
 const noSubscription = () => () => {};
 const originNow = () => window.location.origin;
@@ -61,9 +62,9 @@ export function SaveToMatkoll() {
   }
 
   return (
-    <section aria-label="Spara i Matkoll" className="flex flex-col gap-4" data-testid="save-to-matkoll">
+    <section aria-label={`Spara i ${appName}`} className="flex flex-col gap-4" data-testid="save-to-matkoll">
       <p className="px-1 desktop:px-0 text-meta text-ink-3">
-        Öppna ett recept på en godkänd receptsajt och skicka det till Matkoll med ett tryck, utan att kopiera länken.
+        Öppna ett recept på en godkänd receptsajt och skicka det till {appName} med ett tryck, utan att kopiera länken.
       </p>
       <FilterPills
         segmented
@@ -77,7 +78,7 @@ export function SaveToMatkoll() {
         <div className="flex flex-col gap-3 rounded-lg bg-surface p-4" data-testid="guide-computer">
           <p className="text-body text-ink-2">
             Dra knappen till bokmärkesfältet (visa det med ⌘⇧B i Chrome). Tryck på den när du står på ett recept, så öppnas
-            Matkoll i en ny flik.
+            {appName} i en ny flik.
           </p>
           <a
             ref={anchor}
@@ -86,7 +87,7 @@ export function SaveToMatkoll() {
             draggable
             className="w-fit rounded-full bg-accent px-4 py-2 text-on-accent"
           >
-            Spara i Matkoll
+            Spara i {appName}
           </a>
         </div>
       ) : null}
@@ -99,8 +100,8 @@ export function SaveToMatkoll() {
             <li>
               Skriv adressen nedan som URL och lägg direkt efter den till genvägens indata (variabeln Genvägsindata).
             </li>
-            <li>Döp genvägen till &quot;Spara i Matkoll&quot;.</li>
-            <li>På ett recept: tryck Dela och välj Spara i Matkoll.</li>
+            <li>Döp genvägen till &quot;Spara i {appName}&quot;.</li>
+            <li>På ett recept: tryck Dela och välj Spara i {appName}.</li>
           </ol>
           <code className="break-all rounded-md bg-bg p-2 text-body" data-testid="import-prefix">
             {prefix}
@@ -115,12 +116,12 @@ export function SaveToMatkoll() {
       {guide === "android" ? (
         <div className="flex flex-col gap-3 rounded-lg bg-surface p-4" data-testid="guide-android">
           <p className="text-body text-ink-2">
-            Installera Matkoll som app. Då finns Matkoll i Dela-menyn när du delar ett recept.
+            Installera {appName} som app. Då finns {appName} i Dela-menyn när du delar ett recept.
           </p>
         </div>
       ) : null}
       <p className="px-1 desktop:px-0 text-meta text-ink-3">
-        Telefonen når Matkoll först när appen är publicerad, och receptsajten måste finnas bland de{" "}
+        Telefonen når {appName} först när appen är publicerad, och receptsajten måste finnas bland de{" "}
         <Link href="/installningar/receptsajter" className="text-accent underline">
           godkända receptsajterna
         </Link>

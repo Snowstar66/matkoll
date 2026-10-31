@@ -3,6 +3,7 @@ import { charLength, oneLine } from "@/lib/one-line";
 import type { ThingCategory } from "./thing";
 import { thingsText } from "./thing-room";
 import { shortDateText } from "./thing-photo";
+import { appName } from "@/app/app-info";
 
 // "Skriv vad som finns" (Story 18.13): what a box holds, written by hand. One
 // thing per line or separated by commas, with a quantity ("2 st") that stays
@@ -77,7 +78,7 @@ export function writtenMeta(box: Pick<WrittenBox, "things" | "writtenAt">): stri
 }
 
 export const writtenTitleText = "Vad finns i lådan?";
-export const writtenHintText = "En sak per rad eller med komma. Matkoll sorterar i kategorier.";
+export const writtenHintText = `En sak per rad eller med komma. ${appName} sorterar i kategorier.`;
 export const writtenPlaceholder = "Till exempel julgransbelysning";
 export const saveWrittenText = "Spara";
 export const savingWrittenText = "Sorterar …";

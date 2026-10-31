@@ -5,11 +5,11 @@ import manifest from "./manifest";
 // FR-44, AD-27: the web app manifest that puts Matkoll on the home screen.
 
 describe("manifest", () => {
-  it("opens Matkoll full screen at Recept, in Swedish", () => {
+  it("opens Livskoll full screen at Recept, in Swedish", () => {
     expect(manifest()).toMatchObject({
       id: "/",
-      name: "Matkoll",
-      short_name: "Matkoll",
+      name: "Livskoll",
+      short_name: "Livskoll",
       description: "Recept, matsedel, inköpslista och det du har hemma.",
       lang: "sv",
       start_url: "/recept",

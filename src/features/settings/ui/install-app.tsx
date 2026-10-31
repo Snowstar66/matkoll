@@ -2,12 +2,13 @@
 
 import { useSyncExternalStore } from "react";
 import { platformNow, platformOnServer, platformSubscribe, type Platform } from "./home-screen-hint";
+import { appName } from "@/app/app-info";
 
 const texts: Record<Platform, string> = {
-  standalone: "Matkoll är redan på hemskärmen och öppnas som en app.",
-  ios: "Tryck Dela i Safari och sedan Lägg till på hemskärmen. Då öppnas Matkoll som en app, utan webbläsarens fält.",
-  android: "Välj Installera appen i webbläsarens meny. Då öppnas Matkoll som en app, och finns i Dela-menyn när du delar ett recept.",
-  other: "På en dator: välj Installera Matkoll i adressfältet eller webbläsarens meny (Chrome och Edge). På en telefon: öppna den här sidan där och följ stegen.",
+  standalone: `${appName} är redan på hemskärmen och öppnas som en app.`,
+  ios: `Tryck Dela i Safari och sedan Lägg till på hemskärmen. Då öppnas ${appName} som en app, utan webbläsarens fält.`,
+  android: `Välj Installera appen i webbläsarens meny. Då öppnas ${appName} som en app, och finns i Dela-menyn när du delar ett recept.`,
+  other: `På en dator: välj Installera ${appName} i adressfältet eller webbläsarens meny (Chrome och Edge). På en telefon: öppna den här sidan där och följ stegen.`,
 };
 
 /** "Installera appen" (Story 14.7): how to put Matkoll on the home screen, for the device the page is opened on. */
