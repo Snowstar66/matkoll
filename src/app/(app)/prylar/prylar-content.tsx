@@ -8,11 +8,12 @@ import { type PantrySiteWithCount, type SelectedSite } from "@/features/pantry";
 import { listPantrySitesWithCounts, PantryDataError } from "@/features/pantry/server";
 import { BoendeVal } from "@/features/pantry/ui/boende-val";
 import { SiteSwitch } from "@/features/pantry/ui/site-switch";
-import { takeCardSubText, takeCardText, thingsEmptyText, type RoomSummary } from "@/features/things";
+import { thingsEmptyText, type RoomSummary } from "@/features/things";
 import { listRooms, ThingsDataError } from "@/features/things/server";
 import { ThingFinder } from "@/features/things/ui/thing-finder";
 import { RoomsList } from "@/features/things/ui/rooms-list";
-import { TakeCard } from "@/features/things/ui/take-card";
+import { NewRoom } from "@/features/things/ui/new-room";
+import { RoomsRefresh } from "@/features/things/ui/rooms-refresh";
 import { errorMessages } from "@/lib/errors";
 import { loadBoendeCounts } from "../boende-counts";
 
@@ -65,10 +66,10 @@ export async function PrylarContent() {
 }
 
 /**
- * "Ta kort" first, then (when there are things) the chat and the search over
+ * (When there are things) the chat and the search over
  * every boende (Stories 18.4 and 18.14, both by the database, nothing loads
  * every thing) and the rooms of this boende with their counts, read by the
- * database (Story 18.11).
+ * database (Story 18.11), then "+ Nytt rum" (Story 18.21). Photos are taken in a room.
  */
 async function Rooms({ site }: { site: SelectedSite }) {
   let rooms: RoomSummary[];
@@ -79,22 +80,19 @@ async function Rooms({ site }: { site: SelectedSite }) {
     console.error("things_unavailable", { reason: error.detail });
     return <Notice role="alert">{errorMessages.things_unavailable}</Notice>;
   }
-  const take = (
-    <TakeCard siteId={site.id} rooms={rooms.map((room) => room.room)} variant="primary" title={takeCardText} sub={takeCardSubText} />
-  );
   if (rooms.length === 0) {
     return (
-      <div className="flex flex-col gap-4">
-        {take}
-        <EmptyState>{thingsEmptyText}</EmptyState>
-      </div>
+      <EmptyState className="items-stretch px-1.5 pt-4 pb-0 text-left" action={<NewRoom siteId={site.id} />}>
+        {thingsEmptyText}
+      </EmptyState>
     );
   }
-  const list = <RoomsList siteId={site.id} rooms={rooms} />;
-  return (
-    <div className="flex flex-col gap-4">
-      {take}
-      {rooms.some((room) => room.things > 0) ? <ThingFinder>{list}</ThingFinder> : list}
+  const list = (
+    <div className="flex flex-col gap-2.5">
+      <RoomsRefresh />
+      <RoomsList siteId={site.id} rooms={rooms} />
+      <NewRoom siteId={site.id} />
     </div>
   );
+  return rooms.some((room) => room.things > 0) ? <ThingFinder>{list}</ThingFinder> : list;
 }
