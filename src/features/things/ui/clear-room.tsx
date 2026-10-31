@@ -85,7 +85,7 @@ export function ClearRoom({ siteId, roomKey, room, counts }: { siteId: string; r
         counts={counts}
         detail={clearRoomDetailText}
         word={room}
-        onClear={() => clearThingRoom({ siteId, roomKey })}
+        onClear={(confirm) => clearThingRoom({ siteId, roomKey, confirm })}
         onCleared={(removed) => {
           setAsking(false);
           // The room is gone: back to Förråd, and "back" never leads to it.

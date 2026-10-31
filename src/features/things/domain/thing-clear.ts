@@ -28,7 +28,7 @@ export function matchesClearWord(typed: string, word: string): boolean {
 }
 
 /** The input of clearing a room, or (without `roomKey`) a boende's whole Förråd. */
-export const clearInputSchema = z.object({ siteId: z.uuid(), roomKey: z.string().min(1).max(160).optional() });
+export const clearInputSchema = z.object({ siteId: z.uuid(), roomKey: z.string().min(1).max(160).optional(), confirm: z.string().max(100) });
 
 /** The result of a clearing: what went. */
 export type Cleared = ClearCounts;

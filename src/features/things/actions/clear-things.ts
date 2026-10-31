@@ -7,7 +7,8 @@ import { createClient } from "@/lib/supabase/server";
 import { ThingsDataError } from "../data/client";
 import { clearThingsIn } from "../data/clear";
 import { loadSiteCardFilesIn, removeCardFiles } from "../data/photos";
-import { clearInputSchema, type ClearCounts } from "../domain/thing-clear";
+import { loadRoomIn } from "../data/rooms";
+import { clearInputSchema, clearSiteWord, matchesClearWord, type ClearCounts } from "../domain/thing-clear";
 import { sweepCardFilesIn } from "./sweep-card-files";
 
 // "Rensa rummet" and "Rensa förrådet" (Story 18.15): everything of Förråd in a
@@ -17,15 +18,31 @@ import { sweepCardFilesIn } from "./sweep-card-files";
 // anyway has no row, so the sweep of the next card takes it. Matvaror is never
 // touched. Only reasons and counts are logged, never a name or a path.
 
-type ClearInput = { siteId: string; roomKey?: string };
+type ClearInput = { siteId: string; roomKey?: string; confirm: string };
 
 async function clear(input: ClearInput): Promise<Result<ClearCounts>> {
   const user = await requireUser();
   if (!user.ok) return user;
   const parsed = clearInputSchema.safeParse(input);
   if (!parsed.success) return fail("validation");
-  const { siteId, roomKey } = parsed.data;
+  const { siteId, roomKey, confirm } = parsed.data;
   const db = await createClient();
+
+  // The typed word is checked here too, not only in the sheet: the room's real name (RLS-scoped), or RENSA.
+  // Nothing is removed unless it matches.
+  let word = clearSiteWord;
+  if (roomKey !== undefined) {
+    try {
+      const room = await loadRoomIn(db, siteId, roomKey);
+      if (!room) return fail("things_place_gone");
+      word = room.room;
+    } catch (error) {
+      if (!(error instanceof ThingsDataError)) throw error;
+      console.error("things_clear_failed", { reason: error.detail });
+      return fail("things_clear_failed");
+    }
+  }
+  if (!matchesClearWord(confirm, word)) return fail("validation", { confirm: "Skriv ordet för att bekräfta." });
 
   // The files are listed first, to take those without a row too (the rows are gone after the call).
   let listed: string[] = [];
@@ -62,12 +79,12 @@ async function clear(input: ClearInput): Promise<Result<ClearCounts>> {
 }
 
 /** "Rensa rummet": removes the room `roomKey` of the boende `siteId` with its cards, files, things, boxes and places. */
-export async function clearThingRoom(input: { siteId: string; roomKey: string }): Promise<Result<ClearCounts>> {
+export async function clearThingRoom(input: { siteId: string; roomKey: string; confirm: string }): Promise<Result<ClearCounts>> {
   if (typeof input?.roomKey !== "string") return fail("validation");
-  return clear(input);
+  return clear({ siteId: input.siteId, roomKey: input.roomKey, confirm: input.confirm });
 }
 
 /** "Rensa förrådet": removes everything of Förråd in the boende `siteId`. */
-export async function clearThingSite(input: { siteId: string }): Promise<Result<ClearCounts>> {
-  return clear({ siteId: input?.siteId });
+export async function clearThingSite(input: { siteId: string; confirm: string }): Promise<Result<ClearCounts>> {
+  return clear({ siteId: input?.siteId, confirm: input?.confirm });
 }

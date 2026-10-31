@@ -23,7 +23,7 @@ export type ClearSheetProps = {
   /** The word to type, matched without regard to case and surrounding spaces. */
   word: string;
   /** The call that clears; the sheet closes when it succeeds. */
-  onClear: () => Promise<Result<ClearCounts>>;
+  onClear: (typed: string) => Promise<Result<ClearCounts>>;
   /** After a clearing that went through, with what it removed. */
   onCleared: (counts: ClearCounts) => void;
   /** After a failure that means the page is out of date (the room or boende is gone). */
@@ -43,7 +43,7 @@ export function ClearSheet({ open, onClose, title, counts, detail, word, onClear
     setNotice(null);
     let result: Result<ClearCounts>;
     try {
-      result = await onClear();
+      result = await onClear(typed);
     } catch {
       // No answer (e.g. no connection): it may have gone through, so the page is read again.
       result = fail("things_clear_failed");

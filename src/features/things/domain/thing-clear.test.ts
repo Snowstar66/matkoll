@@ -22,11 +22,13 @@ describe("what a clearing says", () => {
     expect(matchesClearWord("anything", "")).toBe(false);
   });
 
-  it("wants a boende and, for a room, its key", () => {
-    expect(clearInputSchema.safeParse({ siteId: id }).success).toBe(true);
-    expect(clearInputSchema.safeParse({ siteId: id, roomKey: "skräpförrådet" }).success).toBe(true);
-    expect(clearInputSchema.safeParse({ siteId: "x" }).success).toBe(false);
-    expect(clearInputSchema.safeParse({ siteId: id, roomKey: "" }).success).toBe(false);
+  it("wants a boende, a confirmation of at most 100 characters and, for a room, its key", () => {
+    expect(clearInputSchema.safeParse({ siteId: id }).success).toBe(false);
+    expect(clearInputSchema.safeParse({ siteId: id, confirm: "x".repeat(101) }).success).toBe(false);
+    expect(clearInputSchema.safeParse({ siteId: id, confirm: "RENSA" }).success).toBe(true);
+    expect(clearInputSchema.safeParse({ siteId: id, roomKey: "skräpförrådet", confirm: "x" }).success).toBe(true);
+    expect(clearInputSchema.safeParse({ siteId: "x", confirm: "x" }).success).toBe(false);
+    expect(clearInputSchema.safeParse({ siteId: id, roomKey: "", confirm: "x" }).success).toBe(false);
   });
 });
 

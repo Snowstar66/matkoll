@@ -51,7 +51,7 @@ export function ClearSiteThings({ sites }: { sites: readonly SiteThings[] }) {
           counts={shown.counts}
           detail={clearSiteDetailText(shown.name)}
           word={clearSiteWord}
-          onClear={() => clearThingSite({ siteId: shown.id })}
+          onClear={(confirm) => clearThingSite({ siteId: shown.id, confirm })}
           onCleared={(removed) => {
             setAsking(null);
             router.refresh();
