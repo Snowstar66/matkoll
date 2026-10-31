@@ -3578,6 +3578,10 @@ Beslut 2026-10-31 (Pontus): "tycker uppdateringen inte är klockren. Jag blir li
 **När** jag använder bladet
 **Så** finns ingen sidledes rullning och alla tryckytor är minst 44 px
 
+### Story 16.18: Packa upp kassarna
+
+Backlog (Pontus 2026-10-31): "när man handlat och kommer hem med matkassarna så ska varorna sorteras i kyl, frys, skafferi". Efter "Lägg till i Matvaror" i Inköpslistan visar bekräftelsen var varorna hamnade ("Lagt 8 varor: 5 i kyl, 2 i skafferi, 1 i frys · Ändra"), och "Ändra" låter mig snabbt flytta enstaka varor, t.ex. brödet till frysen. Hänger ihop med "Lägg i lagret?" som Pontus vill testa först. Mockup innan bygge.
+
 ## Epic 17: Molnet och gemensam lista
 
 Version 2.0. Familjen planerar och handlar ihop i Matkoll med en delad inloggning per hushåll, och upp till fem vänhushåll kan betatesta med egna konton utan att någon data blandas. Matkoll ersätter To Do som inköpslista. Allt byggs och testas lokalt först; flytten till Vercel och Supabase i molnet (17.3, 17.4) görs först när Pontus säger till. Underlag: `sprint-change-proposal-2026-10-31-molnet-och-gemensam-lista.md`.
