@@ -122,6 +122,8 @@ test("+ Nytt rum is the last row, asks for a name, says an empty one, makes the 
   await expect(page.getByRole("button", { name: /Ta kort/ })).toHaveCount(0);
   const newRoom = page.getByRole("button", { name: "Nytt rum" });
   const list = page.getByTestId("rooms");
+  await expect(list).toBeVisible();
+  await expect(newRoom).toBeVisible();
   const [listBox, rowBox] = [await list.boundingBox(), await newRoom.boundingBox()];
   expect(rowBox!.y).toBeGreaterThan(listBox!.y + listBox!.height - 1);
   expect(rowBox!.height).toBeGreaterThanOrEqual(44);
