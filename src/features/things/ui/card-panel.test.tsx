@@ -1,8 +1,21 @@
 import { render, screen, within } from "@testing-library/react";
-import { describe, expect, it } from "vitest";
+import { describe, expect, it, vi } from "vitest";
+import { ToastProvider } from "@/components/toast";
 import type { Thing } from "../domain/thing";
 import type { ThingCard } from "../domain/thing-photo";
-import { CardPanel } from "./card-panel";
+import { CardPanel as Panel } from "./card-panel";
+
+vi.mock("next/navigation", () => ({ useRouter: () => ({ push: vi.fn(), refresh: vi.fn() }) }));
+vi.mock("../actions/remove-card", () => ({ removeThingCard: vi.fn(), restoreThingCard: vi.fn(), finishCardRemoval: vi.fn() }));
+vi.mock("../actions/thing-item", () => ({ removeThing: vi.fn(), renameThing: vi.fn(), restoreThing: vi.fn() }));
+
+function CardPanel(props: Parameters<typeof Panel>[0]) {
+  return (
+    <ToastProvider>
+      <Panel {...props} />
+    </ToastProvider>
+  );
+}
 
 const card: ThingCard = {
   id: "0b2f6d0a-3c0e-4d52-9a54-6d0f0c5f6a01",

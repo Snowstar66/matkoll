@@ -1,0 +1,79 @@
+import { z } from "zod";
+import { charLength, oneLine } from "@/lib/one-line";
+import { thingCategories, thingConfidences } from "./thing";
+import { thingPhotoMediaTypes } from "./thing-photo";
+
+// Förnya och ta bort (Story 18.3): removing a card, a thing, and renaming a
+// thing. A removal gives back a snapshot of what it took, so "Ångra" can put
+// the rows back with the same ids. Pure.
+
+/** The longest name of a thing, in characters, as thing_item_name_check counts them. */
+export const maxThingNameChars = 80;
+
+/** A name as typed, cleaned for storing: one line, trimmed, in Unicode NFC. */
+export function cleanThingName(name: string): string {
+  return oneLine(name).normalize("NFC");
+}
+
+export const renameInputSchema = z.object({
+  id: z.uuid(),
+  name: z
+    .string()
+    .transform(cleanThingName)
+    .refine((name) => name.length > 0, "empty")
+    .refine((name) => charLength(name) <= maxThingNameChars, "too long"),
+});
+export type RenameInput = z.input<typeof renameInputSchema>;
+
+/** A thing_item row as it was, for "Ångra". */
+export const thingSnapshotSchema = z.object({
+  id: z.uuid(),
+  photoId: z.uuid(),
+  placeId: z.uuid(),
+  name: z.string().min(1).max(160),
+  category: z.enum(thingCategories),
+  whereHint: z.string().min(1).max(240).nullable(),
+  confidence: z.enum(thingConfidences),
+  position: z.number().int().min(0).max(1000),
+  createdAt: z.iso.datetime({ offset: true }),
+});
+export type ThingSnapshot = z.output<typeof thingSnapshotSchema>;
+
+/** A removed card as it was, with its things and the path of its file (which is kept until "Ångra" is out of time). */
+export const cardSnapshotSchema = z.object({
+  id: z.uuid(),
+  placeId: z.uuid(),
+  objectPath: z.string().min(1).max(300),
+  mediaType: z.enum(thingPhotoMediaTypes),
+  width: z.number().int().min(1).max(2064),
+  height: z.number().int().min(1).max(2064),
+  takenAt: z.iso.datetime({ offset: true }),
+  createdAt: z.iso.datetime({ offset: true }),
+  unseenNote: z.string().min(1).max(300).nullable(),
+  unseenCount: z.number().int().min(0).max(99),
+  things: z.array(thingSnapshotSchema).max(200),
+});
+export type CardSnapshot = z.output<typeof cardSnapshotSchema>;
+
+/** The path of a card's file as thing_photo_object_path_check has it: <user>/<place>/<card>.<jpg|png>. */
+export const cardFilePathSchema = z.string().regex(/^[0-9a-f-]{36}\/[0-9a-f-]{36}\/[0-9a-f-]{36}\.(jpg|png)$/);
+
+// The texts follow EXPERIENCE.md, Voice and Tone.
+
+export const removeCardText = "Ta bort kortet";
+export const removeCardQuestion = "Ta bort kortet?";
+export const removeCardDetail = "Kortet, fotot och alla prylar som lästes från det tas bort. Platsen finns kvar.";
+export const removeThingText = "Ta bort pryl";
+export const renameThingText = "Byt namn";
+export const emptyNameText = "Ange ett namn.";
+export const nameTooLongText = `Namnet får vara högst ${maxThingNameChars} tecken.`;
+
+/** "Tog bort kortet från 31 okt." */
+export function removedCardText(dateText: string): string {
+  return `Tog bort kortet från ${dateText}.`;
+}
+
+/** "Tog bort Hammare." */
+export function removedThingText(name: string): string {
+  return `Tog bort ${name}.`;
+}
