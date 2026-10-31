@@ -86,11 +86,11 @@ describe("RecipeCard", () => {
     expect(img.parentElement?.parentElement).toHaveClass("order-first");
   });
 
-  it("shows a short mint strip with the badge when the recipe has no image", () => {
+  it("shows a mint placeholder as tall as a photo, with the badge, when the recipe has no image", () => {
     const { card } = renderCard({ imageUrl: null });
     const placeholder = within(card).getByTestId("recipe-image-placeholder").parentElement!;
-    expect(placeholder).toHaveClass("bg-mint", "h-16");
-    expect(placeholder).not.toHaveClass("h-card-image");
+    expect(placeholder).toHaveClass("bg-mint", "h-card-image");
+    expect(placeholder).not.toHaveClass("h-16");
     expect(within(card).getByText("Kan lagas nu")).toBeInTheDocument();
   });
 
@@ -162,7 +162,7 @@ describe("RecipeCard", () => {
     expect(within(card).queryByRole("button", { name: /Favorit/ })).toBeNull();
     const save = within(card).getByRole("button", { name: "Spara" });
     expect(label.compareDocumentPosition(save) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
-    expect(within(card).getByTestId("recipe-image-placeholder").parentElement).toHaveClass("h-16");
+    expect(within(card).getByTestId("recipe-image-placeholder").parentElement).toHaveClass("h-card-image");
   });
 });
 

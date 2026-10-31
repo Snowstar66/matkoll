@@ -55,9 +55,9 @@ describe("HousingSettings", () => {
   it("shows a card per boende with what is in it, and Vald with a green border on the selected one", () => {
     renderPage([hemma, duved, nordan]);
     expect(screen.getByText("Det valda boendet gäller i hela appen.")).toBeInTheDocument();
-    expect(within(card("Hemma")).getByText("30 matvaror · inga prylar än")).toBeInTheDocument();
-    expect(within(card("Duved")).getByText("5 matvaror · inga prylar än")).toBeInTheDocument();
-    expect(within(card("Nordan")).getByText("Inga matvaror · 18 prylar · 1 kort")).toBeInTheDocument();
+    expect(within(card("Hemma")).getByText("30 matvaror · inga föremål än")).toBeInTheDocument();
+    expect(within(card("Duved")).getByText("5 matvaror · inga föremål än")).toBeInTheDocument();
+    expect(within(card("Nordan")).getByText("Inga matvaror · 18 föremål · 1 kort")).toBeInTheDocument();
     expect(within(card("Hemma")).getByText("Vald")).toBeInTheDocument();
     expect(card("Hemma")).toHaveClass("border-accent");
     expect(within(card("Duved")).queryByText("Vald")).toBeNull();
@@ -65,7 +65,7 @@ describe("HousingSettings", () => {
     expect(screen.getByRole("button", { name: "Lägg till boende" })).toBeInTheDocument();
   });
 
-  it("leaves the prylar out when Förråd could not be read", () => {
+  it("leaves the föremål out when Förråd could not be read", () => {
     renderPage([hemma, duved], null);
     expect(within(card("Hemma")).getByText("30 matvaror")).toBeInTheDocument();
   });

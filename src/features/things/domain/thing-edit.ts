@@ -2,6 +2,7 @@ import { z } from "zod";
 import { charLength, oneLine } from "@/lib/one-line";
 import { thingCategories, thingConfidences } from "./thing";
 import { thingPhotoMediaTypes } from "./thing-photo";
+import { thingNoun } from "./thing-noun";
 
 // Förnya och ta bort (Story 18.3): removing a card, a thing, and renaming a
 // thing. A removal gives back a snapshot of what it took, so "Ångra" can put
@@ -86,8 +87,8 @@ export const cardFilePathSchema = z.string().regex(/^[0-9a-f-]{36}\/[0-9a-f-]{36
 
 export const removeCardText = "Ta bort kortet";
 export const removeCardQuestion = "Ta bort kortet?";
-export const removeCardDetail = "Kortet, fotot och alla prylar som lästes från det tas bort. Platsen finns kvar.";
-export const removeThingText = "Ta bort pryl";
+export const removeCardDetail = `Kortet, fotot och alla ${thingNoun.plural} som lästes från det tas bort. Platsen finns kvar.`;
+export const removeThingText = `Ta bort ${thingNoun.singular}`;
 export const renameThingText = "Byt namn";
 export const categoryLabelText = "Kategori";
 export const whereLabelText = "Var på bilden";

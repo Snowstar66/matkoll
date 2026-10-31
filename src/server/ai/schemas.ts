@@ -1,6 +1,7 @@
 import { z } from "zod";
 import { labelKey } from "@/lib/label-key";
 import { cleanModelText, cutCodePoints, normalizeTitle } from "@/lib/suggest-input";
+import { thingNoun, thingNounCap } from "@/lib/thing-noun";
 
 // Response schemas for the AI port (AD-9, AD-10). The model's answer is
 // validated against these; an answer that does not pass is retried, then
@@ -395,13 +396,13 @@ export const listThingsAnswer = z.object({
   things: z
     .array(
       z.object({
-        name: z.string().describe("Prylens namn på svenska, kort, t.ex. hammare eller cirkelsåg"),
+        name: z.string().describe(`${thingNounCap.definite}s namn på svenska, kort, t.ex. hammare eller cirkelsåg`),
         category: z.string().describe(`En av: ${thingCategories.join(", ")}`),
         where: z.string().nullable().describe("Var på bilden, t.ex. översta hyllan, vänster; null om det är oklart"),
         confidence: z.string().describe("high, medium eller low"),
       }),
     )
-    .describe("Prylarna som syns på bilden, tom lista om inga syns"),
+    .describe(`${thingNounCap.definitePlural} som syns på bilden, tom lista om inga syns`),
   hiddenContainers: z.number().describe("Antal lådor, backar, påsar och skåp vars innehåll inte syns, 0 om inga"),
   hiddenNote: z.string().nullable().describe("En mening om det som inte syns, t.ex. innehållet i två lådor; null om inget"),
 });
@@ -451,11 +452,11 @@ export const mergeThingsAnswer = z.object({
   same: z
     .array(
       z.object({
-        new: z.number().describe("Numret på prylen på det nya kortet"),
-        existing: z.number().describe("Numret på samma pryl bland de befintliga"),
+        new: z.number().describe(`Numret på ${thingNoun.definite} på det nya kortet`),
+        existing: z.number().describe(`Numret på samma ${thingNoun.singular} bland de befintliga`),
       }),
     )
-    .describe("Bara de par som är samma fysiska pryl, tom lista om inga"),
+    .describe(`Bara de par som är samma fysiska ${thingNoun.singular}, tom lista om inga`),
 });
 
 /**
@@ -487,7 +488,7 @@ export function parseMergePairs(
  * each name of the numbered list it was given, in the same order.
  */
 export const categorizeThingsAnswer = z.object({
-  categories: z.array(z.string()).describe("En kategori per pryl i listan, i samma ordning, bara ur den givna listan"),
+  categories: z.array(z.string()).describe(`En kategori per ${thingNoun.singular} i listan, i samma ordning, bara ur den givna listan`),
 });
 
 /**

@@ -25,6 +25,36 @@ export const maxPantryAmount = 1_000_000;
 /** A unit is needed with an amount (pantry_item_unlimited_check); without one an amount counts pieces. */
 export const unitWithoutUnit: Unit = "st";
 
+/**
+ * How far the stepper beside the amount moves it (Story 16.17): 1 for pieces and most units,
+ * 0,5 for kg and l, 100 for g and ml. No unit counts pieces.
+ */
+export function amountStep(unit: Unit | ""): number {
+  if (unit === "kg" || unit === "l") return 0.5;
+  if (unit === "g" || unit === "ml") return 100;
+  return 1;
+}
+
+/**
+ * The amount field's text after a tap on + (`direction` 1) or − (-1), or `null` when the button is
+ * unavailable: an empty field has no − (and + gives the first step), a − that would reach 0 or
+ * below does nothing, and neither does a text that is not an amount. Written with a decimal comma.
+ */
+export function stepAmountField(text: string, unit: Unit | "", direction: 1 | -1): string | null {
+  const step = amountStep(unit);
+  const parsed = parseAmountField(text);
+  if ("error" in parsed) return null;
+  if (parsed.amount === null) return direction === 1 ? amountText(step) : null;
+  // Rounded so 0,1 + 0,2 never shows 0,30000000000000004.
+  const next = Math.round((parsed.amount + direction * step) * 1000) / 1000;
+  if (next <= 0 || next >= maxPantryAmount) return null;
+  return amountText(next);
+}
+
+function amountText(amount: number): string {
+  return String(amount).replace(".", ",");
+}
+
 /** The longest name of a new catalog ingredient. */
 export const maxIngredientNameLength = 100;
 /** When a new ingredient's name has nothing the catalog can store (only punctuation, e.g. "!!!"). */

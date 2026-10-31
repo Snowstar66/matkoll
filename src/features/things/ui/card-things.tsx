@@ -26,6 +26,7 @@ import {
   wherePlaceholderText,
   whereLabelText,
 } from "../domain/thing-edit";
+import { thingNounCap } from "../domain/thing-noun";
 
 // The things of a card under their categories (Stories 18.2 and 18.3), each a
 // row to tap: a sheet renames that thing, changes its category and where on the
@@ -189,7 +190,7 @@ export function CardThings({ things, headings = true, aside = false }: { things:
           </ListGroup>
         </section>
       ))}
-      <Sheet open={open} onClose={() => setOpen(false)} title="Pryl" subtitle={selected ? thingMeta(selected) || undefined : undefined} closeLabel="Avbryt" preventClose={saving}>
+      <Sheet open={open} onClose={() => setOpen(false)} title={thingNounCap.singular} subtitle={selected ? thingMeta(selected) || undefined : undefined} closeLabel="Avbryt" preventClose={saving}>
         <form onSubmit={save} noValidate aria-busy={saving || undefined} className="flex flex-col gap-4">
           {notice ? <Notice role="alert">{notice}</Notice> : null}
           <div className="flex flex-col gap-2">

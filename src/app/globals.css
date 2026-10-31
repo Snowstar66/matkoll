@@ -25,6 +25,8 @@
   --sky-ink: #2E5A85;
   --sand: #F1ECE2;
   --sand-ink: #6E5B3E;
+  /* Muted red for "Ta bort" only (Story 16.17, Pontus 2026-10-31); never for errors, which stay light blue. */
+  --danger: #B3261E;
   /* Store badge (Story 9.13): the chain's colour on an offer row; ICA warm clay, any other chain neutral. */
   --store-ica: #B3261E;
   --store-ica-ink: #FFFFFF;
@@ -135,6 +137,7 @@
     --sky-ink: #A9C9EA;
     --sand: #3A3326;
     --sand-ink: #DCC9A6;
+    --danger: #E5736A;
     --store-ica: #E5736A;
     --store-ica-ink: #2A0B08;
     --store-other: #C3CDC8;
@@ -150,7 +153,7 @@
   }
 }
 
-/* Only DESIGN.md tokens: Tailwind's own palette, radii and text sizes are removed (no red anywhere). */
+/* Only DESIGN.md tokens: Tailwind's own palette, radii and text sizes are removed (no red anywhere, except --danger for Ta bort, Story 16.17). */
 @theme {
   --color-*: initial;
   --radius-*: initial;
@@ -224,6 +227,7 @@
   --color-sky-ink: var(--sky-ink);
   --color-sand: var(--sand);
   --color-sand-ink: var(--sand-ink);
+  --color-danger: var(--danger);
   --color-store-ica: var(--store-ica);
   --color-store-ica-ink: var(--store-ica-ink);
   --color-store-other: var(--store-other);
@@ -350,7 +354,7 @@
 }
 @media (prefers-color-scheme: dark) {
   .segment-on {
-    background-color: color-mix(in srgb, var(--surface), var(--ink) 14%);
+    background-color: color-mix(in srgb, var(--surface), var(--ink) 22%);
   }
 }
 

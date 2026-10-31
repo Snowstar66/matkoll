@@ -26,13 +26,13 @@ const room = (over: Partial<RoomSummary> = {}): RoomSummary => ({
 
 describe("the rooms", () => {
   it("say things, cards and the newest date, and the sum above", () => {
-    expect(roomMeta(room())).toBe("74 prylar · 9 kort · 31 okt");
-    expect(roomMeta(room({ things: 1, cards: 1 }))).toBe("1 pryl · 1 kort · 31 okt");
+    expect(roomMeta(room())).toBe("74 föremål · 9 kort · 31 okt");
+    expect(roomMeta(room({ things: 1, cards: 1 }))).toBe("1 föremål · 1 kort · 31 okt");
     expect(roomMeta(room({ cards: 0, things: 0, latest: null }))).toBe("Inget kort än");
     expect(roomMeta(room({ cards: 0, things: 0, latest: null, reading: 1 }))).toBe("Tittar på kortet …");
-    expect(roomsTotalText([room(), room({ things: 38 })])).toBe("2 rum · 112 prylar");
-    expect(roomsTotalText([room({ things: 1 })])).toBe("1 rum · 1 pryl");
-    expect(thingsText(0)).toBe("0 prylar");
+    expect(roomsTotalText([room(), room({ things: 38 })])).toBe("2 rum · 112 föremål");
+    expect(roomsTotalText([room({ things: 1 })])).toBe("1 rum · 1 föremål");
+    expect(thingsText(0)).toBe("0 föremål");
   });
 
   it("get a tile by their name", () => {
@@ -47,7 +47,7 @@ describe("the cards", () => {
     expect(cardLabel({ part: null, kind: "part" })).toBe("Hela rummet");
     expect(cardLabel({ part: "Väggen", kind: "part" })).toBe("Väggen");
     expect(cardLabel({ part: "Black box", kind: "box" })).toBe("Låda: Black box");
-    expect(cardMeta({ things: 26, takenAt: new Date("2026-10-31T10:00:00Z") })).toBe("26 prylar · 31 okt");
+    expect(cardMeta({ things: 26, takenAt: new Date("2026-10-31T10:00:00Z") })).toBe("26 föremål · 31 okt");
   });
 });
 

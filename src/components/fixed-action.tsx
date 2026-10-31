@@ -131,6 +131,8 @@ export function FixedAction({ children, reserve = 1 }: FixedActionProps) {
       {layout.inline ? null : (
         <div
           aria-hidden="true"
+          // On a desktop the bar stands above the safe area, so the spacer clears that too.
+          className="desktop:mb-[env(safe-area-inset-bottom)]"
           style={{
             height:
               layout.height === null

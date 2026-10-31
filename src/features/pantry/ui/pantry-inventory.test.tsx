@@ -12,6 +12,13 @@ import { PantrySuggestionList } from "./pantry-suggestion-list";
 import { PantrySuggestionsProvider } from "./pantry-suggestions";
 import { fakeAi } from "../../../../tests/mocks/fake-ai-jobs";
 
+/** An item that exists shows its place as a row "Ligger i … · Flytta" (Story 16.17); the radio is there once it is unfolded. */
+function placeRadio(scope: HTMLElement, name: string) {
+  const row = within(scope).queryByRole("button", { name: /^Ligger i/ });
+  if (row?.getAttribute("aria-expanded") === "false") fireEvent.click(row);
+  return within(scope).getByRole("radio", { name });
+}
+
 /** The place Hemma shows (Story 8.2). */
 const testSite = { id: "55555555-5555-4555-8555-555555555555" };
 /** The place a photo was taken for (Story 8.4): the one Hemma shows. */
@@ -382,7 +389,7 @@ describe("Bekräfta on a compared photo", () => {
     await analyze();
     fireEvent.click(button("Rätta mjölk"));
     const moved = screen.getByRole("dialog", { name: "Lagervara" });
-    fireEvent.click(within(moved).getByRole("radio", { name: "Frys" }));
+    fireEvent.click(placeRadio(moved, "Frys"));
     fireEvent.click(within(moved).getByRole("button", { name: "Bekräfta" }));
     await waitFor(() => expect(saves).toHaveLength(2));
     expect(lastSave().input).toMatchObject({ items: [{ location: "Frys" }], replaceRowIds: [] });

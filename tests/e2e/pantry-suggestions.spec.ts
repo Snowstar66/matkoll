@@ -152,9 +152,9 @@ test("confirm, correct, reject and Bekräfta alla save only what Pontus confirme
   await expect(sheet(page).getByTestId("pantry-sheet-ingredient")).toHaveText("Grädde");
   await expect(sheet(page).getByLabel("Mängd")).toHaveValue("1");
   await expect(sheet(page).getByLabel("Enhet")).toHaveValue("förp");
-  await expect(sheet(page).getByRole("radio", { name: "Kyl" })).toHaveAttribute("aria-checked", "true");
+  await expect(sheet(page).getByRole("button", { name: "Ligger i Kyl · Flytta" })).toBeVisible();
   await expect(sheet(page).getByRole("button", { name: "Avvisa" })).toBeVisible();
-  await sheet(page).getByRole("button", { name: "Byt ingrediens" }).click();
+  await sheet(page).getByRole("button", { name: "Byt vara" }).click();
   await sheet(page).getByRole("searchbox", { name: "Sök ingrediens" }).fill("Matlagningsgrädde");
   // New on a first run; already in the catalog on a retry.
   await sheet(page)

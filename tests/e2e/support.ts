@@ -263,7 +263,7 @@ export const offerSuggestionsEmail = "e2e-erbjudande-forslag@matkoll.test";
  */
 export const eatFirstEmail = "e2e-at-forst@matkoll.test";
 /**
- * The E2E user of things.spec.ts alone (Prylar, Epic 18): each test removes the
+ * The E2E user of things.spec.ts alone (Föremål, Epic 18): each test removes the
  * user's things, places and AI jobs, and the card files, and makes its boenden
  * with the service role.
  */

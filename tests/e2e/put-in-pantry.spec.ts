@@ -149,7 +149,7 @@ test("Lägg till i Matvaror puts the checked lines in the pantry, takes them off
   }
   await expect(page.getByTestId("list-progress").filter({ visible: true })).toHaveText("Allt ligger i korgen");
   await putButton(page).click();
-  await expect(toast(page)).toHaveText("Lagt 4 varor i Matvaror.");
+  await expect(toast(page)).toContainText("Lagt 4 varor: 2 i kyl, 2 i skafferi.");
   await expect(lines(page)).toHaveCount(0);
   await expect(page.getByText("Allt finns hemma.").filter({ visible: true })).toBeVisible();
   await expect(putButton(page)).toHaveCount(0);
@@ -206,5 +206,39 @@ test("only own items without a catalog ingredient are taken off the list, and th
   const { data, error } = await adminClient().from("pantry_item").select("amount").eq("user_id", userId);
   if (error) throw error;
   expect(data).toEqual([{ amount: 1 }]);
+  expect(errors).toEqual([]);
+});
+
+test("Story 16.18: Ändra opens Packa upp, and one tap moves a single item while the rest stays", async ({ page }) => {
+  const errors = watchErrors(page);
+  await page.goto("/lista");
+  for (const name of ["Grädde, 2 dl", "Paprika, 2 st", "Salt"]) {
+    await check(page, name).press("Space");
+    await expect(check(page, name)).toBeChecked();
+  }
+  await putButton(page).click();
+  await expect(toast(page)).toContainText("Lagt 3 varor: 2 i kyl, 1 i skafferi.");
+  await toast(page).getByRole("button", { name: "Ändra" }).click();
+
+  const sheet = page.getByRole("dialog", { name: "Packa upp" });
+  await expect(sheet).toBeVisible();
+  await expect(sheet.getByTestId("unpack-item")).toHaveCount(3);
+  // One tap on a place; nothing else is asked.
+  await sheet.getByRole("radiogroup", { name: "Plats för Paprika" }).getByRole("radio", { name: "Frys" }).click();
+  await expect(sheet.getByRole("radiogroup", { name: "Plats för Paprika" }).getByRole("radio", { name: "Frys" })).toBeChecked();
+  await expect
+    .poll(async () => {
+      const stored = await adminClient()
+        .from("pantry_item")
+        .select("location, amount, unit, ingredient!inner(name)")
+        .eq("user_id", userId);
+      if (stored.error) throw stored.error;
+      return (stored.data as unknown as { location: string; amount: number | null; ingredient: { name: string } }[])
+        .map((row) => `${row.ingredient.name} ${row.location} ${row.amount === null ? "obegränsad" : Number(row.amount)}`)
+        .sort();
+    })
+    .toEqual(["Grädde Kyl 3", "Paprika Frys 2", "Salt Skafferi obegränsad"]);
+  await sheet.getByRole("button", { name: "Klar" }).click();
+  await expect(sheet).toBeHidden();
   expect(errors).toEqual([]);
 });

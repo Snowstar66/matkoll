@@ -46,7 +46,7 @@ async function openHammer() {
     </ToastProvider>,
   );
   await userEvent.click(screen.getByRole("button", { name: /Hammare/ }));
-  return screen.getByRole("dialog", { name: "Pryl" });
+  return screen.getByRole("dialog", { name: "Föremål" });
 }
 
 describe("the things of a card", () => {
@@ -54,7 +54,7 @@ describe("the things of a card", () => {
     const dialog = await openHammer();
     expect(within(dialog).getByLabelText("Byt namn")).toHaveValue("Hammare");
     expect(within(dialog).getByRole("button", { name: "Spara" })).toBeInTheDocument();
-    expect(within(dialog).getByRole("button", { name: "Ta bort pryl" })).toBeInTheDocument();
+    expect(within(dialog).getByRole("button", { name: "Ta bort föremål" })).toBeInTheDocument();
   });
 
   it("renames just that thing and reads the page again", async () => {
@@ -112,7 +112,7 @@ describe("the things of a card", () => {
     removeThing.mockResolvedValue(ok(snapshot));
     restoreThing.mockResolvedValue(ok(null));
     const dialog = await openHammer();
-    await userEvent.click(within(dialog).getByRole("button", { name: "Ta bort pryl" }));
+    await userEvent.click(within(dialog).getByRole("button", { name: "Ta bort föremål" }));
     expect((await screen.findAllByText("Tog bort Hammare.")).length).toBeGreaterThan(0);
     expect(removeThing).toHaveBeenCalledWith(hammer.id);
     await userEvent.click(screen.getByRole("button", { name: "Ångra" }));
@@ -122,7 +122,7 @@ describe("the things of a card", () => {
   it("says so and keeps the thing when it cannot be removed", async () => {
     removeThing.mockResolvedValue(fail("things_item_failed"));
     const dialog = await openHammer();
-    await userEvent.click(within(dialog).getByRole("button", { name: "Ta bort pryl" }));
-    expect(await within(dialog).findByRole("alert")).toHaveTextContent("Det gick inte att spara prylen.");
+    await userEvent.click(within(dialog).getByRole("button", { name: "Ta bort föremål" }));
+    expect(await within(dialog).findByRole("alert")).toHaveTextContent("Det gick inte att spara föremålet.");
   });
 });
