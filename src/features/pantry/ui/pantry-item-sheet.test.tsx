@@ -301,7 +301,7 @@ describe("PantryItemSheet and the place (Story 8.2, FR-33)", () => {
     await search("gul");
     fireEvent.click(within(sheet()).getByRole("button", { name: "Gul lök" }));
     await save("Lägg till vara");
-    expect(await within(sheet()).findByRole("alert")).toHaveTextContent("Stället finns inte längre. Välj ett annat ställe.");
+    expect(await within(sheet()).findByRole("alert")).toHaveTextContent("Boendet finns inte längre. Välj ett annat boende.");
     expect(within(sheet()).getByTestId("pantry-sheet-ingredient")).toHaveTextContent("Gul lök");
   });
 });

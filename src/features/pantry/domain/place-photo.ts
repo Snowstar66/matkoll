@@ -137,7 +137,7 @@ export function storedPoints(points: { positions: readonly PhotoPoint[] } | unde
   return points && points.positions.length > 0 ? [...points.positions] : null;
 }
 
-// Visa senaste fotot (Story 10.2, FR-38, UX-DR21, UX-DR22): Lagersaldo shows the
+// Visa senaste fotot (Story 10.2, FR-38, UX-DR21, UX-DR22): Förråd shows the
 // latest photo of the chosen location on the place it shows, when it is
 // younger than placePhotoMaxAgeMs, as a line under the camera button with
 // "Visa", which opens the photo sheet of Story 6.6 with the saved points and
@@ -152,7 +152,7 @@ export function placePhotoCutoff(now: Date): Date {
   return new Date(now.getTime() - placePhotoMaxAgeMs);
 }
 
-/** A saved photo as Lagersaldo reads it (listPlacePhotos): its row, never the image. */
+/** A saved photo as Förråd reads it (listPlacePhotos): its row, never the image. */
 export type PlacePhoto = {
   id: string;
   location: Location;
@@ -165,7 +165,7 @@ export type PlacePhoto = {
   points: PhotoPoint[] | null;
 };
 
-/** A saved photo's row as read from pantry_photo, checked before Lagersaldo shows it. */
+/** A saved photo's row as read from pantry_photo, checked before Förråd shows it. */
 export const placePhotoRowSchema = z.object({
   id: z.uuid(),
   location: locationSchema,

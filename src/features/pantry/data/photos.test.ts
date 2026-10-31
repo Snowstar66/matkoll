@@ -397,7 +397,7 @@ describe("setPlacePhotoPointsIn", () => {
   });
 });
 
-// Story 10.2: Lagersaldo's read of a place's photos, the route's read of one
+// Story 10.2: Förråd's read of a place's photos, the route's read of one
 // photo and its file, and the deletion of a row (fakeQuery above).
 
 describe("loadPlacePhotosIn", () => {

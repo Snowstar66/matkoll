@@ -58,16 +58,14 @@ beforeEach(() => {
 });
 
 describe("StoreSettings", () => {
-  it("shows the selected store as a card, with the URL as a link that opens in a new tab", () => {
+  it("shows the selected store as a card, without the raw web address (Story 14.7)", () => {
     render([maxi]);
     expect(screen.getByRole("heading", { level: 2, name: "Butik" })).toBeInTheDocument();
     expect(within(card()).getByRole("heading", { level: 3, name: "Maxi ICA Stormarknad Östersund" })).toBeInTheDocument();
     expect(card()).toHaveTextContent("ICA · butiks-id 1003733");
     expect(card()).toHaveTextContent("Ingen adress angiven");
-    const link = within(card()).getByRole("link", { name: "https://handlaprivatkund.ica.se/stores/1003733" });
-    expect(link).toHaveAttribute("href", "https://handlaprivatkund.ica.se/stores/1003733");
-    expect(link).toHaveAttribute("target", "_blank");
-    expect(link).toHaveAttribute("rel", "noopener noreferrer");
+    expect(within(card()).queryByRole("link")).not.toBeInTheDocument();
+    expect(card()).not.toHaveTextContent("handlaprivatkund");
     expect(within(card()).getByRole("button", { name: "Ändra" })).toBeEnabled();
     expect(screen.queryByRole("list", { name: "Andra butiker" })).not.toBeInTheDocument();
     expect(screen.getByRole("button", { name: "Lägg till butik" })).toBeEnabled();

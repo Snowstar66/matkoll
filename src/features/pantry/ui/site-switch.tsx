@@ -16,8 +16,8 @@ export { SiteSwitchProvider, useSiteSwitching } from "./site-switching";
 // Ställesväljaren in Hemma (FR-30, FR-31, Story 8.2, EXPERIENCE.md): with two
 // or more places, a row of filter pills with the places' names in the order
 // they were created, above the location cards, and last the text button
-// "Ställen", which opens the sheet Ställen. With one place there is no
-// switch; "Lägg till ställe" at the bottom of Hemma opens the sheet instead
+// "Boenden", which opens the sheet Boenden. With one place there is no
+// switch; "Lägg till boende" at the bottom of Hemma opens the sheet instead
 // (AddSiteButton). A tap on a pill selects the place at once
 // (optimistically), saves the selection on the server (selectPantrySite) and
 // shows the place's locations; the chosen location (`?plats=`) stays, since
@@ -36,11 +36,11 @@ export type SiteSwitchProps = {
 
 /**
  * The switch above Hemma's place (see the comment at the top), and the sheet
- * Ställen it opens. While a selection is on its way, `children` are inert
+ * Boenden it opens. While a selection is on its way, `children` are inert
  * with aria-busy, so no write starts in a view that mixes two places; then
  * the page shows the new place (its <Suspense> is keyed on the place). The
  * live region (SiteSwitchProvider, which this needs above) says "Valt
- * ställe: Stugan." once the selection is saved. When
+ * boende: Stugan." once the selection is saved. When
  * it fails, the pill goes back and a Notice says why; an answer for an
  * earlier tap than the latest is ignored, so the last tap wins. The sheet
  * closes when Hemma is hidden after a navigation (Activity), and a name not
@@ -95,14 +95,14 @@ export function SiteSwitch({ sites, selected, children }: SiteSwitchProps) {
           <div className="flex flex-wrap items-center gap-x-2">
             {/* A tap before hydration would do nothing, so the pills wait. */}
             <FilterPills
-              label="Ställe"
+              label="Boende"
               options={sites.map((site) => ({ value: site.id, label: site.name }))}
               value={shownId}
               onChange={choose}
               disabled={!hydrated}
               className="min-w-0"
             />
-            {/* Story 14.6: a discreet "Hantera" last in the row; the sheet Ställen is still where places are managed. */}
+            {/* Story 14.6: a discreet "Hantera" last in the row; the sheet Boenden is still where places are managed. */}
             <Button
               variant="compact"
               disabled={!hydrated || switching}

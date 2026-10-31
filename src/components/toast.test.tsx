@@ -14,7 +14,7 @@ function Trigger({ message, onUndo }: { message: string; onUndo?: () => void }) 
 function renderToasts(onUndo?: () => void) {
   return render(
     <ToastProvider>
-      <Trigger message="Lagt 8 varor i lagret." />
+      <Trigger message="Lagt 8 varor i förrådet." />
       <Trigger message="Inköpslistan är kopierad." />
       <Trigger message="Tog bort Mjölk." onUndo={onUndo ?? (() => {})} />
     </ToastProvider>,
@@ -35,24 +35,24 @@ describe("ToastProvider", () => {
     renderToasts();
     expect(liveRegion()).toHaveAttribute("aria-live", "polite");
     expect(liveRegion()).toBeEmptyDOMElement();
-    fireEvent.click(screen.getByRole("button", { name: "Lagt 8 varor i lagret." }));
-    expect(liveRegion()).toHaveTextContent("Lagt 8 varor i lagret.");
+    fireEvent.click(screen.getByRole("button", { name: "Lagt 8 varor i förrådet." }));
+    expect(liveRegion()).toHaveTextContent("Lagt 8 varor i förrådet.");
   });
 
   it("puts the same message in anew, so it is announced again", () => {
     renderToasts();
-    fireEvent.click(screen.getByRole("button", { name: "Lagt 8 varor i lagret." }));
+    fireEvent.click(screen.getByRole("button", { name: "Lagt 8 varor i förrådet." }));
     const first = liveRegion().firstElementChild;
-    fireEvent.click(screen.getByRole("button", { name: "Lagt 8 varor i lagret." }));
-    expect(liveRegion()).toHaveTextContent("Lagt 8 varor i lagret.");
+    fireEvent.click(screen.getByRole("button", { name: "Lagt 8 varor i förrådet." }));
+    expect(liveRegion()).toHaveTextContent("Lagt 8 varor i förrådet.");
     expect(liveRegion().firstElementChild).not.toBe(first);
   });
 
   it("stays 4 s without undo", () => {
     renderToasts();
-    fireEvent.click(screen.getByRole("button", { name: "Lagt 8 varor i lagret." }));
+    fireEvent.click(screen.getByRole("button", { name: "Lagt 8 varor i förrådet." }));
     act(() => vi.advanceTimersByTime(3_999));
-    expect(liveRegion()).toHaveTextContent("Lagt 8 varor i lagret.");
+    expect(liveRegion()).toHaveTextContent("Lagt 8 varor i förrådet.");
     act(() => vi.advanceTimersByTime(1));
     expect(liveRegion()).toBeEmptyDOMElement();
   });
@@ -68,11 +68,11 @@ describe("ToastProvider", () => {
 
   it("shows at most one: a new one replaces the old and gets its own time", () => {
     renderToasts();
-    fireEvent.click(screen.getByRole("button", { name: "Lagt 8 varor i lagret." }));
+    fireEvent.click(screen.getByRole("button", { name: "Lagt 8 varor i förrådet." }));
     act(() => vi.advanceTimersByTime(3_000));
     fireEvent.click(screen.getByRole("button", { name: "Inköpslistan är kopierad." }));
     expect(liveRegion()).toHaveTextContent("Inköpslistan är kopierad.");
-    expect(liveRegion()).not.toHaveTextContent("Lagt 8 varor i lagret.");
+    expect(liveRegion()).not.toHaveTextContent("Lagt 8 varor i förrådet.");
     act(() => vi.advanceTimersByTime(3_999));
     expect(liveRegion()).toHaveTextContent("Inköpslistan är kopierad.");
     act(() => vi.advanceTimersByTime(1));
@@ -141,7 +141,7 @@ describe("ToastProvider", () => {
 
   it("has no Ångra without an undo callback", () => {
     renderToasts();
-    fireEvent.click(screen.getByRole("button", { name: "Lagt 8 varor i lagret." }));
+    fireEvent.click(screen.getByRole("button", { name: "Lagt 8 varor i förrådet." }));
     expect(screen.queryByRole("button", { name: "Ångra" })).not.toBeInTheDocument();
   });
 
@@ -218,7 +218,7 @@ describe("ToastProvider", () => {
           <button type="button" onClick={() => showToast("Tog bort Mjölk.", { onUndo: () => {} })}>
             Ta bort
           </button>
-          <button type="button" onClick={() => showToast("Lagt 8 varor i lagret.")}>
+          <button type="button" onClick={() => showToast("Lagt 8 varor i förrådet.")}>
             Lagt
           </button>
         </>

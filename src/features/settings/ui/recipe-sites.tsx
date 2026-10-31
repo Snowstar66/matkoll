@@ -11,7 +11,8 @@ import {
   useSyncExternalStore,
 } from "react";
 import { Button } from "@/components/button";
-import { FieldError, FieldLabel, Input } from "@/components/field";
+import { FieldError, Input } from "@/components/field";
+import { ListGroup } from "@/components/list-group";
 import { Notice } from "@/components/notice";
 import { useToast } from "@/components/toast";
 import { errorMessages, fail } from "@/lib/errors";
@@ -137,37 +138,36 @@ export function RecipeSites({ sites }: RecipeSitesProps) {
   }
 
   return (
-    <section id="godkanda-receptsajter" aria-labelledby={headingId} className="flex flex-col gap-3">
-      <h2 id={headingId} className="text-section-label text-ink-2">
+    <section id="godkanda-receptsajter" aria-labelledby={headingId} className="flex flex-col gap-4">
+      <h2 id={headingId} className="sr-only">
         Godkända receptsajter
       </h2>
+      <p className="px-1 text-meta text-ink-3">Matkoll hämtar bara recept från sajterna i listan.</p>
       {changeError ? <Notice role="alert">{changeError}</Notice> : null}
       {shownSites.length > 0 ? (
-        <ul aria-labelledby={headingId} className="flex flex-col rounded-lg bg-surface px-4">
+        <ListGroup labelledBy={headingId}>
           {shownSites.map((domain) => (
-            <li
-              key={domain}
-              data-testid="recipe-site"
-              className="flex min-h-tap items-center justify-between gap-3 border-t border-hairline py-1 first:border-t-0"
-            >
+            <li key={domain} data-testid="recipe-site" className="flex min-h-[52px] items-center justify-between gap-3 pl-4 pr-1">
               <span className="min-w-0 text-body break-all text-ink">{domain}</span>
-              <Button
-                variant="text"
+              <button
+                type="button"
                 aria-label={`Ta bort ${domain}`}
                 disabled={!hydrated}
                 onClick={() => remove(domain)}
-                className="-mr-3 shrink-0"
+                className="min-h-tap min-w-tap shrink-0 rounded-md px-3 text-meta text-ink-3 disabled:cursor-not-allowed disabled:opacity-60"
               >
                 Ta bort
-              </Button>
+              </button>
             </li>
           ))}
-        </ul>
+        </ListGroup>
       ) : (
         <p className="text-body text-ink-2">Inga godkända receptsajter. Lägg till en så går det att importera från länkar.</p>
       )}
       <form onSubmit={submit} noValidate className="flex flex-col gap-2">
-        <FieldLabel htmlFor={fieldId}>Ny receptsajt</FieldLabel>
+        <label htmlFor={fieldId} className="px-1 text-section-label text-ink-2">
+          Lägg till<span className="sr-only"> ny receptsajt</span>
+        </label>
         <div className="flex gap-2">
           <Input
             id={fieldId}
@@ -178,7 +178,7 @@ export function RecipeSites({ sites }: RecipeSitesProps) {
             autoCorrect="off"
             autoComplete="off"
             spellCheck={false}
-            placeholder="koket.se"
+            placeholder="t.ex. koket.se"
             value={value}
             onChange={(event) => {
               setValue(event.target.value);

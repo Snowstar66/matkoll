@@ -139,7 +139,7 @@ describe("savePantrySite", () => {
   it("gives pantry_site_limit at the field", async () => {
     saveSiteIn.mockResolvedValue({ kind: "limit" });
     expect(await savePantrySite(null, formData({ id: stugan, name: "Elfte", mode: "add" }))).toEqual(
-      fail("pantry_site_limit", { name: "Du kan ha högst 10 ställen." }),
+      fail("pantry_site_limit", { name: "Du kan ha högst 10 boenden." }),
     );
     expect(revalidateFor).toHaveBeenCalledWith("pantry_site");
   });

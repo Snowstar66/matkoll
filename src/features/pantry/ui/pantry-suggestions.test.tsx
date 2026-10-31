@@ -378,7 +378,7 @@ describe("the photo's place (Story 8.4)", () => {
     render(<Hemma />);
     await analyzeWith(fail("pantry_site_gone"));
     expect(await within(screen.getByTestId("pantry-camera")).findByRole("alert")).toHaveTextContent(
-      "Stället finns inte längre. Välj ett annat ställe.",
+      "Boendet finns inte längre. Välj ett annat boende.",
     );
     expect(screen.queryByRole("button", { name: "Försök igen" })).toBeNull();
     expect(refresh).toHaveBeenCalledTimes(1);

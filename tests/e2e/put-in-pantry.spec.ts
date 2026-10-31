@@ -1,12 +1,12 @@
 import { expect, type Page, test } from "@playwright/test";
 import { adminClient, e2eUserId, putInPantryEmail, putInPantryStorageState, thisMonday } from "./support";
 
-// Story 3.7: "Lägg i lagret". The spec has an E2E user of its own
+// Story 3.7: "Lägg i förrådet". The spec has an E2E user of its own
 // (putInPantryEmail), and each test makes its state with the service role:
 // Krämig kycklinggryta for 4 portions (3 dl grädde, 2 paprikor, salt efter
 // smak) on the current plan, 1 dl grädde in the pantry, and the own items
 // "kaffe" (linked to Kaffe) and "diskmedel". The list is then Grädde 2 dl,
-// Paprika 2 st and Salt ("Saknas i lagret"), with the two own items.
+// Paprika 2 st and Salt ("Saknas i förrådet"), with the two own items.
 
 const mobile = { width: 375, height: 812 };
 const gryta = "Krämig kycklinggryta";
@@ -107,7 +107,7 @@ function watchErrors(page: Page): string[] {
 // locator is scoped to what is visible.
 const lines = (page: Page) => page.getByTestId("shopping-line").filter({ visible: true });
 const check = (page: Page, name: string) => page.getByRole("checkbox", { name, exact: true }).filter({ visible: true });
-const putButton = (page: Page) => page.getByRole("button", { name: "Lägg i lagret", exact: true }).filter({ visible: true });
+const putButton = (page: Page) => page.getByRole("button", { name: "Lägg i förrådet", exact: true }).filter({ visible: true });
 const toast = (page: Page) => page.getByTestId("toast");
 /** Unfolds I korgen, where the checked lines are (Story 11.4). */
 const showBasket = async (page: Page) => {
@@ -115,7 +115,7 @@ const showBasket = async (page: Page) => {
   const show = page.getByRole("button", { name: /^Visa I korgen/ }).filter({ visible: true });
   if ((await show.count()) > 0) await show.click();
 };
-const tab = (page: Page, name: "Recept" | "Lagersaldo" | "Inköpslista") =>
+const tab = (page: Page, name: "Recept" | "Förråd" | "Inköpslista") =>
   page.getByRole("navigation", { name: "Huvudmeny" }).getByRole("link", { name });
 
 test.beforeEach(async () => {
@@ -136,7 +136,7 @@ test("the button shows once a line is checked off, and goes when the check comes
   expect(errors).toEqual([]);
 });
 
-test("Lägg i lagret puts the checked lines in the pantry, takes them off the list, and the recipe can be cooked", async ({
+test("Lägg i förrådet puts the checked lines in the pantry, takes them off the list, and the recipe can be cooked", async ({
   page,
 }) => {
   const errors = watchErrors(page);
@@ -149,13 +149,13 @@ test("Lägg i lagret puts the checked lines in the pantry, takes them off the li
   }
   await expect(page.getByTestId("list-progress").filter({ visible: true })).toHaveText("Allt ligger i korgen");
   await putButton(page).click();
-  await expect(toast(page)).toHaveText("Lagt 4 varor i lagret.");
+  await expect(toast(page)).toHaveText("Lagt 4 varor i förrådet.");
   await expect(lines(page)).toHaveCount(0);
   await expect(page.getByText("Allt finns hemma.").filter({ visible: true })).toBeVisible();
   await expect(putButton(page)).toHaveCount(0);
 
-  // Lagersaldo: the catalog's locations, increased or created, and unlimited for salt and kaffe.
-  await tab(page, "Lagersaldo").click();
+  // Förråd: the catalog's locations, increased or created, and unlimited for salt and kaffe.
+  await tab(page, "Förråd").click();
   await expect(page).toHaveURL(/\/hemma/);
   // Story 11.3: the rows show "Tillagd …" and no amount, so the amounts are read from the table.
   const rows = page.getByTestId("pantry-row").filter({ visible: true });

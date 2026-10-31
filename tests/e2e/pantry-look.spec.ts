@@ -1,7 +1,7 @@
 import { expect, type Page, test } from "@playwright/test";
 import { adminClient, e2eUserId, pantryLookEmail, pantryLookStorageState } from "./support";
 
-// Story 11.3 (FR-40, FR-41): Lagersaldo in the new look at 375 px. The spec
+// Story 11.3 (FR-40, FR-41): Förråd in the new look at 375 px. The spec
 // has an E2E user of its own (pantryLookEmail). Before each test the service
 // role removes the user's pantry items and places, adds Hemma (selected) and
 // the places the test needs, and seeds the fridge of the spec's matrix with
@@ -307,8 +307,8 @@ test("Sök i kylen filters on name and brand, says when nothing matches, and sta
   await field.fill("mjö");
   await mainMenu(page).getByRole("link", { name: "Recept" }).click();
   await expect(page.getByRole("heading", { level: 1, name: "Recept" })).toBeVisible();
-  await mainMenu(page).getByRole("link", { name: "Lagersaldo" }).click();
-  await expect(page.getByRole("heading", { level: 1, name: "Lagersaldo" })).toBeVisible();
+  await mainMenu(page).getByRole("link", { name: "Förråd" }).click();
+  await expect(page.getByRole("heading", { level: 1, name: "Förråd" })).toBeVisible();
   await expect(search(page)).toHaveValue("mjö");
   await expect(rows(page)).toHaveCount(1);
   expect(errors).toEqual([]);
@@ -331,9 +331,9 @@ test("the search empties when another location or place is chosen, and an empty 
   await expect(rows(page)).toHaveCount(6);
 
   await search(page).fill("mjö");
-  await page.getByRole("radiogroup", { name: "Ställe" }).filter({ visible: true }).getByRole("radio", { name: "Stugan" }).click();
+  await page.getByRole("radiogroup", { name: "Boende" }).filter({ visible: true }).getByRole("radio", { name: "Stugan" }).click();
   await expect(page.getByText("Inget i kylen än.")).toBeVisible();
-  await page.getByRole("radiogroup", { name: "Ställe" }).filter({ visible: true }).getByRole("radio", { name: "Hemma" }).click();
+  await page.getByRole("radiogroup", { name: "Boende" }).filter({ visible: true }).getByRole("radio", { name: "Hemma" }).click();
   await expect(search(page)).toHaveValue("");
   await expect(rows(page)).toHaveCount(6);
   expect(errors).toEqual([]);

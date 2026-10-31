@@ -197,7 +197,7 @@ function toInput(values: FormValues, ingredient: ChosenIngredient, target: Pantr
 type SheetBaseProps = {
   open: boolean;
   onClose: () => void;
-  /** An item was saved from the sheet (Story 11.3: Lagersaldo's search is emptied, so it never hides the item). */
+  /** An item was saved from the sheet (Story 11.3: Förråd's search is emptied, so it never hides the item). */
   onSaved?: () => void;
   /**
    * Increases each time the sheet opens: the form then starts afresh from
@@ -568,7 +568,7 @@ type PantrySheetApi = {
   openItem: (item: PantryItem) => void;
   /** Rätta: opens the sheet for a lagerförslag, filled in from it. */
   openSuggestion: (suggestion: PantrySuggestion) => void;
-  /** How many times an item has been saved from the sheet; Lagersaldo's search empties when it grows. */
+  /** How many times an item has been saved from the sheet; Förråd's search empties when it grows. */
   saves: number;
 };
 

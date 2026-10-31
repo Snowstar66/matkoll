@@ -8,7 +8,7 @@ import type { ShoppingLine } from "@/features/shopping";
 import { ok, type Result } from "@/lib/errors";
 import { ShoppingListView } from "./shopping-list-view";
 
-// Inköpslista as the page shows it (Story 8.5): the line "Lager" and "Byt"
+// Inköpslista as the page shows it (Story 8.5): the line "Boende" and "Byt"
 // beside the list. A switch made in the sheet is said once, by its
 // confirmation; one made elsewhere is said by the list; and "Byt" waits
 // while the list saves a check. The "server" gives the list for the selected
@@ -89,11 +89,11 @@ describe("ShoppingListView", () => {
   it("says a switch made in the sheet once, by its confirmation, not by the list", async () => {
     const user = userEvent.setup();
     render(<Page />, { wrapper: ToastProvider });
-    await user.click(screen.getByRole("button", { name: "Byt lager för listan" }));
+    await user.click(screen.getByRole("button", { name: "Byt boende för listan" }));
     const sheet = await screen.findByRole("dialog", { name: "Räkna listan mot" });
     await user.click(within(sheet).getByRole("button", { name: /^Stugan/ }));
     expect(await screen.findByTestId("toast")).toHaveTextContent("Listan räknas nu mot Stugan.");
-    expect(screen.getByTestId("site-line")).toHaveTextContent("Lager: Stugan");
+    expect(screen.getByTestId("site-line")).toHaveTextContent("Boende: Stugan");
     expect(screen.getByRole("checkbox", { name: /^Ketchup/ })).toBeInTheDocument();
     expect(live()).toHaveTextContent("");
   });
@@ -101,9 +101,9 @@ describe("ShoppingListView", () => {
   it("lets the list say a switch made elsewhere, also after a quiet one", async () => {
     const user = userEvent.setup();
     render(<Page />, { wrapper: ToastProvider });
-    await user.click(screen.getByRole("button", { name: "Byt lager för listan" }));
+    await user.click(screen.getByRole("button", { name: "Byt boende för listan" }));
     await user.click(within(await screen.findByRole("dialog")).getByRole("button", { name: /^Stugan/ }));
-    await waitFor(() => expect(screen.getByTestId("site-line")).toHaveTextContent("Lager: Stugan"));
+    await waitFor(() => expect(screen.getByTestId("site-line")).toHaveTextContent("Boende: Stugan"));
     expect(live()).toHaveTextContent("");
     // Another device selects Hemma.
     await act(async () => {
@@ -129,7 +129,7 @@ describe("ShoppingListView", () => {
     );
     const user = userEvent.setup();
     render(<Page />, { wrapper: ToastProvider });
-    const byt = screen.getByRole("button", { name: "Byt lager för listan" });
+    const byt = screen.getByRole("button", { name: "Byt boende för listan" });
     expect(byt).toBeEnabled();
     await user.click(screen.getByRole("checkbox", { name: /^Senap/ }));
     await waitFor(() => expect(byt).toBeDisabled());

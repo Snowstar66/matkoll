@@ -127,7 +127,7 @@ test("a photo of the fridge is grouped against what it has, and nothing is chang
   const before = await pantry();
   await photographFridge(page);
 
-  await expect(section(page).getByText("2 varor stämmer med lagret.")).toBeVisible();
+  await expect(section(page).getByText("2 varor stämmer med förrådet.")).toBeVisible();
   await expect(section(page).getByRole("heading", { level: 3 })).toHaveText(["Nytt", "Ändrat", "Syns inte längre"]);
   // Story 6.5: the titles are the labels on the packages.
   await expect(group(page, "Nytt")).toHaveText(cardTitles(["Vispgrädde 3 dl", "Gurka", "Ketchup"]));
@@ -238,5 +238,5 @@ test("a photo of the empty freezer gives the plain list, without groups", async 
   ]));
   await expect(section(page).getByRole("heading", { name: "Nytt" })).toHaveCount(0);
   await expect(section(page).getByTestId("pantry-missing")).toHaveCount(0);
-  await expect(section(page).getByText(/stämmer med lagret/)).toHaveCount(0);
+  await expect(section(page).getByText(/stämmer med förrådet/)).toHaveCount(0);
 });

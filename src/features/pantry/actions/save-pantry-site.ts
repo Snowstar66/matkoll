@@ -18,8 +18,8 @@ import {
 export type SavePantrySiteState = Result<{ site: PantrySite; mode: SiteSaveMode }> | null;
 
 /**
- * "Lägg till" under "Nytt ställe" (mode `add`) and "Spara" on a place's row
- * (mode `rename`) in the sheet Ställen (FR-29, AD-24): adds the place with
+ * "Lägg till" under "Nytt boende" (mode `add`) and "Spara" on a place's row
+ * (mode `rename`) in the sheet Boenden (FR-29, AD-24): adds the place with
  * the client's id, not selected, or renames it. For useActionState, with the
  * fields of siteFormSchema (`id`, `name`, `mode`). The id is chosen when the
  * sheet opens and kept until the name changes, so a retry after a lost

@@ -130,7 +130,7 @@ const camera = (page: Page) => page.getByTestId("pantry-camera").filter({ visibl
 const section = (page: Page) => page.getByTestId("pantry-suggestions").filter({ visible: true });
 const placeLine = (page: Page) => page.getByTestId("pantry-suggestions-site").filter({ visible: true });
 const pill = (page: Page, name: string) =>
-  page.getByRole("radiogroup", { name: "Ställe" }).filter({ visible: true }).getByRole("radio", { name, exact: true });
+  page.getByRole("radiogroup", { name: "Boende" }).filter({ visible: true }).getByRole("radio", { name, exact: true });
 const placeCard = (page: Page, name: "Kyl" | "Frys") =>
   page.getByRole("navigation", { name: "Platser" }).filter({ visible: true }).getByRole("link", { name: new RegExp(`^${name}`) });
 const rows = (page: Page) => page.getByTestId("pantry-row").filter({ visible: true });
@@ -151,7 +151,7 @@ async function openHemma(page: Page, path = "/hemma") {
 /** Selects a place with its pill and waits until the page shows it. */
 async function choose(page: Page, name: "Hemma" | "Stugan") {
   await pill(page, name).click();
-  await expect(page.getByTestId("site-announcement").filter({ visible: true })).toHaveText(`Valt ställe: ${name}.`);
+  await expect(page.getByTestId("site-announcement").filter({ visible: true })).toHaveText(`Valt boende: ${name}.`);
   await expect(page.getByTestId("site-content")).not.toHaveAttribute("aria-busy");
 }
 

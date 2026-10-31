@@ -12,7 +12,7 @@ import { deleteSiteIn } from "../data/sites";
 const deleteSchema = z.object({ id: z.uuid() });
 
 /**
- * "Ta bort" on a place's row in the sheet Ställen (FR-29, AD-24): deletes an
+ * "Ta bort" on a place's row in the sheet Boenden (FR-29, AD-24): deletes an
  * empty place that is not selected and not the last, without asking and
  * without "Ångra" (nothing is lost). A place that is gone already gives
  * `ok({ removed: false })`: the result is what was asked for, and a retry

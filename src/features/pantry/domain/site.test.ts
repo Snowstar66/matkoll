@@ -33,7 +33,7 @@ describe("the texts of Story 8.5", () => {
   it("names the sheet, the button and the confirmation as EXPERIENCE.md has them", () => {
     expect(switchListTitle).toBe("Räkna listan mot");
     expect(switchListButtonText).toBe("Byt");
-    expect(switchListButtonLabel).toBe("Byt lager för listan");
+    expect(switchListButtonLabel).toBe("Byt boende för listan");
     expect(listCountedAgainstText("Stugan")).toBe("Listan räknas nu mot Stugan.");
     expect(listCountedAgainstText("Hemma")).toBe("Listan räknas nu mot Hemma.");
   });
@@ -43,10 +43,10 @@ describe("siteLineText, siteSuffix and shownSiteName", () => {
   const stugan = { id: "11111111-1111-4111-8111-111111111111", name: "Stugan", siteCount: 2 };
 
   it("name the place when there is more than one", () => {
-    expect(siteLineText(stugan)).toBe("Lager: Stugan");
+    expect(siteLineText(stugan)).toBe("Boende: Stugan");
     expect(siteSuffix(stugan)).toBe(" för Stugan");
     expect(shownSiteName(stugan)).toBe("Stugan");
-    expect(siteLineText({ ...stugan, name: "Hemma", siteCount: 10 })).toBe("Lager: Hemma");
+    expect(siteLineText({ ...stugan, name: "Hemma", siteCount: 10 })).toBe("Boende: Hemma");
   });
 
   it("name nothing with one place, or none, as in 1.0", () => {
@@ -59,7 +59,7 @@ describe("siteLineText, siteSuffix and shownSiteName", () => {
 
   it("keep a long name whole, so the line wraps rather than cuts it", () => {
     const name = "a".repeat(maxSiteNameChars);
-    expect(siteLineText({ ...stugan, name })).toBe(`Lager: ${name}`);
+    expect(siteLineText({ ...stugan, name })).toBe(`Boende: ${name}`);
   });
 });
 
@@ -115,14 +115,14 @@ describe("pantrySiteRowSchema", () => {
 
 describe("the texts of Story 8.2", () => {
   it("follow EXPERIENCE.md", () => {
-    expect(emptySiteNameText).toBe("Ange ett namn på stället.");
+    expect(emptySiteNameText).toBe("Ange ett namn på boendet.");
     expect(siteNameTooLongText).toBe("Namnet får vara högst 40 tecken.");
-    expect(siteNameTakenText("Stugan")).toBe("Det finns redan ett ställe som heter Stugan.");
-    expect(siteLimitText).toBe("Du kan ha högst 10 ställen.");
-    expect(addedSiteText("Stugan")).toBe("Lade till Stugan. Välj det för att se och fylla dess lager.");
-    expect(renamedSiteText("Vinterstugan")).toBe("Stället heter nu Vinterstugan.");
+    expect(siteNameTakenText("Stugan")).toBe("Det finns redan ett boende som heter Stugan.");
+    expect(siteLimitText).toBe("Du kan ha högst 10 boenden.");
+    expect(addedSiteText("Stugan")).toBe("Lade till Stugan. Välj det för att se och fylla dess förråd.");
+    expect(renamedSiteText("Vinterstugan")).toBe("Boendet heter nu Vinterstugan.");
     expect(removedSiteText("Stugan")).toBe("Tog bort Stugan.");
-    expect(selectedSiteText("Stugan")).toBe("Valt ställe: Stugan.");
+    expect(selectedSiteText("Stugan")).toBe("Valt boende: Stugan.");
     expect(selectedSiteLabel).toBe("Valt");
   });
 });

@@ -33,13 +33,13 @@ export type PantrySite = { id: string; name: string; isSelected: boolean };
 
 /**
  * A place with the number of items on it, over its three locations, as the
- * sheet Ställen shows it (listPantrySitesWithCounts, Story 8.2). `null` when
+ * sheet Boenden shows it (listPantrySitesWithCounts, Story 8.2). `null` when
  * the counts could not be read: the sheet then shows no count and offers no
  * "Ta bort".
  */
 export type PantrySiteWithCount = PantrySite & { itemCount: number | null };
 
-/** The selected place, and how many places the user has (the line "Lager: Stugan" shows from two). */
+/** The selected place, and how many places the user has (the line "Boende: Stugan" shows from two). */
 export type SelectedSite = { id: string; name: string; siteCount: number };
 
 /** A place's name as the database keeps it: 1 to maxSiteNameChars characters (pantry_site_name_check). */
@@ -62,31 +62,31 @@ export const pantrySiteRowSchema = z
   })
   .transform((row): PantrySite => ({ id: row.id, name: row.name, isSelected: row.is_selected }));
 
-// Story 8.2: the sheet Ställen and the site switch in Hemma (FR-29, FR-30,
+// Story 8.2: the sheet Boenden and the site switch in Hemma (FR-29, FR-30,
 // FR-31). The texts follow EXPERIENCE.md, Voice and Tone.
 
 /** Under the field when the name is empty, only spaces or only invisible characters. */
-export const emptySiteNameText = "Ange ett namn på stället.";
+export const emptySiteNameText = "Ange ett namn på boendet.";
 /** Under the field when the name is longer than maxSiteNameChars. */
 export const siteNameTooLongText = `Namnet får vara högst ${maxSiteNameChars} tecken.`;
 /** Under the field when the user has maxSites places already. */
-export const siteLimitText = `Du kan ha högst ${maxSites} ställen.`;
-/** The mark on the selected place's row in the sheet Ställen. */
+export const siteLimitText = `Du kan ha högst ${maxSites} boenden.`;
+/** The mark on the selected place's row in the sheet Boenden. */
 export const selectedSiteLabel = "Valt";
 
-/** "Det finns redan ett ställe som heter Stugan.", under the field. */
+/** "Det finns redan ett boende som heter Stugan.", under the field. */
 export function siteNameTakenText(name: string): string {
-  return `Det finns redan ett ställe som heter ${name}.`;
+  return `Det finns redan ett boende som heter ${name}.`;
 }
 
 /** The confirmation after "Lägg till": a new place is never selected by itself. */
 export function addedSiteText(name: string): string {
-  return `Lade till ${name}. Välj det för att se och fylla dess lager.`;
+  return `Lade till ${name}. Välj det för att se och fylla dess förråd.`;
 }
 
 /** The confirmation after a new name is saved. */
 export function renamedSiteText(name: string): string {
-  return `Stället heter nu ${name}.`;
+  return `Boendet heter nu ${name}.`;
 }
 
 /** The confirmation after "Ta bort". */
@@ -96,7 +96,7 @@ export function removedSiteText(name: string): string {
 
 /** What the live region says after a place is selected. */
 export function selectedSiteText(name: string): string {
-  return `Valt ställe: ${name}.`;
+  return `Valt boende: ${name}.`;
 }
 
 /**
@@ -123,7 +123,7 @@ export function hasVisibleCharacter(name: string): boolean {
 }
 
 /**
- * `add` from the field "Nytt ställe": adds the place, or renames the user's
+ * `add` from the field "Nytt boende": adds the place, or renames the user's
  * place with the same id (a retry after a lost answer). `rename` from a row:
  * only renames, and a place that is gone is `pantry_site_gone`.
  */
@@ -143,7 +143,7 @@ export function readSiteForm(formData: FormData): SiteFormInput {
 }
 
 /**
- * A place as Pontus names it in the sheet Ställen: `id` is chosen by the
+ * A place as Pontus names it in the sheet Boenden: `id` is chosen by the
  * client (AD-20), the name is made one line (oneLine), has at least one
  * character that shows (hasVisibleCharacter) and has 1 to maxSiteNameChars
  * characters, and its normalized form is the only one
@@ -193,7 +193,7 @@ export function shownSiteName(site: NamedSite | null): string | null {
 }
 
 /**
- * "Lager: Stugan": the line that says which place the status is counted
+ * "Boende: Stugan": the line that says which place the status is counted
  * against, under the page title in Recept (Kan lagas nu), Matsedel and
  * Inköpslista, and under "X av Y hemma" in the recipe view; `null` with one
  * place. Every module writes the line with this, so it reads the same
@@ -201,25 +201,25 @@ export function shownSiteName(site: NamedSite | null): string | null {
  */
 export function siteLineText(site: NamedSite | null): string | null {
   const name = shownSiteName(site);
-  return name === null ? null : `Lager: ${name}`;
+  return name === null ? null : `Boende: ${name}`;
 }
 
-/** " för Stugan", for texts such as "Lagt 8 varor i lagret för Stugan."; "" with one place. */
+/** " för Stugan", for texts such as "Lagt 8 varor i förrådet för Stugan."; "" with one place. */
 export function siteSuffix(site: NamedSite | null): string {
   const name = shownSiteName(site);
   return name === null ? "" : ` för ${name}`;
 }
 
-// Story 8.5: "Byt" on the line "Lager: Hemma" in Inköpslista, and the sheet
+// Story 8.5: "Byt" on the line "Boende: Hemma" in Inköpslista, and the sheet
 // it opens (FR-32, EXPERIENCE.md, Voice and Tone). It is the same selection
 // as the pills in Hemma.
 
-/** The title of the sheet Byt ställe, opened from Inköpslista. */
+/** The title of the sheet Byt boende, opened from Inköpslista. */
 export const switchListTitle = "Räkna listan mot";
-/** The text button beside "Lager: Hemma" in Inköpslista. */
+/** The text button beside "Boende: Hemma" in Inköpslista. */
 export const switchListButtonText = "Byt";
 /** The button's accessible name: "Byt" alone is unclear to a screen reader without the line beside it. */
-export const switchListButtonLabel = "Byt lager för listan";
+export const switchListButtonLabel = "Byt boende för listan";
 
 /** The short confirmation once the list is counted against the place chosen in the sheet. */
 export function listCountedAgainstText(name: string): string {

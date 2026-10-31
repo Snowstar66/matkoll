@@ -95,13 +95,13 @@ test("the fridge and the freezer one after the other: the queue is seen, the res
   await locationCard(page, "Kyl").click();
   await expect(camera(page).getByText("Tittar på bilden … Du kan göra annat under tiden.")).toBeVisible();
 
-  // Leave Lagersaldo: the fridge's cards come while Pontus is in Recept, with a confirmation and a badge.
+  // Leave Förråd: the fridge's cards come while Pontus is in Recept, with a confirmation and a badge.
   await nav(page).getByRole("link", { name: "Recept" }).click();
   await expect(page).toHaveURL(/\/recept$/);
   await expect(toast(page)).toContainText("förslag från fotot av kylen är klara.", longWait);
   await expect(nav(page).getByTestId("tab-badge")).toHaveText("1");
 
-  // Visa: Lagersaldo on the fridge, with the cards and the numbers on them (the photo is still in the tab's memory).
+  // Visa: Förråd on the fridge, with the cards and the numbers on them (the photo is still in the tab's memory).
   await toast(page).getByRole("button", { name: "Visa" }).click();
   await expect(page).toHaveURL(/\/hemma\?plats=kyl$/);
   await expect(cards(page)).toHaveCount(6);

@@ -193,7 +193,7 @@ export function compareWithPlace(
     ).get(ingredientId)!;
     const ofIngredient = rows.filter((row) => row.ingredientId === ingredientId);
     const same = sameStock(photo, place);
-    // Story 6.5: a suggestion the AI was unsure of is never "stämmer med lagret": it is a card Pontus confirms.
+    // Story 6.5: a suggestion the AI was unsure of is never "stämmer med förrådet": it is a card Pontus confirms.
     const change = same && !own.some((suggestion) => suggestion.uncertain) ? "unchanged" : "changed";
     compared.set(ingredientId, {
       change,
@@ -252,7 +252,7 @@ export type SuggestionGroups = {
   added: PantrySuggestion[];
   /** "Ändrat". */
   changed: PantrySuggestion[];
-  /** Suggestions that match the place: "2 varor stämmer med lagret." */
+  /** Suggestions that match the place: "2 varor stämmer med förrådet." */
   unchanged: number;
   /** "Syns inte längre". */
   missing: MissingItem[];

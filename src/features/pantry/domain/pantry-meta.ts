@@ -2,7 +2,7 @@ import { compareCategories, displayCategory, type Category, type Location } from
 import { comparePantryItems, type PantryItem } from "./pantry-item";
 import { definite } from "./places";
 
-// Lagersaldo in the new look (Story 11.3, FR-40, FR-41): the items of one
+// Förråd in the new look (Story 11.3, FR-40, FR-41): the items of one
 // location under their display categories, one row per item without its
 // amount, the line under the name (the brand, else when the item was added)
 // and a search within the location. Pure, so it is tested with a fixed `now`.
@@ -116,7 +116,7 @@ export function oldItemText(
 }
 
 /**
- * The line under an item's name in Lagersaldo (FR-42): its brand when it has
+ * The line under an item's name in Förråd (FR-42): its brand when it has
  * one ("Arla laktosfri"), else when it was added (addedText); `null` for
  * neither, as a placeholder row without a time.
  */
@@ -127,7 +127,7 @@ export function pantryMetaText(item: Pick<PantryItem, "label" | "createdAt">, no
   return item.createdAt ? addedText(item.createdAt, now) : null;
 }
 
-/** The items of one category, as Lagersaldo shows them. */
+/** The items of one category, as Förråd shows them. */
 export type PantryCategoryGroup = { category: Category; items: PantryItem[] };
 
 /**

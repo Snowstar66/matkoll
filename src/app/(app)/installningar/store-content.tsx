@@ -4,7 +4,7 @@ import { listStores, SettingsDataError } from "@/features/settings/server";
 import { StoreSettings, StoreSettingsUnavailable } from "@/features/settings/ui/store-settings";
 
 /**
- * The section Butik in Inställningar (FR-28), read inside its own <Suspense>
+ * The page Butiker in Inställningar (FR-28), read inside its own <Suspense>
  * (AD-18). When the stores cannot be read, only this section shows the
  * Notice (`settings_store_unavailable`, logged with the reason alone); other
  * errors are bugs and go to the error boundary.

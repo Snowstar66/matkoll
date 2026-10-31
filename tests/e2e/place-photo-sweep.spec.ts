@@ -123,7 +123,7 @@ function watchErrors(page: Page): string[] {
 // Earlier routes stay mounted but hidden after a client navigation, so every
 // locator is scoped to what is visible.
 const sitesButton = (page: Page) => page.getByRole("button", { name: "Hantera boenden", exact: true }).filter({ visible: true });
-const sheet = (page: Page) => page.getByRole("dialog", { name: "Ställen" });
+const sheet = (page: Page) => page.getByRole("dialog", { name: "Boenden" });
 const emptyButton = (page: Page) => page.getByRole("button", { name: "Töm kylen", exact: true }).filter({ visible: true });
 const toast = (page: Page) => page.getByTestId("toast");
 
@@ -164,7 +164,7 @@ test("Hemma calls nothing when every photo is younger than 30 days", async ({ pa
   expect(await fileThere(recent.path)).toBe(true);
 });
 
-test("removing an empty place in the sheet Ställen removes its photos' files too", async ({ page }) => {
+test("removing an empty place in the sheet Boenden removes its photos' files too", async ({ page }) => {
   const errors = watchErrors(page);
   const kyl = await seedPhoto(sites.Stugan, "Kyl", new Date(Date.now() - day));
   const frys = await seedPhoto(sites.Stugan, "Frys", new Date(Date.now() - 2 * day));

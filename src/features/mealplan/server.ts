@@ -90,7 +90,7 @@ export type MealPlanView = {
   /** The whole pantry, or `null` when it cannot be read: the dishes are shown without status. */
   snapshot: PantrySnapshot | null;
   /**
-   * The place the snapshot is of, for the line "Lager: Stugan" under the page
+   * The place the snapshot is of, for the line "Boende: Stugan" under the page
    * title (AD-24); `null` without a status, or when it cannot be read.
    */
   site: SelectedSite | null;
@@ -118,7 +118,7 @@ async function recipesOrNone(ids: readonly string[]): Promise<RecipeListRow[]> {
  * image, time, own servings and lines (recipes.getRecipesByIds, AD-1), and
  * the pantry for the status (AD-7) with the place it is of (AD-24), read in
  * parallel; pantry.getPantryForStatus reads the place once and then that
- * place's pantry, so the line "Lager" names the place the status was counted
+ * place's pantry, so the line "Boende" names the place the status was counted
  * against. A dish whose recipe is gone, or could not be read, has `recipe:
  * null`; a place or pantry that cannot be read gives `snapshot: null` and
  * `site: null`. Throws MealPlanDataError.

@@ -42,7 +42,8 @@ function applySelection(stores: readonly Store[], selectedId: string): readonly 
 /** The heading "Butik", shared by the section and its error state. */
 function SectionHeading({ id }: { id: string }) {
   return (
-    <h2 id={id} className="text-section-label text-ink-2">
+    // Story 14.7: the page's own heading says "Butiker", so this one is for screen readers only.
+    <h2 id={id} className="sr-only">
       Butik
     </h2>
   );
@@ -151,16 +152,6 @@ export function StoreSettings({ stores }: StoreSettingsProps) {
           </div>
           <p className="text-meta text-ink-2">{storeSummaryText(selected)}</p>
           <p className="text-body break-words text-ink">{selected.address ?? noAddressText}</p>
-          {selected.url ? (
-            <a
-              href={selected.url}
-              target="_blank"
-              rel="noopener noreferrer"
-              className="text-body break-all text-accent underline"
-            >
-              {selected.url}
-            </a>
-          ) : null}
           {selectedOffersSite ? (
             <p data-testid="store-offers-link" className="text-meta text-ink-2">
               {offersLinkCardText(selectedOffersSite)}

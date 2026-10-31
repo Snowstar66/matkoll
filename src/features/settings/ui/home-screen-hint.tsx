@@ -9,14 +9,14 @@ import { useSyncExternalStore } from "react";
 
 const standaloneQuery = "(display-mode: standalone)";
 
-type Platform = "standalone" | "ios" | "android" | "other";
+export type Platform = "standalone" | "ios" | "android" | "other";
 
 const texts: Partial<Record<Platform, string>> = {
   ios: "Lägg Matkoll på hemskärmen: tryck Dela och sedan Lägg till på hemskärmen.",
   android: "Lägg Matkoll på hemskärmen: välj Installera appen i webbläsarens meny.",
 };
 
-function subscribe(onChange: () => void) {
+export function platformSubscribe(onChange: () => void) {
   const media = window.matchMedia(standaloneQuery);
   media.addEventListener("change", onChange);
   return () => media.removeEventListener("change", onChange);
@@ -28,7 +28,7 @@ function isIos(): boolean {
   return /iPhone|iPad|iPod/.test(userAgent) || (/Macintosh/.test(userAgent) && maxTouchPoints > 1);
 }
 
-function platform(): Platform {
+export function platformNow(): Platform {
   const iosStandalone = (navigator as Navigator & { standalone?: boolean }).standalone === true;
   if (iosStandalone || window.matchMedia(standaloneQuery).matches) return "standalone";
   if (isIos()) return "ios";
@@ -37,12 +37,12 @@ function platform(): Platform {
 }
 
 /** Unknown on the server, so nothing is shown until the browser has said. */
-function unknownOnServer(): Platform | null {
+export function platformOnServer(): Platform | null {
   return null;
 }
 
 export function HomeScreenHint() {
-  const current = useSyncExternalStore<Platform | null>(subscribe, platform, unknownOnServer);
+  const current = useSyncExternalStore<Platform | null>(platformSubscribe, platformNow, platformOnServer);
   const text = current ? texts[current] : undefined;
   if (!text) return null;
   return (

@@ -83,7 +83,7 @@ test.beforeEach(async () => {
   await resetSites();
 });
 
-test("lists the active sites in alphabetical order, with the field and Logga ut at the bottom", async ({ page }) => {
+test("the start page is grouped rows with values, and Receptsajter lists the active sites in alphabetical order with the field", async ({ page }) => {
   const errors = watchErrors(page);
   const off = await adminClient().from("recipe_site").update({ is_active: false }).eq("user_id", userId).eq("domain", "ica.se");
   expect(off.error).toBeNull();
@@ -92,36 +92,83 @@ test("lists the active sites in alphabetical order, with the field and Logga ut 
   await page.getByRole("main").getByRole("link", { name: "Inställningar" }).click();
   await expect(page).toHaveURL(/\/installningar$/);
   await expect(page.getByRole("heading", { level: 1, name: "Inställningar" })).toBeVisible();
-  await expect(page.getByRole("heading", { level: 2, name: "Godkända receptsajter" })).toBeVisible();
+  for (const group of ["Konto", "Hushåll", "Recept", "AI", "Appen"]) {
+    await expect(page.getByRole("heading", { level: 2, name: group, exact: true })).toBeVisible();
+  }
+  const row = (name: string | RegExp) => page.getByTestId("settings-row").filter({ hasText: name });
+  await expect(row("Receptsajter")).toContainText("3 sajter");
+  await expect(row("Boenden")).toContainText("Hemma");
+  for (const name of ["Konto", "Boenden", "Butiker", "Receptsajter", "Spara i Matkoll", "Modell", "Installera appen", "Om Matkoll"]) {
+    const link = name === "Konto" ? row(settingsEmail) : row(name);
+    await expect(link).toBeVisible();
+    expect((await link.boundingBox())?.height ?? 0).toBeGreaterThanOrEqual(44);
+  }
+  // The start page fits a phone screen without scrolling to Logga ut.
+  const signOut = page.getByRole("button", { name: "Logga ut" });
+  await expect(signOut).toBeInViewport();
+  const width = await page.evaluate(() => [document.documentElement.scrollWidth, window.innerWidth]);
+  expect(width[0]).toBeLessThanOrEqual(width[1]);
+  expect((await signOut.boundingBox())?.height ?? 0).toBeGreaterThanOrEqual(44);
+
+  await row("Receptsajter").click();
+  await expect(page).toHaveURL(/\/installningar\/receptsajter$/);
+  await expect(page.getByRole("heading", { level: 1, name: "Receptsajter" })).toBeVisible();
   await expectSites(page, ["arla.se", "koket.se", "tasteline.com"]);
   await expect(siteField(page)).toBeVisible();
+  await expect(page.getByTestId("settings-menu")).toBeHidden();
+  const remove = sitesList(page).getByRole("button", { name: "Ta bort koket.se" });
+  const box = await remove.boundingBox();
+  expect(box?.height).toBeGreaterThanOrEqual(44);
+  expect(box?.width).toBeGreaterThanOrEqual(44);
 
-  const signOut = page.getByRole("button", { name: "Logga ut" });
-  const signOutBox = await signOut.boundingBox();
-  const fieldBox = await siteField(page).boundingBox();
-  expect(signOutBox!.y).toBeGreaterThan(fieldBox!.y);
-  for (const target of [signOut, sitesList(page).getByRole("button", { name: "Ta bort koket.se" })]) {
-    const box = await target.boundingBox();
-    expect(box?.height).toBeGreaterThanOrEqual(44);
-    expect(box?.width).toBeGreaterThanOrEqual(44);
-  }
+  // "‹ Inställningar" leads back to the start page.
+  await page.getByRole("link", { name: "Inställningar" }).click();
+  await expect(page).toHaveURL(/\/installningar$/);
+  await expect(page.getByTestId("settings-menu")).toBeVisible();
   expect(errors).toEqual([]);
 });
 
-test("the side menu leads to Inställningar on desktop", async ({ page }) => {
+test("the side menu leads to Inställningar on desktop, with the start page beside the chosen page", async ({ page }) => {
   await page.setViewportSize({ width: 1280, height: 800 });
   await page.goto("/recept");
   await page.getByRole("navigation", { name: "Huvudmeny" }).getByRole("link", { name: "Inställningar" }).click();
   await expect(page).toHaveURL(/\/installningar$/);
-  await expectSites(page, startSites);
   await expect(page.getByRole("button", { name: "Logga ut" })).toBeVisible();
+  await page.getByTestId("settings-row").filter({ hasText: "Receptsajter" }).click();
+  await expect(page).toHaveURL(/\/installningar\/receptsajter$/);
+  await expectSites(page, startSites);
+  // Both columns show: the list on the left, the page beside it.
+  await expect(page.getByTestId("settings-menu")).toBeVisible();
+  await expect(page.getByTestId("settings-page")).toBeVisible();
+  await expect(page.getByRole("button", { name: "Logga ut" })).toBeVisible();
+  const menu = await page.getByTestId("settings-menu").boundingBox();
+  const content = await page.getByTestId("settings-page").boundingBox();
+  expect(content!.x).toBeGreaterThan(menu!.x + menu!.width - 1);
+});
+
+test("the old anchors lead to the page that holds them now", async ({ page }) => {
+  await page.goto("/installningar#spara-i-matkoll");
+  await expect(page).toHaveURL(/\/installningar\/spara-i-matkoll$/);
+  await expect(page.getByRole("heading", { level: 1, name: "Spara i Matkoll" })).toBeVisible();
+  await page.goto("/installningar#godkanda-receptsajter");
+  await expect(page).toHaveURL(/\/installningar\/receptsajter$/);
+  await page.goto("/installningar#ai");
+  await expect(page).toHaveURL(/\/installningar\/ai$/);
+});
+
+test("Konto shows the address and Byt lösenord mails the link from Story 17.2", async ({ page }) => {
+  await page.goto("/installningar/konto");
+  await expect(page.getByRole("heading", { level: 1, name: "Konto" })).toBeVisible();
+  await expect(page.getByTestId("account-email")).toHaveText(settingsEmail);
+  await page.getByRole("button", { name: "Byt lösenord" }).click();
+  await expect(page.getByTestId("password-link-sent")).toContainText(settingsEmail);
 });
 
 test("adds a site from a whole address, and it turns an off site on again", async ({ page }) => {
   const errors = watchErrors(page);
   const off = await adminClient().from("recipe_site").update({ is_active: false }).eq("user_id", userId).eq("domain", "arla.se");
   expect(off.error).toBeNull();
-  await page.goto("/installningar");
+  await page.goto("/installningar/receptsajter");
   await expectSites(page, ["ica.se", "koket.se", "tasteline.com"]);
 
   await addSite(page, "https://www.Arla.se/recept");
@@ -138,7 +185,7 @@ test("adds a site from a whole address, and it turns an off site on again", asyn
 });
 
 test("refuses what is not a site, and a site that is there already", async ({ page }) => {
-  await page.goto("/installningar");
+  await page.goto("/installningar/receptsajter");
   for (const input of ["inte en sajt", "localhost", "127.0.0.1"]) {
     await addSite(page, input);
     await expect(page.getByRole("main").getByRole("alert")).toHaveText("Ange en giltig webbadress, t.ex. koket.se.");
@@ -157,7 +204,7 @@ test("refuses what is not a site, and a site that is there already", async ({ pa
 
 test("Ta bort turns koket.se off at once, so a link import from it is refused; Ångra turns it on again", async ({ page }) => {
   const errors = watchErrors(page);
-  await page.goto("/installningar");
+  await page.goto("/installningar/receptsajter");
   await sitesList(page).getByRole("button", { name: "Ta bort koket.se" }).click();
   await expectSites(page, ["arla.se", "ica.se", "tasteline.com"]);
   await expect(toast(page)).toContainText("Tog bort koket.se.");
@@ -190,7 +237,7 @@ test("a site added again works for link import at once", async ({ page }) => {
   const refused = await start();
   expect(refused.status()).toBe(422);
 
-  await page.goto("/installningar");
+  await page.goto("/installningar/receptsajter");
   await addSite(page, chowMein);
   await expectSites(page, startSites);
 
@@ -207,12 +254,13 @@ test("Logga ut ends the session; a removed site stays removed after signing in a
   // A session of its own, so the shared storage state keeps its session.
   const context = await browser.newContext({ baseURL, viewport: mobile });
   const page = await context.newPage();
-  await openMagicLink(page, await magicLinkPath(settingsEmail, "/installningar"));
-  await expect(page).toHaveURL(/\/installningar$/);
+  await openMagicLink(page, await magicLinkPath(settingsEmail, "/installningar/receptsajter"));
+  await expect(page).toHaveURL(/\/installningar\/receptsajter$/);
 
   await sitesList(page).getByRole("button", { name: "Ta bort koket.se" }).click();
   await expect.poll(activeSites).toEqual(["arla.se", "ica.se", "tasteline.com"]);
 
+  await page.goto("/installningar");
   await page.getByRole("button", { name: "Logga ut" }).click();
   await expect(page).toHaveURL(/\/logga-in$/);
   await expect(page.getByRole("heading", { level: 1, name: "Logga in" })).toBeVisible();
@@ -224,21 +272,29 @@ test("Logga ut ends the session; a removed site stays removed after signing in a
   await expect(page).toHaveURL(/\/logga-in\?next=%2Frecept$/);
 
   // Signing in again runs ensure_user_defaults(), which leaves koket.se off.
-  await openMagicLink(page, await magicLinkPath(settingsEmail, "/installningar"));
-  await expect(page).toHaveURL(/\/installningar$/);
+  await openMagicLink(page, await magicLinkPath(settingsEmail, "/installningar/receptsajter"));
+  await expect(page).toHaveURL(/\/installningar\/receptsajter$/);
   await expectSites(page, ["arla.se", "ica.se", "tasteline.com"]);
   await context.close();
 });
 
-test("Spara i Matkoll: the bookmarklet and the iPhone address are built from this site's origin", async ({ page, baseURL }) => {
-  await page.goto("/installningar");
+test("Spara i Matkoll: one guide at a time; the bookmarklet and the iPhone address are built from this site's origin", async ({ page, baseURL }) => {
+  await page.goto("/installningar/spara-i-matkoll");
   const section = page.getByTestId("save-to-matkoll");
-  await expect(section.getByRole("heading", { level: 2, name: "Spara i Matkoll" })).toBeVisible();
+  await expect(page.getByRole("heading", { level: 1, name: "Spara i Matkoll" })).toBeVisible();
   const origin = new URL(baseURL ?? page.url()).origin;
+  // A desktop browser starts on Dator; the other guides are not shown.
+  await expect(section.getByRole("radio", { name: "Dator" })).toBeChecked();
+  const bookmarklet = section.getByTestId("bookmarklet");
+  await expect(bookmarklet).toHaveAttribute("href", /^javascript:/);
+  expect(await bookmarklet.getAttribute("href")).toContain(`${origin}/recept/importera?url=`);
+  await expect(section.getByTestId("import-prefix")).toHaveCount(0);
+  await section.getByRole("radio", { name: "iPhone" }).click();
   await expect(section.getByTestId("import-prefix")).toHaveText(`${origin}/recept/importera?url=`);
-  const href = await section.getByTestId("bookmarklet").getAttribute("href");
-  expect(href).toContain("javascript:");
-  expect(href).toContain(`${origin}/recept/importera?url=`);
+  await expect(section.getByTestId("bookmarklet")).toHaveCount(0);
+  await section.getByRole("radio", { name: "Android" }).click();
+  await expect(section.getByTestId("guide-android")).toBeVisible();
+  await expect(section.getByTestId("guide-iphone")).toHaveCount(0);
   await expect(section.getByRole("link", { name: "godkända receptsajterna" })).toBeVisible();
 });
 
@@ -258,23 +314,30 @@ test("Story 1.14: Importera recept lists the approved sites with new-tab links a
   await section.getByRole("button", { name: "här" }).click();
   await expect(page.getByLabel("Länk till receptet")).toBeFocused();
   await section.getByRole("link", { name: "Spara i Matkoll" }).click();
-  await expect(page).toHaveURL(/\/installningar#spara-i-matkoll$/);
-  await expect(page.getByTestId("bookmarklet-tip")).toContainText("⌘⇧B");
-  await expect(page.getByRole("heading", { level: 2, name: "Spara i Matkoll" })).toBeInViewport();
+  await expect(page).toHaveURL(/\/installningar\/spara-i-matkoll$/);
+  await expect(page.getByTestId("guide-computer")).toContainText("⌘⇧B");
+  await expect(page.getByRole("heading", { level: 1, name: "Spara i Matkoll" })).toBeInViewport();
 });
 
-test("Story 17.5: the section AI saves the choice, which is read again after a reload", async ({ page }) => {
+test("Story 17.5: the page AI saves the choice, which is read again after a reload", async ({ page }) => {
   const errors = watchErrors(page);
   await adminClient().from("ai_setting").delete().eq("user_id", userId);
-  await page.goto("/installningar");
+  await page.goto("/installningar/ai");
   const section = page.getByTestId("ai-settings");
-  await expect(page.getByRole("heading", { level: 2, name: "AI", exact: true })).toBeVisible();
+  await expect(page.getByRole("heading", { level: 1, name: "AI", exact: true })).toBeVisible();
   const claude = section.getByRole("radio", { name: "Claude" });
   await expect(section.getByRole("radio", { name: "Qwen lokalt" })).toBeVisible();
   // Without ANTHROPIC_API_KEY (the server's environment) Claude is off with the key text; with it, Claude can be picked.
-  if (await claude.isDisabled()) {
+  const keyMissing = page.getByTestId("ai-claude-missing");
+  // Claude is disabled before hydration too, so wait until one of the two states is settled.
+  await expect(async () => {
+    expect((await keyMissing.count()) > 0 || (await claude.isEnabled())).toBe(true);
+  }).toPass();
+  if ((await keyMissing.count()) > 0) {
     await expect(page.getByTestId("ai-claude-missing")).toHaveText("Lägg in ANTHROPIC_API_KEY i .env.local och starta om");
   } else {
+    // With the mock provider as the default, Claude is available but not chosen yet.
+    if (!(await claude.isChecked())) await claude.click();
     await expect(section.getByRole("radio", { name: "Haiku 5.5" })).toBeChecked();
     await section.getByRole("radio", { name: "Sonnet 5.5" }).click();
     await section.getByRole("radio", { name: "Hög" }).click();

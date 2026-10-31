@@ -28,15 +28,15 @@ export type PantryPlaceProps = {
 };
 
 /**
- * Lagersaldo's location cards, the camera button with the line "Senaste
+ * Förråd's location cards, the camera button with the line "Senaste
  * foto" under it (Story 10.2), the suggestions from the latest photo (needs a
  * PantrySuggestionsProvider above), and the chosen location's items on the
  * place (with "Sök i kylen", Story 11.3), with removals and "Ångra" that the server's
  * items do not show yet already applied (usePantryRemoval), and "Töm kylen"
  * under them while there are any and no search is on. The chosen card counts the items shown, so
  * card, list and the question in "Töm kylen" never disagree. While Pontus has
- * only one place, "Lägg till ställe" comes last (needs a SiteSwitch above);
- * with more, the site switch above has "Ställen".
+ * only one place, "Lägg till boende" comes last (needs a SiteSwitch above);
+ * with more, the site switch above has "Boenden".
  */
 export function PantryPlace({ site, location, counts, items, photo = null }: PantryPlaceProps) {
   const { changes, report } = usePantryRemoval();

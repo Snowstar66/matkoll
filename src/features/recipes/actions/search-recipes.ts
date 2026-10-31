@@ -49,7 +49,7 @@ async function search(query: string): Promise<Result<RecipeLibrary>> {
     if (rows.length === 0) return ok({ recipes: [], pantryUnavailable: false, site: null });
     // A pantry that cannot be read gives the recipes without status, never a
     // failed search. The status and the place are the ones selected now, so
-    // the line "Lager" and the badges always agree (AD-24).
+    // the line "Boende" and the badges always agree (AD-24).
     const { snapshot, site } = await getPantryForStatus();
     return ok(toLibrary(rows, snapshot, site, await missingNames(rows, snapshot)));
   } catch (error) {

@@ -100,8 +100,8 @@ describe("ShoppingListContent", () => {
     render(<ToastProvider>{await ShoppingListContent()}</ToastProvider>);
     expect(screen.getByText("Allt finns hemma.")).toBeInTheDocument();
     expect(screen.getByRole("button", { name: "Lägg till egen vara" })).toBeInTheDocument();
-    // Checks an interrupted "Lägg i lagret" left behind keep the button reachable.
-    expect(screen.getByRole("button", { name: "Lägg i lagret" })).toBeInTheDocument();
+    // Checks an interrupted "Lägg i förrådet" left behind keep the button reachable.
+    expect(screen.getByRole("button", { name: "Lägg i förrådet" })).toBeInTheDocument();
   });
 
   it("passes the selected store and its product choices on to the line's detail", async () => {
@@ -209,7 +209,7 @@ describe("ShoppingListContent", () => {
     expect(detail).toHaveTextContent("Det gick inte att läsa produktvalet.");
   });
 
-  it("passes the list's place on, so Lägg i lagret puts the items there", async () => {
+  it("passes the list's place on, so Lägg i förrådet puts the items there", async () => {
     const graddeId = "11111111-1111-4111-8111-111111111111";
     const stugan = { id: "55555555-5555-4555-8555-555555555555", name: "Stugan", siteCount: 2 };
     putCheckedInPantry.mockResolvedValue(ok({ added: 1, removed: 0, skipped: 0, siteName: "Stugan" }));
@@ -241,20 +241,20 @@ describe("ShoppingListContent", () => {
     );
     const user = userEvent.setup();
     render(<ToastProvider>{await ShoppingListContent()}</ToastProvider>);
-    await user.click(screen.getByRole("button", { name: "Lägg i lagret" }));
+    await user.click(screen.getByRole("button", { name: "Lägg i förrådet" }));
     expect(putCheckedInPantry).toHaveBeenCalledWith({ planId: "44444444-4444-4444-8444-444444444444", siteId: stugan.id });
-    expect(await screen.findByTestId("toast")).toHaveTextContent("Lagt 1 vara i lagret för Stugan.");
+    expect(await screen.findByTestId("toast")).toHaveTextContent("Lagt 1 vara i förrådet för Stugan.");
   });
 
-  it("shows Lager and Byt under the title with more than one place, and names the place when all is in stock", async () => {
+  it("shows Boende and Byt under the title with more than one place, and names the place when all is in stock", async () => {
     vi.mocked(getShoppingList).mockResolvedValue(allInStock({ id: stuganSite.id, name: "Stugan", siteCount: 2 }));
     const { container } = render(<ToastProvider>{await ShoppingListContent()}</ToastProvider>);
-    expect(screen.getByTestId("site-line")).toHaveTextContent("Lager: Stugan");
-    expect(screen.getByRole("button", { name: "Byt lager för listan" })).toHaveTextContent("Byt");
-    expect(screen.getByText("Allt finns i lagret för Stugan.")).toBeInTheDocument();
+    expect(screen.getByTestId("site-line")).toHaveTextContent("Boende: Stugan");
+    expect(screen.getByRole("button", { name: "Byt boende för listan" })).toHaveTextContent("Byt");
+    expect(screen.getByText("Allt finns i förrådet för Stugan.")).toBeInTheDocument();
     // The line comes before the list (the week picker, Story 13.7, is above both).
     const line = screen.getByTestId("site-line");
-    const list = screen.getByText("Allt finns i lagret för Stugan.");
+    const list = screen.getByText("Allt finns i förrådet för Stugan.");
     expect(container).toContainElement(line);
     expect(line.compareDocumentPosition(list) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
   });
@@ -264,7 +264,7 @@ describe("ShoppingListContent", () => {
     vi.mocked(getShoppingList).mockResolvedValue(allInStock({ id: hemmaSite.id, name: "Hemma", siteCount: 1 }));
     render(<ToastProvider>{await ShoppingListContent()}</ToastProvider>);
     expect(screen.queryByTestId("site-line")).toBeNull();
-    expect(screen.queryByRole("button", { name: "Byt lager för listan" })).toBeNull();
+    expect(screen.queryByRole("button", { name: "Byt boende för listan" })).toBeNull();
     expect(screen.getByText("Allt finns hemma.")).toBeInTheDocument();
   });
 
@@ -273,7 +273,7 @@ describe("ShoppingListContent", () => {
     vi.mocked(getShoppingList).mockResolvedValue(allInStock({ id: stuganSite.id, name: "Stugan", siteCount: 2 }));
     render(<ToastProvider>{await ShoppingListContent()}</ToastProvider>);
     expect(screen.queryByTestId("site-line")).toBeNull();
-    expect(screen.getByText("Allt finns i lagret för Stugan.")).toBeInTheDocument();
+    expect(screen.getByText("Allt finns i förrådet för Stugan.")).toBeInTheDocument();
   });
 
   it("shows the list without a line, and logs only the error's name, when the places fail unexpectedly", async () => {
@@ -282,7 +282,7 @@ describe("ShoppingListContent", () => {
     vi.mocked(getShoppingList).mockResolvedValue(allInStock({ id: stuganSite.id, name: "Stugan", siteCount: 2 }));
     render(<ToastProvider>{await ShoppingListContent()}</ToastProvider>);
     expect(screen.queryByTestId("site-line")).toBeNull();
-    expect(screen.getByText("Allt finns i lagret för Stugan.")).toBeInTheDocument();
+    expect(screen.getByText("Allt finns i förrådet för Stugan.")).toBeInTheDocument();
     expect(log).toHaveBeenCalledWith("pantry_sites_unavailable", { reason: "TypeError" });
     log.mockRestore();
   });
@@ -303,8 +303,8 @@ describe("ShoppingListContent", () => {
     ]);
     vi.mocked(getShoppingList).mockResolvedValue(allInStock(null));
     render(<ToastProvider>{await ShoppingListContent()}</ToastProvider>);
-    expect(screen.getByTestId("site-line")).toHaveTextContent("Lager: Stugan");
-    expect(screen.getByRole("button", { name: "Byt lager för listan" })).toBeInTheDocument();
+    expect(screen.getByTestId("site-line")).toHaveTextContent("Boende: Stugan");
+    expect(screen.getByRole("button", { name: "Byt boende för listan" })).toBeInTheDocument();
   });
 
   it("reads the list first: a session that ended sends Pontus to the login page whatever the places did", async () => {

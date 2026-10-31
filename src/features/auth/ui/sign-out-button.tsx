@@ -24,8 +24,22 @@ async function signOutOrFail(): Promise<SignOutState> {
  * ends the session on the server and goes to /logga-in; only a failure, or
  * no answer at all, comes back here, as a notice.
  */
-export function SignOutButton() {
+export function SignOutButton({ asRow = false }: { /** Story 14.7: a card of its own with the word centred, last on the start page of Inställningar. */ asRow?: boolean }) {
   const [state, formAction, pending] = useActionState<SignOutState>(signOutOrFail, null);
+  if (asRow) {
+    return (
+      <form action={formAction} className="flex flex-col gap-3">
+        {state && !state.ok ? <Notice role="alert">{state.error.message}</Notice> : null}
+        <button
+          type="submit"
+          disabled={pending}
+          className="flex min-h-12 w-full items-center justify-center rounded-lg bg-surface px-4 text-row-title text-accent focus-visible:-outline-offset-2 disabled:cursor-not-allowed disabled:opacity-60"
+        >
+          Logga ut
+        </button>
+      </form>
+    );
+  }
   return (
     <form action={formAction} className="flex flex-col items-start gap-3">
       {state && !state.ok ? <Notice role="alert">{state.error.message}</Notice> : null}

@@ -5,7 +5,7 @@ import { SideMenu } from "./side-menu";
 import { TabBar } from "./tab-bar";
 import { badgeName } from "./tab-badge";
 
-// The badge on Recept and Lagersaldo for finished AI jobs that Pontus has not
+// The badge on Recept and Förråd for finished AI jobs that Pontus has not
 // seen (Story 12.4, FR-48, DESIGN.md tab-badge): the count, "9+", never on the
 // tab he stands on, a name for a screen reader that says the same as the
 // number, and the job row above the tabs (EXPERIENCE.md, Accessibility).
@@ -36,7 +36,7 @@ describe("the badge on a tab", () => {
     );
     const recept = tab("Recept, 2 nya AI-resultat");
     expect(within(recept).getByTestId("tab-badge")).toHaveTextContent("2");
-    const lagersaldo = tab("Lagersaldo, 1 nytt AI-resultat");
+    const lagersaldo = tab("Förråd, 1 nytt AI-resultat");
     expect(within(lagersaldo).getByTestId("tab-badge")).toHaveTextContent("1");
     // The tabs without results have no badge and keep their names.
     expect(within(tab("Matsedel")).queryByTestId("tab-badge")).not.toBeInTheDocument();
@@ -74,7 +74,7 @@ describe("the badge on a tab", () => {
     render(<TabBar />);
     await withJobs({ kind: "suggest", status: "done", count: 3 }, { kind: "analyze", status: "done", count: 2 });
     expect(within(tab("Recept")).queryByTestId("tab-badge")).not.toBeInTheDocument();
-    expect(within(tab("Lagersaldo, 1 nytt AI-resultat")).getByTestId("tab-badge")).toBeInTheDocument();
+    expect(within(tab("Förråd, 1 nytt AI-resultat")).getByTestId("tab-badge")).toBeInTheDocument();
   });
 
   it("is on the side menu too, where the same rules hold", async () => {
@@ -82,7 +82,7 @@ describe("the badge on a tab", () => {
     render(<SideMenu />);
     await withJobs({ kind: "suggest", status: "done", count: 3 }, { kind: "analyze", status: "done", count: 2 });
     expect(within(tab("Recept, 1 nytt AI-resultat")).getByTestId("tab-badge")).toHaveTextContent("1");
-    expect(within(tab("Lagersaldo")).queryByTestId("tab-badge")).not.toBeInTheDocument();
+    expect(within(tab("Förråd")).queryByTestId("tab-badge")).not.toBeInTheDocument();
   });
 });
 

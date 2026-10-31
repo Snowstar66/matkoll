@@ -314,8 +314,8 @@ export function usePantryAnalysis(): PantryAnalysis {
   /**
    * Story 8.4: a write from the suggestions of `expected` found their place
    * gone. They could never be saved, so they go with their photo, and the
-   * camera area says why ("Stället finns inte längre. Välj ett annat
-   * ställe.", as an alert). Returns whether they went.
+   * camera area says why ("Boendet finns inte längre. Välj ett annat
+   * boende.", as an alert). Returns whether they went.
    */
   function dropForGoneSite(expected: number): boolean {
     if (generation.current !== expected || !latest.current) return false;

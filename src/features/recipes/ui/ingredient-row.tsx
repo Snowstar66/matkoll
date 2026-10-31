@@ -43,7 +43,7 @@ function LineMark({ coverage }: { coverage: LineCoverage }) {
   }
   if (coverage.kind === "unlinked") {
     return (
-      <Mark label="jämförs inte med lagret" className="text-ink-3">
+      <Mark label="jämförs inte med förrådet" className="text-ink-3">
         <MinusIcon size={18} />
       </Mark>
     );

@@ -29,7 +29,7 @@ import {
 // at the end of the step mode, that opens a sheet with what the dish takes
 // from the pantry. Each line is "Grädde  5 dl − 2 dl → 3 dl" with the new
 // amount editable and a tick to skip it; what cannot be counted is listed
-// under "Kontrollera själv" and never deducted. "Dra från lagret och markera
+// under "Kontrollera själv" and never deducted. "Dra från förrådet och markera
 // lagad" does both in one server action; "Ångra" restores both.
 
 export type MarkCookedButtonProps = {
@@ -185,15 +185,15 @@ export function MarkCookedButton({
         preventClose={busy}
         footer={
           <Button fullWidth onClick={() => void confirm()} disabled={busy || invalid}>
-            {deductions.length > 0 ? "Dra från lagret och markera lagad" : "Markera som lagad"}
+            {deductions.length > 0 ? "Dra från förrådet och markera lagad" : "Markera som lagad"}
           </Button>
         }
       >
         <div className="flex flex-col gap-5">
           {error ? <Notice role="alert">{error}</Notice> : null}
-          {snapshot === null ? <Notice>Lagret gick inte att läsa, så inget dras.</Notice> : null}
+          {snapshot === null ? <Notice>Förrådet gick inte att läsa, så inget dras.</Notice> : null}
           {plan.deduct.length > 0 ? (
-            <ul aria-label="Dras från lagret" className="flex flex-col gap-3">
+            <ul aria-label="Dras från förrådet" className="flex flex-col gap-3">
               {plan.deduct.map((line) => {
                 const entry = entryOf(line);
                 const left = newAmountOf(line, entry.text);
@@ -245,7 +245,7 @@ export function MarkCookedButton({
               })}
             </ul>
           ) : snapshot !== null ? (
-            <p className="text-body text-ink-2">Inget går att dra av automatiskt från lagret.</p>
+            <p className="text-body text-ink-2">Inget går att dra av automatiskt från förrådet.</p>
           ) : null}
           {plan.check.length > 0 ? (
             <section aria-labelledby={headingId} className="flex flex-col gap-2">

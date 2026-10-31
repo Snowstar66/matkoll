@@ -216,7 +216,7 @@ describe("ListRow", () => {
           pressRef={buttonRef}
           pressProps={{ "aria-expanded": false, "aria-controls": "korgen", prefetch: false }}
         />
-        <ListRow title="Lagersaldo" href="/hemma" pressRef={linkRef} pressProps={{ "aria-current": "page", prefetch: false }} />
+        <ListRow title="Förråd" href="/hemma" pressRef={linkRef} pressProps={{ "aria-current": "page", prefetch: false }} />
       </ListGroup>,
     );
     const button = screen.getByRole("button", { name: "I korgen" });
@@ -224,7 +224,7 @@ describe("ListRow", () => {
     expect(button).toHaveAttribute("aria-expanded", "false");
     expect(button).toHaveAttribute("aria-controls", "korgen");
     expect(button).not.toHaveAttribute("prefetch");
-    const link = screen.getByRole("link", { name: "Lagersaldo" });
+    const link = screen.getByRole("link", { name: "Förråd" });
     expect(linkRef.current).toBe(link);
     expect(link).toHaveAttribute("aria-current", "page");
   });

@@ -85,25 +85,17 @@ test.afterEach(() => {
   expect(storeRequests).toEqual([]);
 });
 
-test("shows the default store under the recipe sites, with its URL as a link", async ({ page }) => {
+test("shows the default store on the page Butiker, without the raw web address", async ({ page }) => {
   const errors = watchErrors(page);
-  await page.goto("/installningar");
+  await page.goto("/installningar/butiker");
   await expect(section(page).getByRole("heading", { level: 2, name: "Butik" })).toBeVisible();
   await expectSelected(page, maxi);
   await expect(card(page)).toContainText("ICA · butiks-id 1003733");
   await expect(card(page)).toContainText("Ingen adress angiven");
-  const link = card(page).getByRole("link", { name: maxiUrl });
-  await expect(link).toHaveAttribute("href", maxiUrl);
-  await expect(link).toHaveAttribute("target", "_blank");
-  await expect(link).toHaveAttribute("rel", "noopener noreferrer");
+  await expect(card(page).getByRole("link")).toHaveCount(0);
+  await expect(card(page)).not.toContainText("handlaprivatkund");
   await expect(others(page)).toHaveCount(0);
 
-  // Under the recipe sites, above "Logga ut".
-  const sitesBox = await page.getByRole("heading", { level: 2, name: "Godkända receptsajter" }).boundingBox();
-  const storeBox = await section(page).boundingBox();
-  const signOutBox = await page.getByRole("button", { name: "Logga ut" }).boundingBox();
-  expect(storeBox!.y).toBeGreaterThan(sitesBox!.y);
-  expect(signOutBox!.y).toBeGreaterThan(storeBox!.y);
   for (const target of [card(page).getByRole("button", { name: "Ändra" }), section(page).getByRole("button", { name: "Lägg till butik" })]) {
     const box = await target.boundingBox();
     expect(box?.height).toBeGreaterThanOrEqual(44);
@@ -114,7 +106,7 @@ test("shows the default store under the recipe sites, with its URL as a link", a
 
 test("Ändra saves a new address, which stays after a reload", async ({ page }) => {
   const errors = watchErrors(page);
-  await page.goto("/installningar");
+  await page.goto("/installningar/butiker");
   await card(page).getByRole("button", { name: "Ändra" }).click();
   const sheet = dialog(page, "Ändra butik");
   await expect(sheet.getByLabel("Namn")).toHaveValue(maxi);
@@ -132,7 +124,7 @@ test("Ändra saves a new address, which stays after a reload", async ({ page }) 
 
 test("Lägg till butik with Willys selects the new store, and Välj switches back", async ({ page }) => {
   const errors = watchErrors(page);
-  await page.goto("/installningar");
+  await page.goto("/installningar/butiker");
   await section(page).getByRole("button", { name: "Lägg till butik" }).click();
   const sheet = dialog(page, "Ny butik");
   await sheet.getByLabel("Namn").fill("Willys Lindhagen");
@@ -159,7 +151,7 @@ test("Lägg till butik with Willys selects the new store, and Välj switches bac
 });
 
 test("a store added without Använd för varukorgen lands under Andra butiker", async ({ page }) => {
-  await page.goto("/installningar");
+  await page.goto("/installningar/butiker");
   await section(page).getByRole("button", { name: "Lägg till butik" }).click();
   const sheet = dialog(page, "Ny butik");
   await sheet.getByLabel("Namn").fill("Lidl Lillänge");
@@ -174,7 +166,7 @@ test("a store added without Använd för varukorgen lands under Andra butiker", 
 });
 
 test("refuses a URL that does not start with https://, and a store that is there already", async ({ page }) => {
-  await page.goto("/installningar");
+  await page.goto("/installningar/butiker");
   await section(page).getByRole("button", { name: "Lägg till butik" }).click();
   const sheet = dialog(page, "Ny butik");
   await sheet.getByLabel("Namn").fill("ICA Handla");
@@ -204,7 +196,7 @@ test("Andra butiker are in Swedish name order, each with Ändra and Välj", asyn
     ]);
   expect(added.error).toBeNull();
 
-  await page.goto("/installningar");
+  await page.goto("/installningar/butiker");
   await expectSelected(page, maxi);
   const rows = others(page).getByTestId("other-store");
   await expect(rows).toHaveCount(2);

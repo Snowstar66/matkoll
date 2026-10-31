@@ -20,10 +20,10 @@ import {
 } from "../domain/site";
 import { useHydrated } from "./site-switching";
 
-// The line "Lager: Hemma" and "Byt" in Inköpslista (FR-32, Story 8.5,
+// The line "Boende: Hemma" and "Byt" in Inköpslista (FR-32, Story 8.5,
 // EXPERIENCE.md, Flöde 6): with more than one place, under the page title,
 // the place the list is counted against and the text button "Byt", which
-// opens the sheet Byt ställe ("Räkna listan mot"). A tap on a place there
+// opens the sheet Byt boende ("Räkna listan mot"). A tap on a place there
 // selects it with selectPantrySite, the same selection as the pills in Hemma
 // (AD-24): the list has no place of its own, and the choice holds for the
 // whole app until Pontus switches again. The page renders this beside
@@ -32,7 +32,7 @@ import { useHydrated } from "./site-switching";
 // The sheet waits for the answer before it closes, rather than switching
 // optimistically like the pills: the action revalidates /lista in the same
 // call (revalidateFor("pantry_site")), so once it answers the list is counted
-// again, and "Lager: Stugan" never shows above a list counted against Hemma.
+// again, and "Boende: Stugan" never shows above a list counted against Hemma.
 // The row being saved says so, and every row waits. A short confirmation then
 // says "Listan räknas nu mot Stugan."; the page keeps the list's own
 // announcement of a recount silent for a switch started here (onSwitching).
@@ -62,7 +62,7 @@ export type ListSiteLineProps = {
   site: SelectedSite | null;
   /** Every place of the user's, in the order they were created (listPantrySites), read in the same request. */
   sites: readonly PantrySite[];
-  /** Something on the list is being saved ("Lägg i lagret", a check): "Byt" waits. */
+  /** Something on the list is being saved ("Lägg i förrådet", a check): "Byt" waits. */
   busy?: boolean;
   /**
    * Called with the place a switch from the sheet is on its way to, before
@@ -100,7 +100,7 @@ function focusPageHeading() {
 
 const failedText = errorMessages.pantry_site_failed;
 
-/** "Lager: Stugan" and "Byt", and the sheet Byt ställe; nothing with one place. See the comment at the top. */
+/** "Boende: Stugan" and "Byt", and the sheet Byt boende; nothing with one place. See the comment at the top. */
 export function ListSiteLine({ site, sites, busy = false, onSwitching }: ListSiteLineProps) {
   const router = useRouter();
   const hydrated = useHydrated();
@@ -290,7 +290,7 @@ export function ListSiteLine({ site, sites, busy = false, onSwitching }: ListSit
 
   return (
     <>
-      {/* A calm meta line under the week tiles: "Lager: Hemma · Byt"; metadata, never announced (Story 3.10). */}
+      {/* A calm meta line under the week tiles: "Boende: Hemma · Byt"; metadata, never announced (Story 3.10). */}
       <div className="mb-2 flex flex-wrap items-center">
         <p data-testid="site-line" className="min-w-0 text-meta break-words text-ink-2">
           {line}

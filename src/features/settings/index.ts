@@ -62,3 +62,10 @@ export {
   type StoreFormInput,
   type StoreSaveMode,
 } from "./domain/store";
+export {
+  pageForAnchor,
+  settingsHref,
+  settingsPageHref,
+  settingsPages,
+  type SettingsPage,
+} from "./domain/settings-routes";

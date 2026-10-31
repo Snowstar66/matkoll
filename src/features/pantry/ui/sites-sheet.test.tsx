@@ -8,7 +8,7 @@ import type { PantrySiteWithCount } from "../domain/site";
 import { SitesSheet } from "./sites-sheet";
 import { SiteSwitchProvider, useLiveUndo } from "./site-switching";
 
-// Arket Ställen (Story 8.2) with savePantrySite and deletePantrySite stubbed.
+// Arket Boenden (Story 8.2) with savePantrySite and deletePantrySite stubbed.
 // By default the "server" applies a save or a delete to the places it gives
 // the sheet, as a revalidation would.
 
@@ -50,10 +50,10 @@ function Sheet({ initial }: { initial: PantrySiteWithCount[] }) {
   );
 }
 
-const sheet = () => screen.getByRole("dialog", { name: "Ställen" });
+const sheet = () => screen.getByRole("dialog", { name: "Boenden" });
 const rows = () => within(sheet()).getAllByTestId("site-row");
 const status = () => within(sheet()).getByTestId("sites-status");
-const newField = () => within(sheet()).getByLabelText("Nytt ställe");
+const newField = () => within(sheet()).getByLabelText("Nytt boende");
 const addButton = () => within(sheet()).getByRole("button", { name: /^(Lägg till|Lägger till …)$/ });
 
 function fields(formData: FormData) {
@@ -105,7 +105,7 @@ describe("SitesSheet", () => {
     await user.type(newField(), "Stugan");
     await user.click(addButton());
 
-    await waitFor(() => expect(status()).toHaveTextContent("Lade till Stugan. Välj det för att se och fylla dess lager."));
+    await waitFor(() => expect(status()).toHaveTextContent("Lade till Stugan. Välj det för att se och fylla dess förråd."));
     expect(newField()).toHaveValue("");
     const sent = fields(savePantrySite.mock.calls[0]![1]);
     expect(sent).toMatchObject({ name: "Stugan", mode: "add" });
@@ -148,7 +148,7 @@ describe("SitesSheet", () => {
     render(<Sheet initial={[hemma]} />);
     await user.type(newField(), "Stugan");
     await user.click(addButton());
-    await waitFor(() => expect(status()).toHaveTextContent("Lade till Stugan. Välj det för att se och fylla dess lager."));
+    await waitFor(() => expect(status()).toHaveTextContent("Lade till Stugan. Välj det för att se och fylla dess förråd."));
     expect(newField()).toHaveValue("");
     expect(newField()).toHaveFocus();
   });
@@ -186,7 +186,7 @@ describe("SitesSheet", () => {
     expect(status()).toHaveTextContent("");
   });
 
-  it("focuses Nytt ställe after a place was added", async () => {
+  it("focuses Nytt boende after a place was added", async () => {
     const user = userEvent.setup();
     render(<Sheet initial={[hemma]} />);
     await user.type(newField(), "Stugan");
@@ -199,13 +199,13 @@ describe("SitesSheet", () => {
     render(<Sheet initial={[hemma]} />);
     await user.type(newField(), "\u3164\u00ad");
     await user.click(addButton());
-    expect(within(sheet()).getByText("Ange ett namn på stället.")).toBeInTheDocument();
+    expect(within(sheet()).getByText("Ange ett namn på boendet.")).toBeInTheDocument();
     expect(savePantrySite).not.toHaveBeenCalled();
   });
 
   it.each([
-    ["", "Ange ett namn på stället."],
-    ["   ", "Ange ett namn på stället."],
+    ["", "Ange ett namn på boendet."],
+    ["   ", "Ange ett namn på boendet."],
     ["a".repeat(41), "Namnet får vara högst 40 tecken."],
   ])("refuses %j under the field, without saving", async (name, message) => {
     const user = userEvent.setup();
@@ -220,12 +220,12 @@ describe("SitesSheet", () => {
   it("shows the server's message for a taken name under the field", async () => {
     const user = userEvent.setup();
     savePantrySite.mockResolvedValue(
-      fail("pantry_site_name_taken", { name: "Det finns redan ett ställe som heter stugan." }),
+      fail("pantry_site_name_taken", { name: "Det finns redan ett boende som heter stugan." }),
     );
     render(<Sheet initial={[hemma, stugan]} />);
     await user.type(newField(), "stugan");
     await user.click(addButton());
-    expect(await within(sheet()).findByText("Det finns redan ett ställe som heter stugan.")).toBeInTheDocument();
+    expect(await within(sheet()).findByText("Det finns redan ett boende som heter stugan.")).toBeInTheDocument();
     expect(newField()).toHaveAttribute("aria-invalid", "true");
     expect(newField()).toHaveValue("stugan");
   });
@@ -234,13 +234,13 @@ describe("SitesSheet", () => {
     const ten = Array.from({ length: 10 }, (_, index) => ({
       ...stugan,
       id: `${String(index).padStart(8, "0")}-2222-4222-8222-222222222222`,
-      name: `Ställe ${index + 1}`,
+      name: `Boende ${index + 1}`,
       isSelected: index === 0,
     }));
     render(<Sheet initial={ten} />);
     expect(newField()).toBeDisabled();
     expect(addButton()).toBeDisabled();
-    const reason = within(sheet()).getByText("Du kan ha högst 10 ställen.");
+    const reason = within(sheet()).getByText("Du kan ha högst 10 boenden.");
     expect(reason.compareDocumentPosition(newField()) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
     expect(newField()).toHaveAttribute("aria-describedby", reason.id);
   });
@@ -256,7 +256,7 @@ describe("SitesSheet", () => {
     await user.type(field, "Vinterstugan");
     await user.click(within(sheet()).getByRole("button", { name: "Spara" }));
 
-    await waitFor(() => expect(status()).toHaveTextContent("Stället heter nu Vinterstugan."));
+    await waitFor(() => expect(status()).toHaveTextContent("Boendet heter nu Vinterstugan."));
     expect(fields(savePantrySite.mock.calls[0]![1])).toEqual({ id: stugan.id, name: "Vinterstugan", mode: "rename" });
     expect(within(sheet()).queryByLabelText("Namn")).toBeNull();
     expect(within(sheet()).getByRole("button", { name: "Byt namn på Vinterstugan" })).toBeInTheDocument();
@@ -281,7 +281,7 @@ describe("SitesSheet", () => {
     await user.click(within(sheet()).getByRole("button", { name: "Byt namn på Stugan" }));
     await user.type(within(sheet()).getByLabelText("Namn"), "x");
     await user.click(within(sheet()).getByRole("button", { name: "Spara" }));
-    expect(await within(sheet()).findByRole("alert")).toHaveTextContent("Stället finns inte längre. Välj ett annat ställe.");
+    expect(await within(sheet()).findByRole("alert")).toHaveTextContent("Boendet finns inte längre. Välj ett annat boende.");
     expect(within(sheet()).queryByLabelText("Namn")).toBeNull();
   });
 
@@ -301,7 +301,7 @@ describe("SitesSheet", () => {
     render(<Sheet initial={[hemma, stugan]} />);
     await user.click(within(sheet()).getByRole("button", { name: "Ta bort Stugan" }));
     expect(await within(sheet()).findByRole("alert")).toHaveTextContent(
-      "Stället har varor eller är valt och kan inte tas bort.",
+      "Boendet har varor eller är valt och kan inte tas bort.",
     );
   });
 
@@ -337,7 +337,7 @@ describe("SitesSheet, names on the rows", () => {
   });
 
   it.each([
-    ["", "Ange ett namn på stället."],
+    ["", "Ange ett namn på boendet."],
     ["a".repeat(41), "Namnet får vara högst 40 tecken."],
   ])("shows %j's message under the field, with focus there, and saves nothing", async (name, message) => {
     const user = userEvent.setup();
@@ -354,13 +354,13 @@ describe("SitesSheet, names on the rows", () => {
 
   it("shows the server's message for a taken name under the field, with focus there", async () => {
     const user = userEvent.setup();
-    savePantrySite.mockResolvedValue(fail("pantry_site_name_taken", { name: "Det finns redan ett ställe som heter Hemma." }));
+    savePantrySite.mockResolvedValue(fail("pantry_site_name_taken", { name: "Det finns redan ett boende som heter Hemma." }));
     render(<Sheet initial={[hemma, stugan]} />);
     await user.click(nameButton("Stugan"));
     await user.clear(nameField());
     await user.type(nameField(), "hemma");
     await user.click(saveButton());
-    expect(await within(sheet()).findByText("Det finns redan ett ställe som heter Hemma.")).toBeInTheDocument();
+    expect(await within(sheet()).findByText("Det finns redan ett boende som heter Hemma.")).toBeInTheDocument();
     expect(nameField()).toHaveAttribute("aria-invalid", "true");
     expect(nameField()).toHaveFocus();
   });

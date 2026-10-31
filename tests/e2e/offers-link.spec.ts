@@ -83,7 +83,7 @@ test.afterEach(() => {
 
 test("the store's link is in Inställningar, and only an offer page on ica.se is saved", async ({ page }) => {
   const errors = watchErrors(page);
-  await page.goto("/installningar");
+  await page.goto("/installningar/butiker");
   const card = page.getByRole("main").getByTestId("selected-store");
   await expect(card.getByText("Erbjudanden: ica.se")).toBeVisible();
 
@@ -196,7 +196,7 @@ test("asks for the link when the store has none", async ({ page }) => {
   await openSheet(page);
   const dialog = sheet(page);
   await expect(dialog.getByText("Lägg in länken till butikens erbjudanden under Butik i Inställningar.")).toBeVisible();
-  await expect(dialog.getByRole("link", { name: "Öppna inställningar" })).toHaveAttribute("href", "/installningar");
+  await expect(dialog.getByRole("link", { name: "Öppna inställningar" })).toHaveAttribute("href", "/installningar/butiker");
 });
 
 test("Story 9.12: picks offers and adds them to the shopping list once", async ({ page }) => {

@@ -6,12 +6,12 @@ import { ListSiteLine } from "@/features/pantry/ui/list-site-line";
 import { ShoppingList, type ShoppingListProps } from "@/features/shopping/ui/shopping-list";
 
 export type ShoppingListViewProps = Omit<ShoppingListProps, "isQuietSwitch" | "onBusyChange"> & {
-  /** Every place of the user's, or `null` when they could not be read: then no line "Lager". */
+  /** Every place of the user's, or `null` when they could not be read: then no line "Boende". */
   sites: readonly PantrySite[] | null;
 };
 
 /**
- * Inköpslista as the page shows it: the line "Lager: Stugan" with "Byt"
+ * Inköpslista as the page shows it: the line "Boende: Stugan" with "Byt"
  * (pantry/ui) above the list (shopping/ui), which never import each other
  * (AD-24). What they share passes through here: "Byt" waits while the list
  * saves something, and a switch made from the sheet is not announced twice

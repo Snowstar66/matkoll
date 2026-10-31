@@ -27,7 +27,7 @@ export async function listChecksIn(db: ShoppingDb, planId: string): Promise<stri
 }
 
 /**
- * The plan's checks with their ids, for "Lägg i lagret" (Story 3.7): a
+ * The plan's checks with their ids, for "Lägg i förrådet" (Story 3.7): a
  * check's id is the idempotency key of the item it puts in the pantry, stable
  * until the check is cleared. Throws ShoppingDataError.
  */

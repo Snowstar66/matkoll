@@ -979,10 +979,10 @@ describe("Inventera en plats med foto: texts, schema and Töm", () => {
   });
 
   it("counts the suggestions that match, and says when everything does or the place could not be read", () => {
-    expect(unchangedCountText(1)).toBe("1 vara stämmer med lagret.");
-    expect(unchangedCountText(2)).toBe("2 varor stämmer med lagret.");
+    expect(unchangedCountText(1)).toBe("1 vara stämmer med förrådet.");
+    expect(unchangedCountText(2)).toBe("2 varor stämmer med förrådet.");
     expect(allUnchangedText("Kyl")).toBe("Allt i kylen stämmer med bilden.");
-    expect(unreadPlaceText("Skafferi")).toBe("Det gick inte att jämföra med lagret i skafferiet.");
+    expect(unreadPlaceText("Skafferi")).toBe("Det gick inte att jämföra med förrådet i skafferiet.");
     expect(incompleteComparisonText).toBe("Några varor på bilden gick inte att tolka. Kontrollera innan du tar bort.");
   });
 
@@ -1046,9 +1046,9 @@ describe("Inventera en plats med foto: texts, schema and Töm", () => {
   });
 
   it("has texts for a changed place, a partial match, changes left and the removals' undo", () => {
-    expect(changedPlaceText("Kyl")).toBe("Lagret i kylen har ändrats sedan bilden togs.");
+    expect(changedPlaceText("Kyl")).toBe("Förrådet i kylen har ändrats sedan bilden togs.");
     expect(partlyUnchangedText("Frys")).toBe(
-      "Det som syns på bilden stämmer med lagret i frysen, men några varor gick inte att tolka.",
+      "Det som syns på bilden stämmer med förrådet i frysen, men några varor gick inte att tolka.",
     );
     expect(changesLeftText(1)).toBe("1 ändring är kvar att bekräfta.");
     expect(changesLeftText(3)).toBe("3 ändringar är kvar att bekräfta.");

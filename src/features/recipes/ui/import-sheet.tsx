@@ -125,7 +125,7 @@ export function ImportSheet({ open, onClose, showFinished = false, autoImport, s
    * "Släng ändringarna?" before "Öppna inställningar" leaves the sheet with pasted text
    * that has not been read.
    */
-  /** The part of /installningar the pending "Öppna inställningar" goes to. */
+  /** The page under /installningar the pending "Öppna inställningar" goes to. */
   const settingsHash = useRef("");
   const [confirm, setConfirm] = useState<"settings" | null>(null);
   /** The pasted link was longer than a link may be, so it was not put in the field. */
@@ -722,10 +722,10 @@ function FindRecipes({
           <p className="text-meta text-ink-2">
             Hittat ett recept? Använd bokmärket{" "}
             <Link
-              href="/installningar#spara-i-matkoll"
+              href="/installningar/spara-i-matkoll"
               onClick={(event) => {
                 event.preventDefault();
-                onSettings("#spara-i-matkoll");
+                onSettings("/spara-i-matkoll");
               }}
               className={linkClass}
             >
@@ -742,10 +742,10 @@ function FindRecipes({
         <p className="text-meta text-ink-2">
           Inga godkända receptsajter än.{" "}
           <Link
-            href="/installningar#godkanda-receptsajter"
+            href="/installningar/receptsajter"
             onClick={(event) => {
               event.preventDefault();
-              onSettings("#godkanda-receptsajter");
+              onSettings("/receptsajter");
             }}
             className={linkClass}
           >

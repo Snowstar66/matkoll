@@ -133,20 +133,20 @@ afterEach(() => {
   vi.unstubAllGlobals();
 });
 
-describe("Library, the line Lager", () => {
+describe("Library, the line Boende", () => {
   it("says which place Kan lagas nu counts against, only in Kan lagas nu", async () => {
     const user = userEvent.setup();
     renderLibrary(ranking, { site: stugan });
-    expect(screen.queryByText("Lager: Stugan")).not.toBeInTheDocument();
+    expect(screen.queryByText("Boende: Stugan")).not.toBeInTheDocument();
     await user.click(pill("Kan lagas nu"));
-    const line = screen.getByText("Lager: Stugan");
+    const line = screen.getByText("Boende: Stugan");
     expect(line).toHaveClass("text-meta", "text-ink-2");
     // Metadata, not announced: outside every live region.
     expect(line.closest("[aria-live], [role=status], [role=alert]")).toBeNull();
     await user.click(pill("Favoriter"));
-    expect(screen.queryByText("Lager: Stugan")).not.toBeInTheDocument();
+    expect(screen.queryByText("Boende: Stugan")).not.toBeInTheDocument();
     await user.click(pill("Alla"));
-    expect(screen.queryByText("Lager: Stugan")).not.toBeInTheDocument();
+    expect(screen.queryByText("Boende: Stugan")).not.toBeInTheDocument();
     // The badges are counted against Stugan all the same.
     expect(screen.getAllByText("Kan lagas nu", { selector: "span" }).length).toBeGreaterThan(0);
   });
@@ -155,14 +155,14 @@ describe("Library, the line Lager", () => {
     const user = userEvent.setup();
     renderLibrary(ranking, { site: { ...stugan, name: "Hemma", siteCount: 1 } });
     await user.click(pill("Kan lagas nu"));
-    expect(screen.queryByText(/^Lager:/)).not.toBeInTheDocument();
+    expect(screen.queryByText(/^Boende:/)).not.toBeInTheDocument();
   });
 
   it("has no line when the pantry could not be read", async () => {
     const user = userEvent.setup();
     renderLibrary(ranking, { pantryUnavailable: true, site: null });
     await user.click(pill("Kan lagas nu"));
-    expect(screen.queryByText(/^Lager:/)).not.toBeInTheDocument();
+    expect(screen.queryByText(/^Boende:/)).not.toBeInTheDocument();
   });
 
   it("names the search answer's place while its recipes are shown, also when it differs from the server's", async () => {
@@ -173,11 +173,11 @@ describe("Library, the line Lager", () => {
     searchRecipes.mockResolvedValueOnce(ok([soppa]));
     await user.type(screen.getByRole("searchbox", { name: "Sök recept" }), "lin{Enter}");
     await waitFor(() => expect(titles()).toEqual(["Linssoppa"]));
-    expect(screen.getByText("Lager: Hemma")).toBeInTheDocument();
-    expect(screen.queryByText("Lager: Stugan")).not.toBeInTheDocument();
+    expect(screen.getByText("Boende: Hemma")).toBeInTheDocument();
+    expect(screen.queryByText("Boende: Stugan")).not.toBeInTheDocument();
     // Back to the server's list: the server's place.
     await user.clear(screen.getByRole("searchbox"));
-    expect(await screen.findByText("Lager: Stugan")).toBeInTheDocument();
+    expect(await screen.findByText("Boende: Stugan")).toBeInTheDocument();
   });
 
   it("has no line on no hits, after a failed search, or when the search could not read the pantry", async () => {
@@ -190,20 +190,20 @@ describe("Library, the line Lager", () => {
     searchRecipes.mockResolvedValueOnce(ok([]));
     await user.type(field, "xyz{Enter}");
     await screen.findByText("Inga recept matchar.");
-    expect(screen.queryByText(/^Lager:/)).not.toBeInTheDocument();
+    expect(screen.queryByText(/^Boende:/)).not.toBeInTheDocument();
 
     searchRecipes.mockResolvedValueOnce(fail("recipe_search_failed"));
     await user.clear(field);
     await user.type(field, "lin{Enter}");
     await screen.findByRole("alert");
-    expect(screen.queryByText(/^Lager:/)).not.toBeInTheDocument();
+    expect(screen.queryByText(/^Boende:/)).not.toBeInTheDocument();
 
     searchPantryUnavailable = true;
     searchRecipes.mockResolvedValueOnce(ok([{ ...soppa, missingCount: null }]));
     await user.clear(field);
     await user.type(field, "sop{Enter}");
     await waitFor(() => expect(titles()).toEqual(["Linssoppa"]));
-    expect(screen.queryByText(/^Lager:/)).not.toBeInTheDocument();
+    expect(screen.queryByText(/^Boende:/)).not.toBeInTheDocument();
   });
 
   it("follows the search answer when the server list had no status", async () => {
@@ -213,7 +213,7 @@ describe("Library, the line Lager", () => {
     searchSite = stugan;
     searchRecipes.mockResolvedValueOnce(ok([soppa]));
     await user.type(screen.getByRole("searchbox", { name: "Sök recept" }), "lin{Enter}");
-    expect(await screen.findByText("Lager: Stugan")).toBeInTheDocument();
+    expect(await screen.findByText("Boende: Stugan")).toBeInTheDocument();
   });
 });
 
@@ -230,23 +230,23 @@ describe("Library, AI-förslag and the place", () => {
   };
   const suggestion = () => screen.queryByRole("heading", { level: 3, name: "Ugnsomelett" });
 
-  it("shows the suggestions with Förslagen bygger på lagret för Stugan. while the library shows another place, and plainly again", async () => {
+  it("shows the suggestions with Förslagen bygger på förrådet för Stugan. while the library shows another place, and plainly again", async () => {
     const user = userEvent.setup();
     renderLibrary(ranking, { site: stugan });
     await user.click(pill("Kan lagas nu"));
     await user.click(screen.getByRole("button", { name: "Föreslå rätter med AI" }));
     await finishSuggestions([{ draft, ingredientNames: {} }], stugan.id);
     expect(await screen.findByRole("heading", { level: 3, name: "Ugnsomelett" })).toBeInTheDocument();
-    expect(screen.queryByText(/Förslagen bygger på lagret/)).not.toBeInTheDocument();
+    expect(screen.queryByText(/Förslagen bygger på förrådet/)).not.toBeInTheDocument();
 
     act(() => rerenderSite?.(hemmaSite));
     expect(suggestion()).toBeInTheDocument();
-    expect(screen.getByText("Förslagen bygger på lagret för Stugan.")).toBeInTheDocument();
+    expect(screen.getByText("Förslagen bygger på förrådet för Stugan.")).toBeInTheDocument();
     expect(screen.getByRole("button", { name: "Föreslå igen" })).toBeInTheDocument();
 
     act(() => rerenderSite?.(stugan));
     expect(suggestion()).toBeInTheDocument();
-    expect(screen.queryByText(/Förslagen bygger på lagret/)).not.toBeInTheDocument();
+    expect(screen.queryByText(/Förslagen bygger på förrådet/)).not.toBeInTheDocument();
   });
 
   it("keeps the suggestions without a line when the library's place is not known", async () => {
@@ -258,7 +258,7 @@ describe("Library, AI-förslag and the place", () => {
     expect(await screen.findByRole("heading", { level: 3, name: "Ugnsomelett" })).toBeInTheDocument();
     act(() => rerenderSite?.(null));
     expect(suggestion()).toBeInTheDocument();
-    expect(screen.queryByText(/Förslagen bygger på lagret/)).not.toBeInTheDocument();
+    expect(screen.queryByText(/Förslagen bygger på förrådet/)).not.toBeInTheDocument();
   });
 
   it("opens Kan lagas nu by itself when a finished job has not been shown, once, and not again after another filter is chosen", async () => {
@@ -621,7 +621,7 @@ describe("Library", () => {
     expect(screen.queryByRole("button", { name: "Föreslå rätter med AI" })).not.toBeInTheDocument();
   });
 
-  const notRanked = "Det gick inte att läsa lagret, så recepten är inte rangordnade.";
+  const notRanked = "Det gick inte att läsa förrådet, så recepten är inte rangordnade.";
 
   it("shows the recipes in the usual order with a notice on Kan lagas nu when the pantry could not be read", async () => {
     const user = userEvent.setup();

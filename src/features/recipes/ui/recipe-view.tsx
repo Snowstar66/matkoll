@@ -28,7 +28,7 @@ export type RecipeViewProps = {
    */
   snapshot: PantrySnapshot | null;
   /**
-   * The place the snapshot is of, for the line "Lager: Stugan" under "X av Y
+   * The place the snapshot is of, for the line "Boende: Stugan" under "X av Y
    * hemma" (AD-24); `null`, or left out, without a status or with one place.
    */
   site?: SelectedSite | null;
