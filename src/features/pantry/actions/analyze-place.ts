@@ -3,7 +3,8 @@ import type { IngredientMatch, Location } from "@/features/catalog";
 import { CatalogDataError, getIngredientNames, getIngredientSummaries, matchIngredients } from "@/features/catalog/server";
 import { fail, ok, type Result } from "@/lib/errors";
 import { createClient } from "@/lib/supabase/server";
-import { getAiService, minLoopRepeats, type ImageInput } from "@/server/ai";
+import { getAiChoice } from "@/features/settings/server";
+import { getAiServiceFor, minLoopRepeats, type ImageInput } from "@/server/ai";
 import { PantryDataError } from "../data/client";
 import { readingLabel, readingSchema } from "../domain/photo-numbers";
 import { listPantryIn } from "../data/queries";
@@ -149,7 +150,7 @@ export async function readPhoto(
   { image, location, site }: ReadPhotoInput,
   { signal, deadline }: ReadPhotoOptions,
 ): Promise<Result<StoredReading>> {
-  const analyzed = await getAiService().analyzeImage({ image, place: location }, signal, {
+  const analyzed = await getAiServiceFor(await getAiChoice()).analyzeImage({ image, place: location }, signal, {
     deadline: deadline === undefined ? undefined : deadline - postModelMarginMs,
   });
   if (!analyzed.ok) return analyzed;

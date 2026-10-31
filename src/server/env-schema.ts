@@ -34,6 +34,12 @@ export const envSchema = z.object({
   /** The app's public origin, used for links in e-mail. Required in production; see parseEnv. */
   SITE_URL: optional(httpUrl),
   ALLOWED_EMAILS: optional(emailList),
+  /**
+   * Story 17.5: the addresses that see the section AI in Inställningar and may
+   * pick provider, model and level. Always shown in development; without this
+   * in production nobody sees it and every job uses AI_PROVIDER/AI_MODEL.
+   */
+  AI_SETTINGS_EMAILS: optional(emailList),
   /** Defaults to mock outside production; must be set explicitly in production. See parseEnv. */
   AI_PROVIDER: optional(z.enum(aiProviders)),
   AI_MODEL: optional(z.string()),

@@ -8,6 +8,8 @@ export type FilterOption<T extends string> = {
   label: string;
   /** A decorative glyph before the label in a segmented control (Story 14.4); the label is the name. */
   icon?: string;
+  /** Story 17.5: this one cannot be chosen (e.g. a provider without its key); the others can. */
+  disabled?: boolean;
 };
 
 export type FilterPillsProps<T extends string> = {
@@ -54,7 +56,7 @@ export function FilterPills<T extends string>({
 
   function choose(index: number, moveFocus = false) {
     const option = options[index];
-    if (!option) return;
+    if (!option || option.disabled) return;
     // Only the arrow keys move focus; a tap already has it, and focus the keyboard did not ask for would draw a ring.
     if (moveFocus) refs.current[index]?.focus();
     if (option.value !== value) onChange(option.value);
@@ -90,7 +92,7 @@ export function FilterPills<T extends string>({
               role="radio"
               aria-checked={selected}
               tabIndex={selected ? 0 : -1}
-              disabled={disabled}
+              disabled={disabled || option.disabled}
               onClick={() => choose(index)}
               onKeyDown={(event) => onKeyDown(event, index)}
               className={cx(
@@ -126,7 +128,7 @@ export function FilterPills<T extends string>({
             role="radio"
             aria-checked={selected}
             tabIndex={selected ? 0 : -1}
-            disabled={disabled}
+            disabled={disabled || option.disabled}
             onClick={() => choose(index)}
             onKeyDown={(event) => onKeyDown(event, index)}
             className="group flex min-h-tap shrink-0 items-center rounded-pill outline-none disabled:cursor-not-allowed disabled:opacity-60"
