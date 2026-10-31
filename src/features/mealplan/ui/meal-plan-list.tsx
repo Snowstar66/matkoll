@@ -2,17 +2,16 @@
 
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { useCallback, useEffect, useMemo, useOptimistic, useRef, useState, useSyncExternalStore, useTransition } from "react";
-import { Button, buttonClasses } from "@/components/button";
+import { type ReactNode, useCallback, useEffect, useMemo, useOptimistic, useRef, useState, useSyncExternalStore, useTransition } from "react";
+import { Button } from "@/components/button";
 import { useConfirmDelete } from "@/components/confirm-delete";
 import { EmptyState } from "@/components/empty-state";
 import { Meter } from "@/components/meter";
 import { RecipeImage } from "@/components/recipe-image";
-import { CheckIcon } from "@/components/icons";
+import { MoreIcon } from "@/components/icons";
+import { Sheet } from "@/components/sheet";
 import { Stepper } from "@/components/stepper";
-import { SwipeRow } from "@/components/swipe-row";
 import { useToast } from "@/components/toast";
-import { TrashButton } from "@/components/trash-button";
 import type { PantrySnapshot } from "@/features/pantry";
 import { errorMessages, fail, type Result } from "@/lib/errors";
 import { removePlanRecipe } from "../actions/remove-plan-recipe";
@@ -23,34 +22,37 @@ import { unmarkDishCooked } from "../actions/unmark-dish-cooked";
 import { uncookedText } from "../domain/cooked";
 import {
   comparePlanRecipes,
-  dishMetaText,
+  dishRowMetaText,
   dishProgress,
   dishStatus,
   groupByWeekday,
   maxServings,
   movedText,
   removedDishesText,
+  shoppingRowText,
   todayWeekday,
+  weekdayDayNumber,
   weekdayNames,
+  weekdayShortName,
   type PlanDish,
   type PlanRecipeRow,
   type ServingsChange,
   type WeekdayChange,
   weekdayDateText,
 } from "../domain/meal-plan";
-import { planningHref } from "../domain/planning";
-import { currentWeekStart, weekAnchorDate, weekQuery } from "../domain/week";
+import { currentWeekStart, weekAnchorDate, weekNumber, weekQuery } from "../domain/week";
 import { AddDishButton, useAddDish } from "./add-dish-sheet";
 import { MarkCookedButton } from "./mark-cooked-button";
-import { MoveToDayButton } from "./move-to-day-button";
+import { MoveToDaySheet } from "./move-to-day-sheet";
 
-// Matsedel (FR-13): the current plan's dishes (matsedelsrätter) as dish cards
-// (rättkort, Epic 11), each with how much is at home for the chosen servings
-// ("6 av 8 hemma" or "Allt finns hemma" and a meter, counted with
-// pantry.recipeStatus, AD-7) and the portion selector, which is saved. A swipe
-// to the left or "Ta bort" removes a dish at once, and the short confirmation
-// offers "Ångra" for 5 s, which puts it back with the same id (AD-20). Under
-// the dishes, "Lägg till rätt" and "Visa inköpslistan".
+// Matsedel (FR-13): the week as one calm list (Story 3.11), a row per dish
+// with the day on the first row of a day, the dish's image and title, the
+// time and servings, and how much is at home for the chosen servings
+// ("✓ Allt hemma", or "6 av 8 hemma" with a thin meter, counted with
+// pantry.recipeStatus, AD-7). The seldom used buttons sit behind ⋯: servings
+// (saved), "Markera som lagad", "Flytta till annan dag" and "Ta bort från
+// matsedeln", which asks first and then offers "Ångra" for 5 s that puts the
+// dish back with the same id (AD-20).
 
 /** A moment this week, kept as one value so the store snapshot stays stable between renders. */
 let anchorValue: Date | null = null;
@@ -454,7 +456,7 @@ export function MealPlanList({
   }
 
   return (
-    <div ref={rootRef} className="flex flex-col gap-2">
+    <div ref={rootRef} className="flex flex-col gap-3">
       {/* Metadata under the page title, never announced: the dishes' badges are what changes.
           Only above a dish with a status: a recipe, and a pantry to count it against. */}
       {siteLine && snapshot && shown.some((dish) => dish.recipe !== null) ? (
@@ -468,24 +470,47 @@ export function MealPlanList({
           {planName}
         </h2>
       ) : null}
-      <ul aria-label="Matsedelsrätter" className="flex flex-col gap-4">
+      {shown.length > 0 ? (
+        // The count of missing items would need every dish's lines counted against the pantry
+        // and merged as the list merges them, so the row names the week instead.
+        <Link
+          href={`/lista${weekStart ? weekQuery(weekStart) : ""}`}
+          data-testid="shopping-row"
+          className="flex min-h-tap items-center gap-3 rounded-lg bg-surface px-3.5 py-2 text-body text-ink"
+        >
+          <span aria-hidden="true" className="flex size-8 shrink-0 items-center justify-center rounded-md bg-sky">
+            🛒
+          </span>
+          <span className="min-w-0 flex-1 break-words">{shoppingRowText(weekNumber(weekStart ?? currentWeekStart()))}</span>
+          <span aria-hidden="true" className="text-row-title text-ink-3">
+            ›
+          </span>
+        </Link>
+      ) : null}
+      <ul aria-label="Matsedelsrätter" className="overflow-hidden rounded-lg bg-surface">
         {sections.map(({ weekday, dishes: dayDishes }) => {
+          const past = today !== null && weekday !== null && weekday < today;
+          // A passed day with nothing on it is left out.
+          if (dayDishes.length === 0 && (past || weekday === null)) return null;
           const heading = weekday ? (weekdayNames[weekday - 1] ?? "") : "Ingen dag än";
           const isToday = weekday !== null && weekday === today;
+          const lighted = weekday !== null && weekday === lit;
           const date = weekday && weekOf ? weekdayDateText(weekOf, weekday) : null;
-          const title = (
-            <>
-              <span className="text-body font-semibold text-ink">{heading}</span>
-              {date ? (
-                <span className="text-meta text-ink-3">
-                  <span aria-hidden="true">· </span>
-                  {date}
+          const dayText = date ? `${heading} ${date}` : heading;
+          const when = (
+            <div
+              className={`w-10 shrink-0 text-center leading-tight ${past ? "opacity-60" : ""} ${isToday ? "text-accent" : "text-ink-2"}`}
+            >
+              <span className="sr-only">{dayText}</span>
+              <span aria-hidden="true" className="block text-meta font-semibold uppercase">
+                {weekday ? weekdayShortName(weekday) : "–"}
+              </span>
+              {weekday && weekOf ? (
+                <span aria-hidden="true" className="block text-row-title">
+                  {weekdayDayNumber(weekOf, weekday)}
                 </span>
               ) : null}
-              {isToday ? (
-                <span className="rounded-full bg-accent/15 px-2 text-meta font-semibold text-accent">Idag</span>
-              ) : null}
-            </>
+            </div>
           );
           return (
             <li
@@ -493,79 +518,72 @@ export function MealPlanList({
               data-testid="plan-day"
               data-day={weekday ?? "none"}
               data-today={isToday || undefined}
-              data-highlight={weekday !== null && weekday === lit ? "true" : undefined}
+              data-highlight={lighted ? "true" : undefined}
               aria-current={isToday ? "date" : undefined}
-              className={`flex flex-col gap-2 ${isToday ? "-ml-3 rounded-lg border-l-4 border-accent pl-2" : ""} ${weekday !== null && weekday === lit ? "rounded-lg bg-accent/20 ring-2 ring-accent motion-safe:transition-colors" : ""}`}
+              className={`border-t border-l-4 border-t-hairline first:border-t-0 ${isToday ? "border-l-mint" : "border-l-transparent"} ${lighted ? "bg-accent/20 motion-safe:transition-colors" : ""}`}
             >
               {dayDishes.length === 0 && weekday ? (
-                // An empty day is one thin row: the day, "Ledig", and a tap adds a dish to it.
+                // An empty day is one thin row: the day and "+ Lägg till", which opens Lägg till rätt on it.
                 <button
                   type="button"
                   data-testid="day-free"
                   aria-label={`Lägg till rätt på ${heading.toLowerCase()}`}
                   onClick={() => openAdd(weekday)}
-                  className={`flex min-h-tap w-full flex-wrap items-center justify-between gap-x-3 gap-y-1 rounded-lg border border-dashed px-3 py-2 text-left ${isToday ? "border-accent bg-accent/10" : "border-hairline"}`}
+                  className="flex min-h-tap w-full items-center gap-3 py-2 pr-3 pl-3 text-left"
                 >
-                  <span className="flex min-w-0 flex-wrap items-baseline gap-x-2">{title}</span>
-                  <span className="text-meta text-ink-3">Ledig</span>
+                  {when}
+                  <span className="flex-1 text-body font-semibold text-accent">+ Lägg till</span>
+                  {isToday ? <TodayPill /> : null}
                 </button>
               ) : (
-                <>
-                  <div className="flex items-center justify-between gap-3">
-                    <h3 className="flex flex-wrap items-baseline gap-x-2">{title}</h3>
-                    {weekday ? (
-                      <Link
-                        href={planningHref(weekStart ?? currentWeekStart(), weekday)}
-                        aria-label={`Välj recept för ${heading.toLowerCase()}`}
-                        className="flex min-h-tap shrink-0 items-center text-body text-accent underline"
-                      >
-                        Välj recept
-                      </Link>
-                    ) : null}
-                  </div>
-                  <ul aria-label={heading} className="flex flex-col gap-3">
-                    {dayDishes.map((dish) => (
-                      <DishCard
-                        key={dish.id}
-                        dish={dish}
-                        servings={servings[dish.id] ?? dish.servings}
-                        snapshot={snapshot}
-                        siteId={siteId}
-                        names={names}
-                        onUnmark={() => void unmark(dish)}
-                        onServingsChange={(value) => changeServings(dish, value)}
-                        onMove={(day) => moveDish(dish, day)}
-                        onRemove={(moveFocus) =>
-                          confirm.requestDelete({
-                            question: `Ta bort ${dish.recipeTitle} från matsedeln?`,
-                            onConfirm: () => removeDish(dish, moveFocus),
-                          })
-                        }
-                      />
-                    ))}
-                  </ul>
-                </>
+                <ul aria-label={heading}>
+                  {dayDishes.map((dish, index) => (
+                    <DishRow
+                      key={dish.id}
+                      dish={dish}
+                      when={index === 0 ? when : <div className="w-10 shrink-0" aria-hidden="true" />}
+                      dayText={dayText}
+                      today={isToday}
+                      past={past}
+                      servings={servings[dish.id] ?? dish.servings}
+                      snapshot={snapshot}
+                      siteId={siteId}
+                      names={names}
+                      onUnmark={() => void unmark(dish)}
+                      onServingsChange={(value) => changeServings(dish, value)}
+                      onMove={(day) => moveDish(dish, day)}
+                      onRemove={(moveFocus) =>
+                        confirm.requestDelete({
+                          question: `Ta bort ${dish.recipeTitle} från matsedeln?`,
+                          onConfirm: () => removeDish(dish, moveFocus),
+                        })
+                      }
+                    />
+                  ))}
+                </ul>
               )}
             </li>
           );
         })}
       </ul>
-      <div className="mt-2 flex flex-col gap-3">
-        <AddDishButton variant="primary" fullWidth />
-        <Link
-          href={`/lista${weekStart ? weekQuery(weekStart) : ""}`}
-          className={buttonClasses("secondary", true)}
-        >
-          Visa inköpslistan
-        </Link>
-      </div>
       {confirm.dialog}
     </div>
   );
 }
 
-type DishCardProps = {
+/** The small mint "Idag" label. */
+function TodayPill() {
+  return <span className="rounded-full bg-mint px-2 text-badge text-mint-ink">Idag</span>;
+}
+
+type DishRowProps = {
   dish: PlanDish;
+  /** The day column: the weekday and date on a day's first row, else blank space. */
+  when: ReactNode;
+  /** "Lördag 31 okt", for the sheet. */
+  dayText: string;
+  today: boolean;
+  past: boolean;
   /** The servings shown now, optimistic included. */
   servings: number;
   snapshot: PantrySnapshot | null;
@@ -575,71 +593,131 @@ type DishCardProps = {
   onServingsChange: (servings: number) => void;
   /** Flytta till dag: the chosen day (1–7) or `null`. */
   onMove: (weekday: number | null) => void;
-  /** `moveFocus`: the removal came from the keyboard or the card's button. */
+  /** `moveFocus`: the removal came from the keyboard or a button. */
   onRemove: (moveFocus: boolean) => void;
 };
 
+/** Which sheet of a row is showing; they never stack, so one value. */
+type Panel = "more" | "move" | "cooked" | null;
+
 /**
- * Rättkort (Epic 11, DESIGN.md dish-card): the recipe's image on
- * `dish-thumb`, its title (a link to the recipe), the time and how much is
- * at home for the chosen servings ("35 min · 6 av 8 hemma" or "35 min ·
- * Allt finns hemma") with a small meter hidden from screen readers, then the
- * portion selector and "Ta bort". Without a pantry, or a catalog ingredient
- * to count, the line is the time alone and there is no meter. A dish whose
- * recipe is gone keeps its title and says "Borttaget recept"; one whose
- * recipe could not be read shows its stored title only.
+ * A row of the week list (Story 3.11, DESIGN.md dish-card): the day column,
+ * the recipe's image, the title (a link that covers the row, so a tap opens
+ * the recipe), a line with the time and servings ("60 min · 4 port.") and
+ * what is at home for them ("✓ Allt hemma", or "1 av 11 hemma" in sand with
+ * a thin meter), and ⋯, which opens the sheet with servings, "Markera som
+ * lagad", "Flytta till annan dag" and "Ta bort från matsedeln". A passed day
+ * is smaller and dimmed, and an uncooked dish on it has "Lagad?". Without a
+ * pantry, or a catalog ingredient to count, there is no status and no
+ * meter; a dish whose recipe is gone keeps its title and says "Borttaget recept".
  */
-function DishCard({ dish, servings, snapshot, siteId, names, onUnmark, onServingsChange, onMove, onRemove }: DishCardProps) {
+function DishRow({
+  dish,
+  when,
+  dayText,
+  today,
+  past,
+  servings,
+  snapshot,
+  siteId,
+  names,
+  onUnmark,
+  onServingsChange,
+  onMove,
+  onRemove,
+}: DishRowProps) {
   const { recipe, recipeTitle: title } = dish;
+  const [panel, setPanel] = useState<Panel>(null);
   const cooked = Boolean(dish.cookedAt);
   // A cooked dish has no status: it is done (Story 13.4).
   const status = cooked ? null : dishStatus(recipe, servings, snapshot);
   const progress = status ? dishProgress(status) : null;
-  const meta = dishMetaText(dish.recipeId, recipe?.totalMinutes, progress);
+  const missing = progress !== null && progress.value < 1;
+  const close = () => setPanel(null);
   return (
-    <li data-testid="plan-dish" data-dish={dish.id} data-cooked={cooked || undefined}>
-      <SwipeRow
-        actionLabel="Ta bort"
-        actionName={`Ta bort ${title}`}
-        onAction={(via) => onRemove(via === "keyboard")}
-        className="rounded-lg"
-      >
-        <div className="flex flex-col gap-3 p-3">
+    <li
+      data-testid="plan-dish"
+      data-dish={dish.id}
+      data-cooked={cooked || undefined}
+      className="relative border-t border-hairline first:border-t-0"
+    >
+      <div className={`flex items-center gap-3 py-2 pr-1 pl-3 ${past ? "" : "min-h-row"}`}>
+        {when}
+        <div className={`flex min-w-0 flex-1 items-center gap-3 ${past ? "opacity-60" : ""}`}>
+          <RecipeImage
+            src={recipe?.imageUrl ?? null}
+            iconSize={past ? 20 : 24}
+            className={`shrink-0 rounded-md ${past ? "size-tap" : "size-dish-thumb"}`}
+          />
+          <div className="flex min-w-0 flex-1 flex-col gap-0.5">
+            {dish.recipeId ? (
+              <Link
+                href={`/recept/${dish.recipeId}`}
+                data-dish-focus
+                // The link covers the whole row, so a tap anywhere on it opens the recipe.
+                className={`max-w-full self-start break-words text-ink after:absolute after:inset-0 ${past ? "text-body font-semibold" : "text-row-title"}`}
+              >
+                {title}
+              </Link>
+            ) : (
+              <p className={`break-words text-ink ${past ? "text-body font-semibold" : "text-row-title"}`}>{title}</p>
+            )}
+            <p data-testid="dish-meta" className="flex flex-wrap items-center gap-x-1.5 text-meta text-ink-3">
+              {today ? <TodayPill /> : null}
+              <span>{dishRowMetaText(dish.recipeId, recipe?.totalMinutes, servings)}</span>
+              {cooked ? (
+                <span data-testid="dish-cooked" className="font-semibold text-mint-ink">
+                  ✓ Lagad
+                </span>
+              ) : progress ? (
+                <span data-testid="dish-status" className={`font-semibold ${missing ? "text-sand-ink" : "text-mint-ink"}`}>
+                  {missing ? progress.text : "✓ Allt hemma"}
+                </span>
+              ) : null}
+            </p>
+            {missing && progress ? <Meter value={progress.value} size="small" className="mt-1" /> : null}
+          </div>
+        </div>
+        {past && !cooked && recipe ? (
+          <button
+            type="button"
+            onClick={() => setPanel("cooked")}
+            aria-label={`Lagad? ${title}`}
+            className="relative z-10 flex min-h-tap shrink-0 items-center rounded-full px-2 text-meta font-semibold text-accent"
+          >
+            <span className="rounded-full border border-border bg-surface px-3 py-1">Lagad?</span>
+          </button>
+        ) : null}
+        <button
+          type="button"
+          onClick={() => setPanel("more")}
+          aria-label={`Fler val för ${title}`}
+          {...(dish.recipeId ? {} : { "data-dish-focus": true })}
+          className="relative z-10 flex size-tap shrink-0 items-center justify-center rounded-full text-ink-3"
+        >
+          <MoreIcon size={22} />
+        </button>
+      </div>
+      <Sheet open={panel === "more"} onClose={close} title={title} closeLabel="Klar">
+        <div className="flex flex-col gap-3">
           <div className="flex items-center gap-3">
-            <RecipeImage
-              src={recipe?.imageUrl ?? null}
-              iconSize={24}
-              className="size-dish-thumb shrink-0 rounded-md"
-            />
-            <div className="flex min-w-0 flex-1 flex-col gap-1">
+            <RecipeImage src={recipe?.imageUrl ?? null} iconSize={28} className="size-16 shrink-0 rounded-md" />
+            <div className="flex min-w-0 flex-col gap-1">
+              <p className="text-meta break-words text-ink-2">
+                {[dayText, recipe?.totalMinutes ? `${recipe.totalMinutes} min` : null].filter(Boolean).join(" · ")}
+              </p>
               {dish.recipeId ? (
                 <Link
                   href={`/recept/${dish.recipeId}`}
-                  data-dish-focus
-                  // A mouse swipe on the title must move the card, not drag the link.
-                  draggable={false}
-                  className="max-w-full self-start text-row-title break-words text-ink"
+                  className="flex min-h-tap items-center self-start text-body font-semibold text-accent"
                 >
-                  {title}
+                  Öppna receptet ›
                 </Link>
-              ) : (
-                <p className="text-row-title break-words text-ink">{title}</p>
-              )}
-              {meta ? (
-                <p data-testid="dish-meta" className="text-meta break-words text-ink-2">
-                  {meta}
-                </p>
-              ) : null}
-              {progress ? <Meter value={progress.value} size="small" className="mt-1" /> : null}
-              {cooked ? (
-                <p data-testid="dish-cooked" className="flex items-center gap-1.5 text-meta text-ink">
-                  <CheckIcon size={16} />
-                  Lagad
-                </p>
               ) : null}
             </div>
           </div>
-          <div className="flex flex-wrap items-center justify-between gap-x-3 gap-y-1">
+          <div className="flex flex-wrap items-center justify-between gap-x-3 gap-y-1 rounded-lg bg-bg py-1 pl-3.5">
+            <span className="text-body text-ink">Portioner</span>
             <Stepper
               value={servings}
               onChange={onServingsChange}
@@ -649,41 +727,64 @@ function DishCard({ dish, servings, snapshot, siteId, names, onUnmark, onServing
               increaseLabel={`Fler portioner, ${title}`}
               className="bg-bg"
             />
-            {cooked ? (
-              <Button
-                variant="text"
-                onClick={onUnmark}
-                aria-label={`Ta bort markeringen lagad, ${title}`}
-                aria-describedby={`cooked-note-${dish.id}`}
-              >
-                Inte lagad
-              </Button>
-            ) : recipe ? (
-              <MarkCookedButton
-                dish={{ id: dish.id, title, servings }}
-                originalServings={recipe.originalServings}
-                lines={recipe.lines}
-                snapshot={snapshot}
-                siteId={siteId}
-                names={names}
-                variant="text"
-              />
-            ) : null}
-            <MoveToDayButton title={title} weekday={dish.weekday ?? null} onMove={onMove} />
-            <TrashButton
-              label={`Ta bort ${title} från matsedeln`}
-              onPress={() => onRemove(true)}
-              className="-mr-2"
-              {...(dish.recipeId ? {} : { "data-dish-focus": true })}
-            />
           </div>
           {cooked ? (
-            <p id={`cooked-note-${dish.id}`} className="text-meta text-ink-2">
-              Om du tar bort markeringen ändras inte lagret.
-            </p>
+            <div className="flex flex-col">
+              <div className="flex items-center justify-between gap-3">
+                <p className="flex min-h-tap items-center text-row-title font-semibold text-mint-ink">✓ Lagad</p>
+                <Button
+                  variant="text"
+                  onClick={onUnmark}
+                  aria-label={`Ta bort markeringen lagad, ${title}`}
+                  aria-describedby={`cooked-note-${dish.id}`}
+                >
+                  Inte lagad
+                </Button>
+              </div>
+              <p id={`cooked-note-${dish.id}`} className="text-meta text-ink-2">
+                Om du tar bort markeringen ändras inte lagret.
+              </p>
+            </div>
+          ) : recipe ? (
+            <Button fullWidth onClick={() => setPanel("cooked")}>
+              Markera som lagad
+            </Button>
           ) : null}
+          <div className="flex flex-col overflow-hidden rounded-lg bg-bg">
+            <button
+              type="button"
+              onClick={() => setPanel("move")}
+              className="flex min-h-row w-full items-center justify-between gap-3 px-3.5 text-left text-body text-ink"
+            >
+              Flytta till annan dag
+              <span className="text-ink-3">{dish.weekday ? `${weekdayNames[dish.weekday - 1]} ›` : "Ingen dag ›"}</span>
+            </button>
+            <button
+              type="button"
+              onClick={() => {
+                close();
+                onRemove(true);
+              }}
+              className="flex min-h-row w-full items-center border-t border-hairline px-3.5 text-left text-body text-danger"
+            >
+              Ta bort från matsedeln
+            </button>
+          </div>
         </div>
-      </SwipeRow>
+      </Sheet>
+      <MoveToDaySheet open={panel === "move"} onClose={close} title={title} weekday={dish.weekday ?? null} onMove={onMove} />
+      {recipe ? (
+        <MarkCookedButton
+          dish={{ id: dish.id, title, servings }}
+          originalServings={recipe.originalServings}
+          lines={recipe.lines}
+          snapshot={snapshot}
+          siteId={siteId}
+          names={names}
+          open={panel === "cooked"}
+          onOpenChange={(open) => setPanel(open ? "cooked" : null)}
+        />
+      ) : null}
     </li>
   );
 }
