@@ -51,3 +51,29 @@ export const emailCodeSchema = loginSchema.extend({
 });
 
 export type EmailCodeInput = z.input<typeof emailCodeSchema>;
+
+/** The shortest password the app accepts when one is chosen (Story 17.2); Supabase's own minimum is lower. */
+export const minPasswordLength = 12;
+/** bcrypt, which Supabase uses, stops at 72 bytes; Swedish letters take two, so this is counted in bytes. */
+export const maxPasswordBytes = 72;
+
+const passwordTooShort = `Lösenordet måste vara minst ${minPasswordLength} tecken.`;
+const passwordTooLong = "Lösenordet är för långt. Välj ett kortare.";
+
+const withinBytes = (password: string) => new TextEncoder().encode(password).length <= maxPasswordBytes;
+
+/** Signing in with an existing password: nothing about its strength is checked. */
+export const passwordLoginSchema = loginSchema.extend({
+  password: z
+    .string({ error: "Ange ditt lösenord." })
+    .min(1, "Ange ditt lösenord.")
+    .refine(withinBytes, "Ange ditt lösenord."),
+});
+
+export type PasswordLoginInput = z.input<typeof passwordLoginSchema>;
+
+/** A new password, chosen with the link from "Välj lösenord". */
+export const newPasswordSchema = z
+  .string({ error: passwordTooShort })
+  .min(minPasswordLength, passwordTooShort)
+  .refine(withinBytes, passwordTooLong);

@@ -18,6 +18,13 @@ export const e2eEmail = "e2e@matkoll.test";
  * ingredient is new (see recipe.spec.ts).
  */
 export const recipesEmail = "e2e-recept@matkoll.test";
+/**
+ * The E2E user of recipe-edit.spec.ts alone. Every page of a user shows the toast "Receptet <titel>
+ * är sparat" for that user's finished imports, and both specs import the same fixture (the same
+ * title): sharing e2e-recept, one spec's toast could replace or sit behind the other's, so
+ * openSavedImport timed out on "Öppna" now and then.
+ */
+export const recipeEditEmail = "e2e-recept-andra@matkoll.test";
 /** The E2E user of library.spec.ts alone, so its list holds only what it saves. */
 export const libraryEmail = "e2e-bibliotek@matkoll.test";
 /**
@@ -253,6 +260,7 @@ export const offerSuggestionsEmail = "e2e-erbjudande-forslag@matkoll.test";
 export const e2eEmails = [
   e2eEmail,
   recipesEmail,
+  recipeEditEmail,
   libraryEmail,
   settingsEmail,
   pantryEmail,
@@ -298,6 +306,7 @@ export const outsiderEmail = "utanfor@matkoll.test";
 
 export const userStorageState = "tests/e2e/.auth/user.json";
 export const recipesStorageState = "tests/e2e/.auth/recipes.json";
+export const recipeEditStorageState = "tests/e2e/.auth/recipe-edit.json";
 export const libraryStorageState = "tests/e2e/.auth/library.json";
 export const settingsStorageState = "tests/e2e/.auth/settings.json";
 export const pantryStorageState = "tests/e2e/.auth/pantry.json";
@@ -419,6 +428,15 @@ export async function magicLinkPath(email: string, next = "/recept"): Promise<st
  * 11.6), so a mail scanner that fetches it uses nothing up.
  */
 export async function openMagicLink(page: Page, path: string): Promise<void> {
+  // The one-time privacy note (Story 17.2) is answered up front, in this context and in the
+  // saved state made from it, so it does not sit on top of every page the specs open.
+  await page.context().addInitScript(() => {
+    try {
+      window.localStorage.setItem("matkoll.integritet.okej", "1");
+    } catch {
+      // Storage is not available; the note just shows.
+    }
+  });
   await page.goto(path);
   await page.getByRole("main").getByRole("button", { name: "Logga in" }).click();
 }

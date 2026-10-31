@@ -49,6 +49,8 @@ export type ModelTarget = {
    * is never sent a second time.
    */
   supportsGrounding?: boolean;
+  /** Tokens added to every call's maxOutputTokens, for a model whose thinking counts against it (Claude, Story 17.5). */
+  extraOutputTokens?: number;
   /**
    * Story 12.2: the model runs on Pontus's Mac and goes cold after some
    * minutes without calls, so warmUp is worth a call. The key names the
@@ -154,7 +156,8 @@ export async function runStructured<SCHEMA extends z.ZodType>(
         messages: feedback ? [...request.messages, feedback] : request.messages,
         output: Output.object({ schema: request.schema }),
         providerOptions,
-        maxOutputTokens: request.maxOutputTokens,
+        maxOutputTokens:
+          request.maxOutputTokens === undefined ? undefined : request.maxOutputTokens + (target.extraOutputTokens ?? 0),
         ...sampling,
         ...(attempt > 1 && sampling.temperature === 0 ? { temperature: retryTemperature } : {}),
         // The port decides about new attempts; the SDK never retries on its own.

@@ -37,6 +37,7 @@ const getActiveRecipeDomains = vi.fn<() => Promise<string[]>>();
 vi.mock("@/features/settings/server", () => ({
   SettingsDataError,
   getActiveRecipeDomains: () => getActiveRecipeDomains(),
+  getAiChoice: async () => null,
 }));
 
 // The fetch port reads the saved pages, as with AI_PROVIDER=mock in E2E and CI.
@@ -44,7 +45,7 @@ vi.mock("@/server/env", () => ({ env: { AI_PROVIDER: "mock", SITE_URL: "http://l
 
 const ai = createMockAiService();
 const parseRecipe = vi.fn(ai.parseRecipe);
-vi.mock("@/server/ai", () => ({ getAiService: () => ({ parseRecipe }) }));
+vi.mock("@/server/ai", () => ({ getAiServiceFor: () => ({ parseRecipe }) }));
 
 const { importRecipe, prepareImport } = await import("./import-recipe");
 
