@@ -4251,7 +4251,7 @@ vill jag kunna skriva "passen ligger i översta byrålådan" och senare fråga v
 så att jag hittar saker som aldrig fotats.
 
 Beslut 2026-10-31 (Pontus): backlog. Hänger ihop med Story 17.9 (Siri) och lägger grunden för föremål utan foto (också för försäkringsunderlaget, 18.18).
-Beslut Pontus 2026-10-31: kör 18.19; byggd utan förhandsgodkännande av mockupen. Mockup: `_bmad-output/planning-artifacts/ux-designs/ux-Matkoll-2026-10-25/mockups/kom-ihag.html` ("Idag" är skärmdumpar, "Nytt" och punktlistorna är specen; namn, rum och datum är bara exempel).
+Beslut Pontus 2026-10-31: kör 18.19; byggd utan förhandsgodkännande av mockupen. Tillägg samma kväll (Pontus om "coca-cola": "får massor av alternativ. Jag ville veta var det jag sökte fanns."): en kort sökning svaras av databasen utan AI, svaret först, bästa träffar före "Liknande", och träffraden visar namn, rum · del och kortets bild. Mockup: `_bmad-output/planning-artifacts/ux-designs/ux-Matkoll-2026-10-25/mockups/kom-ihag.html` ("Idag" är skärmdumpar, "Nytt" och punktlistorna är specen; namn, rum och datum är bara exempel).
 
 **Acceptance Criteria:**
 
@@ -4298,6 +4298,22 @@ Beslut Pontus 2026-10-31: kör 18.19; byggd utan förhandsgodkännande av mockup
 **Givet** ett inskrivet föremål
 **När** jag trycker på dess rad i rummet
 **Så** öppnas samma blad som för andra föremål, med raden "Du skrev in det <datum> · <del>" och utan "Var på bilden"; Spara ändrar namn och kategori, och "Ta bort föremål" tar bort det med "Tog bort Pass." och Ångra
+
+**Givet** en kort sökning (ett till tre ord utan frågetecken, utan frågeord som "var", "har", "hur" först och utan "ligger/står/hänger", t.ex. "coca-cola", "passen", "skruvdragare")
+**När** jag trycker ↑ eller Enter
+**Så** svarar databasen direkt utan AI-anrop: svaret först och kort ("Coca-Cola finns i Boden · Nedersta hyllan.", "Hittade 3 föremål."), och under det träffarna som rader; bara när databasen inte hittar något alls får AI texten och får nämna det närmaste
+
+**Givet** träffar på en sökning, i listan medan jag skriver och i chattens svar
+**När** de visas
+**Så** kommer först de vars namn är, börjar med eller innehåller det jag skrev (också "coca cola" för "Coca-Cola"); nära träffar (stavfel, kategori) ligger hopfällda under "Visa N liknande", eller under rubriken "Liknande" med svaret "Ingen "…" hittad. Liknande:" när inget annat finns
+
+**Givet** en träffrad
+**När** den visas
+**Så** står föremålets namn, under det rum · del eller låda (och var på bilden, boendet bara när det är ett annat än sidans, "skrivet <datum>" för något inskrivet), och kortets bild till höger (📝 för ett inskrivet föremål, 📦 för en låda med inskrivna saker); raden öppnar rummet (kortet stort med föremålet markerat är Story 18.7)
+
+**Givet** en fråga till AI
+**När** den svarar
+**Så** kommer svaret först i en mening ("Ingen Coca-Cola hittad. Närmast: Fun Light läsk · Boden, nedersta hyllan."), utan utfyllnad som "kontrollera gärna själv", och platskorten går att trycka på
 
 **Givet** det jag skriver in
 **När** det senare visas för AI (i chatten)
