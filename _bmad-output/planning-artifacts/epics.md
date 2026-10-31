@@ -3421,6 +3421,24 @@ så att jag kan plocka direkt och inte tar dem för radioknappar.
 **När** den visas
 **Så** är den kvadratisk (22 px, 6 px rundade hörn, 2 px ram i dämpad ink), ikryssad med accentfyllning och vit bock, med 44 px träffyta och rollen checkbox med samma namn som förut; den är en delad komponent, och de runda cirklarna i inköpslistan ("i korgen") är oförändrade
 
+### Story 16.13: Ät det här först
+
+Som Pontus,
+vill jag att matförslagen använder det som legat länge i Matvaror först,
+så att mindre mat slängs.
+
+Beslut 2026-10-31 (Pontus): backlog.
+
+**Acceptance Criteria:**
+
+**Givet** varor i Matvaror som legat längre än gränsen för sin plats (Story 14.6: 7 dagar kyl, 60 frys)
+**När** AI föreslår rätter
+**Så** väger förslagen tyngre mot rätter som använder de varorna, och ett förslag som gör det säger varför ("Använder limen och koriandern som legat en vecka")
+
+**Givet** Matvaror
+**När** något har legat länge
+**Så** finns en lugn rad överst "3 varor har legat länge – föreslå rätter med dem" som öppnar förslagen med de varorna förvalda
+
 ## Epic 17: Molnet och gemensam lista
 
 Version 2.0. Familjen planerar och handlar ihop i Matkoll med en delad inloggning per hushåll, och upp till fem vänhushåll kan betatesta med egna konton utan att någon data blandas. Matkoll ersätter To Do som inköpslista. Allt byggs och testas lokalt först; flytten till Vercel och Supabase i molnet (17.3, 17.4) görs först när Pontus säger till. Underlag: `sprint-change-proposal-2026-10-31-molnet-och-gemensam-lista.md`.
