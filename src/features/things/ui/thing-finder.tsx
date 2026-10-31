@@ -4,7 +4,7 @@ import { type ReactNode, useEffect, useMemo, useState } from "react";
 import { cx } from "@/components/cx";
 import { ListGroup } from "@/components/list-group";
 import { ListRow } from "@/components/list-row";
-import { SearchField } from "@/components/search-field";
+import { searchDelayMs } from "@/components/search-field";
 import { searchThingsAction } from "../actions/search-things";
 import {
   hitCountText,
@@ -15,24 +15,25 @@ import {
   noHitsText,
   searchFailedText,
   searchingText,
-  searchLabel,
-  searchPlaceholder,
+  minSearchChars,
   topHitsText,
   type ThingHit,
 } from "../domain/thing-search";
 import { ThingChat } from "./thing-chat";
 
-// Sök och fråga (Stories 18.4 and 18.14): on the Förråd tab, the chat and a
-// search field over the things of every place and boende. The search is the
-// database's (typos are fine), asked for when typing stops: no thing is loaded
-// to the browser up front. While the search has text its hits replace the chat
-// and the rooms (`children`), which stay mounted underneath.
+// One field to search and ask (Story 18.17, joining Stories 18.4 and 18.14): on
+// the Förråd tab, "Sök eller fråga …" under "Ta kort". From two characters the
+// database's matches show under it as you type (typos are fine, no AI, nothing
+// loaded up front); ↑ or Enter sends the text to the chat. While the matches
+// show they replace the rooms (`children`, which stay mounted underneath), and
+// they are hidden while a conversation is going on.
 
 type Found = { query: string; hits: ThingHit[] | "failed" };
 
 function Hits({ query }: { query: string }) {
   const [found, setFound] = useState<Found | null>(null);
   useEffect(() => {
+    if (query.length < minSearchChars) return;
     let current = true;
     searchThingsAction(query)
       .then((result) => current && setFound({ query, hits: result.ok ? result.data.hits : "failed" }))
@@ -79,16 +80,21 @@ function Hits({ query }: { query: string }) {
 }
 
 export function ThingFinder({ children }: { children: ReactNode }) {
+  const [text, setText] = useState("");
+  const [talking, setTalking] = useState(false);
   const [query, setQuery] = useState("");
-  const searching = query.trim() !== "";
+  const trimmed = text.trim();
+  // The database is asked for when typing stops, from two characters, and not while a conversation is going on.
+  const searching = trimmed.length >= minSearchChars && !talking;
+  useEffect(() => {
+    const timer = setTimeout(() => setQuery(trimmed), trimmed === "" ? 0 : searchDelayMs);
+    return () => clearTimeout(timer);
+  }, [trimmed]);
   return (
     <div className="flex flex-col gap-4">
-      {/* Mounted all the time, so the conversation is still there when the search is cleared. */}
-      <div className={searching ? "hidden" : undefined}>
-        <ThingChat />
-      </div>
-      <SearchField label={searchLabel} placeholder={searchPlaceholder} maxLength={80} onSearch={setQuery} />
-      {searching ? <Hits query={query.trim()} /> : null}
+      {/* Mounted all the time, so the conversation is still there when the text is cleared. */}
+      <ThingChat onTextChange={setText} onConversationChange={setTalking} />
+      {searching ? <Hits query={query} /> : null}
       {/* The places stay mounted while the hits show, so a boende switch or a sheet keeps its state. */}
       <div className={searching ? "hidden" : undefined}>{children}</div>
     </div>

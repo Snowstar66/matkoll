@@ -3888,10 +3888,32 @@ Skiss: bild 1 i samma skiss (chatten högst upp på startsidan).
 ### Story 18.7: Visa prylen på kortet
 
 Som Pontus,
-vill jag se var på bilden prylen finns,
-så att jag snabbt hittar den på hyllan.
+vill jag se kortets bild med prylen utmärkt när jag hittar den i sök eller chatt,
+så att jag direkt ser var på hyllan den finns.
 
-Backlog, efter 18.1–18.6.
+Beslut 2026-10-31 (Pontus): byggs efter 18.17, före 17.9. Kostnad bedömd som försumbar (~0,2 öre extra per kort med Haiku).
+
+**Acceptance Criteria:**
+
+**Givet** en sökträff eller en referens i chatten
+**När** den visas
+**Så** står kortets miniatyr till vänster (i stället för kategoriikonen); inskrivna prylar utan kort visar lådans ikon
+
+**Givet** en träff eller referens
+**När** jag trycker på den
+**Så** öppnas kortet i stort format (egen vy med bilden i full bredd, rum, del/låda och datum) med prylen utmärkt av en ruta och dess namn, och övriga prylar på kortet listas under bilden; ett tryck på en annan pryl i listan flyttar markeringen
+
+**Givet** ett nytt kort som läses
+**När** AI listar prylarna
+**Så** får varje pryl en ungefärlig ruta (normaliserade koordinater 0–1) i samma anrop, utan extra AI-anrop; rutor som är orimliga (utanför bilden, noll storlek) sparas inte
+
+**Givet** en pryl utan ruta (äldre kort)
+**När** jag öppnar den på kortet
+**Så** letar appen upp den med ett litet AI-anrop för bara den prylen (samma teknik som kylskåpskorten i Matvaror), sparar rutan och visar den; går det inte visas kortet utan markering med texten "Kunde inte peka ut den på bilden"
+
+**Givet** lagringen
+**När** rutor sparas
+**Så** ligger de på prylen (bakåtkompatibel migrering) och kostnaden räknas som i Story 17.6
 
 ### Story 18.10: Svep med kameran
 
@@ -4002,6 +4024,58 @@ Beslut 2026-10-31 (Pontus): byggs före 17.9.
 **Givet** mörkt läge, 375 px och 200 % text
 **När** jag ser arket och rumssidan
 **Så** finns ingen sidledes rullning och alla mål är minst 44 px
+
+### Story 18.17: Ett fält – sök eller fråga
+
+Som Pontus,
+vill jag ha ett enda fält för att söka och fråga i Förrådet,
+så att jag inte undrar vilket av två fält jag ska använda.
+
+Beslut 2026-10-31 (Pontus): sökfältet (18.4) och chatten (18.14) slås ihop.
+
+**Acceptance Criteria:**
+
+**Givet** Förrådets startsida
+**När** jag ser den
+**Så** finns ett enda fält "Sök eller fråga …" under "Ta kort" (inget separat sökfält)
+
+**Givet** att jag skriver i fältet
+**När** jag har skrivit minst två tecken
+**Så** visas matchande prylar direkt under fältet utan AI (databassökningen från 18.14, med plats, boende och kortdatum, tryckbara), uppdaterat medan jag skriver
+
+**Givet** text i fältet
+**När** jag trycker ↑ eller Enter
+**Så** skickas texten som en fråga till chatten (AI, som i 18.14) och svaret visas som en chattbubbla med referens; följdfrågor och "Ny fråga" fungerar som förut, och direktträffarna döljs medan ett samtal pågår
+
+**Givet** ett tomt fält
+**När** jag ser det
+**Så** finns en kort hjälptext, t.ex. "Skriv för att söka – tryck ↑ för att fråga"
+
+**Givet** mörkt läge, 375 px och 200 % text
+**När** jag använder fältet
+**Så** finns ingen sidledes rullning och alla mål är minst 44 px
+
+### Story 18.18: Försäkringsunderlag (PDF)
+
+Pausad (Pontus 2026-10-31). En knapp "Försäkringsunderlag" som gör en PDF per boende med rum, foton, prylar och datum från Förrådet, att ha vid brand eller inbrott. Valfritt värde på dyra saker. Inga kvitton eller värderingar i övrigt. Byggs när Förrådet använts ett tag.
+
+### Story 18.19: Kom ihåg var jag lade den
+
+Som Pontus,
+vill jag kunna säga eller skriva "passen ligger i översta byrålådan" och senare fråga var de är,
+så att jag hittar saker som aldrig fotats.
+
+Beslut 2026-10-31 (Pontus): backlog. Hänger ihop med Story 17.9 (Siri).
+
+**Acceptance Criteria:**
+
+**Givet** fältet "Sök eller fråga" i Förrådet
+**När** jag skriver ett påstående om var något ligger ("Passen ligger i översta byrålådan i sovrummet")
+**Så** förstår AI att det är något att komma ihåg, föreslår rum och del ("Sovrummet · översta byrålådan") och sparar det efter ett tryck som en pryl utan kort
+
+**Givet** en sådan pryl
+**När** jag frågar "var är passen?"
+**Så** svarar chatten med platsen och att jag själv skrev in den (datum), och prylen går att ändra eller ta bort som andra prylar
 
 ### Story 18.20: Ny ikon – hus med bock
 

@@ -127,8 +127,8 @@ export function hitHref(hit: Pick<ThingHit, "placeId" | "written">): string {
   return hit.written ? `/prylar/lada/${hit.placeId}` : `/prylar/${hit.placeId}`;
 }
 
-export const searchLabel = "Sök bland prylar";
-export const searchPlaceholder = "Till exempel hammare";
+/** The fewest characters that start the instant search (Story 18.17). */
+export const minSearchChars = 2;
 export const searchingText = "Söker …";
 export const searchFailedText = "Sökningen gick inte. Försök igen.";
 

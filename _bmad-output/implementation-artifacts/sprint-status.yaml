@@ -212,7 +212,7 @@ development_status:
   18-4-sök-och-fråga: done
   18-5-fota-insidan-av-en-låda: done
   18-6-inga-dubbletter-när-korten-överlappar: done
-  18-7-visa-prylen-på-kortet: backlog
+  18-7-visa-prylen-på-kortet: ready-for-dev
   18-8-garderoben: backlog
   18-9-nytt-namn-på-appen: done
   18-10-svep-med-kameran: backlog
@@ -222,5 +222,8 @@ development_status:
   18-14-fråga-som-en-chatt: done
   18-15-rätta-och-rensa: done
   18-16-lägga-till-bilder-enkelt: done
+  18-17-ett-fält-sök-eller-fråga: review
+  18-18-försäkringsunderlag-pdf: backlog
+  18-19-kom-ihåg-var-jag-lade-den: backlog
   18-20-ny-ikon: done
   epic-18-retrospective: optional
