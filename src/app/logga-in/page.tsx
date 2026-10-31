@@ -18,7 +18,7 @@ export default function LoginPage({ searchParams }: PageProps<"/logga-in">) {
       </p>
       <p className="-mt-3 text-meta text-ink-3">{appTagline}</p>
       <h1 className="text-page-title text-ink">Logga in</h1>
-      <p className="text-body text-ink-2">Logga in med e-post och lösenord. Första gången? Välj Skapa konto.</p>
+      <p className="text-body text-ink-2">Logga in med e-post och lösenord. Första gången eller glömt lösenordet? Välj lösenord via länken nedanför.</p>
       {/* No form as fallback: a form typed into would be replaced when the real one streams in. */}
       <Suspense fallback={null}>
         <LoginFormWithParams searchParams={searchParams} />
