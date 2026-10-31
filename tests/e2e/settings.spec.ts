@@ -98,7 +98,7 @@ test("the start page is grouped rows with values, and Receptsajter lists the act
   const row = (name: string | RegExp) => page.getByTestId("settings-row").filter({ hasText: name });
   await expect(row("Receptsajter")).toContainText("3 sajter");
   await expect(row("Boenden")).toContainText("Hemma");
-  for (const name of ["Konto", "Boenden", "Butiker", "Receptsajter", "Spara i Matkoll", "Modell", "Installera appen", "Om Matkoll"]) {
+  for (const name of ["Konto", "Boenden", "Butiker", "Receptsajter", "Spara i Livskoll", "Modell", "Installera appen", "Om Livskoll"]) {
     const link = name === "Konto" ? row(settingsEmail) : row(name);
     await expect(link).toBeVisible();
     expect((await link.boundingBox())?.height ?? 0).toBeGreaterThanOrEqual(44);
@@ -149,7 +149,7 @@ test("the side menu leads to Inställningar on desktop, with the start page besi
 test("the old anchors lead to the page that holds them now", async ({ page }) => {
   await page.goto("/installningar#spara-i-matkoll");
   await expect(page).toHaveURL(/\/installningar\/spara-i-matkoll$/);
-  await expect(page.getByRole("heading", { level: 1, name: "Spara i Matkoll" })).toBeVisible();
+  await expect(page.getByRole("heading", { level: 1, name: "Spara i Livskoll" })).toBeVisible();
   await page.goto("/installningar#godkanda-receptsajter");
   await expect(page).toHaveURL(/\/installningar\/receptsajter$/);
   await page.goto("/installningar#ai");
@@ -278,10 +278,10 @@ test("Logga ut ends the session; a removed site stays removed after signing in a
   await context.close();
 });
 
-test("Spara i Matkoll: one guide at a time; the bookmarklet and the iPhone address are built from this site's origin", async ({ page, baseURL }) => {
+test("Spara i Livskoll: one guide at a time; the bookmarklet and the iPhone address are built from this site's origin", async ({ page, baseURL }) => {
   await page.goto("/installningar/spara-i-matkoll");
   const section = page.getByTestId("save-to-matkoll");
-  await expect(page.getByRole("heading", { level: 1, name: "Spara i Matkoll" })).toBeVisible();
+  await expect(page.getByRole("heading", { level: 1, name: "Spara i Livskoll" })).toBeVisible();
   const origin = new URL(baseURL ?? page.url()).origin;
   // A desktop browser starts on Dator; the other guides are not shown.
   await expect(section.getByRole("radio", { name: "Dator" })).toBeChecked();
@@ -298,7 +298,7 @@ test("Spara i Matkoll: one guide at a time; the bookmarklet and the iPhone addre
   await expect(section.getByRole("link", { name: "godkända receptsajterna" })).toBeVisible();
 });
 
-test("Story 1.14: Importera recept lists the approved sites with new-tab links and leads to Spara i Matkoll", async ({ page }) => {
+test("Story 1.14: Importera recept lists the approved sites with new-tab links and leads to Spara i Livskoll", async ({ page }) => {
   await page.setViewportSize({ width: 375, height: 812 });
   await page.goto("/recept");
   await page.getByRole("button", { name: "Importera recept" }).first().click();
@@ -313,10 +313,10 @@ test("Story 1.14: Importera recept lists the approved sites with new-tab links a
   }
   await section.getByRole("button", { name: "här" }).click();
   await expect(page.getByLabel("Länk till receptet")).toBeFocused();
-  await section.getByRole("link", { name: "Spara i Matkoll" }).click();
+  await section.getByRole("link", { name: "Spara i Livskoll" }).click();
   await expect(page).toHaveURL(/\/installningar\/spara-i-matkoll$/);
   await expect(page.getByTestId("guide-computer")).toContainText("⌘⇧B");
-  await expect(page.getByRole("heading", { level: 1, name: "Spara i Matkoll" })).toBeInViewport();
+  await expect(page.getByRole("heading", { level: 1, name: "Spara i Livskoll" })).toBeInViewport();
 });
 
 test("Story 17.5: the page AI saves the choice, which is read again after a reload", async ({ page }) => {

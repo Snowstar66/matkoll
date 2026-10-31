@@ -1,3 +1,4 @@
+import { appName } from "@/app/app-info";
 // Result shape and error codes for actions and Route Handlers (AD-13).
 // Codes are `<area>_<reason>`; the Swedish text follows Voice and Tone in EXPERIENCE.md.
 // Expected errors are returned, never thrown to the client.
@@ -6,7 +7,7 @@ export const errorMessages = {
   unauthorized: "Du behöver logga in.",
   validation: "Kontrollera uppgifterna och försök igen.",
   auth_link_invalid: "Länken har gått ut eller redan använts. Be om en ny.",
-  auth_not_allowed: "Adressen har inte åtkomst till Matkoll.",
+  auth_not_allowed: `Adressen har inte åtkomst till ${appName}.`,
   // The code from the e-mail (Story 11.6): a wrong, expired or used code and an
   // address outside ALLOWED_EMAILS all give this, so the allowlist is never revealed.
   auth_code_invalid: "Koden stämmer inte eller har gått ut. Skicka en ny länk.",
@@ -182,14 +183,14 @@ export const errorMessages = {
   // the fetch's errors come with "Öppna sidan" (the store's page in a new tab)
   // and are never retried.
   offers_link_missing: "Lägg in länken till butikens erbjudanden under Butik i Inställningar.",
-  offers_link_unsupported: "Matkoll kan bara hämta erbjudanden från ica.se än så länge.",
+  offers_link_unsupported: `${appName} kan bara hämta erbjudanden från ica.se än så länge.`,
   offers_fetched_recently: "Erbjudandena hämtades nyss. Försök igen om en stund.",
   // 403 or 429 from the store's site: no new try.
-  offers_fetch_blocked: "ica.se släppte inte in Matkoll just nu. Öppna sidan och titta där, eller försök igen senare.",
+  offers_fetch_blocked: `ica.se släppte inte in ${appName} just nu. Öppna sidan och titta där, eller försök igen senare.`,
   // Too slow, too large, no connection or another status.
   offers_fetch_failed: "Det gick inte att hämta erbjudandena. Försök igen senare.",
   // No offer data in the page, or a shape the reader does not know.
-  offers_page_changed: "Sidan med erbjudanden ser inte ut som Matkoll väntar sig. Öppna sidan och titta där.",
+  offers_page_changed: `Sidan med erbjudanden ser inte ut som ${appName} väntar sig. Öppna sidan och titta där.`,
   offers_page_old: "Sidan visar inte den här eller nästa veckas erbjudanden.",
   offers_none: "Hittade inga erbjudanden på mat.",
   offers_store_missing: "Välj en butik i inställningarna först.",

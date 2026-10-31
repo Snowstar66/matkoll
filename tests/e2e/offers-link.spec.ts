@@ -169,7 +169,7 @@ test("says that ica.se did not let Matkoll in, with Öppna sidan, and saves noth
   const dialog = sheet(page);
   await dialog.getByRole("button", { name: "Hämta veckans erbjudanden" }).click();
   await expect(dialog.getByRole("alert")).toHaveText(
-    "ica.se släppte inte in Matkoll just nu. Öppna sidan och titta där, eller försök igen senare.",
+    "ica.se släppte inte in Livskoll just nu. Öppna sidan och titta där, eller försök igen senare.",
   );
   await expect(dialog.getByRole("link", { name: /^Öppna sidan/ }).first()).toHaveAttribute(
     "href",
@@ -184,7 +184,7 @@ test("says that the page has changed when it has no offer data", async ({ page }
   const dialog = sheet(page);
   await dialog.getByRole("button", { name: "Hämta veckans erbjudanden" }).click();
   await expect(dialog.getByRole("alert")).toHaveText(
-    "Sidan med erbjudanden ser inte ut som Matkoll väntar sig. Öppna sidan och titta där.",
+    "Sidan med erbjudanden ser inte ut som Livskoll väntar sig. Öppna sidan och titta där.",
   );
   expect(await storedOffers()).toEqual([]);
 });
@@ -347,7 +347,7 @@ test("Story 9.13: a blocked store is skipped with its own message and the other 
   const dialog = sheet(page);
   await dialog.getByRole("button", { name: "Hämta alla" }).click();
   await expect(dialog.getByRole("alert")).toHaveText(
-    "Matkoll: ica.se släppte inte in Matkoll just nu. Öppna sidan och titta där, eller försök igen senare.",
+    "Matkoll: ica.se släppte inte in Livskoll just nu. Öppna sidan och titta där, eller försök igen senare.",
   );
   await expect(dialog.getByTestId("offers-store-result")).toHaveText("Krokom: Hämtade 7 erbjudanden.");
   expect(await storedOffers()).toHaveLength(7);

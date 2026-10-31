@@ -88,7 +88,7 @@ test("the fifth tab is Förråd with the toolbox, in the tab bar", async ({ page
 
 test("without rooms it explains, and Ta kort is the first row; Ny plats is gone", async ({ page }) => {
   await page.goto("/prylar");
-  await expect(page.getByText("Fotografera en hylla eller ett förråd, så listar Matkoll vad som finns där.")).toBeVisible();
+  await expect(page.getByText("Fotografera en hylla eller ett förråd, så listar Livskoll vad som finns där.")).toBeVisible();
   await expect(page.getByRole("button", { name: "Ta kort" })).toBeVisible();
   await expect(page.getByText("Fota ett rum, en hylla eller en låda")).toBeVisible();
   await expect(page.getByRole("button", { name: "Ny plats" })).toHaveCount(0);

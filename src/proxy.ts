@@ -1,4 +1,5 @@
 import { type NextRequest, NextResponse } from "next/server";
+import { appName } from "@/app/app-info";
 import {
   devAutoLoginRedirect,
   redirectWithSession,
@@ -33,7 +34,7 @@ export async function proxy(request: NextRequest) {
     // E.g. a preview deployment without Supabase variables (AD-23): answer plainly instead of a 500.
     if (!(error instanceof SupabaseNotConfiguredError)) throw error;
     console.error("supabase_not_configured");
-    return new NextResponse("Matkoll är inte konfigurerad.", {
+    return new NextResponse(`${appName} är inte konfigurerad.`, {
       status: 503,
       headers: { "content-type": "text/plain; charset=utf-8" },
     });

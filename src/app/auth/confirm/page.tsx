@@ -5,6 +5,7 @@ import { Button } from "@/components/button";
 import { safeNextPath } from "@/features/auth";
 import { confirmEmailLinkForm } from "@/features/auth/server";
 import { ResetPasswordForm } from "@/features/auth/ui/reset-password-form";
+import { appName } from "@/app/app-info";
 
 export const metadata: Metadata = { title: "Logga in", referrer: "no-referrer" };
 
@@ -42,7 +43,7 @@ async function ConfirmForm({ searchParams }: Pick<PageProps<"/auth/confirm">, "s
   return (
     <>
       <h1 className="text-page-title text-ink">Logga in</h1>
-      <p className="text-body text-ink-2">Tryck på knappen för att logga in i Matkoll.</p>
+      <p className="text-body text-ink-2">Tryck på knappen för att logga in i {appName}.</p>
       <form action={confirmEmailLinkForm} className="flex w-full flex-col gap-3">
         <input type="hidden" name="token_hash" value={tokenHash} />
         <input type="hidden" name="next" value={next} />

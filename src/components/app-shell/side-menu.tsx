@@ -8,6 +8,7 @@ import { cx } from "../cx";
 import { currentState, type Destination, mainDestinations, settingsDestination } from "./destinations";
 import { NavEmoji } from "./nav-emoji";
 import { badgeName, TabBadge, useAiBadgeCount } from "./tab-badge";
+import { appName } from "@/app/app-info";
 
 function MenuLink({ destination, pathname }: { destination: Destination; pathname: string | null }) {
   const { href, label, emoji } = destination;
@@ -61,7 +62,7 @@ function SideMenuNav({ pathname, jobRow }: { pathname: string | null; jobRow?: R
     >
       <p className="flex items-center gap-2 px-3 pb-6 text-row-title text-ink">
         <AppLogo />
-        Matkoll
+        {appName}
       </p>
       {jobRow ? <div className="pb-4">{jobRow}</div> : null}
       <ul className="flex flex-col gap-1">
