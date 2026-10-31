@@ -1,0 +1,225 @@
+<!doctype html>
+<html lang="sv">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Matsedel – lugnare skiss</title>
+<style>
+  :root {
+    --bg:#F5F7F4; --surface:#FFFFFF; --ink:#1B2420; --ink2:#56635D; --ink3:#6B7872;
+    --hair:#EEF1EF; --border:#E3E8E4; --accent:#3E7C62; --mint:#DDEFE5; --mintink:#2C5E48;
+    --sky:#DCE9F6; --skyink:#2E5A85; --sand:#F1ECE2; --sandink:#6E5B3E;
+    font-family: -apple-system, BlinkMacSystemFont, 'SF Pro Text', Inter, 'Helvetica Neue', Arial, sans-serif;
+  }
+  * { box-sizing:border-box; }
+  body { margin:0; background:#E9EDEA; color:var(--ink); }
+  .wrap { display:flex; gap:40px; justify-content:center; padding:32px 16px; flex-wrap:wrap; align-items:flex-start; }
+  .note { max-width:360px; font-size:15px; line-height:1.5; color:var(--ink2); }
+  .note h2 { color:var(--ink); font-size:20px; margin:0 0 8px; }
+  .note h3 { color:var(--ink); font-size:16px; margin:20px 0 6px; }
+  .note li { margin-bottom:6px; }
+  .cap { text-align:center; font-size:13px; font-weight:600; letter-spacing:.4px; text-transform:uppercase; color:var(--ink2); margin-bottom:10px; }
+  .phone { width:390px; max-width:100%; height:844px; background:var(--bg); border-radius:36px; padding:20px 16px 96px; box-shadow:0 20px 60px rgba(27,36,32,.18); position:relative; overflow:hidden; }
+
+  h1 { font-size:34px; font-weight:700; letter-spacing:-.5px; margin:8px 4px 14px; display:flex; justify-content:space-between; align-items:center; }
+  h1 .plus { color:var(--accent); font-weight:400; font-size:32px; }
+
+  /* Week tiles (Story 13.7) */
+  .weeks { display:grid; grid-template-columns:repeat(3,1fr); gap:8px; }
+  .wk { background:var(--surface); border-radius:18px; padding:8px 4px; text-align:center; }
+  .wk b { display:block; font-size:16px; }
+  .wk span { display:block; font-size:13px; color:var(--ink2); }
+  .wk em { display:block; font-style:normal; font-size:13px; font-weight:600; }
+  .wk.on { background:var(--accent); color:#fff; }
+  .wk.on span { color:#fff; opacity:.85; }
+  .wk .zero { color:var(--ink3); }
+  .earlier { font-size:14px; font-weight:600; color:var(--accent); margin:10px 4px 16px; }
+
+  /* Shopping summary: one quiet row instead of the big blue button */
+  .shop { display:flex; align-items:center; gap:12px; background:var(--surface); border-radius:18px; padding:12px 14px; margin-bottom:18px; }
+  .shop .ic { width:30px; height:30px; border-radius:9px; background:var(--sky); display:grid; place-items:center; font-size:17px; flex:none; }
+  .shop .t { flex:1; font-size:15px; }
+  .shop .t b { font-weight:600; }
+  .shop .t small { display:block; color:var(--ink3); font-size:13px; }
+  .chev { color:var(--ink3); font-size:20px; }
+
+  .label { font-size:13px; font-weight:600; letter-spacing:.4px; text-transform:uppercase; color:var(--ink2); margin:0 4px 8px; display:flex; justify-content:space-between; }
+  .label span { text-transform:none; letter-spacing:0; font-weight:400; color:var(--ink3); }
+
+  /* One grouped list for the whole week: every day has the same row shape */
+  .list { background:var(--surface); border-radius:18px; overflow:hidden; margin-bottom:16px; }
+  .day { display:flex; align-items:center; gap:12px; padding:10px 12px 10px 14px; border-top:1px solid var(--hair); min-height:56px; }
+  .day:first-child { border-top:0; }
+  .when { width:38px; flex:none; text-align:center; line-height:1.1; }
+  .when b { display:block; font-size:13px; font-weight:600; color:var(--ink2); text-transform:uppercase; letter-spacing:.3px; }
+  .when span { display:block; font-size:20px; font-weight:600; }
+  .thumb { width:56px; height:56px; border-radius:12px; flex:none; background:linear-gradient(135deg,#E9B872,#C8743F 55%,#5E8F5A); display:grid; place-items:center; font-size:26px; }
+  .txt { flex:1; min-width:0; }
+  .txt .n { font-size:17px; font-weight:600; line-height:1.25; }
+  .txt .m { font-size:14px; color:var(--ink3); margin-top:2px; display:flex; align-items:center; gap:6px; flex-wrap:wrap; }
+  .ok { color:var(--mintink); font-weight:600; }
+  .miss { color:var(--sandink); font-weight:600; }
+  .meter { height:5px; border-radius:99px; background:var(--hair); overflow:hidden; margin-top:7px; }
+  .meter i { display:block; height:100%; width:9%; background:#C49A55; border-radius:99px; }
+  .more { width:44px; height:44px; display:grid; place-items:center; color:var(--ink3); font-size:22px; letter-spacing:1px; flex:none; margin-right:-6px; }
+
+  .day.today { background:linear-gradient(90deg, var(--mint) 0, var(--mint) 4px, transparent 4px); }
+  .day.today .when b, .day.today .when span { color:var(--accent); }
+  .pill { font-size:12px; font-weight:600; padding:2px 8px; border-radius:99px; background:var(--mint); color:var(--mintink); }
+
+  .day.empty .add { flex:1; font-size:15px; font-weight:600; color:var(--accent); }
+  .day.empty .when span { color:var(--ink3); }
+
+  .day.past { opacity:.62; }
+  .day.past .thumb { width:44px; height:44px; font-size:20px; border-radius:10px; }
+  .day.past .txt .n { font-size:15px; }
+  .chip { font-size:13px; font-weight:600; color:var(--accent); border:1.5px solid var(--border); border-radius:99px; padding:5px 11px; flex:none; background:var(--surface); }
+  .day.past.open { opacity:1; }
+  .day.past.open .txt .n, .day.past.open .when, .day.past.open .thumb { opacity:.62; }
+
+  .tabs { position:absolute; left:0; right:0; bottom:0; height:78px; background:rgba(255,255,255,.94); border-top:1px solid var(--hair); display:grid; grid-template-columns:repeat(4,1fr); padding:8px 4px 0; }
+  .tab { text-align:center; font-size:10.5px; font-weight:500; color:var(--ink3); }
+  .tab i { display:block; font-style:normal; font-size:21px; margin-bottom:3px; filter:grayscale(1); opacity:.7; }
+  .tab.on { color:var(--accent); font-weight:600; }
+  .tab.on i { filter:none; opacity:1; }
+
+  /* Sheet */
+  .scrim { position:absolute; inset:0; background:rgba(27,36,32,.4); }
+  .sheet { position:absolute; left:0; right:0; bottom:0; background:var(--surface); border-radius:24px 24px 0 0; padding:10px 16px 34px; }
+  .grab { width:36px; height:5px; border-radius:99px; background:var(--border); margin:0 auto 14px; }
+  .sh-head { display:flex; gap:12px; align-items:center; margin-bottom:16px; }
+  .sh-head .thumb { width:64px; height:64px; }
+  .sh-head .n { font-size:20px; font-weight:700; }
+  .sh-head .m { font-size:14px; color:var(--ink3); margin-top:2px; }
+  .sh-head .link { font-size:14px; font-weight:600; color:var(--accent); margin-top:4px; }
+  .portions { display:flex; align-items:center; justify-content:space-between; background:var(--bg); border-radius:14px; padding:6px 6px 6px 14px; margin-bottom:12px; }
+  .portions .l { font-size:16px; }
+  .step { display:flex; align-items:center; gap:4px; }
+  .step button { width:44px; height:44px; border-radius:12px; border:0; background:var(--surface); font-size:22px; color:var(--accent); }
+  .step b { min-width:36px; text-align:center; font-size:17px; }
+  .primary { height:52px; border-radius:14px; background:var(--accent); color:#fff; font-size:17px; font-weight:600; display:grid; place-items:center; margin-bottom:8px; }
+  .actions { background:var(--bg); border-radius:14px; overflow:hidden; }
+  .act { display:flex; align-items:center; gap:12px; padding:0 14px; min-height:52px; border-top:1px solid var(--hair); font-size:16px; }
+  .act:first-child { border-top:0; }
+  .act .e { width:22px; text-align:center; }
+  .act .v { margin-left:auto; color:var(--ink3); font-size:15px; }
+  .act.danger { color:#B3261E; }
+</style>
+</head>
+<body>
+<div class="wrap">
+
+  <div class="note">
+    <h2>Matsedel – lugnare veckovy</h2>
+    <p>Samma innehåll som idag, men varje dag är <b>en rad</b> och sällan använda knappar ligger bakom <b>⋯</b>.</p>
+    <h3>Vad som ändras</h3>
+    <ul>
+      <li><b>En lista, en radform.</b> Alla dagar ligger i samma vita kort: dag till vänster, rätt eller "+ Lägg till" till höger. Inga separata rubriker över korten.</li>
+      <li><b>Fyra knappar → en.</b> Portioner, Markera som lagad, Flytta och Ta bort öppnas från ⋯ (eller tryck på raden) i ett ark.</li>
+      <li><b>Status i metaraden.</b> "✓ Allt hemma" som text. Mätaren visas bara när något saknas, i sandfärg.</li>
+      <li><b>Idag</b> markeras med mintkant och "Idag"-etikett i raden – ingen böjd ram.</li>
+      <li><b>Passerade dagar</b> är mindre och nedtonade. Tomma passerade dagar döljs. En olagad rätt får en liten "Lagad?"-knapp – den enda snabbknappen.</li>
+      <li><b>"Välj recept" på fyllda dagar försvinner.</b> Tomma dagar har "+ Lägg till"; fler rätter samma dag via "+" i rubriken.</li>
+      <li><b>Inga stora knappar längst ner.</b> "Lägg till rätt" = "+" i rubriken. Inköpslistan blir en lugn rad överst som säger hur mycket som saknas.</li>
+    </ul>
+    <h3>Att ta ställning till</h3>
+    <ul>
+      <li>Passerade dagar: nedtonade (som här) eller ihopfällda bakom "Tidigare i veckan (2)"?</li>
+      <li>Ska tryck på raden öppna arket, eller receptet? Här: raden → receptet, ⋯ → arket.</li>
+    </ul>
+  </div>
+
+  <div>
+    <div class="cap">Veckan</div>
+    <div class="phone">
+      <h1>Matsedel <span class="plus">+</span></h1>
+
+      <div class="weeks">
+        <div class="wk on"><b>v. 44</b><span>Denna vecka</span><em>3 rätter</em></div>
+        <div class="wk"><b>v. 45</b><span>Nästa vecka</span><em class="zero">Inga</em></div>
+        <div class="wk"><b>v. 46</b><span>Om två veckor</span><em>1 rätt</em></div>
+      </div>
+      <div class="earlier">Tidigare veckor</div>
+
+      <div class="shop">
+        <div class="ic">🛒</div>
+        <div class="t"><b>10 varor saknas</b><small>Till lördagens spagettipumpa</small></div>
+        <div class="chev">›</div>
+      </div>
+
+      <div class="label">Vecka 44 <span>27 okt – 2 nov</span></div>
+      <div class="list">
+        <div class="day past">
+          <div class="when"><b>Tis</b><span>27</span></div>
+          <div class="thumb">🎃</div>
+          <div class="txt"><div class="n">Spagettipumpa</div><div class="m"><span class="ok">✓ Lagad</span></div></div>
+        </div>
+        <div class="day past open">
+          <div class="when"><b>Fre</b><span>30</span></div>
+          <div class="thumb">🎃</div>
+          <div class="txt"><div class="n">Spagettipumpa</div><div class="m">4 port.</div></div>
+          <div class="chip">Lagad?</div>
+        </div>
+        <div class="day today">
+          <div class="when"><b>Lör</b><span>31</span></div>
+          <div class="thumb">🎃</div>
+          <div class="txt">
+            <div class="n">Spagettipumpa</div>
+            <div class="m"><span class="pill">Idag</span> 60 min · 30 port.</div>
+            <div class="m"><span class="miss">1 av 11 hemma</span></div>
+            <div class="meter"><i></i></div>
+          </div>
+          <div class="more">⋯</div>
+        </div>
+        <div class="day empty">
+          <div class="when"><b>Sön</b><span>1</span></div>
+          <div class="add">+ Lägg till</div>
+        </div>
+      </div>
+
+      <div class="tabs">
+        <div class="tab"><i>📖</i>Recept</div>
+        <div class="tab on"><i>📅</i>Matsedel</div>
+        <div class="tab"><i>🛒</i>Inköpslista</div>
+        <div class="tab"><i>🧊</i>Lagersaldo</div>
+      </div>
+    </div>
+  </div>
+
+  <div>
+    <div class="cap">Tryck på ⋯</div>
+    <div class="phone">
+      <h1>Matsedel <span class="plus">+</span></h1>
+      <div class="weeks">
+        <div class="wk on"><b>v. 44</b><span>Denna vecka</span><em>3 rätter</em></div>
+        <div class="wk"><b>v. 45</b><span>Nästa vecka</span><em class="zero">Inga</em></div>
+        <div class="wk"><b>v. 46</b><span>Om två veckor</span><em>1 rätt</em></div>
+      </div>
+
+      <div class="scrim"></div>
+      <div class="sheet">
+        <div class="grab"></div>
+        <div class="sh-head">
+          <div class="thumb">🎃</div>
+          <div>
+            <div class="n">Spagettipumpa</div>
+            <div class="m">Lördag 31 okt · 60 min</div>
+            <div class="link">Öppna receptet ›</div>
+          </div>
+        </div>
+        <div class="portions">
+          <span class="l">Portioner</span>
+          <div class="step"><button>−</button><b>30</b><button>+</button></div>
+        </div>
+        <div class="primary">Markera som lagad</div>
+        <div class="actions">
+          <div class="act"><span class="e">📅</span>Flytta till annan dag<span class="v">Lördag ›</span></div>
+          <div class="act danger"><span class="e">🗑</span>Ta bort från matsedeln</div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+</div>
+</body>
+</html>
