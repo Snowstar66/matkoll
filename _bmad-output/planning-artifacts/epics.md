@@ -3095,6 +3095,40 @@ Skiss: `_bmad-output/planning-artifacts/ux-designs/ux-Matkoll-2026-10-25/mockups
 **När** jag ser startsidan och undersidorna
 **Så** finns ingen sidledes rullning, alla mål är minst 44 px, och skärmbilder i 390 och 1280 px (ljust och mörkt) är jämförda med skissen
 
+### Story 14.8: Inställningar på datorn
+
+Som Pontus,
+vill jag att Inställningar ser lika genomtänkt ut på datorn som på telefonen,
+så att webbappen känns lugn och ordnad.
+
+Rättar datorvarianten av Story 14.7 efter Pontus skärmbild 2026-10-31 (telefonvarianten är bra och ändras inte).
+
+**Acceptance Criteria:**
+
+**Givet** Inställningar på en bred skärm (från ca 1024 px)
+**När** jag öppnar en undersida
+**Så** har sidan en egen, bredare ram (inte appens smala innehållsbredd): en vänsterspalt på ca 320 px med listan och en högerspalt som fyller resten, med jämn luft mellan dem
+
+**Givet** sidhuvudet på datorn
+**När** jag ser det
+**Så** finns ingen "‹ Tillbaka" (sidomenyn finns redan), rubriken "Inställningar" står överst över båda spalterna, och undersidans rubrik i högerspalten är mindre (sektionsrubrik, ca 24 px) och ligger i linje med första grupprubriken i vänsterspalten
+
+**Givet** den valda raden i vänsterspalten
+**När** den visas
+**Så** har den bara en lugn mintfärgad bakgrund, utan ram; fokusringen syns bara vid tangentbordsfokus (`:focus-visible`) och ligger inuti raden så att hörnen inte klipps
+
+**Givet** värdena i vänsterspalten ("Maxi ICA Stormarknad Östersund", "Claude Haiku 5.5 · Medel")
+**När** spalten är 320 px
+**Så** får de plats eller kapas snyggt med ellips utan att etiketten kapas
+
+**Givet** högerspaltens innehåll
+**När** det visas
+**Så** ligger beskrivningstext, kort och länkar i linje med samma vänsterkant
+
+**Givet** telefonbredd
+**När** jag öppnar Inställningar
+**Så** är allt som efter Story 14.7, och skärmbilder i 390, 1024, 1280 och 1440 px (ljust och mörkt för 1280) visar resultatet
+
 ## Epic 15: Enklare lokalt
 
 Pontus vill slippa logga in när Matkoll körs på den egna Macen. Inloggningen finns kvar för den publicerade appen.
