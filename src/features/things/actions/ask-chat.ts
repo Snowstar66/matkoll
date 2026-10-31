@@ -8,7 +8,7 @@ import { cleanModelText, cutCodePoints } from "@/lib/suggest-input";
 import type { AskThingsPlace } from "@/server/ai";
 import { ThingsDataError } from "../data/client";
 import { loadUnseenIn, searchThingsIn } from "../data/search";
-import { chatInputSchema, cleanHistory, groupHits, maxAnswerHits, questionWords, refOfGroup, type ChatRef, type ChatTurn } from "../domain/thing-ask";
+import { chatInputSchema, cleanHistory, groupHits, maxAnswerHits, questionTooLongText, questionWords, refOfGroup, type ChatRef, type ChatTurn } from "../domain/thing-ask";
 import { placeTitle } from "../domain/thing-place";
 import { hitDateText } from "../domain/thing-search";
 
@@ -43,7 +43,10 @@ export async function askChat(input: { question: string; history: ChatTurn[] }):
   const user = await requireUser();
   if (!user.ok) return user;
   const parsed = chatInputSchema.safeParse(input);
-  if (!parsed.success) return fail("validation", { question: "Skriv en fråga." });
+  if (!parsed.success) {
+    const tooLong = parsed.error.issues.some((issue) => issue.path[0] === "question" && issue.message === "too long");
+    return fail("validation", { question: tooLong ? questionTooLongText : "Skriv en fråga." });
+  }
   const { question } = parsed.data;
   const history = cleanHistory(parsed.data.history, cleanModelText, cutCodePoints);
 

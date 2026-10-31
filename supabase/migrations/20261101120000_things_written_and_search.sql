@@ -12,21 +12,23 @@
 -- says which kind a row is, and the check ties the two together. place_id
 -- stays: a written thing belongs to its box.
 alter table public.thing_item alter column photo_id drop not null;
-alter table public.thing_item add column source text not null default 'photo';
+alter table public.thing_item add column if not exists source text not null default 'photo';
+alter table public.thing_item drop constraint if exists thing_item_source_check;
 alter table public.thing_item add constraint thing_item_source_check check (source in ('photo', 'manual'));
+alter table public.thing_item drop constraint if exists thing_item_source_photo_check;
 alter table public.thing_item add constraint thing_item_source_photo_check check ((source = 'manual') = (photo_id is null));
-create index thing_item_manual_place_idx on public.thing_item (place_id) where source = 'manual';
+create index if not exists thing_item_manual_place_idx on public.thing_item (place_id) where source = 'manual';
 
 -- 2. Fuzzy search on the name (the extension lives in the `extensions` schema, as in Supabase).
 create extension if not exists pg_trgm with schema extensions;
-create index thing_item_name_trgm_idx on public.thing_item using gin (name extensions.gin_trgm_ops);
+create index if not exists thing_item_name_trgm_idx on public.thing_item using gin (name extensions.gin_trgm_ops);
 
 -- 3. "Skriv vad som finns": replaces the written things of a box with `things`,
 -- [{ "name": ..., "category": ... }] (at most 100). The photographed things
 -- of the box are not touched. MK440 when the place is not the caller's box.
 -- Returns how many things the box has written now. Same lock per user as the
 -- card functions.
-create function public.replace_box_things(box uuid, things jsonb)
+create or replace function public.replace_box_things(box uuid, things jsonb)
 returns integer
 language plpgsql
 security invoker
@@ -67,7 +69,7 @@ grant execute on function public.replace_box_things(uuid, jsonb) to authenticate
 
 -- 4. The boxes of a room that have written things, for the room's Kort view:
 -- how many and when they were written (the newest).
-create function public.thing_room_written(site uuid, in_room text)
+create or replace function public.thing_room_written(site uuid, in_room text)
 returns table (place_id uuid, part text, things bigint, written_at timestamptz)
 language sql
 stable
@@ -89,24 +91,32 @@ grant execute on function public.thing_room_written(uuid, text) to authenticated
 -- the kept things (not merged into another) whose name holds a term or is
 -- close to it (a typo, an ending: "skiftnyckel" finds "Skiftnycklar"), or whose
 -- category holds it. Best first; `score` is 1 for a name that holds the term.
--- The word similarity threshold is set for the function, and `<%` with the
--- ilike use the trigram index on the name. A term is 2 to 40 characters, at
+-- The substring match (ilike) uses the trigram index on the name; the close
+-- match compares word similarity with 0.45 (the function, not the `<%`
+-- operator: the operator's threshold is a pg_trgm setting that a function may
+-- not set, and it is only known to a session that has loaded the extension). A term is 2 to 40 characters, at
 -- most 8 terms, at most 100 hits (default 40).
-create function public.search_things(terms text[], max_hits integer default 40)
+create or replace function public.search_things(terms text[], max_hits integer default 40)
 returns table (
   id uuid, name text, category text, where_hint text, photo_id uuid, place_id uuid, site_id uuid, site_name text,
   room text, room_key text, part text, kind text, taken_at timestamptz, source text, score real, seen_on bigint
 )
-language sql
+language plpgsql
 stable
 security invoker
 set search_path = ''
-set pg_trgm.word_similarity_threshold = '0.45'
 as $$
+#variable_conflict use_column
+begin
+  if cardinality(terms) > 50 then
+    raise exception 'at most 50 search terms' using errcode = '22023';
+  end if;
+  return query
   with wanted as (
-    select distinct on (term) term, replace(replace(replace(term, '\', '\\'), '%', '\%'), '_', '\_') as pattern
-    from (select lower(btrim(t)) as term from unnest(terms) as t) as cleaned
+    select term, replace(replace(replace(term, '\', '\\'), '%', '\%'), '_', '\_') as pattern
+    from (select distinct lower(btrim(t)) as term from unnest(terms) as t) as cleaned
     where char_length(term) between 2 and 40
+    order by term
     limit 8
   ),
   hits as (
@@ -122,7 +132,7 @@ as $$
     join public.thing_item i
       on i.name ilike '%' || w.pattern || '%'
       or i.category ilike '%' || w.pattern || '%'
-      or w.term operator(extensions.<%) i.name
+      or extensions.word_similarity(w.term, i.name) >= 0.45
     where i.same_as is null
     group by i.id
   )
@@ -136,6 +146,7 @@ as $$
   left join public.thing_photo ph on ph.id = i.photo_id and ph.user_id = i.user_id
   order by h.score desc, i.name, i.id
   limit greatest(1, least(coalesce(max_hits, 40), 100));
+end;
 $$;
 
 revoke all on function public.search_things(text[], integer) from public, anon, authenticated, service_role;
@@ -145,7 +156,7 @@ grant execute on function public.search_things(text[], integer) to authenticated
 -- containers the cards could not see into, less the boxes that have contents
 -- since (a card or written things), plus the boxes that are still empty.
 -- Rooms with none are left out.
-create function public.thing_unseen_by_room()
+create or replace function public.thing_unseen_by_room()
 returns table (site_id uuid, room text, room_key text, unseen bigint)
 language sql
 stable

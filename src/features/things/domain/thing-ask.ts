@@ -43,6 +43,7 @@ export function cleanHistory(turns: readonly ChatTurn[], clean: (text: string) =
 }
 
 /** What the chat says and does, in Swedish. */
+export const questionTooLongText = `Frågan får vara högst ${maxQuestionChars} tecken.`;
 export const askLabel = "Fråga om ditt förråd";
 export const askPlaceholder = "Fråga om ditt förråd …";
 export const askButtonText = "Skicka";

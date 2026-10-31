@@ -599,6 +599,11 @@ test.describe("on a phone", () => {
 });
 
 test("what is in a box is written, sorted by one AI call, shown with the photographed things, found in search and the chat, and edited", async ({ page }) => {
+  // The chat flow logs no console error or page error (no hydration mismatch, no key warning).
+  const problems: string[] = [];
+  // (The seeded card has no file, so its thumbnail's 404 is not a problem of the page.)
+  page.on("console", (message) => message.type() === "error" && !message.text().startsWith("Failed to load resource") && problems.push(message.text().slice(0, 300)));
+  page.on("pageerror", (error) => problems.push(error.message));
   await seedPlace(hemma, "Skräpförrådet", [{ name: "Hammare", category: "Verktyg" }]);
   const box = await adminClient()
     .from("thing_place")
@@ -668,6 +673,7 @@ test("what is in a box is written, sorted by one AI call, shown with the photogr
   await expect(page.getByTestId("box-saved")).toHaveText("Sparat: 1 pryl");
   expect((await adminClient().from("thing_item").select("name").eq("place_id", box.data.id).eq("source", "manual")).data).toEqual([{ name: "Tomtenissar" }]);
   expect((await adminClient().from("thing_item").select("name").eq("user_id", userId).eq("source", "photo")).data).toEqual([{ name: "Hammare" }]);
+  expect(problems).toEqual([]);
 });
 
 test("when the AI does not sort a box's text the things are saved under Övrigt and it says so; a text that is too long is refused", async ({ page }) => {

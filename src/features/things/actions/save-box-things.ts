@@ -6,6 +6,7 @@ import { fail, ok, type Result } from "@/lib/errors";
 import { revalidateFor } from "@/lib/revalidate";
 import { createClient } from "@/lib/supabase/server";
 import { ThingsDataError } from "../data/client";
+import { loadPlaceIn } from "../data/places";
 import { replaceBoxThingsIn } from "../data/written";
 import type { ThingCategory } from "../domain/thing";
 import { parseWrittenThings, writtenInputSchema, writtenToText, type WrittenThing } from "../domain/thing-written";
@@ -38,6 +39,18 @@ export async function saveBoxThings(input: { placeId: string; text: string }): P
   const names = parseWrittenThings(parsed.data.text);
   if ("error" in names) return fail("validation", { text: names.error });
 
+  // The box must be the user's before the paid call (RLS: a place of another user is not found).
+  let db;
+  try {
+    db = await createClient();
+    const place = await loadPlaceIn(db, parsed.data.placeId);
+    if (!place || !place.isBox) return fail("things_place_gone");
+  } catch (error) {
+    if (!(error instanceof ThingsDataError)) throw error;
+    console.error("things_place_failed", { reason: error.detail });
+    return fail("things_place_failed");
+  }
+
   let categories: ThingCategory[] = names.names.map(() => "Övrigt");
   let categorized = true;
   if (names.names.length > 0) {
@@ -54,7 +67,7 @@ export async function saveBoxThings(input: { placeId: string; text: string }): P
   const things: WrittenThing[] = names.names.map((name, index) => ({ name, category: categories[index] ?? "Övrigt" }));
 
   try {
-    const saved = await replaceBoxThingsIn(await createClient(), parsed.data.placeId, things);
+    const saved = await replaceBoxThingsIn(db, parsed.data.placeId, things);
     if (saved.kind === "gone") return fail("things_place_gone");
     revalidateFor("thing_item");
     console.info("things_written", { things: saved.count, categorized });
