@@ -15,15 +15,16 @@ const placeId = "0b2f6d0a-3c0e-4d52-9a54-6d0f0c5f6a02";
 beforeEach(() => askChat.mockReset());
 
 async function ask(text: string) {
-  await userEvent.type(screen.getByRole("textbox", { name: "Fråga om ditt förråd" }), `${text}{Enter}`);
+  await userEvent.type(screen.getByRole("textbox", { name: "Sök eller fråga" }), `${text}{Enter}`);
 }
 
 describe("the chat", () => {
-  it("has the field 'Fråga om ditt förråd …' and a send button", () => {
+  it("has the field Sök eller fråga …, the hint while it is empty and a send button", () => {
     render(<ThingChat />);
-    expect(screen.getByPlaceholderText("Fråga om ditt förråd …")).toBeInTheDocument();
+    expect(screen.getByPlaceholderText("Sök eller fråga …")).toBeInTheDocument();
     expect(screen.getByRole("button", { name: "Skicka" })).toBeInTheDocument();
     expect(screen.queryByRole("button", { name: "Ny fråga" })).not.toBeInTheDocument();
+    expect(screen.getByText("Skriv för att söka – tryck ↑ för att fråga")).toBeInTheDocument();
   });
 
   it("shows the question, then the answer with a card to tap: place, date and the card's thumbnail", async () => {
@@ -41,7 +42,7 @@ describe("the chat", () => {
     expect(within(ref).getByRole("presentation", { hidden: true })).toHaveAttribute("src", `/api/things/photo/${photoId}`);
     expect(askChat).toHaveBeenCalledWith({ question: "Har du sett min skiftnyckel?", history: [] });
     // The field is empty again for the next question.
-    expect(screen.getByRole("textbox", { name: "Fråga om ditt förråd" })).toHaveValue("");
+    expect(screen.getByRole("textbox", { name: "Sök eller fråga" })).toHaveValue("");
   });
 
   it("shows a thing written into a box without a thumbnail", async () => {
