@@ -67,6 +67,7 @@ export function RememberProposal({
   const [errors, setErrors] = useState<Fields>({});
   const nameRef = useRef<HTMLInputElement>(null);
   const roomRef = useRef<HTMLInputElement>(null);
+  const partRef = useRef<HTMLInputElement>(null);
 
   async function save(values: { name: string; room: string; part: string }): Promise<boolean> {
     if (saving) return false;
@@ -74,7 +75,16 @@ export function RememberProposal({
     setNotice(null);
     let result: Result<Remembered>;
     try {
-      result = await rememberThing({ siteId, name: values.name, room: values.room, part: values.part, category: proposal.category, replaces: proposal.moves?.id ?? null });
+      // A name changed in the sheet is another thing: the one of the old name stays where it is.
+      const same = normalizePlaceName(values.name) === normalizePlaceName(proposal.name);
+      result = await rememberThing({
+        siteId,
+        name: values.name,
+        room: values.room,
+        part: values.part,
+        category: proposal.category,
+        replaces: same ? (proposal.moves?.id ?? null) : null,
+      });
     } catch {
       result = fail("things_noted_failed");
     }
@@ -88,7 +98,7 @@ export function RememberProposal({
       setErrors(fields);
       setOpen(true);
       // The first field that is wrong gets focus, so its message is read.
-      (fields.name ? nameRef : roomRef).current?.focus();
+      (fields.name ? nameRef : fields.room ? roomRef : partRef).current?.focus();
       return false;
     }
     setNotice(result.error.message ?? errorMessages[result.error.code]);
@@ -134,7 +144,7 @@ export function RememberProposal({
         </span>
       </div>
       {proposal.moves ? <p className="mt-2 text-meta text-ink-2">{movedFromText(proposal.moves)}</p> : null}
-      {notice ? (
+      {notice && !open ? (
         <div className="mt-2">
           <Notice role="alert">{notice}</Notice>
         </div>
@@ -220,6 +230,7 @@ export function RememberProposal({
               {notedPartLabel} <span className="font-normal text-ink-3">{optionalText}</span>
             </FieldLabel>
             <Input
+              ref={partRef}
               id={`${ids}-part`}
               autoComplete="off"
               maxLength={maxPlaceNameChars * 2}

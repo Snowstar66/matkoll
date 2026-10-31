@@ -49,10 +49,15 @@ export type ChatAnswer = {
   similar?: ThingHit[];
 };
 
+/** A room or part's name for the model's "Rum:" list: one line, without the list's own ":" and ",". */
+function modelName(name: string): string {
+  return cleanModelText(name.replace(/[:,]/g, " "));
+}
+
 /** The rooms and parts as the model gets them: on one line, empty names left out, at most 60 rooms. */
 function roomsForModel(rooms: readonly RoomParts[]): RoomParts[] {
   return rooms
-    .map((room) => ({ room: cleanModelText(room.room), parts: room.parts.map((part) => cleanModelText(part)).filter((part) => part !== "").slice(0, 60) }))
+    .map((room) => ({ room: modelName(room.room), parts: room.parts.map(modelName).filter((part) => part !== "").slice(0, 60) }))
     .filter((room) => room.room !== "")
     .slice(0, 60);
 }
@@ -76,7 +81,9 @@ export async function askChat(input: { question: string; history: ChatTurn[]; si
 
   // A plain search ("coca-cola", "passen") is answered by the database, without AI; only
   // when it finds nothing at all does the AI get the text and may name the closest thing.
-  if (isPlainSearch(question)) {
+  // Not as the answer to a question of the chat's own ("Ska jag komma ihåg …?" – "ja").
+  const answersQuestion = history.at(-1)?.answer.trim().endsWith("?") ?? false;
+  if (isPlainSearch(question) && !answersQuestion) {
     let found: ThingHit[];
     try {
       found = await searchThingsIn(await createClient(), searchTerms(question), maxAnswerHits);

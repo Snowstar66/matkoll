@@ -22,9 +22,10 @@ alter table public.thing_item add constraint thing_item_source_photo_check check
 create index if not exists thing_item_noted_idx on public.thing_item (user_id) where source = 'noted';
 
 -- 2. "Kom ihåg": saves `thing_name` with `thing_category` in the caller's part
--- (or whole room) `place`, and removes the caller's noted thing `replaces` when
--- it is given (the same thing written again has moved; a noted thing that is
--- gone is fine). MK440 when the place is not the caller's or is a box; MK441
+-- (or whole room) `place`, and removes the caller's noted things of the same
+-- name in any case: the same thing written again has moved, also when two
+-- proposals or two tabs save it. A noted thing of another name stays. `replaces`
+-- (the one the proposal showed) is taken for the record; the name decides. MK440 when the place is not the caller's or is a box; MK441
 -- when the caller has 2000 noted things. The name and category are checked by
 -- the table. Returns the new thing's id. Same lock per user as the other things
 -- functions.
@@ -49,9 +50,8 @@ begin
     raise exception 'the place is not found' using errcode = 'MK440';
   end if;
 
-  if replaces is not null then
-    delete from public.thing_item where id = replaces and user_id = caller and source = 'noted';
-  end if;
+  delete from public.thing_item
+  where user_id = caller and source = 'noted' and lower(btrim(name)) = lower(btrim(thing_name));
 
   if (select count(*) from public.thing_item where user_id = caller and source = 'noted') >= 2000 then
     raise exception 'at most 2000 noted things' using errcode = 'MK441';

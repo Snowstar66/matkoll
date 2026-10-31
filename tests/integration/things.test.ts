@@ -1181,12 +1181,21 @@ describe("kom ihåg var jag lade den (Story 18.19)", () => {
     const card = await doneCard(n, first.placeId);
     const [cardThing] = await loadThingsIn(n.db, card.id);
     await remember(n, site, "Köket", null, "Reservnyckel", cardThing.id);
+    // The same name saved again without `replaces` (a second proposal, another tab) moves it too.
+    const again = await remember(n, site, "Hallen", "Kroken", "bilnyckel");
+    expect((await adminClient().from("thing_item").select("id").eq("source", "noted").eq("user_id", n.id).ilike("name", "bilnyckel")).data).toEqual([{ id: again.id }]);
+    // A noted thing of another name is not moved by it.
+    await remember(n, site, "Hallen", null, "Bilnycklar", again.id);
+    expect((await adminClient().from("thing_item").select("id").eq("id", again.id)).data).toHaveLength(1);
+    // A * in a name is no wildcard that hides the real match.
+    const star = await remember(n, site, "Hallen", null, "Nyckel*");
+    expect(await findNotedIn(n.db, "Nyckel*")).toMatchObject({ id: star.id });
     expect((await loadThingsIn(n.db, card.id)).map((thing) => thing.id)).toEqual([cardThing.id]);
-    expect(await updateItemIn(n.db, moved.id, { name: "Bilnyckel Volvo", category: "Hushåll", whereHint: null })).toBe(true);
-    const snapshot = await removeItemIn(n.db, moved.id);
-    expect(snapshot).toMatchObject({ id: moved.id, photoId: null, source: "noted", name: "Bilnyckel Volvo" });
+    expect(await updateItemIn(n.db, again.id, { name: "Bilnyckel Volvo", category: "Hushåll", whereHint: null })).toBe(true);
+    const snapshot = await removeItemIn(n.db, again.id);
+    expect(snapshot).toMatchObject({ id: again.id, photoId: null, source: "noted", name: "Bilnyckel Volvo" });
     expect(await restoreItemIn(n.db, snapshot!)).toBe("restored");
-    expect((await adminClient().from("thing_item").select("source, photo_id").eq("id", moved.id).single()).data).toEqual({ source: "noted", photo_id: null });
+    expect((await adminClient().from("thing_item").select("source, photo_id").eq("id", again.id).single()).data).toEqual({ source: "noted", photo_id: null });
   });
 
   it("refuses a box, another user's place, a noted row with a card and a card row without one", async () => {

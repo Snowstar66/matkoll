@@ -163,21 +163,20 @@ export function hitCountText(count: number): string {
 // answer or folded in.
 
 /** Words that make a short text a question, not a search ("var är passen", "har vi tejp"). */
-const questionStarts = new Set(["var", "vad", "vem", "när", "hur", "har", "finns", "vilken", "vilket", "vilka", "kan", "ska", "är", "ligger", "och", "minns", "vet", "hittar", "hittade"]);
+const questionWords = new Set(["var", "vart", "vad", "vem", "när", "hur", "har", "finns", "vilken", "vilket", "vilka", "kan", "ska", "är", "ligger", "och", "minns", "vet", "hittar", "hittade", "letar", "söker", "ja", "nej", "japp", "nä", "okej", "ok"]);
 /** Words that make a text a statement of where something is ("passen ligger här"). */
 const statementWords = new Set(["ligger", "står", "hänger", "förvaras", "lade", "lagt", "la", "satte", "ställde"]);
 
 /** The most words of a plain search. */
 export const maxPlainSearchWords = 3;
 
-/** Whether `text` is a plain search: one to three words, no question mark, no question word first and no statement of where something is. */
+/** Whether `text` is a plain search: one to three words, no question mark, no question or answer word ("vart", "ja") and no statement of where something is. */
 export function isPlainSearch(text: string): boolean {
   const key = searchKey(text);
   if (key === "" || key.includes("?")) return false;
   const words = key.split(" ").filter((word) => /[\p{L}\p{N}]/u.test(word));
   if (words.length === 0 || words.length > maxPlainSearchWords) return false;
-  if (questionStarts.has(words[0])) return false;
-  return !words.some((word) => statementWords.has(word));
+  return !words.some((word) => questionWords.has(word) || statementWords.has(word));
 }
 
 /** Letters and digits only, so "coca cola" finds "Coca-Cola". */
@@ -185,13 +184,22 @@ function compact(text: string): string {
   return searchKey(text).replace(/[^\p{L}\p{N}]/gu, "");
 }
 
-/** How well a name answers the query: 3 the same, 2 it starts with it, 1 it holds it or a word of it holds each word, 0 a close match only. */
+/** A word without a Swedish definite or plural ending, so "passen" and "Pass", "hallen" and "Hall" are the same. */
+function stemmed(word: string): string {
+  return word.replace(/(?:arna|orna|erna|na|en|et|ar|or|er|n)$/u, "");
+}
+
+/**
+ * How well a name answers the query: 3 the same (also in another form: "passen"
+ * for "Pass"), 2 it starts with it (or the query starts with the whole name of
+ * three letters or more), 1 it holds it or a word of it holds each word, 0 a close match only.
+ */
 export function hitRank(query: string, name: string): number {
   const wanted = compact(query);
   const have = compact(name);
   if (wanted === "") return 0;
-  if (have === wanted) return 3;
-  if (have.startsWith(wanted)) return 2;
+  if (have === wanted || (stemmed(have).length >= 3 && stemmed(have) === stemmed(wanted))) return 3;
+  if (have.startsWith(wanted) || ([...have].length >= 3 && wanted.startsWith(have))) return 2;
   if ([...wanted].length >= 2 && have.includes(wanted)) return 1;
   const nameWords = searchKey(name).split(/[^\p{L}\p{N}]+/u).filter(Boolean);
   const queryWords = searchKey(query).split(/[^\p{L}\p{N}]+/u).filter(Boolean);

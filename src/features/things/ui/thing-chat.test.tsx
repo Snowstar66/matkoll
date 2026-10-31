@@ -220,6 +220,20 @@ describe("the chat", () => {
       expect(rememberThing).toHaveBeenCalledWith(expect.objectContaining({ room: "Vinden", part: "", replaces: "0b2f6d0a-3c0e-4d52-9a54-6d0f0c5f6a31" }));
     });
 
+    it("does not move the old thing when the name is changed in the sheet", async () => {
+      askChat.mockResolvedValue(
+        ok({ answer: "Ska jag komma ihåg var det ligger?", refs: [], proposal: { ...proposal, moves: { id: "0b2f6d0a-3c0e-4d52-9a54-6d0f0c5f6a31", title: "Hallen", notedAt: "2026-10-12T10:00:00Z" } } }),
+      );
+      rememberThing.mockResolvedValue(ok(remembered));
+      render(<ThingChat siteId={siteId} />);
+      await ask("Passen ligger i översta byrålådan i sovrummet");
+      await userEvent.click(await screen.findByRole("button", { name: "Ändra" }));
+      const sheet = screen.getByRole("dialog", { name: "Pass" });
+      await userEvent.type(within(sheet).getByLabelText("Föremål"), "kort");
+      await userEvent.click(within(sheet).getByRole("button", { name: "Kom ihåg" }));
+      expect(rememberThing).toHaveBeenCalledWith(expect.objectContaining({ name: "Passkort", replaces: null }));
+    });
+
     it("changes the proposal in a sheet named after the thing: name, room by chip, part (valfritt), and Kom ihåg saves it", async () => {
       askChat.mockResolvedValue(ok({ answer: "Ska jag komma ihåg var det ligger?", refs: [], proposal }));
       rememberThing.mockResolvedValue(ok({ ...remembered, title: "Skräpförrådet" }));

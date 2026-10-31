@@ -44,7 +44,9 @@ export function matchRoom<T extends { room: string }>(rooms: readonly T[], name:
   const key = normalizePlaceName(name);
   const exact = rooms.find((entry) => normalizePlaceName(entry.room) === key);
   if (exact) return exact;
-  const loose = rooms.filter((entry) => stem(normalizePlaceName(entry.room)) === stem(key));
+  // Either side may be the base form: "Altan" and "Altanen", "Sovrum" and "Sovrummet".
+  const same = (a: string, b: string) => stem(a) === stem(b) || stem(a) === b || a === stem(b);
+  const loose = rooms.filter((entry) => same(normalizePlaceName(entry.room), key));
   return loose.length === 1 ? loose[0] : null;
 }
 

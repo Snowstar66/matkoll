@@ -112,13 +112,17 @@ describe("renaming a thing", () => {
 describe("a plain search and its best hits (Story 18.19)", () => {
   it("takes one to three words without a question as a search", () => {
     for (const text of ["coca-cola", "passen", "skruvdragare", "röd cykelpump", "  Blå   backen  ", "vinter däck sommar"]) expect(isPlainSearch(text), text).toBe(true);
-    for (const text of ["var är passen", "passen?", "har vi tejp", "hur många skruvar", "finns tejp", "och tången", "passen ligger här", "en två tre fyra", "", "  ", "?"]) {
+    for (const text of ["var är passen", "vart är passen", "letar efter passen", "ja", "nej", "passen?", "har vi tejp", "hur många skruvar", "finns tejp", "och tången", "passen ligger här", "en två tre fyra", "", "  ", "?"]) {
       expect(isPlainSearch(text), text).toBe(false);
     }
   });
 
   it("ranks the same name first, then the start, then a name that holds it, and a close match not at all", () => {
     expect(hitRank("coca-cola", "Coca-Cola")).toBe(3);
+    // The definite form finds the name a noted thing is saved with.
+    expect(hitRank("passen", "Pass")).toBe(3);
+    expect(hitRank("skruvdragaren", "Skruvdragare")).toBe(2);
+    expect(rankHits("passen", [hit({ name: "Pass" })]).best).toHaveLength(1);
     expect(hitRank("coca cola", "Coca-Cola")).toBe(3);
     expect(hitRank("skruv", "Skruvdragare")).toBe(2);
     expect(hitRank("nyckel", "Skiftnyckel")).toBe(1);

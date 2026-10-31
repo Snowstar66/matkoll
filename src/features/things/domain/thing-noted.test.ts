@@ -41,6 +41,9 @@ describe("where a thing to remember goes (Story 18.19)", () => {
     expect(matchRoom([{ room: "Hallen" }, { room: "Hall" }], "hallen")?.room).toBe("Hallen");
     expect(matchRoom([{ room: "Hallen" }, { room: "Halle" }], "hall")).toBeNull();
     expect(matchRoom(rooms, "Köket")).toBeNull();
+    // Either side may be the base form.
+    expect(matchRoom([{ room: "Altan" }], "altanen")?.room).toBe("Altan");
+    expect(matchRoom([{ room: "Altanen" }], "Altan")?.room).toBe("Altanen");
   });
 
   it("capitalizes the first letter only", () => {

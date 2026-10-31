@@ -45,9 +45,9 @@ const notedRowsSchema = z.array(
   z.object({ id: z.uuid(), name: z.string(), created_at: z.string(), thing_place: z.object({ room: z.string(), part: z.string().nullable() }) }),
 );
 
-/** A LIKE pattern that matches `text` as it is: %, _ and \ escaped. */
+/** A LIKE pattern for `text`: %, _ and \ escaped, and PostgREST's * (its %) one character, so the names checked below are never more than the same length. */
 function literal(text: string): string {
-  return text.replace(/[\\%_]/g, (character) => `\\${character}`);
+  return text.replace(/[\\%_]/g, (character) => `\\${character}`).replaceAll("*", "_");
 }
 
 /**
