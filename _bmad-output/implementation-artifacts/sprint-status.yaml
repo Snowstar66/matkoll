@@ -186,3 +186,16 @@ development_status:
   16-11-ordnad-topp-i-erbjudandearket: done
   16-12-kryssrutor-alltid-framme: done
   epic-9-retrospective: optional
+
+  epic-17: in-progress
+  17-1-isoleringstest-mellan-hushåll: done
+  17-2-enkel-inloggning-med-lösenord: backlog
+  17-3-molnmiljön: backlog
+  17-4-flytta-din-data-till-molnet: backlog
+  17-5-ai-som-går-att-byta: backlog
+  17-6-ai-kostnaden-syns: backlog
+  17-7-live-inköpslista: backlog
+  17-8-handla-med-dålig-täckning: backlog
+  17-9-lägg-till-snabbt-och-med-siri: backlog
+  17-10-egna-varor-ligger-kvar-tills-de-är-köpta: backlog
+  epic-17-retrospective: optional
