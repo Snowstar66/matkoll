@@ -42,7 +42,7 @@ test.beforeAll(async () => {
 /** Starts each test from the same plan, recipe, own items and pantry. */
 async function seed() {
   const admin = adminClient();
-  for (const table of ["meal_plan", "pantry_item", "recipe"] as const) {
+  for (const table of ["shopping_custom_item", "shopping_check", "meal_plan", "pantry_item", "recipe"] as const) {
     const { error } = await admin.from(table).delete().eq("user_id", userId);
     if (error) throw error;
   }

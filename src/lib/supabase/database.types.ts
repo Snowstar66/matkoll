@@ -303,14 +303,14 @@ isOneToOne: false
                   ]
                 },"shopping_check": {
                   Row: {
-                    "created_at": string,"id": string,"line_key": string,"meal_plan_id": string,"user_id": string
+                    "created_at": string,"id": string,"line_key": string,"meal_plan_id": string | null,"user_id": string
                   }
                   ComputedFields: never
                   Insert: {
-                    "created_at"?: string,"id"?: string,"line_key": string,"meal_plan_id": string,"user_id"?: string
+                    "created_at"?: string,"id"?: string,"line_key": string,"meal_plan_id"?: string | null,"user_id"?: string
                   }
                   Update: {
-                    "created_at"?: string,"id"?: string,"line_key"?: string,"meal_plan_id"?: string,"user_id"?: string
+                    "created_at"?: string,"id"?: string,"line_key"?: string,"meal_plan_id"?: string | null,"user_id"?: string
                   }
                   Relationships: [
                     {
@@ -323,14 +323,14 @@ isOneToOne: false
                   ]
                 },"shopping_custom_item": {
                   Row: {
-                    "amount": number | null,"created_at": string,"id": string,"ingredient_id": string | null,"label": string,"meal_plan_id": string,"unit": string | null,"user_id": string
+                    "amount": number | null,"created_at": string,"id": string,"ingredient_id": string | null,"label": string,"meal_plan_id": string | null,"unit": string | null,"user_id": string
                   }
                   ComputedFields: never
                   Insert: {
-                    "amount"?: number | null,"created_at"?: string,"id"?: string,"ingredient_id"?: string | null,"label": string,"meal_plan_id": string,"unit"?: string | null,"user_id"?: string
+                    "amount"?: number | null,"created_at"?: string,"id"?: string,"ingredient_id"?: string | null,"label": string,"meal_plan_id"?: string | null,"unit"?: string | null,"user_id"?: string
                   }
                   Update: {
-                    "amount"?: number | null,"created_at"?: string,"id"?: string,"ingredient_id"?: string | null,"label"?: string,"meal_plan_id"?: string,"unit"?: string | null,"user_id"?: string
+                    "amount"?: number | null,"created_at"?: string,"id"?: string,"ingredient_id"?: string | null,"label"?: string,"meal_plan_id"?: string | null,"unit"?: string | null,"user_id"?: string
                   }
                   Relationships: [
                     {
@@ -486,7 +486,7 @@ isOneToOne: false
 "id": string,
 "ingredient_id": string | null,
 "label": string,
-"meal_plan_id": string,
+"meal_plan_id": string | null,
 "unit": string | null,
 "user_id": string
             }
@@ -661,7 +661,7 @@ isOneToOne: false
 "id": string,
 "ingredient_id": string | null,
 "label": string,
-"meal_plan_id": string,
+"meal_plan_id": string | null,
 "unit": string | null,
 "user_id": string
             }[]
@@ -864,7 +864,7 @@ isOneToOne: false
 "id": string,
 "ingredient_id": string | null,
 "label": string,
-"meal_plan_id": string,
+"meal_plan_id": string | null,
 "unit": string | null,
 "user_id": string
             }

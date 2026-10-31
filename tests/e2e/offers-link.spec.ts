@@ -202,6 +202,11 @@ test("asks for the link when the store has none", async ({ page }) => {
 test("Story 9.12: picks offers and adds them to the shopping list once", async ({ page }) => {
   const errors = watchErrors(page);
   const admin = adminClient();
+  // Own items belong to the household, not to a plan (Story 17.10): deleting the plan no longer takes them.
+  for (const table of ["shopping_custom_item", "shopping_check"] as const) {
+    const gone = await admin.from(table).delete().eq("user_id", userId);
+    if (gone.error) throw gone.error;
+  }
   const cleared = await admin.from("meal_plan").delete().eq("user_id", userId);
   if (cleared.error) throw cleared.error;
   const plan = await admin.from("meal_plan").insert({ user_id: userId, name: "Vecka 44", is_current: true, week_start: thisMonday() });
@@ -350,6 +355,11 @@ test("Story 9.13: a blocked store is skipped with its own message and the other 
 
 test("Story 9.13: a picked offer's note on the shopping list names its store", async ({ page }) => {
   const admin = adminClient();
+  // Own items belong to the household, not to a plan (Story 17.10): deleting the plan no longer takes them.
+  for (const table of ["shopping_custom_item", "shopping_check"] as const) {
+    const gone = await admin.from(table).delete().eq("user_id", userId);
+    if (gone.error) throw gone.error;
+  }
   const cleared = await admin.from("meal_plan").delete().eq("user_id", userId);
   if (cleared.error) throw cleared.error;
   const plan = await admin.from("meal_plan").insert({ user_id: userId, name: "Vecka 44", is_current: true, week_start: thisMonday() });

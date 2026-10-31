@@ -40,6 +40,9 @@ type Entry = {
 /** An entry's key: per plan, so a change never shows on another plan's list. */
 const entryId = (planId: string, key: string) => `${planId} ${key}`;
 
+/** What a week without a plan, which has only own items, is kept under (Story 17.10). */
+const ownScope = "own";
+
 /**
  * Whether the server's `lines` show the change, so the entry can go: a
  * removed line is no longer there; a restored one is there, or the list has
@@ -204,8 +207,10 @@ export function useLineRemoval(planId: string | null, lines: readonly ShoppingLi
   }
 
   async function remove(line: ShoppingLine, moveFocus: boolean) {
-    if (planId === null || parseLineKey(line.key) === null) return;
-    const plan = planId;
+    const parsed = parseLineKey(line.key);
+    // Without a plan only an own item can be removed (Story 17.10).
+    if (parsed === null || (planId === null && parsed.kind !== "custom")) return;
+    const plan = planId ?? ownScope;
     const id = entryId(plan, line.key);
     const existing = entries.get(id);
     if (removing.current.has(id) || (existing?.kind === "remove" && !(existing.settled && serverHas(existing, lines)))) {
@@ -287,10 +292,10 @@ export function useLineRemoval(planId: string | null, lines: readonly ShoppingLi
   }
 
   // A change the server's list already shows is done, whatever the entry says.
-  const pending =
-    planId === null
-      ? []
-      : [...entries.values()].filter((entry) => entry.planId === planId && !(entry.settled && serverHas(entry, lines)));
+  const scope = planId ?? ownScope;
+  const pending = [...entries.values()].filter(
+    (entry) => entry.planId === scope && !(entry.settled && serverHas(entry, lines)),
+  );
   const shown = pending.length === 0 ? lines : applyRemovals(lines, pending);
   const touched = new Set(pending.map((entry) => entryId(entry.planId, entry.line.key)));
   return { shown, remove: (line, moveFocus) => void remove(line, moveFocus), focusAfterRef, touched };

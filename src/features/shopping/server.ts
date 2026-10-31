@@ -83,11 +83,12 @@ async function storeAndChoices(): Promise<ProductChoiceContext> {
 }
 
 /**
- * The plan's checks, or `null` when they cannot be read (logged as
+ * The plan's checks (and the own items', which belong to no plan; `planId` is
+ * null in a week without a plan), or `null` when they cannot be read (logged as
  * `shopping_checks_unavailable`): the list is then shown without checks,
  * and checking is off, rather than no list at all. Other errors are thrown.
  */
-async function checksOrNull(planId: string): Promise<CheckRow[] | null> {
+async function checksOrNull(planId: string | null): Promise<CheckRow[] | null> {
   try {
     return await listCheckRowsIn(await createClient(), planId);
   } catch (error) {
@@ -126,7 +127,7 @@ async function pendingClearOf(list: CountedList, checks: readonly CheckRow[] | n
  * each dish's title, and the list's lines from computeList, sorted by section
  * and name. For the page, inside <Suspense> (AD-18). `unauthorized` without a
  * signed-in user; `shopping_unavailable` (logged) when the plan, the recipes,
- * the own items, the overrides or the catalog cannot be read. Checks that cannot be read give the list
+ * the own items (all of the user's, whichever week; Story 17.10), the overrides or the catalog cannot be read. Checks that cannot be read give the list
  * without them and `checksUnavailable`. The list is counted against the
  * selected place's pantry, read once with the place (pantry.getPantryForStatus,
  * AD-24), so `site` is always the place the list was counted against. A place
@@ -156,7 +157,8 @@ export async function getShoppingList(weekStart?: string): Promise<Result<Shoppi
         checks = await checksOrNull(planId);
         return checks && checks.map((check) => check.key);
       },
-      customItems: async (planId) => listCustomItemsIn(await createClient(), planId),
+      // The household's own items, whichever week is shown (Story 17.10); one checked in an earlier week is left out.
+      customItems: async () => listCustomItemsIn(await createClient(), weekStart ?? currentWeekStart()),
       overrides: async (planId) => listOverridesIn(await createClient(), planId),
     }),
     storeAndChoices(),
@@ -183,16 +185,15 @@ export async function getShoppingList(weekStart?: string): Promise<Result<Shoppi
 
 /**
  * What Veckans erbjudanden needs from the list (Story 9.12): the current plan
- * and the keys (the offers' ids) of the items added by addKeyedItems that are
- * on its list now, among `keys`. `null` without a current plan. Throws
- * ShoppingDataError or MealPlanDataError.
+ * (`null` without one; own items need none since Story 17.10) and the keys
+ * (the offers' ids) of the items added by addKeyedItems that are on the list
+ * now, among `keys`. Throws ShoppingDataError or MealPlanDataError.
  */
-export async function getKeyedItemsOnList(keys: readonly string[]): Promise<{ planId: string; onList: string[] } | null> {
+export async function getKeyedItemsOnList(keys: readonly string[]): Promise<{ planId: string | null; onList: string[] }> {
   const plan = await getCurrentPlan();
-  if (!plan) return null;
-  const items = await listCustomItemsIn(await createClient(), plan.id);
+  const items = await listCustomItemsIn(await createClient());
   const ids = new Set(items.map((item) => item.id));
-  return { planId: plan.id, onList: keys.filter((key) => ids.has(keyedItemId(key))) };
+  return { planId: plan?.id ?? null, onList: keys.filter((key) => ids.has(keyedItemId(key))) };
 }
 
 export { ShoppingDataError } from "./data/client";

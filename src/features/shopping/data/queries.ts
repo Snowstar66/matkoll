@@ -31,17 +31,28 @@ export type ShoppingSources = {
   ingredientNames: (ids: readonly string[]) => Promise<Record<string, string>>;
   /** catalog.getIngredientDefaults */
   ingredientDefaults: (ids: readonly string[]) => Promise<Record<string, Pick<IngredientDefaults, "section">>>;
-  /** The plan's checked line keys (data/checks.ts, listChecksIn); `null` when they cannot be read. */
-  checks: (planId: string) => Promise<readonly string[] | null>;
-  /** The plan's own items (data/custom-items.ts, listCustomItemsIn). */
-  customItems: (planId: string) => Promise<readonly CustomListItem[]>;
+  /**
+   * The plan's checked line keys and the own items' (data/checks.ts,
+   * listChecksIn; `planId` is null in a week without a plan); `null` when
+   * they cannot be read.
+   */
+  checks: (planId: string | null) => Promise<readonly string[] | null>;
+  /**
+   * The user's own items to show (data/custom-items.ts, listCustomItemsIn):
+   * not the plan's, they belong to the household (Story 17.10), so also in a
+   * week without a plan.
+   */
+  customItems: (planId: string | null) => Promise<readonly CustomListItem[]>;
   /** The plan's corrected amounts and hidden lines (data/overrides.ts, listOverridesIn). */
   overrides: (planId: string) => Promise<readonly LineOverride[]>;
 };
 
 /** What Inköpslista shows. */
 export type ShoppingList = {
-  /** The current plan, or `null` when there is none. */
+  /**
+   * The current plan, or `null` when there is none: then the list has only
+   * the user's own items (Story 17.10).
+   */
   plan: {
     id: string;
     name: string;
@@ -66,8 +77,9 @@ export type ShoppingList = {
  * Inköpslista's data (FR-15, AD-8): the current plan, then the recipes behind
  * its dishes, the pantry, the plan's checks, own items and overrides in
  * parallel, then the names and sections of the recipes' and the own items'
- * catalog ingredients, counted with computeList. The checks, own items and
- * overrides are read whenever there is a plan (own items need no dish); the
+ * catalog ingredients, counted with computeList. The checks and own items are
+ * read with or without a plan (own items need neither, Story 17.10); the overrides
+ * whenever there is a plan; the
  * pantry only with a dish whose recipe is left. Without a pantry the list is
  * counted against an empty one, without checks no line is checked. Throws
  * what the sources throw.
@@ -76,7 +88,23 @@ export async function loadShoppingList(sources: ShoppingSources): Promise<Shoppi
   const current = await sources.currentPlan();
   // A dish marked cooked (Story 13.4) is done: it adds nothing to the list.
   const plan = current && { ...current, recipes: current.recipes.filter((dish) => !dish.cookedAt) };
-  if (!plan) return { plan: null, lines: [], hiddenLines: [], pantryUnavailable: false, checksUnavailable: false };
+  if (!plan) {
+    // A week without a plan still shows the household's own items (Story 17.10).
+    const [checks, customItems] = await Promise.all([sources.checks(null), sources.customItems(null)]);
+    const ingredientIds = [...new Set(customItems.flatMap((item) => (item.ingredientId ? [item.ingredientId] : [])))];
+    const [names, defaults] =
+      ingredientIds.length > 0
+        ? await Promise.all([sources.ingredientNames(ingredientIds), sources.ingredientDefaults(ingredientIds)])
+        : [{}, {}];
+    const lines = computeList({
+      plan: { recipes: [] },
+      recipes: [],
+      snapshot: new Map(),
+      catalog: { names, defaults },
+      overlay: { ...emptyOverlay, checks: checks ?? [], customItems },
+    });
+    return { plan: null, lines, hiddenLines: [], pantryUnavailable: false, checksUnavailable: checks === null };
+  }
 
   const recipeIds = [...new Set(plan.recipes.flatMap((dish) => (dish.recipeId ? [dish.recipeId] : [])))];
   const withRecipes = recipeIds.length > 0;

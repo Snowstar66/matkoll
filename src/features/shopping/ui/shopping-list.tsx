@@ -328,8 +328,12 @@ type CheckWrites = {
 /** A failed check's notice; a new `id` per failure, so the same text is announced again. */
 type CheckNotice = { text: string; id: number; key: string };
 
-/** A line's check on a plan; the optimistic state, the taps and the writes are kept per plan. */
-const checkId = (planId: string, key: string) => `${planId} ${key}`;
+/**
+ * A line's check on a plan; the optimistic state, the taps and the writes are
+ * kept per plan. A week without a plan has only own items (Story 17.10), kept
+ * under "own".
+ */
+const checkId = (planId: string | null, key: string) => `${planId ?? "own"} ${key}`;
 
 /**
  * The checks as shown, by checkId: the server's, with the taps not yet saved
@@ -353,7 +357,7 @@ function useChecks(
     settled.current = onSettled;
   });
   const saved = useMemo(
-    () => (planId === null ? {} : Object.fromEntries(lines.map((line) => [checkId(planId, line.key), line.checked]))),
+    () => Object.fromEntries(lines.map((line) => [checkId(planId, line.key), line.checked])),
     [planId, lines],
   );
   const [checks, showCheck] = useOptimistic(saved, (state: Record<string, boolean>, change: { id: string; checked: boolean }) => ({
@@ -411,7 +415,8 @@ function useChecks(
   }
 
   function toggle(key: string, checked: boolean) {
-    if (planId === null) return;
+    // Without a plan only an own item has a check (its key starts with `c:`).
+    if (planId === null && !key.startsWith("c:")) return;
     const id = checkId(planId, key);
     const tap = (latestTap.current.get(id) ?? 0) + 1;
     latestTap.current.set(id, tap);
@@ -590,7 +595,7 @@ export function ShoppingList({
   const lines = useMemo(
     () =>
       removal.shown.map((line) => {
-        const checked = planId === null ? line.checked : (checks[checkId(planId, line.key)] ?? line.checked);
+        const checked = checks[checkId(planId, line.key)] ?? line.checked;
         return checked === line.checked ? line : { ...line, checked };
       }),
     [planId, removal.shown, checks],
@@ -762,9 +767,10 @@ export function ShoppingList({
   });
   const [sheet, setSheet] = useState({ open: false, session: 0 });
   /** Listpostdetalj: the line as it was when its name was tapped, on the plan it was shown for. */
-  const [detail, setDetail] = useState<{ open: boolean; session: number; line: ShoppingLine; planId: string } | null>(null);
+  const [detail, setDetail] = useState<{ open: boolean; session: number; line: ShoppingLine; planId: string | null } | null>(null);
   const openDetail = (line: ShoppingLine) => {
-    if (planId === null) return;
+    // Without a plan only an own item has a detail.
+    if (planId === null && !line.isCustom) return;
     setDetail((current) => ({ open: true, session: (current?.session ?? 0) + 1, line, planId }));
   };
   // The line is gone from the list while its detail is open (counted again elsewhere): the detail closes.
@@ -822,7 +828,7 @@ export function ShoppingList({
     checksUnavailable,
     planName: plan?.name ?? null,
   });
-  const canSend = plan !== null && exportableLines(lines).length > 0;
+  const canSend = exportableLines(lines).length > 0;
   const [hiddenSheet, setHiddenSheet] = useState(false);
   // The bin on a row asks first, unless Pontus deleted something a minute ago (Story 13.1).
   const { requestDelete, dialog: deleteDialog } = useConfirmDelete();
@@ -916,7 +922,7 @@ export function ShoppingList({
           {errorMessages.shopping_export_store_missing}
         </Notice>
       ) : null}
-      {plan === null ? (
+      {plan === null && !hasLines ? (
         <EmptyState action={empty?.action}>{empty?.text ?? emptyPlanText}</EmptyState>
       ) : (
         <>
@@ -937,7 +943,7 @@ export function ShoppingList({
               ))}
             </div>
           )}
-          {/* Own items belong to the current plan: without one there is nothing to add them to (AD-22). */}
+          {/* Own items belong to the household, not to a week: also in a week without a plan (Story 17.10). */}
           <Button
             variant="secondary"
             fullWidth
@@ -957,18 +963,19 @@ export function ShoppingList({
             </Button>
           ) : null}
           {deleteDialog}
-          <HiddenLinesSheet
-            open={hiddenSheet}
-            planId={plan.id}
-            lines={hiddenLines}
-            onShow={own.track}
-            vagueText={missingText(siteName, !pantryUnavailable)}
-            onClose={() => setHiddenSheet(false)}
-          />
+          {plan ? (
+            <HiddenLinesSheet
+              open={hiddenSheet}
+              planId={plan.id}
+              lines={hiddenLines}
+              onShow={own.track}
+              vagueText={missingText(siteName, !pantryUnavailable)}
+              onClose={() => setHiddenSheet(false)}
+            />
+          ) : null}
           <CustomItemSheet
             open={sheet.open}
             session={sheet.session}
-            planId={plan.id}
             searchIngredients={searchIngredients}
             onClose={() => setSheet((current) => ({ ...current, open: false }))}
           />
@@ -988,6 +995,8 @@ export function ShoppingList({
             putInPantry={
               // Shown while a line is checked off (as shown, before the check is saved), and while the flow runs.
               // Also for checks an interrupted run left behind (pendingClear), so the retry stays reachable.
+              // Not in a week without a plan: the pantry flow is for the current plan's list.
+              plan !== null &&
               !checksUnavailable && (toPantry.length > 0 || pendingClear > 0 || pantry.pending) ? (
                 <PutInPantryButton
                   disabled={pantry.pending || saving}
@@ -1007,11 +1016,11 @@ export function ShoppingList({
           {/* Mounted from the first tap on a name, and kept, so it can close with its animation. */}
           {detail ? (
             <LineDetailSheet
-              open={detail.open && detail.planId === plan.id}
+              open={detail.open && detail.planId === planId}
               session={detail.session}
               planId={detail.planId}
               line={detail.line}
-              dishTitles={plan.dishTitles}
+              dishTitles={plan?.dishTitles ?? {}}
               searchIngredients={searchIngredients}
               onRemove={removal.remove}
               onChange={own.track}

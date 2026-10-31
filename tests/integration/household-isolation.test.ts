@@ -77,8 +77,9 @@ const coverage: Record<TableName, Coverage> = {
   },
   recipe_site: { row: () => ({ domain: `${randomUUID()}.example.se` }) },
   recipe_step: { row: (s) => ({ recipe_id: s.recipeId, position: 1, text: "Hacka löken." }) },
-  shopping_check: { row: (s) => ({ meal_plan_id: s.planId, line_key: "r:11111111-1111-4111-8111-111111111111:dl" }) },
-  shopping_custom_item: { row: (s) => ({ meal_plan_id: s.planId, label: "diskmedel" }) },
+  // Story 17.10: an own item and its check belong to the household, not to a plan.
+  shopping_check: { row: () => ({ meal_plan_id: null, line_key: "c:11111111-1111-4111-8111-111111111111" }) },
+  shopping_custom_item: { row: () => ({ meal_plan_id: null, label: "diskmedel" }) },
   shopping_line_override: {
     row: (s) => ({ meal_plan_id: s.planId, line_key: "r:11111111-1111-4111-8111-111111111111:dl", amount: 2 }),
   },

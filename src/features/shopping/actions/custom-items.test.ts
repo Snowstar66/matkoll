@@ -45,7 +45,8 @@ beforeEach(() => {
 describe("addCustomItem", () => {
   it("adds text alone with the client's id, without touching the catalog, and revalidates the list", async () => {
     const result = await addCustomItem({ id, planId, label: " diskmedel ", amount: "", unit: "" });
-    const added = { id, planId, label: "diskmedel", ingredientId: null, amount: null, unit: null };
+    // An own item belongs to the household, not to the week that was shown (Story 17.10).
+    const added = { id, planId: null, label: "diskmedel", ingredientId: null, amount: null, unit: null };
     expect(result).toEqual(ok(added));
     expect(addCustomItemIn).toHaveBeenCalledWith(db, added);
     expect(commitIngredients).not.toHaveBeenCalled();
@@ -59,8 +60,8 @@ describe("addCustomItem", () => {
 
   it("stores a chosen catalog ingredient as the link only, without writing to the catalog", async () => {
     const result = await addCustomItem({ id, planId, label: "Kaffe bryggmalet", ingredientId: kaffe, amount: "2", unit: "förp" });
-    expect(result).toEqual(ok(row));
-    expect(addCustomItemIn).toHaveBeenCalledWith(db, row);
+    expect(result).toEqual(ok({ ...row, planId: null }));
+    expect(addCustomItemIn).toHaveBeenCalledWith(db, { ...row, planId: null });
     expect(commitIngredients).not.toHaveBeenCalled();
   });
 
@@ -80,7 +81,7 @@ describe("addCustomItem", () => {
     expect(addCustomItemIn).not.toHaveBeenCalled();
   });
 
-  it("gives shopping_plan_changed, without revalidating, when the plan is no longer the current one", async () => {
+  it("gives shopping_plan_changed, without revalidating, when the id was used for a different item", async () => {
     addCustomItemIn.mockResolvedValue("plan_changed");
     expect(await addCustomItem({ planId, label: "a", amount: "", unit: "" })).toEqual(fail("shopping_plan_changed"));
     expect(revalidateFor).not.toHaveBeenCalled();
@@ -115,11 +116,6 @@ describe("removeCustomItem", () => {
     removeCustomItemIn.mockResolvedValue(null);
     expect(await removeCustomItem(id)).toEqual(fail("shopping_remove_failed"));
     expect(revalidateFor).toHaveBeenCalledWith("shopping_custom_item");
-  });
-
-  it("gives shopping_plan_changed when the item's plan is no longer the current one", async () => {
-    removeCustomItemIn.mockResolvedValue("plan_changed");
-    expect(await removeCustomItem(id)).toEqual(fail("shopping_plan_changed"));
   });
 
   it("gives shopping_remove_failed, logged, when Postgres refuses", async () => {

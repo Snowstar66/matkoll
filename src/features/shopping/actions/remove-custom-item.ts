@@ -18,9 +18,7 @@ const idSchema = z.uuid();
  * too. Returns null when the item was deleted but could not be read back: it
  * is gone, and cannot be undone. Revalidates the list (AD-18).
  *
- * Fails with `unauthorized`, `validation`, `shopping_plan_changed` (the
- * item's plan is no longer the current one; nothing is deleted) or
- * `shopping_remove_failed`, also when the user has no item with the id
+ * Fails with `unauthorized`, `validation`, `shopping_remove_failed`, also when the user has no item with the id
  * (another user's, or gone already); the list is revalidated then too, so a
  * list that still shows the item catches up.
  */
@@ -32,7 +30,6 @@ export async function removeCustomItem(id: string): Promise<Result<CustomItemRow
 
   try {
     const removed = await removeCustomItemIn(await createClient(), parsed.data);
-    if (removed === "plan_changed") return fail("shopping_plan_changed");
     revalidateFor("shopping_custom_item");
     if (!removed) {
       console.error("shopping_remove_failed", { reason: "not_found" });

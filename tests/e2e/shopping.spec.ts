@@ -1,4 +1,5 @@
 import { expect, type Locator, type Page, type Response, test } from "@playwright/test";
+import { addWeeks, weekQuery } from "../../src/features/mealplan/domain/week";
 import { adminClient, e2eUserId, shoppingEmail, shoppingStorageState, thisMonday } from "./support";
 
 // Story 3.3: Inköpslista, counted from the current meal plan, its recipes and
@@ -94,7 +95,7 @@ test.beforeAll(async () => {
   userId = await e2eUserId(shoppingEmail);
   const admin = adminClient();
   // A retry starts again from no plan, no recipes and an empty pantry.
-  for (const table of ["meal_plan", "pantry_item", "recipe"] as const) {
+  for (const table of ["shopping_custom_item", "shopping_check", "meal_plan", "pantry_item", "recipe"] as const) {
     const { error } = await admin.from(table).delete().eq("user_id", userId);
     if (error) throw error;
   }
@@ -794,4 +795,43 @@ test("the bin asks the first time, not the second within a minute, and asks agai
   await expect(dialog.getByText("Ta bort svamp från inköpslistan?")).toBeVisible();
   await dialog.getByRole("button", { name: "Avbryt" }).click();
   expect((await storedCustomItems()).map((item) => item.label)).toEqual(["svamp"]);
+});
+
+test("an own item stays on the list in another week, also one without a plan, until it is checked off (Story 17.10)", async ({
+  page,
+}) => {
+  await seedCustomItems([]);
+  await seedChecks([]);
+  const admin = adminClient();
+  const added = await admin
+    .from("shopping_custom_item")
+    .insert({ user_id: userId, meal_plan_id: null, label: "tvättmedel" })
+    .select("id")
+    .single();
+  if (added.error) throw added.error;
+  const itemId = (added.data as { id: string }).id;
+  const nextWeek = `/lista${weekQuery(addWeeks(thisMonday(), 1))}`;
+  const weekAfter = `/lista${weekQuery(addWeeks(thisMonday(), 2))}`;
+  const errors = watchErrors(page);
+
+  // Next week has no plan: the item is on its list all the same, and can be checked off there.
+  await page.goto(nextWeek);
+  await expect(region(page, "Övrigt").getByTestId("shopping-line")).toHaveText([/^tvättmedel\s*Egen vara\s*Ta bort$/]);
+  await expect(addCustomButton(page)).toBeVisible();
+  await actionsAnswered(page, 1, () => check(page, "tvättmedel").click());
+  await expect.poll(async () => {
+    const { data, error } = await admin.from("shopping_check").select("line_key, meal_plan_id").eq("user_id", userId);
+    if (error) throw error;
+    return data;
+  }).toEqual([{ line_key: `c:${itemId}`, meal_plan_id: null }]);
+
+  // This week's list shows it checked, the week it was bought in; every later week no longer shows it.
+  await page.goto("/lista");
+  await showBasket(page);
+  await expect(check(page, "tvättmedel")).toBeChecked();
+  await page.goto(nextWeek);
+  await expect(page.getByTestId("shopping-line").filter({ visible: true })).toHaveCount(0);
+  await page.goto(weekAfter);
+  await expect(page.getByTestId("shopping-line").filter({ visible: true })).toHaveCount(0);
+  expect(errors).toEqual([]);
 });
