@@ -723,9 +723,10 @@ describe("shopping_custom_item", () => {
     const nextWeek = addWeeks(thisWeek, 1);
     const labels = async (week: string) => (await listCustomItemsIn(user.db, week)).map((own) => own.label);
 
-    // Checked this week: still shown (checked), in this week's list. Next week it is bought and gone.
+    // Checked this week: still shown (checked), in this week's list, and in a coming week's list
+    // while planning ahead (it stays in the basket until this week has passed).
     expect(await labels(thisWeek)).toEqual(["kaffe", "diskmedel"]);
-    expect(await labels(nextWeek)).toEqual(["diskmedel"]);
+    expect(await labels(nextWeek)).toEqual(["kaffe", "diskmedel"]);
 
     // Checked in an earlier week, as an item checked last week would be.
     const lastWeek = new Date(Date.now() - 8 * 86_400_000).toISOString();

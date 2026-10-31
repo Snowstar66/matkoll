@@ -3589,7 +3589,7 @@ så att det familjen skriver in inte försvinner.
 **När** veckan är slut
 **Så** visas den inte i nästa veckas lista
 
-**Regel (beslutad vid bygget):** en egen vara hör till hushållet, inte till en vecka (`shopping_custom_item.meal_plan_id` är tom för nya varor, och bockarna för egna varor, nyckel `c:<id>`, hör till användaren). Varan visas i varje veckas lista, även en vecka utan matsedel, tills den bockas av. En avbockad vara visas kvar (avbockad, "I korgen") den vecka den bockades av och döljs i alla senare veckors listor; avbockningens tidpunkt (`shopping_check.created_at`) avgör veckan. "Lägg i förrådet" och "Ta bort" raderar varan helt. En matsedel behålls inte längre för sina egna varors skull, och raderas matsedeln behåller varorna sin plats på listan. "Lägg i förrådet" finns bara för en vecka med matsedel.
+**Regel (beslutad vid bygget):** en egen vara hör till hushållet, inte till en vecka (`shopping_custom_item.meal_plan_id` är tom för nya varor, och bockarna för egna varor, nyckel `c:<id>`, hör till användaren). Varan visas i varje veckas lista, även en vecka utan matsedel, tills den bockas av. En avbockad vara visas kvar (avbockad, "I korgen") den vecka den bockades av och döljs i senare veckors listor när den veckan har passerat (tittar man på en kommande vecka medan man planerar ligger den kvar i korgen tills veckan är slut); avbockningens tidpunkt (`shopping_check.created_at`) avgör veckan. "Lägg i förrådet" och "Ta bort" raderar varan helt. En matsedel behålls inte längre för sina egna varors skull, och raderas matsedeln behåller varorna sin plats på listan. "Lägg i förrådet" finns bara för en vecka med matsedel.
 
 ## Epic 18: Prylar
 

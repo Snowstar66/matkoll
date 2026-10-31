@@ -45,13 +45,16 @@ function toRow(row: DbRow): CustomItemRow {
  * The user's own items for the list of the week `weekStart` (default this
  * week), in the order they were added, whichever week they were added in. An
  * item that was checked off in an earlier week is left out: it was bought
- * then. A row the domain cannot read is left out (and logged), so one bad row
- * never hides the list. Throws ShoppingDataError.
+ * then. A coming week counts from this week, so an item checked while planning
+ * ahead stays in its basket. A row the domain cannot read is left out (and
+ * logged), so one bad row never hides the list. Throws ShoppingDataError.
  */
 export async function listCustomItemsIn(
   db: ShoppingDb,
   weekStart: string = currentWeekStart(),
 ): Promise<CustomListItem[]> {
+  const thisWeek = currentWeekStart();
+  const hideCheckedBefore = weekStart < thisWeek ? weekStart : thisWeek;
   const [{ data, error }, checkedAt] = await Promise.all([
     db.from("shopping_custom_item").select(columns).order("created_at").order("id"),
     listOwnCheckTimesIn(db),
@@ -59,7 +62,7 @@ export async function listCustomItemsIn(
   if (error) throw new ShoppingDataError(`list_custom_items_failed ${error.code}`, error.code);
   return data.flatMap((row) => {
     const checked = checkedAt.get(customLineKey(row.id));
-    if (checked && currentWeekStart(checked) < weekStart) return [];
+    if (checked && currentWeekStart(checked) < hideCheckedBefore) return [];
     try {
       const { id, label, ingredientId, amount, unit } = toRow(row);
       return [{ id, label, ingredientId, amount, unit }];
