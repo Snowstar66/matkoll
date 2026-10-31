@@ -3580,7 +3580,49 @@ Beslut 2026-10-31 (Pontus): "tycker uppdateringen inte är klockren. Jag blir li
 
 ### Story 16.18: Packa upp kassarna
 
-Backlog (Pontus 2026-10-31): "när man handlat och kommer hem med matkassarna så ska varorna sorteras i kyl, frys, skafferi". Efter "Lägg till i Matvaror" i Inköpslistan visar bekräftelsen var varorna hamnade ("Lagt 8 varor: 5 i kyl, 2 i skafferi, 1 i frys · Ändra"), och "Ändra" låter mig snabbt flytta enstaka varor, t.ex. brödet till frysen. Hänger ihop med "Lägg i lagret?" som Pontus vill testa först. Mockup innan bygge.
+Som Pontus,
+vill jag efter att ha handlat kunna se var varorna hamnade och flytta enstaka varor med ett tryck,
+så att kyl-, frys- och skafferivarorna står rätt medan matkassarna står på diskbänken.
+
+Beslut 2026-10-31 (Pontus): "När man handlat och kommer hem med matkassarna så ska varorna sorteras i kyl, frys, skafferi." Byggd utan förhandsgodkännande av mockupen (Pontus: bygg allt i natt); han ser mockupen på morgonen. Hänger ihop med "Lägg i lagret?" som Pontus vill testa först. Inga databasändringar: en flytt är en vanlig lagerändring. Mockup: `_bmad-output/planning-artifacts/ux-designs/ux-Matkoll-2026-10-25/mockups/packa-upp.html` ("Idag" är en skärmdump, "Nytt" och punktlistorna är specen).
+
+**Acceptance Criteria:**
+
+**Givet** markerade rader i Inköpslistan
+**När** jag trycker "Lägg till i Matvaror"
+**Så** läggs varorna i Matvaror med ett tryck, var och en på sin vanliga plats (kyl, frys eller skafferi efter varans standard), precis som idag
+
+**Givet** att varor lades i Matvaror
+**När** bekräftelsen visas
+**Så** säger den var de hamnade, till exempel "Lagt 8 varor: 5 i kyl, 2 i skafferi, 1 i frys.", med platserna med flest varor först (lika många: kyl, frys, skafferi), utan platser som saknar varor, "vara" för en och "varor" för flera, "Lagt 3 varor i kyl." när allt hamnade på samma plats och "för Stugan" efter antalet när jag har flera Boenden
+
+**Givet** bekräftelsen
+**När** jag ser den
+**Så** finns knappen "Ändra" i den (44 px tryckyta, samma plats som "Ångra" och "Visa") och bekräftelsen står kvar i 8 s; en körning som bara tog bort egna varor utan koppling, eller som inte lade något i Matvaror, har ingen "Ändra"
+
+**Givet** "Ändra"
+**När** jag trycker
+**Så** öppnas bladet "Packa upp" med "Klar" till höger (inget kan gå förlorat, varje flytt sparas direkt), raden "Tryck på rätt plats för varje vara." och en rad per vara som lades i Matvaror: namnet, mängden som köptes och väljaren Kyl, Frys, Skafferi (hög segmenterad väljare med bock, som i Lagervara-bladet) med den plats varan fick vald
+
+**Givet** bladet "Packa upp"
+**När** jag trycker på en annan plats för en vara
+**Så** flyttas varan dit direkt med det ena trycket, utan sparaknapp och utan eget blad per vara; raderna byter aldrig ordning, och det som redan var rätt rörs inte
+
+**Givet** en vara som redan låg i Matvaror
+**När** jag flyttar det jag just köpte
+**Så** flyttas bara den köpta mängden (resten blir kvar där den låg), och finns varan redan på den nya platsen läggs mängden till där
+
+**Givet** en flytt som misslyckas
+**När** svaret kommer
+**Så** hoppar valet tillbaka till den gamla platsen och en blå ruta säger "Det gick inte att flytta varan."; varan ligger kvar där den låg
+
+**Givet** att jag stänger bekräftelsen eller bladet
+**När** jag senare vill ändra en plats
+**Så** gör jag det som förut i Matvaror (Lagervara-bladet, Flytta)
+
+**Givet** mörkt läge, 375 px och 200 % text
+**När** jag använder bekräftelsen och bladet
+**Så** finns ingen sidledes rullning, långa namn bryts på flera rader, platsvalen delar radens bredd och alla tryckytor är minst 44 px
 
 ## Epic 17: Molnet och gemensam lista
 
