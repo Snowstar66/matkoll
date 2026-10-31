@@ -301,6 +301,7 @@ test.describe("the sheet Lagervara", () => {
     await page.goto("/hemma");
 
     await row(page, "Mjölk").click();
+    await sheet(page).getByRole("button", { name: /^Ligger i/ }).click();
     await place(page, "Frys").click();
     await sheet(page).getByRole("button", { name: "Spara ändringar" }).click();
     await expect(sheet(page)).toHaveCount(0);
@@ -366,7 +367,7 @@ test.describe("the sheet Lagervara", () => {
     await expect(sheet(page).getByLabel("Enhet")).toHaveValue("");
 
     // Smör has the default unit g.
-    await sheet(page).getByRole("button", { name: "Byt ingrediens" }).click();
+    await sheet(page).getByRole("button", { name: "Byt vara" }).click();
     await sheet(page).getByRole("searchbox", { name: "Sök ingrediens" }).fill("smör");
     await sheet(page).getByRole("button", { name: "Smör" }).click();
     await expect(sheet(page).getByLabel("Enhet")).toHaveValue("g");
