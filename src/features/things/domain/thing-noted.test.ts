@@ -12,7 +12,7 @@ import {
   rememberedText,
   rememberInputSchema,
 } from "./thing-noted";
-import { toRoomThing } from "./thing-room";
+import { showsFinder, toRoomThing } from "./thing-room";
 import { hitDateText, hitHref, hitMeta, searchRowsSchema, toHit, type ThingHit } from "./thing-search";
 
 const siteId = "0b2f6d0a-3c0e-4d52-9a54-6d0f0c5f6a03";
@@ -151,5 +151,14 @@ describe("a noted thing in the room, the search and the chat", () => {
       sub: "Du skrev in det 31 okt",
       noted: true,
     });
+  });
+});
+
+describe("the field on Förråd's start page", () => {
+  const room = { room: "Sovrummet", key: "sovrummet", things: 0, cards: 0, reading: 0, latest: null };
+  it("is there as soon as the boende has a room, also with no föremål, and not without rooms", () => {
+    expect(showsFinder([room])).toBe(true);
+    expect(showsFinder([{ ...room, things: 3 }])).toBe(true);
+    expect(showsFinder([])).toBe(false);
   });
 });

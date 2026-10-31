@@ -1175,3 +1175,23 @@ test("Kom ihåg fits 375 px in dark mode with 200 % text, and its targets are at
   const overflow = await page.evaluate(() => document.documentElement.scrollWidth - document.documentElement.clientWidth);
   expect(overflow).toBeLessThanOrEqual(0);
 });
+
+test("the field is there in a boende with rooms but no föremål, and Kom ihåg makes the first föremål (Story 18.19)", async ({ page }) => {
+  await page.goto("/prylar");
+  await expect(page.getByRole("textbox", { name: "Sök eller fråga" })).toHaveCount(0);
+  await page.getByRole("button", { name: "Nytt rum" }).click();
+  await page.getByRole("dialog", { name: "Nytt rum" }).getByLabel("Namn på rummet").fill("Sovrummet");
+  await page.getByRole("button", { name: "Skapa rum" }).click();
+  await page.waitForURL(/\/prylar\/rum\//);
+  await page.goto("/prylar");
+  await expect(rooms(page)).toHaveText([/Sovrummet\s*Inget kort än/]);
+  const field = page.getByRole("textbox", { name: "Sök eller fråga" });
+  await expect(field).toBeVisible();
+  await field.fill("Passen ligger i byrån i sovrummet");
+  await field.press("Enter");
+  const chat = page.getByTestId("chat");
+  await expect(page.getByTestId("proposal-where")).toHaveText("Sovrummet · Byrån");
+  await chat.getByRole("button", { name: "Kom ihåg" }).click();
+  await expect(chat.getByText("Klart. Passen ligger i Sovrummet · Byrån.")).toBeVisible();
+  await expect(rooms(page)).toHaveText([/Sovrummet\s*1 föremål/]);
+});

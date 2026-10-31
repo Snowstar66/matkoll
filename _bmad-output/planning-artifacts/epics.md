@@ -4255,6 +4255,10 @@ Beslut Pontus 2026-10-31: kör 18.19; byggd utan förhandsgodkännande av mockup
 
 **Acceptance Criteria:**
 
+**Givet** ett boende med minst ett rum, också utan föremål
+**När** jag öppnar Förrådet
+**Så** finns fältet "Sök eller fråga" (så att Kom ihåg går att använda innan något är fotat); bara ett boende utan rum visar i stället det tomma läget utan fält
+
 **Givet** fältet "Sök eller fråga" i Förrådet
 **När** det är tomt
 **Så** står tipsraden "Skriv för att söka – tryck ↑ för att fråga eller spara var något ligger"

@@ -47,6 +47,15 @@ export function roomMeta(room: RoomSummary): string {
   return [thingsText(room.things), cardsText(room.cards), room.latest ? shortDateText(room.latest) : null].filter(Boolean).join(" · ");
 }
 
+/**
+ * Whether Förråd's start page has "Sök eller fråga" (Story 18.19): whenever the
+ * boende has a room, also before any föremål, so "Kom ihåg" can be the first
+ * thing written in. A boende without rooms has the empty state instead.
+ */
+export function showsFinder(rooms: readonly RoomSummary[]): boolean {
+  return rooms.length > 0;
+}
+
 /** The sum above the rooms: "3 rum · 112 prylar". */
 export function roomsTotalText(rooms: readonly RoomSummary[]): string {
   return `${rooms.length === 1 ? "1 rum" : `${rooms.length} rum`} · ${thingsText(rooms.reduce((sum, room) => sum + room.things, 0))}`;

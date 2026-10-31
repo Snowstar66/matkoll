@@ -105,5 +105,5 @@ export {
   type ThingSnapshot,
 } from "./domain/thing-edit";
 export { takeCardSubText, takeCardText } from "./domain/capture";
-export { parseRoomView, type RoomSummary } from "./domain/thing-room";
+export { parseRoomView, showsFinder, type RoomSummary } from "./domain/thing-room";
 export { noThingNounText, thingNoun, thingNounCap } from "./domain/thing-noun";
