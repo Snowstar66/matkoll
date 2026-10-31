@@ -200,8 +200,15 @@ begin
   end if;
 
   insert into public.thing_item (photo_id, place_id, name, category, where_hint, confidence, position)
-  select photo, target.place_id, entry.name, entry.category, entry.where_hint, entry.confidence, (entry.ordinality - 1)::integer
-  from jsonb_to_recordset(things) with ordinality as entry(name text, category text, where_hint text, confidence text, ordinality bigint);
+  select
+    photo,
+    target.place_id,
+    entry.value ->> 'name',
+    entry.value ->> 'category',
+    entry.value ->> 'where_hint',
+    entry.value ->> 'confidence',
+    (entry.ordinality - 1)::integer
+  from jsonb_array_elements(things) with ordinality as entry(value, ordinality);
 
   update public.thing_photo
   set status = 'done', error_code = null, unseen_note = note, unseen_count = coalesce(hidden_count, 0)

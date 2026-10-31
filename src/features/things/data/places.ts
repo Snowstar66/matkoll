@@ -75,11 +75,14 @@ export async function insertPlaceIn(db: ThingsDb, input: ValidPlaceInput): Promi
     const count = await db.from("thing_place").select("id", { count: "exact", head: true }).eq("site_id", input.siteId);
     if (count.error) throw new ThingsDataError(`save_failed ${count.error.code}`);
     if ((count.count ?? 0) >= maxPlacesPerSite) return { kind: "limit" };
+    // A room that is there already keeps its spelling, so "skräpförrådet" joins "Skräpförrådet" instead of making a second heading.
+    const known = await db.from("thing_place").select("room").eq("site_id", input.siteId).eq("room_key", normalizePlaceName(input.room)).limit(1);
+    if (known.error) throw new ThingsDataError(`save_failed ${known.error.code}`);
     const { data, error } = await db
       .from("thing_place")
       .insert({
         site_id: input.siteId,
-        room: cleanPlaceName(input.room),
+        room: known.data[0]?.room ?? cleanPlaceName(input.room),
         part: input.part,
         room_key: normalizePlaceName(input.room),
         part_key: input.part === null ? "" : normalizePlaceName(input.part),

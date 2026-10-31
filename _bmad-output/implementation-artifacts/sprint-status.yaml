@@ -202,8 +202,8 @@ development_status:
   epic-17-retrospective: optional
 
   epic-18: in-progress
-  18-1-fliken-prylar-och-platser: in-progress
-  18-2-fota-en-plats-och-låt-ai-lista-prylarna: ready-for-dev
+  18-1-fliken-prylar-och-platser: review
+  18-2-fota-en-plats-och-låt-ai-lista-prylarna: review
   18-3-förnya-och-ta-bort-kort: backlog
   18-4-sök-och-fråga: backlog
   18-5-fota-insidan-av-en-låda: backlog

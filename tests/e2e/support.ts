@@ -249,6 +249,12 @@ export const offersLinkEmail = "e2e-erbjudanden-lank@matkoll.test";
  * erbjudanden, Story 9.5).
  */
 export const offerSuggestionsEmail = "e2e-erbjudande-forslag@matkoll.test";
+/**
+ * The E2E user of things.spec.ts alone (Prylar, Epic 18): each test removes the
+ * user's things, places and AI jobs, and the card files, and makes its boenden
+ * with the service role.
+ */
+export const thingsEmail = "e2e-prylar@matkoll.test";
 /** Every address in ALLOWED_EMAILS for the E2E server (see playwright.config.ts). */
 export const e2eEmails = [
   e2eEmail,
@@ -292,6 +298,7 @@ export const e2eEmails = [
   importEmail,
   offersLinkEmail,
   offerSuggestionsEmail,
+  thingsEmail,
 ] as const;
 /** A real Supabase user whose address is not in ALLOWED_EMAILS. */
 export const outsiderEmail = "utanfor@matkoll.test";
@@ -335,6 +342,7 @@ export const aiImportStorageState = "tests/e2e/.auth/ai-import.json";
 export const importStorageState = "tests/e2e/.auth/import.json";
 export const offersLinkStorageState = "tests/e2e/.auth/offers-link.json";
 export const offerSuggestionsStorageState = "tests/e2e/.auth/offer-suggestions.json";
+export const thingsStorageState = "tests/e2e/.auth/things.json";
 export const outsiderStorageState = "tests/e2e/.auth/outsider.json";
 
 export const mailpitUrl = "http://127.0.0.1:54324";
