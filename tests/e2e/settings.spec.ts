@@ -133,14 +133,14 @@ test("the side menu leads to Inställningar on desktop, with the start page besi
   await page.goto("/recept");
   await page.getByRole("navigation", { name: "Huvudmeny" }).getByRole("link", { name: "Inställningar" }).click();
   await expect(page).toHaveURL(/\/installningar$/);
-  await expect(page.getByRole("button", { name: "Logga ut" })).toBeVisible();
+  await expect(page.getByTestId("settings-menu").getByRole("button", { name: "Logga ut" })).toBeVisible();
   await page.getByTestId("settings-row").filter({ hasText: "Receptsajter" }).click();
   await expect(page).toHaveURL(/\/installningar\/receptsajter$/);
   await expectSites(page, startSites);
   // Both columns show: the list on the left, the page beside it.
   await expect(page.getByTestId("settings-menu")).toBeVisible();
   await expect(page.getByTestId("settings-page")).toBeVisible();
-  await expect(page.getByRole("button", { name: "Logga ut" })).toBeVisible();
+  await expect(page.getByTestId("settings-menu").getByRole("button", { name: "Logga ut" })).toBeVisible();
   const menu = await page.getByTestId("settings-menu").boundingBox();
   const content = await page.getByTestId("settings-page").boundingBox();
   expect(content!.x).toBeGreaterThan(menu!.x + menu!.width - 1);

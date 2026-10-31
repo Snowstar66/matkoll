@@ -94,6 +94,7 @@ test.describe("mobile, 390 × 844", () => {
     expect(new Set(boxes.map((box) => Math.round(box!.x))).size).toBe(1);
 
     await mainMenu(page).getByRole("link", { name: "Recept" }).click();
+    await expect(page).toHaveURL(/\/recept$/);
     await page.getByRole("button", { name: "Konto" }).filter({ visible: true }).click();
     const sheet = page.getByRole("dialog").filter({ visible: true });
     await expect(sheet.getByRole("link", { name: "Inställningar" })).toBeVisible();
