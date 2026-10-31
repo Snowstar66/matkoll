@@ -53,7 +53,8 @@ vi.mock("../data/sites", () => ({ loadPantrySitesIn: (client: unknown) => loadPa
 const ai = withInputValidation(createMockAiService());
 const analyzeImage = vi.fn(ai.analyzeImage);
 const locateItems = vi.fn(ai.locateItems);
-vi.mock("@/server/ai", () => ({ getAiService: () => ({ analyzeImage, locateItems }), minLoopRepeats: 2 }));
+vi.mock("@/features/settings/server", () => ({ getAiChoice: async () => null }));
+vi.mock("@/server/ai", () => ({ getAiServiceFor: () => ({ analyzeImage, locateItems }), minLoopRepeats: 2 }));
 
 const { compareStoredReading, lookUpSite, minReadMs, postModelMarginMs, readPhoto } = await import("./analyze-place");
 

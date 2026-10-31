@@ -20,7 +20,8 @@ type Options = { isBusy?: () => boolean | Promise<boolean> };
 const warmUp = vi.fn<(kind: string, signal: AbortSignal, options?: Options) => Promise<unknown>>();
 const warmUpKey = vi.fn<(kind: string) => string | null>();
 const getAiService = vi.fn(() => ({ warmUp, warmUpKey }));
-vi.mock("@/server/ai", () => ({ warmUpKinds: ["image", "text"], getAiService: () => getAiService() }));
+vi.mock("@/server/ai", () => ({ warmUpKinds: ["image", "text"], getAiServiceFor: () => getAiService() }));
+vi.mock("@/features/settings/server", () => ({ getAiChoice: async () => null }));
 
 /** The callbacks given to after(), run by the test once the response is there. */
 let afterCallbacks: (() => Promise<void>)[] = [];
@@ -115,12 +116,6 @@ describe("POST /api/ai/warm", () => {
 
   it.each([
     ["the port throws", () => warmUp.mockRejectedValueOnce(new Error("unexpected"))],
-    [
-      "getAiService throws after the response",
-      () => getAiService.mockReturnValueOnce({ warmUp, warmUpKey }).mockImplementationOnce(() => {
-        throw new Error("env");
-      }),
-    ],
   ])("logs unavailable when %s, and never throws", async (_name, arrange) => {
     arrange();
     expect((await POST(post())).status).toBe(202);

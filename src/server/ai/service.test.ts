@@ -981,3 +981,31 @@ describe("suggestDishes with offers (Story 9.5)", () => {
     expect(without.ok && without.data[0].title).not.toBe("Falukorv med stuvade makaroner");
   });
 });
+
+describe("the choice from Inställningar (Story 17.5)", () => {
+  async function requestBody(choice: Parameters<typeof createAiService>[2]) {
+    const bodies: Record<string, unknown>[] = [];
+    const fetchStub = (async (_url: unknown, init?: RequestInit) => {
+      bodies.push(JSON.parse(String(init?.body)));
+      return new Response(JSON.stringify({ error: { type: "invalid_request_error", message: "stub" } }), { status: 400 });
+    }) as typeof fetch;
+    const env = parseEnv({ AI_PROVIDER: "mock", ANTHROPIC_API_KEY: "sk-ant-test" });
+    const service = createAiService(env, { fetch: fetchStub }, choice);
+    await service.parseRecipe({ text: "Pannkakor: 3 dl mjöl" }, new AbortController().signal);
+    return bodies[0];
+  }
+
+  it("sends the model and the level as output_config.effort, and no thinking or sampling", async () => {
+    const body = await requestBody({ provider: "anthropic", model: "claude-opus-5-5", effort: "high" });
+    expect(body.model).toBe("claude-opus-5-5");
+    expect((body.output_config as { effort: string }).effort).toBe("high");
+    for (const key of ["thinking", "temperature", "top_p", "top_k"]) expect(body).not.toHaveProperty(key);
+    // The cap leaves room for the model's own thinking on top of the answer.
+    expect(body.max_tokens).toBe(inputLimits.maxOutputTokens + 8_000);
+  });
+
+  it.each(["low", "medium"] as const)("sends level %s", async (effort) => {
+    const body = await requestBody({ provider: "anthropic", model: "claude-haiku-5-5", effort });
+    expect((body.output_config as { effort: string }).effort).toBe(effort);
+  });
+});

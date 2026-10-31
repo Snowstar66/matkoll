@@ -10,13 +10,14 @@ import { HomeScreenHint } from "@/features/settings/ui/home-screen-hint";
 import { RecipeSites } from "@/features/settings/ui/recipe-sites";
 import { SaveToMatkoll } from "@/features/settings/ui/save-to-matkoll";
 import { errorMessages } from "@/lib/errors";
+import { AiContent } from "./ai-content";
 import { StoreContent } from "./store-content";
 
 export const metadata: Metadata = { title: "Inställningar" };
 
 // Inställningar (FR7, FR-28, UX-DR16): the approved recipe sites, the store
 // under them, how to put Matkoll on the home screen (Story 11.6, only in the
-// browser) and "Logga ut" at the bottom. The sites and the stores are read
+// browser), the section AI (Story 17.5, only for those it is shown to) and "Logga ut" at the bottom. The sites and the stores are read
 // inside a <Suspense> each (AD-18), so a failure in one shows only in its own
 // section; "Logga ut" sits outside both, so it works even when neither can be
 // read.
@@ -30,6 +31,9 @@ export default function SettingsPage() {
         </Suspense>
         <Suspense fallback={<Skeleton rows={2} />}>
           <StoreContent />
+        </Suspense>
+        <Suspense fallback={null}>
+          <AiContent />
         </Suspense>
         <SaveToMatkoll />
         <div className="mt-auto flex flex-col gap-6">

@@ -1,7 +1,11 @@
 import "server-only";
 import { createClient } from "@/lib/supabase/server";
+import { env } from "@/server/env";
+import { loadAiSettingIn } from "./data/ai-setting";
 import { insertUserDefaults } from "./data/defaults";
 import { loadActiveRecipeDomains, loadSelectedStore, loadStores } from "./data/queries";
+import { aiSettingsVisible, type AiSetting, type AiSettingsView } from "./domain/ai-choice";
+import { aiChoiceFor, aiSettingsViewFor } from "./data/ai-env";
 import { compareDomains } from "./domain/domain-name";
 import { compareStores, type Store } from "./domain/store";
 
@@ -60,4 +64,53 @@ export async function getSelectedStore(): Promise<Store | null> {
  */
 export async function ensureUserDefaults(): Promise<void> {
   await insertUserDefaults(await createClient());
+}
+
+/**
+ * Story 17.5: the signed-in user (id and address) as the session says, for
+ * the AI choice. Read from the session's claims here and not through the
+ * auth module, which already imports this one.
+ */
+async function sessionUser(db: Awaited<ReturnType<typeof createClient>>): Promise<{ id: string; email: string } | null> {
+  const { data, error } = await db.auth.getClaims();
+  if (error || !data?.claims) return null;
+  const { sub, email } = data.claims;
+  return typeof sub === "string" && typeof email === "string" ? { id: sub, email } : null;
+}
+
+/**
+ * Story 17.5: what the section AI in Inställningar shows, or `null` when the
+ * signed-in user is not to see it (outside development, an address that is
+ * not in AI_SETTINGS_EMAILS). Carries only whether the keys are present,
+ * never a key. Throws SettingsDataError.
+ */
+export async function getAiSettingsView(): Promise<AiSettingsView | null> {
+  const db = await createClient();
+  const user = await sessionUser(db);
+  if (!user) return null;
+  if (!aiSettingsVisible({ nodeEnv: env.NODE_ENV, email: user.email, allowed: env.AI_SETTINGS_EMAILS })) return null;
+  return aiSettingsViewFor(env, await loadAiSettingIn(db, user.id));
+}
+
+/**
+ * Story 17.5: the choice of AI for the signed-in user's next job, to pass to
+ * `getAiServiceFor` in the AI port: the one saved in Inställningar, or the
+ * default when there is none, when the section is not shown to the user, when
+ * its key or URL is missing now, or when it cannot be read. The default is
+ * Claude Haiku 5.5 at Medel when ANTHROPIC_API_KEY is set; without a key
+ * (`null`) AI_PROVIDER/AI_MODEL decide. Read on every call, so a new choice applies without a restart. Never
+ * throws for a settings problem: a job must not fail because the choice
+ * could not be read.
+ */
+export async function getAiChoice(): Promise<AiSetting | null> {
+  try {
+    const db = await createClient();
+    const user = await sessionUser(db);
+    const visible =
+      user !== null && aiSettingsVisible({ nodeEnv: env.NODE_ENV, email: user.email, allowed: env.AI_SETTINGS_EMAILS });
+    return aiChoiceFor(env, visible ? await loadAiSettingIn(db, user.id) : null);
+  } catch (error) {
+    console.error("ai_setting_unavailable", { reason: error instanceof Error ? error.name : "unknown" });
+    return aiChoiceFor(env, null);
+  }
 }
