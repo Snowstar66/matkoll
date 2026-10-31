@@ -3653,6 +3653,10 @@ så att jag snabbt hittar den på hyllan.
 
 Backlog, efter 18.1–18.6.
 
+### Story 18.10: Svep med kameran
+
+Backlog (Pontus frågade 2026-10-31 om film). Filma en plats; appen plockar själv ut 4–6 skarpa, olika bilder ur filmen (i webbläsaren) som blir kort. Bara stillbilder går till AI, så kostnaden hålls nere.
+
 ### Story 18.8: Garderoben
 
 Pausad (Pontus 2026-10-31): fota garderoben för att veta vad man har och få "Återupptäck"-förslag på glömda plagg.
