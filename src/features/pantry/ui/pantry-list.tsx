@@ -103,7 +103,7 @@ function rowNames(items: readonly PantryItem[]): Map<string, RowNames> {
  * saved from the sheet, so it never hides a new item. A location without
  * items shows "Inget i kylen än." and "Lägg till vara", without a search
  * field; a search without a match shows "Inget i kylen matchar." and "Rensa
- * sökning". Förråd keys the list on the place and the location, so the
+ * sökning". Matvaror keys the list on the place and the location, so the
  * search starts empty for each.
  */
 export function PantryList({ location, items, after }: PantryListProps) {

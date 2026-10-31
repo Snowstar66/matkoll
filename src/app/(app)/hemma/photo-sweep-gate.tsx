@@ -3,7 +3,7 @@ import { PhotoSweep } from "@/features/pantry/ui/photo-sweep";
 
 /**
  * Renders PhotoSweep when the user has photos older than 30 days (Story
- * 10.3). HomeContent puts it in a Suspense boundary of its own, so Förråd
+ * 10.3). HomeContent puts it in a Suspense boundary of its own, so Matvaror
  * never waits for it. Nothing is shown either way, and an error here (logged
  * with its name only) never reaches the page: the sweep is left for the next
  * view or save.

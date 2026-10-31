@@ -208,7 +208,7 @@ describe("CookMode", () => {
     expect(rows().map((row) => within(row).getByRole("img").getAttribute("aria-label"))).toEqual([
       "finns hemma",
       "finns hemma",
-      "jämförs inte med förrådet",
+      "jämförs inte med matvarorna",
     ]);
     const other = inDialog().getByRole("heading", { level: 3, name: otherLinesHeading });
     expect(rows()[1].compareDocumentPosition(other) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
@@ -232,7 +232,7 @@ describe("CookMode", () => {
     expect(within(cream).getByText("hemma: 2 dl")).toBeInTheDocument();
     // No catalog ingredient: the text unscaled, with the factor.
     expect(lemons).toHaveTextContent(/^2 citroner×1,5$/);
-    expect(within(lemons).getByRole("img")).toHaveAccessibleName("jämförs inte med förrådet");
+    expect(within(lemons).getByRole("img")).toHaveAccessibleName("jämförs inte med matvarorna");
   });
 
   it("shows only the text for a step without lines, and the lines of no step only on step 1", async () => {

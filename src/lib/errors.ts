@@ -39,7 +39,7 @@ export const errorMessages = {
   ai_job_gone: "Resultatet finns inte längre.",
   import_no_recipe: "Det gick inte att hitta något recept i texten.",
   // AI-förslag (Story 5.2) with nothing at home: the AI is not asked.
-  suggest_empty_pantry: "Förrådet är tomt. Lägg till varor i Förråd, så kan AI:n föreslå rätter.",
+  suggest_empty_pantry: "Matvarorna är tomma. Lägg till varor i Matvaror, så kan AI:n föreslå rätter.",
   catalog_unavailable: "Det gick inte att läsa ingredienskatalogen. Försök igen.",
   recipe_save_failed: "Det gick inte att spara receptet. Försök igen.",
   recipe_delete_failed: "Det gick inte att ta bort receptet. Försök igen.",
@@ -48,7 +48,7 @@ export const errorMessages = {
   recipe_search_failed: "Det gick inte att söka bland recepten. Försök igen.",
   recipe_favorite_failed: "Det gick inte att spara favoriten.",
   settings_unavailable: "Det gick inte att läsa inställningarna. Försök igen.",
-  pantry_unavailable: "Det gick inte att läsa förrådet. Försök igen.",
+  pantry_unavailable: "Det gick inte att läsa matvarorna. Försök igen.",
   pantry_save_failed: "Det gick inte att spara varan. Försök igen.",
   // Removing an item (Story 2.3). After a failed remove the row is back in
   // the list; after a failed "Ångra" it stays removed.
@@ -57,17 +57,17 @@ export const errorMessages = {
   // "Töm kylen" (Story 6.3), shown in the sheet that asked: nothing is
   // removed, and the sheet stays so it can be tried again.
   pantry_empty_failed: "Det gick inte att ta bort varorna. Försök igen.",
-  // "Lägg i förrådet" (Story 3.7) before or while the pantry is written: nothing
+  // "Lägg till i Matvaror" (Story 3.7) before or while the pantry is written: nothing
   // is added, and the checks stay.
-  pantry_add_failed: "Det gick inte att lägga varorna i förrådet. Försök igen.",
+  pantry_add_failed: "Det gick inte att lägga varorna i Matvaror. Försök igen.",
   // Confirming lagerförslag (Story 6.2): the catalog or the pantry refused.
   // The suggestions stay; new catalog ingredients may stay too, and trying
   // again uses them.
-  pantry_confirm_failed: "Det gick inte att lägga förslagen i förrådet. Försök igen.",
+  pantry_confirm_failed: "Det gick inte att lägga förslagen i Matvaror. Försök igen.",
   // Confirming a photo compared with its place (Story 6.4): what is added,
   // changed and removed is one transaction, so nothing changed. The
   // suggestions stay; new catalog ingredients may stay too.
-  pantry_inventory_failed: "Det gick inte att uppdatera förrådet. Försök igen.",
+  pantry_inventory_failed: "Det gick inte att uppdatera matvarorna. Försök igen.",
   // Places in the pantry (Story 8.2, AD-24). A place deleted elsewhere, or not
   // the user's (MK410): nothing is written, and the view is read again.
   pantry_site_gone: "Boendet finns inte längre. Välj ett annat boende.",
@@ -117,7 +117,7 @@ export const errorMessages = {
   mealplan_cooked_failed: "Det gick inte att markera rätten som lagad. Inget är ändrat.",
   mealplan_cooked_already: "Rätten är redan markerad som lagad.",
   mealplan_uncook_failed: "Det gick inte att ta bort markeringen.",
-  mealplan_cooked_undo_failed: "Det gick inte att ångra. Kontrollera förrådet.",
+  mealplan_cooked_undo_failed: "Det gick inte att ångra. Kontrollera matvarorna.",
   // Tidigare matsedlar (Story 3.2). After a failed "Använd igen" or "Ny
   // matsedel" the current plan is as it was; after a failed delete the plan stays.
   mealplan_previous_unavailable: "Det gick inte att läsa tidigare matsedlar. Försök igen.",
@@ -145,12 +145,12 @@ export const errorMessages = {
   shopping_restore_failed: "Det gick inte att ångra.",
   // An own item changed in its detail after it was removed elsewhere (Story 3.6): the sheet closes and the list is read again.
   shopping_item_gone: "Varan finns inte längre.",
-  // "Lägg i förrådet" (Story 3.7) after the pantry was written: the list could
+  // "Lägg till i Matvaror" (Story 3.7) after the pantry was written: the list could
   // not be cleared. Trying again clears it without adding anything twice.
-  shopping_put_in_pantry_failed: "Det gick inte att lägga allt i förrådet. Försök igen.",
-  // "Lägg i förrådet" whose plan was switched elsewhere after the pantry was
+  shopping_put_in_pantry_failed: "Det gick inte att lägga allt i Matvaror. Försök igen.",
+  // "Lägg till i Matvaror" whose plan was switched elsewhere after the pantry was
   // written: the items are at home, the list is read again.
-  shopping_put_in_pantry_plan_changed: "Varorna är lagda i förrådet, men matsedeln har bytts.",
+  shopping_put_in_pantry_plan_changed: "Varorna är lagda i Matvaror, men matsedeln har bytts.",
   // Produktval (Story 7.2). A failed save keeps the sheet with its fields;
   // a failed remove keeps the sheet with the choice. When the choices cannot
   // be read, only the detail's section Produktval says so; the list works.

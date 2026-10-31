@@ -81,7 +81,7 @@ describe("the words of AI jobs", () => {
     expect(resultHref("suggest")).toBe("/recept");
     expect(resultHref("import")).toBe("/recept");
     expect(resultHref("analyze")).toBe("/hemma");
-    // Story 12.5: a photo's result opens Förråd on the photo's location.
+    // Story 12.5: a photo's result opens Matvaror on the photo's location.
     expect(resultHref("analyze", { location: "Frys", siteId: null })).toBe("/hemma?plats=frys");
     expect(resultHref("analyze", { location: "Okand" })).toBe("/hemma");
   });
@@ -111,7 +111,7 @@ describe("the things job (Story 18.2)", () => {
     expect(finishedText(job({ kind: "things", status: "failed" }))).toBe("Det gick inte att lista prylarna på fotot.");
   });
 
-  it("shows the result on the place's page in Prylar, and on the tab for anything odd", () => {
+  it("shows the result on the place's page in Förråd, and on the tab for anything odd", () => {
     const place = "0b2f6d0a-3c0e-4d52-9a54-6d0f0c5f6a02";
     expect(resultHref("things", { placeId: place })).toBe(`/prylar/${place}`);
     expect(resultHref("things", {})).toBe("/prylar");

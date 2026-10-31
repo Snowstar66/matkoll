@@ -312,7 +312,7 @@ describe("AiSuggestions", () => {
     ["ai_unavailable", "AI-tjänsten svarar inte just nu. Är datorn med modellen igång?"],
     ["ai_invalid", "Det gick inte att tolka svaret. Försök igen."],
     ["ai_rejected", "AI-tjänsten tog inte emot förfrågan. Försök igen senare."],
-    ["pantry_unavailable", "Det gick inte att läsa förrådet. Försök igen."],
+    ["pantry_unavailable", "Det gick inte att läsa matvarorna. Försök igen."],
     ["catalog_unavailable", "Det gick inte att läsa ingredienskatalogen. Försök igen."],
     ["validation", "Det gick inte att be om förslag. Försök igen."],
   ])("shows %s with Försök igen, which asks again", async (code, text) => {
@@ -359,14 +359,14 @@ describe("AiSuggestions", () => {
     expect(screen.getByRole("button", { name: "Försök igen" })).toBeInTheDocument();
   });
 
-  it("says the pantry is empty with Öppna Förråd and no Försök igen", async () => {
+  it("says the pantry is empty with Öppna Matvaror and no Försök igen", async () => {
     const user = userEvent.setup();
     renderSuggestions();
     await suggestWith(user, fail("suggest_empty_pantry"));
     expect(await screen.findByRole("alert")).toHaveTextContent(
-      "Förrådet är tomt. Lägg till varor i Förråd, så kan AI:n föreslå rätter.",
+      "Matvarorna är tomma. Lägg till varor i Matvaror, så kan AI:n föreslå rätter.",
     );
-    expect(screen.getByRole("link", { name: "Öppna Förråd" })).toHaveAttribute("href", "/hemma");
+    expect(screen.getByRole("link", { name: "Öppna Matvaror" })).toHaveAttribute("href", "/hemma");
     expect(screen.queryByRole("button", { name: "Försök igen" })).not.toBeInTheDocument();
   });
 
@@ -430,14 +430,14 @@ describe("AiSuggestions", () => {
     const hemma = "0b2f6d0a-3c0e-4d52-9a54-6d0f0c5f6a01";
     const stugan = "55555555-5555-4555-8555-555555555555";
 
-    it("shows them with Förslagen bygger på förrådet för Hemma. and Föreslå igen, and they can still be saved", async () => {
+    it("shows them with Förslagen bygger på matvarorna för Hemma. and Föreslå igen, and they can still be saved", async () => {
       const user = userEvent.setup();
       const view = renderSuggestions({ shownSiteId: hemma, siteNames: { [hemma]: "Hemma", [stugan]: "Stugan" } });
       await suggestWith(user, ok({ ...three, siteId: hemma }));
-      expect(screen.queryByText(/Förslagen bygger på förrådet/)).not.toBeInTheDocument();
+      expect(screen.queryByText(/Förslagen bygger på matvarorna/)).not.toBeInTheDocument();
 
       view.rerender(<Tree shownSiteId={stugan} siteNames={{ [hemma]: "Hemma", [stugan]: "Stugan" }} />);
-      expect(screen.getByText("Förslagen bygger på förrådet för Hemma.")).toBeInTheDocument();
+      expect(screen.getByText("Förslagen bygger på matvarorna för Hemma.")).toBeInTheDocument();
       expect(cards()).toHaveLength(3);
       expect(screen.getByRole("button", { name: "Spara Kycklinggryta" })).toBeEnabled();
 
@@ -451,10 +451,10 @@ describe("AiSuggestions", () => {
       const view = renderSuggestions({ shownSiteId: hemma });
       await suggestWith(user, ok({ ...three, siteId: hemma }));
       view.rerender(<Tree shownSiteId={stugan} />);
-      expect(screen.getByText("Förslagen bygger på förrådet för ett annat boende.")).toBeInTheDocument();
+      expect(screen.getByText("Förslagen bygger på matvarorna för ett annat boende.")).toBeInTheDocument();
 
       view.rerender(<Tree shownSiteId={null} />);
-      expect(screen.queryByText(/Förslagen bygger på förrådet/)).not.toBeInTheDocument();
+      expect(screen.queryByText(/Förslagen bygger på matvarorna/)).not.toBeInTheDocument();
       expect(cards()).toHaveLength(3);
     });
   });

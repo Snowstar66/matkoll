@@ -49,7 +49,7 @@ import { adminClient, anonClient, countRows, createTestUser, deleteTestUsers, ex
 // lines (Story 3.6, shopping_line_override) are, and beside the list the
 // product choices per catalog ingredient and store (Story 7.2,
 // product_choice). NFR7: 10 dishes against 200
-// pantry items within a second. "Lägg i förrådet" (Story 3.7) runs the whole
+// pantry items within a second. "Lägg till i Matvaror" (Story 3.7) runs the whole
 // flow against the real tables: pantry.addToPantry, then clear_put_in_pantry.
 
 /** The modules' read functions with the test user's client, as the server entries give them. */
@@ -691,7 +691,7 @@ describe("shopping_custom_item", () => {
     expect(await countRows("shopping_check", user.id)).toBe(1);
     const stored = await user.db.from("shopping_check").select("meal_plan_id").eq("line_key", key);
     expect(stored.data).toEqual([{ meal_plan_id: null }]);
-    // Read with or without a plan, and as rows with ids for "Lägg i förrådet".
+    // Read with or without a plan, and as rows with ids for "Lägg till i Matvaror".
     expect(await listChecksIn(user.db, null)).toEqual([key]);
     expect(await listChecksIn(user.db, planId)).toEqual([key]);
     expect((await listCheckRowsIn(user.db, null)).map((check) => check.key)).toEqual([key]);
@@ -1182,7 +1182,7 @@ describe("shopping_line_override", () => {
   });
 });
 
-describe("Lägg i förrådet", () => {
+describe("Lägg till i Matvaror", () => {
   /** The flow's dependencies with the test user's client, as putCheckedInPantry gives them. */
   const flow = (user: TestUser, change: Partial<PutInPantryDeps> = {}): PutInPantryDeps => {
     const all = sources(user.db);

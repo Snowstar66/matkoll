@@ -9,7 +9,7 @@ import { loadThingIndexIn } from "../data/index";
 import { questionSchema, refLabel, type AskRef } from "../domain/thing-ask";
 import { buildAskInput } from "./ask-input";
 
-// "Fråga om dina prylar" (Story 18.4, FR-24, AD-9). A short call, so it is
+// "Fråga om ditt förråd" (Story 18.4, FR-24, AD-9). A short call, so it is
 // answered in the request itself (a Server Action) and not as an AI job:
 // the model gets a question and a few thousand characters of text and answers
 // in a few sentences, which Haiku does in seconds and Qwen in well under a

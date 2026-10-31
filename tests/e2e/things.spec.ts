@@ -61,12 +61,12 @@ async function newPlace(page: Page, room: string, part = "") {
   await dialog.getByRole("button", { name: "Skapa" }).click();
 }
 
-test("the fifth tab is Prylar with the toolbox, in the tab bar", async ({ page }) => {
+test("the fifth tab is Förråd with the toolbox, in the tab bar", async ({ page }) => {
   await page.goto("/prylar");
   const links = nav(page).getByRole("link");
-  await expect(links).toHaveText(["📖Recept", "📅Matsedel", "🛒Inköpslista", "📦Förråd", "🧰Prylar"]);
-  await expect(nav(page).getByRole("link", { name: "Prylar" })).toHaveAttribute("aria-current", "page");
-  await expect(page).toHaveTitle(/Prylar/);
+  await expect(links).toHaveText(["📖Recept", "📅Matsedel", "🛒Inköpslista", "🥕Matvaror", "🧰Förråd"]);
+  await expect(nav(page).getByRole("link", { name: "Förråd" })).toHaveAttribute("aria-current", "page");
+  await expect(page).toHaveTitle(/Förråd/);
 });
 
 test("without places it explains and offers Ny plats", async ({ page }) => {
@@ -265,10 +265,10 @@ test("a finished reading is confirmed while Pontus is in another tab, with a bad
   await expect(nav(page).getByTestId("tab-badge")).toHaveCount(0);
 });
 
-test("the side menu at desktop width has Prylar too", async ({ page }) => {
+test("the side menu at desktop width has Förråd too", async ({ page }) => {
   await page.setViewportSize({ width: 1280, height: 800 });
   await page.goto("/prylar");
-  await expect(nav(page).getByRole("link", { name: "Prylar" })).toHaveAttribute("aria-current", "page");
+  await expect(nav(page).getByRole("link", { name: "Förråd" })).toHaveAttribute("aria-current", "page");
   await expect(content(page)).toBeVisible();
 });
 
@@ -415,7 +415,7 @@ test("search finds a thing in every place and boende, and a question is answered
   await expect(page.getByTestId("place")).toBeVisible();
 
   // The question goes to the AI (the mock here) with the lists; the answer names places that can be tapped.
-  await page.getByRole("textbox", { name: "Fråga om dina prylar" }).fill("Har vi något att måla med?");
+  await page.getByRole("textbox", { name: "Fråga om ditt förråd" }).fill("Har vi något att måla med?");
   await page.getByRole("button", { name: "Fråga", exact: true }).click();
   const answer = page.getByTestId("ask-answer");
   await expect(answer).toContainText("Målarfärgsburkar finns i Redskapsboden (Stugan).");

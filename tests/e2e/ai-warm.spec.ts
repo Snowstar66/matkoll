@@ -1,7 +1,7 @@
 import { expect, type Page, type Request, test } from "@playwright/test";
 import { aiWarmStorageState } from "./support";
 
-// Story 12.2: Förråd and Recept ask the server to wake the model when
+// Story 12.2: Matvaror and Recept ask the server to wake the model when
 // they are shown, at most once per kind in three minutes per tab. The spec has
 // an E2E user of its own (aiWarmEmail). With AI_PROVIDER=mock the server
 // answers 202 and wakes nothing. Nothing is ever shown.
@@ -30,11 +30,11 @@ async function settle(page: Page) {
   await page.waitForLoadState("networkidle");
 }
 
-test("Förråd wakes the model for a photo once, and not again when it is opened again", async ({ page }) => {
+test("Matvaror wakes the model for a photo once, and not again when it is opened again", async ({ page }) => {
   const warmUps = watchWarmUps(page);
   const sent = page.waitForRequest(isWarmUp);
   await page.goto("/hemma");
-  await expect(heading(page, "Förråd")).toBeVisible();
+  await expect(heading(page, "Matvaror")).toBeVisible();
 
   const request = await sent;
   expect(request.postDataJSON()).toEqual({ kind: "image" });
@@ -45,16 +45,16 @@ test("Förråd wakes the model for a photo once, and not again when it is opened
 
   // Opened again in the same tab: a new page load, the same session.
   await page.goto("/hemma");
-  await expect(heading(page, "Förråd")).toBeVisible();
+  await expect(heading(page, "Matvaror")).toBeVisible();
   await settle(page);
   expect(warmUps).toEqual(["image"]);
 
-  // Recept asks for its own kind; back on Förråd (shown again after Activity), nothing new.
+  // Recept asks for its own kind; back on Matvaror (shown again after Activity), nothing new.
   await tab(page, "Recept").click();
   await expect(heading(page, "Recept")).toBeVisible();
   await expect.poll(() => warmUps).toEqual(["image", "text"]);
-  await tab(page, "Förråd").click();
-  await expect(heading(page, "Förråd")).toBeVisible();
+  await tab(page, "Matvaror").click();
+  await expect(heading(page, "Matvaror")).toBeVisible();
   await settle(page);
   expect(warmUps).toEqual(["image", "text"]);
 });

@@ -38,13 +38,13 @@ export type PutInPantryInput = z.input<typeof putInPantrySchema>;
  * For the confirmation: the items put in the pantry, the own items without a
  * link taken off the list, and the checked lines that could not go to the
  * pantry (they keep their checks). `siteName` is the place's name, read after
- * the write, when the user has more than one place ("Lagt 8 varor i förrådet
+ * the write, when the user has more than one place ("Lagt 8 varor i Matvaror
  * för Stugan."); `null` with one place, or when it could not be read.
  */
 export type PutInPantryResult = { added: number; removed: number; skipped: number; siteName: string | null };
 
 /**
- * "Lägg i förrådet" (FR-19, FR-33, AD-8, AD-19): puts every checked line of the
+ * "Lägg till i Matvaror" (FR-19, FR-33, AD-8, AD-19): puts every checked line of the
  * current plan's list in the pantry of the place `siteId`, at its catalog
  * ingredient's location, and takes it off the list; see putInPantryWith. The
  * list is counted here against that place's pantry, never taken from the

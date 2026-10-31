@@ -16,8 +16,8 @@ describe("mainDestinations", () => {
       ["/recept", "Recept", "\u{1F4D6}"],
       ["/matsedel", "Matsedel", "\u{1F4C5}"],
       ["/lista", "Inköpslista", "\u{1F6D2}"],
-      ["/hemma", "Förråd", "\u{1F4E6}"],
-      ["/prylar", "Prylar", "\u{1F9F0}"],
+      ["/hemma", "Matvaror", "\u{1F955}"],
+      ["/prylar", "Förråd", "\u{1F9F0}"],
     ]);
   });
 
@@ -52,11 +52,11 @@ describe("tab bar and side menu emoji (Story 14.4)", () => {
     expect(icon).toHaveTextContent("\u{1F6D2}");
     expect(icon).not.toHaveClass("grayscale");
 
-    const pantry = screen.getByRole("link", { name: "Förråd" });
+    const pantry = screen.getByRole("link", { name: "Matvaror" });
     expect(pantry).not.toHaveAttribute("aria-current");
     expect(pantry).toHaveClass("text-ink-3");
     const dimmed = pantry.querySelector("[aria-hidden]");
-    expect(dimmed).toHaveTextContent("\u{1F4E6}");
+    expect(dimmed).toHaveTextContent("\u{1F955}");
     expect(dimmed).toHaveClass("grayscale", "opacity-70");
   });
 
@@ -64,7 +64,7 @@ describe("tab bar and side menu emoji (Story 14.4)", () => {
     pathname.current = "/hemma";
     render(<SideMenu />);
     const nav = screen.getByRole("navigation", { name: "Huvudmeny" });
-    const pantry = await within(nav).findByRole("link", { name: "Förråd" });
+    const pantry = await within(nav).findByRole("link", { name: "Matvaror" });
     expect(pantry).toHaveAttribute("aria-current", "page");
     expect(nav.textContent).toContain("\u2699\uFE0F");
     for (const link of within(nav).getAllByRole("link")) {

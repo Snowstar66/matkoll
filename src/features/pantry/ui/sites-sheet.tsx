@@ -45,7 +45,7 @@ import { useLiveUndo } from "./site-switching";
 // "Ångra" for the place's rows shows, since they could not go back to it.
 // Under the list, the field "Nytt boende" and "Lägg till"; a new place is
 // never selected by itself. Places are kept in the pantry, so they are
-// managed in this sheet, which Förråd and Inställningar > Boenden both open.
+// managed in this sheet, which Matvaror and Inställningar > Boenden both open.
 //
 // The sheet stays open after a change, so its confirmations ("Lade till
 // Stugan. …", "Boendet heter nu …", "Tog bort Stugan.") show in the sheet,

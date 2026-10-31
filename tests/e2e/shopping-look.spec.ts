@@ -2,7 +2,7 @@ import { expect, type Page, type Response, test } from "@playwright/test";
 import { adminClient, e2eUserId, shoppingLookEmail, shoppingLookStorageState, thisMonday } from "./support";
 
 // Story 11.4: Inköpslistan in the new look (FR-43, Flöde 9). The progress
-// row, the categories of Förråd, the line under a name, the product chip,
+// row, the categories of Matvaror, the line under a name, the product chip,
 // a check that moves a line to "I korgen" and back, and the fixed buttons in
 // one row, at 375 px. The spec has an E2E user of its own (shoppingLookEmail).
 // Before each test the service role makes:
@@ -258,7 +258,7 @@ test("the list shows the progress row, the categories, the line under each name 
   // Nothing checked off: no basket row, and only "Kopiera till ICA-varukorgen", as the secondary button.
   await expect(basketRow(page)).toHaveCount(0);
   await expect(button(page, "Kopiera till ICA-varukorgen")).toBeVisible();
-  await expect(button(page, "Lägg i förrådet")).toHaveCount(0);
+  await expect(button(page, "Lägg till i Matvaror")).toHaveCount(0);
   // The check's tap target is 44 × 44 px.
   const box = await check(page, "Gul lök, 1 st").boundingBox();
   expect(box!.width).toBeGreaterThanOrEqual(44);
@@ -282,9 +282,9 @@ test("a check moves the line to I korgen at once, and a check there takes it bac
   // Focus on the next line's check.
   await expect(check(page, "Matlagningsgrädde, 3 dl")).toBeFocused();
   expect(await storedChecks()).toEqual([lineKey("Gul lök", "st")]);
-  // The long label no longer fits beside "Lägg i förrådet" (Story 14.2): FixedAction stacks them, "Lägg i förrådet" on top.
+  // The long label no longer fits beside "Lägg till i Matvaror" (Story 14.2): FixedAction stacks them, "Lägg till i Matvaror" on top.
   const send = await button(page, "Kopiera till ICA-varukorgen").boundingBox();
-  const put = await button(page, "Lägg i förrådet").boundingBox();
+  const put = await button(page, "Lägg till i Matvaror").boundingBox();
   expect(put!.y + put!.height).toBeLessThanOrEqual(send!.y);
 
   // Saved: still in the basket after a reload, which is open from the start (Story 3.9), struck through.
@@ -322,7 +322,7 @@ test("everything checked off: Allt ligger i korgen, no categories, and I korgen 
   // The last line left: focus on the basket row's "Dölj".
   await expect(button(page, "Dölj I korgen")).toBeFocused();
   await expect(basketRow(page)).toContainText("I korgen (5)");
-  await expect(button(page, "Lägg i förrådet")).toBeVisible();
+  await expect(button(page, "Lägg till i Matvaror")).toBeVisible();
   await expect(region(page, "I korgen (5)").getByTestId("shopping-line")).toHaveCount(5);
   await tab(page, "Recept").click();
   await expect(page).toHaveURL(/\/recept$/);
@@ -361,7 +361,7 @@ test("a checked line stays visible and struck through, Ångra in the toast takes
   expect(errors).toEqual([]);
 });
 
-test("at 200 % text the buttons stack with Lägg i förrådet on top, the chip is cut, and nothing scrolls sideways", async ({ page }) => {
+test("at 200 % text the buttons stack with Lägg till i Matvaror on top, the chip is cut, and nothing scrolls sideways", async ({ page }) => {
   await seed([lineKey("Gul lök", "st")]);
   // A 375 px phone at 200 % zoom.
   await page.setViewportSize({ width: 188, height: 406 });
@@ -369,7 +369,7 @@ test("at 200 % text the buttons stack with Lägg i förrådet on top, the chip i
   await page.goto("/lista");
   await expect(progress(page)).toHaveText(/^4 varor kvar/);
   const send = await button(page, "Kopiera till ICA-varukorgen").boundingBox();
-  const put = await button(page, "Lägg i förrådet").boundingBox();
+  const put = await button(page, "Lägg till i Matvaror").boundingBox();
   expect(put!.y + put!.height).toBeLessThanOrEqual(send!.y);
   const chip = lineOf(page, "Falukorv").getByTestId("product-chip");
   expect(await chip.evaluate((element) => element.scrollWidth > element.clientWidth)).toBe(true);
@@ -385,7 +385,7 @@ test("with the page's text at 200 % the buttons and labels stay inside 375 px", 
   await page.goto("/lista");
   await page.addStyleTag({ content: "html { font-size: 200%; }" });
   await expect(progress(page)).toHaveText(/^4 varor kvar/);
-  for (const name of ["Kopiera till ICA-varukorgen", "Lägg i förrådet"]) {
+  for (const name of ["Kopiera till ICA-varukorgen", "Lägg till i Matvaror"]) {
     const box = await button(page, name).boundingBox();
     expect(box!.x).toBeGreaterThanOrEqual(0);
     expect(box!.x + box!.width).toBeLessThanOrEqual(375);

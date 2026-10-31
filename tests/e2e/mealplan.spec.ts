@@ -534,9 +534,9 @@ test("Markera som lagad deducts from the pantry, drops the dish from the list an
   const line = sheet.getByTestId("cooked-line").filter({ hasText: "Röda linser" });
   await expect(line.getByTestId("cooked-line-text")).toHaveText("5 dl − 5 dl → 0 dl");
   await expect(line).toContainText("så det blir 0");
-  await sheet.getByRole("button", { name: "Dra från förrådet och markera lagad" }).click();
+  await sheet.getByRole("button", { name: "Dra från matvarorna och markera lagad" }).click();
   await expect(sheet).toHaveCount(0);
-  await expect(toast(page)).toContainText(`${soppa} är lagad. Förrådet är uppdaterat.`);
+  await expect(toast(page)).toContainText(`${soppa} är lagad. Matvarorna är uppdaterade.`);
   await expect(card.getByTestId("dish-cooked")).toHaveText("✓ Lagad");
   expect(await amountOf("Röda linser")).toEqual([]);
   await page.goto("/lista");
@@ -549,7 +549,7 @@ test("Markera som lagad deducts from the pantry, drops the dish from the list an
   await expect(cream.getByTestId("cooked-line-text")).toHaveText("5 dl − 2 dl → 3 dl");
   await sheet.getByRole("textbox", { name: "Ny mängd Grädde" }).fill("4");
   await expect(cream.getByTestId("cooked-line-text")).toHaveText("5 dl − 1 dl → 4 dl");
-  await sheet.getByRole("button", { name: "Dra från förrådet och markera lagad" }).click();
+  await sheet.getByRole("button", { name: "Dra från matvarorna och markera lagad" }).click();
   await expect(dish(page, gryta).getByTestId("dish-cooked")).toBeVisible();
   expect(await amountOf("Grädde")).toEqual([4]);
   await toast(page).getByRole("button", { name: "Ångra" }).click();
@@ -558,7 +558,7 @@ test("Markera som lagad deducts from the pantry, drops the dish from the list an
 
   // Unmarking leaves the pantry alone, and the dish counts in the list again.
   await (await openMore(page, dish(page, soppa), soppa)).getByRole("button", { name: `Ta bort markeringen lagad, ${soppa}` }).click();
-  await expect(toast(page)).toContainText("Förrådet är inte ändrat.");
+  await expect(toast(page)).toContainText("Matvarorna är inte ändrade.");
   await expect(dish(page, soppa).getByTestId("dish-cooked")).toHaveCount(0);
   expect(await amountOf("Röda linser")).toEqual([]);
   await page.goto("/lista");

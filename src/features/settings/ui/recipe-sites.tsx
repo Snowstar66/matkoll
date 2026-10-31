@@ -142,7 +142,7 @@ export function RecipeSites({ sites }: RecipeSitesProps) {
       <h2 id={headingId} className="sr-only">
         Godkända receptsajter
       </h2>
-      <p className="px-1 text-meta text-ink-3">Matkoll hämtar bara recept från sajterna i listan.</p>
+      <p className="px-1 desktop:px-0 text-meta text-ink-3">Matkoll hämtar bara recept från sajterna i listan.</p>
       {changeError ? <Notice role="alert">{changeError}</Notice> : null}
       {shownSites.length > 0 ? (
         <ListGroup labelledBy={headingId}>
@@ -165,7 +165,7 @@ export function RecipeSites({ sites }: RecipeSitesProps) {
         <p className="text-body text-ink-2">Inga godkända receptsajter. Lägg till en så går det att importera från länkar.</p>
       )}
       <form onSubmit={submit} noValidate className="flex flex-col gap-2">
-        <label htmlFor={fieldId} className="px-1 text-section-label text-ink-2">
+        <label htmlFor={fieldId} className="px-1 desktop:px-0 text-section-label text-ink-2">
           Lägg till<span className="sr-only"> ny receptsajt</span>
         </label>
         <div className="flex gap-2">

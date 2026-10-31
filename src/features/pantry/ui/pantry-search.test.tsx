@@ -73,7 +73,7 @@ describe("PantrySearchField", () => {
   });
 });
 
-describe("the search in Förråd", () => {
+describe("the search in Matvaror", () => {
   it("starts empty when another location is chosen", () => {
     const { rerender } = render(providers(<Page />));
     fireEvent.change(field(), { target: { value: "mjö" } });

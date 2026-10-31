@@ -88,7 +88,7 @@ export const suggestValidationMessage = "Det gick inte att be om förslag. Förs
 
 /**
  * The text AI-förslag shows for an error: its own for `ai_rejected` and `validation`, the
- * empty pantry's ("Förrådet är tomt. …", shown with "Öppna Förråd"), otherwise
+ * empty pantry's ("Matvarorna är tomma. …", shown with "Öppna Matvaror"), otherwise
  * the error's own.
  */
 export function suggestErrorMessage(error: Pick<AppError, "code" | "message">): string {

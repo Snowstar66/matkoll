@@ -52,7 +52,7 @@ export function removedItemsText(names: readonly NameInText[]): string {
 
 /**
  * The short confirmation, with "Ångra", for the items removed one by one in
- * Förråd while it shows (Story 11.3, EXPERIENCE.md, Soptunna): "Tog bort
+ * Matvaror while it shows (Story 11.3, EXPERIENCE.md, Soptunna): "Tog bort
  * Gräddfil.", "Tog bort Gräddfil och Mjölk." or "Tog bort 3 varor." The names
  * are written as the list shows them.
  */
@@ -62,9 +62,9 @@ export function removedItemText(names: readonly string[]): string {
   return `Tog bort ${itemCountText(names.length)}.`;
 }
 
-/** The short confirmation after confirming several lagerförslag at once: "Lagt 1 vara i förrådet.", "Lagt 4 varor i förrådet." */
+/** The short confirmation after confirming several lagerförslag at once: "Lagt 1 vara i Matvaror.", "Lagt 4 varor i Matvaror." */
 export function confirmedItemsText(count: number): string {
-  return `Lagt ${itemCountText(count)} i förrådet.`;
+  return `Lagt ${itemCountText(count)} i Matvaror.`;
 }
 
 /** The short confirmation, with "Ångra", after rejecting a lagerförslag: "ketchup är avvisad." */

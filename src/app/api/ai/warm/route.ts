@@ -8,7 +8,7 @@ import { getAiServiceFor, warmUpKinds, type AiService, type WarmUpKind, type War
 import { claimWarmUp, warmIntervalMs } from "@/server/ai/warm-limit";
 import { isCrossSite, mediaTypeOf, readCapped, respond, unreadBody } from "../route-support";
 
-// Wakes the model before it is needed (Story 12.2, FR-45, AD-9). Förråd
+// Wakes the model before it is needed (Story 12.2, FR-45, AD-9). Matvaror
 // asks for `image` and Recept for `text` when the page is shown
 // (src/lib/ai-client.ts, warmAi). The answer is always 202 without a body
 // for a valid request, at once: the warm-up runs after the response with

@@ -221,7 +221,7 @@ const section = (page: Page) => page.getByRole("region", { name: "AI-förslag" }
 const cards = (page: Page) => section(page).getByRole("listitem");
 const suggestButton = (page: Page) => page.getByRole("button", { name: "Föreslå rätter med AI" }).filter({ visible: true });
 const sheet = (page: Page) => page.getByRole("dialog", { name: "Spara AI-förslag" });
-const tab = (page: Page, name: "Recept" | "Förråd") =>
+const tab = (page: Page, name: "Recept" | "Matvaror") =>
   page.getByRole("navigation", { name: "Huvudmeny" }).getByRole("link", { name });
 
 async function expectNoHorizontalScroll(page: Page) {
@@ -376,7 +376,7 @@ test("the AI out of reach: the text and Försök igen, while the library works",
   expect(errors.filter((error) => !error.includes("Failed to load resource"))).toEqual([]);
 });
 
-test("an empty pantry: the text with Öppna Förråd, and the AI is not asked", async ({ page }) => {
+test("an empty pantry: the text with Öppna Matvaror, and the AI is not asked", async ({ page }) => {
   const { error } = await adminClient().from("pantry_item").delete().eq("user_id", userId);
   if (error) throw error;
 
@@ -388,9 +388,9 @@ test("an empty pantry: the text with Öppna Förråd, and the AI is not asked", 
   expect((await answered).status()).toBe(422);
   expect(await latestJobStatus()).toBeNull();
   await expect(visible(page).getByRole("alert")).toHaveText(
-    "Förrådet är tomt. Lägg till varor i Förråd, så kan AI:n föreslå rätter.",
+    "Matvarorna är tomma. Lägg till varor i Matvaror, så kan AI:n föreslå rätter.",
   );
   await expect(visible(page).getByRole("button", { name: "Försök igen" })).toHaveCount(0);
-  await visible(page).getByRole("link", { name: "Öppna Förråd" }).click();
+  await visible(page).getByRole("link", { name: "Öppna Matvaror" }).click();
   await expect(page).toHaveURL(/\/hemma$/);
 });

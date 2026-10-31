@@ -298,7 +298,7 @@ async function awayAndBack(page: Page) {
   const nav = page.getByRole("navigation", { name: "Huvudmeny" });
   await nav.getByRole("link", { name: "Matsedel" }).click();
   await expect(page).toHaveURL(/\/matsedel/);
-  await nav.getByRole("link", { name: "Förråd" }).click();
+  await nav.getByRole("link", { name: "Matvaror" }).click();
   await expect(page).toHaveURL(/\/hemma/);
   await nav.getByRole("link", { name: "Recept" }).click();
   await expect(page).toHaveURL(/\/recept/);

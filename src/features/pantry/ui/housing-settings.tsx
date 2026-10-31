@@ -11,10 +11,10 @@ import { useHydrated } from "./site-switching";
 
 /**
  * "Boenden" under Inställningar (Story 14.7): the user's places as rows with
- * their number of items, and the same sheet Boenden as in Förråd for adding,
+ * their number of items, and the same sheet Boenden as in Matvaror for adding,
  * renaming and removing (FR-29). A tap on a row, or "Lägg till boende", opens
  * the sheet; it closes when the page is hidden after a navigation (Activity),
- * and a name not saved is dropped, as in Förråd.
+ * and a name not saved is dropped, as in Matvaror.
  */
 export function HousingSettings({ sites }: { sites: readonly PantrySiteWithCount[] }) {
   const hydrated = useHydrated();
@@ -28,7 +28,7 @@ export function HousingSettings({ sites }: { sites: readonly PantrySiteWithCount
 
   return (
     <section aria-label="Boenden" className="flex flex-col gap-4">
-      <p className="px-1 text-meta text-ink-3">Boendena har var sitt förråd. Välj vilket som gäller i Förråd.</p>
+      <p className="px-1 desktop:px-0 text-meta text-ink-3">Boendena har var sina matvaror. Välj vilket som gäller i Matvaror.</p>
       <ListGroup label="Boenden">
         {sites.map((site) => {
           const meta = [site.itemCount === null ? null : itemCountText(site.itemCount), site.isSelected ? selectedSiteLabel : null]

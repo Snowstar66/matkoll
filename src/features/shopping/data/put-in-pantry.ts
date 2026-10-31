@@ -6,7 +6,7 @@ import { lineKeySchema } from "../domain/line-key";
 import { ShoppingDataError, type ShoppingDb } from "./client";
 import { loadShoppingList, type ShoppingSources } from "./queries";
 
-// "Lägg i förrådet" (FR-19, AD-1, AD-8, AD-19): the checked lines go to the
+// "Lägg till i Matvaror" (FR-19, AD-1, AD-8, AD-19): the checked lines go to the
 // pantry (pantry.addToPantry), and then off the list (clear_put_in_pantry).
 // The flow crosses two modules, so it is idempotent rather than atomic: each
 // item's key is its check's id, which the pantry keeps a receipt of until the
@@ -116,7 +116,7 @@ export async function receiptedChecks(
 }
 
 /**
- * "Lägg i förrådet" for the plan `planId`, which the list was counted for:
+ * "Lägg till i Matvaror" for the plan `planId`, which the list was counted for:
  * 1. The list is counted on the server with computeList (loadShoppingList),
  *    with the checks' ids and the catalog ingredients it was counted with;
  *    not the current plan gives `plan_changed`.

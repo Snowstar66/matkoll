@@ -68,7 +68,7 @@ const render = (element: ReactElement) =>
     </ToastProvider>,
   );
 
-const unavailable = "Det gick inte att läsa förrådet. Försök igen.";
+const unavailable = "Det gick inte att läsa matvarorna. Försök igen.";
 const mjolk: PantryItem = { id: "1", siteId: site.id, ingredientId: "m", name: "Mjölk", location: "Kyl", amount: 1, unit: "l", label: null, createdAt: "2026-10-20T10:00:00+00:00", section: "Mejeri" };
 
 let logged: ReturnType<typeof vi.spyOn>;

@@ -206,7 +206,7 @@ test("the list groups the lines by category, with the dishes under each name and
   const errors = watchErrors(page);
   await page.goto("/lista");
   await expect(progress(page)).toHaveText(/^5 varor kvar\s*0 av 5 i korgen$/);
-  // The categories of Förråd (Story 11.4): salt is a seasoning.
+  // The categories of Matvaror (Story 11.4): salt is a seasoning.
   await expect(sectionHeadings(page)).toHaveText(["Frukt & grönt", "Mejeri & ägg", "Skafferi", "Såser & smaksättare", "Övrigt"]);
   await expect(lines(page)).toHaveCount(5);
   // An amount without unit counts as st.
@@ -216,8 +216,8 @@ test("the list groups the lines by category, with the dishes under each name and
   await expect(lineOf(page, "Grädde")).toContainText("3 dl");
   // 1 kg at home is never converted into dl.
   await expect(lineOf(page, "Mjöl")).toContainText("2 dl (hemma: 1 kg)");
-  // A vague line: no amount, "Saknas i förrådet" before the dishes; no "Finns hemma?".
-  await expect(lineOf(page, "Salt")).toContainText(`Saknas i förrådet · ${gryta}`);
+  // A vague line: no amount, "Saknas i Matvaror" before the dishes; no "Finns hemma?".
+  await expect(lineOf(page, "Salt")).toContainText(`Saknas i Matvaror · ${gryta}`);
   await expect(page.getByText("Finns hemma?")).toHaveCount(0);
   // A line without a catalog ingredient, with its own text, under Övrigt.
   const other = page.getByRole("list", { name: "Övrigt" }).filter({ visible: true });
@@ -548,7 +548,7 @@ test("own items stay as they are when the servings change", async ({ page }) => 
 // Story 3.6: Listpostdetalj, corrected amounts and hidden lines. Each test
 // sets the pantry, the servings, the checks, the own items and the overrides
 // itself: Krämig kycklinggryta and Paj for 4 with 1 kg mjöl at home give
-// Paprika 1 st, Grädde 3 dl, Mjöl 2 dl (hemma: 1 kg) and Salt (Saknas i förrådet).
+// Paprika 1 st, Grädde 3 dl, Mjöl 2 dl (hemma: 1 kg) and Salt (Saknas i Matvaror).
 
 /** The current plan's id, with the service role. */
 async function currentPlanId(): Promise<string> {

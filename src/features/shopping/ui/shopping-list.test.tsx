@@ -94,7 +94,7 @@ describe("ShoppingList", () => {
   it("shows the summary, the progress row and the lines per category in the store's order", () => {
     render(<ShoppingList plan={plan} lines={lines} pantryUnavailable={false} />);
     expect(screen.getByTestId("list-progress")).toHaveTextContent("6 varor kvar 0 av 6 i korgen");
-    // The categories of Förråd (Story 11.4): salt is a seasoning.
+    // The categories of Matvaror (Story 11.4): salt is a seasoning.
     expect(screen.getAllByRole("heading", { level: 2 }).map((heading) => heading.textContent)).toEqual([
       "Frukt & grönt",
       "Mejeri & ägg",
@@ -110,10 +110,10 @@ describe("ShoppingList", () => {
     expect(within(screen.getByRole("list", { name: "Skafferi" })).getAllByTestId("shopping-line").map(rowText)).toEqual([
       "Mjöl 2 dl (hemma: 1 kg) Paj",
     ]);
-    // A vague line: no amount, and "Saknas i förrådet" before the dishes; no "Finns hemma?".
+    // A vague line: no amount, and "Saknas i Matvaror" before the dishes; no "Finns hemma?".
     expect(
       within(screen.getByRole("list", { name: "Såser & smaksättare" })).getAllByTestId("shopping-line").map(rowText),
-    ).toEqual(["Salt Saknas i förrådet · Krämig kycklinggryta"]);
+    ).toEqual(["Salt Saknas i Matvaror · Krämig kycklinggryta"]);
     expect(screen.queryByText(/Finns hemma\?/)).not.toBeInTheDocument();
     // No amount for a line without a catalog ingredient: its text says how much, times its dishes.
     expect(within(screen.getByRole("list", { name: "Övrigt" })).getAllByTestId("shopping-line").map(rowText)).toEqual([
@@ -142,13 +142,13 @@ describe("ShoppingList", () => {
 
   it("says nothing is taken off when the pantry could not be read, as a status, and only with dishes", () => {
     const { rerender } = render(<ShoppingList plan={plan} lines={lines} pantryUnavailable />);
-    const notice = screen.getByText("Det gick inte att läsa förrådet, så inget är avdraget från listan.");
+    const notice = screen.getByText("Det gick inte att läsa matvarorna, så inget är avdraget från listan.");
     expect(notice).toHaveAttribute("role", "status");
     expect(screen.queryByRole("alert")).not.toBeInTheDocument();
     rerender(<ShoppingList plan={{ ...plan, dishCount: 0 }} lines={[]} pantryUnavailable />);
-    expect(screen.queryByText("Det gick inte att läsa förrådet, så inget är avdraget från listan.")).not.toBeInTheDocument();
+    expect(screen.queryByText("Det gick inte att läsa matvarorna, så inget är avdraget från listan.")).not.toBeInTheDocument();
     rerender(<ShoppingList plan={null} lines={[]} pantryUnavailable />);
-    expect(screen.queryByText("Det gick inte att läsa förrådet, så inget är avdraget från listan.")).not.toBeInTheDocument();
+    expect(screen.queryByText("Det gick inte att läsa matvarorna, så inget är avdraget från listan.")).not.toBeInTheDocument();
   });
 
   it("counts only dishes with a recipe, and says how many were left out", () => {
@@ -224,9 +224,9 @@ describe("ShoppingList and the place it is counted against (Story 8.5)", () => {
 
   it("names the place when everything is in stock with more than one place, also Hemma", () => {
     const { rerender } = render(<ShoppingList plan={plan} lines={[]} pantryUnavailable={false} site={stugan} />);
-    expect(screen.getByText("Allt finns i förrådet för Stugan.")).toBeInTheDocument();
+    expect(screen.getByText("Allt finns i Matvaror för Stugan.")).toBeInTheDocument();
     rerender(<ShoppingList plan={plan} lines={[]} pantryUnavailable={false} site={hemma} />);
-    expect(screen.getByText("Allt finns i förrådet för Hemma.")).toBeInTheDocument();
+    expect(screen.getByText("Allt finns i Matvaror för Hemma.")).toBeInTheDocument();
     // One place, or one that could not be read: as in 1.0.
     rerender(<ShoppingList plan={plan} lines={[]} pantryUnavailable={false} site={{ ...hemma, siteCount: 1 }} />);
     expect(screen.getByText("Allt finns hemma.")).toBeInTheDocument();
@@ -310,12 +310,12 @@ describe("ShoppingList and the place it is counted against (Story 8.5)", () => {
     expect(screen.getByRole("checkbox", { name: /^Paprika/ })).toBeChecked();
   });
 
-  it("says Saknas i Stugan under a vague line with more than one place, and Saknas i förrådet with one", () => {
+  it("says Saknas i Stugan under a vague line with more than one place, and Saknas i Matvaror with one", () => {
     const { rerender } = render(<ShoppingList plan={plan} lines={lines} pantryUnavailable={false} site={stugan} />);
     const salt = () => screen.getAllByTestId("shopping-line").find((row) => row.dataset.lineKey === "r:salt:-")!;
     expect(rowText(salt())).toBe("Salt Saknas i Stugan · Krämig kycklinggryta");
     rerender(<ShoppingList plan={plan} lines={lines} pantryUnavailable={false} site={{ ...stugan, siteCount: 1 }} />);
-    expect(rowText(salt())).toBe("Salt Saknas i förrådet · Krämig kycklinggryta");
+    expect(rowText(salt())).toBe("Salt Saknas i Matvaror · Krämig kycklinggryta");
   });
 });
 
@@ -597,7 +597,7 @@ describe("ShoppingList in the new look (Story 11.4)", () => {
     // No category, only the basket row's heading.
     expect(screen.getAllByRole("heading", { level: 2 }).map((heading) => heading.textContent)).toEqual(["I korgen (14)"]);
     expect(screen.getByRole("button", { name: "Visa I korgen (14 varor)" })).toHaveAttribute("aria-expanded", "false");
-    expect(screen.getByRole("button", { name: "Lägg i förrådet" })).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "Lägg till i Matvaror" })).toBeInTheDocument();
   });
 
   it("shows the product choice of the selected store as a chip, and none without a store", () => {
@@ -757,7 +757,7 @@ describe("ShoppingList in the new look (Story 11.4)", () => {
     expect(screen.getByRole("checkbox", { name: "Falukorv, 800 g" })).toHaveAccessibleDescription(
       "Krämig kycklinggryta Scan Falukorv 800 g",
     );
-    expect(screen.getByRole("checkbox", { name: "Sojasås" })).toHaveAccessibleDescription("Saknas i förrådet · Krämig kycklinggryta");
+    expect(screen.getByRole("checkbox", { name: "Sojasås" })).toHaveAccessibleDescription("Saknas i Matvaror · Krämig kycklinggryta");
   });
 
   it("says Saknas in Dolda varor for a hidden vague line, which has no amount", async () => {
@@ -765,7 +765,7 @@ describe("ShoppingList in the new look (Story 11.4)", () => {
     const salt = lines.find((item) => item.key === "r:salt:-")!;
     render(<ShoppingList plan={plan} lines={lines.slice(0, 2)} hiddenLines={[salt]} pantryUnavailable={false} />);
     await user.click(screen.getByRole("button", { name: "Dolda varor (1)" }));
-    expect(await screen.findByTestId("hidden-line")).toHaveTextContent(/^Salt\s*Saknas i förrådet\s*Visa igen$/);
+    expect(await screen.findByTestId("hidden-line")).toHaveTextContent(/^Salt\s*Saknas i Matvaror\s*Visa igen$/);
   });
 
   it("says nothing is missing when the pantry could not be read", () => {

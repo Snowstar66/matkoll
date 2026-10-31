@@ -83,7 +83,7 @@ export function AiSuggestions({ dishes, searchIngredients, offerButton = true, a
     const action =
       error.code === "suggest_empty_pantry" ? (
         <Link href="/hemma" className={buttonClasses("text")}>
-          Öppna Förråd
+          Öppna Matvaror
         </Link>
       ) : suggestRetryCodes.has(error.code) ? (
         <Button variant="text" onClick={suggest}>
@@ -109,7 +109,7 @@ export function AiSuggestions({ dishes, searchIngredients, offerButton = true, a
             </Button>
           }
         >
-          {stale.siteName ? `Förslagen bygger på förrådet för ${stale.siteName}.` : "Förslagen bygger på förrådet för ett annat boende."}
+          {stale.siteName ? `Förslagen bygger på matvarorna för ${stale.siteName}.` : "Förslagen bygger på matvarorna för ett annat boende."}
         </Notice>
       ) : null}
       {/* Story 16.3: Pontus's own recipes first, from the offers, with no wait for the AI. */}

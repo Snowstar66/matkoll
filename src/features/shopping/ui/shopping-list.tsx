@@ -68,9 +68,9 @@ import { StepsSheet } from "./steps-sheet";
 // plan's name and number of dishes under the title, then the progress row
 // ("8 varor kvar", "6 av 14 i korgen" and a meter), then the lines not
 // checked off per display category (catalog.displayCategory, as in
-// Förråd), each with its round check, its name with the amount after it
+// Matvaror), each with its round check, its name with the amount after it
 // ("Mjöl 2 dl (hemma: 1 kg)"), the line under it (the dishes with " · ",
-// "Egen vara", or "Saknas i förrådet" for a vague line) and the selected
+// "Egen vara", or "Saknas i Matvaror" for a vague line) and the selected
 // store's product choice as a chip. The list is counted on the server every
 // time it is read; when it changes while it is open, a live region says so.
 // A check is saved with setChecked (FR-16) and moves the line at once to
@@ -88,7 +88,7 @@ import { StepsSheet } from "./steps-sheet";
 // Produktval (Story 7.2); the choices sit beside the list and never change
 // its count. Pinned above the tab bar: "Kopiera till ICA-varukorgen" (named after the
 // store's chain; it copies the basket export of the lines as shown, Story
-// 7.3) while there is something to send, and "Lägg i förrådet" beside it while
+// 7.3) while there is something to send, and "Lägg till i Matvaror" beside it while
 // a line is checked off, which puts every checked line in the pantry and
 // takes it off the list (Story 3.7).
 
@@ -148,7 +148,7 @@ export type ShoppingListProps = {
    */
   isQuietSwitch?: (siteId: string | null) => boolean;
   /**
-   * Told whether the list is saving something ("Lägg i förrådet", or a check
+   * Told whether the list is saving something ("Lägg till i Matvaror", or a check
    * on its way), so the page can let "Byt" wait.
    */
   onBusyChange?: (busy: boolean) => void;
@@ -375,7 +375,7 @@ function useChecks(
     shownPlan.current = planId;
   }, [planId]);
   const [notice, setNotice] = useState<CheckNotice | null>(null);
-  /** Taps whose save has not answered yet; "Lägg i förrådet" waits for them, so the server sees the checks shown. */
+  /** Taps whose save has not answered yet; "Lägg till i Matvaror" waits for them, so the server sees the checks shown. */
   const [saving, setSaving] = useState(0);
   const nextNotice = useRef(0);
 
@@ -602,13 +602,13 @@ export function ShoppingList({
   );
   const own = useOwnChanges(savedLines);
   const pantry = usePutInPantry(planId, site?.id ?? null, savedLines, own);
-  // The lines "Lägg i förrådet" acts on, as shown (a tap shows before it is saved); a checked text line is not one.
+  // The lines "Lägg till i Matvaror" acts on, as shown (a tap shows before it is saved); a checked text line is not one.
   const toPantry = lines.flatMap((line) => (canPutInPantry(line) ? [line.key] : []));
   // The sets are new each render; one set per content, so the announcement's effect runs only on a change.
   const touchedIds = [...new Set([...removal.touched, ...own.touched])].sort().join("\n");
   const touched = useMemo(() => new Set(touchedIds ? touchedIds.split("\n") : []), [touchedIds]);
   const announcement = useRecountAnnouncement(lines, planId, touched, site, isQuietSwitch);
-  // "Lägg i förrådet", or a check on its way: the page lets "Byt" wait, so the list is not switched under it.
+  // "Lägg till i Matvaror", or a check on its way: the page lets "Byt" wait, so the list is not switched under it.
   const busy = pantry.pending || saving;
   useEffect(() => {
     onBusyChange?.(busy);
@@ -902,7 +902,7 @@ export function ShoppingList({
           {notice.text}
         </Notice>
       ) : null}
-      {/* "Lägg i förrådet" that failed; trying again adds nothing twice. */}
+      {/* "Lägg till i Matvaror" that failed; trying again adds nothing twice. */}
       {pantry.notice ? (
         <Notice key={`pantry-${pantry.notice.id}`} role="alert">
           {pantry.notice.text}
@@ -927,7 +927,7 @@ export function ShoppingList({
       ) : (
         <>
           {!hasLines ? (
-            // "Allt finns hemma." (or "… i förrådet för Stugan.") only when the list has no lines at all, own items included.
+            // "Allt finns hemma." (or "… i Matvaror för Stugan.") only when the list has no lines at all, own items included.
             hasDishes ? (
               <EmptyState>{allInStockText(siteName)}</EmptyState>
             ) : (
@@ -1050,8 +1050,8 @@ export function ShoppingList({
 
 /**
  * The list's Fast åtgärdsknapp (UX-DR3, Story 11.4): one FixedAction with
- * "Kopiera till ICA-varukorgen" (secondary) alone, or with "Lägg i förrådet" (primary)
- * beside it while a line is checked off; FixedAction puts "Lägg i förrådet" on
+ * "Kopiera till ICA-varukorgen" (secondary) alone, or with "Lägg till i Matvaror" (primary)
+ * beside it while a line is checked off; FixedAction puts "Lägg till i Matvaror" on
  * top when the two do not fit in a row. Nothing when neither shows.
  */
 function ListActions({

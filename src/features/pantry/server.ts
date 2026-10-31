@@ -25,7 +25,7 @@ import type { PantrySite, PantrySiteWithCount, SelectedSite } from "./domain/sit
 // after requireUserOrRedirect, inside <Suspense> (AD-18), and for other
 // modules' server code. setPantryItems is for saving actions only, after
 // requireUser (AD-2). readPhoto and compareStoredReading only read, for the photo jobs (Story 12.5).
-// addToPantry is for "Lägg i förrådet" in the shopping module (AD-19). Removing an item and "Ångra" are the Server Actions
+// addToPantry is for "Lägg till i Matvaror" in the shopping module (AD-19). Removing an item and "Ångra" are the Server Actions
 // removePantryItem and restorePantryItem in ./actions (AD-19, AD-20).
 //
 // Places (AD-24): every read is of one place, `siteId` or, without it, the
@@ -166,16 +166,16 @@ const placePhotosOn = cache(async (siteId: string): Promise<PlacePhoto[]> => {
   return loadPlacePhotosIn(await createClient(), siteId, new Date());
 });
 
-/** The latest photos of a place, as Förråd shows them; see listPlacePhotos. */
+/** The latest photos of a place, as Matvaror shows them; see listPlacePhotos. */
 export type PlacePhotos = { photos: PlacePhoto[] };
 
 /**
  * The signed-in user's latest photo of each location on one place (`siteId`,
  * or the selected place) that was taken within the last 30 days (Story 10.2,
  * FR-38, AD-26): the rows only, never the images, for the line "Senaste
- * foto" in Förråd. The photos are a help, not the page: when they cannot be
+ * foto" in Matvaror. The photos are a help, not the page: when they cannot be
  * read, for any reason, also a bug (logged as `pantry_photos_unavailable`,
- * with the reason only), there are none, and Förråd works without them.
+ * with the reason only), there are none, and Matvaror works without them.
  * Memoised per request and place.
  */
 export async function listPlacePhotos(siteId?: string): Promise<PlacePhotos> {
@@ -250,7 +250,7 @@ export async function getPantryForStatus(): Promise<PantryForStatus> {
 
 /**
  * Whether the signed-in user has photos to sweep (Story 10.3, FR-39): a photo
- * older than 30 days. Förråd then renders PhotoSweep, which calls the
+ * older than 30 days. Matvaror then renders PhotoSweep, which calls the
  * Server Action sweepPlacePhotos; the sweep also looks for files without a
  * row, which this cheap read leaves out. Only reads (AD-2); memoised per
  * request. Over all the user's places, since the sweep is. When it cannot be read
@@ -300,7 +300,7 @@ export async function setPantryItems(
 }
 
 /**
- * "Lägg i förrådet" (FR-19, AD-19): adds what was bought to the signed-in
+ * "Lägg till i Matvaror" (FR-19, AD-19): adds what was bought to the signed-in
  * user's pantry, in one transaction (see addToPantryIn): each item increases
  * the row with the same ingredient, location and unit, or creates it; an
  * ingredient that is unlimited already is left as it is; an item without
@@ -352,7 +352,7 @@ export async function addToPantry(
 
 /**
  * The keys among `keys` that addToPantry has added in the last 30 days, so
- * "Lägg i förrådet" can clear a check whose item an interrupted run already
+ * "Lägg till i Matvaror" can clear a check whose item an interrupted run already
  * put in the pantry. Throws PantryDataError.
  */
 export async function findPantryAdditions(keys: readonly string[]): Promise<string[]> {
