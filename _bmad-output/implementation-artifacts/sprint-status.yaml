@@ -183,7 +183,7 @@ development_status:
   epic-9-retrospective: optional
 
   epic-17: in-progress
-  17-1-isoleringstest-mellan-hushåll: in-progress
+  17-1-isoleringstest-mellan-hushåll: review
   17-2-enkel-inloggning-med-lösenord: backlog
   17-3-molnmiljön: backlog
   17-4-flytta-din-data-till-molnet: backlog
