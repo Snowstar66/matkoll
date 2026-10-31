@@ -18,7 +18,7 @@ function setup(onClear = vi.fn().mockResolvedValue(ok(counts))) {
 describe("the sheet that guards a clearing", () => {
   it("says what goes and keeps the button disabled until the word is typed", async () => {
     const { dialog, onClear } = setup();
-    expect(within(dialog).getByText("Det här tas bort: 74 prylar, 9 kort, 2 lådor.")).toBeInTheDocument();
+    expect(within(dialog).getByText("Det här tas bort: 74 föremål, 9 kort, 2 lådor.")).toBeInTheDocument();
     const button = within(dialog).getByRole("button", { name: "Rensa rummet" });
     expect(button).toBeDisabled();
     const field = within(dialog).getByLabelText("Skriv Skräpförrådet för att bekräfta.");

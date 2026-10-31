@@ -1,4 +1,5 @@
 import { appName } from "@/app/app-info";
+import { thingNoun, thingNounCap } from "@/lib/thing-noun";
 // Result shape and error codes for actions and Route Handlers (AD-13).
 // Codes are `<area>_<reason>`; the Swedish text follows Voice and Tone in EXPERIENCE.md.
 // Expected errors are returned, never thrown to the client.
@@ -87,7 +88,7 @@ export const errorMessages = {
   pantry_photo_gone: "Fotot finns inte längre.",
   pantry_photo_remove_failed: "Det gick inte att ta bort fotot. Försök igen.",
   // Prylar (Epic 18): places, cards and the things read from them. Nothing here touches food.
-  things_unavailable: "Det gick inte att läsa prylarna. Försök igen.",
+  things_unavailable: `Det gick inte att läsa ${thingNoun.definitePlural}. Försök igen.`,
   things_place_failed: "Det gick inte att spara platsen. Försök igen.",
   // The same room and part in this boende already (the field says which).
   things_place_taken: "Platsen finns redan.",
@@ -100,12 +101,12 @@ export const errorMessages = {
   things_card_remove_failed: "Det gick inte att ta bort kortet. Försök igen.",
   things_restore_failed: "Det gick inte att ångra. Försök igen.",
   things_restore_file_gone: "Kortet kunde inte läggas tillbaka, för fotot är borta. Ta ett nytt kort.",
-  things_item_failed: "Det gick inte att spara prylen. Försök igen.",
+  things_item_failed: `Det gick inte att spara ${thingNoun.definite}. Försök igen.`,
   // Rensa rummet / Rensa förrådet (Story 18.15): nothing was removed.
   things_clear_failed: "Det gick inte att rensa. Försök igen.",
   things_rename_failed: "Det gick inte att byta namn. Försök igen.",
   things_place_remove_failed: "Det gick inte att ta bort. Försök igen.",
-  things_item_gone: "Prylen finns inte längre.",
+  things_item_gone: `${thingNounCap.definite} finns inte längre.`,
   // Sök och fråga (Story 18.4): nothing on a card to ask about yet.
   things_ask_empty: "Fotografera en plats först, så kan du fråga om vad som finns där.",
   // Matsedel (Story 3.1). After failed servings the selector shows the saved

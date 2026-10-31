@@ -15,9 +15,10 @@ import { AddCardThings } from "./add-card-things";
 import { RemoveCard } from "./remove-card";
 import { RetakeCard } from "./retake-card";
 import { AiWorking } from "@/components/ai-working";
+import { thingNoun } from "../domain/thing-noun";
 
 /** The input of a card is always its photo. */
-const cardSteps = ["Tittar på kortet …", "Hittar prylarna …"];
+const cardSteps = ["Tittar på kortet …", `Hittar ${thingNoun.definitePlural} …`];
 
 // The room's cards (Story 18.12): thumbnails in two columns, each with what it
 // shows ("Hela rummet", "Väggen", "Låda: Black box"), its number of things and

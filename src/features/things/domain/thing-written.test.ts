@@ -44,9 +44,9 @@ describe("parseWrittenThings", () => {
 
 describe("what a box says", () => {
   it("writes the line of a written box and of the list of boxes", () => {
-    expect(writtenMeta({ things: 6, writtenAt: new Date("2026-10-31T10:00:00Z") })).toBe("skrivet 31 okt · 6 prylar");
-    expect(boxMeta({ cards: 0, written: 6 })).toBe("skrivet 6 prylar");
-    expect(boxMeta({ cards: 2, written: 1 })).toBe("2 kort · skrivet 1 pryl");
+    expect(writtenMeta({ things: 6, writtenAt: new Date("2026-10-31T10:00:00Z") })).toBe("skrivet 31 okt · 6 föremål");
+    expect(boxMeta({ cards: 0, written: 6 })).toBe("skrivet 6 föremål");
+    expect(boxMeta({ cards: 2, written: 1 })).toBe("2 kort · skrivet 1 föremål");
     expect(boxMeta({ cards: 0, written: 0 })).toBe("Inget än");
   });
 });

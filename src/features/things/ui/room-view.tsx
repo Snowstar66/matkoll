@@ -23,6 +23,7 @@ import { RoomCategories } from "./room-categories";
 import { TakeCard } from "./take-card";
 import { UploadCardRow } from "./upload-card-row";
 import { appName } from "@/app/app-info";
+import { thingNoun, thingNounCap } from "../domain/thing-noun";
 
 // A room's page (Story 18.12): the summary (things, categories and cards), the
 // buttons "Ta foto" and "Välj från Bilder" (Story 18.16) with the date of the newest card, and the segmented choice
@@ -107,7 +108,7 @@ export function RoomView({ siteId, summary, categories, cards, written, rooms, b
   return (
     <div className="flex flex-col gap-3" data-testid="room">
       <dl className="grid grid-cols-3 rounded-lg bg-surface p-3.5 text-center" data-testid="room-summary">
-        <Stat value={summary.things} label="prylar" />
+        <Stat value={summary.things} label={thingNoun.plural} />
         <Stat value={categories.length} label="kategorier" />
         <Stat value={summary.cards} label="kort" />
       </dl>
@@ -134,7 +135,7 @@ export function RoomView({ siteId, summary, categories, cards, written, rooms, b
         value={view}
         onChange={setView}
         options={[
-          { value: "things", label: "Prylar" },
+          { value: "things", label: thingNounCap.plural },
           { value: "cards", label: "Kort" },
         ]}
         className="w-full [&>button]:flex-1"
@@ -143,7 +144,7 @@ export function RoomView({ siteId, summary, categories, cards, written, rooms, b
         <>
           {summary.things === 0 ? (
             <p className="px-1 text-body text-ink-2" data-testid="room-empty">
-              {summary.cards === 0 ? `Inget kort än. Ta ett kort, så listar ${appName} vad som finns.` : "Inga prylar hittades på korten."}
+              {summary.cards === 0 ? `Inget kort än. Ta ett kort, så listar ${appName} vad som finns.` : `Inga ${thingNoun.plural} hittades på korten.`}
             </p>
           ) : (
             <RoomCategories siteId={siteId} roomKey={summary.key} categories={categories} />

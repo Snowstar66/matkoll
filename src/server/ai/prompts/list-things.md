@@ -13,9 +13,9 @@ Du ser ett foto från ett förråd i ett svenskt hem. Lista alla saker du kan ur
 
 ## Fälten
 
-- `name`: prylens namn på svenska, kort och vardagligt, utan märke om det inte är det man söker på, till exempel "Hammare", "Cirkelsåg", "Spade", "Blå back". Läser du ett märke eller en modell på prylen och den hjälper, kan du ta med den, till exempel "Batteridriven skruvdragare Makita".
+- `name`: föremålets namn på svenska, kort och vardagligt, utan märke om det inte är det man söker på, till exempel "Hammare", "Cirkelsåg", "Spade", "Blå back". Läser du ett märke eller en modell på föremålet och den hjälper, kan du ta med den, till exempel "Batteridriven skruvdragare Makita".
 - `category`: exakt en av Verktyg, Sport & fritid, Trädgård, Elektronik, Förvaring & lådor, Kläder & textil, Hushåll, Byggmaterial, Övrigt.
-- `where`: var på bilden prylen finns, kort, som en människa skulle säga det, till exempel "översta hyllan, vänster", "på väggen, mitten", "golvet, höger". `null` om det är oklart.
+- `where`: var på bilden föremålet finns, kort, som en människa skulle säga det, till exempel "översta hyllan, vänster", "på väggen, mitten", "golvet, höger". `null` om det är oklart.
 - `confidence`: "high" (hög) när du ser vad det är, "medium" (medel) när du är ganska säker, "low" (låg) när det är en gissning, till exempel för en sak som är delvis skymd eller svår att urskilja.
 - `hiddenContainers`: antalet lådor, backar, kartonger, påsar och skåp på bilden vars innehåll inte syns. 0 om inga.
 - `hiddenNote`: en kort mening på svenska om det som inte syns, till exempel "Innehållet i tre lådor och en påse syns inte." `null` om allt syns.

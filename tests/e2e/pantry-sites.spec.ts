@@ -541,7 +541,7 @@ test("Inställningar → Boenden: Förråd › selects the boende and goes there
   await expect(cards).toHaveCount(2);
   await expect(cards.nth(0)).toContainText("Hemma");
   await expect(cards.nth(0)).toContainText("Vald");
-  await expect(cards.nth(0)).toContainText("1 matvara · inga prylar än");
+  await expect(cards.nth(0)).toContainText("1 matvara · inga föremål än");
   await expect(cards.nth(1)).not.toContainText("Vald");
   await expect(page.getByText("Det valda boendet gäller i hela appen.")).toBeVisible();
 

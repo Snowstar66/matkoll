@@ -58,7 +58,7 @@ describe("Ta bort kortet", () => {
     renderIt();
     await userEvent.click(screen.getByRole("button", { name: "Ta bort kortet" }));
     expect(screen.getByText("Ta bort kortet?")).toBeInTheDocument();
-    expect(screen.getByText(/alla prylar som lästes från det tas bort/)).toBeInTheDocument();
+    expect(screen.getByText(/alla föremål som lästes från det tas bort/)).toBeInTheDocument();
     expect(removeThingCard).not.toHaveBeenCalled();
     await userEvent.click(screen.getByRole("button", { name: "Avbryt" }));
     expect(removeThingCard).not.toHaveBeenCalled();

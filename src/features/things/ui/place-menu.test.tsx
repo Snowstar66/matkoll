@@ -30,7 +30,7 @@ describe("PlaceMenu", () => {
     render(<PlaceMenu placeId={id} part="Blå backen" box counts={{ things: 12, cards: 2 }} roomHasOthers />);
     await userEvent.click(screen.getByTestId("place-menu"));
     await userEvent.click(screen.getByTestId("place-remove"));
-    expect(screen.getByTestId("place-remove-counts")).toHaveTextContent("Det här tas bort: 12 prylar, 2 kort.");
+    expect(screen.getByTestId("place-remove-counts")).toHaveTextContent("Det här tas bort: 12 föremål, 2 kort.");
     await userEvent.click(screen.getByTestId("place-remove-confirm"));
     await waitFor(() => expect(removeThingPlace).toHaveBeenCalledWith({ placeId: id }));
     await waitFor(() => expect(refresh).toHaveBeenCalled());

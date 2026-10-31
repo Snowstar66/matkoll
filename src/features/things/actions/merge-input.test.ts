@@ -40,7 +40,7 @@ describe("buildMergeRequest", () => {
   });
 
   it("cuts the lists to the limits", () => {
-    const many = (count: number) => Array.from({ length: count }, (_, index) => ({ ...item(`i${index}`, `Pryl ${index}`), card: "A" }));
+    const many = (count: number) => Array.from({ length: count }, (_, index) => ({ ...item(`i${index}`, `Föremål ${index}`), card: "A" }));
     const request = buildMergeRequest("R", "K", many(inputLimits.merge.maxAdded + 5), many(inputLimits.merge.maxExisting + 5));
     expect(request?.addedIds).toHaveLength(inputLimits.merge.maxAdded);
     expect(request?.existingIds).toHaveLength(inputLimits.merge.maxExisting);

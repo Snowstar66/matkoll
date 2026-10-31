@@ -1,5 +1,6 @@
 import { z } from "zod";
 import { cardsText, thingsText } from "./thing-room";
+import { thingNoun } from "./thing-noun";
 
 // "Rensa rummet" and "Rensa förrådet" (Story 18.15): what is removed is counted
 // first, and the user types a word (the room's name, or RENSA) before the button
@@ -49,11 +50,11 @@ export function clearLeadText(counts: ClearCounts): string {
 }
 
 /** What the room's clearing says besides the counts. */
-export const clearRoomDetailText = "Korten, fotona, prylarna, de inskrivna lådorna och platserna i rummet tas bort. Det går inte att ångra.";
+export const clearRoomDetailText = `Korten, fotona, ${thingNoun.definitePlural}, de inskrivna lådorna och platserna i rummet tas bort. Det går inte att ångra.`;
 
 /** What the Förråd's clearing says besides the counts; Matvaror is never touched. */
 export function clearSiteDetailText(site: string): string {
-  return `Allt i Förrådet i ${site} tas bort: kort, foton, prylar, lådor och platser. Matvaror rörs inte. Det går inte att ångra.`;
+  return `Allt i Förrådet i ${site} tas bort: kort, foton, ${thingNoun.plural}, lådor och platser. Matvaror rörs inte. Det går inte att ångra.`;
 }
 
 /** "Skriv Skräpförrådet för att bekräfta." */
