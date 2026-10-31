@@ -128,6 +128,8 @@ export type ShoppingListProps = {
    * it, the sheet suggests nothing.
    */
   searchIngredients?: SearchIngredients;
+  /** Story 17.9: Lägg till egen vara is open from the start, with focus in the field (the quick-add address). */
+  openAddOnStart?: boolean;
   /** The selected store (Story 7.2), as the list was read; `null` when none is selected. */
   store?: Store | null;
   /** The store could not be read: the detail's section Produktval says so. */
@@ -619,6 +621,7 @@ export function ShoppingList({
   onBusyChange,
   userId = null,
   empty,
+  openAddOnStart = false,
 }: ShoppingListProps) {
   const planId = plan?.id ?? null;
   const { checks, toggle, notice, offline, saving, settling } = useChecks(userId, planId, savedLines, handleSettled);
@@ -796,7 +799,7 @@ export function ShoppingList({
       if (shown && shown.checked !== checked) lineWentBack(key, checked);
     }
   });
-  const [sheet, setSheet] = useState({ open: false, session: 0 });
+  const [sheet, setSheet] = useState({ open: openAddOnStart, session: openAddOnStart ? 1 : 0 });
   /** Listpostdetalj: the line as it was when its name was tapped, on the plan it was shown for. */
   const [detail, setDetail] = useState<{ open: boolean; session: number; line: ShoppingLine; planId: string | null } | null>(null);
   const openDetail = (line: ShoppingLine) => {

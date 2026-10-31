@@ -47,6 +47,20 @@ export type Database = {
                   Relationships: [
                     
                   ]
+                },"api_key": {
+                  Row: {
+                    "created_at": string,"day_count": number,"day_start": string | null,"id": string,"key_hash": string,"label": string,"last_used_at": string | null,"revoked_at": string | null,"user_id": string,"window_count": number,"window_start": string | null
+                  }
+                  ComputedFields: never
+                  Insert: {
+                    "created_at"?: string,"day_count"?: number,"day_start"?: string | null,"id"?: string,"key_hash": string,"label"?: string,"last_used_at"?: string | null,"revoked_at"?: string | null,"user_id"?: string,"window_count"?: number,"window_start"?: string | null
+                  }
+                  Update: {
+                    "created_at"?: string,"day_count"?: number,"day_start"?: string | null,"id"?: string,"key_hash"?: string,"label"?: string,"last_used_at"?: string | null,"revoked_at"?: string | null,"user_id"?: string,"window_count"?: number,"window_start"?: string | null
+                  }
+                  Relationships: [
+                    
+                  ]
                 },"ingredient": {
                   Row: {
                     "created_at": string,"default_unit": string | null,"id": string,"location": string,"name": string,"normalized_name": string,"section": string,"user_id": string
@@ -508,6 +522,9 @@ isOneToOne: false
             "add_card_things":
 { Args: { "photo": string,"things": Json }; Returns: number
                            },
+"add_items_by_api_key":
+{ Args: { "hash": string,"labels": (string)[] }; Returns: (string)[]
+                           },
 "add_shopping_custom_item":
 { Args: { "item": Json }; Returns: {
               "amount": number | null,
@@ -714,6 +731,12 @@ isOneToOne: false
         isOneToOne: false
         isSetofReturn: true
       } },
+"remove_thing_place":
+{ Args: { "place": string }; Returns: Json
+                           },
+"rename_thing_room":
+{ Args: { "in_room": string,"new_key": string,"new_name": string,"site": string }; Returns: Json
+                           },
 "replace_box_things":
 { Args: { "box": string,"things": Json }; Returns: number
                            },
@@ -910,9 +933,19 @@ isOneToOne: false
               "boxes": number,"cards": number,"things": number
             }[]
                            },
+"thing_place_counts":
+{ Args: { "in_room": string,"site": string }; Returns: {
+              "cards": number,"place_id": string,"things": number
+            }[]
+                           },
 "thing_room_categories":
 { Args: { "in_room": string,"site": string }; Returns: {
               "category": string,"things": number
+            }[]
+                           },
+"thing_room_merge_moves":
+{ Args: { "in_room": string,"new_key": string,"site": string }; Returns: {
+              "from_path": string,"photo": string,"to_path": string
             }[]
                            },
 "thing_room_stats":

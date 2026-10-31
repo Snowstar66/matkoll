@@ -63,3 +63,17 @@ export async function removeSessionCookies(): Promise<number> {
   for (const name of names) cookieStore.delete(name);
   return names.length;
 }
+
+/**
+ * Supabase client without any session, for the one call that authenticates by
+ * itself (Story 17.9: the quick-add API, whose key is checked by a database
+ * function). Uses the publishable key only, never the service role, and reads
+ * no cookies, so a browser session can never leak into it (AD-4).
+ */
+export function createKeyClient() {
+  const { url, key } = supabaseConfig();
+  return createServerClient<Database>(url, key, {
+    cookies: { getAll: () => [], setAll: () => {} },
+    auth: { persistSession: false, autoRefreshToken: false, detectSessionInUrl: false },
+  });
+}

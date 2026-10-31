@@ -75,7 +75,7 @@ export async function POST(request: Request): Promise<Response> {
     if (!input.success) return respond(fail("validation"));
     return startImportJob(input.data, data.clientKey, requestStartedAt);
   }
-  const { clientKey, avoidTitles, mode, storeId } = parsed.data;
+  const { clientKey, avoidTitles, mode, storeId, eatFirst } = parsed.data;
 
   // What needs no AI is checked first, so nothing is queued for it: an empty pantry is its own answer.
   const checked = await checkSuggestPantry(mode, storeId);
@@ -96,7 +96,7 @@ export async function POST(request: Request): Promise<Response> {
   if (created) {
     after(() =>
       runAiJob(db, job, { startBy }, async (signal, deadline): Promise<Result<Json>> => {
-        const result = await suggestFromPantry({ avoidTitles, mode, storeId }, { signal, deadline });
+        const result = await suggestFromPantry({ avoidTitles, mode, storeId, eatFirst }, { signal, deadline });
         // The drafts are plain data; the job keeps them as JSON until Pontus saves one.
         return result.ok ? ok(JSON.parse(JSON.stringify(result.data)) as Json) : result;
       }),

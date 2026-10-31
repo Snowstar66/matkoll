@@ -1,11 +1,13 @@
 import { displayAmount } from "@/features/catalog";
-import type { PantrySnapshot } from "@/features/pantry";
+import type { OldPantryItem, PantrySnapshot } from "@/features/pantry";
 import {
   cleanModelText,
   cutCodePoints,
+  isValidOldItem,
   isValidPantryEntry,
   pantryLine,
   suggestInputLimits,
+  type SuggestOldItem,
   type SuggestPantryEntry,
 } from "@/lib/suggest-input";
 
@@ -19,7 +21,13 @@ import {
  * The shape of the AI port's SuggestDishesInput (src/server/ai/service.ts).
  * Declared here because domain code never imports the port (AD-1); this fits it.
  */
-export type SuggestInputShape = { pantry: SuggestPantryEntry[]; avoidTitles: string[]; offers?: string[] };
+export type SuggestInputShape = {
+  pantry: SuggestPantryEntry[];
+  avoidTitles: string[];
+  offers?: string[];
+  oldItems?: SuggestOldItem[];
+  eatFirst?: boolean;
+};
 
 /** The smallest amount sent: what is shown with two decimals, never 0. */
 const minAmount = 0.01;
@@ -68,4 +76,33 @@ export function toSuggestInput(
     chars = next;
   }
   return { input: { pantry, avoidTitles: [...avoidTitles] }, dropped: all.length - pantry.length };
+}
+
+/**
+ * The old items as suggestDishes takes them (Story 16.13): names cleaned and
+ * cut like the pantry's, each name once (its oldest age, as given oldest
+ * first), the ones the port would refuse skipped, and at most
+ * `maxOldItems` of the oldest kept, so the payload stays small. Names and
+ * days only, never ids, locations or dates.
+ */
+export function toOldItemsInput(old: readonly OldPantryItem[]): SuggestOldItem[] {
+  const seen = new Set<string>();
+  const kept: SuggestOldItem[] = [];
+  for (const { name, days } of old) {
+    const clean = cutCodePoints(cleanModelText(name), suggestInputLimits.maxNameChars).trim();
+    const item = { name: clean, days };
+    if (seen.has(clean) || !isValidOldItem(item)) continue;
+    seen.add(clean);
+    kept.push(item);
+    if (kept.length === suggestInputLimits.maxOldItems) break;
+  }
+  return kept;
+}
+
+/**
+ * The old items a dish uses (Story 16.13), for its reason line: those whose
+ * ingredient the dish is linked to, in the order given (oldest first).
+ */
+export function oldItemsUsed(old: readonly OldPantryItem[], linkedIds: ReadonlySet<string>): { name: string; days: number }[] {
+  return old.filter((item) => linkedIds.has(item.ingredientId)).map(({ name, days }) => ({ name, days }));
 }

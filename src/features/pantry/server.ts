@@ -15,6 +15,7 @@ import { checkedSiteId, countPantryIn, listPantryIn, loadPantrySnapshot, zeroCou
 import { setPantryItemsIn, type SetPantryRow } from "./data/set";
 import { loadPantrySitesIn, loadSiteItemCountsIn } from "./data/sites";
 import { addToPantryItemsSchema, type AddToPantryItem } from "./domain/add-to-pantry";
+import { oldPantryItems, type OldPantryItem } from "./domain/old-items";
 import { toSnapshot, type PantryItem, type PantrySnapshot } from "./domain/pantry-item";
 import type { PantryItemSet } from "./domain/pantry-item-form";
 import type { PlacePhoto, PlacePhotoMediaType } from "./domain/place-photo";
@@ -115,6 +116,17 @@ const snapshotOn = cache(async (siteId: string): Promise<PantrySnapshot> => {
 export async function listPantry(location: Location, siteId?: string): Promise<PantryItem[]> {
   const place = await placeToRead(siteId);
   return place === null ? [] : listPantryOn(location, place);
+}
+
+/**
+ * Story 16.13 ("Ät det här först"): the items on one place (`siteId`, or the
+ * selected place) that have lain longer than the limit of their location
+ * (Kyl, Frys), one per ingredient, the oldest first. Reads the same memoised
+ * lists as Matvaror. Throws PantryDataError.
+ */
+export async function listOldPantryItems(siteId?: string, now: Date = new Date()): Promise<OldPantryItem[]> {
+  const [fridge, freezer] = await Promise.all([listPantry("Kyl", siteId), listPantry("Frys", siteId)]);
+  return oldPantryItems([...fridge, ...freezer], now);
 }
 
 /**

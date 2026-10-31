@@ -53,3 +53,5 @@ export {
   exportBasket,
 } from "./domain/export-basket";
 export { emptyPlanText } from "./domain/list-text";
+
+export { quickAddedText } from "./domain/quick-add";

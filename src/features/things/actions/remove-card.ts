@@ -24,9 +24,9 @@ import { cardFilePathSchema, cardSnapshotSchema, type CardSnapshot } from "../do
 const idSchema = z.uuid();
 
 /**
- * Deletes the finished card `id` with its things and returns it as it was. Its
+ * Deletes the card `id` with its things and returns it as it was. Its
  * file is kept for "Ångra". Fails with `unauthorized`, `validation`,
- * `things_card_gone` (not the user's, gone or not finished) or
+ * `things_card_gone` (not the user's or gone) or
  * `things_card_remove_failed`.
  */
 export async function removeThingCard(id: string): Promise<Result<CardSnapshot>> {

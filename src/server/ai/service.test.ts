@@ -954,6 +954,41 @@ describe("locateItems input validation in front of every adapter (Story 6.6)", (
   });
 });
 
+describe("suggestDishes with old items (Story 16.13)", () => {
+  const pantry = [{ name: "lime", amount: 2, unit: "st" }];
+
+  it("leaves the message as it was without old items", () => {
+    const plain = suggestDishesContent({ pantry, avoidTitles: [] });
+    expect(suggestDishesContent({ pantry, avoidTitles: [], oldItems: [] })).toBe(plain);
+    expect(plain).not.toContain("legat");
+  });
+
+  it("lists them with their age after the pantry, under the heading of the mode", () => {
+    const oldItems = [{ name: "lime", days: 9 }, { name: "koriander", days: 1 }];
+    expect(suggestDishesContent({ pantry, avoidTitles: [], oldItems })).toBe(
+      "Lagret:\nlime: 2 st\n\nHar legat länge:\n- lime: 9 dagar\n- koriander: 1 dag",
+    );
+    expect(suggestDishesContent({ pantry, avoidTitles: [], oldItems, eatFirst: true })).toContain("\n\nÄt först:\n- lime: 9 dagar");
+  });
+
+  it("refuses too many, a repeated-age zero, or an unclean name", () => {
+    const ok = { name: "lime", days: 9 };
+    expect(isValidSuggestDishesInput({ pantry, avoidTitles: [], oldItems: [ok] })).toBe(true);
+    expect(isValidSuggestDishesInput({ pantry, avoidTitles: [], oldItems: Array.from({ length: 9 }, (_, i) => ({ name: `v${i}`, days: 9 })) })).toBe(false);
+    expect(isValidSuggestDishesInput({ pantry, avoidTitles: [], oldItems: [{ name: "lime", days: 0 }] })).toBe(false);
+    expect(isValidSuggestDishesInput({ pantry, avoidTitles: [], oldItems: [{ name: "li\nme", days: 9 }] })).toBe(false);
+  });
+
+  it("answers the old-items fixture from the mock, and the usual one without old items", async () => {
+    const service = createAiService(parseEnv({ AI_PROVIDER: "mock" }));
+    const signal = new AbortController().signal;
+    const withOld = await service.suggestDishes({ pantry, avoidTitles: [], oldItems: [{ name: "lime", days: 9 }] }, signal);
+    const without = await service.suggestDishes({ pantry, avoidTitles: [] }, signal);
+    expect(withOld.ok && withOld.data[0].title).toBe("Kyckling med lime och koriander");
+    expect(without.ok && without.data[0].title).not.toBe("Kyckling med lime och koriander");
+  });
+});
+
 describe("suggestDishes with offers (Story 9.5)", () => {
   const pantry = [{ name: "mjölk", amount: 1, unit: "l" }];
 

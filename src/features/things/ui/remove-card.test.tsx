@@ -28,6 +28,8 @@ const snapshot: CardSnapshot = {
   takenAt: "2026-10-31T10:00:00.000Z",
   createdAt: "2026-10-31T10:00:00.000Z",
   unseenNote: null,
+  status: "done",
+  errorCode: null,
   unseenCount: 0,
   things: [],
 };

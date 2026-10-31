@@ -70,6 +70,9 @@ export const cardSnapshotSchema = z.object({
   height: z.number().int().min(1).max(2064),
   takenAt: z.iso.datetime({ offset: true }),
   createdAt: z.iso.datetime({ offset: true }),
+  /** Story 18.16: a card that failed (or was stuck reading) comes back as failed, so "Försök igen" is there. */
+  status: z.enum(["done", "failed"]).default("done"),
+  errorCode: z.string().regex(/^[a-z][a-z0-9_]{0,62}$/).nullable().default(null),
   unseenNote: z.string().min(1).max(300).nullable(),
   unseenCount: z.number().int().min(0).max(99),
   things: z.array(thingSnapshotSchema).max(200),
