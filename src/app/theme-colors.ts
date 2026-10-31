@@ -6,7 +6,7 @@
 /** --bg in light and dark mode, for <meta name="theme-color">. */
 export const themeColors = {
   light: "rgb(245 247 244)",
-  dark: "rgb(18 23 20)",
+  dark: "rgb(15 19 17)",
 } as const;
 
 /**

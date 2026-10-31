@@ -81,7 +81,7 @@ function OfferRow({
     offer.price || offer.regularPrice !== null || offer.savingPercent !== null ? (
       <span className="flex max-w-36 flex-col items-end gap-0.5 text-right">
         {offer.price ? (
-          <span data-testid="offer-price" className="text-lg leading-6 font-bold text-ink">
+          <span data-testid="offer-price" className="text-lg leading-6 font-semibold text-ink">
             {offer.price}
           </span>
         ) : null}
@@ -89,7 +89,7 @@ function OfferRow({
           <span className="flex items-baseline gap-2 text-meta text-ink-3">
             {offer.regularPrice !== null ? <s data-testid="offer-regular-price">{regularPriceAmount(offer.regularPrice)}</s> : null}
             {offer.savingPercent !== null ? (
-              <span data-testid="offer-saving" className="font-semibold text-deal-ink">{`\u2212${offer.savingPercent} %`}</span>
+              <span data-testid="offer-saving" className="font-medium text-deal-ink">{`\u2212${offer.savingPercent} %`}</span>
             ) : null}
           </span>
         ) : null}
@@ -116,7 +116,7 @@ function OfferRow({
             {top ? (
               <span
                 data-testid="offer-top-tag"
-                className="mr-1.5 inline-flex items-center gap-1 rounded-full bg-hot/12 px-2 align-middle font-semibold text-hot"
+                className="mr-1.5 inline-flex items-center gap-1 rounded-full bg-hot/12 px-2 align-middle font-medium text-hot"
               >
                 <span aria-hidden="true">{"\u{1F525}"}</span>
                 Toppklipp

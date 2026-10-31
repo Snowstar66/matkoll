@@ -14,7 +14,7 @@ export function Input({ className, ...props }: InputProps) {
 
 /** The label above a field. */
 export function FieldLabel({ className, ...props }: LabelHTMLAttributes<HTMLLabelElement>) {
-  return <label className={cx("text-body font-semibold text-ink", className)} {...props} />;
+  return <label className={cx("text-body font-medium text-ink", className)} {...props} />;
 }
 
 /** A validation message under a field: light-blue ink, never red. */

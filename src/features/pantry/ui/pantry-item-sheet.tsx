@@ -529,7 +529,7 @@ export function PantryItemSheet(props: PantryItemSheetProps) {
 
           <div className="flex flex-col gap-1.5">
             {/* The pills are a radio group named "Plats"; this is its visible label. */}
-            <span aria-hidden="true" className="text-body font-semibold text-ink">
+            <span aria-hidden="true" className="text-body font-medium text-ink">
               Plats
             </span>
             <FilterPills

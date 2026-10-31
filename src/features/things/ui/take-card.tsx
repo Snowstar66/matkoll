@@ -203,7 +203,7 @@ export function TakeCard({ siteId, rooms, defaultRoom, variant, layout = "row", 
               type="button"
               disabled={sending}
               onClick={openSheet}
-              className="flex min-h-tap items-center rounded-md px-1 text-meta font-semibold text-accent focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-accent disabled:opacity-60"
+              className="flex min-h-tap items-center rounded-md px-1 text-meta font-medium text-accent focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-accent disabled:opacity-60"
               data-testid="room-exact"
             >
               {roomExactText}
@@ -295,7 +295,7 @@ export function TakeCard({ siteId, rooms, defaultRoom, variant, layout = "row", 
               aria-expanded={exactOpen}
               aria-controls={`${ids}-exact`}
               onClick={() => setExactOpen((current) => !current)}
-              className="flex min-h-tap items-center self-start rounded-md px-1 text-body font-semibold text-accent focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-accent"
+              className="flex min-h-tap items-center self-start rounded-md px-1 text-body font-medium text-accent focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-accent"
             >
               {exactPlaceText} {exactOpen ? "▴" : "▾"}
             </button>
@@ -362,7 +362,7 @@ function Chip({ selected, dashed = false, onClick, children }: { selected: boole
       aria-checked={selected}
       onClick={onClick}
       className={cx(
-        "flex min-h-tap items-center rounded-pill border-[1.5px] px-3.5 text-body font-semibold focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-accent",
+        "flex min-h-tap items-center rounded-pill border-[1.5px] px-3.5 text-body font-medium focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-accent",
         selected ? "border-accent bg-mint text-mint-ink" : "border-border text-ink-2",
         dashed && !selected && "border-dashed text-accent",
       )}

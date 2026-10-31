@@ -173,7 +173,7 @@ export function ToastProvider({ children }: { children: ReactNode }) {
             onBlur={(event) => {
               if (!event.currentTarget.contains(event.relatedTarget as Node | null)) setFocusedId(null);
             }}
-            className="pointer-events-auto flex min-h-tap w-full max-w-content items-center gap-3 rounded-md bg-ink py-1 pr-1 pl-4 text-body text-surface"
+            className="pointer-events-auto flex min-h-tap w-full max-w-content items-center gap-3 rounded-md bg-ink py-1 pr-1 pl-4 text-body text-surface shadow-float"
           >
             {/* The live region above already reads the message out. */}
             <p aria-hidden="true" className="flex-1 py-2">
@@ -187,7 +187,7 @@ export function ToastProvider({ children }: { children: ReactNode }) {
                   replaceToast(null);
                   onShow?.();
                 }}
-                className="min-h-tap shrink-0 rounded-md px-3 text-body font-semibold text-mint"
+                className="min-h-tap shrink-0 rounded-md px-3 text-body font-medium text-mint"
               >
                 {toast.show.label}
               </button>
@@ -200,7 +200,7 @@ export function ToastProvider({ children }: { children: ReactNode }) {
                   replaceToast(null, true);
                   undo?.();
                 }}
-                className="min-h-tap shrink-0 rounded-md px-3 text-body font-semibold text-mint"
+                className="min-h-tap shrink-0 rounded-md px-3 text-body font-medium text-mint"
               >
                 {toast.undoLabel ?? "Ångra"}
               </button>

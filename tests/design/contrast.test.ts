@@ -18,8 +18,8 @@ function contrast(a: string, b: string): number {
 const { light, dark } = colorTokens();
 
 const colorNames = [
-  "bg", "surface", "ink", "ink-2", "ink-3", "hairline", "border", "accent", "on-accent",
-  "mint", "mint-ink", "sky", "sky-ink", "sand", "sand-ink", "store-ica", "store-ica-ink", "store-other", "store-other-ink", "deal", "deal-ink", "hot", "hot-ink", "tile-clay", "tile-lilac",
+  "bg", "surface", "surface-2", "fill", "ink", "ink-2", "ink-3", "hairline", "border", "accent", "on-accent",
+  "mint", "mint-ink", "sky", "sky-ink", "sand", "sand-ink", "store-ica", "store-ica-ink", "store-other", "store-other-ink", "deal", "deal-ink", "hot", "hot-ink", "tile-clay", "tile-lilac", "danger", "seg-track", "seg-on",
 ];
 
 /** [text, background, where it is used] */

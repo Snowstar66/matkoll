@@ -34,7 +34,7 @@ export function RecipeBar({ count, sort, onOpenSort, view, onViewChange }: Recip
         aria-haspopup="dialog"
         onClick={onOpenSort}
         data-testid="sort-button"
-        className="min-h-tap rounded-sm font-semibold text-accent outline-none focus-visible:outline-2 focus-visible:outline-offset-1 focus-visible:outline-accent"
+        className="min-h-tap rounded-sm font-medium text-accent outline-none focus-visible:outline-2 focus-visible:outline-offset-1 focus-visible:outline-accent"
       >
         <span className="sr-only">Sortera:</span> {recipeSortLabels[sort]} <span aria-hidden="true">▾</span>
       </button>

@@ -35,9 +35,9 @@ export function RecipeCompactList({ recipes, favorites, onFavoriteChange, ranked
         const time = recipeTimeText(recipe.totalMinutes);
         const status =
           recipe.missingCount === null ? null : recipe.missingCount === 0 ? (
-            <span className="font-semibold text-mint-ink">Kan lagas nu</span>
+            <span className="font-medium text-mint-ink">Kan lagas nu</span>
           ) : (
-            <span className="font-semibold text-sky-ink">
+            <span className="font-medium text-sky-ink">
               Saknar {recipe.missingCount}
               <span className="sr-only"> {recipe.missingCount === 1 ? "vara" : "varor"}</span>
             </span>

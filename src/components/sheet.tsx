@@ -256,9 +256,9 @@ export function Sheet({
         pointerDownOnBackdrop.current = false;
       }}
       className={cx(
-        "m-0 mt-auto max-h-[90dvh] w-full max-w-none overflow-hidden rounded-t-xl bg-surface p-0 text-ink",
+        "m-0 mt-auto max-h-[90dvh] w-full max-w-none overflow-hidden rounded-t-xl bg-surface-2 p-0 text-ink",
         "motion-safe:transition-transform motion-safe:duration-300 motion-safe:ease-out motion-safe:starting:open:translate-y-full",
-        "desktop:m-auto desktop:w-[calc(100%-2*var(--gutter-mobile))] desktop:max-w-dialog desktop:rounded-xl",
+        "desktop:m-auto desktop:w-[calc(100%-2*var(--gutter-mobile))] desktop:max-w-dialog desktop:rounded-xl desktop:shadow-float",
         "desktop:motion-safe:starting:open:translate-y-4 desktop:motion-safe:starting:open:opacity-0 desktop:motion-safe:transition-[transform,opacity]",
       )}
     >

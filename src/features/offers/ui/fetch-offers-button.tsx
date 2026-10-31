@@ -6,7 +6,7 @@ import { cx } from "@/components/cx";
 
 /** A text link inside a line of meta text: accent, underlined, with a 44 px tap area around it. */
 export const inlineLinkClasses =
-  "relative inline font-semibold text-accent underline underline-offset-2 before:absolute before:-inset-x-2 before:-inset-y-3.5 before:content-[''] disabled:cursor-not-allowed disabled:opacity-60";
+  "relative inline font-medium text-accent underline underline-offset-2 before:absolute before:-inset-x-2 before:-inset-y-3.5 before:content-[''] disabled:cursor-not-allowed disabled:opacity-60";
 
 export type FetchOffersButtonProps = Omit<ComponentPropsWithoutRef<"button">, "onClick" | "children" | "type"> & {
   /** Starts the fetch; the sheet sends one store's id at a time. */

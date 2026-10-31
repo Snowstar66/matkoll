@@ -56,7 +56,7 @@ export function RecipeCategoryChips({ value, onChange, available }: RecipeCatego
           >
             <span
               className={cx(
-                "flex h-[34px] items-center gap-1.5 rounded-pill border-[1.5px] pr-3 pl-1.5 text-meta font-semibold whitespace-nowrap",
+                "flex h-[34px] items-center gap-1.5 rounded-pill border-[1.5px] pr-3 pl-1.5 text-meta font-medium whitespace-nowrap",
                 "group-focus-visible:outline-2 group-focus-visible:outline-offset-2 group-focus-visible:outline-accent",
                 selected ? "border-accent bg-mint text-accent" : "border-border text-ink-2",
               )}

@@ -53,7 +53,7 @@ function Reference({ reference }: { reference: ChatRef }) {
         </span>
       )}
       <span className="flex min-w-0 flex-col">
-        <span className="text-meta font-semibold wrap-break-word text-ink">{reference.title}</span>
+        <span className="text-meta font-medium wrap-break-word text-ink">{reference.title}</span>
         <span className="text-meta text-ink-3">{reference.sub}</span>
       </span>
     </Link>

@@ -36,7 +36,7 @@ export function WeekNav({
   return (
     <nav aria-label="Vecka" data-testid="week-nav" className="flex flex-col gap-2.5">
       <ul
-        className="grid gap-[3px] rounded-md bg-hairline p-[3px]"
+        className="grid gap-[3px] rounded-md bg-seg-track p-[3px]"
         style={{ gridTemplateColumns: `repeat(${weeks.length}, minmax(0, 1fr))` }}
       >
         {weeks.map((week) => {
@@ -52,10 +52,10 @@ export function WeekNav({
                 aria-current={selected ? "page" : undefined}
                 aria-label={weekTileName(week, offset, count)}
                 className={`flex min-h-tap min-w-0 flex-1 flex-col items-center justify-center rounded-[11px] px-1 py-1.5 text-center leading-[1.2] [overflow-wrap:normal] ${
-                  selected ? "segment-on shadow-[0_1px_3px_rgb(0_0_0/0.16)] ring-1 ring-border" : ""
+                  selected ? "segment-on ring-1 ring-border" : ""
                 }`}
               >
-                <span aria-hidden="true" className={`text-body font-semibold ${selected ? "text-ink" : "text-ink-2"}`}>
+                <span aria-hidden="true" className={`text-body ${selected ? "font-semibold text-ink" : "font-medium text-ink-2"}`}>
                   {weekTileLabel(offset)}
                 </span>
                 <span
@@ -83,7 +83,7 @@ export function WeekNav({
           <Link
             href="/matsedel/tidigare"
             aria-label="Tidigare veckor"
-            className="flex min-h-tap shrink-0 items-center text-meta font-semibold text-accent"
+            className="flex min-h-tap shrink-0 items-center text-meta font-medium text-accent"
           >
             Tidigare {"\u203A"}
           </Link>

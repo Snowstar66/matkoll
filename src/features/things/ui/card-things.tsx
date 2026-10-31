@@ -211,7 +211,7 @@ export function CardThings({ things, headings = true, aside = false }: { things:
             {error ? <FieldError id={`${ids}-name-error`}>{error}</FieldError> : null}
           </div>
           <div className="flex flex-col gap-2">
-            <p className="text-body font-semibold text-ink">{categoryLabelText}</p>
+            <p className="text-body font-medium text-ink">{categoryLabelText}</p>
             <FilterPills<ThingCategory>
               label={categoryLabelText}
               value={category}

@@ -1,8 +1,8 @@
 ---
 name: Matkoll
-description: Personlig matplanerare på mobilen. Lugn, luftig och grågrön, där matbilderna står för färgen. Inget rött.
+description: Personlig matplanerare på mobilen. Lugn, luftig och grågrön, där matbilderna står för färgen. Lätt typografi, tre ytnivåer och en enda dämpad röd (Ta bort).
 status: final
-updated: 2026-10-26
+updated: 2026-10-31
 sources:
   - docs/ux/ux-spec.md
   - docs/brief.md
@@ -10,31 +10,42 @@ sources:
   - _bmad-output/planning-artifacts/ux-designs/ux-Matkoll-2026-10-25/mockups/ (Epic 11, godkända av Pontus 2026-10-26)
   - _bmad-output/planning-artifacts/sprint-change-proposal-2026-10-26-nytt-utseende.md (Epic 11)
   - _bmad-output/planning-artifacts/sprint-change-proposal-2026-10-26-erbjudanden-v2.md (Epic 9, `offer-chip`)
+  - _bmad-output/planning-artifacts/ux-designs/ux-Matkoll-2026-10-25/mockups/premium-look.html (Epic 19, Premiumlook, godkänd av Pontus 2026-10-31)
 colors:
   bg: '#F5F7F4'
   surface: '#FFFFFF'
+  surface-2: '#FFFFFF'
+  fill: '#EAEDEB'
   ink: '#1B2420'
   ink-2: '#56635D'
   ink-3: '#6B7872'
-  hairline: '#EEF1EF'
-  border: '#E3E8E4'
+  hairline: '#E8ECE9'
+  border: '#DCE2DE'
   accent: '#3E7C62'
   on-accent: '#FFFFFF'
+  danger: '#B3261E'
+  seg-track: '#E9ECEA'
+  seg-on: '#FFFFFF'
   mint: '#DDEFE5'
   mint-ink: '#2C5E48'
   sky: '#DCE9F6'
   sky-ink: '#2E5A85'
   sand: '#F1ECE2'
   sand-ink: '#6E5B3E'
-  bg-dark: '#121714'
-  surface-dark: '#1B211E'
-  ink-dark: '#E8EDEA'
-  ink-2-dark: '#A9B5AF'
-  ink-3-dark: '#8E9A94'
-  hairline-dark: '#262E2A'
-  border-dark: '#2F3833'
+  bg-dark: '#0F1311'
+  surface-dark: '#181D1A'
+  surface-2-dark: '#202622'
+  fill-dark: '#242927'
+  ink-dark: '#E6EBE8'
+  ink-2-dark: '#A3AFA9'
+  ink-3-dark: '#86928C'
+  hairline-dark: '#262D29'
+  border-dark: '#313934'
   accent-dark: '#6FB394'
   on-accent-dark: '#0F1A15'
+  danger-dark: '#E5736A'
+  seg-track-dark: '#1A1F1C'
+  seg-on-dark: '#2C3430'
   mint-dark: '#1F3A2D'
   mint-ink-dark: '#A8D9BF'
   sky-dark: '#1E3247'
@@ -65,48 +76,69 @@ typography:
   family:
     fontFamily: "-apple-system, BlinkMacSystemFont, 'SF Pro Text', Inter, 'Helvetica Neue', Arial, sans-serif"
   page-title:
-    fontSize: 34px
-    fontWeight: 700
-    letterSpacing: -0.5px
-    lineHeight: 1.1
-  recipe-title:
-    fontSize: 28px
-    fontWeight: 700
+    fontSize: 30px
+    fontWeight: 600
     letterSpacing: -0.4px
-    lineHeight: 1.15
+    lineHeight: 36px
+  recipe-title:
+    fontSize: 26px
+    fontWeight: 600
+    letterSpacing: -0.3px
+    lineHeight: 32px
+  section-title:
+    fontSize: 20px
+    fontWeight: 600
+    letterSpacing: -0.2px
+    lineHeight: 26px
   step:
     fontSize: 24px
     fontWeight: 500
     lineHeight: 1.4
-  row-title:
+  headline:
     fontSize: 17px
     fontWeight: 600
-    lineHeight: 1.25
+    lineHeight: 22px
+  row-title:
+    fontSize: 17px
+    fontWeight: 500
+    lineHeight: 22px
+  item:
+    fontSize: 17px
+    fontWeight: 400
+    lineHeight: 22px
   body:
     fontSize: 16px
     fontWeight: 400
-    lineHeight: 1.45
+    lineHeight: 24px
+  control:
+    fontSize: 15px
+    fontWeight: 500
+    lineHeight: 20px
   meta:
     fontSize: 14px
     fontWeight: 400
-    lineHeight: 1.35
+    lineHeight: 20px
   section-label:
     fontSize: 13px
-    fontWeight: 600
-    letterSpacing: 0.4px
+    fontWeight: 500
+    letterSpacing: 0.5px
+    lineHeight: 18px
     textTransform: uppercase
   badge:
     fontSize: 12px
-    fontWeight: 600
+    fontWeight: 500
+    lineHeight: 16px
   tab-label:
     fontSize: 11px
     fontWeight: 500
+    lineHeight: 13px
 rounded:
+  xs: 6px
   sm: 10px
-  md: 14px
-  lg: 18px
+  md: 12px
+  lg: 16px
   xl: 24px
-  pill: 17px
+  pill: 999px
   full: 9999px
 spacing:
   '1': 4px
@@ -117,9 +149,9 @@ spacing:
   '6': 24px
   '7': 32px
   gutter-mobile: 20px
-  header-top-mobile: 56px
+  header-top-mobile: 'max(16px, safe-area-inset-top + 8px)'
   tap-min: 44px
-  tab-bar-height: 84px
+  tab-bar-height: '56px + safe-area-inset-bottom'
   side-menu-width: 240px
   breakpoint-desktop: 1024px
   content-max: 720px
@@ -135,8 +167,8 @@ spacing:
   meter-height-small: 5px
 components:
   tab-bar:
-    background: '{colors.surface}'
-    borderTop: '1px solid {colors.border}'
+    background: '{colors.surface} 84 % + blur 20px'
+    borderTop: '0.5px solid {colors.border}'
     height: '{spacing.tab-bar-height}'
     label: '{typography.tab-label}'
     active: '{colors.accent}'
@@ -219,12 +251,12 @@ components:
     radius: '{rounded.md}'
     font: '{typography.row-title}'
   button-secondary:
-    background: '{colors.sky}'
-    text: '{colors.sky-ink}'
+    background: '{colors.surface}'
+    text: '{colors.accent}'
     height: '{spacing.button-height}'
     radius: '{rounded.md}'
   sheet:
-    background: '{colors.surface}'
+    background: '{colors.surface-2}'
     radius: '{rounded.xl} {rounded.xl} 0 0'
     desktop-max-width: '{spacing.dialog-max}'
   notice:
@@ -349,10 +381,11 @@ Känslan är Apple-lik: systemtypsnitt, ljus grågrön botten, vita kort, mycket
 
 ## Colors
 
-Ljust läge följer `docs/ux/ux-spec.md` exakt. Mörkt läge är härlett ur samma färgfamiljer och följer systemets inställning. `[ANTAGANDE: de mörka värdena är Claudes härledning; alla textpar är kontrollerade mot 4,5:1]`
+Ljust läge följer `docs/ux/ux-spec.md`, med de nya rollerna från Premiumlook (Epic 19). Mörkt läge är designat, inte inverterat: tre ytnivåer (sida `#0F1311`, yta `#181D1A`, lyft yta `#202622`), mjukare vit text `#E6EBE8`, och samma kontrastkrav i båda lägena. Det följer systemets inställning. `[ANTAGANDE: de mörka värdena är Claudes härledning; alla textpar är kontrollerade mot 4,5:1]`
 
 - **Bakgrund (`{colors.bg}`)** är sidbakgrunden. Den är ljust grågrön så att vita kort syns utan skuggor.
-- **Yta (`{colors.surface}`)** används för kort, listor, flikfält och ark.
+- **Yta (`{colors.surface}`)** används för kort och listor (nivå 1). **`{colors.surface-2}`** är nivå 3 för ark, menyer och toast: samma vit i ljust läge, en lyft yta i mörkt. Flikfältet och den hopfällda rubriken är nivå 2: 84 % yta över en oskärpa på 20 px med en hårfin linje. **`{colors.fill}`** är spår och fält inne i ark (ink 6 % / 8 %).
+- **Segment (`{colors.seg-track}`, `{colors.seg-on}`)**: grå skena och en platta för det valda; den mörka plattan är tydligt ljusare än skenan.
 - **Text (`{colors.ink}`, `{colors.ink-2}`, `{colors.ink-3}`)**: `ink` för rubriker och varunamn, `ink-2` för brödtext och mängder, `ink-3` för metadata, inaktiva flikar och kanter på kontroller (omarkerad bock, inmatningsfält), som behöver minst 3:1 mot bakgrunden (WCAG 1.4.11). `ink-3` får bara ligga på `surface` (4,6:1). På `bg` når den bara 4,3:1, så text direkt på sidbakgrunden använder `ink-2`.
 - **Accent (`{colors.accent}`)** är den enda starka färgen: primärknappar, aktiv flik, valt filter, bocken på avbockade poster och ramen på valt platskort. Den används inte som dekor.
 - **Mint (`{colors.mint}` / `{colors.mint-ink}`)** betyder "finns" eller "går att laga": "Kan lagas nu", "Finns hemma"-etiketter och platskortet Kyl.
@@ -361,29 +394,35 @@ Ljust läge följer `docs/ux/ux-spec.md` exakt. Mörkt läge är härlett ur sam
 - **Butiksetikett (Story 9.13, lugnad i Story 16.6, `store-badge`):** på varje erbjudanderad en liten text med butikens korta namn ("Maxi", "Krokom") i `{colors.ink-3}`, med en liten prick (8 px) i kedjans färg framför: ICA `{colors.store-ica}` (varm röd), varje annan kedja `{colors.store-other}`. Etiketten står först i radens metarad ("● Maxi · ICA · Spanien") och visas bara när listan visar mer än en butik (filtret "Alla" med två butiker eller fler). Färgen finns bara i pricken; butikens namn är text. Mörkt läge har egna värden. En ny kedja (Willys) får en egen prickfärg när den läggs till.
 - **Kategoriplattor (Epic 11):** den lilla plattan bakom kategorins ikon har en ljus ton: mint, ljusblått, sand, `{colors.tile-clay}` (lera, en ljus beige) eller `{colors.tile-lilac}` (syren), och `{colors.border}` för Övrigt. Fördelningen står under `category-tile`. Plattan är dekor: kategorins namn står alltid bredvid, och färgen betyder ingenting. Lera och syren används inte till något annat. I mörkt läge har de egna mörka värden, och mint, ljusblått och sand har sina mörka värden som förut.
 
-Inget rött förekommer, inte ens för fel eller borttagning. Soptunnan är grå (`{colors.ink-3}`). Inga gradienter. Färgen i gränssnittet kommer från matfotona och de små kategoriplattorna.
+Det enda röda är `{colors.danger}`, den dämpade röda för Ta bort: bara text och ikon (soptunna), aldrig en fylld knapp eller bakgrund (6,5:1 ljust, 5,1:1 mörkt). Butiksprickens ICA-röda och de varma erbjudandefärgerna är dekor. Fel och varningar är fortfarande blå. Inga gradienter. Färgen i gränssnittet kommer från matfotona och de små kategoriplattorna.
 
 ## Typography
 
 En familj: systemtypsnittet (San Francisco på Apple-enheter), med Inter som reserv.
 
-| Roll | Token | Används för |
-| --- | --- | --- |
-| Sidrubrik | `{typography.page-title}` | Recept, Matsedel, Inköpslista, Lagersaldo |
-| Receptrubrik | `{typography.recipe-title}` | Receptvy och förhandsgranskning |
-| Steg | `{typography.step}` | Stegläge, läsbart på en armlängds avstånd |
-| Radrubrik | `{typography.row-title}` | Recepttitlar i listor, knapptext |
-| Brödtext | `{typography.body}` | Ingredienser, listposter, lagervaror, steg i receptvyn |
-| Metadata | `{typography.meta}` | Tid, portioner, källa, vilken rätt en listpost kommer från |
-| Sektionsrubrik | `{typography.section-label}` | Butiksavdelningar, "Med mängd", "Finns hemma", "Ingredienser" |
-| Etikett | `{typography.badge}` | Statusetiketter och AI-märkning |
-| Flik | `{typography.tab-label}` | Flikfältet |
+Vikter efter roll, och aldrig 700: **400** för allt man läser, **500** för det man trycker på och för radtitlar, **600** för rubriker och knappar. Storlekarna är rem-baserade i bygget (px nedan vid 100 %), så raderna växer med textstorleken. Siffror i mängder och tabeller har `font-variant-numeric: tabular-nums`.
+
+| Roll | Token | Storlek / vikt | Används för |
+| --- | --- | --- | --- |
+| Sidrubrik | `{typography.page-title}` | 30/36 · 600 | Recept, Matsedel, Inköpslista, Matvaror, Förråd |
+| Receptrubrik | `{typography.recipe-title}` | 26/32 · 600 | Receptvy och förhandsgranskning |
+| Arkrubrik, avsnitt | `{typography.section-title}` | 20/26 · 600 | Rubrik i ark, avsnitt |
+| Steg | `{typography.step}` | 24/1,4 · 500 | Stegläge, läsbart på en armlängds avstånd |
+| Liten rubrik | `{typography.headline}` | 17/22 · 600 | Hopfälld sidrubrik, framsteg, knapptext |
+| Radrubrik | `{typography.row-title}` | 17/22 · 500 | Recepttitlar i listor, radtitlar |
+| Listpost | `{typography.item}` | 17/22 · 400 | Varor, ingredienser, inställningsrader |
+| Brödtext | `{typography.body}` | 16/24 · 400 | Löpande text, steg i receptvyn |
+| Kontroll | `{typography.control}` | 15/20 · 500 (vald 600) | Chips, segment, små textknappar |
+| Metadata | `{typography.meta}` | 14/20 · 400 | Tid, portioner, källa, vilken rätt en listpost kommer från |
+| Sektionsrubrik | `{typography.section-label}` | 13/18 · 500, versaler +0,5 | Butiksavdelningar, "Ingredienser" |
+| Etikett | `{typography.badge}` | 12/16 · 500 | Statusetiketter och AI-märkning |
+| Flik | `{typography.tab-label}` | 11/13 · 500 (vald 600) | Flikfältet |
 
 Webbläsarens textförstoring ska fungera fullt ut. Ingen text är mindre än 11 px.
 
 ## Layout & Spacing
 
-Skala: 4 / 8 / 12 / 16 / 20 / 24 / 32 px. Mobilen har `{spacing.gutter-mobile}` sidmarginal och `{spacing.header-top-mobile}` luft ovanför sidrubriken. På mobil är layouten en kolumn, från 375 px bredd.
+Skala: 4 / 8 / 12 / 16 / 20 / 24 / 32 / 40 px (bas 4, rytm 8). Alla kontrollhöjder är multiplar av 4. Mobilen har `{spacing.gutter-mobile}` sidmarginal och `{spacing.header-top-mobile}` luft ovanför sidrubriken (16 px i en webbläsarflik, under notchen på hemskärmen, 40 px på dator). Flikfältet är 56 px plus säkra området. På mobil är layouten en kolumn, från 375 px bredd.
 
 Från `{spacing.breakpoint-desktop}` blir innehållet högst `{spacing.content-max}` brett. Vad som ändras vid brytpunkten står i `EXPERIENCE.md` under Responsive & Platform. `[ANTAGANDE: brytpunkt 1024 px]`
 
@@ -391,18 +430,20 @@ Fasta knappar längst ned ligger `{spacing.fixed-action-gap}` ovanför flikfält
 
 ## Elevation & Depth
 
-Inga skuggor. Djup skapas av tonskillnaden mellan `{colors.bg}` och `{colors.surface}` och av hårfina avdelare i `{colors.hairline}` inne i kort. Ark och dialoger lägger en halvgenomskinlig mörk slöja (40 % `{colors.ink}`) över sidan i stället för skugga.
+Tre nivåer: sidan (`{colors.bg}`), kort och listor (`{colors.surface}`, ingen skugga) och det som flyger över sidan. Djupet kommer främst från tonskillnaden mellan sida och yta och från hårfina avdelare i `{colors.hairline}`. Flikfältet och den hopfällda rubriken är halvgenomskinliga (84 % yta, oskärpa 20 px, 0,5 px linje). Ark, menyer och toast ligger på `{colors.surface-2}`.
+
+Det finns exakt **en** skugga, `--shadow-float` (`0 12px 32px rgb(27 36 32 / .14), 0 0 0 .5px rgb(27 36 32 / .08)`), och den är bara för det som flyger över sidan: ark som dialog på dator, menyer och toasten. Mörkt läge använder ingen skugga (den syns inte) utan en ljusare yta och en hårfin ljus kant. Ark och dialoger lägger också en slöja (40 % `{colors.ink}`, 60 % svart i mörkt) över sidan.
 
 ## Shapes
 
-Mjuka, generösa hörn enligt `rounded`-tokens och komponenternas tokens ovan. Bockar, portionsväljare, hjärtan och etiketter för obegränsade varor är helt runda. Receptvyns toppbild går kant i kant utan rundning upptill.
+Mjuka, generösa hörn enligt `rounded`-tokens (6 / 10 / 12 / 16 / 24 / rund) och komponenternas tokens ovan. Bockar, portionsväljare, hjärtan och etiketter för obegränsade varor är helt runda. Receptvyns toppbild går kant i kant utan rundning upptill.
 
 ## Components
 
 Samma komponenter, i samma ordning och med samma namn, finns i `EXPERIENCE.md` under Component Patterns. Tokennyckeln står inom parentes.
 
-- **Flikfält** (`tab-bar`): fyra flikar (Recept, Matsedel, Inköpslista, Lagersaldo) med ikon och etikett. En etikett som inte får plats bryts på två rader mellan orddelarna (Mat/sedel, Inköps/lista, Lager/saldo), aldrig mitt i en del. Aktiv flik i `{colors.accent}`, övriga i `{colors.ink-3}`.
-- **Sidomeny** (`side-menu`): samma fyra mål som flikfältet, i en lista, plus Inställningar längst ned. Aktivt mål har `{colors.mint}`-bakgrund, `{colors.mint-ink}`-text och ikon i `{colors.accent}` (accent på mint ger bara 4,1:1).
+- **Flikfält** (`tab-bar`): fem flikar (Recept, Matsedel, Inköpslista, Matvaror, Förråd) med linjeikon (bok, kalender, kundvagn, morot, låda) och etikett, 56 px höga plus säkra området, halvgenomskinliga med en 0,5 px linje upptill. Vald flik: grön ikon med svag grön fyllning (16 %) och etikett 600, ingen platta eller ruta. Fokusringen (2 px grön, bara vid tangentbord) ritas runt ikon och etikett. En etikett som inte får plats bryts på två rader mellan orddelarna (Mat/sedel, Inköps/lista, Lager/saldo), aldrig mitt i en del. Aktiv flik i `{colors.accent}`, övriga i `{colors.ink-3}`. Emoji finns inte i ramen; de stannar bara där de är innehåll (matkategorier, rum, receptbilder som saknas).
+- **Sidomeny** (`side-menu`): samma fem mål och linjeikoner som flikfältet, i en lista, plus Inställningar längst ned. Aktivt mål har `{colors.mint}`-bakgrund och `{colors.mint-ink}`-text i vikt 500 (accent på mint ger bara 4,1:1).
 - **Sökfält** (`search-field`): vitt fält med förstoringsglas och platshållartext i `{colors.ink-3}`.
 - **Filterpiller** (`filter-pill`): Alla, Favoriter, Kan lagas nu. Valt piller fylls med `{colors.accent}`.
 - **Receptrad** (`recipe-row`): kort med bild (`{spacing.thumb-list}` i kvadrat), titel i `{typography.row-title}`, "35 min · 4 portioner" i `{typography.meta}` och en statusetikett.
@@ -415,7 +456,7 @@ Samma komponenter, i samma ordning och med samma namn, finns i `EXPERIENCE.md` u
 - **Platskort** (`location-card`): tre kort i rad (Kyl mint, Frys ljusblått, Skafferi sand) med ikon, namn och "12 varor". Valt kort har 2 px ram i `{colors.accent}`.
 - **Etikett för obegränsad vara** (`pantry-tag`): piller i `{colors.mint}` med `{colors.mint-ink}`-text under "Finns hemma".
 - **Kameraknapp** (`camera-button`): ljusblå knapp i full bredd med kameraikon.
-- **Primärknapp** (`button-primary`) och **sekundärknapp** (`button-secondary`): `{spacing.button-height}` höga. Primär i accent, sekundär i ljusblått. Högst en primärknapp per vy.
+- **Primärknapp** (`button-primary`) och **sekundärknapp** (`button-secondary`): `{spacing.button-height}` höga. Primär i accent med text 17/600, sekundär vit (`{colors.surface}`) med grön text, så att blått bara betyder "saknas". Högst en primärknapp per vy.
 - **Fast åtgärdsknapp**: en primär- eller sekundärknapp i full bredd, fäst längst ned (se Layout & Spacing).
 - **Ark** (`sheet`): glider upp nedifrån för Importera recept, Lägg till rätt, Listpostdetalj, Lagervara och bekräftelser. På dator en dialog i mitten, högst `{spacing.dialog-max}` bred.
 - **Meddelanderuta** (`notice`): `{colors.sky}`-bakgrund, `{colors.sky-ink}`-text, ikonen "i" och en åtgärdsknapp när det finns en väg vidare.
@@ -464,12 +505,14 @@ Från Epic 9 (veckans erbjudanden):
 
 | Gör | Gör inte |
 | --- | --- |
-| Använd blått för "saknas", varningar och fel | Använd rött någonstans, inte ens för fel |
+| Använd blått för "saknas", varningar och fel | Använd rött till något annat än Ta bort (`{colors.danger}`, bara text och ikon) |
 | Låt matbilderna stå för färgen | Lägg till dekorativa illustrationer, gradienter eller mönster |
-| Skapa djup med `bg` mot `surface` | Använd skuggor |
+| Skapa djup med `bg` mot `surface`, och `{colors.surface-2}` för det som lyfts | Använd fler skuggor än `--shadow-float`, eller någon skugga på kort och listor |
+| Använd vikt 400, 500 och 600 efter roll | Använd vikt 700, eller halvfet text som inte är rubrik eller knapp |
+| Använd linjeikoner i ramen (flikar, meny, knappar) | Använd emoji i ramen |
 | Använd en accentfärg, för handling och "klart" | Låt en färg betyda en kategori; plattorna är dekor och namnet står alltid bredvid |
 | Ge varje kategori en ljus platta med ikon (Epic 11) | Använd emoji någon annanstans än i kategoriplattorna, eller lägg en egen ikon på varje vara |
-| Gör soptunnan grå och utan ram | Gör borttagning röd eller lägg en kontrollfråga på en borttagning som går att ångra |
+| Gör Ta bort i `{colors.danger}` som text och soptunna, sist under en hårfin linje | Gör borttagning till en fylld röd knapp, eller lägg en kontrollfråga på en borttagning som går att ångra |
 | Gör tryckytor minst 44 × 44 px | Använd små ikonknappar utan luft runt |
 | Märk AI-innehåll med sand-etiketten | Blanda AI-förslag med sparade recept utan märkning |
 | Visa alla recept i samma format oavsett källa | Behåll källsajtens typsnitt, färger eller layout |

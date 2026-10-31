@@ -8,11 +8,11 @@ const base =
 
 const variants: Record<ButtonVariant, string> = {
   // At most one primary button per view (DESIGN.md).
-  primary: "h-button text-row-title rounded-md bg-accent px-5 text-on-accent",
-  secondary: "h-button text-row-title rounded-md bg-sky px-5 text-sky-ink",
+  primary: "h-button text-headline rounded-md bg-accent px-5 text-on-accent",
+  secondary: "h-button text-headline rounded-md bg-surface px-5 text-accent",
   // Text buttons keep a 44 px tap area.
   // Small text button with a 44 px tap area (Story 16.9).
-  compact: "min-h-tap min-w-tap rounded-md px-2 text-meta font-semibold text-accent",
+  compact: "min-h-tap min-w-tap rounded-md px-2 text-meta font-medium text-accent",
   // A slim primary button: 40 px visible, 44 px tap area.
   "compact-primary":
     "relative h-10 rounded-md bg-accent px-4 text-meta font-semibold text-on-accent before:absolute before:inset-x-0 before:-inset-y-0.5 before:content-['']",
@@ -32,7 +32,7 @@ export type ButtonProps = ComponentPropsWithRef<"button"> & {
   fullWidth?: boolean;
 };
 
-/** Primary (accent), secondary (light blue) or text button. Labels are verbs: "Spara recept". */
+/** Primary (accent), secondary (white with green text) or text button. Labels are verbs: "Spara recept". */
 export function Button({ variant = "primary", fullWidth = false, className, type = "button", ...props }: ButtonProps) {
   return <button type={type} className={cx(buttonClasses(variant, fullWidth), className)} {...props} />;
 }
