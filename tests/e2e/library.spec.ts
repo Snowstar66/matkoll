@@ -85,11 +85,11 @@ test("saved recipes are listed newest first with time and servings, and a row op
   await expectTitles(page, [soppa, gryta]);
   await expect(row(page, soppa).getByText("30 min · 6 portioner")).toBeVisible();
   await expect(row(page, gryta).getByText("40 min · 4 portioner")).toBeVisible();
-  // No image address from pasted text: a short mint strip across the top of the card (Story 11.5).
+  // No image address from pasted text: a mint placeholder across the top of the card, as tall as a photo (104 px).
   await expect(row(page, gryta).getByTestId("recipe-image-placeholder")).toBeVisible();
   const image = await row(page, gryta).getByTestId("recipe-image-placeholder").boundingBox();
   const card = await row(page, gryta).boundingBox();
-  expect(image?.height).toBe(64);
+  expect(image?.height).toBe(104);
   expect(image?.width).toBeCloseTo(card!.width, 0);
   await expect(pill(page, "Alla")).toBeChecked();
 
