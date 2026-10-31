@@ -10,9 +10,9 @@ import { RecipeImage } from "@/components/recipe-image";
 type CardBase = {
   title: string;
   /**
-   * The recipe's image address, or `null`: a short mint strip (`h-16`) then,
-   * with the badge on it, rather than 120 px of empty placeholder. An address
-   * that does not load shows the placeholder at full height.
+   * The recipe's image address, or `null`: a mint placeholder
+   * (with the badge on it) at the same height as a photo, so the cards in a
+   * row are equally tall. An address that does not load shows it too.
    */
   imageUrl: string | null;
   /** Story 16.4: the dish's emoji, shown on the strip (or when the image fails) in place of the book icon. */
@@ -116,8 +116,8 @@ export function RecipeCard({
         <RecipeImage
           src={imageUrl}
           emoji={emoji}
-          iconSize={emoji ? (imageUrl === null ? 36 : 56) : imageUrl === null ? 24 : 40}
-          className={cx("w-full rounded-t-lg", imageUrl === null ? "h-16" : tile ? "h-[104px] desktop:h-card-image" : "h-card-image")}
+          iconSize={emoji ? 56 : 40}
+          className={cx("w-full rounded-t-lg", tile ? "h-[104px] desktop:h-card-image" : "h-card-image")}
         />
         {badge || favorite ? (
           <div

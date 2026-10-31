@@ -354,7 +354,7 @@
 }
 @media (prefers-color-scheme: dark) {
   .segment-on {
-    background-color: color-mix(in srgb, var(--surface), var(--ink) 14%);
+    background-color: color-mix(in srgb, var(--surface), var(--ink) 22%);
   }
 }
 
