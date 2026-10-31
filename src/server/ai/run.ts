@@ -10,6 +10,7 @@ import {
 } from "ai";
 import type { z } from "zod";
 import { fail, ok, type Result } from "@/lib/errors";
+import { reportUsage, tokenCount } from "./usage";
 
 // Shared execution for every real adapter (AD-9): an optional health check,
 // a time budget per attempt and in total, at most two new attempts when the
@@ -119,11 +120,37 @@ function failWith(code: FailCode, reason: Reason, statusCode?: number) {
   return fail(code);
 }
 
+/** The model id of a target, for the usage record. */
+function modelIdOf(target: ModelTarget): string {
+  return typeof target.model === "string" ? target.model : target.model.modelId;
+}
+
+/** Tokens spent so far by one run, over all its attempts (a refused answer costs too). */
+type Tally = { calls: number; inputTokens: number; outputTokens: number };
+
 export async function runStructured<SCHEMA extends z.ZodType>(
   target: ModelTarget,
   request: StructuredRequest<SCHEMA>,
   signal: AbortSignal,
   limits: Limits = defaultLimits,
+): Promise<Result<z.infer<SCHEMA>>> {
+  const tally: Tally = { calls: 0, inputTokens: 0, outputTokens: 0 };
+  try {
+    return await runStructuredCounting(target, request, signal, limits, tally);
+  } finally {
+    // Story 17.6: one record per run, when the model was asked at all.
+    if (tally.calls > 0) {
+      await reportUsage({ model: modelIdOf(target), inputTokens: tally.inputTokens, outputTokens: tally.outputTokens });
+    }
+  }
+}
+
+async function runStructuredCounting<SCHEMA extends z.ZodType>(
+  target: ModelTarget,
+  request: StructuredRequest<SCHEMA>,
+  signal: AbortSignal,
+  limits: Limits,
+  tally: Tally,
 ): Promise<Result<z.infer<SCHEMA>>> {
   if (signal.aborted) return failWith("ai_unavailable", "aborted");
   const started = performance.now();
@@ -164,10 +191,12 @@ export async function runStructured<SCHEMA extends z.ZodType>(
         maxRetries: 0,
         abortSignal: attemptSignal,
       });
+      count(tally, result.usage);
       if (result.finishReason === "length") request.onTruncated?.();
       return ok(result.output as z.infer<SCHEMA>);
     } catch (error) {
       if (attemptSignal.aborted) return failWith("ai_unavailable", stopReason());
+      if (NoObjectGeneratedError.isInstance(error)) count(tally, error.usage);
       if (NoObjectGeneratedError.isInstance(error) && error.finishReason === "length") request.onTruncated?.();
       if (APICallError.isInstance(error)) {
         const status = error.statusCode;
@@ -184,6 +213,13 @@ export async function runStructured<SCHEMA extends z.ZodType>(
 
   if (total.aborted) return failWith("ai_unavailable", stopReason());
   return failWith("ai_invalid", "invalid");
+}
+
+/** Adds one attempt's usage; an attempt that failed before an answer (network, timeout) is not counted. */
+function count(tally: Tally, usage: { inputTokens: number | undefined; outputTokens: number | undefined } | undefined): void {
+  tally.calls += 1;
+  tally.inputTokens += tokenCount(usage?.inputTokens);
+  tally.outputTokens += tokenCount(usage?.outputTokens);
 }
 
 /**

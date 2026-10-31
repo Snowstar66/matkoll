@@ -1,10 +1,9 @@
 "use server";
 
 import { requireUser } from "@/features/auth/server";
-import { getAiChoice } from "@/features/settings/server";
+import { getAiServiceForUser } from "@/features/settings/server";
 import { fail, ok, type Result } from "@/lib/errors";
 import { createClient } from "@/lib/supabase/server";
-import { getAiServiceFor } from "@/server/ai";
 import { ThingsDataError } from "../data/client";
 import { loadThingIndexIn } from "../data/index";
 import { questionSchema, refLabel, type AskRef } from "../domain/thing-ask";
@@ -49,7 +48,7 @@ export async function askAboutThings(question: string): Promise<Result<AskAnswer
   }
   if (!built) return fail("things_ask_empty");
 
-  const answered = await getAiServiceFor(await getAiChoice()).askThings(built.input, AbortSignal.timeout(askDeadlineMs + 5_000), {
+  const answered = await (await getAiServiceForUser()).askThings(built.input, AbortSignal.timeout(askDeadlineMs + 5_000), {
     deadline: Date.now() + askDeadlineMs,
   });
   if (!answered.ok) return answered;

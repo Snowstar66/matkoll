@@ -2,10 +2,12 @@ import "server-only";
 import { createClient } from "@/lib/supabase/server";
 import { env } from "@/server/env";
 import { loadAiSettingIn } from "./data/ai-setting";
+import { insertAiUsageIn, loadAiUsageIn } from "./data/ai-usage";
 import { insertUserDefaults } from "./data/defaults";
 import { loadActiveRecipeDomains, loadSelectedStore, loadStores } from "./data/queries";
 import { aiSettingsVisible, type AiSetting, type AiSettingsView } from "./domain/ai-choice";
 import { aiChoiceFor, aiSettingsViewFor } from "./data/ai-env";
+import { stockholmMonth, usageCostSek, type AiMonthUsage } from "./domain/ai-usage";
 import { compareDomains } from "./domain/domain-name";
 import { compareStores, type Store } from "./domain/store";
 
@@ -113,4 +115,40 @@ export async function getAiChoice(): Promise<AiSetting | null> {
     console.error("ai_setting_unavailable", { reason: error instanceof Error ? error.name : "unknown" });
     return aiChoiceFor(env, null);
   }
+}
+
+/**
+ * Story 17.6: this month's AI calls and cost for the signed-in user (the
+ * calendar month in Stockholm), or `null` when the section AI is not shown
+ * to them. Local models and the mock count as calls at 0 kr. Throws
+ * SettingsDataError.
+ */
+export async function getAiMonthUsage(now: Date = new Date()): Promise<AiMonthUsage | null> {
+  const db = await createClient();
+  const user = await sessionUser(db);
+  if (!user) return null;
+  if (!aiSettingsVisible({ nodeEnv: env.NODE_ENV, email: user.email, allowed: env.AI_SETTINGS_EMAILS })) return null;
+  const month = stockholmMonth(now);
+  const models = await loadAiUsageIn(db, month.from, month.to);
+  return {
+    monthName: month.monthName,
+    calls: models.reduce((sum, row) => sum + row.calls, 0),
+    costSek: usageCostSek(models),
+  };
+}
+
+/**
+ * Story 17.6: the AI service for the signed-in user's next call, built from
+ * their choice (getAiChoice), that saves each call's model and tokens in
+ * ai_usage with the user's session. Every feature that asks the model uses
+ * this one, so the month's total is complete. A usage row that cannot be
+ * saved is logged and never fails the call. The AI port is loaded here, not
+ * at the top: the sign-in and the save path of a photo import this module and
+ * must not reach the port (a test for the photo route holds them to it).
+ */
+export async function getAiServiceForUser(): Promise<import("@/server/ai").AiService> {
+  const { getAiServiceFor } = await import("@/server/ai");
+  const choice = await getAiChoice();
+  const db = await createClient();
+  return getAiServiceFor(choice, (usage) => insertAiUsageIn(db, usage));
 }

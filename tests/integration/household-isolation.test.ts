@@ -37,6 +37,7 @@ type Coverage = {
 // that names it even when the types were not regenerated.
 const coverage: Record<TableName, Coverage> = {
   ai_setting: { row: () => ({ provider: "anthropic", model: "claude-sonnet-5-5", effort: "medium" }) },
+  ai_usage: { row: () => ({ model: "claude-haiku-5-5", input_tokens: 1200, output_tokens: 300 }) },
   ai_job: {
     row: () => ({ kind: "suggest", client_key: randomUUID(), expires_at: new Date(Date.now() + 175 * 60_000).toISOString() }),
   },
@@ -116,6 +117,7 @@ const seedOrder: TableName[] = [
   "store",
   "ai_job",
   "ai_setting",
+  "ai_usage",
   "ingredient_synonym",
   "meal_plan_recipe",
   "pantry_addition",

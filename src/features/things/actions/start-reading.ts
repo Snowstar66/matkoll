@@ -1,15 +1,14 @@
 import "server-only";
+import { getAiServiceForUser } from "@/features/settings/server";
 import { after } from "next/server";
 import { requireUser } from "@/features/auth/server";
 import { enqueueAiJob, runAiJob, type AiJobWork } from "@/features/ai-jobs/server";
-import { getAiChoice } from "@/features/settings/server";
 import type { AiJob } from "@/lib/ai-job-shape";
 import { fail, ok, type Result } from "@/lib/errors";
 import { imageSizeOf, stripJpegMetadata, stripPngMetadata, type ImageMediaType } from "@/lib/images";
 import { revalidateFor } from "@/lib/revalidate";
 import { createClient } from "@/lib/supabase/server";
 import type { Json } from "@/lib/supabase/database.types";
-import { getAiServiceFor } from "@/server/ai";
 import { ThingsDataError, type ThingsDb } from "../data/client";
 import {
   downloadCardFile,
@@ -73,7 +72,7 @@ function readingWork(db: ThingsDb, userId: string, card: { id: string; placeId: 
       }
     };
 
-    const listed = await getAiServiceFor(await getAiChoice()).listThings({ image }, signal, { deadline: deadline - postModelMarginMs });
+    const listed = await (await getAiServiceForUser()).listThings({ image }, signal, { deadline: deadline - postModelMarginMs });
     if (!listed.ok) {
       await failCard(listed.error.code);
       return listed;
