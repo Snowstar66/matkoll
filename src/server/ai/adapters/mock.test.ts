@@ -17,6 +17,7 @@ import {
   thingCategories,
 } from "../schemas";
 import type { SuggestDishesInput } from "../service";
+import { withUsageSink, type AiUsage } from "../usage";
 import {
   createMockAiService,
   defaultFixturesDir,
@@ -625,5 +626,20 @@ describe("mock listThings (Story 18.2)", () => {
     const controller = new AbortController();
     controller.abort();
     expect(await service.listThings({ image: photo("kyl.png") }, controller.signal)).toMatchObject({ ok: false, error: { code: "ai_unavailable" } });
+  });
+});
+
+describe("usage (Story 17.6)", () => {
+  it("counts an answered call as a call of the model mock with no tokens", async () => {
+    const seen: AiUsage[] = [];
+    const service = createMockAiService();
+    const sink = (usage: AiUsage) => void seen.push(usage);
+    const signal = new AbortController().signal;
+    const answered = await withUsageSink(sink, () => service.parseRecipe({ text: "Pannkakor: 3 dl mjölk, salt." }, signal));
+    expect(answered.ok).toBe(true);
+    expect(seen).toEqual([{ model: "mock", inputTokens: 0, outputTokens: 0 }]);
+    // Called outside a sink it reports nowhere and still answers.
+    expect((await service.parseRecipe({ text: "Pannkakor" }, signal)).ok).toBe(true);
+    expect(seen).toHaveLength(1);
   });
 });

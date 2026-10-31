@@ -5,10 +5,12 @@ import {
   aiLevelLabels,
   aiProviderLabels,
   claudeModels,
+  costRowTitle,
+  formatMonthCost,
   type AiSettingsView,
   settingsPageHref,
 } from "@/features/settings";
-import { getAiSettingsView, listRecipeSites, listStores } from "@/features/settings/server";
+import { getAiMonthUsage, getAiSettingsView, listRecipeSites, listStores } from "@/features/settings/server";
 import { SettingsMenu, type SettingsGroupData } from "@/features/settings/ui/settings-menu";
 
 /** Reads one value for the start page; a failure shows the row without its value, and is logged by reason only. */
@@ -42,11 +44,12 @@ export function sitesCountText(count: number): string {
  */
 export async function SettingsMenuContent() {
   const user = await requireUserOrRedirect("/installningar");
-  const [housing, stores, recipeSites, ai] = await Promise.all([
+  const [housing, stores, recipeSites, ai, aiUsage] = await Promise.all([
     valueOf(listPantrySitesWithCounts, "housing"),
     valueOf(listStores, "stores"),
     valueOf(listRecipeSites, "recipe_sites"),
     valueOf(getAiSettingsView, "ai"),
+    valueOf(() => getAiMonthUsage(), "ai_usage"),
   ]);
   const selectedStore = stores?.find((store) => store.isSelected);
 
@@ -88,7 +91,21 @@ export async function SettingsMenuContent() {
       ? [
           {
             label: "AI",
-            rows: [{ href: settingsPageHref("ai"), icon: "✨", tile: "bg-mint", title: "Modell", value: aiValueText(ai) }],
+            rows: [
+              { href: settingsPageHref("ai"), icon: "✨", tile: "bg-mint", title: "Modell", value: aiValueText(ai) },
+              // Story 17.6: the month's cost, a value without a page of its own.
+              ...(aiUsage
+                ? [
+                    {
+                      href: null,
+                      icon: "💰",
+                      tile: "bg-sand",
+                      title: costRowTitle(aiUsage.monthName),
+                      value: formatMonthCost(aiUsage.costSek),
+                    } as const,
+                  ]
+                : []),
+            ],
           } satisfies SettingsGroupData,
         ]
       : []),

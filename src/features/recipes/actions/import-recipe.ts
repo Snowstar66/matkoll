@@ -1,9 +1,9 @@
 import "server-only";
 import { requireUser } from "@/features/auth/server";
 import { CatalogDataError, getIngredientNames, matchIngredients } from "@/features/catalog/server";
-import { getActiveRecipeDomains, getAiChoice, SettingsDataError } from "@/features/settings/server";
+import { getActiveRecipeDomains, getAiServiceForUser, SettingsDataError } from "@/features/settings/server";
 import { fail, ok, type Result } from "@/lib/errors";
-import { getAiServiceFor, type ParseRecipeInput } from "@/server/ai";
+import type { ParseRecipeInput } from "@/server/ai";
 import { checkLinkSyntax, extractRecipePage, fetchRecipePage } from "@/server/fetch";
 import { fromAiRecipe, type RecipeSource } from "../domain/from-ai-recipe";
 import { importRequestSchema, maxImportTextChars, type ImportInput, type RecipeImport } from "../domain/import";
@@ -122,7 +122,7 @@ export async function importRecipe(
     source = { kind: "text" };
   }
 
-  const parsed = await getAiServiceFor(await getAiChoice()).parseRecipe(parseInput, signal);
+  const parsed = await (await getAiServiceForUser()).parseRecipe(parseInput, signal);
   if (!parsed.ok) return parsed;
   const recipe = parsed.data;
 

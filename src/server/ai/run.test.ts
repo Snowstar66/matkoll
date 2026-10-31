@@ -12,6 +12,7 @@ import {
   type ModelTarget,
 } from "./run";
 import { aiRecipe } from "./schemas";
+import { withUsageSink, type AiUsage } from "./usage";
 import { createModelAiService } from "./service";
 import {
   abortReason,
@@ -420,5 +421,45 @@ describe("logging", () => {
     for (const secret of [secretInput, secretKey, answerMarker, "Du tolkar recept", "Recepttext"]) {
       expect(text).not.toContain(secret);
     }
+  });
+});
+
+describe("usage (Story 17.6)", () => {
+  async function usageOf(model: ReturnType<typeof fakeModel>): Promise<AiUsage[]> {
+    const seen: AiUsage[] = [];
+    await withUsageSink(
+      (usage) => {
+        seen.push(usage);
+      },
+      () => runStructured({ model }, request, signal(), limits),
+    );
+    return seen;
+  }
+
+  it("reports the model and the tokens once per run", async () => {
+    expect(await usageOf(fakeModel(valid))).toEqual([{ model: "mock-model-id", inputTokens: 10, outputTokens: 20 }]);
+  });
+
+  it("adds up the attempts of a run, the refused answers too", async () => {
+    expect(await usageOf(fakeModel(invalid, valid))).toEqual([{ model: "mock-model-id", inputTokens: 20, outputTokens: 40 }]);
+  });
+
+  it("reports nothing when the model was never asked, and nothing without a sink", async () => {
+    const aborted = new AbortController();
+    aborted.abort();
+    const seen: AiUsage[] = [];
+    await withUsageSink((usage) => void seen.push(usage), () => runStructured({ model: fakeModel(valid) }, request, aborted.signal, limits));
+    expect(seen).toEqual([]);
+    await expect(runStructured({ model: fakeModel(valid) }, request, signal(), limits)).resolves.toMatchObject({ ok: true });
+  });
+
+  it("never fails the call when the sink fails", async () => {
+    const result = await withUsageSink(
+      () => {
+        throw new Error("database down");
+      },
+      () => runStructured({ model: fakeModel(valid) }, request, signal(), limits),
+    );
+    expect(result).toEqual({ ok: true, data: validRecipe });
   });
 });

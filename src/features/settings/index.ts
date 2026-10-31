@@ -15,6 +15,14 @@ export {
 } from "./domain/ai-choice";
 // Client-safe entry: types and domain (AD-1).
 export {
+  costRowTitle,
+  formatMonthCost,
+  stockholmMonth,
+  usageCostSek,
+  type AiMonthUsage,
+  type ModelUsage,
+} from "./domain/ai-usage";
+export {
   compareDomains,
   domainNameSchema,
   domainNameMessage,

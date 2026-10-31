@@ -2,7 +2,7 @@ import "server-only";
 import { createHash } from "node:crypto";
 import { readFileSync } from "node:fs";
 import { join } from "node:path";
-import { fail, ok, type ErrorCode } from "@/lib/errors";
+import { fail, ok, type ErrorCode, type Result } from "@/lib/errors";
 import { normalizeTitle } from "@/lib/suggest-input";
 import {
   aiRecipe,
@@ -17,6 +17,7 @@ import {
   type LocateItemsAnswer,
 } from "../schemas";
 import { fromCompactDish } from "../compact-dish";
+import { reportUsage } from "../usage";
 import type { AiService, AnalyzeImageResult, ListThingsResult, ParseRecipeInput, SuggestDishesInput } from "../service";
 
 // Deterministic stand-in for a model, used in all tests and in CI (AD-9). It
@@ -297,7 +298,32 @@ export type MockOptions = {
   delayMs?: number;
 };
 
-export function createMockAiService(dir: string = defaultFixturesDir, { delayMs = 0 }: MockOptions = {}): AiService {
+/**
+ * Story 17.6: a call that answered counts as a call of the model "mock" with
+ * no tokens, so the usage rows can be tried without a real model. It costs 0 kr.
+ */
+function countingCalls(service: AiService): AiService {
+  const counted = <Args extends unknown[], T>(call: (...args: Args) => Promise<Result<T>>) =>
+    async (...args: Args): Promise<Result<T>> => {
+      const result = await call(...args);
+      if (result.ok) await reportUsage({ model: "mock", inputTokens: 0, outputTokens: 0 });
+      return result;
+    };
+  return {
+    ...service,
+    parseRecipe: counted(service.parseRecipe),
+    suggestDishes: counted(service.suggestDishes),
+    analyzeImage: counted(service.analyzeImage),
+    locateItems: counted(service.locateItems),
+    listThings: counted(service.listThings),
+  };
+}
+
+export function createMockAiService(dir: string = defaultFixturesDir, options: MockOptions = {}): AiService {
+  return countingCalls(createMockService(dir, options));
+}
+
+function createMockService(dir: string, { delayMs = 0 }: MockOptions): AiService {
   // Each loaded once, on first use; a failure is remembered too.
   const fixtures = lazily(() => loadFixtures(dir));
   const suggestFixtures = lazily(() => loadSuggestFixtures(dir));
