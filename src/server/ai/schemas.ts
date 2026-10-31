@@ -1,6 +1,6 @@
 import { z } from "zod";
 import { labelKey } from "@/lib/label-key";
-import { cleanModelText, normalizeTitle } from "@/lib/suggest-input";
+import { cleanModelText, cutCodePoints, normalizeTitle } from "@/lib/suggest-input";
 
 // Response schemas for the AI port (AD-9, AD-10). The model's answer is
 // validated against these; an answer that does not pass is retried, then
@@ -406,6 +406,39 @@ export const listThingsAnswer = z.object({
   hiddenNote: z.string().nullable().describe("En mening om det som inte syns, t.ex. innehållet i två lådor; null om inget"),
 });
 
+/** The most places an answer to askThings may point to. */
+export const maxAskRefs = 5;
+/** The longest answer to askThings, in characters: it is a short answer. */
+export const maxAskAnswerChars = 600;
+
+/**
+ * What the model answers to askThings (Story 18.4): a short answer in
+ * Swedish and the numbers of the places it is about (the numbers in the
+ * list it was given).
+ */
+export const askThingsAnswer = z.object({
+  answer: z.string().describe("Ett kort svar på svenska, en till tre meningar"),
+  places: z.array(z.number()).describe("Numren på de platser i listan som svaret handlar om, tom lista om ingen"),
+});
+
+/**
+ * The answer cleaned (one line, cut at maxAskAnswerChars) and the place
+ * numbers that are in the list (1 to `placeCount`), once each, the first
+ * maxAskRefs; `null` when there is no answer text.
+ */
+export function parseAskAnswer(
+  answer: z.output<typeof askThingsAnswer>,
+  placeCount: number,
+): { answer: string; refs: number[] } | null {
+  const text = cutCodePoints(cleanModelText(answer.answer), maxAskAnswerChars);
+  if (text === "") return null;
+  const refs: number[] = [];
+  for (const number of answer.places) {
+    if (Number.isInteger(number) && number >= 1 && number <= placeCount && !refs.includes(number)) refs.push(number);
+  }
+  return { answer: text, refs: refs.slice(0, maxAskRefs) };
+}
+
 const thingText = (max: number) => text().refine((value) => value.length <= max, { message: `At most ${max} characters` });
 
 /** One thing as the port returns it, checked on its own. Text from the model is untrusted. */
@@ -538,3 +571,4 @@ export type PantryItemConfidence = (typeof pantryItemConfidences)[number];
 export type AnalyzeImageAnswer = z.infer<typeof analyzeImageAnswer>;
 export type LocateItemsAnswer = z.infer<typeof locateItemsAnswer>;
 export type ListThingsAnswer = z.infer<typeof listThingsAnswer>;
+export type AskThingsAnswer = z.infer<typeof askThingsAnswer>;

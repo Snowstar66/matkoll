@@ -31,6 +31,8 @@ import {
 } from "./run";
 import {
   analyzeImageAnswer,
+  askThingsAnswer,
+  parseAskAnswer,
   listThingsAnswer,
   locateItemsAnswer,
   maxPantryItemTextChars,
@@ -144,6 +146,30 @@ export type ListThingsResult = {
   hiddenNote: string | null;
 };
 
+/** A place as askThings gets it (Story 18.4): text only, never an image. Data for the model, never instructions. */
+export type AskThingsPlace = {
+  /** The place's name on one line, e.g. "Skräpförrådet · Översta hyllan". */
+  title: string;
+  /** The boende's name. */
+  site: string;
+  /** When the card was taken, as text: "31 okt". */
+  cardDate: string;
+  /** How many closed containers the card could not see into. */
+  hidden: number;
+  /** The things of the card: name and category, and where in the photo, all on one line. */
+  things: { name: string; category: string; where: string | null }[];
+};
+
+export type AskThingsInput = {
+  /** What Pontus asked, on one line. */
+  question: string;
+  /** The places, in the order the answer numbers them (the first is 1). */
+  places: AskThingsPlace[];
+};
+
+/** What askThings answers: a short text and the places it is about, as indexes into `places` (zero-based). */
+export type AskThingsResult = { answer: string; places: number[] };
+
 /** What warmUp wakes (Story 12.2): the reading of a photo, or the text flows. */
 export const warmUpKinds = ["image", "text"] as const;
 export type WarmUpKind = (typeof warmUpKinds)[number];
@@ -201,6 +227,15 @@ export interface AiService {
    * `ai_invalid` (the answer as a whole is broken).
    */
   listThings(input: ListThingsInput, signal: AbortSignal, options?: RunOptions): Promise<Result<ListThingsResult>>;
+  /**
+   * A short answer in Swedish to a question about Pontus's things (Story
+   * 18.4), from the lists the cards gave (text only, no image) and the
+   * numbers of the places it is about, each checked to be in the list. Fails
+   * with `validation` (a question or lists outside inputLimits.ask),
+   * `ai_unavailable` (also when the deadline leaves too little time),
+   * `ai_rejected` or `ai_invalid` (no usable answer).
+   */
+  askThings(input: AskThingsInput, signal: AbortSignal, options?: RunOptions): Promise<Result<AskThingsResult>>;
   /**
    * Wakes the model before it is needed (Story 12.2, FR-45): one call with
    * the flow's own system prompt (analyzeImage for `image`, suggestDishes
@@ -269,6 +304,14 @@ export const inputLimits = {
    */
   things: { maxOutputTokens: 4_000 },
   /**
+   * askThings (Story 18.4): the question at most 300 characters and the
+   * lists at most 12 000 (askThingsText counts them), as for any text flow,
+   * so prompt, schema and lists stay under about 5 000 tokens in 8 192; the
+   * answer is a few sentences, so 600 tokens leave room for a model that
+   * thinks aloud around them. The lists are names, never photos.
+   */
+  ask: { maxQuestionChars: 300, maxPlaces: 200, maxChars: 12_000, maxOutputTokens: 600 },
+  /**
    * locateItems (Story 6.6), measured with Qwen3.6 in LM Studio on Pontus's
    * photo at 2048 px (2026-10-26): 20 points were 390 tokens of answer, in
    * about 10 s with a warm model and 24 s on the first, cold call. At most
@@ -304,6 +347,25 @@ export function isValidAnalyzeImageInput(input: AnalyzeImageInput): boolean {
 /** True for one label as locateItems takes it: on one line (cleanModelText leaves it as it is), not empty, at most maxLabelChars. */
 export function isValidLocateLabel(label: string): boolean {
   return label !== "" && label === cleanModelText(label) && label.length <= inputLimits.locate.maxLabelChars;
+}
+
+/** True for a question and lists within inputLimits.ask: a question on one line, 1 to maxPlaces places, each with a title, boende and date on one line. */
+export function isValidAskThingsInput(input: AskThingsInput): boolean {
+  const limits = inputLimits.ask;
+  const { question, places } = input;
+  if (question === "" || question !== cleanModelText(question) || question.length > limits.maxQuestionChars) return false;
+  if (places.length === 0 || places.length > limits.maxPlaces) return false;
+  const oneLine = (text: string) => text !== "" && text === cleanModelText(text);
+  const valid = places.every(
+    (place) =>
+      oneLine(place.title) &&
+      oneLine(place.site) &&
+      oneLine(place.cardDate) &&
+      Number.isInteger(place.hidden) &&
+      place.hidden >= 0 &&
+      place.things.every((thing) => oneLine(thing.name) && oneLine(thing.category) && (thing.where === null || oneLine(thing.where))),
+  );
+  return valid && askThingsText(input).length <= limits.maxChars;
 }
 
 /** True for an image within the limits and 1 to inputLimits.locate.maxLabels valid labels. */
@@ -377,6 +439,10 @@ export function withInputValidation(service: AiService): AiService {
     async listThings(input, signal, options) {
       if (!isValidImage(input.image)) return fail("validation");
       return service.listThings(input, signal, options);
+    },
+    async askThings(input, signal, options) {
+      if (!isValidAskThingsInput(input)) return fail("validation");
+      return service.askThings(input, signal, options);
     },
     async warmUp(kind, signal, options) {
       if (!isWarmUpKind(kind)) return { outcome: "skipped", reason: "provider" };
@@ -478,6 +544,33 @@ export function createModelAiService(target: ModelTarget, limits: Limits = defau
       if (parsed.invalid > 0 || parsed.trimmed > 0) console.info("things_dropped", { invalid: parsed.invalid, trimmed: parsed.trimmed });
       return ok(parsed);
     },
+    async askThings(input, signal, options = {}) {
+      const within = limitsWithin(limits, options.deadline);
+      if (!within) {
+        console.error("ai_unavailable", { reason: "deadline" });
+        return fail("ai_unavailable");
+      }
+      const answer = await runStructured(
+        target,
+        {
+          schema: askThingsAnswer,
+          system: prompts.askThings,
+          messages: [{ role: "user", content: askThingsText(input) }],
+          maxOutputTokens: inputLimits.ask.maxOutputTokens,
+          onTruncated: () => console.info("ask_truncated"),
+        },
+        signal,
+        within,
+      );
+      if (!answer.ok) return answer;
+      const parsed = parseAskAnswer(answer.data, input.places.length);
+      if (!parsed) {
+        console.error("ai_invalid", { reason: "empty_answer" });
+        return fail("ai_invalid");
+      }
+      // The model's numbers start at 1; the port gives indexes.
+      return ok({ answer: parsed.answer, places: parsed.refs.map((number) => number - 1) });
+    },
     async locateItems(input, signal, options = {}) {
       // Story 6.6: only a model trained to point in thousandths is asked; the photo is not sent again otherwise.
       if (!target.supportsGrounding) {
@@ -553,6 +646,26 @@ export function listThingsContent(input: ListThingsInput) {
     { type: "text" as const, text: "Bilden visar en plats hemma. Lista prylarna." },
     { type: "file" as const, data: input.image.data, mediaType: input.image.mediaType },
   ];
+}
+
+/**
+ * The user message for askThings (Story 18.4): "Fråga:" and the question,
+ * then "Platser:" with a numbered line per place (title, boende, card date,
+ * and the closed containers when there are any) and under it its things,
+ * "Hammare (Verktyg, på väggen)" separated by semicolons. Every text is on
+ * one line, so none can start a section of its own; the prompt says the
+ * lists are data.
+ */
+export function askThingsText(input: AskThingsInput): string {
+  const places = input.places.map((place, index) => {
+    const head = [place.title, place.site, `kort ${place.cardDate}`];
+    if (place.hidden > 0) head.push(`${place.hidden} ${place.hidden === 1 ? "låda" : "lådor"} syns inte`);
+    const things = place.things
+      .map((thing) => `${thing.name.replaceAll(";", ",")} (${[thing.category, thing.where].filter(Boolean).join(", ")})`)
+      .join("; ");
+    return `${index + 1}. ${head.join(" | ")}\n   ${things === "" ? "(inga prylar)" : things}`;
+  });
+  return `Fråga: ${input.question}\n\nPlatser:\n${places.join("\n")}`;
 }
 
 /**

@@ -3,10 +3,12 @@ import { createClient } from "@/lib/supabase/server";
 import { ThingsDataError } from "./data/client";
 import { loadThingsIn } from "./data/items";
 import { downloadCardFile, loadCardIn, loadCardsIn, loadSiteCardFilesIn, removeCardFiles } from "./data/photos";
+import { loadThingIndexIn } from "./data/index";
 import { loadPlaceIn, loadPlacesIn } from "./data/places";
 import type { Thing } from "./domain/thing";
 import { shownStatus, type ThingCard } from "./domain/thing-photo";
 import type { ThingPlace } from "./domain/thing-place";
+import type { IndexedPlace } from "./domain/thing-search";
 
 // Server-only entry (AD-1). The functions use the signed-in user's session
 // client, so RLS limits them to the user's own rows. They are for pages, after
@@ -31,6 +33,15 @@ export async function listThingPlaces(siteId: string): Promise<ThingPlace[]> {
 /** One place, or `null` when it is gone or not the user's. Throws ThingsDataError. */
 export async function getThingPlace(id: string): Promise<ThingPlace | null> {
   return loadPlaceIn(await createClient(), id);
+}
+
+/**
+ * Every place with the things of its newest finished card, across all the
+ * user's boenden, for the search of Prylar and the question (Story 18.4).
+ * Throws ThingsDataError.
+ */
+export async function getThingIndex(): Promise<IndexedPlace[]> {
+  return loadThingIndexIn(await createClient());
 }
 
 /** What the place page shows: the card whose things are listed, the card being read or failed, and the things. */

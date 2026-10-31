@@ -8,6 +8,9 @@ export type {
   AiService,
   AnalyzeImageInput,
   AnalyzeImageResult,
+  AskThingsInput,
+  AskThingsPlace,
+  AskThingsResult,
   AnalyzePlace,
   ImageInput,
   ListThingsInput,
@@ -21,7 +24,7 @@ export type {
   WarmUpKind,
   WarmUpResult,
 } from "./service";
-export { aiEfforts, warmUpKinds } from "./service";
+export { aiEfforts, askThingsText, inputLimits, warmUpKinds } from "./service";
 export type { AiChoice, AiEffort } from "./service";
 export type { AiIngredientHint, AiPantryItem, AiRecipe, AiRecipeIngredient, AiThing, ItemPosition, ThingCategory, ThingConfidence } from "./schemas";
 export { maxThings, thingCategories, thingConfidences } from "./schemas";

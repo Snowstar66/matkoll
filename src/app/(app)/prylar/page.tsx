@@ -6,6 +6,10 @@ import { PrylarContent } from "./prylar-content";
 
 export const metadata: Metadata = { title: "Prylar" };
 
+// "Fråga om dina prylar" is a Server Action on this page (Story 18.4); the
+// model gets at most 45 s of this.
+export const maxDuration = 60;
+
 // Prylar, at /prylar (Epic 18, Story 18.1): the places of the selected boende
 // grouped by room, each with how many things its latest card has and the
 // card's date, "Ny plats" and, with two or more boenden, the same pills as in

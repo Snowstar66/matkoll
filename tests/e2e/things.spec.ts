@@ -1,3 +1,4 @@
+import { randomUUID } from "node:crypto";
 import { expect, type Page, test } from "@playwright/test";
 import { cardDateText, shortDateText } from "@/features/things";
 import { adminClient, e2eUserId, thingsEmail, thingsStorageState } from "./support";
@@ -269,4 +270,156 @@ test("the side menu at desktop width has Prylar too", async ({ page }) => {
   await page.goto("/prylar");
   await expect(nav(page).getByRole("link", { name: "Prylar" })).toHaveAttribute("aria-current", "page");
   await expect(content(page)).toBeVisible();
+});
+
+/** A place with a finished card and things, written with the service role (no file: the page's thumbnail is not under test). */
+async function seedPlace(
+  siteId: string,
+  room: string,
+  names: { name: string; category: string; where?: string }[],
+  { part = null, takenAt = "2026-10-31T10:00:00Z", hidden = 0 }: { part?: string | null; takenAt?: string; hidden?: number } = {},
+): Promise<string> {
+  const admin = adminClient();
+  const place = await admin
+    .from("thing_place")
+    .insert({ user_id: userId, site_id: siteId, room, part, room_key: room.toLowerCase(), part_key: part?.toLowerCase() ?? "" })
+    .select("id")
+    .single();
+  if (place.error) throw place.error;
+  const cardId = randomUUID();
+  const card = await admin.from("thing_photo").insert({
+    id: cardId,
+    user_id: userId,
+    place_id: place.data.id,
+    object_path: `${userId}/${place.data.id}/${cardId}.png`,
+    media_type: "image/png",
+    width: 10,
+    height: 10,
+    taken_at: takenAt,
+    status: "done",
+    unseen_count: hidden,
+  });
+  if (card.error) throw card.error;
+  const items = await admin.from("thing_item").insert(
+    names.map((thing, position) => ({
+      user_id: userId,
+      photo_id: cardId,
+      place_id: place.data.id,
+      name: thing.name,
+      category: thing.category,
+      where_hint: thing.where ?? null,
+      confidence: "high",
+      position,
+    })),
+  );
+  if (items.error) throw items.error;
+  return place.data.id;
+}
+
+test("Ta bort kortet asks first, removes card, things and file, and Ångra brings the card back for a short while", async ({ page }) => {
+  await page.goto("/prylar");
+  await newPlace(page, "Garaget");
+  const chooser = page.waitForEvent("filechooser");
+  await page.getByRole("button", { name: "Ta ett nytt kort" }).click();
+  await (await chooser).setFiles(photo);
+  const panel = page.getByTestId("card-panel");
+  await expect(panel).toBeVisible({ timeout: 25_000 });
+  const admin = adminClient();
+  const path = (await admin.from("thing_photo").select("object_path").eq("user_id", userId).single()).data!.object_path;
+  const fileExists = async () => (await admin.storage.from("thing-photo").download(path)).error === null;
+
+  // The question comes first; "Avbryt" leaves everything.
+  await panel.getByRole("button", { name: "Ta bort kortet" }).click();
+  const dialog = page.getByRole("dialog", { name: "Ta bort kortet" });
+  await expect(dialog.getByText("Ta bort kortet?")).toBeVisible();
+  await dialog.getByRole("button", { name: "Avbryt" }).click();
+  await expect(panel).toBeVisible();
+  expect((await admin.from("thing_photo").select("id").eq("user_id", userId)).data).toHaveLength(1);
+
+  await panel.getByRole("button", { name: "Ta bort kortet" }).click();
+  await dialog.getByRole("button", { name: "Ta bort kortet" }).click();
+  await expect(page.getByTestId("toast")).toContainText("Tog bort kortet från");
+  await expect(panel).toHaveCount(0);
+  await expect(page.getByRole("button", { name: "Ta ett nytt kort" })).toBeVisible();
+  expect((await admin.from("thing_photo").select("id").eq("user_id", userId)).data).toHaveLength(0);
+  expect((await admin.from("thing_item").select("id").eq("user_id", userId)).data).toHaveLength(0);
+  // The file waits for Ångra.
+  expect(await fileExists()).toBe(true);
+
+  await page.getByTestId("toast").getByRole("button", { name: "Ångra" }).click();
+  await expect(panel).toBeVisible();
+  await expect(panel.getByTestId("thing")).toHaveCount(12);
+  expect(await fileExists()).toBe(true);
+
+  // Without Ångra the file goes when the time is out.
+  await panel.getByRole("button", { name: "Ta bort kortet" }).click();
+  await dialog.getByRole("button", { name: "Ta bort kortet" }).click();
+  await expect(panel).toHaveCount(0);
+  await expect.poll(fileExists, { timeout: 15_000 }).toBe(false);
+  expect((await admin.from("thing_photo").select("id").eq("user_id", userId)).data).toHaveLength(0);
+});
+
+test("a thing the AI got wrong is renamed or removed alone, with Ångra, and the card stays as it was", async ({ page }) => {
+  const place = await seedPlace(hemma, "Skräpförrådet", [
+    { name: "Hammare", category: "Verktyg", where: "på väggen" },
+    { name: "Spade", category: "Trädgård" },
+  ]);
+  const admin = adminClient();
+  const cardBefore = (await admin.from("thing_photo").select("id, taken_at, created_at").eq("place_id", place).single()).data!;
+  await page.goto(`/prylar/${place}`);
+  const panel = page.getByTestId("card-panel");
+
+  await panel.getByRole("button", { name: /Hammare/ }).click();
+  const sheet = page.getByRole("dialog", { name: "Pryl" });
+  await sheet.getByLabel("Byt namn").fill("Klohammare");
+  await sheet.getByRole("button", { name: "Spara" }).click();
+  await expect(panel.getByTestId("thing").first()).toContainText("Klohammare");
+  await expect(panel.getByText("Hammare", { exact: true })).toHaveCount(0);
+
+  await panel.getByRole("button", { name: /Spade/ }).click();
+  await sheet.getByRole("button", { name: "Ta bort pryl" }).click();
+  await expect(page.getByTestId("toast")).toContainText("Tog bort Spade.");
+  await expect(panel.getByTestId("thing")).toHaveCount(1);
+  await page.getByTestId("toast").getByRole("button", { name: "Ångra" }).click();
+  await expect(panel.getByTestId("thing")).toHaveCount(2);
+
+  // The card, with its date, is untouched.
+  const cardAfter = (await admin.from("thing_photo").select("id, taken_at, created_at").eq("place_id", place).single()).data!;
+  expect(cardAfter).toEqual(cardBefore);
+  await expect(panel.getByText("Kort från 31 okt")).toBeVisible();
+});
+
+test("search finds a thing in every place and boende, and a question is answered with places to tap", async ({ page }) => {
+  const stugan = await adminClient()
+    .from("pantry_site")
+    .insert({ user_id: userId, name: "Stugan", normalized_name: "stugan", is_selected: false })
+    .select("id")
+    .single();
+  if (stugan.error) throw stugan.error;
+  await seedPlace(hemma, "Skräpförrådet", [{ name: "Hammare", category: "Verktyg", where: "väggen" }, { name: "Spade", category: "Trädgård" }], { hidden: 2 });
+  const shed = await seedPlace(stugan.data.id, "Redskapsboden", [{ name: "Målarfärgsburkar", category: "Byggmaterial" }, { name: "Kratta", category: "Trädgård" }], {
+    takenAt: "2026-09-02T10:00:00Z",
+  });
+
+  await page.goto("/prylar");
+  // Search runs in the browser: the hit says place, boende and the card's day, from every boende.
+  const search = page.getByRole("searchbox", { name: "Sök bland prylar" });
+  await search.fill("hamm");
+  await expect(page.getByTestId("thing-hit")).toHaveText([/Hammare\s*Skräpförrådet, väggen · Hemma · 31 okt/]);
+  await expect(page.getByTestId("place")).toBeHidden();
+  await search.fill("kratta");
+  await expect(page.getByTestId("thing-hit")).toHaveText([/Kratta\s*Redskapsboden · Stugan · 2 sep/]);
+  await search.fill("inget");
+  await expect(page.getByText('Inga prylar matchar "inget".')).toBeVisible();
+  await page.getByRole("button", { name: "Rensa sökning" }).click();
+  await expect(page.getByTestId("place")).toBeVisible();
+
+  // The question goes to the AI (the mock here) with the lists; the answer names places that can be tapped.
+  await page.getByRole("textbox", { name: "Fråga om dina prylar" }).fill("Har vi något att måla med?");
+  await page.getByRole("button", { name: "Fråga", exact: true }).click();
+  const answer = page.getByTestId("ask-answer");
+  await expect(answer).toContainText("Målarfärgsburkar finns i Redskapsboden (Stugan).");
+  await answer.getByTestId("ask-ref").click();
+  await expect(page).toHaveURL(new RegExp(`/prylar/${shed}$`));
+  await expect(page.getByRole("heading", { level: 1 })).toHaveText("Redskapsboden");
 });
