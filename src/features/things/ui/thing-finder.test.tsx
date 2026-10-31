@@ -7,7 +7,8 @@ import { ThingFinder } from "./thing-finder";
 
 const searchThingsAction = vi.fn();
 vi.mock("../actions/search-things", () => ({ searchThingsAction: (query: string) => searchThingsAction(query) }));
-vi.mock("../actions/ask-chat", () => ({ askChat: vi.fn() }));
+const askChat = vi.fn();
+vi.mock("../actions/ask-chat", () => ({ askChat: (input: unknown) => askChat(input) }));
 
 const hit: ThingHit = {
   id: "0b2f6d0a-3c0e-4d52-9a54-6d0f0c5f6a11",
@@ -28,7 +29,10 @@ const hit: ThingHit = {
   score: 1,
 };
 
-beforeEach(() => searchThingsAction.mockReset());
+beforeEach(() => {
+  searchThingsAction.mockReset();
+  askChat.mockReset();
+});
 
 function renderIt() {
   render(
@@ -37,13 +41,41 @@ function renderIt() {
     </ThingFinder>,
   );
 }
-const field = () => screen.getByRole("searchbox", { name: "Sök bland prylar" });
+const field = () => screen.getByRole("textbox", { name: "Sök eller fråga" });
 
-describe("the chat and the search", () => {
-  it("has the chat above the rooms and asks the database for nothing until something is typed", () => {
+describe("the one field to search and ask", () => {
+  it("has one field above the rooms with a hint, and asks the database for nothing until two characters are typed", async () => {
+    searchThingsAction.mockResolvedValue(ok({ hits: [] }));
     renderIt();
-    expect(screen.getByTestId("chat")).toBeInTheDocument();
+    expect(screen.getAllByRole("textbox")).toHaveLength(1);
+    expect(screen.getByText("Skriv för att söka – tryck ↑ för att fråga")).toBeInTheDocument();
     expect(searchThingsAction).not.toHaveBeenCalled();
+    await userEvent.type(field(), "h");
+    await new Promise((resolve) => setTimeout(resolve, 400));
+    expect(searchThingsAction).not.toHaveBeenCalled();
+    expect(screen.queryByTestId("thing-hits")).not.toBeInTheDocument();
+    expect(screen.getByText("Rummen").parentElement).not.toHaveClass("hidden");
+  });
+
+  it("sends the text to the chat on Enter and hides the matches while the conversation goes on", async () => {
+    searchThingsAction.mockResolvedValue(ok({ hits: [hit] }));
+    askChat.mockResolvedValue(ok({ answer: "Ja, i Skräpförrådet.", refs: [] }));
+    renderIt();
+    await userEvent.type(field(), "hamm");
+    expect(await screen.findByTestId("thing-hits")).toBeInTheDocument();
+    await userEvent.type(field(), "{Enter}");
+    expect(await screen.findByText("Ja, i Skräpförrådet.")).toBeInTheDocument();
+    expect(askChat).toHaveBeenCalledWith({ question: "hamm", history: [] });
+    expect(screen.queryByTestId("thing-hits")).not.toBeInTheDocument();
+    // Typing in a follow-up shows no matches either; "Ny fråga" brings the search back.
+    searchThingsAction.mockClear();
+    await userEvent.type(field(), "tång");
+    await new Promise((resolve) => setTimeout(resolve, 400));
+    expect(screen.queryByTestId("thing-hits")).not.toBeInTheDocument();
+    expect(searchThingsAction).not.toHaveBeenCalled();
+    await userEvent.click(screen.getByRole("button", { name: "Ny fråga" }));
+    await userEvent.type(field(), "hammare");
+    expect(await screen.findByTestId("thing-hits")).toBeInTheDocument();
   });
 
   it("shows what the database finds as a line with place, boende and date, instead of the chat and the rooms", async () => {
@@ -58,7 +90,6 @@ describe("the chat and the search", () => {
     expect(hits[1]).toHaveTextContent("Hammarbor Skräpförrådet, i Black box · Hemma · skrivet 31 okt");
     expect(hits[1]).toHaveAttribute("href", `/prylar/lada/${hit.placeId}`);
     expect(screen.getByText("Rummen").parentElement).toHaveClass("hidden");
-    expect(screen.getByTestId("chat").parentElement).toHaveClass("hidden");
     // The last text asked for is the one shown (a typo is the database's business).
     await waitFor(() => expect(searchThingsAction).toHaveBeenLastCalledWith("hamm"));
   });

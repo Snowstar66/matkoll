@@ -438,6 +438,11 @@ test("search finds a thing in every room and boende, and the chat answers a ques
     .select("id")
     .single();
   if (stugan.error) throw stugan.error;
+  // Searching, then asking, in the one field logs no console error or page error (Story 18.17).
+  const problems: string[] = [];
+  // The seeded cards have no file in storage, so their thumbnails 404; that is the seed, not the page.
+  page.on("console", (message) => message.type() === "error" && !message.location().url.includes("/api/things/photo/") && problems.push(message.text()));
+  page.on("pageerror", (error) => problems.push(error.message));
   await seedPlace(hemma, "Skräpförrådet", [{ name: "Hammare", category: "Verktyg", where: "väggen" }, { name: "Spade", category: "Trädgård" }], { hidden: 2 });
   await seedPlace(stugan.data.id, "Redskapsboden", [{ name: "Målarfärgsburkar", category: "Byggmaterial" }, { name: "Kratta", category: "Trädgård" }], {
     takenAt: "2026-09-02T10:00:00Z",
@@ -448,7 +453,12 @@ test("search finds a thing in every room and boende, and the chat answers a ques
   await expect(rooms(page)).toHaveText([/Skräpförrådet\s*2 prylar · 1 kort · 31 okt/]);
   await expect(page.getByTestId("rooms-total")).toHaveText("1 rum · 2 prylar");
   // The database searches: the hit says place, boende and the card's day, from every boende, and a typo is fine.
-  const search = page.getByRole("searchbox", { name: "Sök bland prylar" });
+  const search = page.getByRole("textbox", { name: "Sök eller fråga" });
+  // One field: the hint while it is empty, and one character is not searched for.
+  await expect(page.getByText("Skriv för att söka – tryck ↑ för att fråga")).toBeVisible();
+  await search.fill("h");
+  await expect(page.getByTestId("thing-hits")).toHaveCount(0);
+  await expect(rooms(page)).toBeVisible();
   await search.fill("hamm");
   await expect(page.getByTestId("thing-hit")).toHaveText([/Hammare\s*Skräpförrådet, väggen · Hemma · 31 okt/]);
   await expect(rooms(page)).toBeHidden();
@@ -458,13 +468,15 @@ test("search finds a thing in every room and boende, and the chat answers a ques
   await expect(page.getByTestId("thing-hit")).toHaveText([/Kratta\s*Redskapsboden · Stugan · 2 sep/]);
   await search.fill("inget");
   await expect(page.getByText('Inga prylar matchar "inget".')).toBeVisible();
-  await page.getByRole("button", { name: "Rensa sökning" }).click();
+  await search.fill("");
   await expect(rooms(page)).toBeVisible();
 
   // The chat sits under "Ta kort": the question goes to the AI for search terms (the mock here), the database finds the things, and the AI answers from those only.
   const chat = page.getByTestId("chat");
-  await chat.getByRole("textbox", { name: "Fråga om ditt förråd" }).fill("Har vi något att måla med?");
-  await chat.getByRole("button", { name: "Skicka" }).click();
+  await page.getByRole("textbox", { name: "Sök eller fråga" }).fill("Har vi något att måla med?");
+  // Enter sends it, the instant matches are gone, and they stay hidden while the conversation goes on.
+  await page.getByRole("textbox", { name: "Sök eller fråga" }).press("Enter");
+  await expect(page.getByTestId("thing-hits")).toHaveCount(0);
   await expect(page.getByTestId("chat-question")).toHaveText("Har vi något att måla med?");
   await expect(page.getByTestId("chat-answer")).toContainText("Målarfärgsburkar finns i Redskapsboden (Stugan).");
   const ref = page.getByTestId("chat-ref");
@@ -478,18 +490,22 @@ test("search finds a thing in every room and boende, and the chat answers a ques
     { model: "mock", input_tokens: 0, output_tokens: 0 },
   ]);
   // A follow-up in the same conversation, and nothing found: the closed containers are named.
-  await chat.getByRole("textbox", { name: "Fråga om ditt förråd" }).fill("och cykelpumpen då?");
+  await page.getByRole("textbox", { name: "Sök eller fråga" }).fill("och cykelpumpen då?");
   await chat.getByRole("button", { name: "Skicka" }).click();
   await expect(page.getByTestId("chat-answer").nth(1)).toContainText("Jag hittar inget som passar i dina listor. Innehållet i 2 lådor syns inte");
+  await page.getByRole("textbox", { name: "Sök eller fråga" }).fill("hammare");
+  await page.waitForTimeout(500);
+  await expect(page.getByTestId("thing-hits")).toHaveCount(0);
   // "Ny fråga" clears the conversation.
   await chat.getByRole("button", { name: "Ny fråga" }).click();
   await expect(page.getByTestId("chat-turn")).toHaveCount(0);
-  await chat.getByRole("textbox", { name: "Fråga om ditt förråd" }).fill("Har vi något att måla med?");
+  await page.getByRole("textbox", { name: "Sök eller fråga" }).fill("Har vi något att måla med?");
   await chat.getByRole("button", { name: "Skicka" }).click();
   // The card opens the room (the old place address redirects), also in another boende.
   await page.getByTestId("chat-ref").click();
   await expect(page).toHaveURL(new RegExp(`/prylar/rum/${stugan.data.id}/redskapsboden$`));
   await expect(page.getByRole("heading", { level: 1 })).toHaveText("Redskapsboden");
+  expect(problems).toEqual([]);
 });
 
 test("old place addresses open the room, and an unknown one is 'Sidan finns inte.'", async ({ page }) => {
@@ -526,7 +542,7 @@ test("a box is added from the line about closed boxes, and its things are 'i Kar
   await page.getByRole("radio", { name: "Kort" }).click();
   await expect(page.getByTestId("room-card").filter({ hasText: "Låda: Kartong jul" })).toContainText("1 pryl");
   await page.goto("/prylar");
-  await page.getByRole("searchbox", { name: "Sök bland prylar" }).fill("julgran");
+  await page.getByRole("textbox", { name: "Sök eller fråga" }).fill("julgran");
   await expect(page.getByTestId("thing-hit")).toHaveText([/Julgransprydnad\s*Skräpförrådet, i Kartong jul · Hemma · 31 okt/]);
 });
 
@@ -553,7 +569,7 @@ test("the same things on two cards of one room are counted once and say 'syns p�
 
   // Search finds the saw once, with the number of cards.
   await page.goto("/prylar");
-  await page.getByRole("searchbox", { name: "Sök bland prylar" }).fill("cirkelsåg");
+  await page.getByRole("textbox", { name: "Sök eller fråga" }).fill("cirkelsåg");
   await expect(page.getByTestId("thing-hit")).toHaveCount(1);
   await expect(page.getByTestId("thing-hit")).toContainText("syns på 2 kort");
 
@@ -677,11 +693,11 @@ test("what is in a box is written, sorted by one AI call, shown with the photogr
   // Search and the chat find a written thing: the box, without a thumbnail.
   await page.goto("/prylar");
   await expect(rooms(page)).toHaveText([/Skräpförrådet\s*5 prylar · 1 kort/]);
-  await page.getByRole("searchbox", { name: "Sök bland prylar" }).fill("skarvsladd");
+  await page.getByRole("textbox", { name: "Sök eller fråga" }).fill("skarvsladd");
   await expect(page.getByTestId("thing-hit")).toHaveText([/Skarvsladdar\s*Skräpförrådet, i Black box · Hemma · skrivet/]);
-  await page.getByRole("button", { name: "Rensa sökning" }).click();
+  await page.getByRole("textbox", { name: "Sök eller fråga" }).fill("");
   const chat = page.getByTestId("chat");
-  await chat.getByRole("textbox", { name: "Fråga om ditt förråd" }).fill("Var ligger skarvsladdar?");
+  await page.getByRole("textbox", { name: "Sök eller fråga" }).fill("Var ligger skarvsladdar?");
   await chat.getByRole("button", { name: "Skicka" }).click();
   await expect(page.getByTestId("chat-answer")).toContainText("Skarvsladdar finns i Skräpförrådet, i Black box (Hemma).");
   const ref = page.getByTestId("chat-ref");
@@ -1002,4 +1018,24 @@ test("a card that could not be read, or is stuck reading, has Försök igen and 
   await page.getByRole("dialog", { name: "Ta bort kortet" }).getByRole("button", { name: "Ta bort kortet" }).click();
   await expect(failedCards).toHaveCount(0);
   expect((await admin.from("thing_photo").select("id").in("id", [failedId, stuckId])).data).toEqual([]);
+});
+
+test("the one field fits 375 px in dark mode with 200 % text, and its targets are at least 44 px", async ({ page }) => {
+  await seedPlace(hemma, "Skräpförrådet", [{ name: "Hammare", category: "Verktyg", where: "väggen" }]);
+  await page.emulateMedia({ colorScheme: "dark" });
+  await page.setViewportSize({ width: 375, height: 800 });
+  await page.goto("/prylar");
+  await page.addStyleTag({ content: "html { font-size: 200% !important; }" });
+  const field = page.getByRole("textbox", { name: "Sök eller fråga" });
+  await field.fill("hamm");
+  await expect(page.getByTestId("thing-hit")).toHaveCount(1);
+  for (const target of [field, page.getByRole("button", { name: "Skicka" }), page.getByTestId("thing-hit")]) {
+    const box = await target.boundingBox();
+    expect(box?.height ?? 0).toBeGreaterThanOrEqual(44);
+    expect(box?.width ?? 0).toBeGreaterThanOrEqual(44);
+  }
+  await field.press("Enter");
+  await expect(page.getByTestId("chat-answer")).toBeVisible();
+  const overflow = await page.evaluate(() => document.documentElement.scrollWidth - document.documentElement.clientWidth);
+  expect(overflow).toBeLessThanOrEqual(0);
 });
