@@ -25,8 +25,11 @@ export const captureTitle = "Var tar du kortet?";
 export const takeCardText = "Ta kort";
 export const takeCardSubText = "Fota ett rum, en hylla eller en låda";
 export const moreCardsText = "Ta fler kort";
-export const openCameraText = "\u{1F4F7} Öppna kameran";
-export const pickImagesText = "Välj bilder …";
+export const openCameraText = "\u{1F4F7} Ta foto";
+export const pickImagesText = "\u{1F5BC}\uFE0F Välj från Bilder";
+/** The file types the picker takes: a HEIC from an iPhone has no `image/*` type in every browser. */
+export const pickerAccept = "image/*,.heic,.heif";
+export const roomExactText = "Mer exakt plats …";
 export const captureHintText = `Efter varje kort: "Ta ett till". ${appName} läser korten i bakgrunden.`;
 export const exactPlaceText = "Mer exakt plats (valfritt)";
 export const newRoomText = "+ Nytt rum";
@@ -35,6 +38,11 @@ export const emptyCaptureRoomText = "Ange ett rum, till exempel Skräpförrådet
 export const retakeText = "Ta om";
 export const retakeTitleText = "Ta om kortet";
 export const retakeDetailText = "Det nya fotot ersätter det här kortet när det är läst. Rättelser och tillagda prylar på det gamla kortet ersätts av den nya läsningen.";
+
+/** The calm line for an image that could not be turned into JPEG: its name and what to do. */
+export function skippedImageText(name: string): string {
+  return `${name}: bilden gick inte att göra om från HEIC. Välj en annan bild eller ta ett nytt foto.`;
+}
 
 /** "Skickar 2 av 5 …". */
 export function sendingText(done: number, total: number): string {

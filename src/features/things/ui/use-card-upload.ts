@@ -5,6 +5,7 @@ import { useAiJobs } from "@/lib/ai-jobs-client";
 import type { AiJob } from "@/lib/ai-job-shape";
 import { downscaleImage } from "@/lib/downscale-image";
 import { fail, type AppError, type Result } from "@/lib/errors";
+import { toDecodableImage } from "@/lib/heic";
 import { maxPlacePhotoSide } from "@/lib/images";
 
 // Sending cards (Story 18.11): every image becomes its own card and its own AI
@@ -16,8 +17,8 @@ import { maxPlacePhotoSide } from "@/lib/images";
 export type UploadState =
   | { kind: "idle" }
   | { kind: "sending"; done: number; total: number }
-  | { kind: "sent"; count: number }
-  | { kind: "error"; error: AppError; sent: number };
+  | { kind: "sent"; count: number; skipped: string[] }
+  | { kind: "error"; error: AppError; sent: number; skipped: string[] };
 
 export type UploadTarget = { placeId: string; replaces?: string };
 
@@ -45,7 +46,9 @@ export function useCardUpload(onSaved: () => void) {
       const takenAt = new Date();
       let prepared: Result<Blob>;
       try {
-        prepared = await downscaleImage(file, { maxSide: maxPlacePhotoSide });
+        // An iPhone photo (HEIC) a browser cannot read becomes a JPEG first (Story 18.16).
+        const readable = await toDecodableImage(file);
+        prepared = readable.ok ? await downscaleImage(readable.data, { maxSide: maxPlacePhotoSide }) : readable;
       } catch {
         prepared = fail("image_unsupported");
       }
@@ -71,25 +74,38 @@ export function useCardUpload(onSaved: () => void) {
     [start],
   );
 
-  /** Sends the files in order; stops at the first that fails. Returns how many were saved. */
+  /**
+   * Sends the files in order; stops at the first that fails, except a HEIC that
+   * could not be turned into JPEG: that one is skipped (and named in `skipped`)
+   * and the rest go on. Returns how many were saved.
+   */
   const send = useCallback(
     async (files: readonly File[], target: UploadTarget): Promise<number> => {
       if (busy.current || files.length === 0) return 0;
       busy.current = true;
       let sent = 0;
+      const skipped: string[] = [];
+      let skippedError: AppError | null = null;
       try {
-        for (const file of files) {
-          if (alive.current) setState({ kind: "sending", done: sent, total: files.length });
+        for (const [index, file] of files.entries()) {
+          if (alive.current) setState({ kind: "sending", done: sent + skipped.length, total: files.length });
           const answer = await postOne(file, target);
           if (!answer.ok) {
-            if (alive.current) setState({ kind: "error", error: answer.error, sent });
+            if (answer.error.code === "image_heic_failed") {
+              skipped.push(file.name || `Bild ${index + 1}`);
+              skippedError = answer.error;
+              continue;
+            }
+            if (alive.current) setState({ kind: "error", error: answer.error, sent, skipped });
             onSaved();
             return sent;
           }
           sent += 1;
           onSaved();
         }
-        if (alive.current) setState({ kind: "sent", count: sent });
+        if (alive.current) {
+          setState(sent === 0 && skippedError ? { kind: "error", error: skippedError, sent, skipped } : { kind: "sent", count: sent, skipped });
+        }
         return sent;
       } finally {
         busy.current = false;

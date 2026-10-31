@@ -8,6 +8,8 @@ import type { ThingCategory } from "./domain/thing";
 import { cardLabel, type RoomCard, type RoomSummary } from "./domain/thing-room";
 import type { ThingPlace } from "./domain/thing-place";
 import { loadClearCountsIn } from "./data/clear";
+import { loadPlaceCountsIn } from "./data/place-edit";
+import type { PlaceCounts } from "./domain/thing-place-edit";
 import { loadRoomWrittenIn, loadWrittenIn } from "./data/written";
 import type { ClearCounts } from "./domain/thing-clear";
 import type { WrittenBox } from "./domain/thing-written";
@@ -52,6 +54,8 @@ export type RoomPageData = {
   written: WrittenBox[];
   /** What "Rensa rummet" would remove (Story 18.15). */
   clearCounts: ClearCounts;
+  /** What removing each place of the room takes, by place id (Story 18.16). */
+  placeCounts: Record<string, PlaceCounts>;
 };
 
 /** What clearing the room `key` of the boende `siteId`, or without `key` the whole boende's Förråd, removes (Story 18.15). Throws ThingsDataError. */
@@ -64,12 +68,13 @@ export async function getRoomPage(siteId: string, key: string, now: Date = new D
   const db = await createClient();
   const summary = await loadRoomIn(db, siteId, key);
   if (!summary) return null;
-  const [categories, cards, places, written, clearCounts] = await Promise.all([
+  const [categories, cards, places, written, clearCounts, placeCounts] = await Promise.all([
     loadRoomCategoriesIn(db, siteId, key),
     loadRoomCardsIn(db, siteId, key, now),
     loadRoomPlacesIn(db, siteId, key),
     loadRoomWrittenIn(db, siteId, key),
     loadClearCountsIn(db, siteId, key),
+    loadPlaceCountsIn(db, siteId, key),
   ]);
   return {
     summary,
@@ -77,6 +82,7 @@ export async function getRoomPage(siteId: string, key: string, now: Date = new D
     places,
     written,
     clearCounts,
+    placeCounts,
     cards: cards.map((card) => ({ ...card, label: cardLabel(card) })),
   };
 }

@@ -21,7 +21,10 @@ import {
   exactPlaceText,
   newRoomText,
   openCameraText,
+  pickerAccept,
   pickImagesText,
+  roomExactText,
+  skippedImageText,
   sendingText,
   sentText,
   takeAnotherText,
@@ -31,15 +34,18 @@ import { maxPlaceNameChars, normalizePlaceName } from "../domain/thing-place";
 import { useLastRoom } from "./device-store";
 import { useCardUpload } from "./use-card-upload";
 
-// "Ta kort" (Story 18.11): the first row of Förråd, and "Ta fler kort" on a
-// room's page. A sheet asks only where the card is taken: the room (the last
-// used one is chosen), and, folded out, a part or a box; without either the card
-// goes to the whole room. On a phone "Öppna kameran" opens the back camera at
-// once; "Välj bilder …" takes several images (and is the only button on a
-// desktop). Every image is its own card, read by the AI in the background, and
-// after a card from the camera "Ta ett till" opens the camera again for the same
-// place. The input is clicked in the tap itself (a browser refuses a camera that
-// no tap opened); the place is made once the images are chosen.
+// "Ta kort" (Story 18.11): the first row of Förråd, and the two buttons on a
+// room's page (Story 18.16). A sheet asks only where the card is taken: the room
+// (the last used one is chosen), and, folded out, a part or a box; without either
+// the card goes to the whole room. Under that, two equal buttons: "Ta foto" opens
+// the back camera on a phone (on a desktop it is the same as the next) and "Välj
+// från Bilder" takes several images from the photo library (the file window on a
+// desktop). On a room's page the same two buttons are on the page itself, since
+// the room is chosen; "Mer exakt plats …" there opens the sheet. Every image is
+// its own card, read by the AI in the background, and after a card from the
+// camera "Ta ett till" opens the camera again for the same place. The inputs are
+// always in the page and clicked in the tap itself (iOS Safari refuses an input
+// that no tap opened); the place is made once the images are chosen.
 
 export type TakeCardProps = {
   siteId: string;
@@ -48,6 +54,8 @@ export type TakeCardProps = {
   /** A room's page: its own room is chosen, whatever was used last. */
   defaultRoom?: string;
   variant: "primary" | "default";
+  /** "room": the two buttons are on the page itself (a room's page), the room being `defaultRoom`. */
+  layout?: "row" | "room";
   title: string;
   /** The line under the title. */
   sub?: string;
@@ -59,7 +67,7 @@ const newRoom = "\u0000new";
 
 type Where = { siteId: string; room: string; part: string; box: boolean };
 
-export function TakeCard({ siteId, rooms, defaultRoom, variant, title, sub, hideRow = false }: TakeCardProps) {
+export function TakeCard({ siteId, rooms, defaultRoom, variant, layout = "row", title, sub, hideRow = false }: TakeCardProps) {
   const router = useRouter();
   const touch = useCoarsePointer();
   const ids = useId();
@@ -118,19 +126,25 @@ export function TakeCard({ siteId, rooms, defaultRoom, variant, title, sub, hide
     return choice === newRoom ? typedRoom.trim() : choice;
   }
 
-  /** The tap on "Öppna kameran" or "Välj bilder …": checks the room, then opens the input in this very tap. */
-  function choose(camera: boolean) {
+  /**
+   * The tap on "Ta foto" or "Välj från Bilder": checks the room, then opens the
+   * input in this very tap (nothing is awaited before the click). `direct`: on a
+   * room's page the room is the page's own.
+   */
+  function choose(camera: boolean, direct = false) {
     if (placing) return;
-    const room = chosenRoom();
+    const room = direct ? (defaultRoom ?? "") : chosenRoom();
     if (room === "") {
       setErrors({ room: emptyCaptureRoomText });
       newRoomRef.current?.focus();
       return;
     }
-    where.current = { siteId, room, part: exactOpen ? part : "", box: exactOpen && box === "box" };
+    const exact = !direct && exactOpen;
+    where.current = { siteId, room, part: exact ? part : "", box: exact && box === "box" };
     reuse.current = false;
     setViaCamera(camera);
-    (camera ? cameraRef : pickerRef).current?.click();
+    // Without a camera input (a desktop) "Ta foto" is the file picker.
+    (camera && cameraRef.current ? cameraRef : pickerRef).current?.click();
   }
 
   function another() {
@@ -180,9 +194,27 @@ export function TakeCard({ siteId, rooms, defaultRoom, variant, title, sub, hide
   const sending = placing || state.kind === "sending";
   return (
     <div className="flex flex-col gap-3" data-testid="take-card">
-      <PhotoRow title={title} onClick={openSheet} disabled={sending} hidden={hideRow} variant={variant === "primary" ? "primary" : "default"}>
-        {sub ? <p className={cx("text-meta", variant === "primary" ? "text-on-accent opacity-85" : "text-ink-3")}>{sub}</p> : null}
-      </PhotoRow>
+      {layout === "room" ? (
+        <div className="flex flex-col gap-2 rounded-lg bg-surface p-3" data-testid="room-capture">
+          <CaptureButtons disabled={sending} onChoose={(camera) => choose(camera, true)} />
+          <div className="flex flex-wrap items-center justify-between gap-x-3">
+            {sub ? <p className="px-1 text-meta text-ink-3">{sub}</p> : <span />}
+            <button
+              type="button"
+              disabled={sending}
+              onClick={openSheet}
+              className="flex min-h-tap items-center rounded-md px-1 text-meta font-semibold text-accent focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-accent disabled:opacity-60"
+              data-testid="room-exact"
+            >
+              {roomExactText}
+            </button>
+          </div>
+        </div>
+      ) : (
+        <PhotoRow title={title} onClick={openSheet} disabled={sending} hidden={hideRow} variant={variant === "primary" ? "primary" : "default"}>
+          {sub ? <p className={cx("text-meta", variant === "primary" ? "text-on-accent opacity-85" : "text-ink-3")}>{sub}</p> : null}
+        </PhotoRow>
+      )}
       {/* Mounted empty, so the text is announced when it appears. */}
       <div role="status" className="flex flex-col gap-2" data-testid="take-card-status">
         {sending ? (
@@ -195,7 +227,7 @@ export function TakeCard({ siteId, rooms, defaultRoom, variant, title, sub, hide
         ) : null}
         {state.kind === "sent" ? (
           <div className="flex flex-col gap-2">
-            <p className="text-body text-ink">{sentText(state.count)}</p>
+            {state.count > 0 ? <p className="text-body text-ink">{sentText(state.count)}</p> : null}
             {viaCamera && touch ? (
               <Button variant="secondary" onClick={another} data-testid="take-another">
                 {`\u{1F4F7} ${takeAnotherText}`}
@@ -204,12 +236,21 @@ export function TakeCard({ siteId, rooms, defaultRoom, variant, title, sub, hide
           </div>
         ) : null}
       </div>
-      {state.kind === "error" ? <Notice role="alert">{errorMessages[state.error.code]}</Notice> : null}
+      {state.kind === "error" && state.skipped.length === 0 ? <Notice role="alert">{errorMessages[state.error.code]}</Notice> : null}
+      {state.kind !== "idle" && state.kind !== "sending" && state.skipped.length > 0 ? (
+        <Notice role="alert">
+          {state.skipped.map((name) => (
+            <span key={name} className="block">
+              {skippedImageText(name)}
+            </span>
+          ))}
+        </Notice>
+      ) : null}
       {problem ? <Notice role="alert">{errorMessages[problem.code]}</Notice> : null}
       {touch ? (
         <input ref={cameraRef} type="file" accept="image/*" capture="environment" tabIndex={-1} aria-hidden="true" className="sr-only" onChange={onChosen} />
       ) : null}
-      <input ref={pickerRef} type="file" accept="image/*" multiple tabIndex={-1} aria-hidden="true" className="sr-only" onChange={onChosen} />
+      <input ref={pickerRef} type="file" accept={pickerAccept} multiple tabIndex={-1} aria-hidden="true" className="sr-only" onChange={onChosen} />
       <Sheet open={open} onClose={() => setOpen(false)} title={captureTitle} closeLabel="Avbryt" preventClose={placing}>
         <div className="flex flex-col gap-4">
           {notice ? <Notice role="alert">{notice}</Notice> : null}
@@ -289,24 +330,26 @@ export function TakeCard({ siteId, rooms, defaultRoom, variant, title, sub, hide
             </div>
           </div>
           <div className="flex flex-col gap-2">
-            {touch ? (
-              <>
-                <Button fullWidth onClick={() => choose(true)} data-testid="open-camera">
-                  {openCameraText}
-                </Button>
-                <Button fullWidth variant="secondary" onClick={() => choose(false)} data-testid="pick-images">
-                  {pickImagesText}
-                </Button>
-              </>
-            ) : (
-              <Button fullWidth onClick={() => choose(false)} data-testid="pick-images">
-                {pickImagesText}
-              </Button>
-            )}
+            <CaptureButtons disabled={placing} onChoose={(camera) => choose(camera)} />
             <p className="px-1 pt-1 text-center text-meta text-ink-3">{captureHintText}</p>
           </div>
         </div>
       </Sheet>
+    </div>
+  );
+}
+
+/** The two equal buttons: "Ta foto" and "Välj från Bilder", side by side; their text wraps when it is large. */
+function CaptureButtons({ disabled, onChoose }: { disabled?: boolean; onChoose: (camera: boolean) => void }) {
+  const look = "h-auto min-h-button flex-col gap-0.5 px-2 py-3 text-center wrap-break-word";
+  return (
+    <div className="grid grid-cols-2 gap-2">
+      <Button variant="secondary" fullWidth disabled={disabled} className={look} onClick={() => onChoose(true)} data-testid="open-camera">
+        {openCameraText}
+      </Button>
+      <Button variant="secondary" fullWidth disabled={disabled} className={look} onClick={() => onChoose(false)} data-testid="pick-images">
+        {pickImagesText}
+      </Button>
     </div>
   );
 }

@@ -15,6 +15,9 @@ import { boxesLabelText, boxMeta, type WrittenBox, writeInsteadText } from "../d
 import Link from "next/link";
 import { buttonClasses } from "@/components/button";
 import { AddBox } from "./add-box";
+import { PlaceMenu } from "./place-menu";
+import type { PlaceCounts } from "../domain/thing-place-edit";
+import { partsLabelText, partMeta } from "../domain/thing-written";
 import { RoomCards } from "./room-cards";
 import { RoomCategories } from "./room-categories";
 import { TakeCard } from "./take-card";
@@ -22,7 +25,7 @@ import { UploadCardRow } from "./upload-card-row";
 import { appName } from "@/app/app-info";
 
 // A room's page (Story 18.12): the summary (things, categories and cards), the
-// row "Ta fler kort" with the date of the newest card, and the segmented choice
+// buttons "Ta foto" and "Välj från Bilder" (Story 18.16) with the date of the newest card, and the segmented choice
 // between Prylar (the room's merged things per category, folded in) and Kort
 // (the cards as thumbnails). While a card is being read the page reads itself
 // again every few seconds, and when a job of this room finishes.
@@ -44,12 +47,18 @@ export type RoomViewProps = {
   placeIds: readonly string[];
   /** The room's boxes, each opening its page (Story 18.13). */
   boxes: readonly { id: string; part: string | null }[];
+  /** The room's parts (not the whole room), each with a ⋯ (Story 18.16). */
+  parts: readonly { id: string; part: string }[];
+  /** What removing each place takes, by place id. */
+  placeCounts: Record<string, PlaceCounts>;
+  /** How many places the room has: the last one takes the room with it. */
+  placeTotal: number;
 };
 
 /** How often a page with a card being read reads itself again. */
 const refreshMs = 3_000;
 
-export function RoomView({ siteId, summary, categories, cards, written, rooms, boxParent, photographBox, initialView, placeIds, boxes }: RoomViewProps) {
+export function RoomView({ siteId, summary, categories, cards, written, rooms, boxParent, photographBox, initialView, placeIds, boxes, parts, placeCounts, placeTotal }: RoomViewProps) {
   const router = useRouter();
   const { jobs, markSeen } = useAiJobs();
   const [view, setView] = useState<View>(initialView);
@@ -82,6 +91,17 @@ export function RoomView({ siteId, summary, categories, cards, written, rooms, b
     cards.filter((card) => card.status === "done").reduce((sum, card) => sum + card.unseenCount, 0),
     cards.find((card) => card.status === "done" && card.unseenNote)?.unseenNote ?? null,
   );
+  const noCounts: PlaceCounts = { things: 0, cards: 0 };
+  const menuFor = (id: string, part: string, box: boolean) => (
+    <PlaceMenu placeId={id} part={part} box={box} counts={placeCounts[id] ?? noCounts} roomHasOthers={placeTotal > 1} />
+  );
+  // The ⋯ of a card's label: for a part or a box, not for the whole room.
+  const cardMenu = (placeId: string) => {
+    const box = boxes.find((entry) => entry.id === placeId);
+    if (box?.part) return menuFor(box.id, box.part, true);
+    const part = parts.find((entry) => entry.id === placeId);
+    return part ? menuFor(part.id, part.part, false) : null;
+  };
   const roomHref = `/prylar/rum/${siteId}/${encodeURIComponent(summary.key)}`;
 
   return (
@@ -104,6 +124,7 @@ export function RoomView({ siteId, summary, categories, cards, written, rooms, b
         rooms={rooms}
         defaultRoom={summary.room}
         variant="default"
+        layout="room"
         title={moreCardsText}
         sub={latestCardText(summary.latest)}
       />
@@ -141,6 +162,23 @@ export function RoomView({ siteId, summary, categories, cards, written, rooms, b
                       written: written.find((entry) => entry.placeId === box.id)?.things ?? 0,
                     })}
                     pressProps={{ "data-testid": "room-box" }}
+                    trailing={box.part ? menuFor(box.id, box.part, true) : undefined}
+                  />
+                ))}
+              </ListGroup>
+            </section>
+          ) : null}
+          {parts.length > 0 ? (
+            <section className="flex flex-col gap-1.5" data-testid="room-parts">
+              <h2 className="px-1 text-section-label text-ink-2">{partsLabelText}</h2>
+              <ListGroup label={partsLabelText}>
+                {parts.map((place) => (
+                  <ListRow
+                    key={place.id}
+                    title={place.part}
+                    meta={partMeta(placeCounts[place.id] ?? noCounts)}
+                    data-testid="room-part"
+                    trailing={menuFor(place.id, place.part, false)}
                   />
                 ))}
               </ListGroup>
@@ -150,7 +188,7 @@ export function RoomView({ siteId, summary, categories, cards, written, rooms, b
           {boxParent ? <AddBox placeId={boxParent} variant="button" roomHref={roomHref} /> : null}
         </>
       ) : (
-        <RoomCards cards={cards} written={written} />
+        <RoomCards cards={cards} written={written} menuFor={cardMenu} />
       )}
     </div>
   );

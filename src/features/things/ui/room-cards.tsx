@@ -1,7 +1,7 @@
 "use client";
 
 import { useRouter } from "next/navigation";
-import { useState } from "react";
+import { type ReactNode, useState } from "react";
 import { Button } from "@/components/button";
 import { Notice } from "@/components/notice";
 import { useAiJobs } from "@/lib/ai-jobs-client";
@@ -51,8 +51,17 @@ function RetryCard({ id }: { id: string }) {
   );
 }
 
-export function RoomCards({ cards, written = [] }: { cards: readonly RoomCard[]; written?: readonly WrittenBox[] }) {
-  if (cards.length === 0 && written.length === 0) return <Notice>Inga kort än. Tryck på Ta fler kort ovanför för att fota eller välja bilder.</Notice>;
+export function RoomCards({
+  cards,
+  written = [],
+  menuFor,
+}: {
+  cards: readonly RoomCard[];
+  written?: readonly WrittenBox[];
+  /** The ⋯ of a place's label (Story 18.16): "Byt namn" and "Ta bort" for a part or a box; `null` for the whole room. */
+  menuFor?: (placeId: string) => ReactNode;
+}) {
+  if (cards.length === 0 && written.length === 0) return <Notice>Inga kort än. Tryck på Ta foto eller Välj från Bilder ovanför.</Notice>;
   return (
     <ul role="list" className="grid grid-cols-2 gap-2.5" data-testid="room-cards">
       {cards.map((card) => (
@@ -61,7 +70,10 @@ export function RoomCards({ cards, written = [] }: { cards: readonly RoomCard[];
           {/* eslint-disable-next-line @next/next/no-img-element */}
           <img src={`/api/things/photo/${card.id}`} alt={`Kort: ${card.label}`} loading="lazy" className="h-24 w-full bg-border object-cover" />
           <div className="flex flex-col px-2.5 py-2">
-            <p className="text-meta font-semibold wrap-break-word text-ink">{card.label}</p>
+            <div className="-my-1 flex items-start justify-between gap-1">
+              <p className="py-1 text-meta font-semibold wrap-break-word text-ink">{card.label}</p>
+              {menuFor?.(card.placeId)}
+            </div>
             <p className="text-meta text-ink-3">
               {card.status === "done"
                 ? cardMeta(card)
@@ -81,7 +93,12 @@ export function RoomCards({ cards, written = [] }: { cards: readonly RoomCard[];
                 <RemoveCard cardId={card.id} takenAt={card.takenAt} compact name={card.label} />
               </>
             ) : null}
-            {card.status === "failed" ? <RetryCard id={card.id} /> : null}
+            {card.status !== "done" ? (
+              <>
+                {card.status === "failed" ? <RetryCard id={card.id} /> : null}
+                <RemoveCard cardId={card.id} takenAt={card.takenAt} compact name={card.label} />
+              </>
+            ) : null}
           </div>
         </li>
       ))}
@@ -92,7 +109,10 @@ export function RoomCards({ cards, written = [] }: { cards: readonly RoomCard[];
             {"\u{1F4E6}"}
           </div>
           <div className="flex flex-col px-2.5 py-2">
-            <p className="text-meta font-semibold wrap-break-word text-ink">{`Låda: ${box.part}`}</p>
+            <div className="-my-1 flex items-start justify-between gap-1">
+              <p className="py-1 text-meta font-semibold wrap-break-word text-ink">{`Låda: ${box.part}`}</p>
+              {menuFor?.(box.placeId)}
+            </div>
             <p className="text-meta text-ink-3">{writtenMeta(box)}</p>
           </div>
           <div className="mt-auto flex flex-wrap items-center gap-x-1 px-1 pb-1">
