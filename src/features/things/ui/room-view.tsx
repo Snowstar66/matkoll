@@ -106,7 +106,6 @@ export function RoomView({ siteId, summary, categories, cards, written, rooms, b
         variant="default"
         title={moreCardsText}
         sub={latestCardText(summary.latest)}
-        hideRow={view === "cards"}
       />
       <FilterPills<View>
         segmented
