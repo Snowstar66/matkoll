@@ -2935,6 +2935,26 @@ så att jag kan handla där jag vill.
 **När** Pontus trycker "Dela listan"
 **Så** öppnas telefonens delningsmeny (eller kopieras texten när delning saknas) med en enkel lista per avdelning, till exempel "Gul lök 1 st", utan butiksformatet
 
+### Story 14.3: Snyggare delad lista
+
+Som Pontus,
+vill jag att listan jag delar via SMS eller mail ser ut som en riktig inköpslista med rutor,
+så att den är trevlig att handla från för den som får den.
+
+**Acceptance Criteria:**
+
+**Givet** "Dela listan" i inköpslistan
+**När** texten byggs
+**Så** börjar den med "🛒 Inköpslista v. 44" (vald vecka), följt av en tom rad, och varje avdelning har sin ikon från kategorirutorna och namnet i versaler ("🥬 FRUKT & GRÖNT")
+
+**Givet** en avdelning
+**När** varorna skrivs ut
+**Så** står varje obockad vara på en egen rad som "☐ Gul lök 2 st" (en vag rad är bara namnet), med en tom rad mellan avdelningarna; avbockade och dolda varor är inte med, och en tom lista ger samma tomma läge som idag
+
+**Givet** delningen
+**När** telefonen inte har delningsmenyn
+**Så** kopieras samma text som idag, och kopiera till varukorg (butikens exportformat) är oförändrat
+
 ## Epic 15: Enklare lokalt
 
 Pontus vill slippa logga in när Matkoll körs på den egna Macen. Inloggningen finns kvar för den publicerade appen.
