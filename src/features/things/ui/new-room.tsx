@@ -69,7 +69,7 @@ export function NewRoom({ siteId }: { siteId: string }) {
       <button
         type="button"
         onClick={openSheet}
-        className="flex min-h-14 w-full items-center gap-2.5 rounded-lg border-[1.5px] border-dashed border-border py-0 pr-3.5 pl-2 text-left text-row-title font-semibold text-accent focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-accent"
+        className="flex min-h-14 w-full items-center gap-2.5 rounded-lg border-[1.5px] border-dashed border-border py-0 pr-3.5 pl-2 text-left text-row-title text-accent focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-accent"
         data-testid="new-room"
       >
         <span
