@@ -3516,3 +3516,147 @@ så att det familjen skriver in inte försvinner.
 **Givet** en avbockad egen vara
 **När** veckan är slut
 **Så** visas den inte i nästa veckas lista
+
+## Epic 18: Prylar
+
+Version 2.1. Hushållet kan fotografera förråd, garage och bodar och låta AI lista vad som finns, så att man kan fråga "var är hammaren?" eller "har vi skruvar?". Kortet är källan: sakerna kommer från korten, ett nytt kort av samma plats ersätter det gamla, och tas kortet bort försvinner dess saker. Prylar har en egen flik och blandas aldrig med maten (inga inköpslistor, ingen synk, ingen påverkan på recept eller "hemma"). Beslut 2026-10-31 (Pontus): egen flik "Prylar", platser med egna namn (rum + valfri del, ingen planritning), garderoben pausad. Test samma dag på 9 bilder från skräpförrådet: Haiku 5.5 hittade 9–47 saker per bild (ca 2 öre, 9–24 s), en kontrollerad bild hade 26 av 26 rätt; frågor besvarades bra från listorna; sammanslagning av överlapp behöver förbättras; stängda lådor är den stora luckan.
+
+### Story 18.1: Fliken Prylar och platser
+
+Som Pontus,
+vill jag ha en egen flik för prylar där jag kan skapa platser med egna namn,
+så att prylarna hålls isär från maten och hamnar där jag själv tänker att de finns.
+
+**Acceptance Criteria:**
+
+**Givet** appen
+**När** jag ser menyn
+**Så** finns en femte flik "Prylar" med ikonen 🧰 (flikraden på telefon och sidomenyn på dator), i samma stil som de andra
+
+**Givet** fliken Prylar utan platser
+**När** jag öppnar den
+**Så** står en kort förklaring ("Fotografera en hylla eller ett förråd, så listar Matkoll vad som finns där") och knappen "Ny plats"
+
+**Givet** "Ny plats"
+**När** jag anger rum (t.ex. "Skräpförrådet") och valfri del (t.ex. "Översta hyllan") för valt boende
+**Så** skapas platsen; rum jag redan har föreslås i en lista så att samma rum återanvänds, och platserna visas grupperade per rum med antal saker och datum för senaste kort
+
+**Givet** fler än ett boende
+**När** jag ser fliken
+**Så** visas boendena som piller som i Förrådet, och platserna hör till valt boende
+
+**Givet** lagringen
+**När** platser sparas
+**Så** ligger de i nya tabeller med `user_id` och radskydd (bakåtkompatibel migrering), täckta av isoleringstestet från Story 17.1
+
+### Story 18.2: Fota en plats och låt AI lista prylarna
+
+Som Pontus,
+vill jag ta ett kort av en plats och få en lista över prylarna,
+så att jag slipper skriva in dem själv.
+
+**Acceptance Criteria:**
+
+**Givet** en plats
+**När** jag tar eller väljer ett foto (även HEIC från iPhone)
+**Så** laddas det upp som i Förrådets fotoflöde (nedskalat, EXIF borttaget, privat lagring per konto) och ett AI-jobb startar i bakgrunden med AI-valet från Story 17.5 (standard Haiku 5.5)
+
+**Givet** AI-jobbet
+**När** det är klart
+**Så** sparas varje pryl med namn, kategori (Verktyg, Sport & fritid, Trädgård, Elektronik, Förvaring & lådor, Kläder & textil, Hushåll, Byggmaterial, Övrigt), var på bilden ("översta hyllan, vänster") och säkerhet, kopplad till kortet; fast inredning som hyllor och konsoler tas inte med; prylar med låg säkerhet visas som "kanske"
+
+**Givet** en plats med kort
+**När** jag öppnar den
+**Så** ser jag kortets miniatyr med datum ("Kort från 31 okt"), prylarna grupperade per kategori, och en rad om det som inte syns ("Innehållet i 3 lådor syns inte – fota insidan")
+
+**Givet** ett misslyckat jobb
+**När** AI inte svarar
+**Så** visas ett lugnt fel med "Försök igen", och kortet ligger kvar
+
+**Givet** bilderna
+**När** de lagras
+**Så** är bucketen privat per konto och täckt av isoleringstestet
+
+### Story 18.3: Förnya och ta bort kort
+
+Som Pontus,
+vill jag kunna ta ett nytt kort eller ta bort ett gammalt,
+så att listan blir rätt utan att jag rättar varje pryl.
+
+**Acceptance Criteria:**
+
+**Givet** en plats med ett kort
+**När** jag tar ett nytt kort av samma plats
+**Så** ersätter det nya kortet det gamla när AI-jobbet är klart: det gamla kortets prylar och fil tas bort, och platsen visar det nya datumet
+
+**Givet** ett kort
+**När** jag väljer "Ta bort kortet"
+**Så** frågar appen först, och sedan försvinner kortet, dess fil och alla dess prylar, med "Ångra" en kort stund
+
+**Givet** en pryl som AI fått fel på
+**När** jag trycker på den
+**Så** kan jag byta namn eller ta bort just den prylen (utan att kortet ändras)
+
+### Story 18.4: Sök och fråga
+
+Som Pontus,
+vill jag kunna söka och fråga efter prylar,
+så att jag hittar hammaren utan att leta.
+
+**Acceptance Criteria:**
+
+**Givet** fliken Prylar
+**När** jag skriver i sökfältet
+**Så** visas matchande prylar från alla platser och boenden med plats och kortdatum ("Hammare · Skräpförrådet, väggen · Hemma · 31 okt"), utan AI
+
+**Givet** frågerutan "Fråga om dina prylar"
+**När** jag ställer en fråga ("Har vi något att måla med?")
+**Så** svarar AI kort på svenska utifrån de sparade listorna (inte bilderna), med plats och kort som går att trycka på, och nämner lådor vars innehåll inte syns när det är relevant; frågan går med vald AI-modell
+
+### Story 18.5: Fota insidan av en låda
+
+Som Pontus,
+vill jag kunna fota insidan av en låda eller back,
+så att även det som ligger undanstoppat går att hitta.
+
+**Acceptance Criteria:**
+
+**Givet** en plats
+**När** jag väljer "Lägg till låda" och anger ett namn ("Blå backen", "Kartong jul")
+**Så** blir lådan en del av platsen med eget kort, och dess prylar visas som "i Blå backen" i listor, sök och svar
+
+**Givet** en rad "Innehållet i 3 lådor syns inte"
+**När** jag trycker på den
+**Så** kan jag direkt fota insidan av en av dem
+
+### Story 18.6: Inga dubbletter när korten överlappar
+
+Som Pontus,
+vill jag att samma pryl inte räknas två gånger när två kort på samma rum överlappar,
+så att listan går att lita på.
+
+**Acceptance Criteria:**
+
+**Givet** två eller fler kort i samma rum
+**När** ett nytt kort blir klart
+**Så** jämförs dess prylar med rummets övriga prylar i ett billigt textanrop (utan bilder), och samma pryl slås ihop med hänvisning till alla kort den syns på; prylar på olika platser slås aldrig ihop
+
+**Givet** testbilderna från skräpförrådet (sparade som testdata)
+**När** sammanslagningen körs i ett eval
+**Så** slås uppenbara dubbletter ihop (t.ex. samma cirkelsåg på två kort) utan att olika saker med liknande namn blandas
+
+### Story 18.7: Visa prylen på kortet
+
+Som Pontus,
+vill jag se var på bilden prylen finns,
+så att jag snabbt hittar den på hyllan.
+
+Backlog, efter 18.1–18.6.
+
+### Story 18.8: Garderoben
+
+Pausad (Pontus 2026-10-31): fota garderoben för att veta vad man har och få "Återupptäck"-förslag på glömda plagg.
+
+### Story 18.9: Nytt namn på appen
+
+Väntar på beslut. Förslag: "Hemkoll" (behåller "koll", täcker både mat och prylar). Kontrollera namnkrockar före beslut.

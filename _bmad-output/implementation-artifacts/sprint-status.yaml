@@ -200,3 +200,15 @@ development_status:
   17-9-lägg-till-snabbt-och-med-siri: backlog
   17-10-egna-varor-ligger-kvar-tills-de-är-köpta: backlog
   epic-17-retrospective: optional
+
+  epic-18: in-progress
+  18-1-fliken-prylar-och-platser: in-progress
+  18-2-fota-en-plats-och-låt-ai-lista-prylarna: ready-for-dev
+  18-3-förnya-och-ta-bort-kort: backlog
+  18-4-sök-och-fråga: backlog
+  18-5-fota-insidan-av-en-låda: backlog
+  18-6-inga-dubbletter-när-korten-överlappar: backlog
+  18-7-visa-prylen-på-kortet: backlog
+  18-8-garderoben: backlog
+  18-9-nytt-namn-på-appen: backlog
+  epic-18-retrospective: optional
