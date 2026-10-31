@@ -72,7 +72,7 @@ const toast = (page: Page) => page.getByTestId("toast");
 
 async function photographDoor(page: Page) {
   await page.goto("/hemma");
-  await expect(kylCard(page)).toHaveText(/^Kyl\s*0 varor$/);
+  await expect(kylCard(page)).toHaveText(/^\S*Kyl\s*0 varor$/);
   const chooser = page.waitForEvent("filechooser");
   await camera(page).getByRole("button", { name: "Fotografera kylen" }).click();
   await (await chooser).setFiles(door);
@@ -114,7 +114,7 @@ test("labels are the cards' titles, a repeat is one card, and an unsure item wai
   await section(page).getByRole("button", { name: "Bekräfta Senap" }).click();
   await expect(toast(page)).toHaveText("Senap är sparad i kylen.");
   await expect(section(page)).toHaveCount(0);
-  await expect(kylCard(page)).toHaveText(/^Kyl\s*3 varor$/);
+  await expect(kylCard(page)).toHaveText(/^\S*Kyl\s*3 varor$/);
   await expect.poll(pantry).toEqual(["Apelsinjuice 1 förp Kyl", "Senap 1 förp Kyl", "Vispgrädde 1 förp Kyl"]);
   expect(errors).toEqual([]);
 });

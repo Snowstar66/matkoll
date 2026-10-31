@@ -159,7 +159,7 @@ const card = (page: Page, name: Location) =>
 
 async function openLagersaldo(page: Page) {
   await page.goto("/hemma");
-  await expect(page.getByRole("button", { name: "Ställen", exact: true }).filter({ visible: true })).toBeEnabled();
+  await expect(page.getByRole("button", { name: "Hantera boenden", exact: true }).filter({ visible: true })).toBeEnabled();
   // The photo of 31 days has Lagersaldo sweep it (Story 10.3), and the page is read again after:
   // wait for that, so a click never lands on a line that is being replaced.
   await page.waitForLoadState("networkidle");
@@ -179,9 +179,9 @@ test("the line under the camera button opens the photo with its markers and the 
   const errors = watchErrors(page);
   const reads = watchPhotoReads(page);
   await openLagersaldo(page);
-  await expect(line(page)).toHaveText(new RegExp(`^Senaste foto av kylen: ${time(photos.hemmaKyl)}\\s*·\\s*Visa$`));
-  // Right under the camera area, with no thumbnail, and nothing fetched before "Visa".
-  expect(await camera(page).evaluate((area) => area.nextElementSibling?.getAttribute("data-testid"))).toBe("pantry-latest-photo");
+  await expect(line(page)).toHaveText(new RegExp(`^Senaste ${time(photos.hemmaKyl)}\\s*·\\s*Visa$`));
+  // Inside the camera area, under the button, with no thumbnail, and nothing fetched before "Visa".
+  await expect(camera(page).getByTestId("pantry-latest-photo")).toBeVisible();
   await expect(line(page).getByRole("img")).toHaveCount(0);
   expect(reads.count()).toBe(0);
   // "Visa" keeps a 44 px target in the meta line (Epic 11).
@@ -219,14 +219,14 @@ test("the line under the camera button opens the photo with its markers and the 
 test("the line follows the location and the place, and a photo older than 30 days has none", async ({ page }) => {
   const errors = watchErrors(page);
   await openLagersaldo(page);
-  await expect(line(page)).toContainText("Senaste foto av kylen");
+  await expect(line(page)).toContainText("Senaste");
 
   await card(page, "Frys").click();
   await expect(camera(page).getByRole("button", { name: "Fotografera frysen" })).toBeVisible();
   await expect(line(page)).toHaveCount(0);
 
   await card(page, "Skafferi").click();
-  await expect(line(page)).toHaveText(new RegExp(`^Senaste foto av skafferiet: ${time(photos.hemmaSkafferi)}`));
+  await expect(line(page)).toHaveText(new RegExp(`^Senaste ${time(photos.hemmaSkafferi)}`));
   await visa(page, "skafferiet").click();
   // Without points: no markers, the time only, and the whole reading.
   await expect(photoSheet(page, "skafferiet")).toHaveAccessibleDescription(`Taget ${time(photos.hemmaSkafferi)}.`);
@@ -238,7 +238,7 @@ test("the line follows the location and the place, and a photo older than 30 day
 
   await card(page, "Kyl").click();
   await choose(page, "Stugan");
-  await expect(line(page)).toHaveText(new RegExp(`^Senaste foto av kylen: ${time(photos.stuganKyl)}`));
+  await expect(line(page)).toHaveText(new RegExp(`^Senaste ${time(photos.stuganKyl)}`));
   await visa(page).click();
   await expect(photoSheet(page).getByRole("img")).toHaveAttribute("src", `/api/pantry/photo/${photos.stuganKyl.id}`);
   await photoSheet(page).getByRole("button", { name: "Stäng" }).click();
@@ -336,7 +336,7 @@ test("Ta bort fotot asks first, Avbryt brings the photo back, and Ta bort remove
   expect(download.data).toBeNull();
   // Read again, Lagersaldo has no line for the fridge.
   await page.reload();
-  await expect(page.getByRole("button", { name: "Ställen", exact: true }).filter({ visible: true })).toBeEnabled();
+  await expect(page.getByRole("button", { name: "Hantera boenden", exact: true }).filter({ visible: true })).toBeEnabled();
   await expect(line(page)).toHaveCount(0);
   expect(errors).toEqual([]);
 });

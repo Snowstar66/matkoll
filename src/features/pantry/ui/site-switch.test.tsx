@@ -115,7 +115,7 @@ describe("SiteSwitch", () => {
     expect(radios.map((radio) => radio.textContent)).toEqual(["Hemma", "Stugan"]);
     expect(pill("Hemma")).toHaveAttribute("aria-checked", "true");
     expect(pill("Stugan")).toHaveAttribute("aria-checked", "false");
-    const sites = screen.getByRole("button", { name: "Ställen" });
+    const sites = screen.getByRole("button", { name: "Hantera boenden" });
     expect(radios[1].compareDocumentPosition(sites) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
     expect(screen.queryByRole("button", { name: "Lägg till ställe" })).toBeNull();
   });
@@ -132,7 +132,7 @@ describe("SiteSwitch", () => {
     expect(content()).toHaveAttribute("inert");
     expect(content()).toHaveAttribute("aria-busy", "true");
     expect(screen.getByRole("button", { name: "Lägg till vara" })).toBeDisabled();
-    expect(screen.getByRole("button", { name: "Ställen" })).toBeDisabled();
+    expect(screen.getByRole("button", { name: "Hantera boenden" })).toBeDisabled();
 
     // The server's answer, and the page with Stugan selected.
     await act(async () => {
@@ -157,7 +157,7 @@ describe("SiteSwitch", () => {
     const radios = within(container).getAllByRole("radio");
     expect(radios).toHaveLength(2);
     for (const radio of radios) expect(radio).toBeDisabled();
-    expect(within(container).getByRole("button", { name: "Ställen" })).toBeDisabled();
+    expect(within(container).getByRole("button", { name: "Hantera boenden" })).toBeDisabled();
   });
 
   it("goes back to the place it was and shows a Notice when the selection fails", async () => {
@@ -229,14 +229,14 @@ describe("SiteSwitch", () => {
       );
     }
     render(<Page />);
-    await user.click(screen.getByRole("button", { name: "Ställen" }));
+    await user.click(screen.getByRole("button", { name: "Hantera boenden" }));
     const sheet = await screen.findByRole("dialog", { name: "Ställen" });
     await user.type(within(sheet).getByLabelText("Nytt ställe"), "Torpet");
 
     act(() => setShown(false));
     act(() => setShown(true));
     expect(screen.queryByRole("dialog", { name: "Ställen" })).toBeNull();
-    await user.click(screen.getByRole("button", { name: "Ställen" }));
+    await user.click(screen.getByRole("button", { name: "Hantera boenden" }));
     expect(within(await screen.findByRole("dialog", { name: "Ställen" })).getByLabelText("Nytt ställe")).toHaveValue("");
   });
 });

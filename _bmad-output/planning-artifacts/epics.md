@@ -3023,6 +3023,40 @@ Skiss: `_bmad-output/planning-artifacts/ux-designs/ux-Matkoll-2026-10-25/mockups
 **När** den lämnas för granskning
 **Så** finns skärmbilder av Matsedel och Inköpslista i 390 och 1280 px, ljust och mörkt, jämförda med skissen
 
+### Story 14.6: Lugnare Lagersaldo
+
+Som Pontus,
+vill jag att Lagersaldo har samma lugna stil som resten av appen,
+så att det är lätt att se vad som finns och sidan inte känns stökig.
+
+Skiss: `_bmad-output/planning-artifacts/ux-designs/ux-Matkoll-2026-10-25/mockups/lagersaldo-lugn.html`, variant **B** (vald av Pontus 2026-10-31), med varuraderna från variant A.
+
+**Acceptance Criteria:**
+
+**Givet** fler än ett ställe
+**När** jag ser toppen
+**Så** visas ställena som små piller ("Hemma", "Duved") i samma stil som filterpillren; länken "Ställen" ligger inte längre i raden utan nås från Inställningar (där hanteringen redan finns) eller via ett diskret "Hantera" sist i raden; med ett enda ställe visas inga piller
+
+**Givet** platserna Kyl, Frys och Skafferi
+**När** jag ser dem
+**Så** är de tre kompakta brickor på en rad (ca 48 px höga, surface-bakgrund, 14 px rundning) med en emoji i en ikonruta (🧊 Kyl, ❄️ Frys, 🥫 Skafferi, i stället för linjeikonerna), namnet och antalet ("17 varor"); vald plats har accentram och mint bakgrund; inga stora färgade kort; minst 44 px träffyta och tillgängliga namn som idag
+
+**Givet** fotot av en plats
+**När** jag ser sidan
+**Så** finns i stället för den stora blå knappen och den fristående raden en lugn rad som inköpsraden i Matsedel: ikonruta 📷, "Fotografera kylen" och under det "Senaste 29 okt 06:46 · Visa" (eller "Inget foto än"), med › ; samma funktioner som idag (fotografera, visa senaste foto)
+
+**Givet** en vara i listan
+**När** den visas
+**Så** står namnet till vänster och mängden till höger när den finns ("4 st", "500 g"), utan papperskorg och utan "Tillagd …"-texten; en vara som legat längre än gränsen för sin plats (7 dagar i kyl, 60 i frys, ingen i skafferi) får en liten sandfärgad etikett med antal dagar ("9 dagar")
+
+**Givet** att jag vill ta bort en vara
+**När** jag sveper raden åt vänster eller trycker på den och väljer "Ta bort" i arket
+**Så** tas den bort med samma ångra som idag (Story 2.3); att ändra varan fungerar som förut
+
+**Givet** mörkt läge, 375 px bredd och 200 % text
+**När** jag ser sidan
+**Så** finns ingen sidledes rullning, alla mål är minst 44 px, och skärmbilder i 390 och 1280 px (ljust och mörkt) är jämförda med skissen
+
 ### Story 14.7: Inställningar som i telefonens egna appar, "Boenden" och "Förråd"
 
 Som Pontus,

@@ -95,7 +95,7 @@ afterEach(() => {
 describe("LatestPhoto", () => {
   it("shows the line with Visa under the camera button, and fetches nothing", () => {
     render(<Hemma />);
-    expect(line()).toHaveTextContent(/^Senaste foto av kylen: idag 15:42\s*·\s*Visa$/);
+    expect(line()).toHaveTextContent(/^Senaste idag 15:42\s*·\s*Visa$/);
     expect(visa()).toHaveTextContent("Visa");
     // The dot between them is only seen.
     expect(within(line()!).getByText("·")).toHaveAttribute("aria-hidden", "true");
@@ -110,6 +110,7 @@ describe("LatestPhoto", () => {
   it("has no line without a photo", () => {
     render(<Hemma shown={null} />);
     expect(line()).toBeNull();
+    expect(screen.getByTestId("pantry-no-photo")).toHaveTextContent("Inget foto än");
   });
 
   it("opens the sheet with the photo from the route, the time, the markers and the reading as a numbered list", async () => {
@@ -223,7 +224,7 @@ describe("LatestPhoto", () => {
     // A photo saved in the background while the sheet is open: the page is read again.
     rerender(<Hemma shown={photoB} />);
     expect(screen.queryByRole("dialog")).toBeNull();
-    expect(line()).toHaveTextContent("Senaste foto av kylen: idag 15:55");
+    expect(line()).toHaveTextContent("Senaste idag 15:55");
 
     rerender(<Hemma />);
     fireEvent.click(visa());
@@ -261,7 +262,7 @@ describe("LatestPhoto", () => {
     act(() => {
       document.dispatchEvent(new Event("visibilitychange"));
     });
-    await waitFor(() => expect(line()).toHaveTextContent("Senaste foto av kylen: igår 15:42"));
+    await waitFor(() => expect(line()).toHaveTextContent("Senaste igår 15:42"));
   });
 
   it("keeps the photo and says so in the question when removing fails", async () => {
@@ -294,7 +295,7 @@ describe("LatestPhoto", () => {
         location="Frys"
       />,
     );
-    expect(line()).toHaveTextContent("Senaste foto av frysen: 24 okt 15:42");
+    expect(line()).toHaveTextContent("Senaste 24 okt 15:42");
     fireEvent.click(screen.getByRole("button", { name: "Visa senaste foto av frysen" }));
     expect(screen.getByRole("dialog", { name: "Fotot av frysen" })).toBeInTheDocument();
   });

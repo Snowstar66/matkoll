@@ -122,7 +122,7 @@ function watchErrors(page: Page): string[] {
 
 // Earlier routes stay mounted but hidden after a client navigation, so every
 // locator is scoped to what is visible.
-const sitesButton = (page: Page) => page.getByRole("button", { name: "Ställen", exact: true }).filter({ visible: true });
+const sitesButton = (page: Page) => page.getByRole("button", { name: "Hantera boenden", exact: true }).filter({ visible: true });
 const sheet = (page: Page) => page.getByRole("dialog", { name: "Ställen" });
 const emptyButton = (page: Page) => page.getByRole("button", { name: "Töm kylen", exact: true }).filter({ visible: true });
 const toast = (page: Page) => page.getByTestId("toast");

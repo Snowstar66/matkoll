@@ -267,7 +267,7 @@ test("a switch with the picker in Lagersaldo reaches the recipe view, Kan lagas 
   // Lagersaldo with the real picker (Story 8.2).
   await tab(page, "Lagersaldo").click();
   await expect(page.getByRole("heading", { level: 1, name: "Lagersaldo" })).toBeVisible();
-  await expect(page.getByRole("button", { name: "Ställen", exact: true }).filter({ visible: true })).toBeEnabled();
+  await expect(page.getByRole("button", { name: "Hantera boenden", exact: true }).filter({ visible: true })).toBeEnabled();
   await placePill(page, "Hemma").click();
   await expect(page.getByTestId("site-announcement").filter({ visible: true })).toHaveText("Valt ställe: Hemma.");
   await expect(page.getByTestId("site-content").filter({ visible: true })).not.toHaveAttribute("aria-busy");
