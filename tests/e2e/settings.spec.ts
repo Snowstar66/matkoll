@@ -403,6 +403,10 @@ test("a personal key is shown once, adds items by POST /api/snabb and stops when
   await page.getByTestId("settings-row").filter({ hasText: "Siri och genvägar" }).click();
   await expect(page).toHaveURL(/\/installningar\/siri$/);
   await expect(page.getByText("Inga nycklar än.")).toBeVisible();
+  const shot = async (name: string) => {
+    if (process.env.SHOT_DIR) await page.screenshot({ path: `${process.env.SHOT_DIR}/${name}.png`, fullPage: true });
+  };
+  await shot("siri-before");
   await page.getByRole("button", { name: "Skapa nyckel" }).click();
   const shown = page.getByTestId("new-key-value");
   await expect(shown).toBeVisible();
@@ -410,6 +414,7 @@ test("a personal key is shown once, adds items by POST /api/snabb and stops when
   expect(key).toMatch(/^lk_[A-Za-z0-9_-]{43}$/);
   await expect(page.getByTestId("shortcut-guide")).toContainText("Diktera text");
   await expect(page.getByTestId("api-key")).toContainText("Aldrig använd");
+  await shot("siri-after");
 
   // Only the hash is stored.
   const stored = await admin.from("api_key").select("key_hash").eq("user_id", userId);
@@ -434,6 +439,7 @@ test("a personal key is shown once, adds items by POST /api/snabb and stops when
   await page.goto("/lista/lagg-till");
   const sheet = page.getByRole("dialog", { name: "Lägg till egen vara" });
   await expect(sheet).toBeVisible();
+  await shot("quick-add");
   await expect(sheet.getByRole("combobox").or(sheet.getByRole("textbox")).first()).toBeFocused();
 
   // Revoke: the key stops working at once, and the page lists it as revoked.

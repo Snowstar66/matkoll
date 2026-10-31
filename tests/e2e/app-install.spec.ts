@@ -72,6 +72,7 @@ test.describe("without a session", () => {
       start_url: "/recept",
       scope: "/",
       share_target: { action: "/recept/importera", method: "GET", params: { url: "url", text: "text" } },
+      shortcuts: [{ name: "Lägg till vara", short_name: "Lägg till", url: "/lista/lagg-till" }],
       display: "standalone",
       background_color: "#F5F7F4",
       theme_color: "#F5F7F4",
