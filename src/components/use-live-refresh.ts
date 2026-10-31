@@ -57,7 +57,10 @@ export function useLiveRefresh({ tables, busy }: LiveRefreshOptions): void {
     const scheduler = createRefreshScheduler({
       delayMs: refreshDelayMs,
       isBusy: () => busyRef.current,
-      refresh: () => router.refresh(),
+      // Offline (Story 17.8) a failed read would fall back to a full page load: wait for the connection.
+      refresh: () => {
+        if (navigator.onLine) router.refresh();
+      },
     });
 
     function stopListening() {

@@ -36,6 +36,8 @@ import {
   libraryEmail,
   liveListEmail,
   liveListStorageState,
+  offlineListEmail,
+  offlineListStorageState,
   libraryStorageState,
   magicLinkPath,
   openMagicLink,
@@ -168,6 +170,7 @@ export default async function globalSetup(config: FullConfig) {
       [offerSuggestionsEmail, offerSuggestionsStorageState],
       [thingsEmail, thingsStorageState],
       [liveListEmail, liveListStorageState],
+      [offlineListEmail, offlineListStorageState],
     ] as const) {
       const user = await browser.newContext({ baseURL });
       const page = await user.newPage();

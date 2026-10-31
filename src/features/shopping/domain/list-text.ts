@@ -36,6 +36,9 @@ export const pantryUnreadText = "Det gick inte att läsa matvarorna, så inget �
 /** Above the list when the checks could not be read: none is shown, and checking is off. */
 export const checksUnreadText = "Det gick inte att läsa bockarna, så det går inte att bocka av just nu.";
 
+/** Above the list with no connection, or checks waiting to be sent (Story 17.8). */
+export const offlineChecksText = "Offline – sparas när nätet kommer tillbaka";
+
 /** Dishes whose recipe is deleted (or could not be read), which the list leaves out. */
 export function skippedDishesText(count: number): string {
   return count === 1

@@ -42,6 +42,7 @@ import {
   lineName,
   pantryUnreadText,
   checksUnreadText,
+  offlineChecksText,
   hiddenLinesButtonText,
   progressText,
   recountedText,
@@ -60,9 +61,11 @@ import { openSettingsText, type ProductChoice, type ProductChoiceContext } from 
 import { chipChoice, ProductChip } from "./product-chip";
 import { ProductChoiceSheet } from "./product-choice-sheet";
 import { canPutInPantry } from "../domain/put-in-pantry";
+import { checkId, mergeQueued, outcomeOf, type SendOutcome } from "./offline-checks";
 import { PutInPantryButton, usePutInPantry } from "./put-in-pantry";
 import { ExportSheet, useSendBasket } from "./send-basket";
 import { StepsSheet } from "./steps-sheet";
+import { useOfflineChecks } from "./use-offline-checks";
 
 // Inköpslista (FR-15, UX-DR9; the new look of Story 11.4, FR-43): the current
 // plan's name and number of dishes under the title, then the progress row
@@ -152,6 +155,8 @@ export type ShoppingListProps = {
    * on its way), so the page can let "Byt" wait.
    */
   onBusyChange?: (busy: boolean) => void;
+  /** Whose queue of offline checks this is (Story 17.8); without it the queue lives in this tab only. */
+  userId?: string | null;
   /** The empty list without dishes (Story 3.10): its text and a way on, e.g. to the week that has dishes. */
   empty?: { text: string; action: ReactNode };
   /** The choices could not be read: the detail's section Produktval says so. */
@@ -311,6 +316,13 @@ async function answerOf(change: CheckChange): Promise<Answer> {
   }
 }
 
+/** A queued check sent when the connection is back, as an outcome for the queue. */
+async function sendQueued(change: CheckChange): Promise<SendOutcome> {
+  const { result, lost } = await answerOf(change);
+  if (lost) return outcomeOf("lost");
+  return outcomeOf(result.ok ? { ok: true } : { ok: false, code: result.error.code });
+}
+
 /** A line's check writes during a burst of taps. */
 type CheckWrites = {
   /** The latest state tapped. */
@@ -328,12 +340,6 @@ type CheckWrites = {
 /** A failed check's notice; a new `id` per failure, so the same text is announced again. */
 type CheckNotice = { text: string; id: number; key: string };
 
-/**
- * A line's check on a plan; the optimistic state, the taps and the writes are
- * kept per plan. A week without a plan has only own items (Story 17.10), kept
- * under "own".
- */
-const checkId = (planId: string | null, key: string) => `${planId ?? "own"} ${key}`;
 
 /**
  * The checks as shown, by checkId: the server's, with the taps not yet saved
@@ -345,8 +351,14 @@ const checkId = (planId: string | null, key: string) => `${planId ?? "own"} ${ke
  * the list again. An answer for a plan the list no longer shows is ignored.
  * `onSettled` hears how the latest tap of a line ended (`saved` or not), so
  * the list can say so when the line goes back.
+ *
+ * Story 17.8: with no connection (or no answer), the check is queued in the
+ * browser instead (useOfflineChecks), shown as checked on top of the server's
+ * lines, and sent in order when the connection is back; `offline` then gives
+ * the calm line, and no failure notice is made.
  */
 function useChecks(
+  userId: string | null,
   planId: string | null,
   lines: readonly ShoppingLine[],
   onSettled?: (key: string, checked: boolean, saved: boolean) => void,
@@ -356,9 +368,11 @@ function useChecks(
   useEffect(() => {
     settled.current = onSettled;
   });
+  const offline = useOfflineChecks(userId, planId, lines, sendQueued);
+  const { queue } = offline;
   const saved = useMemo(
-    () => Object.fromEntries(lines.map((line) => [checkId(planId, line.key), line.checked])),
-    [planId, lines],
+    () => Object.fromEntries(mergeQueued(lines, queue, planId).map((line) => [checkId(planId, line.key), line.checked])),
+    [planId, lines, queue],
   );
   const [checks, showCheck] = useOptimistic(saved, (state: Record<string, boolean>, change: { id: string; checked: boolean }) => ({
     ...state,
@@ -420,12 +434,28 @@ function useChecks(
     const id = checkId(planId, key);
     const tap = (latestTap.current.get(id) ?? 0) + 1;
     latestTap.current.set(id, tap);
+    // No connection, or an older check of the line still waits: queue it, so the order holds.
+    const queueNow = offline.shouldQueue(planId, key);
     setSaving((count) => count + 1);
     startTransition(async () => {
       showCheck({ id, checked });
+      if (queueNow) {
+        offline.enqueue({ planId, key, checked });
+        setSaving((count) => count - 1);
+        setNotice((before) => (before?.key === key ? null : before));
+        settled.current?.(key, checked, true);
+        return;
+      }
       const { result, lost } = await save({ planId, key, checked });
       setSaving((count) => count - 1);
       if (latestTap.current.get(id) !== tap || shownPlan.current !== planId) return;
+      if (lost) {
+        // No answer: kept and sent when the connection is back.
+        offline.enqueue({ planId, key, checked });
+        setNotice((before) => (before?.key === key ? null : before));
+        settled.current?.(key, checked, true);
+        return;
+      }
       if (result.ok) {
         setNotice((before) => (before?.key === key ? null : before));
         settled.current?.(key, checked, true);
@@ -438,12 +468,12 @@ function useChecks(
       settled.current?.(key, checked, false);
       nextNotice.current += 1;
       setNotice({ text: result.error.message, id: nextNotice.current, key });
-      if (lost || result.error.code === "shopping_plan_changed") router.refresh();
+      if (result.error.code === "shopping_plan_changed") router.refresh();
     });
   }
 
   // `settling` until every save has answered and the list shows the server's checks again.
-  return { checks, toggle, notice, saving: saving > 0, settling: saving > 0 || transitionPending };
+  return { checks, toggle, notice, offline: offline.offline, saving: saving > 0, settling: saving > 0 || transitionPending };
 }
 
 /** How long a move's announcement waits after focus has moved, so VoiceOver reads both the new focus and the text. */
@@ -587,10 +617,11 @@ export function ShoppingList({
   site = null,
   isQuietSwitch,
   onBusyChange,
+  userId = null,
   empty,
 }: ShoppingListProps) {
   const planId = plan?.id ?? null;
-  const { checks, toggle, notice, saving, settling } = useChecks(planId, savedLines, handleSettled);
+  const { checks, toggle, notice, offline, saving, settling } = useChecks(userId, planId, savedLines, handleSettled);
   const removal = useLineRemoval(planId, savedLines);
   const lines = useMemo(
     () =>
@@ -896,6 +927,8 @@ export function ShoppingList({
       {/* Nothing is taken off, but the list is still there: a status, not an alert. */}
       {hasDishes && pantryUnavailable ? <Notice role="status">{pantryUnreadText}</Notice> : null}
       {(hasDishes || hasLines) && checksUnavailable ? <Notice role="status">{checksUnreadText}</Notice> : null}
+      {/* Story 17.8: no connection, or checks waiting to be sent; calm, nothing is lost. */}
+      {offline ? <Notice role="status">{offlineChecksText}</Notice> : null}
       {/* A check that was not saved, or a plan switched elsewhere; a new element per failure, so it is announced again. */}
       {notice ? (
         <Notice key={notice.id} role="alert">
