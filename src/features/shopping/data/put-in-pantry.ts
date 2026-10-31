@@ -1,7 +1,8 @@
 import "server-only";
 import { z } from "zod";
 import type { AppError, Result } from "@/lib/errors";
-import { planPutInPantry, type CheckRow, type PantryAddition } from "../domain/put-in-pantry";
+import type { IngredientDefaults, Location } from "@/features/catalog";
+import { planPutInPantry, type CheckRow, type PantryAddition, type PlacedItem } from "../domain/put-in-pantry";
 import { lineKeySchema } from "../domain/line-key";
 import { ShoppingDataError, type ShoppingDb } from "./client";
 import { loadShoppingList, type ShoppingSources } from "./queries";
@@ -64,7 +65,10 @@ export type ClearPutInPantry = {
 /** What putInPantryWith needs: the list's sources and the two modules' writes. */
 export type PutInPantryDeps = {
   /** The list's sources, as getShoppingList has them; the checks come from `checkRows`. */
-  sources: Omit<ShoppingSources, "checks">;
+  sources: Omit<ShoppingSources, "checks" | "ingredientDefaults"> & {
+    /** catalog.getIngredientDefaults; the locations tell "Packa upp" where each item went (Story 16.18). */
+    ingredientDefaults: (ids: readonly string[]) => Promise<Record<string, Pick<IngredientDefaults, "section"> & Partial<Pick<IngredientDefaults, "location">>>>;
+  };
   /** The plan's checks with their ids (data/checks.ts, listCheckRowsIn). */
   checkRows: (planId: string | null) => Promise<readonly CheckRow[]>;
   /** pantry.findPantryAdditions: the keys among these the pantry has a receipt of. */
@@ -93,7 +97,16 @@ export type PutInPantryOutcome =
    * the pantry and keep their checks; `handled`: the items the pantry took in
    * this run, without those it skipped for a receipt from an earlier one.
    */
-  | { kind: "done"; added: number; removed: number; skipped: number; pantryWritten: boolean; handled: number }
+  | {
+      kind: "done";
+      added: number;
+      removed: number;
+      skipped: number;
+      pantryWritten: boolean;
+      handled: number;
+      /** Story 16.18: the items put in the pantry, each with the place it went to, for "Packa upp". */
+      placed: PlacedItem[];
+    }
   /** The plan is no longer the current one: the list must be read again. */
   | { kind: "plan_changed"; pantryWritten: boolean }
   /** addToPantry failed: nothing was added, and the list is as it was. */
@@ -132,6 +145,7 @@ export async function receiptedChecks(
 export async function putInPantryWith(deps: PutInPantryDeps, planId: string): Promise<PutInPantryOutcome> {
   let checks: readonly CheckRow[] = [];
   const known = new Set<string>();
+  const locations = new Map<string, Location>();
   const list = await loadShoppingList({
     ...deps.sources,
     checks: async (id) => {
@@ -140,7 +154,10 @@ export async function putInPantryWith(deps: PutInPantryDeps, planId: string): Pr
     },
     ingredientDefaults: async (ids) => {
       const defaults = await deps.sources.ingredientDefaults(ids);
-      for (const id of Object.keys(defaults)) known.add(id);
+      for (const [id, found] of Object.entries(defaults)) {
+        known.add(id);
+        if (found.location) locations.set(id, found.location);
+      }
       return defaults;
     },
   });
@@ -153,9 +170,14 @@ export async function putInPantryWith(deps: PutInPantryDeps, planId: string): Pr
     overrideKeys: plan.overrideKeys,
     customItemIds: plan.customItemIds,
   };
-  const done = { kind: "done" as const, added: plan.items.length, removed: plan.removed, skipped: plan.skipped };
+  const labels = new Map(list.lines.flatMap((line) => (line.ingredientId ? [[line.ingredientId, line.label] as const] : [])));
+  const placed: PlacedItem[] = plan.items.flatMap((item) => {
+    const location = locations.get(item.ingredientId);
+    return location ? [{ ...item, name: labels.get(item.ingredientId) ?? "", location }] : [];
+  });
+  const done = { kind: "done" as const, added: plan.items.length, removed: plan.removed, skipped: plan.skipped, placed };
   if (toClear.checkIds.length === 0 && toClear.customItemIds.length === 0) {
-    return { ...done, added: 0, pantryWritten: false, handled: 0 };
+    return { ...done, added: 0, placed: [], pantryWritten: false, handled: 0 };
   }
 
   let pantryWritten = false;

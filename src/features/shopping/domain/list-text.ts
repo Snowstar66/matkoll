@@ -2,6 +2,8 @@ import {
   CATEGORIES,
   type Category,
   displayCategory,
+  LOCATIONS,
+  type Location,
   formatQuantity,
   nameInText,
   SECTIONS,
@@ -315,6 +317,31 @@ export function putInPantryText(added: number, removed: number, siteName: string
   if (removed > 0) return `Tog bort ${items(removed)} från listan.`;
   return null;
 }
+
+const placeNames: Record<Location, string> = { Kyl: "kyl", Frys: "frys", Skafferi: "skafferi" };
+
+/**
+ * Story 16.18: the confirmation after "Lägg till i Matvaror" that says where things went: "Lagt 8
+ * varor: 5 i kyl, 2 i skafferi, 1 i frys." The places are in order of how many went there (kyl,
+ * frys, skafferi on a tie), and a place without items is left out. When everything went to one
+ * place it reads "Lagt 3 varor i kyl.", and with a name for the Boende "Lagt 8 varor för Stugan:
+ * 5 i kyl, ...". `null` when nothing was placed.
+ */
+export function placedText(locations: readonly Location[], siteName: string | null = null): string | null {
+  if (locations.length === 0) return null;
+  const counts = LOCATIONS.map((place) => ({ place, count: locations.filter((each) => each === place).length }))
+    .filter((each) => each.count > 0)
+    .sort((a, b) => b.count - a.count);
+  const items = `${locations.length} ${locations.length === 1 ? "vara" : "varor"}`;
+  const forSite = siteName ? ` för ${siteName}` : "";
+  const [only] = counts;
+  if (counts.length === 1 && only) return `Lagt ${items} i ${placeNames[only.place]}${forSite}.`;
+  const parts = counts.map((each) => `${each.count} i ${placeNames[each.place]}`).join(", ");
+  return `Lagt ${items}${forSite}: ${parts}.`;
+}
+
+/** The "Ändra" button on that confirmation, which opens "Packa upp". */
+export const unpackChangeLabel = "Ändra";
 
 /**
  * After "Lägg till i Matvaror" when the list's place was removed elsewhere

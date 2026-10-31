@@ -78,7 +78,7 @@ const allTables = ["pantry_item", "shopping_check", "shopping_custom_item", "sho
 let log: ReturnType<typeof vi.spyOn>;
 beforeEach(() => {
   requireUser.mockReset().mockResolvedValue(ok({ id: "user", email: "pontus@example.com" }));
-  putInPantryWith.mockReset().mockResolvedValue({ kind: "done", added: 3, removed: 1, skipped: 0, pantryWritten: true, handled: 3 });
+  putInPantryWith.mockReset().mockResolvedValue({ kind: "done", added: 3, removed: 1, skipped: 0, pantryWritten: true, handled: 3, placed: [] });
   forgetPantryAdditions.mockReset();
   getPantrySnapshot.mockReset();
   addToPantry.mockReset();
@@ -91,7 +91,7 @@ beforeEach(() => {
 
 describe("putCheckedInPantry", () => {
   it("runs the flow for the plan, says how many and where, and revalidates the pantry and the list", async () => {
-    expect(await putCheckedInPantry(input)).toEqual(ok({ added: 3, removed: 1, skipped: 0, siteName: "Stugan" }));
+    expect(await putCheckedInPantry(input)).toMatchObject(ok({ added: 3, removed: 1, skipped: 0, siteName: "Stugan" }));
     expect(putInPantryWith).toHaveBeenCalledWith(expect.any(Object), planId);
     expect(revalidateFor.mock.calls.map(([table]) => table)).toEqual(allTables);
   });
@@ -111,7 +111,7 @@ describe("putCheckedInPantry", () => {
   it.each([[{ planId, siteId: null }], [{ planId }]])(
     "reads the selected place once for a list without one (%j), and counts, writes and names that place",
     async (withoutPlace) => {
-      expect(await putCheckedInPantry(withoutPlace)).toEqual(ok({ added: 3, removed: 1, skipped: 0, siteName: "Hemma" }));
+      expect(await putCheckedInPantry(withoutPlace)).toMatchObject(ok({ added: 3, removed: 1, skipped: 0, siteName: "Hemma" }));
       expect(getSelectedSite).toHaveBeenCalledTimes(1);
       const deps = putInPantryWith.mock.calls[0]![0] as {
         sources: { pantry: () => unknown };
@@ -130,9 +130,9 @@ describe("putCheckedInPantry", () => {
         { ...hemma, isSelected: false },
         { ...stugan, isSelected: true },
       ]);
-      return { kind: "done", added: 1, removed: 0, skipped: 0, pantryWritten: true, handled: 1 };
+      return { kind: "done", added: 1, removed: 0, skipped: 0, pantryWritten: true, handled: 1, placed: [] };
     });
-    expect(await putCheckedInPantry({ planId })).toEqual(ok({ added: 1, removed: 0, skipped: 0, siteName: "Hemma" }));
+    expect(await putCheckedInPantry({ planId })).toMatchObject(ok({ added: 1, removed: 0, skipped: 0, siteName: "Hemma" }));
   });
 
   it("gives pantry_add_failed, logged, when the selected place cannot be read for a list without one", async () => {
@@ -151,34 +151,34 @@ describe("putCheckedInPantry", () => {
   });
 
   it("names no place when the pantry took nothing in this run: every item had a receipt", async () => {
-    putInPantryWith.mockResolvedValue({ kind: "done", added: 2, removed: 0, skipped: 0, pantryWritten: true, handled: 0 });
-    expect(await putCheckedInPantry(input)).toEqual(ok({ added: 2, removed: 0, skipped: 0, siteName: null }));
+    putInPantryWith.mockResolvedValue({ kind: "done", added: 2, removed: 0, skipped: 0, pantryWritten: true, handled: 0, placed: [] });
+    expect(await putCheckedInPantry(input)).toMatchObject(ok({ added: 2, removed: 0, skipped: 0, siteName: null }));
     expect(listPantrySites).not.toHaveBeenCalled();
   });
 
   it("never throws after the write when the place's name cannot be read", async () => {
     listPantrySites.mockRejectedValue(new TypeError("bug"));
-    expect(await putCheckedInPantry(input)).toEqual(ok({ added: 3, removed: 1, skipped: 0, siteName: null }));
+    expect(await putCheckedInPantry(input)).toMatchObject(ok({ added: 3, removed: 1, skipped: 0, siteName: null }));
     expect(log).toHaveBeenCalledWith("pantry_unavailable", { reason: "unexpected" });
   });
 
   it("names no place with one, when nothing was added, or when the places cannot be read", async () => {
     listPantrySites.mockResolvedValue([hemma]);
-    expect(await putCheckedInPantry({ planId, siteId: hemma.id })).toEqual(
+    expect(await putCheckedInPantry({ planId, siteId: hemma.id })).toMatchObject(
       ok({ added: 3, removed: 1, skipped: 0, siteName: null }),
     );
     listPantrySites.mockResolvedValue([hemma, stugan]);
-    putInPantryWith.mockResolvedValue({ kind: "done", added: 0, removed: 1, skipped: 0, pantryWritten: false, handled: 0 });
-    expect(await putCheckedInPantry(input)).toEqual(ok({ added: 0, removed: 1, skipped: 0, siteName: null }));
-    putInPantryWith.mockResolvedValue({ kind: "done", added: 3, removed: 0, skipped: 0, pantryWritten: true, handled: 3 });
+    putInPantryWith.mockResolvedValue({ kind: "done", added: 0, removed: 1, skipped: 0, pantryWritten: false, handled: 0, placed: [] });
+    expect(await putCheckedInPantry(input)).toMatchObject(ok({ added: 0, removed: 1, skipped: 0, siteName: null }));
+    putInPantryWith.mockResolvedValue({ kind: "done", added: 3, removed: 0, skipped: 0, pantryWritten: true, handled: 3, placed: [] });
     listPantrySites.mockRejectedValue(new PantryDataError("sites_failed 08006"));
-    expect(await putCheckedInPantry(input)).toEqual(ok({ added: 3, removed: 0, skipped: 0, siteName: null }));
+    expect(await putCheckedInPantry(input)).toMatchObject(ok({ added: 3, removed: 0, skipped: 0, siteName: null }));
     expect(log).toHaveBeenCalledWith("pantry_unavailable", { reason: "sites_failed 08006" });
   });
 
   it("names the place as it is after the write, renamed meanwhile", async () => {
     listPantrySites.mockResolvedValue([hemma, { ...stugan, name: "Torpet" }]);
-    expect(await putCheckedInPantry(input)).toEqual(ok({ added: 3, removed: 1, skipped: 0, siteName: "Torpet" }));
+    expect(await putCheckedInPantry(input)).toMatchObject(ok({ added: 3, removed: 1, skipped: 0, siteName: "Torpet" }));
   });
 
   it("gives pantry_site_gone with the place selected now, revalidating nothing, for a place removed meanwhile", async () => {
@@ -227,14 +227,14 @@ describe("putCheckedInPantry", () => {
   });
 
   it("says what could not go to the pantry, logged", async () => {
-    putInPantryWith.mockResolvedValue({ kind: "done", added: 2, removed: 0, skipped: 1, pantryWritten: true, handled: 2 });
-    expect(await putCheckedInPantry(input)).toEqual(ok({ added: 2, removed: 0, skipped: 1, siteName: "Stugan" }));
+    putInPantryWith.mockResolvedValue({ kind: "done", added: 2, removed: 0, skipped: 1, pantryWritten: true, handled: 2, placed: [] });
+    expect(await putCheckedInPantry(input)).toMatchObject(ok({ added: 2, removed: 0, skipped: 1, siteName: "Stugan" }));
     expect(log).toHaveBeenCalledWith("shopping_put_in_pantry_skipped", { count: 1 });
   });
 
   it("revalidates the list but not the pantry when nothing went to the pantry", async () => {
-    putInPantryWith.mockResolvedValue({ kind: "done", added: 0, removed: 1, skipped: 0, pantryWritten: false, handled: 0 });
-    expect(await putCheckedInPantry(input)).toEqual(ok({ added: 0, removed: 1, skipped: 0, siteName: null }));
+    putInPantryWith.mockResolvedValue({ kind: "done", added: 0, removed: 1, skipped: 0, pantryWritten: false, handled: 0, placed: [] });
+    expect(await putCheckedInPantry(input)).toMatchObject(ok({ added: 0, removed: 1, skipped: 0, siteName: null }));
     expect(revalidateFor.mock.calls.map(([table]) => table)).toEqual(allTables.slice(1));
   });
 
