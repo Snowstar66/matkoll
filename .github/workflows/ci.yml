@@ -22,7 +22,7 @@ env:
   # Mailpit, Auth, the API gateway, Postgres and Storage stay; the rest is not
   # used by tests. Storage (storage-api) holds the latest photo per place: its
   # migration creates a bucket, and the RLS tests and e2e use it (AD-23, AD-26).
-  SUPABASE_EXCLUDE: realtime,imgproxy,edge-runtime,logflare,vector,supavisor,studio
+  SUPABASE_EXCLUDE: imgproxy,edge-runtime,logflare,vector,supavisor,studio
 
 jobs:
   lint:
