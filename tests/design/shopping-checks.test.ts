@@ -66,12 +66,13 @@ describe("shopping_custom_item unit constraint", () => {
   });
 });
 
-// AD-22, Story 3.5: set_current_meal_plan deletes an empty current plan on a
-// switch, and a plan counts as empty only without dishes and own items. The
-// function is rewritten by whole-body migrations, so the newest one that
-// defines it must still look at shopping_custom_item.
+// AD-22, Story 17.10: set_current_meal_plan deletes an empty current plan on a
+// switch, and a plan counts as empty without dishes. Own items belong to the
+// household, not to a plan, so they no longer keep one (Story 3.5's rule is
+// gone). The function is rewritten by whole-body migrations, so the newest one
+// that defines it must not look at shopping_custom_item.
 describe("set_current_meal_plan", () => {
-  it("counts own items in the newest definition's emptiness rule", () => {
+  it("does not count own items in the newest definition's emptiness rule", () => {
     const defining = readdirSync(migrations)
       .filter((name) => name.endsWith(".sql"))
       .sort()
@@ -81,7 +82,7 @@ describe("set_current_meal_plan", () => {
     expect(latest, "a migration defining set_current_meal_plan").toBeDefined();
     const start = latest!.sql.search(/create (or replace )?function public\.set_current_meal_plan\(/);
     const body = latest!.sql.slice(start, latest!.sql.indexOf("$$;", start));
-    expect(body, latest!.file).toMatch(/exists \(select 1 from public\.shopping_custom_item/);
+    expect(body, latest!.file).not.toMatch(/shopping_custom_item/);
   });
 });
 

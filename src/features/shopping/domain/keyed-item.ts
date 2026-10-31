@@ -10,7 +10,8 @@ import { maxCustomLabelLength } from "./custom-item";
 export const maxKeyedItems = 100;
 
 export const keyedItemsSchema = z.object({
-  planId: z.uuid(),
+  // Not used any more (own items have no week, Story 17.10); callers that still send it are accepted.
+  planId: z.uuid().nullish(),
   items: z
     .array(
       z.object({

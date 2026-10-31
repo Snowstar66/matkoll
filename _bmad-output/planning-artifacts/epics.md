@@ -3589,6 +3589,8 @@ så att det familjen skriver in inte försvinner.
 **När** veckan är slut
 **Så** visas den inte i nästa veckas lista
 
+**Regel (beslutad vid bygget):** en egen vara hör till hushållet, inte till en vecka (`shopping_custom_item.meal_plan_id` är tom för nya varor, och bockarna för egna varor, nyckel `c:<id>`, hör till användaren). Varan visas i varje veckas lista, även en vecka utan matsedel, tills den bockas av. En avbockad vara visas kvar (avbockad, "I korgen") den vecka den bockades av och döljs i alla senare veckors listor; avbockningens tidpunkt (`shopping_check.created_at`) avgör veckan. "Lägg i förrådet" och "Ta bort" raderar varan helt. En matsedel behålls inte längre för sina egna varors skull, och raderas matsedeln behåller varorna sin plats på listan. "Lägg i förrådet" finns bara för en vecka med matsedel.
+
 ## Epic 18: Prylar
 
 Version 2.1. Hushållet kan fotografera förråd, garage och bodar och låta AI lista vad som finns, så att man kan fråga "var är hammaren?" eller "har vi skruvar?". Kortet är källan: sakerna kommer från korten, ett nytt kort av samma plats ersätter det gamla, och tas kortet bort försvinner dess saker. Prylar har en egen flik och blandas aldrig med maten (inga inköpslistor, ingen synk, ingen påverkan på recept eller "hemma"). Beslut 2026-10-31 (Pontus): egen flik "Prylar", platser med egna namn (rum + valfri del, ingen planritning), garderoben pausad. Test samma dag på 9 bilder från skräpförrådet: Haiku 5.5 hittade 9–47 saker per bild (ca 2 öre, 9–24 s), en kontrollerad bild hade 26 av 26 rätt; frågor besvarades bra från listorna; sammanslagning av överlapp behöver förbättras; stängda lådor är den stora luckan.

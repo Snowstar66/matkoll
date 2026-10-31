@@ -386,7 +386,6 @@ describe("Listpostdetalj for an own item", () => {
     await waitFor(() => expect(screen.queryByRole("dialog")).not.toBeInTheDocument());
     expect(updateCustomItem).toHaveBeenCalledWith({
       id: diskId,
-      planId,
       label: "diskmedel eko",
       ingredientId: kaffeId,
       amount: "2",

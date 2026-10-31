@@ -12,7 +12,7 @@ import { keyedItemsSchema, type KeyedItemsInput } from "../domain/keyed-item";
 
 /**
  * "Lägg N i inköpslistan" in Veckans erbjudanden (Story 9.12, FR-17): adds
- * own items to the current plan's list, one per `key` (the offer's id). The
+ * own items to the list (they belong to the household, Story 17.10), one per `key` (the offer's id). The
  * item's id is made from the key, so adding the same offer again, or a retry
  * after a lost answer, leaves one item (addCustomItemIn returns the one
  * there). The text is the caller's; `ingredientId` links a catalog
@@ -28,13 +28,13 @@ export async function addKeyedItems(input: KeyedItemsInput): Promise<Result<{ co
   if (!user.ok) return user;
   const parsed = keyedItemsSchema.safeParse(input);
   if (!parsed.success) return fail("validation");
-  const { planId, items } = parsed.data;
+  const { items } = parsed.data;
   const db = await createClient();
   try {
     for (const item of items) {
       const added = await addCustomItemIn(db, {
         id: keyedItemId(item.key),
-        planId,
+        planId: null,
         label: collapseLabel(item.label),
         ingredientId: item.ingredientId,
         amount: null,

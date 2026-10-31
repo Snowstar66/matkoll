@@ -63,8 +63,7 @@ export function parseCustomAmount(text: string): { amount: number | null } | { e
 }
 
 /**
- * What the sheet sends and addCustomItem takes: the plan the list was counted
- * for, the text, the catalog ingredient Pontus chose among the suggestions
+ * What the sheet sends and addCustomItem takes: the text, the catalog ingredient Pontus chose among the suggestions
  * (or none), the amount as typed and the unit ("" for none). `id` is made by
  * the client and kept while the form is unchanged, so a retry after a lost
  * answer adds the item once (AD-20). Amount and unit are both given or neither: an amount without
@@ -74,7 +73,8 @@ export function parseCustomAmount(text: string): { amount: number | null } | { e
 export const customItemFormSchema = z
   .object({
     id: z.uuid().optional(),
-    planId: z.uuid(),
+    // No longer used (an own item belongs to the household, Story 17.10); an older client may still send it.
+    planId: z.uuid().nullish(),
     label: z.string(),
     ingredientId: z.uuid().nullable().optional(),
     amount: z.string(),
@@ -98,7 +98,6 @@ export const customItemFormSchema = z
     if (!valid || "error" in parsed) return z.NEVER;
     return {
       ...(form.id ? { id: form.id } : {}),
-      planId: form.planId,
       label,
       ingredientId: form.ingredientId ?? null,
       amount: parsed.amount,
@@ -116,7 +115,8 @@ export type CustomItemForm = z.output<typeof customItemFormSchema>;
 export const customItemRowSchema = z
   .object({
     id: z.uuid(),
-    planId: z.uuid(),
+    // Items from before Story 17.10 still name the plan they were added to; new ones belong to the household.
+    planId: z.uuid().nullable(),
     label: z
       .string()
       .refine((label) => label.trim() !== "" && labelLength(label) <= maxCustomLabelLength),
@@ -129,6 +129,9 @@ export type CustomItemRow = z.infer<typeof customItemRowSchema>;
 
 /** An own item as the list reads it: computeList's overlay.customItems. */
 export type CustomListItem = Pick<CustomItemRow, "id" | "label" | "ingredientId" | "amount" | "unit">;
+
+/** What addCustomItem stores: an own item without a plan (it belongs to the household, Story 17.10). */
+export type NewCustomItem = Omit<CustomItemRow, "planId"> & { planId?: string | null };
 
 /**
  * The form's own messages by field name (`label`, `amount`, `unit`), the

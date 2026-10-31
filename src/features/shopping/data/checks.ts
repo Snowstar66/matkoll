@@ -10,8 +10,8 @@ import { ShoppingDataError, type ShoppingDb } from "./client";
 
 const idSchema = z.uuid();
 
-function validate(planId: string, key?: string): void {
-  if (!idSchema.safeParse(planId).success) throw new ShoppingDataError("invalid_id");
+function validate(planId: string | null, key?: string): void {
+  if (planId !== null && !idSchema.safeParse(planId).success) throw new ShoppingDataError("invalid_id");
   if (key !== undefined && !lineKeySchema.safeParse(key).success) throw new ShoppingDataError("invalid_line_key");
 }
 
@@ -19,11 +19,8 @@ function validate(planId: string, key?: string): void {
  * The keys of the plan's checked lines, for the list's overlay; also checks
  * whose line is not on the list now. Throws ShoppingDataError.
  */
-export async function listChecksIn(db: ShoppingDb, planId: string): Promise<string[]> {
-  validate(planId);
-  const { data, error } = await db.from("shopping_check").select("line_key").eq("meal_plan_id", planId);
-  if (error) throw new ShoppingDataError(`list_checks_failed ${error.code}`, error.code);
-  return data.map((row) => row.line_key);
+export async function listChecksIn(db: ShoppingDb, planId: string | null): Promise<string[]> {
+  return (await listCheckRowsIn(db, planId)).map((row) => row.key);
 }
 
 /**
@@ -31,11 +28,29 @@ export async function listChecksIn(db: ShoppingDb, planId: string): Promise<stri
  * check's id is the idempotency key of the item it puts in the pantry, stable
  * until the check is cleared. Throws ShoppingDataError.
  */
-export async function listCheckRowsIn(db: ShoppingDb, planId: string): Promise<{ id: string; key: string }[]> {
+export async function listCheckRowsIn(db: ShoppingDb, planId: string | null): Promise<{ id: string; key: string }[]> {
   validate(planId);
-  const { data, error } = await db.from("shopping_check").select("id, line_key").eq("meal_plan_id", planId);
+  // An own item's check (`c:` key) belongs to the user, not to a plan (Story 17.10).
+  const { data, error } = await db
+    .from("shopping_check")
+    .select("id, line_key")
+    .or(planId === null ? "meal_plan_id.is.null" : `meal_plan_id.eq.${planId},meal_plan_id.is.null`);
   if (error) throw new ShoppingDataError(`list_checks_failed ${error.code}`, error.code);
   return data.map((row) => ({ id: row.id, key: row.line_key }));
+}
+
+/**
+ * The own items' checks with the time they were made, for hiding an item
+ * once the week it was checked in is past (Story 17.10). Keyed by `c:<id>`.
+ * Throws ShoppingDataError.
+ */
+export async function listOwnCheckTimesIn(db: ShoppingDb): Promise<Map<string, Date>> {
+  const { data, error } = await db
+    .from("shopping_check")
+    .select("line_key, created_at")
+    .is("meal_plan_id", null);
+  if (error) throw new ShoppingDataError(`list_checks_failed ${error.code}`, error.code);
+  return new Map(data.map((row) => [row.line_key, new Date(row.created_at)]));
 }
 
 /** The foreign key from a check to its meal plan; a violation means the plan is gone. */
@@ -51,12 +66,15 @@ const planForeignKey = "shopping_check_meal_plan_fkey";
  */
 export async function setCheckIn(
   db: ShoppingDb,
-  planId: string,
+  planId: string | null,
   key: string,
   checked: boolean,
 ): Promise<"saved" | "plan_changed"> {
   validate(planId, key);
-  const { error } = await db.rpc("set_shopping_check", { plan_id: planId, line_key: key, checked });
+  if (planId === null && !key.startsWith("c:")) throw new ShoppingDataError("invalid_id");
+  // An own item's key (`c:`) needs no plan: its check belongs to the user (Story 17.10). The
+  // generated type does not know that plan_id may be null there.
+  const { error } = await db.rpc("set_shopping_check", { plan_id: planId as string, line_key: key, checked });
   if (!error) return "saved";
   if (error.code === "55000" || (error.code === "23503" && error.message.includes(planForeignKey))) {
     return "plan_changed";

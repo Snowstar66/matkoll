@@ -60,7 +60,7 @@ const sources = (db: Db): ShoppingSources => ({
   ingredientNames: (ids) => loadIngredientNames(db, ids),
   ingredientDefaults: (ids) => loadIngredientDefaults(db, ids),
   checks: (planId) => listChecksIn(db, planId),
-  customItems: (planId) => listCustomItemsIn(db, planId),
+  customItems: () => listCustomItemsIn(db),
   overrides: (planId) => listOverridesIn(db, planId),
 });
 
@@ -463,7 +463,7 @@ describe("shopping_custom_item", () => {
     return data.id;
   }
 
-  const item = (planId: string, changes: Partial<Parameters<typeof addCustomItemIn>[1]> = {}) => ({
+  const item = (planId: string | null, changes: Partial<Parameters<typeof addCustomItemIn>[1]> = {}) => ({
     id: randomUUID(),
     planId,
     label: "diskmedel",
@@ -529,7 +529,7 @@ describe("shopping_custom_item", () => {
     ]) {
       expect(await addCustomItemIn(user.db, { ...disk, ...changed }), JSON.stringify(changed)).toBe("plan_changed");
     }
-    expect(await listCustomItemsIn(user.db, planId)).toEqual([
+    expect(await listCustomItemsIn(user.db)).toEqual([
       { id: disk.id, label: "diskmedel", ingredientId: null, amount: 2, unit: "förp" },
     ]);
     // 2 and 2.0 are the same amount.
@@ -602,50 +602,183 @@ describe("shopping_custom_item", () => {
     ]);
   });
 
-  it("writes nothing on a plan that is no longer the current one", async () => {
+  it("adds, changes and removes own items whichever plan is current (Story 17.10)", async () => {
     const user = await createTestUser("shopping-custom-switched");
     const planId = await addPlan(user.db);
     const disk = item(planId);
     await addCustomItemIn(user.db, disk);
     // Another tab: "Ny matsedel", while this list still shows the old plan.
     await setCurrentPlanIn(user.db, { id: randomUUID(), name: "Vecka 45" });
-    expect(await addCustomItemIn(user.db, item(planId))).toBe("plan_changed");
-    expect(await removeCustomItemIn(user.db, disk.id)).toBe("plan_changed");
+    // The old plan was empty, so the switch deleted it: an item still naming it is refused, one without a plan is not.
+    expect(await addCustomItemIn(user.db, item(planId, { label: "te" }))).toBe("plan_changed");
+    const added = item(null, { label: "kaffe" });
+    expect(await addCustomItemIn(user.db, added)).toEqual(added);
+    expect(await updateCustomItemIn(user.db, { ...added, label: "kaffe eko" })).toEqual({ ...added, label: "kaffe eko" });
+    expect(await removeCustomItemIn(user.db, disk.id)).toEqual({ row: { ...disk, planId: null } });
     expect(await countRows("shopping_custom_item", user.id)).toBe(1);
-    // A plan that is gone.
+    // A plan that is gone is refused.
     expect(await addCustomItemIn(user.db, item(randomUUID()))).toBe("plan_changed");
   });
 
-  it("keeps a current plan with only own items as an earlier plan, with its items, and copies none to the new plan", async () => {
+  it("stores an item without a plan: it is on the list of every week, also one without a plan, until it is checked off", async () => {
+    const user = await createTestUser("shopping-custom-household");
+    const thisWeek = await setCurrentPlanIn(user.db, { id: randomUUID(), name: "Vecka 44" });
+    const disk = item(null);
+    expect(await addCustomItemIn(user.db, disk)).toEqual(disk);
+    const stored = await user.db.from("shopping_custom_item").select("meal_plan_id").eq("id", disk.id).single();
+    expect(stored.data?.meal_plan_id).toBeNull();
+    // A retry adds nothing more, with or without the plan the older client sent.
+    expect(await addCustomItemIn(user.db, disk)).toEqual(disk);
+    expect(await addCustomItemIn(user.db, { ...disk, planId: thisWeek.id })).toEqual(disk);
+    expect(await countRows("shopping_custom_item", user.id)).toBe(1);
+
+    // This week's list, a coming week's, and a week without a plan show it.
+    const nextWeek = addWeeks(currentWeekStart(), 1);
+    expect((await loadShoppingList(sources(user.db))).lines.map((line) => line.key)).toEqual([`c:${disk.id}`]);
+    const later = await loadShoppingList({ ...sources(user.db), customItems: () => listCustomItemsIn(user.db, nextWeek) });
+    expect(later.lines.map((line) => line.key)).toEqual([`c:${disk.id}`]);
+    const noPlan = await loadShoppingList({
+      ...sources(user.db),
+      currentPlan: async () => null,
+      checks: () => listChecksIn(user.db, null),
+    });
+    expect(noPlan.plan).toBeNull();
+    expect(noPlan.lines.map((line) => [line.key, line.label, line.checked])).toEqual([[`c:${disk.id}`, "diskmedel", false]]);
+  });
+
+  it("keeps an item added in an earlier week, which a plan of its own never held, when the week's plan is replaced or deleted", async () => {
     const user = await createTestUser("shopping-custom-keep");
+    const first = await setCurrentPlanIn(user.db, { id: randomUUID(), name: "Vecka 44" });
+    const legacy = item(first.id);
+    const household = item(null, { label: "kaffe" });
+    await addCustomItemIn(user.db, legacy);
+    await addCustomItemIn(user.db, household);
+
+    // A plan without dishes is not kept for its own items any more: it is deleted on a switch,
+    // and the item with it loses only its plan.
+    const second = await setCurrentPlanIn(user.db, { id: randomUUID(), name: "Vecka 45" });
+    const plans = await user.db.from("meal_plan").select("id, is_current");
+    if (plans.error) throw plans.error;
+    expect(plans.data).toEqual([{ id: second.id, is_current: true }]);
+    expect((await listCustomItemsIn(user.db)).map((own) => own.id)).toEqual([legacy.id, household.id]);
+    expect((await loadShoppingList(sources(user.db))).lines.map((line) => line.label)).toEqual(["diskmedel", "kaffe"]);
+    const stored = await user.db.from("shopping_custom_item").select("id, meal_plan_id");
+    expect(stored.data?.map((row) => row.meal_plan_id)).toEqual([null, null]);
+  });
+
+  it("keeps the plan's own items when the plan is deleted", async () => {
+    const user = await createTestUser("shopping-custom-cascade");
+    const planId = await addPlan(user.db, false);
+    const disk = item(planId);
+    await addCustomItemIn(user.db, disk);
+    expect(await deletePlanIn(user.db, planId)).toBe(true);
+    expect(await countRows("shopping_custom_item", user.id)).toBe(1);
+    expect(await listCustomItemsIn(user.db)).toEqual([
+      { id: disk.id, label: "diskmedel", ingredientId: null, amount: null, unit: null },
+    ]);
+  });
+
+  it("checks an own item off without a plan: one check per user and item, whichever plan or none is named", async () => {
+    const user = await createTestUser("shopping-custom-check-plan-free");
+    const planId = await addPlan(user.db);
+    const disk = item(null);
+    await addCustomItemIn(user.db, disk);
+    const key = `c:${disk.id}`;
+    expect(await setCheckIn(user.db, null, key, true)).toBe("saved");
+    // Two devices, one on a plan that is not the current one any more.
+    expect(await setCheckIn(user.db, planId, key, true)).toBe("saved");
+    expect(await setCheckIn(user.db, randomUUID(), key, true)).toBe("saved");
+    expect(await countRows("shopping_check", user.id)).toBe(1);
+    const stored = await user.db.from("shopping_check").select("meal_plan_id").eq("line_key", key);
+    expect(stored.data).toEqual([{ meal_plan_id: null }]);
+    // Read with or without a plan, and as rows with ids for "Lägg i förrådet".
+    expect(await listChecksIn(user.db, null)).toEqual([key]);
+    expect(await listChecksIn(user.db, planId)).toEqual([key]);
+    expect((await listCheckRowsIn(user.db, null)).map((check) => check.key)).toEqual([key]);
+    expect((await loadShoppingList(sources(user.db))).lines.map((line) => [line.key, line.checked])).toEqual([[key, true]]);
+
+    expect(await setCheckIn(user.db, null, key, false)).toBe("saved");
+    expect(await countRows("shopping_check", user.id)).toBe(0);
+    // Nothing but an own item's check goes without a plan.
+    await expect(setCheckIn(user.db, null, "t:salt", true)).rejects.toThrow(ShoppingDataError);
+    const bare = await user.db.rpc("set_shopping_check", { plan_id: null as unknown as string, line_key: "t:salt", checked: true });
+    expect(bare.error?.code).toBe("22023");
+    const direct = await user.db.from("shopping_check").insert({ meal_plan_id: null, line_key: "t:salt" });
+    expect(direct.error?.code).toBe("23514");
+    const twice = await user.db.from("shopping_check").insert([
+      { meal_plan_id: null, line_key: key },
+      { meal_plan_id: null, line_key: key },
+    ]);
+    expect(twice.error?.code).toBe("23505");
+  });
+
+  it("hides an own item checked off in an earlier week from a later week's list, not an unchecked one", async () => {
+    const user = await createTestUser("shopping-custom-bought");
+    const bought = item(null, { label: "kaffe" });
+    const wanted = item(null, { label: "diskmedel" });
+    await addCustomItemIn(user.db, bought);
+    await addCustomItemIn(user.db, wanted);
+    await setCheckIn(user.db, null, `c:${bought.id}`, true);
+    const thisWeek = currentWeekStart();
+    const nextWeek = addWeeks(thisWeek, 1);
+    const labels = async (week: string) => (await listCustomItemsIn(user.db, week)).map((own) => own.label);
+
+    // Checked this week: still shown (checked), in this week's list. Next week it is bought and gone.
+    expect(await labels(thisWeek)).toEqual(["kaffe", "diskmedel"]);
+    expect(await labels(nextWeek)).toEqual(["diskmedel"]);
+
+    // Checked in an earlier week, as an item checked last week would be.
+    const lastWeek = new Date(Date.now() - 8 * 86_400_000).toISOString();
+    const aged = await adminClient()
+      .from("shopping_check")
+      .update({ created_at: lastWeek })
+      .eq("user_id", user.id)
+      .eq("line_key", `c:${bought.id}`);
+    if (aged.error) throw aged.error;
+    expect(await labels(thisWeek)).toEqual(["diskmedel"]);
+    expect((await loadShoppingList(sources(user.db))).lines.map((line) => line.label)).toEqual(["diskmedel"]);
+    // The week it was bought in still shows it.
+    expect(await labels(addWeeks(thisWeek, -1))).toEqual(["kaffe", "diskmedel"]);
+
+    // Taken back and checked again this week, it is on the list.
+    await setCheckIn(user.db, null, `c:${bought.id}`, false);
+    await setCheckIn(user.db, null, `c:${bought.id}`, true);
+    expect(await labels(thisWeek)).toEqual(["kaffe", "diskmedel"]);
+  });
+
+  it("an own item checked off in a later week than it was added in is bought there, with its check", async () => {
+    const user = await createTestUser("shopping-custom-later");
     const first = await setCurrentPlanIn(user.db, { id: randomUUID(), name: "Vecka 44" });
     const disk = item(first.id);
     await addCustomItemIn(user.db, disk);
-
+    // The list of a later week, with its own plan, shows the item; checking it needs no plan.
     const second = await setCurrentPlanIn(user.db, { id: randomUUID(), name: "Vecka 45" });
-    const { data, error } = await user.db.from("meal_plan").select("id, is_current").order("created_at");
-    if (error) throw error;
-    expect(data).toEqual([
-      { id: first.id, is_current: false },
-      { id: second.id, is_current: true },
+    expect(await setCheckIn(user.db, second.id, `c:${disk.id}`, true)).toBe("saved");
+    expect((await loadShoppingList(sources(user.db))).lines.map((line) => [line.key, line.checked])).toEqual([
+      [`c:${disk.id}`, true],
     ]);
-    expect((await listCustomItemsIn(user.db, first.id)).map((own) => own.id)).toEqual([disk.id]);
-    expect((await loadShoppingList(sources(user.db))).lines).toEqual([]);
-
-    // A current plan without dishes and own items is still deleted on a switch.
-    const third = await setCurrentPlanIn(user.db, { id: randomUUID(), name: "Vecka 46" });
-    const plans = await user.db.from("meal_plan").select("id");
-    if (plans.error) throw plans.error;
-    expect(plans.data.map((plan) => plan.id).sort()).toEqual([first.id, third.id].sort());
   });
 
-  it("deletes the plan's own items with the plan", async () => {
-    const user = await createTestUser("shopping-custom-cascade");
+  it("puts a checked own item of the household in the pantry and clears it, with its check, whichever week it came from", async () => {
+    const user = await createTestUser("shopping-custom-pantry");
+    const [kaffe] = await addIngredients(user.db, [{ name: "Kaffe", section: "Skafferi" }]);
     const planId = await addPlan(user.db);
-    await addCustomItemIn(user.db, item(planId));
-    await setCurrentPlanIn(user.db, { id: randomUUID(), name: "Vecka 45" });
-    expect(await deletePlanIn(user.db, planId)).toBe(true);
+    const coffee = item(null, { label: "Kaffe", ingredientId: kaffe });
+    const disk = item(null);
+    await addCustomItemIn(user.db, coffee);
+    await addCustomItemIn(user.db, disk);
+    await setCheckIn(user.db, null, `c:${coffee.id}`, true);
+    await setCheckIn(user.db, null, `c:${disk.id}`, true);
+    const all = sources(user.db);
+    const cleared = await clearPutInPantryIn(user.db, planId, {
+      checkIds: (await listCheckRowsIn(user.db, planId)).map((check) => check.id),
+      overrideKeys: [],
+      customItemIds: [coffee.id, disk.id],
+    });
+    expect(cleared).toBe(2);
     expect(await countRows("shopping_custom_item", user.id)).toBe(0);
+    expect(await countRows("shopping_check", user.id)).toBe(0);
+    expect((await loadShoppingList(all)).lines).toEqual([]);
   });
 
   it("refuses another user's plan or ingredient (the composite foreign keys), and refuses deleting a linked ingredient", async () => {
@@ -708,7 +841,7 @@ describe("shopping_custom_item", () => {
       .from("shopping_custom_item")
       .insert(UNITS.map((unit) => ({ meal_plan_id: planId, label: unit, amount: 1.5, unit })));
     expect(error).toBeNull();
-    expect((await listCustomItemsIn(user.db, planId)).map((own) => own.unit).sort()).toEqual([...UNITS].sort());
+    expect((await listCustomItemsIn(user.db)).map((own) => own.unit).sort()).toEqual([...UNITS].sort());
   });
 
   it("lets only a signed-in user run the functions", async () => {
@@ -901,7 +1034,7 @@ describe("shopping_line_override", () => {
     expect(await countRows("shopping_line_override", user.id)).toBe(0);
   });
 
-  it("changes an own item in place, keeping its id and check, only on the current plan", async () => {
+  it("changes an own item in place, keeping its id and check, whichever plan is current", async () => {
     const user = await createTestUser("shopping-custom-update");
     const [kaffe] = await addIngredients(user.db, [{ name: "Kaffe", section: "Skafferi" }]);
     const planId = await addPlan(user.db);
@@ -917,15 +1050,17 @@ describe("shopping_line_override", () => {
     ).toEqual([[`c:${disk.id}`, "Kaffe bryggmalet", "Skafferi", "Kaffe", true]]);
 
     expect(await updateCustomItemIn(user.db, { ...changed, id: randomUUID() })).toBe("not_found");
-    expect(await updateCustomItemIn(user.db, { ...changed, planId: randomUUID() })).toBe("plan_changed");
     const other = await createTestUser("shopping-custom-update-other");
     expect(await updateCustomItemIn(other.db, changed)).toBe("not_found");
     const otherKaffe = (await addIngredients(other.db, [{ name: "Kaffe", section: "Skafferi" }]))[0];
     await expect(updateCustomItemIn(user.db, { ...changed, ingredientId: otherKaffe })).rejects.toThrow(ShoppingDataError);
 
+    // Whichever plan is current, and without naming one.
     await setCurrentPlanIn(user.db, { id: randomUUID(), name: "Vecka 45" });
-    expect(await updateCustomItemIn(user.db, { ...changed, label: "te" })).toBe("plan_changed");
-    expect((await listCustomItemsIn(user.db, planId))[0].label).toBe("Kaffe bryggmalet");
+    // The plan it was added to is gone with the switch (an empty plan), and the item stays without it.
+    expect(await updateCustomItemIn(user.db, { ...changed, label: "te" })).toEqual({ ...changed, planId: null, label: "te" });
+    expect(await updateCustomItemIn(user.db, { ...changed, planId: null, label: "te eko" })).toMatchObject({ label: "te eko" });
+    expect((await listCustomItemsIn(user.db))[0].label).toBe("te eko");
   });
 
   it("lets only a signed-in user run the functions", async () => {

@@ -12,7 +12,7 @@ import { collapseLabel, customItemRowSchema, type CustomItemRow } from "../domai
  * "Ångra" after an own item was removed (FR-17, AD-20): puts the row that
  * removeCustomItem returned back with the same id, text, catalog ingredient,
  * amount and unit, so it comes back under the same section and with its
- * check, which stayed. Only onto the current plan (AD-22). "Ångra" twice puts
+ * check, which stayed. "Ångra" twice puts
  * it back once. The text is trimmed with single spaces, as the form saves
  * it. Revalidates the list (AD-18).
  *

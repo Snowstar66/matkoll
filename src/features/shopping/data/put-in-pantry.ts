@@ -66,7 +66,7 @@ export type PutInPantryDeps = {
   /** The list's sources, as getShoppingList has them; the checks come from `checkRows`. */
   sources: Omit<ShoppingSources, "checks">;
   /** The plan's checks with their ids (data/checks.ts, listCheckRowsIn). */
-  checkRows: (planId: string) => Promise<readonly CheckRow[]>;
+  checkRows: (planId: string | null) => Promise<readonly CheckRow[]>;
   /** pantry.findPantryAdditions: the keys among these the pantry has a receipt of. */
   findAdditions: (keys: readonly string[]) => Promise<readonly string[]>;
   /** pantry.addToPantry. */

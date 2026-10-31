@@ -50,7 +50,7 @@ test.beforeAll(async () => {
 async function seed() {
   const admin = adminClient();
   // The choices first: they keep the stores (on delete restrict).
-  for (const table of ["product_choice", "store", "meal_plan", "recipe"] as const) {
+  for (const table of ["product_choice", "store", "shopping_custom_item", "shopping_check", "meal_plan", "recipe"] as const) {
     const { error } = await admin.from(table).delete().eq("user_id", userId);
     if (error) throw error;
   }

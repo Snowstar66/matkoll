@@ -17,7 +17,8 @@ const restoreCustomItem = vi.fn<(row: CustomItemRow) => Promise<Result<CustomIte
 vi.mock("../actions/add-custom-item", () => ({ addCustomItem: (input: CustomItemFormInput) => addCustomItem(input) }));
 vi.mock("../actions/remove-custom-item", () => ({ removeCustomItem: (id: string) => removeCustomItem(id) }));
 vi.mock("../actions/restore-custom-item", () => ({ restoreCustomItem: (row: CustomItemRow) => restoreCustomItem(row) }));
-vi.mock("../actions/set-checked", () => ({ setChecked: vi.fn(async (change: unknown) => ok(change)) }));
+const setChecked = vi.fn(async (change: unknown) => ok(change));
+vi.mock("../actions/set-checked", () => ({ setChecked: (change: unknown) => setChecked(change) }));
 const refresh = vi.fn();
 vi.mock("next/navigation", () => ({ useRouter: () => ({ refresh }) }));
 
@@ -93,6 +94,19 @@ describe("Lägg till egen vara", () => {
     expect(screen.getByRole("button", { name: "Lägg till egen vara" })).toBeInTheDocument();
   });
 
+  it("shows the own items of a week without a plan, with the add button, and checks one off without a plan (Story 17.10)", async () => {
+    const user = userEvent.setup();
+    setChecked.mockClear();
+    render(<ShoppingList plan={null} lines={[disk]} pantryUnavailable={false} />);
+    expect(screen.getByText("diskmedel")).toBeInTheDocument();
+    expect(screen.queryByText(/inga rätter/i)).not.toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "Lägg till egen vara" })).toBeInTheDocument();
+    await user.click(screen.getByRole("checkbox", { name: /diskmedel/ }));
+    await waitFor(() => expect(setChecked).toHaveBeenCalledWith({ planId: null, key: `c:${diskId}`, checked: true }));
+    // The pantry flow is for a plan's list.
+    expect(screen.queryByRole("button", { name: /Lägg i förrådet/ })).not.toBeInTheDocument();
+  });
+
   it("asks for text, then adds the item with an id made once and closes the sheet", async () => {
     const user = userEvent.setup();
     render(<ShoppingList plan={plan} lines={[gradde]} pantryUnavailable={false} searchIngredients={searchIngredients} />);
@@ -111,7 +125,6 @@ describe("Lägg till egen vara", () => {
     await waitFor(() => expect(screen.queryByRole("dialog", { name: "Lägg till egen vara" })).not.toBeInTheDocument());
     expect(addCustomItem).toHaveBeenCalledWith({
       id: expect.stringMatching(/^[0-9a-f-]{36}$/),
-      planId,
       label: "diskmedel",
       ingredientId: null,
       amount: "",

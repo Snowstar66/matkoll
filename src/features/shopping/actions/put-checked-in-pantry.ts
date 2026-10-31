@@ -101,7 +101,7 @@ export async function putCheckedInPantry(input: PutInPantryInput): Promise<Resul
           pantry: () => getPantrySnapshot(place ?? undefined),
           ingredientNames: getIngredientNames,
           ingredientDefaults: getIngredientDefaults,
-          customItems: (id) => listCustomItemsIn(db, id),
+          customItems: () => listCustomItemsIn(db),
           overrides: (id) => listOverridesIn(db, id),
         },
         checkRows: (id) => listCheckRowsIn(db, id),

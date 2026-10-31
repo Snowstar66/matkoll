@@ -37,7 +37,7 @@ describe("addKeyedItems", () => {
     expect(rows).toHaveLength(4);
     expect(rows[0].id).toBe(rows[2].id);
     expect(rows[0].id).not.toBe(rows[1].id);
-    expect(rows[0]).toMatchObject({ planId, label: "Ost (Erbjudande: 89 kr/kg)", ingredientId: kaffe, amount: null, unit: null });
+    expect(rows[0]).toMatchObject({ planId: null, label: "Ost (Erbjudande: 89 kr/kg)", ingredientId: kaffe, amount: null, unit: null });
     expect(revalidateFor).toHaveBeenCalledWith("shopping_custom_item");
   });
 

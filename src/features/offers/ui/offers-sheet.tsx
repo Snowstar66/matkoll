@@ -56,15 +56,15 @@ export type OffersStore = {
 /**
  * Story 9.12: what picking offers for the shopping list needs. The page
  * reads the current plan and what is on its list (shopping) and passes the
- * action, so this module never imports shopping (AD-1). `null` without a
- * current plan: the rows then have no checkbox.
+ * action, so this module never imports shopping (AD-1). `planId` is not
+ * needed to add (own items belong to the household, Story 17.10).
  */
 export type OffersListing = {
-  planId: string;
+  planId: string | null;
   /** Ids of the offers already on the list. */
   onList: readonly string[];
   add: (input: {
-    planId: string;
+    planId?: string | null;
     items: { key: string; label: string; ingredientId: string | null }[];
   }) => Promise<Result<{ count: number }>>;
 };

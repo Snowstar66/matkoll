@@ -91,8 +91,6 @@ function isFormDirty(values: FormValues, initial: FormValues): boolean {
 export type CustomItemSheetProps = {
   open: boolean;
   onClose: () => void;
-  /** The plan the list is counted for; the item is added to it. */
-  planId: string;
   /** Searches the catalog for suggestions (catalog.searchIngredients, passed down from the page, AD-1). */
   searchIngredients: SearchIngredients;
   /**
@@ -128,7 +126,6 @@ export type CustomItemSheetProps = {
 export function CustomItemSheet({
   open,
   onClose,
-  planId,
   searchIngredients,
   session,
   item,
@@ -231,7 +228,6 @@ export function CustomItemSheet({
 
   const input: CustomItemFormInput = {
     ...(itemId ? { id: itemId } : {}),
-    planId,
     label: values.label,
     ingredientId: values.link?.id ?? null,
     amount: values.amount,

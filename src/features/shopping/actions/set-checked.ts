@@ -12,10 +12,12 @@ import { checkChangeSchema, type CheckChange } from "../domain/check";
  * The check on a list line (FR-16, AD-8): checks the line off on the current
  * meal plan, or takes the check off. Both are idempotent, so a second tap or
  * another device changes nothing more. The check shows at once
- * (useOptimistic) and is saved here. Checks belong to the current plan
- * (AD-22): `planId` is the plan the list was counted for, which the database
- * compares with the current plan under the meal plan lock
- * (set_shopping_check). Revalidates the list (AD-18).
+ * (useOptimistic) and is saved here. A recipe line's check belongs to the
+ * current plan (AD-22): `planId` is the plan the list was counted for, which
+ * the database compares with the current plan under the meal plan lock
+ * (set_shopping_check). An own item's check belongs to the user, not to a
+ * plan, so it is saved whichever week is shown, also one without a plan
+ * (Story 17.10). Revalidates the list (AD-18).
  *
  * Fails with `unauthorized`, `validation`, `shopping_plan_changed` (the plan
  * is no longer the current one, or is gone: the list must be read again) or
