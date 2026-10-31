@@ -104,7 +104,7 @@ const placeSlugs: Record<string, string> = { Kyl: "kyl", Frys: "frys", Skafferi:
 
 /**
  * Where a finished job's result is shown: the tab's route (EXPERIENCE.md,
- * Information Architecture). The result of a photo is shown in Lagersaldo on
+ * Information Architecture). The result of a photo is shown in Förråd on
  * the photo's location (`context.location`, Story 12.5).
  */
 export function resultHref(kind: AiJobKind, context: Readonly<Record<string, unknown>> = {}): string {

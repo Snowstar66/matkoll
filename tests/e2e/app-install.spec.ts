@@ -281,8 +281,6 @@ test.describe("Tillbaka on every page under a tab", () => {
   test("Inställningar and Tidigare matsedlar lead to the page above", async ({ page }) => {
     await page.goto("/installningar");
     await expect(page.getByRole("heading", { level: 1, name: "Inställningar" })).toBeVisible();
-    // Desktop Chrome: no steps for adding to a home screen.
-    await expect(page.getByTestId("home-screen-hint")).toHaveCount(0);
     await goBack(page);
     await expect(page).toHaveURL(/\/recept$/);
 
@@ -302,8 +300,8 @@ test.describe("Inställningar on an iPhone", () => {
 
   test("says how to put Matkoll on the home screen in Safari", async ({ page }) => {
     await recreateE2eUser(appInstallEmail);
-    await openMagicLink(page, await magicLinkPath(appInstallEmail, "/installningar"));
-    await expect(page).toHaveURL(/\/installningar$/);
-    await expect(page.getByText("Lägg Matkoll på hemskärmen: tryck Dela och sedan Lägg till på hemskärmen.")).toBeVisible();
+    await openMagicLink(page, await magicLinkPath(appInstallEmail, "/installningar/installera"));
+    await expect(page).toHaveURL(/\/installningar\/installera$/);
+    await expect(page.getByTestId("install-text")).toContainText("Tryck Dela i Safari och sedan Lägg till på hemskärmen.");
   });
 });

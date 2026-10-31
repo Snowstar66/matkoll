@@ -53,7 +53,7 @@ vi.mock("@/features/pantry/actions/confirm-pantry-suggestions", () => ({
 vi.mock("@/lib/ai-jobs-client", async () => (await import("../../../../tests/mocks/fake-ai-jobs")).fakeAiJobsModule);
 vi.mock("@/lib/downscale-image", () => ({ downscaleImage: async (file: Blob): Promise<Result<Blob>> => ok(file) }));
 
-/** The place Hemma shows (Story 8.2), one of two, so the page has the site switch and no "Lägg till ställe". */
+/** The place Hemma shows (Story 8.2), one of two, so the page has the site switch and no "Lägg till boende". */
 const site = { id: "55555555-5555-4555-8555-555555555555", name: "Hemma", siteCount: 2 };
 
 /** The list opens the sheet Lagervara and the camera keeps its suggestions, which the page provides. */
@@ -68,7 +68,7 @@ const render = (element: ReactElement) =>
     </ToastProvider>,
   );
 
-const unavailable = "Det gick inte att läsa lagret. Försök igen.";
+const unavailable = "Det gick inte att läsa förrådet. Försök igen.";
 const mjolk: PantryItem = { id: "1", siteId: site.id, ingredientId: "m", name: "Mjölk", location: "Kyl", amount: 1, unit: "l", label: null, createdAt: "2026-10-20T10:00:00+00:00", section: "Mejeri" };
 
 let logged: ReturnType<typeof vi.spyOn>;
@@ -164,11 +164,11 @@ describe("HomeContent", () => {
     vi.mocked(countPantryItems).mockRejectedValue(new PantryDataError("site_gone"));
     vi.mocked(listPantry).mockResolvedValue([]);
     render(await HomeContent({ site, location: "Kyl", next: "/hemma" }));
-    expect(screen.getByRole("alert")).toHaveTextContent("Stället finns inte längre. Välj ett annat ställe.");
+    expect(screen.getByRole("alert")).toHaveTextContent("Boendet finns inte längre. Välj ett annat boende.");
     expect(logged).toHaveBeenCalledWith("pantry_site_gone", { reason: "site_gone" });
   });
 
-  it("puts Lägg till ställe last, under Töm kylen, while there is only one place", async () => {
+  it("puts Lägg till boende last, under Töm kylen, while there is only one place", async () => {
     vi.mocked(countPantryItems).mockResolvedValue({ Kyl: 1, Frys: 0, Skafferi: 0 });
     vi.mocked(listPantry).mockResolvedValue([mjolk]);
     const only = { ...site, siteCount: 1 };
@@ -179,13 +179,13 @@ describe("HomeContent", () => {
         </SiteSwitch>
       </SiteSwitchProvider>,
     );
-    expect(screen.queryByRole("radiogroup", { name: "Ställe" })).toBeNull();
-    const add = await screen.findByRole("button", { name: "Lägg till ställe" });
+    expect(screen.queryByRole("radiogroup", { name: "Boende" })).toBeNull();
+    const add = await screen.findByRole("button", { name: "Lägg till boende" });
     const empty = screen.getByRole("button", { name: "Töm kylen" });
     expect(empty.compareDocumentPosition(add) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
   });
 
-  it("keeps Lägg till ställe with one place when the pantry cannot be read, so the sheet Ställen can be reached", async () => {
+  it("keeps Lägg till boende with one place when the pantry cannot be read, so the sheet Boenden can be reached", async () => {
     vi.mocked(countPantryItems).mockRejectedValue(new PantryDataError("query_failed 500"));
     vi.mocked(listPantry).mockResolvedValue([]);
     const only = { ...site, siteCount: 1 };
@@ -197,15 +197,15 @@ describe("HomeContent", () => {
       </SiteSwitchProvider>,
     );
     expect(screen.getByRole("alert")).toHaveTextContent(unavailable);
-    fireEvent.click(await screen.findByRole("button", { name: "Lägg till ställe" }));
-    expect(await screen.findByRole("dialog", { name: "Ställen" })).toBeInTheDocument();
+    fireEvent.click(await screen.findByRole("button", { name: "Lägg till boende" }));
+    expect(await screen.findByRole("dialog", { name: "Boenden" })).toBeInTheDocument();
   });
 
-  it("has no Lägg till ställe with two places", async () => {
+  it("has no Lägg till boende with two places", async () => {
     vi.mocked(countPantryItems).mockResolvedValue({ Kyl: 1, Frys: 0, Skafferi: 0 });
     vi.mocked(listPantry).mockResolvedValue([mjolk]);
     render(await HomeContent({ site, location: "Kyl", next: "/hemma" }));
-    expect(screen.queryByRole("button", { name: "Lägg till ställe" })).toBeNull();
+    expect(screen.queryByRole("button", { name: "Lägg till boende" })).toBeNull();
   });
 
   it("never waits for the photo sweep's check: the gate is rendered beside the list, in a boundary of its own (Story 10.3)", async () => {

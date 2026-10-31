@@ -3057,6 +3057,44 @@ Skiss: `_bmad-output/planning-artifacts/ux-designs/ux-Matkoll-2026-10-25/mockups
 **När** jag ser sidan
 **Så** finns ingen sidledes rullning, alla mål är minst 44 px, och skärmbilder i 390 och 1280 px (ljust och mörkt) är jämförda med skissen
 
+### Story 14.7: Inställningar som i telefonens egna appar, "Boenden" och "Förråd"
+
+Som Pontus,
+vill jag att Inställningar är en kort startsida med grupper och egna undersidor, och att "ställen" heter "boenden",
+så att det förblir enkelt och tydligt även när vi lägger till mer.
+
+Skiss: `_bmad-output/planning-artifacts/ux-designs/ux-Matkoll-2026-10-25/mockups/installningar.html` (godkänd av Pontus 2026-10-31). Orden "Boenden" (i stället för ställen) och "Förråd" (i stället för Lagersaldo) valda av Pontus samma dag. Byggs efter Story 17.5, vars AI-avsnitt flyttar till en egen undersida.
+
+**Acceptance Criteria:**
+
+**Givet** Inställningar
+**När** jag öppnar sidan
+**Så** är startsidan en grupperad lista (samma radstil som resten av appen) med rubrikerna Konto, Hushåll, Recept, AI och Appen och sist "Logga ut" i en egen grupp; varje rad har en ikonruta med emoji, en etikett, ett kort värde till höger (t.ex. "Hemma, Duved", "Maxi ICA Östersund", "4 sajter", "Claude Haiku · Medel") och › när den leder vidare; startsidan ryms på en telefonskärm
+
+**Givet** raderna
+**När** jag trycker på en
+**Så** öppnas en egen undersida med "‹ Inställningar" tillbaka: Konto (e-post, Byt lösenord via samma flöde som Story 17.2), Boenden (hanteringen som i dag finns under "Ställen"), Butiker (dagens butiksval och andra butiker, utan rå webbadress i texten), Receptsajter (lista med "Ta bort" och fält för att lägga till), Spara i Matkoll (guiden med ett segmenterat val Dator / iPhone / Android så att en guide syns åt gången), AI (från Story 17.5, med kostnaden från 17.6 när den finns), Installera appen och Om Matkoll; allt som går att göra i dag går att göra efteråt, och gamla ankarlänkar (t.ex. `/installningar#spara-i-matkoll`) leder till rätt undersida
+
+**Givet** AI-gruppen
+**När** någon annan än en adress i `AI_SETTINGS_EMAILS` öppnar Inställningar i molnet
+**Så** syns inte AI-gruppen (som i Story 17.5)
+
+**Givet** en dator (bred skärm)
+**När** jag öppnar Inställningar
+**Så** visas startsidan som vänsterkolumn och vald undersida bredvid
+
+**Givet** ordet "ställen"
+**När** det förekommer i appens text (Inställningar, Lagersaldo, inköpslistans "Lager: Hemma · Byt", ark och felmeddelanden)
+**Så** heter det i stället "boenden"/"boende" (t.ex. "Boende: Hemma · Byt", "Hantera boenden"); kod, tabeller och adresser behöver inte byta namn, men användartexten ska vara konsekvent
+
+**Givet** namnet "Lagersaldo"
+**När** det förekommer i appens text (fliken, sidomenyn, sidrubriken, sidans titel, hänvisningar som "Lägg i lagret"-bekräftelser och tomma lägen)
+**Så** heter sidan i stället "Förråd" med ikonen 📦 i menyn (i stället för 🧊, som krockar med Kyl); orden "lager"/"lagret" i löptext byts där det låter naturligt ("Lägg i förrådet"), och adressen `/hemma` behöver inte ändras
+
+**Givet** mörkt läge, 375 px och 200 % text
+**När** jag ser startsidan och undersidorna
+**Så** finns ingen sidledes rullning, alla mål är minst 44 px, och skärmbilder i 390 och 1280 px (ljust och mörkt) är jämförda med skissen
+
 ## Epic 15: Enklare lokalt
 
 Pontus vill slippa logga in när Matkoll körs på den egna Macen. Inloggningen finns kvar för den publicerade appen.

@@ -77,7 +77,7 @@ function Hemma({ initial }: { initial: PantrySiteWithCount[] }) {
   );
 }
 
-const pills = () => screen.queryByRole("radiogroup", { name: "Ställe" });
+const pills = () => screen.queryByRole("radiogroup", { name: "Boende" });
 const pill = (name: string) => within(pills()!).getByRole("radio", { name });
 const content = () => screen.getByTestId("site-content");
 const announcement = () => screen.getByTestId("site-announcement");
@@ -100,16 +100,16 @@ beforeEach(() => {
 });
 
 describe("SiteSwitch", () => {
-  it("shows no switch with one place, and Lägg till ställe opens the sheet Ställen", async () => {
+  it("shows no switch with one place, and Lägg till boende opens the sheet Boenden", async () => {
     const user = userEvent.setup();
     render(<Hemma initial={[hemma]} />);
     expect(pills()).toBeNull();
-    expect(screen.queryByRole("button", { name: "Ställen" })).toBeNull();
-    await user.click(screen.getByRole("button", { name: "Lägg till ställe" }));
-    expect(await screen.findByRole("dialog", { name: "Ställen" })).toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: "Boenden" })).toBeNull();
+    await user.click(screen.getByRole("button", { name: "Lägg till boende" }));
+    expect(await screen.findByRole("dialog", { name: "Boenden" })).toBeInTheDocument();
   });
 
-  it("shows the places as pills in the order given, the selected one checked, and Ställen last", () => {
+  it("shows the places as pills in the order given, the selected one checked, and Boenden last", () => {
     render(<Hemma initial={[hemma, stugan]} />);
     const radios = within(pills()!).getAllByRole("radio");
     expect(radios.map((radio) => radio.textContent)).toEqual(["Hemma", "Stugan"]);
@@ -117,7 +117,7 @@ describe("SiteSwitch", () => {
     expect(pill("Stugan")).toHaveAttribute("aria-checked", "false");
     const sites = screen.getByRole("button", { name: "Hantera boenden" });
     expect(radios[1].compareDocumentPosition(sites) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
-    expect(screen.queryByRole("button", { name: "Lägg till ställe" })).toBeNull();
+    expect(screen.queryByRole("button", { name: "Lägg till boende" })).toBeNull();
   });
 
   it("selects a place at once, keeps the page inert and + unavailable until it is saved, and announces it", async () => {
@@ -146,11 +146,11 @@ describe("SiteSwitch", () => {
     expect(content()).not.toHaveAttribute("aria-busy");
     expect(pill("Stugan")).toHaveAttribute("aria-checked", "true");
     expect(content()).toHaveTextContent("Platskorten för Stugan");
-    expect(announcement()).toHaveTextContent("Valt ställe: Stugan.");
+    expect(announcement()).toHaveTextContent("Valt boende: Stugan.");
     expect(screen.getByRole("button", { name: "Lägg till vara" })).toBeEnabled();
   });
 
-  it("keeps the pills and Ställen unavailable until hydration", () => {
+  it("keeps the pills and Boenden unavailable until hydration", () => {
     const html = renderToString(<Hemma initial={[hemma, stugan]} />);
     const container = document.createElement("div");
     container.innerHTML = html;
@@ -166,7 +166,7 @@ describe("SiteSwitch", () => {
     render(<Hemma initial={[hemma, stugan]} />);
 
     await user.click(pill("Stugan"));
-    expect(await screen.findByRole("alert")).toHaveTextContent("Det gick inte att spara stället. Försök igen.");
+    expect(await screen.findByRole("alert")).toHaveTextContent("Det gick inte att spara boendet. Försök igen.");
     await waitFor(() => expect(pill("Hemma")).toHaveAttribute("aria-checked", "true"));
     expect(content()).not.toHaveAttribute("inert");
     expect(announcement()).toHaveTextContent("");
@@ -178,7 +178,7 @@ describe("SiteSwitch", () => {
     selectPantrySite.mockRejectedValue(new Error("offline"));
     render(<Hemma initial={[hemma, stugan]} />);
     await user.click(pill("Stugan"));
-    expect(await screen.findByRole("alert")).toHaveTextContent("Det gick inte att spara stället. Försök igen.");
+    expect(await screen.findByRole("alert")).toHaveTextContent("Det gick inte att spara boendet. Försök igen.");
     await waitFor(() => expect(pill("Hemma")).toHaveAttribute("aria-checked", "true"));
   });
 
@@ -187,7 +187,7 @@ describe("SiteSwitch", () => {
     selectPantrySite.mockResolvedValue(fail("pantry_site_gone"));
     render(<Hemma initial={[hemma, stugan]} />);
     await user.click(pill("Stugan"));
-    expect(await screen.findByRole("alert")).toHaveTextContent("Stället finns inte längre. Välj ett annat ställe.");
+    expect(await screen.findByRole("alert")).toHaveTextContent("Boendet finns inte längre. Välj ett annat boende.");
     expect(refresh).toHaveBeenCalled();
   });
 
@@ -208,12 +208,12 @@ describe("SiteSwitch", () => {
     expect(screen.queryByRole("alert")).toBeNull();
     await act(async () => second.resolve(ok({ site: { id: hemma.id, name: "Hemma" } })));
     await waitFor(() => expect(content()).not.toHaveAttribute("inert"));
-    expect(announcement()).toHaveTextContent("Valt ställe: Hemma.");
+    expect(announcement()).toHaveTextContent("Valt boende: Hemma.");
     expect(pill("Hemma")).toHaveAttribute("aria-checked", "true");
     expect(screen.queryByRole("alert")).toBeNull();
   });
 
-  it("opens the sheet Ställen with Ställen, and closes it, dropping a name not saved, when Hemma is hidden", async () => {
+  it("opens the sheet Boenden with Boenden, and closes it, dropping a name not saved, when Hemma is hidden", async () => {
     const user = userEvent.setup();
     let setShown: (shown: boolean) => void = () => {};
     // A client navigation hides the page with Activity instead of unmounting it.
@@ -230,13 +230,13 @@ describe("SiteSwitch", () => {
     }
     render(<Page />);
     await user.click(screen.getByRole("button", { name: "Hantera boenden" }));
-    const sheet = await screen.findByRole("dialog", { name: "Ställen" });
-    await user.type(within(sheet).getByLabelText("Nytt ställe"), "Torpet");
+    const sheet = await screen.findByRole("dialog", { name: "Boenden" });
+    await user.type(within(sheet).getByLabelText("Nytt boende"), "Torpet");
 
     act(() => setShown(false));
     act(() => setShown(true));
-    expect(screen.queryByRole("dialog", { name: "Ställen" })).toBeNull();
+    expect(screen.queryByRole("dialog", { name: "Boenden" })).toBeNull();
     await user.click(screen.getByRole("button", { name: "Hantera boenden" }));
-    expect(within(await screen.findByRole("dialog", { name: "Ställen" })).getByLabelText("Nytt ställe")).toHaveValue("");
+    expect(within(await screen.findByRole("dialog", { name: "Boenden" })).getByLabelText("Nytt boende")).toHaveValue("");
   });
 });

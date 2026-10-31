@@ -19,11 +19,11 @@ export const mainDestinations: readonly Destination[] = [
   { href: "/recept", label: "Recept", emoji: "\u{1F4D6}", aiKinds: ["suggest", "import"] },
   // At 200 % zoom even "Matsedel" is wider than its tab, so it breaks too.
   { href: "/matsedel", label: "Matsedel", labelParts: ["Mat", "sedel"], emoji: "\u{1F4C5}" },
-  // Story 10.4: "Inköpslista" (was "Lista") and "Lagersaldo" (was "Hemma",
+  // Story 10.4: "Inköpslista" (was "Lista") and "Förråd" (was "Hemma",
   // the name of the first place too). The routes stay, so bookmarks work.
   // Story 11.1: Story 14.4: the sketch's emoji replace the line icons.
   { href: "/lista", label: "Inköpslista", labelParts: ["Inköps", "lista"], emoji: "\u{1F6D2}" },
-  { href: "/hemma", label: "Lagersaldo", labelParts: ["Lager", "saldo"], emoji: "\u{1F9CA}", aiKinds: ["analyze"] },
+  { href: "/hemma", label: "Förråd", emoji: "\u{1F4E6}", aiKinds: ["analyze"] },
 ];
 
 /** Settings: the gear in the Recept header on mobile, the bottom of the side menu on desktop. */

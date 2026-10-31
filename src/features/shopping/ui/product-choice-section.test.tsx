@@ -96,7 +96,7 @@ describe("ProductChoiceSection", () => {
   it("points to Inställningar without a selected store", () => {
     render(<ProductChoiceSection line={recipeLine} context={context({ store: null })} onOpen={vi.fn()} />);
     expect(section()).toHaveTextContent("Välj en butik i inställningarna för att spara produktval.");
-    expect(screen.getByRole("link", { name: "Öppna inställningar" })).toHaveAttribute("href", "/installningar");
+    expect(screen.getByRole("link", { name: "Öppna inställningar" })).toHaveAttribute("href", "/installningar/butiker");
     expect(screen.queryByRole("button")).not.toBeInTheDocument();
   });
 

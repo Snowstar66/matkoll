@@ -124,7 +124,7 @@ function watchErrors(page: Page): string[] {
 const camera = (page: Page) => page.getByTestId("pantry-camera").filter({ visible: true });
 const section = (page: Page) => page.getByTestId("pantry-suggestions").filter({ visible: true });
 const pill = (page: Page, name: string) =>
-  page.getByRole("radiogroup", { name: "Ställe" }).filter({ visible: true }).getByRole("radio", { name, exact: true });
+  page.getByRole("radiogroup", { name: "Boende" }).filter({ visible: true }).getByRole("radio", { name, exact: true });
 const toast = (page: Page) => page.getByTestId("toast");
 
 async function openHemma(page: Page) {
@@ -135,7 +135,7 @@ async function openHemma(page: Page) {
 /** Selects a place with its pill and waits until the page shows it. */
 async function choose(page: Page, name: "Hemma" | "Stugan") {
   await pill(page, name).click();
-  await expect(page.getByTestId("site-announcement").filter({ visible: true })).toHaveText(`Valt ställe: ${name}.`);
+  await expect(page.getByTestId("site-announcement").filter({ visible: true })).toHaveText(`Valt boende: ${name}.`);
   await expect(page.getByTestId("site-content")).not.toHaveAttribute("aria-busy");
 }
 

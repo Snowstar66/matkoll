@@ -476,7 +476,7 @@ describe("after review: Ångra is robust", () => {
       { ...good, id: randomUUID(), ingredient_id: smor, created_at: "igår" },
       { ...good, id: randomUUID(), ingredient_id: smor, location: "Frys", amount: "många" },
       { ...good, id: randomUUID(), ingredient_id: smor, location: "Skafferi", created_at: "infinity" },
-      { ...good, site_id: "inte-ett-ställe" },
+      { ...good, site_id: "inte-ett-boende" },
       good,
     ]);
     const restored = await restorePantryRemovalIn(user.db, operation);

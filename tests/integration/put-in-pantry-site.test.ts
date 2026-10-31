@@ -19,7 +19,7 @@ import { loadShoppingList } from "@/features/shopping/data/queries";
 import { localSupabaseUrl } from "../local-supabase";
 import { adminClient, countRows, createTestUser, deleteTestUsers, type Db, type TestUser } from "./support";
 
-// "Lägg i lagret" on a place (Story 8.3, FR-19, FR-33, AD-8, AD-24) against
+// "Lägg i förrådet" on a place (Story 8.3, FR-19, FR-33, AD-8, AD-24) against
 // local Supabase: the list is counted against the list's place and the items
 // go there, also when another place is selected meanwhile; the receipts are
 // per user, so a second run never adds an item twice, also with another
@@ -195,7 +195,7 @@ describe("getPantryForStatus", () => {
   });
 });
 
-describe("Lägg i lagret on a place", () => {
+describe("Lägg i förrådet on a place", () => {
   it("counts the list against the list's place and puts the items there, at the catalog's location", async () => {
     const { user, hemma, stugan, ketchup, planId, ketchupKey } = await scenario("put-site-stugan");
     const hemmaBefore = await onSite(user.id, hemma);

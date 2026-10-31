@@ -122,7 +122,7 @@ test("confirm, correct, reject and Bekräfta alla save only what Pontus confirme
   // Five cards, each with its three buttons, and Bekräfta alla; smör matches the fridge and is only counted.
   // Story 6.5: the title is the label on the package; the buttons keep the catalog name.
   await expect(cardNames(page)).toHaveText(cardTitles(["Vispgrädde 3 dl", "Gurka", "Ketchup", "Ägg", "Mellanmjölk 1,5 %"]));
-  await expect(section(page).getByText("1 vara stämmer med lagret.")).toBeVisible();
+  await expect(section(page).getByText("1 vara stämmer med förrådet.")).toBeVisible();
   await expect(cards(page).filter({ hasText: "Mjölk" }).getByText("nu: 2 förp → bilden: 1 förp")).toBeVisible();
   // Story 10.4: new catalog names start with a capital; mjölk is seeded as it was before.
   for (const name of ["Grädde", "Gurka", "Ketchup", "Ägg", "Mjölk"]) {
@@ -205,7 +205,7 @@ test("a confirmation that gets no answer keeps the suggestions with a notice, an
   // The Server Action's request fails, as without a connection.
   await page.route("**/hemma**", (route) => (route.request().method() === "POST" ? route.abort() : route.continue()));
   await section(page).getByRole("button", { name: "Bekräfta alla" }).click();
-  await expect(section(page).getByRole("alert")).toHaveText("Det gick inte att lägga förslagen i lagret. Försök igen.");
+  await expect(section(page).getByRole("alert")).toHaveText("Det gick inte att lägga förslagen i förrådet. Försök igen.");
   await expect(cards(page)).toHaveCount(6);
   await expect(section(page).getByRole("button", { name: "Bekräfta alla" })).toBeEnabled();
   expect(await saved()).toEqual(before);
@@ -214,7 +214,7 @@ test("a confirmation that gets no answer keeps the suggestions with a notice, an
   await section(page).getByRole("button", { name: "Avvisa Grädde" }).click();
   await section(page).getByRole("button", { name: "Avvisa Ketchup" }).click();
   await section(page).getByRole("button", { name: "Bekräfta alla" }).click();
-  await expect(toast(page)).toHaveText("Lagt 4 varor i lagret.");
+  await expect(toast(page)).toHaveText("Lagt 4 varor i förrådet.");
   await expect(section(page)).toHaveCount(0);
   await expect(skafferiCard(page)).toHaveText(/^\S*Skafferi\s*4 varor(\s?Förslag klara)?$/);
   const after = await saved();

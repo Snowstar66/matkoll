@@ -269,7 +269,7 @@ test("another store selected in Inställningar has no choice, and Maxi ICA's com
   await seedChoice("Grädde", maxi, { product_name: arla, package_size: "5 dl" });
   const errors = watchErrors(page);
 
-  await page.goto("/installningar");
+  await page.goto("/installningar/butiker");
   await page.getByRole("main").getByRole("button", { name: `Välj ${willys}` }).click();
   await expect(toast(page)).toHaveText(`${willys} är vald.`);
   await page.goto("/lista");
@@ -279,7 +279,7 @@ test("another store selected in Inställningar has no choice, and Maxi ICA's com
   // The choice for Maxi ICA is still there.
   expect((await storedChoices()).map((row) => row.store_id)).toEqual([stores.get(maxi)]);
 
-  await page.goto("/installningar");
+  await page.goto("/installningar/butiker");
   await page.getByRole("main").getByRole("button", { name: `Välj ${maxi}` }).click();
   await expect(toast(page)).toHaveText(`${maxi} är vald.`);
   await page.goto("/lista");

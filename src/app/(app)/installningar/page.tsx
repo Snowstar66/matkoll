@@ -1,60 +1,7 @@
-import type { Metadata } from "next";
-import { Suspense } from "react";
-import { PageHeader } from "@/components/app-shell/page-header";
-import { Notice } from "@/components/notice";
-import { Skeleton } from "@/components/skeleton";
-import { requireUserOrRedirect } from "@/features/auth/server";
-import { SignOutButton } from "@/features/auth/ui/sign-out-button";
-import { listRecipeSites, SettingsDataError } from "@/features/settings/server";
-import { HomeScreenHint } from "@/features/settings/ui/home-screen-hint";
-import { RecipeSites } from "@/features/settings/ui/recipe-sites";
-import { SaveToMatkoll } from "@/features/settings/ui/save-to-matkoll";
-import { errorMessages } from "@/lib/errors";
-import { AiContent } from "./ai-content";
-import { StoreContent } from "./store-content";
+import { StartRedirect } from "./start-redirect";
 
-export const metadata: Metadata = { title: "Inställningar" };
-
-// Inställningar (FR7, FR-28, UX-DR16): the approved recipe sites, the store
-// under them, how to put Matkoll on the home screen (Story 11.6, only in the
-// browser), the section AI (Story 17.5, only for those it is shown to) and "Logga ut" at the bottom. The sites and the stores are read
-// inside a <Suspense> each (AD-18), so a failure in one shows only in its own
-// section; "Logga ut" sits outside both, so it works even when neither can be
-// read.
-export default function SettingsPage() {
-  return (
-    <>
-      <PageHeader title="Inställningar" backHref="/recept" />
-      <div className="flex flex-1 flex-col gap-10">
-        <Suspense fallback={<Skeleton rows={3} />}>
-          <SettingsContent />
-        </Suspense>
-        <Suspense fallback={<Skeleton rows={2} />}>
-          <StoreContent />
-        </Suspense>
-        <Suspense fallback={null}>
-          <AiContent />
-        </Suspense>
-        <SaveToMatkoll />
-        <div className="mt-auto flex flex-col gap-6">
-          <HomeScreenHint />
-          <SignOutButton />
-          <p className="text-center text-meta text-ink-3">Matkoll · av Snowstar</p>
-        </div>
-      </div>
-    </>
-  );
-}
-
-async function SettingsContent() {
-  await requireUserOrRedirect("/installningar");
-  let sites: string[];
-  try {
-    sites = await listRecipeSites();
-  } catch (error) {
-    if (!(error instanceof SettingsDataError)) throw error;
-    console.error("settings_unavailable", { reason: error.detail });
-    return <Notice role="alert">{errorMessages.settings_unavailable}</Notice>;
-  }
-  return <RecipeSites sites={sites} />;
+// The start page itself is the menu in layout.tsx. Here: the right-hand column
+// on a desktop before a row is chosen, and the redirect for the old anchors.
+export default function SettingsStartPage() {
+  return <StartRedirect />;
 }

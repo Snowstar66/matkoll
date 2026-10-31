@@ -124,7 +124,7 @@ export type MealPlanListProps = {
   /** The whole pantry for the status, or `null` when it could not be read: no status then. */
   snapshot: PantrySnapshot | null;
   /**
-   * "Lager: Stugan" (pantry.siteLineText), the place the status is counted
+   * "Boende: Stugan" (pantry.siteLineText), the place the status is counted
    * against, shown first while a shown dish has a status; `null` with one
    * place or without a status.
    */
@@ -744,7 +744,7 @@ function DishRow({
                 </Button>
               </div>
               <p id={`cooked-note-${dish.id}`} className="text-meta text-ink-2">
-                Om du tar bort markeringen ändras inte lagret.
+                Om du tar bort markeringen ändras inte förrådet.
               </p>
             </div>
           ) : recipe ? (

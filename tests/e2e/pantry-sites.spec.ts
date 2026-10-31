@@ -119,13 +119,13 @@ function watchErrors(page: Page): string[] {
 
 // Earlier routes stay mounted but hidden after a client navigation, so every
 // locator is scoped to what is visible.
-const pills = (page: Page) => page.getByRole("radiogroup", { name: "Ställe" }).filter({ visible: true });
+const pills = (page: Page) => page.getByRole("radiogroup", { name: "Boende" }).filter({ visible: true });
 const pill = (page: Page, name: string) => pills(page).getByRole("radio", { name, exact: true });
 const sitesButton = (page: Page) => page.getByRole("button", { name: "Hantera boenden", exact: true }).filter({ visible: true });
-const addSiteButton = (page: Page) => page.getByRole("button", { name: "Lägg till ställe" }).filter({ visible: true });
-const sheet = (page: Page) => page.getByRole("dialog", { name: "Ställen" });
+const addSiteButton = (page: Page) => page.getByRole("button", { name: "Lägg till boende" }).filter({ visible: true });
+const sheet = (page: Page) => page.getByRole("dialog", { name: "Boenden" });
 const sheetStatus = (page: Page) => sheet(page).getByTestId("sites-status");
-const newField = (page: Page) => sheet(page).getByLabel("Nytt ställe");
+const newField = (page: Page) => sheet(page).getByLabel("Nytt boende");
 const addButton = (page: Page) => sheet(page).getByRole("button", { name: "Lägg till", exact: true });
 const places = (page: Page) => page.getByRole("navigation", { name: "Platser" }).filter({ visible: true });
 const card = (page: Page, name: "Kyl" | "Frys" | "Skafferi") => places(page).getByRole("link", { name: new RegExp(`^${name}`) });
@@ -134,10 +134,10 @@ const announcement = (page: Page) => page.getByTestId("site-announcement").filte
 const toast = (page: Page) => page.getByTestId("toast");
 const itemSheet = (page: Page) => page.getByRole("dialog", { name: "Lagervara" });
 
-/** Hemma, once React runs: the switch's text button (or "Lägg till ställe" with one place) is enabled. */
+/** Hemma, once React runs: the switch's text button (or "Lägg till boende" with one place) is enabled. */
 async function openHemma(page: Page, path = "/hemma") {
   await page.goto(path);
-  await expect(page.getByRole("heading", { level: 1, name: "Lagersaldo" })).toBeVisible();
+  await expect(page.getByRole("heading", { level: 1, name: "Förråd" })).toBeVisible();
   const ready = (await storedPlaces()).length > 1 ? sitesButton(page) : addSiteButton(page);
   await expect(ready).toBeEnabled();
 }
@@ -145,7 +145,7 @@ async function openHemma(page: Page, path = "/hemma") {
 /** Selects a place with its pill and waits until the page shows it. */
 async function choose(page: Page, name: string) {
   await pill(page, name).click();
-  await expect(announcement(page)).toHaveText(`Valt ställe: ${name}.`);
+  await expect(announcement(page)).toHaveText(`Valt boende: ${name}.`);
   await expect(page.getByTestId("site-content")).not.toHaveAttribute("aria-busy");
 }
 
@@ -172,7 +172,7 @@ test.beforeAll(async () => {
   userId = await e2eUserId(sitesEmail);
 });
 
-test("with one place there is no switch, and Lägg till ställe is at the bottom, under Töm kylen", async ({ page }) => {
+test("with one place there is no switch, and Lägg till boende is at the bottom, under Töm kylen", async ({ page }) => {
   const errors = watchErrors(page);
   await resetPlaces(["Hemma"], "Hemma", [{ site: "Hemma", name: "Mjölk", location: "Kyl", amount: 1, unit: "l" }]);
   await openHemma(page);
@@ -187,7 +187,7 @@ test("with one place there is no switch, and Lägg till ställe is at the bottom
   expect(errors).toEqual([]);
 });
 
-test("Lägg till ställe adds Stugan, not selected, and Hemma shows the pills and Ställen", async ({ page }) => {
+test("Lägg till boende adds Stugan, not selected, and Hemma shows the pills and Boenden", async ({ page }) => {
   const errors = watchErrors(page);
   await resetPlaces(["Hemma"]);
   await openHemma(page);
@@ -197,7 +197,7 @@ test("Lägg till ställe adds Stugan, not selected, and Hemma shows the pills an
   await expect(newField(page)).toHaveAttribute("placeholder", "Till exempel Stugan");
   await newField(page).fill("Stugan");
   await addButton(page).click();
-  await expect(sheetStatus(page)).toHaveText("Lade till Stugan. Välj det för att se och fylla dess lager.");
+  await expect(sheetStatus(page)).toHaveText("Lade till Stugan. Välj det för att se och fylla dess förråd.");
   await expect(newField(page)).toHaveValue("");
   expect((await storedPlaces()).map((site) => [site.name, site.is_selected])).toEqual([
     ["Hemma", true],
@@ -213,7 +213,7 @@ test("Lägg till ställe adds Stugan, not selected, and Hemma shows the pills an
   await expect(pill(page, "Stugan")).toHaveAttribute("aria-checked", "false");
   await expect(sitesButton(page)).toBeVisible();
   await expect(addSiteButton(page)).toHaveCount(0);
-  await expect(page.getByRole("heading", { level: 1 })).toHaveText("Lagersaldo");
+  await expect(page.getByRole("heading", { level: 1 })).toHaveText("Förråd");
   for (const target of [pill(page, "Hemma"), pill(page, "Stugan"), sitesButton(page)]) await expectTapSize(target);
   await noHorizontalScroll(page);
   expect(errors).toEqual([]);
@@ -227,12 +227,12 @@ test("the field says why a name cannot be saved: taken, empty, too long, and the
 
   await newField(page).fill(" STUGAN ");
   await addButton(page).click();
-  await expect(sheet(page).getByText("Det finns redan ett ställe som heter Stugan.")).toBeVisible();
+  await expect(sheet(page).getByText("Det finns redan ett boende som heter Stugan.")).toBeVisible();
   await expect(newField(page)).toHaveAttribute("aria-invalid", "true");
 
   await newField(page).fill("   ");
   await addButton(page).click();
-  await expect(sheet(page).getByText("Ange ett namn på stället.")).toBeVisible();
+  await expect(sheet(page).getByText("Ange ett namn på boendet.")).toBeVisible();
 
   await newField(page).fill("a".repeat(41));
   await addButton(page).click();
@@ -240,12 +240,12 @@ test("the field says why a name cannot be saved: taken, empty, too long, and the
   expect(await storedPlaces()).toHaveLength(2);
 
   // Nine places besides Hemma: ten in all.
-  await resetPlaces(["Hemma", ...Array.from({ length: 9 }, (_, index) => `Ställe ${index + 2}`)]);
+  await resetPlaces(["Hemma", ...Array.from({ length: 9 }, (_, index) => `Boende ${index + 2}`)]);
   await openHemma(page);
   await sitesButton(page).click();
   await expect(newField(page)).toBeDisabled();
   await expect(addButton(page)).toBeDisabled();
-  await expect(sheet(page).getByText("Du kan ha högst 10 ställen.")).toBeVisible();
+  await expect(sheet(page).getByText("Du kan ha högst 10 boenden.")).toBeVisible();
   // Ten pills wrap, never scroll sideways.
   await sheet(page).getByRole("button", { name: "Klar" }).click();
   await expect(pills(page).getByRole("radio")).toHaveCount(10);
@@ -266,7 +266,7 @@ test("a tap on Stugan selects it, keeps Frys chosen, says so, and shows its empt
   for (const name of ["Kyl", "Frys", "Skafferi"] as const) await expect(card(page, name)).toHaveText(new RegExp(`^\\S*${name}\\s*0 varor$`));
   await expect(page.getByText("Inget i frysen än.").filter({ visible: true })).toBeVisible();
   await expect(page.getByRole("button", { name: "Fotografera frysen" }).filter({ visible: true })).toBeVisible();
-  await expect(page.getByRole("heading", { level: 1 })).toHaveText("Lagersaldo");
+  await expect(page.getByRole("heading", { level: 1 })).toHaveText("Förråd");
   expect(await selectedPlace()).toBe("Stugan");
   expect(errors).toEqual([]);
 });
@@ -378,7 +378,7 @@ test("the sheet renames a place and removes an empty one, and offers Ta bort onl
   await sheet(page).getByRole("button", { name: "Byt namn på Stugan" }).click();
   await sheet(page).getByLabel("Namn", { exact: true }).fill("Vinterstugan");
   await sheet(page).getByRole("button", { name: "Spara" }).click();
-  await expect(sheetStatus(page)).toHaveText("Stället heter nu Vinterstugan.");
+  await expect(sheetStatus(page)).toHaveText("Boendet heter nu Vinterstugan.");
   await expect(pill(page, "Vinterstugan")).toHaveCount(1);
   expect((await storedPlaces()).map((site) => site.name)).toEqual(["Hemma", "Vinterstugan", "Torpet"]);
 
@@ -424,7 +424,7 @@ test("the page waits while a switch is on its way: + and the list are unavailabl
   await expect(content).toHaveAttribute("aria-busy", "true");
 
   release();
-  await expect(announcement(page)).toHaveText("Valt ställe: Stugan.");
+  await expect(announcement(page)).toHaveText("Valt boende: Stugan.");
   await expect(content).not.toHaveAttribute("aria-busy");
   await expect(plus).toBeEnabled();
   expect(await selectedPlace()).toBe("Stugan");

@@ -4,7 +4,7 @@ import { useEffect } from "react";
 import { warmAi, type WarmAiKind } from "@/lib/ai-client";
 
 /**
- * Wakes the model when the page is shown (Story 12.2, FR-45): Lagersaldo
+ * Wakes the model when the page is shown (Story 12.2, FR-45): Förråd
  * renders this with `image` and Recept with `text`, outside their Suspense
  * boundaries, so it never waits for the page's data. The effect runs each
  * time the page is shown, also when React's Activity shows a hidden page

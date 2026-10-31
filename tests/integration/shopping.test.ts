@@ -49,7 +49,7 @@ import { adminClient, anonClient, countRows, createTestUser, deleteTestUsers, ex
 // lines (Story 3.6, shopping_line_override) are, and beside the list the
 // product choices per catalog ingredient and store (Story 7.2,
 // product_choice). NFR7: 10 dishes against 200
-// pantry items within a second. "Lägg i lagret" (Story 3.7) runs the whole
+// pantry items within a second. "Lägg i förrådet" (Story 3.7) runs the whole
 // flow against the real tables: pantry.addToPantry, then clear_put_in_pantry.
 
 /** The modules' read functions with the test user's client, as the server entries give them. */
@@ -1046,7 +1046,7 @@ describe("shopping_line_override", () => {
   });
 });
 
-describe("Lägg i lagret", () => {
+describe("Lägg i förrådet", () => {
   /** The flow's dependencies with the test user's client, as putCheckedInPantry gives them. */
   const flow = (user: TestUser, change: Partial<PutInPantryDeps> = {}): PutInPantryDeps => {
     const all = sources(user.db);

@@ -106,7 +106,7 @@ describe("TrashButton", () => {
 function Page({ dairy, meat }: { dairy: string[]; meat: string[] }) {
   return (
     <main>
-      <h1>Lagersaldo</h1>
+      <h1>Förråd</h1>
       {(
         [
           ["mejeri", "Mejeri & ägg", dairy],
@@ -150,7 +150,7 @@ describe("focusAfterRemoval", () => {
     focusAfterRemoval(bin("Mjölk"));
     rerender(
       <main>
-        <h1>Lagersaldo</h1>
+        <h1>Förråd</h1>
         <CategoryHeader id="mejeri" category="Mejeri & ägg" count={0} />
       </main>,
     );
@@ -162,7 +162,7 @@ describe("focusAfterRemoval", () => {
     const { rerender } = render(<Page dairy={["Mjölk"]} meat={[]} />);
     focusAfterRemoval(bin("Mjölk"));
     rerender(<Page dairy={[]} meat={[]} />);
-    await waitFor(() => expect(screen.getByRole("heading", { level: 1, name: "Lagersaldo" })).toHaveFocus());
+    await waitFor(() => expect(screen.getByRole("heading", { level: 1, name: "Förråd" })).toHaveFocus());
   });
 
   it("does nothing without an element", () => {

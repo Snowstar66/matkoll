@@ -518,9 +518,9 @@ export function changeSpokenText(
   return `I ${definite[location]} nu: ${stockText(current)}. På bilden: ${photoAmountText(suggestion)}.`;
 }
 
-/** Under the heading, for the suggestions that match the place: "1 vara stämmer med lagret." or "2 varor stämmer med lagret." */
+/** Under the heading, for the suggestions that match the place: "1 vara stämmer med förrådet." or "2 varor stämmer med förrådet." */
 export function unchangedCountText(count: number): string {
-  return `${count} ${count === 1 ? "vara stämmer" : "varor stämmer"} med lagret.`;
+  return `${count} ${count === 1 ? "vara stämmer" : "varor stämmer"} med förrådet.`;
 }
 
 /** In the camera area when every suggestion matches the place and nothing is missing: "Allt i kylen stämmer med bilden." */
@@ -531,23 +531,23 @@ export function allUnchangedText(location: Location): string {
 /** Under "Syns inte längre" when some of the AI's items could not be read, so a missing item may just not be understood. */
 export const incompleteComparisonText = "Några varor på bilden gick inte att tolka. Kontrollera innan du tar bort.";
 
-/** Under the heading when the place could not be read: "Det gick inte att jämföra med lagret i kylen." */
+/** Under the heading when the place could not be read: "Det gick inte att jämföra med förrådet i kylen." */
 export function unreadPlaceText(location: Location): string {
-  return `Det gick inte att jämföra med lagret i ${definite[location]}.`;
+  return `Det gick inte att jämföra med förrådet i ${definite[location]}.`;
 }
 
-/** Under the heading when the place was emptied and put back since the photo: "Lagret i kylen har ändrats sedan bilden togs." */
+/** Under the heading when the place was emptied and put back since the photo: "Förrådet i kylen har ändrats sedan bilden togs." */
 export function changedPlaceText(location: Location): string {
-  return `Lagret i ${definite[location]} har ändrats sedan bilden togs.`;
+  return `Förrådet i ${definite[location]} har ändrats sedan bilden togs.`;
 }
 
 /**
  * In the camera area when what the photo shows matches the place, but the
- * comparison is incomplete: "Det som syns på bilden stämmer med lagret i
+ * comparison is incomplete: "Det som syns på bilden stämmer med förrådet i
  * kylen, men några varor gick inte att tolka."
  */
 export function partlyUnchangedText(location: Location): string {
-  return `Det som syns på bilden stämmer med lagret i ${definite[location]}, men några varor gick inte att tolka.`;
+  return `Det som syns på bilden stämmer med förrådet i ${definite[location]}, men några varor gick inte att tolka.`;
 }
 
 /** After "Bekräfta alla" when some changes did not fit in one call: "1 ändring är kvar att bekräfta." */
@@ -961,7 +961,7 @@ export function withoutPlace(result: AnalyzeResult, siteId: string, location: Lo
 /**
  * After "Ångra" for an emptied location: the photographed location has items
  * again, but not the ones the photo was compared with, so its comparison is
- * `unread` with `changed` ("Lagret i kylen har ändrats sedan bilden togs."),
+ * `unread` with `changed` ("Förrådet i kylen har ändrats sedan bilden togs."),
  * and the suggestions stay a plain list. Story 8.4: only for the photo's
  * place (`siteId`).
  */

@@ -15,7 +15,7 @@ import {
 
 // What Hemma's parts share about the place switch (Story 8.2), kept apart
 // from the switch itself (site-switch.tsx), so the sheet Lagervara, the
-// removals and "Lägg till ställe" need neither the switch nor its actions.
+// removals and "Lägg till boende" need neither the switch nor its actions.
 //
 // SiteSwitchProvider sits above the part of Hemma that is keyed on the
 // selected place (page: the suggestions, the sheet Lagervara and the
@@ -56,7 +56,7 @@ const SiteSwitchContext = createContext<SiteSwitchApi | null>(null);
 /**
  * Holds the place switch for Hemma, above the header (so "+" waits too, see
  * useSiteSwitching) and above the part keyed on the place. Renders the live
- * region for "Valt ställe: Stugan.".
+ * region for "Valt boende: Stugan.".
  */
 export function SiteSwitchProvider({ children }: { children: ReactNode }) {
   const [switching, startSwitch] = useTransition();
@@ -135,7 +135,7 @@ export function useLiveUndo(): Pick<SiteSwitchApi, "liveUndoSites" | "holdUndo">
 
 export const SitesSheetContext = createContext<(() => void) | null>(null);
 
-/** Opens the sheet Ställen; needs a SiteSwitch above. */
+/** Opens the sheet Boenden; needs a SiteSwitch above. */
 export function useOpenSitesSheet(): () => void {
   const open = useContext(SitesSheetContext);
   if (!open) throw new Error("useOpenSitesSheet needs a SiteSwitch");

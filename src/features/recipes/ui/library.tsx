@@ -46,7 +46,7 @@ import { useFavorites } from "./use-favorites";
 // a request, and has AI-förslag at the bottom (AiSuggestions). Their state is
 // held here, so the suggestions stay while the pills change. With more than
 // one place, Kan lagas nu says which place the status is counted against
-// ("Lager: Stugan", AD-24), under the pills, so the pill tapped never moves.
+// ("Boende: Stugan", AD-24), under the pills, so the pill tapped never moves.
 // Under them are the category chips (Story 1.17), and the line with the count,
 // the sort and the switch between cards and the compact list (Story 1.16); the
 // view, sort and category are kept on the device like the pill. They work
@@ -61,7 +61,7 @@ const filterOptions: readonly FilterOption<RecipeFilter>[] = [
 ];
 
 /** Shown over the rows in Kan lagas nu when the pantry could not be read. */
-const notRankedMessage = "Det gick inte att läsa lagret, så recepten är inte rangordnade.";
+const notRankedMessage = "Det gick inte att läsa förrådet, så recepten är inte rangordnade.";
 
 /** The most characters searchRecipes takes (recipeSearchSchema). */
 const maxSearchChars = 100;
@@ -84,12 +84,12 @@ export type LibraryProps = {
   pantryUnavailable: boolean;
   /**
    * The place the status of `recipes` was counted against (listLibrary), for
-   * the line "Lager: Stugan" in Kan lagas nu; `null` without a status.
+   * the line "Boende: Stugan" in Kan lagas nu; `null` without a status.
    */
   site: SelectedSite | null;
   /** The catalog search for the preview of an AI suggestion; the page passes it (AD-1). */
   searchIngredients: SearchIngredients;
-  /** The names of Pontus's places by id, for "Förslagen bygger på lagret för Hemma." (Story 12.4). */
+  /** The names of Pontus's places by id, for "Förslagen bygger på förrådet för Hemma." (Story 12.4). */
   siteNames?: Readonly<Record<string, string>>;
   /** mealplan.addToCurrentPlan from the page (AD-1), for "Lägg på matsedeln" on suggestions from offers (Story 9.5). */
   addToPlan?: AddToPlan;
@@ -196,7 +196,7 @@ export function Library({ recipes, pantryUnavailable, site, searchIngredients, s
   // status while the pantry was read is ranked last, without the notice.
   const statusUnavailable = pantryUnavailable && (search.kind !== "done" || search.pantryUnavailable);
   const notRanked = cookable && statusUnavailable && search.kind !== "failed" && visible.length > 0;
-  // "Lager: Stugan", only in Kan lagas nu and with more than one place: the
+  // "Boende: Stugan", only in Kan lagas nu and with more than one place: the
   // search answer's place while its recipes are shown, else the server
   // list's. Never on no hits, a failed search, or without a status.
   let siteLine: string | null = null;

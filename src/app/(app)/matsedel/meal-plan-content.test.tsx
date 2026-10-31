@@ -106,7 +106,7 @@ describe("MealPlanContent", () => {
     });
     vi.mocked(listRecipes).mockResolvedValue([]);
     render(<ToastProvider>{await MealPlanContent()}</ToastProvider>);
-    const siteLine = screen.getByText("Lager: Stugan");
+    const siteLine = screen.getByText("Boende: Stugan");
     expect(siteLine).toHaveClass("text-meta", "text-ink-2");
     expect(siteLine.closest("[aria-live], [role=status], [role=alert]")).toBeNull();
     // Right under the title, before the plan's name.
@@ -128,7 +128,7 @@ describe("MealPlanContent", () => {
     });
     render(<ToastProvider>{await MealPlanContent()}</ToastProvider>);
     expect(screen.getAllByTestId("plan-dish")).toHaveLength(2);
-    expect(screen.queryByText(/^Lager:/)).not.toBeInTheDocument();
+    expect(screen.queryByText(/^Boende:/)).not.toBeInTheDocument();
   });
 
   it("has no line with one place, or without dishes", async () => {
@@ -140,11 +140,11 @@ describe("MealPlanContent", () => {
       site: { ...stugan, name: "Hemma", siteCount: 1 },
     });
     const { unmount } = render(<ToastProvider>{await MealPlanContent()}</ToastProvider>);
-    expect(screen.queryByText(/^Lager:/)).not.toBeInTheDocument();
+    expect(screen.queryByText(/^Boende:/)).not.toBeInTheDocument();
     unmount();
     vi.mocked(getMealPlanView).mockResolvedValue({ plan: null, dishes: [], snapshot: toSnapshot([]), site: stugan });
     render(<ToastProvider>{await MealPlanContent()}</ToastProvider>);
     expect(screen.getByText("Ingen rätt på matsedeln än.")).toBeInTheDocument();
-    expect(screen.queryByText(/^Lager:/)).not.toBeInTheDocument();
+    expect(screen.queryByText(/^Boende:/)).not.toBeInTheDocument();
   });
 });

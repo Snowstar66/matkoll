@@ -173,7 +173,7 @@ describe("OffersSheet", () => {
     render({ stores: [{ ...store, offersUrl: null, siteName: null }] });
     const { dialog } = await open();
     expect(within(dialog).getByText("Lägg in länken till butikens erbjudanden under Butik i Inställningar.")).toBeInTheDocument();
-    expect(within(dialog).getByRole("link", { name: "Öppna inställningar" })).toHaveAttribute("href", "/installningar");
+    expect(within(dialog).getByRole("link", { name: "Öppna inställningar" })).toHaveAttribute("href", "/installningar/butiker");
     expect(within(dialog).queryByRole("button", { name: /Hämta/ })).not.toBeInTheDocument();
   });
 

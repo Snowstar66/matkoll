@@ -63,7 +63,7 @@ export async function listRecipes(options?: ListOptions): Promise<RecipeListItem
 /**
  * The library for the Recept page: listRecipes' rows, whether the pantry
  * could not be read, so Kan lagas nu can say why it does not rank them, and
- * the place the status was counted against, for the line "Lager: Stugan"
+ * the place the status was counted against, for the line "Boende: Stugan"
  * (AD-24). For pages, after requireUserOrRedirect, inside <Suspense>
  * (AD-18). Throws RecipeDataError.
  */
@@ -81,7 +81,7 @@ export async function listLibrary(): Promise<RecipeLibrary> {
  * `snapshot` is `null` when the pantry cannot be read (logged as
  * `pantry_unavailable`), and then `site` is `null` too: the recipe is shown
  * without status and without the line. `site` is the place the pantry is of
- * (pantry.getPantryForStatus), for "Lager: Stugan" under "X av Y hemma"
+ * (pantry.getPantryForStatus), for "Boende: Stugan" under "X av Y hemma"
  * (AD-24). `null` for a
  * recipe getRecipe does not find. Throws RecipeDataError.
  */

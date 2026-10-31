@@ -20,12 +20,12 @@ export const aiProviderLabels: Record<AiProviderChoice, string> = {
 };
 
 /** USD per million tokens, from Anthropic's price list (2026-10). */
-export type ClaudeModel = { id: string; label: string; usdPerMTokIn: number; usdPerMTokOut: number };
+export type ClaudeModel = { id: string; label: string; note: string; usdPerMTokIn: number; usdPerMTokOut: number };
 
 export const claudeModels = [
-  { id: "claude-haiku-5-5", label: "Haiku 5.5", usdPerMTokIn: 0.1, usdPerMTokOut: 0.5 },
-  { id: "claude-sonnet-5-5", label: "Sonnet 5.5", usdPerMTokIn: 2, usdPerMTokOut: 10 },
-  { id: "claude-opus-5-5", label: "Opus 5.5", usdPerMTokIn: 4, usdPerMTokOut: 20 },
+  { id: "claude-haiku-5-5", note: "Snabb", label: "Haiku 5.5", usdPerMTokIn: 0.1, usdPerMTokOut: 0.5 },
+  { id: "claude-sonnet-5-5", note: "Bättre", label: "Sonnet 5.5", usdPerMTokIn: 2, usdPerMTokOut: 10 },
+  { id: "claude-opus-5-5", note: "Bäst", label: "Opus 5.5", usdPerMTokIn: 4, usdPerMTokOut: 20 },
 ] as const satisfies readonly ClaudeModel[];
 
 export type ClaudeModelId = (typeof claudeModels)[number]["id"];

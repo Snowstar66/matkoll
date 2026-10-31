@@ -37,7 +37,7 @@ describe("MagicView", () => {
     stubMotion(false);
     vi.useFakeTimers({ toFake: ["Date", "setInterval", "clearInterval"] });
     render(<MagicView jobs={[job()]} />);
-    expect(screen.getByTestId("magic-status")).toHaveTextContent("Läser ditt lager");
+    expect(screen.getByTestId("magic-status")).toHaveTextContent("Läser ditt förråd");
     expect(screen.getByTestId("magic-status")).toHaveAttribute("aria-hidden", "true");
     expect(screen.getByText("AI arbetar med rättförslag.")).toHaveAttribute("aria-live", "polite");
     act(() => void vi.advanceTimersByTime(3000));

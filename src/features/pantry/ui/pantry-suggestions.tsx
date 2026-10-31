@@ -532,7 +532,7 @@ function usePantryReview(analysis: PantryAnalysis): PantryReview {
    * which later removals in the same place join while it shows. "Ångra"
    * tapped while a confirmation is being saved waits for its answer. Story
    * 8.4: the place is held while the confirmation shows, and until "Ångra"
-   * has answered (useLiveUndo), so the sheet Ställen offers no "Ta bort" for
+   * has answered (useLiveUndo), so the sheet Boenden offers no "Ta bort" for
    * the place the rows would go back to.
    */
   function showRemovals(next: RemovalBatch, text: string, undoLabel?: string) {

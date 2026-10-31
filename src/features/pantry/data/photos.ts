@@ -328,7 +328,7 @@ export async function setPlacePhotoPointsIn(db: PantryDb, id: string, points: re
   });
 }
 
-// Visa senaste fotot (Story 10.2, AD-26): Lagersaldo reads the rows of a place's
+// Visa senaste fotot (Story 10.2, AD-26): Förråd reads the rows of a place's
 // photos, never the files; the Route Handler GET /api/pantry/photo/[id]
 // reads one row and its file; "Ta bort fotot" deletes the row and then the
 // file. A photo taken before placePhotoCutoff is never read: it is as good
@@ -336,7 +336,7 @@ export async function setPlacePhotoPointsIn(db: PantryDb, id: string, points: re
 
 /**
  * The user's photos of the place `siteId` taken within the last 30 days at
- * `now` (at most one per location), as Lagersaldo shows them. A row that does not
+ * `now` (at most one per location), as Förråd shows them. A row that does not
  * pass placePhotoRowSchema is left out and logged as `pantry_photos_unavailable`
  * (reason `invalid_row`, never the row). Throws PantryDataError
  * `query_failed <code>` or `query_threw`.
