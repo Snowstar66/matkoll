@@ -89,7 +89,7 @@ test("sign in, import a recipe, plan it, check a line off and put it in the pant
   await expect(chicken.getByRole("checkbox")).toBeChecked();
   await expect(page.getByTestId("list-progress").filter({ visible: true })).toContainText(`1 av ${count} i korgen`);
   await page.getByRole("button", { name: "Lägg till i Matvaror", exact: true }).filter({ visible: true }).click();
-  await expect(toast(page)).toHaveText("Lagt 1 vara i Matvaror.");
+  await expect(toast(page)).toContainText("Lagt 1 vara i kyl.");
   await expect(chicken).toHaveCount(0);
   await expect(lines(page)).toHaveCount(count - 1);
 

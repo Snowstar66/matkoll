@@ -3532,6 +3532,98 @@ Beslut 2026-10-31 (Pontus): "Ny matsedel" och "Använd igen" är rester från ti
 **Givet** att inga databasfunktioner ändras
 **Så** är ingen migrering med och inget försvinner ur listan
 
+### Story 16.17: Tydligare lagervarublad
+
+Som Pontus,
+vill jag att bladet för en lagervara visar varan som rubrik och gör det vanligaste (ändra mängden) enklast,
+så att jag inte blir vimsig och vet vad jag kan göra.
+
+Beslut 2026-10-31 (Pontus): "tycker uppdateringen inte är klockren. Jag blir lite vimsig". Mockupförslaget godkänt ("vi kör på ditt mockupförslag"), med ändringen att Plats är en lugn rad vid ändring ("jag tror inte det är den uppdatering man vill göra"). Dämpad röd för Ta bort godkänd (ny token `--danger`, undantag från "ingen röd"). Mockup: `_bmad-output/planning-artifacts/ux-designs/ux-Matkoll-2026-10-25/mockups/lagervara-blad.html` ("Idag" är skärmdumpar, "Nytt" och punktlistorna är specen).
+
+**Acceptance Criteria:**
+
+**Givet** en lagervara i Matvaror
+**När** jag öppnar den
+**Så** är varans namn bladets rubrik med Avbryt till höger, och under den står en liten länk "Fel vara? Byt vara"; ingen separat rubrik "Lagervara" syns
+
+**Givet** "Byt vara"
+**När** jag trycker
+**Så** ersätts bladets innehåll av "‹ Tillbaka" och "Byt vara" med sökfältet i fokus, utan ett andra Avbryt; Tillbaka går till varan utan att något ändras
+
+**Givet** mängden
+**När** jag ändrar den
+**Så** finns − och + bredvid siffran (steg 1 för st, 0,5 för kg och l, 100 för g och ml), siffran går fortfarande att skriva, − är inaktiv vid 0 eller tom, och tom mängd betyder som förut att jag inte räknar
+
+**Givet** en vara jag ändrar
+**När** jag ser platsen
+**Så** står en lugn rad "Ligger i Kyl · Flytta ›" som fäller ut Kyl, Frys och Skafferi som en tydlig väljare där alla val ser tryckbara ut och det valda har en bock
+
+**Givet** en ny vara (Lägg till vara)
+**När** bladet visas
+**Så** syns väljaren för plats direkt, förvald som idag, rubriken är "Lägg till vara" i sökläget och knappen heter "Lägg till vara"; Ta bort finns inte
+
+**Givet** "Märke eller sort"
+**När** jag ser fältet
+**Så** står det "(valfritt)" efter etiketten
+
+**Givet** Ta bort
+**När** jag ser den
+**Så** står den sist under en linje, i dämpad röd med papperskorg, och fungerar som idag (varan tas bort och "Ångra" visas i 5 s)
+
+**Givet** ett lagerförslag som rättas
+**När** bladet visas
+**Så** följer det samma upplägg, med "Bekräfta" och ett grått "Avvisa" under linjen
+
+**Givet** mörkt läge, 375 px och 200 % text
+**När** jag använder bladet
+**Så** finns ingen sidledes rullning och alla tryckytor är minst 44 px
+
+### Story 16.18: Packa upp kassarna
+
+Som Pontus,
+vill jag efter att ha handlat kunna se var varorna hamnade och flytta enstaka varor med ett tryck,
+så att kyl-, frys- och skafferivarorna står rätt medan matkassarna står på diskbänken.
+
+Beslut 2026-10-31 (Pontus): "När man handlat och kommer hem med matkassarna så ska varorna sorteras i kyl, frys, skafferi." Byggd utan förhandsgodkännande av mockupen (Pontus: bygg allt i natt); han ser mockupen på morgonen. Hänger ihop med "Lägg i lagret?" som Pontus vill testa först. Inga databasändringar: en flytt är en vanlig lagerändring. Mockup: `_bmad-output/planning-artifacts/ux-designs/ux-Matkoll-2026-10-25/mockups/packa-upp.html` ("Idag" är en skärmdump, "Nytt" och punktlistorna är specen).
+
+**Acceptance Criteria:**
+
+**Givet** markerade rader i Inköpslistan
+**När** jag trycker "Lägg till i Matvaror"
+**Så** läggs varorna i Matvaror med ett tryck, var och en på sin vanliga plats (kyl, frys eller skafferi efter varans standard), precis som idag
+
+**Givet** att varor lades i Matvaror
+**När** bekräftelsen visas
+**Så** säger den var de hamnade, till exempel "Lagt 8 varor: 5 i kyl, 2 i skafferi, 1 i frys.", med platserna med flest varor först (lika många: kyl, frys, skafferi), utan platser som saknar varor, "vara" för en och "varor" för flera, "Lagt 3 varor i kyl." när allt hamnade på samma plats och "för Stugan" efter antalet när jag har flera Boenden
+
+**Givet** bekräftelsen
+**När** jag ser den
+**Så** finns knappen "Ändra" i den (44 px tryckyta, samma plats som "Ångra" och "Visa") och bekräftelsen står kvar i 8 s; en körning som bara tog bort egna varor utan koppling, eller som inte lade något i Matvaror, har ingen "Ändra"
+
+**Givet** "Ändra"
+**När** jag trycker
+**Så** öppnas bladet "Packa upp" med "Klar" till höger (inget kan gå förlorat, varje flytt sparas direkt), raden "Tryck på rätt plats för varje vara." och en rad per vara som lades i Matvaror: namnet, mängden som köptes och väljaren Kyl, Frys, Skafferi (hög segmenterad väljare med bock, som i Lagervara-bladet) med den plats varan fick vald
+
+**Givet** bladet "Packa upp"
+**När** jag trycker på en annan plats för en vara
+**Så** flyttas varan dit direkt med det ena trycket, utan sparaknapp och utan eget blad per vara; raderna byter aldrig ordning, och det som redan var rätt rörs inte
+
+**Givet** en vara som redan låg i Matvaror
+**När** jag flyttar det jag just köpte
+**Så** flyttas bara den köpta mängden (resten blir kvar där den låg), och finns varan redan på den nya platsen läggs mängden till där
+
+**Givet** en flytt som misslyckas
+**När** svaret kommer
+**Så** hoppar valet tillbaka till den gamla platsen och en blå ruta säger "Det gick inte att flytta varan."; varan ligger kvar där den låg
+
+**Givet** att jag stänger bekräftelsen eller bladet
+**När** jag senare vill ändra en plats
+**Så** gör jag det som förut i Matvaror (Lagervara-bladet, Flytta)
+
+**Givet** mörkt läge, 375 px och 200 % text
+**När** jag använder bekräftelsen och bladet
+**Så** finns ingen sidledes rullning, långa namn bryts på flera rader, platsvalen delar radens bredd och alla tryckytor är minst 44 px
+
 ## Epic 17: Molnet och gemensam lista
 
 Version 2.0. Familjen planerar och handlar ihop i Matkoll med en delad inloggning per hushåll, och upp till fem vänhushåll kan betatesta med egna konton utan att någon data blandas. Matkoll ersätter To Do som inköpslista. Allt byggs och testas lokalt först; flytten till Vercel och Supabase i molnet (17.3, 17.4) görs först när Pontus säger till. Underlag: `sprint-change-proposal-2026-10-31-molnet-och-gemensam-lista.md`.

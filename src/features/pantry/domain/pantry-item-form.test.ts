@@ -1,6 +1,7 @@
 import { describe, expect, it } from "vitest";
 import {
   amountErrorMessage,
+  amountStep,
   amountTooLargeMessage,
   blankLabelCodePoints,
   formFieldErrors,
@@ -10,6 +11,7 @@ import {
   nameTooLongMessage,
   parseAmountField,
   parseLabelField,
+  stepAmountField,
   pantryItemFormSchema,
   pantryItemSetSchema,
   pantryLabelSchema,
@@ -384,5 +386,42 @@ describe("the label and time on a set item and a row", () => {
     const row = { ...item, id: rowId, label: "Arla", createdAt: "2026-10-20T08:15:00.123456+00:00" };
     expect(pantryRowSchema.parse(row)).toEqual(row);
     expect(pantryRowSchema.safeParse({ ...row, createdAt: "igår" }).success).toBe(false);
+  });
+});
+
+describe("amountStep (Story 16.17)", () => {
+  it("is 1 for pieces and most units, 0,5 for kg and l, 100 for g and ml", () => {
+    expect(amountStep("st")).toBe(1);
+    expect(amountStep("")).toBe(1);
+    expect(amountStep("dl")).toBe(1);
+    expect(amountStep("kg")).toBe(0.5);
+    expect(amountStep("l")).toBe(0.5);
+    expect(amountStep("g")).toBe(100);
+    expect(amountStep("ml")).toBe(100);
+  });
+});
+
+describe("stepAmountField (Story 16.17)", () => {
+  it("gives the first step from an empty field with +, and has no − there", () => {
+    expect(stepAmountField("", "st", 1)).toBe("1");
+    expect(stepAmountField("  ", "kg", 1)).toBe("0,5");
+    expect(stepAmountField("", "g", 1)).toBe("100");
+    expect(stepAmountField("", "st", -1)).toBeNull();
+  });
+
+  it("moves by the unit's step and writes a decimal comma", () => {
+    expect(stepAmountField("1", "st", 1)).toBe("2");
+    expect(stepAmountField("1,5", "kg", 1)).toBe("2");
+    expect(stepAmountField("2", "l", -1)).toBe("1,5");
+    expect(stepAmountField("250", "g", 1)).toBe("350");
+    expect(stepAmountField("0,1", "dl", 1)).toBe("1,1");
+  });
+
+  it("has no − that would reach 0 or below, and nothing for text that is not an amount", () => {
+    expect(stepAmountField("1", "st", -1)).toBeNull();
+    expect(stepAmountField("0,5", "kg", -1)).toBeNull();
+    expect(stepAmountField("0", "st", 1)).toBeNull();
+    expect(stepAmountField("abc", "st", 1)).toBeNull();
+    expect(stepAmountField("999999,5", "kg", 1)).toBeNull();
   });
 });

@@ -1,4 +1,4 @@
-import type { Unit } from "@/features/catalog";
+import type { Location, Unit } from "@/features/catalog";
 import { addToPantryItemSchema } from "@/features/pantry";
 import type { ShoppingLine } from "./compute-list";
 import { parseLineKey } from "./line-key";
@@ -20,6 +20,12 @@ export type PantryAddition = {
   amount: number | null;
   unit: Unit | null;
 };
+
+/**
+ * Story 16.18: an item as it was put in the pantry, for "Packa upp kassarna": what was bought, its
+ * name for the row, and the place it went to (the catalog ingredient's).
+ */
+export type PlacedItem = PantryAddition & { name: string; location: Location };
 
 /** The largest amount the pantry keeps (pantry_item_amount_max_check: below 1 000 000). */
 export const maxPantryAddition = 999_999.999;
