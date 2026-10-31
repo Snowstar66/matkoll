@@ -74,7 +74,7 @@ describe("the chat", () => {
     await userEvent.click(screen.getByRole("button", { name: "Skicka" }));
     expect(askChat).not.toHaveBeenCalled();
     await ask("Hammare?");
-    expect(screen.getByText("Tänker …")).toBeInTheDocument();
+    expect(screen.getByTestId("ai-working")).toBeInTheDocument();
     await ask("Tång?");
     expect(askChat).toHaveBeenCalledTimes(1);
     finish(ok({ answer: "Ja.", refs: [] }));
