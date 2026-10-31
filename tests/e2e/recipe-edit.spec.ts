@@ -234,7 +234,7 @@ test("Story 13.2: the soptunna on the recipe page asks, then deletes; the librar
   await page.goto("/recept");
   await expect(page.getByRole("link", { name: fromLibrary })).toBeVisible();
   await expect(page.getByRole("button", { name: `Ta bort ${fromLibrary}` })).toHaveCount(0);
-  await page.getByRole("button", { name: "Kompakt vy" }).click();
+  await page.getByRole("radio", { name: "Lista" }).click();
   await expect(page.getByRole("link", { name: fromLibrary })).toBeVisible();
   await expect(page.getByRole("button", { name: `Ta bort ${fromLibrary}` })).toHaveCount(0);
   expect(errors).toEqual([]);

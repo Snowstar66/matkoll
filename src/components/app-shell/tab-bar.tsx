@@ -5,6 +5,7 @@ import { usePathname } from "next/navigation";
 import { Fragment, type ReactNode, Suspense } from "react";
 import { cx } from "../cx";
 import { currentState, type Destination, mainDestinations } from "./destinations";
+import { NavEmoji } from "./nav-emoji";
 import { badgeName, TabBadge, useAiBadgeCount } from "./tab-badge";
 
 /**
@@ -26,7 +27,7 @@ function CurrentTabBar({ jobRow }: { jobRow?: ReactNode }) {
 }
 
 function TabLink({ destination, pathname }: { destination: Destination; pathname: string | null }) {
-  const { href, label, labelParts, Icon } = destination;
+  const { href, label, labelParts, emoji } = destination;
   const current = currentState(pathname, href);
   // Story 12.4: finished AI results that Pontus has not seen, never on the tab he is on.
   const badge = useAiBadgeCount(destination, current !== undefined);
@@ -44,7 +45,7 @@ function TabLink({ destination, pathname }: { destination: Destination; pathname
     >
       {/* A div and a badge that is no span: the label stays the first span of the link. */}
       <div className="relative">
-        <Icon size={24} />
+        <NavEmoji emoji={emoji} current={current !== undefined} size={22} />
         <TabBadge count={badge} />
       </div>
       {/* Story 10.4: a long label breaks between its parts, never inside a word, when the tab is narrow. */}

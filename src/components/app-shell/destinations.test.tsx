@@ -1,6 +1,5 @@
 import { render, screen, within } from "@testing-library/react";
 import { beforeEach, describe, expect, it, vi } from "vitest";
-import { CartIcon, FridgeIcon, MealPlanIcon, RecipesIcon } from "../icons";
 import { currentState, mainDestinations } from "./destinations";
 import { SideMenu } from "./side-menu";
 import { TabBar } from "./tab-bar";
@@ -8,16 +7,16 @@ import { TabBar } from "./tab-bar";
 const pathname = vi.hoisted(() => ({ current: "/lista" }));
 vi.mock("next/navigation", () => ({ usePathname: () => pathname.current }));
 
-// Emoji and other pictographs; the tab bar and side menu use line icons only (Story 11.1).
+// Emoji and other pictographs: labels carry none; the emoji sit in their own hidden span.
 const pictograph = /\p{Extended_Pictographic}/u;
 
 describe("mainDestinations", () => {
-  it("has the four surfaces with their names (Story 10.4) and line icons (Story 11.1)", () => {
-    expect(mainDestinations.map(({ href, label, Icon }) => [href, label, Icon])).toEqual([
-      ["/recept", "Recept", RecipesIcon],
-      ["/matsedel", "Matsedel", MealPlanIcon],
-      ["/lista", "Inköpslista", CartIcon],
-      ["/hemma", "Lagersaldo", FridgeIcon],
+  it("has the four surfaces with their names (Story 10.4) and the sketch's emoji (Story 14.4)", () => {
+    expect(mainDestinations.map(({ href, label, emoji }) => [href, label, emoji])).toEqual([
+      ["/recept", "Recept", "\u{1F4D6}"],
+      ["/matsedel", "Matsedel", "\u{1F4C5}"],
+      ["/lista", "Inköpslista", "\u{1F6D2}"],
+      ["/hemma", "Lagersaldo", "\u{1F9CA}"],
     ]);
   });
 
@@ -38,36 +37,37 @@ describe("currentState", () => {
   });
 });
 
-describe("tab bar and side menu icons", () => {
+describe("tab bar and side menu emoji (Story 14.4)", () => {
   beforeEach(() => {
     pathname.current = "/lista";
   });
 
-  it("the tab bar shows the cart on Inköpslista in accent, as the current page, with a hidden icon", async () => {
+  it("the tab bar shows the current emoji in colour and the others grey and dimmed, all hidden from screen readers", async () => {
     render(<TabBar />);
     const list = await screen.findByRole("link", { name: "Inköpslista" });
     expect(list).toHaveAttribute("aria-current", "page");
     expect(list).toHaveClass("text-accent");
-    const icon = list.querySelector("svg");
-    expect(icon).toHaveAttribute("aria-hidden", "true");
-    // The cart's two wheels set it apart from the old checklist icon.
-    expect(icon?.querySelectorAll("circle")).toHaveLength(2);
+    const icon = list.querySelector("[aria-hidden]");
+    expect(icon).toHaveTextContent("\u{1F6D2}");
+    expect(icon).not.toHaveClass("grayscale");
 
     const pantry = screen.getByRole("link", { name: "Lagersaldo" });
     expect(pantry).not.toHaveAttribute("aria-current");
     expect(pantry).toHaveClass("text-ink-3");
-    expect(pantry.querySelector("svg rect")).not.toBeNull();
+    const dimmed = pantry.querySelector("[aria-hidden]");
+    expect(dimmed).toHaveTextContent("\u{1F9CA}");
+    expect(dimmed).toHaveClass("grayscale", "opacity-70");
   });
 
-  it("the side menu has the same icons and no emoji", async () => {
+  it("the side menu has the same emoji, with Inställningar last", async () => {
     pathname.current = "/hemma";
     render(<SideMenu />);
     const nav = screen.getByRole("navigation", { name: "Huvudmeny" });
     const pantry = await within(nav).findByRole("link", { name: "Lagersaldo" });
     expect(pantry).toHaveAttribute("aria-current", "page");
-    expect(nav.textContent).not.toMatch(pictograph);
+    expect(nav.textContent).toContain("\u2699\uFE0F");
     for (const link of within(nav).getAllByRole("link")) {
-      expect(link.querySelector("svg")).toHaveAttribute("aria-hidden", "true");
+      expect(link.querySelector("[aria-hidden]")).toBeInTheDocument();
     }
   });
 });

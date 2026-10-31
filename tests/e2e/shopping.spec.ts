@@ -148,7 +148,6 @@ function watchErrors(page: Page): string[] {
 // locator is scoped to what is visible.
 const lines = (page: Page) => page.getByTestId("shopping-line").filter({ visible: true });
 const lineOf = (page: Page, label: string) => lines(page).filter({ has: page.getByText(label, { exact: true }) });
-const summary = (page: Page) => page.getByTestId("list-summary").filter({ visible: true });
 /** The progress row (Story 11.4): "4 varor kvar" and "1 av 5 i korgen". */
 const progress = (page: Page) => page.getByTestId("list-progress").filter({ visible: true });
 const sectionHeadings = (page: Page) => page.getByRole("heading", { level: 2 }).filter({ visible: true });
@@ -179,7 +178,6 @@ test("without a meal plan the list says to put dishes on it", async ({ page }) =
   await page.goto("/lista");
   await expect(page.getByRole("heading", { name: "Inköpslista", level: 1 })).toBeVisible();
   await expect(page.getByText("Lägg rätter på matsedeln så räknas listan fram.").filter({ visible: true })).toBeVisible();
-  await expect(summary(page)).toHaveCount(0);
   expect(errors).toEqual([]);
 });
 
@@ -206,7 +204,6 @@ test("the list groups the lines by category, with the dishes under each name and
 
   const errors = watchErrors(page);
   await page.goto("/lista");
-  await expect(summary(page)).toHaveText("Vecka 44 · 2 rätter");
   await expect(progress(page)).toHaveText(/^5 varor kvar\s*0 av 5 i korgen$/);
   // The categories of Lagersaldo (Story 11.4): salt is a seasoning.
   await expect(sectionHeadings(page)).toHaveText(["Frukt & grönt", "Mejeri & ägg", "Skafferi", "Såser & smaksättare", "Övrigt"]);
@@ -346,7 +343,6 @@ test("the list says everything is at home when nothing is short", async ({ page 
   const errors = watchErrors(page);
   await page.goto("/lista");
   await expect(page.getByText("Allt finns hemma.").filter({ visible: true })).toBeVisible();
-  await expect(summary(page)).toHaveText("Vecka 44 · 2 rätter");
   // No progress row for an empty list (Story 11.4).
   await expect(progress(page)).toHaveCount(0);
   await expect(lines(page)).toHaveCount(0);
@@ -438,7 +434,6 @@ test("an own item without a catalog ingredient goes under Övrigt, and shows alt
   await expect(customSheet(page)).toHaveCount(0);
   await expect(region(page, "Övrigt").getByTestId("shopping-line")).toHaveText([/^diskmedel\s*Egen vara\s*Ta bort$/]);
   await expect(page.getByText("Allt finns hemma.").filter({ visible: true })).toHaveCount(0);
-  await expect(summary(page)).toHaveText("Vecka 44 · 2 rätter");
   await expect(progress(page)).toHaveText(/^1 vara kvar\s*0 av 1 i korgen$/);
   await page.reload();
   await expect(region(page, "Övrigt").getByTestId("shopping-line")).toHaveText([/^diskmedel\s*Egen vara\s*Ta bort$/]);

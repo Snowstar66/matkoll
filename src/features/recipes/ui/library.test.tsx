@@ -446,7 +446,7 @@ describe("Library", () => {
 
   it("has three pills, Alla first", () => {
     renderLibrary();
-    expect(screen.getAllByRole("radio").map((radio) => radio.textContent)).toEqual(["Alla", "Favoriter", "Kan lagas nu"]);
+    expect(within(screen.getByRole("radiogroup", { name: "Filter" })).getAllByRole("radio").map((radio) => radio.textContent)).toEqual(["Alla", "Favoriter", "Kan lagas nu"]);
     expect(screen.getByRole("list", { name: "Recept" })).toBeInTheDocument();
     expect(screen.queryByRole("button", { name: "Föreslå rätter med AI" })).not.toBeInTheDocument();
   });
@@ -767,16 +767,16 @@ describe("Library, view, sort and categories", () => {
     renderLibrary(withCategories);
     expect(screen.getByTestId("recipe-count")).toHaveTextContent("3 recept");
     expect(screen.getByRole("button", { name: /Senast tillagda/ })).toHaveTextContent("Senast tillagda");
-    expect(screen.getByRole("button", { name: "Kortvy", pressed: true })).toBeInTheDocument();
-    expect(screen.getByRole("button", { name: "Kompakt vy", pressed: false })).toBeInTheDocument();
+    expect(screen.getByRole("radio", { name: "Kort", checked: true })).toBeInTheDocument();
+    expect(screen.getByRole("radio", { name: "Lista", checked: false })).toBeInTheDocument();
     expect(titles()).toHaveLength(3);
   });
 
   it("shows the compact list with picture, title, meta and heart, and keeps the choice on the device", async () => {
     const user = userEvent.setup();
     renderLibrary(withCategories);
-    await user.click(screen.getByRole("button", { name: "Kompakt vy" }));
-    expect(screen.getByRole("button", { name: "Kompakt vy", pressed: true })).toBeInTheDocument();
+    await user.click(screen.getByRole("radio", { name: "Lista" }));
+    expect(screen.getByRole("radio", { name: "Lista", checked: true })).toBeInTheDocument();
     expect(window.localStorage.getItem(recipeViewStore.key)).toBe("compact");
     expect(screen.queryByTestId("recipe-card")).not.toBeInTheDocument();
     expect(rowTitles()).toEqual(["Krämig kycklinggryta", "Linssoppa", "Pannkakor"]);
@@ -794,7 +794,7 @@ describe("Library, view, sort and categories", () => {
     const user = userEvent.setup();
     renderLibrary(withCategories);
     expect(screen.queryByRole("button", { name: /^Ta bort/ })).not.toBeInTheDocument();
-    await user.click(screen.getByRole("button", { name: "Kompakt vy" }));
+    await user.click(screen.getByRole("radio", { name: "Lista" }));
     expect(screen.queryByRole("button", { name: /^Ta bort/ })).not.toBeInTheDocument();
   });
 
@@ -837,9 +837,14 @@ describe("Library, view, sort and categories", () => {
   it("filters on a category chip, marks it, updates the count, lets go on a second press and keeps it on the device", async () => {
     const user = userEvent.setup();
     renderLibrary(withCategories);
-    for (const name of ["Kött", "Fågel", "Fisk & skaldjur", "Vegetariskt", "Pasta", "Soppa", "Sallad", "Gryta", "Snabbt"]) {
+    // Story 14.4: only the categories some recipe has.
+    const group = screen.getByRole("group", { name: "Kategori" });
+    expect(within(group).getAllByRole("button").map((button) => button.textContent?.replace(/^\P{L}+/u, ""))).toEqual(["Fågel", "Vegetariskt", "Soppa", "Gryta", "Snabbt"]);
+    for (const name of ["Fågel", "Vegetariskt", "Soppa", "Gryta", "Snabbt"]) {
       expect(chip(name)).toHaveAttribute("aria-pressed", "false");
     }
+    expect(group).toHaveClass("flex-wrap");
+    expect(group).not.toHaveClass("overflow-x-auto");
     await user.click(chip("Vegetariskt"));
     expect(chip("Vegetariskt")).toHaveAttribute("aria-pressed", "true");
     expect(titles()).toEqual(["Linssoppa", "Pannkakor"]);
@@ -863,6 +868,16 @@ describe("Library, view, sort and categories", () => {
     expect(screen.getByTestId("recipe-count")).toHaveTextContent("0 recept");
     await user.click(screen.getByRole("button", { name: "Visa alla" }));
     expect(titles()).toHaveLength(3);
-    expect(chip("Kött")).toHaveAttribute("aria-pressed", "false");
+    expect(screen.queryByRole("button", { name: "Kött" })).not.toBeInTheDocument();
+  });
+
+  it("keeps a chosen category's chip even with none left, and has no chip row when no recipe has a category", () => {
+    window.localStorage.setItem(recipeCategoryStore.key, "meat");
+    const first = renderLibrary(withCategories);
+    expect(chip("Kött")).toHaveAttribute("aria-pressed", "true");
+    first.unmount();
+    window.localStorage.clear();
+    renderLibrary([gryta, soppa]);
+    expect(screen.queryByRole("group", { name: "Kategori" })).not.toBeInTheDocument();
   });
 });

@@ -52,7 +52,7 @@ export function WeekNav({
                 aria-current={selected ? "page" : undefined}
                 aria-label={weekTileName(week, offset, count)}
                 className={`flex min-h-tap min-w-0 flex-1 flex-col items-center justify-center rounded-[11px] px-1 py-1.5 text-center leading-[1.2] [overflow-wrap:normal] ${
-                  selected ? "bg-surface shadow-[0_1px_3px_rgb(0_0_0/0.16)]" : ""
+                  selected ? "segment-on shadow-[0_1px_3px_rgb(0_0_0/0.16)] ring-1 ring-border" : ""
                 }`}
               >
                 <span aria-hidden="true" className={`text-body font-semibold ${selected ? "text-ink" : "text-ink-2"}`}>
@@ -72,7 +72,7 @@ export function WeekNav({
       </ul>
       <div className="flex items-center justify-between gap-3 px-1">
         <p data-testid="week-range" className="flex min-w-0 items-center gap-2 text-meta text-ink-2">
-          <span aria-hidden="true" className="flex size-6 shrink-0 items-center justify-center rounded-sm bg-mint text-[14px] leading-none">
+          <span aria-hidden="true" className="flex size-6 shrink-0 items-center justify-center rounded-[8px] bg-mint text-[13px] leading-none">
             {"\u{1F4C5}"}
           </span>
           <span className="min-w-0">

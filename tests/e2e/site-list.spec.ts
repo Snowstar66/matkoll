@@ -225,7 +225,6 @@ const toast = (page: Page, text: string) => page.getByTestId("toast").filter({ h
 /** The confirmation strip, whatever it says. */
 const anyToast = (page: Page) => page.getByTestId("toast");
 const listAnnouncement = (page: Page) => page.getByTestId("list-announcement").filter({ visible: true });
-const summary = (page: Page) => page.getByTestId("list-summary").filter({ visible: true });
 const progress = (page: Page) => page.getByTestId("list-progress").filter({ visible: true });
 /** Unfolds I korgen, where the checked lines are (Story 11.4). */
 const showBasket = async (page: Page) => {
@@ -353,7 +352,6 @@ test("senap checked off against Hemma leaves the list against Stugan, and is che
 
   await countAgainst(page, "Stugan");
   await expect(lineCheck(page, "Senap")).toHaveCount(0);
-  await expect(summary(page)).toHaveText("Vecka 44 · 1 rätt");
   await expect(progress(page)).toHaveText(/^2 varor kvar\s*0 av 2 i korgen$/);
   // The check stays on the server, under its key without a place.
   expect(await storedChecks()).toEqual([lineKey("Senap", "förp")]);
@@ -428,7 +426,6 @@ test("the empty list names Stugan when everything is in stock there", async ({ p
   await expect(lineCheck(page, "Senap")).toBeVisible();
   await countAgainst(page, "Stugan");
   await expect(page.getByText("Allt finns i lagret för Stugan.").filter({ visible: true })).toBeVisible();
-  await expect(summary(page)).toHaveText("Vecka 44 · 1 rätt");
   await expect(progress(page)).toHaveCount(0);
   expect(errors).toEqual([]);
 });

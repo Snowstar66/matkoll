@@ -3,7 +3,12 @@
 import { type KeyboardEvent, useRef } from "react";
 import { cx } from "./cx";
 
-export type FilterOption<T extends string> = { value: T; label: string };
+export type FilterOption<T extends string> = {
+  value: T;
+  label: string;
+  /** A decorative glyph before the label in a segmented control (Story 14.4); the label is the name. */
+  icon?: string;
+};
 
 export type FilterPillsProps<T extends string> = {
   /** Name of the group for screen readers, e.g. "Filter". */
@@ -90,10 +95,15 @@ export function FilterPills<T extends string>({
               onKeyDown={(event) => onKeyDown(event, index)}
               className={cx(
                 "relative flex min-w-0 items-center justify-center rounded-sm px-3 text-meta font-semibold whitespace-nowrap outline-none",
-                "before:absolute before:inset-x-0 before:-inset-y-[9px]before:content-[''] focus-visible:outline-2 focus-visible:outline-offset-1 focus-visible:outline-accent disabled:cursor-not-allowed disabled:opacity-60",
+                "before:absolute before:inset-x-0 before:-inset-y-[9px] before:content-[''] focus-visible:outline-2 focus-visible:outline-offset-1 focus-visible:outline-accent disabled:cursor-not-allowed disabled:opacity-60",
                 selected ? "bg-accent text-on-accent" : "text-ink-2",
               )}
             >
+              {option.icon ? (
+                <span aria-hidden="true" className="mr-1.5 leading-none">
+                  {option.icon}
+                </span>
+              ) : null}
               <span className="truncate">{option.label}</span>
             </button>
           );
