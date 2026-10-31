@@ -10,6 +10,7 @@ export const settingsPages = [
   "spara-i-matkoll",
   "ai",
   "installera",
+  "siri",
   "om",
 ] as const;
 

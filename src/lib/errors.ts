@@ -176,6 +176,8 @@ export const errorMessages = {
   settings_invalid_domain: "Ange en giltig webbadress, t.ex. koket.se.",
   settings_duplicate_domain: "Sajten finns redan.",
   settings_save_failed: "Det gick inte att spara ändringen. Försök igen.",
+  // Siri och genvägar (Story 17.9): five working keys at most.
+  settings_key_limit: "Du kan ha högst 5 nycklar. Återkalla en först.",
   // The section Butik in Inställningar (Story 7.1). When the stores cannot be
   // read, the recipe sites and "Logga ut" still work.
   settings_store_unavailable: "Det gick inte att läsa butiken. Försök igen.",

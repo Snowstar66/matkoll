@@ -8,15 +8,18 @@ import { findPantryAdditions, getPantryForStatus, PantryDataError } from "@/feat
 import { getRecipesByIds, RecipeDataError } from "@/features/recipes/server";
 import { getSelectedStore, SettingsDataError } from "@/features/settings/server";
 import { fail, ok, type Result } from "@/lib/errors";
-import { createClient } from "@/lib/supabase/server";
+import { hashApiKey } from "@/lib/api-key";
+import { createClient, createKeyClient } from "@/lib/supabase/server";
 import { listCheckRowsIn } from "./data/checks";
 import { ShoppingDataError } from "./data/client";
 import { listCustomItemsIn } from "./data/custom-items";
+import { addItemsByApiKeyIn } from "./data/quick-add";
 import { listOverridesIn } from "./data/overrides";
 import { listProductChoicesIn } from "./data/product-choices";
 import { receiptedChecks } from "./data/put-in-pantry";
 import { loadShoppingList, type ShoppingList as CountedList } from "./data/queries";
 import { keyedItemId } from "./data/keyed-item-id";
+import { splitQuickText } from "./domain/quick-add";
 import type { ProductChoiceContext } from "./domain/product-choice";
 import type { CheckRow } from "./domain/put-in-pantry";
 
@@ -198,3 +201,30 @@ export async function getKeyedItemsOnList(keys: readonly string[]): Promise<{ pl
 
 export { ShoppingDataError } from "./data/client";
 export { addKeyedItems } from "./actions/add-keyed-items";
+
+/**
+ * Story 17.9, the quick-add API (POST /api/snabb): adds what was dictated as
+ * the key owner's own items. No session: the key is the credential, sent as a
+ * Bearer token, hashed here and checked by the database function, which also
+ * rate-limits it. Returns what was added, `invalid_key` (never says whether
+ * the key is unknown or revoked), `rate_limited`, `nothing` (the text held no
+ * item) or `failed` (logged by reason only, never the key or the text).
+ */
+export async function addItemsByApiKey(
+  key: string | null,
+  text: string,
+): Promise<
+  | { kind: "added"; labels: string[] }
+  | { kind: "invalid_key" | "rate_limited" | "nothing" | "failed" }
+> {
+  if (key === null) return { kind: "invalid_key" };
+  const labels = splitQuickText(text);
+  try {
+    // An empty list still goes to the database: it checks the key and counts as a call.
+    const outcome = await addItemsByApiKeyIn(createKeyClient(), hashApiKey(key), labels);
+    return outcome.kind === "added" && labels.length === 0 ? { kind: "nothing" } : outcome;
+  } catch (error) {
+    console.error("quick_add_failed", { reason: error instanceof ShoppingDataError ? error.detail : "unknown" });
+    return { kind: "failed" };
+  }
+}

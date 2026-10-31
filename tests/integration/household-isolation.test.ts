@@ -1,4 +1,4 @@
-import { randomUUID } from "node:crypto";
+import { createHash, randomUUID } from "node:crypto";
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
 import { placePhotoBucket, placePhotoPath } from "@/features/pantry/domain/place-photo";
 import { thingPhotoBucket, thingPhotoPath } from "@/features/things/domain/thing-photo";
@@ -13,6 +13,8 @@ import { adminClient, anonClient, createTestUser, deleteTestUsers, type Db, type
 // migration adds and this file does not cover fails the first test by name.
 // Each table's own policies are also tried one by one in its feature's test;
 // this file is the one place that checks all of them against the same data.
+
+const sha256 = (text: string) => createHash("sha256").update(text).digest("hex");
 
 const buckets = [placePhotoBucket, thingPhotoBucket];
 
@@ -38,6 +40,8 @@ type Coverage = {
 const coverage: Record<TableName, Coverage> = {
   ai_setting: { row: () => ({ provider: "anthropic", model: "claude-sonnet-5-5", effort: "medium" }) },
   ai_usage: { row: () => ({ model: "claude-haiku-5-5", input_tokens: 1200, output_tokens: 300 }) },
+  // Story 17.9: the hash is never granted for reading, so the generic checks below read A's row by id.
+  api_key: { row: () => ({ key_hash: sha256(randomUUID()), label: "Siri" }) },
   ai_job: {
     row: () => ({ kind: "suggest", client_key: randomUUID(), expires_at: new Date(Date.now() + 175 * 60_000).toISOString() }),
   },
@@ -118,6 +122,7 @@ const seedOrder: TableName[] = [
   "ai_job",
   "ai_setting",
   "ai_usage",
+  "api_key",
   "ingredient_synonym",
   "meal_plan_recipe",
   "pantry_addition",
@@ -166,7 +171,7 @@ async function seedAs(owner: Db, ownerId: string): Promise<{ ids: Map<TableName,
     const inserted = await owner
       .from(table)
       .insert(coverage[table].row(seed, ownerId) as never)
-      .select("*")
+      .select("id")
       .single();
     expect(inserted.error, `A inserts ${table}`).toBeNull();
     const row = inserted.data as unknown as { id: string };
@@ -395,6 +400,120 @@ describe("household isolation", () => {
       // A clears the room; A's own rows go.
       expect((await a.db.rpc("clear_things", { site: aSeed.siteId, in_room: "vinden" })).data).toMatchObject({ things: 1, cards: 1, boxes: 0, paths: [`${a.id}/${place.data!.id}/${photoId}.png`] });
       expect((await adminClient().from("thing_photo").select("id").eq("id", photoId)).data).toEqual([]);
+    });
+  });
+
+  // Story 17.9: a personal key for the quick-add API. The owner lists and revokes their keys and never reads
+  // the hash back; a key adds only to its own household; a refused key says nothing about which keys exist.
+  describe("personal keys for quick add", () => {
+    const hashOf = (key: string) => sha256(key);
+    const makeKey = async (user: TestUser) => {
+      const key = `lk_${randomUUID()}`;
+      const made = await user.db.from("api_key").insert({ key_hash: hashOf(key), label: "Siri" });
+      expect(made.error, "creates a key").toBeNull();
+      return key;
+    };
+    const own = async (user: TestUser) => (await adminClient().from("shopping_custom_item").select("label").eq("user_id", user.id)).data?.map((row) => row.label) ?? [];
+
+    it("never lets the hash be read back, by the owner, by B or by anon", async () => {
+      expect((await a.db.from("api_key").select("key_hash")).error?.code).toBe("42501");
+      expect((await a.db.from("api_key").select("*")).error?.code).toBe("42501");
+      expect((await b.db.from("api_key").select("key_hash")).error?.code).toBe("42501");
+      expect((await anonClient().from("api_key").select("id")).error?.code).toBe("42501");
+      expect((await a.db.from("api_key").select("id, label, created_at, last_used_at, revoked_at")).error).toBeNull();
+      expect((await a.db.from("api_key").update({ key_hash: sha256("other") }).eq("user_id", a.id)).error?.code, "the hash cannot be changed").toBe("42501");
+    });
+
+    it("lets a key add only to its own household, and B neither see nor revoke A's key", async () => {
+      const keyA = await makeKey(a);
+      const keyB = await makeKey(b);
+      const beforeB = await own(b);
+      const added = await anonClient().rpc("add_items_by_api_key", { hash: hashOf(keyA), labels: ["Mjölk", "Ägg"] });
+      expect(added.error).toBeNull();
+      expect(added.data).toEqual(["Mjölk", "Ägg"]);
+      expect((await own(a)).slice(-2)).toEqual(["Mjölk", "Ägg"]);
+      expect(await own(b), "B's list is untouched").toEqual(beforeB);
+      const rowA = (await adminClient().from("shopping_custom_item").select("user_id, meal_plan_id").eq("label", "Ägg").eq("user_id", a.id)).data![0];
+      expect(rowA).toEqual({ user_id: a.id, meal_plan_id: null });
+
+      await anonClient().rpc("add_items_by_api_key", { hash: hashOf(keyB), labels: ["Smör"] });
+      expect(await own(b)).toContain("Smör");
+      expect(await own(a)).not.toContain("Smör");
+
+      // B sees none of A's keys and revokes none.
+      const aKeys = (await adminClient().from("api_key").select("id, last_used_at").eq("user_id", a.id)).data!;
+      expect(aKeys.some((row) => row.last_used_at), "use is recorded").toBe(true);
+      expect((await b.db.from("api_key").select("id").eq("user_id", a.id)).data).toEqual([]);
+      const revoke = await b.db.from("api_key").update({ revoked_at: new Date().toISOString() }).eq("id", aKeys[0]!.id).select("id");
+      expect(revoke.error ? [] : revoke.data).toEqual([]);
+      expect((await adminClient().from("api_key").select("revoked_at").eq("user_id", a.id)).data!.every((row) => row.revoked_at === null)).toBe(true);
+    });
+
+    it("refuses an unknown and a revoked key in the same way, and a revoked key adds nothing", async () => {
+      const key = await makeKey(a);
+      const before = await own(a);
+      const unknown = await anonClient().rpc("add_items_by_api_key", { hash: hashOf("lk_nej"), labels: ["Spöke"] });
+      expect((await a.db.from("api_key").update({ revoked_at: new Date().toISOString() }).eq("user_id", a.id).select("id")).error).toBeNull();
+      const revoked = await anonClient().rpc("add_items_by_api_key", { hash: hashOf(key), labels: ["Spöke"] });
+      expect(unknown.error).toMatchObject({ code: "MK401", message: "invalid key" });
+      expect(revoked.error).toMatchObject({ code: "MK401", message: "invalid key" });
+      expect(await own(a)).toEqual(before);
+    });
+
+    it("limits a key to 30 calls a minute and checks the labels", async () => {
+      const user = await createTestUser("household-key-limit");
+      const key = await makeKey(user);
+      const db = anonClient();
+      expect((await db.rpc("add_items_by_api_key", { hash: hashOf(key), labels: [] })).data, "an empty list is a probe that counts as a call").toEqual([]);
+      expect((await db.rpc("add_items_by_api_key", { hash: hashOf("lk_nej"), labels: [] })).error?.code, "a probe of an unknown key").toBe("MK401");
+      expect((await db.rpc("add_items_by_api_key", { hash: hashOf(key), labels: Array(21).fill("x") })).error?.code).toBe("22023");
+      expect((await db.rpc("add_items_by_api_key", { hash: hashOf(key), labels: ["x".repeat(201)] })).error?.code).toBe("22023");
+      expect((await db.rpc("add_items_by_api_key", { hash: hashOf(key), labels: [" "] })).error?.code).toBe("22023");
+      // The validation errors above cost nothing; the probe counted as call 1, so 29 more pass and the 31st does not.
+      for (let call = 0; call < 29; call++) {
+        expect((await db.rpc("add_items_by_api_key", { hash: hashOf(key), labels: [`vara ${call}`] })).error, `call ${call + 1}`).toBeNull();
+      }
+      expect((await db.rpc("add_items_by_api_key", { hash: hashOf(key), labels: ["för mycket"] })).error?.code).toBe("MK429");
+      expect(await own(user)).not.toContain("För mycket");
+    });
+
+    it("keeps a revoked key revoked, caps key rows at 50 and items at 200 a day", async () => {
+      const user = await createTestUser("household-key-hardening");
+      const key = await makeKey(user);
+      const revoked = await user.db.from("api_key").update({ revoked_at: new Date().toISOString() }).eq("user_id", user.id).select("id");
+      expect(revoked.error).toBeNull();
+      const undo = await user.db.from("api_key").update({ revoked_at: null }).eq("user_id", user.id);
+      expect(undo.error?.code, "revocation cannot be undone").toBe("MK404");
+      const later = await user.db.from("api_key").update({ revoked_at: new Date().toISOString() }).eq("user_id", user.id);
+      expect(later.error?.code, "nor changed").toBe("MK404");
+      expect((await anonClient().rpc("add_items_by_api_key", { hash: hashOf(key), labels: ["x"] })).error?.code).toBe("MK401");
+
+      // 50 rows in all: with 1 revoked, 49 more can be made (revoking each), the next is refused.
+      for (let count = 1; count < 50; count++) {
+        const key2 = await makeKey(user);
+        void key2;
+        expect((await user.db.from("api_key").update({ revoked_at: new Date().toISOString() }).eq("user_id", user.id).is("revoked_at", null)).error).toBeNull();
+      }
+      expect((await user.db.from("api_key").insert({ key_hash: hashOf(randomUUID()), label: "Siri" })).error?.code).toBe("MK403");
+
+      // 200 items a day for one key: spread over calls of 20, the 11th call is refused and adds nothing.
+      const other = await createTestUser("household-key-daily");
+      const dayKey = await makeKey(other);
+      const db = anonClient();
+      for (let call = 0; call < 10; call++) {
+        const labels = Array.from({ length: 20 }, (_, index) => `d${call}-${index}`);
+        expect((await db.rpc("add_items_by_api_key", { hash: hashOf(dayKey), labels })).error, `call ${call + 1}`).toBeNull();
+        // Keep under the minute limit's 30 calls: the window is per minute, 10 calls fit.
+      }
+      expect((await db.rpc("add_items_by_api_key", { hash: hashOf(dayKey), labels: ["en till"] })).error?.code).toBe("MK429");
+      expect(await own(other)).toHaveLength(200);
+    });
+
+    it("allows five working keys at most", async () => {
+      const user = await createTestUser("household-key-count");
+      for (let count = 0; count < 5; count++) await makeKey(user);
+      const sixth = await user.db.from("api_key").insert({ key_hash: hashOf(randomUUID()), label: "Siri" });
+      expect(sixth.error?.code).toBe("MK402");
     });
   });
 });

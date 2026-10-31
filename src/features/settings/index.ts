@@ -77,3 +77,5 @@ export {
   settingsPages,
   type SettingsPage,
 } from "./domain/settings-routes";
+
+export { type ApiKeyView } from "./domain/api-key";

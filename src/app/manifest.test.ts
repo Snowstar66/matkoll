@@ -26,6 +26,10 @@ describe("manifest", () => {
     });
   });
 
+  it("offers a shortcut that opens Lägg till egen vara at once (Story 17.9)", () => {
+    expect(manifest().shortcuts).toEqual([{ name: "Lägg till vara", short_name: "Lägg till", url: "/lista/lagg-till" }]);
+  });
+
   it("uses light mode's bg from globals.css as both colours", () => {
     const { light } = colorTokens();
     expect(manifest().background_color).toBe(light.bg);

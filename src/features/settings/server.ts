@@ -2,6 +2,7 @@ import "server-only";
 import { createClient } from "@/lib/supabase/server";
 import { env } from "@/server/env";
 import { loadAiSettingIn } from "./data/ai-setting";
+import { listApiKeysIn } from "./data/api-keys";
 import { insertAiUsageIn, loadAiUsageIn } from "./data/ai-usage";
 import { insertUserDefaults } from "./data/defaults";
 import { loadActiveRecipeDomains, loadSelectedStore, loadStores } from "./data/queries";
@@ -151,4 +152,9 @@ export async function getAiServiceForUser(): Promise<import("@/server/ai").AiSer
   const choice = await getAiChoice();
   const db = await createClient();
   return getAiServiceFor(choice, (usage) => insertAiUsageIn(db, usage));
+}
+
+/** Story 17.9: the signed-in user's personal keys for Siri and shortcuts (never the keys themselves). Throws SettingsDataError. */
+export async function listApiKeys(): Promise<import("./domain/api-key").ApiKeyView[]> {
+  return listApiKeysIn(await createClient());
 }

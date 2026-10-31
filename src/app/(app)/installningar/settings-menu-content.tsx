@@ -114,6 +114,7 @@ export async function SettingsMenuContent() {
       label: "Appen",
       rows: [
         { href: settingsPageHref("installera"), icon: "📲", tile: "bg-sky", title: "Installera appen" },
+        { href: settingsPageHref("siri"), icon: "🎙️", tile: "bg-tile-lilac", title: "Siri och genvägar" },
         { href: settingsPageHref("om"), icon: "ℹ️", tile: "bg-hairline", title: `Om ${appName}` },
       ],
     },
