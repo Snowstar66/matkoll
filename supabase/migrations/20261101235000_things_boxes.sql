@@ -37,7 +37,9 @@ alter table public.thing_item add constraint thing_item_box_missed_check check (
 -- ({ left, top, width, height }) saved with its thing. A box that is missing,
 -- not four numbers or not inside the photo is left out (the thing is saved
 -- without one), so a bad box never fails a card: the code checks the boxes
--- first, and this is the second guard.
+-- first, and this is the second guard. A number is range-checked and rounded
+-- as numeric before it becomes a real, so one like 1e39 or 1e-50 cannot fail
+-- the cast.
 create or replace function public.save_thing_card(
   photo uuid,
   things jsonb,
@@ -92,10 +94,10 @@ begin
       ) as ok
     from (
       select
-        case when jsonb_typeof(entry.value #> '{box,left}') = 'number' then (entry.value #>> '{box,left}')::real end as l,
-        case when jsonb_typeof(entry.value #> '{box,top}') = 'number' then (entry.value #>> '{box,top}')::real end as t,
-        case when jsonb_typeof(entry.value #> '{box,width}') = 'number' then (entry.value #>> '{box,width}')::real end as w,
-        case when jsonb_typeof(entry.value #> '{box,height}') = 'number' then (entry.value #>> '{box,height}')::real end as h
+        case when jsonb_typeof(entry.value #> '{box,left}') = 'number' and abs((entry.value #>> '{box,left}')::numeric) <= 2 then round((entry.value #>> '{box,left}')::numeric, 6)::real end as l,
+        case when jsonb_typeof(entry.value #> '{box,top}') = 'number' and abs((entry.value #>> '{box,top}')::numeric) <= 2 then round((entry.value #>> '{box,top}')::numeric, 6)::real end as t,
+        case when jsonb_typeof(entry.value #> '{box,width}') = 'number' and abs((entry.value #>> '{box,width}')::numeric) <= 2 then round((entry.value #>> '{box,width}')::numeric, 6)::real end as w,
+        case when jsonb_typeof(entry.value #> '{box,height}') = 'number' and abs((entry.value #>> '{box,height}')::numeric) <= 2 then round((entry.value #>> '{box,height}')::numeric, 6)::real end as h
     ) as raw
   ) as box;
 

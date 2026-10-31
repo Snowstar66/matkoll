@@ -13,8 +13,8 @@ import { errorMessages } from "@/lib/errors";
 
 export const metadata: Metadata = { title: "Förråd" };
 
-// A föremål without a box is looked up in a Server Action on this page (Story
-// 18.7): one short call to the model, which gets at most 30 s of this.
+// "Lägg till föremål" saves in a Server Action on this page (Story 18.15): one
+// short call to the model, which gets at most 25 s of this.
 export const maxDuration = 60;
 
 // A card in its big view, at /prylar/kort/<card> (Story 18.7): the whole photo

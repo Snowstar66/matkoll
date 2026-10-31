@@ -8,7 +8,7 @@ import { CheckIcon } from "@/components/icons";
 import { ListGroup } from "@/components/list-group";
 import { ListRow } from "@/components/list-row";
 import type { ThingBox } from "@/lib/thing-box";
-import { locateThingOnCard } from "../actions/locate-thing";
+import { lookUpBox } from "./locate-client";
 import {
   cardFailedViewText,
   cardHintText,
@@ -21,7 +21,7 @@ import {
   type CardThing,
   type CardView as Card,
 } from "../domain/thing-card";
-import { thingNounCap } from "../domain/thing-noun";
+import { thingNoun, thingNounCap } from "../domain/thing-noun";
 import { AddCardThings } from "./add-card-things";
 import { RemoveCard } from "./remove-card";
 import { RetakeCard } from "./retake-card";
@@ -69,8 +69,9 @@ function CardPhoto({
     <div
       ref={frame}
       onClick={onClick}
-      className="relative w-full overflow-hidden rounded-md bg-border select-none"
-      style={{ aspectRatio: `${card.width} / ${card.height}` }}
+      // At most half the screen high on a phone (a portrait card would leave no room for the list), and more on a desktop; the width follows, so the boxes stay on their föremål.
+      className="relative mx-auto max-w-full overflow-hidden rounded-md bg-border select-none [--photo-max-h:50svh] desktop:[--photo-max-h:75svh]"
+      style={{ aspectRatio: `${card.width} / ${card.height}`, width: `min(100%, calc(var(--photo-max-h) * ${card.width / card.height}))` }}
       data-testid="card-photo"
     >
       {/* The photo is served by the route that checks the user; nothing is fetched from anywhere else. */}
@@ -96,7 +97,14 @@ function CardPhoto({
             style={boxStyle(thing.box)}
           >
             {isSelected ? (
-              <span className="absolute bottom-full -left-[3px] mb-1 max-w-56 truncate rounded-[6px] bg-accent px-1.5 py-0.5 text-meta font-semibold text-on-accent">
+              <span
+                className={cx(
+                  "absolute max-w-56 truncate rounded-[6px] bg-accent px-1.5 py-0.5 text-meta font-semibold text-on-accent",
+                  // Under the box when it is at the top of the photo, and anchored right near its right edge, so the name is never cut off.
+                  thing.box.top < 0.1 ? "top-full mt-1" : "bottom-full mb-1",
+                  thing.box.left > 0.6 ? "-right-[3px]" : "-left-[3px]",
+                )}
+              >
                 {thing.name}
               </span>
             ) : dimmed ? null : (
@@ -149,13 +157,14 @@ export function CardView({ card, initialThingId, roomHref }: { card: Card; initi
     if (!needsLookup || !selected || asked.current.has(selected.id)) return;
     const id = selected.id;
     asked.current.add(id);
-    locateThingOnCard(id)
+    lookUpBox(id)
       .then((result) => setFound((all) => ({ ...all, [id]: result.ok ? result.data.box : null })))
       .catch(() => setFound((all) => ({ ...all, [id]: null })));
   }, [needsLookup, selected]);
 
   const pick = useCallback((id: string) => setSelectedId((current) => (current === id ? null : id)), []);
-  const toRoom = useCallback(() => router.push(`${roomHref}?vy=cards`), [router, roomHref]);
+  // The card is replaced once the new one is read, so it is not kept in the history.
+  const toRoom = useCallback(() => router.replace(`${roomHref}?vy=cards`), [router, roomHref]);
   const title = cardViewTitle(card);
 
   if (card.status !== "done") {
@@ -210,7 +219,7 @@ export function CardView({ card, initialThingId, roomHref }: { card: Card; initi
             </ListGroup>
           </section>
         ) : (
-          <p className="px-1 text-body text-ink-2">{`Inga ${thingNounCap.plural.toLowerCase()} på kortet.`}</p>
+          <p className="px-1 text-body text-ink-2">{`Inga ${thingNoun.plural} på kortet.`}</p>
         )}
         <div className="grid grid-cols-2 gap-2">
           <div className="flex min-w-0 flex-col gap-1">

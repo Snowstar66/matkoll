@@ -1,10 +1,8 @@
-"use server";
-
+import "server-only";
 import { z } from "zod";
 import { requireUser } from "@/features/auth/server";
 import { getAiServiceForUser } from "@/features/settings/server";
 import { fail, ok, type Result } from "@/lib/errors";
-import { revalidateFor } from "@/lib/revalidate";
 import { createClient } from "@/lib/supabase/server";
 import { cleanModelText, cutCodePoints } from "@/lib/suggest-input";
 import type { ThingBox } from "@/lib/thing-box";
@@ -16,10 +14,13 @@ import { downloadCardFile, loadCardIn } from "../data/photos";
 // came has none, so the first time one of its föremål is marked, one small AI
 // call with the card's photo and the föremål's name looks for it. The answer is
 // saved on the föremål: its box, or that the model did not see it (box_missed),
-// so the same föremål never costs a second call. A call that does not go
-// (the AI is out of reach) saves nothing, and the next tap tries again. A
-// Server Action on the card's page (maxDuration 60 s): the model gets at most
-// 30 s. The AI choice of Inställningar applies and the call is counted (Story
+// so the same föremål never costs a second call. An answer that is not the
+// shape (ai_invalid) counts as a miss too; a call that does not go (the AI is
+// out of reach, or refuses) saves nothing, and the next tap tries again. The
+// Route Handler POST /api/things/locate calls it (maxDuration 60 s), not a
+// Server Action: the browser runs Server Actions one at a time, so a lookup
+// must never hold up "Ta bort kortet". The model gets at most 30 s. Nothing is
+// revalidated: the view keeps the answer, and the next visit reads it saved. The AI choice of Inställningar applies and the call is counted (Story
 // 17.6). The photo is only in this request's memory; only codes and whether it
 // was found are logged, never a name, a box or a path.
 
@@ -56,7 +57,7 @@ export async function locateThingOnCard(thingId: string): Promise<Result<{ box: 
     const found = await loadThingForLookupIn(db, thingId);
     if (!found) return fail("things_item_gone");
     thing = found;
-    if (thing.box || thing.boxMissed) return ok({ box: thing.box });
+    if (thing.boxStored || thing.boxMissed) return ok({ box: thing.box });
     const card = await loadCardIn(db, thing.photoId);
     if (!card) return fail("things_item_gone");
     const file = await downloadCardFile(db, card.objectPath);
@@ -75,15 +76,17 @@ export async function locateThingOnCard(thingId: string): Promise<Result<{ box: 
   const located = await ai.locateThing({ image, name, where }, AbortSignal.timeout(lookupDeadlineMs + 5_000), {
     deadline: Date.now() + lookupDeadlineMs,
   });
-  if (!located.ok) return located;
+  // A model that answered but not in the shape (ai_invalid, billed too) would most likely do so again for
+  // the same photo: that is saved as a miss, so it never costs another call. Out of reach or refused: nothing is saved.
+  if (!located.ok && located.error.code !== "ai_invalid") return located;
+  const box = located.ok ? located.data.box : null;
 
   try {
-    await saveThingBoxIn(db, thing.id, located.data.box);
+    await saveThingBoxIn(db, thing.id, box);
   } catch (error) {
     // The box is shown anyway; the next visit looks again.
     console.error("things_box_save_failed", { reason: error instanceof ThingsDataError ? error.detail : "unknown" });
   }
-  revalidateFor("thing_item");
-  console.info("things_box_looked_up", { found: located.data.box !== null });
-  return ok({ box: located.data.box });
+  console.info("things_box_looked_up", { found: box !== null });
+  return ok({ box });
 }

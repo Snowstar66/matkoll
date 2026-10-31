@@ -29,7 +29,8 @@ export async function loadThingsIn(db: ThingsDb, photoId: string): Promise<Thing
 /** Renames a thing; nothing else of it or of its card changes. `false` when it is gone or not the user's. Throws ThingsDataError `update_failed <code>`. */
 export async function renameItemIn(db: ThingsDb, id: string, name: string): Promise<boolean> {
   return guarded("update", async () => {
-    const { data, error } = await db.from("thing_item").update({ name }).eq("id", id).select("id");
+    // A lookup that missed under the old name may find it under the new one (Story 18.7).
+    const { data, error } = await db.from("thing_item").update({ name, box_missed: false }).eq("id", id).select("id");
     if (error) throw new ThingsDataError(`update_failed ${error.code}`);
     return data.length > 0;
   });
@@ -41,7 +42,7 @@ export type ThingUpdate = { name: string; category: ThingCategory; whereHint: st
 /** Changes the name, the category and the "where" of a thing; its card and the other things are not touched. `false` when it is gone or not the user's. Throws ThingsDataError `update_failed <code>`. */
 export async function updateItemIn(db: ThingsDb, id: string, update: ThingUpdate): Promise<boolean> {
   return guarded("update", async () => {
-    const { data, error } = await db.from("thing_item").update({ name: update.name, category: update.category, where_hint: update.whereHint }).eq("id", id).select("id");
+    const { data, error } = await db.from("thing_item").update({ name: update.name, category: update.category, where_hint: update.whereHint, box_missed: false }).eq("id", id).select("id");
     if (error) throw new ThingsDataError(`update_failed ${error.code}`);
     return data.length > 0;
   });

@@ -3,7 +3,7 @@ import { readFileSync } from "node:fs";
 import { afterAll, beforeAll, describe, expect, it, vi } from "vitest";
 import { insertAiUsageIn } from "@/features/settings/data/ai-usage";
 import { loadCardViewIn, loadThingForLookupIn, saveThingBoxIn } from "@/features/things/data/card-view";
-import { removeItemIn, restoreItemIn } from "@/features/things/data/items";
+import { removeItemIn, renameItemIn, restoreItemIn, updateItemIn } from "@/features/things/data/items";
 import { insertPlaceIn } from "@/features/things/data/places";
 import { insertCardIn, removeCardIn, restoreCardIn, saveReadingIn, uploadCardFile } from "@/features/things/data/photos";
 import { thingPhotoBucket, thingPhotoPath } from "@/features/things/domain/thing-photo";
@@ -129,6 +129,7 @@ describe("boxes on a card (Story 18.7)", () => {
         thing("Text", { left: "0.1", top: 0.1, width: 0.2, height: 0.2 }),
         thing("Saknas", { left: 0.1, top: 0.1, width: 0.2 }),
         thing("Lista", [0.1, 0.1, 0.2, 0.2]),
+        thing("Enorm", { left: 1e39, top: 1e-50, width: 0.2, height: 0.2 }),
         thing("Bra", { left: 0.5, top: 0.5, width: 0.5, height: 0.5 }),
       ] as Json,
     });
@@ -141,6 +142,7 @@ describe("boxes on a card (Story 18.7)", () => {
       ["Text", null],
       ["Saknas", null],
       ["Lista", null],
+      ["Enorm", null],
       ["Bra", { left: 0.5, top: 0.5, width: 0.5, height: 0.5 }],
     ]);
   });
@@ -179,6 +181,14 @@ describe("boxes on a card (Story 18.7)", () => {
     expect(await saveThingBoxIn(a.db, pliers.id, hammerBox)).toBe(false);
     expect(await loadThingForLookupIn(a.db, hammer.id)).toMatchObject({ box: hammerBox, boxMissed: false });
     expect(await loadThingForLookupIn(a.db, pliers.id)).toMatchObject({ box: null, boxMissed: true });
+    // A föremål renamed or corrected may be found under its new name: the miss goes, the box stays.
+    expect(await renameItemIn(a.db, pliers.id, "Polygrip")).toBe(true);
+    expect(await loadThingForLookupIn(a.db, pliers.id)).toMatchObject({ boxMissed: false });
+    await saveThingBoxIn(a.db, pliers.id, null);
+    expect(await updateItemIn(a.db, pliers.id, { name: "Polygrip", category: "Verktyg", whereHint: "golvet" })).toBe(true);
+    expect(await loadThingForLookupIn(a.db, pliers.id)).toMatchObject({ boxMissed: false });
+    expect(await renameItemIn(a.db, hammer.id, "Snickarhammare")).toBe(true);
+    expect(await loadThingForLookupIn(a.db, hammer.id)).toMatchObject({ box: hammerBox });
   });
 
   it("brings the box back with Ångra, for a föremål and for a whole card", async () => {
@@ -217,11 +227,12 @@ describe("boxes on a card (Story 18.7)", () => {
         { name: "Hammare", category: "Verktyg", where: "på väggen", confidence: "high" },
         { name: "Okänd grej", category: "Övrigt", where: null, confidence: "low" },
         { name: "Burk matkoll-mock: ai_unavailable", category: "Övrigt", where: null, confidence: "low" },
+        { name: "Burk matkoll-mock: ai_invalid", category: "Övrigt", where: null, confidence: "low" },
       ],
       note: null,
       hidden: 0,
     });
-    const [hammer, unknown, failing] = (await loadCardViewIn(a.db, cardId))?.things ?? [];
+    const [hammer, unknown, failing, garbled] = (await loadCardViewIn(a.db, cardId))?.things ?? [];
     as(a);
     located.mockClear();
     const usageBefore = (await adminClient().from("ai_usage").select("id").eq("user_id", a.id)).data?.length ?? 0;
@@ -242,6 +253,11 @@ describe("boxes on a card (Story 18.7)", () => {
     // The AI out of reach: nothing is saved, so the next tap tries again.
     expect(await locateThingOnCard(failing.id)).toMatchObject({ ok: false, error: { code: "ai_unavailable" } });
     expect(await loadThingForLookupIn(a.db, failing.id)).toMatchObject({ box: null, boxMissed: false });
+    // An answer that is not the shape is billed and would likely repeat: it is saved as a miss.
+    expect(await locateThingOnCard(garbled.id)).toEqual(ok({ box: null }));
+    expect(await loadThingForLookupIn(a.db, garbled.id)).toMatchObject({ box: null, boxMissed: true });
+    await locateThingOnCard(garbled.id);
+    expect(located).toHaveBeenCalledTimes(4);
 
     // Story 17.6: the two calls that answered are counted, as the mock (no tokens, no cost).
     const usage = (await adminClient().from("ai_usage").select("model").eq("user_id", a.id)).data ?? [];

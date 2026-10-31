@@ -17,9 +17,6 @@ const edgeSlack = 10;
 /** The smallest side of a box, in thousandths: anything less is a point, not a föremål. */
 const minSide = 5;
 
-/** A box covering at least this much of both sides (in thousandths) is the whole photo, not one föremål. */
-const wholePhoto = 990;
-
 /** A fraction rounded to four decimals: a tenth of a pixel on the largest card. */
 function round(value: number): number {
   return Math.round(value * 10_000) / 10_000;
@@ -29,7 +26,7 @@ function round(value: number): number {
  * The box of a model's answer `[x1, y1, x2, y2]` in thousandths, or `null`
  * when it is not reasonable: not four finite numbers, a corner further than
  * edgeSlack outside the photo, the corners in the wrong order, a side shorter
- * than minSide, or the whole photo.
+ * than minSide. A box of the whole photo is kept: a close-up of one föremål.
  */
 export function boxFromThousandths(value: unknown): ThingBox | null {
   if (!Array.isArray(value) || value.length !== 4) return null;
@@ -39,7 +36,6 @@ export function boxFromThousandths(value: unknown): ThingBox | null {
   const width = x2 - x1;
   const height = y2 - y1;
   if (width < minSide || height < minSide) return null;
-  if (width >= wholePhoto && height >= wholePhoto) return null;
   return toBox(x1 / boxScale, y1 / boxScale, width / boxScale, height / boxScale);
 }
 

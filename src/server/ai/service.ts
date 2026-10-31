@@ -1019,7 +1019,7 @@ export function locateItemsContent(input: LocateItemsInput) {
 
 /**
  * The user message for locateThing (Story 18.7): the photo as a `file` part,
- * then "Föremålet:" with the name, and "Var:" with where the reading said it
+ * then "Föremål:" with the name, and "Var:" with where the reading said it
  * is when it said. Both are on one line, so neither can start a section of
  * its own; the prompt says they are data.
  */

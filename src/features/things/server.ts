@@ -31,6 +31,9 @@ export { ThingsDataError };
  */
 export { retryCardReading, startCardReading } from "./actions/start-reading";
 
+/** Story 18.7: the box of one föremål on its card, looked up once with the AI; for the Route Handler POST /api/things/locate. */
+export { locateThingOnCard } from "./actions/locate-thing";
+
 /** The places of the boende `siteId`, with their things counted. Throws ThingsDataError. */
 export async function listThingPlaces(siteId: string): Promise<ThingPlace[]> {
   return loadPlacesIn(await createClient(), siteId);

@@ -6,7 +6,7 @@ import type { CardView as Card } from "../domain/thing-card";
 import { CardView } from "./card-view";
 
 const locateThingOnCard = vi.fn();
-vi.mock("../actions/locate-thing", () => ({ locateThingOnCard: (id: string) => locateThingOnCard(id) }));
+vi.mock("./locate-client", () => ({ lookUpBox: (id: string) => locateThingOnCard(id) }));
 const push = vi.fn();
 const replace = vi.fn();
 vi.mock("next/navigation", () => ({ useRouter: () => ({ push, replace, refresh: vi.fn() }) }));

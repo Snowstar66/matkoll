@@ -84,7 +84,16 @@ const lookupRowSchema = z.object({
 });
 
 /** A föremål on a card, for a lookup of its box. */
-export type ThingForLookup = { id: string; photoId: string; name: string; whereHint: string | null; box: ThingBox | null; boxMissed: boolean };
+export type ThingForLookup = {
+  id: string;
+  photoId: string;
+  name: string;
+  whereHint: string | null;
+  box: ThingBox | null;
+  boxMissed: boolean;
+  /** A box is stored (even one the code would not draw): no lookup is made, since its answer could not be saved. */
+  boxStored: boolean;
+};
 
 /** The föremål `id` when it is the user's and on a card, or `null` (gone, someone else's, or written into a box). Throws ThingsDataError. */
 export async function loadThingForLookupIn(db: ThingsDb, id: string): Promise<ThingForLookup | null> {
@@ -95,7 +104,15 @@ export async function loadThingForLookupIn(db: ThingsDb, id: string): Promise<Th
     const parsed = lookupRowSchema.safeParse(data);
     if (!parsed.success) throw new ThingsDataError("invalid_row");
     const row = parsed.data;
-    return { id: row.id, photoId: row.photo_id, name: row.name, whereHint: row.where_hint, box: boxOfRow(row), boxMissed: row.box_missed };
+    return {
+      id: row.id,
+      photoId: row.photo_id,
+      name: row.name,
+      whereHint: row.where_hint,
+      box: boxOfRow(row),
+      boxMissed: row.box_missed,
+      boxStored: row.box_left !== null,
+    };
   });
 }
 

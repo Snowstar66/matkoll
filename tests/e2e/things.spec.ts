@@ -519,10 +519,11 @@ test("search finds a thing in every room and boende, and the chat answers a ques
   await expect(page.getByTestId("chat-turn")).toHaveCount(0);
   await page.getByRole("textbox", { name: "Sök eller fråga" }).fill("Har vi något att måla med?");
   await chat.getByRole("button", { name: "Skicka" }).click();
-  // The card opens the room (the old place address redirects), also in another boende.
+  // Story 18.7: the card opens big with the thing the answer is built on marked, also in another boende.
   await page.getByTestId("chat-ref").click();
-  await expect(page).toHaveURL(new RegExp(`/prylar/rum/${stugan.data.id}/redskapsboden$`));
+  await expect(page).toHaveURL(/\/prylar\/kort\/[0-9a-f-]{36}\?foremal=[0-9a-f-]{36}$/);
   await expect(page.getByRole("heading", { level: 1 })).toHaveText("Redskapsboden");
+  await expect(page.getByRole("button", { name: /^Målarfärgsburkar/ })).toHaveAttribute("aria-pressed", "true");
   expect(problems).toEqual([]);
 });
 

@@ -1125,7 +1125,7 @@ describe("listThings on a model (Story 18.2)", () => {
       answer([
         thing("Hammare", { box: [197, 153, 337, 364] }),
         thing("Spade", { box: [500, 500, 500, 900] }),
-        thing("Såg", { box: [0, 0, 1000, 1000] }),
+        thing("Såg", { box: [0, 0, 1000, 0] }),
         thing("Kratta", { box: [100, 100, 2000, 300] }),
         thing("Tång", { box: [1, 2, 3] }),
       ]),

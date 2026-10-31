@@ -7,6 +7,10 @@ describe("a föremål's box from the model (Story 18.7)", () => {
     expect(boxFromThousandths([0, 0, 500, 1000])).toEqual({ left: 0, top: 0, width: 0.5, height: 1 });
   });
 
+  it("keeps a box of the whole photo: a close-up of one föremål", () => {
+    expect(boxFromThousandths([0, 0, 1000, 1000])).toEqual({ left: 0, top: 0, width: 1, height: 1 });
+  });
+
   it("clamps a corner just outside the photo onto it, and never reaches past its edge", () => {
     expect(boxFromThousandths([-4, 990, 300, 1006])).toEqual({ left: 0, top: 0.99, width: 0.3, height: 0.01 });
     const box = boxFromThousandths([333.33333, 0, 1000, 666.66666]);
@@ -20,7 +24,6 @@ describe("a föremål's box from the model (Story 18.7)", () => {
     ["the corners swapped", [400, 400, 100, 100]],
     ["no width", [500, 100, 500, 900]],
     ["almost no height", [100, 100, 300, 103]],
-    ["the whole photo", [0, 0, 1000, 1000]],
     ["three numbers", [1, 2, 3]],
     ["five numbers", [1, 2, 3, 4, 5]],
     ["text", ["1", "2", "300", "400"]],
