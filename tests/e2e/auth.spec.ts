@@ -143,7 +143,7 @@ test.describe("without a session", () => {
   test("a valid link for an address outside ALLOWED_EMAILS gives no session", async ({ page, context }) => {
     await openMagicLink(page, await magicLinkPath(outsiderEmail, "/recept"));
     await expect(page).toHaveURL(/\/logga-in\?fel=atkomst$/);
-    await expect(page.getByRole("main").getByRole("alert")).toHaveText("Adressen har inte åtkomst till Matkoll.");
+    await expect(page.getByRole("main").getByRole("alert")).toHaveText("Adressen har inte åtkomst till Livskoll.");
     const authCookies = (await context.cookies()).filter((cookie) => /^sb-.+-auth-token/.test(cookie.name));
     expect(authCookies).toEqual([]);
   });
@@ -184,11 +184,11 @@ test.describe("the privacy note (Story 17.2)", () => {
     await context.addCookies(cookies.map((cookie) => ({ ...cookie, url: baseURL! })));
     const page = await context.newPage();
     await page.goto("/recept");
-    await expect(page.getByText("Den som driver Matkoll kan tekniskt se kontots data.")).toBeVisible();
+    await expect(page.getByText("Den som driver Livskoll kan tekniskt se kontots data.")).toBeVisible();
     await page.getByRole("button", { name: "Okej" }).click();
-    await expect(page.getByText("Den som driver Matkoll")).toHaveCount(0);
+    await expect(page.getByText("Den som driver Livskoll")).toHaveCount(0);
     await page.goto("/matsedel");
-    await expect(page.getByText("Den som driver Matkoll")).toHaveCount(0);
+    await expect(page.getByText("Den som driver Livskoll")).toHaveCount(0);
     await context.close();
   });
 });

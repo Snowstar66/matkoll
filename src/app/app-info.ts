@@ -1,7 +1,11 @@
 // The app's name, description and icon sizes, shared by the root layout's
 // metadata, the web app manifest and the generated icons (AD-27).
 
-export const appName = "Matkoll";
+// The one place for the user-facing name (Story 18.9). The Supabase e-mail
+// templates (supabase/templates/*.html) cannot import this, so they spell the
+// name out: change them together with this line.
+export const appName = "Livskoll";
+export const appTagline = "Mat, prylar och vardag under kontroll";
 export const appDescription = "Recept, matsedel, inköpslista och det du har hemma.";
 
 /**

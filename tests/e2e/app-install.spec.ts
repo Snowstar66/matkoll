@@ -65,8 +65,8 @@ test.describe("without a session", () => {
     expect(response.headers()["content-type"]).toContain("application/manifest+json");
     expect(await response.json()).toEqual({
       id: "/",
-      name: "Matkoll",
-      short_name: "Matkoll",
+      name: "Livskoll",
+      short_name: "Livskoll",
       description: "Recept, matsedel, inköpslista och det du har hemma.",
       lang: "sv",
       start_url: "/recept",
@@ -130,7 +130,7 @@ test.describe("<head>", () => {
     await expect(head.locator('link[rel="manifest"]')).toHaveAttribute("href", "/manifest.webmanifest");
     await expect(head.locator('link[rel="apple-touch-icon"]')).toHaveAttribute("href", /^\/apple-icon(\?|$)/);
     await expect(head.locator('link[rel="apple-touch-icon"]')).toHaveAttribute("sizes", "180x180");
-    await expect(head.locator('meta[name="apple-mobile-web-app-title"]')).toHaveAttribute("content", "Matkoll");
+    await expect(head.locator('meta[name="apple-mobile-web-app-title"]')).toHaveAttribute("content", "Livskoll");
     await expect(head.locator('meta[name="apple-mobile-web-app-status-bar-style"]')).toHaveAttribute("content", "default");
     await expect(head.locator('meta[name="mobile-web-app-capable"]')).toHaveAttribute("content", "yes");
     const themeColors = await head

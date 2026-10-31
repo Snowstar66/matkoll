@@ -24,6 +24,7 @@ import {
 } from "../actions/set-recipe-site-active";
 import { compareDomains } from "../domain/domain-name";
 import { removedSitesMessage } from "../domain/removed-sites";
+import { appName } from "@/app/app-info";
 
 export type RecipeSitesProps = {
   /** The active approved recipe sites, sorted with `compareDomains`. */
@@ -142,7 +143,7 @@ export function RecipeSites({ sites }: RecipeSitesProps) {
       <h2 id={headingId} className="sr-only">
         Godkända receptsajter
       </h2>
-      <p className="px-1 desktop:px-0 text-meta text-ink-3">Matkoll hämtar bara recept från sajterna i listan.</p>
+      <p className="px-1 desktop:px-0 text-meta text-ink-3">{appName} hämtar bara recept från sajterna i listan.</p>
       {changeError ? <Notice role="alert">{changeError}</Notice> : null}
       {shownSites.length > 0 ? (
         <ListGroup labelledBy={headingId}>

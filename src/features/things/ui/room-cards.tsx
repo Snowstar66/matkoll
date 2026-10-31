@@ -52,7 +52,7 @@ function RetryCard({ id }: { id: string }) {
 }
 
 export function RoomCards({ cards, written = [] }: { cards: readonly RoomCard[]; written?: readonly WrittenBox[] }) {
-  if (cards.length === 0 && written.length === 0) return <Notice>Inga kort än.</Notice>;
+  if (cards.length === 0 && written.length === 0) return <Notice>Inga kort än. Tryck på Ta fler kort ovanför för att fota eller välja bilder.</Notice>;
   return (
     <ul role="list" className="grid grid-cols-2 gap-2.5" data-testid="room-cards">
       {cards.map((card) => (

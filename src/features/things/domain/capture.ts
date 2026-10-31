@@ -1,6 +1,7 @@
 import { z } from "zod";
 import { charLength } from "@/lib/one-line";
 import { cleanPlaceName, maxPlaceNameChars } from "./thing-place";
+import { appName } from "@/app/app-info";
 
 // Ta kort (Story 18.11): where a card is taken. A room, and optionally a part of
 // it or a box; without either the card goes to the room's "Hela rummet" place.
@@ -26,7 +27,7 @@ export const takeCardSubText = "Fota ett rum, en hylla eller en låda";
 export const moreCardsText = "Ta fler kort";
 export const openCameraText = "\u{1F4F7} Öppna kameran";
 export const pickImagesText = "Välj bilder …";
-export const captureHintText = "Efter varje kort: \"Ta ett till\". Matkoll läser korten i bakgrunden.";
+export const captureHintText = `Efter varje kort: "Ta ett till". ${appName} läser korten i bakgrunden.`;
 export const exactPlaceText = "Mer exakt plats (valfritt)";
 export const newRoomText = "+ Nytt rum";
 export const takeAnotherText = "Ta ett till";

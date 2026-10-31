@@ -35,6 +35,7 @@ import {
   type ImportKind,
 } from "../domain/import";
 import { kindOfJob } from "./saved-imports";
+import { appName } from "@/app/app-info";
 
 // Importera recept (FR-3, FR-4): a sheet with the tabs Länk, Text and Foto,
 // opening on Länk. A link or pasted text becomes an AI job (POST /api/ai/jobs)
@@ -729,7 +730,7 @@ function FindRecipes({
               }}
               className={linkClass}
             >
-              Spara i Matkoll
+              Spara i {appName}
             </Link>{" "}
             på datorn, eller kopiera länken och klistra in den{" "}
             <button type="button" onClick={onPaste} className={`${linkClass} min-h-tap`}>

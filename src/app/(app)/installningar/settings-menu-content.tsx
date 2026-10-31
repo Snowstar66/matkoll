@@ -12,6 +12,7 @@ import {
 } from "@/features/settings";
 import { getAiMonthUsage, getAiSettingsView, listRecipeSites, listStores } from "@/features/settings/server";
 import { SettingsMenu, type SettingsGroupData } from "@/features/settings/ui/settings-menu";
+import { appName } from "@/app/app-info";
 
 /** Reads one value for the start page; a failure shows the row without its value, and is logged by reason only. */
 async function valueOf<T>(read: () => Promise<T>, reason: string): Promise<T | null> {
@@ -84,7 +85,7 @@ export async function SettingsMenuContent() {
           title: "Receptsajter",
           value: recipeSites ? sitesCountText(recipeSites.length) : undefined,
         },
-        { href: settingsPageHref("spara-i-matkoll"), icon: "🔖", tile: "bg-tile-lilac", title: "Spara i Matkoll" },
+        { href: settingsPageHref("spara-i-matkoll"), icon: "🔖", tile: "bg-tile-lilac", title: `Spara i ${appName}` },
       ],
     },
     ...(ai
@@ -113,7 +114,7 @@ export async function SettingsMenuContent() {
       label: "Appen",
       rows: [
         { href: settingsPageHref("installera"), icon: "📲", tile: "bg-sky", title: "Installera appen" },
-        { href: settingsPageHref("om"), icon: "ℹ️", tile: "bg-hairline", title: "Om Matkoll" },
+        { href: settingsPageHref("om"), icon: "ℹ️", tile: "bg-hairline", title: `Om ${appName}` },
       ],
     },
   ];

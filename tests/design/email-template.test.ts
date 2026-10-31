@@ -16,7 +16,7 @@ describe("magic link e-mail", () => {
 
   it("has the six-digit code after the link, with the text before it", () => {
     const link = template.indexOf("token_hash");
-    const text = template.indexOf("Eller skriv in koden i Matkoll:");
+    const text = template.indexOf("Eller skriv in koden i Livskoll:");
     const code = template.indexOf("{{ .Token }}");
     expect(link).toBeGreaterThan(0);
     expect(text).toBeGreaterThan(link);

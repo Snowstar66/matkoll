@@ -19,6 +19,7 @@ import { RoomCards } from "./room-cards";
 import { RoomCategories } from "./room-categories";
 import { TakeCard } from "./take-card";
 import { UploadCardRow } from "./upload-card-row";
+import { appName } from "@/app/app-info";
 
 // A room's page (Story 18.12): the summary (things, categories and cards), the
 // row "Ta fler kort" with the date of the newest card, and the segmented choice
@@ -105,7 +106,6 @@ export function RoomView({ siteId, summary, categories, cards, written, rooms, b
         variant="default"
         title={moreCardsText}
         sub={latestCardText(summary.latest)}
-        hideRow={view === "cards"}
       />
       <FilterPills<View>
         segmented
@@ -122,7 +122,7 @@ export function RoomView({ siteId, summary, categories, cards, written, rooms, b
         <>
           {summary.things === 0 ? (
             <p className="px-1 text-body text-ink-2" data-testid="room-empty">
-              {summary.cards === 0 ? "Inget kort än. Ta ett kort, så listar Matkoll vad som finns." : "Inga prylar hittades på korten."}
+              {summary.cards === 0 ? `Inget kort än. Ta ett kort, så listar ${appName} vad som finns.` : "Inga prylar hittades på korten."}
             </p>
           ) : (
             <RoomCategories siteId={siteId} roomKey={summary.key} categories={categories} />

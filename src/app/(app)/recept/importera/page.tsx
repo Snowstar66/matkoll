@@ -3,8 +3,9 @@ import { Suspense } from "react";
 import { requireUserOrRedirect } from "@/features/auth/server";
 import { readSharedLink } from "@/features/recipes";
 import { RecipesView } from "../recipes-view";
+import { appName } from "@/app/app-info";
 
-export const metadata: Metadata = { title: "Spara i Matkoll" };
+export const metadata: Metadata = { title: `Spara i ${appName}` };
 
 // Story 1.13: /recept/importera?url=<address> (the bookmarklet, an iOS Shortcut, Android's
 // share menu with url or text). Behind login like the other pages. The server only

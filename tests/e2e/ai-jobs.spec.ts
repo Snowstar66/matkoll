@@ -336,6 +336,6 @@ test("the sheet is a dialog with the job's name on its buttons, in light and dar
   await sheet.getByRole("button", { name: "Klar" }).click();
   // On desktop the row is at the top of the side menu, under Matkoll.
   await expect(jobRow(page)).toBeVisible();
-  await expect(nav(page).getByText("Matkoll")).toBeVisible();
+  await expect(nav(page).getByText("Livskoll")).toBeVisible();
   expect((await jobRow(page).boundingBox())!.x).toBeLessThan(240);
 });

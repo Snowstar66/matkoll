@@ -95,7 +95,7 @@ describe("the job row in the bar and the menu", () => {
 
     render(<SideMenu jobRow={<p data-testid="job-row">rad</p>} />);
     const menu = screen.getByRole("navigation", { name: "Huvudmeny" });
-    expect(menu.children[0]).toHaveTextContent("Matkoll");
+    expect(menu.children[0]).toHaveTextContent("Livskoll");
     expect(menu.children[1]).toContainElement(screen.getByTestId("job-row"));
   });
 });
