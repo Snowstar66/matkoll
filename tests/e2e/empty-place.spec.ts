@@ -82,7 +82,8 @@ const toast = (page: Page) => page.getByTestId("toast");
 
 test("an empty location has no button to empty it", async ({ page }) => {
   await page.goto("/hemma?plats=skafferi");
-  await expect(page.getByText("Inget i skafferiet än.")).toBeVisible();
+  // Only the visible copy: Next can keep the previous page hidden in the DOM.
+  await expect(page.getByText("Inget i skafferiet än.").filter({ visible: true })).toBeVisible();
   // The empty state's button, not "+" in the header, which has the same name.
   await expect(
     page.getByRole("button", { name: "Lägg till vara", exact: true }).filter({ hasText: "Lägg till vara", visible: true }),
