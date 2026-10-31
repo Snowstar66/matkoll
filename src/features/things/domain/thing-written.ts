@@ -108,3 +108,16 @@ export function boxMeta(box: { cards: number; written: number }): string {
 }
 
 export const boxesLabelText = "Lådor";
+
+// "Lägg till pryl" on a card (Story 18.15): things typed onto one card.
+export const addThingsText = "Lägg till pryl";
+export const addThingsTitle = "Lägg till prylar på kortet";
+export const addThingsHintText = "En sak per rad eller med komma. Prylarna hör till det här kortet och byts ut om du tar om det.";
+export const addThingsSaveText = "Lägg till";
+export const addThingsFullText = "Kortet har redan så många prylar som får plats. Ta bort några först.";
+export const emptyAddedText = "Skriv minst en pryl.";
+
+/** "Lade till 2 prylar." */
+export function addedThingsText(count: number): string {
+  return `Lade till ${thingsText(count)}.`;
+}

@@ -7,7 +7,9 @@ import { loadRoomCardsIn, loadRoomCategoriesIn, loadRoomIn, loadRoomPlacesIn, lo
 import type { ThingCategory } from "./domain/thing";
 import { cardLabel, type RoomCard, type RoomSummary } from "./domain/thing-room";
 import type { ThingPlace } from "./domain/thing-place";
+import { loadClearCountsIn } from "./data/clear";
 import { loadRoomWrittenIn, loadWrittenIn } from "./data/written";
+import type { ClearCounts } from "./domain/thing-clear";
 import type { WrittenBox } from "./domain/thing-written";
 
 // Server-only entry (AD-1). The functions use the signed-in user's session
@@ -48,24 +50,33 @@ export type RoomPageData = {
   places: RoomPlace[];
   /** The boxes of the room with things written into them (Story 18.13). */
   written: WrittenBox[];
+  /** What "Rensa rummet" would remove (Story 18.15). */
+  clearCounts: ClearCounts;
 };
+
+/** What clearing the room `key` of the boende `siteId`, or without `key` the whole boende's Förråd, removes (Story 18.15). Throws ThingsDataError. */
+export async function getClearCounts(siteId: string, key?: string): Promise<ClearCounts> {
+  return loadClearCountsIn(await createClient(), siteId, key);
+}
 
 /** A room of a boende, or `null` when it has no such room. Throws ThingsDataError. */
 export async function getRoomPage(siteId: string, key: string, now: Date = new Date()): Promise<RoomPageData | null> {
   const db = await createClient();
   const summary = await loadRoomIn(db, siteId, key);
   if (!summary) return null;
-  const [categories, cards, places, written] = await Promise.all([
+  const [categories, cards, places, written, clearCounts] = await Promise.all([
     loadRoomCategoriesIn(db, siteId, key),
     loadRoomCardsIn(db, siteId, key, now),
     loadRoomPlacesIn(db, siteId, key),
     loadRoomWrittenIn(db, siteId, key),
+    loadClearCountsIn(db, siteId, key),
   ]);
   return {
     summary,
     categories,
     places,
     written,
+    clearCounts,
     cards: cards.map((card) => ({ ...card, label: cardLabel(card) })),
   };
 }

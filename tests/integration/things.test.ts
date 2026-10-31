@@ -1,7 +1,7 @@
 import { randomUUID } from "node:crypto";
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
 import { ThingsDataError } from "@/features/things/data/client";
-import { loadThingsIn, removeItemIn, renameItemIn, restoreItemIn } from "@/features/things/data/items";
+import { loadThingsIn, removeItemIn, renameItemIn, restoreItemIn, updateItemIn } from "@/features/things/data/items";
 import {
   downloadCardFile,
   insertCardIn,
@@ -18,8 +18,9 @@ import {
 } from "@/features/things/data/photos";
 import { sweepCardFilesIn } from "@/features/things/actions/sweep-card-files";
 import { mergeItemsIn, loadMergeInputIn } from "@/features/things/data/merge";
+import { clearThingsIn, loadClearCountsIn } from "@/features/things/data/clear";
 import { loadUnseenIn, searchThingsIn } from "@/features/things/data/search";
-import { loadRoomWrittenIn, loadWrittenIn, replaceBoxThingsIn } from "@/features/things/data/written";
+import { addCardThingsIn, loadRoomWrittenIn, loadWrittenIn, replaceBoxThingsIn } from "@/features/things/data/written";
 import { insertPlaceIn, loadPlaceIn, loadPlacesIn } from "@/features/things/data/places";
 import { findPlaceIn, loadRoomCardsIn, loadRoomCategoriesIn, loadRoomIn, loadRoomPlacesIn, loadRoomsIn, loadRoomThingsIn } from "@/features/things/data/rooms";
 import { thingPhotoBucket, thingPhotoPath } from "@/features/things/domain/thing-photo";
@@ -802,5 +803,160 @@ describe("rooms (Stories 18.11 and 18.12)", () => {
     expect(await loadRoomThingsIn(b.db, site, "garaget", "Verktyg")).toEqual([]);
     const anon = (await import("./support")).anonClient();
     expect((await anon.rpc("thing_room_stats", { site })).error).not.toBeNull();
+  });
+});
+
+describe("rätta och rensa (Story 18.15)", () => {
+  let k: TestUser;
+  beforeAll(async () => {
+    k = await createTestUser("things-k");
+  });
+  const box = async (site: string, room: string, name: string) => {
+    const saved = await insertPlaceIn(k.db, { siteId: site, room, part: name }, true);
+    if (saved.kind !== "saved") throw new Error("not saved");
+    return saved.id;
+  };
+  const fileExists = async (path: string) => (await downloadCardFile(k.db, path)) !== null;
+
+  it("changes the name, category and where of a thing, and it stays on its card", async () => {
+    const site = await siteOf(k, "Rätta");
+    const place = await placeOf(k, site, "Garaget", "Väggen");
+    const card = await doneCard(k, place, [hammer]);
+    const [thing] = await loadThingsIn(k.db, card.id);
+    expect(await updateItemIn(k.db, thing.id, { name: "Klohammare", category: "Trädgård", whereHint: "översta hyllan" })).toBe(true);
+    expect((await loadThingsIn(k.db, card.id)).map((row) => [row.name, row.category, row.whereHint])).toEqual([["Klohammare", "Trädgård", "översta hyllan"]]);
+    expect(await updateItemIn(k.db, thing.id, { name: "Klohammare", category: "Trädgård", whereHint: null })).toBe(true);
+    expect((await loadThingsIn(k.db, card.id))[0].whereHint).toBeNull();
+    // Another user changes nothing.
+    expect(await updateItemIn(b.db, thing.id, { name: "Tagen", category: "Övrigt", whereHint: null })).toBe(false);
+    await expect(updateItemIn(k.db, thing.id, { name: "Hammare", category: "Mat" as never, whereHint: null })).rejects.toBeInstanceOf(ThingsDataError);
+  });
+
+  it("adds things to a finished card only, shows them as the card's, removes them alone with Ångra, and drops them with a retake", async () => {
+    const site = await siteOf(k, "Lägg-till");
+    const place = await placeOf(k, site, "Garaget", "Väggen");
+    const card = await doneCard(k, place, [hammer]);
+    expect(await addCardThingsIn(k.db, card.id, [{ name: "Skiftnyckel", category: "Verktyg" }, { name: "Spade", category: "Trädgård" }])).toEqual({ kind: "added", count: 2 });
+    const shown = await loadThingsIn(k.db, card.id);
+    expect(shown.map((thing) => thing.name)).toEqual(["Hammare", "Skiftnyckel", "Spade"]);
+    const { data } = await k.db.from("thing_item").select("source, photo_id, place_id, position").eq("photo_id", card.id).eq("source", "added").order("position");
+    expect(data).toEqual([
+      { source: "added", photo_id: card.id, place_id: place, position: 1 },
+      { source: "added", photo_id: card.id, place_id: place, position: 2 },
+    ]);
+    expect((await loadRoomsIn(k.db, site))[0]).toMatchObject({ things: 3, cards: 1 });
+    // The search finds an added thing like any other.
+    const hits = (await searchThingsIn(k.db, ["skiftnyckel"])).filter((hit) => hit.siteId === site);
+    expect(hits.map((hit) => [hit.name, hit.written])).toEqual([["Skiftnyckel", false]]);
+
+    // Removed alone, "Ångra" brings it back as an added thing.
+    const spade = shown.find((thing) => thing.name === "Spade")!;
+    const removed = await removeItemIn(k.db, spade.id);
+    expect(removed).toMatchObject({ name: "Spade", source: "added" });
+    expect(await restoreItemIn(k.db, removed!)).toBe("restored");
+    expect((await k.db.from("thing_item").select("source").eq("id", spade.id).single()).data?.source).toBe("added");
+
+    // A card that is being read, one of another user and one that is gone take nothing.
+    const reading = await cardOf(k, place);
+    expect(await addCardThingsIn(k.db, reading.id, [{ name: "Spade", category: "Trädgård" }])).toEqual({ kind: "gone" });
+    expect(await addCardThingsIn(b.db, card.id, [{ name: "Spade", category: "Trädgård" }])).toEqual({ kind: "gone" });
+    expect(await addCardThingsIn(k.db, randomUUID(), [])).toEqual({ kind: "gone" });
+    await expect(addCardThingsIn(k.db, card.id, [{ name: "Spade", category: "Mat" as never }])).rejects.toBeInstanceOf(ThingsDataError);
+
+    // A retake replaces the old card with what it had added.
+    const retake = await cardOf(k, place, undefined, card.id);
+    await saveReadingIn(k.db, { photoId: retake.id, things: [{ ...hammer, name: "Hammare" }], note: null, hidden: 0 });
+    expect((await k.db.from("thing_item").select("id").eq("source", "added").eq("place_id", place)).data).toEqual([]);
+    expect((await loadThingsIn(k.db, retake.id)).map((thing) => thing.name)).toEqual(["Hammare"]);
+  });
+
+  it("clears a room: its cards, files, things (photographed, written and added), boxes and places, and nothing of another room, boende or the pantry", async () => {
+    const site = await siteOf(k, "Rensa-rum");
+    const wall = await placeOf(k, site, "Skräpförrådet", "Väggen");
+    const black = await box(site, "Skräpförrådet", "Black box");
+    const keepPlace = await placeOf(k, site, "Garaget", "Väggen");
+    const otherSite = await siteOf(k, "Annat boende");
+    const otherPlace = await placeOf(k, otherSite, "Skräpförrådet", "Väggen");
+    const first = await doneCard(k, wall, [hammer, { ...hammer, name: "Spade", category: "Trädgård" }]);
+    const second = await doneCard(k, wall, [{ ...hammer, name: "Såg" }]);
+    const boxCard = await doneCard(k, black, [{ ...hammer, name: "Skruvdragare" }]);
+    const kept = await doneCard(k, keepPlace, [hammer]);
+    const otherCard = await doneCard(k, otherPlace, [hammer]);
+    await addCardThingsIn(k.db, first.id, [{ name: "Skiftnyckel", category: "Verktyg" }]);
+    await replaceBoxThingsIn(k.db, black, [{ name: "Julgransbelysning", category: "Elektronik" }]);
+    const stray = thingPhotoPath(k.id, wall, randomUUID(), "image/png");
+    await uploadCardFile(k.db, stray, png, "image/png");
+    files.push(stray);
+    const pantryBefore = await k.db.from("pantry_site").select("id").eq("id", site);
+
+    // What the sheet says: the kept things, the finished cards and the boxes.
+    expect(await loadClearCountsIn(k.db, site, "skräpförrådet")).toEqual({ things: 6, cards: 3, boxes: 1 });
+    expect(await loadClearCountsIn(k.db, site)).toEqual({ things: 7, cards: 4, boxes: 1 });
+
+    // The stray file has no row; it is found by its folder, before the rows go, as the action does.
+    const listed = await loadSiteCardFilesIn(k.db, k.id, site, "skräpförrådet");
+    expect([...listed].sort()).toEqual([first.path, second.path, boxCard.path, stray].sort());
+    const cleared = await clearThingsIn(k.db, site, "skräpförrådet");
+    if (cleared.kind !== "cleared") throw new Error("not cleared");
+    expect(cleared.counts).toEqual({ things: 6, cards: 3, boxes: 1 });
+    expect([...cleared.paths].sort()).toEqual([first.path, second.path, boxCard.path].sort());
+    expect(await removeCardFiles(k.db, [...new Set([...listed, ...cleared.paths])])).toEqual({ failed: null });
+    for (const path of [first.path, second.path, boxCard.path, stray]) expect(await fileExists(path), path).toBe(false);
+
+    // Everything of the room is gone; the other room, the other boende and the boende itself stay.
+    expect((await loadRoomsIn(k.db, site)).map((room) => room.key)).toEqual(["garaget"]);
+    expect((await k.db.from("thing_place").select("id").in("id", [wall, black])).data).toEqual([]);
+    expect((await k.db.from("thing_item").select("id").in("place_id", [wall, black])).data).toEqual([]);
+    expect((await k.db.from("thing_photo").select("id").in("place_id", [wall, black])).data).toEqual([]);
+    expect(await fileExists(kept.path)).toBe(true);
+    expect(await fileExists(otherCard.path)).toBe(true);
+    expect(await loadClearCountsIn(k.db, otherSite)).toEqual({ things: 1, cards: 1, boxes: 0 });
+    expect((await k.db.from("pantry_site").select("id").eq("id", site)).data).toEqual(pantryBefore.data);
+    // The room is gone: clearing it again says so.
+    expect(await clearThingsIn(k.db, site, "skräpförrådet")).toEqual({ kind: "gone" });
+  });
+
+  it("clears the whole Förråd of a boende and leaves the boende, its other things and the other boende", async () => {
+    const site = await siteOf(k, "Rensa-allt");
+    const wall = await placeOf(k, site, "Skräpförrådet", "Väggen");
+    const garage = await placeOf(k, site, "Garaget");
+    const black = await box(site, "Garaget", "Black box");
+    const otherSite = await siteOf(k, "Rensa-inte");
+    const otherPlace = await placeOf(k, otherSite, "Skräpförrådet", "Väggen");
+    const a1 = await doneCard(k, wall, [hammer]);
+    const a2 = await doneCard(k, garage, [hammer]);
+    await replaceBoxThingsIn(k.db, black, [{ name: "Spade", category: "Trädgård" }]);
+    const keep = await doneCard(k, otherPlace, [hammer]);
+
+    const cleared = await clearThingsIn(k.db, site);
+    if (cleared.kind !== "cleared") throw new Error("not cleared");
+    expect(cleared.counts).toEqual({ things: 3, cards: 2, boxes: 1 });
+    expect(await removeCardFiles(k.db, cleared.paths)).toEqual({ failed: null });
+    expect(await fileExists(a1.path)).toBe(false);
+    expect(await fileExists(a2.path)).toBe(false);
+    expect(await loadRoomsIn(k.db, site)).toEqual([]);
+    expect((await k.db.from("pantry_site").select("id").eq("id", site)).data).toHaveLength(1);
+    expect(await fileExists(keep.path)).toBe(true);
+    expect(await loadClearCountsIn(k.db, otherSite)).toEqual({ things: 1, cards: 1, boxes: 0 });
+    // An empty Förråd is nothing to clear, not an error.
+    expect(await clearThingsIn(k.db, site)).toMatchObject({ kind: "cleared", counts: { things: 0, cards: 0, boxes: 0 }, paths: [] });
+  });
+
+  it("lets another user neither count nor clear a room or a Förråd that is not theirs, and anon nothing", async () => {
+    const site = await siteOf(k, "Privat-rensa");
+    const place = await placeOf(k, site, "Garaget", "Väggen");
+    const card = await doneCard(k, place, [hammer]);
+    expect(await loadClearCountsIn(b.db, site, "garaget")).toEqual({ things: 0, cards: 0, boxes: 0 });
+    expect(await loadClearCountsIn(b.db, site)).toEqual({ things: 0, cards: 0, boxes: 0 });
+    expect(await clearThingsIn(b.db, site, "garaget")).toEqual({ kind: "gone" });
+    expect(await clearThingsIn(b.db, site)).toEqual({ kind: "gone" });
+    expect(await clearThingsIn(b.db, randomUUID())).toEqual({ kind: "gone" });
+    expect(await loadClearCountsIn(k.db, site, "garaget")).toEqual({ things: 1, cards: 1, boxes: 0 });
+    expect(await fileExists(card.path)).toBe(true);
+    const anon = anonClient();
+    expect((await anon.rpc("clear_things", { site })).error).not.toBeNull();
+    expect((await anon.rpc("thing_clear_counts", { site })).error).not.toBeNull();
+    expect((await anon.rpc("add_card_things", { photo: card.id, things: [] })).error).not.toBeNull();
+    expect(await loadClearCountsIn(k.db, site)).toEqual({ things: 1, cards: 1, boxes: 0 });
   });
 });

@@ -32,6 +32,8 @@ export const newRoomText = "+ Nytt rum";
 export const takeAnotherText = "Ta ett till";
 export const emptyCaptureRoomText = "Ange ett rum, till exempel Skräpförrådet.";
 export const retakeText = "Ta om";
+export const retakeTitleText = "Ta om kortet";
+export const retakeDetailText = "Det nya fotot ersätter det här kortet när det är läst. Rättelser och tillagda prylar på det gamla kortet ersätts av den nya läsningen.";
 
 /** "Skickar 2 av 5 …". */
 export function sendingText(done: number, total: number): string {

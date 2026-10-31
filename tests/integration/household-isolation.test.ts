@@ -346,4 +346,46 @@ describe("household isolation", () => {
       expect(JSON.stringify((await adminClient().from("thing_item").select("*").eq("place_id", box.data!.id)).data), "A's written thing unchanged").toBe(before);
     });
   });
+
+  // Story 18.15: a thing added to a card (source 'added'), and clearing a room or a boende's Förråd. The
+  // functions are security invoker under the caller's lock, so another user can neither count nor clear.
+  describe("things added to a card and the clearing of Förråd", () => {
+    it("keeps A's rooms and cards from B's clearing, B's counting and anon", async () => {
+      const place = await a.db.from("thing_place").insert({ site_id: aSeed.siteId, room: "Vinden", part: null, room_key: "vinden", part_key: "" }).select("id").single();
+      expect(place.error, "A makes a place").toBeNull();
+      const photoId = randomUUID();
+      const photo = await a.db
+        .from("thing_photo")
+        .insert({ id: photoId, place_id: place.data!.id, object_path: `${a.id}/${place.data!.id}/${photoId}.png`, media_type: "image/png", width: 10, height: 10, taken_at: new Date().toISOString(), status: "done" })
+        .select("id")
+        .single();
+      expect(photo.error, "A has a finished card").toBeNull();
+      expect((await a.db.rpc("add_card_things", { photo: photoId, things: [{ name: "Skiftnyckel", category: "Verktyg" }] })).data).toBe(1);
+      const before = JSON.stringify((await adminClient().from("thing_item").select("*").eq("photo_id", photoId)).data);
+      expect(before).toContain('"source":"added"');
+
+      // B adds to nothing of A's, counts nothing and clears nothing.
+      expect((await b.db.rpc("add_card_things", { photo: photoId, things: [{ name: "Spökpryl", category: "Övrigt" }] })).error?.code).toBe("MK440");
+      expect((await b.db.rpc("thing_clear_counts", { site: aSeed.siteId, in_room: "vinden" })).data).toEqual([{ things: 0, cards: 0, boxes: 0 }]);
+      expect((await b.db.rpc("clear_things", { site: aSeed.siteId, in_room: "vinden" })).error?.code).toBe("MK440");
+      expect((await b.db.rpc("clear_things", { site: aSeed.siteId })).error?.code).toBe("MK440");
+      // A thing typed onto A's card cannot be inserted by B either.
+      expect((await b.db.from("thing_item").insert({ user_id: a.id, photo_id: photoId, place_id: place.data!.id, name: "Spökpryl", category: "Övrigt", confidence: "high", source: "added" })).error?.code).toBe("42501");
+
+      const anon = anonClient();
+      for (const [name, args] of [
+        ["add_card_things", { photo: photoId, things: [] }],
+        ["thing_clear_counts", { site: aSeed.siteId }],
+        ["clear_things", { site: aSeed.siteId }],
+      ] as const) {
+        expect((await anon.rpc(name, args as never)).error?.code, `anon calls ${name}`).toBe("42501");
+      }
+
+      expect(JSON.stringify((await adminClient().from("thing_item").select("*").eq("photo_id", photoId)).data), "A's added thing unchanged").toBe(before);
+      expect((await adminClient().from("thing_photo").select("id").eq("id", photoId)).data, "A's card is still there").toHaveLength(1);
+      // A clears the room; A's own rows go.
+      expect((await a.db.rpc("clear_things", { site: aSeed.siteId, in_room: "vinden" })).data).toMatchObject({ things: 1, cards: 1, boxes: 0, paths: [`${a.id}/${place.data!.id}/${photoId}.png`] });
+      expect((await adminClient().from("thing_photo").select("id").eq("id", photoId)).data).toEqual([]);
+    });
+  });
 });

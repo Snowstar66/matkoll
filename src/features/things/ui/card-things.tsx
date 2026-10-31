@@ -3,6 +3,7 @@
 import { useRouter } from "next/navigation";
 import { type FormEvent, useId, useRef, useState } from "react";
 import { Button } from "@/components/button";
+import { FilterPills } from "@/components/filter-pills";
 import { cx } from "@/components/cx";
 import { FieldError, FieldLabel, Input } from "@/components/field";
 import { ListGroup } from "@/components/list-group";
@@ -11,13 +12,25 @@ import { Notice } from "@/components/notice";
 import { Sheet } from "@/components/sheet";
 import { useToast } from "@/components/toast";
 import { fail, type Result } from "@/lib/errors";
-import { removeThing, renameThing, restoreThing } from "../actions/thing-item";
-import { groupByCategory, thingMeta, thingTiles, type Thing, type ThingCategory } from "../domain/thing";
-import { cleanThingName, emptyNameText, maxThingNameChars, removedThingText, removeThingText, renameThingText } from "../domain/thing-edit";
+import { removeThing, restoreThing, updateThing } from "../actions/thing-item";
+import { groupByCategory, thingCategories, thingMeta, thingTiles, type Thing, type ThingCategory } from "../domain/thing";
+import {
+  categoryLabelText,
+  cleanThingName,
+  emptyNameText,
+  maxThingNameChars,
+  maxWhereChars,
+  removedThingText,
+  removeThingText,
+  renameThingText,
+  wherePlaceholderText,
+  whereLabelText,
+} from "../domain/thing-edit";
 
 // The things of a card under their categories (Stories 18.2 and 18.3), each a
-// row to tap: a sheet renames that thing or removes just it (with "Ångra"),
-// and the card, its date and the other things stay as they are. Quiet row
+// row to tap: a sheet renames that thing, changes its category and where on the
+// picture it is (Story 18.15), or removes just it (with "Ångra"), and the card,
+// its date and the other things stay as they are. Quiet row
 // cards, a category's emoji on a light tile; the tile is decoration and the
 // category's name stands beside it.
 
@@ -56,6 +69,9 @@ export function CardThings({ things, headings = true, aside = false }: { things:
   // Kept while the sheet closes, so its text does not blank during the animation.
   const [selected, setSelected] = useState<Thing | null>(null);
   const [name, setName] = useState("");
+  const [category, setCategory] = useState<ThingCategory>("Övrigt");
+  const [where, setWhere] = useState("");
+  const [whereError, setWhereError] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [notice, setNotice] = useState<string | null>(null);
   const [saving, setSaving] = useState(false);
@@ -66,6 +82,9 @@ export function CardThings({ things, headings = true, aside = false }: { things:
   function openSheet(thing: Thing) {
     setSelected(thing);
     setName(thing.name);
+    setCategory(thing.category);
+    setWhere(thing.whereHint ?? "");
+    setWhereError(null);
     setError(null);
     setNotice(null);
     setOpen(true);
@@ -81,14 +100,15 @@ export function CardThings({ things, headings = true, aside = false }: { things:
       nameRef.current?.focus();
       return;
     }
-    if (cleaned === selected.name) {
+    const cleanedWhere = cleanThingName(where) || null;
+    if (cleaned === selected.name && category === selected.category && cleanedWhere === selected.whereHint) {
       setOpen(false);
       return;
     }
     setSaving(true);
     let result: Result<null>;
     try {
-      result = await renameThing({ id: selected.id, name });
+      result = await updateThing({ id: selected.id, name, category, whereHint: where });
     } catch {
       // No answer (e.g. no connection): it may have been saved, so the page is read again.
       result = fail("things_item_failed");
@@ -104,6 +124,10 @@ export function CardThings({ things, headings = true, aside = false }: { things:
     if (result.error.fields?.name) {
       setError(result.error.fields.name);
       nameRef.current?.focus();
+      return;
+    }
+    if (result.error.fields?.where) {
+      setWhereError(result.error.fields.where);
       return;
     }
     setNotice(result.error.message);
@@ -185,6 +209,34 @@ export function CardThings({ things, headings = true, aside = false }: { things:
               aria-describedby={error ? `${ids}-name-error` : undefined}
             />
             {error ? <FieldError id={`${ids}-name-error`}>{error}</FieldError> : null}
+          </div>
+          <div className="flex flex-col gap-2">
+            <p className="text-body font-semibold text-ink">{categoryLabelText}</p>
+            <FilterPills<ThingCategory>
+              label={categoryLabelText}
+              value={category}
+              onChange={setCategory}
+              options={thingCategories.map((value) => ({ value, label: value, icon: thingTiles[value].icon }))}
+              className="[&>button]:min-h-tap"
+            />
+          </div>
+          <div className="flex flex-col gap-2">
+            <FieldLabel htmlFor={`${ids}-where`}>{whereLabelText}</FieldLabel>
+            <Input
+              id={`${ids}-where`}
+              name="where"
+              autoComplete="off"
+              maxLength={maxWhereChars * 2}
+              placeholder={wherePlaceholderText}
+              value={where}
+              onChange={(event) => {
+                setWhere(event.target.value);
+                setWhereError(null);
+              }}
+              aria-invalid={whereError ? true : undefined}
+              aria-describedby={whereError ? `${ids}-where-error` : undefined}
+            />
+            {whereError ? <FieldError id={`${ids}-where-error`}>{whereError}</FieldError> : null}
           </div>
           <Button type="submit" fullWidth aria-disabled={saving || undefined}>
             {saving ? "Sparar …" : "Spara"}

@@ -11,6 +11,7 @@ import { errorMessages, fail, isErrorCode, type AppError, type Result } from "@/
 import type { AiJob } from "@/lib/ai-job-shape";
 import Link from "next/link";
 import { writtenEditText, writtenMeta, type WrittenBox } from "../domain/thing-written";
+import { AddCardThings } from "./add-card-things";
 import { RemoveCard } from "./remove-card";
 import { RetakeCard } from "./retake-card";
 
@@ -76,6 +77,7 @@ export function RoomCards({ cards, written = [] }: { cards: readonly RoomCard[];
             {card.status === "done" ? (
               <>
                 <RetakeCard cardId={card.id} placeId={card.placeId} name={card.label} />
+                <AddCardThings cardId={card.id} name={card.label} />
                 <RemoveCard cardId={card.id} takenAt={card.takenAt} compact name={card.label} />
               </>
             ) : null}

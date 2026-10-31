@@ -505,7 +505,10 @@ isOneToOne: false
             [_ in never]: never
           }
           Functions: {
-            "add_shopping_custom_item":
+            "add_card_things":
+{ Args: { "photo": string,"things": Json }; Returns: number
+                           },
+"add_shopping_custom_item":
 { Args: { "item": Json }; Returns: {
               "amount": number | null,
 "created_at": string,
@@ -593,6 +596,9 @@ isOneToOne: false
                            },
 "clear_put_in_pantry":
 { Args: { "check_ids": (string)[],"custom_item_ids": (string)[],"override_keys": (string)[],"plan_id": string }; Returns: number
+                           },
+"clear_things":
+{ Args: { "in_room"?: string,"site": string }; Returns: Json
                            },
 "commit_ingredients":
 { Args: { "new_ingredients": Json,"synonyms": Json }; Returns: {
@@ -898,6 +904,11 @@ isOneToOne: false
                            },
 "store_lock":
 { Args: Record<PropertyKey, never>; Returns: undefined
+                           },
+"thing_clear_counts":
+{ Args: { "in_room"?: string,"site": string }; Returns: {
+              "boxes": number,"cards": number,"things": number
+            }[]
                            },
 "thing_room_categories":
 { Args: { "in_room": string,"site": string }; Returns: {

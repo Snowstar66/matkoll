@@ -6,7 +6,7 @@ import { cx } from "./cx";
 export type FilterOption<T extends string> = {
   value: T;
   label: string;
-  /** A decorative glyph before the label in a segmented control (Story 14.4); the label is the name. */
+  /** A decorative glyph before the label (Story 14.4, and the category chips of Story 18.15); the label is the name. */
   icon?: string;
   /** Story 17.5: this one cannot be chosen (e.g. a provider without its key); the others can. */
   disabled?: boolean;
@@ -140,6 +140,11 @@ export function FilterPills<T extends string>({
                 selected ? "bg-accent text-on-accent" : "bg-surface text-ink-2",
               )}
             >
+              {option.icon ? (
+                <span aria-hidden="true" className="mr-1.5 leading-none">
+                  {option.icon}
+                </span>
+              ) : null}
               {option.label}
             </span>
           </button>

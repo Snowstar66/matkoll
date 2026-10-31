@@ -6,6 +6,8 @@ import { requireUserOrRedirect } from "@/features/auth/server";
 import type { PantrySiteWithCount } from "@/features/pantry";
 import { listPantrySitesWithCounts, PantryDataError } from "@/features/pantry/server";
 import { HousingSettings } from "@/features/pantry/ui/housing-settings";
+import { getClearCounts, ThingsDataError } from "@/features/things/server";
+import { ClearSiteThings, type SiteThings } from "@/features/things/ui/clear-site";
 import { SettingsPageHeader } from "@/features/settings/ui/settings-page-header";
 import { errorMessages } from "@/lib/errors";
 
@@ -33,5 +35,18 @@ async function HousingContent() {
     console.error("pantry_unavailable", { reason: error.detail });
     return <Notice role="alert">{errorMessages.pantry_unavailable}</Notice>;
   }
-  return <HousingSettings sites={sites} />;
+  // What Förråd holds in each boende, for "Rensa förrådet" (Story 18.15); the list is left out when it cannot be read.
+  let things: SiteThings[] = [];
+  try {
+    things = await Promise.all(sites.map(async (site) => ({ id: site.id, name: site.name, counts: await getClearCounts(site.id) })));
+  } catch (error) {
+    if (!(error instanceof ThingsDataError)) throw error;
+    console.error("things_unavailable", { reason: error.detail });
+  }
+  return (
+    <div className="flex flex-col gap-6">
+      <HousingSettings sites={sites} />
+      <ClearSiteThings sites={things} />
+    </div>
+  );
 }
