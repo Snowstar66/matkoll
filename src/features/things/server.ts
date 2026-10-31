@@ -1,12 +1,12 @@
 import "server-only";
 import { createClient } from "@/lib/supabase/server";
 import { ThingsDataError } from "./data/client";
-import { loadThingsIn } from "./data/items";
-import { downloadCardFile, loadCardIn, loadCardsIn, loadSiteCardFilesIn, removeCardFiles } from "./data/photos";
+import { downloadCardFile, loadCardIn, loadSiteCardFilesIn, removeCardFiles } from "./data/photos";
 import { loadThingIndexIn } from "./data/index";
 import { loadPlaceIn, loadPlacesIn } from "./data/places";
-import type { Thing } from "./domain/thing";
-import { shownStatus, type ThingCard } from "./domain/thing-photo";
+import { loadRoomCardsIn, loadRoomCategoriesIn, loadRoomIn, loadRoomPlacesIn, loadRoomsIn, type RoomPlace } from "./data/rooms";
+import type { ThingCategory } from "./domain/thing";
+import { cardLabel, type RoomCard, type RoomSummary } from "./domain/thing-room";
 import type { ThingPlace } from "./domain/thing-place";
 import type { IndexedPlace } from "./domain/thing-search";
 
@@ -44,24 +44,35 @@ export async function getThingIndex(): Promise<IndexedPlace[]> {
   return loadThingIndexIn(await createClient());
 }
 
-/** What the place page shows: the card whose things are listed, the card being read or failed, and the things. */
-export type PlaceView = {
-  /** The newest card that is done, with its things. */
-  card: ThingCard | null;
-  things: Thing[];
-  /** The newest card when it is being read or failed (shown over the older one), else `null`. */
-  pending: ThingCard | null;
+/** The rooms of the boende `siteId`, each counted by the database (Story 18.11). Throws ThingsDataError. */
+export async function listRooms(siteId: string): Promise<RoomSummary[]> {
+  return loadRoomsIn(await createClient(), siteId);
+}
+
+/** What a room's page shows (Story 18.12): its counts, the categories with their counts, the cards and the places. */
+export type RoomPageData = {
+  summary: RoomSummary;
+  categories: { category: ThingCategory; things: number }[];
+  cards: RoomCard[];
+  places: RoomPlace[];
 };
 
-/** The cards and things of a place. Throws ThingsDataError. */
-export async function getPlaceView(placeId: string, now: Date = new Date()): Promise<PlaceView> {
+/** A room of a boende, or `null` when it has no such room. Throws ThingsDataError. */
+export async function getRoomPage(siteId: string, key: string, now: Date = new Date()): Promise<RoomPageData | null> {
   const db = await createClient();
-  const cards = await loadCardsIn(db, placeId);
-  const card = cards.find((candidate) => candidate.status === "done") ?? null;
-  const newest = cards[0];
-  const state = newest ? shownStatus(newest, now) : null;
-  const pending = newest && newest.id !== card?.id && state !== "done" ? { ...newest, status: state ?? newest.status } : null;
-  return { card, things: card ? await loadThingsIn(db, card.id) : [], pending };
+  const summary = await loadRoomIn(db, siteId, key);
+  if (!summary) return null;
+  const [categories, cards, places] = await Promise.all([
+    loadRoomCategoriesIn(db, siteId, key),
+    loadRoomCardsIn(db, siteId, key, now),
+    loadRoomPlacesIn(db, siteId, key),
+  ]);
+  return {
+    summary,
+    categories,
+    places,
+    cards: cards.map((card) => ({ ...card, label: cardLabel(card) })),
+  };
 }
 
 /**

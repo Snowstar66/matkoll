@@ -12,7 +12,7 @@ import { addBoxText, emptyBoxText, maxPlaceNameChars } from "../domain/thing-pla
 
 // "Lägg till låda" (Story 18.5): a sheet with the box's name, on a place's
 // page. The box is a place of its own in the same room, so "Lägg till" opens
-// it with the camera ready (`?fota=1`), to photograph the inside. The same
+// the room's page with the camera ready (`?fota=<box>`), to photograph the inside. The same
 // sheet opens from the row "Innehållet i 3 lådor syns inte – fota insidan",
 // which is then a button: the unseen boxes are named and photographed one at a
 // time. A name that is empty or taken is said under the field; a place that is
@@ -24,9 +24,11 @@ export type AddBoxProps = {
   /** `button` is the text button under the card; `row` is the line about the closed boxes, with `label` as its text. */
   variant: "button" | "row";
   label?: string;
+  /** The room's page, where the new box's camera is offered (`?fota=<box>`). */
+  roomHref: string;
 };
 
-export function AddBox({ placeId, variant, label }: AddBoxProps) {
+export function AddBox({ placeId, variant, label, roomHref }: AddBoxProps) {
   const router = useRouter();
   const [open, setOpen] = useState(false);
   const [name, setName] = useState("");
@@ -64,7 +66,7 @@ export function AddBox({ placeId, variant, label }: AddBoxProps) {
     setSaving(false);
     if (result.ok) {
       setOpen(false);
-      router.push(`/prylar/${result.data.id}?fota=1`);
+      router.push(`${roomHref}?fota=${result.data.id}`);
       return;
     }
     const { code, message, fields } = result.error;

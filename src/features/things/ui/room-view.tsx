@@ -1,0 +1,131 @@
+"use client";
+
+import { useRouter } from "next/navigation";
+import { useCallback, useEffect, useState } from "react";
+import { FilterPills } from "@/components/filter-pills";
+import { isActive, type AiJob } from "@/lib/ai-job-shape";
+import { useAiJobs, useOnAiJobsFinished, useShowingAiResults } from "@/lib/ai-jobs-client";
+import { unseenText, type ThingCategory } from "../domain/thing";
+import { moreCardsText } from "../domain/capture";
+import { latestCardText } from "../domain/thing-photo";
+import { type RoomCard, type RoomSummary, type RoomView as View } from "../domain/thing-room";
+import { AddBox } from "./add-box";
+import { RoomCards } from "./room-cards";
+import { RoomCategories } from "./room-categories";
+import { TakeCard } from "./take-card";
+import { UploadCardRow } from "./upload-card-row";
+
+// A room's page (Story 18.12): the summary (things, categories and cards), the
+// row "Ta fler kort" with the date of the newest card, and the segmented choice
+// between Prylar (the room's merged things per category, folded in) and Kort
+// (the cards as thumbnails). While a card is being read the page reads itself
+// again every few seconds, and when a job of this room finishes.
+
+export type RoomViewProps = {
+  siteId: string;
+  summary: RoomSummary;
+  categories: { category: ThingCategory; things: number }[];
+  cards: RoomCard[];
+  /** Every room of the boende, for the sheet of "Ta fler kort". */
+  rooms: readonly string[];
+  /** The place the room's boxes are added to (a part or the whole room), if it has one. */
+  boxParent: string | null;
+  /** A box made a moment ago (`?fota=`): its camera is offered at once. */
+  photographBox: { id: string; name: string } | null;
+  initialView: View;
+  placeIds: readonly string[];
+};
+
+/** How often a page with a card being read reads itself again. */
+const refreshMs = 3_000;
+
+export function RoomView({ siteId, summary, categories, cards, rooms, boxParent, photographBox, initialView, placeIds }: RoomViewProps) {
+  const router = useRouter();
+  const { jobs, markSeen } = useAiJobs();
+  const [view, setView] = useState<View>(initialView);
+  const reading = cards.some((card) => card.status === "reading");
+
+  // The results of this tab's jobs are on this page, so no confirmation says what is already here.
+  useShowingAiResults("things");
+  useEffect(() => {
+    for (const job of jobs) {
+      if (job.kind === "things" && typeof job.context.placeId === "string" && placeIds.includes(job.context.placeId) && !job.seen && !isActive(job)) {
+        void markSeen(job.id);
+      }
+    }
+  }, [jobs, placeIds, markSeen]);
+  useOnAiJobsFinished(
+    useCallback(
+      (finished: AiJob[]) => {
+        if (finished.some((job) => job.kind === "things" && typeof job.context.placeId === "string" && placeIds.includes(job.context.placeId))) router.refresh();
+      },
+      [router, placeIds],
+    ),
+  );
+  useEffect(() => {
+    if (!reading) return;
+    const timer = window.setInterval(() => router.refresh(), refreshMs);
+    return () => window.clearInterval(timer);
+  }, [reading, router]);
+
+  const unseen = unseenText(
+    cards.filter((card) => card.status === "done").reduce((sum, card) => sum + card.unseenCount, 0),
+    cards.find((card) => card.status === "done" && card.unseenNote)?.unseenNote ?? null,
+  );
+  const roomHref = `/prylar/rum/${siteId}/${encodeURIComponent(summary.key)}`;
+
+  return (
+    <div className="flex flex-col gap-3" data-testid="room">
+      <dl className="grid grid-cols-3 rounded-lg bg-surface p-3.5 text-center" data-testid="room-summary">
+        <Stat value={summary.things} label="prylar" />
+        <Stat value={categories.length} label="kategorier" />
+        <Stat value={summary.cards} label="kort" />
+      </dl>
+      {photographBox ? <UploadCardRow placeId={photographBox.id} title={`Fota insidan av ${photographBox.name}`} /> : null}
+      <TakeCard
+        siteId={siteId}
+        rooms={rooms}
+        defaultRoom={summary.room}
+        variant="default"
+        title={moreCardsText}
+        sub={latestCardText(summary.latest)}
+        hideRow={view === "cards"}
+      />
+      <FilterPills<View>
+        segmented
+        label="Visa"
+        value={view}
+        onChange={setView}
+        options={[
+          { value: "things", label: "Prylar" },
+          { value: "cards", label: "Kort" },
+        ]}
+        className="w-full [&>button]:flex-1"
+      />
+      {view === "things" ? (
+        <>
+          {summary.things === 0 ? (
+            <p className="px-1 text-body text-ink-2" data-testid="room-empty">
+              {summary.cards === 0 ? "Inget kort än. Ta ett kort, så listar Matkoll vad som finns." : "Inga prylar hittades på korten."}
+            </p>
+          ) : (
+            <RoomCategories siteId={siteId} roomKey={summary.key} categories={categories} />
+          )}
+          {unseen && boxParent ? <AddBox placeId={boxParent} variant="row" label={unseen} roomHref={roomHref} /> : null}
+          {boxParent ? <AddBox placeId={boxParent} variant="button" roomHref={roomHref} /> : null}
+        </>
+      ) : (
+        <RoomCards cards={cards} />
+      )}
+    </div>
+  );
+}
+
+function Stat({ value, label }: { value: number; label: string }) {
+  return (
+    <div>
+      <dd className="text-section-title text-ink tabular-nums">{value}</dd>
+      <dt className="text-meta text-ink-3">{label}</dt>
+    </div>
+  );
+}

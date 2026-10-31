@@ -14,14 +14,17 @@ export type PhotoRowProps = {
   /** Hidden, not unmounted, so the sub line keeps its state. */
   hidden?: boolean;
   buttonRef?: Ref<HTMLButtonElement>;
+  /** "primary" (Story 18.11): the accent card that is the first and clearest row of a page. */
+  variant?: "default" | "primary";
   /** The sub line under the title. */
   children?: ReactNode;
 };
 
-export function PhotoRow({ title, onClick, disabled, hidden, buttonRef, children }: PhotoRowProps) {
+export function PhotoRow({ title, onClick, disabled, hidden, buttonRef, variant = "default", children }: PhotoRowProps) {
+  const primary = variant === "primary";
   return (
-    <div hidden={hidden} className={cx("relative flex min-h-tap items-center gap-3 rounded-lg bg-surface px-3.5 py-3", hidden && "hidden")}>
-      <span aria-hidden="true" className="flex size-8 shrink-0 items-center justify-center rounded-md bg-sky">
+    <div hidden={hidden} className={cx("relative flex min-h-tap items-center gap-3 rounded-lg px-3.5 py-3", primary ? "bg-accent" : "bg-surface", hidden && "hidden")}>
+      <span aria-hidden="true" className={cx("flex size-8 shrink-0 items-center justify-center rounded-md", primary ? "bg-on-accent/20" : "bg-sky")}>
         {"\u{1F4F7}"}
       </span>
       <div className="flex min-w-0 flex-1 flex-col">
@@ -30,13 +33,13 @@ export function PhotoRow({ title, onClick, disabled, hidden, buttonRef, children
           type="button"
           disabled={disabled}
           onClick={onClick}
-          className="-my-3 py-3 text-left text-row-title wrap-break-word text-ink outline-none after:absolute after:inset-0 after:rounded-lg after:content-[''] focus-visible:after:outline-2 focus-visible:after:-outline-offset-2 focus-visible:after:outline-accent disabled:cursor-not-allowed disabled:opacity-60"
+          className={cx("-my-3 py-3 text-left text-row-title wrap-break-word outline-none after:absolute after:inset-0 after:rounded-lg after:content-[''] focus-visible:after:outline-2 focus-visible:after:-outline-offset-2 focus-visible:after:outline-accent disabled:cursor-not-allowed disabled:opacity-60", primary ? "text-on-accent focus-visible:after:outline-on-accent" : "text-ink")}
         >
           {title}
         </button>
         <div className="relative z-10">{children}</div>
       </div>
-      <span aria-hidden="true" className="text-row-title text-ink-3">
+      <span aria-hidden="true" className={cx("text-row-title", primary ? "text-on-accent" : "text-ink-3")}>
         ›
       </span>
     </div>

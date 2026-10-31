@@ -79,3 +79,5 @@ export {
   type CardSnapshot,
   type ThingSnapshot,
 } from "./domain/thing-edit";
+export { takeCardSubText, takeCardText } from "./domain/capture";
+export { parseRoomView, type RoomSummary } from "./domain/thing-room";

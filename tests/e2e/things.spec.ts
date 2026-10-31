@@ -1,9 +1,9 @@
 import { randomUUID } from "node:crypto";
 import { expect, type Page, test } from "@playwright/test";
-import { cardDateText, shortDateText } from "@/features/things";
+import { shortDateText } from "@/features/things";
 import { adminClient, e2eUserId, thingsEmail, thingsStorageState } from "./support";
 
-// Prylar (Epic 18, Stories 18.1 and 18.2) with AI_PROVIDER=mock and
+// Prylar (Epic 18, Stories 18.1 to 18.12) with AI_PROVIDER=mock and
 // AI_MOCK_DELAY_MS=3000 from playwright.config.ts: any photo gets the mock's
 // things (tests/fixtures/ai/skrapforrad.things.json, twelve things in six
 // categories, one a guess, and three closed containers) after 3 s; the
@@ -53,13 +53,30 @@ test.beforeEach(async () => {
 const nav = (page: Page) => page.getByRole("navigation", { name: "Huvudmeny" }).filter({ visible: true });
 const content = (page: Page) => page.locator("main").filter({ visible: true });
 
-async function newPlace(page: Page, room: string, part = "") {
-  await page.getByRole("button", { name: "Ny plats" }).filter({ visible: true }).first().click();
-  const dialog = page.getByRole("dialog", { name: "Ny plats" });
-  await dialog.getByLabel("Rum").fill(room);
-  if (part) await dialog.getByLabel("Del (valfritt)").fill(part);
-  await dialog.getByRole("button", { name: "Skapa" }).click();
+/** "Ta kort" or "Ta fler kort": the sheet, the room (an existing one, or a new one by name) and the images chosen in the picker. */
+async function takeCards(page: Page, files: string | string[], { room, part, box = false, opener = /^Ta (fler )?kort$/ }: { room?: string; part?: string; box?: boolean; opener?: RegExp } = {}) {
+  await page.getByRole("button", { name: opener }).filter({ visible: true }).first().click();
+  const dialog = page.getByRole("dialog", { name: "Var tar du kortet?" });
+  if (room) {
+    const existing = dialog.getByRole("radio", { name: room, exact: true });
+    if (await existing.count()) await existing.click();
+    else {
+      await dialog.getByRole("radio", { name: "+ Nytt rum" }).click();
+      await dialog.getByLabel("Nytt rum").fill(room);
+    }
+  }
+  if (part) {
+    await dialog.getByRole("button", { name: /Mer exakt plats/ }).click();
+    if (box) await dialog.getByRole("radio", { name: "Låda" }).click();
+    await dialog.getByLabel(box ? "Namn på lådan" : "Del av rummet").fill(part);
+  }
+  const chooser = page.waitForEvent("filechooser");
+  await dialog.getByRole("button", { name: "Välj bilder …" }).click();
+  await (await chooser).setFiles(files);
 }
+
+const rooms = (page: Page) => page.getByTestId("room-row");
+const cardsOf = async () => (await adminClient().from("thing_photo").select("id, status, place_id, object_path, replaces_photo_id").eq("user_id", userId)).data ?? [];
 
 test("the fifth tab is Förråd with the toolbox, in the tab bar", async ({ page }) => {
   await page.goto("/prylar");
@@ -69,114 +86,88 @@ test("the fifth tab is Förråd with the toolbox, in the tab bar", async ({ page
   await expect(page).toHaveTitle(/Förråd/);
 });
 
-test("without places it explains and offers Ny plats", async ({ page }) => {
+test("without rooms it explains, and Ta kort is the first row; Ny plats is gone", async ({ page }) => {
   await page.goto("/prylar");
   await expect(page.getByText("Fotografera en hylla eller ett förråd, så listar Matkoll vad som finns där.")).toBeVisible();
-  await expect(page.getByRole("button", { name: "Ny plats" })).toBeVisible();
+  await expect(page.getByRole("button", { name: "Ta kort" })).toBeVisible();
+  await expect(page.getByText("Fota ett rum, en hylla eller en låda")).toBeVisible();
+  await expect(page.getByRole("button", { name: "Ny plats" })).toHaveCount(0);
   // One boende: no pills.
   await expect(page.getByRole("radiogroup", { name: "Boende" })).toHaveCount(0);
 });
 
-test("a place is made with a room and a part, rooms are suggested and places are grouped per room", async ({ page }) => {
+test("Ta kort asks where, folds out the exact place, and says an empty room", async ({ page }) => {
   await page.goto("/prylar");
-  await newPlace(page, "Skräpförrådet", "Översta hyllan");
-  await expect(page).toHaveURL(/\/prylar\/[0-9a-f-]{36}$/);
-  await expect(page.getByRole("heading", { level: 1 })).toHaveText("Skräpförrådet · Översta hyllan");
-  await expect(page.getByRole("button", { name: "Ta ett nytt kort" })).toBeVisible();
-
-  // Back to the list, a second place in the same room: the room is suggested, so it is reused.
-  await page.getByRole("link", { name: "Tillbaka" }).click();
-  await expect(page).toHaveURL(/\/prylar$/);
-  await page.getByRole("button", { name: "Ny plats" }).click();
-  const options = page.getByRole("dialog", { name: "Ny plats" }).locator("datalist option");
-  await expect(options).toHaveCount(1);
-  expect(await options.first().getAttribute("value")).toBe("Skräpförrådet");
-  await page.getByLabel("Rum").fill("skräpförrådet");
-  await page.getByLabel("Del (valfritt)").fill("Golvet");
-  await page.getByRole("button", { name: "Skapa" }).click();
-  await expect(page.getByRole("heading", { level: 1 })).toHaveText("Skräpförrådet · Golvet");
-
-  await newPlaceFromList(page);
-  const rooms = page.getByTestId("places").getByRole("heading", { level: 2 });
-  await expect(rooms).toHaveText(["Skräpförrådet", "Garaget"]);
-  const rows = page.getByTestId("place");
-  await expect(rows).toHaveText([/Översta hyllan\s*Inget kort än/, /Golvet\s*Inget kort än/, /Hela rummet\s*Inget kort än/]);
+  await page.getByRole("button", { name: "Ta kort" }).click();
+  const dialog = page.getByRole("dialog", { name: "Var tar du kortet?" });
+  await expect(dialog.getByRole("radio", { name: "+ Nytt rum" })).toBeChecked();
+  await expect(dialog.getByRole("button", { name: /Mer exakt plats \(valfritt\)/ })).toHaveAttribute("aria-expanded", "false");
+  await expect(dialog.getByLabel("Del av rummet")).toBeHidden();
+  await dialog.getByRole("button", { name: /Mer exakt plats/ }).click();
+  await expect(dialog.getByLabel("Del av rummet")).toBeVisible();
+  await expect(dialog.getByRole("radio", { name: "Del" })).toBeChecked();
+  // No camera button on a desktop; the picker takes several images.
+  await expect(dialog.getByRole("button", { name: /Öppna kameran/ })).toHaveCount(0);
+  await expect(page.locator("input[type=file][multiple]")).toHaveCount(1);
+  await dialog.getByRole("button", { name: "Välj bilder …" }).click();
+  await expect(dialog.getByText("Ange ett rum, till exempel Skräpförrådet.")).toBeVisible();
 });
 
-async function newPlaceFromList(page: Page) {
-  await page.goto("/prylar");
-  await newPlace(page, "Garaget");
-  await expect(page.getByRole("heading", { level: 1 })).toHaveText("Garaget");
-  await page.goto("/prylar");
-}
-
-test("the same room and part twice is said under the field", async ({ page }) => {
-  await page.goto("/prylar");
-  await newPlace(page, "Garaget", "Väggen");
-  await expect(page.getByRole("heading", { level: 1 })).toHaveText("Garaget · Väggen");
-  await page.goto("/prylar");
-  await newPlace(page, " GARAGET ", "väggen");
-  await expect(page.getByRole("dialog").getByText("Platsen finns redan.")).toBeVisible();
-});
-
-test("places belong to the selected boende, and the pills switch between them", async ({ page }) => {
-  const admin = adminClient();
-  const stugan = await admin
-    .from("pantry_site")
-    .insert({ user_id: userId, name: "Stugan", normalized_name: "stugan", is_selected: false })
-    .select("id")
-    .single();
-  if (stugan.error) throw stugan.error;
-  const rows = await admin.from("thing_place").insert([
-    { user_id: userId, site_id: hemma, room: "Garaget", part: null, room_key: "garaget", part_key: "" },
-    { user_id: userId, site_id: stugan.data.id, room: "Redskapsboden", part: null, room_key: "redskapsboden", part_key: "" },
-  ]);
-  if (rows.error) throw rows.error;
-
-  await page.goto("/prylar");
-  const pills = page.getByRole("radiogroup", { name: "Boende" });
-  await expect(pills.getByRole("radio")).toHaveText(["Hemma", "Stugan"]);
-  await expect(page.getByTestId("place")).toHaveText([/Hela rummet/]);
-  await expect(page.getByRole("heading", { level: 2, name: "Garaget" })).toBeVisible();
-  await pills.getByRole("radio", { name: "Stugan" }).click();
-  await expect(page.getByRole("heading", { level: 2, name: "Redskapsboden" })).toBeVisible();
-  await expect(page.getByRole("heading", { level: 2, name: "Garaget" })).toHaveCount(0);
-});
-
-test("a photo is read in the background and the things come under their categories", async ({ page }) => {
+test("a photo taken first lands in the room's whole room, is read in the background, and the room says what it holds", async ({ page }) => {
   const errors: string[] = [];
   page.on("pageerror", (error) => errors.push(error.message));
   await page.goto("/prylar");
-  await newPlace(page, "Skräpförrådet", "Väggen");
-  await expect(page.getByRole("button", { name: "Ta ett nytt kort" })).toBeVisible();
+  await takeCards(page, photo, { room: "Skräpförrådet" });
+  await expect(page.getByText(/Skickar kortet|Kortet läses i bakgrunden\./)).toBeVisible();
 
-  const chooser = page.waitForEvent("filechooser");
-  await page.getByRole("button", { name: "Ta ett nytt kort" }).click();
-  await (await chooser).setFiles(photo);
-  await expect(page.getByText("Tittar på bilden … Du kan göra annat under tiden.")).toBeVisible();
-  await expect(page.getByRole("button", { name: "Ta ett nytt kort" })).toHaveCount(0);
+  // The room is made with a place without a part ("Hela rummet"); the reading runs in the background.
+  await expect(rooms(page)).toHaveText([/Skräpförrådet\s*Tittar på kortet …|Skräpförrådet\s*12 prylar · 1 kort/], { timeout: 25_000 });
+  await expect(rooms(page)).toContainText(`12 prylar · 1 kort · ${shortDateText(new Date())}`, { timeout: 25_000 });
+  await expect(page.getByTestId("rooms-total")).toHaveText("1 rum · 12 prylar");
+  const places = (await adminClient().from("thing_place").select("room, part, part_key, kind").eq("user_id", userId)).data;
+  expect(places).toEqual([{ room: "Skräpförrådet", part: null, part_key: "", kind: "part" }]);
 
-  // The job runs in the background: the card, its date and the things come when it is done.
-  const panel = page.getByTestId("card-panel");
-  await expect(panel).toBeVisible({ timeout: 25_000 });
-  await expect(panel.getByText(cardDateText(new Date()))).toBeVisible();
-  await expect(panel.getByRole("img", { name: "Kortet av platsen" })).toBeVisible();
-  const groups = panel.getByTestId("thing-group");
-  await expect(groups.getByRole("heading")).toHaveText(["Verktyg", "Sport & fritid", "Trädgård", "Elektronik", "Förvaring & lådor", "Hushåll", "Byggmaterial"]);
-  await expect(groups.first().getByTestId("thing")).toHaveText([
-    /Hammare\s*på väggen, mitten/,
-    /Cirkelsåg\s*översta hyllan, vänster/,
-    /Batteridriven skruvdragare/,
-    /Skruvmejslar/,
-  ]);
+  await rooms(page).click();
+  await expect(page).toHaveURL(/\/prylar\/rum\//);
+  await expect(page).toHaveURL(new RegExp(`/prylar/rum/${hemma}/skr%C3%A4pf%C3%B6rr%C3%A5det$`));
+  await expect(page.getByRole("heading", { level: 1 })).toHaveText("Skräpförrådet");
+  const summary = page.getByTestId("room-summary");
+  await expect(summary).toContainText("12prylar");
+  await expect(summary).toContainText("7kategorier");
+  await expect(summary).toContainText("1kort");
+  await expect(page.getByText(`Senaste kort ${shortDateText(new Date())}`)).toBeVisible();
+
+  // The categories are folded in with their counts; a category's rows come only when it is opened.
+  await expect(page.getByTestId("room-category")).toHaveCount(7);
+  await expect(page.getByRole("button", { name: "Verktyg · 4" })).toHaveAttribute("aria-expanded", "false");
+  await expect(page.getByTestId("thing")).toHaveCount(0);
+  await page.getByRole("button", { name: "Verktyg · 4" }).click();
+  await expect(page.getByTestId("thing")).toHaveCount(4);
+  await expect(page.getByTestId("thing").filter({ hasText: "Hammare" })).toContainText("på väggen, mitten");
   // A guess says kanske, and only a guess.
-  await expect(panel.getByText("kanske · överst, höger")).toBeVisible();
-  await expect(panel.getByText(/kanske/)).toHaveCount(1);
-  await expect(panel.getByTestId("unseen-note")).toHaveText("Innehållet i 3 lådor syns inte – fota insidan");
-  await expect(page.getByRole("button", { name: "Ta ett nytt kort" })).toBeVisible();
+  await page.getByRole("button", { name: "Hushåll · 1" }).click();
+  await expect(page.getByText("kanske · överst, höger")).toBeVisible();
+  await expect(page.getByText(/kanske/)).toHaveCount(1);
+  await expect(page.getByTestId("unseen-note")).toHaveText("Innehållet i 3 lådor syns inte – fota insidan");
+
+  // What is open is remembered on the device.
+  await page.reload();
+  await expect(page.getByRole("button", { name: "Verktyg · 4" })).toHaveAttribute("aria-expanded", "true");
+  await expect(page.getByRole("button", { name: "Trädgård · 2" })).toHaveAttribute("aria-expanded", "false");
+  await expect(page.getByTestId("thing").filter({ hasText: "Hammare" })).toBeVisible();
+
+  // The Kort view: the card as a thumbnail with what it shows, its things and date.
+  await page.getByRole("radio", { name: "Kort" }).click();
+  const card = page.getByTestId("room-card");
+  await expect(card).toHaveCount(1);
+  await expect(card).toContainText("Hela rummet");
+  await expect(card).toContainText(`12 prylar · ${shortDateText(new Date())}`);
+  await expect(card.getByRole("img")).toBeVisible();
+  await expect(card.getByRole("button", { name: /^Ta om/ })).toBeVisible();
+  await expect(card.getByRole("button", { name: /^Ta bort/ })).toBeVisible();
 
   // The photo is private: the route gives it to its owner, with no cache; the file is in the user's own folder.
-  const photoId = (await panel.getByRole("img").getAttribute("src"))!.split("/").pop()!;
+  const photoId = (await card.getByRole("img").getAttribute("src"))!.split("/").pop()!;
   const image = await page.request.get(`/api/things/photo/${photoId}`);
   expect(image.status()).toBe(200);
   expect(image.headers()["cache-control"]).toContain("no-store");
@@ -184,88 +175,112 @@ test("a photo is read in the background and the things come under their categori
   expect(stored.data?.status).toBe("done");
   expect(stored.data?.object_path.startsWith(`${userId}/`)).toBe(true);
   expect((await adminClient().storage.from("thing-photo").download(stored.data!.object_path)).error).toBeNull();
-  // Not for anyone who is not signed in.
   const anonymous = await page.context().browser()!.newContext({ baseURL: "http://localhost:3100", storageState: { cookies: [], origins: [] } });
   expect((await anonymous.request.get(`/api/things/photo/${photoId}`)).status()).toBe(401);
   await anonymous.close();
 
-  // The list counts the things and gives the card's date.
-  await page.getByRole("link", { name: "Tillbaka" }).click();
-  await expect(page.getByTestId("place")).toHaveText(new RegExp(`12 saker · Kort från ${shortDateText(new Date())}`));
   // Prylar never touch the food: nothing in the pantry or the lists.
   const pantry = await adminClient().from("pantry_item").select("id", { count: "exact", head: true }).eq("user_id", userId);
   expect(pantry.count).toBe(0);
   expect(errors).toEqual([]);
 });
 
-test("a new photo of the place replaces the old card, its things and its file", async ({ page }) => {
+test("several images at once are each a card, and a part or a box makes a place of its own", async ({ page }) => {
   await page.goto("/prylar");
-  await newPlace(page, "Garaget");
-  for (let round = 0; round < 2; round += 1) {
-    const chooser = page.waitForEvent("filechooser");
-    await page.getByRole("button", { name: "Ta ett nytt kort" }).click();
-    await (await chooser).setFiles(photo);
-    await expect(page.getByTestId("card-panel")).toBeVisible({ timeout: 25_000 });
-    await expect(page.getByRole("button", { name: "Ta ett nytt kort" })).toBeVisible();
-  }
-  await expect
-    .poll(async () => (await adminClient().from("thing_photo").select("id").eq("user_id", userId)).data?.length)
-    .toBe(1);
-  const items = await adminClient().from("thing_item").select("id", { count: "exact", head: true }).eq("user_id", userId);
-  expect(items.count).toBe(12);
-  const files = await adminClient().storage.from("thing-photo").list(userId, { limit: 100 });
-  const place = (await adminClient().from("thing_place").select("id").eq("user_id", userId).single()).data!.id;
-  expect((await adminClient().storage.from("thing-photo").list(`${userId}/${place}`)).data).toHaveLength(1);
-  expect(files.error).toBeNull();
+  await takeCards(page, [photo, photo], { room: "Garaget", part: "Väggen" });
+  await expect.poll(async () => (await cardsOf()).length, { timeout: 25_000 }).toBe(2);
+  await expect.poll(async () => (await cardsOf()).filter((card) => card.status === "done").length, { timeout: 30_000 }).toBe(2);
+  const jobs = await adminClient().from("ai_job").select("kind").eq("user_id", userId);
+  expect(jobs.data).toEqual([{ kind: "things" }, { kind: "things" }]);
+  expect(new Set((await cardsOf()).map((card) => card.place_id)).size).toBe(1);
+
+  await takeCards(page, photo, { room: "Garaget", part: "Black box", box: true });
+  await expect.poll(async () => (await cardsOf()).length, { timeout: 25_000 }).toBe(3);
+  const places = (await adminClient().from("thing_place").select("part, kind").eq("user_id", userId).order("created_at")).data;
+  expect(places).toEqual([{ part: "Väggen", kind: "part" }, { part: "Black box", kind: "box" }]);
+  await expect.poll(async () => (await cardsOf()).filter((card) => card.status === "done").length, { timeout: 30_000 }).toBe(3);
+});
+
+test("a new card adds to the room and replaces nothing; Ta om replaces only that card once the new one is read", async ({ page }) => {
+  await page.goto("/prylar");
+  await takeCards(page, photo, { room: "Garaget" });
+  await expect.poll(async () => (await cardsOf()).filter((card) => card.status === "done").length, { timeout: 25_000 }).toBe(1);
+  await page.reload();
+  await rooms(page).click();
+  await expect(page).toHaveURL(/\/prylar\/rum\//);
+  await takeCards(page, photo);
+  await expect.poll(async () => (await cardsOf()).filter((card) => card.status === "done").length, { timeout: 25_000 }).toBe(2);
+  const before = await cardsOf();
+  expect(before).toHaveLength(2);
+  expect(before.every((card) => card.replaces_photo_id === null)).toBe(true);
+
+  await page.reload();
+  await page.getByRole("radio", { name: "Kort" }).click();
+  await expect(page.getByTestId("room-card")).toHaveCount(2);
+  const [oldest] = (await adminClient().from("thing_photo").select("id, object_path").eq("user_id", userId).order("taken_at")).data!;
+  const kept = before.find((card) => card.id !== oldest.id)!;
+
+  const chooser = page.waitForEvent("filechooser");
+  await page.getByTestId("room-card").first().getByRole("button", { name: /^Ta om/ }).click();
+  await (await chooser).setFiles(photo);
+  // The new card is read first: until then both old cards are there.
+  await expect.poll(async () => (await cardsOf()).length, { timeout: 15_000 }).toBe(3);
+  await expect(page.getByTestId("room-card").filter({ hasText: "Tittar på kortet" })).toHaveCount(1);
+  // The new card is read: the replaced one goes, so two cards remain, all done.
+  await expect.poll(async () => (await cardsOf()).map((card) => card.status).join(), { timeout: 30_000 }).toBe("done,done");
+  const after = await cardsOf();
+  expect(after).toHaveLength(2);
+  const replacedId = (await adminClient().from("thing_photo").select("replaces_photo_id").eq("user_id", userId).not("replaces_photo_id", "is", null)).data;
+  expect(replacedId?.length ?? 0).toBeLessThanOrEqual(1);
+  // Exactly one of the two old cards is gone, with its things and its file; the other is untouched.
+  const ids = after.map((card) => card.id);
+  expect(ids.filter((id) => [oldest.id, kept.id].includes(id))).toHaveLength(1);
+  const goneId = [oldest.id, kept.id].find((id) => !ids.includes(id))!;
+  expect((await adminClient().from("thing_item").select("id").eq("photo_id", goneId)).data).toHaveLength(0);
+  await expect(page.getByTestId("room-card")).toHaveCount(2);
 });
 
 test("a reading that does not go leaves the card with a calm notice and Försök igen", async ({ page }) => {
   await page.goto("/prylar");
-  await newPlace(page, "Vinden");
-  const chooser = page.waitForEvent("filechooser");
-  await page.getByRole("button", { name: "Ta ett nytt kort" }).click();
-  await (await chooser).setFiles(failing);
-  const notice = page.getByRole("alert").filter({ hasText: "Det gick inte att läsa kortet" });
-  await expect(notice).toBeVisible({ timeout: 25_000 });
-  await expect(notice).toContainText("Det ligger kvar");
+  await takeCards(page, failing, { room: "Vinden" });
+  await expect.poll(async () => (await cardsOf())[0]?.status, { timeout: 25_000 }).toBe("failed");
   // The card is kept, failed, with its file; nothing was listed.
   const cards = await adminClient().from("thing_photo").select("status, error_code, object_path").eq("user_id", userId);
   expect(cards.data).toMatchObject([{ status: "failed", error_code: "ai_unavailable" }]);
   expect((await adminClient().storage.from("thing-photo").download(cards.data![0].object_path)).error).toBeNull();
 
-  // The list says so too, and "Försök igen" reads the stored photo again (the mock fails the same photo the same way).
-  await page.getByRole("link", { name: "Tillbaka" }).click();
-  await expect(page.getByTestId("place")).toContainText("Kortet kunde inte läsas");
-  await page.getByTestId("place").click();
-  await expect(page).toHaveURL(/\/prylar\/[0-9a-f-]{36}$/);
   await page.reload();
-  await expect(notice).toBeVisible();
-  await page.getByRole("button", { name: "Försök igen" }).click();
-  await expect(page.getByText("Tittar på bilden … Du kan göra annat under tiden.")).toBeVisible();
-  await expect(notice).toBeVisible({ timeout: 25_000 });
+  await rooms(page).click();
+  await expect(page).toHaveURL(/\/prylar\/rum\//);
+  await page.getByRole("radio", { name: "Kort" }).click();
+  const card = page.getByTestId("room-card");
+  await expect(card).toContainText("Kunde inte läsas");
+  await expect(card).toContainText("Det ligger kvar");
+  // "Försök igen" reads the stored photo again (the mock fails the same photo the same way).
+  await card.getByRole("button", { name: "Försök igen" }).click();
+  await expect.poll(async () => (await adminClient().from("ai_job").select("kind").eq("user_id", userId)).data?.length, { timeout: 15_000 }).toBe(2);
+  await expect.poll(async () => (await cardsOf())[0]?.status, { timeout: 25_000 }).toBe("failed");
   const jobs = await adminClient().from("ai_job").select("kind, status").eq("user_id", userId).order("created_at");
   expect(jobs.data?.map((job) => job.kind)).toEqual(["things", "things"]);
 });
 
 test("a finished reading is confirmed while Pontus is in another tab, with a badge and Visa", async ({ page }) => {
   await page.goto("/prylar");
-  await newPlace(page, "Boden");
-  const chooser = page.waitForEvent("filechooser");
-  await page.getByRole("button", { name: "Ta ett nytt kort" }).click();
-  await (await chooser).setFiles(photo);
-  await expect(page.getByText("Tittar på bilden … Du kan göra annat under tiden.")).toBeVisible();
+  await takeCards(page, photo, { room: "Boden" });
+  await expect(page.getByText(/Skickar kortet|Kortet läses i bakgrunden\./)).toBeVisible();
   await nav(page).getByRole("link", { name: "Recept" }).click();
   await expect(page).toHaveURL(/\/recept$/);
   await expect(page.getByTestId("toast")).toContainText("12 prylar är listade.", { timeout: 25_000 });
   await expect(nav(page).getByTestId("tab-badge")).toHaveText("1");
   await page.getByTestId("toast").getByRole("button", { name: "Visa" }).click();
-  await expect(page).toHaveURL(/\/prylar\/[0-9a-f-]{36}$/);
-  await expect(page.getByTestId("card-panel")).toBeVisible();
+  // The old place address opens the room the place is in.
+  await expect(page).toHaveURL(/\/prylar\/rum\/[0-9a-f-]{36}\/boden$/);
+  await expect(page.getByTestId("room-summary")).toContainText("12prylar");
   // Seen here: the badge goes.
   await expect(nav(page).getByTestId("tab-badge")).toHaveCount(0);
 });
 
-test("the side menu at desktop width has Förråd too", async ({ page }) => {
+test("the side menu at desktop width has Förråd too, and the start page and a room read well", async ({ page }) => {
   await page.setViewportSize({ width: 1280, height: 800 });
   await page.goto("/prylar");
   await expect(nav(page).getByRole("link", { name: "Förråd" })).toHaveAttribute("aria-current", "page");
@@ -316,45 +331,45 @@ async function seedPlace(
   return place.data.id;
 }
 
+const roomUrl = (room: string) => `/prylar/rum/${hemma}/${encodeURIComponent(room.toLowerCase())}`;
+
 test("Ta bort kortet asks first, removes card, things and file, and Ångra brings the card back for a short while", async ({ page }) => {
   await page.goto("/prylar");
-  await newPlace(page, "Garaget");
-  const chooser = page.waitForEvent("filechooser");
-  await page.getByRole("button", { name: "Ta ett nytt kort" }).click();
-  await (await chooser).setFiles(photo);
-  const panel = page.getByTestId("card-panel");
-  await expect(panel).toBeVisible({ timeout: 25_000 });
+  await takeCards(page, photo, { room: "Garaget" });
+  await expect.poll(async () => (await cardsOf())[0]?.status, { timeout: 25_000 }).toBe("done");
+  await page.goto(roomUrl("Garaget"));
+  await page.getByRole("radio", { name: "Kort" }).click();
+  const cards = page.getByTestId("room-card");
   const admin = adminClient();
   const path = (await admin.from("thing_photo").select("object_path").eq("user_id", userId).single()).data!.object_path;
   const fileExists = async () => (await admin.storage.from("thing-photo").download(path)).error === null;
 
   // The question comes first; "Avbryt" leaves everything.
-  await panel.getByRole("button", { name: "Ta bort kortet" }).click();
+  await cards.getByRole("button", { name: /^Ta bort kortet/ }).click();
   const dialog = page.getByRole("dialog", { name: "Ta bort kortet" });
   await expect(dialog.getByText("Ta bort kortet?")).toBeVisible();
   await dialog.getByRole("button", { name: "Avbryt" }).click();
-  await expect(panel).toBeVisible();
+  await expect(cards).toHaveCount(1);
   expect((await admin.from("thing_photo").select("id").eq("user_id", userId)).data).toHaveLength(1);
 
-  await panel.getByRole("button", { name: "Ta bort kortet" }).click();
+  await cards.getByRole("button", { name: /^Ta bort kortet/ }).click();
   await dialog.getByRole("button", { name: "Ta bort kortet" }).click();
   await expect(page.getByTestId("toast")).toContainText("Tog bort kortet från");
-  await expect(panel).toHaveCount(0);
-  await expect(page.getByRole("button", { name: "Ta ett nytt kort" })).toBeVisible();
+  await expect(cards).toHaveCount(0);
   expect((await admin.from("thing_photo").select("id").eq("user_id", userId)).data).toHaveLength(0);
   expect((await admin.from("thing_item").select("id").eq("user_id", userId)).data).toHaveLength(0);
   // The file waits for Ångra.
   expect(await fileExists()).toBe(true);
 
   await page.getByTestId("toast").getByRole("button", { name: "Ångra" }).click();
-  await expect(panel).toBeVisible();
-  await expect(panel.getByTestId("thing")).toHaveCount(12);
+  await expect(cards).toHaveCount(1);
+  await expect(cards).toContainText("12 prylar");
   expect(await fileExists()).toBe(true);
 
   // Without Ångra the file goes when the time is out.
-  await panel.getByRole("button", { name: "Ta bort kortet" }).click();
+  await cards.getByRole("button", { name: /^Ta bort kortet/ }).click();
   await dialog.getByRole("button", { name: "Ta bort kortet" }).click();
-  await expect(panel).toHaveCount(0);
+  await expect(cards).toHaveCount(0);
   await expect.poll(fileExists, { timeout: 15_000 }).toBe(false);
   expect((await admin.from("thing_photo").select("id").eq("user_id", userId)).data).toHaveLength(0);
 });
@@ -366,30 +381,33 @@ test("a thing the AI got wrong is renamed or removed alone, with Ångra, and the
   ]);
   const admin = adminClient();
   const cardBefore = (await admin.from("thing_photo").select("id, taken_at, created_at").eq("place_id", place).single()).data!;
-  await page.goto(`/prylar/${place}`);
-  const panel = page.getByTestId("card-panel");
+  await page.goto(roomUrl("Skräpförrådet"));
+  await page.getByRole("button", { name: "Verktyg · 1" }).click();
+  await page.getByRole("button", { name: "Trädgård · 1" }).click();
+  const things = page.getByTestId("thing");
 
-  await panel.getByRole("button", { name: /Hammare/ }).click();
+  await page.getByRole("button", { name: /Hammare/ }).click();
   const sheet = page.getByRole("dialog", { name: "Pryl" });
   await sheet.getByLabel("Byt namn").fill("Klohammare");
   await sheet.getByRole("button", { name: "Spara" }).click();
-  await expect(panel.getByTestId("thing").first()).toContainText("Klohammare");
-  await expect(panel.getByText("Hammare", { exact: true })).toHaveCount(0);
+  await expect(things.first()).toContainText("Klohammare");
+  await expect(page.getByText("Hammare", { exact: true })).toHaveCount(0);
 
-  await panel.getByRole("button", { name: /Spade/ }).click();
+  await page.getByRole("button", { name: /Spade/ }).click();
   await sheet.getByRole("button", { name: "Ta bort pryl" }).click();
   await expect(page.getByTestId("toast")).toContainText("Tog bort Spade.");
-  await expect(panel.getByTestId("thing")).toHaveCount(1);
+  await expect(things).toHaveCount(1);
+  await expect(page.getByRole("button", { name: /^Trädgård/ })).toHaveCount(0);
   await page.getByTestId("toast").getByRole("button", { name: "Ångra" }).click();
-  await expect(panel.getByTestId("thing")).toHaveCount(2);
+  await expect(page.getByRole("button", { name: "Trädgård · 1" })).toBeVisible();
+  await expect(things).toHaveCount(2);
 
   // The card, with its date, is untouched.
   const cardAfter = (await admin.from("thing_photo").select("id, taken_at, created_at").eq("place_id", place).single()).data!;
   expect(cardAfter).toEqual(cardBefore);
-  await expect(panel.getByText("Kort från 31 okt")).toBeVisible();
 });
 
-test("search finds a thing in every place and boende, and a question is answered with places to tap", async ({ page }) => {
+test("search finds a thing in every room and boende, and a question is answered with rooms to tap", async ({ page }) => {
   const stugan = await adminClient()
     .from("pantry_site")
     .insert({ user_id: userId, name: "Stugan", normalized_name: "stugan", is_selected: false })
@@ -397,22 +415,25 @@ test("search finds a thing in every place and boende, and a question is answered
     .single();
   if (stugan.error) throw stugan.error;
   await seedPlace(hemma, "Skräpförrådet", [{ name: "Hammare", category: "Verktyg", where: "väggen" }, { name: "Spade", category: "Trädgård" }], { hidden: 2 });
-  const shed = await seedPlace(stugan.data.id, "Redskapsboden", [{ name: "Målarfärgsburkar", category: "Byggmaterial" }, { name: "Kratta", category: "Trädgård" }], {
+  await seedPlace(stugan.data.id, "Redskapsboden", [{ name: "Målarfärgsburkar", category: "Byggmaterial" }, { name: "Kratta", category: "Trädgård" }], {
     takenAt: "2026-09-02T10:00:00Z",
   });
 
   await page.goto("/prylar");
+  // The rooms of the selected boende, counted.
+  await expect(rooms(page)).toHaveText([/Skräpförrådet\s*2 prylar · 1 kort · 31 okt/]);
+  await expect(page.getByTestId("rooms-total")).toHaveText("1 rum · 2 prylar");
   // Search runs in the browser: the hit says place, boende and the card's day, from every boende.
   const search = page.getByRole("searchbox", { name: "Sök bland prylar" });
   await search.fill("hamm");
   await expect(page.getByTestId("thing-hit")).toHaveText([/Hammare\s*Skräpförrådet, väggen · Hemma · 31 okt/]);
-  await expect(page.getByTestId("place")).toBeHidden();
+  await expect(rooms(page)).toBeHidden();
   await search.fill("kratta");
   await expect(page.getByTestId("thing-hit")).toHaveText([/Kratta\s*Redskapsboden · Stugan · 2 sep/]);
   await search.fill("inget");
   await expect(page.getByText('Inga prylar matchar "inget".')).toBeVisible();
   await page.getByRole("button", { name: "Rensa sökning" }).click();
-  await expect(page.getByTestId("place")).toBeVisible();
+  await expect(rooms(page)).toBeVisible();
 
   // The question goes to the AI (the mock here) with the lists; the answer names places that can be tapped.
   await page.getByRole("textbox", { name: "Fråga om ditt förråd" }).fill("Har vi något att måla med?");
@@ -422,62 +443,69 @@ test("search finds a thing in every place and boende, and a question is answered
   // Story 17.6: the question was recorded as a call (the mock: model and no tokens, no cost).
   const usage = await adminClient().from("ai_usage").select("model, input_tokens, output_tokens").eq("user_id", userId);
   expect(usage.data).toEqual([{ model: "mock", input_tokens: 0, output_tokens: 0 }]);
+  // The answer's place address (an old one) opens the room, also in another boende.
   await answer.getByTestId("ask-ref").click();
-  await expect(page).toHaveURL(new RegExp(`/prylar/${shed}$`));
+  await expect(page).toHaveURL(new RegExp(`/prylar/rum/${stugan.data.id}/redskapsboden$`));
   await expect(page.getByRole("heading", { level: 1 })).toHaveText("Redskapsboden");
 });
 
-test("a box is added from the line about closed boxes, gets its own card, and its things are 'i Blå backen' in lists and search", async ({ page }) => {
-  const shed = await seedPlace(hemma, "Skräpförrådet", [{ name: "Hammare", category: "Verktyg" }], { hidden: 3 });
-  await page.goto(`/prylar/${shed}`);
+test("old place addresses open the room, and an unknown one is 'Sidan finns inte.'", async ({ page }) => {
+  const place = await seedPlace(hemma, "Skräpförrådet", [{ name: "Hammare", category: "Verktyg" }]);
+  await page.goto(`/prylar/${place}`);
+  await expect(page).toHaveURL(new RegExp(`/prylar/rum/${hemma}/skr%C3%A4pf%C3%B6rr%C3%A5det$`));
+  await expect(page.getByRole("heading", { level: 1 })).toHaveText("Skräpförrådet");
+  await page.goto(`/prylar/${randomUUID()}`);
+  await expect(page.getByText("Sidan finns inte.")).toBeVisible();
+  await page.goto(roomUrl("Finns inte"));
+  await expect(page.getByText("Sidan finns inte.")).toBeVisible();
+});
+
+test("a box is added from the line about closed boxes, and its things are 'i Kartong jul' in the room's list and in search", async ({ page }) => {
+  await seedPlace(hemma, "Skräpförrådet", [{ name: "Hammare", category: "Verktyg" }], { hidden: 3 });
+  await page.goto(roomUrl("Skräpförrådet"));
   await page.getByRole("button", { name: "Innehållet i 3 lådor syns inte – fota insidan" }).click();
   const sheet = page.getByRole("dialog", { name: "Lägg till låda" });
   await sheet.getByRole("button", { name: "Lägg till och fota" }).click();
   await expect(sheet.getByText("Ange ett namn, till exempel Blå backen.")).toBeVisible();
   await sheet.getByLabel("Namn på lådan").fill("Blå backen");
   await sheet.getByRole("button", { name: "Lägg till och fota" }).click();
-  await expect(page).toHaveURL(/\/prylar\/[0-9a-f-]{36}\?fota=1$/);
-  await expect(page.getByRole("heading", { level: 1 })).toHaveText("Skräpförrådet, i Blå backen");
+  await expect(page).toHaveURL(/\/prylar\/rum\/[0-9a-f-]{36}\/skr%C3%A4pf%C3%B6rr%C3%A5det\?fota=[0-9a-f-]{36}$/);
+  await expect(page.getByTestId("upload-card-row")).toContainText("Fota insidan av Blå backen");
   const box = (await adminClient().from("thing_place").select("room, part, part_key").eq("user_id", userId).eq("part", "Blå backen").single()).data!;
   expect(box).toEqual({ room: "Skräpförrådet", part: "Blå backen", part_key: "box:blå backen" });
-  // A box holds no box.
-  await expect(page.getByRole("button", { name: "Lägg till låda" })).toHaveCount(0);
 
-  // A box with a card: its things say where they are, in the room's lists and in search.
+  // A box with a card: its things say where they are, in the room's list, on the card and in search.
   await seedPlace(hemma, "Skräpförrådet", [{ name: "Julgransprydnad", category: "Hushåll" }], { part: "Kartong jul", box: true });
-  await page.goto(`/prylar/${shed}`);
-  await expect(page.getByTestId("place-boxes").getByTestId("box")).toHaveCount(2);
+  await page.goto(roomUrl("Skräpförrådet"));
+  await expect(page.getByTestId("room-summary")).toContainText("2prylar");
+  await page.getByRole("button", { name: "Hushåll · 1" }).click();
+  await expect(page.getByTestId("thing").filter({ hasText: "Julgransprydnad" })).toContainText("i Kartong jul");
+  await page.getByRole("radio", { name: "Kort" }).click();
+  await expect(page.getByTestId("room-card").filter({ hasText: "Låda: Kartong jul" })).toContainText("1 pryl");
   await page.goto("/prylar");
-  await expect(page.getByTestId("place").filter({ hasText: "Låda · 1 sak" })).toHaveCount(1);
   await page.getByRole("searchbox", { name: "Sök bland prylar" }).fill("julgran");
   await expect(page.getByTestId("thing-hit")).toHaveText([/Julgransprydnad\s*Skräpförrådet, i Kartong jul · Hemma · 31 okt/]);
 });
 
 test("the same things on two cards of one room are counted once and say 'syns på 2 kort'", async ({ page }) => {
-  const links = page.getByTestId("place");
-  for (const part of ["Väggen", "Golvet"]) {
-    await page.goto("/prylar");
-    await newPlace(page, "Skräpförrådet", part);
-    const chooser = page.waitForEvent("filechooser");
-    await page.getByRole("button", { name: "Ta ett nytt kort" }).click();
-    await (await chooser).setFiles(photo);
-    await expect(page.getByTestId("card-panel")).toBeVisible({ timeout: 25_000 });
-    await expect(page.getByRole("button", { name: "Ta ett nytt kort" })).toBeVisible();
-  }
+  await page.goto("/prylar");
+  await takeCards(page, [photo, photo], { room: "Skräpförrådet" });
   // The second card is compared with the room's first (a text call after the reading): all twelve are the same things.
   await expect
-    .poll(async () => (await adminClient().from("thing_item").select("id").eq("user_id", userId).not("same_as", "is", null)).data?.length, { timeout: 15_000 })
+    .poll(async () => (await adminClient().from("thing_item").select("id").eq("user_id", userId).not("same_as", "is", null)).data?.length, { timeout: 40_000 })
     .toBe(12);
 
-  // The room counts them once: twelve on the first card, none new on the second.
+  // The room counts them once: twelve things on two cards.
   await page.goto("/prylar");
-  await expect(links.filter({ hasText: "Väggen" })).toContainText("12 saker");
-  await expect(links.filter({ hasText: "Golvet" })).toContainText("Alla syns på andra kort");
-  await links.filter({ hasText: "Väggen" }).click();
-  const things = page.getByTestId("card-panel").getByTestId("thing");
-  await expect(things).toHaveCount(12);
-  await expect(things.filter({ hasText: "Hammare" })).toContainText("på väggen, mitten · syns på 2 kort");
-  await expect(page.getByTestId("card-panel").getByText("syns på 2 kort")).toHaveCount(12);
+  await expect(rooms(page)).toContainText(`12 prylar · 2 kort · ${shortDateText(new Date())}`);
+  await rooms(page).click();
+  await expect(page).toHaveURL(/\/prylar\/rum\//);
+  await expect(page.getByTestId("room-summary")).toContainText("12prylar");
+  await expect(page.getByTestId("room-summary")).toContainText("2kort");
+  await page.getByRole("button", { name: "Verktyg · 4" }).click();
+  const things = page.getByTestId("thing");
+  await expect(things).toHaveCount(4);
+  await expect(things.filter({ hasText: "Cirkelsåg" })).toContainText("syns på 2 kort");
   await page.screenshot({ path: process.env.MERGE_SHOT ?? "test-results/merge-shot.png" });
 
   // Search finds the saw once, with the number of cards.
@@ -486,14 +514,67 @@ test("the same things on two cards of one room are counted once and say 'syns p�
   await expect(page.getByTestId("thing-hit")).toHaveCount(1);
   await expect(page.getByTestId("thing-hit")).toContainText("syns på 2 kort");
 
-  // Removing the first card keeps the things of the second, now seen on one card.
+  // Removing the card that holds nothing new keeps all twelve, now seen on one card.
   await page.goto("/prylar");
-  await links.filter({ hasText: "Väggen" }).click();
-  await page.getByTestId("card-panel").getByRole("button", { name: "Ta bort kortet" }).click();
+  await rooms(page).click();
+  await expect(page).toHaveURL(/\/prylar\/rum\//);
+  await page.getByRole("radio", { name: "Kort" }).click();
+  await page.getByTestId("room-card").filter({ hasText: "0 prylar" }).getByRole("button", { name: /^Ta bort kortet/ }).click();
   await page.getByRole("dialog", { name: "Ta bort kortet" }).getByRole("button", { name: "Ta bort kortet" }).click();
   await expect.poll(async () => (await adminClient().from("thing_photo").select("id").eq("user_id", userId)).data?.length).toBe(1);
-  await page.goto("/prylar");
-  await links.filter({ hasText: "Golvet" }).click();
-  await expect(page.getByTestId("card-panel").getByTestId("thing")).toHaveCount(12);
+  await page.getByRole("radio", { name: "Prylar" }).click();
+  await expect(page.getByTestId("room-summary")).toContainText("12prylar");
+  await page.getByRole("button", { name: "Verktyg · 4" }).click();
   await expect(page.getByText("syns på 2 kort")).toHaveCount(0);
+});
+
+test("a room with hundreds of things shows its categories folded in and renders a category's rows only when it is opened", async ({ page }) => {
+  const names = Array.from({ length: 300 }, (_, index) => ({ name: `Skruv ${String(index).padStart(3, "0")}`, category: "Byggmaterial" }));
+  await seedPlace(hemma, "Garaget", [...names, { name: "Lövblås", category: "Trädgård" }]);
+  await page.goto(roomUrl("Garaget"));
+  await expect(page.getByTestId("room-summary")).toContainText("301prylar");
+  await expect(page.getByRole("button", { name: "Byggmaterial · 300" })).toHaveAttribute("aria-expanded", "false");
+  await expect(page.getByTestId("thing")).toHaveCount(0);
+  await page.getByRole("button", { name: "Byggmaterial · 300" }).click();
+  await expect(page.getByTestId("thing")).toHaveCount(300);
+  // Another category is still folded in and unread.
+  await expect(page.getByRole("button", { name: "Trädgård · 1" })).toHaveAttribute("aria-expanded", "false");
+  await page.reload();
+  await expect(page.getByTestId("thing")).toHaveCount(300);
+  await page.getByRole("button", { name: "Byggmaterial · 300" }).click();
+  await expect(page.getByTestId("thing")).toHaveCount(0);
+  await page.reload();
+  await expect(page.getByTestId("thing")).toHaveCount(0);
+});
+
+test.describe("on a phone", () => {
+  test.use({ hasTouch: true, isMobile: true });
+
+  test("the camera opens from the sheet, 'Ta ett till' takes another card of the same place, and the last room is chosen next time", async ({ page }) => {
+    await seedPlace(hemma, "Skräpförrådet", [{ name: "Hammare", category: "Verktyg" }]);
+    await seedPlace(hemma, "Garaget", [{ name: "Såg", category: "Verktyg" }]);
+    await page.goto("/prylar");
+    await page.getByRole("button", { name: "Ta kort" }).click();
+    const dialog = page.getByRole("dialog", { name: "Var tar du kortet?" });
+    await expect(dialog.getByRole("radio", { name: "Skräpförrådet" })).toBeChecked();
+    await dialog.getByRole("radio", { name: "Garaget" }).click();
+    await expect(dialog.getByRole("button", { name: "Välj bilder …" })).toBeVisible();
+    const chooser = page.waitForEvent("filechooser");
+    await dialog.getByRole("button", { name: /Öppna kameran/ }).click();
+    await (await chooser).setFiles(photo);
+    await expect(page.getByTestId("take-another")).toBeVisible({ timeout: 15_000 });
+
+    const again = page.waitForEvent("filechooser");
+    await page.getByTestId("take-another").click();
+    await (await again).setFiles(photo);
+    await expect.poll(async () => (await cardsOf()).length, { timeout: 25_000 }).toBe(4);
+    const garage = (await adminClient().from("thing_place").select("id").eq("user_id", userId).eq("room_key", "garaget").single()).data!.id;
+    const added = (await cardsOf()).filter((card) => card.place_id === garage);
+    expect(added).toHaveLength(3);
+
+    // The last used room is chosen next time (kept on this device).
+    await page.reload();
+    await page.getByRole("button", { name: "Ta kort" }).click();
+    await expect(page.getByRole("dialog", { name: "Var tar du kortet?" }).getByRole("radio", { name: "Garaget" })).toBeChecked();
+  });
 });

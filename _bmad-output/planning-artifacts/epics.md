@@ -3819,6 +3819,10 @@ Skiss: bild 3 och 4 i samma skiss.
 **När** jag väljer "Kort"
 **Så** visas korten som miniatyrer i två kolumner med vad kortet visar ("Hela rummet", "Väggen", "Låda: Black box"), antal prylar och datum, och "Ta om" och "Ta bort" per kort
 
+**Givet** ett rum med hundratals eller tusentals prylar
+**När** jag väljer "Prylar"
+**Så** visas kategorierna hopfällda med emoji-ruta, namn och antal ("Skruv & beslag · 214"); en kategori visar sina rader först när jag fäller ut den (utfällt minns enheten), och startsidan och rummets sida räknar i databasen i stället för att läsa in varje pryl
+
 ### Story 18.13: Skriv vad som finns i en låda
 
 Som Pontus,

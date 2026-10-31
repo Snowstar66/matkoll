@@ -47,6 +47,8 @@ export function shownStatus(card: Pick<ThingCard, "status" | "createdAt">, now: 
 export const thingPhotoFormSchema = z.object({
   clientKey: z.uuid(),
   place: z.uuid(),
+  /** "Ta om": the card this one replaces once it is read (Story 18.11); absent for a card that adds. */
+  replaces: z.uuid().nullish().transform((id) => id ?? null),
   takenAt: z.iso.datetime({ offset: true }).transform((text) => new Date(text)),
 });
 export type ThingPhotoForm = z.output<typeof thingPhotoFormSchema>;

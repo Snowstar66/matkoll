@@ -20,6 +20,7 @@ import {
 import { sweepCardFilesIn } from "@/features/things/actions/sweep-card-files";
 import { mergeItemsIn, loadMergeInputIn } from "@/features/things/data/merge";
 import { insertPlaceIn, loadPlaceIn, loadPlacesIn } from "@/features/things/data/places";
+import { findPlaceIn, loadRoomCardsIn, loadRoomCategoriesIn, loadRoomIn, loadRoomPlacesIn, loadRoomsIn, loadRoomThingsIn } from "@/features/things/data/rooms";
 import { thingPhotoBucket, thingPhotoPath } from "@/features/things/domain/thing-photo";
 import { localSupabaseUrl } from "../local-supabase";
 import { adminClient, createTestUser, deleteTestUsers, type Db, type TestUser } from "./support";
@@ -74,12 +75,12 @@ async function placeOf(user: TestUser, siteId: string, room = "Skräpförrådet"
 }
 
 /** A card with its file, `reading`. */
-async function cardOf(user: TestUser, placeId: string, createdAt?: string): Promise<{ id: string; path: string }> {
+async function cardOf(user: TestUser, placeId: string, createdAt?: string, replacesId?: string): Promise<{ id: string; path: string }> {
   const id = randomUUID();
   const path = thingPhotoPath(user.id, placeId, id, "image/png");
   await uploadCardFile(user.db, path, png, "image/png");
   files.push(path);
-  const outcome = await insertCardIn(user.db, { id, placeId, objectPath: path, mediaType: "image/png", width: 10, height: 10, takenAt: new Date() });
+  const outcome = await insertCardIn(user.db, { id, placeId, objectPath: path, mediaType: "image/png", width: 10, height: 10, takenAt: new Date(), replacesId });
   expect(outcome).toBe("saved");
   if (createdAt) await adminClient().from("thing_photo").update({ created_at: createdAt }).eq("id", id);
   return { id, path };
@@ -216,8 +217,8 @@ describe("cards", () => {
   });
 });
 
-describe("save_thing_reading", () => {
-  it("saves the things, makes the card done and replaces the older card of the place", async () => {
+describe("save_thing_card (Story 18.11) and save_thing_reading", () => {
+  it("saves the things, makes the card done and ADDS to the place: nothing is replaced without Ta om", async () => {
     const site = await siteOf(a);
     const place = await placeOf(a, site, "Skräpförrådet", "Väggen");
     const old = await cardOf(a, place, "2026-10-01T10:00:00Z");
@@ -233,17 +234,56 @@ describe("save_thing_reading", () => {
       note: "Innehållet i tre lådor syns inte.",
       hidden: 3,
     });
-    expect(removed).toEqual([old.path]);
-    // The old card, and its things, are gone; the file is the caller's to remove.
-    expect((await loadCardsIn(a.db, place)).map((card) => card.id)).toEqual([fresh.id]);
-    expect(await loadThingsIn(a.db, old.id)).toEqual([]);
+    expect(removed).toEqual([]);
+    // Both cards are there, each with its things.
+    expect((await loadCardsIn(a.db, place)).map((card) => card.id).sort()).toEqual([old.id, fresh.id].sort());
+    expect(await loadThingsIn(a.db, old.id)).toMatchObject([{ name: "Hammare" }]);
     expect(await loadThingsIn(a.db, fresh.id)).toMatchObject([
       { name: "Cirkelsåg", category: "Verktyg", whereHint: "översta hyllan, vänster", confidence: "high" },
       { name: "Presenning", category: "Hushåll", whereHint: null, confidence: "low" },
     ]);
     expect((await loadCardsIn(a.db, place))[0]).toMatchObject({ status: "done", unseenCount: 3, unseenNote: "Innehållet i tre lådor syns inte." });
-    expect((await loadPlacesIn(a.db, site))[0]).toMatchObject({ itemCount: 2, cardState: "done" });
-    expect((await removeCardFiles(a.db, removed)).failed).toBeNull();
+    expect((await loadPlacesIn(a.db, site))[0]).toMatchObject({ itemCount: 3, cardState: "done" });
+  });
+
+  it("Ta om replaces only the card it names, once the new one is read, and never a card of another place", async () => {
+    const site = await siteOf(a);
+    const place = await placeOf(a, site, "Garaget", "Väggen");
+    const other = await placeOf(a, site, "Garaget");
+    const keep = await doneCard(a, place, [{ ...hammer, name: "Spade" }], "2026-10-01T10:00:00Z");
+    const old = await doneCard(a, place, [hammer], "2026-10-02T10:00:00Z");
+    const elsewhere = await doneCard(a, other, [{ ...hammer, name: "Såg" }], "2026-10-03T10:00:00Z");
+
+    // The replacing card is `reading`: until it is read, the old one is still there.
+    const redo = await cardOf(a, place, undefined, old.id);
+    expect((await loadCardsIn(a.db, place)).map((card) => card.id).sort()).toEqual([keep.id, old.id, redo.id].sort());
+    const removed = await saveReadingIn(a.db, { photoId: redo.id, things: [{ ...hammer, name: "Hammare, ny" }], note: null, hidden: 0 });
+    expect(removed).toEqual([old.path]);
+    expect((await loadCardsIn(a.db, place)).map((card) => card.id).sort()).toEqual([keep.id, redo.id].sort());
+    expect(await loadThingsIn(a.db, old.id)).toEqual([]);
+    expect(await loadThingsIn(a.db, keep.id)).toMatchObject([{ name: "Spade" }]);
+
+    // A replaced card that is gone by then leaves the new card as an added one (the column is set null).
+    const gone = await cardOf(a, place, undefined, keep.id);
+    await removeCardIn(a.db, keep.id);
+    expect((await a.db.from("thing_photo").select("replaces_photo_id").eq("id", gone.id).single()).data?.replaces_photo_id).toBeNull();
+
+    // A card that names a card of another place replaces nothing.
+    const cross = await cardOf(a, place, undefined, elsewhere.id);
+    expect(await saveReadingIn(a.db, { photoId: cross.id, things: [hammer], note: null, hidden: 0 })).toEqual([]);
+    expect(await loadThingsIn(a.db, elsewhere.id)).toMatchObject([{ name: "Såg" }]);
+  });
+
+  it("keeps save_thing_reading for the code before it: it still replaces the older cards of the place", async () => {
+    const site = await siteOf(a);
+    const place = await placeOf(a, site, "Boden", "Golvet");
+    const old = await cardOf(a, place, "2026-10-01T10:00:00Z");
+    await a.db.rpc("save_thing_reading", { photo: old.id, things: [{ name: "Hammare", category: "Verktyg", confidence: "high" }] });
+    const fresh = await cardOf(a, place);
+    const answer = await a.db.rpc("save_thing_reading", { photo: fresh.id, things: [{ name: "Spade", category: "Trädgård", confidence: "high" }] });
+    expect(answer.error).toBeNull();
+    expect(answer.data).toEqual([old.path]);
+    expect((await loadCardsIn(a.db, place)).map((card) => card.id)).toEqual([fresh.id]);
   });
 
   it("refuses a card that is done, gone or another user's (MK440), and a thing outside the lists", async () => {
@@ -368,7 +408,7 @@ describe("Förnya och ta bort (Story 18.3)", () => {
 });
 
 describe("the index for search and questions (Story 18.4)", () => {
-  it("has the things of each place's newest finished card across boenden, with boende, date and closed containers, and nothing of another user's", async () => {
+  it("has the things of each place's finished cards (many since Story 18.11) across boenden, with boende, date and closed containers, and nothing of another user's", async () => {
     const home = await siteOf(c, "Hemma-index");
     const cabin = await siteOf(c, "Stugan-index");
     const shed = await placeOf(c, home, "Skräpförrådet", "Översta hyllan");
@@ -379,17 +419,18 @@ describe("the index for search and questions (Story 18.4)", () => {
     await doneCard(c, garage, [{ ...hammer, name: "Såg" }]);
     // A card being read has no things yet and is not in the index.
     await cardOf(c, garage, "2026-12-01T10:00:00Z");
-    // restoreCardIn of an older card must not hide the newer one: the newest finished card wins.
+    // The newest finished card comes first; an older card's things are listed too.
     expect(old.id).not.toBe(fresh.id);
 
     const index = (await loadThingIndexIn(c.db)).filter((place) => [shed, garage].includes(place.id));
     expect(index.map((place) => [place.room, place.part, place.siteName, place.hidden])).toEqual([
-      ["Skräpförrådet", "Översta hyllan", "Hemma-index", 1],
+      ["Skräpförrådet", "Översta hyllan", "Hemma-index", 2],
       ["Garaget", null, "Stugan-index", 1],
     ]);
     expect(index[0].things.map((thing) => [thing.name, thing.whereHint])).toEqual([
       ["Hammare", "på väggen"],
       ["Spade", null],
+      ["Gammal pryl", "på väggen"],
     ]);
     expect(index[1].things.map((thing) => thing.name)).toEqual(["Såg"]);
     expect((await loadThingIndexIn(b.db)).some((place) => [shed, garage].includes(place.id))).toBe(false);
@@ -437,7 +478,7 @@ describe("overlap merge (Story 18.6)", () => {
     const request = await loadMergeInputIn(d.db, second.id);
     expect(request?.room).toBe("Förrådet");
     expect(request?.cardTitle).toBe("Hela rummet");
-    expect(request?.existing.map((thing) => [thing.name, thing.card])).toEqual([["Cirkelsåg", "Vänster vägg"], ["Spade", "Vänster vägg"]]);
+    expect(request?.existing.map((thing) => [thing.name, thing.card])).toEqual([["Cirkelsåg", expect.stringMatching(/^Vänster vägg \d+ \w+$/)], ["Spade", expect.stringMatching(/^Vänster vägg \d+ \w+$/)]]);
     expect(request?.added.map((thing) => thing.name)).toEqual(["Batteridriven cirkelsåg", "Hammare"]);
 
     const merged = await mergeItemsIn(d.db, second.id, [{ item: await itemId(d, second.id, "Batteridriven cirkelsåg"), target: await itemId(d, first.id, "Cirkelsåg") }]);
@@ -560,3 +601,84 @@ describe("overlap merge (Story 18.6)", () => {
   });
 });
 
+
+describe("rooms (Stories 18.11 and 18.12)", () => {
+  let f: TestUser;
+  beforeAll(async () => {
+    f = await createTestUser("things-f");
+  });
+
+  it("counts a room's things, cards and newest date in the database, across its parts, whole room and boxes", async () => {
+    const site = await siteOf(f, "Rum");
+    const whole = await placeOf(f, site, "Skräpförrådet");
+    const wall = await placeOf(f, site, "Skräpförrådet", "Väggen");
+    const box = await insertPlaceIn(f.db, { siteId: site, room: "Skräpförrådet", part: "Black box" }, true);
+    if (box.kind !== "saved") throw new Error("not saved");
+    const garage = await placeOf(f, site, "Garaget");
+    await doneCard(f, whole, [hammer, { ...hammer, name: "Spade", category: "Trädgård" }], "2026-10-01T10:00:00Z");
+    // Many cards on one place: a new card adds.
+    await doneCard(f, whole, [{ ...hammer, name: "Såg" }], "2026-10-02T10:00:00Z");
+    await doneCard(f, wall, [{ ...hammer, name: "Skiftnyckel" }], "2026-10-03T10:00:00Z");
+    await doneCard(f, box.id, [{ ...hammer, name: "Julgransbelysning", category: "Elektronik" }], "2026-10-04T10:00:00Z");
+    await cardOf(f, garage);
+
+    const rooms = await loadRoomsIn(f.db, site);
+    expect(rooms.map((room) => [room.room, room.key, room.things, room.cards, room.reading])).toEqual([
+      ["Skräpförrådet", "skräpförrådet", 5, 4, 0],
+      ["Garaget", "garaget", 0, 0, 1],
+    ]);
+    expect(rooms[0].latest).not.toBeNull();
+    expect((await loadRoomIn(f.db, site, "garaget"))?.reading).toBe(1);
+    expect(await loadRoomIn(f.db, site, "finns-inte")).toBeNull();
+
+    expect(await loadRoomCategoriesIn(f.db, site, "skräpförrådet")).toEqual([
+      { category: "Verktyg", things: 3 },
+      { category: "Trädgård", things: 1 },
+      { category: "Elektronik", things: 1 },
+    ]);
+    const tools = await loadRoomThingsIn(f.db, site, "skräpförrådet", "Verktyg");
+    expect(tools.map((thing) => thing.name)).toEqual(["Hammare", "Skiftnyckel", "Såg"].sort((x, y) => x.localeCompare(y, "sv")));
+    const electronics = await loadRoomThingsIn(f.db, site, "skräpförrådet", "Elektronik");
+    expect(electronics.map((thing) => [thing.name, thing.whereHint])).toEqual([["Julgransbelysning", "i Black box"]]);
+
+    const cards = await loadRoomCardsIn(f.db, site, "skräpförrådet");
+    expect(cards.map((card) => [card.part, card.kind, card.things])).toEqual([
+      ["Black box", "box", 1],
+      ["Väggen", "part", 1],
+      [null, "part", 1],
+      [null, "part", 2],
+    ]);
+    expect((await loadRoomPlacesIn(f.db, site, "skräpförrådet")).map((place) => place.kind)).toEqual(["part", "part", "box"]);
+    expect(await findPlaceIn(f.db, { siteId: site, roomKey: "skräpförrådet", partKey: "" })).toBe(whole);
+    expect(await findPlaceIn(f.db, { siteId: site, roomKey: "skräpförrådet", partKey: "box:black box" })).toBe(box.id);
+    expect(await findPlaceIn(f.db, { siteId: site, roomKey: "garaget", partKey: "väggen" })).toBeNull();
+  });
+
+  it("counts a merged thing once and says it is seen on two cards, also for two cards of one place", async () => {
+    const site = await siteOf(f, "Rum-merge");
+    const whole = await placeOf(f, site, "Boden");
+    const first = await doneCard(f, whole, [hammer, { ...hammer, name: "Spade", where: null }], "2026-10-01T10:00:00Z");
+    const second = await doneCard(f, whole, [{ ...hammer, name: "Hammare med orange skaft" }], "2026-10-02T10:00:00Z");
+    // The new card is compared with the other card of the same place.
+    const request = await loadMergeInputIn(f.db, second.id);
+    expect(request?.existing.map((thing) => thing.name)).toEqual(["Hammare", "Spade"]);
+    const item = async (card: string, name: string) => (await f.db.from("thing_item").select("id").eq("photo_id", card).eq("name", name).single()).data!.id;
+    expect(await mergeItemsIn(f.db, second.id, [{ item: await item(second.id, "Hammare med orange skaft"), target: await item(first.id, "Hammare") }])).toBe(1);
+
+    expect((await loadRoomsIn(f.db, site))[0]).toMatchObject({ things: 2, cards: 2 });
+    const tools = await loadRoomThingsIn(f.db, site, "boden", "Verktyg");
+    expect(tools.map((thing) => [thing.name, thing.whereHint])).toEqual([["Hammare", "syns på 2 kort"], ["Spade", null]]);
+    // The card that was merged away still counts nothing for the room, but lists its thing.
+    expect((await loadRoomCardsIn(f.db, site, "boden")).map((card) => card.things).sort()).toEqual([0, 2]);
+  });
+
+  it("shows another user nothing of a room", async () => {
+    const site = await siteOf(f, "Rum-privat");
+    await placeOf(f, site, "Garaget");
+    expect(await loadRoomsIn(b.db, site)).toEqual([]);
+    expect(await loadRoomCardsIn(b.db, site, "garaget")).toEqual([]);
+    expect(await loadRoomThingsIn(b.db, site, "garaget", "Verktyg")).toEqual([]);
+    const anon = (await import("./support")).anonClient();
+    expect((await anon.rpc("thing_room_stats", { site })).error).not.toBeNull();
+  });
+});

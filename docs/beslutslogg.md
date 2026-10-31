@@ -2,6 +2,13 @@
 
 Beslut som fattats under bygget: vad, varför och vilka alternativ som fanns. Nyaste överst.
 
+## 2026-11-01 – Förråd: ta kort först, många kort per rum, rummets överblick (Story 18.11 och 18.12)
+
+- **Nya kort läggs till, "Ta om" ersätter ett kort** (`20261101090000_things_many_cards.sql`, bara tillägg): `thing_photo.replaces_photo_id` (främmande nyckel, `on delete set null`) och funktionen `save_thing_card`, som sparar prylarna som `save_thing_reading` men bara tar bort kortet som ersätts (och bara om det ligger på samma plats). Den gamla `save_thing_reading` är oförändrad, så main fungerar som förut tills den byts; den ersätter fortfarande äldre kort på platsen.
+- **Rum är det som skiljer `room_key` åt per boende.** Ett kort utan del går till rummets plats utan del ("Hela rummet"), som hittas eller skapas (`ensureCapturePlace`). Överlappsslagningen (Story 18.6) jämför ett nytt kort med alla andra färdiga kort i rummet, även på samma plats. Sökindexet och frågan tar prylarna från alla färdiga kort på en plats.
+- **Siffror räknas i databasen:** `thing_room_stats` (prylar, kort, senaste datum per rum), `thing_room_categories` och `thing_room_things` (en kategoris prylar, högst 2 000). Rummets sida läser aldrig alla prylar: kategorierna är hopfällda med antal och en kategori läser sina rader först när den fälls ut (utfällt minns enheten i localStorage, som receptfiltret). Sökindexet (Story 18.4) läser fortfarande alla prylar till webbläsaren; det är gränsat till 3 000.
+- **Adresser:** rummet ligger på `/prylar/rum/<boende>/<rum>`; `/prylar/<plats>` skickar vidare till rummet så att gamla länkar, sökträffar och svar fungerar. Kameran öppnas direkt på telefon (`capture="environment"`), "Välj bilder …" tar flera bilder; varje bild är ett eget kort och ett eget jobb, och när tre jobb är aktiva väntar nästa bild i stället för att misslyckas. Senast använda rum minns enheten per boende.
+
 ## 2026-10-31 – Prylar: flik, platser och kort med AI (Story 18.1 och 18.2)
 
 - **Fliken Prylar** (🧰, femte i flikraden och sidomenyn) delar boende med Lagersaldo: pillren är samma komponent och valt boende är samma `pantry_site`. Prylar rör aldrig maten: inga inköpslistor, inget recept, inga lagerantal.
