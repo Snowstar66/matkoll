@@ -16,11 +16,13 @@ import {
   minRunMs,
   isValidAnalyzeImageInput,
   isValidLocateItemsInput,
+  mergeThingsText,
   locateLimitsFrom,
   withInputValidation,
   type AnalyzeImageInput,
   type AskThingsInput,
   type LocateItemsInput,
+  type MergeThingsInput,
   type ParseRecipeInput,
   type SuggestDishesInput,
 } from "./service";
@@ -1151,5 +1153,66 @@ describe("askThings on a model (Story 18.4)", () => {
     expect((await code({ ...input, places: [{ ...places[1], title: "a\nb" }] })).error?.code).toBe("validation");
     const long = { ...places[1], things: Array.from({ length: 400 }, (_, index) => ({ name: `Pryl nummer ${index}`, category: "Övrigt", where: "någonstans på hyllan" })) };
     expect((await code({ ...input, places: [long] })).error?.code).toBe("validation");
+  });
+});
+
+describe("mergeThings on a model (Story 18.6)", () => {
+  const input: MergeThingsInput = {
+    room: "Skräpförrådet",
+    existing: [
+      { name: "Cirkelsåg", category: "Verktyg", where: "på väggen, mitten", card: "Vänstra väggen" },
+      { name: "Hammare", category: "Verktyg", where: null, card: "Vänstra väggen" },
+    ],
+    addedCard: "Hela rummet",
+    added: [
+      { name: "Batteridriven cirkelsåg", category: "Verktyg", where: "på väggen, vänster" },
+      { name: "Hammare med orange skaft", category: "Verktyg", where: "golvet" },
+    ],
+  };
+  const answer = (pairs: unknown[]) => JSON.stringify({ same: pairs });
+  const limits: Limits = { healthMs: 30_000, attemptMs: 30_000, totalMs: 60_000, maxAttempts: 1, minRetryMs: 0 };
+
+  it("sends the merge prompt and the lists as text only, and gives zero-based pairs", async () => {
+    // Numbers outside the lists, repeated or not whole are left out; a thing is in one pair only.
+    const model = fakeModel(answer([{ new: 1, existing: 1 }, { new: 1, existing: 2 }, { new: 2, existing: 1 }, { new: 3, existing: 1 }, { new: 2, existing: 0 }, { new: 1.5, existing: 2 }]));
+    const result = await createModelAiService({ model }, limits).mergeThings(input, signal());
+    expect(result).toEqual({ ok: true, data: { pairs: [{ added: 0, existing: 0 }] } });
+    const call = model.doGenerateCalls[0];
+    expect(call.maxOutputTokens).toBe(inputLimits.merge.maxOutputTokens);
+    const [system, user] = call.prompt;
+    expect(system).toEqual({ role: "system", content: prompts.mergeThings });
+    expect(user.content).toEqual([{ type: "text", text: mergeThingsText(input) }]);
+    expect(mergeThingsText(input)).toBe(
+      [
+        "Rum: Skräpförrådet",
+        "",
+        "Befintliga:",
+        "1. Cirkelsåg (Verktyg, på väggen, mitten) | kort: Vänstra väggen",
+        "2. Hammare (Verktyg) | kort: Vänstra väggen",
+        "",
+        "Nytt kort: Hela rummet",
+        "1. Batteridriven cirkelsåg (Verktyg, på väggen, vänster)",
+        "2. Hammare med orange skaft (Verktyg, golvet)",
+      ].join("\n"),
+    );
+  });
+
+  it("is ai_unavailable when the deadline leaves too little time", async () => {
+    const model = fakeModel(answer([]));
+    const result = await createModelAiService({ model }, limits).mergeThings(input, signal(), { deadline: Date.now() + 1_000 });
+    expect(result).toMatchObject({ ok: false, error: { code: "ai_unavailable" } });
+    expect(model.doGenerateCalls).toHaveLength(0);
+  });
+
+  it("is validation for lists that are empty, not on one line or too long", async () => {
+    const wrapped = withInputValidation(createModelAiService({ model: fakeModel(answer([])) }, limits));
+    const code = async (next: MergeThingsInput) => (await wrapped.mergeThings(next, signal())) as { ok: boolean; error?: { code: string } };
+    expect((await code(input)).ok).toBe(true);
+    expect((await code({ ...input, existing: [] })).error?.code).toBe("validation");
+    expect((await code({ ...input, added: [] })).error?.code).toBe("validation");
+    expect((await code({ ...input, room: "a\nb" })).error?.code).toBe("validation");
+    expect((await code({ ...input, added: [{ name: "två\nrader", category: "Övrigt", where: null }] })).error?.code).toBe("validation");
+    const many = Array.from({ length: inputLimits.merge.maxExisting + 1 }, (_, index) => ({ name: `Pryl ${index}`, category: "Övrigt", where: null, card: "Kort" }));
+    expect((await code({ ...input, existing: many })).error?.code).toBe("validation");
   });
 });

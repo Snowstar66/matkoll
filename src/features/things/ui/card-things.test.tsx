@@ -18,8 +18,8 @@ vi.mock("../actions/thing-item", () => ({
 const refresh = vi.fn();
 vi.mock("next/navigation", () => ({ useRouter: () => ({ push: vi.fn(), refresh }) }));
 
-const hammer: Thing = { id: "0b2f6d0a-3c0e-4d52-9a54-6d0f0c5f6a11", name: "Hammare", category: "Verktyg", whereHint: "på väggen", confidence: "high" };
-const spade: Thing = { id: "0b2f6d0a-3c0e-4d52-9a54-6d0f0c5f6a12", name: "Spade", category: "Trädgård", whereHint: null, confidence: "low" };
+const hammer: Thing = { id: "0b2f6d0a-3c0e-4d52-9a54-6d0f0c5f6a11", name: "Hammare", category: "Verktyg", whereHint: "på väggen", confidence: "high", seenOn: 1 };
+const spade: Thing = { id: "0b2f6d0a-3c0e-4d52-9a54-6d0f0c5f6a12", name: "Spade", category: "Trädgård", whereHint: null, confidence: "low", seenOn: 1 };
 const snapshot: ThingSnapshot = {
   id: hammer.id,
   photoId: "0b2f6d0a-3c0e-4d52-9a54-6d0f0c5f6a01",

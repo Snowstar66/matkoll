@@ -689,3 +689,39 @@ describe("mock askThings (Story 18.4)", () => {
     expect(await service.askThings({ question: "Hammare?", places }, controller.signal)).toMatchObject({ ok: false, error: { code: "ai_unavailable" } });
   });
 });
+
+describe("mock mergeThings (Story 18.6)", () => {
+  const service = createMockAiService();
+  const thing = (name: string, card = "Kort A") => ({ name, category: "Verktyg", where: null, card });
+
+  it("pairs a thing with the kept thing of the same name, each in one pair, and leaves similar names alone", async () => {
+    const result = await service.mergeThings(
+      {
+        room: "Skräpförrådet",
+        existing: [thing("Cirkelsåg"), thing("Hammare"), thing("Spade")],
+        addedCard: "Kort B",
+        added: [thing("cirkelsåg"), thing("Hammare med orange skaft"), thing("Spade"), thing("Spade")],
+      },
+      signal(),
+    );
+    expect(result).toEqual({
+      ok: true,
+      data: {
+        pairs: [
+          { added: 0, existing: 0 },
+          { added: 2, existing: 2 },
+        ],
+      },
+    });
+  });
+
+  it("counts as a call and is ai_unavailable when stopped", async () => {
+    const seen: AiUsage[] = [];
+    const input = { room: "R", existing: [thing("Spade")], addedCard: "B", added: [thing("Spade")] };
+    await withUsageSink((usage) => void seen.push(usage), () => service.mergeThings(input, signal()));
+    expect(seen).toEqual([{ model: "mock", inputTokens: 0, outputTokens: 0 }]);
+    const controller = new AbortController();
+    controller.abort();
+    expect(await service.mergeThings(input, controller.signal)).toMatchObject({ ok: false, error: { code: "ai_unavailable" } });
+  });
+});

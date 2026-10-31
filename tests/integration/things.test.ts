@@ -18,6 +18,7 @@ import {
   uploadCardFile,
 } from "@/features/things/data/photos";
 import { sweepCardFilesIn } from "@/features/things/actions/sweep-card-files";
+import { mergeItemsIn, loadMergeInputIn } from "@/features/things/data/merge";
 import { insertPlaceIn, loadPlaceIn, loadPlacesIn } from "@/features/things/data/places";
 import { thingPhotoBucket, thingPhotoPath } from "@/features/things/domain/thing-photo";
 import { localSupabaseUrl } from "../local-supabase";
@@ -392,5 +393,113 @@ describe("the index for search and questions (Story 18.4)", () => {
     ]);
     expect(index[1].things.map((thing) => thing.name)).toEqual(["Såg"]);
     expect((await loadThingIndexIn(b.db)).some((place) => [shed, garage].includes(place.id))).toBe(false);
+  });
+});
+
+describe("overlap merge (Story 18.6)", () => {
+  const saw = { ...hammer, name: "Cirkelsåg", where: "på väggen" };
+  const spade = { ...hammer, name: "Spade", where: null };
+  // Own users: a user has at most 10 boenden, and the earlier tests have used theirs.
+  let d: TestUser;
+  let e: TestUser;
+  beforeAll(async () => {
+    d = await createTestUser("things-d");
+    e = await createTestUser("things-e");
+  });
+
+  /** The id of the thing named `name` on the card. */
+  async function itemId(user: TestUser, cardId: string, name: string): Promise<string> {
+    const { data } = await user.db.from("thing_item").select("id").eq("photo_id", cardId).eq("name", name).single();
+    return data!.id;
+  }
+
+  it("makes boxes of kind box, also for the code before it that only writes the key, and backfilled ones", async () => {
+    const site = await siteOf(d, "Kind");
+    const placeId = await placeOf(d, site, "Källaren");
+    const box = await insertPlaceIn(d.db, { siteId: site, room: "Källaren", part: "Blå backen" }, true);
+    if (box.kind !== "saved") throw new Error("not saved");
+    const legacy = await d.db.from("thing_place").insert({ site_id: site, room: "Källaren", part: "Röda", room_key: "källaren", part_key: "box:röda" }).select("id, kind").single();
+    expect(legacy.data?.kind).toBe("box");
+    const kinds = await d.db.from("thing_place").select("id, kind").in("id", [placeId, box.id]);
+    expect(Object.fromEntries(kinds.data!.map((row) => [row.id, row.kind]))).toEqual({ [placeId]: "part", [box.id]: "box" });
+    expect((await loadPlaceIn(d.db, box.id))?.isBox).toBe(true);
+    // A box that is not a box by its key, or the other way round, is refused.
+    const bad = await d.db.from("thing_place").insert({ site_id: site, room: "Källaren", part: "Fel", room_key: "källaren", part_key: "fel", kind: "box" });
+    expect(bad.error?.code).toBe("23514");
+  });
+
+  it("merges the same thing of two cards in one room, counts it once, and shows it on both cards", async () => {
+    const site = await siteOf(d, "Merge");
+    const left = await placeOf(d, site, "Förrådet", "Vänster vägg");
+    const whole = await placeOf(d, site, "Förrådet");
+    const first = await doneCard(d, left, [saw, spade], "2026-03-01T10:00:00Z");
+    const second = await doneCard(d, whole, [{ ...saw, name: "Batteridriven cirkelsåg" }, hammer], "2026-03-02T10:00:00Z");
+    const request = await loadMergeInputIn(d.db, second.id);
+    expect(request?.room).toBe("Förrådet");
+    expect(request?.cardTitle).toBe("Hela rummet");
+    expect(request?.existing.map((thing) => [thing.name, thing.card])).toEqual([["Cirkelsåg", "Vänster vägg"], ["Spade", "Vänster vägg"]]);
+    expect(request?.added.map((thing) => thing.name)).toEqual(["Batteridriven cirkelsåg", "Hammare"]);
+
+    const merged = await mergeItemsIn(d.db, second.id, [{ item: await itemId(d, second.id, "Batteridriven cirkelsåg"), target: await itemId(d, first.id, "Cirkelsåg") }]);
+    expect(merged).toBe(1);
+
+    // Both cards still list what is on them, and say the saw is on two.
+    expect((await loadThingsIn(d.db, first.id)).map((thing) => [thing.name, thing.seenOn])).toEqual([["Cirkelsåg", 2], ["Spade", 1]]);
+    expect((await loadThingsIn(d.db, second.id)).map((thing) => [thing.name, thing.seenOn])).toEqual([["Batteridriven cirkelsåg", 2], ["Hammare", 1]]);
+    // The room's things are counted once: three, not four.
+    const places = await loadPlacesIn(d.db, site);
+    expect(places.filter((place) => [left, whole].includes(place.id)).map((place) => place.itemCount)).toEqual([2, 1]);
+    // The index lists the saw once, on its kept card, with two cards.
+    const index = (await loadThingIndexIn(d.db)).filter((place) => [left, whole].includes(place.id));
+    expect(index.flatMap((place) => place.things.map((thing) => [thing.name, thing.seenOn]))).toEqual([["Cirkelsåg", 2], ["Spade", 1], ["Hammare", 1]]);
+
+    // Removing the card of the merged thing keeps the kept one; removing the kept one's card keeps the merged one.
+    const removedSecond = await removeCardIn(d.db, second.id);
+    expect(removedSecond).not.toBeNull();
+    expect((await loadThingsIn(d.db, first.id)).map((thing) => thing.seenOn)).toEqual([1, 1]);
+    await restoreCardIn(d.db, removedSecond!.snapshot);
+    expect(await mergeItemsIn(d.db, second.id, [{ item: await itemId(d, second.id, "Batteridriven cirkelsåg"), target: await itemId(d, first.id, "Cirkelsåg") }])).toBe(1);
+    await removeCardIn(d.db, first.id);
+    expect((await loadThingsIn(d.db, second.id)).map((thing) => [thing.name, thing.seenOn])).toEqual([["Batteridriven cirkelsåg", 1], ["Hammare", 1]]);
+    const after = (await loadThingIndexIn(d.db)).find((place) => place.id === whole);
+    expect(after?.things.map((thing) => thing.name)).toEqual(["Batteridriven cirkelsåg", "Hammare"]);
+  });
+
+  it("never merges across rooms, into a box, between boenden, for another user's things, or into a chain", async () => {
+    const home = await siteOf(d, "Merge-rum");
+    const other = await siteOf(d, "Merge-annat");
+    const room = await placeOf(d, home, "Verkstaden", "Bänken");
+    const otherRoom = await placeOf(d, home, "Garaget");
+    const cabin = await placeOf(d, other, "Verkstaden", "Bänken");
+    const box = await insertPlaceIn(d.db, { siteId: home, room: "Verkstaden", part: "Lådan" }, true);
+    if (box.kind !== "saved") throw new Error("not saved");
+    const roomCard = await doneCard(d, room, [saw]);
+    const garageCard = await doneCard(d, otherRoom, [saw]);
+    const cabinCard = await doneCard(d, cabin, [saw]);
+    const boxCard = await doneCard(d, box.id, [saw]);
+    const keep = await itemId(d, roomCard.id, "Cirkelsåg");
+    for (const card of [garageCard, cabinCard, boxCard]) {
+      expect(await mergeItemsIn(d.db, card.id, [{ item: await itemId(d, card.id, "Cirkelsåg"), target: keep }]), card.id).toBe(0);
+    }
+    // The box's card is not compared with the room, and the room's card is not compared with the box.
+    expect(await loadMergeInputIn(d.db, boxCard.id)).toBeNull();
+    expect((await loadMergeInputIn(d.db, roomCard.id))?.existing).toEqual([]);
+
+    // Another user cannot point at a thing that is not theirs.
+    const bSite = await siteOf(e, "Merge-b");
+    const bCard = await doneCard(e, await placeOf(e, bSite, "Verkstaden", "Bänken"), [saw]);
+    expect(await mergeItemsIn(e.db, bCard.id, [{ item: await itemId(e, bCard.id, "Cirkelsåg"), target: keep }])).toBe(0);
+
+    // No chains and no cycles: a thing that is pointed at is not merged into another, and a merged one is not a target.
+    const sibling = await placeOf(d, home, "Verkstaden", "Golvet");
+    const third = await placeOf(d, home, "Verkstaden", "Hyllan");
+    const siblingCard = await doneCard(d, sibling, [saw]);
+    const thirdCard = await doneCard(d, third, [saw]);
+    const mine = await itemId(d, siblingCard.id, "Cirkelsåg");
+    expect(await mergeItemsIn(d.db, siblingCard.id, [{ item: mine, target: keep }])).toBe(1);
+    expect(await mergeItemsIn(d.db, roomCard.id, [{ item: keep, target: mine }])).toBe(0);
+    expect(await mergeItemsIn(d.db, thirdCard.id, [{ item: await itemId(d, thirdCard.id, "Cirkelsåg"), target: mine }])).toBe(0);
+    expect(await mergeItemsIn(d.db, thirdCard.id, [{ item: await itemId(d, thirdCard.id, "Cirkelsåg"), target: keep }])).toBe(1);
+    expect((await loadThingsIn(d.db, roomCard.id))[0].seenOn).toBe(3);
   });
 });

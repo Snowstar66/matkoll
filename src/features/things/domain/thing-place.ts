@@ -24,10 +24,12 @@ export function normalizePlaceName(name: string): string {
 
 /**
  * A box (Story 18.5) is a place under the same room whose part is the box's
- * name. No column says so (the story adds no migration): the box is told by
- * its `part_key`, which carries this prefix, so a box and a part with the same
- * name never clash and the key stays out of sight (the shown `part` is the
- * plain name). Kept at most 160 characters by the table's check.
+ * name. Since Story 18.6 the column `thing_place.kind` says so ('part' or
+ * 'box'); the `part_key` still carries this prefix on a box, so a box and a
+ * part with the same name never clash and the key stays out of sight (the
+ * shown `part` is the plain name), and the code before the column, which only
+ * wrote the key, still makes boxes (a trigger gives them their kind). Kept at
+ * most 160 characters by the table's check.
  */
 export const boxKeyPrefix = "box:";
 

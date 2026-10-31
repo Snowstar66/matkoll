@@ -1,6 +1,7 @@
 import analyzeImagePrompt from "./prompts/analyze-image.md?raw";
 import askThingsPrompt from "./prompts/ask-things.md?raw";
 import listThingsPrompt from "./prompts/list-things.md?raw";
+import mergeThingsPrompt from "./prompts/merge-things.md?raw";
 import locateItemsPrompt from "./prompts/locate-items.md?raw";
 import parseRecipePrompt from "./prompts/parse-recipe.md?raw";
 import suggestDishesPrompt from "./prompts/suggest-dishes.md?raw";
@@ -15,4 +16,5 @@ export const prompts = {
   locateItems: locateItemsPrompt,
   listThings: listThingsPrompt,
   askThings: askThingsPrompt,
+  mergeThings: mergeThingsPrompt,
 } as const;

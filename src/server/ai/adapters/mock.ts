@@ -18,7 +18,7 @@ import {
 } from "../schemas";
 import { fromCompactDish } from "../compact-dish";
 import { reportUsage } from "../usage";
-import type { AiService, AnalyzeImageResult, AskThingsInput, AskThingsResult, ListThingsResult, ParseRecipeInput, SuggestDishesInput } from "../service";
+import type { AiService, AnalyzeImageResult, AskThingsInput, AskThingsResult, ListThingsResult, MergeThingsInput, MergeThingsResult, ParseRecipeInput, SuggestDishesInput } from "../service";
 
 // Deterministic stand-in for a model, used in all tests and in CI (AD-9). It
 // answers from tests/fixtures/ai/: manifest.json lists the cases, each with a
@@ -268,6 +268,24 @@ function mockAskAnswer(input: AskThingsInput): AskThingsResult {
   return { answer: sentences.join(" "), places: found.slice(0, 5).map(({ index }) => index) };
 }
 
+/**
+ * mergeThings (Story 18.6) without a model: a thing of the new card and a kept
+ * thing with the same name (the same text in lower case) are the same thing,
+ * each in at most one pair.
+ */
+function mockMergePairs(input: MergeThingsInput): MergeThingsResult {
+  const taken = new Set<number>();
+  const pairs: MergeThingsResult["pairs"] = [];
+  input.added.forEach((thing, added) => {
+    const key = thing.name.toLocaleLowerCase("sv");
+    const existing = input.existing.findIndex((other, index) => !taken.has(index) && other.name.toLocaleLowerCase("sv") === key);
+    if (existing < 0) return;
+    taken.add(existing);
+    pairs.push({ added, existing });
+  });
+  return { pairs };
+}
+
 /** The error code a reserved pantry item asks for, if any. */
 function suggestErrorFor(input: SuggestDishesInput, errors: Map<string, MockErrorCode>): MockErrorCode | undefined {
   for (const item of input.pantry) {
@@ -347,6 +365,7 @@ function countingCalls(service: AiService): AiService {
     locateItems: counted(service.locateItems),
     listThings: counted(service.listThings),
     askThings: counted(service.askThings),
+    mergeThings: counted(service.mergeThings),
   };
 }
 
@@ -436,6 +455,10 @@ function createMockService(dir: string, { delayMs = 0 }: MockOptions): AiService
       const question = normalizeInputText({ text: input.question });
       for (const [text, code] of errors) if (question.includes(text)) return fail(code);
       return ok(mockAskAnswer(input));
+    },
+    async mergeThings(input, signal) {
+      if (!(await wait(clampedDelay(Math.min(delayMs, 1_000)), signal))) return fail("ai_unavailable");
+      return ok(mockMergePairs(input));
     },
     // Story 12.2: the mock is never cold, so there is nothing to wake.
     warmUpKey() {

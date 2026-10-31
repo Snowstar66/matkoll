@@ -6,15 +6,21 @@ import { guarded, ThingsDataError, type ThingsDb } from "./client";
 export async function loadThingsIn(db: ThingsDb, photoId: string): Promise<Thing[]> {
   const { data, error } = await db
     .from("thing_item")
-    .select("id, name, category, where_hint, confidence, position")
+    .select("id, name, category, where_hint, confidence, position, same_as")
     .eq("photo_id", photoId)
     .order("position")
     .order("id");
   if (error) throw new ThingsDataError(`query_failed ${error.code}`);
+  // Story 18.6: a thing seen on several cards of the room says so. The kept thing is the card's own or the one it points at; its cards are itself and the things that point at it.
+  const kept = [...new Set(data.map((row) => row.same_as ?? row.id))];
+  const pointing = kept.length === 0 ? { data: [], error: null } : await db.from("thing_item").select("same_as").in("same_as", kept);
+  if (pointing.error) throw new ThingsDataError(`query_failed ${pointing.error.code}`);
+  const cards = new Map<string, number>();
+  for (const { same_as } of pointing.data) if (same_as) cards.set(same_as, (cards.get(same_as) ?? 0) + 1);
   return data.map((row) => {
     const parsed = thingRowSchema.safeParse(row);
     if (!parsed.success) throw new ThingsDataError("invalid_row");
-    return toThing(parsed.data);
+    return toThing(parsed.data, 1 + (cards.get(row.same_as ?? row.id) ?? 0));
   });
 }
 

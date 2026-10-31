@@ -1,4 +1,5 @@
 import { z } from "zod";
+import { seenOnText } from "./thing-merge";
 
 // A thing the AI read from a card (Story 18.2): name, category, where in the
 // photo and how sure. Things never touch food: no list, no recipe, no pantry.
@@ -45,6 +46,8 @@ export type Thing = {
   category: ThingCategory;
   whereHint: string | null;
   confidence: ThingConfidence;
+  /** On how many cards of the room it is seen (Story 18.6): 1 for a thing on one card. */
+  seenOn: number;
 };
 
 /** A thing_item row as read, checked before the page shows it. */
@@ -57,8 +60,8 @@ export const thingRowSchema = z.object({
   position: z.number().int(),
 });
 
-export function toThing(row: z.output<typeof thingRowSchema>): Thing {
-  return { id: row.id, name: row.name, category: row.category, whereHint: row.where_hint, confidence: row.confidence };
+export function toThing(row: z.output<typeof thingRowSchema>, seenOn = 1): Thing {
+  return { id: row.id, name: row.name, category: row.category, whereHint: row.where_hint, confidence: row.confidence, seenOn };
 }
 
 /** The things under their categories, in the order of thingCategories, each group in the model's order; empty groups are left out. */
@@ -76,9 +79,9 @@ export function isMaybe(thing: Pick<Thing, "confidence">): boolean {
 /** The mark on an unsure thing. */
 export const maybeText = "kanske";
 
-/** The row under a thing's name: where in the photo, with "kanske" first when it is a guess. */
-export function thingMeta(thing: Pick<Thing, "confidence" | "whereHint">): string {
-  return [isMaybe(thing) ? maybeText : null, thing.whereHint].filter(Boolean).join(" · ");
+/** The row under a thing's name: where in the photo, with "kanske" first when it is a guess and "syns på 2 kort" last when the room's cards overlap on it. */
+export function thingMeta(thing: Pick<Thing, "confidence" | "whereHint"> & { seenOn?: number }): string {
+  return [isMaybe(thing) ? maybeText : null, thing.whereHint, seenOnText(thing.seenOn ?? 1)].filter(Boolean).join(" · ");
 }
 
 /** "Innehållet i 3 lådor syns inte – fota insidan", or the model's own sentence when it gave no count, or nothing. */

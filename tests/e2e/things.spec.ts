@@ -452,3 +452,48 @@ test("a box is added from the line about closed boxes, gets its own card, and it
   await page.getByRole("searchbox", { name: "Sök bland prylar" }).fill("julgran");
   await expect(page.getByTestId("thing-hit")).toHaveText([/Julgransprydnad\s*Skräpförrådet, i Kartong jul · Hemma · 31 okt/]);
 });
+
+test("the same things on two cards of one room are counted once and say 'syns på 2 kort'", async ({ page }) => {
+  const links = page.getByTestId("place");
+  for (const part of ["Väggen", "Golvet"]) {
+    await page.goto("/prylar");
+    await newPlace(page, "Skräpförrådet", part);
+    const chooser = page.waitForEvent("filechooser");
+    await page.getByRole("button", { name: "Ta ett nytt kort" }).click();
+    await (await chooser).setFiles(photo);
+    await expect(page.getByTestId("card-panel")).toBeVisible({ timeout: 25_000 });
+    await expect(page.getByRole("button", { name: "Ta ett nytt kort" })).toBeVisible();
+  }
+  // The second card is compared with the room's first (a text call after the reading): all twelve are the same things.
+  await expect
+    .poll(async () => (await adminClient().from("thing_item").select("id").eq("user_id", userId).not("same_as", "is", null)).data?.length, { timeout: 15_000 })
+    .toBe(12);
+
+  // The room counts them once: twelve on the first card, none new on the second.
+  await page.goto("/prylar");
+  await expect(links.filter({ hasText: "Väggen" })).toContainText("12 saker");
+  await expect(links.filter({ hasText: "Golvet" })).toContainText("0 saker");
+  await links.filter({ hasText: "Väggen" }).click();
+  const things = page.getByTestId("card-panel").getByTestId("thing");
+  await expect(things).toHaveCount(12);
+  await expect(things.filter({ hasText: "Hammare" })).toContainText("på väggen, mitten · syns på 2 kort");
+  await expect(page.getByTestId("card-panel").getByText("syns på 2 kort")).toHaveCount(12);
+  await page.screenshot({ path: process.env.MERGE_SHOT ?? "test-results/merge-shot.png" });
+
+  // Search finds the saw once, with the number of cards.
+  await page.goto("/prylar");
+  await page.getByRole("searchbox", { name: "Sök bland prylar" }).fill("cirkelsåg");
+  await expect(page.getByTestId("thing-hit")).toHaveCount(1);
+  await expect(page.getByTestId("thing-hit")).toContainText("syns på 2 kort");
+
+  // Removing the first card keeps the things of the second, now seen on one card.
+  await page.goto("/prylar");
+  await links.filter({ hasText: "Väggen" }).click();
+  await page.getByTestId("card-panel").getByRole("button", { name: "Ta bort kortet" }).click();
+  await page.getByRole("dialog", { name: "Ta bort kortet" }).getByRole("button", { name: "Ta bort kortet" }).click();
+  await expect.poll(async () => (await adminClient().from("thing_photo").select("id").eq("user_id", userId)).data?.length).toBe(1);
+  await page.goto("/prylar");
+  await links.filter({ hasText: "Golvet" }).click();
+  await expect(page.getByTestId("card-panel").getByTestId("thing")).toHaveCount(12);
+  await expect(page.getByText("syns på 2 kort")).toHaveCount(0);
+});

@@ -35,6 +35,8 @@ import {
   parseAskAnswer,
   listThingsAnswer,
   locateItemsAnswer,
+  mergeThingsAnswer,
+  parseMergePairs,
   maxPantryItemTextChars,
   parseAnalyzeItems,
   parseItemPositions,
@@ -170,6 +172,26 @@ export type AskThingsInput = {
 /** What askThings answers: a short text and the places it is about, as indexes into `places` (zero-based). */
 export type AskThingsResult = { answer: string; places: number[] };
 
+/** A thing as mergeThings gets it (Story 18.6): text only. Data for the model, never instructions. */
+export type MergeThing = { name: string; category: string; where: string | null };
+
+export type MergeThingsInput = {
+  /** The room, on one line: things are only ever compared inside one room. */
+  room: string;
+  /** The things of the room's other cards, kept ones only, the card each is on named; the answer numbers them from 1 in this order. */
+  existing: (MergeThing & { card: string })[];
+  /** The new card's name, on one line. */
+  addedCard: string;
+  /** The things of the new card, in the model's order; the answer numbers them from 1. */
+  added: MergeThing[];
+};
+
+/** A thing of the new card and the thing it is the same as, as zero-based indexes into `added` and `existing`. */
+export type MergeThingsPair = { added: number; existing: number };
+
+/** What mergeThings answers: the pairs, each thing in at most one pair. */
+export type MergeThingsResult = { pairs: MergeThingsPair[] };
+
 /** What warmUp wakes (Story 12.2): the reading of a photo, or the text flows. */
 export const warmUpKinds = ["image", "text"] as const;
 export type WarmUpKind = (typeof warmUpKinds)[number];
@@ -236,6 +258,14 @@ export interface AiService {
    * `ai_rejected` or `ai_invalid` (no usable answer).
    */
   askThings(input: AskThingsInput, signal: AbortSignal, options?: RunOptions): Promise<Result<AskThingsResult>>;
+  /**
+   * Which things of a new card are the same physical things as things of the
+   * room's other cards (Story 18.6): one text call, no image. The pairs are
+   * checked to be in the lists and one to one. Fails with `validation` (lists
+   * outside inputLimits.merge), `ai_unavailable` (also when the deadline
+   * leaves too little time), `ai_rejected` or `ai_invalid`.
+   */
+  mergeThings(input: MergeThingsInput, signal: AbortSignal, options?: RunOptions): Promise<Result<MergeThingsResult>>;
   /**
    * Wakes the model before it is needed (Story 12.2, FR-45): one call with
    * the flow's own system prompt (analyzeImage for `image`, suggestDishes
@@ -312,6 +342,14 @@ export const inputLimits = {
    */
   ask: { maxQuestionChars: 300, maxPlaces: 200, maxChars: 12_000, maxOutputTokens: 600 },
   /**
+   * mergeThings (Story 18.6): the lists are names, categories and where on
+   * the card, about 15 tokens a thing. A storage room of nine cards had 258
+   * things, so 400 kept things and 60 new ones are about 7 000 tokens (30 000 characters at most); the
+   * answer is a pair of numbers, about 12 tokens each, so 60 pairs are about
+   * 700 and 1 500 leave room for a model that writes around them.
+   */
+  merge: { maxExisting: 400, maxAdded: 60, maxChars: 30_000, maxOutputTokens: 1_500 },
+  /**
    * locateItems (Story 6.6), measured with Qwen3.6 in LM Studio on Pontus's
    * photo at 2048 px (2026-10-26): 20 points were 390 tokens of answer, in
    * about 10 s with a warm model and 24 s on the first, cold call. At most
@@ -366,6 +404,17 @@ export function isValidAskThingsInput(input: AskThingsInput): boolean {
       place.things.every((thing) => oneLine(thing.name) && oneLine(thing.category) && (thing.where === null || oneLine(thing.where))),
   );
   return valid && askThingsText(input).length <= limits.maxChars;
+}
+
+/** True for lists within inputLimits.merge: something on the new card and in the room, every text on one line. */
+export function isValidMergeThingsInput(input: MergeThingsInput): boolean {
+  const limits = inputLimits.merge;
+  const { room, existing, addedCard, added } = input;
+  const oneLine = (text: string) => text !== "" && text === cleanModelText(text);
+  const thing = (item: MergeThing) => oneLine(item.name) && oneLine(item.category) && (item.where === null || oneLine(item.where));
+  if (!oneLine(room) || !oneLine(addedCard)) return false;
+  if (added.length === 0 || added.length > limits.maxAdded || existing.length === 0 || existing.length > limits.maxExisting) return false;
+  return added.every(thing) && existing.every((item) => thing(item) && oneLine(item.card)) && mergeThingsText(input).length <= limits.maxChars;
 }
 
 /** True for an image within the limits and 1 to inputLimits.locate.maxLabels valid labels. */
@@ -443,6 +492,10 @@ export function withInputValidation(service: AiService): AiService {
     async askThings(input, signal, options) {
       if (!isValidAskThingsInput(input)) return fail("validation");
       return service.askThings(input, signal, options);
+    },
+    async mergeThings(input, signal, options) {
+      if (!isValidMergeThingsInput(input)) return fail("validation");
+      return service.mergeThings(input, signal, options);
     },
     async warmUp(kind, signal, options) {
       if (!isWarmUpKind(kind)) return { outcome: "skipped", reason: "provider" };
@@ -571,6 +624,27 @@ export function createModelAiService(target: ModelTarget, limits: Limits = defau
       // The model's numbers start at 1; the port gives indexes.
       return ok({ answer: parsed.answer, places: parsed.refs.map((number) => number - 1) });
     },
+    async mergeThings(input, signal, options = {}) {
+      const within = limitsWithin(limits, options.deadline);
+      if (!within) {
+        console.error("ai_unavailable", { reason: "deadline" });
+        return fail("ai_unavailable");
+      }
+      const answer = await runStructured(
+        target,
+        {
+          schema: mergeThingsAnswer,
+          system: prompts.mergeThings,
+          messages: [{ role: "user", content: mergeThingsText(input) }],
+          maxOutputTokens: inputLimits.merge.maxOutputTokens,
+          onTruncated: () => console.info("merge_truncated"),
+        },
+        signal,
+        within,
+      );
+      if (!answer.ok) return answer;
+      return ok({ pairs: parseMergePairs(answer.data, input.added.length, input.existing.length) });
+    },
     async locateItems(input, signal, options = {}) {
       // Story 6.6: only a model trained to point in thousandths is asked; the photo is not sent again otherwise.
       if (!target.supportsGrounding) {
@@ -666,6 +740,23 @@ export function askThingsText(input: AskThingsInput): string {
     return `${index + 1}. ${head.join(" | ")}\n   ${things === "" ? "(inga prylar)" : things}`;
   });
   return `Fråga: ${input.question}\n\nPlatser:\n${places.join("\n")}`;
+}
+
+/**
+ * The user message for mergeThings (Story 18.6): "Rum:", then "Befintliga:"
+ * with a numbered line per kept thing ("1. Hammare (Verktyg, på väggen) |
+ * kort: Översta hyllan") and "Nytt kort:" with its name and a numbered line
+ * per thing. Every text is on one line, so none can start a section of its
+ * own; the prompt says the lists are data.
+ */
+export function mergeThingsText(input: MergeThingsInput): string {
+  const line = (item: MergeThing, index: number, card?: string) => {
+    const detail = [item.category, item.where].filter(Boolean).join(", ");
+    return `${index + 1}. ${item.name} (${detail})${card === undefined ? "" : ` | kort: ${card}`}`;
+  };
+  const existing = input.existing.map((item, index) => line(item, index, item.card)).join("\n");
+  const added = input.added.map((item, index) => line(item, index)).join("\n");
+  return `Rum: ${input.room}\n\nBefintliga:\n${existing}\n\nNytt kort: ${input.addedCard}\n${added}`;
 }
 
 /**

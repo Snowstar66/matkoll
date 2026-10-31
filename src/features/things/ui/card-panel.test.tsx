@@ -34,6 +34,7 @@ const thing = (name: string, overrides: Partial<Thing> = {}): Thing => ({
   category: "Verktyg",
   whereHint: null,
   confidence: "high",
+  seenOn: 1,
   ...overrides,
 });
 

@@ -439,6 +439,49 @@ export function parseAskAnswer(
   return { answer: text, refs: refs.slice(0, maxAskRefs) };
 }
 
+/** The most pairs one merge answer may hold: a card has at most 60 things. */
+export const maxMergePairs = 60;
+
+/**
+ * What the model answers to mergeThings (Story 18.6): the pairs of a thing on
+ * the new card and the same thing on another card, as the numbers of the two
+ * lists it was given.
+ */
+export const mergeThingsAnswer = z.object({
+  same: z
+    .array(
+      z.object({
+        new: z.number().describe("Numret på prylen på det nya kortet"),
+        existing: z.number().describe("Numret på samma pryl bland de befintliga"),
+      }),
+    )
+    .describe("Bara de par som är samma fysiska pryl, tom lista om inga"),
+});
+
+/**
+ * The pairs as zero-based indexes: only numbers that are in the lists, and
+ * one to one (a thing on the new card is in one pair, and a kept thing is
+ * paired once, so two identical things on one card are never both made one).
+ * The first pair of a number wins.
+ */
+export function parseMergePairs(
+  answer: z.output<typeof mergeThingsAnswer>,
+  addedCount: number,
+  existingCount: number,
+): { added: number; existing: number }[] {
+  const pairs: { added: number; existing: number }[] = [];
+  const usedAdded = new Set<number>();
+  const usedExisting = new Set<number>();
+  for (const { new: added, existing } of answer.same) {
+    const valid = Number.isInteger(added) && Number.isInteger(existing) && added >= 1 && added <= addedCount && existing >= 1 && existing <= existingCount;
+    if (!valid || usedAdded.has(added) || usedExisting.has(existing)) continue;
+    usedAdded.add(added);
+    usedExisting.add(existing);
+    pairs.push({ added: added - 1, existing: existing - 1 });
+  }
+  return pairs.slice(0, maxMergePairs);
+}
+
 const thingText = (max: number) => text().refine((value) => value.length <= max, { message: `At most ${max} characters` });
 
 /** One thing as the port returns it, checked on its own. Text from the model is untrusted. */
