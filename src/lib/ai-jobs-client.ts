@@ -257,7 +257,8 @@ function browserEnv(): AiJobsEnv {
     now: () => Date.now(),
     setTimeout: (callback, ms) => window.setTimeout(callback, ms),
     clearTimeout: (handle) => window.clearTimeout(handle as number),
-    visible: () => document.visibilityState === "visible",
+    // A timer may still fire after the page (or a test's DOM) is gone; nothing is visible then.
+    visible: () => typeof document !== "undefined" && document.visibilityState === "visible",
     onVisibilityChange: (listener) => {
       document.addEventListener("visibilitychange", listener);
       return () => document.removeEventListener("visibilitychange", listener);
