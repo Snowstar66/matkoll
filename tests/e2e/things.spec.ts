@@ -120,12 +120,15 @@ test("the whole Ta kort card is tappable, the sub line and the right edge too", 
   const dialog = page.getByRole("dialog", { name: "Var tar du kortet?" });
   await page.goto("/prylar");
   // A real tap on the sub line (Playwright's click would wait, seeing the card's button on top, which is the point).
-  const sub = await page.getByText("Fota ett rum, en hylla eller en låda").boundingBox();
+  const subLine = page.getByText("Fota ett rum, en hylla eller en låda");
+  await expect(subLine).toBeVisible();
+  const sub = await subLine.boundingBox();
   if (!sub) throw new Error("no sub line");
   await page.mouse.click(sub.x + sub.width / 2, sub.y + sub.height / 2);
   await expect(dialog).toBeVisible();
   await page.goto("/prylar");
   const card = page.getByRole("button", { name: "Ta kort" }).locator("xpath=ancestor::div[contains(@class, 'rounded-lg')][1]");
+  await expect(card).toBeVisible();
   const box = await card.boundingBox();
   if (!box) throw new Error("no card");
   await page.mouse.click(box.x + box.width - 12, box.y + box.height / 2);
