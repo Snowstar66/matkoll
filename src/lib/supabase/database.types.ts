@@ -47,6 +47,20 @@ export type Database = {
                   Relationships: [
                     
                   ]
+                },"api_key": {
+                  Row: {
+                    "created_at": string,"id": string,"key_hash": string,"label": string,"last_used_at": string | null,"revoked_at": string | null,"user_id": string,"window_count": number,"window_start": string | null
+                  }
+                  ComputedFields: never
+                  Insert: {
+                    "created_at"?: string,"id"?: string,"key_hash": string,"label"?: string,"last_used_at"?: string | null,"revoked_at"?: string | null,"user_id"?: string,"window_count"?: number,"window_start"?: string | null
+                  }
+                  Update: {
+                    "created_at"?: string,"id"?: string,"key_hash"?: string,"label"?: string,"last_used_at"?: string | null,"revoked_at"?: string | null,"user_id"?: string,"window_count"?: number,"window_start"?: string | null
+                  }
+                  Relationships: [
+                    
+                  ]
                 },"ingredient": {
                   Row: {
                     "created_at": string,"default_unit": string | null,"id": string,"location": string,"name": string,"normalized_name": string,"section": string,"user_id": string
@@ -507,6 +521,9 @@ isOneToOne: false
           Functions: {
             "add_card_things":
 { Args: { "photo": string,"things": Json }; Returns: number
+                           },
+"add_items_by_api_key":
+{ Args: { "hash": string,"labels": (string)[] }; Returns: (string)[]
                            },
 "add_shopping_custom_item":
 { Args: { "item": Json }; Returns: {
