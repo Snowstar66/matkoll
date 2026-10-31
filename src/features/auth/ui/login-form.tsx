@@ -24,6 +24,7 @@ import {
 import { createAccount } from "../actions/create-account";
 import { loginWithPassword } from "../actions/login-with-password";
 import { requestPasswordReset } from "../actions/request-password-reset";
+import { resendConfirmation } from "../actions/resend-confirmation";
 import { sendMagicLink, type SendMagicLinkState } from "../actions/send-magic-link";
 import { verifyEmailCode } from "../actions/verify-email-code";
 
@@ -99,6 +100,8 @@ const modeLabels: Record<Mode, string> = {
   reset: "Skicka återställningslänk",
 };
 
+const resendSentMessage = "Vi har skickat mejlet igen.";
+
 // The same text whether or not the address has an account (AD-3).
 const resetSentMessage = "Om adressen har ett konto skickar vi ett mejl med en länk där du väljer nytt lösenord.";
 
@@ -138,6 +141,7 @@ export function LoginForm({ next, notice }: LoginFormProps) {
     },
     null,
   );
+  const [resent, setResent] = useState(false);
   // The main answer is about what was typed; editing or changing mode hides it.
   const [mainEdited, setMainEdited] = useState(false);
   const pending = linkPending || mainPending;
@@ -171,6 +175,15 @@ export function LoginForm({ next, notice }: LoginFormProps) {
     (state && !state.ok ? (state.error.fields?.email ?? state.error.message) : null);
   const passwordError = mainError && !mainError.fields?.email ? (mainError.fields?.password ?? mainError.message) : null;
   const resetSent = mode === "reset" && mainState?.ok === true && !mainEdited;
+  const createSent = mode === "create" && mainState?.ok === true && !mainEdited;
+  const unconfirmed = mainError?.code === "auth_email_unconfirmed";
+
+  async function resendMail() {
+    setResent(false);
+    const result = await resendConfirmation({ email, next });
+    if (result.ok) setResent(true);
+    else setClientError(result.error.message);
+  }
   // The notice is there on page load, so it is an alert, not part of the live region below.
   const showNotice = Boolean(notice) && !state && !mainState && !codeStep;
 
@@ -182,6 +195,7 @@ export function LoginForm({ next, notice }: LoginFormProps) {
     } else {
       setClientError(null);
       setMainEdited(false);
+      setResent(false);
     }
   }
 
@@ -205,6 +219,7 @@ export function LoginForm({ next, notice }: LoginFormProps) {
 
   function chooseMode(next: Mode) {
     setMode(next);
+    setResent(false);
     setMainEdited(true);
     setClientError(null);
   }
@@ -232,6 +247,7 @@ export function LoginForm({ next, notice }: LoginFormProps) {
             setEmail(event.target.value);
             setClientError(null);
             setMainEdited(true);
+            setResent(false);
           }}
         />
         {fieldError ? (
@@ -269,6 +285,21 @@ export function LoginForm({ next, notice }: LoginFormProps) {
               <FieldError id={passwordErrorId} role="alert">
                 {passwordError}
               </FieldError>
+            ) : null}
+            {unconfirmed ? (
+              <Button variant="text" className="-ml-3 self-start" disabled={pending || !hydrated} onClick={resendMail}>
+                Skicka mejlet igen
+              </Button>
+            ) : null}
+            {resent && !mainEdited ? (
+              <p role="status" aria-live="polite" className="text-body text-ink-2">
+                {resendSentMessage}
+              </p>
+            ) : null}
+            {createSent ? (
+              <p role="status" aria-live="polite" className="text-body text-ink-2">
+                Vi har skickat ett mejl till {email.trim()}. Klicka på länken i mejlet för att aktivera kontot.
+              </p>
             ) : null}
             {/* First submit button, so Enter in a field uses it; the form's own action sends the link. */}
             <Button type="submit" formAction={mainAction} fullWidth disabled={pending || !hydrated}>

@@ -3141,7 +3141,7 @@ så att hela familjen kan dela samma konto utan engångslänkar.
 
 **Givet** en e-postadress i inbjudningslistan (`ALLOWED_EMAILS`) utan konto
 **När** jag väljer "Skapa konto" och anger ett lösenord
-**Så** skapas kontot; en adress utanför listan får ett vänligt nej och inget konto skapas
+**Så** skapas kontot och ett bekräftelsemejl skickas; kontot fungerar när länken i mejlet använts (inloggning före det ger "Bekräfta din e-post först" och går att skicka om); en adress utanför listan får ett vänligt nej och inget konto skapas
 
 **Givet** "Glömt lösenord"
 **När** jag anger min e-post

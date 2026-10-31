@@ -4,11 +4,9 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
 // the server before Supabase is asked, and nothing is created outside it.
 
 const signUp = vi.fn();
-const signIn = vi.fn();
 const dropSession = vi.fn();
 vi.mock("../data/auth", () => ({
   signUpWithPassword: (...args: unknown[]) => signUp(...args),
-  signInWithPassword: (...args: unknown[]) => signIn(...args),
   dropCurrentSession: (...args: unknown[]) => dropSession(...args),
 }));
 const ensureStartData = vi.fn();
@@ -18,7 +16,7 @@ const redirect = vi.fn((path: string) => {
 });
 vi.mock("next/navigation", () => ({ redirect: (path: string) => redirect(path) }));
 vi.mock("next/headers", () => ({ headers: async () => new Headers({ "x-forwarded-for": "203.0.113.7" }) }));
-vi.mock("@/server/env", () => ({ env: { ALLOWED_EMAILS: ["pontus@example.com"] } }));
+vi.mock("@/server/env", () => ({ env: { ALLOWED_EMAILS: ["pontus@example.com"], SITE_URL: "http://localhost:3000" } }));
 
 const { createAccount } = await import("./create-account");
 const pw = "ett-långt-lösenord";
@@ -26,7 +24,6 @@ const pw = "ett-långt-lösenord";
 beforeEach(() => {
   vi.restoreAllMocks();
   signUp.mockReset().mockResolvedValue({ result: "signed_in", email: "pontus@example.com" });
-  signIn.mockReset().mockResolvedValue({ result: "signed_in", email: "pontus@example.com" });
   dropSession.mockReset().mockResolvedValue(undefined);
   ensureStartData.mockReset().mockResolvedValue(undefined);
   redirect.mockClear();
@@ -35,11 +32,24 @@ beforeEach(() => {
 });
 
 describe("createAccount", () => {
-  it("creates the account for an allowed address (normalised), ensures start data and goes to next", async () => {
+  it("sends the confirmation mail for an allowed address (normalised) and keeps no session", async () => {
+    signUp.mockResolvedValue({ result: "confirmation_sent", code: "confirmation_sent" });
+    expect(await createAccount({ email: " Pontus@Example.com ", password: pw, next: "/matsedel" })).toEqual({
+      ok: true,
+      data: null,
+    });
+    expect(signUp).toHaveBeenCalledWith("pontus@example.com", pw, "http://localhost:3000/auth/confirm?next=%2Fmatsedel", {
+      forwardedFor: "203.0.113.7",
+    });
+    expect(ensureStartData).not.toHaveBeenCalled();
+    expect(redirect).not.toHaveBeenCalled();
+  });
+
+  it("signs in at once when the project needs no confirmation, ensures start data and goes to next", async () => {
     await expect(createAccount({ email: " Pontus@Example.com ", password: pw, next: "/matsedel" })).rejects.toThrow(
       "NEXT_REDIRECT /matsedel",
     );
-    expect(signUp).toHaveBeenCalledWith("pontus@example.com", pw, { forwardedFor: "203.0.113.7" });
+    expect(signUp).toHaveBeenCalledWith("pontus@example.com", pw, expect.stringContaining("/auth/confirm"), { forwardedFor: "203.0.113.7" });
     expect(ensureStartData).toHaveBeenCalledTimes(1);
   });
 
@@ -47,7 +57,6 @@ describe("createAccount", () => {
     const result = await createAccount({ email: "annan@example.com", password: pw });
     expect(result).toMatchObject({ ok: false, error: { code: "auth_signup_not_allowed" } });
     expect(signUp).not.toHaveBeenCalled();
-    expect(signIn).not.toHaveBeenCalled();
     expect(JSON.stringify(vi.mocked(console.warn).mock.calls)).not.toContain("annan@example.com");
   });
 
@@ -63,12 +72,6 @@ describe("createAccount", () => {
       ok: false,
       error: { code: "auth_signup_exists" },
     });
-  });
-
-  it("signs in when the project answered without a session", async () => {
-    signUp.mockResolvedValue({ result: "failed", code: "no_session" });
-    await expect(createAccount({ email: "pontus@example.com", password: pw })).rejects.toThrow("NEXT_REDIRECT /recept");
-    expect(signIn).toHaveBeenCalledTimes(1);
   });
 
   it("answers a failure plainly, without Supabase's reason", async () => {

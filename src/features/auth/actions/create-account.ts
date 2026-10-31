@@ -3,9 +3,9 @@
 import { headers } from "next/headers";
 import { redirect } from "next/navigation";
 import { clientIpFrom, ipLogTag } from "@/lib/client-ip";
-import { fail, type Result } from "@/lib/errors";
+import { fail, ok, type Result } from "@/lib/errors";
 import { env } from "@/server/env";
-import { dropCurrentSession, signInWithPassword, signUpWithPassword } from "../data/auth";
+import { dropCurrentSession, signUpWithPassword } from "../data/auth";
 import { isAllowedEmail, normalizeEmail } from "../domain/allowed-email";
 import { loginFieldErrors, type SignUpInput, signUpSchema } from "../domain/login-schema";
 import { safeNextPath } from "../domain/safe-next-path";
@@ -18,10 +18,13 @@ import { ensureStartData } from "./ensure-start-data";
  * `auth_signup_not_allowed` and nothing is created. This is the one place the
  * allowlist shows, as the story asks for a friendly no; sign-in and "Glömt
  * lösenord" never reveal it. An address that already has an account gets
- * `auth_signup_exists`, which only an allowed address can see. On success the
- * new session is kept and the person goes to a safe `next`, or /recept.
+ * `auth_signup_exists`, which only an allowed address can see. The project
+ * requires e-mail confirmation, so success is `ok` ("mejlet är skickat") and
+ * no session exists until the link in the mail is used at /auth/confirm; a
+ * project without confirmation signs in at once and goes to a safe `next`, or
+ * /recept.
  */
-export async function createAccount(input: SignUpInput): Promise<Result<never>> {
+export async function createAccount(input: SignUpInput): Promise<Result<null>> {
   const parsed = signUpSchema.safeParse(input);
   if (!parsed.success) return fail("validation", loginFieldErrors(parsed.error));
 
@@ -34,11 +37,11 @@ export async function createAccount(input: SignUpInput): Promise<Result<never>> 
     return fail("auth_signup_not_allowed");
   }
 
-  let outcome = await signUpWithPassword(email, password, { forwardedFor: ip });
-  // A project that asks for confirmation answers without a session; the password is known, so sign in.
-  if (outcome.result === "failed" && outcome.code === "no_session") {
-    outcome = await signInWithPassword(email, password, { forwardedFor: ip });
-  }
+  // SITE_URL, not request headers: it must match Supabase's redirect allowlist.
+  const confirmUrl = new URL("/auth/confirm", env.SITE_URL);
+  confirmUrl.searchParams.set("next", safeNextPath(next));
+  const outcome = await signUpWithPassword(email, password, confirmUrl.toString(), { forwardedFor: ip });
+  if (outcome.result === "confirmation_sent") return ok();
   if (outcome.result === "exists") return fail("auth_signup_exists");
   if (outcome.result === "rate_limited") return fail("auth_password_rate_limited");
   if (outcome.result !== "signed_in") {

@@ -9,6 +9,7 @@ const verifyOtp = vi.fn();
 const signInWithPasswordMock = vi.fn();
 const signUpMock = vi.fn();
 const updateUser = vi.fn();
+const resend = vi.fn();
 const createClient = vi.fn();
 const removeSessionCookies = vi.fn();
 vi.mock("@/lib/supabase/server", () => ({
@@ -22,13 +23,14 @@ vi.mock("@/lib/supabase/server", () => ({
         signInWithPassword: (...a: unknown[]) => signInWithPasswordMock(...a),
         signUp: (...a: unknown[]) => signUpMock(...a),
         updateUser: (...a: unknown[]) => updateUser(...a),
+        resend: (...a: unknown[]) => resend(...a),
       },
     };
   },
   removeSessionCookies: () => removeSessionCookies(),
 }));
 
-const { endSession, resetPasswordWithToken, signInWithPassword, signUpWithPassword, verifyEmailCode, verifyEmailLink } =
+const { endSession, resendConfirmation, resetPasswordWithToken, signInWithPassword, signUpWithPassword, verifyEmailCode, verifyEmailLink } =
   await import("./auth");
 
 const claims = { data: { claims: { sub: "user" } }, error: null };
@@ -41,6 +43,7 @@ beforeEach(() => {
   signInWithPasswordMock.mockReset();
   signUpMock.mockReset();
   updateUser.mockReset();
+  resend.mockReset();
   createClient.mockReset();
   removeSessionCookies.mockReset().mockResolvedValue(1);
   vi.restoreAllMocks();
@@ -166,13 +169,37 @@ describe("password calls", () => {
     }
   });
 
-  it("sign-up: exists, no session and a session", async () => {
+  it("sign-in: right password but unconfirmed e-mail", async () => {
+    signInWithPasswordMock.mockResolvedValue({ data: { user: null }, error: { code: "email_not_confirmed", status: 400 } });
+    expect((await signInWithPassword("a@b.se", "x")).result).toBe("unconfirmed");
+  });
+
+  it("sign-up: exists, confirmation sent and a session, with the redirect for the mail", async () => {
     signUpMock.mockResolvedValue({ data: { user: null, session: null }, error: { code: "user_already_exists", status: 422 } });
-    expect((await signUpWithPassword("a@b.se", "x")).result).toBe("exists");
+    expect((await signUpWithPassword("a@b.se", "x", "http://site/auth/confirm?next=%2Frecept")).result).toBe("exists");
     signUpMock.mockResolvedValue({ data: { user: { identities: [] }, session: null }, error: null });
-    expect(await signUpWithPassword("a@b.se", "x")).toEqual({ result: "failed", code: "email_exists" });
+    expect((await signUpWithPassword("a@b.se", "x", "http://site/auth/confirm")).result).toBe("exists");
+    signUpMock.mockResolvedValue({ data: { user: { email: "a@b.se", identities: [{}] }, session: null }, error: null });
+    expect((await signUpWithPassword("a@b.se", "x", "http://site/auth/confirm")).result).toBe("confirmation_sent");
+    expect(signUpMock).toHaveBeenLastCalledWith({
+      email: "a@b.se",
+      password: "x",
+      options: { emailRedirectTo: "http://site/auth/confirm" },
+    });
     signUpMock.mockResolvedValue({ data: { user: { email: "a@b.se", identities: [{}] }, session: { access_token: "t" } }, error: null });
-    expect(await signUpWithPassword("a@b.se", "x")).toEqual({ result: "signed_in", email: "a@b.se" });
+    expect(await signUpWithPassword("a@b.se", "x", "http://site/auth/confirm")).toEqual({ result: "signed_in", email: "a@b.se" });
+  });
+
+  it("resend: asks for a signup mail with the redirect", async () => {
+    resend.mockResolvedValue({ error: null });
+    expect(await resendConfirmation("a@b.se", "http://site/auth/confirm")).toEqual({ ok: true });
+    expect(resend).toHaveBeenCalledWith({ type: "signup", email: "a@b.se", options: { emailRedirectTo: "http://site/auth/confirm" } });
+  });
+
+  it("link: a signup token is verified as signup", async () => {
+    verifyOtp.mockResolvedValue({ data: { user: { email: "a@b.se" } }, error: null });
+    expect(await verifyEmailLink("hash", () => true, "signup")).toBe("signed_in");
+    expect(verifyOtp).toHaveBeenCalledWith({ token_hash: "hash", type: "signup" });
   });
 
   it("reset: sets the password for an allowed address, in one step", async () => {

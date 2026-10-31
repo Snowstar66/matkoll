@@ -13,7 +13,8 @@ import { confirmEmailLink } from "./confirm-email-link";
 export async function confirmEmailLinkForm(formData: FormData): Promise<void> {
   const tokenHash = formData.get("token_hash");
   const next = safeNextPath(typeof formData.get("next") === "string" ? (formData.get("next") as string) : null);
-  const result = typeof tokenHash === "string" && tokenHash.length > 0 ? await confirmEmailLink(tokenHash) : "invalid";
+  const type = formData.get("type") === "signup" ? "signup" : "email";
+  const result = typeof tokenHash === "string" && tokenHash.length > 0 ? await confirmEmailLink(tokenHash, type) : "invalid";
   if (result === "invalid") redirect(`/logga-in?${new URLSearchParams({ fel: "lank", next })}`);
   if (result === "not_allowed") redirect("/logga-in?fel=atkomst");
   redirect(next);

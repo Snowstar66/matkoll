@@ -23,11 +23,16 @@ const loginWithPassword = vi.fn<(input: PasswordLoginInput) => Promise<Result<ne
 vi.mock("../actions/login-with-password", () => ({
   loginWithPassword: (input: PasswordLoginInput) => loginWithPassword(input),
 }));
-const createAccount = vi.fn<(input: SignUpInput) => Promise<Result<never>>>();
+const createAccount = vi.fn<(input: SignUpInput) => Promise<Result<null>>>();
 vi.mock("../actions/create-account", () => ({ createAccount: (input: SignUpInput) => createAccount(input) }));
 const requestPasswordReset = vi.fn<(input: { email: string; next?: string }) => Promise<Result<null>>>();
 vi.mock("../actions/request-password-reset", () => ({
   requestPasswordReset: (input: { email: string; next?: string }) => requestPasswordReset(input),
+}));
+
+const resendConfirmation = vi.fn<(input: { email: string; next?: string }) => Promise<Result<null>>>();
+vi.mock("../actions/resend-confirmation", () => ({
+  resendConfirmation: (input: { email: string; next?: string }) => resendConfirmation(input),
 }));
 
 const sentText = "Vi har skickat en länk och en kod till din e-post.";
@@ -45,6 +50,7 @@ beforeEach(() => {
   loginWithPassword.mockReset().mockResolvedValue(fail("auth_password_invalid"));
   createAccount.mockReset().mockResolvedValue(fail("auth_signup_not_allowed"));
   requestPasswordReset.mockReset().mockResolvedValue(ok());
+  resendConfirmation.mockReset().mockResolvedValue(ok());
   sessionStorage.clear();
   vi.restoreAllMocks();
 });
@@ -92,6 +98,30 @@ describe("LoginForm", () => {
       next: undefined,
     });
     expect(await screen.findByRole("alert")).toHaveTextContent("Den här adressen är inte inbjuden till Matkoll.");
+  });
+
+  it("tells the address to check its mail after Skapa konto", async () => {
+    createAccount.mockResolvedValue(ok());
+    render(<LoginForm />);
+    await userEvent.type(screen.getByLabelText("E-postadress"), "pontus@example.com");
+    await userEvent.click(screen.getByRole("button", { name: "Skapa konto" }));
+    await userEvent.type(screen.getByLabelText("Lösenord"), "långt-lösenord");
+    await userEvent.click(screen.getByRole("button", { name: "Skapa konto" }));
+    expect(await screen.findByRole("status")).toHaveTextContent(
+      "Vi har skickat ett mejl till pontus@example.com. Klicka på länken i mejlet för att aktivera kontot.",
+    );
+  });
+
+  it("offers to send the confirmation mail again after a sign-in with an unconfirmed e-mail", async () => {
+    loginWithPassword.mockResolvedValue(fail("auth_email_unconfirmed"));
+    render(<LoginForm next="/recept" />);
+    await userEvent.type(screen.getByLabelText("E-postadress"), "pontus@example.com");
+    await userEvent.type(screen.getByLabelText("Lösenord"), "långt-lösenord");
+    await userEvent.click(screen.getByRole("button", { name: "Logga in" }));
+    expect(await screen.findByRole("alert")).toHaveTextContent("Bekräfta din e-post först – vi kan skicka mejlet igen.");
+    await userEvent.click(screen.getByRole("button", { name: "Skicka mejlet igen" }));
+    expect(resendConfirmation).toHaveBeenCalledWith({ email: "pontus@example.com", next: "/recept" });
+    expect(await screen.findByText("Vi har skickat mejlet igen.")).toBeInTheDocument();
   });
 
   it("asks for a reset mail with the address only, and answers the same for everyone", async () => {

@@ -170,6 +170,12 @@ test.describe("without a session", () => {
     await expect(page).toHaveURL(/\/recept\?flik=x$/);
   });
 
+  test("a confirmation link (type=signup) with a spent token leads to the login page with an explanation", async ({ page }) => {
+    await page.goto("/auth/confirm?token_hash=ogiltig&type=signup&next=/recept");
+    await page.getByRole("main").getByRole("button", { name: "Logga in" }).click();
+    await expect(page).toHaveURL(/\/logga-in\?fel=lank&next=%2Frecept$/);
+  });
+
   test("a link without a token leads to the login page without a button", async ({ page }) => {
     await page.goto("/auth/confirm?next=/matsedel");
     await expect(page).toHaveURL(/\/logga-in\?fel=lank&next=%2Fmatsedel$/);

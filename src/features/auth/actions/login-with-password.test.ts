@@ -71,6 +71,15 @@ describe("loginWithPassword", () => {
     expect(signIn).toHaveBeenCalledTimes(5);
   });
 
+  it("says to confirm the e-mail first, only after the right password, and does not count it as a failure", async () => {
+    signIn.mockResolvedValue({ result: "unconfirmed", code: "email_not_confirmed" });
+    expect(await loginWithPassword({ email: pontus, password: "x" })).toMatchObject({
+      ok: false,
+      error: { code: "auth_email_unconfirmed", message: "Bekräfta din e-post först – vi kan skicka mejlet igen." },
+    });
+    expect(redirect).not.toHaveBeenCalled();
+  });
+
   it("passes on Supabase's own limit without counting it as a failure", async () => {
     signIn.mockResolvedValue({ result: "rate_limited", code: "over_request_rate_limit" });
     expect(await loginWithPassword({ email: pontus, password: "x" })).toMatchObject({
