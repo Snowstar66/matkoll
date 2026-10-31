@@ -6,8 +6,8 @@ import { adminClient, e2eUserId, recipesLookEmail, recipesLookStorageState, this
 // cards (the image on top, the status bottom left and the heart bottom right
 // on the light plate, the title and "35 min · 4 portioner" under it; two
 // columns from 1024 px), and Matsedel shows dish cards (a 56 px image, the
-// title, "35 min · 6 av 8 hemma" and a meter, the portion selector under it)
-// with "Visa inköpslistan" at the bottom. The spec has an E2E user of its own
+// title, "35 min · 6 port. · 6 av 8 hemma" and a meter, the portion selector
+// in the ⋯ sheet) with a shopping row above the list (Story 3.11). The spec has an E2E user of its own
 // (recipesLookEmail). Before each test the meal plan, the pantry and the
 // recipes are emptied and made again with the service role:
 //
@@ -345,13 +345,17 @@ test.describe("on a computer", () => {
   });
 });
 
-test("Matsedel shows dish cards with what is at home, a meter and the portion selector", async ({ page }) => {
+/** Opens a dish row's ⋯ sheet; its parts stay inside the row. */
+async function openMore(row: Locator, title: string) {
+  await row.getByRole("button", { name: `Fler val för ${title}` }).click();
+}
+
+test("Matsedel shows dish rows with what is at home, a meter and the portion selector in the sheet", async ({ page }) => {
   const errors = watchErrors(page);
   await serveImages(page);
   await page.goto("/matsedel");
   const grytaDish = dish(page, gryta);
-  await expect(grytaDish.getByTestId("dish-meta")).toHaveText("35 min · 6 av 8 hemma");
-  await expect(grytaDish.getByText("4 portioner", { exact: true })).toBeVisible();
+  await expect(grytaDish.getByTestId("dish-meta")).toHaveText("35 min · 4 port.6 av 8 hemma");
   const meter = grytaDish.getByTestId("meter");
   await expect(meter).toHaveAttribute("aria-hidden", "true");
   await expect(meter.locator("div")).toHaveAttribute("style", /width: ?75%/);
@@ -360,30 +364,32 @@ test("Matsedel shows dish cards with what is at home, a meter and the portion se
   expect(thumb.height).toBe(56);
 
   const korvDish = dish(page, korv);
-  await expect(korvDish.getByTestId("dish-meta")).toHaveText("15 min · Allt finns hemma");
-  await expect(korvDish.getByTestId("meter").locator("div")).toHaveAttribute("style", /width: ?100%/);
+  await expect(korvDish.getByTestId("dish-meta")).toHaveText("15 min · 4 port.✓ Allt hemma");
+  // Everything at home: no meter.
+  await expect(korvDish.getByTestId("meter")).toHaveCount(0);
 
   // 1 msk curry is not enough for 5 portions: 5 of 8 at home, and the meter follows.
+  await openMore(grytaDish, gryta);
+  await expect(grytaDish.getByText("4 portioner", { exact: true })).toBeVisible();
   const answered = actionAnswer(page);
   await grytaDish.getByRole("button", { name: `Fler portioner, ${gryta}` }).click();
   await answered;
   await expect(grytaDish.getByText("5 portioner", { exact: true })).toBeVisible();
-  await expect(grytaDish.getByTestId("dish-meta")).toHaveText("35 min · 5 av 8 hemma");
+  await expect(grytaDish.getByTestId("dish-meta")).toHaveText("35 min · 5 port.5 av 8 hemma");
   await expect(meter.locator("div")).toHaveAttribute("style", /width: ?62\.5%/);
   await expectNoHorizontalScroll(page);
   expect(errors).toEqual([]);
 });
 
-test("Visa inköpslistan at the bottom of Matsedel goes to Inköpslistan", async ({ page }) => {
+test("the shopping row above the list in Matsedel goes to Inköpslistan", async ({ page }) => {
   const errors = watchErrors(page);
   await serveImages(page);
   await page.goto("/matsedel");
-  const show = page.getByRole("link", { name: "Visa inköpslistan" }).filter({ visible: true });
-  await expect(show).toHaveText("Visa inköpslistan");
-  // Under the dishes and under Lägg till rätt.
-  const add = page.getByRole("button", { name: "Lägg till rätt" }).filter({ visible: true }).filter({ hasText: "Lägg till rätt" });
-  expect((await box(show)).y).toBeGreaterThan((await box(add)).y);
-  expect((await box(add)).y).toBeGreaterThan((await box(dish(page, korv))).y);
+  const show = page.getByTestId("shopping-row").filter({ visible: true });
+  await expect(show).toHaveText(/^🛒Inköpslista för vecka \d{1,2}›$/);
+  // Above the dishes, and no big buttons under them.
+  expect((await box(show)).y).toBeLessThan((await box(dish(page, korv))).y);
+  await expect(page.getByRole("link", { name: "Visa inköpslistan" })).toHaveCount(0);
   await show.click();
   await expect(page).toHaveURL(/\/lista$/);
   await expect(page.getByRole("heading", { level: 1, name: "Inköpslista" })).toBeVisible();
@@ -419,7 +425,8 @@ test.describe("with large text", () => {
     expect((await box(long)).height).toBeGreaterThan(60);
 
     await page.goto("/matsedel");
-    await expect(dish(page, gryta).getByTestId("dish-meta")).toHaveText("35 min · 6 av 8 hemma");
+    await expect(dish(page, gryta).getByTestId("dish-meta")).toHaveText("35 min · 4 port.6 av 8 hemma");
+    await openMore(dish(page, gryta), gryta);
     await expectStepperFits(page, dish(page, gryta), gryta);
     await expectNoHorizontalScroll(page);
   });
@@ -477,6 +484,7 @@ test.describe("on a small phone", () => {
     await serveImages(page);
     await page.goto("/matsedel");
     const grytaDish = dish(page, gryta);
+    await openMore(grytaDish, gryta);
     const more = grytaDish.getByRole("button", { name: `Fler portioner, ${gryta}` });
     const positions = [(await box(more)).x];
     for (const servings of [5, 6]) {

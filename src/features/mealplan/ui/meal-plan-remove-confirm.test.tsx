@@ -7,7 +7,7 @@ import { AddDishProvider } from "./add-dish-sheet";
 import { MealPlanList } from "./meal-plan-list";
 import { deleteGraceMs as removeGraceMs, resetDeleteGrace } from "@/components/confirm-delete";
 
-// Story 13.3: the trash on a dish asks "Ta bort <rätt> från matsedeln?" first,
+// Story 13.3: "Ta bort från matsedeln" in a dish's ⋯ sheet asks "Ta bort <rätt> från matsedeln?" first,
 // and the next removals within a minute go at once.
 
 const removePlanRecipe = vi.fn<(id: string) => Promise<Result<PlanRecipeRow>>>();
@@ -43,9 +43,11 @@ function renderPlan() {
     </ToastProvider>,
   );
 }
-// detail 0: a keyboard press, which the trash's double-tap guard never ignores.
-const press = (title: string) =>
-  act(async () => fireEvent.click(screen.getByRole("button", { name: `Ta bort ${title} från matsedeln` }), { detail: 0 }));
+// Through the ⋯ sheet's "Ta bort från matsedeln".
+const press = async (title: string) => {
+  await act(async () => fireEvent.click(screen.getByRole("button", { name: `Fler val för ${title}` })));
+  await act(async () => fireEvent.click(screen.getByRole("button", { name: "Ta bort från matsedeln" }), { detail: 0 }));
+};
 
 beforeEach(() => {
   vi.useRealTimers();

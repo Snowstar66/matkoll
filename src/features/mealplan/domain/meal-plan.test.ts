@@ -14,6 +14,10 @@ import {
   dishCountText,
   leftOutText,
   dishMetaText,
+  dishRowMetaText,
+  shoppingRowText,
+  weekdayDayNumber,
+  weekdayShortName,
   dishProgress,
   dishStatus,
   isoWeek,
@@ -299,5 +303,23 @@ describe("days on the menu (Story 13.5)", () => {
     expect(addedOnDayText(null)).toBe("Lagt på matsedeln.");
     expect(movedText("Pasta", 5)).toBe("Pasta ligger på fredag.");
     expect(movedText("Pasta", null)).toBe("Pasta har ingen dag.");
+  });
+});
+
+describe("week list rows (Story 3.11)", () => {
+  it("names the day by its first three letters and its date number", () => {
+    expect(weekdayShortName(6)).toBe("Lör");
+    // Saturday 31 October 2026, from a Thursday in the same week.
+    expect(weekdayDayNumber(new Date("2026-10-29T10:00:00Z"), 6)).toBe("31");
+  });
+
+  it("says the time and servings, or that the recipe is gone", () => {
+    expect(dishRowMetaText("r", 60, 4)).toBe("60 min · 4 port.");
+    expect(dishRowMetaText("r", null, 4)).toBe("4 port.");
+    expect(dishRowMetaText(null, 60, 4)).toBe("Borttaget recept · 4 port.");
+  });
+
+  it("names the week on the shopping row", () => {
+    expect(shoppingRowText(44)).toBe("Inköpslista för vecka 44");
   });
 });

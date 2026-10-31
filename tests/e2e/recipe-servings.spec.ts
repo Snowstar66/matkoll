@@ -227,6 +227,6 @@ test("the heart keeps the chosen servings, and Lägg på matsedeln adds the dish
   await expect(page).toHaveURL(/\/matsedel$/);
   const dish = page.getByTestId("plan-dish").filter({ visible: true }).filter({ hasText: title });
   await expect(dish).toHaveCount(1);
-  await expect(dish.getByText("6 portioner", { exact: true })).toBeVisible();
+  await expect(dish.getByTestId("dish-meta")).toContainText("6 port.");
   expect(errors).toEqual([]);
 });

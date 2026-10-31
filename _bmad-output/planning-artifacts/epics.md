@@ -440,6 +440,48 @@ så att jag ser vilken vecka listan gäller och inte tror att listan är trasig 
 **När** jag ser toppen
 **Så** finns ingen sidledes rullning, alla mål är minst 44 px och flikarna har tillgängliga namn
 
+#### Story 3.11: Lugn veckovy i Matsedel
+
+Som Pontus,
+vill jag se veckan som en lugn lista med en rad per dag och de sällan använda knapparna bakom ⋯,
+så att jag direkt ser vad vi äter och inte drunknar i knappar.
+
+Skiss: `_bmad-output/planning-artifacts/ux-designs/ux-Matkoll-2026-10-25/mockups/matsedel-lugn.html`
+
+**Acceptance Criteria:**
+
+**Givet** en vecka med rätter
+**När** jag ser Matsedel
+**Så** ligger veckans dagar i ett enda vitt kort (grupperad lista) där varje rad har samma form: veckodag och datum till vänster ("LÖR" / "31"), bild, titel och en metarad ("60 min · 4 port."), och fler rätter samma dag får varsin rad med dagen bara på den första
+
+**Givet** en rätt där allt finns hemma
+**När** jag ser raden
+**Så** står "✓ Allt hemma" som mintfärgad text i metaraden och ingen mätare visas; saknas något står "1 av 11 hemma" i sandfärg med en tunn mätare under
+
+**Givet** en rad med en rätt
+**När** jag trycker på ⋯ (44 px, tillgängligt namn "Fler val för <titel>")
+**Så** öppnas ett ark med rättens bild, titel, dag och tid, länken "Öppna receptet", portioner med − och +, huvudknappen "Markera som lagad" (eller den lagade rättens befintliga läge), "Flytta till annan dag" med nuvarande dag, och "Ta bort från matsedeln" med samma bekräftelse och ångra som idag; ett tryck på själva raden öppnar receptet som förut
+
+**Givet** dagens datum
+**När** jag ser listan
+**Så** har dagens rad en mintfärgad kant till vänster, dag och datum i accentfärg och etiketten "Idag" i metaraden, utan den böjda ramen
+
+**Givet** dagar som har passerat
+**När** jag ser listan
+**Så** är deras rader mindre och nedtonade, tomma passerade dagar visas inte, en lagad rätt visar "✓ Lagad", och en olagad rätt har en liten knapp "Lagad?" som gör samma sak som "Markera som lagad"
+
+**Givet** en tom dag idag eller framåt
+**När** jag ser listan
+**Så** står "+ Lägg till" i raden och öppnar samma flöde som "Välj recept" gör idag för den dagen; "Välj recept" visas inte längre på dagar som redan har en rätt (fler rätter samma dag läggs till via "+" i rubriken)
+
+**Givet** veckovyn
+**När** jag ser sidan
+**Så** finns inte längre de stora knapparna "Lägg till rätt" och "Visa inköpslistan" längst ner; i stället finns en lugn rad ovanför listan med 🛒, antalet varor som saknas för veckan om det finns tillgängligt utan extra tung beräkning (annars "Inköpslista för vecka 44") och ›, som leder till inköpslistan för samma vecka; den tomma matsedeln ser ut som förut
+
+**Givet** mörkt läge, 375 px bredd och 200 % text
+**När** jag ser veckovyn och arket
+**Så** finns ingen sidledes rullning, alla mål är minst 44 px och knappar och rader har tillgängliga namn
+
 ## Epic 4: Steg-för-steg
 Pontus kan välja portioner i receptvyn, se vad som finns hemma och laga maten ett steg i taget med tänd skärm.
 **FRs covered:** FR20, FR21
