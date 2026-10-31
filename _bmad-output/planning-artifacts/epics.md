@@ -3234,3 +3234,199 @@ så att jag kan plocka direkt och inte tar dem för radioknappar.
 **Givet** en kryssruta
 **När** den visas
 **Så** är den kvadratisk (22 px, 6 px rundade hörn, 2 px ram i dämpad ink), ikryssad med accentfyllning och vit bock, med 44 px träffyta och rollen checkbox med samma namn som förut; den är en delad komponent, och de runda cirklarna i inköpslistan ("i korgen") är oförändrade
+
+## Epic 17: Molnet och gemensam lista
+
+Version 2.0. Familjen planerar och handlar ihop i Matkoll med en delad inloggning per hushåll, och upp till fem vänhushåll kan betatesta med egna konton utan att någon data blandas. Matkoll ersätter To Do som inköpslista. Allt byggs och testas lokalt först; flytten till Vercel och Supabase i molnet (17.3, 17.4) görs först när Pontus säger till. Underlag: `sprint-change-proposal-2026-10-31-molnet-och-gemensam-lista.md`.
+
+### Story 17.1: Isoleringstest mellan hushåll
+
+Som Pontus,
+vill jag att ett automatiskt test bevisar att ett hushåll aldrig kan se eller ändra ett annat hushålls data,
+så att jag tryggt kan bjuda in vänner.
+
+**Acceptance Criteria:**
+
+**Givet** två testkonton A och B med data i varje tabell och en bild i lagringen
+**När** integrationstestet körs som B
+**Så** ger läsning av A:s rader inga träffar, och ändring, borttagning och insättning med A:s `user_id` nekas eller påverkar inga rader, för varje tabell i schemat och för bildlagringen
+
+**Givet** en ny tabell i en migrering
+**När** den saknas i testets lista
+**Så** fallerar testet med tabellens namn, så att ingen tabell glöms
+
+**Givet** CI
+**När** en PR körs
+**Så** körs testet i integrationssteget
+
+### Story 17.2: Enkel inloggning med lösenord
+
+Som Pontus,
+vill jag logga in med e-post och lösenord och förbli inloggad,
+så att hela familjen kan dela samma konto utan engångslänkar.
+
+**Acceptance Criteria:**
+
+**Givet** inloggningssidan
+**När** jag anger e-post och lösenord för ett befintligt konto
+**Så** loggas jag in och förblir inloggad tills jag loggar ut, även efter att appen stängts
+
+**Givet** en e-postadress i inbjudningslistan (`ALLOWED_EMAILS`) utan konto
+**När** jag väljer "Skapa konto" och anger ett lösenord
+**Så** skapas kontot; en adress utanför listan får ett vänligt nej och inget konto skapas
+
+**Givet** "Glömt lösenord"
+**När** jag anger min e-post
+**Så** kommer ett mejl med en länk där jag väljer nytt lösenord (lokalt syns mejlet i Mailpit)
+
+**Givet** första inloggningen på ett konto
+**När** appen öppnas
+**Så** visas en gång en kort rad om att den som driver Matkoll tekniskt kan se kontots data, med "Okej"
+
+**Givet** dagens engångslänk och utvecklingsinloggningen
+**När** storyn är klar
+**Så** fungerar e2e-testerna och den lokala inloggningen som förut
+
+### Story 17.3: Molnmiljön
+
+Som Pontus,
+vill jag att Matkoll körs på Vercel med Supabase i EU när jag säger till,
+så att appen fungerar utan min dator.
+
+Väntar på Pontus "nu går vi till Vercel". Förberedelser (guide, konfiguration, CI-steg) får göras före.
+
+**Acceptance Criteria:**
+
+**Givet** guiden `docs/molnet.md`
+**När** Pontus följer den
+**Så** finns ett Supabase-projekt i EU, ett Vercel-projekt, e-post för inloggningsmejl och alla miljövariabler, steg för steg
+
+**Givet** en merge till main
+**När** CI körs
+**Så** körs nya migreringar mot molndatabasen och Vercel bygger appen
+
+**Givet** molnmiljön
+**När** en vecka går
+**Så** finns en säkerhetskopia av databasen sparad utanför Supabase
+
+**Givet** appen i molnet
+**När** den öppnas på telefonen och i datorns webbläsare
+**Så** fungerar inloggning, recept, matsedel och inköpslista
+
+### Story 17.4: Flytta din data till molnet
+
+Som Pontus,
+vill jag föra över mina recept, mitt lager, mina matsedlar och listor från datorn till molnkontot,
+så att jag kan stänga av den lokala miljön utan att tappa något.
+
+Väntar på 17.3.
+
+**Acceptance Criteria:**
+
+**Givet** den lokala databasen och ett molnkonto
+**När** flyttskriptet körs
+**Så** kopieras alla Pontus rader till molnkontot med det nya kontots `user_id`, och antalet rader per tabell skrivs ut före och efter
+
+**Givet** att skriptet körs två gånger
+**När** det körs igen
+**Så** blir det inga dubbletter
+
+### Story 17.5: AI som går att byta
+
+Som Pontus,
+vill jag kunna välja leverantör och modell per uppgift,
+så att jag kan använda min lokala modell nu och ett moln-API senare utan kodändring.
+
+**Acceptance Criteria:**
+
+**Givet** miljövariabler per uppgift (import, foto, förslag)
+**När** en uppgift körs
+**Så** används den angivna leverantören (Anthropic, OpenAI eller LM Studio) och modellen, med dagens `AI_PROVIDER`/`AI_MODEL` som standard när inget är angivet
+
+**Givet** en leverantör utan nyckel
+**När** appen startar
+**Så** syns ett tydligt fel i loggen och uppgiften faller tillbaka på standardleverantören
+
+### Story 17.6: AI-kostnaden syns
+
+Som Pontus,
+vill jag se vad AI:n har kostat den här månaden,
+så att jag vet om en modell är värd pengarna.
+
+**Acceptance Criteria:**
+
+**Givet** ett klart AI-jobb
+**När** svaret kommer
+**Så** sparas modell och antal tokens in och ut på jobbet (ny kolumn, bakåtkompatibel migrering)
+
+**Givet** Inställningar
+**När** jag öppnar dem
+**Så** står "AI den här månaden: 34 anrop · ca 1,20 kr", räknat från en pristabell per modell i koden; lokala modeller räknas som 0 kr
+
+### Story 17.7: Live-inköpslista
+
+Som Pontus,
+vill jag att inköpslistan uppdateras direkt när någon annan i familjen ändrar den,
+så att vi kan handla ihop.
+
+**Acceptance Criteria:**
+
+**Givet** inköpslistan öppen på två enheter med samma konto
+**När** den ena bockar av, lägger till, ändrar eller tar bort en vara
+**Så** syns ändringen på den andra inom ett par sekunder utan omladdning (Supabase Realtime, som följer radskyddet)
+
+**Givet** att samma vara bockas av på båda samtidigt
+**När** det sker
+**Så** blir den avbockad en gång, utan fel
+
+**Givet** en ändring av matsedeln
+**När** den sparas
+**Så** räknas listan om på den andra enheten
+
+### Story 17.8: Handla med dålig täckning
+
+Som Pontus,
+vill jag kunna bocka av i butiken även utan nät,
+så att listan fungerar i källaren på Willys.
+
+**Acceptance Criteria:**
+
+**Givet** att nätet försvinner
+**När** jag bockar av varor
+**Så** syns bocken direkt, en lugn rad visar "Offline – sparas när nätet kommer tillbaka", och avbockningarna skickas när nätet är tillbaka
+
+### Story 17.9: Lägg till snabbt och med Siri
+
+Som Pontus,
+vill jag lägga till en vara i listan på några sekunder, även med rösten,
+så att jag aldrig glömmer något jag kommer på.
+
+**Acceptance Criteria:**
+
+**Givet** appen installerad på hemskärmen
+**När** jag öppnar adressen för snabbtillägg
+**Så** öppnas "Lägg till egen vara" direkt med fokus i fältet
+
+**Givet** Inställningar
+**När** jag skapar en personlig nyckel
+**Så** visas nyckeln en gång med en guide för iOS-genvägen "Matkoll", och den sparas bara som hash (ny tabell, bakåtkompatibel migrering)
+
+**Givet** ett anrop till snabbtilläggets API med giltig nyckel och texten "mjölk och ägg"
+**När** det tas emot
+**Så** läggs "Mjölk" och "Ägg" till som egna varor (delat på "och" och komma, utan AI); en ogiltig nyckel ger 401
+
+### Story 17.10: Egna varor ligger kvar tills de är köpta
+
+Som Pontus,
+vill jag att en egen vara syns i inköpslistan tills någon bockar av den, oavsett vald vecka,
+så att det familjen skriver in inte försvinner.
+
+**Acceptance Criteria:**
+
+**Givet** en egen vara tillagd när vecka 44 var vald
+**När** jag öppnar listan för vecka 45
+**Så** finns varan kvar tills den bockas av eller tas bort
+
+**Givet** en avbockad egen vara
+**När** veckan är slut
+**Så** visas den inte i nästa veckas lista
