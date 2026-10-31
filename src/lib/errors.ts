@@ -83,6 +83,16 @@ export const errorMessages = {
   pantry_photo_failed: "Det gick inte att spara fotot.",
   pantry_photo_gone: "Fotot finns inte längre.",
   pantry_photo_remove_failed: "Det gick inte att ta bort fotot. Försök igen.",
+  // Prylar (Epic 18): places, cards and the things read from them. Nothing here touches food.
+  things_unavailable: "Det gick inte att läsa prylarna. Försök igen.",
+  things_place_failed: "Det gick inte att spara platsen. Försök igen.",
+  // The same room and part in this boende already (the field says which).
+  things_place_taken: "Platsen finns redan.",
+  things_place_limit: "Du kan ha högst 60 platser i ett boende.",
+  // The place was removed elsewhere, or the boende was: the view is read again.
+  things_place_gone: "Platsen finns inte längre.",
+  things_photo_failed: "Det gick inte att spara fotot. Försök igen.",
+  things_card_gone: "Kortet finns inte längre.",
   // Matsedel (Story 3.1). After failed servings the selector shows the saved
   // value again; after a failed remove the dish is back on the plan.
   mealplan_unavailable: "Det gick inte att läsa matsedeln. Försök igen.",

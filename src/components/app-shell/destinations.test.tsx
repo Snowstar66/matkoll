@@ -11,12 +11,13 @@ vi.mock("next/navigation", () => ({ usePathname: () => pathname.current }));
 const pictograph = /\p{Extended_Pictographic}/u;
 
 describe("mainDestinations", () => {
-  it("has the four surfaces with their names (Story 10.4) and the sketch's emoji (Story 14.4)", () => {
+  it("has the five surfaces with their names (Story 10.4, Epic 18) and the sketch's emoji (Story 14.4)", () => {
     expect(mainDestinations.map(({ href, label, emoji }) => [href, label, emoji])).toEqual([
       ["/recept", "Recept", "\u{1F4D6}"],
       ["/matsedel", "Matsedel", "\u{1F4C5}"],
       ["/lista", "Inköpslista", "\u{1F6D2}"],
       ["/hemma", "Lagersaldo", "\u{1F9CA}"],
+      ["/prylar", "Prylar", "\u{1F9F0}"],
     ]);
   });
 

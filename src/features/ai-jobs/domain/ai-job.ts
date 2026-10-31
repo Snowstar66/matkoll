@@ -19,7 +19,7 @@ export { activeAiJobStatuses, aiJobKinds, aiJobSchema, aiJobStatuses, type AiJob
 export const functionMs = 295_000;
 
 /** How long the model may work on a job of each kind, from when it starts (AD-28). */
-export const runMs: Record<AiJobKind, number> = { suggest: 120_000, analyze: 120_000, import: 130_000 };
+export const runMs: Record<AiJobKind, number> = { suggest: 120_000, analyze: 120_000, import: 130_000, things: 120_000 };
 
 /** A running job is lost this long after its time, so a slow finish is never cut off by the queue. */
 export const expiryMarginMs = 10_000;
@@ -96,6 +96,11 @@ export function isOld(row: Pick<AiJobRow, "status" | "finished_at">, now: number
 /** How much a result holds, for its summary: three dishes, or the suggestions of a photo. */
 export function resultCount(kind: AiJobKind, result: unknown): number | null {
   if (typeof result !== "object" || result === null) return null;
+  // Story 18.2: a things job has saved its things already; its result says how many.
+  if (kind === "things") {
+    const count = (result as { count?: unknown }).count;
+    return typeof count === "number" && Number.isInteger(count) && count >= 0 ? count : null;
+  }
   const list = kind === "suggest" || kind === "analyze" ? (result as { suggestions?: unknown }).suggestions : undefined;
   return Array.isArray(list) ? list.length : null;
 }

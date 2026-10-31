@@ -318,7 +318,7 @@ describe("what Pontus does here", () => {
     client.reveal("suggest");
     client.reveal("suggest");
     client.reveal("analyze");
-    expect(client.getSnapshot().reveals).toEqual({ suggest: 2, analyze: 1, import: 0 });
+    expect(client.getSnapshot().reveals).toEqual({ suggest: 2, analyze: 1, import: 0, things: 0 });
   });
 
   it("knows which results are on the screen", () => {

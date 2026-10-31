@@ -407,6 +407,72 @@ isOneToOne: false
       referencedColumns: ["id","user_id"]
     }
                   ]
+                },"thing_item": {
+                  Row: {
+                    "category": string,"confidence": string,"created_at": string,"id": string,"name": string,"photo_id": string,"place_id": string,"position": number,"user_id": string,"where_hint": string | null
+                  }
+                  ComputedFields: never
+                  Insert: {
+                    "category": string,"confidence": string,"created_at"?: string,"id"?: string,"name": string,"photo_id": string,"place_id": string,"position"?: number,"user_id"?: string,"where_hint"?: string | null
+                  }
+                  Update: {
+                    "category"?: string,"confidence"?: string,"created_at"?: string,"id"?: string,"name"?: string,"photo_id"?: string,"place_id"?: string,"position"?: number,"user_id"?: string,"where_hint"?: string | null
+                  }
+                  Relationships: [
+                    {
+      foreignKeyName: "thing_item_photo_fkey"
+      columns: ["photo_id","user_id"]
+isOneToOne: false
+      referencedRelation: "thing_photo"
+      referencedColumns: ["id","user_id"]
+    },{
+      foreignKeyName: "thing_item_place_fkey"
+      columns: ["place_id","user_id"]
+isOneToOne: false
+      referencedRelation: "thing_place"
+      referencedColumns: ["id","user_id"]
+    }
+                  ]
+                },"thing_photo": {
+                  Row: {
+                    "created_at": string,"error_code": string | null,"height": number,"id": string,"media_type": string,"object_path": string,"place_id": string,"status": string,"taken_at": string,"unseen_count": number,"unseen_note": string | null,"user_id": string,"width": number
+                  }
+                  ComputedFields: never
+                  Insert: {
+                    "created_at"?: string,"error_code"?: string | null,"height": number,"id": string,"media_type": string,"object_path": string,"place_id": string,"status"?: string,"taken_at": string,"unseen_count"?: number,"unseen_note"?: string | null,"user_id"?: string,"width": number
+                  }
+                  Update: {
+                    "created_at"?: string,"error_code"?: string | null,"height"?: number,"id"?: string,"media_type"?: string,"object_path"?: string,"place_id"?: string,"status"?: string,"taken_at"?: string,"unseen_count"?: number,"unseen_note"?: string | null,"user_id"?: string,"width"?: number
+                  }
+                  Relationships: [
+                    {
+      foreignKeyName: "thing_photo_place_fkey"
+      columns: ["place_id","user_id"]
+isOneToOne: false
+      referencedRelation: "thing_place"
+      referencedColumns: ["id","user_id"]
+    }
+                  ]
+                },"thing_place": {
+                  Row: {
+                    "created_at": string,"id": string,"part": string | null,"part_key": string,"room": string,"room_key": string,"site_id": string,"user_id": string
+                  }
+                  ComputedFields: never
+                  Insert: {
+                    "created_at"?: string,"id"?: string,"part"?: string | null,"part_key"?: string,"room": string,"room_key": string,"site_id": string,"user_id"?: string
+                  }
+                  Update: {
+                    "created_at"?: string,"id"?: string,"part"?: string | null,"part_key"?: string,"room"?: string,"room_key"?: string,"site_id"?: string,"user_id"?: string
+                  }
+                  Relationships: [
+                    {
+      foreignKeyName: "thing_place_site_fkey"
+      columns: ["site_id","user_id"]
+isOneToOne: false
+      referencedRelation: "pantry_site"
+      referencedColumns: ["id","user_id"]
+    }
+                  ]
                 }
           }
           Views: {
@@ -712,6 +778,9 @@ isOneToOne: false
       } },
 "save_store_offers":
 { Args: { "items": Json,"replace_source"?: string,"store": string,"week": string }; Returns: number
+                           },
+"save_thing_reading":
+{ Args: { "hidden_count"?: number,"note"?: string,"photo": string,"things": Json }; Returns: (string)[]
                            },
 "select_pantry_site":
 { Args: { "site_id": string }; Returns: {

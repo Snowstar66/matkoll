@@ -10,6 +10,8 @@ export type {
   AnalyzeImageResult,
   AnalyzePlace,
   ImageInput,
+  ListThingsInput,
+  ListThingsResult,
   LocateItemsInput,
   LocateItemsResult,
   ParseRecipeInput,
@@ -21,7 +23,8 @@ export type {
 } from "./service";
 export { aiEfforts, warmUpKinds } from "./service";
 export type { AiChoice, AiEffort } from "./service";
-export type { AiIngredientHint, AiPantryItem, AiRecipe, AiRecipeIngredient, ItemPosition } from "./schemas";
+export type { AiIngredientHint, AiPantryItem, AiRecipe, AiRecipeIngredient, AiThing, ItemPosition, ThingCategory, ThingConfidence } from "./schemas";
+export { maxThings, thingCategories, thingConfidences } from "./schemas";
 export { minLoopRepeats } from "./schemas";
 
 let service: AiService | undefined;

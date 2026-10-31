@@ -1,6 +1,6 @@
 import { z } from "zod";
 import { labelKey } from "@/lib/label-key";
-import { normalizeTitle } from "@/lib/suggest-input";
+import { cleanModelText, normalizeTitle } from "@/lib/suggest-input";
 
 // Response schemas for the AI port (AD-9, AD-10). The model's answer is
 // validated against these; an answer that does not pass is retried, then
@@ -361,6 +361,118 @@ export function parseAnalyzeItems(items: readonly unknown[]): { items: AiPantryI
   return { items: groups.map(mergeCopies), invalid, repeated };
 }
 
+/**
+ * Prylar (Story 18.2): the categories of a thing, as the migration's check
+ * lists them. The port never imports a feature (AD-1); the things module
+ * keeps its own list in step with this one.
+ */
+export const thingCategories = [
+  "Verktyg",
+  "Sport & fritid",
+  "Trädgård",
+  "Elektronik",
+  "Förvaring & lådor",
+  "Kläder & textil",
+  "Hushåll",
+  "Byggmaterial",
+  "Övrigt",
+] as const;
+export type ThingCategory = (typeof thingCategories)[number];
+
+/** How sure the model is of a thing: high, medium or low (shown as "kanske"). */
+export const thingConfidences = ["high", "medium", "low"] as const;
+export type ThingConfidence = (typeof thingConfidences)[number];
+
+/** The most things a photo gives; the model is asked for the clearest first. */
+export const maxThings = 60;
+
+/**
+ * What the model answers to listThings: types and fields only, so strict
+ * JSON schemas take it, and one bad thing never makes the whole answer
+ * invalid. Each thing is checked on its own (parseThings).
+ */
+export const listThingsAnswer = z.object({
+  things: z
+    .array(
+      z.object({
+        name: z.string().describe("Prylens namn på svenska, kort, t.ex. hammare eller cirkelsåg"),
+        category: z.string().describe(`En av: ${thingCategories.join(", ")}`),
+        where: z.string().nullable().describe("Var på bilden, t.ex. översta hyllan, vänster; null om det är oklart"),
+        confidence: z.string().describe("high, medium eller low"),
+      }),
+    )
+    .describe("Prylarna som syns på bilden, tom lista om inga syns"),
+  hiddenContainers: z.number().describe("Antal lådor, backar, påsar och skåp vars innehåll inte syns, 0 om inga"),
+  hiddenNote: z.string().nullable().describe("En mening om det som inte syns, t.ex. innehållet i två lådor; null om inget"),
+});
+
+const thingText = (max: number) => text().refine((value) => value.length <= max, { message: `At most ${max} characters` });
+
+/** One thing as the port returns it, checked on its own. Text from the model is untrusted. */
+export const aiThing = z.object({
+  name: thingText(80),
+  // An unknown category is "Övrigt", never an invalid thing: the list is the app's, the model may be loose.
+  category: z.preprocess(
+    (value) => (typeof value === "string" && (thingCategories as readonly string[]).includes(value.trim()) ? value.trim() : "Övrigt"),
+    z.enum(thingCategories),
+  ),
+  where: z.preprocess(
+    (value) => (typeof value === "string" && value.trim() !== "" ? value : null),
+    thingText(120).nullable(),
+  ),
+  // Anything but a clear "high" or "medium" is low: a guess shows as "kanske".
+  confidence: z.preprocess(
+    (value) => {
+      const word = typeof value === "string" ? value.trim().toLowerCase() : "";
+      return word === "high" || word === "medium" ? word : "low";
+    },
+    z.enum(thingConfidences),
+  ),
+});
+export type AiThing = z.output<typeof aiThing>;
+
+/**
+ * The things of an answer that pass aiThing, the first maxThings, with the
+ * names cleaned of control characters (cleanModelText), and how many did not
+ * (`invalid`) or were cut (`trimmed`). A thing named twice on the same spot
+ * is kept once; the same name in two places is two things.
+ */
+export function parseThings(answer: z.output<typeof listThingsAnswer>): {
+  things: AiThing[];
+  invalid: number;
+  trimmed: number;
+  hiddenContainers: number;
+  hiddenNote: string | null;
+} {
+  let invalid = 0;
+  const seen = new Set<string>();
+  const things: AiThing[] = [];
+  for (const entry of answer.things) {
+    const parsed = aiThing.safeParse({
+      ...entry,
+      name: cleanModelText(entry.name),
+      where: entry.where === null ? null : cleanModelText(entry.where),
+    });
+    if (!parsed.success) {
+      invalid++;
+      continue;
+    }
+    const key = `${labelKey(parsed.data.name)}|${labelKey(parsed.data.where ?? "")}`;
+    if (seen.has(key)) continue;
+    seen.add(key);
+    things.push(parsed.data);
+  }
+  const note = answer.hiddenNote === null ? "" : cleanModelText(answer.hiddenNote);
+  const hidden = Number.isFinite(answer.hiddenContainers) ? Math.min(99, Math.max(0, Math.round(answer.hiddenContainers))) : 0;
+  return {
+    things: things.slice(0, maxThings),
+    invalid,
+    trimmed: Math.max(0, things.length - maxThings),
+    hiddenContainers: hidden,
+    hiddenNote: note !== "" && note.length <= 300 ? note : null,
+  };
+}
+
 /** The coordinate range of a point on the photo, in thousandths of its width and height (Story 6.6). */
 export const maxPositionCoordinate = 1000;
 
@@ -425,3 +537,4 @@ export type AiPantryItem = z.output<typeof aiPantryItem>;
 export type PantryItemConfidence = (typeof pantryItemConfidences)[number];
 export type AnalyzeImageAnswer = z.infer<typeof analyzeImageAnswer>;
 export type LocateItemsAnswer = z.infer<typeof locateItemsAnswer>;
+export type ListThingsAnswer = z.infer<typeof listThingsAnswer>;
