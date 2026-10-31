@@ -19,6 +19,7 @@ import { usePantrySuggestions } from "./pantry-suggestions";
 import { useSiteSwitching } from "./site-switching";
 import type { PhotoSite } from "../domain/site";
 import { focusIsFree } from "./use-pantry-analysis";
+import { AiWorking } from "@/components/ai-working";
 
 // Kameraknappen (FR-24, UX-DR10, DESIGN.md camera-button): a light blue
 // button across the width under the location cards, "Fotografera kylen"
@@ -188,10 +189,14 @@ export function PantryCamera({ site, location, children }: PantryCameraProps) {
  * (EXPERIENCE.md, Bildanalys pågår), and "I kö, 1 före." while the photo waits
  * behind another AI job (Story 12.5).
  */
+/** The input is always the photo of the place. */
+const photoSteps = ["Tittar på bilden …", "Hittar varorna …", "Jämför med det du har …"];
+
 function Looking({ waiting }: { waiting: string | null }) {
   return (
     <div className="flex flex-col gap-2">
-      <p className="text-body text-ink">Tittar på bilden … Du kan göra annat under tiden.</p>
+      <AiWorking inLiveRegion steps={photoSteps} />
+      <p className="text-meta text-ink-2">Du kan göra annat under tiden.</p>
       {waiting ? <p className="text-meta text-ink-2">{waiting}</p> : null}
       <div aria-hidden="true" className="h-1 overflow-hidden rounded-full bg-hairline">
         <div className="h-full w-1/3 rounded-full bg-accent motion-safe:animate-progress" />

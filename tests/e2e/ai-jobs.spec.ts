@@ -151,7 +151,7 @@ test("starts at once, goes on in the other tabs with the job row, and says so wh
   expect(Date.now() - before).toBeLessThan(2_500);
   const body = (await response.json()) as { ok: true; data: { job: { kind: string; status: string } } };
   expect(body.data.job).toMatchObject({ kind: "suggest" });
-  await expect(visible(page).getByRole("status").getByText("Letar efter idéer …")).toBeVisible();
+  await expect(visible(page).getByRole("status").getByText("Letar efter idéer …").first()).toBeVisible();
 
   // Pontus goes on to Inköpslista, and the job row follows him.
   await tab(page, /Inköps/).click();
@@ -201,13 +201,13 @@ test("stays on Recept: the suggestions come at once, with no confirmation and no
 test("a result that came while Pontus was on another filter waits for Visa, and a reload brings back a job that is running and one that is done", async ({ page }) => {
   await openSuggestions(page);
   await suggestButton(page).click();
-  await expect(visible(page).getByText("Letar efter idéer …")).toBeVisible();
+  await expect(visible(page).getByText("Letar efter idéer …").first()).toBeVisible();
 
   // A reload in the middle: the state and the row are back, and the result comes.
   await page.reload();
   await expect(jobRow(page)).toBeVisible();
   await expect(jobRow(page)).toHaveText("AI: Letar efter rättförslag");
-  await expect(visible(page).getByText("Letar efter idéer …")).toBeVisible();
+  await expect(visible(page).getByText("Letar efter idéer …").first()).toBeVisible();
   await expect(cards(page)).toHaveCount(3, jobTime);
 
   // A result that nobody has seen: a reload shows it again.

@@ -6,6 +6,7 @@ import { cx } from "@/components/cx";
 import { useAiJobs } from "@/lib/ai-jobs-client";
 import { jobRowText } from "../domain/ai-job-text";
 import { useAiJobsSheet } from "./ai-jobs-provider";
+import { AiOrb } from "@/components/ai-working";
 
 // The job row (Story 12.4, DESIGN.md job-row): a white strip in the tab bar,
 // above the tabs, or at the top of the side menu from 1024 px, while some AI
@@ -56,7 +57,7 @@ export function AiJobRow({ variant }: { variant: "bar" | "side" }) {
         variant === "bar" ? "border-b border-hairline px-page" : "rounded-md border border-hairline px-3",
       )}
     >
-      <span aria-hidden="true" className="size-2 shrink-0 rounded-full bg-accent motion-safe:animate-pulse" />
+      <AiOrb size={16} />
       <span className="min-w-0 flex-1 truncate">{row.text}</span>
       <ChevronLeftIcon size={18} className="shrink-0 rotate-180 text-ink-3" />
     </button>

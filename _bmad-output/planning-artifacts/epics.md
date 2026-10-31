@@ -3439,6 +3439,36 @@ Beslut 2026-10-31 (Pontus): backlog.
 **När** något har legat länge
 **Så** finns en lugn rad överst "3 varor har legat länge – föreslå rätter med dem" som öppnar förslagen med de varorna förvalda
 
+### Story 16.15: Väntan på AI
+
+Som Pontus,
+vill jag att väntan på AI syns som ett litet glödande klot och en skimrande text som byter steg,
+så att det känns levande och lugnt i stället för en stillastående text.
+
+Beslut 2026-10-31 (Pontus): stil B och A tillsammans ur demot `_bmad-output/planning-artifacts/ux-designs/ux-Matkoll-2026-10-25/mockups/ai-vanta.html`. Något eget, enkelt och lite futuristiskt.
+
+**Acceptance Criteria:**
+
+**Givet** att appen väntar på AI (receptförslag, receptimport, foto av kylen, fotoläsning av ett kort, uppslag av varor på fotot, jobbraden)
+**När** väntan visas
+**Så** syns ett klot som snurrar och andas (grönt, mint, sand) bredvid en text där ett ljus sveper, i ljust och mörkt läge
+
+**Givet** en text med flera steg
+**När** den visas
+**Så** byter den steg ungefär var 2,2 s och stannar på det sista, utan att börja om
+
+**Givet** att anropet inte vet om indata är foto, text eller länk
+**När** inga steg anges
+**Så** väljs två eller tre lekfulla ord slumpvis en gång (Funderar …, Klurar …), och där appen vet vad som händer står sakliga steg (Tittar på bilden …, Hittar varorna …)
+
+**Givet** en skärmläsare
+**När** väntan visas
+**Så** finns en enda `role="status"` med bara det första steget
+
+**Givet** "Minska rörelse"
+**När** väntan visas
+**Så** står klotet still och texten är det första steget utan svep eller stegbyte
+
 ## Epic 17: Molnet och gemensam lista
 
 Version 2.0. Familjen planerar och handlar ihop i Matkoll med en delad inloggning per hushåll, och upp till fem vänhushåll kan betatesta med egna konton utan att någon data blandas. Matkoll ersätter To Do som inköpslista. Allt byggs och testas lokalt först; flytten till Vercel och Supabase i molnet (17.3, 17.4) görs först när Pontus säger till. Underlag: `sprint-change-proposal-2026-10-31-molnet-och-gemensam-lista.md`.

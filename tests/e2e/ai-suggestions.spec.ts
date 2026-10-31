@@ -242,7 +242,7 @@ test("AI-förslag: Avbryt, three cards of their own, and a saved suggestion in t
   const started = page.waitForResponse((response) => isStart(response.request()));
   await suggestButton(page).click();
   expect((await started).status()).toBe(202);
-  await expect(visible(page).getByRole("status").getByText("Letar efter idéer …")).toBeVisible();
+  await expect(visible(page).getByRole("status").getByText("Letar efter idéer …").first()).toBeVisible();
   await expect(visible(page).getByText("Du kan göra annat under tiden.")).toBeVisible();
   await visible(page).getByRole("button", { name: "Avbryt" }).click();
   await expect(suggestButton(page)).toBeFocused();
