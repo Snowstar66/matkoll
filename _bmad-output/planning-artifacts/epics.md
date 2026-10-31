@@ -3587,6 +3587,8 @@ så att vi kan handla ihop.
 **När** den sparas
 **Så** räknas listan om på den andra enheten
 
+**Anmärkning (säkerhet):** Realtime tillämpar radskyddet på INSERT och UPDATE, men inte på DELETE (posten innehåller bara radens id och går inte att filtrera). Klienten behandlar därför varje händelse som en ren "något ändrades"-signal och läser aldrig innehållet. Ett annat konto kan i värsta fall höra en DELETE-signal med bara ett slumpmässigt id (läcker bara tidpunkten). Täcks av e2e-testet "another account's subscription never receives this user's row content".
+
 ### Story 17.8: Handla med dålig täckning
 
 Som Pontus,

@@ -34,6 +34,8 @@ import {
   inventoryEmail,
   inventoryStorageState,
   libraryEmail,
+  liveListEmail,
+  liveListStorageState,
   libraryStorageState,
   magicLinkPath,
   openMagicLink,
@@ -165,6 +167,7 @@ export default async function globalSetup(config: FullConfig) {
       [offersLinkEmail, offersLinkStorageState],
       [offerSuggestionsEmail, offerSuggestionsStorageState],
       [thingsEmail, thingsStorageState],
+      [liveListEmail, liveListStorageState],
     ] as const) {
       const user = await browser.newContext({ baseURL });
       const page = await user.newPage();
