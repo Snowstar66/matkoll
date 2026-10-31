@@ -6,7 +6,7 @@ import { SettingsIcon } from "@/components/icons";
 import { Skeleton } from "@/components/skeleton";
 import { requireUserOrRedirect } from "@/features/auth/server";
 import { searchIngredients } from "@/features/catalog/server";
-import { addToCurrentPlan, getCurrentPlan } from "@/features/mealplan/server";
+import { addToCurrentPlan } from "@/features/mealplan/server";
 import { ownRecipesWithOffers } from "@/features/suggestions/server";
 import { listRecipeSites } from "@/features/settings/server";
 import { listLibrary } from "@/features/recipes/server";
@@ -67,8 +67,6 @@ async function RecipesContent({ searchParams }: { searchParams?: Promise<{ plane
   const planera = (await searchParams)?.planera;
   const planning = planningTarget(Array.isArray(planera) ? planera[0] : planera);
   const { recipes, pantryUnavailable, site } = await listLibrary();
-  const plan = await getCurrentPlan().catch(() => null);
-  const onMenuIds = (plan?.recipes ?? []).flatMap((dish) => (dish.recipeId ? [dish.recipeId] : []));
   if (recipes.length === 0) {
     return (
       <>
@@ -89,7 +87,6 @@ async function RecipesContent({ searchParams }: { searchParams?: Promise<{ plane
       searchIngredients={searchIngredients}
       addToPlan={addToCurrentPlan}
       ownRecipes={ownRecipesWithOffers}
-      onMenuIds={onMenuIds}
       planning={planning ?? undefined}
     />
     </>

@@ -231,6 +231,65 @@ test("Favoriter shows only favourites, works with search, and is kept after a re
   await expect(pill(page, "Alla")).toBeChecked();
 });
 
+test("the compact view, the sort and the categories work together and are kept after a reload", async ({ page }) => {
+  const errors = watchErrors(page);
+  const compactRows = page.getByTestId("recipe-row");
+  const noSidewaysScroll = () => page.evaluate(() => document.documentElement.scrollWidth <= document.documentElement.clientWidth);
+  await page.goto("/recept");
+  await expect(page.getByTestId("recipe-count")).toHaveText("2 recept");
+  await expect(page.getByRole("button", { name: "Kortvy" })).toHaveAttribute("aria-pressed", "true");
+
+  // Kompakt vy: one grouped list, the title on one line, the meta line and no bin.
+  await page.getByRole("button", { name: "Kompakt vy" }).click();
+  await expect(rows(page)).toHaveCount(0);
+  await expect(compactRows.getByRole("link")).toHaveText([new RegExp(soppa), new RegExp(gryta)]);
+  await expect(compactRows.filter({ hasText: soppa })).toContainText("30 min · 6 port.");
+  await expect(page.getByRole("button", { name: /^Ta bort/ })).toHaveCount(0);
+  const thumb = await compactRows.first().getByTestId("recipe-image-placeholder").boundingBox();
+  expect(thumb?.width).toBe(48);
+  expect(await noSidewaysScroll()).toBe(true);
+  await page.reload();
+  await expect(compactRows).toHaveCount(2);
+  await expect(page.getByRole("button", { name: "Kompakt vy" })).toHaveAttribute("aria-pressed", "true");
+
+  // Sortera: A–Ö puts the gryta first, and the choice is kept.
+  await page.getByTestId("sort-button").click();
+  const sortSheet = page.getByRole("dialog", { name: "Sortera" });
+  await expect(sortSheet.getByRole("button")).toHaveCount(5);
+  for (const button of await sortSheet.getByRole("button").all()) {
+    expect((await button.boundingBox())?.height).toBeGreaterThanOrEqual(44);
+  }
+  await sortSheet.getByRole("button", { name: /^A–Ö/ }).click();
+  await expect(sortSheet).toBeHidden();
+  await expect(compactRows.getByRole("link")).toHaveText([new RegExp(gryta), new RegExp(soppa)]);
+  await expect(page.getByTestId("sort-button")).toContainText("A–Ö");
+  await page.reload();
+  await expect(compactRows.getByRole("link")).toHaveText([new RegExp(gryta), new RegExp(soppa)]);
+
+  // Kategorier: the chips scroll inside their own row, and the page never sideways.
+  const chips = page.getByRole("group", { name: "Kategori" });
+  await expect(chips.getByRole("button")).toHaveCount(9);
+  expect(await chips.evaluate((element) => element.scrollWidth > element.clientWidth)).toBe(true);
+  expect(await noSidewaysScroll()).toBe(true);
+  await chips.getByRole("button", { name: "Fågel" }).click();
+  await expect(chips.getByRole("button", { name: "Fågel" })).toHaveAttribute("aria-pressed", "true");
+  await expect(compactRows.getByRole("link")).toHaveText([new RegExp(gryta)]);
+  await expect(page.getByTestId("recipe-count")).toHaveText("1 recept");
+  await page.reload();
+  await expect(chips.getByRole("button", { name: "Fågel" })).toHaveAttribute("aria-pressed", "true");
+
+  // Together with a search, and an empty category says so.
+  await chips.getByRole("button", { name: "Fågel" }).click();
+  await chips.getByRole("button", { name: "Soppa" }).click();
+  await expect(compactRows.getByRole("link")).toHaveText([new RegExp(soppa)]);
+  await chips.getByRole("button", { name: "Kött" }).click();
+  await expect(page.getByText("Inga recept i Kött.")).toBeVisible();
+  await page.getByRole("button", { name: "Visa alla" }).click();
+  await expect(compactRows).toHaveCount(2);
+  await expect(chips.getByRole("button", { name: "Kött" })).toHaveAttribute("aria-pressed", "false");
+  expect(errors).toEqual([]);
+});
+
 test("200 recipes: the page answers within a second (NFR7)", async ({ page }, testInfo) => {
   const recipes = Array.from({ length: 198 }, (_, index) => ({
     user_id: userId,

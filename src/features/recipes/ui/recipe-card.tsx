@@ -37,8 +37,7 @@ type LinkCardProps = CardBase & {
   href: string;
   /** The heart bottom right on the image. */
   favorite?: { pressed: boolean; onPressedChange: (pressed: boolean) => void };
-  /** A small soptunna at the right of the text, "Ta bort <titel>", lifted above the link like the heart (Story 13.2). */
-  onDelete?: () => void;
+  onDelete?: never;
   /** Planning mode (Story 13.8): a button under the text, lifted above the link like the heart. */
   quickAction?: ReactNode;
   children?: never;
