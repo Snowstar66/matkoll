@@ -223,3 +223,13 @@ export {
   noMatchText,
   type PantryCategoryGroup,
 } from "./domain/pantry-meta";
+export {
+  boendeMenuText,
+  boendeCardText,
+  boendeButtonLabel,
+  boendeSheetTitle,
+  manageBoendenText,
+  settingsExplainText,
+  selectedBoendeBadge,
+  type BoendeCounts,
+} from "./domain/boende-counts";

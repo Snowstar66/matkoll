@@ -40,21 +40,21 @@ function MenuLink({ destination, pathname }: { destination: Destination; pathnam
  * Sidomeny: from 1024 px, the five main surfaces plus Inställningar at the
  * bottom. Like the tab bar, it renders without a current item until the path
  * of a dynamic route is known (AD-18). `jobRow` is the job row for AI jobs
- * (Story 12.4), at the top under "Matkoll".
+ * (Story 12.4), at the top under "Matkoll". `siteSwitch` is the boende button (Story 16.14), right under the name.
  */
-export function SideMenu({ jobRow }: { jobRow?: ReactNode }) {
+export function SideMenu({ jobRow, siteSwitch }: { jobRow?: ReactNode; siteSwitch?: ReactNode }) {
   return (
-    <Suspense fallback={<SideMenuNav pathname={null} jobRow={jobRow} />}>
-      <CurrentSideMenu jobRow={jobRow} />
+    <Suspense fallback={<SideMenuNav pathname={null} jobRow={jobRow} siteSwitch={siteSwitch} />}>
+      <CurrentSideMenu jobRow={jobRow} siteSwitch={siteSwitch} />
     </Suspense>
   );
 }
 
-function CurrentSideMenu({ jobRow }: { jobRow?: ReactNode }) {
-  return <SideMenuNav pathname={usePathname()} jobRow={jobRow} />;
+function CurrentSideMenu({ jobRow, siteSwitch }: { jobRow?: ReactNode; siteSwitch?: ReactNode }) {
+  return <SideMenuNav pathname={usePathname()} jobRow={jobRow} siteSwitch={siteSwitch} />;
 }
 
-function SideMenuNav({ pathname, jobRow }: { pathname: string | null; jobRow?: ReactNode }) {
+function SideMenuNav({ pathname, jobRow, siteSwitch }: { pathname: string | null; jobRow?: ReactNode; siteSwitch?: ReactNode }) {
   return (
     <nav
       aria-label="Huvudmeny"
@@ -64,6 +64,8 @@ function SideMenuNav({ pathname, jobRow }: { pathname: string | null; jobRow?: R
         <AppLogo />
         {appName}
       </p>
+      {/* The boende under the name (Story 16.14); nothing, and no space, with one boende. */}
+      {siteSwitch ? <div className="-mt-5 pb-3 pl-12 empty:hidden">{siteSwitch}</div> : null}
       {jobRow ? <div className="pb-4">{jobRow}</div> : null}
       <ul className="flex flex-col gap-1">
         {mainDestinations.map((destination) => (

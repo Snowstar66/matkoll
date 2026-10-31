@@ -61,6 +61,8 @@ const routesByTable = {
     { path: "/lista", type: "page" },
     // Story 14.7: Boenden under Inställningar, and the start page's value for them.
     { path: "/installningar", type: "layout" },
+    // Story 16.14: the boende button in the side menu is in the app's layout.
+    { path: "/", type: "layout" },
   ],
   // The latest photo of each place (Epic 10, AD-26); only Hemma shows it.
   pantry_photo: [{ path: "/hemma", type: "page" }],

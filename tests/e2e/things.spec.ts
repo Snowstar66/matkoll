@@ -1,7 +1,7 @@
 import { randomUUID } from "node:crypto";
 import { expect, type Page, test } from "@playwright/test";
 import { shortDateText } from "@/features/things";
-import { adminClient, e2eUserId, thingsEmail, thingsStorageState } from "./support";
+import { adminClient, boendeButton, e2eUserId, thingsEmail, thingsStorageState } from "./support";
 
 // Prylar (Epic 18, Stories 18.1 to 18.12) with AI_PROVIDER=mock and
 // AI_MOCK_DELAY_MS=3000 from playwright.config.ts: any photo gets the mock's
@@ -99,8 +99,8 @@ test("without rooms it explains, and Ta kort is the first row; Ny plats is gone"
   await expect(page.getByRole("button", { name: "Ta kort" })).toBeVisible();
   await expect(page.getByText("Fota ett rum, en hylla eller en låda")).toBeVisible();
   await expect(page.getByRole("button", { name: "Ny plats" })).toHaveCount(0);
-  // One boende: no pills.
-  await expect(page.getByRole("radiogroup", { name: "Boende" })).toHaveCount(0);
+  // One boende: no boende button.
+  await expect(boendeButton(page)).toHaveCount(0);
 });
 
 test("Ta kort asks where, folds out the exact place, and says an empty room", async ({ page }) => {

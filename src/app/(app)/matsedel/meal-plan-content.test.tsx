@@ -4,6 +4,8 @@ import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { ToastProvider } from "@/components/toast";
 import { getMealPlanView, MealPlanDataError } from "@/features/mealplan/server";
 import { toSnapshot } from "@/features/pantry";
+import { listPantrySites, PantryDataError } from "@/features/pantry/server";
+import { SiteSwitchProvider } from "@/features/pantry/ui/site-switching";
 import { listRecipes, RecipeDataError } from "@/features/recipes/server";
 import { MealPlanContent } from "./meal-plan-content";
 
@@ -18,6 +20,12 @@ vi.mock("@/features/recipes/server", async (importOriginal) => ({
   listRecipes: vi.fn(),
   searchRecipes: vi.fn(),
 }));
+vi.mock("@/features/pantry/server", async (importOriginal) => ({
+  ...(await importOriginal<typeof import("@/features/pantry/server")>()),
+  listPantrySites: vi.fn(),
+}));
+vi.mock("@/features/pantry/actions/select-pantry-site", () => ({ selectPantrySite: vi.fn() }));
+vi.mock("../boende-counts", () => ({ loadBoendeCounts: vi.fn(async () => null) }));
 vi.mock("@/features/mealplan/actions/add-to-current-plan", () => ({ addToCurrentPlan: vi.fn() }));
 vi.mock("@/features/mealplan/actions/set-servings", () => ({ setServings: vi.fn() }));
 vi.mock("@/features/mealplan/actions/remove-plan-recipe", () => ({ removePlanRecipe: vi.fn() }));
@@ -34,7 +42,10 @@ const dish = {
 };
 
 let logged: ReturnType<typeof vi.spyOn>;
+const hemma = { id: "66666666-6666-4666-8666-666666666666", name: "Hemma", isSelected: true };
+const stuganSite = { id: "55555555-5555-4555-8555-555555555555", name: "Stugan", isSelected: false };
 beforeEach(() => {
+  vi.mocked(listPantrySites).mockResolvedValue([hemma]);
   logged = vi.spyOn(console, "error").mockImplementation(() => {});
 });
 afterEach(() => {
@@ -46,7 +57,7 @@ describe("MealPlanContent", () => {
   it("shows mealplan_unavailable when the plan cannot be read", async () => {
     vi.mocked(getMealPlanView).mockRejectedValue(new MealPlanDataError("query_failed 08006"));
     vi.mocked(listRecipes).mockResolvedValue([]);
-    render(<ToastProvider>{await MealPlanContent()}</ToastProvider>);
+    render(<SiteSwitchProvider><ToastProvider>{await MealPlanContent()}</ToastProvider></SiteSwitchProvider>);
     expect(screen.getByRole("alert")).toHaveTextContent("Det gick inte att läsa matsedeln. Försök igen.");
     expect(logged).toHaveBeenCalledWith("mealplan_unavailable", { reason: "query_failed 08006" });
     // The earlier plans can still be reached.
@@ -62,7 +73,7 @@ describe("MealPlanContent", () => {
       site: null,
     });
     vi.mocked(listRecipes).mockRejectedValue(new RecipeDataError("query_failed 08006"));
-    render(<ToastProvider>{await MealPlanContent()}</ToastProvider>);
+    render(<SiteSwitchProvider><ToastProvider>{await MealPlanContent()}</ToastProvider></SiteSwitchProvider>);
     expect(screen.getByTestId("plan-dish")).toHaveTextContent("Pasta");
     expect(screen.getByRole("link", { name: "Tidigare veckor" })).toHaveAttribute("href", "/matsedel/tidigare");
     await user.click(within(screen.getByRole("banner")).getByRole("button", { name: "Lägg till rätt" }));
@@ -74,7 +85,7 @@ describe("MealPlanContent", () => {
   it("lights the day ?dag= names, for a moment (Story 13.8)", async () => {
     vi.mocked(getMealPlanView).mockResolvedValue({ plan: { id: "plan", name: "Vecka 44" }, dishes: [{ ...dish, weekday: 3 }], snapshot: null, site: null });
     vi.mocked(listRecipes).mockResolvedValue([]);
-    render(<ToastProvider>{await MealPlanContent({ searchParams: Promise.resolve({ dag: "3" }) })}</ToastProvider>);
+    render(<SiteSwitchProvider><ToastProvider>{await MealPlanContent({ searchParams: Promise.resolve({ dag: "3" }) })}</ToastProvider></SiteSwitchProvider>);
     const days = screen.getAllByTestId("plan-day");
     expect(days.filter((day) => day.hasAttribute("data-highlight")).map((day) => day.getAttribute("data-day"))).toEqual(["3"]);
   });
@@ -97,7 +108,8 @@ describe("MealPlanContent", () => {
     },
   };
 
-  it("says which place the dishes' status is counted against under the page title", async () => {
+  it("shows the boende as a button under the week line, in place of \"Boende: Stugan\" (Story 16.14)", async () => {
+    vi.mocked(listPantrySites).mockResolvedValue([{ ...hemma, isSelected: false }, { ...stuganSite, isSelected: true }]);
     vi.mocked(getMealPlanView).mockResolvedValue({
       plan: { id: "plan", name: "Vecka 44" },
       dishes: [korv],
@@ -105,33 +117,18 @@ describe("MealPlanContent", () => {
       site: stugan,
     });
     vi.mocked(listRecipes).mockResolvedValue([]);
-    render(<ToastProvider>{await MealPlanContent()}</ToastProvider>);
-    const siteLine = screen.getByText("Boende: Stugan");
-    expect(siteLine).toHaveClass("text-meta", "text-ink-2");
-    expect(siteLine.closest("[aria-live], [role=status], [role=alert]")).toBeNull();
-    // Right under the title, before the plan's name.
-    expect(
-      screen.getByRole("heading", { name: "Matsedel" }).compareDocumentPosition(siteLine) &
-        Node.DOCUMENT_POSITION_FOLLOWING,
-    ).toBeTruthy();
-    expect(siteLine.compareDocumentPosition(screen.getByTestId("plan-name")) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
+    render(<SiteSwitchProvider><ToastProvider>{await MealPlanContent()}</ToastProvider></SiteSwitchProvider>);
+    const button = screen.getByRole("button", { name: "Boende: Stugan" });
+    expect(button).toHaveTextContent("Stugan");
+    expect(screen.queryByText(/^Boende:/)).not.toBeInTheDocument();
+    // Under the title, before the plan's name; a phone only (the side menu has it from 1024 px).
+    expect(screen.getByRole("heading", { name: "Matsedel" }).compareDocumentPosition(button) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
+    expect(button.compareDocumentPosition(screen.getByTestId("plan-name")) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
+    expect(button.closest("[data-testid=boende-page]")).toHaveClass("desktop:hidden");
     expect(within(screen.getByTestId("plan-dish")).getByTestId("dish-meta")).toHaveTextContent(/^15 min · \d+ port\.1 av 2 hemma$/);
   });
 
-  it("has no line above dishes without a status: their recipes deleted or not read", async () => {
-    vi.mocked(listRecipes).mockResolvedValue([]);
-    vi.mocked(getMealPlanView).mockResolvedValue({
-      plan: { id: "plan", name: "Vecka 44" },
-      dishes: [dish, { ...dish, id: "33333333-3333-4333-8333-333333333333", recipeId, recipe: null }],
-      snapshot: toSnapshot([]),
-      site: stugan,
-    });
-    render(<ToastProvider>{await MealPlanContent()}</ToastProvider>);
-    expect(screen.getAllByTestId("plan-dish")).toHaveLength(2);
-    expect(screen.queryByText(/^Boende:/)).not.toBeInTheDocument();
-  });
-
-  it("has no line with one place, or without dishes", async () => {
+  it("shows nothing about the boende with one boende, or when the boenden cannot be read", async () => {
     vi.mocked(listRecipes).mockResolvedValue([]);
     vi.mocked(getMealPlanView).mockResolvedValue({
       plan: { id: "plan", name: "Vecka 44" },
@@ -139,12 +136,13 @@ describe("MealPlanContent", () => {
       snapshot: toSnapshot([]),
       site: { ...stugan, name: "Hemma", siteCount: 1 },
     });
-    const { unmount } = render(<ToastProvider>{await MealPlanContent()}</ToastProvider>);
-    expect(screen.queryByText(/^Boende:/)).not.toBeInTheDocument();
+    const { unmount } = render(<SiteSwitchProvider><ToastProvider>{await MealPlanContent()}</ToastProvider></SiteSwitchProvider>);
+    expect(screen.queryByTestId("boende-page")).not.toBeInTheDocument();
     unmount();
-    vi.mocked(getMealPlanView).mockResolvedValue({ plan: null, dishes: [], snapshot: toSnapshot([]), site: stugan });
-    render(<ToastProvider>{await MealPlanContent()}</ToastProvider>);
-    expect(screen.getByText("Ingen rätt på matsedeln än.")).toBeInTheDocument();
-    expect(screen.queryByText(/^Boende:/)).not.toBeInTheDocument();
+    vi.mocked(listPantrySites).mockRejectedValue(new PantryDataError("query_failed 08006"));
+    render(<SiteSwitchProvider><ToastProvider>{await MealPlanContent()}</ToastProvider></SiteSwitchProvider>);
+    expect(screen.queryByTestId("boende-page")).not.toBeInTheDocument();
+    expect(screen.getByTestId("plan-dish")).toBeInTheDocument();
+    expect(logged).toHaveBeenCalledWith("mealplan_sites_unavailable", { reason: "query_failed 08006" });
   });
 });

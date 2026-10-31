@@ -10,6 +10,8 @@ import {
   photoViewStorageState,
   placePhotoBucket,
   removePlacePhotos,
+  boendeButton,
+  pickBoende,
 } from "./support";
 
 // Story 10.2: the latest photo of a place in Matvaror (/hemma). The spec has an E2E user
@@ -152,22 +154,20 @@ const photoSheet = (page: Page, place = "kylen") => page.getByRole("dialog", { n
 const question = (page: Page) => page.getByRole("dialog", { name: "Ta bort fotot" });
 const markers = (page: Page) => photoSheet(page).getByTestId("pantry-photo-marker");
 const camera = (page: Page) => page.getByTestId("pantry-camera").filter({ visible: true });
-const pill = (page: Page, name: string) =>
-  page.getByRole("radiogroup", { name: "Boende" }).filter({ visible: true }).getByRole("radio", { name, exact: true });
 const card = (page: Page, name: Location) =>
   page.getByRole("navigation", { name: "Platser" }).filter({ visible: true }).getByRole("link", { name: new RegExp(`^${name}`) });
 
 async function openLagersaldo(page: Page) {
   await page.goto("/hemma");
-  await expect(page.getByRole("button", { name: "Hantera boenden", exact: true }).filter({ visible: true })).toBeEnabled();
+  await expect(boendeButton(page)).toBeEnabled();
   // The photo of 31 days has Matvaror sweep it (Story 10.3), and the page is read again after:
   // wait for that, so a click never lands on a line that is being replaced.
   await page.waitForLoadState("networkidle");
 }
 
-/** Selects a place with its pill and waits until the page shows it. */
+/** Selects a place in the boende menu and waits until the page shows it. */
 async function choose(page: Page, name: "Hemma" | "Stugan") {
-  await pill(page, name).click();
+  await pickBoende(page, name);
   await expect(page.getByTestId("site-announcement").filter({ visible: true })).toHaveText(`Valt boende: ${name}.`);
   await expect(page.getByTestId("site-content")).not.toHaveAttribute("aria-busy");
 }
@@ -336,7 +336,7 @@ test("Ta bort fotot asks first, Avbryt brings the photo back, and Ta bort remove
   expect(download.data).toBeNull();
   // Read again, Matvaror has no line for the fridge.
   await page.reload();
-  await expect(page.getByRole("button", { name: "Hantera boenden", exact: true }).filter({ visible: true })).toBeEnabled();
+  await expect(boendeButton(page)).toBeEnabled();
   await expect(line(page)).toHaveCount(0);
   expect(errors).toEqual([]);
 });

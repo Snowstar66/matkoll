@@ -3439,6 +3439,40 @@ Beslut 2026-10-31 (Pontus): backlog.
 **När** något har legat länge
 **Så** finns en lugn rad överst "3 varor har legat länge – föreslå rätter med dem" som öppnar förslagen med de varorna förvalda
 
+### Story 16.14: Boendet i sidomenyn
+
+Som Pontus,
+vill jag byta boende från sidomenyn (och under rubriken på mobilen) i stället för med knappar på varje sida,
+så att det syns att valet gäller hela appen och sidorna blir lugnare.
+
+Beslut 2026-10-31 (Pontus): mockupen godkänd. Mockup: `_bmad-output/planning-artifacts/ux-designs/ux-Matkoll-2026-10-25/mockups/boende-val.html` ("Idag" är skärmdumpar, "Nytt" och punktlistorna är specen).
+
+**Acceptance Criteria:**
+
+**Givet** två eller fler boenden på dator
+**När** jag ser sidomenyn
+**Så** finns under Livskoll en dämpad knapp med nål, det valda boendets namn och en pil; den öppnar en meny med varje boende och vad som finns där ("5 varor", "18 prylar", "Tomt" om inget), en bock vid det valda och "Hantera boenden ›" till Inställningar → Boenden; ett tryck på ett boende byter och sidan visar det direkt
+
+**Givet** Matvaror eller Förråd
+**När** sidan visas
+**Så** är raden med boende-knappar och "Hantera" borta
+
+**Givet** mobil (ingen sidomeny)
+**När** jag är på Matvaror, Förråd eller Matsedel
+**Så** står samma knapp under sidrubriken (på Matsedel i stället för "Boende: Hemma"), öppnar ett blad nerifrån med samma innehåll, och Recept och Inköpslista visar den inte
+
+**Givet** Inställningar → Boenden
+**När** sidan visas
+**Så** är den en överblick: ett kort per boende med "N matvaror · N prylar · N kort", det valda med grön kant och märket "Vald"; "Matvaror ›" och "Förråd ›" väljer boendet och går dit, ett tryck på kortet väljer det, ⋯ ger "Byt namn" och "Ta bort" (som förut bara för ett tomt boende som inte är valt), "Lägg till boende" och "Rensa förrådet i …" är kvar, och texten under rubriken är "Det valda boendet gäller i hela appen."
+
+**Givet** bara ett boende
+**När** jag använder appen
+**Så** syns inget nytt någonstans
+
+**Givet** valet av boende
+**När** det byts
+**Så** sparas det på servern som förut (aldrig i adressen, en cookie eller localStorage, AD-24) och sidan väntar (inert) tills det är sparat
+
 ## Epic 17: Molnet och gemensam lista
 
 Version 2.0. Familjen planerar och handlar ihop i Matkoll med en delad inloggning per hushåll, och upp till fem vänhushåll kan betatesta med egna konton utan att någon data blandas. Matkoll ersätter To Do som inköpslista. Allt byggs och testas lokalt först; flytten till Vercel och Supabase i molnet (17.3, 17.4) görs först när Pontus säger till. Underlag: `sprint-change-proposal-2026-10-31-molnet-och-gemensam-lista.md`.

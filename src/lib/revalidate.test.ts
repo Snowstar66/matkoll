@@ -26,6 +26,7 @@ describe("revalidateFor", () => {
       ["/matsedel", "layout"],
       ["/lista", "page"],
       ["/installningar", "layout"],
+      ["/", "layout"],
     ]);
   });
 

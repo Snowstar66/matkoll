@@ -1,6 +1,6 @@
 import { expect, type Page, test } from "@playwright/test";
 import { normalizeIngredientText } from "@/features/catalog";
-import { adminClient, cardTitles, e2eUserId, sitePhotoEmail, sitePhotoStorageState } from "./support";
+import { adminClient, cardTitles, e2eUserId, sitePhotoEmail, sitePhotoStorageState, boendeButton, pickBoende, } from "./support";
 
 // Story 8.4: a photo, its inventory and "Töm kylen" stay with the place they
 // were for, with AI_PROVIDER=mock: kyl.png gives grädde, gurka, ketchup,
@@ -129,8 +129,6 @@ function watchErrors(page: Page): string[] {
 const camera = (page: Page) => page.getByTestId("pantry-camera").filter({ visible: true });
 const section = (page: Page) => page.getByTestId("pantry-suggestions").filter({ visible: true });
 const placeLine = (page: Page) => page.getByTestId("pantry-suggestions-site").filter({ visible: true });
-const pill = (page: Page, name: string) =>
-  page.getByRole("radiogroup", { name: "Boende" }).filter({ visible: true }).getByRole("radio", { name, exact: true });
 const placeCard = (page: Page, name: "Kyl" | "Frys") =>
   page.getByRole("navigation", { name: "Platser" }).filter({ visible: true }).getByRole("link", { name: new RegExp(`^${name}`) });
 const rows = (page: Page) => page.getByTestId("pantry-row").filter({ visible: true });
@@ -145,12 +143,12 @@ const group = (page: Page, title: string) =>
 /** Hemma, once React runs. */
 async function openHemma(page: Page, path = "/hemma") {
   await page.goto(path);
-  await expect(page.getByRole("button", { name: "Hantera boenden", exact: true }).filter({ visible: true })).toBeEnabled();
+  await expect(boendeButton(page)).toBeEnabled();
 }
 
-/** Selects a place with its pill and waits until the page shows it. */
+/** Selects a place in the boende menu and waits until the page shows it. */
 async function choose(page: Page, name: "Hemma" | "Stugan") {
-  await pill(page, name).click();
+  await pickBoende(page, name);
   await expect(page.getByTestId("site-announcement").filter({ visible: true })).toHaveText(`Valt boende: ${name}.`);
   await expect(page.getByTestId("site-content")).not.toHaveAttribute("aria-busy");
 }

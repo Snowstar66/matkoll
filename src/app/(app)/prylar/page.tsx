@@ -12,9 +12,9 @@ export const maxDuration = 60;
 
 // Prylar, at /prylar (Epic 18, Story 18.1): the places of the selected boende
 // grouped by room, each with how many things its latest card has and the
-// card's date, "Ny plats" and, with two or more boenden, the same pills as in
-// Matvaror (the boende is the one selected there; things belong to it and
-// never touch the food). Everything is read inside <Suspense> (AD-18).
+// card's date and "Ny plats". With two or more boenden a phone has the boende
+// button under the title, as the side menu has it on a desktop (Story 16.14);
+// the boende is the one selected there, things belong to it and never touch the food. Everything is read inside <Suspense> (AD-18).
 export default function PrylarPage() {
   return (
     <Suspense

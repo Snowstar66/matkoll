@@ -25,8 +25,9 @@ export const metadata: Metadata = { title: "Matvaror" };
 //
 // Places (Story 8.2, FR-29–FR-31, FR-33, AD-24): Hemma shows the selected
 // place, read on the server; the title stays "Matvaror" (Story 10.4: the page was called Hemma, like the first place). With two or more places
-// the site switch above the cards selects another; with one, "Lägg till
-// boende" at the bottom opens the sheet Boenden. Every write from the page
+// the boende button (side menu on a desktop, under the title on a phone, Story
+// 16.14) selects another; with one, "Lägg till boende" at the bottom opens the
+// sheet Boenden. Every write from the page
 // sends the id of the place it showed.
 //
 // Story 12.2: when the page is shown, WarmAi asks the server to wake the
