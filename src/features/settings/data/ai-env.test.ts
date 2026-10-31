@@ -25,6 +25,11 @@ describe("the default when nothing is saved", () => {
   it("never replaces the mock provider, key or not", () => {
     expect(aiChoiceFor(parseEnv({ AI_PROVIDER: "mock", ANTHROPIC_API_KEY: "sk-ant-test" }), null)).toBeNull();
   });
+
+  it("never replaces the mock provider with a saved choice either", () => {
+    const sonnet = { provider: "anthropic", model: "claude-sonnet-5-5", effort: "high" } as const;
+    expect(aiChoiceFor(parseEnv({ AI_PROVIDER: "mock", ANTHROPIC_API_KEY: "sk-ant-test" }), sonnet)).toBeNull();
+  });
 });
 
 describe("a saved choice", () => {

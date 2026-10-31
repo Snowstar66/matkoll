@@ -57,6 +57,8 @@ export function aiSettingsViewFor(env: AiEnv, saved: AiSetting | null): AiSettin
  * AI_MODEL applies.
  */
 export function aiChoiceFor(env: AiEnv, saved: AiSetting | null): AiSetting | null {
+  // Tests run with the mock: a saved row must never reach a real, paid provider.
+  if (env.AI_PROVIDER === "mock") return null;
   if (saved?.provider === "lmstudio" && env.LMSTUDIO_BASE_URL) {
     return { provider: "lmstudio", model: qwenModelFor(env), effort: saved.effort };
   }
