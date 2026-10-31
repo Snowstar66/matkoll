@@ -7,12 +7,13 @@ import { CardPanel as Panel } from "./card-panel";
 
 vi.mock("next/navigation", () => ({ useRouter: () => ({ push: vi.fn(), refresh: vi.fn() }) }));
 vi.mock("../actions/remove-card", () => ({ removeThingCard: vi.fn(), restoreThingCard: vi.fn(), finishCardRemoval: vi.fn() }));
+vi.mock("../actions/create-box", () => ({ createThingBox: vi.fn() }));
 vi.mock("../actions/thing-item", () => ({ removeThing: vi.fn(), renameThing: vi.fn(), restoreThing: vi.fn() }));
 
-function CardPanel(props: Parameters<typeof Panel>[0]) {
+function CardPanel(props: Omit<Parameters<typeof Panel>[0], "placeId" | "canAddBox"> & { canAddBox?: boolean }) {
   return (
     <ToastProvider>
-      <Panel {...props} />
+      <Panel placeId="0b2f6d0a-3c0e-4d52-9a54-6d0f0c5f6a02" canAddBox {...props} />
     </ToastProvider>
   );
 }
@@ -66,6 +67,14 @@ describe("CardPanel", () => {
   it("says what is not visible, with how many closed containers", () => {
     render(<CardPanel card={{ ...card, unseenCount: 3 }} things={[thing("Hammare")]} />);
     expect(screen.getByTestId("unseen-note")).toHaveTextContent("Innehållet i 3 lådor syns inte – fota insidan");
+  });
+
+  it("makes the line a button that adds a box on a place, and plain text in a box", async () => {
+    const { rerender } = render(<CardPanel card={{ ...card, unseenCount: 3 }} things={[thing("Hammare")]} />);
+    expect(screen.getByRole("button", { name: /Innehållet i 3 lådor syns inte/ })).toBeInTheDocument();
+    rerender(<CardPanel card={{ ...card, unseenCount: 3 }} things={[thing("Hammare")]} canAddBox={false} />);
+    expect(screen.queryByRole("button", { name: /syns inte/ })).toBeNull();
+    expect(screen.getByTestId("unseen-note")).toHaveTextContent("syns inte");
   });
 
   it("falls back on the model's sentence, and shows no line when everything is visible", () => {

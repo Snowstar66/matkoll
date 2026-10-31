@@ -8,6 +8,7 @@ const place = (overrides: Partial<ThingPlace>): ThingPlace => ({
   siteId: "s",
   room: "Skräpförrådet",
   part: null,
+  isBox: false,
   itemCount: 0,
   cardTakenAt: null,
   cardState: "none",
@@ -19,6 +20,7 @@ describe("what a place's row says", () => {
     expect(placeMeta(place({ itemCount: 12, cardTakenAt: new Date("2026-10-31T10:00:00Z"), cardState: "done" }))).toBe("12 saker · Kort från 31 okt");
     expect(placeMeta(place({ itemCount: 1, cardTakenAt: new Date("2026-10-31T10:00:00Z"), cardState: "done" }))).toBe("1 sak · Kort från 31 okt");
     expect(placeMeta(place({}))).toBe("Inget kort än");
+    expect(placeMeta(place({ isBox: true, itemCount: 2, cardTakenAt: new Date("2026-10-31T10:00:00Z"), cardState: "done" }))).toBe("Låda · 2 saker · Kort från 31 okt");
     expect(placeMeta(place({ cardState: "reading" }))).toBe("Tittar på kortet …");
     expect(placeMeta(place({ cardState: "failed" }))).toBe("Kortet kunde inte läsas");
     expect(
