@@ -165,7 +165,7 @@ test("pasted text is saved by itself, with the catalog's matches and new ingredi
   const errors = watchErrors(page);
   await openImport(page);
   await parse(page, linssoppa);
-  await expect(sheet(page).getByText("Läser receptet …")).toBeVisible();
+  await expect(sheet(page).getByText("Läser receptet …").first()).toBeVisible();
 
   // No preview: the sheet closes and the recipe is in the library (Story 1.15).
   await expect(sheet(page)).toHaveCount(0, { timeout: 20_000 });
@@ -207,7 +207,7 @@ test("Avbryt stops the import and goes back to the text without an error", async
   const errors = watchErrors(page);
   await openImport(page);
   await parse(page, linssoppa);
-  await expect(sheet(page).getByRole("status").getByText("Läser receptet …")).toBeVisible();
+  await expect(sheet(page).getByRole("status").getByText("Läser receptet …").first()).toBeVisible();
   await expect(sheet(page).getByText("Du kan göra annat under tiden.")).toBeVisible();
   await expect(textField(page)).toHaveValue(linssoppa);
   await sheet(page).getByRole("button", { name: "Avbryt" }).click();
@@ -393,7 +393,7 @@ test.describe("import from a link", () => {
     });
     await openImport(page, "Länk");
     await parseLink(page, chowMein);
-    await expect(sheet(page).getByRole("status").getByText("Läser receptet …")).toBeVisible();
+    await expect(sheet(page).getByRole("status").getByText("Läser receptet …").first()).toBeVisible();
     await linkField(page).press("Enter");
     await expect(page.getByTestId("toast")).toContainText("Receptet Chow mein med lövbiff är sparat", { timeout: 20_000 });
     expect(requests).toBe(1);
@@ -833,7 +833,7 @@ test.describe("import from a photo", () => {
     const errors = watchErrors(page);
     await openImport(page, "Länk");
     await choosePhoto(page, photoPath);
-    await expect(sheet(page).getByRole("status").getByText("Läser receptet …")).toBeVisible();
+    await expect(sheet(page).getByRole("status").getByText("Läser receptet …").first()).toBeVisible();
     await sheet(page).getByRole("button", { name: "Avbryt" }).click();
 
     await expect(sheet(page).getByText("Läser receptet …")).toHaveCount(0);
