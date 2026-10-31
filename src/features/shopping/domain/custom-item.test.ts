@@ -27,7 +27,6 @@ function errors(input: CustomItemFormInput): Record<string, string> {
 describe("customItemFormSchema", () => {
   it("takes text alone, trimmed with single spaces, without amount, unit or catalog ingredient", () => {
     expect(customItemFormSchema.parse(form({ label: "  diskmedel   till  maskinen " }))).toEqual({
-      planId,
       label: "diskmedel till maskinen",
       ingredientId: null,
       amount: null,
@@ -38,7 +37,6 @@ describe("customItemFormSchema", () => {
   it("takes an amount as typed with a unit, a catalog ingredient and the client's id", () => {
     expect(customItemFormSchema.parse(form({ id, label: "Kaffe", ingredientId, amount: "1,5", unit: "förp" }))).toEqual({
       id,
-      planId,
       label: "Kaffe",
       ingredientId,
       amount: 1.5,

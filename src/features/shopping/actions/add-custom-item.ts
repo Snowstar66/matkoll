@@ -15,20 +15,19 @@ import {
 
 /**
  * "Lägg till" in the sheet Lägg till egen vara (FR-17, AD-8): adds Pontus's
- * own item to the current meal plan's list, with the form's schema. A
+ * own item to the list, with the form's schema. It belongs to the
+ * household, not to a week (Story 17.10): it stays on the list, whichever
+ * week is shown, until someone checks it off or removes it. A
  * catalog ingredient chosen among the suggestions is only stored as the
  * item's link: the list never writes to the catalog, so no synonym and no
  * ingredient comes from an own item (decision 2026-10-26). The database
- * refuses an ingredient that is not the user's. `planId` is the plan the
- * list was counted for, which the database compares with the current plan
- * under the meal plan lock (AD-22). The client sends `id`, kept while the
+ * refuses an ingredient that is not the user's. The client sends `id`, kept while the
  * form is unchanged, so a retry after a lost answer adds the item once
  * (AD-20). Revalidates the list (AD-18).
  *
  * Fails with `unauthorized`, `validation` (with the form's messages in
- * `fields`), `shopping_plan_changed` (the plan is no longer the current one:
- * the list must be read again; also a retry whose id was used for a
- * different item) or `shopping_save_failed` (logged), also when the
+ * `fields`), `shopping_plan_changed` (a retry whose id was used for a
+ * different item; the list must be read again) or `shopping_save_failed` (logged), also when the
  * ingredient is not in the user's catalog; nothing is added then.
  */
 export async function addCustomItem(input: CustomItemFormInput): Promise<Result<CustomItemRow>> {
@@ -39,12 +38,12 @@ export async function addCustomItem(input: CustomItemFormInput): Promise<Result<
     const fields = customItemFieldErrors(parsed.error);
     return fail("validation", Object.keys(fields).length > 0 ? fields : undefined);
   }
-  const { id, planId, label, ingredientId, amount, unit } = parsed.data;
+  const { id, label, ingredientId, amount, unit } = parsed.data;
 
   try {
     const added = await addCustomItemIn(await createClient(), {
       id: id ?? crypto.randomUUID(),
-      planId,
+      planId: null,
       label,
       ingredientId,
       amount,

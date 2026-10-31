@@ -17,13 +17,12 @@ import {
  * "Spara" in an own item's Listpostdetalj (FR-17, Story 3.6): changes the
  * item's text, catalog ingredient, amount and unit with the same schema as
  * "Lägg till egen vara", keeping its id, so its check stays. Only the link is
- * stored: the list never writes to the catalog. `planId` is the plan the list
- * was counted for, which the database compares with the item's plan and the
- * current plan under the meal plan lock (AD-22). Idempotent. Revalidates the
+ * stored: the list never writes to the catalog. The item's plan plays no part (Story
+ * 17.10). Idempotent. Revalidates the
  * list (AD-18).
  *
  * Fails with `unauthorized`, `validation` (with the form's messages in
- * `fields`; also without an id), `shopping_plan_changed`, `shopping_item_gone`
+ * `fields`; also without an id), `shopping_item_gone`
  * (removed meanwhile; the list is revalidated) or `shopping_save_failed`
  * (logged), also when the ingredient is not in the user's catalog; nothing
  * is changed then.
@@ -36,12 +35,11 @@ export async function updateCustomItem(input: CustomItemFormInput): Promise<Resu
     const fields = customItemFieldErrors(parsed.error);
     return fail("validation", Object.keys(fields).length > 0 ? fields : undefined);
   }
-  const { id, planId, label, ingredientId, amount, unit } = parsed.data;
+  const { id, label, ingredientId, amount, unit } = parsed.data;
   if (!id) return fail("validation");
 
   try {
-    const saved = await updateCustomItemIn(await createClient(), { id, planId, label, ingredientId, amount, unit });
-    if (saved === "plan_changed") return fail("shopping_plan_changed");
+    const saved = await updateCustomItemIn(await createClient(), { id, label, ingredientId, amount, unit });
     if (saved === "not_found") {
       revalidateFor("shopping_custom_item");
       return fail("shopping_item_gone");

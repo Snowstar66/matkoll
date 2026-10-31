@@ -168,7 +168,7 @@ describe("restoreLine", () => {
 describe("updateCustomItem", () => {
   it("saves the form's values on the item's id and revalidates the list", async () => {
     const result = await updateCustomItem({ id: itemId, planId, label: " diskmedel  eko ", amount: "2", unit: "förp" });
-    const saved = { id: itemId, planId, label: "diskmedel eko", ingredientId: null, amount: 2, unit: "förp" };
+    const saved = { id: itemId, label: "diskmedel eko", ingredientId: null, amount: 2, unit: "förp" };
     expect(result).toEqual(ok(saved));
     expect(updateCustomItemIn).toHaveBeenCalledWith(db, saved);
     expect(revalidateFor).toHaveBeenCalledWith("shopping_custom_item");
@@ -182,10 +182,8 @@ describe("updateCustomItem", () => {
     expect(updateCustomItemIn).not.toHaveBeenCalled();
   });
 
-  it("says when the plan changed or the item is gone, and gives shopping_save_failed when the write fails", async () => {
-    const input = { id: itemId, planId, label: "diskmedel", amount: "", unit: "" as const };
-    updateCustomItemIn.mockResolvedValueOnce("plan_changed");
-    expect(await updateCustomItem(input)).toEqual(fail("shopping_plan_changed"));
+  it("says when the item is gone, and gives shopping_save_failed when the write fails", async () => {
+    const input = { id: itemId, label: "diskmedel", amount: "", unit: "" as const };
     updateCustomItemIn.mockResolvedValueOnce("not_found");
     expect(await updateCustomItem(input)).toEqual(fail("shopping_item_gone"));
     expect(revalidateFor).toHaveBeenCalledWith("shopping_custom_item");

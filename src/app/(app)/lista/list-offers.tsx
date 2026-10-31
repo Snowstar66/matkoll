@@ -38,7 +38,7 @@ export async function ListOffers() {
     // Story 9.12: the current plan and the offers already on its list. Without them the rows only show.
     try {
       const onList = await getKeyedItemsOnList(offers.map((offer) => offer.id));
-      if (onList) listing = { planId: onList.planId, onList: onList.onList, add: addKeyedItems };
+      listing = { planId: onList.planId, onList: onList.onList, add: addKeyedItems };
     } catch (error) {
       if (!(error instanceof ShoppingDataError || error instanceof MealPlanDataError)) throw error;
       console.error("offers_listing_unavailable", { reason: error.detail });

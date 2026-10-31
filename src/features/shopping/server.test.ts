@@ -1,4 +1,5 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
+import { currentWeekStart } from "@/features/mealplan";
 import { toSnapshot } from "@/features/pantry";
 import { fail, ok } from "@/lib/errors";
 import { ShoppingDataError } from "./data/client";
@@ -34,7 +35,12 @@ const { CatalogDataError, MealPlanDataError, PantryDataError, RecipeDataError, S
 const requireUser = vi.fn();
 vi.mock("@/features/auth/server", () => ({ requireUser: () => requireUser() }));
 const getCurrentPlan = vi.fn();
-vi.mock("@/features/mealplan/server", () => ({ MealPlanDataError, getCurrentPlan: () => getCurrentPlan() }));
+const getPlanForWeek = vi.fn();
+vi.mock("@/features/mealplan/server", () => ({
+  MealPlanDataError,
+  getCurrentPlan: () => getCurrentPlan(),
+  getPlanForWeek: (...args: unknown[]) => getPlanForWeek(...args),
+}));
 const getRecipesByIds = vi.fn();
 vi.mock("@/features/recipes/server", () => ({
   RecipeDataError,
@@ -203,7 +209,7 @@ describe("getShoppingList", () => {
     expect(result.ok && result.data.lines.map((line) => [line.key, line.checked])).toEqual([[`r:${gradde}:dl`, true]]);
   });
 
-  it("gives no plan and no lines without a current plan, and reads no recipes", async () => {
+  it("gives no plan and no lines without a current plan or own items, and reads no recipes", async () => {
     getCurrentPlan.mockResolvedValue(null);
     expect(await getShoppingList()).toEqual(
       ok({
@@ -217,9 +223,28 @@ describe("getShoppingList", () => {
       }),
     );
     expect(getRecipesByIds).not.toHaveBeenCalled();
-    expect(listChecksIn).not.toHaveBeenCalled();
-    expect(listCustomItemsIn).not.toHaveBeenCalled();
     expect(listOverridesIn).not.toHaveBeenCalled();
+  });
+
+  it("shows the own items, and their checks, in a week without a plan (Story 17.10)", async () => {
+    const disk = "55000000-5555-4555-8555-555555555555";
+    getCurrentPlan.mockResolvedValue(null);
+    listCustomItemsIn.mockResolvedValue([{ id: disk, label: "diskmedel", ingredientId: null, amount: null, unit: null }]);
+    listChecksIn.mockResolvedValue([`c:${disk}`]);
+    const result = await getShoppingList();
+    expect(listChecksIn).toHaveBeenCalledWith(db, null);
+    expect(getRecipesByIds).not.toHaveBeenCalled();
+    expect(listOverridesIn).not.toHaveBeenCalled();
+    expect(result.ok && result.data.plan).toBeNull();
+    expect(result.ok && result.data.lines.map((line) => [line.key, line.label, line.checked])).toEqual([
+      [`c:${disk}`, "diskmedel", true],
+    ]);
+  });
+
+  it("reads own items for the shown week, so a coming week leaves out what was checked before it", async () => {
+    getPlanForWeek.mockResolvedValue(null);
+    await getShoppingList("2999-01-04");
+    expect(listCustomItemsIn).toHaveBeenCalledWith(db, "2999-01-04");
   });
 
   it("counts nothing against the pantry for a plan whose dishes all lost their recipe", async () => {
@@ -253,7 +278,8 @@ describe("getShoppingList", () => {
     );
     listChecksIn.mockResolvedValue([`c:${disk}`]);
     const result = await getShoppingList();
-    expect(listCustomItemsIn).toHaveBeenCalledWith(db, "plan");
+    // All the user's own items, whichever week; the week decides only which checked ones are left out (Story 17.10).
+    expect(listCustomItemsIn).toHaveBeenCalledWith(db, currentWeekStart());
     // The own item's ingredient gives its section, and its name for the detail; the line's name is Pontus's text.
     expect(getIngredientDefaults).toHaveBeenCalledWith([gradde, kaffe]);
     expect(getIngredientNames).toHaveBeenCalledWith([gradde, kaffe]);

@@ -34,8 +34,8 @@ export type LineDetailSheetProps = {
   onClose: () => void;
   /** Increases each time the sheet opens: the form then starts from `line`. */
   session: number;
-  /** The plan the list was counted for; changes are saved on it. */
-  planId: string;
+  /** The plan the list was counted for; a recipe line's changes are saved on it. `null` in a week without a plan (own items only). */
+  planId: string | null;
   /** The line as it was when its name was tapped. */
   line: ShoppingLine;
   dishTitles: Readonly<Record<string, string>>;
@@ -65,7 +65,6 @@ export function LineDetailSheet(props: LineDetailSheetProps) {
         open={props.open}
         onClose={props.onClose}
         session={props.session}
-        planId={props.planId}
         searchIngredients={props.searchIngredients}
         title={line.label}
         item={{
@@ -163,12 +162,12 @@ function RecipeLineDetail({
 
   const [, save, saving] = useActionState(async (_previous: null, change: Change) => {
     let result: Result<unknown>;
-    const done = onChange?.(planId, line.key);
+    const done = onChange?.(planId ?? "", line.key);
     try {
       result =
         change.kind === "save"
-          ? await setLineAmount({ planId, key: line.key, amount: change.amount, baseAmount: countedAmount(line) })
-          : await clearLineAmount({ planId, key: line.key });
+          ? await setLineAmount({ planId: planId ?? "", key: line.key, amount: change.amount, baseAmount: countedAmount(line) })
+          : await clearLineAmount({ planId: planId ?? "", key: line.key });
     } catch {
       // No answer (e.g. no connection): the form stays; saving again is safe.
       result = fail("shopping_save_failed");
@@ -201,7 +200,7 @@ function RecipeLineDetail({
     return null;
   }, null);
 
-  const parsed = lineAmountFormSchema.safeParse({ planId, key: line.key, amount });
+  const parsed = lineAmountFormSchema.safeParse({ planId: planId ?? "", key: line.key, amount });
   const ownError = attempted && !parsed.success ? (lineAmountFieldErrors(parsed.error).amount ?? null) : null;
   const amountError = serverError ?? ownError;
 

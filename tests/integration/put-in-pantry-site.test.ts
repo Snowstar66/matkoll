@@ -148,7 +148,7 @@ function flow(user: TestUser, siteId: string | null, change: Partial<PutInPantry
       pantry: () => loadPantrySnapshot(user.db, siteId ?? undefined),
       ingredientNames: (ids) => loadIngredientNames(user.db, ids),
       ingredientDefaults: (ids) => loadIngredientDefaults(user.db, ids),
-      customItems: (planId) => listCustomItemsIn(user.db, planId),
+      customItems: () => listCustomItemsIn(user.db),
       overrides: (planId) => listOverridesIn(user.db, planId),
     },
     checkRows: (planId) => listCheckRowsIn(user.db, planId),
