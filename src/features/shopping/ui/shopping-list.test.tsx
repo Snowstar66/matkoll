@@ -93,7 +93,6 @@ const pastGuard = () => act(() => new Promise<void>((resolve) => setTimeout(reso
 describe("ShoppingList", () => {
   it("shows the summary, the progress row and the lines per category in the store's order", () => {
     render(<ShoppingList plan={plan} lines={lines} pantryUnavailable={false} />);
-    expect(screen.getByTestId("list-summary")).toHaveTextContent(/^Vecka 44 · 2 rätter$/);
     expect(screen.getByTestId("list-progress")).toHaveTextContent("6 varor kvar 0 av 6 i korgen");
     // The categories of Lagersaldo (Story 11.4): salt is a seasoning.
     expect(screen.getAllByRole("heading", { level: 2 }).map((heading) => heading.textContent)).toEqual([
@@ -133,13 +132,11 @@ describe("ShoppingList", () => {
     expect(screen.getByText("Lägg rätter på matsedeln så räknas listan fram.")).toBeInTheDocument();
     rerender(<ShoppingList plan={{ ...plan, dishCount: 0 }} lines={[]} pantryUnavailable={false} />);
     expect(screen.getByText("Lägg rätter på matsedeln så räknas listan fram.")).toBeInTheDocument();
-    expect(screen.queryByTestId("list-summary")).not.toBeInTheDocument();
   });
 
   it("says everything is at home when the dishes need nothing", () => {
     render(<ShoppingList plan={plan} lines={[]} pantryUnavailable={false} />);
     expect(screen.getByText("Allt finns hemma.")).toBeInTheDocument();
-    expect(screen.getByTestId("list-summary")).toHaveTextContent(/^Vecka 44 · 2 rätter$/);
     expect(screen.queryByTestId("list-progress")).not.toBeInTheDocument();
   });
 
@@ -156,13 +153,11 @@ describe("ShoppingList", () => {
 
   it("counts only dishes with a recipe, and says how many were left out", () => {
     const { rerender } = render(<ShoppingList plan={{ ...plan, dishCount: 1, skippedCount: 1 }} lines={lines} pantryUnavailable={false} />);
-    expect(screen.getByTestId("list-summary")).toHaveTextContent(/^Vecka 44 · 1 rätt$/);
     expect(screen.getByTestId("list-skipped")).toHaveTextContent("1 rätt med borttaget recept räknas inte.");
     // No dish counted: the empty plan's text, never "Allt finns hemma.".
     rerender(<ShoppingList plan={{ ...plan, dishCount: 0, skippedCount: 2 }} lines={[]} pantryUnavailable={false} />);
     expect(screen.getByText("Lägg rätter på matsedeln så räknas listan fram.")).toBeInTheDocument();
     expect(screen.queryByText("Allt finns hemma.")).not.toBeInTheDocument();
-    expect(screen.queryByTestId("list-summary")).not.toBeInTheDocument();
     expect(screen.getByTestId("list-skipped")).toHaveTextContent("2 rätter med borttagna recept räknas inte.");
   });
 

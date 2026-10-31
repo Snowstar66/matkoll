@@ -330,3 +330,14 @@
     scroll-behavior: auto !important;
   }
 }
+
+/* The selected segment of the week control (Story 14.5): white in light mode,
+   the surface lifted towards the ink in dark mode, so it stands out from the track. */
+.segment-on {
+  background-color: var(--surface);
+}
+@media (prefers-color-scheme: dark) {
+  .segment-on {
+    background-color: color-mix(in srgb, var(--surface), var(--ink) 14%);
+  }
+}
