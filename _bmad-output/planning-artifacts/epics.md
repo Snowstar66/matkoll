@@ -3978,10 +3978,10 @@ Skiss: bild 1 i samma skiss (chatten högst upp på startsidan).
 **När** jag skickar den
 **Så** förstår AI sammanhanget från de senaste frågorna i samma samtal (som hålls i webbläsaren, inte sparas), och samtalet kan rensas med "Ny fråga"
 
-### Story 18.7: Visa prylen på kortet
+### Story 18.7: Visa föremålet på kortet
 
 Som Pontus,
-vill jag se kortets bild med prylen utmärkt när jag hittar den i sök eller chatt,
+vill jag se kortets bild med föremålet utmärkt när jag hittar den i sök eller chatt,
 så att jag direkt ser var på hyllan den finns.
 
 Beslut 2026-10-31 (Pontus): byggs efter 18.17, före 17.9. Kostnad bedömd som försumbar (~0,2 öre extra per kort med Haiku).
@@ -3990,23 +3990,31 @@ Beslut 2026-10-31 (Pontus): byggs efter 18.17, före 17.9. Kostnad bedömd som f
 
 **Givet** en sökträff eller en referens i chatten
 **När** den visas
-**Så** står kortets miniatyr till vänster (i stället för kategoriikonen); inskrivna prylar utan kort visar lådans ikon
+**Så** står kortets miniatyr till vänster (i stället för kategoriikonen); inskrivna föremål utan kort visar lådans ikon
 
 **Givet** en träff eller referens
 **När** jag trycker på den
-**Så** öppnas kortet i stort format (egen vy med bilden i full bredd, rum, del/låda och datum) med prylen utmärkt av en ruta och dess namn, och övriga prylar på kortet listas under bilden; ett tryck på en annan pryl i listan flyttar markeringen
+**Så** öppnas kortet i stort format (egen vy med bilden i full bredd, rum, del/låda och datum) med föremålet utmärkt av en ruta och dess namn, och övriga föremål på kortet listas under bilden; ett tryck på ett annat föremål i listan flyttar markeringen
 
 **Givet** ett nytt kort som läses
-**När** AI listar prylarna
-**Så** får varje pryl en ungefärlig ruta (normaliserade koordinater 0–1) i samma anrop, utan extra AI-anrop; rutor som är orimliga (utanför bilden, noll storlek) sparas inte
+**När** AI listar föremålen
+**Så** får varje föremål en ungefärlig ruta (normaliserade koordinater 0–1) i samma anrop, utan extra AI-anrop; rutor som är orimliga (utanför bilden, noll storlek) sparas inte
 
-**Givet** en pryl utan ruta (äldre kort)
+**Givet** ett föremål utan ruta (äldre kort)
 **När** jag öppnar den på kortet
-**Så** letar appen upp den med ett litet AI-anrop för bara den prylen (samma teknik som kylskåpskorten i Matvaror), sparar rutan och visar den; går det inte visas kortet utan markering med texten "Kunde inte peka ut den på bilden"
+**Så** letar appen upp den med ett litet AI-anrop för bara det föremålet (samma teknik som kylskåpskorten i Matvaror), sparar rutan och visar den; går det inte visas kortet utan markering med texten "Kunde inte peka ut den på bilden"
 
 **Givet** lagringen
 **När** rutor sparas
-**Så** ligger de på prylen (bakåtkompatibel migrering) och kostnaden räknas som i Story 17.6
+**Så** ligger de på föremålet (bakåtkompatibel migrering) och kostnaden räknas som i Story 17.6
+
+**Givet** rummets flik Kort
+**När** jag trycker på ett kort
+**Så** öppnas samma stora vy med hela, okapade bilden; alla föremål på kortet har en tunn ruta med namnet, och listan ligger under bilden (bredvid på dator, 1280 px); ett tryck på ett föremål i listan eller på en ruta markerar det och tonar ner resten; kortets knappar (Ta om, Lägg till föremål, Ta bort kortet sist, med Ångra) finns i vyn; vyn fungerar vid 390 px (full bredd, nyp för att zooma) och 1280 px
+
+Beslut: Pontus 2026-10-31: se hela kortet med markeringar; byggd utan förhandsgodkännande av mockupen.
+
+Mockup: `_bmad-output/planning-artifacts/ux-designs/ux-Matkoll-2026-10-25/mockups/kortet-stort.html`
 
 ### Story 18.10: Svep med kameran
 
