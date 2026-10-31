@@ -30,6 +30,7 @@ Hemligheter (lösenord, nycklar) skriver du själv in i Vercels och GitHubs webb
 | 7 | Rökprov | Båda | 5 min |
 | 8 | Slå på CI och säkerhetskopian | Båda | 3 min |
 | 9 | Egen domän (valfritt) | Båda | 5 min |
+| 10 | Flytta din data (recept, lager, matsedlar, listor, foton) | Båda | 5 min |
 
 Stegen 0, 1, 2 och 4 är det som tar din tid. Gör inte steg 6 förrän 1–5 är klara.
 
@@ -253,6 +254,78 @@ Gör så här:
 4. Siri-genvägen och hemskärmsikonen pekar på gamla adressen: skapa dem på nytt (nyckeln kan behållas).
 5. Använder du egen SMTP: avsändardomänen behöver inte vara samma som appens, men SPF/DKIM ska vara verifierade hos e-posttjänsten.
 
+## 10. Flytta din data – [Båda]
+
+Skriptet `pnpm move:cloud` (Story 17.4) kopierar **allt som är ditt** från datorns Supabase till molnkontot: alla 26 tabeller (recept, ingredienser, lager, hem och platser, matsedlar, inköpslistor, butiker och erbjudanden, Förrådets rum, kort och föremål, AI-inställningar och -användning, snabbtilläggsnycklar) och **alla fotofiler** (`pantry-photo` och `thing-photo`). Raderna får molnkontots `user_id`; alla id:n behålls, så kopplingarna mellan raderna håller och skriptet kan köras flera gånger utan dubbletter. Skriptet **ändrar aldrig** datorns databas, det bara läser den.
+
+Provat 2026-11-01 mellan två helt skilda lokala Supabase-stackar med påhittad data (`scripts/test-move-to-cloud.sh`), aldrig mot något molnkonto.
+
+### När
+
+Efter steg 7 (rökprovet), medan den lokala miljön fortfarande finns kvar. **Logga inte in och lägg in egen data i molnappen före flytten** (rökprovet går bra, men lägg inte in recept eller lager): skriptet vägrar köra om molnkontot redan har annan data än din (se nedan).
+
+### Vad du skriver [Pontus]
+
+1. Se till att datorns Supabase är igång (`pnpm db:start`) och att molnkontot finns (steg 5). Skriv ner din e-post i datorn och molnkontots e-post.
+2. Skriv in nycklarna i **din egen terminal**, aldrig i chatten. De frågas efter utan att synas på skärmen och sparas inte i någon fil:
+
+```bash
+cd "/Users/pontus/AI Projects/Matkoll"
+read -rs MOVE_TARGET_SERVICE_KEY            # klistra in sb_secret_… för molnprojektet (Supabase → Settings → API Keys)
+export MOVE_TARGET_SERVICE_KEY
+export MOVE_TARGET_URL=https://<ref>.supabase.co
+export MOVE_SOURCE_EMAIL=<din e-post i datorns Livskoll>
+export MOVE_TARGET_USER=<molnkontots e-post, eller dess id under Authentication → Users>
+pnpm move:cloud --dry-run                   # provkörning: skriver bara ut vad som skulle kopieras
+```
+
+Datorns URL och nyckel hämtar skriptet själv ur den lokala Supabase (`supabase status`). Vill du ange dem själv: `MOVE_SOURCE_URL` och `MOVE_SOURCE_SERVICE_KEY` (samma sätt som ovan).
+
+3. Läs tabellen (se [Så kontrollerar du antalen](#så-kontrollerar-du-antalen)). Ser den rätt ut, kör på riktigt:
+
+```bash
+pnpm move:cloud
+unset MOVE_TARGET_SERVICE_KEY
+```
+
+### Vad Claude gör
+
+Claude kan köra samma kommandon i din terminal medan du tittar, men **nyckeln skriver du själv** (`read -rs` ovan). Claude: kör `--dry-run` och läser tabellen med dig, kör flytten, kör den en andra gång för att visa att antalen är oförändrade, och öppnar sedan molnappen och bockar av [kontrollen](#så-kontrollerar-du-antalen) nedan. Claude läser aldrig `.env.local` och skriver aldrig ut nycklar.
+
+### Så kontrollerar du antalen
+
+Skriptet skriver två tabeller, före och efter, för både datorn (källan) och molnet (målet):
+
+- **Rader per tabell:** `källa före`, `källa efter` (ska vara lika: datorn rörs inte), `mål före`, `mål efter` och `ska bli`. Efter en lyckad flytt är `mål efter` lika med `ska bli`, och för en ny molnanvändare lika med `källa före`. Enda avvikelsen som visas öppet är raden för **AI-jobb**: ett jobb som stod som pågående när du flyttade kopieras inte (det kan aldrig bli klart i molnet och skulle blockera nästa jobb).
+- **Filer per bucket:** antal filer under din användare i `pantry-photo` och `thing-photo`. `mål efter` ska vara minst lika med `källa`.
+- Sista raden är **"Klart. Alla antal stämmer."**; annars står det **STÄMMER INTE** vid raden och skriptet avslutas med fel.
+
+Därefter, i molnappen: öppna Recept, Matsedel, Inköpslista, Hemma/lager och Förråd; kontrollera att ett par kända recept, lagervaror och Förrådskort syns **med sina foton**. Stäm av antalet recept mot det du hade.
+
+Kör `pnpm move:cloud` en gång till: alla `mål efter` är oförändrade och filraderna säger `0 kopierade`.
+
+### Säkerhetsspärrar
+
+- Skriptet vägrar om källa och mål är **samma server** (samma adress och port, `localhost` räknas som `127.0.0.1`).
+- Skriptet vägrar om molnanvändaren **redan har andra rader eller filer** än de som kopieras (avsnittet "När" ovan). `--force` går vidare ändå och lägger till; men rader som krockar med molnanvändarens egna (samma ingrediensnamn, samma lagerplats, och så vidare) stoppas av databasen och flytten avbryts med ett fel. Tomma kontot först är alltid enklast.
+- Skriptet skriver aldrig över en rad vars id redan tillhör **en annan användare** i molnet.
+- Skriptet kontrollerar att tabellerna i datorns och molnets databas är exakt de som skriptet känner till (`scripts/move-to-cloud/plan.ts`). Har en ny tabell lagts till stannar det med ett meddelande i stället för att tyst lämna den kvar.
+- `--dry-run` ändrar ingenting, varken rader eller filer, men läser båda sidor.
+- Nycklar läses bara från miljövariabler eller dolt från en fråga, och skrivs aldrig ut.
+
+### Snabbtilläggsnycklar (Siri)
+
+Nycklarna sparas bara som hash (sha256). Skriptet **kopierar hasharna**, så samma nyckel fungerar mot molnet: den som redan sitter i en iPhone-genväg behöver bara få **ny adress** (steg 9, punkt 4). Vill du hellre ha en ny nyckel: kör med `--skip-api-keys`, skapa sedan en ny under Inställningar → Siri och genvägar i molnappen och uppdatera genvägen. Är genvägens nyckel förlorad eller misstänkt läckt: välj det senare och återkalla den gamla.
+
+### Detaljer
+
+- Foton: filerna kopieras byte för byte till samma sökväg men med molnanvändarens id som första mapp; kolumnerna `object_path` skrivs om på samma sätt. Filer som redan finns (samma storlek) hoppas över vid en omkörning.
+- Kopplingar mellan rader av samma tabell (Förrådets "samma som" och "ersätter foto") skrivs i ett andra varv, så ordningen aldrig spelar roll.
+- Genererade kolumner (`store_offer.label_key`) räknas ut av molnet.
+- Inte med: inloggningsuppgifter (molnkontot är redan skapat i steg 5), mejlhistorik, Realtime-tillstånd och Storage-filer som inte ligger under din användares mapp.
+- Mängder (`numeric`) går som JSON-tal och klarar de värden appen sparar (gram, deciliter och så vidare).
+- Efter flytten: stäng inte av den lokala miljön förrän du kontrollerat antalen och sett fotona i molnappen, och tills backupen (steg 8) också tar `thing-photo`.
+
 ## Vad som är provat
 
 Provat 2026-10-31 i förberedelsegrenen `prep/molnet`, utan någon molnkontakt:
@@ -275,7 +348,7 @@ Granskning av koden inför molnet. Rangordnad: **Före flytten** (måste vara kl
 3. **Deployment Protection** får inte gälla Production, annars når varken Siri-genvägen (`/api/snabb`, bara en nyckel som inloggning) eller inloggningslänkarna appen (steg 4).
 4. **Fluid Compute på.** Vägarna för AI-import, fotoläsning och Förråd har `maxDuration` 300 (`/api/ai/jobs`, `/api/ai/jobs/photo`, `/api/things/photo`, `/api/things/retry`) och 60 för sidor och `/api/pantry/photo`. Hobby tillåter 300 s bara med Fluid Compute. AI-jobben är byggda för att bli klara 5 s före funktionens slut (`src/features/ai-jobs/domain/ai-job.ts`) och körs i `after()`, vilket Vercel stöder.
 5. **AI i molnet är Claude, inte LM Studio.** Utan `ANTHROPIC_API_KEY` finns inget Claude-val, och med `AI_PROVIDER=lmstudio` utan tunnel når Vercel aldrig din Mac. Guiden använder `anthropic` + `claude-haiku-5-5`. Kostnaden syns i Inställningar → AI (`ai_usage`), och en månadsgräns sätts hos Anthropic (steg 0). `LMSTUDIO_BASE_URL` ska vara tom i Vercel, så syns inte "Qwen lokalt" som val.
-6. **Foton följer inte med säkerhetskopian eller flytten av data (Story 17.4).** `backup.yml` tar bara data i `public` och `auth`, aldrig `storage`; fotomigrationerna skapar bara tomma buckets. Förrådsfoton (`thing-photo`) är dessutom din huvuddata, inte ett färskt hjälpfoto som `pantry-photo` (som bara visas i 30 dagar). Följden: efter en återställning och efter flytten från datorn pekar Förrådets rader på filer som saknas. Före flytten räcker det att veta det och att inte stänga av den lokala miljön; **Story 17.4 måste kopiera filerna ur lokala `thing-photo` till molnets** (Storage API med secret key), och backupen bör få en kopia av `thing-photo` (Storage S3-protokollet eller `supabase storage cp`) innan molnet är din enda kopia.
+6. **Foton följer inte med säkerhetskopian eller flytten av data (Story 17.4).** `backup.yml` tar bara data i `public` och `auth`, aldrig `storage`; fotomigrationerna skapar bara tomma buckets. Förrådsfoton (`thing-photo`) är dessutom din huvuddata, inte ett färskt hjälpfoto som `pantry-photo` (som bara visas i 30 dagar). Följden: efter en återställning och efter flytten från datorn pekar Förrådets rader på filer som saknas. Före flytten räcker det att veta det och att inte stänga av den lokala miljön; **Story 17.4 kopierar filerna ur lokala `thing-photo` och `pantry-photo` till molnets (`pnpm move:cloud`, steg 10)** (Storage API med secret key), och backupen bör få en kopia av `thing-photo` (Storage S3-protokollet eller `supabase storage cp`) innan molnet är din enda kopia.
 
 ### Före vänner
 
@@ -320,6 +393,7 @@ Granskning av koden inför molnet. Rangordnad: **Före flytten** (måste vara kl
 ## Filer som förberedelsen lade till eller ändrade
 
 - `docs/molnet.md` (den här filen)
+- `scripts/move-to-cloud.ts`, `scripts/move-to-cloud/` och `scripts/test-move-to-cloud.sh` (Story 17.4: flyttskriptet och dess tvåstackstest)
 - `.github/workflows/cloud-migrate.yml` (ny, avstängd tills `CLOUD_ENABLED=true`)
 - `.github/workflows/backup.yml` (`CLOUD_ENABLED` slår på den; hoppas över när varken den eller `BACKUP_ENABLED` är satt)
 - `.env.example` (bara kommentarer: var varje värde sätts)
