@@ -59,7 +59,7 @@ export function RetakeCard({ cardId, placeId, name }: { cardId: string; placeId:
       <input
         ref={input}
         type="file"
-        accept="image/*"
+        accept="image/*,.heic,.heif"
         tabIndex={-1}
         aria-hidden="true"
         className="sr-only"

@@ -11,6 +11,7 @@ import { planningButtonText, type PlanningTarget } from "@/features/mealplan";
 import { nameInSentence, normalizeIngredientText } from "@/features/catalog";
 import { suggestErrorMessage, suggestRetryCodes, whyText } from "@/features/suggestions";
 import { offerDisplay } from "@/features/offers";
+import { usesOldText } from "@/features/pantry";
 import type { AddToPlan } from "./add-to-plan-button";
 import { OwnRecipes, type OwnRecipesRead } from "./own-recipes";
 import { dishEmoji } from "../domain/dish-emoji";
@@ -206,7 +207,8 @@ function SuggestionCard({
   onAddToPlan?: () => void;
   planning?: PlanningTarget;
 }) {
-  const { draft, onOffer = [], atHome, toBuy = [] } = suggestion;
+  const { draft, onOffer = [], atHome, toBuy = [], oldUsed = [] } = suggestion;
+  const oldText = usesOldText(oldUsed);
   const offerNames = onOffer.map((label) => offerDisplay(label).title);
   return (
     <RecipeCard
@@ -220,6 +222,11 @@ function SuggestionCard({
       deleteLabel={`Ta bort förslaget ${draft.title}`}
     >
       <p className="text-meta break-words text-ink-2">Med: {cardNames(suggestion).join(", ")}</p>
+      {oldText ? (
+        <p data-testid="ai-suggestion-old" className="text-meta break-words text-ink">
+          {oldText}
+        </p>
+      ) : null}
       {atHome ? (
         <>
           <p data-testid="ai-suggestion-why" className="text-meta break-words text-ink">

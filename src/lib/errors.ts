@@ -103,6 +103,8 @@ export const errorMessages = {
   things_item_failed: "Det gick inte att spara prylen. Försök igen.",
   // Rensa rummet / Rensa förrådet (Story 18.15): nothing was removed.
   things_clear_failed: "Det gick inte att rensa. Försök igen.",
+  things_rename_failed: "Det gick inte att byta namn. Försök igen.",
+  things_place_remove_failed: "Det gick inte att ta bort. Försök igen.",
   things_item_gone: "Prylen finns inte längre.",
   // Sök och fråga (Story 18.4): nothing on a card to ask about yet.
   things_ask_empty: "Fotografera en plats först, så kan du fråga om vad som finns där.",
@@ -214,6 +216,8 @@ export const errorMessages = {
   // Photos (AD-15): resized in the client, checked again by the server.
   image_too_large: "Bilden är för stor. Ta en ny bild eller välj en mindre bild.",
   image_unsupported: "Bildformatet stöds inte. Välj en JPEG-, PNG- eller WebP-bild.",
+  // An iPhone photo (HEIC) a browser could not read and could not be turned into JPEG (Story 18.16).
+  image_heic_failed: "Bilden gick inte att göra om från HEIC. Välj en annan bild eller ta ett nytt foto.",
 } as const;
 
 /**

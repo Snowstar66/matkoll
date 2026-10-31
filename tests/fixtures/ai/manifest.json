@@ -76,6 +76,7 @@
   ],
   "suggest": "suggest-dishes",
   "suggestOffers": "suggest-dishes-erbjudanden",
+  "suggestOld": "suggest-dishes-lagt-lange",
   "suggestAlternatives": [
     "suggest-dishes-andra"
   ],

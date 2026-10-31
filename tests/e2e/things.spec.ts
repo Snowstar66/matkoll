@@ -1,5 +1,6 @@
 import { randomUUID } from "node:crypto";
-import { expect, type Page, test } from "@playwright/test";
+import { readFileSync } from "node:fs";
+import { expect, type Locator, type Page, test } from "@playwright/test";
 import { shortDateText } from "@/features/things";
 import { adminClient, e2eUserId, thingsEmail, thingsStorageState } from "./support";
 
@@ -60,10 +61,22 @@ test.beforeEach(async () => {
 const nav = (page: Page) => page.getByRole("navigation", { name: "Huvudmeny" }).filter({ visible: true });
 const content = (page: Page) => page.locator("main").filter({ visible: true });
 
-/** "Ta kort" or "Ta fler kort": the sheet, the room (an existing one, or a new one by name) and the images chosen in the picker. */
-async function takeCards(page: Page, files: string | string[], { room, part, box = false, opener = /^Ta (fler )?kort$/ }: { room?: string; part?: string; box?: boolean; opener?: RegExp } = {}) {
-  await page.getByRole("button", { name: opener }).filter({ visible: true }).first().click();
+/**
+ * "Ta kort" (the sheet, the room an existing one or a new one by name) and the images chosen in the picker. On a
+ * room's page (Story 18.16) the two buttons are on the page itself: without a room or part "Välj från Bilder" is
+ * clicked there; with them "Mer exakt plats …" opens the sheet.
+ */
+async function takeCards(page: Page, files: string | string[], { room, part, box = false, opener = /^Ta kort$/ }: { room?: string; part?: string; box?: boolean; opener?: RegExp } = {}) {
+  const row = page.getByRole("button", { name: opener }).filter({ visible: true });
   const dialog = page.getByRole("dialog", { name: "Var tar du kortet?" });
+  let scope: Locator = page.locator("main").filter({ visible: true });
+  if (!page.url().includes("/prylar/rum/")) {
+    await row.first().click();
+    scope = dialog;
+  } else if (room || part) {
+    await page.getByRole("button", { name: "Mer exakt plats …" }).click();
+    scope = dialog;
+  }
   if (room) {
     const existing = dialog.getByRole("radio", { name: room, exact: true });
     if (await existing.count()) await existing.click();
@@ -73,12 +86,12 @@ async function takeCards(page: Page, files: string | string[], { room, part, box
     }
   }
   if (part) {
-    await dialog.getByRole("button", { name: /Mer exakt plats/ }).click();
+    await dialog.getByRole("button", { name: /Mer exakt plats \(valfritt\)/ }).click();
     if (box) await dialog.getByRole("radio", { name: "Låda" }).click();
     await dialog.getByLabel(box ? "Namn på lådan" : "Del av rummet").fill(part);
   }
   const chooser = page.waitForEvent("filechooser");
-  await dialog.getByRole("button", { name: "Välj bilder …" }).click();
+  await scope.getByRole("button", { name: /Välj från Bilder/ }).click();
   await (await chooser).setFiles(files);
 }
 
@@ -113,10 +126,10 @@ test("Ta kort asks where, folds out the exact place, and says an empty room", as
   await dialog.getByRole("button", { name: /Mer exakt plats/ }).click();
   await expect(dialog.getByLabel("Del av rummet")).toBeVisible();
   await expect(dialog.getByRole("radio", { name: "Del" })).toBeChecked();
-  // No camera button on a desktop; the picker takes several images.
-  await expect(dialog.getByRole("button", { name: /Öppna kameran/ })).toHaveCount(0);
+  // Two equal buttons; on a desktop "Ta foto" is the picker too, which takes several images.
+  await expect(dialog.getByRole("button", { name: /Ta foto/ })).toBeVisible();
   await expect(page.locator("input[type=file][multiple]")).toHaveCount(1);
-  await dialog.getByRole("button", { name: "Välj bilder …" }).click();
+  await dialog.getByRole("button", { name: /Välj från Bilder/ }).click();
   await expect(dialog.getByText("Ange ett rum, till exempel Skräpförrådet.")).toBeVisible();
 });
 
@@ -232,7 +245,7 @@ test("a new card adds to the room and replaces nothing; Ta om replaces only that
   const retake = page.getByRole("dialog", { name: "Ta om kortet" });
   await expect(retake.getByTestId("retake-detail")).toContainText("Rättelser och tillagda prylar på det gamla kortet ersätts av den nya läsningen.");
   const chooser = page.waitForEvent("filechooser");
-  await retake.getByRole("button", { name: "Välj bilder …" }).click();
+  await retake.getByRole("button", { name: /Välj från Bilder/ }).click();
   await (await chooser).setFiles(photo);
   // The new card is read first: until then both old cards are there.
   await expect.poll(async () => (await cardsOf()).length, { timeout: 15_000 }).toBe(3);
@@ -588,9 +601,9 @@ test.describe("on a phone", () => {
     const dialog = page.getByRole("dialog", { name: "Var tar du kortet?" });
     await expect(dialog.getByRole("radio", { name: "Skräpförrådet" })).toBeChecked();
     await dialog.getByRole("radio", { name: "Garaget" }).click();
-    await expect(dialog.getByRole("button", { name: "Välj bilder …" })).toBeVisible();
+    await expect(dialog.getByRole("button", { name: /Välj från Bilder/ })).toBeVisible();
     const chooser = page.waitForEvent("filechooser");
-    await dialog.getByRole("button", { name: /Öppna kameran/ }).click();
+    await dialog.getByRole("button", { name: /Ta foto/ }).click();
     await (await chooser).setFiles(photo);
     await expect(page.getByTestId("take-another")).toBeVisible({ timeout: 15_000 });
 
@@ -852,4 +865,141 @@ test("Rensa förrådet in Inställningar asks for RENSA, removes all of Förråd
   expect((await admin.from("thing_item").select("name").eq("user_id", userId)).data).toEqual([{ name: "Borr" }]);
   // Both boenden are still there.
   expect((await admin.from("pantry_site").select("id").eq("user_id", userId)).data).toHaveLength(2);
+});
+
+// Story 18.16: two clear buttons, HEIC, rename and remove.
+test("a room's page has Ta foto and Välj från Bilder in place of Ta fler kort, and a HEIC is turned into a JPEG first", async ({ page }) => {
+  await seedPlace(hemma, "Garaget", [{ name: "Såg", category: "Verktyg" }]);
+  await page.goto(roomUrl("Garaget"));
+  await expect(page.getByRole("button", { name: "Ta fler kort" })).toHaveCount(0);
+  const capture = page.getByTestId("room-capture");
+  await expect(capture.getByRole("button", { name: /Ta foto/ })).toBeVisible();
+  await expect(capture.getByRole("button", { name: /Välj från Bilder/ })).toBeVisible();
+  await expect(capture.getByText("Senaste kort 31 okt")).toBeVisible();
+  const before = (await cardsOf()).length;
+  // Chromium cannot decode HEIC: heic2any makes a JPEG, which is downscaled and uploaded as any photo.
+  await takeCards(page, "tests/fixtures/ai/kyl.heic");
+  await expect.poll(async () => (await cardsOf()).length, { timeout: 30_000 }).toBe(before + 1);
+  const saved = (await adminClient().from("thing_photo").select("media_type, object_path").eq("user_id", userId).order("created_at", { ascending: false }).limit(1).single()).data!;
+  expect(saved.media_type).toBe("image/jpeg");
+  expect(saved.object_path.endsWith(".jpg")).toBe(true);
+  // The card is read as usual.
+  await expect.poll(async () => (await cardsOf()).map((card) => card.status).sort().join(), { timeout: 30_000 }).toBe("done,done");
+});
+
+test("a HEIC that cannot be turned into JPEG says so calmly, per image, and the other images go on", async ({ page }) => {
+  await seedPlace(hemma, "Garaget", [{ name: "Såg", category: "Verktyg" }]);
+  await page.goto(roomUrl("Garaget"));
+  const broken = { name: "trasig.heic", mimeType: "image/heic", buffer: Buffer.concat([Buffer.from([0, 0, 0, 24]), Buffer.from("ftypheic"), Buffer.alloc(40, 1)]) };
+  const before = (await cardsOf()).length;
+  const chooser = page.waitForEvent("filechooser");
+  await page.getByTestId("room-capture").getByRole("button", { name: /Välj från Bilder/ }).click();
+  await (await chooser).setFiles([broken, { name: "kyl.png", mimeType: "image/png", buffer: readFileSync(photo) }]);
+  await expect(page.getByText(/trasig\.heic: bilden gick inte att göra om från HEIC/)).toBeVisible({ timeout: 30_000 });
+  await expect.poll(async () => (await cardsOf()).length, { timeout: 30_000 }).toBe(before + 1);
+});
+
+test("Byt namn på rummet renames, and merges into a room that has the name after a question", async ({ page }) => {
+  await seedPlace(hemma, "Garaget", [{ name: "Såg", category: "Verktyg" }], { part: "Hyllan" });
+  await seedPlace(hemma, "Boden", [{ name: "Spade", category: "Trädgård" }], { part: "Hyllan" });
+  await seedPlace(hemma, "Boden", [{ name: "Kratta", category: "Trädgård" }], { part: "Väggen" });
+  await page.goto(roomUrl("Garaget"));
+  await page.getByTestId("room-menu").click();
+  await page.getByRole("menuitem", { name: "Byt namn på rummet" }).click();
+  const sheet = page.getByRole("dialog", { name: "Byt namn på rummet" });
+  await expect(sheet.getByRole("button", { name: "Spara" })).toBeDisabled();
+  await sheet.getByLabel("Rummets namn").fill("Verkstaden");
+  await sheet.getByRole("button", { name: "Spara" }).click();
+  await expect(page).toHaveURL(roomUrl("Verkstaden"));
+  await expect(page.getByRole("heading", { name: "Verkstaden" })).toBeVisible();
+
+  // A name another room has: the question first, then the rooms are one.
+  await page.getByTestId("room-menu").filter({ visible: true }).click();
+  await page.getByRole("menuitem", { name: "Byt namn på rummet" }).click();
+  const again = page.getByRole("dialog", { name: "Byt namn på rummet" });
+  await again.getByLabel("Rummets namn").fill("Boden");
+  await again.getByRole("button", { name: "Spara" }).click();
+  await expect(again.getByTestId("rename-question")).toContainText("Boden finns redan");
+  await shot(page, "7-rename-room-merge-question");
+  expect((await adminClient().from("thing_place").select("id").eq("user_id", userId).eq("room_key", "verkstaden")).data).toHaveLength(1);
+  await again.getByRole("button", { name: "Slå ihop rummen" }).click();
+  await expect(page).toHaveURL(roomUrl("Boden"));
+  const places = (await adminClient().from("thing_place").select("part, room").eq("user_id", userId)).data!;
+  expect(places.map((place) => place.room)).toEqual(["Boden", "Boden"]);
+  expect(places.map((place) => place.part).sort()).toEqual(["Hyllan", "Väggen"]);
+  expect((await cardsOf()).length).toBe(3);
+  await expect(page.getByTestId("room-summary").filter({ visible: true })).toContainText("3");
+});
+
+test("a part or a box can be renamed and removed from its ⋯, and removing asks first and says what goes", async ({ page }) => {
+  await seedPlace(hemma, "Garaget", [{ name: "Såg", category: "Verktyg" }, { name: "Hammare", category: "Verktyg" }], { part: "Hyllan" });
+  const boxId = await seedPlace(hemma, "Garaget", [{ name: "Spade", category: "Trädgård" }], { part: "Blå backen", box: true });
+  await page.goto(roomUrl("Garaget"));
+
+  // The list of boxes: rename.
+  await page.getByTestId("room-box").locator("xpath=ancestor::li").getByTestId("place-menu").click();
+  await page.getByTestId("place-rename").click();
+  const rename = page.getByRole("dialog", { name: "Byt namn på lådan" });
+  await rename.getByLabel("Namn på lådan").fill("Gröna backen");
+  await shot(page, "8-rename-box");
+  await rename.getByRole("button", { name: "Spara" }).click();
+  await expect(page.getByTestId("room-box")).toContainText("Gröna backen");
+  expect((await adminClient().from("thing_place").select("part, part_key").eq("id", boxId).single()).data).toEqual({ part: "Gröna backen", part_key: "box:gröna backen" });
+
+  // The list of parts: remove, with the question first.
+  const part = page.getByTestId("room-part");
+  await part.getByTestId("place-menu").click();
+  await page.getByTestId("place-remove").click();
+  const sheet = page.getByRole("dialog", { name: "Ta bort delen Hyllan" });
+  await expect(sheet.getByTestId("place-remove-counts")).toHaveText("Det här tas bort: 2 prylar, 1 kort.");
+  await shot(page, "9-remove-part");
+  await sheet.getByRole("button", { name: "Avbryt" }).click();
+  expect((await cardsOf()).length).toBe(2);
+  await part.getByTestId("place-menu").click();
+  await page.getByTestId("place-remove").click();
+  await page.getByTestId("place-remove-confirm").click();
+  await expect(page.getByTestId("room-part")).toHaveCount(0);
+  expect((await cardsOf()).length).toBe(1);
+
+  // The view Kort: the box's card label has its ⋯ too; the last place takes the room with it.
+  await page.getByRole("radio", { name: "Kort" }).click();
+  await page.getByTestId("room-card").getByTestId("place-menu").click();
+  await page.getByTestId("place-remove").click();
+  await page.getByTestId("place-remove-confirm").click();
+  await expect(page).toHaveURL(/\/prylar$/);
+  expect((await adminClient().from("thing_place").select("id").eq("user_id", userId)).data).toEqual([]);
+});
+
+test("a card that could not be read, or is stuck reading, has Försök igen and Ta bort, and Ta bort works with Ångra", async ({ page }) => {
+  const place = await seedPlace(hemma, "Garaget", [{ name: "Såg", category: "Verktyg" }]);
+  const admin = adminClient();
+  const failedId = randomUUID();
+  const failed = await admin.from("thing_photo").insert({
+    id: failedId, user_id: userId, place_id: place, object_path: `${userId}/${place}/${failedId}.png`, media_type: "image/png",
+    width: 10, height: 10, taken_at: "2026-10-31T11:00:00Z", status: "failed", error_code: "ai_unavailable",
+  });
+  if (failed.error) throw failed.error;
+  const stuckId = randomUUID();
+  const stuck = await admin.from("thing_photo").insert({
+    id: stuckId, user_id: userId, place_id: place, object_path: `${userId}/${place}/${stuckId}.png`, media_type: "image/png",
+    width: 10, height: 10, taken_at: "2026-10-31T12:00:00Z", status: "reading", created_at: "2026-10-31T12:00:00Z",
+  });
+  if (stuck.error) throw stuck.error;
+  await page.goto(roomUrl("Garaget"));
+  await page.getByRole("radio", { name: "Kort" }).click();
+  // The stuck one (reading for longer than the limit) is shown as failed too: two cards, both with both actions.
+  const failedCards = page.getByTestId("room-card").filter({ hasText: "Kunde inte läsas" });
+  await expect(failedCards).toHaveCount(2);
+  for (const card of await failedCards.all()) {
+    await expect(card.getByRole("button", { name: "Försök igen" })).toBeVisible();
+    await expect(card.getByRole("button", { name: /^Ta bort kortet/ })).toBeVisible();
+  }
+  await shot(page, "10-failed-card-both-actions");
+  await failedCards.first().getByRole("button", { name: /^Ta bort kortet/ }).click();
+  await page.getByRole("dialog", { name: "Ta bort kortet" }).getByRole("button", { name: "Ta bort kortet" }).click();
+  await expect(failedCards).toHaveCount(1);
+  await failedCards.first().getByRole("button", { name: /^Ta bort kortet/ }).click();
+  await page.getByRole("dialog", { name: "Ta bort kortet" }).getByRole("button", { name: "Ta bort kortet" }).click();
+  await expect(failedCards).toHaveCount(0);
+  expect((await admin.from("thing_photo").select("id").in("id", [failedId, stuckId])).data).toEqual([]);
 });

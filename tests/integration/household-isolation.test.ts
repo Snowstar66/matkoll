@@ -374,6 +374,11 @@ describe("household isolation", () => {
       expect((await b.db.rpc("thing_clear_counts", { site: aSeed.siteId, in_room: "vinden" })).data).toEqual([{ things: 0, cards: 0, boxes: 0 }]);
       expect((await b.db.rpc("clear_things", { site: aSeed.siteId, in_room: "vinden" })).error?.code).toBe("MK440");
       expect((await b.db.rpc("clear_things", { site: aSeed.siteId })).error?.code).toBe("MK440");
+      // Story 18.16: B cannot rename, merge, count or remove A's rooms and places either.
+      expect((await b.db.rpc("rename_thing_room", { site: aSeed.siteId, in_room: "vinden", new_name: "Hackat", new_key: "hackat" })).error?.code).toBe("MK440");
+      expect((await b.db.rpc("remove_thing_place", { place: place.data!.id })).error?.code).toBe("MK440");
+      expect((await b.db.rpc("thing_place_counts", { site: aSeed.siteId, in_room: "vinden" })).data).toEqual([]);
+      expect((await b.db.rpc("thing_room_merge_moves", { site: aSeed.siteId, in_room: "vinden", new_key: "x" })).data).toEqual([]);
       // A thing typed onto A's card cannot be inserted by B either.
       expect((await b.db.from("thing_item").insert({ user_id: a.id, photo_id: photoId, place_id: place.data!.id, name: "Spökpryl", category: "Övrigt", confidence: "high", source: "added" })).error?.code).toBe("42501");
 
@@ -382,6 +387,10 @@ describe("household isolation", () => {
         ["add_card_things", { photo: photoId, things: [] }],
         ["thing_clear_counts", { site: aSeed.siteId }],
         ["clear_things", { site: aSeed.siteId }],
+        ["rename_thing_room", { site: aSeed.siteId, in_room: "vinden", new_name: "X", new_key: "x" }],
+        ["remove_thing_place", { place: place.data!.id }],
+        ["thing_place_counts", { site: aSeed.siteId, in_room: "vinden" }],
+        ["thing_room_merge_moves", { site: aSeed.siteId, in_room: "vinden", new_key: "x" }],
       ] as const) {
         expect((await anon.rpc(name, args as never)).error?.code, `anon calls ${name}`).toBe("42501");
       }
