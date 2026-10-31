@@ -407,7 +407,7 @@ test("a thing the AI got wrong is renamed or removed alone, with Ångra, and the
   expect(cardAfter).toEqual(cardBefore);
 });
 
-test("search finds a thing in every room and boende, and a question is answered with rooms to tap", async ({ page }) => {
+test("search finds a thing in every room and boende, and the chat answers a question with a card to tap", async ({ page }) => {
   const stugan = await adminClient()
     .from("pantry_site")
     .insert({ user_id: userId, name: "Stugan", normalized_name: "stugan", is_selected: false })
@@ -423,28 +423,47 @@ test("search finds a thing in every room and boende, and a question is answered 
   // The rooms of the selected boende, counted.
   await expect(rooms(page)).toHaveText([/Skräpförrådet\s*2 prylar · 1 kort · 31 okt/]);
   await expect(page.getByTestId("rooms-total")).toHaveText("1 rum · 2 prylar");
-  // Search runs in the browser: the hit says place, boende and the card's day, from every boende.
+  // The database searches: the hit says place, boende and the card's day, from every boende, and a typo is fine.
   const search = page.getByRole("searchbox", { name: "Sök bland prylar" });
   await search.fill("hamm");
   await expect(page.getByTestId("thing-hit")).toHaveText([/Hammare\s*Skräpförrådet, väggen · Hemma · 31 okt/]);
   await expect(rooms(page)).toBeHidden();
   await search.fill("kratta");
   await expect(page.getByTestId("thing-hit")).toHaveText([/Kratta\s*Redskapsboden · Stugan · 2 sep/]);
+  await search.fill("kratha");
+  await expect(page.getByTestId("thing-hit")).toHaveText([/Kratta\s*Redskapsboden · Stugan · 2 sep/]);
   await search.fill("inget");
   await expect(page.getByText('Inga prylar matchar "inget".')).toBeVisible();
   await page.getByRole("button", { name: "Rensa sökning" }).click();
   await expect(rooms(page)).toBeVisible();
 
-  // The question goes to the AI (the mock here) with the lists; the answer names places that can be tapped.
-  await page.getByRole("textbox", { name: "Fråga om ditt förråd" }).fill("Har vi något att måla med?");
-  await page.getByRole("button", { name: "Fråga", exact: true }).click();
-  const answer = page.getByTestId("ask-answer");
-  await expect(answer).toContainText("Målarfärgsburkar finns i Redskapsboden (Stugan).");
-  // Story 17.6: the question was recorded as a call (the mock: model and no tokens, no cost).
+  // The chat sits under "Ta kort": the question goes to the AI for search terms (the mock here), the database finds the things, and the AI answers from those only.
+  const chat = page.getByTestId("chat");
+  await chat.getByRole("textbox", { name: "Fråga om ditt förråd" }).fill("Har vi något att måla med?");
+  await chat.getByRole("button", { name: "Skicka" }).click();
+  await expect(page.getByTestId("chat-question")).toHaveText("Har vi något att måla med?");
+  await expect(page.getByTestId("chat-answer")).toContainText("Målarfärgsburkar finns i Redskapsboden (Stugan).");
+  const ref = page.getByTestId("chat-ref");
+  await expect(ref).toContainText("Redskapsboden");
+  await expect(ref).toContainText("Kort från 2 sep");
+  await expect(ref.locator("img")).toHaveAttribute("src", /\/api\/things\/photo\/[0-9a-f-]{36}$/);
+  // Story 17.6: both calls (the terms and the answer) were recorded (the mock: model and no tokens, no cost).
   const usage = await adminClient().from("ai_usage").select("model, input_tokens, output_tokens").eq("user_id", userId);
-  expect(usage.data).toEqual([{ model: "mock", input_tokens: 0, output_tokens: 0 }]);
-  // The answer's place address (an old one) opens the room, also in another boende.
-  await answer.getByTestId("ask-ref").click();
+  expect(usage.data).toEqual([
+    { model: "mock", input_tokens: 0, output_tokens: 0 },
+    { model: "mock", input_tokens: 0, output_tokens: 0 },
+  ]);
+  // A follow-up in the same conversation, and nothing found: the closed containers are named.
+  await chat.getByRole("textbox", { name: "Fråga om ditt förråd" }).fill("och cykelpumpen då?");
+  await chat.getByRole("button", { name: "Skicka" }).click();
+  await expect(page.getByTestId("chat-answer").nth(1)).toContainText("Jag hittar inget som passar i dina listor. Innehållet i 2 lådor syns inte");
+  // "Ny fråga" clears the conversation.
+  await chat.getByRole("button", { name: "Ny fråga" }).click();
+  await expect(page.getByTestId("chat-turn")).toHaveCount(0);
+  await chat.getByRole("textbox", { name: "Fråga om ditt förråd" }).fill("Har vi något att måla med?");
+  await chat.getByRole("button", { name: "Skicka" }).click();
+  // The card opens the room (the old place address redirects), also in another boende.
+  await page.getByTestId("chat-ref").click();
   await expect(page).toHaveURL(new RegExp(`/prylar/rum/${stugan.data.id}/redskapsboden$`));
   await expect(page.getByRole("heading", { level: 1 })).toHaveText("Redskapsboden");
 });
@@ -577,4 +596,99 @@ test.describe("on a phone", () => {
     await page.getByRole("button", { name: "Ta kort" }).click();
     await expect(page.getByRole("dialog", { name: "Var tar du kortet?" }).getByRole("radio", { name: "Garaget" })).toBeChecked();
   });
+});
+
+test("what is in a box is written, sorted by one AI call, shown with the photographed things, found in search and the chat, and edited", async ({ page }) => {
+  await seedPlace(hemma, "Skräpförrådet", [{ name: "Hammare", category: "Verktyg" }]);
+  const box = await adminClient()
+    .from("thing_place")
+    .insert({ user_id: userId, site_id: hemma, room: "Skräpförrådet", part: "Black box", room_key: "skräpförrådet", part_key: "box:black box" })
+    .select("id")
+    .single();
+  if (box.error) throw box.error;
+
+  // The room lists its boxes; the box's page has the field and the way to photograph the inside instead.
+  await page.goto(roomUrl("Skräpförrådet"));
+  await expect(page.getByTestId("room-box")).toContainText("Black box");
+  await expect(page.getByTestId("room-box")).toContainText("Inget än");
+  await page.getByTestId("room-box").click();
+  await expect(page).toHaveURL(`/prylar/lada/${box.data.id}`);
+  await expect(page.getByRole("heading", { level: 1 })).toHaveText("Black box");
+  await expect(page.getByText("Låda i Skräpförrådet")).toBeVisible();
+  await expect(page.getByRole("link", { name: /Fota insidan i stället/ })).toHaveAttribute("href", new RegExp(`\\?fota=${box.data.id}$`));
+
+  const field = page.getByLabel("Vad finns i lådan?");
+  await field.fill("julgransbelysning\nadventsljusstake, 2 st\nskarvsladdar, glitter");
+  await page.getByRole("button", { name: "Spara" }).click();
+  await expect(page.getByTestId("box-saved")).toHaveText("Sparat: 4 prylar");
+  await expect(field).toHaveValue("Julgransbelysning\nAdventsljusstake, 2 st\nSkarvsladdar\nGlitter");
+  // One thing per row without a card, a category each (the mock sorts by a few words), the call recorded.
+  const rows = (await adminClient().from("thing_item").select("name, category, source, photo_id, place_id").eq("place_id", box.data.id).order("position")).data;
+  expect(rows).toEqual([
+    { name: "Julgransbelysning", category: "Elektronik", source: "manual", photo_id: null, place_id: box.data.id },
+    { name: "Adventsljusstake, 2 st", category: "Hushåll", source: "manual", photo_id: null, place_id: box.data.id },
+    { name: "Skarvsladdar", category: "Elektronik", source: "manual", photo_id: null, place_id: box.data.id },
+    { name: "Glitter", category: "Övrigt", source: "manual", photo_id: null, place_id: box.data.id },
+  ]);
+  expect((await adminClient().from("ai_usage").select("model").eq("user_id", userId)).data).toEqual([{ model: "mock" }]);
+
+  // Written and photographed things show together: counts, lists ("i Black box") and the Kort view.
+  await page.goto(roomUrl("Skräpförrådet"));
+  await expect(page.getByTestId("room-summary")).toContainText("5prylar");
+  await expect(page.getByTestId("room-box")).toContainText("skrivet 4 prylar");
+  await page.getByRole("button", { name: "Elektronik · 2" }).click();
+  await expect(page.getByTestId("thing").filter({ hasText: "Skarvsladdar" })).toContainText("i Black box");
+  await page.getByRole("radio", { name: "Kort" }).click();
+  const written = page.getByTestId("room-card-written");
+  await expect(written).toContainText("Låda: Black box");
+  await expect(written).toContainText(/skrivet \d+ \w+ · 4 prylar/);
+  await written.getByTestId("edit-written").click();
+  await expect(page).toHaveURL(`/prylar/lada/${box.data.id}`);
+
+  // Search and the chat find a written thing: the box, without a thumbnail.
+  await page.goto("/prylar");
+  await expect(rooms(page)).toHaveText([/Skräpförrådet\s*5 prylar · 1 kort/]);
+  await page.getByRole("searchbox", { name: "Sök bland prylar" }).fill("skarvsladd");
+  await expect(page.getByTestId("thing-hit")).toHaveText([/Skarvsladdar\s*Skräpförrådet, i Black box · Hemma · skrivet/]);
+  await page.getByRole("button", { name: "Rensa sökning" }).click();
+  const chat = page.getByTestId("chat");
+  await chat.getByRole("textbox", { name: "Fråga om ditt förråd" }).fill("Var ligger skarvsladdar?");
+  await chat.getByRole("button", { name: "Skicka" }).click();
+  await expect(page.getByTestId("chat-answer")).toContainText("Skarvsladdar finns i Skräpförrådet, i Black box (Hemma).");
+  const ref = page.getByTestId("chat-ref");
+  await expect(ref).toContainText("Skräpförrådet · Black box");
+  await expect(ref).toContainText(/Låda · Skrivet \d+ \w+/);
+  await expect(ref.locator("img")).toHaveCount(0);
+  await ref.click();
+  await expect(page).toHaveURL(`/prylar/lada/${box.data.id}`);
+
+  // Editing the text replaces the written things; the photographed ones stay.
+  await page.getByLabel("Vad finns i lådan?").fill("tomtenissar");
+  await page.getByRole("button", { name: "Spara" }).click();
+  await expect(page.getByTestId("box-saved")).toHaveText("Sparat: 1 pryl");
+  expect((await adminClient().from("thing_item").select("name").eq("place_id", box.data.id).eq("source", "manual")).data).toEqual([{ name: "Tomtenissar" }]);
+  expect((await adminClient().from("thing_item").select("name").eq("user_id", userId).eq("source", "photo")).data).toEqual([{ name: "Hammare" }]);
+});
+
+test("when the AI does not sort a box's text the things are saved under Övrigt and it says so; a text that is too long is refused", async ({ page }) => {
+  const box = await adminClient()
+    .from("thing_place")
+    .insert({ user_id: userId, site_id: hemma, room: "Garaget", part: "Backen", room_key: "garaget", part_key: "box:backen" })
+    .select("id")
+    .single();
+  if (box.error) throw box.error;
+  await page.goto(`/prylar/lada/${box.data.id}`);
+  await page.getByLabel("Vad finns i lådan?").fill("Hammare\nHej matkoll-mock: ai_unavailable");
+  await page.getByRole("button", { name: "Spara" }).click();
+  await expect(page.getByTestId("box-saved")).toContainText("Sparat, men utan kategorier");
+  expect((await adminClient().from("thing_item").select("name, category").eq("place_id", box.data.id).order("position")).data).toEqual([
+    { name: "Hammare", category: "Övrigt" },
+    { name: "Hej matkoll-mock: ai_unavailable", category: "Övrigt" },
+  ]);
+  await page.getByLabel("Vad finns i lådan?").fill("x".repeat(81));
+  await page.getByRole("button", { name: "Spara" }).click();
+  await expect(page.getByText("En pryl får vara högst 80 tecken. Dela upp raden.")).toBeVisible();
+  // A page that is not a box, or is gone, is "Sidan finns inte."
+  await page.goto(`/prylar/lada/${randomUUID()}`);
+  await expect(page.getByText("Sidan finns inte.")).toBeVisible();
 });

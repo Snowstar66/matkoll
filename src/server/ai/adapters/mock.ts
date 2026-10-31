@@ -517,6 +517,11 @@ function createMockService(dir: string, { delayMs = 0 }: MockOptions): AiService
     },
     async categorizeThings(input, signal) {
       if (!(await wait(clampedDelay(Math.min(delayMs, 1_000)), signal))) return fail("ai_unavailable");
+      const errors = logged(askErrors());
+      if (!errors) return fail("ai_unavailable");
+      // A name that holds a reserved text fails with its code, so "AI svarar inte" can be tried.
+      const names = normalizeInputText({ text: input.names.join(" ") });
+      for (const [text, code] of errors) if (names.includes(text)) return fail(code);
       return ok(mockCategories(input));
     },
     // Story 12.2: the mock is never cold, so there is nothing to wake.

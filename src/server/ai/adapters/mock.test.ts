@@ -755,6 +755,10 @@ describe("mock thingSearchTerms and categorizeThings (Stories 18.13 and 18.14)",
     });
   });
 
+  it.each(mockSuggestErrorCodes)("gives %s for a name with its reserved text", async (code) => {
+    expect(await service.categorizeThings({ names: ["Hammare", `Hej matkoll-mock: ${code}`] }, signal())).toMatchObject({ ok: false, error: { code } });
+  });
+
   it("counts both calls as calls of the mock", async () => {
     const seen: AiUsage[] = [];
     await withUsageSink((usage) => void seen.push(usage), async () => {

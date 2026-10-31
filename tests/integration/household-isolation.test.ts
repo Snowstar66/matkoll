@@ -303,4 +303,47 @@ describe("household isolation", () => {
       expect(bFolder.data ?? [], "B's folder is empty").toEqual([]);
     });
   });
+
+  // Story 18.13: a thing written into a box has no card (photo_id null, source manual); it is a thing_item
+  // row like any other and RLS (user_id) covers it, and so do the functions that save and search it.
+  describe("a thing written into a box (no card)", () => {
+    it("keeps A's written thing from B and from anon, in the table and in the functions", async () => {
+      const box = await a.db.from("thing_place").insert({ site_id: aSeed.siteId, room: "Garaget", part: "Black box", room_key: "garaget", part_key: "box:black box" }).select("id").single();
+      expect(box.error, "A makes a box").toBeNull();
+      const saved = await a.db.rpc("replace_box_things", { box: box.data!.id, things: [{ name: "Julgransbelysning", category: "Elektronik" }] });
+      expect(saved.error, "A writes into it").toBeNull();
+      expect(saved.data).toBe(1);
+      const written = await adminClient().from("thing_item").select("*").eq("place_id", box.data!.id);
+      expect(written.data).toHaveLength(1);
+      const id = written.data![0].id;
+      expect(written.data![0]).toMatchObject({ user_id: a.id, photo_id: null, source: "manual" });
+      const before = JSON.stringify(written.data);
+
+      // B reads, lists, changes and deletes nothing, writes nothing into A's box, and finds nothing.
+      expect((await b.db.from("thing_item").select("id").eq("id", id)).data).toEqual([]);
+      expect((await b.db.from("thing_item").update({ name: "Tagen" }).eq("id", id).select("id")).data).toEqual([]);
+      expect((await b.db.from("thing_item").delete().eq("id", id).select("id")).data).toEqual([]);
+      expect((await b.db.from("thing_item").insert({ place_id: box.data!.id, name: "Spökpryl", category: "Övrigt", confidence: "high", source: "manual", photo_id: null, user_id: a.id }).select("id")).error?.code).toBe("42501");
+      expect((await b.db.rpc("replace_box_things", { box: box.data!.id, things: [] })).error?.code).toBe("MK440");
+      expect((await b.db.rpc("search_things", { terms: ["julgransbelysning"] })).data).toEqual([]);
+      expect((await b.db.rpc("thing_room_written", { site: aSeed.siteId, in_room: "garaget" })).data).toEqual([]);
+      expect((await b.db.rpc("thing_unseen_by_room")).data?.some((row) => row.site_id === aSeed.siteId) ?? false).toBe(false);
+      // A finds it.
+      expect((await a.db.rpc("search_things", { terms: ["julgransbelysning"] })).data?.map((row) => row.name)).toEqual(["Julgransbelysning"]);
+
+      // Anonymous: refused outright.
+      const anon = anonClient();
+      expect((await anon.from("thing_item").select("id").eq("id", id)).error?.code).toBe("42501");
+      for (const [name, args] of [
+        ["replace_box_things", { box: box.data!.id, things: [] }],
+        ["search_things", { terms: ["julgransbelysning"] }],
+        ["thing_room_written", { site: aSeed.siteId, in_room: "garaget" }],
+        ["thing_unseen_by_room", {}],
+      ] as const) {
+        expect((await anon.rpc(name, args as never)).error?.code, `anon calls ${name}`).toBe("42501");
+      }
+
+      expect(JSON.stringify((await adminClient().from("thing_item").select("*").eq("place_id", box.data!.id)).data), "A's written thing unchanged").toBe(before);
+    });
+  });
 });

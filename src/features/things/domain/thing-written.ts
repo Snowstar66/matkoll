@@ -1,6 +1,6 @@
 import { z } from "zod";
 import { charLength, oneLine } from "@/lib/one-line";
-import { thingCategories, type ThingCategory } from "./thing";
+import type { ThingCategory } from "./thing";
 import { thingsText } from "./thing-room";
 import { shortDateText } from "./thing-photo";
 
@@ -67,10 +67,6 @@ export const writtenInputSchema = z.object({ placeId: z.uuid(), text: z.string()
 
 /** A thing with its category, as saved. */
 export type WrittenThing = { name: string; category: ThingCategory };
-
-export function isThingCategory(value: string): value is ThingCategory {
-  return (thingCategories as readonly string[]).includes(value);
-}
 
 /** A box with written things, as the room's Kort view lists it. */
 export type WrittenBox = { placeId: string; part: string; things: number; writtenAt: Date };
