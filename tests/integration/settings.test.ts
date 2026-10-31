@@ -2,6 +2,7 @@ import { afterAll, beforeAll, describe, expect, it } from "vitest";
 import { loadActiveRecipeDomains, loadSelectedStore, loadStores } from "@/features/settings/data/queries";
 import { insertUserDefaults } from "@/features/settings/data/defaults";
 import { SettingsDataError } from "@/features/settings/data/client";
+import { clearAiSettingIn, loadAiSettingIn, saveAiSettingIn } from "@/features/settings/data/ai-setting";
 import { addRecipeSiteIn, setRecipeSiteActiveIn } from "@/features/settings/data/sites";
 import { saveStoreIn, selectStoreIn } from "@/features/settings/data/stores";
 import { storeFormSchema, type StoreForm } from "@/features/settings";
@@ -602,5 +603,31 @@ describe("store: save_store and select_store", () => {
     const [maxi] = await storesOf(user.id);
     expect((await user.db.from("store").delete().eq("id", maxi.id)).error?.code).toBe("42501");
     expect(await storesOf(user.id)).toHaveLength(1);
+  });
+});
+
+describe("ai_setting (Story 17.5)", () => {
+  it("isolates ai_setting", async () => {
+    await expectRlsIsolation("ai_setting", async () => ({ provider: "anthropic", model: "claude-sonnet-5-5", effort: "high" }));
+  });
+
+  it("keeps one row per user: saves, replaces, reads and clears the choice", async () => {
+    const user = await createTestUser("ai-setting");
+    expect(await loadAiSettingIn(user.db, user.id)).toBeNull();
+    await saveAiSettingIn(user.db, user.id, { provider: "anthropic", model: "claude-opus-5-5", effort: "high" });
+    await saveAiSettingIn(user.db, user.id, { provider: "anthropic", model: "claude-haiku-5-5", effort: "low" });
+    expect(await loadAiSettingIn(user.db, user.id)).toEqual({ provider: "anthropic", model: "claude-haiku-5-5", effort: "low" });
+    const { data } = await adminClient().from("ai_setting").select("id").eq("user_id", user.id);
+    expect(data).toHaveLength(1);
+    await clearAiSettingIn(user.db, user.id);
+    expect(await loadAiSettingIn(user.db, user.id)).toBeNull();
+  });
+
+  it("refuses a provider, a level or a model length the table does not allow", async () => {
+    const user = await createTestUser("ai-setting-bad");
+    const insert = (row: Record<string, string>) => user.db.from("ai_setting").insert({ provider: "anthropic", model: "m", effort: "low", ...row });
+    expect((await insert({ provider: "openai" })).error?.code).toBe("23514");
+    expect((await insert({ effort: "max" })).error?.code).toBe("23514");
+    expect((await insert({ model: "" })).error?.code).toBe("23514");
   });
 });

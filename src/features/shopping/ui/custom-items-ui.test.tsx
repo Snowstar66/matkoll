@@ -298,7 +298,6 @@ describe("removing an own item", () => {
 describe("own items after review", () => {
   it("shows the summary without dishes, and the checks notice, for a plan with only own items", () => {
     render(<ShoppingList plan={{ ...plan, dishCount: 0 }} lines={[disk, coffee]} pantryUnavailable={false} checksUnavailable />);
-    expect(screen.getByTestId("list-summary")).toHaveTextContent(/^Vecka 44$/);
     expect(screen.getByTestId("list-progress")).toHaveTextContent("2 varor kvar 0 av 2 i korgen");
     expect(screen.getByText("Det gick inte att läsa bockarna, så det går inte att bocka av just nu.")).toHaveAttribute(
       "role",

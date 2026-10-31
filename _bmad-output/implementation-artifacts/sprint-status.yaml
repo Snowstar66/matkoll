@@ -169,6 +169,7 @@ development_status:
   14-2-skicka-listan-till-butiken-tydligare: done
   14-3-snyggare-delad-lista: done
   14-4-som-i-skissen: done
+  14-5-lugnt-veckoval: done
   epic-15: done
   15-1-automatisk-inloggning-lokalt: done
   15-2-inloggad-länge-på-varje-enhet: done
@@ -192,7 +193,7 @@ development_status:
   17-2-enkel-inloggning-med-lösenord: done
   17-3-molnmiljön: backlog
   17-4-flytta-din-data-till-molnet: backlog
-  17-5-ai-som-går-att-byta: backlog
+  17-5-ai-som-går-att-byta: done
   17-6-ai-kostnaden-syns: backlog
   17-7-live-inköpslista: backlog
   17-8-handla-med-dålig-täckning: backlog

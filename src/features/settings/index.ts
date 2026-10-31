@@ -1,3 +1,18 @@
+export {
+  aiLevelLabels,
+  aiLevels,
+  aiProviderLabels,
+  aiSettingsVisible,
+  claudeKeyMissingText,
+  claudeModels,
+  costSummaryText,
+  levelOffForQwenText,
+  qwenUnavailableText,
+  type AiLevel,
+  type AiSetting,
+  type AiSettingInput,
+  type AiSettingsView,
+} from "./domain/ai-choice";
 // Client-safe entry: types and domain (AD-1).
 export {
   compareDomains,

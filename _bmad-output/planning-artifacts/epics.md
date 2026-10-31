@@ -2989,6 +2989,40 @@ Skiss: `_bmad-output/planning-artifacts/ux-designs/ux-Matkoll-2026-10-25/mockups
 **När** raden visas på 390 px
 **Så** bryts titeln aldrig mitt i ett ord: "Lagad?" ligger som en liten chip under metaraden och titeln får hela radbredden bredvid ⋯
 
+### Story 14.5: Lugnt veckoval
+
+Som Pontus,
+vill jag att veckovalet i Matsedel och Inköpslista är en lugn segmenterad kontroll i stället för tre stora brickor,
+så att det passar in i gränssnittet och inte tar så mycket plats.
+
+Skiss: `_bmad-output/planning-artifacts/ux-designs/ux-Matkoll-2026-10-25/mockups/veckoval.html`, variant **A1** (vald av Pontus 2026-10-31), plus en ikonruta 📅 i raden under skenan (Pontus: "kanske någon ikon"). Ersätter brickorna från Story 13.7/13.9 och 3.10; funktionen är densamma.
+
+**Acceptance Criteria:**
+
+**Givet** Matsedel och Inköpslista
+**När** jag ser toppen
+**Så** finns i stället för de tre brickorna en grå skena (hairline-bakgrund, 14 px rundning, 3 px inre marginal) med tre lika breda segment; vald vecka är ett vitt, lätt upphöjt segment (surface med liten skugga), de andra ligger platt på skenan; inget segment är helgrönt
+
+**Givet** ett segment
+**När** det visas
+**Så** står etiketten på första raden ("Denna vecka", "Nästa", "Om 2 v") i 16 px halvfet och antalet på andra raden i 13 px ("3 rätter", "1 rätt", "Tom"), där vald veckas antal är i accentfärg; ingen 🍽-ikon; hela segmentet har minst 44 px träffyta och ett tillgängligt namn som "Vecka 44, denna vecka, 3 rätter"
+
+**Givet** raden under skenan
+**När** den visas
+**Så** står en liten ikonruta 📅 (24 px, mint bakgrund, samma stil som 🛒-rutan på inköpsraden och kategoriernas rutor) följd av "v. 44 · 27 okt – 2 nov" (vald vecka och dess datum) till vänster i metastorlek och "Tidigare ›" som accentlänk till höger (Matsedel; i Inköpslistan bara om den finns där idag); "Lager: Hemma · Byt" visas bara när det finns fler än ett lager, i samma lugna metastil
+
+**Givet** en vecka längre fram i adressen (`?vecka=2026-W47`)
+**När** sidan visas
+**Så** får skenan ett fjärde, valt segment, som idag
+
+**Givet** mörkt läge, 375 px bredd och 200 % text
+**När** jag ser kontrollen
+**Så** finns ingen sidledes rullning, texten får radbrytas inom segmentet men aldrig mitt i ett ord, och kontrasten håller
+
+**Givet** byggd story
+**När** den lämnas för granskning
+**Så** finns skärmbilder av Matsedel och Inköpslista i 390 och 1280 px, ljust och mörkt, jämförda med skissen
+
 ## Epic 15: Enklare lokalt
 
 Pontus vill slippa logga in när Matkoll körs på den egna Macen. Inloggningen finns kvar för den publicerade appen.
@@ -3365,21 +3399,39 @@ Väntar på 17.3.
 **När** det körs igen
 **Så** blir det inga dubbletter
 
-### Story 17.5: AI som går att byta
+### Story 17.5: Välj AI i Inställningar
 
 Som Pontus,
-vill jag kunna välja leverantör och modell per uppgift,
-så att jag kan använda min lokala modell nu och ett moln-API senare utan kodändring.
+vill jag kunna välja leverantör, modell och nivå för AI:n direkt i Inställningar medan jag testar,
+så att jag kan jämföra min lokala Qwen med Claude utan att ändra filer eller starta om.
+
+Ändrad 2026-10-31 (Pontus): valet görs i appen, inte bara i miljövariabler. Ett gemensamt val för alla uppgifter (import, foto, förslag); val per uppgift kan komma senare.
 
 **Acceptance Criteria:**
 
-**Givet** miljövariabler per uppgift (import, foto, förslag)
-**När** en uppgift körs
-**Så** används den angivna leverantören (Anthropic, OpenAI eller LM Studio) och modellen, med dagens `AI_PROVIDER`/`AI_MODEL` som standard när inget är angivet
+**Givet** Inställningar
+**När** jag öppnar avsnittet "AI"
+**Så** kan jag välja leverantör (Qwen lokalt via LM Studio, Claude, och OpenAI om den redan stöds i koden), modell för vald leverantör (Claude: Haiku 5.5 `claude-haiku-5-5`, Sonnet 5.5 `claude-sonnet-5-5`, Opus 5.5 `claude-opus-5-5`; Qwen: modellen från `AI_MODEL`/LM Studio) och nivå (Låg, Medel, Hög), och varje Claude-modell visar en ungefärlig kostnad per anrop ("ca 0,02 kr per import")
 
-**Givet** en leverantör utan nyckel
-**När** appen startar
-**Så** syns ett tydligt fel i loggen och uppgiften faller tillbaka på standardleverantören
+**Givet** ett sparat val
+**När** nästa AI-jobb startar (import, foto, förslag)
+**Så** används vald leverantör, modell och nivå utan omstart; nivån skickas till Claude som `output_config.effort` (low/medium/high) och påverkar Qwen bara om det redan finns ett motsvarande reglage, annars visas nivån som avstängd för Qwen
+
+**Givet** att `ANTHROPIC_API_KEY` saknas
+**När** jag ser avsnittet
+**Så** är Claude-valen avstängda med texten "Lägg in ANTHROPIC_API_KEY i .env.local och starta om", och appen startar som förut med Qwen; nyckeln läses bara på servern
+
+**Givet** inget sparat val
+**När** ett AI-jobb körs
+**Så** används Claude Haiku 5.5 (`claude-haiku-5-5`) på nivå Medel om `ANTHROPIC_API_KEY` finns, och Inställningar visar Haiku 5.5 / Medel som valt; saknas nyckeln används dagens `AI_PROVIDER`/`AI_MODEL` från miljön (Qwen). Testläget `AI_PROVIDER=mock` påverkas aldrig (ändrat 2026-10-31, Pontus)
+
+**Givet** molnet med flera hushåll
+**När** någon annan än en adress i `AI_SETTINGS_EMAILS` öppnar Inställningar
+**Så** syns inget AI-avsnitt och deras jobb använder standardvalet; lokalt (utvecklingsläge) syns avsnittet alltid
+
+**Givet** valet sparas
+**När** det lagras
+**Så** ligger det i en ny tabell med `user_id` och radskydd (bakåtkompatibel migrering), täckt av isoleringstestet från Story 17.1
 
 ### Story 17.6: AI-kostnaden syns
 

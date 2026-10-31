@@ -13,12 +13,16 @@ describe("WeekNav", () => {
       "Vecka 45, nästa vecka, 1 rätt",
       "Vecka 46, om 2 veckor, inga rätter",
     ]);
-    expect(within(tiles[0]).getByTestId("week-count")).toHaveTextContent("5");
-    expect(within(tiles[2]).getByTestId("week-count")).toHaveTextContent("–");
+    expect(within(tiles[0]).getByTestId("week-count")).toHaveTextContent("5 rätter");
+    expect(within(tiles[1]).getByTestId("week-count")).toHaveTextContent("1 rätt");
+    expect(within(tiles[2]).getByTestId("week-count")).toHaveTextContent("Tom");
+    expect(within(tiles[0]).getByText("Denna vecka")).toBeInTheDocument();
+    expect(screen.getByTestId("week-range")).toHaveTextContent("v. 44 · 26 okt – 1 nov");
     expect(tiles[0]).toHaveAttribute("aria-current", "page");
     expect(tiles[1]).not.toHaveAttribute("aria-current");
     expect(tiles[0]).toHaveAttribute("href", "/matsedel");
     expect(tiles[1]).toHaveAttribute("href", "/matsedel?vecka=2026-W45");
+    expect(screen.getByRole("link", { name: "Tidigare veckor" })).toHaveTextContent("Tidigare");
     expect(screen.getByRole("link", { name: "Tidigare veckor" })).toHaveAttribute("href", "/matsedel/tidigare");
   });
 

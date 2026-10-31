@@ -36,6 +36,8 @@ export default defineConfig({
       AI_PROVIDER: "mock",
       AI_MOCK_DELAY_MS: "3000",
       ALLOWED_EMAILS: e2eEmails.join(","),
+      // Story 17.5: the AI section shows outside development only for these addresses.
+      AI_SETTINGS_EMAILS: e2eEmails.join(","),
       SITE_URL: `http://localhost:${port}`,
     },
   },

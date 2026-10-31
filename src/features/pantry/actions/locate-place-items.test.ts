@@ -9,7 +9,8 @@ import { withInputValidation, type LocateItemsInput, type RunOptions } from "@/s
 
 const ai = withInputValidation(createMockAiService());
 const locateItems = vi.fn<(input: LocateItemsInput, signal: AbortSignal, options?: RunOptions) => ReturnType<typeof ai.locateItems>>();
-vi.mock("@/server/ai", () => ({ getAiService: () => ({ locateItems }) }));
+vi.mock("@/server/ai", () => ({ getAiServiceFor: () => ({ locateItems }) }));
+vi.mock("@/features/settings/server", () => ({ getAiChoice: async () => null }));
 
 const { locatePlaceItems } = await import("./locate-place-items");
 
