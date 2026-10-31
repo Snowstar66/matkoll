@@ -4,7 +4,7 @@ import { searchKey, type IndexedPlace } from "./thing-search";
 import { placeTitle } from "./thing-place";
 import { shortDateText } from "./thing-photo";
 
-// "Fråga om dina prylar" (Story 18.4): the question and the compact lists
+// "Fråga om ditt förråd" (Story 18.4): the question and the compact lists
 // that go to the AI, text only. Pure.
 
 /** The longest question, in characters. */
@@ -17,7 +17,7 @@ export const questionSchema = z
   .refine((text) => charLength(text) <= maxQuestionChars, "too long");
 
 /** What the box says and does, in Swedish. */
-export const askLabel = "Fråga om dina prylar";
+export const askLabel = "Fråga om ditt förråd";
 export const askPlaceholder = "Har vi något att måla med?";
 export const askButtonText = "Fråga";
 export const askingText = "Tänker …";

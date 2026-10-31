@@ -43,7 +43,7 @@ beforeEach(() => {
 });
 
 describe("removePlacePhoto", () => {
-  it("deletes the row, then the file with the Storage API, and revalidates Förråd", async () => {
+  it("deletes the row, then the file with the Storage API, and revalidates Matvaror", async () => {
     expect(await removePlacePhoto({ id })).toEqual(ok({ removed: true }));
     expect(order).toEqual(["row", "file"]);
     expect(deletePlacePhotoRowIn).toHaveBeenCalledWith(db, id);

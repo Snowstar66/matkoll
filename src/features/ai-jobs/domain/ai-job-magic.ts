@@ -11,7 +11,7 @@ export const statusCycleMs = 2500;
 export const typicalSeconds: Record<AiJobKind, number> = { suggest: 35, analyze: 30, import: 20, things: 20 };
 
 const statusTexts: Record<AiJobKind, readonly string[]> = {
-  suggest: ["Läser ditt förråd…", "Matchar veckans erbjudanden…", "Komponerar rätter…", "Skriver recepten…"],
+  suggest: ["Läser dina matvaror…", "Matchar veckans erbjudanden…", "Komponerar rätter…", "Skriver recepten…"],
   analyze: ["Tittar på fotot…", "Känner igen varorna…", "Räknar antal…"],
   import: ["Hämtar receptet…", "Läser ingredienserna…", "Strukturerar stegen…"],
   things: ["Tittar på fotot…", "Letar efter prylar…", "Sorterar i kategorier…"],

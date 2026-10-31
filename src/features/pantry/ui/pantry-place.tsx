@@ -28,7 +28,7 @@ export type PantryPlaceProps = {
 };
 
 /**
- * Förråd's location cards, the camera button with the line "Senaste
+ * Matvaror's location cards, the camera button with the line "Senaste
  * foto" under it (Story 10.2), the suggestions from the latest photo (needs a
  * PantrySuggestionsProvider above), and the chosen location's items on the
  * place (with "Sök i kylen", Story 11.3), with removals and "Ångra" that the server's

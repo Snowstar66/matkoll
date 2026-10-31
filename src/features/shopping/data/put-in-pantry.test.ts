@@ -5,7 +5,7 @@ import { customLineKey, recipeLineKey, textLineKey } from "../domain/line-key";
 import { ShoppingDataError, type ShoppingDb } from "./client";
 import { clearPutInPantryIn, putInPantryWith, receiptedChecks, type PutInPantryDeps } from "./put-in-pantry";
 
-// The "Lägg i förrådet" flow with its sources and writes stubbed: what goes to
+// The "Lägg till i Matvaror" flow with its sources and writes stubbed: what goes to
 // the pantry, what is cleared, in which order, and how each failure ends.
 // The flow against real tables is in tests/integration/shopping.test.ts.
 

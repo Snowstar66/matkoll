@@ -46,7 +46,7 @@ export async function HomePlace({ searchParams }: Pick<PageProps<"/hemma">, "sea
     if (sites) console.error("pantry_unavailable", { reason: "no_selected_site" });
     return (
       <>
-        <PageHeader title="Förråd" />
+        <PageHeader title="Matvaror" />
         <Notice role="alert">{errorMessages.pantry_unavailable}</Notice>
       </>
     );
@@ -57,7 +57,7 @@ export async function HomePlace({ searchParams }: Pick<PageProps<"/hemma">, "sea
     <SiteSwitchProvider>
       <PantrySuggestionsProvider>
         <PantrySheetProvider location={location} site={site}>
-          <PageHeader title="Förråd" action={<AddPantryItemButton variant="icon" />} />
+          <PageHeader title="Matvaror" action={<AddPantryItemButton variant="icon" />} />
           <SiteSwitch sites={sites} selected={site}>
             <Suspense key={`${site.id}:${location}`} fallback={<Skeleton rows={3} />}>
               <HomeContent site={site} location={location} next={next} />

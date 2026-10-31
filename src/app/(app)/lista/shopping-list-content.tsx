@@ -24,7 +24,7 @@ const next = "/lista";
  * (AD-1: a client component never imports another module's actions). The
  * selected store and its product choices (Story 7.2) go beside the list; when
  * they cannot be read, only the detail's section Produktval says so. The place
- * the list is counted against goes to the list too, for "Lägg i förrådet" and
+ * the list is counted against goes to the list too, for "Lägg till i Matvaror" and
  * its texts.
  *
  * With more than one place, "Boende: Stugan" and "Byt" stand directly under

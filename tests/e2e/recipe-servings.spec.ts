@@ -143,7 +143,7 @@ test("the portion selector scales the amounts and the status at once, without ca
   await expect(line(page, "grädde").getByText("2 dl", { exact: true })).not.toHaveClass(/text-sky-ink/);
   await expect(mark(line(page, "vetemjöl"))).toHaveAccessibleName("saknas");
   await expect(line(page, "vetemjöl").getByText("hemma: 1 kg")).toBeVisible();
-  await expect(mark(line(page, "citroner"))).toHaveAccessibleName("jämförs inte med förrådet");
+  await expect(mark(line(page, "citroner"))).toHaveAccessibleName("jämförs inte med matvarorna");
 
   await page.waitForLoadState("networkidle");
   const serverCalls = countServerCalls(page);

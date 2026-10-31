@@ -65,7 +65,7 @@ export type DishSuggestionsOptions = {
    * already there.
    */
   visible?: boolean;
-  /** The names of Pontus's places by id, for "Förslagen bygger på förrådet för Hemma." */
+  /** The names of Pontus's places by id, for "Förslagen bygger på matvarorna för Hemma." */
   siteNames?: Readonly<Record<string, string>>;
 };
 
@@ -80,7 +80,7 @@ function latest(jobs: readonly AiJob[], match: (job: AiJob) => boolean): AiJob |
  * `shownSiteId` is the place the library counts its status against (AD-24).
  * Suggestions are kept with the place they were suggested from. When the
  * library shows another place (a place selected elsewhere) they are still
- * shown, with the line "Förslagen bygger på förrådet för Hemma." and "Föreslå
+ * shown, with the line "Förslagen bygger på matvarorna för Hemma." and "Föreslå
  * igen" (`stale`), and can be saved as before. A `null` on either side (no
  * place, or a pantry that could not be read) says nothing.
  */

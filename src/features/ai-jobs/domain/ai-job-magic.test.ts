@@ -3,9 +3,9 @@ import { fixedStatusLine, formatElapsed, progressText, statusCycleMs, statusLine
 
 describe("the status line of the magical view (Story 12.8)", () => {
   it("cycles through the texts of a kind and starts over", () => {
-    expect(statusLine("suggest", 0)).toBe("Läser ditt förråd…");
+    expect(statusLine("suggest", 0)).toBe("Läser dina matvaror…");
     expect(statusLine("suggest", 3)).toBe("Skriver recepten…");
-    expect(statusLine("suggest", 4)).toBe("Läser ditt förråd…");
+    expect(statusLine("suggest", 4)).toBe("Läser dina matvaror…");
     expect(statusLine("analyze", 2)).toBe("Räknar antal…");
     expect(statusLine("analyze", 3)).toBe("Tittar på fotot…");
     expect(statusLine("import", 1)).toBe("Läser ingredienserna…");

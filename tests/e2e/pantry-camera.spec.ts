@@ -283,7 +283,7 @@ test("the cards come first, then their numbers, and the large photo has the same
   expect(errors).toEqual([]);
 });
 
-test("the suggestions go when Förråd is left through the tab bar and opened again", async ({ page }) => {
+test("the suggestions go when Matvaror is left through the tab bar and opened again", async ({ page }) => {
   await page.goto("/hemma");
   await photograph(page, "Fotografera kylen", kyl);
   await expect(cards(page)).toHaveCount(6);
@@ -291,7 +291,7 @@ test("the suggestions go when Förråd is left through the tab bar and opened ag
   const tabs = page.getByRole("navigation", { name: "Huvudmeny" }).filter({ visible: true });
   await tabs.getByRole("link", { name: "Recept" }).click();
   await expect(page).toHaveURL(/\/recept$/);
-  await tabs.getByRole("link", { name: "Förråd" }).click();
+  await tabs.getByRole("link", { name: "Matvaror" }).click();
   await expect(page).toHaveURL(/\/hemma/);
   await expect(cameraButton(page, "Fotografera kylen")).toBeVisible();
   await expect(section(page)).toHaveCount(0);

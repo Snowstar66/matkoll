@@ -12,7 +12,7 @@ import {
   removePlacePhotos,
 } from "./support";
 
-// Story 10.2: the latest photo of a place in Förråd (/hemma). The spec has an E2E user
+// Story 10.2: the latest photo of a place in Matvaror (/hemma). The spec has an E2E user
 // of its own (photoViewEmail). Before each test the service role removes the
 // user's photos (rows and files) and places, adds the places Hemma
 // (selected) and Stugan, and seeds photos with the drawn kyl.png (720 x 900): Hemma's
@@ -160,7 +160,7 @@ const card = (page: Page, name: Location) =>
 async function openLagersaldo(page: Page) {
   await page.goto("/hemma");
   await expect(page.getByRole("button", { name: "Hantera boenden", exact: true }).filter({ visible: true })).toBeEnabled();
-  // The photo of 31 days has Förråd sweep it (Story 10.3), and the page is read again after:
+  // The photo of 31 days has Matvaror sweep it (Story 10.3), and the page is read again after:
   // wait for that, so a click never lands on a line that is being replaced.
   await page.waitForLoadState("networkidle");
 }
@@ -172,7 +172,7 @@ async function choose(page: Page, name: "Hemma" | "Stugan") {
   await expect(page.getByTestId("site-content")).not.toHaveAttribute("aria-busy");
 }
 
-/** The photo's time as Förråd writes it, counted now. */
+/** The photo's time as Matvaror writes it, counted now. */
 const time = (photo: Seeded) => photoTimeText(photo.takenAt, new Date());
 
 test("the line under the camera button opens the photo with its markers and the reading as a numbered list", async ({ page }) => {
@@ -334,7 +334,7 @@ test("Ta bort fotot asks first, Avbryt brings the photo back, and Ta bort remove
   expect(rows.data.map((row) => row.id)).not.toContain(photos.hemmaKyl.id);
   const download = await adminClient().storage.from(placePhotoBucket).download(photos.hemmaKyl.path);
   expect(download.data).toBeNull();
-  // Read again, Förråd has no line for the fridge.
+  // Read again, Matvaror has no line for the fridge.
   await page.reload();
   await expect(page.getByRole("button", { name: "Hantera boenden", exact: true }).filter({ visible: true })).toBeEnabled();
   await expect(line(page)).toHaveCount(0);

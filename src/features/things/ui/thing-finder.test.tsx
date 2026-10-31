@@ -65,10 +65,10 @@ describe("search", () => {
   });
 });
 
-describe("Fråga om dina prylar", () => {
+describe("Fråga om ditt förråd", () => {
   const ask = async (question: string) => {
     const box = screen.getByTestId("ask-box");
-    await userEvent.type(within(box).getByLabelText("Fråga om dina prylar"), question);
+    await userEvent.type(within(box).getByLabelText("Fråga om ditt förråd"), question);
     await userEvent.click(within(box).getByRole("button", { name: "Fråga" }));
   };
 

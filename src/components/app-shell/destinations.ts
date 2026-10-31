@@ -19,13 +19,13 @@ export const mainDestinations: readonly Destination[] = [
   { href: "/recept", label: "Recept", emoji: "\u{1F4D6}", aiKinds: ["suggest", "import"] },
   // At 200 % zoom even "Matsedel" is wider than its tab, so it breaks too.
   { href: "/matsedel", label: "Matsedel", labelParts: ["Mat", "sedel"], emoji: "\u{1F4C5}" },
-  // Story 10.4: "Inköpslista" (was "Lista") and "Förråd" (was "Hemma",
+  // Story 10.4: "Inköpslista" (was "Lista") and "Matvaror" (was "Hemma",
   // the name of the first place too). The routes stay, so bookmarks work.
   // Story 11.1: Story 14.4: the sketch's emoji replace the line icons.
   { href: "/lista", label: "Inköpslista", labelParts: ["Inköps", "lista"], emoji: "\u{1F6D2}" },
-  { href: "/hemma", label: "Förråd", emoji: "\u{1F4E6}", aiKinds: ["analyze"] },
+  { href: "/hemma", label: "Matvaror", labelParts: ["Mat", "varor"], emoji: "\u{1F955}", aiKinds: ["analyze"] },
   // Epic 18: the things of the home (tools, the storage room), kept apart from the food.
-  { href: "/prylar", label: "Prylar", emoji: "\u{1F9F0}", aiKinds: ["things"] },
+  { href: "/prylar", label: "Förråd", emoji: "\u{1F9F0}", aiKinds: ["things"] },
 ];
 
 /** Settings: the gear in the Recept header on mobile, the bottom of the side menu on desktop. */

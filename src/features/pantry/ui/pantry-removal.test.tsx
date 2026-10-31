@@ -222,7 +222,7 @@ describe("removing an item on Hemma", () => {
     resetDeleteGrace();
     render(<Hemma initial={[mjolk, smor, salt]} />);
     await tapRemove("Mjölk");
-    expect(screen.queryByText("Ta bort Mjölk från förrådet?")).not.toBeInTheDocument();
+    expect(screen.queryByText("Ta bort Mjölk från matvarorna?")).not.toBeInTheDocument();
     expect(removePantryItem).toHaveBeenCalledWith(mjolk.id);
     expect(within(toast()).getByRole("button", { name: "Ångra" })).toBeInTheDocument();
   });

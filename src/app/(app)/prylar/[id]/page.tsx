@@ -13,7 +13,7 @@ import { PlaceCapture } from "@/features/things/ui/place-capture";
 import { errorMessages } from "@/lib/errors";
 import { WarmAi } from "../../warm-ai";
 
-export const metadata: Metadata = { title: "Prylar" };
+export const metadata: Metadata = { title: "Förråd" };
 
 // A place in Prylar (Epic 18, Story 18.2): the camera button, the place's
 // latest card with its thumbnail and date, the things under their categories
@@ -29,7 +29,7 @@ export default function PlacePage({ params }: PageProps<"/prylar/[id]">) {
       <Suspense
         fallback={
           <>
-            <PageHeader title="Prylar" backHref="/prylar" />
+            <PageHeader title="Förråd" backHref="/prylar" />
             <Skeleton rows={3} />
           </>
         }
@@ -56,7 +56,7 @@ async function PlaceContent({ params }: Pick<PageProps<"/prylar/[id]">, "params"
     console.error("things_unavailable", { reason: error.detail });
     return (
       <>
-        <PageHeader title="Prylar" backHref="/prylar" />
+        <PageHeader title="Förråd" backHref="/prylar" />
         <Notice role="alert">{errorMessages.things_unavailable}</Notice>
       </>
     );

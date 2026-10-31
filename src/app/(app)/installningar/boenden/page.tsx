@@ -11,7 +11,7 @@ import { errorMessages } from "@/lib/errors";
 
 export const metadata: Metadata = { title: "Boenden" };
 
-// Boenden (Story 14.7): what "Ställen" was, managed in the same sheet as in Förråd (FR-29).
+// Boenden (Story 14.7): what "Ställen" was, managed in the same sheet as in Matvaror (FR-29).
 export default function HousingPage() {
   return (
     <>

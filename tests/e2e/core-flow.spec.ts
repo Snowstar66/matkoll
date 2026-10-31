@@ -27,7 +27,7 @@ function watchErrors(page: Page): string[] {
 
 // Earlier routes stay mounted but hidden after a client navigation, so the
 // locators below are scoped to what is visible.
-const tab = (page: Page, name: "Recept" | "Matsedel" | "Inköpslista" | "Förråd") =>
+const tab = (page: Page, name: "Recept" | "Matsedel" | "Inköpslista" | "Matvaror") =>
   page.getByRole("navigation", { name: "Huvudmeny" }).getByRole("link", { name });
 const sheet = (page: Page) => page.getByRole("dialog", { name: "Importera recept" });
 const toast = (page: Page) => page.getByTestId("toast");
@@ -88,13 +88,13 @@ test("sign in, import a recipe, plan it, check a line off and put it in the pant
   // Moved at once to I korgen, which is open from the start (Story 3.9): still there, checked.
   await expect(chicken.getByRole("checkbox")).toBeChecked();
   await expect(page.getByTestId("list-progress").filter({ visible: true })).toContainText(`1 av ${count} i korgen`);
-  await page.getByRole("button", { name: "Lägg i förrådet", exact: true }).filter({ visible: true }).click();
-  await expect(toast(page)).toHaveText("Lagt 1 vara i förrådet.");
+  await page.getByRole("button", { name: "Lägg till i Matvaror", exact: true }).filter({ visible: true }).click();
+  await expect(toast(page)).toHaveText("Lagt 1 vara i Matvaror.");
   await expect(chicken).toHaveCount(0);
   await expect(lines(page)).toHaveCount(count - 1);
 
-  // Förråd: the chicken is in the fridge.
-  await tab(page, "Förråd").click();
+  // Matvaror: the chicken is in the fridge.
+  await tab(page, "Matvaror").click();
   await expect(page).toHaveURL(/\/hemma/);
   const rows = page.getByTestId("pantry-row").filter({ visible: true });
   // Story 11.3: the row says when it was added; the sheet Lagervara has the amount.

@@ -119,7 +119,7 @@ describe("the texts of Story 8.2", () => {
     expect(siteNameTooLongText).toBe("Namnet får vara högst 40 tecken.");
     expect(siteNameTakenText("Stugan")).toBe("Det finns redan ett boende som heter Stugan.");
     expect(siteLimitText).toBe("Du kan ha högst 10 boenden.");
-    expect(addedSiteText("Stugan")).toBe("Lade till Stugan. Välj det för att se och fylla dess förråd.");
+    expect(addedSiteText("Stugan")).toBe("Lade till Stugan. Välj det för att se och fylla dess matvaror.");
     expect(renamedSiteText("Vinterstugan")).toBe("Boendet heter nu Vinterstugan.");
     expect(removedSiteText("Stugan")).toBe("Tog bort Stugan.");
     expect(selectedSiteText("Stugan")).toBe("Valt boende: Stugan.");

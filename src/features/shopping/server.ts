@@ -28,7 +28,7 @@ import type { CheckRow } from "./domain/put-in-pantry";
 // signed-in user's session client, so RLS limits every read to the user's own
 // rows. Beside the list, never in it, come the selected store (settings) and
 // its product choices (Story 7.2), and the place the list is counted against
-// (pantry, AD-24), which "Lägg i förrådet" sends back. Checking a line off, adding, changing or
+// (pantry, AD-24), which "Lägg till i Matvaror" sends back. Checking a line off, adding, changing or
 // removing an own item, correcting, hiding or restoring a line, and saving or
 // removing a product choice are the Server Actions in ./actions, used by this
 // module's own ui.
@@ -36,12 +36,12 @@ import type { CheckRow } from "./domain/put-in-pantry";
 /**
  * Inköpslista as getShoppingList gives it: the counted list, and
  * `pendingClear`, the checks of lines no longer on the list that an
- * interrupted "Lägg i förrådet" already put in the pantry (Story 3.7), so the
+ * interrupted "Lägg till i Matvaror" already put in the pantry (Story 3.7), so the
  * button stays reachable to clear them; beside it, the selected store and its
  * product choices by catalog ingredient (Story 7.2), which never change how
  * the list is counted; and `site`, the place whose pantry the list is counted
  * against (pantry.getSelectedSite, AD-24), or `null` when the user has none
- * or it cannot be read. "Lägg i förrådet" sends its id, so the items go to the
+ * or it cannot be read. "Lägg till i Matvaror" sends its id, so the items go to the
  * place the list showed (FR-33). The place never changes a line's key, a
  * check, an override, an own item, a product choice or the export.
  */
@@ -100,7 +100,7 @@ async function checksOrNull(planId: string | null): Promise<CheckRow[] | null> {
 
 /**
  * The checks of lines no longer on the list (covered by the pantry now, or
- * hidden) whose items an interrupted "Lägg i förrådet" put in the pantry (Story
+ * hidden) whose items an interrupted "Lägg till i Matvaror" put in the pantry (Story
  * 3.7). 0 when the receipts cannot be read (logged as
  * `shopping_pending_clear_unavailable`): the list is shown all the same.
  */
@@ -134,7 +134,7 @@ async function pendingClearOf(list: CountedList, checks: readonly CheckRow[] | n
  * or pantry that cannot be read gives the list with nothing taken off,
  * `pantryUnavailable` (when there was something to count) and `site: null`.
  * `pendingClear` counts the
- * checks an interrupted "Lägg i förrådet" left behind. The selected store and
+ * checks an interrupted "Lägg till i Matvaror" left behind. The selected store and
  * its product choices are read alongside (storeAndChoices); when they cannot
  * be read, the list is given all the same. Other errors are thrown.
  */

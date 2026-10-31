@@ -211,7 +211,7 @@ describe("the groups", () => {
     render(<Hemma />);
     await analyze();
     expect(within(section()).getByRole("heading", { level: 2 })).toHaveTextContent("Lagerförslag från kylen");
-    expect(within(section()).getByText("2 varor stämmer med förrådet.")).toBeInTheDocument();
+    expect(within(section()).getByText("2 varor stämmer med matvarorna.")).toBeInTheDocument();
     expect(within(section()).getAllByRole("heading", { level: 3 }).map((heading) => heading.textContent)).toEqual([
       "Nytt",
       "Ändrat",
@@ -281,7 +281,7 @@ describe("the groups", () => {
       suggestions: fridge.suggestions.map((suggestion) => ({ ...suggestion, change: null, replaces: [], current: null })),
       inventory: { kind: "unread" },
     });
-    expect(within(section()).getByText("Det gick inte att jämföra med förrådet i kylen.")).toBeInTheDocument();
+    expect(within(section()).getByText("Det gick inte att jämföra med matvarorna i kylen.")).toBeInTheDocument();
     expect(within(section()).getAllByRole("heading", { level: 3 }).map((heading) => heading.textContent)).toEqual([
       "grädde",
       "gurka",
@@ -346,7 +346,7 @@ describe("Bekräfta on a compared photo", () => {
     await waitFor(() => expect(saves).toHaveLength(1));
     await answerSave(fail("pantry_inventory_failed"));
     expect(await within(section()).findByRole("alert")).toHaveTextContent(
-      "Det gick inte att uppdatera förrådet. Försök igen.",
+      "Det gick inte att uppdatera matvarorna. Försök igen.",
     );
     expect(groupNames("Nytt")).toEqual(["grädde", "gurka", "ketchup"]);
     await waitFor(() => expect(button("Bekräfta grädde")).toHaveFocus());
@@ -694,7 +694,7 @@ describe("review patches", () => {
     });
     expect(
       within(screen.getByTestId("pantry-camera")).getByText(
-        "Det som syns på bilden stämmer med förrådet i kylen, men några varor gick inte att tolka.",
+        "Det som syns på bilden stämmer med matvarorna i kylen, men några varor gick inte att tolka.",
       ),
     ).toBeInTheDocument();
     expect(screen.queryByText("Allt i kylen stämmer med bilden.")).toBeNull();

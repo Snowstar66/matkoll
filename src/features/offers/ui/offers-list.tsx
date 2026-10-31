@@ -185,7 +185,7 @@ function OffersGroup({
 }
 
 /**
- * Veckans erbjudanden under their categories, as in Förråd (Story 9.1,
+ * Veckans erbjudanden under their categories, as in Matvaror (Story 9.1,
  * FR-35): a Kategorirubrik and a Listgrupp per category, and a Listrad per
  * offer with the item as the store wrote it and, under it, the price and
  * conditions ("89 kr/kg · Stammis · Max 1 köp/hushåll · t.o.m. 22 nov").

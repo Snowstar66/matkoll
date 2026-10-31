@@ -230,23 +230,23 @@ describe("Library, AI-förslag and the place", () => {
   };
   const suggestion = () => screen.queryByRole("heading", { level: 3, name: "Ugnsomelett" });
 
-  it("shows the suggestions with Förslagen bygger på förrådet för Stugan. while the library shows another place, and plainly again", async () => {
+  it("shows the suggestions with Förslagen bygger på matvarorna för Stugan. while the library shows another place, and plainly again", async () => {
     const user = userEvent.setup();
     renderLibrary(ranking, { site: stugan });
     await user.click(pill("Kan lagas nu"));
     await user.click(screen.getByRole("button", { name: "Föreslå rätter med AI" }));
     await finishSuggestions([{ draft, ingredientNames: {} }], stugan.id);
     expect(await screen.findByRole("heading", { level: 3, name: "Ugnsomelett" })).toBeInTheDocument();
-    expect(screen.queryByText(/Förslagen bygger på förrådet/)).not.toBeInTheDocument();
+    expect(screen.queryByText(/Förslagen bygger på matvarorna/)).not.toBeInTheDocument();
 
     act(() => rerenderSite?.(hemmaSite));
     expect(suggestion()).toBeInTheDocument();
-    expect(screen.getByText("Förslagen bygger på förrådet för Stugan.")).toBeInTheDocument();
+    expect(screen.getByText("Förslagen bygger på matvarorna för Stugan.")).toBeInTheDocument();
     expect(screen.getByRole("button", { name: "Föreslå igen" })).toBeInTheDocument();
 
     act(() => rerenderSite?.(stugan));
     expect(suggestion()).toBeInTheDocument();
-    expect(screen.queryByText(/Förslagen bygger på förrådet/)).not.toBeInTheDocument();
+    expect(screen.queryByText(/Förslagen bygger på matvarorna/)).not.toBeInTheDocument();
   });
 
   it("keeps the suggestions without a line when the library's place is not known", async () => {
@@ -258,7 +258,7 @@ describe("Library, AI-förslag and the place", () => {
     expect(await screen.findByRole("heading", { level: 3, name: "Ugnsomelett" })).toBeInTheDocument();
     act(() => rerenderSite?.(null));
     expect(suggestion()).toBeInTheDocument();
-    expect(screen.queryByText(/Förslagen bygger på förrådet/)).not.toBeInTheDocument();
+    expect(screen.queryByText(/Förslagen bygger på matvarorna/)).not.toBeInTheDocument();
   });
 
   it("opens Kan lagas nu by itself when a finished job has not been shown, once, and not again after another filter is chosen", async () => {
@@ -621,7 +621,7 @@ describe("Library", () => {
     expect(screen.queryByRole("button", { name: "Föreslå rätter med AI" })).not.toBeInTheDocument();
   });
 
-  const notRanked = "Det gick inte att läsa förrådet, så recepten är inte rangordnade.";
+  const notRanked = "Det gick inte att läsa matvarorna, så recepten är inte rangordnade.";
 
   it("shows the recipes in the usual order with a notice on Kan lagas nu when the pantry could not be read", async () => {
     const user = userEvent.setup();

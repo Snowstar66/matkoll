@@ -9,7 +9,7 @@ import type { CheckChange } from "../domain/check";
 import type { ShoppingLine } from "../domain/compute-list";
 import { ShoppingList, type ShoppingListProps } from "./shopping-list";
 
-// "Lägg i förrådet" in Inköpslista (Story 3.7): the primary button shows while
+// "Lägg till i Matvaror" in Inköpslista (Story 3.7): the primary button shows while
 // a line is checked off, puts the checked lines in the pantry with one tap,
 // is off while that runs, confirms with a short confirmation, and shows a
 // blue notice on failure.
@@ -50,7 +50,7 @@ const lines = [
 ];
 const textLine = line({ key: "t:en näve persilja", label: "En näve persilja", coverage: { kind: "unlinked" } });
 
-/** The list as the server gives it: a saved check shows, and "Lägg i förrådet" takes the checked lines off. */
+/** The list as the server gives it: a saved check shows, and "Lägg till i Matvaror" takes the checked lines off. */
 const server: { save: (change: CheckChange) => void; put: () => void } = { save: () => {}, put: () => {} };
 function ServerList({ initial }: { initial: ShoppingLine[] }) {
   const [shown, setShown] = useState(initial);
@@ -62,7 +62,7 @@ function ServerList({ initial }: { initial: ShoppingLine[] }) {
   return <ShoppingList plan={plan} lines={shown} pantryUnavailable={false} />;
 }
 
-const button = () => screen.queryByRole("button", { name: "Lägg i förrådet" });
+const button = () => screen.queryByRole("button", { name: "Lägg till i Matvaror" });
 
 beforeEach(() => {
   // These tests start from I korgen folded; Story 3.9 opens it by default.
@@ -78,7 +78,7 @@ beforeEach(() => {
   refresh.mockReset();
 });
 
-describe("Lägg i förrådet", () => {
+describe("Lägg till i Matvaror", () => {
   it("shows the button only while a line is checked off, from the tap on", async () => {
     const user = userEvent.setup();
     render(<ServerList initial={lines} />);
@@ -123,7 +123,7 @@ describe("Lägg i förrådet", () => {
     render(<ShoppingList plan={plan} lines={[{ ...lines[0]!, checked: true }]} pantryUnavailable={false} site={stugan} />);
     await user.click(button()!);
     expect(putCheckedInPantry).toHaveBeenCalledWith({ planId: plan.id, siteId: stugan.id });
-    expect(await screen.findByTestId("toast")).toHaveTextContent("Lagt 1 vara i förrådet för Stugan.");
+    expect(await screen.findByTestId("toast")).toHaveTextContent("Lagt 1 vara i Matvaror för Stugan.");
   });
 
   it("keeps the checks when the place is gone, and reads the list again", async () => {
@@ -132,7 +132,7 @@ describe("Lägg i förrådet", () => {
     render(<ShoppingList plan={plan} lines={[{ ...lines[0]!, checked: true }]} pantryUnavailable={false} />);
     await user.click(button()!);
     expect(await screen.findByRole("alert")).toHaveTextContent(
-      "Boendet finns inte längre. Listan har räknats om mot Hemma. Tryck Lägg i förrådet igen.",
+      "Boendet finns inte längre. Listan har räknats om mot Hemma. Tryck Lägg till i Matvaror igen.",
     );
     expect(screen.getByText("I korgen (1)")).toBeInTheDocument();
     await user.click(screen.getByRole("button", { name: /^Visa I korgen/ }));
@@ -145,8 +145,8 @@ describe("Lägg i förrådet", () => {
     putCheckedInPantry.mockResolvedValue(ok({ added: 1, removed: 0, skipped: 1, siteName: null }));
     render(<ShoppingList plan={plan} lines={[{ ...lines[0]!, checked: true }]} pantryUnavailable={false} />);
     await user.click(button()!);
-    expect(await screen.findByTestId("toast")).toHaveTextContent("Lagt 1 vara i förrådet.");
-    expect(screen.getByRole("alert")).toHaveTextContent("Det gick inte att lägga allt i förrådet.");
+    expect(await screen.findByTestId("toast")).toHaveTextContent("Lagt 1 vara i Matvaror.");
+    expect(screen.getByRole("alert")).toHaveTextContent("Det gick inte att lägga allt i Matvaror.");
   });
 
   it("does not show the button when the checks could not be read", () => {
@@ -160,11 +160,11 @@ describe("Lägg i förrådet", () => {
     const user = userEvent.setup();
     render(<ServerList initial={lines} />);
     await user.click(screen.getByRole("checkbox", { name: "Grädde, 3 dl" }));
-    // "Lägg i förrådet" is off until the check's save has settled.
+    // "Lägg till i Matvaror" is off until the check's save has settled.
     await waitFor(() => expect(button()).toBeEnabled());
     await user.click(button()!);
     expect(putCheckedInPantry).toHaveBeenCalledWith({ planId: plan.id, siteId: null });
-    expect(await screen.findByTestId("toast")).toHaveTextContent("Lagt 1 vara i förrådet.");
+    expect(await screen.findByTestId("toast")).toHaveTextContent("Lagt 1 vara i Matvaror.");
     expect(screen.queryByText("Grädde")).not.toBeInTheDocument();
     expect(button()).not.toBeInTheDocument();
     // The confirmation says it: the lines going is not announced as a recount.
@@ -172,8 +172,8 @@ describe("Lägg i förrådet", () => {
   });
 
   it.each([
-    [{ added: 8, removed: 1, skipped: 0, siteName: null }, "Lagt 8 varor i förrådet."],
-    [{ added: 8, removed: 0, skipped: 0, siteName: "Stugan" }, "Lagt 8 varor i förrådet för Stugan."],
+    [{ added: 8, removed: 1, skipped: 0, siteName: null }, "Lagt 8 varor i Matvaror."],
+    [{ added: 8, removed: 0, skipped: 0, siteName: "Stugan" }, "Lagt 8 varor i Matvaror för Stugan."],
     [{ added: 0, removed: 1, skipped: 0, siteName: null }, "Tog bort 1 vara från listan."],
     [{ added: 0, removed: 2, skipped: 0, siteName: null }, "Tog bort 2 varor från listan."],
   ])("confirms %j with %s", async (answer, text) => {
@@ -198,14 +198,14 @@ describe("Lägg i förrådet", () => {
   });
 
   it.each([
-    [fail("pantry_add_failed"), "Det gick inte att lägga varorna i förrådet. Försök igen.", false],
-    [fail("shopping_put_in_pantry_failed"), "Det gick inte att lägga allt i förrådet. Försök igen.", false],
+    [fail("pantry_add_failed"), "Det gick inte att lägga varorna i Matvaror. Försök igen.", false],
+    [fail("shopping_put_in_pantry_failed"), "Det gick inte att lägga allt i Matvaror. Försök igen.", false],
     [fail("shopping_plan_changed"), "Matsedeln har bytts. Listan är uppdaterad.", true],
-    [fail("shopping_put_in_pantry_plan_changed"), "Varorna är lagda i förrådet, men matsedeln har bytts.", true],
-    [fail("pantry_site_gone"), "Boendet finns inte längre. Listan har räknats om. Tryck Lägg i förrådet igen.", true],
+    [fail("shopping_put_in_pantry_plan_changed"), "Varorna är lagda i Matvaror, men matsedeln har bytts.", true],
+    [fail("pantry_site_gone"), "Boendet finns inte längre. Listan har räknats om. Tryck Lägg till i Matvaror igen.", true],
     [
       fail("pantry_site_gone", { site: "Hemma" }),
-      "Boendet finns inte längre. Listan har räknats om mot Hemma. Tryck Lägg i förrådet igen.",
+      "Boendet finns inte längre. Listan har räknats om mot Hemma. Tryck Lägg till i Matvaror igen.",
       true,
     ],
   ])("shows a blue notice for %j", async (result, text, reads) => {

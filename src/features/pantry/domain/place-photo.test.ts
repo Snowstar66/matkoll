@@ -145,7 +145,7 @@ describe("storedPoints", () => {
 
 // Visa senaste fotot (Story 10.2, UX-DR21, UX-DR22): the texts of the line
 // and the sheet, the time in Swedish time, the markers from the saved points
-// and the rows as Förråd reads them.
+// and the rows as Matvaror reads them.
 
 describe("photoTimeText", () => {
   const now = new Date("2026-10-26T16:00:00+01:00");

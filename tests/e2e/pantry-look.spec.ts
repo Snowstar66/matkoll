@@ -1,7 +1,7 @@
 import { expect, type Page, test } from "@playwright/test";
 import { adminClient, e2eUserId, pantryLookEmail, pantryLookStorageState } from "./support";
 
-// Story 11.3 (FR-40, FR-41): Förråd in the new look at 375 px. The spec
+// Story 11.3 (FR-40, FR-41): Matvaror in the new look at 375 px. The spec
 // has an E2E user of its own (pantryLookEmail). Before each test the service
 // role removes the user's pantry items and places, adds Hemma (selected) and
 // the places the test needs, and seeds the fridge of the spec's matrix with
@@ -307,8 +307,8 @@ test("Sök i kylen filters on name and brand, says when nothing matches, and sta
   await field.fill("mjö");
   await mainMenu(page).getByRole("link", { name: "Recept" }).click();
   await expect(page.getByRole("heading", { level: 1, name: "Recept" })).toBeVisible();
-  await mainMenu(page).getByRole("link", { name: "Förråd" }).click();
-  await expect(page.getByRole("heading", { level: 1, name: "Förråd" })).toBeVisible();
+  await mainMenu(page).getByRole("link", { name: "Matvaror" }).click();
+  await expect(page.getByRole("heading", { level: 1, name: "Matvaror" })).toBeVisible();
   await expect(search(page)).toHaveValue("mjö");
   await expect(rows(page)).toHaveCount(1);
   expect(errors).toEqual([]);

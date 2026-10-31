@@ -36,7 +36,7 @@ export async function PrylarContent() {
     if (sites) console.error("things_unavailable", { reason: "no_selected_site" });
     return (
       <>
-        <PageHeader title="Prylar" />
+        <PageHeader title="Förråd" />
         <Notice role="alert">{errorMessages.things_unavailable}</Notice>
       </>
     );
@@ -62,7 +62,7 @@ export async function PrylarContent() {
   );
   return (
     <SiteSwitchProvider>
-      <PageHeader title="Prylar" />
+      <PageHeader title="Förråd" />
       {index.some((place) => place.things.length > 0) ? <ThingFinder places={index}>{places}</ThingFinder> : places}
     </SiteSwitchProvider>
   );

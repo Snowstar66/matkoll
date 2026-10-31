@@ -37,7 +37,7 @@ export async function removePlacePhoto(input: RemovePlacePhotoInput): Promise<Re
     console.error("pantry_photo_remove_failed", { reason: error.detail });
     return fail("pantry_photo_remove_failed");
   }
-  // Also when it was gone already: Förråd may still show its line.
+  // Also when it was gone already: Matvaror may still show its line.
   revalidateFor("pantry_photo");
   if (path === null) return ok({ removed: false });
 

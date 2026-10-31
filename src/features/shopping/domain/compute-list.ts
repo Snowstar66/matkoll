@@ -24,7 +24,7 @@ import type { LineOverride } from "./line-override";
 // The shopping list (FR-15, AD-8): counted from the current meal plan, its
 // recipes, the pantry and the catalog every time it is read; nothing is
 // stored. computeList is the only source of list lines, for the view and
-// later "Lägg i förrådet" and the export. Each dish's lines are scaled to its
+// later "Lägg till i Matvaror" and the export. Each dish's lines are scaled to its
 // servings (recipes.scaleLines), summed over the dishes per ingredient and
 // unit (pantry.aggregateNeedsWithOrigins) and compared with the whole pantry
 // (pantry.coverage, AD-7). Units are never converted (AD-12). Pure, so it is

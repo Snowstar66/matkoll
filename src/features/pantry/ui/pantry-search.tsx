@@ -8,9 +8,9 @@ import type { Location } from "@/features/catalog";
 import { noMatchText, pantrySearchLabel } from "../domain/pantry-meta";
 
 // Sök i platsen (Story 11.3, FR-41, EXPERIENCE.md): a search field at the top
-// of Förråd's list while the location has items. It filters the items
+// of Matvaror's list while the location has items. It filters the items
 // already on the page by name and brand as Pontus types, without a pause.
-// The search is state in the list, which Förråd keys on the place and the
+// The search is state in the list, which Matvaror keys on the place and the
 // location: choosing another one empties it, while React Activity keeps it
 // when Pontus goes to another tab and back.
 

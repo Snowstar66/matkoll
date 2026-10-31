@@ -61,7 +61,7 @@ const filterOptions: readonly FilterOption<RecipeFilter>[] = [
 ];
 
 /** Shown over the rows in Kan lagas nu when the pantry could not be read. */
-const notRankedMessage = "Det gick inte att läsa förrådet, så recepten är inte rangordnade.";
+const notRankedMessage = "Det gick inte att läsa matvarorna, så recepten är inte rangordnade.";
 
 /** The most characters searchRecipes takes (recipeSearchSchema). */
 const maxSearchChars = 100;
@@ -89,7 +89,7 @@ export type LibraryProps = {
   site: SelectedSite | null;
   /** The catalog search for the preview of an AI suggestion; the page passes it (AD-1). */
   searchIngredients: SearchIngredients;
-  /** The names of Pontus's places by id, for "Förslagen bygger på förrådet för Hemma." (Story 12.4). */
+  /** The names of Pontus's places by id, for "Förslagen bygger på matvarorna för Hemma." (Story 12.4). */
   siteNames?: Readonly<Record<string, string>>;
   /** mealplan.addToCurrentPlan from the page (AD-1), for "Lägg på matsedeln" on suggestions from offers (Story 9.5). */
   addToPlan?: AddToPlan;

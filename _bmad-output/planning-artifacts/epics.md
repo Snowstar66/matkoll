@@ -3125,6 +3125,18 @@ Rättar datorvarianten av Story 14.7 efter Pontus skärmbild 2026-10-31 (telefon
 **När** det visas
 **Så** ligger beskrivningstext, kort och länkar i linje med samma vänsterkant
 
+**Givet** den valda posten i sidomenyn (dator) eller i flikfältet (telefon)
+**När** jag har klickat på den
+**Så** har den bara en mintfärgad bakgrund, utan kraftig grön kant; fokusringen syns bara vid tangentbordsfokus (`:focus-visible`), ligger inuti och klipps aldrig
+
+**Givet** huvudmenyn och alla texter som nämner förrådet
+**När** jag ser dem
+**Så** heter sidan "Matvaror" (inte "Förråd", eftersom Prylar också är förvaring) med 🥕 som ikon, i flikfältet, sidomenyn, sidrubriken, sidtiteln, tomlägen, inställningstexter och knappen "Lägg till i Matvaror" (adressen `/hemma` och koden är oförändrade)
+
+**Givet** huvudmenyn
+**När** jag ser den
+**Så** heter sidan med prylarna "Förråd" (🧰, adressen `/prylar` oförändrad) och sidan med maten "Matvaror"; ingen text kallar maten "förråd", och frågefältet heter "Fråga om ditt förråd"
+
 **Givet** telefonbredd
 **När** jag öppnar Inställningar
 **Så** är allt som efter Story 14.7, och skärmbilder i 390, 1024, 1280 och 1440 px (ljust och mörkt för 1280) visar resultatet

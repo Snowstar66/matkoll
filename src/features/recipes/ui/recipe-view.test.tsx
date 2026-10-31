@@ -146,7 +146,7 @@ describe("RecipeView", () => {
     expect(screen.getByText("Kan lagas nu")).toHaveClass("bg-mint", "text-mint-ink");
     // Chicken, red onion and salt: the spinach has no catalog ingredient.
     expect(atHome()).toHaveTextContent(/^3 av 3 hemma$/);
-    expect(marks()).toEqual(["finns hemma", "finns hemma", "jämförs inte med förrådet", "finns hemma"]);
+    expect(marks()).toEqual(["finns hemma", "finns hemma", "jämförs inte med matvarorna", "finns hemma"]);
     expect(within(rows()[0]).getByText("600 g")).toHaveClass("text-ink-2");
   });
 
@@ -159,7 +159,7 @@ describe("RecipeView", () => {
     expect(within(rows()[2]).queryByText("Saknas")).not.toBeInTheDocument();
     // The salt is not at home either, so none of the three is.
     expect(atHome()).toHaveTextContent(/^0 av 3 hemma$/);
-    expect(marks()).toEqual(["saknas", "saknas", "jämförs inte med förrådet", "saknas"]);
+    expect(marks()).toEqual(["saknas", "saknas", "jämförs inte med matvarorna", "saknas"]);
     expect(within(rows()[0]).getByText("600 g")).toHaveClass("text-sky-ink");
     expect(within(rows()[0]).getByText("hemma: 1 kg")).toBeInTheDocument();
     expect(within(rows()[1]).getByText("1 st")).toHaveClass("text-sky-ink");
@@ -231,7 +231,7 @@ describe("RecipeView", () => {
     render(<RecipeView recipe={{ ...recipe, lines: unlinked }} snapshot={allHome} />);
     expect(screen.getByText("Kan lagas nu")).toBeInTheDocument();
     expect(atHome()).not.toBeInTheDocument();
-    expect(marks()).toEqual(["jämförs inte med förrådet", "jämförs inte med förrådet"]);
+    expect(marks()).toEqual(["jämförs inte med matvarorna", "jämförs inte med matvarorna"]);
   });
 
   it("shows the recipe without badge, marks or X av Y hemma when the pantry could not be read, and still scales it", async () => {
@@ -312,7 +312,7 @@ describe("RecipeView: the portion selector", () => {
     for (let i = 0; i < 4; i++) await user.click(stepper.more());
     expect(stepper.value()).toHaveTextContent("8 portioner");
     expect(rows()[2]).toHaveTextContent(/^2 nävar spenat×2$/);
-    expect(within(rows()[2]).getByRole("img")).toHaveAccessibleName("jämförs inte med förrådet");
+    expect(within(rows()[2]).getByRole("img")).toHaveAccessibleName("jämförs inte med matvarorna");
     expect(rows()[3]).toHaveTextContent(/^salt och peppar$/);
 
     await user.click(stepper.fewer());

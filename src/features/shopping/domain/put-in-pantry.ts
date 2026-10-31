@@ -3,7 +3,7 @@ import { addToPantryItemSchema } from "@/features/pantry";
 import type { ShoppingLine } from "./compute-list";
 import { parseLineKey } from "./line-key";
 
-// "Lägg i förrådet" (FR-19, AD-8, AD-19): which of the list's checked lines go
+// "Lägg till i Matvaror" (FR-19, AD-8, AD-19): which of the list's checked lines go
 // to the pantry, and what is cleared off the list afterwards. The lines are
 // computeList's, counted on the server; the client's are never used. Pure,
 // so it is tested without a database.
@@ -49,7 +49,7 @@ export type PutInPantryPlan = {
 };
 
 /**
- * What "Lägg i förrådet" does with the list's `lines` and the plan's `checks`:
+ * What "Lägg till i Matvaror" does with the list's `lines` and the plan's `checks`:
  * - A checked recipe line with a catalog ingredient goes to the pantry with
  *   what is bought: its amount and unit (a unit that counts things rounded
  *   up, Story 3.3; a corrected amount as written, Story 3.6), or neither for
@@ -123,7 +123,7 @@ export function planPutInPantry(
 }
 
 /**
- * The lines "Lägg i förrådet" would act on: checked recipe lines with a
+ * The lines "Lägg till i Matvaror" would act on: checked recipe lines with a
  * catalog ingredient and checked own items. A checked text line (`t:`)
  * cannot go to the pantry, so it never shows the button on its own.
  */

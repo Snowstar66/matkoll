@@ -21,17 +21,17 @@ export const emptyPlanText = "Lägg rätter på matsedeln så räknas listan fra
 
 /**
  * The empty list with dishes on the plan: everything is in the pantry it is
- * counted against. "Allt finns i förrådet för Stugan." with the place's name
+ * counted against. "Allt finns i Matvaror för Stugan." with the place's name
  * (pantry.shownSiteName, with more than one place), also for Hemma, so the
  * text works with any name without inflection; "Allt finns hemma." without
  * one, as in 1.0 (UX-DR17, Story 8.5).
  */
 export function allInStockText(siteName: string | null): string {
-  return siteName === null ? "Allt finns hemma." : `Allt finns i förrådet för ${siteName}.`;
+  return siteName === null ? "Allt finns hemma." : `Allt finns i Matvaror för ${siteName}.`;
 }
 
 /** Above the list when the pantry could not be read, so nothing is taken off. */
-export const pantryUnreadText = "Det gick inte att läsa förrådet, så inget är avdraget från listan.";
+export const pantryUnreadText = "Det gick inte att läsa matvarorna, så inget är avdraget från listan.";
 
 /** Above the list when the checks could not be read: none is shown, and checking is off. */
 export const checksUnreadText = "Det gick inte att läsa bockarna, så det går inte att bocka av just nu.";
@@ -158,7 +158,7 @@ export const customItemMetaText = "Egen vara";
  * The line under a list line's name (Story 11.4, FR-43): "Egen vara" for an
  * own item; the dishes it comes from with " · " between them ("Korv
  * stroganoff · Kycklinggryta"), without "från"; for a vague line whose
- * ingredient is not in the pantry, "Saknas i förrådet" first, or "Saknas i
+ * ingredient is not in the pantry, "Saknas i Matvaror" first, or "Saknas i
  * Stugan" with the place's name (pantry.shownSiteName, with more than one
  * place). Only when the pantry was read (`pantryRead`): when it could not
  * be, nothing is known to be missing, and only the dishes are said. `null`
@@ -177,11 +177,11 @@ export function lineMetaText(
 }
 
 /**
- * What a vague line says about the pantry: "Saknas i förrådet", or "Saknas i
+ * What a vague line says about the pantry: "Saknas i Matvaror", or "Saknas i
  * Stugan" with the place's name; `null` when the pantry could not be read.
  */
 export function missingText(siteName: string | null, pantryRead = true): string | null {
-  return pantryRead ? `Saknas i ${siteName ?? "förrådet"}` : null;
+  return pantryRead ? `Saknas i ${siteName ?? "Matvaror"}` : null;
 }
 
 /**
@@ -204,7 +204,7 @@ export const backToComputedText = "Använd beräknad mängd";
 /**
  * The amount a line shows after its name: "3 dl", "2 dl (hemma: 1 kg)", "2
  * dl (beräknat 4 dl)" for a correction whose counted amount has changed
- * since. A vague line shows none: the line under it says "Saknas i förrådet"
+ * since. A vague line shows none: the line under it says "Saknas i Matvaror"
  * (lineMetaText, Story 11.4). A line without a catalog ingredient, whose
  * text says how much, shows its multiplier when it is not 1 ("×2", "×1,5"),
  * else nothing.
@@ -265,7 +265,7 @@ export function groupBySection(lines: readonly ShoppingLine[]): { section: Secti
  * The lines per display category (Story 11.4, FR-40), in the order of
  * CATEGORIES; categories without lines are left out. The category is
  * catalog.displayCategory of the line's section and name, so the list reads
- * like Förråd. Keeps the lines' order within a category. The export
+ * like Matvaror. Keeps the lines' order within a category. The export
  * still groups by section (groupBySection, AD-16).
  */
 export function groupByCategory<T extends Pick<ShoppingLine, "section" | "label">>(
@@ -294,40 +294,40 @@ export const hiddenLinesTitle = "Dolda varor";
 export const showAgainText = "Visa igen";
 
 /** The primary button above the tab bar while a line is checked off (Story 3.7). */
-export const putInPantryButtonText = "Lägg i förrådet";
+export const putInPantryButtonText = "Lägg till i Matvaror";
 
 /**
- * The short confirmation after "Lägg i förrådet": "Lagt 8 varor i förrådet.",
- * "Lagt 1 vara i förrådet."; when only own items without a catalog ingredient
+ * The short confirmation after "Lägg till i Matvaror": "Lagt 8 varor i Matvaror.",
+ * "Lagt 1 vara i Matvaror."; when only own items without a catalog ingredient
  * were checked, "Tog bort 1 vara från listan.", "Tog bort 2 varor från
  * listan."; `null` when nothing was put in the pantry or taken off the list
  * (only lines without a catalog ingredient were checked, and their checks
  * are cleared). With `siteName`, the place the items went to when the user
- * has more than one (putCheckedInPantry): "Lagt 8 varor i förrådet för
+ * has more than one (putCheckedInPantry): "Lagt 8 varor i Matvaror för
  * Stugan." (EXPERIENCE.md, Voice and Tone).
  */
 export function putInPantryText(added: number, removed: number, siteName: string | null = null): string | null {
   const items = (count: number) => `${count} ${count === 1 ? "vara" : "varor"}`;
-  if (added > 0) return `Lagt ${items(added)} i förrådet${siteName ? ` för ${siteName}` : ""}.`;
+  if (added > 0) return `Lagt ${items(added)} i Matvaror${siteName ? ` för ${siteName}` : ""}.`;
   if (removed > 0) return `Tog bort ${items(removed)} från listan.`;
   return null;
 }
 
 /**
- * After "Lägg i förrådet" when the list's place was removed elsewhere
+ * After "Lägg till i Matvaror" when the list's place was removed elsewhere
  * (`pantry_site_gone`): nothing was added, the checks stay, and the list is
  * read again against the place selected now, named when the user has more
  * than one (putCheckedInPantry's `fields.site`).
  */
 export function siteGoneText(selectedName: string | null): string {
   const recounted = selectedName ? `Listan har räknats om mot ${selectedName}.` : "Listan har räknats om.";
-  return `Boendet finns inte längre. ${recounted} Tryck Lägg i förrådet igen.`;
+  return `Boendet finns inte längre. ${recounted} Tryck Lägg till i Matvaror igen.`;
 }
 
-/** After "Lägg i förrådet" when some checked lines could not go to the pantry; they keep their checks. */
-export const partlyPutInPantryText = "Det gick inte att lägga allt i förrådet.";
+/** After "Lägg till i Matvaror" when some checked lines could not go to the pantry; they keep their checks. */
+export const partlyPutInPantryText = "Det gick inte att lägga allt i Matvaror.";
 
-/** After "Lägg i förrådet" when no answer came: trying again adds nothing twice. */
+/** After "Lägg till i Matvaror" when no answer came: trying again adds nothing twice. */
 export const serverUnreachableText = "Det gick inte att nå servern. Försök igen.";
 
 /**

@@ -81,7 +81,7 @@ export function siteNameTakenText(name: string): string {
 
 /** The confirmation after "Lägg till": a new place is never selected by itself. */
 export function addedSiteText(name: string): string {
-  return `Lade till ${name}. Välj det för att se och fylla dess förråd.`;
+  return `Lade till ${name}. Välj det för att se och fylla dess matvaror.`;
 }
 
 /** The confirmation after a new name is saved. */
@@ -204,7 +204,7 @@ export function siteLineText(site: NamedSite | null): string | null {
   return name === null ? null : `Boende: ${name}`;
 }
 
-/** " för Stugan", for texts such as "Lagt 8 varor i förrådet för Stugan."; "" with one place. */
+/** " för Stugan", for texts such as "Lagt 8 varor i Matvaror för Stugan."; "" with one place. */
 export function siteSuffix(site: NamedSite | null): string {
   const name = shownSiteName(site);
   return name === null ? "" : ` för ${name}`;
