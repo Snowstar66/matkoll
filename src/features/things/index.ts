@@ -40,3 +40,41 @@ export {
   thingsEmptyText,
   type ThingPlace,
 } from "./domain/thing-place";
+export {
+  askButtonText,
+  askingText,
+  askLabel,
+  askPlaceholder,
+  noThingsToAskText,
+  type AskRef,
+} from "./domain/thing-ask";
+export {
+  hitCountText,
+  hitMeta,
+  hitTile,
+  maxIndexedThings,
+  moreHitsText,
+  noHitsText,
+  searchLabel,
+  searchPlaceholder,
+  searchThings,
+  type IndexedPlace,
+  type IndexedThing,
+  type ThingHit,
+} from "./domain/thing-search";
+export {
+  cardSnapshotSchema,
+  cleanThingName,
+  emptyNameText,
+  maxThingNameChars,
+  nameTooLongText,
+  removeCardDetail,
+  removeCardQuestion,
+  removeCardText,
+  removedCardText,
+  removedThingText,
+  removeThingText,
+  renameThingText,
+  type CardSnapshot,
+  type ThingSnapshot,
+} from "./domain/thing-edit";

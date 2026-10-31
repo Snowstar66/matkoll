@@ -6,6 +6,7 @@ import { createLmStudioTarget } from "./adapters/lmstudio";
 import { prompts } from "./prompts";
 import type { Limits } from "./run";
 import {
+  askThingsText,
   createAiService,
   createModelAiService,
   inputLimits,
@@ -18,6 +19,7 @@ import {
   locateLimitsFrom,
   withInputValidation,
   type AnalyzeImageInput,
+  type AskThingsInput,
   type LocateItemsInput,
   type ParseRecipeInput,
   type SuggestDishesInput,
@@ -1082,5 +1084,72 @@ describe("listThings on a model (Story 18.2)", () => {
       ok: false,
       error: { code: "validation" },
     });
+  });
+});
+
+describe("askThings on a model (Story 18.4)", () => {
+  const places: AskThingsInput["places"] = [
+    {
+      title: "Skräpförrådet · Översta hyllan",
+      site: "Hemma",
+      cardDate: "31 okt",
+      hidden: 2,
+      things: [
+        { name: "Hammare", category: "Verktyg", where: "på väggen" },
+        { name: "Målarfärg; vit", category: "Byggmaterial", where: null },
+      ],
+    },
+    { title: "Garaget", site: "Stugan", cardDate: "1 nov", hidden: 0, things: [{ name: "Spade", category: "Trädgård", where: null }] },
+  ];
+  const input: AskThingsInput = { question: "Har vi något att måla med?", places };
+  const answer = (text: string, refs: unknown[]) => JSON.stringify({ answer: text, places: refs });
+  const limits: Limits = { healthMs: 30_000, attemptMs: 30_000, totalMs: 60_000, maxAttempts: 1, minRetryMs: 0 };
+
+  it("sends the ask prompt and the lists as text only, and gives the answer with zero-based places", async () => {
+    const model = fakeModel(answer("Målarfärg finns i Skräpförrådet.", [1, 2, 2, 9, 0, 1.5]));
+    const result = await createModelAiService({ model }, limits).askThings(input, signal());
+    // The numbers outside the lists, repeated or not whole are left out.
+    expect(result).toEqual({ ok: true, data: { answer: "Målarfärg finns i Skräpförrådet.", places: [0, 1] } });
+    const call = model.doGenerateCalls[0];
+    expect(call.maxOutputTokens).toBe(inputLimits.ask.maxOutputTokens);
+    const [system, user] = call.prompt;
+    expect(system).toEqual({ role: "system", content: prompts.askThings });
+    expect(user.content).toEqual([{ type: "text", text: askThingsText(input) }]);
+    expect(askThingsText(input)).toBe(
+      [
+        "Fråga: Har vi något att måla med?",
+        "",
+        "Platser:",
+        "1. Skräpförrådet · Översta hyllan | Hemma | kort 31 okt | 2 lådor syns inte",
+        "   Hammare (Verktyg, på väggen); Målarfärg, vit (Byggmaterial)",
+        "2. Garaget | Stugan | kort 1 nov",
+        "   Spade (Trädgård)",
+      ].join("\n"),
+    );
+  });
+
+  it("is ai_invalid for an empty answer", async () => {
+    const result = await createModelAiService({ model: fakeModel(answer("  ", [1])) }, limits).askThings(input, signal());
+    expect(result).toMatchObject({ ok: false, error: { code: "ai_invalid" } });
+  });
+
+  it("is ai_unavailable when the deadline leaves too little time", async () => {
+    const model = fakeModel(answer("Ja.", []));
+    const result = await createModelAiService({ model }, limits).askThings(input, signal(), { deadline: Date.now() + 1_000 });
+    expect(result).toMatchObject({ ok: false, error: { code: "ai_unavailable" } });
+    expect(model.doGenerateCalls).toHaveLength(0);
+  });
+
+  it("is validation for a question or lists outside the limits", async () => {
+    const wrapped = withInputValidation(createModelAiService({ model: fakeModel(answer("Ja.", [])) }, limits));
+    const code = async (next: AskThingsInput) => (await wrapped.askThings(next, signal())) as { ok: boolean; error?: { code: string } };
+    expect((await code(input)).ok).toBe(true);
+    expect((await code({ ...input, question: "" })).error?.code).toBe("validation");
+    expect((await code({ ...input, question: "två\nrader" })).error?.code).toBe("validation");
+    expect((await code({ ...input, question: "x".repeat(301) })).error?.code).toBe("validation");
+    expect((await code({ ...input, places: [] })).error?.code).toBe("validation");
+    expect((await code({ ...input, places: [{ ...places[1], title: "a\nb" }] })).error?.code).toBe("validation");
+    const long = { ...places[1], things: Array.from({ length: 400 }, (_, index) => ({ name: `Pryl nummer ${index}`, category: "Övrigt", where: "någonstans på hyllan" })) };
+    expect((await code({ ...input, places: [long] })).error?.code).toBe("validation");
   });
 });

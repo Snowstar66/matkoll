@@ -7,8 +7,9 @@ import { requireUserOrRedirect } from "@/features/auth/server";
 import { type PantrySiteWithCount, type SelectedSite } from "@/features/pantry";
 import { listPantrySitesWithCounts, PantryDataError } from "@/features/pantry/server";
 import { SiteSwitch, SiteSwitchProvider } from "@/features/pantry/ui/site-switch";
-import { roomSuggestions, thingsEmptyText } from "@/features/things";
-import { listThingPlaces, ThingsDataError } from "@/features/things/server";
+import { roomSuggestions, thingsEmptyText, type IndexedPlace } from "@/features/things";
+import { getThingIndex, listThingPlaces, ThingsDataError } from "@/features/things/server";
+import { ThingFinder } from "@/features/things/ui/thing-finder";
 import { NewPlace } from "@/features/things/ui/new-place-sheet";
 import { PlacesList } from "@/features/things/ui/places-list";
 import { errorMessages } from "@/lib/errors";
@@ -42,14 +43,27 @@ export async function PrylarContent() {
   }
   const site: SelectedSite = { id: selected.id, name: selected.name, siteCount: sites.length };
 
+  // Story 18.4: the search and the question span every boende. Without a card
+  // to search in they are left out; when the index cannot be read the tab works as before.
+  let index: IndexedPlace[] = [];
+  try {
+    index = await getThingIndex();
+  } catch (error) {
+    if (!(error instanceof ThingsDataError)) throw error;
+    console.error("things_unavailable", { reason: error.detail });
+  }
+
+  const places = (
+    <SiteSwitch sites={sites} selected={site}>
+      <Suspense key={site.id} fallback={<Skeleton rows={3} />}>
+        <Places siteId={site.id} />
+      </Suspense>
+    </SiteSwitch>
+  );
   return (
     <SiteSwitchProvider>
       <PageHeader title="Prylar" />
-      <SiteSwitch sites={sites} selected={site}>
-        <Suspense key={site.id} fallback={<Skeleton rows={3} />}>
-          <Places siteId={site.id} />
-        </Suspense>
-      </SiteSwitch>
+      {index.some((place) => place.things.length > 0) ? <ThingFinder places={index}>{places}</ThingFinder> : places}
     </SiteSwitchProvider>
   );
 }
