@@ -39,7 +39,7 @@ export async function PrylarContent() {
     if (sites) console.error("things_unavailable", { reason: "no_selected_site" });
     return (
       <>
-        <PageHeader title="Förråd" />
+        <PageHeader title="Förråd" tab="/prylar" />
         <Notice role="alert">{errorMessages.things_unavailable}</Notice>
       </>
     );
@@ -55,7 +55,7 @@ export async function PrylarContent() {
   );
   return (
     <>
-      <PageHeader title="Förråd" />
+      <PageHeader title="Förråd" tab="/prylar" />
       {/* A phone has no side menu: the boende is under the title (Story 16.14). */}
       <div className="-mt-2 mb-3 empty:hidden desktop:hidden">
         <BoendeVal variant="page" sites={sites} loadCounts={loadBoendeCounts} />

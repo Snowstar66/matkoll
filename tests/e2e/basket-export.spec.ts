@@ -331,12 +331,11 @@ test("after a copy the steps sheet explains the cart, links to ica.se without op
   await sheet.getByRole("button", { name: "Klar", exact: true }).click();
   await expect(sheet).toHaveCount(0);
 
-  // Hidden on the next copy, and "Så funkar det" opens it again.
+  // Hidden on the next copy ("Så funkar det" moved to Hjälp och tips, Story 19.2).
   await sendButton(page).click();
   await expect(toast(page)).toHaveText(copied(5));
   await expect(sheet).toHaveCount(0);
-  await page.getByRole("button", { name: "Så funkar det", exact: true }).filter({ visible: true }).click();
-  await expect(sheet).toBeVisible();
+  await expect(page.getByRole("button", { name: "Så funkar det" })).toHaveCount(0);
   expect(errors).toEqual([]);
 });
 

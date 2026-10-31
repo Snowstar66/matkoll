@@ -27,13 +27,21 @@ export type BoendeValProps = {
   loadCounts: () => Promise<Record<string, BoendeCounts> | null>;
 };
 
-function BoendeList({
+/**
+ * The rows of the one boende sheet (Story 19.2): each boende with what is in it, a check at the
+ * selected one and "Hantera boenden ›" last. The side menu's popover and the sheet on a phone
+ * (BoendeVal) and the sheet in Inköpslista (ListSiteLine) all show this.
+ */
+export function BoendeList({
   sites,
   shownId,
   counts,
   onChoose,
   onManage,
   role,
+  disabled = false,
+  savingId = null,
+  rowRef,
 }: {
   sites: readonly PantrySite[];
   shownId: string;
@@ -41,24 +49,32 @@ function BoendeList({
   onChoose: (id: string) => void;
   onManage: () => void;
   role: "menu" | "plain";
+  /** A choice is on its way: every row waits. */
+  disabled?: boolean;
+  /** The boende being saved, which says "Sparar …" instead of the check. */
+  savingId?: string | null;
+  /** Hands over each row's button, for focus after a failure. */
+  rowRef?: (id: string, element: HTMLButtonElement | null) => void;
 }) {
   const menu = role === "menu";
   return (
-    <div role={menu ? "menu" : undefined} aria-label={menu ? boendeSheetTitle : undefined} className="flex flex-col">
+    <div role={menu ? "menu" : "group"} aria-label={boendeSheetTitle} className="flex flex-col">
       {sites.map((site) => {
         const checked = site.id === shownId;
         const sub = counts?.[site.id];
         return (
           <button
             key={site.id}
+            ref={rowRef ? (element) => rowRef(site.id, element) : undefined}
             type="button"
+            disabled={disabled}
             role={menu ? "menuitemradio" : undefined}
             aria-checked={menu ? checked : undefined}
             aria-pressed={menu ? undefined : checked}
             data-testid="boende-option"
             onClick={() => onChoose(site.id)}
             className={cx(
-              "flex min-h-[3.5rem] items-center gap-2.5 rounded-md px-3 py-2 text-left desktop:min-h-12",
+              "flex min-h-[3.5rem] items-center gap-2.5 rounded-md px-3 py-2 text-left disabled:opacity-60 desktop:min-h-12",
               checked && "bg-mint/50",
             )}
           >
@@ -66,7 +82,11 @@ function BoendeList({
               <span className="text-body font-medium break-words text-ink desktop:text-[0.9375rem]">{site.name}</span>
               {sub ? <span className="text-meta text-ink-2">{boendeMenuText(sub)}</span> : null}
             </span>
-            {checked ? <CheckIcon size={18} className="ml-auto shrink-0 text-accent" /> : null}
+            {site.id === savingId ? (
+              <span className="ml-auto shrink-0 text-meta text-ink-2">Sparar …</span>
+            ) : checked ? (
+              <CheckIcon size={18} className="ml-auto shrink-0 text-accent" />
+            ) : null}
           </button>
         );
       })}
@@ -184,14 +204,15 @@ export function BoendeVal({ variant, sites, loadCounts }: BoendeValProps) {
         disabled={!hydrated || switching}
         onClick={() => setOpen((current) => !current)}
         className={cx(
-          "-ml-1.5 flex items-center gap-1 rounded-md px-1.5 text-ink-2",
-          side ? "min-h-8 text-[0.8125rem]" : "min-h-tap text-[0.875rem]",
+          "flex items-center rounded-md text-ink-2",
+          // In the side menu a full-width row, its pin in the icon column of the items below; on a phone "📍 Hemma ⌄" under the title.
+          side ? "min-h-11 w-full gap-3 px-3 text-left text-body" : "-ml-1.5 min-h-tap gap-1 px-1.5 text-meta",
           open && side && "bg-mint text-mint-ink",
         )}
       >
-        <PinIcon size={side ? 14 : 16} />
+        <PinIcon size={side ? 22 : 14} />
         <span className="min-w-0 break-words">{shown.name}</span>
-        <ChevronDownIcon size={side ? 14 : 16} />
+        <ChevronDownIcon size={14} className={side ? "ml-auto" : undefined} />
       </button>
       {error ? <Notice role="alert">{error}</Notice> : null}
       {side && open ? (

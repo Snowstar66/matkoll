@@ -15,7 +15,7 @@ import { SettingsMenuContent } from "./settings-menu-content";
 export default function SettingsLayout({ children }: { children: ReactNode }) {
   return (
     <SettingsShell
-      header={<PageHeader title="Inställningar" backHref="/recept" backOnlyOnMobile />}
+      header={<PageHeader title="Inställningar" backHref="/recept" backLabel="Recept" backOnlyOnMobile />}
       menu={
         <Suspense fallback={<Skeleton rows={4} />}>
           <SettingsMenuContent />

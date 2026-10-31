@@ -48,7 +48,7 @@ export async function HomePlace({ searchParams }: Pick<PageProps<"/hemma">, "sea
     if (sites) console.error("pantry_unavailable", { reason: "no_selected_site" });
     return (
       <>
-        <PageHeader title="Matvaror" />
+        <PageHeader title="Matvaror" tab="/hemma" />
         <Notice role="alert">{errorMessages.pantry_unavailable}</Notice>
       </>
     );
@@ -58,7 +58,7 @@ export async function HomePlace({ searchParams }: Pick<PageProps<"/hemma">, "sea
   return (
     <PantrySuggestionsProvider>
         <PantrySheetProvider location={location} site={site}>
-          <PageHeader title="Matvaror" action={<AddPantryItemButton variant="icon" />} />
+          <PageHeader title="Matvaror" tab="/hemma" action={<AddPantryItemButton variant="icon" />} />
           {/* A phone has no side menu: the boende is under the title (Story 16.14). */}
           <div className="-mt-2 mb-3 empty:hidden desktop:hidden">
             <BoendeVal variant="page" sites={sites} loadCounts={loadBoendeCounts} />

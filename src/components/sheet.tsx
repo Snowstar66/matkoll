@@ -11,7 +11,8 @@ export type SheetProps = {
   open: boolean;
   /** Called when the sheet should close; the caller sets `open` to false. */
   onClose: () => void;
-  title: string;
+  /** A name; the account sheet (Story 19.2) puts the avatar, the name and the address here. */
+  title: ReactNode;
   /** A line under the title, e.g. the store a product choice is for; it also describes the dialog. */
   subtitle?: string;
   children: ReactNode;

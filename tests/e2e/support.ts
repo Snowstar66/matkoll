@@ -612,3 +612,12 @@ export async function pickBoende(page: Page, name: string) {
 export async function expectBoende(page: Page, name: string) {
   await expect(boendeButton(page)).toHaveAccessibleName(`Boende: ${name}`);
 }
+
+/**
+ * Opens the P button's sheet (Story 19.2) on a phone and goes to Inställningar from it; the
+ * gear is gone from Recept, and a desktop has Inställningar in the side menu instead.
+ */
+export async function openSettingsViaAvatar(page: Page) {
+  await page.getByRole("button", { name: "Konto" }).filter({ visible: true }).click();
+  await page.getByRole("dialog").filter({ visible: true }).getByRole("link", { name: "Inställningar" }).click();
+}

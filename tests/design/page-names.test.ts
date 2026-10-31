@@ -60,7 +60,7 @@ describe("the page is called Matvaror (Story 10.4)", () => {
 
   it("the menu and the page say Matvaror", () => {
     expect(readFileSync(join(root, "src/components/app-shell/destinations.ts"), "utf8")).toContain(
-      '{ href: "/hemma", label: "Matvaror"',
+      '{ href: "/hemma", helpId: "matvaror", label: "Matvaror"',
     );
     expect(readFileSync(join(root, "src/app/(app)/hemma/page.tsx"), "utf8")).toContain('title: "Matvaror"');
   });
