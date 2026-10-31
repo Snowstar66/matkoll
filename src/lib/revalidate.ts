@@ -23,6 +23,8 @@ const routesByTable = {
   recipe_site: [{ path: "/installningar", type: "layout" }],
   // The choice of AI in Inställningar (Story 17.5). Jobs read it on every run.
   ai_setting: [{ path: "/installningar", type: "layout" }],
+  // The personal keys under "Siri och genvägar" in Inställningar (Story 17.9).
+  api_key: [{ path: "/installningar", type: "layout" }],
   // The stores in Inställningar, and the shopping list, which shows the
   // selected store's product choices and exports to it (Stories 7.2, 7.3).
   // The weekly offers follow the selected store (Story 9.1, AD-25): the list

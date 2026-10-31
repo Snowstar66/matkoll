@@ -335,3 +335,7 @@ Appen sätter sessionskakan till 90 dagar (`maxAge`) och förnyar sessionen i pr
 - **JWT expiry:** 3600 sekunder (standard).
 
 Ändra inget i molnet utan att Pontus godkänner (AD-23). **Kontroll:** logga in på telefonen, vänta över en timme och öppna appen: du är fortfarande inloggad. Logga ut: kakorna `sb-…-auth-token` försvinner och `/logga-in` visas.
+
+## 13. Siri och genvägar (Story 17.9)
+
+Genvägen "Livskoll" på iPhone anropar `POST <adress>/api/snabb` med en personlig nyckel (Inställningar → Siri och genvägar). **Det fungerar först när appen ligger i molnet:** en telefon når inte `localhost`, så lokalt går bara att pröva från datorn (`curl -X POST http://localhost:3100/api/snabb -H "Authorization: Bearer <nyckel>" -H "Content-Type: application/json" -d '{"text":"mjölk och ägg"}'`). Nyckeln sparas bara som sha256-hash; en förlorad nyckel kan inte läsas upp, utan återkallas och ersätts med en ny. Migreringen `20261101200000_api_key_quick_add.sql` följer med `supabase db push` (steg 6), och inga nya miljövariabler behövs. Genvägen på hemskärmen (`/lista/lagg-till`) kräver inget av detta.
