@@ -6,7 +6,7 @@ import {
   type RecipeStatus,
   type StatusLine,
 } from "@/features/pantry";
-import { weekStartSchema } from "./week";
+import { weekAnchorDate, weekStartSchema } from "./week";
 
 // Matsedel (FR-13, AD-22): the current meal plan with its dishes, what the
 // actions take, and the plan's name. Pure, so it is tested without a database.
@@ -325,6 +325,12 @@ export function weekdayDateText(date: Date, weekday: number, timeZone: string = 
     .reduce<Record<string, number>>((all, part) => ({ ...all, [part.type]: Number(part.value) }), {});
   const target = new Date(Date.UTC(parts.year, parts.month - 1, parts.day + (weekday - todayWeekday(date, timeZone))));
   return `${target.getUTCDate()} ${shortMonths[target.getUTCMonth()]}`;
+}
+
+/** The dates a week covers, Monday to Sunday: "27 okt – 2 nov". */
+export function weekRangeText(weekStart: string): string {
+  const anchor = weekAnchorDate(weekStart);
+  return `${weekdayDateText(anchor, 1)} \u2013 ${weekdayDateText(anchor, 7)}`;
 }
 
 /** The day of the month of `weekday` in the week `date` falls in: "31". */

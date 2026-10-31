@@ -97,7 +97,7 @@ export async function ShoppingListContent({
       };
   return (
     <>
-      <div className="mb-2">
+      <div className="mb-6">
         <WeekNav weekStart={weekStart} counts={counts} now={now} basePath="/lista" showHistory={false} />
       </div>
       <ShoppingListView

@@ -40,7 +40,6 @@ import {
   lineAmountText,
   lineMetaText,
   lineName,
-  listSummaryText,
   pantryUnreadText,
   checksUnreadText,
   hiddenLinesButtonText,
@@ -880,19 +879,12 @@ export function ShoppingList({
       <div role="status" aria-live="polite" aria-atomic="true" className="sr-only" data-testid="check-announcement">
         {moveAnnouncement.text ? <span key={moveAnnouncement.count}>{moveAnnouncement.text}</span> : null}
       </div>
-      {hasDishes || (plan && (hasLines || plan.skippedCount > 0)) ? (
-        // Close under the title, as part of the header.
+      {plan && plan.skippedCount > 0 ? (
+        // Close under the week control, as part of the header (the week and its dish count are in the control).
         <div className="-mt-4 flex flex-col gap-1">
-          {hasDishes || hasLines ? (
-            <p data-testid="list-summary" className="text-meta text-ink-2">
-              {listSummaryText(plan.name, plan.dishCount)}
-            </p>
-          ) : null}
-          {plan.skippedCount > 0 ? (
-            <p data-testid="list-skipped" className="text-meta text-ink-2">
-              {skippedDishesText(plan.skippedCount)}
-            </p>
-          ) : null}
+          <p data-testid="list-skipped" className="text-meta text-ink-2">
+            {skippedDishesText(plan.skippedCount)}
+          </p>
         </div>
       ) : null}
       {/* Nothing is taken off, but the list is still there: a status, not an alert. */}
