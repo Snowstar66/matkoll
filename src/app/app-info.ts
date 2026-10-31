@@ -9,8 +9,8 @@ export const appTagline = "Mat, prylar och vardag under kontroll";
 export const appDescription = "Recept, matsedel, inköpslista och det du har hemma.";
 
 /**
- * How much of the square the jar takes. A maskable icon may be cut to a circle
- * of 80 % of its width, so its jar is scaled to 80 % to stay inside.
+ * How much of the square the house takes. A maskable icon may be cut to a circle
+ * of 80 % of its width, so its house is scaled to 80 % to stay inside.
  */
 export const motifScale = { regular: 1, apple: 0.92, maskable: 0.8 } as const;
 
