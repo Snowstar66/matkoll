@@ -37,7 +37,7 @@ import { thingPhotoBucket, thingPhotoPath } from "@/features/things/domain/thing
 import { localSupabaseUrl } from "../local-supabase";
 import { adminClient, anonClient, createTestUser, deleteTestUsers, type Db, type TestUser } from "./support";
 
-// Prylar against local Supabase with Storage (Stories 18.1 and 18.2, AD-4,
+// Föremål against local Supabase with Storage (Stories 18.1 and 18.2, AD-4,
 // AD-5, AD-26, NFR-11): places (the same room and part in another spelling are
 // one place, a boende that is gone), cards (the file in the private bucket,
 // `reading`, `failed` and "Försök igen"), save_thing_reading (the things are

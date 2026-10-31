@@ -2,6 +2,7 @@ import { z } from "zod";
 import { charLength } from "@/lib/one-line";
 import { cleanPlaceName, maxPlaceNameChars } from "./thing-place";
 import { appName } from "@/app/app-info";
+import { thingNoun } from "./thing-noun";
 
 // Ta kort (Story 18.11): where a card is taken. A room, and optionally a part of
 // it or a box; without either the card goes to the room's "Hela rummet" place.
@@ -43,7 +44,7 @@ export const takeAnotherText = "Ta ett till";
 export const emptyCaptureRoomText = "Ange ett rum, till exempel Skräpförrådet.";
 export const retakeText = "Ta om";
 export const retakeTitleText = "Ta om kortet";
-export const retakeDetailText = "Det nya fotot ersätter det här kortet när det är läst. Rättelser och tillagda prylar på det gamla kortet ersätts av den nya läsningen.";
+export const retakeDetailText = `Det nya fotot ersätter det här kortet när det är läst. Rättelser och tillagda ${thingNoun.plural} på det gamla kortet ersätts av den nya läsningen.`;
 
 /** The calm line for an image that could not be turned into JPEG: its name and what to do. */
 export function skippedImageText(name: string): string {

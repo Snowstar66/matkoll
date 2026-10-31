@@ -57,6 +57,7 @@ import {
   type ItemPosition,
 } from "./schemas";
 import { warmImage } from "./warm-image";
+import { noThingNounText, thingNoun, thingNounCap } from "@/lib/thing-noun";
 
 // The AI port (AD-9). Modules call these methods and never see the provider.
 // Each has its schema in schemas.ts and its prompt in prompts/.
@@ -867,7 +868,7 @@ export function analyzeImageContent(input: AnalyzeImageInput) {
 /** The user message for listThings (Story 18.2): a line and the photo as a `file` part. */
 export function listThingsContent(input: ListThingsInput) {
   return [
-    { type: "text" as const, text: "Bilden visar en plats hemma. Lista prylarna." },
+    { type: "text" as const, text: `Bilden visar en plats hemma. Lista ${thingNoun.definitePlural}.` },
     { type: "file" as const, data: input.image.data, mediaType: input.image.mediaType },
   ];
 }
@@ -887,7 +888,7 @@ export function askThingsText(input: AskThingsInput): string {
     const things = place.things
       .map((thing) => `${thing.name.replaceAll(";", ",")} (${[thing.category, thing.where].filter(Boolean).join(", ")})`)
       .join("; ");
-    return `${index + 1}. ${head.join(" | ")}\n   ${things === "" ? "(inga prylar)" : things}`;
+    return `${index + 1}. ${head.join(" | ")}\n   ${things === "" ? `(${noThingNounText})` : things}`;
   });
   const earlier = input.history && input.history.length > 0 ? `${historyText(input.history)}\n\n` : "";
   const unseen =
@@ -911,7 +912,7 @@ export function thingSearchTermsText(input: ThingSearchTermsInput): string {
 
 /** The user message for categorizeThings (Story 18.13): "Prylar:" and a numbered line per name. */
 export function categorizeThingsText(input: CategorizeThingsInput): string {
-  return `Prylar:\n${input.names.map((name, index) => `${index + 1}. ${name}`).join("\n")}`;
+  return `${thingNounCap.plural}:\n${input.names.map((name, index) => `${index + 1}. ${name}`).join("\n")}`;
 }
 
 /**

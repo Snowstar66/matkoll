@@ -104,11 +104,11 @@ describe("the words of a recipe import (Story 12.6)", () => {
 
 describe("the things job (Story 18.2)", () => {
   it("is named after what it is about, and says how many things it listed", () => {
-    expect(doingText("things")).toBe("Letar efter prylar på fotot");
-    expect(subjectText("things")).toBe("prylarna på fotot");
-    expect(finishedText(job({ kind: "things", status: "done", count: 12 }))).toBe("12 prylar är listade.");
-    expect(finishedText(job({ kind: "things", status: "done", count: 1 }))).toBe("1 pryl är listad.");
-    expect(finishedText(job({ kind: "things", status: "failed" }))).toBe("Det gick inte att lista prylarna på fotot.");
+    expect(doingText("things")).toBe("Letar efter föremål på fotot");
+    expect(subjectText("things")).toBe("föremålen på fotot");
+    expect(finishedText(job({ kind: "things", status: "done", count: 12 }))).toBe("12 föremål är listade.");
+    expect(finishedText(job({ kind: "things", status: "done", count: 1 }))).toBe("1 föremål är listat.");
+    expect(finishedText(job({ kind: "things", status: "failed" }))).toBe("Det gick inte att lista föremålen på fotot.");
   });
 
   it("shows the result on the place's page in Förråd, and on the tab for anything odd", () => {

@@ -1092,11 +1092,11 @@ describe("listThings on a model (Story 18.2)", () => {
   });
 
   it("keeps a thing with an unknown category as Övrigt and an odd confidence as low, and drops one without a name", async () => {
-    const model = fakeModel(answer([thing("Pryl", { category: "Mat", confidence: "kanske" }), thing("   "), thing("Såg", { where: "" })]));
+    const model = fakeModel(answer([thing("Föremål", { category: "Mat", confidence: "kanske" }), thing("   "), thing("Såg", { where: "" })]));
     const result = await createModelAiService({ model }, limits).listThings(input, signal());
     if (!result.ok) throw new Error(result.error.code);
     expect(result.data.things).toEqual([
-      { name: "Pryl", category: "Övrigt", where: "översta hyllan, vänster", confidence: "low" },
+      { name: "Föremål", category: "Övrigt", where: "översta hyllan, vänster", confidence: "low" },
       { name: "Såg", category: "Verktyg", where: null, confidence: "high" },
     ]);
     expect(result.data.invalid).toBe(1);
@@ -1110,7 +1110,7 @@ describe("listThings on a model (Story 18.2)", () => {
   });
 
   it("cuts at 60 things and counts the rest", async () => {
-    const many = Array.from({ length: 65 }, (_, index) => thing(`Pryl ${index}`));
+    const many = Array.from({ length: 65 }, (_, index) => thing(`Föremål ${index}`));
     const result = await createModelAiService({ model: fakeModel(answer(many)) }, limits).listThings(input, signal());
     if (!result.ok) throw new Error(result.error.code);
     expect(result.data.things).toHaveLength(60);
@@ -1190,7 +1190,7 @@ describe("askThings on a model (Story 18.4)", () => {
     expect((await code({ ...input, question: "x".repeat(301) })).error?.code).toBe("validation");
     expect((await code({ ...input, places: [] })).error?.code).toBe("validation");
     expect((await code({ ...input, places: [{ ...places[1], title: "a\nb" }] })).error?.code).toBe("validation");
-    const long = { ...places[1], things: Array.from({ length: 400 }, (_, index) => ({ name: `Pryl nummer ${index}`, category: "Övrigt", where: "någonstans på hyllan" })) };
+    const long = { ...places[1], things: Array.from({ length: 400 }, (_, index) => ({ name: `Föremål nummer ${index}`, category: "Övrigt", where: "någonstans på hyllan" })) };
     expect((await code({ ...input, places: [long] })).error?.code).toBe("validation");
   });
 });
@@ -1251,7 +1251,7 @@ describe("mergeThings on a model (Story 18.6)", () => {
     expect((await code({ ...input, added: [] })).error?.code).toBe("validation");
     expect((await code({ ...input, room: "a\nb" })).error?.code).toBe("validation");
     expect((await code({ ...input, added: [{ name: "två\nrader", category: "Övrigt", where: null }] })).error?.code).toBe("validation");
-    const many = Array.from({ length: inputLimits.merge.maxExisting + 1 }, (_, index) => ({ name: `Pryl ${index}`, category: "Övrigt", where: null, card: "Kort" }));
+    const many = Array.from({ length: inputLimits.merge.maxExisting + 1 }, (_, index) => ({ name: `Föremål ${index}`, category: "Övrigt", where: null, card: "Kort" }));
     expect((await code({ ...input, existing: many })).error?.code).toBe("validation");
   });
 });
@@ -1356,7 +1356,7 @@ describe("categorizeThings on a model (Story 18.13)", () => {
     const [system, user] = call.prompt;
     expect(system).toEqual({ role: "system", content: prompts.categorizeThings });
     expect(user.content).toEqual([{ type: "text", text: categorizeThingsText(input) }]);
-    expect(categorizeThingsText(input)).toBe("Prylar:\n1. Julgransbelysning\n2. Hammare\n3. Skarvsladdar");
+    expect(categorizeThingsText(input)).toBe("Föremål:\n1. Julgransbelysning\n2. Hammare\n3. Skarvsladdar");
   });
 
   it("is ai_unavailable when the deadline leaves too little time", async () => {
@@ -1371,7 +1371,7 @@ describe("categorizeThings on a model (Story 18.13)", () => {
     const code = async (next: CategorizeThingsInput) => (await wrapped.categorizeThings(next, signal())) as { ok: boolean; error?: { code: string } };
     expect((await code({ names: ["Hammare"] })).ok).toBe(true);
     expect((await code({ names: [] })).error?.code).toBe("validation");
-    expect((await code({ names: Array.from({ length: 101 }, (_, index) => `Pryl ${index}`) })).error?.code).toBe("validation");
+    expect((await code({ names: Array.from({ length: 101 }, (_, index) => `Föremål ${index}`) })).error?.code).toBe("validation");
     expect((await code({ names: ["x".repeat(81)] })).error?.code).toBe("validation");
     expect((await code({ names: ["två\nrader"] })).error?.code).toBe("validation");
   });

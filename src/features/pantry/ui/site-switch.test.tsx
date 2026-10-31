@@ -137,7 +137,7 @@ describe("SiteSwitch and the boende menu", () => {
     const options = within(menu).getAllByRole("menuitemradio");
     expect(options).toHaveLength(2);
     await waitFor(() => expect(options[0]).toHaveTextContent("12 varor"));
-    expect(options[1]).toHaveTextContent("18 prylar");
+    expect(options[1]).toHaveTextContent("18 föremål");
     expect(options[0]).toHaveAttribute("aria-checked", "true");
     expect(options[1]).toHaveAttribute("aria-checked", "false");
     expect(within(menu).getByRole("menuitem", { name: /Hantera boenden/ })).toHaveAttribute("href", "/installningar/boenden");
@@ -158,7 +158,7 @@ describe("SiteSwitch and the boende menu", () => {
     render(<Hemma initial={[hemma, stugan]} variant="page" />);
     await user.click(opener("Hemma"));
     const sheet = await screen.findByRole("dialog", { name: "Boende" });
-    expect(await within(sheet).findByText("18 prylar")).toBeInTheDocument();
+    expect(await within(sheet).findByText("18 föremål")).toBeInTheDocument();
     expect(within(sheet).getByRole("button", { name: /Hemma/ })).toHaveAttribute("aria-pressed", "true");
     expect(within(sheet).getByRole("link", { name: /Hantera boenden/ })).toHaveAttribute("href", "/installningar/boenden");
     await user.click(within(sheet).getByRole("button", { name: /Stugan/ }));
