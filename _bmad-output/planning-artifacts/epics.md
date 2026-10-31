@@ -4191,3 +4191,487 @@ Beslut 2026-10-31 (Pontus): förslag B av tre.
 **Givet** en favicon på 16 px
 **När** den visas
 **Så** går huset och bocken fortfarande att urskilja
+
+## Epic 19: Premiumlook
+
+Version 2.2. Appen får ett samlat premiumutseende: ett enda designsystem med tokens, lätt typografi med roller, linjeikoner, ett enda valt läge, tyst ram och mörkt läge på riktigt. Pontus (2026-10-31): "Gör proffsigt app-look-and-feel", "ta din fulla kunskap av hur premiumappar brukar vara designade". Efter att ha sett förslaget: "Bygg allt, merga allt" och "vi kör på dina förslag rakt av", så varje punkt under "Beslut för Pontus" i modellen bygger sitt förval. Modellen är ett löfte: allt som syns i "Nytt"-bilderna ska finnas i appen, i ljust och mörkt läge, vid 375 px och 200 % text.
+
+Källor: modellen `_bmad-output/planning-artifacts/ux-designs/ux-Matkoll-2026-10-25/mockups/premium-look.html` (principer, system med exakta tokens, 14 skärmar före/efter, sju stories P1–P7, beslut) och UX-genomlysningen `_bmad-output/planning-artifacts/ux-designs/ux-Matkoll-2026-10-25/ux-genomlysning-2026-10-31.html`. Story 19.1 går först; 19.2–19.5 kan byggas parallellt efter den; 19.6 och 19.7 sist.
+
+### Story 19.1: Tokens, typsnitt och flikrad
+
+Som Pontus,
+vill jag att hela appen får en lättare typografi, mjukare hörn, ett riktigt mörkt läge, luft som inte slösas i webbläsaren och ett lägre, genomskinligt flikfält med linjeikoner,
+så att appen ser ut som en färdig premiumapp redan innan varje skärm är genomgången.
+
+Beslut (Pontus, förval i modellen): sidrubrik 30 px · 600 (inte 700); radtitlar 500 och varor 400; linjeikoner i flikfält, sidomeny och Inställningar; en enda skugga (`--shadow-float`) för ark på dator, menyer och toast; sekundärknappen vit med grön text i stället för ljusblå.
+
+**Acceptance Criteria:**
+
+**Givet** appen i valfri vy
+**När** jag letar efter text med vikt 700 eller `font-bold`
+**Så** finns ingen kvar: vikter är 400 för allt man läser, 500 för det man trycker på och för radtitlar, 600 för rubriker och knappar
+
+**Givet** typskalan
+**När** jag läser tokens i `globals.css`
+**Så** finns `--page-title` 30/36 · 600 · −0,4, `--recipe-title` 26/32 · 600 · −0,3, `--section-title` 20/26 · 600 · −0,2, `--headline` 17/22 · 600, `--row-title` 17/22 · 500, `--item` 17/22 · 400, `--body` 16/24 · 400, `--control` 15/20 · 500 (vald 600), `--meta` 14/20 · 400, `--section-label` 13/18 · 500 versaler +0,5, `--badge` 12/16 · 500 och `--tab-label` 11/13 · 500 (vald 600); stegläget 24/1,4 · 500 är oförändrat
+
+**Givet** siffror i mängder och tabeller
+**När** de visas i kolumn
+**Så** använder de `font-variant-numeric: tabular-nums`
+
+**Givet** hörnen
+**När** jag läser tokens
+**Så** är `--rounded-xs` 6, `sm` 10, `md` 12, `lg` 16, `xl` 24 och `full` 999 px, och knappar, fält, kort och ark använder dem
+
+**Givet** avstånden
+**När** jag läser tokens
+**Så** finns `--space-1` 4, `--space-2` 8, `--space-3` 12, `--space-4` 16, `--gutter` 20, `--space-6` 24, `--space-8` 32 och `--space-10` 40 px
+
+**Givet** ljust läge
+**När** jag läser färgrollerna
+**Så** är `--bg` #F5F7F4, `--surface` #FFFFFF, `--surface-2` #FFFFFF, `--fill` #EAEDEB, `--ink` #1B2420, `--ink-2` #56635D, `--ink-3` #6B7872, `--hairline` #E8ECE9, `--border` #DCE2DE, `--accent` #3E7C62, `--mint` #DDEFE5 med `--mint-ink` #2C5E48, `--sky`, `--sand` oförändrade, `--danger` #B3261E och `--scrim` #1B2420 (40 %)
+
+**Givet** mörkt läge
+**När** jag ser appen
+**Så** är det designat, inte inverterat: tre ytnivåer (`--bg` #0F1311, `--surface` #181D1A, `--surface-2` #202622), `--fill` #242927, `--ink` #E6EBE8, `--ink-2` #A3AFA9, `--ink-3` #86928C, `--hairline` #262D29, `--border` #313934, `--accent` #6FB394, `--mint` #1F3A2D med `--mint-ink` #A8D9BF, `--sky` #1E3247, `--sand` #3A3326, `--danger` #E5736A och `--scrim` #000000 (60 %); korten syns utan kanter och ark och menyer lyfts med ljusare yta och hårfin ljus kant, inte skugga
+
+**Givet** segmenten
+**När** de ritas
+**Så** finns tokens `--seg-track` (#E9ECEA / #1A1F1C) och `--seg-on` (#FFFFFF / #2C3430), och den valda plattan i mörkt läge syns tydligt mot skenan
+
+**Givet** `--shadow-float`
+**När** jag letar efter skuggor
+**Så** finns exakt en (`0 12px 32px rgb(27 36 32 / .14), 0 0 0 .5px rgb(27 36 32 / .08)`), tillåten i `@theme`, och den används bara av det som flyger över sidan (ark som dialog på dator, menyer, toast); mörkt läge använder ingen skugga
+
+**Givet** en sida i en webbläsarflik på 390 px
+**När** den visas
+**Så** börjar rubriken 16 px under kanten (`--header-top-mobile: max(16px, calc(env(safe-area-inset-top) + 8px))`, idag ~56–70 px), på hemskärmen med notch ligger den under säkra området, och på dator är luften 40 px
+
+**Givet** Recept, Matsedel, Inköpslista och Matvaror på 390 px
+**När** de öppnas
+**Så** är sidrubriken 30/36 · 600 i stället för 34 · 700
+
+**Givet** flikfältet
+**När** jag ser det
+**Så** är höjden `--tab-bar-height: calc(56px + env(safe-area-inset-bottom) + var(--job-row-height, 0px))` (56 px i en webbläsarflik, inte 84), ytan 84 % genomskinlig med oskärpa 20 px och en 0,5 px linje upptill, så innehållet syns svagt under
+
+**Givet** flikarna
+**När** jag ser ikonerna
+**Så** är de linjeikoner (24 px rutnät, linje 1,8 px, rundade ändar, ingen fyllning) för Recept (bok), Matsedel (kalender), Inköpslista (kundvagn), Matvaror (morot) och Förråd (låda), etiketten är 11/13 · 500 och emoji (`NavEmoji`) finns inte kvar i flikfältet
+
+**Givet** en vald flik
+**När** jag ser den
+**Så** har den grön ikon med svag grön fyllning (16 %) och grön etikett 600, ingen platta, ingen ram och ingen ruta, och märket för AI-jobb (rund grön etikett uppe till höger på ikonen) finns kvar
+
+**Givet** att jag navigerar med tangentbord
+**När** en flik får fokus
+**Så** ritas en 2 px grön fokusring med 2 px luft runt ikon och etikett, rundad (`rounded-md`), aldrig en kantig ruta över hela fliken; med mus eller tryck syns ingen ring (`:focus-visible`), och samma fokusring gäller övriga kontroller
+
+**Givet** sidomenyn på dator
+**När** jag ser den
+**Så** har den samma linjeikoner som flikfältet, vald rad i mint med text 500 (inte fet) och inga emoji
+
+**Givet** fet text som inte är rubrik eller knapp (filterpiller, "Senast tillagda", Kort/Lista, textknappar, listposter)
+**När** jag ser den
+**Så** är den 500 eller 400 enligt rollen
+
+**Givet** `DESIGN.md`
+**När** jag läser den
+**Så** beskriver Typography, Layout, Elevation (en skugga), Colors (`--danger`, nya roller) och Do's and Don'ts det nya systemet
+
+**Givet** `tests/design/contrast.test.ts`
+**När** den körs
+**Så** täcker den de nya paren i båda lägena (text minst 4,5:1, ikoner och kontroller minst 3:1, bl.a. `--ink-3` på yta, `--danger` på yta, `--mint-ink` på `--mint`, vald segmentplatta mot skena) och är grön
+
+**Givet** mörkt läge, 375 px och 200 % text
+**När** jag använder appen
+**Så** finns ingen sidledes rullning, alla tryckytor är minst 44 px och flikfältets etiketter bryts mellan orddelar
+
+### Story 19.2: Sidhuvud, P-knappen, Hjälp och Boende
+
+Som Pontus,
+vill jag ha samma sidhuvud med avatar på alla flikar, en sida för hjälp och tips och ett enda sätt att se och byta boende,
+så att jag alltid vet var inställningar och hjälp finns och boendet inte visas på fem olika sätt.
+
+Beslut (Pontus, förval i modellen): rubriken fälls ihop till en smal list med titeln i mitten; Inställningar och Hjälp nås från avataren; kugghjulet på Recept tas bort.
+
+**Acceptance Criteria:**
+
+**Givet** någon av de fem flikarna på mobil
+**När** jag ser sidhuvudet
+**Så** står rubriken 30/36 · 600 till vänster och flikens egen handling samt avataren P (32 px mint cirkel i en 44 px tryckyta, initial från kontot) till höger på samma rad, vertikalt centrerade mot rubriken, med 16 px luft ovanför i en webbläsarflik
+
+**Givet** flikens egen knapp
+**När** jag ser den
+**Så** är den alltid en ikonknapp i samma storlek (44 × 44 yta, ikon 24 px, grön): Recept +, Matsedel +, Inköpslista Erbjudanden (etikett-ikon, grå, heter "Erbjudanden" för skärmläsare), Matvaror +, Förråd ingen; kugghjulet på Recept är borta och Förrådets sidhuvud är ändå lika högt som de andras så att rubriken inte hoppar
+
+**Givet** att rubriken har scrollat ut ur bild
+**När** jag scrollar
+**Så** tonar en smal list in (52 px inklusive 4 px luft) med titeln 17/22 · 600 centrerad, samma knappar till höger, 84 % genomskinlig yta med oskärpa och en hårfin linje i underkant, och ovanför den är sidan helt fri
+
+**Givet** att rubriken växlar mellan stor och list
+**När** det sker
+**Så** tonar bara listen (150 ms), texten animeras inte mellan storlekarna, och med "Minska rörelse" och på webben fungerar det lika
+
+**Givet** avataren
+**När** jag trycker på P
+**Så** öppnas ett litet ark med avatar, namn och e-post som rubrik, "Klar" till höger, raderna "Inställningar ›" och "Hjälp och tips ›" (den senare visar "Om Recept" osv. efter flik) och under dem knappen "Logga ut" (grå, med ikon, inte röd, ingen fråga)
+
+**Givet** Inställningar och Hjälp och tips
+**När** jag öppnar dem
+**Så** är ingen flik markerad, raden ovanför rubriken heter "‹ föräldersidans namn" (t.ex. "‹ Recept", "‹ Inställningar"), det finns ingen avatar och i ark heter det alltid "‹ Tillbaka"
+
+**Givet** sidan Hjälp och tips (`/hjalp`)
+**När** jag öppnar den
+**Så** har den ett avsnitt per flik i flikordning, överst en chips-rad Recept · Matsedel · Inköpslista · Matvaror · Förråd som hoppar till avsnittet och följer med när jag scrollar, och öppnad från en flik (`#recept` osv.) hamnar den på den flikens avsnitt med chipet valt
+
+**Givet** Inköpslistans "Så funkar det"
+**När** jag söker efter det
+**Så** har det flyttat till Hjälp och tips som avsnittet Inköpslista, och texterna beskriver det appen faktiskt gör
+
+**Givet** sidomenyn på dator
+**När** jag ser nederdelen
+**Så** finns en hårfin linje, sedan P med namn och e-post, "Hjälp och tips" (öppnas på avsnittet för sidan jag står på), "Inställningar" och "Logga ut", och ingen avatar finns i sidhuvudet på dator
+
+**Givet** att kontot saknar namn
+**När** namnet ska visas
+**Så** visas e-postens första del
+
+**Givet** Matsedel, Inköpslista, Matvaror eller Förråd och fler än ett boende
+**När** jag ser sidan
+**Så** står "📍 Hemma ⌄" (nålen som linjeikon, 14 px grått) direkt under rubriken, och med bara ett boende visas inget
+
+**Givet** boende-väljaren
+**När** jag trycker på den
+**Så** öppnas alltid samma ark "Boende" med rader med bock på det valda, "Klar" och "Hantera boenden ›" sist, och "Boende: Hemma · Byt", "Räkna listan mot" och "Boende: Hemma" finns inte kvar
+
+**Givet** dator och ett recept
+**När** jag letar efter boendet
+**Så** visas det på dator bara i sidomenyn, och på ett recept bara som text i metaraden ("2 av 8 hemma i Hemma")
+
+**Givet** mörkt läge, 375 px och 200 % text
+**När** jag använder sidhuvudet
+**Så** bryts rubriken före att knapparna flyttar, inget sidledes rullande uppstår och alla tryckytor är minst 44 px
+
+### Story 19.3: Valt läge: Chip, Segment och Recept-filtren
+
+Som Pontus,
+vill jag att valt alltid ser likadant ut och att Recept-filtren tar en rad,
+så att jag ser fler recept direkt och aldrig undrar vad som är valt.
+
+Beslut (Pontus, förval i modellen): "Alla"-chipet på Recept försvinner (inget valt = alla recept); sekundärknappen vit med grön text.
+
+**Acceptance Criteria:**
+
+**Givet** val som byter vy av samma sak (vecka, Kyl/Frys/Skafferi, Kort/Lista, Länk/Text/Foto i Importera, Erbjudandenas sortering)
+**När** de ritas
+**Så** är de ett Segment: skena `--seg-track`, hörn 12, 3 px inre luft, vald platta `--seg-on` med 1 px `--border` och text 15/600 `--ink`, ovalda 15/500 `--ink-2`, 40 px synligt (46 med två rader), 44 px tryckyta, radiogrupp med piltangenter, och den gamla `FilterPills segmented` och `.segment-on` finns inte kvar
+
+**Givet** val som filtrerar eller väljer (kategorier, Plats, Enhet, Rum, Erbjudandenas filter)
+**När** de ritas
+**Så** är de ett Chip: 32 px, helt runt, 12 px sidluft, 44 px tryckyta; ovalt `--surface` med 1 px `--border` och text 15/500 `--ink-2`; valt `--accent` med `--on-accent` 15/600; bredden reserverad för 600 så att chipet inte hoppar; radiogrupp eller toggle som idag
+
+**Givet** valt läge i appen
+**När** jag söker efter `bg-accent text-on-accent` och `border-accent` som markering utanför Chip och Button
+**Så** finns inga träffar: tre sorter (segment, chip, rad med bock) och inga andra
+
+**Givet** Recept på 390 px
+**När** jag ser filtren
+**Så** tar de en enda rad: Favoriter · Kan lagas nu, en tunn avdelare, sedan Kött · Fågel · Vegetariskt · Sallad · Gryta · Snabbt, raden scrollar i sidled inuti raden (aldrig sidan) och tonar ut mot högerkanten
+
+**Givet** receptfiltren
+**När** inget chip är valt
+**Så** visas alla recept; "Alla" finns inte, och ett tryck på ett valt chip väljer bort det
+
+**Givet** kategorierna
+**När** jag ser dem
+**Så** har de ingen emoji-platta, bara namnet, och valt ser likadant ut i båda grupperna (fylld grön med vit text 600)
+
+**Givet** raden under filtren
+**När** jag ser den
+**Så** står "5 recept" (14 px grå), sorteringen som en lugn knapp med sorteringsikon och "Senast tillagda" 15/500 grå (inte grön och fet, ingen ▾), och Kort/Lista som två ikoner i ett segment med vit platta
+
+**Givet** Recept på 390 × 844
+**När** jag ser sidan
+**Så** är filterområdet ~140 px högt (idag ~265) och första receptkortet börjar under 210 px
+
+**Givet** Matvaror
+**När** jag ser Kyl, Frys och Skafferi
+**Så** är de ett segment med linjeikon + namn + "15 varor" på två rader, 48 px, utan emoji 🧊 ❄️ 🥫
+
+**Givet** Matsedelns veckoväljare
+**När** jag ser den
+**Så** är den ett segment (vit platta med hårfin kant på grå skena, ingen skugga), vald vecka 15/600 med "2 rätter" i grönt 12 px, ovalda 15/500 grått
+
+**Givet** mörkt läge
+**När** jag ser segment och chips
+**Så** syns den valda plattan (#2C3430) tydligt mot skenan och ovalda chips har en hårfin kant
+
+**Givet** mörkt läge, 375 px och 200 % text
+**När** jag använder filtren
+**Så** scrollar pillerraden i sidled i stället för att bryta, inget annat rullar sidledes och alla mål är minst 44 px
+
+### Story 19.4: Arken: rubrikregeln och Ta bort
+
+Som Pontus,
+vill jag att alla ark har samma rubrikrad och att Ta bort ser likadant ut överallt,
+så att jag vet vad ett ark gör och inte råkar ta bort något.
+
+Beslut (Pontus, förval i modellen): arkrubriken är saken ("Lime"), verbet står på knappen ("Spara ändringar"); ta bort i dämpad röd (`--danger`); en skugga för ark på dator.
+
+**Acceptance Criteria:**
+
+**Givet** ett ark
+**När** jag ser rubrikraden
+**Så** är titeln 20/26 · 600 och stängknappen "Avbryt" (om arket har ett formulär som inte är sparat; osparade ändringar frågar "Släng ändringarna?" som idag) eller "Klar" (om allt sparas direkt eller arket bara visar något), 17/500, aldrig "Stäng"
+
+**Givet** Importera recept, Sortera, Ändra recept, Spara AI-förslag, Fotot av kylen och Laga nu
+**När** jag öppnar dem
+**Så** står inte "Stäng" någonstans utan Avbryt eller Klar enligt regeln, och Fler val, Boende, Veckans erbjudanden, AI-jobb och avatar-arket har "Klar"
+
+**Givet** ett steg in i ett ark (Byt vara, välja butik)
+**När** det visas
+**Så** byter arket innehåll med 180 ms sidledes glid, "‹ Tillbaka" står till vänster och stegets namn i mitten, och det finns aldrig två rubrikrader eller en andra Avbryt
+
+**Givet** alla cirka 40 ark
+**När** jag läser rubrikerna
+**Så** heter en sak som finns som saken ("Gul lök", "Spagettipumpa", "Veckans erbjudanden"), en sak som inte finns än som handlingen ("Lägg till vara", "Nytt rum", "Lägg till rätt på torsdag") och ett frågeark som frågan ("Ta bort Spagettipumpa?" med "Det går inte att ångra." under); "Lagervara", "Pryl" och "Ta bort" som rubriker finns inte kvar, och verbet står på primärknappen
+
+**Givet** Lagervara-arket
+**När** jag öppnar det
+**Så** är rubriken varans namn, Avbryt uppe till höger, fält-etiketter 15/500, fält 48 px med kant i `--border` och hörn 12, och valfria fält har "(valfritt)" i 400 `--ink-2`
+
+**Givet** en knapp med `variant="destructive"`
+**När** den visas
+**Så** är den text i `--danger` med soptunna, 17/500, sist i arket under en hårfin linje, aldrig fylld, och ingen grön Ta bort-knapp finns kvar; inga andra röda element finns
+
+**Givet** ett frågeark för borttagning
+**När** det visas
+**Så** är rubriken frågan, följden står under, knappen "Ta bort" är 50 px med text `--danger` 17/600 på `--fill` och "Avbryt" är en textknapp
+
+**Givet** något som inte går att ångra (recept, hel matsedel, foto, rensa förråd)
+**När** jag trycker Ta bort
+**Så** frågar appen först
+
+**Givet** allt annat som tas bort (t.ex. en listpost eller vara)
+**När** jag trycker Ta bort
+**Så** tas det bort direkt och toasten "Tog bort X." visas med Ångra i 5 s (aldrig "X är borttagen."), och listposten frågar inte längre
+
+**Givet** receptvyn
+**När** jag letar efter soptunnan
+**Så** ligger den inte bredvid hjärtat utan i ⋯-menyn efter Ändra, sist, i `--danger`
+
+**Givet** mobil
+**När** ett ark öppnas
+**Så** har det överkant 24 px, handtag 36 × 5, glider upp 240 ms med `cubic-bezier(.2,.8,.2,1)` och slöjan tonar in 200 ms
+
+**Givet** dator
+**När** ett ark öppnas
+**Så** är det en dialog i mitten, högst 560 px, hörn 20 och `--shadow-float`
+
+**Givet** "Minska rörelse"
+**När** ett ark öppnas eller byter steg
+**Så** står allt still
+
+**Givet** `EXPERIENCE.md`
+**När** jag läser den
+**Så** står rubrikregeln och Ta bort-regeln där
+
+**Givet** mörkt läge, 375 px och 200 % text
+**När** jag använder ett ark
+**Så** finns ingen sidledes rullning, rubriken bryts i stället för att kapas och alla mål är minst 44 px
+
+### Story 19.5: Formulär i ark: val med bock, stegräknare, (valfritt)
+
+Som Pontus,
+vill jag välja med chips och rader med bock och ändra mängder med − och +,
+så att formulären känns som en app och inte som en webbsida.
+
+Beslut (Pontus, förval i modellen): Plats och Rum som chips; Enhet som chips med ett steg in för resten.
+
+**Acceptance Criteria:**
+
+**Givet** appen
+**När** jag letar efter webbformulärlistor (`<select>`)
+**Så** finns inga kvar
+
+**Givet** Enhet i Lagervara, listpost och egen vara
+**När** jag väljer enhet
+**Så** visas chips (st · förp · kruka · klyfta · g · Fler ›) och "Fler" öppnar ett steg in ("‹ Tillbaka", Enhet) med alla enheter som rader med bock
+
+**Givet** val bland fler än ~4 i ett ark (boende, dag i Lägg till rätt, butik, Kopiera till)
+**När** de visas
+**Så** är de rader med bock: ingen bakgrund på vald rad, bara en grön bock till höger
+
+**Givet** Plats och Rum
+**När** jag väljer
+**Så** är de chips: Kyl vald (fylld grön, vit text 600), Frys och Skafferi vita med kant
+
+**Givet** en räknebar enhet (st, förp, kruka, klyfta, burk)
+**När** jag ändrar mängd i Lagervara, listpost, egen vara eller Markera som lagad
+**Så** finns en stegräknare − 1 + (som portioner), och siffran går också att skriva i
+
+**Givet** enheten g, dl eller ml
+**När** jag väljer den
+**Så** byts stegräknaren mot ett fält med enheten efter
+
+**Givet** Markera som lagad
+**När** jag ser "Kvar efteråt"
+**Så** står "Receptet använder 1 st" i stället för "1 st – 1 st → 0 st"
+
+**Givet** Lägg till rätt
+**När** jag öppnar arket
+**Så** är rubriken "Lägg till rätt på torsdag", sökfältet står direkt och den blå "Välj recept" är borta
+
+**Givet** valfria fält
+**När** jag ser etiketten
+**Så** står "(valfritt)" i 400 `--ink-2`, och hjälptexten "Lämna mängden tom om du inte vill räkna." finns kvar
+
+**Givet** mörkt läge, 375 px och 200 % text
+**När** jag fyller i ett formulär
+**Så** bryts chips-raden till flera rader eller scrollar utan sidledes sidrullning och alla mål är minst 44 px
+
+### Story 19.6: Skärmpass Recept och Matsedel
+
+Som Pontus,
+vill jag att Recept, receptvyn och Matsedel ser ut precis som modellerna 1–7,
+så att de känns färdiga i ljust, mörkt, mobil och dator.
+
+**Acceptance Criteria:**
+
+**Givet** receptkortet
+**När** jag ser det
+**Så** ligger hjärtat uppe till höger på bilden (32 px rund, matt glas, mörkt glas i mörkt läge), etiketten "Saknar 6 varor" nere till vänster 12/500 på en rad, titeln är 15/20 · 600 på högst två rader, metadata 13 px, hörn 16 och bildhöjden är densamma med och utan foto (64/104 px-skillnaden är borta)
+
+**Givet** receptlistan
+**När** jag ser den
+**Så** är raderna 72 px med bild 56 px (hörn 10), titel 17/22 · 500 på en rad med "…", under den "45 min · 4 port. · Saknar 6 varor" där statusen står i sin färg och 500 (inte fet), avdelare som börjar vid texten och hjärtat grått 22 px i en 44 px yta
+
+**Givet** Recept på dator (1280 px)
+**När** jag ser sidan
+**Så** är ramen 960 px (andra sidor 720 px), korten står i tre kolumner med 180 px höga bilder, sökfältet (360 px) och filterchips står på samma rad och sortering samt Kort/Lista på raden under, och rubriken har 40 px luft ovanför
+
+**Givet** ett recept (390 px)
+**När** jag ser receptvyn
+**Så** ligger tillbaka (bara pil, heter "Tillbaka" för skärmläsare), hjärta och ⋯ som runda glasknappar på bilden (40 px synligt, 44 tryckyta), titeln är 26/32 · 600, källan står på samma rad som tiden som länk med liten pil ↗, portionsväljaren är en låg kapsel (40 px) med "2 av 8 hemma i Hemma" på samma rad till höger och den separata raden "Boende: Hemma" är borta
+
+**Givet** ett recept med saknade varor
+**När** jag ser det
+**Så** visas ett kort med ring-ikon, "Saknar 6 varor" 15/500 blått och namnen under (inte "Saknar: kycklingfilé, morot +4")
+
+**Givet** ingredienserna
+**När** jag ser dem
+**Så** har varje rad ring (saknas) eller bock (hemma) till vänster, namnet 17/400 och mängden till höger i blått om den saknas
+
+**Givet** knappraden på receptet
+**När** jag ser den
+**Så** ligger den på samma glasyta som flikfältet med "Lägg på matsedeln" som primär och "Laga nu" i mint (inte ljusblå), och på dator ligger den i kolumnen under portionerna, inte över stegen
+
+**Givet** receptets ⋯-meny
+**När** jag öppnar den
+**Så** innehåller den Ändra och sist Ta bort (fråga först: "Ta bort Caesarkyckling med rostade rotfrukter?", "Det går inte att ångra.")
+
+**Givet** Matsedel (390 px)
+**När** jag ser sidan
+**Så** står veckoraden utan 📅-platta ("v. 45 · 2 nov – 8 nov" grått och "Tidigare ›" som grön textknapp 15/500, inte fet), "Inköpslista för vecka 45" har en kundvagn som linjeikon på blå platta, och dagarna ligger i ett enda kort med veckodag 12/500 grå över datum 20/600
+
+**Givet** en tom dag
+**När** jag ser den
+**Så** står "+ Lägg till" i grått 15/500 (inte fem gröna feta)
+
+**Givet** en rätt på Matsedeln
+**När** jag ser den
+**Så** är bilden 56 px, titeln 17/22 · 500 på högst två rader med "…" och ordbrytning bara mellan ord (aldrig "kycklingfärsburgar-e"), "✓ Allt hemma" i grön 13/500 eller "13 av 14 hemma" med en tunn mätare
+
+**Givet** en tom vecka
+**När** jag ser den
+**Så** visas tomma läget "Den här veckan är tom." med "Rätterna du lägger här blir din inköpslista." och textknappen "Nästa vecka har 2 rätter ›"
+
+**Givet** Matsedel på dator
+**När** jag ser veckoväljaren
+**Så** är den 480 px bred i stället för hela innehållsbredden
+
+**Givet** Tidigare matsedlar
+**När** jag öppnar dem
+**Så** finns inga dubbletter av "Vecka 44", ordet "undanlagd" är borta och borttagning frågar "Ta bort vecka 44?"
+
+**Givet** Recept, receptvyn och Matsedel
+**När** jag jämför med modellerna 1–7
+**Så** stämmer de i ljust, mörkt, 390 och 1280 px, vid 375 px och 200 % text utan sidledes rullning
+
+### Story 19.7: Skärmpass Inköpslista, Matvaror, Förråd, Inställningar och ordlista
+
+Som Pontus,
+vill jag att Inköpslista, Matvaror, Förråd och Inställningar ser ut som modellerna 8–14 och att samma sak alltid heter samma sak,
+så att hela appen känns som en helhet.
+
+**Acceptance Criteria:**
+
+**Givet** Inköpslistan
+**När** jag ser sidhuvudet och framsteget
+**Så** är "Erbjudanden" en ikonknapp (etikett-ikon, grå) bredvid avataren, "2 varor kvar" 17/600, "0 av 2 i korgen" grått och mätaren 6 px
+
+**Givet** kategorirubrikerna (Inköpslista och Matvaror)
+**När** jag ser dem
+**Så** finns emoji-plattan kvar (den är innehåll) och namnet är 13/500 versaler
+
+**Givet** en listpost
+**När** jag ser den
+**Så** har den en rund bock 24 px, namnet 17/400, mängden till höger i grått och en soptunna 20 px grå
+
+**Givet** en vara från ett recept
+**När** jag ser raden
+**Så** står "Till Panerad kycklingfärsburgare …" (eller "Till 2 rätter") på en rad med "…", och en egen vara har etiketten "Egen" (12/500, neutral platta i `--border`, text `--ink-2`, samma form som erbjudande- och produktetiketterna)
+
+**Givet** en listpost
+**När** jag trycker på raden
+**Så** öppnas arket med avsnittet "Behövs till": en rad per rätt med mängd, eller "Du lade till den själv"
+
+**Givet** botten av listan
+**När** jag ser den
+**Så** är "Lägg till egen vara" en textrad med + sist i listan (inte en stor blå knapp), "Kopiera till ICA-varukorgen" står ensam längst ned som vit sekundärknapp och "Dela listan" som textknapp under
+
+**Givet** att jag tar bort en listpost
+**När** jag trycker på soptunnan
+**Så** tas den bort direkt med "Tog bort Kaffe." och Ångra (ingen fråga först)
+
+**Givet** Matvaror
+**När** jag ser sidan
+**Så** är Fotografera kylen en vit sekundärknapp med kamera och "Välj bild" en textknapp bredvid, "Senaste foto 29 okt 06:46" står på en tunn rad under med "Visa" till höger (inte ett kort med › och en länk inuti), varunamnen är 17/400, mängden 15 px grå, raderna 52 px och avdelarna börjar vid texten
+
+**Givet** att jag tar bort en vara i Matvaror
+**När** jag trycker Ta bort
+**Så** tas den bort direkt med "Tog bort Lime." och Ångra
+
+**Givet** Förråd utan föremål
+**När** jag ser startsidan
+**Så** står rummen direkt under boendet (inget grönt "Ta kort"-kort), rubriken "3 rum · 0 föremål" (inte "prylar"), rummens emoji på 36 px plattor, namnet 17/500, "Inget kort än" 14 px grått, sist en streckad rad "+ Nytt rum" (grön text, ingen vit yta, 52 px), och sökfältet "Sök eller fråga …" visas bara när boendet har föremål
+
+**Givet** Inställningar
+**När** jag öppnar dem från avataren
+**Så** står kontot överst som ett kort med avatar, namn och e-post (inte 👤), raderna har linjeikoner på tonade plattor (30 px, hörn 8; mint, sky, sand, syren) i stället för emoji, text 17/400, värdet 15 px grått till höger och en liten grå pil, sektionsetiketterna är 13/500, avdelarna börjar vid texten och "‹ Recept" ligger på en egen rad så att listan flyttar upp ~40 px
+
+**Givet** undersidor med handlingar
+**När** jag ser "Byt lösenord" och "Rensa förrådet i Nordan"
+**Så** är de knappar, inte rader med ›, och Rensa är destruktiv (dämpad röd, sist, med fråga eftersom det inte går att ångra)
+
+**Givet** ett tomt läge
+**När** jag ser det
+**Så** är det samma komponent överallt: en mening (16/400), vid behov en hjälprad (14 px grått) och en knapp för nästa steg, och en sökning utan träff säger "Inget matchar ”…”." med knappen "Rensa sökning"
+
+**Givet** en väntan över ~1 s
+**När** den pågår
+**Så** visas AI-orben (`AiWorking`), och en knapp som väntar visar en liten snurra och står kvar
+
+**Givet** texterna i appen
+**När** jag läser dem
+**Så** följer de ordlistan i `EXPERIENCE.md` (Voice and Tone): Boende, Matvaror (fliken) / vara (en rad), föremål (Förråd), Lägg till, Ta bort / Tog bort X., Avbryt / Klar, "‹ Tillbaka" i ark och "‹ föräldersidans namn" på sidor, "Läs in receptet" i stället för "Tolka", länktext som säger vart den går, understrukna länkar inne i text och ↗ till andra sajter, och småbuggen "öppnasLivskoll" är rättad
+
+**Givet** appens ram
+**När** jag letar efter emoji
+**Så** finns inga kvar utom matkategorier, rum och receptplatshållaren
+
+**Givet** Inköpslista, Matvaror, Förråd och Inställningar
+**När** jag jämför med modellerna 8–14
+**Så** stämmer de i ljust, mörkt, 390 och 1280 px, vid 375 px och 200 % text utan sidledes rullning
