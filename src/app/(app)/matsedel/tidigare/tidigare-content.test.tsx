@@ -15,8 +15,7 @@ vi.mock("@/features/mealplan/server", async (importOriginal) => ({
   listPreviousPlans: vi.fn(),
   getPlan: vi.fn(),
 }));
-vi.mock("@/features/mealplan/actions/new-plan", () => ({ newPlan: vi.fn() }));
-vi.mock("@/features/mealplan/actions/reuse-plan", () => ({ reusePlan: vi.fn() }));
+vi.mock("@/features/mealplan/actions/copy-plan", () => ({ copyPlan: vi.fn() }));
 vi.mock("@/features/mealplan/actions/delete-plan", () => ({ deletePlan: vi.fn() }));
 vi.mock("next/navigation", () => ({
   useRouter: () => ({ push: vi.fn(), replace: vi.fn(), refresh: vi.fn() }),

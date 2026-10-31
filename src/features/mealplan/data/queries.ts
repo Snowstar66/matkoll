@@ -76,7 +76,7 @@ export async function getCurrentPlanIn(db: MealPlanDb, weekStart: string = curre
 export async function listPreviousPlansIn(db: MealPlanDb): Promise<PlanSummary[]> {
   const { data, error } = await db
     .from("meal_plan")
-    .select("id, name, created_at, dishes:meal_plan_recipe(count)")
+    .select("id, name, created_at, week_start, dishes:meal_plan_recipe(count)")
     .or(`week_start.is.null,week_start.lt.${currentWeekStart()}`)
     .order("created_at", { ascending: false })
     .order("id", { ascending: false });
@@ -86,6 +86,7 @@ export async function listPreviousPlansIn(db: MealPlanDb): Promise<PlanSummary[]
     name: row.name,
     createdAt: row.created_at,
     dishCount: row.dishes[0]?.count ?? 0,
+    weekStart: row.week_start,
   }));
 }
 

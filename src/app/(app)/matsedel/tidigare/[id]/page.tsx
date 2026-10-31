@@ -17,7 +17,7 @@ export async function generateMetadata({ params }: PageProps<"/matsedel/tidigare
   }
 }
 
-// An earlier meal plan (FR-14): its dishes and servings, "Använd igen" and
+// An earlier meal plan (FR-14): its dishes and servings, "Kopiera till …" and
 // "Ta bort matsedel". The id and the session are read inside <Suspense>
 // (AD-18); while they load, the header with "Tillbaka" and skeleton rows show.
 export default function PreviousPlanPage({ params }: PageProps<"/matsedel/tidigare/[id]">) {
