@@ -102,6 +102,6 @@ describe("things in a box", () => {
   it("say where they are as 'i Blå backen'", () => {
     const box = place("b", "Skräpförrådet", ["Julgransprydnad"], { part: "Blå backen", isBox: true });
     const [hit] = searchThings([box], "julgran").hits;
-    expect(hitMeta(hit)).toContain("Skräpförrådet, i Blå backen, på väggen");
+    expect(hitMeta(hit)).toContain("Skräpförrådet, i Blå backen ·");
   });
 });
