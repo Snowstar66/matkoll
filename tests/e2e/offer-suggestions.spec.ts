@@ -325,7 +325,7 @@ for (const away of [false, true]) {
     await expect(cards.first().getByTestId("recipe-illustration")).toBeVisible();
     const offerLine = cards.first().getByTestId("ai-suggestion-offers");
     const offered = (await offerLine.count()) > 0 ? ((await offerLine.textContent()) ?? "").replace("Erbjudanden: ", "") : null;
-    await cards.first().getByRole("button", { name: /^Spara / }).click();
+    await cards.first().getByRole("button", { name: /^Spara(?:\s|$)/ }).click();
     await expect(preview).toBeVisible();
     await preview.getByRole("button", { name: "Spara recept" }).click();
     await expect(page).toHaveURL(/\/recept\/[0-9a-f-]{36}/);

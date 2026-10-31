@@ -52,7 +52,7 @@ describe("LocationCards", () => {
     render(<LocationCards selected="Frys" counts={{ Kyl: 3, Frys: 1, Skafferi: 0 }} />);
     const nav = screen.getByRole("navigation", { name: "Platser" });
     const links = within(nav).getAllByRole("link");
-    expect(links.map((link) => link.textContent)).toEqual(["Kyl 3 varor", "Frys 1 vara", "Skafferi 0 varor"]);
+    expect(links.map((link) => link.textContent)).toEqual(["\u{1F9CA}Kyl 3 varor", "\u2744\uFE0FFrys 1 vara", "\u{1F96B}Skafferi 0 varor"]);
     expect(links.map((link) => link.getAttribute("href"))).toEqual([
       "/hemma?plats=kyl",
       "/hemma?plats=frys",
@@ -60,9 +60,9 @@ describe("LocationCards", () => {
     ]);
     expect(links.map((link) => link.getAttribute("aria-current"))).toEqual([null, "true", null]);
     expect(links[1]).toHaveClass("border-accent");
-    expect(links[0]).toHaveClass("bg-mint", "border-transparent");
-    expect(links[1]).toHaveClass("bg-sky");
-    expect(links[2]).toHaveClass("bg-sand");
+    expect(links[0]).toHaveClass("bg-surface", "border-transparent");
+    expect(links[1]).toHaveClass("bg-mint");
+    expect(links[2]).toHaveClass("bg-surface");
   });
 });
 
@@ -96,27 +96,44 @@ describe("PantryList", () => {
         .map((row) => [...row.children].map((line) => line.textContent).join(" | ")),
     ]);
 
-  it("shows the items under their categories in the store's order, with the brand or the time and no amount", () => {
+  it("shows the items under their categories in the store's order, with the brand, the amount at the right and no time", () => {
     render(<PantryList location="Kyl" items={kyl} />);
     expect(categories()).toEqual([
-      ["Mejeri & ägg", ["Gräddfil | Tillagd för 6 dagar sedan", "Mellanmjölk | Arla laktosfri", "Ägg | Tillagd idag"]],
-      ["Kött, fisk & chark", ["Kycklingfilé | Tillagd igår"]],
+      ["Mejeri & ägg", ["Gräddfil", "Mellanmjölk | Arla laktosfri", "Ägg"]],
+      ["Kött, fisk & chark", ["Kycklingfilé"]],
       ["Såser & smaksättare", ["Senap | Johnny's"]],
     ]);
     // Headings at level 2 that VoiceOver's rotor finds, with the count read as words.
     const dairy = screen.getByRole("heading", { level: 2, name: "Mejeri & ägg" });
     expect(dairy).toHaveAccessibleDescription("3 varor");
     expect(screen.getByRole("list", { name: "Mejeri & ägg" })).toBeInTheDocument();
-    // No amount, unit or "Finns hemma" anywhere.
-    expect(screen.queryByText(/\b(1 l|3 dl|6 st|500 g)\b/)).toBeNull();
-    expect(screen.queryByText(/Med mängd|Finns hemma/)).toBeNull();
+    // The amount stands to the right of the name; no "Tillagd …" and no "Finns hemma".
+    expect(screen.getAllByTestId("pantry-amount").map((amount) => amount.textContent)).toEqual(["3 dl", "1 l", "6 st", "500 g"]);
+    expect(screen.queryByText(/Tillagd|Med mängd|Finns hemma/)).toBeNull();
     expect(screen.queryByTestId("pantry-tag")).toBeNull();
-    expect(screen.queryByTestId("swipe-row-front")).toBeNull();
+    // 6 days in Kyl is within the limit of 7: no "dagar" label.
+    expect(screen.queryByTestId("pantry-old")).toBeNull();
   });
 
-  it("names each row by its two lines and gives every row a bin", () => {
+  it("labels an item older than its location's limit with the days", () => {
+    render(
+      <PantryList
+        location="Kyl"
+        items={[item({ id: "1", name: "Lime", createdAt: "2026-10-18T10:00:00Z" }), item({ id: "2", name: "Ägg", createdAt: "2026-10-27T10:00:00Z" })]}
+      />,
+    );
+    expect(screen.getAllByTestId("pantry-old").map((label) => label.textContent)).toEqual(["9 dagar"]);
+  });
+
+  it("never labels an item in Skafferi", () => {
+    render(<PantryList location="Skafferi" items={[item({ id: "1", name: "Ris", location: "Skafferi", createdAt: "2025-01-01T10:00:00Z" })]} />);
+    expect(screen.queryByTestId("pantry-old")).toBeNull();
+  });
+
+  it("names each row by its two lines and gives every row a swipe action instead of a bin", () => {
     render(<PantryList location="Kyl" items={kyl} />);
     expect(screen.getByRole("button", { name: "Mellanmjölk Arla laktosfri" })).toHaveAttribute("aria-haspopup", "dialog");
+    expect(document.querySelector("[data-trash-button]")).toBeNull();
     expect(screen.getAllByRole("button", { name: /^Ta bort / }).map((bin) => bin.getAttribute("aria-label"))).toEqual([
       "Ta bort Gräddfil",
       "Ta bort Mellanmjölk",
@@ -136,9 +153,9 @@ describe("PantryList", () => {
         ]}
       />,
     );
-    expect(screen.getByRole("button", { name: "Ta bort Mjölk, Tillagd idag, 1 l" })).toBeInTheDocument();
-    expect(screen.getByRole("button", { name: "Ta bort Mjölk, Tillagd idag, 2 förp" })).toBeInTheDocument();
-    expect(screen.getByRole("button", { name: "Mjölk 1 l Tillagd idag" })).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "Ta bort Mjölk, 1 l" })).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "Ta bort Mjölk, 2 förp" })).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "Mjölk 1 l" })).toBeInTheDocument();
   });
 
   it("tells rows with the same name apart over the categories too", () => {
@@ -152,9 +169,9 @@ describe("PantryList", () => {
     expect(screen.getByRole("button", { name: "Ta bort Majs, Findus" })).toBeInTheDocument();
   });
 
-  it("shows the time instead of a brand of only spaces", () => {
+  it("shows no line for a brand of only spaces", () => {
     render(<PantryList location="Kyl" items={[item({ id: "1", name: "Ägg", label: "  ", createdAt: "2026-10-26T11:00:00Z" })]} />);
-    expect(screen.getByRole("button", { name: "Ägg Tillagd igår" })).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "Ägg" })).toBeInTheDocument();
   });
 
   it("puts the line under the name in the bin's name when two rows share a name", () => {
@@ -249,7 +266,7 @@ describe("PantryList", () => {
     expect(screen.getByLabelText("Enhet")).toHaveValue("l");
 
     fireEvent.click(screen.getByRole("button", { name: "Avbryt" }));
-    fireEvent.click(screen.getByRole("button", { name: /^Salt / }));
+    fireEvent.click(screen.getByRole("button", { name: "Salt" }));
     expect(screen.getByTestId("pantry-sheet-ingredient")).toHaveTextContent("Salt");
     expect(screen.getByLabelText("Mängd")).toHaveValue("");
   });

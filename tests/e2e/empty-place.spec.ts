@@ -87,13 +87,13 @@ test("an empty location has no button to empty it", async ({ page }) => {
   await expect(
     page.getByRole("button", { name: "Lägg till vara", exact: true }).filter({ hasText: "Lägg till vara", visible: true }),
   ).toBeVisible();
-  await expect(page.getByRole("button", { name: /^Töm / })).toHaveCount(0);
+  await expect(page.getByRole("button", { name: /^Töm(?:\s|$)/ })).toHaveCount(0);
 });
 
 test("Töm kylen asks first, with focus on Avbryt, and Avbryt removes nothing", async ({ page }) => {
   const errors = watchErrors(page);
   await page.goto("/hemma");
-  await expect(card(page, "Kyl")).toHaveText(/^Kyl\s*3 varor$/);
+  await expect(card(page, "Kyl")).toHaveText(/^\S*Kyl\s*3 varor$/);
   await emptyButton(page).click();
 
   await expect(sheet(page)).toBeVisible();
@@ -115,7 +115,7 @@ test("Töm kylen removes every item in Kyl, and Ångra puts them back with the s
   const before = await rowsIn("Kyl");
   expect(before).toHaveLength(3);
   await page.goto("/hemma");
-  await expect(card(page, "Kyl")).toHaveText(/^Kyl\s*3 varor$/);
+  await expect(card(page, "Kyl")).toHaveText(/^\S*Kyl\s*3 varor$/);
   await emptyButton(page).click();
   await sheet(page).getByRole("button", { name: "Töm kylen" }).click();
 
@@ -123,16 +123,16 @@ test("Töm kylen removes every item in Kyl, and Ångra puts them back with the s
   await expect(sheet(page)).toBeHidden();
   await expect(page.getByText("Inget i kylen än.")).toBeVisible();
   await expect(rows(page)).toHaveCount(0);
-  await expect(card(page, "Kyl")).toHaveText(/^Kyl\s*0 varor$/);
-  await expect(card(page, "Frys")).toHaveText(/^Frys\s*1 vara$/);
+  await expect(card(page, "Kyl")).toHaveText(/^\S*Kyl\s*0 varor$/);
+  await expect(card(page, "Frys")).toHaveText(/^\S*Frys\s*1 vara$/);
   await expect(emptyButton(page)).toHaveCount(0);
   await expect(page.getByRole("button", { name: "Fotografera kylen" })).toBeFocused();
   expect(await rowsIn("Kyl")).toEqual([]);
   expect(await rowsIn("Frys")).toHaveLength(1);
 
   await toast(page).getByRole("button", { name: "Ångra" }).click();
-  await expect(card(page, "Kyl")).toHaveText(/^Kyl\s*3 varor$/);
-  await expect(rows(page)).toHaveText([/^Mjölk /, /^Ost /, /^Smör /]);
+  await expect(card(page, "Kyl")).toHaveText(/^\S*Kyl\s*3 varor$/);
+  await expect(rows(page)).toHaveText([/^Mjölk(?:\s|$)/, /^Ost(?:\s|$)/, /^Smör(?:\s|$)/]);
   await expect(emptyButton(page)).toBeVisible();
   await expect.poll(() => rowsIn("Kyl")).toEqual(before);
   expect(await rowsIn("Frys")).toHaveLength(1);
@@ -143,7 +143,7 @@ test("Ångra skips an item added again meanwhile and says so, and puts the other
   const errors = watchErrors(page);
   const before = await rowsIn("Kyl");
   await page.goto("/hemma");
-  await expect(card(page, "Kyl")).toHaveText(/^Kyl\s*3 varor$/);
+  await expect(card(page, "Kyl")).toHaveText(/^\S*Kyl\s*3 varor$/);
   await emptyButton(page).click();
   await sheet(page).getByRole("button", { name: "Töm kylen" }).click();
   await expect(toast(page)).toContainText("Tog bort 3 varor ur kylen.");
@@ -165,7 +165,7 @@ test("Ångra skips an item added again meanwhile and says so, and puts the other
     { id: added.data.id, ingredient_id: mjolk.ingredient_id, amount: 1, unit: "förp" },
   ].sort((a, b) => a.id.localeCompare(b.id));
   await expect.poll(() => rowsIn("Kyl")).toEqual(expected);
-  await expect(card(page, "Kyl")).toHaveText(/^Kyl\s*3 varor$/);
-  await expect(rows(page)).toHaveText([/^Mjölk /, /^Ost /, /^Smör /]);
+  await expect(card(page, "Kyl")).toHaveText(/^\S*Kyl\s*3 varor$/);
+  await expect(rows(page)).toHaveText([/^Mjölk(?:\s|$)/, /^Ost(?:\s|$)/, /^Smör(?:\s|$)/]);
   expect(errors).toEqual([]);
 });
