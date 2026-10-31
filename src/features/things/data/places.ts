@@ -1,6 +1,8 @@
 import { z } from "zod";
 import {
+  boxKey,
   cleanPlaceName,
+  isBoxKey,
   maxPlacesPerSite,
   normalizePlaceName,
   type ThingPlace,
@@ -14,13 +16,14 @@ import { guarded, ThingsDataError, type ThingsDb } from "./client";
 // session client, never an admin client, so RLS limits it to the user's own
 // rows (AD-4). Errors carry only a fixed reason and the Postgres code.
 
-const placeSelect = "id, site_id, room, part, created_at, thing_photo(id, status, taken_at, created_at), thing_item(count)";
+const placeSelect = "id, site_id, room, part, part_key, created_at, thing_photo(id, status, taken_at, created_at), thing_item(count)";
 
 const placeRowSchema = z.object({
   id: z.uuid(),
   site_id: z.uuid(),
   room: z.string(),
   part: z.string().nullable(),
+  part_key: z.string(),
   created_at: z.string(),
   thing_photo: z.array(
     z.object({ id: z.uuid(), status: z.enum(["reading", "done", "failed"]), taken_at: z.string(), created_at: z.string() }),
@@ -42,6 +45,7 @@ function toPlace(row: unknown, now: Date): ThingPlace {
     siteId: parsed.data.site_id,
     room: parsed.data.room,
     part: parsed.data.part,
+    isBox: isBoxKey(parsed.data.part_key),
     itemCount: items[0]?.count ?? 0,
     cardTakenAt: done ? new Date(done.taken_at) : null,
     cardState: latest ? shownStatus({ status: latest.status, createdAt: new Date(latest.created_at) }, now) : "none",
@@ -69,8 +73,8 @@ export async function loadPlaceIn(db: ThingsDb, id: string, now: Date = new Date
 /** What saving a place did: it is `saved`, or the same room and part are there already (`taken`), or the boende is gone, or it has too many places. */
 export type SavedPlace = { kind: "saved"; id: string } | { kind: "taken" } | { kind: "site_gone" } | { kind: "limit" };
 
-/** Makes a place in the boende `input.siteId`. Throws ThingsDataError `save_failed <code>` or `save_threw`. */
-export async function insertPlaceIn(db: ThingsDb, input: ValidPlaceInput): Promise<SavedPlace> {
+/** Makes a place in the boende `input.siteId`; with `box` its part is a box's name (Story 18.5). Throws ThingsDataError `save_failed <code>` or `save_threw`. */
+export async function insertPlaceIn(db: ThingsDb, input: ValidPlaceInput, box = false): Promise<SavedPlace> {
   return guarded("save", async () => {
     const count = await db.from("thing_place").select("id", { count: "exact", head: true }).eq("site_id", input.siteId);
     if (count.error) throw new ThingsDataError(`save_failed ${count.error.code}`);
@@ -85,7 +89,7 @@ export async function insertPlaceIn(db: ThingsDb, input: ValidPlaceInput): Promi
         room: known.data[0]?.room ?? cleanPlaceName(input.room),
         part: input.part,
         room_key: normalizePlaceName(input.room),
-        part_key: input.part === null ? "" : normalizePlaceName(input.part),
+        part_key: input.part === null ? "" : box ? boxKey(input.part) : normalizePlaceName(input.part),
       })
       .select("id")
       .single();

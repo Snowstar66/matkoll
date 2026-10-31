@@ -32,6 +32,7 @@ export {
 } from "./domain/thing";
 export {
   groupByRoom,
+  normalizePlaceName,
   newPlaceText,
   partLabel,
   placeTitle,

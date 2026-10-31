@@ -32,12 +32,14 @@ export type PlaceCaptureProps = {
   pending: PendingCard | null;
   /** When the finished card was taken, for the line "Senaste kort 31 okt"; `null` for none. */
   latestTakenAt: Date | null;
+  /** Opened from "Lägg till låda" (Story 18.5): the camera opens at once on a phone, for the inside of the box. */
+  autoStart?: boolean;
 };
 
 /** How often a page with a card being read reads itself again. */
 const refreshMs = 3_000;
 
-export function PlaceCapture({ placeId, pending, latestTakenAt }: PlaceCaptureProps) {
+export function PlaceCapture({ placeId, pending, latestTakenAt, autoStart = false }: PlaceCaptureProps) {
   const router = useRouter();
   const { start, jobs, markSeen } = useAiJobs();
   const touch = useCoarsePointer();
@@ -57,6 +59,13 @@ export function PlaceCapture({ placeId, pending, latestTakenAt }: PlaceCapturePr
       if (job.kind === "things" && job.context.placeId === placeId && !job.seen && !isActive(job)) void markSeen(job.id);
     }
   }, [jobs, placeId, markSeen]);
+
+  // The browser may refuse a camera that no tap opened; the row is there to tap then.
+  useEffect(() => {
+    if (autoStart && touch && !pending) cameraRef.current?.click();
+    // Once, when the box page opens.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
 
   const refresh = useCallback(() => router.refresh(), [router]);
   useOnAiJobsFinished(

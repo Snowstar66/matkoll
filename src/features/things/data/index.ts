@@ -1,5 +1,6 @@
 import { z } from "zod";
 import { thingCategories } from "../domain/thing";
+import { isBoxKey } from "../domain/thing-place";
 import { maxIndexedThings, type IndexedPlace } from "../domain/thing-search";
 import { ThingsDataError, type ThingsDb } from "./client";
 
@@ -9,13 +10,14 @@ import { ThingsDataError, type ThingsDb } from "./client";
 // user's own rows (AD-4).
 
 const select =
-  "id, site_id, room, part, created_at, pantry_site(name), thing_photo(id, status, taken_at, created_at, unseen_count, thing_item(id, name, category, where_hint, position))";
+  "id, site_id, room, part, part_key, created_at, pantry_site(name), thing_photo(id, status, taken_at, created_at, unseen_count, thing_item(id, name, category, where_hint, position))";
 
 const rowSchema = z.object({
   id: z.uuid(),
   site_id: z.uuid(),
   room: z.string(),
   part: z.string().nullable(),
+  part_key: z.string(),
   created_at: z.string(),
   pantry_site: z.object({ name: z.string() }).nullable(),
   thing_photo: z.array(
@@ -68,6 +70,7 @@ export async function loadThingIndexIn(db: ThingsDb): Promise<IndexedPlace[]> {
       siteName: parsed.data.pantry_site?.name ?? "",
       room: parsed.data.room,
       part: parsed.data.part,
+      isBox: isBoxKey(parsed.data.part_key),
       cardTakenAt: new Date(card.taken_at),
       hidden: card.unseen_count,
       things,

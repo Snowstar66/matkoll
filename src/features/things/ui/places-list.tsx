@@ -9,9 +9,10 @@ import { groupByRoom, partLabel, thingCountText, type ThingPlace } from "../doma
 
 /** The line under a place's name. */
 export function placeMeta(place: ThingPlace): string {
-  if (place.cardState === "reading") return "Tittar på kortet …";
-  if (place.cardTakenAt === null) return place.cardState === "failed" ? "Kortet kunde inte läsas" : "Inget kort än";
-  const base = `${thingCountText(place.itemCount)} · ${cardDateText(place.cardTakenAt)}`;
+  const box = place.isBox ? "Låda · " : "";
+  if (place.cardState === "reading") return `${box}Tittar på kortet …`;
+  if (place.cardTakenAt === null) return `${box}${place.cardState === "failed" ? "Kortet kunde inte läsas" : "Inget kort än"}`;
+  const base = `${box}${thingCountText(place.itemCount)} · ${cardDateText(place.cardTakenAt)}`;
   return place.cardState === "failed" ? `${base} · nytt kort kunde inte läsas` : base;
 }
 

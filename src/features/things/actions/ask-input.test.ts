@@ -11,6 +11,7 @@ const place = (id: string, room: string, names: string[], extra: Partial<Indexed
   siteName: "Hemma",
   room,
   part: "Hyllan",
+  isBox: false,
   cardTakenAt: new Date("2026-10-31T10:00:00Z"),
   hidden: 0,
   things: names.map((name, index) => ({ id: `${id}-${index}`, name, category: "Verktyg", whereHint: "på väggen" })),
@@ -62,5 +63,12 @@ describe("buildAskInput", () => {
     expect(built?.used).toHaveLength(1);
     expect(built?.input.places[0].things.length).toBeGreaterThan(0);
     expect(built?.input.places[0].things.length).toBeLessThan(2_000);
+  });
+});
+
+describe("buildAskInput with a box", () => {
+  it("names the place as 'i Blå backen'", () => {
+    const built = buildAskInput([place("a", "Skräpförrådet", ["Julgransprydnad"], { part: "Blå backen", isBox: true })], "julgran");
+    expect(built?.input.places[0].title).toBe("Skräpförrådet, i Blå backen");
   });
 });

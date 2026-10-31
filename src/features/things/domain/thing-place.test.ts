@@ -7,6 +7,8 @@ import {
   partLabel,
   placeInputSchema,
   placeTitle,
+  boxKey,
+  isBoxKey,
   roomSuggestions,
   thingCountText,
   type ThingPlace,
@@ -17,6 +19,7 @@ const place = (room: string, part: string | null = null, id = `${room}-${part}`)
   siteId: "s",
   room,
   part,
+  isBox: false,
   itemCount: 0,
   cardTakenAt: null,
   cardState: "none",
@@ -67,5 +70,19 @@ describe("the list", () => {
     expect(placeTitle(place("Garaget"))).toBe("Garaget");
     expect(thingCountText(1)).toBe("1 sak");
     expect(thingCountText(12)).toBe("12 saker");
+  });
+});
+
+describe("boxes", () => {
+  it("are told by their key, which no plain part has", () => {
+    expect(boxKey("  Blå  Backen ")).toBe("box:blå backen");
+    expect(isBoxKey(boxKey("Blå backen"))).toBe(true);
+    expect(isBoxKey(normalizePlaceName("Blå backen"))).toBe(false);
+    expect(isBoxKey("")).toBe(false);
+  });
+
+  it("have a title that says the thing is in the box", () => {
+    expect(placeTitle({ room: "Skräpförrådet", part: "Blå backen", isBox: true })).toBe("Skräpförrådet, i Blå backen");
+    expect(placeTitle({ room: "Skräpförrådet", part: "Blå backen" })).toBe("Skräpförrådet · Blå backen");
   });
 });

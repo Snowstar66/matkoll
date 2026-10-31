@@ -1,5 +1,6 @@
 import { thingTiles, type ThingCategory } from "./thing";
 import { shortDateText } from "./thing-photo";
+import { inBoxText } from "./thing-place";
 
 // Sök och fråga (Story 18.4): the things of every place and boende as one
 // list the page searches in the browser, with no AI and no request. Pure.
@@ -19,6 +20,8 @@ export type IndexedPlace = {
   siteName: string;
   room: string;
   part: string | null;
+  /** A box: `part` is its name, and its things are "i Blå backen". */
+  isBox: boolean;
   /** When the card was taken. */
   cardTakenAt: Date;
   /** How many closed containers the card could not see into. */
@@ -63,7 +66,7 @@ export function searchThings(places: readonly IndexedPlace[], query: string): { 
 
 /** Where a thing is: the room, the part and where on the card ("Skräpförrådet, Översta hyllan, på väggen, mitten"). */
 export function hitWhere({ thing, place }: ThingHit): string {
-  return [place.room, place.part, thing.whereHint].filter(Boolean).join(", ");
+  return [place.room, place.isBox && place.part ? inBoxText(place.part) : place.part, thing.whereHint].filter(Boolean).join(", ");
 }
 
 /** The line under a hit's name: "Skräpförrådet, väggen · Hemma · 31 okt". With the name first it reads "Hammare · Skräpförrådet, väggen · Hemma · 31 okt". */
