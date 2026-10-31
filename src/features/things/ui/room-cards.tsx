@@ -14,6 +14,10 @@ import { writtenEditText, writtenMeta, type WrittenBox } from "../domain/thing-w
 import { AddCardThings } from "./add-card-things";
 import { RemoveCard } from "./remove-card";
 import { RetakeCard } from "./retake-card";
+import { AiWorking } from "@/components/ai-working";
+
+/** The input of a card is always its photo. */
+const cardSteps = ["Tittar på kortet …", "Hittar prylarna …"];
 
 // The room's cards (Story 18.12): thumbnails in two columns, each with what it
 // shows ("Hela rummet", "Väggen", "Låda: Black box"), its number of things and
@@ -74,13 +78,11 @@ export function RoomCards({
               <p className="py-1 text-meta font-semibold wrap-break-word text-ink">{card.label}</p>
               {menuFor?.(card.placeId)}
             </div>
-            <p className="text-meta text-ink-3">
-              {card.status === "done"
-                ? cardMeta(card)
-                : card.status === "reading"
-                  ? "Tittar på kortet …"
-                  : `Kunde inte läsas · ${shortDateText(card.takenAt)}`}
-            </p>
+            {card.status === "reading" ? (
+              <AiWorking size="sm" steps={cardSteps} />
+            ) : (
+              <p className="text-meta text-ink-3">{card.status === "done" ? cardMeta(card) : `Kunde inte läsas · ${shortDateText(card.takenAt)}`}</p>
+            )}
             {card.status === "failed" ? (
               <p className="text-meta text-ink-2">{cardFailureText(card.errorCode && isErrorCode(card.errorCode) ? card.errorCode : null)}</p>
             ) : null}

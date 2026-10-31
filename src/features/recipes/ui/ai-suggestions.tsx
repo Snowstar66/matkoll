@@ -19,6 +19,7 @@ import { recipeMetaText } from "../domain/recipe-list";
 import { AiSuggestionSheet } from "./ai-suggestion-sheet";
 import { RecipeCard } from "./recipe-card";
 import type { DishSuggestionsState, ShownSuggestion } from "./use-dish-suggestions";
+import { AiWorking } from "@/components/ai-working";
 
 // AI-förslag at the bottom of the filter Kan lagas nu (FR-23, EXPERIENCE.md,
 // Flöde 5): "Föreslå rätter med AI" starts an AI job (Story 12.4), with "Letar
@@ -256,10 +257,13 @@ function SuggestionCard({
  * (EXPERIENCE.md, AI-förslag hämtas), or "I kö, 1 före." while the job waits
  * behind others (Story 12.4).
  */
+/** What really happens, whatever the ask (the pantry, the offers, or what has lain long). */
+const ideaSteps = ["Letar efter idéer …", "Väger ihop förslagen …", "Sätter ihop rätterna …"];
+
 function Thinking({ waiting }: { waiting: string | null }) {
   return (
     <div className="flex flex-col gap-2">
-      <p className="text-body text-ink">{waiting ?? "Letar efter idéer …"}</p>
+      {waiting ? <p className="text-body text-ink">{waiting}</p> : <AiWorking inLiveRegion steps={ideaSteps} />}
       <p className="text-meta text-ink-2">Du kan göra annat under tiden.</p>
       <div aria-hidden="true" className="h-1 overflow-hidden rounded-full bg-hairline">
         <div className="h-full w-1/3 rounded-full bg-accent motion-safe:animate-progress" />

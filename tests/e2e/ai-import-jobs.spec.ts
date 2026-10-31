@@ -62,13 +62,13 @@ async function readText(page: Page, text: string) {
   await sheet(page).getByRole("tab", { name: "Text" }).click();
   await sheet(page).getByLabel("Recepttext").fill(text);
   await sheet(page).getByRole("button", { name: "Tolka" }).click();
-  await expect(sheet(page).getByRole("status").getByText("Läser receptet …")).toBeVisible();
+  await expect(sheet(page).getByRole("status").getByText("Läser receptet …").first()).toBeVisible();
 }
 
 async function readLink(page: Page, url: string) {
   await sheet(page).getByLabel("Länk till receptet").fill(url);
   await sheet(page).getByRole("button", { name: "Tolka" }).click();
-  await expect(sheet(page).getByRole("status").getByText("Läser receptet …")).toBeVisible();
+  await expect(sheet(page).getByRole("status").getByText("Läser receptet …").first()).toBeVisible();
 }
 
 async function closeSheet(page: Page) {
