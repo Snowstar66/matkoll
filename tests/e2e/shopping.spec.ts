@@ -501,6 +501,8 @@ test("an own item is checked off, removed by swipe and put back with Ångra, wit
 
   const row = region(page, "I korgen").getByTestId("shopping-line");
   // The "i korgen" toast (Story 3.9) may lie over the row: wait for it to go.
+  // The pointer rests where the check was tapped, which may be under the toast, and a hovered toast stays.
+  await page.mouse.move(0, 0);
   await expect(toast(page)).toHaveCount(0);
   await swipeLeft(page, row);
   await expect(row.getByTestId("swipe-row-front")).toHaveCSS("transform", "matrix(1, 0, 0, 1, -96, 0)");
