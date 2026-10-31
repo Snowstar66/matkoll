@@ -69,7 +69,7 @@ async function RoomContent({ params, searchParams }: Pick<PageProps<"/prylar/rum
     );
   }
 
-  const { summary, categories, cards, places } = page;
+  const { summary, categories, cards, places, written } = page;
   const parent = places.find((place) => place.kind === "part" && place.part === null) ?? places.find((place) => place.kind === "part") ?? null;
   const box = typeof fota === "string" ? places.find((place) => place.id === fota && place.kind === "box") : undefined;
   return (
@@ -80,11 +80,13 @@ async function RoomContent({ params, searchParams }: Pick<PageProps<"/prylar/rum
         summary={summary}
         categories={categories}
         cards={cards}
+        written={written}
         rooms={rooms}
         boxParent={parent?.id ?? null}
         photographBox={box && box.part ? { id: box.id, name: box.part } : null}
         initialView={parseRoomView(typeof vy === "string" ? vy : null)}
         placeIds={places.map((place) => place.id)}
+        boxes={places.filter((place) => place.kind === "box").map((place) => ({ id: place.id, part: place.part }))}
       />
     </>
   );

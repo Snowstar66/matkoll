@@ -2,13 +2,13 @@ import "server-only";
 import { createClient } from "@/lib/supabase/server";
 import { ThingsDataError } from "./data/client";
 import { downloadCardFile, loadCardIn, loadSiteCardFilesIn, removeCardFiles } from "./data/photos";
-import { loadThingIndexIn } from "./data/index";
 import { loadPlaceIn, loadPlacesIn } from "./data/places";
 import { loadRoomCardsIn, loadRoomCategoriesIn, loadRoomIn, loadRoomPlacesIn, loadRoomsIn, type RoomPlace } from "./data/rooms";
 import type { ThingCategory } from "./domain/thing";
 import { cardLabel, type RoomCard, type RoomSummary } from "./domain/thing-room";
 import type { ThingPlace } from "./domain/thing-place";
-import type { IndexedPlace } from "./domain/thing-search";
+import { loadRoomWrittenIn, loadWrittenIn } from "./data/written";
+import type { WrittenBox } from "./domain/thing-written";
 
 // Server-only entry (AD-1). The functions use the signed-in user's session
 // client, so RLS limits them to the user's own rows. They are for pages, after
@@ -35,15 +35,6 @@ export async function getThingPlace(id: string): Promise<ThingPlace | null> {
   return loadPlaceIn(await createClient(), id);
 }
 
-/**
- * Every place with the things of its newest finished card, across all the
- * user's boenden, for the search of Prylar and the question (Story 18.4).
- * Throws ThingsDataError.
- */
-export async function getThingIndex(): Promise<IndexedPlace[]> {
-  return loadThingIndexIn(await createClient());
-}
-
 /** The rooms of the boende `siteId`, each counted by the database (Story 18.11). Throws ThingsDataError. */
 export async function listRooms(siteId: string): Promise<RoomSummary[]> {
   return loadRoomsIn(await createClient(), siteId);
@@ -55,6 +46,8 @@ export type RoomPageData = {
   categories: { category: ThingCategory; things: number }[];
   cards: RoomCard[];
   places: RoomPlace[];
+  /** The boxes of the room with things written into them (Story 18.13). */
+  written: WrittenBox[];
 };
 
 /** A room of a boende, or `null` when it has no such room. Throws ThingsDataError. */
@@ -62,15 +55,17 @@ export async function getRoomPage(siteId: string, key: string, now: Date = new D
   const db = await createClient();
   const summary = await loadRoomIn(db, siteId, key);
   if (!summary) return null;
-  const [categories, cards, places] = await Promise.all([
+  const [categories, cards, places, written] = await Promise.all([
     loadRoomCategoriesIn(db, siteId, key),
     loadRoomCardsIn(db, siteId, key, now),
     loadRoomPlacesIn(db, siteId, key),
+    loadRoomWrittenIn(db, siteId, key),
   ]);
   return {
     summary,
     categories,
     places,
+    written,
     cards: cards.map((card) => ({ ...card, label: cardLabel(card) })),
   };
 }
@@ -115,4 +110,21 @@ export async function loadSiteCardFiles(siteId: string, userId: string): Promise
 export async function removeSiteCardFiles(paths: readonly string[]): Promise<void> {
   const { failed } = await removeCardFiles(await createClient(), paths);
   if (failed !== null) console.error("things_photo_remove_failed", { reason: failed });
+}
+
+/** What a box's page shows (Story 18.13): the box, the things written into it and how many things its cards show. */
+export type BoxPageData = {
+  place: ThingPlace;
+  written: { name: string }[];
+  /** The things the box's cards show (the rest of `place.itemCount`). */
+  photographed: number;
+};
+
+/** A box, or `null` when the place is gone, not the user's, or not a box. Throws ThingsDataError. */
+export async function getBoxPage(id: string): Promise<BoxPageData | null> {
+  const db = await createClient();
+  const place = await loadPlaceIn(db, id);
+  if (!place || !place.isBox) return null;
+  const written = await loadWrittenIn(db, id);
+  return { place, written, photographed: Math.max(0, place.itemCount - written.length) };
 }

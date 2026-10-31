@@ -7,8 +7,8 @@ import { requireUserOrRedirect } from "@/features/auth/server";
 import { type PantrySiteWithCount, type SelectedSite } from "@/features/pantry";
 import { listPantrySitesWithCounts, PantryDataError } from "@/features/pantry/server";
 import { SiteSwitch, SiteSwitchProvider } from "@/features/pantry/ui/site-switch";
-import { takeCardSubText, takeCardText, thingsEmptyText, type IndexedPlace, type RoomSummary } from "@/features/things";
-import { getThingIndex, listRooms, ThingsDataError } from "@/features/things/server";
+import { takeCardSubText, takeCardText, thingsEmptyText, type RoomSummary } from "@/features/things";
+import { listRooms, ThingsDataError } from "@/features/things/server";
 import { ThingFinder } from "@/features/things/ui/thing-finder";
 import { RoomsList } from "@/features/things/ui/rooms-list";
 import { TakeCard } from "@/features/things/ui/take-card";
@@ -59,17 +59,15 @@ export async function PrylarContent() {
 }
 
 /**
- * "Ta kort" first, then (when there are cards) the search and the question
- * over every boende (Story 18.4) and the rooms of this boende with their
- * counts, read by the database (Story 18.11). When the index cannot be read
- * the tab works without search.
+ * "Ta kort" first, then (when there are things) the chat and the search over
+ * every boende (Stories 18.4 and 18.14, both by the database, nothing loads
+ * every thing) and the rooms of this boende with their counts, read by the
+ * database (Story 18.11).
  */
 async function Rooms({ site }: { site: SelectedSite }) {
   let rooms: RoomSummary[];
-  let index: IndexedPlace[] = [];
   try {
     rooms = await listRooms(site.id);
-    index = await getThingIndex();
   } catch (error) {
     if (!(error instanceof ThingsDataError)) throw error;
     console.error("things_unavailable", { reason: error.detail });
@@ -90,7 +88,7 @@ async function Rooms({ site }: { site: SelectedSite }) {
   return (
     <div className="flex flex-col gap-4">
       {take}
-      {index.some((place) => place.things.length > 0) ? <ThingFinder places={index}>{list}</ThingFinder> : list}
+      {rooms.some((room) => room.things > 0) ? <ThingFinder>{list}</ThingFinder> : list}
     </div>
   );
 }

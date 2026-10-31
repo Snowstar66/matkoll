@@ -1,4 +1,6 @@
 import analyzeImagePrompt from "./prompts/analyze-image.md?raw";
+import categorizeThingsPrompt from "./prompts/categorize-things.md?raw";
+import thingSearchTermsPrompt from "./prompts/thing-search-terms.md?raw";
 import askThingsPrompt from "./prompts/ask-things.md?raw";
 import listThingsPrompt from "./prompts/list-things.md?raw";
 import mergeThingsPrompt from "./prompts/merge-things.md?raw";
@@ -17,4 +19,6 @@ export const prompts = {
   listThings: listThingsPrompt,
   askThings: askThingsPrompt,
   mergeThings: mergeThingsPrompt,
+  categorizeThings: categorizeThingsPrompt,
+  thingSearchTerms: thingSearchTermsPrompt,
 } as const;
