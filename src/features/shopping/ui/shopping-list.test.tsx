@@ -15,6 +15,7 @@ import { fail, ok, type Result } from "@/lib/errors";
 import type { CheckChange } from "../domain/check";
 import type { ShoppingLine } from "../domain/compute-list";
 import { ToastProvider } from "@/components/toast";
+import { resetQueues } from "./offline-checks";
 import { announcementMs, checkTimeoutMs, doubleTapGuardMs, ShoppingList, type ShoppingListProps } from "./shopping-list";
 
 /** The list needs a ToastProvider above, as the app layout gives it. */
@@ -30,6 +31,7 @@ beforeEach(() => {
   window.localStorage.setItem("matkoll:basket-open", "0");
   setChecked.mockReset().mockImplementation(async (change) => ok(change));
   refresh.mockReset();
+  resetQueues();
 });
 
 afterEach(() => {
@@ -417,13 +419,34 @@ describe("ShoppingList checks", () => {
     expect(screen.getByTestId("list-progress")).toHaveTextContent("5 varor kvar 1 av 6 i korgen");
   });
 
-  it("puts the line back when the action gets no answer", async () => {
+  it("keeps the check and says it waits when the action gets no answer, then sends it when the net is back (Story 17.8)", async () => {
     const user = userEvent.setup();
-    setChecked.mockRejectedValueOnce(new TypeError("Failed to fetch"));
+    setChecked.mockRejectedValue(new TypeError("Failed to fetch"));
     render(<ServerList initial={lines} />);
     await user.click(screen.getByRole("checkbox", { name: "Paprika, 1 st" }));
-    expect(await screen.findByRole("alert")).toHaveTextContent("Det gick inte att spara bocken.");
-    await waitFor(() => expect(screen.getByRole("checkbox", { name: "Paprika, 1 st" })).not.toBeChecked());
+    expect(await screen.findByText("Offline – sparas när nätet kommer tillbaka")).toBeInTheDocument();
+    expect(screen.queryByRole("alert")).not.toBeInTheDocument();
+    expect(screen.getByTestId("list-progress")).toHaveTextContent("5 varor kvar 1 av 6 i korgen");
+
+    setChecked.mockReset().mockImplementation(async (change) => ok(change));
+    act(() => void window.dispatchEvent(new Event("online")));
+    await waitFor(() => expect(screen.queryByText("Offline – sparas när nätet kommer tillbaka")).not.toBeInTheDocument());
+    expect(setChecked).toHaveBeenCalledWith({ planId: plan.id, key: "r:paprika:st", checked: true });
+    expect(refresh).toHaveBeenCalled();
+  });
+
+  it("queues taps without calling the server while the browser is offline, the last state of a line winning", async () => {
+    const user = userEvent.setup();
+    const onLine = vi.spyOn(window.navigator, "onLine", "get").mockReturnValue(false);
+    try {
+      render(<ServerList initial={lines} />);
+      await user.click(screen.getByRole("checkbox", { name: "Paprika, 1 st" }));
+      expect(await screen.findByText("Offline – sparas när nätet kommer tillbaka")).toBeInTheDocument();
+      expect(setChecked).not.toHaveBeenCalled();
+      expect(screen.getByTestId("list-progress")).toHaveTextContent("5 varor kvar 1 av 6 i korgen");
+    } finally {
+      onLine.mockRestore();
+    }
   });
 
   it("reads the list again and says so when the plan was switched elsewhere", async () => {
@@ -491,13 +514,13 @@ describe("ShoppingList checks", () => {
     expect(screen.getByRole("alert")).toHaveTextContent("Det gick inte att spara bocken.");
   });
 
-  it("gives up on a check without an answer after a while, so later taps are not stuck behind it", async () => {
+  it("treats a check without an answer after a while as waiting, so later taps are not stuck behind it", async () => {
     // Time moves only when the test moves it. fireEvent, not user-event, whose
     // async wrapper waits for a real timer that fake timers never run.
     vi.useFakeTimers();
     const flush = () => act(async () => void (await vi.advanceTimersByTimeAsync(0)));
     const paprika = () => screen.queryByRole("checkbox", { name: "Paprika, 1 st" });
-    setChecked.mockImplementationOnce(() => new Promise(() => {}));
+    setChecked.mockImplementation(() => new Promise(() => {}));
     render(<ServerList initial={lines} />);
     act(() => void fireEvent.click(paprika()!));
     await flush();
@@ -505,14 +528,9 @@ describe("ShoppingList checks", () => {
     expect(paprika()).toBeNull();
     await act(async () => void (await vi.advanceTimersByTimeAsync(checkTimeoutMs)));
     await flush();
-    expect(paprika()).not.toBeChecked();
-    expect(screen.getByRole("alert")).toHaveTextContent("Det gick inte att spara bocken.");
-    expect(refresh).toHaveBeenCalled();
-
-    act(() => void fireEvent.click(paprika()!));
-    await flush();
-    expect(setChecked).toHaveBeenCalledTimes(2);
+    // Story 17.8: no answer is not a failure; the check stays and waits for the net.
     expect(paprika()).toBeNull();
+    expect(screen.getByText("Offline – sparas när nätet kommer tillbaka")).toBeInTheDocument();
     expect(screen.queryByRole("alert")).not.toBeInTheDocument();
   });
 
