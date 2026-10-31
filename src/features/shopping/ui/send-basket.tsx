@@ -15,7 +15,7 @@ import {
   exportTextLabel,
   listCopiedText,
 } from "../domain/list-text";
-import { shareListText } from "../domain/share-list";
+import { shareListText, weekNumberOfPlan } from "../domain/share-list";
 import type { ProductChoice } from "../domain/product-choice";
 import { stepsHidden } from "./steps-sheet";
 
@@ -44,6 +44,8 @@ export type SendBasketInput = {
   unreadableChoices: readonly string[];
   /** The checks could not be read: every line is sent, and the confirmation says to check the basket. */
   checksUnavailable: boolean;
+  /** The plan's name ("Vecka 44"), for the week in the shared text's heading; `null` without a plan. */
+  planName?: string | null;
 };
 
 /** The sheet Inköpslistan: the text, and how many times "Kopiera" was refused in it. */
@@ -96,6 +98,7 @@ export function useSendBasket({
   productChoicesUnavailable,
   unreadableChoices,
   checksUnavailable,
+  planName,
 }: SendBasketInput) {
   const { showToast } = useToast();
   const [sheet, setSheet] = useState<ExportSheetState | null>(null);
@@ -180,7 +183,7 @@ export function useSendBasket({
 
   /** "Dela listan": the unchecked lines as plain text, by the phone's share menu, or copied when there is none. */
   function share() {
-    const text = shareListText(lines);
+    const text = shareListText(lines, weekNumberOfPlan(planName ?? undefined));
     if (typeof navigator !== "undefined" && typeof navigator.share === "function") {
       // A cancelled share menu rejects: that is not an error.
       navigator.share({ text }).catch(() => {});
