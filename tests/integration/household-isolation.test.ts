@@ -413,7 +413,9 @@ describe("household isolation", () => {
       expect(made.error, "creates a key").toBeNull();
       return key;
     };
-    const own = async (user: TestUser) => (await adminClient().from("shopping_custom_item").select("label").eq("user_id", user.id)).data?.map((row) => row.label) ?? [];
+    // Sorted: the rows have no order of their own, and other tests add to the same lists.
+    const own = async (user: TestUser) =>
+      ((await adminClient().from("shopping_custom_item").select("label").eq("user_id", user.id)).data?.map((row) => row.label) ?? []).sort();
 
     it("never lets the hash be read back, by the owner, by B or by anon", async () => {
       expect((await a.db.from("api_key").select("key_hash")).error?.code).toBe("42501");
@@ -427,11 +429,12 @@ describe("household isolation", () => {
     it("lets a key add only to its own household, and B neither see nor revoke A's key", async () => {
       const keyA = await makeKey(a);
       const keyB = await makeKey(b);
+      const beforeA = await own(a);
       const beforeB = await own(b);
       const added = await anonClient().rpc("add_items_by_api_key", { hash: hashOf(keyA), labels: ["Mjölk", "Ägg"] });
       expect(added.error).toBeNull();
       expect(added.data).toEqual(["Mjölk", "Ägg"]);
-      expect((await own(a)).slice(-2)).toEqual(["Mjölk", "Ägg"]);
+      expect(await own(a)).toEqual([...beforeA, "Mjölk", "Ägg"].sort());
       expect(await own(b), "B's list is untouched").toEqual(beforeB);
       const rowA = (await adminClient().from("shopping_custom_item").select("user_id, meal_plan_id").eq("label", "Ägg").eq("user_id", a.id)).data![0];
       expect(rowA).toEqual({ user_id: a.id, meal_plan_id: null });
