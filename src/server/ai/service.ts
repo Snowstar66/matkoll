@@ -32,6 +32,11 @@ import {
 import {
   analyzeImageAnswer,
   askThingsAnswer,
+  categorizeThingsAnswer,
+  parseCategories,
+  parseSearchTerms,
+  thingTermsAnswer,
+  type ThingCategory,
   parseAskAnswer,
   listThingsAnswer,
   locateItemsAnswer,
@@ -158,6 +163,8 @@ export type AskThingsPlace = {
   cardDate: string;
   /** How many closed containers the card could not see into. */
   hidden: number;
+  /** Story 18.13: the things were written by hand into a box (no card): `cardDate` is when they were written. */
+  written?: boolean;
   /** The things of the card: name and category, and where in the photo, all on one line. */
   things: { name: string; category: string; where: string | null }[];
 };
@@ -167,7 +174,30 @@ export type AskThingsInput = {
   question: string;
   /** The places, in the order the answer numbers them (the first is 1). */
   places: AskThingsPlace[];
+  /**
+   * Story 18.14, the chat: the latest turns of the conversation, oldest first
+   * (the answers cut short). When it is given (even empty) the input is a
+   * chat turn, and `places` may be empty: nothing was found.
+   */
+  history?: { question: string; answer: string }[];
+  /** Story 18.14: the closed containers and empty boxes the lists do not show, per room. */
+  unseen?: { room: string; count: number }[];
 };
+
+/** What thingSearchTerms gets (Story 18.14): the question and the latest turns before it. */
+export type ThingSearchTermsInput = {
+  question: string;
+  history: { question: string; answer: string }[];
+};
+
+/** The words to look for in the names of the things: at most maxSearchTerms, lower case, 2 to 40 characters. */
+export type ThingSearchTermsResult = { terms: string[] };
+
+/** What categorizeThings gets (Story 18.13): the names written into a box, each on one line. */
+export type CategorizeThingsInput = { names: string[] };
+
+/** One category per name, in the order of the names. */
+export type CategorizeThingsResult = { categories: ThingCategory[] };
 
 /** What askThings answers: a short text and the places it is about, as indexes into `places` (zero-based). */
 export type AskThingsResult = { answer: string; places: number[] };
@@ -267,6 +297,20 @@ export interface AiService {
    */
   mergeThings(input: MergeThingsInput, signal: AbortSignal, options?: RunOptions): Promise<Result<MergeThingsResult>>;
   /**
+   * The words to search the things for, from a question and the latest turns
+   * of the chat (Story 18.14): one short text call, no image. Fails with
+   * `validation` (outside inputLimits.terms), `ai_unavailable` (also when the
+   * deadline leaves too little time), `ai_rejected` or `ai_invalid`.
+   */
+  thingSearchTerms(input: ThingSearchTermsInput, signal: AbortSignal, options?: RunOptions): Promise<Result<ThingSearchTermsResult>>;
+  /**
+   * A category for each thing written into a box (Story 18.13): one cheap text
+   * call, no image. An unknown category is "Övrigt". Fails with `validation`
+   * (outside inputLimits.categorize), `ai_unavailable` (also when the deadline
+   * leaves too little time), `ai_rejected` or `ai_invalid`.
+   */
+  categorizeThings(input: CategorizeThingsInput, signal: AbortSignal, options?: RunOptions): Promise<Result<CategorizeThingsResult>>;
+  /**
    * Wakes the model before it is needed (Story 12.2, FR-45): one call with
    * the flow's own system prompt (analyzeImage for `image`, suggestDishes
    * for `text`), a minimal message without any data of Pontus's (a grey
@@ -340,7 +384,19 @@ export const inputLimits = {
    * answer is a few sentences, so 600 tokens leave room for a model that
    * thinks aloud around them. The lists are names, never photos.
    */
-  ask: { maxQuestionChars: 300, maxPlaces: 200, maxChars: 12_000, maxOutputTokens: 600 },
+  ask: { maxQuestionChars: 300, maxPlaces: 200, maxChars: 12_000, maxOutputTokens: 600, maxHistory: 6, maxHistoryAnswerChars: 300 },
+  /**
+   * thingSearchTerms (Story 18.14): the question and at most six turns (answers
+   * cut at 300 characters), so about 1 000 tokens in; the answer is up to eight
+   * words, so 300 tokens leave room for a model that writes around them.
+   */
+  terms: { maxChars: 4_000, maxOutputTokens: 300 },
+  /**
+   * categorizeThings (Story 18.13): at most 100 names of 80 characters (8 000
+   * characters, about 3 000 tokens in) and a category of about 5 tokens each, so
+   * 100 are 500 and 1 000 leave room for a model that writes around them.
+   */
+  categorize: { maxNames: 100, maxNameChars: 80, maxChars: 8_000, maxOutputTokens: 1_000 },
   /**
    * mergeThings (Story 18.6): the lists are names, categories and where on
    * the card, about 15 tokens a thing. A storage room of nine cards had 258
@@ -392,8 +448,11 @@ export function isValidAskThingsInput(input: AskThingsInput): boolean {
   const limits = inputLimits.ask;
   const { question, places } = input;
   if (question === "" || question !== cleanModelText(question) || question.length > limits.maxQuestionChars) return false;
-  if (places.length === 0 || places.length > limits.maxPlaces) return false;
+  // A chat turn (history given) may find nothing; a plain question needs a place.
+  if ((places.length === 0 && input.history === undefined) || places.length > limits.maxPlaces) return false;
   const oneLine = (text: string) => text !== "" && text === cleanModelText(text);
+  if (input.history && !isValidHistory(input.history)) return false;
+  if (input.unseen && !input.unseen.every((entry) => oneLine(entry.room) && Number.isInteger(entry.count) && entry.count > 0)) return false;
   const valid = places.every(
     (place) =>
       oneLine(place.title) &&
@@ -404,6 +463,34 @@ export function isValidAskThingsInput(input: AskThingsInput): boolean {
       place.things.every((thing) => oneLine(thing.name) && oneLine(thing.category) && (thing.where === null || oneLine(thing.where))),
   );
   return valid && askThingsText(input).length <= limits.maxChars;
+}
+
+/** True for at most inputLimits.ask.maxHistory turns, each with a question and an answer on one line (answers at most maxHistoryAnswerChars). */
+function isValidHistory(history: ThingSearchTermsInput["history"]): boolean {
+  const limits = inputLimits.ask;
+  const oneLine = (text: string) => text !== "" && text === cleanModelText(text);
+  return (
+    history.length <= limits.maxHistory &&
+    history.every(
+      (turn) =>
+        oneLine(turn.question) && turn.question.length <= limits.maxQuestionChars && oneLine(turn.answer) && turn.answer.length <= limits.maxHistoryAnswerChars,
+    )
+  );
+}
+
+/** True for a question and at most six turns of history, within inputLimits.terms. */
+export function isValidThingSearchTermsInput(input: ThingSearchTermsInput): boolean {
+  const { question, history } = input;
+  if (question === "" || question !== cleanModelText(question) || question.length > inputLimits.ask.maxQuestionChars) return false;
+  return isValidHistory(history) && thingSearchTermsText(input).length <= inputLimits.terms.maxChars;
+}
+
+/** True for 1 to inputLimits.categorize.maxNames names, each on one line and at most maxNameChars. */
+export function isValidCategorizeThingsInput(input: CategorizeThingsInput): boolean {
+  const limits = inputLimits.categorize;
+  const { names } = input;
+  if (names.length === 0 || names.length > limits.maxNames) return false;
+  return names.every((name) => name !== "" && name === cleanModelText(name) && name.length <= limits.maxNameChars) && categorizeThingsText(input).length <= limits.maxChars;
 }
 
 /** True for lists within inputLimits.merge: something on the new card and in the room, every text on one line. */
@@ -496,6 +583,14 @@ export function withInputValidation(service: AiService): AiService {
     async mergeThings(input, signal, options) {
       if (!isValidMergeThingsInput(input)) return fail("validation");
       return service.mergeThings(input, signal, options);
+    },
+    async thingSearchTerms(input, signal, options) {
+      if (!isValidThingSearchTermsInput(input)) return fail("validation");
+      return service.thingSearchTerms(input, signal, options);
+    },
+    async categorizeThings(input, signal, options) {
+      if (!isValidCategorizeThingsInput(input)) return fail("validation");
+      return service.categorizeThings(input, signal, options);
     },
     async warmUp(kind, signal, options) {
       if (!isWarmUpKind(kind)) return { outcome: "skipped", reason: "provider" };
@@ -645,6 +740,48 @@ export function createModelAiService(target: ModelTarget, limits: Limits = defau
       if (!answer.ok) return answer;
       return ok({ pairs: parseMergePairs(answer.data, input.added.length, input.existing.length) });
     },
+    async thingSearchTerms(input, signal, options = {}) {
+      const within = limitsWithin(limits, options.deadline);
+      if (!within) {
+        console.error("ai_unavailable", { reason: "deadline" });
+        return fail("ai_unavailable");
+      }
+      const answer = await runStructured(
+        target,
+        {
+          schema: thingTermsAnswer,
+          system: prompts.thingSearchTerms,
+          messages: [{ role: "user", content: thingSearchTermsText(input) }],
+          maxOutputTokens: inputLimits.terms.maxOutputTokens,
+          onTruncated: () => console.info("terms_truncated"),
+        },
+        signal,
+        within,
+      );
+      if (!answer.ok) return answer;
+      return ok({ terms: parseSearchTerms(answer.data) });
+    },
+    async categorizeThings(input, signal, options = {}) {
+      const within = limitsWithin(limits, options.deadline);
+      if (!within) {
+        console.error("ai_unavailable", { reason: "deadline" });
+        return fail("ai_unavailable");
+      }
+      const answer = await runStructured(
+        target,
+        {
+          schema: categorizeThingsAnswer,
+          system: prompts.categorizeThings,
+          messages: [{ role: "user", content: categorizeThingsText(input) }],
+          maxOutputTokens: inputLimits.categorize.maxOutputTokens,
+          onTruncated: () => console.info("categorize_truncated"),
+        },
+        signal,
+        within,
+      );
+      if (!answer.ok) return answer;
+      return ok({ categories: parseCategories(answer.data, input.names.length) });
+    },
     async locateItems(input, signal, options = {}) {
       // Story 6.6: only a model trained to point in thousandths is asked; the photo is not sent again otherwise.
       if (!target.supportsGrounding) {
@@ -732,14 +869,36 @@ export function listThingsContent(input: ListThingsInput) {
  */
 export function askThingsText(input: AskThingsInput): string {
   const places = input.places.map((place, index) => {
-    const head = [place.title, place.site, `kort ${place.cardDate}`];
+    const head = [place.title, place.site, `${place.written ? "skrivet" : "kort"} ${place.cardDate}`];
     if (place.hidden > 0) head.push(`${place.hidden} ${place.hidden === 1 ? "låda" : "lådor"} syns inte`);
     const things = place.things
       .map((thing) => `${thing.name.replaceAll(";", ",")} (${[thing.category, thing.where].filter(Boolean).join(", ")})`)
       .join("; ");
     return `${index + 1}. ${head.join(" | ")}\n   ${things === "" ? "(inga prylar)" : things}`;
   });
-  return `Fråga: ${input.question}\n\nPlatser:\n${places.join("\n")}`;
+  const earlier = input.history && input.history.length > 0 ? `${historyText(input.history)}\n\n` : "";
+  const unseen =
+    input.unseen && input.unseen.length > 0
+      ? `\n\nLådor vars innehåll inte syns:\n${input.unseen.map((entry) => `${entry.room}: ${entry.count}`).join("\n")}`
+      : "";
+  const list = places.length > 0 ? places.join("\n") : "(inga träffar)";
+  return `${earlier}Fråga: ${input.question}\n\nPlatser:\n${list}${unseen}`;
+}
+
+/** "Tidigare:" with a line per earlier turn: "Fråga: … / Svar: …". Every text is on one line. */
+function historyText(history: ThingSearchTermsInput["history"]): string {
+  return `Tidigare:\n${history.map((turn) => `Fråga: ${turn.question}\nSvar: ${turn.answer}`).join("\n")}`;
+}
+
+/** The user message for thingSearchTerms (Story 18.14): the earlier turns when there are any, then the question. */
+export function thingSearchTermsText(input: ThingSearchTermsInput): string {
+  const earlier = input.history.length > 0 ? `${historyText(input.history)}\n\n` : "";
+  return `${earlier}Fråga: ${input.question}`;
+}
+
+/** The user message for categorizeThings (Story 18.13): "Prylar:" and a numbered line per name. */
+export function categorizeThingsText(input: CategorizeThingsInput): string {
+  return `Prylar:\n${input.names.map((name, index) => `${index + 1}. ${name}`).join("\n")}`;
 }
 
 /**

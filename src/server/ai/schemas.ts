@@ -482,6 +482,54 @@ export function parseMergePairs(
   return pairs.slice(0, maxMergePairs);
 }
 
+/**
+ * What the model answers to categorizeThings (Story 18.13): one category for
+ * each name of the numbered list it was given, in the same order.
+ */
+export const categorizeThingsAnswer = z.object({
+  categories: z.array(z.string()).describe("En kategori per pryl i listan, i samma ordning, bara ur den givna listan"),
+});
+
+/**
+ * One category for each of `count` names: the model's answer in order, with
+ * "Övrigt" for an unknown category, a missing one and any beyond `count`.
+ * The list is the app's, the model may be loose.
+ */
+export function parseCategories(answer: z.output<typeof categorizeThingsAnswer>, count: number): ThingCategory[] {
+  return Array.from({ length: count }, (_, index) => {
+    const value = answer.categories[index];
+    const category = typeof value === "string" ? value.trim() : "";
+    return (thingCategories as readonly string[]).includes(category) ? (category as ThingCategory) : "Övrigt";
+  });
+}
+
+/** The most search terms the port gives for a question (Story 18.14). */
+export const maxSearchTerms = 8;
+/** The shortest and longest search term, in characters. */
+export const searchTermChars = { min: 2, max: 40 } as const;
+
+/**
+ * What the model answers to thingSearchTerms (Story 18.14): the words to look
+ * for in the names of the things (the thing asked about and its synonyms,
+ * with the context of the earlier questions).
+ */
+export const thingTermsAnswer = z.object({
+  terms: z.array(z.string()).describe("Sökord: det som frågan gäller och synonymer, på svenska, i grundform"),
+});
+
+/** The terms cleaned: one line, lower case, 2 to 40 characters, once each, the first maxSearchTerms. */
+export function parseSearchTerms(answer: z.output<typeof thingTermsAnswer>): string[] {
+  const terms: string[] = [];
+  for (const value of answer.terms) {
+    if (typeof value !== "string") continue;
+    const term = cleanModelText(value).toLocaleLowerCase("sv");
+    const length = [...term].length;
+    if (length < searchTermChars.min || length > searchTermChars.max || terms.includes(term)) continue;
+    terms.push(term);
+  }
+  return terms.slice(0, maxSearchTerms);
+}
+
 const thingText = (max: number) => text().refine((value) => value.length <= max, { message: `At most ${max} characters` });
 
 /** One thing as the port returns it, checked on its own. Text from the model is untrusted. */
@@ -615,3 +663,5 @@ export type AnalyzeImageAnswer = z.infer<typeof analyzeImageAnswer>;
 export type LocateItemsAnswer = z.infer<typeof locateItemsAnswer>;
 export type ListThingsAnswer = z.infer<typeof listThingsAnswer>;
 export type AskThingsAnswer = z.infer<typeof askThingsAnswer>;
+export type CategorizeThingsAnswer = z.infer<typeof categorizeThingsAnswer>;
+export type ThingTermsAnswer = z.infer<typeof thingTermsAnswer>;

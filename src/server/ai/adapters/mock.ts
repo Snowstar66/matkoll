@@ -18,7 +18,7 @@ import {
 } from "../schemas";
 import { fromCompactDish } from "../compact-dish";
 import { reportUsage } from "../usage";
-import type { AiService, AnalyzeImageResult, AskThingsInput, AskThingsResult, ListThingsResult, MergeThingsInput, MergeThingsResult, ParseRecipeInput, SuggestDishesInput } from "../service";
+import type { AiService, AnalyzeImageResult, AskThingsInput, AskThingsResult, CategorizeThingsInput, CategorizeThingsResult, ThingSearchTermsInput, ThingSearchTermsResult, ListThingsResult, MergeThingsInput, MergeThingsResult, ParseRecipeInput, SuggestDishesInput } from "../service";
 
 // Deterministic stand-in for a model, used in all tests and in CI (AD-9). It
 // answers from tests/fixtures/ai/: manifest.json lists the cases, each with a
@@ -260,12 +260,57 @@ function mockAskAnswer(input: AskThingsInput): AskThingsResult {
     const names = place.things.filter((thing) => words.some((word) => thing.name.toLocaleLowerCase("sv").includes(word))).map((thing) => thing.name);
     return names.length > 0 ? [{ place, index, names }] : [];
   });
-  if (found.length === 0) return { answer: "Jag hittar inget som passar i dina listor.", places: [] };
+  if (found.length === 0) {
+    // The chat (Story 18.14) names the closed containers too.
+    const boxes = (input.unseen ?? []).reduce((sum, entry) => sum + entry.count, 0);
+    const where = boxes > 0 ? ` Innehållet i ${boxes === 1 ? "en låda" : `${boxes} lådor`} syns inte, så där kan det ligga.` : "";
+    return { answer: `Jag hittar inget som passar i dina listor.${where}`, places: [] };
+  }
   const sentences = found.slice(0, 3).map(({ place, names }) => {
     const hidden = place.hidden > 0 ? ` Innehållet i ${place.hidden === 1 ? "en låda" : `${place.hidden} lådor`} syns inte, så där kan det också ligga något.` : "";
     return `${names.slice(0, 3).join(", ")} finns i ${place.title} (${place.site}).${hidden}`;
   });
   return { answer: sentences.join(" "), places: found.slice(0, 5).map(({ index }) => index) };
+}
+
+/**
+ * thingSearchTerms (Story 18.14) without a model: the words of the question
+ * that are not small words (and not "då", "och", "sett"), once each, at most
+ * eight. A follow-up has its own words, so the history is not used.
+ */
+const mockTermStopWords = new Set([...mockStopWords, "sett", "hittar", "vet", "jag", "du", "vi", "ni", "min", "mina", "vår", "våra", "då", "var", "hur", "vad", "finns", "har"]);
+
+function mockSearchTerms(input: ThingSearchTermsInput): ThingSearchTermsResult {
+  const words = input.question
+    .normalize("NFC")
+    .toLocaleLowerCase("sv")
+    .split(/[^\p{L}\p{N}]+/u)
+    .filter((word) => [...word].length >= 2 && !mockTermStopWords.has(word));
+  return { terms: [...new Set(words)].slice(0, 8) };
+}
+
+/**
+ * categorizeThings (Story 18.13) without a model: a few words of each name
+ * pick the category; anything else is "Övrigt".
+ */
+const mockCategoryWords: [RegExp, CategorizeThingsResult["categories"][number]][] = [
+  [/hammare|skruv|borr|tång|nyckel|såg|mejsel|verktyg/, "Verktyg"],
+  [/boll|cykel|skid|racket|fiske|tält/, "Sport & fritid"],
+  [/kratta|spade|slang|kruka|gräs|lövblås/, "Trädgård"],
+  [/sladd|lampa|batteri|belysning|laddare|kabel/, "Elektronik"],
+  [/låda|back|korg|kartong|burk/, "Förvaring & lådor"],
+  [/jacka|mössa|handske|kläder|strumpor|sjal/, "Kläder & textil"],
+  [/disk|städ|handduk|ljusstake|ljus/, "Hushåll"],
+  [/plank|spik|bräd|cement|färg/, "Byggmaterial"],
+];
+
+function mockCategories(input: CategorizeThingsInput): CategorizeThingsResult {
+  return {
+    categories: input.names.map((name) => {
+      const lower = name.toLocaleLowerCase("sv");
+      return mockCategoryWords.find(([pattern]) => pattern.test(lower))?.[1] ?? "Övrigt";
+    }),
+  };
 }
 
 /**
@@ -366,6 +411,8 @@ function countingCalls(service: AiService): AiService {
     listThings: counted(service.listThings),
     askThings: counted(service.askThings),
     mergeThings: counted(service.mergeThings),
+    thingSearchTerms: counted(service.thingSearchTerms),
+    categorizeThings: counted(service.categorizeThings),
   };
 }
 
@@ -459,6 +506,18 @@ function createMockService(dir: string, { delayMs = 0 }: MockOptions): AiService
     async mergeThings(input, signal) {
       if (!(await wait(clampedDelay(Math.min(delayMs, 1_000)), signal))) return fail("ai_unavailable");
       return ok(mockMergePairs(input));
+    },
+    async thingSearchTerms(input, signal) {
+      if (!(await wait(clampedDelay(Math.min(delayMs, 1_000)), signal))) return fail("ai_unavailable");
+      const errors = logged(askErrors());
+      if (!errors) return fail("ai_unavailable");
+      const question = normalizeInputText({ text: input.question });
+      for (const [text, code] of errors) if (question.includes(text)) return fail(code);
+      return ok(mockSearchTerms(input));
+    },
+    async categorizeThings(input, signal) {
+      if (!(await wait(clampedDelay(Math.min(delayMs, 1_000)), signal))) return fail("ai_unavailable");
+      return ok(mockCategories(input));
     },
     // Story 12.2: the mock is never cold, so there is nothing to wake.
     warmUpKey() {

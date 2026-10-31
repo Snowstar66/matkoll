@@ -7,6 +7,8 @@ import { prompts } from "./prompts";
 import type { Limits } from "./run";
 import {
   askThingsText,
+  categorizeThingsText,
+  thingSearchTermsText,
   createAiService,
   createModelAiService,
   inputLimits,
@@ -21,6 +23,8 @@ import {
   withInputValidation,
   type AnalyzeImageInput,
   type AskThingsInput,
+  type CategorizeThingsInput,
+  type ThingSearchTermsInput,
   type LocateItemsInput,
   type MergeThingsInput,
   type ParseRecipeInput,
@@ -1214,5 +1218,126 @@ describe("mergeThings on a model (Story 18.6)", () => {
     expect((await code({ ...input, added: [{ name: "två\nrader", category: "Övrigt", where: null }] })).error?.code).toBe("validation");
     const many = Array.from({ length: inputLimits.merge.maxExisting + 1 }, (_, index) => ({ name: `Pryl ${index}`, category: "Övrigt", where: null, card: "Kort" }));
     expect((await code({ ...input, existing: many })).error?.code).toBe("validation");
+  });
+});
+
+describe("askThings as a chat turn (Story 18.14)", () => {
+  const limits: Limits = { healthMs: 30_000, attemptMs: 30_000, totalMs: 60_000, maxAttempts: 1, minRetryMs: 0 };
+  const written = { title: "Skräpförrådet, i Black box", site: "Hemma", cardDate: "31 okt", hidden: 0, written: true, things: [{ name: "Tång", category: "Verktyg", where: null }] };
+  const input: AskThingsInput = {
+    question: "och tången då?",
+    places: [written],
+    history: [{ question: "Har du sett min skiftnyckel?", answer: "Ja, i Skräpförrådet." }],
+    unseen: [{ room: "Skräpförrådet", count: 3 }],
+  };
+
+  it("sends the earlier turns, the written things and the closed containers as text", () => {
+    expect(askThingsText(input)).toBe(
+      [
+        "Tidigare:",
+        "Fråga: Har du sett min skiftnyckel?",
+        "Svar: Ja, i Skräpförrådet.",
+        "",
+        "Fråga: och tången då?",
+        "",
+        "Platser:",
+        "1. Skräpförrådet, i Black box | Hemma | skrivet 31 okt",
+        "   Tång (Verktyg)",
+        "",
+        "Lådor vars innehåll inte syns:",
+        "Skräpförrådet: 3",
+      ].join("\n"),
+    );
+  });
+
+  it("is the old text without history, written things or closed containers", () => {
+    expect(askThingsText({ question: "Hammare?", places: [{ ...written, written: undefined }] })).toBe(
+      "Fråga: Hammare?\n\nPlatser:\n1. Skräpförrådet, i Black box | Hemma | kort 31 okt\n   Tång (Verktyg)",
+    );
+  });
+
+  it("may find nothing when it is a chat turn, and is validation when it is not", async () => {
+    const wrapped = withInputValidation(createModelAiService({ model: fakeModel(JSON.stringify({ answer: "Jag hittar ingen tång.", places: [] })) }, limits));
+    const code = async (next: AskThingsInput) => (await wrapped.askThings(next, signal())) as { ok: boolean; error?: { code: string } };
+    expect(askThingsText({ ...input, places: [] })).toContain("(inga träffar)");
+    expect((await code({ ...input, places: [] })).ok).toBe(true);
+    expect((await code({ question: "Hej", places: [], history: [] })).ok).toBe(true);
+    expect((await code({ question: "Hej", places: [] })).error?.code).toBe("validation");
+    // More than six turns, a long answer or a turn on two lines is refused.
+    const turn = { question: "Fråga", answer: "Svar" };
+    expect((await code({ ...input, history: Array.from({ length: 7 }, () => turn) })).error?.code).toBe("validation");
+    expect((await code({ ...input, history: [{ question: "Fråga", answer: "x".repeat(301) }] })).error?.code).toBe("validation");
+    expect((await code({ ...input, history: [{ question: "två\nrader", answer: "Svar" }] })).error?.code).toBe("validation");
+    expect((await code({ ...input, unseen: [{ room: "Rum", count: 0 }] })).error?.code).toBe("validation");
+  });
+});
+
+describe("thingSearchTerms on a model (Story 18.14)", () => {
+  const limits: Limits = { healthMs: 30_000, attemptMs: 30_000, totalMs: 60_000, maxAttempts: 1, minRetryMs: 0 };
+  const input: ThingSearchTermsInput = { question: "och tången då?", history: [{ question: "Har du sett min skiftnyckel?", answer: "Ja, i Skräpförrådet." }] };
+
+  it("sends the terms prompt, the turns and the question, and gives cleaned terms", async () => {
+    const model = fakeModel(JSON.stringify({ terms: [" Tång ", "kniptång", "tång", "x", "a".repeat(41), "Polygrip", "två\nrader", ...Array.from({ length: 10 }, (_, index) => `ord${index}`)] }));
+    const result = await createModelAiService({ model }, limits).thingSearchTerms(input, signal());
+    expect(result).toEqual({ ok: true, data: { terms: ["tång", "kniptång", "polygrip", "två rader", "ord0", "ord1", "ord2", "ord3"] } });
+    const call = model.doGenerateCalls[0];
+    expect(call.maxOutputTokens).toBe(inputLimits.terms.maxOutputTokens);
+    const [system, user] = call.prompt;
+    expect(system).toEqual({ role: "system", content: prompts.thingSearchTerms });
+    expect(user.content).toEqual([{ type: "text", text: thingSearchTermsText(input) }]);
+    expect(thingSearchTermsText(input)).toBe(
+      "Tidigare:\nFråga: Har du sett min skiftnyckel?\nSvar: Ja, i Skräpförrådet.\n\nFråga: och tången då?",
+    );
+    expect(thingSearchTermsText({ question: "Hammare?", history: [] })).toBe("Fråga: Hammare?");
+  });
+
+  it("is ai_unavailable when the deadline leaves too little time", async () => {
+    const model = fakeModel(JSON.stringify({ terms: [] }));
+    const result = await createModelAiService({ model }, limits).thingSearchTerms(input, signal(), { deadline: Date.now() + 1_000 });
+    expect(result).toMatchObject({ ok: false, error: { code: "ai_unavailable" } });
+    expect(model.doGenerateCalls).toHaveLength(0);
+  });
+
+  it("is validation for a question outside the limits or a long history", async () => {
+    const wrapped = withInputValidation(createModelAiService({ model: fakeModel(JSON.stringify({ terms: ["tång"] })) }, limits));
+    const code = async (next: ThingSearchTermsInput) => (await wrapped.thingSearchTerms(next, signal())) as { ok: boolean; error?: { code: string } };
+    expect((await code(input)).ok).toBe(true);
+    expect((await code({ ...input, question: "" })).error?.code).toBe("validation");
+    expect((await code({ ...input, question: "x".repeat(301) })).error?.code).toBe("validation");
+    expect((await code({ ...input, history: Array.from({ length: 7 }, () => ({ question: "F", answer: "S" })) })).error?.code).toBe("validation");
+  });
+});
+
+describe("categorizeThings on a model (Story 18.13)", () => {
+  const limits: Limits = { healthMs: 30_000, attemptMs: 30_000, totalMs: 60_000, maxAttempts: 1, minRetryMs: 0 };
+  const input: CategorizeThingsInput = { names: ["Julgransbelysning", "Hammare", "Skarvsladdar"] };
+
+  it("sends the categorize prompt and the names, and gives one category each, Övrigt for an unknown or missing one", async () => {
+    const model = fakeModel(JSON.stringify({ categories: ["Elektronik", "Mat"] }));
+    const result = await createModelAiService({ model }, limits).categorizeThings(input, signal());
+    expect(result).toEqual({ ok: true, data: { categories: ["Elektronik", "Övrigt", "Övrigt"] } });
+    const call = model.doGenerateCalls[0];
+    expect(call.maxOutputTokens).toBe(inputLimits.categorize.maxOutputTokens);
+    const [system, user] = call.prompt;
+    expect(system).toEqual({ role: "system", content: prompts.categorizeThings });
+    expect(user.content).toEqual([{ type: "text", text: categorizeThingsText(input) }]);
+    expect(categorizeThingsText(input)).toBe("Prylar:\n1. Julgransbelysning\n2. Hammare\n3. Skarvsladdar");
+  });
+
+  it("is ai_unavailable when the deadline leaves too little time", async () => {
+    const model = fakeModel(JSON.stringify({ categories: [] }));
+    const result = await createModelAiService({ model }, limits).categorizeThings(input, signal(), { deadline: Date.now() + 1_000 });
+    expect(result).toMatchObject({ ok: false, error: { code: "ai_unavailable" } });
+    expect(model.doGenerateCalls).toHaveLength(0);
+  });
+
+  it("is validation for no names, too many, a name too long or on two lines", async () => {
+    const wrapped = withInputValidation(createModelAiService({ model: fakeModel(JSON.stringify({ categories: ["Verktyg"] })) }, limits));
+    const code = async (next: CategorizeThingsInput) => (await wrapped.categorizeThings(next, signal())) as { ok: boolean; error?: { code: string } };
+    expect((await code({ names: ["Hammare"] })).ok).toBe(true);
+    expect((await code({ names: [] })).error?.code).toBe("validation");
+    expect((await code({ names: Array.from({ length: 101 }, (_, index) => `Pryl ${index}`) })).error?.code).toBe("validation");
+    expect((await code({ names: ["x".repeat(81)] })).error?.code).toBe("validation");
+    expect((await code({ names: ["två\nrader"] })).error?.code).toBe("validation");
   });
 });

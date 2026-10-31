@@ -1,7 +1,6 @@
 import { randomUUID } from "node:crypto";
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
 import { ThingsDataError } from "@/features/things/data/client";
-import { loadThingIndexIn } from "@/features/things/data/index";
 import { loadThingsIn, removeItemIn, renameItemIn, restoreItemIn } from "@/features/things/data/items";
 import {
   downloadCardFile,
@@ -19,11 +18,13 @@ import {
 } from "@/features/things/data/photos";
 import { sweepCardFilesIn } from "@/features/things/actions/sweep-card-files";
 import { mergeItemsIn, loadMergeInputIn } from "@/features/things/data/merge";
+import { loadUnseenIn, searchThingsIn } from "@/features/things/data/search";
+import { loadRoomWrittenIn, loadWrittenIn, replaceBoxThingsIn } from "@/features/things/data/written";
 import { insertPlaceIn, loadPlaceIn, loadPlacesIn } from "@/features/things/data/places";
 import { findPlaceIn, loadRoomCardsIn, loadRoomCategoriesIn, loadRoomIn, loadRoomPlacesIn, loadRoomsIn, loadRoomThingsIn } from "@/features/things/data/rooms";
 import { thingPhotoBucket, thingPhotoPath } from "@/features/things/domain/thing-photo";
 import { localSupabaseUrl } from "../local-supabase";
-import { adminClient, createTestUser, deleteTestUsers, type Db, type TestUser } from "./support";
+import { adminClient, anonClient, createTestUser, deleteTestUsers, type Db, type TestUser } from "./support";
 
 // Prylar against local Supabase with Storage (Stories 18.1 and 18.2, AD-4,
 // AD-5, AD-26, NFR-11): places (the same room and part in another spelling are
@@ -407,33 +408,154 @@ describe("Förnya och ta bort (Story 18.3)", () => {
   });
 });
 
-describe("the index for search and questions (Story 18.4)", () => {
-  it("has the things of each place's finished cards (many since Story 18.11) across boenden, with boende, date and closed containers, and nothing of another user's", async () => {
-    const home = await siteOf(c, "Hemma-index");
-    const cabin = await siteOf(c, "Stugan-index");
-    const shed = await placeOf(c, home, "Skräpförrådet", "Översta hyllan");
-    const garage = await placeOf(c, cabin, "Garaget");
-    await placeOf(c, home, "Tomt");
-    const old = await doneCard(c, shed, [{ ...hammer, name: "Gammal pryl" }], "2026-01-01T10:00:00Z");
-    const fresh = await doneCard(c, shed, [hammer, { ...hammer, name: "Spade", where: null }], "2026-02-01T10:00:00Z");
-    await doneCard(c, garage, [{ ...hammer, name: "Såg" }]);
-    // A card being read has no things yet and is not in the index.
-    await cardOf(c, garage, "2026-12-01T10:00:00Z");
-    // The newest finished card comes first; an older card's things are listed too.
-    expect(old.id).not.toBe(fresh.id);
+describe("things written into a box and the search (Stories 18.13 and 18.14)", () => {
+  let g: TestUser;
+  beforeAll(async () => {
+    g = await createTestUser("things-g");
+  });
+  const box = async (user: TestUser, site: string, room: string, name: string) => {
+    const saved = await insertPlaceIn(user.db, { siteId: site, room, part: name }, true);
+    if (saved.kind !== "saved") throw new Error("not saved");
+    return saved.id;
+  };
 
-    const index = (await loadThingIndexIn(c.db)).filter((place) => [shed, garage].includes(place.id));
-    expect(index.map((place) => [place.room, place.part, place.siteName, place.hidden])).toEqual([
-      ["Skräpförrådet", "Översta hyllan", "Hemma-index", 2],
-      ["Garaget", null, "Stugan-index", 1],
+  it("writes things into a box without a card, replaces them on a new text, and leaves the box's cards alone", async () => {
+    const site = await siteOf(g, "Skrivet");
+    const black = await box(g, site, "Skräpförrådet", "Black box");
+    const cardThings = await doneCard(g, black, [{ ...hammer, name: "Julgransbelysning", category: "Elektronik" }]);
+    expect(await replaceBoxThingsIn(g.db, black, [{ name: "Adventsljusstake, 2 st", category: "Hushåll" }, { name: "Glitter", category: "Övrigt" }])).toEqual({ kind: "saved", count: 2 });
+    expect((await loadWrittenIn(g.db, black)).map((thing) => thing.name)).toEqual(["Adventsljusstake, 2 st", "Glitter"]);
+    // A row without a card: source manual, no photo, a place.
+    const { data } = await g.db.from("thing_item").select("photo_id, place_id, source, confidence").eq("place_id", black).eq("source", "manual");
+    expect(data).toEqual([
+      { photo_id: null, place_id: black, source: "manual", confidence: "high" },
+      { photo_id: null, place_id: black, source: "manual", confidence: "high" },
     ]);
-    expect(index[0].things.map((thing) => [thing.name, thing.whereHint])).toEqual([
-      ["Hammare", "på väggen"],
-      ["Spade", null],
-      ["Gammal pryl", "på väggen"],
+    // Editing the text replaces the written things; the photographed one stays.
+    expect(await replaceBoxThingsIn(g.db, black, [{ name: "Tomtenissar", category: "Övrigt" }])).toEqual({ kind: "saved", count: 1 });
+    expect((await loadWrittenIn(g.db, black)).map((thing) => thing.name)).toEqual(["Tomtenissar"]);
+    expect((await loadThingsIn(g.db, cardThings.id)).map((thing) => thing.name)).toEqual(["Julgransbelysning"]);
+    // Both kinds are in the room's counts and lists, "i Black box".
+    expect((await loadRoomsIn(g.db, site))[0]).toMatchObject({ things: 2, cards: 1 });
+    expect((await loadRoomThingsIn(g.db, site, "skräpförrådet", "Övrigt")).map((thing) => [thing.name, thing.whereHint])).toEqual([["Tomtenissar", "i Black box"]]);
+    const written = await loadRoomWrittenIn(g.db, site, "skräpförrådet");
+    expect(written.map((entry) => [entry.placeId, entry.part, entry.things])).toEqual([[black, "Black box", 1]]);
+    // An empty list empties the written things.
+    expect(await replaceBoxThingsIn(g.db, black, [])).toEqual({ kind: "saved", count: 0 });
+    expect(await loadWrittenIn(g.db, black)).toEqual([]);
+  });
+
+  it("keeps what the code before this reads working with a thing that has no card", async () => {
+    const site = await siteOf(g, "Skrivet-main");
+    const black = await box(g, site, "Garaget", "Black box");
+    const part = await placeOf(g, site, "Garaget", "Väggen");
+    await doneCard(g, part, [hammer]);
+    await replaceBoxThingsIn(g.db, black, [{ name: "Skruvdragare", category: "Verktyg" }]);
+    // The reads of main: places, rooms, categories, lists, cards, merge input and the removal of a thing by id.
+    expect((await loadPlacesIn(g.db, site)).map((place) => place.itemCount).sort()).toEqual([1, 1]);
+    expect((await loadRoomsIn(g.db, site))[0]).toMatchObject({ things: 2, cards: 1 });
+    expect(await loadRoomCategoriesIn(g.db, site, "garaget")).toEqual([{ category: "Verktyg", things: 2 }]);
+    expect((await loadRoomThingsIn(g.db, site, "garaget", "Verktyg")).map((thing) => thing.name)).toEqual(["Hammare", "Skruvdragare"]);
+    expect((await loadRoomCardsIn(g.db, site, "garaget")).map((card) => card.things)).toEqual([1]);
+    expect(await loadPlaceIn(g.db, black)).toMatchObject({ isBox: true, itemCount: 1 });
+    const { data } = await g.db.from("thing_item").select("id").eq("place_id", black).single();
+    // A written thing is changed by editing the box's text, not removed alone.
+    expect(await removeItemIn(g.db, data!.id)).toBeNull();
+    expect((await loadWrittenIn(g.db, black)).map((thing) => thing.name)).toEqual(["Skruvdragare"]);
+    // The old save still works for a card of the same place.
+    expect(await doneCard(g, part, [{ ...hammer, name: "Såg" }])).toBeTruthy();
+  });
+
+  it("refuses a place that is not a box, another user's box, a thing outside the lists, a row without a card that is not written and anon", async () => {
+    const site = await siteOf(g, "Skrivet-fel");
+    const part = await placeOf(g, site, "Boden");
+    const black = await box(g, site, "Boden", "Backen");
+    expect(await replaceBoxThingsIn(g.db, part, [{ name: "Spade", category: "Trädgård" }])).toEqual({ kind: "gone" });
+    expect(await replaceBoxThingsIn(b.db, black, [{ name: "Spade", category: "Trädgård" }])).toEqual({ kind: "gone" });
+    await expect(replaceBoxThingsIn(g.db, black, [{ name: "Spade", category: "Mat" as never }])).rejects.toBeInstanceOf(ThingsDataError);
+    await expect(replaceBoxThingsIn(g.db, black, [{ name: "", category: "Övrigt" }])).rejects.toBeInstanceOf(ThingsDataError);
+    // The table: a thing with no card must be written by hand, and one with a card must not.
+    const bare = { place_id: black, name: "Spade", category: "Trädgård", confidence: "high" };
+    expect((await g.db.from("thing_item").insert({ ...bare, photo_id: null })).error?.code).toBe("23514");
+    expect((await g.db.from("thing_item").insert({ ...bare, source: "manual", photo_id: randomUUID() })).error).not.toBeNull();
+    expect((await g.db.from("thing_item").insert({ ...bare, source: "other", photo_id: null })).error?.code).toBe("23514");
+    expect((await anonClient().rpc("replace_box_things", { box: black, things: [] })).error).not.toBeNull();
+    expect(await loadWrittenIn(b.db, black)).toEqual([]);
+  });
+
+  it("removes the written things with their box, and with the boende", async () => {
+    const site = await siteOf(g, "Skrivet-bort");
+    const black = await box(g, site, "Boden", "Backen");
+    await replaceBoxThingsIn(g.db, black, [{ name: "Spade", category: "Trädgård" }]);
+    await g.db.from("thing_place").delete().eq("id", black);
+    expect((await g.db.from("thing_item").select("id").eq("place_id", black)).data).toEqual([]);
+  });
+
+  it("finds things by a name that holds a term or is close to it (a typo, an ending), best first, from cards and written things alike", async () => {
+    const site = await siteOf(g, "Sök-db");
+    const wall = await placeOf(g, site, "Skräpförrådet", "Väggen");
+    const black = await box(g, site, "Skräpförrådet", "Black box");
+    await doneCard(g, wall, [
+      { ...hammer, name: "Skiftnyckel 22 mm" },
+      { ...hammer, name: "Hammare" },
+      { ...hammer, name: "Lövblås", category: "Trädgård" },
     ]);
-    expect(index[1].things.map((thing) => thing.name)).toEqual(["Såg"]);
-    expect((await loadThingIndexIn(b.db)).some((place) => [shed, garage].includes(place.id))).toBe(false);
+    await replaceBoxThingsIn(g.db, black, [
+      { name: "Skiftnycklar", category: "Verktyg" },
+      { name: "Julgransbelysning", category: "Elektronik" },
+    ]);
+    const names = async (...terms: string[]) => (await searchThingsIn(g.db, terms)).filter((hit) => hit.siteId === site).map((hit) => hit.name);
+    // The ending, a typo and a part of a word.
+    expect(await names("skiftnyckel")).toEqual(["Skiftnyckel 22 mm", "Skiftnycklar"]);
+    const typo = await names("skiftnykel");
+    expect(typo).toEqual(expect.arrayContaining(["Skiftnyckel 22 mm", "Skiftnycklar"]));
+    expect(await names("hammar")).toEqual(["Hammare"]);
+    expect(await names("hamare")).toEqual(["Hammare"]);
+    expect(await names("blås")).toEqual(["Lövblås"]);
+    // Any of the terms; a category holds a term too; unknown words find nothing.
+    expect((await names("hammare", "julgran")).sort()).toEqual(["Hammare", "Julgransbelysning"]);
+    expect(await names("elektronik")).toEqual(["Julgransbelysning"]);
+    expect(await names("cykelpump")).toEqual([]);
+    expect(await names("", " ", "x")).toEqual([]);
+    expect(await searchThingsIn(g.db, [])).toEqual([]);
+
+    const hits = (await searchThingsIn(g.db, ["julgransbelysning", "skiftnyckel"])).filter((hit) => hit.siteId === site);
+    const written = hits.find((hit) => hit.name === "Julgransbelysning");
+    expect(written).toMatchObject({ written: true, photoId: null, isBox: true, part: "Black box", room: "Skräpförrådet", siteName: "Sök-db", score: 1 });
+    const photographed = hits.find((hit) => hit.name === "Skiftnyckel 22 mm");
+    expect(photographed).toMatchObject({ written: false, isBox: false, part: "Väggen", whereHint: "på väggen" });
+    expect(photographed?.photoId).not.toBeNull();
+    // The limit.
+    expect(await searchThingsIn(g.db, ["nyckel", "hammare", "blås"], 2)).toHaveLength(2);
+  });
+
+  it("counts a merged thing once, finds nothing of another user's, and is not for anon", async () => {
+    const site = await siteOf(g, "Sök-db-privat");
+    const whole = await placeOf(g, site, "Boden");
+    const first = await doneCard(g, whole, [{ ...hammer, name: "Kratta", category: "Trädgård" }], "2026-10-01T10:00:00Z");
+    const second = await doneCard(g, whole, [{ ...hammer, name: "Kratta med skaft", category: "Trädgård" }], "2026-10-02T10:00:00Z");
+    const item = async (card: string, name: string) => (await g.db.from("thing_item").select("id").eq("photo_id", card).eq("name", name).single()).data!.id;
+    await mergeItemsIn(g.db, second.id, [{ item: await item(second.id, "Kratta med skaft"), target: await item(first.id, "Kratta") }]);
+    const hits = await searchThingsIn(g.db, ["kratta"]);
+    expect(hits.map((hit) => [hit.name, hit.seenOn])).toEqual([["Kratta", 2]]);
+    expect(await searchThingsIn(b.db, ["kratta"])).toEqual([]);
+    expect((await anonClient().rpc("search_things", { terms: ["kratta"] })).error).not.toBeNull();
+  });
+
+  it("counts the closed containers per room, less boxes that have contents, plus boxes that are empty", async () => {
+    const h = await createTestUser("things-h");
+    const site = await siteOf(h, "Lådor");
+    const whole = await placeOf(h, site, "Skräpförrådet");
+    // Two closed containers on the card (doneCard says one; this card says three).
+    const card = await cardOf(h, whole);
+    await saveReadingIn(h.db, { photoId: card.id, things: [hammer], note: null, hidden: 3 });
+    const withText = await box(h, site, "Skräpförrådet", "Skriven");
+    const empty = await box(h, site, "Skräpförrådet", "Tom");
+    await replaceBoxThingsIn(h.db, withText, [{ name: "Glitter", category: "Övrigt" }]);
+    // 3 closed - 1 box with contents + 1 empty box = 3.
+    expect(await loadUnseenIn(h.db)).toEqual([{ siteId: site, room: "Skräpförrådet", roomKey: "skräpförrådet", count: 3 }]);
+    expect(empty).toBeTruthy();
+    expect(await loadUnseenIn(b.db)).toEqual([]);
   });
 });
 
@@ -490,9 +612,9 @@ describe("overlap merge (Story 18.6)", () => {
     // The room's things are counted once: three, not four.
     const places = await loadPlacesIn(d.db, site);
     expect(places.filter((place) => [left, whole].includes(place.id)).map((place) => place.itemCount)).toEqual([2, 1]);
-    // The index lists the saw once, on its kept card, with two cards.
-    const index = (await loadThingIndexIn(d.db)).filter((place) => [left, whole].includes(place.id));
-    expect(index.flatMap((place) => place.things.map((thing) => [thing.name, thing.seenOn]))).toEqual([["Cirkelsåg", 2], ["Spade", 1], ["Hammare", 1]]);
+    // The search finds the saw once, on its kept card, with two cards.
+    const found = (await searchThingsIn(d.db, ["såg", "spade", "hammare"])).filter((hit) => [left, whole].includes(hit.placeId));
+    expect(found.map((hit) => [hit.name, hit.seenOn]).sort()).toEqual([["Cirkelsåg", 2], ["Hammare", 1], ["Spade", 1]]);
 
     // Removing the card of the merged thing keeps the kept one; removing the kept one's card keeps the merged one.
     const removedSecond = await removeCardIn(d.db, second.id);
@@ -503,8 +625,8 @@ describe("overlap merge (Story 18.6)", () => {
     expect((await loadThingsIn(d.db, first.id)).map((thing) => thing.seenOn)).toEqual([2, 1]);
     await removeCardIn(d.db, first.id);
     expect((await loadThingsIn(d.db, second.id)).map((thing) => [thing.name, thing.seenOn])).toEqual([["Batteridriven cirkelsåg", 1], ["Hammare", 1]]);
-    const after = (await loadThingIndexIn(d.db)).find((place) => place.id === whole);
-    expect(after?.things.map((thing) => thing.name)).toEqual(["Batteridriven cirkelsåg", "Hammare"]);
+    const after = (await searchThingsIn(d.db, ["cirkelsåg", "hammare"])).filter((hit) => hit.placeId === whole);
+    expect(after.map((hit) => hit.name).sort()).toEqual(["Batteridriven cirkelsåg", "Hammare"]);
   });
 
   it("never merges across rooms, into a box, between boenden, for another user's things, or into a chain", async () => {
@@ -561,8 +683,8 @@ describe("overlap merge (Story 18.6)", () => {
     expect((await loadThingsIn(d.db, second.id)).map((thing) => thing.seenOn)).toEqual([1, 1]);
     await restoreCardIn(d.db, removed!.snapshot);
     expect((await loadThingsIn(d.db, second.id)).map((thing) => [thing.name, thing.seenOn])).toEqual([["Cirkelsåg 2", 2], ["Hammare", 1]]);
-    const index = (await loadThingIndexIn(d.db)).filter((place) => [left, right].includes(place.id));
-    expect(index.flatMap((place) => place.things.map((thing) => thing.name))).toEqual(["Cirkelsåg", "Spade", "Hammare"]);
+    const found = (await searchThingsIn(d.db, ["såg", "spade", "hammare"])).filter((hit) => [left, right].includes(hit.placeId));
+    expect(found.map((hit) => hit.name).sort()).toEqual(["Cirkelsåg", "Hammare", "Spade"]);
 
     // Remove the card with the merged thing and put it back: its own link is back too.
     const removedSecond = await removeCardIn(d.db, second.id);
@@ -588,7 +710,7 @@ describe("overlap merge (Story 18.6)", () => {
     expect((await loadThingsIn(d.db, second.id)).map((thing) => thing.seenOn)).toEqual([1, 1]);
   });
 
-  it("says when every thing of a card is on other cards, and leaves such a place out of the index", async () => {
+  it("says when every thing of a card is on other cards, and leaves such a place out of the search", async () => {
     const site = await siteOf(e, "Alla-merge");
     const one = await placeOf(e, site, "Boden", "A");
     const two = await placeOf(e, site, "Boden", "B");
@@ -597,7 +719,7 @@ describe("overlap merge (Story 18.6)", () => {
     await mergeItemsIn(e.db, second.id, [{ item: await itemId(e, second.id, "Sågen"), target: await itemId(e, first.id, "Cirkelsåg") }]);
     const places = await loadPlacesIn(e.db, site);
     expect(places.map((place) => [place.itemCount, place.mergedAway])).toEqual([[1, 0], [0, 1]]);
-    expect((await loadThingIndexIn(e.db)).filter((place) => [one, two].includes(place.id)).map((place) => place.id)).toEqual([one]);
+    expect((await searchThingsIn(e.db, ["sågen", "cirkelsåg"])).filter((hit) => [one, two].includes(hit.placeId)).map((hit) => hit.placeId)).toEqual([one]);
   });
 });
 
