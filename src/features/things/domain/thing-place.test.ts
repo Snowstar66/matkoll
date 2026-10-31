@@ -25,7 +25,7 @@ const place = (room: string, part: string | null = null, id = `${room}-${part}`)
 describe("names", () => {
   it("normalizes on one line, trimmed, NFC and lower case as Swedish has it", () => {
     expect(normalizePlaceName("  Skräp  förrådet ")).toBe("skräp förrådet");
-    expect(normalizePlaceName("ÅSA​")).toBe("åsa");
+    expect(normalizePlaceName("ÅSA\u200b")).toBe("åsa");
     expect(normalizePlaceName("Å".normalize("NFD"))).toBe("å");
     expect(cleanPlaceName("  Översta\nhyllan ")).toBe("Översta hyllan");
   });
