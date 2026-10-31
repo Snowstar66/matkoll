@@ -262,6 +262,12 @@ export const offerSuggestionsEmail = "e2e-erbjudande-forslag@matkoll.test";
  * with the service role.
  */
 export const thingsEmail = "e2e-prylar@matkoll.test";
+/**
+ * The E2E user of live-list.spec.ts alone (Live-inköpslista, Story 17.7): two
+ * browser contexts sign in as this one user, and its plan and list are made
+ * with the service role.
+ */
+export const liveListEmail = "e2e-live-lista@matkoll.test";
 /** Every address in ALLOWED_EMAILS for the E2E server (see playwright.config.ts). */
 export const e2eEmails = [
   e2eEmail,
@@ -307,6 +313,7 @@ export const e2eEmails = [
   offersLinkEmail,
   offerSuggestionsEmail,
   thingsEmail,
+  liveListEmail,
 ] as const;
 /** A real Supabase user whose address is not in ALLOWED_EMAILS. */
 export const outsiderEmail = "utanfor@matkoll.test";
@@ -340,6 +347,7 @@ export const sitePhotoStorageState = "tests/e2e/.auth/site-photo.json";
 export const photoSaveStorageState = "tests/e2e/.auth/photo-save.json";
 export const labelStorageState = "tests/e2e/.auth/label.json";
 export const recipesLookStorageState = "tests/e2e/.auth/recipes-look.json";
+export const liveListStorageState = "tests/e2e/.auth/live-list.json";
 export const shoppingLookStorageState = "tests/e2e/.auth/shopping-look.json";
 export const pantryLookStorageState = "tests/e2e/.auth/pantry-look.json";
 export const photoSweepStorageState = "tests/e2e/.auth/photo-sweep.json";

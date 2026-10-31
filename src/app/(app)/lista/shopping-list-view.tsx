@@ -1,6 +1,7 @@
 "use client";
 
 import { useCallback, useRef, useState } from "react";
+import { useLiveRefresh } from "@/components/use-live-refresh";
 import type { PantrySite } from "@/features/pantry";
 import { ListSiteLine } from "@/features/pantry/ui/list-site-line";
 import { ShoppingList, type ShoppingListProps } from "@/features/shopping/ui/shopping-list";
@@ -9,6 +10,17 @@ export type ShoppingListViewProps = Omit<ShoppingListProps, "isQuietSwitch" | "o
   /** Every place of the user's, or `null` when they could not be read: then no line "Boende". */
   sites: readonly PantrySite[] | null;
 };
+
+/** What the list is counted from, and what a family member can change on it. */
+const liveTables = [
+  "shopping_check",
+  "shopping_custom_item",
+  "shopping_line_override",
+  "meal_plan",
+  "meal_plan_recipe",
+  "pantry_item",
+  "product_choice",
+] as const;
 
 /**
  * Inköpslista as the page shows it: the line "Boende: Stugan" with "Byt"
@@ -19,6 +31,9 @@ export type ShoppingListViewProps = Omit<ShoppingListProps, "isQuietSwitch" | "o
  */
 export function ShoppingListView({ sites, ...list }: ShoppingListViewProps) {
   const [busy, setBusy] = useState(false);
+  // Story 17.7: another phone on the account changes the list, the meal plan or
+  // what the list is counted against; this one reads the page again.
+  useLiveRefresh({ tables: liveTables, busy });
   /** The place a switch from the sheet is on its way to, until the list has shown it. */
   const quiet = useRef<string | null>(null);
   const onSwitching = useCallback((siteId: string | null) => {
