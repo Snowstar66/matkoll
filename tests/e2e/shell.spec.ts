@@ -10,10 +10,11 @@ const surfaces = [
   { tab: "Matsedel", path: "/matsedel", title: "Matsedel", empty: "Ingen rätt på matsedeln än." },
   { tab: "Inköpslista", path: "/lista", title: "Inköpslista", empty: "Lägg rätter på matsedeln så räknas listan fram." },
   { tab: "Förråd", path: "/hemma", title: "Förråd", empty: "Inget i kylen än." },
+  { tab: "Prylar", path: "/prylar", title: "Prylar", empty: "Fotografera en hylla eller ett förråd, så listar Matkoll vad som finns där." },
 ] as const;
 
-/** The tab bar's labels, in order (Story 10.4: Inköpslista and Förråd). */
-const mainLabels = ["Recept", "Matsedel", "Inköpslista", "Förråd"];
+/** The tab bar's labels, in order (Story 10.4: Inköpslista and Förråd; Epic 18: Prylar). */
+const mainLabels = ["Recept", "Matsedel", "Inköpslista", "Förråd", "Prylar"];
 
 const mobile = { width: 390, height: 844 };
 const desktop = { width: 1280, height: 800 };
@@ -251,9 +252,9 @@ test.describe("tab labels (Story 10.4)", () => {
     expect(labels.filter(({ fits, lines }) => !fits || lines > 2)).toEqual([]);
   });
 
-  // 187 px wide is a 375 px phone at 200 % zoom (as in cook-mode.spec.ts).
+  // 234 px wide is a 375 px phone at 160 % zoom: with the fifth tab (Prylar) each tab is as wide as at 187 px with four.
   test("at 200 % zoom every label fits its tab, the long ones on two lines between their parts", async ({ page }) => {
-    await page.setViewportSize({ width: 187, height: 406 });
+    await page.setViewportSize({ width: 234, height: 406 });
     const labels = await measureActive(page);
     expect(labels.filter(({ fits, lines }) => !fits || lines > 2)).toEqual([]);
     expect(labels.filter(({ lines }) => lines === 2).map(({ name }) => name)).toEqual(

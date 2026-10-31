@@ -63,7 +63,7 @@ async function newPlace(page: Page, room: string, part = "") {
 test("the fifth tab is Prylar with the toolbox, in the tab bar", async ({ page }) => {
   await page.goto("/prylar");
   const links = nav(page).getByRole("link");
-  await expect(links).toHaveText(["📖Recept", "📅Matsedel", "🛒Inköpslista", "🧊Lagersaldo", "🧰Prylar"]);
+  await expect(links).toHaveText(["📖Recept", "📅Matsedel", "🛒Inköpslista", "📦Förråd", "🧰Prylar"]);
   await expect(nav(page).getByRole("link", { name: "Prylar" })).toHaveAttribute("aria-current", "page");
   await expect(page).toHaveTitle(/Prylar/);
 });
@@ -73,7 +73,7 @@ test("without places it explains and offers Ny plats", async ({ page }) => {
   await expect(page.getByText("Fotografera en hylla eller ett förråd, så listar Matkoll vad som finns där.")).toBeVisible();
   await expect(page.getByRole("button", { name: "Ny plats" })).toBeVisible();
   // One boende: no pills.
-  await expect(page.getByRole("radiogroup", { name: "Ställe" })).toHaveCount(0);
+  await expect(page.getByRole("radiogroup", { name: "Boende" })).toHaveCount(0);
 });
 
 test("a place is made with a room and a part, rooms are suggested and places are grouped per room", async ({ page }) => {
@@ -133,7 +133,7 @@ test("places belong to the selected boende, and the pills switch between them", 
   if (rows.error) throw rows.error;
 
   await page.goto("/prylar");
-  const pills = page.getByRole("radiogroup", { name: "Ställe" });
+  const pills = page.getByRole("radiogroup", { name: "Boende" });
   await expect(pills.getByRole("radio")).toHaveText(["Hemma", "Stugan"]);
   await expect(page.getByTestId("place")).toHaveText([/Hela rummet/]);
   await expect(page.getByRole("heading", { level: 2, name: "Garaget" })).toBeVisible();
