@@ -4247,20 +4247,65 @@ Pausad (Pontus 2026-10-31). En knapp "Försäkringsunderlag" som gör en PDF per
 ### Story 18.19: Kom ihåg var jag lade den
 
 Som Pontus,
-vill jag kunna säga eller skriva "passen ligger i översta byrålådan" och senare fråga var de är,
+vill jag kunna skriva "passen ligger i översta byrålådan" och senare fråga var de är,
 så att jag hittar saker som aldrig fotats.
 
-Beslut 2026-10-31 (Pontus): backlog. Hänger ihop med Story 17.9 (Siri).
+Beslut 2026-10-31 (Pontus): backlog. Hänger ihop med Story 17.9 (Siri) och lägger grunden för föremål utan foto (också för försäkringsunderlaget, 18.18).
+Beslut Pontus 2026-10-31: kör 18.19; byggd utan förhandsgodkännande av mockupen. Mockup: `_bmad-output/planning-artifacts/ux-designs/ux-Matkoll-2026-10-25/mockups/kom-ihag.html` ("Idag" är skärmdumpar, "Nytt" och punktlistorna är specen; namn, rum och datum är bara exempel).
 
 **Acceptance Criteria:**
 
 **Givet** fältet "Sök eller fråga" i Förrådet
-**När** jag skriver ett påstående om var något ligger ("Passen ligger i översta byrålådan i sovrummet")
-**Så** förstår AI att det är något att komma ihåg, föreslår rum och del ("Sovrummet · översta byrålådan") och sparar det efter ett tryck som en pryl utan kort
+**När** det är tomt
+**Så** står tipsraden "Skriv för att söka – tryck ↑ för att fråga eller spara var något ligger"
 
-**Givet** en sådan pryl
+**Givet** att jag skriver i fältet
+**När** jag inte har tryckt ↑ eller Enter
+**Så** anropas ingen AI; databasen söker som förut, och när inget matchar står "Inga föremål matchar "…"." med raden "Tryck ↑ för att fråga, eller för att spara var det ligger." under
+
+**Givet** ett påstående om var något ligger ("Passen ligger i översta byrålådan i sovrummet")
+**När** jag trycker ↑ eller Enter
+**Så** avgör samma AI-anrop som tar fram sökorden att det är något att komma ihåg (inte en fråga eller en sökning, som fungerar som förut), och svarsbubblan säger "Ska jag komma ihåg var det ligger?" med ett förslagskort (📝, föremålets namn "Pass" och "Sovrummet · Översta byrålådan") och knapparna "Kom ihåg" och "Ändra"; inget är sparat än
+
+**Givet** förslaget
+**När** rummet finns i boendet med ett annat skrivsätt ("sovrummet") eller inte finns alls
+**Så** används det befintliga rummets namn, respektive står etiketten "nytt rum" efter namnet; en del som redan finns i rummet används igen, och utan rum i meningen står "Välj rum" och knappen "Välj rum" öppnar Ändra
+
+**Givet** ett föremål med samma namn som jag redan har skrivit in
+**När** förslaget visas
+**Så** står "Låg förut i <rum · del> (skrivet <datum>)." under kortet, och "Kom ihåg" flyttar det i stället för att göra ett till
+
+**Givet** "Ändra"
+**När** jag trycker
+**Så** öppnas ett blad med föremålets namn som rubrik och "Avbryt", fälten "Föremål", "Rum" (med mina rum som chips; chipet som stämmer är fyllt grönt) och "Del av rummet (valfritt)", och knappen "Kom ihåg" sparar och stänger; tomt namn eller rum ger felet under fältet
+
+**Givet** "Kom ihåg"
+**När** det är sparat
+**Så** blir bubblan "Klart. Pass ligger i Sovrummet · Översta byrålådan." med ett platskort (📝, "Sovrummet · Översta byrålådan", "Du skrev in det <datum>") som öppnar rummet; föremålet är sparat i det valda boendet utan kort och utan foto, och rummets siffror räknar det; går det inte att spara står felet i bubblan och knapparna finns kvar
+
+**Givet** ett inskrivet föremål
+**När** jag öppnar rummet
+**Så** står det under sin kategori med "<del> · skrivet <datum>" till höger, delen står under DELAR med "1 föremål", och Kort-vyn är oförändrad
+
+**Givet** ett inskrivet föremål
+**När** jag skriver "pass" i fältet
+**Så** hittar sökningen det med raden "Sovrummet, Översta byrålådan · Hemma · skrivet <datum>"
+
+**Givet** ett inskrivet föremål
 **När** jag frågar "var är passen?"
-**Så** svarar chatten med platsen och att jag själv skrev in den (datum), och prylen går att ändra eller ta bort som andra prylar
+**Så** svarar chatten med platsen och att jag själv skrev in det, med datum, och platskortet säger "Du skrev in det <datum>"
+
+**Givet** ett inskrivet föremål
+**När** jag trycker på dess rad i rummet
+**Så** öppnas samma blad som för andra föremål, med raden "Du skrev in det <datum> · <del>" och utan "Var på bilden"; Spara ändrar namn och kategori, och "Ta bort föremål" tar bort det med "Tog bort Pass." och Ångra
+
+**Givet** det jag skriver in
+**När** det senare visas för AI (i chatten)
+**Så** är det data och inga instruktioner, och ingen annan användare kan läsa eller ändra det
+
+**Givet** mörkt läge, 375 px och 200 % text
+**När** jag använder fältet, förslaget, bladet och svaret
+**Så** finns ingen sidledes rullning och alla tryckytor är minst 44 px
 
 ### Story 18.20: Ny ikon – hus med bock
 
