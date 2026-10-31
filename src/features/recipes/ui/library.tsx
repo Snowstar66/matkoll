@@ -14,13 +14,25 @@ import type { PlanningTarget } from "@/features/mealplan";
 import { siteLineText, type SelectedSite } from "@/features/pantry";
 import { errorMessages, fail, type AppError, type Result } from "@/lib/errors";
 import { searchLibrary } from "../actions/search-recipes";
-import { filterRecipes, type RecipeFilter, type RecipeLibrary, type RecipeListItem } from "../domain/recipe-list";
+import { recipeCategoryLabels } from "../domain/recipe-category";
+import {
+  filterByCategory,
+  filterRecipes,
+  sortRecipes,
+  type RecipeFilter,
+  type RecipeLibrary,
+  type RecipeListItem,
+} from "../domain/recipe-list";
 import type { AddToPlan } from "./add-to-plan-button";
 import { AiSuggestions } from "./ai-suggestions";
 import type { OwnRecipesRead } from "./own-recipes";
 import { useRecipeFilter } from "./recipe-filter-store";
-import { useRecipeDelete } from "./recipe-delete";
+import { RecipeBar } from "./recipe-bar";
+import { RecipeCategoryChips } from "./recipe-category-chips";
+import { RecipeCompactList } from "./recipe-compact-list";
 import { RecipeList } from "./recipe-list";
+import { RecipeSortSheet } from "./recipe-sort-sheet";
+import { useRecipeCategory, useRecipeSort, useRecipeView } from "./recipe-view-stores";
 import { useDishSuggestions } from "./use-dish-suggestions";
 import { useFavorites } from "./use-favorites";
 
@@ -35,6 +47,12 @@ import { useFavorites } from "./use-favorites";
 // held here, so the suggestions stay while the pills change. With more than
 // one place, Kan lagas nu says which place the status is counted against
 // ("Lager: Stugan", AD-24), under the pills, so the pill tapped never moves.
+// Under them are the category chips (Story 1.17), and the line with the count,
+// the sort and the switch between cards and the compact list (Story 1.16); the
+// view, sort and category are kept on the device like the pill. They work
+// together with the search and the pills: the category narrows the list, the
+// sort orders it. Kan lagas nu keeps its own order (fewest missing first) while
+// the sort is Senast tillagda or Mest hemma, and follows an explicit Snabbast or A–Ö.
 
 const filterOptions: readonly FilterOption<RecipeFilter>[] = [
   { value: "all", label: "Alla" },
@@ -77,15 +95,17 @@ export type LibraryProps = {
   addToPlan?: AddToPlan;
   /** suggestions.ownRecipesWithOffers (Story 16.3). */
   ownRecipes?: OwnRecipesRead;
-  /** The ids of the recipes on the current meal plan, which "Ta bort" says (Story 13.2). */
-  onMenuIds?: readonly string[];
   /** Planning mode (Story 13.8): the day recipes are put on. */
   planning?: PlanningTarget;
 };
 
-export function Library({ recipes, pantryUnavailable, site, searchIngredients, siteNames, addToPlan, ownRecipes, onMenuIds = [], planning }: LibraryProps) {
+export function Library({ recipes, pantryUnavailable, site, searchIngredients, siteNames, addToPlan, ownRecipes, planning }: LibraryProps) {
   const router = useRouter();
   const [filter, setFilter] = useRecipeFilter();
+  const [view, setView] = useRecipeView();
+  const [sort, setSort] = useRecipeSort();
+  const [category, setCategory] = useRecipeCategory();
+  const [sortOpen, setSortOpen] = useState(false);
   // AI-förslag are of the place the server's list is counted against. They are in
   // Kan lagas nu, and a finished job is shown there and nowhere else.
   const dishes = useDishSuggestions(site?.id ?? null, { visible: filter === "cookable", siteNames });
@@ -147,19 +167,26 @@ export function Library({ recipes, pantryUnavailable, site, searchIngredients, s
   );
   const current = useMemo(() => Object.fromEntries(shown.map((recipe) => [recipe.id, recipe.isFavorite])), [shown]);
   const { favorites, setFavorite } = useFavorites(current);
-  // A deleted recipe leaves the list at once, before the page's new list arrives.
-  const [deleted, setDeleted] = useState<ReadonlySet<string>>(new Set());
-  const { ask, dialog } = useRecipeDelete((id) => setDeleted((ids) => new Set(ids).add(id)));
-  const visible = useMemo(
-    () => (filter === null ? [] : filterRecipes(shown.filter((recipe) => !deleted.has(recipe.id)), filter, (recipe) => favorites[recipe.id] ?? recipe.isFavorite)),
-    [shown, filter, favorites, deleted],
-  );
+  // Kan lagas nu ranks by what is missing, which is what Senast tillagda and
+  // Mest hemma ask for there; an explicit Snabbast or A–Ö is followed instead.
+  const rankedByMissing = filter === "cookable" && (sort === "newest" || sort === "mostHome");
+  // The recipes in the category, before the pills, so an empty list can say which.
+  const inCategory = useMemo(() => (category === undefined ? [] : filterByCategory(shown, category)), [shown, category]);
+  const visible = useMemo(() => {
+    if (filter === null || sort === undefined) return [];
+    // The server's list and a search's answer are newest first already.
+    const sorted = sort === "newest" ? inCategory : sortRecipes(inCategory, sort);
+    const pill = filter === "cookable" && !rankedByMissing ? "all" : filter;
+    return filterRecipes(sorted, pill, (recipe) => favorites[recipe.id] ?? recipe.isFavorite);
+  }, [inCategory, filter, sort, rankedByMissing, favorites]);
 
-  // Until the client has read the saved filter (hydration), skeleton rows
+  // Until the client has read the saved choices (hydration), skeleton rows
   // rather than a list that may be the wrong one.
-  if (filter === null) return <Skeleton rows={4} />;
+  if (filter === null || view === undefined || sort === undefined || category === undefined) return <Skeleton rows={4} />;
 
   const cookable = filter === "cookable";
+  // Planning mode puts a button on each card, which the compact rows have no room for.
+  const compact = view === "compact" && !planning;
   // The rows shown take the server list's status where it has the recipe and
   // the search answer's otherwise, so the statuses are missing only when
   // neither read the pantry (Story 2.4). Then Kan lagas nu cannot rank them:
@@ -196,16 +223,30 @@ export function Library({ recipes, pantryUnavailable, site, searchIngredients, s
       </Notice>
     );
   } else if (visible.length > 0) {
-    content = (
+    const ranked = rankedByMissing && !statusUnavailable;
+    content = compact ? (
+      <RecipeCompactList recipes={visible} favorites={favorites} onFavoriteChange={setFavorite} ranked={ranked} />
+    ) : (
       <RecipeList
         recipes={visible}
         favorites={favorites}
         onFavoriteChange={setFavorite}
-        onDelete={(recipe) => ask({ id: recipe.id, title: recipe.title, onMenu: onMenuIds.includes(recipe.id) })}
-        ranked={cookable && !statusUnavailable}
+        ranked={ranked}
         planning={planning}
         addToPlan={addToPlan}
       />
+    );
+  } else if (category !== null && inCategory.length === 0 && shown.length > 0) {
+    content = (
+      <EmptyState
+        action={
+          <Button variant="text" onClick={() => setCategory(null)}>
+            Visa alla
+          </Button>
+        }
+      >
+        Inga recept i {recipeCategoryLabels[category]}.
+      </EmptyState>
     );
   } else if (search.kind === "done") {
     content = (
@@ -239,6 +280,16 @@ export function Library({ recipes, pantryUnavailable, site, searchIngredients, s
           {siteLine}
         </p>
       ) : null}
+      <RecipeCategoryChips value={category} onChange={setCategory} />
+      {search.kind !== "failed" ? (
+        <RecipeBar
+          count={visible.length}
+          sort={sort}
+          onOpenSort={() => setSortOpen(true)}
+          view={planning ? null : view}
+          onViewChange={setView}
+        />
+      ) : null}
       {/* While a search is on its way, the current rows stay, dimmed. */}
       <div
         data-testid="library-results"
@@ -264,7 +315,7 @@ export function Library({ recipes, pantryUnavailable, site, searchIngredients, s
           planning={planning}
         />
       ) : null}
-      {dialog}
+      <RecipeSortSheet open={sortOpen} onClose={() => setSortOpen(false)} value={sort} onChange={setSort} />
     </div>
   );
 }
