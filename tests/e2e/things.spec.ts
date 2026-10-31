@@ -438,6 +438,11 @@ test("search finds a thing in every room and boende, and the chat answers a ques
     .select("id")
     .single();
   if (stugan.error) throw stugan.error;
+  // Searching, then asking, in the one field logs no console error or page error (Story 18.17).
+  const problems: string[] = [];
+  // The seeded cards have no file in storage, so their thumbnails 404; that is the seed, not the page.
+  page.on("console", (message) => message.type() === "error" && !message.location().url.includes("/api/things/photo/") && problems.push(message.text()));
+  page.on("pageerror", (error) => problems.push(error.message));
   await seedPlace(hemma, "Skräpförrådet", [{ name: "Hammare", category: "Verktyg", where: "väggen" }, { name: "Spade", category: "Trädgård" }], { hidden: 2 });
   await seedPlace(stugan.data.id, "Redskapsboden", [{ name: "Målarfärgsburkar", category: "Byggmaterial" }, { name: "Kratta", category: "Trädgård" }], {
     takenAt: "2026-09-02T10:00:00Z",
@@ -500,6 +505,7 @@ test("search finds a thing in every room and boende, and the chat answers a ques
   await page.getByTestId("chat-ref").click();
   await expect(page).toHaveURL(new RegExp(`/prylar/rum/${stugan.data.id}/redskapsboden$`));
   await expect(page.getByRole("heading", { level: 1 })).toHaveText("Redskapsboden");
+  expect(problems).toEqual([]);
 });
 
 test("old place addresses open the room, and an unknown one is 'Sidan finns inte.'", async ({ page }) => {
