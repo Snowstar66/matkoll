@@ -9,6 +9,8 @@ import { cardFailureText, retryText, shortDateText } from "../domain/thing-photo
 import { cardMeta, type RoomCard } from "../domain/thing-room";
 import { errorMessages, fail, isErrorCode, type AppError, type Result } from "@/lib/errors";
 import type { AiJob } from "@/lib/ai-job-shape";
+import Link from "next/link";
+import { writtenEditText, writtenMeta, type WrittenBox } from "../domain/thing-written";
 import { RemoveCard } from "./remove-card";
 import { RetakeCard } from "./retake-card";
 
@@ -48,8 +50,8 @@ function RetryCard({ id }: { id: string }) {
   );
 }
 
-export function RoomCards({ cards }: { cards: readonly RoomCard[] }) {
-  if (cards.length === 0) return <Notice>Inga kort än. Tryck på Ta fler kort ovanför för att fota eller välja bilder.</Notice>;
+export function RoomCards({ cards, written = [] }: { cards: readonly RoomCard[]; written?: readonly WrittenBox[] }) {
+  if (cards.length === 0 && written.length === 0) return <Notice>Inga kort än. Tryck på Ta fler kort ovanför för att fota eller välja bilder.</Notice>;
   return (
     <ul role="list" className="grid grid-cols-2 gap-2.5" data-testid="room-cards">
       {cards.map((card) => (
@@ -78,6 +80,27 @@ export function RoomCards({ cards }: { cards: readonly RoomCard[] }) {
               </>
             ) : null}
             {card.status === "failed" ? <RetryCard id={card.id} /> : null}
+          </div>
+        </li>
+      ))}
+      {/* Things written into a box (Story 18.13) have no photo: the card is the box, with "Ändra". */}
+      {written.map((box) => (
+        <li key={box.placeId} className="flex flex-col overflow-hidden rounded-md bg-surface" data-testid="room-card-written">
+          <div aria-hidden="true" className="flex h-24 w-full items-center justify-center bg-tile-clay text-section-title leading-none">
+            {"\u{1F4E6}"}
+          </div>
+          <div className="flex flex-col px-2.5 py-2">
+            <p className="text-meta font-semibold wrap-break-word text-ink">{`Låda: ${box.part}`}</p>
+            <p className="text-meta text-ink-3">{writtenMeta(box)}</p>
+          </div>
+          <div className="mt-auto flex flex-wrap items-center gap-x-1 px-1 pb-1">
+            <Link
+              href={`/prylar/lada/${box.placeId}`}
+              className="inline-flex min-h-tap min-w-tap items-center justify-center rounded-md px-2 text-meta font-semibold text-accent"
+              data-testid="edit-written"
+            >
+              {writtenEditText}
+            </Link>
           </div>
         </li>
       ))}

@@ -39,6 +39,8 @@ export function cardsText(count: number): string {
 
 /** The line under a room on the start page: "74 prylar · 9 kort · 31 okt". */
 export function roomMeta(room: RoomSummary): string {
+  // A room with only written things (Story 18.13) has things and no card.
+  if (room.cards === 0 && room.things > 0) return thingsText(room.things);
   if (room.cards === 0) return room.reading > 0 ? "Tittar på kortet …" : "Inget kort än";
   return [thingsText(room.things), cardsText(room.cards), room.latest ? shortDateText(room.latest) : null].filter(Boolean).join(" · ");
 }

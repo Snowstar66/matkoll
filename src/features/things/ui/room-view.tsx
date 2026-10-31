@@ -3,12 +3,17 @@
 import { useRouter } from "next/navigation";
 import { useCallback, useEffect, useState } from "react";
 import { FilterPills } from "@/components/filter-pills";
+import { ListGroup } from "@/components/list-group";
+import { ListRow } from "@/components/list-row";
 import { isActive, type AiJob } from "@/lib/ai-job-shape";
 import { useAiJobs, useOnAiJobsFinished, useShowingAiResults } from "@/lib/ai-jobs-client";
 import { unseenText, type ThingCategory } from "../domain/thing";
 import { moreCardsText } from "../domain/capture";
 import { latestCardText } from "../domain/thing-photo";
 import { type RoomCard, type RoomSummary, type RoomView as View } from "../domain/thing-room";
+import { boxesLabelText, boxMeta, type WrittenBox, writeInsteadText } from "../domain/thing-written";
+import Link from "next/link";
+import { buttonClasses } from "@/components/button";
 import { AddBox } from "./add-box";
 import { RoomCards } from "./room-cards";
 import { RoomCategories } from "./room-categories";
@@ -26,6 +31,8 @@ export type RoomViewProps = {
   summary: RoomSummary;
   categories: { category: ThingCategory; things: number }[];
   cards: RoomCard[];
+  /** The boxes with things written into them (Story 18.13). */
+  written: WrittenBox[];
   /** Every room of the boende, for the sheet of "Ta fler kort". */
   rooms: readonly string[];
   /** The place the room's boxes are added to (a part or the whole room), if it has one. */
@@ -34,12 +41,14 @@ export type RoomViewProps = {
   photographBox: { id: string; name: string } | null;
   initialView: View;
   placeIds: readonly string[];
+  /** The room's boxes, each opening its page (Story 18.13). */
+  boxes: readonly { id: string; part: string | null }[];
 };
 
 /** How often a page with a card being read reads itself again. */
 const refreshMs = 3_000;
 
-export function RoomView({ siteId, summary, categories, cards, rooms, boxParent, photographBox, initialView, placeIds }: RoomViewProps) {
+export function RoomView({ siteId, summary, categories, cards, written, rooms, boxParent, photographBox, initialView, placeIds, boxes }: RoomViewProps) {
   const router = useRouter();
   const { jobs, markSeen } = useAiJobs();
   const [view, setView] = useState<View>(initialView);
@@ -81,7 +90,14 @@ export function RoomView({ siteId, summary, categories, cards, rooms, boxParent,
         <Stat value={categories.length} label="kategorier" />
         <Stat value={summary.cards} label="kort" />
       </dl>
-      {photographBox ? <UploadCardRow placeId={photographBox.id} title={`Fota insidan av ${photographBox.name}`} /> : null}
+      {photographBox ? (
+        <>
+          <UploadCardRow placeId={photographBox.id} title={`Fota insidan av ${photographBox.name}`} />
+          <Link href={`/prylar/lada/${photographBox.id}`} className={buttonClasses("secondary", true)} data-testid="write-box">
+            {writeInsteadText}
+          </Link>
+        </>
+      ) : null}
       <TakeCard
         siteId={siteId}
         rooms={rooms}
@@ -110,11 +126,30 @@ export function RoomView({ siteId, summary, categories, cards, rooms, boxParent,
           ) : (
             <RoomCategories siteId={siteId} roomKey={summary.key} categories={categories} />
           )}
+          {boxes.length > 0 ? (
+            <section className="flex flex-col gap-1.5" data-testid="room-boxes">
+              <h2 className="px-1 text-section-label text-ink-2">{boxesLabelText}</h2>
+              <ListGroup label={boxesLabelText}>
+                {boxes.map((box) => (
+                  <ListRow
+                    key={box.id}
+                    href={`/prylar/lada/${box.id}`}
+                    title={box.part ?? boxesLabelText}
+                    meta={boxMeta({
+                      cards: cards.filter((card) => card.placeId === box.id && card.status === "done").length,
+                      written: written.find((entry) => entry.placeId === box.id)?.things ?? 0,
+                    })}
+                    pressProps={{ "data-testid": "room-box" }}
+                  />
+                ))}
+              </ListGroup>
+            </section>
+          ) : null}
           {unseen && boxParent ? <AddBox placeId={boxParent} variant="row" label={unseen} roomHref={roomHref} /> : null}
           {boxParent ? <AddBox placeId={boxParent} variant="button" roomHref={roomHref} /> : null}
         </>
       ) : (
-        <RoomCards cards={cards} />
+        <RoomCards cards={cards} written={written} />
       )}
     </div>
   );

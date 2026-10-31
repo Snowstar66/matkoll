@@ -47,10 +47,12 @@ export async function removeItemIn(db: ThingsDb, id: string): Promise<ThingSnaps
       .from("thing_item")
       .delete()
       .eq("id", id)
+      // A thing written into a box (Story 18.13) has no card; it is changed by editing the box's text, never removed alone.
+      .eq("source", "photo")
       .select("id, photo_id, place_id, name, category, where_hint, confidence, position, created_at, same_as");
     if (error) throw new ThingsDataError(`remove_failed ${error.code}`);
     const [row] = data;
-    if (!row) return null;
+    if (!row || row.photo_id === null) return null;
     const parsed = thingRowSchema.safeParse(row);
     if (!parsed.success) throw new ThingsDataError("invalid_row");
     return {

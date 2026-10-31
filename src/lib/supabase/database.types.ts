@@ -423,14 +423,14 @@ isOneToOne: false
                   ]
                 },"thing_item": {
                   Row: {
-                    "category": string,"confidence": string,"created_at": string,"id": string,"name": string,"photo_id": string,"place_id": string,"position": number,"same_as": string | null,"user_id": string,"where_hint": string | null
+                    "category": string,"confidence": string,"created_at": string,"id": string,"name": string,"photo_id": string | null,"place_id": string,"position": number,"same_as": string | null,"source": string,"user_id": string,"where_hint": string | null
                   }
                   ComputedFields: never
                   Insert: {
-                    "category": string,"confidence": string,"created_at"?: string,"id"?: string,"name": string,"photo_id": string,"place_id": string,"position"?: number,"same_as"?: string | null,"user_id"?: string,"where_hint"?: string | null
+                    "category": string,"confidence": string,"created_at"?: string,"id"?: string,"name": string,"photo_id"?: string | null,"place_id": string,"position"?: number,"same_as"?: string | null,"source"?: string,"user_id"?: string,"where_hint"?: string | null
                   }
                   Update: {
-                    "category"?: string,"confidence"?: string,"created_at"?: string,"id"?: string,"name"?: string,"photo_id"?: string,"place_id"?: string,"position"?: number,"same_as"?: string | null,"user_id"?: string,"where_hint"?: string | null
+                    "category"?: string,"confidence"?: string,"created_at"?: string,"id"?: string,"name"?: string,"photo_id"?: string | null,"place_id"?: string,"position"?: number,"same_as"?: string | null,"source"?: string,"user_id"?: string,"where_hint"?: string | null
                   }
                   Relationships: [
                     {
@@ -708,6 +708,9 @@ isOneToOne: false
         isOneToOne: false
         isSetofReturn: true
       } },
+"replace_box_things":
+{ Args: { "box": string,"things": Json }; Returns: number
+                           },
 "restore_pantry_item":
 { Args: { "item": Json,"site"?: string }; Returns: {
               "amount": number | null,
@@ -822,6 +825,11 @@ isOneToOne: false
 "save_thing_reading":
 { Args: { "hidden_count"?: number,"note"?: string,"photo": string,"things": Json }; Returns: (string)[]
                            },
+"search_things":
+{ Args: { "max_hits"?: number,"terms": (string)[] }; Returns: {
+              "category": string,"id": string,"kind": string,"name": string,"part": string,"photo_id": string,"place_id": string,"room": string,"room_key": string,"score": number,"seen_on": number,"site_id": string,"site_name": string,"source": string,"taken_at": string,"where_hint": string
+            }[]
+                           },
 "select_pantry_site":
 { Args: { "site_id": string }; Returns: {
               "created_at": string,
@@ -904,6 +912,16 @@ isOneToOne: false
 "thing_room_things":
 { Args: { "in_room": string,"site": string,"wanted": string }; Returns: {
               "category": string,"confidence": string,"id": string,"kind": string,"name": string,"part": string,"seen_on": number,"where_hint": string
+            }[]
+                           },
+"thing_room_written":
+{ Args: { "in_room": string,"site": string }; Returns: {
+              "part": string,"place_id": string,"things": number,"written_at": string
+            }[]
+                           },
+"thing_unseen_by_room":
+{ Args: Record<PropertyKey, never>; Returns: {
+              "room": string,"room_key": string,"site_id": string,"unseen": number
             }[]
                            },
 "undo_dish_cooked":

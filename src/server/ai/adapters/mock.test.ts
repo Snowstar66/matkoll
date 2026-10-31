@@ -725,3 +725,46 @@ describe("mock mergeThings (Story 18.6)", () => {
     expect(await service.mergeThings(input, controller.signal)).toMatchObject({ ok: false, error: { code: "ai_unavailable" } });
   });
 });
+
+describe("mock thingSearchTerms and categorizeThings (Stories 18.13 and 18.14)", () => {
+  const service = createMockAiService();
+
+  it("gives the words of the question that are not small words", async () => {
+    expect(await service.thingSearchTerms({ question: "Har du sett min skiftnyckel?", history: [] }, signal())).toEqual({ ok: true, data: { terms: ["skiftnyckel"] } });
+    expect(await service.thingSearchTerms({ question: "och tången då?", history: [{ question: "Skiftnyckel?", answer: "Ja." }] }, signal())).toEqual({
+      ok: true,
+      data: { terms: ["tången"] },
+    });
+  });
+
+  it.each(mockSuggestErrorCodes)("gives %s for a question with its reserved text", async (code) => {
+    expect(await service.thingSearchTerms({ question: `Hej matkoll-mock: ${code}`, history: [] }, signal())).toMatchObject({ ok: false, error: { code } });
+  });
+
+  it("names the closed containers when a chat turn finds nothing", async () => {
+    expect(await service.askThings({ question: "Finns en cykelpump?", places: [], history: [], unseen: [{ room: "Garaget", count: 2 }] }, signal())).toEqual({
+      ok: true,
+      data: { answer: "Jag hittar inget som passar i dina listor. Innehållet i 2 lådor syns inte, så där kan det ligga.", places: [] },
+    });
+  });
+
+  it("sorts names by a few words, and everything else is Övrigt", async () => {
+    expect(await service.categorizeThings({ names: ["Hammare", "Skarvsladdar", "Glitter", "Kratta"] }, signal())).toEqual({
+      ok: true,
+      data: { categories: ["Verktyg", "Elektronik", "Övrigt", "Trädgård"] },
+    });
+  });
+
+  it.each(mockSuggestErrorCodes)("gives %s for a name with its reserved text", async (code) => {
+    expect(await service.categorizeThings({ names: ["Hammare", `Hej matkoll-mock: ${code}`] }, signal())).toMatchObject({ ok: false, error: { code } });
+  });
+
+  it("counts both calls as calls of the mock", async () => {
+    const seen: AiUsage[] = [];
+    await withUsageSink((usage) => void seen.push(usage), async () => {
+      await service.thingSearchTerms({ question: "Hammare?", history: [] }, signal());
+      await service.categorizeThings({ names: ["Hammare"] }, signal());
+    });
+    expect(seen).toHaveLength(2);
+  });
+});
