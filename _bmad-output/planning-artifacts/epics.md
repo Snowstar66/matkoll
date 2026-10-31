@@ -3977,6 +3977,10 @@ Beslut 2026-10-31 (Pontus): byggs före 17.9.
 **När** jag öppnar dess ⋯
 **Så** kan jag byta namn eller ta bort den; ta bort frågar först, visar vad som försvinner (kort och prylar) och tar bort delen med dess kort, bilder och prylar
 
+**Givet** ett kort i vyn Kort som "Kunde inte läsas" eller har fastnat i läsningen
+**När** jag ser det
+**Så** har det både "Försök igen" och "Ta bort" (samma borttagning med "Ångra" som ett färdigt kort)
+
 **Givet** mörkt läge, 375 px och 200 % text
 **När** jag ser arket och rumssidan
 **Så** finns ingen sidledes rullning och alla mål är minst 44 px

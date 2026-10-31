@@ -19,6 +19,16 @@ import {
 import { sweepCardFilesIn } from "@/features/things/actions/sweep-card-files";
 import { mergeItemsIn, loadMergeInputIn } from "@/features/things/data/merge";
 import { clearThingsIn, loadClearCountsIn } from "@/features/things/data/clear";
+import {
+  copyCardFile,
+  loadPlaceCountsIn,
+  loadPlaceKindIn,
+  loadRoomMergeMovesIn,
+  removePlaceRowsIn,
+  renamePartRowIn,
+  renameRoomRowsIn,
+} from "@/features/things/data/place-edit";
+import { boxKey } from "@/features/things/domain/thing-place";
 import { loadUnseenIn, searchThingsIn } from "@/features/things/data/search";
 import { addCardThingsIn, loadRoomWrittenIn, loadWrittenIn, replaceBoxThingsIn } from "@/features/things/data/written";
 import { insertPlaceIn, loadPlaceIn, loadPlacesIn } from "@/features/things/data/places";
@@ -367,15 +377,19 @@ describe("Förnya och ta bort (Story 18.3)", () => {
     expect(await loadCardsIn(c.db, place)).toEqual([]);
   });
 
-  it("gives null for a card that is gone, not finished or another user's, and says a place that is gone", async () => {
+  it("gives null for a card that is gone or another user's, removes one that is still being read as failed, and says a place that is gone", async () => {
     const site = await siteOf(c);
     const place = await placeOf(c, site, "Främmande");
     const done = await doneCard(c, place);
     const reading = await cardOf(c, place);
-    expect(await removeCardIn(c.db, reading.id)).toBeNull();
     expect(await removeCardIn(c.db, randomUUID())).toBeNull();
     expect(await removeCardIn(b.db, done.id)).toBeNull();
     expect(await loadCardsIn(c.db, place)).toHaveLength(2);
+    // Story 18.16: a card stuck reading (or failed) is removed too, and "Ångra" brings it back as one that failed.
+    const stuck = await removeCardIn(c.db, reading.id);
+    expect(stuck?.snapshot).toMatchObject({ id: reading.id, status: "failed", things: [] });
+    expect(await restoreCardIn(c.db, stuck!.snapshot)).toBe("restored");
+    expect((await loadCardsIn(c.db, place)).find((card) => card.id === reading.id)?.status).toBe("failed");
 
     const removed = await removeCardIn(c.db, done.id);
     await c.db.from("thing_place").delete().eq("id", place);
@@ -963,4 +977,131 @@ describe("rätta och rensa (Story 18.15)", () => {
     expect((await anon.rpc("add_card_things", { photo: card.id, things: [] })).error).not.toBeNull();
     expect(await loadClearCountsIn(k.db, site)).toEqual({ things: 1, cards: 1, boxes: 0 });
   });
+});
+
+describe("byt namn och ta bort rum och delar (Story 18.16)", () => {
+  let m: TestUser;
+  beforeAll(async () => {
+    m = await createTestUser("things-m");
+  });
+  const fileExists = async (path: string) => (await downloadCardFile(m.db, path)) !== null;
+
+  it("renames a room without a merge: the places and cards stay, the files stay where they are", async () => {
+    const site = await siteOf(m, "Byt-rum");
+    const wall = await placeOf(m, site, "Skräpförrådet", "Väggen");
+    const card = await doneCard(m, wall, [hammer]);
+    expect(await renameRoomRowsIn(m.db, { siteId: site, roomKey: "skräpförrådet", name: "Verkstaden", newKey: "verkstaden" })).toEqual({ kind: "renamed", merged: 0 });
+    expect((await loadRoomsIn(m.db, site)).map((room) => [room.room, room.key, room.cards])).toEqual([["Verkstaden", "verkstaden", 1]]);
+    expect(await fileExists(card.path)).toBe(true);
+    expect(await loadRoomMergeMovesIn(m.db, site, "verkstaden", "verkstaden")).toEqual([]);
+    expect(await renameRoomRowsIn(m.db, { siteId: site, roomKey: "skräpförrådet", name: "X", newKey: "x" })).toEqual({ kind: "gone" });
+  });
+
+  it("merges a room into one that has the name: a part both have becomes one place, its cards and files follow", async () => {
+    const site = await siteOf(m, "Slå-ihop");
+    const srcShelf = await placeOf(m, site, "Boden", "Hyllan");
+    const srcWall = await placeOf(m, site, "Boden", "Väggen");
+    const dstShelf = await placeOf(m, site, "Garaget", "Hyllan");
+    const srcCard = await doneCard(m, srcShelf, [hammer]);
+    const wallCard = await doneCard(m, srcWall, [hammer]);
+    const dstCard = await doneCard(m, dstShelf, [{ ...hammer, name: "Spade", category: "Trädgård" }]);
+
+    const moves = await loadRoomMergeMovesIn(m.db, site, "boden", "garaget");
+    expect(moves).toEqual([{ from: srcCard.path, to: thingPhotoPath(m.id, dstShelf, srcCard.id, "image/png") }]);
+    for (const move of moves) expect(await copyCardFile(m.db, move.from, move.to)).toBeNull();
+    // A retry of the copy is fine.
+    expect(await copyCardFile(m.db, moves[0].from, moves[0].to)).toBeNull();
+    files.push(moves[0].to);
+
+    expect(await renameRoomRowsIn(m.db, { siteId: site, roomKey: "boden", name: "GARAGET", newKey: "garaget" })).toEqual({ kind: "renamed", merged: 1 });
+    expect(await removeCardFiles(m.db, [moves[0].from])).toEqual({ failed: null });
+
+    const rooms = await loadRoomsIn(m.db, site);
+    expect(rooms.map((room) => [room.room, room.cards, room.things])).toEqual([["Garaget", 3, 3]]);
+    const places = await loadRoomPlacesIn(m.db, site, "garaget");
+    expect(places.map((place) => place.part).sort()).toEqual(["Hyllan", "Väggen"]);
+    const cards = await m.db.from("thing_photo").select("id, place_id, object_path").in("id", [srcCard.id, wallCard.id, dstCard.id]);
+    const byId = Object.fromEntries(cards.data!.map((row) => [row.id, row]));
+    expect(byId[srcCard.id]).toMatchObject({ place_id: dstShelf, object_path: moves[0].to });
+    expect(byId[wallCard.id]).toMatchObject({ place_id: srcWall, object_path: wallCard.path });
+    expect(await fileExists(moves[0].to)).toBe(true);
+    expect(await fileExists(srcCard.path)).toBe(false);
+    expect((await m.db.from("thing_item").select("id").eq("place_id", dstShelf)).data).toHaveLength(2);
+    expect((await m.db.from("thing_place").select("id").eq("id", srcShelf)).data).toEqual([]);
+  });
+
+  it("renames a part or a box, keeps its cards, and refuses a name the room has", async () => {
+    const site = await siteOf(m, "Byt-del");
+    const shelf = await placeOf(m, site, "Garaget", "Hyllan");
+    const wall = await placeOf(m, site, "Garaget", "Väggen");
+    const black = await box(m, site, "Garaget", "Black box");
+    const card = await doneCard(m, black, [hammer]);
+    expect(await renamePartRowIn(m.db, shelf, "Väggen", "väggen")).toBe("taken");
+    expect(await renamePartRowIn(m.db, wall, "Golvet", "golvet")).toBe("saved");
+    expect(await renamePartRowIn(m.db, black, "Röda lådan", boxKey("Röda lådan"))).toBe("saved");
+    expect(await loadPlaceKindIn(m.db, black)).toMatchObject({ part: "Röda lådan", kind: "box" });
+    expect((await loadCardsIn(m.db, black)).map((stored) => stored.id)).toEqual([card.id]);
+    expect(await renamePartRowIn(m.db, randomUUID(), "X", "x")).toBe("gone");
+    // A box named like a part is another place (the box prefix).
+    expect(await renamePartRowIn(m.db, black, "Golvet", boxKey("Golvet"))).toBe("saved");
+  });
+
+  it("counts and removes one part or box with its cards, files and things, and nothing else", async () => {
+    const site = await siteOf(m, "Ta-bort-del");
+    const shelf = await placeOf(m, site, "Garaget", "Hyllan");
+    const wall = await placeOf(m, site, "Garaget", "Väggen");
+    const black = await box(m, site, "Garaget", "Black box");
+    const shelfCard = await doneCard(m, shelf, [hammer, { ...hammer, name: "Spade" }]);
+    const wallCard = await doneCard(m, wall, [hammer]);
+    await replaceBoxThingsIn(m.db, black, [{ name: "Glitter", category: "Övrigt" }]);
+
+    const counts = await loadPlaceCountsIn(m.db, site, "garaget");
+    expect(counts[shelf]).toEqual({ things: 2, cards: 1 });
+    expect(counts[black]).toEqual({ things: 1, cards: 0 });
+
+    const removed = await removePlaceRowsIn(m.db, shelf);
+    expect(removed).toEqual({ kind: "removed", counts: { things: 2, cards: 1 }, paths: [shelfCard.path], roomLeft: 2 });
+    if (removed.kind !== "removed") throw new Error("not removed");
+    expect(await removeCardFiles(m.db, removed.paths)).toEqual({ failed: null });
+    expect(await fileExists(shelfCard.path)).toBe(false);
+    expect(await fileExists(wallCard.path)).toBe(true);
+    expect((await m.db.from("thing_item").select("id").eq("place_id", shelf)).data).toEqual([]);
+    expect((await loadRoomPlacesIn(m.db, site, "garaget")).map((place) => place.part).sort()).toEqual(["Black box", "Väggen"]);
+    expect(await removePlaceRowsIn(m.db, shelf)).toEqual({ kind: "gone" });
+    // The last place takes the room with it.
+    await removePlaceRowsIn(m.db, wall);
+    expect(await removePlaceRowsIn(m.db, black)).toMatchObject({ kind: "removed", roomLeft: 0 });
+    expect(await loadRoomsIn(m.db, site)).toEqual([]);
+  });
+
+  it("lets another user neither rename, merge, count nor remove, and anon nothing", async () => {
+    const site = await siteOf(m, "Privat-byt");
+    const wall = await placeOf(m, site, "Garaget", "Väggen");
+    await placeOf(m, site, "Boden", "Väggen");
+    const card = await doneCard(m, wall, [hammer]);
+    expect(await renameRoomRowsIn(b.db, { siteId: site, roomKey: "garaget", name: "Hackat", newKey: "hackat" })).toEqual({ kind: "gone" });
+    expect(await renameRoomRowsIn(b.db, { siteId: site, roomKey: "boden", name: "Garaget", newKey: "garaget" })).toEqual({ kind: "gone" });
+    expect(await loadRoomMergeMovesIn(b.db, site, "garaget", "boden")).toEqual([]);
+    expect(await loadPlaceCountsIn(b.db, site, "garaget")).toEqual({});
+    expect(await removePlaceRowsIn(b.db, wall)).toEqual({ kind: "gone" });
+    expect(await renamePartRowIn(b.db, wall, "Hackat", "hackat")).toBe("gone");
+    expect(await loadPlaceKindIn(b.db, wall)).toBeNull();
+    expect(await fileExists(card.path)).toBe(true);
+    const anon = anonClient();
+    for (const [name, args] of [
+      ["thing_place_counts", { site, in_room: "garaget" }],
+      ["remove_thing_place", { place: wall }],
+      ["thing_room_merge_moves", { site, in_room: "garaget", new_key: "boden" }],
+      ["rename_thing_room", { site, in_room: "garaget", new_name: "X", new_key: "x" }],
+    ] as const) {
+      expect((await anon.rpc(name, args as never)).error, `anon calls ${name}`).not.toBeNull();
+    }
+    expect((await loadRoomsIn(m.db, site)).map((room) => room.key).sort()).toEqual(["boden", "garaget"]);
+  });
+
+  const box = async (user: TestUser, site: string, room: string, name: string) => {
+    const saved = await insertPlaceIn(user.db, { siteId: site, room, part: name }, true);
+    if (saved.kind !== "saved") throw new Error("not saved");
+    return saved.id;
+  };
 });

@@ -280,7 +280,7 @@ export async function loadCardFileOrphansIn(db: ThingsDb, userId: string, now: D
 }
 
 const snapshotSelect =
-  "id, place_id, object_path, media_type, width, height, taken_at, created_at, status, unseen_note, unseen_count, thing_item(id, photo_id, place_id, name, category, where_hint, confidence, position, created_at, same_as, source)";
+  "id, place_id, object_path, media_type, width, height, taken_at, created_at, status, error_code, unseen_note, unseen_count, thing_item(id, photo_id, place_id, name, category, where_hint, confidence, position, created_at, same_as, source)";
 
 const snapshotRowSchema = z.object({
   id: z.uuid(),
@@ -292,6 +292,7 @@ const snapshotRowSchema = z.object({
   taken_at: z.string(),
   created_at: z.string(),
   status: z.enum(["reading", "done", "failed"]),
+  error_code: z.string().nullable(),
   unseen_note: z.string().nullable(),
   unseen_count: z.number().int(),
   thing_item: z.array(
@@ -325,7 +326,7 @@ export type RemovedCard = { snapshot: CardSnapshot };
  */
 export async function removeCardIn(db: ThingsDb, id: string): Promise<RemovedCard | null> {
   return guarded("remove", async () => {
-    const { data, error } = await db.from("thing_photo").select(snapshotSelect).eq("id", id).eq("status", "done").maybeSingle();
+    const { data, error } = await db.from("thing_photo").select(snapshotSelect).eq("id", id).maybeSingle();
     if (error) throw new ThingsDataError(`query_failed ${error.code}`);
     if (!data) return null;
     const parsed = snapshotRowSchema.safeParse(data);
@@ -346,6 +347,9 @@ export async function removeCardIn(db: ThingsDb, id: string): Promise<RemovedCar
         height: row.height,
         takenAt: new Date(row.taken_at).toISOString(),
         createdAt: new Date(row.created_at).toISOString(),
+        // Story 18.16: a card that failed or is stuck reading can be removed too; "Ångra" brings it back as one that failed.
+        status: row.status === "done" ? "done" : "failed",
+        errorCode: row.status === "done" ? null : (row.status === "failed" ? row.error_code : null),
         unseenNote: row.unseen_note,
         unseenCount: row.unseen_count,
         things: [...row.thing_item]
@@ -397,7 +401,8 @@ export async function restoreCardIn(db: ThingsDb, card: CardSnapshot): Promise<R
       height: card.height,
       taken_at: card.takenAt,
       created_at: card.createdAt,
-      status: "done",
+      status: card.status,
+      error_code: card.status === "failed" ? (card.errorCode ?? "ai_job_lost") : null,
       unseen_note: card.unseenNote,
       unseen_count: card.unseenCount,
     });
