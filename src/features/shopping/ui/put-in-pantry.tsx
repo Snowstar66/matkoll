@@ -7,10 +7,13 @@ import { useToast } from "@/components/toast";
 import { type Result } from "@/lib/errors";
 import { putCheckedInPantry, type PutInPantryResult } from "../actions/put-checked-in-pantry";
 import type { ShoppingLine } from "../domain/compute-list";
+import type { PlacedItem } from "../domain/put-in-pantry";
 import {
   partlyPutInPantryText,
+  placedText,
   putInPantryButtonText,
   putInPantryText,
+  unpackChangeLabel,
   serverUnreachableText,
   siteGoneText,
 } from "../domain/list-text";
@@ -26,6 +29,9 @@ import type { OwnChanges } from "./own-changes";
 
 /** A failed run's notice; a new `id` per failure, so the same text is announced again. */
 export type PutInPantryNotice = { text: string; id: number };
+
+/** Story 16.18: the items of the last run, for "Packa upp"; a new `run` per run, so the sheet starts over. */
+export type Unpacking = { run: number; open: boolean; items: PlacedItem[]; siteId: string };
 
 /**
  * The codes after which the list is read again: the plan was switched
@@ -57,6 +63,8 @@ export function usePutInPantry(
   const running = useRef(false);
   const [notice, setNotice] = useState<PutInPantryNotice | null>(null);
   const nextNotice = useRef(0);
+  const [unpacking, setUnpacking] = useState<Unpacking | null>(null);
+  const nextRun = useRef(0);
 
   function showNotice(text: string) {
     nextNotice.current += 1;
@@ -85,8 +93,22 @@ export function usePutInPantry(
       return;
     }
     if (result.ok) {
-      const text = putInPantryText(result.data.added, result.data.removed, result.data.siteName);
-      if (text) showToast(text);
+      const { placed = [], siteId: placedSite = null } = result.data;
+      const where = placed.length > 0 && placedSite ? placedText(placed.map((item) => item.location), result.data.siteName) : null;
+      if (where && placedSite) {
+        nextRun.current += 1;
+        const run = nextRun.current;
+        setUnpacking({ run, open: false, items: placed, siteId: placedSite });
+        showToast(where, {
+          show: {
+            label: unpackChangeLabel,
+            onShow: () => setUnpacking((current) => (current?.run === run ? { ...current, open: true } : current)),
+          },
+        });
+      } else {
+        const text = putInPantryText(result.data.added, result.data.removed, result.data.siteName);
+        if (text) showToast(text);
+      }
       if (result.data.skipped > 0) showNotice(partlyPutInPantryText);
       else setNotice(null);
       return;
@@ -102,7 +124,8 @@ export function usePutInPantry(
     if (readAgain.has(result.error.code)) router.refresh();
   }
 
-  return { put, pending, notice };
+  const closeUnpacking = () => setUnpacking((current) => (current ? { ...current, open: false } : current));
+  return { put, pending, notice, unpacking, closeUnpacking };
 }
 
 /**

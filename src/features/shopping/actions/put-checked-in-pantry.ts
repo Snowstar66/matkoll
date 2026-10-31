@@ -20,6 +20,7 @@ import { fail, ok, type Result } from "@/lib/errors";
 import { revalidateFor } from "@/lib/revalidate";
 import { createClient } from "@/lib/supabase/server";
 import { listCheckRowsIn } from "../data/checks";
+import type { PlacedItem } from "../domain/put-in-pantry";
 import { ShoppingDataError } from "../data/client";
 import { listCustomItemsIn } from "../data/custom-items";
 import { listOverridesIn } from "../data/overrides";
@@ -41,7 +42,15 @@ export type PutInPantryInput = z.input<typeof putInPantrySchema>;
  * the write, when the user has more than one place ("Lagt 8 varor i Matvaror
  * för Stugan."); `null` with one place, or when it could not be read.
  */
-export type PutInPantryResult = { added: number; removed: number; skipped: number; siteName: string | null };
+export type PutInPantryResult = {
+  added: number;
+  removed: number;
+  skipped: number;
+  siteName: string | null;
+  /** Story 16.18: the items put in the pantry with the place each went to, and the place (`null` when it could not be told). */
+  placed?: PlacedItem[];
+  siteId?: string | null;
+};
 
 /**
  * "Lägg till i Matvaror" (FR-19, FR-33, AD-8, AD-19): puts every checked line of the
@@ -155,6 +164,8 @@ export async function putCheckedInPantry(input: PutInPantryInput): Promise<Resul
         // Only when the pantry took something in this run: a run whose items
         // were all skipped for their receipts names no place.
         siteName: outcome.handled > 0 ? await siteNameOrNull(siteId) : null,
+        placed: outcome.handled > 0 ? outcome.placed : [],
+        siteId,
       });
     case "plan_changed":
       revalidateFor("shopping_check");

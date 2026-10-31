@@ -2,6 +2,7 @@ import { describe, expect, it } from "vitest";
 import type { ShoppingLine } from "./compute-list";
 import {
   allInStockText,
+  placedText,
   chainSite,
   openSiteText,
   stepsText,
@@ -321,5 +322,25 @@ describe("the basket export's texts (Story 7.3)", () => {
     expect(chainSite({ chain: "Annan" })).toBeNull();
     expect(chainSite(null)).toBeNull();
     expect(openSiteText("ica.se")).toBe("Öppna ica.se");
+  });
+});
+
+describe("placedText (Story 16.18)", () => {
+  it("says how many went where, most first, and leaves out places without items", () => {
+    const places = [...Array(5).fill("Kyl"), "Skafferi", "Skafferi", "Frys"] as const;
+    expect(placedText(places)).toBe("Lagt 8 varor: 5 i kyl, 2 i skafferi, 1 i frys.");
+    expect(placedText(["Frys", "Kyl", "Skafferi"])).toBe("Lagt 3 varor: 1 i kyl, 1 i frys, 1 i skafferi.");
+    expect(placedText(["Kyl", "Kyl", "Frys"])).toBe("Lagt 3 varor: 2 i kyl, 1 i frys.");
+  });
+
+  it("says vara for one and names the place once when everything went to one", () => {
+    expect(placedText(["Frys"])).toBe("Lagt 1 vara i frys.");
+    expect(placedText(["Kyl", "Kyl"])).toBe("Lagt 2 varor i kyl.");
+  });
+
+  it("names the Boende and says nothing for no items", () => {
+    expect(placedText(["Kyl", "Frys"], "Stugan")).toBe("Lagt 2 varor för Stugan: 1 i kyl, 1 i frys.");
+    expect(placedText(["Kyl"], "Stugan")).toBe("Lagt 1 vara i kyl för Stugan.");
+    expect(placedText([])).toBeNull();
   });
 });

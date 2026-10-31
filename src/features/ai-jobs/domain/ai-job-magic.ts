@@ -1,4 +1,5 @@
 import type { AiJobKind } from "@/lib/ai-job-shape";
+import { thingNoun } from "@/lib/thing-noun";
 
 // The words and the numbers of the magical view (Story 12.8): what the status
 // line under the hero says for each kind of job, how often it changes, and
@@ -14,7 +15,7 @@ const statusTexts: Record<AiJobKind, readonly string[]> = {
   suggest: ["Läser dina matvaror…", "Matchar veckans erbjudanden…", "Komponerar rätter…", "Skriver recepten…"],
   analyze: ["Tittar på fotot…", "Känner igen varorna…", "Räknar antal…"],
   import: ["Hämtar receptet…", "Läser ingredienserna…", "Strukturerar stegen…"],
-  things: ["Tittar på fotot…", "Letar efter prylar…", "Sorterar i kategorier…"],
+  things: ["Tittar på fotot…", `Letar efter ${thingNoun.plural}…`, "Sorterar i kategorier…"],
 };
 
 /** The status line for a job kind after `step` cycles; it starts over after the last. */

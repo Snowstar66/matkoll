@@ -1,5 +1,6 @@
 import { z } from "zod";
 import type { ErrorCode } from "@/lib/errors";
+import { thingNoun } from "./thing-noun";
 
 // Kort i Prylar (Story 18.2): a card is a photo of a place. It goes to the
 // private bucket thing-photo, one folder per account (AD-26), and an AI job
@@ -85,7 +86,7 @@ export const pickText = "Välj bild";
 export const readingText = "Tittar på bilden … Du kan göra annat under tiden.";
 export const cardFailedText = "Det gick inte att läsa kortet. Det ligger kvar, så du kan försöka igen.";
 export const retryText = "Försök igen";
-export const noThingsText = "Inga prylar hittades på kortet. Prova med ett närmare kort.";
+export const noThingsText = `Inga ${thingNoun.plural} hittades på kortet. Prova med ett närmare kort.`;
 
 /** Why a card failed, in words; an unknown code is the AI being out of reach. */
 export function cardFailureText(code: ErrorCode | null): string {

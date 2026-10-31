@@ -1,4 +1,5 @@
 import { isActive, type AiJob, type AiJobKind } from "@/lib/ai-job-shape";
+import { thingNoun } from "@/lib/thing-noun";
 
 // The words of AI jobs (Story 12.4, EXPERIENCE.md, Voice and Tone och State
 // Patterns, Epic 12). The job is named after what it is about, never after
@@ -20,7 +21,7 @@ export function doingText(kind: AiJobKind, domain: string | null = null): string
     case "import":
       return domain ? `Läser receptet från ${domain}` : "Läser receptet";
     case "things":
-      return "Letar efter prylar på fotot";
+      return `Letar efter ${thingNoun.plural} på fotot`;
   }
 }
 
@@ -34,7 +35,7 @@ export function subjectText(kind: AiJobKind): string {
     case "import":
       return "receptet";
     case "things":
-      return "prylarna på fotot";
+      return `${thingNoun.definitePlural} på fotot`;
   }
 }
 
@@ -71,7 +72,7 @@ export function finishedText(job: Pick<AiJob, "kind" | "status" | "count" | "tit
       case "import":
         return "Det gick inte att läsa receptet.";
       case "things":
-        return "Det gick inte att lista prylarna på fotot.";
+        return `Det gick inte att lista ${thingNoun.definitePlural} på fotot.`;
     }
   }
   switch (job.kind) {
@@ -82,7 +83,7 @@ export function finishedText(job: Pick<AiJob, "kind" | "status" | "count" | "tit
     case "import":
       return job.title ? `Receptet ${job.title} är inläst.` : "Receptet är inläst.";
     case "things":
-      return job.count === 1 ? "1 pryl är listad." : `${job.count ?? 0} prylar är listade.`;
+      return job.count === 1 ? `1 ${thingNoun.singular} är listat.` : `${job.count ?? 0} ${thingNoun.plural} är listade.`;
   }
 }
 

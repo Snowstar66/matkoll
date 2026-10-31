@@ -3,6 +3,7 @@ import { thingCategories, thingTiles, type ThingCategory } from "./thing";
 import { shortDateText } from "./thing-photo";
 import { seenOnText } from "./thing-merge";
 import { inBoxText } from "./thing-place";
+import { thingCountText, thingNoun } from "./thing-noun";
 
 // Sök (Stories 18.4 and 18.14): the things are found by the database, with
 // typos tolerated (search_things), never by loading every thing to the
@@ -134,7 +135,7 @@ export const searchFailedText = "Sökningen gick inte. Försök igen.";
 
 /** "Inga prylar matchar "hammare"." */
 export function noHitsText(query: string): string {
-  return `Inga prylar matchar "${query.trim()}".`;
+  return `Inga ${thingNoun.plural} matchar "${query.trim()}".`;
 }
 
 /** "Visar de 100 bästa träffarna. Skriv mer för att begränsa." */
@@ -144,5 +145,5 @@ export function topHitsText(shown: number): string {
 
 /** The count of hits for screen readers: "3 prylar". */
 export function hitCountText(count: number): string {
-  return count === 1 ? "1 pryl" : `${count} prylar`;
+  return thingCountText(count);
 }
