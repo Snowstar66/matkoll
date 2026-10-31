@@ -19,7 +19,7 @@ const { light, dark } = colorTokens();
 
 const colorNames = [
   "bg", "surface", "surface-2", "fill", "ink", "ink-2", "ink-3", "hairline", "border", "accent", "on-accent",
-  "mint", "mint-ink", "sky", "sky-ink", "sand", "sand-ink", "store-ica", "store-ica-ink", "store-other", "store-other-ink", "deal", "deal-ink", "hot", "hot-ink", "tile-clay", "tile-lilac", "danger", "seg-track", "seg-on",
+  "mint", "mint-ink", "sky", "sky-ink", "sand", "sand-ink", "danger", "store-ica", "store-ica-ink", "store-other", "store-other-ink", "deal", "deal-ink", "hot", "hot-ink", "tile-clay", "tile-lilac", "seg-track", "seg-on",
 ];
 
 /** [text, background, where it is used] */
@@ -34,6 +34,8 @@ const textPairs: [string, string, string][] = [
   ["sky-ink", "sky", "Saknar N varor, notice, secondary button, product chip"],
   ["sand-ink", "sand", "AI-förslag"],
   ["store-ica-ink", "store-ica", "store badge, ICA"],
+  ["danger", "surface", "Ta bort in the Lagervara sheet (Story 16.17)"],
+  ["danger", "surface-2", "Ta bort in the Lagervara sheet, which is surface-2 since Story 19.1"],
   ["store-other-ink", "store-other", "store badge, other chains"],
   ["deal-ink", "deal", "saving badge on an offer row"],
   ["deal-ink", "surface", "saving percent as text on an offer row (Story 16.6)"],
@@ -63,8 +65,8 @@ describe("design tokens", () => {
     );
   });
 
-  it("has no red except the ICA badge and the warm offer tags (Story 9.15)", () => {
-    const warm = new Set(["store-ica", "deal-ink", "hot", "deal"].flatMap((name) => [light[name], dark[name]]));
+  it("has no red except the ICA badge, the warm offer tags (Story 9.15) and Ta bort (Story 16.17)", () => {
+    const warm = new Set(["danger", "store-ica", "deal-ink", "hot", "deal"].flatMap((name) => [light[name], dark[name]]));
     for (const hex of [...Object.values(light), ...Object.values(dark)]) {
       if (warm.has(hex)) continue;
       const [r, g, b] = [1, 3, 5].map((i) => parseInt(hex.slice(i, i + 2), 16));

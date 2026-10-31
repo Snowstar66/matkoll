@@ -93,6 +93,12 @@ describe("putInPantryWith", () => {
       skipped: 0,
       pantryWritten: true,
       handled: 3,
+      // Story 16.18: each item with its name and the place it went to.
+      placed: [
+        { key: check1, ingredientId: gradde, amount: 3, unit: "dl", name: "Grädde", location: "Kyl" },
+        { key: check4, ingredientId: kaffe, amount: 2, unit: "förp", name: "kaffe", location: "Kyl" },
+        { key: check2, ingredientId: salt, amount: null, unit: null, name: "Salt", location: "Kyl" },
+      ],
     });
     expect(d.addToPantry).toHaveBeenCalledWith([
       { key: check1, ingredientId: gradde, amount: 3, unit: "dl" },
@@ -112,7 +118,7 @@ describe("putInPantryWith", () => {
 
   it("only clears when no checked line has a catalog ingredient", async () => {
     const { deps: d } = deps({}, [{ id: check5, key: customLineKey(diskItem) }]);
-    expect(await putInPantryWith(d, planId)).toEqual({ kind: "done", added: 0, removed: 1, skipped: 0, pantryWritten: false, handled: 0 });
+    expect(await putInPantryWith(d, planId)).toEqual({ kind: "done", added: 0, removed: 1, skipped: 0, pantryWritten: false, handled: 0, placed: [] });
     expect(d.addToPantry).not.toHaveBeenCalled();
     expect(d.clear).toHaveBeenCalledWith(planId, { checkIds: [check5], overrideKeys: [], customItemIds: [diskItem] });
   });
@@ -120,7 +126,7 @@ describe("putInPantryWith", () => {
   it("does nothing without a check, or with only a text line checked", async () => {
     for (const checks of [[], [{ id: check3, key: textKey }]]) {
       const { deps: d } = deps({}, checks);
-      expect(await putInPantryWith(d, planId)).toEqual({ kind: "done", added: 0, removed: 0, skipped: 0, pantryWritten: false, handled: 0 });
+      expect(await putInPantryWith(d, planId)).toEqual({ kind: "done", added: 0, removed: 0, skipped: 0, pantryWritten: false, handled: 0, placed: [] });
       expect(d.addToPantry).not.toHaveBeenCalled();
       expect(d.clear).not.toHaveBeenCalled();
     }
@@ -152,7 +158,7 @@ describe("putInPantryWith", () => {
   it("leaves a check whose line is gone when the pantry has no receipt of it", async () => {
     const covered = { id: check2, key: recipeLineKey(gradde, "st") };
     const { deps: d } = deps({}, [covered]);
-    expect(await putInPantryWith(d, planId)).toEqual({ kind: "done", added: 0, removed: 0, skipped: 0, pantryWritten: false, handled: 0 });
+    expect(await putInPantryWith(d, planId)).toEqual({ kind: "done", added: 0, removed: 0, skipped: 0, pantryWritten: false, handled: 0, placed: [] });
     expect(d.clear).not.toHaveBeenCalled();
   });
 

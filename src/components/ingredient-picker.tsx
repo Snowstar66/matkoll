@@ -3,6 +3,7 @@
 import { type KeyboardEvent, type ReactNode, useEffect, useRef, useState } from "react";
 import { fail, type AppError, type Result } from "@/lib/errors";
 import { Button } from "./button";
+import { CheckIcon } from "./icons";
 import { Notice } from "./notice";
 import { SearchField } from "./search-field";
 
@@ -31,6 +32,10 @@ export type IngredientPickerProps<Hit extends IngredientHit> = {
   header?: ReactNode;
   /** The search field's name for screen readers. */
   label?: string;
+  /** Story 16.17: the ingredient now in use; if it is among the hits it is marked "Nuvarande". */
+  currentId?: string;
+  /** Story 16.17: a line under the search field until something is typed. */
+  hint?: string;
 };
 
 /** The answer for one query. */
@@ -117,6 +122,8 @@ export function IngredientPicker<Hit extends IngredientHit>({
   onCancel,
   header,
   label = "Sök ingrediens",
+  currentId,
+  hint,
 }: IngredientPickerProps<Hit>) {
   const rootRef = useRef<HTMLDivElement>(null);
   const { query, hits, error, search } = useIngredientSearch(searchIngredients);
@@ -147,6 +154,7 @@ export function IngredientPicker<Hit extends IngredientHit>({
     <div ref={rootRef} onKeyDown={onKeyDown} className="flex flex-col gap-3">
       {header}
       <SearchField label={label} placeholder={label} onSearch={search} />
+      {hint && !query.trim() ? <p className="-mt-1 text-meta text-ink-2">{hint}</p> : null}
       {error ? <Notice role="alert">{error.message}</Notice> : null}
       {hits && hits.length > 0 ? (
         <ul aria-label="Träffar" className="flex flex-col">
@@ -155,9 +163,15 @@ export function IngredientPicker<Hit extends IngredientHit>({
               <button
                 type="button"
                 onClick={() => onChoose(hit)}
-                className="flex min-h-tap w-full items-center rounded-sm px-1 text-left text-body text-ink"
+                className="flex min-h-tap w-full items-center justify-between gap-3 rounded-sm px-1 text-left text-body text-ink"
               >
                 {hit.name}
+                {hit.id === currentId ? (
+                  <span className="flex items-center gap-1 text-section-label font-medium text-accent">
+                    <CheckIcon size={14} />
+                    Nuvarande
+                  </span>
+                ) : null}
               </button>
             </li>
           ))}

@@ -1,9 +1,10 @@
-import { act, render as renderBare, type RenderOptions, screen, waitFor } from "@testing-library/react";
+import { act, render as renderBare, type RenderOptions, screen, waitFor, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { type ReactElement, useEffect, useState } from "react";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import { ToastProvider } from "@/components/toast";
 import { fail, ok, type Result } from "@/lib/errors";
+import type { MoveUnpackedItemInput } from "../actions/move-unpacked-item";
 import type { PutInPantryInput, PutInPantryResult } from "../actions/put-checked-in-pantry";
 import type { CheckChange } from "../domain/check";
 import type { ShoppingLine } from "../domain/compute-list";
@@ -21,6 +22,10 @@ vi.mock("../actions/set-checked", () => ({ setChecked: (change: CheckChange) => 
 const putCheckedInPantry = vi.fn<(input: PutInPantryInput) => Promise<Result<PutInPantryResult>>>();
 vi.mock("../actions/put-checked-in-pantry", () => ({
   putCheckedInPantry: (input: PutInPantryInput) => putCheckedInPantry(input),
+}));
+const moveUnpackedItem = vi.fn<(input: MoveUnpackedItemInput) => Promise<Result<null>>>();
+vi.mock("../actions/move-unpacked-item", () => ({
+  moveUnpackedItem: (input: MoveUnpackedItemInput) => moveUnpackedItem(input),
 }));
 const refresh = vi.fn();
 vi.mock("next/navigation", () => ({ useRouter: () => ({ refresh }) }));
@@ -76,6 +81,7 @@ beforeEach(() => {
     return ok({ added: 1, removed: 0, skipped: 0, siteName: null });
   });
   refresh.mockReset();
+  moveUnpackedItem.mockReset().mockResolvedValue(ok(null));
 });
 
 describe("Lägg till i Matvaror", () => {
@@ -237,5 +243,59 @@ describe("Lägg till i Matvaror", () => {
     await user.click(button()!);
     await waitFor(() => expect(refresh).toHaveBeenCalled());
     expect(screen.queryByRole("alert")).not.toBeInTheDocument();
+  });
+});
+
+describe("Packa upp kassarna (Story 16.18)", () => {
+  const siteId = "55555555-5555-4555-8555-555555555555";
+  const placed = [
+    { key: "c1", ingredientId: "gradde", amount: 3, unit: "dl" as const, name: "Grädde", location: "Kyl" as const },
+    { key: "c2", ingredientId: "paprika", amount: 2, unit: "st" as const, name: "Paprika", location: "Kyl" as const },
+    { key: "c3", ingredientId: "mjol", amount: 1, unit: "kg" as const, name: "Mjöl", location: "Skafferi" as const },
+  ];
+
+  async function putAll() {
+    const user = userEvent.setup();
+    putCheckedInPantry.mockResolvedValue(ok({ added: 3, removed: 0, skipped: 0, siteName: null, placed, siteId }));
+    render(<ShoppingList plan={plan} lines={lines.map((each) => ({ ...each, checked: true }))} pantryUnavailable={false} />);
+    await user.click(button()!);
+    return user;
+  }
+
+  it("says where things went, with Ändra beside it", async () => {
+    await putAll();
+    const toast = await screen.findByTestId("toast");
+    expect(toast).toHaveTextContent("Lagt 3 varor: 2 i kyl, 1 i skafferi.");
+    expect(screen.getByRole("button", { name: "Ändra" })).toBeInTheDocument();
+  });
+
+  it("moves one item with one tap on its place, and keeps the rest as it was", async () => {
+    const user = await putAll();
+    await user.click(await screen.findByRole("button", { name: "Ändra" }));
+    expect(screen.getAllByTestId("unpack-item")).toHaveLength(3);
+    const paprika = screen.getByRole("radiogroup", { name: "Plats för Paprika" });
+    await user.click(within(paprika).getByRole("radio", { name: "Frys" }));
+    expect(moveUnpackedItem).toHaveBeenCalledTimes(1);
+    expect(moveUnpackedItem).toHaveBeenCalledWith({
+      siteId,
+      ingredientId: "paprika",
+      amount: 2,
+      unit: "st",
+      from: "Kyl",
+      to: "Frys",
+    });
+    expect(within(paprika).getByRole("radio", { name: "Frys" })).toBeChecked();
+    const gradde = screen.getByRole("radiogroup", { name: "Plats för Grädde" });
+    expect(within(gradde).getByRole("radio", { name: "Kyl" })).toBeChecked();
+  });
+
+  it("puts an item back where it was and says so when the move fails", async () => {
+    const user = await putAll();
+    moveUnpackedItem.mockResolvedValue(fail("pantry_move_failed"));
+    await user.click(await screen.findByRole("button", { name: "Ändra" }));
+    const mjol = screen.getByRole("radiogroup", { name: "Plats för Mjöl" });
+    await user.click(within(mjol).getByRole("radio", { name: "Frys" }));
+    expect(await screen.findByRole("alert")).toHaveTextContent("Det gick inte att flytta varan.");
+    expect(within(mjol).getByRole("radio", { name: "Skafferi" })).toBeChecked();
   });
 });

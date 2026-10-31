@@ -12,7 +12,9 @@ import { isSiteGone, PantryDataError, siteGoneCode, siteGoneDetail } from "./dat
 import { insertPantryDefaults } from "./data/defaults";
 import { downloadPlacePhoto, loadPlacePhotoIn, loadPlacePhotosIn, placePhotoFileExists } from "./data/photos";
 import { checkedSiteId, countPantryIn, listPantryIn, loadPantrySnapshot, zeroCounts } from "./data/queries";
+import { removePantryItemIn } from "./data/remove";
 import { setPantryItemsIn, type SetPantryRow } from "./data/set";
+import { planMove, type MovedItem } from "./domain/move-amount";
 import { loadPantrySitesIn, loadSiteItemCountsIn } from "./data/sites";
 import { addToPantryItemsSchema, type AddToPantryItem } from "./domain/add-to-pantry";
 import { oldPantryItems, type OldPantryItem } from "./domain/old-items";
@@ -377,4 +379,39 @@ export async function findPantryAdditions(keys: readonly string[]): Promise<stri
  */
 export async function forgetPantryAdditions(keys: readonly string[]): Promise<void> {
   return forgetPantryAdditionsIn(await createClient(), keys);
+}
+
+/**
+ * Story 16.18 ("Packa upp kassarna"): moves what was just bought (`item`)
+ * from the location `from` to `to` on the place `siteId`: only the bought
+ * amount moves, what was at home stays (see planMove). Reads the place's rows
+ * fresh, not through the request's memoised lists. A whole row moves in one
+ * transaction (set_pantry_items with `replaceId`); a part is two writes, the
+ * destination first. Not a Server Action: shopping's moveUnpackedItem checks
+ * the user and revalidates. Returns false when the place has no such row
+ * (removed or moved already); nothing is written then. Throws
+ * PantryDataError (`site_gone` for a place that is gone).
+ */
+export async function movePantryAmount(
+  userId: string,
+  siteId: string,
+  item: MovedItem,
+  from: Location,
+  to: Location,
+): Promise<boolean> {
+  if (from === to) return true;
+  const db = await createClient();
+  const place = await placeToRead(siteId);
+  if (place === null) return false;
+  const [source, destination] = await Promise.all([
+    listPantryIn(db, from, getIngredientSummaries, place),
+    listPantryIn(db, to, getIngredientSummaries, place),
+  ]);
+  const plan = planMove(source, destination, item, to, from);
+  if (!plan) return false;
+  const [first, ...rest] = plan.sets;
+  if (first) await setPantryItemsIn(db, [first], plan.replaceId, place);
+  else if (plan.replaceId) await removePantryItemIn(db, userId, plan.replaceId);
+  for (const set of rest) await setPantryItemsIn(db, [set], null, place);
+  return true;
 }

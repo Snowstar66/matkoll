@@ -2,6 +2,7 @@
 
 import { type ReactNode, type TouchEvent, useEffect, useId, useRef, useState } from "react";
 import { Button } from "./button";
+import { ChevronLeftIcon } from "./icons";
 import { cx } from "./cx";
 
 /** How far a downward swipe on the sheet's top must go to close it. */
@@ -29,6 +30,16 @@ export type SheetProps = {
    * title, so a tap that opened the sheet never leaves a ring on "Klar". Otherwise the browser picks the first control.
    */
   initialFocus?: "close" | "title";
+  /**
+   * Story 16.17: what the header shows (large, e.g. an item's name) while `title` stays the
+   * dialog's accessible name. Without it the header shows `title`, as before.
+   */
+  heading?: ReactNode;
+  /**
+   * Story 16.17: a "‹ Tillbaka" header for a view that replaces the sheet's content (e.g. "Byt vara"):
+   * Tillbaka on the left, the heading centred, and no close button. Tillbaka never asks about changes.
+   */
+  onBack?: () => void;
 };
 
 type SheetEntry = {
@@ -71,6 +82,8 @@ export function Sheet({
   footer,
   preventClose = false,
   initialFocus,
+  heading,
+  onBack,
 }: SheetProps) {
   const dialogRef = useRef<HTMLDialogElement>(null);
   const closeButtonRef = useRef<HTMLButtonElement>(null);
@@ -216,7 +229,8 @@ export function Sheet({
   return (
     <dialog
       ref={dialogRef}
-      aria-labelledby={titleId}
+      aria-labelledby={heading === undefined ? titleId : undefined}
+      aria-label={heading === undefined ? undefined : title}
       aria-describedby={subtitle ? subtitleId : undefined}
       onKeyDown={(event) => {
         // Handled here rather than only in `cancel`, so a dirty sheet can always ask first.
@@ -276,22 +290,49 @@ export function Sheet({
             className="shrink-0 touch-none px-page pt-2"
           >
             <div aria-hidden="true" className="mx-auto h-[5px] w-9 rounded-full bg-border desktop:hidden" />
-            <div className="flex min-h-tap items-center justify-between gap-3 pt-2 desktop:pt-3">
-              <h2 ref={titleRef} id={titleId} tabIndex={-1} className="text-row-title text-ink outline-none">
-                {title}
-              </h2>
-              {confirming ? null : (
-                <Button
-                  ref={closeButtonRef}
-                  variant="text"
-                  disabled={preventClose}
-                  onClick={requestClose}
-                  className="-mr-3"
+            {onBack ? (
+              <div className="relative flex min-h-tap items-center pt-2 desktop:pt-3">
+                {confirming ? null : (
+                  <Button ref={closeButtonRef} variant="text" onClick={onBack} className="-ml-3 gap-0 pl-1">
+                    <ChevronLeftIcon size={20} />
+                    Tillbaka
+                  </Button>
+                )}
+                <h2
+                  ref={titleRef}
+                  id={titleId}
+                  tabIndex={-1}
+                  className="pointer-events-none absolute inset-x-0 top-2 flex min-h-tap items-center justify-center text-row-title text-ink outline-none desktop:top-3"
                 >
-                  {closeLabel}
-                </Button>
-              )}
-            </div>
+                  {heading ?? title}
+                </h2>
+              </div>
+            ) : (
+              <div className="flex min-h-tap items-center justify-between gap-3 pt-2 desktop:pt-3">
+                <h2
+                  ref={titleRef}
+                  id={titleId}
+                  tabIndex={-1}
+                  className={cx(
+                    "min-w-0 break-words text-ink outline-none",
+                    heading === undefined ? "text-row-title" : "text-section-title",
+                  )}
+                >
+                  {heading ?? title}
+                </h2>
+                {confirming ? null : (
+                  <Button
+                    ref={closeButtonRef}
+                    variant="text"
+                    disabled={preventClose}
+                    onClick={requestClose}
+                    className="-mr-3"
+                  >
+                    {closeLabel}
+                  </Button>
+                )}
+              </div>
+            )}
             {subtitle ? (
               <p id={subtitleId} className="-mt-1 text-meta break-words text-ink-2">
                 {subtitle}

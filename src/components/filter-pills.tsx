@@ -2,6 +2,7 @@
 
 import { type KeyboardEvent, useRef } from "react";
 import { cx } from "./cx";
+import { CheckIcon } from "./icons";
 
 export type FilterOption<T extends string> = {
   value: T;
@@ -29,6 +30,11 @@ export type FilterPillsProps<T extends string> = {
    * tap area (it reaches 6 px above and below the container).
    */
   segmented?: boolean;
+  /**
+   * With `segmented` (Story 16.17): a taller choice for a form, 52 px with 44 px segments, a ring in
+   * `ink-3` like the fields, and a ✓ on the chosen one so every choice looks tappable.
+   */
+  tall?: boolean;
 };
 
 const nextKeys: Record<string, number> = { ArrowRight: 1, ArrowDown: 1, ArrowLeft: -1, ArrowUp: -1 };
@@ -47,6 +53,7 @@ export function FilterPills<T extends string>({
   className,
   compact = false,
   segmented = false,
+  tall = false,
 }: FilterPillsProps<T>) {
   const refs = useRef<(HTMLButtonElement | null)[]>([]);
   const chosenIndex = Math.max(
@@ -78,7 +85,11 @@ export function FilterPills<T extends string>({
       <div
         role="radiogroup"
         aria-label={label}
-        className={cx("flex h-8 min-w-0 max-w-full items-stretch gap-0.5 rounded-md border border-border bg-bg p-0.5", className)}
+        className={cx(
+          "flex min-w-0 max-w-full items-stretch rounded-md border bg-bg",
+          tall ? "h-[52px] gap-1 border-ink-3 p-1" : "h-8 gap-0.5 border-border p-0.5",
+          className,
+        )}
       >
         {options.map((option, index) => {
           const selected = index === chosenIndex;
@@ -96,11 +107,15 @@ export function FilterPills<T extends string>({
               onClick={() => choose(index)}
               onKeyDown={(event) => onKeyDown(event, index)}
               className={cx(
-                "relative flex min-w-0 items-center justify-center rounded-sm px-3 text-meta font-medium whitespace-nowrap outline-none",
-                "before:absolute before:inset-x-0 before:-inset-y-[9px] before:content-[''] focus-visible:outline-2 focus-visible:outline-offset-1 focus-visible:outline-accent disabled:cursor-not-allowed disabled:opacity-60",
+                "relative flex min-w-0 items-center justify-center rounded-sm px-3 font-medium whitespace-nowrap outline-none",
+                tall
+                  ? "flex-1 gap-1.5 text-body"
+                  : "text-meta before:absolute before:inset-x-0 before:-inset-y-[9px] before:content-['']",
+                "focus-visible:outline-2 focus-visible:outline-offset-1 focus-visible:outline-accent disabled:cursor-not-allowed disabled:opacity-60",
                 selected ? "bg-accent text-on-accent" : "text-ink-2",
               )}
             >
+              {tall && selected ? <CheckIcon size={16} /> : null}
               {option.icon ? (
                 <span aria-hidden="true" className="mr-1.5 leading-none">
                   {option.icon}
