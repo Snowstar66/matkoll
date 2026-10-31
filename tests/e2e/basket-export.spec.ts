@@ -350,8 +350,8 @@ test("Dela listan copies a plain list per department when sharing is missing, wi
   const text = await clipboard(page);
   expect(text).not.toContain("Matkoll varukorgsexport");
   expect(text).not.toContain("Gul lök");
-  expect(text).toContain("Mejeri & ägg\n- ");
-  expect(text).toContain("- Grädde 3 dl");
+  expect(text).toMatch(/^🛒 Inköpslista v\. \d+\n\n/);
+  expect(text).toContain("☐ Grädde 3 dl");
   expect(errors).toEqual([]);
 });
 
@@ -371,6 +371,6 @@ test("Dela listan opens the share menu with the text when the browser has one", 
   await page.getByRole("button", { name: "Dela listan", exact: true }).filter({ visible: true }).click();
   await expect.poll(() => page.evaluate(() => (window as unknown as { shared: string[] }).shared.length)).toBe(1);
   const [text] = await page.evaluate(() => (window as unknown as { shared: string[] }).shared);
-  expect(text).toContain("- Gul lök 2 st");
+  expect(text).toContain("☐ Gul lök 2 st");
   await expect(toast(page)).toHaveCount(0);
 });

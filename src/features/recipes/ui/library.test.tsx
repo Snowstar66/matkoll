@@ -10,6 +10,7 @@ import { createFakeAiJobsServer } from "../../../../tests/support/ai-jobs-fake";
 import type { FavoriteChange, RecipeListItem } from "../domain/recipe-list";
 import { Library } from "./library";
 import { recipeFilterStorageKey, resetRecipeFilterStore } from "./recipe-filter-store";
+import { recipeCategoryStore, recipeSortStore, recipeViewStore, resetRecipeViewStores } from "./recipe-view-stores";
 
 // The library with both Server Actions stubbed. A saved heart makes the
 // "server" render the list again, as revalidateFor does in the app.
@@ -114,6 +115,7 @@ const pill = (name: string) => screen.getByRole("radio", { name });
 beforeEach(() => {
   window.localStorage.clear();
   resetRecipeFilterStore();
+  resetRecipeViewStores();
   refresh.mockReset();
   server.install();
   searchPantryUnavailable = false;
@@ -748,5 +750,119 @@ describe("Library", () => {
     expect(await screen.findByTestId("toast")).toHaveTextContent("Det gick inte att spara favoriten.");
     // The heart goes back once the failed save's transition has settled.
     expect(await screen.findByRole("button", { name: "Favorit, Krämig kycklinggryta", pressed: true })).toBeInTheDocument();
+  });
+});
+
+describe("Library, view, sort and categories", () => {
+  const withCategories = [
+    { ...gryta, categories: ["poultry", "stew"] as const },
+    { ...soppa, categories: ["vegetarian", "soup"] as const },
+    { ...pannkakor, totalMinutes: 20, categories: ["vegetarian", "quick"] as const },
+  ];
+  const rows = () => screen.queryAllByTestId("recipe-row");
+  const rowTitles = () => rows().map((row) => row.querySelector(".truncate")?.textContent);
+  const chip = (name: string) => screen.getByRole("button", { name });
+
+  it("shows the count, the sort and the switch, with the cards chosen", () => {
+    renderLibrary(withCategories);
+    expect(screen.getByTestId("recipe-count")).toHaveTextContent("3 recept");
+    expect(screen.getByRole("button", { name: /Senast tillagda/ })).toHaveTextContent("Senast tillagda");
+    expect(screen.getByRole("button", { name: "Kortvy", pressed: true })).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "Kompakt vy", pressed: false })).toBeInTheDocument();
+    expect(titles()).toHaveLength(3);
+  });
+
+  it("shows the compact list with picture, title, meta and heart, and keeps the choice on the device", async () => {
+    const user = userEvent.setup();
+    renderLibrary(withCategories);
+    await user.click(screen.getByRole("button", { name: "Kompakt vy" }));
+    expect(screen.getByRole("button", { name: "Kompakt vy", pressed: true })).toBeInTheDocument();
+    expect(window.localStorage.getItem(recipeViewStore.key)).toBe("compact");
+    expect(screen.queryByTestId("recipe-card")).not.toBeInTheDocument();
+    expect(rowTitles()).toEqual(["Krämig kycklinggryta", "Linssoppa", "Pannkakor"]);
+    const [first, second] = rows();
+    expect(within(first).getByRole("link")).toHaveAttribute("href", `/recept/${gryta.id}`);
+    expect(first).toHaveTextContent("35 min · 4 port. · Kan lagas nu");
+    expect(second).toHaveTextContent("1 port. · Saknar 2 varor");
+    expect(within(second).getByText("Saknar 2")).toHaveClass("text-sky-ink");
+    expect(within(first).getByRole("button", { name: "Favorit, Krämig kycklinggryta", pressed: true })).toBeInTheDocument();
+    await user.click(within(second).getByRole("button", { name: "Favorit, Linssoppa" }));
+    expect(setFavorite).toHaveBeenCalledWith({ id: soppa.id, isFavorite: true });
+  });
+
+  it("has no soptunna in either view", async () => {
+    const user = userEvent.setup();
+    renderLibrary(withCategories);
+    expect(screen.queryByRole("button", { name: /^Ta bort/ })).not.toBeInTheDocument();
+    await user.click(screen.getByRole("button", { name: "Kompakt vy" }));
+    expect(screen.queryByRole("button", { name: /^Ta bort/ })).not.toBeInTheDocument();
+  });
+
+  it("sorts from the sheet, at once, with a check at the choice, and keeps it on the device", async () => {
+    const user = userEvent.setup();
+    renderLibrary(withCategories);
+    await user.click(screen.getByRole("button", { name: /Senast tillagda/ }));
+    const sheet = screen.getByRole("dialog", { name: "Sortera" });
+    expect(within(within(sheet).getByRole("list")).getAllByRole("button").map((button) => button.textContent)).toEqual([
+      "Senast tillagda vald",
+      "Snabbast kortast tid först",
+      "Mest hemma minst antal saknade varor först",
+      "A–Ö",
+    ]);
+    await user.click(within(sheet).getByRole("button", { name: /^Snabbast/ }));
+    // The shortest time first.
+    expect(titles()).toEqual(["Pannkakor", "Krämig kycklinggryta", "Linssoppa"]);
+    expect(window.localStorage.getItem(recipeSortStore.key)).toBe("fastest");
+    expect(screen.queryByRole("dialog", { name: "Sortera" })).not.toBeInTheDocument();
+
+    await user.click(screen.getByRole("button", { name: /Sortera: Snabbast/ }));
+    await user.click(within(screen.getByRole("dialog", { name: "Sortera" })).getByRole("button", { name: /^A–Ö/ }));
+    expect(titles()).toEqual(["Krämig kycklinggryta", "Linssoppa", "Pannkakor"]);
+    expect(screen.getByRole("button", { name: /Sortera: A–Ö/ })).toBeInTheDocument();
+  });
+
+  it("sorts together with the pills and the search", async () => {
+    const user = userEvent.setup();
+    window.localStorage.setItem(recipeSortStore.key, "alphabetical");
+    renderLibrary(withCategories);
+    await user.click(pill("Favoriter"));
+    expect(titles()).toEqual(["Krämig kycklinggryta"]);
+    await user.click(pill("Alla"));
+    searchRecipes.mockResolvedValueOnce(ok([withCategories[2], withCategories[0]]));
+    await user.type(screen.getByRole("searchbox"), "p");
+    await screen.findByText("2 recept");
+    expect(titles()).toEqual(["Krämig kycklinggryta", "Pannkakor"]);
+  });
+
+  it("filters on a category chip, marks it, updates the count, lets go on a second press and keeps it on the device", async () => {
+    const user = userEvent.setup();
+    renderLibrary(withCategories);
+    for (const name of ["Kött", "Fågel", "Fisk & skaldjur", "Vegetariskt", "Pasta", "Soppa", "Sallad", "Gryta", "Snabbt"]) {
+      expect(chip(name)).toHaveAttribute("aria-pressed", "false");
+    }
+    await user.click(chip("Vegetariskt"));
+    expect(chip("Vegetariskt")).toHaveAttribute("aria-pressed", "true");
+    expect(titles()).toEqual(["Linssoppa", "Pannkakor"]);
+    expect(screen.getByTestId("recipe-count")).toHaveTextContent("2 recept");
+    expect(window.localStorage.getItem(recipeCategoryStore.key)).toBe("vegetarian");
+    // Together with a pill.
+    await user.click(pill("Favoriter"));
+    expect(screen.getByText("Inga favoriter än. Tryck på hjärtat på ett recept.")).toBeInTheDocument();
+    await user.click(pill("Alla"));
+    await user.click(chip("Vegetariskt"));
+    expect(chip("Vegetariskt")).toHaveAttribute("aria-pressed", "false");
+    expect(titles()).toHaveLength(3);
+    expect(window.localStorage.getItem(recipeCategoryStore.key)).toBe("");
+  });
+
+  it("says Inga recept i Fågel. when the category has none, and Visa alla lets it go", async () => {
+    const user = userEvent.setup();
+    window.localStorage.setItem(recipeCategoryStore.key, "meat");
+    renderLibrary(withCategories);
+    expect(screen.getByText("Inga recept i Kött.")).toBeInTheDocument();
+    expect(screen.getByTestId("recipe-count")).toHaveTextContent("0 recept");
+    await user.click(screen.getByRole("button", { name: "Visa alla" }));
+    expect(titles()).toHaveLength(3);
+    expect(chip("Kött")).toHaveAttribute("aria-pressed", "false");
   });
 });

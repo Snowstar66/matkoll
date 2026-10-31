@@ -37,13 +37,17 @@ const libraryRow = {
   originalServings: 4,
   isFavorite: false,
   createdAt: "2026-10-01T08:00:00+00:00",
-  lines: [line("gradde")],
+  lines: [{ ...line("gradde"), originalText: "1 dl grädde" }],
 };
 
 const stugan = { id: "55555555-5555-4555-8555-555555555555", name: "Stugan", siteCount: 2 };
 
 /** The library row as the page gets it, without its lines. */
-const libraryItem = Object.fromEntries(Object.entries(libraryRow).filter(([key]) => key !== "lines"));
+const libraryItem = {
+  ...Object.fromEntries(Object.entries(libraryRow).filter(([key]) => key !== "lines")),
+  // Pasta, from the title, and Snabbt, from the 20 minutes.
+  categories: ["vegetarian", "pasta", "quick"],
+};
 
 let log: ReturnType<typeof vi.spyOn>;
 beforeEach(() => {

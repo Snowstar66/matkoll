@@ -237,7 +237,7 @@ test("with Stugan selected, the recipe view, the library with Kan lagas nu and t
   await selectSite(hemma);
   await page.goto("/matsedel");
   await expect(siteLine(page)).toHaveText("Lager: Hemma");
-  await expect(dish(page).getByTestId("dish-meta")).toContainText("Allt finns hemma");
+  await expect(dish(page).getByTestId("dish-meta")).toContainText("✓ Allt hemma");
   await page.goto(`/recept/${recipeId}`);
   await expect(view(page).getByText("Kan lagas nu", { exact: true })).toBeVisible();
   await expect(siteLine(page)).toHaveText("Lager: Hemma");
@@ -288,7 +288,7 @@ test("a switch with the picker in Lagersaldo reaches the recipe view, Kan lagas 
   await tab(page, "Matsedel").click();
   await expect(page).toHaveURL(/\/matsedel$/);
   await expect(siteLine(page)).toHaveText("Lager: Hemma");
-  await expect(dish(page).getByTestId("dish-meta")).toContainText("Allt finns hemma");
+  await expect(dish(page).getByTestId("dish-meta")).toContainText("✓ Allt hemma");
 
   expect(await page.evaluate(() => (window as unknown as { siteStatusNoReload?: boolean }).siteStatusNoReload)).toBe(true);
   expect(errors).toEqual([]);

@@ -29,6 +29,9 @@ vi.mock("../actions/remove-plan-recipe", () => ({ removePlanRecipe: (id: string)
 vi.mock("../actions/restore-plan-recipe", () => ({
   restorePlanRecipe: (row: PlanRecipeRow) => restorePlanRecipe(row),
 }));
+const markDishCooked = vi.fn();
+vi.mock("../actions/mark-dish-cooked", () => ({ markDishCooked: (input: unknown) => markDishCooked(input) }));
+vi.mock("../actions/undo-dish-cooked", () => ({ undoDishCooked: vi.fn() }));
 // The question before a removal has its own tests (meal-plan-remove-confirm.test.tsx);
 // here the grace window is open, so a removal goes straight through.
 const refresh = vi.fn();
@@ -87,6 +90,15 @@ const searchRecipes = vi.fn<SearchRecipes>();
 const cards = () => screen.queryAllByTestId("plan-dish");
 const card = (title: string) => cards().find((element) => element.textContent?.includes(title))!;
 const toast = () => screen.getByTestId("toast");
+const dayRow = (day: number) => screen.getAllByTestId("plan-day").find((element) => element.dataset.day === String(day))!;
+/** Opens the ⋯ sheet of a dish. */
+const openMore = (title: string) =>
+  act(async () => fireEvent.click(screen.getByRole("button", { name: `Fler val för ${title}` })));
+/** "Ta bort från matsedeln" in the dish's ⋯ sheet; within the grace window it removes at once. */
+async function removeFromSheet(title: string, detail = 1) {
+  await openMore(title);
+  await act(async () => fireEvent.click(screen.getByRole("button", { name: "Ta bort från matsedeln" }), { detail }));
+}
 
 afterEach(() => vi.useRealTimers());
 
@@ -111,25 +123,38 @@ describe("MealPlanList", () => {
     expect(screen.getAllByRole("button", { name: "Lägg till rätt" })).toHaveLength(2);
   });
 
-  it("groups the dishes under måndag to söndag with Ingen dag än last, marks today and keeps empty days compact", () => {
+  it("groups the dishes by day with Ingen dag än last, marks today, leaves out passed empty days and keeps empty days compact", () => {
     render(<Matsedel initial={[dish(1, "Pasta", { weekday: 4, position: 5 }), dish(2, "Soppa", { weekday: 4, position: 2 }), dish(3, "Gryta")]} />);
     const days = screen.getAllByTestId("plan-day");
-    expect(days.map((day) => day.getAttribute("data-day"))).toEqual(["1", "2", "3", "4", "5", "6", "7", "none"]);
-    expect(within(days[3]).getAllByTestId("plan-dish").map((c) => c.textContent?.slice(0, 5))).toEqual(["Soppa", "Pasta"]);
-    expect(days[3]).toHaveAttribute("data-today", "true");
-    expect(within(days[3]).getByText("Idag")).toBeInTheDocument();
-    expect(days[3]).toHaveAttribute("aria-current", "date");
-    expect(days[3]).toHaveTextContent("Torsdag· 29 oktIdag");
-    expect(days[0]).not.toHaveAttribute("data-today");
-    expect(days[0]).not.toHaveAttribute("aria-current");
-    expect(within(days[0]).getByTestId("day-free")).toHaveTextContent("Måndag· 26 oktLedig");
-    expect(within(days[7]).getByRole("heading", { name: "Ingen dag än" })).toBeInTheDocument();
-    expect(within(days[7]).getByTestId("plan-dish")).toHaveTextContent("Gryta");
+    // Thursday is today: Monday to Wednesday have passed with nothing on them.
+    expect(days.map((day) => day.getAttribute("data-day"))).toEqual(["4", "5", "6", "7", "none"]);
+    expect(within(days[0]).getAllByRole("link").map((link) => link.textContent)).toEqual(["Soppa", "Pasta"]);
+    expect(days[0]).toHaveAttribute("data-today", "true");
+    expect(within(days[0]).getAllByText("Idag")).toHaveLength(2);
+    expect(days[0]).toHaveAttribute("aria-current", "date");
+    // The day is on the first row only: "Tor" and "29".
+    expect(within(days[0]).getAllByText("Tor")).toHaveLength(1);
+    expect(within(days[0]).getAllByText("29")).toHaveLength(1);
+    expect(days[0]).toHaveTextContent("Torsdag 29 okt");
+    expect(days[1]).not.toHaveAttribute("data-today");
+    expect(days[1]).not.toHaveAttribute("aria-current");
+    expect(within(days[1]).getByTestId("day-free")).toHaveTextContent("Fre30+ Lägg till");
+    expect(within(days[4]).getByRole("list", { name: "Ingen dag än" })).toBeInTheDocument();
+    expect(within(days[4]).getByTestId("plan-dish")).toHaveTextContent("Gryta");
+  });
+
+  it("shows a passed day with a dish dimmed, 'Lagad?' on an uncooked dish and '✓ Lagad' on a cooked one", () => {
+    render(<Matsedel initial={[dish(1, "Pasta", { weekday: 2 }), dish(2, "Soppa", { weekday: 3, cookedAt: "2026-10-28T18:00:00Z" })]} />);
+    expect(screen.getAllByTestId("plan-day").map((day) => day.getAttribute("data-day"))).toEqual(["2", "3", "4", "5", "6", "7"]);
+    expect(within(card("Pasta")).getByRole("button", { name: "Lagad? Pasta" })).toBeInTheDocument();
+    expect(within(card("Soppa")).queryByRole("button", { name: /^Lagad\?/ })).toBeNull();
+    expect(within(card("Soppa")).getByTestId("dish-cooked")).toHaveTextContent("✓ Lagad");
+    expect(within(card("Pasta")).getByTestId("recipe-image-placeholder").parentElement).toHaveClass("size-tap");
   });
 
   it("leaves out Ingen dag än when every dish has a day", () => {
-    render(<Matsedel initial={[dish(1, "Pasta", { weekday: 2 })]} />);
-    expect(screen.getAllByTestId("plan-day")).toHaveLength(7);
+    render(<Matsedel initial={[dish(1, "Pasta", { weekday: 5 })]} />);
+    expect(screen.getAllByTestId("plan-day").map((day) => day.getAttribute("data-day"))).toEqual(["4", "5", "6", "7"]);
     expect(screen.queryByText("Ingen dag än")).toBeNull();
   });
 
@@ -140,7 +165,9 @@ describe("MealPlanList", () => {
       return ok(change);
     });
     render(<Matsedel initial={[pasta]} />);
-    await user.click(within(card("Pasta")).getByRole("button", { name: "Flytta till dag, Pasta" }));
+    await user.click(screen.getByRole("button", { name: "Fler val för Pasta" }));
+    expect(screen.getByRole("button", { name: /Flytta till annan dag/ })).toHaveTextContent("Ingen dag");
+    await user.click(screen.getByRole("button", { name: /Flytta till annan dag/ }));
     const sheet = screen.getByRole("dialog", { name: "Flytta till dag" });
     expect(within(sheet).getAllByTestId("day-choice").map((b) => b.textContent)).toEqual([
       "Måndag", "Tisdag", "Onsdag", "Torsdag", "Fredag", "Lördag", "Söndag", "Ingen dag",
@@ -149,15 +176,15 @@ describe("MealPlanList", () => {
     await user.click(within(sheet).getByRole("button", { name: "Fredag" }));
     expect(setWeekday).toHaveBeenCalledWith({ id: pasta.id, weekday: 5 });
     await waitFor(() => expect(toast()).toHaveTextContent("Pasta ligger på fredag."));
-    const friday = screen.getAllByTestId("plan-day")[4];
-    expect(within(friday).getByTestId("plan-dish")).toHaveTextContent("Pasta");
+    expect(within(dayRow(5)).getByTestId("plan-dish")).toHaveTextContent("Pasta");
   });
 
   it("puts the dish back and says so when the move fails", async () => {
     const user = userEvent.setup();
     setWeekday.mockResolvedValue(fail("mealplan_weekday_failed"));
     render(<Matsedel initial={[pasta]} />);
-    await user.click(within(card("Pasta")).getByRole("button", { name: "Flytta till dag, Pasta" }));
+    await user.click(screen.getByRole("button", { name: "Fler val för Pasta" }));
+    await user.click(screen.getByRole("button", { name: /Flytta till annan dag/ }));
     await user.click(screen.getByRole("button", { name: "Fredag" }));
     await waitFor(() => expect(toast()).toHaveTextContent("Det gick inte att flytta rätten."));
     await waitFor(() =>
@@ -175,18 +202,25 @@ describe("MealPlanList", () => {
     render(<Matsedel initial={[pasta, soppa]} />);
     expect(screen.getByTestId("plan-name")).toHaveTextContent("Vecka 44");
     const pastaCard = () => within(card("Pasta"));
-    expect(pastaCard().getByText("4 portioner")).toBeInTheDocument();
-    expect(pastaCard().getByTestId("dish-meta")).toHaveTextContent(/^30 min · Allt finns hemma$/);
+    expect(pastaCard().getByTestId("dish-meta")).toHaveTextContent(/^30 min · 4 port\.✓ Allt hemma$/);
+    expect(pastaCard().getByTestId("dish-status")).toHaveClass("text-mint-ink");
+    // Everything at home: no meter.
+    expect(pastaCard().queryByTestId("meter")).toBeNull();
     expect(pastaCard().getByRole("link", { name: "Pasta" })).toHaveAttribute("href", `/recept/${pasta.recipeId}`);
-    const meter = pastaCard().getByTestId("meter");
-    expect(meter).toHaveAttribute("aria-hidden", "true");
-    expect(meter.firstElementChild).toHaveStyle({ width: "100%" });
     expect(pastaCard().getByTestId("recipe-image-placeholder").parentElement).toHaveClass("size-dish-thumb");
+    expect(pastaCard().getByRole("button", { name: "Fler val för Pasta" })).toHaveClass("size-tap");
 
+    await user.click(screen.getByRole("button", { name: "Fler val för Pasta" }));
+    expect(pastaCard().getByText("4 portioner")).toBeInTheDocument();
+    expect(screen.getByRole("link", { name: "Öppna receptet ›" })).toHaveAttribute("href", `/recept/${pasta.recipeId}`);
+    expect(screen.getByRole("dialog", { name: "Pasta" })).toHaveTextContent("Ingen dag än · 30 min");
     await user.click(screen.getByRole("button", { name: "Fler portioner, Pasta" }));
     expect(pastaCard().getByText("5 portioner")).toBeInTheDocument();
-    expect(pastaCard().getByTestId("dish-meta")).toHaveTextContent(/^30 min · 0 av 1 hemma$/);
-    expect(pastaCard().getByTestId("meter").firstElementChild).toHaveStyle({ width: "0%" });
+    expect(pastaCard().getByTestId("dish-meta")).toHaveTextContent(/^30 min · 5 port\.0 av 1 hemma$/);
+    expect(pastaCard().getByTestId("dish-status")).toHaveClass("text-sand-ink");
+    const meter = pastaCard().getByTestId("meter");
+    expect(meter).toHaveAttribute("aria-hidden", "true");
+    expect(meter.firstElementChild).toHaveStyle({ width: "0%" });
     expect(setServings).toHaveBeenCalledWith({ id: pasta.id, servings: 5 });
   });
 
@@ -194,6 +228,7 @@ describe("MealPlanList", () => {
     const user = userEvent.setup();
     setServings.mockResolvedValue(fail("mealplan_servings_failed"));
     render(<Matsedel initial={[pasta]} />);
+    await openMore("Pasta");
     await user.click(screen.getByRole("button", { name: "Fler portioner, Pasta" }));
     expect(await within(card("Pasta")).findByText("4 portioner")).toBeInTheDocument();
     expect(toast()).toHaveTextContent("Det gick inte att spara portionerna.");
@@ -201,9 +236,7 @@ describe("MealPlanList", () => {
 
   it("removes a dish at once and puts it back with the same id on Ångra", async () => {
     render(<Matsedel initial={[pasta, soppa]} />);
-    await act(async () =>
-      fireEvent.click(screen.getByRole("button", { name: "Ta bort Pasta från matsedeln" }), { detail: 1 }),
-    );
+    await removeFromSheet("Pasta");
     expect(cards()).toHaveLength(1);
     expect(toast()).toHaveTextContent("Pasta är borttagen från matsedeln.");
     // The server's plan catches up; Ångra puts the same row back.
@@ -215,8 +248,8 @@ describe("MealPlanList", () => {
 
   it("gathers dishes removed while the confirmation shows", async () => {
     render(<Matsedel initial={[pasta, soppa]} />);
-    await act(async () => fireEvent.click(screen.getByRole("button", { name: "Ta bort Pasta" }), { detail: 1 }));
-    await act(async () => fireEvent.click(screen.getByRole("button", { name: "Ta bort Soppa" }), { detail: 1 }));
+    await removeFromSheet("Pasta");
+    await removeFromSheet("Soppa");
     expect(toast()).toHaveTextContent("Pasta och Soppa är borttagna från matsedeln.");
     expect(screen.getByText("Ingen rätt på matsedeln än.")).toBeInTheDocument();
   });
@@ -224,14 +257,14 @@ describe("MealPlanList", () => {
   it("brings the dish back when the removal fails", async () => {
     removePlanRecipe.mockResolvedValue(fail("mealplan_remove_failed"));
     render(<Matsedel initial={[pasta]} />);
-    await act(async () => fireEvent.click(screen.getByRole("button", { name: "Ta bort Pasta" }), { detail: 1 }));
+    await removeFromSheet("Pasta");
     expect(cards()).toHaveLength(1);
     expect(toast()).toHaveTextContent("Det gick inte att ta bort rätten.");
   });
 
   it("shows a dish whose recipe is gone by its title, without status", () => {
     render(<Matsedel initial={[dish(3, "Gammal gryta", { recipeId: null, recipe: null })]} />);
-    expect(within(card("Gammal gryta")).getByText("Borttaget recept")).toBeInTheDocument();
+    expect(within(card("Gammal gryta")).getByText("Borttaget recept · 4 port.")).toBeInTheDocument();
     expect(within(card("Gammal gryta")).queryByText(/hemma/)).toBeNull();
     expect(within(card("Gammal gryta")).queryByTestId("meter")).toBeNull();
   });
@@ -239,7 +272,7 @@ describe("MealPlanList", () => {
   it("shows the time alone, without a meter, for a recipe with no catalog ingredient to count", () => {
     const free = dish(5, "Fri soppa", { recipe: { ...pasta.recipe!, lines: [] } });
     render(<Matsedel initial={[free]} />);
-    expect(within(card("Fri soppa")).getByTestId("dish-meta")).toHaveTextContent(/^30 min$/);
+    expect(within(card("Fri soppa")).getByTestId("dish-meta")).toHaveTextContent(/^30 min · 4 port\.$/);
     expect(within(card("Fri soppa")).queryByTestId("meter")).toBeNull();
   });
 
@@ -251,45 +284,66 @@ describe("MealPlanList", () => {
         </AddDishProvider>
       </ToastProvider>,
     );
-    expect(within(card("Pasta")).getByText("30 min")).toBeInTheDocument();
+    expect(within(card("Pasta")).getByText("30 min · 4 port.")).toBeInTheDocument();
     expect(within(card("Pasta")).queryByText(/hemma/)).toBeNull();
     expect(within(card("Pasta")).queryByTestId("meter")).toBeNull();
   });
 
-  it("has Lägg till rätt and Visa inköpslistan under the dishes, and Visa inköpslistan only with dishes", async () => {
+  it("has a quiet shopping row above the list instead of big buttons below, and none without dishes", async () => {
     const user = userEvent.setup();
     const { unmount } = render(<Matsedel initial={[pasta]} />);
     const list = screen.getByRole("list", { name: "Matsedelsrätter" });
-    const show = screen.getByRole("link", { name: "Visa inköpslistan" });
-    expect(show).toHaveAttribute("href", "/lista");
-    // No count on it (outside Epic 11).
-    expect(show).toHaveTextContent(/^Visa inköpslistan$/);
-    const add = screen.getAllByRole("button", { name: "Lägg till rätt" }).find((b) => b.textContent === "Lägg till rätt")!;
-    expect(list.compareDocumentPosition(add) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
-    expect(add.compareDocumentPosition(show) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
-    await user.click(add);
+    const row = screen.getByRole("link", { name: /Inköpslista för vecka 44/ });
+    expect(row).toHaveAttribute("href", "/lista");
+    expect(row).toHaveTextContent("Inköpslista för vecka 44›");
+    expect(row.compareDocumentPosition(list) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
+    expect(screen.queryByRole("link", { name: "Visa inköpslistan" })).toBeNull();
+    // Only the header's "+" is left.
+    const buttons = screen.getAllByRole("button", { name: "Lägg till rätt" });
+    expect(buttons).toHaveLength(1);
+    await user.click(buttons[0]!);
     expect(screen.getByRole("dialog", { name: "Lägg till rätt" })).toBeInTheDocument();
     unmount();
 
     render(<Matsedel initial={[]} />);
-    expect(screen.queryByRole("link", { name: "Visa inköpslistan" })).toBeNull();
+    expect(screen.queryByRole("link", { name: /Inköpslista för vecka/ })).toBeNull();
   });
 
-  it("gives focus back to whichever Lägg till rätt opened the sheet, also when a tap did not focus it (Safari)", async () => {
+  it("gives focus back to Lägg till rätt after the sheet, also when a tap did not focus it (Safari)", async () => {
     const user = userEvent.setup();
     render(<Matsedel initial={[pasta]} />);
-    const [plus, bottom] = screen.getAllByRole("button", { name: "Lägg till rätt" });
-    expect(bottom).toHaveTextContent("Lägg till rätt");
-    for (const opener of [bottom, plus]) {
-      // fireEvent.click, unlike user.click, does not move focus first, as a tap in Safari.
-      act(() => {
-        (document.activeElement as HTMLElement | null)?.blur();
-        fireEvent.click(opener);
-      });
-      const sheet = await screen.findByRole("dialog", { name: "Lägg till rätt" });
-      await user.click(within(sheet).getByRole("button", { name: "Klar" }));
-      await waitFor(() => expect(opener).toHaveFocus());
-    }
+    const plus = screen.getByRole("button", { name: "Lägg till rätt" });
+    // fireEvent.click, unlike user.click, does not move focus first, as a tap in Safari.
+    act(() => {
+      (document.activeElement as HTMLElement | null)?.blur();
+      fireEvent.click(plus);
+    });
+    const sheet = await screen.findByRole("dialog", { name: "Lägg till rätt" });
+    await user.click(within(sheet).getByRole("button", { name: "Klar" }));
+    await waitFor(() => expect(plus).toHaveFocus());
+  });
+});
+
+describe("Markera som lagad from the row", () => {
+  beforeEach(() => markDishCooked.mockReset().mockResolvedValue(ok({ rows: [] })));
+
+  it("opens from the ⋯ sheet, replacing it, and marks the dish", async () => {
+    const user = userEvent.setup();
+    render(<Matsedel initial={[pasta]} />);
+    await user.click(screen.getByRole("button", { name: "Fler val för Pasta" }));
+    await user.click(screen.getByRole("button", { name: "Markera som lagad" }));
+    const sheet = await screen.findByRole("dialog", { name: "Markera som lagad" });
+    // The sheets never stack: the ⋯ sheet has given way.
+    expect(screen.queryByRole("dialog", { name: "Pasta" })).toBeNull();
+    await user.click(within(sheet).getByRole("button", { name: /markera lagad|Markera som lagad/ }));
+    expect(markDishCooked).toHaveBeenCalledWith(expect.objectContaining({ dishId: pasta.id }));
+  });
+
+  it("opens from Lagad? on an uncooked dish of a passed day", async () => {
+    const user = userEvent.setup();
+    render(<Matsedel initial={[dish(1, "Pasta", { weekday: 2 })]} />);
+    await user.click(screen.getByRole("button", { name: "Lagad? Pasta" }));
+    expect(await screen.findByRole("dialog", { name: "Markera som lagad" })).toBeInTheDocument();
   });
 });
 
@@ -339,8 +393,8 @@ describe("Lägg till rätt", () => {
   it("opens Lägg till rätt on the day of a tapped free day", async () => {
     const user = userEvent.setup();
     render(<Matsedel initial={[pasta]} recipes={[lasagne]} />);
-    await user.click(within(screen.getAllByTestId("plan-day")[1]).getByTestId("day-free"));
-    expect(within(screen.getByRole("dialog", { name: "Lägg till rätt" })).getByRole("combobox", { name: "Dag" })).toHaveValue("2");
+    await user.click(within(dayRow(5)).getByTestId("day-free"));
+    expect(within(screen.getByRole("dialog", { name: "Lägg till rätt" })).getByRole("combobox", { name: "Dag" })).toHaveValue("5");
   });
 
   it("adds without a day when Ingen dag is chosen", async () => {
@@ -433,6 +487,7 @@ describe("more on servings and removal", () => {
     const first = deferred<Result<ServingsChange>>();
     setServings.mockImplementationOnce(() => first.promise);
     render(<Matsedel initial={[pasta]} />);
+    await openMore("Pasta");
     const more = screen.getByRole("button", { name: "Fler portioner, Pasta" });
     await user.click(more);
     await user.click(more);
@@ -452,10 +507,9 @@ describe("more on servings and removal", () => {
     const write = deferred<Result<ServingsChange>>();
     setServings.mockImplementationOnce(() => write.promise);
     render(<Matsedel initial={[pasta, soppa]} />);
+    await openMore("Pasta");
     await user.click(screen.getByRole("button", { name: "Fler portioner, Pasta" }));
-    await act(async () =>
-      fireEvent.click(screen.getByRole("button", { name: "Ta bort Pasta från matsedeln" }), { detail: 1 }),
-    );
+    await act(async () => fireEvent.click(screen.getByRole("button", { name: "Ta bort från matsedeln" }), { detail: 1 }));
     await act(async () => write.resolve(fail("mealplan_servings_failed")));
     expect(toast()).toHaveTextContent("Pasta är borttagen från matsedeln.");
     expect(within(toast()).getByRole("button", { name: "Ångra" })).toBeInTheDocument();
@@ -463,8 +517,8 @@ describe("more on servings and removal", () => {
 
   it("puts every dish removed under one confirmation back with Ångra", async () => {
     render(<Matsedel initial={[pasta, soppa, gryta]} />);
-    await act(async () => fireEvent.click(screen.getByRole("button", { name: "Ta bort Pasta" }), { detail: 1 }));
-    await act(async () => fireEvent.click(screen.getByRole("button", { name: "Ta bort Soppa" }), { detail: 1 }));
+    await removeFromSheet("Pasta");
+    await removeFromSheet("Soppa");
     expect(cards()).toHaveLength(1);
     await act(async () => fireEvent.click(within(toast()).getByRole("button", { name: "Ångra" })));
     expect(restorePlanRecipe.mock.calls.map(([row]) => row.id).sort()).toEqual([pasta.id, soppa.id].sort());
@@ -480,34 +534,21 @@ describe("more on servings and removal", () => {
 });
 
 describe("focus after a removal", () => {
-  const keyboardRemove = (title: string) =>
-    act(async () => {
-      const action = screen.getByRole("button", { name: `Ta bort ${title}` });
-      action.focus();
-      fireEvent.click(action, { detail: 0 });
-    });
-
   it("goes to the next dish, else the one before, else Lägg till rätt", async () => {
     render(<Matsedel initial={[pasta, soppa, gryta]} />);
-    await keyboardRemove("Soppa");
+    await removeFromSheet("Soppa", 0);
     expect(screen.getByRole("link", { name: "Gryta" })).toHaveFocus();
-    await keyboardRemove("Gryta");
+    await removeFromSheet("Gryta", 0);
     expect(screen.getByRole("link", { name: "Pasta" })).toHaveFocus();
-    await keyboardRemove("Pasta");
+    await removeFromSheet("Pasta", 0);
     expect(screen.getByText("Ingen rätt på matsedeln än.")).toBeInTheDocument();
     const add = screen.getAllByRole("button", { name: "Lägg till rätt" }).find((button) => button.textContent === "Lägg till rätt");
     expect(add).toHaveFocus();
   });
 
-  it("goes to the card's Ta bort for a dish whose recipe is gone, and after the card's own button too", async () => {
+  it("goes to ⋯ for a dish whose recipe is gone", async () => {
     render(<Matsedel initial={[pasta, gone]} />);
-    await act(async () => fireEvent.click(screen.getByRole("button", { name: "Ta bort Pasta från matsedeln" })));
-    expect(screen.getByRole("button", { name: "Ta bort Gammal gryta från matsedeln" })).toHaveFocus();
-  });
-
-  it("stays put after a tap on the swipe action", async () => {
-    render(<Matsedel initial={[pasta, soppa]} />);
-    await act(async () => fireEvent.click(screen.getByRole("button", { name: "Ta bort Pasta" }), { detail: 1 }));
-    expect(screen.getByRole("link", { name: "Soppa" })).not.toHaveFocus();
+    await removeFromSheet("Pasta");
+    expect(screen.getByRole("button", { name: "Fler val för Gammal gryta" })).toHaveFocus();
   });
 });

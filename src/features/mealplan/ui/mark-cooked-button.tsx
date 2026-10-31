@@ -46,6 +46,12 @@ export type MarkCookedButtonProps = {
   variant?: ButtonVariant;
   className?: string;
   fullWidth?: boolean;
+  /**
+   * Controlled mode (Story 3.11): the caller owns `open` and has its own
+   * trigger, e.g. in another sheet, so only the sheet is rendered here.
+   */
+  open?: boolean;
+  onOpenChange?: (open: boolean) => void;
 };
 
 type Entry = { on: boolean; text: string };
@@ -69,9 +75,21 @@ export function MarkCookedButton({
   variant = "secondary",
   className,
   fullWidth,
+  open: controlledOpen,
+  onOpenChange,
 }: MarkCookedButtonProps) {
   const { showToast } = useToast();
-  const [open, setOpen] = useState(false);
+  const controlled = controlledOpen !== undefined;
+  const [ownOpen, setOwnOpen] = useState(false);
+  const open = controlledOpen ?? ownOpen;
+  function setOpen(next: boolean) {
+    if (!next) {
+      setEntries({});
+      setError(null);
+    }
+    setOwnOpen(next);
+    onOpenChange?.(next);
+  }
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [marked, setMarked] = useState(false);
@@ -84,23 +102,23 @@ export function MarkCookedButton({
     [lines, factor, snapshot, names],
   );
 
+  /** A line's entry: what Pontus changed, else the suggestion. */
+  const entryOf = (line: DeductLine): Entry => entries[line.key] ?? { on: true, text: amountText(line.suggested) };
+
   function openSheet() {
-    setEntries(
-      Object.fromEntries(
-        plan.deduct.map((line) => [line.key, { on: true, text: amountText(line.suggested) }]),
-      ),
-    );
+    setEntries({});
     setError(null);
     setOpen(true);
   }
 
   const deductions = plan.deduct.flatMap((line) => {
-    const taken = deductionOf(line, entries[line.key]);
+    const taken = deductionOf(line, entryOf(line));
     return taken === null ? [] : [{ line, taken }];
   });
-  const invalid = plan.deduct.some(
-    (line) => entries[line.key]?.on && newAmountOf(line, entries[line.key]?.text ?? "") === null,
-  );
+  const invalid = plan.deduct.some((line) => {
+    const entry = entryOf(line);
+    return entry.on && newAmountOf(line, entry.text) === null;
+  });
 
   async function confirm() {
     if (busy || invalid) return;
@@ -143,7 +161,7 @@ export function MarkCookedButton({
     });
   }
 
-  if (marked) {
+  if (marked && !controlled) {
     return (
       <p data-testid="cooked-here" className={cx("flex min-h-tap items-center text-row-title text-ink-2", className)}>
         Lagad
@@ -153,9 +171,11 @@ export function MarkCookedButton({
 
   return (
     <>
-      <Button variant={variant} fullWidth={fullWidth} onClick={openSheet} className={className}>
-        Markera som lagad
-      </Button>
+      {controlled ? null : (
+        <Button variant={variant} fullWidth={fullWidth} onClick={openSheet} className={className}>
+          Markera som lagad
+        </Button>
+      )}
       <Sheet
         open={open}
         onClose={() => setOpen(false)}
@@ -175,7 +195,7 @@ export function MarkCookedButton({
           {plan.deduct.length > 0 ? (
             <ul aria-label="Dras från lagret" className="flex flex-col gap-3">
               {plan.deduct.map((line) => {
-                const entry = entries[line.key] ?? { on: true, text: "" };
+                const entry = entryOf(line);
                 const left = newAmountOf(line, entry.text);
                 const taken = deductionOf(line, entry);
                 return (

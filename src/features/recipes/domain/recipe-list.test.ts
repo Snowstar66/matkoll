@@ -2,12 +2,16 @@ import { describe, expect, it } from "vitest";
 import { toSnapshot, type StatusLine } from "@/features/pantry";
 import {
   favoriteChangeSchema,
+  filterByCategory,
   filterRecipes,
   parseRecipeFilter,
+  parseRecipeSort,
+  parseRecipeView,
   RECIPE_FILTERS,
   recipeMetaText,
   recipeTimeText,
   recipeSearchSchema,
+  sortRecipes,
   toLibrary,
   withStatus,
   type RecipeListRow,
@@ -193,15 +197,93 @@ describe("withStatus", () => {
       { gradde: "Grädde" },
     );
     expect(items).toEqual([
-      { id: "soppa", title: "soppa", imageUrl: null, totalMinutes: null, originalServings: 2, isFavorite: false, createdAt: "2026-10-01T08:00:00+00:00", missingCount: 1, missingNames: ["Grädde"] },
-      { id: "gryta", title: "gryta", imageUrl: null, totalMinutes: null, originalServings: 4, isFavorite: false, createdAt: "2026-10-01T08:00:00+00:00", missingCount: 0, missingNames: [] },
+      { id: "soppa", title: "soppa", categories: ["vegetarian", "soup"], imageUrl: null, totalMinutes: null, originalServings: 2, isFavorite: false, createdAt: "2026-10-01T08:00:00+00:00", missingCount: 1, missingNames: ["Grädde"] },
+      { id: "gryta", title: "gryta", categories: ["vegetarian", "stew"], imageUrl: null, totalMinutes: null, originalServings: 4, isFavorite: false, createdAt: "2026-10-01T08:00:00+00:00", missingCount: 0, missingNames: [] },
     ]);
   });
 
   it("gives no status without a snapshot, when the pantry could not be read", () => {
     const items = withStatus([row("soppa", 2, [{ id: "l1", ingredientId: "gradde", amount: 3, unit: "dl", isVague: false }])], null);
     expect(items).toEqual([
-      { id: "soppa", title: "soppa", imageUrl: null, totalMinutes: null, originalServings: 2, isFavorite: false, createdAt: "2026-10-01T08:00:00+00:00", missingCount: null },
+      { id: "soppa", title: "soppa", categories: ["vegetarian", "soup"], imageUrl: null, totalMinutes: null, originalServings: 2, isFavorite: false, createdAt: "2026-10-01T08:00:00+00:00", missingCount: null },
     ]);
+  });
+});
+
+describe("sortRecipes", () => {
+  const item = (id: string, title: string, totalMinutes: number | null, missingCount: number | null, createdAt: string) => ({
+    id,
+    title,
+    totalMinutes,
+    missingCount,
+    createdAt,
+  });
+  const recipes = [
+    item("a", "Ärtsoppa", 60, 2, "2026-10-01T08:00:00+00:00"),
+    item("b", "Zucchinipasta", 20, 0, "2026-10-03T08:00:00+00:00"),
+    item("c", "Älggryta", null, 0, "2026-10-02T08:00:00+00:00"),
+    item("d", "Åkerbär", 0, null, "2026-10-04T08:00:00+00:00"),
+    item("e", "Bullar", 20, 1, "2026-10-05T08:00:00+00:00"),
+  ];
+  const ids = (sort: Parameters<typeof sortRecipes>[1]) => sortRecipes(recipes, sort).map((recipe) => recipe.id);
+
+  it("puts the newest first, which is Senast tillagda", () => {
+    expect(ids("newest")).toEqual(["e", "d", "b", "c", "a"]);
+  });
+
+  it("puts the shortest time first and a recipe without a time (or 0) last, equal times newest first", () => {
+    expect(ids("fastest")).toEqual(["e", "b", "a", "d", "c"]);
+  });
+
+  it("puts the fewest missing first and a row without a status last", () => {
+    expect(ids("mostHome")).toEqual(["b", "c", "e", "a", "d"]);
+  });
+
+  it("sorts A–Ö in Swedish order, with å, ä and ö after z", () => {
+    expect(ids("alphabetical")).toEqual(["e", "b", "d", "c", "a"]);
+  });
+
+  it("leaves the input unchanged", () => {
+    const before = recipes.map((recipe) => recipe.id);
+    sortRecipes(recipes, "alphabetical");
+    expect(recipes.map((recipe) => recipe.id)).toEqual(before);
+  });
+});
+
+describe("parseRecipeSort and parseRecipeView", () => {
+  it("keep a known choice and fall back to Senast tillagda and the cards", () => {
+    expect(parseRecipeSort("alphabetical")).toBe("alphabetical");
+    expect(parseRecipeSort("x")).toBe("newest");
+    expect(parseRecipeView("compact")).toBe("compact");
+    expect(parseRecipeView(null)).toBe("cards");
+  });
+});
+
+describe("filterByCategory", () => {
+  const rows = [{ id: "a", categories: ["poultry", "quick"] as const }, { id: "b", categories: ["meat"] as const }, { id: "c" }];
+
+  it("keeps the recipes in the category, and all of them without one", () => {
+    expect(filterByCategory(rows, "poultry").map((row) => row.id)).toEqual(["a"]);
+    expect(filterByCategory(rows, "fish")).toEqual([]);
+    expect(filterByCategory(rows, null)).toHaveLength(3);
+  });
+});
+
+describe("withStatus categories", () => {
+  it("works the categories out from the title, the written lines and the time, with or without a pantry", () => {
+    const rows: RecipeListRow[] = [
+      {
+        id: "soppa",
+        title: "Grönsakssoppa",
+        imageUrl: null,
+        totalMinutes: 25,
+        originalServings: 4,
+        isFavorite: false,
+        createdAt: "2026-10-01T08:00:00+00:00",
+        lines: [{ id: "l1", ingredientId: null, amount: 1, unit: "l", isVague: false, originalText: "1 l kycklingbuljong" }],
+      },
+    ];
+    expect(withStatus(rows, null)[0].categories).toEqual(["vegetarian", "soup", "quick"]);
+    expect(toLibrary(rows, toSnapshot([]), null).recipes[0].categories).toEqual(["vegetarian", "soup", "quick"]);
   });
 });

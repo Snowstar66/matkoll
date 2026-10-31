@@ -306,6 +306,76 @@ så att jag slipper ett onödigt steg med förhandsgranskning och inte tappar et
 **När** jobbet det väntar på blir klart
 **Så** stängs arket (ingen förhandsgranskning), och flikarna, "Avbryt", "Försök igen" och felmeddelandena fungerar som förut
 
+#### Story 1.16: Kompakt vy och sortering i Recept
+
+Som Pontus,
+vill jag kunna växla mellan kort och en kompakt lista och sortera recepten,
+så att jag ser fler recept på en gång och hittar rätt snabbare.
+
+Skiss: `_bmad-output/planning-artifacts/ux-designs/ux-Matkoll-2026-10-25/mockups/recept-vyer.html`
+
+**Acceptance Criteria:**
+
+**Givet** receptbiblioteket
+**När** jag ser raden under filterpillren
+**Så** står antalet recept ("12 recept"), en sorteringsknapp med vald sortering ("Senast tillagda ▾") och en växel med två lägen, Kortvy och Kompakt vy (ikoner ▦ och ☰, tillgängliga namn och `aria-pressed`)
+
+**Givet** växeln
+**När** jag väljer Kompakt vy
+**Så** visas recepten som en grupperad lista: liten bild (48 px), titel på en rad med ellips, metarad "25 min · 4 port. · Kan lagas nu" (eller "Saknar 2") och hjärtat med 44 px träffyta; ett tryck på raden öppnar receptet, och valet sparas på enheten på samma sätt som filterpillret (med minnet som reserv)
+
+**Givet** kortvyn och den kompakta vyn
+**När** jag ser ett recept
+**Så** finns ingen papperskorg på kortet eller raden; att ta bort ett recept görs från receptets ⋯-meny som finns idag
+
+**Givet** sorteringsknappen
+**När** jag trycker på den
+**Så** öppnas ett ark "Sortera" med Senast tillagda (förval), Snabbast (kortast tid först, recept utan tid sist), Mest hemma (minst antal saknade varor först) och A–Ö (svensk sortering), med en bock vid valet; valet gäller direkt, sparas på enheten och fungerar tillsammans med sök och filterpillren
+
+**Givet** mörkt läge, 375 px bredd och 200 % text
+**När** jag ser båda vyerna och arket
+**Så** finns ingen sidledes rullning och alla mål är minst 44 px
+
+#### Story 1.17: Kategorier i Recept
+
+Som Pontus,
+vill jag kunna filtrera recepten på Kött, Fågel, Fisk & skaldjur, Vegetariskt och vanliga rätttyper,
+så att jag snabbt hittar något när jag vet vad jag är sugen på.
+
+Skiss: `_bmad-output/planning-artifacts/ux-designs/ux-Matkoll-2026-10-25/mockups/recept-vyer.html`
+
+Beslut (2026-10-31): kategorin räknas fram med regler, utan AI-anrop (den lokala modellen är långsam) och utan ny kolumn. Om reglerna gissar fel kan manuell ändring läggas till senare.
+
+**Acceptance Criteria:**
+
+**Givet** ett recept med titel, ingrediensnamn och tid
+**När** kategorin räknas fram i domänlagret (en ren funktion, inget AI-anrop, ingen migrering)
+**Så** får receptet exakt en huvudråvara (Kött, Fågel, Fisk & skaldjur eller Vegetariskt när inget kött, fågel eller fisk finns), noll eller flera rätttyper (Pasta, Soppa, Sallad, Gryta) från titel och ingredienser, och Snabbt när tiden är högst 30 minuter; buljong, fond och liknande smaksättare räknas inte som råvara
+
+**Givet** reglerna
+**När** enhetstesterna körs
+**Så** täcker de svenska exempel som "Caesarkyckling med rostade rotfrukter" (Fågel, Sallad), "Korv stroganoff" (Kött, Gryta), "Spagettipumpa" (Vegetariskt om ingen köttråvara finns), laxpasta (Fisk & skaldjur, Pasta), en grönsakssoppa på kycklingbuljong (Vegetariskt, Soppa) och recept utan tid (inte Snabbt)
+
+**Givet** receptbiblioteket
+**När** jag ser raden under filterpillren
+**Så** finns en rad med kategorichips som rullar i sidled (Kött, Fågel, Fisk & skaldjur, Vegetariskt, Pasta, Soppa, Sallad, Gryta, Snabbt), var och en med en liten ikonruta som kategoriernas i Inköpslista, och sidan själv rullar aldrig i sidled
+
+**Givet** kategorichipsen
+**När** jag trycker på ett chip
+**Så** visas bara recept i den kategorin, chipet markeras (`aria-pressed`), antalet uppdateras, ett nytt tryck släpper valet, och kategorin fungerar tillsammans med Alla/Favoriter/Kan lagas nu, sök och sortering; valet sparas på enheten som filterpillret
+
+**Givet** en kategori utan träffar
+**När** listan är tom
+**Så** står "Inga recept i Fågel." med knappen "Visa alla", som släpper kategorin
+
+**Givet** sorteringsarket från Story 1.16
+**När** det öppnas
+**Så** finns kategorierna också där under rubriken "Kategori"
+
+**Givet** mörkt läge, 375 px bredd och 200 % text
+**När** jag ser chipsen
+**Så** finns ingen sidledes rullning av sidan, alla mål är minst 44 px och kontrasten håller
+
 ## Epic 2: Lager
 Pontus kan föra in det som finns hemma per plats, med eller utan mängd, och ser direkt i receptbiblioteket vilka rätter som kan lagas och hur många varor som saknas.
 **FRs covered:** FR11, FR12, FR8 (lagningsstatus)
@@ -369,6 +439,48 @@ så att jag ser vilken vecka listan gäller och inte tror att listan är trasig 
 **Givet** mörkt läge, 375 px bredd och 200 % text
 **När** jag ser toppen
 **Så** finns ingen sidledes rullning, alla mål är minst 44 px och flikarna har tillgängliga namn
+
+#### Story 3.11: Lugn veckovy i Matsedel
+
+Som Pontus,
+vill jag se veckan som en lugn lista med en rad per dag och de sällan använda knapparna bakom ⋯,
+så att jag direkt ser vad vi äter och inte drunknar i knappar.
+
+Skiss: `_bmad-output/planning-artifacts/ux-designs/ux-Matkoll-2026-10-25/mockups/matsedel-lugn.html`
+
+**Acceptance Criteria:**
+
+**Givet** en vecka med rätter
+**När** jag ser Matsedel
+**Så** ligger veckans dagar i ett enda vitt kort (grupperad lista) där varje rad har samma form: veckodag och datum till vänster ("LÖR" / "31"), bild, titel och en metarad ("60 min · 4 port."), och fler rätter samma dag får varsin rad med dagen bara på den första
+
+**Givet** en rätt där allt finns hemma
+**När** jag ser raden
+**Så** står "✓ Allt hemma" som mintfärgad text i metaraden och ingen mätare visas; saknas något står "1 av 11 hemma" i sandfärg med en tunn mätare under
+
+**Givet** en rad med en rätt
+**När** jag trycker på ⋯ (44 px, tillgängligt namn "Fler val för <titel>")
+**Så** öppnas ett ark med rättens bild, titel, dag och tid, länken "Öppna receptet", portioner med − och +, huvudknappen "Markera som lagad" (eller den lagade rättens befintliga läge), "Flytta till annan dag" med nuvarande dag, och "Ta bort från matsedeln" med samma bekräftelse och ångra som idag; ett tryck på själva raden öppnar receptet som förut
+
+**Givet** dagens datum
+**När** jag ser listan
+**Så** har dagens rad en mintfärgad kant till vänster, dag och datum i accentfärg och etiketten "Idag" i metaraden, utan den böjda ramen
+
+**Givet** dagar som har passerat
+**När** jag ser listan
+**Så** är deras rader mindre och nedtonade, tomma passerade dagar visas inte, en lagad rätt visar "✓ Lagad", och en olagad rätt har en liten knapp "Lagad?" som gör samma sak som "Markera som lagad"
+
+**Givet** en tom dag idag eller framåt
+**När** jag ser listan
+**Så** står "+ Lägg till" i raden och öppnar samma flöde som "Välj recept" gör idag för den dagen; "Välj recept" visas inte längre på dagar som redan har en rätt (fler rätter samma dag läggs till via "+" i rubriken)
+
+**Givet** veckovyn
+**När** jag ser sidan
+**Så** finns inte längre de stora knapparna "Lägg till rätt" och "Visa inköpslistan" längst ner; i stället finns en lugn rad ovanför listan med 🛒, antalet varor som saknas för veckan om det finns tillgängligt utan extra tung beräkning (annars "Inköpslista för vecka 44") och ›, som leder till inköpslistan för samma vecka; den tomma matsedeln ser ut som förut
+
+**Givet** mörkt läge, 375 px bredd och 200 % text
+**När** jag ser veckovyn och arket
+**Så** finns ingen sidledes rullning, alla mål är minst 44 px och knappar och rader har tillgängliga namn
 
 ## Epic 4: Steg-för-steg
 Pontus kan välja portioner i receptvyn, se vad som finns hemma och laga maten ett steg i taget med tänd skärm.
@@ -2823,6 +2935,26 @@ så att jag kan handla där jag vill.
 **När** Pontus trycker "Dela listan"
 **Så** öppnas telefonens delningsmeny (eller kopieras texten när delning saknas) med en enkel lista per avdelning, till exempel "Gul lök 1 st", utan butiksformatet
 
+### Story 14.3: Snyggare delad lista
+
+Som Pontus,
+vill jag att listan jag delar via SMS eller mail ser ut som en riktig inköpslista med rutor,
+så att den är trevlig att handla från för den som får den.
+
+**Acceptance Criteria:**
+
+**Givet** "Dela listan" i inköpslistan
+**När** texten byggs
+**Så** börjar den med "🛒 Inköpslista v. 44" (vald vecka), följt av en tom rad, och varje avdelning har sin ikon från kategorirutorna och namnet i versaler ("🥬 FRUKT & GRÖNT")
+
+**Givet** en avdelning
+**När** varorna skrivs ut
+**Så** står varje obockad vara på en egen rad som "☐ Gul lök 2 st" (en vag rad är bara namnet), med en tom rad mellan avdelningarna; avbockade och dolda varor är inte med, och en tom lista ger samma tomma läge som idag
+
+**Givet** delningen
+**När** telefonen inte har delningsmenyn
+**Så** kopieras samma text som idag, och kopiera till varukorg (butikens exportformat) är oförändrat
+
 ## Epic 15: Enklare lokalt
 
 Pontus vill slippa logga in när Matkoll körs på den egna Macen. Inloggningen finns kvar för den publicerade appen.
@@ -3139,6 +3271,7 @@ så att hela familjen kan dela samma konto utan engångslänkar.
 **När** jag anger e-post och lösenord för ett befintligt konto
 **Så** loggas jag in och förblir inloggad tills jag loggar ut, även efter att appen stängts
 
+<<<<<<< HEAD
 **Givet** en adress i inbjudningslistan (`ALLOWED_EMAILS`) vars konto gjorts med `pnpm users:sync`, och som inte har något lösenord än
 **När** jag väljer "Första gången eller glömt lösenordet? Välj lösenord" och anger min e-post
 **Så** kommer ett mejl med en länk där jag väljer lösenord (minst 12 tecken) och blir inloggad (lokalt syns mejlet i Mailpit); svaret är detsamma för alla adresser, och ingen kan skapa konto själv
@@ -3146,6 +3279,15 @@ så att hela familjen kan dela samma konto utan engångslänkar.
 **Givet** "Glömt lösenord" (samma "Välj lösenord")
 **När** jag anger min e-post
 **Så** kommer ett mejl med en länk där jag väljer nytt lösenord
+=======
+**Givet** en e-postadress i inbjudningslistan (`ALLOWED_EMAILS`) utan konto
+**När** jag väljer "Skapa konto" och anger ett lösenord
+**Så** skapas kontot; en adress utanför listan får ett vänligt nej och inget konto skapas
+
+**Givet** "Glömt lösenord"
+**När** jag anger min e-post
+**Så** kommer ett mejl med en länk där jag väljer nytt lösenord (lokalt syns mejlet i Mailpit)
+>>>>>>> origin/main
 
 **Givet** första inloggningen på ett konto
 **När** appen öppnas

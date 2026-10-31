@@ -301,6 +301,11 @@ export function weekdayWord(weekday: number): string {
   return (weekdayNames[weekday - 1] ?? "").toLowerCase();
 }
 
+/** The first three letters of a weekday's name: "Lör". */
+export function weekdayShortName(weekday: number): string {
+  return (weekdayNames[weekday - 1] ?? "").slice(0, 3);
+}
+
 /** The weekday (1 måndag to 7 söndag) of `date`'s day in Stockholm. */
 export function todayWeekday(date: Date, timeZone: string = planTimeZone): number {
   const name = new Intl.DateTimeFormat("en-US", { timeZone, weekday: "short" }).format(date);
@@ -320,6 +325,30 @@ export function weekdayDateText(date: Date, weekday: number, timeZone: string = 
     .reduce<Record<string, number>>((all, part) => ({ ...all, [part.type]: Number(part.value) }), {});
   const target = new Date(Date.UTC(parts.year, parts.month - 1, parts.day + (weekday - todayWeekday(date, timeZone))));
   return `${target.getUTCDate()} ${shortMonths[target.getUTCMonth()]}`;
+}
+
+/** The day of the month of `weekday` in the week `date` falls in: "31". */
+export function weekdayDayNumber(date: Date, weekday: number, timeZone: string = planTimeZone): string {
+  return weekdayDateText(date, weekday, timeZone).split(" ")[0] ?? "";
+}
+
+/**
+ * The line under a dish's title in the week list (Story 3.11): "60 min · 4
+ * port.", or "Borttaget recept · 4 port." for a deleted recipe. The time is
+ * left out when the recipe has none.
+ */
+export function dishRowMetaText(
+  recipeId: string | null,
+  totalMinutes: number | null | undefined,
+  servings: number,
+): string {
+  const time = totalMinutes && Number.isFinite(totalMinutes) && totalMinutes > 0 ? `${totalMinutes} min` : null;
+  return [recipeId ? time : "Borttaget recept", `${servings} port.`].filter(Boolean).join(" · ");
+}
+
+/** The shopping row above the week list when the number of missing items is not at hand: "Inköpslista för vecka 44". */
+export function shoppingRowText(weekNumber: number): string {
+  return `Inköpslista för vecka ${weekNumber}`;
 }
 
 /**

@@ -821,6 +821,7 @@ export function ShoppingList({
     productChoicesUnavailable,
     unreadableChoices,
     checksUnavailable,
+    planName: plan?.name ?? null,
   });
   const canSend = plan !== null && exportableLines(lines).length > 0;
   const [hiddenSheet, setHiddenSheet] = useState(false);
