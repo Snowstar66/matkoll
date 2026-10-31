@@ -353,3 +353,68 @@
     background-color: color-mix(in srgb, var(--surface), var(--ink) 14%);
   }
 }
+
+/*
+ * AiWorking (Story 16.15, demo ai-vanta.html B + A): a small glowing orb that
+ * turns and breathes, and a text a light sweeps through. The colours of the
+ * orb are the brand's green, mint and sand in both themes. With "Minska
+ * rörelse" (no-preference is the only case that animates) the orb and the text
+ * stand still.
+ */
+.ai-orb {
+  --ai-orb-size: 26px;
+  width: var(--ai-orb-size);
+  height: var(--ai-orb-size);
+  flex: none;
+  position: relative;
+  border-radius: 50%;
+  background: conic-gradient(from 0deg, #3e7c62, #8fd3b0, #e9b872, #3e7c62);
+  filter: blur(0.3px);
+  box-shadow: 0 0 14px rgba(62, 124, 98, 0.55);
+}
+.ai-orb::after {
+  content: "";
+  position: absolute;
+  inset: 20%;
+  border-radius: 50%;
+  background: var(--ai-orb-hole, var(--bg));
+  opacity: 0.55;
+}
+.ai-shimmer {
+  font-weight: 600;
+  color: var(--ink-2);
+}
+@media (prefers-reduced-motion: no-preference) {
+  .ai-orb {
+    animation:
+      ai-spin 2.4s linear infinite,
+      ai-breathe 1.6s ease-in-out infinite;
+  }
+  .ai-shimmer {
+    background: linear-gradient(90deg, var(--ink-2) 0%, var(--ink-2) 40%, var(--accent) 50%, var(--ink-2) 60%, var(--ink-2) 100%);
+    background-size: 250% 100%;
+    -webkit-background-clip: text;
+    background-clip: text;
+    color: transparent;
+    animation: ai-sweep 1.8s linear infinite;
+  }
+}
+@keyframes ai-spin {
+  to {
+    transform: rotate(360deg);
+  }
+}
+@keyframes ai-breathe {
+  50% {
+    box-shadow: 0 0 22px rgba(233, 184, 114, 0.75);
+    scale: 1.08;
+  }
+}
+@keyframes ai-sweep {
+  from {
+    background-position: 100% 0;
+  }
+  to {
+    background-position: -150% 0;
+  }
+}

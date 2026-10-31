@@ -3439,6 +3439,99 @@ Beslut 2026-10-31 (Pontus): backlog.
 **När** något har legat länge
 **Så** finns en lugn rad överst "3 varor har legat länge – föreslå rätter med dem" som öppnar förslagen med de varorna förvalda
 
+### Story 16.14: Boendet i sidomenyn
+
+Som Pontus,
+vill jag byta boende från sidomenyn (och under rubriken på mobilen) i stället för med knappar på varje sida,
+så att det syns att valet gäller hela appen och sidorna blir lugnare.
+
+Beslut 2026-10-31 (Pontus): mockupen godkänd. Mockup: `_bmad-output/planning-artifacts/ux-designs/ux-Matkoll-2026-10-25/mockups/boende-val.html` ("Idag" är skärmdumpar, "Nytt" och punktlistorna är specen).
+
+**Acceptance Criteria:**
+
+**Givet** två eller fler boenden på dator
+**När** jag ser sidomenyn
+**Så** finns under Livskoll en dämpad knapp med nål, det valda boendets namn och en pil; den öppnar en meny med varje boende och vad som finns där ("5 varor", "18 prylar", "Tomt" om inget), en bock vid det valda och "Hantera boenden ›" till Inställningar → Boenden; ett tryck på ett boende byter och sidan visar det direkt
+
+**Givet** Matvaror eller Förråd
+**När** sidan visas
+**Så** är raden med boende-knappar och "Hantera" borta
+
+**Givet** mobil (ingen sidomeny)
+**När** jag är på Matvaror, Förråd eller Matsedel
+**Så** står samma knapp under sidrubriken (på Matsedel i stället för "Boende: Hemma"), öppnar ett blad nerifrån med samma innehåll, och Recept och Inköpslista visar den inte
+
+**Givet** Inställningar → Boenden
+**När** sidan visas
+**Så** är den en överblick: ett kort per boende med "N matvaror · N prylar · N kort", det valda med grön kant och märket "Vald"; "Matvaror ›" och "Förråd ›" väljer boendet och går dit, ett tryck på kortet väljer det, ⋯ ger "Byt namn" och "Ta bort" (som förut bara för ett tomt boende som inte är valt), "Lägg till boende" och "Rensa förrådet i …" är kvar, och texten under rubriken är "Det valda boendet gäller i hela appen."
+
+**Givet** bara ett boende
+**När** jag använder appen
+**Så** syns inget nytt någonstans
+
+**Givet** valet av boende
+**När** det byts
+**Så** sparas det på servern som förut (aldrig i adressen, en cookie eller localStorage, AD-24) och sidan väntar (inert) tills det är sparat
+
+### Story 16.15: Väntan på AI
+
+Som Pontus,
+vill jag att väntan på AI syns som ett litet glödande klot och en skimrande text som byter steg,
+så att det känns levande och lugnt i stället för en stillastående text.
+
+Beslut 2026-10-31 (Pontus): stil B och A tillsammans ur demot `_bmad-output/planning-artifacts/ux-designs/ux-Matkoll-2026-10-25/mockups/ai-vanta.html`. Något eget, enkelt och lite futuristiskt.
+
+**Acceptance Criteria:**
+
+**Givet** att appen väntar på AI (receptförslag, receptimport, foto av kylen, fotoläsning av ett kort, uppslag av varor på fotot, jobbraden)
+**När** väntan visas
+**Så** syns ett klot som snurrar och andas (grönt, mint, sand) bredvid en text där ett ljus sveper, i ljust och mörkt läge
+
+**Givet** en text med flera steg
+**När** den visas
+**Så** byter den steg ungefär var 2,2 s och stannar på det sista, utan att börja om
+
+**Givet** att anropet inte vet om indata är foto, text eller länk
+**När** inga steg anges
+**Så** väljs två eller tre lekfulla ord slumpvis en gång (Funderar …, Klurar …), och där appen vet vad som händer står sakliga steg (Tittar på bilden …, Hittar varorna …)
+
+**Givet** en skärmläsare
+**När** väntan visas
+**Så** finns en enda `role="status"` med bara det första steget
+
+**Givet** "Minska rörelse"
+**När** väntan visas
+**Så** står klotet still och texten är det första steget utan svep eller stegbyte
+
+### Story 16.16: Tidigare utan Ny matsedel
+
+Som Pontus,
+vill jag att Tidigare bara visar och hanterar gamla veckor,
+så att jag inte får två "Vecka 44" och inte kan tömma veckan jag är mitt i.
+
+Beslut 2026-10-31 (Pontus): "Ny matsedel" och "Använd igen" är rester från tiden före veckor och tas bort.
+
+**Acceptance Criteria:**
+
+**Givet** Tidigare matsedlar
+**När** jag öppnar listan
+**Så** finns ingen knapp "Ny matsedel"
+
+**Givet** en tidigare matsedel
+**När** jag öppnar den
+**Så** finns "Kopiera till …" och "Ta bort matsedel" men inte "Använd igen"; noten om rätter med borttaget recept gäller "Kopiera till …"
+
+**Givet** en matsedel som de gamla knapparna lade åt sidan (ingen vecka)
+**När** jag ser den i Tidigare eller öppnar den
+**Så** står det "4 rätter · undanlagd · skapad 30 okt 2026" (inte bara "skapad"); den kan öppnas, kopieras och tas bort
+
+**Givet** en matsedel för en gammal vecka
+**När** jag ser den i Tidigare
+**Så** står det som förut "3 rätter · skapad 26 okt 2026"
+
+**Givet** att inga databasfunktioner ändras
+**Så** är ingen migrering med och inget försvinner ur listan
+
 ## Epic 17: Molnet och gemensam lista
 
 Version 2.0. Familjen planerar och handlar ihop i Matkoll med en delad inloggning per hushåll, och upp till fem vänhushåll kan betatesta med egna konton utan att någon data blandas. Matkoll ersätter To Do som inköpslista. Allt byggs och testas lokalt först; flytten till Vercel och Supabase i molnet (17.3, 17.4) görs först när Pontus säger till. Underlag: `sprint-change-proposal-2026-10-31-molnet-och-gemensam-lista.md`.
@@ -3888,10 +3981,32 @@ Skiss: bild 1 i samma skiss (chatten högst upp på startsidan).
 ### Story 18.7: Visa prylen på kortet
 
 Som Pontus,
-vill jag se var på bilden prylen finns,
-så att jag snabbt hittar den på hyllan.
+vill jag se kortets bild med prylen utmärkt när jag hittar den i sök eller chatt,
+så att jag direkt ser var på hyllan den finns.
 
-Backlog, efter 18.1–18.6.
+Beslut 2026-10-31 (Pontus): byggs efter 18.17, före 17.9. Kostnad bedömd som försumbar (~0,2 öre extra per kort med Haiku).
+
+**Acceptance Criteria:**
+
+**Givet** en sökträff eller en referens i chatten
+**När** den visas
+**Så** står kortets miniatyr till vänster (i stället för kategoriikonen); inskrivna prylar utan kort visar lådans ikon
+
+**Givet** en träff eller referens
+**När** jag trycker på den
+**Så** öppnas kortet i stort format (egen vy med bilden i full bredd, rum, del/låda och datum) med prylen utmärkt av en ruta och dess namn, och övriga prylar på kortet listas under bilden; ett tryck på en annan pryl i listan flyttar markeringen
+
+**Givet** ett nytt kort som läses
+**När** AI listar prylarna
+**Så** får varje pryl en ungefärlig ruta (normaliserade koordinater 0–1) i samma anrop, utan extra AI-anrop; rutor som är orimliga (utanför bilden, noll storlek) sparas inte
+
+**Givet** en pryl utan ruta (äldre kort)
+**När** jag öppnar den på kortet
+**Så** letar appen upp den med ett litet AI-anrop för bara den prylen (samma teknik som kylskåpskorten i Matvaror), sparar rutan och visar den; går det inte visas kortet utan markering med texten "Kunde inte peka ut den på bilden"
+
+**Givet** lagringen
+**När** rutor sparas
+**Så** ligger de på prylen (bakåtkompatibel migrering) och kostnaden räknas som i Story 17.6
 
 ### Story 18.10: Svep med kameran
 
@@ -4002,6 +4117,58 @@ Beslut 2026-10-31 (Pontus): byggs före 17.9.
 **Givet** mörkt läge, 375 px och 200 % text
 **När** jag ser arket och rumssidan
 **Så** finns ingen sidledes rullning och alla mål är minst 44 px
+
+### Story 18.17: Ett fält – sök eller fråga
+
+Som Pontus,
+vill jag ha ett enda fält för att söka och fråga i Förrådet,
+så att jag inte undrar vilket av två fält jag ska använda.
+
+Beslut 2026-10-31 (Pontus): sökfältet (18.4) och chatten (18.14) slås ihop.
+
+**Acceptance Criteria:**
+
+**Givet** Förrådets startsida
+**När** jag ser den
+**Så** finns ett enda fält "Sök eller fråga …" under "Ta kort" (inget separat sökfält)
+
+**Givet** att jag skriver i fältet
+**När** jag har skrivit minst två tecken
+**Så** visas matchande prylar direkt under fältet utan AI (databassökningen från 18.14, med plats, boende och kortdatum, tryckbara), uppdaterat medan jag skriver
+
+**Givet** text i fältet
+**När** jag trycker ↑ eller Enter
+**Så** skickas texten som en fråga till chatten (AI, som i 18.14) och svaret visas som en chattbubbla med referens; följdfrågor och "Ny fråga" fungerar som förut, och direktträffarna döljs medan ett samtal pågår
+
+**Givet** ett tomt fält
+**När** jag ser det
+**Så** finns en kort hjälptext, t.ex. "Skriv för att söka – tryck ↑ för att fråga"
+
+**Givet** mörkt läge, 375 px och 200 % text
+**När** jag använder fältet
+**Så** finns ingen sidledes rullning och alla mål är minst 44 px
+
+### Story 18.18: Försäkringsunderlag (PDF)
+
+Pausad (Pontus 2026-10-31). En knapp "Försäkringsunderlag" som gör en PDF per boende med rum, foton, prylar och datum från Förrådet, att ha vid brand eller inbrott. Valfritt värde på dyra saker. Inga kvitton eller värderingar i övrigt. Byggs när Förrådet använts ett tag.
+
+### Story 18.19: Kom ihåg var jag lade den
+
+Som Pontus,
+vill jag kunna säga eller skriva "passen ligger i översta byrålådan" och senare fråga var de är,
+så att jag hittar saker som aldrig fotats.
+
+Beslut 2026-10-31 (Pontus): backlog. Hänger ihop med Story 17.9 (Siri).
+
+**Acceptance Criteria:**
+
+**Givet** fältet "Sök eller fråga" i Förrådet
+**När** jag skriver ett påstående om var något ligger ("Passen ligger i översta byrålådan i sovrummet")
+**Så** förstår AI att det är något att komma ihåg, föreslår rum och del ("Sovrummet · översta byrålådan") och sparar det efter ett tryck som en pryl utan kort
+
+**Givet** en sådan pryl
+**När** jag frågar "var är passen?"
+**Så** svarar chatten med platsen och att jag själv skrev in den (datum), och prylen går att ändra eller ta bort som andra prylar
 
 ### Story 18.20: Ny ikon – hus med bock
 

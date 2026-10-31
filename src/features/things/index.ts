@@ -43,7 +43,7 @@ export {
 } from "./domain/thing-place";
 export {
   askButtonText,
-  askExamplesText,
+  askHintText,
   askingText,
   askLabel,
   askPlaceholder,
@@ -63,8 +63,7 @@ export {
   noHitsText,
   searchFailedText,
   searchingText,
-  searchLabel,
-  searchPlaceholder,
+  minSearchChars,
   searchTerms,
   type ThingHit,
 } from "./domain/thing-search";

@@ -314,18 +314,20 @@ export type SitesSheetProps = {
   session: number;
   /** Every place of the user's, in the order they were created, with its number of items. */
   sites: readonly PantrySiteWithCount[];
+  /** The boende whose name is changed as the sheet opens (Story 16.14: "Byt namn" on a card); none by default. */
+  startRenaming?: string | null;
 };
 
 /** An add whose outcome is unknown, and the places as they were when it was sent. */
 type PendingAdd = { id: string; seen: readonly PantrySiteWithCount[]; announce: boolean };
 
 /** Arket Boenden; see the comment at the top. */
-export function SitesSheet({ open, onClose, session, sites }: SitesSheetProps) {
+export function SitesSheet({ open, onClose, session, sites, startRenaming = null }: SitesSheetProps) {
   const router = useRouter();
   const { liveUndoSites } = useLiveUndo();
   const [formSession, setFormSession] = useState(session);
   /** The place whose name is being changed; one at a time. */
-  const [renaming, setRenaming] = useState<string | null>(null);
+  const [renaming, setRenaming] = useState<string | null>(startRenaming);
   const [status, setStatus] = useState<{ text: string; id: number } | null>(null);
   const [error, setError] = useState<{ text: string; id: number } | null>(null);
   const [removing, startRemoving] = useTransition();
@@ -349,7 +351,7 @@ export function SitesSheet({ open, onClose, session, sites }: SitesSheetProps) {
   // A new session: the sheet starts afresh (state adjusted while rendering).
   if (session !== formSession) {
     setFormSession(session);
-    setRenaming(null);
+    setRenaming(startRenaming);
     setStatus(null);
     setError(null);
     setAdded(0);

@@ -160,6 +160,11 @@ export function copyTargets(now: Date = new Date()): WeekChoice[] {
   return weekChoices(now).slice(0, overviewWeeks);
 }
 
+/** What a week already has, as on the week tiles: "Tom", "1 rätt", "3 rätter". */
+export function weekFillText(count: number): string {
+  return count === 0 ? "Tom" : count === 1 ? "1 rätt" : `${count} rätter`;
+}
+
 /** "Kopierade 5 rätter till vecka 46". */
 export function copiedText(count: number, weekStart: string): string {
   return `Kopierade ${count === 1 ? "1 rätt" : `${count} rätter`} till vecka ${weekNumber(weekStart)}`;

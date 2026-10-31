@@ -134,7 +134,8 @@ describe("PantryCamera", () => {
     // The status region is there empty before, so the text is announced.
     expect(within(area()).getByRole("status")).toBeEmptyDOMElement();
     await photograph();
-    expect(within(area()).getByRole("status")).toHaveTextContent("Tittar på bilden … Du kan göra annat under tiden.");
+    expect(within(area()).getByRole("status")).toHaveTextContent("Tittar på bilden …");
+    expect(within(area()).getByText("Du kan göra annat under tiden.")).toBeInTheDocument();
     expect(screen.queryByRole("button", { name: "Fotografera kylen" })).toBeNull();
 
     fireEvent.click(screen.getByRole("button", { name: "Avbryt" }));

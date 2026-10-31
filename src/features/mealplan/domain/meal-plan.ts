@@ -224,6 +224,8 @@ export type PlanSummary = {
   /** When the plan was made (ISO 8601). */
   createdAt: string;
   dishCount: number;
+  /** The Monday of the plan's week, or `null` for a plan pushed aside by the pre-week buttons. */
+  weekStart: string | null;
 };
 
 /** A meal plan with its dishes in order, as its own page shows it. */
@@ -252,9 +254,15 @@ export function dishCountText(count: number): string {
   return count === 1 ? "1 rätt" : `${count} rätter`;
 }
 
-/** An earlier plan's line in Tidigare: "3 rätter · skapad 26 okt 2026". */
-export function planSummaryText(plan: Pick<PlanSummary, "createdAt" | "dishCount">): string {
-  return `${dishCountText(plan.dishCount)} · skapad ${planDateText(plan.createdAt)}`;
+/**
+ * An earlier plan's line in Tidigare: "3 rätter · skapad 26 okt 2026". A plan
+ * without a week (`weekStart` null: pushed aside by the old "Ny matsedel" or
+ * "Använd igen", which cleared its week) says so: "4 rätter · undanlagd ·
+ * skapad 30 okt 2026". Only the creation date is stored, not when it was set aside.
+ */
+export function planSummaryText(plan: Pick<PlanSummary, "createdAt" | "dishCount" | "weekStart">): string {
+  const made = `skapad ${planDateText(plan.createdAt)}`;
+  return `${dishCountText(plan.dishCount)} · ${plan.weekStart === null ? `undanlagd · ${made}` : made}`;
 }
 
 /** The question before an earlier plan is deleted: "Ta bort Vecka 42? Det går inte att ångra." */
@@ -273,19 +281,16 @@ export function leftOutText(count: number): string | null {
   return `${count} rätter med borttagna recept följer inte med.`;
 }
 
-/** Why "Använd igen" is unavailable when every dish's recipe is deleted. */
-export const nothingToReuseText = "Alla recept på matsedeln är borttagna, så den går inte att använda igen.";
+/** Why "Kopiera till …" is unavailable when every dish's recipe is deleted. */
+export const nothingToCopyText = "Alla recept på matsedeln är borttagna, så den går inte att kopiera.";
 
-/** An earlier plan without dishes, which "Använd igen" cannot use either. */
+/** An earlier plan without dishes, which "Kopiera till …" cannot use either. */
 export const noDishesText = "Matsedeln har inga rätter.";
-
-/** The short confirmation on Matsedel after "Använd igen" or "Ny matsedel". */
-export const planCreatedText = "Matsedeln är skapad.";
 
 /** The short confirmation in Tidigare after a plan was deleted. */
 export const planDeletedText = "Matsedeln är borttagen.";
 
-/** A plan id: the plan to use again or delete, or a new plan's id made by the client. */
+/** A plan id: the plan to copy or delete. */
 export const planIdSchema = z.uuid();
 
 // Dagar på matsedeln (Story 13.5).

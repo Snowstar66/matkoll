@@ -31,6 +31,11 @@ import { AnalyzedPhotoButton, AnalyzedPhotoSheet, PhotoNumberBadge, PhotoNumberT
 import { usePantrySheet } from "./pantry-item-sheet";
 import { usePantrySuggestions } from "./pantry-suggestions";
 import { focusIsFree } from "./use-pantry-analysis";
+import { AiWorking } from "@/components/ai-working";
+import { cx } from "@/components/cx";
+
+/** Said politely by the status line below (locatingText); this is only for the eye. */
+const locatingSteps = ["Letar upp varorna på fotot …", "Sätter ut numren …"];
 
 // Lagerförslag (FR-24, DESIGN.md Lagerförslag): the suggestions from the
 // latest photo, under the camera button, in a section headed "Lagerförslag
@@ -236,7 +241,17 @@ export function PantrySuggestionList({ siteId }: PantrySuggestionListProps) {
         ) : null}
         {/* Story 6.6: says politely that the numbers are looked up, and that they have come. Always there with the
             section, empty and taking no room otherwise, so a screen reader hears the text when it comes. */}
-        <p ref={statusRef} role="status" data-testid="pantry-photo-numbers-status" className="text-meta text-ink-2 empty:-mt-3" />
+        {numbers?.kind === "pending" ? (
+          <div aria-hidden="true">
+            <AiWorking size="sm" inLiveRegion steps={locatingSteps} />
+          </div>
+        ) : null}
+        <p
+          ref={statusRef}
+          role="status"
+          data-testid="pantry-photo-numbers-status"
+          className={cx("text-meta text-ink-2 empty:-mt-3", numbers?.kind === "pending" && "sr-only")}
+        />
         <Button
           ref={confirmAllRef}
           variant="secondary"

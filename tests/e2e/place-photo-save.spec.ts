@@ -6,6 +6,8 @@ import {
   photoSaveStorageState,
   placePhotoBucket,
   removePlacePhotos,
+  boendeButton,
+  pickBoende,
 } from "./support";
 
 // Story 10.1: the latest photo of a place is saved once something from its
@@ -123,18 +125,16 @@ function watchErrors(page: Page): string[] {
 // locator is scoped to what is visible.
 const camera = (page: Page) => page.getByTestId("pantry-camera").filter({ visible: true });
 const section = (page: Page) => page.getByTestId("pantry-suggestions").filter({ visible: true });
-const pill = (page: Page, name: string) =>
-  page.getByRole("radiogroup", { name: "Boende" }).filter({ visible: true }).getByRole("radio", { name, exact: true });
 const toast = (page: Page) => page.getByTestId("toast");
 
 async function openHemma(page: Page) {
   await page.goto("/hemma");
-  await expect(page.getByRole("button", { name: "Hantera boenden", exact: true }).filter({ visible: true })).toBeEnabled();
+  await expect(boendeButton(page)).toBeEnabled();
 }
 
-/** Selects a place with its pill and waits until the page shows it. */
+/** Selects a place in the boende menu and waits until the page shows it. */
 async function choose(page: Page, name: "Hemma" | "Stugan") {
-  await pill(page, name).click();
+  await pickBoende(page, name);
   await expect(page.getByTestId("site-announcement").filter({ visible: true })).toHaveText(`Valt boende: ${name}.`);
   await expect(page.getByTestId("site-content")).not.toHaveAttribute("aria-busy");
 }

@@ -234,7 +234,12 @@ describe("Tidigare", () => {
   it("says how many dishes and when the plan was made", () => {
     expect(dishCountText(1)).toBe("1 rätt");
     expect(dishCountText(0)).toBe("0 rätter");
-    expect(planSummaryText({ dishCount: 3, createdAt: "2026-10-26T10:00:00Z" })).toBe("3 rätter · skapad 26 okt 2026");
+    expect(planSummaryText({ dishCount: 3, createdAt: "2026-10-26T10:00:00Z", weekStart: "2026-10-26" })).toBe(
+      "3 rätter · skapad 26 okt 2026",
+    );
+    expect(planSummaryText({ dishCount: 4, createdAt: "2026-10-30T10:00:00Z", weekStart: null })).toBe(
+      "4 rätter · undanlagd · skapad 30 okt 2026",
+    );
   });
 
   it("says how many dishes with deleted recipes do not come along", () => {

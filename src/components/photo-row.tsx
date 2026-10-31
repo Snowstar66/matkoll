@@ -3,8 +3,8 @@ import { cx } from "./cx";
 
 // The quiet camera row (Story 14.6): a card with an icon tile, the action's
 // title, a sub line and a chevron, like the shopping row in Matsedel. The
-// title button covers the whole card (stretched); the sub line sits above that
-// so a button in it (such as "Visa") stays tappable. Shared by Lagersaldo's
+// title button covers the whole card (stretched). The sub line lets taps through
+// to it, except on a link or button in it (such as "Visa"), which stays on top. Shared by Lagersaldo's
 // "Fotografera kylen" and a Prylar place's "Ta ett nytt kort".
 
 export type PhotoRowProps = {
@@ -33,11 +33,11 @@ export function PhotoRow({ title, onClick, disabled, hidden, buttonRef, variant 
           type="button"
           disabled={disabled}
           onClick={onClick}
-          className={cx("-my-3 py-3 text-left text-row-title wrap-break-word outline-none after:absolute after:inset-0 after:rounded-lg after:content-[''] focus-visible:after:outline-2 focus-visible:after:-outline-offset-2 focus-visible:after:outline-accent disabled:cursor-not-allowed disabled:opacity-60", primary ? "text-on-accent focus-visible:after:outline-on-accent" : "text-ink")}
+          className={cx("-my-3 cursor-pointer py-3 text-left text-row-title wrap-break-word outline-none after:absolute after:inset-0 after:rounded-lg after:content-[''] focus-visible:after:outline-2 focus-visible:after:-outline-offset-2 focus-visible:after:outline-accent disabled:cursor-not-allowed disabled:opacity-60", primary ? "text-on-accent focus-visible:after:outline-on-accent" : "text-ink")}
         >
           {title}
         </button>
-        <div className="relative z-10">{children}</div>
+        <div className="pointer-events-none [&_a]:pointer-events-auto [&_a]:relative [&_a]:z-10 [&_button]:pointer-events-auto [&_button]:relative [&_button]:z-10">{children}</div>
       </div>
       <span aria-hidden="true" className={cx("text-row-title", primary ? "text-on-accent" : "text-ink-3")}>
         ›

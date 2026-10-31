@@ -304,7 +304,7 @@ test("Avbryt stops the job without an error, and the camera button takes focus",
   // A photo the mock keeps waiting, so the job is there to cancel.
   await photograph(page, "Fotografera kylen", plainPng(1));
 
-  await expect(camera(page).getByRole("status").getByText("Tittar på bilden … Du kan göra annat under tiden.")).toBeVisible();
+  await expect(camera(page).getByRole("status").getByText("Du kan göra annat under tiden.")).toBeVisible();
   await expect(cameraButton(page, "Fotografera kylen")).toHaveCount(0);
   await camera(page).getByRole("button", { name: "Avbryt" }).click();
 

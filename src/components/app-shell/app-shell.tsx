@@ -11,10 +11,13 @@ import { TabBar } from "./tab-bar";
 export function AppShell({
   children,
   jobRows,
+  siteSwitch,
 }: {
   children: ReactNode;
   /** The job row for AI jobs (Story 12.4): one for the tab bar and one for the side menu; the layout gives them. */
   jobRows?: { bar: ReactNode; side: ReactNode };
+  /** The boende button for the side menu (Story 16.14); the layout gives it, since it reads the user's boenden. */
+  siteSwitch?: ReactNode;
 }) {
   return (
     <div className="flex min-h-dvh flex-col">
@@ -24,7 +27,7 @@ export function AppShell({
       >
         Hoppa till innehållet
       </a>
-      <SideMenu jobRow={jobRows?.side} />
+      <SideMenu jobRow={jobRows?.side} siteSwitch={siteSwitch} />
       <main
         id="innehall"
         tabIndex={-1}

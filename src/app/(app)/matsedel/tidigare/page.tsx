@@ -7,7 +7,7 @@ import { PreviousPlansContent } from "./previous-plans-content";
 export const metadata: Metadata = { title: "Tidigare matsedlar" };
 
 // Tidigare matsedlar (FR-14), from "Tidigare" in Matsedel's header: the
-// earlier plans newest first, and "Ny matsedel". The plans are read inside
+// earlier plans newest first. The plans are read inside
 // <Suspense> (AD-18), with skeleton rows while they load.
 export default function PreviousPlansPage() {
   return (
