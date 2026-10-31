@@ -3503,6 +3503,35 @@ Beslut 2026-10-31 (Pontus): stil B och A tillsammans ur demot `_bmad-output/plan
 **När** väntan visas
 **Så** står klotet still och texten är det första steget utan svep eller stegbyte
 
+### Story 16.16: Tidigare utan Ny matsedel
+
+Som Pontus,
+vill jag att Tidigare bara visar och hanterar gamla veckor,
+så att jag inte får två "Vecka 44" och inte kan tömma veckan jag är mitt i.
+
+Beslut 2026-10-31 (Pontus): "Ny matsedel" och "Använd igen" är rester från tiden före veckor och tas bort.
+
+**Acceptance Criteria:**
+
+**Givet** Tidigare matsedlar
+**När** jag öppnar listan
+**Så** finns ingen knapp "Ny matsedel"
+
+**Givet** en tidigare matsedel
+**När** jag öppnar den
+**Så** finns "Kopiera till …" och "Ta bort matsedel" men inte "Använd igen"; noten om rätter med borttaget recept gäller "Kopiera till …"
+
+**Givet** en matsedel som de gamla knapparna lade åt sidan (ingen vecka)
+**När** jag ser den i Tidigare eller öppnar den
+**Så** står det "4 rätter · undanlagd · skapad 30 okt 2026" (inte bara "skapad"); den kan öppnas, kopieras och tas bort
+
+**Givet** en matsedel för en gammal vecka
+**När** jag ser den i Tidigare
+**Så** står det som förut "3 rätter · skapad 26 okt 2026"
+
+**Givet** att inga databasfunktioner ändras
+**Så** är ingen migrering med och inget försvinner ur listan
+
 ## Epic 17: Molnet och gemensam lista
 
 Version 2.0. Familjen planerar och handlar ihop i Matkoll med en delad inloggning per hushåll, och upp till fem vänhushåll kan betatesta med egna konton utan att någon data blandas. Matkoll ersätter To Do som inköpslista. Allt byggs och testas lokalt först; flytten till Vercel och Supabase i molnet (17.3, 17.4) görs först när Pontus säger till. Underlag: `sprint-change-proposal-2026-10-31-molnet-och-gemensam-lista.md`.

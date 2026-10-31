@@ -1,12 +1,8 @@
 "use client";
 
 import Link from "next/link";
-import { Button } from "@/components/button";
 import { EmptyState } from "@/components/empty-state";
-import { Notice } from "@/components/notice";
-import { newPlan } from "../actions/new-plan";
 import { planSummaryText, type PlanSummary } from "../domain/meal-plan";
-import { useCreatePlan } from "./use-create-plan";
 
 // Tidigare matsedlar (FR-14): the earlier meal plans newest first, each with
 // its name, number of dishes and the date it was made, so two "Vecka 44" from
@@ -19,15 +15,8 @@ export type PreviousPlansProps = {
 };
 
 export function PreviousPlans({ plans }: PreviousPlansProps) {
-  const { creating, error, run } = useCreatePlan((id) => newPlan(id));
   return (
     <div className="flex flex-col gap-4">
-      <div className="flex flex-col gap-2">
-        {error ? <Notice role="alert">{error}</Notice> : null}
-        <Button variant="secondary" disabled={creating} onClick={run} className="self-start">
-          {creating ? "Skapar …" : "Ny matsedel"}
-        </Button>
-      </div>
       {plans.length === 0 ? (
         <EmptyState>Inga tidigare matsedlar än.</EmptyState>
       ) : (

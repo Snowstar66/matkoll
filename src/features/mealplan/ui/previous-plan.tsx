@@ -11,26 +11,23 @@ import { useToast } from "@/components/toast";
 import { fail, type Result } from "@/lib/errors";
 import { copyPlan } from "../actions/copy-plan";
 import { deletePlan } from "../actions/delete-plan";
-import { reusePlan } from "../actions/reuse-plan";
 import {
   deletePlanQuestion,
-  dishCountText,
   leftOutText,
   noDishesText,
-  nothingToReuseText,
-  planDateText,
+  nothingToCopyText,
   planDeletedText,
+  planSummaryText,
   weekdayNames,
   type PlanDetail,
 } from "../domain/meal-plan";
 import { copiedText, copyTargets, weekFillText, weekQuery, type WeekChoice } from "../domain/week";
-import { useCreatePlan } from "./use-create-plan";
 
 // An earlier meal plan (FR-14): its dishes and servings, read only. A dish
 // whose recipe is deleted shows "Borttaget recept: [titel]" and does not come
-// along with "Använd igen" (a note above the button says how many), which
-// makes a new current plan of the rest and lands on Matsedel. Without a dish
-// whose recipe is left, "Använd igen" is unavailable and the note says why.
+// along with "Kopiera till …" (a note above the button says how many). Without
+// a dish whose recipe is left, "Kopiera till …" is unavailable and the note
+// says why.
 // "Ta bort matsedel" asks first ("Ta bort Vecka 42? Det går inte att
 // ångra.", focus on "Avbryt") and then deletes the plan for good; a plan
 // already gone counts as deleted. "Kopiera till …" says what each week
@@ -44,7 +41,6 @@ export type PreviousPlanProps = {
 };
 
 export function PreviousPlan({ plan, targetCounts = null }: PreviousPlanProps) {
-  const { creating, error: createError, run: reuse } = useCreatePlan((id) => reusePlan(plan.id, id));
   const [asking, setAsking] = useState(false);
   const [deleting, startDeleting] = useTransition();
   const [deleteError, setDeleteError] = useState<string | null>(null);
@@ -57,10 +53,10 @@ export function PreviousPlan({ plan, targetCounts = null }: PreviousPlanProps) {
   /** Set from the tap until the answer, before React has rendered `deleting`. */
   const deleteInFlight = useRef(false);
   const noteId = useId();
-  const busy = creating || deleting || copyBusy;
+  const busy = deleting || copyBusy;
   const reusable = plan.recipes.filter((dish) => dish.recipeId !== null).length;
   const leftOut = leftOutText(plan.recipes.length - reusable);
-  const reuseNote = plan.recipes.length === 0 ? null : reusable === 0 ? nothingToReuseText : leftOut;
+  const copyNote = plan.recipes.length === 0 ? null : reusable === 0 ? nothingToCopyText : leftOut;
 
   function ask() {
     setDeleteError(null);
@@ -126,7 +122,7 @@ export function PreviousPlan({ plan, targetCounts = null }: PreviousPlanProps) {
   return (
     <div className="flex flex-col gap-4">
       <p className="text-meta text-ink-3">
-        {dishCountText(plan.recipes.length)} · skapad {planDateText(plan.createdAt)}
+        {planSummaryText({ ...plan, weekStart: plan.weekStart ?? null, dishCount: plan.recipes.length })}
       </p>
       {plan.recipes.length === 0 ? (
         <p id={noteId} className="text-body text-ink-2">
@@ -157,25 +153,16 @@ export function PreviousPlan({ plan, targetCounts = null }: PreviousPlanProps) {
         </ul>
       )}
       <div className="flex flex-col gap-2">
-        {reuseNote ? (
-          <p id={noteId} data-testid="reuse-note" className="text-meta text-ink-2">
-            {reuseNote}
+        {copyNote ? (
+          <p id={noteId} data-testid="copy-note" className="text-meta text-ink-2">
+            {copyNote}
           </p>
         ) : null}
-        {createError ? <Notice role="alert">{createError}</Notice> : null}
-        <Button
-          fullWidth
-          disabled={busy || reusable === 0}
-          aria-describedby={reuseNote || plan.recipes.length === 0 ? noteId : undefined}
-          onClick={reuse}
-        >
-          {creating ? "Skapar …" : "Använd igen"}
-        </Button>
         <Button
           variant="secondary"
           fullWidth
           disabled={busy || reusable === 0}
-          aria-describedby={reuseNote || plan.recipes.length === 0 ? noteId : undefined}
+          aria-describedby={copyNote || plan.recipes.length === 0 ? noteId : undefined}
           onClick={() => {
             setCopyError(null);
             setCopying(true);

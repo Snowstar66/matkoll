@@ -12,8 +12,9 @@ import { adminClient, e2eUserId, mealplanEmail, mealplanStorageState } from "./s
 //
 // Story 3.2: Tidigare matsedlar. Earlier plans are made with the service role
 // (Vecka 42 with a dish whose recipe is deleted, and an empty Vecka 41 from
-// last year); "Använd igen", "Ny matsedel" and "Ta bort matsedel" with its
-// question follow.
+// last year, without a week: pushed aside); "Kopiera till …" and "Ta bort
+// matsedel" with its question follow. Story 16.16: no "Ny matsedel" or
+// "Använd igen"; a plan without a week says "undanlagd".
 
 const mobile = { width: 375, height: 812 };
 const gryta = "Krämig kycklinggryta";
@@ -346,11 +347,16 @@ async function plansOfUser() {
   return data as { id: string; name: string; is_current: boolean }[];
 }
 
-async function seedEarlierPlan(name: string, createdAt: string, dishes: { recipeId: string | null; title: string; servings: number }[]) {
+async function seedEarlierPlan(
+  name: string,
+  createdAt: string,
+  dishes: { recipeId: string | null; title: string; servings: number }[],
+  weekStart: string | null = null,
+) {
   const admin = adminClient();
   const plan = await admin
     .from("meal_plan")
-    .insert({ user_id: userId, name, is_current: false, created_at: createdAt })
+    .insert({ user_id: userId, name, is_current: false, created_at: createdAt, week_start: weekStart })
     .select("id")
     .single();
   if (plan.error) throw plan.error;
@@ -388,13 +394,13 @@ test("the earlier plans show newest first with their dishes and the date they we
     { recipeId: recipeIds[soppa], title: soppa, servings: 2 },
     { recipeId: null, title: "Gammal paj", servings: 4 },
     { recipeId: recipeIds[gryta], title: gryta, servings: 6 },
-  ]);
+  ], "2026-10-12");
   await page.goto("/matsedel/tidigare");
   await expect(previousPlans(page)).toHaveCount(2);
   await expect(previousPlans(page).nth(0)).toContainText("Vecka 42");
   await expect(previousPlans(page).nth(0)).toContainText("3 rätter · skapad 12 okt 2026");
   await expect(previousPlans(page).nth(1)).toContainText("Vecka 41");
-  await expect(previousPlans(page).nth(1)).toContainText("0 rätter · skapad 6 okt 2025");
+  await expect(previousPlans(page).nth(1)).toContainText("0 rätter · undanlagd · skapad 6 okt 2025");
 
   await previousPlans(page).nth(0).getByRole("link", { name: "Vecka 42" }).click();
   await expect(page).toHaveURL(new RegExp(`/matsedel/tidigare/${planIds["Vecka 42"]}$`));
@@ -402,50 +408,27 @@ test("the earlier plans show newest first with their dishes and the date they we
   await expect(previousDishes(page).nth(0)).toContainText(`${soppa}2 portioner`);
   await expect(previousDishes(page).nth(1)).toContainText("Borttaget recept: Gammal paj");
   await expect(previousDishes(page).nth(2)).toContainText(`${gryta}6 portioner`);
-  await expect(page.getByTestId("reuse-note").filter({ visible: true })).toHaveText(
+  await expect(page.getByTestId("copy-note").filter({ visible: true })).toHaveText(
     "1 rätt med borttaget recept följer inte med.",
   );
   expect(errors).toEqual([]);
 });
 
-test("Använd igen makes a new current plan with the same dishes and servings, without the deleted recipe", async ({ page }) => {
+test("Tidigare and an earlier plan have no Ny matsedel or Använd igen", async ({ page }) => {
   const errors = watchErrors(page);
   const before = await plansOfUser();
-  const current = before.find(({ is_current }) => is_current);
+  await page.goto("/matsedel/tidigare");
+  await expect(previousPlans(page)).toHaveCount(2);
+  await expect(page.getByRole("button", { name: "Ny matsedel" })).toHaveCount(0);
   await page.goto(`/matsedel/tidigare/${planIds["Vecka 42"]}`);
-  await page.getByRole("button", { name: "Använd igen" }).click();
-
-  await expect(page).toHaveURL(/\/matsedel$/);
-  await expect(toast(page)).toHaveText("Matsedeln är skapad.");
-  await expect(dishes(page)).toHaveCount(2);
-  await expect(dishes(page).nth(0)).toContainText(soppa);
-  await expect(dishes(page).nth(0).getByTestId("dish-meta")).toContainText("2 port.");
-  await expect(dishes(page).nth(1)).toContainText(gryta);
-  await expect(dishes(page).nth(1).getByTestId("dish-meta")).toContainText("6 port.");
-  await expect(page.getByTestId("plan-name").filter({ visible: true })).toHaveText(/^Vecka \d{1,2}$/);
-
-  // One current plan; the one that was current is an earlier plan now.
-  const after = await plansOfUser();
-  expect(after).toHaveLength(before.length + 1);
-  expect(after.filter(({ is_current }) => is_current)).toHaveLength(1);
-  expect(after.find(({ id }) => id === current?.id)?.is_current).toBe(false);
-  await page.goto("/matsedel/tidigare");
-  await expect(previousPlans(page)).toHaveCount(3);
-  expect(errors).toEqual([]);
-});
-
-test("Ny matsedel makes an empty current plan", async ({ page }) => {
-  const errors = watchErrors(page);
-  const before = await plansOfUser();
-  await page.goto("/matsedel/tidigare");
-  await page.getByRole("button", { name: "Ny matsedel" }).click();
-  await expect(page).toHaveURL(/\/matsedel$/);
-  await expect(toast(page)).toHaveText("Matsedeln är skapad.");
-  await expect(page.getByText("Ingen rätt på matsedeln än.").filter({ visible: true })).toBeVisible();
-  const after = await plansOfUser();
-  expect(after).toHaveLength(before.length + 1);
-  expect(after.filter(({ is_current }) => is_current)).toHaveLength(1);
-  expect(after.at(-1)?.is_current).toBe(true);
+  await expect(page.getByRole("button", { name: "Använd igen" })).toHaveCount(0);
+  await expect(page.getByRole("button", { name: /Kopiera till/ }).filter({ visible: true })).toBeEnabled();
+  await expect(page.getByRole("button", { name: "Ta bort matsedel" }).filter({ visible: true })).toBeVisible();
+  // A past week says "skapad"; the plan without a week says "undanlagd" on its own page too.
+  await expect(page.getByText("3 rätter · skapad 12 okt 2026").filter({ visible: true })).toBeVisible();
+  await page.goto(`/matsedel/tidigare/${planIds["Vecka 41"]}`);
+  await expect(page.getByText("0 rätter · undanlagd · skapad 6 okt 2025").filter({ visible: true })).toBeVisible();
+  expect(await plansOfUser()).toHaveLength(before.length);
   expect(errors).toEqual([]);
 });
 

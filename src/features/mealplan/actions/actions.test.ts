@@ -50,8 +50,6 @@ const { setServings } = await import("./set-servings");
 const { setWeekday } = await import("./set-weekday");
 const { removePlanRecipe } = await import("./remove-plan-recipe");
 const { restorePlanRecipe } = await import("./restore-plan-recipe");
-const { reusePlan } = await import("./reuse-plan");
-const { newPlan } = await import("./new-plan");
 const { deletePlan } = await import("./delete-plan");
 
 const recipeId = "11111111-1111-4111-8111-111111111111";
@@ -204,71 +202,6 @@ describe("removePlanRecipe and restorePlanRecipe", () => {
     data.restorePlanRecipeIn.mockRejectedValue(new MealPlanDataError("restore_failed 23503"));
     expect(await restorePlanRecipe(row)).toEqual(fail("mealplan_restore_failed"));
     expect(log).toHaveBeenCalledWith("mealplan_restore_failed", { reason: "restore_failed 23503" });
-  });
-});
-
-const newPlanId = "44444444-4444-4444-8444-444444444444";
-
-describe("reusePlan and newPlan", () => {
-  it("makes a new current plan of the earlier one, named after this week, and revalidates", async () => {
-    vi.useFakeTimers({ now: new Date("2026-10-26T10:00:00Z"), toFake: ["Date"] });
-    expect(await reusePlan(planId, newPlanId)).toEqual(ok({ id: newPlanId }));
-    vi.useRealTimers();
-    expect(data.setCurrentPlanIn).toHaveBeenCalledWith(db, { id: newPlanId, name: "Vecka 44", sourceId: planId });
-    expect(revalidateFor).toHaveBeenCalledWith("meal_plan");
-  });
-
-  it("makes a new empty current plan, with an id of its own when none is given", async () => {
-    vi.useFakeTimers({ now: new Date("2026-11-02T10:00:00Z"), toFake: ["Date"] });
-    const result = await newPlan();
-    vi.useRealTimers();
-    expect(result.ok).toBe(true);
-    expect(data.setCurrentPlanIn).toHaveBeenCalledWith(db, {
-      id: expect.stringMatching(/^[0-9a-f-]{36}$/),
-      name: "Vecka 45",
-    });
-    expect(await newPlan(newPlanId)).toEqual(ok({ id: newPlanId }));
-  });
-
-  it("rejects ids that do not parse, and writes nothing", async () => {
-    expect(await reusePlan("inte-ett-id", newPlanId)).toEqual(fail("validation"));
-    expect(await reusePlan(planId, "inte-ett-id")).toEqual(fail("validation"));
-    expect(await newPlan("inte-ett-id")).toEqual(fail("validation"));
-    expect(data.setCurrentPlanIn).not.toHaveBeenCalled();
-  });
-
-  it("returns unauthorized without an allowed user", async () => {
-    requireUser.mockResolvedValue(fail("unauthorized"));
-    expect(await reusePlan(planId)).toEqual(fail("unauthorized"));
-    expect(await newPlan()).toEqual(fail("unauthorized"));
-    expect(data.setCurrentPlanIn).not.toHaveBeenCalled();
-  });
-
-  it("gives mealplan_create_failed when the plan cannot be made now, and revalidates nothing", async () => {
-    data.setCurrentPlanIn.mockRejectedValue(new MealPlanDataError("set_current_failed 08006", "08006"));
-    expect(await reusePlan(planId, newPlanId)).toEqual(fail("mealplan_create_failed"));
-    expect(await newPlan(newPlanId)).toEqual(fail("mealplan_create_failed"));
-    data.setCurrentPlanIn.mockRejectedValue(new MealPlanDataError("invalid_id"));
-    expect(await newPlan(newPlanId)).toEqual(fail("mealplan_create_failed"));
-    expect(log).toHaveBeenCalledWith("mealplan_create_failed", { reason: "set_current_failed 08006" });
-    expect(revalidateFor).not.toHaveBeenCalled();
-  });
-
-  it("gives mealplan_plan_gone when the plan to use again is deleted", async () => {
-    data.setCurrentPlanIn.mockRejectedValue(new MealPlanDataError("set_current_failed P0002", "P0002"));
-    expect(await reusePlan(planId, newPlanId)).toEqual(fail("mealplan_plan_gone"));
-    expect(log).toHaveBeenCalledWith("mealplan_create_failed", { reason: "set_current_failed P0002" });
-  });
-
-  it.each(["55000", "23505", "22023"])("gives mealplan_plans_changed for %s, which a retry cannot fix", async (code) => {
-    data.setCurrentPlanIn.mockRejectedValue(new MealPlanDataError(`set_current_failed ${code}`, code));
-    expect(await reusePlan(planId, newPlanId)).toEqual(fail("mealplan_plans_changed"));
-    expect(await newPlan(newPlanId)).toEqual(fail("mealplan_plans_changed"));
-  });
-
-  it("throws other errors, which are bugs", async () => {
-    data.setCurrentPlanIn.mockRejectedValue(new TypeError("boom"));
-    await expect(reusePlan(planId)).rejects.toThrow("boom");
   });
 });
 

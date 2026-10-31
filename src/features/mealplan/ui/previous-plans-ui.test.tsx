@@ -9,26 +9,22 @@ import { PreviousPlans } from "./previous-plans";
 
 // Tidigare matsedlar (Story 3.2) with the actions and the router stubbed.
 
-const newPlan = vi.fn<(id?: string) => Promise<Result<{ id: string }>>>();
-const reusePlan = vi.fn<(id: string, newPlanId?: string) => Promise<Result<{ id: string }>>>();
 const deletePlan = vi.fn<(id: string) => Promise<Result<{ id: string }>>>();
-vi.mock("../actions/new-plan", () => ({ newPlan: (id?: string) => newPlan(id) }));
-vi.mock("../actions/reuse-plan", () => ({
-  reusePlan: (id: string, newPlanId?: string) => reusePlan(id, newPlanId),
-}));
+vi.mock("../actions/copy-plan", () => ({ copyPlan: vi.fn() }));
 vi.mock("../actions/delete-plan", () => ({ deletePlan: (id: string) => deletePlan(id) }));
 const router = { push: vi.fn(), replace: vi.fn(), refresh: vi.fn() };
 vi.mock("next/navigation", () => ({ useRouter: () => router }));
 
 const planId = "33333333-3333-4333-8333-333333333333";
 const summaries: PlanSummary[] = [
-  { id: planId, name: "Vecka 44", createdAt: "2026-10-26T10:00:00Z", dishCount: 3 },
-  { id: "55555555-5555-4555-8555-555555555555", name: "Vecka 44", createdAt: "2025-10-27T10:00:00Z", dishCount: 1 },
+  { id: planId, name: "Vecka 44", createdAt: "2026-10-26T10:00:00Z", dishCount: 3, weekStart: "2026-10-26" },
+  { id: "55555555-5555-4555-8555-555555555555", name: "Vecka 44", createdAt: "2025-10-27T10:00:00Z", dishCount: 1, weekStart: null },
 ];
 const plan: PlanDetail = {
   id: planId,
   name: "Vecka 42",
   isCurrent: false,
+  weekStart: "2026-10-12",
   createdAt: "2026-10-12T08:00:00Z",
   recipes: [
     { id: "d1", recipeId: "11111111-1111-4111-8111-111111111111", recipeTitle: "Pasta", servings: 4, position: 0 },
@@ -37,8 +33,6 @@ const plan: PlanDetail = {
 };
 
 beforeEach(() => {
-  newPlan.mockReset().mockImplementation(async (id) => ok({ id: id ?? "" }));
-  reusePlan.mockReset().mockImplementation(async (_id, newPlanId) => ok({ id: newPlanId ?? "" }));
   deletePlan.mockReset().mockResolvedValue(ok({ id: planId }));
   router.push.mockReset();
   router.replace.mockReset();
@@ -55,12 +49,24 @@ describe("PreviousPlans", () => {
     const rows = screen.getAllByTestId("previous-plan");
     expect(rows.map((row) => row.textContent)).toEqual([
       "Vecka 443 rätter · skapad 26 okt 2026",
-      "Vecka 441 rätt · skapad 27 okt 2025",
+      "Vecka 441 rätt · undanlagd · skapad 27 okt 2025",
     ]);
     expect(within(rows[0]).getByRole("link", { name: "Vecka 44" })).toHaveAttribute(
       "href",
       `/matsedel/tidigare/${planId}`,
     );
+  });
+
+  it("has no Ny matsedel button, and says undanlagd only for a plan without a week", () => {
+    render(
+      <ToastProvider>
+        <PreviousPlans plans={summaries} />
+      </ToastProvider>,
+    );
+    expect(screen.queryByRole("button", { name: "Ny matsedel" })).not.toBeInTheDocument();
+    const rows = screen.getAllByTestId("previous-plan");
+    expect(rows[0]).not.toHaveTextContent("undanlagd");
+    expect(rows[1]).toHaveTextContent("undanlagd · skapad 27 okt 2025");
   });
 
   it("says so when there are none", () => {
@@ -70,88 +76,7 @@ describe("PreviousPlans", () => {
       </ToastProvider>,
     );
     expect(screen.getByText("Inga tidigare matsedlar än.")).toBeInTheDocument();
-    expect(screen.getByRole("button", { name: "Ny matsedel" })).toBeEnabled();
-  });
-
-  it("Ny matsedel makes a new plan and lands on Matsedel with the confirmation", async () => {
-    const user = userEvent.setup();
-    render(
-      <ToastProvider>
-        <PreviousPlans plans={summaries} />
-      </ToastProvider>,
-    );
-    await user.click(screen.getByRole("button", { name: "Ny matsedel" }));
-    expect(newPlan).toHaveBeenCalledWith(expect.stringMatching(/^[0-9a-f-]{36}$/));
-    expect(router.push).toHaveBeenCalledWith("/matsedel");
-    expect(await screen.findByTestId("toast")).toHaveTextContent("Matsedeln är skapad.");
-  });
-
-  it("says when the plan cannot be made, and a retry uses the same id", async () => {
-    const user = userEvent.setup();
-    newPlan.mockResolvedValueOnce(fail("mealplan_create_failed")).mockRejectedValueOnce(new Error("offline"));
-    render(
-      <ToastProvider>
-        <PreviousPlans plans={summaries} />
-      </ToastProvider>,
-    );
-    await user.click(screen.getByRole("button", { name: "Ny matsedel" }));
-    expect(await screen.findByRole("alert")).toHaveTextContent("Det gick inte att skapa matsedeln. Försök igen.");
-    // The button reads "Skapar …" until each failed try has settled.
-    await user.click(await screen.findByRole("button", { name: "Ny matsedel" }));
-    await user.click(await screen.findByRole("button", { name: "Ny matsedel" }));
-    expect(newPlan).toHaveBeenCalledTimes(3);
-    const ids = newPlan.mock.calls.map(([id]) => id);
-    expect(new Set(ids).size).toBe(1);
-    expect(router.push).toHaveBeenCalledTimes(1);
-  });
-
-  it("refreshes instead of showing an error when the session is gone", async () => {
-    const user = userEvent.setup();
-    newPlan.mockResolvedValue(fail("unauthorized"));
-    render(
-      <ToastProvider>
-        <PreviousPlans plans={summaries} />
-      </ToastProvider>,
-    );
-    await user.click(screen.getByRole("button", { name: "Ny matsedel" }));
-    expect(router.refresh).toHaveBeenCalled();
-    expect(screen.queryByRole("alert")).not.toBeInTheDocument();
-  });
-
-  it("drops the id and reads the page again when the plans changed elsewhere", async () => {
-    const user = userEvent.setup();
-    newPlan.mockResolvedValueOnce(fail("mealplan_plans_changed"));
-    render(
-      <ToastProvider>
-        <PreviousPlans plans={summaries} />
-      </ToastProvider>,
-    );
-    await user.click(screen.getByRole("button", { name: "Ny matsedel" }));
-    expect(router.refresh).toHaveBeenCalled();
-    expect(await screen.findByRole("alert")).toHaveTextContent("Matsedlarna har ändrats.");
-    // The button reads "Skapar …" until the failed try has settled.
-    await user.click(await screen.findByRole("button", { name: "Ny matsedel" }));
-    const [[first], [second]] = newPlan.mock.calls;
-    expect(second).not.toBe(first);
-    expect(router.push).toHaveBeenCalledWith("/matsedel");
-  });
-
-  it("sends one request for a double click", async () => {
-    let answer: (result: Result<{ id: string }>) => void = () => {};
-    newPlan.mockImplementation(() => new Promise((resolve) => (answer = resolve)));
-    render(
-      <ToastProvider>
-        <PreviousPlans plans={summaries} />
-      </ToastProvider>,
-    );
-    const button = screen.getByRole("button", { name: "Ny matsedel" });
-    act(() => {
-      button.click();
-      button.click();
-    });
-    expect(newPlan).toHaveBeenCalledTimes(1);
-    await act(async () => answer(ok({ id: "x" })));
-    expect(router.push).toHaveBeenCalledTimes(1);
+    expect(screen.queryByRole("button", { name: "Ny matsedel" })).not.toBeInTheDocument();
   });
 });
 
@@ -175,51 +100,48 @@ describe("PreviousPlan", () => {
 
   it("says that the dish with a deleted recipe does not come along", () => {
     renderPlan();
-    expect(screen.getByTestId("reuse-note")).toHaveTextContent("1 rätt med borttaget recept följer inte med.");
-    expect(screen.getByRole("button", { name: "Använd igen" })).toHaveAccessibleDescription(
+    expect(screen.getByTestId("copy-note")).toHaveTextContent("1 rätt med borttaget recept följer inte med.");
+    expect(screen.getByRole("button", { name: /Kopiera till/ })).toHaveAccessibleDescription(
       "1 rätt med borttaget recept följer inte med.",
     );
   });
 
-  it("offers no Använd igen when every recipe is deleted, and says why", () => {
+  it("offers no Kopiera till when every recipe is deleted, and says why", () => {
     const gone = { ...plan, recipes: plan.recipes.map((dish) => ({ ...dish, recipeId: null })) };
     render(
       <ToastProvider>
         <PreviousPlan plan={gone} />
       </ToastProvider>,
     );
-    const button = screen.getByRole("button", { name: "Använd igen" });
+    const button = screen.getByRole("button", { name: /Kopiera till/ });
     expect(button).toBeDisabled();
-    expect(button).toHaveAccessibleDescription("Alla recept på matsedeln är borttagna, så den går inte att använda igen.");
+    expect(button).toHaveAccessibleDescription("Alla recept på matsedeln är borttagna, så den går inte att kopiera.");
   });
 
-  it("offers no Använd igen for a plan without dishes", () => {
+  it("offers no Kopiera till for a plan without dishes", () => {
     render(
       <ToastProvider>
         <PreviousPlan plan={{ ...plan, recipes: [] }} />
       </ToastProvider>,
     );
-    expect(screen.getByRole("button", { name: "Använd igen" })).toBeDisabled();
-    expect(screen.getByRole("button", { name: "Använd igen" })).toHaveAccessibleDescription("Matsedeln har inga rätter.");
+    expect(screen.getByRole("button", { name: /Kopiera till/ })).toBeDisabled();
+    expect(screen.getByRole("button", { name: /Kopiera till/ })).toHaveAccessibleDescription("Matsedeln har inga rätter.");
   });
 
-  it("goes back to Tidigare when the plan to use again is gone", async () => {
-    const user = userEvent.setup();
-    reusePlan.mockResolvedValue(fail("mealplan_plan_gone"));
+  it("has no Använd igen button, and shows Kopiera till and Ta bort matsedel", () => {
     renderPlan();
-    await user.click(screen.getByRole("button", { name: "Använd igen" }));
-    expect(router.replace).toHaveBeenCalledWith("/matsedel/tidigare");
-    expect(await screen.findByTestId("toast")).toHaveTextContent("Matsedeln finns inte längre.");
-    expect(router.push).not.toHaveBeenCalled();
+    expect(screen.queryByRole("button", { name: "Använd igen" })).not.toBeInTheDocument();
+    expect(screen.getByRole("button", { name: /Kopiera till/ })).toBeEnabled();
+    expect(screen.getByRole("button", { name: "Ta bort matsedel" })).toBeEnabled();
   });
 
-  it("Använd igen makes a new current plan of it and lands on Matsedel", async () => {
-    const user = userEvent.setup();
-    renderPlan();
-    await user.click(screen.getByRole("button", { name: "Använd igen" }));
-    expect(reusePlan).toHaveBeenCalledWith(planId, expect.stringMatching(/^[0-9a-f-]{36}$/));
-    expect(router.push).toHaveBeenCalledWith("/matsedel");
-    expect(await screen.findByTestId("toast")).toHaveTextContent("Matsedeln är skapad.");
+  it("says undanlagd for a plan without a week", () => {
+    render(
+      <ToastProvider>
+        <PreviousPlan plan={{ ...plan, weekStart: null }} />
+      </ToastProvider>,
+    );
+    expect(screen.getByText("2 rätter · undanlagd · skapad 12 okt 2026")).toBeInTheDocument();
   });
 
   it("Ta bort matsedel asks first, and Avbryt leaves the plan", async () => {
