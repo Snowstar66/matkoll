@@ -29,7 +29,7 @@ vi.mock("@/lib/supabase/server", () => ({ createClient: async () => db }));
 const revalidateFor = vi.fn();
 vi.mock("@/lib/revalidate", () => ({ revalidateFor: (table: string) => revalidateFor(table) }));
 const getAiService = vi.fn();
-vi.mock("@/server/ai", () => ({ getAiService: () => getAiService() }));
+vi.mock("@/server/ai", () => ({ getAiServiceFor: () => getAiService() }));
 
 const steps: string[] = [];
 const uploadPlacePhoto = vi.fn();

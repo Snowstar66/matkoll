@@ -262,3 +262,30 @@ test("Story 1.14: Importera recept lists the approved sites with new-tab links a
   await expect(page.getByTestId("bookmarklet-tip")).toContainText("⌘⇧B");
   await expect(page.getByRole("heading", { level: 2, name: "Spara i Matkoll" })).toBeInViewport();
 });
+
+test("Story 17.5: the section AI saves the choice, which is read again after a reload", async ({ page }) => {
+  const errors = watchErrors(page);
+  await adminClient().from("ai_setting").delete().eq("user_id", userId);
+  await page.goto("/installningar");
+  const section = page.getByTestId("ai-settings");
+  await expect(page.getByRole("heading", { level: 2, name: "AI", exact: true })).toBeVisible();
+  const claude = section.getByRole("radio", { name: "Claude" });
+  await expect(section.getByRole("radio", { name: "Qwen lokalt" })).toBeVisible();
+  // Without ANTHROPIC_API_KEY (the server's environment) Claude is off with the key text; with it, Claude can be picked.
+  if (await claude.isDisabled()) {
+    await expect(page.getByTestId("ai-claude-missing")).toHaveText("Lägg in ANTHROPIC_API_KEY i .env.local och starta om");
+  } else {
+    await expect(section.getByRole("radio", { name: "Haiku 5.5" })).toBeChecked();
+    await section.getByRole("radio", { name: "Sonnet 5.5" }).click();
+    await section.getByRole("radio", { name: "Hög" }).click();
+    await expect(toast(page)).toContainText("Sparat");
+    await expect
+      .poll(async () => (await adminClient().from("ai_setting").select("model, effort").eq("user_id", userId)).data)
+      .toEqual([{ model: "claude-sonnet-5-5", effort: "high" }]);
+    await page.reload();
+    await expect(section.getByRole("radio", { name: "Sonnet 5.5" })).toBeChecked();
+    await expect(section.getByRole("radio", { name: "Hög" })).toBeChecked();
+    await adminClient().from("ai_setting").delete().eq("user_id", userId);
+  }
+  expect(errors).toEqual([]);
+});

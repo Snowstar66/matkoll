@@ -32,6 +32,7 @@ type Coverage = {
 // new table is a type error here too; the live schema check below is the one
 // that names it even when the types were not regenerated.
 const coverage: Record<TableName, Coverage> = {
+  ai_setting: { row: () => ({ provider: "anthropic", model: "claude-sonnet-5-5", effort: "medium" }) },
   ai_job: {
     row: () => ({ kind: "suggest", client_key: randomUUID(), expires_at: new Date(Date.now() + 175 * 60_000).toISOString() }),
   },
@@ -91,6 +92,7 @@ const seedOrder: TableName[] = [
   "meal_plan",
   "store",
   "ai_job",
+  "ai_setting",
   "ingredient_synonym",
   "meal_plan_recipe",
   "pantry_addition",

@@ -525,6 +525,13 @@ function parseRecipeContent(input: ParseRecipeInput) {
   return parts;
 }
 
+/** How hard a Claude model thinks (Story 17.5): sent as `output_config.effort`. LM Studio has no matching switch, so Qwen ignores it. */
+export const aiEfforts = ["low", "medium", "high"] as const;
+export type AiEffort = (typeof aiEfforts)[number];
+
+/** The provider, model and level picked in Inställningar. The port never reads the database; the caller passes it in. */
+export type AiChoice = { provider: "lmstudio" | "anthropic"; model: string; effort: AiEffort };
+
 export type AiServiceOptions = {
   /** For tests: replaces fetch in the real adapters. */
   fetch?: typeof fetch;
@@ -537,11 +544,13 @@ export type AiServiceOptions = {
  * Picks the adapter from AI_PROVIDER, with the input checked in front of it.
  * parseEnv has already checked that the settings fit.
  */
-export function createAiService(env: Env, options: AiServiceOptions = {}): AiService {
-  return withInputValidation(createAdapter(env, options));
+export function createAiService(env: Env, options: AiServiceOptions = {}, choice?: AiChoice): AiService {
+  // Story 17.5: a choice made in Inställningar replaces AI_PROVIDER and AI_MODEL; the keys and URLs stay the environment's.
+  const effective = choice ? { ...env, AI_PROVIDER: choice.provider, AI_MODEL: choice.model } : env;
+  return withInputValidation(createAdapter(effective, options, choice?.effort));
 }
 
-function createAdapter(env: Env, options: AiServiceOptions): AiService {
+function createAdapter(env: Env, options: AiServiceOptions, effort?: AiEffort): AiService {
   const model = (name: string | undefined) => {
     if (!name) throw new Error("AI_MODEL is not set");
     return name;
@@ -567,7 +576,7 @@ function createAdapter(env: Env, options: AiServiceOptions): AiService {
     case "anthropic":
       if (!env.ANTHROPIC_API_KEY) throw new Error("ANTHROPIC_API_KEY is not set");
       return createModelAiService(
-        createAnthropicTarget({ apiKey: env.ANTHROPIC_API_KEY, model: model(env.AI_MODEL), fetch: options.fetch }),
+        createAnthropicTarget({ apiKey: env.ANTHROPIC_API_KEY, model: model(env.AI_MODEL), effort, fetch: options.fetch }),
         options.limits,
       );
     case "openai":

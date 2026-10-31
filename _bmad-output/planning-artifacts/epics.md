@@ -3389,7 +3389,7 @@ så att jag kan jämföra min lokala Qwen med Claude utan att ändra filer eller
 
 **Givet** inget sparat val
 **När** ett AI-jobb körs
-**Så** används dagens `AI_PROVIDER`/`AI_MODEL` från miljön, så att inget ändras förrän jag väljer
+**Så** används Claude Haiku 5.5 (`claude-haiku-5-5`) på nivå Medel om `ANTHROPIC_API_KEY` finns, och Inställningar visar Haiku 5.5 / Medel som valt; saknas nyckeln används dagens `AI_PROVIDER`/`AI_MODEL` från miljön (Qwen). Testläget `AI_PROVIDER=mock` påverkas aldrig (ändrat 2026-10-31, Pontus)
 
 **Givet** molnet med flera hushåll
 **När** någon annan än en adress i `AI_SETTINGS_EMAILS` öppnar Inställningar

@@ -1,6 +1,7 @@
 import "server-only";
 import { fail, ok, type Result } from "@/lib/errors";
-import { getAiService, type ImageInput } from "@/server/ai";
+import { getAiChoice } from "@/features/settings/server";
+import { getAiServiceFor, type ImageInput } from "@/server/ai";
 import type { LocateResult } from "../domain/photo-numbers";
 
 // The second step of a photo's AI job (Story 6.6, 12.5, AD-2, AD-9, AD-15):
@@ -35,7 +36,7 @@ export async function locatePlaceItems(
   input: LocatePlaceItemsInput,
   { signal, deadline }: LocatePlaceItemsOptions,
 ): Promise<Result<LocateResult>> {
-  const located = await getAiService().locateItems(input, signal, { deadline });
+  const located = await getAiServiceFor(await getAiChoice()).locateItems(input, signal, { deadline });
   if (!located.ok) return located;
   if (signal.aborted) {
     console.info("locate_aborted");
