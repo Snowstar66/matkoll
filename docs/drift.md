@@ -49,6 +49,7 @@ Konton görs bara av `pnpm users:sync`, som läser `ALLOWED_EMAILS` och skapar a
 
 1. Lägg adressen i `ALLOWED_EMAILS` (Vercel och lokalt) och kör `pnpm users:sync`.
 2. Säg åt personen att öppna appen och välja **Första gången eller glömt lösenordet? Välj lösenord**. Mejlet har en länk där hen väljer lösenord (minst 12 tecken) och blir inloggad. Samma väg gäller om någon glömt sitt lösenord.
+3. Kommer inget mejl? Appen svarar likadant för alla adresser, så ett stavfel i `ALLOWED_EMAILS` eller en glömd `pnpm users:sync` syns bara som tystnad. Kontrollera adressen och att `users:sync` har körts.
 
 Lägg in mejlmallen **Reset Password** från `supabase/templates/recovery.html` (`type=recovery`), som för engångslänken; länken går till `/auth/confirm`. Lokalt läses mallen när Supabase startas, så `pnpm db:stop && pnpm db:start` behövs en gång efter Story 17.2.
 
