@@ -1,0 +1,170 @@
+{
+  "suggestions": [
+    {
+      "title": "Kyckling med lime och koriander",
+      "servings": 4,
+      "totalMinutes": 30,
+      "ingredients": [
+        {
+          "text": "500 g kycklingfilé",
+          "amount": 500,
+          "unit": "g",
+          "name": "kycklingfilé",
+          "stepIndexes": [
+            1
+          ],
+          "new": null
+        },
+        {
+          "text": "1 lime",
+          "amount": 1,
+          "unit": null,
+          "name": "lime",
+          "stepIndexes": [
+            2
+          ],
+          "new": null
+        },
+        {
+          "text": "1 kruka koriander",
+          "amount": 1,
+          "unit": "kruka",
+          "name": "koriander",
+          "stepIndexes": [
+            2
+          ],
+          "new": null
+        },
+        {
+          "text": "3 dl ris",
+          "amount": 3,
+          "unit": "dl",
+          "name": "ris",
+          "stepIndexes": [
+            0
+          ],
+          "new": null
+        },
+        {
+          "text": "salt",
+          "amount": null,
+          "unit": null,
+          "name": "salt",
+          "stepIndexes": [
+            1
+          ],
+          "new": null
+        }
+      ],
+      "steps": [
+        "Koka riset enligt anvisningen på förpackningen.",
+        "Skär kycklingen i bitar och stek den med salt.",
+        "Pressa limen över kycklingen och strö över hackad koriander."
+      ]
+    },
+    {
+      "title": "Quesadillas med ost och lime",
+      "servings": 4,
+      "totalMinutes": 20,
+      "ingredients": [
+        {
+          "text": "4 tortillabröd",
+          "amount": 4,
+          "unit": null,
+          "name": "tortillabröd",
+          "stepIndexes": [
+            1
+          ],
+          "new": null
+        },
+        {
+          "text": "2 dl riven ost",
+          "amount": 2,
+          "unit": "dl",
+          "name": "riven ost",
+          "stepIndexes": [
+            0
+          ],
+          "new": null
+        },
+        {
+          "text": "1 lime",
+          "amount": 1,
+          "unit": null,
+          "name": "lime",
+          "stepIndexes": [
+            2
+          ],
+          "new": null
+        },
+        {
+          "text": "1 gul lök",
+          "amount": 1,
+          "unit": null,
+          "name": "gul lök",
+          "stepIndexes": [
+            0
+          ],
+          "new": null
+        }
+      ],
+      "steps": [
+        "Hacka löken och blanda med osten.",
+        "Fyll tortillabröden och stek dem gyllene på båda sidor.",
+        "Servera med limeklyftor."
+      ]
+    },
+    {
+      "title": "Löksoppa med ost",
+      "servings": 4,
+      "totalMinutes": 35,
+      "ingredients": [
+        {
+          "text": "4 gula lökar",
+          "amount": 4,
+          "unit": null,
+          "name": "gul lök",
+          "stepIndexes": [
+            0
+          ],
+          "new": null
+        },
+        {
+          "text": "1 l buljong",
+          "amount": 1,
+          "unit": "l",
+          "name": "buljong",
+          "stepIndexes": [
+            1
+          ],
+          "new": null
+        },
+        {
+          "text": "2 dl riven ost",
+          "amount": 2,
+          "unit": "dl",
+          "name": "riven ost",
+          "stepIndexes": [
+            2
+          ],
+          "new": null
+        },
+        {
+          "text": "salt",
+          "amount": null,
+          "unit": null,
+          "name": "salt",
+          "stepIndexes": [
+            1
+          ],
+          "new": null
+        }
+      ],
+      "steps": [
+        "Skiva löken och fräs den mjuk.",
+        "Tillsätt buljong och salt och låt sjuda i 15 minuter.",
+        "Servera med riven ost."
+      ]
+    }
+  ]
+}

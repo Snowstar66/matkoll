@@ -5,6 +5,9 @@
 /** One pantry entry: a catalog name with an amount and unit, or both `null` when the item is always enough. */
 export type SuggestPantryEntry = { name: string; amount: number | null; unit: string | null };
 
+/** Story 16.13: an item that has lain long, by catalog name, with the whole days since it was added. */
+export type SuggestOldItem = { name: string; days: number };
+
 /**
  * Limits for suggestDishes, sized for Qwen3.6 in LM Studio with an 8 192-token
  * context: the pantry as at most 4 000 characters of lines (about 1 300
@@ -25,6 +28,10 @@ export const suggestInputLimits = {
   maxOffers: 40,
   /** The offers' lines, as offerLines writes them. */
   maxOfferChars: 1_000,
+  /** Story 16.13: items that have lain long, sent so the dishes use them first. */
+  maxOldItems: 8,
+  /** Largest age in days; older is not a pantry age. */
+  maxOldDays: 3_650,
 } as const;
 
 /** Control and format characters, and the line and paragraph separators. */
@@ -121,4 +128,16 @@ export function offerLinesLength(names: readonly string[]): number {
 /** True for an offer name the port takes: clean, 1–100 code points. */
 export function isValidOfferName(name: string): boolean {
   return name !== "" && name === cleanModelText(name) && codePointLength(name) <= suggestInputLimits.maxNameChars;
+}
+
+/** The old items as lines: "lime: 9 dagar" (Story 16.13), one per item, oldest first as given. */
+export function oldItemLines(items: readonly SuggestOldItem[]): string {
+  return items.map(({ name, days }) => `- ${name}: ${days} ${days === 1 ? "dag" : "dagar"}`).join("\n");
+}
+
+/** True for an old item the port takes: a clean name of 1–100 code points and a whole age of 1 to maxOldDays. */
+export function isValidOldItem({ name, days }: SuggestOldItem): boolean {
+  return (
+    isValidOfferName(name) && Number.isInteger(days) && days >= 1 && days <= suggestInputLimits.maxOldDays
+  );
 }

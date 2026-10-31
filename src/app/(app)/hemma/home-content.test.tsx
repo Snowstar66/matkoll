@@ -23,6 +23,7 @@ vi.mock("@/features/pantry/server", async (importOriginal) => ({
   ...(await importOriginal<typeof import("@/features/pantry/server")>()),
   countPantryItems: vi.fn(),
   listPantry: vi.fn(),
+  listOldPantryItems: vi.fn(async () => []),
   needsPlacePhotoSweep: vi.fn(async () => false),
   listPlacePhotos: vi.fn(async () => ({ photos: [] })),
 }));

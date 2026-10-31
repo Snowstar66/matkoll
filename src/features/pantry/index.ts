@@ -11,6 +11,14 @@ export {
   type PantrySnapshot,
 } from "./domain/pantry-item";
 export {
+  oldPantryItems,
+  eatFirstRowText,
+  usesOldText,
+  lainText,
+  maxOldItems,
+  type OldPantryItem,
+} from "./domain/old-items";
+export {
   placeSlug,
   placeFromSlug,
   itemCountText,

@@ -4,7 +4,7 @@ import { requireUserOrRedirect } from "@/features/auth/server";
 import type { Location } from "@/features/catalog";
 import { CatalogDataError } from "@/features/catalog/server";
 import { photoTimeText, type PantryItem, type SelectedSite } from "@/features/pantry";
-import { countPantryItems, isPantrySiteGone, listPantry, listPlacePhotos, PantryDataError } from "@/features/pantry/server";
+import { countPantryItems, isPantrySiteGone, listOldPantryItems, listPantry, listPlacePhotos, PantryDataError } from "@/features/pantry/server";
 import { AddSiteButton } from "@/features/pantry/ui/add-site-button";
 import { LatestPhoto, type ShownPlacePhoto } from "@/features/pantry/ui/latest-photo";
 import { PantryCamera } from "@/features/pantry/ui/pantry-camera";
@@ -80,12 +80,13 @@ export async function HomeContent({ site, location, next }: HomeContentProps) {
   }
 
   const photo = await photoRead;
+  const oldCount = await oldItemCount(site.id);
   return (
     <>
       <Suspense fallback={null}>
         <PhotoSweepGate />
       </Suspense>
-      <PantryPlace site={site} location={location} counts={counts} items={items} photo={photo} />
+      <PantryPlace site={site} location={location} counts={counts} items={items} photo={photo} oldCount={oldCount} />
     </>
   );
 }
@@ -98,4 +99,19 @@ async function latestPhoto(siteId: string, location: Location): Promise<ShownPla
   const { photos } = await listPlacePhotos(siteId);
   const photo = photos.find((candidate) => candidate.location === location);
   return photo ? { ...photo, time: photoTimeText(photo.takenAt, new Date()) } : null;
+}
+
+/**
+ * How many items on the place have lain long (Story 16.13), for the row "3
+ * varor har legat länge". A help, not the page: when it cannot be read
+ * (logged, code only) there is no row.
+ */
+async function oldItemCount(siteId: string): Promise<number> {
+  try {
+    return (await listOldPantryItems(siteId)).length;
+  } catch (error) {
+    if (!(error instanceof PantryDataError || error instanceof CatalogDataError)) throw error;
+    console.error("old_items_unavailable", { reason: error instanceof PantryDataError ? error.detail : error.code });
+    return 0;
+  }
 }
