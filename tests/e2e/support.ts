@@ -419,6 +419,15 @@ export async function magicLinkPath(email: string, next = "/recept"): Promise<st
  * 11.6), so a mail scanner that fetches it uses nothing up.
  */
 export async function openMagicLink(page: Page, path: string): Promise<void> {
+  // The one-time privacy note (Story 17.2) is answered up front, in this context and in the
+  // saved state made from it, so it does not sit on top of every page the specs open.
+  await page.context().addInitScript(() => {
+    try {
+      window.localStorage.setItem("matkoll.integritet.okej", "1");
+    } catch {
+      // Storage is not available; the note just shows.
+    }
+  });
   await page.goto(path);
   await page.getByRole("main").getByRole("button", { name: "Logga in" }).click();
 }

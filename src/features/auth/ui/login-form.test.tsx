@@ -2,7 +2,7 @@ import { render, screen } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import { fail, ok, type Result } from "@/lib/errors";
-import type { EmailCodeInput } from "../domain/login-schema";
+import type { EmailCodeInput, PasswordLoginInput } from "../domain/login-schema";
 import type { SendMagicLinkState } from "../actions/send-magic-link";
 import { codeStepStorageKey, LoginForm } from "./login-form";
 
@@ -19,6 +19,15 @@ vi.mock("../actions/verify-email-code", () => ({
   verifyEmailCode: (input: EmailCodeInput) => verifyEmailCode(input),
 }));
 
+const loginWithPassword = vi.fn<(input: PasswordLoginInput) => Promise<Result<never>>>();
+vi.mock("../actions/login-with-password", () => ({
+  loginWithPassword: (input: PasswordLoginInput) => loginWithPassword(input),
+}));
+const requestPasswordReset = vi.fn<(input: { email: string; next?: string }) => Promise<Result<null>>>();
+vi.mock("../actions/request-password-reset", () => ({
+  requestPasswordReset: (input: { email: string; next?: string }) => requestPasswordReset(input),
+}));
+
 const sentText = "Vi har skickat en länk och en kod till din e-post.";
 const invalidText = "Koden stämmer inte eller har gått ut. Skicka en ny länk.";
 
@@ -31,6 +40,8 @@ async function sendLink(email = "pontus@example.com") {
 beforeEach(() => {
   sendMagicLink.mockReset().mockResolvedValue(ok());
   verifyEmailCode.mockReset().mockResolvedValue(fail("auth_code_invalid"));
+  loginWithPassword.mockReset().mockResolvedValue(fail("auth_password_invalid"));
+  requestPasswordReset.mockReset().mockResolvedValue(ok());
   sessionStorage.clear();
   vi.restoreAllMocks();
 });
@@ -40,7 +51,40 @@ describe("LoginForm", () => {
     render(<LoginForm />);
     expect(screen.getByRole("button", { name: "Skicka länk" })).toBeInTheDocument();
     expect(screen.queryByLabelText("Kod från mejlet")).not.toBeInTheDocument();
-    expect(screen.queryByRole("button", { name: "Logga in" })).not.toBeInTheDocument();
+  });
+
+  it("signs in with the address, the password and next", async () => {
+    render(<LoginForm next="/matsedel" />);
+    await userEvent.type(screen.getByLabelText("E-postadress"), "pontus@example.com");
+    await userEvent.type(screen.getByLabelText("Lösenord"), "hemligt-lösen");
+    await userEvent.click(screen.getByRole("button", { name: "Logga in" }));
+    expect(loginWithPassword).toHaveBeenCalledWith({
+      email: "pontus@example.com",
+      password: "hemligt-lösen",
+      next: "/matsedel",
+    });
+    expect(await screen.findByRole("alert")).toHaveTextContent("E-postadressen eller lösenordet stämmer inte.");
+    expect(sendMagicLink).not.toHaveBeenCalled();
+  });
+
+  it("signs in with Enter in the password field, without sending a link", async () => {
+    render(<LoginForm />);
+    await userEvent.type(screen.getByLabelText("E-postadress"), "pontus@example.com");
+    await userEvent.type(screen.getByLabelText("Lösenord"), "hemligt-lösen{Enter}");
+    expect(loginWithPassword).toHaveBeenCalledTimes(1);
+    expect(sendMagicLink).not.toHaveBeenCalled();
+  });
+
+  it("asks for a reset mail with the address only, and answers the same for everyone", async () => {
+    render(<LoginForm next="/recept" />);
+    await userEvent.type(screen.getByLabelText("E-postadress"), "pontus@example.com");
+    await userEvent.click(screen.getByRole("button", { name: "Första gången eller glömt lösenordet? Välj lösenord" }));
+    expect(screen.queryByLabelText("Lösenord")).not.toBeInTheDocument();
+    await userEvent.click(screen.getByRole("button", { name: "Skicka länk för att välja lösenord" }));
+    expect(requestPasswordReset).toHaveBeenCalledWith({ email: "pontus@example.com", next: "/recept" });
+    expect(await screen.findByRole("status")).toHaveTextContent("Om adressen har ett konto skickar vi ett mejl med en länk där du väljer lösenord.");
+    await userEvent.click(screen.getByRole("button", { name: "Tillbaka till inloggning" }));
+    expect(screen.getByLabelText("Lösenord")).toBeInTheDocument();
   });
 
   it("asks for the code after the link is sent, and keeps the address", async () => {

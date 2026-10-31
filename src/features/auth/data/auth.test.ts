@@ -6,6 +6,8 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
 const signOut = vi.fn();
 const getClaims = vi.fn();
 const verifyOtp = vi.fn();
+const signInWithPasswordMock = vi.fn();
+const updateUser = vi.fn();
 const createClient = vi.fn();
 const removeSessionCookies = vi.fn();
 vi.mock("@/lib/supabase/server", () => ({
@@ -16,13 +18,15 @@ vi.mock("@/lib/supabase/server", () => ({
         signOut: (...signOutArgs: unknown[]) => signOut(...signOutArgs),
         getClaims: () => getClaims(),
         verifyOtp: (...verifyArgs: unknown[]) => verifyOtp(...verifyArgs),
+        signInWithPassword: (...a: unknown[]) => signInWithPasswordMock(...a),
+        updateUser: (...a: unknown[]) => updateUser(...a),
       },
     };
   },
   removeSessionCookies: () => removeSessionCookies(),
 }));
 
-const { endSession, verifyEmailCode, verifyEmailLink } = await import("./auth");
+const { endSession, resetPasswordWithToken, signInWithPassword, verifyEmailCode, verifyEmailLink } = await import("./auth");
 
 const claims = { data: { claims: { sub: "user" } }, error: null };
 const noClaims = { data: null, error: null };
@@ -31,6 +35,8 @@ beforeEach(() => {
   signOut.mockReset().mockResolvedValue({ error: null });
   getClaims.mockReset().mockResolvedValue(noClaims);
   verifyOtp.mockReset();
+  signInWithPasswordMock.mockReset();
+  updateUser.mockReset();
   createClient.mockReset();
   removeSessionCookies.mockReset().mockResolvedValue(1);
   vi.restoreAllMocks();
@@ -139,5 +145,44 @@ describe("endSession", () => {
   it("falls back to the status when the error has no code", async () => {
     signOut.mockResolvedValue({ error: { status: 502 } });
     expect(await endSession()).toEqual({ signedOut: true, code: "502" });
+  });
+});
+
+describe("password calls", () => {
+  it("maps Supabase's answers to a small set of results", async () => {
+    signInWithPasswordMock.mockResolvedValue({ data: { user: { email: "a@b.se" } }, error: null });
+    expect(await signInWithPassword("a@b.se", "x")).toEqual({ result: "signed_in", email: "a@b.se" });
+    for (const [error, result] of [
+      [{ code: "invalid_credentials", status: 400 }, "invalid"],
+      [{ code: "over_request_rate_limit", status: 429 }, "rate_limited"],
+      [{ code: "unexpected_failure", status: 500 }, "failed"],
+    ] as const) {
+      signInWithPasswordMock.mockResolvedValue({ data: { user: null }, error });
+      expect((await signInWithPassword("a@b.se", "x")).result).toBe(result);
+    }
+  });
+
+  it("reset: sets the password for an allowed address, in one step", async () => {
+    verifyOtp.mockResolvedValue({ data: { user: { email: "a@b.se" } }, error: null });
+    updateUser.mockResolvedValue({ error: null });
+    expect(await resetPasswordWithToken("hash", "nytt-lösenord", () => true)).toBe("done");
+    expect(verifyOtp).toHaveBeenCalledWith({ token_hash: "hash", type: "recovery" });
+    expect(updateUser).toHaveBeenCalledWith({ password: "nytt-lösenord" });
+  });
+
+  it("reset: a spent link, a refused address and a failed update", async () => {
+    verifyOtp.mockResolvedValue({ data: { user: null }, error: { code: "otp_expired", status: 403 } });
+    expect(await resetPasswordWithToken("hash", "pw", () => true)).toBe("invalid");
+
+    verifyOtp.mockResolvedValue({ data: { user: { email: "x@y.se" } }, error: null });
+    expect(await resetPasswordWithToken("hash", "pw", () => false)).toBe("not_allowed");
+    expect(updateUser).not.toHaveBeenCalled();
+    expect(signOut).toHaveBeenCalledWith({ scope: "local" });
+
+    signOut.mockClear();
+    vi.spyOn(console, "error").mockImplementation(() => {});
+    updateUser.mockResolvedValue({ error: { code: "same_password", status: 422 } });
+    expect(await resetPasswordWithToken("hash", "pw", () => true)).toBe("failed");
+    expect(signOut).toHaveBeenCalledWith({ scope: "local" });
   });
 });

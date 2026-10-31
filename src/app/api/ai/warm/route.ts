@@ -2,8 +2,9 @@ import { after } from "next/server";
 import { z } from "zod";
 import { requireUserForRoute } from "@/features/auth/server";
 import { getAiJobActivity } from "@/features/ai-jobs/server";
+import { getAiChoice } from "@/features/settings/server";
 import { fail } from "@/lib/errors";
-import { getAiService, warmUpKinds, type WarmUpKind, type WarmUpResult } from "@/server/ai";
+import { getAiServiceFor, warmUpKinds, type AiService, type WarmUpKind, type WarmUpResult } from "@/server/ai";
 import { claimWarmUp, warmIntervalMs } from "@/server/ai/warm-limit";
 import { isCrossSite, mediaTypeOf, readCapped, respond, unreadBody } from "../route-support";
 
@@ -78,8 +79,11 @@ export async function POST(request: Request): Promise<Response> {
   const accepted = new Response(null, { status: 202 });
 
   let modelKey: string | null;
+  let service: AiService;
   try {
-    modelKey = getAiService().warmUpKey(kind);
+    // The user's own choice (Story 17.5), read once here: the cookies are gone inside after().
+    service = getAiServiceFor(await getAiChoice());
+    modelKey = service.warmUpKey(kind);
   } catch {
     // The AI settings could not be read: nothing to wake, and nothing to show.
     logWarm(kind, { outcome: "unavailable", reason: "connection" }, 0);
@@ -105,7 +109,7 @@ export async function POST(request: Request): Promise<Response> {
     const started = performance.now();
     let result: WarmUpResult;
     try {
-      result = await getAiService().warmUp(kind, AbortSignal.timeout(warmUpDeadlineMs), {
+      result = await service.warmUp(kind, AbortSignal.timeout(warmUpDeadlineMs), {
         isBusy,
       });
     } catch {
