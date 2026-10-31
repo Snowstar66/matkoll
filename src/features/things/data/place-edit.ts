@@ -58,25 +58,33 @@ export async function loadRoomMergeMovesIn(db: ThingsDb, siteId: string, roomKey
   });
 }
 
-/** Copies a card file to its new path; a copy that is there already (a retry) is fine. Returns the failure's reason, or `null`. Never throws. */
+/**
+ * Copies a card file to its new path; a copy that is there already (a retry) is
+ * fine, and so is a source that is gone (404): the card moves without a file, as
+ * it showed before. Returns the failure's reason, or `null`. Never throws.
+ */
 export async function copyCardFile(db: ThingsDb, from: string, to: string): Promise<string | null> {
   try {
     const { error } = await db.storage.from(thingPhotoBucket).copy(from, to);
     if (!error) return null;
     const status = String((error as { statusCode?: string; status?: number }).statusCode ?? (error as { status?: number }).status ?? "unknown");
-    return status === "409" ? null : `copy_failed ${status}`;
+    return status === "409" || status === "404" ? null : `copy_failed ${status}`;
   } catch {
     return "copy_threw";
   }
 }
 
-const renamedRoomSchema = z.object({ merged: z.number().int(), moved: z.number().int() });
+const renamedRoomSchema = z.object({
+  merged: z.number().int(),
+  moved: z.number().int(),
+  moves: z.array(z.object({ from: z.string(), to: z.string() })).default([]),
+});
 
 /** Gives the room its new name, merging it into the room that has the key already. `gone` when the boende or room is not there. Throws ThingsDataError `save_failed <code>` or `invalid_row`. */
 export async function renameRoomRowsIn(
   db: ThingsDb,
   input: { siteId: string; roomKey: string; name: string; newKey: string },
-): Promise<{ kind: "renamed"; merged: number } | { kind: "gone" }> {
+): Promise<{ kind: "renamed"; merged: number; moves: { from: string; to: string }[] } | { kind: "gone" }> {
   return guarded("save", async () => {
     const { data, error } = await db.rpc("rename_thing_room", { site: input.siteId, in_room: input.roomKey, new_name: input.name, new_key: input.newKey });
     if (error) {
@@ -85,7 +93,7 @@ export async function renameRoomRowsIn(
     }
     const parsed = renamedRoomSchema.safeParse(data);
     if (!parsed.success) throw new ThingsDataError("invalid_row");
-    return { kind: "renamed", merged: parsed.data.merged };
+    return { kind: "renamed", merged: parsed.data.merged, moves: parsed.data.moves };
   });
 }
 

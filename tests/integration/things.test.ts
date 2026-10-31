@@ -990,7 +990,7 @@ describe("byt namn och ta bort rum och delar (Story 18.16)", () => {
     const site = await siteOf(m, "Byt-rum");
     const wall = await placeOf(m, site, "Skräpförrådet", "Väggen");
     const card = await doneCard(m, wall, [hammer]);
-    expect(await renameRoomRowsIn(m.db, { siteId: site, roomKey: "skräpförrådet", name: "Verkstaden", newKey: "verkstaden" })).toEqual({ kind: "renamed", merged: 0 });
+    expect(await renameRoomRowsIn(m.db, { siteId: site, roomKey: "skräpförrådet", name: "Verkstaden", newKey: "verkstaden" })).toEqual({ kind: "renamed", merged: 0, moves: [] });
     expect((await loadRoomsIn(m.db, site)).map((room) => [room.room, room.key, room.cards])).toEqual([["Verkstaden", "verkstaden", 1]]);
     expect(await fileExists(card.path)).toBe(true);
     expect(await loadRoomMergeMovesIn(m.db, site, "verkstaden", "verkstaden")).toEqual([]);
@@ -1013,7 +1013,7 @@ describe("byt namn och ta bort rum och delar (Story 18.16)", () => {
     expect(await copyCardFile(m.db, moves[0].from, moves[0].to)).toBeNull();
     files.push(moves[0].to);
 
-    expect(await renameRoomRowsIn(m.db, { siteId: site, roomKey: "boden", name: "GARAGET", newKey: "garaget" })).toEqual({ kind: "renamed", merged: 1 });
+    expect(await renameRoomRowsIn(m.db, { siteId: site, roomKey: "boden", name: "GARAGET", newKey: "garaget" })).toEqual({ kind: "renamed", merged: 1, moves });
     expect(await removeCardFiles(m.db, [moves[0].from])).toEqual({ failed: null });
 
     const rooms = await loadRoomsIn(m.db, site);
@@ -1028,6 +1028,35 @@ describe("byt namn och ta bort rum och delar (Story 18.16)", () => {
     expect(await fileExists(srcCard.path)).toBe(false);
     expect((await m.db.from("thing_item").select("id").eq("place_id", dstShelf)).data).toHaveLength(2);
     expect((await m.db.from("thing_place").select("id").eq("id", srcShelf)).data).toEqual([]);
+  });
+
+  it("gives back the files a merge really moved, also a card that came after the plan, and skips a source file that is gone", async () => {
+    const site = await siteOf(m, "Slå-ihop-sent");
+    const srcShelf = await placeOf(m, site, "Boden", "Hyllan");
+    const dstShelf = await placeOf(m, site, "Garaget", "Hyllan");
+    const planned = await doneCard(m, srcShelf, [hammer]);
+    const gone = await doneCard(m, srcShelf, [hammer]);
+    const plan = await loadRoomMergeMovesIn(m.db, site, "boden", "garaget");
+    expect(plan).toHaveLength(2);
+    // Planned copies; the second card's source file disappears: a 404 is skipped, not a failure.
+    expect(await copyCardFile(m.db, planned.path, thingPhotoPath(m.id, dstShelf, planned.id, "image/png"))).toBeNull();
+    files.push(thingPhotoPath(m.id, dstShelf, planned.id, "image/png"));
+    expect(await removeCardFiles(m.db, [gone.path])).toEqual({ failed: null });
+    expect(await copyCardFile(m.db, gone.path, thingPhotoPath(m.id, dstShelf, gone.id, "image/png"))).toBeNull();
+    // A card taken after the plan.
+    const late = await cardOf(m, srcShelf);
+
+    const renamed = await renameRoomRowsIn(m.db, { siteId: site, roomKey: "boden", name: "Garaget", newKey: "garaget" });
+    if (renamed.kind !== "renamed") throw new Error("not renamed");
+    expect(renamed.moves.map((move) => move.from).sort()).toEqual([planned.path, gone.path, late.path].sort());
+    const lateMove = renamed.moves.find((move) => move.from === late.path)!;
+    expect(lateMove.to).toBe(thingPhotoPath(m.id, dstShelf, late.id, "image/png"));
+    // The caller copies what is still missing.
+    expect(await fileExists(lateMove.to)).toBe(false);
+    expect(await copyCardFile(m.db, lateMove.from, lateMove.to)).toBeNull();
+    files.push(lateMove.to);
+    expect(await fileExists(lateMove.to)).toBe(true);
+    expect((await m.db.from("thing_photo").select("place_id").eq("id", late.id).single()).data?.place_id).toBe(dstShelf);
   });
 
   it("renames a part or a box, keeps its cards, and refuses a name the room has", async () => {

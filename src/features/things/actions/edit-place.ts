@@ -70,21 +70,37 @@ export async function renameThingRoom(input: RenameRoomInput): Promise<Result<Re
       copied.push(move.to);
     }
 
-    const saved = await renameRoomRowsIn(db, { siteId, roomKey, name, newKey });
+    let saved;
+    try {
+      saved = await renameRoomRowsIn(db, { siteId, roomKey, name, newKey });
+    } catch (error) {
+      // Nothing moved: the copies are only extra files.
+      await removeCardFiles(db, copied);
+      throw error;
+    }
     if (saved.kind === "gone") {
       await removeCardFiles(db, copied);
       revalidateFor("thing_place");
       return fail("things_place_gone");
     }
-    if (moves.length > 0) {
-      const { failed } = await removeCardFiles(db, moves.map((move) => move.from));
+    // The cards the merge really moved: one uploaded after the plan has no copy yet, so it gets one now.
+    for (const move of saved.moves) {
+      if (copied.includes(move.to)) continue;
+      const failed = await copyCardFile(db, move.from, move.to);
+      if (failed !== null) console.error("things_rename_failed", { reason: failed });
+      else copied.push(move.to);
+    }
+    // The old files go once their copies are there; one without a copy stays for the sweep.
+    const oldPaths = saved.moves.filter((move) => copied.includes(move.to)).map((move) => move.from);
+    if (oldPaths.length > 0) {
+      const { failed } = await removeCardFiles(db, oldPaths);
       if (failed !== null) console.error("things_photo_remove_failed", { reason: failed });
       else void sweepCardFilesIn(db, user.data.id).catch(() => {});
     }
     revalidateFor("thing_place");
     revalidateFor("thing_photo");
     revalidateFor("thing_item");
-    console.info("things_room_renamed", { merged: saved.merged, files: moves.length });
+    console.info("things_room_renamed", { merged: saved.merged, files: saved.moves.length });
     return ok({ kind: "renamed", key: newKey, room: other?.room ?? name, merged: saved.merged > 0 || other !== undefined });
   } catch (error) {
     if (!(error instanceof ThingsDataError)) throw error;

@@ -914,7 +914,7 @@ test("Byt namn på rummet renames, and merges into a room that has the name afte
   await expect(page.getByRole("heading", { name: "Verkstaden" })).toBeVisible();
 
   // A name another room has: the question first, then the rooms are one.
-  await page.getByTestId("room-menu").click();
+  await page.getByTestId("room-menu").filter({ visible: true }).click();
   await page.getByRole("menuitem", { name: "Byt namn på rummet" }).click();
   const again = page.getByRole("dialog", { name: "Byt namn på rummet" });
   await again.getByLabel("Rummets namn").fill("Boden");
@@ -928,7 +928,7 @@ test("Byt namn på rummet renames, and merges into a room that has the name afte
   expect(places.map((place) => place.room)).toEqual(["Boden", "Boden"]);
   expect(places.map((place) => place.part).sort()).toEqual(["Hyllan", "Väggen"]);
   expect((await cardsOf()).length).toBe(3);
-  await expect(page.getByTestId("room-summary")).toContainText("3");
+  await expect(page.getByTestId("room-summary").filter({ visible: true })).toContainText("3");
 });
 
 test("a part or a box can be renamed and removed from its ⋯, and removing asks first and says what goes", async ({ page }) => {
@@ -987,14 +987,19 @@ test("a card that could not be read, or is stuck reading, has Försök igen and 
   if (stuck.error) throw stuck.error;
   await page.goto(roomUrl("Garaget"));
   await page.getByRole("radio", { name: "Kort" }).click();
-  const failedCard = page.getByTestId("room-card").filter({ hasText: "Kunde inte läsas" });
-  await expect(failedCard.getByRole("button", { name: "Försök igen" })).toBeVisible();
-  await expect(failedCard.getByRole("button", { name: /^Ta bort kortet/ })).toBeVisible();
+  // The stuck one (reading for longer than the limit) is shown as failed too: two cards, both with both actions.
+  const failedCards = page.getByTestId("room-card").filter({ hasText: "Kunde inte läsas" });
+  await expect(failedCards).toHaveCount(2);
+  for (const card of await failedCards.all()) {
+    await expect(card.getByRole("button", { name: "Försök igen" })).toBeVisible();
+    await expect(card.getByRole("button", { name: /^Ta bort kortet/ })).toBeVisible();
+  }
   await shot(page, "10-failed-card-both-actions");
-  await failedCard.getByRole("button", { name: /^Ta bort kortet/ }).click();
+  await failedCards.first().getByRole("button", { name: /^Ta bort kortet/ }).click();
   await page.getByRole("dialog", { name: "Ta bort kortet" }).getByRole("button", { name: "Ta bort kortet" }).click();
-  await expect(page.getByTestId("room-card").filter({ hasText: "Kunde inte läsas" })).toHaveCount(0);
-  expect((await admin.from("thing_photo").select("id").eq("id", failedId)).data).toEqual([]);
-  // The stuck card (reading, older than the limit) is shown as failed and can go too.
-  expect((await admin.from("thing_photo").select("id").eq("id", stuckId)).data).toHaveLength(1);
+  await expect(failedCards).toHaveCount(1);
+  await failedCards.first().getByRole("button", { name: /^Ta bort kortet/ }).click();
+  await page.getByRole("dialog", { name: "Ta bort kortet" }).getByRole("button", { name: "Ta bort kortet" }).click();
+  await expect(failedCards).toHaveCount(0);
+  expect((await admin.from("thing_photo").select("id").in("id", [failedId, stuckId])).data).toEqual([]);
 });
