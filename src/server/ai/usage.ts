@@ -18,13 +18,23 @@ export function withUsageSink<T>(sink: AiUsageSink, run: () => T): T {
 }
 
 /** Reports usage to the sink of the running call, if any. Never throws: usage must not fail a call. */
+/** How long a usage record may hold up the AI run's answer. */
+const reportTimeoutMs = 3_000;
+
 export async function reportUsage(usage: AiUsage): Promise<void> {
   const sink = sinks.getStore();
   if (!sink) return;
+  let timer: ReturnType<typeof setTimeout> | undefined;
   try {
-    await sink(usage);
+    // A slow or hung insert never delays the answer: the record is given up instead.
+    const timedOut = new Promise<"timeout">((resolve) => {
+      timer = setTimeout(() => resolve("timeout"), reportTimeoutMs);
+    });
+    if ((await Promise.race([sink(usage), timedOut])) === "timeout") console.error("ai_usage_unrecorded");
   } catch {
     console.error("ai_usage_unrecorded");
+  } finally {
+    clearTimeout(timer);
   }
 }
 
