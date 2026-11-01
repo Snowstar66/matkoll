@@ -5158,3 +5158,82 @@ så att jag förstår varför något försvann eller tillkom.
 **Givet** loggen
 **När** den blir lång
 **Så** sparas bara de senaste 90 dagarna
+
+## Epic 22: Integritet i Förrådet
+
+Version 3.x, **vilar** (pausad). Beslut 2026-11-01 (Pontus): "lägger 22.1-3 på paus tills vi behöver säkerheten/integriteten. Då har vi iaf det på radarn". Bakgrund: folk vågar inte fota hemma (smycken, privata saker i sovrummet) om de inte vet vart bilderna tar vägen. Byggs när fler än Pontus hushåll använder Förrådet, tidigast efter flytten till molnet.
+
+Källa: modellen `_bmad-output/planning-artifacts/ux-designs/ux-Matkoll-2026-10-25/mockups/integritet-forrad.html` (redigeraren, remsan, inställningen, hjälpsidan med faktakontroll mot koden, beslut 1–11). Ändrat förval för beslut 1 efter Pontus fråga om att fota många kort i rad: Ta foto och "Ta ett till" förblir snabba som idag; remsan med Dölj något kommer som förval bara efter Välj från Bilder, och "Granska även kamerabilder" slås på i Inställningar → Förråd. Övriga beslut: förvalen i modellen. Ordning 22.2 → 22.1 → 22.3. Parkerat, inte i epicen: privata rum, och det som behövs inför försäljning (policy, avtal, export och radering, kryptering med användarens egen nyckel).
+
+### Story 22.1: Dölj innan du skickar
+
+Som användare,
+vill jag kunna måla över något på en bild innan den skickas,
+så att det som är privat aldrig lämnar telefonen.
+
+**Acceptance Criteria:**
+
+**Givet** att jag väljer bilder med Välj från Bilder (eller fotar med Granska även kamerabilder påslaget)
+**När** valet är klart
+**Så** visas remsan "N bilder till <rum>" med miniatyrer, × per bild, Dölj något, Välj fler / Ta ett till och Skicka N kort, och ingenting skickas förrän jag trycker Skicka
+
+**Givet** redigeraren (helskärm, mörk)
+**När** jag målar med penseln (Smal | Bred), Ångra, Rensa, Avbryt eller Klar
+**Så** täcker penseln helt (ingen oskärpa), och efter Klar visar miniatyren täckningen och märket Dolt
+
+**Givet** en täckt bild
+**När** den skickas
+**Så** ritas täckningen in i den nedskalade bilden i telefonen innan den kodas, PNG-genvägen stängs av, och ett e2e-test läser tillbaka den sparade bilden och ser att de täckta pixlarna är svarta
+
+**Givet** knapparna Ta foto och Välj från Bilder
+**När** de visas i rummet och i arket
+**Så** syns deras ikoner och fyllning (felet på main där SVG:n får höjden 0 och knapparna är vita på vitt är rättat)
+
+### Story 22.2: Spara korten eller bara listan
+
+Som användare,
+vill jag kunna välja att bilderna inte sparas, bara listan,
+så att jag själv bestämmer hur mycket av hemmet som ligger kvar.
+
+**Acceptance Criteria:**
+
+**Givet** Inställningar
+**När** jag öppnar Förråd → Bilder
+**Så** finns "Spara korten" (på som förval) och "Granska även kamerabilder", vad man förlorar och behåller, antal sparade bilder, och "Radera sparade bilder" som frågar först
+
+**Givet** att Spara korten är av
+**När** ett kort lästs klart
+**Så** raderas filen och bara föremålen sparas; ett kort som inte gick att läsa behåller filen så att Försök igen fungerar
+
+**Givet** ett kort utan bild
+**När** det visas i rummet, på kortsidan, i träffar och i chatten
+**Så** står "Ingen bild sparad" där bilden annars är, och Ångra efter Ta bort fungerar utan fil
+
+**Givet** databasen
+**När** inställningen sparas
+**Så** ligger den i en egen tabell med RLS (bara egen rad) och täcks av isoleringstestet; den gäller hela kontot
+
+### Story 22.3: Så skyddas dina bilder
+
+Som användare,
+vill jag kunna läsa kort och ärligt hur bilderna skyddas,
+så att jag vågar fota hemma.
+
+**Acceptance Criteria:**
+
+**Givet** Hjälp och tips → Förråd
+**När** jag trycker på Så skyddas dina bilder
+**Så** visas sidan med Var bilderna finns · Vem som ser dem · Det du bestämmer, och varje påstående har en källa i koden eller i leverantörens villkor (länkade)
+
+**Givet** AI-inställningen
+**När** sidan visas
+**Så** säger AI-raden vilken tjänst som faktiskt läser bilderna (Anthropic i molnet, lokal modell lokalt)
+
+**Givet** regionen
+**När** sidan skrivs
+**Så** står "Stockholm" bara om det är kontrollerat i Supabase
+
+**Givet** ett kort som tagits bort
+**När** Förråd öppnas
+**Så** körs städningen av filer som blivit kvar efter Ångra-tiden (inte bara vid nästa kort)
+
