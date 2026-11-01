@@ -90,12 +90,12 @@ test("the app never asks for a rating by itself", async ({ page }) => {
 
 test.describe("the owner's inbox", () => {
   test.beforeAll(async () => {
-    const { error } = await adminClient().from("app_owner").upsert({ email: feedbackEmail });
+    const { error } = await adminClient().from("app_owner").upsert({ user_id: userId });
     if (error) throw error;
   });
 
   test.afterAll(async () => {
-    await adminClient().from("app_owner").delete().eq("email", feedbackEmail);
+    await adminClient().from("app_owner").delete().eq("user_id", userId);
   });
 
   test("Ägare shows Inkorg with the count of new; the inbox shows the average, filters and marks read", async ({ page }) => {

@@ -4,14 +4,15 @@ import { adminClient, anonClient, createTestUser, deleteTestUsers, type TestUser
 // Tyck till och inkorg (Story 20.3, AD-4): everyone signed in can add their own
 // feedback; only the app's owner (is_app_owner(), the table app_owner) can read
 // it and mark it read. Nobody, the sender included, reads anyone else's, and no
-// client can read or change who the owner is. The owner here is a test user
-// added to app_owner for this run and removed after it, so the real owner's row
-// is never touched.
+// client can read or change who the owner is. Ownership is bound to the user
+// id, never to the address. The owner here is a test user added to app_owner
+// for this run and removed after it, so the real owner's row is never touched.
 
 let owner: TestUser;
 let sender: TestUser;
 let other: TestUser;
 const created: string[] = [];
+const everyAuthUser = async () => (await adminClient().auth.admin.listUsers({ perPage: 1000 })).data.users;
 
 const idea = { kind: "idea", body: "Dela inköpslistan", area: "inkopslista", page: "/lista", app_version: "0.1.0" };
 
@@ -25,13 +26,13 @@ beforeAll(async () => {
   owner = await createTestUser("feedback-owner");
   sender = await createTestUser("feedback-sender");
   other = await createTestUser("feedback-other");
-  const added = await adminClient().from("app_owner").insert({ email: owner.email });
+  const added = await adminClient().from("app_owner").insert({ user_id: owner.id });
   expect(added.error).toBeNull();
-  created.push(owner.email);
+  created.push(owner.id);
 });
 
 afterAll(async () => {
-  if (created.length > 0) await adminClient().from("app_owner").delete().in("email", created);
+  if (created.length > 0) await adminClient().from("app_owner").delete().in("user_id", created);
   await deleteTestUsers();
 });
 
@@ -106,9 +107,9 @@ describe("feedback", () => {
       ["another user", other.db],
       ["anon", anonClient()],
     ] as const) {
-      expect((await db.from("app_owner").select("email")).error?.code, `${who} reads app_owner`).toBe("42501");
-      expect((await db.from("app_owner").insert({ email: "x@example.se" })).error?.code, `${who} adds an owner`).toBe("42501");
-      expect((await db.from("app_owner").delete().eq("email", owner.email)).error?.code, `${who} removes the owner`).toBe("42501");
+      expect((await db.from("app_owner").select("user_id")).error?.code, `${who} reads app_owner`).toBe("42501");
+      expect((await db.from("app_owner").insert({ user_id: other.id })).error?.code, `${who} adds an owner`).toBe("42501");
+      expect((await db.from("app_owner").delete().eq("user_id", owner.id)).error?.code, `${who} removes the owner`).toBe("42501");
     }
   });
 
@@ -136,6 +137,34 @@ describe("feedback", () => {
     }
     expect((await spammer.db.from("feedback").insert({ kind: "idea", body: "En för mycket" })).error?.code).toBe("MK429");
     expect(await adminFeedback(spammer.id)).toHaveLength(10);
+  });
+
+  it("binds the owner to the user id: taking the owner's address does not make another user the owner", async () => {
+    const formerOwner = await createTestUser("feedback-former-owner");
+    const taker = await createTestUser("feedback-taker");
+    expect((await adminClient().from("app_owner").insert({ user_id: formerOwner.id })).error).toBeNull();
+    created.push(formerOwner.id);
+    await sender.db.from("feedback").insert({ kind: "idea", body: "Syns bara för ägaren" });
+
+    // The owner moves to another address, and the taker changes theirs to the old one,
+    // the way a PUT to /auth/v1/user does with confirmation off.
+    const ownerAddress = formerOwner.email;
+    expect((await adminClient().auth.admin.updateUserById(formerOwner.id, { email: `moved-${ownerAddress}` })).error).toBeNull();
+    expect((await adminClient().auth.admin.updateUserById(taker.id, { email: ownerAddress, email_confirm: true })).error).toBeNull();
+    expect((await everyAuthUser()).find((user) => user.id === taker.id)?.email).toBe(ownerAddress);
+
+    expect((await taker.db.rpc("is_app_owner")).data, "the new holder of the address is not the owner").toBe(false);
+    expect((await taker.db.from("feedback").select("id")).data, "and reads nothing").toEqual([]);
+    expect((await formerOwner.db.rpc("is_app_owner")).data, "the owner stays the owner").toBe(true);
+  });
+
+  it("takes ownership away when the owner's user is deleted", async () => {
+    const shortOwner = await createTestUser("feedback-short-owner");
+    expect((await adminClient().from("app_owner").insert({ user_id: shortOwner.id })).error).toBeNull();
+    expect((await shortOwner.db.rpc("is_app_owner")).data).toBe(true);
+    expect((await adminClient().auth.admin.deleteUser(shortOwner.id)).error).toBeNull();
+    const left = await adminClient().from("app_owner").select("user_id").eq("user_id", shortOwner.id);
+    expect(left.data, "the owner row went with the user").toEqual([]);
   });
 
   it("goes with the user when the user is deleted", async () => {

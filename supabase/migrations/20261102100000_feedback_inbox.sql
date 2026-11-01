@@ -4,17 +4,21 @@
 -- nothing existing changes.
 --
 -- Who the owner is (AD-4, no service role in the app): the database cannot read
--- Vercel's environment, so the owner's address lives in the table app_owner,
--- which nobody but the service role can read or write. `pnpm owner:sync` writes
--- OWNER_EMAIL there (docs/molnet.md, step 5); the app reads OWNER_EMAIL only to
+-- Vercel's environment, so the owner is a row in the table app_owner, bound to
+-- the owner's user id (never to an address: with e-mail confirmation off, a
+-- user can change their own address at once, and an address freed by the
+-- owner could then be taken over). Nobody but the service role can read or
+-- write app_owner. `pnpm owner:sync` resolves OWNER_EMAIL to a user id and
+-- writes it there (docs/molnet.md, step 5); the app reads OWNER_EMAIL only to
 -- show the owner's first name ("Pontus ser texten …"), never to decide access.
 -- Access is decided here, by is_app_owner(), which RLS and Inställningar share.
 --
--- 1. app_owner: the owners' addresses, lowercased. RLS on and no policy, and
---    no grant to anon or authenticated: no client can read or change it.
--- 2. is_app_owner(): true when the signed-in user's confirmed address in
---    auth.users is in app_owner. Security definer, since the caller can read
---    neither table; it answers only for the caller and reveals nothing else.
+-- 1. app_owner: the owner's user id. RLS on and no policy, and no grant to
+--    anon or authenticated: no client can read or change it. The row goes
+--    with the user (on delete cascade), so a deleted owner owns nothing.
+-- 2. is_app_owner(): true when the signed-in user's id is in app_owner.
+--    Security definer, since the caller cannot read the table; it answers
+--    only for the caller and reveals nothing else.
 -- 3. feedback: one row per idea, rating or problem. Every signed-in user may
 --    add rows as themselves (insert grant on the content columns only, so
 --    user_id, sender_email, created_at and read_at cannot be chosen); only the
@@ -25,11 +29,8 @@
 --    signed-in user to 10 rows an hour and 30 a day (MK429).
 
 create table public.app_owner (
-  email text primary key,
-  created_at timestamptz not null default now(),
-  constraint app_owner_email_check check (
-    email = lower(btrim(email)) and char_length(email) <= 320 and email ~ '^[^@[:space:]]+@[^@[:space:]]+$'
-  )
+  user_id uuid primary key references auth.users on delete cascade,
+  created_at timestamptz not null default now()
 );
 
 alter table public.app_owner enable row level security;
@@ -44,13 +45,7 @@ stable
 security definer
 set search_path = ''
 as $$
-  select exists (
-    select 1
-    from auth.users as u
-    join public.app_owner as o on o.email = lower(u.email)
-    where u.id = (select auth.uid())
-      and u.email_confirmed_at is not null
-  );
+  select exists (select 1 from public.app_owner as o where o.user_id = (select auth.uid()));
 $$;
 
 revoke all on function public.is_app_owner() from public, anon, authenticated;

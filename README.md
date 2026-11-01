@@ -18,7 +18,7 @@ pnpm dev:lan          # nåbar på LAN (mobiltest), loggar aldrig in automatiskt
 
 **Automatisk inloggning lokalt (Story 15.1).** Sätt `DEV_AUTO_LOGIN_EMAIL` (en adress i `ALLOWED_EMAILS`) och `DEV_AUTO_LOGIN_PASSWORD` i `.env.local`, kör `pnpm users:sync` och `pnpm dev:set-password`. Då loggas du in utan kod när du öppnar `http://localhost:3000` med `pnpm dev`. `pnpm dev` binder bara till 127.0.0.1 och sätter `MATKOLL_DEV_LOOPBACK=1`; `pnpm dev:lan` saknar flaggan och loggar aldrig in automatiskt. Det fungerar bara om allt stämmer: `NODE_ENV=development`, flaggan, ingen `x-forwarded-for`/`x-real-ip`/`forwarded`-header, inte Vercel, värden är `localhost` eller `127.0.0.1` och Supabase-adressen är lokal. Annars gäller den vanliga inloggningen. Efter utloggning loggas du inte in igen automatiskt (en kort kaka `matkoll-dev-logged-out`) förrän du väljer "Logga in automatiskt igen" på `/logga-in`.
 
-**Ägaren lokalt (Story 20.3).** Inkorgen under Inställningar (det som skickas från Hjälp → Tyck till) syns bara för appens ägare, och ägaren står i databasens tabell `app_owner`. På din egen dator är du ägaren: kör `pnpm owner:sync` en gång efter migreringen. Utan `OWNER_EMAIL` i `.env.local` tar skriptet `DEV_AUTO_LOGIN_EMAIL` (bara mot lokal Supabase), och bladen visar samma förnamn. Vill du ange adressen själv utan att öppna `.env.local`: `OWNER_EMAIL=du@example.com pnpm owner:sync` (en variabel i kommandot vinner över filen), eller lägg till raden med `echo 'OWNER_EMAIL=du@example.com' >> .env.local`.
+**Ägaren lokalt (Story 20.3).** Inkorgen under Inställningar (det som skickas från Hjälp → Tyck till) syns bara för appens ägare, och ägarens användar-id (inte adressen) står i databasens tabell `app_owner`. På din egen dator är du ägaren: kör `pnpm owner:sync` en gång efter migreringen. Utan `OWNER_EMAIL` i `.env.local` tar skriptet `DEV_AUTO_LOGIN_EMAIL` (bara mot lokal Supabase), och bladen visar samma förnamn. Vill du ange adressen själv utan att öppna `.env.local`: `OWNER_EMAIL=du@example.com pnpm owner:sync` (en variabel i kommandot vinner över filen), eller lägg till raden med `echo 'OWNER_EMAIL=du@example.com' >> .env.local`.
 
 Logga in på `http://localhost:3000/logga-in`. Länken hamnar i Mailpit på `http://127.0.0.1:54324`; öppna den så är du inloggad. Registrering är avstängd, så bara adresser som `pnpm users:sync` har skapat kan logga in, och appen släpper bara in adresser som står i `ALLOWED_EMAILS`. `pnpm users:sync` tar aldrig bort någon; användare som inte finns i listan visas som varning och tas bort först med `pnpm users:sync --prune`.
 
@@ -37,7 +37,7 @@ Logga in på `http://localhost:3000/logga-in`. Länken hamnar i Mailpit på `htt
 | `pnpm db:types` | Genererar `src/lib/supabase/database.types.ts`; körs efter varje migration (AD-5) |
 | `pnpm dev:set-password` | Sätter lösenordet för din lokala användare (`DEV_AUTO_LOGIN_EMAIL`/`DEV_AUTO_LOGIN_PASSWORD`), så att `pnpm dev` loggar in dig automatiskt (Story 15.1). Vägrar om Supabase-adressen inte är lokal |
 | `pnpm users:sync` | Skapar användarna i `ALLOWED_EMAILS` med service role (`--prune` tar bort övriga) |
-| `pnpm owner:sync` | Gör `OWNER_EMAIL` (lokalt annars `DEV_AUTO_LOGIN_EMAIL`) till appens enda ägare i tabellen `app_owner`, med service role (Story 20.3) |
+| `pnpm owner:sync` | Slår upp användaren med `OWNER_EMAIL` (lokalt annars `DEV_AUTO_LOGIN_EMAIL`) och gör hens id till appens enda ägare i tabellen `app_owner`, med service role; vägrar om ingen har adressen (Story 20.3) |
 
 ### Utseende och byggstenar
 

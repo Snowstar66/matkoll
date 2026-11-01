@@ -1,7 +1,7 @@
 import { describe, expect, it } from "vitest";
-import { ownerFrom, parseOwnerEmail, planOwnerSync } from "../../scripts/owner-sync-plan.mjs";
+import { ownerFrom, ownerUserId, parseOwnerEmail, planOwnerSync } from "../../scripts/owner-sync-plan.mjs";
 
-// `pnpm owner:sync` (Story 20.3): OWNER_EMAIL becomes the only address in app_owner.
+// `pnpm owner:sync` (Story 20.3): OWNER_EMAIL's user becomes the only user in app_owner, by id.
 
 describe("parseOwnerEmail", () => {
   it("reads the address as the app does, and refuses a missing or broken one", () => {
@@ -13,10 +13,22 @@ describe("parseOwnerEmail", () => {
 });
 
 describe("planOwnerSync", () => {
-  it("adds the owner when missing and removes every other address", () => {
-    expect(planOwnerSync("a@x.se", [])).toEqual({ add: true, remove: [] });
-    expect(planOwnerSync("a@x.se", ["a@x.se"])).toEqual({ add: false, remove: [] });
-    expect(planOwnerSync("a@x.se", ["b@x.se", "a@x.se"])).toEqual({ add: false, remove: ["b@x.se"] });
+  it("adds the owner's id when missing and removes every other id", () => {
+    expect(planOwnerSync("u1", [])).toEqual({ add: true, remove: [] });
+    expect(planOwnerSync("u1", ["u1"])).toEqual({ add: false, remove: [] });
+    expect(planOwnerSync("u1", ["u2", "u1"])).toEqual({ add: false, remove: ["u2"] });
+  });
+});
+
+describe("ownerUserId", () => {
+  it("finds the user with the address, in any case, or nobody", () => {
+    const users = [
+      { id: "u1", email: "Pontus@X.se" },
+      { id: "u2", email: null },
+      { id: "u3", email: "anna@x.se" },
+    ];
+    expect(ownerUserId("pontus@x.se", users)).toBe("u1");
+    expect(ownerUserId("erik@x.se", users)).toBeNull();
   });
 });
 

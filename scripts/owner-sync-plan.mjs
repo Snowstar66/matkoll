@@ -38,11 +38,21 @@ export function ownerFrom(env, supabaseUrl) {
 }
 
 /**
- * What to change in app_owner so that `owner` is the only address in it.
- * @param {string} owner from parseOwnerEmail
- * @param {string[]} current the addresses in app_owner now
+ * The id of the user whose address is `email`, or null when nobody has it.
+ * @param {string} email from parseOwnerEmail
+ * @param {{ id: string, email?: string | null }[]} users users in Supabase Auth
+ * @returns {string | null}
+ */
+export function ownerUserId(email, users) {
+  return users.find((user) => (user.email ?? "").toLowerCase() === email)?.id ?? null;
+}
+
+/**
+ * What to change in app_owner so that `ownerId` is the only user in it.
+ * @param {string} ownerId the owner's user id
+ * @param {string[]} current the user ids in app_owner now
  * @returns {{ add: boolean, remove: string[] }}
  */
-export function planOwnerSync(owner, current) {
-  return { add: !current.includes(owner), remove: current.filter((email) => email !== owner) };
+export function planOwnerSync(ownerId, current) {
+  return { add: !current.includes(ownerId), remove: current.filter((id) => id !== ownerId) };
 }

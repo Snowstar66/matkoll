@@ -70,3 +70,7 @@ insert into public.ai_usage (id, user_id, model, input_tokens, output_tokens) va
  ('ba000000-0000-4000-8000-000000000001', :'uid', 'claude-haiku-5-5', 1200, 340);
 insert into public.api_key (id, user_id, key_hash, label, last_used_at) values
  ('bb000000-0000-4000-8000-000000000001', :'uid', encode(sha256(convert_to('fixture-key-' || :'uid', 'UTF8')), 'hex'), 'Siri', now());
+insert into public.feedback (id, user_id, kind, body, area, page, app_version, read_at) values
+ ('bc000000-0000-4000-8000-000000000001', :'uid', 'idea', 'Dela inköpslistan', 'inkopslista', '/lista', '0.1.0', now());
+insert into public.welcome_tour (id, user_id) values
+ ('bd000000-0000-4000-8000-000000000001', :'uid');

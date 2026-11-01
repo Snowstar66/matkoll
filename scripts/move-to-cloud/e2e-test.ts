@@ -155,7 +155,12 @@ async function main() {
     for (const row of rows) {
       const want = remapRow(t, row, ids);
       const have = byKey.get(keyOf(t, want))!;
-      assert.deepStrictEqual(stripGenerated(t, have), want, `${t.name}: row differs`);
+      const compared = { ...stripGenerated(t, have) };
+      for (const col of t.filledByTarget ?? []) {
+        assert.ok(have[col], `${t.name}.${col}: filled in by the target`);
+        compared[col] = want[col];
+      }
+      assert.deepStrictEqual(compared, want, `${t.name}: row differs`);
       for (const col of t.generated ?? []) assert.equal(have[col], row[col], `${t.name}.${col}: generated value differs`);
     }
   }
@@ -212,6 +217,7 @@ async function main() {
   for (const t of TABLES) {
     const expected = expectedByTable.get(t.name)!.length;
     if (t.name === "api_key" || t.name === "ai_job") continue; // not readable or only through RPC for users; checked below if granted
+    if (t.name === "feedback") continue; // Story 20.3: only the app's owner reads it, never the sender
     const a = await mine.from(t.name).select("id", { count: "exact", head: true });
     if (a.error) continue;
     assert.equal(a.count, expected, `${t.name}: new user should see all ${expected}`);
