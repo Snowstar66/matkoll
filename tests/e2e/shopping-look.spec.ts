@@ -238,7 +238,7 @@ test("the list shows the progress row, the categories, the line under each name 
   await seed();
   const errors = watchErrors(page);
   await page.goto("/lista");
-  await expect(page.getByTestId("site-line").filter({ visible: true })).toContainText("Boende: Stugan");
+  await expect(page.getByRole("button", { name: /^Boende: / }).filter({ visible: true })).toHaveAccessibleName("Boende: Stugan");
   await expect(progress(page)).toHaveText(/^5 varor kvar\s*0 av 5 i korgen$/);
   await expect(headings(page)).toHaveText(["Frukt & grönt", "Mejeri & ägg", "Kött, fisk & chark", "Såser & smaksättare", "Övrigt"]);
   // The amount after the name, and the dishes with " · " under it, without "från".

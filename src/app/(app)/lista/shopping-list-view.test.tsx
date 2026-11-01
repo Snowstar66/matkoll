@@ -89,11 +89,11 @@ describe("ShoppingListView", () => {
   it("says a switch made in the sheet once, by its confirmation, not by the list", async () => {
     const user = userEvent.setup();
     render(<Page />, { wrapper: ToastProvider });
-    await user.click(screen.getByRole("button", { name: "Byt boende för listan" }));
-    const sheet = await screen.findByRole("dialog", { name: "Räkna listan mot" });
+    await user.click(screen.getByRole("button", { name: /^Boende: / }));
+    const sheet = await screen.findByRole("dialog", { name: "Boende" });
     await user.click(within(sheet).getByRole("button", { name: /^Stugan/ }));
     expect(await screen.findByTestId("toast")).toHaveTextContent("Listan räknas nu mot Stugan.");
-    expect(screen.getByTestId("site-line")).toHaveTextContent("Boende: Stugan");
+    expect(screen.getByRole("button", { name: /^Boende: / })).toHaveAccessibleName("Boende: Stugan");
     expect(screen.getByRole("checkbox", { name: /^Ketchup/ })).toBeInTheDocument();
     expect(live()).toHaveTextContent("");
   });
@@ -101,9 +101,9 @@ describe("ShoppingListView", () => {
   it("lets the list say a switch made elsewhere, also after a quiet one", async () => {
     const user = userEvent.setup();
     render(<Page />, { wrapper: ToastProvider });
-    await user.click(screen.getByRole("button", { name: "Byt boende för listan" }));
+    await user.click(screen.getByRole("button", { name: /^Boende: / }));
     await user.click(within(await screen.findByRole("dialog")).getByRole("button", { name: /^Stugan/ }));
-    await waitFor(() => expect(screen.getByTestId("site-line")).toHaveTextContent("Boende: Stugan"));
+    await waitFor(() => expect(screen.getByRole("button", { name: /^Boende: / })).toHaveAccessibleName("Boende: Stugan"));
     expect(live()).toHaveTextContent("");
     // Another device selects Hemma.
     await act(async () => {
@@ -129,7 +129,7 @@ describe("ShoppingListView", () => {
     );
     const user = userEvent.setup();
     render(<Page />, { wrapper: ToastProvider });
-    const byt = screen.getByRole("button", { name: "Byt boende för listan" });
+    const byt = screen.getByRole("button", { name: /^Boende: / });
     expect(byt).toBeEnabled();
     await user.click(screen.getByRole("checkbox", { name: /^Senap/ }));
     await waitFor(() => expect(byt).toBeDisabled());

@@ -253,3 +253,42 @@ export function ChevronDownIcon(props: IconProps) {
     </Icon>
   );
 }
+
+/** A chevron pointing right: a row that goes somewhere (premium look). */
+export function ChevronRightIcon(props: IconProps) {
+  return (
+    <Icon strokeWidth={2} {...props}>
+      <path d="M9.5 5.5l6.5 6.5-6.5 6.5" />
+    </Icon>
+  );
+}
+
+/** A price tag: Erbjudanden in Inköpslista's header. */
+export function TagIcon(props: IconProps) {
+  return (
+    <Icon {...props}>
+      <path d="M3.5 12.2V4.5a1 1 0 0 1 1-1h7.7l8.3 8.3a1.5 1.5 0 0 1 0 2.1l-6.4 6.4a1.5 1.5 0 0 1-2.1 0z" />
+      <circle cx="8" cy="8" r="1.5" />
+    </Icon>
+  );
+}
+
+/** A circle with a question mark: Hjälp och tips. */
+export function HelpIcon(props: IconProps) {
+  return (
+    <Icon {...props}>
+      <circle cx="12" cy="12" r="9" />
+      <path strokeWidth={2} d="M9.6 9.4a2.5 2.5 0 1 1 3.6 2.3c-.7.3-1.2.9-1.2 1.7v.4M12 17h.01" />
+    </Icon>
+  );
+}
+
+/** A door with an arrow out: Logga ut. */
+export function LogoutIcon(props: IconProps) {
+  return (
+    <Icon {...props}>
+      <path d="M14 4h3.5A2.5 2.5 0 0 1 20 6.5v11a2.5 2.5 0 0 1-2.5 2.5H14" />
+      <path d="M10 8l-4 4 4 4M6 12h10" />
+    </Icon>
+  );
+}

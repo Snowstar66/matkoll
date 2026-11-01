@@ -11,6 +11,7 @@ import type { PantrySite } from "@/features/pantry";
 import { listPantrySites, PantryDataError } from "@/features/pantry/server";
 import { getShoppingList } from "@/features/shopping/server";
 import { emptyPlanText } from "@/features/shopping";
+import { loadBoendeCounts } from "../boende-counts";
 import { ShoppingListView } from "./shopping-list-view";
 
 const next = "/lista";
@@ -29,8 +30,8 @@ const quickAddNext = "/lista/lagg-till";
  * the list is counted against goes to the list too, for "Lägg till i Matvaror" and
  * its texts.
  *
- * With more than one place, "Boende: Stugan" and "Byt" stand directly under
- * the title (pantry/ui ListSiteLine, Story 8.5), beside the list
+ * With more than one place, the boende button "📍 Stugan ⌄" stands directly under
+ * the title (pantry/ui ListSiteLine, Story 8.5, Story 19.2), beside the list
  * (ShoppingListView, AD-24). The places are read in the same request as the
  * list (listPantrySites is memoised per request, and getShoppingList reads
  * the selected place from it), so the line names the place the list was
@@ -100,12 +101,15 @@ export async function ShoppingListContent({
       };
   return (
     <>
-      <div className="mb-6">
-        <WeekNav weekStart={weekStart} counts={counts} now={now} basePath="/lista" showHistory={false} />
-      </div>
       <ShoppingListView
         key={weekStart}
         sites={sites}
+        loadCounts={loadBoendeCounts}
+        weekNav={
+          <div className="mb-6">
+            <WeekNav weekStart={weekStart} counts={counts} now={now} basePath="/lista" showHistory={false} />
+          </div>
+        }
         userId={user.id}
         plan={plan}
         lines={lines}

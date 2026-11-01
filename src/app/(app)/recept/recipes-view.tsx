@@ -1,8 +1,6 @@
-import Link from "next/link";
 import { Suspense } from "react";
 import { PageHeader } from "@/components/app-shell/page-header";
 import { EmptyState } from "@/components/empty-state";
-import { SettingsIcon } from "@/components/icons";
 import { Skeleton } from "@/components/skeleton";
 import { requireUserOrRedirect } from "@/features/auth/server";
 import { searchIngredients } from "@/features/catalog/server";
@@ -39,20 +37,9 @@ export function RecipesView({
       <WarmAi kind="text" />
       <PageHeader
         title="Recept"
-        action={
-          <>
-            <ImportRecipeButton variant="icon" />
-            {/* On desktop, Inställningar is at the bottom of the side menu instead. */}
-            <Link
-              href="/installningar"
-              scroll={false}
-              aria-label="Inställningar"
-              className="flex size-tap items-center justify-center rounded-full text-ink-2 desktop:hidden"
-            >
-              <SettingsIcon size={24} />
-            </Link>
-          </>
-        }
+        tab="/recept"
+        // Story 19.2: Inställningar is behind the P button (and at the bottom of the side menu on a desktop), so "+" is alone.
+        action={<ImportRecipeButton variant="icon" />}
       />
       <ImportFailures />
       <Suspense fallback={<Skeleton rows={4} />}>

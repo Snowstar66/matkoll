@@ -20,6 +20,7 @@ export default function MealPlanPage({ searchParams }: PageProps<"/matsedel">) {
         <>
           <PageHeader
             title="Matsedel"
+            tab="/matsedel"
             // The size of "+", so the header does not move when it arrives.
             action={<span aria-hidden="true" inert className="size-tap" />}
           />

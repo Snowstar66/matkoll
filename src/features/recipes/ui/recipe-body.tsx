@@ -8,7 +8,7 @@ import { clampServings, maxServings, type PlanningTarget } from "@/features/meal
 import {
   atHomeSummaryText,
   recipeStatusForFactor,
-  siteLineText,
+  shownSiteName,
   type PantrySnapshot,
   type SelectedSite,
 } from "@/features/pantry";
@@ -90,8 +90,8 @@ export function RecipeBody({ recipe, snapshot, site = null, addToPlan, finish, p
     line?.focus({ preventScroll: true });
   };
   const steps = useMemo(() => cookSteps(recipe.steps, lines), [recipe.steps, lines]);
-  // Only beside a status: the place it is counted against (AD-24).
-  const siteLine = status ? siteLineText(site) : null;
+  // Only beside a status: the place it is counted against (AD-24), as "2 av 8 hemma i Stugan" (Story 19.2).
+  const siteName = status ? shownSiteName(site) : null;
   const canCook = steps.length > 0;
   const [cooking, setCooking] = useState(false);
   const [adding, setAdding] = useState(false);
@@ -122,18 +122,12 @@ export function RecipeBody({ recipe, snapshot, site = null, addToPlan, finish, p
               )}
               {status.ingredientCount > 0 ? (
                 <p className="text-meta text-ink-2" data-testid="recipe-at-home">
-                  {atHomeSummaryText(status.atHomeCount, status.ingredientCount)}
+                  {atHomeSummaryText(status.atHomeCount, status.ingredientCount, siteName)}
                 </p>
               ) : null}
             </div>
           ) : null}
         </div>
-        {/* Outside the live region: metadata, not read out when the servings change. */}
-        {siteLine ? (
-          <p className="text-meta break-words text-ink-2" data-testid="site-line">
-            {siteLine}
-          </p>
-        ) : null}
       </div>
 
       {/* Mobile: ingredients above the steps. Desktop: side by side. */}

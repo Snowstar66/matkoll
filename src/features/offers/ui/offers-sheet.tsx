@@ -4,6 +4,7 @@ import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { type ReactNode, useId, useMemo, useRef, useState } from "react";
 import { FilterPills } from "@/components/filter-pills";
+import { TagIcon } from "@/components/icons";
 import { Button, buttonClasses } from "@/components/button";
 import { Checkbox } from "@/components/checkbox";
 import { ListGroup } from "@/components/list-group";
@@ -609,7 +610,7 @@ function storeFetchLine(store: OffersStore, count: number, now: string): string 
 }
 
 /**
- * The text button "Erbjudanden" in Inköpslista's header, which opens the
+ * The icon button "Erbjudanden" (a price tag) in Inköpslista's header, which opens the
  * sheet Veckans erbjudanden (Story 9.1). The page passes it to the header as
  * a slot, so the shopping list never imports the offers module (AD-1).
  */
@@ -617,9 +618,16 @@ export function OffersSheetButton(props: OffersSheetProps) {
   const [open, setOpen] = useState(false);
   return (
     <>
-      <Button variant="text" aria-haspopup="dialog" onClick={() => setOpen(true)}>
-        Erbjudanden
-      </Button>
+      {/* Story 19.2: an icon button like the "+" of the other tabs, named for screen readers. */}
+      <button
+        type="button"
+        aria-label="Erbjudanden"
+        aria-haspopup="dialog"
+        onClick={() => setOpen(true)}
+        className="flex size-tap items-center justify-center rounded-full text-ink-2"
+      >
+        <TagIcon size={24} />
+      </button>
       <OffersSheet {...props} open={open} onClose={() => setOpen(false)} />
     </>
   );

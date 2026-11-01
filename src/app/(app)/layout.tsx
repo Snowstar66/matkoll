@@ -1,9 +1,13 @@
 import { type ReactNode, Suspense } from "react";
+import { AccountProvider } from "@/components/app-shell/account";
 import { AppShell } from "@/components/app-shell/app-shell";
 import { ToastProvider } from "@/components/toast";
 import { AiJobRow } from "@/features/ai-jobs/ui/ai-job-row";
 import { SavedImports } from "@/features/recipes/ui/saved-imports";
+import { accountOf } from "@/features/auth";
+import { getCurrentUser } from "@/features/auth/server";
 import { PrivacyNote } from "@/features/auth/ui/privacy-note";
+import { SignOutButton } from "@/features/auth/ui/sign-out-button";
 import { AiJobsProvider } from "@/features/ai-jobs/ui/ai-jobs-provider";
 import type { PantrySite } from "@/features/pantry";
 import { listPantrySites, PantryDataError } from "@/features/pantry/server";
@@ -34,7 +38,15 @@ async function SideBoende() {
 // is part of the shell, above the tabs and in the side menu. Story 17.2: the
 // one-time privacy note sits above every page until Okej is pressed on the device.
 export default function AppLayout({ children }: { children: ReactNode }) {
+  // Story 19.2: the P button and the side menu show who is signed in. The promise, not the session, goes down (AD-18).
+  const account = getCurrentUser()
+    .then((user) => (user ? accountOf(user.email) : null))
+    .catch(() => null);
   return (
+    <AccountProvider
+      account={account}
+      signOut={{ sheet: <SignOutButton appearance="sheet" />, menu: <SignOutButton appearance="menu" /> }}
+    >
     <ToastProvider>
       <AiJobsProvider>
         <SavedImports />
@@ -54,5 +66,6 @@ export default function AppLayout({ children }: { children: ReactNode }) {
         </SiteSwitchProvider>
       </AiJobsProvider>
     </ToastProvider>
+    </AccountProvider>
   );
 }

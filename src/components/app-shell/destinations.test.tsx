@@ -1,6 +1,6 @@
 import { render, screen, within } from "@testing-library/react";
 import { beforeEach, describe, expect, it, vi } from "vitest";
-import { currentState, mainDestinations, settingsDestination } from "./destinations";
+import { currentState, helpHref, mainDestinations, settingsDestination } from "./destinations";
 import { SideMenu } from "./side-menu";
 import { TabBar } from "./tab-bar";
 
@@ -75,5 +75,17 @@ describe("tab bar and side menu icons (Story 19.1)", () => {
       expect(link.querySelector("svg")).toBeInTheDocument();
       expect(link.textContent).not.toMatch(pictograph);
     }
+  });
+});
+
+describe("helpHref (Story 19.2)", () => {
+  it("opens Hjälp och tips on the section of the tab the path is on, else at the top", () => {
+    expect(helpHref("/recept")).toBe("/hjalp#recept");
+    expect(helpHref("/recept/abc")).toBe("/hjalp#recept");
+    expect(helpHref("/lista")).toBe("/hjalp#inkopslista");
+    expect(helpHref("/hemma")).toBe("/hjalp#matvaror");
+    expect(helpHref("/prylar")).toBe("/hjalp#forrad");
+    expect(helpHref("/installningar")).toBe("/hjalp");
+    expect(helpHref(null)).toBe("/hjalp");
   });
 });

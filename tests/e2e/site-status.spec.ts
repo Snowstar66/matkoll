@@ -215,15 +215,14 @@ test("with Stugan selected, the recipe view, the library with Kan lagas nu and t
   // Two places, Hemma selected: the line names Hemma, and the recipe can be cooked now.
   await page.goto(`/recept/${recipeId}`);
   await expect(view(page).getByText("Kan lagas nu", { exact: true })).toBeVisible();
-  await expect(siteLine(page)).toHaveText("Boende: Hemma");
+  await expect(view(page).getByTestId("recipe-at-home")).toHaveText(/ hemma i Hemma$/);
 
   await selectSite(stugan);
   await page.goto(`/recept/${recipeId}`);
   await expect(view(page).getByText(/^Saknar: [^,+]+$/)).toBeVisible();
-  await expect(view(page).getByTestId("recipe-at-home")).toHaveText("1 av 2 hemma");
-  await expect(siteLine(page)).toHaveText("Boende: Stugan");
-  // Under "X av Y hemma", as metadata, and never in a live region.
-  await expect(page.locator("[aria-live] [data-testid=site-line]")).toHaveCount(0);
+  await expect(view(page).getByTestId("recipe-at-home")).toHaveText("1 av 2 hemma i Stugan");
+  // The boende is part of the at-home text (Story 19.2), with no line of its own on the recipe.
+  await expect(view(page).getByText(/^Boende: /)).toHaveCount(0);
   await expectNoHorizontalScroll(page);
 
   await page.goto("/recept");
@@ -247,7 +246,7 @@ test("with Stugan selected, the recipe view, the library with Kan lagas nu and t
   await expect(dish(page).getByTestId("dish-meta")).toContainText("✓ Allt hemma");
   await page.goto(`/recept/${recipeId}`);
   await expect(view(page).getByText("Kan lagas nu", { exact: true })).toBeVisible();
-  await expect(siteLine(page)).toHaveText("Boende: Hemma");
+  await expect(view(page).getByTestId("recipe-at-home")).toHaveText(/ hemma i Hemma$/);
   expect(errors).toEqual([]);
 });
 
@@ -258,7 +257,7 @@ test("a switch with the picker in Matvaror reaches the recipe view, Kan lagas nu
   await selectSite(stugan);
   await page.goto(`/recept/${recipeId}`);
   await expect(view(page).getByText(/^Saknar: [^,+]+$/)).toBeVisible();
-  await expect(siteLine(page)).toHaveText("Boende: Stugan");
+  await expect(view(page).getByTestId("recipe-at-home")).toHaveText(/ hemma i Stugan$/);
   // Set once; a reload would clear it.
   await page.evaluate(() => Object.assign(window, { siteStatusNoReload: true }));
 
@@ -289,8 +288,7 @@ test("a switch with the picker in Matvaror reaches the recipe view, Kan lagas nu
   await rows(page).filter({ hasText: title }).getByRole("link").first().click();
   await expect(page).toHaveURL(new RegExp(`/recept/${recipeId}$`));
   await expect(view(page).getByText("Kan lagas nu", { exact: true })).toBeVisible();
-  await expect(view(page).getByTestId("recipe-at-home")).toHaveText("2 av 2 hemma");
-  await expect(siteLine(page)).toHaveText("Boende: Hemma");
+  await expect(view(page).getByTestId("recipe-at-home")).toHaveText("2 av 2 hemma i Hemma");
 
   await tab(page, "Matsedel").click();
   await expect(page).toHaveURL(/\/matsedel$/);
@@ -306,7 +304,7 @@ test("with one place there is no line Lager anywhere, as in 1.0", async ({ page 
   await removeStugan();
   await page.goto(`/recept/${recipeId}`);
   await expect(view(page).getByText("Kan lagas nu", { exact: true })).toBeVisible();
-  await expect(siteLine(page)).toHaveCount(0);
+  await expect(view(page).getByTestId("recipe-at-home")).not.toContainText(" i ");
   await page.goto("/recept");
   await pill(page, "Kan lagas nu").click();
   await expect(rows(page)).toHaveCount(1);
