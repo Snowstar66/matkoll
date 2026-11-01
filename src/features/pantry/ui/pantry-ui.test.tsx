@@ -2,13 +2,13 @@ import { fireEvent, render as renderElement, screen, within } from "@testing-lib
 import type { ReactElement } from "react";
 import { act } from "react";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
-import { resetDeleteGrace, startDeleteGrace } from "@/components/confirm-delete";
 import { ToastProvider } from "@/components/toast";
 import type { PantryItem } from "../domain/pantry-item";
 import { LocationCards } from "./location-cards";
 import { PantrySheetProvider } from "./pantry-item-sheet";
 import { PantryList } from "./pantry-list";
 import { PantrySuggestionsProvider } from "./pantry-suggestions";
+import { unitOf } from "./unit-test-helpers";
 
 /** The place Hemma shows (Story 8.2). */
 const testSite = { id: "55555555-5555-4555-8555-555555555555" };
@@ -71,11 +71,8 @@ describe("PantryList", () => {
   beforeEach(() => {
     vi.useFakeTimers({ toFake: ["Date"] });
     vi.setSystemTime(new Date("2026-10-27T11:00:00Z"));
-    // The bin's question (Story 13.1) is answered by the window; one test below asks.
-    startDeleteGrace();
   });
   afterEach(() => {
-    resetDeleteGrace();
     vi.useRealTimers();
   });
   // The spec's fridge, added at noon in Stockholm.
@@ -262,7 +259,7 @@ describe("PantryList", () => {
     fireEvent.click(screen.getByRole("button", { name: "Mjölk Arla" }));
     expect(screen.getByTestId("pantry-sheet-ingredient")).toHaveTextContent("Mjölk");
     expect(screen.getByLabelText("Mängd")).toHaveValue("1,5");
-    expect(screen.getByLabelText("Enhet")).toHaveValue("l");
+    expect(unitOf()).toBe("l");
 
     fireEvent.click(screen.getByRole("button", { name: "Avbryt" }));
     fireEvent.click(screen.getByRole("button", { name: "Salt" }));

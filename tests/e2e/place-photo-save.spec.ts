@@ -174,7 +174,7 @@ test("a confirmation saves the photo once, as a row and a file for Stugan's frid
   await expect(page.getByRole("dialog", { name: "Fotot av kylen" })).toHaveAccessibleDescription(
     "Jämför förslagen med fotot. Det sparas som senaste foto när du bekräftar något.",
   );
-  await page.getByRole("dialog", { name: "Fotot av kylen" }).getByRole("button", { name: "Stäng" }).click();
+  await page.getByRole("dialog", { name: "Fotot av kylen" }).getByRole("button", { name: "Klar" }).click();
   expect(saves.count()).toBe(0);
   expect(await photos()).toEqual([]);
 

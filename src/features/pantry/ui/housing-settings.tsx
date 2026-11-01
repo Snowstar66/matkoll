@@ -1,11 +1,17 @@
 "use client";
 
 import { useRouter } from "next/navigation";
-import { type KeyboardEvent, useEffect, useId, useLayoutEffect, useRef, useState, useTransition } from "react";
-import { Badge } from "@/components/badges";
+import {
+  type KeyboardEvent,
+  useEffect,
+  useId,
+  useLayoutEffect,
+  useRef,
+  useState,
+  useTransition,
+} from "react";
 import { Button } from "@/components/button";
-import { cx } from "@/components/cx";
-import { MoreIcon } from "@/components/icons";
+import { CheckIcon, MoreIcon } from "@/components/icons";
 import { Notice } from "@/components/notice";
 import { useToast } from "@/components/toast";
 import { fail, type Result } from "@/lib/errors";
@@ -22,7 +28,7 @@ export type SiteThingCounts = { things: number; cards: number };
 /**
  * "Boenden" under Inställningar (Story 14.7, an overview since Story 16.14): a
  * card per boende with what is in it ("30 matvaror · 18 prylar · 1 kort"). The
- * selected one has a green border and "Vald". A tap on the card selects it;
+ * selected one has a green check on the right ("Vald" for screen readers). A tap on the card selects it;
  * "Matvaror ›" and "Förråd ›" select it and go there. ⋯ holds "Byt namn" and
  * "Ta bort" (only for an empty boende that is not selected, as before). "Lägg
  * till boende" opens the sheet Boenden, which closes when the page is hidden
@@ -93,7 +99,7 @@ export function HousingSettings({
               key={site.id}
               data-testid="housing-card"
               data-selected={selected || undefined}
-              className={cx("flex flex-col gap-2.5 rounded-lg border bg-surface px-4 py-3.5", selected ? "border-accent" : "border-transparent")}
+              className="flex flex-col gap-2.5 rounded-lg bg-surface px-4 py-3.5"
             >
               <div className="flex items-center gap-2">
                 {/* A tap before hydration would do nothing, so the name is plain text until then. */}
@@ -106,11 +112,19 @@ export function HousingSettings({
                   className="flex min-h-tap min-w-0 flex-1 flex-col items-start justify-center text-left"
                 >
                   <span className="flex flex-wrap items-center gap-2">
-                    <span className="text-row-title break-words text-ink">{site.name}</span>
-                    {selected ? <Badge tone="mint">{selectedBoendeBadge}</Badge> : null}
+                    <span className="text-row-title break-words text-ink">
+                      {site.name}
+                    </span>
                   </span>
                   <span className="text-meta text-ink-2">{stats}</span>
                 </button>
+                {/* Story 19.5: the chosen boende has no frame and no badge, only a green check; "Vald" is for screen readers. */}
+                {selected ? (
+                  <span className="flex size-6 shrink-0 items-center justify-center text-accent">
+                    <CheckIcon size={22} aria-hidden="true" />
+                    <span className="sr-only">{selectedBoendeBadge}</span>
+                  </span>
+                ) : null}
                 <CardMenu
                   site={site}
                   disabled={!hydrated || removing}
@@ -221,7 +235,7 @@ function CardMenu({
             Byt namn
           </button>
           {canRemove ? (
-            <button type="button" role="menuitem" onClick={() => pick(onRemove)} className="min-h-tap px-4 text-left text-body text-ink">
+            <button type="button" role="menuitem" onClick={() => pick(onRemove)} className="min-h-tap px-4 text-left text-body text-danger">
               Ta bort
             </button>
           ) : null}

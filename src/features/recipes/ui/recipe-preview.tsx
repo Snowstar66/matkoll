@@ -3,10 +3,19 @@
 import { type ReactNode, useEffect, useId, useRef, useState } from "react";
 import { Badge } from "@/components/badges";
 import { Button } from "@/components/button";
-import { FieldError, FieldLabel, Input, inputClasses } from "@/components/field";
-import { IngredientPicker, type SearchIngredients } from "@/components/ingredient-picker";
+import { FieldError, FieldLabel, Input } from "@/components/field";
+import {
+  IngredientPicker,
+  type SearchIngredients,
+} from "@/components/ingredient-picker";
 import { Stepper } from "@/components/stepper";
-import { UNITS, formatQuantity, newIngredientName, type Unit } from "@/features/catalog";
+import { UnitChoice } from "@/components/unit-choice";
+import {
+  UNITS,
+  formatQuantity,
+  newIngredientName,
+  type Unit,
+} from "@/features/catalog";
 import {
   ingredientLabel,
   needsCheck,
@@ -238,7 +247,9 @@ export function RecipePreview({
           </div>
         </div>
         <div className="flex w-40 flex-col gap-1.5">
-          <FieldLabel htmlFor={`${ids}-minutes`}>Tid i minuter</FieldLabel>
+          <FieldLabel htmlFor={`${ids}-minutes`} optional>
+            Tid i minuter
+          </FieldLabel>
           <Input
             id={`${ids}-minutes`}
             inputMode="numeric"
@@ -457,21 +468,15 @@ function AmountEditor({ id, line, initialText, error, onChange, onPending, onRem
           />
         </div>
         <div className="flex min-w-0 flex-1 flex-col gap-1.5">
-          <FieldLabel htmlFor={`${id}-unit`}>Enhet</FieldLabel>
-          <select
-            id={`${id}-unit`}
+          <span className="text-control text-ink">Enhet</span>
+          <UnitChoice
+            units={UNITS}
             value={line.unit ?? ""}
             disabled={line.isVague}
-            onChange={(event) => onChange(withUnit(line, (event.target.value || null) as Unit | null))}
-            className={inputClasses}
-          >
-            <option value="">Ingen enhet</option>
-            {UNITS.map((unit) => (
-              <option key={unit} value={unit}>
-                {unit}
-              </option>
-            ))}
-          </select>
+            onChange={(unit) =>
+              onChange(withUnit(line, (unit || null) as Unit | null))
+            }
+          />
         </div>
       </div>
       {error ? <FieldError id={`${id}-amount-error`}>{error}</FieldError> : null}

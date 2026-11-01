@@ -77,17 +77,17 @@ describe("removedItemText", () => {
 
 describe("removedItemsText", () => {
   it("names one or two items, and counts more", () => {
-    expect(removedItemsText(["Mjölk"])).toBe("Mjölk är borttagen.");
-    expect(removedItemsText(["Mjölk", "Smör"])).toBe("Mjölk och smör är borttagna.");
-    expect(removedItemsText(["Mjölk", "Smör", "Salt"])).toBe("3 varor är borttagna.");
+    expect(removedItemsText(["Mjölk"])).toBe("Tog bort Mjölk.");
+    expect(removedItemsText(["Mjölk", "Smör"])).toBe("Tog bort Mjölk och smör.");
+    expect(removedItemsText(["Mjölk", "Smör", "Salt"])).toBe("Tog bort 3 varor.");
   });
 
   it("starts the sentence with a capital, and keeps the user's own text as written inside it (Story 10.4)", () => {
-    expect(removedItemsText([{ text: "diskmedel", own: true }])).toBe("Diskmedel är borttagen.");
+    expect(removedItemsText([{ text: "diskmedel", own: true }])).toBe("Tog bort Diskmedel.");
     expect(removedItemsText([{ text: "diskmedel", own: true }, { text: "Kaffe Zoégas", own: true }])).toBe(
-      "Diskmedel och Kaffe Zoégas är borttagna.",
+      "Tog bort Diskmedel och Kaffe Zoégas.",
     );
-    expect(removedItemsText(["Mjölk", "D-vitamin"])).toBe("Mjölk och D-vitamin är borttagna.");
+    expect(removedItemsText(["Mjölk", "D-vitamin"])).toBe("Tog bort Mjölk och D-vitamin.");
   });
 });
 

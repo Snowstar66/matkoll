@@ -128,7 +128,7 @@ test("Lägg till butik with Willys selects the new store, and Välj switches bac
   await section(page).getByRole("button", { name: "Lägg till butik" }).click();
   const sheet = dialog(page, "Ny butik");
   await sheet.getByLabel("Namn").fill("Willys Lindhagen");
-  await sheet.getByLabel("Kedja").selectOption("Willys");
+  await sheet.getByRole("radio", { name: "Willys" }).click();
   await expect(sheet.getByRole("checkbox", { name: "Använd för varukorgen" })).toBeChecked();
   await sheet.getByRole("button", { name: "Spara" }).click();
 
@@ -155,7 +155,7 @@ test("a store added without Använd för varukorgen lands under Andra butiker", 
   await section(page).getByRole("button", { name: "Lägg till butik" }).click();
   const sheet = dialog(page, "Ny butik");
   await sheet.getByLabel("Namn").fill("Lidl Lillänge");
-  await sheet.getByLabel("Kedja").selectOption("Lidl");
+  await sheet.getByRole("radio", { name: "Lidl" }).click();
   await sheet.getByRole("checkbox", { name: "Använd för varukorgen" }).uncheck();
   await sheet.getByRole("button", { name: "Spara" }).click();
 

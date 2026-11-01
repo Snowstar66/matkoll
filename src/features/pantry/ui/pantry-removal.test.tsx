@@ -1,7 +1,6 @@
 import { act, fireEvent, render, screen, waitFor, within } from "@testing-library/react";
 import { useEffect, useState } from "react";
 import { beforeEach, describe, expect, it, vi } from "vitest";
-import { resetDeleteGrace, startDeleteGrace } from "@/components/confirm-delete";
 import { ToastProvider } from "@/components/toast";
 import type { Location } from "@/features/catalog";
 import { fail, ok, type Result } from "@/lib/errors";
@@ -137,8 +136,6 @@ function deferred<T>() {
 }
 
 beforeEach(() => {
-  // The bin's question (Story 13.1) is answered by the window; the test "asks" below ends it.
-  startDeleteGrace();
   vi.spyOn(performance, "now").mockImplementation(() => realNow() + guardOffset);
   refresh.mockReset();
   // By default the server answers, and its items change right after the answer.
@@ -219,7 +216,6 @@ describe("removing an item on Hemma", () => {
   });
 
   it("removes at once from the swipe action, without a question, and keeps Ångra (Story 14.6)", async () => {
-    resetDeleteGrace();
     render(<Hemma initial={[mjolk, smor, salt]} />);
     await tapRemove("Mjölk");
     expect(screen.queryByText("Ta bort Mjölk från matvarorna?")).not.toBeInTheDocument();
@@ -407,7 +403,7 @@ describe("the places a live Ångra needs (Story 8.2)", () => {
     );
     fireEvent.click(screen.getByRole("button", { name: "Töm kylen" }));
     await act(async () =>
-      fireEvent.click(within(screen.getByRole("dialog", { name: "Töm kylen" })).getByRole("button", { name: "Töm kylen" })),
+      fireEvent.click(within(screen.getByRole("dialog")).getByRole("button", { name: "Ta bort" })),
     );
     await waitFor(() => expect(screen.getByTestId("live-undo")).toHaveTextContent(hemmaSite.id));
   });
@@ -417,12 +413,12 @@ describe("Ta bort in the sheet", () => {
   it("removes an unlimited item, closes without asking, and moves focus to the next item", async () => {
     render(<Hemma initial={[mjolk, salt, agg]} />);
     fireEvent.click(screen.getByRole("button", { name: /^Salt(?:\s|$)/ }));
-    const sheet = screen.getByRole("dialog", { name: "Lagervara" });
+    const sheet = screen.getByRole("dialog");
     // Even with a change that is not saved.
     fireEvent.change(within(sheet).getByLabelText("Mängd"), { target: { value: "2" } });
     await act(async () => fireEvent.click(within(sheet).getByRole("button", { name: "Ta bort" })));
 
-    expect(screen.queryByRole("dialog", { name: "Lagervara" })).toBeNull();
+    expect(screen.queryByRole("dialog")).toBeNull();
     expect(screen.queryByText("Släng ändringarna?")).toBeNull();
     expect(removePantryItem).toHaveBeenCalledWith(salt.id);
     expect(rowNames()).toEqual(["Mjölk", "Ägg"]);
@@ -434,11 +430,11 @@ describe("Ta bort in the sheet", () => {
   it("offers Ta bort only for an item in the pantry", () => {
     render(<Hemma initial={[mjolk]} />);
     fireEvent.click(screen.getByRole("button", { name: /^Mjölk(?:\s|$)/ }));
-    expect(within(screen.getByRole("dialog", { name: "Lagervara" })).getByRole("button", { name: "Ta bort" })).toBeInTheDocument();
+    expect(within(screen.getByRole("dialog")).getByRole("button", { name: "Ta bort" })).toBeInTheDocument();
     fireEvent.click(screen.getByRole("button", { name: "Avbryt" }));
 
     fireEvent.click(screen.getByRole("button", { name: "Lägg till vara" }));
-    expect(within(screen.getByRole("dialog", { name: "Lagervara" })).queryByRole("button", { name: "Ta bort" })).toBeNull();
+    expect(within(screen.getByRole("dialog")).queryByRole("button", { name: "Ta bort" })).toBeNull();
   });
 
   it("removes the row a save moved, not the one the sheet opened with", async () => {
@@ -454,7 +450,7 @@ describe("Ta bort in the sheet", () => {
     fireEvent.change(screen.getByLabelText("Mängd"), { target: { value: "2" } });
     await act(async () => fireEvent.click(screen.getByRole("button", { name: "Spara ändringar" })));
     // Saving closes the sheet; it opens again from the list as it is now.
-    await waitFor(() => expect(screen.queryByRole("dialog", { name: "Lagervara" })).toBeNull());
+    await waitFor(() => expect(screen.queryByRole("dialog")).toBeNull());
     // The row shows no amount: the moved row is known by its id.
     await waitFor(() => expect(screen.getByRole("button", { name: /^Mjölk(?:\s|$)/ })).toHaveAttribute("data-pantry-item", moved.id));
     fireEvent.click(screen.getByRole("button", { name: /^Mjölk(?:\s|$)/ }));
@@ -530,8 +526,8 @@ describe("emptying a location", () => {
   /** "Töm kylen" under the list, then the sheet's "Töm kylen". */
   const emptyKyl = async () => {
     fireEvent.click(screen.getByRole("button", { name: "Töm kylen" }));
-    const sheet = screen.getByRole("dialog", { name: "Töm kylen" });
-    await act(async () => fireEvent.click(within(sheet).getByRole("button", { name: "Töm kylen" })));
+    const sheet = screen.getByRole("dialog");
+    await act(async () => fireEvent.click(within(sheet).getByRole("button", { name: "Ta bort" })));
   };
   const operationOf = (call = 0) => emptyPantryPlace.mock.calls[call][1];
   const uuid = /^[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/;
@@ -639,7 +635,7 @@ describe("emptying a location", () => {
     await emptyKyl();
     expect(toast()).toHaveTextContent("Kylen är redan tom.");
     expect(within(toast()).queryByRole("button", { name: "Ångra" })).toBeNull();
-    expect(screen.queryByRole("dialog", { name: "Töm kylen" })).toBeNull();
+    expect(screen.queryByRole("dialog")).toBeNull();
   });
 
   it("offers Ångra by operation id when the answer is lost but the location is empty when read again", async () => {
@@ -650,7 +646,7 @@ describe("emptying a location", () => {
     });
     render(<Hemma initial={[mjolk, smor]} />);
     await emptyKyl();
-    const sheet = screen.getByRole("dialog", { name: "Töm kylen" });
+    const sheet = screen.getByRole("dialog");
     expect(within(sheet).getByRole("alert")).toHaveTextContent("Det gick inte att ta bort varorna. Försök igen.");
     expect(rowNames()).toEqual(["Mjölk", "Smör"]);
     expect(refresh).toHaveBeenCalledTimes(1);
@@ -658,7 +654,7 @@ describe("emptying a location", () => {
     // The page as read again: Kyl is empty, so the sheet closes and Ångra is offered.
     act(() => serverUpdate(() => []));
     await waitFor(() => expect(toast()).toHaveTextContent("Kylen kan ha tömts."));
-    expect(screen.queryByRole("dialog", { name: "Töm kylen" })).toBeNull();
+    expect(screen.queryByRole("dialog")).toBeNull();
     await undo();
     expect(restorePantryRemoval).toHaveBeenCalledWith(operationOf());
     await waitFor(() => expect(rowNames()).toEqual(["Mjölk", "Smör"]));
@@ -726,8 +722,8 @@ describe("emptying a location", () => {
     expect(screen.queryByText("Kylen kan ha tömts.")).toBeNull();
     expect(screen.queryByTestId("toast")).toBeNull();
 
-    const sheet = screen.getByRole("dialog", { name: "Töm kylen" });
-    await act(async () => fireEvent.click(within(sheet).getByRole("button", { name: "Töm kylen" })));
+    const sheet = screen.getByRole("dialog");
+    await act(async () => fireEvent.click(within(sheet).getByRole("button", { name: "Ta bort" })));
     expect(emptyPantryPlace).toHaveBeenCalledTimes(2);
     expect(operationOf(1)).toBe(operationOf(0));
     expect(toast()).toHaveTextContent("Tog bort 2 varor ur kylen för Hemma.");

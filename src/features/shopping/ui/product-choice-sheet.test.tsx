@@ -275,7 +275,7 @@ describe("ProductChoiceSheet", () => {
     await waitFor(() => expect(screen.queryByRole("dialog")).not.toBeInTheDocument());
     expect(removeProductChoice).toHaveBeenCalledWith({ id: choice.id });
     const toast = await screen.findByTestId("toast");
-    expect(toast).toHaveTextContent("Produktvalet är borttaget.");
+    expect(toast).toHaveTextContent("Tog bort produktvalet.");
     await user.click(within(toast).getByRole("button", { name: "Ångra" }));
     await waitFor(() => expect(restoreProductChoice).toHaveBeenCalledWith(choice));
     expect(refresh).not.toHaveBeenCalled();
@@ -296,7 +296,7 @@ describe("ProductChoiceSheet", () => {
     const user = await open(choice);
     await user.click(within(sheet()).getByRole("button", { name: "Ta bort produktval" }));
     const toast = await screen.findByTestId("toast");
-    expect(toast).toHaveTextContent("Produktvalet är borttaget.");
+    expect(toast).toHaveTextContent("Tog bort produktvalet.");
     expect(within(toast).queryByRole("button", { name: "Ångra" })).not.toBeInTheDocument();
   });
 

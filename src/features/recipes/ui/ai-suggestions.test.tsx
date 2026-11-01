@@ -524,7 +524,7 @@ describe("AiSuggestions", () => {
       expect(await within(dialog()).findByRole("alert")).toHaveTextContent(errorMessages.recipe_save_failed);
       // The sheet cannot be closed until the failed save has settled ("Sparar …").
       await within(dialog()).findByRole("button", { name: "Spara recept" });
-      await user.click(within(dialog()).getByRole("button", { name: "Stäng" }));
+      await user.click(within(dialog()).getByRole("button", { name: "Avbryt" }));
 
       saveRecipe.mockResolvedValueOnce(ok({ id: "11111111-2222-4333-8444-555555555555" }));
       await user.click(screen.getByRole("button", { name: "Spara Krämig pasta" }));
@@ -562,7 +562,7 @@ describe("AiSuggestions", () => {
       const title = within(dialog()).getByLabelText("Titel");
       await user.clear(title);
       await user.type(title, "Min gryta");
-      await user.click(within(dialog()).getByRole("button", { name: "Stäng" }));
+      await user.click(within(dialog()).getByRole("button", { name: "Avbryt" }));
 
       expect(within(dialog()).getByRole("alert")).toHaveTextContent("Släng ändringarna?");
       await user.click(within(dialog()).getByRole("button", { name: "Släng ändringarna" }));
@@ -579,7 +579,7 @@ describe("AiSuggestions", () => {
       renderSuggestions();
       await suggestWith(user);
       await user.click(screen.getByRole("button", { name: "Spara Ugnsomelett" }));
-      await user.click(within(dialog()).getByRole("button", { name: "Stäng" }));
+      await user.click(within(dialog()).getByRole("button", { name: "Avbryt" }));
       expect(screen.queryByRole("dialog", { name: "Spara AI-förslag" })).not.toBeInTheDocument();
       expect(saveRecipe).not.toHaveBeenCalled();
     });

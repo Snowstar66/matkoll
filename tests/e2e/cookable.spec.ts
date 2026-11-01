@@ -1,6 +1,6 @@
 import { expect, type Page, test } from "@playwright/test";
 import { normalizeIngredientText } from "@/features/catalog/domain/normalize";
-import { adminClient, cookableEmail, cookableStorageState, e2eUserId } from "./support";
+import { adminClient, cookableEmail, cookableStorageState, e2eUserId, chooseUnit } from "./support";
 
 // Story 5.1: the filter Kan lagas nu ranks the library by N in "Saknar N
 // varor", fewest first, with "Föreslå rätter med AI" at the bottom
@@ -135,7 +135,7 @@ const showAll = async (page: Page) => {
 const rankedList = (page: Page) => page.getByRole("list", { name: "Recept, minst saknat först" }).filter({ visible: true });
 const tab = (page: Page, name: "Recept" | "Matvaror") =>
   page.getByRole("navigation", { name: "Huvudmeny" }).getByRole("link", { name });
-const sheet = (page: Page) => page.getByRole("dialog", { name: "Lagervara" });
+const sheet = (page: Page) => page.getByRole("dialog");
 
 /** The status on each visible row, in order. */
 async function expectStatuses(page: Page, statuses: string[]) {
@@ -195,7 +195,7 @@ test("adding an item in Matvaror ranks the library again", async ({ page }) => {
   await sheet(page).getByRole("searchbox", { name: "Sök ingrediens" }).fill("torsk");
   await sheet(page).getByRole("button", { name: /^torsk$/i }).click();
   await sheet(page).getByLabel("Mängd").fill("400");
-  await sheet(page).getByLabel("Enhet").selectOption("g");
+  await chooseUnit(sheet(page), "g");
   await sheet(page).getByRole("button", { name: "Lägg till vara" }).click();
   await expect(sheet(page)).toHaveCount(0);
   await expect(page.getByTestId("toast")).toContainText(/^torsk är sparad/i);

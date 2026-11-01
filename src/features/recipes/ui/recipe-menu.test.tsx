@@ -77,7 +77,7 @@ function openEdit(saved: SavedRecipe = recipe) {
   render(<RecipeMenu recipe={saved} searchIngredients={searchIngredients} />);
   fireEvent.click(screen.getByRole("button", { name: "Fler val" }));
   fireEvent.click(screen.getByRole("menuitem", { name: "Ändra" }));
-  return screen.getByRole("dialog", { name: "Ändra recept" });
+  return screen.getByRole("dialog", { name: "Linssoppa" });
 }
 
 /** The form's row for the line with this original text. */
@@ -98,8 +98,9 @@ describe("RecipeMenu", () => {
     const items = screen.getAllByRole("menuitem").map((item) => item.textContent);
     expect(items).toEqual(["Ändra", "Ta bort"]);
     fireEvent.click(screen.getByRole("menuitem", { name: "Ta bort" }));
-    expect(await screen.findByText("Ta bort Linssoppa?")).toBeInTheDocument();
-    expect(screen.getByText("Det går inte att ångra.")).toBeInTheDocument();
+    const question = await screen.findByRole("dialog", { name: "Ta bort Linssoppa?" });
+    expect(question).toHaveTextContent("Det går inte att ångra.");
+    expect(within(question).getByRole("button", { name: "Avbryt" })).toBeInTheDocument();
   });
 
   it("opens the menu with Ändra, and closes it with Esc", () => {
@@ -163,17 +164,17 @@ describe("RecipeMenu", () => {
   it("asks before closing with changes", () => {
     const sheet = openEdit();
     fireEvent.change(within(sheet).getByLabelText("Titel"), { target: { value: "Röd linssoppa" } });
-    fireEvent.click(within(sheet).getByRole("button", { name: "Stäng" }));
+    fireEvent.click(within(sheet).getByRole("button", { name: "Avbryt" }));
     expect(within(sheet).getByText("Släng ändringarna?")).toBeInTheDocument();
     expect(updateRecipe).not.toHaveBeenCalled();
   });
 
-  it("asks before removing; Avbryt keeps the recipe and the changes", () => {
+  it("asks before removing; Tillbaka keeps the recipe and the changes", () => {
     const sheet = openEdit();
     fireEvent.change(within(sheet).getByLabelText("Titel"), { target: { value: "Röd linssoppa" } });
     fireEvent.click(within(sheet).getByRole("button", { name: "Ta bort recept" }));
-    expect(within(sheet).getByRole("alert")).toHaveTextContent("Ta bort Linssoppa? Det går inte att ångra.");
-    fireEvent.click(within(sheet).getByRole("button", { name: "Avbryt" }));
+    expect(within(sheet).getByRole("alert")).toHaveTextContent("Det går inte att ångra.");
+    fireEvent.click(within(sheet).getByRole("button", { name: "Tillbaka" }));
     expect(deleteRecipe).not.toHaveBeenCalled();
     expect(within(sheet).getByLabelText("Titel")).toHaveValue("Röd linssoppa");
   });
@@ -184,7 +185,7 @@ describe("RecipeMenu", () => {
     await act(async () => fireEvent.click(within(sheet).getByRole("button", { name: "Ta bort" })));
     expect(deleteRecipe).toHaveBeenCalledWith(recipe.id);
     expect(replace).toHaveBeenCalledWith("/recept");
-    expect(screen.getByRole("status")).toHaveTextContent("Receptet är borttaget.");
+    expect(screen.getByRole("status")).toHaveTextContent("Tog bort Linssoppa.");
   });
 
   it("stays and says so when removing fails", async () => {

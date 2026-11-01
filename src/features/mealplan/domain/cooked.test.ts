@@ -30,7 +30,7 @@ describe("cookedPlan", () => {
     expect(deduct).toEqual([
       { key: "cream:dl", ingredientId: "cream", name: "Grädde", unit: "dl", current: 5, need: 2, suggested: 3, short: false },
     ]);
-    expect(deductionText(deduct[0]!, 2, 3)).toBe("5 dl − 2 dl → 3 dl");
+    expect(deductionText(deduct[0]!, 2)).toBe("Receptet använder 2 dl");
   });
 
   it("sums lines of one ingredient and unit, and goes to 0 rather than below", () => {

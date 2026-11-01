@@ -130,7 +130,7 @@ export function AiSuggestionSheet({
       open={suggestion !== null}
       onClose={onClose}
       title="Spara AI-förslag"
-      closeLabel="Stäng"
+      closeLabel="Avbryt"
       isDirty={isDirty}
       preventClose={saving}
       footer={

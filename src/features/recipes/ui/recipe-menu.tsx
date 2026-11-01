@@ -112,6 +112,7 @@ export function RecipeMenu({
           >
             Ändra
           </button>
+          {/* Story 19.4: Ta bort is last in the menu, in muted red, not a bin next to the heart. */}
           <button
             type="button"
             role="menuitem"

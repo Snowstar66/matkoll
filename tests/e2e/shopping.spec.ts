@@ -1,6 +1,6 @@
 import { expect, type Locator, type Page, type Response, test } from "@playwright/test";
 import { addWeeks, weekQuery } from "../../src/features/mealplan/domain/week";
-import { adminClient, e2eUserId, shoppingEmail, shoppingStorageState, thisMonday } from "./support";
+import { adminClient, e2eUserId, shoppingEmail, shoppingStorageState, thisMonday, chooseUnit } from "./support";
 
 // Story 3.3: Inköpslista, counted from the current meal plan, its recipes and
 // the pantry every time it is read. Story 3.4: checking lines off, saved at
@@ -462,7 +462,7 @@ test("a suggestion links the own item to its catalog ingredient's section, never
     await expect(sheet.getByRole("textbox", { name: "Vara" })).toHaveValue("Grädde");
     await expect(sheet.getByText("Kopplad till Grädde")).toBeVisible();
     await sheet.getByRole("textbox", { name: "Mängd" }).fill("2");
-    await sheet.getByRole("combobox", { name: "Enhet" }).selectOption("förp");
+    await chooseUnit(sheet, "förp");
     await actionsAnswered(page, 1, () => sheet.getByRole("button", { name: "Lägg till" }).click());
 
     await expect(customSheet(page)).toHaveCount(0);
@@ -504,7 +504,7 @@ test("an own item is checked off, removed by swipe and put back with Ångra, wit
   await expect(row.getByTestId("swipe-row-front")).toHaveCSS("transform", "matrix(1, 0, 0, 1, -96, 0)");
   await actionsAnswered(page, 1, () => page.getByRole("button", { name: "Svep bort diskmedel" }).click());
   await expect(region(page, "I korgen")).toHaveCount(0);
-  await expect(toast(page)).toContainText("Diskmedel är borttagen.");
+  await expect(toast(page)).toContainText("Tog bort Diskmedel.");
   await expect.poll(async () => (await storedCustomItems()).map((item) => item.label)).toEqual(["Kaffe"]);
 
   await actionsAnswered(page, 1, () => toast(page).getByRole("button", { name: "Ångra" }).click());
@@ -676,7 +676,7 @@ test("a recipe line is hidden by swipe and comes back with Ångra, with its corr
   await expect(row.getByTestId("swipe-row-front")).toHaveCSS("transform", "matrix(1, 0, 0, 1, -96, 0)");
   await actionsAnswered(page, 1, () => page.getByRole("button", { name: "Svep bort Grädde" }).click());
   await expect(lineOf(page, "Grädde")).toHaveCount(0);
-  await expect(toast(page)).toContainText("Grädde är borttagen.");
+  await expect(toast(page)).toContainText("Tog bort Grädde.");
   // "varor kvar" leaves the hidden line out.
   await expect(progress(page)).toHaveText(/^3 varor kvar/);
   expect(await storedOverrides()).toEqual([{ ...seeded, hidden: true }]);
@@ -707,7 +707,7 @@ test("Ta bort in the detail hides a line, which stays hidden when the list is co
   await actionsAnswered(page, 1, () => detailSheet(page, "Grädde").getByRole("button", { name: "Ta bort" }).click());
   await expect(detailSheet(page, "Grädde")).toHaveCount(0);
   await expect(lineOf(page, "Grädde")).toHaveCount(0);
-  await expect(toast(page)).toContainText("Grädde är borttagen.");
+  await expect(toast(page)).toContainText("Tog bort Grädde.");
   await expect(progress(page)).toHaveText(/^3 varor kvar/);
 
   // More servings: the same key, still hidden; the other lines are counted again.
@@ -750,7 +750,7 @@ test("an own item's detail changes it in place, keeping its id and check", async
   await expect(sheet.getByRole("textbox", { name: "Vara" })).toHaveValue("diskmedel");
   await sheet.getByRole("textbox", { name: "Vara" }).fill("diskmedel eko");
   await sheet.getByRole("textbox", { name: "Mängd" }).fill("2");
-  await sheet.getByRole("combobox", { name: "Enhet" }).selectOption("förp");
+  await chooseUnit(sheet, "förp");
   await actionsAnswered(page, 1, () => sheet.getByRole("button", { name: "Spara" }).click());
   await expect(detailSheet(page, "diskmedel")).toHaveCount(0);
 
@@ -760,41 +760,27 @@ test("an own item's detail changes it in place, keeping its id and check", async
   expect(errors).toEqual([]);
 });
 
-// Story 13.1: the bin on every row asks first; a second bin within a minute does not.
-test("the bin asks the first time, not the second within a minute, and asks again after it", async ({ page }) => {
+// Story 19.4: the bin on a row never asks: the removal can be undone, so it goes at once and says "Tog bort X." with Ångra.
+test("the bin removes at once, without a question, and offers Ångra", async ({ page }) => {
   await seedCustomItems([{ label: "diskmedel" }, { label: "tvättmedel" }, { label: "svamp" }]);
   await seedChecks([]);
-  await page.clock.install();
   await page.goto("/lista");
   const bin = (name: string) => page.getByRole("button", { name: `Ta bort ${name}`, exact: true });
-  const dialog = page.getByRole("dialog");
   const box = await bin("diskmedel").boundingBox();
   expect(box?.width).toBeGreaterThanOrEqual(44);
   expect(box?.height).toBeGreaterThanOrEqual(44);
 
-  // Avbryt removes nothing and starts no window.
-  await bin("diskmedel").click();
-  await expect(dialog.getByText("Ta bort diskmedel från inköpslistan?")).toBeVisible();
-  await dialog.getByRole("button", { name: "Avbryt" }).click();
-  await expect(dialog).toHaveCount(0);
-  expect((await storedCustomItems()).length).toBe(3);
-
-  await bin("diskmedel").click();
-  await actionsAnswered(page, 1, () => dialog.getByRole("button", { name: "Ta bort", exact: true }).click());
+  await actionsAnswered(page, 1, () => bin("diskmedel").click());
+  await expect(page.getByRole("dialog")).toHaveCount(0);
   await expect(bin("diskmedel")).toHaveCount(0);
+  await expect(toast(page)).toContainText("Tog bort Diskmedel.");
+  await expect(toast(page).getByRole("button", { name: "Ångra" })).toBeVisible();
 
-  // Within the minute: no question.
-  await page.clock.fastForward(30_000);
+  // A second pointer press within the bin's guard time (400 ms) is ignored on purpose.
+  await page.waitForTimeout(500);
   await actionsAnswered(page, 1, () => bin("tvättmedel").click());
-  await expect(dialog).toHaveCount(0);
+  await expect(page.getByRole("dialog")).toHaveCount(0);
   await expect(bin("tvättmedel")).toHaveCount(0);
-
-  // The window restarted at the last delete; after a quiet minute the question is back.
-  await page.clock.fastForward(61_000);
-  await bin("svamp").click();
-  await expect(dialog.getByText("Ta bort svamp från inköpslistan?")).toBeVisible();
-  await dialog.getByRole("button", { name: "Avbryt" }).click();
-  expect((await storedCustomItems()).map((item) => item.label)).toEqual(["svamp"]);
 });
 
 test("an own item stays on the list in another week, also one without a plan, until it is checked off (Story 17.10)", async ({

@@ -148,8 +148,8 @@ describe("PreviousPlan", () => {
     const user = userEvent.setup();
     renderPlan();
     await user.click(screen.getByRole("button", { name: "Ta bort matsedel" }));
-    const sheet = screen.getByRole("dialog", { name: "Ta bort matsedel" });
-    expect(sheet).toHaveTextContent("Ta bort Vecka 42? Det går inte att ångra.");
+    const sheet = screen.getByRole("dialog", { name: "Ta bort Vecka 42?" });
+    expect(sheet).toHaveTextContent("Det går inte att ångra.");
     expect(within(sheet).getByRole("button", { name: "Avbryt" })).toHaveFocus();
     await user.click(within(sheet).getByRole("button", { name: "Avbryt" }));
     expect(screen.queryByRole("dialog")).not.toBeInTheDocument();
@@ -160,11 +160,11 @@ describe("PreviousPlan", () => {
     const user = userEvent.setup();
     renderPlan();
     await user.click(screen.getByRole("button", { name: "Ta bort matsedel" }));
-    const sheet = screen.getByRole("dialog", { name: "Ta bort matsedel" });
+    const sheet = screen.getByRole("dialog", { name: "Ta bort Vecka 42?" });
     await user.click(within(sheet).getByRole("button", { name: "Ta bort" }));
     expect(deletePlan).toHaveBeenCalledWith(planId);
     expect(router.replace).toHaveBeenCalledWith("/matsedel/tidigare");
-    expect(await screen.findByTestId("toast")).toHaveTextContent("Matsedeln är borttagen.");
+    expect(await screen.findByTestId("toast")).toHaveTextContent("Tog bort matsedeln.");
   });
 
   it("keeps the question open with a notice when the delete fails", async () => {
@@ -172,11 +172,11 @@ describe("PreviousPlan", () => {
     deletePlan.mockResolvedValue(fail("mealplan_delete_failed"));
     renderPlan();
     await user.click(screen.getByRole("button", { name: "Ta bort matsedel" }));
-    const sheet = screen.getByRole("dialog", { name: "Ta bort matsedel" });
+    const sheet = screen.getByRole("dialog", { name: "Ta bort Vecka 42?" });
     await user.click(within(sheet).getByRole("button", { name: "Ta bort" }));
     expect(await within(sheet).findByRole("alert")).toHaveTextContent("Det gick inte att ta bort matsedeln. Försök igen.");
     expect(router.replace).not.toHaveBeenCalled();
-    expect(screen.getByRole("dialog", { name: "Ta bort matsedel" })).toBeInTheDocument();
+    expect(screen.getByRole("dialog", { name: "Ta bort Vecka 42?" })).toBeInTheDocument();
   });
 
   it("reads the page again when the session is gone, and says so when the delete throws", async () => {
@@ -184,7 +184,7 @@ describe("PreviousPlan", () => {
     deletePlan.mockResolvedValueOnce(fail("unauthorized")).mockRejectedValueOnce(new Error("offline"));
     renderPlan();
     await user.click(screen.getByRole("button", { name: "Ta bort matsedel" }));
-    const sheet = screen.getByRole("dialog", { name: "Ta bort matsedel" });
+    const sheet = screen.getByRole("dialog", { name: "Ta bort Vecka 42?" });
     await user.click(within(sheet).getByRole("button", { name: "Ta bort" }));
     expect(router.refresh).toHaveBeenCalled();
     expect(within(sheet).queryByRole("alert")).not.toBeInTheDocument();
@@ -200,7 +200,7 @@ describe("PreviousPlan", () => {
     deletePlan.mockImplementation(() => new Promise((resolve) => (answer = resolve)));
     renderPlan();
     await user.click(screen.getByRole("button", { name: "Ta bort matsedel" }));
-    const button = within(screen.getByRole("dialog", { name: "Ta bort matsedel" })).getByRole("button", { name: "Ta bort" });
+    const button = within(screen.getByRole("dialog", { name: "Ta bort Vecka 42?" })).getByRole("button", { name: "Ta bort" });
     act(() => {
       button.click();
       button.click();

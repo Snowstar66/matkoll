@@ -2,7 +2,6 @@ import { act, fireEvent, render, screen, waitFor, within } from "@testing-librar
 import userEvent from "@testing-library/user-event";
 import { useEffect, useState } from "react";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
-import { startDeleteGrace } from "@/components/confirm-delete";
 import { ToastProvider } from "@/components/toast";
 import { toSnapshot } from "@/features/pantry";
 import type { RecipeListItem } from "@/features/recipes";
@@ -106,7 +105,6 @@ beforeEach(() => {
   // Thursday 29 October 2026, in Stockholm.
   vi.useFakeTimers({ now: new Date("2026-10-29T10:00:00Z"), toFake: ["Date"] });
   setWeekday.mockReset().mockImplementation(async (change) => ok(change));
-  startDeleteGrace();
   addToCurrentPlan.mockReset();
   setServings.mockReset().mockImplementation(async (change) => ok(change));
   removePlanRecipe.mockReset().mockImplementation(async (id) => ok(rowOf(known.find((d) => d.id === id)!)));
@@ -250,7 +248,7 @@ describe("MealPlanList", () => {
     render(<Matsedel initial={[pasta, soppa]} />);
     await removeFromSheet("Pasta");
     expect(cards()).toHaveLength(1);
-    expect(toast()).toHaveTextContent("Pasta är borttagen från matsedeln.");
+    expect(toast()).toHaveTextContent("Tog bort Pasta.");
     // The server's plan catches up; Ångra puts the same row back.
     act(() => serverUpdate((dishes) => dishes.filter((other) => other.id !== pasta.id)));
     await act(async () => fireEvent.click(within(toast()).getByRole("button", { name: "Ångra" })));
@@ -262,7 +260,7 @@ describe("MealPlanList", () => {
     render(<Matsedel initial={[pasta, soppa]} />);
     await removeFromSheet("Pasta");
     await removeFromSheet("Soppa");
-    expect(toast()).toHaveTextContent("Pasta och Soppa är borttagna från matsedeln.");
+    expect(toast()).toHaveTextContent("Tog bort Pasta och Soppa.");
     expect(screen.getByText("Den här veckan är tom.")).toBeInTheDocument();
   });
 
@@ -314,7 +312,7 @@ describe("MealPlanList", () => {
     const buttons = screen.getAllByRole("button", { name: "Lägg till rätt" });
     expect(buttons).toHaveLength(1);
     await user.click(buttons[0]!);
-    expect(screen.getByRole("dialog", { name: "Lägg till rätt" })).toBeInTheDocument();
+    expect(screen.getByRole("dialog", { name: /^Lägg till rätt/ })).toBeInTheDocument();
     unmount();
 
     render(<Matsedel initial={[]} />);
@@ -330,7 +328,7 @@ describe("MealPlanList", () => {
       (document.activeElement as HTMLElement | null)?.blur();
       fireEvent.click(plus);
     });
-    const sheet = await screen.findByRole("dialog", { name: "Lägg till rätt" });
+    const sheet = await screen.findByRole("dialog", { name: /^Lägg till rätt/ });
     await user.click(within(sheet).getByRole("button", { name: "Klar" }));
     await waitFor(() => expect(plus).toHaveFocus());
   });
@@ -373,7 +371,7 @@ describe("Lägg till rätt", () => {
   const gryta = recipe("aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa", "Krämig kycklinggryta", true);
   const openSheet = async (user: ReturnType<typeof userEvent.setup>) => {
     await user.click(screen.getAllByRole("button", { name: "Lägg till rätt" })[0]);
-    return screen.getByRole("dialog", { name: "Lägg till rätt" });
+    return screen.getByRole("dialog", { name: /^Lägg till rätt/ });
   };
   const lasagne = recipe("bbbbbbbb-bbbb-4bbb-8bbb-bbbbbbbbbbbb", "Lasagne", false);
 
@@ -382,7 +380,7 @@ describe("Lägg till rätt", () => {
     addToCurrentPlan.mockResolvedValue(ok(rowOf(pasta)));
     render(<Matsedel initial={[]} recipes={[lasagne, gryta]} />);
     await user.click(screen.getAllByRole("button", { name: "Lägg till rätt" })[0]);
-    const sheet = screen.getByRole("dialog", { name: "Lägg till rätt" });
+    const sheet = screen.getByRole("dialog", { name: /^Lägg till rätt/ });
     const favorites = within(sheet).getByRole("region", { name: "Favoriter" });
     expect(within(favorites).getAllByTestId("dish-choice").map((row) => row.textContent)).toEqual([
       expect.stringContaining("Krämig kycklinggryta"),
@@ -390,7 +388,9 @@ describe("Lägg till rätt", () => {
     expect(within(sheet).getByRole("region", { name: "Övriga recept" })).toHaveTextContent("Lasagne");
 
     // The day starts on the first free day from today: Thursday 29 Oct 2026 with an empty plan.
-    expect(within(sheet).getByRole("combobox", { name: "Dag" })).toHaveValue("4");
+    expect(within(sheet).getByRole("radio", { name: "Torsdag" })).toBeChecked();
+    expect(sheet).toHaveAccessibleName("Lägg till rätt på torsdag");
+    expect(within(sheet).queryByRole("link", { name: "Välj recept" })).toBeNull();
     await user.click(within(favorites).getByRole("button", { name: /Krämig kycklinggryta/ }));
     expect(addToCurrentPlan).toHaveBeenCalledWith({
       recipeId: gryta.id,
@@ -398,7 +398,7 @@ describe("Lägg till rätt", () => {
       weekday: 4,
     });
     // The sheet closes, and the toast shows, once the answer has settled.
-    await waitFor(() => expect(screen.queryByRole("dialog", { name: "Lägg till rätt" })).toBeNull());
+    await waitFor(() => expect(screen.queryByRole("dialog", { name: /^Lägg till rätt/ })).toBeNull());
     expect(toast()).toHaveTextContent("Lagt på matsedeln, torsdag.");
   });
 
@@ -406,7 +406,7 @@ describe("Lägg till rätt", () => {
     const user = userEvent.setup();
     render(<Matsedel initial={[pasta]} recipes={[lasagne]} />);
     await user.click(within(dayRow(5)).getByTestId("day-free"));
-    expect(within(screen.getByRole("dialog", { name: "Lägg till rätt" })).getByRole("combobox", { name: "Dag" })).toHaveValue("5");
+    expect(within(screen.getByRole("dialog", { name: "Lägg till rätt på fredag" })).getByRole("radio", { name: "Fredag" })).toBeChecked();
   });
 
   it("adds without a day when Ingen dag is chosen", async () => {
@@ -414,8 +414,9 @@ describe("Lägg till rätt", () => {
     addToCurrentPlan.mockResolvedValue(ok(rowOf(pasta)));
     render(<Matsedel initial={[]} recipes={[lasagne, gryta]} />);
     await user.click(screen.getAllByRole("button", { name: "Lägg till rätt" })[0]);
-    const sheet = screen.getByRole("dialog", { name: "Lägg till rätt" });
-    await user.selectOptions(within(sheet).getByRole("combobox", { name: "Dag" }), "Ingen dag");
+    const sheet = screen.getByRole("dialog", { name: /^Lägg till rätt/ });
+    await user.click(within(sheet).getByRole("radio", { name: "Ingen dag" }));
+    expect(sheet).toHaveAccessibleName("Lägg till rätt");
     await user.click(within(sheet).getByRole("button", { name: /Krämig kycklinggryta/ }));
     expect(addToCurrentPlan).toHaveBeenCalledWith(expect.objectContaining({ weekday: null }));
     await waitFor(() => expect(toast()).toHaveTextContent("Lagt på matsedeln."));
@@ -426,7 +427,7 @@ describe("Lägg till rätt", () => {
     searchRecipes.mockResolvedValue(ok([lasagne]));
     render(<Matsedel initial={[]} recipes={[lasagne, gryta]} />);
     await user.click(screen.getAllByRole("button", { name: "Lägg till rätt" })[0]);
-    const sheet = screen.getByRole("dialog", { name: "Lägg till rätt" });
+    const sheet = screen.getByRole("dialog", { name: /^Lägg till rätt/ });
     await user.type(within(sheet).getByRole("searchbox", { name: "Sök recept" }), "lasagne{Enter}");
     expect(searchRecipes).toHaveBeenCalledWith("lasagne");
     expect(await within(sheet).findByRole("region", { name: "Sökresultat" })).toHaveTextContent("Lasagne");
@@ -438,7 +439,7 @@ describe("Lägg till rätt", () => {
     addToCurrentPlan.mockResolvedValue(fail("mealplan_add_failed"));
     render(<Matsedel initial={[]} recipes={[gryta]} />);
     await user.click(screen.getAllByRole("button", { name: "Lägg till rätt" })[0]);
-    const sheet = screen.getByRole("dialog", { name: "Lägg till rätt" });
+    const sheet = screen.getByRole("dialog", { name: /^Lägg till rätt/ });
     await user.click(within(sheet).getByRole("button", { name: /Krämig kycklinggryta/ }));
     expect(await within(sheet).findByRole("alert")).toHaveTextContent("Det gick inte att lägga rätten på matsedeln.");
   });
@@ -523,7 +524,7 @@ describe("more on servings and removal", () => {
     await user.click(screen.getByRole("button", { name: "Fler portioner, Pasta" }));
     await act(async () => fireEvent.click(screen.getByRole("button", { name: "Ta bort från matsedeln" }), { detail: 1 }));
     await act(async () => write.resolve(fail("mealplan_servings_failed")));
-    expect(toast()).toHaveTextContent("Pasta är borttagen från matsedeln.");
+    expect(toast()).toHaveTextContent("Tog bort Pasta.");
     expect(within(toast()).getByRole("button", { name: "Ångra" })).toBeInTheDocument();
   });
 

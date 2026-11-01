@@ -4,11 +4,10 @@ import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { type ReactNode, useCallback, useEffect, useMemo, useOptimistic, useRef, useState, useSyncExternalStore, useTransition } from "react";
 import { Button } from "@/components/button";
-import { useConfirmDelete } from "@/components/confirm-delete";
 import { EmptyState } from "@/components/empty-state";
 import { Meter } from "@/components/meter";
 import { RecipeImage } from "@/components/recipe-image";
-import { CartIcon, MoreIcon } from "@/components/icons";
+import { CartIcon, MoreIcon, TrashIcon } from "@/components/icons";
 import { Sheet } from "@/components/sheet";
 import { Stepper } from "@/components/stepper";
 import { useToast } from "@/components/toast";
@@ -179,7 +178,6 @@ export function MealPlanList({
   /** The dishes removed under the confirmation showing now; a new object per confirmation. */
   const batch = useRef<{ removed: readonly Removed[] } | null>(null);
   const rootRef = useRef<HTMLDivElement>(null);
-  const confirm = useConfirmDelete();
 
   useEffect(() => {
     serverDishes.current = dishes;
@@ -567,12 +565,7 @@ export function MealPlanList({
                       onUnmark={() => void unmark(dish)}
                       onServingsChange={(value) => changeServings(dish, value)}
                       onMove={(day) => moveDish(dish, day)}
-                      onRemove={(moveFocus) =>
-                        confirm.requestDelete({
-                          question: `Ta bort ${dish.recipeTitle} från matsedeln?`,
-                          onConfirm: () => removeDish(dish, moveFocus),
-                        })
-                      }
+                      onRemove={(moveFocus) => removeDish(dish, moveFocus)}
                     />
                   ))}
                 </ul>
@@ -581,7 +574,6 @@ export function MealPlanList({
           );
         })}
       </ul>
-      {confirm.dialog}
     </div>
   );
 }
@@ -776,16 +768,19 @@ function DishRow({
               Flytta till annan dag
               <span className="text-ink-3">{dish.weekday ? `${weekdayNames[dish.weekday - 1]} ›` : "Ingen dag ›"}</span>
             </button>
-            <button
-              type="button"
+          </div>
+          <div className="mt-3 border-t border-border pt-1">
+            <Button
+              variant="danger"
+              fullWidth
               onClick={() => {
                 close();
                 onRemove(true);
               }}
-              className="flex min-h-row w-full items-center border-t border-hairline px-3.5 text-left text-body text-danger"
             >
+              <TrashIcon size={20} />
               Ta bort från matsedeln
-            </button>
+            </Button>
           </div>
         </div>
       </Sheet>

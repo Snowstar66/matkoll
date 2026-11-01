@@ -52,14 +52,14 @@ beforeEach(() => {
 });
 
 describe("HousingSettings", () => {
-  it("shows a card per boende with what is in it, and Vald with a green border on the selected one", () => {
+  it("shows a card per boende with what is in it, and a green check, read as Vald, on the selected one", () => {
     renderPage([hemma, duved, nordan]);
     expect(screen.getByText("Det valda boendet gäller i hela appen.")).toBeInTheDocument();
     expect(within(card("Hemma")).getByText("30 matvaror · inga föremål än")).toBeInTheDocument();
     expect(within(card("Duved")).getByText("5 matvaror · inga föremål än")).toBeInTheDocument();
     expect(within(card("Nordan")).getByText("Inga matvaror · 18 föremål · 1 kort")).toBeInTheDocument();
     expect(within(card("Hemma")).getByText("Vald")).toBeInTheDocument();
-    expect(card("Hemma")).toHaveClass("border-accent");
+    expect(card("Hemma")).not.toHaveClass("border-accent");
     expect(within(card("Duved")).queryByText("Vald")).toBeNull();
     expect(card("Duved")).not.toHaveClass("border-accent");
     expect(screen.getByRole("button", { name: "Lägg till boende" })).toBeInTheDocument();

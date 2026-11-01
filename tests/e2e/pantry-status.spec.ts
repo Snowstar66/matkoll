@@ -1,6 +1,6 @@
 import { readFileSync } from "node:fs";
 import { expect, type Locator, type Page, test } from "@playwright/test";
-import { adminClient, e2eUserId, openSavedImport, statusEmail, statusStorageState } from "./support";
+import { adminClient, e2eUserId, openSavedImport, statusEmail, statusStorageState, chooseUnit } from "./support";
 
 // Story 2.4: "Kan lagas nu" or "Saknar N varor" in the library and the recipe
 // view, with a tick or ring on every line, counted again when the pantry
@@ -50,7 +50,7 @@ const line = (page: Page, text: string) => lines(page).filter({ hasText: text })
 const mark = (row: Locator) => row.getByRole("img");
 const tab = (page: Page, name: "Recept" | "Matvaror") =>
   page.getByRole("navigation", { name: "Huvudmeny" }).getByRole("link", { name });
-const sheet = (page: Page) => page.getByRole("dialog", { name: "Lagervara" });
+const sheet = (page: Page) => page.getByRole("dialog");
 
 type SeedItem = { line: string; location: string; amount?: number; unit?: string };
 
@@ -108,7 +108,7 @@ async function addInLagersaldo(page: Page, name: string, amount: string, unit: s
   await sheet(page).getByRole("searchbox", { name: "Sök ingrediens" }).fill(name);
   await sheet(page).getByRole("button", { name: new RegExp(`^${name}$`, "i") }).click();
   await sheet(page).getByLabel("Mängd").fill(amount);
-  await sheet(page).getByLabel("Enhet").selectOption(unit);
+  await chooseUnit(sheet(page), unit);
   await sheet(page).getByRole("button", { name: "Lägg till vara" }).click();
   await expect(sheet(page)).toHaveCount(0);
   await expect(page.getByTestId("toast")).toContainText(new RegExp(`^${name} är sparad`, "i"));
@@ -222,7 +222,7 @@ test("changing a line in Ändra recept so it needs more than is at home updates 
 
   await page.getByRole("button", { name: "Fler val" }).click();
   await page.getByRole("menuitem", { name: "Ändra" }).click();
-  const edit = page.getByRole("dialog", { name: "Ändra recept" });
+  const edit = page.getByRole("dialog");
   // 12 dl milk where 6 dl is at home.
   await edit.getByRole("button", { name: /^Ändra mängd för mjölk$/i }).click();
   await edit.getByLabel("Mängd").fill("12");

@@ -227,7 +227,8 @@ export function RememberProposal({
           </div>
           <div className="flex flex-col gap-2">
             <FieldLabel htmlFor={`${ids}-part`}>
-              {notedPartLabel} <span className="font-normal text-ink-3">{optionalText}</span>
+              {notedPartLabel}{" "}
+              <span className="font-normal text-ink-2">{optionalText}</span>
             </FieldLabel>
             <Input
               ref={partRef}

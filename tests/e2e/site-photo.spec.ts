@@ -253,9 +253,9 @@ test("Töm kylen on Stugan asks with its name, empties only Stugan, and Ångra a
   await choose(page, "Stugan");
   await expect(placeCard(page, "Kyl")).toHaveText(/^\S*Kyl\s*2 varor$/);
   await page.getByRole("button", { name: "Töm kylen" }).filter({ visible: true }).click();
-  const sheet = page.getByRole("dialog", { name: "Töm kylen" });
+  const sheet = page.getByRole("dialog");
   await expect(sheet.getByText("Ta bort alla 2 varor i kylen för Stugan?")).toBeVisible();
-  await sheet.getByRole("button", { name: "Töm kylen" }).click();
+  await sheet.getByRole("button", { name: "Ta bort", exact: true }).click();
   await expect(toast(page)).toContainText("Tog bort 2 varor ur kylen för Stugan.");
   await expect.poll(async () => on(await pantry(), "Stugan")).toEqual([]);
   expect(on(await pantry(), "Hemma")).toEqual(on(before, "Hemma"));

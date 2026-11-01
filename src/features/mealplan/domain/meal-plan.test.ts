@@ -203,9 +203,9 @@ describe("dishMetaText", () => {
 
 describe("removedDishesText", () => {
   it("names one or two dishes, and counts more", () => {
-    expect(removedDishesText(["Pasta"])).toBe("Pasta är borttagen från matsedeln.");
-    expect(removedDishesText(["Pasta", "Soppa"])).toBe("Pasta och Soppa är borttagna från matsedeln.");
-    expect(removedDishesText(["Pasta", "Soppa", "Gryta"])).toBe("3 rätter är borttagna från matsedeln.");
+    expect(removedDishesText(["Pasta"])).toBe("Tog bort Pasta.");
+    expect(removedDishesText(["Pasta", "Soppa"])).toBe("Tog bort Pasta och Soppa.");
+    expect(removedDishesText(["Pasta", "Soppa", "Gryta"])).toBe("Tog bort 3 rätter.");
   });
 });
 
@@ -249,7 +249,7 @@ describe("Tidigare", () => {
   });
 
   it("asks before a plan is deleted", () => {
-    expect(deletePlanQuestion("Vecka 42")).toBe("Ta bort Vecka 42? Det går inte att ångra.");
+    expect(deletePlanQuestion("Vecka 42")).toBe("Ta bort Vecka 42?");
   });
 });
 

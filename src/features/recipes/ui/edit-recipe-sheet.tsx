@@ -3,6 +3,8 @@
 import { useRouter } from "next/navigation";
 import { useRef, useState, useTransition } from "react";
 import { Button } from "@/components/button";
+import { cannotUndoText } from "@/components/confirm-delete";
+import { TrashIcon } from "@/components/icons";
 import { Notice } from "@/components/notice";
 import { Sheet } from "@/components/sheet";
 import { useToast } from "@/components/toast";
@@ -14,6 +16,7 @@ import { isDraftDirty, isShownField } from "../domain/preview";
 import { validateDraft, type PendingFieldText, type RecipeDraft } from "../domain/recipe-draft";
 import type { SavedRecipe } from "../domain/saved-recipe";
 import type { SearchIngredients } from "@/components/ingredient-picker";
+import { deleteRecipeQuestion } from "./recipe-delete";
 import { RecipePreview } from "./recipe-preview";
 
 // Ändra recept (FR-6, FR-10, Story 1.11): the preview's form for a saved
@@ -119,7 +122,7 @@ export function EditRecipeSheet({ open, onClose, recipe, session, searchIngredie
       // "back" never leads to it either.
       router.replace("/recept");
       onClose();
-      showToast("Receptet är borttaget.");
+      showToast(`Tog bort ${recipe.title}.`);
     });
   }
 
@@ -138,15 +141,12 @@ export function EditRecipeSheet({ open, onClose, recipe, session, searchIngredie
   const footer =
     view === "confirmDelete" ? (
       <>
-        <p role="alert" className="text-body text-ink">
-          Ta bort {recipe.title}? Det går inte att ångra.
+        <p role="alert" className="text-body text-ink-2">
+          {cannotUndoText}
         </p>
         {error ? <Notice role="alert">{error}</Notice> : null}
-        <Button fullWidth disabled={deleting} onClick={remove}>
+        <Button variant="danger-confirm" fullWidth disabled={deleting} onClick={remove}>
           {deleting ? "Tar bort …" : "Ta bort"}
-        </Button>
-        <Button variant="text" fullWidth autoFocus disabled={deleting} onClick={keepRecipe}>
-          Avbryt
         </Button>
       </>
     ) : (
@@ -163,8 +163,9 @@ export function EditRecipeSheet({ open, onClose, recipe, session, searchIngredie
     <Sheet
       open={open}
       onClose={onClose}
-      title={view === "confirmDelete" ? "Ta bort recept" : "Ändra recept"}
-      closeLabel="Stäng"
+      title={view === "confirmDelete" ? deleteRecipeQuestion(recipe.title) : recipe.title}
+      closeLabel="Avbryt"
+      onBack={view === "confirmDelete" ? keepRecipe : undefined}
       isDirty={isDirty}
       preventClose={busy}
       footer={footer}
@@ -185,7 +186,8 @@ export function EditRecipeSheet({ open, onClose, recipe, session, searchIngredie
           searchIngredients={searchIngredients}
           end={
             <div className="border-t border-hairline pt-3">
-              <Button ref={deleteButton} variant="text" onClick={askDelete} className="-ml-3">
+              <Button ref={deleteButton} variant="danger" onClick={askDelete} className="-ml-3">
+                <TrashIcon size={20} />
                 Ta bort recept
               </Button>
             </div>

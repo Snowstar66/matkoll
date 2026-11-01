@@ -11,6 +11,7 @@ import { PantrySheetProvider } from "./pantry-item-sheet";
 import { PantrySuggestionList } from "./pantry-suggestion-list";
 import { PantrySuggestionsProvider } from "./pantry-suggestions";
 import { fakeAi } from "../../../../tests/mocks/fake-ai-jobs";
+import { chooseUnit } from "./unit-test-helpers";
 
 /** An item that exists shows its place as a row "Ligger i … · Flytta" (Story 16.17); the radio is there once it is unfolded. */
 function placeRadio(scope: HTMLElement, name: string) {
@@ -372,7 +373,7 @@ describe("Bekräfta on a compared photo", () => {
     render(<Hemma />);
     await analyze();
     fireEvent.click(button("Rätta mjölk"));
-    const sheet = screen.getByRole("dialog", { name: "Lagervara" });
+    const sheet = screen.getByRole("dialog");
     fireEvent.change(within(sheet).getByLabelText("Mängd"), { target: { value: "3" } });
     fireEvent.click(within(sheet).getByRole("button", { name: "Bekräfta" }));
     await waitFor(() => expect(saves).toHaveLength(1));
@@ -388,7 +389,7 @@ describe("Bekräfta on a compared photo", () => {
     // Another place: the fridge's rows stay.
     await analyze();
     fireEvent.click(button("Rätta mjölk"));
-    const moved = screen.getByRole("dialog", { name: "Lagervara" });
+    const moved = screen.getByRole("dialog");
     fireEvent.click(placeRadio(moved, "Frys"));
     fireEvent.click(within(moved).getByRole("button", { name: "Bekräfta" }));
     await waitFor(() => expect(saves).toHaveLength(2));
@@ -406,7 +407,7 @@ describe("the photo's place (Story 8.4)", () => {
     expect(screen.getByTestId("pantry-suggestions-site")).toHaveTextContent("Förslagen gäller Stugan.");
 
     fireEvent.click(button("Rätta mjölk"));
-    const sheet = screen.getByRole("dialog", { name: "Lagervara" });
+    const sheet = screen.getByRole("dialog");
     fireEvent.click(within(sheet).getByRole("button", { name: "Bekräfta" }));
     await waitFor(() => expect(saves).toHaveLength(1));
     expect(lastSave().input.siteId).toBe(stugan.id);
@@ -492,7 +493,7 @@ describe("Ta bort, Behåll and Ångra", () => {
     expect(within(section()).getByRole("button", { name: "Sparar …" })).toBeDisabled();
     await answerSave(answered({ removed: [removedRow(yoghurtRow, yoghurtId)], removedCount: 1, undoable: 1 }));
     expect(groupNames("Syns inte längre")).toEqual(["senap"]);
-    expect(toast()).toHaveTextContent("Yoghurt är borttagen.");
+    expect(toast()).toHaveTextContent("Tog bort Yoghurt.");
 
     restorePantryRemoval.mockResolvedValueOnce(ok({ restoredIds: [yoghurtRow], rows: [], skipped: 0 }));
     fireEvent.click(within(toast()).getByRole("button", { name: "Ångra" }));
@@ -511,7 +512,7 @@ describe("Ta bort, Behåll and Ångra", () => {
     await waitFor(() => expect(saves).toHaveLength(2));
     expect(saves[1].input.operationId).toBe(saves[0].input.operationId);
     await answerSave(answered({ removed: [removedRow(senapRow, senapId)], removedCount: 1, undoable: 2 }));
-    expect(toast()).toHaveTextContent("Yoghurt och senap är borttagna.");
+    expect(toast()).toHaveTextContent("Tog bort Yoghurt och senap.");
     restorePantryRemoval.mockResolvedValueOnce(ok({ restoredIds: [yoghurtRow], rows: [], skipped: 1 }));
     fireEvent.click(within(toast()).getByRole("button", { name: "Ångra" }));
     await waitFor(() => expect(screen.getByRole("alert")).toHaveTextContent("1 vara gick inte att ångra."));
@@ -544,7 +545,7 @@ describe("Ta bort, Behåll and Ångra", () => {
     expect(saves[1].input.operationId).toBe(saves[0].input.operationId);
     // The rows went with the first call: nothing more now, but the server keeps them for Ångra.
     await answerSave(answered({ undoable: 1 }));
-    expect(toast()).toHaveTextContent("Yoghurt är borttagen.");
+    expect(toast()).toHaveTextContent("Tog bort Yoghurt.");
     expect(within(toast()).getByRole("button", { name: "Ångra" })).toBeInTheDocument();
   });
 
@@ -721,8 +722,8 @@ describe("review patches", () => {
     render(<Hemma />);
     await analyze();
     fireEvent.click(button("Rätta mjölk"));
-    const sheet = screen.getByRole("dialog", { name: "Lagervara" });
-    fireEvent.change(within(sheet).getByLabelText("Enhet"), { target: { value: "l" } });
+    const sheet = screen.getByRole("dialog");
+    chooseUnit("l", sheet);
     fireEvent.click(within(sheet).getByRole("button", { name: "Bekräfta" }));
     await waitFor(() => expect(saves).toHaveLength(1));
     expect(lastSave().input).toMatchObject({
@@ -825,7 +826,7 @@ describe("Senaste foto (Story 10.1)", () => {
     render(<Hemma />);
     await analyze();
     fireEvent.click(button("Rätta mjölk"));
-    const sheet = screen.getByRole("dialog", { name: "Lagervara" });
+    const sheet = screen.getByRole("dialog");
     fireEvent.click(within(sheet).getByRole("button", { name: "Bekräfta" }));
     await waitFor(() => expect(saves).toHaveLength(1));
     await answerSave(answered({ set: 1 }));

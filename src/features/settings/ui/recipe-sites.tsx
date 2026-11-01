@@ -155,7 +155,7 @@ export function RecipeSites({ sites }: RecipeSitesProps) {
                 aria-label={`Ta bort ${domain}`}
                 disabled={!hydrated}
                 onClick={() => remove(domain)}
-                className="min-h-tap min-w-tap shrink-0 rounded-md px-3 text-meta text-ink-3 disabled:cursor-not-allowed disabled:opacity-60"
+                className="min-h-tap min-w-tap shrink-0 rounded-md px-3 text-meta text-danger disabled:cursor-not-allowed disabled:opacity-60"
               >
                 Ta bort
               </button>

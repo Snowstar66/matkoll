@@ -1,13 +1,14 @@
 "use client";
 
 import { useId, useMemo, useState } from "react";
+import { AmountInput } from "@/components/amount-input";
 import { Button, type ButtonVariant } from "@/components/button";
 import { cx } from "@/components/cx";
 import { Notice } from "@/components/notice";
 import { Sheet } from "@/components/sheet";
 import { useToast } from "@/components/toast";
-import { formatQuantity } from "@/features/catalog";
-import { roundSum, type PantrySnapshot } from "@/features/pantry";
+import { formatQuantity, isCountUnit } from "@/features/catalog";
+import { amountStep, roundSum, type PantrySnapshot } from "@/features/pantry";
 import { scaleFactor } from "@/features/recipes";
 import { errorMessages, type Result } from "@/lib/errors";
 import { markDishCooked } from "../actions/mark-dish-cooked";
@@ -213,24 +214,49 @@ export function MarkCookedButton({
                     </label>
                     <p className="text-meta text-ink-2" data-testid="cooked-line-text">
                       {entry.on && left !== null
-                        ? deductionText(line, taken ?? 0, left)
+                        ? deductionText(line, taken ?? 0)
                         : `${formatQuantity(line.current, line.unit)} hemma${entry.on ? "" : ", dras inte"}`}
                     </p>
                     {entry.on ? (
-                      <label className="flex min-h-tap items-center gap-2 text-meta text-ink-2">
-                        Ny mängd
-                        <input
-                          inputMode="decimal"
+                      <div className="flex flex-col gap-1.5 pt-1">
+                        <span className="text-control text-ink">
+                          Kvar efteråt
+                        </span>
+                        <AmountInput
+                          id={`cooked-${line.key}-left`}
+                          label={`Ny mängd ${line.name}`}
                           value={entry.text}
-                          aria-label={`Ny mängd ${line.name}`}
-                          aria-invalid={left === null || undefined}
-                          onChange={(event) =>
-                            setEntries((all) => ({ ...all, [line.key]: { ...entry, text: event.target.value } }))
+                          onChange={(text) =>
+                            setEntries((all) => ({
+                              ...all,
+                              [line.key]: { ...entry, text },
+                            }))
                           }
-                          className="h-11 w-24 rounded-md bg-bg px-3 text-body text-ink"
+                          stepper={isCountUnit(line.unit)}
+                          onStep={(direction) => {
+                            // Between 0 and what is at home, by the unit's step.
+                            const now = left ?? 0;
+                            const next = Math.min(
+                              line.current,
+                              Math.max(
+                                0,
+                                Math.round(
+                                  (now + direction * amountStep(line.unit)) *
+                                    1000,
+                                ) / 1000,
+                              ),
+                            );
+                            setEntries((all) => ({
+                              ...all,
+                              [line.key]: { ...entry, text: amountText(next) },
+                            }));
+                          }}
+                          canStepDown={left !== null && left > 0}
+                          canStepUp={left !== null && left < line.current}
+                          unit={line.unit}
+                          invalid={left === null}
                         />
-                        {line.unit}
-                      </label>
+                      </div>
                     ) : null}
                     {entry.on && line.short && entry.text === amountText(line.suggested) ? (
                       <p className="text-meta text-ink-2">{shortNote(line)}</p>

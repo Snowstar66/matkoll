@@ -75,7 +75,7 @@ const card = (page: Page, name: string) =>
   page.getByRole("navigation", { name: "Platser" }).getByRole("link", { name: new RegExp(`^${name}`) });
 const emptyButton = (page: Page, name = "Töm kylen") =>
   page.getByRole("button", { name, exact: true }).filter({ visible: true });
-const sheet = (page: Page) => page.getByRole("dialog", { name: "Töm kylen" });
+const sheet = (page: Page) => page.getByRole("dialog");
 // Story 11.3: one row per item, with or without an amount, and no amount shown.
 const rows = (page: Page) => page.getByTestId("pantry-row").filter({ visible: true });
 const toast = (page: Page) => page.getByTestId("toast");
@@ -101,7 +101,7 @@ test("Töm kylen asks first, with focus on Avbryt, and Avbryt removes nothing", 
   await expect(sheet(page).getByText("Ta bort alla 3 varor i kylen?")).toBeVisible();
   await expect(sheet(page).getByText("Du kan ångra direkt efteråt.")).toBeVisible();
   await expect(sheet(page).getByRole("button", { name: "Avbryt" })).toBeFocused();
-  await expect(sheet(page).getByRole("button", { name: "Töm kylen" })).toBeVisible();
+  await expect(sheet(page).getByRole("button", { name: "Ta bort", exact: true })).toBeVisible();
 
   await sheet(page).getByRole("button", { name: "Avbryt" }).click();
   await expect(sheet(page)).toBeHidden();
@@ -118,7 +118,7 @@ test("Töm kylen removes every item in Kyl, and Ångra puts them back with the s
   await page.goto("/hemma");
   await expect(card(page, "Kyl")).toHaveText(/^\S*Kyl\s*3 varor$/);
   await emptyButton(page).click();
-  await sheet(page).getByRole("button", { name: "Töm kylen" }).click();
+  await sheet(page).getByRole("button", { name: "Ta bort", exact: true }).click();
 
   await expect(toast(page)).toContainText("Tog bort 3 varor ur kylen.");
   await expect(sheet(page)).toBeHidden();
@@ -146,7 +146,7 @@ test("Ångra skips an item added again meanwhile and says so, and puts the other
   await page.goto("/hemma");
   await expect(card(page, "Kyl")).toHaveText(/^\S*Kyl\s*3 varor$/);
   await emptyButton(page).click();
-  await sheet(page).getByRole("button", { name: "Töm kylen" }).click();
+  await sheet(page).getByRole("button", { name: "Ta bort", exact: true }).click();
   await expect(toast(page)).toContainText("Tog bort 3 varor ur kylen.");
 
   // Another device puts "Mjölk 1 förp" in Kyl before Ångra.

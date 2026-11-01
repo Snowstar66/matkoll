@@ -94,7 +94,7 @@ export const removeProductChoiceText = "Ta bort produktval";
 /** The short confirmation after "Spara" in the sheet. */
 export const productChoiceSavedText = "Produktvalet är sparat.";
 /** The short confirmation after "Ta bort produktval", with "Ångra". */
-export const productChoiceRemovedText = "Produktvalet är borttaget.";
+export const productChoiceRemovedText = "Tog bort produktvalet.";
 /** The placeholder under Förpackning. */
 export const packageSizePlaceholder = "t.ex. 5 dl";
 

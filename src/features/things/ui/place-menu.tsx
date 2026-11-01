@@ -3,7 +3,7 @@
 import { useRouter } from "next/navigation";
 import { useState } from "react";
 import { Button } from "@/components/button";
-import { MoreIcon } from "@/components/icons";
+import { MoreIcon, TrashIcon } from "@/components/icons";
 import { Notice } from "@/components/notice";
 import { Sheet } from "@/components/sheet";
 import { useToast } from "@/components/toast";
@@ -85,12 +85,13 @@ export function PlaceMenu({ placeId, part, box, counts, roomHasOthers }: PlaceMe
       >
         <MoreIcon size={24} />
       </button>
-      <Sheet open={mode === "menu"} onClose={() => setMode("closed")} title={part} closeLabel="Avbryt">
+      <Sheet open={mode === "menu"} onClose={() => setMode("closed")} title={part} closeLabel="Klar">
         <div className="flex flex-col gap-2">
           <Button fullWidth variant="secondary" onClick={() => setMode("rename")} data-testid="place-rename">
             {renameMenuText}
           </Button>
-          <Button fullWidth variant="secondary" onClick={() => { setNotice(null); setMode("remove"); }} data-testid="place-remove">
+          <Button fullWidth variant="danger" onClick={() => { setNotice(null); setMode("remove"); }} data-testid="place-remove">
+            <TrashIcon size={20} />
             {removeMenuText}
           </Button>
         </div>
@@ -119,7 +120,7 @@ export function PlaceMenu({ placeId, part, box, counts, roomHasOthers }: PlaceMe
         preventClose={busy}
         initialFocus="close"
         footer={
-          <Button fullWidth disabled={busy} onClick={remove} data-testid="place-remove-confirm">
+          <Button variant="danger-confirm" fullWidth disabled={busy} onClick={remove} data-testid="place-remove-confirm">
             {busy ? removingText : removeMenuText}
           </Button>
         }

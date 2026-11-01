@@ -233,7 +233,7 @@ test("Ta bort produktval removes the choice, and Ångra brings back the same row
   await choiceSection(page, "Grädde").getByRole("button", { name: "Ändra produktval" }).click();
   await choiceSheet(page).getByRole("button", { name: "Ta bort produktval" }).click();
   await expect(choiceSheet(page)).toHaveCount(0);
-  await expect(toast(page)).toContainText("Produktvalet är borttaget.");
+  await expect(toast(page)).toContainText("Tog bort produktvalet.");
   await expect.poll(storedChoices).toEqual([]);
 
   await toast(page).getByRole("button", { name: "Ångra" }).click();

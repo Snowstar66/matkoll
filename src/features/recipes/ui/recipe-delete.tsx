@@ -6,13 +6,10 @@ import { useToast } from "@/components/toast";
 import { fail, type Result } from "@/lib/errors";
 import { deleteRecipe } from "../actions/delete-recipe";
 
-/** The question before "Ta bort recept" (Story 13.2), from the recipe's title. */
+/** The question before "Ta bort recept" (Story 13.2), from the recipe's title; "Det går inte att ångra." stands under it. */
 export function deleteRecipeQuestion(title: string): string {
   return `Ta bort ${title}?`;
 }
-
-/** Said under the question (Story 19.6). */
-export const irreversibleDetail = "Det går inte att ångra.";
 
 /** Said under the question when the recipe is on the current meal plan (Story 1.11 semantics). */
 export const onMenuDetail = "Den ligger på matsedeln och tas bort därifrån.";
@@ -33,7 +30,7 @@ export function useRecipeDelete(onDeleted: (id: string) => void): {
   const { showToast } = useToast();
   const { requestDelete, dialog } = useConfirmDelete();
 
-  async function remove(id: string) {
+  async function remove(id: string, title: string) {
     let result: Result<{ id: string }>;
     try {
       result = await deleteRecipe(id);
@@ -45,15 +42,15 @@ export function useRecipeDelete(onDeleted: (id: string) => void): {
       return;
     }
     onDeleted(id);
-    showToast("Receptet är borttaget.");
+    showToast(`Tog bort ${title}.`);
   }
 
   return {
     ask: ({ id, title, onMenu }) =>
       requestDelete({
         question: deleteRecipeQuestion(title),
-        detail: onMenu ? `${onMenuDetail} ${irreversibleDetail}` : irreversibleDetail,
-        onConfirm: () => remove(id),
+        detail: onMenu ? onMenuDetail : undefined,
+        onConfirm: () => remove(id, title),
       }),
     dialog,
   };

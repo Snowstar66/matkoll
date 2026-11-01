@@ -67,7 +67,7 @@ export function ClearSheet({ open, onClose, title, counts, detail, word, onClear
         setNotice(null);
         onClose();
       }}
-      title={title}
+      title={`${title}?`}
       closeLabel="Avbryt"
       preventClose={busy}
       footer={
