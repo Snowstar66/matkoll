@@ -60,11 +60,14 @@ export async function removeItemIn(db: ThingsDb, id: string): Promise<ThingSnaps
       .delete()
       .eq("id", id)
       // A thing written into a box (Story 18.13) has no card; it is changed by editing the box's text, never removed alone.
-      .in("source", ["photo", "added"])
+      // A noted thing (Story 18.19) has no card either, and is removed alone like a thing of a card.
+      .in("source", ["photo", "added", "noted"])
       .select("id, photo_id, place_id, name, category, where_hint, confidence, position, created_at, same_as, source");
     if (error) throw new ThingsDataError(`remove_failed ${error.code}`);
     const [row] = data;
-    if (!row || row.photo_id === null) return null;
+    if (!row) return null;
+    const noted = row.source === "noted";
+    if (!noted && row.photo_id === null) return null;
     const parsed = thingRowSchema.safeParse(row);
     if (!parsed.success) throw new ThingsDataError("invalid_row");
     return {
@@ -78,7 +81,7 @@ export async function removeItemIn(db: ThingsDb, id: string): Promise<ThingSnaps
       position: parsed.data.position,
       createdAt: new Date(row.created_at).toISOString(),
       sameAs: row.same_as,
-      source: row.source === "added" ? "added" : "photo",
+      source: noted ? "noted" : row.source === "added" ? "added" : "photo",
       pointedBy: pointers.get(id) ?? [],
     };
   });

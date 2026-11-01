@@ -5,10 +5,9 @@ import { fail, ok, type Result } from "@/lib/errors";
 import { revalidateFor } from "@/lib/revalidate";
 import { createClient } from "@/lib/supabase/server";
 import { ThingsDataError } from "../data/client";
-import { insertPlaceIn } from "../data/places";
-import { findPlaceIn } from "../data/rooms";
+import { ensurePlaceIn } from "../data/places";
 import { captureInputSchema, emptyCaptureRoomText, type CaptureInput } from "../domain/capture";
-import { boxKey, nameTooLongText, normalizePlaceName, placeLimitText } from "../domain/thing-place";
+import { nameTooLongText, placeLimitText } from "../domain/thing-place";
 
 /**
  * The place a card is taken in (Story 18.11): the room alone ("Hela rummet"), a
@@ -31,18 +30,12 @@ export async function ensureCapturePlace(input: CaptureInput): Promise<Result<{ 
   const box = parsed.data.box && part !== null;
 
   try {
-    const db = await createClient();
-    const target = { siteId, roomKey: normalizePlaceName(room), partKey: part === null ? "" : box ? boxKey(part) : normalizePlaceName(part) };
-    let id = await findPlaceIn(db, target);
-    if (!id) {
-      const saved = await insertPlaceIn(db, { siteId, room, part }, box);
-      if (saved.kind === "limit") return fail("things_place_limit", { room: placeLimitText });
-      if (saved.kind === "site_gone") return fail("things_place_gone");
-      // Taken: another tab made it a moment ago.
-      id = saved.kind === "saved" ? saved.id : await findPlaceIn(db, target);
-      if (saved.kind === "saved") revalidateFor("thing_place");
-    }
-    return id ? ok({ placeId: id }) : fail("things_place_failed");
+    const place = await ensurePlaceIn(await createClient(), { siteId, room, part }, box);
+    if (place.kind === "limit") return fail("things_place_limit", { room: placeLimitText });
+    if (place.kind === "site_gone") return fail("things_place_gone");
+    if (place.kind === "failed") return fail("things_place_failed");
+    if (place.kind === "made") revalidateFor("thing_place");
+    return ok({ placeId: place.id });
   } catch (error) {
     if (!(error instanceof ThingsDataError)) throw error;
     console.error("things_place_failed", { reason: error.detail });

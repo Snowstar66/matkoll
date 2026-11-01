@@ -27,6 +27,7 @@ import {
   whereLabelText,
 } from "../domain/thing-edit";
 import { thingNounCap } from "../domain/thing-noun";
+import { notedSheetSubtitle } from "../domain/thing-noted";
 
 // The things of a card under their categories (Stories 18.2 and 18.3), each a
 // row to tap: a sheet renames that thing, changes its category and where on the
@@ -84,7 +85,8 @@ export function CardThings({ things, headings = true, aside = false }: { things:
     setSelected(thing);
     setName(thing.name);
     setCategory(thing.category);
-    setWhere(thing.whereHint ?? "");
+    // A noted thing (Story 18.19) has no picture: its row's hint is where it is and when, never a "where on the picture".
+    setWhere(thing.noted ? "" : (thing.whereHint ?? ""));
     setWhereError(null);
     setError(null);
     setNotice(null);
@@ -101,15 +103,16 @@ export function CardThings({ things, headings = true, aside = false }: { things:
       nameRef.current?.focus();
       return;
     }
-    const cleanedWhere = cleanThingName(where) || null;
-    if (cleaned === selected.name && category === selected.category && cleanedWhere === selected.whereHint) {
+    const noted = Boolean(selected.noted);
+    const cleanedWhere = noted ? null : cleanThingName(where) || null;
+    if (cleaned === selected.name && category === selected.category && cleanedWhere === (noted ? null : selected.whereHint)) {
       setOpen(false);
       return;
     }
     setSaving(true);
     let result: Result<null>;
     try {
-      result = await updateThing({ id: selected.id, name, category, whereHint: where });
+      result = await updateThing({ id: selected.id, name, category, whereHint: noted ? null : where });
     } catch {
       // No answer (e.g. no connection): it may have been saved, so the page is read again.
       result = fail("things_item_failed");
@@ -190,7 +193,14 @@ export function CardThings({ things, headings = true, aside = false }: { things:
           </ListGroup>
         </section>
       ))}
-      <Sheet open={open} onClose={() => setOpen(false)} title={thingNounCap.singular} subtitle={selected ? thingMeta(selected) || undefined : undefined} closeLabel="Avbryt" preventClose={saving}>
+      <Sheet
+        open={open}
+        onClose={() => setOpen(false)}
+        title={thingNounCap.singular}
+        subtitle={selected?.noted ? notedSheetSubtitle(selected.noted.part, new Date(selected.noted.at)) : selected ? thingMeta(selected) || undefined : undefined}
+        closeLabel="Avbryt"
+        preventClose={saving}
+      >
         <form onSubmit={save} noValidate aria-busy={saving || undefined} className="flex flex-col gap-4">
           {notice ? <Notice role="alert">{notice}</Notice> : null}
           <div className="flex flex-col gap-2">
@@ -221,24 +231,27 @@ export function CardThings({ things, headings = true, aside = false }: { things:
               className="[&>button]:min-h-tap"
             />
           </div>
-          <div className="flex flex-col gap-2">
-            <FieldLabel htmlFor={`${ids}-where`}>{whereLabelText}</FieldLabel>
-            <Input
-              id={`${ids}-where`}
-              name="where"
-              autoComplete="off"
-              maxLength={maxWhereChars * 2}
-              placeholder={wherePlaceholderText}
-              value={where}
-              onChange={(event) => {
-                setWhere(event.target.value);
-                setWhereError(null);
-              }}
-              aria-invalid={whereError ? true : undefined}
-              aria-describedby={whereError ? `${ids}-where-error` : undefined}
-            />
-            {whereError ? <FieldError id={`${ids}-where-error`}>{whereError}</FieldError> : null}
-          </div>
+          {/* A noted thing (Story 18.19) has no picture to say where on. */}
+          {selected?.noted ? null : (
+            <div className="flex flex-col gap-2">
+              <FieldLabel htmlFor={`${ids}-where`}>{whereLabelText}</FieldLabel>
+              <Input
+                id={`${ids}-where`}
+                name="where"
+                autoComplete="off"
+                maxLength={maxWhereChars * 2}
+                placeholder={wherePlaceholderText}
+                value={where}
+                onChange={(event) => {
+                  setWhere(event.target.value);
+                  setWhereError(null);
+                }}
+                aria-invalid={whereError ? true : undefined}
+                aria-describedby={whereError ? `${ids}-where-error` : undefined}
+              />
+              {whereError ? <FieldError id={`${ids}-where-error`}>{whereError}</FieldError> : null}
+            </div>
+          )}
           <Button type="submit" fullWidth aria-disabled={saving || undefined}>
             {saving ? "Sparar …" : "Spara"}
           </Button>

@@ -126,3 +126,53 @@ describe("the things of a card", () => {
     expect(await within(dialog).findByRole("alert")).toHaveTextContent("Det gick inte att spara föremålet.");
   });
 });
+
+describe("a thing written in with where it is (Story 18.19)", () => {
+  const pass: Thing = {
+    id: "0b2f6d0a-3c0e-4d52-9a54-6d0f0c5f6a31",
+    name: "Pass",
+    category: "Övrigt",
+    whereHint: "Översta byrålådan · skrivet 31 okt",
+    confidence: "high",
+    seenOn: 1,
+    noted: { at: "2026-10-31T21:00:00.000Z", part: "Översta byrålådan" },
+  };
+
+  async function openPass() {
+    render(
+      <ToastProvider>
+        <CardThings things={[pass]} headings={false} aside />
+      </ToastProvider>,
+    );
+    expect(screen.getByTestId("thing")).toHaveTextContent("Översta byrålådan · skrivet 31 okt");
+    await userEvent.click(screen.getByRole("button", { name: /Pass/ }));
+    return screen.getByRole("dialog", { name: "Föremål" });
+  }
+
+  it("says when it was written in and where, and has no 'Var på bilden'", async () => {
+    const dialog = await openPass();
+    expect(dialog).toHaveTextContent("Du skrev in det 31 okt · Översta byrålådan");
+    expect(within(dialog).queryByLabelText("Var på bilden")).not.toBeInTheDocument();
+  });
+
+  it("changes the name and category without writing its hint as a 'where'", async () => {
+    updateThing.mockResolvedValue(ok(null));
+    const dialog = await openPass();
+    await userEvent.click(within(dialog).getByRole("radio", { name: /Kläder/ }));
+    await userEvent.click(within(dialog).getByRole("button", { name: "Spara" }));
+    await waitFor(() => expect(updateThing).toHaveBeenCalledWith({ id: pass.id, name: "Pass", category: "Kläder & textil", whereHint: null }));
+  });
+
+  it("is removed with Ta bort föremål, and Ångra puts it back", async () => {
+    const noted: ThingSnapshot = { ...snapshot, id: pass.id, photoId: null, name: "Pass", category: "Övrigt", whereHint: null, source: "noted" };
+    removeThing.mockResolvedValue(ok(noted));
+    restoreThing.mockResolvedValue(ok(null));
+    const dialog = await openPass();
+    await userEvent.click(within(dialog).getByRole("button", { name: "Ta bort föremål" }));
+    expect(removeThing).toHaveBeenCalledWith(pass.id);
+    expect((await screen.findAllByText("Tog bort Pass.")).length).toBeGreaterThan(0);
+    await userEvent.click(screen.getByRole("button", { name: "Ångra" }));
+    await waitFor(() => expect(restoreThing).toHaveBeenCalledWith(noted));
+  });
+});
+
