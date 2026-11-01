@@ -1,0 +1,756 @@
+<!doctype html>
+<html lang="sv">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Integritet i Förrådet</title>
+<style>
+/* ---------- document chrome (same as hjalp-valkomst.html) ---------- */
+:root { --pbg:#E8ECE9; --pcard:#FFFFFF; --pink:#1B2420; --pink2:#56635D; --pacc:#3E7C62; --pline:#D9DFDB; --ptag:#F1ECE2; --ptagink:#6E5B3E;
+  font-family:-apple-system,BlinkMacSystemFont,'SF Pro Text',Inter,'Helvetica Neue',Arial,sans-serif; color-scheme:light dark; }
+@media (prefers-color-scheme: dark) { :root:not([data-theme="light"]) { --pbg:#0B0E0C; --pcard:#161B18; --pink:#E6EBE8; --pink2:#A3AFA9; --pacc:#6FB394; --pline:#2A312D; --ptag:#3A3326; --ptagink:#DCC9A6; } }
+:root[data-theme="dark"] { --pbg:#0B0E0C; --pcard:#161B18; --pink:#E6EBE8; --pink2:#A3AFA9; --pacc:#6FB394; --pline:#2A312D; --ptag:#3A3326; --ptagink:#DCC9A6; }
+* { box-sizing:border-box; }
+html, body { overflow-x:hidden; }
+body { margin:0; background:var(--pbg); color:var(--pink); -webkit-font-smoothing:antialiased; }
+.wrap { max-width:1440px; margin:0 auto; padding:32px 16px 80px; }
+.wrap > h1 { font-size:30px; line-height:36px; font-weight:600; letter-spacing:-.4px; margin:0 0 8px; }
+h2.part { font-size:24px; line-height:30px; font-weight:600; letter-spacing:-.3px; margin:64px 0 4px; padding-top:16px; border-top:1px solid var(--pline); }
+h3.sec { font-size:19px; line-height:24px; font-weight:600; margin:40px 0 6px; }
+p.lead, p.note { color:var(--pink2); line-height:1.55; max-width:860px; margin:0 0 12px; font-size:16px; }
+ul.spec { margin:8px 0 16px; padding-left:20px; line-height:1.55; max-width:980px; font-size:15px; }
+ul.spec li { margin:3px 0; }
+.tag { display:inline-block; font-size:11px; font-weight:600; letter-spacing:.05em; text-transform:uppercase; padding:1px 7px; border-radius:99px; background:var(--ptag); color:var(--ptagink); vertical-align:1px; }
+.pair { display:flex; gap:24px; flex-wrap:wrap; align-items:flex-start; margin-top:12px; }
+.col { display:flex; flex-direction:column; gap:8px; min-width:0; max-width:100%; }
+.lbl { font-size:12px; font-weight:600; letter-spacing:.06em; text-transform:uppercase; color:var(--pink2); }
+.lbl.new { color:var(--pacc); }
+.cap { font-size:14px; line-height:20px; color:var(--pink2); max-width:390px; min-height:40px; }
+.box { background:var(--pcard); border-radius:16px; padding:20px 22px; max-width:980px; margin-top:12px; }
+.box h4 { margin:0 0 8px; font-size:17px; font-weight:600; }
+.box p { margin:6px 0; line-height:1.55; font-size:15px; }
+.box ul { margin:6px 0; padding-left:20px; line-height:1.55; font-size:15px; }
+code { font-family:ui-monospace,SFMono-Regular,Menlo,monospace; font-size:.88em; background:rgba(127,140,133,.14); padding:1px 5px; border-radius:6px; overflow-wrap:anywhere; }
+.toc { display:flex; flex-wrap:wrap; gap:8px; margin:16px 0 0; }
+.toc a, .themes button { font-size:14px; color:var(--pacc); text-decoration:none; background:var(--pcard); padding:6px 12px; border-radius:99px; border:0; font-family:inherit; cursor:pointer; }
+.themes { display:flex; gap:6px; align-items:center; margin-top:12px; font-size:14px; color:var(--pink2); flex-wrap:wrap; }
+.themes button[aria-pressed="true"] { background:var(--pacc); color:#fff; }
+.stories { display:grid; grid-template-columns:repeat(auto-fill,minmax(300px,1fr)); gap:12px; margin-top:12px; max-width:1200px; }
+.stories > div { background:var(--pcard); border-radius:16px; padding:16px 18px; }
+.stories b { display:block; font-size:17px; font-weight:600; margin-bottom:2px; }
+.stories i { font-style:normal; color:var(--pacc); font-weight:600; font-size:13px; display:block; margin-bottom:4px; }
+.stories ul { margin:8px 0 0; padding-left:18px; font-size:14.5px; line-height:1.5; }
+.stories small { display:block; color:var(--pink2); font-size:14px; line-height:1.45; }
+ol.beslut { max-width:980px; line-height:1.6; font-size:15px; padding-left:22px; }
+ol.beslut li { margin:6px 0; }
+.ways { display:grid; grid-template-columns:repeat(auto-fill,minmax(290px,1fr)); gap:12px; max-width:1200px; margin-top:12px; }
+.ways > div { background:var(--pcard); border-radius:16px; padding:16px 18px; font-size:14.5px; line-height:1.5; border:2px solid transparent; }
+.ways > div.rec { border-color:var(--pacc); }
+.ways b { display:block; font-size:16px; margin-bottom:4px; }
+.ways .verdict { display:block; margin-top:8px; font-weight:600; color:var(--pink2); font-size:13.5px; }
+.ways .rec .verdict { color:var(--pacc); }
+.facts { width:100%; max-width:1200px; border-collapse:collapse; font-size:14px; line-height:1.45; margin-top:12px; background:var(--pcard); border-radius:16px; overflow:hidden; }
+.facts th, .facts td { text-align:left; vertical-align:top; padding:10px 14px; border-top:1px solid var(--pline); }
+.facts th { font-size:12px; text-transform:uppercase; letter-spacing:.05em; color:var(--pink2); border-top:0; }
+.facts td:first-child { width:34%; font-weight:500; }
+.facts .ok { color:var(--pacc); font-weight:600; }
+.facts .warn { color:#B26A00; font-weight:600; }
+.flow { display:flex; flex-wrap:wrap; gap:6px; align-items:center; margin:10px 0 4px; font-size:13.5px; }
+.flow span { background:var(--pbg); border-radius:99px; padding:4px 10px; }
+.flow span.hl { background:var(--pacc); color:#fff; font-weight:600; }
+.flow em { font-style:normal; color:var(--pink2); }
+.tablewrap { overflow-x:auto; max-width:100%; }
+
+/* ---------- mock app: tokens (globals.css) ---------- */
+.t-light { --bg:#F5F7F4; --surface:#FFFFFF; --surface-2:#FFFFFF; --fill:#EAEDEB; --ink:#1B2420; --ink-2:#56635D; --ink-3:#6B7872; --hairline:#E8ECE9; --border:#DCE2DE; --accent:#3E7C62; --on-accent:#FFFFFF; --danger:#B3261E; --mint:#DDEFE5; --mint-ink:#2C5E48; --sky:#DCE9F6; --sky-ink:#2E5A85; --sand:#F1ECE2; --sand-ink:#6E5B3E; --lilac:#E6E1F2; --clay:#F1E3DD; --scrim:rgba(27,36,32,.4); --bar:rgba(255,255,255,.84); --shadow-float:0 12px 32px rgba(27,36,32,.14),0 0 0 .5px rgba(27,36,32,.08); --seg-on:#FFFFFF; --seg-track:#E9ECEA; --photo-chip:rgba(20,26,23,.78);
+  --warm:#D9963F; --illus-bg:#EEF4F0; --sw-off:#E1E5E2; }
+.t-dark { --bg:#0F1311; --surface:#181D1A; --surface-2:#202622; --fill:#242927; --ink:#E6EBE8; --ink-2:#A3AFA9; --ink-3:#86928C; --hairline:#262D29; --border:#313934; --accent:#6FB394; --on-accent:#0F1A15; --danger:#E5736A; --mint:#1F3A2D; --mint-ink:#A8D9BF; --sky:#1E3247; --sky-ink:#A9C9EA; --sand:#3A3326; --sand-ink:#DCC9A6; --lilac:#2C2840; --clay:#3B2C27; --scrim:rgba(0,0,0,.6); --bar:rgba(24,29,26,.82); --shadow-float:0 0 0 .5px rgba(255,255,255,.09); --seg-on:#2C3430; --seg-track:#1A1F1C; --photo-chip:rgba(20,26,23,.78);
+  --warm:#E9B872; --illus-bg:#16211B; --sw-off:#39413C; }
+
+.ic { flex:none; fill:none; stroke:currentColor; stroke-width:1.8; stroke-linecap:round; stroke-linejoin:round; display:block; }
+.duo { color:var(--accent); }
+.phone { position:relative; width:390px; height:844px; overflow:hidden; background:var(--bg); color:var(--ink); border-radius:16px; box-shadow:0 4px 18px rgba(27,36,32,.18); font-size:16px; line-height:24px; flex:none; }
+.scroll { position:absolute; inset:0; overflow-y:auto; scrollbar-width:none; }
+.scroll::-webkit-scrollbar { display:none; }
+.scr { padding:16px 20px 96px; }
+.av { border-radius:50%; background:var(--mint); color:var(--mint-ink); display:inline-flex; align-items:center; justify-content:center; font-weight:600; flex:none; }
+.backrow { display:inline-flex; align-items:center; gap:2px; color:var(--accent); font-size:16px; line-height:24px; height:44px; margin:-4px 0 4px -8px; padding:0 8px; }
+.lt { font-size:30px; line-height:36px; font-weight:600; letter-spacing:-.4px; margin:0; color:var(--ink); }
+.titlerow { display:flex; align-items:center; justify-content:space-between; margin-bottom:12px; }
+.titlerow .more { width:44px; height:44px; display:flex; align-items:center; justify-content:center; color:var(--ink-2); margin-right:-6px; }
+.search { display:flex; align-items:center; gap:8px; height:44px; padding:0 14px; border-radius:12px; background:var(--surface); color:var(--ink-3); font-size:16px; margin-top:12px; }
+.chips { display:flex; gap:8px; margin:6px -20px 0; padding:6px 20px; overflow-x:auto; white-space:nowrap; scrollbar-width:none; }
+.chips::-webkit-scrollbar { display:none; }
+.chip { flex:none; height:32px; display:inline-flex; align-items:center; gap:4px; padding:0 12px; border-radius:999px; background:var(--surface); border:1px solid var(--border); color:var(--ink-2); font-size:15px; line-height:20px; font-weight:500; }
+.chip.on { background:var(--accent); border-color:var(--accent); color:var(--on-accent); font-weight:600; }
+.chip.dash { border-style:dashed; }
+.chiprow { display:flex; flex-wrap:wrap; gap:8px; }
+.sec { font-size:13px; line-height:18px; font-weight:500; letter-spacing:.5px; text-transform:uppercase; color:var(--ink-2); margin:24px 4px 8px; display:flex; justify-content:space-between; }
+.sec .n { text-transform:none; letter-spacing:0; font-size:14px; color:var(--ink-3); font-weight:400; }
+.grp { background:var(--surface); border-radius:16px; overflow:hidden; }
+.tabbar { position:absolute; left:0; right:0; bottom:0; height:56px; display:grid; grid-template-columns:repeat(5,1fr); background:var(--bar); -webkit-backdrop-filter:saturate(1.6) blur(20px); backdrop-filter:saturate(1.6) blur(20px); border-top:.5px solid var(--border); z-index:3; }
+.tab { display:flex; flex-direction:column; align-items:center; justify-content:center; gap:2px; color:var(--ink-3); font-size:11px; line-height:13px; font-weight:500; }
+.tab.on { color:var(--accent); }
+.btn { height:52px; border-radius:12px; background:var(--accent); color:var(--on-accent); display:flex; align-items:center; justify-content:center; gap:8px; font-size:17px; font-weight:600; border:0; width:100%; font-family:inherit; cursor:pointer; }
+.btn.sec2 { background:var(--surface); color:var(--accent); }
+.btn.danger { background:var(--danger); color:#fff; }
+.t-dark .btn.danger { color:#2A0B08; }
+.tbtn { display:inline-flex; align-items:center; gap:4px; color:var(--accent); font-size:15px; font-weight:500; min-height:44px; padding:0 8px; }
+.meta { font-size:14px; line-height:20px; color:var(--ink-3); }
+
+/* ---------- Förråd room (replica of room-view.tsx, room-cards.tsx, take-card.tsx) ---------- */
+.stats { display:grid; grid-template-columns:repeat(3,1fr); background:var(--surface); border-radius:16px; padding:14px; text-align:center; margin:0; }
+.stats b { display:block; font-size:20px; line-height:26px; font-weight:600; font-variant-numeric:tabular-nums; }
+.stats span { font-size:14px; line-height:20px; color:var(--ink-3); }
+.capture { background:var(--surface); border-radius:16px; padding:12px; margin-top:12px; display:flex; flex-direction:column; gap:8px; }
+.cbtns { display:grid; grid-template-columns:1fr 1fr; gap:8px; }
+.cbtn { min-height:52px; border-radius:12px; background:var(--surface); color:var(--accent); display:flex; flex-direction:column; align-items:center; justify-content:center; gap:2px; padding:12px 8px; font-size:17px; line-height:22px; font-weight:600; text-align:center; }
+.cbtn.today { padding-top:22px; padding-bottom:22px; }      /* today: the icon is there but 0 px high */
+.capture .cbtn.fixed { background:var(--bg); }
+.crow { display:flex; justify-content:space-between; align-items:center; padding:0 4px; }
+.crow .tl { color:var(--accent); font-size:14px; font-weight:500; min-height:44px; display:flex; align-items:center; }
+.status { margin-top:12px; display:flex; flex-direction:column; gap:8px; }
+.prog { height:4px; border-radius:99px; background:var(--hairline); overflow:hidden; }
+.prog i { display:block; width:33%; height:100%; background:var(--accent); border-radius:99px; }
+.seg { display:grid; grid-template-columns:1fr 1fr; background:var(--seg-track); border-radius:12px; padding:3px; margin-top:12px; height:46px; }
+.seg span { display:flex; align-items:center; justify-content:center; border-radius:9px; font-size:15px; font-weight:500; color:var(--ink-2); }
+.seg span.on { background:var(--seg-on); color:var(--ink); font-weight:600; box-shadow:0 1px 3px rgba(0,0,0,.12); }
+.cards { list-style:none; margin:12px 0 0; padding:0; display:grid; grid-template-columns:1fr 1fr; gap:10px; }
+.card { background:var(--surface); border-radius:12px; overflow:hidden; display:flex; flex-direction:column; }
+.card .im { position:relative; height:96px; background:var(--border); overflow:hidden; }
+.card .im .ph { position:absolute; inset:0; width:100%; height:100%; }
+.expand { position:absolute; right:6px; bottom:6px; width:26px; height:26px; border-radius:50%; background:var(--photo-chip); color:#fff; display:flex; align-items:center; justify-content:center; font-size:13px; line-height:1; }
+.card .bd { padding:8px 10px; }
+.card .bd b { display:block; font-size:14px; line-height:20px; font-weight:500; padding:4px 0 0; }
+.card .acts { display:flex; flex-wrap:wrap; padding:0 4px 4px; margin-top:auto; }
+.card .acts span { color:var(--accent); font-size:15px; font-weight:500; min-height:44px; display:flex; align-items:center; padding:0 8px; }
+.working { display:flex; align-items:center; gap:6px; font-size:14px; line-height:20px; color:var(--ink-2); }
+.working i { width:14px; height:14px; border-radius:50%; border:2px solid var(--mint); border-top-color:var(--accent); display:inline-block; }
+.noimg { position:absolute; inset:0; display:flex; flex-direction:column; align-items:center; justify-content:center; gap:4px; background:var(--fill); color:var(--ink-3); font-size:13px; line-height:16px; font-weight:500; }
+.dolt { position:absolute; left:6px; bottom:6px; display:flex; align-items:center; gap:3px; height:22px; padding:0 8px 0 6px; border-radius:99px; background:var(--photo-chip); color:#fff; font-size:12px; font-weight:600; }
+
+/* ---------- sheets ---------- */
+.dim { position:absolute; inset:0; background:var(--scrim); z-index:4; }
+.sheet { position:absolute; left:0; right:0; bottom:0; z-index:5; background:var(--surface-2); color:var(--ink); border-radius:24px 24px 0 0; padding:0 20px 34px; }
+.t-light .sheet { background:var(--surface); }
+.grab { width:36px; height:5px; border-radius:99px; background:var(--border); margin:8px auto 4px; }
+.shead { display:flex; align-items:center; justify-content:space-between; min-height:52px; gap:12px; }
+.stitle { font-size:20px; line-height:26px; font-weight:600; letter-spacing:-.2px; }
+.cancel { color:var(--accent); font-size:17px; font-weight:500; min-height:44px; display:flex; align-items:center; padding:0 12px; margin-right:-12px; }
+.slabel { font-size:13px; line-height:18px; font-weight:500; letter-spacing:.5px; text-transform:uppercase; color:var(--ink-2); margin:12px 4px 8px; }
+.hint { font-size:14px; line-height:20px; color:var(--ink-2); margin:12px 0 0; }
+
+/* ---------- review strip (new) ---------- */
+.strip { display:flex; gap:10px; overflow-x:auto; margin:4px -20px 0; padding:4px 20px 0; scrollbar-width:none; }
+.strip::-webkit-scrollbar { display:none; }
+.st { width:96px; flex:none; display:flex; flex-direction:column; align-items:center; }
+.st .im { position:relative; width:96px; height:128px; border-radius:12px; overflow:hidden; background:var(--border); }
+.st .im .ph { position:absolute; inset:0; width:100%; height:100%; }
+.st .x { position:absolute; top:6px; right:6px; width:26px; height:26px; border-radius:50%; background:var(--photo-chip); color:#fff; display:flex; align-items:center; justify-content:center; }
+.st .hide { color:var(--accent); font-size:15px; font-weight:500; min-height:44px; display:flex; align-items:center; gap:4px; cursor:pointer; }
+.st.add .im { background:transparent; border:1.5px dashed var(--border); display:flex; flex-direction:column; align-items:center; justify-content:center; gap:6px; color:var(--accent); font-size:14px; font-weight:500; text-align:center; line-height:18px; }
+.lockhint { display:flex; gap:8px; align-items:flex-start; font-size:14px; line-height:20px; color:var(--ink-2); margin:6px 0 16px; }
+.lockhint .ic { margin-top:1px; color:var(--ink-3); }
+.lockhint a { color:var(--accent); font-weight:500; text-decoration:none; }
+
+/* ---------- editor (new): always dark, like a photo viewer ---------- */
+.ed { position:absolute; inset:0; background:#0B0E0C; color:#E6EBE8; z-index:6; display:flex; flex-direction:column; }
+.edbar { height:52px; display:flex; align-items:center; justify-content:space-between; padding:0 8px; position:relative; flex:none; }
+.edbar .t { position:absolute; left:0; right:0; text-align:center; font-size:17px; font-weight:600; pointer-events:none; }
+.edbar span.b { min-height:44px; display:flex; align-items:center; padding:0 12px; font-size:17px; color:#E6EBE8; cursor:pointer; position:relative; z-index:1; }
+.edbar span.b.done { color:#6FB394; font-weight:600; }
+.edstage { flex:1; display:flex; align-items:center; justify-content:center; min-height:0; }
+.edphoto { position:relative; width:100%; aspect-ratio:3/4; max-height:100%; overflow:hidden; background:#222; }
+.edphoto .ph, .edphoto .mask { position:absolute; inset:0; width:100%; height:100%; }
+.edphoto .mask { touch-action:none; cursor:crosshair; }
+.edtools { flex:none; padding:10px 16px 26px; display:flex; flex-direction:column; gap:10px; }
+.edhint { font-size:14px; line-height:20px; color:#A3AFA9; text-align:center; }
+.edrow { display:flex; align-items:center; gap:8px; }
+.edseg { display:grid; grid-template-columns:1fr 1fr; background:#1A1F1C; border-radius:12px; padding:3px; height:44px; flex:1; }
+.edseg span { display:flex; align-items:center; justify-content:center; gap:6px; border-radius:9px; font-size:15px; font-weight:500; color:#A3AFA9; cursor:pointer; }
+.edseg span.on { background:#2C3430; color:#E6EBE8; font-weight:600; }
+.edseg i { display:inline-block; border-radius:50%; background:#E6EBE8; }
+.edbtn { min-height:44px; padding:0 12px; border-radius:12px; display:flex; align-items:center; gap:6px; font-size:15px; font-weight:500; color:#E6EBE8; background:#1A1F1C; cursor:pointer; user-select:none; }
+.edbtn.off { opacity:.4; }
+
+/* ---------- settings (replica of settings-menu.tsx) + new rows ---------- */
+.acct { display:flex; align-items:center; gap:12px; padding:12px 8px 12px 16px; background:var(--surface); border-radius:16px; min-height:64px; }
+.acct b { display:block; font-size:17px; line-height:22px; font-weight:400; } .acct small { display:block; font-size:14px; line-height:20px; color:var(--ink-2); }
+.row { display:flex; align-items:center; gap:12px; min-height:52px; padding:6px 8px 6px 16px; position:relative; font-size:17px; line-height:22px; }
+.row + .row::before, .swrow + .swrow::before, .step + .step::before, .li + .li::before, .faq + .faq::before { content:''; position:absolute; top:0; right:0; left:var(--inset,58px); border-top:1px solid var(--hairline); }
+.row .grow { flex:1; min-width:0; }
+.row .v { color:var(--ink-2); font-size:15px; max-width:45%; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
+.row .chev { color:var(--ink-3); width:24px; display:flex; justify-content:center; }
+.row.cur { background:var(--mint); }
+.row.danger { color:var(--danger); }
+.tile2 { width:30px; height:30px; border-radius:8px; display:flex; align-items:center; justify-content:center; background:var(--mint); color:var(--mint-ink); flex:none; }
+.tile2.sky { background:var(--sky); color:var(--sky-ink); } .tile2.sand { background:var(--sand); color:var(--sand-ink); } .tile2.lilac { background:var(--lilac); color:var(--ink-2); } .tile2.plain { background:var(--fill); color:var(--ink-2); }
+.tile2.red { background:transparent; color:var(--danger); }
+.swrow { display:flex; align-items:center; gap:12px; padding:12px 14px 12px 16px; min-height:64px; position:relative; --inset:16px; }
+.swrow .grow { flex:1; min-width:0; }
+.swrow b { display:block; font-size:17px; line-height:22px; font-weight:400; }
+.swrow small { display:block; font-size:14px; line-height:20px; color:var(--ink-2); margin-top:2px; }
+.sw { width:51px; height:31px; border-radius:99px; background:var(--sw-off); position:relative; flex:none; cursor:pointer; transition:background 200ms; }
+.sw::after { content:''; position:absolute; top:2px; left:2px; width:27px; height:27px; border-radius:50%; background:#fff; box-shadow:0 2px 4px rgba(0,0,0,.2); transition:transform 200ms; }
+.sw.on { background:var(--accent); }
+.sw.on::after { transform:translateX(20px); }
+.foot2 { font-size:14px; line-height:20px; color:var(--ink-2); margin:8px 4px 0; }
+.li { display:flex; align-items:center; gap:12px; padding:11px 16px; position:relative; font-size:15px; line-height:21px; color:var(--ink-2); --inset:48px; }
+.li .ic { color:var(--ink-3); }
+.notice { display:flex; gap:10px; background:var(--sky); color:var(--sky-ink); border-radius:16px; padding:12px 14px; font-size:15px; line-height:21px; margin-top:12px; }
+.notice .ic { margin-top:1px; }
+.lead2 { font-size:16px; line-height:24px; color:var(--ink-2); margin:4px 0 0; }
+.thingrow { display:flex; justify-content:space-between; gap:12px; padding:12px 16px; position:relative; font-size:17px; line-height:22px; --inset:16px; }
+.thingrow + .thingrow::before { content:''; position:absolute; top:0; right:0; left:16px; border-top:1px solid var(--hairline); }
+.thingrow span { font-size:14px; color:var(--ink-3); text-align:right; max-width:45%; }
+.bigph { position:relative; height:132px; border-radius:12px; overflow:hidden; margin-top:12px; }
+
+/* ---------- help hub (from hjalp-valkomst.html) + new privacy page ---------- */
+.hero { display:flex; align-items:center; gap:14px; margin-top:16px; padding:14px 12px 14px 14px; background:var(--surface); border-radius:16px; }
+.hero .hi { width:56px; height:56px; border-radius:14px; background:var(--illus-bg); display:flex; align-items:center; justify-content:center; flex:none; }
+.hero .ht { flex:1; min-width:0; }
+.hero b { display:block; font-size:17px; line-height:22px; font-weight:600; }
+.hero small { display:block; font-size:14px; line-height:20px; color:var(--ink-2); margin-top:2px; }
+.hero .play { width:36px; height:36px; border-radius:50%; background:var(--accent); color:var(--on-accent); display:flex; align-items:center; justify-content:center; flex:none; }
+.hero .chev { color:var(--ink-3); }
+.hero.new { outline:2px solid var(--accent); outline-offset:-2px; }
+.step { display:flex; gap:14px; padding:14px 16px 14px 14px; position:relative; align-items:flex-start; --inset:56px; }
+.step .ic { margin-top:1px; }
+.step .st2 { flex:1; min-width:0; }
+.step b { display:block; font-size:17px; line-height:22px; font-weight:500; }
+.step span.x2 { display:block; font-size:15px; line-height:21px; color:var(--ink-2); margin-top:2px; }
+.step a.go { color:var(--accent); font-weight:500; text-decoration:none; white-space:nowrap; }
+.faq { position:relative; --inset:16px; }
+.faq .q { display:flex; align-items:center; gap:12px; min-height:56px; padding:10px 12px 10px 16px; }
+.faq .q b { flex:1; font-size:17px; line-height:22px; font-weight:500; }
+.faq .a { padding:0 56px 14px 16px; margin-top:-4px; font-size:15px; line-height:22px; color:var(--ink-2); }
+.pm { width:28px; height:28px; flex:none; color:var(--accent); }
+.foot { text-align:center; font-size:13px; line-height:18px; color:var(--ink-3); margin-top:24px; }
+
+/* ---------- desktop frame ---------- */
+.scaler { width:690px; height:431px; overflow:hidden; border-radius:14px; box-shadow:0 4px 18px rgba(27,36,32,.18); flex:none; max-width:100%; }
+.frame { width:1280px; height:800px; zoom:.5390625; position:relative; overflow:hidden; background:var(--bg); color:var(--ink); font-size:16px; line-height:24px; }
+.side { position:absolute; left:0; top:0; bottom:0; width:240px; background:var(--surface); border-right:1px solid var(--hairline); padding:24px 12px 20px; display:flex; flex-direction:column; }
+.brand { display:flex; align-items:center; gap:10px; padding:0 12px; font-size:17px; font-weight:500; }
+.site { display:flex; align-items:center; gap:10px; color:var(--ink-2); padding:0 12px; height:44px; margin-top:12px; font-size:16px; }
+.nvs { margin-top:20px; display:flex; flex-direction:column; gap:2px; }
+.nv { display:flex; align-items:center; gap:12px; height:46px; padding:0 12px; border-radius:10px; color:var(--ink-2); font-size:16px; }
+.nv.on { background:var(--mint); color:var(--mint-ink); font-weight:500; }
+.nvb { margin-top:auto; border-top:1px solid var(--hairline); padding-top:10px; display:flex; flex-direction:column; gap:2px; }
+.who { display:flex; align-items:center; gap:10px; padding:6px 12px 8px; }
+.who b { display:block; font-size:15px; line-height:20px; font-weight:500; } .who small { display:block; font-size:12px; line-height:16px; color:var(--ink-3); }
+.dmain { position:absolute; left:240px; right:0; top:0; bottom:0; overflow:hidden; }
+.dmain > .in { width:720px; margin:0 auto; padding:40px 0 0; }
+.dmain .chips { margin:6px 0 0; padding:6px 0; }
+.dset { position:absolute; left:240px; right:0; top:0; bottom:0; padding:40px 20px 0; display:grid; grid-template-columns:320px 1fr; column-gap:40px; align-content:start; }
+.dset > h1 { grid-column:1 / -1; margin-bottom:16px; }
+.dset .detail h2 { font-size:20px; line-height:26px; font-weight:600; letter-spacing:-.2px; margin:12px 0 0; }
+.ded { position:absolute; inset:0; background:#0B0E0C; color:#E6EBE8; z-index:6; display:flex; flex-direction:column; }
+.ded .edstage .edphoto { width:auto; height:600px; }
+.ded .edtools { width:520px; margin:0 auto; padding:14px 0 18px; }
+
+@media (max-width: 760px) { .scaler { width:346px; height:216px; } .frame { zoom:.27; } }
+@media (max-width: 430px) { .phone { zoom:.9; } .wrap { padding:24px 16px 64px; } }
+</style>
+</head>
+<body>
+<!-- Icons: the app's own line icons (src/components/icons.tsx); d-* are the two-tone family from Epic 20 (green + one warm detail). New ones are marked. -->
+<svg width="0" height="0" style="position:absolute" aria-hidden="true">
+  <defs>
+    <linearGradient id="g-wall-warm" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#EFE5D8"/><stop offset="1" stop-color="#D6C5B1"/></linearGradient>
+    <linearGradient id="g-wall-blue" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#E3E9EC"/><stop offset="1" stop-color="#C5CFD4"/></linearGradient>
+    <linearGradient id="g-wall-grey" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#D3CFC8"/><stop offset="1" stop-color="#A9A49B"/></linearGradient>
+    <linearGradient id="g-wood" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#A88260"/><stop offset="1" stop-color="#77573B"/></linearGradient>
+    <linearGradient id="g-closet" x1="0" y1="0" x2="1" y2="0"><stop offset="0" stop-color="#6E5F51"/><stop offset=".5" stop-color="#8D7C6A"/><stop offset="1" stop-color="#6A5A4C"/></linearGradient>
+    <radialGradient id="g-light" cx=".3" cy=".18" r=".9"><stop offset="0" stop-color="#fff" stop-opacity=".28"/><stop offset=".6" stop-color="#fff" stop-opacity="0"/><stop offset="1" stop-color="#000" stop-opacity=".22"/></radialGradient>
+    <radialGradient id="g-lamp" cx=".5" cy=".5" r=".5"><stop offset="0" stop-color="#FFF4D6" stop-opacity=".9"/><stop offset="1" stop-color="#FFF4D6" stop-opacity="0"/></radialGradient>
+  </defs>
+  <symbol id="i-book" viewBox="0 0 24 24"><path d="M5 4h11a3 3 0 0 1 3 3v13H8a3 3 0 0 1-3-3z"/><path d="M5 17a3 3 0 0 1 3-3h11"/></symbol>
+  <symbol id="i-cal" viewBox="0 0 24 24"><rect x="4" y="5" width="16" height="15" rx="3"/><path d="M4 10h16M9 3v4M15 3v4"/></symbol>
+  <symbol id="i-cart" viewBox="0 0 24 24"><path d="M3 4h2.5l2.2 11h10.6L20.5 7H6.4"/><circle cx="9.5" cy="19.5" r="1.5"/><circle cx="17" cy="19.5" r="1.5"/></symbol>
+  <symbol id="i-carrot" viewBox="0 0 24 24"><path d="M11.5 7.5l5 5-11.4 6.9a.9.9 0 0 1-1.2-1.2z"/><path d="M14 10l-1.2-5.5M14 10l5.5-1.2M14 10l3.4-3.9"/></symbol>
+  <symbol id="i-box" viewBox="0 0 24 24"><rect x="3" y="4" width="18" height="5" rx="1.5"/><path d="M5 9v9a2 2 0 0 0 2 2h10a2 2 0 0 0 2-2V9M10 13h4"/></symbol>
+  <symbol id="i-help" viewBox="0 0 24 24"><circle cx="12" cy="12" r="9"/><path stroke-width="2" d="M9.6 9.4a2.5 2.5 0 1 1 3.6 2.3c-.7.3-1.2.9-1.2 1.7v.4M12 17h.01"/></symbol>
+  <symbol id="i-gear" viewBox="0 0 24 24"><circle cx="12" cy="12" r="6.5"/><circle cx="12" cy="12" r="2.5"/><path stroke-width="2.6" d="M12 2.5v3M12 18.5v3M2.5 12h3M18.5 12h3M5.28 5.28l2.12 2.12M16.6 16.6l2.12 2.12M5.28 18.72l2.12-2.12M16.6 7.4l2.12-2.12"/></symbol>
+  <symbol id="i-logout" viewBox="0 0 24 24"><path d="M14 4h3.5A2.5 2.5 0 0 1 20 6.5v11a2.5 2.5 0 0 1-2.5 2.5H14"/><path d="M10 8l-4 4 4 4M6 12h10"/></symbol>
+  <symbol id="i-pin" viewBox="0 0 24 24"><path d="M12 21s-6.5-5.6-6.5-11a6.5 6.5 0 0 1 13 0c0 5.4-6.5 11-6.5 11z"/><circle cx="12" cy="10" r="2.3"/></symbol>
+  <symbol id="i-store" viewBox="0 0 24 24"><path d="M4 9l1.5-4.5h13L20 9"/><path d="M4 9a2.7 2.7 0 0 0 5.3 0 2.7 2.7 0 0 0 5.4 0A2.7 2.7 0 0 0 20 9"/><path d="M5.5 12v7.5h13V12"/></symbol>
+  <symbol id="i-globe" viewBox="0 0 24 24"><circle cx="12" cy="12" r="8.5"/><path d="M3.5 12h17"/><path d="M12 3.5c2.4 2.4 3.5 5.2 3.5 8.5s-1.1 6.1-3.5 8.5c-2.4-2.4-3.5-5.2-3.5-8.5S9.6 5.9 12 3.5z"/></symbol>
+  <symbol id="i-bookmark" viewBox="0 0 24 24"><path d="M7 4h10v16l-5-3.5L7 20z"/></symbol>
+  <symbol id="i-sparkle" viewBox="0 0 24 24"><path d="M12 4l1.8 5.2L19 11l-5.2 1.8L12 18l-1.8-5.2L5 11l5.2-1.8z"/><path d="M18.5 3.5v3M17 5h3"/></symbol>
+  <symbol id="i-coin" viewBox="0 0 24 24"><circle cx="12" cy="12" r="8.5"/><path d="M14.5 9.2c-.5-.8-1.4-1.2-2.5-1.2-1.4 0-2.4.7-2.4 1.8 0 2.4 5 1.2 5 3.6 0 1.1-1 1.8-2.6 1.8-1.1 0-2.1-.4-2.6-1.2M12 6.5V8m0 8v1.5"/></symbol>
+  <symbol id="i-install" viewBox="0 0 24 24"><rect x="6.5" y="3" width="11" height="18" rx="2.5"/><path d="M12 8v6m-2.5-2.5L12 14l2.5-2.5"/></symbol>
+  <symbol id="i-mic" viewBox="0 0 24 24"><rect x="9" y="3.5" width="6" height="11" rx="3"/><path d="M5.5 11.5a6.5 6.5 0 0 0 13 0M12 18v2.5"/></symbol>
+  <symbol id="i-info" viewBox="0 0 24 24"><circle cx="12" cy="12" r="9"/><path d="M12 11v6M12 7.5h.01"/></symbol>
+  <symbol id="i-more" viewBox="0 0 24 24"><circle cx="5" cy="12" r="1.9" fill="currentColor" stroke="none"/><circle cx="12" cy="12" r="1.9" fill="currentColor" stroke="none"/><circle cx="19" cy="12" r="1.9" fill="currentColor" stroke="none"/></symbol>
+  <symbol id="i-close" viewBox="0 0 24 24"><path d="M6 6l12 12M18 6L6 18"/></symbol>
+  <symbol id="i-camera" viewBox="0 0 24 24"><path d="M4 8h3l2-3h6l2 3h3v11H4z"/><circle cx="12" cy="13" r="3.5"/></symbol>
+  <symbol id="i-image" viewBox="0 0 24 24"><rect x="3.5" y="5" width="17" height="14" rx="2.5"/><circle cx="9" cy="10" r="1.6"/><path d="M4 17l5-4.5 3.5 3L15 13l5 4.5"/></symbol>
+  <symbol id="i-trash" viewBox="0 0 24 24"><path d="M4 7h16"/><path d="M9 7V4.5h6V7"/><path d="M6 7l1 12.5A1.5 1.5 0 0 0 8.5 21h7a1.5 1.5 0 0 0 1.5-1.5L18 7"/><path d="M10 11v6M14 11v6"/></symbol>
+  <symbol id="i-chev-l" viewBox="0 0 24 24"><path d="M15 5l-7 7 7 7" stroke-width="2"/></symbol>
+  <symbol id="i-chev-r" viewBox="0 0 24 24"><path d="M9.5 5.5l6.5 6.5-6.5 6.5" stroke-width="2"/></symbol>
+  <symbol id="i-chev-d" viewBox="0 0 24 24"><path d="M6 9l6 6 6-6"/></symbol>
+  <symbol id="i-search" viewBox="0 0 24 24"><circle cx="11" cy="11" r="7"/><path d="M20 20l-3.5-3.5"/></symbol>
+  <symbol id="i-play" viewBox="0 0 24 24"><path d="M9 7.5v9l7.5-4.5z" fill="currentColor" stroke-width="1.4"/></symbol>
+  <!-- NEW line icons -->
+  <symbol id="i-image-off" viewBox="0 0 24 24"><path d="M8 5h10a2.5 2.5 0 0 1 2.5 2.5V16M17.5 19H6a2.5 2.5 0 0 1-2.5-2.5v-9"/><path d="M4 17l5-4.5 2.5 2.2"/><path d="M3.5 3.5l17 17"/></symbol>
+  <symbol id="i-brush" viewBox="0 0 24 24"><path d="M19.5 4.5l-8.2 8.2"/><path d="M11.3 12.7c-1.5-.6-3.2-.2-4.2 1-1.1 1.4-.6 3.6-2.6 5.3 2.6.6 5.4.1 6.9-1.6 1-1.2 1-2.8-.1-4.7z"/></symbol>
+  <symbol id="i-undo" viewBox="0 0 24 24"><path d="M4.5 9.5h10a5.5 5.5 0 0 1 0 11H11"/><path d="M8.5 5.5l-4 4 4 4"/></symbol>
+  <symbol id="i-eraser" viewBox="0 0 24 24"><path d="M8.5 19.5h11"/><path d="M4.6 14.6l8.8-8.8a2 2 0 0 1 2.8 0l2.8 2.8a2 2 0 0 1 0 2.8l-7.9 7.9H9.2z"/><path d="M9 10.2l5.6 5.6"/></symbol>
+  <symbol id="i-lock" viewBox="0 0 24 24"><rect x="5" y="10.5" width="14" height="10" rx="2.5"/><path d="M8.5 10.5V8a3.5 3.5 0 0 1 7 0v2.5"/></symbol>
+  <symbol id="i-eye-off" viewBox="0 0 24 24"><path d="M3 12s3.3-6 9-6c1.6 0 3 .5 4.2 1.1M21 12s-3.3 6-9 6c-1.6 0-3-.5-4.2-1.1"/><path d="M4 20L20 4"/></symbol>
+  <!-- two-tone -->
+  <symbol id="d-house" viewBox="0 0 24 24"><path d="M4 11l8-7 8 7v8a1 1 0 0 1-1 1H5a1 1 0 0 1-1-1z"/><path style="stroke:var(--warm)" d="M9 14.5l2 2 4-4"/></symbol>
+  <symbol id="d-door" viewBox="0 0 24 24"><path d="M6.5 20V4.5h11V20M3.5 20h17"/><path style="stroke:var(--warm)" stroke-width="2.8" d="M14.5 12.5h.01"/></symbol>
+  <symbol id="d-shelf" viewBox="0 0 24 24"><path d="M3.5 10.5h17M3.5 19.5h17M4 4v16M20 4v16"/><path style="stroke:var(--warm)" d="M7 10.5V7h5v3.5M12.5 19.5V15h4.5v4.5"/></symbol>
+  <symbol id="d-ask" viewBox="0 0 24 24"><circle cx="11" cy="11" r="7"/><path d="M20 20l-3.9-3.9"/><path style="stroke:var(--warm)" d="M9.3 9.2a1.8 1.8 0 1 1 2.6 1.6c-.5.2-.9.6-.9 1.2v.2M11 14.4h.01"/></symbol>
+  <symbol id="d-shield" viewBox="0 0 24 24"><path d="M12 3.5l7 2.8v5.2c0 4.4-3 7.7-7 9-4-1.3-7-4.6-7-9V6.3z"/><path style="stroke:var(--warm)" d="M9 12l2.2 2.2L15.5 10"/></symbol>
+  <symbol id="d-lock" viewBox="0 0 24 24"><rect x="5" y="10.5" width="14" height="10" rx="2.5"/><path d="M8.5 10.5V8a3.5 3.5 0 0 1 7 0v2.5"/><path style="stroke:var(--warm)" d="M12 14.5v2.5"/></symbol>
+  <symbol id="d-folder" viewBox="0 0 24 24"><path d="M3.5 7a1.5 1.5 0 0 1 1.5-1.5h4.5l2 2.5H19A1.5 1.5 0 0 1 20.5 9.5V18A1.5 1.5 0 0 1 19 19.5H5A1.5 1.5 0 0 1 3.5 18z"/><rect style="stroke:var(--warm)" x="9.8" y="13" width="4.4" height="3.6" rx=".8"/><path style="stroke:var(--warm)" d="M10.8 13v-.8a1.2 1.2 0 0 1 2.4 0v.8"/></symbol>
+  <symbol id="d-pin" viewBox="0 0 24 24"><path d="M12 21s-6.5-5.6-6.5-11a6.5 6.5 0 0 1 13 0c0 5.4-6.5 11-6.5 11z"/><circle style="stroke:var(--warm)" cx="12" cy="10" r="2.3"/></symbol>
+  <symbol id="d-nogps" viewBox="0 0 24 24"><rect x="3.5" y="5" width="17" height="14" rx="2.5"/><path d="M4 17l5-4.5 3.5 3L15 13l5 4.5"/><path style="stroke:var(--warm)" d="M15.5 6.5l3 3M18.5 6.5l-3 3"/></symbol>
+  <symbol id="d-spark" viewBox="0 0 24 24"><path d="M12 4l1.8 5.2L19 11l-5.2 1.8L12 18l-1.8-5.2L5 11l5.2-1.8z"/><path style="stroke:var(--warm)" d="M18.5 3.5v3M17 5h3"/></symbol>
+  <symbol id="d-person" viewBox="0 0 24 24"><circle cx="12" cy="8.5" r="3.5"/><path d="M5 20a7 7 0 0 1 14 0"/><path style="stroke:var(--warm)" d="M17.5 4.5l1.5-1.5M19.5 7.5h2"/></symbol>
+  <symbol id="d-brush" viewBox="0 0 24 24"><path d="M19.5 4.5l-8.2 8.2"/><path style="stroke:var(--warm)" d="M11.3 12.7c-1.5-.6-3.2-.2-4.2 1-1.1 1.4-.6 3.6-2.6 5.3 2.6.6 5.4.1 6.9-1.6 1-1.2 1-2.8-.1-4.7z"/></symbol>
+  <symbol id="d-image" viewBox="0 0 24 24"><rect x="3.5" y="5" width="17" height="14" rx="2.5"/><path d="M4 17l5-4.5 3.5 3L15 13l5 4.5"/><circle style="stroke:var(--warm)" cx="9" cy="10" r="1.6"/></symbol>
+  <symbol id="d-trash" viewBox="0 0 24 24"><path d="M4 7h16"/><path d="M6 7l1 12.5A1.5 1.5 0 0 0 8.5 21h7a1.5 1.5 0 0 0 1.5-1.5L18 7"/><path style="stroke:var(--warm)" d="M9 7V4.5h6V7M10 11v6M14 11v6"/></symbol>
+</svg>
+
+<div class="wrap">
+<h1>Livskoll – integritet i Förrådet</h1>
+<p class="lead">Förråd fungerar bara om man vågar fota hemma: byrålådan, sovrummet, smyckeskrinet. Här är tre saker som gör det tryggare. <b>A</b> Dölj det som inte ska synas innan bilden skickas. <b>B</b> Välj om korten (bilderna) sparas, eller bara listan. <b>C</b> En kort och sann hjälpsida om var bilderna hamnar. Privata rum och allt som gäller försäljning till främlingar (villkor, egen nyckel) är parkerat.</p>
+<p class="note"><b>Idag</b> = HTML-kopia byggd från <code>room-view.tsx</code>, <code>room-cards.tsx</code>, <code>take-card.tsx</code> och <code>settings-menu.tsx</code>, jämförd med skärmdumpar av appen på main (6e3f32a) i 390 och 1280 px, ljust och mörkt. <b>Nytt</b> = modell. Bilderna i telefonerna är <span class="tag">ritade</span>, inte riktiga foton. Redigeraren går att måla i, med finger eller mus.</p>
+<div class="themes"><span>Visa telefonerna i</span><button data-t="auto" aria-pressed="true">Systemets läge</button><button data-t="light" aria-pressed="false">Ljust</button><button data-t="dark" aria-pressed="false">Mörkt</button></div>
+<div class="toc"><a href="#idag">Idag</a><a href="#dolj">A. Dölj innan du skickar</a><a href="#spara">B. Spara korten</a><a href="#skydd">C. Så skyddas dina bilder</a><a href="#stories">Stories</a><a href="#beslut">Beslut</a></div>
+
+<!-- ============ TODAY ============ -->
+<h2 class="part" id="idag">Idag: så tas ett kort</h2>
+<p class="lead">På ett rums sida finns <b>Ta foto</b> och <b>Välj från Bilder</b> (Story 18.16), och arket <b>Var tar du kortet?</b> för en mer exakt plats. Bilderna skickas i samma ögonblick som de är valda. Det finns inget steg emellan.</p>
+<div class="pair">
+  <div class="col"><span class="lbl">Idag – rummet, Kort</span><div class="phone t-light" id="old-room"></div></div>
+  <div class="col"><span class="lbl">Idag – Var tar du kortet?</span><div class="phone t-light" id="old-sheet"></div></div>
+  <div class="col"><span class="lbl">Idag – direkt efter valet av 3 bilder</span><div class="phone t-light" id="old-send"></div></div>
+</div>
+<div class="pair">
+  <div class="col"><span class="lbl">Idag – 1280 px</span><div class="scaler"><div class="frame t-light" id="old-desk"></div></div></div>
+</div>
+<ul class="spec">
+  <li><b>Valet är sändningen.</b> <code>onChosen</code> i <code>take-card.tsx</code> skapar platsen och anropar direkt <code>useCardUpload.send</code>. Bilderna skickas en i taget (högst tre AI-jobb samtidigt, AD-28; resten väntar i kön). Samma sak i <code>upload-card-row.tsx</code> (Fota insidan av en låda, öppnar kameran direkt) och i Ta om.</li>
+  <li><b>I telefonen, per bild:</b> HEIC blir JPEG (<code>toDecodableImage</code>), sedan <code>downscaleImage</code>: högst 2048 px och 1,5 MB, ny kodning via canvas. Därmed försvinner EXIF, också GPS. En PNG som redan passar skickas med metadata bortplockad.</li>
+  <li><b>På servern</b> (<code>start-reading.ts</code>): metadata tas bort en gång till, filen sparas i den privata bucketen <code>thing-photo</code> som <code>&lt;konto&gt;/&lt;plats&gt;/&lt;kort&gt;.jpg</code>, raden blir <i>reading</i> och AI-jobbet läser bilden i bakgrunden. Filen sparas alltid.</li>
+  <li><b>Det som behöver bilden idag:</b> miniatyrerna under Kort, Kortet i stort med rutorna (18.7), att leta upp ett föremål på bilden, miniatyren i sökträffar och i svaren när man frågar, och <b>Försök igen</b> på ett kort som inte gick att läsa.</li>
+  <li><b>Fel vi såg i skärmdumparna:</b> ikonerna på Ta foto och Välj från Bilder syns inte. SVG:n finns men får höjden 0 (knappen får både <code>h-button</code> och <code>h-auto</code>, och ikonen krymper i flexkolumnen). I arket är knapparna dessutom vita på vitt. Kopian visar dem som de ser ut idag; 22.1 rättar det.</li>
+</ul>
+
+<!-- ============ A ============ -->
+<h2 class="part" id="dolj">A. Dölj innan du skickar</h2>
+<p class="lead">Efter valet kommer en remsa med bilderna i stället för att de skickas direkt. Under varje bild finns <b>Dölj något</b>. Det du målar över ritas in i bilden i telefonen. Täckningen går inte att ta bort i efterhand, och ingenting under den lämnar telefonen.</p>
+
+<h3 class="sec">Tre sätt in, och vilket vi föreslår</h3>
+<div class="ways">
+  <div class="rec"><b>1. Remsan som förval, med en spärr för snabba vägen</b>Efter Ta foto och Välj från Bilder kommer remsan: miniatyrer, Dölj något och Skicka. Kostar ett tryck. Den som hellre vill ha det som idag stänger av <b>Granska innan du skickar</b> i Inställningar → Förråd.<span class="verdict">Föreslås. Tryggt från start: nya användare ser att man kan dölja saker utan att leta efter det.</span></div>
+  <div><b>2. Bara när man har slagit på det</b>Snabba vägen är kvar som idag. Den som vill dölja något slår på Granska innan du skickar först.<span class="verdict">Nackdel: de som är oroliga hittar inte inställningen förrän efter första kortet, och då har bilden redan skickats.</span></div>
+  <div><b>3. Från raden medan det skickas</b>“Dölj något” bredvid “Skickar 2 av 3 …”.<span class="verdict">Avråds. Första bilden är uppe efter cirka en sekund. Vi kan inte lova att den aldrig lämnade telefonen, så knappen skulle ljuga. Att vänta med flit (“skickas om 3 s”) är långsammare än remsan och känns som en fälla.</span></div>
+</div>
+
+<h3 class="sec">Remsan och redigeraren</h3>
+<div class="pair">
+  <div class="col"><span class="lbl new">Nytt – 3 bilder från Bilder</span><div class="phone t-light" id="strip-1"></div><div class="cap">Inget har skickats än. × tar bort en bild ur urvalet, Välj fler lägger till.</div></div>
+  <div class="col"><span class="lbl new">Nytt – Dölj något (måla i den)</span><div class="phone t-light" id="ed-live"></div><div class="cap" id="ed-cap">Måla över smyckeskrinet. Ångra tar bort det senaste draget, Rensa allt.</div></div>
+  <div class="col"><span class="lbl new">Nytt – efter Klar</span><div class="phone t-light" id="strip-2"></div><div class="cap">Miniatyren visar täckningen, med märket Dolt. Knappen heter nu Ändra.</div></div>
+</div>
+<div class="pair">
+  <div class="col"><span class="lbl new">Nytt – med kameran</span><div class="phone t-light" id="strip-cam"></div><div class="cap">Ta ett till ligger i remsan. Korten skickas tillsammans.</div></div>
+  <div class="col"><span class="lbl new">Nytt – i rummet efteråt</span><div class="phone t-light" id="room-after"></div><div class="cap">Det täckta finns i kortet för alltid, också på servern. Ikonerna på Ta foto och Välj från Bilder är tillbaka.</div></div>
+  <div class="col"><span class="lbl new">Nytt – redigeraren på dator</span><div class="scaler"><div class="frame t-light" id="ed-desk"></div></div>
+    <ul class="spec" style="max-width:690px">
+      <li>På dator fyller redigeraren fönstret. Man målar med musen, och en ring visar penselns storlek. Cmd/Ctrl+Z ångrar och Esc avbryter.</li>
+      <li>Remsan blir en dialog på 560 px, som alla ark på dator.</li>
+    </ul></div>
+</div>
+<ul class="spec">
+  <li><b>Remsan</b> är ett ark över rummet. Rubriken säger vart bilderna ska, “3 bilder till Sovrummet”, med <b>Avbryt</b> uppe till höger (då skickas ingenting). Miniatyrerna är 96 × 128, hörn 12, och scrollar i sidled. Varje bild har ett × för att ta bort den ur urvalet, och under sig textknappen <b>Dölj något</b> med penselikon.</li>
+  <li>Sist i raden finns en streckad ruta: <b>Välj fler</b> (Bilder) eller <b>Ta ett till</b> (kameran). Den öppnar väljaren eller kameran direkt i trycket, som iOS kräver.</li>
+  <li>Under remsan står ett lås och raden “Det du målar över tas bort här i telefonen. Originalet i Bilder ändras inte.” följt av <b>Läs mer</b> (öppnar C). Sist kommer huvudknappen <b>Skicka 3 kort</b>; antalet följer urvalet.</li>
+  <li><b>Redigeraren</b> är i helskärm och alltid mörk, som när man tittar på foton, så att bilden är det enda som syns. Överst: Avbryt · “Dölj något” · <b>Klar</b>. Bilden visas hel och beskärs aldrig. Under bilden finns raden “Måla över det som inte ska synas.” och sedan verktygen: <b>Smal | Bred</b>, <b>Ångra</b> och <b>Rensa</b>.</li>
+  <li><b>Penseln är svart och täcker helt</b>, utan oskärpa som går att räkna tillbaka. Det man ser är exakt det som skickas. Ångra går bakåt ett drag i taget, också efter Rensa. Avbryt kastar dragen från den här gången; Klar sparar dem på bilden i urvalet.</li>
+  <li>Efter Klar visar miniatyren täckningen och märket <b>Dolt</b> (öga med streck), och knappen heter <b>Ändra</b>.</li>
+  <li><b>Kameran:</b> “Ta ett till” flyttar från raden efter sändningen in i remsan. Läsningen börjar alltså när man trycker Skicka, inte efter varje foto. Tipset i arket blir “Innan något skickas ser du bilderna och kan dölja det som inte ska synas.”</li>
+  <li><b>Ta om</b> och <b>Fota insidan</b> (en låda) går också via remsan, med en bild.</li>
+  <li><b>Ta foto och Välj från Bilder</b> får tillbaka sina ikoner och en egen fyllning (<code>--bg</code>), så att de syns som knappar både i rummet och i arket. Idag är de vita på vitt.</li>
+  <li>Med <b>Granska innan du skickar</b> avstängt (Inställningar → Förråd, se B) fungerar allt som idag.</li>
+</ul>
+<div class="box">
+  <h4>Var täckningen ritas in</h4>
+  <div class="flow"><span>Välj eller fota</span><em>→</em><span>Remsan, Dölj något</span><em>→</em><span>HEIC → JPEG</span><em>→</em><span>Nedskalning till 2048 px</span><em>→</em><span class="hl">Täckningen ritas på bilden</span><em>→</em><span>JPEG</span><em>→</em><span>Skickas</span></div>
+  <p>Täckningen sparas som drag i bildens egna mått (0–1, i den riktning bilden visas) och ritas på den slutliga, nedskalade bilden <b>innan den kodas och skickas</b>. Det sker i telefonen. Det du skrev var “före nedskalningen”; då måste en bild på 48 MP avkodas i full storlek, vilket <code>downscale-image.ts</code> just undviker eftersom iPhone kan få slut på minne. Skyddet blir detsamma: inga otäckta pixlar lämnar telefonen, och servern, AI:n och Försök igen får aldrig något annat än den täckta bilden. Se beslut 2.</p>
+  <p>PNG-genvägen (en PNG som redan passar skickas orörd) stängs av för en bild med täckning. Penseldragen ritas med lite marginal, så att ingen kant av utjämnade pixlar läcker.</p>
+</div>
+<div class="box">
+  <h4>Storlek: en story, medelstor (ungefär som 18.16)</h4>
+  <p><b>Nya filer:</b> <code>things/ui/review-strip.tsx</code> (arket med remsan), <code>things/ui/mask-editor.tsx</code> (redigeraren: pekarhändelser, drag, Ångra-stack), <code>things/domain/photo-mask.ts</code> (rena funktioner: drag i 0–1, skala om, vänd), med tester.</p>
+  <p><b>Ändras:</b> <code>lib/downscale-image.ts</code> (nytt val <code>cover</code>, ritas före <code>toBlob</code>, ingen PNG-genväg), <code>things/ui/use-card-upload.ts</code> (filer blir {fil, täckning}), <code>take-card.tsx</code>, <code>upload-card-row.tsx</code>, <code>retake-card.tsx</code>, <code>domain/capture.ts</code> (texter) och ett e2e-test. Ingen migration och ingen ändring på servern: den får en vanlig JPEG. Spärren Granska innan du skickar sparas i 22.2:s tabell. Byggs 22.1 först visas remsan alltid tills 22.2 är klar.</p>
+  <p><b>Risker:</b> (1) Minne på iPhone. Redigeraren avkodar en förhandsbild direkt i skärmstorlek (<code>createImageBitmap</code> med resize), aldrig 48 MP. (2) EXIF-riktning. Dragen måste ligga i samma riktning som nedskalningen (<code>imageOrientation: "from-image"</code>); testas med ett stående och ett liggande iPhone-foto. (3) Måla eller scrolla: <code>touch-action:none</code> på bilden, och arket får inte dras ned av ett penseldrag. (4) iOS öppnar bara kameran direkt i ett tryck. Ta ett till i remsan är ett tryck, men det ska provas på en riktig iPhone. (5) Kameraflödet känns annorlunda när läsningen börjar vid Skicka.</p>
+</div>
+
+<!-- ============ B ============ -->
+<h2 class="part" id="spara">B. Spara korten, eller bara listan</h2>
+<p class="lead">En ny grupp <b>Förråd</b> i Inställningar med raden <b>Bilder</b>. Där finns två brytare: Granska innan du skickar (A) och <b>Spara korten</b>, som är på från början. Stänger man av den raderas bilden så fort föremålen är lästa, och bara listan finns kvar.</p>
+<div class="pair">
+  <div class="col"><span class="lbl">Idag – Inställningar</span><div class="phone t-light" id="set-old"></div></div>
+  <div class="col"><span class="lbl new">Nytt – gruppen Förråd</span><div class="phone t-light" id="set-new"></div></div>
+  <div class="col"><span class="lbl new">Nytt – Bilder i Förråd</span><div class="phone t-light" id="set-page"></div></div>
+</div>
+<div class="pair">
+  <div class="col"><span class="lbl new">Nytt – Spara korten av</span><div class="phone t-light" id="set-off"></div><div class="cap">Gamla bilder finns kvar. Nya kort sparas utan bild.</div></div>
+  <div class="col"><span class="lbl new">Nytt – Radera sparade bilder</span><div class="phone t-light" id="set-del"></div><div class="cap">Samma ark som de andra Ta bort-frågorna. Går inte att ångra.</div></div>
+  <div class="col"><span class="lbl new">Nytt – 1280 px</span><div class="scaler"><div class="frame t-light" id="set-desk"></div></div>
+    <ul class="spec" style="max-width:690px"><li>På dator ligger sidan bredvid listan, som AI och de andra sidorna i Inställningar.</li></ul></div>
+</div>
+<ul class="spec">
+  <li><b>Inställningar:</b> en ny grupp <b>Förråd</b> mellan Recept och AI, med raden <b>Bilder</b> (mintplatta, bildikon) och värdet <b>Sparas</b> eller <b>Sparas inte</b>. Raden öppnar sidan <b>Bilder i Förråd</b>. Gruppen följer samma regler som de andra raderna (Story 19.7), och ikonen <code>image</code> läggs till i <code>settingsIcons</code>.</li>
+  <li><b>Brytaren</b> är ny i appen (det finns ingen än). Den är 51 × 31, grön när den är på och har en vit knopp. Hela raden är tryckytan, och skärmläsaren får <code>role="switch"</code>. Ändringen sparas direkt, utan Spara-knapp, och gäller hela kontot, alltså hushållet.</li>
+  <li><b>Före sändning:</b> Granska innan du skickar, “Se bilderna och dölj något innan de skickas.” På från början (beslut 1).</li>
+  <li><b>Efter läsningen:</b> Spara korten, “Bilden finns kvar, så du kan se kortet i stort.” Under gruppen står vad som händer när den är av. Därefter en lugn lista över vad som försvinner utan bild: Kortet i stort med rutor runt föremålen, bilden på korten och i sökträffarna, och bilden bredvid svaren när man frågar.</li>
+  <li><b>Det som finns kvar utan bild:</b> listan, kategorierna, sökningen, Fråga, <b>Ta om</b> (ett nytt foto ersätter kortets föremål; det behöver inte den gamla bilden), Lägg till föremål och Ta bort kortet.</li>
+  <li><b>När bilden raderas:</b> när läsningen är sparad, i samma jobb (<code>readingWork</code> efter <code>saveReadingIn</code>). Ett kort som inte gick att läsa behåller bilden, så att Försök igen fungerar, tills det läses eller tas bort. Medan kortet läses syns alltså bilden en kort stund.</li>
+  <li><b>Gamla bilder när brytaren stängs av:</b> de finns kvar; bara nya kort sparas utan bild. En blå ruta säger det direkt under brytaren, med antalet. <b>Radera sparade bilder</b> (röd, med soptunna) är en egen åtgärd längre ned. Den frågar “Radera 38 bilder?” med “Korten och föremålen finns kvar, men utan bild. Det går inte att ångra.” och knappen <b>Radera bilderna</b>.</li>
+  <li>Sist finns en rad <b>Så skyddas dina bilder</b> som öppnar hjälpsidan (C).</li>
+</ul>
+
+<h3 class="sec">Ett rum utan sparade bilder</h3>
+<div class="pair">
+  <div class="col"><span class="lbl new">Nytt – Sovrummet, Kort</span><div class="phone t-light" id="room-noimg"></div><div class="cap">Överst ett kort som läses (bilden finns tills det är klart). Mitten utan bild. Ett äldre kort har kvar sin bild.</div></div>
+  <div class="col"><span class="lbl new">Nytt – kortet, utan bild</span><div class="phone t-light" id="card-noimg"></div><div class="cap">Kortet öppnas fortfarande: samma sida, med listan och knapparna, utan bild.</div></div>
+</div>
+<ul class="spec">
+  <li><b>Platshållaren</b> fyller bildens yta (96 px på kortet, 132 px på kortets sida). Den har tonen <code>--fill</code>, en bild med snedstreck i <code>--ink-3</code> och texten <b>Ingen bild sparad</b>, 13 px. Ingen ⤢ i hörnet. Samma text oavsett om bilden aldrig sparades eller raderades (beslut 8).</li>
+  <li><b>Kortet</b> öppnar fortfarande sin sida, med raden “Hela rummet · Kort från 1 nov · 9 föremål”, platshållaren, “Spara korten är av. Ändra i Inställningar.” och listan. Raden “Tryck på ett föremål för att leta upp det på bilden.” försvinner, och raderna går inte att markera.</li>
+  <li><b>Sökträffar och svar:</b> miniatyren 52 × 40 blir samma platshållare, utan text. Raden leder till kortets sida som ovan.</li>
+  <li><b>Ta bort kortet med Ångra</b> måste fungera utan fil. Idag svarar <code>restoreCardIn</code> “file_gone” när filen saknas.</li>
+</ul>
+
+<!-- ============ C ============ -->
+<h2 class="part" id="skydd">C. Så skyddas dina bilder</h2>
+<p class="lead">En kort hjälpsida i det nya Hjälpnavet (Epic 20). Den nås från området Förråd, från frågan “Vem kan se min data?” under Konto, från Bilder i Förråd och från Läs mer i remsan. Varje mening är kontrollerad mot koden; tabellen under visar var.</p>
+<div class="pair">
+  <div class="col"><span class="lbl new">Nytt – Hjälp, området Förråd</span><div class="phone t-light" id="help-hub"></div></div>
+  <div class="col"><span class="lbl new">Nytt – Så skyddas dina bilder</span><div class="phone t-light" id="help-1"></div></div>
+  <div class="col"><span class="lbl new">Nytt – längre ned</span><div class="phone t-light" id="help-2"></div></div>
+</div>
+<div class="pair">
+  <div class="col"><span class="lbl new">Nytt – 1280 px</span><div class="scaler"><div class="frame t-light" id="help-desk"></div></div></div>
+</div>
+<ul class="spec">
+  <li><b>I Hjälpnavet:</b> i området Förråd, efter Så gör du, ett kort med samma form som Så funkar Livskoll: tvåtonssköld på <code>--illus-bg</code>, “Så skyddas dina bilder”, “Var de hamnar och vem som kan se dem.” och en pil. Under Konto får svaret på “Vem kan se min data?” en länk hit.</li>
+  <li><b>Sidan</b> är en undersida, med “‹ Hjälp och tips” tillbaka, sidrubrik och en ingress. Sedan tre grupper med samma radform som Så gör du (tvåtonsikon 28 px, titel 17 · 500, text 15/21): <b>Var bilderna finns</b>, <b>Vem som ser dem</b> och <b>Det du bestämmer</b>.</li>
+  <li><b>AI-raden följer AI-valet:</b> med Claude står “Claude, från det amerikanska företaget Anthropic”. Med Qwen lokalt står att bilden läses av en AI på en dator hos den som driver Livskoll. Molnet kör Claude (<code>docs/molnet.md</code>).</li>
+  <li>Det sägs inget vi inte vet: inget om kryptering, inget om hur länge Anthropic sparar något, och inget om säkerhetskopior (bilderna är inte med i dem idag).</li>
+</ul>
+<h3 class="sec">Faktakoll</h3>
+<div class="tablewrap">
+<table class="facts">
+  <tr><th>Påstående på sidan</th><th>Källa</th><th>Status</th></tr>
+  <tr><td>Varje konto är spärrat från de andra; ett test vid varje ändring kontrollerar det</td><td>RLS på <code>thing_place</code>, <code>thing_photo</code>, <code>thing_item</code> (<code>20261031140000_things.sql</code>); <code>tests/integration/household-isolation.test.ts</code> provar alla tabeller i <code>public</code> och båda fotobucketarna; körs i jobbet <code>integration</code> i <code>ci.yml</code> vid varje PR och push till main</td><td class="ok">Stämmer</td></tr>
+  <tr><td>Bilderna ligger privat, i kontots egen mapp, aldrig via öppen länk</td><td>Bucket <code>thing-photo</code> med <code>public = false</code>; policyerna kräver att mappen är <code>auth.uid()</code>; <code>readCardImage</code> i <code>server.ts</code>: “Never a public or signed URL (AD-26)”; <code>/api/things/photo/[id]</code> kontrollerar inloggningen och svarar <code>private, no-store</code></td><td class="ok">Stämmer</td></tr>
+  <tr><td>Databasen och bilderna (Supabase) och servern (Vercel) ligger i Stockholm</td><td><code>docs/molnet.md</code>: Supabase <code>eu-north-1</code>, Vercel <code>arn1</code>; <code>vercel.json</code> <code>"regions": ["arn1"]</code></td><td class="warn">Guiden säger så; kontrollera i Supabase-panelen innan texten går ut (beslut 10)</td></tr>
+  <tr><td>Platsdata och annan bildinfo tas bort, i telefonen och en gång till innan bilden sparas</td><td><code>downscale-image.ts</code> (ny kodning via canvas, PNG utan metadata); <code>withoutMetadata</code> i <code>start-reading.ts</code></td><td class="ok">Stämmer</td></tr>
+  <tr><td>Bilden skickas till Claude från Anthropic för att läsas; API-data används inte för träning</td><td><code>readingWork</code> → <code>getAiServiceForUser().listThings({ image })</code>; molnet kör <code>anthropic</code> (<code>docs/molnet.md</code>). Träningen: Anthropics kommersiella villkor, inte koden</td><td class="warn">Kod: stämmer. Villkoren: länka till dem på sidan</td></tr>
+  <tr><td>Den som driver Livskoll kan tekniskt se kontots data, också bilderna</td><td><code>privacy-note.tsx</code> (Story 17.2)</td><td class="ok">Stämmer</td></tr>
+  <tr><td>Tar du bort ett kort, ett rum eller ett boende raderas bilderna också</td><td><code>remove-card.ts</code> (filen när Ångra-tiden gått; annars städningen <code>sweepCardFilesIn</code> vid nästa kort, efter 10 min); <code>clear-things.ts</code>; <code>edit-place.ts</code>; <code>removeSiteCardFiles</code> i <code>server.ts</code></td><td class="warn">Stämmer, men om fliken stängs under Ångra dröjer det till nästa kort. 22.3 kör städningen också när Förråd öppnas.</td></tr>
+  <tr><td>Dölj något och Spara korten</td><td>Nya i 22.1 och 22.2</td><td class="warn">Visas först när de finns</td></tr>
+</table>
+</div>
+
+<!-- ============ STORIES ============ -->
+<h2 class="part" id="stories">Förslag på stories: Epic 22 “Integritet i Förrådet”</h2>
+<div class="stories">
+  <div><i>22.1</i><b>Dölj innan du skickar</b><small>Remsan efter valet och redigeraren. En story, medelstor; ingen migration.</small>
+    <ul>
+      <li>Efter Ta foto, Välj från Bilder, Ta om och Fota insidan öppnas remsan “N bilder till &lt;plats&gt;”. Ingenting skickas förrän Skicka; Avbryt skickar ingenting. × tar bort en bild, Välj fler och Ta ett till lägger till.</li>
+      <li>Dölj något öppnar redigeraren: svart pensel som täcker helt (Smal/Bred), Ångra (stegvis, också efter Rensa), Rensa, Klar och Avbryt. Fungerar med finger, mus och penna, och sidan scrollar inte medan man målar.</li>
+      <li>Täckningen ritas in i telefonen innan bilden kodas och skickas. Ett e2e-test målar över ett hörn, skickar, läser tillbaka bilden via <code>/api/things/photo/[id]</code> och ser svarta pixlar där. Ingen PNG-genväg för en täckt bild.</li>
+      <li>Miniatyren visar täckningen och märket Dolt, och knappen heter då Ändra. Ikonerna på Ta foto och Välj från Bilder syns igen (ikonen <code>shrink-0</code>, en höjd per knapp).</li>
+    </ul></div>
+  <div><i>22.2</i><b>Spara korten eller bara listan</b><small>Inställningar → Förråd → Bilder. Migration och integritet: 2–3 granskare.</small>
+    <ul>
+      <li>En ny tabell <code>thing_setting</code> (<code>user_id</code>, <code>keep_photos</code> och <code>review_before_send</code>, båda på från början) med RLS. Isolationstestet täcker den.</li>
+      <li>Gruppen Förråd med raden Bilder (Sparas/Sparas inte), och sidan Bilder i Förråd med två brytare (<code>role="switch"</code>), listan över vad som försvinner, antal sparade bilder, Radera sparade bilder (fråga, kan inte ångras) och en länk till hjälpen.</li>
+      <li>Med Spara korten av raderas filen med Storage API när läsningen är sparad. Ett kort som inte gick att läsa behåller filen för Försök igen. Raden och föremålen finns kvar; kortet markeras utan bild (<code>object_path</code> nullbar eller <code>photo_removed_at</code>).</li>
+      <li>Utan bild visar kortet, sökträffen och svaret platshållaren “Ingen bild sparad”, och kortets sida bara listan. Ta om, Lägg till föremål och Ta bort med Ångra fungerar. Städningen, flytten (<code>move:cloud</code>) och Ta om klarar kort utan fil.</li>
+    </ul></div>
+  <div><i>22.3</i><b>Så skyddas dina bilder</b><small>Hjälpsida i Hjälpnavet. Kräver 20.2.</small>
+    <ul>
+      <li>I området Förråd ett kort som öppnar sidan. Länkar dit från Konto-frågan “Vem kan se min data?”, från Bilder i Förråd och från Läs mer i remsan.</li>
+      <li>Texterna enligt modellen. AI-raden följer AI-valet (Claude/Anthropic eller Qwen lokalt), med länk till Anthropics villkor. Regionen kontrolleras i Supabase och Vercel; står det inte Stockholm ändras texten.</li>
+      <li>Varje påstående har sin källa i en kommentar i <code>help-content.ts</code>. Ett test kontrollerar att Dölj något, Spara korten och Radera sparade bilder heter samma sak här som i appen.</li>
+      <li>Städningen av kortfiler körs också när Förråd öppnas, så att en bild från ett borttaget kort inte ligger kvar till nästa kort.</li>
+    </ul></div>
+</div>
+
+<!-- ============ DECISIONS ============ -->
+<h2 class="part" id="beslut">Beslut för Pontus, med det som byggs om du inte säger något</h2>
+<ol class="beslut">
+  <li><b>Remsan som förval för alla, med spärren “Granska innan du skickar” i Inställningar</b> (förval), eller att remsan bara visas när man slagit på spärren, eller remsan alltid och ingen spärr.</li>
+  <li><b>Täckningen ritas på den nedskalade bilden, före kodning och uppladdning</b> (förval: samma skydd, inget minnesproblem), eller före nedskalningen som du skrev (kräver hela 48 MP-bilden i minnet; risk att Safari på iPhone kraschar).</li>
+  <li><b>Svart pensel i två storlekar, Smal och Bred</b> (förval). Zoom med två fingrar för små saker sparas till senare. Alternativet är en enda storlek.</li>
+  <li><b>Ta ett till flyttar in i remsan, och korten skickas tillsammans vid Skicka</b> (förval), eller att kameran skickar direkt som idag och bara Välj från Bilder får remsan.</li>
+  <li><b>Spara korten är på från början</b> (förval), eller av från början för nya konton.</li>
+  <li><b>När Spara korten stängs av finns gamla bilder kvar</b>, och Radera sparade bilder är en egen knapp med fråga (förval), eller att avstängningen frågar direkt: “Radera också de 38 du har?”.</li>
+  <li><b>Bilden raderas när föremålen är lästa; ett kort som inte gick att läsa behåller den för Försök igen</b> (förval), eller att den raderas efter första försöket oavsett resultat (då försvinner Försök igen).</li>
+  <li><b>Platshållaren säger “Ingen bild sparad”</b> (förval: stämmer både när den aldrig sparades och när den raderades), eller “Bilden sparas inte” som du föreslog.</li>
+  <li><b>Inställningarna gäller kontot, alltså hela hushållet</b> (förval, ett konto per hushåll), eller per boende. Per boende hör ihop med privata rum, som är parkerat.</li>
+  <li><b>Hjälpsidan nämner Anthropic, att de är amerikanska och länkar till deras villkor</b> (förval: ärligt), eller bara “AI-tjänsten”. Regionen “Stockholm” står bara med när den är kontrollerad i molnet.</li>
+  <li><b>Ordningen 22.2 → 22.1 → 22.3</b> (förval: 22.2 ger tabellen som spärren i 22.1 behöver, och 22.3 väntar på Hjälpnavet i 20.2), eller 22.1 först om du vill kunna dölja saker så fort som möjligt.</li>
+</ol>
+</div>
+
+<script>
+// ---------- helpers ----------
+const I = (id, s = 24, cls = '') => `<svg class="ic ${cls}" width="${s}" height="${s}" aria-hidden="true"><use href="#${id}"/></svg>`;
+const D = (id, s = 28) => I(id, s, 'duo');
+const TABS = [['i-book','Recept'],['i-cal','Matsedel'],['i-cart','Inköpslista'],['i-carrot','Matvaror'],['i-box','Förråd']];
+const tabbar = (on = 'Förråd') => `<nav class="tabbar">${TABS.map(([i,l]) => `<span class="tab${l===on?' on':''}">${I(i,24)}<span>${l}</span></span>`).join('')}</nav>`;
+const logo = (s = 28) => `<svg width="${s}" height="${s}" viewBox="0 0 512 512" aria-hidden="true"><rect width="512" height="512" rx="112" fill="#3E7C62"/><path d="M256 112 L406 236 V384 c0 18-14 32-32 32 H138 c-18 0-32-14-32-32 V236 Z" fill="#F6F1E4"/><path d="M196 300l44 44 84-96" fill="none" stroke="#3E7C62" stroke-width="40" stroke-linecap="round" stroke-linejoin="round"/></svg>`;
+const side = (active) => `<aside class="side"><div class="brand">${logo()}<span>Livskoll</span></div><div class="site">${I('i-pin',22)}<span style="flex:1">Hemma</span>${I('i-chev-d',18)}</div><nav class="nvs">${TABS.map(([i,l]) => `<div class="nv${active===l?' on':''}">${I(i,22)}<span>${l}</span></div>`).join('')}</nav><div class="nvb"><div class="who"><span class="av" style="width:28px;height:28px;font-size:13px">P</span><span><b>Pontus</b><small>pontus@matkoll.local</small></span></div>${[['i-help','Hjälp och tips'],['i-gear','Inställningar'],['i-logout','Logga ut']].map(([i,l]) => `<div class="nv${active===l?' on':''}">${I(i,22)}<span>${l}</span></div>`).join('')}</div></aside>`;
+const back = (l) => `<span class="backrow">${I('i-chev-l',22)}${l}</span>`;
+const phone = (id, html) => { document.getElementById(id).innerHTML = html; };
+
+// ---------- drawn photos (viewBox 300 x 400, portrait) ----------
+const PH = {
+  dresser: `<rect width="300" height="400" fill="url(#g-wall-warm)"/>
+    <rect x="62" y="22" width="176" height="128" rx="6" fill="#B9C6CB" stroke="#8B6B4E" stroke-width="8"/><path d="M92 34h34l-48 110H70z" fill="#fff" opacity=".22"/>
+    <rect x="0" y="255" width="300" height="18" fill="#8A6646"/><rect x="0" y="273" width="300" height="127" fill="url(#g-wood)"/>
+    <path d="M0 314h300M0 358h300M150 273v127" stroke="#6B4D33" stroke-width="2"/>
+    <circle cx="75" cy="294" r="4" fill="#D9B77A"/><circle cx="225" cy="294" r="4" fill="#D9B77A"/><circle cx="75" cy="336" r="4" fill="#D9B77A"/><circle cx="225" cy="336" r="4" fill="#D9B77A"/>
+    <path d="M40 200h72l6 22H34z" fill="#8E4E66"/><rect x="34" y="222" width="84" height="33" rx="3" fill="#6E3B4E"/><rect x="40" y="224" width="72" height="9" fill="#3E1F2A"/>
+    <circle cx="52" cy="227" r="5" fill="none" stroke="#E3B85A" stroke-width="2.5"/><circle cx="68" cy="227" r="5" fill="none" stroke="#DADADA" stroke-width="2.5"/><circle cx="68" cy="221.5" r="2.6" fill="#8FD0EA"/><circle cx="84" cy="227" r="4.5" fill="none" stroke="#E3B85A" stroke-width="2.2"/>
+    <path d="M100 226c4 14 12 24 24 32" fill="none" stroke="#E3B85A" stroke-width="1.6" stroke-dasharray="2 1.5"/>
+    <rect x="134" y="216" width="22" height="39" rx="5" fill="#EBC98F" opacity=".92"/><rect x="140" y="205" width="10" height="12" rx="2" fill="#2F2A26"/>
+    <rect x="168" y="180" width="50" height="70" rx="2" fill="#5A4632"/><rect x="173" y="185" width="40" height="60" fill="#A9C1D1"/><circle cx="187" cy="207" r="7" fill="#E6C7A9"/><circle cx="200" cy="210" r="6" fill="#D9B596"/><path d="M177 245q10-24 20 0z" fill="#4F6C86"/><path d="M191 245q9-19 18 0z" fill="#B35E4A"/>
+    <rect x="230" y="223" width="24" height="32" rx="4" fill="#D9792F" opacity=".92"/><rect x="228" y="214" width="28" height="11" rx="2" fill="#F5F5F2"/><rect x="233" y="232" width="18" height="13" fill="#FBFAF6"/>
+    <rect x="258" y="245" width="38" height="10" rx="1" fill="#31506B"/>
+    <rect width="300" height="400" fill="url(#g-light)"/>`,
+  night: `<rect width="300" height="400" fill="url(#g-wall-blue)"/>
+    <circle cx="80" cy="150" r="90" fill="url(#g-lamp)"/>
+    <rect x="198" y="236" width="102" height="164" fill="#EEF0F2"/><path d="M198 290c30-14 70-12 102 4v106H198z" fill="#9FB4C7"/>
+    <rect x="18" y="250" width="172" height="14" fill="#7E5C3E"/><rect x="24" y="264" width="160" height="136" fill="url(#g-wood)"/><path d="M24 318h160" stroke="#6B4D33" stroke-width="2"/><circle cx="104" cy="292" r="4" fill="#D9B77A"/>
+    <rect x="72" y="196" width="10" height="54" fill="#C9B27D"/><ellipse cx="77" cy="250" rx="20" ry="4" fill="#B49A64"/><path d="M45 196h64l-12-52H57z" fill="#F4E9D0"/>
+    <rect x="118" y="236" width="58" height="8" fill="#7A3B3B"/><rect x="122" y="228" width="52" height="8" fill="#3E5C76"/><rect x="126" y="220" width="46" height="8" fill="#C9A04A"/>
+    <circle cx="38" cy="243" r="6.5" fill="none" stroke="#333" stroke-width="2"/><circle cx="55" cy="243" r="6.5" fill="none" stroke="#333" stroke-width="2"/><path d="M44.5 243h4" stroke="#333" stroke-width="2"/>
+    <rect x="92" y="240" width="22" height="10" rx="2" fill="#1E1E20"/><path d="M114 245c20 2 30 10 40 20s20 30 22 50" fill="none" stroke="#F1F1F1" stroke-width="2"/>
+    <rect width="300" height="400" fill="url(#g-light)"/>`,
+  wardrobe: `<rect width="300" height="400" fill="url(#g-closet)"/>
+    <rect x="0" y="118" width="300" height="9" fill="#CDBBA5"/>
+    <rect x="20" y="98" width="72" height="20" rx="3" fill="#5C7A99"/><rect x="22" y="80" width="68" height="18" rx="3" fill="#D9D2C5"/><rect x="24" y="64" width="64" height="16" rx="3" fill="#8E3B46"/>
+    <rect x="108" y="96" width="70" height="22" rx="3" fill="#3C4A3F"/><rect x="110" y="76" width="66" height="20" rx="3" fill="#C8B08A"/>
+    <rect x="198" y="74" width="84" height="44" rx="2" fill="#E9E2D6"/><path d="M198 84h84" stroke="#CFC6B7" stroke-width="2"/>
+    <path d="M0 152h300" stroke="#B9B2A8" stroke-width="4"/>
+    <path d="M42 152l-14 14h28z" fill="none" stroke="#C9C2B8" stroke-width="2"/><rect x="14" y="166" width="56" height="210" rx="8" fill="#2F3B4A"/>
+    <rect x="76" y="166" width="48" height="170" rx="8" fill="#B4876A"/><rect x="130" y="166" width="54" height="196" rx="8" fill="#E4DED3"/>
+    <rect x="190" y="166" width="58" height="150" rx="8" fill="#6B7F5E"/><rect x="252" y="166" width="46" height="204" rx="8" fill="#3E3E44"/>
+    <rect width="300" height="400" fill="url(#g-light)"/>`,
+  shelfA: `<rect width="300" height="400" fill="url(#g-wall-grey)"/>
+    <rect x="10" y="20" width="8" height="380" fill="#8A8F93"/><rect x="282" y="20" width="8" height="380" fill="#8A8F93"/>
+    <rect x="10" y="150" width="280" height="8" fill="#9EA3A7"/><rect x="10" y="290" width="280" height="8" fill="#9EA3A7"/>
+    <rect x="28" y="84" width="96" height="66" fill="#C49A6C"/><path d="M28 98h96M76 84v14" stroke="#A97F52" stroke-width="3"/>
+    <rect x="138" y="104" width="46" height="46" rx="3" fill="#E7E7E5"/><rect x="138" y="116" width="46" height="16" fill="#3E7CB1"/><ellipse cx="161" cy="104" rx="23" ry="4" fill="#CFCFCC"/>
+    <rect x="192" y="108" width="40" height="42" rx="3" fill="#E7E7E5"/><rect x="192" y="118" width="40" height="14" fill="#C0392B"/><ellipse cx="212" cy="108" rx="20" ry="4" fill="#CFCFCC"/>
+    <rect x="240" y="116" width="36" height="34" rx="3" fill="#E9D8A6"/>
+    <rect x="28" y="240" width="112" height="50" rx="4" fill="#C8382E"/><rect x="62" y="230" width="44" height="10" rx="5" fill="none" stroke="#2A2A2A" stroke-width="4"/><path d="M28 258h112" stroke="#9E2B23" stroke-width="2"/>
+    <rect x="156" y="222" width="118" height="68" rx="4" fill="#DDE5EA" opacity=".85"/><rect x="152" y="216" width="126" height="10" rx="3" fill="#2F5E8C"/>
+    <rect x="0" y="330" width="300" height="70" fill="#8F8B84"/>
+    <rect width="300" height="400" fill="url(#g-light)"/>`,
+  shelfB: `<rect width="300" height="400" fill="url(#g-wall-grey)"/>
+    <rect x="10" y="150" width="280" height="8" fill="#9EA3A7"/><rect x="10" y="290" width="280" height="8" fill="#9EA3A7"/>
+    <path d="M30 110h50l-6 40H36z" fill="#C46A3F"/><path d="M90 118h40l-5 32H95z" fill="#C46A3F"/><path d="M138 100h58l-7 50h-44z" fill="#B85F37"/>
+    <path d="M210 128c8-10 22-10 30 0l-2 22h-26z" fill="#7FAF5A"/><path d="M244 130c6-8 18-8 24 0l-2 20h-20z" fill="#6E9F4B"/>
+    <circle cx="80" cy="244" r="36" fill="none" stroke="#3E8E4F" stroke-width="7"/><circle cx="80" cy="244" r="24" fill="none" stroke="#3E8E4F" stroke-width="7"/>
+    <rect x="150" y="214" width="120" height="76" rx="8" fill="#5B4636"/><rect x="170" y="236" width="80" height="30" rx="3" fill="#E7D9A8"/>
+    <rect x="0" y="330" width="300" height="70" fill="#8F8B84"/>
+    <rect width="300" height="400" fill="url(#g-light)"/>`,
+};
+const strokesSvg = (strokes) => strokes.map((s) => `<polyline points="${s.p.map((q) => q.join(',')).join(' ')}" fill="none" stroke="#000" stroke-width="${s.w}" stroke-linecap="round" stroke-linejoin="round"/>`).join('');
+const photo = (k, mask = null) => `<svg class="ph" viewBox="0 0 300 400" preserveAspectRatio="xMidYMid slice" aria-hidden="true">${PH[k]}${mask ? strokesSvg(mask) : ''}</svg>`;
+// What was painted over the jewellery box and the pill jar.
+const DRESSER_MASK = [
+  { w: 22, p: [[36,203],[118,203],[36,216],[120,218],[36,232],[120,234],[36,248],[122,250],[96,258],[128,258]] },
+  { w: 18, p: [[226,214],[256,214],[226,230],[256,232],[228,248],[256,250]] },
+];
+
+// ---------- room (replica of room-view.tsx / room-cards.tsx) ----------
+const cbtns = (fixed) => `<div class="cbtns">${fixed
+  ? `<span class="cbtn fixed">${I('i-camera',22)}Ta foto</span><span class="cbtn fixed">${I('i-image',22)}Välj från Bilder</span>`
+  : `<span class="cbtn today">Ta foto</span><span class="cbtn today">Välj från Bilder</span>`}</div>`;
+const capture = (fixed, latest) => `<div class="capture">${cbtns(fixed)}<div class="crow"><span class="meta">${latest ? `Senaste kort ${latest}` : 'Inget kort än'}</span><span class="tl">Mer exakt plats …</span></div></div>`;
+const stats = (t, c, k) => `<dl class="stats"><div><b>${t}</b><span>föremål</span></div><div><b>${c}</b><span>kategorier</span></div><div><b>${k}</b><span>kort</span></div></dl>`;
+const seg = (on) => `<div class="seg"><span class="${on==='things'?'on':''}">Föremål</span><span class="${on==='cards'?'on':''}">Kort</span></div>`;
+function cardTile(c) {
+  let im;
+  if (c.none) im = `<div class="im"><div class="noimg">${I('i-image-off',22)}<span>Ingen bild sparad</span></div></div>`;
+  else im = `<div class="im">${photo(c.ph, c.mask)}${c.reading ? '' : '<span class="expand">⤢</span>'}</div>`;
+  const meta = c.reading ? `<div class="working"><i></i>Tittar på kortet …</div>` : `<div class="meta">${c.meta}</div>`;
+  const acts = c.reading ? `<span>Ta bort</span>` : `<span>Ta om</span><span>Lägg till föremål</span><span>Ta bort</span>`;
+  return `<li class="card">${im}<div class="bd"><b>${c.label || 'Hela rummet'}</b>${meta}</div><div class="acts">${acts}</div></li>`;
+}
+const roomPage = ({ name, st, fixed = false, latest, status = '', cards, view = 'cards', below = '' }) =>
+  `${back('Förråd')}<div class="titlerow"><h1 class="lt">${name}</h1><span class="more">${I('i-more',24)}</span></div>${stats(...st)}${capture(fixed, latest)}${status}${seg(view)}${view === 'cards' ? `<ul class="cards">${cards.map(cardTile).join('')}</ul>` : below}`;
+const roomPhone = (opts) => `<div class="scroll"><div class="scr">${roomPage(opts)}</div></div>${tabbar()}`;
+
+const BODEN = { name:'Boden', st:[47,2,2], latest:'31 okt', cards:[{ ph:'shelfA', meta:'27 föremål · 31 okt' },{ ph:'shelfB', meta:'20 föremål · 31 okt' }] };
+phone('old-room', roomPhone(BODEN));
+phone('old-send', roomPhone({ ...BODEN, st:[47,2,3], status:`<div class="status"><p style="margin:0">Skickar 2 av 3 …</p><div class="prog"><i></i></div></div>`, cards:[{ ph:'shelfA', reading:true }, ...BODEN.cards] }));
+const thingsBelow = `<div style="display:flex;align-items:center;gap:12px;margin:16px 4px 0"><span class="tile2" style="background:var(--clay);width:30px;height:30px">📦</span><span class="sec" style="margin:0;flex:1">Förvaring &amp; lådor</span><span class="meta">1 ▾</span></div>`;
+phone('old-sheet', `<div class="scroll" style="overflow:hidden"><div class="scr">${roomPage({ ...BODEN, view:'things', below: thingsBelow })}</div></div>${tabbar()}<div class="dim"></div><div class="sheet"><div class="grab"></div><div class="shead"><span class="stitle">Var tar du kortet?</span><span class="cancel">Avbryt</span></div>
+  <div class="slabel">Rum</div><div class="chiprow"><span class="chip on">Boden</span><span class="chip">Garaget</span><span class="chip">Källaren</span><span class="chip dash">+ Nytt rum</span></div>
+  <div style="color:var(--accent);font-size:16px;font-weight:500;min-height:44px;display:flex;align-items:center;margin:16px 4px 4px">Mer exakt plats (valfritt) ▾</div>
+  ${cbtns(false)}<p class="hint" style="text-align:center;color:var(--ink-3)">Efter varje kort: "Ta ett till". Livskoll läser korten i bakgrunden.</p></div>`);
+document.getElementById('old-desk').innerHTML = `${side('Förråd')}<main class="dmain"><div class="in">${roomPage(BODEN)}</div></main>`;
+
+// ---------- A: strip ----------
+const SOVRUM = { name:'Sovrummet', st:[23,4,3], latest:'1 nov', fixed:true };
+const sovBg = `<div class="scroll" style="overflow:hidden"><div class="scr">${roomPage({ ...SOVRUM, st:[0,0,0], latest:'', view:'things', below:`<p class="lead2" style="margin:16px 4px 0">Inget kort än. Ta ett kort, så listar Livskoll vad som finns.</p>` })}</div></div>${tabbar()}`;
+const stItem = (k, mask, i) => `<div class="st"><div class="im">${photo(k, mask)}<span class="x">${I('i-close',16)}</span>${mask ? `<span class="dolt">${I('i-eye-off',14)}Dolt</span>` : ''}</div><span class="hide" data-i="${i}">${I('i-brush',18)}${mask ? 'Ändra' : 'Dölj något'}</span></div>`;
+const stAdd = (cam) => `<div class="st add"><div class="im">${I(cam ? 'i-camera' : 'i-image',24)}${cam ? 'Ta ett till' : 'Välj fler'}</div></div>`;
+const stripSheet = (items, cam = false) => `<div class="dim"></div><div class="sheet"><div class="grab"></div><div class="shead"><span class="stitle">${items.length} ${items.length === 1 ? 'bild' : 'bilder'} till Sovrummet</span><span class="cancel">Avbryt</span></div>
+  <div class="strip">${items.map(([k, m], i) => stItem(k, m, i)).join('')}${stAdd(cam)}</div>
+  <div class="lockhint">${I('i-lock',18)}<span>Det du målar över tas bort här i telefonen. Originalet i Bilder ändras inte. <a href="#skydd">Läs mer</a></span></div>
+  <button class="btn">Skicka ${items.length} kort</button></div>`;
+phone('strip-1', sovBg + stripSheet([['dresser'],['night'],['wardrobe']]));
+phone('strip-2', sovBg + stripSheet([['dresser', DRESSER_MASK],['night'],['wardrobe']]));
+phone('strip-cam', sovBg + stripSheet([['night']], true));
+phone('room-after', roomPhone({ ...SOVRUM, cards:[{ ph:'dresser', mask:DRESSER_MASK, meta:'9 föremål · 1 nov' },{ ph:'night', meta:'6 föremål · 1 nov' },{ ph:'wardrobe', meta:'8 föremål · 1 nov' }] }));
+
+// ---------- A: the editor (live) ----------
+const edMarkup = () => `<div class="edbar"><span class="b" data-a="cancel">Avbryt</span><span class="t">Dölj något</span><span class="b done" data-a="done">Klar</span></div>
+  <div class="edstage"><div class="edphoto">${photo('dresser')}<svg class="mask" viewBox="0 0 300 400" preserveAspectRatio="none"></svg></div></div>
+  <div class="edtools"><div class="edhint">Måla över det som inte ska synas.</div>
+  <div class="edrow"><div class="edseg"><span data-w="12" class="on"><i style="width:8px;height:8px"></i>Smal</span><span data-w="28"><i style="width:14px;height:14px"></i>Bred</span></div>
+  <span class="edbtn off" data-a="undo">${I('i-undo',20)}Ångra</span><span class="edbtn off" data-a="clear">${I('i-eraser',20)}Rensa</span></div></div>`;
+function liveEditor(host, cap) {
+  const mask = host.querySelector('.mask');
+  let strokes = [], hist = [], w = 12, cur = null;
+  const render = () => {
+    mask.innerHTML = strokesSvg(strokes);
+    host.querySelector('[data-a="undo"]').classList.toggle('off', hist.length === 0);
+    host.querySelector('[data-a="clear"]').classList.toggle('off', strokes.length === 0);
+  };
+  const pt = (e) => { const r = mask.getBoundingClientRect(); return [Math.round((e.clientX - r.left) / r.width * 300), Math.round((e.clientY - r.top) / r.height * 400)]; };
+  mask.addEventListener('pointerdown', (e) => { e.preventDefault(); hist.push(JSON.stringify(strokes)); const p = pt(e); cur = { w, p:[p, p] }; strokes.push(cur); mask.setPointerCapture(e.pointerId); render(); });
+  mask.addEventListener('pointermove', (e) => { if (!cur) return; cur.p.push(pt(e)); render(); });
+  const end = () => { cur = null; };
+  mask.addEventListener('pointerup', end); mask.addEventListener('pointercancel', end);
+  host.querySelectorAll('.edseg span').forEach((s) => s.onclick = () => { w = +s.dataset.w; host.querySelectorAll('.edseg span').forEach((x) => x.classList.toggle('on', x === s)); });
+  host.querySelector('[data-a="undo"]').onclick = () => { if (hist.length) { strokes = JSON.parse(hist.pop()); render(); } };
+  host.querySelector('[data-a="clear"]').onclick = () => { if (strokes.length) { hist.push(JSON.stringify(strokes)); strokes = []; render(); } };
+  host.querySelector('[data-a="done"]').onclick = () => { if (cap) cap.textContent = strokes.length ? `Klar: ${strokes.length} drag sparas på bilden i urvalet. Inget har skickats än.` : 'Klar utan drag: bilden skickas som den är.'; };
+  host.querySelector('[data-a="cancel"]').onclick = () => { strokes = []; hist = []; render(); if (cap) cap.textContent = 'Avbryt kastar dragen från den här gången. Bilden ligger kvar i urvalet som förut.'; };
+  document.addEventListener('keydown', (e) => { if ((e.metaKey || e.ctrlKey) && e.key === 'z' && host.matches(':hover')) { e.preventDefault(); host.querySelector('[data-a="undo"]').click(); } });
+}
+phone('ed-live', `<div class="ed">${edMarkup()}</div>`);
+liveEditor(document.getElementById('ed-live'), document.getElementById('ed-cap'));
+document.getElementById('ed-desk').innerHTML = `<div class="ded">${edMarkup()}</div>`;
+liveEditor(document.getElementById('ed-desk'), null);
+
+// ---------- B: settings ----------
+const srow = (tile, icon, t, v, { chev = true, cls = '' } = {}) => `<div class="row ${cls}"><span class="tile2 ${tile}">${I(icon,18)}</span><span class="grow">${t}</span>${v ? `<span class="v">${v}</span>` : ''}${chev ? `<span class="chev">${I('i-chev-r',16)}</span>` : ''}</div>`;
+const acct = `<div class="acct"><span class="av" style="width:40px;height:40px;font-size:17px">P</span><span style="flex:1;min-width:0"><b>Pontus</b><small>pontus@matkoll.local</small></span><span class="chev" style="color:var(--ink-3)">${I('i-chev-r',16)}</span></div>`;
+const settingsMenu = (withForrad, cur = '') => `${acct}
+  <div class="sec">Hushåll</div><div class="grp">${srow('','i-pin','Boenden','Hemma, Duved, N…')}${srow('sky','i-store','Butiker','Maxi ICA Stormark…')}</div>
+  <div class="sec">Recept</div><div class="grp">${srow('sky','i-globe','Receptsajter','4 sajter')}${srow('lilac','i-bookmark','Spara i Livskoll','')}</div>
+  ${withForrad ? `<div class="sec">Förråd</div><div class="grp">${srow('','i-image','Bilder', withForrad, { cls: cur === 'bilder' ? 'cur' : '' })}</div>` : ''}
+  <div class="sec">AI</div><div class="grp">${srow('sand','i-sparkle','Modell','Claude Haiku · Me…')}${srow('sand','i-coin','Kostnad i november','0 kr', { chev:false })}</div>
+  <div class="sec">Appen</div><div class="grp">${srow('sky','i-install','Installera appen','')}${srow('lilac','i-mic','Siri och genvägar','')}${srow('plain','i-info','Om Livskoll','')}</div>`;
+const setPhone = (inner, scrollTop = 0) => `<div class="scroll"${scrollTop ? ` data-top="${scrollTop}"` : ''}><div class="scr">${inner}</div></div>${tabbar('')}`;
+phone('set-old', setPhone(`${back('Recept')}<h1 class="lt" style="margin-bottom:16px">Inställningar</h1>${settingsMenu(false)}`));
+phone('set-new', setPhone(`${back('Recept')}<h1 class="lt" style="margin-bottom:16px">Inställningar</h1>${settingsMenu('Sparas')}`));
+
+const sw = (on) => `<span class="sw${on ? ' on' : ''}" role="switch" aria-checked="${on}"></span>`;
+function bilderBody({ keep = true, notice = false } = {}) {
+  return `<div class="sec">Innan du skickar</div><div class="grp"><div class="swrow"><span class="grow"><b>Granska innan du skickar</b><small>Se bilderna och dölj något innan de skickas.</small></span>${sw(true)}</div></div>
+  <div class="sec">Efter läsningen</div><div class="grp"><div class="swrow"><span class="grow"><b>Spara korten</b><small>Bilden finns kvar, så du kan se kortet i stort.</small></span>${sw(keep)}</div></div>
+  ${notice ? `<div class="notice">${I('i-info',20)}<span>Nya kort sparas utan bild. Dina 38 sparade bilder finns kvar tills du raderar dem.</span></div>` : `<p class="foot2">Av: bilden raderas så fort föremålen är lästa. Listan, sökningen och frågorna fungerar som vanligt.</p>`}
+  <div class="sec">Utan sparad bild försvinner</div><div class="grp"><div class="li">${I('i-image',20)}Kortet i stort, med rutor runt föremålen</div><div class="li">${I('i-image',20)}Bilden på korten och i sökträffarna</div><div class="li">${I('i-image',20)}Bilden bredvid svaren när du frågar</div></div>
+  <div class="sec">Sparade bilder</div><div class="grp">${srow('plain','i-image','Antal bilder','38', { chev:false })}<div class="row danger"><span class="tile2 red">${I('i-trash',20)}</span><span class="grow">Radera sparade bilder</span></div></div>
+  <div class="grp" style="margin-top:24px">${srow('','i-lock','Så skyddas dina bilder','')}</div>`;
+}
+const bilderPage = (o) => `${back('Inställningar')}<h1 class="lt">Bilder i Förråd</h1>${bilderBody(o)}`;
+phone('set-page', setPhone(bilderPage()));
+phone('set-off', setPhone(bilderPage({ keep:false, notice:true })));
+phone('set-del', `<div class="scroll" style="overflow:hidden"><div class="scr">${bilderPage({ keep:false, notice:true })}</div></div>${tabbar('')}<div class="dim"></div><div class="sheet"><div class="grab"></div><div class="shead"><span class="stitle">Radera 38 bilder?</span><span class="cancel">Avbryt</span></div><p class="lead2" style="margin:4px 0 20px">Korten och föremålen finns kvar, men utan bild. Det går inte att ångra.</p><button class="btn danger">${I('i-trash',20)}Radera bilderna</button></div>`);
+document.getElementById('set-desk').innerHTML = `${side('Inställningar')}<div class="dset"><h1 class="lt">Inställningar</h1><div>${settingsMenu('Sparas', 'bilder').replace(/<div class="sec">Appen[\s\S]*$/, '')}</div><div class="detail"><h2>Bilder i Förråd</h2>${bilderBody().replace('<div class="sec">Innan du skickar</div>', '<div class="sec" style="margin-top:16px">Innan du skickar</div>')}</div></div>`;
+
+// ---------- B: room and card without photos ----------
+phone('room-noimg', roomPhone({ ...SOVRUM, st:[23,4,4], cards:[{ ph:'night', reading:true },{ none:true, meta:'9 föremål · 1 nov' },{ ph:'wardrobe', meta:'8 föremål · 28 okt' }] }));
+const THINGS = [['Smyckeskrin','byrån, vänster'],['Parfymflaska','byrån, mitten'],['Fotoram','byrån, mitten'],['Burk','byrån, höger'],['Anteckningsbok','byrån, höger'],['Spegel','väggen'],['Byrå med tre lådor','golvet'],['Ringar','smyckeskrinet'],['Halsband','smyckeskrinet']];
+phone('card-noimg', `<div class="scroll"><div class="scr">${back('Tillbaka')}<h1 class="lt">Sovrummet</h1><div class="meta" style="font-size:14px;color:var(--ink-2)">Hela rummet · Kort från 1 nov · 9 föremål</div>
+  <div class="bigph"><div class="noimg" style="font-size:14px">${I('i-image-off',26)}<span>Ingen bild sparad</span></div></div>
+  <p class="meta" style="margin:8px 4px 0">Spara korten är av. <span style="color:var(--accent);font-weight:500">Ändra i Inställningar</span></p>
+  <div class="sec">Föremål <span class="n">9</span></div><div class="grp">${THINGS.map(([n,w]) => `<div class="thingrow">${n}<span>${w}</span></div>`).join('')}</div>
+  <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-top:16px"><span class="btn sec2">Ta om</span><span class="btn sec2">Lägg till föremål</span></div>
+  <div style="display:flex;justify-content:center;margin-top:8px"><span class="tbtn" style="color:var(--danger)">${I('i-trash',18)}Ta bort kortet</span></div></div></div>${tabbar()}`);
+
+// ---------- C: help ----------
+const pmIcon = `<svg class="ic pm" width="28" height="28" viewBox="0 0 28 28" aria-hidden="true"><circle cx="14" cy="14" r="12"/><path d="M9 14h10"/><path d="M14 9v10"/></svg>`;
+const AREAS = ['Recept','Matsedel','Inköpslista','Matvaror','Förråd','Konto'];
+const hubBody = `${back('Förråd')}<h1 class="lt">Hjälp och tips</h1><div class="search">${I('i-search',18)}<span>Sök i hjälpen</span></div>
+  <div class="hero"><span class="hi">${D('d-house',34)}</span><span class="ht"><b>Så funkar Livskoll</b><small>Rundturen igen, sex bilder, en minut.</small></span><span class="play">${I('i-play',20)}</span></div>
+  <div style="margin-top:12px"><div class="chips">${AREAS.map((a) => `<span class="chip${a==='Förråd'?' on':''}">${a}</span>`).join('')}</div></div>
+  <div class="sec">Så gör du</div><div class="grp">${[['d-door','Börja med ett rum','Tryck + Nytt rum, till exempel Förrådet eller Garaget.'],['d-shelf','Fota en hylla','Livskoll listar föremålen på bilden.'],['d-ask','Sök eller fråga','Skriv överst, eller tryck ↑ och fråga: var är passen?']].map(([i,t,x]) => `<div class="step">${D(i,28)}<span class="st2"><b>${t}</b><span class="x2">${x}</span></span></div>`).join('')}</div>
+  <div class="sec">Dina bilder</div><div class="hero new" style="margin-top:0"><span class="hi">${D('d-shield',34)}</span><span class="ht"><b>Så skyddas dina bilder</b><small>Var de hamnar och vem som kan se dem.</small></span><span class="chev">${I('i-chev-r',20)}</span></div>
+  <div class="sec">Vanliga frågor</div><div class="grp">${['Ska maten in här?','Något har flyttats. Vad gör jag?','Söker den i alla boenden?'].map((q) => `<div class="faq"><div class="q"><b>${q}</b>${pmIcon}</div></div>`).join('')}</div>`;
+phone('help-hub', `<div class="scroll" data-top="250"><div class="scr">${hubBody}</div></div>${tabbar('')}`);
+
+const step = (i, t, x) => `<div class="step">${D(i,28)}<span class="st2"><b>${t}</b><span class="x2">${x}</span></span></div>`;
+const SAFE = {
+  where: [
+    ['d-lock','Bara ditt konto','Varje konto är spärrat från de andra i databasen. Ett test vid varje ändring av appen kontrollerar att ingen kommer åt ett annat kontos data eller bilder.'],
+    ['d-folder','I en låst mapp','Bilderna ligger privat, i ditt kontos egen mapp. De visas bara i appen när du är inloggad, aldrig via en öppen länk.'],
+    ['d-pin','I Stockholm','Databasen och bilderna (Supabase) och servern (Vercel) ligger i Stockholm, inom EU.'],
+    ['d-nogps','Utan platsdata','Var bilden togs och annan bildinfo tas bort i telefonen, och en gång till innan bilden sparas.'],
+  ],
+  who: [
+    ['d-spark','AI:n läser bilden','För att lista föremålen skickas bilden till Claude, från det amerikanska företaget Anthropic. Enligt <a class="go" href="#skydd">deras villkor</a> används den inte för att träna deras AI.'],
+    ['d-person','Den som driver Livskoll','Den personen kan tekniskt se kontots data, också bilderna.'],
+  ],
+  you: [
+    ['d-brush','Dölj något','Måla över det som inte ska synas innan du skickar. Det tas bort i telefonen och lämnar den aldrig.'],
+    ['d-image','Spara korten eller bara listan','Stäng av Spara korten, så raderas bilden när föremålen är lästa. <a class="go" href="#spara">Inställningar ›</a>'],
+    ['d-trash','Ta bort','Tar du bort ett kort, ett rum eller ett boende raderas bilderna också. Alla sparade bilder raderar du under <a class="go" href="#spara">Bilder i Förråd ›</a>'],
+  ],
+};
+const safeBody = `${back('Hjälp och tips')}<h1 class="lt">Så skyddas dina bilder</h1><p class="lead2">Var bilderna hamnar, vem som kan se dem och vad du själv bestämmer.</p>
+  <div class="sec">Var bilderna finns</div><div class="grp">${SAFE.where.map((s) => step(...s)).join('')}</div>
+  <div class="sec">Vem som ser dem</div><div class="grp">${SAFE.who.map((s) => step(...s)).join('')}</div>
+  <div class="sec">Det du bestämmer</div><div class="grp">${SAFE.you.map((s) => step(...s)).join('')}</div>
+  <p class="foot">Uppdaterad 1 nov 2026</p>`;
+phone('help-1', `<div class="scroll"><div class="scr">${safeBody}</div></div>${tabbar('')}`);
+phone('help-2', `<div class="scroll" data-top="560"><div class="scr">${safeBody}</div></div>${tabbar('')}`);
+document.getElementById('help-desk').innerHTML = `${side('Hjälp och tips')}<main class="dmain"><div class="in">${safeBody}</div></main>`;
+
+// Scrolled phones.
+requestAnimationFrame(() => {
+  document.querySelectorAll('[data-top]').forEach((s) => { s.scrollTop = +s.dataset.top; });
+  // Like help-view.tsx: the chosen chip is brought into the row.
+  document.querySelectorAll('.chips').forEach((row) => { const on = row.querySelector('.chip.on'); if (on && on.offsetLeft + on.offsetWidth > row.clientWidth) row.scrollLeft = on.offsetLeft + on.offsetWidth - row.clientWidth + 20; });
+});
+
+// ---------- theme switch ----------
+(function () {
+  const mq = matchMedia('(prefers-color-scheme: dark)');
+  let mode = 'auto';
+  function apply() {
+    const dark = mode === 'dark' || (mode === 'auto' && mq.matches);
+    document.querySelectorAll('.phone, .frame').forEach((p) => { p.classList.toggle('t-dark', dark); p.classList.toggle('t-light', !dark); });
+    if (mode === 'auto') document.documentElement.removeAttribute('data-theme'); else document.documentElement.setAttribute('data-theme', mode);
+    document.querySelectorAll('.themes button').forEach((b) => b.setAttribute('aria-pressed', String(b.dataset.t === mode)));
+  }
+  document.querySelectorAll('.themes button').forEach((b) => b.onclick = () => { mode = b.dataset.t; apply(); });
+  mq.addEventListener('change', apply);
+  const forced = new URLSearchParams(location.search).get('theme');
+  if (forced === 'dark' || forced === 'light') mode = forced;
+  apply();
+})();
+</script>
+</body>
+</html>
