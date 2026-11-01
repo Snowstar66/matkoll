@@ -322,3 +322,74 @@ export function ListIcon(props: IconProps) {
     </Icon>
   );
 }
+
+/** A shop front: Butiker in Inställningar. */
+export function StoreIcon(props: IconProps) {
+  return (
+    <Icon {...props}>
+      <path d="M4 9l1.5-4.5h13L20 9" />
+      <path d="M4 9a2.7 2.7 0 0 0 5.3 0 2.7 2.7 0 0 0 5.4 0A2.7 2.7 0 0 0 20 9" />
+      <path d="M5.5 12v7.5h13V12" />
+    </Icon>
+  );
+}
+
+/** A globe: Receptsajter in Inställningar. */
+export function GlobeIcon(props: IconProps) {
+  return (
+    <Icon {...props}>
+      <circle cx="12" cy="12" r="8.5" />
+      <path d="M3.5 12h17" />
+      <path d="M12 3.5c2.4 2.4 3.5 5.2 3.5 8.5s-1.1 6.1-3.5 8.5c-2.4-2.4-3.5-5.2-3.5-8.5S9.6 5.9 12 3.5z" />
+    </Icon>
+  );
+}
+
+/** A bookmark: Spara i Livskoll in Inställningar. */
+export function BookmarkIcon(props: IconProps) {
+  return (
+    <Icon {...props}>
+      <path d="M7 4h10v16l-5-3.5L7 20z" />
+    </Icon>
+  );
+}
+
+/** A sparkle: the AI model in Inställningar. */
+export function SparkleIcon(props: IconProps) {
+  return (
+    <Icon {...props}>
+      <path d="M12 4l1.8 5.2L19 11l-5.2 1.8L12 18l-1.8-5.2L5 11l5.2-1.8z" />
+      <path d="M18.5 3.5v3M17 5h3" />
+    </Icon>
+  );
+}
+
+/** A coin: the month's cost in Inställningar. */
+export function CoinIcon(props: IconProps) {
+  return (
+    <Icon {...props}>
+      <circle cx="12" cy="12" r="8.5" />
+      <path d="M14.5 9.2c-.5-.8-1.4-1.2-2.5-1.2-1.4 0-2.4.7-2.4 1.8 0 2.4 5 1.2 5 3.6 0 1.1-1 1.8-2.6 1.8-1.1 0-2.1-.4-2.6-1.2M12 6.5V8m0 8v1.5" />
+    </Icon>
+  );
+}
+
+/** A phone with an arrow: Installera appen in Inställningar. */
+export function InstallIcon(props: IconProps) {
+  return (
+    <Icon {...props}>
+      <rect x="6.5" y="3" width="11" height="18" rx="2.5" />
+      <path d="M12 8v6m-2.5-2.5L12 14l2.5-2.5" />
+    </Icon>
+  );
+}
+
+/** A microphone: Siri och genvägar in Inställningar. */
+export function MicIcon(props: IconProps) {
+  return (
+    <Icon {...props}>
+      <rect x="9" y="3.5" width="6" height="11" rx="3" />
+      <path d="M5.5 11.5a6.5 6.5 0 0 0 13 0M12 18v2.5" />
+    </Icon>
+  );
+}

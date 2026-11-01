@@ -1,3 +1,4 @@
+import { accountOf } from "@/features/auth";
 import { requireUserOrRedirect } from "@/features/auth/server";
 import { SignOutButton } from "@/features/auth/ui/sign-out-button";
 import { listPantrySitesWithCounts } from "@/features/pantry/server";
@@ -55,21 +56,20 @@ export async function SettingsMenuContent() {
   const selectedStore = stores?.find((store) => store.isSelected);
 
   const groups: SettingsGroupData[] = [
-    { label: "Konto", rows: [{ href: settingsPageHref("konto"), icon: "👤", tile: "bg-mint", title: user.email }] },
     {
       label: "Hushåll",
       rows: [
         {
           href: settingsPageHref("boenden"),
-          icon: "📍",
-          tile: "bg-sand",
+          icon: "pin",
+          tile: "mint",
           title: "Boenden",
           value: housing?.map((site) => site.name).join(", "),
         },
         {
           href: settingsPageHref("butiker"),
-          icon: "🏪",
-          tile: "bg-tile-clay",
+          icon: "store",
+          tile: "sky",
           title: "Butiker",
           value: selectedStore?.name,
         },
@@ -80,12 +80,12 @@ export async function SettingsMenuContent() {
       rows: [
         {
           href: settingsPageHref("receptsajter"),
-          icon: "🌐",
-          tile: "bg-sky",
+          icon: "globe",
+          tile: "sky",
           title: "Receptsajter",
           value: recipeSites ? sitesCountText(recipeSites.length) : undefined,
         },
-        { href: settingsPageHref("spara-i-matkoll"), icon: "🔖", tile: "bg-tile-lilac", title: `Spara i ${appName}` },
+        { href: settingsPageHref("spara-i-matkoll"), icon: "bookmark", tile: "lilac", title: `Spara i ${appName}` },
       ],
     },
     ...(ai
@@ -93,14 +93,14 @@ export async function SettingsMenuContent() {
           {
             label: "AI",
             rows: [
-              { href: settingsPageHref("ai"), icon: "✨", tile: "bg-mint", title: "Modell", value: aiValueText(ai) },
+              { href: settingsPageHref("ai"), icon: "sparkle", tile: "sand", title: "Modell", value: aiValueText(ai) },
               // Story 17.6: the month's cost, a value without a page of its own.
               ...(aiUsage
                 ? [
                     {
                       href: null,
-                      icon: "💰",
-                      tile: "bg-sand",
+                      icon: "coin",
+                      tile: "sand",
                       title: costRowTitle(aiUsage.monthName),
                       value: formatMonthCost(aiUsage.costSek),
                     } as const,
@@ -113,12 +113,13 @@ export async function SettingsMenuContent() {
     {
       label: "Appen",
       rows: [
-        { href: settingsPageHref("installera"), icon: "📲", tile: "bg-sky", title: "Installera appen" },
-        { href: settingsPageHref("siri"), icon: "🎙️", tile: "bg-tile-lilac", title: "Siri och genvägar" },
-        { href: settingsPageHref("om"), icon: "ℹ️", tile: "bg-hairline", title: `Om ${appName}` },
+        { href: settingsPageHref("installera"), icon: "install", tile: "sky", title: "Installera appen" },
+        { href: settingsPageHref("siri"), icon: "mic", tile: "lilac", title: "Siri och genvägar" },
+        { href: settingsPageHref("om"), icon: "info", tile: "plain", title: `Om ${appName}` },
       ],
     },
   ];
 
-  return <SettingsMenu groups={groups} signOut={<SignOutButton asRow />} />;
+  const { name, initial } = accountOf(user.email);
+  return <SettingsMenu account={{ href: settingsPageHref("konto"), name, email: user.email, initial }} groups={groups} signOut={<SignOutButton asRow />} />;
 }

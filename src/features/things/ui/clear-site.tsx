@@ -2,8 +2,7 @@
 
 import { useRouter } from "next/navigation";
 import { useState } from "react";
-import { ListGroup } from "@/components/list-group";
-import { ListRow } from "@/components/list-row";
+import { Button } from "@/components/button";
 import { useToast } from "@/components/toast";
 import { clearThingSite } from "../actions/clear-things";
 import { clearCountsText, clearedText, clearSiteDetailText, clearSiteText, clearSiteWord, type ClearCounts } from "../domain/thing-clear";
@@ -28,21 +27,25 @@ export function ClearSiteThings({ sites }: { sites: readonly SiteThings[] }) {
   return (
     <section aria-label="Förrådet" className="flex flex-col gap-1.5" data-testid="clear-sites">
       <h2 className="px-1 desktop:px-0 text-section-label text-ink-2">Förrådet</h2>
-      <ListGroup label="Förrådet">
-        {withThings.map((site) => (
-          <ListRow
-            key={site.id}
+      {/* Story 19.7: an action is a button; this one is destructive (muted red), last, and asks first. */}
+      {withThings.map((site) => (
+        <div key={site.id} className="flex flex-col gap-1">
+          <p className="px-1 text-meta text-ink-2">{clearCountsText(site.counts)}</p>
+          <Button
+            variant="danger"
+            fullWidth
             data-testid="clear-site-row"
-            title={clearSiteText(site.name)}
-            meta={clearCountsText(site.counts)}
-            onPress={() => {
+            aria-haspopup="dialog"
+            className="rounded-lg bg-surface"
+            onClick={() => {
               setLast(site);
               setAsking(site);
             }}
-            pressProps={{ "aria-haspopup": "dialog" }}
-          />
-        ))}
-      </ListGroup>
+          >
+            {clearSiteText(site.name)}
+          </Button>
+        </div>
+      ))}
       {shown ? (
         <ClearSheet
           open={asking !== null}
