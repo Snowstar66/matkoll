@@ -21,7 +21,16 @@ export default defineConfig({
     locale: "sv-SE",
     trace: "retain-on-failure",
   },
-  projects: [{ name: "chromium", use: { ...devices["Desktop Chrome"] } }],
+  projects: [
+    {
+      name: "chromium",
+      use: {
+        ...devices["Desktop Chrome"],
+        // Story 18.10: Snabbkamera gets Chromium's fake camera (a moving test pattern) without a permission prompt.
+        launchOptions: { args: ["--use-fake-device-for-media-stream", "--use-fake-ui-for-media-stream"] },
+      },
+    },
+  ],
   webServer: {
     // CI runs `pnpm build` first and tests the production server; locally the dev server is enough.
     command: isCi ? `pnpm start --port ${port}` : `pnpm dev --port ${port}`,
