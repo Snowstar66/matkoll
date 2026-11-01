@@ -14,6 +14,8 @@ import {
   searchTerms,
   showSimilarText,
   stripQuestionFrame,
+  isStrongMatch,
+  countPlaceText,
   toHit,
   type ThingHit,
 } from "./thing-search";
@@ -187,5 +189,23 @@ describe("stripQuestionFrame (Story 18.23)", () => {
     expect(stripQuestionFrame("var är det bäst att ha verktygen")).toBeNull();
     expect(stripQuestionFrame("vad finns i garaget")).toBeNull();
     expect(stripQuestionFrame("Har vi något att måla med?")).toBeNull();
+  });
+});
+
+describe("isStrongMatch and countPlaceText (Story 18.23)", () => {
+  it("is sure only for the name itself, or one or two words the name starts with", () => {
+    expect(isStrongMatch("gravljus", "Gravljus")).toBe(true);
+    expect(isStrongMatch("gravljusen", "Gravljus")).toBe(true);
+    expect(isStrongMatch("glödlampor e27", "Glödlampor E27")).toBe(true);
+    expect(isStrongMatch("glödlampor", "Glödlampor E27")).toBe(true);
+    expect(isStrongMatch("gravljus i stugan", "Gravljus")).toBe(false);
+    expect(isStrongMatch("batterier till fjärrkontrollen", "Batterier AA")).toBe(false);
+    expect(isStrongMatch("ljus", "Värmeljus")).toBe(false);
+  });
+
+  it("names the boende only when asked to", () => {
+    const where = { room: "Förrådet", part: "Översta hyllan", isBox: false, siteName: "Stugan" };
+    expect(countPlaceText(where, false)).toBe("Förrådet · Översta hyllan");
+    expect(countPlaceText(where, true)).toBe("Förrådet · Översta hyllan (Stugan)");
   });
 });

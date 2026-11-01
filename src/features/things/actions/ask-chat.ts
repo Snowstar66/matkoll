@@ -8,10 +8,10 @@ import { cleanModelText, cutCodePoints } from "@/lib/suggest-input";
 import type { AskThingsPlace } from "@/server/ai";
 import { ThingsDataError } from "../data/client";
 import { findNotedIn, loadRoomPartsIn } from "../data/noted";
-import { loadUnseenIn, searchThingsIn } from "../data/search";
+import { countSitesIn, loadUnseenIn, searchThingsIn } from "../data/search";
 import { chatInputSchema, cleanHistory, groupHits, maxAnswerHits, questionTooLongText, questionWords, refOfGroup, type ChatRef, type ChatTurn } from "../domain/thing-ask";
 import { placeTitle } from "../domain/thing-place";
-import { hitDateText, hitRoomText, isPlainSearch, plainSearchAnswer, rankHits, searchTerms, stripQuestionFrame, type ThingHit } from "../domain/thing-search";
+import { countPlaceText, hitDateText, isPlainSearch, isStrongMatch, plainSearchAnswer, rankHits, searchTerms, stripQuestionFrame, type ThingHit } from "../domain/thing-search";
 import { countAnswer } from "../domain/thing-count";
 import { loadChangesIn } from "../data/count";
 import { thingNounCap } from "../domain/thing-noun";
@@ -93,15 +93,20 @@ export async function askChat(input: { question: string; history: ChatTurn[]; si
     const searched = framed ?? question;
     let found: ThingHit[];
     let answer: string | null = null;
+    // A sure count answer, or a framed question answered at all, needs the name itself: what is left of
+    // "har vi gravljus i stugan" may be about something the name does not say (a boende, a use).
+    const isStrong = (hit: ThingHit) => isStrongMatch(searched, hit.name);
     try {
       const db = await createClient();
       found = await searchThingsIn(db, searchTerms(searched), maxAnswerHits);
       const { best } = rankHits(searched, found);
       // One counted föremål that answers: its count and how it has changed since the card, from the history.
       const [only] = best;
-      if (best.length === 1 && only.quantity !== null) {
+      if (best.length === 1 && only.quantity !== null && isStrong(only)) {
         const changes = (await loadChangesIn(db, [only.id])).get(only.id) ?? [];
-        answer = countAnswer(only.name, hitRoomText(only), only.quantity, changes);
+        // The boende is named when there is more than one, or the föremål is not in the page's.
+        const otherSite = (siteId !== undefined && only.siteId !== siteId) || (await countSitesIn(db)) > 1;
+        answer = countAnswer(only.name, countPlaceText(only, otherSite), only.quantity, changes);
       }
     } catch (error) {
       if (!(error instanceof ThingsDataError)) throw error;
@@ -109,7 +114,7 @@ export async function askChat(input: { question: string; history: ChatTurn[]; si
       return fail("things_unavailable");
     }
     const { best, similar } = rankHits(searched, found);
-    if (found.length > 0 && (framed === null || best.length > 0)) {
+    if (found.length > 0 && (framed === null || (best.length > 0 && isStrong(best[0])))) {
       console.info("things_searched", { best: best.length, similar: similar.length, framed: framed !== null, counted: answer !== null });
       return ok({ answer: answer ?? plainSearchAnswer(searched, best), refs: [], hits: best, similar });
     }

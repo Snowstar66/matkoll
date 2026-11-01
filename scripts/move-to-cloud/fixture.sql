@@ -60,6 +60,10 @@ insert into public.thing_item (id, user_id, photo_id, place_id, name, category, 
  ('b6000000-0000-4000-8000-000000000003', :'uid', null, 'b4000000-0000-4000-8000-000000000002', 'Julgransfot', 'Hushåll', null, 'high', 0, 'manual');
 insert into public.thing_item (id, user_id, photo_id, place_id, name, category, where_hint, confidence, position, source, same_as) values
  ('b6000000-0000-4000-8000-000000000002', :'uid', 'b5000000-0000-4000-8000-000000000002', 'b4000000-0000-4000-8000-000000000001', 'Borrmaskin', 'Verktyg', null, 'medium', 0, 'photo', 'b6000000-0000-4000-8000-000000000001');
+update public.thing_item set quantity = 3 where id = 'b6000000-0000-4000-8000-000000000001';
+insert into public.thing_change (id, user_id, item_id, kind, delta, quantity_after, created_at) values
+ ('bc000000-0000-4000-8000-000000000001', :'uid', 'b6000000-0000-4000-8000-000000000001', 'card', null, 5, now() - interval '2 days'),
+ ('bc000000-0000-4000-8000-000000000002', :'uid', 'b6000000-0000-4000-8000-000000000001', 'take', -2, 3, now() - interval '1 day');
 insert into public.ai_job (id, user_id, kind, status, client_key, context, result, created_at, started_at, finished_at, expires_at) values
  ('b7000000-0000-4000-8000-000000000001', :'uid', 'import', 'done', 'b8000000-0000-4000-8000-000000000001', '{}', '{"ok":true}', now(), now(), now(), now() + interval '1 hour');
 insert into public.ai_job (id, user_id, kind, status, client_key, context, created_at, started_at, expires_at) values

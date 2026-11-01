@@ -117,9 +117,18 @@ describe("the count of a föremål (Story 18.23)", () => {
       ["take", -2, 6, null],
       ["card", null, 8, null],
     ]);
-    expect(await undoChangeIn(a.db, (filled as { changeId: string }).changeId)).toBe(0);
-    expect((await kinds(id)).map(([kind]) => kind)).toEqual(["take", "take", "card"]);
-    expect(await undoChangeIn(a.db, (filled as { changeId: string }).changeId)).toBe("gone");
+    // Only the newest change can be undone: the refill has a take after it.
+    expect(await undoChangeIn(a.db, (filled as { changeId: string }).changeId)).toBe("not_latest");
+    expect((await loadCountIn(a.db, id))?.quantity).toBe(0);
+    expect((await a.db.rpc("undo_thing_change", { change: (filled as { changeId: string }).changeId })).error?.code).toBe("MK444");
+    const last = (await kinds(id)).length;
+    const newest = (await loadChangesIn(a.db, [id])).get(id)![0];
+    expect(await undoChangeIn(a.db, newest.id)).toBe(9);
+    expect(await kinds(id)).toHaveLength(last - 1);
+    expect(await undoChangeIn(a.db, newest.id)).toBe("gone");
+    // Now the refill is the newest, and it goes too.
+    expect(await undoChangeIn(a.db, (filled as { changeId: string }).changeId)).toBe(6);
+    expect((await kinds(id)).map(([kind]) => kind)).toEqual(["take", "card"]);
     await setQuantityIn(a.db, id, 9999);
     expect(await changeQuantityIn(a.db, id, 999)).toMatchObject({ quantity: 9999 });
     // Bad steps are refused by the database too.
@@ -159,12 +168,15 @@ describe("the count of a föremål (Story 18.23)", () => {
       ["set", null, 1, null],
     ]);
     const snapshot = await stopCountIn(a.db, id);
-    if (snapshot === "gone") throw new Error("gone");
+    if (typeof snapshot === "string") throw new Error(snapshot);
     expect(snapshot.quantity).toBe(2);
     expect(snapshot.changes).toHaveLength(2);
     expect((await loadCountIn(a.db, id))?.quantity).toBeNull();
     expect(await kinds(id)).toEqual([]);
-    expect(await stopCountIn(a.db, id)).toBe("gone");
+    // Stopping again says it is not counted (MK442), not that it is gone.
+    expect(await stopCountIn(a.db, id)).toBe("not_counted");
+    expect((await a.db.rpc("stop_thing_count", { item: id })).error?.code).toBe("MK442");
+    expect(await stopCountIn(a.db, randomUUID())).toBe("gone");
     expect(await restoreCountIn(a.db, snapshot)).toBe("restored");
     expect((await loadCountIn(a.db, id))?.quantity).toBe(2);
     expect(await kinds(id)).toEqual([
@@ -230,6 +242,33 @@ describe("the count of a föremål (Story 18.23)", () => {
     const newBatteries = await itemOf(again.cardId, "Batterier");
     expect(newBatteries.quantity).toBe(6);
     expect(await kinds(newBatteries.id)).toEqual([["card", null, 6, 1]]);
+  });
+
+  it("does not hide a count behind a merge when a removed föremål comes back (relink)", async () => {
+    const first = await card(a, "Boden", "Hyllan");
+    await saveReadingIn(a.db, { photoId: first.cardId, things: [read("Batterier AA", 4)], note: null, hidden: 0 });
+    const kept = await itemOf(first.cardId, "Batterier AA");
+    const second = await card(a, "Boden", null);
+    await saveReadingIn(a.db, { photoId: second.cardId, things: [read("Batterier AA")], note: null, hidden: 0 });
+    const dup = await itemOf(second.cardId, "Batterier AA");
+    expect(await mergeItemsIn(a.db, second.cardId, [{ item: dup.id, target: kept.id }])).toBe(1);
+    // The kept one goes; the merged one is a föremål of its own then, and is counted on its own.
+    const snapshot = await removeItemIn(a.db, kept.id);
+    if (!snapshot) throw new Error("not removed");
+    expect(snapshot.pointedBy).toEqual([dup.id]);
+    expect((await itemOf(second.cardId, "Batterier AA")).same_as).toBeNull();
+    await setQuantityIn(a.db, dup.id, 7);
+    // Ångra: the removed one is back, but the counted one is not pointed at it again, so its count still shows.
+    expect(await restoreItemIn(a.db, snapshot)).toBe("restored");
+    const after = await itemOf(second.cardId, "Batterier AA");
+    expect(after.same_as).toBeNull();
+    expect(after.quantity).toBe(7);
+    expect((await searchThingsIn(a.db, ["batterier aa"])).filter((hit) => hit.quantity === 7).map((hit) => hit.id)).toEqual([dup.id]);
+    expect((await a.db.rpc("relink_thing_items", { links: [{ id: kept.id, same_as: null, pointed_by: [dup.id] }] })).data).toBe(0);
+    // Without a count of its own, it is pointed back as before.
+    await stopCountIn(a.db, dup.id);
+    expect((await a.db.rpc("relink_thing_items", { links: [{ id: kept.id, same_as: null, pointed_by: [dup.id] }] })).data).toBe(1);
+    expect((await itemOf(second.cardId, "Batterier AA")).same_as).toBe(kept.id);
   });
 
   it("brings a removed föremål back with its count and history", async () => {

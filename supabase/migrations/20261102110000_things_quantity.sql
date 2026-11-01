@@ -75,6 +75,8 @@ create policy thing_change_delete on public.thing_change
 
 revoke all on table public.thing_change from public, anon, authenticated, service_role;
 grant select, insert, delete on table public.thing_change to authenticated, service_role;
+-- `pnpm move:cloud` copies the rows with upserts as the service role; a signed-in user never updates one.
+grant update on table public.thing_change to service_role;
 
 -- 3. At most 50 rows per föremål: the oldest go when a new one comes.
 create or replace function public.thing_change_trim()
@@ -160,7 +162,8 @@ grant execute on function public.change_thing_quantity(uuid, integer) to authent
 -- 5. Ångra a take or refill: gives back what it changed (never below 0 nor
 -- above 9999) and removes it from the history. MK440 when the change is not
 -- the caller's, is not a take or refill, is gone (a new card cleared it), or
--- its föremål is no longer counted. Returns the new count.
+-- its föremål is no longer counted; MK444 when it is not the föremål's newest
+-- change. Returns the new count.
 create or replace function public.undo_thing_change(change uuid)
 returns integer
 language plpgsql
@@ -183,6 +186,14 @@ begin
   where c.id = change and c.user_id = caller and c.kind in ('take', 'refill');
   if not found then
     raise exception 'the change is not found' using errcode = 'MK440';
+  end if;
+  -- Only the newest change of the föremål: an older one undone would rewrite a count that has moved on since.
+  if exists (
+    select 1 from public.thing_change as newer
+    where newer.item_id = target.item_id and newer.user_id = caller
+      and (newer.created_at, newer.id) > (target.created_at, target.id)
+  ) then
+    raise exception 'only the newest change can be undone' using errcode = 'MK444';
   end if;
   select i.quantity into before_count from public.thing_item as i where i.id = target.item_id and i.user_id = caller for update;
   if not found or before_count is null then
@@ -241,8 +252,8 @@ revoke all on function public.set_thing_quantity(uuid, integer) from public, ano
 grant execute on function public.set_thing_quantity(uuid, integer) to authenticated, service_role;
 
 -- 7. Sluta räkna: the count and its history go. Returns what was there
--- ({ "item", "quantity", "changes": [...] }) for Ångra (restore_thing_count),
--- or MK440 when the föremål is not the caller's or not counted.
+-- ({ "item", "quantity", "changes": [...] }) for Ångra (restore_thing_count).
+-- MK440 when the föremål is not the caller's, MK442 when it is not counted (already stopped).
 create or replace function public.stop_thing_count(item uuid)
 returns jsonb
 language plpgsql
@@ -266,8 +277,11 @@ begin
     raise exception 'the thing is not found' using errcode = 'MK440';
   end if;
   select i.quantity into before_count from public.thing_item as i where i.id = kept and i.user_id = caller for update;
-  if not found or before_count is null then
-    raise exception 'the thing is not counted' using errcode = 'MK440';
+  if not found then
+    raise exception 'the thing is not found' using errcode = 'MK440';
+  end if;
+  if before_count is null then
+    raise exception 'the thing is not counted' using errcode = 'MK442';
   end if;
 
   select coalesce(jsonb_agg(jsonb_build_object(
@@ -654,3 +668,65 @@ $$;
 
 revoke all on function public.search_things(text[], integer) from public, anon, authenticated, service_role;
 grant execute on function public.search_things(text[], integer) to authenticated, service_role;
+
+-- 12. relink_thing_items (Story 18.6 follow-up) as before, except that a
+-- föremål with a count of its own is never pointed at another again: it would
+-- hide its count and history behind the one it points at. That happens when a
+-- removed föremål comes back (Ångra) after one of the föremål merged into it
+-- was counted on its own meanwhile; that one stays a föremål of its own.
+create or replace function public.relink_thing_items(links jsonb)
+returns integer
+language plpgsql
+security invoker
+set search_path = ''
+as $$
+declare
+  caller uuid := auth.uid();
+  total integer := 0;
+  step integer;
+begin
+  if caller is null then
+    raise exception 'relink_thing_items needs a signed-in user' using errcode = '42501';
+  end if;
+  if jsonb_typeof(links) is distinct from 'array' or jsonb_array_length(links) > 200 then
+    raise exception 'links must be a list of at most 200' using errcode = '22023';
+  end if;
+
+  perform pg_advisory_xact_lock(hashtext('things:' || caller::text));
+
+  update public.thing_item as item
+  set same_as = link.same_as
+  from jsonb_to_recordset(links) as link(id uuid, same_as uuid)
+  where link.same_as is not null
+    and item.id = link.id
+    and item.user_id = caller
+    and item.same_as is null
+    and item.quantity is null
+    and link.same_as <> item.id
+    and not exists (select 1 from public.thing_item as pointing where pointing.same_as = item.id)
+    and exists (select 1 from public.thing_item as kept where kept.id = link.same_as and kept.user_id = caller and kept.same_as is null);
+  get diagnostics step = row_count;
+  total := total + step;
+
+  update public.thing_item as pointer
+  set same_as = link.id
+  from (
+    select entry.id, pointed.value::uuid as pointer_id
+    from jsonb_to_recordset(links) as entry(id uuid, pointed_by jsonb),
+      lateral jsonb_array_elements_text(coalesce(entry.pointed_by, '[]'::jsonb)) as pointed(value)
+  ) as link
+  where pointer.id = link.pointer_id
+    and pointer.user_id = caller
+    and pointer.same_as is null
+    and pointer.quantity is null
+    and pointer.id <> link.id
+    and not exists (select 1 from public.thing_item as pointing where pointing.same_as = pointer.id)
+    and exists (select 1 from public.thing_item as kept where kept.id = link.id and kept.user_id = caller and kept.same_as is null);
+  get diagnostics step = row_count;
+  total := total + step;
+  return total;
+end;
+$$;
+
+revoke all on function public.relink_thing_items(jsonb) from public, anon, authenticated, service_role;
+grant execute on function public.relink_thing_items(jsonb) to authenticated, service_role;

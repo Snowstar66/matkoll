@@ -151,8 +151,9 @@ export function CountCard({ itemId, name, initial }: { itemId: string; name: str
         } catch {
           undone = fail("things_restore_failed");
         }
-        if (!undone.ok) setProblem(undone.error.message);
         await after(null, null);
+        // After the card is read again, which clears any earlier problem.
+        if (!undone.ok) setProblem(undone.error.message);
       });
     },
     setProblem,
@@ -179,7 +180,7 @@ export function CountCard({ itemId, name, initial }: { itemId: string; name: str
   async function stop() {
     if (busy) return;
     setBusy(true);
-    let result: Result<CountSnapshot>;
+    let result: Result<CountSnapshot | null>;
     try {
       result = await stopThingCount(countId);
     } catch {
@@ -191,6 +192,11 @@ export function CountCard({ itemId, name, initial }: { itemId: string; name: str
       return;
     }
     const snapshot = result.data;
+    // Already not counted (stopped on another phone): the card just shows it, with nothing to undo.
+    if (snapshot === null) {
+      await after(null, null);
+      return;
+    }
     await after(stoppedText(name), async () => {
       let restored: Result<null>;
       try {
@@ -198,8 +204,8 @@ export function CountCard({ itemId, name, initial }: { itemId: string; name: str
       } catch {
         restored = fail("things_restore_failed");
       }
-      if (!restored.ok) setProblem(restored.error.message);
       await after(null, null);
+      if (!restored.ok) setProblem(restored.error.message);
     });
   }
 

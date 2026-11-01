@@ -41,7 +41,10 @@ export async function changeThingCount(input: { itemId: string; delta: number })
   }
 }
 
-/** Ångra on Ta or Fyll på: the count as it is now. Fails with `validation`, `things_restore_failed` (the change is gone) or `things_count_failed`. */
+/**
+ * Ångra on Ta or Fyll på: the count as it is now. Fails with `validation`, `things_restore_failed` (the change is
+ * gone), `things_undo_not_latest` (a newer change came after it) or `things_count_failed`.
+ */
 export async function undoThingChange(changeId: string): Promise<Result<{ quantity: number }>> {
   const user = await requireUser();
   if (!user.ok) return user;
@@ -50,7 +53,9 @@ export async function undoThingChange(changeId: string): Promise<Result<{ quanti
   try {
     const undone = await undoChangeIn(await createClient(), parsed.data);
     revalidateFor("thing_item");
-    return undone === "gone" ? fail("things_restore_failed") : ok({ quantity: undone });
+    if (undone === "gone") return fail("things_restore_failed");
+    if (undone === "not_latest") return fail("things_undo_not_latest");
+    return ok({ quantity: undone });
   } catch (error) {
     return failed(error);
   }
@@ -71,8 +76,12 @@ export async function setThingCount(input: { itemId: string; quantity: number })
   }
 }
 
-/** Sluta räkna: the count and its history go, and come back as they were for Ångra. Fails with `validation`, `things_item_gone` or `things_count_failed`. */
-export async function stopThingCount(itemId: string): Promise<Result<CountSnapshot>> {
+/**
+ * Sluta räkna: the count and its history go, and come back as they were for Ångra; `null` when it was not counted
+ * (already stopped, e.g. on another phone), which the sheet takes quietly. Fails with `validation`,
+ * `things_item_gone` or `things_count_failed`.
+ */
+export async function stopThingCount(itemId: string): Promise<Result<CountSnapshot | null>> {
   const user = await requireUser();
   if (!user.ok) return user;
   const parsed = idSchema.safeParse(itemId);
@@ -80,7 +89,8 @@ export async function stopThingCount(itemId: string): Promise<Result<CountSnapsh
   try {
     const stopped = await stopCountIn(await createClient(), parsed.data);
     revalidateFor("thing_item");
-    return stopped === "gone" ? fail("things_item_gone") : ok(stopped);
+    if (stopped === "gone") return fail("things_item_gone");
+    return ok(stopped === "not_counted" ? null : stopped);
   } catch (error) {
     return failed(error);
   }

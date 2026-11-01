@@ -204,4 +204,28 @@ describe("the count card in a föremål's sheet (Story 18.23)", () => {
     await userEvent.click(screen.getByRole("button", { name: "Ångra" }));
     await waitFor(() => expect(restoreThingCount).toHaveBeenCalledWith(snapshot));
   });
+
+  it("takes it quietly when the count was already stopped elsewhere, with nothing to undo", async () => {
+    loadThingCount.mockResolvedValueOnce(ok({ itemId, quantity: 3, changes: history }));
+    loadThingCount.mockResolvedValue(ok({ itemId, quantity: null, changes: [] }));
+    stopThingCount.mockResolvedValue(ok(null));
+    render(<CountCard itemId={itemId} name="Gravljus" initial={3} />);
+    await screen.findByText("Du borde ha 3 kvar · kortet 12 okt visade 6");
+    await userEvent.click(screen.getByRole("button", { name: "Sluta räkna" }));
+    expect(await screen.findByText("· räknas inte")).toBeInTheDocument();
+    expect(screen.queryByRole("alert")).not.toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: "Ångra" })).not.toBeInTheDocument();
+  });
+
+  it("says when Ångra is not for the newest change", async () => {
+    loadThingCount.mockResolvedValue(ok({ itemId, quantity: 3, changes: history }));
+    changeThingCount.mockResolvedValue(ok({ changeId, quantity: 2 }));
+    undoThingChange.mockResolvedValue({ ok: false, error: { code: "things_undo_not_latest", message: "Det går bara att ångra den senaste ändringen." } });
+    render(<CountCard itemId={itemId} name="Gravljus" initial={3} />);
+    await screen.findByText("Du borde ha 3 kvar · kortet 12 okt visade 6");
+    await userEvent.click(screen.getByRole("button", { name: "Ta" }));
+    await userEvent.click(screen.getByRole("button", { name: "Ta 1" }));
+    await userEvent.click(within(await screen.findByTestId("count-done")).getByRole("button", { name: "Ångra" }));
+    expect(await screen.findByRole("alert")).toHaveTextContent("Det går bara att ångra den senaste ändringen.");
+  });
 });

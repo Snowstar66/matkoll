@@ -8,6 +8,7 @@ import type { ThingHit } from "../domain/thing-search";
 const searchThingsIn = vi.fn();
 const loadChangesIn = vi.fn();
 const thingSearchTerms = vi.fn();
+const countSitesIn = vi.fn();
 vi.mock("server-only", () => ({}));
 vi.mock("@/features/auth/server", () => ({ requireUser: async () => ({ ok: true, data: { id: "u" } }) }));
 vi.mock("@/lib/supabase/server", () => ({ createClient: async () => ({}) }));
@@ -17,6 +18,7 @@ vi.mock("@/features/settings/server", () => ({
 vi.mock("../data/search", () => ({
   searchThingsIn: (...args: unknown[]) => searchThingsIn(...args),
   loadUnseenIn: async () => [],
+  countSitesIn: (...args: unknown[]) => countSitesIn(...args),
 }));
 vi.mock("../data/count", () => ({ loadChangesIn: (...args: unknown[]) => loadChangesIn(...args) }));
 vi.mock("../data/noted", () => ({ findNotedIn: vi.fn(), loadRoomPartsIn: async () => [] }));
@@ -50,6 +52,7 @@ beforeEach(() => {
   searchThingsIn.mockReset();
   loadChangesIn.mockReset();
   thingSearchTerms.mockReset().mockResolvedValue({ ok: false, error: { code: "ai_unavailable", message: "" } });
+  countSitesIn.mockReset().mockResolvedValue(1);
 });
 
 describe("askChat with a count (Story 18.23)", () => {
@@ -79,5 +82,29 @@ describe("askChat with a count (Story 18.23)", () => {
     searchThingsIn.mockResolvedValue([{ ...gravljus, name: "Tändare" }]);
     await askChat({ question: "har vi tändstickor", history: [] });
     expect(thingSearchTerms).toHaveBeenCalled();
+  });
+
+  it("gives no count answer when the rest of the words ask about something the name does not say, and lets the AI have it", async () => {
+    searchThingsIn.mockResolvedValue([gravljus]);
+    loadChangesIn.mockResolvedValue(new Map([[gravljus.id, []]]));
+    await askChat({ question: "har vi gravljus i stugan", history: [] });
+    expect(thingSearchTerms).toHaveBeenCalledTimes(1);
+    expect(loadChangesIn).not.toHaveBeenCalled();
+    searchThingsIn.mockResolvedValue([{ ...gravljus, name: "Batterier AA" }]);
+    await askChat({ question: "finns det batterier till fjärrkontrollen", history: [] });
+    expect(thingSearchTerms).toHaveBeenCalledTimes(2);
+    expect(loadChangesIn).not.toHaveBeenCalled();
+  });
+
+  it("names the boende when there is more than one, or when the föremål is in another than the page's", async () => {
+    searchThingsIn.mockResolvedValue([{ ...gravljus, quantity: 5, siteName: "Stugan" }]);
+    loadChangesIn.mockResolvedValue(new Map([[gravljus.id, [change("card", "2026-10-12T10:00:00Z", 5)]]]));
+    countSitesIn.mockResolvedValue(2);
+    expect(await askChat({ question: "har vi gravljus", history: [] })).toMatchObject({ data: { answer: "Ja, 5 gravljus i Förrådet · Översta hyllan (Stugan)." } });
+    countSitesIn.mockResolvedValue(1);
+    expect(await askChat({ question: "har vi gravljus", history: [], siteId: "0b2f6d0a-3c0e-4d52-9a54-6d0f0c5f6a99" })).toMatchObject({
+      data: { answer: "Ja, 5 gravljus i Förrådet · Översta hyllan (Stugan)." },
+    });
+    expect(await askChat({ question: "har vi gravljus", history: [], siteId: gravljus.siteId })).toMatchObject({ data: { answer: "Ja, 5 gravljus i Förrådet · Översta hyllan." } });
   });
 });

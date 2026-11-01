@@ -290,6 +290,24 @@ export function hitRoomText(hit: Pick<ThingHit, "room" | "part" | "isBox">): str
   return [hit.room, hit.isBox && hit.part ? inBoxText(hit.part) : hit.part].filter(Boolean).join(" · ");
 }
 
+/** The same with the boende when it must be said (more than one, or not the page's): "Förrådet · Översta hyllan (Stugan)". */
+export function countPlaceText(hit: Pick<ThingHit, "room" | "part" | "isBox" | "siteName">, withSite: boolean): string {
+  const place = hitRoomText(hit);
+  return withSite && hit.siteName.trim() !== "" ? `${place} (${hit.siteName})` : place;
+}
+
+/**
+ * Story 18.23: whether a name answers the text surely enough for a count answer from the database: the same
+ * name (also in another form, "gravljusen"), or a text of one or two words the name starts with ("glödlampor"
+ * for "Glödlampor E27"). "gravljus i stugan" or "batterier till fjärrkontrollen" are not: the rest of the
+ * words may ask about something the name does not say.
+ */
+export function isStrongMatch(query: string, name: string): boolean {
+  const rank = hitRank(query, name);
+  const words = searchKey(query).split(/[^\p{L}\p{N}]+/u).filter(Boolean).length;
+  return rank >= 3 || (rank >= 2 && words <= 2);
+}
+
 /**
  * The line under a hit's name (Story 18.19): where it is, the boende when it is
  * not the page's, and the day for a thing written in by hand ("skrivet 31 okt");

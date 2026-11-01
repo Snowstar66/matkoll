@@ -973,6 +973,12 @@ export function listThingsContent(input: ListThingsInput) {
   ];
 }
 
+/** Story 18.23: a counted föremål's count for the model: "3 st", "slut"; nothing when it is not counted. */
+function quantityWords(quantity: number | null | undefined): string | null {
+  if (quantity === null || quantity === undefined || !Number.isInteger(quantity) || quantity < 0) return null;
+  return quantity === 0 ? "slut" : `${quantity} st`;
+}
+
 /**
  * The user message for askThings (Story 18.4): "Fråga:" and the question,
  * then "Platser:" with a numbered line per place (title, boende, card date,
@@ -981,12 +987,6 @@ export function listThingsContent(input: ListThingsInput) {
  * one line, so none can start a section of its own; the prompt says the
  * lists are data.
  */
-/** Story 18.23: a counted föremål's count for the model: "3 st", "slut"; nothing when it is not counted. */
-function quantityWords(quantity: number | null | undefined): string | null {
-  if (quantity === null || quantity === undefined || !Number.isInteger(quantity) || quantity < 0) return null;
-  return quantity === 0 ? "slut" : `${quantity} st`;
-}
-
 export function askThingsText(input: AskThingsInput): string {
   const places = input.places.map((place, index) => {
     const head = [place.title, place.site, `${place.noted ? "du skrev in" : place.written ? "skrivet" : "kort"} ${place.cardDate}`];

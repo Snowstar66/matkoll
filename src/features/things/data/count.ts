@@ -13,6 +13,7 @@ import { guarded, ThingsDataError, type ThingsDb } from "./client";
 const goneCode = "MK440";
 const notCountedCode = "MK442";
 const countedAgainCode = "MK443";
+const notLatestCode = "MK444";
 
 const changedSchema = z.array(z.object({ change_id: z.uuid(), quantity_now: z.number().int() })).length(1);
 
@@ -36,12 +37,16 @@ export async function changeQuantityIn(db: ThingsDb, itemId: string, delta: numb
   });
 }
 
-/** Ångra on a take or refill: the new count, or `gone` when the change is gone (a new card cleared it). Throws ThingsDataError `undo_failed <code>`. */
-export async function undoChangeIn(db: ThingsDb, changeId: string): Promise<number | "gone"> {
+/**
+ * Ångra on a take or refill: the new count, `gone` when the change is gone (a new card cleared it), or `not_latest`
+ * when a newer change of the föremål came after it. Throws ThingsDataError `undo_failed <code>`.
+ */
+export async function undoChangeIn(db: ThingsDb, changeId: string): Promise<number | "gone" | "not_latest"> {
   return guarded("undo", async () => {
     const { data, error } = await db.rpc("undo_thing_change", { change: changeId });
     if (error) {
       if (error.code === goneCode) return "gone";
+      if (error.code === notLatestCode) return "not_latest";
       throw new ThingsDataError(`undo_failed ${error.code}`);
     }
     if (typeof data !== "number") throw new ThingsDataError("invalid_row");
@@ -63,12 +68,16 @@ export async function setQuantityIn(db: ThingsDb, itemId: string, quantity: numb
   });
 }
 
-/** Sluta räkna: the count and its history go; what was there comes back for Ångra. `gone` when not the user's or not counted. Throws ThingsDataError `stop_failed <code>` or `invalid_row`. */
-export async function stopCountIn(db: ThingsDb, itemId: string): Promise<CountSnapshot | "gone"> {
+/**
+ * Sluta räkna: the count and its history go; what was there comes back for Ångra. `gone` when not the user's,
+ * `not_counted` when it was not counted (already stopped). Throws ThingsDataError `stop_failed <code>` or `invalid_row`.
+ */
+export async function stopCountIn(db: ThingsDb, itemId: string): Promise<CountSnapshot | "gone" | "not_counted"> {
   return guarded("stop", async () => {
     const { data, error } = await db.rpc("stop_thing_count", { item: itemId });
     if (error) {
       if (error.code === goneCode) return "gone";
+      if (error.code === notCountedCode) return "not_counted";
       throw new ThingsDataError(`stop_failed ${error.code}`);
     }
     const parsed = countSnapshotSchema.safeParse(data);
