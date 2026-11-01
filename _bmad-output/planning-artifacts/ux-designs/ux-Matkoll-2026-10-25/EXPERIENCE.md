@@ -107,6 +107,20 @@ Matkoll skriver aldrig att Pontus *är* på ett ställe, bara vilket lager som g
 | "8 varor kvar" och "6 av 14 i korgen" | "43 % klart 🛒" |
 | "Saknas i Stugan" | "Finns inte i stugan!" |
 
+**Ordlistan (Story 19.7):** samma sak heter alltid samma sak.
+
+| Säg | Inte |
+| --- | --- |
+| Boende ("Boende: Hemma") | Ställe, plats, lager (om hemmet) |
+| Matvaror (sidan), vara (en rad i den och på inköpslistan) | Lagersaldo, ingrediens, produkt, artikel |
+| föremål (i Förråd), rum, kort | prylar, saker, grejer |
+| Lägg till | Lägg in, Skapa, Ny |
+| Tog bort Kaffe. + Ångra | Raderad, Borttagen, en kontrollfråga |
+| Avbryt (stänger utan att spara), Klar (stänger när inget sparas) | Stäng, OK |
+| "Till Panerad kycklingfärsburgare" (var en vara behövs), "Egen" (en egen vara) | "Från …", "Egen vara" som löptext |
+
+**Tomt läge (Story 19.7):** en och samma komponent överallt: en mening (16/400), vid behov en hjälprad (14 px grått) och en knapp för nästa steg. En sökning utan träff säger "Inget matchar ”…”." med knappen "Rensa sökning".
+
 **Foton i texter (Epic 10):** tiden skrivs "idag 15:42", "igår 09:10" eller "24 okt 15:42", i svensk tid. Platsen står i bestämd form som i 1.0 ("fotot av kylen"), och stället nämns inte, eftersom Lagersaldo redan visar vilket ställe som gäller. Texterna säger vad AI:n läste av, aldrig att den "såg" eller "förstod" något.
 
 | Gör | Gör inte |

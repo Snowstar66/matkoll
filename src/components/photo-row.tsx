@@ -1,5 +1,6 @@
 import { type ReactNode, type Ref } from "react";
 import { cx } from "./cx";
+import { CameraIcon } from "./icons";
 
 // The quiet camera row (Story 14.6): a card with an icon tile, the action's
 // title, a sub line and a chevron, like the shopping row in Matsedel. The
@@ -25,7 +26,7 @@ export function PhotoRow({ title, onClick, disabled, hidden, buttonRef, variant 
   return (
     <div hidden={hidden} className={cx("relative flex min-h-tap items-center gap-3 rounded-lg px-3.5 py-3", primary ? "bg-accent" : "bg-surface", hidden && "hidden")}>
       <span aria-hidden="true" className={cx("flex size-8 shrink-0 items-center justify-center rounded-md", primary ? "bg-on-accent/20" : "bg-sky")}>
-        {"\u{1F4F7}"}
+        <CameraIcon size={20} className={primary ? "text-on-accent" : "text-sky-ink"} />
       </span>
       <div className="flex min-w-0 flex-1 flex-col">
         <button

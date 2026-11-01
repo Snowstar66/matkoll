@@ -18,7 +18,7 @@ import type { ShoppingLine } from "../domain/compute-list";
 import { exactAmountText } from "../domain/custom-item";
 import { parseLineKey } from "../domain/line-key";
 import { isAmountKey, lineAmountFieldErrors, lineAmountFormSchema } from "../domain/line-override";
-import { backToComputedText, computedAmountText, detailOriginsText } from "../domain/list-text";
+import { backToComputedText, computedAmountText, dishTitlesOf } from "../domain/list-text";
 import { canHaveProductChoice, type ProductChoiceContext, saveItemFirstText } from "../domain/product-choice";
 import { CustomItemSheet } from "./custom-item-sheet";
 import type { OwnChanges } from "./own-changes";
@@ -247,7 +247,8 @@ function RecipeLineDetail({
     onRemove(line, true);
   }
 
-  const origins = detailOriginsText(line.origins, dishTitles);
+  // Story 19.7: "Behövs till", one row per dish, or "Du lade till den själv" for an own item.
+  const origins = dishTitlesOf(line.origins, dishTitles);
   const formId = `${ids}-form`;
 
   return (
@@ -332,16 +333,25 @@ function RecipeLineDetail({
             ) : null}
           </form>
         ) : null}
-        {line.pantryNote || origins ? (
+        {line.pantryNote || origins.length > 0 || line.isCustom ? (
           <div className="flex flex-col gap-1">
             {line.pantryNote ? (
               <p data-testid="line-detail-pantry" className="text-body text-ink-2">
                 ({line.pantryNote})
               </p>
             ) : null}
-            {origins ? (
+            {origins.length > 0 ? (
+              <section className="flex flex-col gap-1">
+                <h3 className="text-section-label text-ink-2">Behövs till</h3>
+                <ul data-testid="line-detail-origins" className="flex flex-col text-body text-ink">
+                  {origins.map((title) => (
+                    <li key={title}>{title}</li>
+                  ))}
+                </ul>
+              </section>
+            ) : line.isCustom ? (
               <p data-testid="line-detail-origins" className="text-body text-ink-2">
-                {origins}
+                Du lade till den själv
               </p>
             ) : null}
           </div>

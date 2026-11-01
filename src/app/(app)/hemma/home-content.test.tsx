@@ -262,7 +262,7 @@ describe("HomeContent: Senaste foto (Story 10.2)", () => {
     render(await HomeContent({ site, location: "Kyl", next: "/hemma" }));
     expect(listPlacePhotos).toHaveBeenCalledWith(site.id);
     const line = screen.getByTestId("pantry-latest-photo");
-    expect(line).toHaveTextContent("Senaste idag 15:42");
+    expect(line).toHaveTextContent("Senaste foto idag 15:42");
     expect(within(line).getByRole("button", { name: "Visa senaste foto av kylen" })).toBeInTheDocument();
     // Inside the camera area, under "Fotografera kylen" (Story 14.6).
     expect(screen.getByTestId("pantry-camera")).toContainElement(line);
@@ -283,6 +283,6 @@ describe("HomeContent: Senaste foto (Story 10.2)", () => {
     vi.mocked(listPlacePhotos).mockResolvedValue({ photos: [photo("Kyl", new Date("2026-10-25T09:10:00+01:00"))] });
     render(await HomeContent({ site, location: "Kyl", next: "/hemma" }));
     expect(screen.getByText(unavailable)).toBeInTheDocument();
-    expect(screen.getByTestId("pantry-latest-photo")).toHaveTextContent("Senaste igår 09:10");
+    expect(screen.getByTestId("pantry-latest-photo")).toHaveTextContent("Senaste foto igår 09:10");
   });
 });

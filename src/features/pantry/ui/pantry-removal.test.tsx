@@ -485,7 +485,7 @@ describe("focus after a removal", () => {
     const field = screen.getByRole("searchbox", { name: "Sök i kylen" });
     fireEvent.change(field, { target: { value: "smö" } });
     await removeFocused("Smör");
-    expect(screen.getByText("Inget i kylen matchar.")).toBeInTheDocument();
+    expect(screen.getByText(/Inget matchar/)).toBeInTheDocument();
     expect(field).toHaveFocus();
   });
 

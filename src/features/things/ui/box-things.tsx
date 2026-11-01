@@ -4,6 +4,7 @@ import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { type FormEvent, useId, useState } from "react";
 import { Button, buttonClasses } from "@/components/button";
+import { CameraIcon } from "@/components/icons";
 import { FieldError, FieldLabel } from "@/components/field";
 import { Notice } from "@/components/notice";
 import { errorMessages, fail, type Result } from "@/lib/errors";
@@ -108,7 +109,8 @@ export function BoxThings({ placeId, room, roomHref, initialText, photographed }
         </Button>
       </form>
       <Link href={`${roomHref}?fota=${placeId}`} className={buttonClasses("secondary", true)} data-testid="box-photograph">
-        <span aria-hidden="true">{"\u{1F4F7}"}</span> {photoInsteadText}
+        <CameraIcon size={20} />
+        {photoInsteadText}
       </Link>
       {photographed > 0 ? <p className="px-1 text-meta text-ink-3">{alsoPhotographedText(photographed)}</p> : null}
     </div>

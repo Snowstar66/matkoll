@@ -1,6 +1,7 @@
 "use client";
 
 import { useState, useSyncExternalStore } from "react";
+import { Button } from "@/components/button";
 import { Notice } from "@/components/notice";
 import { fail, type Result } from "@/lib/errors";
 import { requestPasswordReset } from "../actions/request-password-reset";
@@ -40,16 +41,10 @@ export function ChangePassword({ email }: { email: string }) {
         </p>
       ) : null}
       {result && !result.ok ? <Notice role="alert">{result.error.message}</Notice> : null}
-      <div className="rounded-lg bg-surface">
-        <button
-          type="button"
-          disabled={!hydrated || pending}
-          onClick={send}
-          className="flex min-h-[52px] w-full items-center gap-3 rounded-lg px-4 text-left text-body text-accent focus-visible:-outline-offset-2 disabled:cursor-not-allowed disabled:opacity-60"
-        >
-          Byt lösenord
-        </button>
-      </div>
+      {/* Story 19.7: an action is a button, not a row with an arrow. */}
+      <Button variant="secondary" fullWidth disabled={!hydrated || pending} onClick={send}>
+        Byt lösenord
+      </Button>
       <p className="px-1 text-meta text-ink-3">Du får ett mejl med en länk där du väljer ett nytt lösenord.</p>
     </div>
   );

@@ -1,6 +1,7 @@
 "use client";
 
 import { type ReactNode, useEffect, useMemo, useState } from "react";
+import { EmptyState } from "@/components/empty-state";
 import { searchDelayMs } from "@/components/search-field";
 import { searchThingsAction } from "../actions/search-things";
 import {
@@ -46,11 +47,10 @@ function Hits({ query, siteId }: { query: string; siteId?: string }) {
   if (shown === "failed") return <p className="px-1 text-body text-ink-2" role="alert">{searchFailedText}</p>;
   if (shown.length === 0) {
     return (
-      <div className="flex flex-col gap-1 px-1">
-        <p className="text-body wrap-break-word text-ink-2">{noHitsText(query)}</p>
-        {/* Story 18.19: ↑ also saves where something is. */}
-        <p className="text-meta text-ink-3">{noHitsAskText}</p>
-      </div>
+      // Story 18.19: ↑ also saves where something is (the help line).
+      <EmptyState hint={noHitsAskText} className="py-6">
+        {noHitsText(query)}
+      </EmptyState>
     );
   }
   return (

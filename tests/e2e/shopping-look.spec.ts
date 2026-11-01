@@ -242,12 +242,12 @@ test("the list shows the progress row, the categories, the line under each name 
   await expect(progress(page)).toHaveText(/^5 varor kvar\s*0 av 5 i korgen$/);
   await expect(headings(page)).toHaveText(["Frukt & grönt", "Mejeri & ägg", "Kött, fisk & chark", "Såser & smaksättare", "Övrigt"]);
   // The amount after the name, and the dishes with " · " under it, without "från".
-  await expect(lineOf(page, "Matlagningsgrädde")).toContainText("Matlagningsgrädde 3 dl");
-  await expect(lineOf(page, "Matlagningsgrädde")).toContainText(`${stroganoff} · ${gryta}`);
+  await expect(lineOf(page, "Matlagningsgrädde")).toContainText("Matlagningsgrädde Till 2 rätter3 dl");
+  await expect(lineOf(page, "Matlagningsgrädde")).toContainText("Till 2 rätter");
   await expect(lineOf(page, "Gul lök")).toContainText(stroganoff);
   // The vague line counted against Stugan, and the own item.
-  await expect(lineOf(page, "Senap")).toContainText(`Saknas i Stugan · ${stroganoff}`);
-  await expect(lineOf(page, "Diskmedel")).toContainText("Egen vara");
+  await expect(lineOf(page, "Senap")).toContainText(`Saknas i Stugan · Till ${stroganoff}`);
+  await expect(lineOf(page, "Diskmedel")).toContainText("Egen");
   await expect(page.getByText("Finns hemma?")).toHaveCount(0);
   await expect(page.getByText(/från /).filter({ visible: true })).toHaveCount(0);
   // The selected store's product choice, as a chip beside Falukorv.

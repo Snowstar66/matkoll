@@ -5,9 +5,10 @@ import { useRouter } from "next/navigation";
 import { type ReactNode, type RefObject, useEffect, useId, useMemo, useOptimistic, useRef, useState, useTransition } from "react";
 import { Button, buttonClasses } from "@/components/button";
 import { CategoryHeader } from "@/components/category-header";
-import { Checkbox } from "@/components/checkbox";
+import { CheckCircle } from "@/components/check-circle";
 import { cx } from "@/components/cx";
 import { EmptyState } from "@/components/empty-state";
+import { PlusIcon } from "@/components/icons";
 import { FixedAction } from "@/components/fixed-action";
 import type { SearchIngredients } from "@/components/ingredient-picker";
 import { ListGroup } from "@/components/list-group";
@@ -883,6 +884,22 @@ export function ShoppingList({
     />
   );
 
+  // "+ Lägg till egen vara": a row at the end of the list (rows go somewhere, buttons do something; Story 19.7).
+  const addRow = (
+    <li key="add-custom-item">
+      <button
+        type="button"
+        data-add-custom-item
+        aria-haspopup="dialog"
+        onClick={() => setSheet((current) => ({ open: true, session: current.session + 1 }))}
+        className="flex min-h-[52px] w-full items-center gap-2.5 px-4 text-left text-row-title text-accent focus-visible:-outline-offset-2"
+      >
+        <PlusIcon size={20} />
+        Lägg till egen vara
+      </button>
+    </li>
+  );
+
   return (
     <div
       ref={rootRef}
@@ -977,22 +994,15 @@ export function ShoppingList({
           ) : (
             <div data-list-lines className="flex flex-col gap-4">
               <ProgressRow left={itemsLeft(lines)} checked={inBasket.length} total={lines.length} />
-              {groups.map(({ category, lines: categoryLines }) => (
-                <CategorySection key={category} category={category}>
+              {groups.map(({ category, lines: categoryLines }, index) => (
+                <CategorySection key={category} category={category} extra={index === groups.length - 1 ? addRow : undefined}>
                   {categoryLines.map(lineRow)}
                 </CategorySection>
               ))}
             </div>
           )}
           {/* Own items belong to the household, not to a week: also in a week without a plan (Story 17.10). */}
-          <Button
-            variant="secondary"
-            fullWidth
-            data-add-custom-item
-            onClick={() => setSheet((current) => ({ open: true, session: current.session + 1 }))}
-          >
-            Lägg till egen vara
-          </Button>
+          {groups.length > 0 ? null : <ListGroup label="Lägg till egen vara">{addRow}</ListGroup>}
           {inBasket.length > 0 ? (
             <Basket open={basketShown} onOpenChange={changeBasketOpen} count={inBasket.length}>
               {inBasket.map(lineRow)}
@@ -1129,11 +1139,11 @@ function ProgressRow({ left, checked, total }: { left: number; checked: number; 
     <div data-testid="list-progress" className="flex flex-col gap-3 rounded-lg bg-surface p-4">
       {/* The space keeps the two texts apart for screen readers; on screen the flex gap does. */}
       <p className="flex flex-wrap items-baseline justify-between gap-x-3 gap-y-1">
-        <span className="text-row-title text-ink">{text.left}</span>
+        <span className="text-row-title font-semibold text-ink">{text.left}</span>
         {text.basket ? (
           <>
             {" "}
-            <span className="text-body text-ink-3">{text.basket}</span>
+            <span className="text-meta text-ink-2">{text.basket}</span>
           </>
         ) : null}
       </p>
@@ -1147,12 +1157,15 @@ function ProgressRow({ left, checked, total }: { left: number; checked: number; 
  * lines in a list group named by it. A plain div, so a category is no
  * landmark of its own (components/README.md).
  */
-function CategorySection({ category, children }: { category: Category; children: ReactNode[] }) {
+function CategorySection({ category, children, extra }: { category: Category; children: ReactNode[]; extra?: ReactNode }) {
   const headingId = useId();
   return (
     <div data-testid="list-category" className="flex flex-col gap-2">
       <CategoryHeader id={headingId} category={category} count={children.length} />
-      <ListGroup labelledBy={headingId} className="@container">{children}</ListGroup>
+      <ListGroup labelledBy={headingId} inset={56} className="@container">
+        {children}
+        {extra}
+      </ListGroup>
     </div>
   );
 }
@@ -1200,7 +1213,7 @@ function Basket({
       </div>
       {open ? (
         <div id={regionId} data-testid="basket">
-          <ListGroup labelledBy={headingId} className="@container">{children}</ListGroup>
+          <ListGroup labelledBy={headingId} inset={56} className="@container">{children}</ListGroup>
         </div>
       ) : null}
     </>
@@ -1264,29 +1277,30 @@ export function ShoppingLineRow({
   const metaId = useId();
   const chipId = useId();
   const amount = lineAmountText(line);
+  // In a very narrow list (200 % text on a small phone) the amount would squeeze the name to a letter per line:
+  // there it follows the name instead, drawn by CSS from `data-amount` (never in the text, so nothing is read twice).
   const title = (
-    <>
-      {/* A span of its own, so the name can be found apart from the amount. */}
-      <span>{line.label}</span>
-      {amount ? (
-        <>
-          {" "}
-          {/* Struck through with the name when checked, and in its ink-3. */}
-          <span className={cx("font-normal", !line.checked && "text-ink-2")}>{amount}</span>
-        </>
-      ) : null}
-    </>
+    <span data-amount={amount || undefined} className="@max-[20rem]:after:ml-1.5 @max-[20rem]:after:font-normal @max-[20rem]:after:text-ink-2 @max-[20rem]:after:content-[attr(data-amount)]">
+      {line.label}
+    </span>
   );
   const shared = {
     as: "div" as const,
     title,
     // An id, so the check is described by it ("Saknas i Stugan · Korv stroganoff").
-    meta: meta ? <span id={metaId}>{meta}</span> : null,
+    // Story 19.7: an own item has the small label "Egen"; a recipe line says "Till <rätt>" on one line.
+    meta: meta ? (
+      <span id={metaId}>
+        {line.isCustom ? <span className="inline-block rounded-xs bg-border px-1.5 py-px align-middle text-badge text-ink-2">{meta}</span> : meta}
+      </span>
+    ) : null,
+    plain: true,
+    oneLine: true,
     crossedOut: line.checked,
     // The strike-through, said: "Grädde 3 dl, i korgen".
     srStatus: line.checked ? "i korgen" : undefined,
     leading: (
-      <Checkbox
+      <CheckCircle
         checked={line.checked}
         onCheckedChange={onCheckedChange}
         label={checkLabel(line)}
@@ -1301,8 +1315,10 @@ export function ShoppingLineRow({
       />
     ),
     trailing:
-      chip || onTrash ? (
+      amount || chip || onTrash ? (
         <>
+          {/* Story 19.7: the amount to the right in grey, struck through with the name when checked. */}
+          {amount ? <span data-testid="line-amount" className={cx("pr-1 text-right text-[15px] leading-5 whitespace-nowrap @max-[20rem]:hidden", line.checked ? "text-ink-3 line-through" : "text-ink-2")}>{amount}</span> : null}
           {chip ? <ProductChip name={chip} id={chipId} /> : null}
           {onTrash ? (
             <TrashButton label={`Ta bort ${line.label}`} onPress={(_bin, press) => onTrash(press)} />

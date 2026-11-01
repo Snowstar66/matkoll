@@ -128,7 +128,7 @@ describe("Listpostdetalj for a recipe line", () => {
     expect(within(sheet).getByRole("textbox", { name: "Mängd" })).toHaveValue("3");
     expect(within(sheet).getByTestId("line-detail-unit")).toHaveTextContent("dl");
     expect(within(sheet).getByTestId("line-detail-pantry")).toHaveTextContent("(hemma: 1 l)");
-    expect(within(sheet).getByTestId("line-detail-origins")).toHaveTextContent("Från Krämig kycklinggryta, Linssoppa");
+    expect(within(sheet).getByTestId("line-detail-origins")).toHaveTextContent("Krämig kycklinggrytaLinssoppa");
     expect(within(sheet).queryByTestId("line-detail-computed")).not.toBeInTheDocument();
     expect(within(sheet).getByRole("button", { name: "Ta bort" })).toBeInTheDocument();
     expect(within(sheet).getByRole("button", { name: "Avbryt" })).toBeInTheDocument();
@@ -222,7 +222,7 @@ describe("Listpostdetalj for a recipe line", () => {
     const sheet = detail("Salt");
     expect(within(sheet).queryByRole("textbox")).not.toBeInTheDocument();
     expect(within(sheet).queryByRole("button", { name: "Spara" })).not.toBeInTheDocument();
-    expect(within(sheet).getByTestId("line-detail-origins")).toHaveTextContent("Från Krämig kycklinggryta");
+    expect(within(sheet).getByTestId("line-detail-origins")).toHaveTextContent("Krämig kycklinggryta");
     expect(within(sheet).getByRole("button", { name: "Ta bort" })).toBeInTheDocument();
     await user.click(within(sheet).getByRole("button", { name: "Klar" }));
     await waitFor(() => expect(screen.queryByRole("dialog")).not.toBeInTheDocument());

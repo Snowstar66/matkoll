@@ -41,6 +41,12 @@ export type ListRowProps = DataAttributes &
     pressProps?: ListRowPressProps;
     /** A ref to the press target (the button or link), e.g. to move focus back to the row. */
     pressRef?: Ref<HTMLElement>;
+    /** Calm rows (Story 19.7): the name in regular weight (17/400) instead of 500. */
+    plain?: boolean;
+    /** The line under the name on one line with "…" (Story 19.7), instead of at most two. */
+    oneLine?: boolean;
+    /** A row 52 px high instead of 56 (Matvaror, Story 19.7). */
+    compact?: boolean;
     className?: string;
   };
 
@@ -71,6 +77,9 @@ export function ListRow(props: ListRowProps) {
     as: Root = "li",
     pressProps,
     pressRef,
+    plain = false,
+    oneLine = false,
+    compact = false,
     className,
     onPress,
     href,
@@ -88,7 +97,7 @@ export function ListRow(props: ListRowProps) {
   const hasMeta = meta !== null && meta !== undefined && meta !== "";
   const text = (
     <>
-      <span className={cx("block text-row-title wrap-break-word", crossedOut ? "text-ink-3 line-through" : "text-ink")}>
+      <span className={cx("block text-row-title wrap-break-word", plain && "font-normal", crossedOut ? "text-ink-3 line-through" : "text-ink")}>
         {title}
         {srStatus ? (
           <>
@@ -100,7 +109,7 @@ export function ListRow(props: ListRowProps) {
       {hasMeta ? (
         <>
           {/* Keeps the name and the line under it apart in the accessible name; the two blocks give the pause. */}{" "}
-          <span className="mt-0.5 line-clamp-2 block wrap-break-word text-meta text-ink-3">{meta}</span>
+          <span className={cx("mt-0.5 block wrap-break-word text-meta text-ink-3", oneLine ? "truncate" : "line-clamp-2")}>{meta}</span>
         </>
       ) : null}
     </>
@@ -116,7 +125,7 @@ export function ListRow(props: ListRowProps) {
   const slot = "flex shrink-0 items-center [&_*:focus-visible]:-outline-offset-2";
 
   return (
-    <Root {...data} className={cx("flex min-h-row items-stretch", className)}>
+    <Root {...data} className={cx("flex items-stretch", compact ? "min-h-[52px]" : "min-h-row", className)}>
       {leading ? <div className={cx(slot, "pl-2")}>{leading}</div> : null}
       {onPress ? (
         <button

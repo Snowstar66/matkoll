@@ -82,7 +82,7 @@ async function Rooms({ site }: { site: SelectedSite }) {
   }
   if (rooms.length === 0) {
     return (
-      <EmptyState className="items-stretch px-1.5 pt-4 pb-0 text-left" action={<NewRoom siteId={site.id} />}>
+      <EmptyState action={<NewRoom siteId={site.id} />}>
         {thingsEmptyText}
       </EmptyState>
     );

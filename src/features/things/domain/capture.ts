@@ -26,8 +26,8 @@ export const captureTitle = "Var tar du kortet?";
 export const takeCardText = "Ta kort";
 export const takeCardSubText = "Fota ett rum, en hylla eller en låda";
 export const moreCardsText = "Ta fler kort";
-export const openCameraText = "\u{1F4F7} Ta foto";
-export const pickImagesText = "\u{1F5BC}\uFE0F Välj från Bilder";
+export const openCameraText = "Ta foto";
+export const pickImagesText = "Välj från Bilder";
 /** The file types the picker takes: a HEIC from an iPhone has no `image/*` type in every browser. */
 export const pickerAccept = "image/*,.heic,.heif";
 export const roomExactText = "Mer exakt plats …";
