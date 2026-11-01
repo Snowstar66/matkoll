@@ -144,6 +144,8 @@ const coverage: Record<IsolatedTable, Coverage> = {
   store_offer: {
     row: (s) => ({ store_id: s.storeId, week_start: "2026-10-26", label: "Havets Laxfilé", name: "laxfilé", section: "Kött och fisk", source: "link" }),
   },
+  // Story 24.1: a note to the others in the household (the author and household come from the session).
+  household_note: { row: () => ({ text: "Sugen på fisksoppa idag, kan du handla?", mood: "love", actions: [{ kind: "list" }] }) },
   // Story 20.1: one row per user, the time the welcome tour was closed.
   welcome_tour: { row: () => ({ tour_seen_at: new Date().toISOString() }) },
 };
@@ -177,6 +179,7 @@ const seedOrder: IsolatedTable[] = [
   "thing_photo",
   "thing_item",
   "thing_change",
+  "household_note",
   "welcome_tour",
 ];
 

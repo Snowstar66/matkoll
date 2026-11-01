@@ -5,6 +5,7 @@ import { ChevronLeftIcon } from "../icons";
 import { AccountButton, type HeaderTab } from "./account-button";
 import { BackLink } from "./back-link";
 import { CollapsingTitleRow } from "./collapsing-title-row";
+import { NoteSlot } from "./note-slot";
 
 export type PageHeaderProps = {
   title: string;
@@ -80,7 +81,7 @@ export function PageHeader({
       </header>
     );
   }
-  return (
+  const header = (
     <header className="flex flex-col pt-header-top pb-4 desktop:pt-10">
       {backHref && backInHistory ? (
         <BackLink fallbackHref={backHref} className={backClasses}>
@@ -112,5 +113,13 @@ export function PageHeader({
         </div>
       )}
     </header>
+  );
+  // Story 24.1: a note from someone in the household lies under each tab's title.
+  if (!tab) return header;
+  return (
+    <>
+      {header}
+      <NoteSlot />
+    </>
   );
 }

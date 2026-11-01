@@ -175,6 +175,32 @@ isOneToOne: false
       referencedColumns: ["id"]
     }
                   ]
+                },"household_note": {
+                  Row: {
+                    "actions": NonNullable<Json>,"created_at": string,"done_at": string | null,"done_by": string | null,"household_id": string,"id": string,"mood": Database["public"]['Enums']["household_note_mood"] | null,"reply_to": string | null,"text": string,"user_id": string | null
+                  }
+                  ComputedFields: never
+                  Insert: {
+                    "actions"?: NonNullable<Json>,"created_at"?: string,"done_at"?: string | null,"done_by"?: string | null,"household_id"?: string,"id"?: string,"mood"?: Database["public"]['Enums']["household_note_mood"] | null,"reply_to"?: string | null,"text": string,"user_id"?: string | null
+                  }
+                  Update: {
+                    "actions"?: NonNullable<Json>,"created_at"?: string,"done_at"?: string | null,"done_by"?: string | null,"household_id"?: string,"id"?: string,"mood"?: Database["public"]['Enums']["household_note_mood"] | null,"reply_to"?: string | null,"text"?: string,"user_id"?: string | null
+                  }
+                  Relationships: [
+                    {
+      foreignKeyName: "household_note_household_id_fkey"
+      columns: ["household_id"]
+isOneToOne: false
+      referencedRelation: "household"
+      referencedColumns: ["id"]
+    },{
+      foreignKeyName: "household_note_reply_to_fkey"
+      columns: ["reply_to","household_id"]
+isOneToOne: false
+      referencedRelation: "household_note"
+      referencedColumns: ["id","household_id"]
+    }
+                  ]
                 },"ingredient": {
                   Row: {
                     "created_at": string,"default_unit": string | null,"household_id": string,"id": string,"location": string,"name": string,"normalized_name": string,"section": string,"user_id": string | null
@@ -1002,6 +1028,9 @@ isOneToOne: false
 "household_next_color":
 { Args: { "hid": string }; Returns: string
                            },
+"household_note_daily_limit":
+{ Args: Record<PropertyKey, never>; Returns: number
+                           },
 "household_open_invite":
 { Args: { "code": string }; Returns: string
                            },
@@ -1413,7 +1442,7 @@ isOneToOne: false
       } }
           }
           Enums: {
-            [_ in never]: never
+            "household_note_mood": "happy"|"love"|"yum"|"cross"|"weary"
           }
           CompositeTypes: {
             [_ in never]: never
@@ -1529,7 +1558,7 @@ export type CompositeTypes<
 export const Constants = {
   "public": {
           Enums: {
-            
+            "household_note_mood": ["happy", "love", "yum", "cross", "weary"]
           }
         }
 } as const

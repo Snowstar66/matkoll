@@ -282,6 +282,16 @@ export function SortIcon(props: IconProps) {
   );
 }
 
+/** A pen: Skriv en lapp (Story 24.1). */
+export function PenIcon(props: IconProps) {
+  return (
+    <Icon {...props}>
+      <path d="M5 19l1-4.2L15.6 5.2a2 2 0 0 1 2.8 0l.4.4a2 2 0 0 1 0 2.8L9.2 18 5 19z" />
+      <path d="M13.5 7.3l3.2 3.2" />
+    </Icon>
+  );
+}
+
 /** A circle with a question mark: Hjälp och tips. */
 export function HelpIcon(props: IconProps) {
   return (

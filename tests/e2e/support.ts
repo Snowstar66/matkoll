@@ -291,6 +291,12 @@ export const feedbackEmail = "e2e-tyck-till@matkoll.test";
  */
 export const householdEmail = "e2e-hushall@matkoll.test";
 /**
+ * The two E2E users of notes.spec.ts alone (Lappen på kylskåpet, Story 24.1): the spec puts
+ * the second in the first one's household with the service role, and one writes to the other.
+ */
+export const notesEmail = "e2e-lappar@matkoll.test";
+export const notesPartnerEmail = "e2e-lappar-2@matkoll.test";
+/**
  * The E2E user of welcome.spec.ts alone (Välkomsttur, Story 20.1): the only one
  * that has not seen the welcome tour, so it shows. Every other E2E user is
  * marked as having seen it (markWelcomeTourSeen), so it never covers their pages.
@@ -346,6 +352,8 @@ export const e2eEmails = [
   offlineListEmail,
   feedbackEmail,
   householdEmail,
+  notesEmail,
+  notesPartnerEmail,
   welcomeEmail,
 ] as const;
 /** A real Supabase user whose address is not in ALLOWED_EMAILS. */
@@ -397,6 +405,8 @@ export const eatFirstStorageState = "tests/e2e/.auth/eat-first.json";
 export const thingsStorageState = "tests/e2e/.auth/things.json";
 export const feedbackStorageState = "tests/e2e/.auth/feedback.json";
 export const householdStorageState = "tests/e2e/.auth/household.json";
+export const notesStorageState = "tests/e2e/.auth/notes.json";
+export const notesPartnerStorageState = "tests/e2e/.auth/notes-partner.json";
 export const outsiderStorageState = "tests/e2e/.auth/outsider.json";
 export const welcomeStorageState = "tests/e2e/.auth/welcome.json";
 

@@ -5447,7 +5447,7 @@ så att jag får veta utan att bli störd.
 
 ## Epic 24: Lappar i hushållet
 
-Version 3.x, **vilar** (pausad). Kräver Epic 21 (hushållsmedlemmar) och Epic 23 (push). Pontus (2026-11-01): "en sorts meddelandefunktion. Att jag kan skriva till andra i hushållet t ex 'älskling, jag är sugen på fisksoppa idag. kan du handla' helst animerat med en avatar som talar till en", och: "den behöver inte tala men åtminstone vara levande och artikulera och peka lite busigt på meddelandet och le eller vara arg beroende på vad det är för meddelande". Värdet jämfört med iMessage är att lappen hör ihop med appen: knappar som Lägg på matsedeln och Visa listan.
+Version 3.x. Kräver Epic 21 (hushållsmedlemmar); push kommer med Epic 23, och tills dess syns lappen i appen. Pontus (2026-11-01): "en sorts meddelandefunktion. Att jag kan skriva till andra i hushållet t ex 'älskling, jag är sugen på fisksoppa idag. kan du handla' helst animerat med en avatar som talar till en", och: "den behöver inte tala men åtminstone vara levande och artikulera och peka lite busigt på meddelandet och le eller vara arg beroende på vad det är för meddelande". Värdet jämfört med iMessage är att lappen hör ihop med appen: knappar som Lägg på matsedeln och Visa listan.
 
 ### Story 24.1: Lappen på kylskåpet
 
