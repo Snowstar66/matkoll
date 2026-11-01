@@ -110,15 +110,20 @@ export async function loadLastFetch(db: OffersDb, storeId: string): Promise<Date
  * cooldown (15 minutes; 6 hours after a 403 or 429, see `blockFetch`). `false`
  * when no row changed, which means the fetch is throttled. Every attempt is
  * recorded, whether or not it saves offers, and two taps at the same time
- * cannot both claim. Throws OffersDataError.
+ * cannot both claim. With `pastBlock` (the scheduled fetch, Story 17.11) a
+ * block is no hindrance: it was set by a refusal to another server (Vercel's),
+ * so only the 15 minutes after an attempt count. Throws OffersDataError.
  */
-export async function claimFetch(db: OffersDb, storeId: string, now: Date): Promise<boolean> {
+export async function claimFetch(db: OffersDb, storeId: string, now: Date, options: { pastBlock?: boolean } = {}): Promise<boolean> {
   const before = new Date(now.getTime() - offersFetchIntervalMs).toISOString();
+  const allowed = ["offers_attempted_at.is.null", `offers_attempted_at.lt.${before}`];
+  // A block pushes the stamp into the future (blockFetch); an attempt never does.
+  if (options.pastBlock) allowed.push(`offers_attempted_at.gt.${now.toISOString()}`);
   const { data, error } = await db
     .from("store")
     .update({ offers_attempted_at: now.toISOString() })
     .eq("id", storeId)
-    .or(`offers_attempted_at.is.null,offers_attempted_at.lt.${before}`)
+    .or(allowed.join(","))
     .select("id");
   if (error) throw new OffersDataError(`query_failed ${error.code}`);
   return data.length > 0;
