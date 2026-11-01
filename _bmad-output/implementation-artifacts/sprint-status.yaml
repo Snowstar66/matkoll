@@ -200,8 +200,8 @@ development_status:
   epic-17: in-progress
   17-1-isoleringstest-mellan-hushåll: done
   17-2-enkel-inloggning-med-lösenord: done
-  17-3-molnmiljön: backlog
-  17-4-flytta-din-data-till-molnet: backlog
+  17-3-molnmiljön: done
+  17-4-flytta-din-data-till-molnet: done # inte behövd: Pontus började på ett tomt molnkonto, 2026-11-01
   17-5-ai-som-går-att-byta: done
   17-6-ai-kostnaden-syns: done
   17-7-live-inköpslista: done
@@ -209,6 +209,7 @@ development_status:
   17-9-lägg-till-snabbt-och-med-siri: done
   17-10-egna-varor-ligger-kvar-tills-de-är-köpta: done
   17-11-erbjudanden-hämtas-schemalagt-från-github: review
+  17-12-liveuppdatering-utan-nyckel-i-webbläsaren: review
   epic-17-retrospective: optional
 
   epic-18: in-progress

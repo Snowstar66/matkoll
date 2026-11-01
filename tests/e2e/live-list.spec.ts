@@ -5,10 +5,12 @@ import { adminClient, e2eUserId, liveListEmail, liveListStorageState, outsiderEm
 
 // Story 17.7: Live-inköpslista. Two phones (two browser contexts) are signed in
 // as the same user and have /lista open; what one does shows on the other
-// within a couple of seconds, without a reload, through Supabase Realtime.
+// within a few seconds, without a reload. Since Story 17.12 the list reads
+// itself again every 4 s (no token in the browser), so a change arrives within
+// one interval plus the read: about 6 s at most.
 
 const mobile = { width: 375, height: 812 };
-const within = { timeout: 8_000 };
+const within = { timeout: 6_000 };
 test.use({ storageState: liveListStorageState, viewport: mobile });
 test.describe.configure({ mode: "serial" });
 
@@ -119,8 +121,6 @@ test("a check, an own item and its removal on one phone show on the other, and a
     await page.goto("/lista");
     await expect(check(page, /^Grädde/)).not.toBeChecked();
   }
-  // Give both sockets a moment to join before the first change.
-  await b.waitForTimeout(1500);
 
   // Checking off.
   await check(a, /^Grädde/).click();
@@ -172,10 +172,13 @@ test("a check, an own item and its removal on one phone show on the other, and a
   await phoneB.close();
 });
 
-// Realtime follows RLS for INSERT and UPDATE, but not for DELETE, whose record
-// holds the row id only. Another account's subscription, with no filter at all,
-// must never hear what is in this user's rows; a bare DELETE ping with only an
-// id may arrive (a timing-only leak, accepted: Story 17.7).
+// The app no longer listens to Realtime (Story 17.12), but the tables stay in
+// the `supabase_realtime` publication, and anyone with an account can sign in
+// to Supabase directly with the public key and subscribe. Realtime follows RLS
+// for INSERT and UPDATE, but not for DELETE, whose record holds the row id
+// only. Another account's subscription, with no filter at all, must never hear
+// what is in this user's rows; a bare DELETE ping with only an id may arrive (a
+// timing-only leak, accepted: Story 17.7).
 test("another account's subscription never receives this user's row content", async () => {
   const link = await adminClient().auth.admin.generateLink({ type: "magiclink", email: outsiderEmail });
   if (link.error) throw link.error;

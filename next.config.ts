@@ -1,4 +1,5 @@
 import type { NextConfig } from "next";
+import { securityHeaders } from "./src/lib/security-headers";
 
 const nextConfig: NextConfig = {
   /* config options here */
@@ -9,6 +10,10 @@ const nextConfig: NextConfig = {
   // session ends up at /logga-in?next=%2Frecept.
   async redirects() {
     return [{ source: "/", destination: "/recept", permanent: false }];
+  },
+  // Story 17.12: the baseline on every response; why there is no script CSP is in the module.
+  async headers() {
+    return [{ source: "/:path*", headers: securityHeaders }];
   },
   partialPrefetching: true,
   turbopack: {

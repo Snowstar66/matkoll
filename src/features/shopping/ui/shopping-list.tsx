@@ -172,6 +172,11 @@ export type ShoppingListProps = {
    * on its way), so the page can let "Byt" wait.
    */
   onBusyChange?: (busy: boolean) => void;
+  /**
+   * Told whether the list is offline or queued checks wait (Story 17.8), so the
+   * page stops reading itself again until the connection is back (Story 17.12).
+   */
+  onOfflineChange?: (offline: boolean) => void;
   /** Whose queue of offline checks this is (Story 17.8); without it the queue lives in this tab only. */
   userId?: string | null;
   /** The empty list without dishes (Story 3.10): its text and a way on, e.g. to the week that has dishes. */
@@ -640,6 +645,7 @@ export function ShoppingList({
   site = null,
   isQuietSwitch,
   onBusyChange,
+  onOfflineChange,
   userId = null,
   empty,
   openAddOnStart = false,
@@ -670,6 +676,9 @@ export function ShoppingList({
   useEffect(() => {
     onBusyChange?.(busy);
   }, [busy, onBusyChange]);
+  useEffect(() => {
+    onOfflineChange?.(offline);
+  }, [offline, onOfflineChange]);
   const hasDishes = plan !== null && plan.dishCount > 0;
   const hasLines = lines.length > 0;
   const siteName = shownSiteName(site);
