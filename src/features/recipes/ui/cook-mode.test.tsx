@@ -272,7 +272,7 @@ describe("CookMode", () => {
     expect(inDialog().queryByRole("img")).not.toBeInTheDocument();
   });
 
-  it("goes back and forth with Nästa and Föregående, which are aria-disabled at the ends and do nothing there", async () => {
+  it("goes back and forth with Nästa and Föregående; Föregående is aria-disabled on step 1 and does nothing there", async () => {
     installWakeLock();
     const { user } = await openCookMode();
     expect(previous()).toHaveAttribute("aria-disabled", "true");
@@ -287,12 +287,65 @@ describe("CookMode", () => {
     await user.click(next());
     await user.click(next());
     expect(heading()).toHaveTextContent("Steg 3 av 3");
-    expect(next()).toHaveAttribute("aria-disabled", "true");
-    // Still in the tab order, and focused.
-    expect(next()).toHaveFocus();
-    expect(next()).not.toBeDisabled();
+  });
+
+  it("ends with a primary Klar in Nästa's place when the recipe is not on the menu, keeping focus, and it closes", async () => {
+    installWakeLock();
+    const { user } = await openCookMode();
+    await user.click(next());
     await user.click(next());
     expect(heading()).toHaveTextContent("Steg 3 av 3");
+    expect(inDialog().queryByRole("button", { name: "Nästa" })).not.toBeInTheDocument();
+    const done = inDialog().getByTestId("cook-done");
+    expect(done).toHaveAccessibleName("Klar");
+    expect(done).toHaveClass("h-button", "bg-accent");
+    expect(done).not.toHaveAttribute("aria-disabled");
+    expect(done).toHaveFocus();
+    await user.click(previous());
+    expect(heading()).toHaveTextContent("Steg 2 av 3");
+    expect(next()).toHaveClass("bg-accent");
+    await user.click(next());
+    await user.click(inDialog().getByTestId("cook-done"));
+    expect(queryDialog()).not.toBeInTheDocument();
+    expect(cookButton()).toHaveFocus();
+  });
+
+  it("puts the page's Markera som lagad in Nästa's place at the last step only, and moves Nästa's focus to it", async () => {
+    installWakeLock();
+    const user = userEvent.setup();
+    const finish = vi.fn();
+    render(
+      <RecipeView
+        recipe={recipe}
+        snapshot={snapshot}
+        finish={
+          <button type="button" className="h-button bg-accent" onClick={finish}>
+            Markera som lagad
+          </button>
+        }
+      />,
+    );
+    await user.click(cookButton());
+    await act(async () => {});
+    expect(inDialog().queryByRole("button", { name: "Markera som lagad" })).not.toBeInTheDocument();
+    await user.click(next());
+    expect(inDialog().queryByRole("button", { name: "Markera som lagad" })).not.toBeInTheDocument();
+    await user.click(next());
+    expect(heading()).toHaveTextContent("Steg 3 av 3");
+    const mark = inDialog().getByRole("button", { name: "Markera som lagad" });
+    expect(inDialog().queryByRole("button", { name: "Nästa" })).not.toBeInTheDocument();
+    expect(inDialog().queryByTestId("cook-done")).not.toBeInTheDocument();
+    // Beside Föregående, in the thumb zone.
+    expect(mark.closest("[data-testid=cook-finish]")?.parentElement).toBe(previous().parentElement);
+    expect(mark).toHaveFocus();
+    await user.click(mark);
+    expect(finish).toHaveBeenCalledTimes(1);
+    // Reached with the keys, focus stays where it was.
+    await user.click(previous());
+    previous().focus();
+    await user.keyboard("{ArrowRight}");
+    expect(heading()).toHaveTextContent("Steg 3 av 3");
+    expect(previous()).toHaveFocus();
   });
 
   it("has buttons of at least 44 px in the thumb zone, the primary being Nästa", async () => {

@@ -19,6 +19,7 @@ import { PlaceMenu } from "./place-menu";
 import type { PlaceCounts } from "../domain/thing-place-edit";
 import { partsLabelText, partMeta } from "../domain/thing-written";
 import { RoomCards } from "./room-cards";
+import { RemoveRoomButton } from "./remove-room";
 import { RoomCategories } from "./room-categories";
 import { TakeCard } from "./take-card";
 import { UploadCardRow } from "./upload-card-row";
@@ -54,12 +55,14 @@ export type RoomViewProps = {
   placeCounts: Record<string, PlaceCounts>;
   /** How many places the room has: the last one takes the room with it. */
   placeTotal: number;
+  /** No föremål and no card: the room ends with "Ta bort rummet" (Pontus 1 Nov). */
+  empty?: boolean;
 };
 
 /** How often a page with a card being read reads itself again. */
 const refreshMs = 3_000;
 
-export function RoomView({ siteId, summary, categories, cards, written, rooms, boxParent, photographBox, initialView, placeIds, boxes, parts, placeCounts, placeTotal }: RoomViewProps) {
+export function RoomView({ siteId, summary, categories, cards, written, rooms, boxParent, photographBox, initialView, placeIds, boxes, parts, placeCounts, placeTotal, empty = false }: RoomViewProps) {
   const router = useRouter();
   const { jobs, markSeen } = useAiJobs();
   const [view, setView] = useState<View>(initialView);
@@ -190,6 +193,7 @@ export function RoomView({ siteId, summary, categories, cards, written, rooms, b
       ) : (
         <RoomCards cards={cards} written={written} menuFor={cardMenu} />
       )}
+      {empty ? <RemoveRoomButton siteId={siteId} roomKey={summary.key} room={summary.room} /> : null}
     </div>
   );
 }

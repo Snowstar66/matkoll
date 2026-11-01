@@ -865,6 +865,52 @@ test("Rensa rummet asks for the room's name, then removes its cards, files, thin
   expect((await admin.from("pantry_site").select("id").eq("id", hemma)).data).toHaveLength(1);
 });
 
+test("an empty room has a plain Ta bort rummet, at the end and in its ⋯, that goes at once with Ångra; a room with things keeps Rensa rummet (Pontus 1 Nov)", async ({ page }) => {
+  const admin = adminClient();
+  const empty = await admin
+    .from("thing_place")
+    .insert([
+      { user_id: userId, site_id: hemma, room: "Boden", part: null, room_key: "boden", part_key: "", kind: "part" },
+      { user_id: userId, site_id: hemma, room: "Boden", part: "Hyllan", room_key: "boden", part_key: "hyllan", kind: "part" },
+      { user_id: userId, site_id: hemma, room: "Boden", part: "Röda lådan", room_key: "boden", part_key: "box:röda lådan", kind: "box" },
+    ])
+    .select("id");
+  if (empty.error) throw empty.error;
+  const ids = empty.data.map((row) => row.id).sort();
+  await seedPlace(hemma, "Garaget", [{ name: "Såg", category: "Verktyg" }]);
+
+  // A room with something in it: no Ta bort rummet, and its ⋯ still clears with the name.
+  await page.goto(roomUrl("Garaget"));
+  await expect(content(page).getByRole("button", { name: "Ta bort rummet" })).toHaveCount(0);
+  await page.getByTestId("room-menu").filter({ visible: true }).click();
+  await expect(page.getByRole("menuitem", { name: "Rensa rummet" })).toBeVisible();
+  await expect(page.getByRole("menuitem", { name: "Ta bort rummet" })).toHaveCount(0);
+
+  await page.goto(roomUrl("Boden"));
+  await page.getByTestId("room-menu").filter({ visible: true }).click();
+  await expect(page.getByRole("menuitem", { name: "Ta bort rummet" })).toBeVisible();
+  await expect(page.getByRole("menuitem", { name: "Rensa rummet" })).toHaveCount(0);
+  await page.keyboard.press("Escape");
+  const remove = content(page).getByRole("button", { name: "Ta bort rummet" });
+  await expect(remove).toBeVisible();
+  expect((await remove.boundingBox())!.height).toBeGreaterThanOrEqual(44);
+  await shot(page, "5-remove-empty-room");
+  await remove.click();
+  await expect(page).toHaveURL("/prylar");
+  await expect(page.getByRole("dialog")).toHaveCount(0);
+  const toast = page.getByTestId("toast");
+  await expect(toast).toContainText("Tog bort Boden.");
+  await expect(rooms(page)).toHaveText([/Garaget/]);
+  expect((await admin.from("thing_place").select("id").in("id", ids)).data).toEqual([]);
+
+  // Ångra brings it back with its part and box, the same rows.
+  await toast.getByRole("button", { name: "Ångra" }).click();
+  await expect(rooms(page)).toHaveCount(2);
+  await expect(rooms(page).filter({ hasText: "Boden" })).toHaveCount(1);
+  const back = (await admin.from("thing_place").select("id").in("id", ids)).data ?? [];
+  expect(back.map((row) => row.id).sort()).toEqual(ids);
+});
+
 test("Rensa förrådet in Inställningar asks for RENSA, removes all of Förråd in that boende and nothing of Matvaror or another boende", async ({ page }) => {
   const admin = adminClient();
   await seedPlace(hemma, "Skräpförrådet", [{ name: "Hammare", category: "Verktyg" }]);

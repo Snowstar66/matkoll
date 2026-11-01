@@ -853,7 +853,8 @@ describe("Library, view, sort and categories", () => {
     renderLibrary(withCategories);
     // Story 14.4: only the categories some recipe has.
     const group = screen.getByRole("group", { name: "Filter" });
-    expect(within(group).getAllByRole("button").map((button) => button.textContent)).toEqual(["Favoriter", "Kan lagas nu", "Fågel", "Vegetariskt", "Soppa", "Gryta", "Snabbt"]);
+    expect(within(group).getAllByRole("button").map((button) => button.textContent)).toEqual(["Favoriter", "Kan lagas nu", "🍗Fågel", "🥦Vegetariskt", "🍲Soppa", "🥘Gryta", "⏱️Snabbt"]);
+    // The emoji is decoration: the chip is named by its label alone.
     for (const name of ["Fågel", "Vegetariskt", "Soppa", "Gryta", "Snabbt"]) {
       expect(chip(name)).toHaveAttribute("aria-pressed", "false");
     }

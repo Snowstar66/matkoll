@@ -18,6 +18,19 @@ export const recipeCategoryLabels: Record<RecipeCategory, string> = {
   quick: "Snabbt",
 };
 
+/** The emoji before each category's name on its chip (back after Story 19.3); decoration only. */
+export const recipeCategoryIcons: Record<RecipeCategory, string> = {
+  meat: "🥩",
+  poultry: "🍗",
+  fish: "🐟",
+  vegetarian: "🥦",
+  pasta: "🍝",
+  soup: "🍲",
+  salad: "🥗",
+  stew: "🥘",
+  quick: "⏱️",
+};
+
 /** A stored choice; anything else, or nothing, is no category. */
 export function parseRecipeCategory(value: unknown): RecipeCategory | null {
   return RECIPE_CATEGORIES.find((category) => category === value) ?? null;

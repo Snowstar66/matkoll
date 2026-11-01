@@ -6,7 +6,7 @@ import { PageHeader } from "@/components/app-shell/page-header";
 import { Notice } from "@/components/notice";
 import { Skeleton } from "@/components/skeleton";
 import { requireUserOrRedirect } from "@/features/auth/server";
-import { normalizePlaceName, parseRoomView } from "@/features/things";
+import { isEmptyRoom, normalizePlaceName, parseRoomView } from "@/features/things";
 import { getRoomPage, listRooms, ThingsDataError } from "@/features/things/server";
 import { ClearRoom } from "@/features/things/ui/clear-room";
 import { RoomView } from "@/features/things/ui/room-view";
@@ -73,13 +73,14 @@ async function RoomContent({ params, searchParams }: Pick<PageProps<"/prylar/rum
   const { summary, categories, cards, places, written, clearCounts, placeCounts } = page;
   const parent = places.find((place) => place.kind === "part" && place.part === null) ?? places.find((place) => place.kind === "part") ?? null;
   const box = typeof fota === "string" ? places.find((place) => place.id === fota && place.kind === "box") : undefined;
+  const empty = isEmptyRoom(clearCounts.things, cards.length);
   return (
     <>
       <PageHeader
         title={summary.room}
         backHref="/prylar"
         backLabel="Förråd"
-        action={<ClearRoom siteId={site} roomKey={summary.key} room={summary.room} counts={clearCounts} />}
+        action={<ClearRoom siteId={site} roomKey={summary.key} room={summary.room} counts={clearCounts} empty={empty} />}
       />
       <RoomView
         siteId={site}
@@ -96,6 +97,7 @@ async function RoomContent({ params, searchParams }: Pick<PageProps<"/prylar/rum
         parts={places.filter((place) => place.kind === "part" && place.part !== null).map((place) => ({ id: place.id, part: place.part ?? "" }))}
         placeCounts={placeCounts}
         placeTotal={places.length}
+        empty={empty}
       />
     </>
   );
