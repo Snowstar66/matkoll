@@ -530,16 +530,18 @@ export const searchTermChars = { min: 2, max: 40 } as const;
  */
 export const thingTermsAnswer = z.object({
   // Story 18.19: the same call says what the text is, so "remember this" costs no second call.
-  intent: z.string().describe("question, search eller remember"),
+  intent: z.string().describe("question, search, remember eller refill"),
   terms: z.array(z.string()).describe("Sökord: det som frågan gäller och synonymer, på svenska, i grundform"),
-  thing: z.string().nullable().describe("Vid remember: föremålets namn som i en lista, t.ex. Pass; annars null"),
+  thing: z.string().nullable().describe("Vid remember och refill: föremålets namn som i en lista, t.ex. Pass; annars null"),
   room: z.string().nullable().describe("Vid remember: rummet, t.ex. Sovrummet; null om det inte står"),
   part: z.string().nullable().describe("Vid remember: var i rummet, t.ex. översta byrålådan; null om det inte står"),
-  category: z.string().nullable().describe(`Vid remember: en av ${thingCategories.join(", ")}; annars null`),
+  category: z.string().nullable().describe(`Vid remember och refill: en av ${thingCategories.join(", ")}; annars null`),
+  // Story 18.24: "jag har köpt 4 batterier" says how many, so Fyll på opens on it.
+  count: z.number().nullable().describe("Vid refill: hur många som köptes om det sades (1–999); annars null"),
 });
 
-/** What the text in the chat is (Story 18.19): a question, a plain search, or something to remember. */
-export const thingIntents = ["question", "search", "remember"] as const;
+/** What the text in the chat is (Story 18.19): a question, a plain search, something to remember, or (Story 18.24) something bought to put away. */
+export const thingIntents = ["question", "search", "remember", "refill"] as const;
 export type ThingIntent = (typeof thingIntents)[number];
 
 /** The longest name of a remembered thing and of a room or part, as the tables' checks count them. */
@@ -548,32 +550,43 @@ export const rememberLimits = { name: 80, place: 40 } as const;
 /** Something to remember, as the model proposed it: cleaned and cut, the category one of the app's. `room` is null when the text named none. */
 export type ThingToRemember = { name: string; room: string | null; part: string | null; category: ThingCategory };
 
+/** Story 18.24: something bought, to be put away: its name, how many when it was said (1–999), and its category. */
+export type ThingToRefill = { name: string; count: number | null; category: ThingCategory };
+
 /**
  * The model's intent and the thing it proposes to remember (Story 18.19). An
  * unknown intent is a question (the answer that is always safe); "remember"
  * without a name is a question too. The texts are one line and cut to what the
  * tables take; an unknown category is "Övrigt".
  */
-export function parseThingIntent(answer: z.output<typeof thingTermsAnswer>): { intent: ThingIntent; remember: ThingToRemember | null } {
+export function parseThingIntent(answer: z.output<typeof thingTermsAnswer>): {
+  intent: ThingIntent;
+  remember: ThingToRemember | null;
+  refill: ThingToRefill | null;
+} {
   const intent = typeof answer.intent === "string" ? answer.intent.trim().toLowerCase() : "";
   const clean = (value: unknown, max: number) => (typeof value === "string" ? cutCodePoints(cleanModelText(value), max) : "");
+  const rawCategory = typeof answer.category === "string" ? answer.category.trim() : "";
+  const category: ThingCategory = (thingCategories as readonly string[]).includes(rawCategory) ? (rawCategory as ThingCategory) : "Övrigt";
   if (intent === "remember") {
     const name = clean(answer.thing, rememberLimits.name);
-    if (name === "") return { intent: "question", remember: null };
+    if (name === "") return { intent: "question", remember: null, refill: null };
     const room = clean(answer.room, rememberLimits.place);
     const part = clean(answer.part, rememberLimits.place);
-    const category = typeof answer.category === "string" ? answer.category.trim() : "";
     return {
       intent: "remember",
-      remember: {
-        name,
-        room: room === "" ? null : room,
-        part: part === "" ? null : part,
-        category: (thingCategories as readonly string[]).includes(category) ? (category as ThingCategory) : "Övrigt",
-      },
+      remember: { name, room: room === "" ? null : room, part: part === "" ? null : part, category },
+      refill: null,
     };
   }
-  return { intent: intent === "search" ? "search" : "question", remember: null };
+  if (intent === "refill") {
+    // Story 18.24: "refill" without a name is a question; a count that is not a whole number from 1 to 999 is none.
+    const name = clean(answer.thing, rememberLimits.name);
+    if (name === "") return { intent: "question", remember: null, refill: null };
+    const count = typeof answer.count === "number" && Number.isInteger(answer.count) && answer.count >= 1 && answer.count <= maxThingCount ? answer.count : null;
+    return { intent: "refill", remember: null, refill: { name, count, category } };
+  }
+  return { intent: intent === "search" ? "search" : "question", remember: null, refill: null };
 }
 
 /** The terms cleaned: one line, lower case, 2 to 40 characters, once each, the first maxSearchTerms. */

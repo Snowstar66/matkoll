@@ -55,6 +55,8 @@ import {
   feedbackStorageState,
   householdEmail,
   householdStorageState,
+  newsEmail,
+  newsStorageState,
   outsiderEmail,
   outsiderStorageState,
   pantryEmail,
@@ -187,6 +189,7 @@ export default async function globalSetup(config: FullConfig) {
       [feedbackEmail, feedbackStorageState],
       [householdEmail, householdStorageState],
       [welcomeEmail, welcomeStorageState],
+      [newsEmail, newsStorageState],
     ] as const) {
       const user = await browser.newContext({ baseURL });
       const page = await user.newPage();

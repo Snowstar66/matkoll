@@ -222,7 +222,7 @@ development_status:
   18-7-visa-prylen-på-kortet: done
   18-8-garderoben: backlog
   18-9-nytt-namn-på-appen: done
-  18-10-svep-med-kameran: backlog
+  18-10-svep-med-kameran: review
   18-11-ta-kort-först-många-kort-per-rum: done
   18-12-rummets-överblick: done
   18-13-skriv-vad-som-finns-i-en-låda: done
@@ -236,7 +236,7 @@ development_status:
   18-21-rummen-först: done
   18-22-föremål-i-stället-för-prylar: done
   18-23-ta-och-fyll-på: review
-  18-24-jag-har-köpt-var-förvarar-vi-dem: backlog
+  18-24-jag-har-köpt-var-förvarar-vi-dem: review
   epic-18-retrospective: optional
 
   epic-19: in-progress
@@ -269,9 +269,9 @@ development_status:
   22-3-så-skyddas-dina-bilder: backlog
   epic-22-retrospective: optional
 
-  epic-23: backlog
-  23-1-brickor-i-appen: backlog
-  23-2-siffra-på-hemskärmsikonen: backlog
+  epic-23: in-progress
+  23-1-brickor-i-appen: review
+  23-2-siffra-på-hemskärmsikonen: review
   23-3-push-notiser-med-inställningar: backlog
   epic-23-retrospective: optional
 

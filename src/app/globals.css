@@ -67,6 +67,11 @@
   --photo-shade: color-mix(in srgb, #000000 45%, transparent);
   --photo-veil: color-mix(in srgb, #000000 25%, transparent);
   --photo-chip: color-mix(in srgb, #141A17 78%, transparent);
+  /* Snabbkamera (Story 18.10): always dark, like any camera; the same in both modes. */
+  --camera-bg: color-mix(in srgb, #000000 100%, transparent);
+  --camera-ink: color-mix(in srgb, #FFFFFF 100%, transparent);
+  --camera-control: color-mix(in srgb, #FFFFFF 18%, transparent);
+  --camera-ring: color-mix(in srgb, #FFFFFF 85%, transparent);
 
   /* Typography */
   --font-family: -apple-system, BlinkMacSystemFont, "SF Pro Text", Inter, "Helvetica Neue", Arial, sans-serif;
@@ -326,6 +331,10 @@
   --color-photo-shade: var(--photo-shade);
   --color-photo-veil: var(--photo-veil);
   --color-photo-chip: var(--photo-chip);
+  --color-camera-bg: var(--camera-bg);
+  --color-camera-ink: var(--camera-ink);
+  --color-camera-control: var(--camera-control);
+  --color-camera-ring: var(--camera-ring);
 
   --font-sans: var(--font-family);
 
@@ -580,6 +589,21 @@
 }
 @keyframes tour-fade-in {
   from {
+    opacity: 0;
+  }
+}
+
+/* Snabbkamera (Story 18.10): a short white flash on every shot; "Minska rörelse" gets none. */
+@media (prefers-reduced-motion: no-preference) {
+  .camera-flash {
+    animation: camera-flash 220ms ease-out;
+  }
+}
+@keyframes camera-flash {
+  from {
+    opacity: 0.85;
+  }
+  to {
     opacity: 0;
   }
 }

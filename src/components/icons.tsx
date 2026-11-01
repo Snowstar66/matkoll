@@ -384,6 +384,16 @@ export function InstallIcon(props: IconProps) {
   );
 }
 
+/** An app's icon with a dot on its corner: Siffra på appikonen in Inställningar (Story 23.2). */
+export function AppBadgeIcon(props: IconProps) {
+  return (
+    <Icon {...props}>
+      <rect x="4" y="7" width="13" height="13" rx="3.5" />
+      <circle cx="17.5" cy="6.5" r="3" />
+    </Icon>
+  );
+}
+
 /** A microphone: Siri och genvägar in Inställningar. */
 export function MicIcon(props: IconProps) {
   return (

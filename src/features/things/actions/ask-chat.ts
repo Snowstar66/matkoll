@@ -7,7 +7,7 @@ import { createClient } from "@/lib/supabase/server";
 import { cleanModelText, cutCodePoints } from "@/lib/suggest-input";
 import type { AskThingsPlace } from "@/server/ai";
 import { ThingsDataError } from "../data/client";
-import { findNotedIn, loadRoomPartsIn } from "../data/noted";
+import { findCategoryPlaceIn, findNotedIn, loadRoomPartsIn } from "../data/noted";
 import { countSitesIn, loadUnseenIn, searchThingsIn } from "../data/search";
 import { chatInputSchema, cleanHistory, groupHits, maxAnswerHits, questionTooLongText, questionWords, refOfGroup, type ChatRef, type ChatTurn } from "../domain/thing-ask";
 import { placeTitle } from "../domain/thing-place";
@@ -15,7 +15,7 @@ import { countPlaceText, hitDateText, isPlainSearch, isStrongMatch, plainSearchA
 import { countAnswer } from "../domain/thing-count";
 import { loadChangesIn } from "../data/count";
 import { thingNounCap } from "../domain/thing-noun";
-import { proposalQuestionText, proposePlace, type NotedProposal, type RoomParts } from "../domain/thing-noted";
+import { notedTitle, proposalQuestionText, proposePlace, refillFoundText, refillNewText, type NotedProposal, type RoomParts } from "../domain/thing-noted";
 
 // "Fråga om ditt förråd" as a chat (Story 18.14, FR-24, AD-9). Pontus may have
 // thousands of things, so they never all go to the AI. Three steps:
@@ -36,6 +36,12 @@ import { proposalQuestionText, proposePlace, type NotedProposal, type RoomParts 
 // the room and the part; it gets the rooms of the boende for that. Then nothing
 // is searched and the second call is not made: the answer is a proposal, which
 // "Kom ihåg" (rememberThing) saves.
+//
+// Story 18.24: the first call also says when the text is something bought to
+// put away ("jag har köpt gravljus, var förvarar vi dem?"), with the name and
+// the count when it was said. The database answers, never a second call: where
+// the föremål is with Fyll på open, or, when it is not written in, a Kom
+// ihåg proposal in the place where föremål of its category are.
 
 const termsDeadlineMs = 15_000;
 const answerDeadlineMs = 30_000;
@@ -49,6 +55,8 @@ export type ChatAnswer = {
   /** Story 18.19: a plain search is answered by the database: the hits that answer it, and the close ones. */
   hits?: ThingHit[];
   similar?: ThingHit[];
+  /** Story 18.24: something bought that is there: its hit opens with Fyll på on this amount. */
+  refill?: { itemId: string; amount: number };
 };
 
 /** A room or part's name for the model's "Rum:" list: one line, without the list's own ":" and ",". */
@@ -155,6 +163,40 @@ export async function askChat(input: { question: string; history: ChatTurn[]; si
     console.info("things_remember_proposed", { room: place.room !== null, newRoom: place.newRoom, moves: moves !== null, turns: history.length });
     return ok({ answer: proposalQuestionText, refs: [], proposal: { name: remember.name, category: remember.category, ...place, moves } });
   }
+  const refill = termsAnswer.data.intent === "refill" ? termsAnswer.data.refill : null;
+  if (refill) {
+    try {
+      const db = await createClient();
+      const terms = [...new Set([...questionWords(refill.name), ...termsAnswer.data.terms])].slice(0, 8);
+      const { best } = rankHits(refill.name, await searchThingsIn(db, terms, maxAnswerHits));
+      const [found] = best;
+      if (found && isStrongMatch(refill.name, found.name)) {
+        const otherSite = (siteId !== undefined && found.siteId !== siteId) || (await countSitesIn(db)) > 1;
+        console.info("things_refill_found", { counted: found.quantity !== null, amount: refill.count !== null });
+        return ok({
+          answer: refillFoundText(countPlaceText(found, otherSite), found.quantity),
+          refs: [],
+          hits: [found],
+          similar: [],
+          ...(found.quantity !== null ? { refill: { itemId: found.id, amount: refill.count ?? 1 } } : {}),
+        });
+      }
+      // Not written in: where föremål of its kind are in the page's boende, or "Välj rum".
+      const like = siteId ? await findCategoryPlaceIn(db, siteId, refill.category) : null;
+      const moves = await findNotedIn(db, refill.name);
+      console.info("things_refill_proposed", { like: like !== null, amount: refill.count !== null });
+      return ok({
+        answer: refillNewText(refill.name, like ? { title: notedTitle(like), name: like.name } : null),
+        refs: [],
+        proposal: { name: refill.name, category: refill.category, room: like?.room ?? null, part: like?.part ?? null, newRoom: false, moves, count: refill.count },
+      });
+    } catch (error) {
+      if (!(error instanceof ThingsDataError)) throw error;
+      console.error("things_unavailable", { reason: error.detail });
+      return fail("things_unavailable");
+    }
+  }
+
   // A question the model found no words in ("hej") still gets its words looked for.
   const terms = termsAnswer.data.terms.length > 0 ? termsAnswer.data.terms : questionWords(question);
 

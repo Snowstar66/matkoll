@@ -6,7 +6,7 @@ import { Fragment, type ReactNode, Suspense } from "react";
 import { cx } from "../cx";
 import { DestinationIcon } from "./destination-icon";
 import { currentState, type Destination, mainDestinations } from "./destinations";
-import { badgeName, TabBadge, useAiBadgeCount } from "./tab-badge";
+import { badgeName, TabBadge, useBadgeCount } from "./tab-badge";
 
 /**
  * Flikfält: the five main surfaces at the bottom, below 1024 px. On a route
@@ -29,8 +29,8 @@ function CurrentTabBar({ jobRow }: { jobRow?: ReactNode }) {
 function TabLink({ destination, pathname }: { destination: Destination; pathname: string | null }) {
   const { href, label, labelParts } = destination;
   const current = currentState(pathname, href);
-  // Story 12.4: finished AI results that Pontus has not seen, never on the tab he is on.
-  const badge = useAiBadgeCount(destination, current !== undefined);
+  // Story 12.4 and 23.1: unseen AI results and news from others, never on the tab he is on.
+  const badge = useBadgeCount(destination, current !== undefined);
   return (
     // scroll={false}: the shell's ScrollMemory puts each surface back where it was.
     <Link

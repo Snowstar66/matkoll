@@ -2,7 +2,11 @@ import { describe, expect, it } from "vitest";
 import { groupHits, refOfGroup } from "./thing-ask";
 import {
   capitalizeFirst,
+  definitePlural,
   matchRoom,
+  notedCountText,
+  refillFoundText,
+  refillNewText,
   movedFromText,
   notedHint,
   notedSheetSubtitle,
@@ -56,7 +60,7 @@ describe("what Kom ihåg sends", () => {
   const valid = { siteId, name: "  Pass ", room: " Sovrummet", part: "", category: "Övrigt", replaces: null };
 
   it("cleans the names, and an empty part is the whole room", () => {
-    expect(rememberInputSchema.parse(valid)).toEqual({ siteId, name: "Pass", room: "Sovrummet", part: null, category: "Övrigt", replaces: null });
+    expect(rememberInputSchema.parse(valid)).toEqual({ siteId, name: "Pass", room: "Sovrummet", part: null, category: "Övrigt", replaces: null, count: null });
     expect(rememberInputSchema.parse({ ...valid, part: null }).part).toBeNull();
     expect(rememberInputSchema.parse({ ...valid, part: "Byrån", replaces: siteId })).toMatchObject({ part: "Byrån", replaces: siteId });
   });
@@ -160,5 +164,36 @@ describe("the field on Förråd's start page", () => {
     expect(showsFinder([room])).toBe(true);
     expect(showsFinder([{ ...room, things: 3 }])).toBe(true);
     expect(showsFinder([])).toBe(false);
+  });
+});
+
+describe("something bought (Story 18.24)", () => {
+  it("says where it is and how many there are", () => {
+    expect(refillFoundText("Förrådet · Översta hyllan", 3)).toBe("I Förrådet · Översta hyllan – där finns 3.");
+    expect(refillFoundText("Förrådet · Översta hyllan", 0)).toBe("I Förrådet · Översta hyllan – där är det slut.");
+    expect(refillFoundText("Förrådet", null)).toBe("I Förrådet.");
+  });
+
+  it("proposes the place of the föremål of its kind, named in the definite plural", () => {
+    expect(refillNewText("Batterier", { title: "Förrådet · Översta hyllan", name: "Gravljus" })).toBe(
+      "Inga batterier inskrivna än. Ska de ligga i Förrådet · Översta hyllan, som gravljusen?",
+    );
+    expect(refillNewText("USB-sladdar", null)).toBe("Inga USB-sladdar inskrivna än. Var ska de ligga?");
+    expect(definitePlural("Glödlampor")).toBe("glödlamporna");
+    expect(definitePlural("Skruvmejslar")).toBe("skruvmejslarna");
+    expect(definitePlural("Värmeljus")).toBe("värmeljusen");
+    expect(definitePlural("Hammare")).toBe("hammare");
+    expect(definitePlural("Glödlampor E27")).toBe("glödlampor E27");
+  });
+
+  it("says the count in the sheet, with 0 as Räkna inte, and sends 0 as no count", () => {
+    expect(notedCountText(4)).toBe("4 st");
+    expect(notedCountText(0)).toBe("Räkna inte");
+    const valid = { siteId, name: "Batterier", room: "Förrådet", part: null, category: "Elektronik", replaces: null };
+    expect(rememberInputSchema.parse({ ...valid, count: 4 }).count).toBe(4);
+    expect(rememberInputSchema.parse({ ...valid, count: 0 }).count).toBeNull();
+    expect(rememberInputSchema.parse(valid).count).toBeNull();
+    expect(rememberInputSchema.safeParse({ ...valid, count: 10_000 }).success).toBe(false);
+    expect(rememberInputSchema.safeParse({ ...valid, count: 1.5 }).success).toBe(false);
   });
 });

@@ -4210,9 +4210,43 @@ Beslut: Pontus 2026-10-31: se hela kortet med markeringar; byggd utan förhandsg
 
 Mockup: `_bmad-output/planning-artifacts/ux-designs/ux-Matkoll-2026-10-25/mockups/kortet-stort.html`
 
-### Story 18.10: Svep med kameran
+### Story 18.10: Svep med kameran (Snabbkamera)
 
-Backlog (Pontus frågade 2026-10-31 om film). Filma en plats; appen plockar själv ut 4–6 skarpa, olika bilder ur filmen (i webbläsaren) som blir kort. Bara stillbilder går till AI, så kostnaden hålls nere.
+Ändrad 2026-11-01 (Pontus godkände idén): i stället för film blir det en snabbkamera i appen. Tidigare idé (filma, plocka ut 4–6 bilder) är parkerad.
+
+Som Pontus,
+vill jag fota ett helt förråd med tryck, tryck, tryck,
+så att jag slipper "Använd bild" och "Ta ett till" efter varje foto.
+
+**Acceptance Criteria:**
+
+**Givet** ett rums sida
+**När** jag ser knapparna
+**Så** finns "Snabbkamera" som primärt val ovanför "Ta foto" och "Välj från Bilder"; rummets "Var tar du kortet?"-ark finns kvar för den globala ingången
+
+**Givet** Snabbkamera
+**När** den öppnas
+**Så** visas en helskärmskamera, alltid mörk, med bakkameran (`getUserMedia`, `facingMode: environment`), "Avbryt" till vänster, rummets namn i mitten och antalet ("3 kort") till höger
+
+**Givet** kameran
+**När** jag trycker på den runda avtryckaren
+**Så** tas en bild i strömmens fulla upplösning med en kort blixt (ingen blixt med "Minska rörelse") och en lätt vibration där det finns, och bilden läggs i en rullande remsa med miniatyrer ovanför avtryckaren; varje miniatyr har ett × som tar bort den
+
+**Givet** tagna bilder
+**När** jag trycker "Klar"
+**Så** skickas bilderna en i taget, i den ordning de togs, den vanliga vägen (nedskalade till 2048 px och högst 1,5 MB JPEG, utan EXIF), och varje bild blir ett eget kort som läses i bakgrunden
+
+**Givet** kameran
+**När** jag trycker "Avbryt" eller "Klar", eller sidan döljs
+**Så** stängs kameraströmmen (den startar igen när sidan visas, om kameran fortfarande är öppen)
+
+**Givet** att kameran inte är tillåten eller saknas (en dator utan kamera, en gammal webbläsare)
+**När** Snabbkamera öppnas
+**Så** visas en lugn rad om varför, och "Använd Ta foto" öppnar dagens "Ta foto" i samma tryck
+
+**Givet** Snabbkamera
+**När** den används med skärmläsare eller tangentbord
+**Så** har avtryckaren, × och "Klar" namn ("Ta kort", "Ta bort kort 2", "Klar, skicka 3 kort"), antalet läses upp, Esc är Avbryt och fokus stannar i kameran
 
 ### Story 18.8: Garderoben
 

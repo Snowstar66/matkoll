@@ -13,6 +13,7 @@ import { createClient, createKeyClient } from "@/lib/supabase/server";
 import { listCheckRowsIn } from "./data/checks";
 import { ShoppingDataError } from "./data/client";
 import { listCustomItemsIn } from "./data/custom-items";
+import { listShoppingNewsIn } from "./data/news";
 import { addItemsByApiKeyIn } from "./data/quick-add";
 import { listOverridesIn } from "./data/overrides";
 import { listProductChoicesIn } from "./data/product-choices";
@@ -227,4 +228,13 @@ export async function addItemsByApiKey(
     console.error("quick_add_failed", { reason: error instanceof ShoppingDataError ? error.detail : "unknown" });
     return { kind: "failed" };
   }
+}
+
+/**
+ * Brickor (Story 23.1): the news keys of own items added and lines checked off
+ * after `since`, for the badge on Inköpslista; at most `limit` of each. With the
+ * signed-in user's session client. Throws ShoppingDataError.
+ */
+export async function listShoppingNews(since: Date, limit: number): Promise<string[]> {
+  return listShoppingNewsIn(await createClient(), since, limit);
 }
