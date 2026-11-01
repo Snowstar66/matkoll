@@ -230,8 +230,9 @@ export function Sheet({
   return (
     <dialog
       ref={dialogRef}
-      aria-labelledby={heading === undefined ? titleId : undefined}
-      aria-label={heading === undefined ? undefined : title}
+      // With a `heading`, a string `title` names the dialog (Story 16.17); a node title (Story 19.2) names it from the header.
+      aria-labelledby={heading === undefined || typeof title !== "string" ? titleId : undefined}
+      aria-label={heading !== undefined && typeof title === "string" ? title : undefined}
       aria-describedby={subtitle ? subtitleId : undefined}
       onKeyDown={(event) => {
         // Handled here rather than only in `cancel`, so a dirty sheet can always ask first.
