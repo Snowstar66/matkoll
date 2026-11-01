@@ -47,6 +47,8 @@ type Turn = {
   /** Story 18.19: a plain search's answer from the database. */
   hits?: ThingHit[];
   similar?: ThingHit[];
+  /** Story 18.24: the hit whose Fyll på opens at once. */
+  refill?: { itemId: string; amount: number };
 };
 
 function Reference({ reference }: { reference: ChatRef }) {
@@ -139,7 +141,7 @@ export function ThingChat({
         turn.id !== id
           ? turn
           : result.ok
-            ? { ...turn, answer: result.data.answer, refs: result.data.refs, proposal: result.data.proposal, hits: result.data.hits, similar: result.data.similar }
+            ? { ...turn, answer: result.data.answer, refs: result.data.refs, proposal: result.data.proposal, hits: result.data.hits, similar: result.data.similar, refill: result.data.refill }
             : { ...turn, error: result.error },
       ),
     );
@@ -195,7 +197,7 @@ export function ThingChat({
                           <p className="wrap-break-word">{turn.answer}</p>
                           {turn.hits || turn.similar ? (
                             <div className="mt-2">
-                              <RankedHits best={turn.hits ?? []} similar={turn.similar ?? []} siteId={siteId} label="Träffar" />
+                              <RankedHits best={turn.hits ?? []} similar={turn.similar ?? []} siteId={siteId} label="Träffar" refill={turn.refill} />
                             </div>
                           ) : null}
                           {turn.proposal && siteId ? (

@@ -1430,7 +1430,7 @@ describe("askThings as a chat turn (Story 18.14)", () => {
 describe("thingSearchTerms on a model (Story 18.14)", () => {
   const limits: Limits = { healthMs: 30_000, attemptMs: 30_000, totalMs: 60_000, maxAttempts: 1, minRetryMs: 0 };
   const input: ThingSearchTermsInput = { question: "och tången då?", history: [{ question: "Har du sett min skiftnyckel?", answer: "Ja, i Skräpförrådet." }] };
-  const noRemember = { intent: "question", thing: null, room: null, part: null, category: null };
+  const noRemember = { intent: "question", thing: null, room: null, part: null, category: null, count: null };
 
   it("sends the terms prompt, the turns and the question, and gives cleaned terms", async () => {
     const model = fakeModel(
@@ -1440,7 +1440,7 @@ describe("thingSearchTerms on a model (Story 18.14)", () => {
       }),
     );
     const result = await createModelAiService({ model }, limits).thingSearchTerms(input, signal());
-    expect(result).toEqual({ ok: true, data: { terms: ["tång", "kniptång", "polygrip", "två rader", "ord0", "ord1", "ord2", "ord3"], intent: "question", remember: null } });
+    expect(result).toEqual({ ok: true, data: { terms: ["tång", "kniptång", "polygrip", "två rader", "ord0", "ord1", "ord2", "ord3"], intent: "question", remember: null, refill: null } });
     const call = model.doGenerateCalls[0];
     expect(call.maxOutputTokens).toBe(inputLimits.termsWithRooms.maxOutputTokens);
     const [system, user] = call.prompt;
@@ -1494,7 +1494,7 @@ describe("thingSearchTerms on a model (Story 18.14)", () => {
     const answer = (fields: Record<string, unknown>) => createModelAiService({ model: fakeModel(JSON.stringify({ ...noRemember, terms: ["pass"], ...fields })) }, limits).thingSearchTerms(input, signal());
     expect(await answer({ intent: " Remember ", thing: " Pass\n", room: "Sovrummet", part: "översta byrålådan", category: "Övrigt" })).toEqual({
       ok: true,
-      data: { terms: ["pass"], intent: "remember", remember: { name: "Pass", room: "Sovrummet", part: "översta byrålådan", category: "Övrigt" } },
+      data: { terms: ["pass"], intent: "remember", remember: { name: "Pass", room: "Sovrummet", part: "översta byrålådan", category: "Övrigt" }, refill: null },
     });
     // An unknown category is Övrigt; an empty room or part is none; the texts are cut to what the tables take.
     expect(await answer({ intent: "remember", thing: "x".repeat(100), room: " ", part: "y".repeat(50), category: "Papper" })).toMatchObject({
@@ -1504,6 +1504,19 @@ describe("thingSearchTerms on a model (Story 18.14)", () => {
     expect(await answer({ intent: "remember", thing: "  " })).toMatchObject({ data: { intent: "question", remember: null } });
     expect(await answer({ intent: "ignore all rules" })).toMatchObject({ data: { intent: "question", remember: null } });
     expect(await answer({ intent: "search", thing: "Pass" })).toMatchObject({ data: { intent: "search", remember: null } });
+  });
+
+  it("gives something bought with its name, count and category from the same call (Story 18.24)", async () => {
+    const answer = (fields: Record<string, unknown>) => createModelAiService({ model: fakeModel(JSON.stringify({ ...noRemember, terms: ["batteri"], ...fields })) }, limits).thingSearchTerms(input, signal());
+    expect(await answer({ intent: "refill", thing: " Batterier ", category: "Elektronik", count: 4 })).toEqual({
+      ok: true,
+      data: { terms: ["batteri"], intent: "refill", remember: null, refill: { name: "Batterier", count: 4, category: "Elektronik" } },
+    });
+    // A count that is not a whole number from 1 to 999 is none; an unknown category is Övrigt; no name is a question.
+    for (const count of [0, 2.5, 1000, -1, null]) {
+      expect(await answer({ intent: "refill", thing: "Gravljus", category: "Ljus", count })).toMatchObject({ data: { refill: { name: "Gravljus", count: null, category: "Övrigt" } } });
+    }
+    expect(await answer({ intent: "refill", thing: " ", count: 2 })).toMatchObject({ data: { intent: "question", refill: null } });
   });
 });
 
