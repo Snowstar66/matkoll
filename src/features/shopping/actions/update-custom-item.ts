@@ -16,7 +16,7 @@ import {
 /**
  * "Spara" in an own item's Listpostdetalj (FR-17, Story 3.6): changes the
  * item's text, catalog ingredient, amount and unit with the same schema as
- * "Lägg till egen vara", keeping its id, so its check stays. Only the link is
+ * "Lägg till vara", keeping its id, so its check stays. Only the link is
  * stored: the list never writes to the catalog. The item's plan plays no part (Story
  * 17.10). Idempotent. Revalidates the
  * list (AD-18).

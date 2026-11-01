@@ -10,12 +10,12 @@ import { searchIngredients } from "@/features/catalog/server";
 import type { PantrySite } from "@/features/pantry";
 import { listPantrySites, PantryDataError } from "@/features/pantry/server";
 import { getShoppingList } from "@/features/shopping/server";
-import { emptyPlanText } from "@/features/shopping";
+import { emptyPlanText, parseListFilter } from "@/features/shopping";
 import { loadBoendeCounts } from "../boende-counts";
 import { ShoppingListView } from "./shopping-list-view";
 
 const next = "/lista";
-/** Story 17.9: the address that opens "Lägg till egen vara" at once (home-screen shortcut). */
+/** Story 17.9: the address that opens "Lägg till vara" at once (home-screen shortcut). */
 const quickAddNext = "/lista/lagg-till";
 
 /**
@@ -23,7 +23,7 @@ const quickAddNext = "/lista/lagg-till";
  * signed-in user, the login page, as on the other pages. When the plan, its
  * recipes or the catalog cannot be read, a notice says so; a pantry that
  * cannot be read shows the list with nothing taken off, and says that. The
- * catalog's search is passed down for the suggestions in Lägg till egen vara
+ * catalog's search is passed down for the suggestions in Lägg till vara
  * (AD-1: a client component never imports another module's actions). The
  * selected store and its product choices (Story 7.2) go beside the list; when
  * they cannot be read, only the detail's section Produktval says so. The place
@@ -41,9 +41,10 @@ const quickAddNext = "/lista/lagg-till";
 export async function ShoppingListContent({
   searchParams,
   quickAdd = false,
-}: { searchParams?: Promise<{ vecka?: string | string[] }>; quickAdd?: boolean } = {}) {
+}: { searchParams?: Promise<{ vecka?: string | string[]; visa?: string | string[] }>; quickAdd?: boolean } = {}) {
   const user = await requireUserOrRedirect(quickAdd ? quickAddNext : next);
-  const vecka = (await searchParams)?.vecka;
+  const params = await searchParams;
+  const vecka = params?.vecka;
   const now = new Date();
   const weekStart = viewedWeek(Array.isArray(vecka) ? vecka[0] : vecka, now);
   const tiles = Array.from({ length: overviewWeeks }, (_, offset) => addWeeks(currentWeekStart(now), offset));
@@ -126,6 +127,7 @@ export async function ShoppingListContent({
         site={site}
         empty={empty}
         openAddOnStart={quickAdd}
+        filter={parseListFilter(params?.visa)}
       />
     </>
   );

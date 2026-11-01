@@ -3,7 +3,7 @@
 import { useRouter } from "next/navigation";
 import { type FormEvent, type ReactNode, startTransition, useActionState, useEffect, useId, useRef, useState } from "react";
 import { Button } from "@/components/button";
-import { TrashIcon } from "@/components/icons";
+import { CheckIcon, TrashIcon } from "@/components/icons";
 import { AmountInput } from "@/components/amount-input";
 import { FieldError, FieldLabel, Input } from "@/components/field";
 import {
@@ -31,17 +31,27 @@ import {
   type CustomItemRow,
 } from "../domain/custom-item";
 
-// Lägg till egen vara (FR-17, Story 3.5): the sheet that adds Pontus's own
+// Lägg till vara (FR-17, Story 3.5): the sheet that adds Pontus's own
 // item to the list. They write what they want; while they type (after the
 // Sökfält pause, 200 ms) the catalog suggests ingredients, and choosing one
 // links the item to it, so it goes under that ingredient's section, else
 // under Övrigt. Amount and unit are optional, both or neither. Nothing is
-// ever written to the catalog from here: only the link is stored. The same
+// ever written to the catalog from here: only the link is stored. After
+// "Lägg till" the sheet stays open with an empty field for the next item and
+// "Klar" to stop (iOS Reminders, fix after go-live). The same
 // sheet is an own item's Listpostdetalj (Story 3.6), where "Spara" changes the
 // item and "Ta bort" removes it.
 
 /** How many suggestions show under the field. */
 export const maxSuggestions = 5;
+
+/** The title of the sheet that adds an item; the list's field and header "+" have the same name. */
+export const addSheetTitle = "Lägg till vara";
+
+/** The confirmation in the sheet after an item was added, while it waits for the next. */
+export function addedText(label: string): string {
+  return `La till ${label.trim()}.`;
+}
 
 /** Under the field when the catalog could not be searched; the item can still be added. */
 export const suggestionsUnavailableText = "Förslag går inte att visa just nu.";
@@ -120,13 +130,14 @@ export type CustomItemSheetProps = {
 };
 
 /**
- * Arket Lägg till egen vara: the text field (16 px, in focus from the start)
+ * Arket Lägg till vara: the text field (16 px, in focus from the start)
  * with the catalog's suggestions under it, then Mängd and Enhet. A chosen
  * suggestion puts its name in the field and shows "Kopplad till Kaffe" with
  * "Ta bort kopplingen"; the text can still be changed, and the link stays.
  * Only the link is stored: nothing is written to the catalog. "Lägg till"
- * saves with addCustomItem and closes the sheet; the list behind is read
- * again. The item's id is kept while the form is unchanged, so trying again
+ * saves with addCustomItem; the list behind is read again, and the sheet
+ * stays open with the form empty and focus in the field, says "La till
+ * diskmedel." and offers "Klar" instead of "Avbryt". The item's id is kept while the form is unchanged, so trying again
  * after a lost answer adds it once; a change to any field makes a new one,
  * so a changed item is never sent with an id already used. Unsaved text asks
  * "Släng ändringarna?" before the sheet closes.
@@ -161,6 +172,8 @@ export function CustomItemSheet({
   const [unitStep, setUnitStep] = useState(false);
   const unitRef = useRef<HTMLDivElement>(null);
   const nextError = useRef(0);
+  /** The last item added in this opening, for "La till diskmedel." and "Klar"; a new id each time. */
+  const [added, setAdded] = useState<{ label: string; id: number } | null>(null);
   const timer = useRef<ReturnType<typeof setTimeout> | undefined>(undefined);
   const { query, hits, error: searchError, search, reset: resetSearch } = useIngredientSearch(searchIngredients);
   const ids = useId();
@@ -176,6 +189,7 @@ export function CustomItemSheet({
     setError(null);
     setServerFields({});
     setAttempted(false);
+    setAdded(null);
     // The last opening's suggestions are not this one's.
     resetSearch();
   }
@@ -202,6 +216,9 @@ export function CustomItemSheet({
     if (open) removing.current = false;
   }, [open, session]);
 
+  /** An item was just added: focus goes back to the field once the form is no longer inert. */
+  const focusNext = useRef(false);
+
   const [, save, saving] = useActionState(async (_previous: null, { input, change }: { input: CustomItemFormInput; change: boolean }) => {
     let result: Result<CustomItemRow>;
     try {
@@ -212,7 +229,20 @@ export function CustomItemSheet({
     }
     if (result.ok) {
       // The action revalidated the list, so the list behind shows the item as saved.
-      onClose();
+      if (change) {
+        onClose();
+        return null;
+      }
+      // A new item: the form starts over for the next one, and the sheet stays open.
+      clearTimeout(timer.current);
+      resetSearch();
+      setInitial(emptyValues);
+      setValues(emptyValues);
+      setItemId(null);
+      setAttempted(false);
+      setUnitStep(false);
+      setAdded((before) => ({ label: input.label, id: (before?.id ?? 0) + 1 }));
+      focusNext.current = true;
       return null;
     }
     const { code, fields } = result.error;
@@ -236,6 +266,13 @@ export function CustomItemSheet({
     if (code === "shopping_plan_changed") router.refresh();
     return null;
   }, null);
+
+  // After an item was added, the field is ready for the next, once saving is over (the form is inert until then).
+  useEffect(() => {
+    if (saving || !focusNext.current) return;
+    focusNext.current = false;
+    labelRef.current?.focus();
+  }, [saving, added]);
 
   const input: CustomItemFormInput = {
     ...(itemId ? { id: itemId } : {}),
@@ -346,15 +383,27 @@ export function CustomItemSheet({
           ? "Enhet"
           : item
             ? (title ?? item.label)
-            : "Lägg till egen vara"
+            : addSheetTitle
       }
       onBack={unitStep ? () => setUnitStep(false) : undefined}
-      closeLabel="Avbryt"
+      // "Klar" once something was added: what is added is saved (the sheet rule, Story 19.4).
+      closeLabel={added && !item ? "Klar" : "Avbryt"}
       isDirty={isFormDirty(values, initial)}
       preventClose={saving}
       footer={
         unitStep ? undefined : (
           <>
+            {item ? null : (
+              // Mounted empty, so the first "La till …" is announced; just above "Lägg till", over the keyboard.
+              <p role="status" data-testid="custom-item-added" className="flex items-center justify-center gap-1.5 text-meta text-ink-2 empty:-mb-2">
+                {added ? (
+                  <>
+                    <CheckIcon size={16} className="shrink-0 text-accent" />
+                    <span key={added.id}>{addedText(added.label)}</span>
+                  </>
+                ) : null}
+              </p>
+            )}
             {error ? (
               <Notice key={error.id} role="alert">
                 {error.text}
