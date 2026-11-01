@@ -142,7 +142,7 @@ export function siteRecountedText(siteName: string, left: number): string {
 }
 
 /** The titles of the dishes a line comes from, each once (a recipe can be on the plan twice), in plan order. */
-function dishTitlesOf(origins: readonly string[], dishTitles: Readonly<Record<string, string>>): string[] {
+export function dishTitlesOf(origins: readonly string[], dishTitles: Readonly<Record<string, string>>): string[] {
   return [...new Set(origins.flatMap((id) => (dishTitles[id] ? [dishTitles[id]] : [])))];
 }
 
@@ -157,12 +157,12 @@ export function originsText(origins: readonly string[], dishTitles: Readonly<Rec
 }
 
 /** Under an own item in the list. */
-export const customItemMetaText = "Egen vara";
+export const customItemMetaText = "Egen";
 
 /**
- * The line under a list line's name (Story 11.4, FR-43): "Egen vara" for an
- * own item; the dishes it comes from with " · " between them ("Korv
- * stroganoff · Kycklinggryta"), without "från"; for a vague line whose
+ * The line under a list line's name (Story 11.4, FR-43; Story 19.7): "Egen"
+ * for an own item (the row shows it as a label); "Till Korv stroganoff" for a
+ * line from one dish, "Till 2 rätter" from more; for a vague line whose
  * ingredient is not in the pantry, "Saknas i Matvaror" first, or "Saknas i
  * Stugan" with the place's name (pantry.shownSiteName, with more than one
  * place). Only when the pantry was read (`pantryRead`): when it could not
@@ -177,7 +177,10 @@ export function lineMetaText(
 ): string | null {
   if (line.isCustom) return customItemMetaText;
   const missing = line.isVague ? missingText(siteName, pantryRead) : null;
-  const parts = [...(missing ? [missing] : []), ...dishTitlesOf(line.origins, dishTitles)];
+  const titles = dishTitlesOf(line.origins, dishTitles);
+  // Story 19.7: "Till Korv stroganoff" for one dish, "Till 2 rätter" for more: calm, on one line.
+  const to = titles.length === 0 ? [] : [titles.length === 1 ? `Till ${titles[0]}` : `Till ${titles.length} rätter`];
+  const parts = [...(missing ? [missing] : []), ...to];
   return parts.length > 0 ? parts.join(" · ") : null;
 }
 

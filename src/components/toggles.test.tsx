@@ -58,11 +58,11 @@ describe("CheckCircle", () => {
     expect(box).not.toBeChecked();
   });
 
-  it("has a 44 px tap area around the 26 px circle", () => {
+  it("has a 44 px tap area around the 24 px circle", () => {
     render(<CheckCircle checked={false} onCheckedChange={() => {}} label="Mjölk" />);
     const box = screen.getByRole("checkbox", { name: "Mjölk" });
     expect(box.className).toContain("size-tap");
-    expect(box.firstElementChild?.className).toContain("size-[26px]");
+    expect(box.firstElementChild?.className).toContain("size-6");
   });
 
   it("can be disabled, keeping its name and state", async () => {

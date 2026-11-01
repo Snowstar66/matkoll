@@ -15,7 +15,7 @@ export type CheckCircleProps = {
   className?: string;
 };
 
-/** The round tick of a list item: 26 px visible circle in a 44 px tap area. */
+/** The round tick of a list item: 24 px visible circle in a 44 px tap area. */
 export function CheckCircle({ checked, onCheckedChange, label, disabled, describedBy, className }: CheckCircleProps) {
   return (
     <button
@@ -30,11 +30,11 @@ export function CheckCircle({ checked, onCheckedChange, label, disabled, describ
     >
       <span
         className={cx(
-          "flex size-[26px] items-center justify-center rounded-full border-2",
+          "flex size-6 items-center justify-center rounded-full border-[1.75px]",
           checked ? "border-accent bg-accent text-on-accent" : "border-ink-3 bg-surface",
         )}
       >
-        {checked ? <CheckIcon size={15} /> : null}
+        {checked ? <CheckIcon size={14} /> : null}
       </span>
     </button>
   );
