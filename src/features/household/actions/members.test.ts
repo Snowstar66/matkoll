@@ -26,7 +26,10 @@ vi.mock("../data/household", async (importOriginal) => ({
   removeMemberIn: () => removeMemberIn(),
   leaveHouseholdIn: () => leaveHouseholdIn(),
   setMyNameIn: async (_db: unknown, name: string) => name,
+  loadMembersIn: () => loadMembersIn(),
 }));
+const me = { userId: "11111111-1111-4111-8111-111111111111", role: "owner", isMe: true };
+const loadMembersIn = vi.fn();
 
 const { leaveHousehold, removeMember, setMyName } = await import("./members");
 const { HouseholdRefusal } = await import("../data/household");
@@ -37,12 +40,21 @@ beforeEach(() => {
   keepSession.mockReset().mockResolvedValue(true);
   redirect.mockClear();
   removeMemberIn.mockClear();
+  loadMembersIn.mockReset().mockResolvedValue([me, { userId: martina, role: "member", isMe: false }]);
 });
 
 describe("the Medlemmar actions", () => {
   it("removes the member's files before the member", async () => {
     expect((await removeMember({ userId: martina })).ok).toBe(true);
     expect(calls).toEqual([`files ${martina}`, "remove"]);
+  });
+
+  it("removes no files when the removal or the leaving would be refused", async () => {
+    loadMembersIn.mockResolvedValue([{ ...me, role: "member" }, { userId: martina, role: "owner", isMe: false }]);
+    expect(await removeMember({ userId: martina })).toMatchObject({ ok: false, error: { code: "household_not_owner" } });
+    loadMembersIn.mockResolvedValue([me]);
+    expect(await leaveHousehold()).toMatchObject({ ok: false, error: { code: "household_alone" } });
+    expect(calls).toEqual([]);
   });
 
   it("never removes oneself or a non-id, and says when only the owner may", async () => {

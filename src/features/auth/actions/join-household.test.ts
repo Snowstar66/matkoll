@@ -70,6 +70,11 @@ describe("joinHousehold", () => {
     expect(await joinHousehold({ mode: "signup", ...martina })).toMatchObject({ ok: false, error: { code: "household_account_exists" } });
   });
 
+  it("never makes an account for an address on ALLOWED_EMAILS (users:sync does)", async () => {
+    expect(await joinHousehold({ mode: "signup", ...martina, email: "pontus@example.com" })).toMatchObject({ ok: false, error: { code: "household_account_exists" } });
+    expect(signUp).not.toHaveBeenCalled();
+  });
+
   it("signs out a new account whose code was used up in between", async () => {
     rpc.mockResolvedValue({ data: [], error: null });
     letIn.mockResolvedValue(false);

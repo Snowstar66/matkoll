@@ -191,7 +191,16 @@ describe("joining", () => {
     expect((await busy.db.rpc("household_invite_preview", { code: made.code })).data).toMatchObject({ status: "ok", own_data: true });
     expect((await busy.db.rpc("accept_household_invite", { code: made.code })).error?.code).toBe("MK452");
     expect((await owner.db.rpc("accept_household_invite", { code: made.code })).error?.code).toBe("MK453");
-    expect((await adminClient().from("household_invite").select("used_at").eq("id", made.id).single()).data?.used_at).toBeNull();
+    // Only a place in Förråd counts as data of its own too.
+    const placer = await newUser("join-placer");
+    const site = await placer.db.from("pantry_site").insert({ name: "Hemma", normalized_name: "hemma", is_selected: true }).select("id").single();
+    expect((await placer.db.from("thing_place").insert({ site_id: site.data!.id, room: "Garaget", room_key: "garaget", part: null, part_key: "" })).error).toBeNull();
+    expect((await placer.db.rpc("accept_household_invite", { code: made.code })).error?.code).toBe("MK452");
+    // The start data alone (one boende) is no data of its own.
+    const starter = await newUser("join-starter");
+    expect((await starter.db.from("pantry_site").insert({ name: "Hemma", normalized_name: "hemma", is_selected: true })).error).toBeNull();
+    expect((await starter.db.rpc("accept_household_invite", { code: made.code })).data).toHaveLength(1);
+    await starter.db.rpc("leave_household");
   });
 
   it("locks an account out of codes after 10 wrong ones in an hour, even a right one", async () => {

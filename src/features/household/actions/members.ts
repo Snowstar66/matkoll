@@ -8,6 +8,7 @@ import { revalidateFor } from "@/lib/revalidate";
 import { createClient } from "@/lib/supabase/server";
 import {
   createInviteIn,
+  loadMembersIn,
   HouseholdDataError,
   householdErrorCodes,
   HouseholdRefusal,
@@ -82,6 +83,10 @@ export async function removeMember(input: { userId: string }): Promise<Result<nu
   if (!id.success || id.data === user.data.id) return fail("validation");
   const db = await createClient();
   const removed = await run("remove", async () => {
+    // The files go only when the removal will: the caller is the owner and the person a member.
+    const members = await loadMembersIn(db);
+    if (!members.some((member) => member.isMe && member.role === "owner")) throw new HouseholdRefusal(householdErrorCodes.notOwner);
+    if (!members.some((member) => member.userId === id.data && !member.isMe)) throw new HouseholdRefusal(householdErrorCodes.memberGone);
     await removeLeftoverFilesIn(db, id.data);
     await removeMemberIn(db, id.data);
     return null;
@@ -114,6 +119,8 @@ export async function leaveHousehold(): Promise<Result<null>> {
   if (!user.ok) return user;
   const db = await createClient();
   const left = await run("leave", async () => {
+    // The files go only when leaving will: someone else is in the household.
+    if (!(await loadMembersIn(db)).some((member) => !member.isMe)) throw new HouseholdRefusal(householdErrorCodes.alone);
     await removeLeftoverFilesIn(db, user.data.id);
     await leaveHouseholdIn(db);
     return null;

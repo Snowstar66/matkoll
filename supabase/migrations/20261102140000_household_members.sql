@@ -329,8 +329,9 @@ $$;
 
 -- 4. Joining ----------------------------------------------------------------------------
 
--- Whether a household holds data someone put in (not only the start data
--- every account gets: Hemma, the store, the recipe sites).
+-- Whether a household holds data someone put in, more than the start data
+-- every account gets (Hemma, one store, the recipe sites): joining another
+-- household would delete it with the household left empty.
 create function public.household_has_data(hid uuid)
 returns boolean
 language sql
@@ -339,12 +340,20 @@ security definer
 set search_path = ''
 as $$
   select exists (select 1 from public.recipe as r where r.household_id = hid)
+    or exists (select 1 from public.ingredient as r where r.household_id = hid)
+    or exists (select 1 from public.ingredient_synonym as r where r.household_id = hid)
     or exists (select 1 from public.meal_plan_recipe as r where r.household_id = hid)
     or exists (select 1 from public.shopping_custom_item as r where r.household_id = hid)
+    or exists (select 1 from public.shopping_check as r where r.household_id = hid)
+    or exists (select 1 from public.shopping_line_override as r where r.household_id = hid)
+    or exists (select 1 from public.product_choice as r where r.household_id = hid)
     or exists (select 1 from public.pantry_item as r where r.household_id = hid)
     or exists (select 1 from public.pantry_photo as r where r.household_id = hid)
+    or exists (select 1 from public.thing_place as r where r.household_id = hid)
     or exists (select 1 from public.thing_photo as r where r.household_id = hid)
-    or exists (select 1 from public.thing_item as r where r.household_id = hid);
+    or exists (select 1 from public.thing_item as r where r.household_id = hid)
+    or (select count(*) from public.pantry_site as r where r.household_id = hid) > 1
+    or (select count(*) from public.store as r where r.household_id = hid) > 1;
 $$;
 
 -- Takes `who` out of their household: when they owned it and others are left,
@@ -437,6 +446,10 @@ begin
     -- The attempt must stay although the call fails: it is answered, not raised.
     return;
   end if;
+  -- The households first, then the membership: the same order as leaving and
+  -- removing, so the two never wait on each other.
+  perform 1 from public.household as h
+  where h.id in (invite.household_id, public.my_household_id()) order by h.id for update;
   select * into mine from public.household_member as m where m.user_id = me for update;
   if mine.household_id = invite.household_id then
     raise exception 'already a member' using errcode = 'MK453';
@@ -447,8 +460,6 @@ begin
     raise exception 'the household has data of its own' using errcode = 'MK452';
   end if;
 
-  -- Both households stay still meanwhile.
-  perform 1 from public.household as h where h.id in (invite.household_id, mine.household_id) order by h.id for update;
   if mine.household_id is not null then
     select o.shown, o.named into was_shown, was_named from public.household_member_out(me) as o;
   end if;
@@ -484,6 +495,9 @@ begin
     raise exception 'not a member' using errcode = '42501';
   end if;
   perform 1 from public.household as h where h.id = hid for update;
+  if public.my_household_id() is distinct from hid then
+    raise exception 'the household changed meanwhile' using errcode = '40001';
+  end if;
   if not exists (select 1 from public.household_member as m where m.household_id = hid and m.user_id <> me) then
     raise exception 'alone in the household' using errcode = 'MK456';
   end if;
@@ -512,6 +526,9 @@ begin
     raise exception 'not a member' using errcode = '42501';
   end if;
   perform 1 from public.household as h where h.id = hid for update;
+  if public.my_household_id() is distinct from hid then
+    raise exception 'the household changed meanwhile' using errcode = '40001';
+  end if;
   if not exists (select 1 from public.household_member as m where m.household_id = hid and m.user_id = me and m.role = 'owner') then
     raise exception 'only the owner removes a member' using errcode = 'MK454';
   end if;
@@ -540,6 +557,9 @@ begin
     raise exception 'not a member' using errcode = '42501';
   end if;
   perform 1 from public.household as h where h.id = hid for update;
+  if public.my_household_id() is distinct from hid then
+    raise exception 'the household changed meanwhile' using errcode = '40001';
+  end if;
   if not exists (select 1 from public.household_member as m where m.household_id = hid and m.user_id = me and m.role = 'owner') then
     raise exception 'only the owner hands over' using errcode = 'MK454';
   end if;
