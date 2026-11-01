@@ -114,7 +114,7 @@ export const helpSections: readonly HelpSection[] = [
       },
       {
         title: "Ta bort och ångra",
-        text: "Papperskorgen på en rad tar bort varan, och Ångra finns kvar en stund. Töm kylen längst ned tar bort allt på platsen efter en fråga.",
+        text: "Svep en rad åt vänster, eller tryck på varan och Ta bort. Ångra finns kvar en stund. Töm kylen längst ned tar bort allt på platsen efter en fråga.",
       },
       {
         title: "Det styr dina recept",
