@@ -3,6 +3,7 @@ import { chatInputSchema, cleanHistory, groupHits, maxHistoryTurns, questionSche
 import type { ThingHit } from "./thing-search";
 
 const hit = (extra: Partial<ThingHit> = {}): ThingHit => ({
+  quantity: null,
   id: crypto.randomUUID(),
   name: "Skiftnyckel",
   category: "Verktyg",

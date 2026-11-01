@@ -37,6 +37,8 @@ export type ThingHit = {
   noted: boolean;
   /** 1 for a name that holds a search word, less for a close one. */
   score: number;
+  /** Story 18.23: how many there are ("5 st"); null when it is not counted. */
+  quantity: number | null;
 };
 
 /** The rows of search_things, checked. */
@@ -60,6 +62,8 @@ export const searchRowsSchema = z.array(
     seen_on: z.number().int(),
     // Story 18.19; a database before its migration has no such column.
     noted: z.boolean().optional(),
+    // Story 18.23; a database before its migration has no such column.
+    quantity: z.number().int().nullable().optional(),
   }),
 );
 
@@ -83,6 +87,7 @@ export function toHit(row: z.output<typeof searchRowsSchema>[number]): ThingHit 
     written: row.source === "manual",
     noted: row.noted === true,
     score: row.score,
+    quantity: row.quantity ?? null,
   };
 }
 
@@ -191,6 +196,56 @@ export function isPlainSearch(text: string): boolean {
   return !words.some((word) => questionWords.has(word) || statementWords.has(word));
 }
 
+// Story 18.23: "har vi gravljus" is a search too. The question's frame is taken
+// off first; what is left, one to three words, is looked up by the database
+// without AI, and the answer says yes or no from what it finds.
+
+/** The frames a short question starts with, longest first: "har vi", "finns det några", "var ligger". */
+const leadingFrames = [
+  "finns det några",
+  "finns det något",
+  "finns det någon",
+  "har vi några",
+  "har vi något",
+  "har vi någon",
+  "har ni några",
+  "har jag några",
+  "var har vi",
+  "var har jag",
+  "finns det",
+  "har vi",
+  "har ni",
+  "har jag",
+  "var är",
+  "var ligger",
+  "var finns",
+  "vart är",
+  "hittar du",
+  "hittar vi",
+  "hittar jag",
+  "hittar",
+].map((frame) => frame.split(" "));
+/** The words a short question may end with: "hemma", "kvar". */
+const trailingFrameWords = new Set(["hemma", "kvar"]);
+
+/**
+ * What a short question asks about, without its frame: "har vi gravljus" →
+ * "gravljus", "finns det gravljus hemma?" → "gravljus", "var är gravljusen" →
+ * "gravljusen". `null` when the text has no such frame, or when what is left
+ * is not a plain search (none or more than three words, or a question of its own).
+ */
+export function stripQuestionFrame(text: string): string | null {
+  const words = searchKey(text).replace(/[?!.]+/g, " ").split(" ").filter((word) => word !== "");
+  const frame = leadingFrames.find((lead) => lead.every((word, index) => words[index] === word));
+  if (!frame) return null;
+  const rest = words.slice(frame.length);
+  while (rest.length > 0 && trailingFrameWords.has(rest[rest.length - 1])) rest.pop();
+  // "har vi något att måla med" asks for a use, not a name: the AI's.
+  if (rest[0] === "att") return null;
+  const left = rest.join(" ");
+  return isPlainSearch(left) ? left : null;
+}
+
 /** Letters and digits only, so "coca cola" finds "Coca-Cola". */
 function compact(text: string): string {
   return searchKey(text).replace(/[^\p{L}\p{N}]/gu, "");
@@ -228,6 +283,29 @@ export function rankHits<T extends Pick<ThingHit, "name">>(query: string, hits: 
 /** Where a hit is, for its row: "Boden · Nedersta hyllan · mitten", "Garaget · i Black box". */
 export function hitPlaceText(hit: Pick<ThingHit, "room" | "part" | "isBox" | "whereHint">): string {
   return [hit.room, hit.isBox && hit.part ? inBoxText(hit.part) : hit.part, hit.whereHint].filter(Boolean).join(" · ");
+}
+
+/** Where a counted föremål is, for its answer (Story 18.23): the room and the part or box, "Förrådet · Översta hyllan". */
+export function hitRoomText(hit: Pick<ThingHit, "room" | "part" | "isBox">): string {
+  return [hit.room, hit.isBox && hit.part ? inBoxText(hit.part) : hit.part].filter(Boolean).join(" · ");
+}
+
+/** The same with the boende when it must be said (more than one, or not the page's): "Förrådet · Översta hyllan (Stugan)". */
+export function countPlaceText(hit: Pick<ThingHit, "room" | "part" | "isBox" | "siteName">, withSite: boolean): string {
+  const place = hitRoomText(hit);
+  return withSite && hit.siteName.trim() !== "" ? `${place} (${hit.siteName})` : place;
+}
+
+/**
+ * Story 18.23: whether a name answers the text surely enough for a count answer from the database: the same
+ * name (also in another form, "gravljusen"), or a text of one or two words the name starts with ("glödlampor"
+ * for "Glödlampor E27"). "gravljus i stugan" or "batterier till fjärrkontrollen" are not: the rest of the
+ * words may ask about something the name does not say.
+ */
+export function isStrongMatch(query: string, name: string): boolean {
+  const rank = hitRank(query, name);
+  const words = searchKey(query).split(/[^\p{L}\p{N}]+/u).filter(Boolean).length;
+  return rank >= 3 || (rank >= 2 && words <= 2);
 }
 
 /**

@@ -29,6 +29,8 @@ export type ChipProps = Omit<ComponentProps<"button">, "children"> & {
   dashed?: boolean;
   /** A number after the label in 400 weight, e.g. "Förslag 2" in Inkorg (Story 20.3). */
   count?: number;
+  /** Story 18.23: an action in chip form ("Ta", "Fyll på"): the quiet chip with its text in `--accent`. Never selected. */
+  action?: boolean;
 };
 
 /**
@@ -36,7 +38,7 @@ export type ChipProps = Omit<ComponentProps<"button">, "children"> & {
  * side air, a 44 px tap area. Quiet `--surface` with a hairline when not chosen, filled accent
  * with 600 text when chosen. Pass `role="radio"` + `aria-checked`, or `aria-pressed` for a toggle.
  */
-export function Chip({ selected, icon, children, dashed = false, count, className, type = "button", ...rest }: ChipProps) {
+export function Chip({ selected, icon, children, dashed = false, action = false, count, className, type = "button", ...rest }: ChipProps) {
   return (
     <button
       type={type}
@@ -47,7 +49,7 @@ export function Chip({ selected, icon, children, dashed = false, count, classNam
         "focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-accent disabled:cursor-not-allowed disabled:opacity-60",
         selected
           ? "border-accent bg-accent font-semibold text-on-accent"
-          : cx("border-border bg-surface font-medium text-ink-2", dashed && "border-dashed text-accent"),
+          : cx("border-border bg-surface font-medium", dashed || action ? "text-accent" : "text-ink-2", dashed && "border-dashed"),
         className,
       )}
     >

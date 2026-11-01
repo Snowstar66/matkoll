@@ -50,6 +50,8 @@ export type Thing = {
   seenOn: number;
   /** Story 18.19: written in by hand with where it is (no card): when (ISO), and the part of the room it is in. */
   noted?: { at: string; part: string | null } | null;
+  /** Story 18.23: how many there are; null or missing when it is not counted. */
+  quantity?: number | null;
 };
 
 /** A thing_item row as read, checked before the page shows it. */

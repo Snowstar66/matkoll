@@ -527,6 +527,90 @@ test("search finds a thing in every room and boende, and the chat answers a ques
   expect(problems).toEqual([]);
 });
 
+test("Story 18.23: har vi gravljus is answered with the count, Ta 2 takes two with Ångra, the room shows 3 st and the sheet the history", async ({ page }) => {
+  const admin = adminClient();
+  const place = await seedPlace(hemma, "Förrådet", [
+    { name: "Gravljus", category: "Hushåll", where: "översta hyllan" },
+    { name: "Glödlampor E27", category: "Hushåll" },
+    { name: "Hammare", category: "Verktyg" },
+  ], { part: "Översta hyllan", takenAt: "2026-10-12T10:00:00Z" });
+  const items = (await admin.from("thing_item").select("id, name").eq("place_id", place)).data!;
+  const idOf = (name: string) => items.find((item) => item.name === name)!.id;
+  for (const [name, quantity] of [["Gravljus", 5], ["Glödlampor E27", 0]] as const) {
+    expect((await admin.from("thing_item").update({ quantity }).eq("id", idOf(name))).error).toBeNull();
+    expect((await admin.from("thing_change").insert({ user_id: userId, item_id: idOf(name), kind: "card", quantity_after: quantity === 0 ? 2 : quantity, created_at: "2026-10-12T10:00:00Z" })).error).toBeNull();
+  }
+  expect((await admin.from("thing_change").insert({ user_id: userId, item_id: idOf("Glödlampor E27"), kind: "take", delta: -2, quantity_after: 0, created_at: "2026-10-20T10:00:00Z" })).error).toBeNull();
+
+  await page.goto("/prylar");
+  const field = page.getByRole("textbox", { name: "Sök eller fråga" });
+  await field.fill("har vi gravljus");
+  await field.press("Enter");
+  const answer = page.getByTestId("chat-answer");
+  await expect(answer).toContainText("Ja, 5 gravljus i Förrådet · Översta hyllan.");
+  const hit = page.getByTestId("counted-hit");
+  await expect(hit.getByTestId("hit-count")).toHaveText("5 st");
+  // No AI: the database answered.
+  expect((await admin.from("ai_usage").select("id").eq("user_id", userId)).data).toEqual([]);
+
+  // Ta → + → Ta 2: the row says 3 st at once and the toast has Ångra.
+  await hit.getByRole("button", { name: "Ta", exact: true }).click();
+  await hit.getByRole("button", { name: "Ta fler" }).click();
+  await hit.getByRole("button", { name: "Ta 2" }).click();
+  await expect(hit.getByTestId("hit-count")).toHaveText("3 st");
+  await expect(page.getByTestId("toast")).toContainText("Tog 2 gravljus.");
+  await page.getByTestId("toast").getByRole("button", { name: "Ångra" }).click();
+  await expect(hit.getByTestId("hit-count")).toHaveText("5 st");
+  await hit.getByRole("button", { name: "Ta", exact: true }).click();
+  await hit.getByRole("button", { name: "Ta fler" }).click();
+  await page.keyboard.press("Enter");
+  await expect(hit.getByTestId("hit-count")).toHaveText("3 st");
+  expect((await admin.from("thing_item").select("quantity").eq("id", idOf("Gravljus")).single()).data?.quantity).toBe(3);
+
+  // Asked again, the answer says what Livskoll should have and why.
+  await field.fill("finns det gravljus hemma?");
+  await field.press("Enter");
+  await expect(answer.nth(1)).toContainText(/Du borde ha 3 kvar i Förrådet · Översta hyllan\. 2 togs \d+ \w+, kortet 12 okt visade 5\./);
+  // Slut: no, only Fyll på, and nothing on the shopping list.
+  await page.getByTestId("chat-clear").click();
+  await field.fill("har vi glödlampor e27");
+  await field.press("Enter");
+  await expect(answer).toContainText("Nej, glödlampor E27 är slut, enligt det som tagits sedan kortet 12 okt. De brukar ligga i Förrådet · Översta hyllan.");
+  await expect(page.getByTestId("counted-hit").getByTestId("hit-count")).toHaveText("Slut");
+  await expect(page.getByTestId("counted-hit").getByRole("button", { name: "Ta", exact: true })).toHaveCount(0);
+
+  // The room's list has the count first, and the sheet the count card with the history.
+  await page.getByTestId("chat-clear").click();
+  await rooms(page).filter({ hasText: "Förrådet" }).click();
+  await page.waitForURL(/\/prylar\/rum\//);
+  const main = content(page);
+  const household = main.getByRole("button", { name: /^Hushåll/ });
+  if ((await household.getAttribute("aria-expanded")) !== "true") await household.click();
+  await expect(main.getByRole("button", { name: /^Gravljus/ })).toContainText("3 st");
+  await expect(main.getByRole("button", { name: /^Glödlampor E27/ })).toContainText("Slut");
+  await main.getByRole("button", { name: /^Gravljus/ }).click();
+  const sheet = page.getByRole("dialog", { name: "Gravljus" });
+  await expect(sheet.getByTestId("count-number")).toHaveText("3st");
+  await expect(sheet.getByTestId("count-line")).toHaveText("Du borde ha 3 kvar · kortet 12 okt visade 5");
+  await expect(sheet.getByTestId("count-change")).toHaveCount(2);
+  await sheet.getByRole("button", { name: "Fyll på", exact: true }).click();
+  await sheet.getByRole("button", { name: "Fyll på 1" }).click();
+  await expect(sheet.getByTestId("count-done")).toHaveText(/Fyllde på 1 gravljus\./);
+  await expect(sheet.getByTestId("count-number")).toHaveText("4st");
+  await expect(sheet).toBeVisible();
+  await sheet.getByRole("button", { name: "Avbryt" }).first().click();
+  await expect(main.getByRole("button", { name: /^Gravljus/ })).toContainText("4 st");
+  // A föremål without a count: Räkna.
+  const verktyg = main.getByRole("button", { name: /^Verktyg/ });
+  if ((await verktyg.getAttribute("aria-expanded")) !== "true") await verktyg.click();
+  await main.getByRole("button", { name: /^Hammare/ }).click();
+  const hammer = page.getByRole("dialog", { name: "Hammare" });
+  await expect(hammer.getByText("· räknas inte")).toBeVisible();
+  await hammer.getByRole("button", { name: "Räkna" }).click();
+  await hammer.getByRole("button", { name: "Spara antal" }).click();
+  await expect(hammer.getByTestId("count-number")).toHaveText("1st");
+});
+
 test("old place addresses open the room, and an unknown one is 'Sidan finns inte.'", async ({ page }) => {
   const place = await seedPlace(hemma, "Skräpförrådet", [{ name: "Hammare", category: "Verktyg" }]);
   await page.goto(`/prylar/${place}`);
@@ -709,7 +793,7 @@ test("what is in a box is written, sorted by one AI call, shown with the photogr
   await expect(page.getByTestId("thing-hit")).toHaveText([/Skarvsladdar\s*Skräpförrådet · i Black box · skrivet/]);
   await page.getByRole("textbox", { name: "Sök eller fråga" }).fill("");
   const chat = page.getByTestId("chat");
-  await page.getByRole("textbox", { name: "Sök eller fråga" }).fill("Var ligger skarvsladdar?");
+  await page.getByRole("textbox", { name: "Sök eller fråga" }).fill("Vet du var skarvsladdar ligger?");
   await chat.getByRole("button", { name: "Skicka" }).click();
   await expect(page.getByTestId("chat-answer")).toContainText("Skarvsladdar finns i Skräpförrådet, i Black box (Hemma).");
   const ref = page.getByTestId("chat-ref");
@@ -1239,7 +1323,8 @@ test("a search hit and a chat reference open the card big with the föremål mar
 
   // Tillbaka goes back to the search.
   await page.goto("/prylar");
-  await search.fill("Var är hammaren?");
+  // Story 18.23: "Var är hammaren?" is answered by the database now; a question of another shape still goes to the AI.
+  await search.fill("Vet du var hammaren är?");
   await search.press("Enter");
   const ref = page.getByTestId("chat-ref");
   await expect(ref).toHaveAttribute("href", `/prylar/kort/${cardId}?foremal=${ids[0]}`);
@@ -1294,8 +1379,9 @@ test("Kom ihåg: a statement in the one field is proposed with room and part, sa
   await expect(chat.getByTestId("thing-hit")).toHaveCount(1);
   expect(await usage()).toBe(1);
 
-  // A question goes to the AI, which says where and that Pontus wrote it in, with the day.
-  await field.fill("var är passen?");
+  // A question goes to the AI, which says where and that Pontus wrote it in, with the day ("var är passen?" is
+  // answered by the database since Story 18.23).
+  await field.fill("minns du var passen är?");
   await field.press("Enter");
   await expect(chat.getByTestId("chat-answer").nth(1)).toContainText(`Det skrev du in själv ${today}.`);
   await expect(chat.getByTestId("chat-ref").last()).toContainText(`Du skrev in det ${today}`);

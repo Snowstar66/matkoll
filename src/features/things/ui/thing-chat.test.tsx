@@ -135,6 +135,7 @@ describe("the chat", () => {
       written: false,
       noted: false,
       score: 1,
+      quantity: null,
     };
     askChat.mockResolvedValue(
       ok({ answer: "Coca-Cola finns i Boden · Nedersta hyllan · mitten.", refs: [], hits: [found], similar: [{ ...found, id: "0b2f6d0a-3c0e-4d52-9a54-6d0f0c5f6a42", name: "Fun Light läsk" }] }),

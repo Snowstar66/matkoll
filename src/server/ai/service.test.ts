@@ -1063,6 +1063,7 @@ describe("listThings on a model (Story 18.2)", () => {
     where: "översta hyllan, vänster",
     confidence: "high",
     box: null,
+    count: null,
     ...extra,
   });
   const answer = (things: unknown[], extra: Record<string, unknown> = {}) =>
@@ -1077,8 +1078,8 @@ describe("listThings on a model (Story 18.2)", () => {
       ok: true,
       data: {
         things: [
-          { name: "Hammare", category: "Verktyg", where: "översta hyllan, vänster", confidence: "high", box: null },
-          { name: "Spade", category: "Trädgård", where: "översta hyllan, vänster", confidence: "low", box: null },
+          { name: "Hammare", category: "Verktyg", where: "översta hyllan, vänster", confidence: "high", box: null, count: null },
+          { name: "Spade", category: "Trädgård", where: "översta hyllan, vänster", confidence: "low", box: null, count: null },
         ],
         invalid: 0,
         trimmed: 0,
@@ -1094,13 +1095,40 @@ describe("listThings on a model (Story 18.2)", () => {
     expect(parts.find((part) => part.type === "file")).toMatchObject({ mediaType: "image/png" });
   });
 
+  it("keeps a count (Story 18.23) only as a whole number from 1 to 999 and only for a thing the model is sure of, never the thing", async () => {
+    const model = fakeModel(
+      answer([
+        thing("Gravljus", { category: "Hushåll", count: 5 }),
+        thing("Värmeljus", { category: "Hushåll", confidence: "medium", count: 24 }),
+        thing("Batterier", { category: "Hushåll", confidence: "low", count: 8 }),
+        thing("Glödlampor", { category: "Hushåll", count: 2.5 }),
+        thing("Toalettrullar", { category: "Hushåll", count: 0 }),
+        thing("Skruvar", { category: "Byggmaterial", count: 5000 }),
+        thing("Hammare", { count: null }),
+      ]),
+    );
+    const result = await createModelAiService({ model }, limits).listThings(input, signal());
+    if (!result.ok) throw new Error(result.error.code);
+    expect(result.data.things.map((entry) => [entry.name, entry.count])).toEqual([
+      ["Gravljus", 5],
+      ["Värmeljus", 24],
+      ["Batterier", null],
+      ["Glödlampor", null],
+      ["Toalettrullar", null],
+      ["Skruvar", null],
+      ["Hammare", null],
+    ]);
+    expect(prompts.listThings).toContain("`count`");
+    expect(prompts.listThings).toContain("Gissa aldrig");
+  });
+
   it("keeps a thing with an unknown category as Övrigt and an odd confidence as low, and drops one without a name", async () => {
     const model = fakeModel(answer([thing("Föremål", { category: "Mat", confidence: "kanske" }), thing("   "), thing("Såg", { where: "" })]));
     const result = await createModelAiService({ model }, limits).listThings(input, signal());
     if (!result.ok) throw new Error(result.error.code);
     expect(result.data.things).toEqual([
-      { name: "Föremål", category: "Övrigt", where: "översta hyllan, vänster", confidence: "low", box: null },
-      { name: "Såg", category: "Verktyg", where: null, confidence: "high", box: null },
+      { name: "Föremål", category: "Övrigt", where: "översta hyllan, vänster", confidence: "low", box: null, count: null },
+      { name: "Såg", category: "Verktyg", where: null, confidence: "high", box: null, count: null },
     ]);
     expect(result.data.invalid).toBe(1);
   });
@@ -1369,6 +1397,17 @@ describe("askThings as a chat turn (Story 18.14)", () => {
   it("is the old text without history, written things or closed containers", () => {
     expect(askThingsText({ question: "Hammare?", places: [{ ...written, written: undefined }] })).toBe(
       "Fråga: Hammare?\n\nPlatser:\n1. Skräpförrådet, i Black box | Hemma | kort 31 okt\n   Tång (Verktyg)",
+    );
+  });
+
+  it("says how many there should be of a counted föremål (Story 18.23), and nothing for one that is not counted", () => {
+    const counted = { ...written, written: undefined, things: [
+      { name: "Gravljus", category: "Hushåll", where: "översta hyllan", quantity: 3 },
+      { name: "Glödlampor", category: "Hushåll", where: null, quantity: 0 },
+      { name: "Tång", category: "Verktyg", where: null, quantity: null },
+    ] };
+    expect(askThingsText({ question: "Har vi gravljus?", places: [counted] })).toBe(
+      "Fråga: Har vi gravljus?\n\nPlatser:\n1. Skräpförrådet, i Black box | Hemma | kort 31 okt\n   Gravljus (3 st, Hushåll, översta hyllan); Glödlampor (slut, Hushåll); Tång (Verktyg)",
     );
   });
 

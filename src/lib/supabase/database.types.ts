@@ -463,16 +463,36 @@ isOneToOne: false
       referencedColumns: ["id","user_id"]
     }
                   ]
-                },"thing_item": {
+                },"thing_change": {
                   Row: {
-                    "box_height": number | null,"box_left": number | null,"box_missed": boolean,"box_top": number | null,"box_width": number | null,"category": string,"confidence": string,"created_at": string,"id": string,"name": string,"photo_id": string | null,"place_id": string,"position": number,"same_as": string | null,"source": string,"user_id": string,"where_hint": string | null
+                    "cleared": number | null,"created_at": string,"delta": number | null,"id": string,"item_id": string,"kind": string,"member_id": string | null,"quantity_after": number,"user_id": string
                   }
                   ComputedFields: never
                   Insert: {
-                    "box_height"?: number | null,"box_left"?: number | null,"box_missed"?: boolean,"box_top"?: number | null,"box_width"?: number | null,"category": string,"confidence": string,"created_at"?: string,"id"?: string,"name": string,"photo_id"?: string | null,"place_id": string,"position"?: number,"same_as"?: string | null,"source"?: string,"user_id"?: string,"where_hint"?: string | null
+                    "cleared"?: number | null,"created_at"?: string,"delta"?: number | null,"id"?: string,"item_id": string,"kind": string,"member_id"?: string | null,"quantity_after": number,"user_id"?: string
                   }
                   Update: {
-                    "box_height"?: number | null,"box_left"?: number | null,"box_missed"?: boolean,"box_top"?: number | null,"box_width"?: number | null,"category"?: string,"confidence"?: string,"created_at"?: string,"id"?: string,"name"?: string,"photo_id"?: string | null,"place_id"?: string,"position"?: number,"same_as"?: string | null,"source"?: string,"user_id"?: string,"where_hint"?: string | null
+                    "cleared"?: number | null,"created_at"?: string,"delta"?: number | null,"id"?: string,"item_id"?: string,"kind"?: string,"member_id"?: string | null,"quantity_after"?: number,"user_id"?: string
+                  }
+                  Relationships: [
+                    {
+      foreignKeyName: "thing_change_item_fkey"
+      columns: ["item_id","user_id"]
+isOneToOne: false
+      referencedRelation: "thing_item"
+      referencedColumns: ["id","user_id"]
+    }
+                  ]
+                },"thing_item": {
+                  Row: {
+                    "box_height": number | null,"box_left": number | null,"box_missed": boolean,"box_top": number | null,"box_width": number | null,"category": string,"confidence": string,"created_at": string,"id": string,"name": string,"photo_id": string | null,"place_id": string,"position": number,"quantity": number | null,"same_as": string | null,"source": string,"user_id": string,"where_hint": string | null
+                  }
+                  ComputedFields: never
+                  Insert: {
+                    "box_height"?: number | null,"box_left"?: number | null,"box_missed"?: boolean,"box_top"?: number | null,"box_width"?: number | null,"category": string,"confidence": string,"created_at"?: string,"id"?: string,"name": string,"photo_id"?: string | null,"place_id": string,"position"?: number,"quantity"?: number | null,"same_as"?: string | null,"source"?: string,"user_id"?: string,"where_hint"?: string | null
+                  }
+                  Update: {
+                    "box_height"?: number | null,"box_left"?: number | null,"box_missed"?: boolean,"box_top"?: number | null,"box_width"?: number | null,"category"?: string,"confidence"?: string,"created_at"?: string,"id"?: string,"name"?: string,"photo_id"?: string | null,"place_id"?: string,"position"?: number,"quantity"?: number | null,"same_as"?: string | null,"source"?: string,"user_id"?: string,"where_hint"?: string | null
                   }
                   Relationships: [
                     {
@@ -646,6 +666,11 @@ isOneToOne: false
                            },
 "catalog_display_name":
 { Args: { "name_text": string }; Returns: string
+                           },
+"change_thing_quantity":
+{ Args: { "delta": number,"item": string }; Returns: {
+              "change_id": string,"quantity_now": number
+            }[]
                            },
 "claim_ai_job":
 { Args: { "job_id": string,"run_deadline": string }; Returns: Json
@@ -832,6 +857,9 @@ isOneToOne: false
 "restore_shopping_line":
 { Args: { "hidden_updated_at"?: string,"line_key": string,"plan_id": string,"previous": Json }; Returns: undefined
                            },
+"restore_thing_count":
+{ Args: { "amount": number,"changes": Json,"item": string }; Returns: undefined
+                           },
 "save_pantry_photo":
 { Args: { "photo_height": number,"photo_id": string,"photo_path": string,"photo_points"?: Json,"photo_reading": Json,"photo_taken_at": string,"photo_type": string,"photo_width": number,"place": string,"site": string }; Returns: {
               "outcome": string,"previous_path": string
@@ -904,7 +932,7 @@ isOneToOne: false
                            },
 "search_things":
 { Args: { "max_hits"?: number,"terms": (string)[] }; Returns: {
-              "category": string,"id": string,"kind": string,"name": string,"noted": boolean,"part": string,"photo_id": string,"place_id": string,"room": string,"room_key": string,"score": number,"seen_on": number,"site_id": string,"site_name": string,"source": string,"taken_at": string,"where_hint": string
+              "category": string,"id": string,"kind": string,"name": string,"noted": boolean,"part": string,"photo_id": string,"place_id": string,"quantity": number,"room": string,"room_key": string,"score": number,"seen_on": number,"site_id": string,"site_name": string,"source": string,"taken_at": string,"where_hint": string
             }[]
                            },
 "select_pantry_site":
@@ -970,8 +998,16 @@ isOneToOne: false
 "set_shopping_line_amount":
 { Args: { "amount": number,"base_amount"?: number,"line_key": string,"plan_id": string }; Returns: undefined
                            },
+"set_thing_quantity":
+{ Args: { "amount": number,"item": string }; Returns: {
+              "change_id": string,"quantity_now": number
+            }[]
+                           },
 "show_shopping_line":
 { Args: { "line_key": string,"plan_id": string }; Returns: undefined
+                           },
+"stop_thing_count":
+{ Args: { "item": string }; Returns: Json
                            },
 "store_lock":
 { Args: Record<PropertyKey, never>; Returns: undefined
@@ -1003,7 +1039,7 @@ isOneToOne: false
                            },
 "thing_room_things":
 { Args: { "in_room": string,"site": string,"wanted": string }; Returns: {
-              "category": string,"confidence": string,"id": string,"kind": string,"name": string,"noted": boolean,"noted_at": string,"part": string,"seen_on": number,"where_hint": string
+              "category": string,"confidence": string,"id": string,"kind": string,"name": string,"noted": boolean,"noted_at": string,"part": string,"quantity": number,"seen_on": number,"where_hint": string
             }[]
                            },
 "thing_room_written":
@@ -1018,6 +1054,9 @@ isOneToOne: false
                            },
 "undo_dish_cooked":
 { Args: { "dish": string }; Returns: undefined
+                           },
+"undo_thing_change":
+{ Args: { "change": string }; Returns: number
                            },
 "update_recipe":
 { Args: { "expected_updated_at": string,"id": string,"lines": Json,"recipe": Json,"steps": Json }; Returns: string

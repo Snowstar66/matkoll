@@ -4417,6 +4417,86 @@ Beslut 2026-10-31 (Pontus): "föremål" valt av saker, grejer, föremål och äg
 **När** de innehåller "prylar" eller "things"
 **Så** är de oförändrade (bara text som syns ändras)
 
+### Story 18.23: Ta och fyll på
+
+Som Pontus,
+vill jag se hur många gravljus vi har och med två tryck säga att jag tog två,
+så att svaret "har vi gravljus?" håller sig ungefär sant utan att någon inventerar.
+
+Mockup: `ux-designs/ux-Matkoll-2026-10-25/mockups/ta-fyll-pa.html`. Pontus 2026-11-01: "ja till 18.23. den tror jag blir jättebra att ha". Alla "Beslut för Pontus" byggs med förvalet: antal bara där AI:n kan räkna plus där man trycker Räkna; Ta kan inte gå under 0 och + stannar vid det Livskoll tror finns; Ta och Fyll på direkt i raden; stegaren börjar på 1; nytt kort vinner och rensar historiken; vid 0 bara "Slut", inget på inköpslistan; "har vi / finns det / var är X" svaras av databasen; historiken från senaste kortet, högst 50 rader; inga namn förrän Epic 21; bara "st"; två stories (18.23 och 18.24). Storlek L, med migration (2–3 granskare).
+
+**Acceptance Criteria:**
+
+**Givet** ett kort på en hylla med flera likadana förbrukningsvaror (gravljus, batterier, glödlampor)
+**När** AI:n läser kortet och kan räkna dem tydligt
+**Så** får föremålet ett antal ("5 st" efter namnet i förslagen); ett verktyg eller en enstaka sak får inget antal, och ett antal AI:n inte är säker på sätts inte
+
+**Givet** att jag skriver "har vi gravljus" (eller "finns det gravljus hemma?", "var är gravljusen") och trycker ↑
+**När** databasen hittar gravljus
+**Så** svarar den utan AI: "Ja, 5 gravljus i Förrådet · Översta hyllan." och raden visar "5 st · Förrådet · Översta hyllan" med knapparna Ta och Fyll på; hittar den inget går frågan till AI:n som idag
+
+**Givet** en träffrad med antal (i snabbsökningen eller i chattens svar)
+**När** jag trycker Ta
+**Så** byts knapparna mot en stegare − 1 + och knappen "Ta 1" som följer siffran ("Ta 2") och Avbryt; − är grå vid 1 och + vid antalet som finns; namnet, raden och bilden öppnar fortfarande kortet
+
+**Givet** stegaren på 2
+**När** jag trycker "Ta 2"
+**Så** sparas ändringen direkt, raden visar "3 st", toasten säger "Tog 2 gravljus." med Ångra, och Ångra lägger tillbaka 2 och tar bort ändringen ur historiken; Fyll på fungerar likadant ("Fyllde på 2 gravljus.") utan övre gräns
+
+**Givet** att antalet har ändrats sedan kortet
+**När** jag frågar igen
+**Så** säger svaret "Du borde ha 3 kvar i Förrådet · Översta hyllan. 2 togs 1 nov, kortet 12 okt visade 5." – högst två ändringar och "och N ändringar till", inga namn
+
+**Givet** ett föremål med 0 kvar
+**När** det visas i ett svar, en träff, rummet eller arket
+**Så** står "Slut" i `--ink-3` i stället för antalet, bara Fyll på finns kvar, och ingenting läggs på inköpslistan
+
+**Givet** föremålets ark för ett föremål med antal
+**När** det öppnas
+**Så** står antalskortet först (siffran, Ta och Fyll på, förklaringsraden, Ändringar med högst 5 rader nyast först och "Visa alla N"), sedan Rätta antalet och Sluta räkna, sedan fälten som idag; Ta/Fyll på i arket sparar direkt och visar "Tog 1 gravljus. Ångra" i kortet
+
+**Givet** ett föremål utan antal
+**När** jag öppnar arket
+**Så** står "Antal · räknas inte" med Räkna, som sätter ett antal (stegaren, "Spara antal") och loggar det som "Rättat till N"
+
+**Givet** rummets lista
+**När** ett föremål har antal
+**Så** står "3 st" (eller "Slut") först i högertexten, och föremål utan antal ser ut som idag
+
+**Givet** ett räknat föremål
+**När** ett nytt kort av samma plats sparas och AI:n räknar det igen
+**Så** blir antalet det nya kortets, de äldre ändringarna raderas, historiken visar "4 · Nytt kort · 5 nov" och förklaringsraden "Räknat på kortet 5 nov. 2 äldre ändringar rensades." den första veckan; räknar AI:n inte på det nya kortet är antal och historik oförändrade
+
+**Givet** två ändringar samtidigt från två telefoner på samma konto
+**När** båda sparas
+**Så** gäller båda (antalet ändras med skillnaden, aldrig under 0), och isoleringstestet visar att en annan användare varken ser eller ändrar antal eller historik
+
+### Story 18.24: Jag har köpt – var förvarar vi dem?
+
+Som Pontus,
+vill jag kunna säga "jag har köpt gravljus, var förvarar vi dem?",
+så att jag får veta var de ska ligga och kan fylla på med samma tryck.
+
+Mockup: `ux-designs/ux-Matkoll-2026-10-25/mockups/ta-fyll-pa.html` (avsnitt 8). Storlek M, efter 18.23. Backlog.
+
+**Acceptance Criteria:**
+
+**Givet** att jag skriver att jag köpt något och frågar var det ska ligga
+**När** jag trycker ↑
+**Så** avgör samma AI-anrop som tar fram sökorden att det är en påfyllning (namn och antal om det sades), och inget andra AI-anrop görs
+
+**Givet** att föremålet finns
+**När** svaret kommer
+**Så** står "I Förrådet · Översta hyllan – där finns 3." med raden och Fyll på redan öppen på det sagda antalet (annars 1)
+
+**Givet** att föremålet inte finns
+**När** svaret kommer
+**Så** visas Kom ihåg-förslaget från 18.19 med en plats där föremål av samma kategori ligger ("Ska de ligga i Förrådet · Översta hyllan, som gravljusen?") och antalet ("4 st"), eller "Välj rum" om ingen sådan plats finns
+
+**Givet** Ändra i förslaget
+**När** arket öppnas
+**Så** finns fältet "Antal (valfritt)" med stegaren (− och +); 0 betyder "Räkna inte", och Kom ihåg sparar antalet som historikens första rad "4 · Inskrivet · <datum>"
+
 ## Epic 19: Premiumlook
 
 Version 2.2. Appen får ett samlat premiumutseende: ett enda designsystem med tokens, lätt typografi med roller, linjeikoner, ett enda valt läge, tyst ram och mörkt läge på riktigt. Pontus (2026-10-31): "Gör proffsigt app-look-and-feel", "ta din fulla kunskap av hur premiumappar brukar vara designade". Efter att ha sett förslaget: "Bygg allt, merga allt" och "vi kör på dina förslag rakt av", så varje punkt under "Beslut för Pontus" i modellen bygger sitt förval. Modellen är ett löfte: allt som syns i "Nytt"-bilderna ska finnas i appen, i ljust och mörkt läge, vid 375 px och 200 % text.
@@ -5078,3 +5158,82 @@ så att jag förstår varför något försvann eller tillkom.
 **Givet** loggen
 **När** den blir lång
 **Så** sparas bara de senaste 90 dagarna
+
+## Epic 22: Integritet i Förrådet
+
+Version 3.x, **vilar** (pausad). Beslut 2026-11-01 (Pontus): "lägger 22.1-3 på paus tills vi behöver säkerheten/integriteten. Då har vi iaf det på radarn". Bakgrund: folk vågar inte fota hemma (smycken, privata saker i sovrummet) om de inte vet vart bilderna tar vägen. Byggs när fler än Pontus hushåll använder Förrådet, tidigast efter flytten till molnet.
+
+Källa: modellen `_bmad-output/planning-artifacts/ux-designs/ux-Matkoll-2026-10-25/mockups/integritet-forrad.html` (redigeraren, remsan, inställningen, hjälpsidan med faktakontroll mot koden, beslut 1–11). Ändrat förval för beslut 1 efter Pontus fråga om att fota många kort i rad: Ta foto och "Ta ett till" förblir snabba som idag; remsan med Dölj något kommer som förval bara efter Välj från Bilder, och "Granska även kamerabilder" slås på i Inställningar → Förråd. Övriga beslut: förvalen i modellen. Ordning 22.2 → 22.1 → 22.3. Parkerat, inte i epicen: privata rum, och det som behövs inför försäljning (policy, avtal, export och radering, kryptering med användarens egen nyckel).
+
+### Story 22.1: Dölj innan du skickar
+
+Som användare,
+vill jag kunna måla över något på en bild innan den skickas,
+så att det som är privat aldrig lämnar telefonen.
+
+**Acceptance Criteria:**
+
+**Givet** att jag väljer bilder med Välj från Bilder (eller fotar med Granska även kamerabilder påslaget)
+**När** valet är klart
+**Så** visas remsan "N bilder till <rum>" med miniatyrer, × per bild, Dölj något, Välj fler / Ta ett till och Skicka N kort, och ingenting skickas förrän jag trycker Skicka
+
+**Givet** redigeraren (helskärm, mörk)
+**När** jag målar med penseln (Smal | Bred), Ångra, Rensa, Avbryt eller Klar
+**Så** täcker penseln helt (ingen oskärpa), och efter Klar visar miniatyren täckningen och märket Dolt
+
+**Givet** en täckt bild
+**När** den skickas
+**Så** ritas täckningen in i den nedskalade bilden i telefonen innan den kodas, PNG-genvägen stängs av, och ett e2e-test läser tillbaka den sparade bilden och ser att de täckta pixlarna är svarta
+
+**Givet** knapparna Ta foto och Välj från Bilder
+**När** de visas i rummet och i arket
+**Så** syns deras ikoner och fyllning (felet på main där SVG:n får höjden 0 och knapparna är vita på vitt är rättat)
+
+### Story 22.2: Spara korten eller bara listan
+
+Som användare,
+vill jag kunna välja att bilderna inte sparas, bara listan,
+så att jag själv bestämmer hur mycket av hemmet som ligger kvar.
+
+**Acceptance Criteria:**
+
+**Givet** Inställningar
+**När** jag öppnar Förråd → Bilder
+**Så** finns "Spara korten" (på som förval) och "Granska även kamerabilder", vad man förlorar och behåller, antal sparade bilder, och "Radera sparade bilder" som frågar först
+
+**Givet** att Spara korten är av
+**När** ett kort lästs klart
+**Så** raderas filen och bara föremålen sparas; ett kort som inte gick att läsa behåller filen så att Försök igen fungerar
+
+**Givet** ett kort utan bild
+**När** det visas i rummet, på kortsidan, i träffar och i chatten
+**Så** står "Ingen bild sparad" där bilden annars är, och Ångra efter Ta bort fungerar utan fil
+
+**Givet** databasen
+**När** inställningen sparas
+**Så** ligger den i en egen tabell med RLS (bara egen rad) och täcks av isoleringstestet; den gäller hela kontot
+
+### Story 22.3: Så skyddas dina bilder
+
+Som användare,
+vill jag kunna läsa kort och ärligt hur bilderna skyddas,
+så att jag vågar fota hemma.
+
+**Acceptance Criteria:**
+
+**Givet** Hjälp och tips → Förråd
+**När** jag trycker på Så skyddas dina bilder
+**Så** visas sidan med Var bilderna finns · Vem som ser dem · Det du bestämmer, och varje påstående har en källa i koden eller i leverantörens villkor (länkade)
+
+**Givet** AI-inställningen
+**När** sidan visas
+**Så** säger AI-raden vilken tjänst som faktiskt läser bilderna (Anthropic i molnet, lokal modell lokalt)
+
+**Givet** regionen
+**När** sidan skrivs
+**Så** står "Stockholm" bara om det är kontrollerat i Supabase
+
+**Givet** ett kort som tagits bort
+**När** Förråd öppnas
+**Så** körs städningen av filer som blivit kvar efter Ångra-tiden (inte bara vid nästa kort)
+
