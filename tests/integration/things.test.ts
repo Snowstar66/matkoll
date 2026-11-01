@@ -34,7 +34,8 @@ import { boxKey } from "@/features/things/domain/thing-place";
 import { loadUnseenIn, searchThingsIn } from "@/features/things/data/search";
 import { addCardThingsIn, loadRoomWrittenIn, loadWrittenIn, replaceBoxThingsIn } from "@/features/things/data/written";
 import { ensurePlaceIn, insertPlaceIn, loadPlaceIn, loadPlacesIn } from "@/features/things/data/places";
-import { findNotedIn, loadRoomPartsIn, rememberThingIn } from "@/features/things/data/noted";
+import { findCategoryPlaceIn, findNotedIn, loadRoomPartsIn, noteCountIn, rememberThingIn } from "@/features/things/data/noted";
+import { loadChangesIn } from "@/features/things/data/count";
 import { findPlaceIn, loadRoomCardsIn, loadRoomCategoriesIn, loadRoomIn, loadRoomPlacesIn, loadRoomsIn, loadRoomThingsIn } from "@/features/things/data/rooms";
 import { thingPhotoBucket, thingPhotoPath } from "@/features/things/domain/thing-photo";
 import { localSupabaseUrl } from "../local-supabase";
@@ -1256,6 +1257,33 @@ describe("kom ihåg var jag lade den (Story 18.19)", () => {
     expect(snapshot).toMatchObject({ id: again.id, photoId: null, source: "noted", name: "Bilnyckel Volvo" });
     expect(await restoreItemIn(n.db, snapshot!)).toBe("restored");
     expect((await adminClient().from("thing_item").select("source, photo_id").eq("id", again.id).single()).data).toEqual({ source: "noted", photo_id: null });
+  });
+
+  it("counts a thing bought from the start, and finds where things of its category are (Story 18.24)", async () => {
+    const site = await siteOf(n, "Köpt");
+    const save = async (room: string, part: string | null, name: string, category: "Hushåll" | "Elektronik") => {
+      const place = await ensurePlaceIn(n.db, { siteId: site, room, part });
+      if (place.kind !== "found" && place.kind !== "made") throw new Error("no place");
+      const saved = await rememberThingIn(n.db, { placeId: place.id, name, category, replaces: null });
+      if (saved.kind !== "saved") throw new Error("not saved");
+      return saved.id;
+    };
+    expect(await findCategoryPlaceIn(n.db, site, "Elektronik")).toBeNull();
+    await save("Förrådet", "Översta hyllan", "Glödlampor", "Elektronik");
+    await save("Förrådet", "Översta hyllan", "Skarvsladdar", "Elektronik");
+    await save("Hallen", null, "Laddare", "Elektronik");
+    await save("Köket", "Lådan", "Gravljus", "Hushåll");
+    expect(await findCategoryPlaceIn(n.db, site, "Elektronik")).toEqual({ room: "Förrådet", part: "Översta hyllan", name: "Skarvsladdar" });
+    expect(await findCategoryPlaceIn(n.db, site, "Hushåll")).toEqual({ room: "Köket", part: "Lådan", name: "Gravljus" });
+    // The count is the föremål's, and its history starts with "Inskrivet".
+    const id = await save("Förrådet", "Översta hyllan", "Batterier", "Elektronik");
+    await noteCountIn(n.db, id, 4);
+    expect((await adminClient().from("thing_item").select("quantity").eq("id", id).single()).data).toEqual({ quantity: 4 });
+    expect((await loadChangesIn(n.db, [id])).get(id)).toMatchObject([{ kind: "noted", quantityAfter: 4, delta: null }]);
+    // Another household sees no place of n's, and can count none of n's föremål.
+    expect(await findCategoryPlaceIn(o.db, site, "Elektronik")).toBeNull();
+    await expect(noteCountIn(o.db, id, 9)).rejects.toThrow(ThingsDataError);
+    expect((await adminClient().from("thing_item").select("quantity").eq("id", id).single()).data).toEqual({ quantity: 4 });
   });
 
   it("refuses a box, another user's place, a noted row with a card and a card row without one", async () => {

@@ -2,6 +2,7 @@ import { z } from "zod";
 import { charLength } from "@/lib/one-line";
 import { thingCategories, type ThingCategory } from "./thing";
 import { cleanThingName, maxThingNameChars } from "./thing-edit";
+import { inlineName } from "./thing-count";
 import { shortDateText } from "./thing-photo";
 import { cleanPlaceName, maxPlaceNameChars, normalizePlaceName } from "./thing-place";
 
@@ -26,6 +27,8 @@ export type NotedProposal = {
   newRoom: boolean;
   /** The noted thing of the same name it moves (it is removed when this is saved). */
   moves: { id: string; title: string; notedAt: string } | null;
+  /** Story 18.24: how many, when something bought was said with a count ("4 batterier"); null: not counted. */
+  count?: number | null;
 };
 
 /** "Översta byrålådan": the first letter a capital, the rest as written. */
@@ -82,6 +85,9 @@ const roomField = z
   .refine((name) => name.length > 0, "empty")
   .refine((name) => charLength(name) <= maxPlaceNameChars, "too long");
 
+/** The most a count written in can be (as thing_item's quantity check). */
+export const maxNotedCount = 9999;
+
 /** What "Kom ihåg" sends: the boende, the thing, where it is, its category and the noted thing it moves. */
 export const rememberInputSchema = z.object({
   siteId: z.uuid(),
@@ -95,6 +101,8 @@ export const rememberInputSchema = z.object({
     .transform((name) => (name === "" ? null : name)),
   category: z.enum(thingCategories),
   replaces: z.uuid().nullable(),
+  // Story 18.24: "Antal (valfritt)"; 0 or none is "Räkna inte".
+  count: z.number().int().min(0).max(maxNotedCount).nullish().transform((count) => (count ? count : null)),
 });
 export type RememberInput = z.input<typeof rememberInputSchema>;
 
@@ -115,6 +123,13 @@ export const yourRoomsLabel = "Dina rum";
 export const notedPartLabel = "Del av rummet";
 export const optionalText = "(valfritt)";
 export const notedPartPlaceholder = "Till exempel översta lådan";
+/** Story 18.24: the count field of the sheet, and its value at 0. */
+export const notedCountLabel = "Antal";
+export const dontCountText = "Räkna inte";
+/** The count field's value in words: "4 st", or "Räkna inte" at 0. */
+export function notedCountText(count: number): string {
+  return count > 0 ? `${count} st` : dontCountText;
+}
 export const notedSaveFailedText = "Det gick inte att spara. Försök igen.";
 /** The note shown instead of a photo for a thing written in by hand. */
 export const notedIcon = "\u{1F4DD}";
@@ -142,4 +157,34 @@ export function notedHint(part: string | null, notedAt: Date): string {
 /** The line under the title of a noted thing's sheet: "Du skrev in det 31 okt · Översta byrålådan". */
 export function notedSheetSubtitle(part: string | null, notedAt: Date): string {
   return [notedSubText(notedAt), part].filter(Boolean).join(" · ");
+}
+
+// "Jag har köpt gravljus, var förvarar vi dem?" (Story 18.24): the answer is
+// built here, not by the AI, so the place and the count are always true.
+
+/** "I Förrådet · Översta hyllan – där finns 3.", "… – där är det slut.", or the place alone for a föremål not counted. */
+export function refillFoundText(place: string, quantity: number | null): string {
+  if (quantity === null) return `I ${place}.`;
+  return quantity === 0 ? `I ${place} – där är det slut.` : `I ${place} – där finns ${quantity}.`;
+}
+
+/**
+ * A föremål's name in "som gravljusen": the definite plural for the common plural endings ("batterierna",
+ * "glödlamporna", "gravljusen"); any other name as it is, with a small first letter.
+ */
+export function definitePlural(name: string): string {
+  const small = inlineName(name.trim());
+  if (/\s/u.test(small)) return small;
+  if (/(?:ar|er|or)$/u.test(small)) return `${small}na`;
+  if (/ljus$/u.test(small)) return `${small}en`;
+  return small;
+}
+
+/**
+ * The answer when nothing bought is written in yet: "Inga batterier inskrivna än. Ska de ligga i Förrådet ·
+ * Översta hyllan, som gravljusen?", or, with no föremål of its kind anywhere, "… Var ska de ligga?".
+ */
+export function refillNewText(name: string, like: { title: string; name: string } | null): string {
+  const first = `Inga ${inlineName(name)} inskrivna än.`;
+  return like ? `${first} Ska de ligga i ${like.title}, som ${definitePlural(like.name)}?` : `${first} Var ska de ligga?`;
 }
