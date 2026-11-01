@@ -8,7 +8,7 @@ import type { ShoppingLine } from "../domain/compute-list";
 import type { CustomItemFormInput, CustomItemRow } from "../domain/custom-item";
 import { ShoppingList, type ShoppingListProps } from "./shopping-list";
 
-// Own items on Inköpslista (Story 3.5): "Lägg till egen vara" with the
+// Own items on Inköpslista (Story 3.5): "Lägg till vara" with the
 // catalog's suggestions, and removing an own item with "Ångra".
 
 const addCustomItem = vi.fn<(input: CustomItemFormInput) => Promise<Result<CustomItemRow>>>();
@@ -79,19 +79,29 @@ beforeEach(() => {
   refresh.mockReset();
 });
 
-const sheet = () => screen.getByRole("dialog", { name: "Lägg till egen vara" });
+const sheet = () => screen.getByRole("dialog", { name: "Lägg till vara" });
 
 async function openSheet(user: ReturnType<typeof userEvent.setup>) {
-  await user.click(screen.getByRole("button", { name: "Lägg till egen vara" }));
+  await user.click(screen.getByRole("button", { name: "Lägg till vara" }));
   return sheet();
 }
 
-describe("Lägg till egen vara", () => {
-  it("is not there without a plan, and is under the list with one, also with nothing on it", () => {
+describe("Lägg till vara", () => {
+  it("is the floating + after the list, also without a plan and with nothing on it", () => {
     const { rerender } = render(<ShoppingList plan={null} lines={[]} pantryUnavailable={false} />);
-    expect(screen.queryByRole("button", { name: "Lägg till egen vara" })).not.toBeInTheDocument();
+    // Own items belong to the household: an empty week without a plan can have them too (Story 17.10).
+    expect(screen.getByRole("button", { name: "Lägg till vara" })).toBeInTheDocument();
     rerender(<ShoppingList plan={{ ...plan, dishCount: 0 }} lines={[]} pantryUnavailable={false} />);
-    expect(screen.getByRole("button", { name: "Lägg till egen vara" })).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "Lägg till vara" })).toBeInTheDocument();
+    rerender(<ShoppingList plan={plan} lines={[gradde, disk]} pantryUnavailable={false} />);
+    const fab = screen.getByTestId("add-item-fab");
+    expect(fab).toHaveAccessibleName("Lägg till vara");
+    expect(fab).toHaveClass("fixed", "size-[56px]", "bg-accent", "shadow-float", "desktop:hidden");
+    // No row at the end of the last category any more, and room below the list for the +.
+    const categories = screen.getAllByTestId("list-category");
+    expect(within(categories.at(-1)!).queryByRole("button", { name: /Lägg till/ })).not.toBeInTheDocument();
+    expect(screen.getByTestId("add-item-fab-spacer")).toBeInTheDocument();
+    expect(screen.getAllByRole("button", { name: "Lägg till vara" })).toHaveLength(1);
   });
 
   it("shows the own items of a week without a plan, with the add button, and checks one off without a plan (Story 17.10)", async () => {
@@ -100,14 +110,14 @@ describe("Lägg till egen vara", () => {
     render(<ShoppingList plan={null} lines={[disk]} pantryUnavailable={false} />);
     expect(screen.getByText("diskmedel")).toBeInTheDocument();
     expect(screen.queryByText(/inga rätter/i)).not.toBeInTheDocument();
-    expect(screen.getByRole("button", { name: "Lägg till egen vara" })).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "Lägg till vara" })).toBeInTheDocument();
     await user.click(screen.getByRole("checkbox", { name: /diskmedel/ }));
     await waitFor(() => expect(setChecked).toHaveBeenCalledWith({ planId: null, key: `c:${diskId}`, checked: true }));
     // The pantry flow is for a plan's list.
     expect(screen.queryByRole("button", { name: /Lägg till i Matvaror/ })).not.toBeInTheDocument();
   });
 
-  it("asks for text, then adds the item with an id made once and closes the sheet", async () => {
+  it("asks for text, then adds the item with an id made once and stays open for the next, with Klar", async () => {
     const user = userEvent.setup();
     render(<ShoppingList plan={plan} lines={[gradde]} pantryUnavailable={false} searchIngredients={searchIngredients} />);
     const dialog = await openSheet(user);
@@ -120,9 +130,10 @@ describe("Lägg till egen vara", () => {
     expect(field).toHaveAttribute("aria-invalid", "true");
     expect(addCustomItem).not.toHaveBeenCalled();
 
+    expect(within(dialog).getByRole("button", { name: "Avbryt" })).toBeInTheDocument();
     await user.type(field, "diskmedel");
     await user.click(within(dialog).getByRole("button", { name: "Lägg till" }));
-    await waitFor(() => expect(screen.queryByRole("dialog", { name: "Lägg till egen vara" })).not.toBeInTheDocument());
+    expect(await within(dialog).findByText("La till diskmedel.")).toBeInTheDocument();
     expect(addCustomItem).toHaveBeenCalledWith({
       id: expect.stringMatching(/^[0-9a-f-]{36}$/),
       label: "diskmedel",
@@ -130,6 +141,25 @@ describe("Lägg till egen vara", () => {
       amount: "",
       unit: "",
     });
+    // The field is empty and ready for the next item, and "Klar" stops.
+    expect(sheet()).toBeInTheDocument();
+    expect(field).toHaveValue("");
+    await waitFor(() => expect(field).toHaveFocus());
+    expect(within(dialog).queryByRole("button", { name: "Avbryt" })).not.toBeInTheDocument();
+
+    // The next item gets an id of its own.
+    await user.type(field, "kaffe");
+    await user.click(within(dialog).getByRole("button", { name: "Lägg till" }));
+    expect(await within(dialog).findByText("La till kaffe.")).toBeInTheDocument();
+    expect(addCustomItem).toHaveBeenCalledTimes(2);
+    expect(addCustomItem.mock.calls[1]![0].id).not.toBe(addCustomItem.mock.calls[0]![0].id);
+
+    await user.click(within(dialog).getByRole("button", { name: "Klar" }));
+    await waitFor(() => expect(screen.queryByRole("dialog", { name: "Lägg till vara" })).not.toBeInTheDocument());
+    // A new opening starts without the confirmation.
+    const again = await openSheet(user);
+    expect(within(again).queryByText(/^La till/)).not.toBeInTheDocument();
+    expect(within(again).getByRole("button", { name: "Avbryt" })).toBeInTheDocument();
   });
 
   it("suggests catalog ingredients while Pontus types, and links the item to the one chosen", async () => {
@@ -285,7 +315,7 @@ describe("removing an own item", () => {
     expect(screen.queryByText("diskmedel")).not.toBeInTheDocument();
   });
 
-  it("moves focus to the next line after a removal with the keyboard, else to Lägg till egen vara", async () => {
+  it("moves focus to the next line after a removal with the keyboard, else to Lägg till vara", async () => {
     const user = userEvent.setup();
     const { rerender } = render(<ShoppingList plan={plan} lines={[gradde, disk]} pantryUnavailable={false} />);
     const action = screen.getByRole("button", { name: "Svep bort diskmedel" });
@@ -298,12 +328,12 @@ describe("removing an own item", () => {
     await waitFor(() => expect(screen.getByText("Allt finns hemma.")).toBeInTheDocument());
   });
 
-  it("focuses Lägg till egen vara when the last line goes", async () => {
+  it("focuses Lägg till vara when the last line goes", async () => {
     const user = userEvent.setup();
     render(<ShoppingList plan={{ ...plan, dishCount: 0 }} lines={[disk]} pantryUnavailable={false} />);
     act(() => screen.getByRole("button", { name: "Svep bort diskmedel" }).focus());
     await user.keyboard("{Enter}");
-    await waitFor(() => expect(screen.getByRole("button", { name: "Lägg till egen vara" })).toHaveFocus());
+    await waitFor(() => expect(screen.getByRole("button", { name: "Lägg till vara" })).toHaveFocus());
     expect(screen.getByText("Lägg rätter på matsedeln så räknas listan fram.")).toBeInTheDocument();
   });
 });
@@ -432,7 +462,7 @@ describe("own items after review", () => {
     await within(dialog).findByRole("list", { name: "Förslag" });
     await user.click(within(dialog).getByRole("button", { name: "Avbryt" }));
     await user.click(within(dialog).getByRole("button", { name: "Släng ändringarna" }));
-    await waitFor(() => expect(screen.queryByRole("dialog", { name: "Lägg till egen vara" })).not.toBeInTheDocument());
+    await waitFor(() => expect(screen.queryByRole("dialog", { name: "Lägg till vara" })).not.toBeInTheDocument());
 
     dialog = await openSheet(user);
     await user.type(within(dialog).getByRole("textbox", { name: "Vara" }), "d");

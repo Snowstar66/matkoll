@@ -80,7 +80,7 @@ export const helpAreas: readonly HelpArea[] = [
       { icon: "bag", title: "Lägg i Matvaror", text: `När du handlat, så vet ${appName} vad som finns hemma.` },
     ],
     faq: [
-      { question: "Hur lägger jag till kaffe eller diskmedel?", answer: "Tryck Lägg till egen vara, eller säg det till Siri." },
+      { question: "Hur lägger jag till kaffe eller diskmedel?", answer: "Tryck Lägg till vara högst upp i listan, eller säg det till Siri." },
       {
         question: "Hur lägger jag det jag handlat i Matvaror?",
         answer: `Bocka av varorna och tryck Lägg till i Matvaror. Då räknar ${appName} med att du har dem hemma nästa gång listan räknas fram.`,
@@ -149,7 +149,7 @@ export const helpAreas: readonly HelpArea[] = [
     steps: [
       { icon: "pin", title: "Boenden", text: "Hemma och stugan: byt med nålmärket under rubriken." },
       { icon: "mic", title: "Siri", text: `Säg ”Hej Siri, ${appName}” och vad du vill lägga till.` },
-      { icon: "phone", title: "Snabbtillägg", text: "En genväg på hemskärmen öppnar Lägg till egen vara direkt." },
+      { icon: "phone", title: "Snabbtillägg", text: "En genväg på hemskärmen öppnar Lägg till vara direkt." },
     ],
     faq: [
       {
@@ -170,7 +170,7 @@ export const helpAreas: readonly HelpArea[] = [
       },
       {
         question: "Hur gör jag snabbtillägget?",
-        answer: "Adressen /lista/lagg-till öppnar Inköpslistan med Lägg till egen vara redan öppen. Lägg den som genväg på hemskärmen, så skriver du in en vara på en sekund.",
+        answer: "Adressen /lista/lagg-till öppnar Inköpslistan med Lägg till vara redan öppen. Lägg den som genväg på hemskärmen, så skriver du in en vara på en sekund.",
       },
       { question: "Vem kan se min data?", answer: `Den som driver ${appName} kan tekniskt se kontots data.` },
     ],

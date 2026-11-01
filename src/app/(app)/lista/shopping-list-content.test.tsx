@@ -99,7 +99,7 @@ describe("ShoppingListContent", () => {
     );
     render(<ToastProvider>{await ShoppingListContent()}</ToastProvider>);
     expect(screen.getByText("Allt finns hemma.")).toBeInTheDocument();
-    expect(screen.getByRole("button", { name: "Lägg till egen vara" })).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "Lägg till vara" })).toBeInTheDocument();
     // Checks an interrupted "Lägg till i Matvaror" left behind keep the button reachable.
     expect(screen.getByRole("button", { name: "Lägg till i Matvaror" })).toBeInTheDocument();
   });

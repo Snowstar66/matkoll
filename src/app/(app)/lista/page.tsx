@@ -2,6 +2,7 @@ import type { Metadata } from "next";
 import { Suspense } from "react";
 import { PageHeader } from "@/components/app-shell/page-header";
 import { Skeleton } from "@/components/skeleton";
+import { AddItemHeaderButton, AddItemProvider } from "@/features/shopping/ui/add-item";
 import { ListOffers } from "./list-offers";
 import { ShoppingListContent } from "./shopping-list-content";
 
@@ -15,19 +16,22 @@ export const metadata: Metadata = { title: "Inköpslista" };
 // own, with a space of its size while it loads, so the header never moves.
 export default function ShoppingListPage({ searchParams }: PageProps<"/lista">) {
   return (
-    <>
+    <AddItemProvider>
       <PageHeader
         title="Inköpslista"
         tab="/lista"
         action={
-          <Suspense fallback={<span aria-hidden="true" inert className="size-tap" />}>
-            <ListOffers />
-          </Suspense>
+          <>
+            <Suspense fallback={<span aria-hidden="true" inert className="size-tap" />}>
+              <ListOffers />
+            </Suspense>
+            <AddItemHeaderButton />
+          </>
         }
       />
       <Suspense fallback={<Skeleton rows={4} />}>
         <ShoppingListContent searchParams={searchParams} />
       </Suspense>
-    </>
+    </AddItemProvider>
   );
 }

@@ -381,8 +381,9 @@ async function seedCustomItems(
   return new Map((data as { id: string; label: string }[]).map((row) => [row.label, row.id]));
 }
 
-const customSheet = (page: Page) => page.getByRole("dialog", { name: "Lägg till egen vara" });
-const addCustomButton = (page: Page) => page.getByRole("button", { name: "Lägg till egen vara" }).filter({ visible: true });
+const customSheet = (page: Page) => page.getByRole("dialog", { name: "Lägg till vara" });
+// The floating round "+" on a phone (the header's "+" on a desktop has the same name).
+const addCustomButton = (page: Page) => page.getByTestId("add-item-fab").filter({ visible: true });
 const region = (page: Page, name: string) =>
   // I korgen is named with its count, "I korgen (1)" (Story 3.9).
   page.getByRole("list", name === "I korgen" ? { name: /^I korgen \(\d+\)$/ } : { name, exact: true }).filter({ visible: true });
@@ -432,6 +433,11 @@ test("an own item without a catalog ingredient goes under Övrigt, and shows alt
   await sheet.getByRole("textbox", { name: "Vara" }).fill("diskmedel");
   await actionsAnswered(page, 1, () => sheet.getByRole("button", { name: "Lägg till" }).click());
 
+  // The sheet stays open for the next item (iOS Reminders), and "Klar" stops.
+  await expect(sheet.getByTestId("custom-item-added")).toHaveText("La till diskmedel.");
+  await expect(sheet.getByRole("textbox", { name: "Vara" })).toHaveValue("");
+  await expect(sheet.getByRole("textbox", { name: "Vara" })).toBeFocused();
+  await sheet.getByRole("button", { name: "Klar" }).click();
   await expect(customSheet(page)).toHaveCount(0);
   await expect(region(page, "Övrigt").getByTestId("shopping-line")).toHaveText([/^diskmedel\s*Egen\s*Ta bort$/]);
   await expect(page.getByText("Allt finns hemma.").filter({ visible: true })).toHaveCount(0);
@@ -465,6 +471,8 @@ test("a suggestion links the own item to its catalog ingredient's section, never
     await chooseUnit(sheet, "förp");
     await actionsAnswered(page, 1, () => sheet.getByRole("button", { name: "Lägg till" }).click());
 
+    await expect(sheet.getByTestId("custom-item-added")).toHaveText("La till Grädde.");
+    await sheet.getByRole("button", { name: "Klar" }).click();
     await expect(customSheet(page)).toHaveCount(0);
     const mejeri = region(page, "Mejeri & ägg").getByTestId("shopping-line");
     await expect(mejeri).toHaveCount(2);
@@ -542,6 +550,73 @@ test("own items stay as they are when the servings change", async ({ page }) => 
   // 3,5 dl grädde for 7, and 1 dl from Paj, against 4 dl at home: the recipes need more now.
   await expect(region(page, "Mejeri & ägg").getByTestId("shopping-line")).toContainText(["Grädde"]);
   await expect(region(page, "Övrigt").getByTestId("shopping-line")).toHaveText([/^diskmedel\s*Egen\s*2 förp\s*Ta bort$/]);
+  expect(errors).toEqual([]);
+});
+
+test("Lägg till vara is a floating + on a phone and in the header on a desktop, and the chips Egna and Till rätter filter the list", async ({ page }) => {
+  await seedCustomItems([{ label: "diskmedel" }]);
+  await seedChecks([]);
+  const errors = watchErrors(page);
+  await page.goto("/lista");
+  await expect(region(page, "Övrigt").getByTestId("shopping-line")).toHaveText([/^diskmedel\s*Egen\s*Ta bort$/]);
+
+  // A phone: the round + at the bottom right, above the pinned buttons and the tab bar; none in the header.
+  const fab = addCustomButton(page);
+  await expect(fab).toHaveAccessibleName("Lägg till vara");
+  const fabBox = (await fab.boundingBox())!;
+  expect(Math.round(fabBox.width)).toBe(56);
+  expect(fabBox.x + fabBox.width).toBeGreaterThan(mobile.width - 40);
+  const bar = (await page.getByTestId("fixed-action").filter({ visible: true }).boundingBox())!;
+  expect(fabBox.y + fabBox.height).toBeLessThanOrEqual(bar.y);
+  await expect(page.getByTestId("add-item-header").filter({ visible: true })).toHaveCount(0);
+  // Scrolled to the end, the last row clears the +.
+  await page.evaluate(() => window.scrollTo(0, document.documentElement.scrollHeight));
+  const last = page.getByTestId("shopping-line").filter({ visible: true }).last();
+  const lastBox = (await last.boundingBox())!;
+  const fabNow = (await fab.boundingBox())!;
+  expect(lastBox.y + lastBox.height).toBeLessThanOrEqual(fabNow.y);
+  // It opens the sheet with focus in the field, and hides while the sheet is open.
+  await fab.click();
+  await expect(customSheet(page).getByRole("textbox", { name: "Vara" })).toBeFocused();
+  await expect(page.getByTestId("add-item-fab")).toBeHidden();
+  await customSheet(page).getByRole("button", { name: "Avbryt" }).click();
+  await expect(customSheet(page)).toHaveCount(0);
+  await expect(fab).toBeVisible();
+
+  // A desktop: no floating +, the header's + opens the same sheet.
+  await page.setViewportSize({ width: 1280, height: 800 });
+  await expect(page.getByTestId("add-item-fab").filter({ visible: true })).toHaveCount(0);
+  await page.getByTestId("add-item-header").filter({ visible: true }).click();
+  await expect(customSheet(page).getByRole("textbox", { name: "Vara" })).toBeFocused();
+  await customSheet(page).getByRole("button", { name: "Avbryt" }).click();
+  await expect(customSheet(page)).toHaveCount(0);
+  await page.setViewportSize(mobile);
+
+  const chips = page.getByRole("group", { name: "Visa" }).filter({ visible: true });
+  const lines = page.getByTestId("shopping-line").filter({ visible: true });
+  const all = await lines.count();
+  expect(all).toBeGreaterThan(1);
+  await chips.getByRole("button", { name: /^Egna/ }).click();
+  await expect(page).toHaveURL(/[?&]visa=egna/);
+  await expect(lines).toHaveText([/^diskmedel/]);
+  // Kept over a reload.
+  await page.reload();
+  await expect(chips.getByRole("button", { name: /^Egna/ })).toHaveAttribute("aria-pressed", "true");
+  await expect(lines).toHaveText([/^diskmedel/]);
+
+  await chips.getByRole("button", { name: /^Till rätter/ }).click();
+  await expect(page).toHaveURL(/[?&]visa=ratter/);
+  await expect(lines).toHaveCount(all - 1);
+  await expect(lines.filter({ hasText: "diskmedel" })).toHaveCount(0);
+  // The chosen chip again: every line (Alla).
+  await chips.getByRole("button", { name: /^Till rätter/ }).click();
+  await expect(page).not.toHaveURL(/visa=/);
+  await expect(lines).toHaveCount(all);
+
+  // Egna with no own item says so.
+  await seedCustomItems([]);
+  await page.goto("/lista?visa=egna");
+  await expect(page.getByText("Inga egna varor den här veckan.").filter({ visible: true })).toBeVisible();
   expect(errors).toEqual([]);
 });
 
