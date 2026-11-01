@@ -284,6 +284,10 @@ test("the compact view, the sort and the categories work together and are kept a
   await expect(chips.getByRole("button", { name: "Fågel" })).toHaveCount(1);
   const tops = await chips.getByRole("button").evaluateAll((buttons) => new Set(buttons.map((button) => Math.round(button.getBoundingClientRect().top))).size);
   expect(tops).toBe(1);
+  // The categories have their emoji back, and a chip with one is as high as one without (32 px).
+  await expect(chips.getByRole("button", { name: "Fågel" })).toContainText("🍗");
+  const heights = await chips.getByRole("button").evaluateAll((buttons) => [...new Set(buttons.map((button) => Math.round(button.getBoundingClientRect().height)))]);
+  expect(heights).toEqual([32]);
   expect(await noSidewaysScroll()).toBe(true);
   await chips.getByRole("button", { name: "Fågel" }).click();
   await expect(chips.getByRole("button", { name: "Fågel" })).toHaveAttribute("aria-pressed", "true");

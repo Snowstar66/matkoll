@@ -24,6 +24,21 @@ describe("Chip", () => {
     render(<Chip selected={false}>Fågel</Chip>);
     expect(screen.getAllByText("Fågel")).toHaveLength(1);
   });
+
+  it("puts a decorative emoji before the label in a fixed 16 px box, keeping the name and the 32 px height", () => {
+    render(
+      <Chip selected={false} icon="🥩" aria-pressed={false}>
+        Kött
+      </Chip>,
+    );
+    const chip = screen.getByRole("button", { name: "Kött" });
+    expect(chip).toHaveClass("h-8");
+    const icon = screen.getByTestId("chip-icon");
+    expect(icon).toHaveAttribute("aria-hidden", "true");
+    expect(icon).toHaveTextContent("🥩");
+    expect(icon).toHaveClass("size-4", "text-[15px]", "leading-none");
+    expect(chip.firstElementChild).toBe(icon);
+  });
 });
 
 describe("Segment", () => {

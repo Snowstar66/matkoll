@@ -50,7 +50,9 @@ export function Chip({ selected, icon, children, dashed = false, className, type
       )}
     >
       {icon ? (
-        <span aria-hidden="true" className="mr-1.5 leading-none">
+        // A 16 px box with the glyph at 15 px: every emoji the same optical size, centred, and the
+        // chip stays 32 px high. A little less air on the left, as the glyph has its own.
+        <span aria-hidden="true" data-testid="chip-icon" className="-ml-0.5 mr-1.5 flex size-4 shrink-0 items-center justify-center text-[15px] leading-none select-none">
           {icon}
         </span>
       ) : null}

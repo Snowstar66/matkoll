@@ -30,8 +30,10 @@ import {
 // at the end of the step mode, that opens a sheet with what the dish takes
 // from the pantry. Each line is "Grädde  5 dl − 2 dl → 3 dl" with the new
 // amount editable and a tick to skip it; what cannot be counted is listed
-// under "Kontrollera själv" and never deducted. "Dra från matvarorna och markera
-// lagad" does both in one server action; "Ångra" restores both.
+// under "Kontrollera själv" and never deducted. "Markera som lagad", with the
+// line "Bockade varor dras från Matvaror." above it when something is ticked
+// (one line at 360 px, Pontus 1 Nov), does both in one server action; "Ångra"
+// restores both.
 
 export type MarkCookedButtonProps = {
   dish: { id: string; title: string; servings: number };
@@ -56,6 +58,9 @@ export type MarkCookedButtonProps = {
 };
 
 type Entry = { on: boolean; text: string };
+
+/** The line above the sheet's button when something is deducted. */
+export const deductCaption = "Bockade varor dras från Matvaror.";
 
 /** The deduction a line gives with its entry, or `null` when it is skipped or its amount is not valid. */
 function deductionOf(line: DeductLine, entry: Entry | undefined): number | null {
@@ -96,6 +101,7 @@ export function MarkCookedButton({
   const [marked, setMarked] = useState(false);
   const [entries, setEntries] = useState<Record<string, Entry>>({});
   const headingId = useId();
+  const captionId = useId();
 
   const factor = scaleFactor(dish.servings, originalServings);
   const plan = useMemo(
@@ -185,9 +191,21 @@ export function MarkCookedButton({
         closeLabel="Avbryt"
         preventClose={busy}
         footer={
-          <Button fullWidth onClick={() => void confirm()} disabled={busy || invalid}>
-            {deductions.length > 0 ? "Dra från matvarorna och markera lagad" : "Markera som lagad"}
-          </Button>
+          <>
+            {deductions.length > 0 ? (
+              <p id={captionId} className="text-center text-meta text-ink-2" data-testid="cooked-caption">
+                {deductCaption}
+              </p>
+            ) : null}
+            <Button
+              fullWidth
+              onClick={() => void confirm()}
+              disabled={busy || invalid}
+              aria-describedby={deductions.length > 0 ? captionId : undefined}
+            >
+              Markera som lagad
+            </Button>
+          </>
         }
       >
         <div className="flex flex-col gap-5">

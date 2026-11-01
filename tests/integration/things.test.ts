@@ -19,6 +19,8 @@ import {
 import { sweepCardFilesIn } from "@/features/things/actions/sweep-card-files";
 import { mergeItemsIn, loadMergeInputIn } from "@/features/things/data/merge";
 import { clearThingsIn, loadClearCountsIn } from "@/features/things/data/clear";
+import { removeEmptyRoomIn, restoreRoomIn } from "@/features/things/data/room-remove";
+import { roomSnapshotSchema } from "@/features/things/domain/thing-clear";
 import {
   copyCardFile,
   loadPlaceCountsIn,
@@ -977,6 +979,66 @@ describe("rätta och rensa (Story 18.15)", () => {
     expect((await anon.rpc("thing_clear_counts", { site })).error).not.toBeNull();
     expect((await anon.rpc("add_card_things", { photo: card.id, things: [] })).error).not.toBeNull();
     expect(await loadClearCountsIn(k.db, site)).toEqual({ things: 1, cards: 1, boxes: 0 });
+  });
+});
+
+describe("ta bort ett tomt rum med Ångra (Pontus 1 Nov)", () => {
+  let e: TestUser;
+  beforeAll(async () => {
+    e = await createTestUser("things-tomt-rum");
+  });
+
+  it("removes an empty room with its parts and empty boxes, and Ångra brings it back with the same ids", async () => {
+    const site = await siteOf(e, "Tomt");
+    const room = await placeOf(e, site, "Boden");
+    const shelf = await placeOf(e, site, "Boden", "Hyllan");
+    const saved = await insertPlaceIn(e.db, { siteId: site, room: "Boden", part: "Röda lådan" }, true);
+    if (saved.kind !== "saved") throw new Error("not saved");
+    const other = await placeOf(e, site, "Garaget");
+    const before = (await e.db.from("thing_place").select("*").in("id", [room, shelf, saved.id]).order("id")).data;
+
+    const removed = await removeEmptyRoomIn(e.db, site, "boden");
+    if (removed.kind !== "removed") throw new Error(`not removed: ${removed.kind}`);
+    expect(roomSnapshotSchema.safeParse(removed.snapshot).success).toBe(true);
+    expect(removed.snapshot.places.map((place) => place.id).sort()).toEqual([room, shelf, saved.id].sort());
+    expect((await loadRoomsIn(e.db, site)).map((entry) => entry.key)).toEqual(["garaget"]);
+    expect(await removeEmptyRoomIn(e.db, site, "boden")).toEqual({ kind: "gone" });
+
+    expect(await restoreRoomIn(e.db, removed.snapshot)).toBe("restored");
+    expect((await e.db.from("thing_place").select("*").in("id", [room, shelf, saved.id]).order("id")).data).toEqual(before);
+    // A second Ångra (another tab) is fine.
+    expect(await restoreRoomIn(e.db, removed.snapshot)).toBe("restored");
+    expect((await loadPlacesIn(e.db, site)).map((place) => place.id)).toContain(other);
+  });
+
+  it("removes nothing of a room with a card (in any state) or a thing, and says so", async () => {
+    const site = await siteOf(e, "Inte-tomt");
+    const withCard = await placeOf(e, site, "Förrådet", "Väggen");
+    await placeOf(e, site, "Förrådet");
+    await cardOf(e, withCard);
+    expect(await removeEmptyRoomIn(e.db, site, "förrådet")).toEqual({ kind: "not_empty" });
+    const box = await insertPlaceIn(e.db, { siteId: site, room: "Vinden", part: "Kartongen" }, true);
+    if (box.kind !== "saved") throw new Error("not saved");
+    await replaceBoxThingsIn(e.db, box.id, [{ name: "Julgransbelysning", category: "Elektronik" }]);
+    expect(await removeEmptyRoomIn(e.db, site, "vinden")).toEqual({ kind: "not_empty" });
+    expect((await loadRoomsIn(e.db, site)).map((entry) => entry.key).sort()).toEqual(["förrådet", "vinden"]);
+  });
+
+  it("does not bring a room back over a new one of the same name, nor into another user's boende", async () => {
+    const site = await siteOf(e, "Ny-igen");
+    await placeOf(e, site, "Källaren");
+    const removed = await removeEmptyRoomIn(e.db, site, "källaren");
+    if (removed.kind !== "removed") throw new Error("not removed");
+    // Another user reaches neither the room nor the boende.
+    const attic = await placeOf(e, site, "Vinden");
+    expect(await removeEmptyRoomIn(b.db, site, "vinden")).toEqual({ kind: "gone" });
+    expect((await e.db.from("thing_place").select("id").eq("id", attic)).data).toHaveLength(1);
+    expect(await restoreRoomIn(b.db, removed.snapshot)).toBe("site_gone");
+    expect((await e.db.from("thing_place").select("id").eq("id", removed.snapshot.places[0]!.id)).data).toEqual([]);
+
+    await placeOf(e, site, "Källaren");
+    expect(await restoreRoomIn(e.db, removed.snapshot)).toBe("taken");
+    expect((await loadRoomsIn(e.db, site)).filter((entry) => entry.key === "källaren")).toHaveLength(1);
   });
 });
 

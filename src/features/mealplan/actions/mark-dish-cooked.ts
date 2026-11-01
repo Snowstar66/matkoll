@@ -9,7 +9,7 @@ import { cookedAlreadyCode, markDishCookedIn } from "../data/write";
 import { markCookedSchema, type MarkCookedInput, type MarkedCooked } from "../domain/cooked";
 
 /**
- * "Dra från matvarorna och markera lagad" (Story 13.4, FR-13): takes each
+ * "Markera som lagad" in its sheet (Story 13.4, FR-13): takes each
  * deduction off the pantry of the place the sheet read (`siteId`, checked against the user's own places) and marks the dish cooked,
  * in one transaction (mark_dish_cooked), so both happen or neither. The
  * dish then leaves the shopping list. Returns the time and the rows touched,

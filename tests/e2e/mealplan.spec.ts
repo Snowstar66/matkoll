@@ -504,7 +504,9 @@ test("Markera som lagad deducts from the pantry, drops the dish from the list an
   const line = sheet.getByTestId("cooked-line").filter({ hasText: "Röda linser" });
   await expect(line.getByTestId("cooked-line-text")).toHaveText("Receptet använder 5 dl");
   await expect(line).toContainText("så det blir 0");
-  await sheet.getByRole("button", { name: "Dra från matvarorna och markera lagad" }).click();
+  // One short label, with a line saying what happens to Matvaror (Pontus 1 Nov).
+  await expect(sheet.getByTestId("cooked-caption")).toHaveText("Bockade varor dras från Matvaror.");
+  await sheet.getByRole("button", { name: "Markera som lagad" }).click();
   await expect(sheet).toHaveCount(0);
   await expect(toast(page)).toContainText(`${soppa} är lagad. Matvarorna är uppdaterade.`);
   await expect(card.getByTestId("dish-cooked")).toHaveText("✓ Lagad");
@@ -519,7 +521,7 @@ test("Markera som lagad deducts from the pantry, drops the dish from the list an
   await expect(cream.getByTestId("cooked-line-text")).toHaveText("Receptet använder 2 dl");
   await sheet.getByRole("textbox", { name: "Ny mängd Grädde" }).fill("4");
   await expect(cream.getByTestId("cooked-line-text")).toHaveText("Receptet använder 1 dl");
-  await sheet.getByRole("button", { name: "Dra från matvarorna och markera lagad" }).click();
+  await sheet.getByRole("button", { name: "Markera som lagad" }).click();
   await expect(dish(page, gryta).getByTestId("dish-cooked")).toBeVisible();
   expect(await amountOf("Grädde")).toEqual([4]);
   await toast(page).getByRole("button", { name: "Ångra" }).click();

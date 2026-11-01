@@ -50,6 +50,10 @@ export const helpAreas: readonly HelpArea[] = [
         question: "Hur lägger jag ett recept på matsedeln?",
         answer: "Öppna receptet och tryck Lägg på matsedeln. Det hamnar på första lediga dag den här veckan, och i Matsedel kan du flytta det till en annan dag.",
       },
+      {
+        question: "Hur markerar jag en rätt som lagad?",
+        answer: "Står rätten på matsedeln slutar sista steget i Laga nu med Markera som lagad. Det du bockar dras från Matvaror.",
+      },
     ],
   },
   {
@@ -133,6 +137,10 @@ export const helpAreas: readonly HelpArea[] = [
       { question: "Kan jag dela upp ett rum?", answer: "Ja, i rummet lägger du till lådor och egna platser." },
       { question: "Något har flyttats. Vad gör jag?", answer: "Ta ett nytt foto av platsen, så uppdateras listan." },
       { question: "Söker den i alla boenden?", answer: `Ja, sökningen går igenom ${things}en i alla dina boenden.` },
+      {
+        question: "Hur tar jag bort ett rum?",
+        answer: `Ett tomt rum tar du bort med Ta bort rummet längst ned i rummet, och du kan ångra direkt. Har rummet ${things} eller kort väljer du ⋯ och Rensa rummet, och skriver rummets namn för att bekräfta.`,
+      },
     ],
   },
   {
