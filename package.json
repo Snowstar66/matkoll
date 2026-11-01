@@ -22,7 +22,6 @@
     "db:types": "supabase gen types --local --schema public > src/lib/supabase/database.types.ts",
     "db:env": "node scripts/db-env.mjs",
     "dev:set-password": "node --env-file-if-exists=.env.local scripts/dev-set-password.mjs",
-    "move:cloud": "node scripts/move-to-cloud.ts",
     "offers:fetch": "node --experimental-transform-types --disable-warning=ExperimentalWarning --import ./scripts/src-paths.mjs scripts/fetch-offers.ts",
     "users:sync": "node --env-file-if-exists=.env.local scripts/users-sync.mjs",
     "owner:sync": "node --env-file-if-exists=.env.local scripts/owner-sync.mjs",

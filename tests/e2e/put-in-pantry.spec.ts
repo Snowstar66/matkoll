@@ -32,7 +32,7 @@ test.beforeAll(async () => {
     .from("ingredient")
     .upsert(
       catalog.map((item) => ({ user_id: userId, normalized_name: item.name.toLocaleLowerCase("sv-SE"), ...item })),
-      { onConflict: "user_id,normalized_name" },
+      { onConflict: "household_id,normalized_name" },
     )
     .select("id, name");
   if (error) throw error;

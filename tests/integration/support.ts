@@ -1,3 +1,4 @@
+import { execFileSync } from "node:child_process";
 import { createClient, type SupabaseClient } from "@supabase/supabase-js";
 import { expect } from "vitest";
 import type { Database } from "@/lib/supabase/database.types";
@@ -77,6 +78,46 @@ export async function deleteTestUsers(): Promise<void> {
     if (error && error.code !== "user_not_found") throw error;
     createdUserIds.delete(id);
   }
+}
+
+/**
+ * One SQL statement against local Postgres as the superuser, through the
+ * Supabase CLI (a dev dependency, also in CI): for what PostgREST cannot
+ * show, such as information_schema and pg_policies. Its rows; throws, with
+ * Postgres's message, when the statement fails.
+ */
+export function localSql<Row>(statement: string): Row[] {
+  const out = execFileSync("node_modules/.bin/supabase", ["db", "query", "--local", "-o", "json", statement], {
+    encoding: "utf8",
+    stdio: ["ignore", "pipe", "pipe"],
+  });
+  // The rows come as a plain JSON array, or wrapped as { rows } when the CLI detects an AI agent in its environment.
+  const json = JSON.parse(out.trim()) as Row[] | { rows?: Row[] };
+  const rows = Array.isArray(json) ? json : json.rows;
+  if (!Array.isArray(rows)) throw new Error(`supabase db query gave no rows: ${out.slice(0, 500)}`);
+  return rows;
+}
+
+/** The household of `userId` (Story 21.2a: every account has one, made with the account). */
+export async function householdOf(userId: string): Promise<string> {
+  const { data, error } = await adminClient().from("household_member").select("household_id").eq("user_id", userId).single();
+  if (error) throw error;
+  return data.household_id;
+}
+
+/**
+ * Moves `user` into the household `householdId` with the service role, the
+ * way Story 21.2b's invitation will: the old membership goes (and with it the
+ * old household, when it has no member left), the new one comes.
+ */
+export async function moveToHousehold(user: TestUser, householdId: string, role: "owner" | "member" = "member"): Promise<void> {
+  const admin = adminClient();
+  const removed = await admin.from("household_member").delete().eq("user_id", user.id);
+  if (removed.error) throw removed.error;
+  const added = await admin
+    .from("household_member")
+    .insert({ household_id: householdId, user_id: user.id, role, display_name: "Medlem", color: role === "owner" ? "mint" : "sky" });
+  if (added.error) throw added.error;
 }
 
 /** Number of rows in `table` that belong to `userId`, counted with the service role. */

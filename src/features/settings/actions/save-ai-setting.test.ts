@@ -41,7 +41,7 @@ describe("saveAiSetting", () => {
     await saveAiSetting({ provider: "lmstudio" });
     expect(saveAiSettingIn).toHaveBeenCalledWith(db, "user", { provider: "lmstudio", model: "qwen/test", effort: "medium" });
     await saveAiSetting({ provider: "default" });
-    expect(clearAiSettingIn).toHaveBeenCalledWith(db, "user");
+    expect(clearAiSettingIn).toHaveBeenCalledWith(db);
   });
 
   it("refuses Claude without a key, and Qwen without a URL, without writing", async () => {

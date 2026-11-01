@@ -2,17 +2,30 @@ import { createHash, randomUUID } from "node:crypto";
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
 import { placePhotoBucket, placePhotoPath } from "@/features/pantry/domain/place-photo";
 import { thingPhotoBucket, thingPhotoPath } from "@/features/things/domain/thing-photo";
-import { localSupabaseUrl } from "../local-supabase";
-import { adminClient, anonClient, createTestUser, deleteTestUsers, type Db, type TableName, type TestUser } from "./support";
+import {
+  adminClient,
+  anonClient,
+  createTestUser,
+  deleteTestUsers,
+  householdOf,
+  localSql,
+  moveToHousehold,
+  type Db,
+  type TableName,
+  type TestUser,
+} from "./support";
 
-// Household isolation (Story 17.1, AD-4, NFR-11): with two accounts that both
-// hold data, account B can neither read, change, delete nor insert as account
-// A, in every table of the public schema and in the photo buckets (the
-// pantry's and, Epic 18, the things'). The
-// tables come from the live schema, not from a list kept here: a table that a
-// migration adds and this file does not cover fails the first test by name.
-// Each table's own policies are also tried one by one in its feature's test;
-// this file is the one place that checks all of them against the same data.
+// Household isolation (Story 17.1, AD-4, NFR-11; Story 21.2a): household A has
+// two members (a and a2), household B one (b). A's members share every row of
+// the app's data and every photo, whoever made it; B can neither read,
+// change, delete nor insert into A, in every table of the public schema,
+// through the functions and in the photo buckets (the pantry's and, Epic 18,
+// the things'); anon reaches nothing. The tables come from the live schema
+// (information_schema and pg_policies), not from a list kept here: a table
+// that a migration adds and this file does not cover fails the first test by
+// name. Each table's own policies are also tried one by one in its feature's
+// test; this file is the one place that checks all of them against the same
+// data.
 
 const sha256 = (text: string) => createHash("sha256").update(text).digest("hex");
 
@@ -39,6 +52,15 @@ type Coverage = {
 // not read it back (only the app's owner may), and app_owner has no user at all;
 // tests/integration/feedback.test.ts covers both, with the same intruders.
 const coveredInFeedbackTest = ["app_owner", "feedback"];
+
+// Story 21.2a: the household itself, its members and its invitations. Covered
+// below in "the household and its members".
+const householdTables = ["household", "household_invite", "household_member"];
+
+// Story 21.2a: the tables that stay a person's own, not the household's: a
+// co-member sees none of their rows. Every other covered table is the
+// household's (household_id, and policies on my_household_id()).
+const personalTables: readonly IsolatedTable[] = ["api_key", "welcome_tour"];
 
 type IsolatedTable = Exclude<TableName, "feedback">;
 
@@ -156,25 +178,52 @@ const seedOrder: IsolatedTable[] = [
   "welcome_tour",
 ];
 
+type LiveTable = { name: string; has_household: boolean; rls: boolean; household_policies: boolean; user_policies: boolean };
+
 /**
- * The tables of the public schema as the Data API serves them to the service
- * role (the PostgREST description lists every table and view it exposes).
+ * Every table of the public schema, read from the catalog: whether it has
+ * household_id, RLS, and whether all its permissive policies compare the
+ * household (my_household_id) or any compares only the user.
  */
-async function liveTables(): Promise<string[]> {
-  const key = process.env.SUPABASE_SERVICE_ROLE_KEY;
-  if (!key) throw new Error("Set SUPABASE_SERVICE_ROLE_KEY (pnpm db:start && pnpm db:env)");
-  const response = await fetch(`${localSupabaseUrl()}/rest/v1/`, { headers: { apikey: key, Authorization: `Bearer ${key}` } });
-  if (!response.ok) throw new Error(`Could not read the schema: ${response.status}`);
-  const description = (await response.json()) as { definitions?: Record<string, unknown> };
-  return Object.keys(description.definitions ?? {}).sort();
+function liveTables(): LiveTable[] {
+  return localSql<LiveTable>(`
+    select t.table_name as name,
+      exists (select 1 from information_schema.columns c
+              where c.table_schema = 'public' and c.table_name = t.table_name and c.column_name = 'household_id') as has_household,
+      (select k.relrowsecurity from pg_class k where k.oid = ('public.' || quote_ident(t.table_name))::regclass) as rls,
+      coalesce((select bool_and(coalesce(p.qual, '') || coalesce(p.with_check, '') like '%my_household_id%')
+                from pg_policies p where p.schemaname = 'public' and p.tablename = t.table_name and p.permissive = 'PERMISSIVE'), false)
+        as household_policies,
+      coalesce((select bool_or(coalesce(p.qual, '') || coalesce(p.with_check, '') like '%auth.uid()%'
+                               and coalesce(p.qual, '') || coalesce(p.with_check, '') not like '%my_household_id%')
+                from pg_policies p where p.schemaname = 'public' and p.tablename = t.table_name and p.permissive = 'PERMISSIVE'), false)
+        as user_policies
+    from information_schema.tables t
+    where t.table_schema = 'public' and t.table_type = 'BASE TABLE'
+    order by 1`);
+}
+
+/** The tables authenticated may update (A's co-member changes A's rows there). */
+function updatableTables(): Set<string> {
+  return new Set(
+    localSql<{ name: string }>(`
+      select table_name as name from information_schema.role_table_grants
+      where table_schema = 'public' and grantee = 'authenticated' and privilege_type = 'UPDATE'`).map((row) => row.name),
+  );
 }
 
 let a: TestUser;
+let a2: TestUser;
 let b: TestUser;
+let householdA: string;
+let householdB: string;
+let canUpdate: Set<string>;
 let rowIds: Map<IsolatedTable, string>;
 let aSeed: Seed;
 const photoPath = (userId: string, id: string) => `${userId}/${randomUUID()}/kyl/${id}.png`;
 let aPhotoPaths: Map<string, string>;
+/** A's second member's own photo in each bucket, in a2's folder. */
+let a2PhotoPaths: Map<string, string>;
 const photoBytes = new Uint8Array([137, 80, 78, 71, 13, 10, 26, 10, 1, 2, 3, 4]);
 
 /** Gives `owner` a row in every table; returns the row ids and the parents they point at. */
@@ -204,21 +253,36 @@ async function seedAs(owner: Db, ownerId: string): Promise<{ ids: Map<IsolatedTa
 
 beforeAll(async () => {
   a = await createTestUser("household-a");
+  a2 = await createTestUser("household-a2");
   b = await createTestUser("household-b");
+  householdA = await householdOf(a.id);
+  householdB = await householdOf(b.id);
+  // a2 joins A's household (Story 21.2b's invitation, done here with the service role).
+  await moveToHousehold(a2, householdA);
+  canUpdate = updatableTables();
   ({ ids: rowIds, seed: aSeed } = await seedAs(a.db, a.id));
   // B has data of their own too, so an empty result is not just an empty account.
   await seedAs(b.db, b.id);
   aPhotoPaths = new Map();
+  a2PhotoPaths = new Map();
   for (const bucket of buckets) {
     const path = photoPath(a.id, randomUUID());
     aPhotoPaths.set(bucket, path);
     const uploaded = await a.db.storage.from(bucket).upload(path, photoBytes, { contentType: "image/png" });
     expect(uploaded.error, `A uploads a photo to ${bucket}`).toBeNull();
+    const own = photoPath(a2.id, randomUUID());
+    a2PhotoPaths.set(bucket, own);
+    expect((await a2.db.storage.from(bucket).upload(own, photoBytes, { contentType: "image/png" })).error, `a2 uploads to ${bucket}`).toBeNull();
   }
 });
 
 afterAll(async () => {
-  for (const bucket of buckets) await adminClient().storage.from(bucket).remove([aPhotoPaths.get(bucket)!]);
+  for (const bucket of buckets) await adminClient().storage.from(bucket).remove([aPhotoPaths.get(bucket)!, a2PhotoPaths.get(bucket)!]);
+  // Household A holds rows a2 made that point at a's (a recipe line on a's ingredient). Deleting a's
+  // account cascades only a's own rows (user_id), which those rows hold back (on delete restrict),
+  // so the household goes first, with all its rows. Story 21.2b: see docs/molnet.md, risks.
+  const dropped = await adminClient().from("household").delete().eq("id", householdA);
+  expect(dropped.error, "household A is deleted").toBeNull();
   await deleteTestUsers();
 });
 
@@ -228,15 +292,55 @@ async function adminRows(table: TableName, userId: string) {
   return data;
 }
 
+const householdData = (): IsolatedTable[] => seedOrder.filter((table) => !personalTables.includes(table));
+
+/** Every row of `household` in every table of the app's data, read with the service role. */
+async function householdSnapshot(household: string): Promise<string> {
+  const tables: Record<string, unknown> = {};
+  for (const table of householdData()) {
+    const { data, error } = await adminClient().from(table).select("*").eq("household_id" as never, household as never).order("id");
+    if (error) throw error;
+    tables[table] = data;
+  }
+  return JSON.stringify(tables);
+}
+
 describe("household isolation", () => {
-  it("covers every table in the public schema", async () => {
-    const live = await liveTables();
+  it("covers every table in the public schema", () => {
+    const tables = liveTables();
+    const live = tables.map((table) => table.name);
     const covered = Object.keys(coverage).sort();
-    const missing = live.filter((table) => !covered.includes(table) && !coveredInFeedbackTest.includes(table));
-    const gone = [...covered, ...coveredInFeedbackTest].filter((table) => !live.includes(table));
+    const known = [...covered, ...coveredInFeedbackTest, ...householdTables];
+    const missing = live.filter((table) => !known.includes(table));
+    const gone = known.filter((table) => !live.includes(table));
     expect(missing, `tables without isolation coverage in household-isolation.test.ts: ${missing.join(", ")}`).toEqual([]);
     expect(gone, `covered tables that no longer exist: ${gone.join(", ")}`).toEqual([]);
     expect([...seedOrder].sort(), "seedOrder lists exactly the covered tables").toEqual(covered);
+    expect(tables.filter((table) => !table.rls).map((table) => table.name), "every table has RLS").toEqual([]);
+    // Story 21.2a: every table of the app's data is the household's, and only those.
+    const shared = householdData();
+    for (const table of tables) {
+      const isShared = (shared as string[]).includes(table.name);
+      if (isShared) {
+        expect(table.has_household, `${table.name} has household_id`).toBe(true);
+        expect(table.household_policies, `${table.name}'s policies compare my_household_id()`).toBe(true);
+        expect(table.user_policies, `${table.name} has no policy on the user alone`).toBe(false);
+      } else if (!["household_member", "household_invite"].includes(table.name)) {
+        expect(table.has_household, `${table.name} is a person's (or the app's), without household_id`).toBe(false);
+      }
+    }
+  });
+
+  it("puts a and a2 in household A and b in household B", async () => {
+    expect(householdA).not.toBe(householdB);
+    expect(await householdOf(a2.id)).toBe(householdA);
+    for (const [who, user, household] of [["a", a, householdA], ["a2", a2, householdA], ["b", b, householdB]] as const) {
+      expect((await user.db.rpc("my_household_id")).data, `${who}'s household`).toBe(household);
+    }
+    expect((await a2.db.rpc("is_household_member", { hid: householdA })).data).toBe(true);
+    expect((await b.db.rpc("is_household_member", { hid: householdA })).data).toBe(false);
+    expect((await anonClient().rpc("my_household_id")).error?.code).toBe("42501");
+    expect((await anonClient().rpc("is_household_member", { hid: householdA })).error?.code).toBe("42501");
   });
 
   it("gives A a row in every table", () => {
@@ -244,6 +348,28 @@ describe("household isolation", () => {
   });
 
   describe.each(seedOrder)("%s", (table) => {
+    const personal = personalTables.includes(table);
+
+    it(personal ? "is a's own: a2 in the same household sees none of it" : "is shared by A's members", async () => {
+      const id = rowIds.get(table)!;
+      const read = await a2.db.from(table).select("id").eq("id", id);
+      if (personal) {
+        expect(read.error ? [] : read.data, "a2 reads a's row").toEqual([]);
+        return;
+      }
+      expect(read.data, "a2 reads a's row").toHaveLength(1);
+      if (canUpdate.has(table)) {
+        // An update that changes nothing: a2 may change a's row.
+        const { data: row } = await adminClient().from(table).select("created_at").eq("id", id).single();
+        const update = await a2.db.from(table).update({ created_at: (row as { created_at: string }).created_at } as never).eq("id", id).select("id");
+        expect(update.error, "a2 updates a's row").toBeNull();
+        expect(update.data, "a2 updates a's row").toHaveLength(1);
+      }
+      // The row stays household A's, made by a.
+      const { data } = await adminClient().from(table).select("household_id, user_id").eq("id", id).single();
+      expect(data, "a's row is household A's").toEqual({ household_id: householdA, user_id: a.id });
+    });
+
     it("keeps A's rows from B and from anon", async () => {
       const id = rowIds.get(table)!;
       const beforeA = await adminRows(table, a.id);
@@ -271,6 +397,22 @@ describe("household isolation", () => {
       expect(remove.error ? [] : remove.data, "B deletes A's row").toEqual([]);
       const insert = await b.db.from(table).insert(spoof as never).select("id");
       expect(insert.error?.code, "B inserts a row as A").toBe("42501");
+      if (!personal) {
+        // Story 21.2a: nor as themselves into A's household, nor in B's household pointing at A's rows.
+        const intoA = await b.db.from(table).insert({ ...coverage[table].row(aSeed, b.id), household_id: householdA } as never).select("id");
+        expect(intoA.error?.code, "B inserts into A's household").toBe("42501");
+        const everythingB = await b.db.from(table).select("*");
+        expect(
+          everythingB.data?.some((row) => (row as { household_id?: string }).household_id === householdA) ?? false,
+          "B's unfiltered read has A's household's rows",
+        ).toBe(false);
+        const pointing = coverage[table].row(aSeed, b.id);
+        const pointsAtA = JSON.stringify(pointing).match(/[0-9a-f-]{36}/g)?.some((value) => Object.values(aSeed).includes(value)) ?? false;
+        if (pointsAtA) {
+          const refused = await b.db.from(table).insert(pointing as never).select("id");
+          expect(refused.error, "B's row pointing at A's rows is refused").not.toBeNull();
+        }
+      }
 
       // Anonymous: refused outright.
       const anon = anonClient();
@@ -295,9 +437,16 @@ describe("household isolation", () => {
 
       // A reads their own photo, so the refusals below mean something.
       expect((await a.db.storage.from(bucket).download(aPhotoPath)).error, "A reads own").toBeNull();
+      // Story 21.2a: A's members share the photos, in either's folder.
+      const a2Path = a2PhotoPaths.get(bucket)!;
+      expect((await a2.db.storage.from(bucket).download(aPhotoPath)).error, "a2 reads a's photo").toBeNull();
+      expect((await a.db.storage.from(bucket).download(a2Path)).error, "a reads a2's photo").toBeNull();
+      expect((await a2.db.storage.from(bucket).list(folder)).data?.length, "a2 lists a's folder").toBe(1);
 
       for (const [who, db] of [["B", b.db], ["anon", anonClient()]] as const) {
         const files = db.storage.from(bucket);
+        expect((await files.download(a2Path)).error, `${who} downloads a2's photo`).not.toBeNull();
+        expect((await files.list(a2Path.split("/")[0])).data ?? [], `${who} lists a2's folder`).toEqual([]);
         const listed = await files.list(folder);
         expect(listed.error ? [] : listed.data, `${who} lists A's folder`).toEqual([]);
         expect((await files.download(aPhotoPath)).error, `${who} downloads A's photo`).not.toBeNull();
@@ -607,6 +756,180 @@ describe("household isolation", () => {
       // A's count and history are exactly as they were.
       expect(JSON.stringify((await adminClient().from("thing_item").select("*").eq("id", itemId)).data)).toBe(itemBefore);
       expect(JSON.stringify((await adminClient().from("thing_change").select("*").eq("item_id", itemId).order("id")).data)).toBe(historyBefore);
+    });
+  });
+
+  // Story 21.2a: A's members work on each other's rows, through the tables and the functions.
+  describe("A's members together", () => {
+    it("point at each other's rows, find each other's things and merge a room with the other's card", async () => {
+      const step = await a2.db.from("recipe_ingredient").insert({ recipe_id: aSeed.recipeId, ingredient_id: aSeed.ingredientId, position: 90, original_text: "lite lök", is_vague: true }).select("household_id, user_id").single();
+      expect(step.error, "a2 adds a line to a's recipe with a's ingredient").toBeNull();
+      expect(step.data).toEqual({ household_id: householdA, user_id: a2.id });
+
+      const from = await a.db.from("thing_place").insert({ site_id: aSeed.siteId, room: "Garaget", part: null, room_key: "garaget", part_key: "" }).select("id").single();
+      const to = await a.db.from("thing_place").insert({ site_id: aSeed.siteId, room: "Boden", part: null, room_key: "boden", part_key: "" }).select("id").single();
+      expect(from.error ?? to.error).toBeNull();
+      const cardId = randomUUID();
+      const oldPath = `${a.id}/${from.data!.id}/${cardId}.png`;
+      expect((await a.db.storage.from(thingPhotoBucket).upload(oldPath, photoBytes, { contentType: "image/png" })).error).toBeNull();
+      expect((await a.db.from("thing_photo").insert({ id: cardId, place_id: from.data!.id, object_path: oldPath, media_type: "image/png", width: 10, height: 10, taken_at: new Date().toISOString(), status: "done" })).error).toBeNull();
+      expect((await a.db.rpc("add_card_things", { photo: cardId, things: [{ name: "Vinterdäck", category: "Övrigt" }] })).data).toBe(1);
+      expect((await a2.db.rpc("search_things", { terms: ["vinterdäck"] })).data?.map((row) => row.name), "a2 finds a's thing").toEqual(["Vinterdäck"]);
+
+      // a2 merges a's room into another; the card keeps a's folder, and a2 may copy the file there.
+      const renamed = await a2.db.rpc("rename_thing_room", { site: aSeed.siteId, in_room: "garaget", new_name: "Boden", new_key: "boden" });
+      expect(renamed.error, "a2 merges a's room").toBeNull();
+      const newPath = `${a.id}/${to.data!.id}/${cardId}.png`;
+      expect((renamed.data as { moves: { from: string; to: string }[] }).moves).toEqual([{ from: oldPath, to: newPath }]);
+      expect((await a2.db.storage.from(thingPhotoBucket).copy(oldPath, newPath)).error, "a2 copies a's file in a's folder").toBeNull();
+      expect((await a2.db.storage.from(thingPhotoBucket).remove([oldPath])).data, "a2 removes the old one").toHaveLength(1);
+      expect((await adminClient().from("thing_photo").select("object_path, user_id").eq("id", cardId).single()).data).toEqual({ object_path: newPath, user_id: a.id });
+      expect((await a.db.storage.from(thingPhotoBucket).download(newPath)).error, "a reads the moved file").toBeNull();
+      // B neither reads nor lists it.
+      expect((await b.db.storage.from(thingPhotoBucket).download(newPath)).error).not.toBeNull();
+      expect((await a.db.rpc("clear_things", { site: aSeed.siteId, in_room: "boden" })).error).toBeNull();
+      await adminClient().storage.from(thingPhotoBucket).remove([newPath]);
+    });
+  });
+
+  // Story 21.2a: the household, its members and its invitations. Members read
+  // their own household and who is in it; nobody writes them directly (21.2b's
+  // functions will), and no one reads an invitation.
+  describe("the household and its members", () => {
+    it("lets A's members read household A and its members, and B neither", async () => {
+      for (const user of [a, a2]) {
+        expect((await user.db.from("household").select("id")).data?.map((row) => row.id)).toEqual([householdA]);
+        const members = (await user.db.from("household_member").select("user_id, household_id, role")).data ?? [];
+        expect(members.map((row) => row.user_id).sort()).toEqual([a.id, a2.id].sort());
+        expect(members.every((row) => row.household_id === householdA)).toBe(true);
+      }
+      expect((await b.db.from("household").select("id")).data?.map((row) => row.id)).toEqual([householdB]);
+      expect((await b.db.from("household").select("id").eq("id", householdA)).data).toEqual([]);
+      expect((await b.db.from("household_member").select("user_id")).data?.map((row) => row.user_id)).toEqual([b.id]);
+      expect((await b.db.from("household_member").select("user_id").eq("household_id", householdA)).data).toEqual([]);
+    });
+
+    it("refuses every direct write, to members and to B, and anon everything", async () => {
+      const before = JSON.stringify([
+        (await adminClient().from("household").select("*").in("id", [householdA, householdB]).order("id")).data,
+        (await adminClient().from("household_member").select("*").in("household_id", [householdA, householdB]).order("user_id")).data,
+      ]);
+      for (const [who, db] of [["a", a.db], ["b", b.db], ["anon", anonClient()]] as const) {
+        expect((await db.from("household").insert({ name: "Nytt" })).error?.code, `${who} makes a household`).toBe("42501");
+        expect((await db.from("household").update({ name: "Kapat" }).eq("id", householdA)).error?.code, `${who} renames A`).toBe("42501");
+        expect((await db.from("household").delete().eq("id", householdA)).error?.code, `${who} deletes A`).toBe("42501");
+        expect(
+          (await db.from("household_member").insert({ household_id: householdA, user_id: b.id, role: "member", display_name: "Inkräktare", color: "sand" })).error?.code,
+          `${who} joins A`,
+        ).toBe("42501");
+        expect((await db.from("household_member").update({ household_id: householdA }).eq("user_id", b.id)).error?.code, `${who} moves b into A`).toBe("42501");
+        expect((await db.from("household_member").update({ role: "owner" }).eq("user_id", a2.id)).error?.code, `${who} makes a2 owner`).toBe("42501");
+        expect((await db.from("household_member").delete().eq("user_id", a2.id)).error?.code, `${who} removes a2`).toBe("42501");
+        expect((await db.from("household_invite").select("id")).error?.code, `${who} reads invitations`).toBe("42501");
+        expect(
+          (await db.from("household_invite").insert({ code_hash: sha256(randomUUID()), household_id: householdA, expires_at: new Date(Date.now() + 86_400_000).toISOString() })).error?.code,
+          `${who} makes an invitation`,
+        ).toBe("42501");
+      }
+      expect((await anonClient().from("household").select("id")).error?.code).toBe("42501");
+      expect((await anonClient().from("household_member").select("user_id")).error?.code).toBe("42501");
+      const after = JSON.stringify([
+        (await adminClient().from("household").select("*").in("id", [householdA, householdB]).order("id")).data,
+        (await adminClient().from("household_member").select("*").in("household_id", [householdA, householdB]).order("user_id")).data,
+      ]);
+      expect(after, "households and members unchanged").toBe(before);
+    });
+  });
+
+  // Story 21.2a: every function that takes an id of the household's rows, called
+  // by B with A's ids. Whatever each answers, A's household is exactly as it was,
+  // and B's household gains no row that points at A's.
+  describe("the functions with A's ids", () => {
+    it("change nothing of A's when B calls them, and refuse anon", async () => {
+      const plan = rowIds.get("meal_plan")!;
+      const dish = rowIds.get("meal_plan_recipe")!;
+      const site = aSeed.siteId;
+      const job = rowIds.get("ai_job")!;
+      const item = rowIds.get("shopping_custom_item")!;
+      const lineKey = "r:11111111-1111-4111-8111-111111111111:dl";
+      const calls: [string, Record<string, unknown>][] = [
+        ["delete_meal_plan", { plan_id: plan }],
+        ["copy_meal_plan", { source_plan: plan, target_week: "2030-01-07" }],
+        ["select_pantry_site", { site_id: site }],
+        ["delete_pantry_site", { site_id: site }],
+        ["save_pantry_site", { site_id: site, site_name: "Kapat", site_normalized_name: "kapat", mode: "rename" }],
+        ["select_store", { store_id: aSeed.storeId }],
+        ["cancel_ai_job", { job_id: job }],
+        ["dismiss_ai_job", { job_id: job }],
+        ["mark_ai_job_seen", { job_id: job }],
+        ["claim_ai_job", { job_id: job, run_deadline: new Date(Date.now() + 60_000).toISOString() }],
+        ["finish_ai_job", { job_id: job, job_status: "done", job_result: {} }],
+        ["set_ai_job_result", { job_id: job, job_result: {} }],
+        ["set_shopping_check", { plan_id: plan, line_key: lineKey, checked: true }],
+        ["hide_shopping_line", { plan_id: plan, line_key: lineKey }],
+        ["show_shopping_line", { plan_id: plan, line_key: lineKey }],
+        ["set_shopping_line_amount", { plan_id: plan, line_key: lineKey, amount: 9 }],
+        ["remove_shopping_custom_item", { item_id: item }],
+        ["update_shopping_custom_item", { item: { id: item, label: "Kapat" } }],
+        ["detach_recipe_from_current_plan", { detached_recipe_id: aSeed.recipeId }],
+        ["mark_dish_cooked", { dish, site, deductions: [] }],
+        ["undo_dish_cooked", { dish }],
+        ["restore_pantry_removal", { operation_id: rowIds.get("pantry_removal")! }],
+        ["set_pantry_photo_points", { photo_id: rowIds.get("pantry_photo")!, photo_points: [] }],
+        ["delete_expired_pantry_photos", { photo_ids: [rowIds.get("pantry_photo")!], taken_before: "2100-01-01T00:00:00Z" }],
+        ["save_product_choice", { choice: { ingredient_id: aSeed.ingredientId, store_id: aSeed.storeId, product_name: "Kapat" }, expected_id: null, expected_updated_at: null }],
+        ["empty_pantry_place", { place: "Kyl", operation_id: randomUUID(), site }],
+        ["set_pantry_items", { items: [], replace_id: rowIds.get("pantry_item")!, site }],
+        ["add_to_pantry", { items: [{ key: randomUUID(), ingredient_id: aSeed.ingredientId, location: "Kyl", amount: 1, unit: "l" }], site }],
+        ["clear_put_in_pantry", { plan_id: plan, check_ids: [], override_keys: [lineKey], custom_item_ids: [item] }],
+        ["save_store_offers", { store: aSeed.storeId, week: "2026-10-26", items: [] }],
+      ];
+      const beforeA = await householdSnapshot(householdA);
+      for (const [name, args] of calls) {
+        const result = await b.db.rpc(name as never, args as never);
+        // A wrong name or argument list would make the call prove nothing.
+        expect(["PGRST202", "42883"], `${name} is called with its real arguments`).not.toContain(result.error?.code);
+        expect((await anonClient().rpc(name as never, args as never)).error?.code, `anon calls ${name}`).toBe("42501");
+      }
+      expect((await b.db.rpc("pantry_place_has_item", { ingredient: aSeed.ingredientId, place: "Kyl", item_unit: "l", site })).data ?? false).toBe(false);
+      expect(await householdSnapshot(householdA), "A's household is exactly as it was").toBe(beforeA);
+    });
+  });
+
+  // Story 21.2a: a member who moves to another household (21.2b's Lämna) takes
+  // nothing along: they see none of the old household's rows, and the photos
+  // they took there stay the old household's, also the files in their own folder.
+  describe("a member who moves to another household", () => {
+    it("leaves A's rows and A's photos behind, in A", async () => {
+      const placeId = aSeed.placeId;
+      const cardId = randomUUID();
+      const cardPath = `${a2.id}/${placeId}/${cardId}.png`;
+      expect((await a2.db.storage.from(thingPhotoBucket).upload(cardPath, photoBytes, { contentType: "image/png" })).error).toBeNull();
+      const card = await a2.db
+        .from("thing_photo")
+        .insert({ id: cardId, place_id: placeId, object_path: cardPath, media_type: "image/png", width: 10, height: 10, taken_at: new Date().toISOString(), status: "done" });
+      expect(card.error, "a2 adds a card to a's place").toBeNull();
+      expect((await a.db.storage.from(thingPhotoBucket).download(cardPath)).error, "a reads a2's card file").toBeNull();
+
+      const { data: moved, error } = await adminClient().from("household").insert({ name: "Tredje hushållet" }).select("id").single();
+      expect(error).toBeNull();
+      await moveToHousehold(a2, moved!.id, "owner");
+      expect((await a2.db.rpc("my_household_id")).data).toBe(moved!.id);
+
+      for (const table of householdData()) {
+        const read = await a2.db.from(table).select("id").eq("id", rowIds.get(table)!);
+        expect(read.error ? [] : read.data, `a2 reads A's ${table} after moving`).toEqual([]);
+      }
+      expect((await a2.db.from("thing_photo").select("id").eq("id", cardId)).data, "a2's own card stays in A").toEqual([]);
+      const files = a2.db.storage.from(thingPhotoBucket);
+      expect((await files.download(cardPath)).error, "a2 reads the card file in their own folder").not.toBeNull();
+      expect((await files.list(`${a2.id}/${placeId}`)).data ?? [], "a2 lists it").toEqual([]);
+      expect((await files.remove([cardPath])).data ?? [], "a2 removes it").toEqual([]);
+      expect((await a2.db.storage.from(placePhotoBucket).download(aPhotoPaths.get(placePhotoBucket)!)).error, "a2 reads a's photo").not.toBeNull();
+      // A keeps it: the row points at it.
+      expect((await a.db.storage.from(thingPhotoBucket).download(cardPath)).error, "a still reads the card file").toBeNull();
+      expect((await a.db.from("thing_photo").select("user_id").eq("id", cardId)).data).toEqual([{ user_id: a2.id }]);
+      await adminClient().storage.from(thingPhotoBucket).remove([cardPath]);
     });
   });
 });

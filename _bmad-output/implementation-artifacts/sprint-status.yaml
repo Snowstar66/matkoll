@@ -208,8 +208,8 @@ development_status:
   17-8-handla-med-dålig-täckning: done
   17-9-lägg-till-snabbt-och-med-siri: done
   17-10-egna-varor-ligger-kvar-tills-de-är-köpta: done
-  17-11-erbjudanden-hämtas-schemalagt-från-github: review
-  17-12-liveuppdatering-utan-nyckel-i-webbläsaren: review
+  17-11-erbjudanden-hämtas-schemalagt-från-github: done
+  17-12-liveuppdatering-utan-nyckel-i-webbläsaren: done
   epic-17-retrospective: optional
 
   epic-18: in-progress
@@ -255,9 +255,10 @@ development_status:
   20-3-tyck-till-och-inkorg: review
   epic-20-retrospective: optional
 
-  epic-21: backlog
+  epic-21: in-progress
   21-1-bjud-in-ett-hushåll-från-appen: backlog
-  21-2-hushållsmedlemmar-med-egna-inloggningar: backlog
+  21-2a-hushållet-i-databasen: review
+  21-2b-medlemmar-och-inbjudan: backlog
   21-3-se-vem-som-gjort-vad: backlog
   21-4-ändringslogg: backlog
   epic-21-retrospective: optional

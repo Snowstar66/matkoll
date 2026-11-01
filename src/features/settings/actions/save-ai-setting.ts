@@ -32,7 +32,7 @@ export async function saveAiSetting(input: AiSettingInput): Promise<Result<AiSet
 
   try {
     const db = await createClient();
-    if (choice.provider === "default") await clearAiSettingIn(db, user.data.id);
+    if (choice.provider === "default") await clearAiSettingIn(db);
     else if (choice.provider === "lmstudio") {
       await saveAiSettingIn(db, user.data.id, { provider: "lmstudio", model: qwenModelFor(env), effort: "medium" });
     } else {

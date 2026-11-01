@@ -28,7 +28,7 @@ export async function removePlanRecipe(id: string): Promise<Result<PlanRecipeRow
   if (!parsed.success) return fail("validation");
 
   try {
-    const removed = await removePlanRecipeIn(await createClient(), user.data.id, parsed.data);
+    const removed = await removePlanRecipeIn(await createClient(), parsed.data);
     revalidateFor("meal_plan_recipe");
     if (!removed) {
       console.error("mealplan_remove_failed", { reason: "not_found" });

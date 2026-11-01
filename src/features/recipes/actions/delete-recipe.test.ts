@@ -39,7 +39,7 @@ beforeEach(() => {
 describe("deleteRecipe", () => {
   it("deletes the user's recipe and revalidates the recipe routes", async () => {
     expect(await deleteRecipe(id)).toEqual(ok({ id }));
-    expect(deleteRecipeIn).toHaveBeenCalledWith(db, "user", id);
+    expect(deleteRecipeIn).toHaveBeenCalledWith(db, id);
     expect(revalidateFor).toHaveBeenCalledWith("recipe");
   });
 
@@ -78,7 +78,7 @@ describe("deleteRecipe", () => {
   it("counts a recipe that is already gone (or another user's) as deleted, so a retry succeeds", async () => {
     deleteRecipeIn.mockResolvedValue(false);
     expect(await deleteRecipe(id)).toEqual(ok({ id }));
-    expect(deleteRecipeIn).toHaveBeenCalledWith(db, "user", id);
+    expect(deleteRecipeIn).toHaveBeenCalledWith(db, id);
   });
 
   it("gives recipe_delete_failed when the delete fails, and logs only the reason", async () => {

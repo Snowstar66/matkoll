@@ -228,10 +228,10 @@ describe("servings, removal and Ångra", () => {
     const owner = await createTestUser("mealplan-servings");
     const other = await createTestUser("mealplan-servings-other");
     const added = await addToCurrentPlanIn(owner.db, dish(await addRecipe(owner.db)));
-    expect(await setServingsIn(owner.db, owner.id, added.id, 6)).toBe(true);
-    expect(await setServingsIn(other.db, other.id, added.id, 1)).toBe(false);
+    expect(await setServingsIn(owner.db, added.id, 6)).toBe(true);
+    expect(await setServingsIn(other.db, added.id, 1)).toBe(false);
     expect((await dishRow(added.id))?.servings).toBe(6);
-    await expect(setServingsIn(owner.db, owner.id, added.id, 0)).rejects.toThrow(MealPlanDataError);
+    await expect(setServingsIn(owner.db, added.id, 0)).rejects.toThrow(MealPlanDataError);
   });
 
   it("removes a dish and puts it back with the same id, servings and place", async () => {
@@ -240,9 +240,9 @@ describe("servings, removal and Ångra", () => {
     const first = await addToCurrentPlanIn(user.db, dish(recipeId));
     const second = await addToCurrentPlanIn(user.db, dish(recipeId, { servings: 3 }));
 
-    const removed = await removePlanRecipeIn(user.db, user.id, second.id);
+    const removed = await removePlanRecipeIn(user.db, second.id);
     expect(removed).toEqual(second);
-    expect(await removePlanRecipeIn(user.db, user.id, second.id), "gone already").toBeNull();
+    expect(await removePlanRecipeIn(user.db, second.id), "gone already").toBeNull();
     expect(await restorePlanRecipeIn(user.db, second)).toEqual(second);
     expect((await getCurrentPlanIn(user.db))?.recipes.map(({ id }) => id)).toEqual([first.id, second.id]);
     // The id is taken now.
@@ -253,7 +253,7 @@ describe("servings, removal and Ångra", () => {
     const user = await createTestUser("mealplan-restore-current");
     const recipeId = await addRecipe(user.db);
     const added = await addToCurrentPlanIn(user.db, dish(recipeId));
-    const removed = await removePlanRecipeIn(user.db, user.id, added.id);
+    const removed = await removePlanRecipeIn(user.db, added.id);
     if (!removed) throw new Error("not removed");
     // The plan is no longer current (as after "Använd igen" in Story 3.2).
     const { error } = await user.db.from("meal_plan").update({ is_current: false }).eq("id", added.mealPlanId);
@@ -266,7 +266,7 @@ describe("servings, removal and Ångra", () => {
     const owner = await createTestUser("mealplan-restore-owner");
     const other = await createTestUser("mealplan-restore-other");
     const added = await addToCurrentPlanIn(owner.db, dish(await addRecipe(owner.db)));
-    const removed = await removePlanRecipeIn(owner.db, owner.id, added.id);
+    const removed = await removePlanRecipeIn(owner.db, added.id);
     if (!removed) throw new Error("not removed");
     await expect(restorePlanRecipeIn(other.db, removed)).rejects.toThrow(MealPlanDataError);
     expect(await dishRow(added.id)).toBeNull();
@@ -276,7 +276,7 @@ describe("servings, removal and Ångra", () => {
     const owner = await createTestUser("mealplan-remove-owner");
     const other = await createTestUser("mealplan-remove-other");
     const added = await addToCurrentPlanIn(owner.db, dish(await addRecipe(owner.db)));
-    expect(await removePlanRecipeIn(other.db, other.id, added.id)).toBeNull();
+    expect(await removePlanRecipeIn(other.db, added.id)).toBeNull();
     expect(await dishRow(added.id)).not.toBeNull();
   });
 });
@@ -286,7 +286,7 @@ describe("deleting a recipe", () => {
     const user = await createTestUser("mealplan-set-null");
     const recipeId = await addRecipe(user.db, "Borttagen soppa");
     const added = await addToCurrentPlanIn(user.db, dish(recipeId, { recipeTitle: "Borttagen soppa" }));
-    expect(await deleteRecipeIn(user.db, user.id, recipeId)).toBe(true);
+    expect(await deleteRecipeIn(user.db, recipeId)).toBe(true);
     expect(await dishRow(added.id)).toMatchObject({
       user_id: user.id,
       recipe_id: null,
@@ -311,7 +311,7 @@ describe("deleting a recipe", () => {
 
     expect(await detachRecipeIn(user.db, soppa)).toBe(2);
     expect((await getCurrentPlanIn(user.db))?.recipes.map(({ id }) => id)).toEqual([kept.id]);
-    await deleteRecipeIn(user.db, user.id, soppa);
+    await deleteRecipeIn(user.db, soppa);
     // The earlier plan keeps the dish, as "Borttaget recept".
     expect(await dishRow(earlier.data.id)).toMatchObject({ recipe_id: null, recipe_title: "Linssoppa" });
   });
@@ -344,7 +344,7 @@ describe("past weeks close on every guard (Story 13.7 review)", () => {
     const recipeId = await addRecipe(user.db, "Gammal soppa");
     const { dishId } = await pastPlan(user.db, recipeId, "Gammal soppa");
     expect(await detachRecipeIn(user.db, recipeId)).toBe(0);
-    await deleteRecipeIn(user.db, user.id, recipeId);
+    await deleteRecipeIn(user.db, recipeId);
     expect(await dishRow(dishId)).toMatchObject({ recipe_id: null, recipe_title: "Gammal soppa" });
   });
 
@@ -416,7 +416,7 @@ describe("set_current_meal_plan", () => {
     const source = first.mealPlanId;
     // The source becomes an earlier plan with a new current one, then its recipe is deleted.
     await setCurrentPlanIn(user.db, { id: randomUUID(), name: "Vecka 45" });
-    expect(await deleteRecipeIn(user.db, user.id, borta)).toBe(true);
+    expect(await deleteRecipeIn(user.db, borta)).toBe(true);
 
     const reused = await setCurrentPlanIn(user.db, { id: randomUUID(), name: "Vecka 46", sourceId: source });
     const current = await getCurrentPlanIn(user.db);
@@ -501,7 +501,7 @@ describe("set_current_meal_plan", () => {
     const recipeId = await addRecipe(user.db);
     await addToCurrentPlanIn(user.db, dish(recipeId));
     const added = await addToCurrentPlanIn(user.db, dish(recipeId));
-    const removed = await removePlanRecipeIn(user.db, user.id, added.id);
+    const removed = await removePlanRecipeIn(user.db, added.id);
     if (!removed) throw new Error("not removed");
     await setCurrentPlanIn(user.db, { id: randomUUID(), name: "Vecka 45", sourceId: added.mealPlanId });
     await expect(restorePlanRecipeIn(user.db, removed)).rejects.toThrow("restore_failed 55000");
@@ -523,7 +523,7 @@ describe("set_current_meal_plan", () => {
     const gone = await addToCurrentPlanIn(user.db, dish(recipeId, { recipeTitle: "Borttagen soppa" }));
     const current = await setCurrentPlanIn(user.db, { id: randomUUID(), name: "Vecka 45" });
     await addToCurrentPlanIn(user.db, dish(await addRecipe(user.db)));
-    await deleteRecipeIn(user.db, user.id, recipeId);
+    await deleteRecipeIn(user.db, recipeId);
     await expect(
       setCurrentPlanIn(user.db, { id: randomUUID(), name: "Vecka 46", sourceId: gone.mealPlanId }),
     ).rejects.toThrow("set_current_failed 22023");
@@ -655,13 +655,13 @@ describe("weekday (Story 13.5)", () => {
     const none = await addToCurrentPlanIn(user.db, dish(recipe));
     expect([onDay.weekday, none.weekday]).toEqual([3, null]);
 
-    expect(await setWeekdayIn(user.db, user.id, none.id, 7)).toBe(true);
+    expect(await setWeekdayIn(user.db, none.id, 7)).toBe(true);
     expect((await dishRow(none.id))?.weekday).toBe(7);
-    expect(await setWeekdayIn(user.db, user.id, none.id, null)).toBe(true);
+    expect(await setWeekdayIn(user.db, none.id, null)).toBe(true);
     expect((await dishRow(none.id))?.weekday).toBeNull();
     // The check constraint refuses a day outside 1 to 7, and the order is untouched by a move.
-    await expect(setWeekdayIn(user.db, user.id, none.id, 8)).rejects.toBeInstanceOf(MealPlanDataError);
-    await expect(setWeekdayIn(user.db, user.id, none.id, 0)).rejects.toBeInstanceOf(MealPlanDataError);
+    await expect(setWeekdayIn(user.db, none.id, 8)).rejects.toBeInstanceOf(MealPlanDataError);
+    await expect(setWeekdayIn(user.db, none.id, 0)).rejects.toBeInstanceOf(MealPlanDataError);
     expect((await dishRow(none.id))?.position).toBe(1);
   });
 
@@ -669,15 +669,14 @@ describe("weekday (Story 13.5)", () => {
     const owner = await createTestUser("mealplan-weekday-owner");
     const other = await createTestUser("mealplan-weekday-other");
     const added = await addToCurrentPlanIn(owner.db, dish(await addRecipe(owner.db)));
-    expect(await setWeekdayIn(other.db, other.id, added.id, 2)).toBe(false);
-    expect(await setWeekdayIn(other.db, owner.id, added.id, 2)).toBe(false);
+    expect(await setWeekdayIn(other.db, added.id, 2)).toBe(false);
     expect((await dishRow(added.id))?.weekday).toBeNull();
   });
 
   it("puts the day back with Ångra after a removal", async () => {
     const user = await createTestUser("mealplan-weekday-undo");
     const added = await addToCurrentPlanIn(user.db, dish(await addRecipe(user.db), { weekday: 5 }));
-    const removed = await removePlanRecipeIn(user.db, user.id, added.id);
+    const removed = await removePlanRecipeIn(user.db, added.id);
     expect(removed?.weekday).toBe(5);
     const restored = await restorePlanRecipeIn(user.db, removed!);
     expect(restored.weekday).toBe(5);

@@ -139,7 +139,7 @@ test("search finds titles and ingredients, also through the catalog's names and 
   if (error) throw error;
   const synonym = await adminClient()
     .from("ingredient_synonym")
-    .upsert({ user_id: userId, ingredient_id: onion.id, normalized: "schalottenlök" }, { onConflict: "user_id,normalized", ignoreDuplicates: true });
+    .upsert({ user_id: userId, ingredient_id: onion.id, normalized: "schalottenlök" }, { onConflict: "household_id,normalized", ignoreDuplicates: true });
   if (synonym.error) throw synonym.error;
   await searchField(page).fill("schalotten");
   await expectTitles(page, [soppa, gryta]);

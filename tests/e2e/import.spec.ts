@@ -36,7 +36,7 @@ async function seedCatalog() {
   ].map((row) => ({ ...row, user_id: user.id }));
   const inserted = await admin
     .from("ingredient")
-    .upsert(rows, { onConflict: "user_id,normalized_name", ignoreDuplicates: true });
+    .upsert(rows, { onConflict: "household_id,normalized_name", ignoreDuplicates: true });
   if (inserted.error) throw inserted.error;
 }
 

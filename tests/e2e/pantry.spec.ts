@@ -42,7 +42,7 @@ async function seedPantry(userId: string) {
         location: ingredient.location,
         default_unit: ingredient.defaultUnit,
       })),
-      { onConflict: "user_id,normalized_name" },
+      { onConflict: "household_id,normalized_name" },
     )
     .select("id, name");
   if (catalog.error) throw catalog.error;

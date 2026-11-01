@@ -44,16 +44,15 @@ export async function addToCurrentPlanIn(db: MealPlanDb, dish: NewDish): Promise
 }
 
 /**
- * Sets a dish's servings. `false` when the user has no dish with the id
- * (another user's, or removed). Throws MealPlanDataError.
+ * Sets a dish's servings. `false` when the household has no dish with the id
+ * (another household's, or removed). Throws MealPlanDataError.
  */
-export async function setServingsIn(db: MealPlanDb, userId: string, id: string, servings: number): Promise<boolean> {
+export async function setServingsIn(db: MealPlanDb, id: string, servings: number): Promise<boolean> {
   if (!idSchema.safeParse(id).success) throw new MealPlanDataError("invalid_id");
   const { data, error } = await db
     .from("meal_plan_recipe")
     .update({ servings })
     .eq("id", id)
-    .eq("user_id", userId)
     .select("id");
   if (error) throw new MealPlanDataError(`update_failed ${error.code}`);
   return data.length > 0;
@@ -61,16 +60,15 @@ export async function setServingsIn(db: MealPlanDb, userId: string, id: string, 
 
 /**
  * Moves a dish to a weekday (1–7), or to "Ingen dag än" with `null` (Story
- * 13.5). The dish keeps its place in the plan's order. `false` when the user
- * has no dish with the id. Throws MealPlanDataError.
+ * 13.5). The dish keeps its place in the plan's order. `false` when the
+ * household has no dish with the id. Throws MealPlanDataError.
  */
-export async function setWeekdayIn(db: MealPlanDb, userId: string, id: string, weekday: number | null): Promise<boolean> {
+export async function setWeekdayIn(db: MealPlanDb, id: string, weekday: number | null): Promise<boolean> {
   if (!idSchema.safeParse(id).success) throw new MealPlanDataError("invalid_id");
   const { data, error } = await db
     .from("meal_plan_recipe")
     .update({ weekday })
     .eq("id", id)
-    .eq("user_id", userId)
     .select("id");
   if (error) throw new MealPlanDataError(`weekday_failed ${error.code}`);
   return data.length > 0;
@@ -78,16 +76,15 @@ export async function setWeekdayIn(db: MealPlanDb, userId: string, id: string, w
 
 /**
  * Removes a dish for good (AD-20) and returns it as it was, for "Ångra";
- * `null` when the user has no dish with the id. The delete names the user as
- * well as relying on RLS. Throws MealPlanDataError.
+ * `null` when the household has no dish with the id. RLS limits the delete
+ * to the household (Story 21.2a). Throws MealPlanDataError.
  */
-export async function removePlanRecipeIn(db: MealPlanDb, userId: string, id: string): Promise<PlanRecipeRow | null> {
+export async function removePlanRecipeIn(db: MealPlanDb, id: string): Promise<PlanRecipeRow | null> {
   if (!idSchema.safeParse(id).success) throw new MealPlanDataError("invalid_id");
   const { data, error } = await db
     .from("meal_plan_recipe")
     .delete()
     .eq("id", id)
-    .eq("user_id", userId)
     .select(dishColumns);
   if (error) throw new MealPlanDataError(`remove_failed ${error.code}`);
   const [row] = data;
@@ -236,15 +233,14 @@ export async function undoDishCookedIn(db: MealPlanDb, dishId: string): Promise<
 
 /**
  * Takes the "lagad" mark off a dish; the pantry is not touched. `false` when
- * the user has no dish with the id. Throws MealPlanDataError.
+ * the household has no dish with the id. Throws MealPlanDataError.
  */
-export async function unmarkDishCookedIn(db: MealPlanDb, userId: string, id: string): Promise<boolean> {
+export async function unmarkDishCookedIn(db: MealPlanDb, id: string): Promise<boolean> {
   if (!idSchema.safeParse(id).success) throw new MealPlanDataError("invalid_id");
   const { data, error } = await db
     .from("meal_plan_recipe")
     .update({ cooked_at: null, cooked_deductions: null })
     .eq("id", id)
-    .eq("user_id", userId)
     .select("id");
   if (error) throw new MealPlanDataError(`uncook_failed ${error.code}`);
   return data.length > 0;

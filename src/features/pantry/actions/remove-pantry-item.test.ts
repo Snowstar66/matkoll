@@ -38,7 +38,7 @@ beforeEach(() => {
 describe("removePantryItem", () => {
   it("removes the user's row, returns it and revalidates", async () => {
     expect(await removePantryItem(rowId)).toEqual(ok(row));
-    expect(removePantryItemIn).toHaveBeenCalledWith(db, "user", rowId);
+    expect(removePantryItemIn).toHaveBeenCalledWith(db, rowId);
     expect(revalidateFor).toHaveBeenCalledWith("pantry_item");
   });
 

@@ -1004,7 +1004,7 @@ describe("save_pantry_site", () => {
     const { user, stugan } = await twoPlaces("pantry-site-save-duplicate");
     const duplicate = await savePlace(user.db, randomUUID(), "STUGAN", "add");
     expect(duplicate.error?.code).toBe("23505");
-    expect(duplicate.error?.message).toContain("pantry_site_user_id_normalized_name_key");
+    expect(duplicate.error?.message).toContain("pantry_site_household_id_normalized_name_key");
     expect((await savePlace(user.db, stugan, "Hemma", "rename")).error?.code).toBe("23505");
     // A forged call with a name the domain would refuse meets the table's checks.
     const forged = await user.db.rpc("save_pantry_site", {

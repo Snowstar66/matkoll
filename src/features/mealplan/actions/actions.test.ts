@@ -160,7 +160,7 @@ describe("addToCurrentPlan", () => {
 describe("setServings", () => {
   it("saves the servings and revalidates", async () => {
     expect(await setServings({ id: dishId, servings: 6 })).toEqual(ok({ id: dishId, servings: 6 }));
-    expect(data.setServingsIn).toHaveBeenCalledWith(db, "user", dishId, 6);
+    expect(data.setServingsIn).toHaveBeenCalledWith(db, dishId, 6);
     expect(revalidateFor).toHaveBeenCalledWith("meal_plan_recipe");
   });
 
@@ -181,7 +181,7 @@ describe("removePlanRecipe and restorePlanRecipe", () => {
   it("removes the dish and returns it, then puts it back with the same id", async () => {
     const removed = await removePlanRecipe(dishId);
     expect(removed).toEqual(ok(row));
-    expect(data.removePlanRecipeIn).toHaveBeenCalledWith(db, "user", dishId);
+    expect(data.removePlanRecipeIn).toHaveBeenCalledWith(db, dishId);
     expect(await restorePlanRecipe(row)).toEqual(ok(row));
     expect(data.restorePlanRecipeIn).toHaveBeenCalledWith(db, row);
     expect(revalidateFor).toHaveBeenCalledTimes(2);
@@ -238,7 +238,7 @@ describe("deletePlan", () => {
 describe("setWeekday", () => {
   it("saves the day for the user's dish and revalidates", async () => {
     expect(await setWeekday({ id: dishId, weekday: 3 })).toEqual(ok({ id: dishId, weekday: 3 }));
-    expect(data.setWeekdayIn).toHaveBeenCalledWith(db, "user", dishId, 3);
+    expect(data.setWeekdayIn).toHaveBeenCalledWith(db, dishId, 3);
     expect(revalidateFor).toHaveBeenCalledWith("meal_plan_recipe");
     expect(await setWeekday({ id: dishId, weekday: null })).toEqual(ok({ id: dishId, weekday: null }));
   });

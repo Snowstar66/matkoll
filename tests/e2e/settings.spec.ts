@@ -21,7 +21,7 @@ async function resetSites() {
     .from("recipe_site")
     .upsert(
       startSites.map((domain) => ({ user_id: userId, domain, is_active: true })),
-      { onConflict: "user_id,domain" },
+      { onConflict: "household_id,domain" },
     );
   if (reset.error) throw reset.error;
 }

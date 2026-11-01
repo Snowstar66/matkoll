@@ -43,7 +43,7 @@ test.beforeEach(async () => {
         { user_id: userId, name: "Gurka", normalized_name: "gurka", section: "Frukt och grönt", location: "Kyl", default_unit: "st" },
         { user_id: userId, name: "Ketchup", normalized_name: "ketchup", section: "Skafferi", location: "Skafferi", default_unit: "förp" },
       ],
-      { onConflict: "user_id,normalized_name" },
+      { onConflict: "household_id,normalized_name" },
     )
     .select("id, name");
   if (catalog.error) throw catalog.error;

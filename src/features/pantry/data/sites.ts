@@ -43,7 +43,7 @@ export async function loadSelectedSiteIdIn(db: PantryDb): Promise<string | null>
 }
 
 /** The unique key on the user's normalized names; Postgres names it in its error message. */
-const nameKey = "pantry_site_user_id_normalized_name_key";
+const nameKey = "pantry_site_household_id_normalized_name_key";
 
 /** A pantry_site row from a function's answer, as a PantrySite. */
 function toSite(row: unknown): PantrySite {

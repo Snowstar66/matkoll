@@ -5177,9 +5177,9 @@ så att den som gör appen får veta; och som ägare vill jag läsa det i en ink
 
 ## Epic 21: Hushållet
 
-Version 3.x, **vilar** (pausad). Beslut 2026-11-01 (Pontus): "vi lägger det på on-hold". Byggs tidigast efter flytten till molnet (17.3–17.4), när fler hushåll använder appen. Bakgrund: i dag är ett hushåll ett enda konto som familjen delar (beslut 2026-10-31), och nya hushåll bjuds in genom `ALLOWED_EMAILS` och `pnpm users:sync`. Pontus vill kunna se vem som gjort vad, till exempel vem som bockade av en vara när man handlar ihop, och kanske en ändringslogg i Inställningar. Epic 20 är reserverad för Hjälp och välkomst.
+Version 3.x, **vilar** (pausad). Beslut 2026-11-01 (Pontus): "vi lägger det på on-hold". Återupptagen samma dag: hushållsmockuppen (`hushallet.html`) är godkänd med alla förval, och 21.2a byggs först. Byggs tidigast efter flytten till molnet (17.3–17.4), när fler hushåll använder appen. Bakgrund: i dag är ett hushåll ett enda konto som familjen delar (beslut 2026-10-31), och nya hushåll bjuds in genom `ALLOWED_EMAILS` och `pnpm users:sync`. Pontus vill kunna se vem som gjort vad, till exempel vem som bockade av en vara när man handlar ihop, och kanske en ändringslogg i Inställningar. Epic 20 är reserverad för Hjälp och välkomst.
 
-21.1 är liten och fristående. 21.2 är grunden för 21.3 och 21.4: all data flyttar från att ägas av kontot till att ägas av hushållet (migrering och nya RLS-regler i hela databasen, isoleringstestet från 17.1 utökas).
+21.1 är liten och fristående. 21.2 (delad i 21.2a, databasen, och 21.2b, medlemmar och inbjudan, 2026-11-01) är grunden för 21.3 och 21.4: all data flyttar från att ägas av kontot till att ägas av hushållet (migrering och nya RLS-regler i hela databasen, isoleringstestet från 17.1 utökas).
 
 ### Story 21.1: Bjud in ett hushåll från appen
 
@@ -5201,7 +5201,45 @@ så att jag inte behöver terminalen eller Vercels miljövariabler för att slä
 **När** jag tar bort den
 **Så** kan personen inte längre logga in, och appen frågar först eftersom det inte går att ångra
 
-### Story 21.2: Hushållsmedlemmar med egna inloggningar
+### Story 21.2a: Hushållet i databasen
+
+Som en i familjen,
+vill jag att all data ägs av hushållet i stället för av ett konto,
+så att vi senare kan ha egna inloggningar och ändå se samma recept, matsedel, lista, matvaror och förråd.
+
+Ingen ny skärm. Underlag: mockuppen `ux-designs/ux-Matkoll-2026-10-25/mockups/hushallet.html` (avsnitt 4 och 7, beslut 2, 3 och 10 med förval). Migration och integritet: 2–3 granskare.
+
+**Acceptance Criteria:**
+
+**Givet** databasen
+**När** migreringen körs
+**Så** finns `household`, `household_member` (en person, ett hushåll) och `household_invite` (låst; 21.2b lägger till funktionerna), och hjälparna `my_household_id()` och `is_household_member(hid)` (security definer, bara för inloggade)
+
+**Givet** befintliga konton
+**När** migreringen körs
+**Så** blir varje konto ett hushåll med sig själv som ägare och namnet från e-postens början ("Pontus hushåll"), varje rad får kontots hushåll, och inget flyttas eller tas bort
+
+**Givet** de 26 tabellerna med appens data
+**När** migreringen är klar
+**Så** har varje rad `household_id` (not null, standardvärde `my_household_id()`, främmande nyckel), en rad kan bara peka på rader i samma hushåll (sammansatta nycklar `(x_id, household_id)`), och unika nycklar, `on conflict` och lås som byggde på `user_id` bygger på hushållet
+
+**Givet** radskyddet, funktionerna och fotona
+**När** någon i ett hushåll läser eller skriver
+**Så** gäller hushållet i stället för kontot, och ett annat hushåll ser varken rader, svar från funktioner eller foton
+
+**Givet** välkomstturen, Siri-nycklarna, Tyck till och appens ägare
+**När** migreringen körs
+**Så** förblir de per person (Siri-nyckeln lägger varor i sitt hushålls lista)
+
+**Givet** isoleringstestet
+**När** det körs
+**Så** listar det själv tabellerna ur databasen och misslyckas för en tabell det inte täcker, och visar att två medlemmar i hushåll A delar allt, att hushåll B inte ser något av A (tabeller, funktioner och foton) och att en anonym klient inte når något
+
+**Givet** appen med ett hushåll per person, som i dag
+**När** migreringen är gjord
+**Så** fungerar allt som förut, och `pnpm move:cloud` är borttaget (flytten är gjord)
+
+### Story 21.2b: Medlemmar och inbjudan
 
 Som en i familjen,
 vill jag ha en egen inloggning i samma hushåll,
@@ -5213,13 +5251,13 @@ så att vi inte delar lösenord och appen vet vem jag är.
 **När** jag öppnar Medlemmar
 **Så** ser jag alla i hushållet med namn, och kan bjuda in en till med en länk eller kod
 
-**Givet** en inbjudningslänk
+**Givet** en inbjudningslänk eller kod
 **När** någon öppnar den och loggar in
 **Så** blir personen medlem i hushållet och ser samma recept, matsedel, lista, matvaror och förråd
 
-**Givet** databasen
-**När** migreringen körs
-**Så** ägs all data av hushållet i stället för kontot, befintliga konton blir hushåll med en medlem, och isoleringstestet visar att hushåll aldrig ser varandras data
+**Givet** en medlem
+**När** den lämnar eller tas bort
+**Så** får den ett eget, tomt hushåll och ser inget av det gamla; ägaren kan inte lämna medan andra är kvar
 
 **Givet** P-knappen
 **När** jag är inloggad

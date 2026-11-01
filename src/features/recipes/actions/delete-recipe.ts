@@ -30,7 +30,7 @@ export async function deleteRecipe(id: string): Promise<Result<{ id: string }>> 
     // retry after a lost answer ends where Pontus wanted, and another user's
     // recipe is never touched (the delete filters on the user).
     await detachRecipe(id);
-    await deleteRecipeIn(await createClient(), user.data.id, id);
+    await deleteRecipeIn(await createClient(), id);
     revalidateFor("recipe");
     return ok({ id });
   } catch (error) {

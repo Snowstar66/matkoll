@@ -25,7 +25,7 @@ export async function setServings(change: ServingsChange): Promise<Result<Servin
   const { id, servings } = parsed.data;
 
   try {
-    const found = await setServingsIn(await createClient(), user.data.id, id, servings);
+    const found = await setServingsIn(await createClient(), id, servings);
     revalidateFor("meal_plan_recipe");
     if (!found) {
       console.error("mealplan_servings_failed", { reason: "not_found" });

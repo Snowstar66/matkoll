@@ -31,7 +31,7 @@ export async function setRecipeSiteActive(change: RecipeSiteChange): Promise<Res
   const { domain, isActive } = parsed.data;
 
   try {
-    const outcome = await setRecipeSiteActiveIn(await createClient(), user.data.id, domain, isActive);
+    const outcome = await setRecipeSiteActiveIn(await createClient(), domain, isActive);
     if (outcome === "missing" && isActive) {
       console.error("settings_save_failed", { reason: "not_found" });
       return fail("settings_save_failed");

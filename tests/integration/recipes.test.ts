@@ -640,15 +640,13 @@ describe("the library: listRecipes, searchRecipesIn and setFavoriteIn", () => {
   });
 
   it("sets a favourite on the user's own recipe only", async () => {
-    expect(await setFavoriteIn(user.db, user.id, ids.soppa, true)).toBe(true);
+    expect(await setFavoriteIn(user.db, ids.soppa, true)).toBe(true);
     expect(idsOf(await listRecipes(user.db, { favoritesOnly: true }))).toEqual([ids.soppa, ids.gryta]);
-    expect(await setFavoriteIn(user.db, user.id, ids.soppa, false)).toBe(true);
+    expect(await setFavoriteIn(user.db, ids.soppa, false)).toBe(true);
     expect(idsOf(await listRecipes(user.db, { favoritesOnly: true }))).toEqual([ids.gryta]);
 
-    // Another user's id changes nothing.
-    expect(await setFavoriteIn(other.db, other.id, ids.pannkakor, true)).toBe(false);
-    // The update filters on the user too: the owner's recipe under another user id changes nothing.
-    expect(await setFavoriteIn(user.db, other.id, ids.pannkakor, true)).toBe(false);
+    // Another household's recipe changes nothing (RLS, Story 21.2a).
+    expect(await setFavoriteIn(other.db, ids.pannkakor, true)).toBe(false);
     const { data } = await adminClient().from("recipe").select("is_favorite").eq("id", ids.pannkakor).single();
     expect(data?.is_favorite).toBe(false);
   });
@@ -1034,9 +1032,7 @@ describe("update_recipe and deleting a recipe", () => {
     expect((await anonClient().rpc("update_recipe", changed)).error?.code).toBe("42501");
     expect((await adminClient().rpc("update_recipe", changed)).error?.code).toBe("42501");
 
-    expect(await deleteRecipeIn(other.db, other.id, before.id)).toBe(false);
-    // The delete filters on the user too: the owner's recipe under another user id goes nowhere.
-    expect(await deleteRecipeIn(owner.db, other.id, before.id)).toBe(false);
+    expect(await deleteRecipeIn(other.db, before.id)).toBe(false);
     expect(await savedRecipeRefsIn(other.db, before.id)).toBeNull();
 
     expect(await rows(owner.db, before.id)).toEqual(before);
@@ -1047,10 +1043,10 @@ describe("update_recipe and deleting a recipe", () => {
     const user = await createTestUser("delete");
     const ingredientId = await addIngredient(user.db, "Linser");
     const before = await saved(user.db, saveArgs(saveArgs().lines.map((row) => ({ ...row, ingredient_id: ingredientId }))));
-    expect(await deleteRecipeIn(user.db, user.id, before.id)).toBe(true);
+    expect(await deleteRecipeIn(user.db, before.id)).toBe(true);
     expect(await countAll(user)).toEqual([0, 0, 0]);
     expect(await countRows("ingredient", user.id)).toBe(1);
-    expect(await deleteRecipeIn(user.db, user.id, before.id)).toBe(false);
+    expect(await deleteRecipeIn(user.db, before.id)).toBe(false);
   });
 
   it("updateRecipeIn with the catalog commit: a relinked line saves a synonym, an unchanged one none", async () => {
