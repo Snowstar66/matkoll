@@ -21,6 +21,8 @@ export type Destination = {
   FilledIcon?: ComponentType<IconProps>;
   /** The AI results that are shown on this surface, counted in its badge (Story 12.4). */
   aiKinds?: readonly AiJobKind[];
+  /** What the badge counts, for a screen reader, one and many: Förråd's are read cards ("1 nytt kort"). Without it "AI-resultat". */
+  badgeUnit?: readonly [one: string, many: string];
   /** The anchor of this surface's section in Hjälp och tips (Story 19.2): `/hjalp#recept`. */
   helpId?: string;
 };
@@ -35,7 +37,7 @@ export const mainDestinations: readonly Destination[] = [
   { href: "/lista", helpId: "inkopslista", label: "Inköpslista", labelParts: ["Inköps", "lista"], Icon: CartIcon, FilledIcon: CartFilledIcon },
   { href: "/hemma", helpId: "matvaror", label: "Matvaror", labelParts: ["Mat", "varor"], Icon: CarrotIcon, FilledIcon: CarrotFilledIcon, aiKinds: ["analyze"] },
   // Epic 18: the things of the home (tools, the storage room), kept apart from the food.
-  { href: "/prylar", helpId: "forrad", label: "Förråd", Icon: BoxIcon, FilledIcon: BoxFilledIcon, aiKinds: ["things"] },
+  { href: "/prylar", helpId: "forrad", label: "Förråd", Icon: BoxIcon, FilledIcon: BoxFilledIcon, aiKinds: ["things"], badgeUnit: ["nytt kort", "nya kort"] },
 ];
 
 /** Settings: reached from the P button on a phone (Story 19.2), the bottom of the side menu on desktop. */

@@ -133,7 +133,7 @@ test.describe("mobile, 390 × 844", () => {
     await expect(main.getByRole("heading", { level: 3, name: "Fota kylen" })).toHaveCount(0);
     const question = main.locator("details").filter({ hasText: "Vem kan se min data?" });
     await question.locator("summary").click();
-    await expect(question.getByText(/kan tekniskt se kontots data/)).toBeVisible();
+    await expect(question.getByText(/syns bara för ditt hushåll och lagras i EU/)).toBeVisible();
     await expect(main.getByRole("link", { name: /Så funkar Livskoll/ })).toHaveAttribute("href", "/valkomst?fran=hjalp");
     for (const kind of ["idea", "rate", "problem"]) await expect(main.getByTestId(`feedback-${kind}`)).toBeVisible();
 

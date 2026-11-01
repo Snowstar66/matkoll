@@ -43,6 +43,10 @@ describe("the count of a föremål (Story 18.23)", () => {
     expect(inlineName("Ö")).toBe("ö");
     expect(changedText("take", 2, "Gravljus")).toBe("Tog 2 gravljus.");
     expect(changedText("refill", 2, "Gravljus")).toBe("Fyllde på 2 gravljus.");
+    // Pontus 1 Nov: Ta that took the last ones says so; the föremål stays as Slut.
+    expect(changedText("take", 2, "Gravljus", 0)).toBe("Slut på gravljus.");
+    expect(changedText("take", 2, "Gravljus", 3)).toBe("Tog 2 gravljus.");
+    expect(changedText("refill", 2, "Gravljus", 0)).toBe("Fyllde på 2 gravljus.");
     expect(confirmText("take", 2)).toBe("Ta 2");
     expect(confirmText("refill", 1)).toBe("Fyll på 1");
   });

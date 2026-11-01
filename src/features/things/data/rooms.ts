@@ -164,3 +164,15 @@ export async function findPlaceIn(db: ThingsDb, target: { siteId: string; roomKe
     return data?.id ?? null;
   });
 }
+
+const cardWhereSchema = z.array(z.object({ id: z.uuid(), thing_place: z.object({ site_id: z.uuid(), room_key: z.string() }) }));
+
+/** Where the user's cards `ids` are now (boende and room); a card that is gone, or not the user's, is left out. */
+export async function loadCardsWhereIn(db: ThingsDb, ids: readonly string[]): Promise<{ id: string; siteId: string; roomKey: string }[]> {
+  if (ids.length === 0) return [];
+  const { data, error } = await db.from("thing_photo").select("id, thing_place!inner(site_id, room_key)").in("id", [...ids]);
+  if (error) throw new ThingsDataError(`query_failed ${error.code}`);
+  const parsed = cardWhereSchema.safeParse(data);
+  if (!parsed.success) throw new ThingsDataError("invalid_row");
+  return parsed.data.map((row) => ({ id: row.id, siteId: row.thing_place.site_id, roomKey: row.thing_place.room_key }));
+}

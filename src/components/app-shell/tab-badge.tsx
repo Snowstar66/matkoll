@@ -17,9 +17,9 @@ export function useAiBadgeCount(destination: Destination, current: boolean): num
   return jobs.filter((job) => isFinishedWithNews(job) && !job.seen && kinds.includes(job.kind)).length;
 }
 
-/** The tab's name for a screen reader with the badge: "Recept, 1 nytt AI-resultat". */
-export function badgeName(label: string, count: number): string {
-  return count === 1 ? `${label}, 1 nytt AI-resultat` : `${label}, ${count} nya AI-resultat`;
+/** The tab's name for a screen reader with the badge: "Recept, 1 nytt AI-resultat", or with the tab's own unit "Förråd, 1 nytt kort". */
+export function badgeName(label: string, count: number, unit: readonly [one: string, many: string] = ["nytt AI-resultat", "nya AI-resultat"]): string {
+  return `${label}, ${count} ${count === 1 ? unit[0] : unit[1]}`;
 }
 
 /**

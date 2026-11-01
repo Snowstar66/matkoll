@@ -2,6 +2,7 @@ import { z } from "zod";
 import { isValidBox, type ThingBox } from "@/lib/thing-box";
 import { thingCountText, thingNoun } from "./thing-noun";
 import { cardDateText } from "./thing-photo";
+import type { ThingCategory, ThingConfidence } from "./thing";
 
 // Kortet i stort (Story 18.7): a card's whole photo with a box round each
 // föremål that has one, and the föremål listed under it. A search hit or a
@@ -14,6 +15,9 @@ export type { ThingBox };
 export type CardThing = {
   id: string;
   name: string;
+  /** For its sheet (Pontus 1 Nov), opened from its row. */
+  category: ThingCategory;
+  confidence: ThingConfidence;
   whereHint: string | null;
   /** Where on the photo, 0 to 1; null when the reading gave none (an older card) or it was not reasonable. */
   box: ThingBox | null;

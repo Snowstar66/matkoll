@@ -22,7 +22,7 @@ describe("helpAreas", () => {
 
   it("lets Konto take over Siri, the quick add, Boenden and who sees the data", () => {
     const konto = JSON.stringify(helpAreas.find((area) => area.id === "konto"));
-    for (const fact of ["Siri och genvägar", "/lista/lagg-till", "Inställningar, Boenden", "tekniskt se kontots data"]) expect(konto).toContain(fact);
+    for (const fact of ["Siri och genvägar", "/lista/lagg-till", "Inställningar, Boenden", "syns bara för ditt hushåll och lagras i EU"]) expect(konto).toContain(fact);
   });
 });
 

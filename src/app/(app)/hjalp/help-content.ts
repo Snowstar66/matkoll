@@ -1,4 +1,4 @@
-import { appName } from "@/app/app-info";
+import { appName, privacyText } from "@/app/app-info";
 import { thingNoun } from "@/lib/thing-noun";
 import type { HelpIconName } from "./help-icons";
 
@@ -172,7 +172,7 @@ export const helpAreas: readonly HelpArea[] = [
         question: "Hur gör jag snabbtillägget?",
         answer: "Adressen /lista/lagg-till öppnar Inköpslistan med Lägg till egen vara redan öppen. Lägg den som genväg på hemskärmen, så skriver du in en vara på en sekund.",
       },
-      { question: "Vem kan se min data?", answer: `Den som driver ${appName} kan tekniskt se kontots data.` },
+      { question: "Vem kan se min data?", answer: privacyText },
     ],
   },
 ];

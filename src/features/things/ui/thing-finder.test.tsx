@@ -1,6 +1,7 @@
 import { render, screen, waitFor, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { beforeEach, describe, expect, it, vi } from "vitest";
+import { ToastProvider } from "@/components/toast";
 import { fail, ok } from "@/lib/errors";
 import type { ThingHit } from "../domain/thing-search";
 import { ThingFinder } from "./thing-finder";
@@ -39,9 +40,11 @@ beforeEach(() => {
 
 function renderIt() {
   render(
-    <ThingFinder>
-      <p>Rummen</p>
-    </ThingFinder>,
+    <ToastProvider>
+      <ThingFinder>
+        <p>Rummen</p>
+      </ThingFinder>
+    </ToastProvider>,
   );
 }
 const field = () => screen.getByRole("textbox", { name: "Sök eller fråga" });
@@ -90,8 +93,10 @@ describe("the one field to search and ask", () => {
     // Story 18.19: the name, then room · part or box, then the card's thumbnail at the right.
     expect(hits[0]).toHaveTextContent("Hammare Skräpförrådet · väggen");
     expect(within(hits[0].closest("li") as HTMLElement).getByTestId("hit-thumbnail")).toHaveAttribute("src", `/api/things/photo/${hit.photoId}`);
-    // Story 18.7: the card opens big with the thing marked.
-    expect(hits[0]).toHaveAttribute("href", `/prylar/kort/${hit.photoId}?foremal=${hit.id}`);
+    // Pontus 1 Nov: the row opens the föremål's sheet; the thumbnail is a link of its own to the card big with it marked (Story 18.7).
+    expect(hits[0]).toHaveAttribute("aria-haspopup", "dialog");
+    expect(hits[0]).not.toHaveAttribute("href");
+    expect(screen.getByRole("link", { name: "Visa Hammare på kortet" })).toHaveAttribute("href", `/prylar/kort/${hit.photoId}?foremal=${hit.id}`);
     // A thing written into a box says so and opens the box's page.
     expect(hits[1]).toHaveTextContent("Hammarbor Skräpförrådet · i Black box · skrivet 31 okt");
     expect(hits[1].closest("li")?.querySelector("img")).toBeNull();

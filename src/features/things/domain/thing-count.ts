@@ -73,8 +73,12 @@ export function inlineName(name: string): string {
   return first.toLocaleLowerCase("sv") + name.slice(first.length);
 }
 
-/** The toast after Ta / Fyll på: "Tog 2 gravljus.", "Fyllde på 2 gravljus." */
-export function changedText(kind: "take" | "refill", amount: number, name: string): string {
+/**
+ * The toast after Ta / Fyll på: "Tog 2 gravljus.", "Fyllde på 2 gravljus.", and "Slut på gravljus." when Ta took
+ * the last ones (`quantity` is the count after). The föremål stays, as Slut.
+ */
+export function changedText(kind: "take" | "refill", amount: number, name: string, quantity?: number): string {
+  if (kind === "take" && quantity === 0) return `Slut på ${inlineName(name)}.`;
   return `${kind === "take" ? "Tog" : "Fyllde på"} ${amount} ${inlineName(name)}.`;
 }
 
