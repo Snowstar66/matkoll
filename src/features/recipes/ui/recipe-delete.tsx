@@ -8,8 +8,11 @@ import { deleteRecipe } from "../actions/delete-recipe";
 
 /** The question before "Ta bort recept" (Story 13.2), from the recipe's title. */
 export function deleteRecipeQuestion(title: string): string {
-  return `Ta bort receptet ${title}? Det går inte att ångra.`;
+  return `Ta bort ${title}?`;
 }
+
+/** Said under the question (Story 19.6). */
+export const irreversibleDetail = "Det går inte att ångra.";
 
 /** Said under the question when the recipe is on the current meal plan (Story 1.11 semantics). */
 export const onMenuDetail = "Den ligger på matsedeln och tas bort därifrån.";
@@ -49,7 +52,7 @@ export function useRecipeDelete(onDeleted: (id: string) => void): {
     ask: ({ id, title, onMenu }) =>
       requestDelete({
         question: deleteRecipeQuestion(title),
-        detail: onMenu ? onMenuDetail : undefined,
+        detail: onMenu ? `${onMenuDetail} ${irreversibleDetail}` : irreversibleDetail,
         onConfirm: () => remove(id),
       }),
     dialog,

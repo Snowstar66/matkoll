@@ -51,43 +51,47 @@ export function RecipeView({ recipe, snapshot, site = null, menu, addToPlan, fin
   const time = recipeTimeText(recipe.totalMinutes);
   const offerLine = offerSavedText(recipe.offerNames);
   return (
-    <article className="flex flex-col gap-6 pb-gutter">
+    <article className="flex flex-col gap-5 pb-gutter desktop:gap-6 desktop:ml-[calc((100%-var(--frame-recipes-w))/2)] desktop:w-(--frame-recipes-w) desktop:max-w-none">
       <div className="relative -mx-page desktop:mx-0 desktop:mt-10">
         <RecipeImage
           src={recipe.imageUrl}
           emoji={dishEmoji(recipe.title)}
           iconSize={96}
-          className="h-[260px] desktop:rounded-lg"
+          className="h-[260px] desktop:h-[320px] desktop:rounded-lg"
         />
         {/* At every width: Matkoll on the home screen has no browser back button (AD-27).
-            Back in history when opened within Matkoll (from Matsedel, say), else to Recept. */}
+            Back in history when opened within Matkoll (from Matsedel, say), else to Recept.
+            Round glass buttons on the photo: 40 px visible, 44 px tap area (Story 19.6). */}
         <BackLink
           fallbackHref="/recept"
-          className="absolute top-[max(var(--header-top-mobile),calc(env(safe-area-inset-top)+12px))] left-page flex min-h-tap min-w-tap items-center gap-1 rounded-full bg-surface pr-4 pl-2.5 text-body text-ink desktop:top-3 desktop:left-3"
+          aria-label="Tillbaka"
+          className="absolute top-[max(calc(var(--header-top-mobile)-2px),calc(env(safe-area-inset-top)+10px))] left-[calc(var(--gutter-page)-2px)] flex size-tap items-center justify-center desktop:top-1 desktop:left-1"
         >
-          <ChevronLeftIcon size={20} />
-          Tillbaka
+          <span className="flex size-10 items-center justify-center rounded-full bg-glass text-ink backdrop-blur-md">
+            <ChevronLeftIcon size={22} />
+          </span>
         </BackLink>
+        <div className="absolute top-[max(calc(var(--header-top-mobile)-2px),calc(env(safe-area-inset-top)+10px))] right-[calc(var(--gutter-page)-2px)] flex desktop:top-1 desktop:right-1">
+          <FavoriteButton id={recipe.id} isFavorite={recipe.isFavorite} glass="large" />
+          {menu}
+        </div>
       </div>
 
       <header className="flex flex-col gap-1.5">
-        <div className="flex items-start justify-between gap-2">
-          <h1 className="min-w-0 text-recipe-title break-words text-ink">{recipe.title}</h1>
-          <div className="-mt-1 -mr-2.5 flex shrink-0">
-            <FavoriteButton id={recipe.id} isFavorite={recipe.isFavorite} />
-            {menu}
-          </div>
-        </div>
-        {time ? (
-          <p className="text-meta text-ink-2" data-testid="recipe-meta">
-            {time}
-          </p>
-        ) : null}
-        <p className="text-meta text-ink-2">
-          Källa:{" "}
+        <h1 className="min-w-0 text-recipe-title wrap-break-word text-ink">{recipe.title}</h1>
+        <p className="text-meta text-ink-2" data-testid="recipe-meta">
+          {time ? <span>{time}</span> : null}
+          {time ? " · " : ""}
           {recipe.sourceKind === "url" && recipe.sourceUrl ? (
-            <a href={recipe.sourceUrl} target="_blank" rel="noopener noreferrer" className="text-accent underline">
+            <a
+              href={recipe.sourceUrl}
+              target="_blank"
+              rel="noopener noreferrer"
+              className="text-accent underline underline-offset-2"
+            >
               {source}
+              <span aria-hidden="true"> ↗</span>
+              <span className="sr-only"> (öppnas i ny flik)</span>
             </a>
           ) : (
             source

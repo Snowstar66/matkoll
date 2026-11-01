@@ -9,6 +9,8 @@ export type BackLinkProps = {
   /** Where to go when there is no page of Matkoll to go back to (opened by a link, after a reload). */
   fallbackHref: string;
   className?: string;
+  /** A name for screen readers when the link shows only an arrow. */
+  "aria-label"?: string;
   children: ReactNode;
 };
 
@@ -18,7 +20,7 @@ export type BackLinkProps = {
  * and state), and otherwise to `fallbackHref` (Story 11.6). A link, so it works
  * before hydration and opens in a new tab with a modifier key.
  */
-export function BackLink({ fallbackHref, className, children }: BackLinkProps) {
+export function BackLink({ fallbackHref, className, children, "aria-label": ariaLabel }: BackLinkProps) {
   const router = useRouter();
 
   function onClick(event: MouseEvent<HTMLAnchorElement>) {
@@ -29,7 +31,7 @@ export function BackLink({ fallbackHref, className, children }: BackLinkProps) {
   }
 
   return (
-    <Link href={fallbackHref} scroll={false} onClick={onClick} className={className}>
+    <Link href={fallbackHref} scroll={false} onClick={onClick} className={className} aria-label={ariaLabel}>
       {children}
     </Link>
   );

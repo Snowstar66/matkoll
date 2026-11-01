@@ -45,21 +45,25 @@ describe("RecipeCard", () => {
     expect(within(card).getByText("15 min · 4 portioner")).toBeInTheDocument();
     expect(plate(within(card).getByText("Kan lagas nu"))).toHaveClass("bg-overlay", "text-mint-ink");
     const heart = within(card).getByRole("button", { name: "Favorit, Korv stroganoff", pressed: false });
-    expect(heart).toHaveClass("bg-overlay", "z-10", "size-tap");
+    expect(heart).toHaveClass("size-tap");
+    // Matte glass plate, 32 px, in the top right corner (Story 19.6).
+    expect(heart.firstElementChild).toHaveClass("bg-glass", "size-8");
     expect(heart.closest("a")).toBeNull();
   });
 
-  it("never cuts the title short", () => {
+  it("wraps the title on at most two lines, breaking inside a word only when it cannot fit", () => {
     const long = "Långkokt högrevsgryta med rotfrukter, svamp och potatismos från grunden";
     const { card } = renderCard({ title: long });
-    expect(within(card).getByRole("link", { name: long }).className).not.toMatch(/line-clamp|truncate/);
+    const link = within(card).getByRole("link", { name: long });
+    expect(link).toHaveClass("line-clamp-2", "wrap-break-word");
+    expect(link.className).not.toMatch(/\btruncate\b|break-all/);
   });
 
-  it("keeps the badge clear of the heart, on at most two lines", () => {
+  it("keeps the badge on one line on the image, bottom left", () => {
     const { card } = renderCard({ badge: <RecipeStatusBadge missingCount={12} onImage /> });
     const text = within(card).getByText("Saknar 12 varor");
-    expect(text).toHaveClass("line-clamp-2");
-    expect(plate(text).parentElement).toHaveClass("max-w-[calc(100%-3.5rem)]", "min-w-0");
+    expect(text).toHaveClass("truncate");
+    expect(plate(text).parentElement).toHaveClass("max-w-full", "min-w-0");
   });
 
   it("draws the heart's focus ring inside its plate, so it shows on any photo", () => {

@@ -30,7 +30,7 @@ const statusColorsOnImage: Record<StatusBadgeProps["status"], string> = {
 
 export function StatusBadge({ status, children, onImage = false, title, className }: StatusBadgeProps) {
   return (
-    <span title={title} className={cx(badge, (onImage ? statusColorsOnImage : statusColors)[status], className)}>
+    <span title={title} className={cx(badge, (onImage ? statusColorsOnImage : statusColors)[status], onImage && "max-w-full min-w-0", className)}>
       {children}
     </span>
   );
