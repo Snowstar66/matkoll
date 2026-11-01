@@ -71,7 +71,7 @@ Efteråt, kopiera till din lösenordshanterare och berätta bara **projekt-id:t*
 **Inget att slå på för tillägg, lagring eller radskydd:**
 
 - **Tillägg (extensions):** `pg_trgm` skapas av migrationen (`create extension if not exists pg_trgm with schema extensions`); `pgcrypto` och `uuid-ossp` finns redan i varje projekt. Inget i **Database → Extensions** behöver slås på.
-- **Radskydd (RLS):** ligger i migrationerna. Alla 26 tabeller i `public` har radskydd på; ingen tabell är öppen för `anon`. Det provades på en tom databas (se nedan).
+- **Radskydd (RLS):** ligger i migrationerna. Alla 29 tabeller i `public` har radskydd på; ingen tabell är öppen för `anon`. Det provades på en tom databas (se nedan).
 - **Lagringsbuckets (Storage):** `pantry-photo` och `thing-photo` (båda privata, JPEG/PNG, 1,5 MB, en mapp per användare) och deras policyer skapas av `supabase db push` i steg 3. Skapa inga buckets i panelen.
 - **Realtid:** tabellerna för den delade inköpslistan läggs i publikationen `supabase_realtime` av migrationen `20261031190000_realtime_shopping_list.sql`. Kontrollera under **Database → Publications → supabase_realtime** efter steg 3 att `shopping_check`, `shopping_custom_item`, `shopping_line_override`, `meal_plan`, `meal_plan_recipe`, `pantry_item` och `product_choice` finns.
 
@@ -156,6 +156,7 @@ Sätt miljövariablerna under **Settings → Environment Variables** *innan* ste
 | `AI_MODEL` | `claude-haiku-5-5` (krävs för `anthropic`) | ja | nej | offentlig |
 | `ANTHROPIC_API_KEY` | `sk-ant-…` från steg 0 | ja | nej | **hemlig: markera Sensitive** |
 | `AI_SETTINGS_EMAILS` | din adress: bara den ser AI-avsnittet i Inställningar | ja | nej | privat |
+| `OWNER_EMAIL` | din adress: appens ägare (Story 20.3). Bladen under Hjälp → Tyck till skriver "Pontus ser texten …" med förnamnet härifrån. Vem som ser **Inkorg** avgörs inte av variabeln utan av databasen; `pnpm owner:sync` i steg 5 skriver adressen dit. | ja | nej | privat |
 | `LMSTUDIO_BASE_URL`, `CF_ACCESS_CLIENT_ID`, `CF_ACCESS_CLIENT_SECRET` | **sätts inte** när molnet kör Claude. Behövs bara om du vill att Qwen på Macen ska kunna väljas, via Cloudflare Tunnel ([`drift.md` steg 8](drift.md#8-cloudflare-tunnel-och-access-för-lm-studio)). | nej | nej | CF-hemligheten är hemlig |
 | `OPENAI_API_KEY` | används inte | nej | nej | hemlig |
 | `AI_MOCK_DELAY_MS` | **sätts aldrig** (bara testerna) | nej | nej | – |
@@ -186,10 +187,13 @@ Claude kör i din terminal, du klistrar in den hemliga nyckeln när den frågar 
 read -rs SUPABASE_SERVICE_ROLE_KEY            # klistra in sb_secret_… från steg 1
 export SUPABASE_SERVICE_ROLE_KEY
 NEXT_PUBLIC_SUPABASE_URL=https://<ref>.supabase.co ALLOWED_EMAILS=<din adress> pnpm users:sync
+NEXT_PUBLIC_SUPABASE_URL=https://<ref>.supabase.co OWNER_EMAIL=<din adress> pnpm owner:sync
 unset SUPABASE_SERVICE_ROLE_KEY
 ```
 
-Kontroll: **Authentication → Users** visar din adress.
+Kontroll: **Authentication → Users** visar din adress, och `owner:sync` skriver `owner <din adress>`.
+
+**Ägaren och Inkorgen (Story 20.3).** Det som skickas från Hjälp → Tyck till (förslag, betyg, fel) sparas i tabellen `feedback`. Alla inloggade får lägga till sina egna rader, men bara ägaren får läsa dem och markera dem lästa, inte ens avsändaren ser sina egna. Databasen kan inte läsa Vercels miljövariabler, så ägaren står i en egen tabell, `app_owner`, som ingen klient kan läsa eller ändra (bara service role). Där står ägarens **användar-id**, inte adressen: e-postbekräftelsen är av, så en inloggad kan byta sin adress direkt, och en adress som ägaren lämnat skulle annars kunna tas över. Funktionen `is_app_owner()` svarar ja bara för den inloggade vars id står i tabellen; radskyddet på `feedback` och gruppen **Ägare** i Inställningar frågar båda den. `pnpm owner:sync` slår upp `OWNER_EMAIL` bland användarna och gör den användarens id till det enda i `app_owner`; det vägrar om ingen användare har adressen än (kör `users:sync` först). Tas ägarens konto bort försvinner ägarskapet med det. Kör `owner:sync` igen om du byter ägare eller om ditt konto görs om (nytt id); att bara byta adress på kontot behåller ägarskapet. Samma värde ska stå som `OWNER_EMAIL` i Vercel (bara för namnet i bladen). Appen använder aldrig service role för det här. På din egen dator räcker `pnpm owner:sync`: utan `OWNER_EMAIL` blir den lokala inloggningsanvändaren (`DEV_AUTO_LOGIN_EMAIL`) ägare, bara mot lokal Supabase (se README).
 
 Efter första inloggningen väljer du lösenord: på inloggningssidan **Första gången eller glömt lösenordet? Välj lösenord**, mejlet kommer, länken öppnar en sida där du väljer lösenord (minst 12 tecken).
 
@@ -256,7 +260,7 @@ Gör så här:
 
 ## 10. Flytta din data – [Båda]
 
-Skriptet `pnpm move:cloud` (Story 17.4) kopierar **allt som är ditt** från datorns Supabase till molnkontot: alla 26 tabeller (recept, ingredienser, lager, hem och platser, matsedlar, inköpslistor, butiker och erbjudanden, Förrådets rum, kort och föremål, AI-inställningar och -användning, snabbtilläggsnycklar) och **alla fotofiler** (`pantry-photo` och `thing-photo`). Raderna får molnkontots `user_id`; alla id:n behålls, så kopplingarna mellan raderna håller och skriptet kan köras flera gånger utan dubbletter. Skriptet **ändrar aldrig** datorns databas, det bara läser den.
+Skriptet `pnpm move:cloud` (Story 17.4) kopierar **allt som är ditt** från datorns Supabase till molnkontot: alla 28 tabeller med en användare (recept, ingredienser, lager, hem och platser, matsedlar, inköpslistor, butiker och erbjudanden, Förrådets rum, kort och föremål, AI-inställningar och -användning, snabbtilläggsnycklar, det du skickat under Tyck till, att välkomstturen är sedd) och **alla fotofiler** (`pantry-photo` och `thing-photo`). Raderna får molnkontots `user_id`; alla id:n behålls, så kopplingarna mellan raderna håller och skriptet kan köras flera gånger utan dubbletter. Skriptet **ändrar aldrig** datorns databas, det bara läser den. Vem som äger appen (`app_owner`) kopieras inte, eftersom molnkontot har ett annat användar-id: kör `pnpm owner:sync` mot molnet efteråt (steg 5) om du inte redan gjort det.
 
 Provat 2026-11-01 mellan två helt skilda lokala Supabase-stackar med påhittad data (`scripts/test-move-to-cloud.sh`), aldrig mot något molnkonto.
 

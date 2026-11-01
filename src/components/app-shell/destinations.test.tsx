@@ -44,14 +44,16 @@ describe("tab bar and side menu icons (Story 19.1)", () => {
     pathname.current = "/lista";
   });
 
-  it("the tab bar shows line icons: the current one green with a soft fill, the others grey, all hidden from screen readers", async () => {
+  it("the tab bar shows grey line icons and the current one filled in green (ikoner.html B), all hidden from screen readers", async () => {
     render(<TabBar />);
     const list = await screen.findByRole("link", { name: "Inköpslista" });
     expect(list).toHaveAttribute("aria-current", "page");
     expect(list).toHaveClass("text-accent", "font-semibold");
     const icon = list.querySelector("svg");
     expect(icon).toHaveAttribute("aria-hidden", "true");
-    expect(icon).toHaveAttribute("fill-opacity", "0.16");
+    expect(icon).toHaveClass("text-accent");
+    expect(icon).not.toHaveAttribute("fill-opacity");
+    expect(icon?.querySelector('[fill="currentColor"]')).toBeInTheDocument();
 
     const pantry = screen.getByRole("link", { name: "Matvaror" });
     expect(pantry).not.toHaveAttribute("aria-current");
@@ -68,13 +70,31 @@ describe("tab bar and side menu icons (Story 19.1)", () => {
     const nav = screen.getByRole("navigation", { name: "Huvudmeny" });
     const pantry = await within(nav).findByRole("link", { name: "Matvaror" });
     expect(pantry).toHaveAttribute("aria-current", "page");
-    expect(pantry).toHaveClass("bg-mint", "font-medium");
+    // The pill and its mint-ink label stay; the icon is the filled one in accent.
+    expect(pantry).toHaveClass("bg-mint", "font-medium", "text-mint-ink");
+    const filled = pantry.querySelector("svg");
+    expect(filled).toHaveClass("text-accent");
+    expect(filled?.querySelector('[fill="currentColor"]')).toBeInTheDocument();
+    const recipes = within(nav).getByRole("link", { name: "Recept" });
+    expect(recipes.querySelector("svg")).toHaveAttribute("fill", "none");
+    expect(recipes.querySelector('[fill="currentColor"]')).not.toBeInTheDocument();
     const links = within(nav).getAllByRole("link");
     expect(links.at(-1)).toHaveAccessibleName("Inställningar");
     for (const link of links) {
       expect(link.querySelector("svg")).toBeInTheDocument();
       expect(link.textContent).not.toMatch(pictograph);
     }
+  });
+});
+
+describe("filled icons (ikoner.html B)", () => {
+  it("every main destination has a filled twin; Inställningar and Hjälp och tips keep a soft fill when current", async () => {
+    for (const { FilledIcon } of mainDestinations) expect(FilledIcon).toBeTypeOf("function");
+    pathname.current = "/installningar";
+    render(<SideMenu />);
+    const settings = await screen.findByRole("link", { name: "Inställningar" });
+    expect(settings).toHaveAttribute("aria-current", "page");
+    expect(settings.querySelector("svg")).toHaveAttribute("fill-opacity", "0.16");
   });
 });
 

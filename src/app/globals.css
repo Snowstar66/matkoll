@@ -170,10 +170,12 @@
   --thumb-list: 72px;
   --button-height: 52px;
   --fixed-action-gap: 12px;
-  /* Epic 11: category tile, list row, recipe card image, dish card image and meter heights. */
+  /* Epic 11: the tile in Förråd, list row, recipe card image, dish card image and meter heights. */
   --tile-size: 30px;
-  /* The emoji in a category tile; px, like the tile, so it never outgrows it at 200 % text. */
+  /* The emoji in a tile in Förråd; px, like the tile, so it never outgrows it at 200 % text. */
   --tile-icon: 17px;
+  /* The emoji of a category header, with no tile (ikoner.html B); px, so the row holds at 200 % text. */
+  --category-icon: 20px;
   --row-min: 56px;
   --card-image: 120px;
   --dish-thumb: 56px;
@@ -380,6 +382,7 @@
   --text-tab-label--font-weight: var(--tab-label-weight);
   --text-tab-label--line-height: var(--tab-label-leading);
   --text-tile-icon: var(--tile-icon);
+  --text-category-icon: var(--category-icon);
 
   --radius-xs: var(--rounded-xs);
   --radius-sm: var(--rounded-sm);

@@ -1,7 +1,8 @@
 "use client";
 
 import Link from "next/link";
-import { useEffect, useRef, useState } from "react";
+import { useSearchParams } from "next/navigation";
+import { type MouseEvent, Suspense, useEffect, useRef, useState } from "react";
 import { appName } from "@/app/app-info";
 import { PageHeader } from "@/components/app-shell/page-header";
 import { Chip, ChipRow } from "@/components/chip";
@@ -10,6 +11,8 @@ import { ChevronRightIcon } from "@/components/icons";
 import { ListGroup } from "@/components/list-group";
 import { SearchField } from "@/components/search-field";
 import { mainDestinations } from "@/components/app-shell/destinations";
+import { type FeedbackAreaId, type FeedbackSheetKind, isFeedbackArea, isFeedbackSheetKind } from "@/features/feedback";
+import { FeedbackSheet } from "@/features/feedback/ui/feedback-sheet";
 import { type HelpArea, areaFromHash, helpAreas, helpUpdated, highlightParts, searchHelp } from "./help-content";
 import { HelpIcon, type HelpIconName, PlayIcon, PlusMinusIcon } from "./help-icons";
 
@@ -23,8 +26,8 @@ export function parentOf(hash: string): { href: string; label: string } {
 export const tourHref = "/valkomst?fran=hjalp";
 
 /**
- * The Tyck till rows (Story 20.2). Story 20.3 opens a sheet for each; until then they lead to
- * this page with `?tyck=…`, which nothing reads yet. The test ids are the contract with 20.3.
+ * The Tyck till rows (Story 20.2). Each leads to this page with `?tyck=…`, which opens its
+ * sheet (Story 20.3); closing the sheet takes the parameter away again.
  */
 export const feedbackRows = [
   { kind: "idea", title: "Föreslå en funktion", icon: "bulb", tile: "bg-sand text-sand-ink" },
@@ -35,6 +38,23 @@ export const feedbackRows = [
 /** The address a Tyck till row leads to; `query` is the search word for Föreslå en funktion. */
 export function feedbackHref(kind: (typeof feedbackRows)[number]["kind"], query?: string): string {
   return query ? `/hjalp?tyck=${kind}&q=${encodeURIComponent(query)}` : `/hjalp?tyck=${kind}`;
+}
+
+/** The page a message says it was sent from: the tab Hjälp was opened from (`#matvaror` → /hemma), else Hjälp itself. */
+export function sentFromPage(hash: string): string {
+  const tab = mainDestinations.find((destination) => destination.helpId === hash.replace(/^#/, ""));
+  return tab?.href ?? "/hjalp";
+}
+
+/**
+ * A tap on a Tyck till link opens its sheet without leaving the page: the address gets
+ * `?tyck=…` (and the help area's `#…` stays), which FeedbackFromAddress reads. A click
+ * with a modifier key (a new tab) is left to the browser.
+ */
+function openFeedback(event: MouseEvent<HTMLAnchorElement>) {
+  if (event.button !== 0 || event.metaKey || event.ctrlKey || event.shiftKey || event.altKey) return;
+  event.preventDefault();
+  window.history.replaceState(null, "", `${event.currentTarget.getAttribute("href")}${window.location.hash}`);
 }
 
 const months = ["jan", "feb", "mars", "apr", "maj", "juni", "juli", "aug", "sep", "okt", "nov", "dec"];
@@ -50,7 +70,7 @@ const rowFocus = "outline-none focus-visible:outline-2 focus-visible:-outline-of
  * till. Opened from a tab (`#matvaror`) the tab's area is chosen. While there is a search,
  * the hits in every area take the place of all that.
  */
-export function HelpView({ version }: { version: string }) {
+export function HelpView({ version, ownerName }: { version: string; ownerName: string | null }) {
   const [areaId, setAreaId] = useState(helpAreas[0]!.id);
   const [parent, setParent] = useState(() => parentOf(""));
   const [query, setQuery] = useState("");
@@ -137,6 +157,7 @@ export function HelpView({ version }: { version: string }) {
                 <Link
                   href={feedbackHref(row.kind)}
                   scroll={false}
+                  onClick={openFeedback}
                   data-testid={`feedback-${row.kind}`}
                   className={cx("flex min-h-[52px] items-center gap-3 px-4 py-1.5", rowFocus)}
                 >
@@ -154,7 +175,52 @@ export function HelpView({ version }: { version: string }) {
           </p>
         </>
       )}
+      {/* The address is read in the browser only, so the page itself stays static. */}
+      <Suspense fallback={null}>
+        <FeedbackFromAddress ownerName={ownerName} />
+      </Suspense>
     </div>
+  );
+}
+
+/**
+ * The Tyck till sheet the address asks for (`?tyck=idea|rate|problem`, Story 20.3), with
+ * the search word (`&q=`) as the start of an idea. The area of Hjälp's `#…` (the tab it
+ * was opened from, or the chip chosen since) is chosen in the sheet, and the tab is the
+ * page it says it was sent from. Closing it takes `tyck` and `q` off the address and
+ * keeps the `#…`.
+ */
+function FeedbackFromAddress({ ownerName }: { ownerName: string | null }) {
+  const params = useSearchParams();
+  const asked = params?.get("tyck") ?? null;
+  const kind = isFeedbackSheetKind(asked) ? asked : null;
+  const [opened, setOpened] = useState<{ kind: FeedbackSheetKind; area: FeedbackAreaId | null; page: string } | null>(null);
+
+  // The hash is only in the browser, so the sheet opens once it has been read.
+  useEffect(() => {
+    const hash = window.location.hash;
+    const area = hash.replace(/^#/, "");
+    // eslint-disable-next-line react-hooks/set-state-in-effect -- the address is read only in the browser.
+    setOpened(kind ? { kind, area: isFeedbackArea(area) ? area : null, page: sentFromPage(hash) } : null);
+  }, [kind]);
+
+  function close() {
+    const next = new URLSearchParams(window.location.search);
+    next.delete("tyck");
+    next.delete("q");
+    const query = next.toString();
+    window.history.replaceState(null, "", `${window.location.pathname}${query ? `?${query}` : ""}${window.location.hash}`);
+  }
+
+  return (
+    <FeedbackSheet
+      kind={opened?.kind ?? null}
+      onClose={close}
+      ownerName={ownerName}
+      area={opened?.area ?? null}
+      initialText={params?.get("q")?.slice(0, 200) ?? ""}
+      page={opened?.page ?? null}
+    />
   );
 }
 
@@ -256,6 +322,7 @@ function SearchResults({ query }: { query: string }) {
         <Link
           href={feedbackHref("idea", query)}
           scroll={false}
+          onClick={openFeedback}
           data-testid="feedback-idea"
           className="mt-0.5 inline-flex min-h-tap items-center rounded-md px-1 font-medium text-accent outline-none focus-visible:outline-2 focus-visible:outline-accent"
         >

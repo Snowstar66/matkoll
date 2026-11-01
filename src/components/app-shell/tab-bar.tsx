@@ -4,6 +4,7 @@ import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { Fragment, type ReactNode, Suspense } from "react";
 import { cx } from "../cx";
+import { DestinationIcon } from "./destination-icon";
 import { currentState, type Destination, mainDestinations } from "./destinations";
 import { badgeName, TabBadge, useAiBadgeCount } from "./tab-badge";
 
@@ -26,7 +27,7 @@ function CurrentTabBar({ jobRow }: { jobRow?: ReactNode }) {
 }
 
 function TabLink({ destination, pathname }: { destination: Destination; pathname: string | null }) {
-  const { href, label, labelParts, Icon } = destination;
+  const { href, label, labelParts } = destination;
   const current = currentState(pathname, href);
   // Story 12.4: finished AI results that Pontus has not seen, never on the tab he is on.
   const badge = useAiBadgeCount(destination, current !== undefined);
@@ -46,7 +47,7 @@ function TabLink({ destination, pathname }: { destination: Destination; pathname
       <div className="flex max-w-full flex-col items-center gap-0.5 rounded-md px-1 group-focus-visible:outline-2 group-focus-visible:outline-offset-2 group-focus-visible:outline-accent">
         {/* A div and a badge that is no span: the label stays the first span of the link. */}
         <div className="relative flex">
-          <Icon size={24} tinted={current !== undefined} />
+          <DestinationIcon destination={destination} current={current !== undefined} size={24} />
           <TabBadge count={badge} />
         </div>
         {/* Story 10.4: a long label breaks between its parts, never inside a word, when the tab is narrow. */}
