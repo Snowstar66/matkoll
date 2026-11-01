@@ -110,16 +110,40 @@ test.describe("mobile, 390 × 844", () => {
     expect(errors).toEqual([]);
   });
 
-  test("Hjälp och tips opens on the section of the tab the P button was opened from, with its chip chosen", async ({ page }) => {
+  test("Hjälp och tips opens on the area of the tab the P button was opened from, with its chip chosen", async ({ page }) => {
     await page.goto("/matsedel");
     await page.getByRole("button", { name: "Konto" }).filter({ visible: true }).click();
     await page.getByRole("dialog").filter({ visible: true }).getByRole("link", { name: /Hjälp och tips/ }).click();
     await expect(page).toHaveURL(/\/hjalp#matsedel$/);
     await expect(page.getByRole("heading", { level: 1, name: "Hjälp och tips" })).toBeVisible();
-    await expect(page.getByRole("button", { name: "Matsedel", exact: true })).toHaveAttribute("aria-current", "true");
-    await expect(page.getByRole("heading", { level: 2, name: "Matsedel" })).toBeInViewport();
+    const areas = page.getByRole("group", { name: "Område" }).filter({ visible: true });
+    await expect(areas.getByRole("button", { name: "Matsedel", exact: true })).toHaveAttribute("aria-pressed", "true");
+    await expect(page.getByRole("heading", { level: 3, name: "Välj vecka" }).filter({ visible: true })).toBeVisible();
     await expect(page.getByRole("main").getByRole("link", { name: "Matsedel" })).toBeVisible();
     for (const tab of mainLabels) await expect(mainMenu(page).getByRole("link", { name: tab })).not.toHaveAttribute("aria-current", /.*/);
+  });
+
+  test("Hjälp och tips shows one area at a time, searches every area and has the tour card and Tyck till", async ({ page }) => {
+    await page.goto("/hjalp#matvaror");
+    const main = page.getByRole("main").filter({ visible: true });
+    const areas = main.getByRole("group", { name: "Område" });
+    await expect(areas.getByRole("button", { name: "Matvaror" })).toHaveAttribute("aria-pressed", "true");
+    await areas.getByRole("button", { name: "Konto" }).click();
+    await expect(main.getByRole("heading", { level: 3, name: "Siri" })).toBeVisible();
+    await expect(main.getByRole("heading", { level: 3, name: "Fota kylen" })).toHaveCount(0);
+    const question = main.locator("details").filter({ hasText: "Vem kan se min data?" });
+    await question.locator("summary").click();
+    await expect(question.getByText(/kan tekniskt se kontots data/)).toBeVisible();
+    await expect(main.getByRole("link", { name: /Så funkar Livskoll/ })).toHaveAttribute("href", "/valkomst?fran=hjalp");
+    for (const kind of ["idea", "rate", "problem"]) await expect(main.getByTestId(`feedback-${kind}`)).toBeVisible();
+
+    const field = main.getByRole("searchbox", { name: "Sök i hjälpen" });
+    await field.fill("FORRAD");
+    await expect(main.getByRole("list", { name: "Träffar" })).toContainText("Ska maten in här?");
+    await expect(areas).toHaveCount(0);
+    await field.fill("zebrafink");
+    await expect(main.getByRole("status").filter({ hasText: /träff/ })).toHaveText("0 träffar");
+    await expect(main.getByTestId("feedback-idea")).toHaveAttribute("href", "/hjalp?tyck=idea&q=zebrafink");
   });
 
   test("the large title gives way to a slim bar with the title centred when it scrolls out of sight", async ({ page }) => {

@@ -110,6 +110,9 @@ export const errorMessages = {
   things_clear_failed: "Det gick inte att rensa. Försök igen.",
   things_rename_failed: "Det gick inte att byta namn. Försök igen.",
   things_place_remove_failed: "Det gick inte att ta bort. Försök igen.",
+  // Ta bort rummet (Pontus 1 Nov): only an empty room goes without a question.
+  things_room_not_empty: "Rummet är inte tomt längre. Rensa det i stället.",
+  things_room_taken: "Det finns ett rum med samma namn nu, så rummet kom inte tillbaka.",
   things_item_gone: `${thingNounCap.definite} finns inte längre.`,
   // Kom ihåg var jag lade den (Story 18.19): nothing was saved.
   things_noted_failed: "Det gick inte att spara. Försök igen.",

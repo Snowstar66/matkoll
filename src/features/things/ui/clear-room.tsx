@@ -6,9 +6,10 @@ import { MoreIcon } from "@/components/icons";
 import { useToast } from "@/components/toast";
 import { clearThingRoom } from "../actions/clear-things";
 import { renameThingRoom } from "../actions/edit-place";
-import { clearRoomDetailText, clearRoomMenuText, moreActionsText, roomClearedText, type ClearCounts } from "../domain/thing-clear";
+import { clearRoomDetailText, clearRoomMenuText, moreActionsText, removeRoomText, roomClearedText, type ClearCounts } from "../domain/thing-clear";
 import { mergeConfirmText, mergeQuestionText, renameRoomLabelText, renameRoomMenuText, roomRenamedText } from "../domain/thing-place-edit";
 import { ClearSheet } from "./clear-sheet";
+import { useRemoveEmptyRoom } from "./remove-room";
 import { RenameSheet } from "./rename-sheet";
 
 // The ⋯ menu of a room's page (Story 18.15) with "Rensa rummet": the sheet shows
@@ -16,8 +17,23 @@ import { RenameSheet } from "./rename-sheet";
 // things, boxes and places are removed. Afterwards the user is back on Förråd.
 // "Byt namn på rummet" (Story 18.16) gives the room another name; when the boende
 // has a room with that name the sheet asks, and the rooms are merged on a yes.
+// An empty room (`empty`) has "Ta bort rummet" instead of "Rensa rummet": it
+// goes at once, with "Ångra" (Pontus 1 Nov).
 
-export function ClearRoom({ siteId, roomKey, room, counts }: { siteId: string; roomKey: string; room: string; counts: ClearCounts }) {
+export function ClearRoom({
+  siteId,
+  roomKey,
+  room,
+  counts,
+  empty = false,
+}: {
+  siteId: string;
+  roomKey: string;
+  room: string;
+  counts: ClearCounts;
+  /** No föremål and no card: "Ta bort rummet" without a question. */
+  empty?: boolean;
+}) {
   const router = useRouter();
   const { showToast } = useToast();
   const [menuOpen, setMenuOpen] = useState(false);
@@ -27,6 +43,7 @@ export function ClearRoom({ siteId, roomKey, room, counts }: { siteId: string; r
   const root = useRef<HTMLDivElement>(null);
   const toggle = useRef<HTMLButtonElement>(null);
   const firstItem = useRef<HTMLButtonElement>(null);
+  const removal = useRemoveEmptyRoom({ siteId, roomKey, room });
 
   useEffect(() => {
     if (!menuOpen) return;
@@ -54,6 +71,11 @@ export function ClearRoom({ siteId, roomKey, room, counts }: { siteId: string; r
     // Focus on ⋯ first, so the sheet gives it back when it closes.
     closeMenu();
     setAsking(true);
+  }
+
+  function removeEmpty() {
+    closeMenu();
+    void removal.remove();
   }
 
   function rename() {
@@ -87,9 +109,22 @@ export function ClearRoom({ siteId, roomKey, room, counts }: { siteId: string; r
           <button ref={firstItem} type="button" role="menuitem" onClick={rename} className="min-h-tap px-4 text-left text-body text-ink" data-testid="rename-room">
             {renameRoomMenuText}
           </button>
-          <button type="button" role="menuitem" onClick={ask} className="min-h-tap px-4 text-left text-body text-ink" data-testid="clear-room">
-            {clearRoomMenuText}
-          </button>
+          {empty ? (
+            <button
+              type="button"
+              role="menuitem"
+              onClick={removeEmpty}
+              disabled={removal.busy}
+              className="min-h-tap px-4 text-left text-body text-danger"
+              data-testid="remove-room-menu"
+            >
+              {removeRoomText}
+            </button>
+          ) : (
+            <button type="button" role="menuitem" onClick={ask} className="min-h-tap px-4 text-left text-body text-ink" data-testid="clear-room">
+              {clearRoomMenuText}
+            </button>
+          )}
         </div>
       ) : null}
       <RenameSheet

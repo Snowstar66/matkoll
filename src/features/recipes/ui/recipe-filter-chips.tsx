@@ -1,7 +1,7 @@
 "use client";
 
 import { Chip, ChipRow, ChipSeparator } from "@/components/chip";
-import { RECIPE_CATEGORIES, recipeCategoryLabels, type RecipeCategory } from "../domain/recipe-category";
+import { RECIPE_CATEGORIES, recipeCategoryIcons, recipeCategoryLabels, type RecipeCategory } from "../domain/recipe-category";
 import type { RecipeFilter } from "../domain/recipe-list";
 
 export type RecipeFilterChipsProps = {
@@ -21,7 +21,7 @@ export type RecipeFilterChipsProps = {
 
 /**
  * The library's filters on one row (Story 19.3): Favoriter and Kan lagas nu, a thin divider, then
- * the categories. The row scrolls sideways inside itself with snap, no scrollbar and a fade at the
+ * the categories, each with its emoji before the name. The row scrolls sideways inside itself with snap, no scrollbar and a fade at the
  * right edge. Every chip is a toggle (`aria-pressed`); pressing the chosen one lets it go, and with
  * nothing chosen every recipe shows. The two groups are independent, as before.
  */
@@ -39,7 +39,7 @@ export function RecipeFilterChips({ filter, onFilterChange, category, onCategory
       {categories.map((entry) => {
         const selected = category === entry;
         return (
-          <Chip key={entry} className="snap-start" aria-pressed={selected} selected={selected} onClick={() => onCategoryChange(selected ? null : entry)}>
+          <Chip key={entry} className="snap-start" icon={recipeCategoryIcons[entry]} aria-pressed={selected} selected={selected} onClick={() => onCategoryChange(selected ? null : entry)}>
             {recipeCategoryLabels[entry]}
           </Chip>
         );

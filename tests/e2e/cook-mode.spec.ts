@@ -1,6 +1,6 @@
 import { expect, type Page, test } from "@playwright/test";
 import { normalizeIngredientText } from "@/features/catalog/domain/normalize";
-import { adminClient, cookModeEmail, cookModeStorageState, e2eUserId } from "./support";
+import { adminClient, cookModeEmail, cookModeStorageState, e2eUserId, thisMonday } from "./support";
 
 // Story 4.2: the step mode with the screen kept on. The spec has an E2E user
 // of its own (cookModeEmail). Before each test the meal plan, the pantry and
@@ -253,7 +253,9 @@ test("Laga nu opens the step mode with the chosen servings; the steps change wit
   // A step without lines shows only its text.
   await expect(rows(page)).toHaveCount(0);
   await expect(stepMode(page).getByTestId("cook-step-text")).toHaveText("Servera med ris.");
-  await expect(next).toHaveAttribute("aria-disabled", "true");
+  // Not on the menu: Klar takes Nästa's place at the last step (Pontus 1 Nov).
+  await expect(next).toHaveCount(0);
+  await expect(stepMode(page).getByTestId("cook-done")).toHaveText("Klar");
   await page.keyboard.press("ArrowLeft");
   await expect(heading(page)).toHaveText("Steg 2 av 3");
 
@@ -311,6 +313,59 @@ test("a client navigation away closes the step mode and releases the lock", asyn
   await expect(page).toHaveURL(new RegExp(`/recept/${recipeId}$`));
   await expect(stepMode(page)).toHaveCount(0);
   await expect(cookButton(page)).toBeVisible();
+});
+
+test("the last step ends with Klar off the menu, and with Markera som lagad in Nästa's place when the dish is on it (Pontus 1 Nov)", async ({
+  page,
+}) => {
+  await fakeWakeLock(page);
+  const errors = watchErrors(page);
+  await page.goto(`/recept/${recipeId}`);
+  await cookButton(page).click();
+  const next = stepMode(page).getByRole("button", { name: "Nästa" });
+  await next.click();
+  await next.click();
+  await expect(heading(page)).toHaveText("Steg 3 av 3");
+  // Not on the menu: nothing to mark, so the primary button closes.
+  await expect(stepMode(page).getByRole("button", { name: "Nästa" })).toHaveCount(0);
+  await stepMode(page).getByTestId("cook-done").click();
+  await expect(stepMode(page)).toHaveCount(0);
+
+  // On the menu: the same sheet as on Matsedel.
+  const admin = adminClient();
+  const plan = await admin.from("meal_plan").insert({ user_id: userId, name: "Veckan", is_current: true, week_start: thisMonday() }).select("id").single();
+  if (plan.error) throw plan.error;
+  const dish = await admin.from("meal_plan_recipe").insert({
+    user_id: userId,
+    meal_plan_id: (plan.data as { id: string }).id,
+    recipe_id: recipeId,
+    recipe_title: title,
+    servings: 4,
+    position: 0,
+  });
+  if (dish.error) throw dish.error;
+  await page.reload();
+  await cookButton(page).click();
+  await expect(stepMode(page).getByRole("button", { name: "Markera som lagad" })).toHaveCount(0);
+  await next.click();
+  await next.click();
+  await expect(heading(page)).toHaveText("Steg 3 av 3");
+  await expect(stepMode(page).getByRole("button", { name: "Nästa" })).toHaveCount(0);
+  const mark = stepMode(page).getByRole("button", { name: "Markera som lagad" });
+  await expect(mark).toBeFocused();
+  // Primary, in Nästa's place in the thumb zone: beside Föregående, or below it on a narrow phone.
+  const [markBox, previousBox] = await Promise.all([mark.boundingBox(), stepMode(page).getByRole("button", { name: "Föregående" }).boundingBox()]);
+  if (!markBox || !previousBox) throw new Error("the buttons have no box");
+  expect(markBox.height).toBeGreaterThanOrEqual(44);
+  expect(markBox.y).toBeGreaterThanOrEqual(previousBox.y - 1);
+  expect(markBox.y + markBox.height).toBeLessThanOrEqual(mobile.height);
+  expect(markBox.y).toBeGreaterThan(mobile.height / 2);
+  await mark.click();
+  const sheet = page.getByRole("dialog", { name: "Markera som lagad" });
+  await expect(sheet).toBeVisible();
+  await expect(sheet.getByTestId("cooked-caption")).toHaveText("Bockade varor dras från Matvaror.");
+  await expect(sheet.getByRole("button", { name: "Markera som lagad" })).toBeVisible();
+  expect(errors).toEqual([]);
 });
 
 test("without Wake Lock the step mode says the screen may dim, and still works", async ({ page }) => {
