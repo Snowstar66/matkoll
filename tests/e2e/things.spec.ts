@@ -854,7 +854,7 @@ test("Rensa rummet asks for the room's name, then removes its cards, files, thin
   await shot(page, "4-clear-room-enabled");
   await confirm.click();
   await expect(page).toHaveURL("/prylar");
-  await expect(page.getByTestId("toast")).toContainText("Rensade 4 föremål, 2 kort, 1 låda.");
+  await expect(page.getByTestId("toast")).toContainText("Tog bort Skräpförrådet: 4 föremål, 2 kort, 1 låda.");
   await expect(rooms(page)).toHaveText([/Garaget/]);
   expect((await admin.from("thing_place").select("id").eq("user_id", userId)).data).toEqual([{ id: keep }]);
   expect((await admin.from("thing_item").select("name").eq("user_id", userId)).data).toEqual([{ name: "Skruvdragare" }]);
@@ -1293,7 +1293,8 @@ test("a plain search answers from the database: the name that holds it first, th
   // A typo finds only close names: they are Liknande, with no AI call.
   await field.fill("coca-colla");
   await field.press("Enter");
-  await expect(chat.getByTestId("chat-answer").nth(1)).toContainText('Ingen "coca-colla" hittad. Liknande:');
+  await expect(chat.getByTestId("chat-answer").nth(1)).toContainText("Ingen \u201Dcoca-colla\u201D hittad.");
+  await expect(chat.getByTestId("similar-hits").last().getByRole("heading", { name: "Liknande" })).toBeVisible();
   await expect(chat.getByTestId("similar-hits").last()).toContainText("Coca-Cola");
   expect(await usage()).toBe(0);
   // Nothing at all: the AI gets it.

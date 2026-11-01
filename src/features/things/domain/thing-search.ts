@@ -4,7 +4,7 @@ import { shortDateText } from "./thing-photo";
 import { seenOnText } from "./thing-merge";
 import { inBoxText } from "./thing-place";
 import { noMatchText } from "@/components/empty-state";
-import { thingCountText, thingNoun } from "./thing-noun";
+import { thingCountText } from "./thing-noun";
 import { cardViewHref } from "./thing-card";
 
 // Sök (Stories 18.4 and 18.14): the things are found by the database, with
@@ -248,9 +248,13 @@ export function showSimilarText(count: number): string {
   return `Visa ${count} liknande`;
 }
 
-/** The answer of a plain search, first and short: "Pass finns i Sovrummet · Översta byrålådan.", "Hittade 3 föremål.", or "Ingen "coca-cola" hittad. Liknande:". */
-export function plainSearchAnswer(query: string, best: readonly ThingHit[], similar: readonly ThingHit[]): string {
+/**
+ * The answer of a plain search, first and short: "Pass finns i Sovrummet · Översta byrålådan.", "Hittade 3 föremål.", or
+ * "Ingen ”coca-cola” hittad." The close matches come right under it with their own heading Liknande, so the answer
+ * does not say it too (sista varvet).
+ */
+export function plainSearchAnswer(query: string, best: readonly ThingHit[]): string {
   if (best.length === 1) return `${best[0].name} finns i ${hitPlaceText(best[0])}.`;
   if (best.length > 1) return `Hittade ${thingCountText(best.length)}.`;
-  return similar.length > 0 ? `Ingen "${query.trim()}" hittad. ${similarLabelText}:` : `Ingen "${query.trim()}" hittad.`;
+  return `Ingen \u201D${query.trim()}\u201D hittad.`;
 }

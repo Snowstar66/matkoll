@@ -95,7 +95,7 @@ export async function askChat(input: { question: string; history: ChatTurn[]; si
     if (found.length > 0) {
       const { best, similar } = rankHits(question, found);
       console.info("things_searched", { best: best.length, similar: similar.length });
-      return ok({ answer: plainSearchAnswer(question, best, similar), refs: [], hits: best, similar });
+      return ok({ answer: plainSearchAnswer(question, best), refs: [], hits: best, similar });
     }
   }
 

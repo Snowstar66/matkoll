@@ -28,4 +28,11 @@ describe("AmountInput (Story 19.5)", () => {
     expect(screen.queryByRole("button", { name: "Öka" })).toBeNull();
     expect(screen.getByTestId("amount-unit")).toHaveTextContent("dl");
   });
+
+  it("is as wide as its content, also in a column of fields where it would stretch", () => {
+    const { container, rerender } = render(<AmountInput {...base} stepper />);
+    expect(container.firstElementChild).toHaveClass("w-fit");
+    rerender(<AmountInput {...base} stepper={false} unit="dl" />);
+    expect(container.firstElementChild).toHaveClass("w-fit");
+  });
 });

@@ -103,4 +103,17 @@ describe("FilterPills segmented (Story 16.11)", () => {
     await user.keyboard("{ArrowRight}");
     expect(onChange).toHaveBeenCalledWith("favorites");
   });
+
+  it("scrolls a compact row so the chosen pill is seen, and gives the pills room for their tap area", () => {
+    // jsdom lays nothing out: the row is 300 px wide, the chosen pill (the last) sits at 400–480 px.
+    const box = (left: number, right: number) => ({ left, right, top: 0, bottom: 32, width: right - left, height: 32, x: left, y: 0, toJSON: () => ({}) });
+    const rect = vi.spyOn(Element.prototype, "getBoundingClientRect").mockImplementation(function (this: Element) {
+      return this.getAttribute("role") === "radiogroup" ? box(0, 300) : box(400, 480);
+    });
+    render(<FilterPills label="Dag" compact options={options} value="cookable" onChange={() => {}} />);
+    const row = screen.getByRole("radiogroup", { name: "Dag" });
+    expect(row.scrollLeft).toBe(180);
+    expect(row).toHaveClass("overflow-x-auto", "py-1.5", "-my-1.5");
+    rect.mockRestore();
+  });
 });

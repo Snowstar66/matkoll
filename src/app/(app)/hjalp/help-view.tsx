@@ -2,7 +2,7 @@
 
 import { useEffect, useRef, useState } from "react";
 import { PageHeader } from "@/components/app-shell/page-header";
-import { cx } from "@/components/cx";
+import { Chip } from "@/components/chip";
 import { mainDestinations } from "@/components/app-shell/destinations";
 import { helpSections } from "./help-content";
 
@@ -23,6 +23,18 @@ export function HelpView() {
   const [active, setActive] = useState(firstId);
   const [parent, setParent] = useState(() => parentOf(""));
   const jumping = useRef(false);
+  const chipRow = useRef<HTMLUListElement>(null);
+
+  // The chosen chip is brought into the row when it is off to the side (Förråd at 390 px): only the row scrolls.
+  useEffect(() => {
+    const row = chipRow.current;
+    const chip = row?.querySelector<HTMLElement>('[aria-current="true"]');
+    if (!row || !chip) return;
+    const rowBox = row.getBoundingClientRect();
+    const chipBox = chip.getBoundingClientRect();
+    if (chipBox.right > rowBox.right) row.scrollLeft += chipBox.right - rowBox.right;
+    else if (chipBox.left < rowBox.left) row.scrollLeft -= rowBox.left - chipBox.left;
+  }, [active]);
 
   // Each time the page is shown (also when it is shown again hidden by Activity): go to the section the address names.
   useEffect(() => {
@@ -73,22 +85,19 @@ export function HelpView() {
         aria-label="Avsnitt"
         className="sticky top-0 z-20 -mx-page mb-1 bg-bar px-page py-1.5 backdrop-blur-[20px] backdrop-saturate-150 desktop:mx-0 desktop:px-0"
       >
-        <ul className="flex gap-2 overflow-x-auto">
+        {/* The Chip of Story 19.3 (44 px tap area, no jump between 500 and 600); the row has 6 px above and below for it. */}
+        <ul ref={chipRow} className="-my-1.5 flex gap-2 overflow-x-auto py-1.5 [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
           {helpSections
             .filter((section) => section.chip)
             .map((section) => (
               <li key={section.id} className="shrink-0">
-                <button
-                  type="button"
+                <Chip
+                  selected={active === section.id}
                   aria-current={active === section.id ? "true" : undefined}
                   onClick={() => jump(section.id)}
-                  className={cx(
-                    "inline-flex h-8 items-center rounded-pill border px-3 text-control",
-                    active === section.id ? "border-accent bg-accent font-semibold text-on-accent" : "border-border bg-surface text-ink-2",
-                  )}
                 >
                   {section.title}
-                </button>
+                </Chip>
               </li>
             ))}
         </ul>

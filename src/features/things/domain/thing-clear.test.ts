@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { clearCountsText, clearedText, clearInputSchema, matchesClearWord } from "./thing-clear";
+import { clearCountsText, clearedText, clearInputSchema, matchesClearWord, roomClearedText } from "./thing-clear";
 import { updateThingInputSchema } from "./thing-edit";
 
 const id = "0b2f6d0a-3c0e-4d52-9a54-6d0f0c5f6a11";
@@ -11,6 +11,11 @@ describe("what a clearing says", () => {
     expect(clearCountsText({ things: 0, cards: 0, boxes: 0 })).toBe("Inget");
     expect(clearedText({ things: 0, cards: 0, boxes: 0 })).toBe("Det fanns inget att rensa.");
     expect(clearedText({ things: 3, cards: 1, boxes: 0 })).toBe("Rensade 3 föremål, 1 kort.");
+  });
+
+  it("says the room went after Rensa rummet, also when it was empty", () => {
+    expect(roomClearedText("Garaget", { things: 0, cards: 0, boxes: 0 })).toBe("Tog bort Garaget.");
+    expect(roomClearedText("Garaget", { things: 3, cards: 1, boxes: 0 })).toBe("Tog bort Garaget: 3 föremål, 1 kort.");
   });
 
   it("accepts the word without regard to case and the spaces at its ends, and nothing else", () => {

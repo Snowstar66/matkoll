@@ -40,7 +40,8 @@ const numberClasses =
  * The amount of a quantity (Story 19.5), shared by Lagervara, a list line's own item and Markera
  * som lagad: the stepper of Story 16.17 (− n +, the number can be typed too) for counted units, and
  * a plain number field with the unit after it for measures. The caller owns the text and the step
- * (see `stepAmountField` in the pantry's form rules).
+ * (see `stepAmountField` in the pantry's form rules). As wide as its content (`.stepper`, align-self:
+ * flex-start in premium-look), also in a column of fields, where it would otherwise stretch.
  */
 export function AmountInput({
   id,
@@ -86,7 +87,7 @@ export function AmountInput({
     return (
       <div
         className={cx(
-          "flex h-12 flex-none items-stretch overflow-hidden rounded-md border border-border bg-surface",
+          "flex h-12 w-fit flex-none items-stretch overflow-hidden rounded-md border border-border bg-surface",
           className,
         )}
       >
@@ -105,7 +106,7 @@ export function AmountInput({
   return (
     <div
       className={cx(
-        "flex h-12 flex-none items-stretch overflow-hidden rounded-md border border-border bg-surface",
+        "flex h-12 w-fit flex-none items-stretch overflow-hidden rounded-md border border-border bg-surface",
         className,
       )}
     >

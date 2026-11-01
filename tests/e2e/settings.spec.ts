@@ -443,6 +443,9 @@ test("a personal key is shown once, adds items by POST /api/snabb and stops when
   await expect(sheet).toBeVisible();
   await shot("quick-add");
   await expect(sheet.getByRole("combobox").or(sheet.getByRole("textbox")).first()).toBeFocused();
+  // The header is the list's own: once the sheet is closed, the P button is there (sista varvet).
+  await sheet.getByRole("button", { name: "Avbryt" }).click();
+  await expect(page.getByRole("button", { name: "Konto" })).toBeVisible();
 
   // Revoke: the key stops working at once, and the page lists it as revoked.
   await page.goto("/installningar/siri");

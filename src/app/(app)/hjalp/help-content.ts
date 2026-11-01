@@ -60,7 +60,7 @@ export const helpSections: readonly HelpSection[] = [
       },
       {
         title: "Tidigare veckor",
-        text: "Längst ned finns Tidigare veckor, med matsedlarna du har haft. Där kan du hämta idéer igen.",
+        text: "Tryck Tidigare bredvid veckans datum, så ser du matsedlarna du har haft. Där kan du hämta idéer igen.",
       },
       {
         title: "Från matsedel till inköpslista",
@@ -114,7 +114,7 @@ export const helpSections: readonly HelpSection[] = [
       },
       {
         title: "Ta bort och ångra",
-        text: "Papperskorgen på en rad tar bort varan, och Ångra finns kvar en stund. Töm kylen längst ned tar bort allt på platsen efter en fråga.",
+        text: "Svep en rad åt vänster, eller tryck på varan och Ta bort. Ångra finns kvar en stund. Töm kylen längst ned tar bort allt på platsen efter en fråga.",
       },
       {
         title: "Det styr dina recept",
@@ -137,7 +137,7 @@ export const helpSections: readonly HelpSection[] = [
       },
       {
         title: "Fota så hittar du igen",
-        text: `Tryck Ta kort och fota ett rum, en hylla eller en låda. ${appName} listar ${thingNoun.plural}en på bilden, och du kan ta ett nytt kort när något har flyttats.`,
+        text: `Öppna ett rum, tryck Ta foto och fota rummet, en hylla eller en låda. ${appName} listar ${thingNoun.plural}en på bilden, och du kan ta ett nytt kort när något har flyttats.`,
       },
       {
         title: "Sök eller fråga",
