@@ -538,19 +538,25 @@ test.describe("on a small phone", () => {
 test("a long page title keeps the header's actions beside it at 375 px", async ({ page }) => {
   await serveImages(page);
   await page.goto("/matsedel");
-  const header = page.locator("header").filter({ visible: true });
+  // The page's own header, not the slim bar that replaces it once the title has scrolled away (hidden, aria-hidden).
+  const header = page.locator("main header").filter({ visible: true }).first();
   const title = header.getByRole("heading", { level: 1 });
   const previous = header.getByRole("button", { name: "Lägg till rätt" });
+  await expect(title).toBeVisible();
+  await expect(previous).toBeVisible();
   for (const text of ["Matsedel", "Matsedel för hela veckan med släkten"]) {
     await title.evaluate((el, value) => (el.textContent = value), text);
-    const titleBox = await box(title);
-    const actionBox = await box(previous);
-    // On the title's row (aligned to its last line), to its right; a wrapped
-    // row would put the link's middle below the title.
-    const middle = actionBox.y + actionBox.height / 2;
-    expect(middle).toBeGreaterThan(titleBox.y);
-    expect(middle).toBeLessThan(titleBox.y + titleBox.height);
-    expect(actionBox.x).toBeGreaterThan(titleBox.x + titleBox.width - 1);
+    // Measured until the layout has settled after the change.
+    await expect
+      .poll(async () => {
+        const titleBox = await box(title);
+        const actionBox = await box(previous);
+        // On the title's row (aligned to its last line), to its right; a wrapped
+        // row would put the link's middle below the title.
+        const middle = actionBox.y + actionBox.height / 2;
+        return middle > titleBox.y && middle < titleBox.y + titleBox.height && actionBox.x > titleBox.x + titleBox.width - 1;
+      })
+      .toBe(true);
   }
   await expectNoHorizontalScroll(page);
 });
