@@ -502,7 +502,7 @@ test("Markera som lagad deducts from the pantry, drops the dish from the list an
   await open.click();
   await expect(sheet).toBeVisible();
   const line = sheet.getByTestId("cooked-line").filter({ hasText: "Röda linser" });
-  await expect(line.getByTestId("cooked-line-text")).toHaveText("5 dl − 5 dl → 0 dl");
+  await expect(line.getByTestId("cooked-line-text")).toHaveText("Receptet använder 5 dl");
   await expect(line).toContainText("så det blir 0");
   await sheet.getByRole("button", { name: "Dra från matvarorna och markera lagad" }).click();
   await expect(sheet).toHaveCount(0);
@@ -516,9 +516,9 @@ test("Markera som lagad deducts from the pantry, drops the dish from the list an
   await page.goto("/matsedel");
   await (await openMore(page, dish(page, gryta), gryta)).getByRole("button", { name: "Markera som lagad" }).click();
   const cream = sheet.getByTestId("cooked-line").filter({ hasText: "Grädde" });
-  await expect(cream.getByTestId("cooked-line-text")).toHaveText("5 dl − 2 dl → 3 dl");
+  await expect(cream.getByTestId("cooked-line-text")).toHaveText("Receptet använder 2 dl");
   await sheet.getByRole("textbox", { name: "Ny mängd Grädde" }).fill("4");
-  await expect(cream.getByTestId("cooked-line-text")).toHaveText("5 dl − 1 dl → 4 dl");
+  await expect(cream.getByTestId("cooked-line-text")).toHaveText("Receptet använder 1 dl");
   await sheet.getByRole("button", { name: "Dra från matvarorna och markera lagad" }).click();
   await expect(dish(page, gryta).getByTestId("dish-cooked")).toBeVisible();
   expect(await amountOf("Grädde")).toEqual([4]);
@@ -772,7 +772,7 @@ test("the week tiles show counts and switch week, and an earlier week is copied 
   const targets = page.getByTestId("copy-target").filter({ visible: true });
   await expect(targets).toHaveCount(3);
   // Each week says what it already has, like the week tiles.
-  await expect(targets.nth(1)).toContainText(nextBefore === 0 ? "· Tom" : nextBefore === 1 ? "· 1 rätt" : `· ${nextBefore} rätter`);
+  await expect(targets.nth(1)).toContainText(nextBefore === 0 ? "Tom" : nextBefore === 1 ? "1 rätt" : `${nextBefore} rätter`);
   expect(await page.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth)).toBe(true);
   await targets.nth(1).click();
 

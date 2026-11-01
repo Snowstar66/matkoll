@@ -627,7 +627,8 @@ export async function chooseUnit(scope: Locator, unit: string): Promise<void> {
   const group = scope.getByRole("radiogroup", { name: "Enhet" });
   const chip = group.getByRole("radio", { name: unit, exact: true });
   if ((await chip.count()) > 0) {
-    await chip.click();
+    // A tap on the chosen chip would clear the unit.
+    if ((await chip.getAttribute("aria-checked")) !== "true") await chip.click();
     return;
   }
   await group.getByRole("button", { name: "Fler ›" }).click();
