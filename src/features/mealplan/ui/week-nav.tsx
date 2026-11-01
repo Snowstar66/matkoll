@@ -61,7 +61,7 @@ export function WeekNav({
                 <span
                   aria-hidden="true"
                   data-testid="week-count"
-                  className={`text-[13px] ${selected ? "font-semibold text-accent" : "text-ink-2"}`}
+                  className={`text-[13px] ${selected ? "font-semibold text-accent dark:text-ink" : "text-ink-2"}`}
                 >
                   {weekFillText(count)}
                 </span>

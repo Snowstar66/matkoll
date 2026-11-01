@@ -15,7 +15,7 @@ import { Badge } from "@/components/badges";
 import { Button } from "@/components/button";
 import { FieldError, FieldLabel, Input, inputClasses } from "@/components/field";
 import { FilterPills } from "@/components/filter-pills";
-import { PlusIcon } from "@/components/icons";
+import { ChevronDownIcon, MinusIcon, PlusIcon, TrashIcon } from "@/components/icons";
 import { IngredientPicker } from "@/components/ingredient-picker";
 import { Notice } from "@/components/notice";
 import { Sheet } from "@/components/sheet";
@@ -39,6 +39,7 @@ import {
   pantryItemFormSchema,
   pantryNewIngredientName,
   parseAmountField,
+  stepAmountField,
   type PantryItemFormInput,
 } from "../domain/pantry-item-form";
 import { photoSiteId, suggestionGoneText, suggestionLabel, type PantrySuggestion } from "../domain/pantry-suggestion";
@@ -231,6 +232,8 @@ export function PantryItemSheet(props: PantryItemSheetProps) {
   const [initial, setInitial] = useState(() => initialValues(target));
   const [values, setValues] = useState(initial);
   const [picking, setPicking] = useState(target.kind === "new");
+  /** Story 16.17: the place choice is unfolded; an item that exists shows it as a calm row first. */
+  const [placeOpen, setPlaceOpen] = useState(false);
   /** Why saving failed; the form stays as it was. Cleared when a field changes. */
   const [error, setError] = useState<string | null>(null);
   /** The server's messages for fields (`amount`, `ingredient`), shown at the field. Cleared when a field changes. */
@@ -254,6 +257,7 @@ export function PantryItemSheet(props: PantryItemSheetProps) {
     setInitial(fresh);
     setValues(fresh);
     setPicking(target.kind === "new");
+    setPlaceOpen(false);
     setError(null);
     setServerFields({});
     setAmountTouched(false);
@@ -416,23 +420,56 @@ export function PantryItemSheet(props: PantryItemSheetProps) {
           {saving ? "Sparar …" : submitLabel[target.kind]}
         </Button>
         {target.kind === "edit" ? (
-          <Button variant="text" fullWidth disabled={saving} onClick={remove}>
-            Ta bort
-          </Button>
+          // Story 16.17: Ta bort stands last under a line, in muted red, so it never looks like a second way on.
+          <div className="mt-3 border-t border-border pt-1">
+            <Button variant="danger" fullWidth disabled={saving} onClick={remove}>
+              <TrashIcon size={20} />
+              Ta bort
+            </Button>
+          </div>
         ) : null}
         {target.kind === "suggestion" ? (
-          <Button variant="text" fullWidth disabled={saving} onClick={rejectSuggestion}>
-            Avvisa
-          </Button>
+          <div className="mt-3 border-t border-border pt-1">
+            <Button variant="quiet" fullWidth disabled={saving} onClick={rejectSuggestion}>
+              Avvisa
+            </Button>
+          </div>
         ) : null}
       </>
     );
+
+  const picksAgain = picking && ingredient !== null;
+  const heading = picking ? (
+    ingredient ? (
+      "Byt vara"
+    ) : (
+      "Lägg till vara"
+    )
+  ) : ingredient ? (
+    <span className="flex min-w-0 flex-wrap items-center gap-2">
+      <span data-testid="pantry-sheet-ingredient">{ingredient.name}</span>
+      {ingredient.kind === "new" ? <Badge tone="neutral">Ny</Badge> : null}
+    </span>
+  ) : undefined;
+  const choosePlace = target.kind === "new";
+
+  /** The amount stepper: − and + move the amount by the unit's step (see stepAmountField). */
+  function stepAmount(direction: 1 | -1) {
+    const next = stepAmountField(values.amount, values.unit, direction);
+    if (next !== null) update({ amount: next });
+  }
+  const canStepDown = stepAmountField(values.amount, values.unit, -1) !== null;
+  const canStepUp = stepAmountField(values.amount, values.unit, 1) !== null;
+  const stepButton =
+    "flex w-14 flex-none items-center justify-center text-accent outline-none focus-visible:outline-2 focus-visible:-outline-offset-2 focus-visible:outline-accent disabled:cursor-not-allowed disabled:opacity-40";
 
   return (
     <Sheet
       open={open}
       onClose={onClose}
       title="Lagervara"
+      heading={heading}
+      onBack={picksAgain ? () => setPicking(false) : undefined}
       closeLabel="Avbryt"
       isDirty={isDirty}
       preventClose={saving}
@@ -445,31 +482,22 @@ export function PantryItemSheet(props: PantryItemSheetProps) {
           onChoose={choose}
           onNew={chooseNew}
           onCancel={ingredient ? () => setPicking(false) : undefined}
-          header={
-            ingredient ? (
-              <div className="flex items-center justify-between gap-3">
-                <h3 className="text-row-title text-ink">Byt ingrediens</h3>
-                <Button variant="text" onClick={() => setPicking(false)} className="-mr-3">
-                  Avbryt
-                </Button>
-              </div>
-            ) : null
-          }
+          currentId={ingredient?.kind === "existing" ? ingredient.ingredientId : undefined}
+          hint={ingredient ? undefined : "Börja skriva, till exempel \u201Cgul lök\u201D."}
         />
       ) : (
         <form id={formId} onSubmit={submit} noValidate inert={saving} className="flex flex-col gap-5">
-          <div className="flex flex-col gap-1.5">
-            <div className="flex items-center justify-between gap-3">
-              <div className="flex min-w-0 flex-wrap items-center gap-2">
-                <span data-testid="pantry-sheet-ingredient" className="text-row-title text-ink">
-                  {ingredient.name}
-                </span>
-                {ingredient.kind === "new" ? <Badge tone="neutral">Ny</Badge> : null}
-              </div>
-              <Button variant="text" aria-label="Byt ingrediens" onClick={() => setPicking(true)} className="-mr-3">
-                Byt
-              </Button>
-            </div>
+          <div className="-mt-3 flex flex-col gap-1.5">
+            <p className="flex min-h-tap flex-wrap items-center gap-x-1.5 text-meta text-ink-2">
+              Fel vara?
+              <button
+                type="button"
+                onClick={() => setPicking(true)}
+                className="min-h-tap font-medium text-accent underline underline-offset-[3px]"
+              >
+                Byt vara
+              </button>
+            </p>
             {ingredientError ? <FieldError role="alert">{ingredientError}</FieldError> : null}
           </div>
 
@@ -491,13 +519,25 @@ export function PantryItemSheet(props: PantryItemSheetProps) {
             </div>
           ) : null}
 
-          <div className="flex flex-col gap-1.5">
-            <div className="flex gap-3">
-              <div className="flex w-28 flex-col gap-1.5">
-                <FieldLabel htmlFor={`${ids}-amount`}>Mängd</FieldLabel>
-                <Input
+          <div className="flex flex-col gap-2">
+            <span className="text-body font-medium text-ink">
+              Mängd och enhet
+            </span>
+            <div className="flex flex-wrap gap-3">
+              <div className="flex h-14 flex-none items-stretch overflow-hidden rounded-md border border-ink-3 bg-surface">
+                <button
+                  type="button"
+                  aria-label="Minska"
+                  disabled={!canStepDown}
+                  onClick={() => stepAmount(-1)}
+                  className={stepButton}
+                >
+                  <MinusIcon size={22} />
+                </button>
+                <input
                   ref={amountRef}
                   id={`${ids}-amount`}
+                  aria-label="Mängd"
                   inputMode="decimal"
                   autoComplete="off"
                   autoFocus
@@ -505,15 +545,25 @@ export function PantryItemSheet(props: PantryItemSheetProps) {
                   onChange={(event) => update({ amount: event.target.value })}
                   onBlur={() => setAmountTouched(true)}
                   {...(amountError ? { "aria-invalid": true, "aria-describedby": `${ids}-amount-error` } : {})}
+                  className="w-[72px] min-w-0 border-x border-border bg-surface text-center text-step font-medium tabular-nums text-ink outline-none focus-visible:outline-2 focus-visible:-outline-offset-2 focus-visible:outline-accent aria-[invalid=true]:bg-sky"
                 />
+                <button
+                  type="button"
+                  aria-label="Öka"
+                  disabled={!canStepUp}
+                  onClick={() => stepAmount(1)}
+                  className={stepButton}
+                >
+                  <PlusIcon size={22} />
+                </button>
               </div>
-              <div className="flex min-w-0 flex-1 flex-col gap-1.5">
-                <FieldLabel htmlFor={`${ids}-unit`}>Enhet</FieldLabel>
+              <div className="relative min-w-28 flex-1">
                 <select
                   id={`${ids}-unit`}
+                  aria-label="Enhet"
                   value={values.unit}
                   onChange={(event) => update({ unit: event.target.value as Unit | "" })}
-                  className={inputClasses}
+                  className="h-14 w-full appearance-none rounded-md border border-ink-3 bg-surface pr-11 pl-4 text-body text-ink"
                 >
                   <option value="">Ingen enhet</option>
                   {UNITS.map((unit) => (
@@ -522,26 +572,66 @@ export function PantryItemSheet(props: PantryItemSheetProps) {
                     </option>
                   ))}
                 </select>
+                <ChevronDownIcon
+                  size={18}
+                  className="pointer-events-none absolute top-1/2 right-4 -translate-y-1/2 text-accent"
+                />
               </div>
             </div>
             {amountError ? <FieldError id={`${ids}-amount-error`}>{amountError}</FieldError> : null}
+            <p className="text-meta text-ink-2">Lämna mängden tom om du inte vill räkna.</p>
           </div>
 
-          <div className="flex flex-col gap-1.5">
-            {/* The pills are a radio group named "Plats"; this is its visible label. */}
-            <span aria-hidden="true" className="text-body font-medium text-ink">
-              Plats
-            </span>
-            <FilterPills
-              label="Plats"
-              options={LOCATIONS.map((location) => ({ value: location, label: location }))}
-              value={values.location}
-              onChange={(location) => update({ location })}
-            />
-          </div>
+          {choosePlace ? (
+            <div className="flex flex-col gap-2">
+              {/* The pills are a radio group named "Plats"; this is its visible label. */}
+              <span aria-hidden="true" className="text-body font-medium text-ink">
+                Plats
+              </span>
+              <FilterPills
+                label="Plats"
+                segmented
+                tall
+                options={LOCATIONS.map((location) => ({ value: location, label: location }))}
+                value={values.location}
+                onChange={(location) => update({ location })}
+              />
+            </div>
+          ) : (
+            <div className="flex flex-col gap-2">
+              {/* Story 16.17: moving an item is rare, so the place is a calm row that unfolds the choice. */}
+              <button
+                type="button"
+                aria-expanded={placeOpen}
+                aria-controls={`${ids}-place`}
+                onClick={() => setPlaceOpen((current) => !current)}
+                className="flex min-h-12 items-center gap-1.5 border-y border-hairline text-left text-body text-ink-2"
+              >
+                <span>
+                  Ligger i <span className="font-medium text-ink">{values.location}</span> ·{" "}
+                </span>
+                <span className="flex items-center gap-0.5 font-medium text-accent">
+                  Flytta
+                  <ChevronDownIcon size={16} className={placeOpen ? "" : "-rotate-90"} />
+                </span>
+              </button>
+              <div id={`${ids}-place`} hidden={!placeOpen}>
+                <FilterPills
+                  label="Plats"
+                  segmented
+                  tall
+                  options={LOCATIONS.map((location) => ({ value: location, label: location }))}
+                  value={values.location}
+                  onChange={(location) => update({ location })}
+                />
+              </div>
+            </div>
+          )}
 
           <div className="flex flex-col gap-1.5">
-            <FieldLabel htmlFor={`${ids}-label`}>Märke eller sort</FieldLabel>
+            <FieldLabel htmlFor={`${ids}-label`}>
+              Märke eller sort <span className="font-normal text-ink-2">(valfritt)</span>
+            </FieldLabel>
             <Input
               id={`${ids}-label`}
               autoComplete="off"

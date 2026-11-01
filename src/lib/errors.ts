@@ -55,6 +55,8 @@ export const errorMessages = {
   // Removing an item (Story 2.3). After a failed remove the row is back in
   // the list; after a failed "Ångra" it stays removed.
   pantry_remove_failed: "Det gick inte att ta bort varan.",
+  // Moving an unpacked item to another place (Story 16.18); it stays where it was.
+  pantry_move_failed: "Det gick inte att flytta varan.",
   pantry_restore_failed: "Det gick inte att ångra.",
   // "Töm kylen" (Story 6.3), shown in the sheet that asked: nothing is
   // removed, and the sheet stays so it can be tried again.

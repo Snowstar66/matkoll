@@ -14,6 +14,13 @@ import { PantrySuggestionList } from "./pantry-suggestion-list";
 import { PantrySuggestionsProvider } from "./pantry-suggestions";
 import type { PhotoPostAnswer } from "./photo-post";
 
+/** An item that exists shows its place as a row "Ligger i … · Flytta" (Story 16.17); the radio is there once it is unfolded. */
+function placeRadio(scope: HTMLElement, name: string) {
+  const row = within(scope).queryByRole("button", { name: /^Ligger i/ });
+  if (row?.getAttribute("aria-expanded") === "false") fireEvent.click(row);
+  return within(scope).getByRole("radio", { name });
+}
+
 /** The place Hemma shows (Story 8.2). */
 const testSite = { id: "55555555-5555-4555-8555-555555555555" };
 /** The place a photo was taken for (Story 8.4): the one Hemma shows. */
@@ -426,10 +433,10 @@ describe("Rätta", () => {
     expect(within(sheet()).getByTestId("pantry-sheet-ingredient")).toHaveTextContent("mjölk");
     expect(within(sheet()).getByLabelText("Mängd")).toHaveValue("1");
     expect(within(sheet()).getByLabelText("Enhet")).toHaveValue("förp");
-    expect(within(sheet()).getByRole("radio", { name: "Kyl" })).toHaveAttribute("aria-checked", "true");
+    expect(placeRadio(sheet(), "Kyl")).toHaveAttribute("aria-checked", "true");
 
     fireEvent.change(within(sheet()).getByLabelText("Mängd"), { target: { value: "2,5" } });
-    fireEvent.click(within(sheet()).getByRole("radio", { name: "Frys" }));
+    fireEvent.click(placeRadio(sheet(), "Frys"));
     fireEvent.click(within(sheet()).getByRole("button", { name: "Bekräfta" }));
     expect(within(sheet()).getByRole("button", { name: "Sparar …" })).toBeDisabled();
     expect(lastConfirm().items).toEqual([
@@ -448,7 +455,7 @@ describe("Rätta", () => {
     render(<Hemma />);
     await analyze();
     fireEvent.click(button("Rätta mjölk"));
-    fireEvent.click(within(sheet()).getByRole("radio", { name: "Frys" }));
+    fireEvent.click(placeRadio(sheet(), "Frys"));
     fireEvent.click(within(sheet()).getByRole("button", { name: "Bekräfta" }));
     expect(photoPosts).toHaveLength(0);
     await answerConfirm();
@@ -466,7 +473,7 @@ describe("Rätta", () => {
     await analyze();
     fireEvent.click(button("Rätta gurka"));
     expect(within(sheet()).getByText("Ny")).toBeInTheDocument();
-    fireEvent.click(within(sheet()).getByRole("button", { name: "Byt ingrediens" }));
+    fireEvent.click(within(sheet()).getByRole("button", { name: "Byt vara" }));
     const field = within(sheet()).getByRole("searchbox", { name: "Sök ingrediens" });
     fireEvent.change(field, { target: { value: "slanggurka" } });
     await act(async () => fireEvent.keyDown(field, { key: "Enter" }));
@@ -523,7 +530,7 @@ describe("Review patches", () => {
     await analyze();
     fireEvent.click(button("Rätta gurka"));
     fireEvent.change(within(sheet()).getByLabelText("Mängd"), { target: { value: "3" } });
-    fireEvent.click(within(sheet()).getByRole("radio", { name: "Frys" }));
+    fireEvent.click(placeRadio(sheet(), "Frys"));
     fireEvent.click(within(sheet()).getByRole("button", { name: "Bekräfta" }));
     expect(lastConfirm().items).toEqual([
       { ingredient: fridge.suggestions[0].ingredient, location: "Frys", amount: 3, unit: "st" },

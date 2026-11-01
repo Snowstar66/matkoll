@@ -53,6 +53,7 @@ import {
 } from "../domain/list-text";
 import { CustomItemSheet } from "./custom-item-sheet";
 import { HiddenLinesSheet } from "./hidden-lines-sheet";
+import { UnpackSheet } from "./unpack-sheet";
 import { LineDetailSheet } from "./line-detail-sheet";
 import { useLineRemoval } from "./line-removal";
 import { useOwnChanges } from "./own-changes";
@@ -634,6 +635,7 @@ export function ShoppingList({
     [planId, removal.shown, checks],
   );
   const own = useOwnChanges(savedLines);
+  const router = useRouter();
   const pantry = usePutInPantry(planId, site?.id ?? null, savedLines, own);
   // The lines "Lägg till i Matvaror" acts on, as shown (a tap shows before it is saved); a checked text line is not one.
   const toPantry = lines.flatMap((line) => (canPutInPantry(line) ? [line.key] : []));
@@ -936,6 +938,17 @@ export function ShoppingList({
         <Notice key={notice.id} role="alert">
           {notice.text}
         </Notice>
+      ) : null}
+      {/* Story 16.18: "Ändra" on the confirmation; at the top level, since the list may be empty by then. */}
+      {pantry.unpacking ? (
+        <UnpackSheet
+          key={pantry.unpacking.run}
+          open={pantry.unpacking.open}
+          items={pantry.unpacking.items}
+          siteId={pantry.unpacking.siteId}
+          onClose={pantry.closeUnpacking}
+          onSiteGone={() => router.refresh()}
+        />
       ) : null}
       {/* "Lägg till i Matvaror" that failed; trying again adds nothing twice. */}
       {pantry.notice ? (

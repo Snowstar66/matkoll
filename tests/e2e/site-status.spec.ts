@@ -325,7 +325,7 @@ test("Lägg till i Matvaror with Stugan selected puts the ketchup on Stugan and 
   await showBasket(page);
   await expect(ketchupCheck(page)).toBeChecked();
   await putButton(page).click();
-  await expect(toast(page)).toHaveText("Lagt 1 vara i Matvaror för Stugan.");
+  await expect(toast(page)).toContainText("Lagt 1 vara i skafferi för Stugan.");
   await expect(ketchupCheck(page)).toHaveCount(0);
 
   await expect
@@ -375,7 +375,7 @@ test("Lägg till i Matvaror for a place removed elsewhere writes nothing, keeps 
 
   // A second tap puts the ketchup on Hemma, the only place now.
   await putButton(page).click();
-  await expect(toast(page)).toHaveText("Lagt 1 vara i Matvaror.");
+  await expect(toast(page)).toContainText("Lagt 1 vara i skafferi.");
   await expect
     .poll(async () => (await pantryOn(hemma)).filter((row) => row.ingredient_id === ids.get("Ketchup")))
     .toEqual([{ ingredient_id: ids.get("Ketchup"), location: "Skafferi", amount: 1, unit: "förp" }]);
@@ -397,7 +397,7 @@ test("Lägg till i Matvaror puts the ketchup on the list's place when Hemma is s
   // Another device selects Hemma before the tap.
   await selectSite(hemma);
   await putButton(page).click();
-  await expect(toast(page)).toHaveText("Lagt 1 vara i Matvaror för Stugan.");
+  await expect(toast(page)).toContainText("Lagt 1 vara i skafferi för Stugan.");
 
   await expect
     .poll(async () => (await pantryOn(stugan)).some((row) => row.ingredient_id === ids.get("Ketchup")))

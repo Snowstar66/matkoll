@@ -377,7 +377,7 @@ test("Lägg till i Matvaror against Stugan puts only what was checked off there,
   await expect(progress(page)).toHaveText(/1 av 2 i korgen$/);
   await expect(putButton(page)).toBeEnabled();
   await putButton(page).click();
-  await expect(toast(page, "Lagt 1 vara i Matvaror för Stugan.")).toBeVisible();
+  await expect(toast(page, "Lagt 1 vara i kyl för Stugan.")).toBeVisible();
   await expect(lineCheck(page, "Korv")).toHaveCount(0);
 
   // Exactly the korv went to Stugan, beside the senap that was there; Hemma is untouched.
