@@ -1,7 +1,7 @@
 "use client";
 
 import { useRouter } from "next/navigation";
-import { type ReactNode, useCallback, useEffect, useMemo, useState } from "react";
+import { type ReactNode, startTransition, useCallback, useEffect, useMemo, useState } from "react";
 import { ShellNoteProvider } from "@/components/app-shell/note-slot";
 import { useToast } from "@/components/toast";
 import { useLiveRefresh } from "@/components/use-live-refresh";
@@ -26,6 +26,11 @@ async function readBoard(): Promise<NoteBoard | null> {
   }
 }
 
+/** The board read now, or the one shown when nothing in it changed, so a read that brings nothing new renders nothing. */
+function nextBoard(current: NoteBoard, next: NoteBoard): NoteBoard {
+  return JSON.stringify(current) === JSON.stringify(next) ? current : next;
+}
+
 /**
  * Lappen på kylskåpet (Story 24.1): reads the household's open notes when the
  * app starts and then on the live pace of Story 17.12 (every 10 s while the tab
@@ -43,16 +48,20 @@ export function NotesProvider({ addToPlan, children }: { addToPlan: AddToPlan; c
   const [busy, setBusy] = useState(0);
   const [sheet, setSheet] = useState<NoteSheetMode | null>(null);
 
+  // The board is set in a transition: the first read lands while the shell's
+  // Suspense boundaries may still be streaming in, and an urgent context update
+  // would make React drop their server HTML and render them again on the client,
+  // leaving the streamed copy behind as a hidden duplicate in the page.
   const load = useCallback(async () => {
     const next = await readBoard();
-    if (next) setBoard(next);
+    if (next) startTransition(() => setBoard((current) => nextBoard(current, next)));
   }, []);
 
   useEffect(() => {
     // The first read as the app starts; then the live pace below.
     let live = true;
     void readBoard().then((next) => {
-      if (live && next) setBoard(next);
+      if (live && next) startTransition(() => setBoard((current) => nextBoard(current, next)));
     });
     return () => {
       live = false;
@@ -112,20 +121,26 @@ export function NotesProvider({ addToPlan, children }: { addToPlan: AddToPlan; c
   );
 
   const visible = useMemo(() => board.notes.filter((note) => !hidden.has(note.id)), [board.notes, hidden]);
-  const { received, ownNewest } = splitNotes(visible);
+  const { received, ownNewest } = useMemo(() => splitNotes(visible), [visible]);
   const others = board.others;
 
   const write = useCallback(() => setSheet({ kind: "write", title: noteSheetTitle(others) }), [others]);
   const reply = useCallback((note: NoteView) => setSheet({ kind: "reply", note }), []);
 
-  const card =
-    received.length > 0 ? (
-      <NoteCard notes={received} onAction={act} onDone={done} onReply={reply} />
-    ) : ownNewest ? (
-      <OwnNoteLine note={ownNewest} />
-    ) : null;
+  const card = useMemo(
+    () =>
+      received.length > 0 ? (
+        <NoteCard notes={received} onAction={act} onDone={done} onReply={reply} />
+      ) : ownNewest ? (
+        <OwnNoteLine note={ownNewest} />
+      ) : null,
+    [received, ownNewest, act, done, reply],
+  );
 
-  const value = { card, waiting: received.length > 0, write: others.length > 0 ? write : null };
+  // The same value while nothing shown changes, so the shell under it is not rendered again.
+  const waiting = received.length > 0;
+  const canWrite = others.length > 0;
+  const value = useMemo(() => ({ card, waiting, write: canWrite ? write : null }), [card, waiting, canWrite, write]);
 
   return (
     <ShellNoteProvider value={value}>
