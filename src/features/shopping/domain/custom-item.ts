@@ -3,7 +3,7 @@ import { parseQuantity, unitSchema, type Unit } from "@/features/catalog";
 
 // Pontus's own items on the shopping list (Story 3.5, FR-17, AD-8): free text
 // that may point at a catalog ingredient, with an optional amount and unit.
-// One schema for the sheet "Lägg till egen vara" and addCustomItem (AD-12).
+// One schema for the sheet "Lägg till vara" and addCustomItem (AD-12).
 // Pure, so it is tested without a database.
 
 /** Under the text field when it is empty (EXPERIENCE.md, Voice and Tone). */

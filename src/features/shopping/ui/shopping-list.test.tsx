@@ -836,3 +836,63 @@ describe("ShoppingList when a check goes back (Story 11.4 review)", () => {
     expect(back).toHaveFocus();
   });
 });
+
+describe("the filter Egna / Till rätter", () => {
+  const own = line({ key: "c:11111111-1111-4111-8111-111111111111", label: "diskmedel", section: "Övrigt", isCustom: true, origins: [], coverage: { kind: "unlinked" } });
+  const names = () => screen.queryAllByTestId("shopping-line").map((row) => row.querySelector("[data-testid=shopping-line-name]")?.textContent ?? row.textContent);
+
+  afterEach(() => {
+    window.history.replaceState(null, "", "/");
+  });
+
+  it("shows only own items with Egna, only dish lines with Till rätter, and lets the chosen chip go again", async () => {
+    const user = userEvent.setup();
+    window.history.replaceState(null, "", "/lista?vecka=2026-11-02");
+    render(<ShoppingList plan={plan} lines={[...lines, own]} pantryUnavailable={false} />);
+    const chips = screen.getByRole("group", { name: "Visa" });
+    const egna = within(chips).getByRole("button", { name: "Egna 1" });
+    const ratter = within(chips).getByRole("button", { name: "Till rätter 6" });
+    expect(egna).toHaveAttribute("aria-pressed", "false");
+    expect(screen.getAllByTestId("shopping-line")).toHaveLength(7);
+
+    await user.click(egna);
+    expect(egna).toHaveAttribute("aria-pressed", "true");
+    expect(names()).toEqual([expect.stringContaining("diskmedel")]);
+    // Kept in the address, beside the week.
+    expect(window.location.search).toBe("?vecka=2026-11-02&visa=egna");
+    // The progress is the whole list's.
+    expect(screen.getByTestId("list-progress")).toHaveTextContent("7 varor kvar");
+
+    await user.click(ratter);
+    expect(ratter).toHaveAttribute("aria-pressed", "true");
+    expect(egna).toHaveAttribute("aria-pressed", "false");
+    expect(screen.getAllByTestId("shopping-line")).toHaveLength(6);
+    expect(names().some((name) => name?.includes("diskmedel"))).toBe(false);
+    expect(window.location.search).toBe("?vecka=2026-11-02&visa=ratter");
+
+    // Pressing the chosen chip again shows every line (Alla).
+    await user.click(ratter);
+    expect(ratter).toHaveAttribute("aria-pressed", "false");
+    expect(screen.getAllByTestId("shopping-line")).toHaveLength(7);
+    expect(window.location.search).toBe("?vecka=2026-11-02");
+  });
+
+  it("starts from the filter the address asked for, and says when it has nothing", async () => {
+    const user = userEvent.setup();
+    render(<ShoppingList plan={plan} lines={lines} pantryUnavailable={false} filter="own" />);
+    expect(screen.getByRole("button", { name: "Egna 0" })).toHaveAttribute("aria-pressed", "true");
+    expect(screen.queryAllByTestId("shopping-line")).toHaveLength(0);
+    expect(screen.getByText("Inga egna varor den här veckan.")).toBeInTheDocument();
+    // The + is still there.
+    expect(screen.getByTestId("add-item-fab")).toBeInTheDocument();
+    await user.click(screen.getByRole("button", { name: "Egna 0" }));
+    expect(screen.queryByText("Inga egna varor den här veckan.")).not.toBeInTheDocument();
+    expect(screen.getAllByTestId("shopping-line")).toHaveLength(6);
+  });
+
+  it("says when every own item is in the basket", () => {
+    render(<ShoppingList plan={plan} lines={[...lines, { ...own, checked: true }]} pantryUnavailable={false} filter="own" />);
+    expect(screen.getByText("Alla egna varor ligger i korgen.")).toBeInTheDocument();
+    expect(screen.getByTestId("basket-row")).toHaveTextContent("I korgen (1)");
+  });
+});

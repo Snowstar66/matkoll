@@ -16,7 +16,7 @@ import { keyedItemsSchema, type KeyedItemsInput } from "../domain/keyed-item";
  * item's id is made from the key, so adding the same offer again, or a retry
  * after a lost answer, leaves one item (addCustomItemIn returns the one
  * there). The text is the caller's; `ingredientId` links a catalog
- * ingredient, as in Lägg till egen vara. The page passes this action to the
+ * ingredient, as in Lägg till vara. The page passes this action to the
  * offers sheet (AD-1). Revalidates the list (AD-18).
  *
  * Fails with `unauthorized`, `validation`, `shopping_plan_changed` or

@@ -14,7 +14,7 @@ import {
 } from "../domain/custom-item";
 
 /**
- * "Lägg till" in the sheet Lägg till egen vara (FR-17, AD-8): adds Pontus's
+ * "Lägg till" in the sheet Lägg till vara (FR-17, AD-8): adds Pontus's
  * own item to the list, with the form's schema. It belongs to the
  * household, not to a week (Story 17.10): it stays on the list, whichever
  * week is shown, until someone checks it off or removes it. A

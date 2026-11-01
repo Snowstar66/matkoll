@@ -26,7 +26,7 @@ describe("manifest", () => {
     });
   });
 
-  it("offers a shortcut that opens Lägg till egen vara at once (Story 17.9)", () => {
+  it("offers a shortcut that opens Lägg till vara at once (Story 17.9)", () => {
     expect(manifest().shortcuts).toEqual([{ name: "Lägg till vara", short_name: "Lägg till", url: "/lista/lagg-till" }]);
   });
 

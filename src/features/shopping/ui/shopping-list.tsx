@@ -8,7 +8,7 @@ import { CategoryHeader } from "@/components/category-header";
 import { CheckCircle } from "@/components/check-circle";
 import { cx } from "@/components/cx";
 import { EmptyState } from "@/components/empty-state";
-import { PlusIcon } from "@/components/icons";
+import { Chip, ChipRow } from "@/components/chip";
 import { FixedAction } from "@/components/fixed-action";
 import type { SearchIngredients } from "@/components/ingredient-picker";
 import { ListGroup } from "@/components/list-group";
@@ -25,6 +25,14 @@ import { errorMessages, fail, ok, type Result } from "@/lib/errors";
 import { setChecked } from "../actions/set-checked";
 import type { CheckChange } from "../domain/check";
 import type { ShoppingLine } from "../domain/compute-list";
+import {
+  filterEmptyText,
+  LIST_FILTERS,
+  type ListFilter,
+  listFilterLabels,
+  listFilterParam,
+  matchesListFilter,
+} from "../domain/list-filter";
 import { exportableLines } from "../domain/export-basket";
 import {
   allInStockText,
@@ -51,6 +59,7 @@ import {
   siteRecountedText,
   skippedDishesText,
 } from "../domain/list-text";
+import { AddItemFab, AddItemFabSpacer, useAddItemSheet } from "./add-item";
 import { CustomItemSheet } from "./custom-item-sheet";
 import { HiddenLinesSheet } from "./hidden-lines-sheet";
 import { UnpackSheet } from "./unpack-sheet";
@@ -80,8 +89,9 @@ import { useOfflineChecks } from "./use-offline-checks";
 // "I korgen" at the bottom, which is folded: the basket row "6 varor i
 // korgen" with "Visa" opens it, and a check there puts the line back. A
 // second live region says "Citron i korgen." or "Citron tillbaka på
-// listan.", and focus moves to the next line's check. "Lägg till egen vara"
-// under the list adds Pontus's own item (FR-17). A tap on a line's name
+// listan.", and focus moves to the next line's check. The round "+" at the
+// bottom right on a phone (the header's "+" on a desktop) adds Pontus's own
+// item (FR-17); the chips Egna and Till rätter filter the lines. A tap on a line's name
 // opens Listpostdetalj (Story 3.6), where Pontus corrects a recipe line's
 // amount or changes an own item; a swipe to the left removes a line (an own
 // item) or hides it (a recipe line), with "Ångra" in the short confirmation.
@@ -123,13 +133,18 @@ export type ShoppingListProps = {
    */
   pendingClear?: number;
   /**
-   * Searches the catalog for the suggestions in Lägg till egen vara
+   * Searches the catalog for the suggestions in Lägg till vara
    * (catalog.searchIngredients, passed down from the page, AD-1). Without
    * it, the sheet suggests nothing.
    */
   searchIngredients?: SearchIngredients;
-  /** Story 17.9: Lägg till egen vara is open from the start, with focus in the field (the quick-add address). */
+  /**
+   * Story 17.9: Lägg till vara is open from the start, with focus in the field (the quick-add
+   * address). Only without an AddItemProvider; the provider opens it on the page.
+   */
   openAddOnStart?: boolean;
+  /** The filter the address asked for (`?visa=egna`), or `null` for every line. */
+  filter?: ListFilter | null;
   /** The selected store (Story 7.2), as the list was read; `null` when none is selected. */
   store?: Store | null;
   /** The store could not be read: the detail's section Produktval says so. */
@@ -568,10 +583,16 @@ type ChoiceSheet = {
   store: Store;
 };
 
+/** The "+" that shows: the floating one on a phone, the header's on a desktop. */
+function visibleAddButton(): HTMLElement | undefined {
+  const buttons = [...document.querySelectorAll<HTMLElement>("[data-add-custom-item]")];
+  return buttons.find((button) => (typeof button.checkVisibility === "function" ? button.checkVisibility() : true));
+}
+
 /**
  * Focus after a line was removed with the keyboard or from its detail: the
  * next line's check, else the one before; when that check is disabled (the
- * checks could not be read), the line's "Ta bort"; else "Lägg till egen vara".
+ * checks could not be read), the line's "Ta bort"; else "Lägg till vara".
  */
 function useFocusAfterRemoval(
   rootRef: RefObject<HTMLDivElement | null>,
@@ -591,11 +612,11 @@ function useFocusAfterRemoval(
             (element) => element.dataset.lineKey === target,
           )
         : undefined;
-      // The row's check; when checking is off, the row's "Ta bort" (its last button); else "Lägg till egen vara".
+      // The row's check; when checking is off, the row's "Ta bort" (its last button); else "Lägg till vara".
       const element =
         row?.querySelector<HTMLElement>("[role=checkbox]:not([disabled])") ??
         [...(row?.querySelectorAll<HTMLElement>("button:not([role=checkbox]):not([disabled])") ?? [])].at(-1) ??
-        rootRef.current?.querySelector<HTMLElement>("[data-add-custom-item]");
+        visibleAddButton();
       element?.focus();
       focusAfterRef.current = null;
     }
@@ -622,6 +643,7 @@ export function ShoppingList({
   userId = null,
   empty,
   openAddOnStart = false,
+  filter: initialFilter = null,
 }: ShoppingListProps) {
   const planId = plan?.id ?? null;
   const { checks, toggle, notice, offline, saving, settling } = useChecks(userId, planId, savedLines, handleSettled);
@@ -651,12 +673,23 @@ export function ShoppingList({
   const hasDishes = plan !== null && plan.dishCount > 0;
   const hasLines = lines.length > 0;
   const siteName = shownSiteName(site);
+  /** Egna or Till rätter (no chip chosen: every line); kept in the address so a reload keeps it. */
+  const [filter, setFilter] = useState<ListFilter | null>(initialFilter);
+  const changeFilter = (next: ListFilter | null) => {
+    setFilter(next);
+    const params = new URLSearchParams(window.location.search);
+    if (next) params.set("visa", listFilterParam[next]);
+    else params.delete("visa");
+    const query = params.toString();
+    window.history.replaceState(null, "", `${window.location.pathname}${query ? `?${query}` : ""}${window.location.hash}`);
+  };
+  const shownLines = useMemo(() => lines.filter((line) => matchesListFilter(line, filter)), [lines, filter]);
   // The lines left, per category; the checked ones are in I korgen, in the same category order.
-  const groups = useMemo(() => groupByCategory(lines.filter((line) => !line.checked)), [lines]);
+  const groups = useMemo(() => groupByCategory(shownLines.filter((line) => !line.checked)), [shownLines]);
   const leftKeys = groups.flatMap(({ lines: categoryLines }) => categoryLines.map((line) => line.key));
   const inBasket = useMemo(
-    () => groupByCategory(lines.filter((line) => line.checked)).flatMap(({ lines: categoryLines }) => categoryLines),
-    [lines],
+    () => groupByCategory(shownLines.filter((line) => line.checked)).flatMap(({ lines: categoryLines }) => categoryLines),
+    [shownLines],
   );
   const basketKeys = inBasket.map((line) => line.key);
   /** I korgen unfolded (Story 3.9): open from the start; the choice is kept per device. */
@@ -800,7 +833,7 @@ export function ShoppingList({
       if (shown && shown.checked !== checked) lineWentBack(key, checked);
     }
   });
-  const [sheet, setSheet] = useState({ open: openAddOnStart, session: openAddOnStart ? 1 : 0 });
+  const { sheet, openSheet, closeSheet } = useAddItemSheet(openAddOnStart);
   /** Listpostdetalj: the line as it was when its name was tapped, on the plan it was shown for. */
   const [detail, setDetail] = useState<{ open: boolean; session: number; line: ShoppingLine; planId: string | null } | null>(null);
   const openDetail = (line: ShoppingLine) => {
@@ -884,22 +917,6 @@ export function ShoppingList({
     />
   );
 
-  // "+ Lägg till egen vara": a row at the end of the list (rows go somewhere, buttons do something; Story 19.7).
-  const addRow = (
-    <li key="add-custom-item">
-      <button
-        type="button"
-        data-add-custom-item
-        aria-haspopup="dialog"
-        onClick={() => setSheet((current) => ({ open: true, session: current.session + 1 }))}
-        className="flex min-h-[52px] w-full items-center gap-2.5 px-4 text-left text-row-title text-accent focus-visible:-outline-offset-2"
-      >
-        <PlusIcon size={20} />
-        Lägg till egen vara
-      </button>
-    </li>
-  );
-
   return (
     <div
       ref={rootRef}
@@ -980,6 +997,7 @@ export function ShoppingList({
           {errorMessages.shopping_export_store_missing}
         </Notice>
       ) : null}
+      <CustomItemSheet open={sheet.open} session={sheet.session} searchIngredients={searchIngredients} onClose={closeSheet} />
       {plan === null && !hasLines ? (
         <EmptyState action={empty?.action}>{empty?.text ?? emptyPlanText}</EmptyState>
       ) : (
@@ -993,16 +1011,19 @@ export function ShoppingList({
             )
           ) : (
             <div data-list-lines className="flex flex-col gap-4">
-              <ProgressRow left={itemsLeft(lines)} checked={inBasket.length} total={lines.length} />
-              {groups.map(({ category, lines: categoryLines }, index) => (
-                <CategorySection key={category} category={category} extra={index === groups.length - 1 ? addRow : undefined}>
+              {/* The progress is the whole list's, whatever the filter shows. */}
+              <ProgressRow left={itemsLeft(lines)} checked={lines.filter((line) => line.checked).length} total={lines.length} />
+              <ListFilterChips filter={filter} onChange={changeFilter} lines={lines} />
+              {filter !== null && groups.length === 0 ? (
+                <EmptyState className="py-8">{filterEmptyText(filter, inBasket.length > 0)}</EmptyState>
+              ) : null}
+              {groups.map(({ category, lines: categoryLines }) => (
+                <CategorySection key={category} category={category}>
                   {categoryLines.map(lineRow)}
                 </CategorySection>
               ))}
             </div>
           )}
-          {/* Own items belong to the household, not to a week: also in a week without a plan (Story 17.10). */}
-          {groups.length > 0 ? null : <ListGroup label="Lägg till egen vara">{addRow}</ListGroup>}
           {inBasket.length > 0 ? (
             <Basket open={basketShown} onOpenChange={changeBasketOpen} count={inBasket.length}>
               {inBasket.map(lineRow)}
@@ -1023,12 +1044,6 @@ export function ShoppingList({
               onClose={() => setHiddenSheet(false)}
             />
           ) : null}
-          <CustomItemSheet
-            open={sheet.open}
-            session={sheet.session}
-            searchIngredients={searchIngredients}
-            onClose={() => setSheet((current) => ({ ...current, open: false }))}
-          />
           {canSend ? (
             <div className="flex flex-wrap justify-center gap-x-2">
               <Button variant="text" onClick={basket.share}>
@@ -1092,6 +1107,9 @@ export function ShoppingList({
           ) : null}
         </>
       )}
+      {/* Also on an empty week: own items belong to the household (Story 17.10). */}
+      <AddItemFabSpacer />
+      <AddItemFab onOpen={openSheet} />
     </div>
   );
 }
@@ -1157,16 +1175,52 @@ function ProgressRow({ left, checked, total }: { left: number; checked: number; 
  * lines in a list group named by it. A plain div, so a category is no
  * landmark of its own (components/README.md).
  */
-function CategorySection({ category, children, extra }: { category: Category; children: ReactNode[]; extra?: ReactNode }) {
+function CategorySection({ category, children }: { category: Category; children: ReactNode[] }) {
   const headingId = useId();
   return (
     <div data-testid="list-category" className="flex flex-col gap-2">
       <CategoryHeader id={headingId} category={category} count={children.length} />
       <ListGroup labelledBy={headingId} inset={56} className="@container">
         {children}
-        {extra}
       </ListGroup>
     </div>
+  );
+}
+
+/**
+ * The filter chips above the categories (Story 19.3's Chip and ChipRow, as in Recept): Egna and
+ * Till rätter, each with the number of its lines left to buy. No chip chosen is Alla; pressing
+ * the chosen chip lets it go.
+ */
+function ListFilterChips({
+  filter,
+  onChange,
+  lines,
+}: {
+  filter: ListFilter | null;
+  onChange: (filter: ListFilter | null) => void;
+  lines: readonly ShoppingLine[];
+}) {
+  return (
+    <ChipRow role="group" aria-label="Visa" data-testid="list-filters">
+      {LIST_FILTERS.map((entry) => {
+        const selected = filter === entry;
+        const count = lines.filter((line) => !line.checked && matchesListFilter(line, entry)).length;
+        return (
+          <Chip
+            key={entry}
+            className="snap-start"
+            selected={selected}
+            aria-pressed={selected}
+            aria-label={`${listFilterLabels[entry]} ${count}`}
+            count={count}
+            onClick={() => onChange(selected ? null : entry)}
+          >
+            {listFilterLabels[entry]}
+          </Chip>
+        );
+      })}
+    </ChipRow>
   );
 }
 

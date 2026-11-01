@@ -393,7 +393,7 @@ test("Story 17.6: the start page's AI group and the page AI show this month's ca
 });
 
 // Story 17.9: Siri och genvägar. A personal key is made and shown once, adds items through the API, and
-// stops working when revoked; the quick-add address opens "Lägg till egen vara" with focus in the field.
+// stops working when revoked; the quick-add address opens "Lägg till vara" with focus in the field.
 test("a personal key is shown once, adds items by POST /api/snabb and stops when revoked; the quick-add address opens the field", async ({ page, request }) => {
   const errors = watchErrors(page);
   const admin = adminClient();
@@ -439,7 +439,7 @@ test("a personal key is shown once, adds items by POST /api/snabb and stops when
 
   // The quick-add address: the sheet is open and the text field has focus.
   await page.goto("/lista/lagg-till");
-  const sheet = page.getByRole("dialog", { name: "Lägg till egen vara" });
+  const sheet = page.getByRole("dialog", { name: "Lägg till vara" });
   await expect(sheet).toBeVisible();
   await shot("quick-add");
   await expect(sheet.getByRole("combobox").or(sheet.getByRole("textbox")).first()).toBeFocused();
