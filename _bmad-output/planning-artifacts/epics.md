@@ -5237,3 +5237,95 @@ så att jag vågar fota hemma.
 **När** Förråd öppnas
 **Så** körs städningen av filer som blivit kvar efter Ångra-tiden (inte bara vid nästa kort)
 
+
+## Epic 23: Notiser
+
+Version 3.x, backlog. Byggs efter flytten till molnet (push kräver https och en riktig adress). Pontus (2026-11-01): "notifieringar. brickor. inställningsbart när t ex nya varor lagts till i matlistan. Eller att nya kort tagits. på ngn rimlig nivå. inte för allt men är man fler i hushållet kanske det kan vara lämpligt för att inte behöva gå in och leta". Nivån är låg: ändringar samlas ("3 nya varor"), aldrig notis om det man själv gjort, och allt går att stänga av. Fungerar med delad inloggning genom att varje enhet har sitt eget id; med Epic 21 blir det per person ("Martina lade till 3 varor").
+
+### Story 23.1: Brickor i appen
+
+Som en i hushållet,
+vill jag se en liten bricka på fliken när någon annan har ändrat något sedan jag tittade senast,
+så att jag inte behöver leta.
+
+**Acceptance Criteria:**
+
+**Givet** att varor lagts till på inköpslistan eller ett nytt kort tagits i Förråd från en annan enhet
+**När** jag öppnar appen
+**Så** visar fliken Inköpslista respektive Förråd en bricka med antalet nya, och brickan försvinner när jag öppnat fliken
+
+**Givet** ändringar jag själv gjort på den här enheten
+**När** brickan räknas
+**Så** räknas de inte
+
+### Story 23.2: Siffra på hemskärmsikonen
+
+Som en som installerat appen,
+vill jag se en siffra på appens ikon,
+så att jag ser att något är nytt utan att öppna appen.
+
+**Acceptance Criteria:**
+
+**Givet** installerad app (iOS 16.4+ och dator) och tillåtna notiser
+**När** det finns olästa nyheter enligt 23.1
+**Så** sätts ikonens siffra (Badging API) och nollas när de är sedda
+
+### Story 23.3: Push-notiser med inställningar
+
+Som en i hushållet,
+vill jag få en notis när något viktigt händer, och själv välja vad,
+så att jag får veta utan att bli störd.
+
+**Acceptance Criteria:**
+
+**Givet** Inställningar → Notiser
+**När** jag slår på notiser
+**Så** frågar appen om lov, och jag kan välja: nya varor på listan, nya kort i Förråd, ändrad matsedel (allt av som förval utom listan)
+
+**Givet** flera ändringar inom några minuter
+**När** notisen skickas
+**Så** samlas de till en ("3 nya varor på listan"), och den som gjorde ändringen får ingen notis
+
+**Givet** en enhet som tagit bort tillståndet eller ett utgånget abonnemang
+**När** en notis skickas
+**Så** tas abonnemanget bort tyst
+
+## Epic 24: Lappar i hushållet
+
+Version 3.x, **vilar** (pausad). Kräver Epic 21 (hushållsmedlemmar) och Epic 23 (push). Pontus (2026-11-01): "en sorts meddelandefunktion. Att jag kan skriva till andra i hushållet t ex 'älskling, jag är sugen på fisksoppa idag. kan du handla' helst animerat med en avatar som talar till en", och: "den behöver inte tala men åtminstone vara levande och artikulera och peka lite busigt på meddelandet och le eller vara arg beroende på vad det är för meddelande". Värdet jämfört med iMessage är att lappen hör ihop med appen: knappar som Lägg på matsedeln och Visa listan.
+
+### Story 24.1: Lappen på kylskåpet
+
+Som en i hushållet,
+vill jag kunna skriva en lapp till de andra,
+så att de ser den överst i appen och kan göra något åt den direkt.
+
+**Acceptance Criteria:**
+
+**Givet** att jag skriver en lapp ("Sugen på fisksoppa idag, kan du handla?")
+**När** den skickas
+**Så** syns den överst i appen hos de andra och kommer som push (Epic 23), med avsändarens namn
+
+**Givet** en lapp som nämner en rätt eller handling
+**När** den visas
+**Så** har den knappar som Lägg på matsedeln eller Visa listan, och kan bockas av som klar
+
+### Story 24.2: Avataren som lever
+
+Som mottagare av en lapp,
+vill jag att den framförs av en levande avatar med humör,
+så att det blir roligt och personligt.
+
+**Acceptance Criteria:**
+
+**Givet** en lapp
+**När** den visas
+**Så** framförs den av en animerad avatar (Rive, med tillstånd vila, artikulera, peka, glad, arg, kärleksfull, stressad): den andas och blinkar, munnen rör sig medan texten skrivs fram ord för ord (utan ljud), och den pekar busigt på lappen
+
+**Givet** lappens humör
+**När** avsändaren valt en humör-emoji, annars när AI:n bedömt texten (billigt anrop)
+**Så** ler avataren, blir sur med armarna i kors, får hjärtan eller ser stressad ut
+
+**Givet** reducerad rörelse
+**När** lappen visas
+**Så** står avataren still med rätt min
