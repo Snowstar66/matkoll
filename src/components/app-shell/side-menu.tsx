@@ -11,14 +11,14 @@ import { Avatar } from "./avatar";
 import { PenIcon } from "../icons";
 import { useShellNote } from "./note-slot";
 import { currentState, type Destination, helpDestination, helpHref, mainDestinations, settingsDestination } from "./destinations";
-import { badgeName, TabBadge, useAiBadgeCount } from "./tab-badge";
+import { badgeName, TabBadge, useBadgeCount } from "./tab-badge";
 import { appName } from "@/app/app-info";
 
 function MenuLink({ destination, pathname, to }: { destination: Destination; pathname: string | null; /** Where the link goes when that is not `destination.href` (Hjälp och tips opens on a section). */ to?: string }) {
   const { href, label } = destination;
   const current = currentState(pathname, href);
-  // Story 12.4: finished AI results that Pontus has not seen, never on the surface he is on.
-  const badge = useAiBadgeCount(destination, current !== undefined);
+  // Story 12.4 and 23.1: unseen AI results and news from others, never on the surface he is on.
+  const badge = useBadgeCount(destination, current !== undefined);
   return (
     <Link
       href={to ?? href}

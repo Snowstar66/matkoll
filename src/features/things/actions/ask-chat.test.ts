@@ -21,7 +21,12 @@ vi.mock("../data/search", () => ({
   countSitesIn: (...args: unknown[]) => countSitesIn(...args),
 }));
 vi.mock("../data/count", () => ({ loadChangesIn: (...args: unknown[]) => loadChangesIn(...args) }));
-vi.mock("../data/noted", () => ({ findNotedIn: vi.fn(), loadRoomPartsIn: async () => [] }));
+const findCategoryPlaceIn = vi.fn();
+vi.mock("../data/noted", () => ({
+  findNotedIn: async () => null,
+  loadRoomPartsIn: async () => [],
+  findCategoryPlaceIn: (...args: unknown[]) => findCategoryPlaceIn(...args),
+}));
 
 const { askChat } = await import("./ask-chat");
 
@@ -53,6 +58,7 @@ beforeEach(() => {
   loadChangesIn.mockReset();
   thingSearchTerms.mockReset().mockResolvedValue({ ok: false, error: { code: "ai_unavailable", message: "" } });
   countSitesIn.mockReset().mockResolvedValue(1);
+  findCategoryPlaceIn.mockReset().mockResolvedValue(null);
 });
 
 describe("askChat with a count (Story 18.23)", () => {
@@ -106,5 +112,55 @@ describe("askChat with a count (Story 18.23)", () => {
       data: { answer: "Ja, 5 gravljus i Förrådet · Översta hyllan (Stugan)." },
     });
     expect(await askChat({ question: "har vi gravljus", history: [], siteId: gravljus.siteId })).toMatchObject({ data: { answer: "Ja, 5 gravljus i Förrådet · Översta hyllan." } });
+  });
+});
+
+describe("askChat with something bought (Story 18.24)", () => {
+  const siteId = gravljus.siteId;
+  const refill = (name: string, count: number | null, category = "Hushåll") => ({
+    ok: true,
+    data: { terms: [name.toLocaleLowerCase("sv")], intent: "refill", remember: null, refill: { name, count, category } },
+  });
+
+  it("says where it is and opens Fyll på on the count said, with one AI call", async () => {
+    thingSearchTerms.mockResolvedValue(refill("Gravljus", 2));
+    searchThingsIn.mockResolvedValue([gravljus]);
+    const result = await askChat({ question: "jag har köpt 2 gravljus, var förvarar vi dem?", history: [], siteId });
+    expect(result).toEqual({
+      ok: true,
+      data: { answer: "I Förrådet · Översta hyllan – där finns 3.", refs: [], hits: [gravljus], similar: [], refill: { itemId: gravljus.id, amount: 2 } },
+    });
+    expect(thingSearchTerms).toHaveBeenCalledTimes(1);
+    // Without a count Fyll på opens on 1; a föremål without a count has no Fyll på.
+    thingSearchTerms.mockResolvedValue(refill("Gravljus", null));
+    expect(await askChat({ question: "jag har köpt gravljus, var förvarar vi dem?", history: [], siteId })).toMatchObject({ data: { refill: { amount: 1 } } });
+    searchThingsIn.mockResolvedValue([{ ...gravljus, quantity: null }]);
+    const uncounted = await askChat({ question: "jag har köpt gravljus, var förvarar vi dem?", history: [], siteId });
+    expect(uncounted).toMatchObject({ data: { answer: "I Förrådet · Översta hyllan." } });
+    expect(uncounted.ok && uncounted.data.refill).toBeUndefined();
+  });
+
+  it("proposes Kom ihåg where föremål of the same category are, with the count", async () => {
+    thingSearchTerms.mockResolvedValue(refill("Batterier", 4, "Elektronik"));
+    searchThingsIn.mockResolvedValue([]);
+    findCategoryPlaceIn.mockResolvedValue({ room: "Förrådet", part: "Översta hyllan", name: "Glödlampor" });
+    const result = await askChat({ question: "jag har köpt 4 batterier, var lägger vi dem?", history: [], siteId });
+    expect(findCategoryPlaceIn).toHaveBeenCalledWith({}, siteId, "Elektronik");
+    expect(result).toEqual({
+      ok: true,
+      data: {
+        answer: "Inga batterier inskrivna än. Ska de ligga i Förrådet · Översta hyllan, som glödlamporna?",
+        refs: [],
+        proposal: { name: "Batterier", category: "Elektronik", room: "Förrådet", part: "Översta hyllan", newRoom: false, moves: null, count: 4 },
+      },
+    });
+  });
+
+  it("asks for a room when no föremål of the category is anywhere, and a weak match is not the föremål", async () => {
+    thingSearchTerms.mockResolvedValue(refill("Batterier", null, "Elektronik"));
+    searchThingsIn.mockResolvedValue([{ ...gravljus, name: "Batterilåda till verktyg" }]);
+    expect(await askChat({ question: "jag har köpt batterier, var lägger vi dem?", history: [], siteId })).toMatchObject({
+      data: { answer: "Inga batterier inskrivna än. Var ska de ligga?", proposal: { name: "Batterier", room: null, part: null, count: null } },
+    });
   });
 });

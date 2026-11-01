@@ -95,3 +95,55 @@ export async function loadRoomPartsIn(db: ThingsDb, siteId: string): Promise<Roo
     return [...rooms.values()];
   });
 }
+
+/**
+ * Story 18.24: the count of a noted thing just saved, with the first line of its history ("4 · Inskrivet").
+ * As the signed-in user: the household's RLS lets the föremål and the change be written only in its own
+ * household. Throws ThingsDataError `save_failed <code>`.
+ */
+export async function noteCountIn(db: ThingsDb, itemId: string, count: number): Promise<void> {
+  return guarded("save", async () => {
+    const updated = await db.from("thing_item").update({ quantity: count }).eq("id", itemId).eq("source", "noted").select("id");
+    if (updated.error) throw new ThingsDataError(`save_failed ${updated.error.code}`);
+    if ((updated.data ?? []).length === 0) throw new ThingsDataError("save_failed gone");
+    const logged = await db.from("thing_change").insert({ item_id: itemId, kind: "noted", quantity_after: count });
+    if (logged.error) throw new ThingsDataError(`save_failed ${logged.error.code}`);
+  });
+}
+
+const kindRowsSchema = z.array(
+  z.object({ name: z.string(), created_at: z.string(), thing_place: z.object({ room: z.string(), room_key: z.string(), part: z.string().nullable(), part_key: z.string(), kind: z.string() }) }),
+);
+
+/**
+ * Story 18.24: where the föremål of `category` in the boende `siteId` mostly are: the part (or whole room) that
+ * holds most of them, the newest breaking a tie, with the name of one of them ("som gravljusen"). Not a box: a
+ * noted thing is never put in one. `null` when there is none. Throws ThingsDataError.
+ */
+export async function findCategoryPlaceIn(db: ThingsDb, siteId: string, category: ThingCategory): Promise<{ room: string; part: string | null; name: string } | null> {
+  return guarded("query", async () => {
+    const { data, error } = await db
+      .from("thing_item")
+      .select("name, created_at, thing_place!inner(room, room_key, part, part_key, kind)")
+      .eq("category", category)
+      .is("same_as", null)
+      .eq("thing_place.site_id", siteId)
+      .eq("thing_place.kind", "part")
+      .order("created_at", { ascending: false })
+      .limit(200);
+    if (error) throw new ThingsDataError(`query_failed ${error.code}`);
+    const parsed = kindRowsSchema.safeParse(data);
+    if (!parsed.success) throw new ThingsDataError("invalid_row");
+    // Newest first, so the first row of a place is its newest föremål, and a tie keeps the place seen first.
+    const places = new Map<string, { room: string; part: string | null; name: string; count: number }>();
+    for (const row of parsed.data) {
+      const key = `${row.thing_place.room_key}|${row.thing_place.part_key}`;
+      const place = places.get(key);
+      if (place) place.count += 1;
+      else places.set(key, { room: row.thing_place.room, part: row.thing_place.part, name: row.name, count: 1 });
+    }
+    let best: { room: string; part: string | null; name: string; count: number } | null = null;
+    for (const place of places.values()) if (!best || place.count > best.count) best = place;
+    return best ? { room: best.room, part: best.part, name: best.name } : null;
+  });
+}

@@ -90,6 +90,11 @@ export const helpAreas: readonly HelpArea[] = [
         answer: "Ja, och det skickas när du är uppkopplad igen.",
       },
       {
+        question: "Vad betyder siffran på fliken?",
+        // Story 23.1: news from someone else since this device last looked.
+        answer: "Hur många varor andra i hushållet har lagt till eller bockat av sedan du tittade senast. Det du själv gör räknas inte, och siffran försvinner när du öppnar listan. Den kan också synas på appikonen, slå på det i Inställningar → Appen.",
+      },
+      {
         question: "Var kommer erbjudandena ifrån?",
         // Story 17.11: in the cloud a job fetches them every morning and Sunday evening; a tap there gets the same answer.
         answer: "Från dina butikers egna sidor. I appen i molnet hämtas de automatiskt varje morgon, och nästa veckas kommer så fort butiken lagt ut dem (oftast söndag kväll eller måndag); annars trycker du Hämta veckans erbjudanden. Pristaggen visar dem. Lägg de du vill ha på listan. Butikerna och länken till erbjudandena lägger du in i Inställningar.",
@@ -131,6 +136,11 @@ export const helpAreas: readonly HelpArea[] = [
       { icon: "ask", title: "Sök eller fråga", text: "Skriv överst, eller tryck ↑ och fråga: var är passen?" },
     ],
     faq: [
+      {
+        question: "Vad betyder siffran på fliken?",
+        // Story 23.1: cards from someone else, and cards the AI has read, since this device last looked.
+        answer: "Nya kort som andra i hushållet har tagit, och kort som är färdiglästa, sedan du tittade senast. Dina egna nya kort räknas inte. Siffran försvinner när du öppnar Förråd.",
+      },
       {
         question: "Ska maten in här?",
         answer: `Nej, maten bor i Matvaror. Förråd är för ${things} som verktyg och annat som ligger i lådor och på hyllor.`,

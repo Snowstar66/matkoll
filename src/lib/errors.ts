@@ -69,6 +69,8 @@ export const errorMessages = {
   note_rate_limited: "Du har skrivit många lappar i dag. Vänta till i morgon.",
   note_done_failed: "Det gick inte att spara. Försök igen.",
   note_gone: "Lappen finns inte längre.",
+  // Brickor (Story 23.1): the badges could not be read; nothing is shown, the next poll tries again. Logged, never shown.
+  news_unavailable: "Det gick inte att läsa vad som är nytt.",
   pantry_unavailable: "Det gick inte att läsa matvarorna. Försök igen.",
   pantry_save_failed: "Det gick inte att spara varan. Försök igen.",
   // Removing an item (Story 2.3). After a failed remove the row is back in

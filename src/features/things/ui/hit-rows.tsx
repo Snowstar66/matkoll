@@ -76,11 +76,14 @@ function CountedHit({
   siteId,
   onOpen,
   onQuantity,
+  refillAmount,
 }: {
   hit: ThingHit & { quantity: number };
   siteId?: string;
   onOpen: (hit: ThingHit) => void;
   onQuantity: (id: string, quantity: number) => void;
+  /** Story 18.24: Fyll på is open from the start, on this amount. */
+  refillAmount?: number;
 }) {
   const router = useRouter();
   const { showToast } = useToast();
@@ -113,6 +116,7 @@ function CountedHit({
         quantity={hit.quantity}
         onChanged={changed}
         onError={(message) => showToast(message, { role: "alert" })}
+        initial={refillAmount !== undefined ? { kind: "refill", amount: refillAmount } : undefined}
         className="-mt-1 pr-3 pb-3 pl-4"
       />
     </li>
@@ -125,18 +129,27 @@ function HitList({
   siteId,
   onOpen,
   onQuantity,
+  refill,
 }: {
   hits: readonly ThingHit[];
   label: string;
   siteId?: string;
   onOpen: (hit: ThingHit) => void;
   onQuantity: (id: string, quantity: number) => void;
+  refill?: { itemId: string; amount: number };
 }) {
   return (
     <ListGroup label={label}>
       {hits.map((hit) =>
         hit.quantity !== null ? (
-          <CountedHit key={hit.id} hit={{ ...hit, quantity: hit.quantity }} siteId={siteId} onOpen={onOpen} onQuantity={onQuantity} />
+          <CountedHit
+            key={hit.id}
+            hit={{ ...hit, quantity: hit.quantity }}
+            siteId={siteId}
+            onOpen={onOpen}
+            onQuantity={onQuantity}
+            refillAmount={refill?.itemId === hit.id ? refill.amount : undefined}
+          />
         ) : (
           <ListRow key={hit.id} title={hit.name} meta={hitLine(hit, siteId)} trailing={<HitThumb hit={hit} />} {...rowPress(hit, onOpen)} />
         ),
@@ -159,7 +172,20 @@ function sheetThing(hit: ThingHit): SheetThing {
   };
 }
 
-export function RankedHits({ best, similar, siteId, label }: { best: readonly ThingHit[]; similar: readonly ThingHit[]; siteId?: string; label: string }) {
+export function RankedHits({
+  best,
+  similar,
+  siteId,
+  label,
+  refill,
+}: {
+  best: readonly ThingHit[];
+  similar: readonly ThingHit[];
+  siteId?: string;
+  label: string;
+  /** Story 18.24: the hit whose Fyll på is open from the start, and on how many. */
+  refill?: { itemId: string; amount: number };
+}) {
   const [showSimilar, setShowSimilar] = useState(false);
   // What the sheet and the count buttons changed, over the hits as the search gave them.
   const [changes, setChanges] = useState<Readonly<Record<string, Partial<ThingHit>>>>({});
@@ -195,7 +221,7 @@ export function RankedHits({ best, similar, siteId, label }: { best: readonly Th
 
   return (
     <div className="flex flex-col gap-2">
-      {shownBest.length > 0 ? <HitList hits={shownBest} label={label} siteId={siteId} onOpen={openHit} onQuantity={onQuantity} /> : null}
+      {shownBest.length > 0 ? <HitList hits={shownBest} label={label} siteId={siteId} onOpen={openHit} onQuantity={onQuantity} refill={refill} /> : null}
       {shownSimilar.length > 0 && shownBest.length > 0 && !showSimilar ? (
         <div>
           <Button variant="compact" onClick={() => setShowSimilar(true)} data-testid="show-similar">

@@ -1,5 +1,6 @@
 import type { ComponentType } from "react";
 import type { AiJobKind } from "@/lib/ai-job-shape";
+import type { NewsTab } from "@/lib/news";
 import { BoxIcon, CarrotIcon, CartIcon, HelpIcon, type IconProps, MealPlanIcon, RecipesIcon, SettingsIcon } from "../icons";
 import { BoxFilledIcon, CarrotFilledIcon, CartFilledIcon, MealPlanFilledIcon, RecipesFilledIcon } from "../icons-filled";
 
@@ -21,6 +22,8 @@ export type Destination = {
   FilledIcon?: ComponentType<IconProps>;
   /** The AI results that are shown on this surface, counted in its badge (Story 12.4). */
   aiKinds?: readonly AiJobKind[];
+  /** The news from others counted in its badge (Story 23.1): what was added on the list, or the cards taken. */
+  newsTab?: NewsTab;
   /** What the badge counts, for a screen reader, one and many: Förråd's are read cards ("1 nytt kort"). Without it "AI-resultat". */
   badgeUnit?: readonly [one: string, many: string];
   /** The anchor of this surface's section in Hjälp och tips (Story 19.2): `/hjalp#recept`. */
@@ -34,10 +37,10 @@ export const mainDestinations: readonly Destination[] = [
   { href: "/matsedel", helpId: "matsedel", label: "Matsedel", labelParts: ["Mat", "sedel"], Icon: MealPlanIcon, FilledIcon: MealPlanFilledIcon },
   // Story 10.4: "Inköpslista" (was "Lista") and "Matvaror" (was "Hemma",
   // the name of the first place too). The routes stay, so bookmarks work.
-  { href: "/lista", helpId: "inkopslista", label: "Inköpslista", labelParts: ["Inköps", "lista"], Icon: CartIcon, FilledIcon: CartFilledIcon },
+  { href: "/lista", helpId: "inkopslista", label: "Inköpslista", labelParts: ["Inköps", "lista"], Icon: CartIcon, FilledIcon: CartFilledIcon, newsTab: "lista", badgeUnit: ["ny ändring", "nya ändringar"] },
   { href: "/hemma", helpId: "matvaror", label: "Matvaror", labelParts: ["Mat", "varor"], Icon: CarrotIcon, FilledIcon: CarrotFilledIcon, aiKinds: ["analyze"] },
   // Epic 18: the things of the home (tools, the storage room), kept apart from the food.
-  { href: "/prylar", helpId: "forrad", label: "Förråd", Icon: BoxIcon, FilledIcon: BoxFilledIcon, aiKinds: ["things"], badgeUnit: ["nytt kort", "nya kort"] },
+  { href: "/prylar", helpId: "forrad", label: "Förråd", Icon: BoxIcon, FilledIcon: BoxFilledIcon, aiKinds: ["things"], newsTab: "prylar", badgeUnit: ["nytt kort", "nya kort"] },
 ];
 
 /** Settings: reached from the P button on a phone (Story 19.2), the bottom of the side menu on desktop. */

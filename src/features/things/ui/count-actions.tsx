@@ -106,9 +106,15 @@ export function CountStepRow({
 }
 
 /** The state of Ta / Fyll på for one föremål: which is open, the amount, and the save. */
-export function useCountStep(itemId: string, onChanged: (change: CountChange) => void, onError: (message: string) => void) {
-  const [mode, setMode] = useState<"take" | "refill" | null>(null);
-  const [amount, setAmount] = useState(1);
+export function useCountStep(
+  itemId: string,
+  onChanged: (change: CountChange) => void,
+  onError: (message: string) => void,
+  /** Story 18.24: open from the start, as Fyll på on "jag har köpt 2 gravljus". */
+  initial?: { kind: "take" | "refill"; amount: number },
+) {
+  const [mode, setMode] = useState<"take" | "refill" | null>(initial?.kind ?? null);
+  const [amount, setAmount] = useState(initial ? Math.min(maxCountStep, Math.max(1, initial.amount)) : 1);
   const [busy, setBusy] = useState(false);
   const opener = useRef<HTMLButtonElement | null>(null);
 
@@ -194,15 +200,17 @@ export function CountActions({
   quantity,
   onChanged,
   onError,
+  initial,
   className,
 }: {
   itemId: string;
   quantity: number;
   onChanged: (change: CountChange) => void;
   onError: (message: string) => void;
+  initial?: { kind: "take" | "refill"; amount: number };
   className?: string;
 }) {
-  const step = useCountStep(itemId, onChanged, onError);
+  const step = useCountStep(itemId, onChanged, onError, initial);
   return (
     <div className={className} data-testid="count-actions">
       {step.mode ? (

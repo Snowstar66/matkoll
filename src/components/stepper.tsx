@@ -20,6 +20,8 @@ export type StepperProps = {
    */
   compact?: boolean;
   onBg?: boolean;
+  /** Story 18.24: lets `min` be 0, for a count where 0 means "not counted" ("Räkna inte"). */
+  allowZero?: boolean;
   className?: string;
 };
 
@@ -56,9 +58,10 @@ export function Stepper({
   increaseLabel = "Fler portioner",
   compact = false,
   onBg = false,
+  allowZero = false,
   className,
 }: StepperProps) {
-  const floor = Math.max(1, Number.isFinite(min) ? Math.floor(min) : 1);
+  const floor = Math.max(allowZero ? 0 : 1, Number.isFinite(min) ? Math.floor(min) : 1);
   const ceiling = max !== undefined && Number.isFinite(max) ? Math.max(floor, Math.floor(max)) : Infinity;
   // A value outside the range (0, negative, NaN, above max) is shown, and stepped from, as its nearest end.
   const shown = Number.isFinite(value) ? Math.min(ceiling, Math.max(floor, value)) : floor;
