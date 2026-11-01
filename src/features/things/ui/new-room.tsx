@@ -3,6 +3,7 @@
 import { useRouter } from "next/navigation";
 import { type FormEvent, useEffect, useId, useRef, useState } from "react";
 import { Button } from "@/components/button";
+import { PlusIcon } from "@/components/icons";
 import { FieldError, FieldLabel, Input } from "@/components/field";
 import { Notice } from "@/components/notice";
 import { Sheet } from "@/components/sheet";
@@ -69,15 +70,10 @@ export function NewRoom({ siteId }: { siteId: string }) {
       <button
         type="button"
         onClick={openSheet}
-        className="flex min-h-14 w-full items-center gap-2.5 rounded-lg border-[1.5px] border-dashed border-border py-0 pr-3.5 pl-2 text-left text-row-title text-accent focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-accent"
+        className="flex h-[52px] w-full items-center justify-center gap-1.5 rounded-lg border-[1.5px] border-dashed border-border text-row-title text-accent focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-accent"
         data-testid="new-room"
       >
-        <span
-          aria-hidden="true"
-          className="flex size-tile shrink-0 items-center justify-center rounded-sm border-[1.5px] border-dashed border-accent text-tile-icon leading-none font-medium"
-        >
-          +
-        </span>
+        <PlusIcon size={20} />
         {newRoomText.replace("+ ", "")}
       </button>
       <Sheet open={open} onClose={() => setOpen(false)} title={newRoomTitle} closeLabel="Avbryt" preventClose={busy}>

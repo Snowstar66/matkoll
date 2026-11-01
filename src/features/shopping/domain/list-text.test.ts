@@ -82,17 +82,17 @@ describe("list texts", () => {
     expect(backOnListAnnouncement({ text: "Kaffe Zoégas", own: true })).toBe("Kaffe Zoégas tillbaka på listan.");
   });
 
-  it("says under a line where it comes from, without från (Story 11.4)", () => {
+  it("says under a line where it comes from, as Till (Stories 11.4 and 19.7)", () => {
     const titles = { d1: "Korv stroganoff", d2: "Kycklinggryta", d3: "Korv stroganoff" };
-    expect(lineMetaText(line({ origins: ["d1"] }), titles, null)).toBe("Korv stroganoff");
-    expect(lineMetaText(line({ origins: ["d1", "d2", "d3"] }), titles, null)).toBe("Korv stroganoff · Kycklinggryta");
-    expect(lineMetaText(line({ origins: [], isCustom: true }), titles, "Stugan")).toBe("Egen vara");
-    expect(lineMetaText(line({ origins: ["d1"], isVague: true }), titles, null)).toBe("Saknas i Matvaror · Korv stroganoff");
-    expect(lineMetaText(line({ origins: ["d1"], isVague: true }), titles, "Stugan")).toBe("Saknas i Stugan · Korv stroganoff");
+    expect(lineMetaText(line({ origins: ["d1"] }), titles, null)).toBe("Till Korv stroganoff");
+    expect(lineMetaText(line({ origins: ["d1", "d2", "d3"] }), titles, null)).toBe("Till 2 rätter");
+    expect(lineMetaText(line({ origins: [], isCustom: true }), titles, "Stugan")).toBe("Egen");
+    expect(lineMetaText(line({ origins: ["d1"], isVague: true }), titles, null)).toBe("Saknas i Matvaror · Till Korv stroganoff");
+    expect(lineMetaText(line({ origins: ["d1"], isVague: true }), titles, "Stugan")).toBe("Saknas i Stugan · Till Korv stroganoff");
     expect(lineMetaText(line({ origins: ["okänd"], isVague: true }), titles, null)).toBe("Saknas i Matvaror");
     expect(lineMetaText(line({ origins: ["okänd"] }), titles, null)).toBeNull();
     // The pantry could not be read: nothing is known to be missing.
-    expect(lineMetaText(line({ origins: ["d1"], isVague: true }), titles, "Stugan", false)).toBe("Korv stroganoff");
+    expect(lineMetaText(line({ origins: ["d1"], isVague: true }), titles, "Stugan", false)).toBe("Till Korv stroganoff");
     expect(lineMetaText(line({ origins: [], isVague: true }), titles, null, false)).toBeNull();
     expect(missingText(null)).toBe("Saknas i Matvaror");
     expect(missingText("Stugan")).toBe("Saknas i Stugan");

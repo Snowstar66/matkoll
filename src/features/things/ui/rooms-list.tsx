@@ -1,4 +1,5 @@
 import { cx } from "@/components/cx";
+import { ChevronRightIcon } from "@/components/icons";
 import { ListGroup } from "@/components/list-group";
 import { ListRow } from "@/components/list-row";
 import { roomMeta, roomsTotalText, roomTile, type RoomSummary } from "../domain/thing-room";
@@ -19,11 +20,11 @@ export function RoomsList({ siteId, rooms }: { siteId: string; rooms: readonly R
         <h2 id="rooms-label" className="text-section-label text-ink-2">
           Rum
         </h2>
-        <span className="text-meta text-ink-3" data-testid="rooms-total">
+        <span className="text-meta text-ink-2" data-testid="rooms-total">
           {roomsTotalText(rooms)}
         </span>
       </div>
-      <ListGroup labelledBy="rooms-label">
+      <ListGroup labelledBy="rooms-label" inset={64}>
         {rooms.map((room) => {
           const { icon, tile } = roomTile(room.room);
           return (
@@ -31,17 +32,14 @@ export function RoomsList({ siteId, rooms }: { siteId: string; rooms: readonly R
               key={room.key}
               href={roomHref(siteId, room.key)}
               title={room.room}
+              oneLine
               meta={roomMeta(room)}
               leading={
-                <span aria-hidden="true" className={cx("flex size-tile shrink-0 items-center justify-center rounded-sm text-tile-icon leading-none select-none", tile)}>
+                <span aria-hidden="true" className={cx("flex size-9 shrink-0 items-center justify-center rounded-[10px] text-tile-icon leading-none select-none", tile)}>
                   {icon}
                 </span>
               }
-              trailing={
-                <span aria-hidden="true" className="text-row-title text-ink-3">
-                  ›
-                </span>
-              }
+              trailing={<ChevronRightIcon size={16} className="text-ink-3" />}
               pressProps={{ "data-testid": "room-row" }}
             />
           );

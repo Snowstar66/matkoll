@@ -185,7 +185,4 @@ export function pantrySearchLabel(location: Location): string {
   return `Sök i ${definite[location]}`;
 }
 
-/** When the search matches nothing: "Inget i kylen matchar." */
-export function noMatchText(location: Location): string {
-  return `Inget i ${definite[location]} matchar.`;
-}
+

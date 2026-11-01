@@ -7,7 +7,6 @@ import {
   pantrySearchText,
   stockholmDayKey,
   groupPantryByCategory,
-  noMatchText,
   pantryMetaText,
   pantrySearchLabel,
   daysSinceAdded,
@@ -164,8 +163,6 @@ describe("the search texts", () => {
     expect(pantrySearchLabel("Kyl")).toBe("Sök i kylen");
     expect(pantrySearchLabel("Frys")).toBe("Sök i frysen");
     expect(pantrySearchLabel("Skafferi")).toBe("Sök i skafferiet");
-    expect(noMatchText("Kyl")).toBe("Inget i kylen matchar.");
-    expect(noMatchText("Skafferi")).toBe("Inget i skafferiet matchar.");
   });
 });
 

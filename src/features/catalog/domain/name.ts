@@ -89,7 +89,7 @@ export function nameInSentence(name: string): string {
 
 /**
  * A name that starts a sentence, with its first letter in upper case:
- * "diskmedel" in "Diskmedel är borttagen.". A mixed-case first word
+ * "diskmedel" in "Tog bort Diskmedel.". A mixed-case first word
  * ("iPhone-laddare") is kept.
  */
 export function sentenceStart(text: string): string {

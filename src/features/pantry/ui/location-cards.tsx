@@ -1,7 +1,10 @@
 import Link from "next/link";
 import { cx } from "@/components/cx";
+import { FreezerIcon, FridgeIcon, PantryIcon } from "@/components/icons";
 import { LOCATIONS, type Location } from "@/features/catalog";
 import { itemCountText, placeSlug } from "../domain/places";
+
+const locationIcons = { Kyl: FridgeIcon, Frys: FreezerIcon, Skafferi: PantryIcon } as const;
 
 export type LocationCardsProps = {
   /** The chosen location; its card is the Segment plate. */
@@ -35,13 +38,19 @@ export function LocationCards({ selected, counts, ready = [] }: LocationCardsPro
                 aria-current={isSelected ? "true" : undefined}
                 data-testid="location-card"
                 className={cx(
-                  "relative flex min-h-[46px] min-w-0 flex-1 flex-col items-center justify-center rounded-[9px] border px-1 py-1 text-center before:absolute before:inset-x-0 before:-inset-y-px before:content-['']",
+                  "relative flex min-h-12 min-w-0 flex-1 items-center justify-center gap-2 rounded-[9px] border px-1 py-1 text-left before:absolute before:inset-x-0 before:-inset-y-px before:content-['']",
                   isSelected ? "border-border bg-seg-on" : "border-transparent",
                 )}
               >
-                <span className={cx("text-control leading-tight", isSelected ? "font-semibold text-ink" : "font-medium text-ink-2")}>{location}</span>{" "}
-                <span className={cx("text-badge", isSelected ? "text-mint-ink" : "text-ink-3")}>{itemCountText(counts[location])}</span>
-                {ready.includes(location) ? <span className="text-badge text-ink-2">Förslag klara</span> : null}
+                {(() => {
+                  const LocationIcon = locationIcons[location];
+                  return <LocationIcon size={20} className={cx("shrink-0", isSelected ? "text-accent" : "text-ink-3")} />;
+                })()}
+                <span className="flex min-w-0 flex-col">
+                  <span className={cx("text-control leading-tight", isSelected ? "font-semibold text-ink" : "font-medium text-ink-2")}>{location}</span>{" "}
+                  <span className={cx("text-badge", isSelected ? "text-mint-ink" : "text-ink-3")}>{itemCountText(counts[location])}</span>
+                  {ready.includes(location) ? <span className="text-badge text-ink-2">Förslag klara</span> : null}
+                </span>
               </Link>
             </li>
           );

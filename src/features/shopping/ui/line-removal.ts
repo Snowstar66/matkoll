@@ -95,7 +95,7 @@ export type LineRemoval = {
  * removeCustomItem or hideLine runs and stays gone until the server's list no
  * longer has it, so it never flashes back; "Ångra" shows it again until the
  * server's list has it. Lines removed while the confirmation shows join it
- * ("Grädde och diskmedel är borttagna."), and "Ångra" puts them all back. A
+ * ("Tog bort Grädde och diskmedel."), and "Ångra" puts them all back. A
  * failed removal brings the line back, and a failed "Ångra" takes it away
  * again, each with a short confirmation announced as an alert; when only
  * some of several could be put back, the alert names the others. A lost

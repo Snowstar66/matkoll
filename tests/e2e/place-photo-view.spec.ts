@@ -179,7 +179,7 @@ test("the line under the camera button opens the photo with its markers and the 
   const errors = watchErrors(page);
   const reads = watchPhotoReads(page);
   await openLagersaldo(page);
-  await expect(line(page)).toHaveText(new RegExp(`^Senaste ${time(photos.hemmaKyl)}\\s*·\\s*Visa$`));
+  await expect(line(page)).toHaveText(new RegExp(`^Senaste foto ${time(photos.hemmaKyl)}\\s*Visa$`));
   // Inside the camera area, under the button, with no thumbnail, and nothing fetched before "Visa".
   await expect(camera(page).getByTestId("pantry-latest-photo")).toBeVisible();
   await expect(line(page).getByRole("img")).toHaveCount(0);
@@ -226,7 +226,7 @@ test("the line follows the location and the place, and a photo older than 30 day
   await expect(line(page)).toHaveCount(0);
 
   await card(page, "Skafferi").click();
-  await expect(line(page)).toHaveText(new RegExp(`^Senaste ${time(photos.hemmaSkafferi)}`));
+  await expect(line(page)).toHaveText(new RegExp(`^Senaste foto ${time(photos.hemmaSkafferi)}`));
   await visa(page, "skafferiet").click();
   // Without points: no markers, the time only, and the whole reading.
   await expect(photoSheet(page, "skafferiet")).toHaveAccessibleDescription(`Taget ${time(photos.hemmaSkafferi)}.`);
@@ -238,7 +238,7 @@ test("the line follows the location and the place, and a photo older than 30 day
 
   await card(page, "Kyl").click();
   await choose(page, "Stugan");
-  await expect(line(page)).toHaveText(new RegExp(`^Senaste ${time(photos.stuganKyl)}`));
+  await expect(line(page)).toHaveText(new RegExp(`^Senaste foto ${time(photos.stuganKyl)}`));
   await visa(page).click();
   await expect(photoSheet(page).getByRole("img")).toHaveAttribute("src", `/api/pantry/photo/${photos.stuganKyl.id}`);
   await photoSheet(page).getByRole("button", { name: "Klar" }).click();

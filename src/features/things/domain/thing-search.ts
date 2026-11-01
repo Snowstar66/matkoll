@@ -3,6 +3,7 @@ import { thingCategories, thingTiles, type ThingCategory } from "./thing";
 import { shortDateText } from "./thing-photo";
 import { seenOnText } from "./thing-merge";
 import { inBoxText } from "./thing-place";
+import { noMatchText } from "@/components/empty-state";
 import { thingCountText, thingNoun } from "./thing-noun";
 import { cardViewHref } from "./thing-card";
 
@@ -152,9 +153,9 @@ export const minSearchChars = 2;
 export const searchingText = "Söker …";
 export const searchFailedText = "Sökningen gick inte. Försök igen.";
 
-/** "Inga prylar matchar "hammare"." */
+/** "Inget matchar ”hammare”." (the same sentence as every search without a hit, Story 19.7) */
 export function noHitsText(query: string): string {
-  return `Inga ${thingNoun.plural} matchar "${query.trim()}".`;
+  return noMatchText(query);
 }
 
 /** "Visar de 100 bästa träffarna. Skriv mer för att begränsa." */

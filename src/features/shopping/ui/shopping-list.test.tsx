@@ -106,21 +106,21 @@ describe("ShoppingList", () => {
     ]);
     const mejeri = within(screen.getByRole("list", { name: "Mejeri & ägg" }));
     expect(mejeri.getByText("Grädde")).toBeInTheDocument();
-    // The dishes with " · ", without "från".
-    expect(mejeri.getByText("Krämig kycklinggryta · Paj")).toBeInTheDocument();
-    expect(mejeri.getByText("3 dl")).toHaveClass("text-ink-2", "font-normal");
+    // Story 19.7: "Till 2 rätter" for a line from two dishes, the amount to the right in grey.
+    expect(mejeri.getByText("Till 2 rätter")).toBeInTheDocument();
+    expect(mejeri.getByText("3 dl")).toHaveClass("text-ink-2");
     expect(within(screen.getByRole("list", { name: "Skafferi" })).getAllByTestId("shopping-line").map(rowText)).toEqual([
-      "Mjöl 2 dl (hemma: 1 kg) Paj",
+      "Mjöl Till Paj2 dl (hemma: 1 kg)",
     ]);
     // A vague line: no amount, and "Saknas i Matvaror" before the dishes; no "Finns hemma?".
     expect(
       within(screen.getByRole("list", { name: "Såser & smaksättare" })).getAllByTestId("shopping-line").map(rowText),
-    ).toEqual(["Salt Saknas i Matvaror · Krämig kycklinggryta"]);
+    ).toEqual(["Salt Saknas i Matvaror · Till Krämig kycklinggryta"]);
     expect(screen.queryByText(/Finns hemma\?/)).not.toBeInTheDocument();
     // No amount for a line without a catalog ingredient: its text says how much, times its dishes.
     expect(within(screen.getByRole("list", { name: "Övrigt" })).getAllByTestId("shopping-line").map(rowText)).toEqual([
-      "En näve persilja Krämig kycklinggryta",
-      "2 citroner ×2 Krämig kycklinggryta · Paj",
+      "En näve persilja Till Krämig kycklinggryta",
+      "2 citroner Till 2 rätter×2",
     ]);
     // Nothing checked off: no basket row, and no product chips without a store.
     expect(screen.queryByTestId("basket-row")).not.toBeInTheDocument();
@@ -315,9 +315,9 @@ describe("ShoppingList and the place it is counted against (Story 8.5)", () => {
   it("says Saknas i Stugan under a vague line with more than one place, and Saknas i Matvaror with one", () => {
     const { rerender } = render(<ShoppingList plan={plan} lines={lines} pantryUnavailable={false} site={stugan} />);
     const salt = () => screen.getAllByTestId("shopping-line").find((row) => row.dataset.lineKey === "r:salt:-")!;
-    expect(rowText(salt())).toBe("Salt Saknas i Stugan · Krämig kycklinggryta");
+    expect(rowText(salt())).toBe("Salt Saknas i Stugan · Till Krämig kycklinggryta");
     rerender(<ShoppingList plan={plan} lines={lines} pantryUnavailable={false} site={{ ...stugan, siteCount: 1 }} />);
-    expect(rowText(salt())).toBe("Salt Saknas i Matvaror · Krämig kycklinggryta");
+    expect(rowText(salt())).toBe("Salt Saknas i Matvaror · Till Krämig kycklinggryta");
   });
 });
 
@@ -653,10 +653,10 @@ describe("ShoppingList in the new look (Story 11.4)", () => {
     expect(screen.queryByTestId("product-chip")).not.toBeInTheDocument();
   });
 
-  it("says Egen vara under an own item", () => {
+  it("says Egen under an own item", () => {
     const own = line({ key: "c:disk", label: "Diskmedel", section: "Övrigt", isCustom: true, origins: [], coverage: { kind: "unlinked" } });
     render(<ShoppingList plan={plan} lines={[own]} pantryUnavailable={false} />);
-    expect(rowText(screen.getByTestId("shopping-line"))).toBe("Diskmedel Egen vara");
+    expect(rowText(screen.getByTestId("shopping-line"))).toBe("Diskmedel Egen");
   });
 
   it("moves focus to the next line's check, else the one before, else the basket row's Visa", async () => {
@@ -773,9 +773,9 @@ describe("ShoppingList in the new look (Story 11.4)", () => {
     const choice = { id: "c", ingredientId: "falukorv", storeId: "s", productName: "Scan Falukorv 800 g", packageSize: null, url: null, updatedAt: "x" };
     render(<ShoppingList plan={plan} lines={fourteen} pantryUnavailable={false} store={store} productChoices={{ falukorv: choice }} />);
     expect(screen.getByRole("checkbox", { name: "Falukorv, 800 g" })).toHaveAccessibleDescription(
-      "Krämig kycklinggryta Scan Falukorv 800 g",
+      "Till Krämig kycklinggryta Scan Falukorv 800 g",
     );
-    expect(screen.getByRole("checkbox", { name: "Sojasås" })).toHaveAccessibleDescription("Saknas i Matvaror · Krämig kycklinggryta");
+    expect(screen.getByRole("checkbox", { name: "Sojasås" })).toHaveAccessibleDescription("Saknas i Matvaror · Till Krämig kycklinggryta");
   });
 
   it("says Saknas in Dolda varor for a hidden vague line, which has no amount", async () => {
@@ -789,7 +789,7 @@ describe("ShoppingList in the new look (Story 11.4)", () => {
   it("says nothing is missing when the pantry could not be read", () => {
     render(<ShoppingList plan={plan} lines={lines} pantryUnavailable />);
     const salt = screen.getAllByTestId("shopping-line").find((row) => row.dataset.lineKey === "r:salt:-")!;
-    expect(rowText(salt)).toBe("Salt Krämig kycklinggryta");
+    expect(rowText(salt)).toBe("Salt Till Krämig kycklinggryta");
   });
 });
 

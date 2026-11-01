@@ -2,8 +2,7 @@
 
 import { useRouter } from "next/navigation";
 import { useState } from "react";
-import { ListGroup } from "@/components/list-group";
-import { ListRow } from "@/components/list-row";
+import { Button } from "@/components/button";
 import { useToast } from "@/components/toast";
 import { clearThingSite } from "../actions/clear-things";
 import { clearCountsText, clearedText, clearSiteDetailText, clearSiteText, clearSiteWord, type ClearCounts } from "../domain/thing-clear";
@@ -28,21 +27,24 @@ export function ClearSiteThings({ sites }: { sites: readonly SiteThings[] }) {
   return (
     <section aria-label="Förrådet" className="flex flex-col gap-1.5" data-testid="clear-sites">
       <h2 className="px-1 desktop:px-0 text-section-label text-ink-2">Förrådet</h2>
-      <ListGroup label="Förrådet">
-        {withThings.map((site) => (
-          <ListRow
-            key={site.id}
-            data-testid="clear-site-row"
-            title={clearSiteText(site.name)}
-            meta={clearCountsText(site.counts)}
-            onPress={() => {
-              setLast(site);
-              setAsking(site);
-            }}
-            pressProps={{ "aria-haspopup": "dialog" }}
-          />
-        ))}
-      </ListGroup>
+      {/* Story 19.7: an action is a button; this one is destructive (muted red), last, and asks first. */}
+      {withThings.map((site) => (
+        <Button
+          key={site.id}
+          variant="danger"
+          fullWidth
+          data-testid="clear-site-row"
+          aria-haspopup="dialog"
+          className="h-auto flex-col gap-0 rounded-lg bg-surface py-2"
+          onClick={() => {
+            setLast(site);
+            setAsking(site);
+          }}
+        >
+          {clearSiteText(site.name)}
+          <span className="text-meta font-normal text-ink-2">{clearCountsText(site.counts)}</span>
+        </Button>
+      ))}
       {shown ? (
         <ClearSheet
           open={asking !== null}

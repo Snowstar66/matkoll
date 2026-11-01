@@ -219,7 +219,6 @@ export {
   groupPantryByCategory,
   filterPantry,
   pantrySearchLabel,
-  noMatchText,
   type PantryCategoryGroup,
 } from "./domain/pantry-meta";
 export {
