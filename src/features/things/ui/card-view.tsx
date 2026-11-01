@@ -22,6 +22,7 @@ import {
   type CardView as Card,
 } from "../domain/thing-card";
 import { thingNoun, thingNounCap } from "../domain/thing-noun";
+import { countText } from "../domain/thing-count";
 import { AddCardThings } from "./add-card-things";
 import { RemoveCard } from "./remove-card";
 import { RetakeCard } from "./retake-card";
@@ -128,8 +129,11 @@ function ThingRowTitle({ thing, selected }: { thing: CardThing; selected: boolea
   return (
     <span className="flex items-baseline justify-between gap-3">
       <span className={cx("min-w-0 wrap-break-word", selected ? "font-semibold text-mint-ink" : "font-normal")}>{thing.name}</span>
-      {thing.whereHint ? (
-        <span className={cx("max-w-[45%] shrink-0 text-right text-meta font-normal", selected ? "text-mint-ink" : "text-ink-3")}>{thing.whereHint}</span>
+      {thing.whereHint || thing.quantity != null ? (
+        <span className={cx("max-w-[45%] shrink-0 text-right text-meta font-normal", selected ? "text-mint-ink" : "text-ink-3")}>
+          {/* Story 18.23: the count the card shows, first. */}
+          {[thing.quantity != null ? countText(thing.quantity) : null, thing.whereHint].filter(Boolean).join(" · ")}
+        </span>
       ) : null}
     </span>
   );

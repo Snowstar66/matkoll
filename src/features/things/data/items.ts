@@ -1,6 +1,7 @@
 import { thingRowSchema, toThing, type Thing, type ThingCategory } from "../domain/thing";
 import type { ThingSnapshot } from "../domain/thing-edit";
 import { boxColumnsOf, boxOfRow } from "../domain/thing-card";
+import { countSnapshotSchema } from "../domain/thing-count";
 import { loadPointersIn, relinkItemsIn } from "./merge";
 import { guarded, ThingsDataError, type ThingsDb } from "./client";
 
@@ -57,6 +58,17 @@ export async function removeItemIn(db: ThingsDb, id: string): Promise<ThingSnaps
   return guarded("remove", async () => {
     // The things merged into this one, before they become kept things of their own (FK set null).
     const pointers = await loadPointersIn(db, [id]);
+    // Story 18.23: its history, which goes with it, for "Ångra".
+    const history = await db
+      .from("thing_change")
+      .select("kind, delta, quantity_after, cleared, created_at")
+      .eq("item_id", id)
+      .order("created_at")
+      .order("id")
+      .limit(50);
+    if (history.error) throw new ThingsDataError(`query_failed ${history.error.code}`);
+    const changes = countSnapshotSchema.shape.changes.safeParse(history.data);
+    if (!changes.success) throw new ThingsDataError("invalid_row");
     const { data, error } = await db
       .from("thing_item")
       .delete()
@@ -64,7 +76,7 @@ export async function removeItemIn(db: ThingsDb, id: string): Promise<ThingSnaps
       // A thing written into a box (Story 18.13) has no card; it is changed by editing the box's text, never removed alone.
       // A noted thing (Story 18.19) has no card either, and is removed alone like a thing of a card.
       .in("source", ["photo", "added", "noted"])
-      .select("id, photo_id, place_id, name, category, where_hint, confidence, position, created_at, same_as, source, box_left, box_top, box_width, box_height, box_missed");
+      .select("id, photo_id, place_id, name, category, where_hint, confidence, position, created_at, same_as, source, box_left, box_top, box_width, box_height, box_missed, quantity");
     if (error) throw new ThingsDataError(`remove_failed ${error.code}`);
     const [row] = data;
     if (!row) return null;
@@ -87,8 +99,30 @@ export async function removeItemIn(db: ThingsDb, id: string): Promise<ThingSnaps
       pointedBy: pointers.get(id) ?? [],
       box: boxOfRow(row),
       boxMissed: row.box_missed && boxOfRow(row) === null,
+      quantity: row.quantity,
+      changes: row.quantity === null ? [] : changes.data,
     };
   });
+}
+
+/** Story 18.23: puts a restored föremål's history back. Never throws: the föremål and its count are back either way, and a failure is only logged. */
+async function restoreHistoryIn(db: ThingsDb, thing: ThingSnapshot): Promise<void> {
+  if (thing.quantity === null || thing.changes.length === 0) return;
+  try {
+    const { error } = await db.from("thing_change").insert(
+      thing.changes.map((change) => ({
+        item_id: thing.id,
+        kind: change.kind,
+        delta: change.delta,
+        quantity_after: change.quantity_after,
+        cleared: change.cleared,
+        created_at: change.created_at,
+      })),
+    );
+    if (error) console.error("things_history_restore_failed", { reason: error.code });
+  } catch {
+    console.error("things_history_restore_failed", { reason: "threw" });
+  }
 }
 
 /** "Ångra" on a removed thing: puts it back with the same id and time. `gone` when its card is gone (the foreign key). */
@@ -106,9 +140,11 @@ export async function restoreItemIn(db: ThingsDb, thing: ThingSnapshot): Promise
       created_at: thing.createdAt,
       source: thing.source,
       ...boxColumnsOf(thing),
+      quantity: thing.quantity,
     });
     if (!error) {
       await relinkItemsIn(db, [{ id: thing.id, sameAs: thing.sameAs, pointedBy: thing.pointedBy }]);
+      await restoreHistoryIn(db, thing);
       return "restored";
     }
     if (error.code === "23505") return "restored";

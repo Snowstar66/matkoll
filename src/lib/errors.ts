@@ -115,6 +115,8 @@ export const errorMessages = {
   // Kom ihåg var jag lade den (Story 18.19): nothing was saved.
   things_noted_failed: "Det gick inte att spara. Försök igen.",
   things_noted_full: `Du har skrivit in så många ${thingNoun.plural} som får plats. Ta bort några först.`,
+  // Ta och fyll på (Story 18.23): the count is as it was.
+  things_count_failed: "Det gick inte att ändra antalet. Försök igen.",
   // Sök och fråga (Story 18.4): nothing on a card to ask about yet.
   things_ask_empty: "Fotografera en plats först, så kan du fråga om vad som finns där.",
   // Matsedel (Story 3.1). After failed servings the selector shows the saved

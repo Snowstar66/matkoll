@@ -27,6 +27,7 @@ type Seed = {
   storeId: string;
   placeId: string;
   thingPhotoId: string;
+  thingItemId: string;
 };
 
 type Coverage = {
@@ -107,6 +108,8 @@ const coverage: Record<TableName, Coverage> = {
   thing_item: {
     row: (s) => ({ photo_id: s.thingPhotoId, place_id: s.placeId, name: "Hammare", category: "Verktyg", where_hint: "på väggen", confidence: "high" }),
   },
+  // Story 18.23: one change of a föremål's count (the history behind "Ta" and "Fyll på").
+  thing_change: { row: (s) => ({ item_id: s.thingItemId, kind: "set", quantity_after: 5 }) },
   store_offer: {
     row: (s) => ({ store_id: s.storeId, week_start: "2026-10-26", label: "Havets Laxfilé", name: "laxfilé", section: "Kött och fisk", source: "link" }),
   },
@@ -140,6 +143,7 @@ const seedOrder: TableName[] = [
   "thing_place",
   "thing_photo",
   "thing_item",
+  "thing_change",
 ];
 
 /**
@@ -183,6 +187,7 @@ async function seedAs(owner: Db, ownerId: string): Promise<{ ids: Map<TableName,
     if (table === "store") seed.storeId = row.id;
     if (table === "thing_place") seed.placeId = row.id;
     if (table === "thing_photo") seed.thingPhotoId = row.id;
+    if (table === "thing_item") seed.thingItemId = row.id;
   }
   return { ids, seed };
 }
@@ -549,6 +554,49 @@ describe("household isolation", () => {
       for (let count = 0; count < 5; count++) await makeKey(user);
       const sixth = await user.db.from("api_key").insert({ key_hash: hashOf(randomUUID()), label: "Siri" });
       expect(sixth.error?.code).toBe("MK402");
+    });
+  });
+  // Story 18.23: the count of a föremål and its history are changed only through functions that check the caller.
+  describe("the count of a föremål (Ta och fyll på)", () => {
+    it("keeps A's count and history from B and from anon, in the table and in the functions", async () => {
+      const itemId = rowIds.get("thing_item")!;
+      const set = await a.db.rpc("set_thing_quantity", { item: itemId, amount: 5 });
+      expect(set.error).toBeNull();
+      const took = await a.db.rpc("change_thing_quantity", { item: itemId, delta: -2 });
+      expect(took.error).toBeNull();
+      const changeId = took.data![0].change_id;
+      const itemBefore = JSON.stringify((await adminClient().from("thing_item").select("*").eq("id", itemId)).data);
+      const historyBefore = JSON.stringify((await adminClient().from("thing_change").select("*").eq("item_id", itemId).order("id")).data);
+
+      // B neither sees nor changes A's count or history, and every function says the föremål is not found.
+      expect((await b.db.from("thing_change").select("id").eq("item_id", itemId)).data).toEqual([]);
+      expect((await b.db.from("thing_item").select("quantity").eq("id", itemId)).data).toEqual([]);
+      expect((await b.db.rpc("change_thing_quantity", { item: itemId, delta: -1 })).error?.code).toBe("MK440");
+      expect((await b.db.rpc("change_thing_quantity", { item: itemId, delta: 3 })).error?.code).toBe("MK440");
+      expect((await b.db.rpc("set_thing_quantity", { item: itemId, amount: 99 })).error?.code).toBe("MK440");
+      expect((await b.db.rpc("undo_thing_change", { change: changeId })).error?.code).toBe("MK440");
+      expect((await b.db.rpc("stop_thing_count", { item: itemId })).error?.code).toBe("MK440");
+      expect((await b.db.rpc("restore_thing_count", { item: itemId, amount: 1, changes: [] })).error?.code).toBe("MK440");
+      // Nor writes a change onto A's föremål as B: the foreign key holds the user too.
+      expect((await b.db.from("thing_change").insert({ item_id: itemId, kind: "set", quantity_after: 1 })).error).not.toBeNull();
+      expect((await b.db.from("thing_change").update({ quantity_after: 1 }).eq("id", changeId).select("id")).data ?? []).toEqual([]);
+      expect((await b.db.rpc("search_things", { terms: ["hammare"] })).data?.some((row) => row.id === itemId) ?? false).toBe(false);
+
+      // Anon reaches none of it.
+      const anon = anonClient();
+      for (const [name, args] of [
+        ["change_thing_quantity", { item: itemId, delta: -1 }],
+        ["set_thing_quantity", { item: itemId, amount: 1 }],
+        ["undo_thing_change", { change: changeId }],
+        ["stop_thing_count", { item: itemId }],
+        ["restore_thing_count", { item: itemId, amount: 1, changes: [] }],
+      ] as const) {
+        expect((await anon.rpc(name, args as never)).error?.code, `anon ${name}`).toBe("42501");
+      }
+
+      // A's count and history are exactly as they were.
+      expect(JSON.stringify((await adminClient().from("thing_item").select("*").eq("id", itemId)).data)).toBe(itemBefore);
+      expect(JSON.stringify((await adminClient().from("thing_change").select("*").eq("item_id", itemId).order("id")).data)).toBe(historyBefore);
     });
   });
 });

@@ -385,6 +385,9 @@ export type ThingCategory = (typeof thingCategories)[number];
 export const thingConfidences = ["high", "medium", "low"] as const;
 export type ThingConfidence = (typeof thingConfidences)[number];
 
+/** Story 18.23: the most alike föremål the model may count on a card. */
+export const maxThingCount = 999;
+
 /** The most things a photo gives; the model is asked for the clearest first. */
 export const maxThings = 60;
 
@@ -406,6 +409,11 @@ export const listThingsAnswer = z.object({
           .array(z.number())
           .nullable()
           .describe(`[x1, y1, x2, y2] runt ${thingNoun.definite} i tusendelar (0–1000) av bildens bredd och höjd från övre vänstra hörnet; null om det är oklart`),
+        // Story 18.23: how many alike, for consumables only, and only when they can be counted clearly. Never a guess.
+        count: z
+          .number()
+          .nullable()
+          .describe("Hur många likadana förbrukningsvaror du kan räkna tydligt (1–999); null för en enda sak, verktyg, möbler och när du inte kan räkna säkert"),
       }),
     )
     .describe(`${thingNounCap.definitePlural} som syns på bilden, tom lista om inga syns`),
@@ -605,6 +613,8 @@ export const aiThing = z.object({
   ),
   // Story 18.7: a box that is not reasonable is left out, never the thing (boxFromThousandths).
   box: z.preprocess((value) => boxFromThousandths(value), z.custom<ThingBox>().nullable()),
+  // Story 18.23: a whole number from 1 to 999, or no count; anything else is no count, never an invalid thing.
+  count: z.preprocess((value) => (typeof value === "number" && Number.isInteger(value) && value >= 1 && value <= maxThingCount ? value : null), z.number().int().nullable()),
 });
 export type AiThing = z.output<typeof aiThing>;
 
@@ -637,7 +647,8 @@ export function parseThings(answer: z.output<typeof listThingsAnswer>): {
     const key = `${labelKey(parsed.data.name)}|${labelKey(parsed.data.where ?? "")}`;
     if (seen.has(key)) continue;
     seen.add(key);
-    things.push(parsed.data);
+    // Story 18.23: a count is only kept for a föremål the model is sure of; a guess is never counted.
+    things.push(parsed.data.confidence === "low" ? { ...parsed.data, count: null } : parsed.data);
   }
   const note = answer.hiddenNote === null ? "" : cleanModelText(answer.hiddenNote);
   const hidden = Number.isFinite(answer.hiddenContainers) ? Math.min(99, Math.max(0, Math.round(answer.hiddenContainers))) : 0;

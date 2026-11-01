@@ -100,7 +100,10 @@ export function toRoomThing(row: {
   seenOn: number;
   /** Story 18.19: when a noted thing was written in (ISO); null for any other thing. */
   notedAt?: string | null;
+  /** Story 18.23: how many there are; null when it is not counted. */
+  quantity?: number | null;
 }): Thing {
+  const quantity = row.quantity ?? null;
   if (row.notedAt) {
     // A noted thing says its part and the day it was written in, and keeps its own (empty) "where" for the sheet.
     return {
@@ -111,6 +114,7 @@ export function toRoomThing(row: {
       whereHint: notedHint(row.part, new Date(row.notedAt)),
       seenOn: 1,
       noted: { at: row.notedAt, part: row.part },
+      quantity,
     };
   }
   return {
@@ -120,6 +124,7 @@ export function toRoomThing(row: {
     confidence: row.confidence,
     whereHint: roomThingHint(row),
     seenOn: 1,
+    quantity,
   };
 }
 

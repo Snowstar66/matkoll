@@ -67,6 +67,8 @@ const thingsSchema = z.array(
     // Story 18.19; a database before its migration has no such columns.
     noted: z.boolean().optional(),
     noted_at: z.string().nullable().optional(),
+    // Story 18.23; a database before its migration has no such column.
+    quantity: z.number().int().nullable().optional(),
   }),
 );
 
@@ -89,6 +91,7 @@ export async function loadRoomThingsIn(db: ThingsDb, siteId: string, key: string
       kind: row.kind,
       seenOn: row.seen_on,
       notedAt: row.noted && row.noted_at ? new Date(row.noted_at).toISOString() : null,
+      quantity: row.quantity ?? null,
     }),
   );
 }

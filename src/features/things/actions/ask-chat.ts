@@ -11,7 +11,9 @@ import { findNotedIn, loadRoomPartsIn } from "../data/noted";
 import { loadUnseenIn, searchThingsIn } from "../data/search";
 import { chatInputSchema, cleanHistory, groupHits, maxAnswerHits, questionTooLongText, questionWords, refOfGroup, type ChatRef, type ChatTurn } from "../domain/thing-ask";
 import { placeTitle } from "../domain/thing-place";
-import { hitDateText, isPlainSearch, plainSearchAnswer, rankHits, searchTerms, type ThingHit } from "../domain/thing-search";
+import { hitDateText, hitRoomText, isPlainSearch, plainSearchAnswer, rankHits, searchTerms, stripQuestionFrame, type ThingHit } from "../domain/thing-search";
+import { countAnswer } from "../domain/thing-count";
+import { loadChangesIn } from "../data/count";
 import { thingNounCap } from "../domain/thing-noun";
 import { proposalQuestionText, proposePlace, type NotedProposal, type RoomParts } from "../domain/thing-noted";
 
@@ -82,20 +84,34 @@ export async function askChat(input: { question: string; history: ChatTurn[]; si
   // A plain search ("coca-cola", "passen") is answered by the database, without AI; only
   // when it finds nothing at all does the AI get the text and may name the closest thing.
   // Not as the answer to a question of the chat's own ("Ska jag komma ihåg …?" – "ja").
+  // Story 18.23: so is a short question with a frame ("har vi gravljus", "var är
+  // gravljusen"); when the database has nothing that answers it, it goes to the AI,
+  // which knows other words for it ("värmeljus" for "ljus").
   const answersQuestion = history.at(-1)?.answer.trim().endsWith("?") ?? false;
-  if (isPlainSearch(question) && !answersQuestion) {
+  const framed = answersQuestion ? null : stripQuestionFrame(question);
+  if ((isPlainSearch(question) && !answersQuestion) || framed !== null) {
+    const searched = framed ?? question;
     let found: ThingHit[];
+    let answer: string | null = null;
     try {
-      found = await searchThingsIn(await createClient(), searchTerms(question), maxAnswerHits);
+      const db = await createClient();
+      found = await searchThingsIn(db, searchTerms(searched), maxAnswerHits);
+      const { best } = rankHits(searched, found);
+      // One counted föremål that answers: its count and how it has changed since the card, from the history.
+      const [only] = best;
+      if (best.length === 1 && only.quantity !== null) {
+        const changes = (await loadChangesIn(db, [only.id])).get(only.id) ?? [];
+        answer = countAnswer(only.name, hitRoomText(only), only.quantity, changes);
+      }
     } catch (error) {
       if (!(error instanceof ThingsDataError)) throw error;
       console.error("things_unavailable", { reason: error.detail });
       return fail("things_unavailable");
     }
-    if (found.length > 0) {
-      const { best, similar } = rankHits(question, found);
-      console.info("things_searched", { best: best.length, similar: similar.length });
-      return ok({ answer: plainSearchAnswer(question, best), refs: [], hits: best, similar });
+    const { best, similar } = rankHits(searched, found);
+    if (found.length > 0 && (framed === null || best.length > 0)) {
+      console.info("things_searched", { best: best.length, similar: similar.length, framed: framed !== null, counted: answer !== null });
+      return ok({ answer: answer ?? plainSearchAnswer(searched, best), refs: [], hits: best, similar });
     }
   }
 
@@ -163,7 +179,13 @@ export async function askChat(input: { question: string; history: ChatTurn[]; si
       hidden: 0,
       written: first.written,
       noted: first.noted,
-      things: group.hits.map((hit) => ({ name: cleanModelText(hit.name) || thingNounCap.singular, category: hit.category, where: hit.whereHint ? cleanModelText(hit.whereHint) || null : null })),
+      things: group.hits.map((hit) => ({
+        name: cleanModelText(hit.name) || thingNounCap.singular,
+        category: hit.category,
+        where: hit.whereHint ? cleanModelText(hit.whereHint) || null : null,
+        // Story 18.23: how many there should be, so the answer can say it too.
+        quantity: hit.quantity,
+      })),
     };
   });
 

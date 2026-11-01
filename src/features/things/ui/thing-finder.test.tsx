@@ -12,6 +12,7 @@ vi.mock("next/navigation", () => ({ useRouter: () => ({ push: vi.fn(), refresh: 
 vi.mock("../actions/ask-chat", () => ({ askChat: (input: unknown) => askChat(input) }));
 
 const hit: ThingHit = {
+  quantity: null,
   id: "0b2f6d0a-3c0e-4d52-9a54-6d0f0c5f6a11",
   name: "Hammare",
   category: "Verktyg",

@@ -13,11 +13,13 @@ import {
   searchRowsSchema,
   searchTerms,
   showSimilarText,
+  stripQuestionFrame,
   toHit,
   type ThingHit,
 } from "./thing-search";
 
 const hit = (extra: Partial<ThingHit> = {}): ThingHit => ({
+  quantity: null,
   id: "0b2f6d0a-3c0e-4d52-9a54-6d0f0c5f6a01",
   name: "Cirkelsåg",
   category: "Verktyg",
@@ -165,3 +167,25 @@ describe("a plain search and its best hits (Story 18.19)", () => {
   });
 });
 
+
+describe("stripQuestionFrame (Story 18.23)", () => {
+  it("takes the frame off a short question, so the database can answer it", () => {
+    expect(stripQuestionFrame("har vi gravljus")).toBe("gravljus");
+    expect(stripQuestionFrame("Finns det gravljus hemma?")).toBe("gravljus");
+    expect(stripQuestionFrame("finns det några batterier kvar")).toBe("batterier");
+    expect(stripQuestionFrame("var är gravljusen")).toBe("gravljusen");
+    expect(stripQuestionFrame("Var ligger passen?")).toBe("passen");
+    expect(stripQuestionFrame("har vi glödlampor e27")).toBe("glödlampor e27");
+    expect(stripQuestionFrame("hittar du hammaren")).toBe("hammaren");
+  });
+
+  it("leaves a text without a frame, or a real question, to the rest", () => {
+    expect(stripQuestionFrame("gravljus")).toBeNull();
+    expect(stripQuestionFrame("har vi")).toBeNull();
+    expect(stripQuestionFrame("har vi tejp och lim")).toBeNull();
+    expect(stripQuestionFrame("har vi något att laga cykeln med")).toBeNull();
+    expect(stripQuestionFrame("var är det bäst att ha verktygen")).toBeNull();
+    expect(stripQuestionFrame("vad finns i garaget")).toBeNull();
+    expect(stripQuestionFrame("Har vi något att måla med?")).toBeNull();
+  });
+});

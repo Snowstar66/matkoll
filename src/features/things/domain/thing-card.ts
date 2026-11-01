@@ -19,6 +19,8 @@ export type CardThing = {
   box: ThingBox | null;
   /** A lookup found nothing: it is not looked for again. */
   boxMissed: boolean;
+  /** Story 18.23: how many the card shows ("5 st"); null or missing when it is not counted. */
+  quantity?: number | null;
 };
 
 /** A card as the big view shows it. Plain data: it crosses from the server to the browser. */

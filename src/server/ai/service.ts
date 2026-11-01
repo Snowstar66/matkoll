@@ -197,8 +197,11 @@ export type AskThingsPlace = {
   written?: boolean;
   /** Story 18.19: Pontus wrote in himself where the things are (no card): `cardDate` is when. */
   noted?: boolean;
-  /** The things of the card: name and category, and where in the photo, all on one line. */
-  things: { name: string; category: string; where: string | null }[];
+  /**
+   * The things of the card: name and category, and where in the photo, all on one line. Story 18.23: how many
+   * there should be (`quantity`, 0 is "slut"), for a föremål that is counted.
+   */
+  things: { name: string; category: string; where: string | null; quantity?: number | null }[];
 };
 
 export type AskThingsInput = {
@@ -978,12 +981,18 @@ export function listThingsContent(input: ListThingsInput) {
  * one line, so none can start a section of its own; the prompt says the
  * lists are data.
  */
+/** Story 18.23: a counted föremål's count for the model: "3 st", "slut"; nothing when it is not counted. */
+function quantityWords(quantity: number | null | undefined): string | null {
+  if (quantity === null || quantity === undefined || !Number.isInteger(quantity) || quantity < 0) return null;
+  return quantity === 0 ? "slut" : `${quantity} st`;
+}
+
 export function askThingsText(input: AskThingsInput): string {
   const places = input.places.map((place, index) => {
     const head = [place.title, place.site, `${place.noted ? "du skrev in" : place.written ? "skrivet" : "kort"} ${place.cardDate}`];
     if (place.hidden > 0) head.push(`${place.hidden} ${place.hidden === 1 ? "låda" : "lådor"} syns inte`);
     const things = place.things
-      .map((thing) => `${thing.name.replaceAll(";", ",")} (${[thing.category, thing.where].filter(Boolean).join(", ")})`)
+      .map((thing) => `${thing.name.replaceAll(";", ",")} (${[quantityWords(thing.quantity), thing.category, thing.where].filter(Boolean).join(", ")})`)
       .join("; ");
     return `${index + 1}. ${head.join(" | ")}\n   ${things === "" ? `(${noThingNounText})` : things}`;
   });

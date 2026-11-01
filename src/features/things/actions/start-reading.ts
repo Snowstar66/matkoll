@@ -106,7 +106,7 @@ function readingWork(db: ThingsDb, userId: string, card: { id: string; placeId: 
     if (failed !== null) console.error("things_photo_remove_failed", { reason: failed });
     // Like the pantry's sweep after a save (Story 10.3): files without a row go too. Never changes the answer.
     await sweepCardFilesIn(db, userId);
-    console.info("things_read", { count: things.length });
+    console.info("things_read", { count: things.length, counted: things.filter((thing) => thing.count !== null).length });
     // Story 18.6: things the card shares with the room's other cards are merged; the card is done either way.
     if (!signal.aborted) await mergeCardWithRoom(db, ai, card.id, signal, deadline - mergeMarginMs);
     return ok({ photoId: card.id, placeId: card.placeId, count: things.length } satisfies Json);
