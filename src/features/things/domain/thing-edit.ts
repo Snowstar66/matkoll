@@ -1,3 +1,4 @@
+import { countSnapshotSchema, maxCount } from "./thing-count";
 import { z } from "zod";
 import { charLength, oneLine } from "@/lib/one-line";
 import { thingCategories, thingConfidences } from "./thing";
@@ -63,6 +64,9 @@ export const thingSnapshotSchema = z.object({
   // Story 18.7: where it is on the card, so "Ångra" brings the box back too (none in a snapshot from before).
   box: thingBoxSchema.nullable().default(null),
   boxMissed: z.boolean().default(false),
+  // Story 18.23: its count and history, so "Ångra" brings them back too (none in a snapshot from before).
+  quantity: z.number().int().min(0).max(maxCount).nullable().default(null),
+  changes: countSnapshotSchema.shape.changes.default([]),
 });
 export type ThingSnapshot = z.output<typeof thingSnapshotSchema>;
 
@@ -81,7 +85,8 @@ export const cardSnapshotSchema = z.object({
   errorCode: z.string().regex(/^[a-z][a-z0-9_]{0,62}$/).nullable().default(null),
   unseenNote: z.string().min(1).max(300).nullable(),
   unseenCount: z.number().int().min(0).max(99),
-  things: z.array(thingSnapshotSchema.extend({ photoId: z.uuid(), source: z.enum(["photo", "added"]).default("photo") })).max(200),
+  // A card's föremål come back without their counts (Story 18.23): the next card counts them again.
+  things: z.array(thingSnapshotSchema.omit({ quantity: true, changes: true }).extend({ photoId: z.uuid(), source: z.enum(["photo", "added"]).default("photo") })).max(200),
 });
 export type CardSnapshot = z.output<typeof cardSnapshotSchema>;
 

@@ -341,19 +341,25 @@ export function TakeCard({ siteId, rooms, defaultRoom, variant, layout = "row", 
   );
 }
 
-/** The two equal buttons: "Ta foto" and "Välj från Bilder", side by side; their text wraps when it is large. */
+/**
+ * The two equal buttons: "Ta foto" and "Välj från Bilder", side by side, the icon over the text; their text wraps
+ * when it is large. They are filled with `--bg`, so they read as buttons on the room's white card and in the white
+ * sheet alike. Not the secondary Button: its fixed height and `--surface` fill would be joined here, not replaced
+ * (cx does not merge classes), and the icon shrank to nothing in the column.
+ */
 function CaptureButtons({ disabled, onChoose }: { disabled?: boolean; onChoose: (camera: boolean) => void }) {
-  const look = "h-auto min-h-button flex-col gap-0.5 px-2 py-3 text-center wrap-break-word";
+  const look =
+    "inline-flex min-h-button w-full flex-col items-center justify-center gap-0.5 rounded-md bg-bg px-2 py-3 text-center text-headline wrap-break-word text-accent select-none disabled:cursor-not-allowed disabled:opacity-60";
   return (
     <div className="grid grid-cols-2 gap-2">
-      <Button variant="secondary" fullWidth disabled={disabled} className={look} onClick={() => onChoose(true)} data-testid="open-camera">
-        <CameraIcon size={22} />
+      <button type="button" disabled={disabled} className={look} onClick={() => onChoose(true)} data-testid="open-camera">
+        <CameraIcon size={22} className="shrink-0" />
         {openCameraText}
-      </Button>
-      <Button variant="secondary" fullWidth disabled={disabled} className={look} onClick={() => onChoose(false)} data-testid="pick-images">
-        <ImageIcon size={22} />
+      </button>
+      <button type="button" disabled={disabled} className={look} onClick={() => onChoose(false)} data-testid="pick-images">
+        <ImageIcon size={22} className="shrink-0" />
         {pickImagesText}
-      </Button>
+      </button>
     </div>
   );
 }

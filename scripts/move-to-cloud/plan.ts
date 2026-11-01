@@ -52,6 +52,8 @@ export const TABLES: TableSpec[] = [
     pathColumns: ["object_path"],
   },
   { name: "thing_item", pk: ["id"], deps: ["thing_photo", "thing_place"], deferred: ["same_as"] },
+  // Story 18.23: the history of a föremål's count; its foreign key is (item_id, user_id), so after thing_item.
+  { name: "thing_change", pk: ["id"], deps: ["thing_item"] },
   {
     name: "ai_job",
     pk: ["id"],

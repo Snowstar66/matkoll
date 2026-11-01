@@ -15,12 +15,18 @@ vi.mock("../actions/thing-item", () => ({
   removeThing: (id: string) => removeThing(id),
   restoreThing: (snapshot: ThingSnapshot) => restoreThing(snapshot),
 }));
+// Story 18.23: the count card in the sheet reads the count; here the föremål are not counted.
+vi.mock("../actions/thing-count", () => ({
+  loadThingCount: async (itemId: string) => ({ ok: true, data: { itemId, quantity: null, changes: [] } }),
+}));
 const refresh = vi.fn();
 vi.mock("next/navigation", () => ({ useRouter: () => ({ push: vi.fn(), refresh }) }));
 
 const hammer: Thing = { id: "0b2f6d0a-3c0e-4d52-9a54-6d0f0c5f6a11", name: "Hammare", category: "Verktyg", whereHint: "på väggen", confidence: "high", seenOn: 1 };
 const spade: Thing = { id: "0b2f6d0a-3c0e-4d52-9a54-6d0f0c5f6a12", name: "Spade", category: "Trädgård", whereHint: null, confidence: "low", seenOn: 1 };
 const snapshot: ThingSnapshot = {
+  quantity: null,
+  changes: [],
   id: hammer.id,
   photoId: "0b2f6d0a-3c0e-4d52-9a54-6d0f0c5f6a01",
   placeId: "0b2f6d0a-3c0e-4d52-9a54-6d0f0c5f6a02",

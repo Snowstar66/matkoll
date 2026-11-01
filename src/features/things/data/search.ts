@@ -31,3 +31,12 @@ export async function loadUnseenIn(db: ThingsDb): Promise<{ siteId: string; room
     return parsed.data.map((row) => ({ siteId: row.site_id, room: row.room, roomKey: row.room_key, count: row.unseen }));
   });
 }
+
+/** How many boenden the user has (Story 18.23: a count answer names the boende when there is more than one). Throws ThingsDataError `query_failed <code>`. */
+export async function countSitesIn(db: ThingsDb): Promise<number> {
+  return guarded("query", async () => {
+    const { count, error } = await db.from("pantry_site").select("id", { count: "exact", head: true });
+    if (error) throw new ThingsDataError(`query_failed ${error.code}`);
+    return count ?? 0;
+  });
+}

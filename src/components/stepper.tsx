@@ -14,6 +14,12 @@ export type StepperProps = {
   format?: (value: number) => string;
   decreaseLabel?: string;
   increaseLabel?: string;
+  /**
+   * Story 18.23: a small stepper, − number + (112 px), for a choice made in a list row; the value in words is
+   * read out. `onBg` fills it with `--bg` instead of `--surface`, for a white row.
+   */
+  compact?: boolean;
+  onBg?: boolean;
   className?: string;
 };
 
@@ -48,6 +54,8 @@ export function Stepper({
   format = formatPortions,
   decreaseLabel = "Färre portioner",
   increaseLabel = "Fler portioner",
+  compact = false,
+  onBg = false,
   className,
 }: StepperProps) {
   const floor = Math.max(1, Number.isFinite(min) ? Math.floor(min) : 1);
@@ -61,7 +69,12 @@ export function Stepper({
   return (
     <div
       data-testid="stepper"
-      className={cx("@container inline-flex min-h-tap w-[11.5rem] max-w-full items-center rounded-full bg-surface", className)}
+      className={cx(
+        "@container inline-flex min-h-tap max-w-full items-center rounded-full",
+        compact ? "w-28 shrink-0" : "w-[11.5rem]",
+        onBg ? "bg-bg" : "bg-surface",
+        className,
+      )}
     >
       {/* aria-disabled instead of disabled keeps the button in the tab order and focused. */}
       <button

@@ -28,6 +28,8 @@ import {
 } from "../domain/thing-edit";
 import { thingNounCap } from "../domain/thing-noun";
 import { notedSheetSubtitle } from "../domain/thing-noted";
+import { CountCard } from "./count-card";
+import { CountMeta } from "./hit-rows";
 
 // The things of a card under their categories (Stories 18.2 and 18.3), each a
 // row to tap: a sheet renames that thing, changes its category and where on the
@@ -54,12 +56,20 @@ export function CategoryHeading({ category, count, id }: { category: ThingCatego
   );
 }
 
-/** A thing's row in a room's list (Story 18.12): the name, and where it is at the right in small type. */
-function AsideTitle({ name, hint }: { name: string; hint: string }) {
+/**
+ * A thing's row in a room's list (Story 18.12): the name, and where it is at the right in small type. Story 18.23:
+ * a counted föremål has its count first there ("3 st · översta hyllan, vänster", or "Slut"); no buttons, the
+ * list is for looking: Ta and Fyll på are in the sheet.
+ */
+function AsideTitle({ name, hint, quantity }: { name: string; hint: string; quantity: number | null }) {
   return (
     <span className="flex items-baseline justify-between gap-3">
       <span className="min-w-0 font-normal wrap-break-word">{name}</span>
-      {hint ? <span className="max-w-[45%] shrink-0 text-right text-meta font-normal text-ink-3">{hint}</span> : null}
+      {hint || quantity !== null ? (
+        <span className="max-w-[45%] shrink-0 text-right text-meta font-normal text-ink-3">
+          {quantity !== null ? <CountMeta quantity={quantity} rest={hint} /> : hint}
+        </span>
+      ) : null}
     </span>
   );
 }
@@ -183,8 +193,8 @@ export function CardThings({ things, headings = true, aside = false }: { things:
             {group.things.map((thing) => (
               <ListRow
                 key={thing.id}
-                title={aside ? <AsideTitle name={thing.name} hint={thingMeta(thing)} /> : thing.name}
-                meta={aside ? undefined : thingMeta(thing)}
+                title={aside ? <AsideTitle name={thing.name} hint={thingMeta(thing)} quantity={thing.quantity ?? null} /> : thing.name}
+                meta={aside ? undefined : thing.quantity != null ? <CountMeta quantity={thing.quantity} rest={thingMeta(thing)} /> : thingMeta(thing)}
                 onPress={() => openSheet(thing)}
                 pressProps={{ "aria-haspopup": "dialog", "data-testid": "thing-press" }}
                 data-testid="thing"
@@ -203,6 +213,8 @@ export function CardThings({ things, headings = true, aside = false }: { things:
       >
         <form onSubmit={save} noValidate aria-busy={saving || undefined} className="flex flex-col gap-4">
           {notice ? <Notice role="alert">{notice}</Notice> : null}
+          {/* Story 18.23: the count first, saved at once (no Spara); keyed by the föremål so each opens fresh. */}
+          {selected ? <CountCard key={selected.id} itemId={selected.id} name={selected.name} initial={selected.quantity ?? null} /> : null}
           <div className="flex flex-col gap-2">
             <FieldLabel htmlFor={`${ids}-name`}>{renameThingText}</FieldLabel>
             <Input
