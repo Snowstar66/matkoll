@@ -5263,6 +5263,19 @@ så att vi inte delar lösenord och appen vet vem jag är.
 **När** jag är inloggad
 **Så** visar den mitt eget namn, inte hushållets
 
+**Givet** att jag har egen data och går med i ett annat hushåll
+**När** jag ska tacka ja
+**Så** varnar appen först att mitt gamla hushålls data ersätts av det nya hushållets
+
+**Givet** att ägaren lämnar ett hushåll där andra är kvar
+**När** ägaren lämnar
+**Så** går ägarskapet över till en annan medlem
+
+Anteckningar från granskningen av 21.2a (byggs här):
+- `accept_invite` tar bort medlemskapet och lägger in det på nytt (DELETE och INSERT, inte UPDATE), så att `household_drop_when_empty` tar bort det gamla, tomma hushållet.
+- "Rensa" (`clear-things`) och "Ändra plats" (`edit-place`) måste ta bort också andra medlemmars filer: de listar i dag bara den inloggades mapp (`<user_id>/<plats>`).
+- Vid Lämna städas den lämnandes filer utan rad under det gamla hushållets platser (de kan annars varken läsas eller tas bort, `docs/molnet.md`, "Kvar till 21.2b och 21.3").
+
 ### Story 21.3: Se vem som gjort vad
 
 Som en som handlar ihop med någon,
@@ -5282,6 +5295,8 @@ så att vi inte köper samma sak två gånger och vet vem man ska fråga.
 **Givet** Matvaror och Förråd
 **När** jag öppnar en vara eller ett föremål
 **Så** står det vem som senast fyllde på eller ändrade, och när
+
+Anteckning från granskningen av 21.2a: funktionerna som skriver om `thing_change` (sammanslagning, återställning av antal, kortets sparande) behåller den ursprungliga skaparen på varje ändring.
 
 ### Story 21.4: Ändringslogg
 

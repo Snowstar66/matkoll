@@ -11,7 +11,7 @@ import { localSupabaseUrl } from "../local-supabase";
 export type Db = SupabaseClient<Database>;
 type Tables = Database["public"]["Tables"];
 /** The tables whose rows belong to a user (`id` and `user_id`); app_owner (Story 20.3) is the one that does not. */
-export type TableName = { [K in keyof Tables]: Tables[K]["Row"] extends { id: string; user_id: string } ? K : never }[keyof Tables];
+export type TableName = { [K in keyof Tables]: Tables[K]["Row"] extends { id: string; user_id: string | null } ? K : never }[keyof Tables];
 export type TestUser = { id: string; email: string; db: Db };
 
 const options = { auth: { autoRefreshToken: false, persistSession: false } };

@@ -26,10 +26,11 @@
 --   5. RLS: every policy on those tables compares household_id instead of
 --      user_id; a new row's user_id must still be the caller's (it is "the
 --      one who made it" until Story 21.3 names it created_by).
---   6. Storage: photo files stay where they are (`<user_id>/...`). A file is
---      readable and removable when a row of the caller's household points at
---      it, or when it lies in the folder of a member of the caller's
---      household and no other household's row points at it.
+--   6. Storage: photo files stay where they are (`<user_id>/<place>/...`). A
+--      file is readable and removable when a row of the caller's household
+--      points at it, or when it lies in the folder of a member of the
+--      caller's household, under none of another household's places, and no
+--      other household's row points at it.
 --   7. The functions: every one that filtered on auth.uid() or took a lock
 --      per user now does so per household.
 --
@@ -41,8 +42,16 @@
 -- Backward compatible for one-member households (every household today): the
 -- old columns stay (user_id is kept), and code that inserts with an explicit
 -- user_id still works (household_id comes from the default, or from the
--- user's membership when there is no session). The cascade from auth.users
--- on user_id is unchanged.
+-- user's membership when there is no session). user_id now means "the member
+-- who made the row": it may be empty, and a deleted account empties it (on
+-- delete set null) instead of taking the household's rows with it; the
+-- household's data goes only with the household (household_drop_when_empty).
+-- A signed-in user never changes a row's user_id or household_id
+-- (household_row_guard).
+
+-- A lock it waits for longer than this fails the migration (and rolls it all
+-- back) instead of holding up the app.
+set local lock_timeout = '5s';
 
 -- 1. The household, its members and its invitations ---------------------------
 
@@ -268,10 +277,42 @@ $$;
 
 revoke all on function public.household_fill() from public, anon, authenticated, service_role;
 
+-- A signed-in user (or anon) never changes who made a row or whose it is, and
+-- never moves a photo row's file to another folder. The service role and the
+-- functions that run as the owner may: the foreign key's `on delete set null`
+-- (it runs as the table's owner) and Story 21.2b's moves.
+create function public.household_row_guard()
+returns trigger
+language plpgsql
+set search_path = ''
+as $$
+begin
+  if current_user in ('authenticated', 'anon') then
+    if new.user_id is distinct from old.user_id or new.household_id is distinct from old.household_id then
+      raise exception 'a row keeps its maker and its household' using errcode = '42501';
+    end if;
+    if tg_table_name in ('pantry_photo', 'thing_photo') then
+      if split_part(new.object_path, '/', 1) is distinct from split_part(old.object_path, '/', 1) then
+        raise exception 'a photo keeps its folder' using errcode = '42501';
+      end if;
+    end if;
+  end if;
+  return new;
+end;
+$$;
+
+revoke all on function public.household_row_guard() from public, anon, authenticated, service_role;
+
 -- The backfill below changes pantry_site rows, whose one-selected check
 -- (pantry_site_one_selected) waits for the commit by default; a table with a
 -- check still waiting cannot be altered, so it runs at once here.
 set constraints pantry_site_one_selected immediate;
+
+-- The backfill must not touch updated_at (it is the optimistic lock of a
+-- recipe, a product choice and a changed line), so those triggers rest meanwhile.
+alter table public.recipe disable trigger recipe_set_updated_at;
+alter table public.product_choice disable trigger product_choice_set_updated_at;
+alter table public.shopping_line_override disable trigger shopping_line_override_set_updated_at;
 
 do $$
 declare
@@ -295,9 +336,37 @@ begin
       t, t || '_household_id_fkey');
     execute format(
       'create trigger household_fill before insert on public.%I for each row execute function public.household_fill()', t);
+    execute format(
+      'create trigger household_row_guard before update on public.%I for each row execute function public.household_row_guard()', t);
   end loop;
 end;
 $$;
+
+alter table public.recipe enable trigger recipe_set_updated_at;
+alter table public.product_choice enable trigger product_choice_set_updated_at;
+alter table public.shopping_line_override enable trigger shopping_line_override_set_updated_at;
+
+-- The photo rows' paths: `<folder>/<place>/...` with the row's own place and
+-- id, where the folder is the member who took the photo. With user_id empty
+-- (the taker's account deleted) the old check (`object_path = user_id || ...`)
+-- would pass anything, so the folder is now read from the path itself, must be
+-- a uuid, and is the maker's while there is one.
+alter table public.pantry_photo drop constraint pantry_photo_object_path_check;
+alter table public.pantry_photo add constraint pantry_photo_object_path_check check (
+  split_part(object_path, '/', 1) ~ '^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$'
+  and (user_id is null or split_part(object_path, '/', 1) = user_id::text)
+  and object_path = split_part(object_path, '/', 1) || '/' || site_id::text || '/'
+    || case location when 'Kyl' then 'kyl' when 'Frys' then 'frys' when 'Skafferi' then 'skafferi' end
+    || '/' || id::text
+    || case media_type when 'image/jpeg' then '.jpg' when 'image/png' then '.png' end
+);
+alter table public.thing_photo drop constraint thing_photo_object_path_check;
+alter table public.thing_photo add constraint thing_photo_object_path_check check (
+  split_part(object_path, '/', 1) ~ '^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$'
+  and (user_id is null or split_part(object_path, '/', 1) = user_id::text)
+  and object_path = split_part(object_path, '/', 1) || '/' || place_id::text || '/' || id::text
+    || case media_type when 'image/jpeg' then '.jpg' when 'image/png' then '.png' end
+);
 
 -- thing_change grants its columns one by one (Story 18.23): members read the new one too.
 grant select (household_id) on table public.thing_change to authenticated;
@@ -449,6 +518,29 @@ create unique index store_one_selected_per_household on public.store (household_
 create unique index store_household_id_chain_external_store_id_key on public.store (household_id, chain, lower(external_store_id));
 create index thing_change_household_idx on public.thing_change (household_id);
 create index thing_item_noted_idx on public.thing_item (household_id) where (source = 'noted'::text);
+
+-- user_id is the member who made the row: a deleted account leaves the row to
+-- the household with no maker, instead of deleting it (and failing on another
+-- member's row that points at it, on delete restrict). After the keys above,
+-- since pantry_removal's old primary key held user_id.
+do $$
+declare
+  t text;
+begin
+  foreach t in array array[
+    'ai_job', 'ai_setting', 'ai_usage', 'ingredient', 'ingredient_synonym', 'meal_plan', 'meal_plan_recipe',
+    'pantry_addition', 'pantry_item', 'pantry_photo', 'pantry_removal', 'pantry_site', 'product_choice', 'recipe',
+    'recipe_ingredient', 'recipe_site', 'recipe_step', 'shopping_check', 'shopping_custom_item',
+    'shopping_line_override', 'store', 'store_offer', 'thing_change', 'thing_item', 'thing_photo', 'thing_place'
+  ] loop
+    execute format('alter table public.%I alter column user_id drop not null', t);
+    execute format('alter table public.%I drop constraint %I', t, t || '_user_id_fkey');
+    execute format(
+      'alter table public.%I add constraint %I foreign key (user_id) references auth.users (id) on delete set null',
+      t, t || '_user_id_fkey');
+  end loop;
+end;
+$$;
 
 -- Every table can find its household's rows by an index.
 create index meal_plan_household_id_idx on public.meal_plan (household_id);
@@ -709,14 +801,23 @@ create policy thing_change_insert on public.thing_change
 
 -- 6. Storage: the photo buckets ----------------------------------------------------
 
--- Files keep their paths (`<user_id>/...`, the member who took the photo); no
--- file is moved. Whether the caller may read or remove the file `object_name`
--- of the bucket: a row of the caller's household points at it (the photo is
--- the household's, whoever took it), or it lies in the folder of a member of
--- the caller's household (a file whose row is not saved yet, or was removed
--- and waits for "Ångra" or the sweep) and no row of another household points
--- at it (a member who moved to another household keeps no way into the old
--- household's photos). Without a household nothing is readable.
+-- Files keep their paths, `<folder>/<place>/...`: the folder is the member who
+-- took the photo, the place a pantry_site (pantry-photo) or a thing_place
+-- (thing-photo). No file is moved.
+--
+-- Whether the caller may read or remove the file `object_name` of `bucket`:
+--   * a row of the caller's household points at it (the photo is the
+--     household's, whoever took it, also after the taker moved or was
+--     deleted); or
+--   * it lies in the folder of a member of the caller's household, under a
+--     place that is the caller's household's or no household's any more (a
+--     deleted boende or part, whose files the app removes right after the
+--     rows), and no row of another household points at it. This is a file
+--     whose row is not saved yet, or was removed and waits for "Ångra" or the
+--     sweep.
+-- So a member who moved to another household keeps no way into the old
+-- household's photos or its leftover files under its places, and nor does
+-- their new household. Without a household nothing is readable.
 create function public.photo_file_in_my_household(bucket text, object_name text)
 returns boolean
 language sql
@@ -725,10 +826,20 @@ security definer
 set search_path = ''
 as $$
   with me as (select public.my_household_id() as household_id),
+  parts as (
+    select (storage.foldername(object_name))[1] as folder, (storage.foldername(object_name))[2] as place
+  ),
   row_households as (
     select p.household_id from public.pantry_photo as p where bucket = 'pantry-photo' and p.object_path = object_name
     union all
     select t.household_id from public.thing_photo as t where bucket = 'thing-photo' and t.object_path = object_name
+  ),
+  place_households as (
+    select s.household_id from public.pantry_site as s, parts
+    where bucket = 'pantry-photo' and s.id::text = parts.place
+    union all
+    select l.household_id from public.thing_place as l, parts
+    where bucket = 'thing-photo' and l.id::text = parts.place
   )
   select coalesce(
     (select me.household_id from me) is not null
@@ -737,10 +848,10 @@ as $$
       exists (select 1 from row_households as r, me where r.household_id = me.household_id)
       or (
         exists (
-          select 1 from public.household_member as m, me
-          where m.household_id = me.household_id
-            and m.user_id::text = (storage.foldername(object_name))[1]
+          select 1 from public.household_member as m, me, parts
+          where m.household_id = me.household_id and m.user_id::text = parts.folder
         )
+        and not exists (select 1 from place_households as h, me where h.household_id <> me.household_id)
         and not exists (select 1 from row_households as r, me where r.household_id <> me.household_id)
       )
     ),
@@ -748,27 +859,55 @@ as $$
   );
 $$;
 
--- Whether the caller may add a file at `object_name`: only in the folder of a
--- member of the caller's household (their own, or a co-member's when a card
--- moves to another place and keeps its taker's folder).
-create function public.photo_folder_in_my_household(object_name text)
+-- Whether the caller may add a file at `object_name` of `bucket`: only in the
+-- folder of a member of the caller's household (their own, or a co-member's
+-- when a card moves to another place and keeps its taker's folder), never
+-- under a place of another household, and never at a path a row of another
+-- household points at. A place that is no household's (deleted meanwhile, in
+-- another tab) is let through, so the app answers "the place is gone" when it
+-- saves the row (the file is then removed, or swept).
+create function public.photo_folder_in_my_household(bucket text, object_name text)
 returns boolean
 language sql
 stable
 security definer
 set search_path = ''
 as $$
-  select exists (
-    select 1 from public.household_member as m
-    where m.household_id = public.my_household_id()
-      and m.user_id::text = (storage.foldername(object_name))[1]
+  with me as (select public.my_household_id() as household_id),
+  parts as (
+    select (storage.foldername(object_name))[1] as folder, (storage.foldername(object_name))[2] as place
+  )
+  select coalesce(
+    (select me.household_id from me) is not null
+    and exists (
+      select 1 from public.household_member as m, me, parts
+      where m.household_id = me.household_id and m.user_id::text = parts.folder
+    )
+    and bucket in ('pantry-photo', 'thing-photo')
+    and not exists (
+      select 1 from public.pantry_site as s, me, parts
+      where bucket = 'pantry-photo' and s.id::text = parts.place and s.household_id <> me.household_id
+    )
+    and not exists (
+      select 1 from public.thing_place as l, me, parts
+      where bucket = 'thing-photo' and l.id::text = parts.place and l.household_id <> me.household_id
+    )
+    and not exists (
+      select 1 from public.pantry_photo as p, me
+      where bucket = 'pantry-photo' and p.object_path = object_name and p.household_id <> me.household_id
+    )
+    and not exists (
+      select 1 from public.thing_photo as t, me
+      where bucket = 'thing-photo' and t.object_path = object_name and t.household_id <> me.household_id
+    ),
+    false
   );
 $$;
 
 revoke all on function public.photo_file_in_my_household(text, text) from public, anon, authenticated, service_role;
-revoke all on function public.photo_folder_in_my_household(text) from public, anon, authenticated, service_role;
+revoke all on function public.photo_folder_in_my_household(text, text) from public, anon, authenticated, service_role;
 grant execute on function public.photo_file_in_my_household(text, text) to authenticated;
-grant execute on function public.photo_folder_in_my_household(text) to authenticated;
+grant execute on function public.photo_folder_in_my_household(text, text) to authenticated;
 
 drop policy pantry_photo_select on storage.objects;
 create policy pantry_photo_select on storage.objects
@@ -780,8 +919,8 @@ create policy pantry_photo_insert on storage.objects
   for insert to authenticated
   with check (
     bucket_id = 'pantry-photo'
-    and public.photo_folder_in_my_household(name)
     and name ~ '^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}/[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}/(kyl|frys|skafferi)/[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}\.(jpg|png)$'
+    and public.photo_folder_in_my_household(bucket_id, name)
   );
 
 drop policy pantry_photo_delete on storage.objects;
@@ -797,7 +936,11 @@ create policy thing_photo_select on storage.objects
 drop policy thing_photo_insert on storage.objects;
 create policy thing_photo_insert on storage.objects
   for insert to authenticated
-  with check (bucket_id = 'thing-photo' and public.photo_folder_in_my_household(name));
+  with check (
+    bucket_id = 'thing-photo'
+    and name ~ '^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}/[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}/[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}\.(jpg|png)$'
+    and public.photo_folder_in_my_household(bucket_id, name)
+  );
 
 drop policy thing_photo_delete on storage.objects;
 create policy thing_photo_delete on storage.objects
@@ -893,6 +1036,9 @@ declare
   max_places constant integer := 10;
   places integer;
 begin
+  if new.household_id is null then
+    raise exception 'a place needs a household' using errcode = '42501';
+  end if;
   perform pg_advisory_xact_lock(hashtext('set_pantry_items:' || new.household_id::text));
   select count(*) into places
   from public.pantry_site as own
@@ -1021,6 +1167,12 @@ begin
   end if;
   if jsonb_typeof(things) is distinct from 'array' or jsonb_array_length(things) > 100 then
     raise exception 'things must be a list of at most 100' using errcode = '22023';
+  end if;
+
+  if caller_household is null then
+
+    raise exception 'the caller has no household' using errcode = '42501';
+
   end if;
 
   perform pg_advisory_xact_lock(hashtext('things:' || caller_household::text));
@@ -1313,6 +1465,9 @@ begin
   if caller is null then
     raise exception 'ai_job_lock needs a signed-in user' using errcode = '42501';
   end if;
+  if caller_household is null then
+    raise exception 'the caller has no household' using errcode = '42501';
+  end if;
   perform pg_advisory_xact_lock(hashtext('ai_job:' || caller_household::text));
 end;
 $$;
@@ -1581,6 +1736,12 @@ begin
     raise exception 'delta must be -999 to 999 and not 0' using errcode = '22023';
   end if;
 
+  if caller_household is null then
+
+    raise exception 'the caller has no household' using errcode = '42501';
+
+  end if;
+
   perform pg_advisory_xact_lock(hashtext('things:' || caller_household::text));
 
   select coalesce(i.same_as, i.id) into kept from public.thing_item as i where i.id = item and i.household_id = caller_household;
@@ -1736,6 +1897,12 @@ declare
 begin
   if caller is null then
     raise exception 'clear_things needs a signed-in user' using errcode = '42501';
+  end if;
+
+  if caller_household is null then
+
+    raise exception 'the caller has no household' using errcode = '42501';
+
   end if;
 
   perform pg_advisory_xact_lock(hashtext('things:' || caller_household::text));
@@ -2301,6 +2468,12 @@ begin
     raise exception 'dish and an array of deductions are required' using errcode = '22023';
   end if;
 
+  if caller_household is null then
+
+    raise exception 'the caller has no household' using errcode = '42501';
+
+  end if;
+
   perform pg_advisory_xact_lock(hashtext('set_pantry_items:' || caller_household::text));
 
   update public.meal_plan_recipe as target
@@ -2401,6 +2574,9 @@ begin
   if caller is null then
     raise exception 'meal_plan_lock needs a signed-in user' using errcode = '42501';
   end if;
+  if caller_household is null then
+    raise exception 'the caller has no household' using errcode = '42501';
+  end if;
   perform pg_advisory_xact_lock(hashtext('meal_plan:' || caller_household::text));
   perform public.meal_plan_close_past();
 end;
@@ -2427,6 +2603,12 @@ begin
   end if;
   if jsonb_typeof(pairs) is distinct from 'array' or jsonb_array_length(pairs) > 100 then
     raise exception 'pairs must be a list of at most 100' using errcode = '22023';
+  end if;
+
+  if caller_household is null then
+
+    raise exception 'the caller has no household' using errcode = '42501';
+
   end if;
 
   perform pg_advisory_xact_lock(hashtext('things:' || caller_household::text));
@@ -2498,6 +2680,9 @@ declare
 begin
   if caller is null then
     raise exception 'pantry_lock needs a signed-in user' using errcode = '42501';
+  end if;
+  if caller_household is null then
+    raise exception 'the caller has no household' using errcode = '42501';
   end if;
   perform pg_advisory_xact_lock(hashtext('set_pantry_items:' || caller_household::text));
 end;
@@ -2596,6 +2781,12 @@ begin
     raise exception 'links must be a list of at most 200' using errcode = '22023';
   end if;
 
+  if caller_household is null then
+
+    raise exception 'the caller has no household' using errcode = '42501';
+
+  end if;
+
   perform pg_advisory_xact_lock(hashtext('things:' || caller_household::text));
 
   update public.thing_item as item
@@ -2644,6 +2835,12 @@ declare
 begin
   if caller is null then
     raise exception 'remember_thing needs a signed-in user' using errcode = '42501';
+  end if;
+
+  if caller_household is null then
+
+    raise exception 'the caller has no household' using errcode = '42501';
+
   end if;
 
   perform pg_advisory_xact_lock(hashtext('things:' || caller_household::text));
@@ -2709,6 +2906,12 @@ begin
     raise exception 'remove_thing_place needs a signed-in user' using errcode = '42501';
   end if;
 
+  if caller_household is null then
+
+    raise exception 'the caller has no household' using errcode = '42501';
+
+  end if;
+
   perform pg_advisory_xact_lock(hashtext('things:' || caller_household::text));
 
   select * into target from public.thing_place where id = place and household_id = caller_household;
@@ -2750,6 +2953,12 @@ begin
     raise exception 'rename_thing_room needs a signed-in user' using errcode = '42501';
   end if;
 
+  if caller_household is null then
+
+    raise exception 'the caller has no household' using errcode = '42501';
+
+  end if;
+
   perform pg_advisory_xact_lock(hashtext('things:' || caller_household::text));
 
   perform 1 from public.pantry_site where id = site and household_id = caller_household;
@@ -2775,14 +2984,14 @@ begin
     select * into target from public.thing_place
     where site_id = site and household_id = caller_household and room_key = new_key and part_key = source.part_key and id <> source.id;
     if found then
-      -- A card file keeps its taker's folder (thing_photo_object_path_check: the
-      -- path starts with the row's user_id), whoever in the household merges.
+      -- A card file keeps its folder (the taker's; thing_photo_object_path_check),
+      -- whoever in the household merges, also when the taker's account is gone.
       with moving as (
         select id, object_path as old_path from public.thing_photo where household_id = caller_household and place_id = source.id
       ), done as (
         update public.thing_photo ph
         set place_id = target.id,
-          object_path = ph.user_id::text || '/' || target.id::text || '/' || ph.id::text
+          object_path = split_part(ph.object_path, '/', 1) || '/' || target.id::text || '/' || ph.id::text
             || case ph.media_type when 'image/jpeg' then '.jpg' else '.png' end
         from moving
         where ph.id = moving.id and ph.household_id = caller_household
@@ -2818,6 +3027,12 @@ begin
   end if;
   if jsonb_typeof(things) is distinct from 'array' or jsonb_array_length(things) > 100 then
     raise exception 'things must be a list of at most 100' using errcode = '22023';
+  end if;
+
+  if caller_household is null then
+
+    raise exception 'the caller has no household' using errcode = '42501';
+
   end if;
 
   perform pg_advisory_xact_lock(hashtext('things:' || caller_household::text));
@@ -3218,6 +3433,12 @@ begin
     raise exception 'changes must be a list of at most 50' using errcode = '22023';
   end if;
 
+  if caller_household is null then
+
+    raise exception 'the caller has no household' using errcode = '42501';
+
+  end if;
+
   perform pg_advisory_xact_lock(hashtext('things:' || caller_household::text));
 
   select i.quantity into current_count from public.thing_item as i where i.id = item and i.household_id = caller_household and i.same_as is null for update;
@@ -3399,6 +3620,12 @@ begin
       using errcode = '22023';
   end if;
 
+  if caller_household is null then
+
+    raise exception 'the caller has no household' using errcode = '42501';
+
+  end if;
+
   perform pg_advisory_xact_lock(hashtextextended('product_choice:' || caller_household::text, 0));
 
   select own.* into current_choice
@@ -3548,6 +3775,12 @@ begin
     raise exception 'the store is not found' using errcode = 'P0002';
   end if;
 
+  if caller_household is null then
+
+    raise exception 'the caller has no household' using errcode = '42501';
+
+  end if;
+
   perform pg_advisory_xact_lock(hashtextextended('store_offer:' || caller_household::text || ':' || save_store_offers.store::text, 0));
 
   if replace_source is not null then
@@ -3644,6 +3877,12 @@ begin
   end if;
   if jsonb_typeof(things) is distinct from 'array' or jsonb_array_length(things) > 60 then
     raise exception 'things must be a list of at most 60' using errcode = '22023';
+  end if;
+
+  if caller_household is null then
+
+    raise exception 'the caller has no household' using errcode = '42501';
+
   end if;
 
   perform pg_advisory_xact_lock(hashtext('things:' || caller_household::text));
@@ -3772,6 +4011,12 @@ begin
   end if;
   if jsonb_typeof(things) is distinct from 'array' or jsonb_array_length(things) > 60 then
     raise exception 'things must be a list of at most 60' using errcode = '22023';
+  end if;
+
+  if caller_household is null then
+
+    raise exception 'the caller has no household' using errcode = '42501';
+
   end if;
 
   perform pg_advisory_xact_lock(hashtext('things:' || caller_household::text));
@@ -4327,6 +4572,12 @@ begin
     raise exception 'amount must be 0 to 9999' using errcode = '22023';
   end if;
 
+  if caller_household is null then
+
+    raise exception 'the caller has no household' using errcode = '42501';
+
+  end if;
+
   perform pg_advisory_xact_lock(hashtext('things:' || caller_household::text));
 
   select coalesce(i.same_as, i.id) into kept from public.thing_item as i where i.id = item and i.household_id = caller_household;
@@ -4400,6 +4651,12 @@ begin
     raise exception 'stop_thing_count needs a signed-in user' using errcode = '42501';
   end if;
 
+  if caller_household is null then
+
+    raise exception 'the caller has no household' using errcode = '42501';
+
+  end if;
+
   perform pg_advisory_xact_lock(hashtext('things:' || caller_household::text));
 
   select coalesce(i.same_as, i.id) into kept from public.thing_item as i where i.id = item and i.household_id = caller_household;
@@ -4437,6 +4694,9 @@ declare
 begin
   if caller is null then
     raise exception 'store_lock needs a signed-in user' using errcode = '42501';
+  end if;
+  if caller_household is null then
+    raise exception 'the caller has no household' using errcode = '42501';
   end if;
   perform pg_advisory_xact_lock(hashtextextended('store:' || caller_household::text, 0));
 end;
@@ -4510,7 +4770,7 @@ language sql
 stable
 set search_path = ''
 as $$
-  select ph.id, ph.object_path, ph.user_id::text || '/' || target.id::text || '/' || ph.id::text
+  select ph.id, ph.object_path, split_part(ph.object_path, '/', 1) || '/' || target.id::text || '/' || ph.id::text
     || case ph.media_type when 'image/jpeg' then '.jpg' else '.png' end
   from public.thing_place source
   join public.thing_place target
@@ -4636,6 +4896,12 @@ begin
     raise exception 'a dish is required' using errcode = '22023';
   end if;
 
+  if caller_household is null then
+
+    raise exception 'the caller has no household' using errcode = '42501';
+
+  end if;
+
   perform pg_advisory_xact_lock(hashtext('set_pantry_items:' || caller_household::text));
 
   select target.cooked_deductions into ledger
@@ -4682,6 +4948,12 @@ declare
 begin
   if caller is null then
     raise exception 'undo_thing_change needs a signed-in user' using errcode = '42501';
+  end if;
+
+  if caller_household is null then
+
+    raise exception 'the caller has no household' using errcode = '42501';
+
   end if;
 
   perform pg_advisory_xact_lock(hashtext('things:' || caller_household::text));

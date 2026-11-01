@@ -198,20 +198,21 @@ afterAll(async () => {
 
 describe("the migration's postconditions", () => {
   // First, before this file adds places; each user it adds keeps one selected place all the same.
-  it("every pantry row is on a place of its own user, and every user with places has exactly one selected", async () => {
+  // Story 21.2a: the place, the row and the selection are the household's.
+  it("every pantry row is on a place of its own household, and every household with places has exactly one selected", async () => {
     const admin = adminClient();
     const [items, sites, removals] = await Promise.all([
-      admin.from("pantry_item").select("id, user_id, site_id"),
-      admin.from("pantry_site").select("id, user_id, is_selected"),
+      admin.from("pantry_item").select("id, household_id, site_id"),
+      admin.from("pantry_site").select("id, household_id, is_selected"),
       admin.from("pantry_removal").select("removed_rows"),
     ]);
     if (items.error || sites.error || removals.error) throw items.error ?? sites.error ?? removals.error;
 
-    const owner = new Map(sites.data.map((site) => [site.id, site.user_id]));
-    expect(items.data.filter((item) => owner.get(item.site_id) !== item.user_id)).toEqual([]);
+    const owner = new Map(sites.data.map((site) => [site.id, site.household_id]));
+    expect(items.data.filter((item) => owner.get(item.site_id) !== item.household_id)).toEqual([]);
 
     const selected = new Map<string, number>();
-    for (const site of sites.data) selected.set(site.user_id, (selected.get(site.user_id) ?? 0) + (site.is_selected ? 1 : 0));
+    for (const site of sites.data) selected.set(site.household_id, (selected.get(site.household_id) ?? 0) + (site.is_selected ? 1 : 0));
     expect([...selected].filter(([, count]) => count !== 1)).toEqual([]);
 
     const withoutSite = removals.data

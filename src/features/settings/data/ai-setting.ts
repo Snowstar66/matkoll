@@ -18,11 +18,15 @@ export async function loadAiSettingIn(db: SettingsDb): Promise<AiSetting | null>
   return { provider: data.provider, model: data.model, effort: data.effort };
 }
 
-/** Saves the choice, replacing the household's row (whoever made it); `userId` is the one saving. Throws SettingsDataError. */
-export async function saveAiSettingIn(db: SettingsDb, userId: string, setting: AiSetting): Promise<void> {
+/**
+ * Saves the choice, replacing the household's row (whoever made it). The row's
+ * maker (user_id) is the session's on insert and never changes after
+ * (household_row_guard), so it is not sent. Throws SettingsDataError.
+ */
+export async function saveAiSettingIn(db: SettingsDb, setting: AiSetting): Promise<void> {
   const { error } = await db
     .from("ai_setting")
-    .upsert({ user_id: userId, ...setting, updated_at: new Date().toISOString() }, { onConflict: "household_id" });
+    .upsert({ ...setting, updated_at: new Date().toISOString() }, { onConflict: "household_id" });
   if (error) throw new SettingsDataError(`save_ai_setting_failed ${error.code}`);
 }
 

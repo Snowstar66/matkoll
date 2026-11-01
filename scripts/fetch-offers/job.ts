@@ -19,7 +19,7 @@ import { blockFetch, claimFetch } from "@/features/offers/data/queries";
 import { readOfferPage, type OfferPageRead } from "@/features/offers/domain/offer-page-read";
 import type { Database } from "@/lib/supabase/database.types";
 import type { OfferPageFetch } from "@/server/fetch/offer-page";
-import { planOfferFetches, type StoreRow } from "./plan.ts";
+import { planOfferFetches, signerOf, type HouseholdMemberRow, type StoreRow } from "./plan.ts";
 
 export type Db = SupabaseClient<Database>;
 
@@ -72,17 +72,37 @@ export type JobSummary = {
 const pageSize = 1000;
 const clientOptions = { auth: { persistSession: false, autoRefreshToken: false } };
 
-/** Every store with a link, read with the service role, page by page; `userIds` limits it to those users (for tests). */
+/**
+ * Every store with a link, read with the service role, page by page, each with the member to sign in
+ * as (Story 21.2a, signerOf: its maker while still in the household, else a current member). A store
+ * whose household has no member is left out. `userIds` limits it to stores signed in as those users (for tests).
+ */
 export async function loadStoreRows(admin: Db, options: { userIds?: readonly string[] } = {}): Promise<StoreRow[]> {
-  const rows: StoreRow[] = [];
+  const stores: { id: string; user_id: string | null; household_id: string; chain: string; offers_url: string | null }[] = [];
   for (let from = 0; ; from += pageSize) {
-    let query = admin.from("store").select("id, user_id, chain, offers_url").not("offers_url", "is", null);
-    if (options.userIds) query = query.in("user_id", [...options.userIds]);
+    const query = admin.from("store").select("id, user_id, household_id, chain, offers_url").not("offers_url", "is", null);
     const { data, error } = await query.order("id").range(from, from + pageSize - 1);
     if (error) throw new Error(`offers_job_stores_failed ${error.code || "no_answer"}`);
-    rows.push(...data);
-    if (data.length < pageSize) return rows;
+    stores.push(...data);
+    if (data.length < pageSize) break;
   }
+  const households = [...new Set(stores.map((store) => store.household_id))];
+  const members: HouseholdMemberRow[] = [];
+  for (let from = 0; from < households.length; from += 100) {
+    const { data, error } = await admin
+      .from("household_member")
+      .select("household_id, user_id, role, joined_at")
+      .in("household_id", households.slice(from, from + 100));
+    if (error) throw new Error(`offers_job_members_failed ${error.code || "no_answer"}`);
+    members.push(...data);
+  }
+  const rows: StoreRow[] = [];
+  for (const store of stores) {
+    const signer = signerOf(store.household_id, store.user_id, members);
+    if (!signer || (options.userIds && !options.userIds.includes(signer))) continue;
+    rows.push({ id: store.id, user_id: signer, chain: store.chain, offers_url: store.offers_url });
+  }
+  return rows;
 }
 
 /**

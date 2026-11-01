@@ -614,8 +614,8 @@ describe("ai_setting (Story 17.5)", () => {
   it("keeps one row per user: saves, replaces, reads and clears the choice", async () => {
     const user = await createTestUser("ai-setting");
     expect(await loadAiSettingIn(user.db)).toBeNull();
-    await saveAiSettingIn(user.db, user.id, { provider: "anthropic", model: "claude-opus-5-5", effort: "high" });
-    await saveAiSettingIn(user.db, user.id, { provider: "anthropic", model: "claude-haiku-5-5", effort: "low" });
+    await saveAiSettingIn(user.db, { provider: "anthropic", model: "claude-opus-5-5", effort: "high" });
+    await saveAiSettingIn(user.db, { provider: "anthropic", model: "claude-haiku-5-5", effort: "low" });
     expect(await loadAiSettingIn(user.db)).toEqual({ provider: "anthropic", model: "claude-haiku-5-5", effort: "low" });
     const { data } = await adminClient().from("ai_setting").select("id").eq("user_id", user.id);
     expect(data).toHaveLength(1);

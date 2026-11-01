@@ -273,7 +273,7 @@ Vill du ha erbjudandena direkt (ny butik, eller ICA uppdaterade sidan sent): **G
 
 ## 10. Flytta din data – [Båda]
 
-Gjord 2026-11-01 med `pnpm move:cloud` (Story 17.4). Skriptet, dess tvåstackstest och dess enhetstest togs bort i Story 21.2a: flytten är gjord, och skriptets lista över tabeller och kolumner hade blivit fel när datan började ägas av hushållet. Koden finns kvar i Git-historiken (före PR:en för Story 21.2a) om den någon gång behövs som förlaga.
+Gjord 2026-11-01 (Story 17.4). Flyttskriptet med sina tester togs bort i Story 21.2a, eftersom flytten är gjord och skriptet inte känner till hushållen. Det finns kvar i Git-historiken (`git log --diff-filter=D -- scripts/move-to-cloud.ts`).
 
 ## Hushållet i databasen (Story 21.2a)
 
@@ -285,7 +285,7 @@ Från och med migreringen `20261102130000_household.sql` ägs appens data av ett
 2. Mergen kör migreringen i molnet via `cloud-migrate.yml` när `CLOUD_ENABLED` är `true`; annars kör Claude `supabase db push` mot molnet efter mergen. Migreringen är en enda fil, körs i en transaktion och tar under en sekund med hushållets mängd data. Går något fel rullas allt tillbaka och ingenting är ändrat.
 3. Efteråt: logga in, öppna Recept, Matsedel, Inköpslista, Matvaror och Förråd (med foton) och se att allt finns kvar.
 
-**Väg tillbaka:** inga kolumner tas bort i den här migreringen (`user_id` finns kvar på varje rad och betyder "den som skapade raden" tills Story 21.3). En återställning görs från säkerhetskopian i steg 1 (se [Återställning](#återställning)).
+**Väg tillbaka:** inga kolumner tas bort i den här migreringen (`user_id` finns kvar på varje rad och betyder "medlemmen som skapade raden"; den får vara tom). En återställning görs från säkerhetskopian i steg 1 (se [Återställning](#återställning)).
 
 ### Vad som ändras
 
@@ -293,9 +293,11 @@ Från och med migreringen `20261102130000_household.sql` ägs appens data av ett
 - Alla befintliga konton fick ett hushåll med sig själva som ägare, namngivet efter e-postens början ("Pontus hushåll"; döps om i appen i 21.2b). Nya konton får sitt hushåll av en trigger på `auth.users`. Ett hushåll vars sista medlem tas bort (kontot raderas) tas bort med sin data.
 - 26 tabeller fick `household_id` (not null, standardvärde `my_household_id()`, främmande nyckel till `household` med `on delete cascade`). Barntabeller pekar på föräldern med `(x_id, household_id)` i stället för `(x_id, user_id)`, så en rad kan aldrig peka på ett annat hushålls rad men gärna på en annan medlems.
 - Unika nycklar, `on conflict` och lås som byggde på `user_id` bygger på hushållet: en bock per rad i listan, ett produktval per vara och butik, ett AI-val, ett valt boende och en vald butik, högst tio boenden, en körande AI-uppgift och samma lås för matvaror, matsedel, butik, Förråd och AI-kön per hushåll.
-- Radskyddet: `household_id = (select public.my_household_id())`, som Postgres räknar ut en gång per fråga. En ny rad måste dessutom ha den inloggades `user_id` (en restriktiv policy).
+- Radskyddet: `household_id = (select public.my_household_id())`, som Postgres räknar ut en gång per fråga. En ny rad måste dessutom ha den inloggades `user_id` (en restriktiv policy), och en inloggad ändrar aldrig en rads `user_id` eller `household_id`, eller ett fotos mapp (triggern `household_row_guard`).
+- `user_id` är skaparen och får vara tom: raderas en medlems konto blir `user_id` tomt (`on delete set null`) och raderna stannar i hushållet. Hushållets data försvinner bara med hushållet, när dess sista medlem tas bort.
 - De 84 funktioner som filtrerade eller låste per användare gör det per hushåll. Siri-nyckeln (`add_items_by_api_key`) lägger varorna i nyckelägarens hushålls lista.
-- Foton: filerna ligger kvar där de ligger (`<user_id>/…`, den som tog fotot), inget flyttas. En fil får läsas och tas bort när en rad i ens hushåll pekar på den, eller när den ligger i mappen hos någon i ens hushåll och ingen rad i ett annat hushåll pekar på den. Uppladdning bara i en hushållsmedlems mapp.
+- Foton: filerna ligger kvar där de ligger (`<user_id>/<plats>/…`, den som tog fotot), inget flyttas. En fil får läsas och tas bort när en rad i ens hushåll pekar på den, eller när den ligger i mappen hos någon i ens hushåll, inte under ett annat hushålls plats, och ingen rad i ett annat hushåll pekar på den. Uppladdning bara i en hushållsmedlems mapp, i rätt form, aldrig under ett annat hushålls plats och aldrig där ett annat hushålls rad pekar.
+- `pnpm offers:fetch` loggar in som butikens skapare, eller som hushållets ägare (eller äldsta medlem) när skaparen är borta. `pnpm users:sync --prune` tar inte bort fotofilerna hos en användare vars hushåll har fler medlemmar.
 
 ### Tabell för tabell
 
@@ -325,13 +327,11 @@ Isoleringstestet (`tests/integration/household-isolation.test.ts`) läser själv
 
 Inget av detta märks så länge varje hushåll har en medlem, som i dag.
 
-1. **Ett konto som raderas.** `user_id` har kvar `on delete cascade` mot `auth.users`. Med flera medlemmar raderar det de rader personen skapat, och en annan medlems rad som pekar på dem (till exempel en receptrad på personens ingrediens, `on delete restrict`) stoppar raderingen med ett fel. Innan en andra medlem kan gå med: gör `user_id` till `created_by` som får vara tomt med `on delete set null` (21.3), eller flytta raderna först.
-2. **Valt boende och vald butik gäller hushållet.** Byter en medlem boende byts det för alla. Mockuppen nämner "byta som Boenden"; 21.2b avgör om valet ska bli per person.
-3. **AI-kön gäller hushållet**: en körande uppgift och högst tre i kö per hushåll.
-4. **Foton hos den som lämnat.** En fil ligger kvar i tagarens mapp. Lämnar tagaren hushållet läser det gamla hushållet filen genom raden, men när raden tas bort kan ingen längre ta bort filen (den ligger i en icke-medlems mapp), och tagarens sopning ser den inte heller. Sammanslagning av rum (`rename_thing_room`) behåller tagarens mapp; har tagaren lämnat får kopieringen nej och kortet flyttas utan fil. 21.2b kan flytta filerna vid Lämna.
-5. **Erbjudandena** (`fetch-offers`) loggar in som butikens skapare (`store.user_id`). Har den personen lämnat hushållet hoppas butiken över.
-6. **`user_id` vid ändring** kontrolleras inte (bara vid ny rad); en medlem kan sätta en annan skapare på en rad i det egna hushållet. Ofarligt för andra hushåll; 21.3 sätter `created_by`/`updated_by` med trigger.
-7. **Triggern på `auth.users`** (`household_for_new_user`) skapas av migreringen i molnet. Kontrollera efter `db push` att ett nytt konto (`pnpm users:sync`) får ett hushåll.
+1. **Valt boende och vald butik gäller hushållet.** Byter en medlem boende byts det för alla. Mockuppen nämner "byta som Boenden"; 21.2b avgör om valet ska bli per person.
+2. **AI-kön gäller hushållet**: en körande uppgift och högst tre i kö per hushåll.
+3. **Kvarlämnade filer hos den som lämnat.** En fil utan rad (ett borttaget kort som väntar på sopningen) i tagarens mapp kan, när tagaren lämnat, varken läsas eller tas bort av någon i appen: inte av det gamla hushållet (mappen är inte en medlems) och inte av tagaren eller det nya hushållet (filen ligger under det gamla hushållets plats). 21.2b bör städa tagarens filer vid Lämna (se 21.2b i `epics.md`). Raderas platsen blir filerna åter tagarens att sopa.
+4. **Konto utan hushåll.** Ett konto som av någon anledning saknar medlemskap får fel (42501) från funktionerna i stället för att skriva utan hushåll.
+5. **Triggern på `auth.users`** (`household_for_new_user`) skapas av migreringen i molnet. Kontrollera efter `db push` att ett nytt konto (`pnpm users:sync`) får ett hushåll.
 
 ## Vad som är provat
 
@@ -400,7 +400,6 @@ Granskning av koden inför molnet. Rangordnad: **Före flytten** (måste vara kl
 ## Filer som förberedelsen lade till eller ändrade
 
 - `docs/molnet.md` (den här filen)
-- `scripts/move-to-cloud.ts`, `scripts/move-to-cloud/` och `scripts/test-move-to-cloud.sh` (Story 17.4: flyttskriptet och dess tvåstackstest; borttagna i Story 21.2a)
 - `.github/workflows/cloud-migrate.yml` (ny, avstängd tills `CLOUD_ENABLED=true`)
 - `.github/workflows/backup.yml` (`CLOUD_ENABLED` slår på den; hoppas över när varken den eller `BACKUP_ENABLED` är satt)
 - `.github/workflows/offers.yml`, `scripts/fetch-offers.ts`, `scripts/fetch-offers/` och `scripts/src-paths.mjs` (Story 17.11: erbjudandena varje morgon och söndag kväll; avstängt tills `CLOUD_ENABLED=true`)

@@ -34,9 +34,9 @@ export async function saveAiSetting(input: AiSettingInput): Promise<Result<AiSet
     const db = await createClient();
     if (choice.provider === "default") await clearAiSettingIn(db);
     else if (choice.provider === "lmstudio") {
-      await saveAiSettingIn(db, user.data.id, { provider: "lmstudio", model: qwenModelFor(env), effort: "medium" });
+      await saveAiSettingIn(db, { provider: "lmstudio", model: qwenModelFor(env), effort: "medium" });
     } else {
-      await saveAiSettingIn(db, user.data.id, { provider: "anthropic", model: choice.model, effort: choice.effort });
+      await saveAiSettingIn(db, { provider: "anthropic", model: choice.model, effort: choice.effort });
     }
   } catch (error) {
     if (!(error instanceof SettingsDataError)) throw error;

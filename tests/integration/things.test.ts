@@ -205,11 +205,9 @@ describe("cards", () => {
 
     const id = randomUUID();
     const path = thingPhotoPath(b.id, place, id, "image/png");
-    await uploadCardFile(b.db, path, png, "image/png");
-    files.push(path);
-    // B's file is in B's own folder, but the place is A's: the row is refused.
+    // Story 21.2a: not even in B's own folder under A's place; and the row is refused too.
+    await expect(uploadCardFile(b.db, path, png, "image/png")).rejects.toBeInstanceOf(ThingsDataError);
     expect(await insertCardIn(b.db, { id, placeId: place, objectPath: path, mediaType: "image/png", width: 10, height: 10, takenAt: new Date() })).toBe("place_gone");
-    await removeCardFiles(b.db, [path]);
     // And B cannot upload into A's folder.
     await expect(uploadCardFile(b.db, thingPhotoPath(a.id, place, randomUUID(), "image/png"), png, "image/png")).rejects.toBeInstanceOf(ThingsDataError);
   });

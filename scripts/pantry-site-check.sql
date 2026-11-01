@@ -69,43 +69,44 @@ do $$
 declare
   problems integer;
 begin
-  -- Every pantry row is on a place of its own user.
+  -- Since Story 21.2a the places, rows and removals are the household's.
+  -- Every pantry row is on a place of its own household.
   select count(*) into problems
   from public.pantry_item as item
   where item.site_id is null
     or not exists (
       select 1 from public.pantry_site as own
-      where own.id = item.site_id and own.user_id = item.user_id
+      where own.id = item.site_id and own.household_id = item.household_id
     );
   if problems > 0 then
-    raise exception '% pantry_item rows without a place of their own user', problems;
+    raise exception '% pantry_item rows without a place of their own household', problems;
   end if;
 
-  -- Every user with places has exactly one selected.
+  -- Every household with places has exactly one selected.
   select count(*) into problems
   from (
-    select own.user_id
+    select own.household_id
     from public.pantry_site as own
-    group by own.user_id
+    group by own.household_id
     having count(*) filter (where own.is_selected) <> 1
-  ) as users;
+  ) as households;
   if problems > 0 then
-    raise exception '% users without exactly one selected place', problems;
+    raise exception '% households without exactly one selected place', problems;
   end if;
 
-  -- Every user with pantry rows or a stored removal has a place.
+  -- Every household with pantry rows or a stored removal has a place.
   select count(*) into problems
   from (
-    select item.user_id from public.pantry_item as item
+    select item.household_id from public.pantry_item as item
     union
-    select record.user_id from public.pantry_removal as record
-  ) as users
-  where not exists (select 1 from public.pantry_site as own where own.user_id = users.user_id);
+    select record.household_id from public.pantry_removal as record
+  ) as households
+  where not exists (select 1 from public.pantry_site as own where own.household_id = households.household_id);
   if problems > 0 then
-    raise exception '% users with pantry rows or removals but without a place', problems;
+    raise exception '% households with pantry rows or removals but without a place', problems;
   end if;
 
-  -- Every stored removed row has a place of the removal's user.
+  -- Every stored removed row has a place of the removal's household.
   select count(*) into problems
   from public.pantry_removal as record,
     jsonb_array_elements(record.removed_rows) as element (value)
@@ -115,11 +116,11 @@ begin
       or not exists (
         select 1 from public.pantry_site as own
         where own.id::text = element.value ->> 'site_id'
-          and own.user_id = record.user_id
+          and own.household_id = record.household_id
       )
     );
   if problems > 0 then
-    raise exception '% removed rows in pantry_removal without a place of their user', problems;
+    raise exception '% removed rows in pantry_removal without a place of their household', problems;
   end if;
 
   raise notice 'pantry-site-check: the postconditions hold';

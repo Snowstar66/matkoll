@@ -26,9 +26,9 @@ export async function deleteRecipe(id: string): Promise<Result<{ id: string }>> 
   if (!recipeIdSchema.safeParse(id).success) return fail("validation");
 
   try {
-    // No row for this user is success too: the recipe is gone either way, so a
-    // retry after a lost answer ends where Pontus wanted, and another user's
-    // recipe is never touched (the delete filters on the user).
+    // No row for this household is success too: the recipe is gone either way,
+    // so a retry after a lost answer ends where Pontus wanted, and another
+    // household's recipe is never touched (RLS, Story 21.2a).
     await detachRecipe(id);
     await deleteRecipeIn(await createClient(), id);
     revalidateFor("recipe");

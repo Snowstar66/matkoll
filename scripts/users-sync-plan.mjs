@@ -73,10 +73,15 @@ function codeOf(error) {
  * 2. The user's photo files are removed (removeUserPlacePhotos): no foreign
  *    key takes them with the user. When they cannot be, the user is kept
  *    (banned), so nothing is left that no user owns.
- * 3. The user is deleted; the rows go with it (on delete cascade). When that
- *    fails after the files are gone, the user's pantry_photo rows are deleted,
- *    so no row points at a missing file.
+ * 3. The user is deleted; the rows go with it (their household goes when
+ *    the user was its last member). When that fails after the files are gone,
+ *    the user's pantry_photo rows are deleted, so no row points at a missing
+ *    file.
  * 4. The user's folder is listed once more, and anything there is removed.
+ *
+ * Story 21.2a: a user whose household has other members took photos that are
+ * the household's. Their files and rows stay (the rows lose their maker, on
+ * delete set null); only the user is banned and deleted.
  *
  * A failure for one user is reported and the others go on. Returns the lines
  * to print, with the user's id and counts only (never an address or a path),
@@ -85,6 +90,21 @@ function codeOf(error) {
  * @param {AdminClient} supabase
  * @returns {Promise<{ lines: { level: "info" | "error", text: string }[], ok: boolean }>}
  */
+/**
+ * Whether the household of `userId` has another member (Story 21.2a). Throws
+ * the Supabase error when it cannot be read.
+ * @param {AdminClient} supabase
+ * @param {string} userId
+ */
+async function householdHasOthers(supabase, userId) {
+  const own = await supabase.from("household_member").select("household_id").eq("user_id", userId).maybeSingle();
+  if (own.error) throw own.error;
+  if (!own.data) return false;
+  const all = await supabase.from("household_member").select("user_id").eq("household_id", own.data.household_id);
+  if (all.error) throw all.error;
+  return all.data.some((/** @type {{ user_id: string }} */ row) => row.user_id !== userId);
+}
+
 export async function pruneExtraUsers(plan, supabase) {
   /** @type {{ level: "info" | "error", text: string }[]} */
   const lines = [];
@@ -99,6 +119,20 @@ export async function pruneExtraUsers(plan, supabase) {
     const banned = await supabase.auth.admin.updateUserById(id, { ban_duration: pruneBanDuration });
     if (banned.error) {
       failure(`could not prune ${id}: could not ban it (${codeOf(banned.error)}); the user is kept`);
+      continue;
+    }
+
+    let shared;
+    try {
+      shared = await householdHasOthers(supabase, id);
+    } catch (error) {
+      failure(`could not prune ${id}: could not read its household (${codeOf(error)}); the user is kept, banned`);
+      continue;
+    }
+    if (shared) {
+      const deleted = await supabase.auth.admin.deleteUser(id);
+      if (deleted.error) failure(`could not delete ${id} (${codeOf(deleted.error)}); the user is kept, banned`);
+      else lines.push({ level: "info", text: `deleted  ${id}; its photo files stay with its household` });
       continue;
     }
 
