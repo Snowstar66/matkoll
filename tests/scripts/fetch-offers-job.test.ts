@@ -154,4 +154,30 @@ describe("runOffersJob", () => {
     }
     expect(logs.at(-1)?.[0]).toBe("offers_job_done");
   });
+
+  it("counts a page that still shows last week as stale, not as a failure (Story 17.11)", async () => {
+    const old = readFileSync("tests/fixtures/sites/ica-erbjudanden-gammal.html", "utf8");
+    answers.set(maxi, { page: ok({ url: maxi, html: fillFixtureDates(old) }), status: 200 });
+    const summary = await runOffersJob(deps());
+    expect(summary).toMatchObject({ stale: 2, failed: 0, blocked: 0, saved: 1 });
+  });
+
+  it("counts a week the database refuses as stale too", async () => {
+    saveOfferPageIn.mockResolvedValue(fail("offers_page_old"));
+    expect(await runOffersJob(deps())).toMatchObject({ stale: 3, failed: 0 });
+  });
+
+  it("leaves a banned user's stores alone", async () => {
+    const summary = await runOffersJob(deps({ signIn: async (userId) => (userId === "user-b" ? null : { db: { user: userId } as never, signOut: async () => {} }) }));
+    expect(saveOfferPageIn.mock.calls.map((call) => call[1].storeId)).toEqual(["s1", "s3"]);
+    expect(summary).toMatchObject({ banned: 1, failed: 0, saved: 2 });
+  });
+
+  it("logs a session it could not end, and still finishes", async () => {
+    const summary = await runOffersJob(
+      deps({ signIn: async () => ({ db: {} as never, signOut: async () => Promise.reject(new Error("offers_job_sign_out_failed")) }) }),
+    );
+    expect(summary.saved).toBe(3);
+    expect(logs.filter(([event]) => event === "offers_job_sign_out_failed")).toHaveLength(2);
+  });
 });

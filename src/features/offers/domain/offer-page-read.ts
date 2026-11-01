@@ -1,7 +1,7 @@
 import { parseIcaOfferPage, type IcaOffer } from "./ica-offer-page";
 import { maxOffersPerWeek } from "./offer";
 import { isNamed, offerName, type OfferName } from "./offer-name";
-import { addDays, isSavableWeek, weekOfValidTo, weekStartOf } from "./week";
+import { addDays, isSavableWeek, mondayOf, swedishToday, weekOfValidTo, weekStartOf } from "./week";
 
 // What a fetched store page gives before anything is matched or saved
 // (Story 9.1, AD-25), the same for the in-app fetch ("Hämta veckans
@@ -24,6 +24,12 @@ export type OfferPageFailure = {
   skipped: number;
 };
 
+/** Saturday or Sunday in Swedish time. */
+function isWeekend(now: Date): boolean {
+  const day = new Date(`${swedishToday(now)}T00:00:00Z`).getUTCDay();
+  return day === 6 || day === 0;
+}
+
 /** The named offers that last until `weekStart` or later, at most 300 (the week's limit). */
 function weekOf(named: readonly OfferPageEntry[], weekStart: string): OfferWeek {
   return { weekStart, entries: named.filter((entry) => entry.offer.validTo >= weekStart).slice(0, maxOffersPerWeek) };
@@ -38,11 +44,13 @@ function weekOf(named: readonly OfferPageEntry[], weekStart: string): OfferWeek 
  * skipped, with the page's offers that are not food.
  *
  * Story 17.11: ICA puts next week's offers on the page late, on Sunday
- * evening or Monday, while this week's still fill it. Once next week's have
- * come (at least half as many offers last into next week as end this week),
- * they are also saved for next week, so they show at once; a later fetch
- * replaces them with the whole week. Until then the few offers that simply
- * last longer stay with this week, so the sheet does not swap this week's
+ * evening or Monday, while this week's still fill it. On a Saturday or Sunday
+ * (Swedish time), once next week's have come (at least half as many offers
+ * end next week as end this week), the page is saved as two weeks: this
+ * week's offers on this week, and those that last into next week on next
+ * week, so they show at once; Monday's fetch then saves the whole week. On
+ * other days, and before then, the offers that last longer (campaigns over
+ * several weeks) stay with this week, so the sheet never swaps this week's
  * offers for a handful.
  */
 export function readOfferPage(html: string, now: Date): { ok: true; data: OfferPageRead } | { ok: false; error: OfferPageFailure } {
@@ -64,10 +72,12 @@ export function readOfferPage(html: string, now: Date): { ok: true; data: OfferP
   if (page.entries.length === 0) return { ok: false, error: { code: "offers_none", reason: "none", skipped } };
 
   const nextWeek = addDays(weekStartOf(now), 7);
-  if (weekStart !== nextWeek) {
-    const later = named.filter((entry) => entry.offer.validTo >= nextWeek).length;
-    if (later > 0 && later * 2 >= named.length - later) {
-      return { ok: true, data: { weeks: [page, weekOf(named, nextWeek)], skipped } };
+  if (weekStart !== nextWeek && isWeekend(now)) {
+    const thisWeekOnly = named.filter((entry) => entry.offer.validTo < nextWeek);
+    const endsNextWeek = named.filter((entry) => mondayOf(entry.offer.validTo) === nextWeek).length;
+    if (endsNextWeek > 0 && endsNextWeek * 2 >= thisWeekOnly.length) {
+      const thisWeek = { weekStart, entries: thisWeekOnly.slice(0, maxOffersPerWeek) };
+      return { ok: true, data: { weeks: [thisWeek, weekOf(named, nextWeek)], skipped } };
     }
   }
   return { ok: true, data: { weeks: [page], skipped } };

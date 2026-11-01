@@ -1,8 +1,8 @@
 // Lets `node` run a script in scripts/ that imports app code from src/ (Story 17.11).
 // Node 24 runs TypeScript itself, but not Next's import style: `@/` for src/,
-// imports without an extension, `server-only` (which only the Next server may
-// import) and Next's entry files without an exports map. These resolve hooks
-// add that and nothing else. Used as
+// imports without an extension, and `server-only` (which only the Next server
+// may import). These resolve hooks add that and nothing else; code that needs
+// Next itself (next/headers ...) does not belong in a script. Used as
 // `node --experimental-transform-types --import ./scripts/src-paths.mjs scripts/<script>.ts`
 // (transform, not only strip: src has classes with parameter properties).
 import { existsSync, statSync } from "node:fs";
@@ -36,8 +36,6 @@ registerHooks({
     }
     const fromSrc = context.parentURL?.startsWith(src.href) && (specifier.startsWith("./") || specifier.startsWith("../"));
     if (fromSrc) return nextResolve(withExtension(new URL(specifier, context.parentURL).href), context);
-    // Next's entry points (next/headers, next/server ...) are files without an exports map.
-    if (/^next\/[\w-]+$/.test(specifier)) return nextResolve(`${specifier}.js`, context);
     return nextResolve(specifier, context);
   },
 });

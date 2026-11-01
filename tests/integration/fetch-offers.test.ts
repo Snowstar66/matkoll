@@ -170,7 +170,7 @@ describe("the scheduled offers fetch (Story 17.11)", () => {
 
   it("saves next week too once its offers are on the page, and a rerun updates without duplicates", async () => {
     const store = await addStore(a.db, shared);
-    // One more offer ends next Sunday: 4 end this week, 3 last into next week, so next week's are out.
+    // One more offer ends next Sunday: 4 end this week, 2 end next week, so next week's are out.
     let first = true;
     const html = fillFixtureDates(
       readFileSync("tests/fixtures/sites/ica-erbjudanden.html", "utf8").replace(/"validTo":"\{\{sunday\}\}/g, (mark) => {
@@ -185,21 +185,22 @@ describe("the scheduled offers fetch (Story 17.11)", () => {
         listStores: async () => [{ id: store, user_id: a.id, chain: "ICA", offers_url: shared }],
         fetchPage: async (url) => ({ page: ok({ url, html }), status: 200 }),
       });
-    const now = new Date();
+    // Read on this week's Sunday evening (Swedish time), whatever day the test runs; the database still sees this week.
+    const thisWeek = weekStartOf(new Date());
+    const now = new Date(`${addDays(thisWeek, 6)}T18:00:00Z`);
     expect(await run(now)).toMatchObject({ saved: 1, failed: 0 });
-    const thisWeek = weekStartOf(now);
     const nextWeek = addDays(thisWeek, 7);
     const weeks = async () => {
       const rows = await offersOf(store);
       return [thisWeek, nextWeek].map((week) => rows.filter((row) => row.week_start === week).length);
     };
-    expect(await weeks()).toEqual([7, 3]);
+    expect(await weeks()).toEqual([4, 3]);
     // The sheet shows the newest week: next week's.
     const active = await loadActiveOffers(a.db, store, now);
     expect(new Set(active.map((offer) => offer.weekStart))).toEqual(new Set([nextWeek]));
 
     // A run 20 minutes later updates both weeks and adds nothing.
     expect(await run(new Date(now.getTime() + 20 * minute))).toMatchObject({ saved: 1 });
-    expect(await weeks()).toEqual([7, 3]);
+    expect(await weeks()).toEqual([4, 3]);
   });
 });

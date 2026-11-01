@@ -92,7 +92,7 @@ export const helpAreas: readonly HelpArea[] = [
       {
         question: "Var kommer erbjudandena ifrån?",
         // Story 17.11: in the cloud a job fetches them every morning and Sunday evening; a tap there gets the same answer.
-        answer: "Från dina butikers egna sidor. Erbjudandena hämtas automatiskt varje morgon, och nästa veckas kommer så fort butiken lagt ut dem (oftast söndag kväll eller måndag). Pristaggen visar dem. Lägg de du vill ha på listan. Butikerna och länken till erbjudandena lägger du in i Inställningar.",
+        answer: "Från dina butikers egna sidor. I appen i molnet hämtas de automatiskt varje morgon, och nästa veckas kommer så fort butiken lagt ut dem (oftast söndag kväll eller måndag); annars trycker du Hämta veckans erbjudanden. Pristaggen visar dem. Lägg de du vill ha på listan. Butikerna och länken till erbjudandena lägger du in i Inställningar.",
       },
       {
         question: "Kan jag fylla varukorgen på nätet?",

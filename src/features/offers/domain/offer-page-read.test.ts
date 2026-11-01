@@ -43,16 +43,21 @@ describe("readOfferPage", () => {
   };
 
   it("also saves next week once its offers are on the page, so they show at once (Story 17.11)", () => {
-    // Sunday evening: 4 food offers end tonight, 3 last into next week (a new one and the 2 longer ones).
+    // Sunday evening: 4 food offers end tonight, 2 end next week (a new one and an older one), 1 runs three weeks.
     const sunday = new Date("2026-11-08T19:00:00Z");
     const read = readOfferPage(withNextWeek(1), sunday);
     expect(read.ok).toBe(true);
     if (!read.ok) return;
     expect(read.data.weeks.map((week) => [week.weekStart, week.entries.length])).toEqual([
-      ["2026-11-02", 7],
+      ["2026-11-02", 4],
       ["2026-11-09", 3],
     ]);
+    // The weeks do not mix: this week holds only what ends this week.
+    expect(read.data.weeks[0].entries.every((entry) => entry.offer.validTo < "2026-11-09")).toBe(true);
     expect(read.data.weeks[1].entries.every((entry) => entry.offer.validTo >= "2026-11-09")).toBe(true);
+    // Saturday counts too.
+    const saturday = readOfferPage(withNextWeek(1), new Date("2026-11-07T08:00:00Z"));
+    expect(saturday.ok && saturday.data.weeks.map((week) => week.weekStart)).toEqual(["2026-11-02", "2026-11-09"]);
   });
 
   it("keeps a page whose week is next week to that week only", () => {
@@ -65,5 +70,19 @@ describe("readOfferPage", () => {
     // 5 end tonight, 2 last longer: next week's offers are not out yet.
     const read = readOfferPage(withNextWeek(0), new Date("2026-11-08T19:00:00Z"));
     expect(read.ok && read.data.weeks.map((week) => week.weekStart)).toEqual(["2026-11-02"]);
+  });
+
+  it("never saves next week mid-week, whatever the campaigns (Story 17.11)", () => {
+    // Wednesday: 4 weekly offers and 3 that last longer, two of them ending next week.
+    const read = readOfferPage(withNextWeek(1), new Date("2026-11-04T10:00:00Z"));
+    expect(read.ok && read.data.weeks.map((week) => [week.weekStart, week.entries.length])).toEqual([["2026-11-02", 7]]);
+  });
+
+  it("does not count campaigns that run past next week as next week's (Story 17.11)", () => {
+    // Sunday: 3 food offers end tonight, 1 ends next week, 3 run three weeks.
+    let left = 2;
+    const html = fill(savedPage.replace(/"validTo":"\{\{sunday\}\}/g, (mark) => (left-- > 0 ? '"validTo":"{{sunday+21}}' : mark)));
+    const read = readOfferPage(html, new Date("2026-11-08T19:00:00Z"));
+    expect(read.ok && read.data.weeks.map((week) => [week.weekStart, week.entries.length])).toEqual([["2026-11-02", 7]]);
   });
 });

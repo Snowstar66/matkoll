@@ -3856,9 +3856,17 @@ Bakgrund: från Vercel svarar ICA:s sajt 403. Från GitHub Actions svarar den 20
 **När** klockan är 04:00 UTC (varje dag) eller 19:00 UTC en söndag, eller någon kör **Actions → Offers → Run workflow**
 **Så** hämtas sidan för varje användares butik med erbjudandelänk, med appens säkra hämtning, samma rubriker och samma läsare, och erbjudandena sparas precis som när man trycker Hämta i appen (raderna, ingrediensmatchningen mot användarens egen katalog och försöket på butiken), så att appen visar dem oförändrat
 
-**Givet** att sidan har minst hälften så många erbjudanden som gäller in i nästa vecka som de som slutar den här veckan
+**Givet** att det är lördag eller söndag och att minst hälften så många erbjudanden på sidan slutar nästa vecka som slutar den här veckan
 **När** jobbet (eller Hämta i appen) läser sidan
-**Så** sparas de också på nästa veckas `week_start`, och appen visar nästa vecka; är de färre stannar de på den här veckan (erbjudanden som bara gäller längre), så att listan inte byts mot en handfull
+**Så** sparas det som slutar den här veckan på den här veckan och det som gäller in i nästa vecka på nästa veckas `week_start`, och appen visar nästa vecka
+
+**Givet** en vardag, eller färre erbjudanden som slutar nästa vecka
+**När** sidan läses
+**Så** stannar erbjudanden som bara gäller längre (kampanjer) på den här veckan, så att listan aldrig byts mot en handfull
+
+**Givet** att sidan ännu visar förra veckan (måndag morgon innan ICA bytt)
+**När** jobbet körs
+**Så** räknas det som `stale` och körningen blir inte röd
 
 **Givet** att jobbet körs igen samma vecka
 **När** det sparar

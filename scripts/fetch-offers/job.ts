@@ -23,14 +23,14 @@ import { planOfferFetches, type StoreRow } from "./plan.ts";
 
 export type Db = SupabaseClient<Database>;
 
-/** A user's session for the run: the client, and how to end the session again. */
+/** A user's session for the run: the client, and how to end the session again (throws when it could not). */
 export type UserSession = { db: Db; signOut: () => Promise<void> };
 
 export type JobDeps = {
   /** Every store with a link (loadStoreRows with the service role). */
   listStores: () => Promise<StoreRow[]>;
-  /** Signs in as the user (throws when it cannot). */
-  signIn: (userId: string) => Promise<UserSession>;
+  /** Signs in as the user; `null` for a user who is banned (skipped). Throws when it cannot. */
+  signIn: (userId: string) => Promise<UserSession | null>;
   /** One request for the page, never retried. */
   fetchPage: (url: string) => Promise<OfferPageFetch>;
   /** The catalog functions for the user behind `db`. */
@@ -59,6 +59,10 @@ export type JobSummary = {
   blocked: number;
   /** Stores whose page had no food offers. */
   none: number;
+  /** Stores whose page still showed a week that is over (ICA had not updated it yet): not an error. */
+  stale: number;
+  /** Stores of banned users: left alone. */
+  banned: number;
   /** Stores that failed otherwise (fetch, page, sign-in, save). */
   failed: number;
   withoutLink: number;
@@ -82,15 +86,23 @@ export async function loadStoreRows(admin: Db, options: { userIds?: readonly str
 }
 
 /**
- * A session as the user, the way the app's sign-in link makes one: a
+ * A session as the user, or `null` for a banned user, the way the app's sign-in link makes one: a
  * one-time token from generateLink with the service role (nothing is
  * mailed), exchanged at once with the publishable key. Signed out after the
  * run, so no refresh token is left behind. Throws with a code only.
  */
-export async function signInAs(admin: Db, settings: { url: string; publishableKey: string }, userId: string): Promise<UserSession> {
+export async function signInAs(
+  admin: Db,
+  settings: { url: string; publishableKey: string },
+  userId: string,
+  now: Date = new Date(),
+): Promise<UserSession | null> {
   const found = await admin.auth.admin.getUserById(userId);
-  const email = found.data.user?.email;
-  if (found.error || !email) throw new Error("offers_job_user_missing");
+  const user = found.data.user;
+  if (found.error || !user?.email) throw new Error("offers_job_user_missing");
+  // A banned user is never signed in (the ban may have run out: then it is no ban).
+  if (user.banned_until && new Date(user.banned_until).getTime() > now.getTime()) return null;
+  const email = user.email;
   const link = await admin.auth.admin.generateLink({ type: "magiclink", email });
   if (link.error) throw new Error(`offers_job_link_failed ${link.error.code ?? link.error.status}`);
   const db: Db = createClient<Database>(settings.url, settings.publishableKey, clientOptions);
@@ -99,7 +111,8 @@ export async function signInAs(admin: Db, settings: { url: string; publishableKe
   return {
     db,
     signOut: async () => {
-      await db.auth.signOut({ scope: "local" });
+      const { error } = await db.auth.signOut({ scope: "local" });
+      if (error) throw new Error("offers_job_sign_out_failed");
     },
   };
 }
@@ -115,13 +128,15 @@ export async function runOffersJob(deps: JobDeps): Promise<JobSummary> {
     recently: 0,
     blocked: 0,
     none: 0,
+    stale: 0,
+    banned: 0,
     failed: 0,
     withoutLink: plan.withoutLink,
     unsupported: plan.unsupported,
   };
   deps.log("offers_job_planned", { pages: summary.pages, stores: summary.stores, withoutLink: plan.withoutLink, unsupported: plan.unsupported });
 
-  const sessions = new Map<string, Promise<UserSession>>();
+  const sessions = new Map<string, Promise<UserSession | null>>();
   const sessionOf = (userId: string) => {
     let session = sessions.get(userId);
     if (!session) {
@@ -147,8 +162,12 @@ export async function runOffersJob(deps: JobDeps): Promise<JobSummary> {
       const claimed: { storeId: string; db: Db }[] = [];
       for (const store of page.stores) {
         try {
-          const { db } = await sessionOf(store.userId);
-          if (await claimFetch(db, store.storeId, now, { pastBlock: true })) claimed.push({ storeId: store.storeId, db });
+          const session = await sessionOf(store.userId);
+          if (!session) {
+            summary.banned++;
+            continue;
+          }
+          if (await claimFetch(session.db, store.storeId, now, { pastBlock: true })) claimed.push({ storeId: store.storeId, db: session.db });
           else summary.recently++;
         } catch {
           summary.failed++;
@@ -178,6 +197,7 @@ export async function runOffersJob(deps: JobDeps): Promise<JobSummary> {
       const offers = read(fetched.data.html, now);
       if (!offers.ok) {
         if (offers.error.code === "offers_none") summary.none += claimed.length;
+        else if (offers.error.code === "offers_page_old") summary.stale += claimed.length;
         else summary.failed += claimed.length;
         deps.log("offers_job_page", { ...at, result: offers.error.code, skipped: offers.error.skipped });
         continue;
@@ -187,8 +207,15 @@ export async function runOffersJob(deps: JobDeps): Promise<JobSummary> {
       for (const store of claimed) await saveFor(store, offers.data, deps, summary, at);
     }
   } finally {
-    for (const session of sessions.values()) {
-      await session.then((open) => open.signOut()).catch(() => {});
+    for (const pending of sessions.values()) {
+      // A sign-in that failed was counted already; one that worked is ended, and a failure to end it only logged.
+      const session = await pending.catch(() => null);
+      if (!session) continue;
+      try {
+        await session.signOut();
+      } catch {
+        deps.log("offers_job_sign_out_failed", {});
+      }
     }
   }
 
@@ -209,6 +236,10 @@ async function saveFor(
       summary.saved++;
       summary.offers += saved.data.saved;
       deps.log("offers_job_store", { ...at, result: "saved", saved: saved.data.saved, matched: saved.data.matched });
+    } else if (saved.error.code === "offers_page_old") {
+      // The database refused the week (it ended while the run went on): stale, not an error.
+      summary.stale++;
+      deps.log("offers_job_store", { ...at, result: saved.error.code });
     } else {
       summary.failed++;
       deps.log("offers_job_store", { ...at, result: saved.error.code });
