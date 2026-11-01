@@ -3,6 +3,7 @@ import type { ReactNode } from "react";
 import { cx } from "../cx";
 import { ChevronLeftIcon } from "../icons";
 import { AccountButton, type HeaderTab } from "./account-button";
+import { BackLink } from "./back-link";
 import { CollapsingTitleRow } from "./collapsing-title-row";
 
 export type PageHeaderProps = {
@@ -25,26 +26,38 @@ export type PageHeaderProps = {
   backLabel?: string;
   /** The back link is only for a phone: on a desktop the page above is beside this one (Story 14.7). */
   backOnlyOnMobile?: boolean;
+  /**
+   * The back link goes back in history when the page was reached within the
+   * app, and to `backHref` otherwise (BackLink, Story 11.6): for a page opened
+   * from several places, such as a card from search or from its room (Story 18.7).
+   */
+  backInHistory?: boolean;
 };
 
 /** Sidrubrik: 30 px semibold title with 16 px of air above it in a browser tab on mobile (below the notch on the home screen). */
-export function PageHeader({ title, action, tab, backHref, backLabel = "Tillbaka", backOnlyOnMobile = false }: PageHeaderProps) {
+export function PageHeader({ title, action, tab, backHref, backLabel = "Tillbaka", backOnlyOnMobile = false, backInHistory = false }: PageHeaderProps) {
+  const backClasses = cx(
+    "-mt-tap mb-1 -ml-2 flex min-h-tap min-w-tap items-center gap-1 self-start rounded-md px-2 text-body text-accent desktop:mt-0",
+    backOnlyOnMobile && "desktop:hidden",
+  );
+  const back = (
+    <>
+      <ChevronLeftIcon size={20} />
+      {backLabel}
+    </>
+  );
   const heading = (
     <h1 className="max-w-full min-w-0 flex-[1_1_min-content] text-page-title break-words text-ink">{title}</h1>
   );
   return (
     <header className="flex flex-col pt-header-top pb-4 desktop:pt-10">
-      {backHref ? (
-        <Link
-          href={backHref}
-          scroll={false}
-          className={cx(
-            "-mt-tap mb-1 -ml-2 flex min-h-tap min-w-tap items-center gap-1 self-start rounded-md px-2 text-body text-accent desktop:mt-0",
-            backOnlyOnMobile && "desktop:hidden",
-          )}
-        >
-          <ChevronLeftIcon size={20} />
-          {backLabel}
+      {backHref && backInHistory ? (
+        <BackLink fallbackHref={backHref} className={backClasses}>
+          {back}
+        </BackLink>
+      ) : backHref ? (
+        <Link href={backHref} scroll={false} className={backClasses}>
+          {back}
         </Link>
       ) : null}
       {/* The title takes the room the actions leave and wraps between its words there. Only

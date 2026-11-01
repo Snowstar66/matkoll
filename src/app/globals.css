@@ -55,6 +55,12 @@
   --shadow-float: 0 12px 32px rgb(27 36 32 / 0.14), 0 0 0 0.5px rgb(27 36 32 / 0.08);
   /* Light plate for a badge or the heart on a recipe image (image-badge, Epic 11); follows --surface in dark mode. */
   --overlay: color-mix(in srgb, var(--surface) 92%, transparent);
+  /* The boxes on a card's photo (Story 18.7): white with a dark edge and a dark label, so they read on any photo; the same in both modes, since they sit on the photo. */
+  --photo-mark: color-mix(in srgb, #FFFFFF 100%, transparent);
+  --photo-edge: color-mix(in srgb, #000000 45%, transparent);
+  --photo-shade: color-mix(in srgb, #000000 45%, transparent);
+  --photo-veil: color-mix(in srgb, #000000 25%, transparent);
+  --photo-chip: color-mix(in srgb, #141A17 78%, transparent);
 
   /* Typography */
   --font-family: -apple-system, BlinkMacSystemFont, "SF Pro Text", Inter, "Helvetica Neue", Arial, sans-serif;
@@ -286,6 +292,11 @@
   --color-tile-clay: var(--tile-clay);
   --color-tile-lilac: var(--tile-lilac);
   --color-overlay: var(--overlay);
+  --color-photo-mark: var(--photo-mark);
+  --color-photo-edge: var(--photo-edge);
+  --color-photo-shade: var(--photo-shade);
+  --color-photo-veil: var(--photo-veil);
+  --color-photo-chip: var(--photo-chip);
 
   --font-sans: var(--font-family);
 

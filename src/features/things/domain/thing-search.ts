@@ -5,6 +5,7 @@ import { seenOnText } from "./thing-merge";
 import { inBoxText } from "./thing-place";
 import { noMatchText } from "@/components/empty-state";
 import { thingCountText } from "./thing-noun";
+import { cardViewHref } from "./thing-card";
 
 // Sök (Stories 18.4 and 18.14): the things are found by the database, with
 // typos tolerated (search_things), never by loading every thing to the
@@ -129,9 +130,19 @@ export function hitTile(hit: Pick<ThingHit, "category">): { icon: string; tile: 
   return thingTiles[hit.category];
 }
 
-/** Where a hit opens: the box's page for a written thing, otherwise the place's room (/prylar/<place> redirects to it), also for a noted thing. */
-export function hitHref(hit: Pick<ThingHit, "placeId" | "written">): string {
-  return hit.written ? `/prylar/lada/${hit.placeId}` : `/prylar/${hit.placeId}`;
+/**
+ * Where a hit opens: the box's page for a written thing, the room for a noted
+ * thing (Story 18.19, no card; /prylar/<place> redirects to it), otherwise its
+ * card big with the thing marked (Story 18.7).
+ */
+export function hitHref(hit: Pick<ThingHit, "id" | "placeId" | "written" | "photoId"> & { noted?: boolean }): string {
+  if (hit.written) return `/prylar/lada/${hit.placeId}`;
+  return hit.photoId && !hit.noted ? cardViewHref(hit.photoId, hit.id) : `/prylar/${hit.placeId}`;
+}
+
+/** The thumbnail of a hit (Story 18.7): its card's photo, or none for a thing written into a box or noted (their icons show then). */
+export function hitThumbnail(hit: Pick<ThingHit, "photoId" | "written"> & { noted?: boolean }): string | null {
+  return !hit.written && !hit.noted && hit.photoId ? `/api/things/photo/${hit.photoId}` : null;
 }
 
 /** Story 18.19: under "Inga föremål matchar …", what ↑ does with the text. */

@@ -14,7 +14,7 @@ type Press =
 export type ListRowPressProps = DataAttributes &
   Pick<
     AriaAttributes,
-    "aria-haspopup" | "aria-describedby" | "aria-expanded" | "aria-controls" | "aria-current" | "aria-label"
+    "aria-haspopup" | "aria-describedby" | "aria-expanded" | "aria-controls" | "aria-current" | "aria-label" | "aria-pressed"
   > & { prefetch?: LinkProps["prefetch"] };
 
 export type ListRowProps = DataAttributes &
