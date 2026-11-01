@@ -202,7 +202,7 @@ describe("PantryList", () => {
     render(<PantryList location="Kyl" items={kyl} />);
     const field = screen.getByRole("searchbox", { name: "Sök i kylen" });
     fireEvent.change(field, { target: { value: "xyz" } });
-    expect(screen.getByText("Inget i kylen matchar.", { selector: "p" })).toBeInTheDocument();
+    expect(screen.getByText("Inget matchar ”xyz”.", { selector: "p" })).toBeInTheDocument();
     expect(screen.queryByTestId("pantry-category")).toBeNull();
     // One control by that name: the field leaves out its cross.
     expect(screen.getAllByRole("button", { name: "Rensa sökning" })).toHaveLength(1);
@@ -231,7 +231,7 @@ describe("PantryList", () => {
     expect(status).toHaveTextContent("3 träffar");
     fireEvent.change(field, { target: { value: "xyz" } });
     act(() => vi.advanceTimersByTime(500));
-    expect(status).toHaveTextContent("Inget i kylen matchar.");
+    expect(status).toHaveTextContent("Inget matchar ”xyz”.");
     fireEvent.change(field, { target: { value: "" } });
     act(() => vi.advanceTimersByTime(0));
     expect(status).toBeEmptyDOMElement();

@@ -485,7 +485,7 @@ test("search finds a thing in every room and boende, and the chat answers a ques
   await search.fill("kratha");
   await expect(page.getByTestId("thing-hit")).toHaveText([/Kratta\s*Redskapsboden · Stugan$/]);
   await search.fill("inget");
-  await expect(page.getByText('Inga föremål matchar "inget".')).toBeVisible();
+  await expect(page.getByText("Inget matchar ”inget”.")).toBeVisible();
   await search.fill("");
   await expect(rooms(page)).toBeVisible();
 

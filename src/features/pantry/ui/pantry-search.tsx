@@ -5,7 +5,8 @@ import { Button } from "@/components/button";
 import { EmptyState } from "@/components/empty-state";
 import { SearchField, type SearchFieldHandle } from "@/components/search-field";
 import type { Location } from "@/features/catalog";
-import { noMatchText, pantrySearchLabel } from "../domain/pantry-meta";
+import { clearSearchText, noMatchText } from "@/components/empty-state";
+import { pantrySearchLabel } from "../domain/pantry-meta";
 
 // Sök i platsen (Story 11.3, FR-41, EXPERIENCE.md): a search field at the top
 // of Matvaror's list while the location has items. It filters the items
@@ -46,22 +47,22 @@ export function PantrySearchField({ location, query, onQueryChange, fieldRef, no
 }
 
 export type PantryNoMatchProps = {
-  location: Location;
+  query: string;
   /** The search field, which "Rensa sökning" empties and puts focus in. */
   fieldRef: RefObject<SearchFieldHandle | null>;
 };
 
-/** No item matches: "Inget i kylen matchar." and "Rensa sökning", which empties the field and puts focus in it. */
-export function PantryNoMatch({ location, fieldRef }: PantryNoMatchProps) {
+/** No item matches: "Inget matchar ”kaffe”." and "Rensa sökning", which empties the field and puts focus in it. */
+export function PantryNoMatch({ query, fieldRef }: PantryNoMatchProps) {
   return (
     <EmptyState
       action={
         <Button variant="text" onClick={() => fieldRef.current?.clear()}>
-          Rensa sökning
+          {clearSearchText}
         </Button>
       }
     >
-      {noMatchText(location)}
+      {noMatchText(query)}
     </EmptyState>
   );
 }
@@ -72,7 +73,7 @@ export const searchStatusDelayMs = 500;
 /** "1 träff", "3 träffar", or "Inget i kylen matchar."; nothing without a search. */
 export function searchStatusText(location: Location, query: string, count: number): string {
   if (query.trim() === "") return "";
-  if (count === 0) return noMatchText(location);
+  if (count === 0) return noMatchText(query);
   return `${count} ${count === 1 ? "träff" : "träffar"}`;
 }
 

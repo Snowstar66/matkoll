@@ -119,7 +119,7 @@ describe("the one field to search and ask", () => {
     searchThingsAction.mockResolvedValue(ok({ hits: [] }));
     renderIt();
     await userEvent.type(field(), "xyz");
-    expect(await screen.findByText('Inga föremål matchar "xyz".')).toBeInTheDocument();
+    expect(await screen.findByText("Inget matchar ”xyz”.")).toBeInTheDocument();
     // Story 18.19: what ↑ does with a text that finds nothing.
     expect(screen.getByText("Tryck ↑ för att fråga, eller för att spara var det ligger.")).toBeInTheDocument();
     searchThingsAction.mockResolvedValue(fail("things_unavailable"));

@@ -294,7 +294,7 @@ test("Sök i kylen filters on name and brand, says when nothing matches, and sta
   expect(await shownCategories(page)).toEqual([["Såser & smaksättare", "1", ["Senap | Johnny's"]]]);
 
   await field.fill("xyz");
-  await expect(page.locator("p").filter({ hasText: "Inget i kylen matchar." })).toBeVisible();
+  await expect(page.locator("p").filter({ hasText: "Inget matchar ”" })).toBeVisible();
   await expect(categories(page)).toHaveCount(0);
   // One control by that name: the field's cross is left out.
   await expect(page.getByRole("button", { name: "Rensa sökning" })).toHaveCount(1);

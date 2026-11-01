@@ -3,7 +3,8 @@ import { thingCategories, thingTiles, type ThingCategory } from "./thing";
 import { shortDateText } from "./thing-photo";
 import { seenOnText } from "./thing-merge";
 import { inBoxText } from "./thing-place";
-import { thingCountText, thingNoun } from "./thing-noun";
+import { noMatchText } from "@/components/empty-state";
+import { thingCountText } from "./thing-noun";
 
 // Sök (Stories 18.4 and 18.14): the things are found by the database, with
 // typos tolerated (search_things), never by loading every thing to the
@@ -141,9 +142,9 @@ export const minSearchChars = 2;
 export const searchingText = "Söker …";
 export const searchFailedText = "Sökningen gick inte. Försök igen.";
 
-/** "Inga prylar matchar "hammare"." */
+/** "Inget matchar ”hammare”." (the same sentence as every search without a hit, Story 19.7) */
 export function noHitsText(query: string): string {
-  return `Inga ${thingNoun.plural} matchar "${query.trim()}".`;
+  return noMatchText(query);
 }
 
 /** "Visar de 100 bästa träffarna. Skriv mer för att begränsa." */

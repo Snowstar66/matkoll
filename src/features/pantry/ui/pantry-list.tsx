@@ -208,7 +208,7 @@ export function PantryList({ location, items, after }: PantryListProps) {
         />
         <PantrySearchStatus location={location} query={query} count={shown.length} />
         {groups.length === 0 ? (
-          <PantryNoMatch location={location} fieldRef={searchRef} />
+          <PantryNoMatch query={query} fieldRef={searchRef} />
         ) : (
           groups.map((group) => (
             <CategoryGroup key={group.category} group={group} names={names} now={now} location={location} onRemove={removeBySwipe} />
