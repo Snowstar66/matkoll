@@ -29,22 +29,21 @@ export function ClearSiteThings({ sites }: { sites: readonly SiteThings[] }) {
       <h2 className="px-1 desktop:px-0 text-section-label text-ink-2">Förrådet</h2>
       {/* Story 19.7: an action is a button; this one is destructive (muted red), last, and asks first. */}
       {withThings.map((site) => (
-        <div key={site.id} className="flex flex-col gap-1">
-          <p className="px-1 text-meta text-ink-2">{clearCountsText(site.counts)}</p>
-          <Button
-            variant="danger"
-            fullWidth
-            data-testid="clear-site-row"
-            aria-haspopup="dialog"
-            className="rounded-lg bg-surface"
-            onClick={() => {
-              setLast(site);
-              setAsking(site);
-            }}
-          >
-            {clearSiteText(site.name)}
-          </Button>
-        </div>
+        <Button
+          key={site.id}
+          variant="danger"
+          fullWidth
+          data-testid="clear-site-row"
+          aria-haspopup="dialog"
+          className="h-auto flex-col gap-0 rounded-lg bg-surface py-2"
+          onClick={() => {
+            setLast(site);
+            setAsking(site);
+          }}
+        >
+          {clearSiteText(site.name)}
+          <span className="text-meta font-normal text-ink-2">{clearCountsText(site.counts)}</span>
+        </Button>
       ))}
       {shown ? (
         <ClearSheet

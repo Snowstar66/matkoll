@@ -1277,7 +1277,13 @@ export function ShoppingLineRow({
   const metaId = useId();
   const chipId = useId();
   const amount = lineAmountText(line);
-  const title = <span>{line.label}</span>;
+  // In a very narrow list (200 % text on a small phone) the amount would squeeze the name to a letter per line:
+  // there it follows the name instead, drawn by CSS from `data-amount` (never in the text, so nothing is read twice).
+  const title = (
+    <span data-amount={amount || undefined} className="@max-[20rem]:after:ml-1.5 @max-[20rem]:after:font-normal @max-[20rem]:after:text-ink-2 @max-[20rem]:after:content-[attr(data-amount)]">
+      {line.label}
+    </span>
+  );
   const shared = {
     as: "div" as const,
     title,
@@ -1312,7 +1318,7 @@ export function ShoppingLineRow({
       amount || chip || onTrash ? (
         <>
           {/* Story 19.7: the amount to the right in grey, struck through with the name when checked. */}
-          {amount ? <span data-testid="line-amount" className={cx("pr-1 text-right text-[15px] leading-5 whitespace-nowrap", line.checked ? "text-ink-3 line-through" : "text-ink-2")}>{amount}</span> : null}
+          {amount ? <span data-testid="line-amount" className={cx("pr-1 text-right text-[15px] leading-5 whitespace-nowrap @max-[20rem]:hidden", line.checked ? "text-ink-3 line-through" : "text-ink-2")}>{amount}</span> : null}
           {chip ? <ProductChip name={chip} id={chipId} /> : null}
           {onTrash ? (
             <TrashButton label={`Ta bort ${line.label}`} onPress={(_bin, press) => onTrash(press)} />
