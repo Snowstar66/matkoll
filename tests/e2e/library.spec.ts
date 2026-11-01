@@ -258,7 +258,7 @@ test("the compact view, the sort and the categories work together and are kept a
   await expect(compactRows.filter({ hasText: soppa })).toContainText("30 min · 6 port.");
   await expect(page.getByRole("button", { name: /^Ta bort/ })).toHaveCount(0);
   const thumb = await compactRows.first().getByTestId("recipe-image-placeholder").boundingBox();
-  expect(thumb?.width).toBe(48);
+  expect(thumb?.width).toBe(56);
   expect(await noSidewaysScroll()).toBe(true);
   await page.reload();
   await expect(compactRows).toHaveCount(2);
