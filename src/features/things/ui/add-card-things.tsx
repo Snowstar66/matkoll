@@ -26,7 +26,7 @@ import {
 // this card, sorted into categories by one cheap AI call (Övrigt when it does not
 // answer), and replaced when the card is retaken.
 
-export function AddCardThings({ cardId, name }: { cardId: string; name: string }) {
+export function AddCardThings({ cardId, name, variant = "compact" }: { cardId: string; name: string; variant?: "compact" | "secondary" }) {
   const router = useRouter();
   const { showToast } = useToast();
   const ids = useId();
@@ -68,7 +68,13 @@ export function AddCardThings({ cardId, name }: { cardId: string; name: string }
 
   return (
     <>
-      <Button variant="compact" aria-label={`${addThingsText} på kortet ${name}`} onClick={() => setOpen(true)} data-testid="add-card-things">
+      <Button
+        variant={variant}
+        fullWidth={variant === "secondary"}
+        aria-label={`${addThingsText} på kortet ${name}`}
+        onClick={() => setOpen(true)}
+        data-testid="add-card-things"
+      >
         {addThingsText}
       </Button>
       <Sheet open={open} onClose={() => setOpen(false)} title={addThingsTitle} subtitle={name} closeLabel="Avbryt" preventClose={saving}>

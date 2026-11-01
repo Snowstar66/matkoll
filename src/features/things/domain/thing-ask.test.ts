@@ -64,8 +64,10 @@ describe("the references of an answer", () => {
   });
 
   it("names the room and part and the card's date, with the thumbnail's card", () => {
-    expect(refOfGroup({ key: "k", hits: [hit()] })).toEqual({
-      href: "/prylar/0b2f6d0a-3c0e-4d52-9a54-6d0f0c5f6a02",
+    const first = hit();
+    // Story 18.7: the card opens big with the first thing the answer is built on marked.
+    expect(refOfGroup({ key: "k", hits: [first, hit()] })).toEqual({
+      href: `/prylar/kort/0b2f6d0a-3c0e-4d52-9a54-6d0f0c5f6a04?foremal=${first.id}`,
       photoId: "0b2f6d0a-3c0e-4d52-9a54-6d0f0c5f6a04",
       title: "Skräpförrådet · Väggen",
       sub: "Kort från 31 okt",

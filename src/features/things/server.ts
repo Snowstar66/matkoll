@@ -11,6 +11,8 @@ import { loadClearCountsIn } from "./data/clear";
 import { loadPlaceCountsIn } from "./data/place-edit";
 import type { PlaceCounts } from "./domain/thing-place-edit";
 import { loadRoomWrittenIn, loadWrittenIn } from "./data/written";
+import { loadCardViewIn } from "./data/card-view";
+import type { CardView } from "./domain/thing-card";
 import type { ClearCounts } from "./domain/thing-clear";
 import type { WrittenBox } from "./domain/thing-written";
 
@@ -28,6 +30,9 @@ export { ThingsDataError };
  * photo may be 1.5 MB). The only things that write a card.
  */
 export { retryCardReading, startCardReading } from "./actions/start-reading";
+
+/** Story 18.7: the box of one föremål on its card, looked up once with the AI; for the Route Handler POST /api/things/locate. */
+export { locateThingOnCard } from "./actions/locate-thing";
 
 /** The places of the boende `siteId`, with their things counted. Throws ThingsDataError. */
 export async function listThingPlaces(siteId: string): Promise<ThingPlace[]> {
@@ -85,6 +90,11 @@ export async function getRoomPage(siteId: string, key: string, now: Date = new D
     placeCounts,
     cards: cards.map((card) => ({ ...card, label: cardLabel(card) })),
   };
+}
+
+/** A card as its big view shows it (Story 18.7), or `null` when it is gone or not the user's. Throws ThingsDataError. */
+export async function getCardView(id: string): Promise<CardView | null> {
+  return loadCardViewIn(await createClient(), id);
 }
 
 /**

@@ -20,7 +20,20 @@ import { shortDateText } from "../domain/thing-photo";
 // goes with the sweep of the next card. The question is always asked: a
 // card is more than a row.
 
-export function RemoveCard({ cardId, takenAt, compact = false, name }: { cardId: string; takenAt: Date; compact?: boolean; name?: string }) {
+export function RemoveCard({
+  cardId,
+  takenAt,
+  compact = false,
+  name,
+  onRemoved,
+}: {
+  cardId: string;
+  takenAt: Date;
+  compact?: boolean;
+  name?: string;
+  /** Called once the card is gone, instead of reading the page again (Story 18.7: the big view goes back to the room). */
+  onRemoved?: () => void;
+}) {
   const router = useRouter();
   const { showToast } = useToast();
   const [asking, setAsking] = useState(false);
@@ -50,7 +63,8 @@ export function RemoveCard({ cardId, takenAt, compact = false, name }: { cardId:
     }
     const snapshot = result.data;
     setAsking(false);
-    router.refresh();
+    if (onRemoved) onRemoved();
+    else router.refresh();
     showToast(removedCardText(shortDateText(takenAt)), {
       onUndo: () => {
         void (async () => {

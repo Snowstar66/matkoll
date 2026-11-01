@@ -6,6 +6,8 @@ import type { CardSnapshot } from "../domain/thing-edit";
 import { thingPhotoBucket, thingPhotoMediaTypes, type ThingCard, type ThingPhotoMediaType } from "../domain/thing-photo";
 import { cardGoneCode, guarded, ThingsDataError, type ThingsDb } from "./client";
 import { loadPointersIn, relinkItemsIn } from "./merge";
+import type { ThingBox } from "@/lib/thing-box";
+import { boxColumnsOf, boxOfRow } from "../domain/thing-card";
 
 // The cards (Story 18.2): every call to thing_photo and to the bucket
 // thing-photo is here. Every function needs the signed-in user's session
@@ -139,7 +141,8 @@ export async function reopenCardIn(db: ThingsDb, id: string): Promise<boolean> {
   });
 }
 
-export type ReadThing = { name: string; category: string; where: string | null; confidence: string };
+/** A thing the AI read, with its box on the card (Story 18.7) when the reading gave a reasonable one. */
+export type ReadThing = { name: string; category: string; where: string | null; confidence: string; box?: ThingBox | null };
 
 /**
  * The job's end (save_thing_card): the things are saved, the card is `done`
@@ -159,6 +162,8 @@ export async function saveReadingIn(
         category: thing.category,
         where_hint: thing.where,
         confidence: thing.confidence,
+        // Story 18.7: save_thing_card saves a box that is inside the photo, and leaves out any other.
+        ...(thing.box ? { box: { left: thing.box.left, top: thing.box.top, width: thing.box.width, height: thing.box.height } } : {}),
       })) as Json,
       note: reading.note ?? undefined,
       hidden_count: reading.hidden,
@@ -280,7 +285,7 @@ export async function loadCardFileOrphansIn(db: ThingsDb, userId: string, now: D
 }
 
 const snapshotSelect =
-  "id, place_id, object_path, media_type, width, height, taken_at, created_at, status, error_code, unseen_note, unseen_count, thing_item(id, photo_id, place_id, name, category, where_hint, confidence, position, created_at, same_as, source)";
+  "id, place_id, object_path, media_type, width, height, taken_at, created_at, status, error_code, unseen_note, unseen_count, thing_item(id, photo_id, place_id, name, category, where_hint, confidence, position, created_at, same_as, source, box_left, box_top, box_width, box_height, box_missed)";
 
 const snapshotRowSchema = z.object({
   id: z.uuid(),
@@ -308,6 +313,11 @@ const snapshotRowSchema = z.object({
       created_at: z.string(),
       same_as: z.uuid().nullable(),
       source: z.enum(["photo", "added"]),
+      box_left: z.number().nullable(),
+      box_top: z.number().nullable(),
+      box_width: z.number().nullable(),
+      box_height: z.number().nullable(),
+      box_missed: z.boolean(),
     }),
   ),
 });
@@ -367,6 +377,8 @@ export async function removeCardIn(db: ThingsDb, id: string): Promise<RemovedCar
             sameAs: item.same_as,
             source: item.source,
             pointedBy: pointers.get(item.id) ?? [],
+            box: boxOfRow(item),
+            boxMissed: item.box_missed && boxOfRow(item) === null,
           })),
       },
     };
@@ -425,6 +437,7 @@ export async function restoreCardIn(db: ThingsDb, card: CardSnapshot): Promise<R
           position: thing.position,
           created_at: thing.createdAt,
           source: thing.source,
+          ...boxColumnsOf(thing),
         })),
       );
       if (items.error) {

@@ -2,6 +2,7 @@ import { describe, expect, it } from "vitest";
 import { cleanThingName, renameInputSchema } from "./thing-edit";
 import {
   hitHref,
+  hitThumbnail,
   hitLine,
   hitMeta,
   hitRank,
@@ -69,7 +70,14 @@ describe("a hit", () => {
     expect(hitHref(written)).toBe(`/prylar/lada/${written.placeId}`);
     const photographed = hit({ part: "Blå backen", isBox: true });
     expect(hitMeta(photographed)).toContain("Skräpförrådet, i Blå backen ·");
-    expect(hitHref(photographed)).toBe(`/prylar/${photographed.placeId}`);
+    // Story 18.7: a thing on a card opens the card big with the thing marked.
+    expect(hitHref(photographed)).toBe(`/prylar/kort/${photographed.photoId}?foremal=${photographed.id}`);
+    expect(hitThumbnail(photographed)).toBe(`/api/things/photo/${photographed.photoId}`);
+    expect(hitThumbnail(written)).toBeNull();
+    // A noted thing (Story 18.19) has no card: it opens its room and has no thumbnail (its note shows).
+    const noted = hit({ noted: true, photoId: null });
+    expect(hitHref(noted)).toBe(`/prylar/${noted.placeId}`);
+    expect(hitThumbnail(noted)).toBeNull();
   });
 
   it("is read from a row of search_things, with or without a card", () => {

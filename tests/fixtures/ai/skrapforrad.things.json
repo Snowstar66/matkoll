@@ -1,17 +1,17 @@
 {
   "things": [
-    { "name": "Hammare", "category": "Verktyg", "where": "på väggen, mitten", "confidence": "high" },
-    { "name": "Cirkelsåg", "category": "Verktyg", "where": "översta hyllan, vänster", "confidence": "high" },
-    { "name": "Batteridriven skruvdragare", "category": "Verktyg", "where": "översta hyllan, mitten", "confidence": "high" },
-    { "name": "Skruvmejslar", "category": "Verktyg", "where": "på väggen, vänster", "confidence": "high" },
-    { "name": "Spade", "category": "Trädgård", "where": "golvet, höger", "confidence": "high" },
-    { "name": "Kratta", "category": "Trädgård", "where": "golvet, höger", "confidence": "medium" },
-    { "name": "Sparkcykel", "category": "Sport & fritid", "where": "golvet, vänster", "confidence": "high" },
-    { "name": "Fotbollar", "category": "Sport & fritid", "where": "mellersta hyllan, höger", "confidence": "medium" },
-    { "name": "Förlängningssladd", "category": "Elektronik", "where": "mellersta hyllan, mitten", "confidence": "medium" },
-    { "name": "Blå back", "category": "Förvaring & lådor", "where": "nedersta hyllan, vänster", "confidence": "high" },
-    { "name": "Målarfärgsburkar", "category": "Byggmaterial", "where": "nedersta hyllan, höger", "confidence": "medium" },
-    { "name": "Presenning", "category": "Hushåll", "where": "överst, höger", "confidence": "low" }
+    { "name": "Hammare", "category": "Verktyg", "where": "på väggen, mitten", "confidence": "high", "box": [197, 153, 337, 364] },
+    { "name": "Cirkelsåg", "category": "Verktyg", "where": "översta hyllan, vänster", "confidence": "high", "box": [440, 104, 560, 291] },
+    { "name": "Batteridriven skruvdragare", "category": "Verktyg", "where": "översta hyllan, mitten", "confidence": "high", "box": [603, 153, 702, 289] },
+    { "name": "Skruvmejslar", "category": "Verktyg", "where": "på väggen, vänster", "confidence": "high", "box": [57, 140, 168, 413] },
+    { "name": "Spade", "category": "Trädgård", "where": "golvet, höger", "confidence": "high", "box": [858, 331, 908, 958] },
+    { "name": "Kratta", "category": "Trädgård", "where": "golvet, höger", "confidence": "medium", "box": [918, 309, 977, 969] },
+    { "name": "Sparkcykel", "category": "Sport & fritid", "where": "golvet, vänster", "confidence": "high", "box": [62, 653, 352, 973] },
+    { "name": "Fotbollar", "category": "Sport & fritid", "where": "mellersta hyllan, höger", "confidence": "medium", "box": [705, 433, 825, 533] },
+    { "name": "Förlängningssladd", "category": "Elektronik", "where": "mellersta hyllan, mitten", "confidence": "medium", "box": [587, 440, 695, 538] },
+    { "name": "Blå back", "category": "Förvaring & lådor", "where": "nedersta hyllan, vänster", "confidence": "high", "box": [433, 644, 583, 780] },
+    { "name": "Målarfärgsburkar", "category": "Byggmaterial", "where": "nedersta hyllan, höger", "confidence": "medium", "box": [682, 667, 827, 780] },
+    { "name": "Presenning", "category": "Hushåll", "where": "överst, höger", "confidence": "low", "box": [717, 184, 823, 289] }
   ],
   "hiddenContainers": 3,
   "hiddenNote": "Innehållet i tre lådor syns inte."

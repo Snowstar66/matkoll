@@ -592,6 +592,29 @@ describe("AI fixtures", () => {
   });
 });
 
+describe("mock locateThing (Story 18.7)", () => {
+  const service = createMockAiService();
+  const image = { data: new Uint8Array(readFileSync(join(dir, "forrad.png"))), mediaType: "image/png" };
+
+  it("answers the box the things fixture gives a thing of the same name, and none for a name it does not have", async () => {
+    expect(await service.locateThing({ image, name: "hammare", where: null }, signal())).toEqual({
+      ok: true,
+      data: { box: { left: 0.197, top: 0.153, width: 0.14, height: 0.211 } },
+    });
+    expect(await service.locateThing({ image, name: "Okänd grej", where: null }, signal())).toEqual({ ok: true, data: { box: null } });
+  });
+
+  it.each(mockSuggestErrorCodes)("gives %s for a name that holds its reserved text", async (code) => {
+    expect(await service.locateThing({ image, name: `Burk matkoll-mock: ${code}`, where: null }, signal())).toMatchObject({ ok: false, error: { code } });
+  });
+
+  it("every box of the things fixture is reasonable, so the cards of the tests get one for each thing", async () => {
+    const result = await service.listThings({ image }, signal());
+    if (!result.ok) throw new Error(result.error.code);
+    expect(result.data.things.every((thing) => thing.box !== null)).toBe(true);
+  });
+});
+
 describe("mock listThings (Story 18.2)", () => {
   const service = createMockAiService();
   const photo = (file: string) => ({ data: new Uint8Array(readFileSync(join(dir, file))), mediaType: "image/png" });
