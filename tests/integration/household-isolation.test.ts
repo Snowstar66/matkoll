@@ -35,10 +35,17 @@ type Coverage = {
   row: (seed: Seed, ownerId: string) => Record<string, unknown>;
 };
 
+// Story 20.3: tables that are not one user's own. The owner of a feedback row may
+// not read it back (only the app's owner may), and app_owner has no user at all;
+// tests/integration/feedback.test.ts covers both, with the same intruders.
+const coveredInFeedbackTest = ["app_owner", "feedback"];
+
+type IsolatedTable = Exclude<TableName, "feedback">;
+
 // One entry per table in the public schema. Typed by the generated types, so a
 // new table is a type error here too; the live schema check below is the one
 // that names it even when the types were not regenerated.
-const coverage: Record<TableName, Coverage> = {
+const coverage: Record<IsolatedTable, Coverage> = {
   ai_setting: { row: () => ({ provider: "anthropic", model: "claude-sonnet-5-5", effort: "medium" }) },
   ai_usage: { row: () => ({ model: "claude-haiku-5-5", input_tokens: 1200, output_tokens: 300 }) },
   // Story 17.9: the hash is never granted for reading, so the generic checks below read A's row by id.
@@ -118,7 +125,7 @@ const coverage: Record<TableName, Coverage> = {
 };
 
 // Created with the tables' own parents first.
-const seedOrder: TableName[] = [
+const seedOrder: IsolatedTable[] = [
   "pantry_site",
   "ingredient",
   "recipe",
@@ -164,16 +171,16 @@ async function liveTables(): Promise<string[]> {
 
 let a: TestUser;
 let b: TestUser;
-let rowIds: Map<TableName, string>;
+let rowIds: Map<IsolatedTable, string>;
 let aSeed: Seed;
 const photoPath = (userId: string, id: string) => `${userId}/${randomUUID()}/kyl/${id}.png`;
 let aPhotoPaths: Map<string, string>;
 const photoBytes = new Uint8Array([137, 80, 78, 71, 13, 10, 26, 10, 1, 2, 3, 4]);
 
 /** Gives `owner` a row in every table; returns the row ids and the parents they point at. */
-async function seedAs(owner: Db, ownerId: string): Promise<{ ids: Map<TableName, string>; seed: Seed }> {
+async function seedAs(owner: Db, ownerId: string): Promise<{ ids: Map<IsolatedTable, string>; seed: Seed }> {
   const seed = {} as Seed;
-  const ids = new Map<TableName, string>();
+  const ids = new Map<IsolatedTable, string>();
   for (const table of seedOrder) {
     const inserted = await owner
       .from(table)
@@ -225,8 +232,8 @@ describe("household isolation", () => {
   it("covers every table in the public schema", async () => {
     const live = await liveTables();
     const covered = Object.keys(coverage).sort();
-    const missing = live.filter((table) => !covered.includes(table));
-    const gone = covered.filter((table) => !live.includes(table));
+    const missing = live.filter((table) => !covered.includes(table) && !coveredInFeedbackTest.includes(table));
+    const gone = [...covered, ...coveredInFeedbackTest].filter((table) => !live.includes(table));
     expect(missing, `tables without isolation coverage in household-isolation.test.ts: ${missing.join(", ")}`).toEqual([]);
     expect(gone, `covered tables that no longer exist: ${gone.join(", ")}`).toEqual([]);
     expect([...seedOrder].sort(), "seedOrder lists exactly the covered tables").toEqual(covered);

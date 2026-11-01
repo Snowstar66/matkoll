@@ -40,6 +40,13 @@ export const envSchema = z.object({
    * in production nobody sees it and every job uses AI_PROVIDER/AI_MODEL.
    */
   AI_SETTINGS_EMAILS: optional(emailList),
+  /**
+   * Story 20.3: the app owner's address, whose first name the Tyck till sheets show
+   * ("Pontus ser texten …"). Display only: who may read the inbox is decided in the
+   * database (is_app_owner() and the table app_owner, which holds the owner's user id; `pnpm owner:sync`
+   * looks this address up and writes that id).
+   */
+  OWNER_EMAIL: optional(z.email().transform((email) => email.trim().toLowerCase())),
   /** Defaults to mock outside production; must be set explicitly in production. See parseEnv. */
   AI_PROVIDER: optional(z.enum(aiProviders)),
   AI_MODEL: optional(z.string()),

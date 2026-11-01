@@ -42,6 +42,19 @@ describe("SettingsMenu (Story 14.7)", () => {
     expect(screen.getByRole("button", { name: "Logga ut" })).toBeInTheDocument();
   });
 
+  it("shows a badge such as 3 nya on a row (Story 20.3)", () => {
+    render(
+      <SettingsMenu
+        account={account}
+        groups={[{ label: "Ägare", rows: [{ href: "/installningar/inkorg", icon: "inbox", tile: "sky", title: "Inkorg", badge: "3 nya" }] }]}
+        signOut={null}
+      />,
+    );
+    const link = within(screen.getByRole("list", { name: "Ägare" })).getByRole("link");
+    expect(link).toHaveTextContent("Inkorg3 nya");
+    expect(within(link).getByTestId("settings-badge")).toHaveTextContent("3 nya");
+  });
+
   it("makes every row at least 44 px high", () => {
     render(<SettingsMenu account={account} groups={groups} signOut={null} />);
     for (const link of screen.getAllByRole("link")) expect(link.className).toMatch(/min-h-\[52px\]|min-h-16/);

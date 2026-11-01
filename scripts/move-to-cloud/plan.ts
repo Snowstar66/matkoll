@@ -14,6 +14,8 @@ export type TableSpec = {
   deferred?: string[];
   /** Generated columns: read from the source but never written (the target computes them itself). */
   generated?: string[];
+  /** Columns the target fills in itself on insert (a trigger), so they may differ from the source. */
+  filledByTarget?: string[];
   /** Columns holding a storage object path whose first segment is the user id. */
   pathColumns?: string[];
   /** Rows to leave behind, with the reason (shown in the output). */
@@ -67,7 +69,23 @@ export const TABLES: TableSpec[] = [
   // Only the sha256 hash is stored, so copying it never exposes a key and the same
   // key keeps working. `--skip-api-keys` leaves them out (then make a new key).
   { name: "api_key", pk: ["id"], deps: [] },
+  // Story 20.3: what the user sent under Tyck till. The target's trigger fills in
+  // sender_email from the cloud account; read_at is kept, so the inbox comes along as it was.
+  { name: "feedback", pk: ["id"], deps: [], filledByTarget: ["sender_email"] },
+  // Story 20.1: one row per user (unique user_id), so the user is the key: a cloud
+  // account that has already closed the tour keeps one row.
+  { name: "welcome_tour", pk: ["user_id"], deps: [] },
 ];
+
+/**
+ * Tables with a `user_id` that are never copied, with the reason. The live schema check
+ * knows them, so they are not "unknown"; nothing is read from or written to them.
+ */
+export const EXCLUDED_TABLES: Record<string, string> = {
+  // Story 20.3: who owns the app is not data of the account, and the cloud account has
+  // another user id. Run `pnpm owner:sync` against the cloud after the move.
+  app_owner: "ägaren sätts med pnpm owner:sync i molnet",
+};
 
 export const BUCKETS = ["pantry-photo", "thing-photo"];
 
@@ -94,9 +112,9 @@ export function orderTables(tables: TableSpec[] = TABLES): TableSpec[] {
 }
 
 /** Throws if the live schema has a table with `user_id` that the manifest lacks (or the reverse). */
-export function assertManifestCoversSchema(userTables: string[], tables: TableSpec[] = TABLES): void {
+export function assertManifestCoversSchema(userTables: string[], tables: TableSpec[] = TABLES, excluded: Record<string, string> = EXCLUDED_TABLES): void {
   const known = new Set(tables.map((t) => t.name));
-  const live = new Set(userTables);
+  const live = new Set(userTables.filter((t) => !(t in excluded)));
   const missing = [...live].filter((t) => !known.has(t));
   if (missing.length > 0) {
     throw new Error(`Tabeller med user_id som skriptet inte känner till: ${missing.join(", ")}. Uppdatera TABLES i scripts/move-to-cloud/plan.ts.`);
