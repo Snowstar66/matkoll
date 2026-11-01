@@ -397,7 +397,7 @@ test("a favourite recipe that uses an offer is shown first and goes on the menu,
   await startSuggest(page);
   await expect(sheet(page)).toBeHidden();
   await page.goto("/recept");
-  await page.getByRole("radio", { name: "Kan lagas nu" }).click();
+  await page.getByRole("button", { name: "Kan lagas nu" }).filter({ visible: true }).click();
   const own = page.getByTestId("own-recipes");
   await expect(own.getByRole("heading", { name: "Från dina recept" })).toBeVisible();
   const card = own.getByTestId("own-recipe");
