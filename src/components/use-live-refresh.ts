@@ -9,12 +9,20 @@ import { createRefreshScheduler } from "@/lib/refresh-scheduler";
 // browser is online, and at once when the tab is shown again or the connection
 // returns. The read is the page's own request with the httpOnly session
 // cookies, so no access token ever reaches the browser's JavaScript (docs/
-// molnet.md, "Före vänner", point 7). Quiet by design: nothing is shown.
+// molnet.md, "Före vänner", point 7). A page nobody has touched for five
+// minutes reads itself only once a minute, until the next touch. Quiet by
+// design: nothing is shown.
 
 /** Inköpslista: two people in the store see each other's ticks within a few seconds. */
 export const listRefreshMs = 4_000;
 /** Any other live page. */
 export const liveRefreshMs = 10_000;
+/** No pointer, key, touch or scroll for this long: the page counts as left open and reads less often. */
+export const idleAfterMs = 5 * 60_000;
+/** How often a page left open reads itself again (a desktop tab open all day costs Vercel little). */
+export const idleRefreshMs = 60_000;
+/** What counts as someone using the page. */
+const activityEvents = ["pointerdown", "keydown", "touchstart", "scroll"] as const;
 /** While this device saves something, a due refresh waits this long and looks again. */
 export const busyWaitMs = 300;
 
@@ -36,6 +44,8 @@ export function useLiveRefresh({ intervalMs = liveRefreshMs, busy, paused = fals
 
   useEffect(() => {
     let timer: ReturnType<typeof setTimeout> | undefined;
+    let lastActivity = Date.now();
+    const idle = () => Date.now() - lastActivity >= idleAfterMs;
     const scheduler = createRefreshScheduler({
       delayMs: busyWaitMs,
       isBusy: () => busyRef.current,
@@ -53,7 +63,7 @@ export function useLiveRefresh({ intervalMs = liveRefreshMs, busy, paused = fals
       scheduler.cancel();
     }
 
-    /** The next read, `intervalMs` from now; nothing while hidden, offline or paused. */
+    /** The next read, `intervalMs` from now (`idleRefreshMs` once nobody has used the page for a while); nothing while hidden, offline or paused. */
     function loop() {
       clearTimeout(timer);
       timer = undefined;
@@ -62,7 +72,7 @@ export function useLiveRefresh({ intervalMs = liveRefreshMs, busy, paused = fals
         timer = undefined;
         scheduler.refreshNow();
         loop();
-      }, intervalMs);
+      }, idle() ? Math.max(intervalMs, idleRefreshMs) : intervalMs);
     }
 
     /** Shown again or back online: read at once for whatever was missed, then keep going. */
@@ -76,15 +86,27 @@ export function useLiveRefresh({ intervalMs = liveRefreshMs, busy, paused = fals
     }
 
     function onVisibility() {
-      if (document.visibilityState === "visible") wake();
-      else stop();
+      if (document.visibilityState === "visible") {
+        // Coming back to the tab is someone using it.
+        lastActivity = Date.now();
+        wake();
+      } else stop();
+    }
+
+    /** Someone uses the page: after an idle spell, read at once and go back to the normal pace. */
+    function onActivity() {
+      const wasIdle = idle();
+      lastActivity = Date.now();
+      if (wasIdle) wake();
     }
 
     loop();
     document.addEventListener("visibilitychange", onVisibility);
     window.addEventListener("online", wake);
     window.addEventListener("offline", stop);
+    for (const type of activityEvents) window.addEventListener(type, onActivity, { capture: true, passive: true });
     return () => {
+      for (const type of activityEvents) window.removeEventListener(type, onActivity, { capture: true });
       document.removeEventListener("visibilitychange", onVisibility);
       window.removeEventListener("online", wake);
       window.removeEventListener("offline", stop);

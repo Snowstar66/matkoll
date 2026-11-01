@@ -3930,6 +3930,10 @@ så att ett fel i någon annans text aldrig kan låna mitt konto när vänner ko
 **När** tiden går
 **Så** läses inget om; när nätet är tillbaka läses sidan om direkt, och en omläsning skriver aldrig över en avbockning som väntar på att skickas
 
+**Givet** att ingen har rört sidan (pekare, tangent, touch eller scroll) på 5 minuter
+**När** tiden går
+**Så** läses den om bara en gång i minuten; vid nästa beröring läses den om direkt och sedan i vanlig takt
+
 **Givet** att jag själv just sparar något
 **När** en omläsning står i tur
 **Så** väntar den tills sparandet svarat, så att listan inte blinkar
