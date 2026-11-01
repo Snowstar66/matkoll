@@ -94,6 +94,8 @@ const routesByTable = {
   // Product choices per catalog ingredient and store (Story 7.2); the list's
   // detail shows them, and the export (Story 7.3) reads them from the list.
   product_choice: [{ path: "/lista", type: "page" }],
+  // Tyck till (Story 20.3): the owner's Inkorg row (its count of new) and the inbox under Inställningar.
+  feedback: [{ path: "/installningar", type: "layout" }],
 } satisfies Partial<Record<TableName, readonly Route[]>>;
 
 export type RevalidatedTable = keyof typeof routesByTable;

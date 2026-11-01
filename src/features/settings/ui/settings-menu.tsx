@@ -5,7 +5,7 @@ import { usePathname } from "next/navigation";
 import type { ReactNode } from "react";
 import { Avatar } from "@/components/app-shell/avatar";
 import { cx } from "@/components/cx";
-import { BookmarkIcon, ChevronRightIcon, CoinIcon, GlobeIcon, InfoIcon, InstallIcon, MicIcon, PinIcon, SparkleIcon, StoreIcon } from "@/components/icons";
+import { BookmarkIcon, ChevronRightIcon, CoinIcon, GlobeIcon, InboxIcon, InfoIcon, InstallIcon, MicIcon, PinIcon, SparkleIcon, StoreIcon } from "@/components/icons";
 import { ListGroup } from "@/components/list-group";
 
 /** The line icons of the rows (Story 19.7); a name, since the page's server part cannot hand over a component. */
@@ -19,6 +19,7 @@ export const settingsIcons = {
   install: InstallIcon,
   mic: MicIcon,
   info: InfoIcon,
+  inbox: InboxIcon,
 } as const;
 
 export type SettingsIconName = keyof typeof settingsIcons;
@@ -41,6 +42,8 @@ export type SettingsRowData = {
   title: string;
   /** The short value at the right, e.g. "Hemma, Duved"; left out when there is none. */
   value?: string;
+  /** A green capsule at the right instead of a value, e.g. "3 nya" on Inkorg (Story 20.3). */
+  badge?: string;
 };
 
 export type SettingsGroupData = {
@@ -71,6 +74,11 @@ function Row({ row, current }: { row: SettingsRowData; current: boolean }) {
       {row.value ? (
         <span className="max-w-[45%] truncate text-[15px] leading-5 text-ink-2" data-testid="settings-value">
           {row.value}
+        </span>
+      ) : null}
+      {row.badge ? (
+        <span className="inline-flex h-[22px] shrink-0 items-center rounded-pill bg-accent px-2 text-[13px] font-semibold text-on-accent" data-testid="settings-badge">
+          {row.badge}
         </span>
       ) : null}
       {row.href ? <ChevronRightIcon size={16} className="-mr-1 shrink-0 text-ink-3" /> : null}

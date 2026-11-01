@@ -71,3 +71,11 @@ describe("highlightParts", () => {
     ]);
   });
 });
+
+describe("Tyck till's areas (Story 20.3)", () => {
+  it("are Hjälp's areas, with the same ids and names", async () => {
+    const { feedbackAreas } = await import("@/features/feedback");
+    const { helpAreas } = await import("./help-content");
+    expect(feedbackAreas.map(({ id, label }) => ({ id, label }))).toEqual(helpAreas.map(({ id, title }) => ({ id, label: title })));
+  });
+});

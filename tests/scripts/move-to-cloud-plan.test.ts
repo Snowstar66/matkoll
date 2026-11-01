@@ -38,6 +38,13 @@ describe("assertManifestCoversSchema", () => {
     expect(() => assertManifestCoversSchema([...all, "new_table"])).toThrow(/new_table/);
     expect(() => assertManifestCoversSchema(all.slice(1))).toThrow(/ingredient/);
   });
+
+  it("knows the tables that are never copied, and copies Tyck till and the welcome tour (Stories 20.1, 20.3)", () => {
+    const all = TABLES.map((t) => t.name);
+    expect(all).toEqual(expect.arrayContaining(["feedback", "welcome_tour"]));
+    expect(all).not.toContain("app_owner");
+    expect(() => assertManifestCoversSchema([...all, "app_owner"])).not.toThrow();
+  });
 });
 
 describe("remapRow", () => {

@@ -12,6 +12,8 @@ export const settingsPages = [
   "installera",
   "siri",
   "om",
+  // Story 20.3: the owner's inbox; its row shows only for the owner.
+  "inkorg",
 ] as const;
 
 export type SettingsPage = (typeof settingsPages)[number];
