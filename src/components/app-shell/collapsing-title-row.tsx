@@ -19,20 +19,44 @@ type Box = { width: number; height: number };
  * same with "Minska rörelse". From 1024 px the side menu holds the account and
  * the bar and the fixing are off.
  */
-export function CollapsingTitleRow({ title, heading, actions }: { title: string; heading: ReactNode; actions: ReactNode }) {
+export function CollapsingTitleRow({
+  title,
+  heading,
+  actions,
+  back,
+}: {
+  title: string;
+  heading: ReactNode;
+  /** The tab's buttons at the right; left out on a page under a tab. */
+  actions?: ReactNode;
+  /**
+   * The back link above the title, on a page under a tab (Hjälp och tips, Story 20.2): like the
+   * buttons it is the very same element, fixed to the bar's left while the bar shows.
+   */
+  back?: ReactNode;
+}) {
   const rowRef = useRef<HTMLDivElement>(null);
   const barRef = useRef<HTMLDivElement>(null);
   const actionsRef = useRef<HTMLDivElement>(null);
+  const backRef = useRef<HTMLDivElement>(null);
   const [collapsed, setCollapsed] = useState(false);
-  // The size of the buttons while they are in the row, so their place keeps it while they are fixed to the bar.
+  // The size of the buttons (and the back link) while they are in place, so their place keeps it while they are fixed to the bar.
   const [box, setBox] = useState<Box | null>(null);
+  const [backBox, setBackBox] = useState<Box | null>(null);
 
+  // Every render while the buttons are in the row (their content may change); the setters bail out when the size is the same.
+  // eslint-disable-next-line react-hooks/exhaustive-deps
   useLayoutEffect(() => {
-    if (collapsed || !actionsRef.current) return;
-    const { width, height } = actionsRef.current.getBoundingClientRect();
-    setBox((before) => (before && before.width === width && before.height === height ? before : { width, height }));
-    // Every render while the buttons are in the row (their content may change); setBox bails out when the size is the same.
-    // eslint-disable-next-line react-hooks/exhaustive-deps
+    if (collapsed) return;
+    const same = (before: Box | null, { width, height }: Box) => (before && before.width === width && before.height === height ? before : { width, height });
+    if (actionsRef.current) {
+      const size = actionsRef.current.getBoundingClientRect();
+      setBox((before) => same(before, size));
+    }
+    if (backRef.current) {
+      const size = backRef.current.getBoundingClientRect();
+      setBackBox((before) => same(before, size));
+    }
   });
 
   useEffect(() => {
@@ -64,22 +88,38 @@ export function CollapsingTitleRow({ title, heading, actions }: { title: string;
       >
         <p className="truncate text-headline text-ink">{title}</p>
       </div>
-      <div ref={rowRef} className="flex flex-wrap items-center justify-between gap-x-3 gap-y-2">
-        {heading}
-        <div
-          className="ml-auto shrink-0"
-          style={collapsed && box ? { width: box.width, height: box.height } : undefined}
-        >
+      {back ? (
+        <div className="self-start" style={collapsed && backBox ? { width: backBox.width, height: backBox.height } : undefined}>
+          {/* A flex column, so the link's own margins stay inside this box when it is measured and fixed. */}
           <div
-            ref={actionsRef}
+            ref={backRef}
             className={cx(
-              "flex items-center gap-1 max-desktop:-mr-1.5",
-              collapsed && "max-desktop:fixed max-desktop:top-[calc(4px+env(safe-area-inset-top))] max-desktop:right-2 max-desktop:mr-0 max-desktop:z-40",
+              "flex flex-col items-start",
+              collapsed && "max-desktop:fixed max-desktop:top-[calc(10px+env(safe-area-inset-top))] max-desktop:left-2 max-desktop:z-40",
             )}
           >
-            {actions}
+            {back}
           </div>
         </div>
+      ) : null}
+      <div ref={rowRef} className="flex flex-wrap items-center justify-between gap-x-3 gap-y-2">
+        {heading}
+        {actions ? (
+          <div
+            className="ml-auto shrink-0"
+            style={collapsed && box ? { width: box.width, height: box.height } : undefined}
+          >
+            <div
+              ref={actionsRef}
+              className={cx(
+                "flex items-center gap-1 max-desktop:-mr-1.5",
+                collapsed && "max-desktop:fixed max-desktop:top-[calc(4px+env(safe-area-inset-top))] max-desktop:right-2 max-desktop:mr-0 max-desktop:z-40",
+              )}
+            >
+              {actions}
+            </div>
+          </div>
+        ) : null}
       </div>
     </>
   );

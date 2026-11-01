@@ -4981,6 +4981,98 @@ så att hela appen känns som en helhet.
 **När** jag jämför med modellerna 8–14
 **Så** stämmer de i ljust, mörkt, 390 och 1280 px, vid 375 px och 200 % text utan sidledes rullning
 
+## Epic 20: Kom igång och tyck till
+
+Version 2.3. En ny användare får en kort välkomsttur i Apple-stil som visar vad appen kan, hjälpen blir ett nav att fördjupa sig i, och vem som helst kan föreslå en funktion, säga till om något inte funkar eller betygsätta appen. Det hamnar i en inkorg som bara appens ägare ser. Pontus (2026-11-01): "När en användare för första gången använder appen kanske man ska bli erbjuden att likt en wizard få förklarat vad appen kan göra … ungefär som när apple visar sina nya produkter. sen ska man kunna fördjupa sig i hjälpen. kanske även skicka en feature request eller betygsätta". Efter mockupen: "hjälpmockuppen ser jättebra ut. vi kör på det", så varje "Beslut för Pontus" bygger sitt förval.
+
+Källa: modellen `_bmad-output/planning-artifacts/ux-designs/ux-Matkoll-2026-10-25/mockups/hjalp-valkomst.html` (tur, hjälpnav, blad, inkorg, beslut 1–10). Modellen är ett löfte: allt som syns i "Nytt"-bilderna ska finnas, i ljust och mörkt läge, vid 375 px och på dator. 20.1 och 20.2 kan byggas parallellt; 20.3 efter 20.2.
+
+Förval (beslut 1–10): sex sidor i turen; stjärnor; aldrig automatisk fråga om betyg; sidan "Var vill du börja?" finns kvar; inkorgen bara för ägaren (`OWNER_EMAIL`); integritetsraden som i dag men efter turen; områden som chips; turen bara för nya användare (befintliga markeras som sett); inget svar i inkorgen i första versionen; turens rubrik 32 px vikt 500.
+
+### Story 20.1: Välkomsttur
+
+Som ny användare,
+vill jag första gången få en kort tur som visar vad appen kan,
+så att jag förstår helheten innan jag börjar.
+
+**Acceptance Criteria:**
+
+**Givet** att jag loggar in för första gången
+**När** appen öppnas
+**Så** visas turen över hela skärmen (på dator en ruta på 560 px) med sex sidor: Välkommen (trion Recept och matsedel · Matvaror · Förråd), Recept, Matsedel + Inköpslista, Matvaror, Förråd och "Var vill du börja?", med linjeteckningar, prickar, Fortsätt och Hoppa över som i modellen
+
+**Givet** turen
+**När** jag sveper, trycker Fortsätt, använder piltangenterna, trycker Hoppa över eller Esc
+**Så** fungerar det, och skärmläsaren hör "Sida N av 6"; med reducerad rörelse tonar sidorna bara in
+
+**Givet** sista sidan
+**När** jag väljer Lägg till ett recept, Fotografera kylen eller Titta runt själv
+**Så** hamnar jag i Recept med lägg till-bladet öppet, i Matvaror med kameran, eller i Recept
+
+**Givet** att jag stängt turen på något sätt
+**När** jag loggar in igen, även på en annan enhet
+**Så** visas den inte igen (sparas på servern, egen rad med RLS), men den kan spelas upp från Hjälp
+
+**Givet** befintliga användare när ändringen släpps
+**När** de öppnar appen
+**Så** visas ingen tur (de markeras som att de sett den)
+
+**Givet** designsystemet
+**När** turen byggs
+**Så** finns den nya accentfärgen `--warm` (ljust #D9963F, mörkt #E9B872) i globals.css och DESIGN.md, bara för dekor och stjärnor, aldrig text
+
+### Story 20.2: Hjälpnav
+
+Som användare,
+vill jag kunna söka och fördjupa mig i hjälpen per del av appen,
+så att jag hittar svaret utan att leta.
+
+**Acceptance Criteria:**
+
+**Givet** Hjälp och tips
+**När** den öppnas
+**Så** finns Sök i hjälpen, kortet "Så funkar Livskoll" (spelar turen och kommer tillbaka hit), chips för Recept · Matsedel · Inköpslista · Matvaror · Förråd · Konto, och per område tre "Så gör du"-steg med linjeikoner och vanliga frågor med ⊕/⊖ som i modellen
+
+**Givet** att jag öppnar hjälpen från en flik
+**När** sidan visas
+**Så** är den flikens chip förvalt, och chipsen visar ett område i taget
+
+**Givet** sökfältet
+**När** jag skriver
+**Så** söks steg och frågor utan hänsyn till å/ä/ö och versaler, och utan träffar erbjuds "Föreslå en funktion" med ordet ifyllt
+
+**Givet** hjälpens slut
+**När** jag scrollar ner
+**Så** finns Tyck till med raderna Föreslå en funktion · Betygsätt Livskoll · Något som inte funkar? (bladen kommer i 20.3)
+
+**Givet** dagens hjälptexter
+**När** de flyttas till områdena
+**Så** stämmer de med appen (Konto tar över Siri och Boenden)
+
+### Story 20.3: Tyck till och inkorg
+
+Som användare,
+vill jag kunna föreslå en funktion, säga till när något inte funkar och betygsätta appen,
+så att den som gör appen får veta; och som ägare vill jag läsa det i en inkorg.
+
+**Acceptance Criteria:**
+
+**Givet** raderna under Tyck till
+**När** jag trycker på en
+**Så** öppnas bladet Föreslå en funktion, Något som inte funkar? eller Betygsätt Livskoll som i modellen (rubriken är saken, Avbryt/Skicka, en textruta, valfria områdeschips förvalda från var jag kom ifrån; betyg med fem stjärnor och valfri kommentar, vid 1–3 stjärnor "Vad kan bli bättre?"), och efter Skicka visas tack-läget
+
+**Givet** databasen
+**När** något skickas
+**Så** sparas det i tabellen `feedback` (användare, sort idé/betyg/problem, stjärnor, text, område, sida, appversion, skapad, läst); alla kan lägga till sina egna, bara ägaren kan läsa och markera som läst, via `is_app_owner()` och `OWNER_EMAIL`, utan servicerollen
+
+**Givet** att jag är ägaren
+**När** jag öppnar Inställningar
+**Så** finns gruppen Ägare med Inkorg och antal nya, och inkorgen visar stjärnor, text, vem och när, med filter och snittbetyg; andra ser inte gruppen
+
+**Givet** appen
+**När** jag använder den
+**Så** ber den aldrig om betyg av sig själv
+
 ## Epic 21: Hushållet
 
 Version 3.x, **vilar** (pausad). Beslut 2026-11-01 (Pontus): "vi lägger det på on-hold". Byggs tidigast efter flytten till molnet (17.3–17.4), när fler hushåll använder appen. Bakgrund: i dag är ett hushåll ett enda konto som familjen delar (beslut 2026-10-31), och nya hushåll bjuds in genom `ALLOWED_EMAILS` och `pnpm users:sync`. Pontus vill kunna se vem som gjort vad, till exempel vem som bockade av en vara när man handlar ihop, och kanske en ändringslogg i Inställningar. Epic 20 är reserverad för Hjälp och välkomst.

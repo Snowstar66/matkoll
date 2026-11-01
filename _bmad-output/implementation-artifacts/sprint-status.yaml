@@ -247,6 +247,12 @@ development_status:
   19-7-skärmpass-inköpslista-matvaror-förråd-inställningar-och-ordlista: done
   epic-19-retrospective: optional
 
+  epic-20: in-progress
+  20-1-välkomsttur: review
+  20-2-hjälpnav: done
+  20-3-tyck-till-och-inkorg: backlog
+  epic-20-retrospective: optional
+
   epic-21: backlog
   21-1-bjud-in-ett-hushåll-från-appen: backlog
   21-2-hushållsmedlemmar-med-egna-inloggningar: backlog

@@ -47,6 +47,12 @@
   /* Category tiles only (Epic 11): clay for Kött, fisk & chark, lilac for Dryck. Decoration, never text. */
   --tile-clay: #F1E3DD;
   --tile-lilac: #E6E1F2;
+  /* The warm accent of the two-tone line art and the stars (Epic 20). Decoration only, never text. */
+  --warm: #D9963F;
+  /* The soft round plate behind a line drawing (the welcome tour, the help hub). Decoration. */
+  --illus-bg: #EEF4F0;
+  /* The welcome tour's background: pure white in light mode (more keynote than the app's grey), the page in dark. */
+  --tour-bg: var(--surface);
   /* Veil behind sheets and dialogs: 40 % ink (DESIGN.md, Elevation & Depth). */
   --scrim: color-mix(in srgb, var(--ink) 40%, transparent);
   /* Level 2, the floating frame: the tab bar and the collapsed header, 84 % surface over a blur. */
@@ -80,6 +86,14 @@
   --step-size: 24px;
   --step-weight: 500;
   --step-leading: 1.4;
+  /* The welcome tour (Story 20.1, decision 10): a light keynote title and its one sentence. */
+  --tour-title-size: 2rem;
+  --tour-title-weight: 500;
+  --tour-title-tracking: -0.6px;
+  --tour-title-leading: 2.375rem;
+  --tour-text-size: 1.0625rem;
+  --tour-text-weight: 400;
+  --tour-text-leading: 1.5625rem;
   --headline-size: 1.0625rem;
   --headline-weight: 600;
   --headline-leading: 1.375rem;
@@ -200,6 +214,9 @@
     --hot-ink: #2B1203;
     --tile-clay: #3B2C27;
     --tile-lilac: #2C2840;
+    --warm: #E9B872;
+    --illus-bg: #16211B;
+    --tour-bg: var(--bg);
     /* Dark ink is light, so the veil darkens with black instead. */
     --scrim: color-mix(in srgb, #000000 60%, transparent);
     /* No shadow in the dark (it does not show): a hairline light edge, with the lifted --surface-2. */
@@ -298,6 +315,9 @@
   --color-hot-ink: var(--hot-ink);
   --color-tile-clay: var(--tile-clay);
   --color-tile-lilac: var(--tile-lilac);
+  --color-warm: var(--warm);
+  --color-illus-bg: var(--illus-bg);
+  --color-tour-bg: var(--tour-bg);
   --color-overlay: var(--overlay);
   --color-photo-mark: var(--photo-mark);
   --color-photo-edge: var(--photo-edge);
@@ -324,6 +344,13 @@
   --text-step: var(--step-size);
   --text-step--font-weight: var(--step-weight);
   --text-step--line-height: var(--step-leading);
+  --text-tour-title: var(--tour-title-size);
+  --text-tour-title--font-weight: var(--tour-title-weight);
+  --text-tour-title--letter-spacing: var(--tour-title-tracking);
+  --text-tour-title--line-height: var(--tour-title-leading);
+  --text-tour-text: var(--tour-text-size);
+  --text-tour-text--font-weight: var(--tour-text-weight);
+  --text-tour-text--line-height: var(--tour-text-leading);
   --text-headline: var(--headline-size);
   --text-headline--font-weight: var(--headline-weight);
   --text-headline--line-height: var(--headline-leading);
@@ -499,5 +526,57 @@
   }
   to {
     background-position: -150% 0;
+  }
+}
+
+/*
+ * The welcome tour's line drawings (Story 20.1, hjalp-valkomst.html): 2.4 px
+ * round lines in the accent (.g) with one warm detail (.w), on a soft round
+ * plate (.bgc). Paper shapes (.paper) are filled with the tour's background so
+ * the lines behind them are hidden; .dash is a dotted trail. On the page that
+ * shows, the lines marked .d are drawn out (1.1 s); the pages beside it hold
+ * them undrawn. With "Minska rörelse" nothing is drawn: the lines just stand.
+ */
+.tour-art * {
+  fill: none;
+  stroke-width: 2.4;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+}
+.tour-art .g {
+  stroke: var(--accent);
+}
+.tour-art .w {
+  stroke: var(--warm);
+}
+.tour-art .bgc {
+  fill: var(--illus-bg);
+  stroke: none;
+}
+.tour-art .paper {
+  fill: var(--tour-bg);
+}
+.tour-art .dash {
+  stroke-dasharray: 2 7;
+}
+@media (prefers-reduced-motion: no-preference) {
+  .tour-art .d {
+    stroke-dasharray: 1;
+    stroke-dashoffset: 1;
+  }
+  [data-state="on"] > .tour-art .d {
+    stroke-dashoffset: 0;
+    transition: stroke-dashoffset 1100ms 120ms cubic-bezier(0.5, 0, 0.2, 1);
+  }
+}
+/* "Minska rörelse": the page that shows only fades in (the rule above stops every other animation). */
+@media (prefers-reduced-motion: reduce) {
+  [data-state="on"] > .tour-fade {
+    animation: tour-fade-in 300ms ease-out !important;
+  }
+}
+@keyframes tour-fade-in {
+  from {
+    opacity: 0;
   }
 }

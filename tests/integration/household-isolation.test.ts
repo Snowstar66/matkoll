@@ -113,6 +113,8 @@ const coverage: Record<TableName, Coverage> = {
   store_offer: {
     row: (s) => ({ store_id: s.storeId, week_start: "2026-10-26", label: "Havets Laxfilé", name: "laxfilé", section: "Kött och fisk", source: "link" }),
   },
+  // Story 20.1: one row per user, the time the welcome tour was closed.
+  welcome_tour: { row: () => ({ tour_seen_at: new Date().toISOString() }) },
 };
 
 // Created with the tables' own parents first.
@@ -144,6 +146,7 @@ const seedOrder: TableName[] = [
   "thing_photo",
   "thing_item",
   "thing_change",
+  "welcome_tour",
 ];
 
 /**
