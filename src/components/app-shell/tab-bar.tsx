@@ -37,7 +37,7 @@ function TabLink({ destination, pathname }: { destination: Destination; pathname
       href={href}
       scroll={false}
       aria-current={current}
-      aria-label={badge > 0 ? badgeName(label, badge) : undefined}
+      aria-label={badge > 0 ? badgeName(label, badge, destination.badgeUnit) : undefined}
       className={cx(
         "group flex min-h-tap min-w-0 flex-1 flex-col items-center justify-center text-tab-label outline-none",
         current ? "font-semibold text-accent" : "text-ink-3",

@@ -6,6 +6,11 @@ import type { ChatAnswer } from "../actions/ask-chat";
 import type { ChatTurn } from "../domain/thing-ask";
 import type { RememberInput, Remembered } from "../domain/thing-noted";
 import { ThingChat } from "./thing-chat";
+import { ToastProvider } from "@/components/toast";
+import type { ReactElement } from "react";
+
+/** Pontus 1 Nov: a hit opens its sheet, whose removal says so in a toast. */
+const withToasts = (ui: ReactElement) => <ToastProvider>{ui}</ToastProvider>;
 
 const askChat = vi.fn<(input: { question: string; history: ChatTurn[]; siteId?: string }) => Promise<Result<ChatAnswer>>>();
 vi.mock("../actions/ask-chat", () => ({ askChat: (input: { question: string; history: ChatTurn[] }) => askChat(input) }));
@@ -31,7 +36,7 @@ async function ask(text: string) {
 
 describe("the chat", () => {
   it("has the field Sök eller fråga …, the hint while it is empty and a send button", () => {
-    render(<ThingChat />);
+    render(withToasts(<ThingChat />));
     expect(screen.getByPlaceholderText("Sök eller fråga …")).toBeInTheDocument();
     expect(screen.getByRole("button", { name: "Skicka" })).toBeInTheDocument();
     expect(screen.queryByRole("button", { name: "Ny fråga" })).not.toBeInTheDocument();
@@ -42,7 +47,7 @@ describe("the chat", () => {
     askChat.mockResolvedValue(
       ok({ answer: "Ja – på väggen i Skräpförrådet.", refs: [{ href: `/prylar/${placeId}`, photoId, title: "Skräpförrådet · Väggen", sub: "Kort från 31 okt" }] }),
     );
-    render(<ThingChat />);
+    render(withToasts(<ThingChat />));
     await ask("Har du sett min skiftnyckel?");
     expect(screen.getByTestId("chat-question")).toHaveTextContent("Har du sett min skiftnyckel?");
     expect(await screen.findByText("Ja – på väggen i Skräpförrådet.")).toBeInTheDocument();
@@ -58,7 +63,7 @@ describe("the chat", () => {
 
   it("shows a thing written into a box without a thumbnail", async () => {
     askChat.mockResolvedValue(ok({ answer: "I Black box.", refs: [{ href: `/prylar/lada/${placeId}`, photoId: null, title: "Garaget · Black box", sub: "Låda · Skrivet 31 okt" }] }));
-    render(<ThingChat />);
+    render(withToasts(<ThingChat />));
     await ask("Julgransbelysning?");
     const ref = await screen.findByTestId("chat-ref");
     expect(ref).toHaveTextContent("Låda · Skrivet 31 okt");
@@ -67,7 +72,7 @@ describe("the chat", () => {
 
   it("sends the earlier turns with a follow-up, at most six", async () => {
     askChat.mockResolvedValue(ok({ answer: "Svar.", refs: [] }));
-    render(<ThingChat />);
+    render(withToasts(<ThingChat />));
     for (let index = 1; index <= 8; index++) {
       await ask(`Fråga ${index}`);
       await waitFor(() => expect(screen.getAllByTestId("chat-answer")).toHaveLength(index));
@@ -81,7 +86,7 @@ describe("the chat", () => {
   it("does not send an empty question or a second one while the first is answered", async () => {
     let finish: (result: Result<ChatAnswer>) => void = () => undefined;
     askChat.mockReturnValue(new Promise((resolve) => (finish = resolve)));
-    render(<ThingChat />);
+    render(withToasts(<ThingChat />));
     await userEvent.click(screen.getByRole("button", { name: "Skicka" }));
     expect(askChat).not.toHaveBeenCalled();
     await ask("Hammare?");
@@ -94,7 +99,7 @@ describe("the chat", () => {
 
   it("says when the AI does not answer, and keeps the question", async () => {
     askChat.mockResolvedValue(fail("ai_unavailable"));
-    render(<ThingChat />);
+    render(withToasts(<ThingChat />));
     await ask("Hammare?");
     expect(await screen.findByRole("alert")).toHaveTextContent("AI-tjänsten svarar inte just nu");
     expect(screen.getByTestId("chat-question")).toHaveTextContent("Hammare?");
@@ -103,7 +108,7 @@ describe("the chat", () => {
   it("is cleared by 'Ny fråga', and an answer that was on its way is dropped", async () => {
     let finish: (result: Result<ChatAnswer>) => void = () => undefined;
     askChat.mockReturnValue(new Promise((resolve) => (finish = resolve)));
-    render(<ThingChat />);
+    render(withToasts(<ThingChat />));
     await ask("Hammare?");
     await userEvent.click(screen.getByRole("button", { name: "Ny fråga" }));
     expect(screen.queryByTestId("chat-turn")).not.toBeInTheDocument();
@@ -140,13 +145,14 @@ describe("the chat", () => {
     askChat.mockResolvedValue(
       ok({ answer: "Coca-Cola finns i Boden · Nedersta hyllan · mitten.", refs: [], hits: [found], similar: [{ ...found, id: "0b2f6d0a-3c0e-4d52-9a54-6d0f0c5f6a42", name: "Fun Light läsk" }] }),
     );
-    render(<ThingChat siteId={siteId} />);
+    render(withToasts(<ThingChat siteId={siteId} />));
     await ask("coca-cola");
     expect(await screen.findByText("Coca-Cola finns i Boden · Nedersta hyllan · mitten.")).toBeInTheDocument();
     const [row] = screen.getAllByTestId("thing-hit");
     expect(row).toHaveTextContent("Coca-Cola Boden · Nedersta hyllan · mitten");
-    // Story 18.7: a hit on a card opens the card big with the thing marked.
-    expect(row).toHaveAttribute("href", `/prylar/kort/${photoId}?foremal=${found.id}`);
+    // Pontus 1 Nov: the row opens the föremål's sheet, and its thumbnail the card big with the thing marked (Story 18.7).
+    expect(row).toHaveAttribute("aria-haspopup", "dialog");
+    expect(screen.getByRole("link", { name: "Visa Coca-Cola på kortet" })).toHaveAttribute("href", `/prylar/kort/${photoId}?foremal=${found.id}`);
     expect(row.closest("li")?.querySelector("img")).toHaveAttribute("src", `/api/things/photo/${photoId}`);
     expect(screen.queryByText("Fun Light läsk")).not.toBeInTheDocument();
     await userEvent.click(screen.getByRole("button", { name: "Visa 1 liknande" }));
@@ -171,7 +177,7 @@ describe("the chat", () => {
 
     it("sends the boende with the text, and shows the proposal: the thing, room and part, Kom ihåg and Ändra; nothing is saved yet", async () => {
       askChat.mockResolvedValue(ok({ answer: "Ska jag komma ihåg var det ligger?", refs: [], proposal }));
-      render(<ThingChat siteId={siteId} rooms={["Skräpförrådet", "Sovrummet"]} />);
+      render(withToasts(<ThingChat siteId={siteId} rooms={["Skräpförrådet", "Sovrummet"]} />));
       await ask("Passen ligger i översta byrålådan i sovrummet");
       expect(askChat).toHaveBeenCalledWith({ question: "Passen ligger i översta byrålådan i sovrummet", history: [], siteId });
       expect(await screen.findByText("Ska jag komma ihåg var det ligger?")).toBeInTheDocument();
@@ -186,7 +192,7 @@ describe("the chat", () => {
     it("saves on one tap: the bubble says where it is, with the room to tap, and the page is read again", async () => {
       askChat.mockResolvedValue(ok({ answer: "Ska jag komma ihåg var det ligger?", refs: [], proposal }));
       rememberThing.mockResolvedValue(ok(remembered));
-      render(<ThingChat siteId={siteId} rooms={["Sovrummet"]} />);
+      render(withToasts(<ThingChat siteId={siteId} rooms={["Sovrummet"]} />));
       await ask("Passen ligger i översta byrålådan i sovrummet");
       await userEvent.click(await screen.findByRole("button", { name: "Kom ihåg" }));
       expect(rememberThing).toHaveBeenCalledWith({ siteId, name: "Pass", room: "Sovrummet", part: "Översta byrålådan", category: "Övrigt", replaces: null });
@@ -214,7 +220,7 @@ describe("the chat", () => {
         }),
       );
       rememberThing.mockResolvedValue(ok({ ...remembered, title: "Vinden" }));
-      render(<ThingChat siteId={siteId} />);
+      render(withToasts(<ThingChat siteId={siteId} />));
       await ask("Passen ligger på vinden");
       expect(await screen.findByTestId("proposal-new-room")).toHaveTextContent("nytt rum");
       expect(screen.getByText("Låg förut i Hallen · Byrån (skrivet 12 okt).")).toBeInTheDocument();
@@ -227,7 +233,7 @@ describe("the chat", () => {
         ok({ answer: "Ska jag komma ihåg var det ligger?", refs: [], proposal: { ...proposal, moves: { id: "0b2f6d0a-3c0e-4d52-9a54-6d0f0c5f6a31", title: "Hallen", notedAt: "2026-10-12T10:00:00Z" } } }),
       );
       rememberThing.mockResolvedValue(ok(remembered));
-      render(<ThingChat siteId={siteId} />);
+      render(withToasts(<ThingChat siteId={siteId} />));
       await ask("Passen ligger i översta byrålådan i sovrummet");
       await userEvent.click(await screen.findByRole("button", { name: "Ändra" }));
       const sheet = screen.getByRole("dialog", { name: "Pass" });
@@ -239,7 +245,7 @@ describe("the chat", () => {
     it("changes the proposal in a sheet named after the thing: name, room by chip, part (valfritt), and Kom ihåg saves it", async () => {
       askChat.mockResolvedValue(ok({ answer: "Ska jag komma ihåg var det ligger?", refs: [], proposal }));
       rememberThing.mockResolvedValue(ok({ ...remembered, title: "Skräpförrådet" }));
-      render(<ThingChat siteId={siteId} rooms={["Skräpförrådet", "Sovrummet"]} />);
+      render(withToasts(<ThingChat siteId={siteId} rooms={["Skräpförrådet", "Sovrummet"]} />));
       await ask("Passen ligger i översta byrålådan i sovrummet");
       await userEvent.click(await screen.findByRole("button", { name: "Ändra" }));
       const sheet = screen.getByRole("dialog", { name: "Pass" });
@@ -260,7 +266,7 @@ describe("the chat", () => {
     it("without a room the button is Välj rum and opens the sheet, and a refused room is said under its field", async () => {
       askChat.mockResolvedValue(ok({ answer: "Ska jag komma ihåg var det ligger?", refs: [], proposal: { ...proposal, room: null, part: null } }));
       rememberThing.mockResolvedValue(fail("validation", { room: "Ange ett rum, till exempel Skräpförrådet." }));
-      render(<ThingChat siteId={siteId} />);
+      render(withToasts(<ThingChat siteId={siteId} />));
       await ask("Jag har lagt passen i en låda");
       expect(await screen.findByTestId("proposal-where")).toHaveTextContent("Välj rum");
       await userEvent.click(screen.getByRole("button", { name: "Välj rum" }));
@@ -273,7 +279,7 @@ describe("the chat", () => {
     it("says when saving fails and keeps the buttons", async () => {
       askChat.mockResolvedValue(ok({ answer: "Ska jag komma ihåg var det ligger?", refs: [], proposal }));
       rememberThing.mockResolvedValue(fail("things_noted_failed"));
-      render(<ThingChat siteId={siteId} />);
+      render(withToasts(<ThingChat siteId={siteId} />));
       await ask("Passen ligger i översta byrålådan i sovrummet");
       await userEvent.click(await screen.findByRole("button", { name: "Kom ihåg" }));
       expect(await screen.findByRole("alert")).toHaveTextContent("Det gick inte att spara. Försök igen.");
@@ -287,7 +293,7 @@ describe("the chat", () => {
           refs: [{ href: `/prylar/${placeId}`, photoId: null, title: "Sovrummet · Översta byrålådan", sub: "Du skrev in det 31 okt", noted: true }],
         }),
       );
-      render(<ThingChat siteId={siteId} />);
+      render(withToasts(<ThingChat siteId={siteId} />));
       await ask("var är passen?");
       const ref = await screen.findByTestId("chat-ref");
       expect(ref).toHaveTextContent("Du skrev in det 31 okt");

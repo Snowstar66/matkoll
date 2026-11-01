@@ -59,6 +59,14 @@ describe("the badge on a tab", () => {
     expect(badgeName("Recept", 10)).toBe("Recept, 10 nya AI-resultat");
   });
 
+  it("names Förråd's badge by what it counts, read cards (Pontus 1 Nov)", async () => {
+    pathname.current = "/recept";
+    render(<TabBar />);
+    await withJobs({ kind: "things", status: "done", count: 12 });
+    expect(within(tab("Förråd, 1 nytt kort")).getByTestId("tab-badge")).toHaveTextContent("1");
+    expect(badgeName("Förråd", 2, ["nytt kort", "nya kort"])).toBe("Förråd, 2 nya kort");
+  });
+
   it("does not count a job that is active, has been seen, or was cancelled", async () => {
     render(<TabBar />);
     await withJobs(

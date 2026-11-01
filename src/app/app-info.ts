@@ -10,6 +10,13 @@ export const appTagline = `Mat, ${thingNoun.plural} och vardag under kontroll`;
 export const appDescription = "Recept, matsedel, inköpslista och det du har hemma.";
 
 /**
+ * Who can see the account's data (Story 17.2; Pontus 1 Nov): the card Om din data and the answer in
+ * Hjälp och tips, Konto, say the same. "Lagras i EU" holds: the database is in Paris (Supabase
+ * eu-west-3) and the functions run there too (vercel.json, cdg1); see docs/molnet.md.
+ */
+export const privacyText = `Det du sparar i ${appName} syns bara för ditt hushåll och lagras i EU. Som i de flesta appar kan den som driver tjänsten tekniskt komma åt datan.`;
+
+/**
  * How much of the square the house takes. A maskable icon may be cut to a circle
  * of 80 % of its width, so its house is scaled to 80 % to stay inside.
  */

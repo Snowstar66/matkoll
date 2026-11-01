@@ -14,6 +14,7 @@ import { ThingFinder } from "@/features/things/ui/thing-finder";
 import { RoomsList } from "@/features/things/ui/rooms-list";
 import { NewRoom } from "@/features/things/ui/new-room";
 import { RoomsRefresh } from "@/features/things/ui/rooms-refresh";
+import { RoomNews } from "@/features/things/ui/room-news";
 import { errorMessages } from "@/lib/errors";
 import { loadBoendeCounts } from "../boende-counts";
 
@@ -46,11 +47,14 @@ export async function PrylarContent() {
   }
   const site: SelectedSite = { id: selected.id, name: selected.name, siteCount: sites.length };
 
+  // The rooms say which has an unseen card, and a reading with nothing left to open is marked seen (RoomNews).
   const places = (
     <SiteSwitch sites={sites} selected={site}>
-      <Suspense key={site.id} fallback={<Skeleton rows={3} />}>
-        <Rooms site={site} />
-      </Suspense>
+      <RoomNews siteId={site.id}>
+        <Suspense key={site.id} fallback={<Skeleton rows={3} />}>
+          <Rooms site={site} />
+        </Suspense>
+      </RoomNews>
     </SiteSwitch>
   );
   return (

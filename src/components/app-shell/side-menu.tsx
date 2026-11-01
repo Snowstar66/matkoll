@@ -22,7 +22,7 @@ function MenuLink({ destination, pathname, to }: { destination: Destination; pat
       href={to ?? href}
       scroll={false}
       aria-current={current}
-      aria-label={badge > 0 ? badgeName(label, badge) : undefined}
+      aria-label={badge > 0 ? badgeName(label, badge, destination.badgeUnit) : undefined}
       className={cx(
         "flex min-h-tap items-center gap-3 rounded-md px-3 text-body focus-visible:-outline-offset-2",
         // Active text in mint-ink: accent on mint is only 4.1:1 (NFR4).

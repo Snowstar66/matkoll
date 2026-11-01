@@ -322,6 +322,54 @@ test("a finished reading is confirmed while Pontus is in another tab, with a bad
   await expect(nav(page).getByTestId("tab-badge")).toHaveCount(0);
 });
 
+test("Pontus 1 Nov: the Förråd badge is told on the room's row as 1 nytt kort, opening the room clears it, and a reading whose card is gone is marked seen", async ({ page }) => {
+  await page.goto("/prylar");
+  await takeCards(page, photo, { room: "Boden" });
+  await nav(page).getByRole("link", { name: "Recept" }).click();
+  // The tab's name says what the badge counts.
+  await expect(nav(page).getByRole("link", { name: "Förråd, 1 nytt kort" })).toBeVisible({ timeout: 25_000 });
+  await nav(page).getByRole("link", { name: "Förråd, 1 nytt kort" }).click();
+  const boden = rooms(page).filter({ hasText: "Boden" });
+  await expect(boden.getByTestId("room-news")).toHaveText("1 nytt kort");
+  await expect(boden).toContainText(/1 nytt kort · 12 föremål/);
+  await shot(page, "forrad-nytt-kort");
+  await page.emulateMedia({ colorScheme: "dark" });
+  await shot(page, "forrad-nytt-kort-mork");
+  await page.emulateMedia({ colorScheme: "light" });
+  await boden.click();
+  await expect(page.getByTestId("room-summary")).toContainText("12föremål");
+  await expect.poll(async () => (await adminClient().from("ai_job").select("seen_at").eq("user_id", userId).eq("kind", "things")).data?.every((job) => job.seen_at !== null)).toBe(true);
+  await page.goto("/prylar");
+  await expect(rooms(page).filter({ hasText: "Boden" })).toBeVisible();
+  await expect(page.getByTestId("room-news")).toHaveCount(0);
+
+  // A reading whose card was removed (or whose room was cleared) has nothing to open: the overview marks it seen.
+  const now = new Date().toISOString();
+  const orphan = await adminClient()
+    .from("ai_job")
+    .insert({
+      user_id: userId,
+      kind: "things",
+      status: "done",
+      client_key: randomUUID(),
+      context: { placeId: randomUUID(), photoId: randomUUID(), takenAt: now },
+      result: { photoId: randomUUID(), placeId: randomUUID(), count: 3 },
+      started_at: now,
+      finished_at: now,
+      expires_at: new Date(Date.now() + 3_600_000).toISOString(),
+    })
+    .select("id")
+    .single();
+  expect(orphan.error).toBeNull();
+  await page.goto("/recept");
+  await expect(nav(page).getByRole("link", { name: "Förråd, 1 nytt kort" })).toBeVisible();
+  await nav(page).getByRole("link", { name: "Förråd, 1 nytt kort" }).click();
+  await expect.poll(async () => (await adminClient().from("ai_job").select("seen_at").eq("id", orphan.data!.id).single()).data?.seen_at).not.toBeNull();
+  await expect(page.getByTestId("room-news")).toHaveCount(0);
+  await nav(page).getByRole("link", { name: "Recept" }).click();
+  await expect(nav(page).getByTestId("tab-badge")).toHaveCount(0);
+});
+
 test("the side menu at desktop width has Förråd too, and the start page and a room read well", async ({ page }) => {
   await page.setViewportSize({ width: 1280, height: 800 });
   await page.goto("/prylar");
@@ -436,7 +484,7 @@ test("a thing the AI got wrong is renamed or removed alone, with Ångra, and the
   await expect(page.getByText("Hammare", { exact: true })).toHaveCount(0);
 
   await page.getByRole("button", { name: /Spade/ }).click();
-  await sheet.getByRole("button", { name: "Ta bort föremål" }).click();
+  await sheet.getByRole("button", { name: "Ta bort föremålet" }).click();
   await expect(page.getByTestId("toast")).toContainText("Tog bort Spade.");
   await expect(things).toHaveCount(1);
   await expect(page.getByRole("button", { name: /^Trädgård/ })).toHaveCount(0);
@@ -609,6 +657,46 @@ test("Story 18.23: har vi gravljus is answered with the count, Ta 2 takes two wi
   await hammer.getByRole("button", { name: "Räkna" }).click();
   await hammer.getByRole("button", { name: "Spara antal" }).click();
   await expect(hammer.getByTestId("count-number")).toHaveText("1st");
+});
+
+test("Pontus 1 Nov: a search hit opens the föremål's sheet, where the count is changed (Slut på at 0) and Ta bort föremålet goes with Ångra, count and history back", async ({ page }) => {
+  const admin = adminClient();
+  const place = await seedPlace(hemma, "Förrådet", [{ name: "Gravljus", category: "Hushåll", where: "översta hyllan" }], { part: "Översta hyllan", takenAt: "2026-10-12T10:00:00Z" });
+  const item = (await admin.from("thing_item").select("id").eq("place_id", place).single()).data!;
+  expect((await admin.from("thing_item").update({ quantity: 2 }).eq("id", item.id)).error).toBeNull();
+  expect((await admin.from("thing_change").insert({ user_id: userId, item_id: item.id, kind: "card", quantity_after: 2, created_at: "2026-10-12T10:00:00Z" })).error).toBeNull();
+
+  await page.goto("/prylar");
+  await page.getByRole("textbox", { name: "Sök eller fråga" }).fill("gravljus");
+  const hit = page.getByTestId("thing-hit");
+  await expect(hit).toHaveCount(1);
+  await hit.click();
+  const sheet = page.getByRole("dialog", { name: "Gravljus" });
+  await expect(sheet.getByTestId("count-number")).toHaveText("2st");
+  await expect(sheet.getByRole("link", { name: "Visa på kortet" })).toBeVisible();
+  await shot(page, "sok-blad");
+  await page.emulateMedia({ colorScheme: "dark" });
+  await shot(page, "sok-blad-mork");
+  await page.emulateMedia({ colorScheme: "light" });
+
+  // Ta the last two: "Slut på gravljus." with Ångra, and the föremål stays as Slut.
+  await sheet.getByRole("button", { name: "Ta", exact: true }).click();
+  await sheet.getByRole("button", { name: "Ta fler" }).click();
+  await sheet.getByRole("button", { name: "Ta 2" }).click();
+  await expect(sheet.getByTestId("count-done")).toHaveText(/Slut på gravljus\./);
+  await expect(sheet.getByTestId("count-number")).toHaveText("Slut");
+  await expect(page.getByTestId("counted-hit").getByTestId("hit-count")).toHaveText("Slut");
+
+  // Ta bort föremålet goes at once, with Ångra; the count and its history come back with it.
+  await sheet.getByRole("button", { name: "Ta bort föremålet" }).click();
+  await expect(sheet).toBeHidden();
+  await expect(page.getByTestId("toast")).toContainText("Tog bort Gravljus.");
+  await expect(page.getByTestId("thing-hit")).toHaveCount(0);
+  expect((await admin.from("thing_item").select("id").eq("id", item.id)).data).toEqual([]);
+  await page.getByTestId("toast").getByRole("button", { name: "Ångra" }).click();
+  await expect(page.getByTestId("thing-hit")).toHaveCount(1);
+  await expect.poll(async () => (await admin.from("thing_item").select("quantity").eq("id", item.id).maybeSingle()).data?.quantity).toBe(0);
+  expect(((await admin.from("thing_change").select("kind").eq("item_id", item.id)).data ?? []).map((row) => row.kind).sort()).toEqual(["card", "take"]);
 });
 
 test("old place addresses open the room, and an unknown one is 'Sidan finns inte.'", async ({ page }) => {
@@ -1263,6 +1351,16 @@ test("a card on the Kort tab opens big and whole with every föremål marked; a 
   await shot(page, "18-7-markerad-mork");
   await page.emulateMedia({ colorScheme: "light" });
 
+  // Pontus 1 Nov: the › at the end of a row opens the föremål's sheet, the same as in the room and in search.
+  await page.getByRole("button", { name: "Öppna Förlängningssladd" }).click();
+  const thingSheet = page.getByRole("dialog", { name: "Förlängningssladd" });
+  await expect(thingSheet.getByTestId("count-card")).toBeVisible();
+  await expect(thingSheet.getByRole("button", { name: "Ta bort föremålet" })).toBeVisible();
+  await expect(thingSheet.getByRole("link", { name: "Visa på kortet" })).toHaveCount(0);
+  await shot(page, "kort-blad");
+  await thingSheet.getByRole("button", { name: "Avbryt" }).first().click();
+  await expect(thingSheet).toBeHidden();
+
   // The card's buttons are here, Ta bort kortet last.
   await expect(page.getByRole("button", { name: /^Ta om kortet/ })).toBeVisible();
   await expect(page.getByRole("button", { name: /^Lägg till föremål på kortet/ })).toBeVisible();
@@ -1301,7 +1399,14 @@ test("a search hit and a chat reference open the card big with the föremål mar
   await expect(hit).toHaveCount(1);
   await expect(page.getByTestId("hit-thumbnail")).toHaveAttribute("src", `/api/things/photo/${cardId}`);
   await shot(page, "18-7-sok");
+  // Pontus 1 Nov: the thumbnail opens the card; the row opens the föremål's sheet, which has Visa på kortet ›.
+  await expect(page.getByRole("link", { name: "Visa Hammare på kortet" })).toHaveAttribute("href", `/prylar/kort/${cardId}?foremal=${ids[0]}`);
   await hit.click();
+  const sheet = page.getByRole("dialog", { name: "Hammare" });
+  await expect(sheet.getByText("· räknas inte")).toBeVisible();
+  await expect(sheet.getByRole("button", { name: "Ta bort föremålet" })).toBeVisible();
+  await shot(page, "hit-sheet");
+  await sheet.getByRole("link", { name: "Visa på kortet" }).click();
   await expect(page).toHaveURL(new RegExp(`/prylar/kort/${cardId}\\?foremal=${ids[0]}$`));
   // The card has no boxes: one small call looks the hammer up ("Letar …"), saves it and marks it.
   await expect(page.getByTestId("card-looking")).toContainText("Letar …");
@@ -1399,7 +1504,7 @@ test("Kom ihåg: a statement in the one field is proposed with room and part, sa
   const sheet = page.getByRole("dialog");
   await expect(sheet).toContainText(`Du skrev in det ${today} · Översta byrålådan`);
   await expect(sheet.getByLabel("Var på bilden")).toHaveCount(0);
-  await sheet.getByRole("button", { name: "Ta bort föremål" }).click();
+  await sheet.getByRole("button", { name: "Ta bort föremålet" }).click();
   await expect(page.getByText("Tog bort Passen.").first()).toBeVisible();
   expect((await noted()).data).toEqual([]);
   await page.getByRole("button", { name: "Ångra" }).click();

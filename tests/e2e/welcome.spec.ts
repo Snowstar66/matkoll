@@ -19,7 +19,7 @@ test.beforeEach(async () => {
 });
 
 const tour = (page: Page) => page.getByRole("dialog").filter({ visible: true });
-const privacyNote = (page: Page) => page.getByText("Den som driver Livskoll kan tekniskt se kontots data.").filter({ visible: true });
+const privacyNote = (page: Page) => page.getByRole("region", { name: "Om din data" }).filter({ visible: true });
 
 async function seenRows(): Promise<number> {
   const { count, error } = await adminClient().from("welcome_tour").select("id", { count: "exact", head: true }).eq("user_id", userId);
@@ -65,6 +65,11 @@ test.describe("on a phone", () => {
     await expect(dialog).toHaveCount(0);
     await expect(page).toHaveURL(/\/recept$/);
     await expect(privacyNote(page)).toBeVisible();
+    // Pontus 1 Nov: a card floating above the tab bar, not a banner at the top.
+    const note = (await privacyNote(page).boundingBox())!;
+    const bar = (await page.getByRole("navigation", { name: "Huvudmeny" }).filter({ visible: true }).boundingBox())!;
+    expect(note.y + note.height).toBeLessThanOrEqual(bar.y);
+    expect(note.y).toBeGreaterThan(400);
     await expect.poll(seenRows).toBe(1);
 
     await page.reload();
